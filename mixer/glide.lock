@@ -1,0 +1,16 @@
+hash: 2fa6043a9bae5c8848b5eb9ca99ba1a5aab80d1a484a6aec8acc5a080202d4d0
+updated: 2016-11-10T20:55:57.174566268-08:00
+imports:
+- name: github.com/golang/protobuf
+  version: 4bd1920723d7b7c925de087aa32e2187708897f7
+  subpackages:
+  - proto
+  - ptypes/any
+  - ptypes/struct
+  - ptypes/timestamp
+  - ptypes/wrappers
+- name: google.golang.org/genproto
+  version: f3350869260a1e80675c8d0e42f1f3a870db2b74
+  subpackages:
+  - googleapis/rpc/status
+testImports: []

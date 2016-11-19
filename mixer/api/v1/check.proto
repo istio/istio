@@ -1,0 +1,65 @@
+// Copyright 2016 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.mixer.v1;
+
+import "google.golang.org/genproto/googleapis/rpc/status/status.proto";
+
+// Used to verify a series of preconditions before performing an action.
+message CheckRequest {
+  // Uniquely identifies this request, used to match to responses
+  int64 request_id = 1;
+
+  // The set of discovered facts associated with this request. This value
+  // represents a delta relative to the facts currently known to the mixer
+  // within the current stream.
+  map<string, string> facts = 2;
+
+  // Arguments for the specific condition to check
+  oneof arguments {
+    WhitelistArguments whitelist_args = 3;
+    BlacklistArguments blacklist_args = 4;
+    PermissionCheckArguments permission_args = 5;
+  }
+}
+
+// Arguments needed for a whitelist check operation
+message WhitelistArguments {
+}
+
+// Arguments needed for a blacklist check operation
+message BlacklistArguments {
+}
+
+// Arguments needed for a permission check operation
+message PermissionCheckArguments {
+  // The permission to assert
+  string permission_name = 1;
+
+  // The resource against which to check the permission
+  string resource_id = 2;
+}
+
+message CheckResponse {
+  // Identifies the request this response is associated with
+  int64 request_id = 1;
+
+  // Indicates whether or not the preconditions succeeded
+  google.rpc.Status result = 2;
+
+  // the known facts that were used to evaluate the request
+  repeated string useful_facts = 3;
+}

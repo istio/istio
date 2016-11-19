@@ -1,0 +1,153 @@
+// Copyright 2016 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.mixer.v1;
+
+import "github.com/golang/protobuf/ptypes/timestamp/timestamp.proto";
+import "github.com/golang/protobuf/ptypes/struct/struct.proto";
+import "github.com/golang/protobuf/ptypes/any/any.proto";
+import "google.golang.org/genproto/googleapis/rpc/status/status.proto";
+
+// Used to report telemetry after performing an action.
+message ReportRequest {
+  // Uniquely identifies this request, used to match to responses
+  int64 request_id = 1;
+
+  // The set of discovered facts associated with this request. This value
+  // represents a delta relative to the facts currently known to the mixer
+  // within the current stream.
+  map<string, string> facts = 2;
+
+  // Metric values being reported
+  repeated MetricValue metric_values = 3;
+
+  // Log entries being reported
+  repeated LogEntry log_entries = 4;
+}
+
+// Represents a single metric value.
+message MetricValue {
+  // Name of the MetricDescriptor providing the schema for the metric.
+  string descriptor_name = 1;
+
+  // The start of the time period over which this metric value's measurement
+  // applies. The time period has different semantics for different metric
+  // kinds (cumulative, delta, and gauge). See the documentation for the
+  // MetricDescriptor for more information.
+  google.protobuf.Timestamp start_time = 3;
+
+  // The end of the time period over which this metric value's measurement
+  // applies.
+  google.protobuf.Timestamp end_time = 4;
+
+  // The value. The type of value used in the request must
+  // agree with the MetricDescriptor, otherwise
+  // the MetricValue is rejected.
+  oneof value {
+    // A boolean value.
+    bool bool_value = 5;
+
+    // A signed 64-bit integer value.
+    int64 int64_value = 6;
+
+    // A double precision floating point value.
+    double double_value = 7;
+
+    // A text string value.
+    string string_value = 8;
+  }
+}
+
+message LogEntry {
+  // The severity of the event described in a log entry, expressed as one of the
+  // standard severity levels listed below.  For your reference, the levels are
+  // assigned the listed numeric values. The effect of using numeric values other
+  // than those listed is undefined.
+  //
+  // If you are writing log entries, you should map other severity encodings to
+  // one of these standard levels. For example, you might map all of Java's FINE,
+  // FINER, and FINEST levels to `LogSeverity.DEBUG`. You can preserve the
+  // original severity level in the log entry payload if you wish.
+  enum LogSeverity {
+    // (0) The log entry has no assigned severity level.
+    DEFAULT = 0;
+
+    // (100) Debug or trace information.
+    DEBUG = 100;
+
+    // (200) Routine information, such as ongoing status or performance.
+    INFO = 200;
+
+    // (300) Normal but significant events, such as start up, shut down, or
+    // a configuration change.
+    NOTICE = 300;
+
+    // (400) Warning events might cause problems.
+    WARNING = 400;
+
+    // (500) Error events are likely to cause problems.
+    ERROR = 500;
+
+    // (600) Critical events cause more severe problems or outages.
+    CRITICAL = 600;
+
+    // (700) A person must take an action immediately.
+    ALERT = 700;
+
+    // (800) One or more systems are unusable.
+    EMERGENCY = 800;
+  }
+
+  // Destination log for this entry
+  string log_name = 10;
+
+  // The time the event described by the log entry occurred.
+  google.protobuf.Timestamp timestamp = 11;
+
+  // The severity of the log entry. The default value is
+  // `LogSeverity.DEFAULT`.
+  LogSeverity severity = 12;
+
+  // A set of user-defined (key, value) data that provides additional
+  // information about the log entry.
+  map<string, string> labels = 13;
+
+  // The log entry payload, which can be one of multiple types.
+  oneof payload {
+    // The log entry payload, represented as a protocol buffer that is
+    // expressed as a JSON object. You can only pass `protoPayload`
+    // values that belong to a set of approved types.
+    google.protobuf.Any proto_payload = 2;
+
+    // The log entry payload, represented as a Unicode string (UTF-8).
+    string text_payload = 3;
+
+    // The log entry payload, represented as a structure that
+    // is expressed as a JSON object.
+    google.protobuf.Struct struct_payload = 6;
+  }
+}
+
+message ReportResponse {
+  // Identifies the request this response is associated with
+  int64 request_id = 1;
+
+  // Indicates whether the report was processed or not
+  google.rpc.Status result = 2;
+
+  // the known facts that were used to evaluate the request
+  repeated string useful_facts = 3;
+}
