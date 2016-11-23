@@ -18,7 +18,7 @@ package istio.mixer.v1;
 
 import "google.golang.org/genproto/googleapis/rpc/status/status.proto";
 
-// Used to verify a series of preconditions before performing an action.
+// Used to verify a preconditions before performing an action.
 message CheckRequest {
   // Uniquely identifies this request, used to match to responses
   int64 request_id = 1;
@@ -28,29 +28,14 @@ message CheckRequest {
   // within the current stream.
   map<string, string> facts = 2;
 
-  // Arguments for the specific condition to check
-  oneof arguments {
-    WhitelistArguments whitelist_args = 3;
-    BlacklistArguments blacklist_args = 4;
-    PermissionCheckArguments permission_args = 5;
-  }
-}
+  // Perform a whitelist check
+  bool check_whitelist = 3;
 
-// Arguments needed for a whitelist check operation
-message WhitelistArguments {
-}
+  // Perform a blacklist check
+  bool check_blacklist = 4;
 
-// Arguments needed for a blacklist check operation
-message BlacklistArguments {
-}
-
-// Arguments needed for a permission check operation
-message PermissionCheckArguments {
-  // The permission to assert
-  string permission_name = 1;
-
-  // The resource against which to check the permission
-  string resource_id = 2;
+  // Perform a permission check
+  bool check_permission = 5;
 }
 
 message CheckResponse {
