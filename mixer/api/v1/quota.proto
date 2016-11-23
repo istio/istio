@@ -36,6 +36,11 @@ message QuotaRequest {
   // The amount by which to change the quota value's cell (must be >= 0)
   int64 amount = 5;
 
+  // Used for deduplicating quota allocation/free calls in the case of
+  // failed RPCs are retries. This should be a UUID per call, where the same
+  // UUID is used for retries of the same quota allocation or release call.
+  string deduplication_id = 6;
+
   enum OperationKind {
     QUOTA_MODE_UNSPECIFIED = 0;
 
