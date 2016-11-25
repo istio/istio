@@ -1,6 +1,8 @@
-hash: 2fa6043a9bae5c8848b5eb9ca99ba1a5aab80d1a484a6aec8acc5a080202d4d0
-updated: 2016-11-10T20:55:57.174566268-08:00
+hash: 8448bd81a2c1ea87d0b21a163caa7628ca48d9a9aa67da02fec5ab658c705219
+updated: 2016-11-25T11:28:56.121478564-08:00
 imports:
+- name: github.com/golang/glog
+  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
 - name: github.com/golang/protobuf
   version: 4bd1920723d7b7c925de087aa32e2187708897f7
   subpackages:
@@ -9,8 +11,32 @@ imports:
   - ptypes/struct
   - ptypes/timestamp
   - ptypes/wrappers
+- name: golang.org/x/net
+  version: 4971afdc2f162e82d185353533d3cf16188a9f4e
+  subpackages:
+  - context
+  - http2
+  - trace
+  - http2/hpack
+  - idna
+  - lex/httplex
+  - internal/timeseries
 - name: google.golang.org/genproto
   version: f3350869260a1e80675c8d0e42f1f3a870db2b74
   subpackages:
   - googleapis/rpc/status
+  - googleapis/rpc/code
+- name: google.golang.org/grpc
+  version: eca2ad68af4d7bf894ada6bd263133f069a441d5
+  subpackages:
+  - credentials
+  - codes
+  - grpclog
+  - internal
+  - metadata
+  - naming
+  - stats
+  - tap
+  - transport
+  - peer
 testImports: []
