@@ -1,11 +1,12 @@
-client
-gclient
-mixologist-bin
+mixer.bin
 *.swp
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
 *.a
 *.so
+*.pb.go
+*.pb.cc
+*.pb.h
 
 # Folders
 _obj
