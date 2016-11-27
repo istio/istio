@@ -44,21 +44,27 @@ type testState struct {
 func (ts *testState) createAPIServer() error {
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2"
-	factMapper, err := factMapper.NewFactMapperAdapter(rules)
-
+	adapter := factMapper.NewFactMapperAdapter()
+	err := adapter.Activate(factMapper.AdapterConfig{})
 	if err != nil {
 		return err
 	}
+	var instance adapters.Instance
+	instance, err = adapter.CreateInstance(factMapper.InstanceConfig{Rules: rules})
+	if err != nil {
+		return err
+	}
+	factConversionInstance := instance.(adapters.FactConversionInstance)
 
 	options := APIServerOptions{
-		Port:                  testPort,
-		MaxMessageSize:        1024 * 1024,
-		MaxConcurrentStreams:  32,
-		CompressedPayload:     false,
-		ServerCertificate:     nil,
-		ClientCertificates:    nil,
-		Handlers:              ts,
-		FactConversionAdapter: factMapper,
+		Port:                   testPort,
+		MaxMessageSize:         1024 * 1024,
+		MaxConcurrentStreams:   32,
+		CompressedPayload:      false,
+		ServerCertificate:      nil,
+		ClientCertificates:     nil,
+		Handlers:               ts,
+		FactConversionInstance: factConversionInstance,
 	}
 
 	if ts.apiServer, err = NewAPIServer(&options); err != nil {

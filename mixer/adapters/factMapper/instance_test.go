@@ -15,19 +15,18 @@
 package factMapper
 
 import (
-	"github.com/istio/mixer/adapters"
 	"testing"
 )
 
 func TestNoRules(t *testing.T) {
 	rules := make(map[string]string)
-	var fm adapters.FactConversionAdapter
+	var inst *instance
 	var err error
-	if fm, err = NewFactMapperAdapter(rules); err != nil {
+	if inst, err = newInstance(&InstanceConfig{Rules: rules}); err != nil {
 		t.Error("Expected to successfully create a mapper")
 	}
 
-	conv := fm.NewConverter()
+	conv := inst.NewConverter()
 
 	labels := conv.GetLabels()
 	if len(labels) != 0 {
@@ -59,27 +58,27 @@ func TestNoRules(t *testing.T) {
 func TestOddballRules(t *testing.T) {
 	rules := make(map[string]string)
 	rules["Lab1"] = "|A|B|C"
-	if _, err := NewFactMapperAdapter(rules); err == nil {
+	if _, err := newInstance(&InstanceConfig{Rules: rules}); err == nil {
 		t.Error("Expecting to not be able to create a mapper")
 	}
 
 	rules["Lab1"] = "A|B|"
-	if _, err := NewFactMapperAdapter(rules); err == nil {
+	if _, err := newInstance(&InstanceConfig{Rules: rules}); err == nil {
 		t.Error("Expecting to not be able to create a mapper")
 	}
 
 	rules["Lab1"] = "A| |C"
-	if _, err := NewFactMapperAdapter(rules); err == nil {
+	if _, err := newInstance(&InstanceConfig{Rules: rules}); err == nil {
 		t.Error("Expecting to not be able to create a mapper")
 	}
 
 	rules["Lab1"] = "A||C"
-	if _, err := NewFactMapperAdapter(rules); err == nil {
+	if _, err := newInstance(&InstanceConfig{Rules: rules}); err == nil {
 		t.Error("Expecting to not be able to create a mapper")
 	}
 
 	rules["Lab1"] = "A | B | C"
-	if _, err := NewFactMapperAdapter(rules); err != nil {
+	if _, err := newInstance(&InstanceConfig{Rules: rules}); err != nil {
 		t.Error("Expecting to be able to create a mapper")
 	}
 }
@@ -88,13 +87,13 @@ func TestNoFacts(t *testing.T) {
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var fm adapters.FactConversionAdapter
+	var inst *instance
 	var err error
-	if fm, err = NewFactMapperAdapter(rules); err != nil {
+	if inst, err = newInstance(&InstanceConfig{Rules: rules}); err != nil {
 		t.Error("Expected to be able to create a mapper")
 	}
 
-	conv := fm.NewConverter()
+	conv := inst.NewConverter()
 
 	labels := conv.GetLabels()
 	if len(labels) != 0 {
@@ -130,13 +129,13 @@ func TestAddRemoveFacts(t *testing.T) {
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var fm adapters.FactConversionAdapter
+	var inst *instance
 	var err error
-	if fm, err = NewFactMapperAdapter(rules); err != nil {
+	if inst, err = newInstance(&InstanceConfig{Rules: rules}); err != nil {
 		t.Error("Expected to be able to create a mapper")
 	}
 
-	conv := fm.NewConverter()
+	conv := inst.NewConverter()
 
 	// add some facts and try again
 	facts := make(map[string]string)

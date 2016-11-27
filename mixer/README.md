@@ -1,7 +1,7 @@
-<center>
+<div style="text-align: center">
 ![Mixer](docs/logo.png)
 <h1>The Istio Mixer</h1>
-</center>
+</div>
 
 The Istio mixer provides three distinct features:
 
