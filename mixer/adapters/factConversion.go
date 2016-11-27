@@ -14,10 +14,12 @@
 
 package adapters
 
-// FactConversionAdapter is a factory of fact converters, which
+// FactConversionInstance is a factory of fact converters, which
 // are responsible for converting from a set of facts into a set
 // of labels.
-type FactConversionAdapter interface {
+type FactConversionInstance interface {
+	Instance
+
 	// NewConverter returns a fresh converter
 	NewConverter() FactConverter
 }

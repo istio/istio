@@ -70,23 +70,32 @@ func main() {
 		}
 	}
 
-	var mapperAdapter adapters.FactConversionAdapter
+	// TODO: hackily create a fact mapper adapter & instance.
+	// This necessarily needs to be discovered & created through normal
+	// adapter config goo, but that doesn't exist yet
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2"
-	mapperAdapter, err = factMapper.NewFactMapperAdapter(rules)
+	adapter := factMapper.NewFactMapperAdapter()
+	err = adapter.Activate(factMapper.AdapterConfig{})
 	if err != nil {
-		glog.Exitf("Unable to start fact conversion adapter " + err.Error())
+		glog.Exitf("Unable to activate fact conversion adapter " + err.Error())
 	}
+	var instance adapters.Instance
+	instance, err = adapter.CreateInstance(factMapper.InstanceConfig{Rules: rules})
+	if err != nil {
+		glog.Exitf("Unable to create fact conversion instance " + err.Error())
+	}
+	factConversionInstance := instance.(adapters.FactConversionInstance)
 
 	apiServerOptions := APIServerOptions{
-		Port:                  uint16(*grpcPort),
-		MaxMessageSize:        *maxMessageSize,
-		MaxConcurrentStreams:  *maxConcurrentStreams,
-		CompressedPayload:     *compressedPayload,
-		ServerCertificate:     &serverCert,
-		ClientCertificates:    clientCerts,
-		Handlers:              NewAPIHandlers(),
-		FactConversionAdapter: mapperAdapter,
+		Port:                   uint16(*grpcPort),
+		MaxMessageSize:         *maxMessageSize,
+		MaxConcurrentStreams:   *maxConcurrentStreams,
+		CompressedPayload:      *compressedPayload,
+		ServerCertificate:      &serverCert,
+		ClientCertificates:     clientCerts,
+		Handlers:               NewAPIHandlers(),
+		FactConversionInstance: factConversionInstance,
 	}
 
 	glog.Infof("Starting gRPC server on port %v", apiServerOptions.Port)

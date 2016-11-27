@@ -21,7 +21,21 @@ import (
 	"github.com/istio/mixer/adapters"
 )
 
-type factMapperAdapter struct {
+// InstanceConfig is used to configure fact mapper instances
+type InstanceConfig struct {
+	adapters.InstanceConfig
+
+	// Rules specifies the set of label mapping rules. The keys of the map represent the
+	// name of labels, while the value specifies the mapping rules to
+	// turn individual fact values into label values.
+	//
+	// Mapping rules consist of a set of fact names separated by |. The
+	// label's value is derived by iterating through all the stated facts
+	// and picking the first one that is defined.
+	Rules map[string]string
+}
+
+type instance struct {
 	// for each label, has an ordered slice of facts that can contribute to the label
 	labelFacts map[string][]string
 
@@ -29,20 +43,10 @@ type factMapperAdapter struct {
 	factLabels map[string][]string
 }
 
-// NewFactMapperAdapter returns a new instances of a FactMapper adapter.
-//
-// The single argument specifies
-// the set of label mapping rules. The keys of the map represent the
-// name of labels, while the value specifies the mapping rules to
-// turn individual fact values into label values.
-//
-// Mapping rules consist of a set of fact names separated by |. The
-// label's value is derived by iterating through all the stated facts
-// and picking the first one that is defined.
-//
-// TODO: need to ingest configuration state that defines the mapping rules
-func NewFactMapperAdapter(labelRules map[string]string) (adapters.FactConversionAdapter, error) {
+// newInstance returns a new instance of a FactMapper adapter.
+func newInstance(config *InstanceConfig) (*instance, error) {
 	// build our lookup tables
+	labelRules := config.Rules
 	labelFacts := make(map[string][]string)
 	factLabels := make(map[string][]string)
 	for label, rule := range labelRules {
@@ -63,11 +67,16 @@ func NewFactMapperAdapter(labelRules map[string]string) (adapters.FactConversion
 		}
 	}
 
-	return &factMapperAdapter{
+	return &instance{
 		labelFacts: labelFacts,
 		factLabels: factLabels}, nil
 }
 
-func (f *factMapperAdapter) NewConverter() adapters.FactConverter {
-	return newConverter(f.labelFacts, f.factLabels)
+func (inst *instance) Delete() {
+	inst.labelFacts = nil
+	inst.factLabels = nil
+}
+
+func (inst *instance) NewConverter() adapters.FactConverter {
+	return newConverter(inst.labelFacts, inst.factLabels)
 }

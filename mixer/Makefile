@@ -13,8 +13,7 @@
 ## limitations under the License.
 
 # Primary build targets
-all: inst build
-build: build_api build_server
+build: inst build_api build_server
 clean: clean_api clean_server
 test: test_server
 
@@ -41,18 +40,18 @@ GO_SRC = server/*.go adapters/*.go adapters/factMapper/*.go
 
 mixer.bin: $(GO_SRC) $(PROTO_SRC)
 	@echo "Building server"
+	@go build -o mixer.bin server/*.go
+
+build_server: mixer.bin
 	@go tool vet -shadowstrict server adapters
 	@golint -set_exit_status server/...
 	@golint -set_exit_status adapters/...
 	@gofmt -w -s $(GO_SRC)
-	@go build -o mixer.bin server/*.go
-
-build_server: mixer.bin
 
 clean_server:
 	@rm -f mixer.bin
 
-test_server: build
+test_server: build_server
 	@echo "Running tests"
 	@go test -race -cpu 1,4 ./server/... ./adapters/...
 

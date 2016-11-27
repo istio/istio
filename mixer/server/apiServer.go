@@ -67,21 +67,21 @@ type APIServerOptions struct {
 	// for all API methods
 	Handlers APIHandlers
 
-	// FactConversionAdapter is a pointer to the global fact
-	// adapter to use.
+	// FactConversionInstance is a pointer to the global fact conversion
+	// adapter instance to use.
 	//
 	// TODO: This will be replaced with a more general pointer such
 	// as an AdapterManager or something of the sort
-	FactConversionAdapter adapters.FactConversionAdapter
+	FactConversionInstance adapters.FactConversionInstance
 }
 
 // APIServer holds the state for the gRPC API server.
 // Use NewAPIServer to get one of these.
 type APIServer struct {
-	server                *grpc.Server
-	listener              net.Listener
-	handler               APIHandlers
-	factConversionAdapter adapters.FactConversionAdapter
+	server                 *grpc.Server
+	listener               net.Listener
+	handler                APIHandlers
+	factConversionInstance adapters.FactConversionInstance
 }
 
 // NewAPIServer creates the gRPC serving stack.
@@ -120,7 +120,7 @@ func NewAPIServer(options *APIServerOptions) (*APIServer, error) {
 
 	// get everything wired up
 	grpcServer := grpc.NewServer(grpcOptions...)
-	apiServer := &APIServer{grpcServer, listener, options.Handlers, options.FactConversionAdapter}
+	apiServer := &APIServer{grpcServer, listener, options.Handlers, options.FactConversionInstance}
 	mixpb.RegisterMixerServer(grpcServer, apiServer)
 	return apiServer, nil
 }
@@ -140,7 +140,7 @@ func (s *APIServer) Stop() {
 type handlerFunc func(conv adapters.FactConverter, request proto.Message, response proto.Message)
 
 func (s *APIServer) streamLoop(stream grpc.ServerStream, request proto.Message, response proto.Message, handler handlerFunc) error {
-	conv := s.factConversionAdapter.NewConverter()
+	conv := s.factConversionInstance.NewConverter()
 	for {
 		// get a single message
 		if err := stream.RecvMsg(request); err == io.EOF {
