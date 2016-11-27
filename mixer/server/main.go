@@ -70,18 +70,19 @@ func main() {
 		}
 	}
 
+	var adapterMgr *AdapterManager
+	if adapterMgr, err = NewAdapterManager(); err != nil {
+		glog.Exitf("Unable to initialize adapters: %v", err)
+	}
+
 	// TODO: hackily create a fact mapper adapter & instance.
 	// This necessarily needs to be discovered & created through normal
 	// adapter config goo, but that doesn't exist yet
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2"
-	adapter := factMapper.NewFactMapperAdapter()
-	err = adapter.Activate(factMapper.AdapterConfig{})
-	if err != nil {
-		glog.Exitf("Unable to activate fact conversion adapter " + err.Error())
-	}
+	adapter := adapterMgr.FactConverters["FactMapper"]
 	var instance adapters.Instance
-	instance, err = adapter.CreateInstance(factMapper.InstanceConfig{Rules: rules})
+	instance, err = adapter.NewInstance(factMapper.InstanceConfig{Rules: rules})
 	if err != nil {
 		glog.Exitf("Unable to create fact conversion instance " + err.Error())
 	}

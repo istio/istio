@@ -36,7 +36,7 @@ clean_api:
 
 ## Server targets
 
-GO_SRC = server/*.go adapters/*.go adapters/factMapper/*.go
+GO_SRC = server/*.go adapters/*.go adapters/*/*.go
 
 mixer.bin: $(GO_SRC) $(PROTO_SRC)
 	@echo "Building server"

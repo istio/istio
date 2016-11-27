@@ -33,11 +33,11 @@ type Adapter interface {
 	DefaultConfig() AdapterConfig
 
 	// Activate the adapter with the given configuration. Once an adapter is active,
-	// the mixer can start calling the CreateInstance function to instantiate the adapter
+	// the mixer can start calling the newInstance function to instantiate the adapter
 	Activate(config AdapterConfig) error
 
 	// Deactivate the adapter, allowing it to clean up any resources it might be holding.
-	// Once this function is called, the mixer may no longer call the CreateInstance function.
+	// Once this function is called, the mixer may no longer call the newInstance function.
 	Deactivate()
 
 	// DefaultInstanceConfig returns a default configuration struct for instances
@@ -45,6 +45,6 @@ type Adapter interface {
 	// the shape of a block of configuration state passed to the Activate function
 	DefaultInstanceConfig() InstanceConfig
 
-	// CreateInstance creates a single instance of the adapter based on the supplied configuration.
-	CreateInstance(config InstanceConfig) (Instance, error)
+	// newInstance creates a single instance of the adapter based on the supplied configuration.
+	NewInstance(config InstanceConfig) (Instance, error)
 }
