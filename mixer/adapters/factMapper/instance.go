@@ -77,6 +77,6 @@ func (inst *instance) Delete() {
 	inst.factLabels = nil
 }
 
-func (inst *instance) NewConverter() adapters.FactConverter {
-	return newConverter(inst.labelFacts, inst.factLabels)
+func (inst *instance) NewTracker() adapters.FactTracker {
+	return newTracker(inst.labelFacts, inst.factLabels)
 }

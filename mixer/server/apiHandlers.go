@@ -31,17 +31,17 @@ type APIHandlers interface {
 	// Check performs the configured set of precondition checks.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Check(adapters.FactConverter, *mixpb.CheckRequest, *mixpb.CheckResponse)
+	Check(adapters.FactTracker, *mixpb.CheckRequest, *mixpb.CheckResponse)
 
 	// Report performs the requested set of reporting operations.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Report(adapters.FactConverter, *mixpb.ReportRequest, *mixpb.ReportResponse)
+	Report(adapters.FactTracker, *mixpb.ReportRequest, *mixpb.ReportResponse)
 
 	// Quota increments, decrements, or queries the specified quotas.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Quota(adapters.FactConverter, *mixpb.QuotaRequest, *mixpb.QuotaResponse)
+	Quota(adapters.FactTracker, *mixpb.QuotaRequest, *mixpb.QuotaResponse)
 }
 
 type apiHandlers struct {
@@ -60,20 +60,20 @@ func NewAPIHandlers() APIHandlers {
 	return &apiHandlers{}
 }
 
-func (h *apiHandlers) Check(conv adapters.FactConverter, request *mixpb.CheckRequest, response *mixpb.CheckResponse) {
-	conv.UpdateFacts(request.GetFacts())
+func (h *apiHandlers) Check(tracker adapters.FactTracker, request *mixpb.CheckRequest, response *mixpb.CheckResponse) {
+	tracker.UpdateFacts(request.GetFacts())
 	response.RequestId = request.RequestId
 	response.Result = newStatus(code.Code_UNIMPLEMENTED)
 }
 
-func (h *apiHandlers) Report(conv adapters.FactConverter, request *mixpb.ReportRequest, response *mixpb.ReportResponse) {
-	conv.UpdateFacts(request.GetFacts())
+func (h *apiHandlers) Report(tracker adapters.FactTracker, request *mixpb.ReportRequest, response *mixpb.ReportResponse) {
+	tracker.UpdateFacts(request.GetFacts())
 	response.RequestId = request.RequestId
 	response.Result = newStatus(code.Code_UNIMPLEMENTED)
 }
 
-func (h *apiHandlers) Quota(conv adapters.FactConverter, request *mixpb.QuotaRequest, response *mixpb.QuotaResponse) {
-	conv.UpdateFacts(request.GetFacts())
+func (h *apiHandlers) Quota(tracker adapters.FactTracker, request *mixpb.QuotaRequest, response *mixpb.QuotaResponse) {
+	tracker.UpdateFacts(request.GetFacts())
 	response.RequestId = request.RequestId
 	response.Result = newQuotaError(code.Code_UNIMPLEMENTED)
 }

@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2016 Google Int.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 
 package factMapper
 
-// converter is a simple module that maps from a set of facts to a set of labels
+// tracker is a simple module that maps from a set of facts to a set of labels
 // based on a set of supplied mapping rules.
-type converter struct {
+type tracker struct {
 	// for each label, has an ordered slice of facts that can contribute to the label
 	labelFacts map[string][]string
 
@@ -33,9 +33,9 @@ type converter struct {
 	labelsToUpdate []string
 }
 
-// newConverter returns a new independent converter instance.
-func newConverter(labelFacts map[string][]string, factLabels map[string][]string) *converter {
-	return &converter{
+// newTracker returns a new independent tracker instance.
+func newTracker(labelFacts map[string][]string, factLabels map[string][]string) *tracker {
+	return &tracker{
 		labelFacts:    labelFacts,
 		factLabels:    factLabels,
 		currentFacts:  make(map[string]string),
@@ -43,66 +43,66 @@ func newConverter(labelFacts map[string][]string, factLabels map[string][]string
 }
 
 // refreshLabels refreshes the labels having been potentially affected by the updated facts
-func (c *converter) refreshLabels() {
-	for _, label := range c.labelsToUpdate {
-		facts := c.labelFacts[label]
+func (t *tracker) refreshLabels() {
+	for _, label := range t.labelsToUpdate {
+		facts := t.labelFacts[label]
 
-		c.currentLabels[label] = ""
+		t.currentLabels[label] = ""
 		for _, fact := range facts {
-			value, ok := c.currentFacts[fact]
+			value, ok := t.currentFacts[fact]
 			if ok {
-				c.currentLabels[label] = value
+				t.currentLabels[label] = value
 				break
 			}
 		}
 	}
 }
 
-func (c *converter) UpdateFacts(facts map[string]string) {
+func (t *tracker) UpdateFacts(facts map[string]string) {
 	// update our known facts and build up a list of labels that need updating as a result
-	c.labelsToUpdate = c.labelsToUpdate[:0]
+	t.labelsToUpdate = t.labelsToUpdate[:0]
 	for fact, value := range facts {
-		c.currentFacts[fact] = value
+		t.currentFacts[fact] = value
 
-		for _, label := range c.factLabels[fact] {
-			c.labelsToUpdate = append(c.labelsToUpdate, label)
+		for _, label := range t.factLabels[fact] {
+			t.labelsToUpdate = append(t.labelsToUpdate, label)
 		}
 	}
 
-	c.refreshLabels()
+	t.refreshLabels()
 }
 
-func (c *converter) PurgeFacts(facts []string) {
+func (t *tracker) PurgeFacts(facts []string) {
 	// update our known facts and build up a list of labels that need updating as a result
-	c.labelsToUpdate = c.labelsToUpdate[:0]
+	t.labelsToUpdate = t.labelsToUpdate[:0]
 	for _, fact := range facts {
-		delete(c.currentFacts, fact)
+		delete(t.currentFacts, fact)
 
-		for _, label := range c.factLabels[fact] {
-			c.labelsToUpdate = append(c.labelsToUpdate, label)
+		for _, label := range t.factLabels[fact] {
+			t.labelsToUpdate = append(t.labelsToUpdate, label)
 		}
 	}
 
-	c.refreshLabels()
+	t.refreshLabels()
 }
 
-func (c *converter) GetLabels() map[string]string {
-	return c.currentLabels
+func (t *tracker) GetLabels() map[string]string {
+	return t.currentLabels
 }
 
-func (c *converter) Reset() {
+func (t *tracker) Reset() {
 	// Yep, you heard it right, this is the fastest way
 	// to clear maps in Go. Shesh.
 
-	for k := range c.currentFacts {
-		delete(c.currentFacts, k)
+	for k := range t.currentFacts {
+		delete(t.currentFacts, k)
 	}
 
-	for k := range c.currentLabels {
-		delete(c.currentLabels, k)
+	for k := range t.currentLabels {
+		delete(t.currentLabels, k)
 	}
 }
 
-func (c *converter) Stats() (numFacts int, numLabels int) {
-	return len(c.currentFacts), len(c.currentLabels)
+func (t *tracker) Stats() (numFacts int, numLabels int) {
+	return len(t.currentFacts), len(t.currentLabels)
 }
