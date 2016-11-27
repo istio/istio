@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package factMapper
+package ipListChecker
 
 import (
 	"github.com/istio/mixer/adapters"
 )
 
-// AdapterConfig is used to configure a fact mapper adapter.
-type AdapterConfig struct{}
+// AdapterConfig is used to configure an IP list checker.
+type AdapterConfig struct {
+}
 
 type adapter struct{}
 
@@ -29,11 +30,11 @@ func NewAdapter() adapters.Adapter {
 }
 
 func (a adapter) Name() string {
-	return "FactMapper"
+	return "IPListChecker"
 }
 
 func (a adapter) Description() string {
-	return "Performs config-driven mapping of facts to labels"
+	return "Checks whether an IP address is present in an IP address list"
 }
 
 func (a adapter) DefaultConfig() adapters.AdapterConfig {
