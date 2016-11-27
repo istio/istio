@@ -14,24 +14,24 @@
 
 package adapters
 
-// FactConversionInstance is a factory of fact converters, which
+// FactConverter is a factory of fact trackers, which
 // are responsible for converting from a set of facts into a set
 // of labels.
-type FactConversionInstance interface {
+type FactConverter interface {
 	Instance
 
-	// NewConverter returns a fresh converter
-	NewConverter() FactConverter
+	// NewTracker returns a fresh tracker
+	NewTracker() FactTracker
 }
 
-// FactConverter maps from a set of facts to a set of labels.
-type FactConverter interface {
+// FactTracker tracks a set of facts and efficiently maps them to a set of labels.
+type FactTracker interface {
 	// UpdateFacts reports an updated set of facts. This refreshes the
-	// current set of facts this converter keeps track of and determines the
+	// current set of facts this tracker keeps track of and determines the
 	// set of labels GetLabels returns.
 	UpdateFacts(facts map[string]string)
 
-	// PurgeFacts removes a set of facts from what this converter tracks.
+	// PurgeFacts removes a set of facts from what this tracker knows about.
 	PurgeFacts(facts []string)
 
 	// GetLabels returns the current set of labels and the known facts.
@@ -39,9 +39,9 @@ type FactConverter interface {
 	// and its content will change if new facts are reported.
 	GetLabels() map[string]string
 
-	// Reset removes all facts from this converter.
+	// Reset removes all facts from this tracker
 	Reset()
 
-	// Stats returns some basic info about the converter for diagnostics.
+	// Stats returns some basic info about this tracker for diagnostics.
 	Stats() (numFacts int, numLabels int)
 }

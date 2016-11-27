@@ -85,17 +85,17 @@ func main() {
 	if err != nil {
 		glog.Exitf("Unable to create fact conversion instance " + err.Error())
 	}
-	factConversionInstance := instance.(adapters.FactConversionInstance)
+	factConverter := instance.(adapters.FactConverter)
 
 	apiServerOptions := APIServerOptions{
-		Port:                   uint16(*grpcPort),
-		MaxMessageSize:         *maxMessageSize,
-		MaxConcurrentStreams:   *maxConcurrentStreams,
-		CompressedPayload:      *compressedPayload,
-		ServerCertificate:      &serverCert,
-		ClientCertificates:     clientCerts,
-		Handlers:               NewAPIHandlers(),
-		FactConversionInstance: factConversionInstance,
+		Port:                 uint16(*grpcPort),
+		MaxMessageSize:       *maxMessageSize,
+		MaxConcurrentStreams: *maxConcurrentStreams,
+		CompressedPayload:    *compressedPayload,
+		ServerCertificate:    &serverCert,
+		ClientCertificates:   clientCerts,
+		Handlers:             NewAPIHandlers(),
+		FactConverter:        factConverter,
 	}
 
 	glog.Infof("Starting gRPC server on port %v", apiServerOptions.Port)

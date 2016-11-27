@@ -67,21 +67,21 @@ type APIServerOptions struct {
 	// for all API methods
 	Handlers APIHandlers
 
-	// FactConversionInstance is a pointer to the global fact conversion
+	// FactConverter is a pointer to the global fact conversion
 	// adapter instance to use.
 	//
 	// TODO: This will be replaced with a more general pointer such
 	// as an AdapterManager or something of the sort
-	FactConversionInstance adapters.FactConversionInstance
+	FactConverter adapters.FactConverter
 }
 
 // APIServer holds the state for the gRPC API server.
 // Use NewAPIServer to get one of these.
 type APIServer struct {
-	server                 *grpc.Server
-	listener               net.Listener
-	handler                APIHandlers
-	factConversionInstance adapters.FactConversionInstance
+	server        *grpc.Server
+	listener      net.Listener
+	handler       APIHandlers
+	factConverter adapters.FactConverter
 }
 
 // NewAPIServer creates the gRPC serving stack.
@@ -120,7 +120,7 @@ func NewAPIServer(options *APIServerOptions) (*APIServer, error) {
 
 	// get everything wired up
 	grpcServer := grpc.NewServer(grpcOptions...)
-	apiServer := &APIServer{grpcServer, listener, options.Handlers, options.FactConversionInstance}
+	apiServer := &APIServer{grpcServer, listener, options.Handlers, options.FactConverter}
 	mixpb.RegisterMixerServer(grpcServer, apiServer)
 	return apiServer, nil
 }
@@ -137,10 +137,10 @@ func (s *APIServer) Stop() {
 	s.server.GracefulStop()
 }
 
-type handlerFunc func(conv adapters.FactConverter, request proto.Message, response proto.Message)
+type handlerFunc func(tracker adapters.FactTracker, request proto.Message, response proto.Message)
 
 func (s *APIServer) streamLoop(stream grpc.ServerStream, request proto.Message, response proto.Message, handler handlerFunc) error {
-	conv := s.factConversionInstance.NewConverter()
+	tracker := s.factConverter.NewTracker()
 	for {
 		// get a single message
 		if err := stream.RecvMsg(request); err == io.EOF {
@@ -151,7 +151,7 @@ func (s *APIServer) streamLoop(stream grpc.ServerStream, request proto.Message, 
 		}
 
 		// do the actual work for the message
-		handler(conv, request, response)
+		handler(tracker, request, response)
 
 		// produce the response
 		if err := stream.SendMsg(response); err != nil {
@@ -169,8 +169,8 @@ func (s *APIServer) Check(stream mixpb.Mixer_CheckServer) error {
 	return s.streamLoop(stream,
 		new(mixpb.CheckRequest),
 		new(mixpb.CheckResponse),
-		func(conv adapters.FactConverter, request proto.Message, response proto.Message) {
-			s.handler.Check(conv, request.(*mixpb.CheckRequest), response.(*mixpb.CheckResponse))
+		func(tracker adapters.FactTracker, request proto.Message, response proto.Message) {
+			s.handler.Check(tracker, request.(*mixpb.CheckRequest), response.(*mixpb.CheckResponse))
 		})
 }
 
@@ -179,8 +179,8 @@ func (s *APIServer) Report(stream mixpb.Mixer_ReportServer) error {
 	return s.streamLoop(stream,
 		new(mixpb.ReportRequest),
 		new(mixpb.ReportResponse),
-		func(conv adapters.FactConverter, request proto.Message, response proto.Message) {
-			s.handler.Report(conv, request.(*mixpb.ReportRequest), response.(*mixpb.ReportResponse))
+		func(tracker adapters.FactTracker, request proto.Message, response proto.Message) {
+			s.handler.Report(tracker, request.(*mixpb.ReportRequest), response.(*mixpb.ReportResponse))
 		})
 }
 
@@ -189,7 +189,7 @@ func (s *APIServer) Quota(stream mixpb.Mixer_QuotaServer) error {
 	return s.streamLoop(stream,
 		new(mixpb.QuotaRequest),
 		new(mixpb.QuotaResponse),
-		func(conv adapters.FactConverter, request proto.Message, response proto.Message) {
-			s.handler.Quota(conv, request.(*mixpb.QuotaRequest), response.(*mixpb.QuotaResponse))
+		func(tracker adapters.FactTracker, request proto.Message, response proto.Message) {
+			s.handler.Quota(tracker, request.(*mixpb.QuotaRequest), response.(*mixpb.QuotaResponse))
 		})
 }

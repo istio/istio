@@ -54,17 +54,17 @@ func (ts *testState) createAPIServer() error {
 	if err != nil {
 		return err
 	}
-	factConversionInstance := instance.(adapters.FactConversionInstance)
+	factConverter := instance.(adapters.FactConverter)
 
 	options := APIServerOptions{
-		Port:                   testPort,
-		MaxMessageSize:         1024 * 1024,
-		MaxConcurrentStreams:   32,
-		CompressedPayload:      false,
-		ServerCertificate:      nil,
-		ClientCertificates:     nil,
-		Handlers:               ts,
-		FactConversionInstance: factConversionInstance,
+		Port:                 testPort,
+		MaxMessageSize:       1024 * 1024,
+		MaxConcurrentStreams: 32,
+		CompressedPayload:    false,
+		ServerCertificate:    nil,
+		ClientCertificates:   nil,
+		Handlers:             ts,
+		FactConverter:        factConverter,
 	}
 
 	if ts.apiServer, err = NewAPIServer(&options); err != nil {
@@ -118,17 +118,17 @@ func (ts *testState) cleanupTestState() {
 	ts.deleteAPIServer()
 }
 
-func (ts *testState) Check(conv adapters.FactConverter, request *mixpb.CheckRequest, response *mixpb.CheckResponse) {
+func (ts *testState) Check(tracker adapters.FactTracker, request *mixpb.CheckRequest, response *mixpb.CheckResponse) {
 	response.RequestId = request.RequestId
 	response.Result = newStatus(code.Code_UNIMPLEMENTED)
 }
 
-func (ts *testState) Report(conv adapters.FactConverter, request *mixpb.ReportRequest, response *mixpb.ReportResponse) {
+func (ts *testState) Report(tracker adapters.FactTracker, request *mixpb.ReportRequest, response *mixpb.ReportResponse) {
 	response.RequestId = request.RequestId
 	response.Result = newStatus(code.Code_UNIMPLEMENTED)
 }
 
-func (ts *testState) Quota(conv adapters.FactConverter, request *mixpb.QuotaRequest, response *mixpb.QuotaResponse) {
+func (ts *testState) Quota(tracker adapters.FactTracker, request *mixpb.QuotaRequest, response *mixpb.QuotaResponse) {
 	response.RequestId = request.RequestId
 	response.Result = newQuotaError(code.Code_UNIMPLEMENTED)
 }

@@ -26,18 +26,18 @@ func TestNoRules(t *testing.T) {
 		t.Error("Expected to successfully create a mapper")
 	}
 
-	conv := inst.NewConverter()
+	tracker := inst.NewTracker()
 
-	labels := conv.GetLabels()
+	labels := tracker.GetLabels()
 	if len(labels) != 0 {
 		t.Error("Got labels when expecting none")
 	}
 
 	// pretend to add some facts and try again
 	facts := make(map[string]string)
-	conv.UpdateFacts(facts)
+	tracker.UpdateFacts(facts)
 
-	labels = conv.GetLabels()
+	labels = tracker.GetLabels()
 	if len(labels) != 0 {
 		t.Error("Got labels when expecting none")
 	}
@@ -47,9 +47,9 @@ func TestNoRules(t *testing.T) {
 	facts["Fact1"] = "One"
 	facts["Fact2"] = "Two"
 	facts["Fact4"] = "Four"
-	conv.UpdateFacts(facts)
+	tracker.UpdateFacts(facts)
 
-	labels = conv.GetLabels()
+	labels = tracker.GetLabels()
 	if len(labels) != 0 {
 		t.Error("Got labels when expecting none")
 	}
@@ -93,18 +93,18 @@ func TestNoFacts(t *testing.T) {
 		t.Error("Expected to be able to create a mapper")
 	}
 
-	conv := inst.NewConverter()
+	tracker := inst.NewTracker()
 
-	labels := conv.GetLabels()
+	labels := tracker.GetLabels()
 	if len(labels) != 0 {
 		t.Error("Got labels when expecting none")
 	}
 
 	// pretend to add some facts and try again
 	facts := make(map[string]string)
-	conv.UpdateFacts(facts)
+	tracker.UpdateFacts(facts)
 
-	labels = conv.GetLabels()
+	labels = tracker.GetLabels()
 	if len(labels) != 0 {
 		t.Error("Got labels when expecting none")
 	}
@@ -113,9 +113,9 @@ func TestNoFacts(t *testing.T) {
 	facts["Fact1"] = "One"
 	facts["Fact2"] = "Two"
 	facts["Fact4"] = "Four"
-	conv.UpdateFacts(facts)
+	tracker.UpdateFacts(facts)
 
-	labels = conv.GetLabels()
+	labels = tracker.GetLabels()
 	if len(labels) != 2 {
 		t.Error("Got no labels, expecting 2")
 	}
@@ -135,42 +135,42 @@ func TestAddRemoveFacts(t *testing.T) {
 		t.Error("Expected to be able to create a mapper")
 	}
 
-	conv := inst.NewConverter()
+	tracker := inst.NewTracker()
 
 	// add some facts and try again
 	facts := make(map[string]string)
 	facts["Fact1"] = "One"
-	conv.UpdateFacts(facts)
+	tracker.UpdateFacts(facts)
 
-	labels := conv.GetLabels()
+	labels := tracker.GetLabels()
 	if len(labels) != 2 || labels["Lab1"] != "One" || labels["Lab2"] != "One" {
 		t.Error("Got unexpected labels")
 	}
 
 	facts["Fact2"] = "Two"
-	conv.UpdateFacts(facts)
+	tracker.UpdateFacts(facts)
 
-	labels = conv.GetLabels()
+	labels = tracker.GetLabels()
 	if len(labels) != 2 || labels["Lab1"] != "One" || labels["Lab2"] != "Two" {
 		t.Error("Got unexpected labels")
 	}
 
 	facts["Fact2"] = ""
-	conv.UpdateFacts(facts)
+	tracker.UpdateFacts(facts)
 
-	labels = conv.GetLabels()
+	labels = tracker.GetLabels()
 	if len(labels) != 2 || labels["Lab1"] != "One" || labels["Lab2"] != "" {
 		t.Error("Got unexpected labels")
 	}
 
 	facts["Fact2"] = ""
-	conv.PurgeFacts([]string{"Fact2"})
+	tracker.PurgeFacts([]string{"Fact2"})
 
-	labels = conv.GetLabels()
+	labels = tracker.GetLabels()
 	if len(labels) != 2 || labels["Lab1"] != "One" || labels["Lab2"] != "One" {
 		t.Error("Got unexpected labels")
 	}
 
 	// purge a fact that doesn't exist
-	conv.PurgeFacts([]string{"Fact42"})
+	tracker.PurgeFacts([]string{"Fact42"})
 }
