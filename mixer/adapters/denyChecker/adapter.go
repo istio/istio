@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipListChecker
+package denyChecker
 
 import (
 	"github.com/istio/mixer/adapters"
 )
 
-// AdapterConfig is used to configure an adapter.
+// AdapterConfig is used to configure an adapter
 type AdapterConfig struct {
 }
 
@@ -30,11 +30,11 @@ func NewAdapter() adapters.Adapter {
 }
 
 func (a adapter) Name() string {
-	return "IPListChecker"
+	return "DenyChecker"
 }
 
 func (a adapter) Description() string {
-	return "Checks whether an IP address is present in an IP address list"
+	return "Deny every check request"
 }
 
 func (a adapter) DefaultConfig() adapters.AdapterConfig {

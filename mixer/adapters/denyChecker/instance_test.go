@@ -12,31 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipListChecker
+package denyChecker
 
 import (
+	"testing"
+
 	"github.com/istio/mixer/adapters"
 )
 
-// InstanceConfig is used to configure instances.
-type InstanceConfig struct {
-	adapters.InstanceConfig
+func TestAll(t *testing.T) {
+	var inst adapters.Instance
+	var err error
+	if inst, err = newInstance(&InstanceConfig{}); err != nil {
+		t.Error("Unable to create instance")
+	}
 
-	// The URL where to find the list to check against
-	ProviderURL string
-}
+	listChecker := inst.(adapters.ListChecker)
+	if listChecker.CheckList("") || listChecker.CheckList("ABC") {
+		t.Error("Expecting to always get false")
+	}
 
-type instance struct {
-}
-
-// newInstance returns a new instance of the adapter
-func newInstance(config *InstanceConfig) (*instance, error) {
-	return &instance{}, nil
-}
-
-func (inst *instance) Delete() {
-}
-
-func (inst *instance) CheckList(symbol string) bool {
-	return false
+	inst.Delete()
 }

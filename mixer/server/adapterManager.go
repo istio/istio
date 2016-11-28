@@ -18,6 +18,8 @@ import (
 	"errors"
 
 	"github.com/istio/mixer/adapters"
+
+	"github.com/istio/mixer/adapters/denyChecker"
 	"github.com/istio/mixer/adapters/factMapper"
 	"github.com/istio/mixer/adapters/ipListChecker"
 )
@@ -30,6 +32,7 @@ var factConverters = []adapters.Adapter{
 // all the known list checker adapter types
 var listCheckers = []adapters.Adapter{
 	ipListChecker.NewAdapter(),
+	denyChecker.NewAdapter(),
 }
 
 // AdapterManager keeps track of activated Adapter objects for different types of adapters
