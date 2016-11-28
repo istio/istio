@@ -21,4 +21,7 @@ type InstanceConfig interface{}
 type Instance interface {
 	// Delete is called by the mixer to indicate it is done with a particular adapter instance.
 	Delete()
+
+	// UpdateConfig is used to refresh an adapter instance's live configuration.
+	UpdateConfig(config InstanceConfig) error
 }

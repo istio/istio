@@ -45,7 +45,7 @@ func (ts *testState) createAPIServer() error {
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2"
 	adapter := factMapper.NewAdapter()
-	err := adapter.Activate(factMapper.AdapterConfig{})
+	err := adapter.Activate(adapter.DefaultConfig())
 	if err != nil {
 		return err
 	}

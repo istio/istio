@@ -77,6 +77,10 @@ func (inst *instance) Delete() {
 	inst.factLabels = nil
 }
 
+func (inst *instance) UpdateConfig(config adapters.InstanceConfig) error {
+	return errors.New("not implemented")
+}
+
 func (inst *instance) NewTracker() adapters.FactTracker {
 	return newTracker(inst.labelFacts, inst.factLabels)
 }

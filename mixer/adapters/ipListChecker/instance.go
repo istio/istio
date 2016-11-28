@@ -89,6 +89,10 @@ func (inst *instance) Delete() {
 	close(inst.closing)
 }
 
+func (inst *instance) UpdateConfig(config adapters.InstanceConfig) error {
+	return errors.New("not implemented")
+}
+
 func (inst *instance) CheckList(symbol string) (bool, error) {
 	ipa := net.ParseIP(symbol)
 	if ipa == nil {
