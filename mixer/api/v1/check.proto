@@ -16,7 +16,7 @@ syntax = "proto3";
 
 package istio.mixer.v1;
 
-import "google.golang.org/genproto/googleapis/rpc/status/status.proto";
+import "google/rpc/status.proto";
 
 // Used to verify a preconditions before performing an action.
 message CheckRequest {

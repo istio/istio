@@ -19,3 +19,5 @@ import:
   - ptypes/timestamp
   - ptypes/wrappers
 - package: google.golang.org/genproto
+- package: github.com/googleapis/googleapis
+- package: github.com/google/protobuf

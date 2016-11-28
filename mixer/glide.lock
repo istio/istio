@@ -1,5 +1,5 @@
-hash: 8448bd81a2c1ea87d0b21a163caa7628ca48d9a9aa67da02fec5ab658c705219
-updated: 2016-11-27T19:11:50.108347834-08:00
+hash: 48de6a55f9f9125bcf8fb614f21b1d3a8ae95d12a773b31213d4b86b5fb5b3a6
+updated: 2016-11-28T11:26:35.600105158-08:00
 imports:
 - name: github.com/golang/glog
   version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
@@ -11,6 +11,10 @@ imports:
   - ptypes/struct
   - ptypes/timestamp
   - ptypes/wrappers
+- name: github.com/google/protobuf
+  version: 39f9b43219bc5718b659ed72a2130a7b2ce66108
+- name: github.com/googleapis/googleapis
+  version: 1e43683baaf049720b4bd5e2995304c430c749bd
 - name: golang.org/x/net
   version: 4971afdc2f162e82d185353533d3cf16188a9f4e
   subpackages:
