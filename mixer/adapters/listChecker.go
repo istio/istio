@@ -23,5 +23,5 @@ type ListChecker interface {
 	Instance
 
 	// CheckList verifies whether the given symbol is on the list.
-	CheckList(symbol string) bool
+	CheckList(symbol string) (bool, error)
 }

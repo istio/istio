@@ -34,6 +34,6 @@ func newInstance(config *InstanceConfig) (*instance, error) {
 func (inst *instance) Delete() {
 }
 
-func (inst *instance) CheckList(symbol string) bool {
-	return false
+func (inst *instance) CheckList(symbol string) (bool, error) {
+	return false, nil
 }

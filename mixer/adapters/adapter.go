@@ -14,6 +14,9 @@
 
 package adapters
 
+// TODO:
+// Should have standard methods to validate/update adapter/instance configs
+
 // AdapterConfig is used to configure an adapter.
 type AdapterConfig interface{}
 
