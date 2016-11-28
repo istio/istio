@@ -25,6 +25,9 @@ type FactConverter interface {
 }
 
 // FactTracker tracks a set of facts and efficiently maps them to a set of labels.
+//
+// Note that instances of this interface are expected to be used in a single-threaded
+// environment and provide no internal locking
 type FactTracker interface {
 	// UpdateFacts reports an updated set of facts. This refreshes the
 	// current set of facts this tracker keeps track of and determines the

@@ -174,3 +174,77 @@ func TestAddRemoveFacts(t *testing.T) {
 	// purge a fact that doesn't exist
 	tracker.PurgeFacts([]string{"Fact42"})
 }
+
+func TestConfigUpdates(t *testing.T) {
+	rules := make(map[string]string)
+	rules["Lab1"] = "Fact1|Fact2|Fact3"
+	rules["Lab2"] = "Fact3|Fact2|Fact1"
+	var inst *instance
+	var err error
+	if inst, err = newInstance(&InstanceConfig{Rules: rules}); err != nil {
+		t.Error("Expected to be able to create a mapper")
+	}
+
+	tracker := inst.NewTracker()
+
+	// add some actual facts and try again
+	facts := make(map[string]string)
+	facts["Fact1"] = "One"
+	facts["Fact2"] = "Two"
+	facts["Fact4"] = "Four"
+	tracker.UpdateFacts(facts)
+
+	labels := tracker.GetLabels()
+	if len(labels) != 2 || labels["Lab1"] != "One" || labels["Lab2"] != "Two" {
+		t.Error("Got unexpected labels")
+	}
+
+	rules["Lab1"] = "Fact3|Fact2|Fact1"
+	rules["Lab2"] = "Fact1|Fact2|Fact3"
+
+	if err = inst.UpdateConfig(InstanceConfig{Rules: rules}); err != nil {
+		t.Error("Expected to be able to update the config")
+	}
+
+	labels = tracker.GetLabels()
+	if len(labels) != 2 || labels["Lab1"] != "Two" || labels["Lab2"] != "One" {
+		t.Error("Got unexpected labels")
+	}
+}
+
+func TestReset(t *testing.T) {
+	rules := make(map[string]string)
+	rules["Lab1"] = "Fact1|Fact2|Fact3"
+	rules["Lab2"] = "Fact3|Fact2|Fact1"
+	var inst *instance
+	var err error
+	if inst, err = newInstance(&InstanceConfig{Rules: rules}); err != nil {
+		t.Error("Expected to be able to create a mapper")
+	}
+
+	tracker := inst.NewTracker()
+
+	// add some actual facts and try again
+	facts := make(map[string]string)
+	facts["Fact1"] = "One"
+	facts["Fact2"] = "Two"
+	facts["Fact4"] = "Four"
+	tracker.UpdateFacts(facts)
+
+	labels := tracker.GetLabels()
+	if len(labels) != 2 || labels["Lab1"] != "One" || labels["Lab2"] != "Two" {
+		t.Error("Got unexpected labels")
+	}
+
+	tracker.Reset()
+
+	labels = tracker.GetLabels()
+	if len(labels) != 0 {
+		t.Error("Got unexpected labels")
+	}
+
+	numFacts, numLabels := tracker.Stats()
+	if numFacts != 0 || numLabels != 0 {
+		t.Error("Expected no facts and no labels")
+	}
+}

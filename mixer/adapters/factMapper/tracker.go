@@ -20,26 +20,56 @@ type tracker struct {
 	// lookup tables derived from the current mapping rules
 	tables *lookupTables
 
+	// Pointer to the adapter's pointer to its lookup tables. If the adapter's
+	// lookup tables are different than the tracker's, it means a config update
+	// has taken place and the tracker's state needs to be reset.
+	currentAdapterTables **lookupTables
+
 	// the current set of known facts
 	currentFacts map[string]string
 
 	// the current set of known labels, corresponding to mapping of the known facts through the selector
 	currentLabels map[string]string
 
-	// temp buffer used in RefreshFacts
+	// Accumulates the set of labels that need to be updated, given fact or config changes
 	labelsToRefresh []string
 }
 
 // newTracker returns a new independent tracker instance.
-func newTracker(tables *lookupTables) *tracker {
+//
+// This function takes a pointer to a pointer to the lookup tables to use.
+// The instance logic updates this pointer whenever new lookup tables are
+// installed (which happens during config changes). The code here detects
+// when this pointer changes and invalidates its locally cached state
+// accordingly, such that updated labels are produced by the tracker.
+func newTracker(tables **lookupTables) *tracker {
 	return &tracker{
-		tables:        tables,
-		currentFacts:  make(map[string]string),
-		currentLabels: make(map[string]string)}
+		tables:               *tables,
+		currentAdapterTables: tables,
+		currentFacts:         make(map[string]string),
+		currentLabels:        make(map[string]string)}
 }
 
-// refreshLabels refreshes the labels having been potentially affected by the updated facts
+// refreshLabels refreshes the labels in need of update
 func (t *tracker) refreshLabels() {
+	if *t.currentAdapterTables != t.tables {
+		// instance config has changed, we need to recompute all labels
+		t.tables = *t.currentAdapterTables
+
+		// remove all existing labels
+		for k := range t.currentLabels {
+			delete(t.currentLabels, k)
+		}
+
+		// establish all the labels to update given the current set of facts
+		t.labelsToRefresh = t.labelsToRefresh[:0]
+		for fact := range t.currentFacts {
+			for _, label := range t.tables.factLabels[fact] {
+				t.labelsToRefresh = append(t.labelsToRefresh, label)
+			}
+		}
+	}
+
 	for _, label := range t.labelsToRefresh {
 		facts := t.tables.labelFacts[label]
 
@@ -52,11 +82,13 @@ func (t *tracker) refreshLabels() {
 			}
 		}
 	}
+
+	// all up to date
+	t.labelsToRefresh = t.labelsToRefresh[:0]
 }
 
 func (t *tracker) UpdateFacts(facts map[string]string) {
-	// update our known facts and build up a list of labels that need updating as a result
-	t.labelsToRefresh = t.labelsToRefresh[:0]
+	// update our known facts and keep track of the labels that need refreshing
 	for fact, value := range facts {
 		t.currentFacts[fact] = value
 
@@ -64,13 +96,10 @@ func (t *tracker) UpdateFacts(facts map[string]string) {
 			t.labelsToRefresh = append(t.labelsToRefresh, label)
 		}
 	}
-
-	t.refreshLabels()
 }
 
 func (t *tracker) PurgeFacts(facts []string) {
-	// update our known facts and build up a list of labels that need updating as a result
-	t.labelsToRefresh = t.labelsToRefresh[:0]
+	// update the known facts and keep track of the labels that need refreshing
 	for _, fact := range facts {
 		delete(t.currentFacts, fact)
 
@@ -78,25 +107,25 @@ func (t *tracker) PurgeFacts(facts []string) {
 			t.labelsToRefresh = append(t.labelsToRefresh, label)
 		}
 	}
-
-	t.refreshLabels()
 }
 
 func (t *tracker) GetLabels() map[string]string {
+	t.refreshLabels()
 	return t.currentLabels
 }
 
 func (t *tracker) Reset() {
-	// Yep, you heard it right, this is the fastest way
-	// to clear maps in Go. Shesh.
-
+	// nuke all the facts
 	for k := range t.currentFacts {
 		delete(t.currentFacts, k)
 	}
 
+	// and nuke all the labels
 	for k := range t.currentLabels {
 		delete(t.currentLabels, k)
 	}
+
+	t.labelsToRefresh = t.labelsToRefresh[:0]
 }
 
 func (t *tracker) Stats() (numFacts int, numLabels int) {
