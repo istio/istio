@@ -47,7 +47,7 @@ type AdapterManager struct {
 // TODO: this implementation needs to be driven from external config instead of being
 // hardcoded
 func prepAdapters(l []adapters.Adapter) (map[string]adapters.Adapter, error) {
-	m := make(map[string]adapters.Adapter)
+	m := make(map[string]adapters.Adapter, len(l))
 
 	for _, adapter := range l {
 		if _, exists := m[adapter.Name()]; exists {

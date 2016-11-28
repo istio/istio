@@ -108,5 +108,5 @@ func (inst *instance) UpdateConfig(config adapters.InstanceConfig) error {
 }
 
 func (inst *instance) NewTracker() adapters.FactTracker {
-	return newTracker(inst.tables)
+	return newTracker(&inst.tables)
 }
