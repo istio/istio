@@ -34,6 +34,10 @@ func newInstance(config *InstanceConfig) (*instance, error) {
 func (inst *instance) Delete() {
 }
 
+func (inst *instance) UpdateConfig(config adapters.InstanceConfig) error {
+	return nil
+}
+
 func (inst *instance) CheckList(symbol string) (bool, error) {
 	return false, nil
 }

@@ -14,11 +14,8 @@
 
 package adapters
 
-// TODO:
-// Should have standard methods to validate/update adapter/instance configs
-
-// AdapterConfig is used to configure an adapter.
-type AdapterConfig interface{}
+// Config is used to configure an adapter.
+type Config interface{}
 
 // Adapter represents the handle that the mixer has on an individual adapter. The mixer holds on
 // to one of these per logical adapter, which the mixer uses to control the lifecycle of both
@@ -33,11 +30,14 @@ type Adapter interface {
 	// DefaultConfig returns a default configuration struct for this adapter.
 	// This will be used by the configuration system to establish the shape of a block
 	// of configuration state passed to the Activate function.
-	DefaultConfig() AdapterConfig
+	DefaultConfig() Config
+
+	// ValidateConfig determines whether the given configuration meets all correctness requirements.
+	ValidateConfig(config Config) error
 
 	// Activate the adapter with the given configuration. Once an adapter is active,
 	// the mixer can start calling the newInstance function to instantiate the adapter
-	Activate(config AdapterConfig) error
+	Activate(config Config) error
 
 	// Deactivate the adapter, allowing it to clean up any resources it might be holding.
 	// Once this function is called, the mixer may no longer call the newInstance function.
@@ -48,6 +48,9 @@ type Adapter interface {
 	// the shape of a block of configuration state passed to the Activate function
 	DefaultInstanceConfig() InstanceConfig
 
-	// newInstance creates a single instance of the adapter based on the supplied configuration.
+	// ValidateInstanceConfig determines whether the given configuration meets all correctness requirements.
+	ValidateInstanceConfig(config InstanceConfig) error
+
+	// NewInstance creates a single instance of the adapter based on the supplied configuration.
 	NewInstance(config InstanceConfig) (Instance, error)
 }

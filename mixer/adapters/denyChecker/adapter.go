@@ -18,8 +18,8 @@ import (
 	"github.com/istio/mixer/adapters"
 )
 
-// AdapterConfig is used to configure an adapter
-type AdapterConfig struct {
+// Config is used to configure an adapter
+type Config struct {
 }
 
 type adapter struct{}
@@ -37,13 +37,18 @@ func (a adapter) Description() string {
 	return "Deny every check request"
 }
 
-func (a adapter) DefaultConfig() adapters.AdapterConfig {
-	return AdapterConfig{}
+func (a adapter) DefaultConfig() adapters.Config {
+	return Config{}
 }
 
-func (a adapter) Activate(config adapters.AdapterConfig) error {
-	_ = config.(AdapterConfig)
+func (a adapter) ValidateConfig(config adapters.Config) error {
+	_ = config.(Config)
 	return nil
+}
+
+func (a adapter) Activate(config adapters.Config) error {
+	// nothing to do for this adapter...
+	return a.ValidateConfig(config)
 }
 
 func (a adapter) Deactivate() {
@@ -53,7 +58,15 @@ func (a adapter) DefaultInstanceConfig() adapters.InstanceConfig {
 	return InstanceConfig{}
 }
 
+func (a adapter) ValidateInstanceConfig(config adapters.InstanceConfig) error {
+	_ = config.(InstanceConfig)
+	return nil
+}
+
 func (a adapter) NewInstance(config adapters.InstanceConfig) (adapters.Instance, error) {
+	if err := a.ValidateInstanceConfig(config); err != nil {
+		return nil, err
+	}
 	c := config.(InstanceConfig)
 	return newInstance(&c)
 }
