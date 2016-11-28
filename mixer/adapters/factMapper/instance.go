@@ -35,7 +35,9 @@ type InstanceConfig struct {
 	Rules map[string]string
 }
 
-type instance struct {
+// Holds lookup tables associated with the current set of mapping rules. Thjs
+// struct and its maps are immutable once created
+type lookupTables struct {
 	// for each label, has an ordered slice of facts that can contribute to the label
 	labelFacts map[string][]string
 
@@ -43,8 +45,12 @@ type instance struct {
 	factLabels map[string][]string
 }
 
-// newInstance returns a new instance of the adapter.
-func newInstance(config *InstanceConfig) (*instance, error) {
+type instance struct {
+	// active set of lookup tables. These can be swapped at any time as a result of config updates
+	tables *lookupTables
+}
+
+func buildLookupTables(config *InstanceConfig) (*lookupTables, error) {
 	// build our lookup tables
 	labelRules := config.Rules
 	labelFacts := make(map[string][]string)
@@ -67,20 +73,40 @@ func newInstance(config *InstanceConfig) (*instance, error) {
 		}
 	}
 
-	return &instance{
+	return &lookupTables{
 		labelFacts: labelFacts,
-		factLabels: factLabels}, nil
+		factLabels: factLabels,
+	}, nil
+}
+
+// newInstance returns a new instance of the adapter.
+func newInstance(config *InstanceConfig) (*instance, error) {
+	tables, err := buildLookupTables(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &instance{tables}, nil
 }
 
 func (inst *instance) Delete() {
-	inst.labelFacts = nil
-	inst.factLabels = nil
+	inst.tables = nil
 }
 
 func (inst *instance) UpdateConfig(config adapters.InstanceConfig) error {
-	return errors.New("not implemented")
+	c := config.(InstanceConfig)
+
+	tables, err := buildLookupTables(&c)
+	if err != nil {
+		return err
+	}
+
+	// atomically update the table pointer such that any new tracker will use the new
+	// config
+	inst.tables = tables
+	return nil
 }
 
 func (inst *instance) NewTracker() adapters.FactTracker {
-	return newTracker(inst.labelFacts, inst.factLabels)
+	return newTracker(inst.tables)
 }

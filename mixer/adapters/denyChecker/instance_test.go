@@ -24,8 +24,6 @@ func TestAll(t *testing.T) {
 		t.Error("Unable to create instance")
 	}
 
-	//	listChecker := inst.(adapters.ListChecker)
-
 	var ok bool
 	ok, err = listChecker.CheckList("")
 	if ok || err != nil {
@@ -35,6 +33,10 @@ func TestAll(t *testing.T) {
 	ok, err = listChecker.CheckList("ABC")
 	if ok || err != nil {
 		t.Error("Expecting to always get false")
+	}
+
+	if err = listChecker.UpdateConfig(&InstanceConfig{}); err != nil {
+		t.Error("Unable to update config")
 	}
 
 	listChecker.Delete()

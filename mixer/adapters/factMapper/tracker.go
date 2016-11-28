@@ -17,11 +17,8 @@ package factMapper
 // tracker is a simple module that maps from a set of facts to a set of labels
 // based on a set of supplied mapping rules.
 type tracker struct {
-	// for each label, has an ordered slice of facts that can contribute to the label
-	labelFacts map[string][]string
-
-	// for each fact, has a list of the labels to update if the fact changes
-	factLabels map[string][]string
+	// lookup tables derived from the current mapping rules
+	tables *lookupTables
 
 	// the current set of known facts
 	currentFacts map[string]string
@@ -30,22 +27,21 @@ type tracker struct {
 	currentLabels map[string]string
 
 	// temp buffer used in RefreshFacts
-	labelsToUpdate []string
+	labelsToRefresh []string
 }
 
 // newTracker returns a new independent tracker instance.
-func newTracker(labelFacts map[string][]string, factLabels map[string][]string) *tracker {
+func newTracker(tables *lookupTables) *tracker {
 	return &tracker{
-		labelFacts:    labelFacts,
-		factLabels:    factLabels,
+		tables:        tables,
 		currentFacts:  make(map[string]string),
 		currentLabels: make(map[string]string)}
 }
 
 // refreshLabels refreshes the labels having been potentially affected by the updated facts
 func (t *tracker) refreshLabels() {
-	for _, label := range t.labelsToUpdate {
-		facts := t.labelFacts[label]
+	for _, label := range t.labelsToRefresh {
+		facts := t.tables.labelFacts[label]
 
 		t.currentLabels[label] = ""
 		for _, fact := range facts {
@@ -60,12 +56,12 @@ func (t *tracker) refreshLabels() {
 
 func (t *tracker) UpdateFacts(facts map[string]string) {
 	// update our known facts and build up a list of labels that need updating as a result
-	t.labelsToUpdate = t.labelsToUpdate[:0]
+	t.labelsToRefresh = t.labelsToRefresh[:0]
 	for fact, value := range facts {
 		t.currentFacts[fact] = value
 
-		for _, label := range t.factLabels[fact] {
-			t.labelsToUpdate = append(t.labelsToUpdate, label)
+		for _, label := range t.tables.factLabels[fact] {
+			t.labelsToRefresh = append(t.labelsToRefresh, label)
 		}
 	}
 
@@ -74,12 +70,12 @@ func (t *tracker) UpdateFacts(facts map[string]string) {
 
 func (t *tracker) PurgeFacts(facts []string) {
 	// update our known facts and build up a list of labels that need updating as a result
-	t.labelsToUpdate = t.labelsToUpdate[:0]
+	t.labelsToRefresh = t.labelsToRefresh[:0]
 	for _, fact := range facts {
 		delete(t.currentFacts, fact)
 
-		for _, label := range t.factLabels[fact] {
-			t.labelsToUpdate = append(t.labelsToUpdate, label)
+		for _, label := range t.tables.factLabels[fact] {
+			t.labelsToRefresh = append(t.labelsToRefresh, label)
 		}
 	}
 
