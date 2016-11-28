@@ -15,8 +15,57 @@
 package ipListChecker
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
-func TestDummy(t *testing.T) {
+// TODO: this test suite needs to be beefed up considerably.
+// Should be testing more edge cases, testing refresh behavior with and without errors,
+// testing TTL handling, testing malformed input, etc.
+
+func TestBasic(t *testing.T) {
+	lp := listPayload{
+		WhiteList: []string{"10.10.11.2", "10.10.11.3", "9.9.9.9/28"},
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		out, err := yaml.Marshal(lp)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Write(out)
+	}))
+	defer ts.Close()
+
+	config := InstanceConfig{
+		ProviderURL:     ts.URL,
+		RefreshInterval: time.Second,
+		TimeToLive:      time.Second * 10,
+	}
+
+	inst, err := newInstance(&config)
+	if err != nil {
+		t.Error("unable to create adapter instance " + err.Error())
+	}
+
+	var ok bool
+	ok, err = inst.CheckList("10.10.11.2")
+	if !ok {
+		t.Error("Expecting check to pass")
+	}
+
+	ok, err = inst.CheckList("9.9.9.1")
+	if !ok {
+		t.Error("Expecting check to pass")
+	}
+
+	ok, err = inst.CheckList("120.10.11.2")
+	if ok {
+		t.Error("Expecting check to fail")
+	}
 }

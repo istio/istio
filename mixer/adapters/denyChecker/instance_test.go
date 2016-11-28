@@ -16,21 +16,26 @@ package denyChecker
 
 import (
 	"testing"
-
-	"github.com/istio/mixer/adapters"
 )
 
 func TestAll(t *testing.T) {
-	var inst adapters.Instance
-	var err error
-	if inst, err = newInstance(&InstanceConfig{}); err != nil {
+	listChecker, err := newInstance(&InstanceConfig{})
+	if err != nil {
 		t.Error("Unable to create instance")
 	}
 
-	listChecker := inst.(adapters.ListChecker)
-	if listChecker.CheckList("") || listChecker.CheckList("ABC") {
+	//	listChecker := inst.(adapters.ListChecker)
+
+	var ok bool
+	ok, err = listChecker.CheckList("")
+	if ok || err != nil {
 		t.Error("Expecting to always get false")
 	}
 
-	inst.Delete()
+	ok, err = listChecker.CheckList("ABC")
+	if ok || err != nil {
+		t.Error("Expecting to always get false")
+	}
+
+	listChecker.Delete()
 }

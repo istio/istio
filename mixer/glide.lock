@@ -1,5 +1,5 @@
 hash: 8448bd81a2c1ea87d0b21a163caa7628ca48d9a9aa67da02fec5ab658c705219
-updated: 2016-11-25T11:28:56.121478564-08:00
+updated: 2016-11-27T19:11:50.108347834-08:00
 imports:
 - name: github.com/golang/glog
   version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
@@ -39,4 +39,6 @@ imports:
   - tap
   - transport
   - peer
+- name: gopkg.in/yaml.v2
+  version: a5b47d31c556af34a302ce5d659e6fea44d90de0
 testImports: []
