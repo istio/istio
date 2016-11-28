@@ -16,10 +16,10 @@ syntax = "proto3";
 
 package istio.mixer.v1;
 
-import "github.com/golang/protobuf/ptypes/timestamp/timestamp.proto";
-import "github.com/golang/protobuf/ptypes/struct/struct.proto";
-import "github.com/golang/protobuf/ptypes/any/any.proto";
-import "google.golang.org/genproto/googleapis/rpc/status/status.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/any.proto";
+import "google/rpc/status.proto";
 
 // Used to report telemetry after performing an action.
 message ReportRequest {
