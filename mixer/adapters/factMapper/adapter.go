@@ -18,7 +18,7 @@ import (
 	"github.com/istio/mixer/adapters"
 )
 
-// AdapterConfig is used to configure a fact mapper adapter.
+// AdapterConfig is used to configure an adapter.
 type AdapterConfig struct{}
 
 type adapter struct{}

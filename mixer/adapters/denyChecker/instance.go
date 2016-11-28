@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipListChecker
+package denyChecker
 
 import (
 	"github.com/istio/mixer/adapters"
@@ -21,9 +21,6 @@ import (
 // InstanceConfig is used to configure instances.
 type InstanceConfig struct {
 	adapters.InstanceConfig
-
-	// The URL where to find the list to check against
-	ProviderURL string
 }
 
 type instance struct {

@@ -21,7 +21,7 @@ import (
 	"github.com/istio/mixer/adapters"
 )
 
-// InstanceConfig is used to configure fact mapper instances
+// InstanceConfig is used to configure instances.
 type InstanceConfig struct {
 	adapters.InstanceConfig
 
@@ -43,7 +43,7 @@ type instance struct {
 	factLabels map[string][]string
 }
 
-// newInstance returns a new instance of a FactMapper adapter.
+// newInstance returns a new instance of the adapter.
 func newInstance(config *InstanceConfig) (*instance, error) {
 	// build our lookup tables
 	labelRules := config.Rules
