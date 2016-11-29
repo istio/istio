@@ -1,10 +1,16 @@
 # On Collaborative Development
 
-Istio Mixer is open source, but many of the people working on it do so as their
+The Istio mixer is open source, but many of the people working on it do so as their
 day job. In order to avoid forcing people to be "at work" effectively 24/7, we
 want to establish some semi-formal protocols around development. Hopefully these
 rules make things go more smoothly. If you find that this is not the case,
 please complain loudly.
+
+- [Patches welcome](#patches-welcome)
+- [Code reviews](#code-reviews)
+- [Assigned reviews](#assigned-reviews)
+- [Merge hours](#merge-hours)
+- [Holds](#holds)
 
 ## Patches welcome
 
@@ -27,7 +33,7 @@ Most PRs will find reviewers organically. If a maintainer intends to be the
 primary reviewer of a PR they should set themselves as the assignee on GitHub
 and say so in a reply to the PR. Only the primary reviewer of a change should
 actually do the merge, except in rare cases (e.g. they are unavailable in a
-reasonable timeframe).
+reasonable time frame).
 
 If a PR has gone 2 work days without an owner emerging, please poke the PR
 thread and ask for a reviewer to be assigned.
@@ -71,7 +77,6 @@ fact complicated or complex and deserves further review.
 PRs that are incorrectly judged to be merge-able, may be reverted and subject to
 re-review, if subsequent reviewers believe that they in fact are controversial
 or complex.
-
 
 ## Holds
 
