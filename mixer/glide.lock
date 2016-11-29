@@ -1,5 +1,5 @@
 hash: 48de6a55f9f9125bcf8fb614f21b1d3a8ae95d12a773b31213d4b86b5fb5b3a6
-updated: 2016-11-28T11:26:35.600105158-08:00
+updated: 2016-11-28T16:54:36.737371841-08:00
 imports:
 - name: github.com/golang/glog
   version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
@@ -28,8 +28,8 @@ imports:
 - name: google.golang.org/genproto
   version: f3350869260a1e80675c8d0e42f1f3a870db2b74
   subpackages:
-  - googleapis/rpc/status
   - googleapis/rpc/code
+  - googleapis/rpc/status
 - name: google.golang.org/grpc
   version: eca2ad68af4d7bf894ada6bd263133f069a441d5
   subpackages:
