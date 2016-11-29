@@ -15,7 +15,7 @@
 package denyChecker
 
 import (
-	"github.com/istio/mixer/adapters"
+	"istio.io/mixer/adapters"
 )
 
 // InstanceConfig is used to configure instances.

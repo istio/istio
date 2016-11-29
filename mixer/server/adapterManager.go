@@ -17,11 +17,11 @@ package main
 import (
 	"errors"
 
-	"github.com/istio/mixer/adapters"
+	"istio.io/mixer/adapters"
 
-	"github.com/istio/mixer/adapters/denyChecker"
-	"github.com/istio/mixer/adapters/factMapper"
-	"github.com/istio/mixer/adapters/ipListChecker"
+	"istio.io/mixer/adapters/denyChecker"
+	"istio.io/mixer/adapters/factMapper"
+	"istio.io/mixer/adapters/ipListChecker"
 )
 
 // all the known fact converter adapter types
