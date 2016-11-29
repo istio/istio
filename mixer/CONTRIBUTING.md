@@ -1,31 +1,19 @@
 # Contributing guidelines
 
-So, you want to hack on Istio Mixer? Yay!
+So, you want to hack on the Istio mixer? Yay!
 
-## Developer Guide
+- [Contributor license agreements](#contributor-license-agreements)
+- [Contributing a patch](#contributing-a-patch)
+- [Other documents](#other-documents)
 
-We have a [Developer's Guide](docs/devel/development.md) that outlines everything
-you need to know to contribute. If you find something undocumented or incorrect
-along the way, please feel free to send a Pull Request.
+## Contributor license agreements
 
-## Filing issues
+We'd love to accept your patches! Before we can take them, you have to jump a
+few legal hurdles.
 
-If you have a question about Istio Mixer or have a problem using it, please
-[file an issue](https://github.com/istio/mixer/issues/new).
+Please fill out the Cloud Native Computing Foundation (CNCF) CLA:
 
-[//]: # (TODO: add troubleshooting guide)
-
-## How to become a contributor and submit your own code
-
-### Contributor License Agreements
-
-We'd love to accept your patches! Before we can take them, we have to jump a
-couple of legal hurdles.
-
-Please fill out the Cloud Native Computing Foundation (CNCF) CLA.
-
-CNCF:
-  * To contribute as an individual or as am employee of a signed organization,
+  * To contribute as an individual or as an employee of a signed organization,
     [go here](https://identity.linuxfoundation.org/projects/cncf).
   * To sign up as an organization, [go
     here](https://identity.linuxfoundation.org/node/285/organization-signup).
@@ -36,11 +24,7 @@ Once you are CLA'ed, we'll be able to accept your pull requests.
 signed the CLA can be accepted into the repository. This policy does not
 apply to [third_party](third_party/) and [vendor](vendor/).
 
-### Finding Things That Need Help
-
-[//]: # (TODO: fill out)
-
-### Contributing A Patch
+## Contributing a patch
 
 If you're working on an existing issue, simply respond to the issue and express
 interest in working on it. This helps other people know that the issue is
@@ -55,53 +39,17 @@ If you want to work on a new idea of relatively small scope:
 1. Fork the repo, develop, and test your changes.
 1. Submit a pull request.
 
-TODO: document how to deal with bigger issues
+## Other documents
 
-### Downloading the project
+We have a [developer's guide](docs/devel/development.md) that outlines everything
+you need to know to contribute. If you find something undocumented or incorrect
+along the way, please feel free to send a Pull Request.
 
-There are a few ways you can download this code. You must download it into a
-GOPATH - see [golang.org](https://golang.org/doc/code.html) for more info on
-how Go works with code. This project expects to be found at the Go package
-`github.com/istio/mixer/`.
+The [project conventions](docs/devel/conventions.md) explain how we expect things
+to named and organized.
 
-1. You can `git clone` the repo. If you do this, you MUST make sure it is in
-   the GOPATH as `github.com/istio/mixer` or it may not build.  E.g.: `git clone
-   https://github.com/kubernetes/kubernetes $GOPATH/src/github.com/istio/mixer`
-1. You can use `go get` to fetch the repo. This will automatically put it into
-   your GOPATH in the right place. E.g.: `go get -d github.com/istio/mixer`
+Please read about our [collaborative development environment](docs/devel/collaboration.md) for information
+on how we're running development for the project.
 
-
-### Building the project
-
-There are a few things you need to build and test this project:
-
-1. `make` - the human interface to the Istio Mixer build is `make`, so you must
-   have this tool installed on your machine. We try not to use too many crazy
-   features of `Makefile`s and other tools, so most commonly available versions
-   should work.
-1. `go` - Istio Mixer is written in Go (aka golang), so you need a relatively
-   recent version of the [Go toolchain](https://golang.org/dl/) installed.
-   While Linux is the primary platform for Istio Mixer, it should compile on a
-   Mac, too. Windows is in progress.
-
-To build Istio Mixer, simply type `make`.  This should figure out what it needs
-to do and not need any input from you.
-
-To run basic tests, simply type `make test`.  This will run all of the unit
-tests in the project.
-
-### Protocols for Collaborative Development
-
-Please read [this doc](docs/devel/collab.md) for information on how we're
-running development for the project.  Also take a look at the [development
-guide](docs/devel/development.md) for information on how to set up your
-environment, run tests, manage dependencies, etc.
-
-### Adding dependencies
-
-[//]: # (TODO: add bits on glide here)
-
-### Community Expectations
-
-Please see our [expectations](docs/devel/community-expectations.md) for members
-of the Istio Mixer community.
+Please see our [community expectations](docs/devel/community.md) for members
+of the Istio mixer community.
