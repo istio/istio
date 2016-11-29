@@ -27,7 +27,7 @@ PROTO_SRC = api/v1/service.proto api/v1/check.proto api/v1/report.proto api/v1/q
 $(PROTO_OUTDIR_GO)/%.pb.go $(PROTO_OUTDIR_CPP)/%.pb.cc: api/v1/%.proto
 	@echo "Building protos"
 	@mkdir -p $(PROTO_OUTDIR_GO) $(PROTO_OUTDIR_CPP)
-	@$(PROTOC) --proto_path=api/v1 --proto_path=vendor/github.com/googleapis --proto_path=vendor/github.com/google/protobuf/src --cpp_out=$(PROTO_OUTDIR_CPP) --go_out=plugins=grpc:$(PROTO_OUTDIR_GO) $(PROTO_SRC)
+	@$(PROTOC) --proto_path=api/v1 --proto_path=vendor/github.com/googleapis/googleapis --proto_path=vendor/github.com/google/protobuf/src --cpp_out=$(PROTO_OUTDIR_CPP) --go_out=plugins=grpc:$(PROTO_OUTDIR_GO) $(PROTO_SRC)
 
 build_api: $(PROTO_OUTDIR_GO)/service.pb.go
 
