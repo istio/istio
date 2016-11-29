@@ -23,8 +23,8 @@ import (
 
 	"github.com/golang/glog"
 
-	"github.com/istio/mixer/adapters"
-	"github.com/istio/mixer/adapters/factMapper"
+	"istio.io/mixer/adapters"
+	"istio.io/mixer/adapters/factMapper"
 )
 
 func main() {

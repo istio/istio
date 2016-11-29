@@ -14,11 +14,11 @@ branch, but release branches of Istio Mixer should not change.
 ## Building Istio Mixer
 
 Please see our [build docs](../building.md).
-	
+
 ### Go development environment
 
 Istio Mixer is written in the [Go](http://golang.org) programming language.
-To build Istio Mixer, you'll need a Go development environment. Builds for 
+To build Istio Mixer, you'll need a Go development environment. Builds for
 Istio Mixer require Go version 1.7.0. If you haven't set up a Go development
 environment, please follow [these instructions](http://golang.org/doc/code.html)
 to install the go tools.
@@ -31,7 +31,7 @@ export GOPATH=$HOME/go
 export PATH=$PATH:$GOPATH/bin
 ```
 
-### Godep dependency management
+### Glide dependency management
 
 Istio Mixer build and test scripts use [glide](https://github.com/Masterminds/glide) to
 manage dependencies.
@@ -76,8 +76,8 @@ Istio Mixer' code into your GOPATH. Note: the commands below will not work if
 there is more than one directory in your `$GOPATH`.
 
 ```sh
-mkdir -p $GOPATH/src/istio
-cd $GOPATH/src/istio
+mkdir -p $GOPATH/src/istio.io
+cd $GOPATH/src/istio.io
 # Replace "$YOUR_GITHUB_USERNAME" below with your github username
 git clone https://github.com/$YOUR_GITHUB_USERNAME/mixer.git
 cd mixer

@@ -15,7 +15,7 @@
 package denyChecker
 
 import (
-	"github.com/istio/mixer/adapters"
+	"istio.io/mixer/adapters"
 )
 
 // Config is used to configure an adapter
