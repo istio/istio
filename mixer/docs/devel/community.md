@@ -1,36 +1,41 @@
-## Community Expectations
+# Community Expectations
 
-Istio Mixer is a community project. Consequently, it is wholly dependent on
+The Istio mixer is a community project. Consequently, it is wholly dependent on
 its community to provide a productive, friendly and collaborative environment.
 
-The first and foremost goal of the Istio Mixer community to develop technology
-that radically simplifies rpc precondition checking and service telemetry.
-However a second, equally important goal is the creation of a community that
-fosters easy, agile development of such systems.
+The first and foremost goal of the Istio mixer community is to develop technology
+that simplifies the task of creating a service by taking responsibility for common
+precondition checks, such as quotas and permissions, as well as harvesting and
+routing of consumer-oriented telemetry.
 
-We therefore describe the expectations for members of the Istio Mixer community.
-This document is intended to be a living one that evolves as the community
+A second goal is the creation of a community that fosters easy, agile development
+of the mixer. We therefore describe the expectations for members of the Istio mixer
+community. This document is intended to be a living one that evolves as the community
 evolves via the same PR and code review process that shapes the rest of the
 project. It currently covers the expectations of conduct that govern all members
 of the community as well as the expectations around code review that govern all
-active contributors to Istio Mixer.
+active contributors to the Istio mixer project.
 
-### Code of Conduct
+- [Code of conduct](#code-of-conduct)
+- [Code reviews](#code-reviews)
+	- [Expectations of reviewers: review comments](#expectations-of-reviewers-review-comments)
+	- [Expectations of reviewers: review latency](#expectations-of-reviewers-review-latency)
+- [Thanks](#thanks)
 
-The most important expectation of the Istio Mixer community is that all members
-abide by the Istio Mixer [community code of conduct](../../code-of-conduct.md).
-Only by respecting each other can we develop a productive, collaborative
-community.
+## Code of conduct
 
-### Code review
+The most important expectation of the Istio mixer community is that all members
+abide by the [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md).
+Only by respecting each other can we develop a productive, collaborative community.
+
+## Code reviews
 
 As a community we believe in the [value of code review for all contributions](collab.md).
-Code review increases both the quality and readability of our codebase, which
+Code review increases both the quality and readability of our code base, which
 in turn produces high quality software.
 
 However, the code review process can also introduce latency for contributors
 and additional work for reviewers that can frustrate both parties.
-
 Consequently, as a community we expect that all active participants in the
 community will also be active reviewers.
 
@@ -51,20 +56,20 @@ be an active reviewer can also add their name to an *active reviewer* file
 (location tbd) which will make them an active reviewer for as long as they
 are included in the file.
 
-#### Expectations of reviewers: Review comments
+### Expectations of reviewers: review comments
 
 Because reviewers are often the first points of contact between new members of
 the community and can significantly impact the first impression of the
-Istio Mixer community, reviewers are especially important in shaping the
-Istio Mixer community. Reviewers are highly encouraged to review the
-[code of conduct](../../code-of-conduct.md) and are strongly encouraged to go
-above and beyond the code of conduct to promote a collaborative, respectful
-Istio Mixer community.
+Istio mixer community, reviewers are especially important in shaping the
+community. Reviewers are highly encouraged to review the
+[code of conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md)
+and are strongly encouraged to go above and beyond the code of conduct to promote a
+collaborative, respectful community.
 
-#### Expectations of reviewers: Review latency
+### Expectations of reviewers: review latency
 
 Reviewers are expected to respond in a timely fashion to PRs that are assigned
-to them. Reviewers are expected to respond to an *active* PRs with reasonable
+to them. Reviewers are expected to respond to a *active* PRs with reasonable
 latency, and if reviewers fail to respond, those PRs may be assigned to other
 reviewers.
 
@@ -75,6 +80,6 @@ require a rebase are not considered active PRs.
 ## Thanks
 
 Many thanks in advance to everyone who contributes their time and effort to
-making Istio Mixer both a successful system as well as a successful community.
+making the Istio mixer both a successful system as well as a successful community.
 The strength of our software shines in the strengths of each individual
 community member.  Thanks!

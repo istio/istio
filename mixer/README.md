@@ -22,6 +22,11 @@ for limited service resources.
 
 To learn more...
 
-- [Building the Mixer](docs/building.md)
-- [Deploying an Instance](docs/deploying.md)
-- [Using the API](docs/api.md)
+- [Mixer user guide](docs/userGuide/README.md)
+- [Using the mixer API](docs/api.md)
+- [Contributing to the project](./CONTRIBUTING.md)
+
+### Filing issues
+
+If you have a question about the Istio mixer or have a problem using it, please
+[file an issue](https://github.com/istio/mixer/issues/new).

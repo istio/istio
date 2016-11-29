@@ -1,4 +1,4 @@
-package: github.com/istio/mixer
+package: istio.io/mixer
 ignore:
 - google
 - google/api

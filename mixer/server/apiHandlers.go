@@ -20,9 +20,9 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/genproto/googleapis/rpc/status"
 
-	"github.com/istio/mixer/adapters"
+	"istio.io/mixer/adapters"
 
-	mixpb "github.com/istio/mixer/api/v1/go"
+	mixpb "istio.io/mixer/api/v1/go"
 )
 
 // APIHandlers holds pointers to the functions that implement
