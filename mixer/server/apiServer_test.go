@@ -23,10 +23,10 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/grpc"
 
-	"github.com/istio/mixer/adapters"
-	"github.com/istio/mixer/adapters/factMapper"
+	"istio.io/mixer/adapters"
+	"istio.io/mixer/adapters/factMapper"
 
-	mixpb "github.com/istio/mixer/api/v1/go"
+	mixpb "istio.io/mixer/api/v1/go"
 )
 
 const (

@@ -26,8 +26,8 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/istio/mixer/adapters"
 	"gopkg.in/yaml.v2"
+	"istio.io/mixer/adapters"
 )
 
 // InstanceConfig is used to configure instances.
