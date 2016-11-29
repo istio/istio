@@ -13,7 +13,6 @@ branch, but release branches of the Istio mixer should not change.
 
 - [Prerequisites](#prerequisites)
   - [Setting up Go](#setting-up-go)
-  - [Setting up Glide](#setting-up-glide)
   - [Setting up make](#setting-up-make)
   - [Setting up Docker](#setting-up-docker)
 - [Getting the code](#getting-the-code)
@@ -51,12 +50,6 @@ added to your ~/.profile:
 export GOPATH=$HOME/go
 export PATH=$PATH:$GOPATH/bin
 ```
-
-### Setting up Glide
-
-The mixer build and test scripts use [glide](https://github.com/Masterminds/glide) to
-manage dependencies. Please follow the Glide [installation guide](https://github.com/Masterminds/glide#install)
-to get it setup.
 
 ### Setting up make
 ```
