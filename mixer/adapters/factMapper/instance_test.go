@@ -16,11 +16,13 @@ package factMapper
 
 import (
 	"testing"
+
+	"istio.io/mixer/adapters"
 )
 
 func TestNoRules(t *testing.T) {
 	rules := make(map[string]string)
-	var inst *instance
+	var inst adapters.FactConverter
 	var err error
 	if inst, err = newInstance(&InstanceConfig{Rules: rules}); err != nil {
 		t.Error("Expected to successfully create a mapper")
@@ -87,7 +89,7 @@ func TestNoFacts(t *testing.T) {
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var inst *instance
+	var inst adapters.FactConverter
 	var err error
 	if inst, err = newInstance(&InstanceConfig{Rules: rules}); err != nil {
 		t.Error("Expected to be able to create a mapper")
@@ -129,7 +131,7 @@ func TestAddRemoveFacts(t *testing.T) {
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var inst *instance
+	var inst adapters.FactConverter
 	var err error
 	if inst, err = newInstance(&InstanceConfig{Rules: rules}); err != nil {
 		t.Error("Expected to be able to create a mapper")
@@ -179,7 +181,7 @@ func TestConfigUpdates(t *testing.T) {
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var inst *instance
+	var inst adapters.FactConverter
 	var err error
 	if inst, err = newInstance(&InstanceConfig{Rules: rules}); err != nil {
 		t.Error("Expected to be able to create a mapper")
@@ -202,7 +204,7 @@ func TestConfigUpdates(t *testing.T) {
 	rules["Lab1"] = "Fact3|Fact2|Fact1"
 	rules["Lab2"] = "Fact1|Fact2|Fact3"
 
-	if err = inst.UpdateConfig(InstanceConfig{Rules: rules}); err != nil {
+	if err = inst.UpdateConfig(&InstanceConfig{Rules: rules}); err != nil {
 		t.Error("Expected to be able to update the config")
 	}
 
@@ -216,7 +218,7 @@ func TestReset(t *testing.T) {
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var inst *instance
+	var inst adapters.FactConverter
 	var err error
 	if inst, err = newInstance(&InstanceConfig{Rules: rules}); err != nil {
 		t.Error("Expected to be able to create a mapper")
