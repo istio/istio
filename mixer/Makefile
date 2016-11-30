@@ -19,7 +19,7 @@ test: test_server
 
 ## API Targets
 
-PROTOC = third_party/bin/protoc.$(shell uname)
+PROTOC = bin/protoc.$(shell uname)
 PROTO_OUTDIR_GO = api/v1/go
 PROTO_OUTDIR_CPP = api/v1/cpp
 PROTO_SRC = api/v1/service.proto api/v1/check.proto api/v1/report.proto api/v1/quota.proto
