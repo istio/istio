@@ -50,7 +50,7 @@ func (ts *testState) createAPIServer() error {
 		return err
 	}
 	var instance adapters.Instance
-	instance, err = adapter.NewInstance(factMapper.InstanceConfig{Rules: rules})
+	instance, err = adapter.NewInstance(&factMapper.InstanceConfig{Rules: rules})
 	if err != nil {
 		return err
 	}

@@ -15,10 +15,6 @@
 package adapters
 
 // ListChecker verifies whether a particular symbol appears in a list.
-//
-// TODO: how does a listChecker adapter specify which label's value it
-// cares about? Could be a method on the adapter, could be a method on
-// the instance. Could be something else...?
 type ListChecker interface {
 	Instance
 

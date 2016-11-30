@@ -25,47 +25,47 @@ type adapter struct{}
 
 // NewAdapter returns an Adapter
 func NewAdapter() adapters.Adapter {
-	return adapter{}
+	return &adapter{}
 }
 
-func (a adapter) Name() string {
+func (a *adapter) Name() string {
 	return "FactMapper"
 }
 
-func (a adapter) Description() string {
+func (a *adapter) Description() string {
 	return "Performs config-driven mapping of facts to labels"
 }
 
-func (a adapter) DefaultConfig() adapters.Config {
-	return Config{}
+func (a *adapter) DefaultConfig() adapters.Config {
+	return &Config{}
 }
 
-func (a adapter) ValidateConfig(config adapters.Config) error {
-	_ = config.(Config)
+func (a *adapter) ValidateConfig(config adapters.Config) error {
+	_ = config.(*Config)
 	return nil
 }
 
-func (a adapter) Activate(config adapters.Config) error {
+func (a *adapter) Activate(config adapters.Config) error {
 	// nothing to do for this adapter...
 	return a.ValidateConfig(config)
 }
 
-func (a adapter) Deactivate() {
+func (a *adapter) Deactivate() {
 }
 
-func (a adapter) DefaultInstanceConfig() adapters.InstanceConfig {
-	return InstanceConfig{}
+func (a *adapter) DefaultInstanceConfig() adapters.InstanceConfig {
+	return &InstanceConfig{}
 }
 
-func (a adapter) ValidateInstanceConfig(config adapters.InstanceConfig) error {
-	_ = config.(InstanceConfig)
+func (a *adapter) ValidateInstanceConfig(config adapters.InstanceConfig) error {
+	_ = config.(*InstanceConfig)
 	return nil
 }
 
-func (a adapter) NewInstance(config adapters.InstanceConfig) (adapters.Instance, error) {
+func (a *adapter) NewInstance(config adapters.InstanceConfig) (adapters.Instance, error) {
 	if err := a.ValidateInstanceConfig(config); err != nil {
 		return nil, err
 	}
-	c := config.(InstanceConfig)
-	return newInstance(&c)
+	c := config.(*InstanceConfig)
+	return newInstance(c)
 }

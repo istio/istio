@@ -58,7 +58,7 @@ type instance struct {
 }
 
 // newInstance returns a new instance of the adapter
-func newInstance(config *InstanceConfig) (*instance, error) {
+func newInstance(config *InstanceConfig) (adapters.ListChecker, error) {
 	var u *url.URL
 	var err error
 	if u, err = url.Parse(config.ProviderURL); err != nil {
@@ -66,7 +66,7 @@ func newInstance(config *InstanceConfig) (*instance, error) {
 		return nil, err
 	}
 
-	inst := &instance{
+	inst := instance{
 		backend:         u,
 		closing:         make(chan bool),
 		refreshInterval: config.RefreshInterval,
@@ -82,7 +82,7 @@ func newInstance(config *InstanceConfig) (*instance, error) {
 	// crank up the async list refresher
 	go inst.listRefresher()
 
-	return inst, nil
+	return &inst, nil
 }
 
 func (inst *instance) Delete() {
@@ -213,19 +213,3 @@ func (inst *instance) refreshList() {
 	inst.setList(l)
 	inst.fetchedSha = newsha
 }
-
-/* TODO: move to a more appropriate location...
-
-func ValidateInstanceConfig(config adapters.InstanceConfig) error {
-	c := config.(InstanceConfig)
-	var err error
-	var u *url.URL
-
-	if u, err = url.Parse(c.ProviderURL); err == nil {
-		if u.Scheme == "" || u.Host == "" {
-			err = errors.New("Scheme and Host cannot be nil")
-		}
-	}
-	return err
-}
-*/

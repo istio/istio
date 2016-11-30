@@ -15,6 +15,9 @@
 package ipListChecker
 
 import (
+	"errors"
+	"net/url"
+
 	"istio.io/mixer/adapters"
 )
 
@@ -26,47 +29,55 @@ type adapter struct{}
 
 // NewAdapter returns an Adapter
 func NewAdapter() adapters.Adapter {
-	return adapter{}
+	return &adapter{}
 }
 
-func (a adapter) Name() string {
+func (a *adapter) Name() string {
 	return "IPListChecker"
 }
 
-func (a adapter) Description() string {
+func (a *adapter) Description() string {
 	return "Checks whether an IP address is present in an IP address list"
 }
 
-func (a adapter) DefaultConfig() adapters.Config {
-	return Config{}
+func (a *adapter) DefaultConfig() adapters.Config {
+	return &Config{}
 }
 
-func (a adapter) ValidateConfig(config adapters.Config) error {
-	_ = config.(Config)
+func (a *adapter) ValidateConfig(config adapters.Config) error {
+	_ = config.(*Config)
 	return nil
 }
 
-func (a adapter) Activate(config adapters.Config) error {
+func (a *adapter) Activate(config adapters.Config) error {
 	// nothing to do for this adapter...
 	return a.ValidateConfig(config)
 }
 
-func (a adapter) Deactivate() {
+func (a *adapter) Deactivate() {
 }
 
-func (a adapter) DefaultInstanceConfig() adapters.InstanceConfig {
-	return InstanceConfig{}
+func (a *adapter) DefaultInstanceConfig() adapters.InstanceConfig {
+	return &InstanceConfig{}
 }
 
-func (a adapter) ValidateInstanceConfig(config adapters.InstanceConfig) error {
-	_ = config.(InstanceConfig)
-	return nil
+func (a *adapter) ValidateInstanceConfig(config adapters.InstanceConfig) error {
+	c := config.(*InstanceConfig)
+	var err error
+	var u *url.URL
+
+	if u, err = url.Parse(c.ProviderURL); err == nil {
+		if u.Scheme == "" || u.Host == "" {
+			err = errors.New("Scheme and Host cannot be nil")
+		}
+	}
+	return err
 }
 
-func (a adapter) NewInstance(config adapters.InstanceConfig) (adapters.Instance, error) {
+func (a *adapter) NewInstance(config adapters.InstanceConfig) (adapters.Instance, error) {
 	if err := a.ValidateInstanceConfig(config); err != nil {
 		return nil, err
 	}
-	c := config.(InstanceConfig)
-	return newInstance(&c)
+	c := config.(*InstanceConfig)
+	return newInstance(c)
 }

@@ -27,7 +27,7 @@ type instance struct {
 }
 
 // newInstance returns a new instance of the adapter
-func newInstance(config *InstanceConfig) (*instance, error) {
+func newInstance(config *InstanceConfig) (adapters.ListChecker, error) {
 	return &instance{}, nil
 }
 

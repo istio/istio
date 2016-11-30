@@ -82,7 +82,7 @@ func main() {
 	rules["Lab1"] = "Fact1|Fact2"
 	adapter := adapterMgr.FactConverters["FactMapper"]
 	var instance adapters.Instance
-	instance, err = adapter.NewInstance(factMapper.InstanceConfig{Rules: rules})
+	instance, err = adapter.NewInstance(&factMapper.InstanceConfig{Rules: rules})
 	if err != nil {
 		glog.Exitf("Unable to create fact conversion instance " + err.Error())
 	}

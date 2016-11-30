@@ -80,7 +80,7 @@ func buildLookupTables(config *InstanceConfig) (*lookupTables, error) {
 }
 
 // newInstance returns a new instance of the adapter.
-func newInstance(config *InstanceConfig) (*instance, error) {
+func newInstance(config *InstanceConfig) (adapters.FactConverter, error) {
 	tables, err := buildLookupTables(config)
 	if err != nil {
 		return nil, err
@@ -94,9 +94,9 @@ func (inst *instance) Delete() {
 }
 
 func (inst *instance) UpdateConfig(config adapters.InstanceConfig) error {
-	c := config.(InstanceConfig)
+	c := config.(*InstanceConfig)
 
-	tables, err := buildLookupTables(&c)
+	tables, err := buildLookupTables(c)
 	if err != nil {
 		return err
 	}
