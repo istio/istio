@@ -35,9 +35,5 @@ func TestAll(t *testing.T) {
 		t.Error("Expecting to always get false")
 	}
 
-	if err = listChecker.UpdateConfig(&InstanceConfig{}); err != nil {
-		t.Error("Unable to update config")
-	}
-
 	listChecker.Delete()
 }

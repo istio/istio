@@ -93,20 +93,6 @@ func (inst *instance) Delete() {
 	inst.tables = nil
 }
 
-func (inst *instance) UpdateConfig(config adapters.InstanceConfig) error {
-	c := config.(*InstanceConfig)
-
-	tables, err := buildLookupTables(c)
-	if err != nil {
-		return err
-	}
-
-	// atomically update the table pointer such that any new tracker will use the new
-	// config
-	inst.tables = tables
-	return nil
-}
-
 func (inst *instance) NewTracker() adapters.FactTracker {
-	return newTracker(&inst.tables)
+	return newTracker(inst.tables)
 }

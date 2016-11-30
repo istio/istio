@@ -20,11 +20,6 @@ type tracker struct {
 	// lookup tables derived from the current mapping rules
 	tables *lookupTables
 
-	// Pointer to the adapter's pointer to its lookup tables. If the adapter's
-	// lookup tables are different than the tracker's, it means a config update
-	// has taken place and the tracker's state needs to be reset.
-	currentAdapterTables **lookupTables
-
 	// the current set of known facts
 	currentFacts map[string]string
 
@@ -42,34 +37,15 @@ type tracker struct {
 // installed (which happens during config changes). The code here detects
 // when this pointer changes and invalidates its locally cached state
 // accordingly, such that updated labels are produced by the tracker.
-func newTracker(tables **lookupTables) *tracker {
+func newTracker(tables *lookupTables) *tracker {
 	return &tracker{
-		tables:               *tables,
-		currentAdapterTables: tables,
-		currentFacts:         make(map[string]string),
-		currentLabels:        make(map[string]string)}
+		tables:        tables,
+		currentFacts:  make(map[string]string),
+		currentLabels: make(map[string]string)}
 }
 
 // refreshLabels refreshes the labels in need of update
 func (t *tracker) refreshLabels() {
-	if *t.currentAdapterTables != t.tables {
-		// instance config has changed, we need to recompute all labels
-		t.tables = *t.currentAdapterTables
-
-		// remove all existing labels
-		for k := range t.currentLabels {
-			delete(t.currentLabels, k)
-		}
-
-		// establish all the labels to update given the current set of facts
-		t.labelsToRefresh = t.labelsToRefresh[:0]
-		for fact := range t.currentFacts {
-			for _, label := range t.tables.factLabels[fact] {
-				t.labelsToRefresh = append(t.labelsToRefresh, label)
-			}
-		}
-	}
-
 	for _, label := range t.labelsToRefresh {
 		facts := t.tables.labelFacts[label]
 
