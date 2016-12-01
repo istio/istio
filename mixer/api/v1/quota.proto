@@ -76,7 +76,4 @@ message QuotaResponse {
     // An error indication in case the quota operation failed
     google.rpc.Status error = 3;
   }
-
-  // the known facts that were used to evaluate the request
-  repeated string useful_facts = 4;
 }

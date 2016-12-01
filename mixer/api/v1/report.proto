@@ -31,11 +31,14 @@ message ReportRequest {
   // within the current stream.
   map<string, string> facts = 2;
 
+  // The monitored resource type associated with this report.
+  string monitored_resource_descriptor_name = 3
+
   // Metric values being reported
-  repeated MetricValue metric_values = 3;
+  repeated MetricValue metric_values = 4;
 
   // Log entries being reported
-  repeated LogEntry log_entries = 4;
+  repeated LogEntry log_entries = 5;
 }
 
 // Represents a single metric value.
@@ -147,7 +150,4 @@ message ReportResponse {
 
   // Indicates whether the report was processed or not
   google.rpc.Status result = 2;
-
-  // the known facts that were used to evaluate the request
-  repeated string useful_facts = 3;
 }
