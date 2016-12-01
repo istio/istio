@@ -79,7 +79,7 @@ In the following example of service configuration state, the log
 
     # The monitored resource to be used.
     monitored_resources:
-    - type: api
+    - name: api
       labels:
       - key: cloud.googleapis.com/location
       - key: serviceruntime.googleapis.com/api_version
@@ -142,7 +142,7 @@ method to report values on the metric.
 
     # The monitored resource to be used.
     monitored_resources:
-    - type: api
+    - name: api
       labels:
       - key: cloud.googleapis.com/location
       - key: serviceruntime.googleapis.com/api_version
