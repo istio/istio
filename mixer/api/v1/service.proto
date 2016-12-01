@@ -22,7 +22,17 @@ import "quota.proto";
 
 // The Istio Mixer API
 service Mixer {
+  // Checks preconditions before performing an operation.
+  // The preconditions enforced depend on the set of supplied facts
+  // and the active configuration.
+  //
+  // This method is intended for use by the Istio proxy and not by
+  // individual services.
   rpc Check(stream CheckRequest) returns (stream CheckResponse) {}
+
+  // Reports telemetry, such as logs and metrics.
   rpc Report(stream ReportRequest) returns (stream ReportResponse) {}
+
+  // Quota allocates and releases quota.
   rpc Quota(stream QuotaRequest) returns (stream QuotaResponse) {}
 }

@@ -18,7 +18,7 @@ package istio.mixer.v1;
 
 import "google/rpc/status.proto";
 
-// Used to verify a preconditions before performing an action.
+// Used to verify preconditions before performing an action.
 message CheckRequest {
   // Uniquely identifies this request, used to match to responses
   int64 request_id = 1;
@@ -27,15 +27,6 @@ message CheckRequest {
   // represents a delta relative to the facts currently known to the mixer
   // within the current stream.
   map<string, string> facts = 2;
-
-  // Perform a whitelist check
-  bool check_whitelist = 3;
-
-  // Perform a blacklist check
-  bool check_blacklist = 4;
-
-  // Perform a permission check
-  bool check_permission = 5;
 }
 
 message CheckResponse {
@@ -44,7 +35,4 @@ message CheckResponse {
 
   // Indicates whether or not the preconditions succeeded
   google.rpc.Status result = 2;
-
-  // the known facts that were used to evaluate the request
-  repeated string useful_facts = 3;
 }
