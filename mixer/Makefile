@@ -13,32 +13,48 @@
 ## limitations under the License.
 
 # Primary build targets
-build: inst build_api build_server
-clean: clean_api clean_server
+build: inst build_api build_config build_server
+clean: clean_api clean_config clean_server
 test: test_server
 
 ## API Targets
 
 PROTOC = bin/protoc.$(shell uname)
-PROTO_OUTDIR_GO = api/v1/go
-PROTO_OUTDIR_CPP = api/v1/cpp
-PROTO_SRC = api/v1/service.proto api/v1/check.proto api/v1/report.proto api/v1/quota.proto
+API_OUTDIR_GO = api/v1/go
+API_OUTDIR_CPP = api/v1/cpp
+API_SRC = api/v1/service.proto api/v1/check.proto api/v1/report.proto api/v1/quota.proto
 
-$(PROTO_OUTDIR_GO)/%.pb.go $(PROTO_OUTDIR_CPP)/%.pb.cc: api/v1/%.proto
-	@echo "Building protos"
-	@mkdir -p $(PROTO_OUTDIR_GO) $(PROTO_OUTDIR_CPP)
-	@$(PROTOC) --proto_path=api/v1 --proto_path=vendor/github.com/googleapis/googleapis --proto_path=vendor/github.com/google/protobuf/src --cpp_out=$(PROTO_OUTDIR_CPP) --go_out=plugins=grpc:$(PROTO_OUTDIR_GO) $(PROTO_SRC)
+$(API_OUTDIR_GO)/%.pb.go $(API_OUTDIR_CPP)/%.pb.cc: api/v1/%.proto
+	@echo "Building API protos"
+	@mkdir -p $(API_OUTDIR_GO) $(API_OUTDIR_CPP)
+	@$(PROTOC) --proto_path=api/v1 --proto_path=vendor/github.com/googleapis/googleapis --proto_path=vendor/github.com/google/protobuf/src --cpp_out=$(API_OUTDIR_CPP) --go_out=plugins=grpc:$(API_OUTDIR_GO) $(API_SRC)
 
-build_api: $(PROTO_OUTDIR_GO)/service.pb.go
+build_api: $(API_OUTDIR_GO)/service.pb.go
 
 clean_api:
-	@rm -fr $(PROTO_OUTDIR_GO) $(PROTO_OUTDIR_CPP)
+	@rm -fr $(API_OUTDIR_GO) $(API_OUTDIR_CPP)
+
+## Config Targets
+
+CONFIG_OUTDIR_GO = config/v1/go
+CONFIG_OUTDIR_CPP = config/v1/cpp
+CONFIG_SRC = config/v1/label_descriptor.proto config/v1/metric_descriptor.proto config/v1/quota_descriptor.proto config/v1/principal_descriptor.proto config/v1/monitored_resource_descriptor.proto
+
+$(CONFIG_OUTDIR_GO)/%.pb.go $(CONFIG_OUTDIR_CPP)/%.pb.cc: config/v1/%.proto
+	@echo "Building config protos"
+	@mkdir -p $(CONFIG_OUTDIR_GO) $(CONFIG_OUTDIR_CPP)
+	@$(PROTOC) --proto_path=config/v1 --proto_path=vendor/github.com/googleapis/googleapis --proto_path=vendor/github.com/google/protobuf/src --cpp_out=$(CONFIG_OUTDIR_CPP) --go_out=plugins=grpc:$(CONFIG_OUTDIR_GO) $(CONFIG_SRC)
+
+build_config: $(CONFIG_OUTDIR_GO)/metric_descriptor.pb.go
+
+clean_config:
+	@rm -fr $(CONFIG_OUTDIR_GO) $(CONFIG_OUTDIR_CPP)
 
 ## Server targets
 
 GO_SRC = server/*.go adapters/*.go adapters/*/*.go
 
-mixer.bin: $(GO_SRC) $(PROTO_SRC)
+mixer.bin: $(GO_SRC) $(API_SRC)
 	@echo "Building server"
 	@go build -o mixer.bin server/*.go
 
