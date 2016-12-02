@@ -116,33 +116,32 @@ message LogEntry {
     EMERGENCY = 800;
   }
 
-  // Destination log for this entry
-  string log_name = 10;
+  // The name of the LogEntryDescriptor providing the schema for this log entry.
+  string descriptor_name = 1;
+
+  // Destination log collection for this entry
+  string log_collection = 2;
 
   // The time the event described by the log entry occurred.
-  google.protobuf.Timestamp timestamp = 11;
+  google.protobuf.Timestamp timestamp = 3;
 
   // The severity of the log entry. The default value is
   // `LogSeverity.DEFAULT`.
-  LogSeverity severity = 12;
-
-  // A set of user-defined (key, value) data that provides additional
-  // information about the log entry.
-  map<string, string> labels = 13;
+  LogSeverity severity = 4;
 
   // The log entry payload, which can be one of multiple types.
   oneof payload {
     // The log entry payload, represented as a protocol buffer that is
     // expressed as a JSON object. You can only pass `protoPayload`
     // values that belong to a set of approved types.
-    google.protobuf.Any proto_payload = 2;
+    google.protobuf.Any proto_payload = 5;
 
     // The log entry payload, represented as a Unicode string (UTF-8).
-    string text_payload = 3;
+    string text_payload = 6;
 
     // The log entry payload, represented as a structure that
     // is expressed as a JSON object.
-    google.protobuf.Struct struct_payload = 6;
+    google.protobuf.Struct struct_payload = 7;
   }
 }
 
