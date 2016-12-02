@@ -11,12 +11,7 @@ So, you want to hack on the Istio mixer? Yay!
 We'd love to accept your patches! Before we can take them, you have to jump a
 few legal hurdles.
 
-Please fill out the Cloud Native Computing Foundation (CNCF) CLA:
-
-  * To contribute as an individual or as an employee of a signed organization,
-    [go here](https://identity.linuxfoundation.org/projects/cncf).
-  * To sign up as an organization, [go
-    here](https://identity.linuxfoundation.org/node/285/organization-signup).
+Please fill out the [Google CLA](https://cla.developers.google.com).
 
 Once you are CLA'ed, we'll be able to accept your pull requests.
 
