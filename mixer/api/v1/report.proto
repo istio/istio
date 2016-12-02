@@ -32,7 +32,7 @@ message ReportRequest {
   map<string, string> facts = 2;
 
   // The monitored resource type associated with this report.
-  string monitored_resource_descriptor_name = 3
+  string monitored_resource_descriptor_name = 3;
 
   // Metric values being reported
   repeated MetricValue metric_values = 4;

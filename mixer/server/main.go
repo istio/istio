@@ -39,7 +39,7 @@ func main() {
 		CompressedPayload = false
 	)
 
-	grpcPort := flag.Int("grpcPort", GRPCPort, "Port exposed for Mixologist gRPC API")
+	grpcPort := flag.Int("grpcPort", GRPCPort, "Port exposed for Mixer gRPC API")
 	maxMessageSize := flag.Uint("maxMessageSize", MaxMessageSize, "Maximum size of individual gRPC messages")
 	maxConcurrentStreams := flag.Uint("maxConcurrentStreams", MaxConcurrentStreams, "Maximum supported number of concurrent gRPC streams")
 	compressedPayload := flag.Bool("compressedPayload", CompressedPayload, "Whether to compress gRPC messages")
@@ -75,18 +75,18 @@ func main() {
 		glog.Exitf("Unable to initialize adapters: %v", err)
 	}
 
-	// TODO: hackily create a fact mapper adapter & instance.
+	// TODO: hackily create a fact mapper builder & adapter.
 	// This necessarily needs to be discovered & created through normal
 	// adapter config goo, but that doesn't exist yet
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2"
-	adapter := adapterMgr.FactConverters["FactMapper"]
-	var instance adapters.Instance
-	instance, err = adapter.NewInstance(&factMapper.InstanceConfig{Rules: rules})
+	builder := adapterMgr.FactConverters["FactMapper"]
+	var adapter adapters.Adapter
+	adapter, err = builder.NewAdapter(&factMapper.AdapterConfig{Rules: rules})
 	if err != nil {
-		glog.Exitf("Unable to create fact conversion instance " + err.Error())
+		glog.Exitf("Unable to create fact conversion adapter " + err.Error())
 	}
-	factConverter := instance.(adapters.FactConverter)
+	factConverter := adapter.(adapters.FactConverter)
 
 	apiServerOptions := APIServerOptions{
 		Port:                 uint16(*grpcPort),

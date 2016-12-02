@@ -44,17 +44,17 @@ type testState struct {
 func (ts *testState) createAPIServer() error {
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2"
-	adapter := factMapper.NewAdapter()
-	err := adapter.Activate(adapter.DefaultConfig())
+	builder := factMapper.NewBuilder()
+	err := builder.Configure(builder.DefaultBuilderConfig())
 	if err != nil {
 		return err
 	}
-	var instance adapters.Instance
-	instance, err = adapter.NewInstance(&factMapper.InstanceConfig{Rules: rules})
+	var a adapters.Adapter
+	a, err = builder.NewAdapter(&factMapper.AdapterConfig{Rules: rules})
 	if err != nil {
 		return err
 	}
-	factConverter := instance.(adapters.FactConverter)
+	factConverter := a.(adapters.FactConverter)
 
 	options := APIServerOptions{
 		Port:                 testPort,

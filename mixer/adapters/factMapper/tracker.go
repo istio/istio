@@ -31,12 +31,6 @@ type tracker struct {
 }
 
 // newTracker returns a new independent tracker instance.
-//
-// This function takes a pointer to a pointer to the lookup tables to use.
-// The instance logic updates this pointer whenever new lookup tables are
-// installed (which happens during config changes). The code here detects
-// when this pointer changes and invalidates its locally cached state
-// accordingly, such that updated labels are produced by the tracker.
 func newTracker(tables *lookupTables) *tracker {
 	return &tracker{
 		tables:        tables,

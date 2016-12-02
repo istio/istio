@@ -18,55 +18,23 @@ import (
 	"istio.io/mixer/adapters"
 )
 
-// Config is used to configure an adapter
-type Config struct {
+// AdapterConfig is used to configure adapters.
+type AdapterConfig struct {
+	adapters.AdapterConfig
 }
 
-type adapter struct{}
-
-// NewAdapter returns an Adapter
-func NewAdapter() adapters.Adapter {
-	return &adapter{}
+type adapter struct {
 }
 
-func (a *adapter) Name() string {
-	return "DenyChecker"
+// newAdapter returns a new adapter.
+func newAdapter(config *AdapterConfig) (adapters.ListChecker, error) {
+	return &adapter{}, nil
 }
 
-func (a *adapter) Description() string {
-	return "Deny every check request"
-}
-
-func (a *adapter) DefaultConfig() adapters.Config {
-	return &Config{}
-}
-
-func (a *adapter) ValidateConfig(config adapters.Config) error {
-	_ = config.(*Config)
+func (a *adapter) Close() error {
 	return nil
 }
 
-func (a *adapter) Activate(config adapters.Config) error {
-	// nothing to do for this adapter...
-	return a.ValidateConfig(config)
-}
-
-func (a *adapter) Deactivate() {
-}
-
-func (a *adapter) DefaultInstanceConfig() adapters.InstanceConfig {
-	return &InstanceConfig{}
-}
-
-func (a *adapter) ValidateInstanceConfig(config adapters.InstanceConfig) error {
-	_ = config.(*InstanceConfig)
-	return nil
-}
-
-func (a *adapter) NewInstance(config adapters.InstanceConfig) (adapters.Instance, error) {
-	if err := a.ValidateInstanceConfig(config); err != nil {
-		return nil, err
-	}
-	c := config.(*InstanceConfig)
-	return newInstance(c)
+func (a *adapter) CheckList(symbol string) (bool, error) {
+	return false, nil
 }

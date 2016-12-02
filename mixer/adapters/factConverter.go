@@ -18,7 +18,7 @@ package adapters
 // are responsible for converting from a set of facts into a set
 // of labels.
 type FactConverter interface {
-	Instance
+	Adapter
 
 	// NewTracker returns a fresh tracker
 	NewTracker() FactTracker
