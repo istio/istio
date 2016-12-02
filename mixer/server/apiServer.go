@@ -118,7 +118,7 @@ func NewAPIServer(options *APIServerOptions) (*APIServer, error) {
 	// get everything wired up
 	grpcServer := grpc.NewServer(grpcOptions...)
 	apiServer := &APIServer{grpcServer, listener, options.Handlers, options.FactConverter}
-	mixer.RegisterMixerServer(grpcServer, apiServer)
+	mixerpb.RegisterMixerServer(grpcServer, apiServer)
 	return apiServer, nil
 }
 
@@ -162,31 +162,31 @@ func (s *APIServer) streamLoop(stream grpc.ServerStream, request proto.Message, 
 }
 
 // Check is the entry point for the external Check method
-func (s *APIServer) Check(stream mixer.Mixer_CheckServer) error {
+func (s *APIServer) Check(stream mixerpb.Mixer_CheckServer) error {
 	return s.streamLoop(stream,
-		new(mixer.CheckRequest),
-		new(mixer.CheckResponse),
+		new(mixerpb.CheckRequest),
+		new(mixerpb.CheckResponse),
 		func(tracker adapters.FactTracker, request proto.Message, response proto.Message) {
-			s.handler.Check(tracker, request.(*mixer.CheckRequest), response.(*mixer.CheckResponse))
+			s.handler.Check(tracker, request.(*mixerpb.CheckRequest), response.(*mixerpb.CheckResponse))
 		})
 }
 
 // Report is the entry point for the external Report method
-func (s *APIServer) Report(stream mixer.Mixer_ReportServer) error {
+func (s *APIServer) Report(stream mixerpb.Mixer_ReportServer) error {
 	return s.streamLoop(stream,
-		new(mixer.ReportRequest),
-		new(mixer.ReportResponse),
+		new(mixerpb.ReportRequest),
+		new(mixerpb.ReportResponse),
 		func(tracker adapters.FactTracker, request proto.Message, response proto.Message) {
-			s.handler.Report(tracker, request.(*mixer.ReportRequest), response.(*mixer.ReportResponse))
+			s.handler.Report(tracker, request.(*mixerpb.ReportRequest), response.(*mixerpb.ReportResponse))
 		})
 }
 
 // Quota is the entry point for the external Quota method
-func (s *APIServer) Quota(stream mixer.Mixer_QuotaServer) error {
+func (s *APIServer) Quota(stream mixerpb.Mixer_QuotaServer) error {
 	return s.streamLoop(stream,
-		new(mixer.QuotaRequest),
-		new(mixer.QuotaResponse),
+		new(mixerpb.QuotaRequest),
+		new(mixerpb.QuotaResponse),
 		func(tracker adapters.FactTracker, request proto.Message, response proto.Message) {
-			s.handler.Quota(tracker, request.(*mixer.QuotaRequest), response.(*mixer.QuotaResponse))
+			s.handler.Quota(tracker, request.(*mixerpb.QuotaRequest), response.(*mixerpb.QuotaResponse))
 		})
 }
