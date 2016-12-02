@@ -16,13 +16,25 @@ package denyChecker
 
 import (
 	"testing"
+
+	"istio.io/mixer/adapters"
+	"istio.io/mixer/adapters/testutil"
 )
 
+func TestBuilderInvariants(t *testing.T) {
+	b := NewBuilder()
+	testutil.TestBuilderInvariants(b, t)
+}
+
 func TestAll(t *testing.T) {
-	listChecker, err := newAdapter(&AdapterConfig{})
+	b := NewBuilder()
+	b.Configure(b.DefaultBuilderConfig())
+
+	a, err := b.NewAdapter(b.DefaultAdapterConfig())
 	if err != nil {
 		t.Error("Unable to create adapter")
 	}
+	listChecker := a.(adapters.ListChecker)
 
 	var ok bool
 	ok, err = listChecker.CheckList("")

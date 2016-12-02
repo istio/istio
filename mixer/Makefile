@@ -13,13 +13,14 @@
 ## limitations under the License.
 
 # Primary build targets
+
 build: check_env dep build_api build_config build_server
 super_clean: clean
 	@go clean $(CLEAN_FLAGS) -i ./...
 clean: check_env clean_api clean_config clean_server
 	@go clean $(CLEAN_FLAGS)
 	@go clean $(CLEAN_FLAGS) -i ./server/... ./adapters/... ./vendor/istio.io/
-test: test_server
+test: build_api build_config build_server test_server
 
 check_env:
 ifdef VERBOSE
@@ -27,37 +28,39 @@ BUILD_FLAGS := "-v"
 CLEAN_FLAGS := "-x"
 endif
 
-
 ## API Targets
 
 PROTOC = bin/protoc.$(shell uname)
 VENDOR = vendor
+
+API_SRC = $(wildcard api/v1/*.proto)
 API_OUTDIR_GO = $(VENDOR)/istio.io/mixer/api/v1
 API_OUTDIR_CPP = api/v1/cpp
-API_SRC = api/v1/service.proto api/v1/check.proto api/v1/report.proto api/v1/quota.proto
+API_OUTPUTS = $(API_SRC:api/v1/%.proto=$(API_OUTDIR_GO)/%.pb.go) $(API_SRC:api/v1/%.proto=$(API_OUTDIR_CPP)/%.pb.cc) $(API_SRC:api/v1/%.proto=$(API_OUTDIR_CPP)/%.pb.h)
 
-$(API_OUTDIR_GO)/%.pb.go $(API_OUTDIR_CPP)/%.pb.cc: api/v1/%.proto
+$(API_OUTDIR_GO)/%.pb.go $(API_OUTDIR_CPP)/%.pb.cc $(API_OUTDIR_CPP)/%.pb.h: api/v1/%.proto
 	@echo "Building API protos"
 	@mkdir -p $(API_OUTDIR_GO) $(API_OUTDIR_CPP)
 	@$(PROTOC) --proto_path=api/v1 --proto_path=vendor/github.com/googleapis/googleapis --proto_path=vendor/github.com/google/protobuf/src --cpp_out=$(API_OUTDIR_CPP) --go_out=plugins=grpc:$(VENDOR) $(API_SRC)
 
-build_api: $(API_OUTDIR_GO)/service.pb.go
+build_api: $(API_OUTPUTS)
 
 clean_api:
 	@rm -fr $(API_OUTDIR_GO) $(API_OUTDIR_CPP)
 
 ## Config Targets
 
+CONFIG_SRC = $(wildcard config/v1/*.proto)
 CONFIG_OUTDIR_GO = config/v1/go
 CONFIG_OUTDIR_CPP = config/v1/cpp
-CONFIG_SRC = config/v1/label_descriptor.proto config/v1/metric_descriptor.proto config/v1/quota_descriptor.proto config/v1/principal_descriptor.proto config/v1/monitored_resource_descriptor.proto
+CONFIG_OUTPUTS = $(CONFIG_SRC:config/v1/%.proto=$(CONFIG_OUTDIR_GO)/%.pb.go) $(CONFIG_SRC:config/v1/%.proto=$(CONFIG_OUTDIR_CPP)/%.pb.cc) $(CONFIG_SRC:config/v1/%.proto=$(CONFIG_OUTDIR_CPP)/%.pb.h)
 
-$(CONFIG_OUTDIR_GO)/%.pb.go $(CONFIG_OUTDIR_CPP)/%.pb.cc: config/v1/%.proto
+$(CONFIG_OUTDIR_GO)/%.pb.go $(CONFIG_OUTDIR_CPP)/%.pb.cc $(CONFIG_OUTDIR_CPP)/%.pb.h: config/v1/%.proto
 	@echo "Building config protos"
 	@mkdir -p $(CONFIG_OUTDIR_GO) $(CONFIG_OUTDIR_CPP)
 	@$(PROTOC) --proto_path=config/v1 --proto_path=vendor/github.com/googleapis/googleapis --proto_path=vendor/github.com/google/protobuf/src --cpp_out=$(CONFIG_OUTDIR_CPP) --go_out=plugins=grpc:$(CONFIG_OUTDIR_GO) $(CONFIG_SRC)
 
-build_config: $(CONFIG_OUTDIR_GO)/metric_descriptor.pb.go
+build_config: $(CONFIG_OUTPUTS)
 
 clean_config:
 	@rm -fr $(CONFIG_OUTDIR_GO) $(CONFIG_OUTDIR_CPP)
@@ -66,7 +69,7 @@ clean_config:
 
 GO_SRC = server/*.go adapters/*.go adapters/*/*.go
 
-mixer.bin: $(GO_SRC) $(API_SRC)
+mixer.bin: $(GO_SRC) $(API_OUTPUTS) $(CONFIG_OUTPUTS)
 	@echo "Building server"
 	@go build -i $(BUILD_FLAGS) -o mixer.bin server/*.go
 
@@ -79,7 +82,7 @@ build_server: mixer.bin
 clean_server:
 	@rm -f mixer.bin
 
-test_server: build_server
+test_server:
 	@echo "Running tests"
 	@go test -race -cpu 1,4 ./server/... ./adapters/...
 

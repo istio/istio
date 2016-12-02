@@ -21,6 +21,7 @@ import (
 
 	"istio.io/mixer/adapters/denyChecker"
 	"istio.io/mixer/adapters/factMapper"
+	"istio.io/mixer/adapters/genericListChecker"
 	"istio.io/mixer/adapters/ipListChecker"
 )
 
@@ -29,14 +30,21 @@ var factConverters = []adapters.Builder{
 	factMapper.NewBuilder(),
 }
 
+// all the known fact updater adapter types
+var factUpdaters = []adapters.Builder{}
+
 // all the known list checker adapter types
 var listCheckers = []adapters.Builder{
 	ipListChecker.NewBuilder(),
+	genericListChecker.NewBuilder(),
 	denyChecker.NewBuilder(),
 }
 
 // AdapterManager keeps track of activated Adapter objects for different types of adapters
 type AdapterManager struct {
+	// FactUpdaters is the set of fact updater adapters
+	FactUpdaters map[string]adapters.Builder
+
 	// FactConverters is the set of fact converter adapters
 	FactConverters map[string]adapters.Builder
 
@@ -66,6 +74,10 @@ func prepBuilders(l []adapters.Builder) (map[string]adapters.Builder, error) {
 func NewAdapterManager() (*AdapterManager, error) {
 	var mgr = AdapterManager{}
 	var err error
+
+	if mgr.FactUpdaters, err = prepBuilders(factUpdaters); err != nil {
+		return nil, err
+	}
 
 	if mgr.FactConverters, err = prepBuilders(factConverters); err != nil {
 		return nil, err
