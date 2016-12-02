@@ -13,9 +13,20 @@
 ## limitations under the License.
 
 # Primary build targets
-build: inst build_api build_config build_server
-clean: clean_api clean_config clean_server
+build: check_env dep build_api build_config build_server
+super_clean: clean
+	@go clean $(CLEAN_FLAGS) -i ./...
+clean: check_env clean_api clean_config clean_server
+	@go clean $(CLEAN_FLAGS)
+	@go clean $(CLEAN_FLAGS) -i ./server/... ./adapters/... ./vendor/istio.io/
 test: test_server
+
+check_env:
+ifdef VERBOSE
+BUILD_FLAGS := "-v"
+CLEAN_FLAGS := "-x"
+endif
+
 
 ## API Targets
 
@@ -57,7 +68,7 @@ GO_SRC = server/*.go adapters/*.go adapters/*/*.go
 
 mixer.bin: $(GO_SRC) $(API_SRC)
 	@echo "Building server"
-	@go build -o mixer.bin server/*.go
+	@go build -i $(BUILD_FLAGS) -o mixer.bin server/*.go
 
 build_server: mixer.bin
 	@go tool vet -shadowstrict server adapters
@@ -76,10 +87,10 @@ test_server: build_server
 
 GLIDE = third_party/bin/glide.$(shell uname)
 
-inst:
+dep:
 	@echo "Prepping dependencies"
 	@$(GLIDE) -q install
 	@ if ! which protoc-gen-go > /dev/null; then \
-		echo "error: protoc-gen-go not installed" >&2;\
+		echo "warning: protoc-gen-go not installed, attempting install" >&2;\
 		go get github.com/golang/protobuf/protoc-gen-go;\
 	fi
