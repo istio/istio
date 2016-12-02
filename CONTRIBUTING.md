@@ -4,7 +4,6 @@ So, you want to hack on the Istio Proxy? Yay!
 
 - [Contributor license agreements](#contributor-license-agreements)
 - [Contributing a patch](#contributing-a-patch)
-- [Other documents](#other-documents)
 
 ## Contributor license agreements
 
