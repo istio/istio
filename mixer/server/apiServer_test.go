@@ -36,7 +36,7 @@ const (
 
 type testState struct {
 	apiServer  *APIServer
-	client     mixer.MixerClient
+	client     mixerpb.MixerClient
 	connection *grpc.ClientConn
 }
 
@@ -88,7 +88,7 @@ func (ts *testState) createAPIClient() error {
 		return err
 	}
 
-	ts.client = mixer.NewMixerClient(ts.connection)
+	ts.client = mixerpb.NewMixerClient(ts.connection)
 	return nil
 }
 
@@ -117,17 +117,17 @@ func (ts *testState) cleanupTestState() {
 	ts.deleteAPIServer()
 }
 
-func (ts *testState) Check(tracker adapters.FactTracker, request *mixer.CheckRequest, response *mixer.CheckResponse) {
+func (ts *testState) Check(tracker adapters.FactTracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	response.RequestId = request.RequestId
 	response.Result = newStatus(code.Code_UNIMPLEMENTED)
 }
 
-func (ts *testState) Report(tracker adapters.FactTracker, request *mixer.ReportRequest, response *mixer.ReportResponse) {
+func (ts *testState) Report(tracker adapters.FactTracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 	response.RequestId = request.RequestId
 	response.Result = newStatus(code.Code_UNIMPLEMENTED)
 }
 
-func (ts *testState) Quota(tracker adapters.FactTracker, request *mixer.QuotaRequest, response *mixer.QuotaResponse) {
+func (ts *testState) Quota(tracker adapters.FactTracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
 	response.RequestId = request.RequestId
 	response.Result = newQuotaError(code.Code_UNIMPLEMENTED)
 }
@@ -163,13 +163,13 @@ func TestCheck(t *testing.T) {
 	}()
 
 	// send the first request
-	request := mixer.CheckRequest{RequestId: testRequestID0}
+	request := mixerpb.CheckRequest{RequestId: testRequestID0}
 	if err := stream.Send(&request); err != nil {
 		t.Errorf("Failed to send first request: %v", err)
 	}
 
 	// send the second request
-	request = mixer.CheckRequest{RequestId: testRequestID1}
+	request = mixerpb.CheckRequest{RequestId: testRequestID1}
 	if err := stream.Send(&request); err != nil {
 		t.Errorf("Failed to send second request: %v", err)
 	}
@@ -220,13 +220,13 @@ func TestReport(t *testing.T) {
 	}()
 
 	// send the first request
-	request := mixer.ReportRequest{RequestId: testRequestID0}
+	request := mixerpb.ReportRequest{RequestId: testRequestID0}
 	if err := stream.Send(&request); err != nil {
 		t.Errorf("Failed to send first request: %v", err)
 	}
 
 	// send the second request
-	request = mixer.ReportRequest{RequestId: testRequestID1}
+	request = mixerpb.ReportRequest{RequestId: testRequestID1}
 	if err := stream.Send(&request); err != nil {
 		t.Errorf("Failed to send second request: %v", err)
 	}

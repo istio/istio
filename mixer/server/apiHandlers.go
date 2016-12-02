@@ -30,17 +30,17 @@ type APIHandlers interface {
 	// Check performs the configured set of precondition checks.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Check(adapters.FactTracker, *mixer.CheckRequest, *mixer.CheckResponse)
+	Check(adapters.FactTracker, *mixerpb.CheckRequest, *mixerpb.CheckResponse)
 
 	// Report performs the requested set of reporting operations.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Report(adapters.FactTracker, *mixer.ReportRequest, *mixer.ReportResponse)
+	Report(adapters.FactTracker, *mixerpb.ReportRequest, *mixerpb.ReportResponse)
 
 	// Quota increments, decrements, or queries the specified quotas.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Quota(adapters.FactTracker, *mixer.QuotaRequest, *mixer.QuotaResponse)
+	Quota(adapters.FactTracker, *mixerpb.QuotaRequest, *mixerpb.QuotaResponse)
 }
 
 type apiHandlers struct {
@@ -50,8 +50,8 @@ func newStatus(c code.Code) *status.Status {
 	return &status.Status{Code: int32(c)}
 }
 
-func newQuotaError(c code.Code) *mixer.QuotaResponse_Error {
-	return &mixer.QuotaResponse_Error{Error: newStatus(c)}
+func newQuotaError(c code.Code) *mixerpb.QuotaResponse_Error {
+	return &mixerpb.QuotaResponse_Error{Error: newStatus(c)}
 }
 
 // NewAPIHandlers returns a canonical APIHandlers that implements all of the mixer's API surface
@@ -59,19 +59,19 @@ func NewAPIHandlers() APIHandlers {
 	return &apiHandlers{}
 }
 
-func (h *apiHandlers) Check(tracker adapters.FactTracker, request *mixer.CheckRequest, response *mixer.CheckResponse) {
+func (h *apiHandlers) Check(tracker adapters.FactTracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	tracker.UpdateFacts(request.GetFacts())
 	response.RequestId = request.RequestId
 	response.Result = newStatus(code.Code_UNIMPLEMENTED)
 }
 
-func (h *apiHandlers) Report(tracker adapters.FactTracker, request *mixer.ReportRequest, response *mixer.ReportResponse) {
+func (h *apiHandlers) Report(tracker adapters.FactTracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 	tracker.UpdateFacts(request.GetFacts())
 	response.RequestId = request.RequestId
 	response.Result = newStatus(code.Code_UNIMPLEMENTED)
 }
 
-func (h *apiHandlers) Quota(tracker adapters.FactTracker, request *mixer.QuotaRequest, response *mixer.QuotaResponse) {
+func (h *apiHandlers) Quota(tracker adapters.FactTracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
 	tracker.UpdateFacts(request.GetFacts())
 	response.RequestId = request.RequestId
 	response.Result = newQuotaError(code.Code_UNIMPLEMENTED)
