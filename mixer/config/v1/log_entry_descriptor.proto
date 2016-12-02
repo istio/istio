@@ -1,0 +1,40 @@
+// Copyright 2016 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package config.v1;
+
+import "label_descriptor.proto";
+
+// Defines the format of a single log entry.
+//
+// Here's an example log entry descriptor defined in a YAML configuration
+// file:
+//
+//    log_entry:
+//    - name: myService/default
+//      labels:
+//      - key: caller_id
+//      - key: datacenter_id
+//
+// This descriptor means that in addition to the main log payload, each log entry
+// using this descriptor needs to include a caller_id and a datacenter_id label.
+message LogEntryDescriptor {
+  // The name of this descriptor.
+  string name = 1;
+
+  // The set of labels that are necessary to describe this log entry.
+  repeated LabelDescriptor labels = 2;
+}
