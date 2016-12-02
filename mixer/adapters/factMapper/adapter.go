@@ -15,57 +15,85 @@
 package factMapper
 
 import (
+	"errors"
+	"strings"
+
 	"istio.io/mixer/adapters"
 )
 
-// Config is used to configure an adapter.
-type Config struct{}
+// AdapterConfig is used to configure adapters.
+type AdapterConfig struct {
+	adapters.AdapterConfig
 
-type adapter struct{}
-
-// NewAdapter returns an Adapter
-func NewAdapter() adapters.Adapter {
-	return &adapter{}
+	// Rules specifies the set of label mapping rules. The keys of the map represent the
+	// name of labels, while the value specifies the mapping rules to
+	// turn individual fact values into label values.
+	//
+	// Mapping rules consist of a set of fact names separated by |. The
+	// label's value is derived by iterating through all the stated facts
+	// and picking the first one that is defined.
+	Rules map[string]string
 }
 
-func (a *adapter) Name() string {
-	return "FactMapper"
+// Holds lookup tables associated with the current set of mapping rules. Thjs
+// struct and its maps are immutable once created
+type lookupTables struct {
+	// for each label, has an ordered slice of facts that can contribute to the label
+	labelFacts map[string][]string
+
+	// for each fact that matters, has a list of the labels to update if the fact changes
+	factLabels map[string][]string
 }
 
-func (a *adapter) Description() string {
-	return "Performs config-driven mapping of facts to labels"
+type adapter struct {
+	// active set of lookup tables. These can be swapped at any time as a result of config updates
+	tables *lookupTables
 }
 
-func (a *adapter) DefaultConfig() adapters.Config {
-	return &Config{}
+func buildLookupTables(config *AdapterConfig) (*lookupTables, error) {
+	// build our lookup tables
+	labelRules := config.Rules
+	labelFacts := make(map[string][]string)
+	factLabels := make(map[string][]string)
+	for label, rule := range labelRules {
+		facts := strings.Split(rule, "|")
+
+		// remove whitespace
+		for i := range facts {
+			facts[i] = strings.TrimSpace(facts[i])
+			if facts[i] == "" {
+				return nil, errors.New("can't have empty or whitespace fact in rule for label " + label)
+			}
+		}
+
+		labelFacts[label] = facts
+
+		for _, fact := range facts {
+			factLabels[fact] = append(factLabels[fact], label)
+		}
+	}
+
+	return &lookupTables{
+		labelFacts: labelFacts,
+		factLabels: factLabels,
+	}, nil
 }
 
-func (a *adapter) ValidateConfig(config adapters.Config) error {
-	_ = config.(*Config)
-	return nil
-}
-
-func (a *adapter) Activate(config adapters.Config) error {
-	// nothing to do for this adapter...
-	return a.ValidateConfig(config)
-}
-
-func (a *adapter) Deactivate() {
-}
-
-func (a *adapter) DefaultInstanceConfig() adapters.InstanceConfig {
-	return &InstanceConfig{}
-}
-
-func (a *adapter) ValidateInstanceConfig(config adapters.InstanceConfig) error {
-	_ = config.(*InstanceConfig)
-	return nil
-}
-
-func (a *adapter) NewInstance(config adapters.InstanceConfig) (adapters.Instance, error) {
-	if err := a.ValidateInstanceConfig(config); err != nil {
+// newAdapter returns a new adapter.
+func newAdapter(config *AdapterConfig) (adapters.FactConverter, error) {
+	tables, err := buildLookupTables(config)
+	if err != nil {
 		return nil, err
 	}
-	c := config.(*InstanceConfig)
-	return newInstance(c)
+
+	return &adapter{tables}, nil
+}
+
+func (a *adapter) Close() error {
+	a.tables = nil
+	return nil
+}
+
+func (a *adapter) NewTracker() adapters.FactTracker {
+	return newTracker(a.tables)
 }

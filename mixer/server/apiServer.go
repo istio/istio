@@ -68,10 +68,7 @@ type APIServerOptions struct {
 	Handlers APIHandlers
 
 	// FactConverter is a pointer to the global fact conversion
-	// adapter instance to use.
-	//
-	// TODO: This will be replaced with a more general pointer such
-	// as an AdapterManager or something of the sort
+	// adapter to use.
 	FactConverter adapters.FactConverter
 }
 

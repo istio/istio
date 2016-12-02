@@ -42,29 +42,29 @@ func TestBasic(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	config := InstanceConfig{
+	config := AdapterConfig{
 		ProviderURL:     ts.URL,
 		RefreshInterval: time.Second,
 		TimeToLive:      time.Second * 10,
 	}
 
-	inst, err := newInstance(&config)
+	a, err := newAdapter(&config)
 	if err != nil {
-		t.Error("unable to create adapter instance " + err.Error())
+		t.Error("unable to create adapter " + err.Error())
 	}
 
 	var ok bool
-	ok, err = inst.CheckList("10.10.11.2")
+	ok, err = a.CheckList("10.10.11.2")
 	if !ok {
 		t.Error("Expecting check to pass")
 	}
 
-	ok, err = inst.CheckList("9.9.9.1")
+	ok, err = a.CheckList("9.9.9.1")
 	if !ok {
 		t.Error("Expecting check to pass")
 	}
 
-	ok, err = inst.CheckList("120.10.11.2")
+	ok, err = a.CheckList("120.10.11.2")
 	if ok {
 		t.Error("Expecting check to fail")
 	}

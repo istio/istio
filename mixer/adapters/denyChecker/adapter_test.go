@@ -12,13 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapters
+package denyChecker
 
-// InstanceConfig is used to configure an individual instance of an adapter.
-type InstanceConfig interface{}
+import (
+	"testing"
+)
 
-// Instance defines lifecycle functions for individual adapter instances.
-type Instance interface {
-	// Delete is called by the mixer to indicate it is done with a particular adapter instance.
-	Delete()
+func TestAll(t *testing.T) {
+	listChecker, err := newAdapter(&AdapterConfig{})
+	if err != nil {
+		t.Error("Unable to create adapter")
+	}
+
+	var ok bool
+	ok, err = listChecker.CheckList("")
+	if ok || err != nil {
+		t.Error("Expecting to always get false")
+	}
+
+	ok, err = listChecker.CheckList("ABC")
+	if ok || err != nil {
+		t.Error("Expecting to always get false")
+	}
+
+	listChecker.Close()
 }

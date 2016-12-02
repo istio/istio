@@ -22,13 +22,13 @@ import (
 
 func TestNoRules(t *testing.T) {
 	rules := make(map[string]string)
-	var inst adapters.FactConverter
+	var a adapters.FactConverter
 	var err error
-	if inst, err = newInstance(&InstanceConfig{Rules: rules}); err != nil {
+	if a, err = newAdapter(&AdapterConfig{Rules: rules}); err != nil {
 		t.Error("Expected to successfully create a mapper")
 	}
 
-	tracker := inst.NewTracker()
+	tracker := a.NewTracker()
 
 	labels := tracker.GetLabels()
 	if len(labels) != 0 {
@@ -60,27 +60,27 @@ func TestNoRules(t *testing.T) {
 func TestOddballRules(t *testing.T) {
 	rules := make(map[string]string)
 	rules["Lab1"] = "|A|B|C"
-	if _, err := newInstance(&InstanceConfig{Rules: rules}); err == nil {
+	if _, err := newAdapter(&AdapterConfig{Rules: rules}); err == nil {
 		t.Error("Expecting to not be able to create a mapper")
 	}
 
 	rules["Lab1"] = "A|B|"
-	if _, err := newInstance(&InstanceConfig{Rules: rules}); err == nil {
+	if _, err := newAdapter(&AdapterConfig{Rules: rules}); err == nil {
 		t.Error("Expecting to not be able to create a mapper")
 	}
 
 	rules["Lab1"] = "A| |C"
-	if _, err := newInstance(&InstanceConfig{Rules: rules}); err == nil {
+	if _, err := newAdapter(&AdapterConfig{Rules: rules}); err == nil {
 		t.Error("Expecting to not be able to create a mapper")
 	}
 
 	rules["Lab1"] = "A||C"
-	if _, err := newInstance(&InstanceConfig{Rules: rules}); err == nil {
+	if _, err := newAdapter(&AdapterConfig{Rules: rules}); err == nil {
 		t.Error("Expecting to not be able to create a mapper")
 	}
 
 	rules["Lab1"] = "A | B | C"
-	if _, err := newInstance(&InstanceConfig{Rules: rules}); err != nil {
+	if _, err := newAdapter(&AdapterConfig{Rules: rules}); err != nil {
 		t.Error("Expecting to be able to create a mapper")
 	}
 }
@@ -89,13 +89,13 @@ func TestNoFacts(t *testing.T) {
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var inst adapters.FactConverter
+	var a adapters.FactConverter
 	var err error
-	if inst, err = newInstance(&InstanceConfig{Rules: rules}); err != nil {
+	if a, err = newAdapter(&AdapterConfig{Rules: rules}); err != nil {
 		t.Error("Expected to be able to create a mapper")
 	}
 
-	tracker := inst.NewTracker()
+	tracker := a.NewTracker()
 
 	labels := tracker.GetLabels()
 	if len(labels) != 0 {
@@ -131,13 +131,13 @@ func TestAddRemoveFacts(t *testing.T) {
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var inst adapters.FactConverter
+	var a adapters.FactConverter
 	var err error
-	if inst, err = newInstance(&InstanceConfig{Rules: rules}); err != nil {
+	if a, err = newAdapter(&AdapterConfig{Rules: rules}); err != nil {
 		t.Error("Expected to be able to create a mapper")
 	}
 
-	tracker := inst.NewTracker()
+	tracker := a.NewTracker()
 
 	// add some facts and try again
 	facts := make(map[string]string)
@@ -181,13 +181,13 @@ func TestReset(t *testing.T) {
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var inst adapters.FactConverter
+	var a adapters.FactConverter
 	var err error
-	if inst, err = newInstance(&InstanceConfig{Rules: rules}); err != nil {
+	if a, err = newAdapter(&AdapterConfig{Rules: rules}); err != nil {
 		t.Error("Expected to be able to create a mapper")
 	}
 
-	tracker := inst.NewTracker()
+	tracker := a.NewTracker()
 
 	// add some actual facts and try again
 	facts := make(map[string]string)
