@@ -12,7 +12,10 @@ few legal hurdles.
 
 Please fill out the [Google CLA](https://cla.developers.google.com).
 
-Once you are CLA'ed, we'll be able to accept your pull requests.
+Once you are CLA'ed, we'll be able to accept your pull requests. This is necessary
+because you own the copyright to your changes, even after your contribution
+becomes part of this project. So this agreement simply gives us permission
+to use and redistribute your contributions as part of the project.
 
 ***NOTE***: Only original source code from you and other people that have
 signed the CLA can be accepted into the repository. This policy does not
