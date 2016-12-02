@@ -21,8 +21,7 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/status"
 
 	"istio.io/mixer/adapters"
-
-	mixpb "istio.io/mixer/api/v1/go"
+	"istio.io/mixer/api/v1"
 )
 
 // APIHandlers holds pointers to the functions that implement
@@ -31,17 +30,17 @@ type APIHandlers interface {
 	// Check performs the configured set of precondition checks.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Check(adapters.FactTracker, *mixpb.CheckRequest, *mixpb.CheckResponse)
+	Check(adapters.FactTracker, *mixer.CheckRequest, *mixer.CheckResponse)
 
 	// Report performs the requested set of reporting operations.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Report(adapters.FactTracker, *mixpb.ReportRequest, *mixpb.ReportResponse)
+	Report(adapters.FactTracker, *mixer.ReportRequest, *mixer.ReportResponse)
 
 	// Quota increments, decrements, or queries the specified quotas.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Quota(adapters.FactTracker, *mixpb.QuotaRequest, *mixpb.QuotaResponse)
+	Quota(adapters.FactTracker, *mixer.QuotaRequest, *mixer.QuotaResponse)
 }
 
 type apiHandlers struct {
@@ -51,8 +50,8 @@ func newStatus(c code.Code) *status.Status {
 	return &status.Status{Code: int32(c)}
 }
 
-func newQuotaError(c code.Code) *mixpb.QuotaResponse_Error {
-	return &mixpb.QuotaResponse_Error{Error: newStatus(c)}
+func newQuotaError(c code.Code) *mixer.QuotaResponse_Error {
+	return &mixer.QuotaResponse_Error{Error: newStatus(c)}
 }
 
 // NewAPIHandlers returns a canonical APIHandlers that implements all of the mixer's API surface
@@ -60,19 +59,19 @@ func NewAPIHandlers() APIHandlers {
 	return &apiHandlers{}
 }
 
-func (h *apiHandlers) Check(tracker adapters.FactTracker, request *mixpb.CheckRequest, response *mixpb.CheckResponse) {
+func (h *apiHandlers) Check(tracker adapters.FactTracker, request *mixer.CheckRequest, response *mixer.CheckResponse) {
 	tracker.UpdateFacts(request.GetFacts())
 	response.RequestId = request.RequestId
 	response.Result = newStatus(code.Code_UNIMPLEMENTED)
 }
 
-func (h *apiHandlers) Report(tracker adapters.FactTracker, request *mixpb.ReportRequest, response *mixpb.ReportResponse) {
+func (h *apiHandlers) Report(tracker adapters.FactTracker, request *mixer.ReportRequest, response *mixer.ReportResponse) {
 	tracker.UpdateFacts(request.GetFacts())
 	response.RequestId = request.RequestId
 	response.Result = newStatus(code.Code_UNIMPLEMENTED)
 }
 
-func (h *apiHandlers) Quota(tracker adapters.FactTracker, request *mixpb.QuotaRequest, response *mixpb.QuotaResponse) {
+func (h *apiHandlers) Quota(tracker adapters.FactTracker, request *mixer.QuotaRequest, response *mixer.QuotaResponse) {
 	tracker.UpdateFacts(request.GetFacts())
 	response.RequestId = request.RequestId
 	response.Result = newQuotaError(code.Code_UNIMPLEMENTED)

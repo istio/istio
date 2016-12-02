@@ -20,14 +20,15 @@ test: test_server
 ## API Targets
 
 PROTOC = bin/protoc.$(shell uname)
-API_OUTDIR_GO = api/v1/go
+VENDOR = vendor
+API_OUTDIR_GO = $(VENDOR)/istio.io/mixer/api/v1
 API_OUTDIR_CPP = api/v1/cpp
 API_SRC = api/v1/service.proto api/v1/check.proto api/v1/report.proto api/v1/quota.proto
 
 $(API_OUTDIR_GO)/%.pb.go $(API_OUTDIR_CPP)/%.pb.cc: api/v1/%.proto
 	@echo "Building API protos"
 	@mkdir -p $(API_OUTDIR_GO) $(API_OUTDIR_CPP)
-	@$(PROTOC) --proto_path=api/v1 --proto_path=vendor/github.com/googleapis/googleapis --proto_path=vendor/github.com/google/protobuf/src --cpp_out=$(API_OUTDIR_CPP) --go_out=plugins=grpc:$(API_OUTDIR_GO) $(API_SRC)
+	@$(PROTOC) --proto_path=api/v1 --proto_path=vendor/github.com/googleapis/googleapis --proto_path=vendor/github.com/google/protobuf/src --cpp_out=$(API_OUTDIR_CPP) --go_out=plugins=grpc:$(VENDOR) $(API_SRC)
 
 build_api: $(API_OUTDIR_GO)/service.pb.go
 
