@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package istio.mixer.v1;
 
+option go_package="istio.io/mixer/api/v1;mixer";
+
 import "check.proto";
 import "report.proto";
 import "quota.proto";

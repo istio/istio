@@ -33,9 +33,9 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/mixer/adapters"
+	"istio.io/mixer/api/v1"
 
 	proto "github.com/golang/protobuf/proto"
-	mixpb "istio.io/mixer/api/v1/go"
 )
 
 // APIServerOptions controls the behavior of a gRPC server.
@@ -118,7 +118,7 @@ func NewAPIServer(options *APIServerOptions) (*APIServer, error) {
 	// get everything wired up
 	grpcServer := grpc.NewServer(grpcOptions...)
 	apiServer := &APIServer{grpcServer, listener, options.Handlers, options.FactConverter}
-	mixpb.RegisterMixerServer(grpcServer, apiServer)
+	mixer.RegisterMixerServer(grpcServer, apiServer)
 	return apiServer, nil
 }
 
@@ -162,31 +162,31 @@ func (s *APIServer) streamLoop(stream grpc.ServerStream, request proto.Message, 
 }
 
 // Check is the entry point for the external Check method
-func (s *APIServer) Check(stream mixpb.Mixer_CheckServer) error {
+func (s *APIServer) Check(stream mixer.Mixer_CheckServer) error {
 	return s.streamLoop(stream,
-		new(mixpb.CheckRequest),
-		new(mixpb.CheckResponse),
+		new(mixer.CheckRequest),
+		new(mixer.CheckResponse),
 		func(tracker adapters.FactTracker, request proto.Message, response proto.Message) {
-			s.handler.Check(tracker, request.(*mixpb.CheckRequest), response.(*mixpb.CheckResponse))
+			s.handler.Check(tracker, request.(*mixer.CheckRequest), response.(*mixer.CheckResponse))
 		})
 }
 
 // Report is the entry point for the external Report method
-func (s *APIServer) Report(stream mixpb.Mixer_ReportServer) error {
+func (s *APIServer) Report(stream mixer.Mixer_ReportServer) error {
 	return s.streamLoop(stream,
-		new(mixpb.ReportRequest),
-		new(mixpb.ReportResponse),
+		new(mixer.ReportRequest),
+		new(mixer.ReportResponse),
 		func(tracker adapters.FactTracker, request proto.Message, response proto.Message) {
-			s.handler.Report(tracker, request.(*mixpb.ReportRequest), response.(*mixpb.ReportResponse))
+			s.handler.Report(tracker, request.(*mixer.ReportRequest), response.(*mixer.ReportResponse))
 		})
 }
 
 // Quota is the entry point for the external Quota method
-func (s *APIServer) Quota(stream mixpb.Mixer_QuotaServer) error {
+func (s *APIServer) Quota(stream mixer.Mixer_QuotaServer) error {
 	return s.streamLoop(stream,
-		new(mixpb.QuotaRequest),
-		new(mixpb.QuotaResponse),
+		new(mixer.QuotaRequest),
+		new(mixer.QuotaResponse),
 		func(tracker adapters.FactTracker, request proto.Message, response proto.Message) {
-			s.handler.Quota(tracker, request.(*mixpb.QuotaRequest), response.(*mixpb.QuotaResponse))
+			s.handler.Quota(tracker, request.(*mixer.QuotaRequest), response.(*mixer.QuotaResponse))
 		})
 }

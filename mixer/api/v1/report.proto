@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package istio.mixer.v1;
 
+option go_package="istio.io/mixer/api/v1;mixer";
+
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/any.proto";
