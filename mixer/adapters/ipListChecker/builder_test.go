@@ -21,11 +21,18 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v2"
+	"istio.io/mixer/adapters"
+	"istio.io/mixer/adapters/testutil"
 )
 
 // TODO: this test suite needs to be beefed up considerably.
 // Should be testing more edge cases, testing refresh behavior with and without errors,
 // testing TTL handling, testing malformed input, etc.
+
+func TestBuilderInvariants(t *testing.T) {
+	b := NewBuilder()
+	testutil.TestBuilderInvariants(b, t)
+}
 
 func TestBasic(t *testing.T) {
 	lp := listPayload{
@@ -42,16 +49,20 @@ func TestBasic(t *testing.T) {
 	}))
 	defer ts.Close()
 
+	b := NewBuilder()
+	b.Configure(b.DefaultBuilderConfig())
+
 	config := AdapterConfig{
 		ProviderURL:     ts.URL,
 		RefreshInterval: time.Second,
 		TimeToLive:      time.Second * 10,
 	}
 
-	a, err := newAdapter(&config)
+	aa, err := b.NewAdapter(&config)
 	if err != nil {
 		t.Error("unable to create adapter " + err.Error())
 	}
+	a := aa.(adapters.ListChecker)
 
 	var ok bool
 	ok, err = a.CheckList("10.10.11.2")

@@ -18,15 +18,25 @@ import (
 	"testing"
 
 	"istio.io/mixer/adapters"
+	"istio.io/mixer/adapters/testutil"
 )
 
+func TestBuilderInvariants(t *testing.T) {
+	b := NewBuilder()
+	testutil.TestBuilderInvariants(b, t)
+}
+
 func TestNoRules(t *testing.T) {
+	b := NewBuilder()
+	b.Configure(b.DefaultBuilderConfig())
+
 	rules := make(map[string]string)
-	var a adapters.FactConverter
+	var aa adapters.Adapter
 	var err error
-	if a, err = newAdapter(&AdapterConfig{Rules: rules}); err != nil {
+	if aa, err = b.NewAdapter(&AdapterConfig{Rules: rules}); err != nil {
 		t.Error("Expected to successfully create a mapper")
 	}
+	a := aa.(adapters.FactConverter)
 
 	tracker := a.NewTracker()
 
@@ -58,42 +68,49 @@ func TestNoRules(t *testing.T) {
 }
 
 func TestOddballRules(t *testing.T) {
+	b := NewBuilder()
+	b.Configure(b.DefaultBuilderConfig())
+
 	rules := make(map[string]string)
 	rules["Lab1"] = "|A|B|C"
-	if _, err := newAdapter(&AdapterConfig{Rules: rules}); err == nil {
+	if _, err := b.NewAdapter(&AdapterConfig{Rules: rules}); err == nil {
 		t.Error("Expecting to not be able to create a mapper")
 	}
 
 	rules["Lab1"] = "A|B|"
-	if _, err := newAdapter(&AdapterConfig{Rules: rules}); err == nil {
+	if _, err := b.NewAdapter(&AdapterConfig{Rules: rules}); err == nil {
 		t.Error("Expecting to not be able to create a mapper")
 	}
 
 	rules["Lab1"] = "A| |C"
-	if _, err := newAdapter(&AdapterConfig{Rules: rules}); err == nil {
+	if _, err := b.NewAdapter(&AdapterConfig{Rules: rules}); err == nil {
 		t.Error("Expecting to not be able to create a mapper")
 	}
 
 	rules["Lab1"] = "A||C"
-	if _, err := newAdapter(&AdapterConfig{Rules: rules}); err == nil {
+	if _, err := b.NewAdapter(&AdapterConfig{Rules: rules}); err == nil {
 		t.Error("Expecting to not be able to create a mapper")
 	}
 
 	rules["Lab1"] = "A | B | C"
-	if _, err := newAdapter(&AdapterConfig{Rules: rules}); err != nil {
+	if _, err := b.NewAdapter(&AdapterConfig{Rules: rules}); err != nil {
 		t.Error("Expecting to be able to create a mapper")
 	}
 }
 
 func TestNoFacts(t *testing.T) {
+	b := NewBuilder()
+	b.Configure(b.DefaultBuilderConfig())
+
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var a adapters.FactConverter
+	var aa adapters.Adapter
 	var err error
-	if a, err = newAdapter(&AdapterConfig{Rules: rules}); err != nil {
+	if aa, err = b.NewAdapter(&AdapterConfig{Rules: rules}); err != nil {
 		t.Error("Expected to be able to create a mapper")
 	}
+	a := aa.(adapters.FactConverter)
 
 	tracker := a.NewTracker()
 
@@ -128,14 +145,18 @@ func TestNoFacts(t *testing.T) {
 }
 
 func TestAddRemoveFacts(t *testing.T) {
+	b := NewBuilder()
+	b.Configure(b.DefaultBuilderConfig())
+
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var a adapters.FactConverter
+	var aa adapters.Adapter
 	var err error
-	if a, err = newAdapter(&AdapterConfig{Rules: rules}); err != nil {
+	if aa, err = newAdapter(&AdapterConfig{Rules: rules}); err != nil {
 		t.Error("Expected to be able to create a mapper")
 	}
+	a := aa.(adapters.FactConverter)
 
 	tracker := a.NewTracker()
 
@@ -178,14 +199,18 @@ func TestAddRemoveFacts(t *testing.T) {
 }
 
 func TestReset(t *testing.T) {
+	b := NewBuilder()
+	b.Configure(b.DefaultBuilderConfig())
+
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var a adapters.FactConverter
+	var aa adapters.Adapter
 	var err error
-	if a, err = newAdapter(&AdapterConfig{Rules: rules}); err != nil {
+	if aa, err = b.NewAdapter(&AdapterConfig{Rules: rules}); err != nil {
 		t.Error("Expected to be able to create a mapper")
 	}
+	a := aa.(adapters.FactConverter)
 
 	tracker := a.NewTracker()
 

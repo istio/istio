@@ -12,21 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipListChecker
+package genericListChecker
 
 import (
-	"errors"
-	"net/url"
-	"time"
-
 	"istio.io/mixer/adapters"
 )
 
 // BuilderConfig is used to configure a builder.
 type BuilderConfig struct {
+	// The set of entries in the list to check against
+	ListEntries []string
+
+	// WhilelistMode determines whether the list check
+	// operates as a whitelist or a blacklist. When WhitelistMode
+	// is true, an item succeeds a check call if it is in the list.
+	// Otherwise, when WhitelistMode is false, an item succeeds a
+	// check call if it is not in the list.
+	WhitelistMode bool
 }
 
-type builder struct{}
+type builder struct {
+	entries       map[string]string
+	whitelistMode bool
+}
 
 // NewBuilder returns a Builder
 func NewBuilder() adapters.Builder {
@@ -34,11 +42,11 @@ func NewBuilder() adapters.Builder {
 }
 
 func (b *builder) Name() string {
-	return "IPListChecker"
+	return "GenericListChecker"
 }
 
 func (b *builder) Description() string {
-	return "Checks whether an IP address is present in an IP address list."
+	return "Checks whether a string is present in a list."
 }
 
 func (b *builder) DefaultBuilderConfig() adapters.BuilderConfig {
@@ -51,7 +59,19 @@ func (b *builder) ValidateBuilderConfig(config adapters.BuilderConfig) error {
 }
 
 func (b *builder) Configure(config adapters.BuilderConfig) error {
-	return b.ValidateBuilderConfig(config)
+	if err := b.ValidateBuilderConfig(config); err != nil {
+		return err
+	}
+	c := config.(*BuilderConfig)
+
+	// populate the lookup map
+	b.entries = make(map[string]string, len(c.ListEntries))
+	for _, entry := range c.ListEntries {
+		b.entries[entry] = entry
+	}
+	b.whitelistMode = c.WhitelistMode
+
+	return nil
 }
 
 func (b *builder) Close() error {
@@ -59,24 +79,12 @@ func (b *builder) Close() error {
 }
 
 func (b *builder) DefaultAdapterConfig() adapters.AdapterConfig {
-	return &AdapterConfig{
-		ProviderURL:     "http://localhost",
-		RefreshInterval: time.Minute,
-		TimeToLive:      time.Minute * 10,
-	}
+	return &AdapterConfig{}
 }
 
 func (b *builder) ValidateAdapterConfig(config adapters.AdapterConfig) error {
-	c := config.(*AdapterConfig)
-	var err error
-	var u *url.URL
-
-	if u, err = url.Parse(c.ProviderURL); err == nil {
-		if u.Scheme == "" || u.Host == "" {
-			err = errors.New("Scheme and Host cannot be nil")
-		}
-	}
-	return err
+	_ = config.(*AdapterConfig)
+	return nil
 }
 
 func (b *builder) NewAdapter(config adapters.AdapterConfig) (adapters.Adapter, error) {
@@ -84,5 +92,5 @@ func (b *builder) NewAdapter(config adapters.AdapterConfig) (adapters.Adapter, e
 		return nil, err
 	}
 	c := config.(*AdapterConfig)
-	return newAdapter(c)
+	return newAdapter(c, b.entries, b.whitelistMode)
 }

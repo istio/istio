@@ -21,7 +21,7 @@ import (
 // BuilderConfig is used to configure a builder.
 type BuilderConfig interface{}
 
-// Builder represents the factory that the mixer has to create individual adapter.
+// Builder represents the factory that the mixer uses to create individual adapter.
 type Builder interface {
 	io.Closer
 
