@@ -34,10 +34,10 @@ cc_library(
     }),
     deps = [
         "//external:googletest_prod",
+        "//external:servicecontrol_client",
         "//src/api_manager:auth_headers",
         "//src/api_manager/auth/lib",
         "//src/api_manager/utils",
-        "//third_party/service-control-client-cxx:service_control_client_lib",
     ],
 )
 

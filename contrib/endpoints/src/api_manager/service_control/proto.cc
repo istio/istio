@@ -27,7 +27,7 @@
 #include "include/api_manager/version.h"
 #include "src/api_manager/auth/lib/auth_token.h"
 #include "src/api_manager/auth/lib/base64.h"
-#include "third_party/service-control-client-cxx/utils/distribution_helper.h"
+#include "utils/distribution_helper.h"
 
 using ::google::api::servicecontrol::v1::CheckError;
 using ::google::api::servicecontrol::v1::CheckRequest;

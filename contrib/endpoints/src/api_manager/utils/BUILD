@@ -16,7 +16,6 @@
 #
 package(default_visibility = [
     "//src/api_manager:__subpackages__",
-    "//test/grpc:__subpackages__",
 ])
 
 load("@protobuf_git//:protobuf.bzl", "cc_proto_library")
@@ -43,8 +42,8 @@ cc_library(
     deps = [
         "//external:cc_wkt_protos",
         "//external:protobuf",
-        "//include:headers_only",
         "//external:servicecontrol",  # for google/rpc/status.proto
+        "//include:headers_only",
     ],
 )
 

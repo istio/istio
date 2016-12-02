@@ -35,9 +35,13 @@ cc_library(
     }),
     deps = [
         "//external:cc_wkt_protos",
+        "//external:cloud_trace",
         "//external:googletest_prod",
         "//external:grpc++",
         "//external:protobuf",
+        "//external:service_config",
+        "//external:servicecontrol",
+        "//external:servicecontrol_client",
         "//src/api_manager:impl_headers",
         "//src/api_manager:server_config_proto",
         "//src/api_manager/auth",
@@ -45,9 +49,5 @@ cc_library(
         "//src/api_manager/cloud_trace",
         "//src/api_manager/service_control",
         "//src/api_manager/utils",
-        "//external:cloud_trace",
-        "//external:service_config",
-        "//external:servicecontrol",
-        "//third_party/service-control-client-cxx:service_control_client_lib",
     ],
 )

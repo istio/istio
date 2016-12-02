@@ -19,7 +19,7 @@
 #include <string>
 
 #include "src/api_manager/auth.h"
-#include "third_party/service-control-client-cxx/utils/simple_lru_cache_inl.h"
+#include "utils/simple_lru_cache_inl.h"
 
 namespace google {
 namespace api_manager {

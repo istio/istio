@@ -25,12 +25,6 @@ cc_proto_library(
     ],
     default_runtime = "//external:protobuf",
     protoc = "//external:protoc",
-    visibility = [
-        ":__subpackages__",
-        # TODO: Consider using a top-level proto directory for protos that are
-        # visible to NGINX module.
-        "//src/nginx:__subpackages__",
-    ],
 )
 
 cc_proto_library(
@@ -41,9 +35,6 @@ cc_proto_library(
     include = ".",
     default_runtime = "//external:protobuf",
     protoc = "//external:protoc",
-    # TODO: Consider using a top-level proto directory for protos that are
-    # visible to NGINX module.
-    visibility = ["//src/nginx:__subpackages__"],
 )
 
 cc_library(
@@ -70,8 +61,6 @@ cc_library(
     ],
 )
 
-# TODO: Move check_auth and check_service_control into sub-directories once
-# cyclic dependency is resolved
 cc_library(
     name = "api_manager",
     srcs = [
@@ -102,26 +91,24 @@ cc_library(
     }),
     visibility = [
         "//include:__subpackages__",
-        #TODO: subpackages shouldn't depends on this target
-        ":__subpackages__",
     ],
     deps = [
         ":auth_headers",
         ":impl_headers",
         ":server_config_proto",
         "//external:cc_wkt_protos",
+        "//external:cloud_trace",
         "//external:googletest_prod",
         "//external:grpc++",
         "//external:protobuf",
+        "//external:service_config",
+        "//external:servicecontrol",
+        "//external:servicecontrol_client",
         "//src/api_manager/auth",
         "//src/api_manager/cloud_trace",
         "//src/api_manager/context",
         "//src/api_manager/service_control",
         "//src/api_manager/utils",
-        "//external:cloud_trace",
-        "//external:service_config",
-        "//external:servicecontrol",
-        "//third_party/service-control-client-cxx:service_control_client_lib",
     ],
 )
 
@@ -196,8 +183,8 @@ cc_test(
     name = "path_matcher_test",
     size = "small",
     srcs = [
+        "mock_method_info.h",
         "path_matcher_test.cc",
-        "mock_method_info.h"
     ],
     linkstatic = 1,
     deps = [

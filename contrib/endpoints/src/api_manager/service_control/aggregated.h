@@ -18,13 +18,13 @@
 #include "google/api/service.pb.h"
 #include "google/api/servicecontrol/v1/service_controller.pb.h"
 #include "include/api_manager/env_interface.h"
+#include "include/service_control_client.h"
 #include "src/api_manager/auth/service_account_token.h"
 #include "src/api_manager/cloud_trace/cloud_trace.h"
 #include "src/api_manager/proto/server_config.pb.h"
 #include "src/api_manager/service_control/interface.h"
 #include "src/api_manager/service_control/proto.h"
 #include "src/api_manager/service_control/url.h"
-#include "third_party/service-control-client-cxx/include/service_control_client.h"
 
 #include <list>
 #include <mutex>

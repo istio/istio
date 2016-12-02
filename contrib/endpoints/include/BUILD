@@ -34,7 +34,6 @@ cc_library(
     ],
     visibility = [
         "//src/api_manager:__subpackages__",
-        "//src/grpc:__subpackages__",
     ],
 )
 
