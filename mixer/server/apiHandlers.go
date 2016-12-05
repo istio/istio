@@ -17,9 +17,12 @@ package main
 // This is what implements the per-request logic for each API method.
 
 import (
+	"github.com/golang/glog"
+
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/genproto/googleapis/rpc/status"
 
+	"istio.io/mixer"
 	"istio.io/mixer/adapters"
 
 	mixerpb "istio.io/mixer/api/v1"
@@ -45,6 +48,8 @@ type APIHandlers interface {
 }
 
 type apiHandlers struct {
+	adapterManager *AdapterManager
+	configManager  *ConfigManager
 }
 
 func newStatus(c code.Code) *status.Status {
@@ -56,14 +61,77 @@ func newQuotaError(c code.Code) *mixerpb.QuotaResponse_Error {
 }
 
 // NewAPIHandlers returns a canonical APIHandlers that implements all of the mixer's API surface
-func NewAPIHandlers() APIHandlers {
-	return &apiHandlers{}
+func NewAPIHandlers(adapterManager *AdapterManager, configManager *ConfigManager) APIHandlers {
+	return &apiHandlers{
+		adapterManager: adapterManager,
+		configManager:  configManager,
+	}
 }
 
 func (h *apiHandlers) Check(tracker adapters.FactTracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
-	tracker.UpdateFacts(request.GetFacts())
+	// Prepare common response fields.
 	response.RequestIndex = request.RequestIndex
-	response.Result = newStatus(code.Code_UNIMPLEMENTED)
+
+	facts := request.GetFacts()
+
+	dispatchKey, err := mixer.NewDispatchKey(facts)
+	if err != nil {
+		glog.Warningf("Error extracting the dispatch key. error: '%v'", err)
+		response.Result = newStatus(code.Code_FAILED_PRECONDITION)
+		return
+	}
+
+	tracker.UpdateFacts(facts)
+
+	allowed, err := h.checkLists(dispatchKey, tracker)
+	if err != nil {
+		glog.Warningf("Unexpected check error. dispatchKey: '%v', error: '%v'", dispatchKey, err)
+		response.Result = newStatus(code.Code_INTERNAL)
+		return
+	}
+
+	if !allowed {
+		response.Result = newStatus(code.Code_PERMISSION_DENIED)
+		return
+	}
+
+	// No objections from any of the adapters
+	response.Result = newStatus(code.Code_OK)
+}
+
+func (h *apiHandlers) checkLists(dispatchKey mixer.DispatchKey, tracker adapters.FactTracker) (bool, error) {
+	// TODO: What is the correct error handling policy for the check calls? This implementation opts for fail-close.
+	configBlocks, err := h.configManager.GetListCheckerConfigBlocks(dispatchKey)
+	if err != nil {
+		return false, err
+	}
+
+	for _, configBlock := range configBlocks {
+		listCheckerAdapter, err := h.adapterManager.GetListCheckerAdapter(dispatchKey, configBlock.AdapterConfig)
+		if err != nil {
+			return false, err
+		}
+
+		symbol, err := configBlock.Evaluator.EvaluateSymbolBinding(tracker.GetLabels())
+		if err != nil {
+			return false, err
+		}
+
+		inList, err := listCheckerAdapter.CheckList(symbol)
+		if err != nil {
+			return false, err
+		}
+
+		if !inList {
+			// TODO: listCheckerAdapter is very heavy-weight to log here. We should extract a canonical
+			// identifier for the adapter and log it instead.
+			glog.Infof("Check call is denied by adapter. dispatchKey: '%v', adapter: '%v'",
+				dispatchKey, listCheckerAdapter)
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 func (h *apiHandlers) Report(tracker adapters.FactTracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
