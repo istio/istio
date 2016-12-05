@@ -20,12 +20,12 @@
 #include <set>
 #include <string>
 
+#include "contrib/endpoints/include/api_manager/env_interface.h"
+#include "contrib/endpoints/include/api_manager/method_call_info.h"
+#include "contrib/endpoints/src/api_manager/method_impl.h"
+#include "contrib/endpoints/src/api_manager/path_matcher.h"
+#include "contrib/endpoints/src/api_manager/proto/server_config.pb.h"
 #include "google/api/service.pb.h"
-#include "include/api_manager/env_interface.h"
-#include "include/api_manager/method_call_info.h"
-#include "src/api_manager/method_impl.h"
-#include "src/api_manager/path_matcher.h"
-#include "src/api_manager/proto/server_config.pb.h"
 
 namespace google {
 namespace api_manager {

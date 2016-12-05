@@ -14,10 +14,10 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/api_manager_impl.h"
+#include "contrib/endpoints/src/api_manager/api_manager_impl.h"
 
-#include "src/api_manager/check_workflow.h"
-#include "src/api_manager/request_handler.h"
+#include "contrib/endpoints/src/api_manager/check_workflow.h"
+#include "contrib/endpoints/src/api_manager/request_handler.h"
 
 using ::google::api_manager::proto::ServerConfig;
 

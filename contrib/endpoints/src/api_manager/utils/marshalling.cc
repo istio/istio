@@ -14,7 +14,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/utils/marshalling.h"
+#include "contrib/endpoints/src/api_manager/utils/marshalling.h"
 
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "google/protobuf/util/json_util.h"

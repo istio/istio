@@ -15,11 +15,11 @@
 #ifndef API_MANAGER_SERVICE_CONTROL_PROTO_H_
 #define API_MANAGER_SERVICE_CONTROL_PROTO_H_
 
+#include "contrib/endpoints/include/api_manager/utils/status.h"
+#include "contrib/endpoints/src/api_manager/service_control/info.h"
 #include "google/api/label.pb.h"
 #include "google/api/metric.pb.h"
 #include "google/api/servicecontrol/v1/service_controller.pb.h"
-#include "include/api_manager/utils/status.h"
-#include "src/api_manager/service_control/info.h"
 
 namespace google {
 namespace api_manager {

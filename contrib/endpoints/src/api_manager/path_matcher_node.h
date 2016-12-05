@@ -21,7 +21,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "src/api_manager/utils/stl_util.h"
+#include "contrib/endpoints/src/api_manager/utils/stl_util.h"
 
 namespace google {
 namespace api_manager {

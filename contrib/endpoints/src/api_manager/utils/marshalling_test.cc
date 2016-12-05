@@ -14,14 +14,14 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/utils/marshalling.h"
+#include "contrib/endpoints/src/api_manager/utils/marshalling.h"
 
+#include "contrib/endpoints/include/api_manager/utils/status.h"
 #include "google/protobuf/any.pb.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "google/protobuf/struct.pb.h"
 #include "google/rpc/error_details.pb.h"
 #include "gtest/gtest.h"
-#include "include/api_manager/utils/status.h"
 
 using ::google::protobuf::util::error::Code;
 

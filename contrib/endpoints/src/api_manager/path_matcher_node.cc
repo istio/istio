@@ -14,8 +14,8 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/path_matcher_node.h"
-#include "src/api_manager/http_template.h"
+#include "contrib/endpoints/src/api_manager/path_matcher_node.h"
+#include "contrib/endpoints/src/api_manager/http_template.h"
 
 #include <utility>
 #include <vector>

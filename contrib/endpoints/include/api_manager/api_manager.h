@@ -20,11 +20,11 @@
 #include <memory>
 #include <string>
 
+#include "contrib/endpoints/include/api_manager/env_interface.h"
+#include "contrib/endpoints/include/api_manager/request.h"
+#include "contrib/endpoints/include/api_manager/request_handler_interface.h"
+#include "contrib/endpoints/include/api_manager/service_control.h"
 #include "google/api/service.pb.h"
-#include "include/api_manager/env_interface.h"
-#include "include/api_manager/request.h"
-#include "include/api_manager/request_handler_interface.h"
-#include "include/api_manager/service_control.h"
 
 namespace google {
 namespace api_manager {

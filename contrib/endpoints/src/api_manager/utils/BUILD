@@ -15,10 +15,8 @@
 ################################################################################
 #
 package(default_visibility = [
-    "//src/api_manager:__subpackages__",
+    "//visibility:public",
 ])
-
-load("@protobuf_git//:protobuf.bzl", "cc_proto_library")
 
 cc_library(
     name = "utils",
@@ -40,10 +38,10 @@ cc_library(
         ],
     }),
     deps = [
+        "//contrib/endpoints/include:headers_only",
         "//external:cc_wkt_protos",
         "//external:protobuf",
         "//external:servicecontrol",  # for google/rpc/status.proto
-        "//include:headers_only",
     ],
 )
 

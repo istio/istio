@@ -14,19 +14,19 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/path_matcher.h"
+#include "contrib/endpoints/src/api_manager/path_matcher.h"
 
 #include <memory>
 #include <ostream>
 #include <string>
 #include <vector>
 
+#include "contrib/endpoints/include/api_manager/method.h"
+#include "contrib/endpoints/include/api_manager/method_call_info.h"
+#include "contrib/endpoints/src/api_manager/mock_method_info.h"
+#include "contrib/endpoints/src/api_manager/utils/stl_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "include/api_manager/method.h"
-#include "include/api_manager/method_call_info.h"
-#include "src/api_manager/mock_method_info.h"
-#include "src/api_manager/utils/stl_util.h"
 
 using ::testing::ReturnRef;
 

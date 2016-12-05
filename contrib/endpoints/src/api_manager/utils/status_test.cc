@@ -14,13 +14,13 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "include/api_manager/utils/status.h"
+#include "contrib/endpoints/include/api_manager/utils/status.h"
 
+#include "contrib/endpoints/src/api_manager/utils/marshalling.h"
 #include "google/protobuf/any.pb.h"
 #include "google/rpc/error_details.pb.h"
 #include "google/rpc/status.pb.h"
 #include "gtest/gtest.h"
-#include "src/api_manager/utils/marshalling.h"
 
 namespace google {
 namespace api_manager {

@@ -19,8 +19,8 @@
 #include <cstdlib>
 #include <memory>
 
-#include "include/api_manager/utils/status.h"
-#include "src/api_manager/auth.h"
+#include "contrib/endpoints/include/api_manager/utils/status.h"
+#include "contrib/endpoints/src/api_manager/auth.h"
 
 using ::google::api_manager::utils::Status;
 

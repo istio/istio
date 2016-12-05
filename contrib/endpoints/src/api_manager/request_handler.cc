@@ -14,14 +14,14 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/request_handler.h"
+#include "contrib/endpoints/src/api_manager/request_handler.h"
 
+#include "contrib/endpoints/src/api_manager/auth/service_account_token.h"
+#include "contrib/endpoints/src/api_manager/check_workflow.h"
+#include "contrib/endpoints/src/api_manager/cloud_trace/cloud_trace.h"
+#include "contrib/endpoints/src/api_manager/utils/marshalling.h"
 #include "google/devtools/cloudtrace/v1/trace.pb.h"
 #include "google/protobuf/stubs/logging.h"
-#include "src/api_manager/auth/service_account_token.h"
-#include "src/api_manager/check_workflow.h"
-#include "src/api_manager/cloud_trace/cloud_trace.h"
-#include "src/api_manager/utils/marshalling.h"
 
 using ::google::api_manager::utils::Status;
 using google::devtools::cloudtrace::v1::Traces;

@@ -15,14 +15,14 @@
 #ifndef API_MANAGER_CONTEXT_SERVICE_CONTEXT_H_
 #define API_MANAGER_CONTEXT_SERVICE_CONTEXT_H_
 
-#include "include/api_manager/method.h"
-#include "src/api_manager/auth/certs.h"
-#include "src/api_manager/auth/jwt_cache.h"
-#include "src/api_manager/auth/service_account_token.h"
-#include "src/api_manager/cloud_trace/cloud_trace.h"
-#include "src/api_manager/config.h"
-#include "src/api_manager/gce_metadata.h"
-#include "src/api_manager/service_control/interface.h"
+#include "contrib/endpoints/include/api_manager/method.h"
+#include "contrib/endpoints/src/api_manager/auth/certs.h"
+#include "contrib/endpoints/src/api_manager/auth/jwt_cache.h"
+#include "contrib/endpoints/src/api_manager/auth/service_account_token.h"
+#include "contrib/endpoints/src/api_manager/cloud_trace/cloud_trace.h"
+#include "contrib/endpoints/src/api_manager/config.h"
+#include "contrib/endpoints/src/api_manager/gce_metadata.h"
+#include "contrib/endpoints/src/api_manager/service_control/interface.h"
 
 namespace google {
 namespace api_manager {

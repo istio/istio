@@ -14,12 +14,12 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/auth/lib/base64.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/base64.h"
 
 #include <cstring>
 #include <string>
 
-#include "src/api_manager/auth/lib/grpc_internals.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/grpc_internals.h"
 
 namespace google {
 namespace api_manager {

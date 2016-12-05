@@ -15,7 +15,7 @@
 #ifndef API_MANAGER_GCE_METADATA_H_
 #define API_MANAGER_GCE_METADATA_H_
 
-#include "include/api_manager/utils/status.h"
+#include "contrib/endpoints/include/api_manager/utils/status.h"
 
 namespace google {
 namespace api_manager {

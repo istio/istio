@@ -14,19 +14,19 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/service_control/proto.h"
+#include "contrib/endpoints/src/api_manager/service_control/proto.h"
 
 #include <functional>
 
 #include <time.h>
 #include <chrono>
 
+#include "contrib/endpoints/include/api_manager/service_control.h"
+#include "contrib/endpoints/include/api_manager/version.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/auth_token.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/base64.h"
 #include "google/api/metric.pb.h"
 #include "google/protobuf/timestamp.pb.h"
-#include "include/api_manager/service_control.h"
-#include "include/api_manager/version.h"
-#include "src/api_manager/auth/lib/auth_token.h"
-#include "src/api_manager/auth/lib/base64.h"
 #include "utils/distribution_helper.h"
 
 using ::google::api::servicecontrol::v1::CheckError;

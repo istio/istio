@@ -20,8 +20,8 @@
 #include <sstream>
 #include <string>
 
+#include "contrib/endpoints/src/api_manager/proto/server_config.pb.h"
 #include "google/protobuf/text_format.h"
-#include "src/api_manager/proto/server_config.pb.h"
 
 using ::google::protobuf::TextFormat;
 
@@ -125,7 +125,7 @@ TEST(ServerConfigProto, ServerConfigFromString) {
 
 TEST(ServerConfigProto, ValidateSampleServerConfig) {
   const char kSampleServerConfigPath[] =
-      "src/api_manager/proto/sample_server_config.pb.txt";
+      "contrib/endpoints/src/api_manager/proto/sample_server_config.pb.txt";
 
   std::ifstream ifs(kSampleServerConfigPath);
   ASSERT_TRUE(ifs) << "Failed to open the sample server config file."

@@ -14,10 +14,10 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/auth/lib/auth_jwt_validator.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/auth_jwt_validator.h"
 
+#include "contrib/endpoints/src/api_manager/auth/lib/auth_token.h"
 #include "gtest/gtest.h"
-#include "src/api_manager/auth/lib/auth_token.h"
 
 #include <cstring>
 

@@ -16,9 +16,9 @@
 #define API_MANAGER_REQUEST_HANDLER_H_
 
 #include "check_workflow.h"
-#include "include/api_manager/request_handler_interface.h"
-#include "src/api_manager/api_manager_impl.h"
-#include "src/api_manager/context/request_context.h"
+#include "contrib/endpoints/include/api_manager/request_handler_interface.h"
+#include "contrib/endpoints/src/api_manager/api_manager_impl.h"
+#include "contrib/endpoints/src/api_manager/context/request_context.h"
 
 namespace google {
 namespace api_manager {

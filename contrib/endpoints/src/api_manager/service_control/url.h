@@ -15,8 +15,8 @@
 #ifndef API_MANAGER_SERVICE_CONTROL_URL_H_
 #define API_MANAGER_SERVICE_CONTROL_URL_H_
 
+#include "contrib/endpoints/src/api_manager/proto/server_config.pb.h"
 #include "google/api/service.pb.h"
-#include "src/api_manager/proto/server_config.pb.h"
 
 namespace google {
 namespace api_manager {

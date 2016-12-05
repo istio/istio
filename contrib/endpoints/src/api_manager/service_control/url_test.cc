@@ -14,11 +14,11 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/service_control/url.h"
+#include "contrib/endpoints/src/api_manager/service_control/url.h"
 
+#include "contrib/endpoints/src/api_manager/config.h"
+#include "contrib/endpoints/src/api_manager/mock_api_manager_environment.h"
 #include "gtest/gtest.h"
-#include "src/api_manager/config.h"
-#include "src/api_manager/mock_api_manager_environment.h"
 
 using ::google::api_manager::utils::Status;
 using ::google::protobuf::util::error::Code;

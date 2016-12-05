@@ -14,7 +14,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/auth/lib/auth_jwt_validator.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/auth_jwt_validator.h"
 
 // Implementation of JWT token verification.
 
@@ -66,7 +66,7 @@ extern "C" {
 #include <set>
 #include <string>
 
-#include "src/api_manager/auth/lib/json_util.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/json_util.h"
 
 using std::string;
 using std::chrono::system_clock;

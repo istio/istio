@@ -14,16 +14,15 @@
 #
 ################################################################################
 #
-exports_files(["version"])
 
-cc_inc_library(
+cc_library(
     name = "api_manager",
     hdrs = [
         ":headers",
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//src/api_manager",
+        "//contrib/endpoints/src/api_manager",
     ],
 )
 
@@ -33,7 +32,7 @@ cc_library(
         ":headers",
     ],
     visibility = [
-        "//src/api_manager:__subpackages__",
+        "//contrib/endpoints/src/api_manager:__subpackages__",
     ],
 )
 
@@ -65,8 +64,8 @@ genrule(
     outs = [
         "api_manager/version.h",
     ],
-    cmd = "$(location //tools:create_version) $(location :version) > $@",
+    cmd = "$(location //contrib/endpoints/tools:create_version) $(location :version) > $@",
     tools = [
-        "//tools:create_version",
+        "//contrib/endpoints/tools:create_version",
     ],
 )

@@ -18,7 +18,7 @@
 #include <chrono>
 #include <string>
 
-#include "src/api_manager/auth.h"
+#include "contrib/endpoints/src/api_manager/auth.h"
 #include "utils/simple_lru_cache_inl.h"
 
 namespace google {

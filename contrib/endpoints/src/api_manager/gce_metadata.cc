@@ -14,10 +14,10 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/gce_metadata.h"
+#include "contrib/endpoints/src/api_manager/gce_metadata.h"
 
+#include "contrib/endpoints/src/api_manager/auth/lib/json_util.h"
 #include "google/protobuf/stubs/status.h"
-#include "src/api_manager/auth/lib/json_util.h"
 
 using ::google::api_manager::auth::GetProperty;
 using ::google::api_manager::auth::GetStringValue;

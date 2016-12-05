@@ -14,9 +14,9 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/auth/lib/base64.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/base64.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/auth_token.h"
 #include "gtest/gtest.h"
-#include "src/api_manager/auth/lib/auth_token.h"
 
 namespace google {
 namespace api_manager {

@@ -14,8 +14,8 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/method_impl.h"
-#include "src/api_manager/utils/url_util.h"
+#include "contrib/endpoints/src/api_manager/method_impl.h"
+#include "contrib/endpoints/src/api_manager/utils/url_util.h"
 
 #include <sstream>
 

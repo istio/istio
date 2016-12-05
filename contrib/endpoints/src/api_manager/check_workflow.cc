@@ -14,10 +14,10 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "src/api_manager/check_workflow.h"
-#include "src/api_manager/check_auth.h"
-#include "src/api_manager/check_service_control.h"
-#include "src/api_manager/fetch_metadata.h"
+#include "contrib/endpoints/src/api_manager/check_workflow.h"
+#include "contrib/endpoints/src/api_manager/check_auth.h"
+#include "contrib/endpoints/src/api_manager/check_service_control.h"
+#include "contrib/endpoints/src/api_manager/fetch_metadata.h"
 
 using ::google::api_manager::utils::Status;
 

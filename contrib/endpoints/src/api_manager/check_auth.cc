@@ -13,21 +13,21 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-#include "src/api_manager/check_auth.h"
+#include "contrib/endpoints/src/api_manager/check_auth.h"
 
 #include <chrono>
 #include <string>
 
-#include "include/api_manager/api_manager.h"
-#include "include/api_manager/request.h"
-#include "src/api_manager/auth.h"
-#include "src/api_manager/auth/lib/auth_jwt_validator.h"
-#include "src/api_manager/auth/lib/auth_token.h"
-#include "src/api_manager/auth/lib/base64.h"
-#include "src/api_manager/auth/lib/json.h"
-#include "src/api_manager/auth/lib/json_util.h"
-#include "src/api_manager/cloud_trace/cloud_trace.h"
-#include "src/api_manager/utils/url_util.h"
+#include "contrib/endpoints/include/api_manager/api_manager.h"
+#include "contrib/endpoints/include/api_manager/request.h"
+#include "contrib/endpoints/src/api_manager/auth.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/auth_jwt_validator.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/auth_token.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/base64.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/json.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/json_util.h"
+#include "contrib/endpoints/src/api_manager/cloud_trace/cloud_trace.h"
+#include "contrib/endpoints/src/api_manager/utils/url_util.h"
 
 using ::google::api_manager::auth::Certs;
 using ::google::api_manager::auth::JwtCache;

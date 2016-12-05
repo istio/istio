@@ -19,7 +19,7 @@
 // since it directly includes a grpc header file.
 // A public header file should not include any grpc header files.
 
-#include "src/api_manager/auth/lib/grpc_internals.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/grpc_internals.h"
 
 namespace google {
 namespace api_manager {

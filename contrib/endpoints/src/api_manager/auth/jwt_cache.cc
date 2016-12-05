@@ -14,7 +14,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/auth/jwt_cache.h"
+#include "contrib/endpoints/src/api_manager/auth/jwt_cache.h"
 
 using ::google::service_control_client::SimpleLRUCache;
 using std::chrono::system_clock;

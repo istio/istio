@@ -14,9 +14,9 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
+#include "contrib/endpoints/include/api_manager/utils/status.h"
+#include "contrib/endpoints/src/api_manager/service_control/proto.h"
 #include "gtest/gtest.h"
-#include "include/api_manager/utils/status.h"
-#include "src/api_manager/service_control/proto.h"
 
 namespace gasv1 = ::google::api::servicecontrol::v1;
 
