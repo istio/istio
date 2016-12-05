@@ -14,11 +14,11 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/service_control/aggregated.h"
+#include "contrib/endpoints/src/api_manager/service_control/aggregated.h"
 
 #include <sstream>
 #include <typeinfo>
-#include "src/api_manager/service_control/logs_metrics_loader.h"
+#include "contrib/endpoints/src/api_manager/service_control/logs_metrics_loader.h"
 
 using ::google::api::servicecontrol::v1::CheckRequest;
 using ::google::api::servicecontrol::v1::CheckResponse;

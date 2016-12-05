@@ -14,11 +14,11 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/path_matcher.h"
+#include "contrib/endpoints/src/api_manager/path_matcher.h"
 
-#include "include/api_manager/method.h"
-#include "include/api_manager/method_call_info.h"
-#include "src/api_manager/http_template.h"
+#include "contrib/endpoints/include/api_manager/method.h"
+#include "contrib/endpoints/include/api_manager/method_call_info.h"
+#include "contrib/endpoints/src/api_manager/http_template.h"
 
 #include <algorithm>
 #include <sstream>

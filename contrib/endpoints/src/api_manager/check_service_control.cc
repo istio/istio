@@ -14,9 +14,9 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // includes should be ordered. This seems like a bug in clang-format?
-#include "src/api_manager/check_service_control.h"
+#include "contrib/endpoints/src/api_manager/check_service_control.h"
+#include "contrib/endpoints/src/api_manager/cloud_trace/cloud_trace.h"
 #include "google/protobuf/stubs/status.h"
-#include "src/api_manager/cloud_trace/cloud_trace.h"
 
 using ::google::api_manager::utils::Status;
 using ::google::protobuf::util::error::Code;

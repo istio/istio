@@ -17,7 +17,7 @@
 
 #include <time.h>
 
-#include "include/api_manager/env_interface.h"
+#include "contrib/endpoints/include/api_manager/env_interface.h"
 
 namespace google {
 namespace api_manager {

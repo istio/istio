@@ -14,7 +14,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/auth/lib/json.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/json.h"
 #include "gtest/gtest.h"
 
 namespace google {

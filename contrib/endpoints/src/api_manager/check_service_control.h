@@ -15,8 +15,8 @@
 #ifndef API_MANAGER_CHECK_SERVICE_CONTROL_H_
 #define API_MANAGER_CHECK_SERVICE_CONTROL_H_
 
-#include "include/api_manager/utils/status.h"
-#include "src/api_manager/context/request_context.h"
+#include "contrib/endpoints/include/api_manager/utils/status.h"
+#include "contrib/endpoints/src/api_manager/context/request_context.h"
 
 namespace google {
 namespace api_manager {

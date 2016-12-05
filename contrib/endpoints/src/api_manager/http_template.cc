@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-#include "src/api_manager/http_template.h"
+#include "contrib/endpoints/src/api_manager/http_template.h"
 
 namespace google {
 namespace api_manager {

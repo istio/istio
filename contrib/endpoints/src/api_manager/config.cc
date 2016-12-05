@@ -14,10 +14,10 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/config.h"
-#include "src/api_manager/utils/marshalling.h"
-#include "src/api_manager/utils/stl_util.h"
-#include "src/api_manager/utils/url_util.h"
+#include "contrib/endpoints/src/api_manager/config.h"
+#include "contrib/endpoints/src/api_manager/utils/marshalling.h"
+#include "contrib/endpoints/src/api_manager/utils/stl_util.h"
+#include "contrib/endpoints/src/api_manager/utils/url_util.h"
 
 #include <iostream>
 #include <map>

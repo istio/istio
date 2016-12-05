@@ -15,8 +15,8 @@
 #ifndef API_MANAGER_MOCK_METHOD_INFO_H_
 #define API_MANAGER_MOCK_METHOD_INFO_H_
 
+#include "contrib/endpoints/include/api_manager/method.h"
 #include "gmock/gmock.h"
-#include "include/api_manager/method.h"
 
 namespace google {
 namespace api_manager {

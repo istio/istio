@@ -15,16 +15,16 @@
 #ifndef API_MANAGER_SERVICE_CONTROL_AGGREGATED_H_
 #define API_MANAGER_SERVICE_CONTROL_AGGREGATED_H_
 
+#include "contrib/endpoints/include/api_manager/env_interface.h"
+#include "contrib/endpoints/src/api_manager/auth/service_account_token.h"
+#include "contrib/endpoints/src/api_manager/cloud_trace/cloud_trace.h"
+#include "contrib/endpoints/src/api_manager/proto/server_config.pb.h"
+#include "contrib/endpoints/src/api_manager/service_control/interface.h"
+#include "contrib/endpoints/src/api_manager/service_control/proto.h"
+#include "contrib/endpoints/src/api_manager/service_control/url.h"
 #include "google/api/service.pb.h"
 #include "google/api/servicecontrol/v1/service_controller.pb.h"
-#include "include/api_manager/env_interface.h"
 #include "include/service_control_client.h"
-#include "src/api_manager/auth/service_account_token.h"
-#include "src/api_manager/cloud_trace/cloud_trace.h"
-#include "src/api_manager/proto/server_config.pb.h"
-#include "src/api_manager/service_control/interface.h"
-#include "src/api_manager/service_control/proto.h"
-#include "src/api_manager/service_control/url.h"
 
 #include <list>
 #include <mutex>

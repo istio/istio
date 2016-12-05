@@ -14,7 +14,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/cloud_trace/cloud_trace.h"
+#include "contrib/endpoints/src/api_manager/cloud_trace/cloud_trace.h"
 
 #include <chrono>
 #include <thread>

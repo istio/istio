@@ -15,8 +15,8 @@
 #ifndef API_MANAGER_MOCK_REQUEST_H_
 #define API_MANAGER_MOCK_REQUEST_H_
 
+#include "contrib/endpoints/include/api_manager/request.h"
 #include "gmock/gmock.h"
-#include "include/api_manager/request.h"
 
 namespace google {
 namespace api_manager {

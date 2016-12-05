@@ -14,11 +14,11 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/service_control/logs_metrics_loader.h"
+#include "contrib/endpoints/src/api_manager/service_control/logs_metrics_loader.h"
 
 #include <algorithm>
 
-#include "src/api_manager/service_control/proto.h"
+#include "contrib/endpoints/src/api_manager/service_control/proto.h"
 
 namespace google {
 namespace api_manager {

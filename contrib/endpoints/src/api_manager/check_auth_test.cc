@@ -14,12 +14,12 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/check_auth.h"
+#include "contrib/endpoints/src/api_manager/check_auth.h"
 
-#include "src/api_manager/check_workflow.h"
-#include "src/api_manager/context/service_context.h"
-#include "src/api_manager/mock_api_manager_environment.h"
-#include "src/api_manager/mock_request.h"
+#include "contrib/endpoints/src/api_manager/check_workflow.h"
+#include "contrib/endpoints/src/api_manager/context/service_context.h"
+#include "contrib/endpoints/src/api_manager/mock_api_manager_environment.h"
+#include "contrib/endpoints/src/api_manager/mock_request.h"
 
 using ::testing::_;
 using ::testing::AllOf;

@@ -15,9 +15,9 @@
 #ifndef API_MANAGER_API_MANAGER_IMPL_H_
 #define API_MANAGER_API_MANAGER_IMPL_H_
 
-#include "include/api_manager/api_manager.h"
-#include "src/api_manager/context/service_context.h"
-#include "src/api_manager/service_control/interface.h"
+#include "contrib/endpoints/include/api_manager/api_manager.h"
+#include "contrib/endpoints/src/api_manager/context/service_context.h"
+#include "contrib/endpoints/src/api_manager/service_control/interface.h"
 
 namespace google {
 namespace api_manager {

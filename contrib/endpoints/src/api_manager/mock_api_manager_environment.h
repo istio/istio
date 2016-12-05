@@ -15,8 +15,8 @@
 #ifndef API_MANAGER_MOCK_ESP_ENVIRONMENT_H_
 #define API_MANAGER_MOCK_ESP_ENVIRONMENT_H_
 
+#include "contrib/endpoints/include/api_manager/api_manager.h"
 #include "gmock/gmock.h"
-#include "include/api_manager/api_manager.h"
 
 namespace google {
 namespace api_manager {

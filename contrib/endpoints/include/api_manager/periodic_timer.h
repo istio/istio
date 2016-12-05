@@ -15,7 +15,7 @@
 #ifndef API_MANAGER_PERIODIC_TIMER_H_
 #define API_MANAGER_PERIODIC_TIMER_H_
 
-#include "include/api_manager/utils/status.h"
+#include "contrib/endpoints/include/api_manager/utils/status.h"
 
 namespace google {
 namespace api_manager {

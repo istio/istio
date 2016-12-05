@@ -19,8 +19,8 @@
 #include <memory>
 #include <set>
 
-#include "include/api_manager/method.h"
-#include "src/api_manager/utils/stl_util.h"
+#include "contrib/endpoints/include/api_manager/method.h"
+#include "contrib/endpoints/src/api_manager/utils/stl_util.h"
 
 namespace google {
 namespace api_manager {

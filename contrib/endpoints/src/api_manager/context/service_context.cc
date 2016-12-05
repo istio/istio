@@ -14,9 +14,9 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/context/service_context.h"
+#include "contrib/endpoints/src/api_manager/context/service_context.h"
 
-#include "src/api_manager/service_control/aggregated.h"
+#include "contrib/endpoints/src/api_manager/service_control/aggregated.h"
 
 namespace google {
 namespace api_manager {

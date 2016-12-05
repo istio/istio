@@ -14,7 +14,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/gce_metadata.h"
+#include "contrib/endpoints/src/api_manager/gce_metadata.h"
 #include "gtest/gtest.h"
 
 using ::google::api_manager::utils::Status;

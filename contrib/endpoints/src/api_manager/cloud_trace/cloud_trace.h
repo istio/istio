@@ -19,11 +19,11 @@
 #include <sstream>
 #include <vector>
 
+#include "contrib/endpoints/include/api_manager/env_interface.h"
+#include "contrib/endpoints/include/api_manager/periodic_timer.h"
+#include "contrib/endpoints/src/api_manager/auth/service_account_token.h"
 #include "google/devtools/cloudtrace/v1/trace.pb.h"
 #include "google/protobuf/map.h"
-#include "include/api_manager/env_interface.h"
-#include "include/api_manager/periodic_timer.h"
-#include "src/api_manager/auth/service_account_token.h"
 
 namespace google {
 namespace api_manager {

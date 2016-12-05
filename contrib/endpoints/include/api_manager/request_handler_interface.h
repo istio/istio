@@ -15,10 +15,10 @@
 #ifndef API_MANAGER_REQUEST_HANDLER_INTERFACE_H_
 #define API_MANAGER_REQUEST_HANDLER_INTERFACE_H_
 
-#include "include/api_manager/method.h"
-#include "include/api_manager/method_call_info.h"
-#include "include/api_manager/response.h"
-#include "include/api_manager/utils/status.h"
+#include "contrib/endpoints/include/api_manager/method.h"
+#include "contrib/endpoints/include/api_manager/method_call_info.h"
+#include "contrib/endpoints/include/api_manager/response.h"
+#include "contrib/endpoints/include/api_manager/utils/status.h"
 
 namespace google {
 namespace api_manager {

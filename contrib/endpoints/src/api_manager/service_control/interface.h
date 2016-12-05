@@ -15,10 +15,10 @@
 #ifndef API_MANAGER_SERVICE_CONTROL_INTERFACE_H_
 #define API_MANAGER_SERVICE_CONTROL_INTERFACE_H_
 
-#include "include/api_manager/service_control.h"
-#include "include/api_manager/utils/status.h"
-#include "src/api_manager/cloud_trace/cloud_trace.h"
-#include "src/api_manager/service_control/info.h"
+#include "contrib/endpoints/include/api_manager/service_control.h"
+#include "contrib/endpoints/include/api_manager/utils/status.h"
+#include "contrib/endpoints/src/api_manager/cloud_trace/cloud_trace.h"
+#include "contrib/endpoints/src/api_manager/service_control/info.h"
 
 namespace google {
 namespace api_manager {

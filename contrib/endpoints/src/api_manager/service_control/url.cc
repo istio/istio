@@ -14,7 +14,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/service_control/url.h"
+#include "contrib/endpoints/src/api_manager/service_control/url.h"
 
 namespace google {
 namespace api_manager {

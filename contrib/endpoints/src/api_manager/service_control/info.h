@@ -23,10 +23,10 @@
 #include <memory>
 #include <string>
 
-#include "include/api_manager/compute_platform.h"
-#include "include/api_manager/protocol.h"
-#include "include/api_manager/service_control.h"
-#include "include/api_manager/utils/status.h"
+#include "contrib/endpoints/include/api_manager/compute_platform.h"
+#include "contrib/endpoints/include/api_manager/protocol.h"
+#include "contrib/endpoints/include/api_manager/service_control.h"
+#include "contrib/endpoints/include/api_manager/utils/status.h"
 
 namespace google {
 namespace api_manager {

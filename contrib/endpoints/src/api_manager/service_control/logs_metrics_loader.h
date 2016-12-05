@@ -17,9 +17,9 @@
 
 #include <functional>
 
+#include "contrib/endpoints/include/api_manager/utils/status.h"
 #include "google/api/service.pb.h"
 #include "gtest/gtest_prod.h"
-#include "include/api_manager/utils/status.h"
 
 namespace google {
 namespace api_manager {

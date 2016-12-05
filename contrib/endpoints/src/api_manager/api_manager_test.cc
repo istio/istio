@@ -14,9 +14,9 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "include/api_manager/api_manager.h"
+#include "contrib/endpoints/include/api_manager/api_manager.h"
+#include "contrib/endpoints/src/api_manager/mock_api_manager_environment.h"
 #include "gtest/gtest.h"
-#include "src/api_manager/mock_api_manager_environment.h"
 
 #include <memory>
 

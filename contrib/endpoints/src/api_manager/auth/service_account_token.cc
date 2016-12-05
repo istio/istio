@@ -14,10 +14,10 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/auth/service_account_token.h"
+#include "contrib/endpoints/src/api_manager/auth/service_account_token.h"
 
+#include "contrib/endpoints/src/api_manager/auth/lib/auth_token.h"
 #include "google/protobuf/stubs/logging.h"
-#include "src/api_manager/auth/lib/auth_token.h"
 
 using ::google::api_manager::utils::Status;
 using ::google::protobuf::util::error::Code;

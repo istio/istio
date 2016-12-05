@@ -14,7 +14,7 @@
 #
 ################################################################################
 #
-package(default_visibility = ["//src/api_manager:__subpackages__"])
+package(default_visibility = ["//contrib/endpoints/src/api_manager:__subpackages__"])
 
 cc_library(
     name = "cloud_trace",
@@ -23,7 +23,8 @@ cc_library(
         "cloud_trace.h",
     ],
     deps = [
-        "//src/api_manager/auth:service_account_token",
+        "//contrib/endpoints/include:headers_only",
+        "//contrib/endpoints/src/api_manager/auth:service_account_token",
         "//external:cloud_trace",
     ],
 )
@@ -37,9 +38,9 @@ cc_test(
     linkstatic = 1,
     deps = [
         ":cloud_trace",
-        "//external:googletest_main",
-        "//src/api_manager:mock_api_manager_environment",
+        "//contrib/endpoints/src/api_manager:mock_api_manager_environment",
         "//external:cloud_trace",
+        "//external:googletest_main",
     ],
 )
 

@@ -14,10 +14,10 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "src/api_manager/fetch_metadata.h"
+#include "contrib/endpoints/src/api_manager/fetch_metadata.h"
 
-#include "include/api_manager/http_request.h"
-#include "src/api_manager/auth/lib/auth_token.h"
+#include "contrib/endpoints/include/api_manager/http_request.h"
+#include "contrib/endpoints/src/api_manager/auth/lib/auth_token.h"
 
 using ::google::api_manager::utils::Status;
 using ::google::protobuf::util::error::Code;

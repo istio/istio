@@ -21,10 +21,10 @@
 #include <string>
 #include <unordered_map>
 
-#include "include/api_manager/method.h"
-#include "include/api_manager/method_call_info.h"
-#include "src/api_manager/http_template.h"
-#include "src/api_manager/path_matcher_node.h"
+#include "contrib/endpoints/include/api_manager/method.h"
+#include "contrib/endpoints/include/api_manager/method_call_info.h"
+#include "contrib/endpoints/src/api_manager/http_template.h"
+#include "contrib/endpoints/src/api_manager/path_matcher_node.h"
 
 namespace google {
 namespace api_manager {

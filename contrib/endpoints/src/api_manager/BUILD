@@ -25,6 +25,7 @@ cc_proto_library(
     ],
     default_runtime = "//external:protobuf",
     protoc = "//external:protoc",
+    visibility = ["//visibility:public"],
 )
 
 cc_proto_library(
@@ -32,9 +33,9 @@ cc_proto_library(
     srcs = [
         "proto/api_manager_status.proto",
     ],
-    include = ".",
     default_runtime = "//external:protobuf",
     protoc = "//external:protoc",
+    visibility = ["//visibility:public"],
 )
 
 cc_library(
@@ -57,7 +58,7 @@ cc_library(
         "request_handler.h",
     ],
     deps = [
-        "//include:headers_only",
+        "//contrib/endpoints/include:headers_only",
     ],
 )
 
@@ -90,12 +91,17 @@ cc_library(
         ],
     }),
     visibility = [
-        "//include:__subpackages__",
+        "//visibility:public",
     ],
     deps = [
         ":auth_headers",
         ":impl_headers",
         ":server_config_proto",
+        "//contrib/endpoints/src/api_manager/auth",
+        "//contrib/endpoints/src/api_manager/cloud_trace",
+        "//contrib/endpoints/src/api_manager/context",
+        "//contrib/endpoints/src/api_manager/service_control",
+        "//contrib/endpoints/src/api_manager/utils",
         "//external:cc_wkt_protos",
         "//external:cloud_trace",
         "//external:googletest_prod",
@@ -104,11 +110,6 @@ cc_library(
         "//external:service_config",
         "//external:servicecontrol",
         "//external:servicecontrol_client",
-        "//src/api_manager/auth",
-        "//src/api_manager/cloud_trace",
-        "//src/api_manager/context",
-        "//src/api_manager/service_control",
-        "//src/api_manager/utils",
     ],
 )
 
@@ -221,7 +222,7 @@ cc_test(
     ],
 )
 
-cc_inc_library(
+cc_library(
     name = "mock_api_manager_environment",
     testonly = True,
     hdrs = [

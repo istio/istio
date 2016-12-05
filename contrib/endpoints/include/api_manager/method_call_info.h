@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-#include "include/api_manager/method.h"
+#include "contrib/endpoints/include/api_manager/method.h"
 
 namespace google {
 namespace api_manager {

@@ -14,11 +14,11 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/api_manager/cloud_trace/cloud_trace.h"
+#include "contrib/endpoints/src/api_manager/cloud_trace/cloud_trace.h"
 
+#include "contrib/endpoints/src/api_manager/mock_api_manager_environment.h"
 #include "google/devtools/cloudtrace/v1/trace.pb.h"
 #include "gtest/gtest.h"
-#include "src/api_manager/mock_api_manager_environment.h"
 
 using google::devtools::cloudtrace::v1::TraceSpan;
 

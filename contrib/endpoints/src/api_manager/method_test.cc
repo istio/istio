@@ -14,8 +14,8 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
+#include "contrib/endpoints/src/api_manager/method_impl.h"
 #include "gtest/gtest.h"
-#include "src/api_manager/method_impl.h"
 
 using std::string;
 

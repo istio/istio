@@ -22,10 +22,10 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include "contrib/endpoints/include/api_manager/utils/status.h"
+#include "contrib/endpoints/include/api_manager/version.h"
+#include "contrib/endpoints/src/api_manager/utils/marshalling.h"
 #include "google/protobuf/timestamp.pb.h"
-#include "include/api_manager/utils/status.h"
-#include "include/api_manager/version.h"
-#include "src/api_manager/utils/marshalling.h"
 
 using google::api_manager::utils::Status;
 using google::devtools::cloudtrace::v1::Trace;
