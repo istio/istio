@@ -17,8 +17,8 @@ package main
 import (
 	"errors"
 
+	"istio.io/mixer"
 	"istio.io/mixer/adapters"
-
 	"istio.io/mixer/adapters/denyChecker"
 	"istio.io/mixer/adapters/factMapper"
 	"istio.io/mixer/adapters/genericListChecker"
@@ -52,8 +52,14 @@ type AdapterManager struct {
 	ListCheckers map[string]adapters.Builder
 }
 
-// TODO: this implementation needs to be driven from external config instead of being
-// hardcoded
+// GetListCheckerAdapter returns a matching adapter for the given dispatchKey. If there is no existing adapter,
+// it instantiates one, based on the provided adapter config.
+func (mgr *AdapterManager) GetListCheckerAdapter(dispatchKey mixer.DispatchKey, config *adapters.AdapterConfig) (adapters.ListChecker, error) {
+	// TODO: instantiation & caching of the adapters.
+	return nil, errors.New("NYI")
+}
+
+// TODO: this implementation needs to be driven from external config instead of being hardcoded
 func prepBuilders(l []adapters.Builder) (map[string]adapters.Builder, error) {
 	m := make(map[string]adapters.Builder, len(l))
 

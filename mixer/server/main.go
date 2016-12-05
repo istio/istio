@@ -95,6 +95,11 @@ func runServer(sa *serverArgs) error {
 		return fmt.Errorf("Unable to initialize adapters: %v", err)
 	}
 
+	var configMgr *ConfigManager
+	if configMgr, err = NewConfigManager(); err != nil {
+		glog.Exitf("Unable to initialize configuration: %v", err)
+	}
+
 	// TODO: hackily create a fact mapper builder & adapter.
 	// This necessarily needs to be discovered & created through normal
 	// adapter config goo, but that doesn't exist yet
@@ -115,7 +120,7 @@ func runServer(sa *serverArgs) error {
 		CompressedPayload:    sa.compressedPayload,
 		ServerCertificate:    serverCert,
 		ClientCertificates:   clientCerts,
-		Handlers:             NewAPIHandlers(),
+		Handlers:             NewAPIHandlers(adapterMgr, configMgr),
 		FactConverter:        factConverter,
 	}
 
