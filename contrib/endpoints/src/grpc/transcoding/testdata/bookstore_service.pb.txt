@@ -1,0 +1,458 @@
+name: "esp-test.appspot.com"
+apis {
+  methods {
+    name: "ListShelves"
+    request_type_url: "type.googleapis.com/google.protobuf.Empty"
+    response_type_url: "type.googleapis.com/ListShelvesResponse"
+  }
+  methods {
+    name: "CreateShelf"
+    request_type_url: "type.googleapis.com/CreateShelfRequest"
+    response_type_url: "type.googleapis.com/Shelf"
+  }
+  methods {
+    name: "GetShelf"
+    request_type_url: "type.googleapis.com/GetShelfRequest"
+    response_type_url: "type.googleapis.com/Shelf"
+  }
+  methods {
+    name: "DeleteShelf"
+    request_type_url: "type.googleapis.com/DeleteShelfRequest"
+    response_type_url: "type.googleapis.com/google.protobuf.Value"
+  }
+  methods {
+    name: "ListBooks"
+    request_type_url: "type.googleapis.com/ListBooksRequest"
+    response_type_url: "type.googleapis.com/ListBooksResponse"
+  }
+  methods {
+    name: "CreateBook"
+    request_type_url: "type.googleapis.com/CreateBookRequest"
+    response_type_url: "type.googleapis.com/Book"
+  }
+  methods {
+    name: "CreateBookWithAuthorInfo"
+    request_type_url: "type.googleapis.com/CreateBookRequest"
+    response_type_url: "type.googleapis.com/Book"
+  }
+  methods {
+    name: "GetBook"
+    request_type_url: "type.googleapis.com/GetBookRequest"
+    response_type_url: "type.googleapis.com/Book"
+  }
+  methods {
+    name: "DeleteBook"
+    request_type_url: "type.googleapis.com/DeleteBookRequest"
+    response_type_url: "type.googleapis.com/google.protobuf.Value"
+  }
+  methods {
+    name: "BulkCreateShelves"
+    request_type_url: "type.googleapis.com/CreateShelfRequest"
+    response_type_url: "type.googleapis.com/Shelf"
+    request_streaming: true
+    response_streaming: true
+  }
+  version: "v1"
+  source_context {
+  }
+}
+types {
+  name: "Biography"
+  fields {
+    kind: TYPE_INT64
+    cardinality: CARDINALITY_OPTIONAL
+    number: 1
+    name: "year_born"
+    json_name: "yearBorn"
+  }
+  fields {
+    kind: TYPE_INT64
+    cardinality: CARDINALITY_OPTIONAL
+    number: 2
+    name: "year_died"
+    json_name: "yearDied"
+  }
+  fields {
+    kind: TYPE_STRING
+    cardinality: CARDINALITY_OPTIONAL
+    number: 3
+    name: "text"
+    json_name: "text"
+  }
+  source_context {
+  }
+}
+types {
+  name: "AuthorInfo"
+  fields {
+    kind: TYPE_STRING
+    cardinality: CARDINALITY_OPTIONAL
+    number: 1
+    name: "first_name"
+    json_name: "firstName"
+  }
+  fields {
+    kind: TYPE_STRING
+    cardinality: CARDINALITY_OPTIONAL
+    number: 2
+    name: "last_name"
+    json_name: "lastName"
+  }
+  fields {
+    kind: TYPE_MESSAGE
+    cardinality: CARDINALITY_OPTIONAL
+    number: 3
+    name: "bio"
+    type_url: "type.googleapis.com/Biography"
+    json_name: "bio"
+  }
+  source_context {
+  }
+}
+types {
+  name: "Book"
+  fields {
+    kind: TYPE_STRING
+    cardinality: CARDINALITY_OPTIONAL
+    number: 1
+    name: "author"
+    json_name: "author"
+  }
+  fields {
+    kind: TYPE_STRING
+    cardinality: CARDINALITY_OPTIONAL
+    number: 2
+    name: "name"
+    json_name: "name"
+  }
+  fields {
+    kind: TYPE_STRING
+    cardinality: CARDINALITY_OPTIONAL
+    number: 3
+    name: "title"
+    json_name: "title"
+  }
+  fields {
+    kind: TYPE_MESSAGE
+    cardinality: CARDINALITY_OPTIONAL
+    number: 4
+    name: "author_info"
+    type_url: "type.googleapis.com/AuthorInfo"
+    json_name: "authorInfo"
+  }
+  source_context {
+  }
+}
+types {
+  name: "ListBooksResponse"
+  fields {
+    kind: TYPE_MESSAGE
+    cardinality: CARDINALITY_REPEATED
+    number: 1
+    name: "books"
+    type_url: "type.googleapis.com/Book"
+    json_name: "books"
+  }
+  source_context {
+  }
+}
+types {
+  name: "Shelf"
+  fields {
+    kind: TYPE_STRING
+    cardinality: CARDINALITY_OPTIONAL
+    number: 1
+    name: "name"
+    json_name: "name"
+  }
+  fields {
+    kind: TYPE_STRING
+    cardinality: CARDINALITY_OPTIONAL
+    number: 2
+    name: "theme"
+    json_name: "theme"
+  }
+  source_context {
+  }
+}
+types {
+  name: "ListShelvesResponse"
+  fields {
+    kind: TYPE_MESSAGE
+    cardinality: CARDINALITY_REPEATED
+    number: 1
+    name: "shelves"
+    type_url: "type.googleapis.com/Shelf"
+    json_name: "shelves"
+  }
+  source_context {
+  }
+}
+types {
+  name: "CreateShelfRequest"
+  fields {
+    kind: TYPE_MESSAGE
+    cardinality: CARDINALITY_OPTIONAL
+    number: 1
+    name: "shelf"
+    type_url: "type.googleapis.com/Shelf"
+    json_name: "shelf"
+  }
+  source_context {
+  }
+}
+types {
+  name: "GetShelfRequest"
+  fields {
+    kind: TYPE_INT64
+    cardinality: CARDINALITY_OPTIONAL
+    number: 1
+    name: "shelf"
+    json_name: "shelf"
+  }
+  source_context {
+  }
+}
+types {
+  name: "DeleteShelfRequest"
+  fields {
+    kind: TYPE_INT64
+    cardinality: CARDINALITY_OPTIONAL
+    number: 1
+    name: "shelf"
+    json_name: "shelf"
+  }
+  source_context {
+  }
+}
+types {
+  name: "ListBooksRequest"
+  fields {
+    kind: TYPE_INT64
+    cardinality: CARDINALITY_OPTIONAL
+    number: 1
+    name: "shelf"
+    json_name: "shelf"
+  }
+  source_context {
+  }
+}
+types {
+  name: "CreateBookRequest"
+  fields {
+    kind: TYPE_INT64
+    cardinality: CARDINALITY_OPTIONAL
+    number: 1
+    name: "shelf"
+    json_name: "shelf"
+  }
+  fields {
+    kind: TYPE_MESSAGE
+    cardinality: CARDINALITY_OPTIONAL
+    number: 2
+    name: "book"
+    type_url: "type.googleapis.com/Book"
+    json_name: "book"
+  }
+  source_context {
+  }
+}
+types {
+  name: "GetBookRequest"
+  fields {
+    kind: TYPE_INT64
+    cardinality: CARDINALITY_OPTIONAL
+    number: 1
+    name: "shelf"
+    json_name: "shelf"
+  }
+  fields {
+    kind: TYPE_INT64
+    cardinality: CARDINALITY_OPTIONAL
+    number: 2
+    name: "book"
+    json_name: "book"
+  }
+  source_context {
+  }
+}
+types {
+  name: "DeleteBookRequest"
+  fields {
+    kind: TYPE_INT64
+    cardinality: CARDINALITY_OPTIONAL
+    number: 1
+    name: "shelf"
+    json_name: "shelf"
+  }
+  fields {
+    kind: TYPE_INT64
+    cardinality: CARDINALITY_OPTIONAL
+    number: 2
+    name: "book"
+    json_name: "book"
+  }
+  source_context {
+  }
+}
+types {
+  name: "google.protobuf.ListValue"
+  fields {
+    kind: TYPE_MESSAGE
+    cardinality: CARDINALITY_REPEATED
+    number: 1
+    name: "values"
+    type_url: "type.googleapis.com/google.protobuf.Value"
+    json_name: "values"
+  }
+  source_context {
+    file_name: "struct.proto"
+  }
+}
+types {
+  name: "google.protobuf.Struct"
+  fields {
+    kind: TYPE_MESSAGE
+    cardinality: CARDINALITY_REPEATED
+    number: 1
+    name: "fields"
+    type_url: "type.googleapis.com/google.protobuf.Struct.FieldsEntry"
+    json_name: "fields"
+  }
+  source_context {
+    file_name: "struct.proto"
+  }
+}
+types {
+  name: "google.protobuf.Struct.FieldsEntry"
+  fields {
+    kind: TYPE_STRING
+    cardinality: CARDINALITY_OPTIONAL
+    number: 1
+    name: "key"
+    json_name: "key"
+  }
+  fields {
+    kind: TYPE_MESSAGE
+    cardinality: CARDINALITY_OPTIONAL
+    number: 2
+    name: "value"
+    type_url: "type.googleapis.com/google.protobuf.Value"
+    json_name: "value"
+  }
+  source_context {
+    file_name: "struct.proto"
+  }
+}
+types {
+  name: "google.protobuf.Empty"
+  source_context {
+    file_name: "struct.proto"
+  }
+}
+types {
+  name: "google.protobuf.Value"
+  fields {
+    kind: TYPE_ENUM
+    cardinality: CARDINALITY_OPTIONAL
+    number: 1
+    name: "null_value"
+    type_url: "type.googleapis.com/google.protobuf.NullValue"
+    json_name: "nullValue"
+  }
+  fields {
+    kind: TYPE_DOUBLE
+    cardinality: CARDINALITY_OPTIONAL
+    number: 2
+    name: "number_value"
+    json_name: "numberValue"
+  }
+  fields {
+    kind: TYPE_STRING
+    cardinality: CARDINALITY_OPTIONAL
+    number: 3
+    name: "string_value"
+    json_name: "stringValue"
+  }
+  fields {
+    kind: TYPE_BOOL
+    cardinality: CARDINALITY_OPTIONAL
+    number: 4
+    name: "bool_value"
+    json_name: "boolValue"
+  }
+  fields {
+    kind: TYPE_MESSAGE
+    cardinality: CARDINALITY_OPTIONAL
+    number: 5
+    name: "struct_value"
+    type_url: "type.googleapis.com/google.protobuf.Struct"
+    json_name: "structValue"
+  }
+  fields {
+    kind: TYPE_MESSAGE
+    cardinality: CARDINALITY_OPTIONAL
+    number: 6
+    name: "list_value"
+    type_url: "type.googleapis.com/google.protobuf.ListValue"
+    json_name: "listValue"
+  }
+  source_context {
+    file_name: "struct.proto"
+  }
+}
+enums {
+  name: "google.protobuf.NullValue"
+  enumvalue {
+    name: "NULL_VALUE"
+  }
+  source_context {
+    file_name: "struct.proto"
+  }
+}
+http {
+  rules {
+    selector: "ListShelves"
+    get: "/shelves"
+  }
+  rules {
+    selector: "CreateShelf"
+    post: "/shelves"
+    body: "shelf"
+  }
+  rules {
+    selector: "GetShelf"
+    get: "/shelves/{shelf}"
+  }
+  rules {
+    selector: "DeleteShelf"
+    delete: "/shelves/{shelf}"
+  }
+  rules {
+    selector: "ListBooks"
+    get: "/shelves/{shelf}/books"
+  }
+  rules {
+    selector: "CreateBook"
+    post: "/shelves/{shelf}/books"
+    body: "book"
+  }
+  rules {
+    selector: "CreateBookWithAuthorInfo"
+    post: "/shelves/{shelf}/books/{book.authorInfo.firstName}/{book.authorInfo.lastName}"
+    body: "book"
+  }
+  rules {
+    selector: "GetBook"
+    get: "/shelves/{shelf}/books/{book}"
+  }
+  rules {
+    selector: "DeleteBook"
+    delete: "/shelves/{shelf}/books/{book}"
+  }
+  rules {
+    selector: "BulkCreateShelves"
+    post: "/bulk/shelves"
+    body: "shelf"
+  }
+}
