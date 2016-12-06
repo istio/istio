@@ -99,6 +99,10 @@ level, you can pass in `-v=X` where X is the desired maximum level to log.
   - All filenames and directory names use camelCasing. No dashes, no underscores. The exception is for
   unit tests which follow the Go convention of having a _test.go suffix.
 
+  - All directory names should be singular unless required by existing frameworks.
+  This is to avoid mixed singular and plural names in the full paths. NOTE:
+  Tranditional Unix directory names are often singular, such as "/usr/bin".
+
   - Third-party code
 
     - Go code for normal third-party dependencies is managed using [glide](https://github.com/Masterminds/glide)
