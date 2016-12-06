@@ -1,0 +1,77 @@
+// Copyright (C) Extensible Service Proxy Authors
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
+// are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+//
+// THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+// OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+// HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+// OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+// SUCH DAMAGE.
+//
+////////////////////////////////////////////////////////////////////////////////
+//
+// bookstore.proto
+// Test proto for transcoding
+syntax = "proto3";
+package google.api_manager.transcoding;
+message Biography {
+  int64 year_born = 1;
+  int64 year_died = 2;
+  string text = 3;
+}
+message AuthorInfo {
+  string first_name = 1;
+  string last_name = 2;
+  Biography bio = 3;
+}
+message Book {
+  string author = 1;
+  string name = 2;
+  string title = 3;
+  AuthorInfo author_info = 4;
+}
+message Shelf {
+  string name = 1;
+  string theme = 2;
+}
+message ListShelvesResponse {
+  repeated Shelf shelves = 1;
+}
+message CreateShelfRequest {
+  Shelf shelf = 1;
+}
+message GetShelfRequest {
+  int64 shelf = 1;
+}
+message DeleteShelfRequest {
+  int64 shelf = 1;
+}
+message ListBooksRequest {
+  int64 shelf = 1;
+}
+message CreateBookRequest {
+  int64 shelf = 1;
+  Book book = 2;
+}
+message GetBookRequest {
+  int64 shelf = 1;
+  int64 book = 2;
+}
+message DeleteBookRequest {
+  int64 shelf = 1;
+  int64 book = 2;
+}
