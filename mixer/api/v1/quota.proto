@@ -21,8 +21,8 @@ option go_package="istio.io/mixer/api/v1;mixerpb";
 import "google/rpc/status.proto";
 
 message QuotaRequest {
-  // Uniquely identifies this request, used to match to responses
-  int64 request_id = 1;
+  // Index within the stream for this request, used to match to responses
+  int64 request_index = 1;
 
   // The set of discovered facts associated with this request. This value
   // represents a delta relative to the facts currently known to the mixer
@@ -66,8 +66,8 @@ message QuotaRequest {
 // Quotas can also be used to impose upper limits on the number of specific
 // resources exposed by a service to its consumers.
 message QuotaResponse {
-  // Identifies the request this response is associated with
-  int64 request_id = 1;
+  // Index of the request this response is associated with
+  int64 request_index = 1;
 
   // Results, one for each operation in the request.
   // This map is indexed by the quota_operation_id of the individual quota operations.

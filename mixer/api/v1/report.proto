@@ -25,8 +25,8 @@ import "google/rpc/status.proto";
 
 // Used to report telemetry after performing an action.
 message ReportRequest {
-  // Uniquely identifies this request, used to match to responses
-  int64 request_id = 1;
+  // Index within the stream for this request, used to match to responses
+  int64 request_index = 1;
 
   // The set of discovered facts associated with this request. This value
   // represents a delta relative to the facts currently known to the mixer
@@ -146,8 +146,8 @@ message LogEntry {
 }
 
 message ReportResponse {
-  // Identifies the request this response is associated with
-  int64 request_id = 1;
+  // Index of the request this response is associated with
+  int64 request_index = 1;
 
   // Indicates whether the report was processed or not
   google.rpc.Status result = 2;
