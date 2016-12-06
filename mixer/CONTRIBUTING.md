@@ -36,15 +36,15 @@ If you want to work on a new idea of relatively small scope:
 
 ## Other documents
 
-We have a [developer's guide](docs/devel/development.md) that outlines everything
+We have a [developer's guide](doc/devel/development.md) that outlines everything
 you need to know to contribute. If you find something undocumented or incorrect
 along the way, please feel free to send a Pull Request.
 
-The [project conventions](docs/devel/conventions.md) explain how we expect things
+The [project conventions](doc/devel/conventions.md) explain how we expect things
 to named and organized.
 
-Please read about our [collaborative development environment](docs/devel/collaboration.md) for information
+Please read about our [collaborative development environment](doc/devel/collaboration.md) for information
 on how we're running development for the project.
 
-Please see our [community expectations](docs/devel/community.md) for members
+Please see our [community expectations](doc/devel/community.md) for members
 of the Istio mixer community.

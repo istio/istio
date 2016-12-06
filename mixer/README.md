@@ -1,4 +1,4 @@
-![Mixer](docs/logo.png)
+![Mixer](doc/logo.png)
 <h1>The Istio Mixer</h1>
 
 The Istio mixer provides three distinct features:
@@ -22,8 +22,8 @@ for limited service resources.
 
 To learn more...
 
-- [Mixer user guide](docs/userGuide/README.md)
-- [Using the mixer API](docs/api.md)
+- [Mixer user guide](doc/userGuide/README.md)
+- [Using the mixer API](doc/api.md)
 - [Contributing to the project](./CONTRIBUTING.md)
 
 ### Filing issues
