@@ -24,6 +24,7 @@ cc_library(
         "marshalling.cc",
         "status.cc",
         "url_util.cc",
+        "version.cc",
     ],
     hdrs = [
         "marshalling.h",
