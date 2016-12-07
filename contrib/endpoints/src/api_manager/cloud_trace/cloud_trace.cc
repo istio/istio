@@ -332,8 +332,9 @@ void GetNewTrace(std::string trace_id_str, const std::string &root_span_name,
   root_span->set_span_id(RandomUInt64());
   root_span->set_name(root_span_name);
   // Agent label is defined as "<agent>/<version>".
-  root_span->mutable_labels()->insert({kCloudTraceAgentKey,
-                                       kServiceAgentPrefix + utils::Version::instance().get()});
+  root_span->mutable_labels()->insert(
+      {kCloudTraceAgentKey,
+       kServiceAgentPrefix + utils::Version::instance().get()});
   GetNow(root_span->mutable_start_time());
 }
 

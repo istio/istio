@@ -926,7 +926,8 @@ Status Proto::FillCheckRequest(const CheckRequestInfo& info,
     (*labels)[kServiceControlReferer] = info.referer;
   }
   (*labels)[kServiceControlUserAgent] = kUserAgent;
-  (*labels)[kServiceControlServiceAgent] = kServiceAgentPrefix + utils::Version::instance().get();
+  (*labels)[kServiceControlServiceAgent] =
+      kServiceAgentPrefix + utils::Version::instance().get();
   return Status::OK;
 }
 

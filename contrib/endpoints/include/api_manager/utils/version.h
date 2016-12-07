@@ -47,4 +47,4 @@ class Version final {
 }  // namespace api_manager
 }  // namespace google
 
-#endif // API_MANAGER_UTILS_VERSION_H_
+#endif  // API_MANAGER_UTILS_VERSION_H_
