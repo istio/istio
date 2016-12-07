@@ -33,7 +33,7 @@ cc_library(
         ":headers",
     ],
     visibility = [
-        "//contrib/endpoints/src/api_manager:__subpackages__",
+        "//contrib/endpoints/src:__subpackages__",
     ],
 )
 

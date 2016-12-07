@@ -14,7 +14,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/grpc/transcoding/request_translator_test_base.h"
+#include "contrib/endpoints/src/grpc/transcoding/request_translator_test_base.h"
 
 #include <fstream>
 #include <memory>
@@ -22,14 +22,14 @@
 #include <string>
 #include <vector>
 
+#include "contrib/endpoints/src/grpc/transcoding/message_stream.h"
+#include "contrib/endpoints/src/grpc/transcoding/test_common.h"
 #include "google/api/service.pb.h"
 #include "google/protobuf/stubs/strutil.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/type.pb.h"
 #include "google/protobuf/util/internal/type_info.h"
 #include "gtest/gtest.h"
-#include "src/grpc/transcoding/message_stream.h"
-#include "src/grpc/transcoding/test_common.h"
 
 namespace google {
 namespace api_manager {

@@ -14,7 +14,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/grpc/transcoding/prefix_writer.h"
+#include "contrib/endpoints/src/grpc/transcoding/prefix_writer.h"
 
 #include <memory>
 #include <string>

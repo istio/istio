@@ -14,7 +14,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/grpc/transcoding/proto_stream_tester.h"
+#include "contrib/endpoints/src/grpc/transcoding/proto_stream_tester.h"
 
 #include <string>
 

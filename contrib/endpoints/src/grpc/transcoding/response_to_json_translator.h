@@ -17,11 +17,11 @@
 
 #include <string>
 
+#include "contrib/endpoints/src/grpc/transcoding/message_reader.h"
+#include "contrib/endpoints/src/grpc/transcoding/message_stream.h"
 #include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/stubs/status.h"
 #include "google/protobuf/util/type_resolver.h"
-#include "src/grpc/transcoding/message_reader.h"
-#include "src/grpc/transcoding/message_stream.h"
 
 namespace google {
 namespace api_manager {

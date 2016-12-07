@@ -14,17 +14,17 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/grpc/transcoding/json_request_translator.h"
+#include "contrib/endpoints/src/grpc/transcoding/json_request_translator.h"
 
 #include <string>
 
+#include "contrib/endpoints/src/grpc/transcoding/message_stream.h"
+#include "contrib/endpoints/src/grpc/transcoding/request_message_translator.h"
+#include "contrib/endpoints/src/grpc/transcoding/request_stream_translator.h"
 #include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/stubs/status.h"
 #include "google/protobuf/util/internal/json_stream_parser.h"
 #include "google/protobuf/util/internal/object_writer.h"
-#include "src/grpc/transcoding/message_stream.h"
-#include "src/grpc/transcoding/request_message_translator.h"
-#include "src/grpc/transcoding/request_stream_translator.h"
 
 namespace google {
 namespace api_manager {

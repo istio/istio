@@ -14,15 +14,15 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/grpc/transcoding/request_stream_translator.h"
+#include "contrib/endpoints/src/grpc/transcoding/request_stream_translator.h"
 
 #include <memory>
 #include <string>
 
+#include "contrib/endpoints/src/grpc/transcoding/bookstore.pb.h"
+#include "contrib/endpoints/src/grpc/transcoding/request_translator_test_base.h"
 #include "google/protobuf/type.pb.h"
 #include "gtest/gtest.h"
-#include "src/grpc/transcoding/bookstore.pb.h"
-#include "src/grpc/transcoding/request_translator_test_base.h"
 
 namespace google {
 namespace api_manager {
