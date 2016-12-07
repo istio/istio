@@ -26,19 +26,21 @@ func TestBuilderInvariants(t *testing.T) {
 	testutil.TestBuilderInvariants(b, t)
 }
 
-func TestNoRules(t *testing.T) {
+func setup(t *testing.T, bc BuilderConfig, ac AdapterConfig) adapters.FactTracker {
 	b := NewBuilder()
-	b.Configure(b.DefaultBuilderConfig())
+	b.Configure(&bc)
 
-	rules := make(map[string]string)
-	var aa adapters.Adapter
-	var err error
-	if aa, err = b.NewAdapter(&AdapterConfig{Rules: rules}); err != nil {
+	a, err := b.NewAdapter(&ac)
+	if err != nil {
 		t.Error("Expected to successfully create a mapper")
 	}
-	a := aa.(adapters.FactConverter)
+	fc := a.(adapters.FactConverter)
+	return fc.NewTracker()
+}
 
-	tracker := a.NewTracker()
+func TestNoRules(t *testing.T) {
+	rules := make(map[string]string)
+	tracker := setup(t, BuilderConfig{}, AdapterConfig{Rules: rules})
 
 	labels := tracker.GetLabels()
 	if len(labels) != 0 {
@@ -72,47 +74,29 @@ func TestOddballRules(t *testing.T) {
 	b.Configure(b.DefaultBuilderConfig())
 
 	rules := make(map[string]string)
-	rules["Lab1"] = "|A|B|C"
-	if _, err := b.NewAdapter(&AdapterConfig{Rules: rules}); err == nil {
-		t.Error("Expecting to not be able to create a mapper")
+
+	badOddballs := []string{"|A|B|C", "|A|B|", "A| |C", "A||C"}
+	for _, oddball := range badOddballs {
+		rules["Lab1"] = oddball
+		if _, err := b.NewAdapter(&AdapterConfig{Rules: rules}); err == nil {
+			t.Errorf("Expecting to not be able to create a mapper for rule %s", oddball)
+		}
 	}
 
-	rules["Lab1"] = "A|B|"
-	if _, err := b.NewAdapter(&AdapterConfig{Rules: rules}); err == nil {
-		t.Error("Expecting to not be able to create a mapper")
-	}
-
-	rules["Lab1"] = "A| |C"
-	if _, err := b.NewAdapter(&AdapterConfig{Rules: rules}); err == nil {
-		t.Error("Expecting to not be able to create a mapper")
-	}
-
-	rules["Lab1"] = "A||C"
-	if _, err := b.NewAdapter(&AdapterConfig{Rules: rules}); err == nil {
-		t.Error("Expecting to not be able to create a mapper")
-	}
-
-	rules["Lab1"] = "A | B | C"
-	if _, err := b.NewAdapter(&AdapterConfig{Rules: rules}); err != nil {
-		t.Error("Expecting to be able to create a mapper")
+	goodOddballs := []string{"A", "A|B", "A | B | C", "A| B| C"}
+	for _, oddball := range goodOddballs {
+		rules["Lab1"] = oddball
+		if _, err := b.NewAdapter(&AdapterConfig{Rules: rules}); err != nil {
+			t.Errorf("Expecting to be able to create a mapper for rule %s: %v", oddball, err)
+		}
 	}
 }
 
 func TestNoFacts(t *testing.T) {
-	b := NewBuilder()
-	b.Configure(b.DefaultBuilderConfig())
-
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var aa adapters.Adapter
-	var err error
-	if aa, err = b.NewAdapter(&AdapterConfig{Rules: rules}); err != nil {
-		t.Error("Expected to be able to create a mapper")
-	}
-	a := aa.(adapters.FactConverter)
-
-	tracker := a.NewTracker()
+	tracker := setup(t, BuilderConfig{}, AdapterConfig{Rules: rules})
 
 	labels := tracker.GetLabels()
 	if len(labels) != 0 {
@@ -145,20 +129,10 @@ func TestNoFacts(t *testing.T) {
 }
 
 func TestAddRemoveFacts(t *testing.T) {
-	b := NewBuilder()
-	b.Configure(b.DefaultBuilderConfig())
-
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var aa adapters.Adapter
-	var err error
-	if aa, err = newAdapter(&AdapterConfig{Rules: rules}); err != nil {
-		t.Error("Expected to be able to create a mapper")
-	}
-	a := aa.(adapters.FactConverter)
-
-	tracker := a.NewTracker()
+	tracker := setup(t, BuilderConfig{}, AdapterConfig{Rules: rules})
 
 	// add some facts and try again
 	facts := make(map[string]string)
@@ -199,20 +173,10 @@ func TestAddRemoveFacts(t *testing.T) {
 }
 
 func TestReset(t *testing.T) {
-	b := NewBuilder()
-	b.Configure(b.DefaultBuilderConfig())
-
 	rules := make(map[string]string)
 	rules["Lab1"] = "Fact1|Fact2|Fact3"
 	rules["Lab2"] = "Fact3|Fact2|Fact1"
-	var aa adapters.Adapter
-	var err error
-	if aa, err = b.NewAdapter(&AdapterConfig{Rules: rules}); err != nil {
-		t.Error("Expected to be able to create a mapper")
-	}
-	a := aa.(adapters.FactConverter)
-
-	tracker := a.NewTracker()
+	tracker := setup(t, BuilderConfig{}, AdapterConfig{Rules: rules})
 
 	// add some actual facts and try again
 	facts := make(map[string]string)

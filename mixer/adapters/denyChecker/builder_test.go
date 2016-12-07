@@ -32,19 +32,20 @@ func TestAll(t *testing.T) {
 
 	a, err := b.NewAdapter(b.DefaultAdapterConfig())
 	if err != nil {
-		t.Error("Unable to create adapter")
+		t.Errorf("Unable to create adapter: %v", err)
 	}
 	listChecker := a.(adapters.ListChecker)
 
-	var ok bool
-	ok, err = listChecker.CheckList("")
-	if ok || err != nil {
-		t.Error("Expecting to always get false")
-	}
+	cases := []string{"", "ABC", "ABC/DEF", "AAA", "123"}
+	for _, c := range cases {
+		ok, err := listChecker.CheckList(c)
+		if err != nil {
+			t.Errorf("CheckList(%s) failed with error %v", c, err)
+		}
 
-	ok, err = listChecker.CheckList("ABC")
-	if ok || err != nil {
-		t.Error("Expecting to always get false")
+		if ok {
+			t.Errorf("CheckList(%s) => got 'true'; want 'false'", c)
+		}
 	}
 
 	listChecker.Close()
