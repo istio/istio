@@ -118,17 +118,17 @@ func (ts *testState) cleanupTestState() {
 }
 
 func (ts *testState) Check(tracker adapters.FactTracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
-	response.RequestId = request.RequestId
+	response.RequestIndex = request.RequestIndex
 	response.Result = newStatus(code.Code_UNIMPLEMENTED)
 }
 
 func (ts *testState) Report(tracker adapters.FactTracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
-	response.RequestId = request.RequestId
+	response.RequestIndex = request.RequestIndex
 	response.Result = newStatus(code.Code_UNIMPLEMENTED)
 }
 
 func (ts *testState) Quota(tracker adapters.FactTracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
-	response.RequestId = request.RequestId
+	response.RequestIndex = request.RequestIndex
 	response.Result = newQuotaError(code.Code_UNIMPLEMENTED)
 }
 
@@ -157,19 +157,19 @@ func TestCheck(t *testing.T) {
 				t.Errorf("Failed to receive a response : %v", err)
 				return
 			} else {
-				waitc <- response.RequestId
+				waitc <- response.RequestIndex
 			}
 		}
 	}()
 
 	// send the first request
-	request := mixerpb.CheckRequest{RequestId: testRequestID0}
+	request := mixerpb.CheckRequest{RequestIndex: testRequestID0}
 	if err := stream.Send(&request); err != nil {
 		t.Errorf("Failed to send first request: %v", err)
 	}
 
 	// send the second request
-	request = mixerpb.CheckRequest{RequestId: testRequestID1}
+	request = mixerpb.CheckRequest{RequestIndex: testRequestID1}
 	if err := stream.Send(&request); err != nil {
 		t.Errorf("Failed to send second request: %v", err)
 	}
@@ -214,19 +214,19 @@ func TestReport(t *testing.T) {
 				t.Errorf("Failed to receive a response : %v", err)
 				return
 			} else {
-				waitc <- response.RequestId
+				waitc <- response.RequestIndex
 			}
 		}
 	}()
 
 	// send the first request
-	request := mixerpb.ReportRequest{RequestId: testRequestID0}
+	request := mixerpb.ReportRequest{RequestIndex: testRequestID0}
 	if err := stream.Send(&request); err != nil {
 		t.Errorf("Failed to send first request: %v", err)
 	}
 
 	// send the second request
-	request = mixerpb.ReportRequest{RequestId: testRequestID1}
+	request = mixerpb.ReportRequest{RequestIndex: testRequestID1}
 	if err := stream.Send(&request); err != nil {
 		t.Errorf("Failed to send second request: %v", err)
 	}
