@@ -21,7 +21,7 @@
 #include <fstream>
 #include <string>
 
-#include "contrib/endpoints/include/api_manager/version.h"
+#include "contrib/endpoints/include/api_manager/utils/version.h"
 #include "google/protobuf/struct.pb.h"
 #include "google/protobuf/text_format.h"
 
@@ -55,7 +55,7 @@ std::string ReadTestBaseline(const char* input_file_name) {
   // Replace instances of {{service_agent_version}} with the expected service
   // agent version.
   std::string placeholder = "{{service_agent_version}}";
-  std::string value = API_MANAGER_VERSION_STRING;
+  std::string value = utils::Version::instance().get();
   size_t current = 0;
   while ((current = contents.find(placeholder, current)) != std::string::npos) {
     contents.replace(current, placeholder.length(), value);

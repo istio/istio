@@ -22,7 +22,7 @@
 #include <chrono>
 
 #include "contrib/endpoints/include/api_manager/service_control.h"
-#include "contrib/endpoints/include/api_manager/version.h"
+#include "contrib/endpoints/include/api_manager/utils/version.h"
 #include "contrib/endpoints/src/api_manager/auth/lib/auth_token.h"
 #include "contrib/endpoints/src/api_manager/auth/lib/base64.h"
 #include "google/api/metric.pb.h"
@@ -427,7 +427,7 @@ const char kServiceControlPlatform[] = "servicecontrol.googleapis.com/platform";
 const char kUserAgent[] = "ESP";
 
 // Service agent label value
-const char kServiceAgent[] = "ESP/" API_MANAGER_VERSION_STRING;
+const char kServiceAgentPrefix[] = "ESP/";
 
 // /credential_id
 Status set_credential_id(const SupportedLabel& l, const ReportRequestInfo& info,
@@ -569,7 +569,7 @@ Status set_platform(const SupportedLabel& l, const ReportRequestInfo& info,
 // servicecontrol.googleapis.com/service_agent
 Status set_service_agent(const SupportedLabel& l, const ReportRequestInfo& info,
                          Map<std::string, std::string>* labels) {
-  (*labels)[l.name] = kServiceAgent;
+  (*labels)[l.name] = kServiceAgentPrefix + utils::Version::instance().get();
   return Status::OK;
 }
 
@@ -926,7 +926,8 @@ Status Proto::FillCheckRequest(const CheckRequestInfo& info,
     (*labels)[kServiceControlReferer] = info.referer;
   }
   (*labels)[kServiceControlUserAgent] = kUserAgent;
-  (*labels)[kServiceControlServiceAgent] = kServiceAgent;
+  (*labels)[kServiceControlServiceAgent] =
+      kServiceAgentPrefix + utils::Version::instance().get();
   return Status::OK;
 }
 

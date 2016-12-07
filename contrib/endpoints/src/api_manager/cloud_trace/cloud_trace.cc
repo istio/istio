@@ -23,7 +23,7 @@
 #include <sstream>
 #include <string>
 #include "contrib/endpoints/include/api_manager/utils/status.h"
-#include "contrib/endpoints/include/api_manager/version.h"
+#include "contrib/endpoints/include/api_manager/utils/version.h"
 #include "contrib/endpoints/src/api_manager/utils/marshalling.h"
 #include "google/protobuf/timestamp.pb.h"
 
@@ -43,7 +43,7 @@ const char kCloudTraceService[] = "/google.devtools.cloudtrace.v1.TraceService";
 // Cloud Trace agent label key
 const char kCloudTraceAgentKey[] = "trace.cloud.google.com/agent";
 // Cloud Trace agent label value
-const char kServiceAgent[] = "esp/" API_MANAGER_VERSION_STRING;
+const char kServiceAgentPrefix[] = "esp/";
 // Default trace options
 const char kDefaultTraceOptions[] = "o=1";
 
@@ -332,7 +332,9 @@ void GetNewTrace(std::string trace_id_str, const std::string &root_span_name,
   root_span->set_span_id(RandomUInt64());
   root_span->set_name(root_span_name);
   // Agent label is defined as "<agent>/<version>".
-  root_span->mutable_labels()->insert({kCloudTraceAgentKey, kServiceAgent});
+  root_span->mutable_labels()->insert(
+      {kCloudTraceAgentKey,
+       kServiceAgentPrefix + utils::Version::instance().get()});
   GetNow(root_span->mutable_start_time());
 }
 
