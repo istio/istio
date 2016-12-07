@@ -19,11 +19,11 @@
 #include <functional>
 #include <memory>
 
+#include "contrib/endpoints/src/grpc/transcoding/message_stream.h"
+#include "contrib/endpoints/src/grpc/transcoding/request_message_translator.h"
 #include "google/protobuf/stubs/stringpiece.h"
 #include "google/protobuf/util/internal/object_writer.h"
 #include "google/protobuf/util/type_resolver.h"
-#include "src/grpc/transcoding/message_stream.h"
-#include "src/grpc/transcoding/request_message_translator.h"
 
 namespace google {
 namespace api_manager {

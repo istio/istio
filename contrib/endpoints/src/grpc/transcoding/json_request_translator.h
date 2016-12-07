@@ -12,16 +12,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef GRPC_TRANSCODING_JSON_REQUEST_TRANSLATOR_H_
 #define GRPC_TRANSCODING_JSON_REQUEST_TRANSLATOR_H_
 
 #include <memory>
 
+#include "contrib/endpoints/src/grpc/transcoding/message_stream.h"
+#include "contrib/endpoints/src/grpc/transcoding/request_message_translator.h"
+#include "contrib/endpoints/src/grpc/transcoding/request_stream_translator.h"
 #include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/util/internal/json_stream_parser.h"
 #include "google/protobuf/util/type_resolver.h"
-#include "src/grpc/transcoding/message_stream.h"
-#include "src/grpc/transcoding/request_message_translator.h"
-#include "src/grpc/transcoding/request_stream_translator.h"
 
 namespace google {
 namespace api_manager {

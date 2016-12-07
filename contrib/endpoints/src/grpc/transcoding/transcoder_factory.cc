@@ -14,21 +14,21 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/grpc/transcoding/transcoder_factory.h"
+#include "contrib/endpoints/src/grpc/transcoding/transcoder_factory.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "contrib/endpoints/include/api_manager/method_call_info.h"
+#include "contrib/endpoints/src/grpc/transcoding/json_request_translator.h"
+#include "contrib/endpoints/src/grpc/transcoding/message_stream.h"
+#include "contrib/endpoints/src/grpc/transcoding/response_to_json_translator.h"
+#include "contrib/endpoints/src/grpc/transcoding/type_helper.h"
 #include "google/api/service.pb.h"
 #include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/stubs/common.h"
 #include "google/protobuf/stubs/status.h"
-#include "include/api_manager/method_call_info.h"
-#include "src/grpc/transcoding/json_request_translator.h"
-#include "src/grpc/transcoding/message_stream.h"
-#include "src/grpc/transcoding/response_to_json_translator.h"
-#include "src/grpc/transcoding/type_helper.h"
 
 namespace google {
 namespace api_manager {

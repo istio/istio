@@ -14,7 +14,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/grpc/transcoding/message_reader.h"
+#include "contrib/endpoints/src/grpc/transcoding/message_reader.h"
 
 #include <memory>
 

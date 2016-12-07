@@ -14,18 +14,18 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/grpc/transcoding/type_helper.h"
+#include "contrib/endpoints/src/grpc/transcoding/type_helper.h"
 
 #include <fstream>
 #include <memory>
 #include <sstream>
 #include <vector>
 
+#include "contrib/endpoints/src/grpc/transcoding/test_common.h"
 #include "google/api/service.pb.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/type.pb.h"
 #include "gtest/gtest.h"
-#include "src/grpc/transcoding/test_common.h"
 
 namespace pb = ::google::protobuf;
 

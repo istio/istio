@@ -187,7 +187,7 @@ std::string GenerateInput(const std::string& seed, size_t size) {
 namespace {
 
 std::string LoadFile(const std::string& input_file_name) {
-  const char kTestdata[] = "src/grpc/transcoding/testdata/";
+  const char kTestdata[] = "contrib/endpoints/src/grpc/transcoding/testdata/";
   std::string file_name = std::string(kTestdata) + input_file_name;
 
   std::ifstream ifs(file_name);

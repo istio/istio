@@ -14,7 +14,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/grpc/transcoding/message_stream.h"
+#include "contrib/endpoints/src/grpc/transcoding/message_stream.h"
 
 #include <memory>
 #include <string>

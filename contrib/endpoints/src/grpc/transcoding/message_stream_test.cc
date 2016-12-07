@@ -14,13 +14,13 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/grpc/transcoding/message_stream.h"
+#include "contrib/endpoints/src/grpc/transcoding/message_stream.h"
 
 #include <deque>
 #include <string>
 
+#include "contrib/endpoints/src/grpc/transcoding/test_common.h"
 #include "gtest/gtest.h"
-#include "src/grpc/transcoding/test_common.h"
 
 namespace google {
 namespace api_manager {

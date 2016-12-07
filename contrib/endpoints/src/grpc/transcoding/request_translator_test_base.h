@@ -19,14 +19,14 @@
 #include <string>
 #include <vector>
 
+#include "contrib/endpoints/src/grpc/transcoding/message_stream.h"
+#include "contrib/endpoints/src/grpc/transcoding/proto_stream_tester.h"
+#include "contrib/endpoints/src/grpc/transcoding/request_message_translator.h"
+#include "contrib/endpoints/src/grpc/transcoding/type_helper.h"
 #include "google/api/service.pb.h"
 #include "google/protobuf/type.pb.h"
 #include "google/protobuf/util/type_resolver.h"
 #include "gtest/gtest.h"
-#include "src/grpc/transcoding/message_stream.h"
-#include "src/grpc/transcoding/proto_stream_tester.h"
-#include "src/grpc/transcoding/request_message_translator.h"
-#include "src/grpc/transcoding/type_helper.h"
 
 namespace google {
 namespace api_manager {

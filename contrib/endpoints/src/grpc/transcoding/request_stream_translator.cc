@@ -14,13 +14,13 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-#include "src/grpc/transcoding/request_stream_translator.h"
+#include "contrib/endpoints/src/grpc/transcoding/request_stream_translator.h"
 
 #include <memory>
 #include <string>
 
+#include "contrib/endpoints/src/grpc/transcoding/request_message_translator.h"
 #include "google/protobuf/stubs/stringpiece.h"
-#include "src/grpc/transcoding/request_message_translator.h"
 
 namespace google {
 namespace api_manager {

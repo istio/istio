@@ -18,14 +18,14 @@
 #include <memory>
 #include <string>
 
+#include "contrib/endpoints/src/grpc/transcoding/message_stream.h"
+#include "contrib/endpoints/src/grpc/transcoding/prefix_writer.h"
+#include "contrib/endpoints/src/grpc/transcoding/request_weaver.h"
 #include "google/protobuf/stubs/bytestream.h"
 #include "google/protobuf/type.pb.h"
 #include "google/protobuf/util/internal/error_listener.h"
 #include "google/protobuf/util/internal/protostream_objectwriter.h"
 #include "google/protobuf/util/type_resolver.h"
-#include "src/grpc/transcoding/message_stream.h"
-#include "src/grpc/transcoding/prefix_writer.h"
-#include "src/grpc/transcoding/request_weaver.h"
 
 namespace google {
 namespace api_manager {
