@@ -61,18 +61,18 @@ func NewAPIHandlers() APIHandlers {
 
 func (h *apiHandlers) Check(tracker adapters.FactTracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	tracker.UpdateFacts(request.GetFacts())
-	response.RequestId = request.RequestId
+	response.RequestIndex = request.RequestIndex
 	response.Result = newStatus(code.Code_UNIMPLEMENTED)
 }
 
 func (h *apiHandlers) Report(tracker adapters.FactTracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 	tracker.UpdateFacts(request.GetFacts())
-	response.RequestId = request.RequestId
+	response.RequestIndex = request.RequestIndex
 	response.Result = newStatus(code.Code_UNIMPLEMENTED)
 }
 
 func (h *apiHandlers) Quota(tracker adapters.FactTracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
 	tracker.UpdateFacts(request.GetFacts())
-	response.RequestId = request.RequestId
+	response.RequestIndex = request.RequestIndex
 	response.Result = newQuotaError(code.Code_UNIMPLEMENTED)
 }

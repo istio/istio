@@ -60,23 +60,31 @@ func TestBasic(t *testing.T) {
 
 	aa, err := b.NewAdapter(&config)
 	if err != nil {
-		t.Error("unable to create adapter " + err.Error())
+		t.Errorf("Unable to create adapter: %v", err)
 	}
 	a := aa.(adapters.ListChecker)
 
-	var ok bool
-	ok, err = a.CheckList("10.10.11.2")
-	if !ok {
-		t.Error("Expecting check to pass")
+	cases := []string{"10.10.11.2", "9.9.9.1"}
+	for _, c := range cases {
+		ok, err := a.CheckList(c)
+		if err != nil {
+			t.Errorf("CheckList(%s) failed with %v", c, err)
+		}
+
+		if !ok {
+			t.Errorf("CheckList(%s): expecting 'true', got 'false'", c)
+		}
 	}
 
-	ok, err = a.CheckList("9.9.9.1")
-	if !ok {
-		t.Error("Expecting check to pass")
-	}
+	negCases := []string{"120.10.11.2"}
+	for _, c := range negCases {
+		ok, err := a.CheckList(c)
+		if err != nil {
+			t.Errorf("CheckList(%s) failed with %v", c, err)
+		}
 
-	ok, err = a.CheckList("120.10.11.2")
-	if ok {
-		t.Error("Expecting check to fail")
+		if ok {
+			t.Errorf("CheckList(%s): expecting 'false', got 'true'", c)
+		}
 	}
 }

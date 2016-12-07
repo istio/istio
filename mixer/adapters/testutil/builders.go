@@ -32,23 +32,23 @@ func TestBuilderInvariants(b adapters.Builder, t *testing.T) {
 
 	bc := b.DefaultBuilderConfig()
 	if err := b.ValidateBuilderConfig(bc); err != nil {
-		t.Error("Default builder config is expected to validate correctly")
+		t.Errorf("Default builder config is expected to validate correctly: %v", err)
 	}
 
 	ac := b.DefaultAdapterConfig()
 	if err := b.ValidateAdapterConfig(ac); err != nil {
-		t.Error("Default adapter config is expected to validate correctly")
+		t.Errorf("Default adapter config is expected to validate correctly: %v", err)
 	}
 
 	if err := b.Configure(bc); err != nil {
-		t.Error("Should be able to configure the builder using the default config")
+		t.Errorf("Should be able to configure the builder using the default config: %v", err)
 	}
 
 	if _, err := b.NewAdapter(ac); err != nil {
-		t.Error("Should be able to create an adapter with the default config")
+		t.Errorf("Should be able to create an adapter with the default config: %v", err)
 	}
 
 	if err := b.Close(); err != nil {
-		t.Error("Should not fail Close with default config, otherwise what is this world coming to?")
+		t.Errorf("Should not fail Close with default config: %v", err)
 	}
 }
