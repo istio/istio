@@ -14,13 +14,11 @@
 
 # Primary build targets
 
-build: check_env dep build_api build_config build_server
-super_clean: clean
-	@go clean $(CLEAN_FLAGS) -i ./...
-clean: check_env clean_api clean_config clean_server
+build: check_env dep build_api build_config build_server build_client
+clean: check_env clean_api clean_config clean_server clean_client
 	@go clean $(CLEAN_FLAGS)
-	@go clean $(CLEAN_FLAGS) -i ./server/... ./adapters/... ./vendor/istio.io/
-test: build_api build_config build_server test_server
+	@go clean $(CLEAN_FLAGS) -i ./...
+test: build test_server
 
 check_env:
 ifdef VERBOSE
@@ -67,9 +65,9 @@ clean_config:
 
 ## Server targets
 
-GO_SRC = server/*.go adapters/*.go adapters/*/*.go
+SERVER_SRC = server/*.go adapters/*.go adapters/*/*.go
 
-mixer.bin: $(GO_SRC) $(API_OUTPUTS) $(CONFIG_OUTPUTS)
+mixer.bin: $(SERVER_SRC) $(API_OUTPUTS) $(CONFIG_OUTPUTS)
 	@echo "Building server"
 	@go build -i $(BUILD_FLAGS) -o mixer.bin server/*.go
 
@@ -77,14 +75,32 @@ build_server: mixer.bin
 	@go tool vet -shadowstrict server adapters
 	@golint -set_exit_status server/...
 	@golint -set_exit_status adapters/...
-	@gofmt -w -s $(GO_SRC)
+	@gofmt -w -s $(SERVER_SRC)
 
 clean_server:
+	@go clean $(CLEAN_FLAGS) -i ./server/... ./adapters/...
 	@rm -f mixer.bin
 
 test_server:
 	@echo "Running tests"
 	@go test -race -cpu 1,4 ./server/... ./adapters/...
+
+## Client targets
+
+CLIENT_SRC = example/client/*.go
+
+client.bin: $(CLIENT_SRC) $(API_OUTPUTS)
+	@echo "Building client"
+	@go build -i $(BUILD_FLAGS) -o client.bin example/client/*.go
+
+build_client: client.bin
+	@go tool vet -shadowstrict example/client
+	@golint -set_exit_status example/client/...
+	@gofmt -w -s $(CLIENT_SRC)
+
+clean_client:
+	@go clean $(CLEAN_FLAGS) -i ./example/client/...
+	@rm -f client.bin
 
 ## Misc targets
 

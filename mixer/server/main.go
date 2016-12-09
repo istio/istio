@@ -43,20 +43,21 @@ func main() {
 	maxMessageSize := flag.Uint("maxMessageSize", MaxMessageSize, "Maximum size of individual gRPC messages")
 	maxConcurrentStreams := flag.Uint("maxConcurrentStreams", MaxConcurrentStreams, "Maximum supported number of concurrent gRPC streams")
 	compressedPayload := flag.Bool("compressedPayload", CompressedPayload, "Whether to compress gRPC messages")
-	serverCertFile := flag.String("serverCertFile", "testdata/server.pem", "The TLS cert file")
-	serverKeyFile := flag.String("serverKeyFile", "testdata/server.key", "The TLS key file")
-	clientCertFiles := flag.String("clientCertFiles", "testdata/client1.pem", "A set of comma-separated client X509 cert files")
+	serverCertFile := flag.String("serverCertFile", "", "The TLS cert file")
+	serverKeyFile := flag.String("serverKeyFile", "", "The TLS key file")
+	clientCertFiles := flag.String("clientCertFiles", "", "A set of comma-separated client X509 cert files")
 	flag.Parse()
 
 	var err error
-	var serverCert tls.Certificate
+	var serverCert *tls.Certificate
 	var clientCerts *x509.CertPool
 
 	if *serverCertFile != "" && *serverKeyFile != "" {
-		serverCert, err = tls.LoadX509KeyPair(*serverCertFile, *serverKeyFile)
+		sc, err := tls.LoadX509KeyPair(*serverCertFile, *serverKeyFile)
 		if err != nil {
 			glog.Exitf("Failed to load server certificate and server key: %v", err)
 		}
+		serverCert = &sc
 	}
 
 	if *clientCertFiles != "" {
@@ -93,7 +94,7 @@ func main() {
 		MaxMessageSize:       *maxMessageSize,
 		MaxConcurrentStreams: *maxConcurrentStreams,
 		CompressedPayload:    *compressedPayload,
-		ServerCertificate:    &serverCert,
+		ServerCertificate:    serverCert,
 		ClientCertificates:   clientCerts,
 		Handlers:             NewAPIHandlers(),
 		FactConverter:        factConverter,
