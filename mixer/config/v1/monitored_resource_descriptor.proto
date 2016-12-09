@@ -16,7 +16,7 @@ syntax = "proto3";
 
 package config.v1;
 
-import "label_descriptor.proto";
+import "config/v1/label_descriptor.proto";
 
 // An object that describes the schema of a 'MonitoredResource'
 // using a name and a set of labels.

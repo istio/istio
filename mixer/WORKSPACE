@@ -5,8 +5,11 @@ git_repository(
 )
 
 load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "new_go_repository")
+load("@io_bazel_rules_go//proto:go_proto_library.bzl", "go_proto_repositories")
 
 go_repositories()
+
+go_proto_repositories()
 
 new_go_repository(
     name = "com_github_golang_glog",
