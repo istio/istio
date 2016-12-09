@@ -1,0 +1,1666 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+
+go_prefix("k8s.io/client-go/1.5")
+
+go_library(
+    name = "pkg/version",
+    srcs = glob(["1.5/pkg/version/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        "@blang_semver//:semver",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/util",
+    srcs = glob(include=["1.5/pkg/util/*.go"], exclude=["1.5/pkg/util/umask_windows.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/util/strategicpatch",
+    srcs = glob(include=["1.5/pkg/util/strategicpatch/*.go"], exclude=["1.5/pkg/util/stategicpatch/*_test.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/util/json",
+        ":pkg/third_party/forked/golang/json",
+        "@github_com_golang_glog//:glog",
+        "@go_spew//:spew",
+        "@ghodss_yaml//:yaml",
+    ],
+)
+
+go_library(
+    name = "pkg/third_party/forked/golang/json",
+    srcs = ["1.5/pkg/third_party/forked/golang/json/fields.go"],
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "pkg/util/config",
+    srcs = glob(["1.5/pkg/util/config/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/util/wait",
+        "@github_com_golang_glog//:glog",
+        "@github_com_spf13_pflag//:pflag",
+    ],
+)
+
+go_library(
+    name = "pkg/util/parsers",
+    srcs = glob(["1.5/pkg/util/parsers/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        "@docker//:reference",
+    ],
+)
+
+go_library(
+    name = "pkg/util/homedir",
+    srcs = glob(["1.5/pkg/util/homedir/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+go_library(
+    name = "pkg/util/clock",
+    srcs = glob(["1.5/pkg/util/clock/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+go_library(
+    name = "pkg/util/integer",
+    srcs = glob(["1.5/pkg/util/integer/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+go_library(
+    name = "pkg/util/flowcontrol",
+    srcs = glob(["1.5/pkg/util/flowcontrol/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/util/clock",
+        ":pkg/util/integer",
+        "@juju_ratelimit//:ratelimit",
+    ],
+)
+
+go_library(
+    name = "pkg/util/sets",
+    srcs = glob(["1.5/pkg/util/sets/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+go_library(
+    name = "pkg/util/cert",
+    srcs = glob(["1.5/pkg/util/cert/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/apis/certificates",
+    ],
+)
+
+go_library(
+    name = "pkg/util/errors",
+    srcs = glob(["1.5/pkg/util/errors/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+go_library(
+    name = "pkg/util/rand",
+    srcs = glob(["1.5/pkg/util/rand/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+go_library(
+    name = "pkg/util/wait",
+    srcs = glob(["1.5/pkg/util/wait/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+go_library(
+    name = "pkg/util/runtime",
+    srcs = glob(["1.5/pkg/util/runtime/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/util/net",
+    srcs = glob(["1.5/pkg/util/net/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/util/sets",
+        "@github_com_x_net//:context",
+        "@github_com_x_net//:http2",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/util/framer",
+    srcs = glob(["1.5/pkg/util/framer/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+go_library(
+    name = "pkg/util/yaml",
+    srcs = glob(["1.5/pkg/util/yaml/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        "@ghodss_yaml//:yaml",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/util/uuid",
+    srcs = glob(["1.5/pkg/util/uuid/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/types",
+        "@pborman_uuid//:uuid",
+    ],
+)
+
+go_library(
+    name = "pkg/util/json",
+    srcs = glob(["1.5/pkg/util/json/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+go_library(
+    name = "pkg/util/labels",
+    srcs = glob(["1.5/pkg/util/labels/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api/unversioned",
+    ],
+)
+
+go_library(
+    name = "pkg/genericapiserver/openapi/common",
+    srcs = ["1.5/pkg/genericapiserver/openapi/common/common.go"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@go_openapi_spec//:spec",
+    ],
+)
+
+go_library(
+    name = "pkg/util/intstr",
+    srcs = glob(["1.5/pkg/util/intstr/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/genericapiserver/openapi/common",
+        "@github_com_google_gofuzz//:gofuzz",
+        "@github_com_gogo_protobuf//:proto",
+        "@go_openapi_spec//:spec",
+    ],
+)
+
+go_library(
+    name = "pkg/util/validation",
+    srcs = glob(["1.5/pkg/util/validation/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+go_library(
+    name = "pkg/util/validation/field",
+    srcs = glob(["1.5/pkg/util/validation/field/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/util/errors",
+    ],
+)
+go_library(
+    name = "pkg/auth/user",
+    srcs = glob(["1.5/pkg/auth/user/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+go_library(
+    name = "pkg/third_party/forked/golang/reflect",
+    srcs = glob(["1.5/pkg/third_party/forked/golang/reflect/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+go_library(
+    name = "pkg/conversion",
+    srcs = glob(["1.5/pkg/conversion/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/third_party/forked/golang/reflect",
+    ],
+)
+
+go_library(
+    name = "pkg/conversion/queryparams",
+    srcs = glob(["1.5/pkg/conversion/queryparams/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+go_library(
+    name = "pkg/types",
+    srcs = glob(["1.5/pkg/types/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+go_library(
+    name = "pkg/runtime",
+    srcs = glob(["1.5/pkg/runtime/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api/unversioned",
+        ":pkg/conversion/queryparams",
+        ":pkg/conversion",
+        ":pkg/util/errors",
+        ":pkg/util/json",
+        ":pkg/api/meta/metatypes",
+        ":pkg/types",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/runtime/serializer",
+    srcs = glob(["1.5/pkg/runtime/serializer/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/runtime/serializer/json",
+        ":pkg/runtime/serializer/recognizer",
+        ":pkg/runtime/serializer/versioning",
+        ":pkg/runtime/serializer/protobuf",
+        ":pkg/api/unversioned",
+    ],
+)
+
+go_library(
+    name = "pkg/runtime/serializer/recognizer",
+    srcs = glob(["1.5/pkg/runtime/serializer/recognizer/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api/unversioned",
+        ":pkg/runtime",
+    ],
+)
+
+go_library(
+    name = "pkg/runtime/serializer/versioning",
+    srcs = glob(["1.5/pkg/runtime/serializer/versioning/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api/unversioned",
+        ":pkg/runtime",
+    ],
+)
+
+go_library(
+    name = "pkg/runtime/serializer/streaming",
+    srcs = glob(["1.5/pkg/runtime/serializer/streaming/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api/unversioned",
+        ":pkg/runtime",
+    ],
+)
+
+go_library(
+    name = "pkg/runtime/serializer/protobuf",
+    srcs = glob(["1.5/pkg/runtime/serializer/protobuf/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api/unversioned",
+        ":pkg/runtime",
+        ":pkg/runtime/serializer/recognizer",
+        ":pkg/util/framer",
+        "@github_com_gogo_protobuf//:proto",
+    ],
+)
+
+go_library(
+    name = "pkg/runtime/serializer/json",
+    srcs = glob(["1.5/pkg/runtime/serializer/json/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api/unversioned",
+        ":pkg/runtime",
+        ":pkg/runtime/serializer/recognizer",
+        ":pkg/util/framer",
+        ":pkg/util/yaml",
+        "@go_codec//:codec",
+        "@ghodss_yaml//:yaml",
+    ],
+)
+
+go_library(
+    name = "pkg/fields",
+    srcs = glob(["1.5/pkg/fields/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/selection",
+    ],
+)
+
+go_library(
+    name = "pkg/selection",
+    srcs = glob(["1.5/pkg/selection/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+go_library(
+    name = "pkg/labels",
+    srcs = glob(["1.5/pkg/labels/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/selection",
+        ":pkg/util/sets",
+        ":pkg/util/validation",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/api/validation/path",
+    srcs = glob(["1.5/pkg/api/validation/path/*.go"]),
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "pkg/api/unversioned",
+    srcs = glob(["1.5/pkg/api/unversioned/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/labels",
+        ":pkg/selection",
+        ":pkg/util/sets",
+        ":pkg/conversion",
+        ":pkg/genericapiserver/openapi/common",
+        "@github_com_google_gofuzz//:gofuzz",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_openapi_spec//:spec",
+    ],
+)
+
+go_library(
+    name = "pkg/api/meta/metatypes",
+    srcs = glob(["1.5/pkg/api/meta/metatypes/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/types",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/apps",
+    srcs = glob(["1.5/pkg/apis/apps/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/api/resource",
+        ":pkg/api/unversioned",
+        ":pkg/conversion",
+        ":pkg/runtime",
+        ":pkg/types",
+        ":pkg/util/intstr",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/apps/v1alpha1",
+    srcs = glob(["1.5/pkg/apis/apps/v1alpha1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/api/v1",
+        ":pkg/api/resource",
+        ":pkg/api/unversioned",
+        ":pkg/apis/apps",
+        ":pkg/conversion",
+        ":pkg/runtime",
+        ":pkg/types",
+        ":pkg/util/intstr",
+        ":pkg/watch/versioned",
+        "@go_codec//:codec",
+        "@github_com_gogo_protobuf//:proto",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/certificates",
+    srcs = glob(["1.5/pkg/apis/certificates/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/api/unversioned",
+        ":pkg/conversion",
+        ":pkg/runtime",
+        ":pkg/types",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/rbac",
+    srcs = glob(["1.5/pkg/apis/rbac/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/api/unversioned",
+        ":pkg/conversion",
+        ":pkg/runtime",
+        ":pkg/types",
+        ":pkg/watch/versioned",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/storage",
+    srcs = glob(["1.5/pkg/apis/storage/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/api/unversioned",
+        ":pkg/conversion",
+        ":pkg/runtime",
+        ":pkg/types",
+        ":pkg/watch/versioned",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "pkg/api/resource",
+    srcs = glob(["1.5/pkg/api/resource/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/genericapiserver/openapi/common",
+        "@go_inf//:inf.v0",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_spf13_pflag//:pflag",
+        "@go_openapi_spec//:spec",
+    ],
+)
+
+go_library(
+    name = "pkg/api/install",
+    srcs = glob(["1.5/pkg/api/install/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/apimachinery",
+        ":pkg/apimachinery/announced",
+        ":pkg/apimachinery/registered",
+        ":pkg/api",
+        ":pkg/api/v1",
+        ":pkg/api/meta",
+        ":pkg/api/unversioned",
+        ":pkg/runtime",
+        ":pkg/util/sets",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/api/errors",
+    srcs = glob(["1.5/pkg/api/errors/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api/unversioned",
+        ":pkg/runtime",
+        ":pkg/util/validation/field",
+    ],
+)
+
+go_library(
+    name = "pkg/api/meta",
+    srcs = glob(["1.5/pkg/api/meta/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api/meta/metatypes",
+        ":pkg/api/unversioned",
+        ":pkg/conversion",
+        ":pkg/runtime",
+        ":pkg/types",
+        ":pkg/util/errors",
+        ":pkg/util/sets",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/apimachinery",
+    srcs = glob(["1.5/pkg/apimachinery/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api/meta",
+        ":pkg/api/unversioned",
+        ":pkg/types",
+        ":pkg/runtime",
+    ],
+)
+
+go_library(
+    name = "pkg/apimachinery/registered",
+    srcs = glob(["1.5/pkg/apimachinery/registered/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api/meta",
+        ":pkg/api/unversioned",
+        ":pkg/apimachinery",
+        ":pkg/util/sets",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/apimachinery/announced",
+    srcs = glob(["1.5/pkg/apimachinery/announced/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/api/meta",
+        ":pkg/api/unversioned",
+        ":pkg/apimachinery",
+        ":pkg/apimachinery/registered",
+        ":pkg/runtime",
+        ":pkg/util/sets",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/api/v1",
+    srcs = glob(["1.5/pkg/api/v1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/api/meta",
+        ":pkg/api/meta/metatypes",
+        ":pkg/api/resource",
+        ":pkg/api/unversioned",
+        ":pkg/apis/extensions",
+        ":pkg/conversion",
+        ":pkg/runtime",
+        ":pkg/types",
+        ":pkg/util/validation/field",
+        ":pkg/util/intstr",
+        ":pkg/util/parsers",
+        ":pkg/watch/versioned",
+        ":pkg/util",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/extensions",
+    srcs = glob(["1.5/pkg/apis/extensions/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/api/unversioned",
+        ":pkg/api/resource",
+        ":pkg/apis/autoscaling",
+        ":pkg/apis/batch",
+        ":pkg/types",
+        ":pkg/runtime",
+        ":pkg/util/intstr",
+        ":pkg/conversion",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/autoscaling",
+    srcs = glob(["1.5/pkg/apis/autoscaling/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/api/unversioned",
+        ":pkg/runtime",
+        ":pkg/types",
+        ":pkg/conversion",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/batch",
+    srcs = glob(["1.5/pkg/apis/batch/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/api/unversioned",
+        ":pkg/runtime",
+        ":pkg/types",
+        ":pkg/conversion",
+        ":pkg/api/resource",
+        ":pkg/util/intstr",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "pkg/api",
+    srcs = glob(["1.5/pkg/api/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/auth/user",
+        ":pkg/conversion",
+        ":pkg/fields",
+        ":pkg/labels",
+        ":pkg/runtime",
+        ":pkg/runtime/serializer",
+        ":pkg/types",
+        ":pkg/api/meta",
+        ":pkg/api/meta/metatypes",
+        ":pkg/api/resource",
+        ":pkg/api/unversioned",
+        ":pkg/selection",
+        ":pkg/util/intstr",
+        ":pkg/util/labels",
+        ":pkg/util/rand",
+        ":pkg/util/sets",
+        ":pkg/util/validation",
+        ":pkg/util/validation/field",
+        ":pkg/util/uuid",
+        "@github_com_x_net//:context",
+        "@go_spew//:spew",
+        "@go_codec//:codec",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "plugin/pkg/client/auth/gcp",
+    srcs = glob(["1.5/plugin/pkg/client/auth/gcp/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":rest",
+        "@github_com_golang_glog//:glog",
+        "@github_com_x_net//:context",
+        "@golang_oauth2//:oauth2",
+        "@golang_oauth2//:oauth2/google",
+    ],
+)
+
+go_library(
+    name = "plugin/pkg/client/auth/oidc",
+    srcs = glob(include=["1.5/plugin/pkg/client/auth/oidc/*.go"],exclude=["1.5/plugin/pkg/client/auth/oidc/*_test.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":rest",
+        ":pkg/util/wait",
+        "@github_com_golang_glog//:glog",
+        "@github_com_x_net//:context",
+        "@coreos_go_oidc//:jose",
+        "@coreos_go_oidc//:oauth2",
+        "@coreos_go_oidc//:oidc",
+    ],
+)
+
+go_library(
+    name = "plugin/pkg/client/auth",
+    srcs = glob(["1.5/plugin/pkg/client/auth/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":plugin/pkg/client/auth/gcp",
+        ":plugin/pkg/client/auth/oidc",
+    ],
+)
+
+go_library(
+    name = "kubernetes",
+    srcs = glob(["1.5/kubernetes/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":discovery",
+        ":rest",
+        ":pkg/util/flowcontrol",
+        ":pkg/api/install",
+        ":pkg/apis/apps/install",
+        ":pkg/apis/authorization/install",
+        ":pkg/apis/authentication/install",
+        ":pkg/apis/autoscaling/install",
+        ":pkg/apis/certificates/install",
+        ":pkg/apis/batch/install",
+        ":pkg/apis/policy/install",
+        ":pkg/apis/rbac/install",
+        ":pkg/apis/storage/install",
+        ":pkg/apis/extensions/install",
+        ":pkg/apimachinery/registered",
+        ":plugin/pkg/client/auth",
+        ":kubernetes/typed/apps/v1alpha1",
+        ":kubernetes/typed/authorization/v1beta1",
+        ":kubernetes/typed/authentication/v1beta1",
+        ":kubernetes/typed/autoscaling/v1",
+        ":kubernetes/typed/batch/v1",
+        ":kubernetes/typed/certificates/v1alpha1",
+        ":kubernetes/typed/core/v1",
+        ":kubernetes/typed/extensions/v1beta1",
+        ":kubernetes/typed/policy/v1alpha1",
+        ":kubernetes/typed/rbac/v1alpha1",
+        ":kubernetes/typed/storage/v1beta1",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "transport",
+    srcs = glob(include=["1.5/transport/*.go"],exclude=["1.5/transport/*_test.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/util/net",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "rest",
+    srcs = glob(include=["1.5/rest/*.go"],exclude=["1.5/rest/*_test.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/api/v1",
+        ":pkg/api/errors",
+        ":pkg/api/unversioned",
+        ":pkg/api/validation/path",
+        ":pkg/runtime",
+        ":pkg/util/flowcontrol",
+        ":pkg/version",
+        ":pkg/fields",
+        ":pkg/labels",
+        ":pkg/watch",
+        ":pkg/watch/versioned",
+        ":pkg/runtime/serializer/streaming",
+        ":pkg/util/cert",
+        ":pkg/util/net",
+        ":pkg/util/sets",
+        ":tools/clientcmd/api",
+        ":tools/metrics",
+        ":transport",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "discovery",
+    srcs = glob(include=["1.5/discovery/*.go"], exclude=["1.5/discovery/*_test.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":rest",
+        ":pkg/api",
+        ":pkg/api/meta",
+        ":pkg/api/v1",
+        ":pkg/api/errors",
+        ":pkg/api/unversioned",
+        ":pkg/runtime",
+        ":pkg/runtime/serializer",
+        ":pkg/util/errors",
+        ":pkg/version",
+        ":kubernetes/typed/authorization/v1beta1",
+        "@github_com_golang_glog//:glog",
+        "@go_restful//:go-restful/swagger",
+    ],
+)
+
+go_library(
+    name = "pkg/watch",
+    srcs = glob(["1.5/pkg/watch/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api/unversioned",
+        ":pkg/runtime",
+        ":pkg/util/net",
+        ":pkg/util/runtime",
+        ":pkg/util/wait",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/watch/versioned",
+    srcs = glob(["1.5/pkg/watch/versioned/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api/unversioned",
+        ":pkg/conversion",
+        ":pkg/watch",
+        ":pkg/runtime",
+        ":pkg/runtime/serializer/streaming",
+        "@github_com_gogo_protobuf//:proto",
+    ],
+)
+
+go_library(
+    name = "tools/clientcmd",
+    srcs = glob(["1.5/tools/clientcmd/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":tools/clientcmd/api",
+        ":tools/clientcmd/api/latest",
+        ":pkg/api",
+        ":pkg/api/unversioned",
+        ":pkg/runtime",
+        ":pkg/util/errors",
+        ":pkg/util/homedir",
+        ":pkg/util/validation",
+        ":rest",
+        ":tools/auth",
+        "@github_com_golang_glog//:glog",
+        "@imdario_mergo//:mergo",
+        "@ghodss_yaml//:yaml",
+        "@github_com_spf13_pflag//:pflag",
+        "@howeyc_gopass//:gopass",
+    ],
+)
+
+go_library(
+    name = "tools/cache",
+    srcs = glob(include=["1.5/tools/cache/*.go"],exclude=["1.5/tools/cache/*_test.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/apis/apps",
+        ":pkg/apis/batch",
+        ":pkg/apis/certificates",
+        ":pkg/apis/extensions",
+        ":pkg/apis/policy",
+        ":pkg/api/errors",
+        ":pkg/api/meta",
+        ":pkg/api/unversioned",
+        ":pkg/labels",
+        ":pkg/fields",
+        ":pkg/runtime",
+        ":pkg/watch",
+        ":pkg/util/clock",
+        ":pkg/util/sets",
+        ":pkg/util/runtime",
+        ":pkg/util/wait",
+        ":rest",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "tools/record",
+    srcs = glob(include=["1.5/tools/record/*.go"],exclude=["1.5/tools/record/*_test.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api/errors",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/runtime",
+        ":pkg/util/clock",
+        ":pkg/util/runtime",
+        ":pkg/util/sets",
+        ":pkg/util/strategicpatch",
+        ":pkg/watch",
+        ":rest",
+        "@github_com_golang_glog//:glog",
+        "@groupcache_lru//:lru",
+    ],
+)
+
+go_library(
+    name = "tools/auth",
+    srcs = glob(include=["1.5/tools/auth/*.go"],exclude=["1.5/tools/auth/*_test.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":rest",
+    ],
+)
+
+go_library(
+    name = "tools/clientcmd/api",
+    srcs = glob(["1.5/tools/clientcmd/api/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api/unversioned",
+        ":pkg/runtime",
+        "@ghodss_yaml//:yaml",
+    ],
+)
+
+go_library(
+    name = "tools/clientcmd/api/v1",
+    srcs = glob(["1.5/tools/clientcmd/api/v1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":tools/clientcmd/api",
+        ":pkg/api/unversioned",
+        ":pkg/runtime",
+        ":pkg/conversion",
+        "@ghodss_yaml//:yaml",
+    ],
+)
+
+go_library(
+    name = "tools/clientcmd/api/latest",
+    srcs = glob(["1.5/tools/clientcmd/api/latest/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":tools/clientcmd/api",
+        ":tools/clientcmd/api/v1",
+        ":pkg/api/unversioned",
+        ":pkg/runtime",
+        ":pkg/runtime/serializer/json",
+        ":pkg/runtime/serializer/versioning",
+        "@ghodss_yaml//:yaml",
+    ],
+)
+
+go_library(
+    name = "tools/metrics",
+    srcs = glob(["1.5/tools/metrics/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+go_library(
+    name = "pkg/apis/authorization",
+    srcs = glob(["1.5/pkg/apis/authorization/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/conversion",
+        ":pkg/types",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/authentication",
+    srcs = glob(["1.5/pkg/apis/authentication/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/conversion",
+        ":pkg/types",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/authorization/install",
+    srcs = glob(["1.5/pkg/apis/authorization/install/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/api/meta",
+        ":pkg/apimachinery",
+        ":pkg/apimachinery/announced",
+        ":pkg/apimachinery/registered",
+        ":pkg/apis/authorization",
+        ":pkg/apis/authorization/v1beta1",
+        ":pkg/conversion",
+        ":pkg/types",
+        ":pkg/util/sets",
+        "@go_codec//:codec",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/rbac/install",
+    srcs = glob(["1.5/pkg/apis/rbac/install/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/api/meta",
+        ":pkg/apimachinery",
+        ":pkg/apimachinery/announced",
+        ":pkg/apimachinery/registered",
+        ":pkg/apis/rbac",
+        ":pkg/apis/rbac/v1alpha1",
+        ":pkg/conversion",
+        ":pkg/types",
+        ":pkg/util/sets",
+        "@go_codec//:codec",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/storage/install",
+    srcs = glob(["1.5/pkg/apis/storage/install/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/api/meta",
+        ":pkg/apimachinery",
+        ":pkg/apimachinery/announced",
+        ":pkg/apimachinery/registered",
+        ":pkg/apis/storage",
+        ":pkg/apis/storage/v1beta1",
+        ":pkg/conversion",
+        ":pkg/types",
+        ":pkg/util/sets",
+        "@go_codec//:codec",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/authentication/install",
+    srcs = glob(["1.5/pkg/apis/authentication/install/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/api/meta",
+        ":pkg/apimachinery",
+        ":pkg/apimachinery/announced",
+        ":pkg/apimachinery/registered",
+        ":pkg/apis/authentication",
+        ":pkg/apis/authentication/v1beta1",
+        ":pkg/conversion",
+        ":pkg/types",
+        ":pkg/util/sets",
+        "@go_codec//:codec",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/certificates/install",
+    srcs = glob(["1.5/pkg/apis/certificates/install/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/api/meta",
+        ":pkg/apimachinery",
+        ":pkg/apimachinery/announced",
+        ":pkg/apimachinery/registered",
+        ":pkg/apis/certificates",
+        ":pkg/apis/certificates/v1alpha1",
+        ":pkg/conversion",
+        ":pkg/types",
+        ":pkg/util/sets",
+        "@go_codec//:codec",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/authorization/v1beta1",
+    srcs = glob(["1.5/pkg/apis/authorization/v1beta1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/watch/versioned",
+        ":pkg/types",
+        ":pkg/apis/authorization",
+        ":pkg/conversion",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/authentication/v1beta1",
+    srcs = glob(["1.5/pkg/apis/authentication/v1beta1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/watch/versioned",
+        ":pkg/types",
+        ":pkg/apis/authentication",
+        ":pkg/conversion",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/certificates/v1alpha1",
+    srcs = glob(["1.5/pkg/apis/certificates/v1alpha1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/watch/versioned",
+        ":pkg/types",
+        ":pkg/apis/certificates",
+        ":pkg/conversion",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/rbac/v1alpha1",
+    srcs = glob(["1.5/pkg/apis/rbac/v1alpha1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/apis/rbac",
+        ":pkg/watch/versioned",
+        ":pkg/types",
+        ":pkg/conversion",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/storage/v1beta1",
+    srcs = glob(["1.5/pkg/apis/storage/v1beta1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/apis/storage",
+        ":pkg/watch/versioned",
+        ":pkg/types",
+        ":pkg/conversion",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_codec//:codec",
+    ],
+)
+
+
+go_library(
+    name = "kubernetes/typed/apps/v1alpha1",
+    srcs = glob(["1.5/kubernetes/typed/apps/v1alpha1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/apis/apps/v1alpha1",
+        ":pkg/apimachinery/registered",
+        ":pkg/runtime/serializer",
+        ":pkg/watch",
+        ":rest",
+    ],
+)
+
+go_library(
+    name = "kubernetes/typed/authorization/v1beta1",
+    srcs = glob(["1.5/kubernetes/typed/authorization/v1beta1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/apis/authorization/v1beta1",
+        ":pkg/apimachinery/registered",
+        ":pkg/runtime/serializer",
+        ":rest",
+    ],
+)
+
+go_library(
+    name = "kubernetes/typed/authentication/v1beta1",
+    srcs = glob(["1.5/kubernetes/typed/authentication/v1beta1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/apis/authentication/v1beta1",
+        ":pkg/apimachinery/registered",
+        ":pkg/runtime/serializer",
+        ":rest",
+    ],
+)
+
+go_library(
+    name = "kubernetes/typed/certificates/v1alpha1",
+    srcs = glob(["1.5/kubernetes/typed/certificates/v1alpha1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/apis/certificates/v1alpha1",
+        ":pkg/apimachinery/registered",
+        ":pkg/runtime/serializer",
+        ":pkg/watch",
+        ":rest",
+    ],
+)
+
+go_library(
+    name = "kubernetes/typed/rbac/v1alpha1",
+    srcs = glob(["1.5/kubernetes/typed/rbac/v1alpha1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/apis/rbac/v1alpha1",
+        ":pkg/apimachinery/registered",
+        ":pkg/runtime/serializer",
+        ":pkg/watch",
+        ":rest",
+    ],
+)
+
+go_library(
+    name = "kubernetes/typed/storage/v1beta1",
+    srcs = glob(["1.5/kubernetes/typed/storage/v1beta1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/apis/storage/v1beta1",
+        ":pkg/apimachinery/registered",
+        ":pkg/runtime/serializer",
+        ":pkg/watch",
+        ":rest",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/batch/install",
+    srcs = glob(["1.5/pkg/apis/batch/install/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/api/meta",
+        ":pkg/apimachinery",
+        ":pkg/apimachinery/announced",
+        ":pkg/apimachinery/registered",
+        ":pkg/apis/batch",
+        ":pkg/apis/batch/v1",
+        ":pkg/apis/batch/v2alpha1",
+        ":pkg/watch/versioned",
+        ":pkg/types",
+        ":pkg/conversion",
+        ":pkg/util/sets",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_codec//:codec",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/apps/install",
+    srcs = glob(["1.5/pkg/apis/apps/install/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/api/meta",
+        ":pkg/apimachinery",
+        ":pkg/apimachinery/announced",
+        ":pkg/apimachinery/registered",
+        ":pkg/apis/apps",
+        ":pkg/apis/apps/v1alpha1",
+        ":pkg/watch/versioned",
+        ":pkg/types",
+        ":pkg/conversion",
+        ":pkg/util/sets",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_codec//:codec",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/policy/install",
+    srcs = glob(["1.5/pkg/apis/policy/install/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/api/meta",
+        ":pkg/apimachinery",
+        ":pkg/apimachinery/announced",
+        ":pkg/apimachinery/registered",
+        ":pkg/apis/policy",
+        ":pkg/apis/policy/v1alpha1",
+        ":pkg/watch/versioned",
+        ":pkg/types",
+        ":pkg/conversion",
+        ":pkg/util/sets",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_codec//:codec",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/extensions/install",
+    srcs = glob(["1.5/pkg/apis/extensions/install/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/api/meta",
+        ":pkg/apimachinery",
+        ":pkg/apimachinery/announced",
+        ":pkg/apimachinery/registered",
+        ":pkg/apis/extensions",
+        ":pkg/apis/extensions/v1beta1",
+        ":pkg/watch/versioned",
+        ":pkg/types",
+        ":pkg/conversion",
+        ":pkg/util/sets",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_codec//:codec",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/autoscaling/install",
+    srcs = glob(["1.5/pkg/apis/autoscaling/install/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/api/meta",
+        ":pkg/apimachinery",
+        ":pkg/apimachinery/announced",
+        ":pkg/apimachinery/registered",
+        ":pkg/apis/autoscaling",
+        ":pkg/apis/autoscaling/v1",
+        ":pkg/watch/versioned",
+        ":pkg/types",
+        ":pkg/conversion",
+        ":pkg/util/sets",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_codec//:codec",
+        "@github_com_golang_glog//:glog",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/autoscaling/v1",
+    srcs = glob(["1.5/pkg/apis/autoscaling/v1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/apis/autoscaling",
+        ":pkg/watch/versioned",
+        ":pkg/types",
+        ":pkg/conversion",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "kubernetes/typed/autoscaling/v1",
+    srcs = glob(["1.5/kubernetes/typed/autoscaling/v1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/apis/autoscaling/v1",
+        ":pkg/apimachinery/registered",
+        ":pkg/runtime/serializer",
+        ":pkg/watch",
+        ":rest",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/batch/v1",
+    srcs = glob(["1.5/pkg/apis/batch/v1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/api/resource",
+        ":pkg/util/intstr",
+        ":pkg/apis/batch",
+        ":pkg/watch/versioned",
+        ":pkg/types",
+        ":pkg/conversion",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/batch/v2alpha1",
+    srcs = glob(["1.5/pkg/apis/batch/v2alpha1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/api/resource",
+        ":pkg/util/intstr",
+        ":pkg/apis/batch",
+        ":pkg/watch/versioned",
+        ":pkg/types",
+        ":pkg/conversion",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "kubernetes/typed/batch/v1",
+    srcs = glob(["1.5/kubernetes/typed/batch/v1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/apis/batch/v1",
+        ":pkg/apimachinery/registered",
+        ":pkg/runtime/serializer",
+        ":pkg/watch",
+        ":rest",
+    ],
+)
+
+go_library(
+    name = "kubernetes/typed/core/v1",
+    srcs = glob(["1.5/kubernetes/typed/core/v1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/api/v1",
+        ":pkg/apimachinery/registered",
+        ":pkg/apis/policy/v1alpha1",
+        ":pkg/runtime",
+        ":pkg/runtime/serializer",
+        ":pkg/watch",
+        ":pkg/fields",
+        ":pkg/util/net",
+        ":rest",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/extensions/v1beta1",
+    srcs = glob(["1.5/pkg/apis/extensions/v1beta1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/api/meta",
+        ":pkg/api/resource",
+        ":pkg/util/intstr",
+        ":pkg/apis/autoscaling",
+        ":pkg/apis/batch",
+        ":pkg/apis/extensions",
+        ":pkg/conversion",
+        ":pkg/watch/versioned",
+        ":pkg/types",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "kubernetes/typed/extensions/v1beta1",
+    srcs = glob(["1.5/kubernetes/typed/extensions/v1beta1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/api/unversioned",
+        ":pkg/api/meta",
+        ":pkg/apis/extensions/v1beta1",
+        ":pkg/apimachinery/registered",
+        ":pkg/runtime",
+        ":pkg/runtime/serializer",
+        ":pkg/watch",
+        ":pkg/fields",
+        ":pkg/util/net",
+        ":rest",
+    ],
+)
+
+go_library(
+    name = "pkg/apis/policy",
+    srcs = glob(["1.5/pkg/apis/policy/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/api/unversioned",
+        ":pkg/runtime",
+        ":pkg/conversion",
+        ":pkg/types",
+        ":pkg/util/intstr",
+        "@go_codec//:codec",
+    ]
+)
+
+go_library(
+    name = "pkg/apis/policy/v1alpha1",
+    srcs = glob(["1.5/pkg/apis/policy/v1alpha1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/runtime",
+        ":pkg/api/unversioned",
+        ":pkg/api/v1",
+        ":pkg/api",
+        ":pkg/api/meta",
+        ":pkg/api/resource",
+        ":pkg/util/intstr",
+        ":pkg/apis/autoscaling",
+        ":pkg/apis/batch",
+        ":pkg/apis/extensions",
+        ":pkg/apis/policy",
+        ":pkg/conversion",
+        ":pkg/watch/versioned",
+        ":pkg/types",
+        "@github_com_gogo_protobuf//:proto",
+        "@github_com_gogo_protobuf//:sortkeys",
+        "@go_codec//:codec",
+    ],
+)
+
+go_library(
+    name = "kubernetes/typed/policy/v1alpha1",
+    srcs = glob(["1.5/kubernetes/typed/policy/v1alpha1/*.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pkg/api",
+        ":pkg/api/unversioned",
+        ":pkg/api/meta",
+        ":pkg/apimachinery/registered",
+        ":pkg/apis/policy/v1alpha1",
+        ":pkg/runtime",
+        ":pkg/runtime/serializer",
+        ":pkg/watch",
+        ":pkg/fields",
+        ":pkg/util/net",
+        ":rest",
+    ],
+)
