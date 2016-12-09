@@ -1,0 +1,65 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+
+go_prefix("golang.org/x")
+
+go_library(
+    name = "oauth2/internal",
+    srcs = glob(include=["internal/*.go"],
+                exclude=["internal/*_test.go"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        "@github_com_x_net//:context",
+    ],
+)
+
+go_library(
+    name = "oauth2",
+    srcs = ["oauth2.go", "token.go", "transport.go"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "oauth2/internal",
+        "@github_com_x_net//:context",
+    ],
+)
+
+go_library(
+    name = "oauth2/google",
+    srcs = [
+        "google/appengine.go",
+        "google/default.go",
+        "google/google.go",
+        "google/jwt.go",
+        "google/sdk.go"
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "oauth2",
+        "oauth2/internal",
+        "oauth2/jwt",
+        "oauth2/jws",
+        "@google_cloud_go//:compute/metadata",
+        "@github_com_x_net//:context",
+    ],
+)
+
+go_library(
+    name = "oauth2/jwt",
+    srcs = ["jwt/jwt.go"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "oauth2",
+        "oauth2/internal",
+        "oauth2/jws",
+        "@github_com_x_net//:context",
+    ],
+)
+
+go_library(
+    name = "oauth2/jws",
+    srcs = ["jws/jws.go"],
+    visibility = ["//visibility:public"],
+    deps = [],
+)
+
