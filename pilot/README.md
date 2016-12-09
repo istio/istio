@@ -18,7 +18,7 @@ We are using [Bazel 0.4.2](https://bazel.io) to build Istio manager:
 
 You can also use regular `go test` and `go build` but keep in mind
 that we are building against a specific version of [Kubernetes `client-go`](https://github.com/kubernetes/client-go).
-Place the repository clone into your `$GOROOT/istio.io/manager`:
+Place the repository clone into your `$GOROOT`:
     
     mkdir -p $GOROOT/src/istio.io
     ln -s <istio.io/manager repo> $GOROOT/src/istio.io
