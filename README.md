@@ -20,7 +20,7 @@ _As contributors and maintainers of this project, and in the interest of fosteri
 
 ## Community
 
-TODO: Group, Slack
+[Mailing List](https://groups.google.com/forum/#!forum/istio-dev)
 
 ## Contribute
 
