@@ -21,3 +21,4 @@ import:
 - package: google.golang.org/genproto
 - package: github.com/googleapis/googleapis
 - package: github.com/google/protobuf
+- package: github.com/spf13/cobra/cobra
