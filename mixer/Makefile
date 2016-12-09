@@ -49,14 +49,14 @@ clean_api:
 ## Config Targets
 
 CONFIG_SRC = $(wildcard config/v1/*.proto)
-CONFIG_OUTDIR_GO = config/v1/go
+CONFIG_OUTDIR_GO = $(VENDOR)/istio.io/mixer
 CONFIG_OUTDIR_CPP = config/v1/cpp
 CONFIG_OUTPUTS = $(CONFIG_SRC:config/v1/%.proto=$(CONFIG_OUTDIR_GO)/%.pb.go) $(CONFIG_SRC:config/v1/%.proto=$(CONFIG_OUTDIR_CPP)/%.pb.cc) $(CONFIG_SRC:config/v1/%.proto=$(CONFIG_OUTDIR_CPP)/%.pb.h)
 
 $(CONFIG_OUTDIR_GO)/%.pb.go $(CONFIG_OUTDIR_CPP)/%.pb.cc $(CONFIG_OUTDIR_CPP)/%.pb.h: config/v1/%.proto
 	@echo "Building config protos"
 	@mkdir -p $(CONFIG_OUTDIR_GO) $(CONFIG_OUTDIR_CPP)
-	@$(PROTOC) --proto_path=config/v1 --proto_path=vendor/github.com/googleapis/googleapis --proto_path=vendor/github.com/google/protobuf/src --cpp_out=$(CONFIG_OUTDIR_CPP) --go_out=plugins=grpc:$(CONFIG_OUTDIR_GO) $(CONFIG_SRC)
+	@$(PROTOC) --proto_path=. --proto_path=vendor/github.com/googleapis/googleapis --proto_path=vendor/github.com/google/protobuf/src --cpp_out=$(CONFIG_OUTDIR_CPP) --go_out=plugins=grpc:$(CONFIG_OUTDIR_GO) $(CONFIG_SRC)
 
 build_config: $(CONFIG_OUTPUTS)
 

@@ -16,7 +16,7 @@ syntax = "proto3";
 
 package config.v1;
 
-import "label_descriptor.proto";
+import "config/v1/label_descriptor.proto";
 
 // Defines a a security principal.
 //
