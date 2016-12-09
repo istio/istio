@@ -1,5 +1,5 @@
-hash: 89083b2c9d19d1c03881aebe9a8ccaeee2fb057acdd863bad132ee3d076fd9a7
-updated: 2016-11-28T20:34:50.158514777-08:00
+hash: e656a3c4d739d645abd37e646e6aaac61cf01675397448f022004a266c30a3bf
+updated: 2016-12-09T09:00:18.499703569-08:00
 imports:
 - name: github.com/golang/glog
   version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
@@ -15,6 +15,14 @@ imports:
   version: 39f9b43219bc5718b659ed72a2130a7b2ce66108
 - name: github.com/googleapis/googleapis
   version: 1e43683baaf049720b4bd5e2995304c430c749bd
+- name: github.com/inconshreveable/mousetrap
+  version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
+- name: github.com/spf13/cobra
+  version: 9495bc009a56819bdb0ddbc1a373e29c140bc674
+  subpackages:
+  - cobra
+- name: github.com/spf13/pflag
+  version: 5ccb023bc27df288a957c5e994cd44fd19619465
 - name: golang.org/x/net
   version: 4971afdc2f162e82d185353533d3cf16188a9f4e
   subpackages:
@@ -28,8 +36,8 @@ imports:
 - name: google.golang.org/genproto
   version: f3350869260a1e80675c8d0e42f1f3a870db2b74
   subpackages:
-  - googleapis/rpc/status
   - googleapis/rpc/code
+  - googleapis/rpc/status
 - name: google.golang.org/grpc
   version: eca2ad68af4d7bf894ada6bd263133f069a441d5
   subpackages:

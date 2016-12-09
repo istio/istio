@@ -12,12 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
-	"istio.io/mixer/example/client/cmd"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	cmd.Execute()
+// reportCmd represents the report command
+var reportCmd = &cobra.Command{
+	Use:   "report",
+	Short: "Invokes the mixer's Report API.",
+	Run: func(cmd *cobra.Command, args []string) {
+		errorf("Not implemented yet")
+	},
+}
+
+func init() {
+	RootCmd.AddCommand(reportCmd)
 }

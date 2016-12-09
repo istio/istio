@@ -12,12 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
-	"istio.io/mixer/example/client/cmd"
+	"fmt"
+
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	cmd.Execute()
+// quotaCmd represents the quota command
+var quotaCmd = &cobra.Command{
+	Use:   "quota",
+	Short: "Invokes the mixer's Quota API.",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Not implemented yet")
+	},
+}
+
+func init() {
+	RootCmd.AddCommand(quotaCmd)
 }
