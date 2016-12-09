@@ -47,3 +47,5 @@ dep-prep
 __pycache__/*
 .cache
 .cover/*
+bazel-*
+
