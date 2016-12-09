@@ -38,11 +38,11 @@ go_test(
 )
 
 go_library(
-    name = "env",
+    name = "kube",
     srcs = [
-        "env/kube_config.go",
-        "env/kube_consumer.go",
-        "env/kube_registry.go",
+        "platform/kube/config.go",
+        "platform/kube/consumer.go",
+        "platform/kube/registry.go",
     ],
     deps = [
         ":model",
@@ -65,21 +65,21 @@ go_library(
 
 go_binary(
     name = "kube_agent",
-    srcs = ["env/main/kube_agent.go"],
+    srcs = ["platform/kube/main/kube_agent.go"],
 )
 
 filegroup(
     name = "kube_agent_srcs",
     srcs = [
-        "env/main/kube_agent.go",
+        "platform/kube/main/kube_agent.go",
     ],
     visibility = ["//visibility:public"],
 )
 
 go_test(
-    name = "env/kube_test",
-    srcs = ["env/kube_test.go"],
-    library = ":env",
+    name = "kube_test",
+    srcs = ["platform/kube/minikube_test.go"],
+    library = ":kube",
     deps = [":test"],
 )
 

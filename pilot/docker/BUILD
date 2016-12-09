@@ -5,7 +5,7 @@ genrule(
     name = "kube_agent-linux",
     srcs = ["//:kube_agent_srcs"],
     outs = ["kube_agent"],
-    cmd = "env GOOS=linux GOARCH=amd64 go build env/main/kube_agent.go; cat kube_agent > $@",
+    cmd = "env GOOS=linux GOARCH=amd64 go build platform/kube/main/kube_agent.go; cat kube_agent > $@",
 )
 
 pkg_tar(
