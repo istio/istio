@@ -21,7 +21,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"istio.io/mixer/api/v1"
+	mixerpb "istio.io/mixer/api/v1"
 )
 
 type clientState struct {

@@ -33,9 +33,9 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/mixer/adapters"
-	"istio.io/mixer/api/v1"
 
 	proto "github.com/golang/protobuf/proto"
+	mixerpb "istio.io/mixer/api/v1"
 )
 
 // APIServerOptions controls the behavior of a gRPC server.

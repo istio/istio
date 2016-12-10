@@ -28,9 +28,9 @@ var checkCmd = &cobra.Command{
 	Use:   "check",
 	Short: "Invokes the mixer's Check API.",
 	Run: func(cmd *cobra.Command, args []string) {
-		cs, err := createAPIClient(mixerAddress)
+		cs, err := createAPIClient(MixerAddress)
 		if err != nil {
-			errorf("Unable to establish connection to %s", mixerAddress)
+			errorf("Unable to establish connection to %s", MixerAddress)
 			return
 		}
 		defer deleteAPIClient(cs)
@@ -42,7 +42,7 @@ var checkCmd = &cobra.Command{
 		}
 
 		var attrs map[string]string
-		if attrs, err = parseAttributes(attributes); err != nil {
+		if attrs, err = parseAttributes(Attributes); err != nil {
 			errorf(err.Error())
 			return
 		}

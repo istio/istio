@@ -14,13 +14,11 @@
 
 syntax = "proto3";
 
-package istio.mixer.v1;
+package api.v1;
 
-option go_package="istio.io/mixer/api/v1;mixerpb";
-
-import "check.proto";
-import "report.proto";
-import "quota.proto";
+import "api/v1/check.proto";
+import "api/v1/report.proto";
+import "api/v1/quota.proto";
 
 // The Istio Mixer API
 service Mixer {
