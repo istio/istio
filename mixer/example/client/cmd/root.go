@@ -20,8 +20,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var attributes string
-var mixerAddress string
+// Attributes is the list of name/value pairs of attributes that will be sent with requests.
+var Attributes string
+
+// MixerAddress is the full address (including port) of a mixer instance to call.
+var MixerAddress string
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{

@@ -1,10 +1,10 @@
 hash: e656a3c4d739d645abd37e646e6aaac61cf01675397448f022004a266c30a3bf
-updated: 2016-12-09T09:00:18.499703569-08:00
+updated: 2016-12-09T18:40:50.158839884-08:00
 imports:
 - name: github.com/golang/glog
   version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
 - name: github.com/golang/protobuf
-  version: 4bd1920723d7b7c925de087aa32e2187708897f7
+  version: 8ee79997227bf9b34611aee7946ae64735e6fd93
   subpackages:
   - proto
   - ptypes/any
@@ -12,9 +12,9 @@ imports:
   - ptypes/timestamp
   - ptypes/wrappers
 - name: github.com/google/protobuf
-  version: 39f9b43219bc5718b659ed72a2130a7b2ce66108
+  version: 277a8b65805aceeefc1764947616430994e05bdf
 - name: github.com/googleapis/googleapis
-  version: 1e43683baaf049720b4bd5e2995304c430c749bd
+  version: 15282fdb98e08a2c4345e2a6649b2b09df86f5da
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/spf13/cobra
@@ -24,7 +24,7 @@ imports:
 - name: github.com/spf13/pflag
   version: 5ccb023bc27df288a957c5e994cd44fd19619465
 - name: golang.org/x/net
-  version: 4971afdc2f162e82d185353533d3cf16188a9f4e
+  version: b1a2d6e8c8b5fc8f601ead62536f02a8e1b6217d
   subpackages:
   - context
   - http2
@@ -34,12 +34,12 @@ imports:
   - lex/httplex
   - internal/timeseries
 - name: google.golang.org/genproto
-  version: f3350869260a1e80675c8d0e42f1f3a870db2b74
+  version: 08f135d1a31b6ba454287638a3ce23a55adace6f
   subpackages:
   - googleapis/rpc/code
   - googleapis/rpc/status
 - name: google.golang.org/grpc
-  version: eca2ad68af4d7bf894ada6bd263133f069a441d5
+  version: 8712952b7d646dbbbc6fb73a782174f3115060f3
   subpackages:
   - credentials
   - codes

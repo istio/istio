@@ -32,36 +32,36 @@ PROTOC = bin/protoc.$(shell uname)
 VENDOR = vendor
 
 API_SRC = $(wildcard api/v1/*.proto)
-API_OUTDIR_GO = $(VENDOR)/istio.io/mixer/api/v1
-API_OUTDIR_CPP = api/v1/cpp
-API_OUTPUTS = $(API_SRC:api/v1/%.proto=$(API_OUTDIR_GO)/%.pb.go) $(API_SRC:api/v1/%.proto=$(API_OUTDIR_CPP)/%.pb.cc) $(API_SRC:api/v1/%.proto=$(API_OUTDIR_CPP)/%.pb.h)
+API_OUTDIR_BASE = $(CURDIR)
+API_OUTDIR_FULL = $(API_OUTDIR_BASE)/api/v1
+API_OUTPUTS = $(API_SRC:api/v1/%.proto=$(API_OUTDIR_FULL)/%.pb.go)
 
-$(API_OUTDIR_GO)/%.pb.go $(API_OUTDIR_CPP)/%.pb.cc $(API_OUTDIR_CPP)/%.pb.h: api/v1/%.proto
+$(API_OUTDIR_FULL)/%.pb.go: api/v1/%.proto
 	@echo "Building API protos"
-	@mkdir -p $(API_OUTDIR_GO) $(API_OUTDIR_CPP)
-	@$(PROTOC) --proto_path=api/v1 --proto_path=vendor/github.com/googleapis/googleapis --proto_path=vendor/github.com/google/protobuf/src --cpp_out=$(API_OUTDIR_CPP) --go_out=plugins=grpc:$(VENDOR) $(API_SRC)
+	@mkdir -p $(API_OUTDIR_FULL)
+	@$(PROTOC) --proto_path=. --proto_path=vendor/github.com/googleapis/googleapis --proto_path=vendor/github.com/google/protobuf/src --go_out=plugins=grpc:$(API_OUTDIR_BASE) $(API_SRC)
 
 build_api: $(API_OUTPUTS)
 
 clean_api:
-	@rm -fr $(API_OUTDIR_GO) $(API_OUTDIR_CPP)
+	@rm -fr $(API_OUTDIR_FULL)/*.pb.go
 
 ## Config Targets
 
 CONFIG_SRC = $(wildcard config/v1/*.proto)
-CONFIG_OUTDIR_GO = $(VENDOR)/istio.io/mixer
-CONFIG_OUTDIR_CPP = config/v1/cpp
-CONFIG_OUTPUTS = $(CONFIG_SRC:config/v1/%.proto=$(CONFIG_OUTDIR_GO)/%.pb.go) $(CONFIG_SRC:config/v1/%.proto=$(CONFIG_OUTDIR_CPP)/%.pb.cc) $(CONFIG_SRC:config/v1/%.proto=$(CONFIG_OUTDIR_CPP)/%.pb.h)
+CONFIG_OUTDIR_BASE = $(CURDIR)
+CONFIG_OUTDIR_FULL = $(CONFIG_OUTDIR_BASE)/config/v1
+CONFIG_OUTPUTS = $(CONFIG_SRC:config/v1/%.proto=$(CONFIG_OUTDIR_FULL)/%.pb.go)
 
-$(CONFIG_OUTDIR_GO)/%.pb.go $(CONFIG_OUTDIR_CPP)/%.pb.cc $(CONFIG_OUTDIR_CPP)/%.pb.h: config/v1/%.proto
+$(CONFIG_OUTDIR_FULL)/%.pb.go: config/v1/%.proto
 	@echo "Building config protos"
-	@mkdir -p $(CONFIG_OUTDIR_GO) $(CONFIG_OUTDIR_CPP)
-	@$(PROTOC) --proto_path=. --proto_path=vendor/github.com/googleapis/googleapis --proto_path=vendor/github.com/google/protobuf/src --cpp_out=$(CONFIG_OUTDIR_CPP) --go_out=plugins=grpc:$(CONFIG_OUTDIR_GO) $(CONFIG_SRC)
+	@mkdir -p $(CONFIG_OUTDIR_FULL)
+	@$(PROTOC) --proto_path=. --proto_path=vendor/github.com/googleapis/googleapis --proto_path=vendor/github.com/google/protobuf/src --go_out=plugins=grpc:$(CONFIG_OUTDIR_BASE) $(CONFIG_SRC)
 
 build_config: $(CONFIG_OUTPUTS)
 
 clean_config:
-	@rm -fr $(CONFIG_OUTDIR_GO) $(CONFIG_OUTDIR_CPP)
+	@rm -fr $(CONFIG_OUTDIR_FULL)/*.pb.go
 
 ## Server targets
 
