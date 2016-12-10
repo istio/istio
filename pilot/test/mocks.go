@@ -24,9 +24,43 @@ import (
 	"istio.io/manager/model"
 )
 
+const (
+	MockKind = "MockConfig"
+	MockName = "my-qualified-name"
+)
+
+var (
+	MockKey = model.ConfigKey{
+		Kind: MockKind,
+		Name: MockName,
+	}
+	MockConfigObject = MockConfig{
+		Pairs: []*ConfigPair{
+			&ConfigPair{Key: "key", Value: "value"},
+		},
+	}
+	MockObject = model.Config{
+		ConfigKey: MockKey,
+		Content:   &MockConfigObject,
+	}
+	MockMapping = model.KindMap{
+		MockKind: model.ProtoValidator{
+			MessageName: "test.MockConfig",
+			Description: "Sample config kind",
+			Validate:    func(proto.Message) error { return nil },
+		},
+	}
+)
+
 type MockRegistry struct {
 	store   map[model.ConfigKey]*model.Config
 	mapping model.KindMap
+}
+
+type MockGenerator struct{}
+
+type MockConfigConsumer struct {
+	Generator model.Generator
 }
 
 func NewMockRegistry() model.Registry {
@@ -63,36 +97,6 @@ func (r *MockRegistry) List(kind string) []*model.Config {
 	return out
 }
 
-const MockKind = "MockConfig"
-const MockName = "my-qualified-name"
-
-var MockKey = model.ConfigKey{
-	Kind: MockKind,
-	Name: MockName,
-}
-
-var MockConfigObject = MockConfig{
-	Pairs: []*ConfigPair{
-		&ConfigPair{
-			Key:   "key",
-			Value: "value",
-		},
-	},
-}
-
-var MockObject = model.Config{
-	ConfigKey: MockKey,
-	Content:   &MockConfigObject,
-}
-
-var MockMapping = model.KindMap{
-	MockKind: model.ProtoValidator{
-		MessageName: "test.MockConfig",
-		Description: "Sample config kind",
-		Validate:    func(proto.Message) error { return nil },
-	},
-}
-
 func CheckMapInvariant(r model.Registry, t *testing.T) {
 	if err := r.Put(MockObject); err != nil {
 		t.Error(err)
@@ -121,8 +125,6 @@ func CheckMapInvariant(r model.Registry, t *testing.T) {
 	}
 }
 
-type MockGenerator struct{}
-
 func (generator *MockGenerator) Render(reg model.Registry) ([]*model.ConfigOutput, error) {
 	var buffer bytes.Buffer
 	var keys []*model.ConfigKey
@@ -139,10 +141,6 @@ func (generator *MockGenerator) Render(reg model.Registry) ([]*model.ConfigOutpu
 		Sources: keys,
 		Content: buffer.Bytes(),
 	}}, nil
-}
-
-type MockConfigConsumer struct {
-	Generator model.Generator
 }
 
 func (consumer *MockConfigConsumer) Name() string {

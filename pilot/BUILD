@@ -22,7 +22,7 @@ go_library(
     name = "model",
     srcs = [
         "model/functions.go",
-        "model/store.go",
+        "model/registry.go",
     ],
     deps = [
         "@github_com_golang_protobuf//:proto",
@@ -31,8 +31,8 @@ go_library(
 )
 
 go_test(
-    name = "model/store_test",
-    srcs = ["model/store_test.go"],
+    name = "model/registry_test",
+    srcs = ["model/registry_test.go"],
     library = ":model",
     deps = [":test"],
 )

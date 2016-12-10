@@ -1,6 +1,7 @@
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar", "pkg_deb")
 load("@bazel_tools//tools/build_defs/docker:docker.bzl", "docker_build")
 
+# TODO: replace with xgo_binary rule for cross-platform compilation
 genrule(
     name = "kube_agent-linux",
     srcs = ["//:kube_agent_srcs"],

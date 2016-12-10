@@ -59,6 +59,7 @@ func (el *ConfigList) GetListMeta() unversioned.List {
 // The code below is used only to work around a known problem with third-party
 // resources and @ugorji. If/when these issues are resolved, the code below
 // should no longer be required.
+// See https://github.com/kubernetes/client-go/pull/37
 
 type ConfigListCopy ConfigList
 type ConfigCopy Config

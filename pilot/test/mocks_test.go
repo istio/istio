@@ -20,32 +20,30 @@ import (
 	"istio.io/manager/model"
 )
 
+var configTests = []model.Config{
+	model.Config{ConfigKey: MockKey},
+	model.Config{ConfigKey: MockKey, Content: "x"},
+	model.Config{ConfigKey: model.ConfigKey{Name: "BLAH"}},
+	model.Config{
+		ConfigKey: model.ConfigKey{Name: MockName},
+		Content:   &MockConfigObject,
+	},
+	model.Config{
+		ConfigKey: model.ConfigKey{Name: MockName, Kind: "Mock"},
+		Content:   &MockConfigObject,
+	},
+}
+
 func TestMockRegistry(t *testing.T) {
 	r := NewMockRegistry()
 	if err := MockMapping.Validate(); err != nil {
 		t.Error(err)
 	}
 	CheckMapInvariant(r, t)
-	if err := r.Put(model.Config{ConfigKey: MockKey}); err == nil {
-		t.Fail()
-	}
-	if err := r.Put(model.Config{ConfigKey: MockKey, Content: "x"}); err == nil {
-		t.Fail()
-	}
-	if err := r.Put(model.Config{ConfigKey: model.ConfigKey{Name: "BLAH"}}); err == nil {
-		t.Fail()
-	}
-	if err := r.Put(model.Config{
-		ConfigKey: model.ConfigKey{Name: MockName},
-		Content:   &MockConfigObject,
-	}); err == nil {
-		t.Fail()
-	}
-	if err := r.Put(model.Config{
-		ConfigKey: model.ConfigKey{Name: MockName, Kind: "Mock"},
-		Content:   &MockConfigObject,
-	}); err == nil {
-		t.Fail()
+	for _, config := range configTests {
+		if err := r.Put(config); err == nil {
+			t.Errorf("t.Put(%#v) succeeded for invalid config", config)
+		}
 	}
 }
 
