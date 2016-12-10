@@ -135,28 +135,25 @@ func (kr *KubernetesRegistry) RegisterResources() error {
 	var out error
 	for kind, v := range kr.mapping {
 		apiName := kindToAPIName(kind)
-		// initialize resource if it does not exist
 		res, err := kr.client.Extensions().ThirdPartyResources().Get(apiName)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				tpr := &v1beta1.ThirdPartyResource{
-					ObjectMeta: v1.ObjectMeta{
-						Name: apiName,
-					},
-					Versions: []v1beta1.APIVersion{
-						{Name: IstioResourceVersion},
-					},
-					Description: v.Description,
-				}
-				_, err = kr.client.Extensions().ThirdPartyResources().Create(tpr)
-				if err != nil {
-					out = multierror.Append(out, err)
-				}
-			} else {
+		if err == nil {
+			log.Printf("Resource already exists: %q", res.Name)
+		} else if errors.IsNotFound(err) {
+			log.Printf("Creating resource: %q", kind)
+			tpr := &v1beta1.ThirdPartyResource{
+				ObjectMeta:  v1.ObjectMeta{Name: apiName},
+				Versions:    []v1beta1.APIVersion{{Name: IstioResourceVersion}},
+				Description: v.Description,
+			}
+			res, err = kr.client.Extensions().ThirdPartyResources().
+				Create(tpr)
+			if err != nil {
 				out = multierror.Append(out, err)
+			} else {
+				log.Printf("Created resource: %q", res.Name)
 			}
 		} else {
-			log.Printf("Resource already exists: %s", res.Name)
+			out = multierror.Append(out, err)
 		}
 	}
 	return out
@@ -167,7 +164,8 @@ func (kr *KubernetesRegistry) DeregisterResources() error {
 	var out error
 	for kind := range kr.mapping {
 		apiName := kindToAPIName(kind)
-		err := kr.client.Extensions().ThirdPartyResources().Delete(apiName, &api.DeleteOptions{})
+		err := kr.client.Extensions().ThirdPartyResources().
+			Delete(apiName, &api.DeleteOptions{})
 		if err != nil {
 			out = multierror.Append(out, err)
 		}
@@ -207,7 +205,7 @@ func (kr *KubernetesRegistry) Put(obj model.Config) error {
 		return err
 	}
 
-	// Unmarshal from bytes to go map
+	// Unmarshal from json bytes to go map
 	var data map[string]interface{}
 	err = json.Unmarshal([]byte(bytes), &data)
 	if err != nil {
@@ -239,13 +237,11 @@ func (kr *KubernetesRegistry) Delete(key model.ConfigKey) {
 		Do().Error()
 	if err != nil {
 		log.Printf(err.Error())
-
 	}
 }
 
 func (kr *KubernetesRegistry) List(kind string) []*model.Config {
-	_, ok := kr.mapping[kind]
-	if !ok {
+	if _, ok := kr.mapping[kind]; !ok {
 		return nil
 	}
 
