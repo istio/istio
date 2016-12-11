@@ -1,13 +1,26 @@
+workspace(name = "com_github_istio_mixer")
+
 git_repository(
     name = "io_bazel_rules_go",
+    commit = "4c73b9cb84c1f8e32e7df3c26e237439699d5d8c",
     remote = "https://github.com/bazelbuild/rules_go.git",
-    tag = "0.3.1",
 )
 
 load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "new_go_repository")
-load("@io_bazel_rules_go//proto:go_proto_library.bzl", "go_proto_repositories")
 
 go_repositories()
+
+git_repository(
+    name = "org_pubref_rules_protobuf",
+    remote = "https://github.com/pubref/rules_protobuf",
+    tag = "v0.7.1",
+)
+
+load("@org_pubref_rules_protobuf//protobuf:rules.bzl", "proto_repositories")
+
+proto_repositories()
+
+load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_repositories")
 
 go_proto_repositories()
 
@@ -21,4 +34,52 @@ new_go_repository(
     name = "in_gopkg_yaml_v2",
     commit = "a5b47d31c556af34a302ce5d659e6fea44d90de0",
     importpath = "gopkg.in/yaml.v2",
+)
+
+new_go_repository(
+    name = "com_github_golang_protobuf",
+    commit = "8ee79997227bf9b34611aee7946ae64735e6fd93",
+    importpath = "github.com/golang/protobuf",
+)
+
+GOOGLEAPIS_BUILD_FILE = """
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
+go_prefix("github.com/googleapis/googleapis")
+
+load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
+
+go_proto_library(
+    name = "go_status_proto",
+    protos = [
+        "google/rpc/status.proto",
+    ],
+    imports = [
+        "../../external/com_github_google_protobuf/src",
+    ],
+    deps = [
+        "@com_github_golang_protobuf//ptypes/any:go_default_library",
+    ],
+    verbose = 0,
+)
+"""
+
+new_git_repository(
+    name = "com_github_googleapis_googleapis",
+    build_file_content = GOOGLEAPIS_BUILD_FILE,
+    commit = "13ac2436c5e3d568bd0e938f6ed58b77a48aba15",
+    remote = "https://github.com/googleapis/googleapis.git",
+)
+
+new_go_repository(
+    name = "com_github_google_go_genproto",
+    commit = "08f135d1a31b6ba454287638a3ce23a55adace6f",
+    importpath = "google.golang.org/genproto",
+)
+
+new_go_repository(
+    name = "org_golang_google_grpc",
+    commit = "8712952b7d646dbbbc6fb73a782174f3115060f3",
+    importpath = "google.golang.org/grpc",
 )

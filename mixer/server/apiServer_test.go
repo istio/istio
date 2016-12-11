@@ -25,7 +25,8 @@ import (
 
 	"istio.io/mixer/adapters"
 	"istio.io/mixer/adapters/factMapper"
-	"istio.io/mixer/api/v1"
+
+	mixerpb "istio.io/mixer/api/v1"
 )
 
 const (
