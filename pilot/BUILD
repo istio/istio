@@ -94,3 +94,23 @@ go_library(
         "@github_com_golang_protobuf//:proto",
     ],
 )
+
+genrule(
+    name = "process_cfgeditor_content",
+    srcs = glob([
+        "contrib/cfgeditor/content/**/*",
+    ]),
+    outs = ["content.go"],
+    cmd = "go-bindata -o $(OUTS) --prefix contrib/cfgeditor/content contrib/cfgeditor/content/...",
+)
+
+go_binary(
+    name = "cfgeditor",
+    srcs = [
+        "contrib/cfgeditor/main.go",
+        "content.go",
+    ],
+    deps = [
+        "@github_com_spf13_cobra//:cobra",
+    ],
+)

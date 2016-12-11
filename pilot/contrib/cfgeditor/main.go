@@ -1,0 +1,212 @@
+// Copyright 2016 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package main
+
+import (
+	"fmt"
+	"html/template"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"time"
+
+	"github.com/spf13/cobra"
+)
+
+// The current state of the editor. This is what
+// the web site is mutating. Fields in here can be
+// referenced for template expansion.
+type editorContext struct {
+	ConfigFileName string
+	FileData       []byte
+	Error          string
+}
+
+// timebomb waits for a second and then kills the process with the given return code
+func timebomb(status int) {
+	time.Sleep(time.Second)
+	os.Exit(status)
+}
+
+// returnAsset extracts an asset from the program's content tables,
+// deals with expanding templates, and with applying the proper content
+// type.
+func (c *editorContext) returnAsset(w http.ResponseWriter, path string) {
+	data, err := Asset(path)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	switch filepath.Ext(path) {
+	case ".html":
+		w.Header().Add("Content-Type", "text/html; charset=utf-8")
+		t := template.New("name")
+		t.Parse(string(data))
+		t.Execute(w, c)
+
+	case ".js":
+		w.Header().Add("Content-Type", "application/javascript; charset=utf-8")
+		t := template.New("name")
+		t.Parse(string(data))
+		t.Execute(w, c)
+
+	case ".png":
+		w.Header().Add("Content-Type", "image/png")
+		w.Write(data)
+
+	case ".jpg":
+		w.Header().Add("Content-Type", "image/jpeg")
+		w.Write(data)
+
+	default:
+		http.Error(w, "Unsupported file format for path "+path, http.StatusInternalServerError)
+	}
+}
+
+func (c *editorContext) handler(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path[1:]
+
+	// if the path is empty, it means this is just fetching the main
+	// page of the site. In that case, we're going to look for any
+	// particular actions to perform, and select the appropriate
+	// asset to return given the circumstance.
+	if path == "" {
+		path = "main.html"
+		action := r.URL.Query().Get("action")
+		switch action {
+		case "":
+			// nothing special to do
+
+		case "save":
+			body := []byte(r.FormValue("body"))
+			if err := ioutil.WriteFile(c.ConfigFileName, body, 0600); err != nil {
+				c.Error = fmt.Sprintf("Unable to save config file: %v", err.Error())
+				path = "error.html"
+			} else {
+				fmt.Printf("%s was updated\n", c.ConfigFileName)
+				path = "final.html"
+				go timebomb(0)
+			}
+
+		case "cancel":
+			fmt.Printf("Editing canceled, %s was not updated\n", c.ConfigFileName)
+			path = "final.html"
+			go timebomb(0)
+
+		case "upper":
+			c.FileData = []byte(strings.ToUpper(string(c.FileData)))
+
+		case "lower":
+			c.FileData = []byte(strings.ToLower(string(c.FileData)))
+
+		default:
+			c.Error = fmt.Sprintf("%s is an invalid action", action)
+			path = "error.html"
+		}
+	}
+
+	// retrieve the requisite asset and return it
+	c.returnAsset(w, path)
+}
+
+// browser attempts to open a browser pointing to the specified URL in
+// order to edit the specified config file.
+func browser(url string, file string) {
+	var args []string
+
+	// OS-specific launch goo
+	switch runtime.GOOS {
+	case "darwin":
+		args = []string{"open"}
+	case "windows":
+		args = []string{"cmd", "/c", "start"}
+	default:
+		args = []string{"xdg-open"}
+	}
+	cmd := exec.Command(args[0], append(args[1:], url)...)
+
+	// and try to get the thing going finally
+	if err := cmd.Start(); err != nil {
+		fmt.Printf("Connect to %s with a web browser in order to edit '%s'\n", url, file)
+	} else {
+		fmt.Printf("We've opened a new tab in your browser to let you edit the content of '%s'\n", file)
+	}
+}
+
+func edit(file string, port string) error {
+	c := editorContext{}
+	c.ConfigFileName = file
+
+	var err error
+	if c.FileData, err = ioutil.ReadFile(file); err != nil {
+		return fmt.Errorf("unable to read config file %s: %v", file, err)
+	}
+
+	http.HandleFunc("/", c.handler)
+
+	// this is racy with ListenAndServe below, but there's no other good way I
+	// can see to synchronize the two operations...
+	go browser("http://localhost:"+port, file)
+
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		return fmt.Errorf("unable to start web server: %v", err)
+	}
+
+	return nil
+}
+
+// withArgs is like main except that it is parameterized with the
+// command-line arguments to use, along with a function to call
+// in case of errors. This allows the function to be invoked
+// from test code.
+func withArgs(args []string, errorf func(format string, a ...interface{})) {
+	var port string
+
+	rootCmd := cobra.Command{
+		Use:   "cfgeditor <config file>",
+		Short: "GUI for editing Istio config files",
+		Run: func(cmd *cobra.Command, args []string) {
+			if len(args) == 0 {
+				errorf("Must specify a config file to edit.")
+			}
+			if len(args) != 1 {
+				errorf("Too many arguments specified")
+			}
+
+			if err := edit(args[0], port); err != nil {
+				errorf("%v", err)
+			}
+		},
+	}
+
+	rootCmd.SetArgs(args)
+	rootCmd.PersistentFlags().StringVarP(&port, "port", "p", "8081", "TCP port to use for cfgeditor's web site")
+	if err := rootCmd.Execute(); err != nil {
+		errorf("%v", err)
+	}
+}
+
+func main() {
+	withArgs(os.Args,
+		func(format string, a ...interface{}) {
+			fmt.Fprintf(os.Stderr, format+"\n", a...)
+			os.Exit(1)
+		})
+}
