@@ -1,6 +1,7 @@
 ![Mixer](doc/logo.png)
 <h1>The Istio Mixer</h1>
-
+[![Build Status](https://travis-ci.org/istio/mixer.svg?branch=master)](https://travis-ci.org/istio/mixer)
+		
 The Istio mixer provides three distinct features:
 
 - *Precondition Checking*. The `Check` method enables
