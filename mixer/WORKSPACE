@@ -12,8 +12,8 @@ go_repositories()
 
 git_repository(
     name = "org_pubref_rules_protobuf",
+    commit = "c0013ac259444437f913e7dd0b10e36ce3325ed4",
     remote = "https://github.com/pubref/rules_protobuf",
-    tag = "v0.7.1",
 )
 
 load("@org_pubref_rules_protobuf//protobuf:rules.bzl", "proto_repositories")

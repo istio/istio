@@ -27,11 +27,8 @@ go_proto_library(
         "@com_github_golang_protobuf//ptypes/struct:go_default_library",
         "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
         "@com_github_golang_protobuf//ptypes/wrappers:go_default_library",
-
-        # needed until org_pubref_rules_protobuf updates to grpc 1.0.4 in deps
-        # issue https://github.com/pubref/rules_protobuf/issues/46 filed.
-        "@org_golang_google_grpc//:go_default_library", 
     ],
+    with_grpc = True,       
     verbose = 0,
     visibility = ["//visibility:public"],
 )
