@@ -1,0 +1,2 @@
+test --test_output=errors
+test --test_size_filters=-large,-enormous
