@@ -54,11 +54,13 @@ type ConfigConsumer interface {
 
 // Manager defines the data-flow of the configuration artifacts
 type Manager struct {
-	Registry        Registry
+	// Registry holds the configuration objects
+	Registry Registry
+	// ConfigConsumers holds the configuration object consumers
 	ConfigConsumers []ConfigConsumer
 }
 
-// PushAll the entire registry
+// PushAll the entire registry to the consumers
 func (m *Manager) PushAll() error {
 	var out error
 	for _, consumer := range m.ConfigConsumers {

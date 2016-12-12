@@ -24,6 +24,7 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/manager/model"
@@ -40,8 +41,12 @@ import (
 	"k8s.io/client-go/1.5/tools/clientcmd"
 )
 
-const IstioAPIGroup = "istio.io"
-const IstioResourceVersion = "v1"
+const (
+	// IstioAPIGroup defines Kubernetes API group for TRP
+	IstioAPIGroup = "istio.io"
+	// IstioResourceVersion defined Kubernetes API group version
+	IstioResourceVersion = "v1"
+)
 
 // KubernetesRegistry bindings for the manager:
 // - configuration objects are stored as third-party resources
@@ -95,6 +100,7 @@ func CreateRESTConfig(kubeconfig string, km model.KindMap) (*rest.Config, error)
 	return config, nil
 }
 
+// NewKubernetesRegistry creates a client to Kubernetes API using kubeconfig file
 func NewKubernetesRegistry(kubeconfig string, km model.KindMap) (*KubernetesRegistry, error) {
 	config, err := CreateRESTConfig(kubeconfig, km)
 	if err != nil {
@@ -128,29 +134,26 @@ func NewKubernetesRegistry(kubeconfig string, km model.KindMap) (*KubernetesRegi
 func (kr *KubernetesRegistry) RegisterResources() error {
 	var out error
 	for kind, v := range kr.mapping {
-		apiName := KindToAPIName(kind)
-		// initialize resource if it does not exist
+		apiName := kindToAPIName(kind)
 		res, err := kr.client.Extensions().ThirdPartyResources().Get(apiName)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				tpr := &v1beta1.ThirdPartyResource{
-					ObjectMeta: v1.ObjectMeta{
-						Name: apiName,
-					},
-					Versions: []v1beta1.APIVersion{
-						{Name: IstioResourceVersion},
-					},
-					Description: v.Description,
-				}
-				_, err = kr.client.Extensions().ThirdPartyResources().Create(tpr)
-				if err != nil {
-					out = multierror.Append(out, err)
-				}
-			} else {
+		if err == nil {
+			log.Printf("Resource already exists: %q", res.Name)
+		} else if errors.IsNotFound(err) {
+			log.Printf("Creating resource: %q", kind)
+			tpr := &v1beta1.ThirdPartyResource{
+				ObjectMeta:  v1.ObjectMeta{Name: apiName},
+				Versions:    []v1beta1.APIVersion{{Name: IstioResourceVersion}},
+				Description: v.Description,
+			}
+			res, err = kr.client.Extensions().ThirdPartyResources().
+				Create(tpr)
+			if err != nil {
 				out = multierror.Append(out, err)
+			} else {
+				log.Printf("Created resource: %q", res.Name)
 			}
 		} else {
-			log.Printf("Resource already exists: %s", res.Name)
+			out = multierror.Append(out, err)
 		}
 	}
 	return out
@@ -160,34 +163,14 @@ func (kr *KubernetesRegistry) RegisterResources() error {
 func (kr *KubernetesRegistry) DeregisterResources() error {
 	var out error
 	for kind := range kr.mapping {
-		apiName := KindToAPIName(kind)
-		err := kr.client.Extensions().ThirdPartyResources().Delete(apiName, &api.DeleteOptions{})
+		apiName := kindToAPIName(kind)
+		err := kr.client.Extensions().ThirdPartyResources().
+			Delete(apiName, &api.DeleteOptions{})
 		if err != nil {
 			out = multierror.Append(out, err)
 		}
 	}
 	return out
-}
-
-// CamelCaseToKabobCase converts "MyName" to "my-name"
-func CamelCaseToKabobCase(s string) string {
-	var out bytes.Buffer
-	for i := range s {
-		if 'A' <= s[i] && s[i] <= 'Z' {
-			if i > 0 {
-				out.WriteByte('-')
-			}
-			out.WriteByte(s[i] - 'A' + 'a')
-		} else {
-			out.WriteByte(s[i])
-		}
-	}
-	return out.String()
-}
-
-// KindToAPIName converts Kind name to 3rd party API group
-func KindToAPIName(s string) string {
-	return CamelCaseToKabobCase(s) + "." + IstioAPIGroup
 }
 
 func (kr *KubernetesRegistry) Get(key model.ConfigKey) (*model.Config, bool) {
@@ -222,7 +205,7 @@ func (kr *KubernetesRegistry) Put(obj model.Config) error {
 		return err
 	}
 
-	// Unmarshal from bytes to go map
+	// Unmarshal from json bytes to go map
 	var data map[string]interface{}
 	err = json.Unmarshal([]byte(bytes), &data)
 	if err != nil {
@@ -254,13 +237,11 @@ func (kr *KubernetesRegistry) Delete(key model.ConfigKey) {
 		Do().Error()
 	if err != nil {
 		log.Printf(err.Error())
-
 	}
 }
 
 func (kr *KubernetesRegistry) List(kind string) []*model.Config {
-	_, ok := kr.mapping[kind]
-	if !ok {
+	if _, ok := kr.mapping[kind]; !ok {
 		return nil
 	}
 
@@ -283,6 +264,27 @@ func (kr *KubernetesRegistry) List(kind string) []*model.Config {
 		out = append(out, elt)
 	}
 	return out
+}
+
+// camelCaseToKabobCase converts "MyName" to "my-name"
+func camelCaseToKabobCase(s string) string {
+	var out bytes.Buffer
+	for i := range s {
+		if 'A' <= s[i] && s[i] <= 'Z' {
+			if i > 0 {
+				out.WriteByte('-')
+			}
+			out.WriteByte(s[i] - 'A' + 'a')
+		} else {
+			out.WriteByte(s[i])
+		}
+	}
+	return out.String()
+}
+
+// kindToAPIName converts Kind name to 3rd party API group
+func kindToAPIName(s string) string {
+	return camelCaseToKabobCase(s) + "." + IstioAPIGroup
 }
 
 func (kr *KubernetesRegistry) convert(kind string, config *Config) (*model.Config, error) {

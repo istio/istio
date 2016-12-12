@@ -35,6 +35,7 @@ type ConfigKey struct {
 // Config object holds the normalized config objects defined by Kind schema
 type Config struct {
 	ConfigKey
+	// Content holds the configuration struct
 	Content interface{}
 }
 
@@ -51,25 +52,30 @@ type KindMap map[string]ProtoValidator
 
 // ProtoValidator provides custom validation checks
 type ProtoValidator struct {
+	// MessageName refers to the protobuf message type name
 	MessageName string
+	// Description of the configuration type
 	Description string
-	Validate    func(o proto.Message) error
+	// Validate configuration as a protobuf message
+	Validate func(o proto.Message) error
 }
 
-const kindRegex = "^[a-zA-Z0-9]*$"
-const nameRegex = "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
-const versionRegex = "^[a-z0-9]*$"
+var (
+	kindRegexp    = regexp.MustCompile("^[a-zA-Z0-9]*$")
+	nameRegexp    = regexp.MustCompile("^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
+	versionRegexp = regexp.MustCompile("^[a-z0-9]*$")
+)
 
 // Validate names in the config key
 func (k *ConfigKey) Validate() error {
-	if ok, _ := regexp.MatchString(kindRegex, k.Kind); !ok {
-		return fmt.Errorf("Invalid kind: \"%s\"", k.Kind)
+	if !kindRegexp.MatchString(k.Kind) {
+		return fmt.Errorf("Invalid kind: %q", k.Kind)
 	}
-	if ok, _ := regexp.MatchString(nameRegex, k.Name); !ok {
-		return fmt.Errorf("Invalid name: \"%s\"", k.Name)
+	if !nameRegexp.MatchString(k.Name) {
+		return fmt.Errorf("Invalid name: %q", k.Name)
 	}
-	if ok, _ := regexp.MatchString(versionRegex, k.Version); !ok {
-		return fmt.Errorf("Invalid version: \"%s\"", k.Version)
+	if !versionRegexp.MatchString(k.Version) {
+		return fmt.Errorf("Invalid version: %q", k.Version)
 	}
 	if k.Version == "default" {
 		return fmt.Errorf("Version \"default\" is reserved, please use \"\"")
@@ -80,11 +86,11 @@ func (k *ConfigKey) Validate() error {
 // Validate mapping
 func (km KindMap) Validate() error {
 	for k, v := range km {
-		if ok, _ := regexp.MatchString(kindRegex, k); !ok {
-			return fmt.Errorf("Invalid kind: \"%s\"", k)
+		if !kindRegexp.MatchString(k) {
+			return fmt.Errorf("Invalid kind: %q", k)
 		}
 		if proto.MessageType(v.MessageName) == nil {
-			return fmt.Errorf("Cannot find proto message type: \"%s\"", v.MessageName)
+			return fmt.Errorf("Cannot find proto message type: %q", v.MessageName)
 		}
 	}
 	return nil
@@ -104,10 +110,10 @@ func (km KindMap) ValidateConfig(obj Config) error {
 	}
 	t, ok := km[obj.Kind]
 	if !ok {
-		return fmt.Errorf("Undeclared kind: \"%s\"", obj.Kind)
+		return fmt.Errorf("Undeclared kind: %q", obj.Kind)
 	}
 	if proto.MessageName(v) != t.MessageName {
-		return fmt.Errorf("Mismatched message type \"%s\" and kind \"%s\"",
+		return fmt.Errorf("Mismatched message type %q and kind %q",
 			proto.MessageName(v), t.MessageName)
 	}
 	if err := t.Validate(v); err != nil {

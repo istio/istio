@@ -17,4 +17,5 @@ package kube
 // ConfigMapConsumer relies on an agent and FS watch mechanism on the mounted
 // volume to kick-off a restart on the config update.
 type ConfigMapConsumer struct {
+	// TODO: not implemented
 }

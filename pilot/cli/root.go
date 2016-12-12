@@ -15,6 +15,8 @@
 package cli
 
 import (
+	"log"
+
 	"github.com/spf13/cobra"
 )
 
@@ -23,5 +25,6 @@ var RootCmd = &cobra.Command{
 	Use:   "istio",
 	Short: "Istio manager",
 	Run: func(cmd *cobra.Command, args []string) {
+		log.Println("not implemented")
 	},
 }

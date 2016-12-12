@@ -26,35 +26,38 @@ import (
 	"istio.io/manager/test"
 )
 
+var (
+	camelKabobs = []struct{ in, out string }{
+		{"ExampleNameX", "example-name-x"},
+		{"example1", "example1"},
+		{"exampleXY", "example-x-y"},
+	}
+	nameEncodings = []model.ConfigKey{
+		{Name: test.MockName, Version: ""},
+		{Name: test.MockName, Version: "v1"},
+	}
+)
+
 func TestCamelKabob(t *testing.T) {
-	if CamelCaseToKabobCase("ExampleNameX") != "example-name-x" {
-		t.Fail()
-	}
-	if CamelCaseToKabobCase("example1") != "example1" {
-		t.Fail()
-	}
-	if CamelCaseToKabobCase("exampleX") != "example-x" {
-		t.Fail()
+	for _, tt := range camelKabobs {
+		s := camelCaseToKabobCase(tt.in)
+		if s != tt.out {
+			t.Errorf("camelCaseToKabobCase(%q) => %q, want %q", tt.in, s, tt.out)
+		}
 	}
 }
 
 func TestKeyEncoding(t *testing.T) {
-	x := model.ConfigKey{Name: test.MockName}
-	var n, v string
-	n, v = decodeName(encodeName(x))
-	if n != test.MockName {
-		t.Errorf("Wanted %s, got %s", test.MockName, n)
-	}
-	if v != x.Version {
-		t.Fail()
-	}
-	x.Version = "version"
-	n, v = decodeName(encodeName(x))
-	if n != test.MockName {
-		t.Errorf("Wanted %s, got %s", test.MockName, n)
-	}
-	if v != x.Version {
-		t.Fail()
+	for _, tt := range nameEncodings {
+		name, version := decodeName(encodeName(tt))
+		if name != tt.Name {
+			t.Errorf("decodeName(encodeName(%#v)).Name => %q, want %q",
+				tt, name, tt.Name)
+		}
+		if version != tt.Version {
+			t.Errorf("decodeName(encodeName(%#v)).Version => %q, want %q",
+				tt, version, tt.Version)
+		}
 	}
 }
 
