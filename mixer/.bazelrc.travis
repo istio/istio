@@ -1,0 +1,19 @@
+# This is from Bazel's former travis setup, to avoid blowing up the RAM usage.
+startup --host_jvm_args=-Xmx2500m
+startup --host_jvm_args=-Xms2500m
+startup --batch
+test --ram_utilization_factor=10
+
+# This is so we understand failures better
+build --verbose_failures
+
+# This is so we don't use sandboxed execution. Sandboxed execution
+# runs stuff in a container, and since Travis already runs its script
+# in a container (unless you require sudo in your .travis.yml) this
+# fails to run tests.
+build --spawn_strategy=standalone --genrule_strategy=standalone
+test --test_strategy=standalone
+
+# Below this line, .travis.yml will cat the default bazelrc.
+# This is needed so Bazel starts with the base workspace in its
+# package path.
