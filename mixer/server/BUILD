@@ -3,12 +3,14 @@ package(default_visibility = ["//visibility:public"])
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 
 DEPS = [
+    "//:go_default_library",
     "//adapters:go_default_library",
     "//adapters/denyChecker:go_default_library",
     "//adapters/factMapper:go_default_library",
     "//adapters/genericListChecker:go_default_library",
     "//adapters/ipListChecker:go_default_library",
     "//api/v1:go_default_library",
+    "//config/listChecker:go_default_library",
     "@com_github_golang_glog//:go_default_library",
     "@com_github_golang_protobuf//proto:go_default_library",
     "@com_github_google_go_genproto//googleapis/rpc/code:go_default_library",
@@ -21,11 +23,15 @@ go_binary(
     name = "server",
     srcs = [ 
         "adapterManager.go",
+        "configManager.go",
         "apiHandlers.go",
         "apiServer.go",
         "main.go",
     ],
-    deps = DEPS,
+    deps = [ 
+        "@com_github_spf13_cobra//:go_default_library",
+        "@com_github_spf13_pflag//:go_default_library",
+    ] + DEPS,
 )
 
 go_library(
@@ -34,6 +40,7 @@ go_library(
         "adapterManager.go",
         "apiHandlers.go",
         "apiServer.go",
+        "configManager.go",
     ],
     deps = DEPS
 )
