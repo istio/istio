@@ -83,3 +83,15 @@ new_go_repository(
     commit = "8712952b7d646dbbbc6fb73a782174f3115060f3",
     importpath = "google.golang.org/grpc",
 )
+
+new_go_repository(
+    name = "com_github_spf13_cobra",
+    commit = "9495bc009a56819bdb0ddbc1a373e29c140bc674",
+    importpath = "github.com/spf13/cobra",
+)
+
+new_go_repository(
+    name = "com_github_spf13_pflag",
+    commit = "5ccb023bc27df288a957c5e994cd44fd19619465",
+    importpath = "github.com/spf13/pflag",
+)
