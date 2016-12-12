@@ -33,3 +33,6 @@ before_install:
 
 script:
   - bazel --output_base=${HOME}/bazel/outbase test //...
+
+notifications:
+  slack: istio-dev:wEEEbaabdP5ieCgDOFetA9nX
