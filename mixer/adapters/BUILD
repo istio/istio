@@ -10,5 +10,6 @@ go_library(
     "factConverter.go",
     "listChecker.go",
     "logger.go",
+    "metricsReporter.go",
   ],
 )
