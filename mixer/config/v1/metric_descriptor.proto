@@ -16,45 +16,27 @@ syntax = "proto3";
 
 package config.v1;
 
-import "config/v1/label_descriptor.proto";
-
 // Defines a metric type and its schema.
 //
-// A given metric is described by a set of labels. These labels represent the
-// different dimensions to associate with the metric. A given metric holds a
-// unique value for potentially any combination of these labels.
-//
-// Metric values can be integers, floating point numbers, strings, or booleans.
-//
-// Here's an example metric descriptor defined in a YAML configuration
-// file:
-//
-//    metrics:
-//    - name: request_count
-//      metric_kind: DELTA
-//      value_type: INT64
-//      labels:
-//      - key: consumer_id
-//      - key: extended_writes
-//
-// This descriptor means that in order to reference a particular metric value, it's
-// necessary to specify two labels: the id of a consumer and a boolean that indicates
-// extended writes or not.
+// A given metric is dimensioned by a set of attributes. A given metric holds a
+// unique value for potentially any combination of these attributes.
 message MetricDescriptor {
   // The name of this descriptor.
   string name = 1;
 
-  // The set of labels that are necessary to describe a specific value cell
+  // The name of the attribute that supplies the value for metrics
+  // of this type.
+  string value_attribute = 2;
+
+  // The set of attributes that are necessary to describe a specific value cell
   // for a metric of this type.
-  repeated LabelDescriptor labels = 2;
+  repeated string dimension_attributes = 3;
+
+  // The monitored resource to associated with metrics of this type.
+  string monitored_resource_descriptor = 4;
 
   // Whether the metric records instantaneous values, changes to a value, etc.
-  // Some combinations of `metric_kind` and `value_type` might not be supported.
-  MetricKind metric_kind = 3;
-
-  // Whether the metric's value is an integer, a floating-point number, etc.
-  // Some combinations of `metric_kind` and `value_type` might not be supported.
-  ValueType value_type = 4;
+  MetricKind metric_kind = 5;
 
   // The unit in which the metric value is reported. It is only applicable
   // if the `value_type` is `INT64`, `DOUBLE`, or `DISTRIBUTION`. The
@@ -121,14 +103,14 @@ message MetricDescriptor {
   // * `NAME` is a sequence of non-blank printable ASCII characters not
   //    containing '{' or '}'.
   //
-  string unit = 5;
+  string unit = 6;
 
-  // Optional. A detailed description of the metric, which can be used in documentation.
-  string description = 6;
+  // An optional description of the metric, which can be used in documentation.
+  string description = 7;
 
-  // A concise name for the metric, which can be displayed in user interfaces.
+  // An optional concise name for the metric, which can be displayed in user interfaces.
   // Use sentence case without an ending period, for example "Request count".
-  string display_name = 7;
+  string display_name = 8;
 
   // The kind of measurement. It describes how the data is reported.
   enum MetricKind {
@@ -138,34 +120,7 @@ message MetricDescriptor {
     // An instantaneous measurement of a value.
     GAUGE = 1;
 
-    // The change in a value during a time interval.
-    DELTA = 2;
-
-    // A value accumulated over a time interval.  Cumulative
-    // measurements in a time series should have the same start time
-    // and increasing end times, until an event resets the cumulative
-    // value to zero and sets a new start time for the following
-    // points.
-    CUMULATIVE = 3;
-  }
-
-  // The type of the metric's values.
-  enum ValueType {
-    // Do not use this default value.
-    VALUE_TYPE_UNSPECIFIED = 0;
-
-    // The value is a boolean.
-    // This value type can be used only if the metric kind is `GAUGE`.
-    BOOL = 1;
-
-    // The value is a signed 64-bit integer.
-    INT64 = 2;
-
-    // The value is a double precision floating point number.
-    DOUBLE = 3;
-
-    // The value is a text string.
-    // This value type can be used only if the metric kind is `GAUGE`.
-    STRING = 4;
+    // A value over a time interval.
+    COUNTER = 2;
   }
 }

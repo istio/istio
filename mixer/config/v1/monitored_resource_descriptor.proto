@@ -16,33 +16,16 @@ syntax = "proto3";
 
 package config.v1;
 
-import "config/v1/label_descriptor.proto";
-
 // An object that describes the schema of a 'MonitoredResource'
-// using a name and a set of labels.
-//
-// Here's an example monitored resource descriptor defined in a YAML configuration
-// file:
-//
-//    monitored_resources:
-//    - name: db_table
-//      description: A database table
-//      labels:
-//      - key: owner_id
-//      - key: db_name
-//      - key: table_name
-//
-// This descriptor means that in order to reference a particular database table
-// resource in a service, it's necessary to specify three labels.
+// using a name and a set of attributes.
 message MonitoredResourceDescriptor {
   // The name of this descriptor
   string name = 1;
 
-  // Optional. A detailed description of the monitored resource descriptor that might
+  // The set of attributes that are necessary to describe a specific monitored resource.
+  repeated string attributes = 3;
+
+  // An optional detailed description of the monitored resource descriptor that might
   // be used in documentation.
   string description = 2;
-
-  // Required. A set of labels used to describe instances of this monitored
-  // resource type.
-  repeated LabelDescriptor labels = 3;
 }
