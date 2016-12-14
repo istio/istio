@@ -16,6 +16,6 @@ go_binary(
         "main.go",
     ],
     deps = [
-        "@github_com_spf13_cobra//:cobra",
+        "@com_github_spf13_cobra//:go_default_library",
     ],
 )

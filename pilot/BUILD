@@ -14,7 +14,7 @@ go_library(
         ["cli/*.go"],
     ),
     deps = [
-        "@github_com_spf13_cobra//:cobra",
+        "@com_github_spf13_cobra//:go_default_library",
     ],
 )
 
@@ -25,8 +25,8 @@ go_library(
         "model/registry.go",
     ],
     deps = [
-        "@github_com_golang_protobuf//:proto",
-        "@github_com_hashicorp_go_multierror//:go-multierror",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_hashicorp_go_multierror//:go_default_library",
     ],
 )
 
@@ -46,20 +46,20 @@ go_library(
     ],
     deps = [
         ":model",
-        "@github_com_golang_protobuf//:jsonpb",
-        "@github_com_golang_protobuf//:proto",
-        "@github_com_hashicorp_go_multierror//:go-multierror",
-        "@github_com_kubernetes_client_go//:kubernetes",
-        "@github_com_kubernetes_client_go//:pkg/api",
-        "@github_com_kubernetes_client_go//:pkg/api/errors",
-        "@github_com_kubernetes_client_go//:pkg/api/meta",
-        "@github_com_kubernetes_client_go//:pkg/api/unversioned",
-        "@github_com_kubernetes_client_go//:pkg/api/v1",
-        "@github_com_kubernetes_client_go//:pkg/apis/extensions/v1beta1",
-        "@github_com_kubernetes_client_go//:pkg/runtime",
-        "@github_com_kubernetes_client_go//:pkg/runtime/serializer",
-        "@github_com_kubernetes_client_go//:rest",
-        "@github_com_kubernetes_client_go//:tools/clientcmd",
+        "@com_github_golang_protobuf//jsonpb:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_hashicorp_go_multierror//:go_default_library",
+        "@io_k8s_client_go//kubernetes:go_default_library",
+        "@io_k8s_client_go//pkg/api:go_default_library",
+        "@io_k8s_client_go//pkg/api/errors:go_default_library",
+        "@io_k8s_client_go//pkg/api/meta:go_default_library",
+        "@io_k8s_client_go//pkg/api/v1:go_default_library",
+        "@io_k8s_client_go//pkg/apis/extensions/v1beta1:go_default_library",
+        "@io_k8s_client_go//pkg/runtime:go_default_library",
+        "@io_k8s_client_go//pkg/runtime/serializer:go_default_library",
+        "@io_k8s_client_go//pkg/runtime/schema:go_default_library",
+        "@io_k8s_client_go//rest:go_default_library",
+        "@io_k8s_client_go//tools/clientcmd:go_default_library",
     ],
 )
 
@@ -91,6 +91,6 @@ go_library(
     ],
     deps = [
         ":model",
-        "@github_com_golang_protobuf//:proto",
+        "@com_github_golang_protobuf//proto:go_default_library",
     ],
 )
