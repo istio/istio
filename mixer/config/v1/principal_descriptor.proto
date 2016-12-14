@@ -16,27 +16,13 @@ syntax = "proto3";
 
 package config.v1;
 
-import "config/v1/label_descriptor.proto";
-
 // Defines a a security principal.
 //
-// A principal is described by a set of labels.
-//
-// Here's an example principal defined in a YAML configuration
-// file:
-//
-//    principal:
-//    - name: service_principal
-//      labels:
-//      - key: caller_id
-//      - key: datacenter_id
-//
-// This descriptor means that a principal is represented by two labels. This
-// means that permissions are applied to any combination of these labels.
+// A principal is described by a set of attributes.
 message PrincipalDescriptor {
   // The name of this descriptor.
   string name = 1;
 
-  // The set of labels that are necessary to describe an specific security principal.
-  repeated LabelDescriptor labels = 2;
+  // The set of attributes which are used to describe a specific security principal.
+  repeated string attributes = 2;
 }

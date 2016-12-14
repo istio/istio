@@ -16,45 +16,31 @@ syntax = "proto3";
 
 package config.v1;
 
-import "config/v1/label_descriptor.proto";
-
 // Configuration state for a particular quota.
 //
 // Quotas are similar to metrics, except that they are mutated through method
 // calls and there are limits on the allowed values.
 // The descriptor below lets you define a quota and indicate the maximum
-// amount values of this quota are allowed to hold. Values are adjusted
-// using the UpdateQuota method.
+// amount values of this quota are allowed to hold.
 //
-// A given quota is described by a set of labels. These labels represent the
-// different dimensions to associate with the quota. A given quota holds a
-// unique value for potentially any combination of these labels.
+// A given quota is described by a set of attribtues. These attributes represent
+// the different dimensions to associate with the quota. A given quota holds a
+// unique value for potentially any combination of these attributes.
 //
-// The quota kind controls the general behavior of the quota. A normal
-// quota is only adjusted through the UpdateQuota method.
-// An auto-reset quota's values are reset to 0 at a fixed interval, which
-// is useful for rate-style limits.
-//
-// Here's an example quota descriptor defined in a YAML configuration
-// file:
-//
-//    quotas:
-//    - name: max_request_count_per_second
-//      max_amount: 100
-//      labels:
-//      - key: caller_id
-//      - key: datacenter_id
-//
-// This descriptor means that two labels are needed to specify a given quota
-// value. In this particular case, this means a quota limit of 100 is being applied
-// independently to any combination of caller_id and datacenter_id.
+// The quota kind controls the general behavior of the quota. An allocation
+// quota is only adjusted through explicit method calls. A rate limit quota's
+// values are reset to 0 automatically at a fixed interval.
 message QuotaDescriptor {
   // The name of this descriptor.
   string name = 1;
 
-  // The set of labels that are necessary to describe a specific value cell
+  // The name of the attribute that supplies the amount for a given
+  // quota allocation or release operation.
+  string amount_attribute = 2;
+
+  // The set of attributes that are necessary to describe a specific value cell
   // for a quota of this type.
-  repeated LabelDescriptor labels = 2;
+  repeated string dimension_attributes = 3;
 
   // The unit in which the quota's values are reported. The
   // supported units are a subset of [The Unified Code for Units of
@@ -120,33 +106,33 @@ message QuotaDescriptor {
   // * `NAME` is a sequence of non-blank printable ASCII characters not
   //    containing '{' or '}'.
   //
-  string unit = 3;
+  string unit = 4;
 
-  // Optional. A detailed description of the quota, which can be used in documentation.
-  string description = 4;
+  // An optional description of the quota, which can be used in documentation.
+  string description = 5;
 
-  // A concise name for the quota, which can be displayed in user interfaces.
+  // A optional concise name for the quota, which can be displayed in user interfaces.
   // Use sentence case without an ending period, for example "Request count".
-  string display_name = 5;
+  string display_name = 6;
 
-  // The imposed maximum amount for values of this quota.
-  int64 max_amount = 6;
+  // The default imposed maximum amount for values of this quota.
+  int64 max_amount = 7;
 
   // The type of quota behavior expected, defaults to NORMAL if not specified
-  QuotaKind kind = 7;
+  QuotaKind kind = 8;
 
   // Whether the quota's current value is tracked precisely or not.
   // Precisely tracked quotas only allow a relatively modest level of
   // scaling, whereas imprecise quotas can support a nearly unbounded
   // level of scaling at the cost of potentially having small
   // inaccuracies
-  bool precise = 8;
+  bool precise = 9;
 
   enum QuotaKind {
-    // Quota values are always explicitly manipulated via the UpdateQuota method.
-    NORMAL = 0;
+    // Quota values are always explicitly manipulated via the Quota method.
+    ALLOCATION_LIMIT = 0;
 
     // Quota limit expresses a maximum amount over a rolling time interval
-    RATE_PER_MINUTE = 1;
+    RATE_LIMIT = 1;
   }
 }

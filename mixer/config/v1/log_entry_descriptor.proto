@@ -16,25 +16,14 @@ syntax = "proto3";
 
 package config.v1;
 
-import "config/v1/label_descriptor.proto";
-
 // Defines the format of a single log entry.
-//
-// Here's an example log entry descriptor defined in a YAML configuration
-// file:
-//
-//    log_entry:
-//    - name: myService/default
-//      labels:
-//      - key: caller_id
-//      - key: datacenter_id
-//
-// This descriptor means that in addition to the main log payload, each log entry
-// using this descriptor needs to include a caller_id and a datacenter_id label.
 message LogEntryDescriptor {
   // The name of this descriptor.
   string name = 1;
 
-  // The set of labels that are necessary to describe this log entry.
-  repeated LabelDescriptor labels = 2;
+  // The set of attributes that are necessary to describe a log entry of this type.
+  repeated string attributes = 2;
+
+  // The monitored resource to associated with log entries of this type.
+  string monitored_resource_descriptor = 3;
 }
