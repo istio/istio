@@ -16,6 +16,7 @@ package main
 
 import (
 	"istio.io/mixer"
+	"istio.io/mixer/adapters"
 	"istio.io/mixer/config/listChecker"
 )
 
@@ -31,8 +32,14 @@ func NewConfigManager() (*ConfigManager, error) {
 	return &mgr, nil
 }
 
-// GetListCheckerConfigBlocks returns a list of ListCheckerConfigBlocks for the given serverID/peerID values.
+// GetListCheckerConfigBlocks returns a list of ListCheckerConfigBlocks for the given dispatchKey.
 func (manager *ConfigManager) GetListCheckerConfigBlocks(dispatchKey mixer.DispatchKey) ([]*listChecker.ConfigBlock, error) {
 	// TODO: return an empty list for now, until we have support for configuration reading/evaluating.
 	return make([]*listChecker.ConfigBlock, 0), nil
+}
+
+// GetLoggerAdapterConfigs returns a list of AdapterConfigs for the given dispatchKey.
+func (manager *ConfigManager) GetLoggerAdapterConfigs(dispatchKey mixer.DispatchKey) ([]*adapters.AdapterConfig, error) {
+	// TODO: return an empty list for now, until we have support for configuration reading/evaluating.
+	return make([]*adapters.AdapterConfig, 0), nil
 }

@@ -59,6 +59,13 @@ func (mgr *AdapterManager) GetListCheckerAdapter(dispatchKey mixer.DispatchKey, 
 	return nil, errors.New("NYI")
 }
 
+// GetLoggerAdapter returns a matching adapter for the given dispatchKey. If there is no existing adapter,
+// it instantiates one, based on the provided adapter config.
+func (mgr *AdapterManager) GetLoggerAdapter(dispatchKey mixer.DispatchKey, config *adapters.AdapterConfig) (adapters.Logger, error) {
+	// TODO: instantiation & caching of the adapters.
+	return nil, errors.New("NYI")
+}
+
 // TODO: this implementation needs to be driven from external config instead of being hardcoded
 func prepBuilders(l []adapters.Builder) (map[string]adapters.Builder, error) {
 	m := make(map[string]adapters.Builder, len(l))
