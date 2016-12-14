@@ -14,6 +14,9 @@
 
 # Primary build targets
 
+TOP := $(shell pwd)
+MIXREPO := istio.io/mixer
+
 build: check_env dep build_api build_config build_server build_client
 clean: check_env clean_api clean_config clean_server clean_client
 	@go clean $(CLEAN_FLAGS)
@@ -25,6 +28,10 @@ ifdef VERBOSE
 BUILD_FLAGS := "-v"
 CLEAN_FLAGS := "-x"
 endif
+ifeq (,$(findstring $(MIXREPO),$(TOP)))
+	$(error project should be built at $(GOPATH)/src/$(MIXREPO))
+endif
+
 
 ## API Targets
 
