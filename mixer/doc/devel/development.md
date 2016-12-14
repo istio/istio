@@ -13,10 +13,7 @@ branch, but release branches of the Istio mixer should not change.
 
 - [Prerequisites](#prerequisites)
   - [Setting up Go](#setting-up-go)
-  - [Setting up make](#setting-up-make)
   - [Setting up Docker](#setting-up-docker)
-- [Getting the code](#getting-the-code)
-- [Building the code](#building-the-code)
 - [Git workflow](#git-workflow)
   - [Fork the main repository](#fork-the-main-repository)
   - [Clone your fork](#clone-your-fork)
@@ -39,7 +36,7 @@ need to setup before being able to build and run the code.
 
 The Istio mixer is written in the [Go](http://golang.org) programming language.
 To build the mixer, you'll need a Go development environment. Builds for
-the Mixer require Go version 1.7.0. If you haven't set up a Go development
+the mixer require Go version 1.7.0. If you haven't set up a Go development
 environment, please follow [these instructions](http://golang.org/doc/code.html)
 to install the Go tools.
 
@@ -47,64 +44,15 @@ Set up your GOPATH and add a path entry for Go binaries to your PATH. Typically
 added to your ~/.profile:
 
 ```
-export GOPATH=$HOME/go
+export GOPATH=~/go
 export PATH=$PATH:$GOPATH/bin
 ```
 
-### Setting up make
-```
-sudo apt-get install build-essential
-```
-
 ### Setting up Docker
-```
-sudo apt-get docker-engine
-```
 
-## Getting the code
-
-Use `git clone` to get the code:
-
-```
-export ISTIO=$(HOME)/go/src/istio.io
-mkdir -p $(ISTIO)/mixer
-cd $(ISTIO)
-git clone https://github.com/istio/mixer
-```
-This will create a subdirectory called mixer with the full content of the mixer
-source base. You must ensure this directory is part of your GOPATH in order for
-builds to succeed. See [golang.org](https://golang.org/doc/code.html) for more info on
-how Go works with code.
-
-See the [Git workflow](#git-workflow) section below for how to use forks in order to commit
-into the main repo.
-
-## Building the code
-
-To build the mixer, enter:
-
-```
-cd $(ISTIO)/mixer
-make
-```
-
-This should figure out what it needs to do and not need any input from you.
-You may pass build options and packages to the script as necessary. For example,
-to build with optimizations disabled for enabling use of source debug tools:
-
-```
-make GOGCFLAGS="-N -l"
-```
-You can delete any build artifacts with:
-
-```
-make clean
-```
-You can run all the available tests with:
-
-```
-make test
-```
+To run some of the mixer examples and tests, you need to set up Docker server.
+Please follow [these instructions](https://docs.docker.com/engine/installation/)
+for how to do this for your platform.
 
 ## Git workflow
 
@@ -120,11 +68,11 @@ Other git workflows are also valid.
 
 The commands below require that you have $GOPATH set ([$GOPATH
 docs](https://golang.org/doc/code.html#GOPATH)). We highly recommend you put
-Istio Mixer' code into your GOPATH. Note: the commands below will not work if
+the mixer's code into your GOPATH. Note: the commands below will not work if
 there is more than one directory in your `$GOPATH`.
 
 ```
-export ISTIO=$(HOME)/go/src/istio.io
+export ISTIO=~/go/src/istio.io
 mkdir -p $(ISTIO)/mixer
 cd $ISTIO
 
@@ -171,10 +119,6 @@ git push -f origin my-feature
 1. Visit https://github.com/$YOUR_GITHUB_USERNAME/mixer
 2. Click the "Compare & pull request" button next to your "my-feature" branch.
 
-**Note:** If you have write access, please refrain from using the GitHub UI for
-creating PRs, because GitHub will create the PR branch inside the main
-repository rather than inside your fork.
-
 ### Getting a code review
 
 Once your pull request has been opened it will be assigned to one or more
@@ -196,6 +140,27 @@ pass tests independently, but it is worth striving for. For mass automated
 fixups (e.g. automated doc formatting), use one or more commits for the
 changes to tooling and a final commit to apply the fixup en masse. This makes
 reviews much easier.
+
+## Building the code
+
+To build the mixer, enter:
+
+```
+cd $(ISTIO)/mixer
+bazel build :all
+```
+
+This should figure out what it needs to do and not need any input from you.
+You can delete any build artifacts with:
+
+```
+bazel clean
+```
+You can run all the available tests with:
+
+```
+bazel test
+```
 
 ## About testing
 
