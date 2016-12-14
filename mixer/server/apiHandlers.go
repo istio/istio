@@ -135,9 +135,72 @@ func (h *apiHandlers) checkLists(dispatchKey mixer.DispatchKey, tracker adapters
 }
 
 func (h *apiHandlers) Report(tracker adapters.FactTracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
-	tracker.UpdateFacts(request.GetFacts())
+
+	// Prepare common response fields.
 	response.RequestIndex = request.RequestIndex
-	response.Result = newStatus(code.Code_UNIMPLEMENTED)
+
+	facts := request.GetFacts()
+
+	dispatchKey, err := mixer.NewDispatchKey(facts)
+	if err != nil {
+		glog.Warningf("Error extracting the dispatch key. error: '%v'", err)
+		response.Result = newStatus(code.Code_FAILED_PRECONDITION)
+		return
+	}
+
+	tracker.UpdateFacts(facts)
+
+	err = h.report(dispatchKey, tracker, request.LogEntries)
+	if err != nil {
+		glog.Warningf("Unexpected report error: %v", err)
+		response.Result = newStatus(code.Code_INTERNAL)
+		return
+	}
+
+	response.Result = newStatus(code.Code_OK)
+}
+
+func (h *apiHandlers) report(dispatchKey mixer.DispatchKey, tracker adapters.FactTracker, entries []*mixerpb.LogEntry) error {
+
+	adapterConfigs, err := h.configManager.GetLoggerAdapterConfigs(dispatchKey)
+	if err != nil {
+		return err
+	}
+
+	var result error
+	for _, adapterConfig := range adapterConfigs {
+		loggerAdapter, err := h.adapterManager.GetLoggerAdapter(dispatchKey, adapterConfig)
+		if err != nil {
+			return err
+		}
+
+		e, err := buildLogEntries(entries)
+		if err != nil {
+			if result != nil {
+				// TODO: It maybe worthwhile to come up with a way to accomulate errors.
+				// TODO: LoggerAdapter is very heavy-weight to log here. We should extract a canonical
+				glog.Infof("Unexpected error when converting logs: error='%v', adapter='%v'", err, loggerAdapter)
+				result = err
+				continue
+			}
+		}
+		err = loggerAdapter.Log(e)
+		if err != nil {
+			if result != nil {
+				// TODO: It maybe worthwhile to come up with a way to accomulate errors.
+				// TODO: LoggerAdapter is very heavy-weight to log here. We should extract a canonical
+				glog.Infof("Unexpected error from logging adapter: error='%v', adapter='%v'", err, loggerAdapter)
+				result = err
+			}
+		}
+	}
+
+	return result
+}
+
+func buildLogEntries(entries []*mixerpb.LogEntry) ([]adapters.LogEntry, error) {
+	// TODO: actual conversion implementation
+	return make([]adapters.LogEntry, 0), nil
 }
 
 func (h *apiHandlers) Quota(tracker adapters.FactTracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
