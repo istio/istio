@@ -32,3 +32,24 @@ go_proto_library(
     verbose = 0,
     visibility = ["//visibility:public"],
 )
+
+load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cc_proto_library")
+
+cc_proto_library(
+    name = "cc_proto",
+    imports = [
+      "external/com_github_google_protobuf/src/",
+      "external/com_github_googleapis_googleapis",
+    ],
+    protos = [ 
+        "check.proto",
+        "report.proto",
+        "quota.proto",
+        "service.proto",
+    ],
+    verbose = 0,
+    with_grpc = True,
+    deps = [
+        "@com_github_googleapis_googleapis//:cc_status_proto",
+    ],
+)
