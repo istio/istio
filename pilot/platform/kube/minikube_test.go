@@ -62,6 +62,10 @@ func TestKeyEncoding(t *testing.T) {
 }
 
 func TestThirdPartyResources(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
+
 	usr, err := user.Current()
 	if err != nil {
 		t.Fatalf(err.Error())
