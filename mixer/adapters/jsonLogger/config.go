@@ -12,20 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapters
+package jsonLogger
 
 import (
-	"io"
+	"istio.io/mixer/adapters"
 )
 
-// AdapterConfig is used to configure an individual adapter.
-type AdapterConfig interface {
+var _ adapters.AdapterConfig = (*config)(nil)
 
-	// Name returns the official name of the adapter that this configuration applies to.
-	Name() string
+type config struct {
 }
 
-// Adapter defines lifecycle functions for adapters
-type Adapter interface {
-	io.Closer
+func (c config) Name() string {
+	return name
 }
