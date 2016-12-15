@@ -36,7 +36,7 @@ need to setup before being able to build and run the code.
 
 The Istio mixer is written in the [Go](http://golang.org) programming language.
 To build the mixer, you'll need a Go development environment. Builds for
-the mixer require Go version 1.7.0. If you haven't set up a Go development
+the mixer require Go version 1.7. If you haven't set up a Go development
 environment, please follow [these instructions](http://golang.org/doc/code.html)
 to install the Go tools.
 
@@ -159,7 +159,7 @@ bazel clean
 You can run all the available tests with:
 
 ```
-bazel test
+bazel test ...
 ```
 
 ## About testing
