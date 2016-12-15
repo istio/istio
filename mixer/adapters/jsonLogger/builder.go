@@ -44,7 +44,7 @@ func (b builder) ValidateBuilderConfig(c adapters.BuilderConfig) error { return 
 
 func (b builder) Configure(c adapters.BuilderConfig) error { return nil }
 
-func (b builder) DefaultAdapterConfig() adapters.AdapterConfig { return &struct{}{} }
+func (b builder) DefaultAdapterConfig() adapters.AdapterConfig { return config{} }
 
 func (b builder) ValidateAdapterConfig(c adapters.AdapterConfig) error { return nil }
 

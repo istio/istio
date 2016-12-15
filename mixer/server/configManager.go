@@ -17,6 +17,7 @@ package main
 import (
 	"istio.io/mixer"
 	"istio.io/mixer/adapters"
+	"istio.io/mixer/adapters/jsonLogger"
 	"istio.io/mixer/config/listChecker"
 )
 
@@ -40,6 +41,10 @@ func (manager *ConfigManager) GetListCheckerConfigBlocks(dispatchKey mixer.Dispa
 
 // GetLoggerAdapterConfigs returns a list of AdapterConfigs for the given dispatchKey.
 func (manager *ConfigManager) GetLoggerAdapterConfigs(dispatchKey mixer.DispatchKey) ([]*adapters.AdapterConfig, error) {
-	// TODO: return an empty list for now, until we have support for configuration reading/evaluating.
-	return make([]*adapters.AdapterConfig, 0), nil
+	// TODO: Create an adapter config in an extremely hacky way.
+	adapterConfig := jsonLogger.NewBuilder().DefaultAdapterConfig()
+	result := make([]*adapters.AdapterConfig, 1)
+
+	result[0] = &adapterConfig
+	return result, nil
 }

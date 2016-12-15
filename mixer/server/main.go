@@ -62,6 +62,7 @@ func listBuilders() error {
 	printBuilders("Fact Converters", mgr.FactConverters)
 	printBuilders("Fact Updaters", mgr.FactUpdaters)
 	printBuilders("List Checkers", mgr.ListCheckers)
+	printBuilders("Loggers", mgr.Loggers)
 
 	return nil
 }

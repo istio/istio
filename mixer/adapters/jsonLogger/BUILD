@@ -6,6 +6,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "adapter.go",
+        "config.go",
         "builder.go",
     ],
     deps = [

@@ -18,6 +18,7 @@ package main
 
 import (
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes"
 
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/genproto/googleapis/rpc/status"
@@ -174,17 +175,8 @@ func (h *apiHandlers) report(dispatchKey mixer.DispatchKey, tracker adapters.Fac
 			return err
 		}
 
-		e, err := buildLogEntries(entries)
-		if err != nil {
-			if result != nil {
-				// TODO: It maybe worthwhile to come up with a way to accomulate errors.
-				// TODO: LoggerAdapter is very heavy-weight to log here. We should extract a canonical
-				glog.Infof("Unexpected error when converting logs: error='%v', adapter='%v'", err, loggerAdapter)
-				result = err
-				continue
-			}
-		}
-		err = loggerAdapter.Log(e)
+		convertedLogs := buildLogEntries(entries)
+		err = loggerAdapter.Log(convertedLogs)
 		if err != nil {
 			if result != nil {
 				// TODO: It maybe worthwhile to come up with a way to accomulate errors.
@@ -198,9 +190,30 @@ func (h *apiHandlers) report(dispatchKey mixer.DispatchKey, tracker adapters.Fac
 	return result
 }
 
-func buildLogEntries(entries []*mixerpb.LogEntry) ([]adapters.LogEntry, error) {
+func buildLogEntries(entries []*mixerpb.LogEntry) []adapters.LogEntry {
 	// TODO: actual conversion implementation
-	return make([]adapters.LogEntry, 0), nil
+	result := make([]adapters.LogEntry, len(entries))
+	for i, e := range entries {
+		timestamp, err := ptypes.Timestamp(e.GetTimestamp())
+		if err != nil {
+			glog.Warningf("Error converting the log timestamp: error='%v', timestamp='%v'", err, e.GetTimestamp())
+			// Use a "default" timestamp to avoid losing the log information.
+			timestamp, _ = ptypes.Timestamp(nil)
+		}
+		entry := adapters.LogEntry{
+			Collection:  e.GetLogCollection(),
+			Timestamp:   timestamp,
+			TextPayload: e.GetTextPayload(),
+			Severity:    e.GetSeverity().String(),
+			// TODO: labels
+			// TODO: StructPayload conversion
+			// TODO: ProtoPayload conversion
+		}
+
+		result[i] = entry
+	}
+
+	return result
 }
 
 func (h *apiHandlers) Quota(tracker adapters.FactTracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
