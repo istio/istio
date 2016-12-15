@@ -15,12 +15,12 @@
 package kube
 
 import (
+	"os"
 	"os/user"
 	"testing"
 
-	"k8s.io/client-go/1.5/kubernetes"
-	"k8s.io/client-go/1.5/pkg/api"
-	"k8s.io/client-go/1.5/pkg/api/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/api/v1"
 
 	"istio.io/manager/model"
 	"istio.io/manager/test"
@@ -62,13 +62,22 @@ func TestKeyEncoding(t *testing.T) {
 }
 
 func TestThirdPartyResources(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
+
 	usr, err := user.Current()
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
-	// TODO: this file needs to be explicitly added to the sandbox on Linux
 	kubeconfig := usr.HomeDir + "/.kube/config"
+	// For Bazel sandbox we search a different location:
+	if _, err := os.Stat(kubeconfig); err != nil {
+		kubeconfig, _ = os.Getwd()
+		kubeconfig = kubeconfig + "/platform/kube/config"
+	}
+
 	kr, err := NewKubernetesRegistry(kubeconfig, test.MockMapping)
 	if err != nil {
 		t.Error(err)
@@ -109,6 +118,6 @@ func makeNamespace(cl *kubernetes.Clientset, t *testing.T) (string, error) {
 func deleteNamespace(cl *kubernetes.Clientset, ns string, t *testing.T) {
 	t.Logf("Deleting namespace %s", ns)
 	if ns != "" && ns != "default" {
-		cl.Core().Namespaces().Delete(ns, &api.DeleteOptions{})
+		cl.Core().Namespaces().Delete(ns, &v1.DeleteOptions{})
 	}
 }

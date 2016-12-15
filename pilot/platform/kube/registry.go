@@ -29,16 +29,17 @@ import (
 
 	"istio.io/manager/model"
 
-	"k8s.io/client-go/1.5/kubernetes"
-	"k8s.io/client-go/1.5/pkg/api"
-	"k8s.io/client-go/1.5/pkg/api/errors"
-	"k8s.io/client-go/1.5/pkg/api/unversioned"
-	"k8s.io/client-go/1.5/pkg/api/v1"
-	"k8s.io/client-go/1.5/pkg/apis/extensions/v1beta1"
-	"k8s.io/client-go/1.5/pkg/runtime"
-	"k8s.io/client-go/1.5/pkg/runtime/serializer"
-	"k8s.io/client-go/1.5/rest"
-	"k8s.io/client-go/1.5/tools/clientcmd"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/errors"
+	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	meta_v1 "k8s.io/client-go/pkg/apis/meta/v1"
+	"k8s.io/client-go/pkg/runtime"
+	"k8s.io/client-go/pkg/runtime/schema"
+	"k8s.io/client-go/pkg/runtime/serializer"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 const (
@@ -64,7 +65,7 @@ func CreateRESTConfig(kubeconfig string, km model.KindMap) (*rest.Config, error)
 		return nil, err
 	}
 
-	version := unversioned.GroupVersion{
+	version := schema.GroupVersion{
 		Group:   IstioAPIGroup,
 		Version: IstioResourceVersion,
 	}
@@ -82,12 +83,12 @@ func CreateRESTConfig(kubeconfig string, km model.KindMap) (*rest.Config, error)
 				&api.DeleteOptions{},
 			)
 			for kind := range km {
-				scheme.AddKnownTypeWithName(unversioned.GroupVersionKind{
+				scheme.AddKnownTypeWithName(schema.GroupVersionKind{
 					Group:   IstioAPIGroup,
 					Version: IstioResourceVersion,
 					Kind:    kind,
 				}, &Config{})
-				scheme.AddKnownTypeWithName(unversioned.GroupVersionKind{
+				scheme.AddKnownTypeWithName(schema.GroupVersionKind{
 					Group:   IstioAPIGroup,
 					Version: IstioResourceVersion,
 					Kind:    kind + "List",
@@ -135,7 +136,8 @@ func (kr *KubernetesRegistry) RegisterResources() error {
 	var out error
 	for kind, v := range kr.mapping {
 		apiName := kindToAPIName(kind)
-		res, err := kr.client.Extensions().ThirdPartyResources().Get(apiName)
+		res, err := kr.client.Extensions().ThirdPartyResources().
+			Get(apiName, meta_v1.GetOptions{})
 		if err == nil {
 			log.Printf("Resource already exists: %q", res.Name)
 		} else if errors.IsNotFound(err) {
@@ -165,7 +167,7 @@ func (kr *KubernetesRegistry) DeregisterResources() error {
 	for kind := range kr.mapping {
 		apiName := kindToAPIName(kind)
 		err := kr.client.Extensions().ThirdPartyResources().
-			Delete(apiName, &api.DeleteOptions{})
+			Delete(apiName, &v1.DeleteOptions{})
 		if err != nil {
 			out = multierror.Append(out, err)
 		}

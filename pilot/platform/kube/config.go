@@ -17,27 +17,28 @@ package kube
 import (
 	"encoding/json"
 
-	"k8s.io/client-go/1.5/pkg/api"
-	"k8s.io/client-go/1.5/pkg/api/meta"
-	"k8s.io/client-go/1.5/pkg/api/unversioned"
+	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/meta"
+	"k8s.io/client-go/pkg/apis/meta/v1"
+	"k8s.io/client-go/pkg/runtime/schema"
 )
 
 // Config is the generic Kubernetes API object wrapper
 type Config struct {
-	unversioned.TypeMeta `json:",inline"`
-	Metadata             api.ObjectMeta         `json:"metadata"`
-	Data                 map[string]interface{} `json:"data"`
+	v1.TypeMeta `json:",inline"`
+	Metadata    api.ObjectMeta         `json:"metadata"`
+	Data        map[string]interface{} `json:"data"`
 }
 
 // ConfigList is the generic Kubernetes API list wrapper
 type ConfigList struct {
-	unversioned.TypeMeta `json:",inline"`
-	Metadata             unversioned.ListMeta `json:"metadata"`
-	Items                []Config             `json:"items"`
+	v1.TypeMeta `json:",inline"`
+	Metadata    v1.ListMeta `json:"metadata"`
+	Items       []Config    `json:"items"`
 }
 
 // GetObjectKind adapts to Object
-func (e *Config) GetObjectKind() unversioned.ObjectKind {
+func (e *Config) GetObjectKind() schema.ObjectKind {
 	return &e.TypeMeta
 }
 
@@ -47,12 +48,12 @@ func (e *Config) GetObjectMeta() meta.Object {
 }
 
 // GetObjectKind adapts to Object
-func (el *ConfigList) GetObjectKind() unversioned.ObjectKind {
+func (el *ConfigList) GetObjectKind() schema.ObjectKind {
 	return &el.TypeMeta
 }
 
 // GetListMeta adapts to ListMetaAccessor
-func (el *ConfigList) GetListMeta() unversioned.List {
+func (el *ConfigList) GetListMeta() v1.List {
 	return &el.Metadata
 }
 

@@ -33,6 +33,7 @@ before_install:
   - cat .bazelrc.travis .bazelrc.orig > .bazelrc
 
 script:
+  - touch platform/kube/config
   - bazel --output_base=${HOME}/bazel/outbase build //...
 # - bazel --output_base=${HOME}/bazel/outbase test //...
 
