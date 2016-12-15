@@ -55,6 +55,7 @@ go_library(
         "@io_k8s_client_go//pkg/api/meta:go_default_library",
         "@io_k8s_client_go//pkg/api/v1:go_default_library",
         "@io_k8s_client_go//pkg/apis/extensions/v1beta1:go_default_library",
+        "@io_k8s_client_go//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_client_go//pkg/runtime:go_default_library",
         "@io_k8s_client_go//pkg/runtime/serializer:go_default_library",
         "@io_k8s_client_go//pkg/runtime/schema:go_default_library",
@@ -66,13 +67,6 @@ go_library(
 go_binary(
     name = "kube_agent",
     srcs = ["platform/kube/main/kube_agent.go"],
-)
-
-filegroup(
-    name = "kube_agent_srcs",
-    srcs = [
-        "platform/kube/main/kube_agent.go",
-    ],
     visibility = ["//visibility:public"],
 )
 
@@ -80,6 +74,9 @@ go_test(
     name = "kube_test",
     srcs = ["platform/kube/minikube_test.go"],
     library = ":kube",
+    data = [
+      "platform/kube/config",
+    ],
     deps = [":test"],
 )
 
@@ -93,4 +90,11 @@ go_library(
         ":model",
         "@com_github_golang_protobuf//proto:go_default_library",
     ],
+)
+
+go_test(
+    name = "test/mocks_test",
+    srcs = ["test/mocks_test.go"],
+    library = ":test",
+    deps = [ ":model"],
 )

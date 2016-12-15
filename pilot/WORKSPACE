@@ -264,15 +264,6 @@ new_go_repository(
 )
 
 new_go_repository(
-    name = "io_k8s_client_go",
-    commit = "243d8a9cb66a51ad8676157f79e71033b4014a2a",
-    importpath = "k8s.io/client-go",
-)
-
-# These two are still broken
-# Waiting for support for BUILD.bazel from rules_go...
-
-new_go_repository(
     name = "com_github_coreos_go_oidc",
     # commit = "5644a2f50e2d2d5ba0b474bc5bc55fea1925936d",
     commit = "5a7f09ab5787e846efa7f56f4a08b6d6926d08c4",
@@ -281,8 +272,12 @@ new_go_repository(
 
 new_go_repository(
     name = "org_golang_x_text",
-    build_file_name = "BUILD.bazel",
     commit = "2910a502d2bf9e43193af9d68ca516529614eed3",
     importpath = "golang.org/x/text",
 )
 
+new_go_repository(
+    name = "io_k8s_client_go",
+    commit = "243d8a9cb66a51ad8676157f79e71033b4014a2a",
+    importpath = "k8s.io/client-go",
+)
