@@ -359,7 +359,7 @@ void TestTokenWithPubkey(char *token, const char *pkey) {
   ASSERT_TRUE(status.ok());
   status = validator->VerifySignature("", 0);
   ASSERT_FALSE(status.ok());
-  ASSERT_EQ(status.message(), "BAD_FORMAT") << status.message();
+  ASSERT_EQ(status.message(), "KEY_RETRIEVAL_ERROR") << status.message();
 }
 
 TEST_F(JwtValidatorTest, OkTokenX509) {

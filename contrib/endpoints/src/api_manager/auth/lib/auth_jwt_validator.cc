@@ -124,9 +124,9 @@ class JwtValidatorImpl : public JwtValidator {
   grpc_jwt_verifier_status ExtractAndVerifyX509Keys();
   // Verifies signature with pkey_.
   grpc_jwt_verifier_status VerifyPubkey();
-  // Verifies RS signature.
+  // Verifies RS (asymmetric) signature.
   grpc_jwt_verifier_status VerifyRsSignature(const char *pkey, size_t pkey_len);
-  // Verifies HS signature.
+  // Verifies HS (symmetric) signature.
   grpc_jwt_verifier_status VerifyHsSignature(const char *pkey, size_t pkey_len);
 
   // Not owned.
@@ -375,7 +375,10 @@ Status JwtValidatorImpl::VerifySignature(const char *pkey, size_t pkey_len) {
 
 grpc_jwt_verifier_status JwtValidatorImpl::VerifySignatureImpl(
     const char *pkey, size_t pkey_len) {
-  if (jwt == nullptr || pkey == nullptr || jwt_len <= 0 || pkey_len <= 0) {
+  if (pkey == nullptr || pkey_len <= 0) {
+    return GRPC_JWT_VERIFIER_KEY_RETRIEVAL_ERROR;
+  }
+  if (jwt == nullptr || jwt_len <= 0) {
     return GRPC_JWT_VERIFIER_BAD_FORMAT;
   }
   if (GPR_SLICE_IS_EMPTY(signed_buffer_) || GPR_SLICE_IS_EMPTY(sig_buffer_)) {
@@ -450,9 +453,14 @@ grpc_jwt_verifier_status JwtValidatorImpl::ExtractAndVerifyX509Keys() {
   // If kid is not specified in the header, try all keys. If the JWT can be
   // validated with any of the keys, the request is successful.
   const grpc_json *cur;
+  if (pkey_json_->child == nullptr) {
+    gpr_log(GPR_ERROR, "Failed to extract public key from X509 key (%s)",
+            header_->kid);
+    return GRPC_JWT_VERIFIER_KEY_RETRIEVAL_ERROR;
+  }
   for (cur = pkey_json_->child; cur != nullptr; cur = cur->next) {
     if (cur->value == nullptr || !ExtractPubkeyFromX509(cur->value)) {
-      // Failed to extract public key from X509 key.
+      // Failed to extract public key from current X509 key, try next one.
       continue;
     }
     if (VerifyPubkey() == GRPC_JWT_VERIFIER_OK) {
@@ -509,6 +517,10 @@ grpc_jwt_verifier_status JwtValidatorImpl::ExtractAndVerifyJwkKeys(
 
   const grpc_json *jkey = nullptr;
 
+  if (jwk_keys->child == nullptr) {
+    gpr_log(GPR_ERROR, "The jwks key set is empty");
+    return GRPC_JWT_VERIFIER_KEY_RETRIEVAL_ERROR;
+  }
   // JWK format from https://tools.ietf.org/html/rfc7518#section-6.
   for (jkey = jwk_keys->child; jkey != nullptr; jkey = jkey->next) {
     if (jkey->type != GRPC_JSON_OBJECT) continue;
@@ -532,12 +544,11 @@ grpc_jwt_verifier_status JwtValidatorImpl::ExtractAndVerifyJwkKeys(
     }
     if (header_->kid != nullptr) {
       return VerifyPubkey();
-    } else {
-      // If kid is not specified in the header, try all keys. If the JWT can be
-      // validated with any of the keys, the request is successful.
-      if (VerifyPubkey() == GRPC_JWT_VERIFIER_OK) {
-        return GRPC_JWT_VERIFIER_OK;
-      }
+    }
+    // If kid is not specified in the header, try all keys. If the JWT can be
+    // validated with any of the keys, the request is successful.
+    if (VerifyPubkey() == GRPC_JWT_VERIFIER_OK) {
+      return GRPC_JWT_VERIFIER_OK;
     }
   }
 
