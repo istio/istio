@@ -1,0 +1,106 @@
+// Copyright 2016 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.mixer.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// An instance of this is delivered to the mixer with every
+// API call.
+//
+// The general idea is to leverage the stateful gRPC streams from the
+// proxy to the mixer to keep to a minimum the 'attribute chatter'.
+// Only delta attributes are sent over, multiple concurrent attribute
+// contexts can be used to avoid thrashing, and attribute indices are used to
+// keep the wire protocol maximally efficient.
+//
+// Producing this message is the responsibility of the mixer's client
+// library which is linked into different proxy implementations.
+//
+// The processing order for this state in the mixer is:
+//
+//   * Any new dictionary is applied
+//
+//   * The requested attribute context is looked up. If no such context has been defined, a
+//     new context is automatically created and initialized to the empty state. When a gRPC
+//     stream is first created, there are no attribute contexts for the stream.
+//
+//   * If reset_context is true, then the attribute context is reset to the
+//     empty state.
+//
+//   * All attribute changes are applied to the attribute context.
+//
+//   * All deleted attributes are removed from the attribute context.
+//
+message Attributes {
+  // A dictionary that provides a mapping of shorthand index values to
+  // attribute names.
+  //
+  // This is intended to leverage the stateful gRPC stream from the
+  // proxy to the mixer. This dictionary is sent over only when a
+  // stream to the mixer is first established and when the proxy's
+  // config changes and different attributes may be produced.
+  //
+  // Once a dictionary has been sent over, it stays in effect until
+  // a new dictionary is sent to replace it. The first request sent on a
+  // stream must include a dictionary, otherwise the mixer can't process
+  // any attribute updates.
+  //
+  // Dictionaries are independent of the attribute context and are thus global
+  // for the current gRPC stream.
+  map<int32, string> dictionary = 1;
+
+  // The attribute context against which to operate.
+  //
+  // The mixer keeps different contexts live for any proxy gRPC stream. This
+  // allows the proxy to maintain multiple concurrent 'bags of attributes'
+  // within the mixer.
+  //
+  // If the proxy doesn't want to leverage multiple contexts, it just passes
+  // 0 here for every request.
+  //
+  // The proxy is configured to use a maximum number of attribute contexts in order
+  // to prevent an explosion of contexts in the mixer's memory space.
+  //
+  // TODO: Consider removing support for this feature. The proxy can achieve
+  // the same thing using multiple gRPC streams. The benefit of using streams
+  // would be that the mixer would be in control of the maximum number of streams
+  // it allows, whereas with the current model the proxy could overwhelm the
+  // mixer by creating too many contexts.
+  int32 attribute_context = 2;
+
+  // When true, resets the current attribute context to the empty state before
+  // applying any incoming attributes.
+  //
+  // Resetting contexts is useful to constrain the amount of resources used by
+  // the mixer. The proxy needs to intelligently manage a pool of contexts.
+  // It may be useful to reset a context when certain big events happen, such
+  // as when an HTTP2 connection into the proxy terminates.
+  bool reset_context = 3;
+
+  // Attributes being updated within the specified attribute context. These maps
+  // add and/or overwrite the context's current set of attributes.
+  map<int32, string> string_attributes = 4;
+  map<int32, int64> int64_attributes = 5;
+  map<int32, double> double_attributes = 6;
+  map<int32, bool> bool_attributes = 7;
+  map<int32, google.protobuf.Timestamp> timestamp_attributes = 8;
+  map<int32, bytes> bytes_attributes = 9;
+
+  // Attributes that should be removed from the specified attribute context. Deleting
+  // attributes which aren't currently in the attribute context is not considered an error.
+  repeated int32 deleted_attributes = 10;
+}

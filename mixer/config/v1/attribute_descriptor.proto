@@ -1,0 +1,75 @@
+// Copyright 2016 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.mixer.v1;
+
+// The definition of an attribute type.
+//
+// An attribute carries a piece of information describing ingress or egress traffic, along
+// with the environment the traffic takes place in.
+//
+// This descriptor represents the schema for an individual attribute type.
+message AttributeDescriptor {
+  // The name of this descriptor, referenced from individual attribute instances and other
+  // descriptors.
+  //
+  // The format of this name is:
+  //
+  //     Name = IDENT { "." IDENT } ;
+  //
+  // Where `IDENT` must match the regular expression `[a-z][a-z0-9]+`.
+  //
+  // Attribute descriptor names must be unique within a single Istio deployment. There is a well
+  // known set of attributes which have succinct names. Attributes not on this list should be
+  // name with a component-specific suffix such as request_count-my_component
+  string name = 1;
+
+  // The type of data carried by attributes
+  ValueType value_type = 2;
+
+  // An optional human-readable description of the attribute's purpose.
+  string description = 3;
+
+  // Types of supported attribute values.
+  enum ValueType {
+    // An undiscriminated variable-length string.
+    STRING = 0;
+
+    // An undiscriminated 64-bit signed integer.
+    INT64 = 1;
+
+    // An undiscriminated 64-bit floating-point value.
+    DOUBLE = 2;
+
+    // An undiscriminated boolean value.
+    BOOL = 3;
+
+    // A point in time.
+    TIMESTAMP = 4;
+
+    // An IP address, encoded as bytes.
+    IP_ADDRESS = 5;
+
+    // An email address, encoded as a string.
+    EMAIL_ADDRESS = 6;
+
+    // A URI, encoded as a string.
+    URI = 7;
+
+    // A DNS name, encoded as a string.
+    DNS_NAME = 8;
+  }
+}
