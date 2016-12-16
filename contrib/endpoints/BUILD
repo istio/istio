@@ -14,16 +14,4 @@
 #
 ################################################################################
 #
-
-load("//contrib/endpoints:repositories.bzl",
-    "protobuf_repositories",
-    "grpc_repositories",
-    "boringssl_repositories",
-    "servicecontrol_client_repositories",
-    "googletest_repositories")
-
-boringssl_repositories()
-protobuf_repositories()
-grpc_repositories()
-servicecontrol_client_repositories()
-googletest_repositories()
+# This file is intended to be empty for repositories.bzl
