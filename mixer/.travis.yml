@@ -30,6 +30,11 @@ before_install:
   - cd ${TRAVIS_BUILD_DIR}
   - mv .bazelrc .bazelrc.orig
   - cat .bazelrc.travis .bazelrc.orig > .bazelrc
+  - go get github.com/golang/lint/golint
+
+before_script:
+  - go vet -v ./...
+  - $HOME/gopath/bin/golint ./...
 
 script:
   - bazel --output_base=${HOME}/bazel/outbase test //...
