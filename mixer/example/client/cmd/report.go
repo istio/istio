@@ -18,11 +18,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
-	
+
 	mixerpb "istio.io/mixer/api/v1"
 )
 
@@ -49,6 +47,9 @@ var reportCmd = &cobra.Command{
 			return
 		}
 
+		// TODO: fix
+		_ = attrs
+
 		stream, err := cs.client.Report(context.Background())
 		if err != nil {
 			errorf("Report RPC failed: %v", err)
@@ -57,19 +58,20 @@ var reportCmd = &cobra.Command{
 
 		// send the request
 		request := mixerpb.ReportRequest{RequestIndex: 0}
-		request.Facts = attrs
-		request.LogEntries = make([]*mixerpb.LogEntry, len(args))
-		for i, arg := range args {
-			now, _ := ptypes.TimestampProto(time.Now())
-			request.LogEntries[i] = &mixerpb.LogEntry{
-				Severity:  mixerpb.LogEntry_DEFAULT,
-				Timestamp: now,
-				Payload: &mixerpb.LogEntry_TextPayload{
-					TextPayload: arg,
-				},
+		/*
+			request.Facts = attrs
+			request.LogEntries = make([]*mixerpb.LogEntry, len(args))
+			for i, arg := range args {
+				now, _ := ptypes.TimestampProto(time.Now())
+				request.LogEntries[i] = &mixerpb.LogEntry{
+					Severity:  mixerpb.LogEntry_DEFAULT,
+					Timestamp: now,
+					Payload: &mixerpb.LogEntry_TextPayload{
+						TextPayload: arg,
+					},
+				}
 			}
-		}
-
+		*/
 		if err := stream.Send(&request); err != nil {
 			errorf("Failed to send Report RPC: %v", err)
 			return

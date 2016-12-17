@@ -49,7 +49,10 @@ var checkCmd = &cobra.Command{
 
 		// send the request
 		request := mixerpb.CheckRequest{RequestIndex: 0}
-		request.Facts = attrs
+
+		// TODO: fix
+		_ = attrs
+
 		if err := stream.Send(&request); err != nil {
 			errorf("Failed to send Check RPC: %v", err)
 			return
