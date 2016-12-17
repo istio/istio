@@ -123,6 +123,6 @@ new_go_repository(
 new_git_repository(
     name = "com_github_istio_api",
     build_file = "BUILD.api",
-    commit = "81854bc61abf2753aaf8adc1d114cc61ee960da7",
+    commit = "cf7f8a4dde9504eaed44eb43c55133e65ff6e67e",
     remote = "https://github.com/istio/api.git",
 )
