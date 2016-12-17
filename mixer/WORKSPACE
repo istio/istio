@@ -61,10 +61,31 @@ go_proto_library(
     imports = [
         "../../external/com_github_google_protobuf/src",
     ],
+    inputs = [
+        "@com_github_google_protobuf//:well_known_protos",
+    ],
     deps = [
         "@com_github_golang_protobuf//ptypes/any:go_default_library",
     ],
     verbose = 0,
+)
+
+load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cc_proto_library")
+
+cc_proto_library(
+    name = "cc_status_proto",
+    protos = [
+        "google/rpc/status.proto",
+    ],
+    imports = [
+        "../../external/com_github_google_protobuf/src",
+    ],
+    verbose = 0,
+)
+
+filegroup(
+    name = "status_proto",
+    srcs = [ "google/rpc/status.proto" ],
 )
 """
 

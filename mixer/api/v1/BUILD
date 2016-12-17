@@ -10,6 +10,10 @@ go_proto_library(
         "external/com_github_google_protobuf/src",
         "external/com_github_googleapis_googleapis"
     ],
+    inputs = [
+        "@com_github_google_protobuf//:well_known_protos",
+        "@com_github_googleapis_googleapis//:status_proto",
+    ],
     protos = [ 
         "check.proto",
         "report.proto",
