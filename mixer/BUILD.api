@@ -1,3 +1,10 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
+
+# Desired effect: import "istio.io/mixer/api/v1"
+go_prefix("istio.io")
+
 load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
 
 go_proto_library(
@@ -7,14 +14,15 @@ go_proto_library(
         "google/rpc/status.proto": "google.golang.org/genproto/googleapis/rpc/status",
     },
     imports = [
-        "external/com_github_google_protobuf/src",
-        "external/com_github_googleapis_googleapis"
+        "../../external/com_github_google_protobuf/src",
+        "../../external/com_github_googleapis_googleapis"
     ],
-    protos = [ 
-        "check.proto",
-        "report.proto",
-        "quota.proto",
-        "service.proto",
+    protos = [
+        "mixer/api/v1/attributes.proto",
+        "mixer/api/v1/check.proto",
+        "mixer/api/v1/report.proto",
+        "mixer/api/v1/quota.proto",
+        "mixer/api/v1/service.proto",
     ],
     deps = [
         "@com_github_googleapis_googleapis//:go_status_proto",
