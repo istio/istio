@@ -2,7 +2,7 @@ workspace(name = "com_github_istio_mixer")
 
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "4c73b9cb84c1f8e32e7df3c26e237439699d5d8c",
+    commit = "2c6fa767100b95799043451aa3ee221d9a9bbb55",
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
@@ -24,6 +24,7 @@ load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_repositories")
 load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cpp_proto_repositories")
 
 cpp_proto_repositories()
+
 go_proto_repositories()
 
 new_go_repository(
@@ -65,19 +66,6 @@ go_proto_library(
     ],
     verbose = 0,
 )
-
-load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cc_proto_library")
-
-cc_proto_library(
-    name = "cc_status_proto",
-    protos = [
-        "google/rpc/status.proto",
-    ],
-    imports = [
-        "../../external/com_github_google_protobuf/src",
-    ],
-    verbose = 0,
-)
 """
 
 new_git_repository(
@@ -109,4 +97,11 @@ new_go_repository(
     name = "com_github_spf13_pflag",
     commit = "5ccb023bc27df288a957c5e994cd44fd19619465",
     importpath = "github.com/spf13/pflag",
+)
+
+new_git_repository(
+    name = "com_github_istio_api",
+    build_file = "BUILD.api",
+    commit = "81854bc61abf2753aaf8adc1d114cc61ee960da7",
+    remote = "https://github.com/istio/api.git",
 )
