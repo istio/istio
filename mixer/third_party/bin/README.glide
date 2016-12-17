@@ -1,4 +1,0 @@
-Glide itself is checked-in here because we have a dependency on
-glide version 0.11.1
-
-The glide versions after that do not treat vendored godeps correctly.

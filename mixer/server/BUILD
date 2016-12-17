@@ -10,8 +10,8 @@ DEPS = [
     "//adapters/genericListChecker:go_default_library",
     "//adapters/ipListChecker:go_default_library",
     "//adapters/jsonLogger:go_default_library",
-    "//api/v1:go_default_library",
     "//config/listChecker:go_default_library",
+    "@com_github_istio_api//:go_default_library",
     "@com_github_golang_glog//:go_default_library",
     "@com_github_golang_protobuf//proto:go_default_library",
     "@com_github_golang_protobuf//ptypes:go_default_library",
@@ -23,14 +23,14 @@ DEPS = [
 
 go_binary(
     name = "server",
-    srcs = [ 
+    srcs = [
         "adapterManager.go",
         "configManager.go",
         "apiHandlers.go",
         "apiServer.go",
         "main.go",
     ],
-    deps = [ 
+    deps = [
         "@com_github_spf13_cobra//:go_default_library",
         "@com_github_spf13_pflag//:go_default_library",
     ] + DEPS,

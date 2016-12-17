@@ -18,7 +18,6 @@ package main
 
 import (
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
 
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/genproto/googleapis/rpc/status"
@@ -73,7 +72,7 @@ func (h *apiHandlers) Check(tracker adapters.FactTracker, request *mixerpb.Check
 	// Prepare common response fields.
 	response.RequestIndex = request.RequestIndex
 
-	facts := request.GetFacts()
+	facts := make(map[string]string)
 
 	dispatchKey, err := mixer.NewDispatchKey(facts)
 	if err != nil {
@@ -140,7 +139,7 @@ func (h *apiHandlers) Report(tracker adapters.FactTracker, request *mixerpb.Repo
 	// Prepare common response fields.
 	response.RequestIndex = request.RequestIndex
 
-	facts := request.GetFacts()
+	facts := make(map[string]string)
 
 	dispatchKey, err := mixer.NewDispatchKey(facts)
 	if err != nil {
@@ -151,7 +150,7 @@ func (h *apiHandlers) Report(tracker adapters.FactTracker, request *mixerpb.Repo
 
 	tracker.UpdateFacts(facts)
 
-	err = h.report(dispatchKey, tracker, request.LogEntries)
+	err = h.report(dispatchKey, tracker)
 	if err != nil {
 		glog.Warningf("Unexpected report error: %v", err)
 		response.Result = newStatus(code.Code_INTERNAL)
@@ -161,8 +160,7 @@ func (h *apiHandlers) Report(tracker adapters.FactTracker, request *mixerpb.Repo
 	response.Result = newStatus(code.Code_OK)
 }
 
-func (h *apiHandlers) report(dispatchKey mixer.DispatchKey, tracker adapters.FactTracker, entries []*mixerpb.LogEntry) error {
-
+func (h *apiHandlers) report(dispatchKey mixer.DispatchKey, tracker adapters.FactTracker) error {
 	adapterConfigs, err := h.configManager.GetLoggerAdapterConfigs(dispatchKey)
 	if err != nil {
 		return err
@@ -175,7 +173,7 @@ func (h *apiHandlers) report(dispatchKey mixer.DispatchKey, tracker adapters.Fac
 			return err
 		}
 
-		convertedLogs := buildLogEntries(entries)
+		convertedLogs := []adapters.LogEntry{}
 		err = loggerAdapter.Log(convertedLogs)
 		if err != nil {
 			if result != nil {
@@ -190,6 +188,7 @@ func (h *apiHandlers) report(dispatchKey mixer.DispatchKey, tracker adapters.Fac
 	return result
 }
 
+/*
 func buildLogEntries(entries []*mixerpb.LogEntry) []adapters.LogEntry {
 	// TODO: actual conversion implementation
 	result := make([]adapters.LogEntry, len(entries))
@@ -215,9 +214,10 @@ func buildLogEntries(entries []*mixerpb.LogEntry) []adapters.LogEntry {
 
 	return result
 }
+*/
 
 func (h *apiHandlers) Quota(tracker adapters.FactTracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
-	tracker.UpdateFacts(request.GetFacts())
+	tracker.UpdateFacts(make(map[string]string))
 	response.RequestIndex = request.RequestIndex
 	response.Result = newQuotaError(code.Code_UNIMPLEMENTED)
 }

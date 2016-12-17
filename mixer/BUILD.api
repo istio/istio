@@ -2,8 +2,7 @@ package(default_visibility = ["//visibility:public"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
 
-# Desired effect: import "istio.io/mixer/api/v1"
-go_prefix("istio.io")
+go_prefix("istio.io/mixer/api/v1")
 
 load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
 
@@ -40,7 +39,7 @@ go_proto_library(
         "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
         "@com_github_golang_protobuf//ptypes/wrappers:go_default_library",
     ],
-    with_grpc = True,       
+    with_grpc = True,
     verbose = 0,
     visibility = ["//visibility:public"],
 )

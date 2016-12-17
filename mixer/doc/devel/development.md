@@ -147,7 +147,7 @@ To build the mixer, enter:
 
 ```
 cd $(ISTIO)/mixer
-bazel build :all
+bazel build ...:all
 ```
 
 This should figure out what it needs to do and not need any input from you.
