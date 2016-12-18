@@ -27,7 +27,9 @@ import (
 type Config struct {
 	v1.TypeMeta `json:",inline"`
 	Metadata    api.ObjectMeta         `json:"metadata"`
-	Data        map[string]interface{} `json:"data"`
+	Spec        map[string]interface{} `json:"data"`
+	// TODO: enable structured status field
+	Status string
 }
 
 // ConfigList is the generic Kubernetes API list wrapper
@@ -75,6 +77,7 @@ func (e *Config) UnmarshalJSON(data []byte) error {
 	*e = tmp2
 	return nil
 }
+
 func (el *ConfigList) UnmarshalJSON(data []byte) error {
 	tmp := ConfigListCopy{}
 	err := json.Unmarshal(data, &tmp)

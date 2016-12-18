@@ -73,7 +73,7 @@ func TestThirdPartyResources(t *testing.T) {
 
 	kubeconfig := usr.HomeDir + "/.kube/config"
 	// For Bazel sandbox we search a different location:
-	if _, err := os.Stat(kubeconfig); err != nil {
+	if _, err = os.Stat(kubeconfig); err != nil {
 		kubeconfig, _ = os.Getwd()
 		kubeconfig = kubeconfig + "/platform/kube/config"
 	}

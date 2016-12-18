@@ -29,12 +29,13 @@ import (
 
 	"istio.io/manager/model"
 
+	meta_v1 "k8s.io/client-go/pkg/apis/meta/v1"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/errors"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	meta_v1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/runtime"
 	"k8s.io/client-go/pkg/runtime/schema"
 	"k8s.io/client-go/pkg/runtime/serializer"
@@ -59,10 +60,15 @@ type KubernetesRegistry struct {
 }
 
 // CreateRESTConfig for cluster API server, pass empty config file for in-cluster
-func CreateRESTConfig(kubeconfig string, km model.KindMap) (*rest.Config, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+func CreateRESTConfig(kubeconfig string, km model.KindMap) (config *rest.Config, err error) {
+	if kubeconfig == "" {
+		config, err = rest.InClusterConfig()
+	} else {
+		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+	}
+
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	version := schema.GroupVersion{
@@ -98,7 +104,7 @@ func CreateRESTConfig(kubeconfig string, km model.KindMap) (*rest.Config, error)
 		})
 	schemeBuilder.AddToScheme(api.Scheme)
 
-	return config, nil
+	return
 }
 
 // NewKubernetesRegistry creates a client to Kubernetes API using kubeconfig file
@@ -158,6 +164,7 @@ func (kr *KubernetesRegistry) RegisterResources() error {
 			out = multierror.Append(out, err)
 		}
 	}
+
 	return out
 }
 
@@ -216,7 +223,7 @@ func (kr *KubernetesRegistry) Put(obj model.Config) error {
 
 	out := &Config{
 		Metadata: api.ObjectMeta{Name: encodeName(obj.ConfigKey)},
-		Data:     data,
+		Spec:     data,
 	}
 
 	err = kr.dyn.Post().
@@ -294,7 +301,7 @@ func (kr *KubernetesRegistry) convert(kind string, config *Config) (*model.Confi
 	pb := reflect.New(pbt.Elem()).Interface().(proto.Message)
 
 	// Marshal to JSON bytes
-	str, err := json.Marshal(config.Data)
+	str, err := json.Marshal(config.Spec)
 	if err != nil {
 		return nil, err
 	}

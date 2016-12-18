@@ -42,6 +42,8 @@ go_library(
     srcs = [
         "platform/kube/config.go",
         "platform/kube/consumer.go",
+        "platform/kube/controller.go",
+        "platform/kube/queue.go",
         "platform/kube/registry.go",
     ],
     deps = [
@@ -57,9 +59,12 @@ go_library(
         "@io_k8s_client_go//pkg/apis/extensions/v1beta1:go_default_library",
         "@io_k8s_client_go//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_client_go//pkg/runtime:go_default_library",
-        "@io_k8s_client_go//pkg/runtime/serializer:go_default_library",
         "@io_k8s_client_go//pkg/runtime/schema:go_default_library",
+        "@io_k8s_client_go//pkg/runtime/serializer:go_default_library",
+        "@io_k8s_client_go//pkg/util/flowcontrol:go_default_library",
+        "@io_k8s_client_go//pkg/watch:go_default_library",
         "@io_k8s_client_go//rest:go_default_library",
+        "@io_k8s_client_go//tools/cache:go_default_library",
         "@io_k8s_client_go//tools/clientcmd:go_default_library",
     ],
 )
@@ -73,11 +78,17 @@ go_binary(
 go_test(
     name = "kube_test",
     srcs = ["platform/kube/minikube_test.go"],
-    library = ":kube",
     data = [
-      "platform/kube/config",
+        "platform/kube/config",
     ],
+    library = ":kube",
     deps = [":test"],
+)
+
+go_test(
+    name = "queue_test",
+    srcs = ["platform/kube/queue_test.go"],
+    library = ":kube",
 )
 
 go_library(
@@ -96,5 +107,5 @@ go_test(
     name = "test/mocks_test",
     srcs = ["test/mocks_test.go"],
     library = ":test",
-    deps = [ ":model"],
+    deps = [":model"],
 )
