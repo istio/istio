@@ -25,29 +25,34 @@ import (
 )
 
 const (
-	MockKind = "MockConfig"
-	MockName = "my-qualified-name"
+	MockKind      = "MockConfig"
+	MockName      = "my-qualified-name"
+	MockNamespace = "test"
 )
 
 var (
 	MockKey = model.ConfigKey{
-		Kind: MockKind,
-		Name: MockName,
+		Kind:      MockKind,
+		Name:      MockName,
+		Namespace: MockNamespace,
 	}
 	MockConfigObject = MockConfig{
 		Pairs: []*ConfigPair{
 			&ConfigPair{Key: "key", Value: "value"},
 		},
 	}
+	MockStatus = MockConfigStatus{}
 	MockObject = model.Config{
 		ConfigKey: MockKey,
-		Content:   &MockConfigObject,
+		Spec:      &MockConfigObject,
+		Status:    &MockStatus,
 	}
 	MockMapping = model.KindMap{
-		MockKind: model.ProtoValidator{
-			MessageName: "test.MockConfig",
-			Description: "Sample config kind",
-			Validate:    func(proto.Message) error { return nil },
+		MockKind: model.ProtoSchema{
+			MessageName:       "test.MockConfig",
+			StatusMessageName: "test.MockConfigStatus",
+			Description:       "Sample config kind",
+			Validate:          func(proto.Message) error { return nil },
 		},
 	}
 )
@@ -87,39 +92,43 @@ func (r *MockRegistry) Delete(key model.ConfigKey) {
 	delete(r.store, key)
 }
 
-func (r *MockRegistry) List(kind string) []*model.Config {
+func (r *MockRegistry) List(kind string, ns string) []*model.Config {
 	var out = make([]*model.Config, 0)
 	for _, v := range r.store {
-		if v.Kind == kind {
+		if v.Kind == kind && (ns == "" || v.Namespace == ns) {
 			out = append(out, v)
 		}
 	}
 	return out
 }
 
-func CheckMapInvariant(r model.Registry, t *testing.T) {
-	if err := r.Put(MockObject); err != nil {
+func CheckMapInvariant(r model.Registry, t *testing.T, namespace string) {
+	key := model.ConfigKey{
+		Kind:      MockKind,
+		Name:      MockName,
+		Namespace: namespace,
+	}
+	value := model.Config{
+		ConfigKey: key,
+		Spec:      &MockConfigObject,
+		Status:    &MockStatus,
+	}
+
+	if err := r.Put(value); err != nil {
 		t.Error(err)
 	}
-	if v1, ok := r.Get(MockKey); !ok || !reflect.DeepEqual(*v1, MockObject) {
-		t.Errorf("Wanted %v, got %v", MockObject, *v1)
+	if v1, ok := r.Get(key); !ok || !reflect.DeepEqual(*v1, value) {
+		t.Errorf("Wanted %v, got %v", value, *v1)
 	}
-	if _, ok := r.Get(model.ConfigKey{
-		Kind:    MockKind,
-		Name:    MockName,
-		Version: "test",
-	}); ok {
-		t.Errorf("Wanted missing element")
-	}
-	l := r.List(MockKind)
+	l := r.List(MockKind, namespace)
 	if len(l) != 1 {
 		t.Errorf("Wanted 1 element, got %d in %v", len(l), l)
 	}
-	if !reflect.DeepEqual(*l[0], MockObject) {
-		t.Errorf("Wanted %v, got %v", MockObject, l[0])
+	if !reflect.DeepEqual(*l[0], value) {
+		t.Errorf("Wanted %v, got %v", value, l[0])
 	}
-	r.Delete(MockKey)
-	l = r.List(MockKind)
+	r.Delete(key)
+	l = r.List(MockKind, namespace)
 	if len(l) != 0 {
 		t.Errorf("Wanted 0 elements, got %d in %v", len(l), l)
 	}
@@ -128,9 +137,9 @@ func CheckMapInvariant(r model.Registry, t *testing.T) {
 func (generator *MockGenerator) Render(reg model.Registry) ([]*model.ConfigOutput, error) {
 	var buffer bytes.Buffer
 	var keys []*model.ConfigKey
-	for _, config := range reg.List(MockKind) {
+	for _, config := range reg.List(MockKind, "") {
 		keys = append(keys, &config.ConfigKey)
-		for _, pair := range config.Content.(*MockConfig).Pairs {
+		for _, pair := range config.Spec.(*MockConfig).Pairs {
 			buffer.WriteString(pair.Key)
 			buffer.WriteString(": ")
 			buffer.WriteString(pair.Value)

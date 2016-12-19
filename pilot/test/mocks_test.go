@@ -20,17 +20,17 @@ import (
 	"istio.io/manager/model"
 )
 
-var configTests = []model.Config{
+var invalidConfigs = []model.Config{
 	model.Config{ConfigKey: MockKey},
-	model.Config{ConfigKey: MockKey, Content: "x"},
+	model.Config{ConfigKey: MockKey, Spec: "x"},
 	model.Config{ConfigKey: model.ConfigKey{Name: "BLAH"}},
 	model.Config{
 		ConfigKey: model.ConfigKey{Name: MockName},
-		Content:   &MockConfigObject,
+		Spec:      &MockConfigObject,
 	},
 	model.Config{
 		ConfigKey: model.ConfigKey{Name: MockName, Kind: "Mock"},
-		Content:   &MockConfigObject,
+		Spec:      &MockConfigObject,
 	},
 }
 
@@ -39,8 +39,8 @@ func TestMockRegistry(t *testing.T) {
 	if err := MockMapping.Validate(); err != nil {
 		t.Error(err)
 	}
-	CheckMapInvariant(r, t)
-	for _, config := range configTests {
+	CheckMapInvariant(r, t, MockNamespace)
+	for _, config := range invalidConfigs {
 		if err := r.Put(config); err == nil {
 			t.Errorf("t.Put(%#v) succeeded for invalid config", config)
 		}
@@ -55,7 +55,9 @@ func TestKindMap(t *testing.T) {
 
 func TestGenerator(t *testing.T) {
 	r := NewMockRegistry()
-	r.Put(MockObject)
+	if err := r.Put(MockObject); err != nil {
+		t.Fatal(err)
+	}
 	var g model.Generator = &MockGenerator{}
 	out, err := g.Render(r)
 	if err != nil {

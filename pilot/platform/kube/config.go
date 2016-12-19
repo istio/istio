@@ -27,9 +27,8 @@ import (
 type Config struct {
 	v1.TypeMeta `json:",inline"`
 	Metadata    api.ObjectMeta         `json:"metadata"`
-	Spec        map[string]interface{} `json:"data"`
-	// TODO: enable structured status field
-	Status string
+	Spec        map[string]interface{} `json:"spec"`
+	Status      map[string]interface{} `json:"status"`
 }
 
 // ConfigList is the generic Kubernetes API list wrapper

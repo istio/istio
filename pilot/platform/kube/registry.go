@@ -17,10 +17,8 @@ package kube
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
 	"reflect"
-	"strings"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
@@ -53,10 +51,9 @@ const (
 // KubernetesRegistry bindings for the manager:
 // - configuration objects are stored as third-party resources
 type KubernetesRegistry struct {
-	mapping   model.KindMap
-	client    *kubernetes.Clientset
-	dyn       *rest.RESTClient
-	Namespace string
+	mapping model.KindMap
+	client  *kubernetes.Clientset
+	dyn     *rest.RESTClient
 }
 
 // CreateRESTConfig for cluster API server, pass empty config file for in-cluster
@@ -124,10 +121,9 @@ func NewKubernetesRegistry(kubeconfig string, km model.KindMap) (*KubernetesRegi
 	}
 
 	out := &KubernetesRegistry{
-		mapping:   km,
-		client:    cl,
-		dyn:       dyn,
-		Namespace: api.NamespaceDefault,
+		mapping: km,
+		client:  cl,
+		dyn:     dyn,
 	}
 
 	if err = out.RegisterResources(); err != nil {
@@ -185,9 +181,9 @@ func (kr *KubernetesRegistry) DeregisterResources() error {
 func (kr *KubernetesRegistry) Get(key model.ConfigKey) (*model.Config, bool) {
 	config := &Config{}
 	err := kr.dyn.Get().
-		Namespace(kr.Namespace).
+		Namespace(key.Namespace).
 		Resource(key.Kind + "s").
-		Name(encodeName(key)).
+		Name(key.Name).
 		Do().Into(config)
 	if err != nil {
 		log.Printf(err.Error())
@@ -205,29 +201,26 @@ func (kr *KubernetesRegistry) Put(obj model.Config) error {
 	if err := kr.mapping.ValidateConfig(obj); err != nil {
 		return err
 	}
-	pb, _ := obj.Content.(proto.Message)
-
-	// Marshal from proto to json bytes
-	m := jsonpb.Marshaler{}
-	bytes, err := m.MarshalToString(pb)
+	spec, err := protoToMap(obj.Spec.(proto.Message))
 	if err != nil {
 		return err
 	}
-
-	// Unmarshal from json bytes to go map
-	var data map[string]interface{}
-	err = json.Unmarshal([]byte(bytes), &data)
-	if err != nil {
-		return err
+	var status map[string]interface{}
+	if obj.Status != nil {
+		status, err = protoToMap(obj.Status.(proto.Message))
+		if err != nil {
+			return err
+		}
 	}
 
 	out := &Config{
-		Metadata: api.ObjectMeta{Name: encodeName(obj.ConfigKey)},
-		Spec:     data,
+		Metadata: api.ObjectMeta{Name: obj.ConfigKey.Name},
+		Spec:     spec,
+		Status:   status,
 	}
 
 	err = kr.dyn.Post().
-		Namespace(kr.Namespace).
+		Namespace(obj.Namespace).
 		Resource(obj.Kind + "s").
 		Body(out).
 		Do().Error()
@@ -240,23 +233,23 @@ func (kr *KubernetesRegistry) Put(obj model.Config) error {
 
 func (kr *KubernetesRegistry) Delete(key model.ConfigKey) {
 	err := kr.dyn.Delete().
-		Namespace(kr.Namespace).
+		Namespace(key.Namespace).
 		Resource(key.Kind + "s").
-		Name(encodeName(key)).
+		Name(key.Name).
 		Do().Error()
 	if err != nil {
 		log.Printf(err.Error())
 	}
 }
 
-func (kr *KubernetesRegistry) List(kind string) []*model.Config {
+func (kr *KubernetesRegistry) List(kind string, ns string) []*model.Config {
 	if _, ok := kr.mapping[kind]; !ok {
 		return nil
 	}
 
 	list := &ConfigList{}
 	err := kr.dyn.Get().
-		Namespace(kr.Namespace).
+		Namespace(ns).
 		Resource(kind + "s").
 		Do().Into(list)
 	if err != nil {
@@ -297,46 +290,63 @@ func kindToAPIName(s string) string {
 }
 
 func (kr *KubernetesRegistry) convert(kind string, config *Config) (*model.Config, error) {
-	pbt := proto.MessageType(kr.mapping[kind].MessageName)
-	pb := reflect.New(pbt.Elem()).Interface().(proto.Message)
-
-	// Marshal to JSON bytes
-	str, err := json.Marshal(config.Spec)
+	spec, err := mapToProto(kr.mapping[kind].MessageName, config.Spec)
 	if err != nil {
 		return nil, err
 	}
-
-	// Unmarshal from bytes to proto
-	err = jsonpb.UnmarshalString(string(str), pb)
-	if err != nil {
-		return nil, err
+	var status proto.Message
+	if config.Status != nil {
+		status, err = mapToProto(kr.mapping[kind].StatusMessageName, config.Status)
+		if err != nil {
+			return nil, err
+		}
 	}
-	name, version := decodeName(config.GetObjectMeta().GetName())
+
 	out := model.Config{
 		ConfigKey: model.ConfigKey{
-			Name:    name,
-			Kind:    kind,
-			Version: version,
+			Kind:      kind,
+			Name:      config.GetObjectMeta().GetName(),
+			Namespace: config.GetObjectMeta().GetNamespace(),
 		},
-		Content: pb,
+		Spec:   spec,
+		Status: status,
 	}
 
 	return &out, nil
 }
 
-func encodeName(key model.ConfigKey) string {
-	if key.Version == "" {
-		return key.Name + "-default"
+func protoToMap(msg proto.Message) (map[string]interface{}, error) {
+	// Marshal from proto to json bytes
+	m := jsonpb.Marshaler{}
+	bytes, err := m.MarshalToString(msg)
+	if err != nil {
+		return nil, err
 	}
-	return fmt.Sprintf("%s-%s", key.Name, key.Version)
+
+	// Unmarshal from json bytes to go map
+	var data map[string]interface{}
+	err = json.Unmarshal([]byte(bytes), &data)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
-func decodeName(kubeName string) (string, string) {
-	i := strings.LastIndex(kubeName, "-")
-	name := kubeName[0:i]
-	version := kubeName[i+1:]
-	if version == "default" {
-		version = ""
+func mapToProto(message string, data map[string]interface{}) (proto.Message, error) {
+	// Marshal to json bytes
+	str, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
 	}
-	return name, version
+
+	// Unmarshal from bytes to proto
+	pbt := proto.MessageType(message)
+	pb := reflect.New(pbt.Elem()).Interface().(proto.Message)
+	err = jsonpb.UnmarshalString(string(str), pb)
+	if err != nil {
+		return nil, err
+	}
+
+	return pb, nil
 }

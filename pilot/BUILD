@@ -23,6 +23,7 @@ go_library(
     srcs = [
         "model/functions.go",
         "model/registry.go",
+        "model/validation.go",
     ],
     deps = [
         "@com_github_golang_protobuf//proto:go_default_library",

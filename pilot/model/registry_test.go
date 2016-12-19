@@ -18,17 +18,15 @@ import "testing"
 
 var (
 	validKeys = []ConfigKey{
-		{Name: "example-config-name"},
-		{Name: "x", Version: "id"},
-		{Name: "x", Version: "v1"},
-		{Name: "x", Kind: "ExampleKind"},
+		{Kind: "MyConfig", Name: "example-config-name", Namespace: "default"},
+		{Kind: "MyConfig", Name: "x", Namespace: "default"},
+		{Kind: "SomeKind", Name: "x", Namespace: "default"},
 	}
 	invalidKeys = []ConfigKey{
-		{Name: "exampleConfigName"},
-		{Name: "x", Version: "config-id"},
-		{Name: "x", Version: "Version"},
-		{Name: "x", Kind: "example-kind"},
-		{Name: "x", Version: "default"},
+		{Kind: "MyConfig", Name: "exampleConfigName", Namespace: "default"},
+		{Name: "x"},
+		{Kind: "MyConfig", Name: "x"},
+		{Kind: "example-kind", Name: "x", Namespace: "default"},
 	}
 )
 

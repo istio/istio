@@ -22,7 +22,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
 
-	"istio.io/manager/model"
 	"istio.io/manager/test"
 )
 
@@ -32,10 +31,6 @@ var (
 		{"example1", "example1"},
 		{"exampleXY", "example-x-y"},
 	}
-	nameEncodings = []model.ConfigKey{
-		{Name: test.MockName, Version: ""},
-		{Name: test.MockName, Version: "v1"},
-	}
 )
 
 func TestCamelKabob(t *testing.T) {
@@ -43,20 +38,6 @@ func TestCamelKabob(t *testing.T) {
 		s := camelCaseToKabobCase(tt.in)
 		if s != tt.out {
 			t.Errorf("camelCaseToKabobCase(%q) => %q, want %q", tt.in, s, tt.out)
-		}
-	}
-}
-
-func TestKeyEncoding(t *testing.T) {
-	for _, tt := range nameEncodings {
-		name, version := decodeName(encodeName(tt))
-		if name != tt.Name {
-			t.Errorf("decodeName(encodeName(%#v)).Name => %q, want %q",
-				tt, name, tt.Name)
-		}
-		if version != tt.Version {
-			t.Errorf("decodeName(encodeName(%#v)).Version => %q, want %q",
-				tt, version, tt.Version)
 		}
 	}
 }
@@ -91,8 +72,7 @@ func TestThirdPartyResources(t *testing.T) {
 	ns, err := makeNamespace(kr.client, t)
 	defer deleteNamespace(kr.client, ns, t)
 
-	kr.Namespace = ns
-	test.CheckMapInvariant(kr, t)
+	test.CheckMapInvariant(kr, t, ns)
 
 	// TODO(kuat) initial watch always fails, takes time to register TPR, keep
 	// around as a work-around
