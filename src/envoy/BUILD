@@ -14,33 +14,4 @@
 #
 ################################################################################
 #
-
-load(
-    "//:repositories.bzl",
-    "boringssl_repositories",
-    "protobuf_repositories",
-    "googletest_repositories",
-)
-
-boringssl_repositories()
-
-protobuf_repositories()
-
-googletest_repositories()
-
-load(
-    "//contrib/endpoints:repositories.bzl",
-    "grpc_repositories",
-    "servicecontrol_client_repositories",
-)
-
-grpc_repositories()
-
-servicecontrol_client_repositories()
-
-load(
-    "//src/envoy:repositories.bzl",
-    "envoy_repositories",
-)
-
-envoy_repositories()
+# This file is intended to be empty for repositories.bzl
