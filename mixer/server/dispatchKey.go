@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mixer
+package main
 
 import (
 	"fmt"
+
+	"istio.io/mixer/server/attribute"
 )
 
 const (
@@ -35,14 +37,14 @@ type DispatchKey struct {
 }
 
 // NewDispatchKey constructs and returns a new DispatchKey based on the incoming facts.
-func NewDispatchKey(facts map[string]string) (DispatchKey, error) {
-	serviceName, found := facts[ServiceName]
+func NewDispatchKey(ac attribute.Context) (DispatchKey, error) {
+	serviceName, found := ac.String(ServiceName)
 	if !found {
-		return DispatchKey{}, fmt.Errorf("required fact not found: %s", ServiceName)
+		return DispatchKey{}, fmt.Errorf("required attribute not found: %s", ServiceName)
 	}
-	peerID, found := facts[PeerID]
+	peerID, found := ac.String(PeerID)
 	if !found {
-		return DispatchKey{}, fmt.Errorf("required fact not found: %s", PeerID)
+		return DispatchKey{}, fmt.Errorf("required attribute not found: %s", PeerID)
 	}
 
 	return DispatchKey{

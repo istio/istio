@@ -8,14 +8,13 @@ config_setting(
 )
 
 DEPS = [
-    "//:go_default_library",
     "//adapters:go_default_library",
     "//adapters/denyChecker:go_default_library",
-    "//adapters/factMapper:go_default_library",
     "//adapters/genericListChecker:go_default_library",
     "//adapters/ipListChecker:go_default_library",
     "//adapters/jsonLogger:go_default_library",
     "//config/listChecker:go_default_library",
+    "//server/attribute:go_default_library",
     "@com_github_golang_glog//:go_default_library",
     "@com_github_golang_protobuf//proto:go_default_library",
     "@com_github_golang_protobuf//ptypes:go_default_library",
@@ -35,6 +34,7 @@ go_binary(
         "configManager.go",
         "apiHandlers.go",
         "apiServer.go",
+        "dispatchKey.go",
         "main.go",
     ],
     deps = [
@@ -50,6 +50,7 @@ go_library(
         "apiHandlers.go",
         "apiServer.go",
         "configManager.go",
+        "dispatchKey.go",
     ],
     deps = DEPS
 )

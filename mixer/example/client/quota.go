@@ -15,9 +15,17 @@
 package main
 
 import (
-	"istio.io/mixer/example/client/cmd"
+	"fmt"
+
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	cmd.Execute()
+func quotaCmd(rootArgs *rootArgs) *cobra.Command {
+	return &cobra.Command{
+		Use:   "quota",
+		Short: "Invokes the mixer's Quota API.",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("Not implemented yet")
+		},
+	}
 }

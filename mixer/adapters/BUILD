@@ -7,7 +7,6 @@ go_library(
   srcs = [
     "adapter.go",
     "builder.go",
-    "factConverter.go",
     "listChecker.go",
     "logger.go",
     "metricsReporter.go",

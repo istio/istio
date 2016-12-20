@@ -22,8 +22,8 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/genproto/googleapis/rpc/status"
 
-	"istio.io/mixer"
 	"istio.io/mixer/adapters"
+	"istio.io/mixer/server/attribute"
 
 	mixerpb "istio.io/mixer/api/v1"
 )
@@ -34,17 +34,17 @@ type APIHandlers interface {
 	// Check performs the configured set of precondition checks.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Check(adapters.FactTracker, *mixerpb.CheckRequest, *mixerpb.CheckResponse)
+	Check(attribute.Tracker, *mixerpb.CheckRequest, *mixerpb.CheckResponse)
 
 	// Report performs the requested set of reporting operations.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Report(adapters.FactTracker, *mixerpb.ReportRequest, *mixerpb.ReportResponse)
+	Report(attribute.Tracker, *mixerpb.ReportRequest, *mixerpb.ReportResponse)
 
 	// Quota increments, decrements, or queries the specified quotas.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Quota(adapters.FactTracker, *mixerpb.QuotaRequest, *mixerpb.QuotaResponse)
+	Quota(attribute.Tracker, *mixerpb.QuotaRequest, *mixerpb.QuotaResponse)
 }
 
 type apiHandlers struct {
@@ -68,20 +68,23 @@ func NewAPIHandlers(adapterManager *AdapterManager, configManager *ConfigManager
 	}
 }
 
-func (h *apiHandlers) Check(tracker adapters.FactTracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
+func (h *apiHandlers) Check(tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	// Prepare common response fields.
 	response.RequestIndex = request.RequestIndex
 
-	facts := make(map[string]string)
+	ac, err := tracker.Update(request.AttributeUpdate)
+	if err != nil {
+		glog.Warningf("Unable to process attribute update. error: '%v'", err)
+		response.Result = newStatus(code.Code_INVALID_ARGUMENT)
+		return
+	}
 
-	dispatchKey, err := mixer.NewDispatchKey(facts)
+	dispatchKey, err := NewDispatchKey(ac)
 	if err != nil {
 		glog.Warningf("Error extracting the dispatch key. error: '%v'", err)
 		response.Result = newStatus(code.Code_FAILED_PRECONDITION)
 		return
 	}
-
-	tracker.UpdateFacts(facts)
 
 	allowed, err := h.checkLists(dispatchKey, tracker)
 	if err != nil {
@@ -99,7 +102,7 @@ func (h *apiHandlers) Check(tracker adapters.FactTracker, request *mixerpb.Check
 	response.Result = newStatus(code.Code_OK)
 }
 
-func (h *apiHandlers) checkLists(dispatchKey mixer.DispatchKey, tracker adapters.FactTracker) (bool, error) {
+func (h *apiHandlers) checkLists(dispatchKey DispatchKey, tracker attribute.Tracker) (bool, error) {
 	// TODO: What is the correct error handling policy for the check calls? This implementation opts for fail-close.
 	configBlocks, err := h.configManager.GetListCheckerConfigBlocks(dispatchKey)
 	if err != nil {
@@ -112,7 +115,7 @@ func (h *apiHandlers) checkLists(dispatchKey mixer.DispatchKey, tracker adapters
 			return false, err
 		}
 
-		symbol, err := configBlock.Evaluator.EvaluateSymbolBinding(tracker.GetLabels())
+		symbol, err := "SomeSymbol", nil //configBlock.Evaluator.EvaluateSymbolBinding(tracker.GetLabels())
 		if err != nil {
 			return false, err
 		}
@@ -134,23 +137,26 @@ func (h *apiHandlers) checkLists(dispatchKey mixer.DispatchKey, tracker adapters
 	return true, nil
 }
 
-func (h *apiHandlers) Report(tracker adapters.FactTracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
+func (h *apiHandlers) Report(tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 
 	// Prepare common response fields.
 	response.RequestIndex = request.RequestIndex
 
-	facts := make(map[string]string)
+	ac, err := tracker.Update(request.AttributeUpdate)
+	if err != nil {
+		glog.Warningf("Unable to process attribute update. error: '%v'", err)
+		response.Result = newStatus(code.Code_INVALID_ARGUMENT)
+		return
+	}
 
-	dispatchKey, err := mixer.NewDispatchKey(facts)
+	dispatchKey, err := NewDispatchKey(ac)
 	if err != nil {
 		glog.Warningf("Error extracting the dispatch key. error: '%v'", err)
 		response.Result = newStatus(code.Code_FAILED_PRECONDITION)
 		return
 	}
 
-	tracker.UpdateFacts(facts)
-
-	err = h.report(dispatchKey, tracker)
+	err = h.report(dispatchKey, ac)
 	if err != nil {
 		glog.Warningf("Unexpected report error: %v", err)
 		response.Result = newStatus(code.Code_INTERNAL)
@@ -160,7 +166,7 @@ func (h *apiHandlers) Report(tracker adapters.FactTracker, request *mixerpb.Repo
 	response.Result = newStatus(code.Code_OK)
 }
 
-func (h *apiHandlers) report(dispatchKey mixer.DispatchKey, tracker adapters.FactTracker) error {
+func (h *apiHandlers) report(dispatchKey DispatchKey, ac attribute.Context) error {
 	adapterConfigs, err := h.configManager.GetLoggerAdapterConfigs(dispatchKey)
 	if err != nil {
 		return err
@@ -216,8 +222,14 @@ func buildLogEntries(entries []*mixerpb.LogEntry) []adapters.LogEntry {
 }
 */
 
-func (h *apiHandlers) Quota(tracker adapters.FactTracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
-	tracker.UpdateFacts(make(map[string]string))
+func (h *apiHandlers) Quota(tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
+	_, err := tracker.Update(request.AttributeUpdate)
+	if err != nil {
+		glog.Warningf("Unable to process attribute update. error: '%v'", err)
+		response.Result = newQuotaError(code.Code_INVALID_ARGUMENT)
+		return
+	}
+
 	response.RequestIndex = request.RequestIndex
 	response.Result = newQuotaError(code.Code_UNIMPLEMENTED)
 }

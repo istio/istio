@@ -23,8 +23,7 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/grpc"
 
-	"istio.io/mixer/adapters"
-	"istio.io/mixer/adapters/factMapper"
+	"istio.io/mixer/server/attribute"
 
 	mixerpb "istio.io/mixer/api/v1"
 )
@@ -42,20 +41,6 @@ type testState struct {
 }
 
 func (ts *testState) createAPIServer() error {
-	rules := make(map[string]string)
-	rules["Lab1"] = "Fact1|Fact2"
-	builder := factMapper.NewBuilder()
-	err := builder.Configure(builder.DefaultBuilderConfig())
-	if err != nil {
-		return err
-	}
-	var a adapters.Adapter
-	a, err = builder.NewAdapter(&factMapper.AdapterConfig{Rules: rules})
-	if err != nil {
-		return err
-	}
-	factConverter := a.(adapters.FactConverter)
-
 	options := APIServerOptions{
 		Port:                 testPort,
 		MaxMessageSize:       1024 * 1024,
@@ -64,9 +49,10 @@ func (ts *testState) createAPIServer() error {
 		ServerCertificate:    nil,
 		ClientCertificates:   nil,
 		Handlers:             ts,
-		FactConverter:        factConverter,
+		AttributeManager:     attribute.NewManager(),
 	}
 
+	var err error
 	if ts.apiServer, err = NewAPIServer(&options); err != nil {
 		return err
 	}
@@ -118,17 +104,17 @@ func (ts *testState) cleanupTestState() {
 	ts.deleteAPIServer()
 }
 
-func (ts *testState) Check(tracker adapters.FactTracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
+func (ts *testState) Check(tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	response.RequestIndex = request.RequestIndex
 	response.Result = newStatus(code.Code_UNIMPLEMENTED)
 }
 
-func (ts *testState) Report(tracker adapters.FactTracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
+func (ts *testState) Report(tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 	response.RequestIndex = request.RequestIndex
 	response.Result = newStatus(code.Code_UNIMPLEMENTED)
 }
 
-func (ts *testState) Quota(tracker adapters.FactTracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
+func (ts *testState) Quota(tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
 	response.RequestIndex = request.RequestIndex
 	response.Result = newQuotaError(code.Code_UNIMPLEMENTED)
 }
