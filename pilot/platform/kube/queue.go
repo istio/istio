@@ -30,10 +30,14 @@ type Queue interface {
 	Run(chan struct{})
 }
 
+// Handler specifies a function to apply on an object for a given event type
+type Handler func(obj interface{}, event int) error
+
 // Task object for the event watchers; processes until handler succeeds
 type Task struct {
-	handler func(obj interface{}) error
+	handler Handler
 	obj     interface{}
+	event   int
 }
 
 type queueImpl struct {
@@ -86,7 +90,7 @@ func (q *queueImpl) Run(stop chan struct{}) {
 			q.lock.Unlock()
 
 			for {
-				err := item.handler(item.obj)
+				err := item.handler(item.obj, item.event)
 				if err != nil {
 					log.Printf("Work item failed (%v), repeating after delay %v", err, q.delay)
 					time.Sleep(q.delay)
@@ -96,4 +100,22 @@ func (q *queueImpl) Run(stop chan struct{}) {
 			}
 		}
 	}
+}
+
+// chainHandler applies handlers in a sequence
+type chainHandler struct {
+	funcs []Handler
+}
+
+func (ch *chainHandler) apply(obj interface{}, event int) error {
+	for _, f := range ch.funcs {
+		if err := f(obj, event); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ch *chainHandler) append(h Handler) {
+	ch.funcs = append(ch.funcs, h)
 }

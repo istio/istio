@@ -15,13 +15,16 @@
 package kube
 
 import (
+	"log"
 	"os"
 	"os/user"
 	"testing"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
 
+	"istio.io/manager/model"
 	"istio.io/manager/test"
 )
 
@@ -42,11 +45,88 @@ func TestCamelKabob(t *testing.T) {
 	}
 }
 
-func TestThirdPartyResources(t *testing.T) {
+func TestThirdPartyResourcesClient(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode.")
 	}
 
+	cl := makeClient(t)
+	ns := makeNamespace(cl.client, t)
+	defer deleteNamespace(cl.client, ns)
+
+	test.CheckMapInvariant(cl, t, ns, 10)
+
+	// TODO(kuat) initial watch always fails, takes time to register TPR, keep
+	// around as a work-around
+	// kr.DeregisterResources()
+}
+
+func TestController(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
+
+	cl := makeClient(t)
+	ns := makeNamespace(cl.client, t)
+	defer deleteNamespace(cl.client, ns)
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	ctl := NewController(cl, ns, 1*time.Second)
+	added, deleted := 0, 0
+	n := 5
+	ctl.AppendHandler(test.MockKind, func(c *model.Config, ev int) error {
+		log.Printf("Handler %s: %v", eventString(ev), c)
+		switch ev {
+		case evAdd:
+			if deleted != 0 {
+				t.Errorf("Events are not serialized (add)")
+			}
+			added++
+		case evDelete:
+			if added != n {
+				t.Errorf("Events are not serialized (delete)")
+			}
+			deleted++
+		}
+		log.Printf("Added %d, deleted %d", added, deleted)
+		return nil
+	})
+	go ctl.Run(stop)
+
+	test.CheckMapInvariant(cl, t, ns, n)
+	eventually(func() bool { return added == n && deleted == n }, t)
+}
+
+func TestControllerRegistry(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
+
+	cl := makeClient(t)
+	ns := makeNamespace(cl.client, t)
+	defer deleteNamespace(cl.client, ns)
+	stop := make(chan struct{})
+	defer close(stop)
+	ctl := NewController(cl, ns, 1*time.Second)
+	test.CheckMapInvariant(ctl, t, ns, 3)
+}
+
+func eventually(f func() bool, t *testing.T) {
+	interval := 64 * time.Millisecond
+	for i := 0; i < 10; i++ {
+		if f() {
+			return
+		}
+		t.Logf("Sleeping %v", interval)
+		time.Sleep(interval)
+		interval = 2 * interval
+	}
+	t.Fatal("Failed to satisfy function")
+}
+
+func makeClient(t *testing.T) *Client {
 	usr, err := user.Current()
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -57,46 +137,38 @@ func TestThirdPartyResources(t *testing.T) {
 	if _, err = os.Stat(kubeconfig); err != nil {
 		kubeconfig, _ = os.Getwd()
 		kubeconfig = kubeconfig + "/platform/kube/config"
+		if _, err = os.Stat(kubeconfig); err != nil {
+			t.Fatalf("Cannot find .kube/config file")
+		}
 	}
 
-	kr, err := NewKubernetesRegistry(kubeconfig, test.MockMapping)
+	cl, err := NewClient(kubeconfig, test.MockMapping)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf(err.Error())
 	}
 
-	// registration should be idempotent
-	if err = kr.RegisterResources(); err != nil {
-		t.Error(err)
-	}
-
-	ns, err := makeNamespace(kr.client, t)
-	defer deleteNamespace(kr.client, ns, t)
-
-	test.CheckMapInvariant(kr, t, ns)
-
-	// TODO(kuat) initial watch always fails, takes time to register TPR, keep
-	// around as a work-around
-	//err = kr.DeregisterResources()
+	err = cl.RegisterResources()
 	if err != nil {
-		t.Error(err)
+		t.Fatalf(err.Error())
 	}
+
+	return cl
 }
 
-func makeNamespace(cl *kubernetes.Clientset, t *testing.T) (string, error) {
+func makeNamespace(cl *kubernetes.Clientset, t *testing.T) string {
 	ns, err := cl.Core().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: v1.ObjectMeta{
 			GenerateName: "istio-test-",
 		},
 	})
 	if err != nil {
-		return "", err
+		t.Fatalf(err.Error())
 	}
-	t.Logf("Created namespace %s", ns.Name)
-	return ns.Name, nil
+	log.Printf("Created namespace %s", ns.Name)
+	return ns.Name
 }
 
-func deleteNamespace(cl *kubernetes.Clientset, ns string, t *testing.T) {
-	t.Logf("Deleting namespace %s", ns)
+func deleteNamespace(cl *kubernetes.Clientset, ns string) {
 	if ns != "" && ns != "default" {
 		cl.Core().Namespaces().Delete(ns, &v1.DeleteOptions{})
 	}

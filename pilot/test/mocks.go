@@ -16,7 +16,9 @@ package test
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -41,11 +43,10 @@ var (
 			&ConfigPair{Key: "key", Value: "value"},
 		},
 	}
-	MockStatus = MockConfigStatus{}
 	MockObject = model.Config{
 		ConfigKey: MockKey,
 		Spec:      &MockConfigObject,
-		Status:    &MockStatus,
+		Status:    &MockConfigStatus{},
 	}
 	MockMapping = model.KindMap{
 		MockKind: model.ProtoSchema{
@@ -80,16 +81,17 @@ func (r *MockRegistry) Get(key model.ConfigKey) (*model.Config, bool) {
 	return out, err
 }
 
-func (r *MockRegistry) Put(obj model.Config) error {
+func (r *MockRegistry) Put(obj *model.Config) error {
 	if err := r.mapping.ValidateConfig(obj); err != nil {
 		return err
 	}
-	r.store[obj.ConfigKey] = &obj
+	r.store[obj.ConfigKey] = obj
 	return nil
 }
 
-func (r *MockRegistry) Delete(key model.ConfigKey) {
+func (r *MockRegistry) Delete(key model.ConfigKey) error {
 	delete(r.store, key)
+	return nil
 }
 
 func (r *MockRegistry) List(kind string, ns string) []*model.Config {
@@ -102,35 +104,63 @@ func (r *MockRegistry) List(kind string, ns string) []*model.Config {
 	return out
 }
 
-func CheckMapInvariant(r model.Registry, t *testing.T, namespace string) {
-	key := model.ConfigKey{
+func CheckMapInvariant(r model.Registry, t *testing.T, namespace string, n int) {
+	// create configuration objects
+	elts := make(map[int]*model.Config, 0)
+	for i := 0; i < n; i++ {
+		elts[i] = &model.Config{
+			ConfigKey: model.ConfigKey{
+				Kind:      MockKind,
+				Name:      fmt.Sprintf("%s%d", MockName, i),
+				Namespace: namespace,
+			},
+			Spec: &MockConfig{
+				Pairs: []*ConfigPair{
+					&ConfigPair{Key: "key", Value: strconv.Itoa(i)},
+				},
+			},
+		}
+	}
+
+	// put all elements
+	for _, elt := range elts {
+		if err := r.Put(elt); err != nil {
+			t.Error(err)
+		}
+	}
+
+	// check that elements are stored
+	for _, elt := range elts {
+		if v1, ok := r.Get(elt.ConfigKey); !ok || !reflect.DeepEqual(*v1, *elt) {
+			t.Errorf("Wanted %v, got %v", elt, v1)
+		}
+	}
+
+	// check for missing element
+	if _, ok := r.Get(model.ConfigKey{
 		Kind:      MockKind,
 		Name:      MockName,
 		Namespace: namespace,
-	}
-	value := model.Config{
-		ConfigKey: key,
-		Spec:      &MockConfigObject,
-		Status:    &MockStatus,
+	}); ok {
+		t.Error("Unexpected configuration object found")
 	}
 
-	if err := r.Put(value); err != nil {
-		t.Error(err)
-	}
-	if v1, ok := r.Get(key); !ok || !reflect.DeepEqual(*v1, value) {
-		t.Errorf("Wanted %v, got %v", value, *v1)
-	}
+	// list elements
 	l := r.List(MockKind, namespace)
-	if len(l) != 1 {
-		t.Errorf("Wanted 1 element, got %d in %v", len(l), l)
+	if len(l) != n {
+		t.Errorf("Wanted %d element(s), got %d in %v", n, len(l), l)
 	}
-	if !reflect.DeepEqual(*l[0], value) {
-		t.Errorf("Wanted %v, got %v", value, l[0])
+
+	// delete all elements
+	for _, elt := range elts {
+		if err := r.Delete(elt.ConfigKey); err != nil {
+			t.Error(err)
+		}
 	}
-	r.Delete(key)
+
 	l = r.List(MockKind, namespace)
 	if len(l) != 0 {
-		t.Errorf("Wanted 0 elements, got %d in %v", len(l), l)
+		t.Errorf("Wanted 0 element(s), got %d in %v", len(l), l)
 	}
 }
 

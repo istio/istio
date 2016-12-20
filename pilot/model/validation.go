@@ -64,8 +64,23 @@ func (km KindMap) Validate() error {
 	return nil
 }
 
+// ValidateKey ensures that the key is well-defined and kind is well-defined
+func (km KindMap) ValidateKey(k *ConfigKey) error {
+	if err := k.Validate(); err != nil {
+		return err
+	}
+	if _, ok := km[k.Kind]; !ok {
+		return fmt.Errorf("Kind %q is not defined", k.Kind)
+	}
+	return nil
+}
+
 // ValidateConfig ensures that the config object is well-defined
-func (km KindMap) ValidateConfig(obj Config) error {
+func (km KindMap) ValidateConfig(obj *Config) error {
+	if obj == nil {
+		return fmt.Errorf("Invalid nil configuration object")
+	}
+
 	if err := obj.ConfigKey.Validate(); err != nil {
 		return err
 	}

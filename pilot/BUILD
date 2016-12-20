@@ -41,11 +41,11 @@ go_test(
 go_library(
     name = "kube",
     srcs = [
+        "platform/kube/client.go",
         "platform/kube/config.go",
         "platform/kube/consumer.go",
         "platform/kube/controller.go",
         "platform/kube/queue.go",
-        "platform/kube/registry.go",
     ],
     deps = [
         ":model",

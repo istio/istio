@@ -39,9 +39,9 @@ func TestMockRegistry(t *testing.T) {
 	if err := MockMapping.Validate(); err != nil {
 		t.Error(err)
 	}
-	CheckMapInvariant(r, t, MockNamespace)
+	CheckMapInvariant(r, t, MockNamespace, 10)
 	for _, config := range invalidConfigs {
-		if err := r.Put(config); err == nil {
+		if err := r.Put(&config); err == nil {
 			t.Errorf("t.Put(%#v) succeeded for invalid config", config)
 		}
 	}
@@ -55,7 +55,7 @@ func TestKindMap(t *testing.T) {
 
 func TestGenerator(t *testing.T) {
 	r := NewMockRegistry()
-	if err := r.Put(MockObject); err != nil {
+	if err := r.Put(&MockObject); err != nil {
 		t.Fatal(err)
 	}
 	var g model.Generator = &MockGenerator{}

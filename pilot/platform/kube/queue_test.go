@@ -25,7 +25,7 @@ func TestQueue(t *testing.T) {
 	stop := make(chan struct{})
 	out := 0
 	err := true
-	add := func(obj interface{}) error {
+	add := func(obj interface{}, event int) error {
 		t.Logf("adding %d, error: %t", obj.(int), err)
 		out = out + obj.(int)
 		if !err {
@@ -35,11 +35,39 @@ func TestQueue(t *testing.T) {
 		return errors.New("intentional error")
 	}
 	go q.Run(stop)
+
 	q.Push(Task{handler: add, obj: 1})
 	q.Push(Task{handler: add, obj: 2})
-	time.Sleep(100 * time.Microsecond)
-	close(stop)
-	if out != 4 {
-		t.Errorf("Queue => %d, want %d", out, 4)
+	q.Push(Task{handler: func(obj interface{}, event int) error {
+		if out != 4 {
+			t.Errorf("Queue => %d, want %d", out, 4)
+		}
+		close(stop)
+		return nil
+	}, obj: 0})
+}
+
+func TestChainedHandler(t *testing.T) {
+	q := NewQueue(1 * time.Microsecond)
+	stop := make(chan struct{})
+	out := 0
+	f := func(i int) Handler {
+		return func(obj interface{}, event int) error {
+			out = out + i
+			return nil
+		}
 	}
+	handler := chainHandler{
+		funcs: []Handler{f(1), f(2)},
+	}
+	go q.Run(stop)
+
+	q.Push(Task{handler: handler.apply, obj: 0})
+	q.Push(Task{handler: func(obj interface{}, event int) error {
+		if out != 3 {
+			t.Errorf("ChainedHandler => %d, want %d", out, 3)
+		}
+		close(stop)
+		return nil
+	}, obj: 0})
 }

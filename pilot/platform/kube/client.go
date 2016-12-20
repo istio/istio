@@ -48,9 +48,9 @@ const (
 	IstioResourceVersion = "v1"
 )
 
-// KubernetesRegistry bindings for the manager:
+// Client Kubernetes bindings for the manager:
 // - configuration objects are stored as third-party resources
-type KubernetesRegistry struct {
+type Client struct {
 	mapping model.KindMap
 	client  *kubernetes.Clientset
 	dyn     *rest.RESTClient
@@ -82,8 +82,8 @@ func CreateRESTConfig(kubeconfig string, km model.KindMap) (config *rest.Config,
 		func(scheme *runtime.Scheme) error {
 			scheme.AddKnownTypes(
 				version,
-				&api.ListOptions{},
-				&api.DeleteOptions{},
+				&v1.ListOptions{},
+				&v1.DeleteOptions{},
 			)
 			for kind := range km {
 				scheme.AddKnownTypeWithName(schema.GroupVersionKind{
@@ -104,8 +104,8 @@ func CreateRESTConfig(kubeconfig string, km model.KindMap) (config *rest.Config,
 	return
 }
 
-// NewKubernetesRegistry creates a client to Kubernetes API using kubeconfig file
-func NewKubernetesRegistry(kubeconfig string, km model.KindMap) (*KubernetesRegistry, error) {
+// NewClient creates a client to Kubernetes API using kubeconfig file
+func NewClient(kubeconfig string, km model.KindMap) (*Client, error) {
 	config, err := CreateRESTConfig(kubeconfig, km)
 	if err != nil {
 		return nil, err
@@ -120,25 +120,21 @@ func NewKubernetesRegistry(kubeconfig string, km model.KindMap) (*KubernetesRegi
 		return nil, err
 	}
 
-	out := &KubernetesRegistry{
+	out := &Client{
 		mapping: km,
 		client:  cl,
 		dyn:     dyn,
-	}
-
-	if err = out.RegisterResources(); err != nil {
-		return nil, err
 	}
 
 	return out, nil
 }
 
 // RegisterResources creates third party resources
-func (kr *KubernetesRegistry) RegisterResources() error {
+func (cl *Client) RegisterResources() error {
 	var out error
-	for kind, v := range kr.mapping {
+	for kind, v := range cl.mapping {
 		apiName := kindToAPIName(kind)
-		res, err := kr.client.Extensions().ThirdPartyResources().
+		res, err := cl.client.Extensions().ThirdPartyResources().
 			Get(apiName, meta_v1.GetOptions{})
 		if err == nil {
 			log.Printf("Resource already exists: %q", res.Name)
@@ -149,7 +145,7 @@ func (kr *KubernetesRegistry) RegisterResources() error {
 				Versions:    []v1beta1.APIVersion{{Name: IstioResourceVersion}},
 				Description: v.Description,
 			}
-			res, err = kr.client.Extensions().ThirdPartyResources().
+			res, err = cl.client.Extensions().ThirdPartyResources().
 				Create(tpr)
 			if err != nil {
 				out = multierror.Append(out, err)
@@ -165,11 +161,11 @@ func (kr *KubernetesRegistry) RegisterResources() error {
 }
 
 // DeregisterResources removes third party resources
-func (kr *KubernetesRegistry) DeregisterResources() error {
+func (cl *Client) DeregisterResources() error {
 	var out error
-	for kind := range kr.mapping {
+	for kind := range cl.mapping {
 		apiName := kindToAPIName(kind)
-		err := kr.client.Extensions().ThirdPartyResources().
+		err := cl.client.Extensions().ThirdPartyResources().
 			Delete(apiName, &v1.DeleteOptions{})
 		if err != nil {
 			out = multierror.Append(out, err)
@@ -178,9 +174,14 @@ func (kr *KubernetesRegistry) DeregisterResources() error {
 	return out
 }
 
-func (kr *KubernetesRegistry) Get(key model.ConfigKey) (*model.Config, bool) {
+func (cl *Client) Get(key model.ConfigKey) (*model.Config, bool) {
+	if err := cl.mapping.ValidateKey(&key); err != nil {
+		log.Print(err)
+		return nil, false
+	}
+
 	config := &Config{}
-	err := kr.dyn.Get().
+	err := cl.dyn.Get().
 		Namespace(key.Namespace).
 		Resource(key.Kind + "s").
 		Name(key.Name).
@@ -189,7 +190,7 @@ func (kr *KubernetesRegistry) Get(key model.ConfigKey) (*model.Config, bool) {
 		log.Printf(err.Error())
 		return nil, false
 	}
-	out, err := kr.convert(key.Kind, config)
+	out, err := kubeToModel(key.Kind, cl.mapping[key.Kind], config)
 	if err != nil {
 		log.Printf(err.Error())
 		return nil, false
@@ -197,58 +198,37 @@ func (kr *KubernetesRegistry) Get(key model.ConfigKey) (*model.Config, bool) {
 	return out, true
 }
 
-func (kr *KubernetesRegistry) Put(obj model.Config) error {
-	if err := kr.mapping.ValidateConfig(obj); err != nil {
-		return err
-	}
-	spec, err := protoToMap(obj.Spec.(proto.Message))
+func (cl *Client) Put(obj *model.Config) error {
+	out, err := modelToKube(cl.mapping, obj)
 	if err != nil {
 		return err
 	}
-	var status map[string]interface{}
-	if obj.Status != nil {
-		status, err = protoToMap(obj.Status.(proto.Message))
-		if err != nil {
-			return err
-		}
-	}
-
-	out := &Config{
-		Metadata: api.ObjectMeta{Name: obj.ConfigKey.Name},
-		Spec:     spec,
-		Status:   status,
-	}
-
-	err = kr.dyn.Post().
+	return cl.dyn.Post().
 		Namespace(obj.Namespace).
 		Resource(obj.Kind + "s").
 		Body(out).
 		Do().Error()
-	if err != nil {
+}
+
+func (cl *Client) Delete(key model.ConfigKey) error {
+	if err := cl.mapping.ValidateKey(&key); err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func (kr *KubernetesRegistry) Delete(key model.ConfigKey) {
-	err := kr.dyn.Delete().
+	return cl.dyn.Delete().
 		Namespace(key.Namespace).
 		Resource(key.Kind + "s").
 		Name(key.Name).
 		Do().Error()
-	if err != nil {
-		log.Printf(err.Error())
-	}
 }
 
-func (kr *KubernetesRegistry) List(kind string, ns string) []*model.Config {
-	if _, ok := kr.mapping[kind]; !ok {
+func (cl *Client) List(kind string, ns string) []*model.Config {
+	if _, ok := cl.mapping[kind]; !ok {
 		return nil
 	}
 
 	list := &ConfigList{}
-	err := kr.dyn.Get().
+	err := cl.dyn.Get().
 		Namespace(ns).
 		Resource(kind + "s").
 		Do().Into(list)
@@ -259,7 +239,7 @@ func (kr *KubernetesRegistry) List(kind string, ns string) []*model.Config {
 
 	var out []*model.Config
 	for _, item := range list.Items {
-		elt, err := kr.convert(kind, &item)
+		elt, err := kubeToModel(kind, cl.mapping[kind], &item)
 		if err != nil {
 			log.Printf(err.Error())
 		}
@@ -289,14 +269,15 @@ func kindToAPIName(s string) string {
 	return camelCaseToKabobCase(s) + "." + IstioAPIGroup
 }
 
-func (kr *KubernetesRegistry) convert(kind string, config *Config) (*model.Config, error) {
-	spec, err := mapToProto(kr.mapping[kind].MessageName, config.Spec)
+func kubeToModel(kind string, schema model.ProtoSchema, config *Config) (*model.Config, error) {
+	// TODO: validate incoming kube object
+	spec, err := mapToProto(schema.MessageName, config.Spec)
 	if err != nil {
 		return nil, err
 	}
 	var status proto.Message
 	if config.Status != nil {
-		status, err = mapToProto(kr.mapping[kind].StatusMessageName, config.Status)
+		status, err = mapToProto(schema.StatusMessageName, config.Status)
 		if err != nil {
 			return nil, err
 		}
@@ -313,6 +294,37 @@ func (kr *KubernetesRegistry) convert(kind string, config *Config) (*model.Confi
 	}
 
 	return &out, nil
+}
+
+func modelToKube(km model.KindMap, obj *model.Config) (*Config, error) {
+	if err := km.ValidateConfig(obj); err != nil {
+		return nil, err
+	}
+	spec, err := protoToMap(obj.Spec.(proto.Message))
+	if err != nil {
+		return nil, err
+	}
+	var status map[string]interface{}
+	if obj.Status != nil {
+		status, err = protoToMap(obj.Status.(proto.Message))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	out := &Config{
+		TypeMeta: meta_v1.TypeMeta{
+			Kind: obj.Kind,
+		},
+		Metadata: api.ObjectMeta{
+			Name:      obj.ConfigKey.Name,
+			Namespace: obj.ConfigKey.Namespace,
+		},
+		Spec:   spec,
+		Status: status,
+	}
+
+	return out, nil
 }
 
 func protoToMap(msg proto.Message) (map[string]interface{}, error) {
