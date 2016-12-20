@@ -14,44 +14,6 @@
 #
 ################################################################################
 #
-def protobuf_repositories(bind=True):
-    native.git_repository(
-        name = "protobuf_git",
-        commit = "a428e42072765993ff674fda72863c9f1aa2d268",  # v3.1.0
-        remote = "https://github.com/google/protobuf.git",
-    )
-
-    if bind:
-        native.bind(
-            name = "protoc",
-            actual = "@protobuf_git//:protoc",
-        )
-
-        native.bind(
-            name = "protobuf",
-            actual = "@protobuf_git//:protobuf",
-        )
-
-        native.bind(
-            name = "cc_wkt_protos",
-            actual = "@protobuf_git//:cc_wkt_protos",
-        )
-
-        native.bind(
-            name = "cc_wkt_protos_genproto",
-            actual = "@protobuf_git//:cc_wkt_protos_genproto",
-        )
-
-        native.bind(
-            name = "protobuf_compiler",
-            actual = "@protobuf_git//:protoc_lib",
-        )
-
-        native.bind(
-            name = "protobuf_clib",
-            actual = "@protobuf_git//:protobuf_lite",
-        )
-
 def zlib_repositories(bind=True):
     BUILD = """
 # Copyright 2016 Google Inc. All Rights Reserved.
