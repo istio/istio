@@ -510,7 +510,8 @@ genrule(
     outs = [
         "source/common/version_generated.cc",
     ],
-    cmd = "touch $@ && $(location tools/gen_git_sha.sh) . $@",
+    cmd = "touch $@ && $(location tools/gen_git_sha.sh) $$(dirname $(location tools/gen_git_sha.sh)) $@",
+    local = 1,
 )
 
 cc_library(
