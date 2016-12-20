@@ -32,7 +32,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/mixer/adapters"
+	"istio.io/mixer/server/attribute"
 
 	proto "github.com/golang/protobuf/proto"
 	mixerpb "istio.io/mixer/api/v1"
@@ -67,18 +67,18 @@ type APIServerOptions struct {
 	// for all API methods
 	Handlers APIHandlers
 
-	// FactConverter is a pointer to the global fact conversion
-	// adapter to use.
-	FactConverter adapters.FactConverter
+	// AttributeManager holds a pointer to an initialized AttributeManager to use when
+	// processing incoming attribute requests.
+	AttributeManager attribute.Manager
 }
 
 // APIServer holds the state for the gRPC API server.
 // Use NewAPIServer to get one of these.
 type APIServer struct {
-	server        *grpc.Server
-	listener      net.Listener
-	handler       APIHandlers
-	factConverter adapters.FactConverter
+	server   *grpc.Server
+	listener net.Listener
+	handler  APIHandlers
+	attrMgr  attribute.Manager
 }
 
 // NewAPIServer creates the gRPC serving stack.
@@ -117,7 +117,7 @@ func NewAPIServer(options *APIServerOptions) (*APIServer, error) {
 
 	// get everything wired up
 	grpcServer := grpc.NewServer(grpcOptions...)
-	apiServer := &APIServer{grpcServer, listener, options.Handlers, options.FactConverter}
+	apiServer := &APIServer{grpcServer, listener, options.Handlers, options.AttributeManager}
 	mixerpb.RegisterMixerServer(grpcServer, apiServer)
 	return apiServer, nil
 }
@@ -134,10 +134,10 @@ func (s *APIServer) Stop() {
 	s.server.GracefulStop()
 }
 
-type handlerFunc func(tracker adapters.FactTracker, request proto.Message, response proto.Message)
+type handlerFunc func(tracker attribute.Tracker, request proto.Message, response proto.Message)
 
 func (s *APIServer) streamLoop(stream grpc.ServerStream, request proto.Message, response proto.Message, handler handlerFunc) error {
-	tracker := s.factConverter.NewTracker()
+	tracker := s.attrMgr.NewTracker()
 	for {
 		// get a single message
 		if err := stream.RecvMsg(request); err == io.EOF {
@@ -166,7 +166,7 @@ func (s *APIServer) Check(stream mixerpb.Mixer_CheckServer) error {
 	return s.streamLoop(stream,
 		new(mixerpb.CheckRequest),
 		new(mixerpb.CheckResponse),
-		func(tracker adapters.FactTracker, request proto.Message, response proto.Message) {
+		func(tracker attribute.Tracker, request proto.Message, response proto.Message) {
 			s.handler.Check(tracker, request.(*mixerpb.CheckRequest), response.(*mixerpb.CheckResponse))
 		})
 }
@@ -176,7 +176,7 @@ func (s *APIServer) Report(stream mixerpb.Mixer_ReportServer) error {
 	return s.streamLoop(stream,
 		new(mixerpb.ReportRequest),
 		new(mixerpb.ReportResponse),
-		func(tracker adapters.FactTracker, request proto.Message, response proto.Message) {
+		func(tracker attribute.Tracker, request proto.Message, response proto.Message) {
 			s.handler.Report(tracker, request.(*mixerpb.ReportRequest), response.(*mixerpb.ReportResponse))
 		})
 }
@@ -186,7 +186,7 @@ func (s *APIServer) Quota(stream mixerpb.Mixer_QuotaServer) error {
 	return s.streamLoop(stream,
 		new(mixerpb.QuotaRequest),
 		new(mixerpb.QuotaResponse),
-		func(tracker adapters.FactTracker, request proto.Message, response proto.Message) {
+		func(tracker attribute.Tracker, request proto.Message, response proto.Message) {
 			s.handler.Quota(tracker, request.(*mixerpb.QuotaRequest), response.(*mixerpb.QuotaResponse))
 		})
 }

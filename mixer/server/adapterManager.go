@@ -18,22 +18,12 @@ import (
 	"errors"
 
 	"fmt"
-	"istio.io/mixer"
 	"istio.io/mixer/adapters"
 	"istio.io/mixer/adapters/denyChecker"
-	"istio.io/mixer/adapters/factMapper"
 	"istio.io/mixer/adapters/genericListChecker"
 	"istio.io/mixer/adapters/ipListChecker"
 	"istio.io/mixer/adapters/jsonLogger"
 )
-
-// all the known fact converter adapter types
-var factConverters = []adapters.Builder{
-	factMapper.NewBuilder(),
-}
-
-// all the known fact updater adapter types
-var factUpdaters = []adapters.Builder{}
 
 // all the known list checker adapter types
 var listCheckers = []adapters.Builder{
@@ -48,12 +38,6 @@ var loggers = []adapters.Builder{
 
 // AdapterManager keeps track of activated Adapter objects for different types of adapters
 type AdapterManager struct {
-	// FactUpdaters is the set of fact updater adapters
-	FactUpdaters map[string]adapters.Builder
-
-	// FactConverters is the set of fact converter adapters
-	FactConverters map[string]adapters.Builder
-
 	// ListCheckers is the set of list checker adapters
 	ListCheckers map[string]adapters.Builder
 
@@ -63,14 +47,14 @@ type AdapterManager struct {
 
 // GetListCheckerAdapter returns a matching adapter for the given dispatchKey. If there is no existing adapter,
 // it instantiates one, based on the provided adapter config.
-func (mgr *AdapterManager) GetListCheckerAdapter(dispatchKey mixer.DispatchKey, config *adapters.AdapterConfig) (adapters.ListChecker, error) {
+func (mgr *AdapterManager) GetListCheckerAdapter(dispatchKey DispatchKey, config *adapters.AdapterConfig) (adapters.ListChecker, error) {
 	// TODO: instantiation & caching of the adapters.
 	return nil, errors.New("NYI")
 }
 
 // GetLoggerAdapter returns a matching adapter for the given dispatchKey. If there is no existing adapter,
 // it instantiates one, based on the provided adapter config.
-func (mgr *AdapterManager) GetLoggerAdapter(dispatchKey mixer.DispatchKey, config *adapters.AdapterConfig) (adapters.Logger, error) {
+func (mgr *AdapterManager) GetLoggerAdapter(dispatchKey DispatchKey, config *adapters.AdapterConfig) (adapters.Logger, error) {
 	builder := mgr.Loggers[(*config).Name()]
 	// TODO: NewAdapter probably should take a pointer, instead of value.
 	adapter, err := builder.NewAdapter(*config)
@@ -107,14 +91,6 @@ func prepBuilders(l []adapters.Builder) (map[string]adapters.Builder, error) {
 func NewAdapterManager() (*AdapterManager, error) {
 	var mgr = AdapterManager{}
 	var err error
-
-	if mgr.FactUpdaters, err = prepBuilders(factUpdaters); err != nil {
-		return nil, err
-	}
-
-	if mgr.FactConverters, err = prepBuilders(factConverters); err != nil {
-		return nil, err
-	}
 
 	if mgr.ListCheckers, err = prepBuilders(listCheckers); err != nil {
 		return nil, err

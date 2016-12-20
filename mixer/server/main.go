@@ -27,7 +27,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/mixer/adapters"
-	"istio.io/mixer/adapters/factMapper"
+	"istio.io/mixer/server/attribute"
 )
 
 type serverArgs struct {
@@ -59,8 +59,6 @@ func listBuilders() error {
 		return fmt.Errorf("Unable to initialize adapters: %v", err)
 	}
 
-	printBuilders("Fact Converters", mgr.FactConverters)
-	printBuilders("Fact Updaters", mgr.FactUpdaters)
 	printBuilders("List Checkers", mgr.ListCheckers)
 	printBuilders("Loggers", mgr.Loggers)
 
@@ -101,18 +99,7 @@ func runServer(sa *serverArgs) error {
 		glog.Exitf("Unable to initialize configuration: %v", err)
 	}
 
-	// TODO: hackily create a fact mapper builder & adapter.
-	// This necessarily needs to be discovered & created through normal
-	// adapter config goo, but that doesn't exist yet
-	rules := make(map[string]string)
-	rules["Lab1"] = "Fact1|Fact2"
-	builder := adapterMgr.FactConverters["FactMapper"]
-	var adapter adapters.Adapter
-	adapter, err = builder.NewAdapter(&factMapper.AdapterConfig{Rules: rules})
-	if err != nil {
-		return fmt.Errorf("Unable to create fact conversion adapter " + err.Error())
-	}
-	factConverter := adapter.(adapters.FactConverter)
+	attrMgr := attribute.NewManager()
 
 	apiServerOptions := APIServerOptions{
 		Port:                 uint16(sa.port),
@@ -122,7 +109,7 @@ func runServer(sa *serverArgs) error {
 		ServerCertificate:    serverCert,
 		ClientCertificates:   clientCerts,
 		Handlers:             NewAPIHandlers(adapterMgr, configMgr),
-		FactConverter:        factConverter,
+		AttributeManager:     attrMgr,
 	}
 
 	var apiServer *APIServer
