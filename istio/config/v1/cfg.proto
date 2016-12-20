@@ -1,0 +1,131 @@
+// Copyright 2016 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+import "google/protobuf/struct.proto";
+
+
+package istio.config.v1;
+
+// Configures a set of services
+// following example configures metrics collection and ratelimit for
+// all services 
+//# service config
+//subject: "namespace:ns1"
+//revision: "1011"
+//rules:
+//- selector: target_name == "*"
+//  aspects:
+//  - kind: metrics
+//    params:
+//      metrics:   # defines metric collection across the board.
+//      - name: response_time_by_status_code
+//        value: metric.response_time     # certain attributes are metrics
+//        metric_kind: DELTA
+//        labels:
+//        - key: response.status_code
+//  - kind: ratelimiter
+//    params:
+//      limits:  # imposes 2 limits, 100/s per source and destination
+//      - limit: "100/s"
+//        labels:
+//          - key: src.service_id
+//          - key: target.service_id
+//       - limit: "1000/s"  # every destination service gets 1000/s
+//        labels:
+//          - key: target.service_id
+message ServiceConfig {
+  // subject is unique for a config type
+  // 2 config with the same subject will overwrite each other
+  string subject = 1;
+  // revision of this config. This is assigned by the server
+  string revision = 2;
+  repeated AspectRule rules = 3;
+}
+
+// AspectRules are intent based
+message AspectRule {
+  // selector is an attributes based predicate.
+  // attr1 == "20" && attr2 == "30"
+  string selector = 1;
+  // The following aspects apply when the selector predicate evaluates to True
+  repeated Aspect aspects = 2;
+  // Nested aspect Rule is evaluated if selector predicate evaluates to True
+  repeated AspectRule rules = 3;
+}
+
+
+// Aspect is intent based. It specifies the intent "kind"
+// following example specifies that the user would like to collect
+// response_time with 3 labels (src_consumer_id, target_response_status_code,
+// target_service_name)
+//
+// The Input section tells if target_service_name is not available it can be
+// computed using the given expression
+//
+//      kind: istio/metrics
+//      params:
+//        metrics:
+//        - name: response_time     # What to call this metric outbound.
+//          value: metric_response_time  # from wellknown vocabulary
+//          metric_kind: DELTA
+//          labels:
+//          - key: src_consumer_id
+//          - key: target_response_status_code
+//          - key: target_service_name
+//      Inputs:
+//           Attr.target_service_name: target_service_name || target_service_id
+message Aspect {
+  string kind = 1;
+  string adapter = 2; // optional, allows specifying an adapter
+  // maps from isio Attribute space to aspect.Input proto defined
+  // by the aspect
+  map<string, string> inputs = 3;
+  // Struct representation of a proto defined by the aspect
+  google.protobuf.Struct params = 4;
+}
+
+// Adapter config defines specifics of adapter implementations
+// We define an adapter that provides "metrics" aspect
+// Kind: istio/metrics
+// Name: metrics-statsd
+// Impl: “istio.io/adapters/statsd”
+// Args:
+//    Host: statd.svc.cluster
+//    Port: 8125
+message Adapter {
+	string name = 1;  // statsd-slow
+	string kind = 2;  // metrics
+	string impl = 3;  // istio.statsd
+  // Struct representation of a proto defined by the implementation
+	google.protobuf.Struct args = 4;    // based on impl {}
+}
+
+// GlobalConfig defines configuration elements that are available
+// for the rest of the config
+// It is used to configure adapters and make them available in AspectRules
+message GlobalConfig {
+  string revision = 1;
+  repeated Adapter adapters = 2;
+}
+
+// ClientConfig defines configuration from a client perspective.
+// ServiceA can define rules about what happens when it is acting as client
+// to other services
+message ClientConfig {
+  string subject = 1;
+  string revision = 2;
+  repeated AspectRule rules = 3;
+}
