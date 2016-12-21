@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/grpc"
@@ -175,8 +174,4 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 	}
 
 	return &attrs, nil
-}
-
-func errorf(format string, a ...interface{}) {
-	glog.Errorf(format+"\n", a...)
 }

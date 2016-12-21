@@ -15,17 +15,15 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
-func quotaCmd(rootArgs *rootArgs) *cobra.Command {
+func quotaCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "quota",
 		Short: "Invokes the mixer's Quota API.",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Not implemented yet")
+			errorf("Not implemented yet\n")
 		},
 	}
 }

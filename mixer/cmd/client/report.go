@@ -24,16 +24,16 @@ import (
 	mixerpb "istio.io/mixer/api/v1"
 )
 
-func reportCmd(rootArgs *rootArgs) *cobra.Command {
+func reportCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "report <message>...",
 		Short: "Invokes the mixer's Report API.",
 		Run: func(cmd *cobra.Command, args []string) {
-			report(rootArgs, args)
+			report(rootArgs, args, errorf)
 		}}
 }
 
-func report(rootArgs *rootArgs, args []string) {
+func report(rootArgs *rootArgs, args []string, errorf errorFn) {
 	var attrs *mixerpb.Attributes
 	var err error
 

@@ -23,16 +23,16 @@ import (
 	mixerpb "istio.io/mixer/api/v1"
 )
 
-func checkCmd(rootArgs *rootArgs) *cobra.Command {
+func checkCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "check",
 		Short: "Invokes the mixer's Check API.",
 		Run: func(cmd *cobra.Command, args []string) {
-			check(rootArgs, args)
+			check(rootArgs, args, errorf)
 		}}
 }
 
-func check(rootArgs *rootArgs, args []string) {
+func check(rootArgs *rootArgs, args []string, errorf errorFn) {
 	var attrs *mixerpb.Attributes
 	var err error
 

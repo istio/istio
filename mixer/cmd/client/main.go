@@ -18,6 +18,7 @@ import (
 	"flag"
 	"os"
 
+	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 )
 
@@ -44,16 +45,24 @@ type rootArgs struct {
 	mixerAddress string
 }
 
-func main() {
+// A function used for error output.
+type errorFn func(format string, a ...interface{})
+
+// withArgs is like main except that it is parameterized with the
+// command-line arguments to use, along with a function to call
+// in case of errors. This allows the function to be invoked
+// from test code.
+func withArgs(args []string, errorf errorFn) {
 	// RootCmd represents the base command when called without any subcommands
 	rootCmd := &cobra.Command{
-		Use:   "client",
+		Use:   "mixc",
 		Short: "Invoke the API of a running instance of the Istio mixer",
 	}
+	rootCmd.SetArgs(args)
+	rootCmd.Flags().AddGoFlagSet(flag.CommandLine)
 
 	rootArgs := &rootArgs{}
 
-	rootCmd.Flags().AddGoFlagSet(flag.CommandLine)
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.mixerAddress, "mixer", "m", "localhost:9091", "Address and port of running instance of the mixer")
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.stringAttributes, "string_attributes", "s", "", "List of name/value string attributes specified as name1=value1,name2=value2,...")
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.int64Attributes, "int64_attributes", "i", "", "List of name/value int64 attributes specified as name1=value1,name2=value2,...")
@@ -62,12 +71,20 @@ func main() {
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.timestampAttributes, "timestamp_attributes", "t", "", "List of name/value timestamp attributes specified as name1=value1,name2=value2,...")
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.bytesAttributes, "bytes_attributes", "", "", "List of name/value bytes attributes specified as name1=b0:b1:b3,name2=b4:b5:b6,...")
 
-	rootCmd.AddCommand(checkCmd(rootArgs))
-	rootCmd.AddCommand(reportCmd(rootArgs))
-	rootCmd.AddCommand(quotaCmd(rootArgs))
+	rootCmd.AddCommand(checkCmd(rootArgs, errorf))
+	rootCmd.AddCommand(reportCmd(rootArgs, errorf))
+	rootCmd.AddCommand(quotaCmd(rootArgs, errorf))
 
 	if err := rootCmd.Execute(); err != nil {
 		errorf(err.Error())
 		os.Exit(-1)
 	}
+}
+
+func main() {
+	withArgs(os.Args[1:],
+		func(format string, a ...interface{}) {
+			glog.Errorf(format, a...)
+			os.Exit(1)
+		})
 }
