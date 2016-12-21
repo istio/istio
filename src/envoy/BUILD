@@ -14,4 +14,21 @@
 #
 ################################################################################
 #
-# This file is intended to be empty for repositories.bzl
+cc_test(
+    name = "envoy_test",
+    data = [
+        "@envoy_git//:envoy-testdata",
+    ],
+    copts = [
+        "-include ./external/envoy_git/test/precompiled/precompiled_test.h",
+    ],
+    deps = [
+        "@envoy_git//:envoy-test-lib",
+        "//external:googletest_main",
+    ],
+    args = [
+        #TODO: Make all test pass
+        "--gtest_filter=RouterTest.*",
+    ],
+    linkstatic=1,
+)
