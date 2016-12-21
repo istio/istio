@@ -15,165 +15,30 @@
 package main
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"flag"
-	"fmt"
-	"io/ioutil"
 	"os"
-	"strings"
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
-
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/api"
-	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/server"
 )
 
-type serverArgs struct {
-	port                 uint
-	maxMessageSize       uint
-	maxConcurrentStreams uint
-	compressedPayload    bool
-	serverCertFile       string
-	serverKeyFile        string
-	clientCertFiles      string
-}
-
-func printBuilders(listName string, builders map[string]adapter.Builder) {
-	fmt.Printf("%s\n", listName)
-	if len(builders) > 0 {
-		for _, b := range builders {
-			fmt.Printf("  %s: %s\n", b.Name(), b.Description())
-		}
-	} else {
-		fmt.Printf("  <none>\n")
-	}
-
-	fmt.Printf("\n")
-}
-
-func listBuilders() error {
-	mgr, err := server.NewAdapterManager()
-	if err != nil {
-		return fmt.Errorf("Unable to initialize adapters: %v", err)
-	}
-
-	printBuilders("List Checkers", mgr.ListCheckers)
-	printBuilders("Loggers", mgr.Loggers)
-
-	return nil
-}
-
-func runServer(sa *serverArgs) error {
-	var err error
-	var serverCert *tls.Certificate
-	var clientCerts *x509.CertPool
-
-	if sa.serverCertFile != "" && sa.serverKeyFile != "" {
-		sc, err := tls.LoadX509KeyPair(sa.serverCertFile, sa.serverKeyFile)
-		if err != nil {
-			return fmt.Errorf("Failed to load server certificate and server key: %v", err)
-		}
-		serverCert = &sc
-	}
-
-	if sa.clientCertFiles != "" {
-		clientCerts = x509.NewCertPool()
-		for _, clientCertFile := range strings.Split(sa.clientCertFiles, ",") {
-			pem, err := ioutil.ReadFile(clientCertFile)
-			if err != nil {
-				return fmt.Errorf("Failed to load client certificate: %v", err)
-			}
-			clientCerts.AppendCertsFromPEM(pem)
-		}
-	}
-
-	var adapterMgr *server.AdapterManager
-	if adapterMgr, err = server.NewAdapterManager(); err != nil {
-		return fmt.Errorf("Unable to initialize adapters: %v", err)
-	}
-
-	var configMgr *server.ConfigManager
-	if configMgr, err = server.NewConfigManager(); err != nil {
-		glog.Exitf("Unable to initialize configuration: %v", err)
-	}
-
-	attrMgr := attribute.NewManager()
-
-	grpcServerOptions := api.GRPCServerOptions{
-		Port:                 uint16(sa.port),
-		MaxMessageSize:       sa.maxMessageSize,
-		MaxConcurrentStreams: sa.maxConcurrentStreams,
-		CompressedPayload:    sa.compressedPayload,
-		ServerCertificate:    serverCert,
-		ClientCertificates:   clientCerts,
-		Handlers:             api.NewMethodHandlers(adapterMgr, configMgr),
-		AttributeManager:     attrMgr,
-	}
-
-	var grpcServer *api.GRPCServer
-	if grpcServer, err = api.NewGRPCServer(&grpcServerOptions); err != nil {
-		return fmt.Errorf("Unable to initialize gRPC server " + err.Error())
-	}
-	grpcServer.Start()
-	return nil
-}
+// A function used for error output.
+type errorFn func(format string, a ...interface{})
 
 // withArgs is like main except that it is parameterized with the
 // command-line arguments to use, along with a function to call
 // in case of errors. This allows the function to be invoked
 // from test code.
-func withArgs(args []string, errorf func(format string, a ...interface{})) {
-
+func withArgs(args []string, errorf errorFn) {
 	rootCmd := cobra.Command{
-		Use:   "mixer",
+		Use:   "mixs",
 		Short: "The Istio mixer provides control plane functionality to the Istio proxy and services",
 	}
 	rootCmd.SetArgs(args)
-
-	adapterCmd := cobra.Command{
-		Use:   "adapter",
-		Short: "Diagnostics for the available mixer adapters",
-	}
-	rootCmd.AddCommand(&adapterCmd)
 	rootCmd.Flags().AddGoFlagSet(flag.CommandLine)
 
-	listCmd := cobra.Command{
-		Use:   "list",
-		Short: "List available adapter builders",
-		Run: func(cmd *cobra.Command, args []string) {
-			err := listBuilders()
-			if err != nil {
-				errorf("%v", err)
-			}
-		},
-	}
-	adapterCmd.AddCommand(&listCmd)
-
-	sa := &serverArgs{}
-	serverCmd := cobra.Command{
-		Use:   "server",
-		Short: "Starts the mixer as a server",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Starting gRPC server on port %v", sa.port)
-
-			err := runServer(sa)
-			if err != nil {
-				errorf("%v", err)
-			}
-		},
-	}
-	serverCmd.PersistentFlags().UintVarP(&sa.port, "port", "p", 9091, "TCP port to use for the mixer's gRPC API")
-	serverCmd.PersistentFlags().UintVarP(&sa.maxMessageSize, "maxMessageSize", "", 1024*1024, "Maximum size of individual gRPC messages")
-	serverCmd.PersistentFlags().UintVarP(&sa.maxConcurrentStreams, "maxConcurrentStreams", "", 32, "Maximum supported number of concurrent gRPC streams")
-	serverCmd.PersistentFlags().BoolVarP(&sa.compressedPayload, "compressedPayload", "", false, "Whether to compress gRPC messages")
-	serverCmd.PersistentFlags().StringVarP(&sa.serverCertFile, "serverCertFile", "", "", "The TLS cert file")
-	serverCmd.PersistentFlags().StringVarP(&sa.serverKeyFile, "serverKeyFile", "", "", "The TLS key file")
-	serverCmd.PersistentFlags().StringVarP(&sa.clientCertFiles, "clientCertFiles", "", "", "A set of comma-separated client X509 cert files")
-	rootCmd.AddCommand(&serverCmd)
+	rootCmd.AddCommand(adapterCmd(errorf))
+	rootCmd.AddCommand(serverCmd(errorf))
 
 	if err := rootCmd.Execute(); err != nil {
 		errorf("%v", err)
@@ -183,7 +48,7 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 func main() {
 	withArgs(os.Args[1:],
 		func(format string, a ...interface{}) {
-			glog.Errorf(format+"\n", a...)
+			glog.Errorf(format, a...)
 			os.Exit(1)
 		})
 }

@@ -6,6 +6,8 @@ go_binary(
     name = "mixs",
     srcs = [
         "main.go",
+        "server.go",
+        "adapter.go"
     ],
     deps = [
         "//pkg/api:go_default_library",
