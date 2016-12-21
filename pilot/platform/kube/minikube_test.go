@@ -54,7 +54,7 @@ func TestThirdPartyResourcesClient(t *testing.T) {
 	ns := makeNamespace(cl.client, t)
 	defer deleteNamespace(cl.client, ns)
 
-	test.CheckMapInvariant(cl, t, ns, 10)
+	test.CheckMapInvariant(cl, t, ns, 5)
 
 	// TODO(kuat) initial watch always fails, takes time to register TPR, keep
 	// around as a work-around
@@ -73,11 +73,10 @@ func TestController(t *testing.T) {
 	stop := make(chan struct{})
 	defer close(stop)
 
-	ctl := NewController(cl, ns, 1*time.Second)
+	ctl := NewController(cl, ns, 256*time.Millisecond)
 	added, deleted := 0, 0
 	n := 5
 	ctl.AppendHandler(test.MockKind, func(c *model.Config, ev int) error {
-		log.Printf("Handler %s: %v", eventString(ev), c)
 		switch ev {
 		case evAdd:
 			if deleted != 0 {
@@ -99,7 +98,7 @@ func TestController(t *testing.T) {
 	eventually(func() bool { return added == n && deleted == n }, t)
 }
 
-func TestControllerRegistry(t *testing.T) {
+func TestControllerCacheFreshness(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode.")
 	}
@@ -108,9 +107,100 @@ func TestControllerRegistry(t *testing.T) {
 	ns := makeNamespace(cl.client, t)
 	defer deleteNamespace(cl.client, ns)
 	stop := make(chan struct{})
+	ctl := NewController(cl, ns, 256*time.Millisecond)
+
+	// validate cache consistency requirement:
+	// When you receive a notification, the cache will be AT LEAST as fresh as the notification, but it MAY be more fresh.
+	ctl.AppendHandler(test.MockKind, func(c *model.Config, ev int) error {
+		elts := ctl.List(test.MockKind, ns)
+		switch ev {
+		case evAdd:
+			if len(elts) != 1 {
+				t.Errorf("Got %#v, expected %d element(s) on ADD event", elts, 1)
+			}
+			ctl.Delete(c.ConfigKey)
+		case evDelete:
+			if len(elts) != 0 {
+				t.Errorf("Got %#v, expected zero elements on DELETE event", elts)
+			}
+			close(stop)
+		}
+		return nil
+	})
+
+	go ctl.Run(stop)
+	o := test.MakeMock(0, ns)
+
+	// put followed by delete
+	if err := ctl.Put(o); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestControllerClientSync(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
+
+	cl := makeClient(t)
+	ns := makeNamespace(cl.client, t)
+	n := 5
+	defer deleteNamespace(cl.client, ns)
+	stop := make(chan struct{})
 	defer close(stop)
-	ctl := NewController(cl, ns, 1*time.Second)
-	test.CheckMapInvariant(ctl, t, ns, 3)
+
+	// add elements directly through client
+	for i := 0; i < n; i++ {
+		if err := cl.Put(test.MakeMock(i, ns)); err != nil {
+			t.Error(err)
+		}
+	}
+
+	// check in the controller cache
+	ctl := NewController(cl, ns, 256*time.Millisecond)
+	go ctl.Run(stop)
+	eventually(func() bool { return ctl.HasSynced() }, t)
+	os := ctl.List(test.MockKind, ns)
+	if len(os) != n {
+		t.Errorf("ctl.List => Got %d, expected %d", len(os), n)
+	}
+
+	// remove elements directly through client
+	for i := 0; i < n; i++ {
+		if err := cl.Delete(test.MakeMock(i, ns).ConfigKey); err != nil {
+			t.Error(err)
+		}
+	}
+
+	// check again in the controller cache
+	eventually(func() bool {
+		os = ctl.List(test.MockKind, ns)
+		log.Printf("ctl.List => Got %d, expected %d", len(os), 0)
+		return len(os) == 0
+	}, t)
+
+	// now add through the controller
+	for i := 0; i < n; i++ {
+		if err := ctl.Put(test.MakeMock(i, ns)); err != nil {
+			t.Error(err)
+		}
+	}
+
+	// check directly through the client
+	eventually(func() bool {
+		cs := ctl.List(test.MockKind, ns)
+		os := cl.List(test.MockKind, ns)
+		log.Printf("ctl.List => Got %d, expected %d", len(cs), n)
+		log.Printf("cl.List => Got %d, expected %d", len(os), n)
+		return len(os) == n && len(cs) == n
+	}, t)
+
+	// remove elements directly through the client
+	for i := 0; i < n; i++ {
+		if err := cl.Delete(test.MakeMock(i, ns).ConfigKey); err != nil {
+			t.Error(err)
+		}
+	}
 }
 
 func eventually(f func() bool, t *testing.T) {
@@ -119,11 +209,11 @@ func eventually(f func() bool, t *testing.T) {
 		if f() {
 			return
 		}
-		t.Logf("Sleeping %v", interval)
+		log.Printf("Sleeping %v", interval)
 		time.Sleep(interval)
 		interval = 2 * interval
 	}
-	t.Fatal("Failed to satisfy function")
+	t.Errorf("Failed to satisfy function")
 }
 
 func makeClient(t *testing.T) *Client {

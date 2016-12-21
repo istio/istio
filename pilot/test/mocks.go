@@ -104,22 +104,26 @@ func (r *MockRegistry) List(kind string, ns string) []*model.Config {
 	return out
 }
 
+func MakeMock(i int, namespace string) *model.Config {
+	return &model.Config{
+		ConfigKey: model.ConfigKey{
+			Kind:      MockKind,
+			Name:      fmt.Sprintf("%s%d", MockName, i),
+			Namespace: namespace,
+		},
+		Spec: &MockConfig{
+			Pairs: []*ConfigPair{
+				&ConfigPair{Key: "key", Value: strconv.Itoa(i)},
+			},
+		},
+	}
+}
+
 func CheckMapInvariant(r model.Registry, t *testing.T, namespace string, n int) {
 	// create configuration objects
 	elts := make(map[int]*model.Config, 0)
 	for i := 0; i < n; i++ {
-		elts[i] = &model.Config{
-			ConfigKey: model.ConfigKey{
-				Kind:      MockKind,
-				Name:      fmt.Sprintf("%s%d", MockName, i),
-				Namespace: namespace,
-			},
-			Spec: &MockConfig{
-				Pairs: []*ConfigPair{
-					&ConfigPair{Key: "key", Value: strconv.Itoa(i)},
-				},
-			},
-		}
+		elts[i] = MakeMock(i, namespace)
 	}
 
 	// put all elements

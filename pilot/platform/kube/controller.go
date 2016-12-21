@@ -23,8 +23,6 @@ import (
 
 	"istio.io/manager/model"
 
-	meta_v1 "k8s.io/client-go/pkg/apis/meta/v1"
-
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/runtime"
@@ -35,9 +33,8 @@ import (
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	client      *Client
-	queue       Queue
-	controllers []*cache.Controller
+	client *Client
+	queue  Queue
 
 	kinds     map[string]cacheHandler
 	endpoints cacheHandler
@@ -45,8 +42,8 @@ type Controller struct {
 }
 
 type cacheHandler struct {
-	store   cache.Store
-	handler *chainHandler
+	informer cache.SharedIndexInformer
+	handler  *chainHandler
 }
 
 // NewController creates a new Kubernetes controller
@@ -62,7 +59,7 @@ func NewController(
 		kinds:  make(map[string]cacheHandler),
 	}
 
-	out.services = out.addWatcher(&v1.Service{}, resyncPeriod,
+	out.services = out.createInformer(&v1.Service{}, resyncPeriod,
 		func(opts v1.ListOptions) (runtime.Object, error) {
 			return client.client.Services(namespace).List(opts)
 		},
@@ -70,7 +67,7 @@ func NewController(
 			return client.client.Services(namespace).Watch(opts)
 		})
 
-	out.endpoints = out.addWatcher(&v1.Endpoints{}, resyncPeriod,
+	out.endpoints = out.createInformer(&v1.Endpoints{}, resyncPeriod,
 		func(opts v1.ListOptions) (runtime.Object, error) {
 			return client.client.Endpoints(namespace).List(opts)
 		},
@@ -80,7 +77,7 @@ func NewController(
 
 	// add stores for TRP kinds
 	for kind := range client.mapping {
-		out.kinds[kind] = out.addWatcher(&Config{}, resyncPeriod,
+		out.kinds[kind] = out.createInformer(&Config{}, resyncPeriod,
 			func(opts v1.ListOptions) (result runtime.Object, err error) {
 				result = &ConfigList{}
 				err = client.dyn.Get().
@@ -108,20 +105,24 @@ func (c *Controller) notify(obj interface{}, event int) error {
 	if !c.HasSynced() {
 		return errors.New("Waiting till full synchronization")
 	}
-	log.Printf("%s: %#v", eventString(event), obj.(runtime.Object).GetObjectKind())
+	k, _ := keyFunc(obj)
+	log.Printf("%s: %#v", eventString(event), k)
 	return nil
 }
 
-func (c *Controller) addWatcher(
+func (c *Controller) createInformer(
 	o runtime.Object,
 	resyncPeriod time.Duration,
 	lf cache.ListFunc,
 	wf cache.WatchFunc) cacheHandler {
 	handler := &chainHandler{funcs: []Handler{c.notify}}
-	store, controller := cache.NewInformer(
-		&cache.ListWatch{ListFunc: lf, WatchFunc: wf},
-		o,
-		resyncPeriod,
+
+	// TODO: finer-grained index (perf)
+	informer := cache.NewSharedIndexInformer(
+		&cache.ListWatch{ListFunc: lf, WatchFunc: wf}, o,
+		resyncPeriod, cache.Indexers{})
+
+	err := informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
@@ -135,13 +136,18 @@ func (c *Controller) addWatcher(
 			DeleteFunc: func(obj interface{}) {
 				c.queue.Push(Task{handler: handler.apply, obj: obj, event: evDelete})
 			},
-		},
-	)
-	c.controllers = append(c.controllers, controller)
-	return cacheHandler{store: store, handler: handler}
+		})
+	if err != nil {
+		log.Print(err)
+	}
+
+	return cacheHandler{informer: informer, handler: handler}
 }
 
 // AppendHandler adds a handler for a config resource.
+// Handler executes on the single worker queue.
+// Cache view is as AT LEAST as fresh as the moment notification arrives, but
+// MAY BE more fresh (e.g. "delete" cancels "add" event in the cache).
 // Note: this method is not thread-safe, please use it before calling Run
 func (c *Controller) AppendHandler(
 	kind string,
@@ -163,9 +169,12 @@ func (c *Controller) AppendHandler(
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	for _, ctl := range c.controllers {
-		if !ctl.HasSynced() {
-			log.Println("Controllers are syncing...")
+	if !c.services.informer.HasSynced() || !c.endpoints.informer.HasSynced() {
+		return false
+	}
+	for kind, ctl := range c.kinds {
+		if !ctl.informer.HasSynced() {
+			log.Printf("Controller %q is syncing...", kind)
 			return false
 		}
 	}
@@ -175,15 +184,23 @@ func (c *Controller) HasSynced() bool {
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop chan struct{}) {
 	go c.queue.Run(stop)
-	for _, ctl := range c.controllers {
-		go ctl.Run(stop)
+	go c.services.informer.Run(stop)
+	go c.endpoints.informer.Run(stop)
+	for _, ctl := range c.kinds {
+		go ctl.informer.Run(stop)
 	}
 	<-stop
 }
 
-// key function used internally by kubernetes (here, namespace is non-empty)
-func keyFunc(namespace, name string) string {
-	return namespace + "/" + name
+// key function used internally by kubernetes
+// Typically, key is a string "namespace"/"name"
+func keyFunc(obj interface{}) (string, bool) {
+	k, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		log.Printf("Creating key failed: %v", err)
+		return k, false
+	}
+	return k, true
 }
 
 func (c *Controller) Get(key model.ConfigKey) (*model.Config, bool) {
@@ -192,8 +209,8 @@ func (c *Controller) Get(key model.ConfigKey) (*model.Config, bool) {
 		return nil, false
 	}
 
-	store := c.kinds[key.Kind].store
-	data, exists, err := store.GetByKey(keyFunc(key.Namespace, key.Name))
+	store := c.kinds[key.Kind].informer.GetStore()
+	data, exists, err := store.GetByKey(key.Namespace + "/" + key.Name)
 	if !exists {
 		return nil, false
 	}
@@ -209,25 +226,16 @@ func (c *Controller) Get(key model.ConfigKey) (*model.Config, bool) {
 	return out, true
 }
 
+// Put applies operation to the remote storage ONLY
+// This implies that you might not see the effect immediately
 func (c *Controller) Put(obj *model.Config) error {
-	out, err := modelToKube(c.client.mapping, obj)
-	if err != nil {
-		return err
-	}
-	return c.kinds[obj.Kind].store.Add(out)
+	return c.client.Put(obj)
 }
 
+// Delete applies operation to the remote storage ONLY
+// This implies that you might not see the effect immediately
 func (c *Controller) Delete(key model.ConfigKey) error {
-	if err := c.client.mapping.ValidateKey(&key); err != nil {
-		return err
-	}
-	return c.kinds[key.Kind].store.Delete(
-		&Config{
-			TypeMeta: meta_v1.TypeMeta{Kind: key.Kind},
-			Metadata: api.ObjectMeta{
-				Name:      key.Name,
-				Namespace: key.Namespace,
-			}})
+	return c.client.Delete(key)
 }
 
 func (c *Controller) List(kind string, ns string) []*model.Config {
@@ -237,7 +245,7 @@ func (c *Controller) List(kind string, ns string) []*model.Config {
 
 	// TODO: use indexed cache
 	var out []*model.Config
-	for _, data := range c.kinds[kind].store.List() {
+	for _, data := range c.kinds[kind].informer.GetStore().List() {
 		config := data.(*Config)
 		if config.Metadata.Namespace == ns {
 			elt, err := kubeToModel(kind, c.client.mapping[kind], data.(*Config))
@@ -252,8 +260,12 @@ func (c *Controller) List(kind string, ns string) []*model.Config {
 }
 
 const (
-	evAdd    = 1
+	// Object is added
+	evAdd = 1
+	// Object is modified. Called when a re-list happens.
 	evUpdate = 2
+	// Object is deleted. Captures the object at the last state known, or
+	// potentially an object of type DeletedFinalStateUnknown
 	evDelete = 3
 )
 

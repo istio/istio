@@ -48,8 +48,10 @@ const (
 	IstioResourceVersion = "v1"
 )
 
-// Client Kubernetes bindings for the manager:
+// Client provides state-less Kubernetes bindings for the manager:
 // - configuration objects are stored as third-party resources
+// - dynamic REST client is configured to use third-party resources
+// - static client exposes Kubernetes API
 type Client struct {
 	mapping model.KindMap
 	client  *kubernetes.Clientset
