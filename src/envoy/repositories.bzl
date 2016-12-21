@@ -457,6 +457,8 @@ load("@protobuf_git//:protobuf.bzl", "cc_proto_library")
 
 exports_files(["source/precompiled/precompiled.h"])
 
+package(default_visibility = ["//visibility:public"])
+
 genrule(
     name = "envoy-ratelimit-proto",
     srcs = [
@@ -557,7 +559,6 @@ cc_binary(
         "source/exe/main.cc",
     ],
     copts = [
-        "-I./external/envoy_git/include",
         "-I./external/envoy_git/source",
         "-include ./external/envoy_git/source/precompiled/precompiled.h",
     ],
@@ -567,23 +568,42 @@ cc_binary(
     linkstatic=1,
 )
 
-cc_test(
-    name = "envoy-test",
+cc_library(
+    name = "envoy-test-lib",
     srcs = glob([
         "test/**/*.cc",
         "test/**/*.h",
     ]),
-    data = glob([
-        "generated/**/*",
-        "test/**/*",
-    ]),
     copts = [
-        "-I./external/envoy_git/include",
         "-I./external/envoy_git/source",
         "-include ./external/envoy_git/test/precompiled/precompiled_test.h",
     ],
+    includes = [
+        "include",
+    ],
     deps = [
         ":envoy-common",
+        ":envoy-test-pb",
+        "//external:googletest",
+    ],
+    alwayslink=1,
+)
+
+filegroup(
+    name = "envoy-testdata",
+    srcs = glob([
+        "generated/**/*",
+        "test/**/*",
+    ]),
+)
+
+cc_test(
+    name = "envoy-test",
+    data = [
+        ":envoy-testdata",
+    ],
+    deps = [
+        ":envoy-test-lib",
         ":envoy-test-pb",
         "//external:googletest",
     ],
