@@ -17,10 +17,16 @@ package api
 // gRPC server. The GRPCServer type handles incoming streaming gRPC traffic and invokes method-specific
 // handlers to implement the method-specific logic.
 //
-// When you create an GRPCServer instance, you specify a number of transport-level options, along with the
+// When you create a GRPCServer instance, you specify a number of transport-level options, along with the
 // set of method handlers responsible for the logic of individual API methods
 
+// TODO: Once the gRPC code is updated to use context objects from "context" as
+// opposed to from "golang.org/x/net/context", this code should be updated to
+// pass the context from the gRPC streams to downstream calls as opposed to merely
+// using context.Background.
+
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -167,7 +173,7 @@ func (s *GRPCServer) Check(stream mixerpb.Mixer_CheckServer) error {
 		new(mixerpb.CheckRequest),
 		new(mixerpb.CheckResponse),
 		func(tracker attribute.Tracker, request proto.Message, response proto.Message) {
-			s.handlers.Check(tracker, request.(*mixerpb.CheckRequest), response.(*mixerpb.CheckResponse))
+			s.handlers.Check(context.Background(), tracker, request.(*mixerpb.CheckRequest), response.(*mixerpb.CheckResponse))
 		})
 }
 
@@ -177,7 +183,7 @@ func (s *GRPCServer) Report(stream mixerpb.Mixer_ReportServer) error {
 		new(mixerpb.ReportRequest),
 		new(mixerpb.ReportResponse),
 		func(tracker attribute.Tracker, request proto.Message, response proto.Message) {
-			s.handlers.Report(tracker, request.(*mixerpb.ReportRequest), response.(*mixerpb.ReportResponse))
+			s.handlers.Report(context.Background(), tracker, request.(*mixerpb.ReportRequest), response.(*mixerpb.ReportResponse))
 		})
 }
 
@@ -187,6 +193,6 @@ func (s *GRPCServer) Quota(stream mixerpb.Mixer_QuotaServer) error {
 		new(mixerpb.QuotaRequest),
 		new(mixerpb.QuotaResponse),
 		func(tracker attribute.Tracker, request proto.Message, response proto.Message) {
-			s.handlers.Quota(tracker, request.(*mixerpb.QuotaRequest), response.(*mixerpb.QuotaResponse))
+			s.handlers.Quota(context.Background(), tracker, request.(*mixerpb.QuotaRequest), response.(*mixerpb.QuotaResponse))
 		})
 }
