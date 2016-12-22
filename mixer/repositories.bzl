@@ -1,4 +1,5 @@
-package(default_visibility = ["//visibility:public"])
+def istio_api_repositories(use_local):
+    BUILD = """package(default_visibility = ["//visibility:public"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
 
@@ -42,4 +43,18 @@ go_proto_library(
     with_grpc = True,
     verbose = 0,
     visibility = ["//visibility:public"],
-)
+)"""
+
+    if use_local:
+        native.new_local_repository(
+            name = "com_github_istio_api",
+            build_file_content = BUILD,
+            path = "../api",
+        )
+    else:
+        native.new_git_repository(
+            name = "com_github_istio_api",
+            build_file_content = BUILD,
+            commit = "1d9417f607be5503eee95fdb109c0d906fe6b5f5",
+            remote = "https://github.com/istio/api.git",
+        )
