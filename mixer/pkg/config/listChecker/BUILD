@@ -9,7 +9,5 @@ go_library(
         "bindingEvaluator.go",
         "configBlock.go",
     ],
-    deps = [
-        "//pkg/adapter:go_default_library",
-    ]
+    deps = ["//pkg/adapter:go_default_library"],
 )

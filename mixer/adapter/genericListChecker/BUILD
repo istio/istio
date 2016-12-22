@@ -8,15 +8,13 @@ go_library(
         "adapter.go",
         "builder.go",
     ],
-    deps = [
-        "//pkg/adapter:go_default_library",
-    ],
+    deps = ["//pkg/adapter:go_default_library"],
 )
 
 go_test(
     name = "generic_list_checker_test",
-    srcs = [ "builder_test.go" ],
     size = "small",
-    deps = [ "//pkg/adaptertesting:go_default_library" ],
+    srcs = ["builder_test.go"],
     library = ":go_default_library",
+    deps = ["//pkg/adaptertesting:go_default_library"],
 )

@@ -6,18 +6,16 @@ go_library(
     name = "go_default_library",
     srcs = [
         "adapter.go",
-        "config.go",
         "builder.go",
+        "config.go",
     ],
-    deps = [
-        "//pkg/adapter:go_default_library",
-    ],
+    deps = ["//pkg/adapter:go_default_library"],
 )
 
 go_test(
     name = "json_logger_test",
-    srcs = [ "jsonLogger_test.go" ],
     size = "small",
-    deps = [ "//pkg/adaptertesting:go_default_library" ],
+    srcs = ["jsonLogger_test.go"],
     library = ":go_default_library",
+    deps = ["//pkg/adaptertesting:go_default_library"],
 )
