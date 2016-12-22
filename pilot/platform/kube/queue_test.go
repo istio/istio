@@ -18,6 +18,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"istio.io/manager/model"
 )
 
 func TestQueue(t *testing.T) {
@@ -25,7 +27,7 @@ func TestQueue(t *testing.T) {
 	stop := make(chan struct{})
 	out := 0
 	err := true
-	add := func(obj interface{}, event int) error {
+	add := func(obj interface{}, event model.Event) error {
 		t.Logf("adding %d, error: %t", obj.(int), err)
 		out = out + obj.(int)
 		if !err {
@@ -38,7 +40,7 @@ func TestQueue(t *testing.T) {
 
 	q.Push(Task{handler: add, obj: 1})
 	q.Push(Task{handler: add, obj: 2})
-	q.Push(Task{handler: func(obj interface{}, event int) error {
+	q.Push(Task{handler: func(obj interface{}, event model.Event) error {
 		if out != 4 {
 			t.Errorf("Queue => %d, want %d", out, 4)
 		}
@@ -52,7 +54,7 @@ func TestChainedHandler(t *testing.T) {
 	stop := make(chan struct{})
 	out := 0
 	f := func(i int) Handler {
-		return func(obj interface{}, event int) error {
+		return func(obj interface{}, event model.Event) error {
 			out = out + i
 			return nil
 		}
@@ -63,7 +65,7 @@ func TestChainedHandler(t *testing.T) {
 	go q.Run(stop)
 
 	q.Push(Task{handler: handler.apply, obj: 0})
-	q.Push(Task{handler: func(obj interface{}, event int) error {
+	q.Push(Task{handler: func(obj interface{}, event model.Event) error {
 		if out != 3 {
 			t.Errorf("ChainedHandler => %d, want %d", out, 3)
 		}

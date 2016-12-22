@@ -76,14 +76,14 @@ func TestController(t *testing.T) {
 	ctl := NewController(cl, ns, 256*time.Millisecond)
 	added, deleted := 0, 0
 	n := 5
-	ctl.AppendHandler(test.MockKind, func(c *model.Config, ev int) error {
+	ctl.AppendHandler(test.MockKind, func(c *model.Config, ev model.Event) error {
 		switch ev {
-		case evAdd:
+		case model.EventAdd:
 			if deleted != 0 {
 				t.Errorf("Events are not serialized (add)")
 			}
 			added++
-		case evDelete:
+		case model.EventDelete:
 			if added != n {
 				t.Errorf("Events are not serialized (delete)")
 			}
@@ -109,17 +109,21 @@ func TestControllerCacheFreshness(t *testing.T) {
 	stop := make(chan struct{})
 	ctl := NewController(cl, ns, 256*time.Millisecond)
 
+	// test interface implementation
+	var _ model.Controller = ctl
+
 	// validate cache consistency requirement:
-	// When you receive a notification, the cache will be AT LEAST as fresh as the notification, but it MAY be more fresh.
-	ctl.AppendHandler(test.MockKind, func(c *model.Config, ev int) error {
+	// When you receive a notification, the cache will be AT LEAST as fresh as
+	// the notification, but it MAY be more fresh.
+	ctl.AppendHandler(test.MockKind, func(c *model.Config, ev model.Event) error {
 		elts, _ := ctl.List(test.MockKind, ns)
 		switch ev {
-		case evAdd:
+		case model.EventAdd:
 			if len(elts) != 1 {
 				t.Errorf("Got %#v, expected %d element(s) on ADD event", elts, 1)
 			}
 			ctl.Delete(c.ConfigKey)
-		case evDelete:
+		case model.EventDelete:
 			if len(elts) != 0 {
 				t.Errorf("Got %#v, expected zero elements on DELETE event", elts)
 			}

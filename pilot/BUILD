@@ -21,7 +21,6 @@ go_library(
 go_library(
     name = "model",
     srcs = [
-        "model/functions.go",
         "model/registry.go",
         "model/validation.go",
     ],

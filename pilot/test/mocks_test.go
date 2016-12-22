@@ -52,29 +52,3 @@ func TestKindMap(t *testing.T) {
 		t.Fail()
 	}
 }
-
-func TestGenerator(t *testing.T) {
-	r := NewMockRegistry()
-	if err := r.Put(&MockObject); err != nil {
-		t.Fatal(err)
-	}
-	var g model.Generator = &MockGenerator{}
-	out, err := g.Render(r)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(out) != 1 {
-		t.Fatal(out)
-	}
-	data := string(out[0].Content)
-	const expected = "key: value\n"
-	if data != expected {
-		t.Errorf("Wanted %s, got %s", expected, data)
-	}
-	if len(out[0].Sources) != 1 {
-		t.Fatal(out[0].Sources)
-	}
-	if *out[0].Sources[0] != MockKey {
-		t.Errorf("Wanted %v, got %v", MockKey, out[0].Sources)
-	}
-}

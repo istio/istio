@@ -15,7 +15,6 @@
 package test
 
 import (
-	"bytes"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -61,12 +60,6 @@ var (
 type MockRegistry struct {
 	store   map[model.ConfigKey]*model.Config
 	mapping model.KindMap
-}
-
-type MockGenerator struct{}
-
-type MockConfigConsumer struct {
-	Generator model.Generator
 }
 
 func NewMockRegistry() model.Registry {
@@ -172,35 +165,4 @@ func CheckMapInvariant(r model.Registry, t *testing.T, namespace string, n int) 
 	if len(l) != 0 {
 		t.Errorf("Wanted 0 element(s), got %d in %v", len(l), l)
 	}
-}
-
-func (generator *MockGenerator) Render(reg model.Registry) ([]*model.ConfigOutput, error) {
-	var buffer bytes.Buffer
-	var keys []*model.ConfigKey
-	elts, _ := reg.List(MockKind, "")
-	for _, config := range elts {
-		keys = append(keys, &config.ConfigKey)
-		for _, pair := range config.Spec.(*MockConfig).Pairs {
-			buffer.WriteString(pair.Key)
-			buffer.WriteString(": ")
-			buffer.WriteString(pair.Value)
-			buffer.WriteString("\n")
-		}
-	}
-	return []*model.ConfigOutput{&model.ConfigOutput{
-		Sources: keys,
-		Content: buffer.Bytes(),
-	}}, nil
-}
-
-func (consumer *MockConfigConsumer) Name() string {
-	return "MockConfigConsumer"
-}
-
-func (consumer *MockConfigConsumer) Generators() []model.Generator {
-	return []model.Generator{consumer.Generator}
-}
-
-func (consumer *MockConfigConsumer) Distribute([]*model.ConfigOutput) error {
-	return nil
 }

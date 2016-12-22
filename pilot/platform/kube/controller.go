@@ -77,7 +77,7 @@ func NewController(
 			return client.client.Endpoints(namespace).Watch(opts)
 		})
 
-	// add stores for TRP kinds
+	// add stores for TPR kinds
 	for kind := range client.mapping {
 		out.kinds[kind] = out.createInformer(&Config{}, resyncPeriod,
 			func(opts v1.ListOptions) (result runtime.Object, err error) {
@@ -103,12 +103,12 @@ func NewController(
 	return out
 }
 
-func (c *Controller) notify(obj interface{}, event int) error {
+func (c *Controller) notify(obj interface{}, event model.Event) error {
 	if !c.HasSynced() {
 		return errors.New("Waiting till full synchronization")
 	}
 	k, _ := keyFunc(obj)
-	log.Printf("%s: %#v", eventString(event), k)
+	log.Printf("%s: %#v", event, k)
 	return nil
 }
 
@@ -128,15 +128,15 @@ func (c *Controller) createInformer(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
-				c.queue.Push(Task{handler: handler.apply, obj: obj, event: evAdd})
+				c.queue.Push(Task{handler: handler.apply, obj: obj, event: model.EventAdd})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
-					c.queue.Push(Task{handler: handler.apply, obj: cur, event: evUpdate})
+					c.queue.Push(Task{handler: handler.apply, obj: cur, event: model.EventUpdate})
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				c.queue.Push(Task{handler: handler.apply, obj: obj, event: evDelete})
+				c.queue.Push(Task{handler: handler.apply, obj: obj, event: model.EventDelete})
 			},
 		})
 	if err != nil {
@@ -146,24 +146,23 @@ func (c *Controller) createInformer(
 	return cacheHandler{informer: informer, handler: handler}
 }
 
-// AppendHandler adds a handler for a config resource.
-// Handler executes on the single worker queue.
-// Cache view is as AT LEAST as fresh as the moment notification arrives, but
-// MAY BE more fresh (e.g. "delete" cancels "add" event in the cache).
-// Note: this method is not thread-safe, please use it before calling Run
+// AppendHandler adds a notification handler.
+// Cache view in the controller is as AT LEAST as fresh as the moment
+// notification arrives, but MAY BE more fresh (e.g. "delete" cancels
+// "add" event in the cache).
 func (c *Controller) AppendHandler(
 	kind string,
-	f func(*model.Config, int) error) error {
+	f func(*model.Config, model.Event) error) error {
 	ch, ok := c.kinds[kind]
 	if !ok {
 		return fmt.Errorf("Cannot locate kind %q", kind)
 	}
-	ch.handler.append(func(obj interface{}, ev int) error {
+	ch.handler.append(func(obj interface{}, ev model.Event) error {
 		cfg, err := kubeToModel(kind, c.client.mapping[kind], obj.(*Config))
 		if err == nil {
 			return f(cfg, ev)
 		}
-		log.Printf("Cannot convert TRP of kind %s to config object", kind)
+		log.Printf("Cannot convert kind %s to a config object", kind)
 		return nil
 	})
 	return nil
@@ -228,14 +227,10 @@ func (c *Controller) Get(key model.ConfigKey) (*model.Config, bool) {
 	return out, true
 }
 
-// Put applies operation to the remote storage ONLY
-// This implies that you might not see the effect immediately
 func (c *Controller) Put(obj *model.Config) error {
 	return c.client.Put(obj)
 }
 
-// Delete applies operation to the remote storage ONLY
-// This implies that you might not see the effect immediately
 func (c *Controller) Delete(key model.ConfigKey) error {
 	return c.client.Delete(key)
 }
@@ -260,27 +255,4 @@ func (c *Controller) List(kind string, ns string) ([]*model.Config, error) {
 		}
 	}
 	return out, errs
-}
-
-const (
-	// Object is added
-	evAdd = 1
-	// Object is modified. Called when a re-list happens.
-	evUpdate = 2
-	// Object is deleted. Captures the object at the last state known, or
-	// potentially an object of type DeletedFinalStateUnknown
-	evDelete = 3
-)
-
-func eventString(event int) string {
-	eventType := "unknown"
-	switch event {
-	case evAdd:
-		eventType = "Add"
-	case evUpdate:
-		eventType = "Update"
-	case evDelete:
-		eventType = "Delete"
-	}
-	return eventType
 }

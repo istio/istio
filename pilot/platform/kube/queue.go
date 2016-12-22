@@ -19,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/manager/model"
+
 	"k8s.io/client-go/pkg/util/flowcontrol"
 )
 
@@ -31,13 +33,13 @@ type Queue interface {
 }
 
 // Handler specifies a function to apply on an object for a given event type
-type Handler func(obj interface{}, event int) error
+type Handler func(obj interface{}, event model.Event) error
 
 // Task object for the event watchers; processes until handler succeeds
 type Task struct {
 	handler Handler
 	obj     interface{}
-	event   int
+	event   model.Event
 }
 
 type queueImpl struct {
@@ -107,7 +109,7 @@ type chainHandler struct {
 	funcs []Handler
 }
 
-func (ch *chainHandler) apply(obj interface{}, event int) error {
+func (ch *chainHandler) apply(obj interface{}, event model.Event) error {
 	for _, f := range ch.funcs {
 		if err := f(obj, event); err != nil {
 			return err
