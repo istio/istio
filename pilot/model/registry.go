@@ -36,14 +36,15 @@ type Config struct {
 }
 
 // Registry of the configuration objects
-// Object pointers supplied and returned from this interface should be
+// Object references supplied and returned from this interface should be
 // treated as read-only. Updating them might violate thread-safety.
 type Registry interface {
 	// Get retrieves a configuration element, bool indicates existence
 	Get(key ConfigKey) (*Config, bool)
 	Delete(key ConfigKey) error
 	Put(obj *Config) error
-	List(kind string, namespace string) []*Config
+	// List returns objects for a kind in a namespace ("" namespace implies all)
+	List(kind string, namespace string) ([]*Config, error)
 }
 
 // KindMap defines bijection between Kind name and proto message name

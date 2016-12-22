@@ -94,14 +94,14 @@ func (r *MockRegistry) Delete(key model.ConfigKey) error {
 	return nil
 }
 
-func (r *MockRegistry) List(kind string, ns string) []*model.Config {
+func (r *MockRegistry) List(kind string, ns string) ([]*model.Config, error) {
 	var out = make([]*model.Config, 0)
 	for _, v := range r.store {
 		if v.Kind == kind && (ns == "" || v.Namespace == ns) {
 			out = append(out, v)
 		}
 	}
-	return out
+	return out, nil
 }
 
 func MakeMock(i int, namespace string) *model.Config {
@@ -150,7 +150,10 @@ func CheckMapInvariant(r model.Registry, t *testing.T, namespace string, n int) 
 	}
 
 	// list elements
-	l := r.List(MockKind, namespace)
+	l, err := r.List(MockKind, namespace)
+	if err != nil {
+		t.Error(err)
+	}
 	if len(l) != n {
 		t.Errorf("Wanted %d element(s), got %d in %v", n, len(l), l)
 	}
@@ -162,7 +165,10 @@ func CheckMapInvariant(r model.Registry, t *testing.T, namespace string, n int) 
 		}
 	}
 
-	l = r.List(MockKind, namespace)
+	l, err = r.List(MockKind, namespace)
+	if err != nil {
+		t.Error(err)
+	}
 	if len(l) != 0 {
 		t.Errorf("Wanted 0 element(s), got %d in %v", len(l), l)
 	}
@@ -171,7 +177,8 @@ func CheckMapInvariant(r model.Registry, t *testing.T, namespace string, n int) 
 func (generator *MockGenerator) Render(reg model.Registry) ([]*model.ConfigOutput, error) {
 	var buffer bytes.Buffer
 	var keys []*model.ConfigKey
-	for _, config := range reg.List(MockKind, "") {
+	elts, _ := reg.List(MockKind, "")
+	for _, config := range elts {
 		keys = append(keys, &config.ConfigKey)
 		for _, pair := range config.Spec.(*MockConfig).Pairs {
 			buffer.WriteString(pair.Key)

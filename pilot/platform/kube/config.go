@@ -59,9 +59,8 @@ func (el *ConfigList) GetListMeta() v1.List {
 }
 
 // The code below is used only to work around a known problem with third-party
-// resources and @ugorji. If/when these issues are resolved, the code below
-// should no longer be required.
-// See https://github.com/kubernetes/client-go/pull/37
+// resources and @ugorji JSON optimized codec.
+// See discussion https://github.com/kubernetes/kubernetes/issues/36120
 
 type ConfigListCopy ConfigList
 type ConfigCopy Config

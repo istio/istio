@@ -112,7 +112,7 @@ func TestControllerCacheFreshness(t *testing.T) {
 	// validate cache consistency requirement:
 	// When you receive a notification, the cache will be AT LEAST as fresh as the notification, but it MAY be more fresh.
 	ctl.AppendHandler(test.MockKind, func(c *model.Config, ev int) error {
-		elts := ctl.List(test.MockKind, ns)
+		elts, _ := ctl.List(test.MockKind, ns)
 		switch ev {
 		case evAdd:
 			if len(elts) != 1 {
@@ -160,7 +160,7 @@ func TestControllerClientSync(t *testing.T) {
 	ctl := NewController(cl, ns, 256*time.Millisecond)
 	go ctl.Run(stop)
 	eventually(func() bool { return ctl.HasSynced() }, t)
-	os := ctl.List(test.MockKind, ns)
+	os, _ := ctl.List(test.MockKind, ns)
 	if len(os) != n {
 		t.Errorf("ctl.List => Got %d, expected %d", len(os), n)
 	}
@@ -174,7 +174,7 @@ func TestControllerClientSync(t *testing.T) {
 
 	// check again in the controller cache
 	eventually(func() bool {
-		os = ctl.List(test.MockKind, ns)
+		os, _ = ctl.List(test.MockKind, ns)
 		log.Printf("ctl.List => Got %d, expected %d", len(os), 0)
 		return len(os) == 0
 	}, t)
@@ -188,8 +188,8 @@ func TestControllerClientSync(t *testing.T) {
 
 	// check directly through the client
 	eventually(func() bool {
-		cs := ctl.List(test.MockKind, ns)
-		os := cl.List(test.MockKind, ns)
+		cs, _ := ctl.List(test.MockKind, ns)
+		os, _ := cl.List(test.MockKind, ns)
 		log.Printf("ctl.List => Got %d, expected %d", len(cs), n)
 		log.Printf("cl.List => Got %d, expected %d", len(os), n)
 		return len(os) == n && len(cs) == n

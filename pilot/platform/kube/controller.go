@@ -21,6 +21,8 @@ import (
 	"reflect"
 	"time"
 
+	multierror "github.com/hashicorp/go-multierror"
+
 	"istio.io/manager/model"
 
 	"k8s.io/client-go/pkg/api"
@@ -238,25 +240,26 @@ func (c *Controller) Delete(key model.ConfigKey) error {
 	return c.client.Delete(key)
 }
 
-func (c *Controller) List(kind string, ns string) []*model.Config {
+func (c *Controller) List(kind string, ns string) ([]*model.Config, error) {
 	if _, ok := c.kinds[kind]; !ok {
-		return nil
+		return nil, fmt.Errorf("Missing kind %q", kind)
 	}
 
 	// TODO: use indexed cache
 	var out []*model.Config
+	var errs error
 	for _, data := range c.kinds[kind].informer.GetStore().List() {
 		config := data.(*Config)
-		if config.Metadata.Namespace == ns {
+		if ns == "" || config.Metadata.Namespace == ns {
 			elt, err := kubeToModel(kind, c.client.mapping[kind], data.(*Config))
 			if err != nil {
-				log.Print(err)
+				errs = multierror.Append(errs, err)
 			} else {
 				out = append(out, elt)
 			}
 		}
 	}
-	return out
+	return out, errs
 }
 
 const (

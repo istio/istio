@@ -17,8 +17,10 @@ package kube
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"reflect"
+	"time"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
@@ -136,7 +138,9 @@ func (cl *Client) RegisterResources() error {
 	var out error
 	for kind, v := range cl.mapping {
 		apiName := kindToAPIName(kind)
-		res, err := cl.client.Extensions().ThirdPartyResources().
+		res, err := cl.client.
+			Extensions().
+			ThirdPartyResources().
 			Get(apiName, meta_v1.GetOptions{})
 		if err == nil {
 			log.Printf("Resource already exists: %q", res.Name)
@@ -147,7 +151,9 @@ func (cl *Client) RegisterResources() error {
 				Versions:    []v1beta1.APIVersion{{Name: IstioResourceVersion}},
 				Description: v.Description,
 			}
-			res, err = cl.client.Extensions().ThirdPartyResources().
+			res, err = cl.client.
+				Extensions().
+				ThirdPartyResources().
 				Create(tpr)
 			if err != nil {
 				out = multierror.Append(out, err)
@@ -157,6 +163,29 @@ func (cl *Client) RegisterResources() error {
 		} else {
 			out = multierror.Append(out, err)
 		}
+	}
+
+	// validate that the resources exist or fail with an error after 30s
+	ready := true
+	log.Printf("Checking for TPR resources")
+	for i := 0; i < 30; i++ {
+		ready = true
+		for kind := range cl.mapping {
+			_, err := cl.List(kind, "")
+			if err != nil {
+				log.Printf("TPR %q is not ready. Waiting...", kind)
+				ready = false
+				break
+			}
+		}
+		if ready {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	if !ready {
+		out = multierror.Append(out, fmt.Errorf("Failed to create all TPRs"))
 	}
 
 	return out
@@ -224,30 +253,26 @@ func (cl *Client) Delete(key model.ConfigKey) error {
 		Do().Error()
 }
 
-func (cl *Client) List(kind string, ns string) []*model.Config {
+func (cl *Client) List(kind string, ns string) ([]*model.Config, error) {
 	if _, ok := cl.mapping[kind]; !ok {
-		return nil
+		return nil, fmt.Errorf("Missing kind %q", kind)
 	}
 
 	list := &ConfigList{}
-	err := cl.dyn.Get().
+	errs := cl.dyn.Get().
 		Namespace(ns).
 		Resource(kind + "s").
 		Do().Into(list)
-	if err != nil {
-		log.Printf(err.Error())
-		return nil
-	}
 
 	var out []*model.Config
 	for _, item := range list.Items {
 		elt, err := kubeToModel(kind, cl.mapping[kind], &item)
 		if err != nil {
-			log.Printf(err.Error())
+			errs = multierror.Append(errs, err)
 		}
 		out = append(out, elt)
 	}
-	return out
+	return out, errs
 }
 
 // camelCaseToKabobCase converts "MyName" to "my-name"
