@@ -17,8 +17,9 @@ package api
 // This is what implements the per-request logic for each API method.
 
 import (
-	"github.com/golang/glog"
+	"context"
 
+	"github.com/golang/glog"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/genproto/googleapis/rpc/status"
 
@@ -35,17 +36,17 @@ type MethodHandlers interface {
 	// Check performs the configured set of precondition checks.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Check(attribute.Tracker, *mixerpb.CheckRequest, *mixerpb.CheckResponse)
+	Check(context.Context, attribute.Tracker, *mixerpb.CheckRequest, *mixerpb.CheckResponse)
 
 	// Report performs the requested set of reporting operations.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Report(attribute.Tracker, *mixerpb.ReportRequest, *mixerpb.ReportResponse)
+	Report(context.Context, attribute.Tracker, *mixerpb.ReportRequest, *mixerpb.ReportResponse)
 
 	// Quota increments, decrements, or queries the specified quotas.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Quota(attribute.Tracker, *mixerpb.QuotaRequest, *mixerpb.QuotaResponse)
+	Quota(context.Context, attribute.Tracker, *mixerpb.QuotaRequest, *mixerpb.QuotaResponse)
 }
 
 type methodHandlers struct {
@@ -69,18 +70,21 @@ func NewMethodHandlers(adapterManager *server.AdapterManager, configManager *ser
 	}
 }
 
-func (h *methodHandlers) Check(tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
+func (h *methodHandlers) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	// Prepare common response fields.
 	response.RequestIndex = request.RequestIndex
 
-	ac, err := tracker.Update(request.AttributeUpdate)
+	ab, err := tracker.Update(request.AttributeUpdate)
 	if err != nil {
 		glog.Warningf("Unable to process attribute update. error: '%v'", err)
 		response.Result = newStatus(code.Code_INVALID_ARGUMENT)
 		return
 	}
 
-	dispatchKey, err := server.NewDispatchKey(ac)
+	// get a new context with the attribute bag attached
+	ctx = attribute.NewContext(ctx, ab)
+
+	dispatchKey, err := server.NewDispatchKey(ab)
 	if err != nil {
 		glog.Warningf("Error extracting the dispatch key. error: '%v'", err)
 		response.Result = newStatus(code.Code_FAILED_PRECONDITION)
@@ -138,26 +142,29 @@ func (h *methodHandlers) checkLists(dispatchKey server.DispatchKey, tracker attr
 	return true, nil
 }
 
-func (h *methodHandlers) Report(tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
+func (h *methodHandlers) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 
 	// Prepare common response fields.
 	response.RequestIndex = request.RequestIndex
 
-	ac, err := tracker.Update(request.AttributeUpdate)
+	ab, err := tracker.Update(request.AttributeUpdate)
 	if err != nil {
 		glog.Warningf("Unable to process attribute update. error: '%v'", err)
 		response.Result = newStatus(code.Code_INVALID_ARGUMENT)
 		return
 	}
 
-	dispatchKey, err := server.NewDispatchKey(ac)
+	// get a new context with the attribute bag attached
+	ctx = attribute.NewContext(ctx, ab)
+
+	dispatchKey, err := server.NewDispatchKey(ab)
 	if err != nil {
 		glog.Warningf("Error extracting the dispatch key. error: '%v'", err)
 		response.Result = newStatus(code.Code_FAILED_PRECONDITION)
 		return
 	}
 
-	err = h.report(dispatchKey, ac)
+	err = h.report(dispatchKey, ab)
 	if err != nil {
 		glog.Warningf("Unexpected report error: %v", err)
 		response.Result = newStatus(code.Code_INTERNAL)
@@ -167,15 +174,15 @@ func (h *methodHandlers) Report(tracker attribute.Tracker, request *mixerpb.Repo
 	response.Result = newStatus(code.Code_OK)
 }
 
-func (h *methodHandlers) report(dispatchKey server.DispatchKey, ac attribute.Context) error {
-	adapterConfigs, err := h.configManager.GetLoggerAspectConfigs(dispatchKey)
+func (h *methodHandlers) report(dispatchKey server.DispatchKey, ac attribute.Bag) error {
+	aspectConfigs, err := h.configManager.GetLoggerAspectConfigs(dispatchKey)
 	if err != nil {
 		return err
 	}
 
 	var result error
-	for _, adapterConfig := range adapterConfigs {
-		loggerAdapter, err := h.adapterManager.GetLoggerAdapter(dispatchKey, adapterConfig)
+	for _, aspectConfig := range aspectConfigs {
+		loggerAdapter, err := h.adapterManager.GetLoggerAdapter(dispatchKey, aspectConfig)
 		if err != nil {
 			return err
 		}
@@ -223,13 +230,17 @@ func buildLogEntries(entries []*mixerpb.LogEntry) []adapters.LogEntry {
 }
 */
 
-func (h *methodHandlers) Quota(tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
-	_, err := tracker.Update(request.AttributeUpdate)
+func (h *methodHandlers) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
+	ab, err := tracker.Update(request.AttributeUpdate)
 	if err != nil {
 		glog.Warningf("Unable to process attribute update. error: '%v'", err)
 		response.Result = newQuotaError(code.Code_INVALID_ARGUMENT)
 		return
 	}
+
+	// get a new context with the attribute bag attached
+	ctx = attribute.NewContext(ctx, ab)
+	_ = ctx
 
 	response.RequestIndex = request.RequestIndex
 	response.Result = newQuotaError(code.Code_UNIMPLEMENTED)

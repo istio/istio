@@ -37,7 +37,7 @@ type DispatchKey struct {
 }
 
 // NewDispatchKey constructs and returns a new DispatchKey based on the incoming facts.
-func NewDispatchKey(ac attribute.Context) (DispatchKey, error) {
+func NewDispatchKey(ac attribute.Bag) (DispatchKey, error) {
 	serviceName, found := ac.String(ServiceName)
 	if !found {
 		return DispatchKey{}, fmt.Errorf("required attribute not found: %s", ServiceName)

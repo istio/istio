@@ -13,7 +13,7 @@ DEPS = [
 go_library(
     name = "go_default_library",
     srcs = [
-        "context.go",
+        "bag.go",
         "dictionaries.go",
         "manager.go",
         "tracker.go",
@@ -35,6 +35,14 @@ go_test(
     name = "manager_test",
     size = "small",
     srcs = ["manager_test.go"],
+    library = ":go_default_library",
+    deps = DEPS,
+)
+
+go_test(
+    name = "bag_test",
+    size = "small",
+    srcs = ["bag_test.go"],
     library = ":go_default_library",
     deps = DEPS,
 )

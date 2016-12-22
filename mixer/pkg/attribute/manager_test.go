@@ -274,7 +274,7 @@ func TestAttributeManager(t *testing.T) {
 	am := NewManager()
 	at := am.NewTracker()
 	for i, c := range cases {
-		ac, err := at.Update(&c.attrs)
+		ab, err := at.Update(&c.attrs)
 		if (err == nil) != c.result {
 			if c.result {
 				t.Errorf("Expected Update to succeed but it returned %v for test case %d", err, i)
@@ -284,7 +284,7 @@ func TestAttributeManager(t *testing.T) {
 		}
 
 		for j, g := range c.getString {
-			result, present := ac.String(g.name)
+			result, present := ab.String(g.name)
 			if result != g.result {
 				t.Errorf("Expecting result='%v', got result='%v' for string test case %v:%v", g.result, result, i, j)
 			}
@@ -295,7 +295,7 @@ func TestAttributeManager(t *testing.T) {
 		}
 
 		for j, g := range c.getInt64 {
-			result, present := ac.Int64(g.name)
+			result, present := ab.Int64(g.name)
 			if result != g.result {
 				t.Errorf("Expecting result='%v', got result='%v' for int64 test case %v:%v", g.result, result, i, j)
 			}
@@ -306,7 +306,7 @@ func TestAttributeManager(t *testing.T) {
 		}
 
 		for j, g := range c.getFloat64 {
-			result, present := ac.Float64(g.name)
+			result, present := ab.Float64(g.name)
 			if result != g.result {
 				t.Errorf("Expecting result='%v', got result='%v' for float64 test case %v:%v", g.result, result, i, j)
 			}
@@ -317,7 +317,7 @@ func TestAttributeManager(t *testing.T) {
 		}
 
 		for j, g := range c.getBool {
-			result, present := ac.Bool(g.name)
+			result, present := ab.Bool(g.name)
 			if result != g.result {
 				t.Errorf("Expecting result='%v', got result='%v' for bool test case %v:%v", g.result, result, i, j)
 			}
@@ -328,7 +328,7 @@ func TestAttributeManager(t *testing.T) {
 		}
 
 		for j, g := range c.getTime {
-			result, present := ac.Time(g.name)
+			result, present := ab.Time(g.name)
 			if result != g.result {
 				t.Errorf("Expecting result='%v', got result='%v' for time test case %v:%v", g.result, result, i, j)
 			}
@@ -339,7 +339,7 @@ func TestAttributeManager(t *testing.T) {
 		}
 
 		for j, g := range c.getBytes {
-			result, present := ac.Bytes(g.name)
+			result, present := ab.Bytes(g.name)
 
 			same := len(result) == len(g.result)
 			if same {
