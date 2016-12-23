@@ -18,22 +18,22 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-// AdapterConfig is used to configure an adapter.
-type AdapterConfig struct {
-	adapter.AdapterConfig
+// AspectConfig is used to configure an adapter.
+type AspectConfig struct {
+	adapter.AspectConfig
 
 	// The set of entries in the list to check against. This overrides any builder-level
 	// entries. If this is not supplied, then the builder's list is used instead.
 	ListEntries []string
 }
 
-type adapterState struct {
+type aspectState struct {
 	entries       map[string]string
 	whitelistMode bool
 }
 
-// newAdapter returns a new adapter.
-func newAdapter(config *AdapterConfig, entries map[string]string, whitelistMode bool) (adapter.ListChecker, error) {
+// newAspect returns a new aspect.
+func newAspect(config *AspectConfig, entries map[string]string, whitelistMode bool) (adapter.ListChecker, error) {
 	if config.ListEntries != nil {
 		// override the builder-level entries
 		entries = make(map[string]string, len(config.ListEntries))
@@ -42,15 +42,15 @@ func newAdapter(config *AdapterConfig, entries map[string]string, whitelistMode 
 		}
 	}
 
-	return &adapterState{entries: entries, whitelistMode: whitelistMode}, nil
+	return &aspectState{entries: entries, whitelistMode: whitelistMode}, nil
 }
 
-func (a *adapterState) Close() error {
+func (a *aspectState) Close() error {
 	a.entries = nil
 	return nil
 }
 
-func (a *adapterState) CheckList(symbol string) (bool, error) {
+func (a *aspectState) CheckList(symbol string) (bool, error) {
 	_, ok := a.entries[symbol]
 	if a.whitelistMode {
 		return ok, nil

@@ -20,7 +20,7 @@ type (
 	// MetricsReporter is the interface for adapters that will handle metrics
 	// data within the mixer.
 	MetricsReporter interface {
-		Adapter
+		Aspect
 
 		// ReportMetrics directs a backend adapter to process a batch of
 		// MetricValues derived from potentially several Report() calls.

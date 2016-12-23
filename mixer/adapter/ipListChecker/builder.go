@@ -58,16 +58,16 @@ func (b *builder) Close() error {
 	return nil
 }
 
-func (b *builder) DefaultAdapterConfig() adapter.AdapterConfig {
-	return &AdapterConfig{
+func (b *builder) DefaultAspectConfig() adapter.AspectConfig {
+	return &AspectConfig{
 		ProviderURL:     "http://localhost",
 		RefreshInterval: time.Minute,
 		TimeToLive:      time.Minute * 10,
 	}
 }
 
-func (b *builder) ValidateAdapterConfig(config adapter.AdapterConfig) error {
-	c := config.(*AdapterConfig)
+func (b *builder) ValidateAspectConfig(config adapter.AspectConfig) error {
+	c := config.(*AspectConfig)
 	var err error
 	var u *url.URL
 
@@ -79,10 +79,10 @@ func (b *builder) ValidateAdapterConfig(config adapter.AdapterConfig) error {
 	return err
 }
 
-func (b *builder) NewAdapter(config adapter.AdapterConfig) (adapter.Adapter, error) {
-	if err := b.ValidateAdapterConfig(config); err != nil {
+func (b *builder) NewAspect(config adapter.AspectConfig) (adapter.Aspect, error) {
+	if err := b.ValidateAspectConfig(config); err != nil {
 		return nil, err
 	}
-	c := config.(*AdapterConfig)
-	return newAdapter(c)
+	c := config.(*AspectConfig)
+	return newAspect(c)
 }

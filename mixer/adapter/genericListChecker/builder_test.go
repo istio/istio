@@ -28,7 +28,7 @@ func TestBuilderInvariants(t *testing.T) {
 
 type testCase struct {
 	bc            BuilderConfig
-	ac            AdapterConfig
+	ac            AspectConfig
 	matchValues   []string
 	unmatchValues []string
 }
@@ -37,28 +37,28 @@ func TestAll(t *testing.T) {
 	cases := []testCase{
 		{
 			BuilderConfig{ListEntries: []string{"Four", "Five"}, WhitelistMode: true},
-			AdapterConfig{ListEntries: []string{"One", "Two", "Three"}},
+			AspectConfig{ListEntries: []string{"One", "Two", "Three"}},
 			[]string{"One", "Two", "Three"},
 			[]string{"O", "OneOne", "ne", "ree"},
 		},
 
 		{
 			BuilderConfig{ListEntries: []string{"Four", "Five"}, WhitelistMode: false},
-			AdapterConfig{ListEntries: []string{"One", "Two", "Three"}},
+			AspectConfig{ListEntries: []string{"One", "Two", "Three"}},
 			[]string{"O", "OneOne", "ne", "ree"},
 			[]string{"One", "Two", "Three"},
 		},
 
 		{
 			BuilderConfig{ListEntries: []string{"One", "Two", "Three"}, WhitelistMode: true},
-			AdapterConfig{},
+			AspectConfig{},
 			[]string{"One", "Two", "Three"},
 			[]string{"O", "OneOne", "ne", "ree"},
 		},
 
 		{
 			BuilderConfig{WhitelistMode: true},
-			AdapterConfig{},
+			AspectConfig{},
 			[]string{},
 			[]string{"Lasagna"},
 		},
@@ -68,7 +68,7 @@ func TestAll(t *testing.T) {
 		b := NewBuilder()
 		b.Configure(&c.bc)
 
-		aa, err := b.NewAdapter(&c.ac)
+		aa, err := b.NewAspect(&c.ac)
 		if err != nil {
 			t.Errorf("Unable to create adapter: %v", err)
 		}

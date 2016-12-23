@@ -18,7 +18,7 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-var _ adapter.AdapterConfig = (*config)(nil)
+var _ adapter.AspectConfig = (*config)(nil)
 
 type config struct {
 }

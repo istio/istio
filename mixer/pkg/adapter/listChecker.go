@@ -16,7 +16,7 @@ package adapter
 
 // ListChecker verifies whether a particular symbol appears in a list.
 type ListChecker interface {
-	Adapter
+	Aspect
 
 	// CheckList verifies whether the given symbol is on the list.
 	CheckList(symbol string) (bool, error)

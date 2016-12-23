@@ -18,14 +18,14 @@ import (
 	"io"
 )
 
-// AdapterConfig is used to configure an individual adapter.
-type AdapterConfig interface {
+// AspectConfig is used to configure an individual aspect.
+type AspectConfig interface {
 
 	// Name returns the official name of the adapter that this configuration applies to.
 	Name() string
 }
 
-// Adapter defines lifecycle functions for adapters
-type Adapter interface {
+// Aspect defines lifecycle functions for aspects
+type Aspect interface {
 	io.Closer
 }

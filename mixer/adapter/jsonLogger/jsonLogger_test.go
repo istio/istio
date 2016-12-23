@@ -81,7 +81,7 @@ func TestLog(t *testing.T) {
 	b := NewBuilder()
 
 	for _, v := range tests {
-		a, err := b.NewAdapter(b.DefaultAdapterConfig())
+		a, err := b.NewAspect(b.DefaultAspectConfig())
 		if err != nil {
 			if !v.expectErr {
 				t.Errorf("%s - could not build adapter: %v", v.name, err)

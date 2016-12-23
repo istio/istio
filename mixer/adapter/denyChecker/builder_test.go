@@ -30,7 +30,7 @@ func TestAll(t *testing.T) {
 	b := NewBuilder()
 	b.Configure(b.DefaultBuilderConfig())
 
-	a, err := b.NewAdapter(b.DefaultAdapterConfig())
+	a, err := b.NewAspect(b.DefaultAspectConfig())
 	if err != nil {
 		t.Errorf("Unable to create adapter: %v", err)
 	}

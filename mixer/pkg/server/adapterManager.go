@@ -36,7 +36,7 @@ var loggers = []adapter.Builder{
 	jsonLogger.NewBuilder(),
 }
 
-// AdapterManager keeps track of activated Adapter objects for different types of adapters
+// AdapterManager keeps track of activated Aspect objects for different types of adapters
 type AdapterManager struct {
 	// ListCheckers is the set of list checker adapters
 	ListCheckers map[string]adapter.Builder
@@ -47,24 +47,24 @@ type AdapterManager struct {
 
 // GetListCheckerAdapter returns a matching adapter for the given dispatchKey. If there is no existing adapter,
 // it instantiates one, based on the provided adapter config.
-func (mgr *AdapterManager) GetListCheckerAdapter(dispatchKey DispatchKey, config *adapter.AdapterConfig) (adapter.ListChecker, error) {
+func (mgr *AdapterManager) GetListCheckerAdapter(dispatchKey DispatchKey, config *adapter.AspectConfig) (adapter.ListChecker, error) {
 	// TODO: instantiation & caching of the adapter.
 	return nil, errors.New("NYI")
 }
 
 // GetLoggerAdapter returns a matching adapter for the given dispatchKey. If there is no existing adapter,
 // it instantiates one, based on the provided adapter config.
-func (mgr *AdapterManager) GetLoggerAdapter(dispatchKey DispatchKey, config *adapter.AdapterConfig) (adapter.Logger, error) {
+func (mgr *AdapterManager) GetLoggerAdapter(dispatchKey DispatchKey, config *adapter.AspectConfig) (adapter.Logger, error) {
 	builder := mgr.Loggers[(*config).Name()]
-	// TODO: NewAdapter probably should take a pointer, instead of value.
-	adapterState, err := builder.NewAdapter(*config)
+	// TODO: NewAspect probably should take a pointer, instead of value.
+	aspectState, err := builder.NewAspect(*config)
 	if err != nil {
 		return nil, err
 	}
 
-	loggerAdapter, ok := adapterState.(adapter.Logger)
+	loggerAdapter, ok := aspectState.(adapter.Logger)
 	if !ok {
-		return nil, fmt.Errorf("Adapter does not implement the Logger interface: builder='%v'", builder.Name())
+		return nil, fmt.Errorf("Aspect does not implement the Logger interface: builder='%v'", builder.Name())
 	}
 
 	return loggerAdapter, nil

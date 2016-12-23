@@ -40,18 +40,18 @@ type Builder interface {
 	ValidateBuilderConfig(config BuilderConfig) error
 
 	// Configures prepares the builder with the given configuration. Once the builder has been configured,
-	// the mixer can start calling the NewAdapter method to instantiate adapters. A given builder is only
+	// the mixer can start calling the NewAspect method to instantiate adapters. A given builder is only
 	// ever configured once in its lifetime.
 	Configure(config BuilderConfig) error
 
-	// DefaultAdapterConfig returns a default configuration struct for this builder's
+	// DefaultAspectConfig returns a default configuration struct for this builder's
 	// adapters. This will be used by the configuration system to establish
-	// the shape of the block of configuration state passed to the NewAdapter method.
-	DefaultAdapterConfig() AdapterConfig
+	// the shape of the block of configuration state passed to the NewAspect method.
+	DefaultAspectConfig() AspectConfig
 
-	// ValidateAdapterConfig determines whether the given configuration meets all correctness requirements.
-	ValidateAdapterConfig(config AdapterConfig) error
+	// ValidateAspectConfig determines whether the given configuration meets all correctness requirements.
+	ValidateAspectConfig(config AspectConfig) error
 
-	// NewAdapter creates a single adapter based on the supplied configuration.
-	NewAdapter(config AdapterConfig) (Adapter, error)
+	// NewAspect creates a single aspect based on the supplied configuration.
+	NewAspect(config AspectConfig) (Aspect, error)
 }

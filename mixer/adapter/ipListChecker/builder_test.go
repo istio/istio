@@ -52,13 +52,13 @@ func TestBasic(t *testing.T) {
 	b := NewBuilder()
 	b.Configure(b.DefaultBuilderConfig())
 
-	config := AdapterConfig{
+	config := AspectConfig{
 		ProviderURL:     ts.URL,
 		RefreshInterval: time.Second,
 		TimeToLive:      time.Second * 10,
 	}
 
-	aa, err := b.NewAdapter(&config)
+	aa, err := b.NewAspect(&config)
 	if err != nil {
 		t.Errorf("Unable to create adapter: %v", err)
 	}
