@@ -35,8 +35,8 @@ func TestBuilderInvariants(b adapter.Builder, t *testing.T) {
 		t.Errorf("Default builder config is expected to validate correctly: %v", err)
 	}
 
-	ac := b.DefaultAdapterConfig()
-	if err := b.ValidateAdapterConfig(ac); err != nil {
+	ac := b.DefaultAspectConfig()
+	if err := b.ValidateAspectConfig(ac); err != nil {
 		t.Errorf("Default adapter config is expected to validate correctly: %v", err)
 	}
 
@@ -44,7 +44,7 @@ func TestBuilderInvariants(b adapter.Builder, t *testing.T) {
 		t.Errorf("Should be able to configure the builder using the default config: %v", err)
 	}
 
-	if _, err := b.NewAdapter(ac); err != nil {
+	if _, err := b.NewAspect(ac); err != nil {
 		t.Errorf("Should be able to create an adapter with the default config: %v", err)
 	}
 

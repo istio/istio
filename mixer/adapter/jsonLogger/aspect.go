@@ -12,29 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package denyChecker
+package jsonLogger
 
 import (
+	"os"
+
 	"istio.io/mixer/pkg/adapter"
 )
 
-// AdapterConfig is used to configure adapters.
-type AdapterConfig struct {
-	adapter.AdapterConfig
+type (
+	aspectState struct{}
+)
+
+func newLogger(c adapter.AspectConfig) (adapter.Logger, error) {
+	return &aspectState{}, nil
 }
 
-type adapterState struct {
+func (a *aspectState) Log(l []adapter.LogEntry) error {
+	var logsErr error
+	for _, le := range l {
+		if err := adapter.WriteJSON(os.Stdout, le); err != nil {
+			logsErr = err
+			continue
+		}
+	}
+	return logsErr
 }
 
-// newAdapter returns a new adapter.
-func newAdapter(config *AdapterConfig) (adapter.ListChecker, error) {
-	return &adapterState{}, nil
-}
-
-func (a *adapterState) Close() error {
-	return nil
-}
-
-func (a *adapterState) CheckList(symbol string) (bool, error) {
-	return false, nil
-}
+func (a *aspectState) Close() error { return nil }

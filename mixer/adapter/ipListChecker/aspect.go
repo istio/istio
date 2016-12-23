@@ -30,9 +30,9 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-// AdapterConfig is used to configure an adapter.
-type AdapterConfig struct {
-	adapter.AdapterConfig
+// AspectConfig is used to configure an adapter.
+type AspectConfig struct {
+	adapter.AspectConfig
 
 	// ProviderURL is the URL where to find the list to check against
 	ProviderURL string
@@ -48,7 +48,7 @@ type AdapterConfig struct {
 	TimeToLive time.Duration
 }
 
-type adapterState struct {
+type aspectState struct {
 	backend         *url.URL
 	atomicList      atomic.Value
 	fetchedSha      [sha1.Size]byte
@@ -57,8 +57,8 @@ type adapterState struct {
 	closing         chan bool
 }
 
-// newAdapter returns a new adapter.
-func newAdapter(config *AdapterConfig) (adapter.ListChecker, error) {
+// newAspect returns a new aspect.
+func newAspect(config *AspectConfig) (adapter.ListChecker, error) {
 	var u *url.URL
 	var err error
 	if u, err = url.Parse(config.ProviderURL); err != nil {
@@ -66,7 +66,7 @@ func newAdapter(config *AdapterConfig) (adapter.ListChecker, error) {
 		return nil, err
 	}
 
-	a := adapterState{
+	a := aspectState{
 		backend:         u,
 		closing:         make(chan bool),
 		refreshInterval: config.RefreshInterval,
@@ -85,12 +85,12 @@ func newAdapter(config *AdapterConfig) (adapter.ListChecker, error) {
 	return &a, nil
 }
 
-func (a *adapterState) Close() error {
+func (a *aspectState) Close() error {
 	close(a.closing)
 	return nil
 }
 
-func (a *adapterState) CheckList(symbol string) (bool, error) {
+func (a *aspectState) CheckList(symbol string) (bool, error) {
 	ipa := net.ParseIP(symbol)
 	if ipa == nil {
 		// invalid symbol format
@@ -115,17 +115,17 @@ func (a *adapterState) CheckList(symbol string) (bool, error) {
 }
 
 // Typed accessors for the atomic list
-func (a *adapterState) getList() []*net.IPNet {
+func (a *aspectState) getList() []*net.IPNet {
 	return a.atomicList.Load().([]*net.IPNet)
 }
 
 // Typed accessor for the atomic list
-func (a *adapterState) setList(l []*net.IPNet) {
+func (a *aspectState) setList(l []*net.IPNet) {
 	a.atomicList.Store(l)
 }
 
 // Updates the list by polling from the provider on a fixed interval
-func (a *adapterState) listRefresher() {
+func (a *aspectState) listRefresher() {
 	refreshTicker := time.NewTicker(a.refreshInterval)
 	purgeTimer := time.NewTimer(a.ttl)
 
@@ -154,7 +154,7 @@ type listPayload struct {
 	WhiteList []string `yaml:"whitelist" required:"true"`
 }
 
-func (a *adapterState) refreshList() {
+func (a *aspectState) refreshList() {
 	glog.Infoln("Fetching list from ", a.backend.String())
 
 	client := http.Client{Timeout: a.refreshInterval}

@@ -44,10 +44,10 @@ func (b builder) ValidateBuilderConfig(c adapter.BuilderConfig) error { return n
 
 func (b builder) Configure(c adapter.BuilderConfig) error { return nil }
 
-func (b builder) DefaultAdapterConfig() adapter.AdapterConfig { return config{} }
+func (b builder) DefaultAspectConfig() adapter.AspectConfig { return config{} }
 
-func (b builder) ValidateAdapterConfig(c adapter.AdapterConfig) error { return nil }
+func (b builder) ValidateAspectConfig(c adapter.AspectConfig) error { return nil }
 
-func (b builder) NewAdapter(c adapter.AdapterConfig) (adapter.Adapter, error) {
+func (b builder) NewAspect(c adapter.AspectConfig) (adapter.Aspect, error) {
 	return newLogger(c)
 }

@@ -18,9 +18,9 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-// ConfigBlock is a tuple of AdapterConfig for an adapter and a BindingEvaluator that can calculate
+// ConfigBlock is a tuple of AspectConfig for an adapter and a BindingEvaluator that can calculate
 // the input bindings for that adapter.
 type ConfigBlock struct {
-	AdapterConfig *adapter.AdapterConfig
-	Evaluator     BindingEvaluator
+	AspectConfig *adapter.AspectConfig
+	Evaluator    BindingEvaluator
 }

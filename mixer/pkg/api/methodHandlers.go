@@ -111,7 +111,7 @@ func (h *methodHandlers) checkLists(dispatchKey server.DispatchKey, tracker attr
 	}
 
 	for _, configBlock := range configBlocks {
-		listCheckerAdapter, err := h.adapterManager.GetListCheckerAdapter(dispatchKey, configBlock.AdapterConfig)
+		listCheckerAdapter, err := h.adapterManager.GetListCheckerAdapter(dispatchKey, configBlock.AspectConfig)
 		if err != nil {
 			return false, err
 		}
@@ -168,7 +168,7 @@ func (h *methodHandlers) Report(tracker attribute.Tracker, request *mixerpb.Repo
 }
 
 func (h *methodHandlers) report(dispatchKey server.DispatchKey, ac attribute.Context) error {
-	adapterConfigs, err := h.configManager.GetLoggerAdapterConfigs(dispatchKey)
+	adapterConfigs, err := h.configManager.GetLoggerAspectConfigs(dispatchKey)
 	if err != nil {
 		return err
 	}

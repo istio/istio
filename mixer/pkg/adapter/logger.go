@@ -24,7 +24,7 @@ type (
 	// Logger is the interface for adapters that will handle logs data within
 	// the mixer.
 	Logger interface {
-		Adapter
+		Aspect
 
 		// Log directs a backend adapter to process a batch of LogEntries derived
 		// from potentially several Report() calls.

@@ -54,19 +54,19 @@ func (b *builder) Close() error {
 	return nil
 }
 
-func (b *builder) DefaultAdapterConfig() adapter.AdapterConfig {
-	return &AdapterConfig{}
+func (b *builder) DefaultAspectConfig() adapter.AspectConfig {
+	return &AspectConfig{}
 }
 
-func (b *builder) ValidateAdapterConfig(config adapter.AdapterConfig) error {
-	_ = config.(*AdapterConfig)
+func (b *builder) ValidateAspectConfig(config adapter.AspectConfig) error {
+	_ = config.(*AspectConfig)
 	return nil
 }
 
-func (b *builder) NewAdapter(config adapter.AdapterConfig) (adapter.Adapter, error) {
-	if err := b.ValidateAdapterConfig(config); err != nil {
+func (b *builder) NewAspect(config adapter.AspectConfig) (adapter.Aspect, error) {
+	if err := b.ValidateAspectConfig(config); err != nil {
 		return nil, err
 	}
-	c := config.(*AdapterConfig)
-	return newAdapter(c)
+	c := config.(*AspectConfig)
+	return newAspect(c)
 }
