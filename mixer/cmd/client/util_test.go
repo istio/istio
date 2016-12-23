@@ -25,7 +25,7 @@ import (
 	mixerpb "istio.io/mixer/api/v1"
 )
 
-func TestAttributeManager(t *testing.T) {
+func TestAttributeHandling(t *testing.T) {
 	type testCase struct {
 		rootArgs rootArgs
 		attrs    mixerpb.Attributes
@@ -43,15 +43,16 @@ func TestAttributeManager(t *testing.T) {
 				boolAttributes:      "l=true,m=false,nnn=true",
 				timestampAttributes: "o=2006-01-02T15:04:05Z",
 				bytesAttributes:     "p=1,q=34:56",
+				attributes:          "r=XYZ,s=2,t=3.0,u=true,v=2006-01-02T15:04:05Z,w=98:76",
 			},
 			attrs: mixerpb.Attributes{
-				Dictionary:          map[int32]string{0: "a", 1: "b", 2: "ccc", 3: "d", 4: "e", 5: "f", 6: "g", 7: "hhh", 8: "i", 9: "j", 10: "kkk", 11: "l", 12: "m", 13: "nnn", 14: "o", 15: "p", 16: "q"},
-				StringAttributes:    map[int32]string{0: "X", 1: "Y", 2: "XYZ", 3: "X Z", 4: "X"},
-				Int64Attributes:     map[int32]int64{5: 1, 6: 2, 7: 345},
-				DoubleAttributes:    map[int32]float64{8: 1, 9: 2, 10: 345.678},
-				BoolAttributes:      map[int32]bool{11: true, 12: false, 13: true},
-				TimestampAttributes: map[int32]*timestamp.Timestamp{14: ts},
-				BytesAttributes:     map[int32][]uint8{15: []uint8{1}, 16: []uint8{0x34, 0x56}},
+				Dictionary:          map[int32]string{0: "a", 1: "b", 2: "ccc", 3: "d", 4: "e", 5: "f", 6: "g", 7: "hhh", 8: "i", 9: "j", 10: "kkk", 11: "l", 12: "m", 13: "nnn", 14: "o", 15: "p", 16: "q", 17: "r", 18: "s", 19: "t", 20: "u", 21: "v", 22: "w"},
+				StringAttributes:    map[int32]string{0: "X", 1: "Y", 2: "XYZ", 3: "X Z", 4: "X", 17: "XYZ"},
+				Int64Attributes:     map[int32]int64{5: 1, 6: 2, 7: 345, 18: 2},
+				DoubleAttributes:    map[int32]float64{8: 1, 9: 2, 10: 345.678, 19: 3.0},
+				BoolAttributes:      map[int32]bool{11: true, 12: false, 13: true, 20: true},
+				TimestampAttributes: map[int32]*timestamp.Timestamp{14: ts, 21: ts},
+				BytesAttributes:     map[int32][]uint8{15: {1}, 16: {0x34, 0x56}, 22: {0x98, 0x76}},
 			},
 			result: true,
 		},

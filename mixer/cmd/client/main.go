@@ -23,6 +23,9 @@ import (
 )
 
 type rootArgs struct {
+	// attributes is the list of name/value pairs of auto-sensed attributes that will be sent with requests
+	attributes string
+
 	// stringAttributes is the list of name/value pairs of string attributes that will be sent with requests.
 	stringAttributes string
 
@@ -64,6 +67,7 @@ func withArgs(args []string, errorf errorFn) {
 	rootArgs := &rootArgs{}
 
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.mixerAddress, "mixer", "m", "localhost:9091", "Address and port of running instance of the mixer")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.attributes, "attributes", "a", "", "List of name/value auto-sensed attributes specified as name1=value1,name2=value2,...")
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.stringAttributes, "string_attributes", "s", "", "List of name/value string attributes specified as name1=value1,name2=value2,...")
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.int64Attributes, "int64_attributes", "i", "", "List of name/value int64 attributes specified as name1=value1,name2=value2,...")
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.doubleAttributes, "double_attributes", "d", "", "List of name/value float64 attributes specified as name1=value1,name2=value2,...")

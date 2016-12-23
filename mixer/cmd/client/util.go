@@ -70,7 +70,7 @@ func parseTime(s string) (interface{}, error) {
 func parseBytes(s string) (interface{}, error) {
 	var bytes []uint8
 	for _, seg := range strings.Split(s, ":") {
-		b, err := strconv.ParseInt(seg, 16, 8)
+		b, err := strconv.ParseUint(seg, 16, 8)
 		if err != nil {
 			return nil, err
 		}
@@ -116,13 +116,18 @@ func process(dictionary map[int32]string, s string, f convertFn) (map[int32]inte
 func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 	attrs := mixerpb.Attributes{}
 	attrs.Dictionary = make(map[int32]string)
+	attrs.StringAttributes = make(map[int32]string)
+	attrs.Int64Attributes = make(map[int32]int64)
+	attrs.DoubleAttributes = make(map[int32]float64)
+	attrs.BoolAttributes = make(map[int32]bool)
+	attrs.TimestampAttributes = make(map[int32]*timestamp.Timestamp)
+	attrs.BytesAttributes = make(map[int32][]uint8)
 
-	// once again, the following boilerplate would be more succinct with generics...
+	// the following boilerplate would be more succinct with generics...
 
 	if m, err := process(attrs.Dictionary, rootArgs.stringAttributes, parseString); err != nil {
 		return nil, err
-	} else if len(m) > 0 {
-		attrs.StringAttributes = make(map[int32]string)
+	} else {
 		for k, v := range m {
 			attrs.StringAttributes[k] = v.(string)
 		}
@@ -130,8 +135,7 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 
 	if m, err := process(attrs.Dictionary, rootArgs.int64Attributes, parseInt64); err != nil {
 		return nil, err
-	} else if len(m) > 0 {
-		attrs.Int64Attributes = make(map[int32]int64)
+	} else {
 		for k, v := range m {
 			attrs.Int64Attributes[k] = v.(int64)
 		}
@@ -139,8 +143,7 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 
 	if m, err := process(attrs.Dictionary, rootArgs.doubleAttributes, parseFloat64); err != nil {
 		return nil, err
-	} else if len(m) > 0 {
-		attrs.DoubleAttributes = make(map[int32]float64)
+	} else {
 		for k, v := range m {
 			attrs.DoubleAttributes[k] = v.(float64)
 		}
@@ -148,8 +151,7 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 
 	if m, err := process(attrs.Dictionary, rootArgs.boolAttributes, parseBool); err != nil {
 		return nil, err
-	} else if len(m) > 0 {
-		attrs.BoolAttributes = make(map[int32]bool)
+	} else {
 		for k, v := range m {
 			attrs.BoolAttributes[k] = v.(bool)
 		}
@@ -157,8 +159,7 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 
 	if m, err := process(attrs.Dictionary, rootArgs.timestampAttributes, parseTime); err != nil {
 		return nil, err
-	} else if len(m) > 0 {
-		attrs.TimestampAttributes = make(map[int32]*timestamp.Timestamp)
+	} else {
 		for k, v := range m {
 			attrs.TimestampAttributes[k] = v.(*timestamp.Timestamp)
 		}
@@ -166,10 +167,32 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 
 	if m, err := process(attrs.Dictionary, rootArgs.bytesAttributes, parseBytes); err != nil {
 		return nil, err
-	} else if len(m) > 0 {
-		attrs.BytesAttributes = make(map[int32][]uint8)
+	} else {
 		for k, v := range m {
 			attrs.BytesAttributes[k] = v.([]uint8)
+		}
+	}
+
+	if m, err := process(attrs.Dictionary, rootArgs.attributes, parseString); err != nil {
+		return nil, err
+	} else {
+		for k, v := range m {
+			s := v.(string)
+
+			// auto-sense the type of attributes based on being to parse the value
+			if val, err := parseInt64(s); err == nil {
+				attrs.Int64Attributes[k] = val.(int64)
+			} else if val, err := parseFloat64(s); err == nil {
+				attrs.DoubleAttributes[k] = val.(float64)
+			} else if val, err := parseBool(s); err == nil {
+				attrs.BoolAttributes[k] = val.(bool)
+			} else if val, err := parseTime(s); err == nil {
+				attrs.TimestampAttributes[k] = val.(*timestamp.Timestamp)
+			} else if val, err := parseBytes(s); err == nil {
+				attrs.BytesAttributes[k] = val.([]uint8)
+			} else {
+				attrs.StringAttributes[k] = s
+			}
 		}
 	}
 
