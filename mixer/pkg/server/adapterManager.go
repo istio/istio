@@ -25,24 +25,24 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-// all the known list checker adapter types
-var listCheckers = []adapter.Builder{
-	ipListChecker.NewBuilder(),
-	genericListChecker.NewBuilder(),
-	denyChecker.NewBuilder(),
+// all the known list checker adapter implementations
+var listCheckers = []adapter.Adapter{
+	ipListChecker.NewAdapter(),
+	genericListChecker.NewAdapter(),
+	denyChecker.NewAdapter(),
 }
 
-var loggers = []adapter.Builder{
-	jsonLogger.NewBuilder(),
+var loggers = []adapter.Adapter{
+	jsonLogger.NewAdapter(),
 }
 
 // AdapterManager keeps track of activated Aspect objects for different types of adapters
 type AdapterManager struct {
 	// ListCheckers is the set of list checker adapters
-	ListCheckers map[string]adapter.Builder
+	ListCheckers map[string]adapter.Adapter
 
 	// Loggers is the set of logger adapters
-	Loggers map[string]adapter.Builder
+	Loggers map[string]adapter.Adapter
 }
 
 // GetListCheckerAdapter returns a matching adapter for the given dispatchKey. If there is no existing adapter,
@@ -55,33 +55,33 @@ func (mgr *AdapterManager) GetListCheckerAdapter(dispatchKey DispatchKey, config
 // GetLoggerAdapter returns a matching adapter for the given dispatchKey. If there is no existing adapter,
 // it instantiates one, based on the provided adapter config.
 func (mgr *AdapterManager) GetLoggerAdapter(dispatchKey DispatchKey, config *adapter.AspectConfig) (adapter.Logger, error) {
-	builder := mgr.Loggers[(*config).Name()]
+	a := mgr.Loggers[(*config).Name()]
 	// TODO: NewAspect probably should take a pointer, instead of value.
-	aspectState, err := builder.NewAspect(*config)
+	aspectState, err := a.NewAspect(*config)
 	if err != nil {
 		return nil, err
 	}
 
 	loggerAdapter, ok := aspectState.(adapter.Logger)
 	if !ok {
-		return nil, fmt.Errorf("Aspect does not implement the Logger interface: builder='%v'", builder.Name())
+		return nil, fmt.Errorf("Aspect does not implement the Logger interface: adapter='%v'", a.Name())
 	}
 
 	return loggerAdapter, nil
 }
 
 // TODO: this implementation needs to be driven from external config instead of being hardcoded
-func prepBuilders(l []adapter.Builder) (map[string]adapter.Builder, error) {
-	m := make(map[string]adapter.Builder, len(l))
+func prepBuilders(l []adapter.Adapter) (map[string]adapter.Adapter, error) {
+	m := make(map[string]adapter.Adapter, len(l))
 
-	for _, builder := range l {
-		if _, exists := m[builder.Name()]; exists {
-			return nil, errors.New("can't have multiple builders called " + builder.Name())
+	for _, adapter := range l {
+		if _, exists := m[adapter.Name()]; exists {
+			return nil, errors.New("can't have multiple builders called " + adapter.Name())
 		}
 
-		builder.Configure(builder.DefaultBuilderConfig())
+		adapter.Configure(adapter.DefaultAdapterConfig())
 
-		m[builder.Name()] = builder
+		m[adapter.Name()] = adapter
 	}
 
 	return m, nil

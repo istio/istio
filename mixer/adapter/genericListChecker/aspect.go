@@ -22,8 +22,8 @@ import (
 type AspectConfig struct {
 	adapter.AspectConfig
 
-	// The set of entries in the list to check against. This overrides any builder-level
-	// entries. If this is not supplied, then the builder's list is used instead.
+	// The set of entries in the list to check against. This overrides any adapter-level
+	// entries. If this is not supplied, then the adapter's list is used instead.
 	ListEntries []string
 }
 
@@ -35,7 +35,7 @@ type aspectState struct {
 // newAspect returns a new aspect.
 func newAspect(config *AspectConfig, entries map[string]string, whitelistMode bool) (adapter.ListChecker, error) {
 	if config.ListEntries != nil {
-		// override the builder-level entries
+		// override the adapter-level entries
 		entries = make(map[string]string, len(config.ListEntries))
 		for _, entry := range config.ListEntries {
 			entries[entry] = entry

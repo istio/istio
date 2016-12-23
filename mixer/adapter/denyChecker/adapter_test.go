@@ -22,13 +22,13 @@ import (
 )
 
 func TestBuilderInvariants(t *testing.T) {
-	b := NewBuilder()
+	b := NewAdapter()
 	testutil.TestBuilderInvariants(b, t)
 }
 
 func TestAll(t *testing.T) {
-	b := NewBuilder()
-	b.Configure(b.DefaultBuilderConfig())
+	b := NewAdapter()
+	b.Configure(b.DefaultAdapterConfig())
 
 	a, err := b.NewAspect(b.DefaultAspectConfig())
 	if err != nil {

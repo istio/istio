@@ -21,7 +21,7 @@ import (
 )
 
 // TestBuilderInvariants ensures that builders implement expected semantics.
-func TestBuilderInvariants(b adapter.Builder, t *testing.T) {
+func TestBuilderInvariants(b adapter.Adapter, t *testing.T) {
 	if b.Name() == "" {
 		t.Error("All builders need names")
 	}
@@ -30,9 +30,9 @@ func TestBuilderInvariants(b adapter.Builder, t *testing.T) {
 		t.Error("All builders need descriptions")
 	}
 
-	bc := b.DefaultBuilderConfig()
-	if err := b.ValidateBuilderConfig(bc); err != nil {
-		t.Errorf("Default builder config is expected to validate correctly: %v", err)
+	bc := b.DefaultAdapterConfig()
+	if err := b.ValidateAdapterConfig(bc); err != nil {
+		t.Errorf("Default adapter config is expected to validate correctly: %v", err)
 	}
 
 	ac := b.DefaultAspectConfig()
@@ -41,7 +41,7 @@ func TestBuilderInvariants(b adapter.Builder, t *testing.T) {
 	}
 
 	if err := b.Configure(bc); err != nil {
-		t.Errorf("Should be able to configure the builder using the default config: %v", err)
+		t.Errorf("Should be able to configure the adapter using the default config: %v", err)
 	}
 
 	if _, err := b.NewAspect(ac); err != nil {

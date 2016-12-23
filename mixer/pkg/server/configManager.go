@@ -41,7 +41,7 @@ func (manager *ConfigManager) GetListCheckerConfigBlocks(dispatchKey DispatchKey
 // GetLoggerAspectConfigs returns a list of AspectConfigs for the given dispatchKey.
 func (manager *ConfigManager) GetLoggerAspectConfigs(dispatchKey DispatchKey) ([]*adapter.AspectConfig, error) {
 	// TODO: Create an adapter config in an extremely hacky way.
-	adapterConfig := jsonLogger.NewBuilder().DefaultAspectConfig()
+	adapterConfig := jsonLogger.NewAdapter().DefaultAspectConfig()
 	result := make([]*adapter.AspectConfig, 1)
 
 	result[0] = &adapterConfig

@@ -44,7 +44,7 @@ func adapterCmd(errorf errorFn) *cobra.Command {
 	return &adapterCmd
 }
 
-func printBuilders(listName string, builders map[string]adapter.Builder) {
+func printBuilders(listName string, builders map[string]adapter.Adapter) {
 	fmt.Printf("%s\n", listName)
 	if len(builders) > 0 {
 		for _, b := range builders {

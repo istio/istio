@@ -30,7 +30,7 @@ import (
 // testing TTL handling, testing malformed input, etc.
 
 func TestBuilderInvariants(t *testing.T) {
-	b := NewBuilder()
+	b := NewAdapter()
 	testutil.TestBuilderInvariants(b, t)
 }
 
@@ -49,8 +49,8 @@ func TestBasic(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	b := NewBuilder()
-	b.Configure(b.DefaultBuilderConfig())
+	b := NewAdapter()
+	b.Configure(b.DefaultAdapterConfig())
 
 	config := AspectConfig{
 		ProviderURL:     ts.URL,
