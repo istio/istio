@@ -24,30 +24,30 @@ const (
 )
 
 type (
-	builder struct{}
+	adapterState struct{}
 )
 
 // TODO: consider making destination configurable (os.Stdout v os.Stderr)
 
-// NewBuilder returns the builder for the default logging adapter.
-func NewBuilder() adapter.Builder { return &builder{} }
+// NewAdapter returns the adapter for the default logging adapter.
+func NewAdapter() adapter.Adapter { return &adapterState{} }
 
-func (b *builder) Close() error { return nil }
+func (a *adapterState) Close() error { return nil }
 
-func (b builder) Name() string { return name }
+func (a *adapterState) Name() string { return name }
 
-func (b builder) Description() string { return desc }
+func (a *adapterState) Description() string { return desc }
 
-func (b builder) DefaultBuilderConfig() adapter.BuilderConfig { return &struct{}{} }
+func (a *adapterState) DefaultAdapterConfig() adapter.AdapterConfig { return &struct{}{} }
 
-func (b builder) ValidateBuilderConfig(c adapter.BuilderConfig) error { return nil }
+func (a *adapterState) ValidateAdapterConfig(c adapter.AdapterConfig) error { return nil }
 
-func (b builder) Configure(c adapter.BuilderConfig) error { return nil }
+func (a *adapterState) Configure(c adapter.AdapterConfig) error { return nil }
 
-func (b builder) DefaultAspectConfig() adapter.AspectConfig { return config{} }
+func (a *adapterState) DefaultAspectConfig() adapter.AspectConfig { return config{} }
 
-func (b builder) ValidateAspectConfig(c adapter.AspectConfig) error { return nil }
+func (a *adapterState) ValidateAspectConfig(c adapter.AspectConfig) error { return nil }
 
-func (b builder) NewAspect(c adapter.AspectConfig) (adapter.Aspect, error) {
+func (a *adapterState) NewAspect(c adapter.AspectConfig) (adapter.Aspect, error) {
 	return newLogger(c)
 }

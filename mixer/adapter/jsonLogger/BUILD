@@ -6,7 +6,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "aspect.go",
-        "builder.go",
+        "adapter.go",
         "config.go",
     ],
     deps = ["//pkg/adapter:go_default_library"],
@@ -15,7 +15,7 @@ go_library(
 go_test(
     name = "json_logger_test",
     size = "small",
-    srcs = ["jsonLogger_test.go"],
+    srcs = ["adapter_test.go"],
     library = ":go_default_library",
     deps = ["//pkg/adaptertesting:go_default_library"],
 )

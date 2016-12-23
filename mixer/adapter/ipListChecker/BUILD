@@ -6,7 +6,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "aspect.go",
-        "builder.go",
+        "adapter.go",
     ],
     deps = [
         "@com_github_golang_glog//:go_default_library",
@@ -18,7 +18,7 @@ go_library(
 go_test(
     name = "ip_list_checker_test",
     size = "small",
-    srcs = ["builder_test.go"],
+    srcs = ["adapter_test.go"],
     library = ":go_default_library",
     deps = ["//pkg/adaptertesting:go_default_library"],
 )

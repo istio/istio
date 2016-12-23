@@ -52,7 +52,7 @@ var (
 )
 
 func TestBuilderInvariants(t *testing.T) {
-	b := NewBuilder()
+	b := NewAdapter()
 	testutil.TestBuilderInvariants(b, t)
 }
 
@@ -78,7 +78,7 @@ func TestLog(t *testing.T) {
 		},
 	}
 
-	b := NewBuilder()
+	b := NewAdapter()
 
 	for _, v := range tests {
 		a, err := b.NewAspect(b.DefaultAspectConfig())

@@ -18,33 +18,33 @@ import (
 	"io"
 )
 
-// BuilderConfig is used to configure a builder.
-type BuilderConfig interface{}
+// AdapterConfig is used to configure a adapter.
+type AdapterConfig interface{}
 
-// Builder represents the factory that the mixer uses to create individual adapter.
-type Builder interface {
+// Adapter represents the factory that the mixer uses to create individual aspects.
+type Adapter interface {
 	io.Closer
 
-	// Name returns the official name of this builder's adapters for use in diagnostics and in config
+	// Name returns the official name of this adapter's adapters for use in diagnostics and in config
 	Name() string
 
-	// Description returns a user-friendly description of this builder's adapters.
+	// Description returns a user-friendly description of this adapter's adapters.
 	Description() string
 
-	// DefaultBuilderConfig returns a default configuration struct for this builder.
+	// DefaultAdapterConfig returns a default configuration struct for this adapter.
 	// This will be used by the configuration system to establish the shape of the block
 	// of configuration state passed to the Configure function.
-	DefaultBuilderConfig() BuilderConfig
+	DefaultAdapterConfig() AdapterConfig
 
-	// ValidateBuilderConfig determines whether the given configuration meets all correctness requirements.
-	ValidateBuilderConfig(config BuilderConfig) error
+	// ValidateAdapterConfig determines whether the given configuration meets all correctness requirements.
+	ValidateAdapterConfig(config AdapterConfig) error
 
-	// Configures prepares the builder with the given configuration. Once the builder has been configured,
-	// the mixer can start calling the NewAspect method to instantiate adapters. A given builder is only
+	// Configures prepares the adapter with the given configuration. Once the adapter has been configured,
+	// the mixer can start calling the NewAspect method to instantiate adapters. A given adapter is only
 	// ever configured once in its lifetime.
-	Configure(config BuilderConfig) error
+	Configure(config AdapterConfig) error
 
-	// DefaultAspectConfig returns a default configuration struct for this builder's
+	// DefaultAspectConfig returns a default configuration struct for this adapter's
 	// adapters. This will be used by the configuration system to establish
 	// the shape of the block of configuration state passed to the NewAspect method.
 	DefaultAspectConfig() AspectConfig

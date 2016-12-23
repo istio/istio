@@ -22,12 +22,12 @@ import (
 )
 
 func TestBuilderInvariants(t *testing.T) {
-	b := NewBuilder()
+	b := NewAdapter()
 	testutil.TestBuilderInvariants(b, t)
 }
 
 type testCase struct {
-	bc            BuilderConfig
+	bc            AdapterConfig
 	ac            AspectConfig
 	matchValues   []string
 	unmatchValues []string
@@ -36,28 +36,28 @@ type testCase struct {
 func TestAll(t *testing.T) {
 	cases := []testCase{
 		{
-			BuilderConfig{ListEntries: []string{"Four", "Five"}, WhitelistMode: true},
+			AdapterConfig{ListEntries: []string{"Four", "Five"}, WhitelistMode: true},
 			AspectConfig{ListEntries: []string{"One", "Two", "Three"}},
 			[]string{"One", "Two", "Three"},
 			[]string{"O", "OneOne", "ne", "ree"},
 		},
 
 		{
-			BuilderConfig{ListEntries: []string{"Four", "Five"}, WhitelistMode: false},
+			AdapterConfig{ListEntries: []string{"Four", "Five"}, WhitelistMode: false},
 			AspectConfig{ListEntries: []string{"One", "Two", "Three"}},
 			[]string{"O", "OneOne", "ne", "ree"},
 			[]string{"One", "Two", "Three"},
 		},
 
 		{
-			BuilderConfig{ListEntries: []string{"One", "Two", "Three"}, WhitelistMode: true},
+			AdapterConfig{ListEntries: []string{"One", "Two", "Three"}, WhitelistMode: true},
 			AspectConfig{},
 			[]string{"One", "Two", "Three"},
 			[]string{"O", "OneOne", "ne", "ree"},
 		},
 
 		{
-			BuilderConfig{WhitelistMode: true},
+			AdapterConfig{WhitelistMode: true},
 			AspectConfig{},
 			[]string{},
 			[]string{"Lasagna"},
@@ -65,7 +65,7 @@ func TestAll(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		b := NewBuilder()
+		b := NewAdapter()
 		b.Configure(&c.bc)
 
 		aa, err := b.NewAspect(&c.ac)

@@ -6,7 +6,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "aspect.go",
-        "builder.go",
+        "adapter.go",
         "listChecker.go",
         "logger.go",
         "metricsReporter.go",
