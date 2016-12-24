@@ -43,10 +43,13 @@ func TestBag(t *testing.T) {
 
 	am := NewManager()
 	at := am.NewTracker()
-	ab, err := at.Update(&attrs)
+	defer at.Done()
+
+	ab, err := at.StartRequest(&attrs)
 	if err != nil {
 		t.Errorf("Unable to update attrs: %v", err)
 	}
+	defer at.EndRequest()
 
 	// override a bunch of values
 	ab.SetString("N2", "42")
@@ -77,7 +80,7 @@ func TestBag(t *testing.T) {
 			t.Error("N2 has wrong value")
 		}
 
-		if r, found = ab.String("XYZ"); found {
+		if _, found = ab.String("XYZ"); found {
 			t.Error("XYZ was found")
 		}
 	}
@@ -101,7 +104,7 @@ func TestBag(t *testing.T) {
 			t.Error("N4 has wrong value")
 		}
 
-		if r, found = ab.Int64("XYZ"); found {
+		if _, found = ab.Int64("XYZ"); found {
 			t.Error("XYZ was found")
 		}
 	}
@@ -125,7 +128,7 @@ func TestBag(t *testing.T) {
 			t.Error("N6 has wrong value")
 		}
 
-		if r, found = ab.Float64("XYZ"); found {
+		if _, found = ab.Float64("XYZ"); found {
 			t.Error("XYZ was found")
 		}
 	}
@@ -149,7 +152,7 @@ func TestBag(t *testing.T) {
 			t.Error("N8 has wrong value")
 		}
 
-		if r, found = ab.Bool("XYZ"); found {
+		if _, found = ab.Bool("XYZ"); found {
 			t.Error("XYZ was found")
 		}
 	}
@@ -173,7 +176,7 @@ func TestBag(t *testing.T) {
 			t.Error("N10 has wrong value")
 		}
 
-		if r, found = ab.Time("XYZ"); found {
+		if _, found = ab.Time("XYZ"); found {
 			t.Error("XYZ was found")
 		}
 	}
@@ -197,7 +200,7 @@ func TestBag(t *testing.T) {
 			t.Error("N12 has wrong value")
 		}
 
-		if r, found = ab.Bytes("XYZ"); found {
+		if _, found = ab.Bytes("XYZ"); found {
 			t.Error("XYZ was found")
 		}
 	}

@@ -54,6 +54,8 @@ type methodHandlers struct {
 	configManager  *server.ConfigManager
 }
 
+var okStatus = newStatus(code.Code_OK)
+
 func newStatus(c code.Code) *status.Status {
 	return &status.Status{Code: int32(c)}
 }
@@ -70,45 +72,51 @@ func NewMethodHandlers(adapterManager *server.AdapterManager, configManager *ser
 	}
 }
 
-func (h *methodHandlers) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
-	// Prepare common response fields.
-	response.RequestIndex = request.RequestIndex
+type workFunc func(context.Context, attribute.MutableBag) *status.Status
 
-	ab, err := tracker.Update(request.AttributeUpdate)
+// does the standard attribute dance for each request
+func wrapper(ctx context.Context, tracker attribute.Tracker, attrs *mixerpb.Attributes, workFn workFunc) *status.Status {
+	ab, err := tracker.StartRequest(attrs)
 	if err != nil {
 		glog.Warningf("Unable to process attribute update. error: '%v'", err)
-		response.Result = newStatus(code.Code_INVALID_ARGUMENT)
-		return
+		return newStatus(code.Code_INVALID_ARGUMENT)
 	}
+	defer tracker.EndRequest()
 
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, ab)
 	_ = ctx // will eventually be passed down to adapters
 
+	return workFn(ctx, ab)
+}
+
+func (h *methodHandlers) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
+	response.RequestIndex = request.RequestIndex
+	response.Result = wrapper(ctx, tracker, request.AttributeUpdate, h.checkWorker)
+}
+
+func (h *methodHandlers) checkWorker(ctx context.Context, ab attribute.MutableBag) *status.Status {
 	dispatchKey, err := server.NewDispatchKey(ab)
 	if err != nil {
 		glog.Warningf("Error extracting the dispatch key. error: '%v'", err)
-		response.Result = newStatus(code.Code_FAILED_PRECONDITION)
-		return
+		return newStatus(code.Code_FAILED_PRECONDITION)
 	}
 
-	allowed, err := h.checkLists(dispatchKey, tracker)
+	allowed, err := h.checkLists(dispatchKey, ab)
 	if err != nil {
 		glog.Warningf("Unexpected check error. dispatchKey: '%v', error: '%v'", dispatchKey, err)
-		response.Result = newStatus(code.Code_INTERNAL)
-		return
+		return newStatus(code.Code_INTERNAL)
 	}
 
 	if !allowed {
-		response.Result = newStatus(code.Code_PERMISSION_DENIED)
-		return
+		return newStatus(code.Code_PERMISSION_DENIED)
 	}
 
 	// No objections from any of the adapters
-	response.Result = newStatus(code.Code_OK)
+	return okStatus
 }
 
-func (h *methodHandlers) checkLists(dispatchKey server.DispatchKey, tracker attribute.Tracker) (bool, error) {
+func (h *methodHandlers) checkLists(dispatchKey server.DispatchKey, ab attribute.MutableBag) (bool, error) {
 	// TODO: What is the correct error handling policy for the check calls? This implementation opts for fail-close.
 	configBlocks, err := h.configManager.GetListCheckerConfigBlocks(dispatchKey)
 	if err != nil {
@@ -144,36 +152,24 @@ func (h *methodHandlers) checkLists(dispatchKey server.DispatchKey, tracker attr
 }
 
 func (h *methodHandlers) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
-
-	// Prepare common response fields.
 	response.RequestIndex = request.RequestIndex
+	response.Result = wrapper(ctx, tracker, request.AttributeUpdate, h.reportWorker)
+}
 
-	ab, err := tracker.Update(request.AttributeUpdate)
-	if err != nil {
-		glog.Warningf("Unable to process attribute update. error: '%v'", err)
-		response.Result = newStatus(code.Code_INVALID_ARGUMENT)
-		return
-	}
-
-	// get a new context with the attribute bag attached
-	ctx = attribute.NewContext(ctx, ab)
-	_ = ctx // will eventually be passed down to adapters
-
+func (h *methodHandlers) reportWorker(ctx context.Context, ab attribute.MutableBag) *status.Status {
 	dispatchKey, err := server.NewDispatchKey(ab)
 	if err != nil {
 		glog.Warningf("Error extracting the dispatch key. error: '%v'", err)
-		response.Result = newStatus(code.Code_FAILED_PRECONDITION)
-		return
+		return newStatus(code.Code_FAILED_PRECONDITION)
 	}
 
 	err = h.report(dispatchKey, ab)
 	if err != nil {
 		glog.Warningf("Unexpected report error: %v", err)
-		response.Result = newStatus(code.Code_INTERNAL)
-		return
+		return newStatus(code.Code_INTERNAL)
 	}
 
-	response.Result = newStatus(code.Code_OK)
+	return okStatus
 }
 
 func (h *methodHandlers) report(dispatchKey server.DispatchKey, ac attribute.Bag) error {
@@ -233,17 +229,11 @@ func buildLogEntries(entries []*mixerpb.LogEntry) []adapters.LogEntry {
 */
 
 func (h *methodHandlers) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
-	ab, err := tracker.Update(request.AttributeUpdate)
-	if err != nil {
-		glog.Warningf("Unable to process attribute update. error: '%v'", err)
-		response.Result = newQuotaError(code.Code_INVALID_ARGUMENT)
-		return
-	}
-
-	// get a new context with the attribute bag attached
-	ctx = attribute.NewContext(ctx, ab)
-	_ = ctx
-
 	response.RequestIndex = request.RequestIndex
-	response.Result = newQuotaError(code.Code_UNIMPLEMENTED)
+	status := wrapper(ctx, tracker, request.AttributeUpdate, h.quotaWorker)
+	response.Result = newQuotaError(code.Code(status.Code))
+}
+
+func (h *methodHandlers) quotaWorker(ctx context.Context, ab attribute.MutableBag) *status.Status {
+	return newStatus(code.Code_UNIMPLEMENTED)
 }

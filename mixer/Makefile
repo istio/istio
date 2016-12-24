@@ -36,10 +36,11 @@ lint: build
 		--enable=aligncheck\
 		--enable=deadcode\
 		--enable=errcheck\
-		--enable=gofmt\
 		--enable=gas\
 		--enable=goconst\
+		--enable=gofmt\
 		--enable=gosimple\
+		--enable=ineffassign\
 		--enable=interfacer\
 		--enable=lll --line-length=160\
 		--enable=misspell\
@@ -56,8 +57,10 @@ lint: build
 # --enable=dupl
 # --enable=gocyclo
 # --enable=golint
-# --enable=ineffassign
 
 # These don't seem interesting
 # --enable=goimports
 # --enable=gotype
+
+# Add this linter once its current build failure is fixed
+# github.com/3rf/codecoroner
