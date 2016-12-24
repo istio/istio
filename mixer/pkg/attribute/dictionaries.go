@@ -41,7 +41,7 @@ type dictionaryEntry struct {
 // dictionaries to be shared within the mixer, which reduces
 // memory consumption and improves processor cache efficiency.
 type dictionaries struct {
-	mutex   sync.Mutex
+	sync.Mutex
 	entries []dictionaryEntry
 }
 
@@ -76,8 +76,8 @@ func compareDictionaries(d1 dictionary, d2 dictionary) bool {
 //
 // This call is thread-safe.
 func (d *dictionaries) Intern(dict dictionary) dictionary {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+	d.Lock()
+	defer d.Unlock()
 
 	for i := range d.entries {
 		entry := &d.entries[i]
@@ -97,8 +97,8 @@ func (d *dictionaries) Intern(dict dictionary) dictionary {
 //
 // This call is thread-safe.
 func (d *dictionaries) Release(dict dictionary) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+	d.Lock()
+	defer d.Unlock()
 
 	for i := range d.entries {
 		entry := &d.entries[i]

@@ -273,15 +273,18 @@ func TestAttributeManager(t *testing.T) {
 
 	am := NewManager()
 	at := am.NewTracker()
+	defer at.Done()
+
 	for i, c := range cases {
-		ab, err := at.Update(&c.attrs)
+		ab, err := at.StartRequest(&c.attrs)
 		if (err == nil) != c.result {
 			if c.result {
-				t.Errorf("Expected Update to succeed but it returned %v for test case %d", err, i)
+				t.Errorf("Expected StartRequest to succeed but it returned %v for test case %d", err, i)
 			} else {
-				t.Errorf("Expected Update to fail but it succeeded for test case %d", i)
+				t.Errorf("Expected StartRequest to fail but it succeeded for test case %d", i)
 			}
 		}
+		defer at.EndRequest()
 
 		for j, g := range c.getString {
 			result, present := ab.String(g.name)
