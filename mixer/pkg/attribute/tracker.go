@@ -15,7 +15,7 @@
 package attribute
 
 import (
-	mixerpb "istio.io/mixer/api/v1"
+	mixerpb "istio.io/api/mixer/api/v1"
 )
 
 // Tracker is responsible for tracking a set of live attributes over time.

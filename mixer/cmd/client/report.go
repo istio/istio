@@ -21,7 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	mixerpb "istio.io/mixer/api/v1"
+	mixerpb "istio.io/api/mixer/api/v1"
 )
 
 func reportCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {

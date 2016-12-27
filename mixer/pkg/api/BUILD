@@ -14,7 +14,7 @@ DEPS = [
     "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
     "@org_golang_google_grpc//:go_default_library",
     "@org_golang_google_grpc//credentials:go_default_library",
-    "@com_github_istio_api//:go_default_library",
+    "@com_github_istio_api//:mixer/api/v1",
 ]
 
 go_library(

@@ -120,7 +120,13 @@ new_go_repository(
     importpath = "github.com/spf13/pflag",
 )
 
-load("//:repositories.bzl", "istio_api_repositories")
-
-# change to use_local=True to use checked out local istio/api repo
-istio_api_repositories(use_local=False)
+load("//:repositories.bzl", "new_git_or_local_repository")
+new_git_or_local_repository(
+    name = "com_github_istio_api",
+    build_file = "BUILD.api",
+    path = "../api",
+    commit = "e2267716986509345af33bdd8babf1537d3aa91e",
+    remote = "https://github.com/istio/api.git",
+    # Change this to True to use ../api directory
+    use_local = False,
+)
