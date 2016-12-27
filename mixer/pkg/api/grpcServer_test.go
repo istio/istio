@@ -57,7 +57,7 @@ func (ts *testState) createGRPCServer() error {
 		return err
 	}
 
-	go ts.apiServer.Start()
+	go func() { _ = ts.apiServer.Start() }()
 	return nil
 }
 
@@ -80,7 +80,7 @@ func (ts *testState) createAPIClient() error {
 }
 
 func (ts *testState) deleteAPIClient() {
-	ts.connection.Close()
+	_ = ts.connection.Close()
 	ts.client = nil
 	ts.connection = nil
 }
@@ -164,7 +164,9 @@ func TestCheck(t *testing.T) {
 	r0 := <-waitc
 	r1 := <-waitc
 
-	stream.CloseSend()
+	if err := stream.CloseSend(); err != nil {
+		t.Errorf("Failed to close gRPC stream: %v", err)
+	}
 
 	if (r0 == testRequestID0 && r1 == testRequestID1) || (r0 == testRequestID1 && r1 == testRequestID0) {
 		t.Log("Worked")
@@ -173,7 +175,7 @@ func TestCheck(t *testing.T) {
 	}
 
 	// wait for the goroutine to be done
-	_ = <-waitc
+	<-waitc
 }
 
 func TestReport(t *testing.T) {
@@ -221,7 +223,9 @@ func TestReport(t *testing.T) {
 	r0 := <-waitc
 	r1 := <-waitc
 
-	stream.CloseSend()
+	if err := stream.CloseSend(); err != nil {
+		t.Errorf("Failed to close gRPC stream: %v", err)
+	}
 
 	if (r0 == testRequestID0 && r1 == testRequestID1) || (r0 == testRequestID1 && r1 == testRequestID0) {
 		t.Log("Worked")
@@ -230,5 +234,5 @@ func TestReport(t *testing.T) {
 	}
 
 	// wait for the goroutine to be done
-	_ = <-waitc
+	<-waitc
 }

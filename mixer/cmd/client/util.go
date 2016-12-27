@@ -48,7 +48,7 @@ func createAPIClient(port string) (*clientState, error) {
 }
 
 func deleteAPIClient(cs *clientState) {
-	cs.connection.Close()
+	_ = cs.connection.Close()
 	cs.client = nil
 	cs.connection = nil
 }
@@ -125,74 +125,70 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 
 	// the following boilerplate would be more succinct with generics...
 
-	if m, err := process(attrs.Dictionary, rootArgs.stringAttributes, parseString); err != nil {
+	var m map[int32]interface{}
+	var err error
+
+	if m, err = process(attrs.Dictionary, rootArgs.stringAttributes, parseString); err != nil {
 		return nil, err
-	} else {
-		for k, v := range m {
-			attrs.StringAttributes[k] = v.(string)
-		}
+	}
+	for k, v := range m {
+		attrs.StringAttributes[k] = v.(string)
 	}
 
-	if m, err := process(attrs.Dictionary, rootArgs.int64Attributes, parseInt64); err != nil {
+	if m, err = process(attrs.Dictionary, rootArgs.int64Attributes, parseInt64); err != nil {
 		return nil, err
-	} else {
-		for k, v := range m {
-			attrs.Int64Attributes[k] = v.(int64)
-		}
+	}
+	for k, v := range m {
+		attrs.Int64Attributes[k] = v.(int64)
 	}
 
-	if m, err := process(attrs.Dictionary, rootArgs.doubleAttributes, parseFloat64); err != nil {
+	if m, err = process(attrs.Dictionary, rootArgs.doubleAttributes, parseFloat64); err != nil {
 		return nil, err
-	} else {
-		for k, v := range m {
-			attrs.DoubleAttributes[k] = v.(float64)
-		}
+	}
+	for k, v := range m {
+		attrs.DoubleAttributes[k] = v.(float64)
 	}
 
-	if m, err := process(attrs.Dictionary, rootArgs.boolAttributes, parseBool); err != nil {
+	if m, err = process(attrs.Dictionary, rootArgs.boolAttributes, parseBool); err != nil {
 		return nil, err
-	} else {
-		for k, v := range m {
-			attrs.BoolAttributes[k] = v.(bool)
-		}
+	}
+	for k, v := range m {
+		attrs.BoolAttributes[k] = v.(bool)
 	}
 
-	if m, err := process(attrs.Dictionary, rootArgs.timestampAttributes, parseTime); err != nil {
+	if m, err = process(attrs.Dictionary, rootArgs.timestampAttributes, parseTime); err != nil {
 		return nil, err
-	} else {
-		for k, v := range m {
-			attrs.TimestampAttributes[k] = v.(*timestamp.Timestamp)
-		}
+	}
+	for k, v := range m {
+		attrs.TimestampAttributes[k] = v.(*timestamp.Timestamp)
 	}
 
-	if m, err := process(attrs.Dictionary, rootArgs.bytesAttributes, parseBytes); err != nil {
+	if m, err = process(attrs.Dictionary, rootArgs.bytesAttributes, parseBytes); err != nil {
 		return nil, err
-	} else {
-		for k, v := range m {
-			attrs.BytesAttributes[k] = v.([]uint8)
-		}
+	}
+	for k, v := range m {
+		attrs.BytesAttributes[k] = v.([]uint8)
 	}
 
-	if m, err := process(attrs.Dictionary, rootArgs.attributes, parseString); err != nil {
+	if m, err = process(attrs.Dictionary, rootArgs.attributes, parseString); err != nil {
 		return nil, err
-	} else {
-		for k, v := range m {
-			s := v.(string)
+	}
+	for k, v := range m {
+		s := v.(string)
 
-			// auto-sense the type of attributes based on being to parse the value
-			if val, err := parseInt64(s); err == nil {
-				attrs.Int64Attributes[k] = val.(int64)
-			} else if val, err := parseFloat64(s); err == nil {
-				attrs.DoubleAttributes[k] = val.(float64)
-			} else if val, err := parseBool(s); err == nil {
-				attrs.BoolAttributes[k] = val.(bool)
-			} else if val, err := parseTime(s); err == nil {
-				attrs.TimestampAttributes[k] = val.(*timestamp.Timestamp)
-			} else if val, err := parseBytes(s); err == nil {
-				attrs.BytesAttributes[k] = val.([]uint8)
-			} else {
-				attrs.StringAttributes[k] = s
-			}
+		// auto-sense the type of attributes based on being to parse the value
+		if val, err := parseInt64(s); err == nil {
+			attrs.Int64Attributes[k] = val.(int64)
+		} else if val, err := parseFloat64(s); err == nil {
+			attrs.DoubleAttributes[k] = val.(float64)
+		} else if val, err := parseBool(s); err == nil {
+			attrs.BoolAttributes[k] = val.(bool)
+		} else if val, err := parseTime(s); err == nil {
+			attrs.TimestampAttributes[k] = val.(*timestamp.Timestamp)
+		} else if val, err := parseBytes(s); err == nil {
+			attrs.BytesAttributes[k] = val.([]uint8)
+		} else {
+			attrs.StringAttributes[k] = s
 		}
 	}
 

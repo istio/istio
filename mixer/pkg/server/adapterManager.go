@@ -79,7 +79,9 @@ func prepBuilders(l []adapter.Adapter) (map[string]adapter.Adapter, error) {
 			return nil, errors.New("can't have multiple builders called " + adapter.Name())
 		}
 
-		adapter.Configure(adapter.DefaultAdapterConfig())
+		if err := adapter.Configure(adapter.DefaultAdapterConfig()); err != nil {
+			return nil, err
+		}
 
 		m[adapter.Name()] = adapter
 	}

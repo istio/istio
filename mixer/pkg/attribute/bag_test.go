@@ -138,14 +138,14 @@ func TestBag(t *testing.T) {
 		if r, found = ab.Bool("N7"); !found {
 			t.Error("N7 not found")
 		}
-		if r != true {
+		if !r {
 			t.Error("N7 has wrong value")
 		}
 
 		if r, found = ab.Bool("N8"); !found {
 			t.Error("N8 not found")
 		}
-		if r != true {
+		if !r {
 			t.Error("N8 has wrong value")
 		}
 

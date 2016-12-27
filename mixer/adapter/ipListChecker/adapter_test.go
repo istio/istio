@@ -45,12 +45,16 @@ func TestBasic(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		w.Write(out)
+		if _, err := w.Write(out); err != nil {
+			t.Errorf("w.Write failed: %v", err)
+		}
 	}))
 	defer ts.Close()
 
 	b := NewAdapter()
-	b.Configure(b.DefaultAdapterConfig())
+	if err := b.Configure(b.DefaultAdapterConfig()); err != nil {
+		t.Errorf("Unable to configure adapter: %v", err)
+	}
 
 	config := AspectConfig{
 		ProviderURL:     ts.URL,

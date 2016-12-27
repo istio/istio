@@ -73,12 +73,18 @@ func TestLog(t *testing.T) {
 			entries: []adapter.LogEntry{textEntry, structEntry},
 			want: []string{
 				"{\"logsCollection\":\"info_log\",\"timestamp\":\"2016-06-01T00:00:00Z\",\"severity\":\"INFO\",\"textPayload\":\"Server start\"}",
-				"{\"logsCollection\":\"access_log\",\"timestamp\":\"2016-06-01T00:00:00Z\",\"severity\":\"ERROR\",\"structPayload\":{\"api_method\":\"GetShelves\",\"response_bytes\":43545,\"response_code\":\"404\",\"source_ip\":\"10.0.0.1\",\"source_user\":\"tester@test.com\"}}",
+				`{"logsCollection":"access_log",` +
+					`"timestamp":"2016-06-01T00:00:00Z",` +
+					`"severity":"ERROR",` +
+					`"structPayload":{"api_method":"GetShelves","response_bytes":43545,"response_code":"404","source_ip":"10.0.0.1","source_user":"tester@test.com"}}`,
 			},
 		},
 	}
 
 	b := NewAdapter()
+	if err := b.Configure(b.DefaultAdapterConfig()); err != nil {
+		t.Errorf("Unable to configure adapter: %v", err)
+	}
 
 	for _, v := range tests {
 		a, err := b.NewAspect(b.DefaultAspectConfig())
@@ -101,14 +107,20 @@ func TestLog(t *testing.T) {
 		outC := make(chan string)
 		go func() {
 			var buf bytes.Buffer
-			io.Copy(&buf, r)
+			if _, err := io.Copy(&buf, r); err != nil {
+				t.Errorf("io.Copy failed: %v", err)
+			}
 			outC <- buf.String()
 		}()
 
-		l.Log(v.entries)
+		if err := l.Log(v.entries); err != nil {
+			t.Errorf("Logging failed: %v", err)
+		}
 
 		// back to normal state
-		w.Close()
+		if err := w.Close(); err != nil {
+			t.Errorf("w.Close failed: %v", err)
+		}
 		os.Stdout = old
 		logs := <-outC
 
@@ -118,5 +130,4 @@ func TestLog(t *testing.T) {
 			t.Errorf("%s - got %s, want %s", v.name, got, v.want)
 		}
 	}
-
 }

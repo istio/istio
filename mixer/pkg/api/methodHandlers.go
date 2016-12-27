@@ -83,6 +83,7 @@ func (h *methodHandlers) Check(ctx context.Context, tracker attribute.Tracker, r
 
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, ab)
+	_ = ctx // will eventually be passed down to adapters
 
 	dispatchKey, err := server.NewDispatchKey(ab)
 	if err != nil {
@@ -156,6 +157,7 @@ func (h *methodHandlers) Report(ctx context.Context, tracker attribute.Tracker, 
 
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, ab)
+	_ = ctx // will eventually be passed down to adapters
 
 	dispatchKey, err := server.NewDispatchKey(ab)
 	if err != nil {
