@@ -1,6 +1,6 @@
 # Creating Fast and Lean Code
 
-The Istio mixer is a high-performance components. It's imperative to keep its
+The Istio mixer is a high-performance component. It's imperative to keep its
 latency and memory consumption low.
 
 - [Memory usage](#memory-usage)
@@ -9,7 +9,9 @@ latency and memory consumption low.
   - [Avoid creating APIs that require allocations](#avoid-creating-apis-that-require-allocations)
   - [About goroutines](#about-goroutines)
 - [Measuring](#measuring)
-- Interesting perf links
+
+Other docs you may enjoy:
+
   - [Writing High Performance Go](http://go-talks.appspot.com/github.com/davecheney/presentations/writing-high-performance-go.slide#1)
   - [Handling 1 Million Requests per Minute with Golang](http://marcio.io/2015/07/handling-1-million-requests-per-minute-with-golang)
   - [So You Wanna Go Fast](http://bravenewgeek.com/so-you-wanna-go-fast/)
@@ -31,7 +33,7 @@ in considerably better CPU cache and TLB efficiency which can make your code 10x
 Having distinct objects in memory is inherently expensive:
 
 - You need at least 8 bytes to point to the object
-- There is overhead associated with each object (probably between 8 to 16 bytes per object)
+- There is hidden overhead associated with each object (probably between 8 to 16 bytes per object)
 - Writing to references tends to be more expensive due to GC write barriers
 
 Programmers coming from Java aren't used to this distinction since Java doesn't have

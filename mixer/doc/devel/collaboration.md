@@ -27,7 +27,7 @@ who knows the areas the change touches. For non-trivial changes we may want two
 reviewers. The primary reviewer will make this decision and nominate a second
 reviewer, if needed. Except for trivial changes, PRs should not be committed
 until relevant parties (e.g. owners of the subsystem affected by the PR) have
-had a reasonable chance to look at PR in their local business hours.
+had a reasonable chance to look at the PR in their local business hours.
 
 Most PRs will find reviewers organically. If a maintainer intends to be the
 primary reviewer of a PR they should set themselves as the assignee on GitHub
@@ -61,7 +61,7 @@ there is a very good reason for it and if the code review requirements have been
 met. Concretely this means that nobody should merge changes immediately before
 going to bed for the night.
 
-There may be discussion an even approvals granted outside of the above hours,
+There may be discussion and even approvals granted outside of the above hours,
 but merges will generally be deferred.
 
 If a PR is considered complex or controversial, the merge of that PR should be
@@ -70,8 +70,8 @@ provide feedback. Concretely, this means that such PRs should be held for 24
 hours before merging. Of course "complex" and "controversial" are left to the
 judgment of the people involved, but we trust that part of being a committer is
 the judgment required to evaluate such things honestly, and not be motivated by
-your desire (or your cube-mate's desire) to get their code merged. Also see
-"Holds" below, any reviewer can issue a "hold" to indicate that the PR is in
+your desire (or your cube-mate's desire) to get their code merged. Any reviewer can
+issue a ["hold"](#holds) to indicate that the PR is in
 fact complicated or complex and deserves further review.
 
 PRs that are incorrectly judged to be merge-able, may be reverted and subject to
