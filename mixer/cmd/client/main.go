@@ -66,14 +66,22 @@ func withArgs(args []string, errorf errorFn) {
 
 	rootArgs := &rootArgs{}
 
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.mixerAddress, "mixer", "m", "localhost:9091", "Address and port of running instance of the mixer")
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.attributes, "attributes", "a", "", "List of name/value auto-sensed attributes specified as name1=value1,name2=value2,...")
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.stringAttributes, "string_attributes", "s", "", "List of name/value string attributes specified as name1=value1,name2=value2,...")
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.int64Attributes, "int64_attributes", "i", "", "List of name/value int64 attributes specified as name1=value1,name2=value2,...")
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.doubleAttributes, "double_attributes", "d", "", "List of name/value float64 attributes specified as name1=value1,name2=value2,...")
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.boolAttributes, "bool_attributes", "b", "", "List of name/value bool attributes specified as name1=value1,name2=value2,...")
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.timestampAttributes, "timestamp_attributes", "t", "", "List of name/value timestamp attributes specified as name1=value1,name2=value2,...")
-	rootCmd.PersistentFlags().StringVarP(&rootArgs.bytesAttributes, "bytes_attributes", "", "", "List of name/value bytes attributes specified as name1=b0:b1:b3,name2=b4:b5:b6,...")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.mixerAddress, "mixer", "m", "localhost:9091",
+		"Address and port of running instance of the mixer")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.attributes, "attributes", "a", "",
+		"List of name/value auto-sensed attributes specified as name1=value1,name2=value2,...")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.stringAttributes, "string_attributes", "s", "",
+		"List of name/value string attributes specified as name1=value1,name2=value2,...")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.int64Attributes, "int64_attributes", "i", "",
+		"List of name/value int64 attributes specified as name1=value1,name2=value2,...")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.doubleAttributes, "double_attributes", "d", "",
+		"List of name/value float64 attributes specified as name1=value1,name2=value2,...")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.boolAttributes, "bool_attributes", "b", "",
+		"List of name/value bool attributes specified as name1=value1,name2=value2,...")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.timestampAttributes, "timestamp_attributes", "t", "",
+		"List of name/value timestamp attributes specified as name1=value1,name2=value2,...")
+	rootCmd.PersistentFlags().StringVarP(&rootArgs.bytesAttributes, "bytes_attributes", "", "",
+		"List of name/value bytes attributes specified as name1=b0:b1:b3,name2=b4:b5:b6,...")
 
 	rootCmd.AddCommand(checkCmd(rootArgs, errorf))
 	rootCmd.AddCommand(reportCmd(rootArgs, errorf))

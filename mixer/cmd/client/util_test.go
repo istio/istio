@@ -46,7 +46,10 @@ func TestAttributeHandling(t *testing.T) {
 				attributes:          "r=XYZ,s=2,t=3.0,u=true,v=2006-01-02T15:04:05Z,w=98:76",
 			},
 			attrs: mixerpb.Attributes{
-				Dictionary:          map[int32]string{0: "a", 1: "b", 2: "ccc", 3: "d", 4: "e", 5: "f", 6: "g", 7: "hhh", 8: "i", 9: "j", 10: "kkk", 11: "l", 12: "m", 13: "nnn", 14: "o", 15: "p", 16: "q", 17: "r", 18: "s", 19: "t", 20: "u", 21: "v", 22: "w"},
+				Dictionary: map[int32]string{
+					0: "a", 1: "b", 2: "ccc", 3: "d", 4: "e", 5: "f", 6: "g",
+					7: "hhh", 8: "i", 9: "j", 10: "kkk", 11: "l", 12: "m", 13: "nnn", 14: "o",
+					15: "p", 16: "q", 17: "r", 18: "s", 19: "t", 20: "u", 21: "v", 22: "w"},
 				StringAttributes:    map[int32]string{0: "X", 1: "Y", 2: "XYZ", 3: "X Z", 4: "X", 17: "XYZ"},
 				Int64Attributes:     map[int32]int64{5: 1, 6: 2, 7: 345, 18: 2},
 				DoubleAttributes:    map[int32]float64{8: 1, 9: 2, 10: 345.678, 19: 3.0},

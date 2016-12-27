@@ -64,7 +64,6 @@ func serverCmd(errorf errorFn) *cobra.Command {
 }
 
 func runServer(sa *serverArgs) error {
-	var err error
 	var serverCert *tls.Certificate
 	var clientCerts *x509.CertPool
 
@@ -88,6 +87,7 @@ func runServer(sa *serverArgs) error {
 	}
 
 	var adapterMgr *server.AdapterManager
+	var err error
 	if adapterMgr, err = server.NewAdapterManager(); err != nil {
 		return fmt.Errorf("Unable to initialize adapters: %v", err)
 	}
@@ -114,6 +114,6 @@ func runServer(sa *serverArgs) error {
 	if grpcServer, err = api.NewGRPCServer(&grpcServerOptions); err != nil {
 		return fmt.Errorf("Unable to initialize gRPC server " + err.Error())
 	}
-	grpcServer.Start()
-	return nil
+
+	return grpcServer.Start()
 }

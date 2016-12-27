@@ -91,7 +91,10 @@ func report(rootArgs *rootArgs, args []string, errorf errorFn) {
 		errorf("Failed to receive a response from Report RPC: %v", err)
 		return
 	}
-	stream.CloseSend()
+
+	if err = stream.CloseSend(); err != nil {
+		errorf("Failed to close gRPC stream: %v", err)
+	}
 
 	fmt.Printf("Report RPC returned %v\n", response.Result)
 }

@@ -66,7 +66,9 @@ func TestAll(t *testing.T) {
 
 	for _, c := range cases {
 		b := NewAdapter()
-		b.Configure(&c.bc)
+		if err := b.Configure(&c.bc); err != nil {
+			t.Errorf("Unable to configure adapter: %v", err)
+		}
 
 		aa, err := b.NewAspect(&c.ac)
 		if err != nil {

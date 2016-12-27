@@ -53,8 +53,5 @@ type (
 
 // WriteJSON converts a log entry to json and writes to the supplied io.Writer
 func WriteJSON(w io.Writer, l LogEntry) error {
-	if err := json.NewEncoder(w).Encode(l); err != nil {
-		return err
-	}
-	return nil
+	return json.NewEncoder(w).Encode(l)
 }

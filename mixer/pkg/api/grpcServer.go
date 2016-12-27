@@ -46,15 +46,15 @@ import (
 
 // GRPCServerOptions controls the behavior of a gRPC server.
 type GRPCServerOptions struct {
-	// Port specifies the IP port the server should listen on.
-	Port uint16
-
 	// MaximumMessageSize constrains the size of incoming requests.
 	MaxMessageSize uint
 
 	// MaxConcurrentStreams limits the amount of concurrency allowed,
 	// in order to put a cap on server-side resource usage.
 	MaxConcurrentStreams uint
+
+	// Port specifies the IP port the server should listen on.
+	Port uint16
 
 	// CompressedPayload determines whether compression should be
 	// used on individual messages.
