@@ -105,6 +105,6 @@ level, you can pass in `-v=X` where X is the desired maximum level to log.
 
   - Third-party code
 
-    - Go code for normal third-party dependencies is managed using [glide](https://github.com/Masterminds/glide)
+    - Go code for normal third-party dependencies is managed by the Bazel build system.
 
     - Third-party code must carry licenses. This includes modified third-party code and excerpts.

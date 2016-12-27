@@ -1,9 +1,16 @@
-![Mixer](doc/logo.png)
 <h1>The Istio Mixer</h1>
+![Mixer](doc/logo.png)
+<br/>
 [![GoDoc](https://godoc.org/github.com/istio/mixer?status.svg)](http://godoc.org/github.com/istio/mixer)
 [![Build Status](https://travis-ci.org/istio/mixer.svg?branch=master)](https://travis-ci.org/istio/mixer)
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/mixer)](https://goreportcard.com/report/github.com/istio/mixer)
-		
+
+The Istio mixer provides the foundation of the Istio service mesh
+design. It is responsible for insulating the Istio proxy and
+Istio-based services from details of the current execution
+environment, as well as to implement the control policies
+that Istio supports.
+
 The Istio mixer provides three distinct features:
 
 - *Precondition Checking*. The `Check` method enables

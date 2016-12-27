@@ -2,10 +2,9 @@
 
 This document is intended to be the canonical source of truth for things like
 supported toolchain versions for building the Istio mixer. If you find a
-requirement that this doc does not capture, please
-[submit an issue](https://github.com/istio/mixer/issues/new) on github. If
-you find other docs with references to requirements that are not simply links to
-this doc, please [submit an issue](https://github.com/istio/mixer/issues/new).
+requirement that this doc does not capture, or if you find other docs with
+references to requirements that are not simply links to this doc, please
+[submit an issue](https://github.com/istio/mixer/issues/new).
 
 This document is intended to be relative to the branch in which it is found.
 It is guaranteed that requirements will change over time for the development
@@ -13,6 +12,7 @@ branch, but release branches of the Istio mixer should not change.
 
 - [Prerequisites](#prerequisites)
   - [Setting up Go](#setting-up-go)
+  - [Setting up Bazel](#setting-up-bazel)
   - [Setting up Docker](#setting-up-docker)
 - [Git workflow](#git-workflow)
   - [Fork the main repository](#fork-the-main-repository)
@@ -24,8 +24,13 @@ branch, but release branches of the Istio mixer should not change.
   - [Getting a code review](#getting-a-code-review)
   - [When to retain commits and when to squash](#when-to-retain-commits-and-when-to-squash)
 - [About testing](#about-testing)
+
+Other docs you should look at:
+
 - [Project conventions](./conventions.md)
 - [Creating fast and lean code](./performance.md)
+- [Go landmines](https://gist.github.com/lavalamp/4bd23295a9f32706a48f)
+- [Go style mistakes](https://github.com/golang/go/wiki/CodeReviewComments)
 
 ## Prerequisites
 
@@ -47,6 +52,12 @@ added to your ~/.profile:
 export GOPATH=~/go
 export PATH=$PATH:$GOPATH/bin
 ```
+
+### Setting up Bazel
+
+The Istio mixer is built using the bazel build system. See
+[here](https://bazel.build/versions/master/docs/install.html) for the
+installation procedures.
 
 ### Setting up Docker
 
@@ -150,7 +161,7 @@ cd $(ISTIO)/mixer
 bazel build ...:all
 ```
 
-This should figure out what it needs to do and not need any input from you.
+This figures out what it needs to do and does not need any input from you.
 You can delete any build artifacts with:
 
 ```
@@ -174,7 +185,3 @@ passed both unit and integration tests. We only merges pull requests when
 * The preferred method of testing multiple scenarios or input is
   [table driven testing](https://github.com/golang/go/wiki/TableDrivenTests)
 * Concurrent unit test runs must pass.
-
-## Coding advice
-
-  - [Go landmines](https://gist.github.com/lavalamp/4bd23295a9f32706a48f)
