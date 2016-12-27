@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	mixerpb "istio.io/mixer/api/v1"
+	mixerpb "istio.io/api/mixer/api/v1"
 )
 
 // Bag is a generic mechanism to access a set of attributes.

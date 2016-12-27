@@ -24,7 +24,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/grpc"
 
-	mixerpb "istio.io/mixer/api/v1"
+	mixerpb "istio.io/api/mixer/api/v1"
 )
 
 type clientState struct {

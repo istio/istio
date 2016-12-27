@@ -7,7 +7,7 @@ DEPS = [
     "@com_github_golang_protobuf//proto:go_default_library",
     "@com_github_golang_protobuf//ptypes:go_default_library",
     "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
-    "@com_github_istio_api//:go_default_library",
+    "@com_github_istio_api//:mixer/api/v1",
 ]
 
 go_library(
@@ -20,7 +20,7 @@ go_library(
     ],
     deps = [
         "@com_github_golang_protobuf//ptypes:go_default_library",
-        "@com_github_istio_api//:go_default_library",
+        "@com_github_istio_api//:mixer/api/v1",
     ],
 )
 

@@ -41,7 +41,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 
 	proto "github.com/golang/protobuf/proto"
-	mixerpb "istio.io/mixer/api/v1"
+	mixerpb "istio.io/api/mixer/api/v1"
 )
 
 // GRPCServerOptions controls the behavior of a gRPC server.

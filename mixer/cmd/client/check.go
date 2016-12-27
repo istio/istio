@@ -20,7 +20,7 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
-	mixerpb "istio.io/mixer/api/v1"
+	mixerpb "istio.io/api/mixer/api/v1"
 )
 
 func checkCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
