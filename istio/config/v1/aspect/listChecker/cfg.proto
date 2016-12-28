@@ -20,12 +20,16 @@ package istio.config.v1.aspect.listChecker;
 // Config - User visible configuration of this aspect
 // Must be defined as a proto
 message Config {
-  // check_blacklist determines if this behaves like a blacklist
-  bool check_blacklist = 1;
+  // blacklist determines if this behaves like a blacklist
+  // default is whitelist
+  bool blacklist = 1;
+  // check_attribute is the attribute to check on the list
+  // should be a well known attribute or must be mapped in mappings
+  string check_attribute = 2;
 }
 
-// Input - User mappable input provided at config time
-message Input {
-  // CheckList verifies whether the given symbol is on the list.
-  string symbol = 1;
-}
+// Example
+// kind: istio/listChecker
+// params:
+//	blacklist: true
+//      check_attributes: src.ip
