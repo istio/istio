@@ -26,6 +26,8 @@ class Env : public google::api_manager::ApiManagerEnvInterface,
                      std::function<void()> continuation) override;
   virtual void RunHTTPRequest(
       std::unique_ptr<google::api_manager::HTTPRequest> request) override;
+  virtual void RunGRPCRequest(
+      std::unique_ptr<google::api_manager::GRPCRequest> request) override;
 };
 }
 }

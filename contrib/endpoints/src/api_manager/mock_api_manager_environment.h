@@ -29,8 +29,12 @@ class MockApiManagerEnvironment : public ApiManagerEnvInterface {
                std::unique_ptr<PeriodicTimer>(std::chrono::milliseconds,
                                               std::function<void()>));
   MOCK_METHOD1(DoRunHTTPRequest, void(HTTPRequest *));
+  MOCK_METHOD1(DoRunGRPCRequest, void(GRPCRequest *));
   virtual void RunHTTPRequest(std::unique_ptr<HTTPRequest> req) {
     DoRunHTTPRequest(req.get());
+  }
+  virtual void RunGRPCRequest(std::unique_ptr<GRPCRequest> req) {
+    DoRunGRPCRequest(req.get());
   }
 };
 
@@ -52,6 +56,10 @@ class MockApiManagerEnvironmentWithLog : public ApiManagerEnvInterface {
   void RunHTTPRequest(std::unique_ptr<HTTPRequest> request) {
     std::map<std::string, std::string> headers;
     request->OnComplete(utils::Status::OK, std::move(headers), "");
+  }
+  void RunGRPCRequest(std::unique_ptr<GRPCRequest> request) {
+    std::map<std::string, std::string> headers;
+    request->OnComplete(utils::Status::OK, "");
   }
 };
 

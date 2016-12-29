@@ -21,6 +21,7 @@
 #include <functional>
 #include <memory>
 
+#include "contrib/endpoints/include/api_manager/grpc_request.h"
 #include "contrib/endpoints/include/api_manager/http_request.h"
 #include "contrib/endpoints/include/api_manager/periodic_timer.h"
 #include "contrib/endpoints/include/api_manager/utils/status.h"
@@ -58,6 +59,8 @@ class ApiManagerEnvInterface {
   // of the request
   // (possibly before returning).
   virtual void RunHTTPRequest(std::unique_ptr<HTTPRequest> request) = 0;
+
+  virtual void RunGRPCRequest(std::unique_ptr<GRPCRequest> request) = 0;
 };
 
 }  // namespace api_manager

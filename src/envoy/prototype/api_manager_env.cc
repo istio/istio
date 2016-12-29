@@ -127,5 +127,10 @@ void Env::RunHTTPRequest(
       std::move(message), *callbacks,
       Optional<std::chrono::milliseconds>(std::chrono::milliseconds(10000)));
 }
+
+void Env::RunGRPCRequest(
+    std::unique_ptr<google::api_manager::GRPCRequest> request) {
+  // TODO: send grpc request.
+}
 }
 }
