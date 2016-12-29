@@ -24,7 +24,6 @@ void Http::ApiManager::Env::Log(LogLevel level, const char *message) {
   }
 }
 
-
 class PeriodicTimer : public google::api_manager::PeriodicTimer,
                       public Logger::Loggable<Logger::Id::http> {
  private:
@@ -73,9 +72,8 @@ class HTTPRequest : public Http::Message {
     header_map_.addStatic(Headers::get().Scheme, "http");
     header_map_.addStatic(Headers::get().Host, "localhost");
     header_map_.addStatic(Headers::get().ContentLength,
-                           std::to_string(body_.length()));
-    header_map_.addStatic(LowerCaseString("x-api-manager-url"),
-                           request->url());
+                          std::to_string(body_.length()));
+    header_map_.addStatic(LowerCaseString("x-api-manager-url"), request->url());
     for (auto header : request->request_headers()) {
       LowerCaseString key(header.first);
       header_map_.addStatic(key, header.second);
@@ -102,10 +100,11 @@ class RequestCallbacks : public AsyncClient::Callbacks {
         std::stoi(response->headers().Status()->value().c_str()), "");
     std::map<std::string, std::string> headers;
     response->headers().iterate(
-        [&](const HeaderEntry& header, void*) -> void {
+        [&](const HeaderEntry &header, void *) -> void {
           // TODO: fix it
           // headers.emplace(header.key().c_str(), header.value().c_str());
-        }, nullptr);
+        },
+        nullptr);
     request_->OnComplete(status, std::move(headers), response->bodyAsString());
     delete this;
   }

@@ -3,8 +3,8 @@
 #include "precompiled/precompiled.h"
 
 #include "common/common/logger.h"
-#include "envoy/upstream/cluster_manager.h"
 #include "contrib/endpoints/include/api_manager/env_interface.h"
+#include "envoy/upstream/cluster_manager.h"
 #include "server/server.h"
 
 namespace Http {

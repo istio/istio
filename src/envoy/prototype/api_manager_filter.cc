@@ -1,15 +1,15 @@
 #include "precompiled/precompiled.h"
 
 #include "api_manager_env.h"
-#include "common/grpc/common.h"
 #include "common/common/logger.h"
+#include "common/grpc/common.h"
 #include "common/http/filter/ratelimit.h"
 #include "common/http/headers.h"
 #include "common/http/utility.h"
-#include "envoy/server/instance.h"
 #include "contrib/endpoints/include/api_manager/api_manager.h"
-#include "server/config/network/http_connection_manager.h"
 #include "contrib/endpoints/src/grpc/transcoding/transcoder.h"
+#include "envoy/server/instance.h"
+#include "server/config/network/http_connection_manager.h"
 
 namespace Http {
 namespace ApiManager {
@@ -157,7 +157,7 @@ class Instance : public Http::StreamFilter,
   FilterDataStatus decodeData(Buffer::Instance& data,
                               bool end_stream) override {
     log().debug("Called ApiManager::Instance : {} ({}, {})", __func__,
-                 data.length(), end_stream);
+                data.length(), end_stream);
     if (state_ == Calling) {
       return FilterDataStatus::StopIterationAndBuffer;
     }
@@ -180,7 +180,7 @@ class Instance : public Http::StreamFilter,
   }
   void completeCheck(const google::api_manager::utils::Status& status) {
     log().debug("Called ApiManager::Instance : check complete {}",
-                 status.ToJson());
+                status.ToJson());
     if (!status.ok() && state_ != Responded) {
       state_ = Responded;
       Utility::sendLocalReply(*decoder_callbacks_, Code(status.HttpCode()),

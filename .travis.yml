@@ -21,6 +21,7 @@ cache:
   directories:
     - $HOME/bazel/install
     - $HOME/bazel/outbase
+    - $HOME/clang
 
 before_install:
   - mkdir -p ${HOME}/bazel/install
@@ -34,6 +35,7 @@ before_install:
   - cat .bazelrc.travis .bazelrc.orig > .bazelrc
 
 script:
+  - script/check-style
   - bazel --output_base=${HOME}/bazel/outbase test //...
 
 notifications:

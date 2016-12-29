@@ -258,7 +258,7 @@ bool Config::LoadRpcMethods(ApiManagerEnvInterface *env,
 bool Config::LoadAuthentication(ApiManagerEnvInterface *env) {
   // Parsing auth config.
   const ::google::api::Authentication &auth = service_.authentication();
-  map<string, const ::google::api::AuthProvider*> provider_id_provider_map;
+  map<string, const ::google::api::AuthProvider *> provider_id_provider_map;
   for (const auto &provider : auth.providers()) {
     if (provider.id().empty()) {
       env->LogError("Missing id field in AuthProvider.");
@@ -296,15 +296,15 @@ bool Config::LoadAuthentication(ApiManagerEnvInterface *env) {
         env->LogError(error.c_str());
         continue;
       }
-      auto provider = utils::FindPtrOrNull(provider_id_provider_map,
-                                           provider_id);
+      auto provider =
+          utils::FindPtrOrNull(provider_id_provider_map, provider_id);
       if (provider == nullptr) {
         std::string error = "Undefined provider_id: " + provider_id;
         env->LogError(error.c_str());
       } else {
         const std::string &audiences = provider->audiences().empty()
-                              ? requirement.audiences()
-                              : provider->audiences();
+                                           ? requirement.audiences()
+                                           : provider->audiences();
         (*method)->addAudiencesForIssuer(provider->issuer(), audiences);
       }
     }
