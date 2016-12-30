@@ -17,11 +17,12 @@ package kube
 import (
 	"errors"
 	"fmt"
-	"log"
 	"reflect"
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
+
+	"github.com/golang/glog"
 
 	"istio.io/manager/model"
 
@@ -108,7 +109,7 @@ func (c *Controller) notify(obj interface{}, event model.Event) error {
 		return errors.New("Waiting till full synchronization")
 	}
 	k, _ := keyFunc(obj)
-	log.Printf("%s: %#v", event, k)
+	glog.V(2).Infof("%s: %#v", event, k)
 	return nil
 }
 
@@ -140,7 +141,7 @@ func (c *Controller) createInformer(
 			},
 		})
 	if err != nil {
-		log.Print(err)
+		glog.Warning(err)
 	}
 
 	return cacheHandler{informer: informer, handler: handler}
@@ -162,7 +163,7 @@ func (c *Controller) AppendHandler(
 		if err == nil {
 			return f(cfg, ev)
 		}
-		log.Printf("Cannot convert kind %s to a config object", kind)
+		glog.Warningf("Cannot convert kind %s to a config object", kind)
 		return nil
 	})
 	return nil
@@ -175,7 +176,7 @@ func (c *Controller) HasSynced() bool {
 	}
 	for kind, ctl := range c.kinds {
 		if !ctl.informer.HasSynced() {
-			log.Printf("Controller %q is syncing...", kind)
+			glog.V(2).Infof("Controller %q is syncing...", kind)
 			return false
 		}
 	}
@@ -198,7 +199,7 @@ func (c *Controller) Run(stop chan struct{}) {
 func keyFunc(obj interface{}) (string, bool) {
 	k, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
-		log.Printf("Creating key failed: %v", err)
+		glog.Warningf("Creating a key failed: %v", err)
 		return k, false
 	}
 	return k, true
@@ -206,7 +207,7 @@ func keyFunc(obj interface{}) (string, bool) {
 
 func (c *Controller) Get(key model.ConfigKey) (*model.Config, bool) {
 	if err := c.client.mapping.ValidateKey(&key); err != nil {
-		log.Print(err)
+		glog.Warning(err)
 		return nil, false
 	}
 
@@ -216,12 +217,12 @@ func (c *Controller) Get(key model.ConfigKey) (*model.Config, bool) {
 		return nil, false
 	}
 	if err != nil {
-		log.Print(err)
+		glog.Warning(err)
 		return nil, false
 	}
 	out, err := kubeToModel(key.Kind, c.client.mapping[key.Kind], data.(*Config))
 	if err != nil {
-		log.Print(err)
+		glog.Warning(err)
 		return nil, false
 	}
 	return out, true

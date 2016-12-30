@@ -15,9 +15,10 @@
 package kube
 
 import (
-	"log"
 	"sync"
 	"time"
+
+	"github.com/golang/glog"
 
 	"istio.io/manager/model"
 
@@ -94,7 +95,7 @@ func (q *queueImpl) Run(stop chan struct{}) {
 			for {
 				err := item.handler(item.obj, item.event)
 				if err != nil {
-					log.Printf("Work item failed (%v), repeating after delay %v", err, q.delay)
+					glog.V(2).Infof("Work item failed (%v), repeating after delay %v", err, q.delay)
 					time.Sleep(q.delay)
 				} else {
 					break

@@ -15,11 +15,12 @@
 package kube
 
 import (
-	"log"
 	"os"
 	"os/user"
 	"testing"
 	"time"
+
+	"github.com/golang/glog"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
@@ -89,7 +90,7 @@ func TestController(t *testing.T) {
 			}
 			deleted++
 		}
-		log.Printf("Added %d, deleted %d", added, deleted)
+		glog.Infof("Added %d, deleted %d", added, deleted)
 		return nil
 	})
 	go ctl.Run(stop)
@@ -179,7 +180,7 @@ func TestControllerClientSync(t *testing.T) {
 	// check again in the controller cache
 	eventually(func() bool {
 		os, _ = ctl.List(test.MockKind, ns)
-		log.Printf("ctl.List => Got %d, expected %d", len(os), 0)
+		glog.Infof("ctl.List => Got %d, expected %d", len(os), 0)
 		return len(os) == 0
 	}, t)
 
@@ -194,8 +195,8 @@ func TestControllerClientSync(t *testing.T) {
 	eventually(func() bool {
 		cs, _ := ctl.List(test.MockKind, ns)
 		os, _ := cl.List(test.MockKind, ns)
-		log.Printf("ctl.List => Got %d, expected %d", len(cs), n)
-		log.Printf("cl.List => Got %d, expected %d", len(os), n)
+		glog.Infof("ctl.List => Got %d, expected %d", len(cs), n)
+		glog.Infof("cl.List => Got %d, expected %d", len(os), n)
 		return len(os) == n && len(cs) == n
 	}, t)
 
@@ -213,7 +214,7 @@ func eventually(f func() bool, t *testing.T) {
 		if f() {
 			return
 		}
-		log.Printf("Sleeping %v", interval)
+		glog.Infof("Sleeping %v", interval)
 		time.Sleep(interval)
 		interval = 2 * interval
 	}
@@ -230,7 +231,7 @@ func makeClient(t *testing.T) *Client {
 	// For Bazel sandbox we search a different location:
 	if _, err = os.Stat(kubeconfig); err != nil {
 		kubeconfig, _ = os.Getwd()
-		kubeconfig = kubeconfig + "/platform/kube/config"
+		kubeconfig = kubeconfig + "/config"
 		if _, err = os.Stat(kubeconfig); err != nil {
 			t.Fatalf("Cannot find .kube/config file")
 		}
@@ -258,12 +259,13 @@ func makeNamespace(cl *kubernetes.Clientset, t *testing.T) string {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	log.Printf("Created namespace %s", ns.Name)
+	glog.Infof("Created namespace %s", ns.Name)
 	return ns.Name
 }
 
 func deleteNamespace(cl *kubernetes.Clientset, ns string) {
 	if ns != "" && ns != "default" {
 		cl.Core().Namespaces().Delete(ns, &v1.DeleteOptions{})
+		glog.Infof("Deleted namespace %s", ns)
 	}
 }

@@ -18,12 +18,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"reflect"
 	"time"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+
+	"github.com/golang/glog"
 
 	multierror "github.com/hashicorp/go-multierror"
 
@@ -143,9 +144,9 @@ func (cl *Client) RegisterResources() error {
 			ThirdPartyResources().
 			Get(apiName, meta_v1.GetOptions{})
 		if err == nil {
-			log.Printf("Resource already exists: %q", res.Name)
+			glog.V(2).Infof("Resource already exists: %q", res.Name)
 		} else if errors.IsNotFound(err) {
-			log.Printf("Creating resource: %q", kind)
+			glog.V(1).Infof("Creating resource: %q", kind)
 			tpr := &v1beta1.ThirdPartyResource{
 				ObjectMeta:  v1.ObjectMeta{Name: apiName},
 				Versions:    []v1beta1.APIVersion{{Name: IstioResourceVersion}},
@@ -158,7 +159,7 @@ func (cl *Client) RegisterResources() error {
 			if err != nil {
 				out = multierror.Append(out, err)
 			} else {
-				log.Printf("Created resource: %q", res.Name)
+				glog.V(2).Infof("Created resource: %q", res.Name)
 			}
 		} else {
 			out = multierror.Append(out, err)
@@ -167,13 +168,13 @@ func (cl *Client) RegisterResources() error {
 
 	// validate that the resources exist or fail with an error after 30s
 	ready := true
-	log.Printf("Checking for TPR resources")
+	glog.V(2).Infof("Checking for TPR resources")
 	for i := 0; i < 30; i++ {
 		ready = true
 		for kind := range cl.mapping {
 			_, err := cl.List(kind, "")
 			if err != nil {
-				log.Printf("TPR %q is not ready. Waiting...", kind)
+				glog.V(2).Infof("TPR %q is not ready. Waiting...", kind)
 				ready = false
 				break
 			}
@@ -207,7 +208,7 @@ func (cl *Client) DeregisterResources() error {
 
 func (cl *Client) Get(key model.ConfigKey) (*model.Config, bool) {
 	if err := cl.mapping.ValidateKey(&key); err != nil {
-		log.Print(err)
+		glog.Warning(err)
 		return nil, false
 	}
 
@@ -218,12 +219,12 @@ func (cl *Client) Get(key model.ConfigKey) (*model.Config, bool) {
 		Name(key.Name).
 		Do().Into(config)
 	if err != nil {
-		log.Printf(err.Error())
+		glog.Warning(err)
 		return nil, false
 	}
 	out, err := kubeToModel(key.Kind, cl.mapping[key.Kind], config)
 	if err != nil {
-		log.Printf(err.Error())
+		glog.Warning(err)
 		return nil, false
 	}
 	return out, true
