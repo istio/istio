@@ -27,9 +27,9 @@ create, maintain, and use.
   - Naming
 
       - Please consider package name when selecting an interface name, and avoid
-      redundancy. For example, use `adapters.Config` instead of `adapters.AdapterConfig`.
+      redundancy. For example, use `adapter.Config` instead of `adapter.AdapterConfig`.
 
-      - Do not use uppercase characters, underscores, or dashes in package names.
+      - Must use lowerCamel case for Go package names.
 
       - Please consider parent directory name when choosing a package name:
 
