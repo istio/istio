@@ -15,8 +15,6 @@
 package aspectsupport
 
 import (
-	"sync"
-
 	"istio.io/mixer/pkg/aspect"
 	// while adding an aspect
 	// 1. Add a method to Registry
@@ -39,34 +37,5 @@ type Registry interface {
 func aspectManagers() []aspect.Manager {
 	return []aspect.Manager{
 		listChecker.NewManager(),
-	}
-}
-
-// Manager manages all aspects - provides uniform interface to
-// all aspect managers
-type Manager struct {
-	mreg map[string]aspect.Manager
-	areg Registry
-
-	// protects cache
-	lock        sync.RWMutex
-	aspectCache map[CacheKey]aspect.AspectWrapper
-}
-
-// CacheKey is used to cache fully constructed aspects
-// These parameters are used in constructing an aspect
-type CacheKey struct {
-	Kind   string
-	Impl   string
-	Params string
-	Args   string
-}
-
-func cacheKey(cfg *aspect.CombinedConfig) CacheKey {
-	return CacheKey{
-		Kind:   cfg.Aspect.GetKind(),
-		Impl:   cfg.Adapter.GetImpl(),
-		Params: cfg.Aspect.GetParams().String(),
-		Args:   cfg.Adapter.GetParams().String(),
 	}
 }
