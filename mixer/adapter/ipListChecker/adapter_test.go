@@ -18,21 +18,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"gopkg.in/yaml.v2"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adaptertesting"
 )
 
 // TODO: this test suite needs to be beefed up considerably.
 // Should be testing more edge cases, testing refresh behavior with and without errors,
 // testing TTL handling, testing malformed input, etc.
-
-func TestBuilderInvariants(t *testing.T) {
-	b := NewAdapter()
-	testutil.TestBuilderInvariants(b, t)
-}
 
 func TestBasic(t *testing.T) {
 	lp := listPayload{
@@ -50,24 +42,21 @@ func TestBasic(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-
-	b := NewAdapter()
-	if err := b.Configure(b.DefaultAdapterConfig()); err != nil {
-		t.Errorf("Unable to configure adapter: %v", err)
+	b := &adapterState{}
+	if err := b.ValidateConfig(b.DefaultConfig()); err != nil {
+		t.Errorf("Failed validation %#v", err)
 	}
 
-	config := AspectConfig{
-		ProviderURL:     ts.URL,
-		RefreshInterval: time.Second,
-		TimeToLive:      time.Second * 10,
+	config := Config{
+		ProviderUrl:     ts.URL,
+		RefreshInterval: 1,
+		Ttl:             10,
 	}
 
-	aa, err := b.NewAspect(&config)
+	a, err := b.NewAspect(&config)
 	if err != nil {
 		t.Errorf("Unable to create adapter: %v", err)
 	}
-	a := aa.(adapter.ListChecker)
-
 	cases := []string{"10.10.11.2", "9.9.9.1"}
 	for _, c := range cases {
 		ok, err := a.CheckList(c)

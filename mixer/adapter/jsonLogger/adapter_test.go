@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adaptertesting"
 )
 
 var (
@@ -50,11 +49,6 @@ var (
 		},
 	}
 )
-
-func TestBuilderInvariants(t *testing.T) {
-	b := NewAdapter()
-	testutil.TestBuilderInvariants(b, t)
-}
 
 func TestLog(t *testing.T) {
 	tests := []struct {
