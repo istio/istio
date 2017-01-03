@@ -14,36 +14,29 @@
 #
 ################################################################################
 #
+package(default_visibility = ["//contrib/endpoints/src/api_manager:__subpackages__"])
 
-load(
-    "//:repositories.bzl",
-    "boringssl_repositories",
-    "protobuf_repositories",
-    "googletest_repositories",
+cc_library(
+    name = "mixer",
+    srcs = [
+        "mixer.cc",
+    ],
+    hdrs = [
+        "mixer.h",
+    ],
+    linkopts = select({
+        "//:darwin": [],
+        "//conditions:default": [
+            "-lm",
+            "-luuid",
+        ],
+    }),
+    deps = [
+        "//external:grpc++",
+        "//external:mixer_api_cc_proto",
+        "//external:protobuf",
+        "//contrib/endpoints/src/api_manager:impl_headers",
+        "//contrib/endpoints/src/api_manager/service_control",
+        "//contrib/endpoints/src/api_manager/utils",
+    ],
 )
-
-boringssl_repositories()
-
-protobuf_repositories()
-
-googletest_repositories()
-
-load(
-    "//contrib/endpoints:repositories.bzl",
-    "grpc_repositories",
-    "mixerapi_repositories",
-    "servicecontrol_client_repositories",
-)
-
-grpc_repositories()
-
-mixerapi_repositories()
-
-servicecontrol_client_repositories()
-
-load(
-    "//src/envoy:repositories.bzl",
-    "envoy_repositories",
-)
-
-envoy_repositories()
