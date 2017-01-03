@@ -15,74 +15,66 @@
 package ipListChecker
 
 import (
-	"errors"
+	"fmt"
 	"net/url"
-	"time"
 
-	"istio.io/mixer/pkg/adapter"
+	"github.com/golang/protobuf/proto"
+
+	"istio.io/mixer/pkg/aspect/listChecker"
+	"istio.io/mixer/pkg/aspectsupport"
 )
 
-// AdapterConfig is used to configure a adapter.
-type AdapterConfig struct {
+const (
+	// ImplName is the canonical name of this implementation
+	ImplName = "istio/IPListChecker"
+)
+
+// Register registration entry point
+func Register(r aspectsupport.Registry) {
+	r.RegisterCheckList(&adapterState{})
 }
 
 type adapterState struct{}
 
-// NewAdapter returns a Adapter
-func NewAdapter() adapter.Adapter {
-	return &adapterState{}
-}
-
 func (a *adapterState) Name() string {
-	return "IPListChecker"
+	return ImplName
 }
 
 func (a *adapterState) Description() string {
 	return "Checks whether an IP address is present in an IP address list."
 }
 
-func (a *adapterState) DefaultAdapterConfig() adapter.AdapterConfig {
-	return &AdapterConfig{}
+func (a *adapterState) DefaultConfig() proto.Message {
+	return &Config{
+		ProviderUrl:     "http://localhost",
+		RefreshInterval: 60,
+		Ttl:             120,
+	}
 }
 
-func (a *adapterState) ValidateAdapterConfig(config adapter.AdapterConfig) error {
-	_ = config.(*AdapterConfig)
-	return nil
-}
+func (a *adapterState) ValidateConfig(cfg proto.Message) (err error) {
+	c, ok := cfg.(*Config)
+	if !ok {
+		return fmt.Errorf("Invalid message type %#v", cfg)
+	}
+	var u *url.URL
 
-func (a *adapterState) Configure(config adapter.AdapterConfig) error {
-	return a.ValidateAdapterConfig(config)
+	if u, err = url.Parse(c.ProviderUrl); err == nil {
+		if u.Scheme == "" || u.Host == "" {
+			err = fmt.Errorf("Scheme (%s) and Host (%s) cannot be empty", u.Scheme, u.Host)
+		}
+	}
+	return err
 }
 
 func (a *adapterState) Close() error {
 	return nil
 }
 
-func (a *adapterState) DefaultAspectConfig() adapter.AspectConfig {
-	return &AspectConfig{
-		ProviderURL:     "http://localhost",
-		RefreshInterval: time.Minute,
-		TimeToLive:      time.Minute * 10,
-	}
-}
-
-func (a *adapterState) ValidateAspectConfig(config adapter.AspectConfig) error {
-	c := config.(*AspectConfig)
-	var err error
-	var u *url.URL
-
-	if u, err = url.Parse(c.ProviderURL); err == nil {
-		if u.Scheme == "" || u.Host == "" {
-			err = errors.New("Scheme and Host cannot be nil")
-		}
-	}
-	return err
-}
-
-func (a *adapterState) NewAspect(config adapter.AspectConfig) (adapter.Aspect, error) {
-	if err := a.ValidateAspectConfig(config); err != nil {
+func (a *adapterState) NewAspect(cfg proto.Message) (listChecker.Aspect, error) {
+	if err := a.ValidateConfig(cfg); err != nil {
 		return nil, err
 	}
-	c := config.(*AspectConfig)
-	return newAspect(c)
+
+	return newAspect(cfg.(*Config))
 }

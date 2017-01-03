@@ -18,13 +18,7 @@ import (
 	"testing"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adaptertesting"
 )
-
-func TestBuilderInvariants(t *testing.T) {
-	b := NewAdapter()
-	testutil.TestBuilderInvariants(b, t)
-}
 
 func TestAll(t *testing.T) {
 	b := NewAdapter()
