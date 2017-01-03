@@ -16,11 +16,41 @@ package aspectsupport
 
 import (
 	"fmt"
+	"sync"
 
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
+
+// Manager manages all aspects - provides uniform interface to
+// all aspect managers
+type Manager struct {
+	mreg map[string]aspect.Manager
+	areg Registry
+
+	// protects cache
+	lock        sync.RWMutex
+	aspectCache map[CacheKey]aspect.AspectWrapper
+}
+
+// CacheKey is used to cache fully constructed aspects
+// These parameters are used in constructing an aspect
+type CacheKey struct {
+	Kind   string
+	Impl   string
+	Params string
+	Args   string
+}
+
+func cacheKey(cfg *aspect.CombinedConfig) CacheKey {
+	return CacheKey{
+		Kind:   cfg.Aspect.GetKind(),
+		Impl:   cfg.Adapter.GetImpl(),
+		Params: cfg.Aspect.GetParams().String(),
+		Args:   cfg.Adapter.GetParams().String(),
+	}
+}
 
 // NewManager Creates a new Uber Aspect manager
 func NewManager(areg Registry, mgrs []aspect.Manager) *Manager {
