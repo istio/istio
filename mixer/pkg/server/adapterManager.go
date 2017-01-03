@@ -20,14 +20,12 @@ import (
 	"fmt"
 
 	"istio.io/mixer/adapter/denyChecker"
-	"istio.io/mixer/adapter/genericListChecker"
 	"istio.io/mixer/adapter/jsonLogger"
 	"istio.io/mixer/pkg/adapter"
 )
 
 // all the known list checker adapter implementations
 var listCheckers = []adapter.Adapter{
-	genericListChecker.NewAdapter(),
 	denyChecker.NewAdapter(),
 }
 

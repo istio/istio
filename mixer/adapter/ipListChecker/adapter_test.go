@@ -42,7 +42,7 @@ func TestBasic(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	b := &adapterState{}
+	b := newAdapter()
 	if err := b.ValidateConfig(b.DefaultConfig()); err != nil {
 		t.Errorf("Failed validation %#v", err)
 	}

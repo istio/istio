@@ -16,13 +16,10 @@ package genericListChecker
 
 import (
 	"testing"
-
-	"istio.io/mixer/pkg/adapter"
 )
 
 type testCase struct {
-	bc            AdapterConfig
-	ac            AspectConfig
+	ac            Config
 	matchValues   []string
 	unmatchValues []string
 }
@@ -30,45 +27,25 @@ type testCase struct {
 func TestAll(t *testing.T) {
 	cases := []testCase{
 		{
-			AdapterConfig{ListEntries: []string{"Four", "Five"}, WhitelistMode: true},
-			AspectConfig{ListEntries: []string{"One", "Two", "Three"}},
+			Config{ListEntries: []string{"One", "Two", "Three"}},
 			[]string{"One", "Two", "Three"},
 			[]string{"O", "OneOne", "ne", "ree"},
 		},
 
 		{
-			AdapterConfig{ListEntries: []string{"Four", "Five"}, WhitelistMode: false},
-			AspectConfig{ListEntries: []string{"One", "Two", "Three"}},
-			[]string{"O", "OneOne", "ne", "ree"},
-			[]string{"One", "Two", "Three"},
-		},
-
-		{
-			AdapterConfig{ListEntries: []string{"One", "Two", "Three"}, WhitelistMode: true},
-			AspectConfig{},
-			[]string{"One", "Two", "Three"},
-			[]string{"O", "OneOne", "ne", "ree"},
-		},
-
-		{
-			AdapterConfig{WhitelistMode: true},
-			AspectConfig{},
+			Config{},
 			[]string{},
-			[]string{"Lasagna"},
+			[]string{"One", "Two", "Three"},
 		},
 	}
 
 	for _, c := range cases {
-		b := NewAdapter()
-		if err := b.Configure(&c.bc); err != nil {
-			t.Errorf("Unable to configure adapter: %v", err)
-		}
+		b := newAdapter()
 
-		aa, err := b.NewAspect(&c.ac)
+		a, err := b.NewAspect(&c.ac)
 		if err != nil {
 			t.Errorf("Unable to create adapter: %v", err)
 		}
-		a := aa.(adapter.ListChecker)
 
 		for _, value := range c.matchValues {
 			ok, err := a.CheckList(value)

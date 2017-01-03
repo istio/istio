@@ -12,31 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package genericListChecker
+syntax = "proto3";
 
-type aspectState struct {
-	entries map[string]string
-}
+package genericListChecker;
 
-func newAspect(c *Config) (*aspectState, error) {
-	entries := make(map[string]string, len(c.ListEntries))
-	for _, entry := range c.ListEntries {
-		entries[entry] = entry
-	}
-
-	return &aspectState{entries: entries}, nil
-}
-
-func (a *aspectState) ImplName() string {
-	return ImplName
-}
-
-func (a *aspectState) Close() error {
-	a.entries = nil
-	return nil
-}
-
-func (a *aspectState) CheckList(symbol string) (bool, error) {
-	_, ok := a.entries[symbol]
-	return ok, nil
+message Config {
+    // The set of entries in the list to check against
+    repeated string list_entries = 1;
 }
