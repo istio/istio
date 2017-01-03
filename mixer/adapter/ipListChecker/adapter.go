@@ -26,15 +26,19 @@ import (
 
 const (
 	// ImplName is the canonical name of this implementation
-	ImplName = "istio/IPListChecker"
+	ImplName = "istio/ipListChecker"
 )
 
 // Register registration entry point
-func Register(r aspectsupport.Registry) {
-	r.RegisterCheckList(&adapterState{})
+func Register(r aspectsupport.Registry) error {
+	return r.RegisterCheckList(newAdapter())
 }
 
 type adapterState struct{}
+
+func newAdapter() listChecker.Adapter {
+	return &adapterState{}
+}
 
 func (a *adapterState) Name() string {
 	return ImplName

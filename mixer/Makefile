@@ -32,7 +32,9 @@ lint: build
 	@go get -u github.com/alecthomas/gometalinter
 	@gometalinter --install >/dev/null
 	@cp -f bazel-genfiles/external/com_github_istio_api/mixer/api/v1/*pb.go ../api/mixer/api/v1/
-	@gometalinter --disable-all\
+	@cp -f bazel-genfiles/external/com_github_istio_api/istio/config/v1/*pb.go ../api/istio/config/v1/
+	@cp -f bazel-genfiles/external/com_github_istio_api/istio/config/v1/aspect/listChecker/*pb.go ../api/istio/config/v1/aspect/listChecker
+	@gometalinter --deadline=30s --disable-all\
 		--enable=aligncheck\
 		--enable=deadcode\
 		--enable=errcheck\
@@ -52,6 +54,8 @@ lint: build
 		--enable=vetshadow\
 		./...
 	@rm -f ../api/mixer/api/v1/*.pb.go
+	@rm -f ../api/istio/config/v1/*.pb.go
+	@rm -f ../api/istio/config/v1/aspect/listChecker/*.pb.go
 
 # These generate warnings which we should fix, and then should enable the linters
 # --enable=dupl

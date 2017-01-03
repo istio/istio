@@ -57,7 +57,6 @@ func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga aspect.Adapter) (aspe
 	var asp aspect.Aspect
 	var err error
 
-
 	if asp, err = aa.NewAspect(adapterCfg); err != nil {
 		return nil, err
 	}

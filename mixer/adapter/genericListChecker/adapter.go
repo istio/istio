@@ -15,62 +15,47 @@
 package genericListChecker
 
 import (
-	"istio.io/mixer/pkg/adapter"
+	"fmt"
+
+	"github.com/golang/protobuf/proto"
+
+	"istio.io/mixer/pkg/aspect/listChecker"
+	"istio.io/mixer/pkg/aspectsupport"
 )
 
-// AdapterConfig is used to configure a adapter.
-type AdapterConfig struct {
-	// The set of entries in the list to check against
-	ListEntries []string
+const (
+	// ImplName is the canonical name of this implementation
+	ImplName = "istio/genericListChecker"
+)
 
-	// WhilelistMode determines whether the list check
-	// operates as a whitelist or a blacklist. When WhitelistMode
-	// is true, an item succeeds a check call if it is in the list.
-	// Otherwise, when WhitelistMode is false, an item succeeds a
-	// check call if it is not in the list.
-	WhitelistMode bool
+// Register records the existence of this adapter
+func Register(r aspectsupport.Registry) error {
+	return r.RegisterCheckList(newAdapter())
 }
 
-type adapterState struct {
-	entries       map[string]string
-	whitelistMode bool
-}
+type adapterState struct{}
 
-// NewAdapter returns a Adapter
-func NewAdapter() adapter.Adapter {
+func newAdapter() listChecker.Adapter {
 	return &adapterState{}
 }
 
 func (a *adapterState) Name() string {
-	return "GenericListChecker"
+	return ImplName
 }
 
 func (a *adapterState) Description() string {
 	return "Checks whether a string is present in a list."
 }
 
-func (a *adapterState) DefaultAdapterConfig() adapter.AdapterConfig {
-	return &AdapterConfig{}
+func (a *adapterState) DefaultConfig() proto.Message {
+	return &Config{}
 }
 
-func (a *adapterState) ValidateAdapterConfig(config adapter.AdapterConfig) error {
-	_ = config.(*AdapterConfig)
-	return nil
-}
-
-func (a *adapterState) Configure(config adapter.AdapterConfig) error {
-	if err := a.ValidateAdapterConfig(config); err != nil {
-		return err
+func (a *adapterState) ValidateConfig(cfg proto.Message) (err error) {
+	_, ok := cfg.(*Config)
+	if !ok {
+		return fmt.Errorf("Invalid message type %#v", cfg)
 	}
-	c := config.(*AdapterConfig)
-
-	// populate the lookup map
-	a.entries = make(map[string]string, len(c.ListEntries))
-	for _, entry := range c.ListEntries {
-		a.entries[entry] = entry
-	}
-	a.whitelistMode = c.WhitelistMode
-
 	return nil
 }
 
@@ -78,19 +63,10 @@ func (a *adapterState) Close() error {
 	return nil
 }
 
-func (a *adapterState) DefaultAspectConfig() adapter.AspectConfig {
-	return &AspectConfig{}
-}
-
-func (a *adapterState) ValidateAspectConfig(config adapter.AspectConfig) error {
-	_ = config.(*AspectConfig)
-	return nil
-}
-
-func (a *adapterState) NewAspect(config adapter.AspectConfig) (adapter.Aspect, error) {
-	if err := a.ValidateAspectConfig(config); err != nil {
+func (a *adapterState) NewAspect(cfg proto.Message) (listChecker.Aspect, error) {
+	if err := a.ValidateConfig(cfg); err != nil {
 		return nil, err
 	}
-	c := config.(*AspectConfig)
-	return newAspect(c, a.entries, a.whitelistMode)
+
+	return newAspect(cfg.(*Config))
 }
