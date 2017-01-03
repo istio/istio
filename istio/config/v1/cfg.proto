@@ -106,11 +106,11 @@ message Aspect {
 //    Host: statd.svc.cluster
 //    Port: 8125
 message Adapter {
-	string name = 1;  // statsd-slow
-	string kind = 2;  // metrics
-	string impl = 3;  // istio.statsd
+  string name = 1;  // statsd-slow
+  string kind = 2;  // metrics
+  string impl = 3;  // istio.statsd
   // Struct representation of a proto defined by the implementation
-	google.protobuf.Struct args = 4;    // based on impl {}
+  google.protobuf.Struct params = 4;    // based on impl {}
 }
 
 // GlobalConfig defines configuration elements that are available
