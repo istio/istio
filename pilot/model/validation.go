@@ -19,6 +19,8 @@ import (
 	"regexp"
 
 	"github.com/golang/protobuf/proto"
+
+	multierror "github.com/hashicorp/go-multierror"
 )
 
 const (
@@ -39,29 +41,31 @@ func IsDNS1123Label(value string) bool {
 
 // Validate confirms that the names in the configuration key are appropriate
 func (k *ConfigKey) Validate() error {
+	var errs error
 	if !kindRegexp.MatchString(k.Kind) {
-		return fmt.Errorf("Invalid kind: %q", k.Kind)
+		errs = multierror.Append(errs, fmt.Errorf("Invalid kind: %q", k.Kind))
 	}
 	if !IsDNS1123Label(k.Name) {
-		return fmt.Errorf("Invalid name: %q", k.Name)
+		errs = multierror.Append(errs, fmt.Errorf("Invalid name: %q", k.Name))
 	}
 	if !IsDNS1123Label(k.Namespace) {
-		return fmt.Errorf("Invalid namespace: %q", k.Name)
+		errs = multierror.Append(errs, fmt.Errorf("Invalid namespace: %q", k.Namespace))
 	}
-	return nil
+	return errs
 }
 
 // Validate checks that each name conforms to the spec and has a ProtoMessage
 func (km KindMap) Validate() error {
+	var errs error
 	for k, v := range km {
 		if !kindRegexp.MatchString(k) {
-			return fmt.Errorf("Invalid kind: %q", k)
+			errs = multierror.Append(errs, fmt.Errorf("Invalid kind: %q", k))
 		}
 		if proto.MessageType(v.MessageName) == nil {
-			return fmt.Errorf("Cannot find proto message type: %q", v.MessageName)
+			errs = multierror.Append(errs, fmt.Errorf("Cannot find proto message type: %q", v.MessageName))
 		}
 	}
-	return nil
+	return errs
 }
 
 // ValidateKey ensures that the key is well-defined and kind is well-defined
@@ -118,4 +122,21 @@ func (km KindMap) ValidateConfig(obj *Config) error {
 	}
 
 	return nil
+}
+
+// Validate ensures that the service object is well-defined
+func (s *Service) Validate() error {
+	var errs error
+	if !IsDNS1123Label(s.Name) {
+		errs = multierror.Append(errs, fmt.Errorf("Invalid name: %q", s.Name))
+	}
+	if !IsDNS1123Label(s.Namespace) {
+		errs = multierror.Append(errs, fmt.Errorf("Invalid namespace: %q", s.Namespace))
+	}
+	for _, tag := range s.Tags {
+		if !IsDNS1123Label(tag) {
+			errs = multierror.Append(errs, fmt.Errorf("Invalid service tag: %q", tag))
+		}
+	}
+	return errs
 }
