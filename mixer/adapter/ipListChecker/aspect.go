@@ -27,6 +27,8 @@ import (
 
 	"github.com/golang/glog"
 	"gopkg.in/yaml.v2"
+
+	"istio.io/mixer/pkg/aspect/listChecker"
 )
 
 type aspectState struct {
@@ -40,7 +42,7 @@ type aspectState struct {
 	client          http.Client
 }
 
-func newAspect(c *Config) (*aspectState, error) {
+func newAspect(c *Config) (listChecker.Aspect, error) {
 	var u *url.URL
 	var err error
 	if u, err = url.Parse(c.ProviderUrl); err != nil {

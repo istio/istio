@@ -12,29 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package listChecker
+package denyChecker
 
 import (
 	"fmt"
 
 	"google.golang.org/genproto/googleapis/rpc/code"
-	listcheckerpb "istio.io/api/istio/config/v1/aspect/listChecker"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
 
 const (
-	kind = "istio/listChecker"
+	kind = "istio/denyChecker"
 )
 
 type (
 	manager struct{}
 
 	aspectWrapper struct {
-		cfg          *aspect.CombinedConfig
-		aspect       Aspect
-		aspectConfig *listcheckerpb.Config
+		aspect Aspect
 	}
 )
 
@@ -43,15 +40,14 @@ func NewManager() aspect.Manager {
 	return &manager{}
 }
 
-// NewAspect creates a listChecker aspect. Implements aspect.Manager#NewAspect()
+// NewAspect creates a denyChecker aspect. Implements aspect.Manager#NewAspect()
 func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga aspect.Adapter) (aspect.AspectWrapper, error) {
 	aa, ok := ga.(Adapter)
 	if !ok {
-		return nil, fmt.Errorf("Adapter of incorrect type. Expected listChecker.Adapter got %#v %T", ga, ga)
+		return nil, fmt.Errorf("Adapter of incorrect type. Expected denyChecker.Adapter got %#v %T", ga, ga)
 	}
 
 	// TODO: convert from proto Struct to Go struct here!
-	var aspectConfig *listcheckerpb.Config
 	adapterCfg := aa.DefaultConfig()
 	// TODO: parse cfg.Adapter.Params (*ptypes.struct) into adapterCfg
 	var asp Aspect
@@ -62,40 +58,13 @@ func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga aspect.Adapter) (aspe
 	}
 
 	return &aspectWrapper{
-		cfg:          cfg,
-		aspect:       asp,
-		aspectConfig: aspectConfig,
+		aspect: asp,
 	}, nil
 }
 
 func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
-	var found bool
-	var err error
-	var asp Aspect = a.aspect
-
-	var symbol string
-	var symbolExpr string
-	acfg := a.aspectConfig
-
-	// CheckAttribute should be processed and sent to input
-	if symbolExpr, found = a.cfg.Aspect.Inputs[acfg.CheckAttribute]; !found {
-		return nil, fmt.Errorf("Mapping for %s not found", acfg.CheckAttribute)
-	}
-
-	if symbol, err = mapper.EvalString(symbolExpr, attrs); err != nil {
-		return nil, err
-	}
-
-	if found, err = asp.CheckList(symbol); err != nil {
-		return nil, err
-	}
-	rCode := code.Code_PERMISSION_DENIED
-
-	if found != acfg.Blacklist {
-		rCode = code.Code_OK
-	}
-
-	return &aspect.Output{Code: rCode}, nil
+	status := a.aspect.Deny()
+	return &aspect.Output{Code: code.Code(status.Code)}, nil
 }
 
 func (*manager) Kind() string {

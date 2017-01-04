@@ -20,6 +20,7 @@ import (
 	// 1. Add a method to Registry
 	// 2. Update aspectManagers method to add that manager
 	// list of aspects
+	"istio.io/mixer/pkg/aspect/denyChecker"
 	"istio.io/mixer/pkg/aspect/listChecker"
 	// end list of aspects
 )
@@ -29,6 +30,9 @@ type Registry interface {
 	// RegisterCheckList
 	RegisterCheckList(b listChecker.Adapter) error
 
+	// RegisterDeny
+	RegisterDeny(b denyChecker.Adapter) error
+
 	// ByImpl gets an adapter by impl name
 	ByImpl(impl string) (adapter aspect.Adapter, found bool)
 }
@@ -37,5 +41,6 @@ type Registry interface {
 func aspectManagers() []aspect.Manager {
 	return []aspect.Manager{
 		listChecker.NewManager(),
+		denyChecker.NewManager(),
 	}
 }

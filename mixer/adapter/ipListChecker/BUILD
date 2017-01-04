@@ -27,10 +27,6 @@ go_test(
     deps = ["//pkg/adaptertesting:go_default_library"],
 )
 
-load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
-
-go_prefix("istio.io/mixer/adapter")
-
 load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
 
 go_proto_library(

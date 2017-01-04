@@ -12,35 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package genericListChecker
+package denyChecker
 
 import (
-	"istio.io/mixer/pkg/aspect/listChecker"
+	"github.com/golang/protobuf/proto"
+	"google.golang.org/genproto/googleapis/rpc/status"
+	"istio.io/mixer/pkg/aspect"
 )
 
-type aspectState struct {
-	entries map[string]string
-}
-
-func newAspect(c *Config) (listChecker.Aspect, error) {
-	entries := make(map[string]string, len(c.ListEntries))
-	for _, entry := range c.ListEntries {
-		entries[entry] = entry
+type (
+	// Aspect denyChecker always fails with a configured error.
+	Aspect interface {
+		aspect.Aspect
+		// Deny always returns an error
+		Deny() status.Status
 	}
 
-	return &aspectState{entries: entries}, nil
-}
-
-func (a *aspectState) ImplName() string {
-	return ImplName
-}
-
-func (a *aspectState) Close() error {
-	a.entries = nil
-	return nil
-}
-
-func (a *aspectState) CheckList(symbol string) (bool, error) {
-	_, ok := a.entries[symbol]
-	return ok, nil
-}
+	// Adapter builds the DenyChecker Aspect
+	Adapter interface {
+		aspect.Adapter
+		// NewAspect returns a new DenyChecker
+		NewAspect(cfg proto.Message) (Aspect, error)
+	}
+)

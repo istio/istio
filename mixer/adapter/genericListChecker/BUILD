@@ -11,10 +11,10 @@ go_library(
     ],
     deps = [
         "@com_github_golang_glog//:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
         "//pkg/aspect:go_default_library",
         "//pkg/aspectsupport:go_default_library",
         "//pkg/aspect/listChecker:go_default_library",
-        "@com_github_golang_protobuf//proto:go_default_library"
     ],
 )
 
@@ -25,10 +25,6 @@ go_test(
     library = ":go_default_library",
     deps = ["//pkg/adaptertesting:go_default_library"],
 )
-
-load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
-
-go_prefix("istio.io/mixer/adapter")
 
 load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
 
