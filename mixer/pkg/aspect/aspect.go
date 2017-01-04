@@ -20,6 +20,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/genproto/googleapis/rpc/code"
 
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 
@@ -52,7 +53,7 @@ type (
 		// the shape of the block of configuration state passed to the NewAspect method.
 		DefaultConfig() (implConfig proto.Message)
 		// ValidateConfig determines whether the given configuration meets all correctness requirements.
-		ValidateConfig(implConfig proto.Message) error
+		ValidateConfig(implConfig proto.Message) *adapter.ConfigErrors
 	}
 
 	// CombinedConfig combines all configuration related to an aspect

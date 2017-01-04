@@ -18,6 +18,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/genproto/googleapis/rpc/code"
 
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect/denyChecker"
 	"istio.io/mixer/pkg/aspectsupport"
 
@@ -32,11 +33,11 @@ func Register(r aspectsupport.Registry) error {
 
 type adapterState struct{}
 
-func newAdapter() denyChecker.Adapter                          { return &adapterState{} }
-func (a *adapterState) Name() string                           { return "istio/denyChecker" }
-func (a *adapterState) Description() string                    { return "Deny every check request" }
-func (a *adapterState) Close() error                           { return nil }
-func (a *adapterState) ValidateConfig(cfg proto.Message) error { return nil }
+func newAdapter() denyChecker.Adapter                                               { return &adapterState{} }
+func (a *adapterState) Name() string                                                { return "istio/denyChecker" }
+func (a *adapterState) Description() string                                         { return "Deny every check request" }
+func (a *adapterState) Close() error                                                { return nil }
+func (a *adapterState) ValidateConfig(cfg proto.Message) (ce *adapter.ConfigErrors) { return }
 
 func (a *adapterState) DefaultConfig() proto.Message {
 	return &pb.Config{&status.Status{Code: int32(code.Code_FAILED_PRECONDITION)}}

@@ -10,6 +10,7 @@ go_library(
     ],
     deps = [
         ":config_proto",
+        "//pkg/adapter:go_default_library",
         "//pkg/aspect:go_default_library",
         "//pkg/aspect/denyChecker:go_default_library",
         "//pkg/aspectsupport:go_default_library",
