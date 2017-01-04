@@ -30,7 +30,7 @@ func TestAll(t *testing.T) {
 
 	status := a.Deny()
 	if status.Code != int32(code.Code_FAILED_PRECONDITION) {
-		t.Error("a.Deny returned %d, expected %d", status.Code, int32(code.Code_FAILED_PRECONDITION))
+		t.Errorf("a.Deny returned %d, expected %d", status.Code, int32(code.Code_FAILED_PRECONDITION))
 	}
 
 	if err = a.Close(); err != nil {
@@ -44,7 +44,7 @@ func TestAll(t *testing.T) {
 
 	status = a.Deny()
 	if status.Code != int32(code.Code_INVALID_ARGUMENT) {
-		t.Error("a.Deny returned %d, expected %d", status.Code, int32(code.Code_INVALID_ARGUMENT))
+		t.Errorf("a.Deny returned %d, expected %d", status.Code, int32(code.Code_INVALID_ARGUMENT))
 	}
 
 	if err = a.Close(); err != nil {
