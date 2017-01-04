@@ -15,58 +15,59 @@
 package denyChecker
 
 import (
-	"istio.io/mixer/pkg/adapter"
+	"fmt"
+
+	"github.com/golang/protobuf/proto"
+	"google.golang.org/genproto/googleapis/rpc/code"
+
+	"istio.io/mixer/pkg/aspect/denyChecker"
+	"istio.io/mixer/pkg/aspectsupport"
 )
 
-// AdapterConfig is used to configure a adapter
-type AdapterConfig struct {
+const (
+	// ImplName is the canonical name of this implementation
+	ImplName = "istio/denyChecker"
+)
+
+// Register records the existence of this adapter
+func Register(r aspectsupport.Registry) error {
+	return r.RegisterDeny(newAdapter())
 }
 
 type adapterState struct{}
 
-// NewAdapter returns a Adapter
-func NewAdapter() adapter.Adapter {
+func newAdapter() denyChecker.Adapter {
 	return &adapterState{}
 }
 
 func (a *adapterState) Name() string {
-	return "DenyChecker"
+	return ImplName
 }
 
 func (a *adapterState) Description() string {
 	return "Deny every check request"
 }
 
-func (a *adapterState) DefaultAdapterConfig() adapter.AdapterConfig {
-	return &AdapterConfig{}
+func (a *adapterState) DefaultConfig() proto.Message {
+	return &Config{ErrorCode: int32(code.Code_FAILED_PRECONDITION)}
 }
 
-func (a *adapterState) ValidateAdapterConfig(config adapter.AdapterConfig) error {
-	_ = config.(*AdapterConfig)
+func (a *adapterState) ValidateConfig(cfg proto.Message) (err error) {
+	_, ok := cfg.(*Config)
+	if !ok {
+		return fmt.Errorf("Invalid message type %#v", cfg)
+	}
 	return nil
-}
-
-func (a *adapterState) Configure(config adapter.AdapterConfig) error {
-	return a.ValidateAdapterConfig(config)
 }
 
 func (a *adapterState) Close() error {
 	return nil
 }
 
-func (a *adapterState) DefaultAspectConfig() adapter.AspectConfig {
-	return &AspectConfig{}
-}
-
-func (a *adapterState) ValidateAspectConfig(config adapter.AspectConfig) error {
-	_ = config.(*AspectConfig)
-	return nil
-}
-
-func (a *adapterState) NewAspect(config adapter.AspectConfig) (adapter.Aspect, error) {
-	if err := a.ValidateAspectConfig(config); err != nil {
+func (a *adapterState) NewAspect(cfg proto.Message) (denyChecker.Aspect, error) {
+	if err := a.ValidateConfig(cfg); err != nil {
 		return nil, err
 	}
-	c := config.(*AspectConfig)
-	return newAspect(c)
+
+	return newAspect(cfg.(*Config))
 }

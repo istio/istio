@@ -13,11 +13,13 @@ config_setting(
 ISTIO_DEPS = [
     "//:mixer/api/v1",
     "//:istio/config/v1",
-    "//:istio/config/v1/aspect/listChecker"
+    "//:istio/config/v1/aspect/denyChecker",
+    "//:istio/config/v1/aspect/listChecker",
 ]
 
 DEPS = ["//pkg/aspect:go_default_library",
         "//pkg/aspect/listChecker:go_default_library",
+        "//pkg/aspect/denyChecker:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/expr:go_default_library"] + select({
             ":local": ["@local_istio_api" + d for d in ISTIO_DEPS],

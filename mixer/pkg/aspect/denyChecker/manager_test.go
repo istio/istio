@@ -14,31 +14,11 @@
 
 package denyChecker
 
-import (
-	"google.golang.org/genproto/googleapis/rpc/status"
+import "testing"
 
-	"istio.io/mixer/pkg/aspect/denyChecker"
-)
-
-type aspectState struct {
-	status status.Status
-}
-
-// newAspect returns a new aspect.
-func newAspect(c *Config) (denyChecker.Aspect, error) {
-	return &aspectState{
-		status: status.Status{Code: c.ErrorCode},
-	}, nil
-}
-
-func (a *aspectState) ImplName() string {
-	return ImplName
-}
-
-func (a *aspectState) Close() error {
-	return nil
-}
-
-func (a *aspectState) Deny() status.Status {
-	return a.status
+func TestManager(t *testing.T) {
+	m := NewManager()
+	if m.Kind() != kind {
+		t.Error("Wrong kind of adapter")
+	}
 }

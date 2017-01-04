@@ -17,34 +17,37 @@ package denyChecker
 import (
 	"testing"
 
-	"istio.io/mixer/pkg/adapter"
+	"google.golang.org/genproto/googleapis/rpc/code"
 )
 
 func TestAll(t *testing.T) {
-	b := NewAdapter()
-	if err := b.Configure(b.DefaultAdapterConfig()); err != nil {
-		t.Errorf("Unable to configure adapter: %v", err)
-	}
+	b := newAdapter()
 
-	a, err := b.NewAspect(b.DefaultAspectConfig())
+	a, err := b.NewAspect(b.DefaultConfig())
 	if err != nil {
-		t.Errorf("Unable to create adapter: %v", err)
-	}
-	listChecker := a.(adapter.ListChecker)
-
-	cases := []string{"", "ABC", "ABC/DEF", "AAA", "123"}
-	for _, c := range cases {
-		ok, err := listChecker.CheckList(c)
-		if err != nil {
-			t.Errorf("CheckList(%s) failed with error %v", c, err)
-		}
-
-		if ok {
-			t.Errorf("CheckList(%s) => got 'true'; want 'false'", c)
-		}
+		t.Errorf("Unable to create aspect: %v", err)
 	}
 
-	if err := listChecker.Close(); err != nil {
-		t.Errorf("listChecker.Close failed: %v", err)
+	status := a.Deny()
+	if status.Code != int32(code.Code_FAILED_PRECONDITION) {
+		t.Error("a.Deny returned %d, expected %d", status.Code, int32(code.Code_FAILED_PRECONDITION))
+	}
+
+	if err = a.Close(); err != nil {
+		t.Errorf("a.Close failed: %v", err)
+	}
+
+	a, err = b.NewAspect(&Config{ErrorCode: int32(code.Code_INVALID_ARGUMENT)})
+	if err != nil {
+		t.Errorf("Unable to create aspect: %v", err)
+	}
+
+	status = a.Deny()
+	if status.Code != int32(code.Code_INVALID_ARGUMENT) {
+		t.Error("a.Deny returned %d, expected %d", status.Code, int32(code.Code_INVALID_ARGUMENT))
+	}
+
+	if err = a.Close(); err != nil {
+		t.Errorf("a.Close failed: %v", err)
 	}
 }
