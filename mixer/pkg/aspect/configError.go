@@ -26,7 +26,7 @@ import (
 //
 //  	func (a *adapterState) ValidateConfig(cfg proto.Message) (ce *adapter.ConfigErrors) {
 //  		c := cfg.(*Config)
-//      	if c.Url == nil {
+// 			if c.Url == nil {
 //  			ce = ce.Appendf("Url", "Must have a valid URL")
 //  		}
 //  		if c.RetryCount < 0 {

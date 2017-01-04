@@ -53,4 +53,33 @@ type (
 		// ValidateConfig determines whether the given configuration meets all correctness requirements.
 		ValidateConfig(implConfig proto.Message) *ConfigErrors
 	}
+
+	// The environment in which an aspect executes.
+	Env interface {
+		// Logger returns the logger for the aspect to use at runtime.
+		Logger() Logger
+
+		// Possible other things:
+		// Return how much time remains until the mixer considers the aspect call having timed out and kills it
+		// Return true/false to indicate this is a 'recovery mode' execution following a prior crash of the aspect
+		// ?
+	}
+
+	// The logger used at runtime by aspects.
+	//
+	// This log information is funneled to the mixer which
+	// augments it with desirable metadata and then routes it
+	// to the right place.
+	Logger interface {
+		// Infof logs optional information.
+		Infof(format string, args ...interface{})
+
+		// Warningsf logs suspect situations and recovrable errors
+		Warningf(format string, args ...interface{})
+
+		// Errorf logs error conditions.
+		// In addition to generating a log record for the error, this also returns
+		// an error instance for convenience.
+		Errorf(format string, args ...interface{}) error
+	}
 )

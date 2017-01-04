@@ -32,6 +32,6 @@ type (
 	Adapter interface {
 		aspect.Adapter
 		// NewAspect returns a new DenyChecker
-		NewAspect(cfg proto.Message) (Aspect, error)
+		NewAspect(env aspect.Env, cfg proto.Message) (Aspect, error)
 	}
 )

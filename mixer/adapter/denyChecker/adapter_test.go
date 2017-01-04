@@ -26,7 +26,7 @@ import (
 func TestAll(t *testing.T) {
 	b := newAdapter()
 
-	a, err := b.NewAspect(b.DefaultConfig())
+	a, err := b.NewAspect(nil, b.DefaultConfig())
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
@@ -40,7 +40,7 @@ func TestAll(t *testing.T) {
 		t.Errorf("a.Close failed: %v", err)
 	}
 
-	a, err = b.NewAspect(&pb.Config{&status.Status{Code: int32(code.Code_INVALID_ARGUMENT)}})
+	a, err = b.NewAspect(nil, &pb.Config{&status.Status{Code: int32(code.Code_INVALID_ARGUMENT)}})
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}

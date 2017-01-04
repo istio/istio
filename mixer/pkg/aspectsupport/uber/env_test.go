@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2017 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,25 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package listChecker
+package uber
 
 import (
-	"github.com/golang/protobuf/proto"
-	"istio.io/mixer/pkg/aspect"
+	"testing"
 )
 
-type (
-	// Aspect listChecker checks given symbol against a list
-	Aspect interface {
-		aspect.Aspect
-		// CheckList verifies whether the given symbol is on the list.
-		CheckList(symbol string) (bool, error)
-	}
-
-	// Adapter builds the ListChecker Aspect
-	Adapter interface {
-		aspect.Adapter
-		// NewAspect returns a new ListChecker
-		NewAspect(env aspect.Env, cfg proto.Message) (Aspect, error)
-	}
-)
+func TestEnv(t *testing.T) {
+	// for now, just make sure nothing crashes...
+	env := newEnv("Foo")
+	log := env.Logger()
+	log.Infof("Test%s", "ing")
+	log.Warningf("Test%s", "ing")
+	log.Errorf("Test%s", "ing")
+}

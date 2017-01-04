@@ -15,16 +15,27 @@
 package ipListChecker
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"gopkg.in/yaml.v2"
+
+	"istio.io/mixer/pkg/aspect"
 )
 
 // TODO: this test suite needs to be beefed up considerably.
 // Should be testing more edge cases, testing refresh behavior with and without errors,
 // testing TTL handling, testing malformed input, etc.
+
+type env struct {}
+func (e *env) Logger() aspect.Logger {return &logger{} }
+
+type logger struct {}
+func (l *logger) Infof(format string, args ...interface{}) {}
+func (l *logger) Warningf(format string, args ...interface{}) {}
+func (l *logger) Errorf(format string, args ...interface{}) error {return fmt.Errorf(format, args)}
 
 func TestBasic(t *testing.T) {
 	lp := listPayload{
@@ -53,7 +64,7 @@ func TestBasic(t *testing.T) {
 		Ttl:             10,
 	}
 
-	a, err := b.NewAspect(&config)
+	a, err := b.NewAspect(&env{}, &config)
 	if err != nil {
 		t.Errorf("Unable to create adapter: %v", err)
 	}
