@@ -54,9 +54,12 @@ typedef std::shared_ptr<Config> ConfigPtr;
 class Request : public google::api_manager::Request {
  private:
   HeaderMap& header_map_;
+  bool query_parsed_;
+  std::map<std::string, std::string> query_params_;
 
  public:
-  Request(HeaderMap& header_map) : header_map_(header_map) {}
+  Request(HeaderMap& header_map)
+      : header_map_(header_map), query_parsed_(false) {}
   virtual std::string GetRequestHTTPMethod() override {
     return header_map_.Method()->value().c_str();
   }
@@ -68,12 +71,30 @@ class Request : public google::api_manager::Request {
   }
   virtual std::string GetClientIP() override { return ""; }
   virtual bool FindQuery(const std::string& name, std::string* query) override {
-    return false;
+    if (!query_parsed_) {
+      auto header = header_map_.Path();
+      if (header != nullptr) {
+        std::string path = header->value().c_str();
+        Utility::parseQueryString(path).swap(query_params_);
+      }
+      query_parsed_ = true;
+    }
+    auto entry = query_params_.find(name);
+    if (entry == query_params_.end()) {
+      return false;
+    }
+    *query = entry->second;
+    return true;
   }
 
   virtual bool FindHeader(const std::string& name,
                           std::string* header) override {
-    // TODO: find header with header_map
+    LowerCaseString key(name);
+    const HeaderEntry* entry = header_map_.get(key);
+    if (entry == nullptr) {
+      return false;
+    }
+    *header = entry->value().c_str();
     return true;
   }
 
@@ -83,7 +104,6 @@ class Request : public google::api_manager::Request {
   }
   virtual google::api_manager::utils::Status AddHeaderToBackend(
       const std::string& key, const std::string& value) override {
-    header_map_.addStatic(LowerCaseString(key), value);
     return google::api_manager::utils::Status::OK;
   }
   virtual void SetAuthToken(const std::string& auth_token) override {}
