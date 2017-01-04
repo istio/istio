@@ -24,11 +24,6 @@ import (
 	"istio.io/mixer/pkg/aspectsupport"
 )
 
-const (
-	// ImplName is the canonical name of this implementation
-	ImplName = "istio/ipListChecker"
-)
-
 // Register registration entry point
 func Register(r aspectsupport.Registry) error {
 	return r.RegisterCheckList(newAdapter())
@@ -36,16 +31,24 @@ func Register(r aspectsupport.Registry) error {
 
 type adapterState struct{}
 
-func newAdapter() listChecker.Adapter {
-	return &adapterState{}
-}
-
-func (a *adapterState) Name() string {
-	return ImplName
-}
-
+func newAdapter() listChecker.Adapter { return &adapterState{} }
+func (a *adapterState) Name() string  { return "istio/ipListChecker" }
 func (a *adapterState) Description() string {
 	return "Checks whether an IP address is present in an IP address list."
+}
+
+func (a *adapterState) Close() error { return nil }
+
+func (a *adapterState) ValidateConfig(cfg proto.Message) error {
+	c := cfg.(*Config)
+
+	if u, err := url.Parse(c.ProviderUrl); err == nil {
+		if u.Scheme == "" || u.Host == "" {
+			err = fmt.Errorf("Scheme (%s) and Host (%s) cannot be empty", u.Scheme, u.Host)
+		}
+		return err
+	}
+	return nil
 }
 
 func (a *adapterState) DefaultConfig() proto.Message {
@@ -56,29 +59,6 @@ func (a *adapterState) DefaultConfig() proto.Message {
 	}
 }
 
-func (a *adapterState) ValidateConfig(cfg proto.Message) (err error) {
-	c, ok := cfg.(*Config)
-	if !ok {
-		return fmt.Errorf("Invalid message type %#v", cfg)
-	}
-	var u *url.URL
-
-	if u, err = url.Parse(c.ProviderUrl); err == nil {
-		if u.Scheme == "" || u.Host == "" {
-			err = fmt.Errorf("Scheme (%s) and Host (%s) cannot be empty", u.Scheme, u.Host)
-		}
-	}
-	return err
-}
-
-func (a *adapterState) Close() error {
-	return nil
-}
-
 func (a *adapterState) NewAspect(cfg proto.Message) (listChecker.Aspect, error) {
-	if err := a.ValidateConfig(cfg); err != nil {
-		return nil, err
-	}
-
 	return newAspect(cfg.(*Config))
 }

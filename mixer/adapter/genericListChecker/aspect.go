@@ -31,10 +31,6 @@ func newAspect(c *Config) (listChecker.Aspect, error) {
 	return &aspectState{entries: entries}, nil
 }
 
-func (a *aspectState) ImplName() string {
-	return ImplName
-}
-
 func (a *aspectState) Close() error {
 	a.entries = nil
 	return nil

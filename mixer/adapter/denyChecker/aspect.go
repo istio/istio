@@ -31,14 +31,5 @@ func newAspect(c *Config) (denyChecker.Aspect, error) {
 	}, nil
 }
 
-func (a *aspectState) ImplName() string {
-	return ImplName
-}
-
-func (a *aspectState) Close() error {
-	return nil
-}
-
-func (a *aspectState) Deny() status.Status {
-	return a.status
-}
+func (a *aspectState) Close() error        { return nil }
+func (a *aspectState) Deny() status.Status { return a.status }
