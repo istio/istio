@@ -15,16 +15,15 @@
 package ipListChecker
 
 import (
-	"fmt"
 	"net/url"
 
 	"github.com/golang/protobuf/proto"
 
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect/listChecker"
 	"istio.io/mixer/pkg/aspectsupport"
 )
 
-// Register registration entry point
 func Register(r aspectsupport.Registry) error {
 	return r.RegisterCheckList(newAdapter())
 }
@@ -33,22 +32,26 @@ type adapterState struct{}
 
 func newAdapter() listChecker.Adapter { return &adapterState{} }
 func (a *adapterState) Name() string  { return "istio/ipListChecker" }
+
 func (a *adapterState) Description() string {
 	return "Checks whether an IP address is present in an IP address list."
 }
 
 func (a *adapterState) Close() error { return nil }
 
-func (a *adapterState) ValidateConfig(cfg proto.Message) error {
+func (a *adapterState) ValidateConfig(cfg proto.Message) (ce *adapter.ConfigErrors) {
 	c := cfg.(*Config)
 
-	if u, err := url.Parse(c.ProviderUrl); err == nil {
+	u, err := url.Parse(c.ProviderUrl)
+	if err != nil {
+		ce = ce.Append("ProviderUrl", err)
+	} else {
 		if u.Scheme == "" || u.Host == "" {
-			err = fmt.Errorf("Scheme (%s) and Host (%s) cannot be empty", u.Scheme, u.Host)
+			ce = ce.Appendf("ProviderUrl", "URL scheme and host cannot be empty")
 		}
-		return err
 	}
-	return nil
+
+	return
 }
 
 func (a *adapterState) DefaultConfig() proto.Message {
