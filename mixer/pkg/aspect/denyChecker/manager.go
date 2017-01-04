@@ -31,7 +31,8 @@ type (
 	manager struct{}
 
 	aspectWrapper struct {
-		aspect Aspect
+		adapter Adapter
+		aspect  Aspect
 	}
 )
 
@@ -58,15 +59,20 @@ func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga aspect.Adapter) (aspe
 	}
 
 	return &aspectWrapper{
-		aspect: asp,
+		adapter: aa,
+		aspect:  asp,
 	}, nil
+}
+
+func (*manager) Kind() string {
+	return kind
+}
+
+func (a *aspectWrapper) AdapterName() string {
+	return a.adapter.Name()
 }
 
 func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
 	status := a.aspect.Deny()
 	return &aspect.Output{Code: code.Code(status.Code)}, nil
-}
-
-func (*manager) Kind() string {
-	return kind
 }

@@ -33,6 +33,7 @@ type (
 
 	aspectWrapper struct {
 		cfg          *aspect.CombinedConfig
+		adapter      Adapter
 		aspect       Aspect
 		aspectConfig *listcheckerpb.Config
 	}
@@ -63,9 +64,18 @@ func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga aspect.Adapter) (aspe
 
 	return &aspectWrapper{
 		cfg:          cfg,
+		adapter:      aa,
 		aspect:       asp,
 		aspectConfig: aspectConfig,
 	}, nil
+}
+
+func (*manager) Kind() string {
+	return kind
+}
+
+func (a *aspectWrapper) AdapterName() string {
+	return a.adapter.Name()
 }
 
 func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
@@ -96,8 +106,4 @@ func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*as
 	}
 
 	return &aspect.Output{Code: rCode}, nil
-}
-
-func (*manager) Kind() string {
-	return kind
 }

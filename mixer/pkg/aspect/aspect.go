@@ -36,8 +36,6 @@ type (
 	// ex: //adapter/ipListChecker aspectState implements the listChecker.Aspect.
 	Aspect interface {
 		io.Closer
-		// ImplName returns the official name of adapter implementation ex. "istio/statsd"
-		ImplName() string
 	}
 
 	// Adapter represents an Aspect Builder that constructs instances a specific aspect.
