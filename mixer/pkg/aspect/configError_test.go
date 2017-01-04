@@ -21,9 +21,9 @@ import (
 
 func TestConfigErrors(t *testing.T) {
 	cases := []struct {
-		field string
+		field      string
 		underlying string
-		error string
+		error      string
 	}{
 		{"F0", "Format 0", "F0: Format 0"},
 		{"F1", "Format 1", "F1: Format 1"},

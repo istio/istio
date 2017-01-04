@@ -46,7 +46,7 @@ func NewManager() aspectsupport.Manager {
 }
 
 // NewAspect creates a denyChecker aspect. Implements aspect.Manager#NewAspect()
-func (m *manager) NewAspect(cfg *aspectsupport.CombinedConfig, ga aspect.Adapter) (aspectsupport.AspectWrapper, error) {
+func (m *manager) NewAspect(cfg *aspectsupport.CombinedConfig, ga aspect.Adapter, env aspect.Env) (aspectsupport.AspectWrapper, error) {
 	aa, ok := ga.(denyChecker.Adapter)
 	if !ok {
 		return nil, fmt.Errorf("Adapter of incorrect type. Expected denyChecker.Adapter got %#v %T", ga, ga)
@@ -58,7 +58,7 @@ func (m *manager) NewAspect(cfg *aspectsupport.CombinedConfig, ga aspect.Adapter
 	var asp denyChecker.Aspect
 	var err error
 
-	if asp, err = aa.NewAspect(adapterCfg); err != nil {
+	if asp, err = aa.NewAspect(env, adapterCfg); err != nil {
 		return nil, err
 	}
 

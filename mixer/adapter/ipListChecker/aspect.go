@@ -25,13 +25,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/glog"
 	"gopkg.in/yaml.v2"
 
+	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/listChecker"
 )
 
 type aspectState struct {
+	log             aspect.Logger
 	backend         *url.URL
 	atomicList      atomic.Value
 	fetchedSha      [sha1.Size]byte
@@ -42,7 +43,7 @@ type aspectState struct {
 	client          http.Client
 }
 
-func newAspect(c *Config) (listChecker.Aspect, error) {
+func newAspect(env aspect.Env, c *Config) (listChecker.Aspect, error) {
 	var u *url.URL
 	var err error
 	if u, err = url.Parse(c.ProviderUrl); err != nil {
@@ -51,6 +52,7 @@ func newAspect(c *Config) (listChecker.Aspect, error) {
 	}
 
 	aa := aspectState{
+		log:             env.Logger(),
 		backend:         u,
 		closing:         make(chan bool),
 		refreshInterval: time.Second * time.Duration(c.RefreshInterval),
@@ -136,12 +138,12 @@ type listPayload struct {
 }
 
 func (a *aspectState) refreshList() {
-	glog.Infoln("Fetching list from ", a.backend.String())
+	a.log.Infof("Fetching list from %s", a.backend)
 
 	resp, err := a.client.Get(a.backend.String())
 	if err != nil {
 		a.fetchError = err
-		glog.Warning("Could not connect to ", a.backend.String(), " ", err)
+		a.log.Warningf("Could not connect to %s: %v", a.backend, err)
 		return
 	}
 
@@ -150,7 +152,7 @@ func (a *aspectState) refreshList() {
 	buf, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		a.fetchError = err
-		glog.Warning("Could not read from ", a.backend.String(), " ", err)
+		a.log.Warningf("Could not read from %s: %v", a.backend, err)
 		return
 	}
 
@@ -160,7 +162,7 @@ func (a *aspectState) refreshList() {
 	newsha := sha1.Sum(buf)
 	if newsha == a.fetchedSha {
 		// the list hasn't changed since last time, just bail
-		glog.Infoln("Fetched list is unchanged")
+		a.log.Infof("Fetched list is unchanged")
 		return
 	}
 
@@ -169,7 +171,7 @@ func (a *aspectState) refreshList() {
 	err = yaml.Unmarshal(buf, &lp)
 	if err != nil {
 		a.fetchError = err
-		glog.Warning("Could not unmarshal ", a.backend.String(), " ", err)
+		a.log.Warningf("Could not unmarshal %s: %v", a.backend, err)
 		return
 	}
 
@@ -182,14 +184,14 @@ func (a *aspectState) refreshList() {
 
 		_, ipnet, err := net.ParseCIDR(ip)
 		if err != nil {
-			glog.Warningf("Unable to parse %s -- %v", ip, err)
+			a.log.Warningf("Unable to parse %s: %v", ip, err)
 			continue
 		}
 		l = append(l, ipnet)
 	}
 
 	// Now create a new map and install it
-	glog.Infoln("Installing updated list")
+	a.log.Infof("Installing updated list")
 	a.setList(l)
 	a.fetchedSha = newsha
 	a.fetchError = nil

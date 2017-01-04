@@ -40,11 +40,11 @@ type (
 		//context remains immutable during the call
 	}
 
-	// Manager manages a specific aspect and presets a uniform interface
-	// to the rest of system
+	// Manager manages a specific aspect and presents a uniform interface
+	// to the rest of the system
 	Manager interface {
 		// NewAspect creates a new aspect instance given configuration.
-		NewAspect(cfg *CombinedConfig, adapter aspect.Adapter) (AspectWrapper, error)
+		NewAspect(cfg *CombinedConfig, adapter aspect.Adapter, env aspect.Env) (AspectWrapper, error)
 		// Kind return the kind of aspect
 		Kind() string
 

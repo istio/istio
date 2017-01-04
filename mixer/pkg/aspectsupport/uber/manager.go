@@ -20,8 +20,8 @@ import (
 
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspectsupport"
-	"istio.io/mixer/pkg/aspectsupport/listChecker"
 	"istio.io/mixer/pkg/aspectsupport/denyChecker"
+	"istio.io/mixer/pkg/aspectsupport/listChecker"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
@@ -96,6 +96,7 @@ func (m *Manager) Execute(cfg *aspectsupport.CombinedConfig, attrs attribute.Bag
 	if asp, err = m.CacheGet(cfg, mgr, adapter); err != nil {
 		return nil, err
 	}
+
 	// TODO act on aspect.Output
 	return asp.Execute(attrs, mapper)
 }
@@ -115,7 +116,8 @@ func (m *Manager) CacheGet(cfg *aspectsupport.CombinedConfig, mgr aspectsupport.
 	defer m.lock.Unlock()
 	asp, found = m.aspectCache[key]
 	if !found {
-		asp, err = mgr.NewAspect(cfg, adapter)
+		env := newEnv(adapter.Name())
+		asp, err = mgr.NewAspect(cfg, adapter, env)
 		if err != nil {
 			return nil, err
 		}

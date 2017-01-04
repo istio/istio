@@ -42,7 +42,7 @@ func TestAll(t *testing.T) {
 	for _, c := range cases {
 		b := newAdapter()
 
-		a, err := b.NewAspect(&c.ac)
+		a, err := b.NewAspect(nil, &c.ac)
 		if err != nil {
 			t.Errorf("Unable to create adapter: %v", err)
 		}
