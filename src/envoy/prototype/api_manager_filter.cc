@@ -58,7 +58,8 @@ class Request : public google::api_manager::Request {
   std::map<std::string, std::string> query_params_;
 
  public:
-  Request(HeaderMap& header_map) : header_map_(header_map), query_parsed_(false) {}
+  Request(HeaderMap& header_map)
+      : header_map_(header_map), query_parsed_(false) {}
   virtual std::string GetRequestHTTPMethod() override {
     return header_map_.Method()->value().c_str();
   }

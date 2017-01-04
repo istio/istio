@@ -81,8 +81,7 @@ class HTTPRequest : public Http::Message {
 
     header_map_.addStaticKey(Headers::get().Scheme, "http");
     header_map_.addStaticKey(Headers::get().Host, "localhost");
-    header_map_.addStaticKey(Headers::get().ContentLength,
-                             body_.length());
+    header_map_.addStaticKey(Headers::get().ContentLength, body_.length());
     header_map_.addStaticKey(kApiManagerUrl, request->url());
     for (const auto header : request->request_headers()) {
       LowerCaseString lower_key(header.first);
