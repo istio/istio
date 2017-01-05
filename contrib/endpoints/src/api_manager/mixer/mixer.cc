@@ -26,6 +26,8 @@ namespace api_manager {
 namespace mixer {
 namespace {
 
+const char kMixerServiceName[] = "istio.mixer.v1.Mixer";
+
 enum AttributeIndex {
   ATTR_SERVICE_NAME = 0,
   ATTR_PEER_ID,
@@ -133,8 +135,8 @@ void CovertToPb(const service_control::ReportRequestInfo& info,
 
 }  // namespace
 
-Mixer::Mixer(ApiManagerEnvInterface* env, const std::string& service_name)
-    : env_(env), request_index_(0), service_name_(service_name) {}
+Mixer::Mixer(ApiManagerEnvInterface* env, const Config* config)
+    : env_(env), request_index_(0), config_(config) {}
 
 Mixer::~Mixer() {}
 
@@ -162,13 +164,15 @@ Status Mixer::Report(const service_control::ReportRequestInfo& info) {
 
   ::istio::mixer::v1::ReportRequest request;
   request.set_request_index(++request_index_);
-  CovertToPb(info, service_name_, request.mutable_attribute_update());
+  CovertToPb(info, config_->service_name(), request.mutable_attribute_update());
   env_->LogInfo(std::string("Send Report: ") + request.DebugString());
 
   std::string request_body;
   request.SerializeToString(&request_body);
 
-  grpc_request->set_server("mixer_server")
+  grpc_request
+      ->set_server(config_->server_config()->mixer_options().mixer_server())
+      .set_service(kMixerServiceName)
       .set_method("Report")
       .set_body(request_body);
 
@@ -202,13 +206,15 @@ void Mixer::Check(
 
   ::istio::mixer::v1::CheckRequest request;
   request.set_request_index(++request_index_);
-  CovertToPb(info, service_name_, request.mutable_attribute_update());
+  CovertToPb(info, config_->service_name(), request.mutable_attribute_update());
   env_->LogInfo(std::string("Send Check: ") + request.DebugString());
 
   std::string request_body;
   request.SerializeToString(&request_body);
 
-  grpc_request->set_server("mixer_server")
+  grpc_request
+      ->set_server(config_->server_config()->mixer_options().mixer_server())
+      .set_service(kMixerServiceName)
       .set_method("Check")
       .set_body(request_body);
 
@@ -220,8 +226,8 @@ Status Mixer::GetStatistics(service_control::Statistics* esp_stat) const {
 }
 
 service_control::Interface* Mixer::Create(ApiManagerEnvInterface* env,
-                                          const std::string& service_name) {
-  return new Mixer(env, service_name);
+                                          const Config* config) {
+  return new Mixer(env, config);
 }
 
 }  // namespace mixer
