@@ -19,6 +19,8 @@ import (
 
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/aspect/denyChecker"
+	"istio.io/mixer/pkg/aspectsupport"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
@@ -31,19 +33,19 @@ type (
 	manager struct{}
 
 	aspectWrapper struct {
-		adapter Adapter
-		aspect  Aspect
+		adapter denyChecker.Adapter
+		aspect  denyChecker.Aspect
 	}
 )
 
 // NewManager returns "this" aspect Manager
-func NewManager() aspect.Manager {
+func NewManager() aspectsupport.Manager {
 	return &manager{}
 }
 
 // NewAspect creates a denyChecker aspect. Implements aspect.Manager#NewAspect()
-func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga aspect.Adapter) (aspect.AspectWrapper, error) {
-	aa, ok := ga.(Adapter)
+func (m *manager) NewAspect(cfg *aspectsupport.CombinedConfig, ga aspect.Adapter) (aspectsupport.AspectWrapper, error) {
+	aa, ok := ga.(denyChecker.Adapter)
 	if !ok {
 		return nil, fmt.Errorf("Adapter of incorrect type. Expected denyChecker.Adapter got %#v %T", ga, ga)
 	}
@@ -51,7 +53,7 @@ func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga aspect.Adapter) (aspe
 	// TODO: convert from proto Struct to Go struct here!
 	adapterCfg := aa.DefaultConfig()
 	// TODO: parse cfg.Adapter.Params (*ptypes.struct) into adapterCfg
-	var asp Aspect
+	var asp denyChecker.Aspect
 	var err error
 
 	if asp, err = aa.NewAspect(adapterCfg); err != nil {
@@ -72,7 +74,7 @@ func (a *aspectWrapper) AdapterName() string {
 	return a.adapter.Name()
 }
 
-func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
+func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspectsupport.Output, error) {
 	status := a.aspect.Deny()
-	return &aspect.Output{Code: code.Code(status.Code)}, nil
+	return &aspectsupport.Output{Code: code.Code(status.Code)}, nil
 }

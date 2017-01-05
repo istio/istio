@@ -24,7 +24,7 @@ type (
 	Aspect interface {
 		aspect.Aspect
 		// CheckList verifies whether the given symbol is on the list.
-		CheckList(Symbol string) (bool, error)
+		CheckList(symbol string) (bool, error)
 	}
 
 	// Adapter builds the ListChecker Aspect

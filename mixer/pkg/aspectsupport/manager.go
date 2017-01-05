@@ -15,104 +15,44 @@
 package aspectsupport
 
 import (
-	"fmt"
-	"sync"
+	"google.golang.org/genproto/googleapis/rpc/code"
+
+	istioconfig "istio.io/api/istio/config/v1"
 
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
 
-// Manager manages all aspects - provides uniform interface to
-// all aspect managers
-type Manager struct {
-	mreg map[string]aspect.Manager
-	areg Registry
-
-	// protects cache
-	lock        sync.RWMutex
-	aspectCache map[CacheKey]aspect.AspectWrapper
-}
-
-// CacheKey is used to cache fully constructed aspects
-// These parameters are used in constructing an aspect
-type CacheKey struct {
-	Kind   string
-	Impl   string
-	Params string
-	Args   string
-}
-
-func cacheKey(cfg *aspect.CombinedConfig) CacheKey {
-	return CacheKey{
-		Kind:   cfg.Aspect.GetKind(),
-		Impl:   cfg.Adapter.GetImpl(),
-		Params: cfg.Aspect.GetParams().String(),
-		Args:   cfg.Adapter.GetParams().String(),
-	}
-}
-
-// NewManager Creates a new Uber Aspect manager
-func NewManager(areg Registry, mgrs []aspect.Manager) *Manager {
-	// Add all managers here as new aspects are added
-	if mgrs == nil {
-		mgrs = aspectManagers()
-	}
-	mreg := make(map[string]aspect.Manager, len(mgrs))
-	for _, mgr := range mgrs {
-		mreg[mgr.Kind()] = mgr
-	}
-	return &Manager{
-		mreg:        mreg,
-		aspectCache: make(map[CacheKey]aspect.AspectWrapper),
-		areg:        areg,
-	}
-}
-
-// Execute performs the aspect function based on CombinedConfig and attributes and an expression evaluator
-// returns aspect output or error if the operation could not be performed
-func (m *Manager) Execute(cfg *aspect.CombinedConfig, attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
-	var mgr aspect.Manager
-	var found bool
-
-	if mgr, found = m.mreg[cfg.Aspect.Kind]; !found {
-		return nil, fmt.Errorf("could not find aspect manager %#v", cfg.Aspect.Kind)
+type (
+	// CombinedConfig combines all configuration related to an aspect
+	CombinedConfig struct {
+		Aspect  *istioconfig.Aspect
+		Adapter *istioconfig.Adapter
 	}
 
-	var adapter aspect.Adapter
-	if adapter, found = m.areg.ByImpl(cfg.Adapter.Impl); !found {
-		return nil, fmt.Errorf("could not find registered adapter %#v", cfg.Adapter.Impl)
+	// Output from the Aspect Manager
+	Output struct {
+		// status code
+		Code code.Code
+		//TODO attribute mutator
+		//If any attributes should change in the context for the next call
+		//context remains immutable during the call
 	}
 
-	var asp aspect.AspectWrapper
-	var err error
-	if asp, err = m.CacheGet(cfg, mgr, adapter); err != nil {
-		return nil, err
+	// Manager manages a specific aspect and presets a uniform interface
+	// to the rest of system
+	Manager interface {
+		// NewAspect creates a new aspect instance given configuration.
+		NewAspect(cfg *CombinedConfig, adapter aspect.Adapter) (AspectWrapper, error)
+		// Kind return the kind of aspect
+		Kind() string
 	}
-	// TODO act on aspect.Output
-	return asp.Execute(attrs, mapper)
-}
 
-// CacheGet -- get from the cache, use aspect.Manager to construct an object in case of a cache miss
-func (m *Manager) CacheGet(cfg *aspect.CombinedConfig, mgr aspect.Manager, adapter aspect.Adapter) (asp aspect.AspectWrapper, err error) {
-	key := cacheKey(cfg)
-	// try fast path with read lock
-	m.lock.RLock()
-	asp, found := m.aspectCache[key]
-	m.lock.RUnlock()
-	if found {
-		return asp, nil
+	AspectWrapper interface {
+		// Execute dispatches to the given aspect.
+		// The evaluation is done under the context of an attribute bag and using
+		// an expression evaluator.
+		Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error)
 	}
-	// obtain write lock
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	asp, found = m.aspectCache[key]
-	if !found {
-		asp, err = mgr.NewAspect(cfg, adapter)
-		if err != nil {
-			return nil, err
-		}
-		m.aspectCache[key] = asp
-	}
-	return asp, nil
-}
+)

@@ -10,12 +10,10 @@ go_library(
         "cfg.pb.go",
     ],
     deps = [
-        "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
-        "//pkg/adapter:go_default_library",
         "//pkg/aspect:go_default_library",
-        "//pkg/aspectsupport:go_default_library",
         "//pkg/aspect/listChecker:go_default_library",
+        "//pkg/registry:go_default_library",
     ],
 )
 

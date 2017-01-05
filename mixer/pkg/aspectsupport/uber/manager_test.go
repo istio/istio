@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aspectsupport
+package uber
 
 import (
 	"strings"
@@ -20,19 +20,19 @@ import (
 
 	istioconfig "istio.io/api/istio/config/v1"
 
-	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/aspectsupport"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
 
 type (
 	fakereg struct {
-		Registry
+		RegistryQuerier
 	}
 
 	fakemgr struct {
 		kind string
-		aspect.Manager
+		aspectsupport.Manager
 	}
 
 	fakebag struct {
@@ -50,9 +50,9 @@ func (m *fakemgr) Kind() string {
 
 func TestManager(t *testing.T) {
 	r := &fakereg{}
-	mgrs := []aspect.Manager{&fakemgr{kind: "k1"}, &fakemgr{kind: "k2"}}
+	mgrs := []aspectsupport.Manager{&fakemgr{kind: "k1"}, &fakemgr{kind: "k2"}}
 	m := NewManager(r, mgrs)
-	cfg := &aspect.CombinedConfig{
+	cfg := &aspectsupport.CombinedConfig{
 		Aspect:  &istioconfig.Aspect{},
 		Adapter: &istioconfig.Adapter{},
 	}

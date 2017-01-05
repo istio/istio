@@ -18,8 +18,11 @@ ISTIO_DEPS = [
 ]
 
 DEPS = ["//pkg/aspect:go_default_library",
+        "//pkg/aspectsupport:go_default_library",
+        "//pkg/aspectsupport/listChecker:go_default_library",
+        "//pkg/aspectsupport/denyChecker:go_default_library",
         "//pkg/attribute:go_default_library",
-        "@com_github_google_go_genproto//googleapis/rpc/code:go_default_library",
+        "//pkg/registry:go_default_library",
         "//pkg/expr:go_default_library"] + select({
             ":local": ["@local_istio_api" + d for d in ISTIO_DEPS],
             "//conditions:default": ["@com_github_istio_api" + d for d in ISTIO_DEPS]

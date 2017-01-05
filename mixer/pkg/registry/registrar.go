@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2017 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,35 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aspectsupport
+package registry
 
 import (
-	"istio.io/mixer/pkg/aspect"
-	// while adding an aspect
-	// 1. Add a method to Registry
-	// 2. Update aspectManagers method to add that manager
-	// list of aspects
 	"istio.io/mixer/pkg/aspect/denyChecker"
 	"istio.io/mixer/pkg/aspect/listChecker"
-	// end list of aspects
 )
 
-// Registry -- Interface used by adapters to register themselves
-type Registry interface {
+// Registrar -- Interface used by adapters to register themselves
+type Registrar interface {
 	// RegisterCheckList
-	RegisterCheckList(b listChecker.Adapter) error
+	RegisterCheckList(listChecker.Adapter) error
 
 	// RegisterDeny
-	RegisterDeny(b denyChecker.Adapter) error
-
-	// ByImpl gets an adapter by impl name
-	ByImpl(impl string) (adapter aspect.Adapter, found bool)
-}
-
-// return list of aspect managers
-func aspectManagers() []aspect.Manager {
-	return []aspect.Manager{
-		listChecker.NewManager(),
-		denyChecker.NewManager(),
-	}
+	RegisterDeny(denyChecker.Adapter) error
 }

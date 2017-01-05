@@ -20,6 +20,8 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 	listcheckerpb "istio.io/api/istio/config/v1/aspect/listChecker"
 	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/aspect/listChecker"
+	"istio.io/mixer/pkg/aspectsupport"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
@@ -32,21 +34,21 @@ type (
 	manager struct{}
 
 	aspectWrapper struct {
-		cfg          *aspect.CombinedConfig
-		adapter      Adapter
-		aspect       Aspect
+		cfg          *aspectsupport.CombinedConfig
+		adapter      listChecker.Adapter
+		aspect       listChecker.Aspect
 		aspectConfig *listcheckerpb.Config
 	}
 )
 
 // NewManager returns "this" aspect Manager
-func NewManager() aspect.Manager {
+func NewManager() aspectsupport.Manager {
 	return &manager{}
 }
 
 // NewAspect creates a listChecker aspect. Implements aspect.Manager#NewAspect()
-func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga aspect.Adapter) (aspect.AspectWrapper, error) {
-	aa, ok := ga.(Adapter)
+func (m *manager) NewAspect(cfg *aspectsupport.CombinedConfig, ga aspect.Adapter) (aspectsupport.AspectWrapper, error) {
+	aa, ok := ga.(listChecker.Adapter)
 	if !ok {
 		return nil, fmt.Errorf("Adapter of incorrect type. Expected listChecker.Adapter got %#v %T", ga, ga)
 	}
@@ -55,7 +57,7 @@ func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga aspect.Adapter) (aspe
 	var aspectConfig *listcheckerpb.Config
 	adapterCfg := aa.DefaultConfig()
 	// TODO: parse cfg.Adapter.Params (*ptypes.struct) into adapterCfg
-	var asp Aspect
+	var asp listChecker.Aspect
 	var err error
 
 	if asp, err = aa.NewAspect(adapterCfg); err != nil {
@@ -78,10 +80,10 @@ func (a *aspectWrapper) AdapterName() string {
 	return a.adapter.Name()
 }
 
-func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
+func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspectsupport.Output, error) {
 	var found bool
 	var err error
-	var asp Aspect = a.aspect
+	var asp listChecker.Aspect = a.aspect
 
 	var symbol string
 	var symbolExpr string
@@ -105,5 +107,5 @@ func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*as
 		rCode = code.Code_OK
 	}
 
-	return &aspect.Output{Code: rCode}, nil
+	return &aspectsupport.Output{Code: rCode}, nil
 }
