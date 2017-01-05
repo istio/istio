@@ -16,6 +16,7 @@
 #define API_MANAGER_MIXER_MIXER_H_
 
 #include "contrib/endpoints/include/api_manager/env_interface.h"
+#include "contrib/endpoints/src/api_manager/config.h"
 #include "contrib/endpoints/src/api_manager/service_control/interface.h"
 
 namespace google {
@@ -26,7 +27,7 @@ namespace mixer {
 class Mixer : public service_control::Interface {
  public:
   static service_control::Interface* Create(ApiManagerEnvInterface* env,
-                                            const std::string& service_name);
+                                            const Config* config);
 
   virtual ~Mixer();
 
@@ -46,14 +47,13 @@ class Mixer : public service_control::Interface {
 
  private:
   // The constructor.
-  Mixer(ApiManagerEnvInterface* env, const std::string& service_name);
+  Mixer(ApiManagerEnvInterface* env, const Config* config);
 
   // The Api Manager environment interface.
   ApiManagerEnvInterface* env_;
   int64_t request_index_;
 
-  // The service name.
-  std::string service_name_;
+  const Config* config_;
 };
 
 }  // namespace mixer
