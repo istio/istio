@@ -5,17 +5,17 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "aspect.go",
         "adapter.go",
-        "cfg.pb.go",
+        "aspect.go",
     ],
     deps = [
+        ":config_proto",
+        "//pkg/aspect:go_default_library",
+        "//pkg/aspect/denyChecker:go_default_library",
+        "//pkg/aspectsupport:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_google_go_genproto//googleapis/rpc/code:go_default_library",
         "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
-        "//pkg/aspect:go_default_library",
-        "//pkg/aspectsupport:go_default_library",
-        "//pkg/aspect/denyChecker:go_default_library",
     ],
 )
 
@@ -30,25 +30,25 @@ go_test(
 load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
 
 go_proto_library(
-    name = "denyChecker",
+    name = "config_proto",
     importmap = {
         "google/rpc/status.proto": "google.golang.org/genproto/googleapis/rpc/status",
     },
     imports = [
-        "../../external/com_github_googleapis_googleapis"
+        "external/com_github_google_protobuf/src",
+        "external/com_github_googleapis_googleapis",
     ],
     inputs = [
         "@com_github_google_protobuf//:well_known_protos",
         "@com_github_googleapis_googleapis//:status_proto",
     ],
     protos = [
-        "cfg.proto",
+        "config.proto",
     ],
-    deps = [
-        "@com_github_googleapis_googleapis//:go_status_proto",
-        "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
-    ],
-    output_to_workspace = False,
     verbose = 0,
     visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
+        "@com_github_googleapis_googleapis//:go_status_proto",
+    ],
 )

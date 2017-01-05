@@ -16,10 +16,9 @@ syntax = "proto3";
 
 package denyChecker;
 
-//import "google/rpc/status.proto";
+import "google/rpc/status.proto";
 
 message Config {
-	// The error code to return when denying a request.
-	// google.rpc.Status error_code = 1;
-	int32 error_code = 1;
+	// The error to return when denying a request.
+	google.rpc.Status error = 1;
 }
