@@ -542,7 +542,6 @@ cc_library(
     deps = [
         ":envoy-ratelimit-pb",
         "//external:libssl",
-        "@boringssl//:deprecit_base64_bio",
         "//external:nghttp2",
         "//external:spdlog",
         "//external:tclap",
@@ -630,6 +629,6 @@ cc_test(
     native.new_git_repository(
         name = "envoy_git",
         remote = "https://github.com/lyft/envoy.git",
-        commit = "b74cabb4cba3366ee79ca187715f16db28baf6d3", # 2016-12-19
+        commit = "6b1336a786ebe56c45a1a349ddf706e0526c1ec1", # 2017-01-03
         build_file_content = BUILD,
     )

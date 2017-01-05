@@ -59,6 +59,8 @@ std::unique_ptr<google::api_manager::PeriodicTimer> Env::StartPeriodicTimer(
   return timer;
 }
 
+static const LowerCaseString kApiManagerUrl("x-api-manager-url");
+
 class HTTPRequest : public Http::Message {
  private:
   HeaderMapImpl header_map_;
@@ -67,16 +69,26 @@ class HTTPRequest : public Http::Message {
  public:
   HTTPRequest(google::api_manager::HTTPRequest *request)
       : body_(request->body()) {
-    header_map_.addStatic(Headers::get().Method, request->method());
-    header_map_.addStatic(Headers::get().Path, "/");
-    header_map_.addStatic(Headers::get().Scheme, "http");
-    header_map_.addStatic(Headers::get().Host, "localhost");
-    header_map_.addStatic(Headers::get().ContentLength,
-                          std::to_string(body_.length()));
-    header_map_.addStatic(LowerCaseString("x-api-manager-url"), request->url());
-    for (auto header : request->request_headers()) {
-      LowerCaseString key(header.first);
-      header_map_.addStatic(key, header.second);
+    header_map_.addStaticKey(Headers::get().Method, request->method());
+
+    size_t path_pos = request->url().find('/', 8);
+    if (path_pos == std::string::npos) {
+      header_map_.addStaticKey(Headers::get().Path, "/");
+    } else {
+      header_map_.addStaticKey(Headers::get().Path,
+                               request->url().substr(path_pos));
+    }
+
+    header_map_.addStaticKey(Headers::get().Scheme, "http");
+    header_map_.addStaticKey(Headers::get().Host, "localhost");
+    header_map_.addStaticKey(Headers::get().ContentLength, body_.length());
+    header_map_.addStaticKey(kApiManagerUrl, request->url());
+    for (const auto header : request->request_headers()) {
+      LowerCaseString lower_key(header.first);
+      HeaderString key, value;
+      key.setCopy(lower_key.get().data(), lower_key.get().size());
+      value.setCopy(header.second.data(), header.second.size());
+      header_map_.addViaMove(std::move(key), std::move(value));
     }
   }
   virtual HeaderMap &headers() override { return header_map_; }

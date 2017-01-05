@@ -333,3 +333,52 @@ def servicecontrol_client_repositories(bind=True):
             name = "servicecontrol_client",
             actual = "@servicecontrol_client_git//:service_control_client_lib",
         )
+
+def mixerapi_repositories(protobuf_repo="@protobuf_git//", bind=True):
+    BUILD = """
+# Copyright 2016 Google Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+################################################################################
+#
+licenses(["notice"])
+
+load("{}:protobuf.bzl", "cc_proto_library")
+
+cc_proto_library(
+    name = "mixer_api_cc_proto",
+    srcs = glob(
+        ["mixer/api/v1/*.proto"],
+    ),
+    default_runtime = "//external:protobuf",
+    protoc = "//external:protoc",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//external:cc_wkt_protos",
+        "//external:servicecontrol",
+    ],
+)
+""".format(protobuf_repo)
+
+    native.new_git_repository(
+        name = "mixerapi_git",
+        commit = "fc5a396185edc72d06d1937f30a8148a37d4fc1b",
+        remote = "https://github.com/istio/api.git",
+        build_file_content = BUILD,
+    )
+    if bind:
+        native.bind(
+            name = "mixer_api_cc_proto",
+            actual = "@mixerapi_git//:mixer_api_cc_proto",
+        )
