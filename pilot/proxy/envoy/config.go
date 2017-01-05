@@ -15,7 +15,6 @@
 package envoy
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
 	"os"
@@ -127,78 +126,6 @@ func generateConfig(services []model.Service, serviceName string, tags []string)
 	}, nil
 }
 
-const (
-	ctrl      = '_' // Control character
-	ctrlSplit = 's' // Split control character
-)
-
-// BuildServiceKey
-func BuildServiceKey(service string, tags []string) string {
-	sort.Strings(tags) // FIXME: by reference
-
-	// Guesstimate the required buffer capacity by assuming the typical individual tag length is 10 or less and that
-	// the output will at most double in size.
-	c := 2 * (len(service) + 10*len(tags))
-	buf := bytes.NewBuffer(make([]byte, 0, c))
-
-	// Writes an escaped version of the input string to the buffer.
-	escape := func(s string, buf *bytes.Buffer) {
-		data := []byte(s)
-		for i := range data {
-			if data[i] == ctrl {
-				buf.WriteByte(ctrl)
-			}
-			buf.WriteByte(data[i])
-		}
-	}
-
-	// Write escaped service and tags to the buffer separated by split control characters.
-	escape(service, buf)
-	for i := range tags {
-		buf.Write([]byte{ctrl, ctrlSplit})
-		escape(tags[i], buf)
-	}
-
-	return buf.String()
-}
-
-// ParseServiceKey
-func ParseServiceKey(key string) (string, []string) {
-	res := make([]string, 0, 6) // We guesstimate that most keys are composed of at most 1 service name + 5 tags.
-	buf := bytes.NewBuffer(make([]byte, 0, len(key)))
-	data := []byte(key)
-
-	i := 0
-	for i = 0; i < len(data)-1; i++ {
-		if data[i] == ctrl {
-			switch data[i+1] {
-			case ctrl:
-				buf.WriteByte(ctrl)
-			case ctrlSplit:
-				res = append(res, buf.String())
-				buf = bytes.NewBuffer(make([]byte, 0, len(key)))
-			default:
-				// FIXME: behavior?
-				// logrus.WithField("character", data[i+1]).Warn("Unrecognized control character")
-			}
-			i++
-		} else {
-			buf.WriteByte(data[i])
-		}
-	}
-
-	// If the 2nd to last byte was not a control character we need to write the last byte.
-	if i == len(data)-1 {
-		buf.WriteByte(data[i])
-	}
-	res = append(res, buf.String())
-
-	service := res[0]
-	tags := res[1:]
-
-	return service, tags
-}
-
 func buildClusters() []Cluster {
 	clusterMap := make(map[string]struct{})
 	clusters := make([]Cluster, 0, len(clusterMap))
@@ -217,10 +144,6 @@ func buildClusters() []Cluster {
 	sort.Sort(ClustersByName(clusters))
 
 	return clusters
-}
-
-func buildWeightKey(service string, tags []string) string {
-	return fmt.Sprintf("%v.%v", service, BuildServiceKey("_", tags))
 }
 
 func buildRoutes() []Route {

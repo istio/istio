@@ -5,14 +5,12 @@ go_library(
     srcs = [
         "agent.go",
         "config.go",
+        "discovery.go",
         "resources.go",
     ],
     visibility = ["//visibility:public"],
-    deps = ["//model:go_default_library"],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = ["config_test.go"],
-    library = ":go_default_library",
+    deps = [
+        "//model:go_default_library",
+        "@com_github_emicklei_go_restful//:go_default_library",
+    ],
 )

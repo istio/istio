@@ -14,6 +14,12 @@
 
 package model
 
+import (
+	"bytes"
+	"sort"
+	"strings"
+)
+
 // ServiceDiscovery enumerates Istio service instances
 type ServiceDiscovery interface {
 	// Services list all services and their tags
@@ -26,7 +32,7 @@ type ServiceDiscovery interface {
 type Service struct {
 	// Name of the service
 	Name string `json:"name,omitempty"`
-	// Namespace of the service name
+	// Namespace of the service name, optional
 	Namespace string `json:"namespace,omitempty"`
 	// Tags is a set of declared tags for the service.
 	// An empty set is allowed but tags must be non-empty strings.
@@ -48,4 +54,54 @@ type ServiceInstance struct {
 	Endpoint Endpoint `json:"endpoint,omitempty"`
 	Service  Service  `json:"service,omitempty"`
 	Tag      string   `json:"tag,omitempty"`
+}
+
+func (s *Service) String() string {
+	// example: name.namespace:my-v1,prod
+	var buffer bytes.Buffer
+	buffer.WriteString(s.Name)
+	if len(s.Namespace) > 0 {
+		buffer.WriteString(".")
+		buffer.WriteString(s.Namespace)
+	}
+	n := len(s.Tags)
+	if n > 0 {
+		buffer.WriteString(":")
+		tags := make([]string, n)
+		copy(tags, s.Tags)
+		sort.Strings(tags)
+		for i := 0; i < n; i++ {
+			if i > 0 {
+				buffer.WriteString(",")
+			}
+			buffer.WriteString(tags[i])
+		}
+	}
+	return buffer.String()
+}
+
+// ParseServiceString is the inverse of the Service.String() method
+func ParseServiceString(s string) *Service {
+	var tags []string
+	sep := strings.Index(s, ":")
+	if sep < 0 {
+		sep = len(s)
+	} else {
+		tags = strings.Split(s[sep+1:], ",")
+	}
+
+	var name, namespace string
+	dot := strings.Index(s[:sep], ".")
+	if dot < 0 {
+		name = s[:sep]
+	} else {
+		name = s[:dot]
+		namespace = s[dot+1 : sep]
+	}
+
+	return &Service{
+		Name:      name,
+		Namespace: namespace,
+		Tags:      tags,
+	}
 }

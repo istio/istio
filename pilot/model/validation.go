@@ -130,7 +130,7 @@ func (s *Service) Validate() error {
 	if !IsDNS1123Label(s.Name) {
 		errs = multierror.Append(errs, fmt.Errorf("Invalid name: %q", s.Name))
 	}
-	if !IsDNS1123Label(s.Namespace) {
+	if s.Namespace != "" && !IsDNS1123Label(s.Namespace) {
 		errs = multierror.Append(errs, fmt.Errorf("Invalid namespace: %q", s.Namespace))
 	}
 	for _, tag := range s.Tags {
