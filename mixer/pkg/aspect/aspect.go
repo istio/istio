@@ -18,13 +18,6 @@ import (
 	"io"
 
 	"github.com/golang/protobuf/proto"
-	"google.golang.org/genproto/googleapis/rpc/code"
-
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/expr"
-
-	istioconfig "istio.io/api/istio/config/v1"
 )
 
 type (
@@ -53,36 +46,6 @@ type (
 		// the shape of the block of configuration state passed to the NewAspect method.
 		DefaultConfig() (implConfig proto.Message)
 		// ValidateConfig determines whether the given configuration meets all correctness requirements.
-		ValidateConfig(implConfig proto.Message) *adapter.ConfigErrors
-	}
-
-	// CombinedConfig combines all configuration related to an aspect
-	CombinedConfig struct {
-		Aspect  *istioconfig.Aspect
-		Adapter *istioconfig.Adapter
-	}
-
-	// Output from the Aspect Manager
-	Output struct {
-		// status code
-		Code code.Code
-		//TODO attribute mutator
-		//If any attributes should change in the context for the next call
-		//context remains immutable during the call
-	}
-	// Manager manages a specific aspect and presets a uniform interface
-	// to the rest of system
-	Manager interface {
-		// NewAspect creates a new aspect instance given configuration.
-		NewAspect(cfg *CombinedConfig, adapter Adapter) (AspectWrapper, error)
-		// Kind return the kind of aspect
-		Kind() string
-	}
-
-	AspectWrapper interface {
-		// Execute dispatches to the given aspect.
-		// The evaluation is done under the context of an attribute bag and using
-		// an expression evaluator.
-		Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error)
+		ValidateConfig(implConfig proto.Message) *ConfigErrors
 	}
 )

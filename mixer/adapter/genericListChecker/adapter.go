@@ -17,24 +17,24 @@ package genericListChecker
 import (
 	"github.com/golang/protobuf/proto"
 
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/listChecker"
-	"istio.io/mixer/pkg/aspectsupport"
+	"istio.io/mixer/pkg/registry"
 )
 
 // Register records the existence of this adapter
-func Register(r aspectsupport.Registry) error {
+func Register(r registry.Registrar) error {
 	return r.RegisterCheckList(newAdapter())
 }
 
 type adapterState struct{}
 
-func newAdapter() listChecker.Adapter                                               { return &adapterState{} }
-func (a *adapterState) Name() string                                                { return "istio/genericListChecker" }
-func (a *adapterState) Description() string                                         { return "Checks whether a string is present in a list." }
-func (a *adapterState) Close() error                                                { return nil }
-func (a *adapterState) ValidateConfig(cfg proto.Message) (ce *adapter.ConfigErrors) { return }
-func (a *adapterState) DefaultConfig() proto.Message                                { return &Config{} }
+func newAdapter() listChecker.Adapter                                              { return &adapterState{} }
+func (a *adapterState) Name() string                                               { return "istio/genericListChecker" }
+func (a *adapterState) Description() string                                        { return "Checks whether a string is present in a list." }
+func (a *adapterState) Close() error                                               { return nil }
+func (a *adapterState) ValidateConfig(cfg proto.Message) (ce *aspect.ConfigErrors) { return }
+func (a *adapterState) DefaultConfig() proto.Message                               { return &Config{} }
 
 func (a *adapterState) NewAspect(cfg proto.Message) (listChecker.Aspect, error) {
 	return newAspect(cfg.(*Config))

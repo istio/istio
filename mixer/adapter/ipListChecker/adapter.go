@@ -19,12 +19,12 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/listChecker"
-	"istio.io/mixer/pkg/aspectsupport"
+	"istio.io/mixer/pkg/registry"
 )
 
-func Register(r aspectsupport.Registry) error {
+func Register(r registry.Registrar) error {
 	return r.RegisterCheckList(newAdapter())
 }
 
@@ -39,7 +39,7 @@ func (a *adapterState) Description() string {
 
 func (a *adapterState) Close() error { return nil }
 
-func (a *adapterState) ValidateConfig(cfg proto.Message) (ce *adapter.ConfigErrors) {
+func (a *adapterState) ValidateConfig(cfg proto.Message) (ce *aspect.ConfigErrors) {
 	c := cfg.(*Config)
 
 	u, err := url.Parse(c.ProviderUrl)
