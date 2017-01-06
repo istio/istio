@@ -51,4 +51,5 @@ This Proxy will use Envoy and talk to Mixer server.
 ## How to add attributes or facts
 
 Now only some of attributes are passed to mixer.  If you want to add more attributes, you can
-modify this [file](https://gcp-apis.git.corp.google.com/esp/+/test/envoy-mixer/src/api_manager/mixer/mixer.cc).
+modify this
+[file](https://github.com/istio/proxy/blob/master/contrib/endpoints/src/api_manager/mixer/mixer.cc).
