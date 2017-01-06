@@ -109,7 +109,8 @@ func CreateRESTConfig(kubeconfig string, km model.KindMap) (config *rest.Config,
 	return
 }
 
-// NewClient creates a client to Kubernetes API using kubeconfig file
+// NewClient creates a client to Kubernetes API using a kubeconfig file.
+// Use an empty value for `kubeconfig` to use the in-cluster config.
 func NewClient(kubeconfig string, km model.KindMap) (*Client, error) {
 	config, err := CreateRESTConfig(kubeconfig, km)
 	if err != nil {

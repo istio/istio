@@ -1,0 +1,126 @@
+# Kubernetes set-up
+apiVersion: v1
+kind: Service
+metadata:
+  name: echoheaders
+  labels:
+    app: echoheaders
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  selector:
+    app: echoheaders
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: echoheaders
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: echoheaders
+    spec:
+      containers:
+      - name: echoheaders
+        image: gcr.io/google_containers/echoserver:1.4
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mixer
+  labels:
+    app: mixer
+spec:
+  ports:
+  - port: 80
+    targetPort: 9091
+    name: grpc
+  selector:
+    app: mixer
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: mixer
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mixer
+    spec:
+      containers:
+      - name: mixer
+        image: gcr.io/istio-test/mixer:example
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9091
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxy
+  labels:
+    app: proxy
+spec:
+  ports:
+  - port: 80
+    name: http
+  selector:
+    app: proxy
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: proxy
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: proxy
+    spec:
+      containers:
+      - name: envoy
+        image: gcr.io/istio-test/envoy:example
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: manager
+  labels:
+    app: manager
+spec:
+  ports:
+  - port: 8080
+    name: http-discovery
+  selector:
+    app: manager
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: manager
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: manager
+    spec:
+      containers:
+      - name: manager
+        image: gcr.io/istio-test/manager:example
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080

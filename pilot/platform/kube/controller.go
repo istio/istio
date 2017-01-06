@@ -110,7 +110,7 @@ func (c *Controller) notify(obj interface{}, event model.Event) error {
 		return errors.New("Waiting till full synchronization")
 	}
 	k, _ := keyFunc(obj)
-	glog.V(2).Infof("%s: %#v", event, k)
+	glog.V(2).Infof("Event %s: %#v", event, k)
 	return nil
 }
 
@@ -193,6 +193,7 @@ func (c *Controller) Run(stop chan struct{}) {
 		go ctl.informer.Run(stop)
 	}
 	<-stop
+	glog.V(2).Info("Controller terminated")
 }
 
 // key function used internally by kubernetes

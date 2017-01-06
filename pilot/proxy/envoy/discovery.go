@@ -19,6 +19,7 @@ import (
 	"strconv"
 
 	restful "github.com/emicklei/go-restful"
+	"github.com/golang/glog"
 
 	"istio.io/manager/model"
 )
@@ -40,6 +41,7 @@ type host struct {
 	Weight int `json:"load_balancing_weight,omitempty"`
 }
 
+// NewDiscoveryService creates an Envoy discovery service on a given port
 func NewDiscoveryService(services model.ServiceDiscovery, port int) (*DiscoveryService, error) {
 	out := DiscoveryService{
 		services: services,
@@ -47,31 +49,30 @@ func NewDiscoveryService(services model.ServiceDiscovery, port int) (*DiscoveryS
 	container := restful.NewContainer()
 	out.Register(container)
 	out.server = &http.Server{Addr: ":" + strconv.Itoa(port), Handler: container}
-
 	return &out, nil
 }
 
 func (ds *DiscoveryService) Register(container *restful.Container) {
 	ws := &restful.WebService{}
-
+	ws.Produces(restful.MIME_JSON)
 	ws.Route(ws.
 		GET("/v1/registration/{service-key}").
 		To(ds.ListEndpoints).
 		Doc("SDS registration").
 		Param(ws.PathParameter("service-key", "tuple of service name and tag name").DataType("string")).
 		Writes(hosts{}))
-
 	container.Add(ws)
 }
 
 func (ds *DiscoveryService) Run() error {
+	glog.Infof("Starting discovery service at %v", ds.server.Addr)
 	return ds.server.ListenAndServe()
 }
 
 func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *restful.Response) {
 	key := request.PathParameter("service-key")
 	svc := model.ParseServiceString(key)
-	var out []host
+	out := make([]host, 0)
 	for _, ep := range ds.services.Endpoints(svc) {
 		out = append(out, host{
 			Address: ep.Endpoint.Address,
