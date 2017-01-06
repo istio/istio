@@ -1,4 +1,4 @@
-package(default_visibility=["//visibility:public"])
+package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
@@ -9,7 +9,7 @@ go_prefix("istio.io/mixer/pkg/aspect/denyChecker")
 ISTIO_DEPS = [
     "//:mixer/api/v1",
     "//:istio/config/v1",
-    "//:istio/config/v1/aspect/denyChecker"
+    "//:istio/config/v1/aspect/denyChecker",
 ]
 
 DEPS = [
@@ -20,22 +20,23 @@ DEPS = [
     "@com_github_google_go_genproto//googleapis/rpc/code:go_default_library",
     "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
     "//pkg/attribute:go_default_library",
-    "//pkg/expr:go_default_library"] + ["@com_github_istio_api" + d for d in ISTIO_DEPS]
+    "//pkg/expr:go_default_library",
+] + ["@com_github_istio_api" + d for d in ISTIO_DEPS]
 
 SRCS = glob(
-    include=["*.go"],
-    exclude=["*_test.go"],
+    include = ["*.go"],
+    exclude = ["*_test.go"],
 )
 
 go_library(
-    name="go_default_library",
-    srcs=SRCS,
-    deps=DEPS
+    name = "go_default_library",
+    srcs = SRCS,
+    deps = DEPS,
 )
 
 go_test(
-    name="manager_test",
-    srcs=SRCS + ["manager_test.go"],
-    deps=DEPS,
-    size="small",
+    name = "manager_test",
+    size = "small",
+    srcs = SRCS + ["manager_test.go"],
+    deps = DEPS,
 )

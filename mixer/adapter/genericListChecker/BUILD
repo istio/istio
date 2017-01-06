@@ -5,15 +5,15 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "aspect.go",
         "adapter.go",
+        "aspect.go",
         "cfg.pb.go",
     ],
     deps = [
-        "@com_github_golang_protobuf//proto:go_default_library",
         "//pkg/aspect:go_default_library",
         "//pkg/aspect/listChecker:go_default_library",
         "//pkg/registry:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
     ],
 )
 
@@ -32,7 +32,6 @@ go_proto_library(
     protos = [
         "cfg.proto",
     ],
-    output_to_workspace = False,
     verbose = 0,
     visibility = ["//visibility:public"],
 )

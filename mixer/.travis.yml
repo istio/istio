@@ -24,20 +24,17 @@ cache:
 before_install:
   - mkdir -p ${HOME}/bazel/install
   - cd ${HOME}/bazel/install
-  - wget --no-clobber "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel_${BAZEL_VERSION}-linux-x86_64.deb" 
+  - wget --no-clobber "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel_${BAZEL_VERSION}-linux-x86_64.deb"
   - chmod +x bazel_${BAZEL_VERSION}-linux-x86_64.deb
   - sudo dpkg -i bazel_${BAZEL_VERSION}-linux-x86_64.deb
   - cd ${TRAVIS_BUILD_DIR}
   - mv .bazelrc .bazelrc.orig
   - cat .bazelrc.travis .bazelrc.orig > .bazelrc
-  - go get github.com/golang/lint/golint
-
-before_script:
-  - go vet -v ./...
-  - $HOME/gopath/bin/golint ./...
 
 script:
   - bazel --output_base=${HOME}/bazel/outbase test //...
+  - bin/preplinters.sh
+  - bin/runlinters.sh
 
 notifications:
   slack: istio-dev:wEEEbaabdP5ieCgDOFetA9nX

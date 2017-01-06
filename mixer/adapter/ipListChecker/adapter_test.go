@@ -29,13 +29,15 @@ import (
 // Should be testing more edge cases, testing refresh behavior with and without errors,
 // testing TTL handling, testing malformed input, etc.
 
-type env struct {}
-func (e *env) Logger() aspect.Logger {return &logger{} }
+type env struct{}
 
-type logger struct {}
-func (l *logger) Infof(format string, args ...interface{}) {}
-func (l *logger) Warningf(format string, args ...interface{}) {}
-func (l *logger) Errorf(format string, args ...interface{}) error {return fmt.Errorf(format, args)}
+func (e *env) Logger() aspect.Logger { return &logger{} }
+
+type logger struct{}
+
+func (l *logger) Infof(format string, args ...interface{})        {}
+func (l *logger) Warningf(format string, args ...interface{})     {}
+func (l *logger) Errorf(format string, args ...interface{}) error { return fmt.Errorf(format, args) }
 
 func TestBasic(t *testing.T) {
 	lp := listPayload{

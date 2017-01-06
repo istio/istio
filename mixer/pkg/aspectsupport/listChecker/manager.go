@@ -17,6 +17,7 @@ package listChecker
 import (
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	listcheckerpb "istio.io/api/istio/config/v1/aspect/listChecker"
 	"istio.io/mixer/pkg/aspect"
@@ -24,7 +25,6 @@ import (
 	"istio.io/mixer/pkg/aspectsupport"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
-	"github.com/golang/protobuf/proto"
 )
 
 const (
@@ -83,7 +83,7 @@ func (*manager) DefaultConfig() proto.Message {
 	}
 }
 
-func (*manager) ValidateConfig(implConfig proto.Message) (ce *aspect.ConfigErrors){
+func (*manager) ValidateConfig(implConfig proto.Message) (ce *aspect.ConfigErrors) {
 	lc := implConfig.(*listcheckerpb.Config)
 	if lc.CheckAttribute == "" {
 		ce.Appendf("check_attribute", "Missing")

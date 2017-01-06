@@ -5,8 +5,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "aspect.go",
         "adapter.go",
+        "aspect.go",
         "listChecker.go",
         "logger.go",
         "metricsReporter.go",

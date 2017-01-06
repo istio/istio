@@ -43,7 +43,6 @@ type (
 		Description() string
 
 		ConfigValidater
-
 	}
 	ConfigValidater interface {
 		// DefaultConfig returns a default configuration struct for this
