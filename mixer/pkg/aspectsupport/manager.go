@@ -47,6 +47,8 @@ type (
 		NewAspect(cfg *CombinedConfig, adapter aspect.Adapter) (AspectWrapper, error)
 		// Kind return the kind of aspect
 		Kind() string
+
+		aspect.ConfigValidater
 	}
 
 	AspectWrapper interface {

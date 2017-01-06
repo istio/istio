@@ -24,6 +24,7 @@ import (
 	"istio.io/mixer/pkg/aspectsupport"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
+	"github.com/golang/protobuf/proto"
 )
 
 const (
@@ -74,6 +75,20 @@ func (m *manager) NewAspect(cfg *aspectsupport.CombinedConfig, ga aspect.Adapter
 
 func (*manager) Kind() string {
 	return kind
+}
+
+func (*manager) DefaultConfig() proto.Message {
+	return &listcheckerpb.Config{
+		CheckAttribute: "src.ip",
+	}
+}
+
+func (*manager) ValidateConfig(implConfig proto.Message) (ce *aspect.ConfigErrors){
+	lc := implConfig.(*listcheckerpb.Config)
+	if lc.CheckAttribute == "" {
+		ce.Appendf("check_attribute", "Missing")
+	}
+	return
 }
 
 func (a *aspectWrapper) AdapterName() string {
