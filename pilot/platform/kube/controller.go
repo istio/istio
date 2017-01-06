@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
@@ -256,4 +257,87 @@ func (c *Controller) List(kind string, ns string) ([]*model.Config, error) {
 		}
 	}
 	return out, errs
+}
+
+func (c *Controller) Services() []*model.Service {
+	var out []*model.Service
+	for _, item := range c.services.informer.GetStore().List() {
+		svc := *item.(*v1.Service)
+		var ports []model.Port
+		for _, port := range svc.Spec.Ports {
+			ports = append(ports, model.Port{
+				Name:     port.Name,
+				Port:     int(port.Port),
+				Protocol: convertProtocol(port.Name, port.Protocol),
+			})
+		}
+		out = append(out, &model.Service{
+			Name:      svc.Name,
+			Namespace: svc.Namespace,
+			Ports:     ports,
+			// TODO: empty set of service tags for now
+			Tags: nil,
+		})
+	}
+	return out
+}
+
+func (c *Controller) Endpoints(s *model.Service) []*model.ServiceInstance {
+	ports := make(map[string]bool)
+	for _, port := range s.Ports {
+		ports[port.Name] = true
+	}
+
+	for _, item := range c.endpoints.informer.GetStore().List() {
+		ep := *item.(*v1.Endpoints)
+		if ep.Name == s.Name && ep.Namespace == s.Namespace {
+			var out []*model.ServiceInstance
+			for _, ss := range ep.Subsets {
+				for _, ea := range ss.Addresses {
+					for _, port := range ss.Ports {
+						if len(s.Ports) == 0 || ports[port.Name] {
+							out = append(out, &model.ServiceInstance{
+								Endpoint: model.Endpoint{
+									Address: ea.IP,
+									Port: model.Port{
+										Name:     port.Name,
+										Port:     int(port.Port),
+										Protocol: convertProtocol(port.Name, port.Protocol),
+									},
+								},
+								Service: s,
+								// TODO tag binding
+								Tag: "",
+							})
+						}
+					}
+				}
+			}
+			return out
+		}
+	}
+	return nil
+}
+
+func convertProtocol(name string, proto v1.Protocol) model.Protocol {
+	out := model.ProtocolTCP
+	switch proto {
+	case v1.ProtocolUDP:
+		out = model.ProtocolUDP
+	case v1.ProtocolTCP:
+		prefix := name
+		i := strings.Index(name, "-")
+		if i >= 0 {
+			prefix = name[:i]
+		}
+		switch prefix {
+		case "http":
+			out = model.ProtocolHTTP
+		case "https":
+			out = model.ProtocolHTTPS
+		case "grpc":
+			out = model.ProtocolGRPC
+		}
+	}
+	return out
 }

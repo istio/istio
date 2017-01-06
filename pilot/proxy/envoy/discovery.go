@@ -71,17 +71,12 @@ func (ds *DiscoveryService) Run() error {
 func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *restful.Response) {
 	key := request.PathParameter("service-key")
 	svc := model.ParseServiceString(key)
-
 	var out []host
-	for _, tag := range svc.Tags {
-		instances := ds.services.Endpoints(svc, tag)
-		for _, ep := range instances {
-			out = append(out, host{
-				Address: ep.Endpoint.Address,
-				Port:    ep.Endpoint.Port,
-			})
-		}
+	for _, ep := range ds.services.Endpoints(svc) {
+		out = append(out, host{
+			Address: ep.Endpoint.Address,
+			Port:    ep.Endpoint.Port.Port,
+		})
 	}
-
 	response.WriteEntity(hosts{out})
 }

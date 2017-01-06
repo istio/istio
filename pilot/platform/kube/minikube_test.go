@@ -35,6 +35,8 @@ var (
 		{"example1", "example1"},
 		{"exampleXY", "example-x-y"},
 	}
+
+	testService = "test"
 )
 
 func TestCamelKabob(t *testing.T) {
@@ -208,6 +210,35 @@ func TestControllerClientSync(t *testing.T) {
 	}
 }
 
+func TestServices(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	cl := makeClient(t)
+	ns := makeNamespace(cl.client, t)
+	defer deleteNamespace(cl.client, ns)
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	ctl := NewController(cl, ns, 256*time.Millisecond)
+	go ctl.Run(stop)
+
+	var sds model.ServiceDiscovery = ctl
+	createService(testService, ns, cl.client, t)
+	eventually(func() bool {
+		out := sds.Services()
+		glog.Info("Services: %#v", out)
+		return len(out) == 1 &&
+			out[0].Name == testService &&
+			out[0].Namespace == ns &&
+			out[0].Tags == nil &&
+			len(out[0].Ports) == 1 &&
+			out[0].Ports[0].Protocol == model.ProtocolHTTP
+	}, t)
+}
+
 func eventually(f func() bool, t *testing.T) {
 	interval := 64 * time.Millisecond
 	for i := 0; i < 10; i++ {
@@ -261,6 +292,24 @@ func makeNamespace(cl *kubernetes.Clientset, t *testing.T) string {
 	}
 	glog.Infof("Created namespace %s", ns.Name)
 	return ns.Name
+}
+
+func createService(n, ns string, cl *kubernetes.Clientset, t *testing.T) {
+	_, err := cl.Core().Services(ns).Create(&v1.Service{
+		ObjectMeta: v1.ObjectMeta{Name: n},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				v1.ServicePort{
+					Port: 80,
+					Name: "http-example",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	glog.Infof("Created service %s", n)
 }
 
 func deleteNamespace(cl *kubernetes.Clientset, ns string) {

@@ -17,19 +17,21 @@ package model
 import "testing"
 
 var validServices = map[string]Service{
-	"example-service1.default:v1,v2,v3": Service{
+	"example-service1.default:grpc,http:v1,v2,v3": Service{
 		Name:      "example-service1",
 		Namespace: "default",
-		Tags:      []string{"v2", "v3", "v1"}},
-	"my-service": Service{Name: "my-service"},
-	"svc.ns":     Service{Name: "svc", Namespace: "ns"},
-	"svc:v1":     Service{Name: "svc", Tags: []string{"v1"}},
+		Tags:      []string{"v2", "v3", "v1"},
+		Ports:     []Port{Port{Name: "http"}, Port{Name: "grpc"}}},
+	"my-service":    Service{Name: "my-service"},
+	"svc.ns":        Service{Name: "svc", Namespace: "ns"},
+	"svc::v1-test":  Service{Name: "svc", Tags: []string{"v1-test"}},
+	"svc:http-test": Service{Name: "svc", Ports: []Port{Port{Name: "http-test"}}},
 }
 
 func TestServiceString(t *testing.T) {
 	for s, svc := range validServices {
 		if err := svc.Validate(); err != nil {
-			t.Errorf("Valid service failed validation: %#v", svc)
+			t.Errorf("Valid service failed validation: %v,  %#v", err, svc)
 		}
 		s1 := svc.String()
 		if s1 != s {

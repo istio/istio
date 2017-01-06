@@ -24,19 +24,26 @@ import (
 type ServiceDiscovery interface {
 	// Services list all services and their tags
 	Services() []*Service
-	// Endpoints retrieves service instances for a service and a tag
-	Endpoints(s *Service, tag string) []*ServiceInstance
+	// Endpoints retrieves service instances for a service.
+	// The query takes a union across a set of tags and a set of named ports
+	// defined in the service parameter.
+	// Empty tag set or port set implies the union of all available tags and
+	// ports, respectively.
+	Endpoints(s *Service) []*ServiceInstance
 }
 
 // Service describes an Istio service
 type Service struct {
 	// Name of the service
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 	// Namespace of the service name, optional
 	Namespace string `json:"namespace,omitempty"`
 	// Tags is a set of declared tags for the service.
-	// An empty set is allowed but tags must be non-empty strings.
+	// An empty set is allowed but tag values must be non-empty strings.
 	Tags []string `json:"tags,omitempty"`
+	// Ports is a set of declared network ports for the service.
+	// Port value is the service port.
+	Ports []Port `json:"ports"`
 }
 
 // Endpoint defines a network endpoint
@@ -44,33 +51,75 @@ type Endpoint struct {
 	// Address of the endpoint, typically an IP address
 	Address string `json:"ip_address,omitempty"`
 	// Port on the host address
-	Port int `json:"port,omitempty"`
+	Port Port `json:"port"`
 }
+
+// Port represents a network port
+type Port struct {
+	// Port value
+	Port int `json:"port"`
+	// Name of the port classifies ports for a single service, optional
+	Name string `json:"name,omitempty"`
+	// Protocol to be used for the port
+	Protocol Protocol `json:"protocol,omitempty"`
+}
+
+// Protocol defines network protocols for ports
+type Protocol string
+
+const (
+	ProtocolGRPC  Protocol = "GRPC"
+	ProtocolHTTPS Protocol = "HTTPS"
+	ProtocolHTTP  Protocol = "HTTP"
+	ProtocolTCP   Protocol = "TCP"
+	ProtocolUDP   Protocol = "UDP"
+)
 
 // ServiceInstance binds an endpoint to a service and a tag.
 // If the service has no tags, the tag value is an empty string;
 // otherwise, the tag value is an element in the set of service tags.
 type ServiceInstance struct {
 	Endpoint Endpoint `json:"endpoint,omitempty"`
-	Service  Service  `json:"service,omitempty"`
+	Service  *Service `json:"service,omitempty"`
 	Tag      string   `json:"tag,omitempty"`
 }
 
 func (s *Service) String() string {
-	// example: name.namespace:my-v1,prod
+	// example: name.namespace:http:my-v1,prod
 	var buffer bytes.Buffer
 	buffer.WriteString(s.Name)
 	if len(s.Namespace) > 0 {
 		buffer.WriteString(".")
 		buffer.WriteString(s.Namespace)
 	}
-	n := len(s.Tags)
-	if n > 0 {
+
+	np := len(s.Ports)
+	nt := len(s.Tags)
+
+	if np > 0 || nt > 0 {
 		buffer.WriteString(":")
-		tags := make([]string, n)
+	}
+
+	if np > 0 {
+		ports := make([]string, np)
+		for i := 0; i < np; i++ {
+			ports[i] = s.Ports[i].Name
+		}
+		sort.Strings(ports)
+		for i := 0; i < np; i++ {
+			if i > 0 {
+				buffer.WriteString(",")
+			}
+			buffer.WriteString(ports[i])
+		}
+	}
+
+	if nt > 0 {
+		buffer.WriteString(":")
+		tags := make([]string, nt)
 		copy(tags, s.Tags)
 		sort.Strings(tags)
-		for i := 0; i < n; i++ {
+		for i := 0; i < nt; i++ {
 			if i > 0 {
 				buffer.WriteString(",")
 			}
@@ -82,26 +131,34 @@ func (s *Service) String() string {
 
 // ParseServiceString is the inverse of the Service.String() method
 func ParseServiceString(s string) *Service {
-	var tags []string
-	sep := strings.Index(s, ":")
-	if sep < 0 {
-		sep = len(s)
+	parts := strings.Split(s, ":")
+	var name, namespace string
+	var names, tags []string
+
+	dot := strings.Index(parts[0], ".")
+	if dot < 0 {
+		name = parts[0]
 	} else {
-		tags = strings.Split(s[sep+1:], ",")
+		name = parts[0][:dot]
+		namespace = parts[0][dot+1:]
 	}
 
-	var name, namespace string
-	dot := strings.Index(s[:sep], ".")
-	if dot < 0 {
-		name = s[:sep]
-	} else {
-		name = s[:dot]
-		namespace = s[dot+1 : sep]
+	if len(parts) > 1 {
+		names = strings.Split(parts[1], ",")
+		if len(parts) > 2 {
+			tags = strings.Split(parts[2], ",")
+		}
+	}
+
+	var ports []Port
+	for _, name := range names {
+		ports = append(ports, Port{Name: name})
 	}
 
 	return &Service{
 		Name:      name,
 		Namespace: namespace,
+		Ports:     ports,
 		Tags:      tags,
 	}
 }
