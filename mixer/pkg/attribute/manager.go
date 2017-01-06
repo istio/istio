@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Provides the low-level mechanisms to manipulate mixer attributes.
+// Package attribute provides the low-level mechanisms to manipulate mixer attributes.
 //
 // Attributes are name/value pairs providing metadata about an operation.
 // In the Istio system, the proxy supplies a potentially large number of

@@ -49,7 +49,7 @@ func NewManager() aspectsupport.Manager {
 func (m *manager) NewAspect(cfg *aspectsupport.CombinedConfig, ga aspect.Adapter, env aspect.Env) (aspectsupport.AspectWrapper, error) {
 	aa, ok := ga.(denyChecker.Adapter)
 	if !ok {
-		return nil, fmt.Errorf("Adapter of incorrect type. Expected denyChecker.Adapter got %#v %T", ga, ga)
+		return nil, fmt.Errorf("adapter of incorrect type; expected denyChecker.Adapter got %#v %T", ga, ga)
 	}
 
 	// TODO: convert from proto Struct to Go struct here!

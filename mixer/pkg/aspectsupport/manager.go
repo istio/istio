@@ -51,6 +51,7 @@ type (
 		aspect.ConfigValidater
 	}
 
+	// AspectWrapper encapsulates a single aspect and allows it to be invoked.
 	AspectWrapper interface {
 		// Execute dispatches to the given aspect.
 		// The evaluation is done under the context of an attribute bag and using

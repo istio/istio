@@ -1,6 +1,7 @@
 dist: xenial
 
 language: go
+
 go_import_path: istio.io/mixer
 
 go:
@@ -33,13 +34,8 @@ before_install:
   - cat .bazelrc.travis .bazelrc.orig > .bazelrc
 
 script:
-  #- bazel --output_base=${HOME}/bazel/outbase test //...
   - bazel test //...
-  - bin/bazel_to_go.py
-  - ls -l ${TRAVIS_BUILD_DIR}
-  - go test -v ./pkg/... ./adapter/... ./cmd/...
-  - bin/preplinters.sh
-  - bin/runlinters.sh
+  - bin/linters.sh
 
 notifications:
   slack: istio-dev:wEEEbaabdP5ieCgDOFetA9nX

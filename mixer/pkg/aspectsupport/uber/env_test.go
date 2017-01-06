@@ -24,5 +24,8 @@ func TestEnv(t *testing.T) {
 	log := env.Logger()
 	log.Infof("Test%s", "ing")
 	log.Warningf("Test%s", "ing")
-	log.Errorf("Test%s", "ing")
+	err := log.Errorf("Test%s", "ing")
+	if err == nil {
+		t.Error("Expected an error but got nil")
+	}
 }

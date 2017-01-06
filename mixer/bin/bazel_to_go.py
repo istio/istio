@@ -40,7 +40,7 @@ known_repos = {
 
 
 # gopkg packages are of type gopkg.in/yaml.v2
-# in_gopkg_yaml_v2 
+# in_gopkg_yaml_v2
 # com_github_hashicorp_go_multierror  --> github.com/
 def repos(name):
    for r, m in known_repos.items():
@@ -110,13 +110,15 @@ def makelink(target, linksrc):
     try:
         os.remove(linksrc)
     except Exception as e1:
+        if 'Is a directory' in str(e1):
+            return
         if 'No such file or directory' not in str(e1):
             print type(e1), e1
     if not os.path.exists(target):
         print target, "Does not exist"
         return
     os.symlink(target, linksrc)
-    print "Linked ", linksrc, '-->', target
+#    print "Linked ", linksrc, '-->', target
 
 
 def bazel_to_vendor(WKSPC):
@@ -132,7 +134,6 @@ def bazel_to_vendor(WKSPC):
     external =  BLD_DIR + "/external"
     vendor = WKSPC + "/vendor"
     genfiles = WKSPC + "/bazel-genfiles/external/"
-    vlen = len(vendor)
 
     links = {target: linksrc for(target, linksrc) in process(workspace, external, genfiles, vendor)}
 
@@ -145,20 +146,19 @@ def bazel_to_vendor(WKSPC):
 
     # check other directories in external
     # and symlink ones that were not covered thru workspace
-    print "External links:"
     for ext_target in get_external_links(external):
         target = external + "/" + ext_target
         if target in links:
             continue
         link = repos(ext_target)
         if not link:
-            print "Could not resolve", ext_target
+            # print "Could not resolve", ext_target
             continue
         linksrc = vendor + "/" + link
 
         # only make this link if we have not made it above
         if linksrc in bysrc:
-            print "Skipping ", link
+            # print "Skipping ", link
             continue
 
         makelink(target, linksrc)
@@ -177,7 +177,6 @@ def main(args):
     bazel_to_vendor(WKSPC)
 
 def adapter_protos(WKSPC):
-    print "WKSPC"
     for adapter in os.listdir(WKSPC + "/bazel-genfiles/adapter/"):
         makelink(WKSPC + "/bazel-genfiles/adapter/"+adapter, WKSPC + "/adapter/" +adapter + "/config_proto")
 

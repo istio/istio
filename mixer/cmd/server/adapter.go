@@ -60,7 +60,7 @@ func printBuilders(listName string, builders map[string]adapter.Adapter) {
 func listBuilders() error {
 	mgr, err := server.NewAdapterManager()
 	if err != nil {
-		return fmt.Errorf("Unable to initialize adapters: %v", err)
+		return fmt.Errorf("unable to initialize adapters: %v", err)
 	}
 
 	printBuilders("List Checkers", mgr.ListCheckers)

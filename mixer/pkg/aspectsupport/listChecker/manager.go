@@ -51,7 +51,7 @@ func NewManager() aspectsupport.Manager {
 func (m *manager) NewAspect(cfg *aspectsupport.CombinedConfig, ga aspect.Adapter, env aspect.Env) (aspectsupport.AspectWrapper, error) {
 	aa, ok := ga.(listChecker.Adapter)
 	if !ok {
-		return nil, fmt.Errorf("Adapter of incorrect type. Expected listChecker.Adapter got %#v %T", ga, ga)
+		return nil, fmt.Errorf("adapter of incorrect type; expected listChecker.Adapter got %#v %T", ga, ga)
 	}
 
 	// TODO: convert from proto Struct to Go struct here!
@@ -86,7 +86,7 @@ func (*manager) DefaultConfig() proto.Message {
 func (*manager) ValidateConfig(implConfig proto.Message) (ce *aspect.ConfigErrors) {
 	lc := implConfig.(*listcheckerpb.Config)
 	if lc.CheckAttribute == "" {
-		ce.Appendf("check_attribute", "Missing")
+		ce = ce.Appendf("check_attribute", "Missing")
 	}
 	return
 }
@@ -98,7 +98,7 @@ func (a *aspectWrapper) AdapterName() string {
 func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspectsupport.Output, error) {
 	var found bool
 	var err error
-	var asp listChecker.Aspect = a.aspect
+	asp := a.aspect
 
 	var symbol string
 	var symbolExpr string
@@ -106,7 +106,7 @@ func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*as
 
 	// CheckAttribute should be processed and sent to input
 	if symbolExpr, found = a.cfg.Aspect.Inputs[acfg.CheckAttribute]; !found {
-		return nil, fmt.Errorf("Mapping for %s not found", acfg.CheckAttribute)
+		return nil, fmt.Errorf("mapping for %s not found", acfg.CheckAttribute)
 	}
 
 	if symbol, err = mapper.EvalString(symbolExpr, attrs); err != nil {

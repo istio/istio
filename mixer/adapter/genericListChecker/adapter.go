@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package genericListChecker defines an adapter that checks the existence of a symbol in a configured list of symbols.
 package genericListChecker
 
 import (

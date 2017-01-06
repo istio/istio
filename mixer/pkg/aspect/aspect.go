@@ -44,6 +44,8 @@ type (
 
 		ConfigValidater
 	}
+
+	// ConfigValidater handles adapter configuration defaults and validation.
 	ConfigValidater interface {
 		// DefaultConfig returns a default configuration struct for this
 		// adapter. This will be used by the configuration system to establish
@@ -53,7 +55,7 @@ type (
 		ValidateConfig(implConfig proto.Message) *ConfigErrors
 	}
 
-	// The environment in which an aspect executes.
+	// Env defines the environment in which an aspect executes.
 	Env interface {
 		// Logger returns the logger for the aspect to use at runtime.
 		Logger() Logger
@@ -64,7 +66,7 @@ type (
 		// ?
 	}
 
-	// The logger used at runtime by aspects.
+	// Logger defines where aspects should output their log state to.
 	//
 	// This log information is funneled to the mixer which
 	// augments it with desirable metadata and then routes it
