@@ -29,10 +29,10 @@ This Proxy will use Envoy and talk to Mixer server.
   
   The server will run at port 9091
 
-* Start backend Echo server. At ESP repo (https://github.com/cloudendpoints/esp)
+* Start backend Echo server.
 
 ```
-  cd test/echo
+  cd test/backend/echo
   npm install
   node echo.js
 ```
