@@ -70,7 +70,7 @@ func runServer(sa *serverArgs) error {
 	if sa.serverCertFile != "" && sa.serverKeyFile != "" {
 		sc, err := tls.LoadX509KeyPair(sa.serverCertFile, sa.serverKeyFile)
 		if err != nil {
-			return fmt.Errorf("Failed to load server certificate and server key: %v", err)
+			return fmt.Errorf("failed to load server certificate and server key: %v", err)
 		}
 		serverCert = &sc
 	}
@@ -80,7 +80,7 @@ func runServer(sa *serverArgs) error {
 		for _, clientCertFile := range strings.Split(sa.clientCertFiles, ",") {
 			pem, err := ioutil.ReadFile(clientCertFile)
 			if err != nil {
-				return fmt.Errorf("Failed to load client certificate: %v", err)
+				return fmt.Errorf("failed to load client certificate: %v", err)
 			}
 			clientCerts.AppendCertsFromPEM(pem)
 		}
@@ -89,12 +89,12 @@ func runServer(sa *serverArgs) error {
 	var adapterMgr *server.AdapterManager
 	var err error
 	if adapterMgr, err = server.NewAdapterManager(); err != nil {
-		return fmt.Errorf("Unable to initialize adapters: %v", err)
+		return fmt.Errorf("unable to initialize adapters: %v", err)
 	}
 
 	var configMgr *server.ConfigManager
 	if configMgr, err = server.NewConfigManager(); err != nil {
-		return fmt.Errorf("Unable to initialize configuration: %v", err)
+		return fmt.Errorf("unable to initialize configuration: %v", err)
 	}
 
 	attrMgr := attribute.NewManager()
@@ -112,7 +112,7 @@ func runServer(sa *serverArgs) error {
 
 	var grpcServer *api.GRPCServer
 	if grpcServer, err = api.NewGRPCServer(&grpcServerOptions); err != nil {
-		return fmt.Errorf("Unable to initialize gRPC server " + err.Error())
+		return fmt.Errorf("unable to initialize gRPC server " + err.Error())
 	}
 
 	return grpcServer.Start()

@@ -25,13 +25,13 @@ func TestConfigErrors(t *testing.T) {
 		underlying string
 		error      string
 	}{
-		{"F0", "Format 0", "F0: Format 0"},
-		{"F1", "Format 1", "F1: Format 1"},
+		{"F0", "format 0", "F0: format 0"},
+		{"F1", "format 1", "F1: format 1"},
 	}
 
 	var ce *ConfigErrors
-	ce = ce.Appendf(cases[0].field, "Format %d", 0)
-	ce = ce.Append(cases[1].field, fmt.Errorf("Format %d", 1))
+	ce = ce.Appendf(cases[0].field, "format %d", 0)
+	ce = ce.Append(cases[1].field, fmt.Errorf("format %d", 1))
 
 	for i, c := range cases {
 		err := ce.Multi.Errors[i].(ConfigError)

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package denyChecker defines an adapter that always fails check requests.
 package denyChecker
 
 import (
@@ -27,6 +28,7 @@ import (
 	pb "istio.io/mixer/adapter/denyChecker/config_proto"
 )
 
+// Register records the existence of this adapter
 func Register(r registry.Registrar) error {
 	return r.RegisterDeny(newAdapter())
 }

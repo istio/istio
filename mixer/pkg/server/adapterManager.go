@@ -58,7 +58,7 @@ func (mgr *AdapterManager) GetLoggerAdapter(dispatchKey DispatchKey, config *ada
 
 	loggerAdapter, ok := aspectState.(adapter.Logger)
 	if !ok {
-		return nil, fmt.Errorf("Aspect does not implement the Logger interface: adapter='%v'", a.Name())
+		return nil, fmt.Errorf("the aspect does not implement the Logger interface: adapter='%v'", a.Name())
 	}
 
 	return loggerAdapter, nil

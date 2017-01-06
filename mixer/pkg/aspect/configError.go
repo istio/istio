@@ -20,7 +20,7 @@ import (
 	me "github.com/hashicorp/go-multierror"
 )
 
-// A collection of configuration errors
+// ConfigErrors is a collection of configuration errors
 //
 // The usage pattern for this type is pretty simple:
 //

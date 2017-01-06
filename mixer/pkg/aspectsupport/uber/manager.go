@@ -26,7 +26,9 @@ import (
 	"istio.io/mixer/pkg/expr"
 )
 
+// RegistryQuerier enables querying the adapter registry for  adapter instances.
 type RegistryQuerier interface {
+	// ByImpl queries the registry by adapter name.
 	ByImpl(adapterName string) (aspect.Adapter, bool)
 }
 

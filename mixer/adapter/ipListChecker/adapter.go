@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package ipListChecker defines an adapter that checks the existence of an IP address in an online IP address list.
 package ipListChecker
 
 import (
@@ -24,6 +25,7 @@ import (
 	"istio.io/mixer/pkg/registry"
 )
 
+// Register records the existence of this adapter
 func Register(r registry.Registrar) error {
 	return r.RegisterCheckList(newAdapter())
 }

@@ -87,10 +87,10 @@ func process(dictionary map[int32]string, s string, f convertFn) (map[int32]inte
 		for _, seg := range strings.Split(s, ",") {
 			eq := strings.Index(seg, "=")
 			if eq < 0 {
-				return nil, fmt.Errorf("Attribute value %v does not include an = sign", seg)
+				return nil, fmt.Errorf("attribute value %v does not include an = sign", seg)
 			}
 			if eq == 0 {
-				return nil, fmt.Errorf("Attribute value %v does not contain a valid name", seg)
+				return nil, fmt.Errorf("attribute value %v does not contain a valid name", seg)
 			}
 			name := seg[0:eq]
 			value := seg[eq+1:]
