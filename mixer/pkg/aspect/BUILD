@@ -1,4 +1,4 @@
-package(default_visibility=["//visibility:public"])
+package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
@@ -13,12 +13,12 @@ DEPS = [
 ]
 
 go_library(
-    name="go_default_library",
-    srcs=glob(
-        include=["*.go"],
-        exclude=["test_*.go"],
+    name = "go_default_library",
+    srcs = glob(
+        include = ["*.go"],
+        exclude = ["test_*.go"],
     ),
-    deps=DEPS
+    deps = DEPS,
 )
 
 go_test(
