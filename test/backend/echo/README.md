@@ -1,3 +1,3 @@
-# Simple echo server for esp testing.
+# Simple echo server for proxy testing.
 
-Node.js implementation of echo server.
+golang implementation of echo server.

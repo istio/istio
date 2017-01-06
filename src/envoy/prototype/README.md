@@ -33,8 +33,7 @@ This Proxy will use Envoy and talk to Mixer server.
 
 ```
   cd test/backend/echo
-  npm install
-  node echo.js
+  go run echo.go
 ```
 
 * Start Envoy proxy, run
