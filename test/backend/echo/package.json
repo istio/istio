@@ -1,0 +1,22 @@
+{
+  "name": "echo",
+  "version": "8.8.1",
+  "description": "An echo server.",
+  "main": "echo.js",
+  "readme": "README.md",
+  "scripts": {
+    "start": "node echo.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/istio/proxy"
+  },
+  "license": "Apache-2.0",
+  "engines" : {
+    "node" : ">=4.1.2"
+  },
+  "files": [
+    "README.md",
+    "echo.js"
+  ]
+}
