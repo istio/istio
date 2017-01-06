@@ -17,12 +17,14 @@ package denyChecker
 import (
 	"fmt"
 
+	denycheckerpb "istio.io/api/istio/config/v1/aspect/denyChecker"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/denyChecker"
 	"istio.io/mixer/pkg/aspectsupport"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
+	"github.com/golang/protobuf/proto"
 )
 
 const (
@@ -69,6 +71,15 @@ func (m *manager) NewAspect(cfg *aspectsupport.CombinedConfig, ga aspect.Adapter
 func (*manager) Kind() string {
 	return kind
 }
+
+func (*manager) DefaultConfig() proto.Message {
+	return &denycheckerpb.Config{}
+}
+
+func (*manager) ValidateConfig(implConfig proto.Message) (ce *aspect.ConfigErrors){
+	return 
+}
+
 
 func (a *aspectWrapper) AdapterName() string {
 	return a.adapter.Name()
