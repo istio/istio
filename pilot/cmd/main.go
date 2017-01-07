@@ -16,6 +16,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -31,7 +32,8 @@ import (
 type serverArgs struct {
 	kubeconfig string
 	namespace  string
-	sds        int
+	sdsPort    int
+	sdsAddress string
 }
 
 func main() {
@@ -58,8 +60,7 @@ the Istio proxies and the Istio mixer.`,
 
 			controller := kube.NewController(client, sa.namespace, 256*time.Millisecond)
 
-			sds, err := envoy.NewDiscoveryService(controller, sa.sds)
-			check("Failed to start a discovery service", err)
+			sds := envoy.NewDiscoveryService(controller, sa.sdsPort)
 
 			// wait for a signal
 			sigs := make(chan os.Signal, 1)
@@ -68,6 +69,13 @@ the Istio proxies and the Istio mixer.`,
 			stop := make(chan struct{})
 			go controller.Run(stop)
 			go sds.Run()
+
+			time.Sleep(2 * time.Second)
+			cfg, err := envoy.Generate(controller.Services(), fmt.Sprintf("%s:%d", sa.sdsAddress, sa.sdsPort))
+			check("Failed to generate config", err)
+
+			cfg.Write(os.Stdout)
+
 			<-sigs
 			close(stop)
 			glog.Flush()
@@ -77,8 +85,10 @@ the Istio proxies and the Istio mixer.`,
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	serverCmd.PersistentFlags().StringVarP(&sa.namespace, "namespace", "n", "",
 		"Monitor the specified namespace instead of all namespaces")
-	serverCmd.PersistentFlags().IntVarP(&sa.sds, "discovery", "d", 8080,
+	serverCmd.PersistentFlags().IntVarP(&sa.sdsPort, "port", "p", 8080,
 		"Discovery service port")
+	serverCmd.PersistentFlags().StringVarP(&sa.sdsAddress, "host", "H", "localhost",
+		"Discovery service external address")
 	rootCmd.AddCommand(serverCmd)
 
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)

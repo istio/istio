@@ -1,0 +1,3 @@
+mixer_options {
+  mixer_server: "mixer.echoheaders"
+}

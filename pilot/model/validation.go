@@ -138,21 +138,24 @@ func (s *Service) Validate() error {
 			errs = multierror.Append(errs, fmt.Errorf("Invalid service tag: %q", tag))
 		}
 	}
-	for _, port := range s.Ports {
-		if err := port.Validate(); err != nil {
-			errs = multierror.Append(errs, err)
-		}
+	// Require at least one port
+	if len(s.Ports) == 0 {
+		errs = multierror.Append(errs, fmt.Errorf("Service must have at least one declared port"))
 	}
-	return errs
-}
 
-func (p *Port) Validate() error {
-	var errs error
-	if !IsDNS1123Label(p.Name) {
-		errs = multierror.Append(errs, fmt.Errorf("Invalid name: %q", p.Name))
-	}
-	if p.Port < 0 {
-		errs = multierror.Append(errs, fmt.Errorf("Invalid port value %d for %q", p.Port, p.Name))
+	// Port names can be empty if there exists only one port
+	for _, port := range s.Ports {
+		if port.Name == "" {
+			if len(s.Ports) > 1 {
+				errs = multierror.Append(errs,
+					fmt.Errorf("Empty port names are not allowed for services with multiple ports"))
+			}
+		} else if !IsDNS1123Label(port.Name) {
+			errs = multierror.Append(errs, fmt.Errorf("Invalid name: %q", port.Name))
+		}
+		if port.Port < 0 {
+			errs = multierror.Append(errs, fmt.Errorf("Invalid port value %d for %q", port.Port, port.Name))
+		}
 	}
 	return errs
 }

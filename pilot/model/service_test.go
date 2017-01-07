@@ -22,9 +22,9 @@ var validServices = map[string]Service{
 		Namespace: "default",
 		Tags:      []string{"v2", "v3", "v1"},
 		Ports:     []Port{Port{Name: "http"}, Port{Name: "grpc"}}},
-	"my-service":    Service{Name: "my-service"},
-	"svc.ns":        Service{Name: "svc", Namespace: "ns"},
-	"svc::v1-test":  Service{Name: "svc", Tags: []string{"v1-test"}},
+	"my-service":    Service{Name: "my-service", Ports: []Port{Port{Name: ""}}},
+	"svc.ns":        Service{Name: "svc", Ports: []Port{Port{Name: ""}}, Namespace: "ns"},
+	"svc::v1-test":  Service{Name: "svc", Ports: []Port{Port{Name: ""}}, Tags: []string{"v1-test"}},
 	"svc:http-test": Service{Name: "svc", Ports: []Port{Port{Name: "http-test"}}},
 }
 
@@ -39,13 +39,16 @@ func TestServiceString(t *testing.T) {
 		}
 		svc1 := ParseServiceString(s)
 		if svc1.Name != svc.Name {
-			t.Errorf("svc.Name => Got %s, expected %s", svc1.Name, svc.Name)
+			t.Errorf("svc.Name => Got %s, expected %s for %s", svc1.Name, svc.Name, s)
 		}
 		if svc1.Namespace != svc.Namespace {
-			t.Errorf("svc.Name => Got %s, expected %s", svc1.Namespace, svc.Namespace)
+			t.Errorf("svc.Name => Got %s, expected %s for %s", svc1.Namespace, svc.Namespace, s)
 		}
 		if !compare(svc1.Tags, svc.Tags) {
-			t.Errorf("svc.Tags => Got %#v, expected %#v", svc1.Tags, svc.Tags)
+			t.Errorf("svc.Tags => Got %#v, expected %#v for %s", svc1.Tags, svc.Tags, s)
+		}
+		if len(svc1.Ports) != len(svc.Ports) {
+			t.Errorf("svc.Ports => Got %#v, expected %#v for %s", svc1.Ports, svc.Ports, s)
 		}
 	}
 }

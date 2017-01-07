@@ -28,10 +28,7 @@
                     "responseTypeUrl": "type.googleapis.com/google.protobuf.Value"
                 }
             ],
-            "name": "generic_qiwzhang_app_1_appspot_com_1_0_0",
-            "sourceContext": {
-                "fileName": "sss.yaml"
-            },
+            "name": "generic",
             "version": "1.0.0"
         }
     ],
@@ -39,19 +36,19 @@
     "backend": {
         "rules": [
             {
-                "selector": "generic_qiwzhang_app_1_appspot_com_1_0_0.Get"
+                "selector": "generic.Get"
             },
             {
-                "selector": "generic_qiwzhang_app_1_appspot_com_1_0_0.Delete"
+                "selector": "generic.Delete"
             },
             {
-                "selector": "generic_qiwzhang_app_1_appspot_com_1_0_0.Patch"
+                "selector": "generic.Patch"
             },
             {
-                "selector": "generic_qiwzhang_app_1_appspot_com_1_0_0.Post"
+                "selector": "generic.Post"
             },
             {
-                "selector": "generic_qiwzhang_app_1_appspot_com_1_0_0.Put"
+                "selector": "generic.Put"
             }
         ]
     },
@@ -79,23 +76,23 @@
         "rules": [
             {
                 "get": "/**",
-                "selector": "generic_qiwzhang_app_1_appspot_com_1_0_0.Get"
+                "selector": "generic.Get"
             },
             {
                 "delete": "/**",
-                "selector": "generic_qiwzhang_app_1_appspot_com_1_0_0.Delete"
+                "selector": "generic.Delete"
             },
             {
                 "patch": "/**",
-                "selector": "generic_qiwzhang_app_1_appspot_com_1_0_0.Patch"
+                "selector": "generic.Patch"
             },
             {
                 "post": "/**",
-                "selector": "generic_qiwzhang_app_1_appspot_com_1_0_0.Post"
+                "selector": "generic.Post"
             },
             {
                 "put": "/**",
-                "selector": "generic_qiwzhang_app_1_appspot_com_1_0_0.Put"
+                "selector": "generic.Put"
             }
         ]
     },
@@ -712,23 +709,23 @@
         "rules": [
             {
                 "allowUnregisteredCalls": true,
-                "selector": "generic_qiwzhang_app_1_appspot_com_1_0_0.Get"
+                "selector": "generic.Get"
             },
             {
                 "allowUnregisteredCalls": true,
-                "selector": "generic_qiwzhang_app_1_appspot_com_1_0_0.Delete"
+                "selector": "generic.Delete"
             },
             {
                 "allowUnregisteredCalls": true,
-                "selector": "generic_qiwzhang_app_1_appspot_com_1_0_0.Patch"
+                "selector": "generic.Patch"
             },
             {
                 "allowUnregisteredCalls": true,
-                "selector": "generic_qiwzhang_app_1_appspot_com_1_0_0.Post"
+                "selector": "generic.Post"
             },
             {
                 "allowUnregisteredCalls": true,
-                "selector": "generic_qiwzhang_app_1_appspot_com_1_0_0.Put"
+                "selector": "generic.Put"
             }
         ]
     },

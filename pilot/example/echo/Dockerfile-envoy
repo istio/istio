@@ -1,5 +1,6 @@
 FROM ubuntu:14.04
 ADD envoy_esp /usr/local/bin/envoy
 ADD generic_service_config.json /generic_service_config.json
+ADD server_config.pb.txt /server_config.pb.txt
 ADD envoy.conf /envoy.conf
 CMD /usr/local/bin/envoy -c /envoy.conf -l debug

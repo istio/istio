@@ -28,15 +28,15 @@ import (
 	"path/filepath"
 )
 
-const EnvoyConfigPath = "/etc/envoy/envoy.json"
+const EnvoyConfigPath = "/etc/envoy/"
 
-func writeConfigFile(conf Config) error {
-	file, err := os.Create(EnvoyConfigPath)
+func (conf *Config) WriteFile() error {
+	file, err := os.Create(EnvoyConfigPath + "envoy.json")
 	if err != nil {
 		return err
 	}
 
-	if err := writeConfig(file, conf); err != nil {
+	if err := conf.Write(file); err != nil {
 		file.Close()
 		return err
 	}
@@ -44,7 +44,7 @@ func writeConfigFile(conf Config) error {
 	return file.Close()
 }
 
-func writeConfig(w io.Writer, conf Config) error {
+func (conf *Config) Write(w io.Writer) error {
 	out, err := json.MarshalIndent(&conf, "", "  ")
 	if err != nil {
 		return err
@@ -58,23 +58,27 @@ func writeConfig(w io.Writer, conf Config) error {
 	return err
 }
 
-func generateConfig(services []model.Service, serviceName string, tags []string) (Config, error) {
-	clusters := buildClusters()
-	routes := buildRoutes()
-	filters := buildFaults(serviceName, tags)
+func Generate(services []*model.Service, sds string) (*Config, error) {
+	clusters := buildClusters(services)
+	routes := buildRoutes(services)
+	filters := buildFilters()
 
-	if err := buildFS(); err != nil {
-		return Config{}, err
-	}
+	/*
+		if err := buildFS(); err != nil {
+			return &Config{}, err
+		}
+	*/
 
-	return Config{
-		RootRuntime: RootRuntime{
-			SymlinkRoot:  RuntimePath,
-			Subdirectory: "traffic_shift",
-		},
+	return &Config{
+		/*
+			RootRuntime: RootRuntime{
+				SymlinkRoot:  RuntimePath,
+				Subdirectory: "traffic_shift",
+			},
+		*/
 		Listeners: []Listener{
 			{
-				Port: 6379,
+				Port: 80,
 				Filters: []NetworkFilter{
 					{
 						Type: "read",
@@ -116,7 +120,7 @@ func generateConfig(services []model.Service, serviceName string, tags []string)
 					LbType:           "round_robin",
 					Hosts: []Host{
 						{
-							URL: "tcp://127.0.0.1:6500",
+							URL: "tcp://" + sds,
 						},
 					},
 				},
@@ -126,29 +130,79 @@ func generateConfig(services []model.Service, serviceName string, tags []string)
 	}, nil
 }
 
-func buildClusters() []Cluster {
-	clusterMap := make(map[string]struct{})
-	clusters := make([]Cluster, 0, len(clusterMap))
-	for clusterName := range clusterMap {
-		cluster := Cluster{
-			Name:             clusterName,
-			ServiceName:      clusterName,
-			Type:             "sds",
-			LbType:           "round_robin",
-			ConnectTimeoutMs: 1000,
-		}
+func buildClusters(services []*model.Service) []Cluster {
+	clusters := make([]Cluster, 0)
+	for _, svc := range services {
+		for _, port := range svc.Ports {
+			clusterSvc := model.Service{
+				Name:      svc.Name,
+				Namespace: svc.Namespace,
+				Ports:     []model.Port{port},
+			}
 
-		clusters = append(clusters, cluster)
+			clusterName := clusterSvc.String()
+
+			cluster := Cluster{
+				Name:             clusterName,
+				ServiceName:      clusterName,
+				Type:             "sds",
+				LbType:           "round_robin",
+				ConnectTimeoutMs: 1000,
+			}
+
+			if port.Protocol == model.ProtocolGRPC {
+				cluster.Features = "http2"
+			}
+
+			clusters = append(clusters, cluster)
+		}
 	}
 
 	sort.Sort(ClustersByName(clusters))
-
 	return clusters
 }
 
-func buildRoutes() []Route {
-	routes := []Route{}
+func buildRoutes(services []*model.Service) []Route {
+	routes := make([]Route, 0)
+	for _, svc := range services {
+		for _, port := range svc.Ports {
+			clusterSvc := model.Service{
+				Name:      svc.Name,
+				Namespace: svc.Namespace,
+				Ports:     []model.Port{port},
+			}
+
+			clusterName := clusterSvc.String()
+
+			routes = append(routes, Route{
+				Prefix:        "/" + clusterName,
+				PrefixRewrite: "/",
+				Cluster:       clusterName,
+			})
+		}
+	}
 	return routes
+}
+
+func buildFilters() []Filter {
+	var filters []Filter
+
+	filters = append(filters, Filter{
+		Type: "both",
+		Name: "esp",
+		Config: FilterEndpointsConfig{
+			ServiceConfig: EnvoyConfigPath + "generic_service_config.json",
+			ServerConfig:  EnvoyConfigPath + "server_config.pb.txt",
+		},
+	})
+
+	filters = append(filters, Filter{
+		Type:   "decoder",
+		Name:   "router",
+		Config: FilterRouterConfig{},
+	})
+
+	return filters
 }
 
 const (
@@ -243,21 +297,4 @@ func buildFS() error {
 	}
 
 	return nil
-}
-
-func buildFaults(serviceName string, tags []string) []Filter {
-	var filters []Filter
-
-	tagMap := make(map[string]struct{})
-	for _, tag := range tags {
-		tagMap[tag] = struct{}{}
-	}
-
-	filters = append(filters, Filter{
-		Type:   "decoder",
-		Name:   "router",
-		Config: FilterRouterConfig{},
-	})
-
-	return filters
 }

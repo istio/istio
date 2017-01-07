@@ -42,14 +42,14 @@ type host struct {
 }
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
-func NewDiscoveryService(services model.ServiceDiscovery, port int) (*DiscoveryService, error) {
-	out := DiscoveryService{
+func NewDiscoveryService(services model.ServiceDiscovery, port int) *DiscoveryService {
+	out := &DiscoveryService{
 		services: services,
 	}
 	container := restful.NewContainer()
 	out.Register(container)
 	out.server = &http.Server{Addr: ":" + strconv.Itoa(port), Handler: container}
-	return &out, nil
+	return out
 }
 
 func (ds *DiscoveryService) Register(container *restful.Container) {

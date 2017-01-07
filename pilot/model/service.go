@@ -96,7 +96,11 @@ func (s *Service) String() string {
 	np := len(s.Ports)
 	nt := len(s.Tags)
 
-	if np > 0 || nt > 0 {
+	if np == 0 && nt == 0 {
+		return buffer.String()
+	} else if np == 1 && nt == 0 && s.Ports[0].Name == "" {
+		return buffer.String()
+	} else {
 		buffer.WriteString(":")
 	}
 
@@ -133,7 +137,6 @@ func (s *Service) String() string {
 func ParseServiceString(s string) *Service {
 	parts := strings.Split(s, ":")
 	var name, namespace string
-	var names, tags []string
 
 	dot := strings.Index(parts[0], ".")
 	if dot < 0 {
@@ -143,16 +146,20 @@ func ParseServiceString(s string) *Service {
 		namespace = parts[0][dot+1:]
 	}
 
+	var names []string
 	if len(parts) > 1 {
 		names = strings.Split(parts[1], ",")
-		if len(parts) > 2 {
-			tags = strings.Split(parts[2], ",")
-		}
+	} else {
+		names = []string{""}
 	}
-
-	var ports []Port
+	ports := make([]Port, 0)
 	for _, name := range names {
 		ports = append(ports, Port{Name: name})
+	}
+
+	var tags []string
+	if len(parts) > 2 && len(parts[2]) > 0 {
+		tags = strings.Split(parts[2], ",")
 	}
 
 	return &Service{

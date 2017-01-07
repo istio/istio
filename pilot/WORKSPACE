@@ -20,27 +20,6 @@ new_go_repository(
     importpath = "github.com/hashicorp/go-multierror",
 )
 
-new_http_archive(
-    name = "docker_debian",
-    build_file_content = """
-load("@bazel_tools//tools/build_defs/docker:docker.bzl", "docker_build")
-genrule(
-    name = "wheezy_tar",
-    srcs = ["docker-brew-debian-e9bafb113f432c48c7e86c616424cb4b2f2c7a51/wheezy/rootfs.tar.xz"],
-    outs = ["wheezy_tar.tar"],
-    cmd = "cat $< | xzcat >$@",
-)
-docker_build(
-    name = "wheezy",
-    tars = [":wheezy_tar"],
-    visibility = ["//visibility:public"],
-)
-    """,
-    sha256 = "515d385777643ef184729375bc5cb996134b3c1dc15c53acf104749b37334f68",
-    type = "zip",
-    url = "https://codeload.github.com/tianon/docker-brew-debian/zip/e9bafb113f432c48c7e86c616424cb4b2f2c7a51",
-)
-
 new_go_repository(
     name = "com_github_spf13_cobra",
     commit = "9c28e4bbd74e5c3ed7aacbc552b2cab7cfdfe744",

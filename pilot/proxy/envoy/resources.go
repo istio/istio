@@ -16,7 +16,7 @@ package envoy
 
 // Config defines definition
 type Config struct {
-	RootRuntime    RootRuntime    `json:"runtime"`
+	RootRuntime    *RootRuntime   `json:"runtime,omitempty"`
 	Listeners      []Listener     `json:"listeners"`
 	Admin          Admin          `json:"admin"`
 	ClusterManager ClusterManager `json:"cluster_manager"`
@@ -46,6 +46,12 @@ type DelayFilter struct {
 type Header struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
+}
+
+// FilterEndpointsConfig
+type FilterEndpointsConfig struct {
+	ServiceConfig string `json:"service_config,omitempty"`
+	ServerConfig  string `json:"server_config,omitempty"`
 }
 
 // FilterFaultConfig definition
@@ -144,6 +150,7 @@ type Cluster struct {
 	LbType                   string `json:"lb_type"`
 	MaxRequestsPerConnection int    `json:"max_requests_per_connection,omitempty"`
 	Hosts                    []Host `json:"hosts,omitempty"`
+	Features                 string `json:"features,omitempty"`
 }
 
 // ClustersByName sorts clusters by name
