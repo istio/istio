@@ -31,6 +31,27 @@ pathmap = {
     "github.com/istio/api": "istio.io/api"
 }
 
+known_repos = {
+        "org_golang_google": "google.golang.org",
+        "com_github": "github.com",
+        "org_golang": "golang.org",
+        "in_gopkg": "gopkg.in"
+}
+
+
+# gopkg packages are of type gopkg.in/yaml.v2
+# in_gopkg_yaml_v2 
+# com_github_hashicorp_go_multierror  --> github.com/
+def repos(name):
+   for r, m in known_repos.items():
+       if name.startswith(r):
+           rname = name[(len(r)+1):]
+           fp, _, rest = rname.partition('_')
+           if r == 'in_gopkg':
+               return m + "/" + fp + "." + rest
+
+           return m + "/" + fp + "/" + rest
+
 # If we need to support more bazel functions
 # add them here
 
@@ -91,7 +112,11 @@ def makelink(target, linksrc):
     except Exception as e1:
         if 'No such file or directory' not in str(e1):
             print type(e1), e1
+    if not os.path.exists(target):
+        print target, "Does not exist"
+        return
     os.symlink(target, linksrc)
+    print "Linked ", linksrc, '-->', target
 
 
 def bazel_to_vendor(WKSPC):
@@ -102,14 +127,47 @@ def bazel_to_vendor(WKSPC):
         print "prog BAZEL_WORKSPACE_DIR"
         return -1
     lf = os.readlink(WKSPC + "/bazel-mixer")
-    external = lf.replace("/execroot/mixer", "/external")
+    EXEC_ROOT = os.path.dirname(lf)
+    BLD_DIR = os.path.dirname(EXEC_ROOT)
+    external =  BLD_DIR + "/external"
     vendor = WKSPC + "/vendor"
     genfiles = WKSPC + "/bazel-genfiles/external/"
     vlen = len(vendor)
-    for (target, linksrc) in process(workspace, external, genfiles, vendor):
-        makelink(target, linksrc)
-        print "Vendored", linksrc[vlen + 1:]
 
+    links = {target: linksrc for(target, linksrc) in process(workspace, external, genfiles, vendor)}
+
+    bysrc = {}
+
+    for (target, linksrc) in links.items():
+        makelink(target, linksrc)
+        #print "Vendored", linksrc, '-->', target
+        bysrc[linksrc] = target
+
+    # check other directories in external
+    # and symlink ones that were not covered thru workspace
+    print "External links:"
+    for ext_target in get_external_links(external):
+        target = external + "/" + ext_target
+        if target in links:
+            continue
+        link = repos(ext_target)
+        if not link:
+            print "Could not resolve", ext_target
+            continue
+        linksrc = vendor + "/" + link
+
+        # only make this link if we have not made it above
+        if linksrc in bysrc:
+            print "Skipping ", link
+            continue
+
+        makelink(target, linksrc)
+        # print "Vendored", linksrc, '-->', target
+
+    adapter_protos (WKSPC)
+
+def get_external_links(external):
+    return [file for file in os.listdir(external) if os.path.isdir(external+"/"+file)]
 
 def main(args):
     WKSPC = os.getcwd()
@@ -117,6 +175,13 @@ def main(args):
         WKSPC = args[0]
 
     bazel_to_vendor(WKSPC)
+
+def adapter_protos(WKSPC):
+    print "WKSPC"
+    for adapter in os.listdir(WKSPC + "/bazel-genfiles/adapter/"):
+        makelink(WKSPC + "/bazel-genfiles/adapter/"+adapter, WKSPC + "/adapter/" +adapter + "/config_proto")
+
+
 
 if __name__ == "__main__":
     import sys
