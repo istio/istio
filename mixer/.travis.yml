@@ -36,6 +36,10 @@ before_install:
 script:
   - bazel test //...
   - bin/linters.sh
+  - bin/codecov.sh
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
 
 notifications:
   slack: istio-dev:wEEEbaabdP5ieCgDOFetA9nX
