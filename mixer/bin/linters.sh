@@ -25,6 +25,7 @@ run_linters() {
         --enable=gas\
         --enable=goconst\
         --enable=gofmt\
+        --enable=goimports\
         --enable=golint --min-confidence=0 --exclude=.pb.go --exclude="should have a package comment" --exclude="adapter.AdapterConfig"\
         --enable=gosimple\
         --enable=ineffassign\
@@ -40,12 +41,11 @@ run_linters() {
         ./...
 
     # TODO: These generate warnings which we should fix, and then should enable the linters
-    # --enable=dupl
-    # --enable=gocyclo
+    # --enable=dupl\
+    # --enable=gocyclo\
     #
-    # These don't seem interesting
-    # --enable=goimports
-    # --enable=gotype
+    # This doesn't work with our source tree for some reason, it can't find vendored imports
+    # --enable=gotype\
 }
 
 set -e
