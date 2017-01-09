@@ -16,6 +16,8 @@ package genericListChecker
 
 import (
 	"testing"
+
+	"istio.io/mixer/pkg/adaptertesting"
 )
 
 type testCase struct {
@@ -68,5 +70,17 @@ func TestAll(t *testing.T) {
 				t.Errorf("CheckList(%s): expecting 'false', got 'true'", value)
 			}
 		}
+
+		if err := a.Close(); err != nil {
+			t.Errorf("a.Close failed: %v", err)
+		}
+
+		if err := b.Close(); err != nil {
+			t.Errorf("b.Close failed: %v", err)
+		}
 	}
+}
+
+func TestInvariants(t *testing.T) {
+	adaptertesting.TestAdapterInvariants(newAdapter(), Register, t)
 }
