@@ -23,3 +23,6 @@ test:
 
 lint: build
 	@bin/linters.sh
+
+fmt:
+	@bin/fmt.sh

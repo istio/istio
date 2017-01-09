@@ -20,6 +20,7 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/denyChecker"
 	"istio.io/mixer/pkg/aspect/listChecker"
+	"istio.io/mixer/pkg/aspect/quota"
 	"istio.io/mixer/pkg/registry"
 )
 
@@ -36,6 +37,11 @@ func (r *fakeRegistrar) RegisterCheckList(listChecker.Adapter) error {
 }
 
 func (r *fakeRegistrar) RegisterDeny(denyChecker.Adapter) error {
+	r.registrations++
+	return nil
+}
+
+func (r *fakeRegistrar) RegisterQuota(quota.Adapter) error {
 	r.registrations++
 	return nil
 }
