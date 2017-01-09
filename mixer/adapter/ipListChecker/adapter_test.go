@@ -22,6 +22,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	"istio.io/mixer/pkg/adaptertesting"
 	"istio.io/mixer/pkg/aspect"
 )
 
@@ -93,4 +94,8 @@ func TestBasic(t *testing.T) {
 			t.Errorf("CheckList(%s): expecting 'false', got 'true'", c)
 		}
 	}
+}
+
+func TestInvariants(t *testing.T) {
+	adaptertesting.TestAdapterInvariants(newAdapter(), Register, t)
 }

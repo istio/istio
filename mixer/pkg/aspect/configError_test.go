@@ -36,15 +36,29 @@ func TestConfigErrors(t *testing.T) {
 	for i, c := range cases {
 		err := ce.Multi.Errors[i].(ConfigError)
 		if err.Field != c.field {
-			t.Errorf("Error %d field is '%s', expected '%s'", i, err.Field, c.field)
+			t.Errorf("Case %d field is '%s', expected '%s'", i, err.Field, c.field)
 		}
 		if err.Underlying.Error() != c.underlying {
-			t.Errorf("Error %d underlying is '%s', expected '%s'", i, err.Underlying.Error(), c.underlying)
+			t.Errorf("Case %d underlying is '%s', expected '%s'", i, err.Underlying.Error(), c.underlying)
 		}
 		if err.Error() != c.error {
-			t.Errorf("Error %d Error() returns '%s', expected '%s'", i, err.Error(), c.error)
+			t.Errorf("Case %d Error() returns '%s', expected '%s'", i, err.Error(), c.error)
 		}
 	}
 
 	t.Log(ce)
+}
+
+func TestNil(t *testing.T) {
+	var ce *ConfigErrors
+	ce = ce.Appendf("Foo", "format %d", 0)
+	if ce == nil {
+		t.Error("Expecting object to be allocated on first use")
+	}
+
+	ce = nil
+	ce = ce.Append("Foo", fmt.Errorf("format %d", 0))
+	if ce == nil {
+		t.Error("Expecting object to be allocated on first use")
+	}
 }

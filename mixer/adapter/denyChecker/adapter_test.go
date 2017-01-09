@@ -21,6 +21,7 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/status"
 
 	pb "istio.io/mixer/adapter/denyChecker/config_proto"
+	"istio.io/mixer/pkg/adaptertesting"
 )
 
 func TestAll(t *testing.T) {
@@ -53,4 +54,12 @@ func TestAll(t *testing.T) {
 	if err = a.Close(); err != nil {
 		t.Errorf("a.Close failed: %v", err)
 	}
+
+	if err = b.Close(); err != nil {
+		t.Errorf("b.Close failed: %v", err)
+	}
+}
+
+func TestInvariants(t *testing.T) {
+	adaptertesting.TestAdapterInvariants(newAdapter(), Register, t)
 }

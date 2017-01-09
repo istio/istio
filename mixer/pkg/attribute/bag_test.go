@@ -15,6 +15,7 @@
 package attribute
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -204,4 +205,58 @@ func TestBag(t *testing.T) {
 			t.Error("XYZ was found")
 		}
 	}
+
+	// try another level of overrides just to make sure that path is OK
+	child := ab.Child()
+	child.SetString("N2", "31415692")
+	r, found := ab.String("N2")
+	if !found || r != "42" {
+		t.Error("N2 has wrong value")
+	}
+}
+
+func TestContext(t *testing.T) {
+	// simple bag
+	b := getMutableBag(nil)
+	b.SetInt64("42", 42)
+
+	// make sure we can store and fetch the bag in a context
+	ctx := NewContext(context.Background(), b)
+	nb, found := FromContext(ctx)
+	if !found {
+		t.Error("Expecting to find bag, got nil")
+	}
+
+	r, found := nb.Int64("42")
+	if !found || r != 42 {
+		t.Error("Got different or altered bag return from FromContext")
+	}
+
+	// make sure FromContext handles cases where there is no bag attached
+	nb, found = FromContext(context.Background())
+	if found || nb != nil {
+		t.Error("Expecting FromContext to fail cleanly")
+	}
+}
+
+func TestBadTimestamp(t *testing.T) {
+	// ensure we handle bogus on-the-wire timestamp values properly
+
+	// a bogus timestamp value
+	ts1 := &ts.Timestamp{Seconds: -1, Nanos: -1}
+
+	attrs := mixerpb.Attributes{
+		Dictionary:          dictionary{1: "N1"},
+		TimestampAttributes: map[int32]*ts.Timestamp{1: ts1},
+	}
+
+	am := NewManager()
+	at := am.NewTracker()
+	defer at.Done()
+
+	_, err := at.StartRequest(&attrs)
+	if err == nil {
+		t.Error("Successfully updated attributes, expected an error")
+	}
+	defer at.EndRequest()
 }
