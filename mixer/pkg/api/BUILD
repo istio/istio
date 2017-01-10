@@ -9,9 +9,7 @@ go_library(
         "methodHandlers.go",
     ],
     deps = [
-        "//pkg/adapter:go_default_library",
         "//pkg/attribute:go_default_library",
-        "//pkg/server:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",

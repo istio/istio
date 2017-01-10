@@ -9,7 +9,6 @@ go_library(
     ],
     deps = [
         "//adapter/stdioLogger/config:go_default_library",
-        "//pkg/adapter:go_default_library",
         "//pkg/aspect:go_default_library",
         "//pkg/aspect/logger:go_default_library",
         "//pkg/registry:go_default_library",
