@@ -23,6 +23,9 @@ branch, but release branches of the Istio mixer should not change.
   - [Creating a pull request](#creating-a-pull-request)
   - [Getting a code review](#getting-a-code-review)
   - [When to retain commits and when to squash](#when-to-retain-commits-and-when-to-squash)
+  - [Building the code](#building-the-code)
+  - [Auto-formatting source code](#auto-formatting-source-code)
+  - [Running the linters](#running-the-linters)
 - [About testing](#about-testing)
 
 Other docs you should look at:
@@ -171,6 +174,22 @@ You can run all the available tests with:
 
 ```
 bazel test ...
+```
+## Auto-formatting source code
+
+You can automatically format the source code and BUILD files to follow our conventions by going to the
+top of the repo and entering:
+
+```
+make fmt
+```
+
+## Running the linters
+
+You can run all the linters we require on your local repo by going to the top of the repo and entering:
+
+```
+make lint
 ```
 
 ## About testing
