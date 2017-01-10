@@ -17,6 +17,7 @@ branch, but release branches of the Istio mixer should not change.
 - [Git workflow](#git-workflow)
   - [Fork the main repository](#fork-the-main-repository)
   - [Clone your fork](#clone-your-fork)
+  - [Enable pre commit hook](#enable-pre-commit-hook)
   - [Create a branch and make changes](#create-a-branch-and-make-changes)
   - [Keeping your fork in sync](#keeping-your-fork-in-sync)
   - [Committing changes to your fork](#committing-changes-to-your-fork)
@@ -95,6 +96,18 @@ git clone https://github.com/$YOUR_GITHUB_USERNAME/mixer.git
 cd mixer
 git remote add upstream 'https://github.com/istio/mixer.git'
 ```
+### Enable pre-commit hook
+
+Mixer uses a local pre-commit hook to ensure that the code
+passes local test.
+
+Run
+```
+user@host:~/GOHOME/src/istio.io/mixer$ bin/pre-commit
+Installing pre-commit hook
+```
+This hook is invoked every time you commit changes locally.
+The commit is allowed to proceed only if the hook succeeds.
 
 ### Create a branch and make changes
 
