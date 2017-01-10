@@ -17,7 +17,7 @@ syntax = "proto3";
 package istio.mixer.v1;
 
 import "google/rpc/status.proto";
-import "mixer/api/v1/attributes.proto";
+import "mixer/v1/attributes.proto";
 
 // Used to verify preconditions before performing an action.
 message CheckRequest {
