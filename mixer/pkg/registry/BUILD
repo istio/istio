@@ -9,6 +9,7 @@ go_prefix("istio.io/mixer/pkg/registry")
 DEPS = [
     "//pkg/aspect/denyChecker:go_default_library",
     "//pkg/aspect/listChecker:go_default_library",
+    "//pkg/aspect/logger:go_default_library",
     "//pkg/aspect/quota:go_default_library",
 ]
 

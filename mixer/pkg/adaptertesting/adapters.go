@@ -20,6 +20,7 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/denyChecker"
 	"istio.io/mixer/pkg/aspect/listChecker"
+	"istio.io/mixer/pkg/aspect/logger"
 	"istio.io/mixer/pkg/aspect/quota"
 	"istio.io/mixer/pkg/registry"
 )
@@ -41,6 +42,11 @@ func (r *fakeRegistrar) RegisterDeny(denyChecker.Adapter) error {
 	return nil
 }
 
+func (r *fakeRegistrar) RegisterLogger(logger.Adapter) error {
+	r.registrations++
+	return nil
+}
+
 func (r *fakeRegistrar) RegisterQuota(quota.Adapter) error {
 	r.registrations++
 	return nil
@@ -53,7 +59,7 @@ func TestAdapterInvariants(a aspect.Adapter, r RegisterFunc, t *testing.T) {
 	}
 
 	if a.Description() == "" {
-		t.Error("Description() => adapter '%s' doesn't provide a valid description", a.Name())
+		t.Errorf("Description() => adapter '%s' doesn't provide a valid description", a.Name())
 	}
 
 	c := a.DefaultConfig()
