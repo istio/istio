@@ -17,7 +17,7 @@ syntax = "proto3";
 package istio.mixer.v1;
 
 import "google/rpc/status.proto";
-import "mixer/api/attributes.proto";
+import "mixer/v1/attributes.proto";
 
 message QuotaRequest {
   // Index within the stream for this request, used to match to responses
