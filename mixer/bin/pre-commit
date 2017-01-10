@@ -1,0 +1,37 @@
+#!/bin/bash
+# Run local pre-commit hook
+#
+# If called directly install pre-commit hook
+
+
+WD=$(dirname $0)
+WD=$(cd $WD; pwd)
+ROOT=$(dirname $WD)
+
+# Not running under git commit
+# install handler
+if [[ -z ${GIT_AUTHOR_DATE} ]];then
+  cd $ROOT/.git/hooks/
+  if [[ ! -e pre-commit ]]; then
+    echo "Installing pre-commit hook"
+    ln -s ../../bin/pre-commit
+  fi
+  exit 0
+fi
+
+# if found WORKSPACE file, we are good
+if [[ -f WORKSPACE ]]; then
+  ROOT=$PWD
+fi
+
+cd $ROOT
+
+# While adding more tests here keep in mind that
+# this runs every time a user commits
+# Run all the formatters now
+bin/fmt.sh
+
+bazel test //...
+
+bin/linters.sh
+

@@ -1,16 +1,24 @@
 #!/bin/bash
 
 # Runs all requisite linters over the whole mixer code base.
+set -e
+
+INST_FLAG=/tmp/.prep_linters
 
 prep_linters() {
-    go get -u github.com/alecthomas/gometalinter
-    go get -u github.com/bazelbuild/buildifier/buildifier
-    go get -u github.com/3rf/codecoroner
-    gometalinter --install >/dev/null
-    bin/bazel_to_go.py
+    if [[ ! -f ${INST_FLAG} || ! -z ${FORCE} ]];then
+      echo Preparing linters
+      go get -u github.com/alecthomas/gometalinter
+      go get -u github.com/bazelbuild/buildifier/buildifier
+      go get -u github.com/3rf/codecoroner
+      gometalinter --install >/dev/null
+      bin/bazel_to_go.py
+    fi
+    touch ${INST_FLAG}
 }
 
 run_linters() {
+    echo Running linters
     buildifier -showlog -mode=check $(find . -name BUILD -type f)
 
     # TODO: Enable this once more of mixer is connected and we don't
@@ -54,10 +62,8 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
-echo Preparing linters
 prep_linters
 
-echo Running linters
 run_linters
 
 echo Done running linters
