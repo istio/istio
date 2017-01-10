@@ -24,3 +24,4 @@ install:
 
 script:
   - script/check-style
+  - bazel build :all
