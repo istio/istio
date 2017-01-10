@@ -34,11 +34,14 @@ import (
 	"net"
 
 	"github.com/golang/glog"
+	ot "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/log"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/tracing"
 
 	proto "github.com/golang/protobuf/proto"
 	mixerpb "istio.io/api/mixer/v1"
@@ -55,6 +58,10 @@ type GRPCServerOptions struct {
 
 	// Port specifies the IP port the server should listen on.
 	Port uint16
+
+	// EnableTracing determines whether OpenTracing is used to add trace information to
+	// all API calls.
+	EnableTracing bool
 
 	// CompressedPayload determines whether compression should be
 	// used on individual messages.
@@ -76,6 +83,10 @@ type GRPCServerOptions struct {
 	// AttributeManager holds a pointer to an initialized AttributeManager to use when
 	// processing incoming attribute requests.
 	AttributeManager attribute.Manager
+
+	// Tracer is the tracer instance to use with OpenTracing. If EnableTracing is false
+	// this is unused.
+	Tracer ot.Tracer
 }
 
 // GRPCServer holds the state for the gRPC API server.
@@ -121,6 +132,15 @@ func NewGRPCServer(options *GRPCServerOptions) (*GRPCServer, error) {
 		grpcOptions = append(grpcOptions, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	}
 
+	if options.EnableTracing {
+		// If options.Tracer is nil we won't set the GlobalTracer, defaulting to the no-op tracer.
+		//
+		// TODO: should we panic if tracing is enabled but no tracer is provided?
+		if options.Tracer != nil {
+			ot.SetGlobalTracer(options.Tracer)
+		}
+	}
+
 	// get everything wired up
 	grpcServer := grpc.NewServer(grpcOptions...)
 	s := &GRPCServer{grpcServer, listener, options.Handlers, options.AttributeManager}
@@ -140,13 +160,16 @@ func (s *GRPCServer) Stop() {
 	s.server.GracefulStop()
 }
 
-type handlerFunc func(tracker attribute.Tracker, request proto.Message, response proto.Message)
+type handlerFunc func(ctx context.Context, tracker attribute.Tracker, request proto.Message, response proto.Message)
 
-func (s *GRPCServer) streamLoop(stream grpc.ServerStream, request proto.Message, response proto.Message, handler handlerFunc) error {
+func (s *GRPCServer) streamLoop(stream grpc.ServerStream, request proto.Message, response proto.Message, handler handlerFunc, methodName string) error {
 	tracker := s.attrMgr.NewTracker()
 	defer tracker.Done()
 
-	for {
+	root, ctx := tracing.StartRootSpan(stream.Context(), methodName)
+	defer root.Finish()
+
+	for i := 1; ; i++ {
 		// get a single message
 		if err := stream.RecvMsg(request); err == io.EOF {
 			return nil
@@ -155,13 +178,21 @@ func (s *GRPCServer) streamLoop(stream grpc.ServerStream, request proto.Message,
 			return err
 		}
 
+		var span ot.Span
+		span, ctx = ot.StartSpanFromContext(ctx, fmt.Sprintf("%s-%d", methodName, i))
+		span.LogFields(log.Object("gRPC request", request))
+
 		// do the actual work for the message
-		handler(tracker, request, response)
+		// TODO: do we want to carry the same ctx through each loop iteration, or pull it out of the stream each time?
+		handler(ctx, tracker, request, response)
 
 		// produce the response
 		if err := stream.SendMsg(response); err != nil {
 			return err
 		}
+
+		span.LogFields(log.Object("gRPC response", response))
+		span.Finish()
 
 		// reset everything to 0
 		request.Reset()
@@ -174,9 +205,9 @@ func (s *GRPCServer) Check(stream mixerpb.Mixer_CheckServer) error {
 	return s.streamLoop(stream,
 		new(mixerpb.CheckRequest),
 		new(mixerpb.CheckResponse),
-		func(tracker attribute.Tracker, request proto.Message, response proto.Message) {
-			s.handlers.Check(context.Background(), tracker, request.(*mixerpb.CheckRequest), response.(*mixerpb.CheckResponse))
-		})
+		func(ctx context.Context, tracker attribute.Tracker, request proto.Message, response proto.Message) {
+			s.handlers.Check(ctx, tracker, request.(*mixerpb.CheckRequest), response.(*mixerpb.CheckResponse))
+		}, "/istio.mixer.v1.Mixer/Check")
 }
 
 // Report is the entry point for the external Report method
@@ -184,9 +215,9 @@ func (s *GRPCServer) Report(stream mixerpb.Mixer_ReportServer) error {
 	return s.streamLoop(stream,
 		new(mixerpb.ReportRequest),
 		new(mixerpb.ReportResponse),
-		func(tracker attribute.Tracker, request proto.Message, response proto.Message) {
-			s.handlers.Report(context.Background(), tracker, request.(*mixerpb.ReportRequest), response.(*mixerpb.ReportResponse))
-		})
+		func(ctx context.Context, tracker attribute.Tracker, request proto.Message, response proto.Message) {
+			s.handlers.Report(ctx, tracker, request.(*mixerpb.ReportRequest), response.(*mixerpb.ReportResponse))
+		}, "/istio.mixer.v1.Mixer/Report")
 }
 
 // Quota is the entry point for the external Quota method
@@ -194,7 +225,7 @@ func (s *GRPCServer) Quota(stream mixerpb.Mixer_QuotaServer) error {
 	return s.streamLoop(stream,
 		new(mixerpb.QuotaRequest),
 		new(mixerpb.QuotaResponse),
-		func(tracker attribute.Tracker, request proto.Message, response proto.Message) {
-			s.handlers.Quota(context.Background(), tracker, request.(*mixerpb.QuotaRequest), response.(*mixerpb.QuotaResponse))
-		})
+		func(ctx context.Context, tracker attribute.Tracker, request proto.Message, response proto.Message) {
+			s.handlers.Quota(ctx, tracker, request.(*mixerpb.QuotaRequest), response.(*mixerpb.QuotaResponse))
+		}, "/istio.mixer.v1.Mixer/Quota")
 }

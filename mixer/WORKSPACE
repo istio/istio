@@ -132,6 +132,12 @@ new_go_repository(
     importpath = "github.com/hashicorp/errwrap",
 )
 
+new_go_repository(
+    name = "com_github_opentracing_opentracing_go",
+    commit = "ac5446f53f2c0fc68dc16dc5f426eae1cd288b34",
+    importpath = "github.com/opentracing/opentracing-go",
+)
+
 load("//:repositories.bzl", "new_git_or_local_repository")
 
 new_git_or_local_repository(
