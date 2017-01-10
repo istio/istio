@@ -103,8 +103,8 @@ class MixerClient {
   // This is async call. on_quota_done is always called when the
   // quota request is finished.
   virtual void Quota(const ::istio::mixer::v1::QuotaRequest& quota_request,
-                      ::istio::mixer::v1::QuotaResponse* quota_response,
-                      DoneFunc on_quota_done) = 0;
+                     ::istio::mixer::v1::QuotaResponse* quota_response,
+                     DoneFunc on_quota_done) = 0;
 };
 
 // Creates a MixerClient object.
