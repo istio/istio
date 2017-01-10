@@ -15,12 +15,7 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
-
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/server"
 )
 
 func adapterCmd(errorf errorFn) *cobra.Command {
@@ -44,6 +39,7 @@ func adapterCmd(errorf errorFn) *cobra.Command {
 	return &adapterCmd
 }
 
+/*
 func printBuilders(listName string, builders map[string]adapter.Adapter) {
 	fmt.Printf("%s\n", listName)
 	if len(builders) > 0 {
@@ -57,7 +53,10 @@ func printBuilders(listName string, builders map[string]adapter.Adapter) {
 	fmt.Printf("\n")
 }
 
+*/
+
 func listBuilders() error {
+	/* TODO: Reimplement
 	mgr, err := server.NewAdapterManager()
 	if err != nil {
 		return fmt.Errorf("unable to initialize adapters: %v", err)
@@ -65,6 +64,7 @@ func listBuilders() error {
 
 	printBuilders("List Checkers", mgr.ListCheckers)
 	printBuilders("Loggers", mgr.Loggers)
+	*/
 
 	return nil
 }

@@ -23,9 +23,7 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/genproto/googleapis/rpc/status"
 
-	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/server"
 
 	mixerpb "istio.io/api/mixer/v1"
 )
@@ -50,11 +48,7 @@ type MethodHandlers interface {
 }
 
 type methodHandlers struct {
-	adapterManager *server.AdapterManager
-	configManager  *server.ConfigManager
 }
-
-var okStatus = newStatus(code.Code_OK)
 
 func newStatus(c code.Code) *status.Status {
 	return &status.Status{Code: int32(c)}
@@ -65,11 +59,8 @@ func newQuotaError(c code.Code) *mixerpb.QuotaResponse_Error {
 }
 
 // NewMethodHandlers returns a canonical MethodHandlers that implements all of the mixer's API surface
-func NewMethodHandlers(adapterManager *server.AdapterManager, configManager *server.ConfigManager) MethodHandlers {
-	return &methodHandlers{
-		adapterManager: adapterManager,
-		configManager:  configManager,
-	}
+func NewMethodHandlers() MethodHandlers {
+	return &methodHandlers{}
 }
 
 type workFunc func(context.Context, attribute.MutableBag) *status.Status
@@ -96,59 +87,7 @@ func (h *methodHandlers) Check(ctx context.Context, tracker attribute.Tracker, r
 }
 
 func (h *methodHandlers) checkWorker(ctx context.Context, ab attribute.MutableBag) *status.Status {
-	dispatchKey, err := server.NewDispatchKey(ab)
-	if err != nil {
-		glog.Warningf("Error extracting the dispatch key. error: '%v'", err)
-		return newStatus(code.Code_FAILED_PRECONDITION)
-	}
-
-	allowed, err := h.checkLists(dispatchKey, ab)
-	if err != nil {
-		glog.Warningf("Unexpected check error. dispatchKey: '%v', error: '%v'", dispatchKey, err)
-		return newStatus(code.Code_INTERNAL)
-	}
-
-	if !allowed {
-		return newStatus(code.Code_PERMISSION_DENIED)
-	}
-
-	// No objections from any of the adapters
-	return okStatus
-}
-
-func (h *methodHandlers) checkLists(dispatchKey server.DispatchKey, ab attribute.MutableBag) (bool, error) {
-	// TODO: What is the correct error handling policy for the check calls? This implementation opts for fail-close.
-	configBlocks, err := h.configManager.GetListCheckerConfigBlocks(dispatchKey)
-	if err != nil {
-		return false, err
-	}
-
-	for _, configBlock := range configBlocks {
-		listCheckerAdapter, err := h.adapterManager.GetListCheckerAdapter(dispatchKey, configBlock.AspectConfig)
-		if err != nil {
-			return false, err
-		}
-
-		symbol, err := "SomeSymbol", nil //configBlock.Evaluator.EvaluateSymbolBinding(tracker.GetLabels())
-		if err != nil {
-			return false, err
-		}
-
-		inList, err := listCheckerAdapter.CheckList(symbol)
-		if err != nil {
-			return false, err
-		}
-
-		if !inList {
-			// TODO: listCheckerAdapter is very heavy-weight to log here. We should extract a canonical
-			// identifier for the adapter and log it instead.
-			glog.Infof("Check call is denied by adapter. dispatchKey: '%v', adapter: '%v'",
-				dispatchKey, listCheckerAdapter)
-			return false, nil
-		}
-	}
-
-	return true, nil
+	return newStatus(code.Code_UNIMPLEMENTED)
 }
 
 func (h *methodHandlers) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
@@ -157,76 +96,8 @@ func (h *methodHandlers) Report(ctx context.Context, tracker attribute.Tracker, 
 }
 
 func (h *methodHandlers) reportWorker(ctx context.Context, ab attribute.MutableBag) *status.Status {
-	dispatchKey, err := server.NewDispatchKey(ab)
-	if err != nil {
-		glog.Warningf("Error extracting the dispatch key. error: '%v'", err)
-		return newStatus(code.Code_FAILED_PRECONDITION)
-	}
-
-	err = h.report(dispatchKey, ab)
-	if err != nil {
-		glog.Warningf("Unexpected report error: %v", err)
-		return newStatus(code.Code_INTERNAL)
-	}
-
-	return okStatus
+	return newStatus(code.Code_UNIMPLEMENTED)
 }
-
-func (h *methodHandlers) report(dispatchKey server.DispatchKey, ac attribute.Bag) error {
-	aspectConfigs, err := h.configManager.GetLoggerAspectConfigs(dispatchKey)
-	if err != nil {
-		return err
-	}
-
-	var result error
-	for _, aspectConfig := range aspectConfigs {
-		loggerAdapter, err := h.adapterManager.GetLoggerAdapter(dispatchKey, aspectConfig)
-		if err != nil {
-			return err
-		}
-
-		convertedLogs := []adapter.LogEntry{}
-		err = loggerAdapter.Log(convertedLogs)
-		if err != nil {
-			if result != nil {
-				// TODO: It maybe worthwhile to come up with a way to accomulate errors.
-				// TODO: LoggerAdapter is very heavy-weight to log here. We should extract a canonical
-				glog.Infof("Unexpected error from logging adapter: error='%v', adapter='%v'", err, loggerAdapter)
-				result = err
-			}
-		}
-	}
-
-	return result
-}
-
-/*
-func buildLogEntries(entries []*mixerpb.LogEntry) []adapters.LogEntry {
-	// TODO: actual conversion implementation
-	result := make([]adapters.LogEntry, len(entries))
-	for i, e := range entries {
-		timestamp, err := ptypes.Timestamp(e.GetTimestamp())
-		if err != nil {
-			glog.Warningf("Error converting the log timestamp: error='%v', timestamp='%v'", err, e.GetTimestamp())
-			// Use a "default" timestamp to avoid losing the log information.
-			timestamp, _ = ptypes.Timestamp(nil)
-		}
-		entry := adapters.LogEntry{
-			Collection:  e.GetLogCollection(),
-			Timestamp:   timestamp,
-			TextPayload: e.GetTextPayload(),
-			Severity:    e.GetSeverity().String(),
-			// TODO: labels
-			// TODO: StructPayload conversion
-			// TODO: ProtoPayload conversion
-		}
-
-		result[i] = entry
-	}
-
-	return result
-}
-*/
 
 func (h *methodHandlers) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
 	response.RequestIndex = request.RequestIndex

@@ -25,7 +25,6 @@ import (
 
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/server"
 )
 
 type serverArgs struct {
@@ -86,17 +85,6 @@ func runServer(sa *serverArgs) error {
 		}
 	}
 
-	var adapterMgr *server.AdapterManager
-	var err error
-	if adapterMgr, err = server.NewAdapterManager(); err != nil {
-		return fmt.Errorf("unable to initialize adapters: %v", err)
-	}
-
-	var configMgr *server.ConfigManager
-	if configMgr, err = server.NewConfigManager(); err != nil {
-		return fmt.Errorf("unable to initialize configuration: %v", err)
-	}
-
 	attrMgr := attribute.NewManager()
 
 	grpcServerOptions := api.GRPCServerOptions{
@@ -106,11 +94,12 @@ func runServer(sa *serverArgs) error {
 		CompressedPayload:    sa.compressedPayload,
 		ServerCertificate:    serverCert,
 		ClientCertificates:   clientCerts,
-		Handlers:             api.NewMethodHandlers(adapterMgr, configMgr),
+		Handlers:             api.NewMethodHandlers(),
 		AttributeManager:     attrMgr,
 	}
 
 	var grpcServer *api.GRPCServer
+	var err error
 	if grpcServer, err = api.NewGRPCServer(&grpcServerOptions); err != nil {
 		return fmt.Errorf("unable to initialize gRPC server " + err.Error())
 	}
