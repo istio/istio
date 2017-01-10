@@ -1,0 +1,33 @@
+// Copyright 2016 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.mixer.v1;
+
+// Defines the format of a single log entry.
+message LogEntryDescriptor {
+  // The name of this descriptor.
+  string name = 1;
+
+  // An optional concise name for the log entry type, which can be displayed in user interfaces.
+  // Use sentence case without an ending period, for example "Request count".
+  string display_name = 2;
+
+  // An optional description of the log entry type, which can be used in documentation.
+  string description = 3;
+
+  // The set of attributes that are necessary to describe a log entry of this type.
+  repeated string attributes = 4;
+}

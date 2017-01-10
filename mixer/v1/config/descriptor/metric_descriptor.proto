@@ -30,20 +30,17 @@ message MetricDescriptor {
 
   // The set of attributes that are necessary to describe a specific value cell
   // for a metric of this type.
-  repeated string dimension_attributes = 3;
-
-  // The monitored resource to associate with metrics of this type.
-  string monitored_resource_descriptor = 4;
+  repeated string attributes = 3;
 
   // Whether the metric records instantaneous values, changes to a value, etc.
-  MetricKind metric_kind = 5;
+  MetricKind metric_kind = 4;
 
   // An optional description of the metric, which can be used in documentation.
-  string description = 6;
+  string description = 5;
 
   // An optional concise name for the metric, which can be displayed in user interfaces.
   // Use sentence case without an ending period, for example "Request count".
-  string display_name = 7;
+  string display_name = 6;
 
   // The kind of measurement. It describes how the data is reported.
   enum MetricKind {

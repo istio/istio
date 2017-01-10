@@ -14,18 +14,20 @@
 
 syntax = "proto3";
 
-package istio.mixer.v1;
+package istio.mixer.v1.config.aspect;
 
-// An object that describes the schema of a 'MonitoredResource'
-// using a name and a set of attributes.
-message MonitoredResourceDescriptor {
-  // The name of this descriptor
-  string name = 1;
-
-  // The set of attributes that are necessary to describe a specific monitored resource.
-  repeated string attributes = 3;
-
-  // An optional detailed description of the monitored resource descriptor that might
-  // be used in documentation.
-  string description = 2;
+// Configures a list checker aspect
+message ListCheckerConfig {
+  // blacklist determines if this behaves like a blacklist
+  // default is whitelist
+  bool blacklist = 1;
+  // check_attribute is the attribute to check on the list
+  // should be a well known attribute or must be mapped in mappings
+  string check_attribute = 2;
 }
+
+// Example
+// kind: istio/listChecker
+// params:
+//	blacklist: true
+//      check_attributes: src.ip

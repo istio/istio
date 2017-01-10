@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package istio.mixer.v1;
+package istio.mixer.v1.config.descriptor;
 
 // Configuration state for a particular quota.
 //
@@ -23,7 +23,7 @@ package istio.mixer.v1;
 // The descriptor below lets you define a quota and indicate the maximum
 // amount values of this quota are allowed to hold.
 //
-// A given quota is described by a set of attribtues. These attributes represent
+// A given quota is described by a set of attributes. These attributes represent
 // the different dimensions to associate with the quota. A given quota holds a
 // unique value for potentially any combination of these attributes.
 //
@@ -34,20 +34,20 @@ message QuotaDescriptor {
   // The name of this descriptor.
   string name = 1;
 
+  // A optional concise name for the quota, which can be displayed in user interfaces.
+  // Use sentence case without an ending period, for example "Request count".
+  string display_name = 2;
+
+  // An optional description of the quota, which can be used in documentation.
+  string description = 3;
+
   // The name of the attribute that supplies the amount for a given
   // quota allocation or release operation.
-  string amount_attribute = 2;
+  string amount_attribute = 4;
 
   // The set of attributes that are necessary to describe a specific value cell
   // for a quota of this type.
-  repeated string dimension_attributes = 3;
-
-  // An optional description of the quota, which can be used in documentation.
-  string description = 4;
-
-  // A optional concise name for the quota, which can be displayed in user interfaces.
-  // Use sentence case without an ending period, for example "Request count".
-  string display_name = 5;
+  repeated string attributes = 5;
 
   // The default imposed maximum amount for values of this quota.
   int64 max_amount = 6;
@@ -58,11 +58,11 @@ message QuotaDescriptor {
   // Whether the quota's current value is tracked precisely or not.
   // Precisely tracked quotas only allow a relatively modest level of
   // scaling, whereas imprecise quotas can support a nearly unbounded
-  // level of scaling at the cost of potentially having inaccuracies.
+  // level of scaling at the cost of potential accounting inaccuracies.
   bool precise = 8;
 
   enum QuotaKind {
-    // Quota values are always explicitly manipulated via the Quota method.
+    // Quota values are always explicitly manipulated via API calls.
     ALLOCATION_LIMIT = 0;
 
     // Quota limit expresses a maximum amount over a rolling time interval

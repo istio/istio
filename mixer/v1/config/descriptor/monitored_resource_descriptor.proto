@@ -16,14 +16,16 @@ syntax = "proto3";
 
 package istio.mixer.v1;
 
-// Defines the format of a single log entry.
-message LogEntryDescriptor {
-  // The name of this descriptor.
+// An object that describes the schema of a 'MonitoredResource'
+// using a name and a set of attributes.
+message MonitoredResourceDescriptor {
+  // The name of this descriptor
   string name = 1;
 
-  // The set of attributes that are necessary to describe a log entry of this type.
-  repeated string attributes = 2;
+  // An optional detailed description of the monitored resource descriptor that might
+  // be used in documentation.
+  string description = 2;
 
-  // The monitored resource to associated with log entries of this type.
-  string monitored_resource_descriptor = 3;
+  // The set of attributes that are necessary to describe a specific instance of a monitored resource.
+  repeated string attributes = 3;
 }

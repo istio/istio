@@ -17,11 +17,11 @@ syntax = "proto3";
 import "google/protobuf/struct.proto";
 
 
-package istio.config.v1;
+package istio.mixer.v1.config;
 
 // Configures a set of services
 // following example configures metrics collection and ratelimit for
-// all services 
+// all services
 //# service config
 //subject: "namespace:ns1"
 //revision: "1011"

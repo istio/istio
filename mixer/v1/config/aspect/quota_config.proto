@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2017 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,22 +14,8 @@
 
 syntax = "proto3";
 
-package istio.config.v1.aspect.listChecker;
+package istio.mixer.v1.config.aspect;
 
-
-// Config - User visible configuration of this aspect
-// Must be defined as a proto
-message Config {
-  // blacklist determines if this behaves like a blacklist
-  // default is whitelist
-  bool blacklist = 1;
-  // check_attribute is the attribute to check on the list
-  // should be a well known attribute or must be mapped in mappings
-  string check_attribute = 2;
+// Configures a quota aspect.
+message QuotaConfig {
 }
-
-// Example
-// kind: istio/listChecker
-// params:
-//	blacklist: true
-//      check_attributes: src.ip

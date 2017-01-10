@@ -14,8 +14,8 @@
 
 syntax = "proto3";
 
-package istio.config.v1.aspect.denyChecker;
+package istio.mixer.v1.config.aspect;
 
-// Config - User visible configuration of this aspect
-message Config {
+// Configures a deny checker aspect
+message DenyCheckerConfig {
 }

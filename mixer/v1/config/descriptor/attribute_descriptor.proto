@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package istio.mixer.v1;
+package istio.mixer.v1.config.descriptor;
 
 // An `AttributeDescriptor` describes the schema of an Istio attribute type.
 //
@@ -70,11 +70,11 @@ message AttributeDescriptor {
   // name with a component-specific suffix such as request_count-my_component
   string name = 1;
 
-  // The type of data carried by attributes
-  ValueType value_type = 2;
-
   // An optional human-readable description of the attribute's purpose.
-  string description = 3;
+  string description = 2;
+
+  // The type of data carried by attributes
+  ValueType value_type = 3;
 
   // Types of supported attribute values.
   enum ValueType {

@@ -18,7 +18,7 @@ package istio.mixer.v1;
 
 import "google/protobuf/timestamp.proto";
 
-// An instance of this is delivered to the mixer with every
+// An instance of this message is delivered to the mixer with every
 // API call.
 //
 // The general idea is to leverage the stateful gRPC streams from the
@@ -52,7 +52,7 @@ message Attributes {
   // This is intended to leverage the stateful gRPC stream from the
   // proxy to the mixer. This dictionary is sent over only when a
   // stream to the mixer is first established and when the proxy's
-  // config changes and different attributes may be produced.
+  // configuration changes and different attributes may be produced.
   //
   // Once a dictionary has been sent over, it stays in effect until
   // a new dictionary is sent to replace it. The first request sent on a
@@ -60,7 +60,7 @@ message Attributes {
   // any attribute updates.
   //
   // Dictionaries are independent of the attribute context and are thus global
-  // for the current gRPC stream.
+  // to each gRPC stream.
   map<int32, string> dictionary = 1;
 
   // The attribute context against which to operate.
@@ -76,7 +76,7 @@ message Attributes {
   // to prevent an explosion of contexts in the mixer's memory space.
   //
   // TODO: Consider removing support for this feature. The proxy can achieve
-  // the same thing using multiple gRPC streams. The benefit of using streams
+  // the same effect using multiple gRPC streams. The benefit of using streams
   // would be that the mixer would be in control of the maximum number of streams
   // it allows, whereas with the current model the proxy could overwhelm the
   // mixer by creating too many contexts.
