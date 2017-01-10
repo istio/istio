@@ -25,7 +25,7 @@ import (
 
 	jtpb "github.com/golang/protobuf/jsonpb/jsonpb_test_proto"
 	"github.com/golang/protobuf/ptypes/empty"
-	configpb "istio.io/api/istio/config/v1"
+	configpb "istio.io/api/mixer/v1/config"
 	"istio.io/mixer/pkg/aspect/logger"
 	"istio.io/mixer/pkg/aspectsupport"
 )

@@ -20,7 +20,7 @@ import (
 
 	ts "github.com/golang/protobuf/ptypes/timestamp"
 
-	mixerpb "istio.io/api/mixer/api/v1"
+	mixerpb "istio.io/api/mixer/v1"
 )
 
 func TestAttributeManager(t *testing.T) {

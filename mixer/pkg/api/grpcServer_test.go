@@ -25,7 +25,7 @@ import (
 
 	"istio.io/mixer/pkg/attribute"
 
-	mixerpb "istio.io/api/mixer/api/v1"
+	mixerpb "istio.io/api/mixer/v1"
 )
 
 const (

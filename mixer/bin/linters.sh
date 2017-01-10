@@ -3,18 +3,13 @@
 # Runs all requisite linters over the whole mixer code base.
 set -e
 
-INST_FLAG=/tmp/.prep_linters
-
 prep_linters() {
-    if [[ ! -f ${INST_FLAG} || ! -z ${FORCE} ]];then
-      echo Preparing linters
-      go get -u github.com/alecthomas/gometalinter
-      go get -u github.com/bazelbuild/buildifier/buildifier
-      go get -u github.com/3rf/codecoroner
-      gometalinter --install >/dev/null
-      bin/bazel_to_go.py
-    fi
-    touch ${INST_FLAG}
+    echo Preparing linters
+    go get -u github.com/alecthomas/gometalinter
+    go get -u github.com/bazelbuild/buildifier/buildifier
+    go get -u github.com/3rf/codecoroner
+    gometalinter --install >/dev/null
+    bin/bazel_to_go.py
 }
 
 run_linters() {

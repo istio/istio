@@ -19,7 +19,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/genproto/googleapis/rpc/code"
-	denycheckerpb "istio.io/api/istio/config/v1/aspect/denyChecker"
+	aspectpb "istio.io/api/mixer/v1/config/aspect"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/denyChecker"
 	"istio.io/mixer/pkg/aspectsupport"
@@ -73,7 +73,7 @@ func (*manager) Kind() string {
 }
 
 func (*manager) DefaultConfig() proto.Message {
-	return &denycheckerpb.Config{}
+	return &aspectpb.DenyCheckerConfig{}
 }
 
 func (*manager) ValidateConfig(implConfig proto.Message) (ce *aspect.ConfigErrors) {

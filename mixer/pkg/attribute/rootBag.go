@@ -22,7 +22,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	me "github.com/hashicorp/go-multierror"
 
-	mixerpb "istio.io/api/mixer/api/v1"
+	mixerpb "istio.io/api/mixer/v1"
 )
 
 // The rootBag is always the base of a chain of bags. Its state is updated
