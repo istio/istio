@@ -178,9 +178,12 @@ def main(args):
 
 def adapter_protos(WKSPC):
     for adapter in os.listdir(WKSPC + "/bazel-genfiles/adapter/"):
-        makelink(WKSPC + "/bazel-genfiles/adapter/"+adapter, WKSPC + "/adapter/" +adapter + "/config_proto")
-
-
+        if os.path.exists(WKSPC + "/bazel-genfiles/adapter/"+ adapter + "/config"):
+            for file in os.listdir(WKSPC + "/bazel-genfiles/adapter/" + adapter + "/config"):
+                if file.endswith(".pb.go"):
+                    makelink(WKSPC + "/bazel-genfiles/adapter/"+ adapter + "/config/" + file, WKSPC + "/adapter/" +adapter + "/config/" + file)
+        else:
+            makelink(WKSPC + "/bazel-genfiles/adapter/"+ adapter, WKSPC + "/adapter/" +adapter + "/config_proto")
 
 if __name__ == "__main__":
     import sys

@@ -17,6 +17,7 @@ package registry
 import (
 	"istio.io/mixer/pkg/aspect/denyChecker"
 	"istio.io/mixer/pkg/aspect/listChecker"
+	"istio.io/mixer/pkg/aspect/logger"
 	"istio.io/mixer/pkg/aspect/quota"
 )
 
@@ -27,6 +28,12 @@ type Registrar interface {
 
 	// RegisterDeny
 	RegisterDeny(denyChecker.Adapter) error
+
+	// RegisterLogger informs the mixer that an implementation of the
+	// logging aspect is provided by the supplied adapter. This adapter
+	// will be used to build individual instances of the logger aspect
+	// according to mixer config.
+	RegisterLogger(logger.Adapter) error
 
 	// RequestQuota is used by adapters to register themselves as implementing the
 	// quota aspect.

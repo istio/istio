@@ -19,16 +19,13 @@ import (
 
 	"fmt"
 
-	"istio.io/mixer/adapter/jsonLogger"
 	"istio.io/mixer/pkg/adapter"
 )
 
 // all the known list checker adapter implementations
 var listCheckers = []adapter.Adapter{}
 
-var loggers = []adapter.Adapter{
-	jsonLogger.NewAdapter(),
-}
+var loggers = []adapter.Adapter{}
 
 // AdapterManager keeps track of activated Aspect objects for different types of adapters
 type AdapterManager struct {
