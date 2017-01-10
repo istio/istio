@@ -18,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	istioconfig "istio.io/api/istio/config/v1"
+	istioconfig "istio.io/api/mixer/v1/config"
 
 	"istio.io/mixer/pkg/aspectsupport"
 	"istio.io/mixer/pkg/attribute"

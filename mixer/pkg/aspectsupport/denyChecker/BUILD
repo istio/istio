@@ -7,9 +7,9 @@ load("@io_bazel_rules_go//go:def.bzl", "go_prefix", "go_library", "go_test")
 go_prefix("istio.io/mixer/pkg/aspect/denyChecker")
 
 ISTIO_DEPS = [
-    "//:mixer/api/v1",
-    "//:istio/config/v1",
-    "//:istio/config/v1/aspect/denyChecker",
+    "//:mixer/v1",
+    "//:mixer/v1/config",
+    "//:mixer/v1/config/aspect",
 ]
 
 DEPS = [
@@ -37,6 +37,6 @@ go_library(
 go_test(
     name = "manager_test",
     size = "small",
-    srcs = SRCS + ["manager_test.go"],
-    deps = DEPS,
+    srcs = ["manager_test.go"],
+    library = ":go_default_library",
 )

@@ -12,10 +12,9 @@ config_setting(
 )
 
 ISTIO_DEPS = [
-    "//:mixer/api/v1",
-    "//:istio/config/v1",
-    "//:istio/config/v1/aspect/denyChecker",
-    "//:istio/config/v1/aspect/listChecker",
+    "//:mixer/v1",
+    "//:mixer/v1/config",
+    "//:mixer/v1/config/aspect",
 ]
 
 DEPS = [

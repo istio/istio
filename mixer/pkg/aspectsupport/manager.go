@@ -17,7 +17,7 @@ package aspectsupport
 import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 
-	istioconfig "istio.io/api/istio/config/v1"
+	istioconfig "istio.io/api/mixer/v1/config"
 
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
