@@ -99,3 +99,33 @@ func FromContext(ctx context.Context) (MutableBag, bool) {
 	bag, ok := ctx.Value(bagKey).(MutableBag)
 	return bag, ok
 }
+
+// Value returns an attribute value from a bag, without having
+// to known a priori the type of the attribute in question.
+func Value(b Bag, name string) (interface{}, bool) {
+	if r, found := b.String(name); found {
+		return r, true
+	}
+
+	if r, found := b.Int64(name); found {
+		return r, true
+	}
+
+	if r, found := b.Float64(name); found {
+		return r, true
+	}
+
+	if r, found := b.Bool(name); found {
+		return r, true
+	}
+
+	if r, found := b.Time(name); found {
+		return r, true
+	}
+
+	if r, found := b.Bytes(name); found {
+		return r, true
+	}
+
+	return nil, false
+}

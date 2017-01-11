@@ -260,3 +260,84 @@ func TestBadTimestamp(t *testing.T) {
 	}
 	defer at.EndRequest()
 }
+
+func TestValue(t *testing.T) {
+	t9 := time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
+	t10 := time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
+	ts9, _ := ptypes.TimestampProto(t9)
+	ts10, _ := ptypes.TimestampProto(t10)
+
+	attrs := mixerpb.Attributes{
+		Dictionary:          dictionary{1: "N1", 2: "N2", 3: "N3", 4: "N4", 5: "N5", 6: "N6", 7: "N7", 8: "N8", 9: "N9", 10: "N10", 11: "N11", 12: "N12"},
+		StringAttributes:    map[int32]string{1: "1", 2: "2"},
+		Int64Attributes:     map[int32]int64{3: 3, 4: 4},
+		DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
+		BoolAttributes:      map[int32]bool{7: true, 8: false},
+		TimestampAttributes: map[int32]*ts.Timestamp{9: ts9, 10: ts10},
+		BytesAttributes:     map[int32][]uint8{11: []byte{11}, 12: []byte{12}},
+	}
+
+	am := NewManager()
+	at := am.NewTracker()
+	defer at.Done()
+	ab, _ := at.StartRequest(&attrs)
+	defer ab.Done()
+
+	if v, found := Value(ab, "N1"); !found {
+		t.Error("Expecting N1 to be found")
+	} else {
+		x := v.(string)
+		if x != "1" {
+			t.Errorf("Expecting N1 to return '1', got '%s'", x)
+		}
+	}
+
+	if v, found := Value(ab, "N3"); !found {
+		t.Error("Expecting N3 to be found")
+	} else {
+		x := v.(int64)
+		if x != 3 {
+			t.Errorf("Expecting N3 to return '3', got '%d'", x)
+		}
+	}
+
+	if v, found := Value(ab, "N5"); !found {
+		t.Error("Expecting N5 to be found")
+	} else {
+		x := v.(float64)
+		if x != 5.0 {
+			t.Errorf("Expecting N5 to return '5', got '%v'", x)
+		}
+	}
+
+	if v, found := Value(ab, "N7"); !found {
+		t.Error("Expecting N7 to be found")
+	} else {
+		x := v.(bool)
+		if !x {
+			t.Errorf("Expecting N7 to return true, got false")
+		}
+	}
+
+	if v, found := Value(ab, "N9"); !found {
+		t.Error("Expecting N9 to be found")
+	} else {
+		x := v.(time.Time)
+		if x != t9 {
+			t.Errorf("Expecting N9 to return '%v', got '%s'", ts9, x)
+		}
+	}
+
+	if v, found := Value(ab, "N11"); !found {
+		t.Error("Expecting N11 to be found")
+	} else {
+		x := v.([]byte)
+		if x[0] != 11 {
+			t.Errorf("Expecting N11 to return []byte{11}")
+		}
+	}
+
+	if _, found := Value(ab, "FOO"); found {
+		t.Error("Expecting FOO to not be found.")
+	}
+}
