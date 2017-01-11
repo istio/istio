@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "client.go",
         "config.go",
-        "consumer.go",
         "controller.go",
         "queue.go",
     ],

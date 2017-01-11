@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # Script to process Godeps.json into WORKSPACE
-# TODO: you need to manually remove duplicate entries 
-# if importpath is a directory in a repo
+# TODO: you need to manually remove duplicate entries if importpath is a directory in a repo
 
 import json
 import sys
