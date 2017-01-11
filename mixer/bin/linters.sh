@@ -29,7 +29,7 @@ run_linters() {
         --enable=goconst\
         --enable=gofmt\
         --enable=goimports\
-        --enable=golint --min-confidence=0 --exclude=.pb.go --exclude="should have a package comment" --exclude="adapter.AdapterConfig"\
+        --enable=golint --min-confidence=0 --exclude=.pb.go --exclude="should have a package comment"\
         --enable=gosimple\
         --enable=ineffassign\
         --enable=interfacer\
@@ -40,6 +40,7 @@ run_linters() {
         --enable=unconvert\
         --enable=unused\
         --enable=varcheck\
+        --enable=vet\
         --enable=vetshadow\
         ./...
 

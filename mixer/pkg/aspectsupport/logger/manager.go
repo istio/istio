@@ -89,7 +89,7 @@ func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspects
 	if err := e.aspect.Log([]logger.Entry{entry}); err != nil {
 		return nil, err
 	}
-	return &aspectsupport.Output{code.Code_OK}, nil
+	return &aspectsupport.Output{Code: code.Code_OK}, nil
 }
 
 func structToProto(in *structpb.Struct, out proto.Message) error {
