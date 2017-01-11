@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package istio.mixer.v1;
+package istio.mixer.v1.config.descriptor;
 
 // Defines the format of a single log entry.
 message LogEntryDescriptor {
