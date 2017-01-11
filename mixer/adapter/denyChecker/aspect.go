@@ -19,7 +19,7 @@ import (
 
 	"istio.io/mixer/pkg/aspect/denyChecker"
 
-	pb "istio.io/mixer/adapter/denyChecker/config_proto"
+	pb "istio.io/mixer/adapter/denyChecker/config"
 )
 
 type aspectState struct {

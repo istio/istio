@@ -22,6 +22,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	pb "istio.io/mixer/adapter/ipListChecker/config"
 	"istio.io/mixer/pkg/adaptertesting"
 	"istio.io/mixer/pkg/aspect"
 )
@@ -57,11 +58,8 @@ func TestBasic(t *testing.T) {
 	}))
 	defer ts.Close()
 	b := newAdapter()
-	if err := b.ValidateConfig(b.DefaultConfig()); err != nil {
-		t.Errorf("Failed validation %#v", err)
-	}
 
-	config := Config{
+	config := pb.Config{
 		ProviderUrl:     ts.URL,
 		RefreshInterval: 1,
 		Ttl:             10,
@@ -92,6 +90,48 @@ func TestBasic(t *testing.T) {
 
 		if ok {
 			t.Errorf("CheckList(%s): expecting 'false', got 'true'", c)
+		}
+	}
+}
+
+func TestValidateConfig(t *testing.T) {
+	type testCase struct {
+		cfg   pb.Config
+		field string
+	}
+
+	cases := []testCase{
+		{
+			cfg:   pb.Config{ProviderUrl: "Foo", RefreshInterval: 1, Ttl: 2},
+			field: "ProviderUrl",
+		},
+
+		{
+			cfg:   pb.Config{ProviderUrl: ":", RefreshInterval: 1, Ttl: 2},
+			field: "ProviderUrl",
+		},
+
+		{
+			cfg:   pb.Config{ProviderUrl: "http:", RefreshInterval: 1, Ttl: 2},
+			field: "ProviderUrl",
+		},
+
+		{
+			cfg:   pb.Config{ProviderUrl: "http://", RefreshInterval: 1, Ttl: 2},
+			field: "ProviderUrl",
+		},
+
+		{
+			cfg:   pb.Config{ProviderUrl: "http:///FOO", RefreshInterval: 1, Ttl: 2},
+			field: "ProviderUrl",
+		},
+	}
+
+	b := newAdapter()
+	for i, c := range cases {
+		err := b.ValidateConfig(&c.cfg).Multi.Errors[0].(aspect.ConfigError)
+		if err.Field != c.field {
+			t.Error("Case %d: expecting error for field %s, got %s", i, c.field, err.Field)
 		}
 	}
 }

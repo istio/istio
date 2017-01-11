@@ -25,7 +25,7 @@ import (
 
 	"google.golang.org/genproto/googleapis/rpc/status"
 
-	pb "istio.io/mixer/adapter/denyChecker/config_proto"
+	pb "istio.io/mixer/adapter/denyChecker/config"
 )
 
 // Register records the existence of this adapter

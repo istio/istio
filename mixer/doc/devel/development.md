@@ -24,7 +24,11 @@ branch, but release branches of the Istio mixer should not change.
   - [Creating a pull request](#creating-a-pull-request)
   - [Getting a code review](#getting-a-code-review)
   - [When to retain commits and when to squash](#when-to-retain-commits-and-when-to-squash)
+- [Using the code base](#using-the-code-base)
   - [Building the code](#building-the-code)
+  - [Cleaning outputs](#cleaning-outputs)
+  - [Running tests](#running-tests)
+  - [Getting coverage numbers](#getting-coverage-numbers)
   - [Auto-formatting source code](#auto-formatting-source-code)
   - [Running the linters](#running-the-linters)
 - [About testing](#about-testing)
@@ -168,7 +172,9 @@ fixups (e.g. automated doc formatting), use one or more commits for the
 changes to tooling and a final commit to apply the fixup en masse. This makes
 reviews much easier.
 
-## Building the code
+## Using the code base
+
+### Building the code
 
 To build the mixer, enter:
 
@@ -178,17 +184,30 @@ bazel build ...:all
 ```
 
 This figures out what it needs to do and does not need any input from you.
+
+### Cleaning outputs
+
 You can delete any build artifacts with:
 
 ```
 bazel clean
 ```
+### Running tests
+
 You can run all the available tests with:
 
 ```
 bazel test ...
 ```
-## Auto-formatting source code
+### Getting coverage numbers
+
+You can get the current unit test coverage numbers on your local repo by going to the top of the repo and entering:
+
+```
+make coverage
+```
+
+### Auto-formatting source code
 
 You can automatically format the source code and BUILD files to follow our conventions by going to the
 top of the repo and entering:
@@ -197,7 +216,7 @@ top of the repo and entering:
 make fmt
 ```
 
-## Running the linters
+### Running the linters
 
 You can run all the linters we require on your local repo by going to the top of the repo and entering:
 

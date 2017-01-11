@@ -26,3 +26,6 @@ lint: build
 
 fmt:
 	@bin/fmt.sh
+
+coverage:
+	@bin/codecov.sh

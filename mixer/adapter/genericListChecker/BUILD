@@ -7,9 +7,9 @@ go_library(
     srcs = [
         "adapter.go",
         "aspect.go",
-        "cfg.pb.go",
     ],
     deps = [
+        "//adapter/genericListChecker/config:go_default_library",
         "//pkg/aspect:go_default_library",
         "//pkg/aspect/listChecker:go_default_library",
         "//pkg/registry:go_default_library",
@@ -23,15 +23,4 @@ go_test(
     srcs = ["adapter_test.go"],
     library = ":go_default_library",
     deps = ["//pkg/adaptertesting:go_default_library"],
-)
-
-load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
-
-go_proto_library(
-    name = "genericListChecker",
-    protos = [
-        "cfg.proto",
-    ],
-    verbose = 0,
-    visibility = ["//visibility:public"],
 )

@@ -14,11 +14,9 @@
 
 syntax = "proto3";
 
-package denyChecker;
-
-import "google/rpc/status.proto";
+package adapter.genericListChecker.config;
 
 message Config {
-	// The error to return when denying a request.
-	google.rpc.Status error = 1;
+    // The set of entries in the list to check against
+    repeated string list_entries = 1;
 }

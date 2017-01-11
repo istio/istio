@@ -15,6 +15,7 @@
 package genericListChecker
 
 import (
+	pb "istio.io/mixer/adapter/genericListChecker/config"
 	"istio.io/mixer/pkg/aspect/listChecker"
 )
 
@@ -22,7 +23,7 @@ type aspectState struct {
 	entries map[string]string
 }
 
-func newAspect(c *Config) (listChecker.Aspect, error) {
+func newAspect(c *pb.Config) (listChecker.Aspect, error) {
 	entries := make(map[string]string, len(c.ListEntries))
 	for _, entry := range c.ListEntries {
 		entries[entry] = entry

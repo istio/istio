@@ -20,7 +20,7 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/genproto/googleapis/rpc/status"
 
-	pb "istio.io/mixer/adapter/denyChecker/config_proto"
+	pb "istio.io/mixer/adapter/denyChecker/config"
 	"istio.io/mixer/pkg/adaptertesting"
 )
 
