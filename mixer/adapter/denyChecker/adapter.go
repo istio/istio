@@ -42,7 +42,7 @@ func (a *adapterState) Close() error                                            
 func (a *adapterState) ValidateConfig(cfg proto.Message) (ce *aspect.ConfigErrors) { return }
 
 func (a *adapterState) DefaultConfig() proto.Message {
-	return &pb.Config{&status.Status{Code: int32(code.Code_FAILED_PRECONDITION)}}
+	return &pb.Config{Error: &status.Status{Code: int32(code.Code_FAILED_PRECONDITION)}}
 }
 
 func (a *adapterState) NewAspect(env aspect.Env, cfg proto.Message) (denyChecker.Aspect, error) {

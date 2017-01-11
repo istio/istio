@@ -131,7 +131,7 @@ func TestValidateConfig(t *testing.T) {
 	for i, c := range cases {
 		err := b.ValidateConfig(&c.cfg).Multi.Errors[0].(aspect.ConfigError)
 		if err.Field != c.field {
-			t.Error("Case %d: expecting error for field %s, got %s", i, c.field, err.Field)
+			t.Errorf("Case %d: expecting error for field %s, got %s", i, c.field, err.Field)
 		}
 	}
 }
