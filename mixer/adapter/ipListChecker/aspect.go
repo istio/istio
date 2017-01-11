@@ -27,6 +27,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	pb "istio.io/mixer/adapter/ipListChecker/config"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/listChecker"
 )
@@ -43,7 +44,7 @@ type aspectState struct {
 	client          http.Client
 }
 
-func newAspect(env aspect.Env, c *Config) (listChecker.Aspect, error) {
+func newAspect(env aspect.Env, c *pb.Config) (listChecker.Aspect, error) {
 	var u *url.URL
 	var err error
 	if u, err = url.Parse(c.ProviderUrl); err != nil {

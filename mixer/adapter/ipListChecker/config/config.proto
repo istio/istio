@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package ipListChecker;
+package adapter.ipListChecker.config;
 
 message Config {
     // Where to find the list to check against

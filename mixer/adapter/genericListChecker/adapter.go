@@ -18,6 +18,7 @@ package genericListChecker
 import (
 	"github.com/golang/protobuf/proto"
 
+	pb "istio.io/mixer/adapter/genericListChecker/config"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/listChecker"
 	"istio.io/mixer/pkg/registry"
@@ -35,8 +36,8 @@ func (a *adapterState) Name() string                                            
 func (a *adapterState) Description() string                                        { return "Checks whether a string is present in a list." }
 func (a *adapterState) Close() error                                               { return nil }
 func (a *adapterState) ValidateConfig(cfg proto.Message) (ce *aspect.ConfigErrors) { return }
-func (a *adapterState) DefaultConfig() proto.Message                               { return &Config{} }
+func (a *adapterState) DefaultConfig() proto.Message                               { return &pb.Config{} }
 
 func (a *adapterState) NewAspect(env aspect.Env, cfg proto.Message) (listChecker.Aspect, error) {
-	return newAspect(cfg.(*Config))
+	return newAspect(cfg.(*pb.Config))
 }
