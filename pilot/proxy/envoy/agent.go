@@ -16,29 +16,47 @@ package envoy
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"sync"
+
+	"github.com/golang/glog"
 )
 
-// Agent manages a proxy service.
+// Agent manages a proxy instance
 type Agent interface {
-	Reload() error
+	Reload(config *Config) error
+	ActiveConfig() *Config
 }
 
 type agent struct {
-	config string            // Envoy config filename.
-	cmdMap map[*exec.Cmd]int // Map of known running Envoy processes and their restart epochs.
+	// Envoy binary path
+	binary string
+	// Map of known running Envoy processes and their restart epochs.
+	cmdMap map[*exec.Cmd]instance
 	mutex  sync.Mutex
 }
 
+type instance struct {
+	epoch  int
+	config *Config
+}
+
+const (
+	EnvoyConfigPath   = "/etc/envoy/"
+	EnvoyFileTemplate = "envoy-rev%d.json"
+)
+
 // NewAgent creates a new instance.
-func NewAgent(config string) Agent {
+func NewAgent(binary string) Agent {
 	return &agent{
-		config: config,
-		cmdMap: make(map[*exec.Cmd]int),
+		binary: binary,
+		cmdMap: make(map[*exec.Cmd]instance),
 	}
+}
+
+func configFile(epoch int) string {
+	return fmt.Sprintf(EnvoyConfigPath+EnvoyFileTemplate, epoch)
 }
 
 // Reload Envoy with a hot restart. Envoy hot restarts are performed by launching a new Envoy process with an
@@ -48,29 +66,38 @@ func NewAgent(config string) Agent {
 // of all running Envoy processes and their restart epochs.
 //
 // Envoy hot restart documentation: https://lyft.github.io/envoy/docs/intro/arch_overview/hot_restart.html
-func (s *agent) Reload() error {
+func (s *agent) Reload(config *Config) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// Find highest restart epoch of the known running Envoy processes.
-	restartEpoch := -1
-	for _, epoch := range s.cmdMap {
-		if epoch > restartEpoch {
-			restartEpoch = epoch
+	// Discover the latest running instance
+	epoch := -1
+	for _, running := range s.cmdMap {
+		if running.epoch > epoch {
+			epoch = running.epoch
 		}
 	}
-	restartEpoch++
+	epoch++
 
-	// Spin up a new Envoy process.
-	cmd := exec.Command("envoy", "-c", s.config, "--restart-epoch", fmt.Sprint(restartEpoch))
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
+	// Write config file
+	fname := configFile(epoch)
+	if err := config.WriteFile(fname); err != nil {
 		return err
 	}
 
-	// Add the new Envoy process to the known set of running Envoy processes.
-	s.cmdMap[cmd] = restartEpoch
+	// Spin up a new Envoy process
+	cmd := exec.Command(s.binary, "-c", fname, "--restart-epoch", fmt.Sprint(epoch),
+		"--drain-time-s", "60", "--parent-shutdown-time-s", "90")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	glog.V(2).Infof("Envoy starting: %v", cmd.Args)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	s.cmdMap[cmd] = instance{
+		epoch:  epoch,
+		config: config,
+	}
 
 	// Start tracking the process.
 	go s.waitForExit(cmd)
@@ -78,15 +105,40 @@ func (s *agent) Reload() error {
 	return nil
 }
 
+// ActiveConfig returns the config for the instance with the highest epoch
+func (s *agent) ActiveConfig() (config *Config) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	epoch := -1
+	for _, running := range s.cmdMap {
+		if running.epoch > epoch {
+			epoch = running.epoch
+			config = running.config
+		}
+	}
+
+	return
+}
+
 // waitForExit waits until the command exits and removes it from the set of known running Envoy processes.
 func (s *agent) waitForExit(cmd *exec.Cmd) {
-	if err := cmd.Wait(); err != nil {
-		log.Printf("Envoy terminated: %v", err.Error())
-	} else {
-		log.Printf("Envoy process exited")
-	}
+	err := cmd.Wait()
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	epoch := s.cmdMap[cmd].epoch
+	if err != nil {
+		glog.V(2).Infof("Envoy epoch %d terminated: %v", epoch, err)
+	} else {
+		glog.V(2).Infof("Envoy epoch %d process exited", epoch)
+	}
+
+	// delete config file
+	path := configFile(epoch)
+	if err := os.Remove(path); err != nil {
+		glog.Warningf("Failed to delete config file %s, %v", path, err)
+	}
 	delete(s.cmdMap, cmd)
 }

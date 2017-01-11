@@ -16,7 +16,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -29,11 +28,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type serverArgs struct {
+type args struct {
 	kubeconfig string
 	namespace  string
 	sdsPort    int
 	sdsAddress string
+	envoy      string
 }
 
 func main() {
@@ -45,7 +45,7 @@ The Istio manager service provides management plane functionality to
 the Istio proxies and the Istio mixer.`,
 	}
 
-	sa := &serverArgs{}
+	sa := &args{}
 	serverCmd := &cobra.Command{
 		Use:   "server",
 		Short: "Start the server",
@@ -70,27 +70,38 @@ the Istio proxies and the Istio mixer.`,
 			go controller.Run(stop)
 			go sds.Run()
 
-			time.Sleep(2 * time.Second)
-			cfg, err := envoy.Generate(controller.Services(), fmt.Sprintf("%s:%d", sa.sdsAddress, sa.sdsPort))
-			check("Failed to generate config", err)
-
-			cfg.Write(os.Stdout)
-
 			<-sigs
 			close(stop)
 			glog.Flush()
 		},
 	}
-	serverCmd.PersistentFlags().StringVarP(&sa.kubeconfig, "kubeconfig", "c", "",
-		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	serverCmd.PersistentFlags().StringVarP(&sa.namespace, "namespace", "n", "",
-		"Monitor the specified namespace instead of all namespaces")
 	serverCmd.PersistentFlags().IntVarP(&sa.sdsPort, "port", "p", 8080,
 		"Discovery service port")
-	serverCmd.PersistentFlags().StringVarP(&sa.sdsAddress, "host", "H", "localhost",
-		"Discovery service external address")
 	rootCmd.AddCommand(serverCmd)
 
+	proxyCmd := &cobra.Command{
+		Use:   "proxy",
+		Short: "Start the proxy agent",
+		Run: func(cmd *cobra.Command, args []string) {
+			client, err := kube.NewClient(sa.kubeconfig, nil)
+			check("Failed to connect to Kubernetes API", err)
+
+			controller := kube.NewController(client, sa.namespace, 256*time.Millisecond)
+			stop := make(chan struct{})
+			_ = envoy.NewWatcher(controller, controller, sa.sdsAddress, sa.envoy)
+			controller.Run(stop)
+		},
+	}
+	proxyCmd.PersistentFlags().StringVarP(&sa.sdsAddress, "sds", "s", "localhost:8080",
+		"Discovery service external address")
+	proxyCmd.PersistentFlags().StringVarP(&sa.envoy, "envoy", "e", "/usr/local/bin/envoy",
+		"Envoy binary location")
+	rootCmd.AddCommand(proxyCmd)
+
+	rootCmd.PersistentFlags().StringVarP(&sa.kubeconfig, "kubeconfig", "c", "",
+		"Use a Kubernetes configuration file instead of in-cluster configuration")
+	rootCmd.PersistentFlags().StringVarP(&sa.namespace, "namespace", "n", "",
+		"Monitor the specified namespace instead of all namespaces")
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 	check("Execution error", rootCmd.Execute())
 }

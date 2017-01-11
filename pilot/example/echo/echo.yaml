@@ -58,7 +58,7 @@ spec:
     spec:
       containers:
       - name: mixer
-        image: gcr.io/istio-test/mixer:example
+        image: gcr.io/istio-test/mixer:test
         imagePullPolicy: Always
         ports:
         - containerPort: 9091
@@ -89,7 +89,7 @@ spec:
     spec:
       containers:
       - name: envoy
-        image: gcr.io/istio-test/envoy:example
+        image: gcr.io/istio-test/envoy:test
         imagePullPolicy: Always
         ports:
         - containerPort: 80
@@ -120,7 +120,7 @@ spec:
     spec:
       containers:
       - name: manager
-        image: gcr.io/istio-test/manager:example
+        image: gcr.io/istio-test/manager:test
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

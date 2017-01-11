@@ -168,6 +168,21 @@ func (s ClustersByName) Less(i, j int) bool {
 	return s[i].Name < s[j].Name
 }
 
+// RoutesByCluster sorts routes by name
+type RoutesByCluster []Route
+
+func (r RoutesByCluster) Len() int {
+	return len(r)
+}
+
+func (r RoutesByCluster) Swap(i, j int) {
+	r[i], r[j] = r[j], r[i]
+}
+
+func (r RoutesByCluster) Less(i, j int) bool {
+	return r[i].Cluster < r[j].Cluster
+}
+
 // SDS is a service discovery service definition
 type SDS struct {
 	Cluster        Cluster `json:"cluster"`

@@ -105,6 +105,8 @@ func NewController(
 	return out
 }
 
+// notify is the first handler in the handler chain.
+// Returning an error causes repeated execution of the entire chain.
 func (c *Controller) notify(obj interface{}, event model.Event) error {
 	if !c.HasSynced() {
 		return errors.New("Waiting till full synchronization")
@@ -149,12 +151,7 @@ func (c *Controller) createInformer(
 }
 
 // AppendHandler adds a notification handler.
-// Cache view in the controller is as AT LEAST as fresh as the moment
-// notification arrives, but MAY BE more fresh (e.g. "delete" cancels
-// "add" event in the cache).
-func (c *Controller) AppendHandler(
-	kind string,
-	f func(*model.Config, model.Event) error) error {
+func (c *Controller) AppendHandler(kind string, f func(*model.Config, model.Event)) error {
 	ch, ok := c.kinds[kind]
 	if !ok {
 		return fmt.Errorf("Cannot locate kind %q", kind)
@@ -162,9 +159,11 @@ func (c *Controller) AppendHandler(
 	ch.handler.append(func(obj interface{}, ev model.Event) error {
 		cfg, err := kubeToModel(kind, c.client.mapping[kind], obj.(*Config))
 		if err == nil {
-			return f(cfg, ev)
+			f(cfg, ev)
+		} else {
+			// Do not trigger re-application of handlers
+			glog.Warningf("Cannot convert kind %s to a config object", kind)
 		}
-		glog.Warningf("Cannot convert kind %s to a config object", kind)
 		return nil
 	})
 	return nil
@@ -263,24 +262,17 @@ func (c *Controller) List(kind string, ns string) ([]*model.Config, error) {
 func (c *Controller) Services() []*model.Service {
 	var out []*model.Service
 	for _, item := range c.services.informer.GetStore().List() {
-		svc := *item.(*v1.Service)
-		var ports []model.Port
-		for _, port := range svc.Spec.Ports {
-			ports = append(ports, model.Port{
-				Name:     port.Name,
-				Port:     int(port.Port),
-				Protocol: convertProtocol(port.Name, port.Protocol),
-			})
-		}
-		out = append(out, &model.Service{
-			Name:      svc.Name,
-			Namespace: svc.Namespace,
-			Ports:     ports,
-			// TODO: empty set of service tags for now
-			Tags: nil,
-		})
+		out = append(out, convertService(*item.(*v1.Service)))
 	}
 	return out
+}
+
+func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+	c.services.handler.append(func(obj interface{}, ev model.Event) error {
+		f(convertService(*obj.(*v1.Service)), ev)
+		return nil
+	})
+	return nil
 }
 
 func (c *Controller) Endpoints(s *model.Service) []*model.ServiceInstance {
@@ -288,7 +280,6 @@ func (c *Controller) Endpoints(s *model.Service) []*model.ServiceInstance {
 	for _, port := range s.Ports {
 		ports[port.Name] = true
 	}
-
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 		if ep.Name == s.Name && ep.Namespace == s.Namespace {
@@ -318,6 +309,24 @@ func (c *Controller) Endpoints(s *model.Service) []*model.ServiceInstance {
 		}
 	}
 	return nil
+}
+
+func convertService(svc v1.Service) *model.Service {
+	var ports []model.Port
+	for _, port := range svc.Spec.Ports {
+		ports = append(ports, model.Port{
+			Name:     port.Name,
+			Port:     int(port.Port),
+			Protocol: convertProtocol(port.Name, port.Protocol),
+		})
+	}
+	return &model.Service{
+		Name:      svc.Name,
+		Namespace: svc.Namespace,
+		Ports:     ports,
+		// TODO: empty set of service tags for now
+		Tags: nil,
+	}
 }
 
 func convertProtocol(name string, proto v1.Protocol) model.Protocol {

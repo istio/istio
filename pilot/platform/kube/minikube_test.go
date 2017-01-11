@@ -79,7 +79,7 @@ func TestController(t *testing.T) {
 	ctl := NewController(cl, ns, 256*time.Millisecond)
 	added, deleted := 0, 0
 	n := 5
-	ctl.AppendHandler(test.MockKind, func(c *model.Config, ev model.Event) error {
+	ctl.AppendHandler(test.MockKind, func(c *model.Config, ev model.Event) {
 		switch ev {
 		case model.EventAdd:
 			if deleted != 0 {
@@ -93,7 +93,6 @@ func TestController(t *testing.T) {
 			deleted++
 		}
 		glog.Infof("Added %d, deleted %d", added, deleted)
-		return nil
 	})
 	go ctl.Run(stop)
 
@@ -118,7 +117,7 @@ func TestControllerCacheFreshness(t *testing.T) {
 	// validate cache consistency requirement:
 	// When you receive a notification, the cache will be AT LEAST as fresh as
 	// the notification, but it MAY be more fresh.
-	ctl.AppendHandler(test.MockKind, func(c *model.Config, ev model.Event) error {
+	ctl.AppendHandler(test.MockKind, func(c *model.Config, ev model.Event) {
 		elts, _ := ctl.List(test.MockKind, ns)
 		switch ev {
 		case model.EventAdd:
@@ -132,7 +131,6 @@ func TestControllerCacheFreshness(t *testing.T) {
 			}
 			close(stop)
 		}
-		return nil
 	})
 
 	go ctl.Run(stop)

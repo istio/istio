@@ -28,10 +28,8 @@ import (
 	"path/filepath"
 )
 
-const EnvoyConfigPath = "/etc/envoy/"
-
-func (conf *Config) WriteFile() error {
-	file, err := os.Create(EnvoyConfigPath + "envoy.json")
+func (conf *Config) WriteFile(fname string) error {
+	file, err := os.Create(fname)
 	if err != nil {
 		return err
 	}
@@ -181,6 +179,8 @@ func buildRoutes(services []*model.Service) []Route {
 			})
 		}
 	}
+
+	sort.Sort(RoutesByCluster(routes))
 	return routes
 }
 

@@ -14,13 +14,21 @@
 
 package model
 
-// Controller defines an event controller loop
+// Controller defines an event controller loop.
+// Used in combination with registry, the controller guarantees the following
+// consistency requirements:
+// - registry view in the controller is as AT LEAST as fresh as the moment
+// notification arrives, but MAY BE more fresh (e.g. "delete" cancels
+// "add" event).
 type Controller interface {
-	// AppendHandler adds a handler for a config resource.
-	// Handler executes on the single worker queue and applies all functions for
-	// a kind to the notification object until all functions stop returning an error.
-	// Note: this method is not thread-safe, please use it before calling Run
-	AppendHandler(kind string, f func(*Config, Event) error) error
+	// AppendHandler appends a handler for a config resource.  Handlers execute
+	// on the single worker queue in the order they are appended.  Handlers
+	// receive the notification event and the associated object.  Note: this
+	// method is not thread-safe, please use it before calling Run
+	AppendHandler(kind string, f func(*Config, Event)) error
+
+	// AppendServiceHandler
+	AppendServiceHandler(f func(*Service, Event)) error
 
 	// Run until a signal is received
 	Run(stop chan struct{})

@@ -7,6 +7,7 @@ go_library(
         "config.go",
         "discovery.go",
         "resources.go",
+        "watcher.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
