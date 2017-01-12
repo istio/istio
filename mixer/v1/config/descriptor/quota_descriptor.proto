@@ -69,6 +69,6 @@ message QuotaDescriptor {
     PER_SECOND_LIMIT = 1;
 
     // Quota limit expresses a maximum amount over a rolling time interval
-    PER_MINUTE_LIMIT = 1;
+    PER_MINUTE_LIMIT = 2;
   }
 }
