@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2017 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,13 +14,10 @@
 
 syntax = "proto3";
 
-package adapter.denyChecker.config;
+package pkg.adaptersupport.quota.config;
 
 option go_package="config";
 
-import "google/rpc/status.proto";
-
+// Configures a quota aspect.
 message Params {
-	// The error to return when denying a request.
-	google.rpc.Status error = 1;
 }

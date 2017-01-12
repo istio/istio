@@ -16,7 +16,9 @@ syntax = "proto3";
 
 package adapter.ipListChecker.config;
 
-message Config {
+option go_package="config";
+
+message Params {
     // Where to find the list to check against
     string provider_url = 1;
 

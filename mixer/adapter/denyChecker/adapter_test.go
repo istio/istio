@@ -20,7 +20,7 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/genproto/googleapis/rpc/status"
 
-	pb "istio.io/mixer/adapter/denyChecker/config"
+	"istio.io/mixer/adapter/denyChecker/config"
 	"istio.io/mixer/pkg/adaptertesting"
 )
 
@@ -41,7 +41,7 @@ func TestAll(t *testing.T) {
 		t.Errorf("a.Close failed: %v", err)
 	}
 
-	a, err = b.NewAspect(nil, &pb.Config{Error: &status.Status{Code: int32(code.Code_INVALID_ARGUMENT)}})
+	a, err = b.NewAspect(nil, &config.Params{Error: &status.Status{Code: int32(code.Code_INVALID_ARGUMENT)}})
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}

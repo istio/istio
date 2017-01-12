@@ -19,7 +19,7 @@ import (
 
 	"istio.io/mixer/pkg/aspect/denyChecker"
 
-	pb "istio.io/mixer/adapter/denyChecker/config"
+	"istio.io/mixer/adapter/denyChecker/config"
 )
 
 type aspectState struct {
@@ -27,7 +27,7 @@ type aspectState struct {
 }
 
 // newAspect returns a new aspect.
-func newAspect(c *pb.Config) (denyChecker.Aspect, error) {
+func newAspect(c *config.Params) (denyChecker.Aspect, error) {
 	return &aspectState{
 		status: *c.Error,
 	}, nil

@@ -17,12 +17,12 @@ package genericListChecker
 import (
 	"testing"
 
-	pb "istio.io/mixer/adapter/genericListChecker/config"
+	"istio.io/mixer/adapter/genericListChecker/config"
 	"istio.io/mixer/pkg/adaptertesting"
 )
 
 type testCase struct {
-	ac            pb.Config
+	ac            config.Params
 	matchValues   []string
 	unmatchValues []string
 }
@@ -30,13 +30,13 @@ type testCase struct {
 func TestAll(t *testing.T) {
 	cases := []testCase{
 		{
-			pb.Config{ListEntries: []string{"One", "Two", "Three"}},
+			config.Params{ListEntries: []string{"One", "Two", "Three"}},
 			[]string{"One", "Two", "Three"},
 			[]string{"O", "OneOne", "ne", "ree"},
 		},
 
 		{
-			pb.Config{},
+			config.Params{},
 			[]string{},
 			[]string{"One", "Two", "Three"},
 		},

@@ -19,10 +19,11 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/genproto/googleapis/rpc/code"
-	aspectpb "istio.io/api/mixer/v1/config/aspect"
+
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/listChecker"
 	"istio.io/mixer/pkg/aspectsupport"
+	"istio.io/mixer/pkg/aspectsupport/listChecker/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
@@ -38,7 +39,7 @@ type (
 		cfg          *aspectsupport.CombinedConfig
 		adapter      listChecker.Adapter
 		aspect       listChecker.Aspect
-		aspectConfig *aspectpb.ListCheckerConfig
+		aspectConfig *config.Params
 	}
 )
 
@@ -55,7 +56,7 @@ func (m *manager) NewAspect(cfg *aspectsupport.CombinedConfig, ga aspect.Adapter
 	}
 
 	// TODO: convert from proto Struct to Go struct here!
-	var aspectConfig *aspectpb.ListCheckerConfig
+	var aspectConfig *config.Params
 	adapterCfg := aa.DefaultConfig()
 	// TODO: parse cfg.Adapter.Params (*ptypes.struct) into adapterCfg
 	var asp listChecker.Aspect
@@ -78,13 +79,13 @@ func (*manager) Kind() string {
 }
 
 func (*manager) DefaultConfig() proto.Message {
-	return &aspectpb.ListCheckerConfig{
+	return &config.Params{
 		CheckAttribute: "src.ip",
 	}
 }
 
 func (*manager) ValidateConfig(implConfig proto.Message) (ce *aspect.ConfigErrors) {
-	lc := implConfig.(*aspectpb.ListCheckerConfig)
+	lc := implConfig.(*config.Params)
 	if lc.CheckAttribute == "" {
 		ce = ce.Appendf("check_attribute", "Missing")
 	}

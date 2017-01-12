@@ -22,7 +22,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	pb "istio.io/mixer/adapter/ipListChecker/config"
+	"istio.io/mixer/adapter/ipListChecker/config"
 	"istio.io/mixer/pkg/adaptertesting"
 	"istio.io/mixer/pkg/aspect"
 )
@@ -59,7 +59,7 @@ func TestBasic(t *testing.T) {
 	defer ts.Close()
 	b := newAdapter()
 
-	config := pb.Config{
+	config := config.Params{
 		ProviderUrl:     ts.URL,
 		RefreshInterval: 1,
 		Ttl:             10,
@@ -96,33 +96,33 @@ func TestBasic(t *testing.T) {
 
 func TestValidateConfig(t *testing.T) {
 	type testCase struct {
-		cfg   pb.Config
+		cfg   config.Params
 		field string
 	}
 
 	cases := []testCase{
 		{
-			cfg:   pb.Config{ProviderUrl: "Foo", RefreshInterval: 1, Ttl: 2},
+			cfg:   config.Params{ProviderUrl: "Foo", RefreshInterval: 1, Ttl: 2},
 			field: "ProviderUrl",
 		},
 
 		{
-			cfg:   pb.Config{ProviderUrl: ":", RefreshInterval: 1, Ttl: 2},
+			cfg:   config.Params{ProviderUrl: ":", RefreshInterval: 1, Ttl: 2},
 			field: "ProviderUrl",
 		},
 
 		{
-			cfg:   pb.Config{ProviderUrl: "http:", RefreshInterval: 1, Ttl: 2},
+			cfg:   config.Params{ProviderUrl: "http:", RefreshInterval: 1, Ttl: 2},
 			field: "ProviderUrl",
 		},
 
 		{
-			cfg:   pb.Config{ProviderUrl: "http://", RefreshInterval: 1, Ttl: 2},
+			cfg:   config.Params{ProviderUrl: "http://", RefreshInterval: 1, Ttl: 2},
 			field: "ProviderUrl",
 		},
 
 		{
-			cfg:   pb.Config{ProviderUrl: "http:///FOO", RefreshInterval: 1, Ttl: 2},
+			cfg:   config.Params{ProviderUrl: "http:///FOO", RefreshInterval: 1, Ttl: 2},
 			field: "ProviderUrl",
 		},
 	}

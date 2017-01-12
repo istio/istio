@@ -14,13 +14,22 @@
 
 syntax = "proto3";
 
-package adapter.denyChecker.config;
+package pkg.adaptersupport.listChecker.config;
 
 option go_package="config";
 
-import "google/rpc/status.proto";
-
+// Configures a list checker aspect
 message Params {
-	// The error to return when denying a request.
-	google.rpc.Status error = 1;
+  // blacklist determines if this behaves like a blacklist
+  // default is whitelist
+  bool blacklist = 1;
+  // check_attribute is the attribute to check on the list
+  // should be a well known attribute or must be mapped in mappings
+  string check_attribute = 2;
 }
+
+// Example
+// kind: istio/listChecker
+// params:
+//	blacklist: true
+//      check_attributes: src.ip
