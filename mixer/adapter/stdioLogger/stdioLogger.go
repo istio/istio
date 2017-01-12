@@ -21,7 +21,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/golang/protobuf/proto"
 	"istio.io/mixer/adapter/stdioLogger/config"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/logger"
@@ -45,10 +44,10 @@ func (a *adapter) Name() string { return "istio/stdioLogger" }
 func (a *adapter) Description() string {
 	return "Writes structured log entries to a standard I/O stream"
 }
-func (a *adapter) DefaultConfig() proto.Message                               { return &config.Params{} }
-func (a *adapter) Close() error                                               { return nil }
-func (a *adapter) ValidateConfig(cfg proto.Message) (ce *aspect.ConfigErrors) { return nil }
-func (a *adapter) NewAspect(env aspect.Env, cfg proto.Message) (logger.Aspect, error) {
+func (a *adapter) DefaultConfig() aspect.Config                             { return &config.Params{} }
+func (a *adapter) Close() error                                             { return nil }
+func (a *adapter) ValidateConfig(c aspect.Config) (ce *aspect.ConfigErrors) { return nil }
+func (a *adapter) NewAspect(env aspect.Env, cfg aspect.Config) (logger.Aspect, error) {
 	c := cfg.(*config.Params)
 
 	w := os.Stderr

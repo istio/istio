@@ -21,7 +21,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"istio.io/mixer/pkg/aspect"
 )
 
@@ -78,7 +77,7 @@ type (
 
 		// NewAspect returns a new quota implementation, based on the
 		// supplied Aspect configuration for the backend.
-		NewAspect(env aspect.Env, config proto.Message) (Aspect, error)
+		NewAspect(env aspect.Env, config aspect.Config) (Aspect, error)
 	}
 )
 

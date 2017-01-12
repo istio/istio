@@ -244,7 +244,7 @@ type (
 	structMap      map[string]*structpb.Value
 	aspectTestCase struct {
 		name       string
-		defaultCfg proto.Message
+		defaultCfg aspect.Config
 		params     *structpb.Struct
 		want       *executor
 	}
@@ -259,7 +259,7 @@ type (
 		logger.Adapter
 		logger.Aspect
 
-		defaultCfg     proto.Message
+		defaultCfg     aspect.Config
 		entryCount     int
 		entries        []logger.Entry
 		errOnNewAspect bool
@@ -279,13 +279,13 @@ type (
 	}
 )
 
-func (t *testLogger) NewAspect(e aspect.Env, m proto.Message) (logger.Aspect, error) {
+func (t *testLogger) NewAspect(e aspect.Env, m aspect.Config) (logger.Aspect, error) {
 	if t.errOnNewAspect {
 		return nil, errors.New("new aspect error")
 	}
 	return t, nil
 }
-func (t *testLogger) DefaultConfig() proto.Message { return t.defaultCfg }
+func (t *testLogger) DefaultConfig() aspect.Config { return t.defaultCfg }
 func (t *testLogger) Log(l []logger.Entry) error {
 	if t.errOnLog {
 		return errors.New("log error")

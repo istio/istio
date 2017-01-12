@@ -29,7 +29,6 @@ import (
 )
 
 const (
-	testPort       = 29999
 	testRequestID0 = 1234
 	testRequestID1 = 5678
 )
@@ -40,9 +39,9 @@ type testState struct {
 	connection *grpc.ClientConn
 }
 
-func (ts *testState) createGRPCServer() error {
+func (ts *testState) createGRPCServer(port uint16) error {
 	options := GRPCServerOptions{
-		Port:                 testPort,
+		Port:                 port,
 		MaxMessageSize:       1024 * 1024,
 		MaxConcurrentStreams: 32,
 		CompressedPayload:    false,
@@ -66,12 +65,12 @@ func (ts *testState) deleteGRPCServer() {
 	ts.apiServer = nil
 }
 
-func (ts *testState) createAPIClient() error {
+func (ts *testState) createAPIClient(port uint16) error {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
 
 	var err error
-	if ts.connection, err = grpc.Dial(fmt.Sprintf("localhost:%v", testPort), opts...); err != nil {
+	if ts.connection, err = grpc.Dial(fmt.Sprintf("localhost:%v", port), opts...); err != nil {
 		return err
 	}
 
@@ -85,13 +84,13 @@ func (ts *testState) deleteAPIClient() {
 	ts.connection = nil
 }
 
-func prepTestState() (*testState, error) {
+func prepTestState(port uint16) (*testState, error) {
 	ts := &testState{}
-	if err := ts.createGRPCServer(); err != nil {
+	if err := ts.createGRPCServer(port); err != nil {
 		return nil, err
 	}
 
-	if err := ts.createAPIClient(); err != nil {
+	if err := ts.createAPIClient(port); err != nil {
 		ts.deleteGRPCServer()
 		return nil, err
 	}
@@ -120,7 +119,7 @@ func (ts *testState) Quota(ctx context.Context, tracker attribute.Tracker, reque
 }
 
 func TestCheck(t *testing.T) {
-	ts, err := prepTestState()
+	ts, err := prepTestState(29999)
 	if err != nil {
 		t.Errorf("unable to prep test state %v", err)
 		return
@@ -179,7 +178,7 @@ func TestCheck(t *testing.T) {
 }
 
 func TestReport(t *testing.T) {
-	ts, err := prepTestState()
+	ts, err := prepTestState(30000)
 	if err != nil {
 		t.Errorf("unable to prep test state %v", err)
 		return

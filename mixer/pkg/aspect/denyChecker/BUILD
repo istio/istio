@@ -9,7 +9,6 @@ go_library(
     ],
     deps = [
         "//pkg/aspect:go_default_library",
-        "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
     ],
 )

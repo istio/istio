@@ -19,7 +19,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/mitchellh/mapstructure"
 	"istio.io/mixer/pkg/aspect"
 	listcheckerpb "istio.io/mixer/pkg/aspectsupport/listChecker/config"
@@ -39,12 +38,12 @@ type lc struct {
 	ce *aspect.ConfigErrors
 }
 
-func (m *lc) DefaultConfig() (implConfig proto.Message) {
+func (m *lc) DefaultConfig() (c aspect.Config) {
 	return &listcheckerpb.Params{}
 }
 
 // ValidateConfig determines whether the given configuration meets all correctness requirements.
-func (m *lc) ValidateConfig(implConfig proto.Message) *aspect.ConfigErrors {
+func (m *lc) ValidateConfig(c aspect.Config) *aspect.ConfigErrors {
 	return m.ce
 }
 
@@ -126,7 +125,7 @@ func TestFullConfigValidator(t *testing.T) {
 		cfg      string
 		exprErr  error
 	}{
-		{&aspect.ConfigError{"Kind", fmt.Errorf("adapter for Kind=metrics is not available")},
+		{&aspect.ConfigError{Field: "Kind", Underlying: fmt.Errorf("adapter for Kind=metrics is not available")},
 			map[string]aspect.ConfigValidator{
 				"istio/denychecker": &lc{},
 				"metrics":           &lc{},
@@ -144,13 +143,13 @@ func TestFullConfigValidator(t *testing.T) {
 				"metrics":           &lc{},
 				"listchecker":       &lc{},
 			}, "", false, sSvcConfig2, nil},
-		{&aspect.ConfigError{"NamedAdapter", fmt.Errorf("adapter by name denychecker.2 not available")},
+		{&aspect.ConfigError{Field: "NamedAdapter", Underlying: fmt.Errorf("adapter by name denychecker.2 not available")},
 			map[string]aspect.ConfigValidator{
 				"istio/denychecker": &lc{},
 				"metrics":           &lc{},
 				"listchecker":       &lc{},
 			}, "", false, sSvcConfig3, nil},
-		{&aspect.ConfigError{":Selector service.name == “*”", fmt.Errorf("invalid expression")},
+		{&aspect.ConfigError{Field: ":Selector service.name == “*”", Underlying: fmt.Errorf("invalid expression")},
 			map[string]aspect.ConfigValidator{
 				"istio/denychecker": &lc{},
 				"metrics":           &lc{},
