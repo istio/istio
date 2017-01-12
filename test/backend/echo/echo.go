@@ -23,19 +23,22 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
-	"sync"
-	"time"
 )
 
 var (
 	port = flag.Int("port", 8080, "default http port")
 
-	mu       sync.Mutex
 	requests = 0
 	data     = 0
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("%v %v %v %v\n", r.Method, r.URL, r.Proto, r.RemoteAddr)
+	for name, headers := range r.Header {
+		for _, h := range headers {
+			fmt.Printf("%v: %v\n", name, h)
+		}
+	}
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -51,23 +54,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write(body)
 
-	mu.Lock()
 	requests++
 	data += len(body)
-	defer mu.Unlock()
+	fmt.Printf("Requests Requests: %v  Data: %v\n", requests, data)
 }
 
 func main() {
 	flag.Parse()
-
-	go func() {
-		for {
-			mu.Lock()
-			fmt.Printf("Requests Requests: %v  Data: %v\n", requests, data)
-			mu.Unlock()
-			time.Sleep(time.Second)
-		}
-	}()
 
 	fmt.Printf("Listening on port %v\n", *port)
 

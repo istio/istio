@@ -36,6 +36,19 @@ This Proxy will use Envoy and talk to Mixer server.
   go run echo.go
 ```
 
+* Modify your iptables:
+
+```
+  sudo iptables -t nat -A OUTPUT -p tcp --dport 9090 -j REDIRECT --to-port 9092
+```
+
+Once you are done, you should remove this rule:
+
+```
+  sudo iptables -t nat -D OUTPUT -p tcp --dport 9090 -j REDIRECT --to-port 9092
+```
+
+
 * Start Envoy proxy, run
 
 ```
