@@ -19,8 +19,6 @@ import (
 	"os"
 
 	"github.com/golang/glog"
-	tracer "github.com/opentracing/basictracer-go"
-	ot "github.com/opentracing/opentracing-go"
 	"github.com/spf13/cobra"
 )
 
@@ -48,6 +46,9 @@ type rootArgs struct {
 
 	// mixerAddress is the full address (including port) of a mixer instance to call.
 	mixerAddress string
+
+	// enableTracing controls whether client-side traces are generated for calls to the mixer.
+	enableTracing bool
 }
 
 // A function used for error output.
@@ -84,20 +85,13 @@ func withArgs(args []string, errorf errorFn) {
 		"List of name/value timestamp attributes specified as name1=value1,name2=value2,...")
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.bytesAttributes, "bytes_attributes", "", "",
 		"List of name/value bytes attributes specified as name1=b0:b1:b3,name2=b4:b5:b6,...")
+	// TODO: implement an option to specify how traces are reported (hardcoded to report to stdout right now).
+	rootCmd.PersistentFlags().BoolVarP(&rootArgs.enableTracing, "trace", "", false,
+		"Whether to trace rpc executions")
 
 	rootCmd.AddCommand(checkCmd(rootArgs, errorf))
 	rootCmd.AddCommand(reportCmd(rootArgs, errorf))
 	rootCmd.AddCommand(quotaCmd(rootArgs, errorf))
-
-	// The tracer will keep track of spans in memory and print them to stdout when the client exits.
-	recorder := tracer.NewInMemoryRecorder()
-	defer func() {
-		for _, span := range recorder.GetSpans() {
-			//fmt.Printf("%v\n", span)
-			glog.Infof("%v\n", span)
-		}
-	}()
-	ot.SetGlobalTracer(tracer.New(recorder))
 
 	if err := rootCmd.Execute(); err != nil {
 		errorf(err.Error())

@@ -42,7 +42,7 @@ func check(rootArgs *rootArgs, args []string, errorf errorFn) {
 	}
 
 	var cs *clientState
-	if cs, err = createAPIClient(rootArgs.mixerAddress); err != nil {
+	if cs, err = createAPIClient(rootArgs.mixerAddress, rootArgs.enableTracing); err != nil {
 		errorf("Unable to establish connection to %s", rootArgs.mixerAddress)
 		return
 	}

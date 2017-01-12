@@ -5,10 +5,13 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "basictracing.go",
         "metadata.go",
         "tracing.go",
     ],
     deps = [
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_opentracing_basictracer//:go_default_library",
         "@com_github_opentracing_opentracing_go//:go_default_library",
         "@com_github_opentracing_opentracing_go//ext:go_default_library",
         "@com_github_opentracing_opentracing_go//log:go_default_library",
@@ -20,7 +23,7 @@ go_library(
 )
 
 go_test(
-    name = "tracing_test",
+    name = "small_tests",
     size = "small",
     srcs = [
         "tracing_test.go",
