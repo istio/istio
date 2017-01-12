@@ -52,7 +52,7 @@ class MixerClientImpl : public MixerClient {
                      DoneFunc on_quota_done);
 
  private:
-  const MixerClientOptions &options_;
+  MixerClientOptions options_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MixerClientImpl);
 };

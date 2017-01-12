@@ -78,3 +78,20 @@ bind(
     name = "mixer_api_cc_proto",
     actual = "@mixerapi_git//:mixer_api_cc_proto",
 )
+
+new_git_repository(
+    name = "googletest_git",
+    commit = "ec44c6c1675c25b9827aacd08c02433cccde7780",
+    remote = "https://github.com/google/googletest.git",
+    build_file = "BUILD.googletest",
+)
+
+bind(
+    name = "googletest",
+    actual = "@googletest_git//:googletest",
+)
+
+bind(
+    name = "googletest_main",
+    actual = "@googletest_git//:googletest_main",
+)

@@ -32,3 +32,14 @@ cc_library(
      "//external:mixer_api_cc_proto",
  ],
 )
+
+cc_test(
+    name = "mixer_client_impl_test",
+    size = "small",
+    srcs = ["src/client_impl_test.cc"],
+    linkopts = ["-lm"],
+    deps = [
+        ":mixer_client_lib",
+        "//external:googletest_main",
+    ],
+)

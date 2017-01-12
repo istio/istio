@@ -24,4 +24,4 @@ install:
 
 script:
   - script/check-style
-  - bazel build :all
+  - bazel test :all --test_output=errors
