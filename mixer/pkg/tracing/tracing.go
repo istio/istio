@@ -15,7 +15,8 @@ import (
 
 // TODO: Keep track of per-stream state, e.g. the Tracer impl to use in traces for this stream. This will enable things
 // like different tracers per stream (client). Currently this package is built on the assumption that only the global
-// tracer is used, which isn't great (it makes testing harder, for example).
+// tracer is used, which isn't great (it makes testing harder, for example). This state could also be used to keep
+// track of per stream config like metadata propagation format.
 //
 // TODO: investigate wrapping the server stream in one with a mutable context, so that we can use an interceptor or TAP
 // handler to set up the root span rather than doing it in the server's stream loop.
@@ -78,7 +79,7 @@ func StartRootSpan(ctx context.Context, operationName string) (ot.Span, context.
 	if !ok {
 		md = metadata.New(nil)
 	}
-	spanContext, err := ot.GlobalTracer().Extract(ot.TextMap, metadataReaderWriter{md})
+	spanContext, err := ot.GlobalTracer().Extract(ot.HTTPHeaders, metadataReaderWriter{md})
 	if err != nil {
 		// TODO: establish some sort of error reporting mechanism here. We
 		// don't know where to put such an error and must rely on Tracer
