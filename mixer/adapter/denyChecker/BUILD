@@ -13,7 +13,6 @@ go_library(
         "//pkg/aspect:go_default_library",
         "//pkg/aspect/denyChecker:go_default_library",
         "//pkg/registry:go_default_library",
-        "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_google_go_genproto//googleapis/rpc/code:go_default_library",
         "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
     ],

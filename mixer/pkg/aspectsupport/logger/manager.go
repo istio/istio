@@ -106,12 +106,12 @@ func (m *manager) NewAspect(c *aspectsupport.CombinedConfig, a aspect.Adapter, e
 }
 
 func (*manager) Kind() string { return "istio/logger" }
-func (*manager) DefaultConfig() proto.Message {
+func (*manager) DefaultConfig() aspect.Config {
 	return &config.Params{LogName: "istio_log", TimestampFormat: time.RFC3339}
 }
 
 // TODO: validation of timestamp format
-func (*manager) ValidateConfig(implConfig proto.Message) (ce *aspect.ConfigErrors) { return nil }
+func (*manager) ValidateConfig(c aspect.Config) (ce *aspect.ConfigErrors) { return nil }
 
 func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspectsupport.Output, error) {
 	var entries []logger.Entry

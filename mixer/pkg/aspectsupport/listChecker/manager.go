@@ -17,7 +17,6 @@ package listChecker
 import (
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/genproto/googleapis/rpc/code"
 
 	"istio.io/mixer/pkg/aspect"
@@ -78,14 +77,14 @@ func (*manager) Kind() string {
 	return kind
 }
 
-func (*manager) DefaultConfig() proto.Message {
+func (*manager) DefaultConfig() aspect.Config {
 	return &config.Params{
 		CheckAttribute: "src.ip",
 	}
 }
 
-func (*manager) ValidateConfig(implConfig proto.Message) (ce *aspect.ConfigErrors) {
-	lc := implConfig.(*config.Params)
+func (*manager) ValidateConfig(c aspect.Config) (ce *aspect.ConfigErrors) {
+	lc := c.(*config.Params)
 	if lc.CheckAttribute == "" {
 		ce = ce.Appendf("check_attribute", "Missing")
 	}

@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/denyChecker"
 	"istio.io/mixer/pkg/aspect/listChecker"
@@ -30,15 +29,15 @@ type testAdapter struct {
 	name string
 }
 
-func (t testAdapter) Name() string                                               { return t.name }
-func (testAdapter) Close() error                                                 { return nil }
-func (testAdapter) Description() string                                          { return "mock adapter for testing" }
-func (testAdapter) DefaultConfig() proto.Message                                 { return nil }
-func (testAdapter) ValidateConfig(implConfig proto.Message) *aspect.ConfigErrors { return nil }
+func (t testAdapter) Name() string                                      { return t.name }
+func (testAdapter) Close() error                                        { return nil }
+func (testAdapter) Description() string                                 { return "mock adapter for testing" }
+func (testAdapter) DefaultConfig() aspect.Config                        { return nil }
+func (testAdapter) ValidateConfig(c aspect.Config) *aspect.ConfigErrors { return nil }
 
 type denyAdapter struct{ testAdapter }
 
-func (denyAdapter) NewAspect(env aspect.Env, cfg proto.Message) (denyChecker.Aspect, error) {
+func (denyAdapter) NewAspect(env aspect.Env, cfg aspect.Config) (denyChecker.Aspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -62,7 +61,7 @@ func TestRegisterDeny(t *testing.T) {
 
 type listAdapter struct{ testAdapter }
 
-func (listAdapter) NewAspect(env aspect.Env, cfg proto.Message) (listChecker.Aspect, error) {
+func (listAdapter) NewAspect(env aspect.Env, cfg aspect.Config) (listChecker.Aspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -86,7 +85,7 @@ func TestCheckList(t *testing.T) {
 
 type loggerAdapter struct{ testAdapter }
 
-func (loggerAdapter) NewAspect(env aspect.Env, cfg proto.Message) (al.Aspect, error) {
+func (loggerAdapter) NewAspect(env aspect.Env, cfg aspect.Config) (al.Aspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -110,7 +109,7 @@ func TestRegisterLogger(t *testing.T) {
 
 type quotaAdapter struct{ testAdapter }
 
-func (quotaAdapter) NewAspect(env aspect.Env, cfg proto.Message) (quota.Aspect, error) {
+func (quotaAdapter) NewAspect(env aspect.Env, cfg aspect.Config) (quota.Aspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

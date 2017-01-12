@@ -9,6 +9,5 @@ go_library(
     ],
     deps = [
         "//pkg/aspect:go_default_library",
-        "@com_github_golang_protobuf//proto:go_default_library",
     ],
 )

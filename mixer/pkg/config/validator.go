@@ -27,7 +27,6 @@ package config
 import (
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/mitchellh/mapstructure"
 	"gopkg.in/yaml.v2"
 
@@ -89,7 +88,7 @@ func (p *Validator) validateGlobalConfig(cfg string) (ce *aspect.ConfigErrors) {
 	}
 	p.validated.adapterByKind = make(map[string][]*pb.Adapter)
 	p.validated.adapterByName = make(map[string]*pb.Adapter)
-	var acfg proto.Message
+	var acfg aspect.Config
 	var aArr []*pb.Adapter
 	var found bool
 	for _, aa := range m.GetAdapters() {
@@ -124,7 +123,7 @@ func (p *Validator) validateSelector(selector string) (err error) {
 // validateAspectRules validates the recursive configuration data structure.
 // It is primarily used by validate ServiceConfig.
 func (p *Validator) validateAspectRules(rules []*pb.AspectRule, path string, validatePresence bool) (ce *aspect.ConfigErrors) {
-	var acfg proto.Message
+	var acfg aspect.Config
 	var err error
 	for _, rule := range rules {
 		if err = p.validateSelector(rule.GetSelector()); err != nil {
@@ -200,7 +199,7 @@ func UnknownValidator(name string) error {
 }
 
 // ConvertParams converts returns a typed proto message based on available Validator.
-func ConvertParams(finder ValidatorFinder, name string, params interface{}, strict bool) (proto.Message, error) {
+func ConvertParams(finder ValidatorFinder, name string, params interface{}, strict bool) (aspect.Config, error) {
 	var avl aspect.ConfigValidator
 	var found bool
 
@@ -235,7 +234,7 @@ func NewDecoder(md *mapstructure.Metadata, dst interface{}) (Decoder, error) {
 
 // Decode interprets src interface{} as the specified proto message.
 // optional newDecoderFn can be passed in, otherwise standard NewDecoder is used.
-func Decode(src interface{}, dst proto.Message, strict bool, newDecoders ...newDecoderFn) (err error) {
+func Decode(src interface{}, dst aspect.Config, strict bool, newDecoders ...newDecoderFn) (err error) {
 	var md mapstructure.Metadata
 	var d Decoder
 	newDecoder := NewDecoder

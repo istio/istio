@@ -17,9 +17,8 @@ package denyChecker
 import (
 	"google.golang.org/genproto/googleapis/rpc/status"
 
-	"istio.io/mixer/pkg/aspect/denyChecker"
-
 	"istio.io/mixer/adapter/denyChecker/config"
+	"istio.io/mixer/pkg/aspect/denyChecker"
 )
 
 type aspectState struct {

@@ -18,8 +18,6 @@ package ipListChecker
 import (
 	"net/url"
 
-	"github.com/golang/protobuf/proto"
-
 	"istio.io/mixer/adapter/ipListChecker/config"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/listChecker"
@@ -42,7 +40,7 @@ func (a *adapterState) Description() string {
 
 func (a *adapterState) Close() error { return nil }
 
-func (a *adapterState) ValidateConfig(cfg proto.Message) (ce *aspect.ConfigErrors) {
+func (a *adapterState) ValidateConfig(cfg aspect.Config) (ce *aspect.ConfigErrors) {
 	c := cfg.(*config.Params)
 
 	u, err := url.Parse(c.ProviderUrl)
@@ -57,7 +55,7 @@ func (a *adapterState) ValidateConfig(cfg proto.Message) (ce *aspect.ConfigError
 	return
 }
 
-func (a *adapterState) DefaultConfig() proto.Message {
+func (a *adapterState) DefaultConfig() aspect.Config {
 	return &config.Params{
 		ProviderUrl:     "http://localhost",
 		RefreshInterval: 60,
@@ -65,6 +63,6 @@ func (a *adapterState) DefaultConfig() proto.Message {
 	}
 }
 
-func (a *adapterState) NewAspect(env aspect.Env, cfg proto.Message) (listChecker.Aspect, error) {
-	return newAspect(env, cfg.(*config.Params))
+func (a *adapterState) NewAspect(env aspect.Env, c aspect.Config) (listChecker.Aspect, error) {
+	return newAspect(env, c.(*config.Params))
 }

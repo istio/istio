@@ -37,22 +37,25 @@ type (
 	// The extended interface is implemented by adapter implementations
 	Adapter interface {
 		io.Closer
+		ConfigValidator
+
 		// Name returns the official name of this adapter. ex. "istio/statsd".
 		Name() string
 		// Description returns a user-friendly description of this adapter.
 		Description() string
-
-		ConfigValidator
 	}
+
+	// Config represents a chunk of configuration state
+	Config proto.Message
 
 	// ConfigValidator handles adapter configuration defaults and validation.
 	ConfigValidator interface {
 		// DefaultConfig returns a default configuration struct for this
 		// adapter. This will be used by the configuration system to establish
 		// the shape of the block of configuration state passed to the NewAspect method.
-		DefaultConfig() (implConfig proto.Message)
+		DefaultConfig() (c Config)
 		// ValidateConfig determines whether the given configuration meets all correctness requirements.
-		ValidateConfig(implConfig proto.Message) *ConfigErrors
+		ValidateConfig(c Config) *ConfigErrors
 	}
 
 	// Env defines the environment in which an aspect executes.

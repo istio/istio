@@ -70,6 +70,7 @@ func withArgs(args []string, errorf errorFn) {
 	// hack to make flag.Parsed return true such that glog is happy
 	// about the flags having been parsed
 	fs := flag.NewFlagSet("", flag.ContinueOnError)
+	/* #nosec */
 	_ = fs.Parse([]string{})
 	flag.CommandLine = fs
 

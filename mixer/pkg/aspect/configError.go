@@ -24,7 +24,7 @@ import (
 //
 // The usage pattern for this type is pretty simple:
 //
-//  	func (a *adapterState) ValidateConfig(cfg proto.Message) (ce *adapter.ConfigErrors) {
+//  	func (a *adapterState) ValidateConfig(cfg aspect.Config) (ce *adapter.ConfigErrors) {
 //  		c := cfg.(*Config)
 // 			if c.Url == nil {
 //  			ce = ce.Appendf("Url", "Must have a valid URL")
