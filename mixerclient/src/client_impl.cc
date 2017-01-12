@@ -36,6 +36,18 @@ MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
 
 MixerClientImpl::~MixerClientImpl() {}
 
+void MixerClientImpl::Check(const Attributes &attributes, DoneFunc on_done) {
+  on_done(Status(Code::UNIMPLEMENTED, "Method not implemented."));
+}
+
+void MixerClientImpl::Report(const Attributes &attributes, DoneFunc on_done) {
+  on_done(Status(Code::UNIMPLEMENTED, "Method not implemented."));
+}
+
+void MixerClientImpl::Quota(const Attributes &attributes, DoneFunc on_done) {
+  on_done(Status(Code::UNIMPLEMENTED, "Method not implemented."));
+}
+
 void MixerClientImpl::Check(const CheckRequest &request,
                             CheckResponse *response, DoneFunc on_done) {
   check_transport_.Call(request, response, on_done);

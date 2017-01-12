@@ -30,6 +30,10 @@ class MixerClientImpl : public MixerClient {
   // Destructor
   virtual ~MixerClientImpl();
 
+  virtual void Check(const Attributes& attributes, DoneFunc on_done);
+  virtual void Report(const Attributes& attributes, DoneFunc on_done);
+  virtual void Quota(const Attributes& attributes, DoneFunc on_done);
+
   // The async call.
   // on_check_done is called with the check status after cached
   // check_response is returned in case of cache hit, otherwise called after

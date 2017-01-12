@@ -16,6 +16,7 @@
 #ifndef MIXERCLIENT_CLIENT_H
 #define MIXERCLIENT_CLIENT_H
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
@@ -58,10 +59,35 @@ struct MixerClientOptions {
   TransportInterface* transport;
 };
 
+struct Attributes {
+  // A structure to hold differnt types of value.
+  struct Value {
+    // Data type
+    enum ValueType { STRING, INT64, DOUBLE, BOOL, TIME, BYTES } type;
+
+    // Data value
+    union {
+      std::string str_v;  // for both STRING and BYTES
+      int64_t int64_v;
+      double double_v;
+      bool bool_v;
+      std::chrono::time_point<std::chrono::system_clock> time_v;
+    } value;
+  };
+
+  std::map<std::string, Value> attributes;
+};
+
 class MixerClient {
  public:
   // Destructor
   virtual ~MixerClient() {}
+
+  // Attribute based calls will be used.
+  // The protobuf message based calls will be removed.
+  virtual void Check(const Attributes& attributes, DoneFunc on_done) = 0;
+  virtual void Report(const Attributes& attributes, DoneFunc on_done) = 0;
+  virtual void Quota(const Attributes& attributes, DoneFunc on_done) = 0;
 
   // The async call.
   // on_check_done is called with the check status after cached
