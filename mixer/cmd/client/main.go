@@ -19,6 +19,8 @@ import (
 	"os"
 
 	"github.com/golang/glog"
+	tracer "github.com/opentracing/basictracer-go"
+	ot "github.com/opentracing/opentracing-go"
 	"github.com/spf13/cobra"
 )
 
@@ -86,6 +88,16 @@ func withArgs(args []string, errorf errorFn) {
 	rootCmd.AddCommand(checkCmd(rootArgs, errorf))
 	rootCmd.AddCommand(reportCmd(rootArgs, errorf))
 	rootCmd.AddCommand(quotaCmd(rootArgs, errorf))
+
+	// The tracer will keep track of spans in memory and print them to stdout when the client exits.
+	recorder := tracer.NewInMemoryRecorder()
+	defer func() {
+		for _, span := range recorder.GetSpans() {
+			//fmt.Printf("%v\n", span)
+			glog.Infof("%v\n", span)
+		}
+	}()
+	ot.SetGlobalTracer(tracer.New(recorder))
 
 	if err := rootCmd.Execute(); err != nil {
 		errorf(err.Error())

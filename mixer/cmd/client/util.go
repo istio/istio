@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/tracing"
 )
 
 type clientState struct {
@@ -37,6 +38,7 @@ func createAPIClient(port string) (*clientState, error) {
 
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
+	opts = append(opts, grpc.WithStreamInterceptor(tracing.ClientInterceptor()))
 
 	var err error
 	if cs.connection, err = grpc.Dial(port, opts...); err != nil {

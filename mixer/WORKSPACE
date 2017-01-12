@@ -138,6 +138,19 @@ new_go_repository(
     importpath = "github.com/opentracing/opentracing-go",
 )
 
+new_go_repository(
+    name = "com_github_opentracing_basictracer",
+    commit = "1b32af207119a14b1b231d451df3ed04a72efebf",
+    importpath = "github.com/opentracing/basictracer-go"
+)
+
+# Transitive dep of com_github_opentracing_basictracer
+new_go_repository(
+    name = "com_github_gogo_protobuf",
+    commit = "909568be09de550ed094403c2bf8a261b5bb730a",
+    importpath = "github.com/gogo/protobuf"
+)
+
 load("//:repositories.bzl", "new_git_or_local_repository")
 
 new_git_or_local_repository(

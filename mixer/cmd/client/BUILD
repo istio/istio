@@ -13,10 +13,13 @@ go_library(
     ],
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/tracing:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
         "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
         "@com_github_istio_api//:mixer/v1",
+        "@com_github_opentracing_basictracer//:go_default_library",
+        "@com_github_opentracing_opentracing_go//:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
     ],

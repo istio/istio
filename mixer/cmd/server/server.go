@@ -15,12 +15,16 @@
 package main
 
 import (
+	"bufio"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 
+	tracer "github.com/opentracing/basictracer-go"
+	ot "github.com/opentracing/opentracing-go"
 	"github.com/spf13/cobra"
 
 	"istio.io/mixer/pkg/api"
@@ -43,12 +47,31 @@ func serverCmd(errorf errorFn) *cobra.Command {
 		Use:   "server",
 		Short: "Starts the mixer as a server",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Starting gRPC server on port %v", sa.port)
+			fmt.Printf("Starting gRPC server on port %v, type 'exit' to stop gracefully.\n", sa.port)
 
-			err := runServer(sa)
+			// The tracer will keep track of spans in memory and print them to stdout when the server finishes.
+			recorder := tracer.NewInMemoryRecorder()
+			t := tracer.New(recorder)
+			defer func() {
+				for _, span := range recorder.GetSpans() {
+					fmt.Printf("%v\n", span)
+				}
+			}()
+
+			srv, err := newServer(sa, t)
 			if err != nil {
 				errorf("%v", err)
+				os.Exit(1)
 			}
+
+			go func() {
+				if err := srv.Start(); err != nil {
+					errorf("%v", err)
+					os.Exit(1)
+				}
+			}()
+
+			loopTillStopped(srv)
 		},
 	}
 	serverCmd.PersistentFlags().UintVarP(&sa.port, "port", "p", 9091, "TCP port to use for the mixer's gRPC API")
@@ -62,14 +85,14 @@ func serverCmd(errorf errorFn) *cobra.Command {
 	return &serverCmd
 }
 
-func runServer(sa *serverArgs) error {
+func newServer(sa *serverArgs, tracer ot.Tracer) (*api.GRPCServer, error) {
 	var serverCert *tls.Certificate
 	var clientCerts *x509.CertPool
 
 	if sa.serverCertFile != "" && sa.serverKeyFile != "" {
 		sc, err := tls.LoadX509KeyPair(sa.serverCertFile, sa.serverKeyFile)
 		if err != nil {
-			return fmt.Errorf("failed to load server certificate and server key: %v", err)
+			return nil, fmt.Errorf("failed to load server certificate and server key: %v", err)
 		}
 		serverCert = &sc
 	}
@@ -79,7 +102,7 @@ func runServer(sa *serverArgs) error {
 		for _, clientCertFile := range strings.Split(sa.clientCertFiles, ",") {
 			pem, err := ioutil.ReadFile(clientCertFile)
 			if err != nil {
-				return fmt.Errorf("failed to load client certificate: %v", err)
+				return nil, fmt.Errorf("failed to load client certificate: %v", err)
 			}
 			clientCerts.AppendCertsFromPEM(pem)
 		}
@@ -96,13 +119,25 @@ func runServer(sa *serverArgs) error {
 		ClientCertificates:   clientCerts,
 		Handlers:             api.NewMethodHandlers(),
 		AttributeManager:     attrMgr,
+		EnableTracing:        true,
+		Tracer:               tracer,
 	}
 
 	var grpcServer *api.GRPCServer
 	var err error
 	if grpcServer, err = api.NewGRPCServer(&grpcServerOptions); err != nil {
-		return fmt.Errorf("unable to initialize gRPC server " + err.Error())
+		return nil, fmt.Errorf("unable to initialize gRPC server " + err.Error())
 	}
 
-	return grpcServer.Start()
+	return grpcServer, nil
+}
+
+func loopTillStopped(srv *api.GRPCServer) {
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		if scanner.Text() == "exit" {
+			srv.Stop()
+			return
+		}
+	}
 }
