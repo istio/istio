@@ -25,7 +25,7 @@ import (
 
 	"google.golang.org/genproto/googleapis/rpc/status"
 
-	pb "istio.io/mixer/adapter/denyChecker/config"
+	"istio.io/mixer/adapter/denyChecker/config"
 )
 
 // Register records the existence of this adapter
@@ -42,9 +42,9 @@ func (a *adapterState) Close() error                                            
 func (a *adapterState) ValidateConfig(cfg proto.Message) (ce *aspect.ConfigErrors) { return }
 
 func (a *adapterState) DefaultConfig() proto.Message {
-	return &pb.Config{Error: &status.Status{Code: int32(code.Code_FAILED_PRECONDITION)}}
+	return &config.Params{Error: &status.Status{Code: int32(code.Code_FAILED_PRECONDITION)}}
 }
 
 func (a *adapterState) NewAspect(env aspect.Env, cfg proto.Message) (denyChecker.Aspect, error) {
-	return newAspect(cfg.(*pb.Config))
+	return newAspect(cfg.(*config.Params))
 }

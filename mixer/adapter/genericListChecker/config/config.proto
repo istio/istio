@@ -16,7 +16,9 @@ syntax = "proto3";
 
 package adapter.genericListChecker.config;
 
-message Config {
+option go_package="config";
+
+message Params {
     // The set of entries in the list to check against
     repeated string list_entries = 1;
 }

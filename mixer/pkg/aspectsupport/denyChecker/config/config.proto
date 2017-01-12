@@ -14,13 +14,10 @@
 
 syntax = "proto3";
 
-package adapter.denyChecker.config;
+package pkg.adaptersupport.denyChecker.config;
 
 option go_package="config";
 
-import "google/rpc/status.proto";
-
+// Configures a deny checker aspect
 message Params {
-	// The error to return when denying a request.
-	google.rpc.Status error = 1;
 }

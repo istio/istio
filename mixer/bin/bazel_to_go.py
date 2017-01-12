@@ -164,7 +164,8 @@ def bazel_to_vendor(WKSPC):
         makelink(target, linksrc)
         # print "Vendored", linksrc, '-->', target
 
-    adapter_protos (WKSPC)
+    adapter_protos(WKSPC)
+    aspectsupport_protos(WKSPC)
 
 def get_external_links(external):
     return [file for file in os.listdir(external) if os.path.isdir(external+"/"+file)]
@@ -182,6 +183,13 @@ def adapter_protos(WKSPC):
             for file in os.listdir(WKSPC + "/bazel-genfiles/adapter/" + adapter + "/config"):
                 if file.endswith(".pb.go"):
                     makelink(WKSPC + "/bazel-genfiles/adapter/"+ adapter + "/config/" + file, WKSPC + "/adapter/" +adapter + "/config/" + file)
+
+def aspectsupport_protos(WKSPC):
+    for aspect in os.listdir(WKSPC + "/bazel-genfiles/pkg/aspectsupport/"):
+        if os.path.exists(WKSPC + "/bazel-genfiles/pkg/aspectsupport/"+ aspect + "/config"):
+            for file in os.listdir(WKSPC + "/bazel-genfiles/pkg/aspectsupport/" + aspect + "/config"):
+                if file.endswith(".pb.go"):
+                    makelink(WKSPC + "/bazel-genfiles/pkg/aspectsupport/"+ aspect + "/config/" + file, WKSPC + "/pkg/aspectsupport/" + aspect + "/config/" + file)
 
 if __name__ == "__main__":
     import sys
