@@ -15,7 +15,6 @@
 
 #include "include/client.h"
 
-#include <iostream>
 #include "gmock/gmock.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/message_differencer.h"
@@ -266,6 +265,7 @@ TEST_F(MixerClientImplTest, TestNonCachedCheckWithInplaceCallback) {
   Status done_status = Status::UNKNOWN;
   client_->Check(check_request1_, &check_response,
                  [&done_status](Status status) { done_status = status; });
+  EXPECT_EQ(done_status, mock_check_transport_.done_status_);
 
   // Since it is not cached, transport should be called.
   EXPECT_TRUE(MessageDifferencer::Equals(mock_check_transport_.check_request_,
@@ -289,6 +289,7 @@ TEST_F(MixerClientImplTest, TestNonCachedReportWithInplaceCallback) {
   // client->Report() will call Transport::Report() right away.
   client_->Report(report_request1_, &report_response,
                   [&done_status](Status status) { done_status = status; });
+  EXPECT_EQ(done_status, mock_report_transport_.done_status_);
 
   // Since it is not cached, transport should be called.
   EXPECT_TRUE(MessageDifferencer::Equals(mock_report_transport_.report_request_,
@@ -309,6 +310,7 @@ TEST_F(MixerClientImplTest, TestNonCachedQuotaWithInplaceCallback) {
   Status done_status = Status::UNKNOWN;
   client_->Quota(quota_request1_, &quota_response,
                  [&done_status](Status status) { done_status = status; });
+  EXPECT_EQ(done_status, mock_quota_transport_.done_status_);
 
   // Since it is not cached, transport should be called.
   EXPECT_TRUE(MessageDifferencer::Equals(mock_quota_transport_.quota_request_,
