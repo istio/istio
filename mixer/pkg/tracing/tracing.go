@@ -1,3 +1,18 @@
+// Copyright 2017 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Package tracing provides wrappers around opentracing's golang library to make them easier to use in Istio.
 package tracing
 
 import (
@@ -8,9 +23,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/golang/glog"
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
-	"github.com/opentracing/opentracing-go/log"
 )
 
 // TODO: Keep track of per-stream state, e.g. the Tracer impl to use in traces for this stream. This will enable things
@@ -31,7 +46,7 @@ var (
 
 // ClientInterceptor establishes a span that lives for the entire lifetime of the server-client stream and propagates
 // it via gRPC request metadata to the client.
-func ClientInterceptor() grpc.StreamClientInterceptor {
+func ClientInterceptor(tracer ot.Tracer) grpc.StreamClientInterceptor {
 	return func(
 		ctx xctx.Context,
 		desc *grpc.StreamDesc,
@@ -40,9 +55,16 @@ func ClientInterceptor() grpc.StreamClientInterceptor {
 		streamer grpc.Streamer,
 		opts ...grpc.CallOption) (grpc.ClientStream, error) {
 
-		span, ctx := ot.StartSpanFromContext(ctx, method, ext.SpanKindRPCClient)
+		var span ot.Span
+		if p := ot.SpanFromContext(ctx); p != nil {
+			span = tracer.StartSpan(method, ext.SpanKindRPCClient, ot.ChildOf(p.Context()))
+		} else {
+			span = tracer.StartSpan(method, ext.SpanKindRPCClient)
+		}
 		defer span.Finish()
-		ctx = propagateSpan(ctx, span)
+
+		ctx = ot.ContextWithSpan(ctx, span)
+		ctx = propagateSpan(ctx, tracer, span)
 		return streamer(ctx, desc, cc, method, opts...)
 	}
 }
@@ -79,11 +101,9 @@ func StartRootSpan(ctx context.Context, operationName string) (ot.Span, context.
 	if !ok {
 		md = metadata.New(nil)
 	}
-	spanContext, err := ot.GlobalTracer().Extract(ot.HTTPHeaders, metadataReaderWriter{md})
+	spanContext, err := ot.GlobalTracer().Extract(ot.TextMap, metadataReaderWriter{md})
 	if err != nil {
-		// TODO: establish some sort of error reporting mechanism here. We
-		// don't know where to put such an error and must rely on Tracer
-		// implementations to do something appropriate for the time being.
+		glog.Warningf("Failed to extract opentracing metadata with tracer %v from ctx %v with err %v", ot.GlobalTracer(), ctx, err)
 
 		// We set the spancontext to nil if there's an error so we don't get funky values from ext.RPCServerOption
 		// (in particular the mock tracer impl doesn't handle a non nil empty span context gracefully).
@@ -99,15 +119,14 @@ func StartRootSpan(ctx context.Context, operationName string) (ot.Span, context.
 //
 // TODO: consider creating a public version of this method for use at individual call sites if the interceptor isn't
 // sufficient for some reason.
-func propagateSpan(ctx context.Context, span ot.Span) context.Context {
+func propagateSpan(ctx context.Context, tracer ot.Tracer, span ot.Span) context.Context {
 	md, ok := metadata.FromContext(ctx)
 	if !ok {
 		md = metadata.New(nil)
 	}
-	mdWriter := metadataReaderWriter{md}
-	err := ot.GlobalTracer().Inject(span.Context(), ot.HTTPHeaders, mdWriter)
+	err := tracer.Inject(span.Context(), ot.TextMap, metadataReaderWriter{md})
 	if err != nil {
-		span.LogFields(log.String("event", "Tracer.Inject() failed"), log.Error(err))
+		glog.Warningf("Failed to inject opentracing span state with tracer %v into ctx %v with err %v", ot.GlobalTracer(), ctx, err)
 	}
 	return metadata.NewContext(ctx, md)
 }

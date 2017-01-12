@@ -13,6 +13,7 @@ go_library(
     deps = [
         "//pkg/api:go_default_library",
         "//pkg/attribute:go_default_library",
+        "//pkg/tracing:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_opentracing_basictracer//:go_default_library",
         "@com_github_opentracing_opentracing_go//:go_default_library",

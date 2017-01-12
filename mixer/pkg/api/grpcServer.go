@@ -59,10 +59,6 @@ type GRPCServerOptions struct {
 	// Port specifies the IP port the server should listen on.
 	Port uint16
 
-	// EnableTracing determines whether OpenTracing is used to add trace information to
-	// all API calls.
-	EnableTracing bool
-
 	// CompressedPayload determines whether compression should be
 	// used on individual messages.
 	CompressedPayload bool
@@ -84,8 +80,8 @@ type GRPCServerOptions struct {
 	// processing incoming attribute requests.
 	AttributeManager attribute.Manager
 
-	// Tracer is the tracer instance to use with OpenTracing. If EnableTracing is false
-	// this is unused.
+	// Tracer is the tracer instance to use with OpenTracing. If Tracer is nil no tracing
+	// will be enabled.
 	Tracer ot.Tracer
 }
 
@@ -132,13 +128,8 @@ func NewGRPCServer(options *GRPCServerOptions) (*GRPCServer, error) {
 		grpcOptions = append(grpcOptions, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	}
 
-	if options.EnableTracing {
-		// If options.Tracer is nil we won't set the GlobalTracer, defaulting to the no-op tracer.
-		//
-		// TODO: should we panic if tracing is enabled but no tracer is provided?
-		if options.Tracer != nil {
-			ot.SetGlobalTracer(options.Tracer)
-		}
+	if options.Tracer != nil {
+		ot.SetGlobalTracer(options.Tracer)
 	}
 
 	// get everything wired up

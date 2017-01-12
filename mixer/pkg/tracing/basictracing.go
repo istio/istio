@@ -10,8 +10,7 @@
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
-// limitations under the License.
-//
+// limitations under the License.//
 //
 // Copyright (c) 2017, gRPC Ecosystem
 // All rights reserved.
@@ -45,31 +44,40 @@
 
 package tracing
 
-// TODO: PR https://github.com/grpc-ecosystem/grpc-opentracing/ to rework these functions to be reusable
+import (
+	"fmt"
 
-import "google.golang.org/grpc/metadata"
+	"github.com/golang/glog"
+	bt "github.com/opentracing/basictracer-go"
+)
 
-// metadataReaderWriter satisfies both the opentracing.TextMapReader and
-// opentracing.TextMapWriter interfaces.
-type metadataReaderWriter struct {
-	metadata.MD
+type loggingRecorder struct{}
+
+// LoggingRecorder returns a SpanRecorder which logs writes its spans to glog.
+func LoggingRecorder() bt.SpanRecorder {
+	return loggingRecorder{}
 }
 
-func (w metadataReaderWriter) Set(key, val string) {
-	w.MD[key] = append(w.MD[key], val)
+// RecordSpan writes span to glog.Info.
+//
+// TODO: allow a user to specify trace log level.
+func (l loggingRecorder) RecordSpan(span bt.RawSpan) {
+	glog.Info(spanToString(span))
 }
 
-func (w metadataReaderWriter) ForeachKey(handler func(key, val string) error) error {
-	for k, vals := range w.MD {
-		for _, v := range vals {
-			if dk, dv, err := metadata.DecodeKeyValue(k, v); err == nil {
-				if err = handler(dk, dv); err != nil {
-					return err
-				}
-			} else {
-				return err
-			}
-		}
-	}
-	return nil
+type stdoutRecorder struct{}
+
+// StdoutRecorder returns a SpanRecorder which writes its spans to stdout.
+func StdoutRecorder() bt.SpanRecorder {
+	return stdoutRecorder{}
+}
+
+// RecordSpan writes span to stdout.
+func (s stdoutRecorder) RecordSpan(span bt.RawSpan) {
+	fmt.Println(spanToString(span))
+}
+
+func spanToString(span bt.RawSpan) string {
+	return fmt.Sprintf("%v %s %v trace: %d; span: %d; parent: %d; tags: %v; logs: %v",
+		span.Start, span.Operation, span.Duration, span.Context.TraceID, span.Context.SpanID, span.ParentSpanID, span.Tags, span.Logs)
 }

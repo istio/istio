@@ -15,20 +15,19 @@
 package main
 
 import (
-	"bufio"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"strings"
 
-	tracer "github.com/opentracing/basictracer-go"
+	bt "github.com/opentracing/basictracer-go"
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/spf13/cobra"
 
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/tracing"
 )
 
 type serverArgs struct {
@@ -36,6 +35,7 @@ type serverArgs struct {
 	maxMessageSize       uint
 	maxConcurrentStreams uint
 	compressedPayload    bool
+	enableTracing        bool
 	serverCertFile       string
 	serverKeyFile        string
 	clientCertFiles      string
@@ -47,31 +47,12 @@ func serverCmd(errorf errorFn) *cobra.Command {
 		Use:   "server",
 		Short: "Starts the mixer as a server",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Starting gRPC server on port %v, type 'exit' to stop gracefully.\n", sa.port)
+			fmt.Printf("Starting gRPC server on port %v\n", sa.port)
 
-			// The tracer will keep track of spans in memory and print them to stdout when the server finishes.
-			recorder := tracer.NewInMemoryRecorder()
-			t := tracer.New(recorder)
-			defer func() {
-				for _, span := range recorder.GetSpans() {
-					fmt.Printf("%v\n", span)
-				}
-			}()
-
-			srv, err := newServer(sa, t)
+			err := runServer(sa)
 			if err != nil {
 				errorf("%v", err)
-				os.Exit(1)
 			}
-
-			go func() {
-				if err := srv.Start(); err != nil {
-					errorf("%v", err)
-					os.Exit(1)
-				}
-			}()
-
-			loopTillStopped(srv)
 		},
 	}
 	serverCmd.PersistentFlags().UintVarP(&sa.port, "port", "p", 9091, "TCP port to use for the mixer's gRPC API")
@@ -81,18 +62,20 @@ func serverCmd(errorf errorFn) *cobra.Command {
 	serverCmd.PersistentFlags().StringVarP(&sa.serverCertFile, "serverCertFile", "", "", "The TLS cert file")
 	serverCmd.PersistentFlags().StringVarP(&sa.serverKeyFile, "serverKeyFile", "", "", "The TLS key file")
 	serverCmd.PersistentFlags().StringVarP(&sa.clientCertFiles, "clientCertFiles", "", "", "A set of comma-separated client X509 cert files")
+	// TODO: implement an option to specify how traces are reported (hardcoded to report to stdout right now).
+	serverCmd.PersistentFlags().BoolVarP(&sa.enableTracing, "trace", "", false, "Whether to trace rpc executions")
 
 	return &serverCmd
 }
 
-func newServer(sa *serverArgs, tracer ot.Tracer) (*api.GRPCServer, error) {
+func runServer(sa *serverArgs) error {
 	var serverCert *tls.Certificate
 	var clientCerts *x509.CertPool
 
 	if sa.serverCertFile != "" && sa.serverKeyFile != "" {
 		sc, err := tls.LoadX509KeyPair(sa.serverCertFile, sa.serverKeyFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load server certificate and server key: %v", err)
+			return fmt.Errorf("failed to load server certificate and server key: %v", err)
 		}
 		serverCert = &sc
 	}
@@ -102,10 +85,15 @@ func newServer(sa *serverArgs, tracer ot.Tracer) (*api.GRPCServer, error) {
 		for _, clientCertFile := range strings.Split(sa.clientCertFiles, ",") {
 			pem, err := ioutil.ReadFile(clientCertFile)
 			if err != nil {
-				return nil, fmt.Errorf("failed to load client certificate: %v", err)
+				return fmt.Errorf("failed to load client certificate: %v", err)
 			}
 			clientCerts.AppendCertsFromPEM(pem)
 		}
+	}
+
+	var tracer ot.Tracer
+	if sa.enableTracing {
+		tracer = bt.New(tracing.StdoutRecorder())
 	}
 
 	attrMgr := attribute.NewManager()
@@ -119,25 +107,14 @@ func newServer(sa *serverArgs, tracer ot.Tracer) (*api.GRPCServer, error) {
 		ClientCertificates:   clientCerts,
 		Handlers:             api.NewMethodHandlers(),
 		AttributeManager:     attrMgr,
-		EnableTracing:        true,
 		Tracer:               tracer,
 	}
 
 	var grpcServer *api.GRPCServer
 	var err error
 	if grpcServer, err = api.NewGRPCServer(&grpcServerOptions); err != nil {
-		return nil, fmt.Errorf("unable to initialize gRPC server " + err.Error())
+		return fmt.Errorf("unable to initialize gRPC server " + err.Error())
 	}
 
-	return grpcServer, nil
-}
-
-func loopTillStopped(srv *api.GRPCServer) {
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		if scanner.Text() == "exit" {
-			srv.Stop()
-			return
-		}
-	}
+	return grpcServer.Start()
 }
