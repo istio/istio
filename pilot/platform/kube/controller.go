@@ -41,8 +41,9 @@ type Controller struct {
 	queue  Queue
 
 	kinds     map[string]cacheHandler
-	endpoints cacheHandler
 	services  cacheHandler
+	endpoints cacheHandler
+	pods      cacheHandler
 }
 
 type cacheHandler struct {
@@ -77,6 +78,14 @@ func NewController(
 		},
 		func(opts v1.ListOptions) (watch.Interface, error) {
 			return client.client.Endpoints(namespace).Watch(opts)
+		})
+
+	out.pods = out.createInformer(&v1.Pod{}, resyncPeriod,
+		func(opts v1.ListOptions) (runtime.Object, error) {
+			return client.client.Pods(namespace).List(opts)
+		},
+		func(opts v1.ListOptions) (watch.Interface, error) {
+			return client.client.Pods(namespace).Watch(opts)
 		})
 
 	// add stores for TPR kinds
@@ -171,7 +180,9 @@ func (c *Controller) AppendHandler(kind string, f func(*model.Config, model.Even
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	if !c.services.informer.HasSynced() || !c.endpoints.informer.HasSynced() {
+	if !c.services.informer.HasSynced() ||
+		!c.endpoints.informer.HasSynced() ||
+		!c.pods.informer.HasSynced() {
 		return false
 	}
 	for kind, ctl := range c.kinds {
@@ -188,6 +199,7 @@ func (c *Controller) Run(stop chan struct{}) {
 	go c.queue.Run(stop)
 	go c.services.informer.Run(stop)
 	go c.endpoints.informer.Run(stop)
+	go c.pods.informer.Run(stop)
 	for _, ctl := range c.kinds {
 		go ctl.informer.Run(stop)
 	}
@@ -298,8 +310,7 @@ func (c *Controller) Endpoints(s *model.Service) []*model.ServiceInstance {
 									},
 								},
 								Service: s,
-								// TODO tag binding
-								Tag: "",
+								Tag:     nil,
 							})
 						}
 					}

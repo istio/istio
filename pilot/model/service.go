@@ -16,18 +16,19 @@ package model
 
 import (
 	"bytes"
+	"fmt"
 	"sort"
 	"strings"
 )
 
 // ServiceDiscovery enumerates Istio service instances
 type ServiceDiscovery interface {
-	// Services list all services and their tags
+	// Services list declarations of all services and their tags
 	Services() []*Service
 	// Endpoints retrieves service instances for a service.
 	// The query takes a union across a set of tags and a set of named ports
 	// defined in the service parameter.
-	// Empty tag set or port set implies the union of all available tags and
+	// Empty tag set or a port set implies the union of all available tags and
 	// ports, respectively.
 	Endpoints(s *Service) []*ServiceInstance
 }
@@ -38,13 +39,16 @@ type Service struct {
 	Name string `json:"name"`
 	// Namespace of the service name, optional
 	Namespace string `json:"namespace,omitempty"`
-	// Tags is a set of declared tags for the service.
-	// An empty set is allowed but tag values must be non-empty strings.
-	Tags []string `json:"tags,omitempty"`
-	// Ports is a set of declared network ports for the service.
-	// Port value is the service port.
-	Ports []Port `json:"ports"`
+	// Tags is a set of declared distinct tags for the service
+	Tags []Tag `json:"tags,omitempty"`
+	// Ports is a set of declared network service ports
+	Ports []Port `json:"ports,omitempty"`
 }
+
+// Tag describes an Istio service tag which provides finer-grained control
+// over the set of service endpoints.
+// Tag is a non-empty set of key-value pairs.
+type Tag map[string]string
 
 // Endpoint defines a network endpoint
 type Endpoint struct {
@@ -52,6 +56,13 @@ type Endpoint struct {
 	Address string `json:"ip_address,omitempty"`
 	// Port on the host address
 	Port Port `json:"port"`
+}
+
+// ServiceInstance binds an endpoint to a service and a tag.
+type ServiceInstance struct {
+	Endpoint Endpoint `json:"endpoint,omitempty"`
+	Service  *Service `json:"service,omitempty"`
+	Tag      *Tag     `json:"tag,omitempty"`
 }
 
 // Port represents a network port
@@ -75,17 +86,8 @@ const (
 	ProtocolUDP   Protocol = "UDP"
 )
 
-// ServiceInstance binds an endpoint to a service and a tag.
-// If the service has no tags, the tag value is an empty string;
-// otherwise, the tag value is an element in the set of service tags.
-type ServiceInstance struct {
-	Endpoint Endpoint `json:"endpoint,omitempty"`
-	Service  *Service `json:"service,omitempty"`
-	Tag      string   `json:"tag,omitempty"`
-}
-
 func (s *Service) String() string {
-	// example: name.namespace:http:my-v1,prod
+	// example: name.namespace:http:env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer
 	buffer.WriteString(s.Name)
 	if len(s.Namespace) > 0 {
@@ -121,11 +123,13 @@ func (s *Service) String() string {
 	if nt > 0 {
 		buffer.WriteString(":")
 		tags := make([]string, nt)
-		copy(tags, s.Tags)
+		for i := 0; i < nt; i++ {
+			tags[i] = s.Tags[i].String()
+		}
 		sort.Strings(tags)
 		for i := 0; i < nt; i++ {
 			if i > 0 {
-				buffer.WriteString(",")
+				buffer.WriteString(";")
 			}
 			buffer.WriteString(tags[i])
 		}
@@ -152,14 +156,17 @@ func ParseServiceString(s string) *Service {
 	} else {
 		names = []string{""}
 	}
-	ports := make([]Port, 0)
+
+	var ports []Port
 	for _, name := range names {
 		ports = append(ports, Port{Name: name})
 	}
 
-	var tags []string
+	var tags []Tag
 	if len(parts) > 2 && len(parts[2]) > 0 {
-		tags = strings.Split(parts[2], ",")
+		for _, tag := range strings.Split(parts[2], ";") {
+			tags = append(tags, ParseTagString(tag))
+		}
 	}
 
 	return &Service{
@@ -168,4 +175,41 @@ func ParseServiceString(s string) *Service {
 		Ports:     ports,
 		Tags:      tags,
 	}
+}
+
+func (t Tag) String() string {
+	labels := make([]string, 0)
+	for k, v := range t {
+		if len(v) > 0 {
+			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
+		} else {
+			labels = append(labels, k)
+		}
+	}
+	sort.Strings(labels)
+
+	var buffer bytes.Buffer
+	var first = true
+	for _, label := range labels {
+		if !first {
+			buffer.WriteString(",")
+		} else {
+			first = false
+		}
+		buffer.WriteString(label)
+	}
+	return buffer.String()
+}
+
+func ParseTagString(s string) Tag {
+	tag := make(map[string]string)
+	for _, pair := range strings.Split(s, ",") {
+		kv := strings.Split(pair, "=")
+		if len(kv) > 1 {
+			tag[kv[0]] = kv[1]
+		} else {
+			tag[kv[0]] = ""
+		}
+	}
+	return tag
 }

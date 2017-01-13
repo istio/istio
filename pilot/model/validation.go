@@ -26,11 +26,14 @@ import (
 const (
 	dns1123LabelMaxLength int    = 63
 	dns1123LabelFmt       string = "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
+	// TODO: there is a stricter regex for the labels from validation.go in k8s
+	qualifiedNameFmt string = "[-A-Za-z0-9_./]*"
 )
 
 var (
 	dns1123LabelRex = regexp.MustCompile("^" + dns1123LabelFmt + "$")
 	kindRegexp      = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9]*$")
+	tagRegexp       = regexp.MustCompile("^" + qualifiedNameFmt + "$")
 )
 
 // IsDNS1123Label tests for a string that conforms to the definition of a label in
@@ -133,11 +136,13 @@ func (s *Service) Validate() error {
 	if s.Namespace != "" && !IsDNS1123Label(s.Namespace) {
 		errs = multierror.Append(errs, fmt.Errorf("Invalid namespace: %q", s.Namespace))
 	}
+
 	for _, tag := range s.Tags {
-		if !IsDNS1123Label(tag) {
-			errs = multierror.Append(errs, fmt.Errorf("Invalid service tag: %q", tag))
+		if err := tag.Validate(); err != nil {
+			errs = multierror.Append(errs, err)
 		}
 	}
+
 	// Require at least one port
 	if len(s.Ports) == 0 {
 		errs = multierror.Append(errs, fmt.Errorf("Service must have at least one declared port"))
@@ -155,6 +160,22 @@ func (s *Service) Validate() error {
 		}
 		if port.Port < 0 {
 			errs = multierror.Append(errs, fmt.Errorf("Invalid port value %d for %q", port.Port, port.Name))
+		}
+	}
+	return errs
+}
+
+func (t Tag) Validate() error {
+	var errs error
+	if len(t) == 0 {
+		errs = multierror.Append(errs, fmt.Errorf("Tag must have at least one key-value pair"))
+	}
+	for k, v := range t {
+		if !tagRegexp.MatchString(k) {
+			errs = multierror.Append(errs, fmt.Errorf("Invalid tag key: %q", k))
+		}
+		if !tagRegexp.MatchString(v) {
+			errs = multierror.Append(errs, fmt.Errorf("Invalid tag value: %q", v))
 		}
 	}
 	return errs

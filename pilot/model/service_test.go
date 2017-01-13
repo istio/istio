@@ -17,15 +17,29 @@ package model
 import "testing"
 
 var validServices = map[string]Service{
-	"example-service1.default:grpc,http:v1,v2,v3": Service{
+	"example-service1.default:grpc,http:a=b,c=d;e=f": Service{
 		Name:      "example-service1",
 		Namespace: "default",
-		Tags:      []string{"v2", "v3", "v1"},
+		Tags:      []Tag{{"e": "f"}, {"c": "d", "a": "b"}},
 		Ports:     []Port{Port{Name: "http"}, Port{Name: "grpc"}}},
-	"my-service":    Service{Name: "my-service", Ports: []Port{Port{Name: ""}}},
-	"svc.ns":        Service{Name: "svc", Ports: []Port{Port{Name: ""}}, Namespace: "ns"},
-	"svc::v1-test":  Service{Name: "svc", Ports: []Port{Port{Name: ""}}, Tags: []string{"v1-test"}},
-	"svc:http-test": Service{Name: "svc", Ports: []Port{Port{Name: "http-test"}}},
+	"my-service": Service{
+		Name:  "my-service",
+		Ports: []Port{Port{Name: ""}}},
+	"svc.ns": Service{
+		Name:      "svc",
+		Namespace: "ns",
+		Ports:     []Port{Port{Name: ""}}},
+	"svc::istio.io/my_tag-v1.test=my_value-v2.value": Service{
+		Name:  "svc",
+		Tags:  []Tag{{"istio.io/my_tag-v1.test": "my_value-v2.value"}},
+		Ports: []Port{Port{Name: ""}}},
+	"svc:test:prod": Service{
+		Name:  "svc",
+		Tags:  []Tag{{"prod": ""}},
+		Ports: []Port{Port{Name: "test"}}},
+	"svc:http-test": Service{
+		Name:  "svc",
+		Ports: []Port{Port{Name: "http-test"}}},
 }
 
 func TestServiceString(t *testing.T) {
@@ -44,7 +58,7 @@ func TestServiceString(t *testing.T) {
 		if svc1.Namespace != svc.Namespace {
 			t.Errorf("svc.Name => Got %s, expected %s for %s", svc1.Namespace, svc.Namespace, s)
 		}
-		if !compare(svc1.Tags, svc.Tags) {
+		if !compareTags(svc1.Tags, svc.Tags) {
 			t.Errorf("svc.Tags => Got %#v, expected %#v for %s", svc1.Tags, svc.Tags, s)
 		}
 		if len(svc1.Ports) != len(svc.Ports) {
@@ -53,6 +67,7 @@ func TestServiceString(t *testing.T) {
 	}
 }
 
+// compare two slices of strings as sets
 func compare(a, b []string) bool {
 	ma := make(map[string]bool)
 	mb := make(map[string]bool)
@@ -74,4 +89,16 @@ func compare(a, b []string) bool {
 	}
 
 	return true
+}
+
+// compareTags compares sets of tags
+func compareTags(a, b []Tag) bool {
+	var as, bs []string
+	for _, i := range a {
+		as = append(as, i.String())
+	}
+	for _, j := range b {
+		bs = append(bs, j.String())
+	}
+	return compare(as, bs)
 }
