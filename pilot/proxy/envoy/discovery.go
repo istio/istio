@@ -41,6 +41,10 @@ type host struct {
 	Weight int `json:"load_balancing_weight,omitempty"`
 }
 
+type clusters struct {
+	Clusters []Cluster `json:"clusters"`
+}
+
 // NewDiscoveryService creates an Envoy discovery service on a given port
 func NewDiscoveryService(services model.ServiceDiscovery, port int) *DiscoveryService {
 	out := &DiscoveryService{
@@ -61,6 +65,13 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Doc("SDS registration").
 		Param(ws.PathParameter("service-key", "tuple of service name and tag name").DataType("string")).
 		Writes(hosts{}))
+	ws.Route(ws.
+		GET("/v1/clusters/{service-cluster}/{service-node}").
+		To(ds.ListClusters).
+		Doc("CDS registration").
+		Param(ws.PathParameter("service-cluster", "").DataType("string")).
+		Param(ws.PathParameter("service-node", "").DataType("string")).
+		Writes(clusters{}))
 	container.Add(ws)
 }
 
@@ -80,4 +91,9 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 		})
 	}
 	response.WriteEntity(hosts{out})
+}
+
+func (ds *DiscoveryService) ListClusters(request *restful.Request, response *restful.Response) {
+	svc := ds.services.Services()
+	response.WriteEntity(clusters{Clusters: buildClusters(svc)})
 }
