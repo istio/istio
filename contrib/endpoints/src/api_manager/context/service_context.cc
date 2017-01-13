@@ -41,6 +41,9 @@ const double kDefaultTraceSampleQps = 0.1;
 // The time window to send intermediate report for Grpc streaming (second).
 // Default to 10s.
 const int kIntermediateReportInterval = 10;
+
+const char kHTTPHeadMethod[] = "HEAD";
+const char kHTTPGetMethod[] = "GET";
 }
 
 ServiceContext::ServiceContext(std::unique_ptr<ApiManagerEnvInterface> env,
@@ -74,7 +77,15 @@ MethodCallInfo ServiceContext::GetMethodCallInfo(
   if (config_ == nullptr) {
     return MethodCallInfo();
   }
-  return config_->GetMethodCallInfo(http_method, url, query_params);
+  MethodCallInfo method_call_info =
+      config_->GetMethodCallInfo(http_method, url, query_params);
+  // HEAD should be treated as GET unless it is specified from service_config.
+  if (method_call_info.method_info == nullptr &&
+      http_method == kHTTPHeadMethod) {
+    method_call_info =
+        config_->GetMethodCallInfo(kHTTPGetMethod, url, query_params);
+  }
+  return method_call_info;
 }
 
 const std::string& ServiceContext::project_id() const {
