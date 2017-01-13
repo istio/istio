@@ -18,16 +18,28 @@ We are using [Bazel 0.4.3](https://bazel.io) to build Istio Manager:
     bazel build //...
 
 _Note_: Due to issues with case-insensitive file systems, macOS is not
-supported at the moment.
+supported at the moment by Bazel Go rules.
 
-You can also use regular `go test` and `go build` if you place your repository
-into `$GOPATH`:
+Bazel uses `BUILD` files to keep track of dependencies between sources.
+If you add a new source file or change the imports, please run the following command
+to update all `BUILD` files:
+
+    gazelle -go_prefix "istio.io/manager" --mode fix -repo_root .
+
+Gazelle binary is located in Bazel external tools:
+
+    external/io_bazel_rules_go_repository_tools/bin/gazelle
+
+## Build instructions without Bazel ##
+Bazel does not preclude you from using `go` tool in development.
+Place your repository into `$GOPATH`:
 
     mkdir -p $GOPATH/src/istio.io
     ln -s <istio.io/manager repo> $GOPATH/src/istio.io
     go test ./... -v
 
-You would need to `go get` each dependency at the right SHA (see `WORKSPACE` file).
+You would need to `go get` each dependency at the right SHA (see `WORKSPACE` file) for
+the build to succeed.
 
 ## Test environment ##
 
@@ -36,7 +48,7 @@ temporary namespace and deletes it on completion.  Please configure your
 `kubectl` to point to a development cluster before invoking the tests.
 
 To let Bazel sandboxes access the cluster, please add a symbolic link to your
-repository pointing to to your Kubernetes configuration file:
+repository pointing to your Kubernetes configuration file:
 
     ln -s ~/.kube/config platform/kube/
     bazel test //...
