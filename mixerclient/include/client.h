@@ -54,7 +54,8 @@ struct MixerClientOptions {
   // Quota options.
   QuotaOptions quota_options;
 
-  std::shared_ptr<TransportInterface> transport;
+  // Transport object.
+  TransportInterface* transport;
 };
 
 class MixerClient {

@@ -54,18 +54,17 @@ class MockWriter : public WriteInterface<T> {
 class MixerClientImplTest : public ::testing::Test {
  public:
   void SetUp() {
-    mock_transport_ = std::make_shared<MockTransport>();
     MixerClientOptions options(
         CheckOptions(1 /*entries */, 500 /* refresh_interval_ms */,
                      1000 /* expiration_ms */),
         ReportOptions(1 /* entries */, 500 /*flush_interval_ms*/),
         QuotaOptions(1 /* entries */, 500 /*flush_interval_ms*/,
                      1000 /* expiration_ms */));
-    options.transport = mock_transport_;
+    options.transport = &mock_transport_;
     client_ = CreateMixerClient(options);
   }
 
-  std::shared_ptr<MockTransport> mock_transport_;
+  MockTransport mock_transport_;
   std::unique_ptr<MixerClient> client_;
 };
 
@@ -73,7 +72,7 @@ TEST_F(MixerClientImplTest, TestSingleCheck) {
   MockWriter<CheckRequest>* writer = new MockWriter<CheckRequest>;
   CheckReaderRawPtr reader;
 
-  EXPECT_CALL(*mock_transport_, NewStream(An<CheckReaderRawPtr>()))
+  EXPECT_CALL(mock_transport_, NewStream(An<CheckReaderRawPtr>()))
       .WillOnce(
           Invoke([writer, &reader](CheckReaderRawPtr r) -> CheckWriterPtr {
             reader = r;
@@ -111,7 +110,7 @@ TEST_F(MixerClientImplTest, TestTwoOutOfOrderChecks) {
   MockWriter<CheckRequest>* writer = new MockWriter<CheckRequest>;
   CheckReaderRawPtr reader;
 
-  EXPECT_CALL(*mock_transport_, NewStream(An<CheckReaderRawPtr>()))
+  EXPECT_CALL(mock_transport_, NewStream(An<CheckReaderRawPtr>()))
       .WillOnce(
           Invoke([writer, &reader](CheckReaderRawPtr r) -> CheckWriterPtr {
             reader = r;
@@ -146,7 +145,7 @@ TEST_F(MixerClientImplTest, TestCheckWithStreamClose) {
   MockWriter<CheckRequest>* writer = new MockWriter<CheckRequest>;
   CheckReaderRawPtr reader;
 
-  EXPECT_CALL(*mock_transport_, NewStream(An<CheckReaderRawPtr>()))
+  EXPECT_CALL(mock_transport_, NewStream(An<CheckReaderRawPtr>()))
       .WillOnce(
           Invoke([writer, &reader](CheckReaderRawPtr r) -> CheckWriterPtr {
             reader = r;

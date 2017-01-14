@@ -25,7 +25,7 @@ namespace mixer_client {
 class MixerClientImpl : public MixerClient {
  public:
   // Constructor
-  MixerClientImpl(MixerClientOptions& options);
+  MixerClientImpl(const MixerClientOptions& options);
 
   // Destructor
   virtual ~MixerClientImpl();

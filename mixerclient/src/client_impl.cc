@@ -28,11 +28,11 @@ using ::google::protobuf::util::error::Code;
 namespace istio {
 namespace mixer_client {
 
-MixerClientImpl::MixerClientImpl(MixerClientOptions &options)
+MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
     : options_(options),
-      check_transport_(options_.transport.get()),
-      report_transport_(options_.transport.get()),
-      quota_transport_(options_.transport.get()) {}
+      check_transport_(options_.transport),
+      report_transport_(options_.transport),
+      quota_transport_(options_.transport) {}
 
 MixerClientImpl::~MixerClientImpl() {}
 
