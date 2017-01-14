@@ -31,290 +31,145 @@ using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;
 using ::testing::Invoke;
 using ::testing::Mock;
+using ::testing::An;
 using ::testing::_;
 
 namespace istio {
 namespace mixer_client {
-namespace {
 
-const char kCheckRequest1[] = R"(
-request_index: 1
-attribute_update {
-  string_attributes {
-    key: 1
-    value: "service_name"
-  }
-  string_attributes {
-    key: 2
-    value: "operation_name"
-  }
-  int64_attributes {
-    key: 1
-    value: 400
-  }
-}
-)";
-
-const char kReportRequest1[] = R"(
-request_index: 1
-attribute_update {
-  string_attributes {
-    key: 1
-    value: "service_name"
-  }
-  string_attributes {
-    key: 2
-    value: "operation_name"
-  }
-  int64_attributes {
-    key: 1
-    value: 400
-  }
-}
-)";
-
-const char kQuotaRequest1[] = R"(
-request_index: 1
-attribute_update {
-  string_attributes {
-    key: 1
-    value: "service_name"
-  }
-  string_attributes {
-    key: 2
-    value: "operation_name"
-  }
-  int64_attributes {
-    key: 1
-    value: 400
-  }
-}
-)";
-const char kSuccessCheckResponse1[] = R"(
-request_index: 1
-result {
-  code: 200
-}
-)";
-
-const char kReportResponse1[] = R"(
-request_index: 1
-result {
-  code: 200
-}
-)";
-
-const char kQuotaResponse1[] = R"(
-request_index: 1
-)";
-
-const char kErrorCheckResponse1[] = R"()";
-
-// A mocking class to mock CheckTransport interface.
-class MockCheckTransport {
+class MockTransport : public TransportInterface {
  public:
-  MOCK_METHOD3(Check, void(const CheckRequest &, CheckResponse *, DoneFunc));
-
-  TransportCheckFunc GetFunc() {
-    return
-        [this](const CheckRequest &request, CheckResponse *response,
-               DoneFunc on_done) { this->Check(request, response, on_done); };
-  }
-
-  MockCheckTransport() : check_response_(NULL) {}
-
-  ~MockCheckTransport() {}
-
-  // The done callback is called right away (in place).
-  void CheckWithInplaceCallback(const CheckRequest &request,
-                                CheckResponse *response, DoneFunc on_done) {
-    check_request_ = request;
-    if (check_response_) {
-      *response = *check_response_;
-    }
-    on_done(done_status_);
-  }
-
-  // Saved check_request from mocked Transport::Check() call.
-  CheckRequest check_request_;
-  // If not NULL, the check response to send for mocked Transport::Check() call.
-  CheckResponse *check_response_;
-
-  // The status to send in on_done call back for Check() or Report().
-  Status done_status_;
+  MOCK_METHOD1(NewStream, CheckWriterPtr(CheckReaderPtr));
+  MOCK_METHOD1(NewStream, ReportWriterPtr(ReportReaderPtr));
+  MOCK_METHOD1(NewStream, QuotaWriterPtr(QuotaReaderPtr));
 };
 
-// A mocking class to mock ReportTransport interface.
-class MockReportTransport {
+template <class T>
+class MockWriter : public WriteInterface<T> {
  public:
-  MOCK_METHOD3(Report, void(const ReportRequest &, ReportResponse *, DoneFunc));
-
-  TransportReportFunc GetFunc() {
-    return
-        [this](const ReportRequest &request, ReportResponse *response,
-               DoneFunc on_done) { this->Report(request, response, on_done); };
-  }
-
-  MockReportTransport() : report_response_(NULL) {}
-
-  ~MockReportTransport() {}
-
-  // The done callback is called right away (in place).
-  void ReportWithInplaceCallback(const ReportRequest &request,
-                                 ReportResponse *response, DoneFunc on_done) {
-    report_request_ = request;
-    if (report_response_) {
-      *response = *report_response_;
-    }
-    on_done(done_status_);
-  }
-
-  // Saved report_request from mocked Transport::Report() call.
-  ReportRequest report_request_;
-  // If not NULL, the report response to send for mocked Transport::Report()
-  // call.
-  ReportResponse *report_response_;
-
-  // The status to send in on_done call back for Check() or Report().
-  Status done_status_;
+  MOCK_METHOD1_T(Write, void(const T&));
+  MOCK_METHOD0_T(WriteDone, void());
 };
-
-// A mocking class to mock QuotaTransport interface.
-class MockQuotaTransport {
- public:
-  MOCK_METHOD3(Quota, void(const QuotaRequest &, QuotaResponse *, DoneFunc));
-
-  TransportQuotaFunc GetFunc() {
-    return
-        [this](const QuotaRequest &request, QuotaResponse *response,
-               DoneFunc on_done) { this->Quota(request, response, on_done); };
-  }
-
-  MockQuotaTransport() : quota_response_(NULL) {}
-
-  ~MockQuotaTransport() {}
-
-  // The done callback is called right away (in place).
-  void QuotaWithInplaceCallback(const QuotaRequest &request,
-                                QuotaResponse *response, DoneFunc on_done) {
-    quota_request_ = request;
-    if (quota_response_) {
-      *response = *quota_response_;
-    }
-    on_done(done_status_);
-  }
-
-  // Saved report_request from mocked Transport::Report() call.
-  QuotaRequest quota_request_;
-  // If not NULL, the report response to send for mocked Transport::Report()
-  // call.
-  QuotaResponse *quota_response_;
-
-  // The status to send in on_done call back for Check() or Report().
-  Status done_status_;
-};
-}  // namespace
 
 class MixerClientImplTest : public ::testing::Test {
  public:
   void SetUp() {
-    ASSERT_TRUE(TextFormat::ParseFromString(kCheckRequest1, &check_request1_));
-    ASSERT_TRUE(TextFormat::ParseFromString(kSuccessCheckResponse1,
-                                            &pass_check_response1_));
-    ASSERT_TRUE(
-        TextFormat::ParseFromString(kReportRequest1, &report_request1_));
-
-    ASSERT_TRUE(TextFormat::ParseFromString(kQuotaRequest1, &quota_request1_));
-
+    mock_transport_ = std::make_shared<MockTransport>();
     MixerClientOptions options(
         CheckOptions(1 /*entries */, 500 /* refresh_interval_ms */,
                      1000 /* expiration_ms */),
         ReportOptions(1 /* entries */, 500 /*flush_interval_ms*/),
         QuotaOptions(1 /* entries */, 500 /*flush_interval_ms*/,
                      1000 /* expiration_ms */));
-    options.check_transport = mock_check_transport_.GetFunc();
-    options.report_transport = mock_report_transport_.GetFunc();
-    options.quota_transport = mock_quota_transport_.GetFunc();
+    options.transport = mock_transport_;
     client_ = CreateMixerClient(options);
   }
 
-  CheckRequest check_request1_;
-  CheckResponse pass_check_response1_;
-  CheckResponse error_check_response1_;
-
-  ReportRequest report_request1_;
-  QuotaRequest quota_request1_;
-
-  MockCheckTransport mock_check_transport_;
-  MockReportTransport mock_report_transport_;
-  MockQuotaTransport mock_quota_transport_;
-
+  std::shared_ptr<MockTransport> mock_transport_;
   std::unique_ptr<MixerClient> client_;
 };
 
-TEST_F(MixerClientImplTest, TestNonCachedCheckWithInplaceCallback) {
-  // Calls a Client::Check, the request is not in the cache
-  // Transport::Check() is called.  It will send a successful check response
-  EXPECT_CALL(mock_check_transport_, Check(_, _, _))
-      .WillOnce(Invoke(&mock_check_transport_,
-                       &MockCheckTransport::CheckWithInplaceCallback));
+TEST_F(MixerClientImplTest, TestSingleCheck) {
+  auto writer = std::make_shared<MockWriter<CheckRequest>>();
+  TransportInterface::CheckReaderPtr reader;
 
-  mock_check_transport_.done_status_ = Status::OK;
+  EXPECT_CALL(*mock_transport_,
+              NewStream(An<TransportInterface::CheckReaderPtr>()))
+      .WillOnce(Invoke([writer, &reader](TransportInterface::CheckReaderPtr r)
+                           -> TransportInterface::CheckWriterPtr {
+                             reader = r;
+                             return writer;
+                           }));
 
-  CheckResponse check_response;
-  Status done_status = Status::UNKNOWN;
-  client_->Check(check_request1_, &check_response,
-                 [&done_status](Status status) { done_status = status; });
-  EXPECT_EQ(done_status, mock_check_transport_.done_status_);
+  CheckRequest request_out;
+  EXPECT_CALL(*writer, Write(_))
+      .WillOnce(
+          Invoke([&request_out](const CheckRequest& r) { request_out = r; }));
 
-  // Since it is not cached, transport should be called.
-  EXPECT_TRUE(MessageDifferencer::Equals(mock_check_transport_.check_request_,
-                                         check_request1_));
+  CheckRequest request_in;
+  request_in.set_request_index(111);
+  CheckResponse response_in;
+  response_in.set_request_index(request_in.request_index());
+
+  CheckResponse response_out;
+  Status status_out = Status::UNKNOWN;
+  client_->Check(request_in, &response_out,
+                 [&status_out](Status status) { status_out = status; });
+  // Write request.
+  EXPECT_TRUE(MessageDifferencer::Equals(request_in, request_out));
+  // But not response
+  EXPECT_FALSE(status_out.ok());
+  EXPECT_FALSE(MessageDifferencer::Equals(response_in, response_out));
+
+  // Write response.
+  reader->OnRead(response_in);
+
+  EXPECT_TRUE(status_out.ok());
+  EXPECT_TRUE(MessageDifferencer::Equals(response_in, response_out));
 }
 
-TEST_F(MixerClientImplTest, TestNonCachedReportWithInplaceCallback) {
-  // Calls Client::Report, it will not be cached.
-  // Transport::Report() should be called.
-  // Transport::on_done() is called inside Transport::Report() with error
-  // PERMISSION_DENIED. The Client::done_done() is called with the same error.
-  EXPECT_CALL(mock_report_transport_, Report(_, _, _))
-      .WillOnce(Invoke(&mock_report_transport_,
-                       &MockReportTransport::ReportWithInplaceCallback));
+TEST_F(MixerClientImplTest, TestTwoOutOfOrderChecks) {
+  auto writer = std::make_shared<MockWriter<CheckRequest>>();
+  TransportInterface::CheckReaderPtr reader;
 
-  mock_report_transport_.done_status_ = Status(Code::PERMISSION_DENIED, "");
+  EXPECT_CALL(*mock_transport_,
+              NewStream(An<TransportInterface::CheckReaderPtr>()))
+      .WillOnce(Invoke([writer, &reader](TransportInterface::CheckReaderPtr r)
+                           -> TransportInterface::CheckWriterPtr {
+                             reader = r;
+                             return writer;
+                           }));
+  EXPECT_CALL(*writer, Write(_)).Times(2);
 
-  ReportResponse report_response;
-  Status done_status = Status::UNKNOWN;
-  // This request is high important, so it will not be cached.
-  // client->Report() will call Transport::Report() right away.
-  client_->Report(report_request1_, &report_response,
-                  [&done_status](Status status) { done_status = status; });
-  EXPECT_EQ(done_status, mock_report_transport_.done_status_);
+  CheckRequest request_in_1;
+  request_in_1.set_request_index(111);
+  CheckResponse response_in_1;
+  response_in_1.set_request_index(request_in_1.request_index());
 
-  // Since it is not cached, transport should be called.
-  EXPECT_TRUE(MessageDifferencer::Equals(mock_report_transport_.report_request_,
-                                         report_request1_));
+  CheckRequest request_in_2;
+  request_in_2.set_request_index(222);
+  CheckResponse response_in_2;
+  response_in_2.set_request_index(request_in_2.request_index());
+
+  CheckResponse response_out_1;
+  client_->Check(request_in_1, &response_out_1, [](Status status) {});
+  CheckResponse response_out_2;
+  client_->Check(request_in_2, &response_out_2, [](Status status) {});
+
+  // Write response in wrong order
+  reader->OnRead(response_in_2);
+  reader->OnRead(response_in_1);
+
+  EXPECT_TRUE(MessageDifferencer::Equals(response_in_1, response_out_1));
+  EXPECT_TRUE(MessageDifferencer::Equals(response_in_2, response_out_2));
 }
 
-TEST_F(MixerClientImplTest, TestNonCachedQuotaWithInplaceCallback) {
-  // Calls Client::Quota with a high important request, it will not be cached.
-  // Transport::Quota() should be called.
-  EXPECT_CALL(mock_quota_transport_, Quota(_, _, _))
-      .WillOnce(Invoke(&mock_quota_transport_,
-                       &MockQuotaTransport::QuotaWithInplaceCallback));
+TEST_F(MixerClientImplTest, TestCheckWithStreamClose) {
+  auto writer = std::make_shared<MockWriter<CheckRequest>>();
+  TransportInterface::CheckReaderPtr reader;
 
-  // Set the report status to be used in the on_report_done
-  mock_report_transport_.done_status_ = Status::OK;
+  EXPECT_CALL(*mock_transport_,
+              NewStream(An<TransportInterface::CheckReaderPtr>()))
+      .WillOnce(Invoke([writer, &reader](TransportInterface::CheckReaderPtr r)
+                           -> TransportInterface::CheckWriterPtr {
+                             reader = r;
+                             return writer;
+                           }));
+  EXPECT_CALL(*writer, Write(_)).Times(1);
 
-  QuotaResponse quota_response;
-  Status done_status = Status::UNKNOWN;
-  client_->Quota(quota_request1_, &quota_response,
-                 [&done_status](Status status) { done_status = status; });
-  EXPECT_EQ(done_status, mock_quota_transport_.done_status_);
+  CheckRequest request_in;
+  request_in.set_request_index(111);
 
-  // Since it is not cached, transport should be called.
-  EXPECT_TRUE(MessageDifferencer::Equals(mock_quota_transport_.quota_request_,
-                                         quota_request1_));
+  CheckResponse response_out;
+  Status status_out = Status::UNKNOWN;
+  client_->Check(request_in, &response_out,
+                 [&status_out](Status status) { status_out = status; });
+
+  // Close the stream
+  reader->OnClose(Status::CANCELLED);
+
+  // Status should be canclled.
+  EXPECT_EQ(status_out, Status::CANCELLED);
 }
 
 }  // namespace mixer_client
