@@ -39,9 +39,9 @@ namespace mixer_client {
 
 class MockTransport : public TransportInterface {
  public:
-  MOCK_METHOD1(NewStream, CheckWriterPtr(CheckReaderPtr));
-  MOCK_METHOD1(NewStream, ReportWriterPtr(ReportReaderPtr));
-  MOCK_METHOD1(NewStream, QuotaWriterPtr(QuotaReaderPtr));
+  MOCK_METHOD1(NewStream, CheckWriterPtr(CheckReaderRawPtr));
+  MOCK_METHOD1(NewStream, ReportWriterPtr(ReportReaderRawPtr));
+  MOCK_METHOD1(NewStream, QuotaWriterPtr(QuotaReaderRawPtr));
 };
 
 template <class T>
@@ -70,16 +70,15 @@ class MixerClientImplTest : public ::testing::Test {
 };
 
 TEST_F(MixerClientImplTest, TestSingleCheck) {
-  auto writer = std::make_shared<MockWriter<CheckRequest>>();
-  TransportInterface::CheckReaderPtr reader;
+  MockWriter<CheckRequest>* writer = new MockWriter<CheckRequest>;
+  CheckReaderRawPtr reader;
 
-  EXPECT_CALL(*mock_transport_,
-              NewStream(An<TransportInterface::CheckReaderPtr>()))
-      .WillOnce(Invoke([writer, &reader](TransportInterface::CheckReaderPtr r)
-                           -> TransportInterface::CheckWriterPtr {
-                             reader = r;
-                             return writer;
-                           }));
+  EXPECT_CALL(*mock_transport_, NewStream(An<CheckReaderRawPtr>()))
+      .WillOnce(
+          Invoke([writer, &reader](CheckReaderRawPtr r) -> CheckWriterPtr {
+            reader = r;
+            return CheckWriterPtr(writer);
+          }));
 
   CheckRequest request_out;
   EXPECT_CALL(*writer, Write(_))
@@ -109,16 +108,15 @@ TEST_F(MixerClientImplTest, TestSingleCheck) {
 }
 
 TEST_F(MixerClientImplTest, TestTwoOutOfOrderChecks) {
-  auto writer = std::make_shared<MockWriter<CheckRequest>>();
-  TransportInterface::CheckReaderPtr reader;
+  MockWriter<CheckRequest>* writer = new MockWriter<CheckRequest>;
+  CheckReaderRawPtr reader;
 
-  EXPECT_CALL(*mock_transport_,
-              NewStream(An<TransportInterface::CheckReaderPtr>()))
-      .WillOnce(Invoke([writer, &reader](TransportInterface::CheckReaderPtr r)
-                           -> TransportInterface::CheckWriterPtr {
-                             reader = r;
-                             return writer;
-                           }));
+  EXPECT_CALL(*mock_transport_, NewStream(An<CheckReaderRawPtr>()))
+      .WillOnce(
+          Invoke([writer, &reader](CheckReaderRawPtr r) -> CheckWriterPtr {
+            reader = r;
+            return CheckWriterPtr(writer);
+          }));
   EXPECT_CALL(*writer, Write(_)).Times(2);
 
   CheckRequest request_in_1;
@@ -145,16 +143,15 @@ TEST_F(MixerClientImplTest, TestTwoOutOfOrderChecks) {
 }
 
 TEST_F(MixerClientImplTest, TestCheckWithStreamClose) {
-  auto writer = std::make_shared<MockWriter<CheckRequest>>();
-  TransportInterface::CheckReaderPtr reader;
+  MockWriter<CheckRequest>* writer = new MockWriter<CheckRequest>;
+  CheckReaderRawPtr reader;
 
-  EXPECT_CALL(*mock_transport_,
-              NewStream(An<TransportInterface::CheckReaderPtr>()))
-      .WillOnce(Invoke([writer, &reader](TransportInterface::CheckReaderPtr r)
-                           -> TransportInterface::CheckWriterPtr {
-                             reader = r;
-                             return writer;
-                           }));
+  EXPECT_CALL(*mock_transport_, NewStream(An<CheckReaderRawPtr>()))
+      .WillOnce(
+          Invoke([writer, &reader](CheckReaderRawPtr r) -> CheckWriterPtr {
+            reader = r;
+            return CheckWriterPtr(writer);
+          }));
   EXPECT_CALL(*writer, Write(_)).Times(1);
 
   CheckRequest request_in;

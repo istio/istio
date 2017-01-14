@@ -21,18 +21,30 @@
 namespace istio {
 namespace mixer_client {
 
-// A simple reader to implement ReaderInterface.
-// It also handles request response pairing.
-template <class ResponseType>
-class ReaderImpl : public ReadInterface<ResponseType> {
+// Use stream transport to support ping-pong requests in the form of:
+//    Call(request, response, on_done)
+template <class RequestType, class ResponseType>
+class StreamTransport : public ReadInterface<ResponseType> {
  public:
-  ReaderImpl(std::function<void()> on_close) : on_close_(on_close) {}
+  StreamTransport(TransportInterface* transport) : transport_(transport) {}
 
-  void AddRequest(int64_t request_index, ResponseType* response,
-                  DoneFunc on_done) {
-    pair_map_.emplace(request_index, Data{response, on_done});
+  // Make a ping-pong call.
+  void Call(const RequestType& request, ResponseType* response,
+            DoneFunc on_done) {
+    if (transport_ == nullptr) {
+      on_done(::google::protobuf::util::Status(
+          ::google::protobuf::util::error::Code::INVALID_ARGUMENT,
+          "transport is NULL."));
+      return;
+    }
+    if (!writer_) {
+      writer_ = transport_->NewStream(this);
+    }
+    pair_map_.emplace(request.request_index(), Data{response, on_done});
+    writer_->Write(request);
   }
 
+ private:
   // Will be called by transport layer when receiving a response
   void OnRead(const ResponseType& response) {
     auto it = pair_map_.find(response.request_index());
@@ -63,56 +75,20 @@ class ReaderImpl : public ReadInterface<ResponseType> {
       }
     }
     pair_map_.clear();
-
-    on_close_();
+    writer_.reset();
   }
 
- private:
+  // The transport interface to create a new stream.
+  TransportInterface* transport_;
+  // The writer object for current stream.
+  std::unique_ptr<WriteInterface<RequestType>> writer_;
   // Store response data and callback.
   struct Data {
     ResponseType* response;
     DoneFunc on_done;
   };
-  // The callback when the stream is closed.
-  std::function<void()> on_close_;
   // The map to pair request with response.
   std::map<int64_t, Data> pair_map_;
-};
-
-// Use stream transport to support ping-pong requests in the form of:
-//    Call(request, response, on_done)
-template <class RequestType, class ResponseType>
-class StreamTransport {
- public:
-  StreamTransport(TransportInterface* transport) : transport_(transport) {}
-
-  // Make a ping-pong call.
-  void Call(const RequestType& request, ResponseType* response,
-            DoneFunc on_done) {
-    if (transport_ == nullptr) {
-      on_done(::google::protobuf::util::Status(
-          ::google::protobuf::util::error::Code::INVALID_ARGUMENT,
-          "transport is NULL."));
-      return;
-    }
-    if (!writer_) {
-      reader_ = std::make_shared<ReaderImpl<ResponseType>>([this]() {
-        reader_.reset();
-        writer_.reset();
-      });
-      writer_ = transport_->NewStream(reader_);
-    }
-    reader_->AddRequest(request.request_index(), response, on_done);
-    writer_->Write(request);
-  }
-
- private:
-  // The transport interface to create a new stream.
-  TransportInterface* transport_;
-  // The reader object for current stream.
-  std::shared_ptr<ReaderImpl<ResponseType>> reader_;
-  // The writer object for current stream.
-  std::shared_ptr<WriteInterface<RequestType>> writer_;
 };
 
 }  // namespace mixer_client

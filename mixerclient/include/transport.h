@@ -31,8 +31,9 @@ namespace mixer_client {
 template <class RequestType>
 class WriteInterface {
  public:
+  virtual ~WriteInterface() {}
   // Write a request message.
-  virtual void Write(const RequestType&) = 0;
+  virtual void Write(const RequestType &) = 0;
   // Half close the write direction.
   virtual void WriteDone() = 0;
 };
@@ -43,37 +44,36 @@ class WriteInterface {
 template <class ResponseType>
 class ReadInterface {
  public:
+  virtual ~ReadInterface() {}
   // On receive a response message
-  virtual void OnRead(const ResponseType&) = 0;
+  virtual void OnRead(const ResponseType &) = 0;
   // On stream close.
-  virtual void OnClose(const ::google::protobuf::util::Status&) = 0;
+  virtual void OnClose(const ::google::protobuf::util::Status &) = 0;
 };
+
+typedef std::unique_ptr<WriteInterface<::istio::mixer::v1::CheckRequest>>
+    CheckWriterPtr;
+typedef std::unique_ptr<WriteInterface<::istio::mixer::v1::ReportRequest>>
+    ReportWriterPtr;
+typedef std::unique_ptr<WriteInterface<::istio::mixer::v1::QuotaRequest>>
+    QuotaWriterPtr;
+
+typedef ReadInterface<::istio::mixer::v1::CheckResponse> *CheckReaderRawPtr;
+typedef ReadInterface<::istio::mixer::v1::ReportResponse> *ReportReaderRawPtr;
+typedef ReadInterface<::istio::mixer::v1::QuotaResponse> *QuotaReaderRawPtr;
 
 // This is the transport interface needed by Mixer client.
 // The callers of the Mixer client need to implement this interface and
 // pass it to the client.
 class TransportInterface {
  public:
-  // Create a new check stream
-  typedef std::shared_ptr<WriteInterface<::istio::mixer::v1::CheckRequest>>
-      CheckWriterPtr;
-  typedef std::shared_ptr<ReadInterface<::istio::mixer::v1::CheckResponse>>
-      CheckReaderPtr;
-  virtual CheckWriterPtr NewStream(CheckReaderPtr) = 0;
-
-  // Create a new report stream
-  typedef std::shared_ptr<WriteInterface<::istio::mixer::v1::ReportRequest>>
-      ReportWriterPtr;
-  typedef std::shared_ptr<ReadInterface<::istio::mixer::v1::ReportResponse>>
-      ReportReaderPtr;
-  virtual ReportWriterPtr NewStream(ReportReaderPtr) = 0;
-
-  // Create a new quota stream
-  typedef std::shared_ptr<WriteInterface<::istio::mixer::v1::QuotaRequest>>
-      QuotaWriterPtr;
-  typedef std::shared_ptr<ReadInterface<::istio::mixer::v1::QuotaResponse>>
-      QuotaReaderPtr;
-  virtual QuotaWriterPtr NewStream(QuotaReaderPtr) = 0;
+  virtual ~TransportInterface() {}
+  // Create a Check stream
+  virtual CheckWriterPtr NewStream(CheckReaderRawPtr) = 0;
+  // Create a Report stream
+  virtual ReportWriterPtr NewStream(ReportReaderRawPtr) = 0;
+  // Create a Quota stream
+  virtual QuotaWriterPtr NewStream(QuotaReaderRawPtr) = 0;
 };
 
 }  // namespace mixer_client
