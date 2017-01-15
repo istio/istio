@@ -29,9 +29,10 @@ using ::google::protobuf::TextFormat;
 using ::google::protobuf::util::MessageDifferencer;
 using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;
+using ::testing::An;
 using ::testing::Invoke;
 using ::testing::Mock;
-using ::testing::An;
+using ::testing::Return;
 using ::testing::_;
 
 namespace istio {
@@ -49,6 +50,7 @@ class MockWriter : public WriteInterface<T> {
  public:
   MOCK_METHOD1_T(Write, void(const T&));
   MOCK_METHOD0_T(WriteDone, void());
+  MOCK_METHOD0_T(is_write_closed, bool());
 };
 
 class MixerClientImplTest : public ::testing::Test {
@@ -104,6 +106,8 @@ TEST_F(MixerClientImplTest, TestSingleCheck) {
 
   EXPECT_TRUE(status_out.ok());
   EXPECT_TRUE(MessageDifferencer::Equals(response_in, response_out));
+
+  reader->OnClose(Status::OK);
 }
 
 TEST_F(MixerClientImplTest, TestTwoOutOfOrderChecks) {
@@ -117,7 +121,10 @@ TEST_F(MixerClientImplTest, TestTwoOutOfOrderChecks) {
             return CheckWriterPtr(writer);
           }));
   EXPECT_CALL(*writer, Write(_)).Times(2);
+  EXPECT_CALL(*writer, is_write_closed()).WillOnce(Return(false));
 
+  // Send two requests: 1 and 2
+  // But OnRead() is called out of order: 2 and 1
   CheckRequest request_in_1;
   request_in_1.set_request_index(111);
   CheckResponse response_in_1;
@@ -139,6 +146,8 @@ TEST_F(MixerClientImplTest, TestTwoOutOfOrderChecks) {
 
   EXPECT_TRUE(MessageDifferencer::Equals(response_in_1, response_out_1));
   EXPECT_TRUE(MessageDifferencer::Equals(response_in_2, response_out_2));
+
+  reader->OnClose(Status::OK);
 }
 
 TEST_F(MixerClientImplTest, TestCheckWithStreamClose) {
@@ -166,6 +175,52 @@ TEST_F(MixerClientImplTest, TestCheckWithStreamClose) {
 
   // Status should be canclled.
   EXPECT_EQ(status_out, Status::CANCELLED);
+}
+
+TEST_F(MixerClientImplTest, TestHalfClose) {
+  MockWriter<CheckRequest>* writers[2] = {new MockWriter<CheckRequest>,
+                                          new MockWriter<CheckRequest>};
+  CheckReaderRawPtr readers[2];
+  int idx = 0;
+
+  EXPECT_CALL(mock_transport_, NewStream(An<CheckReaderRawPtr>()))
+      .WillRepeatedly(Invoke(
+          [&writers, &readers, &idx](CheckReaderRawPtr r) -> CheckWriterPtr {
+            readers[idx] = r;
+            return CheckWriterPtr(writers[idx++]);
+          }));
+  EXPECT_CALL(*writers[0], Write(_)).Times(1);
+  // Half close the first stream
+  EXPECT_CALL(*writers[0], is_write_closed()).WillOnce(Return(true));
+  EXPECT_CALL(*writers[1], Write(_)).Times(1);
+
+  // Send the first request.
+  CheckRequest request_in_1;
+  request_in_1.set_request_index(111);
+  CheckResponse response_in_1;
+  response_in_1.set_request_index(request_in_1.request_index());
+
+  CheckResponse response_out_1;
+  client_->Check(request_in_1, &response_out_1, [](Status status) {});
+
+  // Send the second request
+  CheckRequest request_in_2;
+  request_in_2.set_request_index(222);
+  CheckResponse response_in_2;
+  response_in_2.set_request_index(request_in_2.request_index());
+
+  CheckResponse response_out_2;
+  client_->Check(request_in_2, &response_out_2, [](Status status) {});
+
+  // Write responses
+  readers[1]->OnRead(response_in_2);
+  readers[0]->OnRead(response_in_1);
+
+  EXPECT_TRUE(MessageDifferencer::Equals(response_in_1, response_out_1));
+  EXPECT_TRUE(MessageDifferencer::Equals(response_in_2, response_out_2));
+
+  readers[1]->OnClose(Status::OK);
+  readers[0]->OnClose(Status::OK);
 }
 
 }  // namespace mixer_client
