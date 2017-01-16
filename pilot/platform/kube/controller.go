@@ -121,7 +121,7 @@ func (c *Controller) notify(obj interface{}, event model.Event) error {
 		return errors.New("Waiting till full synchronization")
 	}
 	k, _ := keyFunc(obj)
-	glog.V(2).Infof("Event %s: %#v", event, k)
+	glog.V(2).Infof("Event %s: key %#v", event, k)
 	return nil
 }
 
@@ -159,8 +159,8 @@ func (c *Controller) createInformer(
 	return cacheHandler{informer: informer, handler: handler}
 }
 
-// AppendHandler adds a notification handler.
-func (c *Controller) AppendHandler(kind string, f func(*model.Config, model.Event)) error {
+// AppendConfigHandler adds a notification handler.
+func (c *Controller) AppendConfigHandler(kind string, f func(*model.Config, model.Event)) error {
 	ch, ok := c.kinds[kind]
 	if !ok {
 		return fmt.Errorf("Cannot locate kind %q", kind)
@@ -279,15 +279,7 @@ func (c *Controller) Services() []*model.Service {
 	return out
 }
 
-func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	c.services.handler.append(func(obj interface{}, ev model.Event) error {
-		f(convertService(*obj.(*v1.Service)), ev)
-		return nil
-	})
-	return nil
-}
-
-func (c *Controller) Endpoints(s *model.Service) []*model.ServiceInstance {
+func (c *Controller) Instances(s *model.Service) []*model.ServiceInstance {
 	ports := make(map[string]bool)
 	for _, port := range s.Ports {
 		ports[port.Name] = true
@@ -319,6 +311,57 @@ func (c *Controller) Endpoints(s *model.Service) []*model.ServiceInstance {
 			return out
 		}
 	}
+	return nil
+}
+
+func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstance {
+	var out []*model.ServiceInstance
+	for _, item := range c.endpoints.informer.GetStore().List() {
+		ep := *item.(*v1.Endpoints)
+		for _, ss := range ep.Subsets {
+			for _, ea := range ss.Addresses {
+				if addrs[ea.IP] {
+					for _, port := range ss.Ports {
+						out = append(out, &model.ServiceInstance{
+							Endpoint: model.Endpoint{
+								Address: ea.IP,
+								Port: model.Port{
+									Name:     port.Name,
+									Port:     int(port.Port),
+									Protocol: convertProtocol(port.Name, port.Protocol),
+								},
+							},
+							Service: &model.Service{
+								Name:      ep.Name,
+								Namespace: ep.Namespace,
+							},
+							Tag: nil,
+						})
+					}
+				}
+			}
+		}
+	}
+	return out
+}
+
+func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+	c.services.handler.append(func(obj interface{}, event model.Event) error {
+		f(convertService(*obj.(*v1.Service)), event)
+		return nil
+	})
+	return nil
+}
+
+func (c *Controller) AppendInstanceHandler(f func(*model.Service, model.Event)) error {
+	c.endpoints.handler.append(func(obj interface{}, event model.Event) error {
+		ep := *obj.(*v1.Endpoints)
+		f(&model.Service{
+			Name:      ep.Name,
+			Namespace: ep.Namespace,
+		}, event)
+		return nil
+	})
 	return nil
 }
 

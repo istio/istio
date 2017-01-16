@@ -25,12 +25,12 @@ import (
 type ServiceDiscovery interface {
 	// Services list declarations of all services and their tags
 	Services() []*Service
-	// Endpoints retrieves service instances for a service.
-	// The query takes a union across a set of tags and a set of named ports
-	// defined in the service parameter.
-	// Empty tag set or a port set implies the union of all available tags and
-	// ports, respectively.
-	Endpoints(s *Service) []*ServiceInstance
+	// Instances takes a union across a set of tags and a set of named ports
+	// defined in the service parameter. An empty tag set or a port set implies
+	// the union of all available tags and ports, respectively.
+	Instances(s *Service) []*ServiceInstance
+	// HostInstances lists service instances for a given set of IPv4 addresses.
+	HostInstances(addrs map[string]bool) []*ServiceInstance
 }
 
 // Service describes an Istio service

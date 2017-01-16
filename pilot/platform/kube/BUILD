@@ -37,7 +37,7 @@ go_test(
     name = "go_default_test",
     size = "large",
     srcs = [
-        "minikube_test.go",
+        "kube_test.go",
         "queue_test.go",
     ],
     data = ["config"],

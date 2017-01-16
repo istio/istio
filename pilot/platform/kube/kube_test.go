@@ -79,7 +79,7 @@ func TestController(t *testing.T) {
 	ctl := NewController(cl, ns, 256*time.Millisecond)
 	added, deleted := 0, 0
 	n := 5
-	ctl.AppendHandler(test.MockKind, func(c *model.Config, ev model.Event) {
+	ctl.AppendConfigHandler(test.MockKind, func(c *model.Config, ev model.Event) {
 		switch ev {
 		case model.EventAdd:
 			if deleted != 0 {
@@ -114,10 +114,8 @@ func TestControllerCacheFreshness(t *testing.T) {
 	// test interface implementation
 	var _ model.Controller = ctl
 
-	// validate cache consistency requirement:
-	// When you receive a notification, the cache will be AT LEAST as fresh as
-	// the notification, but it MAY be more fresh.
-	ctl.AppendHandler(test.MockKind, func(c *model.Config, ev model.Event) {
+	// validate cache consistency
+	ctl.AppendConfigHandler(test.MockKind, func(c *model.Config, ev model.Event) {
 		elts, _ := ctl.List(test.MockKind, ns)
 		switch ev {
 		case model.EventAdd:
