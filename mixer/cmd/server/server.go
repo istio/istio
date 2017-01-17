@@ -19,12 +19,16 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 
+	bt "github.com/opentracing/basictracer-go"
+	ot "github.com/opentracing/opentracing-go"
 	"github.com/spf13/cobra"
 
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/tracing"
 )
 
 type serverArgs struct {
@@ -32,6 +36,7 @@ type serverArgs struct {
 	maxMessageSize       uint
 	maxConcurrentStreams uint
 	compressedPayload    bool
+	enableTracing        bool
 	serverCertFile       string
 	serverKeyFile        string
 	clientCertFiles      string
@@ -43,7 +48,7 @@ func serverCmd(errorf errorFn) *cobra.Command {
 		Use:   "server",
 		Short: "Starts the mixer as a server",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Starting gRPC server on port %v", sa.port)
+			fmt.Printf("Starting gRPC server on port %v\n", sa.port)
 
 			err := runServer(sa)
 			if err != nil {
@@ -58,6 +63,8 @@ func serverCmd(errorf errorFn) *cobra.Command {
 	serverCmd.PersistentFlags().StringVarP(&sa.serverCertFile, "serverCertFile", "", "", "The TLS cert file")
 	serverCmd.PersistentFlags().StringVarP(&sa.serverKeyFile, "serverKeyFile", "", "", "The TLS key file")
 	serverCmd.PersistentFlags().StringVarP(&sa.clientCertFiles, "clientCertFiles", "", "", "A set of comma-separated client X509 cert files")
+	// TODO: implement an option to specify how traces are reported (hardcoded to report to stdout right now).
+	serverCmd.PersistentFlags().BoolVarP(&sa.enableTracing, "trace", "", false, "Whether to trace rpc executions")
 
 	return &serverCmd
 }
@@ -85,6 +92,11 @@ func runServer(sa *serverArgs) error {
 		}
 	}
 
+	var tracer ot.Tracer
+	if sa.enableTracing {
+		tracer = bt.New(tracing.IORecorder(os.Stdout))
+	}
+
 	attrMgr := attribute.NewManager()
 
 	grpcServerOptions := api.GRPCServerOptions{
@@ -96,6 +108,7 @@ func runServer(sa *serverArgs) error {
 		ClientCertificates:   clientCerts,
 		Handlers:             api.NewMethodHandlers(),
 		AttributeManager:     attrMgr,
+		Tracer:               tracer,
 	}
 
 	var grpcServer *api.GRPCServer

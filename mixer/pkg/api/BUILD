@@ -10,6 +10,7 @@ go_library(
     ],
     deps = [
         "//pkg/attribute:go_default_library",
+        "//pkg/tracing:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
@@ -17,6 +18,8 @@ go_library(
         "@com_github_google_go_genproto//googleapis/rpc/code:go_default_library",
         "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
         "@com_github_istio_api//:mixer/v1",
+        "@com_github_opentracing_opentracing_go//:go_default_library",
+        "@com_github_opentracing_opentracing_go//log:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//credentials:go_default_library",
     ],
