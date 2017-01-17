@@ -16,8 +16,14 @@ syntax = "proto3";
 
 package istio.mixer.v1.config.descriptor;
 
-// An object that describes the schema of a 'MonitoredResource'
-// using a name and a set of attributes.
+// An object that describes the schema of a `MonitoredResource`. A
+// `MonitoredResource` is used to define a type of resources for
+// monitoring purpose. For example, the monitored resource "VM" refers
+// to virtual machines, which requires 3 attributes "owner", "zone",
+// "name" to uniquely identify a specific instance. When reporting
+// a metric against a monitored resource, the metric attributes will
+// be used to associate the right value with the right instance,
+// such as memory usage of a VM.
 message MonitoredResourceDescriptor {
   // The name of this descriptor
   string name = 1;
