@@ -26,6 +26,8 @@ go_test(
     name = "small_tests",
     size = "small",
     srcs = [
+        "basictracing_test.go",
+        "metadata_test.go",
         "tracing_test.go",
     ],
     library = ":go_default_library",

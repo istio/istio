@@ -10,7 +10,7 @@
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
-// limitations under the License.//
+// limitations under the License.
 //
 // Copyright (c) 2017, gRPC Ecosystem
 // All rights reserved.
@@ -46,6 +46,7 @@ package tracing
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/golang/glog"
 	bt "github.com/opentracing/basictracer-go"
@@ -65,16 +66,18 @@ func (l loggingRecorder) RecordSpan(span bt.RawSpan) {
 	glog.Info(spanToString(span))
 }
 
-type stdoutRecorder struct{}
+type ioRecorder struct {
+	sink io.Writer
+}
 
-// StdoutRecorder returns a SpanRecorder which writes its spans to stdout.
-func StdoutRecorder() bt.SpanRecorder {
-	return stdoutRecorder{}
+// IORecorder returns a SpanRecorder which writes its spans to the provided io.Writer.
+func IORecorder(w io.Writer) bt.SpanRecorder {
+	return ioRecorder{w}
 }
 
 // RecordSpan writes span to stdout.
-func (s stdoutRecorder) RecordSpan(span bt.RawSpan) {
-	fmt.Println(spanToString(span))
+func (s ioRecorder) RecordSpan(span bt.RawSpan) {
+	fmt.Fprintln(s.sink, spanToString(span))
 }
 
 func spanToString(span bt.RawSpan) string {

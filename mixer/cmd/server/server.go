@@ -19,6 +19,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 
 	bt "github.com/opentracing/basictracer-go"
@@ -93,7 +94,7 @@ func runServer(sa *serverArgs) error {
 
 	var tracer ot.Tracer
 	if sa.enableTracing {
-		tracer = bt.New(tracing.StdoutRecorder())
+		tracer = bt.New(tracing.IORecorder(os.Stdout))
 	}
 
 	attrMgr := attribute.NewManager()

@@ -160,7 +160,7 @@ func (s *GRPCServer) streamLoop(stream grpc.ServerStream, request proto.Message,
 	root, ctx := tracing.StartRootSpan(stream.Context(), methodName)
 	defer root.Finish()
 
-	for i := 1; ; i++ {
+	for {
 		// get a single message
 		if err := stream.RecvMsg(request); err == io.EOF {
 			return nil
