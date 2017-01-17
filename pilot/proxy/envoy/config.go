@@ -56,11 +56,33 @@ func (conf *Config) Write(w io.Writer) error {
 	return err
 }
 
-func Generate(services []*model.Service, sds string) (*Config, error) {
-	clusters := buildClusters(services)
-	routes := buildRoutes(services)
-	filters := buildFilters()
+const (
+	EgressClusterPrefix  = "egress_"
+	IngressClusterPrefix = "ingress_"
+	ServerConfig         = "server_config.pb.txt"
+)
 
+// Generate Envoy configuration for service instances co-located with Envoy and all services in the mesh
+func Generate(instances []*model.ServiceInstance, services []*model.Service, mesh *MeshConfig) (*Config, error) {
+	clusters := make([]Cluster, 0)
+	listeners := make([]Listener, 0)
+
+	listeners = append(listeners, Listener{
+		Port:           mesh.IngressPort,
+		BindToPort:     true,
+		UseOriginalDst: true,
+		Filters:        make([]NetworkFilter, 0),
+	})
+
+	ingressListeners, ingressClusters := buildIngressListeners(instances)
+	listeners = append(listeners, ingressListeners...)
+	clusters = append(clusters, ingressClusters...)
+
+	egressListeners, egressClusters := buildEgressListeners(services)
+	listeners = append(listeners, egressListeners...)
+	clusters = append(clusters, egressClusters...)
+
+	// TODO: egress routing rules
 	/*
 		if err := buildFS(); err != nil {
 			return &Config{}, err
@@ -74,39 +96,10 @@ func Generate(services []*model.Service, sds string) (*Config, error) {
 				Subdirectory: "traffic_shift",
 			},
 		*/
-		Listeners: []Listener{
-			{
-				Port: 80,
-				Filters: []NetworkFilter{
-					{
-						Type: "read",
-						Name: "http_connection_manager",
-						Config: NetworkFilterConfig{
-							CodecType:  "auto",
-							StatPrefix: "ingress_http",
-							RouteConfig: RouteConfig{
-								VirtualHosts: []VirtualHost{
-									{
-										Name:    "backend",
-										Domains: []string{"*"},
-										Routes:  routes,
-									},
-								},
-							},
-							Filters: filters,
-							AccessLog: []AccessLog{
-								{
-									Path: "/var/log/envoy_access.log",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
+		Listeners: listeners,
 		Admin: Admin{
-			AccessLogPath: "/var/log/envoy_admin.log",
-			Port:          8001,
+			AccessLogPath: "/dev/stdout",
+			Port:          mesh.AdminPort,
 		},
 		ClusterManager: ClusterManager{
 			Clusters: clusters,
@@ -115,10 +108,10 @@ func Generate(services []*model.Service, sds string) (*Config, error) {
 					Name:             "sds",
 					Type:             "strict_dns",
 					ConnectTimeoutMs: 1000,
-					LbType:           "round_robin",
+					LbType:           LbTypeRoundRobin,
 					Hosts: []Host{
 						{
-							URL: "tcp://" + sds,
+							URL: "tcp://" + mesh.DiscoveryAddress,
 						},
 					},
 				},
@@ -128,6 +121,84 @@ func Generate(services []*model.Service, sds string) (*Config, error) {
 	}, nil
 }
 
+func buildIngressListeners(instances []*model.ServiceInstance) ([]Listener, []Cluster) {
+	// project to port values
+	ports := make(map[int]map[model.Protocol]bool)
+	for _, instance := range instances {
+		protocols, ok := ports[instance.Endpoint.Port.Port]
+		if !ok {
+			protocols = make(map[model.Protocol]bool)
+			ports[instance.Endpoint.Port.Port] = protocols
+		}
+		protocols[instance.Endpoint.Port.Protocol] = true
+	}
+
+	listeners := make([]Listener, 0)
+	clusters := make([]Cluster, 0)
+	for port, protocols := range ports {
+		cluster := Cluster{
+			Name:             fmt.Sprintf("%s_%d", IngressClusterPrefix, port),
+			Type:             "static",
+			ConnectTimeoutMs: 1000,
+			LbType:           LbTypeRoundRobin,
+			Hosts:            []Host{{URL: fmt.Sprintf("tcp://%s:%d", "127.0.0.1", port)}},
+		}
+
+		listener := Listener{
+			Port:       port,
+			BindToPort: false,
+		}
+
+		// These two filters operate at different levels of the network stack.
+		// In practice, no port has two protocols used in the same set of instances, but we
+		// should be careful with not stepping on our feet.
+		if protocols[model.ProtocolTCP] {
+			listener.Filters = append(listener.Filters, NetworkFilter{
+				Type: "read",
+				Name: "tcp_proxy",
+				Config: NetworkFilterConfig{
+					Cluster:    cluster.Name,
+					StatPrefix: "ingress_tcp",
+				},
+			})
+		}
+
+		if protocols[model.ProtocolGRPC] || protocols[model.ProtocolHTTP2] || protocols[model.ProtocolHTTP] {
+			listener.Filters = append(listener.Filters, NetworkFilter{
+				Type: "read",
+				Name: "http_connection_manager",
+				Config: NetworkFilterConfig{
+					CodecType:  "auto",
+					StatPrefix: "ingress_http",
+					AccessLog:  []AccessLog{{Path: "/dev/stdout"}},
+					RouteConfig: RouteConfig{
+						VirtualHosts: []VirtualHost{{
+							Name:    "backend",
+							Domains: []string{"*"},
+							Routes:  []Route{{Cluster: cluster.Name}},
+						}},
+					},
+					Filters: buildFilters(),
+				},
+			})
+		}
+
+		// TODO: HTTPS protocol ingress configuration
+
+		listeners = append(listeners, listener)
+		clusters = append(clusters, cluster)
+	}
+
+	sort.Sort(ListenersByPort(listeners))
+	sort.Sort(ClustersByName(clusters))
+	return listeners, clusters
+}
+
+func buildEgressListeners(services []*model.Service) ([]Listener, []Cluster) {
+	return nil, buildClusters(services)
+}
+
+// buildClusters creates a cluster for every (service, port)
 func buildClusters(services []*model.Service) []Cluster {
 	clusters := make([]Cluster, 0)
 	for _, svc := range services {
@@ -137,25 +208,20 @@ func buildClusters(services []*model.Service) []Cluster {
 				Namespace: svc.Namespace,
 				Ports:     []model.Port{port},
 			}
-
-			clusterName := clusterSvc.String()
-
 			cluster := Cluster{
-				Name:             clusterName,
-				ServiceName:      clusterName,
+				Name:             EgressClusterPrefix + clusterSvc.String(),
+				ServiceName:      clusterSvc.String(),
 				Type:             "sds",
-				LbType:           "round_robin",
+				LbType:           LbTypeRoundRobin,
 				ConnectTimeoutMs: 1000,
 			}
-
-			if port.Protocol == model.ProtocolGRPC {
+			if port.Protocol == model.ProtocolGRPC ||
+				port.Protocol == model.ProtocolHTTP2 {
 				cluster.Features = "http2"
 			}
-
 			clusters = append(clusters, cluster)
 		}
 	}
-
 	sort.Sort(ClustersByName(clusters))
 	return clusters
 }
@@ -169,9 +235,7 @@ func buildRoutes(services []*model.Service) []Route {
 				Namespace: svc.Namespace,
 				Ports:     []model.Port{port},
 			}
-
 			clusterName := clusterSvc.String()
-
 			routes = append(routes, Route{
 				Prefix:        "/" + clusterName,
 				PrefixRewrite: "/",
@@ -192,7 +256,7 @@ func buildFilters() []Filter {
 		Name: "esp",
 		Config: FilterEndpointsConfig{
 			ServiceConfig: EnvoyConfigPath + "generic_service_config.json",
-			ServerConfig:  EnvoyConfigPath + "server_config.pb.txt",
+			ServerConfig:  EnvoyConfigPath + ServerConfig,
 		},
 	})
 
@@ -206,7 +270,6 @@ func buildFilters() []Filter {
 }
 
 const (
-	ConfigPath          = "/etc/envoy"
 	RuntimePath         = "/etc/envoy/runtime/routing"
 	RuntimeVersionsPath = "/etc/envoy/routing_versions"
 

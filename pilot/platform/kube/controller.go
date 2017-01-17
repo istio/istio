@@ -395,12 +395,14 @@ func convertProtocol(name string, proto v1.Protocol) model.Protocol {
 			prefix = name[:i]
 		}
 		switch prefix {
-		case "http":
-			out = model.ProtocolHTTP
-		case "https":
-			out = model.ProtocolHTTPS
 		case "grpc":
 			out = model.ProtocolGRPC
+		case "http":
+			out = model.ProtocolHTTP
+		case "http2":
+			out = model.ProtocolHTTP2
+		case "https":
+			out = model.ProtocolHTTPS
 		}
 	}
 	return out

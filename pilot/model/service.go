@@ -81,6 +81,7 @@ type Protocol string
 const (
 	ProtocolGRPC  Protocol = "GRPC"
 	ProtocolHTTPS Protocol = "HTTPS"
+	ProtocolHTTP2 Protocol = "HTTP2"
 	ProtocolHTTP  Protocol = "HTTP"
 	ProtocolTCP   Protocol = "TCP"
 	ProtocolUDP   Protocol = "UDP"

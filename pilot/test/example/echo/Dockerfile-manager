@@ -1,3 +1,0 @@
-FROM ubuntu:14.04
-ADD cmd /cmd
-CMD /cmd server --logtostderr -v 2

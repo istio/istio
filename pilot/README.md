@@ -43,9 +43,10 @@ the build to succeed.
 
 ## Test environment ##
 
-Manager tests require an access to a Kubernetes cluster. Each test creates a
-temporary namespace and deletes it on completion.  Please configure your
-`kubectl` to point to a development cluster before invoking the tests.
+Manager tests require an access to a Kubernetes cluster version >=1.5. Each
+test creates a temporary namespace and deletes it on completion.  Please
+configure your `kubectl` to point to a development cluster before invoking the
+tests.
 
 To let Bazel sandboxes access the cluster, please add a symbolic link to your
 repository pointing to your Kubernetes configuration file:

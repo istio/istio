@@ -1,3 +1,0 @@
-FROM ubuntu:14.04
-ADD mixs /mixs
-CMD /mixs server

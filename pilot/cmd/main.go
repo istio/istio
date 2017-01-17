@@ -24,6 +24,8 @@ import (
 	"istio.io/manager/platform/kube"
 	"istio.io/manager/proxy/envoy"
 
+	multierror "github.com/hashicorp/go-multierror"
+
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 )
@@ -31,84 +33,107 @@ import (
 type args struct {
 	kubeconfig string
 	namespace  string
-	sdsPort    int
-	sdsAddress string
-	envoy      string
+	controller *kube.Controller
+	server     serverArgs
+	proxy      envoy.MeshConfig
 }
 
-func main() {
-	rootCmd := &cobra.Command{
+type serverArgs struct {
+	sdsPort int
+}
+
+const (
+	resyncPeriod = 256 * time.Millisecond
+)
+
+var (
+	flags = &args{}
+
+	rootCmd = &cobra.Command{
 		Use:   "manager",
-		Short: "Istio manager service",
+		Short: "Istio Manager",
 		Long: `
-The Istio manager service provides management plane functionality to
-the Istio proxies and the Istio mixer.`,
-	}
+Istio Manager provides management plane functionality to
+the Istio proxy mesh and Istio Mixer.`,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			glog.V(2).Infof("flags: %#v", flags)
 
-	sa := &args{}
-	serverCmd := &cobra.Command{
-		Use:   "server",
-		Short: "Start the server",
-		Run: func(cmd *cobra.Command, args []string) {
-			glog.V(2).Infof("server arguments: %#v", sa)
+			client, err := kube.NewClient(flags.kubeconfig, nil)
+			if err != nil {
+				return multierror.Prefix(err, "Failed to connect to Kubernetes API.")
+			}
+			if err = client.RegisterResources(); err != nil {
+				return multierror.Prefix(err, "Failed to register Third-Party Resources.")
+			}
 
-			client, err := kube.NewClient(sa.kubeconfig, nil)
-			check("Failed to connect to Kubernetes API", err)
-
-			err = client.RegisterResources()
-			check("Failed to register Third-Party Resources", err)
-
-			controller := kube.NewController(client, sa.namespace, 256*time.Millisecond)
-
-			sds := envoy.NewDiscoveryService(controller, sa.sdsPort)
-
-			// wait for a signal
-			sigs := make(chan os.Signal, 1)
-			signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-			stop := make(chan struct{})
-			go controller.Run(stop)
-			go sds.Run()
-
-			<-sigs
-			close(stop)
-			glog.Flush()
+			flags.controller = kube.NewController(client, flags.namespace, resyncPeriod)
+			return nil
 		},
 	}
-	serverCmd.PersistentFlags().IntVarP(&sa.sdsPort, "port", "p", 8080,
+
+	serverCmd = &cobra.Command{
+		Use:   "server",
+		Short: "Start Istio Manager service",
+		Run: func(cmd *cobra.Command, args []string) {
+			sds := envoy.NewDiscoveryService(flags.controller, flags.server.sdsPort)
+			stop := make(chan struct{})
+			go flags.controller.Run(stop)
+			go sds.Run()
+			waitSignal(stop)
+		},
+	}
+
+	proxyCmd = &cobra.Command{
+		Use:   "proxy",
+		Short: "Start the proxy agent",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, err := envoy.NewWatcher(flags.controller, flags.controller, &flags.proxy)
+			if err != nil {
+				return err
+			}
+			stop := make(chan struct{})
+			go flags.controller.Run(stop)
+			waitSignal(stop)
+			return nil
+		},
+	}
+)
+
+func init() {
+	rootCmd.PersistentFlags().StringVarP(&flags.kubeconfig, "kubeconfig", "c", "",
+		"Use a Kubernetes configuration file instead of in-cluster configuration")
+	rootCmd.PersistentFlags().StringVarP(&flags.namespace, "namespace", "n", "",
+		"Monitor the specified namespace instead of all namespaces")
+	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+
+	serverCmd.PersistentFlags().IntVarP(&flags.server.sdsPort, "port", "p", 8080,
 		"Discovery service port")
 	rootCmd.AddCommand(serverCmd)
 
-	proxyCmd := &cobra.Command{
-		Use:   "proxy",
-		Short: "Start the proxy agent",
-		Run: func(cmd *cobra.Command, args []string) {
-			client, err := kube.NewClient(sa.kubeconfig, nil)
-			check("Failed to connect to Kubernetes API", err)
-
-			controller := kube.NewController(client, sa.namespace, 256*time.Millisecond)
-			stop := make(chan struct{})
-			_ = envoy.NewWatcher(controller, controller, sa.sdsAddress, sa.envoy)
-			controller.Run(stop)
-		},
-	}
-	proxyCmd.PersistentFlags().StringVarP(&sa.sdsAddress, "sds", "s", "localhost:8080",
+	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.DiscoveryAddress, "sds", "s", "localhost:8080",
 		"Discovery service external address")
-	proxyCmd.PersistentFlags().StringVarP(&sa.envoy, "envoy", "e", "/usr/local/bin/envoy",
+	proxyCmd.PersistentFlags().IntVarP(&flags.proxy.IngressPort, "port", "p", 5001,
+		"Envoy ingress port")
+	proxyCmd.PersistentFlags().IntVarP(&flags.proxy.AdminPort, "admin", "a", 5000,
+		"Envoy admin port")
+	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.Binary, "envoy", "e", "/usr/local/bin/envoy",
 		"Envoy binary location")
+	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.Mixer, "mixer", "m", "mixer.default:grpc",
+		"Mixer service key")
 	rootCmd.AddCommand(proxyCmd)
-
-	rootCmd.PersistentFlags().StringVarP(&sa.kubeconfig, "kubeconfig", "c", "",
-		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	rootCmd.PersistentFlags().StringVarP(&sa.namespace, "namespace", "n", "",
-		"Monitor the specified namespace instead of all namespaces")
-	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-	check("Execution error", rootCmd.Execute())
 }
 
-func check(msg string, err error) {
-	if err != nil {
-		glog.Errorf("%s: %v", msg, err)
+func main() {
+	if err := rootCmd.Execute(); err != nil {
+		glog.Error(err)
 		os.Exit(-1)
 	}
+}
+
+func waitSignal(stop chan struct{}) {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	<-sigs
+	close(stop)
+	glog.Flush()
 }
