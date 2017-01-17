@@ -33,4 +33,18 @@ message LogEntryDescriptor {
 
     // The name of the attribute to treat as the payload of the log entry.
     string payload_attribute = 5;
+
+    // PayloadFormat details the currently supported logging payload formats.
+    // TEXT is the default payload format.
+    enum PayloadFormat {
+
+        // Indicates a payload format of raw text.
+        TEXT = 0;
+
+        // Indicates that the payload is a serialized JSON object.
+        JSON = 1;
+    }
+
+    // Format of the value of the payload attribute.
+    PayloadFormat payload_format = 6;
 }
