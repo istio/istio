@@ -35,22 +35,24 @@ message MetricDescriptor {
   // Whether the metric records instantaneous values, changes to a value, etc.
   MetricKind metric_kind = 4;
 
-  // An optional description of the metric, which can be used in documentation.
+  // An optional description of the metric, which should be used as the
+  // documentation of the metric.
   string description = 5;
 
   // An optional concise name for the metric, which can be displayed in user interfaces.
   // Use sentence case without an ending period, for example "Request count".
   string display_name = 6;
 
-  // The kind of measurement. It describes how the data is reported.
+  // The kind of measurement. It describes how the data is recorded.
   enum MetricKind {
     // Do not use this default value.
     METRIC_KIND_UNSPECIFIED = 0;
 
-    // An instantaneous measurement of a value.
+    // An instantaneous measurement of a value. For example, the number of VMs.
     GAUGE = 1;
 
-    // A count of occurrences over an interval, always a positive integer
+    // A count of occurrences over an interval, always a positive integer.
+    // For example, the number of API requests.
     COUNTER = 2;
   }
 }
