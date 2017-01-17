@@ -33,6 +33,16 @@ cc_library(
  ],
 )
 
+cc_library(
+    name = "simple_lru_cache",
+    srcs = ["utils/google_macros.h"],
+    hdrs = [
+        "utils/simple_lru_cache.h",
+        "utils/simple_lru_cache_inl.h",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 cc_test(
     name = "mixer_client_impl_test",
     size = "small",
@@ -40,6 +50,20 @@ cc_test(
     linkopts = ["-lm"],
     deps = [
         ":mixer_client_lib",
+        "//external:googletest_main",
+    ],
+)
+
+cc_test(
+    name = "simple_lru_cache_test",
+    size = "small",
+    srcs = ["utils/simple_lru_cache_test.cc"],
+    linkopts = [
+        "-lm",
+        "-lpthread",
+    ],
+    deps = [
+        ":simple_lru_cache",
         "//external:googletest_main",
     ],
 )
