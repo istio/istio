@@ -97,10 +97,7 @@ func RootSpan(ctx context.Context) ot.Span {
 // child of any spans propagated to the server in the request's metadata. The returned span is retrievable from the
 // context via tracing.RootSpan.
 func StartRootSpan(ctx context.Context, operationName string) (ot.Span, context.Context) {
-	md, ok := metadata.FromContext(ctx)
-	if !ok {
-		md = metadata.New(nil)
-	}
+	md := extractMetadata(ctx)
 	spanContext, err := ot.GlobalTracer().Extract(ot.TextMap, metadataReaderWriter{md})
 	if err != nil {
 		glog.Warningf("Failed to extract opentracing metadata with tracer %v from ctx %v with err %v", ot.GlobalTracer(), ctx, err)
@@ -120,13 +117,18 @@ func StartRootSpan(ctx context.Context, operationName string) (ot.Span, context.
 // TODO: consider creating a public version of this method for use at individual call sites if the interceptor isn't
 // sufficient for some reason.
 func propagateSpan(ctx context.Context, tracer ot.Tracer, span ot.Span) context.Context {
-	md, ok := metadata.FromContext(ctx)
-	if !ok {
-		md = metadata.New(nil)
-	}
-	err := tracer.Inject(span.Context(), ot.TextMap, metadataReaderWriter{md})
-	if err != nil {
+	md := extractMetadata(ctx)
+	if err := tracer.Inject(span.Context(), ot.TextMap, metadataReaderWriter{md}); err != nil {
 		glog.Warningf("Failed to inject opentracing span state with tracer %v into ctx %v with err %v", ot.GlobalTracer(), ctx, err)
 	}
 	return metadata.NewContext(ctx, md)
+}
+
+// extractMetadata pulls the GRPC metadata out of the context or returns a new empty metadata object if there isn't one
+// in the context.
+func extractMetadata(ctx context.Context) metadata.MD {
+	if md, ok := metadata.FromContext(ctx); ok {
+		return md
+	}
+	return metadata.New(nil)
 }

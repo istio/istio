@@ -170,7 +170,7 @@ func (s *GRPCServer) streamLoop(stream grpc.ServerStream, request proto.Message,
 		}
 
 		var span ot.Span
-		span, ctx = ot.StartSpanFromContext(ctx, fmt.Sprintf("%s-%d", methodName, i))
+		span, ctx = ot.StartSpanFromContext(ctx, methodName)
 		span.LogFields(log.Object("gRPC request", request))
 
 		// do the actual work for the message
