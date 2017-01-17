@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -41,7 +42,7 @@ func createAPIClient(port string, enableTracing bool) (*clientState, error) {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
 	if enableTracing {
-		opts = append(opts, grpc.WithStreamInterceptor(tracing.ClientInterceptor(bt.New(tracing.StdoutRecorder()))))
+		opts = append(opts, grpc.WithStreamInterceptor(tracing.ClientInterceptor(bt.New(tracing.IORecorder(os.Stdout)))))
 	}
 
 	var err error
