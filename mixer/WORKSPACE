@@ -132,6 +132,25 @@ new_go_repository(
     importpath = "github.com/hashicorp/errwrap",
 )
 
+new_go_repository(
+    name = "com_github_opentracing_opentracing_go",
+    commit = "ac5446f53f2c0fc68dc16dc5f426eae1cd288b34",
+    importpath = "github.com/opentracing/opentracing-go",
+)
+
+new_go_repository(
+    name = "com_github_opentracing_basictracer",
+    commit = "1b32af207119a14b1b231d451df3ed04a72efebf",
+    importpath = "github.com/opentracing/basictracer-go"
+)
+
+# Transitive dep of com_github_opentracing_basictracer
+new_go_repository(
+    name = "com_github_gogo_protobuf",
+    commit = "909568be09de550ed094403c2bf8a261b5bb730a",
+    importpath = "github.com/gogo/protobuf"
+)
+
 load("//:repositories.bzl", "new_git_or_local_repository")
 
 new_git_or_local_repository(

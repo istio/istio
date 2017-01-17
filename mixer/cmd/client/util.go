@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -24,7 +25,10 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/grpc"
 
+	bt "github.com/opentracing/basictracer-go"
+
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/tracing"
 )
 
 type clientState struct {
@@ -32,11 +36,14 @@ type clientState struct {
 	connection *grpc.ClientConn
 }
 
-func createAPIClient(port string) (*clientState, error) {
+func createAPIClient(port string, enableTracing bool) (*clientState, error) {
 	cs := clientState{}
 
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
+	if enableTracing {
+		opts = append(opts, grpc.WithStreamInterceptor(tracing.ClientInterceptor(bt.New(tracing.IORecorder(os.Stdout)))))
+	}
 
 	var err error
 	if cs.connection, err = grpc.Dial(port, opts...); err != nil {
