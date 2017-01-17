@@ -17,20 +17,22 @@ licenses(["notice"])
 load("@protobuf_git//:protobuf.bzl", "cc_proto_library")
 
 cc_library(
- name = "mixer_client_lib",
- srcs = [
-    "src/client_impl.h",
-    "src/client_impl.cc",
- ],
- hdrs = [
-     "include/client.h",
-     "include/options.h",
- ],
- visibility = ["//visibility:public"],
- deps = [
-     "//external:boringssl_crypto",
-     "//external:mixer_api_cc_proto",
- ],
+    name = "mixer_client_lib",
+    srcs = [
+        "src/client_impl.cc",
+        "src/client_impl.h",
+        "src/transport_impl.h",
+    ],
+    hdrs = [
+        "include/client.h",
+        "include/options.h",
+        "include/transport.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//external:boringssl_crypto",
+        "//external:mixer_api_cc_proto",
+    ],
 )
 
 cc_library(

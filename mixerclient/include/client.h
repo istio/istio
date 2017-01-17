@@ -23,6 +23,7 @@
 #include "google/protobuf/stubs/status.h"
 #include "mixer/api/v1/service.pb.h"
 #include "options.h"
+#include "transport.h"
 
 namespace istio {
 namespace mixer_client {
@@ -30,24 +31,6 @@ namespace mixer_client {
 // Defines a function prototype used when an asynchronous transport call
 // is completed.
 using DoneFunc = std::function<void(const ::google::protobuf::util::Status&)>;
-
-// Defines a function prototype to make an asynchronous Check call to
-// the mixer server.
-using TransportCheckFunc = std::function<void(
-    const ::istio::mixer::v1::CheckRequest& request,
-    ::istio::mixer::v1::CheckResponse* response, DoneFunc on_done)>;
-
-// Defines a function prototype to make an asynchronous Report call to
-// the mixer server.
-using TransportReportFunc = std::function<void(
-    const ::istio::mixer::v1::ReportRequest& request,
-    ::istio::mixer::v1::ReportResponse* response, DoneFunc on_done)>;
-
-// Defines a function prototype to make an asynchronous Quota call to
-// the mixer server.
-using TransportQuotaFunc = std::function<void(
-    const ::istio::mixer::v1::QuotaRequest& request,
-    ::istio::mixer::v1::QuotaResponse* response, DoneFunc on_done)>;
 
 // Defines the options to create an instance of MixerClient interface.
 struct MixerClientOptions {
@@ -71,12 +54,8 @@ struct MixerClientOptions {
   // Quota options.
   QuotaOptions quota_options;
 
-  // Transport functions are used to send request to mixer server.
-  // It can be implemented many ways based on the environments.
-  // If not provided, the GRPC transport will be used.
-  TransportCheckFunc check_transport;
-  TransportReportFunc report_transport;
-  TransportQuotaFunc quota_transport;
+  // Transport object.
+  TransportInterface* transport;
 };
 
 class MixerClient {

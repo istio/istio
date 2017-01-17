@@ -17,6 +17,7 @@
 #define MIXERCLIENT_CLIENT_IMPL_H
 
 #include "include/client.h"
+#include "src/transport_impl.h"
 
 namespace istio {
 namespace mixer_client {
@@ -24,7 +25,7 @@ namespace mixer_client {
 class MixerClientImpl : public MixerClient {
  public:
   // Constructor
-  MixerClientImpl(MixerClientOptions &options);
+  MixerClientImpl(const MixerClientOptions& options);
 
   // Destructor
   virtual ~MixerClientImpl();
@@ -35,24 +36,33 @@ class MixerClientImpl : public MixerClient {
   // check_response is returned from the Controller service.
   //
   // check_response must be alive until on_check_done is called.
-  virtual void Check(const ::istio::mixer::v1::CheckRequest &check_request,
-                     ::istio::mixer::v1::CheckResponse *check_response,
+  virtual void Check(const ::istio::mixer::v1::CheckRequest& check_request,
+                     ::istio::mixer::v1::CheckResponse* check_response,
                      DoneFunc on_check_done);
 
   // This is async call. on_report_done is always called when the
   // report request is finished.
-  virtual void Report(const ::istio::mixer::v1::ReportRequest &report_request,
-                      ::istio::mixer::v1::ReportResponse *report_response,
+  virtual void Report(const ::istio::mixer::v1::ReportRequest& report_request,
+                      ::istio::mixer::v1::ReportResponse* report_response,
                       DoneFunc on_report_done);
 
   // This is async call. on_quota_done is always called when the
   // quota request is finished.
-  virtual void Quota(const ::istio::mixer::v1::QuotaRequest &quota_request,
-                     ::istio::mixer::v1::QuotaResponse *quota_response,
+  virtual void Quota(const ::istio::mixer::v1::QuotaRequest& quota_request,
+                     ::istio::mixer::v1::QuotaResponse* quota_response,
                      DoneFunc on_quota_done);
 
  private:
   MixerClientOptions options_;
+  StreamTransport<::istio::mixer::v1::CheckRequest,
+                  ::istio::mixer::v1::CheckResponse>
+      check_transport_;
+  StreamTransport<::istio::mixer::v1::ReportRequest,
+                  ::istio::mixer::v1::ReportResponse>
+      report_transport_;
+  StreamTransport<::istio::mixer::v1::QuotaRequest,
+                  ::istio::mixer::v1::QuotaResponse>
+      quota_transport_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MixerClientImpl);
 };
