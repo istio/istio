@@ -16,6 +16,7 @@
 #ifndef MIXERCLIENT_CLIENT_H
 #define MIXERCLIENT_CLIENT_H
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
@@ -58,10 +59,41 @@ struct MixerClientOptions {
   TransportInterface* transport;
 };
 
+struct Attributes {
+  // A structure to hold different types of value.
+  struct Value {
+    // Data type
+    enum ValueType { STRING, INT64, DOUBLE, BOOL, TIME, BYTES } type;
+
+    // Data value
+    union {
+      std::string str_v;  // for both STRING and BYTES
+      int64_t int64_v;
+      double double_v;
+      bool bool_v;
+      std::chrono::time_point<std::chrono::system_clock> time_v;
+    } value;
+  };
+
+  std::map<std::string, Value> attributes;
+};
+
 class MixerClient {
  public:
   // Destructor
   virtual ~MixerClient() {}
+
+  // Attribute based calls will be used.
+  // The protobuf message based calls will be removed.
+  // Callers should pass in the full set of attributes for the call.
+  // The client will use the full set attributes to check cache. If cache
+  // miss, an attribute context based on the underline gRPC stream will
+  // be used to generate attribute_update and send that to Mixer server.
+  // Callers don't need response data, they only need success or failure.
+  // The response data from mixer will be consumed by mixer client.
+  virtual void Check(const Attributes& attributes, DoneFunc on_done) = 0;
+  virtual void Report(const Attributes& attributes, DoneFunc on_done) = 0;
+  virtual void Quota(const Attributes& attributes, DoneFunc on_done) = 0;
 
   // The async call.
   // on_check_done is called with the check status after cached
