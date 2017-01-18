@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef MIXERCLIENT_TRANSPORT_IMPL_H
-#define MIXERCLIENT_TRANSPORT_IMPL_H
+#ifndef MIXERCLIENT_STREAM_TRANSPORT_H
+#define MIXERCLIENT_STREAM_TRANSPORT_H
 
 #include "include/client.h"
 
@@ -135,4 +135,4 @@ class StreamTransport {
 }  // namespace mixer_client
 }  // namespace istio
 
-#endif  // MIXERCLIENT_TRANSPORT_IMPL_H
+#endif  // MIXERCLIENT_STREAM_TRANSPORT_H

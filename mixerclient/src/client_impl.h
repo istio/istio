@@ -17,7 +17,7 @@
 #define MIXERCLIENT_CLIENT_IMPL_H
 
 #include "include/client.h"
-#include "src/transport_impl.h"
+#include "src/stream_transport.h"
 
 namespace istio {
 namespace mixer_client {
@@ -33,28 +33,6 @@ class MixerClientImpl : public MixerClient {
   virtual void Check(const Attributes& attributes, DoneFunc on_done);
   virtual void Report(const Attributes& attributes, DoneFunc on_done);
   virtual void Quota(const Attributes& attributes, DoneFunc on_done);
-
-  // The async call.
-  // on_check_done is called with the check status after cached
-  // check_response is returned in case of cache hit, otherwise called after
-  // check_response is returned from the Controller service.
-  //
-  // check_response must be alive until on_check_done is called.
-  virtual void Check(const ::istio::mixer::v1::CheckRequest& check_request,
-                     ::istio::mixer::v1::CheckResponse* check_response,
-                     DoneFunc on_check_done);
-
-  // This is async call. on_report_done is always called when the
-  // report request is finished.
-  virtual void Report(const ::istio::mixer::v1::ReportRequest& report_request,
-                      ::istio::mixer::v1::ReportResponse* report_response,
-                      DoneFunc on_report_done);
-
-  // This is async call. on_quota_done is always called when the
-  // quota request is finished.
-  virtual void Quota(const ::istio::mixer::v1::QuotaRequest& quota_request,
-                     ::istio::mixer::v1::QuotaResponse* quota_response,
-                     DoneFunc on_quota_done);
 
  private:
   MixerClientOptions options_;

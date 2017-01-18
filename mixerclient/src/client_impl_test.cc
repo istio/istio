@@ -15,212 +15,89 @@
 
 #include "include/client.h"
 
-#include "gmock/gmock.h"
-#include "google/protobuf/text_format.h"
-#include "google/protobuf/util/message_differencer.h"
 #include "gtest/gtest.h"
+
 using ::istio::mixer::v1::CheckRequest;
 using ::istio::mixer::v1::CheckResponse;
 using ::istio::mixer::v1::ReportRequest;
 using ::istio::mixer::v1::ReportResponse;
 using ::istio::mixer::v1::QuotaRequest;
 using ::istio::mixer::v1::QuotaResponse;
-using ::google::protobuf::TextFormat;
-using ::google::protobuf::util::MessageDifferencer;
 using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;
-using ::testing::An;
-using ::testing::Invoke;
-using ::testing::Mock;
-using ::testing::Return;
-using ::testing::_;
 
 namespace istio {
 namespace mixer_client {
 
-class MockTransport : public TransportInterface {
+// A simple writer to send response right away.
+template <class RequestType, class ResponseType>
+class WriterImpl : public WriteInterface<RequestType> {
  public:
-  MOCK_METHOD1(NewStream, CheckWriterPtr(CheckReaderRawPtr));
-  MOCK_METHOD1(NewStream, ReportWriterPtr(ReportReaderRawPtr));
-  MOCK_METHOD1(NewStream, QuotaWriterPtr(QuotaReaderRawPtr));
+  void Write(const RequestType& request) {
+    ResponseType response;
+    response.set_request_index(request.request_index());
+    if (done_status.ok()) {
+      reader->OnRead(response);
+    }
+    reader->OnClose(done_status);
+  }
+  void WriteDone() {}
+  bool is_write_closed() { return true; }
+
+  ReadInterface<ResponseType>* reader;
+  Status done_status;
 };
 
-template <class T>
-class MockWriter : public WriteInterface<T> {
+class MixerClientImplTest : public ::testing::Test, public TransportInterface {
  public:
-  MOCK_METHOD1_T(Write, void(const T&));
-  MOCK_METHOD0_T(WriteDone, void());
-  MOCK_METHOD0_T(is_write_closed, bool());
-};
-
-class MixerClientImplTest : public ::testing::Test {
- public:
-  void SetUp() {
+  MixerClientImplTest()
+      : check_writer_(new WriterImpl<CheckRequest, CheckResponse>),
+        report_writer_(new WriterImpl<ReportRequest, ReportResponse>),
+        quota_writer_(new WriterImpl<QuotaRequest, QuotaResponse>) {
     MixerClientOptions options(
         CheckOptions(1 /*entries */, 500 /* refresh_interval_ms */,
                      1000 /* expiration_ms */),
         ReportOptions(1 /* entries */, 500 /*flush_interval_ms*/),
         QuotaOptions(1 /* entries */, 500 /*flush_interval_ms*/,
                      1000 /* expiration_ms */));
-    options.transport = &mock_transport_;
+    options.transport = this;
     client_ = CreateMixerClient(options);
   }
 
-  MockTransport mock_transport_;
+  CheckWriterPtr NewStream(CheckReaderRawPtr reader) {
+    check_writer_->reader = reader;
+    return CheckWriterPtr(check_writer_.release());
+  }
+  ReportWriterPtr NewStream(ReportReaderRawPtr reader) {
+    report_writer_->reader = reader;
+    return ReportWriterPtr(report_writer_.release());
+  }
+  QuotaWriterPtr NewStream(QuotaReaderRawPtr reader) {
+    quota_writer_->reader = reader;
+    return QuotaWriterPtr(quota_writer_.release());
+  }
+
   std::unique_ptr<MixerClient> client_;
+  std::unique_ptr<WriterImpl<CheckRequest, CheckResponse>> check_writer_;
+  std::unique_ptr<WriterImpl<ReportRequest, ReportResponse>> report_writer_;
+  std::unique_ptr<WriterImpl<QuotaRequest, QuotaResponse>> quota_writer_;
 };
 
-TEST_F(MixerClientImplTest, TestSingleCheck) {
-  MockWriter<CheckRequest>* writer = new MockWriter<CheckRequest>;
-  CheckReaderRawPtr reader;
-
-  EXPECT_CALL(mock_transport_, NewStream(An<CheckReaderRawPtr>()))
-      .WillOnce(
-          Invoke([writer, &reader](CheckReaderRawPtr r) -> CheckWriterPtr {
-            reader = r;
-            return CheckWriterPtr(writer);
-          }));
-
-  CheckRequest request_out;
-  EXPECT_CALL(*writer, Write(_))
-      .WillOnce(
-          Invoke([&request_out](const CheckRequest& r) { request_out = r; }));
-
-  CheckRequest request_in;
-  request_in.set_request_index(111);
-  CheckResponse response_in;
-  response_in.set_request_index(request_in.request_index());
-
-  CheckResponse response_out;
-  Status status_out = Status::UNKNOWN;
-  client_->Check(request_in, &response_out,
-                 [&status_out](Status status) { status_out = status; });
-  // Write request.
-  EXPECT_TRUE(MessageDifferencer::Equals(request_in, request_out));
-  // But not response
-  EXPECT_FALSE(status_out.ok());
-  EXPECT_FALSE(MessageDifferencer::Equals(response_in, response_out));
-
-  // Write response.
-  reader->OnRead(response_in);
-
-  EXPECT_TRUE(status_out.ok());
-  EXPECT_TRUE(MessageDifferencer::Equals(response_in, response_out));
-
-  reader->OnClose(Status::OK);
+TEST_F(MixerClientImplTest, TestSuccessCheck) {
+  Attributes attributes;
+  Status done_status = Status::UNKNOWN;
+  client_->Check(attributes,
+                 [&done_status](Status status) { done_status = status; });
+  EXPECT_TRUE(done_status.ok());
 }
 
-TEST_F(MixerClientImplTest, TestTwoOutOfOrderChecks) {
-  MockWriter<CheckRequest>* writer = new MockWriter<CheckRequest>;
-  CheckReaderRawPtr reader;
-
-  EXPECT_CALL(mock_transport_, NewStream(An<CheckReaderRawPtr>()))
-      .WillOnce(
-          Invoke([writer, &reader](CheckReaderRawPtr r) -> CheckWriterPtr {
-            reader = r;
-            return CheckWriterPtr(writer);
-          }));
-  EXPECT_CALL(*writer, Write(_)).Times(2);
-  EXPECT_CALL(*writer, is_write_closed()).WillOnce(Return(false));
-
-  // Send two requests: 1 and 2
-  // But OnRead() is called out of order: 2 and 1
-  CheckRequest request_in_1;
-  request_in_1.set_request_index(111);
-  CheckResponse response_in_1;
-  response_in_1.set_request_index(request_in_1.request_index());
-
-  CheckRequest request_in_2;
-  request_in_2.set_request_index(222);
-  CheckResponse response_in_2;
-  response_in_2.set_request_index(request_in_2.request_index());
-
-  CheckResponse response_out_1;
-  client_->Check(request_in_1, &response_out_1, [](Status status) {});
-  CheckResponse response_out_2;
-  client_->Check(request_in_2, &response_out_2, [](Status status) {});
-
-  // Write response in wrong order
-  reader->OnRead(response_in_2);
-  reader->OnRead(response_in_1);
-
-  EXPECT_TRUE(MessageDifferencer::Equals(response_in_1, response_out_1));
-  EXPECT_TRUE(MessageDifferencer::Equals(response_in_2, response_out_2));
-
-  reader->OnClose(Status::OK);
-}
-
-TEST_F(MixerClientImplTest, TestCheckWithStreamClose) {
-  MockWriter<CheckRequest>* writer = new MockWriter<CheckRequest>;
-  CheckReaderRawPtr reader;
-
-  EXPECT_CALL(mock_transport_, NewStream(An<CheckReaderRawPtr>()))
-      .WillOnce(
-          Invoke([writer, &reader](CheckReaderRawPtr r) -> CheckWriterPtr {
-            reader = r;
-            return CheckWriterPtr(writer);
-          }));
-  EXPECT_CALL(*writer, Write(_)).Times(1);
-
-  CheckRequest request_in;
-  request_in.set_request_index(111);
-
-  CheckResponse response_out;
-  Status status_out = Status::UNKNOWN;
-  client_->Check(request_in, &response_out,
-                 [&status_out](Status status) { status_out = status; });
-
-  // Close the stream
-  reader->OnClose(Status::CANCELLED);
-
-  // Status should be canclled.
-  EXPECT_EQ(status_out, Status::CANCELLED);
-}
-
-TEST_F(MixerClientImplTest, TestHalfClose) {
-  MockWriter<CheckRequest>* writers[2] = {new MockWriter<CheckRequest>,
-                                          new MockWriter<CheckRequest>};
-  CheckReaderRawPtr readers[2];
-  int idx = 0;
-
-  EXPECT_CALL(mock_transport_, NewStream(An<CheckReaderRawPtr>()))
-      .WillRepeatedly(Invoke(
-          [&writers, &readers, &idx](CheckReaderRawPtr r) -> CheckWriterPtr {
-            readers[idx] = r;
-            return CheckWriterPtr(writers[idx++]);
-          }));
-  EXPECT_CALL(*writers[0], Write(_)).Times(1);
-  // Half close the first stream
-  EXPECT_CALL(*writers[0], is_write_closed()).WillOnce(Return(true));
-  EXPECT_CALL(*writers[1], Write(_)).Times(1);
-
-  // Send the first request.
-  CheckRequest request_in_1;
-  request_in_1.set_request_index(111);
-  CheckResponse response_in_1;
-  response_in_1.set_request_index(request_in_1.request_index());
-
-  CheckResponse response_out_1;
-  client_->Check(request_in_1, &response_out_1, [](Status status) {});
-
-  // Send the second request
-  CheckRequest request_in_2;
-  request_in_2.set_request_index(222);
-  CheckResponse response_in_2;
-  response_in_2.set_request_index(request_in_2.request_index());
-
-  CheckResponse response_out_2;
-  client_->Check(request_in_2, &response_out_2, [](Status status) {});
-
-  // Write responses
-  readers[1]->OnRead(response_in_2);
-  readers[0]->OnRead(response_in_1);
-
-  EXPECT_TRUE(MessageDifferencer::Equals(response_in_1, response_out_1));
-  EXPECT_TRUE(MessageDifferencer::Equals(response_in_2, response_out_2));
-
-  readers[1]->OnClose(Status::OK);
-  readers[0]->OnClose(Status::OK);
+TEST_F(MixerClientImplTest, TestFailedCheck) {
+  check_writer_->done_status = Status::CANCELLED;
+  Attributes attributes;
+  Status done_status = Status::UNKNOWN;
+  client_->Check(attributes,
+                 [&done_status](Status status) { done_status = status; });
+  EXPECT_EQ(done_status, Status::CANCELLED);
 }
 
 }  // namespace mixer_client

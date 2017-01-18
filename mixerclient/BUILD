@@ -21,7 +21,7 @@ cc_library(
     srcs = [
         "src/client_impl.cc",
         "src/client_impl.h",
-        "src/transport_impl.h",
+        "src/stream_transport.h",
     ],
     hdrs = [
         "include/client.h",
@@ -46,7 +46,18 @@ cc_library(
 )
 
 cc_test(
-    name = "mixer_client_impl_test",
+    name = "stream_transport_test",
+    size = "small",
+    srcs = ["src/stream_transport_test.cc"],
+    linkopts = ["-lm"],
+    deps = [
+        ":mixer_client_lib",
+        "//external:googletest_main",
+    ],
+)
+
+cc_test(
+    name = "client_impl_test",
     size = "small",
     srcs = ["src/client_impl_test.cc"],
     linkopts = ["-lm"],

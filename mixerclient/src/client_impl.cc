@@ -37,30 +37,21 @@ MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
 MixerClientImpl::~MixerClientImpl() {}
 
 void MixerClientImpl::Check(const Attributes &attributes, DoneFunc on_done) {
-  on_done(Status(Code::UNIMPLEMENTED, "Method not implemented."));
+  CheckRequest request;
+  CheckResponse response;
+  check_transport_.Call(request, &response, on_done);
 }
 
 void MixerClientImpl::Report(const Attributes &attributes, DoneFunc on_done) {
-  on_done(Status(Code::UNIMPLEMENTED, "Method not implemented."));
+  ReportRequest request;
+  ReportResponse response;
+  report_transport_.Call(request, &response, on_done);
 }
 
 void MixerClientImpl::Quota(const Attributes &attributes, DoneFunc on_done) {
-  on_done(Status(Code::UNIMPLEMENTED, "Method not implemented."));
-}
-
-void MixerClientImpl::Check(const CheckRequest &request,
-                            CheckResponse *response, DoneFunc on_done) {
-  check_transport_.Call(request, response, on_done);
-}
-
-void MixerClientImpl::Report(const ReportRequest &request,
-                             ReportResponse *response, DoneFunc on_done) {
-  report_transport_.Call(request, response, on_done);
-}
-
-void MixerClientImpl::Quota(const QuotaRequest &request,
-                            QuotaResponse *response, DoneFunc on_done) {
-  quota_transport_.Call(request, response, on_done);
+  QuotaRequest request;
+  QuotaResponse response;
+  quota_transport_.Call(request, &response, on_done);
 }
 
 // Creates a MixerClient object.

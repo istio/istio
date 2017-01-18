@@ -22,7 +22,6 @@
 #include <string>
 
 #include "google/protobuf/stubs/status.h"
-#include "mixer/api/v1/service.pb.h"
 #include "options.h"
 #include "transport.h"
 
@@ -67,12 +66,14 @@ struct Attributes {
 
     // Data value
     union {
-      std::string str_v;  // for both STRING and BYTES
       int64_t int64_v;
       double double_v;
       bool bool_v;
-      std::chrono::time_point<std::chrono::system_clock> time_v;
     } value;
+    // Move types with constructor outside of union.
+    // It is not easy for union to support them.
+    std::string str_v;  // for both STRING and BYTES
+    std::chrono::time_point<std::chrono::system_clock> time_v;
   };
 
   std::map<std::string, Value> attributes;
@@ -84,38 +85,21 @@ class MixerClient {
   virtual ~MixerClient() {}
 
   // Attribute based calls will be used.
-  // The protobuf message based calls will be removed.
   // Callers should pass in the full set of attributes for the call.
   // The client will use the full set attributes to check cache. If cache
-  // miss, an attribute context based on the underline gRPC stream will
+  // miss, an attribute context based on the underlying gRPC stream will
   // be used to generate attribute_update and send that to Mixer server.
   // Callers don't need response data, they only need success or failure.
   // The response data from mixer will be consumed by mixer client.
+
+  // A check call.
   virtual void Check(const Attributes& attributes, DoneFunc on_done) = 0;
+
+  // A report call.
   virtual void Report(const Attributes& attributes, DoneFunc on_done) = 0;
+
+  // A quota call.
   virtual void Quota(const Attributes& attributes, DoneFunc on_done) = 0;
-
-  // The async call.
-  // on_check_done is called with the check status after cached
-  // check_response is returned in case of cache hit, otherwise called after
-  // check_response is returned from the Controller service.
-  //
-  // check_response must be alive until on_check_done is called.
-  virtual void Check(const ::istio::mixer::v1::CheckRequest& check_request,
-                     ::istio::mixer::v1::CheckResponse* check_response,
-                     DoneFunc on_check_done) = 0;
-
-  // This is async call. on_report_done is always called when the
-  // report request is finished.
-  virtual void Report(const ::istio::mixer::v1::ReportRequest& report_request,
-                      ::istio::mixer::v1::ReportResponse* report_response,
-                      DoneFunc on_report_done) = 0;
-
-  // This is async call. on_quota_done is always called when the
-  // quota request is finished.
-  virtual void Quota(const ::istio::mixer::v1::QuotaRequest& quota_request,
-                     ::istio::mixer::v1::QuotaResponse* quota_response,
-                     DoneFunc on_quota_done) = 0;
 };
 
 // Creates a MixerClient object.
