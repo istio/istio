@@ -30,17 +30,6 @@ Gazelle binary is located in Bazel external tools:
 
     external/io_bazel_rules_go_repository_tools/bin/gazelle
 
-## Build instructions without Bazel ##
-Bazel does not preclude you from using `go` tool in development.
-Place your repository into `$GOPATH`:
-
-    mkdir -p $GOPATH/src/istio.io
-    ln -s <istio.io/manager repo> $GOPATH/src/istio.io
-    go test ./... -v
-
-You would need to `go get` each dependency at the right SHA (see `WORKSPACE` file) for
-the build to succeed.
-
 ## Test environment ##
 
 Manager tests require an access to a Kubernetes cluster version >=1.5. Each
@@ -57,6 +46,23 @@ repository pointing to your Kubernetes configuration file:
     ln -s ~/.kube/config platform/kube/
     bazel test //...
 
-_Note_: Due to a well-known issue, the namespaces are not deleted completely
+_Note_: Due to a known issue, the namespaces are not deleted completely
 after running the tests and permanently reside in a terminating state
-(see https://github.com/istio/manager/issues/15).
+(see [issues](https://github.com/istio/manager/issues/15)).
+
+## Build instructions without Bazel ##
+
+Bazel does not preclude you from using `go` tool in development. You should
+check out your repository clone `$REPO_PATH` into `$GOPATH` (e.g.
+`$GOPATH/src/istio.io/manager`). Prepare the dependencies by vendorizing Bazel
+workspace:
+
+    # Vendorize bazel dependencies
+    bin/bazel_to_go.py .
+
+    # Remove doubly-vendorized k8s dependencies
+    rm -rf vendor/k8s.io/client-go/vendor
+
+    # Now you can test with the go tool
+    go test istio.io/manager/... -v
+
