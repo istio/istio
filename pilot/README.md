@@ -15,7 +15,7 @@ If you have a question about the Istio Manager or have a problem using it, pleas
 
 We are using [Bazel 0.4.3](https://bazel.io) to build Istio Manager:
 
-    bazel build //...
+    bazel build //cmd/...
 
 _Note_: Due to issues with case-insensitive file systems, macOS is not
 supported at the moment by Bazel Go rules.
@@ -46,7 +46,10 @@ the build to succeed.
 Manager tests require an access to a Kubernetes cluster version >=1.5. Each
 test creates a temporary namespace and deletes it on completion.  Please
 configure your `kubectl` to point to a development cluster before invoking the
-tests.
+tests. If you are using GKE, please make sure you are using static client
+certificates before fetching cluster credentials:
+
+    gcloud config set container/use_client_certificate True
 
 To let Bazel sandboxes access the cluster, please add a symbolic link to your
 repository pointing to your Kubernetes configuration file:
