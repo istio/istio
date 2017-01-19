@@ -112,13 +112,13 @@ func init() {
 
 	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.DiscoveryAddress, "sds", "s", "localhost:8080",
 		"Discovery service external address")
-	proxyCmd.PersistentFlags().IntVarP(&flags.proxy.IngressPort, "port", "p", 5001,
-		"Envoy ingress port")
-	proxyCmd.PersistentFlags().IntVarP(&flags.proxy.AdminPort, "admin", "a", 5000,
+	proxyCmd.PersistentFlags().IntVarP(&flags.proxy.ProxyPort, "port", "p", 5001,
+		"Envoy proxy port")
+	proxyCmd.PersistentFlags().IntVarP(&flags.proxy.AdminPort, "admin_port", "a", 5000,
 		"Envoy admin port")
-	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.Binary, "envoy", "e", "/usr/local/bin/envoy",
+	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.Binary, "envoy_path", "b", "/usr/local/bin/envoy",
 		"Envoy binary location")
-	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.Mixer, "mixer", "m", "mixer.default:grpc",
+	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.Mixer, "mixer_sds", "m", "mixer.default:grpc",
 		"Mixer service key")
 	rootCmd.AddCommand(proxyCmd)
 }

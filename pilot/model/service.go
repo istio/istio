@@ -67,7 +67,7 @@ type ServiceInstance struct {
 
 // Port represents a network port
 type Port struct {
-	// Port value
+	// Port value (may be distinct from the service port with the same name)
 	Port int `json:"port"`
 	// Name of the port classifies ports for a single service, optional
 	Name string `json:"name,omitempty"`

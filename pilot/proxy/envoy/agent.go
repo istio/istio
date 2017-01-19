@@ -34,7 +34,8 @@ type agent struct {
 	binary string
 	// Map of known running Envoy processes and their restart epochs.
 	cmdMap map[*exec.Cmd]instance
-	mutex  sync.Mutex
+	// mutex protects cmdMap
+	mutex sync.Mutex
 }
 
 type instance struct {
@@ -61,7 +62,7 @@ cloud_tracing_config {
 mixer_options {
   mixer_server: "%s%s"
 }
-	`, EgressClusterPrefix, mixer))
+	`, OutboundClusterPrefix, mixer))
 	f.Close()
 
 	return &agent{
@@ -109,13 +110,16 @@ func (s *agent) Reload(config *Config) error {
 	if glog.V(2) {
 		config.Write(os.Stderr)
 	}
+
 	glog.V(2).Infof("Envoy starting: %v", args)
 	cmd := exec.Command(s.binary, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+
 	if err := cmd.Start(); err != nil {
 		return err
 	}
+
 	s.cmdMap[cmd] = instance{
 		epoch:  epoch,
 		config: config,

@@ -18,10 +18,8 @@ package envoy
 type MeshConfig struct {
 	// DiscoveryAddress is the "ip:port" address for Envoy discovery service
 	DiscoveryAddress string
-	// IngressPort is the server-side proxy port
-	IngressPort int
-	// EgressPort is the client-side proxy port
-	EgressPort int
+	// ProxyPort is the Envoy proxy port
+	ProxyPort int
 	// AdminPort is the administrative interface port
 	AdminPort int
 	// Envoy binary path
@@ -99,7 +97,7 @@ type Runtime struct {
 type Route struct {
 	Runtime       *Runtime `json:"runtime,omitempty"`
 	Prefix        string   `json:"prefix"`
-	PrefixRewrite string   `json:"prefix_rewrite"`
+	PrefixRewrite string   `json:"prefix_rewrite,omitempty"`
 	Cluster       string   `json:"cluster"`
 	Headers       []Header `json:"headers,omitempty"`
 }
@@ -127,9 +125,9 @@ type AccessLog struct {
 type NetworkFilterConfig struct {
 	CodecType         string      `json:"codec_type"`
 	StatPrefix        string      `json:"stat_prefix"`
-	GenerateRequestID bool        `json:"generate_request_id"`
+	GenerateRequestID bool        `json:"generate_request_id,omitempty"`
 	RouteConfig       RouteConfig `json:"route_config"`
-	Filters           []Filter    `json:"filters,omitempty"`
+	Filters           []Filter    `json:"filters"`
 	AccessLog         []AccessLog `json:"access_log"`
 	Cluster           string      `json:"cluster,omitempty"`
 }
@@ -203,6 +201,21 @@ func (s ClustersByName) Swap(i, j int) {
 }
 
 func (s ClustersByName) Less(i, j int) bool {
+	return s[i].Name < s[j].Name
+}
+
+// HostsByName sorts clusters by name
+type HostsByName []VirtualHost
+
+func (s HostsByName) Len() int {
+	return len(s)
+}
+
+func (s HostsByName) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s HostsByName) Less(i, j int) bool {
 	return s[i].Name < s[j].Name
 }
 
