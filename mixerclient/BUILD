@@ -22,6 +22,10 @@ cc_library(
         "src/client_impl.cc",
         "src/client_impl.h",
         "src/stream_transport.h",
+        "src/signature.cc",
+        "src/signature.h",
+        "utils/md5.cc",
+        "utils/md5.h",
     ],
     hdrs = [
         "include/client.h",
@@ -80,3 +84,24 @@ cc_test(
         "//external:googletest_main",
     ],
 )
+
+cc_test(
+    name = "md5_test",
+    size = "small",
+    srcs = ["utils/md5_test.cc"],
+    deps = [
+        ":mixer_client_lib",
+        "//external:googletest_main",
+    ],
+)
+
+cc_test(
+    name = "signature_test",
+    size = "small",
+    srcs = ["src/signature_test.cc"],
+    deps = [
+        ":mixer_client_lib",
+        "//external:googletest_main",
+    ],
+)
+
