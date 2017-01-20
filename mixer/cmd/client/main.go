@@ -65,7 +65,13 @@ func withArgs(args []string, errorf errorFn) {
 		Short: "Invoke the API of a running instance of the Istio mixer",
 	}
 	rootCmd.SetArgs(args)
-	rootCmd.Flags().AddGoFlagSet(flag.CommandLine)
+	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+
+	// hack to make flag.Parsed return true such that glog is happy
+	// about the flags having been parsed
+	fs := flag.NewFlagSet("", flag.ContinueOnError)
+	_ = fs.Parse([]string{})
+	flag.CommandLine = fs
 
 	rootArgs := &rootArgs{}
 

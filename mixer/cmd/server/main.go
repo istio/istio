@@ -35,7 +35,13 @@ func withArgs(args []string, errorf errorFn) {
 		Short: "The Istio mixer provides control plane functionality to the Istio proxy and services",
 	}
 	rootCmd.SetArgs(args)
-	rootCmd.Flags().AddGoFlagSet(flag.CommandLine)
+	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+
+	// hack to make flag.Parsed return true such that glog is happy
+	// about the flags having been parsed
+	fs := flag.NewFlagSet("", flag.ContinueOnError)
+	_ = fs.Parse([]string{})
+	flag.CommandLine = fs
 
 	rootCmd.AddCommand(adapterCmd(errorf))
 	rootCmd.AddCommand(serverCmd(errorf))
