@@ -92,6 +92,7 @@ type GRPCServer struct {
 	listener net.Listener
 	handlers MethodHandlers
 	attrMgr  attribute.Manager
+	tracer   tracing.Tracer
 }
 
 // NewGRPCServer creates the gRPC serving stack.
@@ -128,13 +129,16 @@ func NewGRPCServer(options *GRPCServerOptions) (*GRPCServer, error) {
 		grpcOptions = append(grpcOptions, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	}
 
+	var tracer tracing.Tracer
 	if options.Tracer != nil {
-		ot.SetGlobalTracer(options.Tracer)
+		tracer = tracing.NewTracer(options.Tracer)
+	} else {
+		tracer = tracing.DisabledTracer()
 	}
 
 	// get everything wired up
 	grpcServer := grpc.NewServer(grpcOptions...)
-	s := &GRPCServer{grpcServer, listener, options.Handlers, options.AttributeManager}
+	s := &GRPCServer{grpcServer, listener, options.Handlers, options.AttributeManager, tracer}
 	mixerpb.RegisterMixerServer(grpcServer, s)
 	return s, nil
 }
@@ -157,7 +161,7 @@ func (s *GRPCServer) streamLoop(stream grpc.ServerStream, request proto.Message,
 	tracker := s.attrMgr.NewTracker()
 	defer tracker.Done()
 
-	root, ctx := tracing.StartRootSpan(stream.Context(), methodName)
+	root, ctx := s.tracer.StartRootSpan(stream.Context(), methodName)
 	defer root.Finish()
 
 	for {
@@ -170,7 +174,7 @@ func (s *GRPCServer) streamLoop(stream grpc.ServerStream, request proto.Message,
 		}
 
 		var span ot.Span
-		span, ctx = ot.StartSpanFromContext(ctx, methodName)
+		span, ctx = s.tracer.StartSpanFromContext(ctx, methodName)
 		span.LogFields(log.Object("gRPC request", request))
 
 		// do the actual work for the message

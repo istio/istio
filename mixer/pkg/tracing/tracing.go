@@ -18,9 +18,6 @@ package tracing
 import (
 	"context"
 
-	xctx "golang.org/x/net/context"
-
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/golang/glog"
@@ -28,11 +25,6 @@ import (
 	"github.com/opentracing/opentracing-go/ext"
 )
 
-// TODO: Keep track of per-stream state, e.g. the Tracer impl to use in traces for this stream. This will enable things
-// like different tracers per stream (client). Currently this package is built on the assumption that only the global
-// tracer is used, which isn't great (it makes testing harder, for example). This state could also be used to keep
-// track of per stream config like metadata propagation format.
-//
 // TODO: investigate wrapping the server stream in one with a mutable context, so that we can use an interceptor or TAP
 // handler to set up the root span rather than doing it in the server's stream loop.
 //
@@ -43,31 +35,6 @@ var (
 
 	gRPCComponentTag = ot.Tag{string(ext.Component), "gRPC"}
 )
-
-// ClientInterceptor establishes a span that lives for the entire lifetime of the server-client stream and propagates
-// it via gRPC request metadata to the client.
-func ClientInterceptor(tracer ot.Tracer) grpc.StreamClientInterceptor {
-	return func(
-		ctx xctx.Context,
-		desc *grpc.StreamDesc,
-		cc *grpc.ClientConn,
-		method string,
-		streamer grpc.Streamer,
-		opts ...grpc.CallOption) (grpc.ClientStream, error) {
-
-		var span ot.Span
-		if p := ot.SpanFromContext(ctx); p != nil {
-			span = tracer.StartSpan(method, ext.SpanKindRPCClient, ot.ChildOf(p.Context()))
-		} else {
-			span = tracer.StartSpan(method, ext.SpanKindRPCClient)
-		}
-		defer span.Finish()
-
-		ctx = ot.ContextWithSpan(ctx, span)
-		ctx = propagateSpan(ctx, tracer, span)
-		return streamer(ctx, desc, cc, method, opts...)
-	}
-}
 
 // CurrentSpan extracts the current span from the context, or returns a no-op span if no span exists in the context.
 // This avoids boilerplate nil checking when calling opentracing.SpanFromContext.
@@ -93,35 +60,76 @@ func RootSpan(ctx context.Context) ot.Span {
 	return noopSpan
 }
 
+// Tracer wraps an opentracing.Tracer with a flag that's enabled when tracing is enabled. This flag is used to short-circuit
+// methods that may be costly (intercepting client calls, propagating span metadata, etc).
+// The tracer's methods will always return objects that are safe to work with, e.g. if tracing is disabled and StartRootSpan
+// is called, a no-op span will be returned, not nil.
+type Tracer struct {
+	ot.Tracer
+
+	enabled bool
+}
+
+// NewTracer wraps the provided tracer and enables tracing.
+func NewTracer(tracer ot.Tracer) Tracer {
+	return Tracer{tracer, true}
+}
+
+// DisabledTracer disables tracing, letting methods in tracing.go short-circuit.
+func DisabledTracer() Tracer {
+	return Tracer{ot.NoopTracer{}, false}
+}
+
 // StartRootSpan creates a span that is the root of all Istio spans in the current request context. This span will be a
 // child of any spans propagated to the server in the request's metadata. The returned span is retrievable from the
 // context via tracing.RootSpan.
-func StartRootSpan(ctx context.Context, operationName string) (ot.Span, context.Context) {
-	md := extractMetadata(ctx)
-	spanContext, err := ot.GlobalTracer().Extract(ot.TextMap, metadataReaderWriter{md})
-	if err != nil {
-		glog.Warningf("Failed to extract opentracing metadata with tracer %v from ctx %v with err %v", ot.GlobalTracer(), ctx, err)
-
-		// We set the spancontext to nil if there's an error so we don't get funky values from ext.RPCServerOption
-		// (in particular the mock tracer impl doesn't handle a non nil empty span context gracefully).
-		spanContext = nil
+func (t *Tracer) StartRootSpan(ctx context.Context, operationName string, opts ...ot.StartSpanOption) (ot.Span, context.Context) {
+	if !t.enabled {
+		return noopSpan, ctx
 	}
-	span, ctx := ot.StartSpanFromContext(ctx, operationName, ext.RPCServerOption(spanContext), gRPCComponentTag)
+	spanContext := t.extractSpanContext(ctx, extractMetadata(ctx))
+	opts = append(opts, ext.RPCServerOption(spanContext), gRPCComponentTag)
+	span, ctx := t.StartSpanFromContext(ctx, operationName, opts...)
 	ctx = context.WithValue(ctx, rootSpanKey{}, span)
 	return span, ctx
 }
 
-// propagateSpan inserts metadata about the span into the context's metadata so that the span is propagated to the receiver.
-// This should be used to prepare the context for outgoing calls.
+// StartSpanFromContext starts a new span and propagates it in ctx. If there exists a span in ctx it will be the parent of
+// the returned span.
 //
-// TODO: consider creating a public version of this method for use at individual call sites if the interceptor isn't
-// sufficient for some reason.
-func propagateSpan(ctx context.Context, tracer ot.Tracer, span ot.Span) context.Context {
-	md := extractMetadata(ctx)
-	if err := tracer.Inject(span.Context(), ot.TextMap, metadataReaderWriter{md}); err != nil {
-		glog.Warningf("Failed to inject opentracing span state with tracer %v into ctx %v with err %v", ot.GlobalTracer(), ctx, err)
+// We provide this method, which should be used instead of opentracing.StartSpanFromContext because opentracing's version
+// always uses the global tracer, while we use the opentracing.Tracer stored in t.
+func (t *Tracer) StartSpanFromContext(ctx context.Context, operationName string, opts ...ot.StartSpanOption) (ot.Span, context.Context) {
+	if !t.enabled {
+		return noopSpan, ctx
 	}
-	return metadata.NewContext(ctx, md)
+
+	if parentSpan := ot.SpanFromContext(ctx); parentSpan != nil {
+		opts = append(opts, ot.ChildOf(parentSpan.Context()))
+	}
+	span := t.StartSpan(operationName, opts...)
+	return span, ot.ContextWithSpan(ctx, span)
+}
+
+// PropagateSpan inserts metadata about the span into the context's metadata so that the span is propagated to the receiver.
+// This should be used to prepare the context for outgoing calls.
+func (t *Tracer) PropagateSpan(ctx context.Context, span ot.Span) (metadata.MD, context.Context) {
+	md := extractMetadata(ctx)
+	if err := t.Inject(span.Context(), ot.TextMap, metadataReaderWriter{md}); err != nil {
+		glog.Warningf("Failed to inject opentracing span state with tracer %v into ctx %v with err %v", t.Tracer, ctx, err)
+	}
+	return md, metadata.NewContext(ctx, md)
+}
+
+func (t *Tracer) extractSpanContext(ctx context.Context, md metadata.MD) ot.SpanContext {
+	spanContext, err := t.Extract(ot.TextMap, metadataReaderWriter{md})
+	if err != nil {
+		glog.Warningf("Failed to extract opentracing metadata with tracer %v from ctx %v with err %v", t.Tracer, ctx, err)
+		// We set the spancontext to nil if there's an error so we don't get funky values from ext.RPCServerOption
+		// (in particular the mock tracer impl doesn't handle a non nil empty span context gracefully).
+		spanContext = nil
+	}
+	return spanContext
 }
 
 // extractMetadata pulls the GRPC metadata out of the context or returns a new empty metadata object if there isn't one
