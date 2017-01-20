@@ -61,4 +61,33 @@ func TestNil(t *testing.T) {
 	if ce == nil {
 		t.Error("Expecting object to be allocated on first use")
 	}
+
+	ce = nil
+	if ce.Error() != "" {
+		t.Error("Expected empty error string")
+	}
+}
+
+func TestExtend(t *testing.T) {
+	var c1 *ConfigErrors
+	c1 = c1.Appendf("Foo1", "format %d", 0)
+	c1 = c1.Appendf("Foo2", "format %d", 1)
+	lenc1 := len(c1.Multi.Errors)
+
+	var c2 *ConfigErrors
+	c2 = c2.Appendf("Foo1", "format %d", 0)
+	c2 = c2.Appendf("Foo2", "format %d", 1)
+	lenc2 := len(c2.Multi.Errors)
+
+	c2 = c2.Extend(c1)
+
+	if len(c2.Multi.Errors) != lenc1+lenc2 {
+		t.Errorf("Expected length: %d actual %d", lenc1+lenc2, len(c2.Multi.Errors))
+	}
+
+	c1 = nil
+	c1 = c1.Extend(c2)
+	if len(c1.Multi.Errors) != len(c2.Multi.Errors) {
+		t.Error("Expected lengths to match")
+	}
 }

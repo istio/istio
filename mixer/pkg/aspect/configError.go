@@ -77,5 +77,19 @@ func (e ConfigError) Error() string {
 }
 
 func (e *ConfigErrors) Error() string {
+	if e == nil || e.Multi == nil {
+		return ""
+	}
 	return e.Multi.Error()
+}
+
+// Extend joins 2 configErrors together.
+func (e *ConfigErrors) Extend(ee *ConfigErrors) *ConfigErrors {
+	if e == nil {
+		e = &ConfigErrors{}
+	}
+	if ee != nil {
+		e.Multi = me.Append(e.Multi, ee.Multi.Errors...)
+	}
+	return e
 }

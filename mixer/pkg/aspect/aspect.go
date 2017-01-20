@@ -42,11 +42,11 @@ type (
 		// Description returns a user-friendly description of this adapter.
 		Description() string
 
-		ConfigValidater
+		ConfigValidator
 	}
 
-	// ConfigValidater handles adapter configuration defaults and validation.
-	ConfigValidater interface {
+	// ConfigValidator handles adapter configuration defaults and validation.
+	ConfigValidator interface {
 		// DefaultConfig returns a default configuration struct for this
 		// adapter. This will be used by the configuration system to establish
 		// the shape of the block of configuration state passed to the NewAspect method.

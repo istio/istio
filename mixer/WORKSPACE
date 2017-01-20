@@ -151,6 +151,12 @@ new_go_repository(
     importpath = "github.com/gogo/protobuf"
 )
 
+new_go_repository(
+    name = "com_github_mitchellh_mapstructure",
+    commit = "bfdb1a85537d60bc7e954e600c250219ea497417",
+    importpath = "github.com/mitchellh/mapstructure"
+)
+
 load("//:repositories.bzl", "new_git_or_local_repository")
 
 new_git_or_local_repository(

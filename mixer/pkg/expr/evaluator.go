@@ -17,15 +17,27 @@ package expr
 import "istio.io/mixer/pkg/attribute"
 
 type (
-	// Evaluator maps Given an expression Language
+	// Evaluator evaluates an expression written in the implementation defined
+	// expression language. It uses attribute.Bag as variable bindings.
 	Evaluator interface {
 		// Eval evaluates given expression using the attribute bag
-		Eval(mapExpression string, attrs attribute.Bag) (interface{}, error)
+		Eval(expression string, attrs attribute.Bag) (interface{}, error)
 
 		// Eval evaluates given expression using the attribute bag to a string
-		EvalString(mapExpression string, attrs attribute.Bag) (string, error)
+		EvalString(expr string, attrs attribute.Bag) (string, error)
 
+		PredicateEvaluator
+	}
+
+	// PredicateEvaluator evaluates a predicate to true or false
+	PredicateEvaluator interface {
 		// EvalPredicate evaluates given predicate using the attribute bag
-		EvalPredicate(mapExpression string, attrs attribute.Bag) (bool, error)
+		EvalPredicate(expr string, attrs attribute.Bag) (bool, error)
+	}
+
+	// Validator validates a given expression
+	Validator interface {
+		// Validate ensures that the given expression is syntactically correct
+		Validate(expr string) error
 	}
 )

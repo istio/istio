@@ -6,5 +6,5 @@ go_proto_library(
         "config.proto",
     ],
     verbose = 0,
-    visibility = ["//pkg/aspectsupport/listChecker:__pkg__"],
+    visibility = ["//visibility:public"],
 )
