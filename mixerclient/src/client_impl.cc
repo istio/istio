@@ -37,21 +37,18 @@ MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
 MixerClientImpl::~MixerClientImpl() {}
 
 void MixerClientImpl::Check(const Attributes &attributes, DoneFunc on_done) {
-  CheckRequest request;
   CheckResponse response;
-  check_transport_.Call(request, &response, on_done);
+  check_transport_.Send(attributes, &response, on_done);
 }
 
 void MixerClientImpl::Report(const Attributes &attributes, DoneFunc on_done) {
-  ReportRequest request;
   ReportResponse response;
-  report_transport_.Call(request, &response, on_done);
+  report_transport_.Send(attributes, &response, on_done);
 }
 
 void MixerClientImpl::Quota(const Attributes &attributes, DoneFunc on_done) {
-  QuotaRequest request;
   QuotaResponse response;
-  quota_transport_.Call(request, &response, on_done);
+  quota_transport_.Send(attributes, &response, on_done);
 }
 
 // Creates a MixerClient object.

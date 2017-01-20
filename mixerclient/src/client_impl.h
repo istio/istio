@@ -17,7 +17,7 @@
 #define MIXERCLIENT_CLIENT_IMPL_H
 
 #include "include/client.h"
-#include "src/stream_transport.h"
+#include "src/transport.h"
 
 namespace istio {
 namespace mixer_client {
@@ -36,14 +36,12 @@ class MixerClientImpl : public MixerClient {
 
  private:
   MixerClientOptions options_;
-  StreamTransport<::istio::mixer::v1::CheckRequest,
-                  ::istio::mixer::v1::CheckResponse>
+  Transport<::istio::mixer::v1::CheckRequest, ::istio::mixer::v1::CheckResponse>
       check_transport_;
-  StreamTransport<::istio::mixer::v1::ReportRequest,
-                  ::istio::mixer::v1::ReportResponse>
+  Transport<::istio::mixer::v1::ReportRequest,
+            ::istio::mixer::v1::ReportResponse>
       report_transport_;
-  StreamTransport<::istio::mixer::v1::QuotaRequest,
-                  ::istio::mixer::v1::QuotaResponse>
+  Transport<::istio::mixer::v1::QuotaRequest, ::istio::mixer::v1::QuotaResponse>
       quota_transport_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MixerClientImpl);

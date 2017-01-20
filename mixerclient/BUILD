@@ -19,11 +19,15 @@ load("@protobuf_git//:protobuf.bzl", "cc_proto_library")
 cc_library(
     name = "mixer_client_lib",
     srcs = [
+        "src/attribute_context.cc",
+        "src/attribute_context.h",
+        "src/attribute_converter.h",
         "src/client_impl.cc",
         "src/client_impl.h",
-        "src/stream_transport.h",
         "src/signature.cc",
         "src/signature.h",
+        "src/stream_transport.h",
+        "src/transport.h",
         "utils/md5.cc",
         "utils/md5.h",
     ],
@@ -104,4 +108,3 @@ cc_test(
         "//external:googletest_main",
     ],
 )
-

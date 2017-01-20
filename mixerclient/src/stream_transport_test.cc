@@ -32,6 +32,9 @@ using ::testing::_;
 namespace istio {
 namespace mixer_client {
 
+const int64_t kRequestIndex1 = 111;
+const int64_t kRequestIndex2 = 222;
+
 class MockTransport : public TransportInterface {
  public:
   MOCK_METHOD1(NewStream, CheckWriterPtr(CheckReaderRawPtr));
@@ -47,11 +50,18 @@ class MockWriter : public WriteInterface<T> {
   MOCK_METHOD0_T(is_write_closed, bool());
 };
 
+template <class T>
+class MockAttributeConverter : public AttributeConverter<T> {
+ public:
+  MOCK_METHOD3_T(FillProto, void(StreamID, const Attributes&, T*));
+};
+
 class TransportImplTest : public ::testing::Test {
  public:
-  TransportImplTest() : stream_(&mock_transport_) {}
+  TransportImplTest() : stream_(&mock_transport_, &mock_converter_) {}
 
   MockTransport mock_transport_;
+  MockAttributeConverter<CheckRequest> mock_converter_;
   StreamTransport<CheckRequest, CheckResponse> stream_;
 };
 
@@ -66,22 +76,26 @@ TEST_F(TransportImplTest, TestSingleCheck) {
             return CheckWriterPtr(writer);
           }));
 
+  EXPECT_CALL(mock_converter_, FillProto(_, _, _))
+      .WillOnce(Invoke([](StreamID, const Attributes&, CheckRequest* request) {
+        request->set_request_index(kRequestIndex1);
+      }));
+
   CheckRequest request_out;
   EXPECT_CALL(*writer, Write(_))
       .WillOnce(
           Invoke([&request_out](const CheckRequest& r) { request_out = r; }));
 
-  CheckRequest request_in;
-  request_in.set_request_index(111);
+  Attributes attributes;
   CheckResponse response_in;
-  response_in.set_request_index(request_in.request_index());
+  response_in.set_request_index(kRequestIndex1);
 
   CheckResponse response_out;
   Status status_out = Status::UNKNOWN;
-  stream_.Call(request_in, &response_out,
+  stream_.Call(attributes, &response_out,
                [&status_out](Status status) { status_out = status; });
   // Write request.
-  EXPECT_TRUE(MessageDifferencer::Equals(request_in, request_out));
+  EXPECT_EQ(request_out.request_index(), kRequestIndex1);
   // But not response
   EXPECT_FALSE(status_out.ok());
   EXPECT_FALSE(MessageDifferencer::Equals(response_in, response_out));
@@ -105,28 +119,30 @@ TEST_F(TransportImplTest, TestTwoOutOfOrderChecks) {
             reader = r;
             return CheckWriterPtr(writer);
           }));
+  int64_t index_array[2] = {kRequestIndex1, kRequestIndex2};
+  int index_idx = 0;
+  EXPECT_CALL(mock_converter_, FillProto(_, _, _))
+      .WillRepeatedly(Invoke([&index_array, &index_idx](
+          StreamID, const Attributes&, CheckRequest* request) {
+        request->set_request_index(index_array[index_idx++]);
+      }));
+
   EXPECT_CALL(*writer, Write(_)).Times(2);
   EXPECT_CALL(*writer, is_write_closed()).WillOnce(Return(false));
 
-  // Send two requests: 1 and 2
-  // But OnRead() is called out of order: 2 and 1
-  CheckRequest request_in_1;
-  request_in_1.set_request_index(111);
-  CheckResponse response_in_1;
-  response_in_1.set_request_index(request_in_1.request_index());
-
-  CheckRequest request_in_2;
-  request_in_2.set_request_index(222);
-  CheckResponse response_in_2;
-  response_in_2.set_request_index(request_in_2.request_index());
-
+  Attributes attributes;
   CheckResponse response_out_1;
-  stream_.Call(request_in_1, &response_out_1, [](Status status) {});
+  stream_.Call(attributes, &response_out_1, [](Status status) {});
   CheckResponse response_out_2;
-  stream_.Call(request_in_2, &response_out_2, [](Status status) {});
+  stream_.Call(attributes, &response_out_2, [](Status status) {});
 
   // Write response in wrong order
+  CheckResponse response_in_2;
+  response_in_2.set_request_index(kRequestIndex2);
   reader->OnRead(response_in_2);
+
+  CheckResponse response_in_1;
+  response_in_1.set_request_index(kRequestIndex1);
   reader->OnRead(response_in_1);
 
   EXPECT_TRUE(MessageDifferencer::Equals(response_in_1, response_out_1));
@@ -145,14 +161,16 @@ TEST_F(TransportImplTest, TestCheckWithStreamClose) {
             reader = r;
             return CheckWriterPtr(writer);
           }));
+  EXPECT_CALL(mock_converter_, FillProto(_, _, _))
+      .WillOnce(Invoke([](StreamID, const Attributes&, CheckRequest* request) {
+        request->set_request_index(kRequestIndex1);
+      }));
   EXPECT_CALL(*writer, Write(_)).Times(1);
 
-  CheckRequest request_in;
-  request_in.set_request_index(111);
-
+  Attributes attributes;
   CheckResponse response_out;
   Status status_out = Status::UNKNOWN;
-  stream_.Call(request_in, &response_out,
+  stream_.Call(attributes, &response_out,
                [&status_out](Status status) { status_out = status; });
 
   // Close the stream
@@ -174,31 +192,42 @@ TEST_F(TransportImplTest, TestHalfClose) {
             readers[idx] = r;
             return CheckWriterPtr(writers[idx++]);
           }));
+
+  int64_t index_array[2] = {kRequestIndex1, kRequestIndex2};
+  int index_idx = 0;
+  EXPECT_CALL(mock_converter_, FillProto(_, _, _))
+      .WillRepeatedly(Invoke([&index_array, &index_idx](
+          StreamID, const Attributes&, CheckRequest* request) {
+        request->set_request_index(index_array[index_idx++]);
+      }));
+
+  EXPECT_CALL(mock_transport_, NewStream(An<CheckReaderRawPtr>()))
+      .WillRepeatedly(Invoke(
+          [&writers, &readers, &idx](CheckReaderRawPtr r) -> CheckWriterPtr {
+            readers[idx] = r;
+            return CheckWriterPtr(writers[idx++]);
+          }));
   EXPECT_CALL(*writers[0], Write(_)).Times(1);
   // Half close the first stream
   EXPECT_CALL(*writers[0], is_write_closed()).WillOnce(Return(true));
   EXPECT_CALL(*writers[1], Write(_)).Times(1);
 
   // Send the first request.
-  CheckRequest request_in_1;
-  request_in_1.set_request_index(111);
-  CheckResponse response_in_1;
-  response_in_1.set_request_index(request_in_1.request_index());
+  Attributes attributes;
 
   CheckResponse response_out_1;
-  stream_.Call(request_in_1, &response_out_1, [](Status status) {});
-
-  // Send the second request
-  CheckRequest request_in_2;
-  request_in_2.set_request_index(222);
-  CheckResponse response_in_2;
-  response_in_2.set_request_index(request_in_2.request_index());
+  stream_.Call(attributes, &response_out_1, [](Status status) {});
 
   CheckResponse response_out_2;
-  stream_.Call(request_in_2, &response_out_2, [](Status status) {});
+  stream_.Call(attributes, &response_out_2, [](Status status) {});
 
   // Write responses
+  CheckResponse response_in_2;
+  response_in_2.set_request_index(kRequestIndex2);
   readers[1]->OnRead(response_in_2);
+
+  CheckResponse response_in_1;
+  response_in_1.set_request_index(kRequestIndex1);
   readers[0]->OnRead(response_in_1);
 
   EXPECT_TRUE(MessageDifferencer::Equals(response_in_1, response_out_1));

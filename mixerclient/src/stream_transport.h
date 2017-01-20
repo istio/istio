@@ -17,6 +17,7 @@
 #define MIXERCLIENT_STREAM_TRANSPORT_H
 
 #include "include/client.h"
+#include "src/attribute_converter.h"
 
 namespace istio {
 namespace mixer_client {
@@ -89,11 +90,15 @@ class ReaderImpl : public ReadInterface<ResponseType> {
 template <class RequestType, class ResponseType>
 class StreamTransport {
  public:
-  StreamTransport(TransportInterface* transport)
-      : transport_(transport), reader_(nullptr), writer_(nullptr) {}
+  StreamTransport(TransportInterface* transport,
+                  AttributeConverter<RequestType>* converter)
+      : transport_(transport),
+        converter_(converter),
+        reader_(nullptr),
+        writer_(nullptr) {}
 
   // Make a ping-pong call.
-  void Call(const RequestType& request, ResponseType* response,
+  void Call(const Attributes& attributes, ResponseType* response,
             DoneFunc on_done) {
     if (transport_ == nullptr) {
       on_done(::google::protobuf::util::Status(
@@ -119,6 +124,10 @@ class StreamTransport {
         delete writer;
       });
     }
+    RequestType request;
+    // Cast the writer_ raw pointer as StreamID.
+    converter_->FillProto(reinterpret_cast<StreamID>(writer_), attributes,
+                          &request);
     reader_->AddRequest(request.request_index(), response, on_done);
     writer_->Write(request);
   }
@@ -126,6 +135,8 @@ class StreamTransport {
  private:
   // The transport interface to create a new stream.
   TransportInterface* transport_;
+  // Attribute converter.
+  AttributeConverter<RequestType>* converter_;
   // The reader object for current stream.
   ReaderImpl<ResponseType>* reader_;
   // The writer object for current stream.
