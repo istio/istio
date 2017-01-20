@@ -18,36 +18,47 @@ import (
 	"context"
 	"testing"
 
-	xctx "golang.org/x/net/context"
-
 	"google.golang.org/grpc/metadata"
 
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/mocktracer"
-	"google.golang.org/grpc"
 )
 
-func init() {
-	ot.SetGlobalTracer(mocktracer.New())
-}
-
 func TestCurrentSpan(t *testing.T) {
+	tracer := NewTracer(mocktracer.New())
 	ctx := context.Background()
+
 	if span := CurrentSpan(ctx); span != noopSpan {
 		t.Errorf("Calling CurrentSpan on background ctx expected noop span, actual: %v; ctx: %v", span, ctx)
 	}
 
-	span, ctx := ot.StartSpanFromContext(ctx, "first")
+	span, ctx := tracer.StartSpanFromContext(ctx, "first")
 
 	if currentSpan := CurrentSpan(ctx); currentSpan != span {
 		t.Errorf("Failed to extract the current span from the context, expected '%v' actual '%v'; context: '%v'", span, currentSpan, ctx)
 	}
 }
 
+func TestStartSpanFromContext(t *testing.T) {
+	tracer := NewTracer(mocktracer.New())
+
+	span := tracer.StartSpan("parent")
+	ctx := ot.ContextWithSpan(context.Background(), span)
+
+	childSpan, ctx := tracer.StartSpanFromContext(ctx, "child")
+
+	mockSpan, _ := span.(*mocktracer.MockSpan)
+	mockChild, _ := childSpan.(*mocktracer.MockSpan)
+	if mockChild.ParentID != mockSpan.SpanContext.SpanID {
+		t.Errorf("Failed to extract parent from ctx %+v; expected parent %d, actual %d", ctx, mockSpan.SpanContext.SpanID, mockChild.ParentID)
+	}
+}
+
 func TestStartRootSpan(t *testing.T) {
+	tracer := NewTracer(mocktracer.New())
 	ctx := context.Background()
 
-	s, ctx := StartRootSpan(ctx, "first")
+	s, ctx := tracer.StartRootSpan(ctx, "first")
 	if root := RootSpan(ctx); root != s {
 		t.Errorf("No root span in context, expected span '%v'; context: %v", s, ctx)
 	}
@@ -60,9 +71,9 @@ func TestStartRootSpan(t *testing.T) {
 
 	// Shove the first span into the context's grpc metadata, so that StartRootSpan will think it got a propagated span
 	// We use a new context so we're guarantee we're not relying on a span being in the context (i.e. so ot.SpanFromContext() == nil)
-	newCtx := propagateSpan(context.Background(), ot.GlobalTracer(), s)
+	_, newCtx := tracer.PropagateSpan(context.Background(), s)
 
-	ss, newCtx := StartRootSpan(newCtx, "second")
+	ss, newCtx := tracer.StartRootSpan(newCtx, "second")
 	if root := RootSpan(newCtx); root != ss {
 		t.Errorf("No root span in context, expected span '%v'; context: %v", s, ctx)
 	}
@@ -81,15 +92,16 @@ func TestStartRootSpan_NoRootReturnsNoopSpan(t *testing.T) {
 }
 
 func TestPropagateSpan(t *testing.T) {
-	span := ot.StartSpan("first")
-	ctx := propagateSpan(context.Background(), ot.GlobalTracer(), span)
+	tracer := NewTracer(mocktracer.New())
+	span := tracer.StartSpan("first")
+	_, ctx := tracer.PropagateSpan(context.Background(), span)
 
 	md, ok := metadata.FromContext(ctx)
 	if !ok {
 		md = metadata.New(nil)
 	}
 
-	sCtx, err := ot.GlobalTracer().Extract(ot.HTTPHeaders, metadataReaderWriter{md})
+	sCtx, err := tracer.Extract(ot.HTTPHeaders, metadataReaderWriter{md})
 	if err != nil {
 		t.Errorf("Failed to extract metadata with err: %s", err)
 	}
@@ -106,51 +118,14 @@ func TestPropagateSpan(t *testing.T) {
 	}
 }
 
-func TestClientInterceptor(t *testing.T) {
-	tracer := mocktracer.New()
-	interceptor := ClientInterceptor(tracer)
-	ctx := context.Background()
+func TestDisabledTracer(t *testing.T) {
+	tracer := DisabledTracer()
 
-	_, err := interceptor(ctx, nil, nil, "interceptor test",
-		func(ctx xctx.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-			ctxSpan := CurrentSpan(ctx)
-			if ctxSpan == noopSpan {
-				t.Errorf("No span found inside intercepted handler; ctx: %v", ctx)
-			}
-
-			mockCtxSpan := ctxSpan.(*mocktracer.MockSpan)
-			root, ctx := StartRootSpan(ctx, "root")
-			mockRoot := root.(*mocktracer.MockSpan)
-			if mockRoot.ParentID != mockCtxSpan.SpanContext.SpanID {
-				t.Errorf("Couldn't construct root span out of metadata from client interceptor; ctx: %v", ctx)
-			}
-			return nil, nil
-		})
-	if err != nil {
-		t.Errorf("Got error from interceptor: %v", err)
+	if span, _ := tracer.StartRootSpan(context.Background(), ""); span != noopSpan {
+		t.Errorf("Expected disabled tracer to return noop span, actual: %+v", span)
 	}
-}
 
-func TestClientInterceptor_SetsCtxParent(t *testing.T) {
-	tracer := mocktracer.New()
-	interceptor := ClientInterceptor(tracer)
-	ctx := context.Background()
-
-	ctx = ot.ContextWithSpan(ctx, ot.StartSpan(""))
-	_, err := interceptor(ctx, nil, nil, "interceptor test",
-		func(ctx xctx.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-			ctxSpan := CurrentSpan(ctx)
-			if ctxSpan == noopSpan {
-				t.Errorf("No span found inside intercepted handler; ctx: %v", ctx)
-			}
-
-			mockSpan := ctxSpan.(*mocktracer.MockSpan)
-			if mockSpan.ParentID == 0 {
-				t.Errorf("Mock span didn't respect parent in context, actual: %v; ctx: %v", mockSpan, ctx)
-			}
-			return nil, nil
-		})
-	if err != nil {
-		t.Errorf("Got error from interceptor: %v", err)
+	if span, _ := tracer.StartSpanFromContext(context.Background(), ""); span != noopSpan {
+		t.Errorf("Expected disabled tracer to return noop span, actual: %+v", span)
 	}
 }

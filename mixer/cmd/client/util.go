@@ -34,6 +34,7 @@ import (
 type clientState struct {
 	client     mixerpb.MixerClient
 	connection *grpc.ClientConn
+	tracer     tracing.Tracer
 }
 
 func createAPIClient(port string, enableTracing bool) (*clientState, error) {
@@ -42,7 +43,8 @@ func createAPIClient(port string, enableTracing bool) (*clientState, error) {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
 	if enableTracing {
-		opts = append(opts, grpc.WithStreamInterceptor(tracing.ClientInterceptor(bt.New(tracing.IORecorder(os.Stdout)))))
+		tracer := tracing.NewTracer(bt.New(tracing.IORecorder(os.Stdout)))
+		cs.tracer = tracer
 	}
 
 	var err error

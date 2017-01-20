@@ -21,6 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/opentracing/opentracing-go/ext"
 	mixerpb "istio.io/api/mixer/v1"
 )
 
@@ -54,8 +55,11 @@ func report(rootArgs *rootArgs, args []string, errorf errorFn) {
 	}
 	defer deleteAPIClient(cs)
 
+	span, ctx := cs.tracer.StartRootSpan(context.Background(), "mixc Report", ext.SpanKindRPCClient)
+	_, ctx = cs.tracer.PropagateSpan(ctx, span)
+
 	var stream mixerpb.Mixer_ReportClient
-	if stream, err = cs.client.Report(context.Background()); err != nil {
+	if stream, err = cs.client.Report(ctx); err != nil {
 		errorf("Report RPC failed: %v", err)
 		return
 	}
@@ -95,6 +99,8 @@ func report(rootArgs *rootArgs, args []string, errorf errorFn) {
 	if err = stream.CloseSend(); err != nil {
 		errorf("Failed to close gRPC stream: %v", err)
 	}
+
+	span.Finish()
 
 	fmt.Printf("Report RPC returned %v\n", response.Result)
 }
