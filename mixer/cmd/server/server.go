@@ -26,9 +26,16 @@ import (
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/spf13/cobra"
 
+	"github.com/golang/protobuf/ptypes/struct"
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/tracing"
+
+	denyadapter "istio.io/mixer/adapter/denyChecker"
+	"istio.io/mixer/pkg/aspectsupport"
+	denysupport "istio.io/mixer/pkg/aspectsupport/denyChecker"
+
+	istioconfig "istio.io/api/mixer/v1/config"
 )
 
 type serverArgs struct {
@@ -106,7 +113,7 @@ func runServer(sa *serverArgs) error {
 		CompressedPayload:    sa.compressedPayload,
 		ServerCertificate:    serverCert,
 		ClientCertificates:   clientCerts,
-		Handlers:             api.NewMethodHandlers(),
+		Handlers:             api.NewMethodHandlers(configs...),
 		AttributeManager:     attrMgr,
 		Tracer:               tracer,
 	}
@@ -118,4 +125,28 @@ func runServer(sa *serverArgs) error {
 	}
 
 	return grpcServer.Start()
+}
+
+var configs = []api.StaticBinding{
+	{
+		// denyChecker
+		RegisterFn: denyadapter.Register,
+		Manager:    denysupport.NewManager(),
+		Methods:    []api.Method{api.Check},
+		Config: &aspectsupport.CombinedConfig{
+			// denyChecker ignores its configs
+			&istioconfig.Aspect{
+				Kind:    "istio/denyChecker",
+				Adapter: "",
+				Inputs:  make(map[string]string),
+				Params:  new(structpb.Struct),
+			},
+			&istioconfig.Adapter{
+				Name:   "",
+				Kind:   "",
+				Impl:   "istio/denyChecker",
+				Params: new(structpb.Struct),
+			},
+		},
+	},
 }

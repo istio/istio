@@ -76,5 +76,5 @@ func check(rootArgs *rootArgs, args []string, errorf errorFn) {
 		errorf("Failed to close gRPC stream: %v", err)
 	}
 
-	fmt.Printf("Check RPC returned %v\n", response.Result)
+	fmt.Printf("Check RPC returned '%v'\n", response.Result)
 }
