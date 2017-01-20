@@ -14,7 +14,6 @@ config_setting(
 ISTIO_DEPS = [
     "//:mixer/v1",
     "//:mixer/v1/config",
-    "//:mixer/v1/config/aspect",
 ]
 
 DEPS = [

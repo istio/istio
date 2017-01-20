@@ -25,6 +25,9 @@ option go_package="config";
 // params:
 //    log_name: "endpoint_log"
 //    log_entry_descriptor_names: "application_log_entry", "action_log_entry"
+//    severity_attribute: "severity"
+//    timestamp_attribute: "timestamp"
+//    timestamp_format: "2006-Jan-02"
 //
 message Params {
     // Provides a way to identify a collection of related log entries.
@@ -35,4 +38,23 @@ message Params {
     // LogEntryDescriptor is named in the config, the logger will not generate
     // any log entries.
     repeated string log_entry_descriptor_names = 2;
+
+    // The name of the attribute that will be used to derive log severity.
+    // If this attribute is not found in the set of attributes passed to this
+    // implementation, a default severity of "DEFAULT" will be used.
+    string severity_attribute = 3;
+
+    // The name of the attribute that will be used to derive the timestamp
+    // for the corresponding log enty. If this attribute is not specified, the
+    // value from time.Now() will be used as the timestamp for the log.
+    string timestamp_attribute = 4;
+
+    // The format to use when serializing timestamps. It is expected that
+    // this format string will follow the conventions of golang's time.Time
+    // package and use the reference date as defined in:
+    // https://golang.org/pkg/time/#pkg-constants.
+    //
+    // Default Value: "2006-01-02T15:04:05Z07:00" (RFC3339)
+    string timestamp_format = 5;
+
 }
