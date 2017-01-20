@@ -8,9 +8,14 @@ go_library(
         "env.go",
         "logger.go",
         "manager.go",
+        "registry.go",
     ],
     deps = [
         "//pkg/aspect:go_default_library",
+        "//pkg/aspect/denyChecker:go_default_library",
+        "//pkg/aspect/listChecker:go_default_library",
+        "//pkg/aspect/logger:go_default_library",
+        "//pkg/aspect/quota:go_default_library",
         "//pkg/aspectsupport:go_default_library",
         "//pkg/aspectsupport/denyChecker:go_default_library",
         "//pkg/aspectsupport/listChecker:go_default_library",
@@ -22,11 +27,15 @@ go_library(
 )
 
 go_test(
-    name = "manager_test",
+    name = "small_tests",
     size = "small",
-    srcs = ["manager_test.go"],
+    srcs = [
+        "manager_test.go",
+        "registry_test.go",
+    ],
     library = ":go_default_library",
     deps = [
+        "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_istio_api//:mixer/v1/config",
     ],
 )

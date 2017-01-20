@@ -39,3 +39,6 @@ type Registrar interface {
 	// quota aspect.
 	RegisterQuota(quota.Adapter) error
 }
+
+// RegisterFn is a function adapters use to register themselves.
+type RegisterFn func(Registrar) error
