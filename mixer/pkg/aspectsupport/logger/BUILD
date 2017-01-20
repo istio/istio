@@ -11,6 +11,7 @@ go_library(
         "//pkg/aspect:go_default_library",
         "//pkg/aspect/logger:go_default_library",
         "//pkg/aspectsupport:go_default_library",
+        "//pkg/aspectsupport/logger/config:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/expr:go_default_library",
         "@com_github_golang_protobuf//jsonpb:go_default_library",
@@ -18,6 +19,7 @@ go_library(
         "@com_github_golang_protobuf//ptypes/empty:go_default_library",
         "@com_github_golang_protobuf//ptypes/struct:go_default_library",
         "@com_github_google_go_genproto//googleapis/rpc/code:go_default_library",
+        "@com_github_istio_api//:mixer/v1/config/descriptor",
     ],
 )
 
@@ -27,7 +29,6 @@ go_test(
     srcs = ["manager_test.go"],
     library = ":go_default_library",
     deps = [
-        "@com_github_golang_protobuf//jsonpb/jsonpb_test_proto:go_default_library",
         "@com_github_istio_api//:mixer/v1/config",
     ],
 )
