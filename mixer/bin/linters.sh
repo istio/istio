@@ -3,12 +3,14 @@
 # Runs all requisite linters over the whole mixer code base.
 set -e
 
-prep_linters() {
-    echo Preparing linters
-    go get -u github.com/alecthomas/gometalinter
-    go get -u github.com/bazelbuild/buildifier/buildifier
-    go get -u github.com/3rf/codecoroner
-    gometalinter --install >/dev/null
+prep_linters() {	
+	if ! which codecoroner > /dev/null; then
+		echo "Preparing linters"
+		go get -u github.com/alecthomas/gometalinter
+		go get -u github.com/bazelbuild/buildifier/buildifier
+		go get -u github.com/3rf/codecoroner
+		gometalinter --install >/dev/null
+	fi
     bin/bazel_to_go.py
 }
 

@@ -48,7 +48,7 @@ type (
 		// Kind return the kind of aspect
 		Kind() string
 
-		aspect.ConfigValidater
+		aspect.ConfigValidator
 	}
 
 	// AspectWrapper encapsulates a single aspect and allows it to be invoked.
