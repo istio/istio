@@ -1,0 +1,189 @@
+# Example 1: Route API calls for /serviceB/api/v1 from experimental serviceA
+# running in staging to serviceB pods running in prod.
+#
+---
+# ProxyConfig
+route_rules:
+- http_route_rule:
+    match:
+      src_cluster:
+        tags:
+        - name=serviceA
+        - env=staging
+        - experimental=true
+      scheme: http
+      prefix: "/serviceB/api/v1"
+    weighted_clusters:
+    - dst_cluster:
+        tags:
+        - name=serviceB
+        - env=prod 
+      weight: 100
+upstream_cluster_policies:
+- cluster:
+    tags:
+    - name=serviceB
+    - env=prod
+  lb:
+    policy_name: ROUND_ROBIN
+
+# Example 2: Send 1% of /serviceB/api/v1 traffic from serviceA in prod to serviceB v1.1
+# cluster while sending the rest to serviceB v1 cluster.
+#
+---
+# ProxyConfig
+route_rules:
+- http_route_rule:
+    match:
+      src_cluster:
+        tags:
+        - name=serviceA
+        - env=prod
+      scheme: http
+      prefix: "/serviceB/api/v1"
+    weighted_clusters:
+    - dst_cluster:
+        tags:
+        - name=serviceB
+        - env=prod
+        - v1.1
+      weight: 1
+    - dst_cluster:
+        tags:
+        - name=serviceB
+        - env=prod
+        - v1
+      weight: 99
+upstream_cluster_policies:
+- cluster:
+    tags:
+    - name=serviceB
+    - env=prod
+    - v1
+  lb:
+    policy_name: ROUND_ROBIN
+- cluster:
+    tags:
+    - name=serviceB
+    - env=prod
+    - v1.1
+  lb:
+    policy_name: ROUND_ROBIN
+
+# Example 3: Route requests for serviceB (identified by host header) that contain a header 
+# matching a specific pattern (e.g., user cookie for a test user) to specific version of serviceB (v1.1).
+#
+---
+# ProxyConfig
+route_rules:
+- http_route_rule:
+    match:
+      scheme: http
+      authority_match: "serviceB.cluster.local"
+      http_match_headers:
+        cookie: ".*?user=tester1"
+    weighted_clusters:
+    - dst_cluster:
+        tags:
+        - name=serviceB
+        - v1.1
+      weight: 100
+upstream_cluster_policies:
+- cluster:
+    tags:
+    - name=serviceB
+    - v1.1
+  lb:
+    policy_name: ROUND_ROBIN
+
+# Example 4: Version-based routing for TCP services. Scenario: Upgrading a database slave’s version.
+# Stand up a newer version of the database engine. Assuming that the data has already been replicated,
+# run the new version in production for a while, sending it 1% of connections, and see if there are
+# any major issues.
+#
+---
+# ProxyConfig
+route_rules:
+- layer4_route_rule:
+    match:
+      layer4_attributes:
+        protocol: tcp
+        dst_port: 3306
+    weighted_clusters:
+    - dst_cluster:
+        hosts: # this is not currently in proto, TODO: how to really do this? 
+        - tcp://trial.prod.slave.db.mydomain:5505
+      weight: 1
+    - dst_cluster:
+        hosts: # this is not currently in proto, TODO: how to really do this? 
+        - tcp://1.prod.slave.db.mydomain:5505
+        - tcp://2.prod.slave.db.mydomain:5505
+        - tcp://3.prod.slave.db.mydomain:5505
+      weight: 99
+upstream_cluster_policies:
+- cluster:
+    hosts: # this is not currently in proto, TODO: how to really do this? 
+    - tcp://1.prod.slave.db.mydomain:5505
+    - tcp://2.prod.slave.db.mydomain:5505
+    - tcp://3.prod.slave.db.mydomain:5505
+  lb:
+    policy_name: IP_HASH
+- cluster:
+    hosts:
+    - tcp://trial.prod.slave.db.mydomain:5505
+  lb:
+    policy_name: IP_HASH
+
+# Example: Helloworld from Amalgam8 (https://github.com/frankbu/istio/blob/097e10405c4e739f3be4432eb84c033aea3aee8d/demos/helloworld.md)
+#
+---
+# ProxyConfig: all traffic routed to helloworld v1
+route_rules:
+- http_route_rule:
+    match:
+      scheme: http
+      prefix: "/helloworld/"
+    weighted_clusters:
+    - dst_cluster:
+        tags:
+        - name=helloworld
+        - v1 
+      weight: 100
+upstream_cluster_policies:
+- cluster:
+    tags:
+    - name=helloworld
+    - v1
+  lb:
+    policy_name: ROUND_ROBIN
+---
+# ProxyConfig: 25% of traffic routed to helloworld v2, the rest to v1
+route_rules:
+- http_route_rule:
+    match:
+      scheme: http
+      prefix: "/helloworld/"
+    weighted_clusters:
+    - dst_cluster:
+        tags:
+        - name=helloworld
+        - v2 
+      weight: 25
+    - dst_cluster:
+        tags:
+        - name=helloworld
+        - v1 
+      weight: 75
+upstream_cluster_policies:
+- cluster:
+    tags:
+    - name=helloworld
+    - v1
+  lb:
+    policy_name: ROUND_ROBIN
+- cluster:
+    tags:
+    - name=helloworld
+    - v2
+  lb:
+    policy_name: ROUND_ROBIN
