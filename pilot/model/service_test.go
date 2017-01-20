@@ -17,29 +17,29 @@ package model
 import "testing"
 
 var validServices = map[string]Service{
-	"example-service1.default:grpc,http:a=b,c=d;e=f": Service{
+	"example-service1.default:grpc,http:a=b,c=d;e=f": {
 		Name:      "example-service1",
 		Namespace: "default",
 		Tags:      []Tag{{"e": "f"}, {"c": "d", "a": "b"}},
-		Ports:     []Port{Port{Name: "http"}, Port{Name: "grpc"}}},
-	"my-service": Service{
+		Ports:     []Port{{Name: "http"}, {Name: "grpc"}}},
+	"my-service": {
 		Name:  "my-service",
-		Ports: []Port{Port{Name: ""}}},
-	"svc.ns": Service{
+		Ports: []Port{{Name: ""}}},
+	"svc.ns": {
 		Name:      "svc",
 		Namespace: "ns",
-		Ports:     []Port{Port{Name: ""}}},
-	"svc::istio.io/my_tag-v1.test=my_value-v2.value": Service{
+		Ports:     []Port{{Name: ""}}},
+	"svc::istio.io/my_tag-v1.test=my_value-v2.value": {
 		Name:  "svc",
 		Tags:  []Tag{{"istio.io/my_tag-v1.test": "my_value-v2.value"}},
-		Ports: []Port{Port{Name: ""}}},
-	"svc:test:prod": Service{
+		Ports: []Port{{Name: ""}}},
+	"svc:test:prod": {
 		Name:  "svc",
 		Tags:  []Tag{{"prod": ""}},
-		Ports: []Port{Port{Name: "test"}}},
-	"svc:http-test": Service{
+		Ports: []Port{{Name: "test"}}},
+	"svc:http-test": {
 		Name:  "svc",
-		Ports: []Port{Port{Name: "http-test"}}},
+		Ports: []Port{{Name: "http-test"}}},
 }
 
 func TestServiceString(t *testing.T) {

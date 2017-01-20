@@ -165,6 +165,7 @@ func (s *Service) Validate() error {
 	return errs
 }
 
+// Validate ensures tag is well-formed
 func (t Tag) Validate() error {
 	var errs error
 	if len(t) == 0 {

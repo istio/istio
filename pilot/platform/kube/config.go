@@ -62,9 +62,13 @@ func (el *ConfigList) GetListMeta() v1.List {
 // resources and @ugorji JSON optimized codec.
 // See discussion https://github.com/kubernetes/kubernetes/issues/36120
 
+// ConfigListCopy is a duplicate of ConfigList
 type ConfigListCopy ConfigList
+
+// ConfigCopy is a duplicate of Config
 type ConfigCopy Config
 
+// UnmarshalJSON is a workaround
 func (e *Config) UnmarshalJSON(data []byte) error {
 	tmp := ConfigCopy{}
 	err := json.Unmarshal(data, &tmp)
@@ -76,6 +80,7 @@ func (e *Config) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// UnmarshalJSON is a workaround
 func (el *ConfigList) UnmarshalJSON(data []byte) error {
 	tmp := ConfigListCopy{}
 	err := json.Unmarshal(data, &tmp)

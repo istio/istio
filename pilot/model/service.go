@@ -78,6 +78,7 @@ type Port struct {
 // Protocol defines network protocols for ports
 type Protocol string
 
+// Protocols used by the services
 const (
 	ProtocolGRPC  Protocol = "GRPC"
 	ProtocolHTTPS Protocol = "HTTPS"
@@ -202,6 +203,7 @@ func (t Tag) String() string {
 	return buffer.String()
 }
 
+// ParseTagString extracts a tag from a string
 func ParseTagString(s string) Tag {
 	tag := make(map[string]string)
 	for _, pair := range strings.Split(s, ",") {

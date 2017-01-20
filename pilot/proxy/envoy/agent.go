@@ -44,7 +44,10 @@ type instance struct {
 }
 
 const (
-	EnvoyConfigPath   = "/etc/envoy/"
+	// EnvoyConfigPath is the root directory for Envoy configuration
+	EnvoyConfigPath = "/etc/envoy/"
+
+	// EnvoyFileTemplate is a template for root config JSON
 	EnvoyFileTemplate = "envoy-rev%d.json"
 )
 
@@ -55,7 +58,7 @@ func NewAgent(binary string, mixer string) (Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	f.WriteString(fmt.Sprintf(`
+	_, _ = f.WriteString(fmt.Sprintf(`
 cloud_tracing_config {
   force_disable: true
 }
@@ -63,7 +66,8 @@ mixer_options {
   mixer_server: "%s%s"
 }
 	`, OutboundClusterPrefix, mixer))
-	f.Close()
+
+	_ = f.Close()
 
 	return &agent{
 		binary: binary,
@@ -108,10 +112,13 @@ func (s *agent) Reload(config *Config) error {
 		args = append(args, "-l", "debug")
 	}
 	if glog.V(2) {
-		config.Write(os.Stderr)
+		if err := config.Write(os.Stderr); err != nil {
+			glog.Error(err)
+		}
 	}
 
 	glog.V(2).Infof("Envoy starting: %v", args)
+	/* #nosec */
 	cmd := exec.Command(s.binary, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

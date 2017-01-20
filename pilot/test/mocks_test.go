@@ -21,14 +21,14 @@ import (
 )
 
 var invalidConfigs = []model.Config{
-	model.Config{ConfigKey: MockKey},
-	model.Config{ConfigKey: MockKey, Spec: "x"},
-	model.Config{ConfigKey: model.ConfigKey{Name: "BLAH"}},
-	model.Config{
+	{ConfigKey: MockKey},
+	{ConfigKey: MockKey, Spec: "x"},
+	{ConfigKey: model.ConfigKey{Name: "BLAH"}},
+	{
 		ConfigKey: model.ConfigKey{Name: MockName},
 		Spec:      &MockConfigObject,
 	},
-	model.Config{
+	{
 		ConfigKey: model.ConfigKey{Name: MockName, Kind: "Mock"},
 		Spec:      &MockConfigObject,
 	},

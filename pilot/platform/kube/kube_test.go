@@ -79,7 +79,7 @@ func TestController(t *testing.T) {
 	ctl := NewController(cl, ns, 256*time.Millisecond)
 	added, deleted := 0, 0
 	n := 5
-	ctl.AppendConfigHandler(test.MockKind, func(c *model.Config, ev model.Event) {
+	err := ctl.AppendConfigHandler(test.MockKind, func(c *model.Config, ev model.Event) {
 		switch ev {
 		case model.EventAdd:
 			if deleted != 0 {
@@ -94,6 +94,9 @@ func TestController(t *testing.T) {
 		}
 		glog.Infof("Added %d, deleted %d", added, deleted)
 	})
+	if err != nil {
+		t.Error(err)
+	}
 	go ctl.Run(stop)
 
 	test.CheckMapInvariant(cl, t, ns, n)
@@ -115,14 +118,17 @@ func TestControllerCacheFreshness(t *testing.T) {
 	var _ model.Controller = ctl
 
 	// validate cache consistency
-	ctl.AppendConfigHandler(test.MockKind, func(c *model.Config, ev model.Event) {
+	err := ctl.AppendConfigHandler(test.MockKind, func(c *model.Config, ev model.Event) {
 		elts, _ := ctl.List(test.MockKind, ns)
 		switch ev {
 		case model.EventAdd:
 			if len(elts) != 1 {
 				t.Errorf("Got %#v, expected %d element(s) on ADD event", elts, 1)
 			}
-			ctl.Delete(c.ConfigKey)
+			err := ctl.Delete(c.ConfigKey)
+			if err != nil {
+				t.Error(err)
+			}
 		case model.EventDelete:
 			if len(elts) != 0 {
 				t.Errorf("Got %#v, expected zero elements on DELETE event", elts)
@@ -130,6 +136,9 @@ func TestControllerCacheFreshness(t *testing.T) {
 			close(stop)
 		}
 	})
+	if err != nil {
+		t.Error(err)
+	}
 
 	go ctl.Run(stop)
 	o := test.MakeMock(0, ns)
@@ -295,7 +304,7 @@ func createService(n, ns string, cl *kubernetes.Clientset, t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{Name: n},
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{
-				v1.ServicePort{
+				{
 					Port: 80,
 					Name: "http-example",
 				},
@@ -310,7 +319,9 @@ func createService(n, ns string, cl *kubernetes.Clientset, t *testing.T) {
 
 func deleteNamespace(cl *kubernetes.Clientset, ns string) {
 	if ns != "" && ns != "default" {
-		cl.Core().Namespaces().Delete(ns, &v1.DeleteOptions{})
+		if err := cl.Core().Namespaces().Delete(ns, &v1.DeleteOptions{}); err != nil {
+			glog.Warningf("Error deleting namespace: %v", err)
+		}
 		glog.Infof("Deleted namespace %s", ns)
 	}
 }

@@ -1,40 +1,46 @@
 sudo: required
-dist: trusty
+
+dist: xenial
+
+language: go
+
+go_import_path: istio.io/manager
+
+go:
+  - 1.7.x
+
+jdk:
+  - oraclejdk8
 
 env:
   global:
-    - BAZEL_VERSION=0.4.2
-    - GO_VERSION=1.7.4
+    - BAZEL_VERSION=0.4.3
 
 addons:
   apt:
     packages:
       - wget
-      - go-bindata
 
 cache:
   directories:
     - $HOME/tools
     - $HOME/bazel/outbase
-    -
 
 before_install:
   - mkdir -p ${HOME}/tools ${HOME}/bazel
   - cd ${HOME}/tools
   - wget -nc "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel_${BAZEL_VERSION}-linux-x86_64.deb"
-  - wget -nc "https://storage.googleapis.com/golang/go${GO_VERSION}.linux-amd64.tar.gz"
-  - sudo rm -rf /usr/local/go
-  - sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz
-  - export PATH=$PATH:/usr/local/go/bin
   - sudo dpkg -i bazel_${BAZEL_VERSION}-linux-x86_64.deb
   - sudo apt-get -f install -qqy
   - cd ${TRAVIS_BUILD_DIR}
-  - mv .bazelrc .bazelrc.orig
-  - cat .bazelrc.travis .bazelrc.orig > .bazelrc
+  - cat .bazelrc.travis > .bazelrc
 
-script:
+install:
   - touch platform/kube/config
   - bazel --output_base=${HOME}/bazel/outbase build //...
+  - bin/init.sh
+
+script:
   - bazel --output_base=${HOME}/bazel/outbase test //...
 
 notifications:

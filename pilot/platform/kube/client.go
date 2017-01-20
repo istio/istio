@@ -104,7 +104,7 @@ func CreateRESTConfig(kubeconfig string, km model.KindMap) (config *rest.Config,
 			}
 			return nil
 		})
-	schemeBuilder.AddToScheme(api.Scheme)
+	err = schemeBuilder.AddToScheme(api.Scheme)
 
 	return
 }
@@ -207,6 +207,7 @@ func (cl *Client) DeregisterResources() error {
 	return out
 }
 
+// Get implements registry operation
 func (cl *Client) Get(key model.ConfigKey) (*model.Config, bool) {
 	if err := cl.mapping.ValidateKey(&key); err != nil {
 		glog.Warning(err)
@@ -231,6 +232,7 @@ func (cl *Client) Get(key model.ConfigKey) (*model.Config, bool) {
 	return out, true
 }
 
+// Put implements registry operation
 func (cl *Client) Put(obj *model.Config) error {
 	out, err := modelToKube(cl.mapping, obj)
 	if err != nil {
@@ -243,6 +245,7 @@ func (cl *Client) Put(obj *model.Config) error {
 		Do().Error()
 }
 
+// Delete implements registry operation
 func (cl *Client) Delete(key model.ConfigKey) error {
 	if err := cl.mapping.ValidateKey(&key); err != nil {
 		return err
@@ -255,6 +258,7 @@ func (cl *Client) Delete(key model.ConfigKey) error {
 		Do().Error()
 }
 
+// List implements registry operation
 func (cl *Client) List(kind string, ns string) ([]*model.Config, error) {
 	if _, ok := cl.mapping[kind]; !ok {
 		return nil, fmt.Errorf("Missing kind %q", kind)

@@ -218,6 +218,7 @@ func keyFunc(obj interface{}) (string, bool) {
 	return k, true
 }
 
+// Get implements a registry operation
 func (c *Controller) Get(key model.ConfigKey) (*model.Config, bool) {
 	if err := c.client.mapping.ValidateKey(&key); err != nil {
 		glog.Warning(err)
@@ -241,14 +242,17 @@ func (c *Controller) Get(key model.ConfigKey) (*model.Config, bool) {
 	return out, true
 }
 
+// Put implements a registry operation
 func (c *Controller) Put(obj *model.Config) error {
 	return c.client.Put(obj)
 }
 
+// Delete implements a registry operation
 func (c *Controller) Delete(key model.ConfigKey) error {
 	return c.client.Delete(key)
 }
 
+// List implements a registry operation
 func (c *Controller) List(kind string, ns string) ([]*model.Config, error) {
 	if _, ok := c.kinds[kind]; !ok {
 		return nil, fmt.Errorf("Missing kind %q", kind)
@@ -271,6 +275,7 @@ func (c *Controller) List(kind string, ns string) ([]*model.Config, error) {
 	return out, errs
 }
 
+// Services implements a service catalog operation
 func (c *Controller) Services() []*model.Service {
 	var out []*model.Service
 	for _, item := range c.services.informer.GetStore().List() {
@@ -279,6 +284,7 @@ func (c *Controller) Services() []*model.Service {
 	return out
 }
 
+// Instances implements a service catalog operation
 func (c *Controller) Instances(s *model.Service) []*model.ServiceInstance {
 	ports := make(map[string]bool)
 	for _, port := range s.Ports {
@@ -314,6 +320,7 @@ func (c *Controller) Instances(s *model.Service) []*model.ServiceInstance {
 	return nil
 }
 
+// HostInstances implements a service catalog operation
 func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
 	for _, item := range c.endpoints.informer.GetStore().List() {
@@ -345,6 +352,7 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 	return out
 }
 
+// AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	c.services.handler.append(func(obj interface{}, event model.Event) error {
 		f(convertService(*obj.(*v1.Service)), event)
@@ -353,6 +361,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 	return nil
 }
 
+// AppendInstanceHandler implements a service catalog operation
 func (c *Controller) AppendInstanceHandler(f func(*model.Service, model.Event)) error {
 	c.endpoints.handler.append(func(obj interface{}, event model.Event) error {
 		ep := *obj.(*v1.Endpoints)

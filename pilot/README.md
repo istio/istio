@@ -1,5 +1,6 @@
 # Istio Manager #
 [![Build Status](https://travis-ci.org/istio/manager.svg?branch=master)](https://travis-ci.org/istio/manager)
+[![Go Report Card](https://goreportcard.com/badge/github.com/istio/manager)](https://goreportcard.com/report/github.com/istio/manager)
 
 The Istio Manager is used to configure Istio and propagate configuration to the
 other components of the system, including the Istio mixer and the Istio proxy mesh.
@@ -54,15 +55,7 @@ after running the tests and permanently reside in a terminating state
 
 Bazel does not preclude you from using `go` tool in development. You should
 check out your repository clone `$REPO_PATH` into `$GOPATH` (e.g.
-`$GOPATH/src/istio.io/manager`). Prepare the dependencies by vendorizing Bazel
-workspace:
+`$GOPATH/src/istio.io/manager`). Then run this script in the repository root:
 
-    # Vendorize bazel dependencies
-    bin/bazel_to_go.py .
-
-    # Remove doubly-vendorized k8s dependencies
-    rm -rf vendor/k8s.io/client-go/vendor
-
-    # Now you can test with the go tool
-    go test istio.io/manager/... -v
+    bin/init.sh
 

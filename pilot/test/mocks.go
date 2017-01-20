@@ -25,12 +25,14 @@ import (
 	"istio.io/manager/model"
 )
 
+// Mock values
 const (
 	MockKind      = "MockConfig"
 	MockName      = "my-qualified-name"
 	MockNamespace = "test"
 )
 
+// Mock values
 var (
 	MockKey = model.ConfigKey{
 		Kind:      MockKind,
@@ -39,7 +41,7 @@ var (
 	}
 	MockConfigObject = MockConfig{
 		Pairs: []*ConfigPair{
-			&ConfigPair{Key: "key", Value: "value"},
+			{Key: "key", Value: "value"},
 		},
 	}
 	MockObject = model.Config{
@@ -57,11 +59,13 @@ var (
 	}
 )
 
+// MockRegistry is a fake registry
 type MockRegistry struct {
 	store   map[model.ConfigKey]*model.Config
 	mapping model.KindMap
 }
 
+// NewMockRegistry makes a fake registry
 func NewMockRegistry() model.Registry {
 	return &MockRegistry{
 		store:   make(map[model.ConfigKey]*model.Config),
@@ -69,11 +73,13 @@ func NewMockRegistry() model.Registry {
 	}
 }
 
+// Get implementation
 func (r *MockRegistry) Get(key model.ConfigKey) (*model.Config, bool) {
 	out, err := r.store[key]
 	return out, err
 }
 
+// Put implementation
 func (r *MockRegistry) Put(obj *model.Config) error {
 	if err := r.mapping.ValidateConfig(obj); err != nil {
 		return err
@@ -82,11 +88,13 @@ func (r *MockRegistry) Put(obj *model.Config) error {
 	return nil
 }
 
+// Delete implementation
 func (r *MockRegistry) Delete(key model.ConfigKey) error {
 	delete(r.store, key)
 	return nil
 }
 
+// List implementation
 func (r *MockRegistry) List(kind string, ns string) ([]*model.Config, error) {
 	var out = make([]*model.Config, 0)
 	for _, v := range r.store {
@@ -97,6 +105,7 @@ func (r *MockRegistry) List(kind string, ns string) ([]*model.Config, error) {
 	return out, nil
 }
 
+// MakeMock creates a fake config
 func MakeMock(i int, namespace string) *model.Config {
 	return &model.Config{
 		ConfigKey: model.ConfigKey{
@@ -106,12 +115,13 @@ func MakeMock(i int, namespace string) *model.Config {
 		},
 		Spec: &MockConfig{
 			Pairs: []*ConfigPair{
-				&ConfigPair{Key: "key", Value: strconv.Itoa(i)},
+				{Key: "key", Value: strconv.Itoa(i)},
 			},
 		},
 	}
 }
 
+// CheckMapInvariant validates operational invariants of a registry
 func CheckMapInvariant(r model.Registry, t *testing.T, namespace string, n int) {
 	// create configuration objects
 	elts := make(map[int]*model.Config, 0)
@@ -153,7 +163,7 @@ func CheckMapInvariant(r model.Registry, t *testing.T, namespace string, n int) 
 
 	// delete all elements
 	for _, elt := range elts {
-		if err := r.Delete(elt.ConfigKey); err != nil {
+		if err = r.Delete(elt.ConfigKey); err != nil {
 			t.Error(err)
 		}
 	}
