@@ -1,4 +1,5 @@
-dist: xenial
+sudo: required
+dist: trusty
 
 language: go
 
@@ -11,7 +12,8 @@ jdk:
   - oraclejdk8
 
 env:
-  - BAZEL_VERSION=0.4.2
+  global:
+    - BAZEL_VERSION=0.4.2
 
 addons:
   apt:
@@ -29,6 +31,7 @@ before_install:
   - wget --no-clobber "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel_${BAZEL_VERSION}-linux-x86_64.deb"
   - chmod +x bazel_${BAZEL_VERSION}-linux-x86_64.deb
   - sudo dpkg -i bazel_${BAZEL_VERSION}-linux-x86_64.deb
+  - sudo apt-get -f install -qqy
   - cd ${TRAVIS_BUILD_DIR}
   - mv .bazelrc .bazelrc.orig
   - cat .bazelrc.travis .bazelrc.orig > .bazelrc
