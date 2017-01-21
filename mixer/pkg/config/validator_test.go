@@ -21,7 +21,7 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"istio.io/mixer/pkg/adapter"
-	listcheckerpb "istio.io/mixer/pkg/aspect/listChecker/config"
+	listcheckerpb "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 )
 
@@ -39,7 +39,7 @@ type lc struct {
 }
 
 func (m *lc) DefaultConfig() (c adapter.AspectConfig) {
-	return &listcheckerpb.Params{}
+	return &listcheckerpb.ListCheckerParams{}
 }
 
 // ValidateConfig determines whether the given configuration meets all correctness requirements.

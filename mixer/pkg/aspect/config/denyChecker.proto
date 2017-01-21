@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package listChecker
+syntax = "proto3";
 
-import "testing"
+package pkg.aspect.config;
 
-func TestManager(t *testing.T) {
-	m := NewManager()
-	if m.Kind() != kind {
-		t.Error("Wrong kind of adapter")
-	}
+option go_package="config";
+
+// Configures a deny checker aspect
+message DenyCheckerParams {
 }

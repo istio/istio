@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package logger
+package aspect
 
 import (
 	"errors"
@@ -24,8 +24,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/golang/protobuf/ptypes/struct"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/aspect/logger/config"
+	"istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 
@@ -33,17 +32,17 @@ import (
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
-func TestNewManager(t *testing.T) {
-	m := NewManager()
+func TestNewLoggerManager(t *testing.T) {
+	m := NewLoggerManager()
 	if m.Kind() != "istio/logger" {
 		t.Error("Wrong kind of adapter")
 	}
 }
 
-func TestManager_NewLogger(t *testing.T) {
+func TestLoggerManager_NewLogger(t *testing.T) {
 	tl := &testLogger{}
 
-	defaultExec := &executor{
+	defaultExec := &loggerWrapper{
 		logName:      "istio_log",
 		timestampFmt: time.RFC3339,
 		aspect:       tl,
@@ -51,7 +50,7 @@ func TestManager_NewLogger(t *testing.T) {
 		descriptors:  []dpb.LogEntryDescriptor{},
 	}
 
-	overrideExec := &executor{
+	overrideExec := &loggerWrapper{
 		logName:      "istio_log",
 		timestampFmt: "2006-Jan-02",
 		aspect:       tl,
@@ -62,23 +61,23 @@ func TestManager_NewLogger(t *testing.T) {
 	overrideStruct := newStruct(structMap{"timestamp_format": newStringVal("2006-Jan-02")})
 
 	newAspectShouldSucceed := []aspectTestCase{
-		{"empty", &config.Params{}, newStruct(nil), defaultExec},
-		{"nil", &config.Params{}, nil, defaultExec},
-		{"override", &config.Params{}, overrideStruct, overrideExec},
+		{"empty", &config.LoggerParams{}, newStruct(nil), defaultExec},
+		{"nil", &config.LoggerParams{}, nil, defaultExec},
+		{"override", &config.LoggerParams{}, overrideStruct, overrideExec},
 	}
 
-	m := NewManager()
+	m := NewLoggerManager()
 
 	for _, v := range newAspectShouldSucceed {
-		c := aspect.CombinedConfig{
+		c := CombinedConfig{
 			Adapter: &configpb.Adapter{},
 			Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
 		}
 		asp, err := m.NewAspect(&c, tl, testEnv{})
 		if err != nil {
-			t.Errorf("NewAspect(): should not have received error for %s (%v)", v.name, err)
+			t.Errorf("NewLoggerAspect(): should not have received error for %s (%v)", v.name, err)
 		}
-		got := asp.(*executor)
+		got := asp.(*loggerWrapper)
 		got.defaultTimeFn = nil // ignore time fns in equality comp
 		if !reflect.DeepEqual(got, v.want) {
 			t.Errorf("NewAspect() => %v (%T), want %v (%T)", got, got, v.want, v.want)
@@ -86,9 +85,9 @@ func TestManager_NewLogger(t *testing.T) {
 	}
 }
 
-func TestManager_NewLoggerFailures(t *testing.T) {
+func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 
-	defaultCfg := &aspect.CombinedConfig{
+	defaultCfg := &CombinedConfig{
 		Adapter: &configpb.Adapter{},
 		Aspect:  &configpb.Aspect{},
 	}
@@ -97,14 +96,14 @@ func TestManager_NewLoggerFailures(t *testing.T) {
 	errLogger := &testLogger{defaultCfg: &structpb.Struct{}, errOnNewAspect: true}
 
 	failureCases := []struct {
-		cfg   *aspect.CombinedConfig
+		cfg   *CombinedConfig
 		adptr adapter.Adapter
 	}{
 		{defaultCfg, generic},
 		{defaultCfg, errLogger},
 	}
 
-	m := NewManager()
+	m := NewLoggerManager()
 	for _, v := range failureCases {
 		if _, err := m.NewAspect(v.cfg, v.adptr, testEnv{}); err == nil {
 			t.Errorf("NewAspect(): expected error for bad adapter (%T)", v.adptr)
@@ -112,7 +111,7 @@ func TestManager_NewLoggerFailures(t *testing.T) {
 	}
 }
 
-func TestExecutor_Execute(t *testing.T) {
+func TestLogManager_Execute(t *testing.T) {
 	testTime, _ := time.Parse("2006-Jan-02", "2011-Aug-14")
 	noPayloadDesc := dpb.LogEntryDescriptor{
 		Name:       "test",
@@ -135,12 +134,13 @@ func TestExecutor_Execute(t *testing.T) {
 		PayloadAttribute: "attr",
 	}
 
-	noDescriptorExec := &executor{"istio_log", []dpb.LogEntryDescriptor{}, map[string]string{}, "severity", "ts", "", nil, time.Now}
-	noPayloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{noPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
-	payloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{payloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
-	jsonPayloadExec := &executor{"istio_log", []dpb.LogEntryDescriptor{jsonPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
-	withInputsExec := &executor{"istio_log", []dpb.LogEntryDescriptor{withInputsDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
-	withTimestampFormatExec := &executor{
+	noDescriptorExec := &loggerWrapper{"istio_log", []dpb.LogEntryDescriptor{}, map[string]string{}, "severity", "ts", "", nil, time.Now}
+	noPayloadExec := &loggerWrapper{"istio_log", []dpb.LogEntryDescriptor{noPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
+	payloadExec := &loggerWrapper{"istio_log", []dpb.LogEntryDescriptor{payloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
+	jsonPayloadExec := &loggerWrapper{"istio_log", []dpb.LogEntryDescriptor{jsonPayloadDesc},
+		map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
+	withInputsExec := &loggerWrapper{"istio_log", []dpb.LogEntryDescriptor{withInputsDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
+	withTimestampFormatExec := &loggerWrapper{
 		"istio_log",
 		[]dpb.LogEntryDescriptor{noPayloadDesc},
 		map[string]string{"attr": "val"},
@@ -193,7 +193,7 @@ func TestExecutor_Execute(t *testing.T) {
 	}
 }
 
-func TestExecutor_ExecuteFailures(t *testing.T) {
+func TestLoggerManager_ExecuteFailures(t *testing.T) {
 
 	desc := dpb.LogEntryDescriptor{
 		Name:       "test",
@@ -206,8 +206,8 @@ func TestExecutor_ExecuteFailures(t *testing.T) {
 		PayloadFormat:    dpb.LogEntryDescriptor_JSON,
 	}
 
-	errorExec := &executor{"istio_log", []dpb.LogEntryDescriptor{desc}, map[string]string{}, "severity", "ts", "", &testLogger{errOnLog: true}, time.Now}
-	jsonErrorExec := &executor{"istio_log", []dpb.LogEntryDescriptor{jsonPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
+	errorExec := &loggerWrapper{"istio_log", []dpb.LogEntryDescriptor{desc}, map[string]string{}, "severity", "ts", "", &testLogger{errOnLog: true}, time.Now}
+	jsonErrorExec := &loggerWrapper{"istio_log", []dpb.LogEntryDescriptor{jsonPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
 
 	jsonPayloadBag := &testBag{strs: map[string]string{"key": "value", "payload": `{"obj":{"val":54},"question":`}}
 
@@ -223,17 +223,17 @@ func TestExecutor_ExecuteFailures(t *testing.T) {
 	}
 }
 
-func TestManager_DefaultConfig(t *testing.T) {
-	m := NewManager()
+func TestLoggerManager_DefaultConfig(t *testing.T) {
+	m := NewLoggerManager()
 	got := m.DefaultConfig()
-	want := &config.Params{LogName: "istio_log", TimestampFormat: time.RFC3339}
+	want := &config.LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
 	if !proto.Equal(got, want) {
 		t.Errorf("DefaultConfig(): got %v, wanted %v", got, want)
 	}
 }
 
-func TestManager_ValidateConfig(t *testing.T) {
-	m := NewManager()
+func TestLoggerManager_ValidateConfig(t *testing.T) {
+	m := NewLoggerManager()
 	if err := m.ValidateConfig(&empty.Empty{}); err != nil {
 		t.Errorf("ValidateConfig(): unexpected error: %v", err)
 	}
@@ -245,11 +245,11 @@ type (
 		name       string
 		defaultCfg adapter.AspectConfig
 		params     *structpb.Struct
-		want       *executor
+		want       *loggerWrapper
 	}
 	executeTestCase struct {
 		name        string
-		exec        *executor
+		exec        *loggerWrapper
 		bag         attribute.Bag
 		mapper      expr.Evaluator
 		wantEntries []adapter.LogEntry

@@ -20,8 +20,6 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/aspect/denyChecker"
-	"istio.io/mixer/pkg/aspect/listChecker"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
@@ -131,7 +129,7 @@ func (m *Manager) CacheGet(cfg *aspect.CombinedConfig, mgr aspect.Manager, adapt
 // return list of aspect managers
 func aspectManagers() []aspect.Manager {
 	return []aspect.Manager{
-		listChecker.NewManager(),
-		denyChecker.NewManager(),
+		aspect.NewListCheckerManager(),
+		aspect.NewDenyCheckerManager(),
 	}
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package listChecker
+package aspect
 
 import (
 	"fmt"
@@ -20,41 +20,36 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/aspect/listChecker/config"
+	"istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
 
-const (
-	kind = "istio/listChecker"
-)
-
 type (
-	manager struct{}
+	listCheckerManager struct{}
 
-	aspectWrapper struct {
-		cfg          *aspect.CombinedConfig
+	listCheckerWrapper struct {
+		cfg          *CombinedConfig
 		adapter      adapter.ListCheckerAdapter
 		aspect       adapter.ListCheckerAspect
-		aspectConfig *config.Params
+		aspectConfig *config.ListCheckerParams
 	}
 )
 
-// NewManager returns "this" aspect Manager
-func NewManager() aspect.Manager {
-	return &manager{}
+// NewListCheckerManager returns "this" aspect Manager
+func NewListCheckerManager() Manager {
+	return &listCheckerManager{}
 }
 
 // NewAspect creates a listChecker aspect.
-func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga adapter.Adapter, env adapter.Env) (aspect.Wrapper, error) {
+func (m *listCheckerManager) NewAspect(cfg *CombinedConfig, ga adapter.Adapter, env adapter.Env) (Wrapper, error) {
 	aa, ok := ga.(adapter.ListCheckerAdapter)
 	if !ok {
 		return nil, fmt.Errorf("adapter of incorrect type; expected adapter.ListCheckerAdapter got %#v %T", ga, ga)
 	}
 
 	// TODO: convert from proto Struct to Go struct here!
-	var aspectConfig *config.Params
+	var aspectConfig *config.ListCheckerParams
 	adapterCfg := aa.DefaultConfig()
 	// TODO: parse cfg.Adapter.Params (*ptypes.struct) into adapterCfg
 	var asp adapter.ListCheckerAspect
@@ -64,7 +59,7 @@ func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga adapter.Adapter, env 
 		return nil, err
 	}
 
-	return &aspectWrapper{
+	return &listCheckerWrapper{
 		cfg:          cfg,
 		adapter:      aa,
 		aspect:       asp,
@@ -72,29 +67,29 @@ func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga adapter.Adapter, env 
 	}, nil
 }
 
-func (*manager) Kind() string {
-	return kind
+func (*listCheckerManager) Kind() string {
+	return "istio/listChecker"
 }
 
-func (*manager) DefaultConfig() adapter.AspectConfig {
-	return &config.Params{
+func (*listCheckerManager) DefaultConfig() adapter.AspectConfig {
+	return &config.ListCheckerParams{
 		CheckAttribute: "src.ip",
 	}
 }
 
-func (*manager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
-	lc := c.(*config.Params)
+func (*listCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+	lc := c.(*config.ListCheckerParams)
 	if lc.CheckAttribute == "" {
 		ce = ce.Appendf("check_attribute", "Missing")
 	}
 	return
 }
 
-func (a *aspectWrapper) AdapterName() string {
+func (a *listCheckerWrapper) AdapterName() string {
 	return a.adapter.Name()
 }
 
-func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
+func (a *listCheckerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
 	var found bool
 	var err error
 	asp := a.aspect
@@ -121,5 +116,5 @@ func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*as
 		rCode = code.Code_OK
 	}
 
-	return &aspect.Output{Code: rCode}, nil
+	return &Output{Code: rCode}, nil
 }

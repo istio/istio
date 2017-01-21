@@ -14,10 +14,10 @@
 
 syntax = "proto3";
 
-package pkg.adaptersupport.quota.config;
+package pkg.aspect.config;
 
 option go_package="config";
 
 // Configures a quota aspect.
-message Params {
+message QuotaParams {
 }

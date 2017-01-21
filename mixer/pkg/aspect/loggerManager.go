@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package logger
+package aspect
 
 import (
 	"encoding/json"
@@ -24,8 +24,7 @@ import (
 	"github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/aspect/logger/config"
+	"istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 
@@ -33,9 +32,9 @@ import (
 )
 
 type (
-	manager struct{}
+	loggerManager struct{}
 
-	executor struct {
+	loggerWrapper struct {
 		logName            string
 		descriptors        []dpb.LogEntryDescriptor // describe entries to gen
 		inputs             map[string]string        // map from param to expr
@@ -47,12 +46,12 @@ type (
 	}
 )
 
-// NewManager returns an aspect manager for the logger aspect.
-func NewManager() aspect.Manager {
-	return &manager{}
+// NewLoggerManager returns an aspect manager for the logger aspect.
+func NewLoggerManager() Manager {
+	return &loggerManager{}
 }
 
-func (m *manager) NewAspect(c *aspect.CombinedConfig, a adapter.Adapter, env adapter.Env) (aspect.Wrapper, error) {
+func (m *loggerManager) NewAspect(c *CombinedConfig, a adapter.Adapter, env adapter.Env) (Wrapper, error) {
 	// Handle aspect config to get log name and log entry descriptors.
 	aspectCfg := m.DefaultConfig()
 	if c.Aspect.Params != nil {
@@ -61,7 +60,7 @@ func (m *manager) NewAspect(c *aspect.CombinedConfig, a adapter.Adapter, env ada
 		}
 	}
 
-	logCfg := aspectCfg.(*config.Params)
+	logCfg := aspectCfg.(*config.LoggerParams)
 	logName := logCfg.LogName
 	severityAttr := logCfg.SeverityAttribute
 	timestampAttr := logCfg.TimestampAttribute
@@ -92,7 +91,7 @@ func (m *manager) NewAspect(c *aspect.CombinedConfig, a adapter.Adapter, env ada
 		inputs = c.Aspect.Inputs
 	}
 
-	return &executor{
+	return &loggerWrapper{
 		logName,
 		[]dpb.LogEntryDescriptor{},
 		inputs,
@@ -104,15 +103,15 @@ func (m *manager) NewAspect(c *aspect.CombinedConfig, a adapter.Adapter, env ada
 	}, nil
 }
 
-func (*manager) Kind() string { return "istio/logger" }
-func (*manager) DefaultConfig() adapter.AspectConfig {
-	return &config.Params{LogName: "istio_log", TimestampFormat: time.RFC3339}
+func (*loggerManager) Kind() string { return "istio/logger" }
+func (*loggerManager) DefaultConfig() adapter.AspectConfig {
+	return &config.LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
 }
 
 // TODO: validation of timestamp format
-func (*manager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return nil }
+func (*loggerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return nil }
 
-func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
+func (e *loggerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
 	var entries []adapter.LogEntry
 
 	// TODO: would be nice if we could use a mutable.Bag here and could pass it around
@@ -167,7 +166,7 @@ func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.
 			return nil, err
 		}
 	}
-	return &aspect.Output{Code: code.Code_OK}, nil
+	return &Output{Code: code.Code_OK}, nil
 }
 
 type attrBagFn func(bag attribute.Bag, name string) (interface{}, bool)

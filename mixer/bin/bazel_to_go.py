@@ -186,10 +186,9 @@ def adapter_protos(WKSPC):
 
 def aspect_protos(WKSPC):
     for aspect in os.listdir(WKSPC + "/bazel-genfiles/pkg/aspect/"):
-        if os.path.exists(WKSPC + "/bazel-genfiles/pkg/aspect/"+ aspect + "/config"):
-            for file in os.listdir(WKSPC + "/bazel-genfiles/pkg/aspect/" + aspect + "/config"):
-                if file.endswith(".pb.go"):
-                    makelink(WKSPC + "/bazel-genfiles/pkg/aspect/"+ aspect + "/config/" + file, WKSPC + "/pkg/aspect/" + aspect + "/config/" + file)
+        for file in os.listdir(WKSPC + "/bazel-genfiles/pkg/aspect/config"):
+            if file.endswith(".pb.go"):
+                makelink(WKSPC + "/bazel-genfiles/pkg/aspect/config/" + file, WKSPC + "/pkg/aspect/config/" + file)
 
 if __name__ == "__main__":
     import sys

@@ -33,7 +33,7 @@ import (
 
 	denyadapter "istio.io/mixer/adapter/denyChecker"
 	"istio.io/mixer/pkg/aspect"
-	denysupport "istio.io/mixer/pkg/aspect/denyChecker"
+	denysupport "istio.io/mixer/pkg/aspect"
 
 	istioconfig "istio.io/api/mixer/v1/config"
 )
@@ -131,7 +131,7 @@ var configs = []api.StaticBinding{
 	{
 		// denyChecker
 		RegisterFn: denyadapter.Register,
-		Manager:    denysupport.NewManager(),
+		Manager:    denysupport.NewDenyCheckerManager(),
 		Methods:    []api.Method{api.Check},
 		Config: &aspect.CombinedConfig{
 			// denyChecker ignores its configs

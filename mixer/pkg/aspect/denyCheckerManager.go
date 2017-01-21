@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package denyChecker
+package aspect
 
 import (
 	"fmt"
@@ -20,32 +20,27 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/aspect/denyChecker/config"
+	"istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
 
-const (
-	kind = "istio/denyChecker"
-)
-
 type (
-	manager struct{}
+	denyCheckerManager struct{}
 
-	aspectWrapper struct {
+	denyCheckerWrapper struct {
 		adapter adapter.DenyCheckerAdapter
 		aspect  adapter.DenyCheckerAspect
 	}
 )
 
-// NewManager returns "this" aspect Manager
-func NewManager() aspect.Manager {
-	return &manager{}
+// NewDenyCheckerManager returns "this" aspect Manager
+func NewDenyCheckerManager() Manager {
+	return &denyCheckerManager{}
 }
 
 // NewAspect creates a denyChecker aspect.
-func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga adapter.Adapter, env adapter.Env) (aspect.Wrapper, error) {
+func (m *denyCheckerManager) NewAspect(cfg *CombinedConfig, ga adapter.Adapter, env adapter.Env) (Wrapper, error) {
 	aa, ok := ga.(adapter.DenyCheckerAdapter)
 	if !ok {
 		return nil, fmt.Errorf("adapter of incorrect type; expected adapter.DenyCheckerAdapter got %#v %T", ga, ga)
@@ -61,29 +56,29 @@ func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga adapter.Adapter, env 
 		return nil, err
 	}
 
-	return &aspectWrapper{
+	return &denyCheckerWrapper{
 		adapter: aa,
 		aspect:  asp,
 	}, nil
 }
 
-func (*manager) Kind() string {
-	return kind
+func (*denyCheckerManager) Kind() string {
+	return "istio/denyChecker"
 }
 
-func (*manager) DefaultConfig() adapter.AspectConfig {
-	return &config.Params{}
+func (*denyCheckerManager) DefaultConfig() adapter.AspectConfig {
+	return &config.DenyCheckerParams{}
 }
 
-func (*manager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (*denyCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func (a *aspectWrapper) AdapterName() string {
+func (a *denyCheckerWrapper) AdapterName() string {
 	return a.adapter.Name()
 }
 
-func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
+func (a *denyCheckerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
 	status := a.aspect.Deny()
-	return &aspect.Output{Code: code.Code(status.Code)}, nil
+	return &Output{Code: code.Code(status.Code)}, nil
 }

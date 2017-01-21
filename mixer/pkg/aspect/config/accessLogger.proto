@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package pkg.adaptersupport.accessLogger.config;
+package pkg.aspect.config;
 
 option go_package="config";
 
@@ -25,7 +25,7 @@ option go_package="config";
 // params:
 //    log_name: "logs/access_log"
 //    attributes: "source.ip","host.URL","
-message Params {
+message AccessLoggerParams {
     // Provides a way to identify a collection of related log entries.
     string log_name = 1;
 
