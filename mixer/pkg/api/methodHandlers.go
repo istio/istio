@@ -24,7 +24,7 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/status"
 
 	"istio.io/mixer/pkg/adapterManager"
-	"istio.io/mixer/pkg/aspectsupport"
+	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 	regpkg "istio.io/mixer/pkg/registry"
@@ -68,8 +68,8 @@ const (
 // StaticBinding contains all of the pieces required to wire up an adapter to serve traffic in the mixer.
 type StaticBinding struct {
 	RegisterFn regpkg.RegisterFn
-	Manager    aspectsupport.Manager
-	Config     *aspectsupport.CombinedConfig
+	Manager    aspect.Manager
+	Config     *aspect.CombinedConfig
 	Methods    []Method
 }
 
@@ -78,14 +78,14 @@ type methodHandlers struct {
 	eval expr.Evaluator
 
 	// Configs for the aspects that'll be used to serve each API method.
-	configs map[Method][]*aspectsupport.CombinedConfig
+	configs map[Method][]*aspect.CombinedConfig
 }
 
 // NewMethodHandlers returns a canonical MethodHandlers that implements all of the mixer's API surface
 func NewMethodHandlers(bindings ...StaticBinding) MethodHandlers {
 	registry := adapterManager.NewRegistry()
-	managers := make([]aspectsupport.Manager, len(bindings))
-	configs := map[Method][]*aspectsupport.CombinedConfig{Check: {}, Report: {}, Quota: {}}
+	managers := make([]aspect.Manager, len(bindings))
+	configs := map[Method][]*aspect.CombinedConfig{Check: {}, Report: {}, Quota: {}}
 
 	for i, binding := range bindings {
 		if err := binding.RegisterFn(registry); err != nil {

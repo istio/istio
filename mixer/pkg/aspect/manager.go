@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aspectsupport
+package aspect
 
 import (
 	"google.golang.org/genproto/googleapis/rpc/code"
@@ -44,15 +44,15 @@ type (
 	// to the rest of the system
 	Manager interface {
 		// NewAspect creates a new aspect instance given configuration.
-		NewAspect(cfg *CombinedConfig, adapter adapter.Adapter, env adapter.Env) (AspectWrapper, error)
+		NewAspect(cfg *CombinedConfig, adapter adapter.Adapter, env adapter.Env) (Wrapper, error)
 		// Kind return the kind of aspect
 		Kind() string
 
 		adapter.ConfigValidator
 	}
 
-	// AspectWrapper encapsulates a single aspect and allows it to be invoked.
-	AspectWrapper interface {
+	// Wrapper encapsulates a single aspect and allows it to be invoked.
+	Wrapper interface {
 		// Execute dispatches to the given adapter.
 		// The evaluation is done under the context of an attribute bag and using
 		// an expression evaluator.

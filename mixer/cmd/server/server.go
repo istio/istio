@@ -32,8 +32,8 @@ import (
 	"istio.io/mixer/pkg/tracing"
 
 	denyadapter "istio.io/mixer/adapter/denyChecker"
-	"istio.io/mixer/pkg/aspectsupport"
-	denysupport "istio.io/mixer/pkg/aspectsupport/denyChecker"
+	"istio.io/mixer/pkg/aspect"
+	denysupport "istio.io/mixer/pkg/aspect/denyChecker"
 
 	istioconfig "istio.io/api/mixer/v1/config"
 )
@@ -133,7 +133,7 @@ var configs = []api.StaticBinding{
 		RegisterFn: denyadapter.Register,
 		Manager:    denysupport.NewManager(),
 		Methods:    []api.Method{api.Check},
-		Config: &aspectsupport.CombinedConfig{
+		Config: &aspect.CombinedConfig{
 			// denyChecker ignores its configs
 			&istioconfig.Aspect{
 				Kind:    "istio/denyChecker",
