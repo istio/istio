@@ -20,11 +20,10 @@ import (
 
 	"istio.io/mixer/adapter/ipListChecker/config"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/registry"
 )
 
 // Register records the existence of this adapter
-func Register(r registry.Registrar) error {
+func Register(r adapter.Registrar) error {
 	return r.RegisterCheckList(newAdapter())
 }
 

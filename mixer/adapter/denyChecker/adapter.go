@@ -17,17 +17,14 @@ package denyChecker
 
 import (
 	"google.golang.org/genproto/googleapis/rpc/code"
-
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/registry"
-
 	"google.golang.org/genproto/googleapis/rpc/status"
 
 	"istio.io/mixer/adapter/denyChecker/config"
+	"istio.io/mixer/pkg/adapter"
 )
 
 // Register records the existence of this adapter
-func Register(r registry.Registrar) error {
+func Register(r adapter.Registrar) error {
 	return r.RegisterDeny(newAdapter())
 }
 

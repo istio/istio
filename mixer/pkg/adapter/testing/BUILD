@@ -10,6 +10,5 @@ go_library(
     ],
     deps = [
         "//pkg/adapter:go_default_library",
-        "//pkg/registry:go_default_library",
     ],
 )
