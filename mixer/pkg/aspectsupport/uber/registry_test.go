@@ -18,26 +18,26 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/aspect/denyChecker"
-	"istio.io/mixer/pkg/aspect/listChecker"
-	al "istio.io/mixer/pkg/aspect/logger"
-	"istio.io/mixer/pkg/aspect/quota"
+	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/denyChecker"
+	"istio.io/mixer/pkg/adapter/listChecker"
+	al "istio.io/mixer/pkg/adapter/logger"
+	"istio.io/mixer/pkg/adapter/quota"
 )
 
 type testAdapter struct {
 	name string
 }
 
-func (t testAdapter) Name() string                                      { return t.name }
-func (testAdapter) Close() error                                        { return nil }
-func (testAdapter) Description() string                                 { return "mock adapter for testing" }
-func (testAdapter) DefaultConfig() aspect.Config                        { return nil }
-func (testAdapter) ValidateConfig(c aspect.Config) *aspect.ConfigErrors { return nil }
+func (t testAdapter) Name() string                                        { return t.name }
+func (testAdapter) Close() error                                          { return nil }
+func (testAdapter) Description() string                                   { return "mock adapter for testing" }
+func (testAdapter) DefaultConfig() adapter.Config                         { return nil }
+func (testAdapter) ValidateConfig(c adapter.Config) *adapter.ConfigErrors { return nil }
 
 type denyAdapter struct{ testAdapter }
 
-func (denyAdapter) NewDenyChecker(env aspect.Env, cfg aspect.Config) (denyChecker.Aspect, error) {
+func (denyAdapter) NewDenyChecker(env adapter.Env, cfg adapter.Config) (denyChecker.Aspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -61,7 +61,7 @@ func TestRegisterDeny(t *testing.T) {
 
 type listAdapter struct{ testAdapter }
 
-func (listAdapter) NewListChecker(env aspect.Env, cfg aspect.Config) (listChecker.Aspect, error) {
+func (listAdapter) NewListChecker(env adapter.Env, cfg adapter.Config) (listChecker.Aspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -85,7 +85,7 @@ func TestCheckList(t *testing.T) {
 
 type loggerAdapter struct{ testAdapter }
 
-func (loggerAdapter) NewLogger(env aspect.Env, cfg aspect.Config) (al.Aspect, error) {
+func (loggerAdapter) NewLogger(env adapter.Env, cfg adapter.Config) (al.Aspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -109,7 +109,7 @@ func TestRegisterLogger(t *testing.T) {
 
 type quotaAdapter struct{ testAdapter }
 
-func (quotaAdapter) NewQuota(env aspect.Env, cfg aspect.Config) (quota.Aspect, error) {
+func (quotaAdapter) NewQuota(env adapter.Env, cfg adapter.Config) (quota.Aspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

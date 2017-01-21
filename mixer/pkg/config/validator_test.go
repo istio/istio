@@ -20,36 +20,36 @@ import (
 	"testing"
 
 	"github.com/mitchellh/mapstructure"
-	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/adapter"
 	listcheckerpb "istio.io/mixer/pkg/aspectsupport/listChecker/config"
 	"istio.io/mixer/pkg/attribute"
 )
 
 type fakeVFinder struct {
-	v map[string]aspect.ConfigValidator
+	v map[string]adapter.ConfigValidator
 }
 
-func (f *fakeVFinder) FindValidator(name string) (aspect.ConfigValidator, bool) {
+func (f *fakeVFinder) FindValidator(name string) (adapter.ConfigValidator, bool) {
 	v, found := f.v[name]
 	return v, found
 }
 
 type lc struct {
-	ce *aspect.ConfigErrors
+	ce *adapter.ConfigErrors
 }
 
-func (m *lc) DefaultConfig() (c aspect.Config) {
+func (m *lc) DefaultConfig() (c adapter.Config) {
 	return &listcheckerpb.Params{}
 }
 
 // ValidateConfig determines whether the given configuration meets all correctness requirements.
-func (m *lc) ValidateConfig(c aspect.Config) *aspect.ConfigErrors {
+func (m *lc) ValidateConfig(c adapter.Config) *adapter.ConfigErrors {
 	return m.ce
 }
 
 type configTable struct {
-	cerr     *aspect.ConfigErrors
-	v        map[string]aspect.ConfigValidator
+	cerr     *adapter.ConfigErrors
+	v        map[string]adapter.ConfigValidator
 	nerrors  int
 	selector string
 	strict   bool
@@ -57,33 +57,33 @@ type configTable struct {
 }
 
 func TestConfigValidatorError(t *testing.T) {
-	var ct *aspect.ConfigErrors
+	var ct *adapter.ConfigErrors
 	evaluator := newFakeExpr()
 	cerr := ct.Appendf("Url", "Must have a valid URL")
 
 	ctable := []*configTable{
 		{nil,
-			map[string]aspect.ConfigValidator{
+			map[string]adapter.ConfigValidator{
 				"metrics":  &lc{},
 				"metrics2": &lc{},
 			}, 0, "service.name == “*”", false, sSvcConfig},
 		{nil,
-			map[string]aspect.ConfigValidator{
+			map[string]adapter.ConfigValidator{
 				"istio/denychecker": &lc{},
 				"metrics2":          &lc{},
 			}, 0, "service.name == “*”", false, sGlobalConfig},
 		{nil,
-			map[string]aspect.ConfigValidator{
+			map[string]adapter.ConfigValidator{
 				"metrics":  &lc{},
 				"metrics2": &lc{},
 			}, 1, "service.name == “*”", false, sGlobalConfig},
 		{nil,
-			map[string]aspect.ConfigValidator{
+			map[string]adapter.ConfigValidator{
 				"metrics":  &lc{},
 				"metrics2": &lc{},
 			}, 1, "service.name == “*”", true, sSvcConfig},
 		{cerr,
-			map[string]aspect.ConfigValidator{
+			map[string]adapter.ConfigValidator{
 				"metrics": &lc{ce: cerr},
 			}, 2, "service.name == “*”", false, sSvcConfig},
 		{ct.Append("/:metrics", UnknownValidator("metrics")),
@@ -91,7 +91,7 @@ func TestConfigValidatorError(t *testing.T) {
 	}
 
 	for idx, ctx := range ctable {
-		var ce *aspect.ConfigErrors
+		var ce *adapter.ConfigErrors
 		mgr := &fakeVFinder{v: ctx.v}
 		p := NewValidator(mgr, mgr, ctx.strict, evaluator)
 		if ctx.cfg == sSvcConfig {
@@ -118,39 +118,39 @@ func TestConfigValidatorError(t *testing.T) {
 func TestFullConfigValidator(t *testing.T) {
 	fe := newFakeExpr()
 	ctable := []struct {
-		cerr     *aspect.ConfigError
-		v        map[string]aspect.ConfigValidator
+		cerr     *adapter.ConfigError
+		v        map[string]adapter.ConfigValidator
 		selector string
 		strict   bool
 		cfg      string
 		exprErr  error
 	}{
-		{&aspect.ConfigError{Field: "Kind", Underlying: fmt.Errorf("adapter for Kind=metrics is not available")},
-			map[string]aspect.ConfigValidator{
+		{&adapter.ConfigError{Field: "Kind", Underlying: fmt.Errorf("adapter for Kind=metrics is not available")},
+			map[string]adapter.ConfigValidator{
 				"istio/denychecker": &lc{},
 				"metrics":           &lc{},
 				"listchecker":       &lc{},
 			}, "service.name == “*”", false, sSvcConfig1, nil},
 		{nil,
-			map[string]aspect.ConfigValidator{
+			map[string]adapter.ConfigValidator{
 				"istio/denychecker": &lc{},
 				"metrics":           &lc{},
 				"listchecker":       &lc{},
 			}, "service.name == “*”", false, sSvcConfig2, nil},
 		{nil,
-			map[string]aspect.ConfigValidator{
+			map[string]adapter.ConfigValidator{
 				"istio/denychecker": &lc{},
 				"metrics":           &lc{},
 				"listchecker":       &lc{},
 			}, "", false, sSvcConfig2, nil},
-		{&aspect.ConfigError{Field: "NamedAdapter", Underlying: fmt.Errorf("adapter by name denychecker.2 not available")},
-			map[string]aspect.ConfigValidator{
+		{&adapter.ConfigError{Field: "NamedAdapter", Underlying: fmt.Errorf("adapter by name denychecker.2 not available")},
+			map[string]adapter.ConfigValidator{
 				"istio/denychecker": &lc{},
 				"metrics":           &lc{},
 				"listchecker":       &lc{},
 			}, "", false, sSvcConfig3, nil},
-		{&aspect.ConfigError{Field: ":Selector service.name == “*”", Underlying: fmt.Errorf("invalid expression")},
-			map[string]aspect.ConfigValidator{
+		{&adapter.ConfigError{Field: ":Selector service.name == “*”", Underlying: fmt.Errorf("invalid expression")},
+			map[string]adapter.ConfigValidator{
 				"istio/denychecker": &lc{},
 				"metrics":           &lc{},
 				"listchecker":       &lc{},

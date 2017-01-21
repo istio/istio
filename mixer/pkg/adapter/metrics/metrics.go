@@ -21,7 +21,7 @@ import (
 	"errors"
 	"time"
 
-	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/adapter"
 )
 
 const (
@@ -35,7 +35,7 @@ type (
 	// Aspect is the interface for adapters that will handle metrics
 	// reporting within the mixer.
 	Aspect interface {
-		aspect.Aspect
+		adapter.Aspect
 
 		// Record directs a backend adapter to record the list of values
 		// that have been generated from Report() calls.
@@ -73,11 +73,11 @@ type (
 	// Adapter is the interface for building Aspect instances for mixer
 	// metrics backends.
 	Adapter interface {
-		aspect.Adapter
+		adapter.Adapter
 
 		// NewMetrics returns a new quota implementation, based on the
 		// supplied Aspect configuration for the backend.
-		NewMetrics(env aspect.Env, config aspect.Config) (Aspect, error)
+		NewMetrics(env adapter.Env, config adapter.Config) (Aspect, error)
 	}
 )
 

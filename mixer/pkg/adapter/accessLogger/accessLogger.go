@@ -18,14 +18,14 @@ package accessLogger
 
 import (
 	"github.com/golang/protobuf/proto"
-	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/adapter"
 )
 
 type (
 	// Aspect is the interface for adapters that will handle access log data
 	// within the mixer.
 	Aspect interface {
-		aspect.Aspect
+		adapter.Aspect
 
 		// LogAccess directs a backend adapter to process a batch of
 		// access log entries derived from potentially several Report()
@@ -36,11 +36,11 @@ type (
 	// Adapter is the interface for building Aspect instances for mixer
 	// access logging backend adapters.
 	Adapter interface {
-		aspect.Adapter
+		adapter.Adapter
 
 		// NewAccessLogger returns a new AccessLogger implementation, based
 		// on the supplied Aspect configuration for the backend.
-		NewAccessLogger(env aspect.Env, config proto.Message) (Aspect, error)
+		NewAccessLogger(env adapter.Env, config proto.Message) (Aspect, error)
 	}
 
 	// Entry defines a basic wrapper around the access log information for

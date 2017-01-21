@@ -15,10 +15,10 @@
 package registry
 
 import (
-	"istio.io/mixer/pkg/aspect/denyChecker"
-	"istio.io/mixer/pkg/aspect/listChecker"
-	"istio.io/mixer/pkg/aspect/logger"
-	"istio.io/mixer/pkg/aspect/quota"
+	"istio.io/mixer/pkg/adapter/denyChecker"
+	"istio.io/mixer/pkg/adapter/listChecker"
+	"istio.io/mixer/pkg/adapter/logger"
+	"istio.io/mixer/pkg/adapter/quota"
 )
 
 // Registrar -- Interface used by adapters to register themselves

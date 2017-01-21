@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"istio.io/mixer/adapter/genericListChecker/config"
-	"istio.io/mixer/pkg/adaptertesting"
+	"istio.io/mixer/pkg/adapterTesting"
 )
 
 type testCase struct {
@@ -83,5 +83,5 @@ func TestAll(t *testing.T) {
 }
 
 func TestInvariants(t *testing.T) {
-	adaptertesting.TestAdapterInvariants(newAdapter(), Register, t)
+	adapterTesting.TestAdapterInvariants(newAdapter(), Register, t)
 }

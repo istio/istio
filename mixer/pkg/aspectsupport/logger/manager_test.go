@@ -23,8 +23,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/golang/protobuf/ptypes/struct"
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/aspect/logger"
+	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/logger"
 	"istio.io/mixer/pkg/aspectsupport"
 	"istio.io/mixer/pkg/aspectsupport/logger/config"
 	"istio.io/mixer/pkg/attribute"
@@ -94,12 +94,12 @@ func TestManager_NewLoggerFailures(t *testing.T) {
 		Aspect:  &configpb.Aspect{},
 	}
 
-	var generic aspect.Adapter
+	var generic adapter.Adapter
 	errLogger := &testLogger{defaultCfg: &structpb.Struct{}, errOnNewAspect: true}
 
 	failureCases := []struct {
 		cfg   *aspectsupport.CombinedConfig
-		adptr aspect.Adapter
+		adptr adapter.Adapter
 	}{
 		{defaultCfg, generic},
 		{defaultCfg, errLogger},
@@ -244,7 +244,7 @@ type (
 	structMap      map[string]*structpb.Value
 	aspectTestCase struct {
 		name       string
-		defaultCfg aspect.Config
+		defaultCfg adapter.Config
 		params     *structpb.Struct
 		want       *executor
 	}
@@ -259,7 +259,7 @@ type (
 		logger.Adapter
 		logger.Aspect
 
-		defaultCfg     aspect.Config
+		defaultCfg     adapter.Config
 		entryCount     int
 		entries        []logger.Entry
 		errOnNewAspect bool
@@ -275,17 +275,17 @@ type (
 		times map[string]time.Time
 	}
 	testEnv struct {
-		aspect.Env
+		adapter.Env
 	}
 )
 
-func (t *testLogger) NewLogger(e aspect.Env, m aspect.Config) (logger.Aspect, error) {
+func (t *testLogger) NewLogger(e adapter.Env, m adapter.Config) (logger.Aspect, error) {
 	if t.errOnNewAspect {
 		return nil, errors.New("new aspect error")
 	}
 	return t, nil
 }
-func (t *testLogger) DefaultConfig() aspect.Config { return t.defaultCfg }
+func (t *testLogger) DefaultConfig() adapter.Config { return t.defaultCfg }
 func (t *testLogger) Log(l []logger.Entry) error {
 	if t.errOnLog {
 		return errors.New("log error")

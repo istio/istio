@@ -19,14 +19,14 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/adapter"
 )
 
 type (
 	// Aspect is the interface for adapters that will handle logs data
 	// within the mixer.
 	Aspect interface {
-		aspect.Aspect
+		adapter.Aspect
 
 		// Log directs a backend adapter to process a batch of
 		// log entries derived from potentially several Report() calls.
@@ -60,11 +60,11 @@ type (
 	// Adapter is the interface for building Aspect instances for mixer
 	// logging backends.
 	Adapter interface {
-		aspect.Adapter
+		adapter.Adapter
 
 		// NewLogger returns a new Logger implementation, based on the
 		// supplied Aspect configuration for the backend.
-		NewLogger(env aspect.Env, c aspect.Config) (Aspect, error)
+		NewLogger(env adapter.Env, c adapter.Config) (Aspect, error)
 	}
 )
 

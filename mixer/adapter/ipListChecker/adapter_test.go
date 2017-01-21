@@ -23,8 +23,8 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"istio.io/mixer/adapter/ipListChecker/config"
-	"istio.io/mixer/pkg/adaptertesting"
-	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapterTesting"
 )
 
 // TODO: this test suite needs to be beefed up considerably.
@@ -33,7 +33,7 @@ import (
 
 type env struct{}
 
-func (e *env) Logger() aspect.Logger { return &logger{} }
+func (e *env) Logger() adapter.Logger { return &logger{} }
 
 type logger struct{}
 
@@ -129,7 +129,7 @@ func TestValidateConfig(t *testing.T) {
 
 	b := newAdapter()
 	for i, c := range cases {
-		err := b.ValidateConfig(&c.cfg).Multi.Errors[0].(aspect.ConfigError)
+		err := b.ValidateConfig(&c.cfg).Multi.Errors[0].(adapter.ConfigError)
 		if err.Field != c.field {
 			t.Errorf("Case %d: expecting error for field %s, got %s", i, c.field, err.Field)
 		}
@@ -137,5 +137,5 @@ func TestValidateConfig(t *testing.T) {
 }
 
 func TestInvariants(t *testing.T) {
-	adaptertesting.TestAdapterInvariants(newAdapter(), Register, t)
+	adapterTesting.TestAdapterInvariants(newAdapter(), Register, t)
 }

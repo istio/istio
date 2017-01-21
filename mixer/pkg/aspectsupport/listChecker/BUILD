@@ -8,8 +8,8 @@ go_library(
         "manager.go",
     ],
     deps = [
-        "//pkg/aspect:go_default_library",
-        "//pkg/aspect/listChecker:go_default_library",
+        "//pkg/adapter:go_default_library",
+        "//pkg/adapter/listChecker:go_default_library",
         "//pkg/aspectsupport:go_default_library",
         "//pkg/aspectsupport/listChecker/config:go_default_library",
         "//pkg/attribute:go_default_library",

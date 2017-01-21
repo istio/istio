@@ -19,8 +19,8 @@ import (
 	"net/url"
 
 	"istio.io/mixer/adapter/ipListChecker/config"
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/aspect/listChecker"
+	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/listChecker"
 	"istio.io/mixer/pkg/registry"
 )
 
@@ -40,7 +40,7 @@ func (a *adapterState) Description() string {
 
 func (a *adapterState) Close() error { return nil }
 
-func (a *adapterState) ValidateConfig(cfg aspect.Config) (ce *aspect.ConfigErrors) {
+func (a *adapterState) ValidateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 	c := cfg.(*config.Params)
 
 	u, err := url.Parse(c.ProviderUrl)
@@ -55,7 +55,7 @@ func (a *adapterState) ValidateConfig(cfg aspect.Config) (ce *aspect.ConfigError
 	return
 }
 
-func (a *adapterState) DefaultConfig() aspect.Config {
+func (a *adapterState) DefaultConfig() adapter.Config {
 	return &config.Params{
 		ProviderUrl:     "http://localhost",
 		RefreshInterval: 60,
@@ -63,6 +63,6 @@ func (a *adapterState) DefaultConfig() aspect.Config {
 	}
 }
 
-func (a *adapterState) NewListChecker(env aspect.Env, c aspect.Config) (listChecker.Aspect, error) {
+func (a *adapterState) NewListChecker(env adapter.Env, c adapter.Config) (listChecker.Aspect, error) {
 	return newAspect(env, c.(*config.Params))
 }

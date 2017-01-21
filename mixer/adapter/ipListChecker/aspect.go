@@ -28,12 +28,12 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"istio.io/mixer/adapter/ipListChecker/config"
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/aspect/listChecker"
+	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/listChecker"
 )
 
 type aspectState struct {
-	log             aspect.Logger
+	log             adapter.Logger
 	backend         *url.URL
 	atomicList      atomic.Value
 	fetchedSha      [sha1.Size]byte
@@ -44,7 +44,7 @@ type aspectState struct {
 	client          http.Client
 }
 
-func newAspect(env aspect.Env, c *config.Params) (listChecker.Aspect, error) {
+func newAspect(env adapter.Env, c *config.Params) (listChecker.Aspect, error) {
 	var u *url.URL
 	var err error
 	if u, err = url.Parse(c.ProviderUrl); err != nil {

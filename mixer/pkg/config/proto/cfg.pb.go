@@ -157,7 +157,7 @@ func (m *AspectRule) GetRules() []*AspectRule {
 type Aspect struct {
 	Kind    string `protobuf:"bytes,1,opt,name=kind" json:"kind,omitempty"`
 	Adapter string `protobuf:"bytes,2,opt,name=adapter" json:"adapter,omitempty"`
-	// maps from isio Attribute space to aspect.Input proto defined
+	// maps from isio Attribute space to adapter.Input proto defined
 	// by the aspect
 	Inputs map[string]string `protobuf:"bytes,3,rep,name=inputs" json:"inputs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Struct representation of a proto defined by the aspect

@@ -8,6 +8,6 @@ go_library(
         "logger.go",
     ],
     deps = [
-        "//pkg/aspect:go_default_library",
+        "//pkg/adapter:go_default_library",
     ],
 )
