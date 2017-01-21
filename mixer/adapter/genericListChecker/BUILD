@@ -11,7 +11,6 @@ go_library(
     deps = [
         "//adapter/genericListChecker/config:go_default_library",
         "//pkg/adapter:go_default_library",
-        "//pkg/registry:go_default_library",
     ],
 )
 

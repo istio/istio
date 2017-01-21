@@ -18,11 +18,10 @@ import (
 	gt "testing"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/registry"
 )
 
 // RegisterFunc is the function that registers adapters into the supplied registry
-type RegisterFunc func(registry.Registrar) error
+type RegisterFunc func(adapter.Registrar) error
 
 type fakeRegistrar struct {
 	registrations int

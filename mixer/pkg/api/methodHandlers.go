@@ -23,11 +23,11 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/genproto/googleapis/rpc/status"
 
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
-	regpkg "istio.io/mixer/pkg/registry"
 
 	"fmt"
 
@@ -67,7 +67,7 @@ const (
 
 // StaticBinding contains all of the pieces required to wire up an adapter to serve traffic in the mixer.
 type StaticBinding struct {
-	RegisterFn regpkg.RegisterFn
+	RegisterFn adapter.RegisterFn
 	Manager    aspect.Manager
 	Config     *aspect.CombinedConfig
 	Methods    []Method

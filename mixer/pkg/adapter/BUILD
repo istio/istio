@@ -13,6 +13,7 @@ go_library(
         "logger.go",
         "metrics.go",
         "quota.go",
+        "registrar.go",
     ],
     deps = [
         "@com_github_golang_protobuf//proto:go_default_library",

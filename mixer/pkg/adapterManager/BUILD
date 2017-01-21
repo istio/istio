@@ -15,7 +15,6 @@ go_library(
         "//pkg/aspect:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/expr:go_default_library",
-        "//pkg/registry:go_default_library",
         "@com_github_golang_glog//:go_default_library",
     ],
 )
