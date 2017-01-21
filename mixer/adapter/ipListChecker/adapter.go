@@ -63,6 +63,6 @@ func (a *adapterState) DefaultConfig() aspect.Config {
 	}
 }
 
-func (a *adapterState) NewAspect(env aspect.Env, c aspect.Config) (listChecker.Aspect, error) {
+func (a *adapterState) NewListChecker(env aspect.Env, c aspect.Config) (listChecker.Aspect, error) {
 	return newAspect(env, c.(*config.Params))
 }

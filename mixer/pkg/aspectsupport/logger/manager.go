@@ -83,7 +83,7 @@ func (m *manager) NewAspect(c *aspectsupport.CombinedConfig, a aspect.Adapter, e
 		}
 	}
 
-	aspectImpl, err := logAdapter.NewAspect(env, cpb)
+	aspectImpl, err := logAdapter.NewLogger(env, cpb)
 	if err != nil {
 		return nil, err
 	}

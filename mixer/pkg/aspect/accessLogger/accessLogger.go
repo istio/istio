@@ -38,9 +38,9 @@ type (
 	Adapter interface {
 		aspect.Adapter
 
-		// NewAspect returns a new AccessLogger implementation, based
+		// NewAccessLogger returns a new AccessLogger implementation, based
 		// on the supplied Aspect configuration for the backend.
-		NewAspect(env aspect.Env, config proto.Message) (Aspect, error)
+		NewAccessLogger(env aspect.Env, config proto.Message) (Aspect, error)
 	}
 
 	// Entry defines a basic wrapper around the access log information for

@@ -44,6 +44,6 @@ func (a *adapterState) DefaultConfig() aspect.Config {
 	return &config.Params{Error: &status.Status{Code: int32(code.Code_FAILED_PRECONDITION)}}
 }
 
-func (a *adapterState) NewAspect(env aspect.Env, c aspect.Config) (denyChecker.Aspect, error) {
+func (a *adapterState) NewDenyChecker(env aspect.Env, c aspect.Config) (denyChecker.Aspect, error) {
 	return newAspect(c.(*config.Params))
 }
