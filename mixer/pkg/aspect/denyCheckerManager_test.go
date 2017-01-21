@@ -12,24 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-syntax = "proto3";
+package aspect
 
-package pkg.adaptersupport.listChecker.config;
+import "testing"
 
-option go_package="config";
-
-// Configures a list checker aspect
-message Params {
-  // blacklist determines if this behaves like a blacklist
-  // default is whitelist
-  bool blacklist = 1;
-  // check_attribute is the attribute to check on the list
-  // should be a well known attribute or must be mapped in mappings
-  string check_attribute = 2;
+func TestDenyCheckerManager(t *testing.T) {
+	_ = NewDenyCheckerManager()
 }
-
-// Example
-// kind: istio/listChecker
-// params:
-//	blacklist: true
-//      check_attributes: src.ip

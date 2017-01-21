@@ -12,13 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package denyChecker
+package aspect
 
 import "testing"
 
-func TestManager(t *testing.T) {
-	m := NewManager()
-	if m.Kind() != kind {
-		t.Error("Wrong kind of adapter")
-	}
+func TestListCheckerManager(t *testing.T) {
+	_ = NewListCheckerManager()
 }

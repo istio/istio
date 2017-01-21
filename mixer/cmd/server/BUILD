@@ -14,7 +14,6 @@ go_library(
         "//adapter/denyChecker:go_default_library",
         "//pkg/api:go_default_library",
         "//pkg/aspect:go_default_library",
-        "//pkg/aspect/denyChecker:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/tracing:go_default_library",
         "@com_github_golang_glog//:go_default_library",

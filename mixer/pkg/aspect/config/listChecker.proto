@@ -14,10 +14,22 @@
 
 syntax = "proto3";
 
-package pkg.adaptersupport.denyChecker.config;
+package pkg.aspect.config;
 
 option go_package="config";
 
-// Configures a deny checker aspect
-message Params {
+// Configures a list checker aspect
+message ListCheckerParams {
+  // blacklist determines if this behaves like a blacklist
+  // default is whitelist
+  bool blacklist = 1;
+  // check_attribute is the attribute to check on the list
+  // should be a well known attribute or must be mapped in mappings
+  string check_attribute = 2;
 }
+
+// Example
+// kind: istio/listChecker
+// params:
+//	blacklist: true
+//      check_attributes: src.ip
