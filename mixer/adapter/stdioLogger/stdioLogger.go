@@ -47,7 +47,8 @@ func (a *adapter) Description() string {
 func (a *adapter) DefaultConfig() aspect.Config                             { return &config.Params{} }
 func (a *adapter) Close() error                                             { return nil }
 func (a *adapter) ValidateConfig(c aspect.Config) (ce *aspect.ConfigErrors) { return nil }
-func (a *adapter) NewAspect(env aspect.Env, cfg aspect.Config) (logger.Aspect, error) {
+
+func (a *adapter) NewLogger(env aspect.Env, cfg aspect.Config) (logger.Aspect, error) {
 	c := cfg.(*config.Params)
 
 	w := os.Stderr
@@ -59,6 +60,7 @@ func (a *adapter) NewAspect(env aspect.Env, cfg aspect.Config) (logger.Aspect, e
 }
 
 func (a *aspectImpl) Close() error { return nil }
+
 func (a *aspectImpl) Log(entries []logger.Entry) error {
 	var errors *me.Error
 	for _, entry := range entries {

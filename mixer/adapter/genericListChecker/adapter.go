@@ -36,6 +36,6 @@ func (a *adapterState) Close() error                                            
 func (a *adapterState) ValidateConfig(c aspect.Config) (ce *aspect.ConfigErrors) { return }
 func (a *adapterState) DefaultConfig() aspect.Config                             { return &config.Params{} }
 
-func (a *adapterState) NewAspect(env aspect.Env, c aspect.Config) (listChecker.Aspect, error) {
+func (a *adapterState) NewListChecker(env aspect.Env, c aspect.Config) (listChecker.Aspect, error) {
 	return newAspect(c.(*config.Params))
 }

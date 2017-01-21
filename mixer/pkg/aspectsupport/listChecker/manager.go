@@ -61,7 +61,7 @@ func (m *manager) NewAspect(cfg *aspectsupport.CombinedConfig, ga aspect.Adapter
 	var asp listChecker.Aspect
 	var err error
 
-	if asp, err = aa.NewAspect(env, adapterCfg); err != nil {
+	if asp, err = aa.NewListChecker(env, adapterCfg); err != nil {
 		return nil, err
 	}
 

@@ -41,7 +41,7 @@ func TestNewManager(t *testing.T) {
 	}
 }
 
-func TestManager_NewAspect(t *testing.T) {
+func TestManager_NewLogger(t *testing.T) {
 	tl := &testLogger{}
 
 	defaultExec := &executor{
@@ -87,7 +87,7 @@ func TestManager_NewAspect(t *testing.T) {
 	}
 }
 
-func TestManager_NewAspectFailures(t *testing.T) {
+func TestManager_NewLoggerFailures(t *testing.T) {
 
 	defaultCfg := &aspectsupport.CombinedConfig{
 		Adapter: &configpb.Adapter{},
@@ -279,7 +279,7 @@ type (
 	}
 )
 
-func (t *testLogger) NewAspect(e aspect.Env, m aspect.Config) (logger.Aspect, error) {
+func (t *testLogger) NewLogger(e aspect.Env, m aspect.Config) (logger.Aspect, error) {
 	if t.errOnNewAspect {
 		return nil, errors.New("new aspect error")
 	}

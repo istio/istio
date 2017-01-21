@@ -42,13 +42,13 @@ func TestAdapter_NewAspect(t *testing.T) {
 	e := testEnv{}
 	a := &adapter{}
 	for _, v := range tests {
-		asp, err := a.NewAspect(e, v.config)
+		asp, err := a.NewLogger(e, v.config)
 		if err != nil {
-			t.Errorf("NewAspect(env, %s) => unexpected error: %v", v.config, err)
+			t.Errorf("NewLogger(env, %s) => unexpected error: %v", v.config, err)
 		}
 		got := asp.(*aspectImpl)
 		if !reflect.DeepEqual(got, v.want) {
-			t.Errorf("NewAspect(env, %s) => %v, want %v", v.config, got, v.want)
+			t.Errorf("NewLogger(env, %s) => %v, want %v", v.config, got, v.want)
 		}
 	}
 }

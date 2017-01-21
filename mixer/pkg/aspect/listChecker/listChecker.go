@@ -29,7 +29,8 @@ type (
 	// Adapter builds the ListChecker Aspect
 	Adapter interface {
 		aspect.Adapter
-		// NewAspect returns a new ListChecker
-		NewAspect(env aspect.Env, c aspect.Config) (Aspect, error)
+
+		// NewListChecker returns a new ListChecker.
+		NewListChecker(env aspect.Env, c aspect.Config) (Aspect, error)
 	}
 )

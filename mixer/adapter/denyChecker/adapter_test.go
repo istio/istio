@@ -27,7 +27,7 @@ import (
 func TestAll(t *testing.T) {
 	b := newAdapter()
 
-	a, err := b.NewAspect(nil, b.DefaultConfig())
+	a, err := b.NewDenyChecker(nil, b.DefaultConfig())
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestAll(t *testing.T) {
 		t.Errorf("a.Close failed: %v", err)
 	}
 
-	a, err = b.NewAspect(nil, &config.Params{Error: &status.Status{Code: int32(code.Code_INVALID_ARGUMENT)}})
+	a, err = b.NewDenyChecker(nil, &config.Params{Error: &status.Status{Code: int32(code.Code_INVALID_ARGUMENT)}})
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
