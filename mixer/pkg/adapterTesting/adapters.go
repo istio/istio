@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adaptertesting
+package adapterTesting
 
 import (
 	"testing"
 
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/aspect/denyChecker"
-	"istio.io/mixer/pkg/aspect/listChecker"
-	"istio.io/mixer/pkg/aspect/logger"
-	"istio.io/mixer/pkg/aspect/quota"
+	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/denyChecker"
+	"istio.io/mixer/pkg/adapter/listChecker"
+	"istio.io/mixer/pkg/adapter/logger"
+	"istio.io/mixer/pkg/adapter/quota"
 	"istio.io/mixer/pkg/registry"
 )
 
@@ -53,7 +53,7 @@ func (r *fakeRegistrar) RegisterQuota(quota.Adapter) error {
 }
 
 // TestAdapterInvariants ensures that adapters implement expected semantics.
-func TestAdapterInvariants(a aspect.Adapter, r RegisterFunc, t *testing.T) {
+func TestAdapterInvariants(a adapter.Adapter, r RegisterFunc, t *testing.T) {
 	if a.Name() == "" {
 		t.Error("Name() => all adapters need names")
 	}

@@ -19,7 +19,7 @@ import (
 
 	istioconfig "istio.io/api/mixer/v1/config"
 
-	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
@@ -44,16 +44,16 @@ type (
 	// to the rest of the system
 	Manager interface {
 		// NewAspect creates a new aspect instance given configuration.
-		NewAspect(cfg *CombinedConfig, adapter aspect.Adapter, env aspect.Env) (AspectWrapper, error)
+		NewAspect(cfg *CombinedConfig, adapter adapter.Adapter, env adapter.Env) (AspectWrapper, error)
 		// Kind return the kind of aspect
 		Kind() string
 
-		aspect.ConfigValidator
+		adapter.ConfigValidator
 	}
 
 	// AspectWrapper encapsulates a single aspect and allows it to be invoked.
 	AspectWrapper interface {
-		// Execute dispatches to the given aspect.
+		// Execute dispatches to the given adapter.
 		// The evaluation is done under the context of an attribute bag and using
 		// an expression evaluator.
 		Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error)

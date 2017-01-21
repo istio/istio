@@ -15,14 +15,14 @@
 package quota
 
 import (
-	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/adapter"
 )
 
 type (
 	// Aspect is the interface for adapters that will handle quota management
 	// within the mixer.
 	Aspect interface {
-		aspect.Aspect
+		adapter.Aspect
 
 		// Alloc allocates the specified amount or fails when not available.
 		Alloc(Args) (int64, error)
@@ -37,11 +37,11 @@ type (
 	// Adapter is the interface for building Aspect instances for mixer
 	// quota backends.
 	Adapter interface {
-		aspect.Adapter
+		adapter.Adapter
 
 		// NewQuota returns a new quota implementation, based on the
 		// supplied Aspect configuration for the backend.
-		NewQuota(env aspect.Env, c aspect.Config) (Aspect, error)
+		NewQuota(env adapter.Env, c adapter.Config) (Aspect, error)
 	}
 
 	// Args supplies the arguments for quota operations.

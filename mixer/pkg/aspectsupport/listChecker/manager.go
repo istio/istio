@@ -19,8 +19,8 @@ import (
 
 	"google.golang.org/genproto/googleapis/rpc/code"
 
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/aspect/listChecker"
+	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/listChecker"
 	"istio.io/mixer/pkg/aspectsupport"
 	"istio.io/mixer/pkg/aspectsupport/listChecker/config"
 	"istio.io/mixer/pkg/attribute"
@@ -47,8 +47,8 @@ func NewManager() aspectsupport.Manager {
 	return &manager{}
 }
 
-// NewAspect creates a listChecker aspect. Implements aspect.Manager#NewAspect()
-func (m *manager) NewAspect(cfg *aspectsupport.CombinedConfig, ga aspect.Adapter, env aspect.Env) (aspectsupport.AspectWrapper, error) {
+// NewAspect creates a listChecker aspect.
+func (m *manager) NewAspect(cfg *aspectsupport.CombinedConfig, ga adapter.Adapter, env adapter.Env) (aspectsupport.AspectWrapper, error) {
 	aa, ok := ga.(listChecker.Adapter)
 	if !ok {
 		return nil, fmt.Errorf("adapter of incorrect type; expected listChecker.Adapter got %#v %T", ga, ga)
@@ -77,13 +77,13 @@ func (*manager) Kind() string {
 	return kind
 }
 
-func (*manager) DefaultConfig() aspect.Config {
+func (*manager) DefaultConfig() adapter.Config {
 	return &config.Params{
 		CheckAttribute: "src.ip",
 	}
 }
 
-func (*manager) ValidateConfig(c aspect.Config) (ce *aspect.ConfigErrors) {
+func (*manager) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	lc := c.(*config.Params)
 	if lc.CheckAttribute == "" {
 		ce = ce.Appendf("check_attribute", "Missing")

@@ -18,8 +18,8 @@ package denyChecker
 import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/aspect/denyChecker"
+	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/denyChecker"
 	"istio.io/mixer/pkg/registry"
 
 	"google.golang.org/genproto/googleapis/rpc/status"
@@ -34,16 +34,16 @@ func Register(r registry.Registrar) error {
 
 type adapterState struct{}
 
-func newAdapter() denyChecker.Adapter                                            { return &adapterState{} }
-func (a *adapterState) Name() string                                             { return "istio/denyChecker" }
-func (a *adapterState) Description() string                                      { return "Deny every check request" }
-func (a *adapterState) Close() error                                             { return nil }
-func (a *adapterState) ValidateConfig(c aspect.Config) (ce *aspect.ConfigErrors) { return }
+func newAdapter() denyChecker.Adapter                                              { return &adapterState{} }
+func (a *adapterState) Name() string                                               { return "istio/denyChecker" }
+func (a *adapterState) Description() string                                        { return "Deny every check request" }
+func (a *adapterState) Close() error                                               { return nil }
+func (a *adapterState) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) { return }
 
-func (a *adapterState) DefaultConfig() aspect.Config {
+func (a *adapterState) DefaultConfig() adapter.Config {
 	return &config.Params{Error: &status.Status{Code: int32(code.Code_FAILED_PRECONDITION)}}
 }
 
-func (a *adapterState) NewDenyChecker(env aspect.Env, c aspect.Config) (denyChecker.Aspect, error) {
+func (a *adapterState) NewDenyChecker(env adapter.Env, c adapter.Config) (denyChecker.Aspect, error) {
 	return newAspect(c.(*config.Params))
 }

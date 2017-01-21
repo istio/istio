@@ -16,22 +16,22 @@ package denyChecker
 
 import (
 	"google.golang.org/genproto/googleapis/rpc/status"
-	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/adapter"
 )
 
 type (
 	// Aspect denyChecker always fails with a configured error.
 	Aspect interface {
-		aspect.Aspect
+		adapter.Aspect
 		// Deny always returns an error
 		Deny() status.Status
 	}
 
 	// Adapter builds the DenyChecker Aspect
 	Adapter interface {
-		aspect.Adapter
+		adapter.Adapter
 
 		// NewDenyChecker returns a new DenyChecker
-		NewDenyChecker(env aspect.Env, c aspect.Config) (Aspect, error)
+		NewDenyChecker(env adapter.Env, c adapter.Config) (Aspect, error)
 	}
 )

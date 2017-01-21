@@ -30,7 +30,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"gopkg.in/yaml.v2"
 
-	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/adapter"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
@@ -40,7 +40,7 @@ type (
 	// Manager registry and adapter registry should implement this interface
 	// so ConfigValidators can be uniformly accessed.
 	ValidatorFinder interface {
-		FindValidator(name string) (aspect.ConfigValidator, bool)
+		FindValidator(name string) (adapter.ConfigValidator, bool)
 	}
 )
 
@@ -79,7 +79,7 @@ type (
 
 // validateGlobalConfig consumes a yml config string with adapter config.
 // It is validated in presence of validators.
-func (p *Validator) validateGlobalConfig(cfg string) (ce *aspect.ConfigErrors) {
+func (p *Validator) validateGlobalConfig(cfg string) (ce *adapter.ConfigErrors) {
 	var err error
 	m := &pb.GlobalConfig{}
 	if err = yaml.Unmarshal([]byte(cfg), m); err != nil {
@@ -88,7 +88,7 @@ func (p *Validator) validateGlobalConfig(cfg string) (ce *aspect.ConfigErrors) {
 	}
 	p.validated.adapterByKind = make(map[string][]*pb.Adapter)
 	p.validated.adapterByName = make(map[string]*pb.Adapter)
-	var acfg aspect.Config
+	var acfg adapter.Config
 	var aArr []*pb.Adapter
 	var found bool
 	for _, aa := range m.GetAdapters() {
@@ -122,8 +122,8 @@ func (p *Validator) validateSelector(selector string) (err error) {
 
 // validateAspectRules validates the recursive configuration data structure.
 // It is primarily used by validate ServiceConfig.
-func (p *Validator) validateAspectRules(rules []*pb.AspectRule, path string, validatePresence bool) (ce *aspect.ConfigErrors) {
-	var acfg aspect.Config
+func (p *Validator) validateAspectRules(rules []*pb.AspectRule, path string, validatePresence bool) (ce *adapter.ConfigErrors) {
+	var acfg adapter.Config
 	var err error
 	for _, rule := range rules {
 		if err = p.validateSelector(rule.GetSelector()); err != nil {
@@ -160,8 +160,8 @@ func (p *Validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 
 // Validate validates a single serviceConfig and globalConfig together.
 // It returns a fully validated Config if no errors are found.
-func (p *Validator) Validate(serviceCfg string, globalCfg string) (rt *Validated, ce *aspect.ConfigErrors) {
-	var cerr *aspect.ConfigErrors
+func (p *Validator) Validate(serviceCfg string, globalCfg string) (rt *Validated, ce *adapter.ConfigErrors) {
+	var cerr *adapter.ConfigErrors
 	if re := p.validateGlobalConfig(globalCfg); re != nil {
 		cerr = ce.Appendf("GlobalConfig", "failed validation")
 		return rt, cerr.Extend(re)
@@ -179,7 +179,7 @@ func (p *Validator) Validate(serviceCfg string, globalCfg string) (rt *Validated
 // ValidateServiceConfig validates service config.
 // if validatePresence is true it will ensure that the named adapter and Kinds
 // have an available and configured adapter.
-func (p *Validator) validateServiceConfig(cfg string, validatePresence bool) (ce *aspect.ConfigErrors) {
+func (p *Validator) validateServiceConfig(cfg string, validatePresence bool) (ce *adapter.ConfigErrors) {
 	var err error
 	m := &pb.ServiceConfig{}
 	if err = yaml.Unmarshal([]byte(cfg), m); err != nil {
@@ -199,8 +199,8 @@ func UnknownValidator(name string) error {
 }
 
 // ConvertParams converts returns a typed proto message based on available Validator.
-func ConvertParams(finder ValidatorFinder, name string, params interface{}, strict bool) (aspect.Config, error) {
-	var avl aspect.ConfigValidator
+func ConvertParams(finder ValidatorFinder, name string, params interface{}, strict bool) (adapter.Config, error) {
+	var avl adapter.ConfigValidator
 	var found bool
 
 	if avl, found = finder.FindValidator(name); !found {
@@ -234,7 +234,7 @@ func NewDecoder(md *mapstructure.Metadata, dst interface{}) (Decoder, error) {
 
 // Decode interprets src interface{} as the specified proto message.
 // optional newDecoderFn can be passed in, otherwise standard NewDecoder is used.
-func Decode(src interface{}, dst aspect.Config, strict bool, newDecoders ...newDecoderFn) (err error) {
+func Decode(src interface{}, dst adapter.Config, strict bool, newDecoders ...newDecoderFn) (err error) {
 	var md mapstructure.Metadata
 	var d Decoder
 	newDecoder := NewDecoder

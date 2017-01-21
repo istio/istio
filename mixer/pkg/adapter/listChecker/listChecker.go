@@ -15,22 +15,22 @@
 package listChecker
 
 import (
-	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/adapter"
 )
 
 type (
 	// Aspect listChecker checks given symbol against a list
 	Aspect interface {
-		aspect.Aspect
+		adapter.Aspect
 		// CheckList verifies whether the given symbol is on the list.
 		CheckList(symbol string) (bool, error)
 	}
 
 	// Adapter builds the ListChecker Aspect
 	Adapter interface {
-		aspect.Adapter
+		adapter.Adapter
 
-		// NewListChecker returns a new ListChecker.
-		NewListChecker(env aspect.Env, c aspect.Config) (Aspect, error)
+		// NewListChecker returns a new ListChecker
+		NewListChecker(env adapter.Env, c adapter.Config) (Aspect, error)
 	}
 )

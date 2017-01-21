@@ -17,7 +17,7 @@ ISTIO_DEPS = [
 ]
 
 DEPS = [
-    "//pkg/aspect:go_default_library",
+    "//pkg/adapter:go_default_library",
     "//pkg/attribute:go_default_library",
     "@com_github_google_go_genproto//googleapis/rpc/code:go_default_library",
     "//pkg/expr:go_default_library",

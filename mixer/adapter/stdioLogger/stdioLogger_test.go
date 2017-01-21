@@ -23,13 +23,13 @@ import (
 	"testing"
 
 	"istio.io/mixer/adapter/stdioLogger/config"
-	"istio.io/mixer/pkg/adaptertesting"
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/aspect/logger"
+	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/logger"
+	"istio.io/mixer/pkg/adapterTesting"
 )
 
 func TestAdapterInvariants(t *testing.T) {
-	adaptertesting.TestAdapterInvariants(&adapter{}, Register, t)
+	adapterTesting.TestAdapterInvariants(&adapterState{}, Register, t)
 }
 
 func TestAdapter_NewAspect(t *testing.T) {
@@ -40,7 +40,7 @@ func TestAdapter_NewAspect(t *testing.T) {
 	}
 
 	e := testEnv{}
-	a := &adapter{}
+	a := &adapterState{}
 	for _, v := range tests {
 		asp, err := a.NewLogger(e, v.config)
 		if err != nil {
@@ -109,7 +109,7 @@ func TestAspectImpl_LogFailure(t *testing.T) {
 
 type (
 	testEnv struct {
-		aspect.Env
+		adapter.Env
 	}
 	newAspectTests struct {
 		config *config.Params

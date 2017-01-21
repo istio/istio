@@ -9,8 +9,8 @@ go_library(
     ],
     deps = [
         "//adapter/stdioLogger/config:go_default_library",
-        "//pkg/aspect:go_default_library",
-        "//pkg/aspect/logger:go_default_library",
+        "//pkg/adapter:go_default_library",
+        "//pkg/adapter/logger:go_default_library",
         "//pkg/registry:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
     ],
@@ -22,7 +22,7 @@ go_test(
     srcs = ["stdioLogger_test.go"],
     library = ":go_default_library",
     deps = [
-        "//pkg/adaptertesting:go_default_library",
+        "//pkg/adapterTesting:go_default_library",
         "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
     ],
 )

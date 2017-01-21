@@ -15,17 +15,17 @@
 package uber
 
 import (
-	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/adapter"
 )
 
 type env struct {
-	logger aspect.Logger
+	logger adapter.Logger
 }
 
-func newEnv(aspect string) aspect.Env {
+func newEnv(aspect string) adapter.Env {
 	return &env{logger: newLogger(aspect)}
 }
 
-func (e *env) Logger() aspect.Logger {
+func (e *env) Logger() adapter.Logger {
 	return e.logger
 }

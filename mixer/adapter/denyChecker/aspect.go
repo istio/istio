@@ -18,14 +18,13 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/status"
 
 	"istio.io/mixer/adapter/denyChecker/config"
-	"istio.io/mixer/pkg/aspect/denyChecker"
+	"istio.io/mixer/pkg/adapter/denyChecker"
 )
 
 type aspectState struct {
 	status status.Status
 }
 
-// newAspect returns a new aspect.
 func newAspect(c *config.Params) (denyChecker.Aspect, error) {
 	return &aspectState{
 		status: *c.Error,

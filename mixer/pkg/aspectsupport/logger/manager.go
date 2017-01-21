@@ -23,8 +23,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/genproto/googleapis/rpc/code"
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/aspect/logger"
+	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/logger"
 	"istio.io/mixer/pkg/aspectsupport"
 	"istio.io/mixer/pkg/aspectsupport/logger/config"
 	"istio.io/mixer/pkg/attribute"
@@ -53,7 +53,7 @@ func NewManager() aspectsupport.Manager {
 	return &manager{}
 }
 
-func (m *manager) NewAspect(c *aspectsupport.CombinedConfig, a aspect.Adapter, env aspect.Env) (aspectsupport.AspectWrapper, error) {
+func (m *manager) NewAspect(c *aspectsupport.CombinedConfig, a adapter.Adapter, env adapter.Env) (aspectsupport.AspectWrapper, error) {
 	// Handle aspect config to get log name and log entry descriptors.
 	aspectCfg := m.DefaultConfig()
 	if c.Aspect.Params != nil {
@@ -69,7 +69,7 @@ func (m *manager) NewAspect(c *aspectsupport.CombinedConfig, a aspect.Adapter, e
 	timestampFmt := logCfg.TimestampFormat
 	// TODO: look up actual descriptors by name and build an array
 
-	// cast to logger.Adapter from aspect.Adapter
+	// cast to logger.Adapter from adapter.Adapter
 	logAdapter, ok := a.(logger.Adapter)
 	if !ok {
 		return nil, fmt.Errorf("adapter of incorrect type. Expected logger.Adapter got %#v %T", a, a)
@@ -106,12 +106,12 @@ func (m *manager) NewAspect(c *aspectsupport.CombinedConfig, a aspect.Adapter, e
 }
 
 func (*manager) Kind() string { return "istio/logger" }
-func (*manager) DefaultConfig() aspect.Config {
+func (*manager) DefaultConfig() adapter.Config {
 	return &config.Params{LogName: "istio_log", TimestampFormat: time.RFC3339}
 }
 
 // TODO: validation of timestamp format
-func (*manager) ValidateConfig(c aspect.Config) (ce *aspect.ConfigErrors) { return nil }
+func (*manager) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) { return nil }
 
 func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspectsupport.Output, error) {
 	var entries []logger.Entry

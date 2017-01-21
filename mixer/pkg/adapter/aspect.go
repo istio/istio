@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aspect
+package adapter
 
 import (
 	"io"
@@ -27,12 +27,12 @@ type (
 	// This interface is extended by aspects;
 	// ex: listChecker.Aspect adds --> CheckList(Symbol string) (bool, error)
 	// The extended interface is implemented by adapter impls.
-	// ex: //adapter/ipListChecker aspectState implements the listChecker.Aspect.
+	// ex: //adapter/ipListChecker aspectState implements the listChecker.adapter.
 	Aspect interface {
 		io.Closer
 	}
 
-	// Adapter represents an Aspect Builder that constructs instances a specific aspect.
+	// Adapter represents an Aspect Builder that constructs instances a specific adapter.
 	// This interface is extended by  aspects; (metrics, listChecker, ...)
 	// The extended interface is implemented by adapter implementations
 	Adapter interface {

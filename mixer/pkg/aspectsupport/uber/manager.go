@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sync"
 
-	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspectsupport"
 	"istio.io/mixer/pkg/aspectsupport/denyChecker"
 	"istio.io/mixer/pkg/aspectsupport/listChecker"
@@ -29,7 +29,7 @@ import (
 // RegistryQuerier enables querying the adapter registry for  adapter instances.
 type RegistryQuerier interface {
 	// ByImpl queries the registry by adapter name.
-	ByImpl(adapterName string) (aspect.Adapter, bool)
+	ByImpl(adapterName string) (adapter.Adapter, bool)
 }
 
 // Manager manages all aspects - provides uniform interface to
@@ -88,7 +88,7 @@ func (m *Manager) Execute(cfg *aspectsupport.CombinedConfig, attrs attribute.Bag
 		return nil, fmt.Errorf("could not find aspect manager %#v", cfg.Aspect.Kind)
 	}
 
-	var adapter aspect.Adapter
+	var adapter adapter.Adapter
 	if adapter, found = m.areg.ByImpl(cfg.Adapter.Impl); !found {
 		return nil, fmt.Errorf("could not find registered adapter %#v", cfg.Adapter.Impl)
 	}
@@ -99,12 +99,12 @@ func (m *Manager) Execute(cfg *aspectsupport.CombinedConfig, attrs attribute.Bag
 		return nil, err
 	}
 
-	// TODO act on aspect.Output
+	// TODO act on adapter.Output
 	return asp.Execute(attrs, mapper)
 }
 
-// CacheGet -- get from the cache, use aspect.Manager to construct an object in case of a cache miss
-func (m *Manager) CacheGet(cfg *aspectsupport.CombinedConfig, mgr aspectsupport.Manager, adapter aspect.Adapter) (asp aspectsupport.AspectWrapper, err error) {
+// CacheGet -- get from the cache, use adapter.Manager to construct an object in case of a cache miss
+func (m *Manager) CacheGet(cfg *aspectsupport.CombinedConfig, mgr aspectsupport.Manager, adapter adapter.Adapter) (asp aspectsupport.AspectWrapper, err error) {
 	key := cacheKey(cfg)
 	// try fast path with read lock
 	m.lock.RLock()

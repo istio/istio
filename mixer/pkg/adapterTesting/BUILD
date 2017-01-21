@@ -9,11 +9,11 @@ go_library(
         "adapters.go",
     ],
     deps = [
-        "//pkg/aspect:go_default_library",
-        "//pkg/aspect/denyChecker:go_default_library",
-        "//pkg/aspect/listChecker:go_default_library",
-        "//pkg/aspect/logger:go_default_library",
-        "//pkg/aspect/quota:go_default_library",
+        "//pkg/adapter:go_default_library",
+        "//pkg/adapter/denyChecker:go_default_library",
+        "//pkg/adapter/listChecker:go_default_library",
+        "//pkg/adapter/logger:go_default_library",
+        "//pkg/adapter/quota:go_default_library",
         "//pkg/registry:go_default_library",
     ],
 )

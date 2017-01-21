@@ -22,33 +22,32 @@ import (
 	"os"
 
 	"istio.io/mixer/adapter/stdioLogger/config"
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/aspect/logger"
+	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/logger"
 	"istio.io/mixer/pkg/registry"
 
 	me "github.com/hashicorp/go-multierror"
 )
 
 type (
-	adapter    struct{}
-	aspectImpl struct {
+	adapterState struct{}
+	aspectImpl   struct {
 		logStream io.Writer
 	}
 )
 
 // Register adds the stdioLogger adapter to the list of logger.Aspects known to
 // mixer.
-func Register(r registry.Registrar) error { return r.RegisterLogger(&adapter{}) }
+func Register(r registry.Registrar) error { return r.RegisterLogger(&adapterState{}) }
 
-func (a *adapter) Name() string { return "istio/stdioLogger" }
-func (a *adapter) Description() string {
+func (a *adapterState) Name() string { return "istio/stdioLogger" }
+func (a *adapterState) Description() string {
 	return "Writes structured log entries to a standard I/O stream"
 }
-func (a *adapter) DefaultConfig() aspect.Config                             { return &config.Params{} }
-func (a *adapter) Close() error                                             { return nil }
-func (a *adapter) ValidateConfig(c aspect.Config) (ce *aspect.ConfigErrors) { return nil }
-
-func (a *adapter) NewLogger(env aspect.Env, cfg aspect.Config) (logger.Aspect, error) {
+func (a *adapterState) DefaultConfig() adapter.Config                              { return &config.Params{} }
+func (a *adapterState) Close() error                                               { return nil }
+func (a *adapterState) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) { return nil }
+func (a *adapterState) NewLogger(env adapter.Env, cfg adapter.Config) (logger.Aspect, error) {
 	c := cfg.(*config.Params)
 
 	w := os.Stderr

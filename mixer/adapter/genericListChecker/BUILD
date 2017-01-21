@@ -10,8 +10,8 @@ go_library(
     ],
     deps = [
         "//adapter/genericListChecker/config:go_default_library",
-        "//pkg/aspect:go_default_library",
-        "//pkg/aspect/listChecker:go_default_library",
+        "//pkg/adapter:go_default_library",
+        "//pkg/adapter/listChecker:go_default_library",
         "//pkg/registry:go_default_library",
     ],
 )
@@ -21,5 +21,5 @@ go_test(
     size = "small",
     srcs = ["adapter_test.go"],
     library = ":go_default_library",
-    deps = ["//pkg/adaptertesting:go_default_library"],
+    deps = ["//pkg/adapterTesting:go_default_library"],
 )
