@@ -24,16 +24,16 @@ import (
 //
 // The usage pattern for this type is pretty simple:
 //
-//  	func (a *adapterState) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigErrors) {
-//  		c := cfg.(*Config)
-// 			if c.Url == nil {
-//  			ce = ce.Appendf("Url", "Must have a valid URL")
-//  		}
-//  		if c.RetryCount < 0 {
-//  			ce = ce.Appendf("RetryCount", "Expecting >= 0, got %d", cfg.RetryCount)
-//  		}
-//  		return
-//  	}
+//   func (a *adapterState) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+//       c := cfg.(*Config)
+//       if c.Url == nil {
+//           ce = ce.Appendf("Url", "Must have a valid URL")
+//       }
+//       if c.RetryCount < 0 {
+//           ce = ce.Appendf("RetryCount", "Expecting >= 0, got %d", cfg.RetryCount)
+//       }
+//       return
+//    }
 type ConfigErrors struct {
 	// Multi is the accumulator of errors
 	Multi *me.Error

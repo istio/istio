@@ -23,6 +23,7 @@ go_test(
     name = "small_tests",
     size = "small",
     srcs = [
+        "env_test.go",
         "manager_test.go",
         "registry_test.go",
     ],
@@ -30,11 +31,4 @@ go_test(
     deps = [
         "@com_github_istio_api//:mixer/v1/config",
     ],
-)
-
-go_test(
-    name = "env_test",
-    size = "small",
-    srcs = ["env_test.go"],
-    library = ":go_default_library",
 )

@@ -24,34 +24,28 @@ import (
 	"istio.io/mixer/pkg/expr"
 )
 
-// RegistryQuerier enables querying the adapter registry for  adapter instances.
-type RegistryQuerier interface {
-	// ByImpl queries the registry by adapter name.
-	ByImpl(adapterName string) (adapter.Adapter, bool)
-}
-
 // Manager manages all aspects - provides uniform interface to
 // all aspect managers
 type Manager struct {
 	mreg map[string]aspect.Manager
-	areg RegistryQuerier
+	areg *Registry
 
 	// protects cache
 	lock        sync.RWMutex
-	aspectCache map[CacheKey]aspect.Wrapper
+	aspectCache map[cacheKey]aspect.Wrapper
 }
 
-// CacheKey is used to cache fully constructed aspects
+// cacheKey is used to cache fully constructed aspects
 // These parameters are used in constructing an aspect
-type CacheKey struct {
+type cacheKey struct {
 	Kind   string
 	Impl   string
 	Params string
 	Args   string
 }
 
-func cacheKey(cfg *aspect.CombinedConfig) CacheKey {
-	return CacheKey{
+func newCacheKey(cfg *aspect.CombinedConfig) cacheKey {
+	return cacheKey{
 		Kind:   cfg.Aspect.GetKind(),
 		Impl:   cfg.Adapter.GetImpl(),
 		Params: cfg.Aspect.GetParams().String(),
@@ -60,20 +54,30 @@ func cacheKey(cfg *aspect.CombinedConfig) CacheKey {
 }
 
 // NewManager Creates a new Uber Aspect manager
-func NewManager(areg RegistryQuerier, mgrs []aspect.Manager) *Manager {
+func NewManager(mgrs []aspect.Manager) *Manager {
 	// Add all managers here as new aspects are added
 	if mgrs == nil {
-		mgrs = aspectManagers()
+		mgrs = []aspect.Manager{
+			aspect.NewListCheckerManager(),
+			aspect.NewDenyCheckerManager(),
+		}
 	}
+
 	mreg := make(map[string]aspect.Manager, len(mgrs))
 	for _, mgr := range mgrs {
 		mreg[mgr.Kind()] = mgr
 	}
+
 	return &Manager{
 		mreg:        mreg,
-		aspectCache: make(map[CacheKey]aspect.Wrapper),
-		areg:        areg,
+		areg:        newRegistry(),
+		aspectCache: make(map[cacheKey]aspect.Wrapper),
 	}
+}
+
+// Registry returns the registry used to track adapters.
+func (m *Manager) Registry() *Registry {
+	return m.areg
 }
 
 // Execute performs the aspect function based on CombinedConfig and attributes and an expression evaluator
@@ -93,7 +97,7 @@ func (m *Manager) Execute(cfg *aspect.CombinedConfig, attrs attribute.Bag, mappe
 
 	var asp aspect.Wrapper
 	var err error
-	if asp, err = m.CacheGet(cfg, mgr, adapter); err != nil {
+	if asp, err = m.cacheGet(cfg, mgr, adapter); err != nil {
 		return nil, err
 	}
 
@@ -102,8 +106,8 @@ func (m *Manager) Execute(cfg *aspect.CombinedConfig, attrs attribute.Bag, mappe
 }
 
 // CacheGet -- get from the cache, use adapter.Manager to construct an object in case of a cache miss
-func (m *Manager) CacheGet(cfg *aspect.CombinedConfig, mgr aspect.Manager, adapter adapter.Adapter) (asp aspect.Wrapper, err error) {
-	key := cacheKey(cfg)
+func (m *Manager) cacheGet(cfg *aspect.CombinedConfig, mgr aspect.Manager, adapter adapter.Adapter) (asp aspect.Wrapper, err error) {
+	key := newCacheKey(cfg)
 	// try fast path with read lock
 	m.lock.RLock()
 	asp, found := m.aspectCache[key]
@@ -124,12 +128,4 @@ func (m *Manager) CacheGet(cfg *aspect.CombinedConfig, mgr aspect.Manager, adapt
 		m.aspectCache[key] = asp
 	}
 	return asp, nil
-}
-
-// return list of aspect managers
-func aspectManagers() []aspect.Manager {
-	return []aspect.Manager{
-		aspect.NewListCheckerManager(),
-		aspect.NewDenyCheckerManager(),
-	}
 }

@@ -46,7 +46,7 @@ type (
 	}
 )
 
-// NewLoggerManager returns an aspect manager for the logger aspect.
+// NewLoggerManager returns an instance of the Logger aspect manager.
 func NewLoggerManager() Manager {
 	return &loggerManager{}
 }

@@ -6,7 +6,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "accessLogger.go",
-        "aspect.go",
+        "adapter.go",
         "configError.go",
         "denyChecker.go",
         "listChecker.go",

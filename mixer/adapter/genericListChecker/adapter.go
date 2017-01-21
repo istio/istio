@@ -20,7 +20,7 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-// Register records the existence of this adapter
+// Register records the the aspects exposed by this adapter.
 func Register(r adapter.Registrar) error {
 	return r.RegisterListChecker(newAdapter())
 }

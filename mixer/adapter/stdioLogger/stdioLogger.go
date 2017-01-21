@@ -34,8 +34,7 @@ type (
 	}
 )
 
-// Register adds the stdioLogger adapter to the list of logger.Aspects known to
-// mixer.
+// Register records the the aspects exposed by this adapter.
 func Register(r adapter.Registrar) error { return r.RegisterLogger(&adapterState{}) }
 
 func (a *adapterState) Name() string { return "istio/stdioLogger" }

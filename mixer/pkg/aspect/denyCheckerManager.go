@@ -34,7 +34,7 @@ type (
 	}
 )
 
-// NewDenyCheckerManager returns "this" aspect Manager
+// NewDenyCheckerManager returns an instance of the DenyChecker aspect manager.
 func NewDenyCheckerManager() Manager {
 	return &denyCheckerManager{}
 }
