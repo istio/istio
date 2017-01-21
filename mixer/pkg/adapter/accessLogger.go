@@ -12,50 +12,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package accessLogger provides the definition for the access logger aspect
-// of the Istio Mixer.
-package accessLogger
-
-import (
-	"github.com/golang/protobuf/proto"
-	"istio.io/mixer/pkg/adapter"
-)
+package adapter
 
 type (
-	// Aspect is the interface for adapters that will handle access log data
+	// AccessLoggerAspect is the interface for adapters that will handle access log data
 	// within the mixer.
-	Aspect interface {
-		adapter.Aspect
+	AccessLoggerAspect interface {
+		Aspect
 
 		// LogAccess directs a backend adapter to process a batch of
 		// access log entries derived from potentially several Report()
 		// calls.
-		LogAccess([]Entry) error
+		LogAccess([]AccessLogEntry) error
 	}
 
-	// Adapter is the interface for building Aspect instances for mixer
+	// AccessLoggerAdapter is the interface for building Aspect instances for mixer
 	// access logging backend adapters.
-	Adapter interface {
-		adapter.Adapter
+	AccessLoggerAdapter interface {
+		Adapter
 
 		// NewAccessLogger returns a new AccessLogger implementation, based
 		// on the supplied Aspect configuration for the backend.
-		NewAccessLogger(env adapter.Env, config proto.Message) (Aspect, error)
+		NewAccessLogger(env Env, c AspectConfig) (AccessLoggerAspect, error)
 	}
 
-	// Entry defines a basic wrapper around the access log information for
+	// AccessLogEntry defines a basic wrapper around the access log information for
 	// a single log entry. It is the job of the aspect manager to produce
 	// the access log data, based on the aspect configuration and pass the
 	// entries to the various backend adapters.
 	//
 	// Examples:
 	//
-	// &Entry{
+	// &AccessLogEntry{
 	// 	LogName: "logs/access_log",
 	// 	Log: "127.0.0.1 - testuser [10/Oct/2000:13:55:36 -0700] "GET /test.gif HTTP/1.0" 200 2326",
 	// }
 	//
-	// &Entry{
+	// &AccessLogEntry{
 	//	LogName: "logs/access_log",
 	//	Labels: map[string]interface{}{
 	//            "source_ip": "127.0.0.1",
@@ -64,7 +57,7 @@ type (
 	//            "response_code": 200,
 	//      }
 	// }
-	Entry struct {
+	AccessLogEntry struct {
 		// LogName is the name of the access log stream to which the
 		// entry corresponds.
 		LogName string

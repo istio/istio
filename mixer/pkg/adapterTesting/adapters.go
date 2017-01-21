@@ -18,10 +18,6 @@ import (
 	"testing"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/denyChecker"
-	"istio.io/mixer/pkg/adapter/listChecker"
-	"istio.io/mixer/pkg/adapter/logger"
-	"istio.io/mixer/pkg/adapter/quota"
 	"istio.io/mixer/pkg/registry"
 )
 
@@ -32,22 +28,22 @@ type fakeRegistrar struct {
 	registrations int
 }
 
-func (r *fakeRegistrar) RegisterCheckList(listChecker.Adapter) error {
+func (r *fakeRegistrar) RegisterCheckList(adapter.ListCheckerAdapter) error {
 	r.registrations++
 	return nil
 }
 
-func (r *fakeRegistrar) RegisterDeny(denyChecker.Adapter) error {
+func (r *fakeRegistrar) RegisterDeny(adapter.DenyCheckerAdapter) error {
 	r.registrations++
 	return nil
 }
 
-func (r *fakeRegistrar) RegisterLogger(logger.Adapter) error {
+func (r *fakeRegistrar) RegisterLogger(adapter.LoggerAdapter) error {
 	r.registrations++
 	return nil
 }
 
-func (r *fakeRegistrar) RegisterQuota(quota.Adapter) error {
+func (r *fakeRegistrar) RegisterQuota(adapter.QuotaAdapter) error {
 	r.registrations++
 	return nil
 }

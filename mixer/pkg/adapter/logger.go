@@ -12,29 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package logger
+package adapter
 
 import (
 	"encoding/json"
 	"fmt"
 	"strings"
-
-	"istio.io/mixer/pkg/adapter"
 )
 
 type (
-	// Aspect is the interface for adapters that will handle logs data
+	// LoggerAspect is the interface for adapters that will handle logs data
 	// within the mixer.
-	Aspect interface {
-		adapter.Aspect
+	LoggerAspect interface {
+		Aspect
 
 		// Log directs a backend adapter to process a batch of
 		// log entries derived from potentially several Report() calls.
-		Log([]Entry) error
+		Log([]LogEntry) error
 	}
 
-	// Entry is the set of data that together constitutes a log entry.
-	Entry struct {
+	// LogEntry is the set of data that together constitutes a log entry.
+	LogEntry struct {
 		// LogName is the name of the log in which to record this entry.
 		LogName string `json:"logName,omitempty"`
 		// Labels are a set of metadata associated with this entry.
@@ -57,14 +55,14 @@ type (
 	// Severity provides a set of logging levels for logger.Entry.
 	Severity int
 
-	// Adapter is the interface for building Aspect instances for mixer
+	// LoggerAdapter is the interface for building Aspect instances for mixer
 	// logging backends.
-	Adapter interface {
-		adapter.Adapter
+	LoggerAdapter interface {
+		Adapter
 
 		// NewLogger returns a new Logger implementation, based on the
 		// supplied Aspect configuration for the backend.
-		NewLogger(env adapter.Env, c adapter.AspectConfig) (Aspect, error)
+		NewLogger(env Env, c AspectConfig) (LoggerAspect, error)
 	}
 )
 

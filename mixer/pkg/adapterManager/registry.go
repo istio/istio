@@ -20,10 +20,6 @@ import (
 	"fmt"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/denyChecker"
-	"istio.io/mixer/pkg/adapter/listChecker"
-	alogger "istio.io/mixer/pkg/adapter/logger"
-	"istio.io/mixer/pkg/adapter/quota"
 )
 
 // Registry is a simple implementation of pkg/registry.Registrar and pkg/aspect/uber.RegistryQuerier which requires
@@ -48,25 +44,25 @@ func (r *Registry) ByImpl(adapterName string) (adapter.Adapter, bool) {
 }
 
 // RegisterCheckList registers adapters implementing the listChecker aspect.
-func (r *Registry) RegisterCheckList(list listChecker.Adapter) error {
+func (r *Registry) RegisterCheckList(list adapter.ListCheckerAdapter) error {
 	r.insert(list)
 	return nil
 }
 
 // RegisterDeny registers adapters implementing the denyChecker aspect.
-func (r *Registry) RegisterDeny(deny denyChecker.Adapter) error {
+func (r *Registry) RegisterDeny(deny adapter.DenyCheckerAdapter) error {
 	r.insert(deny)
 	return nil
 }
 
 // RegisterLogger registers adapters implementing the logger aspect.
-func (r *Registry) RegisterLogger(logger alogger.Adapter) error {
+func (r *Registry) RegisterLogger(logger adapter.LoggerAdapter) error {
 	r.insert(logger)
 	return nil
 }
 
 // RegisterQuota registers adapters implementing the quota aspect.
-func (r *Registry) RegisterQuota(quota quota.Adapter) error {
+func (r *Registry) RegisterQuota(quota adapter.QuotaAdapter) error {
 	r.insert(quota)
 	return nil
 }

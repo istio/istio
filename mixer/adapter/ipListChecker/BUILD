@@ -11,7 +11,6 @@ go_library(
     deps = [
         "//adapter/ipListChecker/config:go_default_library",
         "//pkg/adapter:go_default_library",
-        "//pkg/adapter/listChecker:go_default_library",
         "//pkg/registry:go_default_library",
         "@in_gopkg_yaml_v2//:go_default_library",
     ],

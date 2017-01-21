@@ -24,7 +24,6 @@ import (
 	"github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/logger"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/logger/config"
 	"istio.io/mixer/pkg/attribute"
@@ -43,7 +42,7 @@ type (
 		severityAttribute  string
 		timestampAttribute string
 		timestampFmt       string
-		aspect             logger.Aspect
+		aspect             adapter.LoggerAspect
 		defaultTimeFn      func() time.Time
 	}
 )
@@ -69,10 +68,10 @@ func (m *manager) NewAspect(c *aspect.CombinedConfig, a adapter.Adapter, env ada
 	timestampFmt := logCfg.TimestampFormat
 	// TODO: look up actual descriptors by name and build an array
 
-	// cast to logger.Adapter from adapter.Adapter
-	logAdapter, ok := a.(logger.Adapter)
+	// cast to adapter.LoggerAdapter from adapter.Adapter
+	logAdapter, ok := a.(adapter.LoggerAdapter)
 	if !ok {
-		return nil, fmt.Errorf("adapter of incorrect type. Expected logger.Adapter got %#v %T", a, a)
+		return nil, fmt.Errorf("adapter of incorrect type. Expected adapter.LoggerAdapter got %#v %T", a, a)
 	}
 
 	// Handle adapter config
@@ -114,7 +113,7 @@ func (*manager) DefaultConfig() adapter.AspectConfig {
 func (*manager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return nil }
 
 func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
-	var entries []logger.Entry
+	var entries []adapter.LogEntry
 
 	// TODO: would be nice if we could use a mutable.Bag here and could pass it around
 	// labels holds the generated attributes from mapper
@@ -126,7 +125,7 @@ func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.
 	}
 
 	for _, d := range e.descriptors {
-		entry := logger.Entry{
+		entry := adapter.LogEntry{
 			LogName:   e.logName,
 			Labels:    make(map[string]interface{}),
 			Severity:  severityVal(e.severityAttribute, attrs, labels),
@@ -185,13 +184,13 @@ func stringVal(attrName string, attrs attribute.Bag, labels map[string]interface
 	return dfault
 }
 
-func severityVal(attrName string, attrs attribute.Bag, labels map[string]interface{}) logger.Severity {
+func severityVal(attrName string, attrs attribute.Bag, labels map[string]interface{}) adapter.Severity {
 	if name, ok := value(attrName, attrs, strFn, labels).(string); ok {
-		if s, found := logger.SeverityByName(name); found {
+		if s, found := adapter.SeverityByName(name); found {
 			return s
 		}
 	}
-	return logger.Default
+	return adapter.Default
 }
 
 func timeVal(attrName string, attrs attribute.Bag, labels map[string]interface{}, dfault time.Time) time.Time {

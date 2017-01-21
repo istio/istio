@@ -18,7 +18,6 @@ package genericListChecker
 import (
 	"istio.io/mixer/adapter/genericListChecker/config"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/listChecker"
 	"istio.io/mixer/pkg/registry"
 )
 
@@ -29,13 +28,13 @@ func Register(r registry.Registrar) error {
 
 type adapterState struct{}
 
-func newAdapter() listChecker.Adapter                                                    { return &adapterState{} }
+func newAdapter() adapter.ListCheckerAdapter                                             { return &adapterState{} }
 func (a *adapterState) Name() string                                                     { return "istio/genericListChecker" }
 func (a *adapterState) Description() string                                              { return "Checks whether a string is present in a list." }
 func (a *adapterState) Close() error                                                     { return nil }
 func (a *adapterState) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 func (a *adapterState) DefaultConfig() adapter.AspectConfig                              { return &config.Params{} }
 
-func (a *adapterState) NewListChecker(env adapter.Env, c adapter.AspectConfig) (listChecker.Aspect, error) {
+func (a *adapterState) NewListChecker(env adapter.Env, c adapter.AspectConfig) (adapter.ListCheckerAspect, error) {
 	return newAspect(c.(*config.Params))
 }

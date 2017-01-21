@@ -15,29 +15,26 @@
 package registry
 
 import (
-	"istio.io/mixer/pkg/adapter/denyChecker"
-	"istio.io/mixer/pkg/adapter/listChecker"
-	"istio.io/mixer/pkg/adapter/logger"
-	"istio.io/mixer/pkg/adapter/quota"
+	"istio.io/mixer/pkg/adapter"
 )
 
 // Registrar -- Interface used by adapters to register themselves
 type Registrar interface {
 	// RegisterCheckList
-	RegisterCheckList(listChecker.Adapter) error
+	RegisterCheckList(adapter.ListCheckerAdapter) error
 
 	// RegisterDeny
-	RegisterDeny(denyChecker.Adapter) error
+	RegisterDeny(adapter.DenyCheckerAdapter) error
 
 	// RegisterLogger informs the mixer that an implementation of the
 	// logging aspect is provided by the supplied adapter. This adapter
 	// will be used to build individual instances of the logger aspect
 	// according to mixer config.
-	RegisterLogger(logger.Adapter) error
+	RegisterLogger(adapter.LoggerAdapter) error
 
 	// RequestQuota is used by adapters to register themselves as implementing the
 	// quota aspect.
-	RegisterQuota(quota.Adapter) error
+	RegisterQuota(adapter.QuotaAdapter) error
 }
 
 // RegisterFn is a function adapters use to register themselves.
