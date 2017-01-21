@@ -32,6 +32,6 @@ type (
 		adapter.Adapter
 
 		// NewDenyChecker returns a new DenyChecker
-		NewDenyChecker(env adapter.Env, c adapter.Config) (Aspect, error)
+		NewDenyChecker(env adapter.Env, c adapter.AspectConfig) (Aspect, error)
 	}
 )

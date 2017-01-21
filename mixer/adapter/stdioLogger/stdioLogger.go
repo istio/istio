@@ -44,10 +44,10 @@ func (a *adapterState) Name() string { return "istio/stdioLogger" }
 func (a *adapterState) Description() string {
 	return "Writes structured log entries to a standard I/O stream"
 }
-func (a *adapterState) DefaultConfig() adapter.Config                              { return &config.Params{} }
-func (a *adapterState) Close() error                                               { return nil }
-func (a *adapterState) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) { return nil }
-func (a *adapterState) NewLogger(env adapter.Env, cfg adapter.Config) (logger.Aspect, error) {
+func (a *adapterState) DefaultConfig() adapter.AspectConfig                              { return &config.Params{} }
+func (a *adapterState) Close() error                                                     { return nil }
+func (a *adapterState) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return nil }
+func (a *adapterState) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (logger.Aspect, error) {
 	c := cfg.(*config.Params)
 
 	w := os.Stderr

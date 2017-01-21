@@ -29,13 +29,13 @@ func Register(r registry.Registrar) error {
 
 type adapterState struct{}
 
-func newAdapter() listChecker.Adapter                                              { return &adapterState{} }
-func (a *adapterState) Name() string                                               { return "istio/genericListChecker" }
-func (a *adapterState) Description() string                                        { return "Checks whether a string is present in a list." }
-func (a *adapterState) Close() error                                               { return nil }
-func (a *adapterState) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) { return }
-func (a *adapterState) DefaultConfig() adapter.Config                              { return &config.Params{} }
+func newAdapter() listChecker.Adapter                                                    { return &adapterState{} }
+func (a *adapterState) Name() string                                                     { return "istio/genericListChecker" }
+func (a *adapterState) Description() string                                              { return "Checks whether a string is present in a list." }
+func (a *adapterState) Close() error                                                     { return nil }
+func (a *adapterState) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
+func (a *adapterState) DefaultConfig() adapter.AspectConfig                              { return &config.Params{} }
 
-func (a *adapterState) NewListChecker(env adapter.Env, c adapter.Config) (listChecker.Aspect, error) {
+func (a *adapterState) NewListChecker(env adapter.Env, c adapter.AspectConfig) (listChecker.Aspect, error) {
 	return newAspect(c.(*config.Params))
 }

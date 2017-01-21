@@ -34,16 +34,16 @@ func Register(r registry.Registrar) error {
 
 type adapterState struct{}
 
-func newAdapter() denyChecker.Adapter                                              { return &adapterState{} }
-func (a *adapterState) Name() string                                               { return "istio/denyChecker" }
-func (a *adapterState) Description() string                                        { return "Deny every check request" }
-func (a *adapterState) Close() error                                               { return nil }
-func (a *adapterState) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) { return }
+func newAdapter() denyChecker.Adapter                                                    { return &adapterState{} }
+func (a *adapterState) Name() string                                                     { return "istio/denyChecker" }
+func (a *adapterState) Description() string                                              { return "Deny every check request" }
+func (a *adapterState) Close() error                                                     { return nil }
+func (a *adapterState) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 
-func (a *adapterState) DefaultConfig() adapter.Config {
+func (a *adapterState) DefaultConfig() adapter.AspectConfig {
 	return &config.Params{Error: &status.Status{Code: int32(code.Code_FAILED_PRECONDITION)}}
 }
 
-func (a *adapterState) NewDenyChecker(env adapter.Env, c adapter.Config) (denyChecker.Aspect, error) {
+func (a *adapterState) NewDenyChecker(env adapter.Env, c adapter.AspectConfig) (denyChecker.Aspect, error) {
 	return newAspect(c.(*config.Params))
 }
