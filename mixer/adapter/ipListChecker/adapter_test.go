@@ -24,7 +24,7 @@ import (
 
 	"istio.io/mixer/adapter/ipListChecker/config"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapterTesting"
+	at "istio.io/mixer/pkg/adapter/testing"
 )
 
 // TODO: this test suite needs to be beefed up considerably.
@@ -137,5 +137,5 @@ func TestValidateConfig(t *testing.T) {
 }
 
 func TestInvariants(t *testing.T) {
-	adapterTesting.TestAdapterInvariants(newAdapter(), Register, t)
+	at.TestAdapterInvariants(newAdapter(), Register, t)
 }
