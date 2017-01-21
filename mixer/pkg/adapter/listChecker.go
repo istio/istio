@@ -12,25 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package listChecker
-
-import (
-	"istio.io/mixer/pkg/adapter"
-)
+package adapter
 
 type (
-	// Aspect listChecker checks given symbol against a list
-	Aspect interface {
-		adapter.Aspect
+	// ListCheckerAspect checks given symbol against a list
+	ListCheckerAspect interface {
+		Aspect
+
 		// CheckList verifies whether the given symbol is on the list.
 		CheckList(symbol string) (bool, error)
 	}
 
-	// Adapter builds the ListChecker Aspect
-	Adapter interface {
-		adapter.Adapter
+	// ListCheckerAdapter builds the ListChecker Aspect
+	ListCheckerAdapter interface {
+		Adapter
 
 		// NewListChecker returns a new ListChecker
-		NewListChecker(env adapter.Env, c adapter.AspectConfig) (Aspect, error)
+		NewListChecker(env Env, c AspectConfig) (ListCheckerAspect, error)
 	}
 )

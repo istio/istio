@@ -20,7 +20,6 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/denyChecker"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/denyChecker/config"
 	"istio.io/mixer/pkg/attribute"
@@ -35,8 +34,8 @@ type (
 	manager struct{}
 
 	aspectWrapper struct {
-		adapter denyChecker.Adapter
-		aspect  denyChecker.Aspect
+		adapter adapter.DenyCheckerAdapter
+		aspect  adapter.DenyCheckerAspect
 	}
 )
 
@@ -47,15 +46,15 @@ func NewManager() aspect.Manager {
 
 // NewAspect creates a denyChecker aspect.
 func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga adapter.Adapter, env adapter.Env) (aspect.Wrapper, error) {
-	aa, ok := ga.(denyChecker.Adapter)
+	aa, ok := ga.(adapter.DenyCheckerAdapter)
 	if !ok {
-		return nil, fmt.Errorf("adapter of incorrect type; expected denyChecker.Adapter got %#v %T", ga, ga)
+		return nil, fmt.Errorf("adapter of incorrect type; expected adapter.DenyCheckerAdapter got %#v %T", ga, ga)
 	}
 
 	// TODO: convert from proto Struct to Go struct here!
 	adapterCfg := aa.DefaultConfig()
 	// TODO: parse cfg.Adapter.Params (*ptypes.struct) into adapterCfg
-	var asp denyChecker.Aspect
+	var asp adapter.DenyCheckerAspect
 	var err error
 
 	if asp, err = aa.NewDenyChecker(env, adapterCfg); err != nil {

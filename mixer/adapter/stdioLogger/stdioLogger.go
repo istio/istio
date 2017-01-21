@@ -23,7 +23,6 @@ import (
 
 	"istio.io/mixer/adapter/stdioLogger/config"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/logger"
 	"istio.io/mixer/pkg/registry"
 
 	me "github.com/hashicorp/go-multierror"
@@ -47,7 +46,7 @@ func (a *adapterState) Description() string {
 func (a *adapterState) DefaultConfig() adapter.AspectConfig                              { return &config.Params{} }
 func (a *adapterState) Close() error                                                     { return nil }
 func (a *adapterState) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return nil }
-func (a *adapterState) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (logger.Aspect, error) {
+func (a *adapterState) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.LoggerAspect, error) {
 	c := cfg.(*config.Params)
 
 	w := os.Stderr
@@ -60,7 +59,7 @@ func (a *adapterState) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (log
 
 func (a *aspectImpl) Close() error { return nil }
 
-func (a *aspectImpl) Log(entries []logger.Entry) error {
+func (a *aspectImpl) Log(entries []adapter.LogEntry) error {
 	var errors *me.Error
 	for _, entry := range entries {
 		if err := writeJSON(a.logStream, entry); err != nil {
@@ -71,6 +70,6 @@ func (a *aspectImpl) Log(entries []logger.Entry) error {
 	return errors.ErrorOrNil()
 }
 
-func writeJSON(w io.Writer, le logger.Entry) error {
+func writeJSON(w io.Writer, le adapter.LogEntry) error {
 	return json.NewEncoder(w).Encode(le)
 }

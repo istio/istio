@@ -20,7 +20,6 @@ import (
 
 	"istio.io/mixer/adapter/ipListChecker/config"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/listChecker"
 	"istio.io/mixer/pkg/registry"
 )
 
@@ -31,8 +30,8 @@ func Register(r registry.Registrar) error {
 
 type adapterState struct{}
 
-func newAdapter() listChecker.Adapter { return &adapterState{} }
-func (a *adapterState) Name() string  { return "istio/ipListChecker" }
+func newAdapter() adapter.ListCheckerAdapter { return &adapterState{} }
+func (a *adapterState) Name() string         { return "istio/ipListChecker" }
 
 func (a *adapterState) Description() string {
 	return "Checks whether an IP address is present in an IP address list."
@@ -63,6 +62,6 @@ func (a *adapterState) DefaultConfig() adapter.AspectConfig {
 	}
 }
 
-func (a *adapterState) NewListChecker(env adapter.Env, c adapter.AspectConfig) (listChecker.Aspect, error) {
+func (a *adapterState) NewListChecker(env adapter.Env, c adapter.AspectConfig) (adapter.ListCheckerAspect, error) {
 	return newAspect(env, c.(*config.Params))
 }

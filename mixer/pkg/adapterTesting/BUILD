@@ -10,10 +10,6 @@ go_library(
     ],
     deps = [
         "//pkg/adapter:go_default_library",
-        "//pkg/adapter/denyChecker:go_default_library",
-        "//pkg/adapter/listChecker:go_default_library",
-        "//pkg/adapter/logger:go_default_library",
-        "//pkg/adapter/quota:go_default_library",
         "//pkg/registry:go_default_library",
     ],
 )

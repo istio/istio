@@ -12,16 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package metrics defines a metrics aspect for the mixer. The metrics aspect
-// will be used by the mixer to enable backend systems to record and report
-// values relevant to services.
-package metrics
+package adapter
 
 import (
 	"errors"
 	"time"
-
-	"istio.io/mixer/pkg/adapter"
 )
 
 const (
@@ -32,10 +27,10 @@ const (
 )
 
 type (
-	// Aspect is the interface for adapters that will handle metrics
+	// MetricsAspect is the interface for adapters that will handle metrics
 	// reporting within the mixer.
-	Aspect interface {
-		adapter.Aspect
+	MetricsAspect interface {
+		Aspect
 
 		// Record directs a backend adapter to record the list of values
 		// that have been generated from Report() calls.
@@ -70,14 +65,14 @@ type (
 	// by istio.
 	Kind int
 
-	// Adapter is the interface for building Aspect instances for mixer
+	// MetricsAdapter is the interface for building Aspect instances for mixer
 	// metrics backends.
-	Adapter interface {
-		adapter.Adapter
+	MetricsAdapter interface {
+		Adapter
 
 		// NewMetrics returns a new quota implementation, based on the
 		// supplied Aspect configuration for the backend.
-		NewMetrics(env adapter.Env, config adapter.AspectConfig) (Aspect, error)
+		NewMetrics(env Env, config AspectConfig) (MetricsAspect, error)
 	}
 )
 

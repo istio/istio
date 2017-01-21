@@ -20,7 +20,6 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/listChecker"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/aspect/listChecker/config"
 	"istio.io/mixer/pkg/attribute"
@@ -36,8 +35,8 @@ type (
 
 	aspectWrapper struct {
 		cfg          *aspect.CombinedConfig
-		adapter      listChecker.Adapter
-		aspect       listChecker.Aspect
+		adapter      adapter.ListCheckerAdapter
+		aspect       adapter.ListCheckerAspect
 		aspectConfig *config.Params
 	}
 )
@@ -49,16 +48,16 @@ func NewManager() aspect.Manager {
 
 // NewAspect creates a listChecker aspect.
 func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga adapter.Adapter, env adapter.Env) (aspect.Wrapper, error) {
-	aa, ok := ga.(listChecker.Adapter)
+	aa, ok := ga.(adapter.ListCheckerAdapter)
 	if !ok {
-		return nil, fmt.Errorf("adapter of incorrect type; expected listChecker.Adapter got %#v %T", ga, ga)
+		return nil, fmt.Errorf("adapter of incorrect type; expected adapter.ListCheckerAdapter got %#v %T", ga, ga)
 	}
 
 	// TODO: convert from proto Struct to Go struct here!
 	var aspectConfig *config.Params
 	adapterCfg := aa.DefaultConfig()
 	// TODO: parse cfg.Adapter.Params (*ptypes.struct) into adapterCfg
-	var asp listChecker.Aspect
+	var asp adapter.ListCheckerAspect
 	var err error
 
 	if asp, err = aa.NewListChecker(env, adapterCfg); err != nil {

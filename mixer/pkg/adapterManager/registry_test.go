@@ -19,10 +19,6 @@ import (
 	"testing"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/denyChecker"
-	"istio.io/mixer/pkg/adapter/listChecker"
-	al "istio.io/mixer/pkg/adapter/logger"
-	"istio.io/mixer/pkg/adapter/quota"
 )
 
 type testAdapter struct {
@@ -37,7 +33,7 @@ func (testAdapter) ValidateConfig(c adapter.AspectConfig) *adapter.ConfigErrors 
 
 type denyAdapter struct{ testAdapter }
 
-func (denyAdapter) NewDenyChecker(env adapter.Env, cfg adapter.AspectConfig) (denyChecker.Aspect, error) {
+func (denyAdapter) NewDenyChecker(env adapter.Env, cfg adapter.AspectConfig) (adapter.DenyCheckerAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -61,7 +57,7 @@ func TestRegisterDeny(t *testing.T) {
 
 type listAdapter struct{ testAdapter }
 
-func (listAdapter) NewListChecker(env adapter.Env, cfg adapter.AspectConfig) (listChecker.Aspect, error) {
+func (listAdapter) NewListChecker(env adapter.Env, cfg adapter.AspectConfig) (adapter.ListCheckerAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -85,7 +81,7 @@ func TestCheckList(t *testing.T) {
 
 type loggerAdapter struct{ testAdapter }
 
-func (loggerAdapter) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (al.Aspect, error) {
+func (loggerAdapter) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.LoggerAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -109,7 +105,7 @@ func TestRegisterLogger(t *testing.T) {
 
 type quotaAdapter struct{ testAdapter }
 
-func (quotaAdapter) NewQuota(env adapter.Env, cfg adapter.AspectConfig) (quota.Aspect, error) {
+func (quotaAdapter) NewQuota(env adapter.Env, cfg adapter.AspectConfig) (adapter.QuotaAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

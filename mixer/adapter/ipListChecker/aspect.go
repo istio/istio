@@ -29,7 +29,6 @@ import (
 
 	"istio.io/mixer/adapter/ipListChecker/config"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/listChecker"
 )
 
 type aspectState struct {
@@ -44,7 +43,7 @@ type aspectState struct {
 	client          http.Client
 }
 
-func newAspect(env adapter.Env, c *config.Params) (listChecker.Aspect, error) {
+func newAspect(env adapter.Env, c *config.Params) (adapter.ListCheckerAspect, error) {
 	var u *url.URL
 	var err error
 	if u, err = url.Parse(c.ProviderUrl); err != nil {

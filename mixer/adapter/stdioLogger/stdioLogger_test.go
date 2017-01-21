@@ -24,7 +24,6 @@ import (
 
 	"istio.io/mixer/adapter/stdioLogger/config"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/logger"
 	"istio.io/mixer/pkg/adapterTesting"
 )
 
@@ -66,10 +65,10 @@ func TestAspectImpl_Log(t *testing.T) {
 
 	structPayload := map[string]interface{}{"val": 42, "obj": map[string]interface{}{"val": false}}
 
-	noPayloadEntry := logger.Entry{LogName: "istio_log", Labels: map[string]interface{}{}, Timestamp: "2017-Jan-09", Severity: logger.Info}
-	textPayloadEntry := logger.Entry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: logger.Info}
-	jsonPayloadEntry := logger.Entry{LogName: "istio_log", StructPayload: structPayload, Timestamp: "2017-Jan-09", Severity: logger.Info}
-	labelEntry := logger.Entry{LogName: "istio_log", Labels: map[string]interface{}{"label": 42}, Timestamp: "2017-Jan-09", Severity: logger.Info}
+	noPayloadEntry := adapter.LogEntry{LogName: "istio_log", Labels: map[string]interface{}{}, Timestamp: "2017-Jan-09", Severity: adapter.Info}
+	textPayloadEntry := adapter.LogEntry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: adapter.Info}
+	jsonPayloadEntry := adapter.LogEntry{LogName: "istio_log", StructPayload: structPayload, Timestamp: "2017-Jan-09", Severity: adapter.Info}
+	labelEntry := adapter.LogEntry{LogName: "istio_log", Labels: map[string]interface{}{"label": 42}, Timestamp: "2017-Jan-09", Severity: adapter.Info}
 
 	baseLog := `{"logName":"istio_log","timestamp":"2017-Jan-09","severity":"INFO"}`
 	textPayloadLog := `{"logName":"istio_log","timestamp":"2017-Jan-09","severity":"INFO","textPayload":"text payload"}`
@@ -79,11 +78,11 @@ func TestAspectImpl_Log(t *testing.T) {
 	baseAspectImpl := &aspectImpl{tw}
 
 	tests := []logTests{
-		{baseAspectImpl, []logger.Entry{}, []string{}},
-		{baseAspectImpl, []logger.Entry{noPayloadEntry}, []string{baseLog}},
-		{baseAspectImpl, []logger.Entry{textPayloadEntry}, []string{textPayloadLog}},
-		{baseAspectImpl, []logger.Entry{jsonPayloadEntry}, []string{jsonPayloadLog}},
-		{baseAspectImpl, []logger.Entry{labelEntry}, []string{labelLog}},
+		{baseAspectImpl, []adapter.LogEntry{}, []string{}},
+		{baseAspectImpl, []adapter.LogEntry{noPayloadEntry}, []string{baseLog}},
+		{baseAspectImpl, []adapter.LogEntry{textPayloadEntry}, []string{textPayloadLog}},
+		{baseAspectImpl, []adapter.LogEntry{jsonPayloadEntry}, []string{jsonPayloadLog}},
+		{baseAspectImpl, []adapter.LogEntry{labelEntry}, []string{labelLog}},
 	}
 
 	for _, v := range tests {
@@ -99,10 +98,10 @@ func TestAspectImpl_Log(t *testing.T) {
 
 func TestAspectImpl_LogFailure(t *testing.T) {
 	tw := &testWriter{errorOnWrite: true}
-	textPayloadEntry := logger.Entry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: logger.Info}
+	textPayloadEntry := adapter.LogEntry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: adapter.Info}
 	baseAspectImpl := &aspectImpl{tw}
 
-	if err := baseAspectImpl.Log([]logger.Entry{textPayloadEntry}); err == nil {
+	if err := baseAspectImpl.Log([]adapter.LogEntry{textPayloadEntry}); err == nil {
 		t.Error("Log() should have produced error")
 	}
 }
@@ -117,7 +116,7 @@ type (
 	}
 	logTests struct {
 		asp   *aspectImpl
-		input []logger.Entry
+		input []adapter.LogEntry
 		want  []string
 	}
 	testWriter struct {
