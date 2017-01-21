@@ -12,33 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package uber
+package adapterManager
 
 import (
-	"errors"
-	"fmt"
-
-	"github.com/golang/glog"
+	"testing"
 )
 
-type logger struct {
-	aspect string
-}
-
-func newLogger(aspect string) *logger {
-	return &logger{aspect: aspect}
-}
-
-func (l *logger) Infof(format string, args ...interface{}) {
-	glog.InfoDepth(1, l.aspect+":"+fmt.Sprintf(format, args...))
-}
-
-func (l *logger) Warningf(format string, args ...interface{}) {
-	glog.WarningDepth(1, l.aspect+":"+fmt.Sprintf(format, args...))
-}
-
-func (l *logger) Errorf(format string, args ...interface{}) error {
-	s := fmt.Sprintf(format, args...)
-	glog.ErrorDepth(1, l.aspect+":"+s)
-	return errors.New(s)
+func TestEnv(t *testing.T) {
+	// for now, just make sure nothing crashes...
+	env := newEnv("Foo")
+	log := env.Logger()
+	log.Infof("Test%s", "ing")
+	log.Warningf("Test%s", "ing")
+	err := log.Errorf("Test%s", "ing")
+	if err == nil {
+		t.Error("Expected an error but got nil")
+	}
 }

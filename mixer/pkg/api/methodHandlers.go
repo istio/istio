@@ -23,8 +23,8 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/genproto/googleapis/rpc/status"
 
+	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/aspectsupport"
-	"istio.io/mixer/pkg/aspectsupport/uber"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 	regpkg "istio.io/mixer/pkg/registry"
@@ -74,7 +74,7 @@ type StaticBinding struct {
 }
 
 type methodHandlers struct {
-	mngr uber.Manager
+	mngr adapterManager.Manager
 	eval expr.Evaluator
 
 	// Configs for the aspects that'll be used to serve each API method.
@@ -83,7 +83,7 @@ type methodHandlers struct {
 
 // NewMethodHandlers returns a canonical MethodHandlers that implements all of the mixer's API surface
 func NewMethodHandlers(bindings ...StaticBinding) MethodHandlers {
-	registry := uber.NewRegistry()
+	registry := adapterManager.NewRegistry()
 	managers := make([]aspectsupport.Manager, len(bindings))
 	configs := map[Method][]*aspectsupport.CombinedConfig{Check: {}, Report: {}, Quota: {}}
 
@@ -98,7 +98,7 @@ func NewMethodHandlers(bindings ...StaticBinding) MethodHandlers {
 	}
 
 	return &methodHandlers{
-		mngr:    *uber.NewManager(registry, managers),
+		mngr:    *adapterManager.NewManager(registry, managers),
 		eval:    expr.NewIdentityEvaluator(),
 		configs: configs,
 	}
