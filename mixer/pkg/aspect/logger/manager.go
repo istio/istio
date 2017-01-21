@@ -106,12 +106,12 @@ func (m *manager) NewAspect(c *aspect.CombinedConfig, a adapter.Adapter, env ada
 }
 
 func (*manager) Kind() string { return "istio/logger" }
-func (*manager) DefaultConfig() adapter.Config {
+func (*manager) DefaultConfig() adapter.AspectConfig {
 	return &config.Params{LogName: "istio_log", TimestampFormat: time.RFC3339}
 }
 
 // TODO: validation of timestamp format
-func (*manager) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) { return nil }
+func (*manager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return nil }
 
 func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
 	var entries []logger.Entry

@@ -41,7 +41,7 @@ type (
 
 		// NewQuota returns a new quota implementation, based on the
 		// supplied Aspect configuration for the backend.
-		NewQuota(env adapter.Env, c adapter.Config) (Aspect, error)
+		NewQuota(env adapter.Env, c adapter.AspectConfig) (Aspect, error)
 	}
 
 	// Args supplies the arguments for quota operations.

@@ -29,15 +29,15 @@ type testAdapter struct {
 	name string
 }
 
-func (t testAdapter) Name() string                                        { return t.name }
-func (testAdapter) Close() error                                          { return nil }
-func (testAdapter) Description() string                                   { return "mock adapter for testing" }
-func (testAdapter) DefaultConfig() adapter.Config                         { return nil }
-func (testAdapter) ValidateConfig(c adapter.Config) *adapter.ConfigErrors { return nil }
+func (t testAdapter) Name() string                                              { return t.name }
+func (testAdapter) Close() error                                                { return nil }
+func (testAdapter) Description() string                                         { return "mock adapter for testing" }
+func (testAdapter) DefaultConfig() adapter.AspectConfig                         { return nil }
+func (testAdapter) ValidateConfig(c adapter.AspectConfig) *adapter.ConfigErrors { return nil }
 
 type denyAdapter struct{ testAdapter }
 
-func (denyAdapter) NewDenyChecker(env adapter.Env, cfg adapter.Config) (denyChecker.Aspect, error) {
+func (denyAdapter) NewDenyChecker(env adapter.Env, cfg adapter.AspectConfig) (denyChecker.Aspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -61,7 +61,7 @@ func TestRegisterDeny(t *testing.T) {
 
 type listAdapter struct{ testAdapter }
 
-func (listAdapter) NewListChecker(env adapter.Env, cfg adapter.Config) (listChecker.Aspect, error) {
+func (listAdapter) NewListChecker(env adapter.Env, cfg adapter.AspectConfig) (listChecker.Aspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -85,7 +85,7 @@ func TestCheckList(t *testing.T) {
 
 type loggerAdapter struct{ testAdapter }
 
-func (loggerAdapter) NewLogger(env adapter.Env, cfg adapter.Config) (al.Aspect, error) {
+func (loggerAdapter) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (al.Aspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -109,7 +109,7 @@ func TestRegisterLogger(t *testing.T) {
 
 type quotaAdapter struct{ testAdapter }
 
-func (quotaAdapter) NewQuota(env adapter.Env, cfg adapter.Config) (quota.Aspect, error) {
+func (quotaAdapter) NewQuota(env adapter.Env, cfg adapter.AspectConfig) (quota.Aspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

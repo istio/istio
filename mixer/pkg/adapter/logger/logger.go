@@ -64,7 +64,7 @@ type (
 
 		// NewLogger returns a new Logger implementation, based on the
 		// supplied Aspect configuration for the backend.
-		NewLogger(env adapter.Env, c adapter.Config) (Aspect, error)
+		NewLogger(env adapter.Env, c adapter.AspectConfig) (Aspect, error)
 	}
 )
 

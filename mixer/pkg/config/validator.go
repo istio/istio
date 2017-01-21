@@ -88,7 +88,7 @@ func (p *Validator) validateGlobalConfig(cfg string) (ce *adapter.ConfigErrors) 
 	}
 	p.validated.adapterByKind = make(map[string][]*pb.Adapter)
 	p.validated.adapterByName = make(map[string]*pb.Adapter)
-	var acfg adapter.Config
+	var acfg adapter.AspectConfig
 	var aArr []*pb.Adapter
 	var found bool
 	for _, aa := range m.GetAdapters() {
@@ -123,7 +123,7 @@ func (p *Validator) validateSelector(selector string) (err error) {
 // validateAspectRules validates the recursive configuration data structure.
 // It is primarily used by validate ServiceConfig.
 func (p *Validator) validateAspectRules(rules []*pb.AspectRule, path string, validatePresence bool) (ce *adapter.ConfigErrors) {
-	var acfg adapter.Config
+	var acfg adapter.AspectConfig
 	var err error
 	for _, rule := range rules {
 		if err = p.validateSelector(rule.GetSelector()); err != nil {
@@ -199,7 +199,7 @@ func UnknownValidator(name string) error {
 }
 
 // ConvertParams converts returns a typed proto message based on available Validator.
-func ConvertParams(finder ValidatorFinder, name string, params interface{}, strict bool) (adapter.Config, error) {
+func ConvertParams(finder ValidatorFinder, name string, params interface{}, strict bool) (adapter.AspectConfig, error) {
 	var avl adapter.ConfigValidator
 	var found bool
 
@@ -234,7 +234,7 @@ func NewDecoder(md *mapstructure.Metadata, dst interface{}) (Decoder, error) {
 
 // Decode interprets src interface{} as the specified proto message.
 // optional newDecoderFn can be passed in, otherwise standard NewDecoder is used.
-func Decode(src interface{}, dst adapter.Config, strict bool, newDecoders ...newDecoderFn) (err error) {
+func Decode(src interface{}, dst adapter.AspectConfig, strict bool, newDecoders ...newDecoderFn) (err error) {
 	var md mapstructure.Metadata
 	var d Decoder
 	newDecoder := NewDecoder

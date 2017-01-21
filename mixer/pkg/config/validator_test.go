@@ -38,12 +38,12 @@ type lc struct {
 	ce *adapter.ConfigErrors
 }
 
-func (m *lc) DefaultConfig() (c adapter.Config) {
+func (m *lc) DefaultConfig() (c adapter.AspectConfig) {
 	return &listcheckerpb.Params{}
 }
 
 // ValidateConfig determines whether the given configuration meets all correctness requirements.
-func (m *lc) ValidateConfig(c adapter.Config) *adapter.ConfigErrors {
+func (m *lc) ValidateConfig(c adapter.AspectConfig) *adapter.ConfigErrors {
 	return m.ce
 }
 

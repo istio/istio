@@ -72,11 +72,11 @@ func (*manager) Kind() string {
 	return kind
 }
 
-func (*manager) DefaultConfig() adapter.Config {
+func (*manager) DefaultConfig() adapter.AspectConfig {
 	return &config.Params{}
 }
 
-func (*manager) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
+func (*manager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	return
 }
 

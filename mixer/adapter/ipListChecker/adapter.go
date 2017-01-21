@@ -40,7 +40,7 @@ func (a *adapterState) Description() string {
 
 func (a *adapterState) Close() error { return nil }
 
-func (a *adapterState) ValidateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
+func (a *adapterState) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	c := cfg.(*config.Params)
 
 	u, err := url.Parse(c.ProviderUrl)
@@ -55,7 +55,7 @@ func (a *adapterState) ValidateConfig(cfg adapter.Config) (ce *adapter.ConfigErr
 	return
 }
 
-func (a *adapterState) DefaultConfig() adapter.Config {
+func (a *adapterState) DefaultConfig() adapter.AspectConfig {
 	return &config.Params{
 		ProviderUrl:     "http://localhost",
 		RefreshInterval: 60,
@@ -63,6 +63,6 @@ func (a *adapterState) DefaultConfig() adapter.Config {
 	}
 }
 
-func (a *adapterState) NewListChecker(env adapter.Env, c adapter.Config) (listChecker.Aspect, error) {
+func (a *adapterState) NewListChecker(env adapter.Env, c adapter.AspectConfig) (listChecker.Aspect, error) {
 	return newAspect(env, c.(*config.Params))
 }

@@ -31,6 +31,6 @@ type (
 		adapter.Adapter
 
 		// NewListChecker returns a new ListChecker
-		NewListChecker(env adapter.Env, c adapter.Config) (Aspect, error)
+		NewListChecker(env adapter.Env, c adapter.AspectConfig) (Aspect, error)
 	}
 )

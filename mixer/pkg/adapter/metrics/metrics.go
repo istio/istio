@@ -77,7 +77,7 @@ type (
 
 		// NewMetrics returns a new quota implementation, based on the
 		// supplied Aspect configuration for the backend.
-		NewMetrics(env adapter.Env, config adapter.Config) (Aspect, error)
+		NewMetrics(env adapter.Env, config adapter.AspectConfig) (Aspect, error)
 	}
 )
 
