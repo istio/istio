@@ -9,8 +9,8 @@ go_library(
         "methodHandlers.go",
     ],
     deps = [
+        "//pkg/adapterManager:go_default_library",
         "//pkg/aspectsupport:go_default_library",
-        "//pkg/aspectsupport/uber:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/expr:go_default_library",
         "//pkg/registry:go_default_library",
