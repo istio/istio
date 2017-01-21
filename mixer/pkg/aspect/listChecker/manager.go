@@ -21,8 +21,8 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/listChecker"
-	"istio.io/mixer/pkg/aspectsupport"
-	"istio.io/mixer/pkg/aspectsupport/listChecker/config"
+	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/aspect/listChecker/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
@@ -35,7 +35,7 @@ type (
 	manager struct{}
 
 	aspectWrapper struct {
-		cfg          *aspectsupport.CombinedConfig
+		cfg          *aspect.CombinedConfig
 		adapter      listChecker.Adapter
 		aspect       listChecker.Aspect
 		aspectConfig *config.Params
@@ -43,12 +43,12 @@ type (
 )
 
 // NewManager returns "this" aspect Manager
-func NewManager() aspectsupport.Manager {
+func NewManager() aspect.Manager {
 	return &manager{}
 }
 
 // NewAspect creates a listChecker aspect.
-func (m *manager) NewAspect(cfg *aspectsupport.CombinedConfig, ga adapter.Adapter, env adapter.Env) (aspectsupport.AspectWrapper, error) {
+func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga adapter.Adapter, env adapter.Env) (aspect.Wrapper, error) {
 	aa, ok := ga.(listChecker.Adapter)
 	if !ok {
 		return nil, fmt.Errorf("adapter of incorrect type; expected listChecker.Adapter got %#v %T", ga, ga)
@@ -95,7 +95,7 @@ func (a *aspectWrapper) AdapterName() string {
 	return a.adapter.Name()
 }
 
-func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspectsupport.Output, error) {
+func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
 	var found bool
 	var err error
 	asp := a.aspect
@@ -122,5 +122,5 @@ func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*as
 		rCode = code.Code_OK
 	}
 
-	return &aspectsupport.Output{Code: rCode}, nil
+	return &aspect.Output{Code: rCode}, nil
 }

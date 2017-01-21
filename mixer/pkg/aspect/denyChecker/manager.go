@@ -21,8 +21,8 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/denyChecker"
-	"istio.io/mixer/pkg/aspectsupport"
-	"istio.io/mixer/pkg/aspectsupport/denyChecker/config"
+	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/aspect/denyChecker/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
@@ -41,12 +41,12 @@ type (
 )
 
 // NewManager returns "this" aspect Manager
-func NewManager() aspectsupport.Manager {
+func NewManager() aspect.Manager {
 	return &manager{}
 }
 
 // NewAspect creates a denyChecker aspect.
-func (m *manager) NewAspect(cfg *aspectsupport.CombinedConfig, ga adapter.Adapter, env adapter.Env) (aspectsupport.AspectWrapper, error) {
+func (m *manager) NewAspect(cfg *aspect.CombinedConfig, ga adapter.Adapter, env adapter.Env) (aspect.Wrapper, error) {
 	aa, ok := ga.(denyChecker.Adapter)
 	if !ok {
 		return nil, fmt.Errorf("adapter of incorrect type; expected denyChecker.Adapter got %#v %T", ga, ga)
@@ -84,7 +84,7 @@ func (a *aspectWrapper) AdapterName() string {
 	return a.adapter.Name()
 }
 
-func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspectsupport.Output, error) {
+func (a *aspectWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
 	status := a.aspect.Deny()
-	return &aspectsupport.Output{Code: code.Code(status.Code)}, nil
+	return &aspect.Output{Code: code.Code(status.Code)}, nil
 }

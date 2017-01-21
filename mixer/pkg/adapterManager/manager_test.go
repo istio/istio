@@ -20,7 +20,7 @@ import (
 
 	istioconfig "istio.io/api/mixer/v1/config"
 
-	"istio.io/mixer/pkg/aspectsupport"
+	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
@@ -32,7 +32,7 @@ type (
 
 	fakemgr struct {
 		kind string
-		aspectsupport.Manager
+		aspect.Manager
 	}
 
 	fakebag struct {
@@ -50,9 +50,9 @@ func (m *fakemgr) Kind() string {
 
 func TestManager(t *testing.T) {
 	r := &fakereg{}
-	mgrs := []aspectsupport.Manager{&fakemgr{kind: "k1"}, &fakemgr{kind: "k2"}}
+	mgrs := []aspect.Manager{&fakemgr{kind: "k1"}, &fakemgr{kind: "k2"}}
 	m := NewManager(r, mgrs)
-	cfg := &aspectsupport.CombinedConfig{
+	cfg := &aspect.CombinedConfig{
 		Aspect:  &istioconfig.Aspect{},
 		Adapter: &istioconfig.Adapter{},
 	}

@@ -26,7 +26,7 @@ import (
 	"istio.io/mixer/pkg/adapter/quota"
 )
 
-// Registry is a simple implementation of pkg/registry.Registrar and pkg/aspectsupport/uber.RegistryQuerier which requires
+// Registry is a simple implementation of pkg/registry.Registrar and pkg/aspect/uber.RegistryQuerier which requires
 // that all registered adapters have a unique adapter name.
 type Registry struct {
 	sync.Mutex

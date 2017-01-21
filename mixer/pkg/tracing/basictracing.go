@@ -77,7 +77,8 @@ func IORecorder(w io.Writer) bt.SpanRecorder {
 
 // RecordSpan writes span to stdout.
 func (s ioRecorder) RecordSpan(span bt.RawSpan) {
-	fmt.Fprintln(s.sink, spanToString(span))
+	/* #nosec */
+	_, _ = fmt.Fprintln(s.sink, spanToString(span))
 }
 
 func spanToString(span bt.RawSpan) string {

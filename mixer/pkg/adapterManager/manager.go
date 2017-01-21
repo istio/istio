@@ -19,9 +19,9 @@ import (
 	"sync"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/aspectsupport"
-	"istio.io/mixer/pkg/aspectsupport/denyChecker"
-	"istio.io/mixer/pkg/aspectsupport/listChecker"
+	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/aspect/denyChecker"
+	"istio.io/mixer/pkg/aspect/listChecker"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
@@ -35,12 +35,12 @@ type RegistryQuerier interface {
 // Manager manages all aspects - provides uniform interface to
 // all aspect managers
 type Manager struct {
-	mreg map[string]aspectsupport.Manager
+	mreg map[string]aspect.Manager
 	areg RegistryQuerier
 
 	// protects cache
 	lock        sync.RWMutex
-	aspectCache map[CacheKey]aspectsupport.AspectWrapper
+	aspectCache map[CacheKey]aspect.Wrapper
 }
 
 // CacheKey is used to cache fully constructed aspects
@@ -52,7 +52,7 @@ type CacheKey struct {
 	Args   string
 }
 
-func cacheKey(cfg *aspectsupport.CombinedConfig) CacheKey {
+func cacheKey(cfg *aspect.CombinedConfig) CacheKey {
 	return CacheKey{
 		Kind:   cfg.Aspect.GetKind(),
 		Impl:   cfg.Adapter.GetImpl(),
@@ -62,26 +62,26 @@ func cacheKey(cfg *aspectsupport.CombinedConfig) CacheKey {
 }
 
 // NewManager Creates a new Uber Aspect manager
-func NewManager(areg RegistryQuerier, mgrs []aspectsupport.Manager) *Manager {
+func NewManager(areg RegistryQuerier, mgrs []aspect.Manager) *Manager {
 	// Add all managers here as new aspects are added
 	if mgrs == nil {
 		mgrs = aspectManagers()
 	}
-	mreg := make(map[string]aspectsupport.Manager, len(mgrs))
+	mreg := make(map[string]aspect.Manager, len(mgrs))
 	for _, mgr := range mgrs {
 		mreg[mgr.Kind()] = mgr
 	}
 	return &Manager{
 		mreg:        mreg,
-		aspectCache: make(map[CacheKey]aspectsupport.AspectWrapper),
+		aspectCache: make(map[CacheKey]aspect.Wrapper),
 		areg:        areg,
 	}
 }
 
 // Execute performs the aspect function based on CombinedConfig and attributes and an expression evaluator
 // returns aspect output or error if the operation could not be performed
-func (m *Manager) Execute(cfg *aspectsupport.CombinedConfig, attrs attribute.Bag, mapper expr.Evaluator) (*aspectsupport.Output, error) {
-	var mgr aspectsupport.Manager
+func (m *Manager) Execute(cfg *aspect.CombinedConfig, attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
+	var mgr aspect.Manager
 	var found bool
 
 	if mgr, found = m.mreg[cfg.Aspect.Kind]; !found {
@@ -93,7 +93,7 @@ func (m *Manager) Execute(cfg *aspectsupport.CombinedConfig, attrs attribute.Bag
 		return nil, fmt.Errorf("could not find registered adapter %#v", cfg.Adapter.Impl)
 	}
 
-	var asp aspectsupport.AspectWrapper
+	var asp aspect.Wrapper
 	var err error
 	if asp, err = m.CacheGet(cfg, mgr, adapter); err != nil {
 		return nil, err
@@ -104,7 +104,7 @@ func (m *Manager) Execute(cfg *aspectsupport.CombinedConfig, attrs attribute.Bag
 }
 
 // CacheGet -- get from the cache, use adapter.Manager to construct an object in case of a cache miss
-func (m *Manager) CacheGet(cfg *aspectsupport.CombinedConfig, mgr aspectsupport.Manager, adapter adapter.Adapter) (asp aspectsupport.AspectWrapper, err error) {
+func (m *Manager) CacheGet(cfg *aspect.CombinedConfig, mgr aspect.Manager, adapter adapter.Adapter) (asp aspect.Wrapper, err error) {
 	key := cacheKey(cfg)
 	// try fast path with read lock
 	m.lock.RLock()
@@ -129,8 +129,8 @@ func (m *Manager) CacheGet(cfg *aspectsupport.CombinedConfig, mgr aspectsupport.
 }
 
 // return list of aspect managers
-func aspectManagers() []aspectsupport.Manager {
-	return []aspectsupport.Manager{
+func aspectManagers() []aspect.Manager {
+	return []aspect.Manager{
 		listChecker.NewManager(),
 		denyChecker.NewManager(),
 	}

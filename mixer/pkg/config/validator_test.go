@@ -21,7 +21,7 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"istio.io/mixer/pkg/adapter"
-	listcheckerpb "istio.io/mixer/pkg/aspectsupport/listChecker/config"
+	listcheckerpb "istio.io/mixer/pkg/aspect/listChecker/config"
 	"istio.io/mixer/pkg/attribute"
 )
 

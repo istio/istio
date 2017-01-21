@@ -6,5 +6,5 @@ go_proto_library(
         "config.proto",
     ],
     verbose = 0,
-    visibility = ["//pkg/aspectsupport/quota:__pkg__"],
+    visibility = ["//pkg/aspect/logger:__pkg__"],
 )

@@ -9,13 +9,12 @@ go_library(
     ],
     deps = [
         "//pkg/adapter:go_default_library",
-        "//pkg/adapter/denyChecker:go_default_library",
-        "//pkg/aspectsupport:go_default_library",
-        "//pkg/aspectsupport/denyChecker/config:go_default_library",
+        "//pkg/adapter/listChecker:go_default_library",
+        "//pkg/aspect:go_default_library",
+        "//pkg/aspect/listChecker/config:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/expr:go_default_library",
         "@com_github_google_go_genproto//googleapis/rpc/code:go_default_library",
-        "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
     ],
 )
 

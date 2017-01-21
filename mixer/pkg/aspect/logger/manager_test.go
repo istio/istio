@@ -25,8 +25,8 @@ import (
 	"github.com/golang/protobuf/ptypes/struct"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/logger"
-	"istio.io/mixer/pkg/aspectsupport"
-	"istio.io/mixer/pkg/aspectsupport/logger/config"
+	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/aspect/logger/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 
@@ -71,7 +71,7 @@ func TestManager_NewLogger(t *testing.T) {
 	m := NewManager()
 
 	for _, v := range newAspectShouldSucceed {
-		c := aspectsupport.CombinedConfig{
+		c := aspect.CombinedConfig{
 			Adapter: &configpb.Adapter{},
 			Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
 		}
@@ -89,7 +89,7 @@ func TestManager_NewLogger(t *testing.T) {
 
 func TestManager_NewLoggerFailures(t *testing.T) {
 
-	defaultCfg := &aspectsupport.CombinedConfig{
+	defaultCfg := &aspect.CombinedConfig{
 		Adapter: &configpb.Adapter{},
 		Aspect:  &configpb.Aspect{},
 	}
@@ -98,7 +98,7 @@ func TestManager_NewLoggerFailures(t *testing.T) {
 	errLogger := &testLogger{defaultCfg: &structpb.Struct{}, errOnNewAspect: true}
 
 	failureCases := []struct {
-		cfg   *aspectsupport.CombinedConfig
+		cfg   *aspect.CombinedConfig
 		adptr adapter.Adapter
 	}{
 		{defaultCfg, generic},

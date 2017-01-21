@@ -33,7 +33,7 @@ import (
 var (
 	noopSpan = ot.NoopTracer{}.StartSpan("")
 
-	gRPCComponentTag = ot.Tag{string(ext.Component), "gRPC"}
+	gRPCComponentTag = ot.Tag{Key: string(ext.Component), Value: "gRPC"}
 )
 
 // CurrentSpan extracts the current span from the context, or returns a no-op span if no span exists in the context.

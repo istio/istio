@@ -25,8 +25,8 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/logger"
-	"istio.io/mixer/pkg/aspectsupport"
-	"istio.io/mixer/pkg/aspectsupport/logger/config"
+	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/aspect/logger/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 
@@ -49,11 +49,11 @@ type (
 )
 
 // NewManager returns an aspect manager for the logger aspect.
-func NewManager() aspectsupport.Manager {
+func NewManager() aspect.Manager {
 	return &manager{}
 }
 
-func (m *manager) NewAspect(c *aspectsupport.CombinedConfig, a adapter.Adapter, env adapter.Env) (aspectsupport.AspectWrapper, error) {
+func (m *manager) NewAspect(c *aspect.CombinedConfig, a adapter.Adapter, env adapter.Env) (aspect.Wrapper, error) {
 	// Handle aspect config to get log name and log entry descriptors.
 	aspectCfg := m.DefaultConfig()
 	if c.Aspect.Params != nil {
@@ -113,7 +113,7 @@ func (*manager) DefaultConfig() adapter.Config {
 // TODO: validation of timestamp format
 func (*manager) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) { return nil }
 
-func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspectsupport.Output, error) {
+func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
 	var entries []logger.Entry
 
 	// TODO: would be nice if we could use a mutable.Bag here and could pass it around
@@ -168,7 +168,7 @@ func (e *executor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspects
 			return nil, err
 		}
 	}
-	return &aspectsupport.Output{Code: code.Code_OK}, nil
+	return &aspect.Output{Code: code.Code_OK}, nil
 }
 
 type attrBagFn func(bag attribute.Bag, name string) (interface{}, bool)
