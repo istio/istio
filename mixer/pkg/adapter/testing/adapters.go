@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapterTesting
+package testing
 
 import (
-	"testing"
+	gt "testing"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/registry"
@@ -49,7 +49,7 @@ func (r *fakeRegistrar) RegisterQuota(adapter.QuotaAdapter) error {
 }
 
 // TestAdapterInvariants ensures that adapters implement expected semantics.
-func TestAdapterInvariants(a adapter.Adapter, r RegisterFunc, t *testing.T) {
+func TestAdapterInvariants(a adapter.Adapter, r RegisterFunc, t *gt.T) {
 	if a.Name() == "" {
 		t.Error("Name() => all adapters need names")
 	}

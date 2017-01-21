@@ -21,7 +21,7 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/status"
 
 	"istio.io/mixer/adapter/denyChecker/config"
-	"istio.io/mixer/pkg/adapterTesting"
+	at "istio.io/mixer/pkg/adapter/testing"
 )
 
 func TestAll(t *testing.T) {
@@ -61,5 +61,5 @@ func TestAll(t *testing.T) {
 }
 
 func TestInvariants(t *testing.T) {
-	adapterTesting.TestAdapterInvariants(newAdapter(), Register, t)
+	at.TestAdapterInvariants(newAdapter(), Register, t)
 }

@@ -22,5 +22,5 @@ go_test(
     size = "small",
     srcs = ["adapter_test.go"],
     library = ":go_default_library",
-    deps = ["//pkg/adapterTesting:go_default_library"],
+    deps = ["//pkg/adapter/testing:go_default_library"],
 )
