@@ -22,7 +22,7 @@ import (
 
 // Register records the existence of this adapter
 func Register(r adapter.Registrar) error {
-	return r.RegisterCheckList(newAdapter())
+	return r.RegisterListChecker(newAdapter())
 }
 
 type adapterState struct{}

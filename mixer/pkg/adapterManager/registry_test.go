@@ -37,11 +37,11 @@ func (denyAdapter) NewDenyChecker(env adapter.Env, cfg adapter.AspectConfig) (ad
 	return nil, fmt.Errorf("not implemented")
 }
 
-func TestRegisterDeny(t *testing.T) {
+func TestRegisterDenyChecker(t *testing.T) {
 	reg := NewRegistry()
 	adapter := denyAdapter{testAdapter{name: "foo"}}
 
-	if err := reg.RegisterDeny(adapter); err != nil {
+	if err := reg.RegisterDenyChecker(adapter); err != nil {
 		t.Errorf("Failed to register deny adapter with err: %v", err)
 	}
 
@@ -61,11 +61,11 @@ func (listAdapter) NewListChecker(env adapter.Env, cfg adapter.AspectConfig) (ad
 	return nil, fmt.Errorf("not implemented")
 }
 
-func TestCheckList(t *testing.T) {
+func TestRegisterListChecker(t *testing.T) {
 	reg := NewRegistry()
 	adapter := listAdapter{testAdapter{name: "foo"}}
 
-	if err := reg.RegisterCheckList(adapter); err != nil {
+	if err := reg.RegisterListChecker(adapter); err != nil {
 		t.Errorf("Failed to register check list adapter with err: %v", err)
 	}
 
@@ -132,7 +132,7 @@ func TestCollision(t *testing.T) {
 	name := "some name that they both have"
 
 	a1 := denyAdapter{testAdapter{name}}
-	if err := reg.RegisterDeny(a1); err != nil {
+	if err := reg.RegisterDenyChecker(a1); err != nil {
 		t.Errorf("Failed to insert first adapter with err: %s", err)
 	}
 	if a, ok := reg.ByImpl(name); !ok || a != a1 {
@@ -146,7 +146,7 @@ func TestCollision(t *testing.T) {
 	}()
 
 	a2 := listAdapter{testAdapter{name}}
-	if err := reg.RegisterCheckList(a2); err != nil {
+	if err := reg.RegisterListChecker(a2); err != nil {
 		t.Errorf("Expected a panic inserting duplicate adapter, got err instead: %s", err)
 	}
 	t.Error("Should not reach this statement due to panic.")

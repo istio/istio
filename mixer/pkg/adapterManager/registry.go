@@ -43,14 +43,14 @@ func (r *Registry) ByImpl(adapterName string) (adapter.Adapter, bool) {
 	return adapter, ok // yet `return r.adaptersByName[adapterName]` doesn't typecheck.
 }
 
-// RegisterCheckList registers adapters implementing the listChecker aspect.
-func (r *Registry) RegisterCheckList(list adapter.ListCheckerAdapter) error {
+// RegisterListChecker registers adapters implementing the listChecker aspect.
+func (r *Registry) RegisterListChecker(list adapter.ListCheckerAdapter) error {
 	r.insert(list)
 	return nil
 }
 
-// RegisterDeny registers adapters implementing the denyChecker aspect.
-func (r *Registry) RegisterDeny(deny adapter.DenyCheckerAdapter) error {
+// RegisterDenyChecker registers adapters implementing the denyChecker aspect.
+func (r *Registry) RegisterDenyChecker(deny adapter.DenyCheckerAdapter) error {
 	r.insert(deny)
 	return nil
 }
