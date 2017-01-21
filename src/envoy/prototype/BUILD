@@ -15,6 +15,8 @@
 ################################################################################
 #
 
+package(default_visibility = [":__subpackages__"])
+
 cc_binary(
     name = "envoy_esp",
     srcs = [
