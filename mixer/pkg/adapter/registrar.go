@@ -17,10 +17,10 @@ package adapter
 // Registrar is used by adapters to register themselves.
 type Registrar interface {
 	// RegisterCheckList
-	RegisterCheckList(ListCheckerAdapter) error
+	RegisterListChecker(ListCheckerAdapter) error
 
 	// RegisterDeny
-	RegisterDeny(DenyCheckerAdapter) error
+	RegisterDenyChecker(DenyCheckerAdapter) error
 
 	// RegisterLogger informs the mixer that an implementation of the
 	// logging aspect is provided by the supplied adapter. This adapter

@@ -25,7 +25,7 @@ import (
 
 // Register records the existence of this adapter
 func Register(r adapter.Registrar) error {
-	return r.RegisterDeny(newAdapter())
+	return r.RegisterDenyChecker(newAdapter())
 }
 
 type adapterState struct{}

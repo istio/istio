@@ -20,19 +20,16 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-// RegisterFunc is the function that registers adapters into the supplied registry
-type RegisterFunc func(adapter.Registrar) error
-
 type fakeRegistrar struct {
 	registrations int
 }
 
-func (r *fakeRegistrar) RegisterCheckList(adapter.ListCheckerAdapter) error {
+func (r *fakeRegistrar) RegisterListChecker(adapter.ListCheckerAdapter) error {
 	r.registrations++
 	return nil
 }
 
-func (r *fakeRegistrar) RegisterDeny(adapter.DenyCheckerAdapter) error {
+func (r *fakeRegistrar) RegisterDenyChecker(adapter.DenyCheckerAdapter) error {
 	r.registrations++
 	return nil
 }
@@ -48,7 +45,7 @@ func (r *fakeRegistrar) RegisterQuota(adapter.QuotaAdapter) error {
 }
 
 // TestAdapterInvariants ensures that adapters implement expected semantics.
-func TestAdapterInvariants(a adapter.Adapter, r RegisterFunc, t *gt.T) {
+func TestAdapterInvariants(a adapter.Adapter, r adapter.RegisterFn, t *gt.T) {
 	if a.Name() == "" {
 		t.Error("Name() => all adapters need names")
 	}
