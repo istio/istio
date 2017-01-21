@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package testing provides utility functions to assist in creating quality tests for
+// adapters.
 package testing
 
 import (

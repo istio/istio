@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package adapter defines the types consumed by adapter implementations to
+// interface with the mixer.
 package adapter
 
 import (
@@ -21,26 +23,21 @@ import (
 )
 
 type (
-
-	// Aspect -- User visible cross cutting concern
-	// istio/metrics, istio/accessControl, istio/accessLog are all aspects of a deployment
-	// This interface is extended by aspects;
-	// ex: listChecker.Aspect adds --> CheckList(Symbol string) (bool, error)
-	// The extended interface is implemented by adapter impls.
-	// ex: //adapter/ipListChecker aspectState implements the listChecker.adapter.
+	// Aspect represents a type of end-user functionality with particular semantics. Adapters
+	// expose functionality to the mixer by implementing one or more aspects.
 	Aspect interface {
 		io.Closer
 	}
 
-	// Adapter represents an Aspect Builder that constructs instances a specific adapter.
-	// This interface is extended by  aspects; (metrics, listChecker, ...)
-	// The extended interface is implemented by adapter implementations
+	// Adapter represents a factory of aspects. Adapters register builders with the mixer
+	// in order to allow the mixer to instantiate aspects on demand.
 	Adapter interface {
 		io.Closer
 		ConfigValidator
 
-		// Name returns the official name of this adapter. ex. "istio/statsd".
+		// Name returns the official name of the adapter. ex. "istio/statsd".
 		Name() string
+
 		// Description returns a user-friendly description of this adapter.
 		Description() string
 	}
@@ -54,6 +51,7 @@ type (
 		// adapter. This will be used by the configuration system to establish
 		// the shape of the block of configuration state passed to the NewAspect method.
 		DefaultConfig() (c AspectConfig)
+
 		// ValidateConfig determines whether the given configuration meets all correctness requirements.
 		ValidateConfig(c AspectConfig) *ConfigErrors
 	}
@@ -78,7 +76,7 @@ type (
 		// Infof logs optional information.
 		Infof(format string, args ...interface{})
 
-		// Warningsf logs suspect situations and recovrable errors
+		// Warningf logs suspect situations and recoverable errors
 		Warningf(format string, args ...interface{})
 
 		// Errorf logs error conditions.

@@ -74,7 +74,7 @@ type StaticBinding struct {
 }
 
 type methodHandlers struct {
-	mngr adapterManager.Manager
+	mngr *adapterManager.Manager
 	eval expr.Evaluator
 
 	// Configs for the aspects that'll be used to serve each API method.
@@ -83,9 +83,10 @@ type methodHandlers struct {
 
 // NewMethodHandlers returns a canonical MethodHandlers that implements all of the mixer's API surface
 func NewMethodHandlers(bindings ...StaticBinding) MethodHandlers {
-	registry := adapterManager.NewRegistry()
 	managers := make([]aspect.Manager, len(bindings))
 	configs := map[Method][]*aspect.CombinedConfig{Check: {}, Report: {}, Quota: {}}
+	adapterMgr := adapterManager.NewManager(managers)
+	registry := adapterMgr.Registry()
 
 	for i, binding := range bindings {
 		if err := binding.RegisterFn(registry); err != nil {
@@ -98,7 +99,7 @@ func NewMethodHandlers(bindings ...StaticBinding) MethodHandlers {
 	}
 
 	return &methodHandlers{
-		mngr:    *adapterManager.NewManager(registry, managers),
+		mngr:    adapterMgr,
 		eval:    expr.NewIdentityEvaluator(),
 		configs: configs,
 	}

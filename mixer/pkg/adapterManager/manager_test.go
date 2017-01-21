@@ -26,10 +26,6 @@ import (
 )
 
 type (
-	fakereg struct {
-		RegistryQuerier
-	}
-
 	fakemgr struct {
 		kind string
 		aspect.Manager
@@ -49,9 +45,8 @@ func (m *fakemgr) Kind() string {
 }
 
 func TestManager(t *testing.T) {
-	r := &fakereg{}
 	mgrs := []aspect.Manager{&fakemgr{kind: "k1"}, &fakemgr{kind: "k2"}}
-	m := NewManager(r, mgrs)
+	m := NewManager(mgrs)
 	cfg := &aspect.CombinedConfig{
 		Aspect:  &istioconfig.Aspect{},
 		Adapter: &istioconfig.Adapter{},

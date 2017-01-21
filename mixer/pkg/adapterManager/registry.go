@@ -22,20 +22,20 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-// Registry is a simple implementation of pkg/registry.Registrar and pkg/aspect/uber.RegistryQuerier which requires
+// Registry is a simple implementation of pkg/adapter/Registrar and pkg/aspect/uber.RegistryQuerier which requires
 // that all registered adapters have a unique adapter name.
 type Registry struct {
 	sync.Mutex
 	adaptersByName map[string]adapter.Adapter
 }
 
-// NewRegistry returns a registry whose implementation requires that all adapters have a globally unique name
+// newRegistry returns a registry whose implementation requires that all adapters have a globally unique name
 // (not just unique per aspect). Registering two adapters with the same name results in a runtime panic.
-func NewRegistry() *Registry {
+func newRegistry() *Registry {
 	return &Registry{adaptersByName: make(map[string]adapter.Adapter)}
 }
 
-// ByImpl returns the implementation with adapter.Adapter.Name() == adapterName.
+// ByImpl returns the adapter with the given name.
 func (r *Registry) ByImpl(adapterName string) (adapter.Adapter, bool) {
 	r.Lock()
 	adapter, ok := r.adaptersByName[adapterName]

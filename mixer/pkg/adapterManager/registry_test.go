@@ -38,7 +38,7 @@ func (denyAdapter) NewDenyChecker(env adapter.Env, cfg adapter.AspectConfig) (ad
 }
 
 func TestRegisterDenyChecker(t *testing.T) {
-	reg := NewRegistry()
+	reg := newRegistry()
 	adapter := denyAdapter{testAdapter{name: "foo"}}
 
 	if err := reg.RegisterDenyChecker(adapter); err != nil {
@@ -62,7 +62,7 @@ func (listAdapter) NewListChecker(env adapter.Env, cfg adapter.AspectConfig) (ad
 }
 
 func TestRegisterListChecker(t *testing.T) {
-	reg := NewRegistry()
+	reg := newRegistry()
 	adapter := listAdapter{testAdapter{name: "foo"}}
 
 	if err := reg.RegisterListChecker(adapter); err != nil {
@@ -86,7 +86,7 @@ func (loggerAdapter) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapt
 }
 
 func TestRegisterLogger(t *testing.T) {
-	reg := NewRegistry()
+	reg := newRegistry()
 	adapter := loggerAdapter{testAdapter{name: "foo"}}
 
 	if err := reg.RegisterLogger(adapter); err != nil {
@@ -110,7 +110,7 @@ func (quotaAdapter) NewQuota(env adapter.Env, cfg adapter.AspectConfig) (adapter
 }
 
 func TestRegisterQuota(t *testing.T) {
-	reg := NewRegistry()
+	reg := newRegistry()
 	adapter := quotaAdapter{testAdapter{name: "foo"}}
 
 	if err := reg.RegisterQuota(adapter); err != nil {
@@ -128,7 +128,7 @@ func TestRegisterQuota(t *testing.T) {
 }
 
 func TestCollision(t *testing.T) {
-	reg := NewRegistry()
+	reg := newRegistry()
 	name := "some name that they both have"
 
 	a1 := denyAdapter{testAdapter{name}}

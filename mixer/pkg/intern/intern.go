@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package intern exposes a general purpose string interning model to reduce memory
+// consumption and improve processor cache efficiency.
 package intern
 
 import (
 	"sync"
 )
 
-// Pool is a general purpose string interning package to reduce memory
-// consumption and improve processor cache efficiency.
+// Pool is container of interned strings.
 type Pool struct {
 	sync.RWMutex
 	strings     map[string]string

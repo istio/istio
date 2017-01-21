@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package aspect contains the various aspect managers which are responsible for
+// mapping incoming requests into the interface expected by individual types of
+// aspects.
 package aspect
 
 import (
@@ -25,13 +28,13 @@ import (
 )
 
 type (
-	// CombinedConfig combines all configuration related to an aspect
+	// CombinedConfig combines all configuration related to an aspect.
 	CombinedConfig struct {
 		Aspect  *istioconfig.Aspect
 		Adapter *istioconfig.Adapter
 	}
 
-	// Output from the Aspect Manager
+	// Output captures the output from invoking an aspect.
 	Output struct {
 		// status code
 		Code code.Code
@@ -40,22 +43,21 @@ type (
 		//context remains immutable during the call
 	}
 
-	// Manager manages a specific aspect and presents a uniform interface
-	// to the rest of the system
+	// Manager is responsible for a specific aspect and presents a uniform interface
+	// to the rest of the system.
 	Manager interface {
+		adapter.ConfigValidator
+
 		// NewAspect creates a new aspect instance given configuration.
 		NewAspect(cfg *CombinedConfig, adapter adapter.Adapter, env adapter.Env) (Wrapper, error)
+
 		// Kind return the kind of aspect
 		Kind() string
-
-		adapter.ConfigValidator
 	}
 
 	// Wrapper encapsulates a single aspect and allows it to be invoked.
 	Wrapper interface {
 		// Execute dispatches to the given adapter.
-		// The evaluation is done under the context of an attribute bag and using
-		// an expression evaluator.
 		Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error)
 	}
 )

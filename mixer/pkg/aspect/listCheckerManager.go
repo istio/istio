@@ -36,7 +36,7 @@ type (
 	}
 )
 
-// NewListCheckerManager returns "this" aspect Manager
+// NewListCheckerManager returns an instance of the ListChecker aspect manager.
 func NewListCheckerManager() Manager {
 	return &listCheckerManager{}
 }

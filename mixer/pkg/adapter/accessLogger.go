@@ -43,20 +43,20 @@ type (
 	//
 	// Examples:
 	//
-	// &AccessLogEntry{
-	// 	LogName: "logs/access_log",
-	// 	Log: "127.0.0.1 - testuser [10/Oct/2000:13:55:36 -0700] "GET /test.gif HTTP/1.0" 200 2326",
-	// }
+	//  &AccessLogEntry{
+	// 	  LogName: "logs/access_log",
+	//    Log: "127.0.0.1 - testuser [10/Oct/2000:13:55:36 -0700] "GET /test.gif HTTP/1.0" 200 2326",
+	//  }
 	//
-	// &AccessLogEntry{
-	//	LogName: "logs/access_log",
-	//	Labels: map[string]interface{}{
+	//  &AccessLogEntry{
+	//	  LogName: "logs/access_log",
+	//	  Labels: map[string]interface{}{
 	//            "source_ip": "127.0.0.1",
 	//            "url": "/test.gif",
 	//            "protocol": "HTTP",
 	//            "response_code": 200,
 	//      }
-	// }
+	//   }
 	AccessLogEntry struct {
 		// LogName is the name of the access log stream to which the
 		// entry corresponds.
