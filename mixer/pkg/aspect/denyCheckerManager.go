@@ -29,26 +29,26 @@ type (
 	denyCheckerManager struct{}
 
 	denyCheckerWrapper struct {
-		adapter adapter.DenyCheckerAdapter
+		adapter adapter.DenyCheckerBuilder
 		aspect  adapter.DenyCheckerAspect
 	}
 )
 
 // NewDenyCheckerManager returns an instance of the DenyChecker aspect manager.
 func NewDenyCheckerManager() Manager {
-	return &denyCheckerManager{}
+	return denyCheckerManager{}
 }
 
 // NewAspect creates a denyChecker aspect.
-func (m *denyCheckerManager) NewAspect(cfg *CombinedConfig, ga adapter.Adapter, env adapter.Env) (Wrapper, error) {
-	aa, ok := ga.(adapter.DenyCheckerAdapter)
+func (denyCheckerManager) NewAspect(cfg *CombinedConfig, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
+	aa, ok := ga.(adapter.DenyCheckerBuilder)
 	if !ok {
-		return nil, fmt.Errorf("adapter of incorrect type; expected adapter.DenyCheckerAdapter got %#v %T", ga, ga)
+		return nil, fmt.Errorf("adapter of incorrect type; expected adapter.DenyCheckerBuilder got %#v %T", ga, ga)
 	}
 
 	// TODO: convert from proto Struct to Go struct here!
 	adapterCfg := aa.DefaultConfig()
-	// TODO: parse cfg.Adapter.Params (*ptypes.struct) into adapterCfg
+	// TODO: parse cfg.Builder.Params (*ptypes.struct) into adapterCfg
 	var asp adapter.DenyCheckerAspect
 	var err error
 
@@ -62,19 +62,19 @@ func (m *denyCheckerManager) NewAspect(cfg *CombinedConfig, ga adapter.Adapter, 
 	}, nil
 }
 
-func (*denyCheckerManager) Kind() string {
+func (denyCheckerManager) Kind() string {
 	return "istio/denyChecker"
 }
 
-func (*denyCheckerManager) DefaultConfig() adapter.AspectConfig {
+func (denyCheckerManager) DefaultConfig() adapter.AspectConfig {
 	return &config.DenyCheckerParams{}
 }
 
-func (*denyCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (denyCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func (a *denyCheckerWrapper) AdapterName() string {
+func (a *denyCheckerWrapper) BuilderName() string {
 	return a.adapter.Name()
 }
 

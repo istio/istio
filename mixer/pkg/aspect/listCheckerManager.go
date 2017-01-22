@@ -30,7 +30,7 @@ type (
 
 	listCheckerWrapper struct {
 		cfg          *CombinedConfig
-		adapter      adapter.ListCheckerAdapter
+		adapter      adapter.ListCheckerBuilder
 		aspect       adapter.ListCheckerAspect
 		aspectConfig *config.ListCheckerParams
 	}
@@ -38,20 +38,20 @@ type (
 
 // NewListCheckerManager returns an instance of the ListChecker aspect manager.
 func NewListCheckerManager() Manager {
-	return &listCheckerManager{}
+	return listCheckerManager{}
 }
 
 // NewAspect creates a listChecker aspect.
-func (m *listCheckerManager) NewAspect(cfg *CombinedConfig, ga adapter.Adapter, env adapter.Env) (Wrapper, error) {
-	aa, ok := ga.(adapter.ListCheckerAdapter)
+func (listCheckerManager) NewAspect(cfg *CombinedConfig, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
+	aa, ok := ga.(adapter.ListCheckerBuilder)
 	if !ok {
-		return nil, fmt.Errorf("adapter of incorrect type; expected adapter.ListCheckerAdapter got %#v %T", ga, ga)
+		return nil, fmt.Errorf("adapter of incorrect type; expected adapter.ListCheckerBuilder got %#v %T", ga, ga)
 	}
 
 	// TODO: convert from proto Struct to Go struct here!
 	var aspectConfig *config.ListCheckerParams
 	adapterCfg := aa.DefaultConfig()
-	// TODO: parse cfg.Adapter.Params (*ptypes.struct) into adapterCfg
+	// TODO: parse cfg.Builder.Params (*ptypes.struct) into adapterCfg
 	var asp adapter.ListCheckerAspect
 	var err error
 
@@ -67,17 +67,17 @@ func (m *listCheckerManager) NewAspect(cfg *CombinedConfig, ga adapter.Adapter, 
 	}, nil
 }
 
-func (*listCheckerManager) Kind() string {
+func (listCheckerManager) Kind() string {
 	return "istio/listChecker"
 }
 
-func (*listCheckerManager) DefaultConfig() adapter.AspectConfig {
+func (listCheckerManager) DefaultConfig() adapter.AspectConfig {
 	return &config.ListCheckerParams{
 		CheckAttribute: "src.ip",
 	}
 }
 
-func (*listCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (listCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	lc := c.(*config.ListCheckerParams)
 	if lc.CheckAttribute == "" {
 		ce = ce.Appendf("check_attribute", "Missing")
@@ -85,7 +85,7 @@ func (*listCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.C
 	return
 }
 
-func (a *listCheckerWrapper) AdapterName() string {
+func (a *listCheckerWrapper) BuilderName() string {
 	return a.adapter.Name()
 }
 

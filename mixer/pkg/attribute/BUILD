@@ -20,36 +20,14 @@ go_library(
 )
 
 go_test(
-    name = "dictionaries_test",
+    name = "small_tests",
     size = "small",
-    srcs = ["dictionaries_test.go"],
-    library = ":go_default_library",
-)
-
-go_test(
-    name = "manager_test",
-    size = "small",
-    srcs = ["manager_test.go"],
-    library = ":go_default_library",
-    deps = [
-        "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
+    srcs = [
+        "bag_test.go",
+        "dictionaries_test.go",
+        "manager_test.go",
+        "tracker_test.go",
     ],
-)
-
-go_test(
-    name = "bag_test",
-    size = "small",
-    srcs = ["bag_test.go"],
-    library = ":go_default_library",
-    deps = [
-        "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
-    ],
-)
-
-go_test(
-    name = "tracker_test",
-    size = "small",
-    srcs = ["tracker_test.go"],
     library = ":go_default_library",
     deps = [
         "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",

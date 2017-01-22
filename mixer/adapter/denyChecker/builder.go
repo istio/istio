@@ -23,23 +23,23 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-// Register records the the aspects exposed by this adapter.
+// Register records the builders exposed by this adapter.
 func Register(r adapter.Registrar) error {
-	return r.RegisterDenyChecker(newAdapter())
+	return r.RegisterDenyChecker(newBuilder())
 }
 
-type adapterState struct{}
+type builderState struct{}
 
-func newAdapter() adapter.DenyCheckerAdapter                                             { return &adapterState{} }
-func (a *adapterState) Name() string                                                     { return "istio/denyChecker" }
-func (a *adapterState) Description() string                                              { return "Deny every check request" }
-func (a *adapterState) Close() error                                                     { return nil }
-func (a *adapterState) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
+func newBuilder() adapter.DenyCheckerBuilder                                          { return builderState{} }
+func (builderState) Name() string                                                     { return "istio/denyChecker" }
+func (builderState) Description() string                                              { return "Denies every check request" }
+func (builderState) Close() error                                                     { return nil }
+func (builderState) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 
-func (a *adapterState) DefaultConfig() adapter.AspectConfig {
+func (builderState) DefaultConfig() adapter.AspectConfig {
 	return &config.Params{Error: &status.Status{Code: int32(code.Code_FAILED_PRECONDITION)}}
 }
 
-func (a *adapterState) NewDenyChecker(env adapter.Env, c adapter.AspectConfig) (adapter.DenyCheckerAspect, error) {
+func (builderState) NewDenyChecker(env adapter.Env, c adapter.AspectConfig) (adapter.DenyCheckerAspect, error) {
 	return newAspect(c.(*config.Params))
 }

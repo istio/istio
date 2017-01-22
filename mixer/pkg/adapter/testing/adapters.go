@@ -23,54 +23,76 @@ import (
 )
 
 type fakeRegistrar struct {
-	registrations int
+	denyCheckers []adapter.DenyCheckerBuilder
+	listCheckers []adapter.ListCheckerBuilder
+	loggers      []adapter.LoggerBuilder
+	quotas       []adapter.QuotaBuilder
 }
 
-func (r *fakeRegistrar) RegisterListChecker(adapter.ListCheckerAdapter) error {
-	r.registrations++
+func (r *fakeRegistrar) RegisterListChecker(b adapter.ListCheckerBuilder) error {
+	r.listCheckers = append(r.listCheckers, b)
 	return nil
 }
 
-func (r *fakeRegistrar) RegisterDenyChecker(adapter.DenyCheckerAdapter) error {
-	r.registrations++
+func (r *fakeRegistrar) RegisterDenyChecker(b adapter.DenyCheckerBuilder) error {
+	r.denyCheckers = append(r.denyCheckers, b)
 	return nil
 }
 
-func (r *fakeRegistrar) RegisterLogger(adapter.LoggerAdapter) error {
-	r.registrations++
+func (r *fakeRegistrar) RegisterLogger(b adapter.LoggerBuilder) error {
+	r.loggers = append(r.loggers, b)
 	return nil
 }
 
-func (r *fakeRegistrar) RegisterQuota(adapter.QuotaAdapter) error {
-	r.registrations++
+func (r *fakeRegistrar) RegisterQuota(b adapter.QuotaBuilder) error {
+	r.quotas = append(r.quotas, b)
 	return nil
 }
 
 // TestAdapterInvariants ensures that adapters implement expected semantics.
-func TestAdapterInvariants(a adapter.Adapter, r adapter.RegisterFn, t *gt.T) {
-	if a.Name() == "" {
-		t.Error("Name() => all adapters need names")
-	}
-
-	if a.Description() == "" {
-		t.Errorf("Description() => adapter '%s' doesn't provide a valid description", a.Name())
-	}
-
-	c := a.DefaultConfig()
-	if err := a.ValidateConfig(c); err != nil {
-		t.Errorf("ValidateConfig() => adapter '%s' can't validate its default configuration: %v", a.Name(), err)
-	}
-
-	if err := a.Close(); err != nil {
-		t.Errorf("Close() => adapter '%s' fails to close when used with its default configuration: %v", a.Name(), err)
-	}
-
+func TestAdapterInvariants(r adapter.RegisterFn, t *gt.T) {
 	fr := &fakeRegistrar{}
 	if err := r(fr); err != nil {
-		t.Errorf("Register() => adapter '%s' didn't register properly: %v", a.Name(), err)
+		t.Errorf("Register() => didn't register properly: %v", err)
 	}
 
-	if fr.registrations < 1 {
-		t.Errorf("Register() => adapter '%s' didn't register anything", a.Name())
+	for _, b := range fr.denyCheckers {
+		testBuilder(b, t)
+	}
+
+	for _, b := range fr.listCheckers {
+		testBuilder(b, t)
+	}
+
+	for _, b := range fr.loggers {
+		testBuilder(b, t)
+	}
+
+	for _, b := range fr.quotas {
+		testBuilder(b, t)
+	}
+
+	count := len(fr.denyCheckers) + len(fr.listCheckers) + len(fr.loggers) + len(fr.quotas)
+	if count == 0 {
+		t.Errorf("Register() => adapter didn't register any aspects")
+	}
+}
+
+func testBuilder(b adapter.Builder, t *gt.T) {
+	if b.Name() == "" {
+		t.Error("Name() => all builders need names")
+	}
+
+	if b.Description() == "" {
+		t.Errorf("Description() => builder '%s' doesn't provide a valid description", b.Name())
+	}
+
+	c := b.DefaultConfig()
+	if err := b.ValidateConfig(c); err != nil {
+		t.Errorf("ValidateConfig() => builder '%s' can't validate its default configuration: %v", b.Name(), err)
+	}
+
+	if err := b.Close(); err != nil {
+		t.Errorf("Close() => builder '%s' fails to close when used with its default configuration: %v", b.Name(), err)
 	}
 }

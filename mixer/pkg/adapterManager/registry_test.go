@@ -21,109 +21,109 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-type testAdapter struct {
+type testBuilder struct {
 	name string
 }
 
-func (t testAdapter) Name() string                                              { return t.name }
-func (testAdapter) Close() error                                                { return nil }
-func (testAdapter) Description() string                                         { return "mock adapter for testing" }
-func (testAdapter) DefaultConfig() adapter.AspectConfig                         { return nil }
-func (testAdapter) ValidateConfig(c adapter.AspectConfig) *adapter.ConfigErrors { return nil }
+func (t testBuilder) Name() string                                              { return t.name }
+func (testBuilder) Close() error                                                { return nil }
+func (testBuilder) Description() string                                         { return "mock builder for testing" }
+func (testBuilder) DefaultConfig() adapter.AspectConfig                         { return nil }
+func (testBuilder) ValidateConfig(c adapter.AspectConfig) *adapter.ConfigErrors { return nil }
 
-type denyAdapter struct{ testAdapter }
+type denyBuilder struct{ testBuilder }
 
-func (denyAdapter) NewDenyChecker(env adapter.Env, cfg adapter.AspectConfig) (adapter.DenyCheckerAspect, error) {
+func (denyBuilder) NewDenyChecker(env adapter.Env, cfg adapter.AspectConfig) (adapter.DenyCheckerAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
 func TestRegisterDenyChecker(t *testing.T) {
 	reg := newRegistry()
-	adapter := denyAdapter{testAdapter{name: "foo"}}
+	builder := denyBuilder{testBuilder{name: "foo"}}
 
-	if err := reg.RegisterDenyChecker(adapter); err != nil {
+	if err := reg.RegisterDenyChecker(builder); err != nil {
 		t.Errorf("Failed to register deny adapter with err: %v", err)
 	}
 
-	impl, ok := reg.ByImpl(adapter.Name())
+	impl, ok := reg.ByImpl(builder.Name())
 	if !ok {
-		t.Errorf("No adapter by impl with name %s, expected adapter: %v", adapter.Name(), adapter)
+		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
 
-	if deny, ok := impl.(denyAdapter); !ok || deny != adapter {
-		t.Errorf("reg.ByImpl(%s) expected adapter '%v', actual '%v'", adapter.Name(), adapter, impl)
+	if deny, ok := impl.(denyBuilder); !ok || deny != builder {
+		t.Errorf("reg.ByImpl(%s) expected builder '%v', actual '%v'", builder.Name(), builder, impl)
 	}
 }
 
-type listAdapter struct{ testAdapter }
+type listBuilder struct{ testBuilder }
 
-func (listAdapter) NewListChecker(env adapter.Env, cfg adapter.AspectConfig) (adapter.ListCheckerAspect, error) {
+func (listBuilder) NewListChecker(env adapter.Env, cfg adapter.AspectConfig) (adapter.ListCheckerAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
 func TestRegisterListChecker(t *testing.T) {
 	reg := newRegistry()
-	adapter := listAdapter{testAdapter{name: "foo"}}
+	builder := listBuilder{testBuilder{name: "foo"}}
 
-	if err := reg.RegisterListChecker(adapter); err != nil {
-		t.Errorf("Failed to register check list adapter with err: %v", err)
+	if err := reg.RegisterListChecker(builder); err != nil {
+		t.Errorf("Failed to register check list builder with err: %v", err)
 	}
 
-	impl, ok := reg.ByImpl(adapter.Name())
+	impl, ok := reg.ByImpl(builder.Name())
 	if !ok {
-		t.Errorf("No adapter by impl with name %s, expected adapter: %v", adapter.Name(), adapter)
+		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
 
-	if deny, ok := impl.(listAdapter); !ok || deny != adapter {
-		t.Errorf("reg.ByImpl(%s) expected adapter '%v', actual '%v'", adapter.Name(), adapter, impl)
+	if deny, ok := impl.(listBuilder); !ok || deny != builder {
+		t.Errorf("reg.ByImpl(%s) expected builder '%v', actual '%v'", builder.Name(), builder, impl)
 	}
 }
 
-type loggerAdapter struct{ testAdapter }
+type loggerBuilder struct{ testBuilder }
 
-func (loggerAdapter) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.LoggerAspect, error) {
+func (loggerBuilder) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.LoggerAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
 func TestRegisterLogger(t *testing.T) {
 	reg := newRegistry()
-	adapter := loggerAdapter{testAdapter{name: "foo"}}
+	builder := loggerBuilder{testBuilder{name: "foo"}}
 
-	if err := reg.RegisterLogger(adapter); err != nil {
-		t.Errorf("Failed to register logging adapter with err: %v", err)
+	if err := reg.RegisterLogger(builder); err != nil {
+		t.Errorf("Failed to register logging builder with err: %v", err)
 	}
 
-	impl, ok := reg.ByImpl(adapter.Name())
+	impl, ok := reg.ByImpl(builder.Name())
 	if !ok {
-		t.Errorf("No adapter by impl with name %s, expected adapter: %v", adapter.Name(), adapter)
+		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
 
-	if deny, ok := impl.(loggerAdapter); !ok || deny != adapter {
-		t.Errorf("reg.ByImpl(%s) expected adapter '%v', actual '%v'", adapter.Name(), adapter, impl)
+	if deny, ok := impl.(loggerBuilder); !ok || deny != builder {
+		t.Errorf("reg.ByImpl(%s) expected builder '%v', actual '%v'", builder.Name(), builder, impl)
 	}
 }
 
-type quotaAdapter struct{ testAdapter }
+type quotaBuilder struct{ testBuilder }
 
-func (quotaAdapter) NewQuota(env adapter.Env, cfg adapter.AspectConfig) (adapter.QuotaAspect, error) {
+func (quotaBuilder) NewQuota(env adapter.Env, cfg adapter.AspectConfig) (adapter.QuotaAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
 func TestRegisterQuota(t *testing.T) {
 	reg := newRegistry()
-	adapter := quotaAdapter{testAdapter{name: "foo"}}
+	builder := quotaBuilder{testBuilder{name: "foo"}}
 
-	if err := reg.RegisterQuota(adapter); err != nil {
-		t.Errorf("Failed to register quota adapter with err: %v", err)
+	if err := reg.RegisterQuota(builder); err != nil {
+		t.Errorf("Failed to register quota builder with err: %v", err)
 	}
 
-	impl, ok := reg.ByImpl(adapter.Name())
+	impl, ok := reg.ByImpl(builder.Name())
 	if !ok {
-		t.Errorf("No adapter by impl with name %s, expected adapter: %v", adapter.Name(), adapter)
+		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
 
-	if deny, ok := impl.(quotaAdapter); !ok || deny != adapter {
-		t.Errorf("reg.ByImpl(%s) expected adapter '%v', actual '%v'", adapter.Name(), adapter, impl)
+	if deny, ok := impl.(quotaBuilder); !ok || deny != builder {
+		t.Errorf("reg.ByImpl(%s) expected builder '%v', actual '%v'", builder.Name(), builder, impl)
 	}
 }
 
@@ -131,7 +131,7 @@ func TestCollision(t *testing.T) {
 	reg := newRegistry()
 	name := "some name that they both have"
 
-	a1 := denyAdapter{testAdapter{name}}
+	a1 := denyBuilder{testBuilder{name}}
 	if err := reg.RegisterDenyChecker(a1); err != nil {
 		t.Errorf("Failed to insert first adapter with err: %s", err)
 	}
@@ -141,13 +141,13 @@ func TestCollision(t *testing.T) {
 
 	defer func() {
 		if r := recover(); r == nil {
-			t.Error("Expected to recover from panic registering duplicate adapter, but recover was nil.")
+			t.Error("Expected to recover from panic registering duplicate builder, but recover was nil.")
 		}
 	}()
 
-	a2 := listAdapter{testAdapter{name}}
+	a2 := listBuilder{testBuilder{name}}
 	if err := reg.RegisterListChecker(a2); err != nil {
-		t.Errorf("Expected a panic inserting duplicate adapter, got err instead: %s", err)
+		t.Errorf("Expected a panic inserting duplicate  builder, got err instead: %s", err)
 	}
 	t.Error("Should not reach this statement due to panic.")
 }

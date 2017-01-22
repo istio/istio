@@ -26,53 +26,53 @@ import (
 // that all registered adapters have a unique adapter name.
 type Registry struct {
 	sync.Mutex
-	adaptersByName map[string]adapter.Adapter
+	buildersByName map[string]adapter.Builder
 }
 
-// newRegistry returns a registry whose implementation requires that all adapters have a globally unique name
+// newRegistry returns a registry whose implementation requires that all builders have a globally unique name
 // (not just unique per aspect). Registering two adapters with the same name results in a runtime panic.
 func newRegistry() *Registry {
-	return &Registry{adaptersByName: make(map[string]adapter.Adapter)}
+	return &Registry{buildersByName: make(map[string]adapter.Builder)}
 }
 
-// ByImpl returns the adapter with the given name.
-func (r *Registry) ByImpl(adapterName string) (adapter.Adapter, bool) {
+// ByImpl returns the builder with the given name.
+func (r *Registry) ByImpl(name string) (adapter.Builder, bool) {
 	r.Lock()
-	adapter, ok := r.adaptersByName[adapterName]
+	b, ok := r.buildersByName[name]
 	r.Unlock()
-	return adapter, ok // yet `return r.adaptersByName[adapterName]` doesn't typecheck.
+	return b, ok
 }
 
-// RegisterListChecker registers adapters implementing the listChecker aspect.
-func (r *Registry) RegisterListChecker(list adapter.ListCheckerAdapter) error {
+// RegisterListChecker registers a new ListChecker builder.
+func (r *Registry) RegisterListChecker(list adapter.ListCheckerBuilder) error {
 	r.insert(list)
 	return nil
 }
 
-// RegisterDenyChecker registers adapters implementing the denyChecker aspect.
-func (r *Registry) RegisterDenyChecker(deny adapter.DenyCheckerAdapter) error {
+// RegisterDenyChecker registers a new DenyChecker builder.
+func (r *Registry) RegisterDenyChecker(deny adapter.DenyCheckerBuilder) error {
 	r.insert(deny)
 	return nil
 }
 
-// RegisterLogger registers adapters implementing the logger aspect.
-func (r *Registry) RegisterLogger(logger adapter.LoggerAdapter) error {
+// RegisterLogger registers a new Logger builder.
+func (r *Registry) RegisterLogger(logger adapter.LoggerBuilder) error {
 	r.insert(logger)
 	return nil
 }
 
-// RegisterQuota registers adapters implementing the quota aspect.
-func (r *Registry) RegisterQuota(quota adapter.QuotaAdapter) error {
+// RegisterQuota registers a new Quota builder.
+func (r *Registry) RegisterQuota(quota adapter.QuotaBuilder) error {
 	r.insert(quota)
 	return nil
 }
 
-func (r *Registry) insert(a adapter.Adapter) {
+func (r *Registry) insert(b adapter.Builder) {
 	r.Lock()
-	if _, exists := r.adaptersByName[a.Name()]; exists {
+	if _, exists := r.buildersByName[b.Name()]; exists {
 		r.Unlock()
-		panic(fmt.Errorf("attempting to register an adapter with a name already in the registry: %s", a.Name()))
+		panic(fmt.Errorf("attempting to register a builder with a name already in the registry: %s", b.Name()))
 	}
-	r.adaptersByName[a.Name()] = a
+	r.buildersByName[b.Name()] = b
 	r.Unlock()
 }

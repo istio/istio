@@ -27,7 +27,7 @@ go_library(
 )
 
 go_test(
-    name = "denyCheckerManager_test",
+    name = "small_tests",
     size = "small",
     srcs = [
         "denyCheckerManager_test.go",

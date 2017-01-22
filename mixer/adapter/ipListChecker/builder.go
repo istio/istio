@@ -22,23 +22,23 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-// Register records the the aspects exposed by this adapter.
+// Register records the builders exposed by this adapter.
 func Register(r adapter.Registrar) error {
-	return r.RegisterListChecker(newAdapter())
+	return r.RegisterListChecker(newBuilder())
 }
 
-type adapterState struct{}
+type builderState struct{}
 
-func newAdapter() adapter.ListCheckerAdapter { return &adapterState{} }
-func (a *adapterState) Name() string         { return "istio/ipListChecker" }
+func newBuilder() adapter.ListCheckerBuilder { return builderState{} }
+func (builderState) Name() string            { return "istio/ipListChecker" }
 
-func (a *adapterState) Description() string {
+func (builderState) Description() string {
 	return "Checks whether an IP address is present in an IP address list."
 }
 
-func (a *adapterState) Close() error { return nil }
+func (builderState) Close() error { return nil }
 
-func (a *adapterState) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (builderState) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	c := cfg.(*config.Params)
 
 	u, err := url.Parse(c.ProviderUrl)
@@ -53,7 +53,7 @@ func (a *adapterState) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.Con
 	return
 }
 
-func (a *adapterState) DefaultConfig() adapter.AspectConfig {
+func (builderState) DefaultConfig() adapter.AspectConfig {
 	return &config.Params{
 		ProviderUrl:     "http://localhost",
 		RefreshInterval: 60,
@@ -61,6 +61,6 @@ func (a *adapterState) DefaultConfig() adapter.AspectConfig {
 	}
 }
 
-func (a *adapterState) NewListChecker(env adapter.Env, c adapter.AspectConfig) (adapter.ListCheckerAspect, error) {
+func (builderState) NewListChecker(env adapter.Env, c adapter.AspectConfig) (adapter.ListCheckerAspect, error) {
 	return newAspect(env, c.(*config.Params))
 }

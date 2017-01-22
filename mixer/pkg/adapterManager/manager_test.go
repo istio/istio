@@ -49,7 +49,7 @@ func TestManager(t *testing.T) {
 	m := NewManager(mgrs)
 	cfg := &aspect.CombinedConfig{
 		Aspect:  &istioconfig.Aspect{},
-		Adapter: &istioconfig.Adapter{},
+		Builder: &istioconfig.Adapter{},
 	}
 	attrs := &fakebag{}
 	mapper := &fakeevaluator{}
