@@ -27,8 +27,7 @@ const (
 )
 
 type (
-	// MetricsAspect is the interface for adapters that will handle metrics
-	// reporting within the mixer.
+	// MetricsAspect handles metric reporting within the mixer.
 	MetricsAspect interface {
 		Aspect
 
@@ -65,13 +64,11 @@ type (
 	// by istio.
 	Kind int
 
-	// MetricsAdapter is the interface for building Aspect instances for mixer
-	// metrics backends.
-	MetricsAdapter interface {
-		Adapter
+	// MetricsBuilder builds instances of the Metrics aspect.
+	MetricsBuilder interface {
+		Builder
 
-		// NewMetrics returns a new quota implementation, based on the
-		// supplied Aspect configuration for the backend.
+		// NewMetrics returns a new instance of the Metrics aspect.
 		NewMetrics(env Env, config AspectConfig) (MetricsAspect, error)
 	}
 )

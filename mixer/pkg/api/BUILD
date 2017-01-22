@@ -32,7 +32,7 @@ go_library(
 )
 
 go_test(
-    name = "grpc_server_test",
+    name = "small_tests",
     size = "small",
     srcs = ["grpcServer_test.go"],
     library = ":go_default_library",

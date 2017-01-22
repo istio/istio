@@ -33,13 +33,13 @@ import (
 
 type env struct{}
 
-func (e *env) Logger() adapter.Logger { return &logger{} }
+func (e env) Logger() adapter.Logger { return logger{} }
 
 type logger struct{}
 
-func (l *logger) Infof(format string, args ...interface{})        {}
-func (l *logger) Warningf(format string, args ...interface{})     {}
-func (l *logger) Errorf(format string, args ...interface{}) error { return fmt.Errorf(format, args) }
+func (l logger) Infof(format string, args ...interface{})        {}
+func (l logger) Warningf(format string, args ...interface{})     {}
+func (l logger) Errorf(format string, args ...interface{}) error { return fmt.Errorf(format, args) }
 
 func TestBasic(t *testing.T) {
 	lp := listPayload{
@@ -57,7 +57,7 @@ func TestBasic(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	b := newAdapter()
+	b := newBuilder()
 
 	config := config.Params{
 		ProviderUrl:     ts.URL,
@@ -127,7 +127,7 @@ func TestValidateConfig(t *testing.T) {
 		},
 	}
 
-	b := newAdapter()
+	b := newBuilder()
 	for i, c := range cases {
 		err := b.ValidateConfig(&c.cfg).Multi.Errors[0].(adapter.ConfigError)
 		if err.Field != c.field {
@@ -137,5 +137,5 @@ func TestValidateConfig(t *testing.T) {
 }
 
 func TestInvariants(t *testing.T) {
-	at.TestAdapterInvariants(newAdapter(), Register, t)
+	at.TestAdapterInvariants(Register, t)
 }

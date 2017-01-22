@@ -14,24 +14,21 @@
 
 package adapter
 
-// Registrar is used by adapters to register themselves.
+// Registrar is used by adapters to register aspect builders.
 type Registrar interface {
-	// RegisterCheckList
-	RegisterListChecker(ListCheckerAdapter) error
+	// RegisterListChecker registers a new ListChecker builder.
+	RegisterListChecker(ListCheckerBuilder) error
 
-	// RegisterDeny
-	RegisterDenyChecker(DenyCheckerAdapter) error
+	// RegisterDenyChecker registers a new DenyChecker builder.
+	RegisterDenyChecker(DenyCheckerBuilder) error
 
-	// RegisterLogger informs the mixer that an implementation of the
-	// logging aspect is provided by the supplied adapter. This adapter
-	// will be used to build individual instances of the logger aspect
-	// according to mixer config.
-	RegisterLogger(LoggerAdapter) error
+	// RegisterLogger registers a new Logger builder.
+	RegisterLogger(LoggerBuilder) error
 
-	// RequestQuota is used by adapters to register themselves as implementing the
-	// quota aspect.
-	RegisterQuota(QuotaAdapter) error
+	// RegisterQuota registers a new Quota builder.
+	RegisterQuota(QuotaBuilder) error
 }
 
-// RegisterFn is a function adapters use to register themselves.
+// RegisterFn is a function the mixer invokes to trigger adapters to registers
+// their aspect builders.
 type RegisterFn func(Registrar) error

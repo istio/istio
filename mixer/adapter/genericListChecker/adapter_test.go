@@ -43,11 +43,11 @@ func TestAll(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		b := newAdapter()
+		b := newBuilder()
 
 		a, err := b.NewListChecker(nil, &c.ac)
 		if err != nil {
-			t.Errorf("Unable to create adapter: %v", err)
+			t.Errorf("Unable to create aspect: %v", err)
 		}
 
 		for _, value := range c.matchValues {
@@ -83,5 +83,5 @@ func TestAll(t *testing.T) {
 }
 
 func TestInvariants(t *testing.T) {
-	at.TestAdapterInvariants(newAdapter(), Register, t)
+	at.TestAdapterInvariants(Register, t)
 }

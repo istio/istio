@@ -15,8 +15,7 @@
 package adapter
 
 type (
-	// QuotaAspect is the interface for adapters that will handle quota management
-	// within the mixer.
+	// QuotaAspect handles quotas and rate limits within the mixer.
 	QuotaAspect interface {
 		Aspect
 
@@ -30,13 +29,11 @@ type (
 		ReleaseBestEffort(QuotaArgs) (int64, error)
 	}
 
-	// QuotaAdapter is the interface for building Aspect instances for mixer
-	// quota backends.
-	QuotaAdapter interface {
-		Adapter
+	// QuotaBuilder builds new instances of the Quota aspect.
+	QuotaBuilder interface {
+		Builder
 
-		// NewQuota returns a new quota implementation, based on the
-		// supplied Aspect configuration for the backend.
+		// NewQuota returns a new instance of the Quota aspect.
 		NewQuota(env Env, c AspectConfig) (QuotaAspect, error)
 	}
 

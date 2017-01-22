@@ -23,9 +23,9 @@ type env struct {
 }
 
 func newEnv(aspect string) adapter.Env {
-	return &env{logger: newLogger(aspect)}
+	return env{logger: newLogger(aspect)}
 }
 
-func (e *env) Logger() adapter.Logger {
+func (e env) Logger() adapter.Logger {
 	return e.logger
 }

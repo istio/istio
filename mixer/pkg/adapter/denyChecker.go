@@ -19,7 +19,7 @@ import (
 )
 
 type (
-	// DenyCheckerAspect denyChecker always fails with a configured error.
+	// DenyCheckerAspect always fail with an error.
 	DenyCheckerAspect interface {
 		Aspect
 
@@ -27,11 +27,11 @@ type (
 		Deny() status.Status
 	}
 
-	// DenyCheckerAdapter builds the DenyChecker Aspect
-	DenyCheckerAdapter interface {
-		Adapter
+	// DenyCheckerBuilder builds instances of the DenyChecker aspect.
+	DenyCheckerBuilder interface {
+		Builder
 
-		// NewDenyChecker returns a new DenyChecker
+		// NewDenyChecker returns a new instance of the DenyChecker aspect.
 		NewDenyChecker(env Env, c AspectConfig) (DenyCheckerAspect, error)
 	}
 )

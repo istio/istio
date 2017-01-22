@@ -47,9 +47,9 @@ type cacheKey struct {
 func newCacheKey(cfg *aspect.CombinedConfig) cacheKey {
 	return cacheKey{
 		Kind:   cfg.Aspect.GetKind(),
-		Impl:   cfg.Adapter.GetImpl(),
+		Impl:   cfg.Builder.GetImpl(),
 		Params: cfg.Aspect.GetParams().String(),
-		Args:   cfg.Adapter.GetParams().String(),
+		Args:   cfg.Builder.GetParams().String(),
 	}
 }
 
@@ -90,9 +90,9 @@ func (m *Manager) Execute(cfg *aspect.CombinedConfig, attrs attribute.Bag, mappe
 		return nil, fmt.Errorf("could not find aspect manager %#v", cfg.Aspect.Kind)
 	}
 
-	var adapter adapter.Adapter
-	if adapter, found = m.areg.ByImpl(cfg.Adapter.Impl); !found {
-		return nil, fmt.Errorf("could not find registered adapter %#v", cfg.Adapter.Impl)
+	var adapter adapter.Builder
+	if adapter, found = m.areg.ByImpl(cfg.Builder.Impl); !found {
+		return nil, fmt.Errorf("could not find registered adapter %#v", cfg.Builder.Impl)
 	}
 
 	var asp aspect.Wrapper
@@ -106,7 +106,7 @@ func (m *Manager) Execute(cfg *aspect.CombinedConfig, attrs attribute.Bag, mappe
 }
 
 // CacheGet -- get from the cache, use adapter.Manager to construct an object in case of a cache miss
-func (m *Manager) cacheGet(cfg *aspect.CombinedConfig, mgr aspect.Manager, adapter adapter.Adapter) (asp aspect.Wrapper, err error) {
+func (m *Manager) cacheGet(cfg *aspect.CombinedConfig, mgr aspect.Manager, adapter adapter.Builder) (asp aspect.Wrapper, err error) {
 	key := newCacheKey(cfg)
 	// try fast path with read lock
 	m.lock.RLock()

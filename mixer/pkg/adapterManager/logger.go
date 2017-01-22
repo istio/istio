@@ -25,19 +25,19 @@ type logger struct {
 	aspect string
 }
 
-func newLogger(aspect string) *logger {
-	return &logger{aspect: aspect}
+func newLogger(aspect string) logger {
+	return logger{aspect: aspect}
 }
 
-func (l *logger) Infof(format string, args ...interface{}) {
+func (l logger) Infof(format string, args ...interface{}) {
 	glog.InfoDepth(1, l.aspect+":"+fmt.Sprintf(format, args...))
 }
 
-func (l *logger) Warningf(format string, args ...interface{}) {
+func (l logger) Warningf(format string, args ...interface{}) {
 	glog.WarningDepth(1, l.aspect+":"+fmt.Sprintf(format, args...))
 }
 
-func (l *logger) Errorf(format string, args ...interface{}) error {
+func (l logger) Errorf(format string, args ...interface{}) error {
 	s := fmt.Sprintf(format, args...)
 	glog.ErrorDepth(1, l.aspect+":"+s)
 	return errors.New(s)

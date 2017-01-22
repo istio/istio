@@ -70,7 +70,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 
 	for _, v := range newAspectShouldSucceed {
 		c := CombinedConfig{
-			Adapter: &configpb.Adapter{},
+			Builder: &configpb.Adapter{},
 			Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
 		}
 		asp, err := m.NewAspect(&c, tl, testEnv{})
@@ -88,16 +88,16 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 
 	defaultCfg := &CombinedConfig{
-		Adapter: &configpb.Adapter{},
+		Builder: &configpb.Adapter{},
 		Aspect:  &configpb.Aspect{},
 	}
 
-	var generic adapter.Adapter
+	var generic adapter.Builder
 	errLogger := &testLogger{defaultCfg: &structpb.Struct{}, errOnNewAspect: true}
 
 	failureCases := []struct {
 		cfg   *CombinedConfig
-		adptr adapter.Adapter
+		adptr adapter.Builder
 	}{
 		{defaultCfg, generic},
 		{defaultCfg, errLogger},
@@ -255,7 +255,7 @@ type (
 		wantEntries []adapter.LogEntry
 	}
 	testLogger struct {
-		adapter.LoggerAdapter
+		adapter.LoggerBuilder
 		adapter.QuotaAspect
 
 		defaultCfg     adapter.AspectConfig

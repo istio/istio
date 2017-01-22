@@ -10,7 +10,7 @@ go_library(
 )
 
 go_test(
-    name = "intern_test",
+    name = "small_tests",
     size = "small",
     srcs = ["intern_test.go"],
     library = ":go_default_library",

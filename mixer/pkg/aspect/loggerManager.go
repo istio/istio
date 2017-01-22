@@ -48,10 +48,10 @@ type (
 
 // NewLoggerManager returns an instance of the Logger aspect manager.
 func NewLoggerManager() Manager {
-	return &loggerManager{}
+	return loggerManager{}
 }
 
-func (m *loggerManager) NewAspect(c *CombinedConfig, a adapter.Adapter, env adapter.Env) (Wrapper, error) {
+func (m loggerManager) NewAspect(c *CombinedConfig, a adapter.Builder, env adapter.Env) (Wrapper, error) {
 	// Handle aspect config to get log name and log entry descriptors.
 	aspectCfg := m.DefaultConfig()
 	if c.Aspect.Params != nil {
@@ -67,21 +67,21 @@ func (m *loggerManager) NewAspect(c *CombinedConfig, a adapter.Adapter, env adap
 	timestampFmt := logCfg.TimestampFormat
 	// TODO: look up actual descriptors by name and build an array
 
-	// cast to adapter.LoggerAdapter from adapter.Adapter
-	logAdapter, ok := a.(adapter.LoggerAdapter)
+	// cast to adapter.LoggerBuilder from adapter.Builder
+	logBuilder, ok := a.(adapter.LoggerBuilder)
 	if !ok {
-		return nil, fmt.Errorf("adapter of incorrect type. Expected adapter.LoggerAdapter got %#v %T", a, a)
+		return nil, fmt.Errorf("adapter of incorrect type. Expected adapter.LoggerBuilder got %#v %T", a, a)
 	}
 
 	// Handle adapter config
-	cpb := logAdapter.DefaultConfig()
-	if c.Adapter.Params != nil {
-		if err := structToProto(c.Adapter.Params, cpb); err != nil {
+	cpb := logBuilder.DefaultConfig()
+	if c.Builder.Params != nil {
+		if err := structToProto(c.Builder.Params, cpb); err != nil {
 			return nil, fmt.Errorf("could not parse adapter config: %v", err)
 		}
 	}
 
-	aspectImpl, err := logAdapter.NewLogger(env, cpb)
+	aspectImpl, err := logBuilder.NewLogger(env, cpb)
 	if err != nil {
 		return nil, err
 	}
@@ -103,13 +103,13 @@ func (m *loggerManager) NewAspect(c *CombinedConfig, a adapter.Adapter, env adap
 	}, nil
 }
 
-func (*loggerManager) Kind() string { return "istio/logger" }
-func (*loggerManager) DefaultConfig() adapter.AspectConfig {
+func (loggerManager) Kind() string { return "istio/logger" }
+func (loggerManager) DefaultConfig() adapter.AspectConfig {
 	return &config.LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
 }
 
 // TODO: validation of timestamp format
-func (*loggerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return nil }
+func (loggerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return nil }
 
 func (e *loggerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
 	var entries []adapter.LogEntry

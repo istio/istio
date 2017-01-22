@@ -28,23 +28,23 @@ import (
 )
 
 type (
-	adapterState struct{}
+	builderState struct{}
 	aspectImpl   struct {
 		logStream io.Writer
 	}
 )
 
-// Register records the the aspects exposed by this adapter.
-func Register(r adapter.Registrar) error { return r.RegisterLogger(&adapterState{}) }
+// Register records the builders exposed by this adapter.
+func Register(r adapter.Registrar) error { return r.RegisterLogger(builderState{}) }
 
-func (a *adapterState) Name() string { return "istio/stdioLogger" }
-func (a *adapterState) Description() string {
+func (builderState) Name() string { return "istio/stdioLogger" }
+func (builderState) Description() string {
 	return "Writes structured log entries to a standard I/O stream"
 }
-func (a *adapterState) DefaultConfig() adapter.AspectConfig                              { return &config.Params{} }
-func (a *adapterState) Close() error                                                     { return nil }
-func (a *adapterState) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return nil }
-func (a *adapterState) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.LoggerAspect, error) {
+func (builderState) DefaultConfig() adapter.AspectConfig                              { return &config.Params{} }
+func (builderState) Close() error                                                     { return nil }
+func (builderState) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return nil }
+func (builderState) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.LoggerAspect, error) {
 	c := cfg.(*config.Params)
 
 	w := os.Stderr

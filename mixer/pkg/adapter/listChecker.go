@@ -15,7 +15,7 @@
 package adapter
 
 type (
-	// ListCheckerAspect checks given symbol against a list
+	// ListCheckerAspect checks the presence of a given symbol against a list.
 	ListCheckerAspect interface {
 		Aspect
 
@@ -23,11 +23,11 @@ type (
 		CheckList(symbol string) (bool, error)
 	}
 
-	// ListCheckerAdapter builds the ListChecker Aspect
-	ListCheckerAdapter interface {
-		Adapter
+	// ListCheckerBuilder builds instances of the ListChecker aspect.
+	ListCheckerBuilder interface {
+		Builder
 
-		// NewListChecker returns a new ListChecker
+		// NewListChecker returns a new instance of the ListChecker aspect.
 		NewListChecker(env Env, c AspectConfig) (ListCheckerAspect, error)
 	}
 )

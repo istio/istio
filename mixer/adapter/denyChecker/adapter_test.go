@@ -25,7 +25,7 @@ import (
 )
 
 func TestAll(t *testing.T) {
-	b := newAdapter()
+	b := newBuilder()
 
 	a, err := b.NewDenyChecker(nil, b.DefaultConfig())
 	if err != nil {
@@ -61,5 +61,5 @@ func TestAll(t *testing.T) {
 }
 
 func TestInvariants(t *testing.T) {
-	at.TestAdapterInvariants(newAdapter(), Register, t)
+	at.TestAdapterInvariants(Register, t)
 }

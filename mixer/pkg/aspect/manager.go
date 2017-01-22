@@ -31,7 +31,7 @@ type (
 	// CombinedConfig combines all configuration related to an aspect.
 	CombinedConfig struct {
 		Aspect  *istioconfig.Aspect
-		Adapter *istioconfig.Adapter
+		Builder *istioconfig.Adapter
 	}
 
 	// Output captures the output from invoking an aspect.
@@ -49,7 +49,7 @@ type (
 		adapter.ConfigValidator
 
 		// NewAspect creates a new aspect instance given configuration.
-		NewAspect(cfg *CombinedConfig, adapter adapter.Adapter, env adapter.Env) (Wrapper, error)
+		NewAspect(cfg *CombinedConfig, adapter adapter.Builder, env adapter.Env) (Wrapper, error)
 
 		// Kind return the kind of aspect
 		Kind() string
@@ -57,7 +57,7 @@ type (
 
 	// Wrapper encapsulates a single aspect and allows it to be invoked.
 	Wrapper interface {
-		// Execute dispatches to the given adapter.
+		// Execute dispatches to the adapter.
 		Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error)
 	}
 )

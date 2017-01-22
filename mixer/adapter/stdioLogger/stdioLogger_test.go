@@ -28,7 +28,7 @@ import (
 )
 
 func TestAdapterInvariants(t *testing.T) {
-	at.TestAdapterInvariants(&adapterState{}, Register, t)
+	at.TestAdapterInvariants(Register, t)
 }
 
 func TestAdapter_NewAspect(t *testing.T) {
@@ -39,7 +39,7 @@ func TestAdapter_NewAspect(t *testing.T) {
 	}
 
 	e := testEnv{}
-	a := &adapterState{}
+	a := builderState{}
 	for _, v := range tests {
 		asp, err := a.NewLogger(e, v.config)
 		if err != nil {

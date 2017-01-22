@@ -90,7 +90,7 @@ func NewMethodHandlers(bindings ...StaticBinding) MethodHandlers {
 
 	for i, binding := range bindings {
 		if err := binding.RegisterFn(registry); err != nil {
-			panic(fmt.Errorf("failed to register binding '%s' with err: %s", binding.Config.Adapter.Name, err))
+			panic(fmt.Errorf("failed to register binding '%s' with err: %s", binding.Config.Builder.Name, err))
 		}
 		managers[i] = binding.Manager
 		for _, method := range binding.Methods {
@@ -121,12 +121,12 @@ func (h *methodHandlers) execute(ctx context.Context, tracker attribute.Tracker,
 		_ = ctx
 		out, err := h.mngr.Execute(conf, ab, h.eval)
 		if err != nil {
-			errorStr := fmt.Sprintf("Adapter %s returned err: %v", conf.Adapter.Name, err)
+			errorStr := fmt.Sprintf("Adapter %s returned err: %v", conf.Builder.Name, err)
 			glog.Warning(errorStr)
 			return newStatusWithMessage(code.Code_INTERNAL, errorStr)
 		}
 		if out.Code != code.Code_OK {
-			return newStatusWithMessage(out.Code, "Rejected by adapter "+conf.Adapter.Name)
+			return newStatusWithMessage(out.Code, "Rejected by builder "+conf.Builder.Name)
 		}
 	}
 	return newStatus(code.Code_OK)

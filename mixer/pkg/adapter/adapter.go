@@ -29,16 +29,16 @@ type (
 		io.Closer
 	}
 
-	// Adapter represents a factory of aspects. Adapters register builders with the mixer
+	// Builder represents a factory of aspects. Adapters register builders with the mixer
 	// in order to allow the mixer to instantiate aspects on demand.
-	Adapter interface {
+	Builder interface {
 		io.Closer
 		ConfigValidator
 
-		// Name returns the official name of the adapter. ex. "istio/statsd".
+		// Name returns the official name of the aspects produced by this builder.
 		Name() string
 
-		// Description returns a user-friendly description of this adapter.
+		// Description returns a user-friendly description of the aspects produced by this builder.
 		Description() string
 	}
 
