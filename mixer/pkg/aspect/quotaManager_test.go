@@ -12,24 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapter
+package aspect
 
-import (
-	"istio.io/mixer/adapter/denyChecker"
-	"istio.io/mixer/adapter/genericListChecker"
-	"istio.io/mixer/adapter/ipListChecker"
-	"istio.io/mixer/adapter/memQuota"
-	"istio.io/mixer/adapter/stdioLogger"
-	"istio.io/mixer/pkg/adapter"
-)
+import "testing"
 
-// Inventory returns inventory of all available adapters.
-func Inventory() []adapter.RegisterFn {
-	return []adapter.RegisterFn{
-		denyChecker.Register,
-		genericListChecker.Register,
-		ipListChecker.Register,
-		stdioLogger.Register,
-		memQuota.Register,
-	}
+func TestQuotaManager(t *testing.T) {
+	_ = NewQuotaManager()
 }

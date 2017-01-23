@@ -191,8 +191,8 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 		template:  tmpl,
 	}
 
-	emptyEntry := adapter.AccessLogEntry{"access_log", "<no value>", map[string]interface{}{}}
-	sourceEntry := adapter.AccessLogEntry{"access_log", "<no value>", map[string]interface{}{"source_ip": "127.0.0.1"}}
+	emptyEntry := adapter.AccessLogEntry{LogName: "access_log", Log: "<no value>", Labels: map[string]interface{}{}}
+	sourceEntry := adapter.AccessLogEntry{LogName: "access_log", Log: "<no value>", Labels: map[string]interface{}{"source_ip": "127.0.0.1"}}
 
 	tests := []struct {
 		name        string

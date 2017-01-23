@@ -121,7 +121,7 @@ func TestRegistry_RegisterAccessLogger(t *testing.T) {
 
 type quotaBuilder struct{ testBuilder }
 
-func (quotaBuilder) NewQuota(env adapter.Env, cfg adapter.AspectConfig) (adapter.QuotaAspect, error) {
+func (quotaBuilder) NewQuota(env adapter.Env, cfg adapter.AspectConfig, d map[string]*adapter.QuotaDefinition) (adapter.QuotaAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

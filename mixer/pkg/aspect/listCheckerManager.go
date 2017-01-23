@@ -70,7 +70,7 @@ func (listCheckerManager) DefaultConfig() adapter.AspectConfig {
 func (listCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	lc := c.(*aconfig.ListCheckerParams)
 	if lc.CheckAttribute == "" {
-		ce = ce.Appendf("check_attribute", "Missing")
+		ce = ce.Appendf("CheckAttribute", "Missing")
 	}
 	return
 }

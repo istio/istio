@@ -12,24 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapter
+syntax = "proto3";
 
-import (
-	"istio.io/mixer/adapter/denyChecker"
-	"istio.io/mixer/adapter/genericListChecker"
-	"istio.io/mixer/adapter/ipListChecker"
-	"istio.io/mixer/adapter/memQuota"
-	"istio.io/mixer/adapter/stdioLogger"
-	"istio.io/mixer/pkg/adapter"
-)
+package adapter.memQuota.config;
 
-// Inventory returns inventory of all available adapters.
-func Inventory() []adapter.RegisterFn {
-	return []adapter.RegisterFn{
-		denyChecker.Register,
-		genericListChecker.Register,
-		ipListChecker.Register,
-		stdioLogger.Register,
-		memQuota.Register,
-	}
+option go_package="config";
+
+message Params {
+	// Minimum number of seconds that deduplication is possible for a given operation.
+	int32 min_deduplication_window_seconds = 1;
 }

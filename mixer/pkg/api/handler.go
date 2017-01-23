@@ -151,7 +151,7 @@ func (h *handlerState) Report(ctx context.Context, tracker attribute.Tracker, re
 func (h *handlerState) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
 	response.RequestIndex = request.RequestIndex
 	status := h.execute(ctx, tracker, request.AttributeUpdate, config.QuotaMethod)
-	response.Result = newQuotaError(code.Code(status.Code))
+	response.Result = newStatus(code.Code(status.Code))
 }
 
 func newStatus(c code.Code) *status.Status {
@@ -160,10 +160,6 @@ func newStatus(c code.Code) *status.Status {
 
 func newStatusWithMessage(c code.Code, message string) *status.Status {
 	return &status.Status{Code: int32(c), Message: message}
-}
-
-func newQuotaError(c code.Code) *mixerpb.QuotaResponse_Error {
-	return &mixerpb.QuotaResponse_Error{Error: newStatus(c)}
 }
 
 // ConfigChange listens for config change notifications.
