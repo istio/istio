@@ -85,14 +85,17 @@ type methodHandlers struct {
 func NewMethodHandlers(bindings ...StaticBinding) MethodHandlers {
 	managers := make([]aspect.Manager, len(bindings))
 	configs := map[Method][]*aspect.CombinedConfig{Check: {}, Report: {}, Quota: {}}
+
+	for i, binding := range bindings {
+		managers[i] = binding.Manager
+	}
 	adapterMgr := adapterManager.NewManager(managers)
 	registry := adapterMgr.Registry()
 
-	for i, binding := range bindings {
+	for _, binding := range bindings {
 		if err := binding.RegisterFn(registry); err != nil {
 			panic(fmt.Errorf("failed to register binding '%s' with err: %s", binding.Config.Builder.Name, err))
 		}
-		managers[i] = binding.Manager
 		for _, method := range binding.Methods {
 			configs[method] = append(configs[method], binding.Config)
 		}
