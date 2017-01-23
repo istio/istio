@@ -129,3 +129,23 @@ message ClientConfig {
   string revision = 2;
   repeated AspectRule rules = 3;
 }
+
+// Uri represents a properly formed URI.
+message Uri {
+  string value = 1;
+}
+
+// IpAddress holds an IPv4 or IPv6 address.
+message IpAddress {
+  bytes value = 1;
+}
+
+// DnsName holds a valid domain name.
+message DnsName {
+  string value = 1;
+}
+
+// EmailAddress holds a properly formatted email address.
+message EmailAddress {
+  string value = 1;
+}
