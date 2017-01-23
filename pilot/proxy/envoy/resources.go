@@ -16,16 +16,18 @@ package envoy
 
 // MeshConfig defines proxy mesh variables
 type MeshConfig struct {
-	// DiscoveryAddress is the "ip:port" address for Envoy discovery service
+	// DiscoveryAddress is the DNS address for Envoy discovery service
 	DiscoveryAddress string
+	// MixerAddress is the DNS address for Istio Mixer service
+	MixerAddress string
 	// ProxyPort is the Envoy proxy port
 	ProxyPort int
 	// AdminPort is the administrative interface port
 	AdminPort int
 	// Envoy binary path
-	Binary string
-	// Mixer service key (e.g. "mixer.default:grpc")
-	Mixer string
+	BinaryPath string
+	// Envoy config root path
+	ConfigPath string
 }
 
 // Config defines the schema for Envoy JSON configuration format
@@ -69,7 +71,8 @@ type FilterFaultConfig struct {
 
 // FilterRouterConfig definition
 type FilterRouterConfig struct {
-	DynamicStats bool `json:"dynamic_stats"`
+	// DynamicStats defaults to true
+	DynamicStats bool `json:"dynamic_stats,omitempty"`
 }
 
 // Filter definition

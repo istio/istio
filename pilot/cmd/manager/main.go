@@ -53,8 +53,7 @@ var (
 		Use:   "manager",
 		Short: "Istio Manager",
 		Long: `
-Istio Manager provides management plane functionality to
-the Istio proxy mesh and Istio Mixer.`,
+Istio Manager provides management plane functionality to the Istio proxy mesh and Istio Mixer.`,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			glog.V(2).Infof("flags: %#v", flags)
 
@@ -110,16 +109,18 @@ func init() {
 		"Discovery service port")
 	rootCmd.AddCommand(serverCmd)
 
-	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.DiscoveryAddress, "sds", "s", "localhost:8080",
-		"Discovery service external address")
+	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.DiscoveryAddress, "sds", "s", "manager:8080",
+		"Discovery service DNS address")
 	proxyCmd.PersistentFlags().IntVarP(&flags.proxy.ProxyPort, "port", "p", 5001,
 		"Envoy proxy port")
 	proxyCmd.PersistentFlags().IntVarP(&flags.proxy.AdminPort, "admin_port", "a", 5000,
 		"Envoy admin port")
-	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.Binary, "envoy_path", "b", "/usr/local/bin/envoy",
+	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.BinaryPath, "envoy_path", "b", "/usr/local/bin/envoy",
 		"Envoy binary location")
-	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.Mixer, "mixer_sds", "m", "mixer.default:grpc",
-		"Mixer service key")
+	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.ConfigPath, "config_path", "e", "/etc/envoy",
+		"Envoy config root location")
+	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.MixerAddress, "mixer", "m", "",
+		"Mixer DNS address (or empty to disable Mixer)")
 	rootCmd.AddCommand(proxyCmd)
 }
 

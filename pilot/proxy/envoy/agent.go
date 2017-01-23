@@ -32,6 +32,8 @@ type Agent interface {
 type agent struct {
 	// Envoy binary path
 	binary string
+	// Envoy config root
+	configRoot string
 	// Map of known running Envoy processes and their restart epochs.
 	cmdMap map[*exec.Cmd]instance
 	// mutex protects cmdMap
@@ -44,39 +46,21 @@ type instance struct {
 }
 
 const (
-	// EnvoyConfigPath is the root directory for Envoy configuration
-	EnvoyConfigPath = "/etc/envoy/"
-
 	// EnvoyFileTemplate is a template for root config JSON
-	EnvoyFileTemplate = "envoy-rev%d.json"
+	EnvoyFileTemplate = "/envoy-rev%d.json"
 )
 
-// NewAgent creates a new instance.
-func NewAgent(binary string, mixer string) (Agent, error) {
-	// TODO mixer should be configured directly in the envoy filter
-	f, err := os.Create(EnvoyConfigPath + ServerConfig)
-	if err != nil {
-		return nil, err
-	}
-	_, _ = f.WriteString(fmt.Sprintf(`
-cloud_tracing_config {
-  force_disable: true
-}
-mixer_options {
-  mixer_server: "%s%s"
-}
-	`, OutboundClusterPrefix, mixer))
-
-	_ = f.Close()
-
+// NewAgent creates a new proxy instance agent for a config root
+func NewAgent(binary string, configRoot string) Agent {
 	return &agent{
-		binary: binary,
-		cmdMap: make(map[*exec.Cmd]instance),
-	}, nil
+		binary:     binary,
+		configRoot: configRoot,
+		cmdMap:     make(map[*exec.Cmd]instance),
+	}
 }
 
-func configFile(epoch int) string {
-	return fmt.Sprintf(EnvoyConfigPath+EnvoyFileTemplate, epoch)
+func configFile(config string, epoch int) string {
+	return fmt.Sprintf(config+EnvoyFileTemplate, epoch)
 }
 
 // Reload Envoy with a hot restart. Envoy hot restarts are performed by launching a new Envoy process with an
@@ -100,7 +84,7 @@ func (s *agent) Reload(config *Config) error {
 	epoch++
 
 	// Write config file
-	fname := configFile(epoch)
+	fname := configFile(s.configRoot, epoch)
 	if err := config.WriteFile(fname); err != nil {
 		return err
 	}
@@ -169,7 +153,7 @@ func (s *agent) waitForExit(cmd *exec.Cmd) {
 	}
 
 	// delete config file
-	path := configFile(epoch)
+	path := configFile(s.configRoot, epoch)
 	if err := os.Remove(path); err != nil {
 		glog.Warningf("Failed to delete config file %s, %v", path, err)
 	}

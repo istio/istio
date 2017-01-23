@@ -57,8 +57,6 @@ const (
 	OutboundClusterPrefix = "outbound_"
 	// InboundClusterPrefix is the prefix for service clusters co-hosted on the proxy instance
 	InboundClusterPrefix = "inbound_"
-	// ServerConfig specifies additional config
-	ServerConfig = "server_config.pb.txt"
 )
 
 // TODO: these values used in the Envoy configuration will be configurable
@@ -70,13 +68,27 @@ const (
 
 // Generate Envoy configuration for service instances co-located with Envoy and all services in the mesh
 func Generate(instances []*model.ServiceInstance, services []*model.Service, mesh *MeshConfig) (*Config, error) {
-	listeners, clusters := buildListeners(instances, services)
+	listeners, clusters := buildListeners(instances, services, mesh)
 	listeners = append(listeners, Listener{
 		Port:           mesh.ProxyPort,
 		BindToPort:     true,
 		UseOriginalDst: true,
 		Filters:        make([]NetworkFilter, 0),
 	})
+
+	if len(mesh.MixerAddress) > 0 {
+		clusters = append(clusters, Cluster{
+			Name:             "mixer",
+			Type:             "strict_dns",
+			ConnectTimeoutMs: DefaultTimeoutMs,
+			LbType:           DefaultLbType,
+			Hosts: []Host{
+				{
+					URL: "tcp://" + mesh.MixerAddress,
+				},
+			},
+		})
+	}
 
 	return &Config{
 		Listeners: listeners,
@@ -106,7 +118,9 @@ func Generate(instances []*model.ServiceInstance, services []*model.Service, mes
 
 // buildListeners uses iptables port redirect to route traffic either into the pod or outside the pod
 // to service clusters based on the traffic metadata.
-func buildListeners(instances []*model.ServiceInstance, services []*model.Service) ([]Listener, []Cluster) {
+func buildListeners(instances []*model.ServiceInstance,
+	services []*model.Service,
+	mesh *MeshConfig) ([]Listener, []Cluster) {
 	clusters := buildClusters(services)
 	listeners := make([]Listener, 0)
 
@@ -224,7 +238,7 @@ func buildListeners(instances []*model.ServiceInstance, services []*model.Servic
 					StatPrefix:  "http",
 					AccessLog:   []AccessLog{{Path: Stdout}},
 					RouteConfig: RouteConfig{VirtualHosts: vhosts},
-					Filters:     buildFilters(),
+					Filters:     buildFilters(mesh),
 				},
 			})
 		}
@@ -276,17 +290,19 @@ func buildClusters(services []*model.Service) []Cluster {
 	return clusters
 }
 
-func buildFilters() []Filter {
-	var filters []Filter
+func buildFilters(mesh *MeshConfig) []Filter {
+	filters := make([]Filter, 0)
 
-	filters = append(filters, Filter{
-		Type: "both",
-		Name: "esp",
-		Config: FilterEndpointsConfig{
-			ServiceConfig: EnvoyConfigPath + "generic_service_config.json",
-			ServerConfig:  EnvoyConfigPath + ServerConfig,
-		},
-	})
+	if len(mesh.MixerAddress) > 0 {
+		filters = append(filters, Filter{
+			Type: "both",
+			Name: "esp",
+			Config: FilterEndpointsConfig{
+				ServiceConfig: "/etc/generic_service_config.json",
+				ServerConfig:  "/etc/server_config.pb.txt",
+			},
+		})
+	}
 
 	filters = append(filters, Filter{
 		Type:   "decoder",

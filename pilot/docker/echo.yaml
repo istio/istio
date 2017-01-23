@@ -44,7 +44,7 @@ spec:
         ports:
         - containerPort: 8080
       - name: proxy
-        image: gcr.io/istio-test/runtime:test
+        image: gcr.io/istio-test/runtime:experiment
         securityContext:
           runAsUser: 1337
         args:
@@ -58,8 +58,8 @@ spec:
           - "5001"
           - -n
           - default
-          - -m
-          - mixer.default:grpc
+          - -b
+          - "/envoy_esp"
         imagePullPolicy: Always
 ---
 apiVersion: v1
@@ -97,38 +97,6 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mixer
-  labels:
-    app: mixer
-spec:
-  ports:
-  - port: 80
-    targetPort: 9091
-    name: grpc
-  selector:
-    app: mixer
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: mixer
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: mixer
-    spec:
-      containers:
-      - name: mixer
-        image: gcr.io/istio-test/mixer:example
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 9091
----
-apiVersion: v1
-kind: Service
-metadata:
   name: manager
   labels:
     app: manager
@@ -152,7 +120,7 @@ spec:
     spec:
       containers:
       - name: manager
-        image: gcr.io/istio-test/runtime:test
+        image: gcr.io/istio-test/runtime:experiment
         args: ["server", "--logtostderr", "-v", "2"]
         imagePullPolicy: Always
         ports:

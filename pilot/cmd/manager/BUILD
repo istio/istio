@@ -14,7 +14,7 @@ go_library(
 )
 
 go_binary(
-    name = "cmd",
+    name = "manager",
     library = ":go_default_library",
     visibility = ["//visibility:public"],
 )
