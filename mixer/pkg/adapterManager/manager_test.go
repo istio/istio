@@ -231,8 +231,8 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 	m := newManager(breg, mreg, nil, nil)
 
 	cfg := &config.Combined{
-		&configpb.Adapter{Name: name},
-		&configpb.Aspect{Kind: name},
+		Builder: &configpb.Adapter{Name: name},
+		Aspect:  &configpb.Aspect{Kind: name},
 	}
 
 	_, err := m.Execute(cfg, nil)

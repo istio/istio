@@ -10,6 +10,7 @@ go_library(
         "listCheckerManager.go",
         "loggerManager.go",
         "manager.go",
+        "quotaManager.go",
         "registry.go",
     ],
     deps = [
@@ -38,6 +39,7 @@ go_test(
         "denyCheckerManager_test.go",
         "listCheckerManager_test.go",
         "loggerManager_test.go",
+        "quotaManager_test.go",
     ],
     library = ":go_default_library",
     deps = [

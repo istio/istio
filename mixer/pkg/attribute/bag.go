@@ -101,7 +101,7 @@ func FromContext(ctx context.Context) (MutableBag, bool) {
 }
 
 // Value returns an attribute value from a bag, without having
-// to known a priori the type of the attribute in question.
+// to know a priori the type of the attribute in question.
 func Value(b Bag, name string) (interface{}, bool) {
 	if r, found := b.String(name); found {
 		return r, true

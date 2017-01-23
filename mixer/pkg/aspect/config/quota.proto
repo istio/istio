@@ -20,4 +20,7 @@ option go_package="config";
 
 // Configures a quota aspect.
 message QuotaParams {
+    // A list of names of istio.mixer.v1.config.descriptor.QuotaDescriptors determining the
+    // set of quotas that will be checked for any Quota call.
+    repeated string quota_descriptor_names = 1;
 }

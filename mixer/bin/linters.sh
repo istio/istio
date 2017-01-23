@@ -3,7 +3,7 @@
 # Runs all requisite linters over the whole mixer code base.
 set -e
 
-prep_linters() {	
+prep_linters() {
 	if ! which codecoroner > /dev/null; then
 		echo "Preparing linters"
 		go get -u github.com/alecthomas/gometalinter
@@ -29,7 +29,7 @@ go_metalinter(){
         # for local run, only lint the current branch
 	LAST_GOOD_GITSHA=$(git log master.. --pretty="%H"|tail -1)
     fi
-    
+
     # default: lint everything. This runs on the main build
     PKGS="./pkg/... ./cmd/... ./adapter/..."
 
@@ -37,7 +37,6 @@ go_metalinter(){
     if [[ ! -z ${LAST_GOOD_GITSHA} ]];then
         PKGS=$(for fn in $(git diff --name-only ${LAST_GOOD_GITSHA}); do fd="${fn%/*}"; [ -d ${fd} ] && echo $fd; done | sort | uniq)
     fi
-    echo $PKGS
 
     gometalinter\
 	--vendored-linters\
@@ -85,9 +84,8 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
-time prep_linters
+prep_linters
 
-time run_linters
-
+run_linters
 
 echo Done running linters
