@@ -115,6 +115,10 @@ func (t *Tracer) StartSpanFromContext(ctx context.Context, operationName string,
 // This should be used to prepare the context for outgoing calls.
 func (t *Tracer) PropagateSpan(ctx context.Context, span ot.Span) (metadata.MD, context.Context) {
 	md := extractMetadata(ctx)
+	if !t.enabled {
+		return md, ctx
+	}
+
 	if err := t.Inject(span.Context(), ot.TextMap, metadataReaderWriter{md}); err != nil {
 		glog.Warningf("Failed to inject opentracing span state with tracer %v into ctx %v with err %v", t.Tracer, ctx, err)
 	}
@@ -122,6 +126,10 @@ func (t *Tracer) PropagateSpan(ctx context.Context, span ot.Span) (metadata.MD, 
 }
 
 func (t *Tracer) extractSpanContext(ctx context.Context, md metadata.MD) ot.SpanContext {
+	if !t.enabled {
+		return nil
+	}
+
 	spanContext, err := t.Extract(ot.TextMap, metadataReaderWriter{md})
 	if err != nil {
 		glog.Warningf("Failed to extract opentracing metadata with tracer %v from ctx %v with err %v", t.Tracer, ctx, err)
