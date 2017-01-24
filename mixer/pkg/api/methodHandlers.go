@@ -119,12 +119,20 @@ func (h *methodHandlers) execute(ctx context.Context, tracker attribute.Tracker,
 
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, ab)
+	var out *aspect.Output
 	for _, conf := range h.configs[method] {
-		// TODO: plumb ctx through uber.manager.Execute
-		_ = ctx
-		out, err := h.mngr.Execute(conf, ab, h.eval)
+		select {
+		case <-ctx.Done():
+			// TODO: determine the correct response to return: if we get a cancel on anything other than the first adapter
+			// then that adapter must have returned an OK code since we exit processing at the first non-OK status.
+			return newStatusWithMessage(code.Code_DEADLINE_EXCEEDED, ctx.Err().Error())
+		default: // Don't block on Done, keep on processing with adapters.
+		}
+
+		_ = ctx // TODO: plumb context through the manager's execute func.
+		out, err = h.mngr.Execute(conf, ab, h.eval)
 		if err != nil {
-			errorStr := fmt.Sprintf("Adapter %s returned err: %v", conf.Builder.Name, err)
+			errorStr := fmt.Sprintf("Adapter '%s' returned err: %v", conf.Builder.Name, err)
 			glog.Warning(errorStr)
 			return newStatusWithMessage(code.Code_INTERNAL, errorStr)
 		}
