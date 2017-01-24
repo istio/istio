@@ -1,0 +1,10 @@
+# Skip large tests on jenkins
+test --test_size_filters=-large,-enormous
+
+# This is so we understand failures better
+build --verbose_failures
+test --test_output=errors
+
+# Below this line, Jenkins will cat the default bazelrc.
+# This is needed so Bazel starts with the base workspace in its
+# package path.

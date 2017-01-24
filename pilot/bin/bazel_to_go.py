@@ -14,9 +14,9 @@ def process(fl, external, vendor):
         stmttype = type(stmt)
         if stmttype == ast.Call and stmt.func.id == "new_go_repository":
             kw = {k.arg: k.value.s for k in stmt.keywords if k.arg in ["name", "importpath"]}
-            source = external + "/" + kw["name"]
+            source = os.path.join(external, kw["name"])
             u = urlparse(kw["importpath"])
-            target = vendor + "/" + u.netloc + u.path
+            target = os.path.join(vendor, u.netloc + u.path)
             links[source] = target
 
     return links
@@ -45,9 +45,9 @@ def makelink(source, name):
 
 def bazel_to_vendor(WKSPC):
     WKSPC = os.path.abspath(WKSPC)
-    workspace = WKSPC + "/WORKSPACE"
-    vendor = WKSPC + "/vendor"
-    root = WKSPC + "/bazel-manager"
+    workspace = os.path.join(WKSPC, "WORKSPACE")
+    vendor = os.path.join(WKSPC, "vendor")
+    root = os.path.join(WKSPC, "bazel-%s" % os.path.basename(WKSPC))
 
     if not os.path.isfile(workspace):
         print "WORKSPACE file not found in " + WKSPC
@@ -55,10 +55,10 @@ def bazel_to_vendor(WKSPC):
         return -1
 
     # resolve symlink to bazel workspace
-    lf = os.readlink(WKSPC + "/bazel-manager")
+    lf = os.readlink(root)
     EXEC_ROOT = os.path.dirname(lf)
     BLD_DIR = os.path.dirname(EXEC_ROOT)
-    external =  BLD_DIR + "/external"
+    external = os.path.join(BLD_DIR, "external")
 
     links = process(workspace, external, vendor)
     for (source, target) in links.items():

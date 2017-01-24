@@ -2,3 +2,5 @@
 contrib/cfgeditor/content.go
 platform/kube/config
 vendor
+.idea*
+*.iml
