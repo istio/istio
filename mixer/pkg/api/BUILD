@@ -34,6 +34,9 @@ go_library(
 go_test(
     name = "small_tests",
     size = "small",
-    srcs = ["grpcServer_test.go"],
+    srcs = [
+        "grpcServer_test.go",
+        "methodHandlers_test.go",
+    ],
     library = ":go_default_library",
 )

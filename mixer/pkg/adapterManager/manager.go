@@ -82,7 +82,7 @@ func (m *Manager) Registry() *Registry {
 
 // Execute performs the aspect function based on CombinedConfig and attributes and an expression evaluator
 // returns aspect output or error if the operation could not be performed
-func (m *Manager) Execute(cfg *aspect.CombinedConfig, attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
+func (m *Manager) Execute(cfg *aspect.CombinedConfig, attrs attribute.Bag, mapper expr.Evaluator) (out *aspect.Output, err error) {
 	var mgr aspect.Manager
 	var found bool
 
@@ -95,8 +95,16 @@ func (m *Manager) Execute(cfg *aspect.CombinedConfig, attrs attribute.Bag, mappe
 		return nil, fmt.Errorf("could not find registered adapter %#v", cfg.Builder.Impl)
 	}
 
+	// Both cacheGet and asp.Execute call adapter-supplied code, so we need to guard against both panicking.
+	defer func() {
+		if r := recover(); r != nil {
+			out = nil // invalidate whatever partial result we got; should we set this to a Code.Code_INTERNAL or similar?
+			err = fmt.Errorf("adapter '%s' panicked with '%v'", cfg.Builder.Name, r)
+			return
+		}
+	}()
+
 	var asp aspect.Wrapper
-	var err error
 	if asp, err = m.cacheGet(cfg, mgr, adapter); err != nil {
 		return nil, err
 	}
