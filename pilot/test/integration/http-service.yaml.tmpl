@@ -2,28 +2,28 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: a
+  name: $NAME
   labels:
-    app: a
+    app: $NAME
 spec:
   type: NodePort
   ports:
   - port: 80
-    targetPort: 8080
+    targetPort: $PORT
     name: http
   selector:
-    app: a
+    app: $NAME
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: a
+  name: $NAME
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: a
+        app: $NAME
       annotations:
         pod.beta.kubernetes.io/init-containers: >
           [{
@@ -42,15 +42,15 @@ spec:
       - name: echo
         image: gcr.io/google_containers/echoserver:1.4
         ports:
-        - containerPort: 8080
+        - containerPort: $PORT
       - name: proxy
-        image: gcr.io/istio-test/runtime:experiment
+        image: gcr.io/istio-test/runtime:$TAG
         securityContext:
           runAsUser: 1337
         args:
           - proxy
           - -s
-          - manager:8080
+          - m:8080
           - --logtostderr
           - -v
           - "2"
@@ -62,66 +62,3 @@ spec:
           - "/envoy_esp"
         imagePullPolicy: Always
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: test
-  labels:
-    app: test
-spec:
-  type: NodePort
-  ports:
-  - port: 80
-    targetPort: 8080
-    name: http
-  selector:
-    app: test
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: test
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: test
-    spec:
-      containers:
-      - name: echo
-        image: gcr.io/google_containers/echoserver:1.4
-        ports:
-        - containerPort: 8080
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: manager
-  labels:
-    app: manager
-spec:
-  ports:
-  - port: 8080
-    name: http-discovery
-  selector:
-    app: manager
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: manager
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: manager
-    spec:
-      containers:
-      - name: manager
-        image: gcr.io/istio-test/runtime:experiment
-        args: ["server", "--logtostderr", "-v", "2"]
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 8080

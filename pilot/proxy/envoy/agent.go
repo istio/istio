@@ -46,8 +46,8 @@ type instance struct {
 }
 
 const (
-	// EnvoyFileTemplate is a template for root config JSON
-	EnvoyFileTemplate = "/envoy-rev%d.json"
+	// EnvoyFileTemplate is a template for the root config JSON
+	EnvoyFileTemplate = "%s/envoy-rev%d.json"
 )
 
 // NewAgent creates a new proxy instance agent for a config root
@@ -60,7 +60,7 @@ func NewAgent(binary string, configRoot string) Agent {
 }
 
 func configFile(config string, epoch int) string {
-	return fmt.Sprintf(config+EnvoyFileTemplate, epoch)
+	return fmt.Sprintf(EnvoyFileTemplate, config, epoch)
 }
 
 // Reload Envoy with a hot restart. Envoy hot restarts are performed by launching a new Envoy process with an

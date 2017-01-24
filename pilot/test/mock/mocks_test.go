@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package test
+package mock
 
 import (
 	"testing"
@@ -21,25 +21,25 @@ import (
 )
 
 var invalidConfigs = []model.Config{
-	{ConfigKey: MockKey},
-	{ConfigKey: MockKey, Spec: "x"},
+	{ConfigKey: Key},
+	{ConfigKey: Key, Spec: "x"},
 	{ConfigKey: model.ConfigKey{Name: "BLAH"}},
 	{
-		ConfigKey: model.ConfigKey{Name: MockName},
-		Spec:      &MockConfigObject,
+		ConfigKey: model.ConfigKey{Name: Name},
+		Spec:      &ConfigObject,
 	},
 	{
-		ConfigKey: model.ConfigKey{Name: MockName, Kind: "Mock"},
-		Spec:      &MockConfigObject,
+		ConfigKey: model.ConfigKey{Name: Name, Kind: "Mock"},
+		Spec:      &ConfigObject,
 	},
 }
 
-func TestMockRegistry(t *testing.T) {
-	r := NewMockRegistry()
-	if err := MockMapping.Validate(); err != nil {
+func TestRegistry(t *testing.T) {
+	r := NewRegistry()
+	if err := Mapping.Validate(); err != nil {
 		t.Error(err)
 	}
-	CheckMapInvariant(r, t, MockNamespace, 10)
+	CheckMapInvariant(r, t, Namespace, 10)
 	for _, config := range invalidConfigs {
 		if err := r.Put(&config); err == nil {
 			t.Errorf("t.Put(%#v) succeeded for invalid config", config)
@@ -48,7 +48,7 @@ func TestMockRegistry(t *testing.T) {
 }
 
 func TestKindMap(t *testing.T) {
-	if MockMapping.Validate() != nil {
+	if Mapping.Validate() != nil {
 		t.Fail()
 	}
 }

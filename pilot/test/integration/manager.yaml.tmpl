@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: t
+  labels:
+    app: t
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  selector:
+    app: t
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: t
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: t
+    spec:
+      containers:
+      - name: echo
+        image: gcr.io/google_containers/echoserver:1.4
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: m
+  labels:
+    app: m
+spec:
+  ports:
+  - port: 8080
+    name: http-discovery
+  selector:
+    app: m
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: m
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: m
+    spec:
+      containers:
+      - name: manager
+        image: gcr.io/istio-test/runtime:$TAG
+        args: ["server", "--logtostderr", "-v", "2"]
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+---

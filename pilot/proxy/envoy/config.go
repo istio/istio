@@ -116,8 +116,8 @@ func Generate(instances []*model.ServiceInstance, services []*model.Service, mes
 	}, nil
 }
 
-// buildListeners uses iptables port redirect to route traffic either into the pod or outside the pod
-// to service clusters based on the traffic metadata.
+// buildListeners uses iptables port redirect to route traffic either into the
+// pod or outside the pod to service clusters based on the traffic metadata.
 func buildListeners(instances []*model.ServiceInstance,
 	services []*model.Service,
 	mesh *MeshConfig) ([]Listener, []Cluster) {

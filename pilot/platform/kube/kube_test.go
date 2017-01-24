@@ -26,7 +26,7 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 
 	"istio.io/manager/model"
-	"istio.io/manager/test"
+	"istio.io/manager/test/mock"
 )
 
 var (
@@ -57,7 +57,7 @@ func TestThirdPartyResourcesClient(t *testing.T) {
 	ns := makeNamespace(cl.client, t)
 	defer deleteNamespace(cl.client, ns)
 
-	test.CheckMapInvariant(cl, t, ns, 5)
+	mock.CheckMapInvariant(cl, t, ns, 5)
 
 	// TODO(kuat) initial watch always fails, takes time to register TPR, keep
 	// around as a work-around
@@ -79,7 +79,7 @@ func TestController(t *testing.T) {
 	ctl := NewController(cl, ns, 256*time.Millisecond)
 	added, deleted := 0, 0
 	n := 5
-	err := ctl.AppendConfigHandler(test.MockKind, func(c *model.Config, ev model.Event) {
+	err := ctl.AppendConfigHandler(mock.Kind, func(c *model.Config, ev model.Event) {
 		switch ev {
 		case model.EventAdd:
 			if deleted != 0 {
@@ -99,7 +99,7 @@ func TestController(t *testing.T) {
 	}
 	go ctl.Run(stop)
 
-	test.CheckMapInvariant(cl, t, ns, n)
+	mock.CheckMapInvariant(cl, t, ns, n)
 	eventually(func() bool { return added == n && deleted == n }, t)
 }
 
@@ -118,8 +118,8 @@ func TestControllerCacheFreshness(t *testing.T) {
 	var _ model.Controller = ctl
 
 	// validate cache consistency
-	err := ctl.AppendConfigHandler(test.MockKind, func(c *model.Config, ev model.Event) {
-		elts, _ := ctl.List(test.MockKind, ns)
+	err := ctl.AppendConfigHandler(mock.Kind, func(c *model.Config, ev model.Event) {
+		elts, _ := ctl.List(mock.Kind, ns)
 		switch ev {
 		case model.EventAdd:
 			if len(elts) != 1 {
@@ -141,7 +141,7 @@ func TestControllerCacheFreshness(t *testing.T) {
 	}
 
 	go ctl.Run(stop)
-	o := test.MakeMock(0, ns)
+	o := mock.Make(0, ns)
 
 	// put followed by delete
 	if err := ctl.Put(o); err != nil {
@@ -163,7 +163,7 @@ func TestControllerClientSync(t *testing.T) {
 
 	// add elements directly through client
 	for i := 0; i < n; i++ {
-		if err := cl.Put(test.MakeMock(i, ns)); err != nil {
+		if err := cl.Put(mock.Make(i, ns)); err != nil {
 			t.Error(err)
 		}
 	}
@@ -172,36 +172,36 @@ func TestControllerClientSync(t *testing.T) {
 	ctl := NewController(cl, ns, 256*time.Millisecond)
 	go ctl.Run(stop)
 	eventually(func() bool { return ctl.HasSynced() }, t)
-	os, _ := ctl.List(test.MockKind, ns)
+	os, _ := ctl.List(mock.Kind, ns)
 	if len(os) != n {
 		t.Errorf("ctl.List => Got %d, expected %d", len(os), n)
 	}
 
 	// remove elements directly through client
 	for i := 0; i < n; i++ {
-		if err := cl.Delete(test.MakeMock(i, ns).ConfigKey); err != nil {
+		if err := cl.Delete(mock.Make(i, ns).ConfigKey); err != nil {
 			t.Error(err)
 		}
 	}
 
 	// check again in the controller cache
 	eventually(func() bool {
-		os, _ = ctl.List(test.MockKind, ns)
+		os, _ = ctl.List(mock.Kind, ns)
 		glog.Infof("ctl.List => Got %d, expected %d", len(os), 0)
 		return len(os) == 0
 	}, t)
 
 	// now add through the controller
 	for i := 0; i < n; i++ {
-		if err := ctl.Put(test.MakeMock(i, ns)); err != nil {
+		if err := ctl.Put(mock.Make(i, ns)); err != nil {
 			t.Error(err)
 		}
 	}
 
 	// check directly through the client
 	eventually(func() bool {
-		cs, _ := ctl.List(test.MockKind, ns)
-		os, _ := cl.List(test.MockKind, ns)
+		cs, _ := ctl.List(mock.Kind, ns)
+		os, _ := cl.List(mock.Kind, ns)
 		glog.Infof("ctl.List => Got %d, expected %d", len(cs), n)
 		glog.Infof("cl.List => Got %d, expected %d", len(os), n)
 		return len(os) == n && len(cs) == n
@@ -209,7 +209,7 @@ func TestControllerClientSync(t *testing.T) {
 
 	// remove elements directly through the client
 	for i := 0; i < n; i++ {
-		if err := cl.Delete(test.MakeMock(i, ns).ConfigKey); err != nil {
+		if err := cl.Delete(mock.Make(i, ns).ConfigKey); err != nil {
 			t.Error(err)
 		}
 	}
@@ -273,7 +273,7 @@ func makeClient(t *testing.T) *Client {
 		}
 	}
 
-	cl, err := NewClient(kubeconfig, test.MockMapping)
+	cl, err := NewClient(kubeconfig, mock.Mapping)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
