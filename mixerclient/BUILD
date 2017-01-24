@@ -22,6 +22,8 @@ cc_library(
         "src/attribute_context.cc",
         "src/attribute_context.h",
         "src/attribute_converter.h",
+        "src/check_cache.cc",
+        "src/check_cache.h",
         "src/client_impl.cc",
         "src/client_impl.h",
         "src/signature.cc",
@@ -30,6 +32,7 @@ cc_library(
         "src/transport.h",
         "utils/md5.cc",
         "utils/md5.h",
+        "utils/status_test_util.h",
     ],
     hdrs = [
         "include/client.h",
@@ -38,6 +41,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        ":simple_lru_cache",
         "//external:boringssl_crypto",
         "//external:mixer_api_cc_proto",
     ],
@@ -103,6 +107,16 @@ cc_test(
     name = "signature_test",
     size = "small",
     srcs = ["src/signature_test.cc"],
+    deps = [
+        ":mixer_client_lib",
+        "//external:googletest_main",
+    ],
+)
+
+cc_test(
+    name = "check_cache_test",
+    size = "small",
+    srcs = ["src/check_cache_test.cc"],
     deps = [
         ":mixer_client_lib",
         "//external:googletest_main",
