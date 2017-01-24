@@ -35,7 +35,7 @@ func TestCurrentSpan(t *testing.T) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "first")
 
 	if currentSpan := CurrentSpan(ctx); currentSpan != span {
-		t.Errorf("Failed to extract the current span from the context, expected '%v' actual '%v'; context: '%v'", span, currentSpan, ctx)
+		t.Errorf("CurrentSpan(ctx) = %v; wanted '%v'; context: '%v'", currentSpan, span, ctx)
 	}
 }
 
@@ -50,7 +50,7 @@ func TestStartSpanFromContext(t *testing.T) {
 	mockSpan, _ := span.(*mocktracer.MockSpan)
 	mockChild, _ := childSpan.(*mocktracer.MockSpan)
 	if mockChild.ParentID != mockSpan.SpanContext.SpanID {
-		t.Errorf("Failed to extract parent from ctx %+v; expected parent %d, actual %d", ctx, mockSpan.SpanContext.SpanID, mockChild.ParentID)
+		t.Errorf("StartSpanFromContext(ctx).ParentID = %d; wanted %d; context: %v", mockChild.ParentID, mockSpan.SpanContext.SpanID, ctx)
 	}
 }
 
@@ -66,7 +66,7 @@ func TestStartRootSpan(t *testing.T) {
 	first, _ := s.(*mocktracer.MockSpan)
 	// We had no metadata in the context being propagated, so we expect no parent
 	if first.ParentID != 0 {
-		t.Errorf("Expected no parent for root span with no request metadata, actual '%d'; context: %v", first.ParentID, ctx)
+		t.Errorf("RootSpan(ctx).ParentID = %d; wanted non-zero parent; context: %v", first.ParentID, ctx)
 	}
 
 	// Shove the first span into the context's grpc metadata, so that StartRootSpan will think it got a propagated span
@@ -75,19 +75,19 @@ func TestStartRootSpan(t *testing.T) {
 
 	ss, newCtx := tracer.StartRootSpan(newCtx, "second")
 	if root := RootSpan(newCtx); root != ss {
-		t.Errorf("No root span in context, expected span '%v'; context: %v", s, ctx)
+		t.Errorf("RootSpan(newCtx) = %v; wanted %v; context: %v", root, ss, ctx)
 	}
 
 	second, _ := ss.(*mocktracer.MockSpan)
 	if second.ParentID != first.SpanContext.SpanID {
-		t.Errorf("Expected second to have parentID '%d', actual '%d'; context: %v", first.SpanContext.SpanID, second.ParentID, ctx)
+		t.Errorf("second.ParentID = %d; wanted %d; context: %v", second.ParentID, first.SpanContext.SpanID, ctx)
 	}
 }
 
 func TestStartRootSpan_NoRootReturnsNoopSpan(t *testing.T) {
 	ctx := context.Background()
 	if span := RootSpan(ctx); span != noopSpan {
-		t.Errorf("Extracting root span from ctx without calling StartRootSpan expected no-op span, actual: %v; ctx: %v", span, ctx)
+		t.Errorf("RootSpan(ctx) = %v; wanted %v; ctx: %v", span, noopSpan, ctx)
 	}
 }
 
@@ -110,11 +110,7 @@ func TestPropagateSpan(t *testing.T) {
 	mockCtx, _ := sCtx.(mocktracer.MockSpanContext)
 
 	if mockCtx.SpanID != mockSpan.SpanContext.SpanID {
-		t.Errorf(
-			"Extracted spancontext doesn't match propagated span: expected spanID '%d', actual '%d'; context: %v",
-			mockSpan.SpanContext.SpanID,
-			mockCtx.SpanID,
-			ctx)
+		t.Errorf("tracer.Extract(...).SpanID = '%d'; want %v; ctx was %v", mockSpan.SpanContext.SpanID, mockCtx.SpanID, ctx)
 	}
 }
 
@@ -122,10 +118,19 @@ func TestDisabledTracer(t *testing.T) {
 	tracer := DisabledTracer()
 
 	if span, _ := tracer.StartRootSpan(context.Background(), ""); span != noopSpan {
-		t.Errorf("Expected disabled tracer to return noop span, actual: %+v", span)
+		t.Errorf("StartRootSpan on disabled tracer returned '%v'; want '%v'", span, noopSpan)
 	}
 
 	if span, _ := tracer.StartSpanFromContext(context.Background(), ""); span != noopSpan {
-		t.Errorf("Expected disabled tracer to return noop span, actual: %+v", span)
+		t.Errorf("StartSpanFromContext on disabled tracer returned '%v'; want '%v'", span, noopSpan)
+	}
+
+	ctx := context.Background()
+	if _, nctx := tracer.PropagateSpan(ctx, noopSpan); nctx != ctx {
+		t.Errorf("PropagateSpan on disabled tracer returned '%v'; want '%v'", nctx, ctx)
+	}
+
+	if sc := tracer.extractSpanContext(ctx, extractMetadata(ctx)); sc != nil {
+		t.Errorf("ExtractSpan on disabled tracer returned '%v'; want nil", sc)
 	}
 }
