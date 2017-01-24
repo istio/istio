@@ -14,84 +14,31 @@
 
 # A Bazel (http://bazel.io) workspace for Istio Mixer client
 
-git_repository(
- name = "boringssl",
- commit = "2f29d38cc5e6c1bfae4ce22b4b032fb899cdb705",  # 2016-07-12
- remote = "https://boringssl.googlesource.com/boringssl",
-)
-
-bind(
- name = "boringssl_crypto",
- actual = "@boringssl//:crypto",
-)
-
-git_repository(
- name = "protobuf_git",
- commit = "a428e42072765993ff674fda72863c9f1aa2d268",  # v3.1.0
- remote = "https://github.com/google/protobuf.git",
-)
-
-bind(
- name = "protoc",
- actual = "@protobuf_git//:protoc",
-)
-
-bind(
- name = "protobuf",
- actual = "@protobuf_git//:protobuf",
-)
-
-bind(
- name = "cc_wkt_protos",
- actual = "@protobuf_git//:cc_wkt_protos",
-)
-
-bind(
- name = "cc_wkt_protos_genproto",
- actual = "@protobuf_git//:cc_wkt_protos_genproto",
-)
-
+# Workaround for Bazel > 0.4.0 since it needs newer protobuf.bzl from:
+# https://github.com/google/protobuf/pull/2246
+# Do not use this git_repository for anything else than protobuf.bzl
 new_git_repository(
-    name = "googleapis_git",
-    commit = "6c1d6d4067364a21f8ffefa3401b213d652bf121", # common-protos-1_3_1
-    remote = "https://github.com/googleapis/googleapis.git",
-    build_file = "BUILD.googleapis",
+    name = "protobuf_bzl",
+    # Injecting an empty BUILD file to prevent using any build target
+    build_file_content = "",
+    commit = "05090726144b6e632c50f47720ff51049bfcbef6",
+    remote = "https://github.com/google/protobuf.git",
 )
 
-bind(
-    name = "service_config",
-    actual = "@googleapis_git//:service_config",
+load(
+    "//:repositories.bzl",
+    "boringssl_repositories",
+    "protobuf_repositories",
+    "googletest_repositories",
+    "googleapis_repositories",
+    "grpc_repositories",
+    "mixerapi_repositories",
 )
 
-bind(
-    name = "service_config_genproto",
-    actual = "@googleapis_git//:service_config_genproto",
-)
+boringssl_repositories()
+protobuf_repositories()
+googletest_repositories()
+googleapis_repositories()
+grpc_repositories()
+mixerapi_repositories(protobuf_repo="@protobuf_bzl//")
 
-new_git_repository(
-    name = "mixerapi_git",
-    commit = "fc5a396185edc72d06d1937f30a8148a37d4fc1b",
-    remote = "https://github.com/istio/api.git",
-    build_file = "BUILD.mixerapi",
-)
-bind(
-    name = "mixer_api_cc_proto",
-    actual = "@mixerapi_git//:mixer_api_cc_proto",
-)
-
-new_git_repository(
-    name = "googletest_git",
-    commit = "ec44c6c1675c25b9827aacd08c02433cccde7780",
-    remote = "https://github.com/google/googletest.git",
-    build_file = "BUILD.googletest",
-)
-
-bind(
-    name = "googletest",
-    actual = "@googletest_git//:googletest",
-)
-
-bind(
-    name = "googletest_main",
-    actual = "@googletest_git//:googletest_main",
-)

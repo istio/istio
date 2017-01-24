@@ -62,6 +62,7 @@ cc_test(
     size = "small",
     srcs = ["src/stream_transport_test.cc"],
     linkopts = ["-lm"],
+    linkstatic = 1,
     deps = [
         ":mixer_client_lib",
         "//external:googletest_main",
@@ -73,6 +74,7 @@ cc_test(
     size = "small",
     srcs = ["src/client_impl_test.cc"],
     linkopts = ["-lm"],
+    linkstatic = 1,
     deps = [
         ":mixer_client_lib",
         "//external:googletest_main",
@@ -87,6 +89,7 @@ cc_test(
         "-lm",
         "-lpthread",
     ],
+    linkstatic = 1,
     deps = [
         ":simple_lru_cache",
         "//external:googletest_main",
@@ -97,6 +100,7 @@ cc_test(
     name = "md5_test",
     size = "small",
     srcs = ["utils/md5_test.cc"],
+    linkstatic = 1,
     deps = [
         ":mixer_client_lib",
         "//external:googletest_main",
@@ -107,6 +111,7 @@ cc_test(
     name = "signature_test",
     size = "small",
     srcs = ["src/signature_test.cc"],
+    linkstatic = 1,
     deps = [
         ":mixer_client_lib",
         "//external:googletest_main",
