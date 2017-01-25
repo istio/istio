@@ -122,6 +122,7 @@ cc_test(
     name = "check_cache_test",
     size = "small",
     srcs = ["src/check_cache_test.cc"],
+    linkstatic = 1,
     deps = [
         ":mixer_client_lib",
         "//external:googletest_main",
