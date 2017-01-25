@@ -46,8 +46,8 @@ template <class T>
 class MockWriter : public WriteInterface<T> {
  public:
   MOCK_METHOD1_T(Write, void(const T&));
-  MOCK_METHOD0_T(WriteDone, void());
-  MOCK_METHOD0_T(is_write_closed, bool());
+  MOCK_METHOD0_T(WritesDone, void());
+  MOCK_CONST_METHOD0_T(is_write_closed, bool());
 };
 
 template <class T>

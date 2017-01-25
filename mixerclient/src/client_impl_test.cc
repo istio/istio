@@ -41,8 +41,8 @@ class WriterImpl : public WriteInterface<RequestType> {
     }
     reader->OnClose(done_status);
   }
-  void WriteDone() {}
-  bool is_write_closed() { return true; }
+  void WritesDone() {}
+  bool is_write_closed() const { return true; }
 
   ReadInterface<ResponseType>* reader;
   Status done_status;

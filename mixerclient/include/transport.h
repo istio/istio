@@ -35,9 +35,9 @@ class WriteInterface {
   // Write a request message.
   virtual void Write(const RequestType &) = 0;
   // Half close the write direction.
-  virtual void WriteDone() = 0;
+  virtual void WritesDone() = 0;
   // If true, write direction is closed.
-  virtual bool is_write_closed() = 0;
+  virtual bool is_write_closed() const = 0;
 };
 
 // A stream read interface implemented by Mixer client

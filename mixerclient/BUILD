@@ -26,6 +26,8 @@ cc_library(
         "src/check_cache.h",
         "src/client_impl.cc",
         "src/client_impl.h",
+        "src/grpc_transport.cc",
+        "src/grpc_transport.h",
         "src/signature.cc",
         "src/signature.h",
         "src/stream_transport.h",
@@ -122,6 +124,22 @@ cc_test(
     name = "check_cache_test",
     size = "small",
     srcs = ["src/check_cache_test.cc"],
+    linkstatic = 1,
+    deps = [
+        ":mixer_client_lib",
+        "//external:googletest_main",
+    ],
+)
+
+cc_test(
+    name = "grpc_transport_test",
+    size = "small",
+    srcs = ["src/grpc_transport_test.cc"],
+    linkopts = [
+        "-lm",
+        "-lpthread",
+        "-lrt",
+    ],
     linkstatic = 1,
     deps = [
         ":mixer_client_lib",
