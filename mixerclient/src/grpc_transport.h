@@ -12,8 +12,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef MIXERCLIENT_SRC_TRANSPORT_H
-#define MIXERCLIENT_SRC_TRANSPORT_H
+#ifndef MIXERCLIENT_GRPC_TRANSPORT_H
+#define MIXERCLIENT_GRPC_TRANSPORT_H
 
 #include <grpc++/grpc++.h>
 
@@ -40,4 +40,4 @@ class GrpcTransport : public TransportInterface {
 }  // namespace mixer_client
 }  // namespace istio
 
-#endif  // MIXERCLIENT_SRC_TRANSPORT_H
+#endif  // MIXERCLIENT_GRPC_TRANSPORT_H

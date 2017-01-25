@@ -60,30 +60,6 @@ cc_library(
 )
 
 cc_test(
-    name = "stream_transport_test",
-    size = "small",
-    srcs = ["src/stream_transport_test.cc"],
-    linkopts = ["-lm"],
-    linkstatic = 1,
-    deps = [
-        ":mixer_client_lib",
-        "//external:googletest_main",
-    ],
-)
-
-cc_test(
-    name = "client_impl_test",
-    size = "small",
-    srcs = ["src/client_impl_test.cc"],
-    linkopts = ["-lm"],
-    linkstatic = 1,
-    deps = [
-        ":mixer_client_lib",
-        "//external:googletest_main",
-    ],
-)
-
-cc_test(
     name = "simple_lru_cache_test",
     size = "small",
     srcs = ["utils/simple_lru_cache_test.cc"],
@@ -135,6 +111,38 @@ cc_test(
     name = "grpc_transport_test",
     size = "small",
     srcs = ["src/grpc_transport_test.cc"],
+    linkopts = [
+        "-lm",
+        "-lpthread",
+        "-lrt",
+    ],
+    linkstatic = 1,
+    deps = [
+        ":mixer_client_lib",
+        "//external:googletest_main",
+    ],
+)
+
+cc_test(
+    name = "stream_transport_test",
+    size = "small",
+    srcs = ["src/stream_transport_test.cc"],
+    linkopts = [
+        "-lm",
+        "-lpthread",
+        "-lrt",
+    ],
+    linkstatic = 1,
+    deps = [
+        ":mixer_client_lib",
+        "//external:googletest_main",
+    ],
+)
+
+cc_test(
+    name = "client_impl_test",
+    size = "small",
+    srcs = ["src/client_impl_test.cc"],
     linkopts = [
         "-lm",
         "-lpthread",

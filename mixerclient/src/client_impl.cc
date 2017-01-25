@@ -15,44 +15,46 @@
 #include "src/client_impl.h"
 #include "mixer/api/v1/service.pb.h"
 
-using ::istio::mixer::v1::CheckRequest;
 using ::istio::mixer::v1::CheckResponse;
-using ::istio::mixer::v1::ReportRequest;
 using ::istio::mixer::v1::ReportResponse;
-using ::istio::mixer::v1::QuotaRequest;
 using ::istio::mixer::v1::QuotaResponse;
-
-using ::google::protobuf::util::Status;
-using ::google::protobuf::util::error::Code;
 
 namespace istio {
 namespace mixer_client {
 
 MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
-    : options_(options),
-      check_transport_(options_.transport),
-      report_transport_(options_.transport),
-      quota_transport_(options_.transport) {}
+    : options_(options) {
+  TransportInterface *transport = options_.transport;
+  if (transport == nullptr) {
+    GOOGLE_CHECK(!options_.mixer_server.empty());
+    grpc_transport_.reset(new GrpcTransport(options_.mixer_server));
+    transport = grpc_transport_.get();
+  }
+  check_transport_.reset(new CheckTransport(transport));
+  report_transport_.reset(new ReportTransport(transport));
+  quota_transport_.reset(new QuotaTransport(transport));
+}
 
 MixerClientImpl::~MixerClientImpl() {}
 
 void MixerClientImpl::Check(const Attributes &attributes, DoneFunc on_done) {
   CheckResponse response;
-  check_transport_.Send(attributes, &response, on_done);
+  check_transport_->Send(attributes, &response, on_done);
 }
 
 void MixerClientImpl::Report(const Attributes &attributes, DoneFunc on_done) {
   ReportResponse response;
-  report_transport_.Send(attributes, &response, on_done);
+  report_transport_->Send(attributes, &response, on_done);
 }
 
 void MixerClientImpl::Quota(const Attributes &attributes, DoneFunc on_done) {
   QuotaResponse response;
-  quota_transport_.Send(attributes, &response, on_done);
+  quota_transport_->Send(attributes, &response, on_done);
 }
 
 // Creates a MixerClient object.
-std::unique_ptr<MixerClient> CreateMixerClient(MixerClientOptions &options) {
+std::unique_ptr<MixerClient> CreateMixerClient(
+    const MixerClientOptions &options) {
   return std::unique_ptr<MixerClient>(new MixerClientImpl(options));
 }
 

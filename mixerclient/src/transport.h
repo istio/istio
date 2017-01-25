@@ -57,6 +57,16 @@ class Transport : public AttributeConverter<RequestType> {
   StreamID last_stream_id_;
 };
 
+typedef Transport<::istio::mixer::v1::CheckRequest,
+                  ::istio::mixer::v1::CheckResponse>
+    CheckTransport;
+typedef Transport<::istio::mixer::v1::ReportRequest,
+                  ::istio::mixer::v1::ReportResponse>
+    ReportTransport;
+typedef Transport<::istio::mixer::v1::QuotaRequest,
+                  ::istio::mixer::v1::QuotaResponse>
+    QuotaTransport;
+
 }  // namespace mixer_client
 }  // namespace istio
 

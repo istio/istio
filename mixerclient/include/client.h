@@ -35,7 +35,7 @@ using DoneFunc = std::function<void(const ::google::protobuf::util::Status&)>;
 // Defines the options to create an instance of MixerClient interface.
 struct MixerClientOptions {
   // Default constructor with default values.
-  MixerClientOptions() {}
+  MixerClientOptions() : transport(nullptr) {}
 
   // Constructor with specified option values.
   MixerClientOptions(const CheckOptions& check_options,
@@ -43,7 +43,8 @@ struct MixerClientOptions {
                      const QuotaOptions& quota_options)
       : check_options(check_options),
         report_options(report_options),
-        quota_options(quota_options) {}
+        quota_options(quota_options),
+        transport(nullptr) {}
 
   // Check options.
   CheckOptions check_options;
@@ -54,7 +55,10 @@ struct MixerClientOptions {
   // Quota options.
   QuotaOptions quota_options;
 
-  // Transport object.
+  // gRPC mixer server address.
+  std::string mixer_server;
+
+  // A custom transport object.
   TransportInterface* transport;
 };
 
@@ -103,7 +107,8 @@ class MixerClient {
 };
 
 // Creates a MixerClient object.
-std::unique_ptr<MixerClient> CreateMixerClient(MixerClientOptions& options);
+std::unique_ptr<MixerClient> CreateMixerClient(
+    const MixerClientOptions& options);
 
 }  // namespace mixer_client
 }  // namespace istio
