@@ -115,7 +115,7 @@ func init() {
 		"Envoy proxy port")
 	proxyCmd.PersistentFlags().IntVarP(&flags.proxy.AdminPort, "admin_port", "a", 5000,
 		"Envoy admin port")
-	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.BinaryPath, "envoy_path", "b", "/usr/local/bin/envoy",
+	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.BinaryPath, "envoy_path", "b", "/envoy_esp",
 		"Envoy binary location")
 	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.ConfigPath, "config_path", "e", "/etc/envoy",
 		"Envoy config root location")

@@ -2,33 +2,33 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: $NAME
+  name: {{.name}}
   labels:
-    app: $NAME
+    app: {{.name}}
 spec:
   type: NodePort
   ports:
   - port: 80
-    targetPort: $PORT
+    targetPort: {{.port1}}
     name: http
   selector:
-    app: $NAME
+    app: {{.name}}
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: $NAME
+  name: {{.name}}
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: $NAME
+        app: {{.name}}
       annotations:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "gcr.io/istio-test/init:test",
+            "image": "{{.hub}}/init:test",
             "imagePullPolicy": "Always",
             "securityContext": {
               "privileged": true
@@ -39,18 +39,21 @@ spec:
           }]
     spec:
       containers:
-      - name: echo
-        image: gcr.io/google_containers/echoserver:1.4
+      - name: app
+        image: {{.hub}}/app:{{.tag}}
+        args:
+          - --port
+          - "{{.port1}}"
         ports:
-        - containerPort: $PORT
+        - containerPort: {{.port1}}
       - name: proxy
-        image: gcr.io/istio-test/runtime:$TAG
+        image: {{.hub}}/runtime:{{.tag}}
         securityContext:
           runAsUser: 1337
         args:
           - proxy
           - -s
-          - m:8080
+          - manager:8080
           - --logtostderr
           - -v
           - "2"
@@ -58,7 +61,5 @@ spec:
           - "5001"
           - -n
           - default
-          - -b
-          - "/envoy_esp"
         imagePullPolicy: Always
 ---

@@ -37,6 +37,7 @@ type watcher struct {
 // NewWatcher creates a new watcher instance with an agent
 func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller, mesh *MeshConfig) (Watcher, error) {
 	addrs, err := hostIP()
+	glog.V(2).Infof("host IPs: %v", addrs)
 	if err != nil {
 		return nil, err
 	}

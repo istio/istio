@@ -25,38 +25,38 @@ spec:
         app: t
     spec:
       containers:
-      - name: echo
-        image: gcr.io/google_containers/echoserver:1.4
+      - name: app
+        image: {{.hub}}/app:{{.tag}}
         ports:
         - containerPort: 8080
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: m
+  name: manager
   labels:
-    app: m
+    app: manager
 spec:
   ports:
   - port: 8080
     name: http-discovery
   selector:
-    app: m
+    app: manager
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: m
+  name: manager
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: m
+        app: manager
     spec:
       containers:
       - name: manager
-        image: gcr.io/istio-test/runtime:$TAG
+        image: {{.hub}}/runtime:{{.tag}}
         args: ["server", "--logtostderr", "-v", "2"]
         imagePullPolicy: Always
         ports:

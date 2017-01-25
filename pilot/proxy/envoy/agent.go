@@ -139,6 +139,7 @@ func (s *agent) ActiveConfig() (config *Config) {
 }
 
 // waitForExit waits until the command exits and removes it from the set of known running Envoy processes.
+// TODO: initiate a restart if Envoy crashes by itself
 func (s *agent) waitForExit(cmd *exec.Cmd) {
 	err := cmd.Wait()
 

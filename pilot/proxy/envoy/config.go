@@ -69,6 +69,7 @@ const (
 // Generate Envoy configuration for service instances co-located with Envoy and all services in the mesh
 func Generate(instances []*model.ServiceInstance, services []*model.Service, mesh *MeshConfig) (*Config, error) {
 	listeners, clusters := buildListeners(instances, services, mesh)
+	// TODO: add catch-all filters to prevent Envoy from crashing
 	listeners = append(listeners, Listener{
 		Port:           mesh.ProxyPort,
 		BindToPort:     true,
@@ -133,31 +134,35 @@ func buildListeners(instances []*model.ServiceInstance,
 	ports := make(map[int]*listener, 0)
 
 	// helper function to work with multi-maps
-	ensure := func(port model.Port) {
-		if _, ok := ports[port.Port]; !ok {
-			ports[port.Port] = &listener{
+	ensure := func(port int) {
+		if _, ok := ports[port]; !ok {
+			ports[port] = &listener{
 				instances: make(map[model.Protocol][]*model.Service),
 				services:  make(map[model.Protocol][]*model.Service),
 			}
 		}
 	}
 
-	// group service instances by port values
+	// Note the distinction between outgoing service ports and incoming instance
+	// ports. Since there is a translation step from service to instance IP the
+	// ports may change from the request to its capture here.
+
+	// group all service instances by (target-)port values
 	for _, instance := range instances {
-		port := instance.Endpoint.Port
-		ensure(port)
-		ports[port.Port].instances[port.Protocol] = append(
-			ports[port.Port].instances[port.Protocol], &model.Service{
+		targetPort := instance.Endpoint.Port
+		ensure(targetPort.Port)
+		ports[targetPort.Port].instances[targetPort.Protocol] = append(
+			ports[targetPort.Port].instances[targetPort.Protocol], &model.Service{
 				Name:      instance.Service.Name,
 				Namespace: instance.Service.Namespace,
-				Ports:     []model.Port{port},
+				Ports:     []model.Port{targetPort},
 			})
 	}
 
-	// group all services by service port values
+	// group all services by (service-)port values
 	for _, svc := range services {
 		for _, port := range svc.Ports {
-			ensure(port)
+			ensure(port.Port)
 			ports[port.Port].services[port.Protocol] = append(
 				ports[port.Port].services[port.Protocol], &model.Service{
 					Name:      svc.Name,
@@ -204,6 +209,9 @@ func buildListeners(instances []*model.ServiceInstance,
 
 		// TODO: TCP routing for outbound based on dst IP
 		// TODO: HTTPS protocol for inbound and outbound configuration using TCP routing or SNI
+		// TODO: if two service ports have same port or same target port values but
+		// different names, we will get duplicate host routes.  Envoy prohibits
+		// duplicate entries with identical domains.
 
 		// For HTTP, the routing decision is based on the virtual host.
 		hosts := make(map[string]VirtualHost, 0)

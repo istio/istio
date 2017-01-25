@@ -313,8 +313,8 @@ new_http_archive(
     build_file_content = """
 load("@bazel_tools//tools/build_defs/docker:docker.bzl", "docker_build")
 docker_build(
-  name = "trusty",
-  tars = ["trusty/ubuntu-trusty-core-cloudimg-amd64-root.tar.gz"],
+  name = "xenial",
+  tars = ["xenial/ubuntu-xenial-core-cloudimg-amd64-root.tar.gz"],
   visibility = ["//visibility:public"],
 )
 """,
