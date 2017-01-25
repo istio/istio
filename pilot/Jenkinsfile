@@ -17,41 +17,36 @@ node {
 }
 
 node('master') {
-  try {
-      goBuildNode(gitUtils, 'istio.io/manager') {
-        def success = true
-        utils.updatePullRequest('run')
-        try {
-          presubmit(bazel)
-        } catch (Exception e) {
-          success = false
-          throw e
-        } finally {
-          utils.updatePullRequest('verify', success)
-        }
-      }
-  } catch (Exception e) {
-    currentBuild.result = 'FAILURE'
-    throw e
-  } finally {
-    utils.sendNotification(gitUtils.NOTIFY_LIST)
+  if (utils.runStage('PRESUBMIT')) {
+    def success = true
+    utils.updatePullRequest('run')
+    try {
+      presubmit(gitUtils, bazel)
+    } catch (Exception e) {
+      success = false
+      throw e
+    } finally {
+      utils.updatePullRequest('verify', success)
+    }
   }
 }
 
-def presubmit(bazel) {
-  bazel.updateBazelRc()
-  stage('Bazel Build') {
-    sh('touch platform/kube/config')
-    bazel.fetch('-k //...')
-    bazel.build('//...')
-  }
-  stage('Go Build') {
-    sh('bin/init.sh')
-  }
-  stage('Bazel Tests') {
-    bazel.test('//...')
-  }
-  stage('Code Check') {
-    sh('bin/check.sh')
+def presubmit(gitUtils, bazel) {
+  goBuildNode(gitUtils, 'istio.io/manager') {
+    bazel.updateBazelRc()
+    stage('Bazel Build') {
+      sh('touch platform/kube/config')
+      bazel.fetch('-k //...')
+      bazel.build('//...')
+    }
+    stage('Go Build') {
+      sh('bin/init.sh')
+    }
+    stage('Bazel Tests') {
+      bazel.test('//...')
+    }
+    stage('Code Check') {
+      sh('bin/check.sh')
+    }
   }
 }
