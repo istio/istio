@@ -168,3 +168,12 @@ new_git_or_local_repository(
     # Change this to True to use ../api directory
     use_local = False,
 )
+
+new_http_archive(
+    name = "docker_ubuntu",
+    url = "https://codeload.github.com/tianon/docker-brew-ubuntu-core/zip/b6f1fe19228e5b6b7aed98dcba02f18088282f90",
+    build_file = "BUILD.ubuntu",
+    type = "zip",
+    sha256 = "2c63dd81d714b825acd1cb3629c57d6ee733645479d0fcdf645203c2c35924c5",
+)
+
