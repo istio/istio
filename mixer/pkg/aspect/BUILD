@@ -5,6 +5,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_prefix", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "accessLoggerManager.go",
         "denyCheckerManager.go",
         "listCheckerManager.go",
         "loggerManager.go",
@@ -30,9 +31,13 @@ go_test(
     name = "small_tests",
     size = "small",
     srcs = [
+        "accessLoggerManager_test.go",
         "denyCheckerManager_test.go",
         "listCheckerManager_test.go",
         "loggerManager_test.go",
     ],
     library = ":go_default_library",
+    deps = [
+        "//pkg/aspect/test:go_default_library",
+    ],
 )
