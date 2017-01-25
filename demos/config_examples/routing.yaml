@@ -4,25 +4,27 @@
 ---
 # ProxyConfig
 route_rules:
-- http_route_rule:
+- http:
     match:
       src_cluster:
+        name: serviceA
         tags:
-        - name=serviceA
         - env=staging
         - experimental=true
       scheme: http
-      prefix: "/serviceB/api/v1"
+      uri:
+        match_type: PREFIX
+        match_string: "/serviceB/api/v1"
     weighted_clusters:
     - dst_cluster:
+        name: serviceB
         tags:
-        - name=serviceB
         - env=prod 
       weight: 100
 upstream_cluster_policies:
 - cluster:
+    name: serviceB
     tags:
-    - name=serviceB
     - env=prod
   lb:
     policy_name: ROUND_ROBIN
@@ -33,38 +35,40 @@ upstream_cluster_policies:
 ---
 # ProxyConfig
 route_rules:
-- http_route_rule:
+- http:
     match:
       src_cluster:
+        name: serviceA
         tags:
-        - name=serviceA
         - env=prod
       scheme: http
-      prefix: "/serviceB/api/v1"
+      uri:
+        match_type: PREFIX
+        match_string: "/serviceB/api/v1"
     weighted_clusters:
     - dst_cluster:
+        name: serviceB
         tags:
-        - name=serviceB
         - env=prod
         - v1.1
       weight: 1
     - dst_cluster:
+        name: serviceB
         tags:
-        - name=serviceB
         - env=prod
         - v1
       weight: 99
 upstream_cluster_policies:
 - cluster:
+    name: serviceB
     tags:
-    - name=serviceB
     - env=prod
     - v1
   lb:
     policy_name: ROUND_ROBIN
 - cluster:
+    name: serviceB
     tags:
-    - name=serviceB
     - env=prod
     - v1.1
   lb:
@@ -76,22 +80,24 @@ upstream_cluster_policies:
 ---
 # ProxyConfig
 route_rules:
-- http_route_rule:
+- http:
     match:
       scheme: http
-      authority_match: "serviceB.cluster.local"
+      authority:
+        match_type: EXACT
+        match_string: "serviceB.cluster.local"
       http_match_headers:
         cookie: ".*?user=tester1"
     weighted_clusters:
     - dst_cluster:
+        name: serviceB
         tags:
-        - name=serviceB
         - v1.1
       weight: 100
 upstream_cluster_policies:
 - cluster:
+    name: serviceB
     tags:
-    - name=serviceB
     - v1.1
   lb:
     policy_name: ROUND_ROBIN
@@ -104,9 +110,9 @@ upstream_cluster_policies:
 ---
 # ProxyConfig
 route_rules:
-- layer4_route_rule:
+- layer4:
     match:
-      layer4_attributes:
+      l4attributes:
         protocol: tcp
         dst_port: 3306
     weighted_clusters:
@@ -139,51 +145,55 @@ upstream_cluster_policies:
 ---
 # ProxyConfig: all traffic routed to helloworld v1
 route_rules:
-- http_route_rule:
+- http:
     match:
       scheme: http
-      prefix: "/helloworld/"
+      uri:
+        match_type: PREFIX
+        match_string: "/helloworld/"
     weighted_clusters:
     - dst_cluster:
+        name: helloworld
         tags:
-        - name=helloworld
         - v1 
       weight: 100
 upstream_cluster_policies:
 - cluster:
+    name: helloworld
     tags:
-    - name=helloworld
     - v1
   lb:
     policy_name: ROUND_ROBIN
 ---
 # ProxyConfig: 25% of traffic routed to helloworld v2, the rest to v1
 route_rules:
-- http_route_rule:
+- http:
     match:
       scheme: http
-      prefix: "/helloworld/"
+      uri:
+        match_type: PREFIX
+        match_string: "/helloworld/"
     weighted_clusters:
     - dst_cluster:
+        name: helloworld
         tags:
-        - name=helloworld
         - v2 
       weight: 25
     - dst_cluster:
+        name: helloworld
         tags:
-        - name=helloworld
         - v1 
       weight: 75
 upstream_cluster_policies:
 - cluster:
+    name: helloworld
     tags:
-    - name=helloworld
     - v1
   lb:
     policy_name: ROUND_ROBIN
 - cluster:
+    name: helloworld
     tags:
-    - name=helloworld
     - v2
   lb:
     policy_name: ROUND_ROBIN
