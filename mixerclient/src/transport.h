@@ -40,7 +40,7 @@ class Transport : public AttributeConverter<RequestType> {
   // Convert to a protobuf
   void FillProto(StreamID stream_id, const Attributes& attributes,
                  RequestType* request) {
-    std::unique_lock<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     if (stream_id != last_stream_id_) {
       attribute_context_.reset(new AttributeContext);
       last_stream_id_ = stream_id;

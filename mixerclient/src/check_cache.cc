@@ -53,7 +53,7 @@ bool CheckCache::ShouldFlush(const CacheElem& elem) {
 Status CheckCache::Check(const Attributes& attributes,
                          CheckResponse* response) {
   string request_signature = GenerateSignature(attributes);
-  std::unique_lock<std::mutex> lock(cache_mutex_);
+  std::lock_guard<std::mutex> lock(cache_mutex_);
   CheckLRUCache::ScopedLookup lookup(cache_.get(), request_signature);
 
   if (!lookup.Found()) {
@@ -77,7 +77,7 @@ Status CheckCache::Check(const Attributes& attributes,
 
 Status CheckCache::CacheResponse(const Attributes& attributes,
                                  const CheckResponse& response) {
-  std::unique_lock<std::mutex> lock(cache_mutex_);
+  std::lock_guard<std::mutex> lock(cache_mutex_);
 
   if (cache_) {
     string request_signature = GenerateSignature(attributes);
@@ -100,7 +100,7 @@ Status CheckCache::CacheResponse(const Attributes& attributes,
 // Flush aggregated requests whom are longer than flush_interval.
 // Called at time specified by GetNextFlushInterval().
 Status CheckCache::Flush() {
-  std::unique_lock<std::mutex> lock(cache_mutex_);
+  std::lock_guard<std::mutex> lock(cache_mutex_);
 
   if (cache_) {
     cache_->RemoveExpiredEntries();
@@ -115,7 +115,7 @@ void CheckCache::OnCacheEntryDelete(CacheElem* elem) { delete elem; }
 // Usually called at destructor.
 Status CheckCache::FlushAll() {
   GOOGLE_LOG(INFO) << "Remove all entries of check cache.";
-  std::unique_lock<std::mutex> lock(cache_mutex_);
+  std::lock_guard<std::mutex> lock(cache_mutex_);
 
   if (cache_) {
     cache_->RemoveAll();

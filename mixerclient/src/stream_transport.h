@@ -39,7 +39,7 @@ class ReaderImpl : public ReadInterface<ResponseType> {
                   DoneFunc on_done) {
     DoneFunc closed_on_done;
     {
-      std::unique_lock<std::mutex> lock(map_mutex_);
+      std::lock_guard<std::mutex> lock(map_mutex_);
       if (is_closed_) {
         closed_on_done = on_done;
       } else {
@@ -58,7 +58,7 @@ class ReaderImpl : public ReadInterface<ResponseType> {
   void OnRead(const ResponseType& response) {
     DoneFunc on_done;
     {
-      std::unique_lock<std::mutex> lock(map_mutex_);
+      std::lock_guard<std::mutex> lock(map_mutex_);
       auto it = pair_map_.find(response.request_index());
       if (it == pair_map_.end()) {
         GOOGLE_LOG(ERROR) << "Failed in find request for index: "
@@ -79,7 +79,7 @@ class ReaderImpl : public ReadInterface<ResponseType> {
   void OnClose(const ::google::protobuf::util::Status& status) {
     std::vector<DoneFunc> on_done_array;
     {
-      std::unique_lock<std::mutex> lock(map_mutex_);
+      std::lock_guard<std::mutex> lock(map_mutex_);
       for (const auto& it : pair_map_) {
         on_done_array.push_back(it.second.on_done);
       }

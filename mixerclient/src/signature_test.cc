@@ -33,74 +33,75 @@ class SignatureUtilTest : public ::testing::Test {
     Attributes::Value string_value;
     string_value.type = Attributes::Value::STRING;
     string_value.str_v = value;
-    attributes_map_.attributes[key] = string_value;
+    attributes_.attributes[key] = string_value;
   }
 
   void AddBytes(const string& key, const string& value) {
     Attributes::Value bytes_value;
     bytes_value.type = Attributes::Value::BYTES;
     bytes_value.str_v = value;
-    attributes_map_.attributes[key] = bytes_value;
+    attributes_.attributes[key] = bytes_value;
   }
 
   void AddTime(
       const string& key,
       const std::chrono::time_point<std::chrono::system_clock>& value) {
     Attributes::Value time_value;
+    time_value.type = Attributes::Value::TIME;
     time_value.time_v = value;
-    attributes_map_.attributes[key] = time_value;
+    attributes_.attributes[key] = time_value;
   }
 
-  void AddDoublePair(const string& key, const double& value) {
+  void AddDoublePair(const string& key, double value) {
     Attributes::Value double_value;
     double_value.type = Attributes::Value::DOUBLE;
     double_value.value.double_v = value;
-    attributes_map_.attributes[key] = double_value;
+    attributes_.attributes[key] = double_value;
   }
 
-  void AddInt64Pair(const string& key, const int64_t& value) {
+  void AddInt64Pair(const string& key, int64_t value) {
     Attributes::Value int64_value;
     int64_value.type = Attributes::Value::INT64;
     int64_value.value.int64_v = value;
-    attributes_map_.attributes[key] = int64_value;
+    attributes_.attributes[key] = int64_value;
   }
 
-  void AddBoolPair(const string& key, const bool& value) {
+  void AddBoolPair(const string& key, bool value) {
     Attributes::Value bool_value;
     bool_value.type = Attributes::Value::BOOL;
     bool_value.value.bool_v = value;
-    attributes_map_.attributes[key] = bool_value;
+    attributes_.attributes[key] = bool_value;
   }
 
-  Attributes attributes_map_;
+  Attributes attributes_;
 };
 
 TEST_F(SignatureUtilTest, Attributes) {
   AddString("string-key", "this is a string value");
   EXPECT_EQ("26f8f724383c46e7f5803380ab9c17ba",
-            MD5::DebugString(GenerateSignature(attributes_map_)));
+            MD5::DebugString(GenerateSignature(attributes_)));
 
   AddBytes("bytes-key", "this is a bytes value");
   EXPECT_EQ("1f409524b79b9b5760032dab7ecaf960",
-            MD5::DebugString(GenerateSignature(attributes_map_)));
+            MD5::DebugString(GenerateSignature(attributes_)));
 
   AddDoublePair("double-key", 99.9);
   EXPECT_EQ("6183342ff222018f6300de51cdcd4501",
-            MD5::DebugString(GenerateSignature(attributes_map_)));
+            MD5::DebugString(GenerateSignature(attributes_)));
 
   AddInt64Pair("int-key", 35);
   EXPECT_EQ("d681b9c72d648f9c831d95b4748fe1c2",
-            MD5::DebugString(GenerateSignature(attributes_map_)));
+            MD5::DebugString(GenerateSignature(attributes_)));
 
   AddBoolPair("bool-key", true);
   EXPECT_EQ("958930b41f0d8b43f5c61c31b0b092e2",
-            MD5::DebugString(GenerateSignature(attributes_map_)));
+            MD5::DebugString(GenerateSignature(attributes_)));
 
   // default to Clock's epoch.
   std::chrono::time_point<std::chrono::system_clock> time_point;
   AddTime("time-key", time_point);
-  EXPECT_EQ("44953987f7424cecc6dc69ffb7a8bf86",
-            MD5::DebugString(GenerateSignature(attributes_map_)));
+  EXPECT_EQ("f7dd61e1a5881e2492d93ad023ab49a2",
+            MD5::DebugString(GenerateSignature(attributes_)));
 }
 
 }  // namespace

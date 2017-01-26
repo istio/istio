@@ -24,4 +24,6 @@ install:
 
 script:
   - script/check-style
-  - bazel test :all --test_output=errors
+  - bazel test :all
+  - bazel test --config=asan :all
+  - bazel test --config=tsan :all
