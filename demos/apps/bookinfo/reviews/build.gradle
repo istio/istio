@@ -1,0 +1,7 @@
+allprojects {
+   group = 'org.amalgam8'
+   version = '1.0'
+   repositories {
+     mavenCentral()
+   }
+}
