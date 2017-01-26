@@ -16,6 +16,7 @@
 #ifndef MIXERCLIENT_SRC_TRANSPORT_H
 #define MIXERCLIENT_SRC_TRANSPORT_H
 
+#include <mutex>
 #include "src/attribute_context.h"
 #include "src/attribute_converter.h"
 #include "src/stream_transport.h"
@@ -39,6 +40,7 @@ class Transport : public AttributeConverter<RequestType> {
   // Convert to a protobuf
   void FillProto(StreamID stream_id, const Attributes& attributes,
                  RequestType* request) {
+    std::unique_lock<std::mutex> lock(mutex_);
     if (stream_id != last_stream_id_) {
       attribute_context_.reset(new AttributeContext);
       last_stream_id_ = stream_id;
@@ -51,6 +53,8 @@ class Transport : public AttributeConverter<RequestType> {
  private:
   // A stream transport
   StreamTransport<RequestType, ResponseType> stream_;
+  // Mutex guarding the access of attribute_context and last_stream_id;
+  std::mutex mutex_;
   // The attribute context for sending attributes
   std::unique_ptr<AttributeContext> attribute_context_;
   // Last used underlying stream id;

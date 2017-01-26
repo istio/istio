@@ -16,6 +16,7 @@
 #ifndef MIXERCLIENT_STREAM_TRANSPORT_H
 #define MIXERCLIENT_STREAM_TRANSPORT_H
 
+#include <mutex>
 #include "include/client.h"
 #include "src/attribute_converter.h"
 
@@ -27,6 +28,8 @@ namespace mixer_client {
 template <class ResponseType>
 class ReaderImpl : public ReadInterface<ResponseType> {
  public:
+  ReaderImpl() : is_closed_(false) {}
+
   // This callback will be called when OnClose() is called.
   void SetOnCloseCallback(std::function<void()> on_close) {
     on_close_ = on_close;
@@ -34,42 +37,73 @@ class ReaderImpl : public ReadInterface<ResponseType> {
 
   void AddRequest(int64_t request_index, ResponseType* response,
                   DoneFunc on_done) {
-    pair_map_.emplace(request_index, Data{response, on_done});
+    DoneFunc closed_on_done;
+    {
+      std::unique_lock<std::mutex> lock(map_mutex_);
+      if (is_closed_) {
+        closed_on_done = on_done;
+      } else {
+        pair_map_.emplace(request_index, Data{response, on_done});
+      }
+    }
+    if (closed_on_done) {
+      // The stream is already closed, calls its on_done with error.
+      closed_on_done(::google::protobuf::util::Status(
+          ::google::protobuf::util::error::Code::DATA_LOSS,
+          "Stream is already closed."));
+    }
   }
 
   // Will be called by transport layer when receiving a response
   void OnRead(const ResponseType& response) {
-    auto it = pair_map_.find(response.request_index());
-    if (it == pair_map_.end()) {
-      GOOGLE_LOG(ERROR) << "Failed in find request for index: "
-                        << response.request_index();
-      return;
-    }
+    DoneFunc on_done;
+    {
+      std::unique_lock<std::mutex> lock(map_mutex_);
+      auto it = pair_map_.find(response.request_index());
+      if (it == pair_map_.end()) {
+        GOOGLE_LOG(ERROR) << "Failed in find request for index: "
+                          << response.request_index();
+        return;
+      }
 
-    if (it->second.response) {
-      *it->second.response = response;
+      if (it->second.response) {
+        *it->second.response = response;
+      }
+      on_done = it->second.on_done;
+      pair_map_.erase(it);
     }
-    it->second.on_done(::google::protobuf::util::Status::OK);
-
-    pair_map_.erase(it);
+    on_done(::google::protobuf::util::Status::OK);
   }
 
   // Will be called by transport layer when the stream is closed.
   void OnClose(const ::google::protobuf::util::Status& status) {
-    for (const auto& it : pair_map_) {
+    std::vector<DoneFunc> on_done_array;
+    {
+      std::unique_lock<std::mutex> lock(map_mutex_);
+      for (const auto& it : pair_map_) {
+        on_done_array.push_back(it.second.on_done);
+      }
+      pair_map_.clear();
+      is_closed_ = true;
+    }
+
+    for (auto on_done : on_done_array) {
       if (status.ok()) {
         // The stream is nicely closed, but response is not received.
-        it.second.on_done(::google::protobuf::util::Status(
+        on_done(::google::protobuf::util::Status(
             ::google::protobuf::util::error::Code::DATA_LOSS,
             "Response is missing."));
       } else {
-        it.second.on_done(status);
+        on_done(status);
       }
     }
-    pair_map_.clear();
 
-    if (on_close_) {
-      on_close_();
+    // on_close_ should be properly released since it owns this
+    // ReaderImpl object.
+    std::function<void()> tmp_on_close;
+    tmp_on_close.swap(on_close_);
+    if (tmp_on_close) {
+      tmp_on_close();
     }
   }
 
@@ -81,8 +115,12 @@ class ReaderImpl : public ReadInterface<ResponseType> {
   };
   // The callback when the stream is closed.
   std::function<void()> on_close_;
+  // Mutex guarding the access of pair_map_ and is_closed_;
+  std::mutex map_mutex_;
   // The map to pair request with response.
   std::map<int64_t, Data> pair_map_;
+  // Indicates the stream is closed.
+  bool is_closed_;
 };
 
 // Use stream transport to support ping-pong requests in the form of:
@@ -92,10 +130,7 @@ class StreamTransport {
  public:
   StreamTransport(TransportInterface* transport,
                   AttributeConverter<RequestType>* converter)
-      : transport_(transport),
-        converter_(converter),
-        reader_(nullptr),
-        writer_(nullptr) {}
+      : transport_(transport), converter_(converter) {}
 
   // Make a ping-pong call.
   void Call(const Attributes& attributes, ResponseType* response,
@@ -106,30 +141,25 @@ class StreamTransport {
           "transport is NULL."));
       return;
     }
-    if (!writer_ || writer_->is_write_closed()) {
-      auto reader = new ReaderImpl<ResponseType>;
-      auto writer_smart_ptr = transport_->NewStream(reader);
-      // Both reader and writer will be freed at OnClose callback.
-      auto writer = writer_smart_ptr.release();
+    std::shared_ptr<WriteInterface<RequestType>> writer = writer_.lock();
+    std::shared_ptr<ReaderImpl<ResponseType>> reader = reader_.lock();
+    if (!writer || !reader || writer->is_write_closed()) {
+      reader = std::make_shared<ReaderImpl<ResponseType>>();
+      auto writer_unique_ptr = transport_->NewStream(reader.get());
+      // Transfer writer ownership to shared_ptr.
+      writer.reset(writer_unique_ptr.release());
       reader_ = reader;
       writer_ = writer;
-      reader->SetOnCloseCallback([this, reader, writer]() {
-        if (writer_ == writer) {
-          writer_ = nullptr;
-        }
-        if (reader_ == reader) {
-          reader_ = nullptr;
-        }
-        delete reader;
-        delete writer;
-      });
+      // Reader and Writer objects are owned by the OnClose callback.
+      // After the OnClose() is released, they will be released.
+      reader->SetOnCloseCallback([reader, writer]() {});
     }
     RequestType request;
-    // Cast the writer_ raw pointer as StreamID.
-    converter_->FillProto(reinterpret_cast<StreamID>(writer_), attributes,
+    // Cast the writer raw pointer as StreamID.
+    converter_->FillProto(reinterpret_cast<StreamID>(writer.get()), attributes,
                           &request);
-    reader_->AddRequest(request.request_index(), response, on_done);
-    writer_->Write(request);
+    reader->AddRequest(request.request_index(), response, on_done);
+    writer->Write(request);
   }
 
  private:
@@ -138,9 +168,11 @@ class StreamTransport {
   // Attribute converter.
   AttributeConverter<RequestType>* converter_;
   // The reader object for current stream.
-  ReaderImpl<ResponseType>* reader_;
+  // The object is owned by Reader OnClose callback function.
+  std::weak_ptr<ReaderImpl<ResponseType>> reader_;
   // The writer object for current stream.
-  WriteInterface<RequestType>* writer_;
+  // The object is owned by Reader OnClose callback function.
+  std::weak_ptr<WriteInterface<RequestType>> writer_;
 };
 
 }  // namespace mixer_client
