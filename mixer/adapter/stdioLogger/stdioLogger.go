@@ -35,7 +35,7 @@ type (
 )
 
 // Register records the builders exposed by this adapter.
-func Register(r adapter.Registrar) error { return r.RegisterLogger(builderState{}) }
+func Register(r adapter.Registrar) { r.RegisterLogger(builderState{}) }
 
 func (builderState) Name() string { return "istio/stdioLogger" }
 func (builderState) Description() string {

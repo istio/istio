@@ -12,19 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package test
+package config
 
-import "github.com/golang/protobuf/ptypes/struct"
+// APIMethod constants are used to refer to the methods handled by api.Handler
+type APIMethod int
 
-// StructMap is shorthand for a map from string to a structpb.Value pointer.
-type StructMap map[string]*structpb.Value
+const (
+	// CheckMethod represents Check operation of the mixer api.
+	CheckMethod APIMethod = iota
+	// ReportMethod represents Report operation of the mixer api.
+	ReportMethod
+	// QuotaMethod represents Quota operation of the mixer api.
+	QuotaMethod
+)
 
-// NewStringVal returns a new structpb.Value pointer for a string value.
-func NewStringVal(s string) *structpb.Value {
-	return &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: s}}
-}
-
-// NewStruct returns a new structpb.Struct pointer based on the supplied fields
-func NewStruct(fields map[string]*structpb.Value) *structpb.Struct {
-	return &structpb.Struct{Fields: fields}
+// APIMethods is the authoritative place that lists supported api methods.
+func APIMethods() []APIMethod {
+	return []APIMethod{CheckMethod, ReportMethod, QuotaMethod}
 }

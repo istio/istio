@@ -15,64 +15,82 @@
 package adapterManager
 
 import (
-	"sync"
-
 	"fmt"
 
+	"github.com/golang/glog"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/config"
 )
 
-// Registry is a simple implementation of pkg/adapter/Registrar and pkg/aspect/uber.RegistryQuerier which requires
-// that all registered adapters have a unique adapter name.
-type Registry struct {
-	sync.Mutex
+// registry implements pkg/adapter/Registrar.
+// registry is initialized in the constructor and is immutable thereafter.
+// All registered builders must have unique names.
+// It also implements builderFinder that manager uses.
+type registry struct {
 	buildersByName map[string]adapter.Builder
 }
 
-// newRegistry returns a registry whose implementation requires that all builders have a globally unique name
-// (not just unique per aspect). Registering two adapters with the same name results in a runtime panic.
-func newRegistry() *Registry {
-	return &Registry{buildersByName: make(map[string]adapter.Builder)}
+// newRegistry returns a new Builder registry.
+func newRegistry(builders []adapter.RegisterFn) *registry {
+	r := &registry{buildersByName: make(map[string]adapter.Builder)}
+	for _, builder := range builders {
+		builder(r)
+	}
+	glog.V(2).Infof("Available Builders: %v", r.buildersByName)
+
+	// ensure interfaces are satisfied.
+	// should be compiled out.
+	var _ adapter.Registrar = r
+	var _ builderFinder = r
+	return r
 }
 
-// ByImpl returns the builder with the given name.
-func (r *Registry) ByImpl(name string) (adapter.Builder, bool) {
-	r.Lock()
+// FindBuilder finds builder by name.
+func (r *registry) FindBuilder(name string) (adapter.Builder, bool) {
 	b, ok := r.buildersByName[name]
-	r.Unlock()
 	return b, ok
 }
 
 // RegisterListChecker registers a new ListChecker builder.
-func (r *Registry) RegisterListChecker(list adapter.ListCheckerBuilder) error {
+func (r *registry) RegisterListChecker(list adapter.ListCheckerBuilder) {
 	r.insert(list)
-	return nil
 }
 
 // RegisterDenyChecker registers a new DenyChecker builder.
-func (r *Registry) RegisterDenyChecker(deny adapter.DenyCheckerBuilder) error {
+func (r *registry) RegisterDenyChecker(deny adapter.DenyCheckerBuilder) {
 	r.insert(deny)
-	return nil
 }
 
 // RegisterLogger registers a new Logger builder.
-func (r *Registry) RegisterLogger(logger adapter.LoggerBuilder) error {
+func (r *registry) RegisterLogger(logger adapter.LoggerBuilder) {
 	r.insert(logger)
-	return nil
 }
 
 // RegisterQuota registers a new Quota builder.
-func (r *Registry) RegisterQuota(quota adapter.QuotaBuilder) error {
+func (r *registry) RegisterQuota(quota adapter.QuotaBuilder) {
 	r.insert(quota)
-	return nil
 }
 
-func (r *Registry) insert(b adapter.Builder) {
-	r.Lock()
+func (r *registry) insert(b adapter.Builder) {
 	if _, exists := r.buildersByName[b.Name()]; exists {
-		r.Unlock()
 		panic(fmt.Errorf("attempting to register a builder with a name already in the registry: %s", b.Name()))
 	}
 	r.buildersByName[b.Name()] = b
-	r.Unlock()
+}
+
+// processBindings returns a fully constructed manager map and aspectSet given APIBinding.
+func processBindings(bnds []aspect.APIBinding) (map[string]aspect.Manager, map[config.APIMethod]config.AspectSet) {
+	r := make(map[string]aspect.Manager)
+	as := make(map[config.APIMethod]config.AspectSet)
+
+	// setup aspect sets for all methods
+	for _, am := range config.APIMethods() {
+		as[am] = config.AspectSet{}
+	}
+	for _, bnd := range bnds {
+		r[bnd.Aspect.Kind()] = bnd.Aspect
+		as[bnd.Method][bnd.Aspect.Kind()] = true
+	}
+	return r, as
 }

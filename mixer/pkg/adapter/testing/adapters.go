@@ -29,32 +29,26 @@ type fakeRegistrar struct {
 	quotas       []adapter.QuotaBuilder
 }
 
-func (r *fakeRegistrar) RegisterListChecker(b adapter.ListCheckerBuilder) error {
+func (r *fakeRegistrar) RegisterListChecker(b adapter.ListCheckerBuilder) {
 	r.listCheckers = append(r.listCheckers, b)
-	return nil
 }
 
-func (r *fakeRegistrar) RegisterDenyChecker(b adapter.DenyCheckerBuilder) error {
+func (r *fakeRegistrar) RegisterDenyChecker(b adapter.DenyCheckerBuilder) {
 	r.denyCheckers = append(r.denyCheckers, b)
-	return nil
 }
 
-func (r *fakeRegistrar) RegisterLogger(b adapter.LoggerBuilder) error {
+func (r *fakeRegistrar) RegisterLogger(b adapter.LoggerBuilder) {
 	r.loggers = append(r.loggers, b)
-	return nil
 }
 
-func (r *fakeRegistrar) RegisterQuota(b adapter.QuotaBuilder) error {
+func (r *fakeRegistrar) RegisterQuota(b adapter.QuotaBuilder) {
 	r.quotas = append(r.quotas, b)
-	return nil
 }
 
 // TestAdapterInvariants ensures that adapters implement expected semantics.
 func TestAdapterInvariants(r adapter.RegisterFn, t *gt.T) {
 	fr := &fakeRegistrar{}
-	if err := r(fr); err != nil {
-		t.Errorf("Register() => didn't register properly: %v", err)
-	}
+	r(fr)
 
 	for _, b := range fr.denyCheckers {
 		testBuilder(b, t)

@@ -23,20 +23,20 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/genproto/googleapis/rpc/status"
 
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/expr"
 
 	"fmt"
 
+	"sync/atomic"
+
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/config"
 )
 
-// MethodHandlers holds pointers to the functions that implement
+// Handler holds pointers to the functions that implement
 // request-level processing for incoming all public APIs.
-type MethodHandlers interface {
+type Handler interface {
 	// Check performs the configured set of precondition checks.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
@@ -53,63 +53,32 @@ type MethodHandlers interface {
 	Quota(context.Context, attribute.Tracker, *mixerpb.QuotaRequest, *mixerpb.QuotaResponse)
 }
 
-// Method constants are used to refer to the methods handled by MethodHandlers
-type Method int
-
-const (
-	// Check represents MethodHandlers.Check
-	Check Method = iota
-	// Report represents MethodHandlers.Report
-	Report
-	// Quota represents MethodHandlers.Quota
-	Quota
-)
-
-// StaticBinding contains all of the pieces required to wire up an adapter to serve traffic in the mixer.
-type StaticBinding struct {
-	RegisterFn adapter.RegisterFn
-	Manager    aspect.Manager
-	Config     *aspect.CombinedConfig
-	Methods    []Method
+// Executor executes any aspect as described by config.Combined.
+type Executor interface {
+	// Execute performs actions described in combined config using an attribute bag.
+	Execute(cfg *config.Combined, attrs attribute.Bag) (*aspect.Output, error)
 }
 
-type methodHandlers struct {
-	mngr *adapterManager.Manager
-	eval expr.Evaluator
+// handlerState holds state and configuration for the handler.
+type handlerState struct {
+	aspectExecutor Executor
+	// Configs for the aspects that'll be used to serve each API method. <*config.Runtime>
+	cfg atomic.Value
 
-	// Configs for the aspects that'll be used to serve each API method.
-	configs map[Method][]*aspect.CombinedConfig
+	// methodmap maps apimethod to aspectSet
+	methodmap map[config.APIMethod]config.AspectSet
 }
 
-// NewMethodHandlers returns a canonical MethodHandlers that implements all of the mixer's API surface
-func NewMethodHandlers(bindings ...StaticBinding) MethodHandlers {
-	managers := make([]aspect.Manager, len(bindings))
-	configs := map[Method][]*aspect.CombinedConfig{Check: {}, Report: {}, Quota: {}}
-
-	for i, binding := range bindings {
-		managers[i] = binding.Manager
-	}
-	adapterMgr := adapterManager.NewManager(managers)
-	registry := adapterMgr.Registry()
-
-	for _, binding := range bindings {
-		if err := binding.RegisterFn(registry); err != nil {
-			panic(fmt.Errorf("failed to register binding '%s' with err: %s", binding.Config.Builder.Name, err))
-		}
-		for _, method := range binding.Methods {
-			configs[method] = append(configs[method], binding.Config)
-		}
-	}
-
-	return &methodHandlers{
-		mngr:    adapterMgr,
-		eval:    expr.NewIdentityEvaluator(),
-		configs: configs,
+// NewHandler returns a canonical Handler that implements all of the mixer's API surface
+func NewHandler(aspectExecutor Executor, methodmap map[config.APIMethod]config.AspectSet) Handler {
+	return &handlerState{
+		aspectExecutor: aspectExecutor,
+		methodmap:      methodmap,
 	}
 }
 
-// does the standard attribute dance for each request
-func (h *methodHandlers) execute(ctx context.Context, tracker attribute.Tracker, attrs *mixerpb.Attributes, method Method) *status.Status {
+// execute performs common function shared across the api surface.
+func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, attrs *mixerpb.Attributes, method config.APIMethod) *status.Status {
 	ab, err := tracker.StartRequest(attrs)
 	if err != nil {
 		glog.Warningf("Unable to process attribute update. error: '%v'", err)
@@ -119,8 +88,23 @@ func (h *methodHandlers) execute(ctx context.Context, tracker attribute.Tracker,
 
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, ab)
-	var out *aspect.Output
-	for _, conf := range h.configs[method] {
+
+	untypedCfg := h.cfg.Load()
+	if untypedCfg == nil {
+		const gerr = "configuration is not available"
+		// config has NOT been loaded yet
+		glog.Error(gerr)
+		return newStatusWithMessage(code.Code_INTERNAL, gerr)
+	}
+	cfg := untypedCfg.(config.Resolver)
+	cfgs, err := cfg.Resolve(ab, h.methodmap[method])
+	if err != nil {
+		return newStatusWithMessage(code.Code_INTERNAL, fmt.Sprintf("unable to resolve config %s", err.Error()))
+	}
+	if glog.V(2) {
+		glog.Infof("Resolved [%d] ==> %v ", len(cfgs), cfgs)
+	}
+	for _, conf := range cfgs {
 		select {
 		case <-ctx.Done():
 			// TODO: determine the correct response to return: if we get a cancel on anything other than the first adapter
@@ -129,33 +113,44 @@ func (h *methodHandlers) execute(ctx context.Context, tracker attribute.Tracker,
 		default: // Don't block on Done, keep on processing with adapters.
 		}
 
-		_ = ctx // TODO: plumb context through the manager's execute func.
-		out, err = h.mngr.Execute(conf, ab, h.eval)
+		// TODO: plumb ctx through adaptermanager.Execute
+		_ = ctx
+		out, err := h.aspectExecutor.Execute(conf, ab)
 		if err != nil {
 			errorStr := fmt.Sprintf("Adapter '%s' returned err: %v", conf.Builder.Name, err)
 			glog.Warning(errorStr)
 			return newStatusWithMessage(code.Code_INTERNAL, errorStr)
 		}
 		if out.Code != code.Code_OK {
-			return newStatusWithMessage(out.Code, "Rejected by builder "+conf.Builder.Name)
+			return newStatusWithMessage(out.Code,
+				fmt.Sprintf("Rejected by %s [%s %s]", conf.Aspect.Kind, conf.Builder.Impl, conf.Builder.Name))
 		}
 	}
 	return newStatus(code.Code_OK)
 }
 
-func (h *methodHandlers) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
+// Check performs 'check' function corresponding to the mixer api.
+func (h *handlerState) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	response.RequestIndex = request.RequestIndex
-	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, Check)
+	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, config.CheckMethod)
+	if glog.V(2) {
+		glog.Infof("Check (%v %v) ==> %v ", tracker, request.AttributeUpdate, response)
+	}
 }
 
-func (h *methodHandlers) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
+// Report performs 'report' function corresponding to the mixer api.
+func (h *handlerState) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 	response.RequestIndex = request.RequestIndex
-	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, Report)
+	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, config.ReportMethod)
+	if glog.V(2) {
+		glog.Infof("Report (%v %v) ==> %v ", tracker, request.AttributeUpdate, response)
+	}
 }
 
-func (h *methodHandlers) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
+// Quota performs 'quota' function corresponding to the mixer api.
+func (h *handlerState) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
 	response.RequestIndex = request.RequestIndex
-	status := h.execute(ctx, tracker, request.AttributeUpdate, Quota)
+	status := h.execute(ctx, tracker, request.AttributeUpdate, config.QuotaMethod)
 	response.Result = newQuotaError(code.Code(status.Code))
 }
 
@@ -169,4 +164,9 @@ func newStatusWithMessage(c code.Code, message string) *status.Status {
 
 func newQuotaError(c code.Code) *mixerpb.QuotaResponse_Error {
 	return &mixerpb.QuotaResponse_Error{Error: newStatus(c)}
+}
+
+// ConfigChange listens for config change notifications.
+func (h *handlerState) ConfigChange(cfg config.Resolver) {
+	h.cfg.Store(cfg)
 }

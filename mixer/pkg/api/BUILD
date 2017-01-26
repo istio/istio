@@ -6,13 +6,15 @@ go_library(
     name = "go_default_library",
     srcs = [
         "grpcServer.go",
-        "methodHandlers.go",
+        "handler.go",
     ],
     deps = [
         "//pkg/adapter:go_default_library",
         "//pkg/adapterManager:go_default_library",
         "//pkg/aspect:go_default_library",
         "//pkg/attribute:go_default_library",
+        "//pkg/config:go_default_library",
+        "//pkg/config/proto:go_default_library",
         "//pkg/expr:go_default_library",
         "//pkg/tracing:go_default_library",
         "@com_github_golang_glog//:go_default_library",
@@ -36,7 +38,7 @@ go_test(
     size = "small",
     srcs = [
         "grpcServer_test.go",
-        "methodHandlers_test.go",
+        "handler_test.go",
     ],
     library = ":go_default_library",
 )

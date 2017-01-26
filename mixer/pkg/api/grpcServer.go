@@ -74,7 +74,7 @@ type GRPCServerOptions struct {
 
 	// Handlers holds pointers to the functions that implement request-level processing
 	// for all API methods
-	Handlers MethodHandlers
+	Handler Handler
 
 	// AttributeManager holds a pointer to an initialized AttributeManager to use when
 	// processing incoming attribute requests.
@@ -90,7 +90,7 @@ type GRPCServerOptions struct {
 type GRPCServer struct {
 	server   *grpc.Server
 	listener net.Listener
-	handlers MethodHandlers
+	handlers Handler
 	attrMgr  attribute.Manager
 	tracer   tracing.Tracer
 }
@@ -138,7 +138,7 @@ func NewGRPCServer(options *GRPCServerOptions) (*GRPCServer, error) {
 
 	// get everything wired up
 	grpcServer := grpc.NewServer(grpcOptions...)
-	s := &GRPCServer{grpcServer, listener, options.Handlers, options.AttributeManager, tracer}
+	s := &GRPCServer{grpcServer, listener, options.Handler, options.AttributeManager, tracer}
 	mixerpb.RegisterMixerServer(grpcServer, s)
 	return s, nil
 }

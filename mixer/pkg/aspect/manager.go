@@ -18,21 +18,17 @@
 package aspect
 
 import (
-	"google.golang.org/genproto/googleapis/rpc/code"
+	"io"
 
-	istioconfig "istio.io/api/mixer/v1/config"
+	"google.golang.org/genproto/googleapis/rpc/code"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 )
 
 type (
-	// CombinedConfig combines all configuration related to an aspect.
-	CombinedConfig struct {
-		Aspect  *istioconfig.Aspect
-		Builder *istioconfig.Adapter
-	}
 
 	// Output captures the output from invoking an aspect.
 	Output struct {
@@ -49,7 +45,7 @@ type (
 		adapter.ConfigValidator
 
 		// NewAspect creates a new aspect instance given configuration.
-		NewAspect(cfg *CombinedConfig, adapter adapter.Builder, env adapter.Env) (Wrapper, error)
+		NewAspect(cfg *config.Combined, adapter adapter.Builder, env adapter.Env) (Wrapper, error)
 
 		// Kind return the kind of aspect
 		Kind() string
@@ -57,6 +53,7 @@ type (
 
 	// Wrapper encapsulates a single aspect and allows it to be invoked.
 	Wrapper interface {
+		io.Closer
 		// Execute dispatches to the adapter.
 		Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error)
 	}

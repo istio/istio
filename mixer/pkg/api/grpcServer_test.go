@@ -47,7 +47,7 @@ func (ts *testState) createGRPCServer(port uint16) error {
 		CompressedPayload:    false,
 		ServerCertificate:    nil,
 		ClientCertificates:   nil,
-		Handlers:             ts,
+		Handler:              ts,
 		AttributeManager:     attribute.NewManager(),
 	}
 

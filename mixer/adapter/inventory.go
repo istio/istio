@@ -12,19 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package test
+package adapter
 
-import "github.com/golang/protobuf/ptypes/struct"
+import (
+	"istio.io/mixer/adapter/denyChecker"
+	"istio.io/mixer/adapter/genericListChecker"
+	"istio.io/mixer/adapter/ipListChecker"
+	"istio.io/mixer/adapter/stdioLogger"
+	"istio.io/mixer/pkg/adapter"
+)
 
-// StructMap is shorthand for a map from string to a structpb.Value pointer.
-type StructMap map[string]*structpb.Value
-
-// NewStringVal returns a new structpb.Value pointer for a string value.
-func NewStringVal(s string) *structpb.Value {
-	return &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: s}}
-}
-
-// NewStruct returns a new structpb.Struct pointer based on the supplied fields
-func NewStruct(fields map[string]*structpb.Value) *structpb.Struct {
-	return &structpb.Struct{Fields: fields}
+// Inventory returns inventory of all available adapters.
+func Inventory() []adapter.RegisterFn {
+	return []adapter.RegisterFn{
+		denyChecker.Register,
+		genericListChecker.Register,
+		ipListChecker.Register,
+		stdioLogger.Register,
+	}
 }

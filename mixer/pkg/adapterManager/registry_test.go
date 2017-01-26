@@ -38,14 +38,12 @@ func (denyBuilder) NewDenyChecker(env adapter.Env, cfg adapter.AspectConfig) (ad
 }
 
 func TestRegisterDenyChecker(t *testing.T) {
-	reg := newRegistry()
+	reg := newRegistry(nil)
 	builder := denyBuilder{testBuilder{name: "foo"}}
 
-	if err := reg.RegisterDenyChecker(builder); err != nil {
-		t.Errorf("Failed to register deny adapter with err: %v", err)
-	}
+	reg.RegisterDenyChecker(builder)
 
-	impl, ok := reg.ByImpl(builder.Name())
+	impl, ok := reg.FindBuilder(builder.Name())
 	if !ok {
 		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
@@ -62,14 +60,12 @@ func (listBuilder) NewListChecker(env adapter.Env, cfg adapter.AspectConfig) (ad
 }
 
 func TestRegisterListChecker(t *testing.T) {
-	reg := newRegistry()
+	reg := newRegistry(nil)
 	builder := listBuilder{testBuilder{name: "foo"}}
 
-	if err := reg.RegisterListChecker(builder); err != nil {
-		t.Errorf("Failed to register check list builder with err: %v", err)
-	}
+	reg.RegisterListChecker(builder)
 
-	impl, ok := reg.ByImpl(builder.Name())
+	impl, ok := reg.FindBuilder(builder.Name())
 	if !ok {
 		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
@@ -86,14 +82,12 @@ func (loggerBuilder) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapt
 }
 
 func TestRegisterLogger(t *testing.T) {
-	reg := newRegistry()
+	reg := newRegistry(nil)
 	builder := loggerBuilder{testBuilder{name: "foo"}}
 
-	if err := reg.RegisterLogger(builder); err != nil {
-		t.Errorf("Failed to register logging builder with err: %v", err)
-	}
+	reg.RegisterLogger(builder)
 
-	impl, ok := reg.ByImpl(builder.Name())
+	impl, ok := reg.FindBuilder(builder.Name())
 	if !ok {
 		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
@@ -110,14 +104,11 @@ func (quotaBuilder) NewQuota(env adapter.Env, cfg adapter.AspectConfig) (adapter
 }
 
 func TestRegisterQuota(t *testing.T) {
-	reg := newRegistry()
+	reg := newRegistry(nil)
 	builder := quotaBuilder{testBuilder{name: "foo"}}
 
-	if err := reg.RegisterQuota(builder); err != nil {
-		t.Errorf("Failed to register quota builder with err: %v", err)
-	}
-
-	impl, ok := reg.ByImpl(builder.Name())
+	reg.RegisterQuota(builder)
+	impl, ok := reg.FindBuilder(builder.Name())
 	if !ok {
 		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
@@ -128,14 +119,13 @@ func TestRegisterQuota(t *testing.T) {
 }
 
 func TestCollision(t *testing.T) {
-	reg := newRegistry()
+	reg := newRegistry(nil)
 	name := "some name that they both have"
 
 	a1 := denyBuilder{testBuilder{name}}
-	if err := reg.RegisterDenyChecker(a1); err != nil {
-		t.Errorf("Failed to insert first adapter with err: %s", err)
-	}
-	if a, ok := reg.ByImpl(name); !ok || a != a1 {
+	reg.RegisterDenyChecker(a1)
+
+	if a, ok := reg.FindBuilder(name); !ok || a != a1 {
 		t.Errorf("Failed to get first adapter by impl name; expected: '%v', actual: '%v'", a1, a)
 	}
 
@@ -146,8 +136,6 @@ func TestCollision(t *testing.T) {
 	}()
 
 	a2 := listBuilder{testBuilder{name}}
-	if err := reg.RegisterListChecker(a2); err != nil {
-		t.Errorf("Expected a panic inserting duplicate  builder, got err instead: %s", err)
-	}
+	reg.RegisterListChecker(a2)
 	t.Error("Should not reach this statement due to panic.")
 }

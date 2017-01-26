@@ -52,3 +52,6 @@ func (identity) EvalPredicate(mapExpression string, bag attribute.Bag) (bool, er
 	}
 	return false, fmt.Errorf("%s not in attribute bag", mapExpression)
 }
+
+// Validate -- everything is valid
+func (identity) Validate(expr string) error { return nil }

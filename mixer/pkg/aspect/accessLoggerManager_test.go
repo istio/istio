@@ -19,14 +19,16 @@ import (
 	"testing"
 	"text/template"
 
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/golang/protobuf/ptypes/struct"
+
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/aspect/config"
+	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
+	configpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
-
-	configpb "istio.io/api/mixer/v1/config"
 )
 
 func TestNewAccessLoggerManager(t *testing.T) {
@@ -39,6 +41,7 @@ func TestNewAccessLoggerManager(t *testing.T) {
 func TestAccessLoggerManager_NewAspect(t *testing.T) {
 	tl := &test.Logger{}
 
+	dc := accessLoggerManager{}.DefaultConfig()
 	commonExec := &accessLoggerWrapper{
 		logName:   "access_log",
 		aspect:    tl,
@@ -61,34 +64,33 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 		//attrNames: []string{"test", "other"},
 	}
 
-	combinedStruct := test.NewStruct(test.StructMap{
-		"log_name":   test.NewStringVal("combined_access_log"),
-		"log_format": test.NewStringVal("COMBINED"),
-	})
+	combinedStruct := &aconfig.AccessLoggerParams{
+		LogName:   "combined_access_log",
+		LogFormat: aconfig.AccessLoggerParams_COMBINED,
+	}
 
-	customStruct := test.NewStruct(test.StructMap{
-		"log_name":            test.NewStringVal("custom_access_log"),
-		"log_format":          test.NewStringVal("CUSTOM"),
-		"custom_log_template": test.NewStringVal("{{.test}}"),
-	})
+	customStruct := &aconfig.AccessLoggerParams{
+		LogName:           "custom_access_log",
+		LogFormat:         aconfig.AccessLoggerParams_CUSTOM,
+		CustomLogTemplate: "{{.test}}",
+	}
 
 	newAspectShouldSucceed := []struct {
 		name       string
 		defaultCfg adapter.AspectConfig
-		params     *structpb.Struct
+		params     interface{}
 		want       *accessLoggerWrapper
 	}{
-		{"empty", &config.AccessLoggerParams{}, test.NewStruct(nil), commonExec},
-		{"nil", &config.AccessLoggerParams{}, nil, commonExec},
-		{"combined", &config.AccessLoggerParams{}, combinedStruct, combinedExec},
-		{"custom", &config.AccessLoggerParams{}, customStruct, customExec},
+		{"empty", &aconfig.AccessLoggerParams{}, dc, commonExec},
+		{"combined", &aconfig.AccessLoggerParams{}, combinedStruct, combinedExec},
+		{"custom", &aconfig.AccessLoggerParams{}, customStruct, customExec},
 	}
 
 	m := NewAccessLoggerManager()
 
 	for _, v := range newAspectShouldSucceed {
-		c := CombinedConfig{
-			Builder: &configpb.Adapter{},
+		c := config.Combined{
+			Builder: &configpb.Adapter{Params: &empty.Empty{}},
 			Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
 		}
 		asp, err := m.NewAspect(&c, tl, test.Env{})
@@ -98,56 +100,54 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 		got := asp.(*accessLoggerWrapper)
 		got.template = nil // ignore template values in equality comp
 		if !reflect.DeepEqual(got, v.want) {
-			t.Errorf("NewAspect() => %v (%T), want %v (%T)", got, got, v.want, v.want)
+			t.Errorf("NewAspect() => [%s]\ngot: %v (%T)\nwant: %v (%T)", v.name, got, got, v.want, v.want)
 		}
 	}
 }
 
 func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
-	defaultCfg := &CombinedConfig{
-		Builder: &configpb.Adapter{},
-		Aspect:  &configpb.Aspect{},
+	defaultCfg := &config.Combined{
+		Builder: &configpb.Adapter{Params: &empty.Empty{}},
+		Aspect:  &configpb.Aspect{Params: &aconfig.AccessLoggerParams{}},
 	}
 
-	customStruct := test.NewStruct(test.StructMap{
-		"log_name":            test.NewStringVal("custom_access_log"),
-		"log_format":          test.NewStringVal("CUSTOM"),
-		"custom_log_template": test.NewStringVal("{{test}}}"),
-	})
-
-	badTemplateCfg := &CombinedConfig{
-		Builder: &configpb.Adapter{},
-		Aspect:  &configpb.Aspect{Params: customStruct},
+	badTemplate := "{{{{}}"
+	badTemplateCfg := &config.Combined{
+		Builder: &configpb.Adapter{Params: &empty.Empty{}},
+		Aspect: &configpb.Aspect{Params: &aconfig.AccessLoggerParams{
+			LogName:           "custom_access_log",
+			LogFormat:         aconfig.AccessLoggerParams_CUSTOM,
+			CustomLogTemplate: badTemplate,
+		}},
 	}
 
-	var generic adapter.Builder
 	errLogger := &test.Logger{DefaultCfg: &structpb.Struct{}, ErrOnNewAspect: true}
 	okLogger := &test.Logger{DefaultCfg: &structpb.Struct{}}
 
 	failureCases := []struct {
-		cfg   *CombinedConfig
+		name  string
+		cfg   *config.Combined
 		adptr adapter.Builder
 	}{
-		{defaultCfg, generic},
-		{defaultCfg, errLogger},
-		{badTemplateCfg, okLogger},
+		{"errorLogger", defaultCfg, errLogger},
+		{"badTemplateCfg", badTemplateCfg, okLogger},
 	}
 
 	m := NewAccessLoggerManager()
 	for _, v := range failureCases {
 		if _, err := m.NewAspect(v.cfg, v.adptr, test.Env{}); err == nil {
-			t.Errorf("NewAspect(): expected error for bad adapter (%T)", v.adptr)
+			t.Errorf("NewAspect()[%s]: expected error for bad adapter (%T)", v.name, v.adptr)
 		}
 	}
 }
 
 func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 	configs := []adapter.AspectConfig{
-		&config.AccessLoggerParams{},
-		&config.AccessLoggerParams{LogName: "test"},
-		&config.AccessLoggerParams{LogName: "test", Attributes: []string{"test", "good"}},
-		&config.AccessLoggerParams{LogFormat: config.AccessLoggerParams_COMBINED},
-		&config.AccessLoggerParams{LogFormat: config.AccessLoggerParams_CUSTOM, CustomLogTemplate: "{{.test}}"},
+		&aconfig.AccessLoggerParams{},
+		&aconfig.AccessLoggerParams{LogName: "test"},
+		&aconfig.AccessLoggerParams{LogName: "test", Attributes: []string{"test", "good"}},
+		&aconfig.AccessLoggerParams{LogFormat: aconfig.AccessLoggerParams_COMBINED},
+		&aconfig.AccessLoggerParams{LogFormat: aconfig.AccessLoggerParams_CUSTOM, CustomLogTemplate: "{{.test}}"},
 	}
 
 	m := NewAccessLoggerManager()
@@ -160,7 +160,7 @@ func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 
 func TestAccessLoggerManager_ValidateConfigFailures(t *testing.T) {
 	configs := []adapter.AspectConfig{
-		&config.AccessLoggerParams{LogFormat: config.AccessLoggerParams_CUSTOM, CustomLogTemplate: "{{.test"},
+		&aconfig.AccessLoggerParams{LogFormat: aconfig.AccessLoggerParams_CUSTOM, CustomLogTemplate: "{{.test"},
 	}
 
 	m := NewAccessLoggerManager()

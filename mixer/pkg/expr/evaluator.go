@@ -27,6 +27,8 @@ type (
 		EvalString(expr string, attrs attribute.Bag) (string, error)
 
 		PredicateEvaluator
+
+		Validator
 	}
 
 	// PredicateEvaluator evaluates a predicate to true or false
