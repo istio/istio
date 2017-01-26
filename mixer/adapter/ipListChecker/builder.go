@@ -23,8 +23,8 @@ import (
 )
 
 // Register records the builders exposed by this adapter.
-func Register(r adapter.Registrar) error {
-	return r.RegisterListChecker(newBuilder())
+func Register(r adapter.Registrar) {
+	r.RegisterListChecker(newBuilder())
 }
 
 type builderState struct{}

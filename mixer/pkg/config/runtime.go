@@ -18,6 +18,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 
+	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	pb "istio.io/mixer/pkg/config/proto"
 )
@@ -33,7 +34,7 @@ type (
 	}
 	// Combined config is given to aspect managers.
 	Combined struct {
-		Adapter *pb.Adapter
+		Builder *pb.Adapter
 		Aspect  *pb.Aspect
 	}
 
@@ -60,20 +61,32 @@ func (r *Runtime) Resolve(bag attribute.Bag, aspectSet AspectSet) ([]*Combined, 
 	return dlist, err
 }
 
+func (r *Runtime) evalPredicate(selector string, bag attribute.Bag) (bool, error) {
+	// empty selector always selects
+	if selector == "" {
+		return true, nil
+	}
+	return r.eval.EvalPredicate(selector, bag)
+}
+
 // resolveRules recurses thru the config struct and returns a list of combined aspects
 func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*pb.AspectRule, path string, dlist *[]*Combined) (err error) {
 	var selected bool
 	var lerr error
 
 	for _, rule := range rules {
-		if selected, lerr = r.eval.EvalPredicate(rule.GetSelector(), bag); lerr != nil {
+		if glog.V(2) {
+			glog.Infof("resolveRules (%v) ==> %v ", rule, path)
+		}
+		sel := rule.GetSelector()
+		if selected, lerr = r.evalPredicate(sel, bag); lerr != nil {
 			err = multierror.Append(err, lerr)
 			continue
 		}
 		if !selected {
 			continue
 		}
-		path = path + "/" + rule.GetSelector()
+		path = path + "/" + sel
 		for _, aa := range rule.GetAspects() {
 			if cs := r.combined(aa, aspectSet); cs != nil {
 				*dlist = append(*dlist, cs)
@@ -93,6 +106,7 @@ func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*
 // combined returns a Combined config given an aspect config
 func (r *Runtime) combined(aa *pb.Aspect, aspectSet AspectSet) *Combined {
 	if !aspectSet[aa.GetKind()] {
+		glog.V(3).Infof("Aspect Rejected %v not is set (%v)", aa.GetKind(), aspectSet)
 		return nil
 	}
 

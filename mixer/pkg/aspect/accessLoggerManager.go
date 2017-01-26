@@ -16,13 +16,13 @@ package aspect
 
 import (
 	"bytes"
-	"fmt"
 	"text/template"
 
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/aspect/config"
+	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -59,72 +59,43 @@ func NewAccessLoggerManager() Manager {
 	return accessLoggerManager{}
 }
 
-func (m accessLoggerManager) NewAspect(c *CombinedConfig, a adapter.Builder, env adapter.Env) (Wrapper, error) {
-	// Handle aspect config to get log name and log entry descriptors.
+func (m accessLoggerManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+	var aspect adapter.AccessLoggerAspect
+	var err error
+	var tmpl *template.Template
 
-	// WARNING: this will cause an override of any `attributes` spec in the
-	// supplied c.Aspect.Params. This will need to be tested and reviewed
-	// when the config path switches away from structToProto merging.
-	aspectCfg := m.DefaultConfig()
-	if c.Aspect.Params != nil {
-		if err := structToProto(c.Aspect.Params, aspectCfg); err != nil {
-			return nil, fmt.Errorf("could not parse aspect config: %v", err)
-		}
-	}
-
-	// cast to adapter.AccessLoggerBuilder from adapter.Builder
-	logBuilder, ok := a.(adapter.AccessLoggerBuilder)
-	if !ok {
-		return nil, fmt.Errorf("adapter of incorrect type. Expected adapter.AccessLoggerBuilder got %#v %T", a, a)
-	}
-
-	// Handle adapter config
-	cpb := logBuilder.DefaultConfig()
-	if c.Builder.Params != nil {
-		if err := structToProto(c.Builder.Params, cpb); err != nil {
-			return nil, fmt.Errorf("could not parse adapter config: %v", err)
-		}
-	}
-
-	aspectImpl, err := logBuilder.NewAccessLogger(env, cpb)
-	if err != nil {
-		return nil, err
-	}
-
-	logCfg := aspectCfg.(*config.AccessLoggerParams)
+	logCfg := c.Aspect.Params.(*aconfig.AccessLoggerParams)
 	logName := logCfg.LogName
 	logFormat := logCfg.LogFormat
 	var attrNames []string
 	var templateStr string
 	switch logFormat {
-	case config.AccessLoggerParams_COMMON:
+	case aconfig.AccessLoggerParams_COMMON:
 		attrNames = commonLogAttributes
 		templateStr = commonLogFormat
-	case config.AccessLoggerParams_COMBINED:
+	case aconfig.AccessLoggerParams_COMBINED:
 		attrNames = combinedLogAttributes
 		templateStr = combinedLogFormat
-	case config.AccessLoggerParams_CUSTOM:
+	case aconfig.AccessLoggerParams_CUSTOM:
 		fallthrough
 	default:
 		templateStr = logCfg.CustomLogTemplate
 		attrNames = logCfg.Attributes
 	}
 
-	var inputs map[string]string
-	if c.Aspect != nil && c.Aspect.Inputs != nil {
-		inputs = c.Aspect.Inputs
+	// should never result in error, as this should fail ValidateConfig()
+	if tmpl, err = template.New("accessLoggerTemplate").Parse(templateStr); err != nil {
+		return nil, err
 	}
 
-	tmpl, err := template.New("accessLoggerTemplate").Parse(templateStr)
-	if err != nil {
-		// should never happen, as this should fail ValidateConfig()
+	if aspect, err = a.(adapter.AccessLoggerBuilder).NewAccessLogger(env, c.Builder.Params.(adapter.AspectConfig)); err != nil {
 		return nil, err
 	}
 
 	return &accessLoggerWrapper{
 		logName,
-		inputs,
-		aspectImpl,
+		c.Aspect.GetInputs(),
+		aspect,
 		attrNames,
 		tmpl,
 	}, nil
@@ -132,9 +103,9 @@ func (m accessLoggerManager) NewAspect(c *CombinedConfig, a adapter.Builder, env
 
 func (accessLoggerManager) Kind() string { return "istio/accessLogger" }
 func (accessLoggerManager) DefaultConfig() adapter.AspectConfig {
-	return &config.AccessLoggerParams{
+	return &aconfig.AccessLoggerParams{
 		LogName:   "access_log",
-		LogFormat: config.AccessLoggerParams_COMMON,
+		LogFormat: aconfig.AccessLoggerParams_COMMON,
 		// WARNING: we cannot set default attributes here, based on
 		// the params -> proto merge logic. These will override
 		// all other values. This should be mitigated by the move
@@ -143,8 +114,8 @@ func (accessLoggerManager) DefaultConfig() adapter.AspectConfig {
 }
 
 func (accessLoggerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
-	cfg := c.(*config.AccessLoggerParams)
-	if cfg.LogFormat != config.AccessLoggerParams_CUSTOM {
+	cfg := c.(*aconfig.AccessLoggerParams)
+	if cfg.LogFormat != aconfig.AccessLoggerParams_CUSTOM {
 		return nil
 	}
 	tmplStr := cfg.CustomLogTemplate
@@ -152,6 +123,10 @@ func (accessLoggerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.C
 		return ce.Appendf("CustomLogTemplate", "could not parse template string: %v", err)
 	}
 	return nil
+}
+
+func (e *accessLoggerWrapper) Close() error {
+	return e.aspect.Close()
 }
 
 func (e *accessLoggerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {

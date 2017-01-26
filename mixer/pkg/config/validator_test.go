@@ -228,7 +228,7 @@ func TestDecodeError(t *testing.T) {
 	}
 }
 
-const sGlobalConfig = `
+const sGlobalConfigValid = `
 subject: "namespace:ns"
 revision: "2022"
 adapters:
@@ -238,6 +238,8 @@ adapters:
     params:
       checkattribute: src.ip
       blacklist: true
+`
+const sGlobalConfig = sGlobalConfigValid + `
       unknown_field: true
 `
 

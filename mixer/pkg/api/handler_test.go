@@ -21,37 +21,28 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 
 	mixerpb "istio.io/api/mixer/v1"
-	istioconfig "istio.io/api/mixer/v1/config"
-
-	"istio.io/mixer/pkg/adapterManager"
-	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
 )
+
+type fakeresolver struct {
+	ret []*config.Combined
+	err error
+}
+
+func (f *fakeresolver) Resolve(bag attribute.Bag, aspectSet config.AspectSet) ([]*config.Combined, error) {
+	return f.ret, f.err
+}
 
 func TestRequestCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	// we're skipping NewMethodHandlers so we don't have to deal with config since configuration should've matter when we have a canceled ctx
-	handler := &methodHandlers{
-		configs: map[Method][]*aspect.CombinedConfig{Check: {&aspect.CombinedConfig{}}},
-	}
-
+	handler := &handlerState{}
+	handler.ConfigChange(&fakeresolver{[]*config.Combined{nil, nil}, nil})
 	cancel()
 
-	s := handler.execute(ctx, attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, Check)
+	s := handler.execute(ctx, attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, config.CheckMethod)
 	if s.Code != int32(code.Code_DEADLINE_EXCEEDED) {
-		t.Errorf("execute(canceledContext, ...) returned %v, wanted status with code %v", s, code.Code_DEADLINE_EXCEEDED)
-	}
-}
-
-func TestAspectManagerErrorsPropagated(t *testing.T) {
-	// invalid configs so the aspectmanager.Manager fails
-	handler := &methodHandlers{
-		mngr:    adapterManager.NewManager(nil),
-		configs: map[Method][]*aspect.CombinedConfig{Check: {&aspect.CombinedConfig{&istioconfig.Aspect{Kind: ""}, &istioconfig.Adapter{}}}},
-	}
-
-	s := handler.execute(context.Background(), attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, Check)
-	if s.Code != int32(code.Code_INTERNAL) {
-		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", s, code.Code_INTERNAL)
+		t.Errorf("execute(canceledContext, ...) got: %s [%v], want: %v", code.Code_name[s.Code], s, code.Code_DEADLINE_EXCEEDED)
 	}
 }
