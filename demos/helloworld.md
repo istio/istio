@@ -8,7 +8,7 @@ order: 2
 ---
 
 This demo starts two versions of a helloworld microservice each with two
-versions, in order to demonstrate how Istio can be used to split
+instances, in order to demonstrate how Istio can be used to split
 incoming traffic between the two versions. You can define the proportion of
 traffic to each microservice as a percentage.
 
