@@ -26,24 +26,65 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v2"
-
 	"istio.io/mixer/adapter/ipListChecker/config"
 	"istio.io/mixer/pkg/adapter"
 )
 
-type aspectState struct {
-	log             adapter.Logger
-	backend         *url.URL
-	atomicList      atomic.Value
-	fetchedSha      [sha1.Size]byte
-	refreshInterval time.Duration
-	ttl             time.Duration
-	closing         chan bool
-	fetchError      error
-	client          http.Client
+type (
+	builder struct{ adapter.DefaultBuilder }
+
+	listChecker struct {
+		log             adapter.Logger
+		backend         *url.URL
+		atomicList      atomic.Value
+		fetchedSha      [sha1.Size]byte
+		refreshInterval time.Duration
+		ttl             time.Duration
+		closing         chan bool
+		fetchError      error
+		client          http.Client
+	}
+)
+
+var (
+	name = "istio/ipListChecker"
+	desc = "Checks whether an IP address is present in an IP address list."
+	conf = &config.Params{
+		ProviderUrl:     "http://localhost",
+		RefreshInterval: 60,
+		Ttl:             120,
+	}
+)
+
+// Register records the builders exposed by this adapter.
+func Register(r adapter.Registrar) {
+	r.RegisterListChecker(newBuilder())
 }
 
-func newAspect(env adapter.Env, c *config.Params) (adapter.ListCheckerAspect, error) {
+func newBuilder() adapter.ListCheckerBuilder {
+	return builder{adapter.NewDefaultBuilder(name, desc, conf)}
+}
+
+func (builder) NewListChecker(env adapter.Env, c adapter.AspectConfig) (adapter.ListCheckerAspect, error) {
+	return newListChecker(env, c.(*config.Params))
+}
+
+func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+	c := cfg.(*config.Params)
+
+	u, err := url.Parse(c.ProviderUrl)
+	if err != nil {
+		ce = ce.Append("ProviderUrl", err)
+	} else {
+		if u.Scheme == "" || u.Host == "" {
+			ce = ce.Appendf("ProviderUrl", "URL scheme and host cannot be empty")
+		}
+	}
+
+	return
+}
+
+func newListChecker(env adapter.Env, c *config.Params) (*listChecker, error) {
 	var u *url.URL
 	var err error
 	if u, err = url.Parse(c.ProviderUrl); err != nil {
@@ -51,7 +92,7 @@ func newAspect(env adapter.Env, c *config.Params) (adapter.ListCheckerAspect, er
 		return nil, err
 	}
 
-	aa := aspectState{
+	aa := listChecker{
 		log:             env.Logger(),
 		backend:         u,
 		closing:         make(chan bool),
@@ -69,12 +110,12 @@ func newAspect(env adapter.Env, c *config.Params) (adapter.ListCheckerAspect, er
 	return &aa, nil
 }
 
-func (a *aspectState) Close() error {
-	close(a.closing)
+func (l *listChecker) Close() error {
+	close(l.closing)
 	return nil
 }
 
-func (a *aspectState) CheckList(symbol string) (bool, error) {
+func (l *listChecker) CheckList(symbol string) (bool, error) {
 	ipa := net.ParseIP(symbol)
 	if ipa == nil {
 		// invalid symbol format
@@ -82,12 +123,12 @@ func (a *aspectState) CheckList(symbol string) (bool, error) {
 	}
 
 	// get an atomic snapshot of the current list
-	l := a.getList()
-	if len(l) == 0 {
-		return false, a.fetchError
+	list := l.getList()
+	if len(list) == 0 {
+		return false, l.fetchError
 	}
 
-	for _, ipnet := range l {
+	for _, ipnet := range list {
 		if ipnet.Contains(ipa) {
 			return true, nil
 		}
@@ -98,19 +139,19 @@ func (a *aspectState) CheckList(symbol string) (bool, error) {
 }
 
 // Typed accessors for the atomic list
-func (a *aspectState) getList() []*net.IPNet {
-	return a.atomicList.Load().([]*net.IPNet)
+func (l *listChecker) getList() []*net.IPNet {
+	return l.atomicList.Load().([]*net.IPNet)
 }
 
 // Typed accessor for the atomic list
-func (a *aspectState) setList(l []*net.IPNet) {
-	a.atomicList.Store(l)
+func (l *listChecker) setList(list []*net.IPNet) {
+	l.atomicList.Store(list)
 }
 
 // Updates the list by polling from the provider on a fixed interval
-func (a *aspectState) listRefresher() {
-	refreshTicker := time.NewTicker(a.refreshInterval)
-	purgeTimer := time.NewTimer(a.ttl)
+func (l *listChecker) listRefresher() {
+	refreshTicker := time.NewTicker(l.refreshInterval)
+	purgeTimer := time.NewTimer(l.ttl)
 
 	defer refreshTicker.Stop()
 	defer purgeTimer.Stop()
@@ -119,14 +160,14 @@ func (a *aspectState) listRefresher() {
 		select {
 		case <-refreshTicker.C:
 			// fetch a new list and reset the TTL timer
-			a.refreshList()
-			purgeTimer.Reset(a.ttl)
+			l.refreshList()
+			purgeTimer.Reset(l.ttl)
 
 		case <-purgeTimer.C:
 			// times up, nuke the list and start returning errors
-			a.setList(nil)
+			l.setList(nil)
 
-		case <-a.closing:
+		case <-l.closing:
 			return
 		}
 	}
@@ -137,13 +178,13 @@ type listPayload struct {
 	WhiteList []string `yaml:"whitelist" required:"true"`
 }
 
-func (a *aspectState) refreshList() {
-	a.log.Infof("Fetching list from %s", a.backend)
+func (l *listChecker) refreshList() {
+	l.log.Infof("Fetching list from %s", l.backend)
 
-	resp, err := a.client.Get(a.backend.String())
+	resp, err := l.client.Get(l.backend.String())
 	if err != nil {
-		a.fetchError = err
-		a.log.Warningf("Could not connect to %s: %v", a.backend, err)
+		l.fetchError = err
+		l.log.Warningf("Could not connect to %s: %v", l.backend, err)
 		return
 	}
 
@@ -151,8 +192,8 @@ func (a *aspectState) refreshList() {
 	var buf []byte
 	buf, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		a.fetchError = err
-		a.log.Warningf("Could not read from %s: %v", a.backend, err)
+		l.fetchError = err
+		l.log.Warningf("Could not read from %s: %v", l.backend, err)
 		return
 	}
 
@@ -160,9 +201,9 @@ func (a *aspectState) refreshList() {
 	// Note that a.fetchedSha is only read and written by this function
 	// in a single thread
 	newsha := sha1.Sum(buf)
-	if newsha == a.fetchedSha {
+	if newsha == l.fetchedSha {
 		// the list hasn't changed since last time, just bail
-		a.log.Infof("Fetched list is unchanged")
+		l.log.Infof("Fetched list is unchanged")
 		return
 	}
 
@@ -170,13 +211,13 @@ func (a *aspectState) refreshList() {
 	lp := listPayload{}
 	err = yaml.Unmarshal(buf, &lp)
 	if err != nil {
-		a.fetchError = err
-		a.log.Warningf("Could not unmarshal %s: %v", a.backend, err)
+		l.fetchError = err
+		l.log.Warningf("Could not unmarshal %s: %v", l.backend, err)
 		return
 	}
 
 	// copy to the internal format
-	l := make([]*net.IPNet, 0, len(lp.WhiteList))
+	list := make([]*net.IPNet, 0, len(lp.WhiteList))
 	for _, ip := range lp.WhiteList {
 		if !strings.Contains(ip, "/") {
 			ip += "/32"
@@ -184,15 +225,15 @@ func (a *aspectState) refreshList() {
 
 		_, ipnet, err := net.ParseCIDR(ip)
 		if err != nil {
-			a.log.Warningf("Unable to parse %s: %v", ip, err)
+			l.log.Warningf("Unable to parse %s: %v", ip, err)
 			continue
 		}
-		l = append(l, ipnet)
+		list = append(list, ipnet)
 	}
 
 	// Now create a new map and install it
-	a.log.Infof("Installing updated list")
-	a.setList(l)
-	a.fetchedSha = newsha
-	a.fetchError = nil
+	l.log.Infof("Installing updated list")
+	l.setList(list)
+	l.fetchedSha = newsha
+	l.fetchError = nil
 }

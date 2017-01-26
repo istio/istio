@@ -7,6 +7,7 @@ go_library(
     srcs = [
         "accessLogger.go",
         "adapter.go",
+        "builder.go",
         "configError.go",
         "denyChecker.go",
         "listChecker.go",

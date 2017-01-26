@@ -39,13 +39,13 @@ func TestAdapter_NewAspect(t *testing.T) {
 	}
 
 	e := testEnv{}
-	a := builderState{}
+	a := builder{}
 	for _, v := range tests {
 		asp, err := a.NewLogger(e, v.config)
 		if err != nil {
 			t.Errorf("NewLogger(env, %s) => unexpected error: %v", v.config, err)
 		}
-		got := asp.(*aspectImpl)
+		got := asp.(*logger)
 		if !reflect.DeepEqual(got, v.want) {
 			t.Errorf("NewLogger(env, %s) => %v, want %v", v.config, got, v.want)
 		}
@@ -53,7 +53,7 @@ func TestAdapter_NewAspect(t *testing.T) {
 }
 
 func TestAspectImpl_Close(t *testing.T) {
-	a := &aspectImpl{}
+	a := &logger{}
 	if err := a.Close(); err != nil {
 		t.Errorf("Close() => unexpected error: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestAspectImpl_Log(t *testing.T) {
 	jsonPayloadLog := `{"logName":"istio_log","timestamp":"2017-Jan-09","severity":"INFO","structPayload":{"obj":{"val":false},"val":42}}`
 	labelLog := `{"logName":"istio_log","labels":{"label":42},"timestamp":"2017-Jan-09","severity":"INFO"}`
 
-	baseAspectImpl := &aspectImpl{tw}
+	baseAspectImpl := &logger{tw}
 
 	tests := []logTests{
 		{baseAspectImpl, []adapter.LogEntry{}, []string{}},
@@ -99,7 +99,7 @@ func TestAspectImpl_Log(t *testing.T) {
 func TestAspectImpl_LogFailure(t *testing.T) {
 	tw := &testWriter{errorOnWrite: true}
 	textPayloadEntry := adapter.LogEntry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: adapter.Info}
-	baseAspectImpl := &aspectImpl{tw}
+	baseAspectImpl := &logger{tw}
 
 	if err := baseAspectImpl.Log([]adapter.LogEntry{textPayloadEntry}); err == nil {
 		t.Error("Log() should have produced error")
@@ -112,10 +112,10 @@ type (
 	}
 	newAspectTests struct {
 		config *config.Params
-		want   *aspectImpl
+		want   *logger
 	}
 	logTests struct {
-		asp   *aspectImpl
+		asp   *logger
 		input []adapter.LogEntry
 		want  []string
 	}
@@ -130,10 +130,10 @@ type (
 
 var (
 	defaultParams     = &config.Params{LogStream: config.Params_STDERR}
-	defaultAspectImpl = &aspectImpl{os.Stderr}
+	defaultAspectImpl = &logger{os.Stderr}
 
 	overridesParams     = &config.Params{LogStream: config.Params_STDOUT}
-	overridesAspectImpl = &aspectImpl{os.Stdout}
+	overridesAspectImpl = &logger{os.Stdout}
 )
 
 func (t *testWriter) Write(p []byte) (n int, err error) {
