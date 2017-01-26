@@ -28,23 +28,27 @@ import (
 )
 
 type (
-	builderState struct{}
-	aspectImpl   struct {
-		logStream io.Writer
-	}
+	builder struct{ adapter.DefaultBuilder }
+	logger  struct{ logStream io.Writer }
+)
+
+var (
+	name = "istio/stdioLogger"
+	desc = "Writes structured log entries to a standard I/O stream"
+	conf = &config.Params{}
 )
 
 // Register records the builders exposed by this adapter.
-func Register(r adapter.Registrar) { r.RegisterLogger(builderState{}) }
-
-func (builderState) Name() string { return "istio/stdioLogger" }
-func (builderState) Description() string {
-	return "Writes structured log entries to a standard I/O stream"
+func Register(r adapter.Registrar) {
+	b := builder{adapter.NewDefaultBuilder(name, desc, conf)}
+	r.RegisterLogger(b)
 }
-func (builderState) DefaultConfig() adapter.AspectConfig                              { return &config.Params{} }
-func (builderState) Close() error                                                     { return nil }
-func (builderState) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return nil }
-func (builderState) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.LoggerAspect, error) {
+
+func (builder) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.LoggerAspect, error) {
+	return newLogger(env, cfg)
+}
+
+func newLogger(env adapter.Env, cfg adapter.AspectConfig) (*logger, error) {
 	c := cfg.(*config.Params)
 
 	w := os.Stderr
@@ -52,15 +56,13 @@ func (builderState) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapte
 		w = os.Stdout
 	}
 
-	return &aspectImpl{w}, nil
+	return &logger{w}, nil
 }
 
-func (a *aspectImpl) Close() error { return nil }
-
-func (a *aspectImpl) Log(entries []adapter.LogEntry) error {
+func (l *logger) Log(entries []adapter.LogEntry) error {
 	var errors *me.Error
 	for _, entry := range entries {
-		if err := writeJSON(a.logStream, entry); err != nil {
+		if err := writeJSON(l.logStream, entry); err != nil {
 			errors = me.Append(errors, err)
 		}
 	}
@@ -68,6 +70,8 @@ func (a *aspectImpl) Log(entries []adapter.LogEntry) error {
 	return errors.ErrorOrNil()
 }
 
-func writeJSON(w io.Writer, le adapter.LogEntry) error {
+func (l *logger) Close() error { return nil }
+
+func writeJSON(w io.Writer, le interface{}) error {
 	return json.NewEncoder(w).Encode(le)
 }

@@ -5,8 +5,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "aspect.go",
-        "builder.go",
+        "ipListChecker.go",
     ],
     deps = [
         "//adapter/ipListChecker/config:go_default_library",
@@ -18,7 +17,7 @@ go_library(
 go_test(
     name = "small_tests",
     size = "small",
-    srcs = ["adapter_test.go"],
+    srcs = ["ipListChecker_test.go"],
     library = ":go_default_library",
     deps = ["//pkg/adapter/testing:go_default_library"],
 )

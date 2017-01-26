@@ -19,25 +19,45 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-type aspectState struct {
-	entries map[string]string
+type (
+	builder     struct{ adapter.DefaultBuilder }
+	listChecker struct{ entries map[string]string }
+)
+
+var (
+	name = "istio/genericListChecker"
+	desc = "Checks whether a symbol is present in a list."
+	conf = &config.Params{}
+)
+
+// Register records the builders exposed by this adapter.
+func Register(r adapter.Registrar) {
+	r.RegisterListChecker(newBuilder())
 }
 
-func newAspect(c *config.Params) (adapter.ListCheckerAspect, error) {
+func newBuilder() builder {
+	return builder{adapter.NewDefaultBuilder(name, desc, conf)}
+}
+
+func (builder) NewListChecker(env adapter.Env, c adapter.AspectConfig) (adapter.ListCheckerAspect, error) {
+	return newListChecker(c.(*config.Params))
+}
+
+func newListChecker(c *config.Params) (*listChecker, error) {
 	entries := make(map[string]string, len(c.ListEntries))
 	for _, entry := range c.ListEntries {
 		entries[entry] = entry
 	}
 
-	return &aspectState{entries: entries}, nil
+	return &listChecker{entries: entries}, nil
 }
 
-func (a *aspectState) Close() error {
-	a.entries = nil
+func (l *listChecker) Close() error {
+	l.entries = nil
 	return nil
 }
 
-func (a *aspectState) CheckList(symbol string) (bool, error) {
-	_, ok := a.entries[symbol]
+func (l *listChecker) CheckList(symbol string) (bool, error) {
+	_, ok := l.entries[symbol]
 	return ok, nil
 }
