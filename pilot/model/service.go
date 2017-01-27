@@ -25,10 +25,15 @@ import (
 type ServiceDiscovery interface {
 	// Services list declarations of all services and their tags
 	Services() []*Service
+
+	// GetService retrieves a service by name if it exists
+	GetService(name, namespace string) (*Service, bool)
+
 	// Instances takes a union across a set of tags and a set of named ports
 	// defined in the service parameter. An empty tag set or a port set implies
 	// the union of all available tags and ports, respectively.
 	Instances(s *Service) []*ServiceInstance
+
 	// HostInstances lists service instances for a given set of IPv4 addresses.
 	HostInstances(addrs map[string]bool) []*ServiceInstance
 }
@@ -37,12 +42,28 @@ type ServiceDiscovery interface {
 type Service struct {
 	// Name of the service
 	Name string `json:"name"`
+
 	// Namespace of the service name, optional
 	Namespace string `json:"namespace,omitempty"`
+
 	// Tags is a set of declared distinct tags for the service
 	Tags []Tag `json:"tags,omitempty"`
+
 	// Ports is a set of declared network service ports
-	Ports []Port `json:"ports,omitempty"`
+	Ports []*Port `json:"ports,omitempty"`
+
+	// Addresses lists service IPv4 addresses
+	Addresses map[string]bool `json:"addresses"`
+}
+
+// GetPort retrieves a port declaration by name
+func (s *Service) GetPort(name string) (*Port, bool) {
+	for _, port := range s.Ports {
+		if port.Name == name {
+			return port, true
+		}
+	}
+	return nil, false
 }
 
 // Tag describes an Istio service tag which provides finer-grained control
@@ -52,10 +73,14 @@ type Tag map[string]string
 
 // Endpoint defines a network endpoint
 type Endpoint struct {
-	// Address of the endpoint, typically an IP address
+	// Address of the endpoint, typically an IPv4 address
 	Address string `json:"ip_address,omitempty"`
-	// Port on the host address
-	Port Port `json:"port"`
+
+	// Port defined on the instance host
+	Port int `json:"port"`
+
+	// Port declaration from the service declaration
+	ServicePort *Port `json:"port"`
 }
 
 // ServiceInstance binds an endpoint to a service and a tag.
@@ -67,10 +92,13 @@ type ServiceInstance struct {
 
 // Port represents a network port
 type Port struct {
-	// Port value (may be distinct from the service port with the same name)
-	Port int `json:"port"`
-	// Name of the port classifies ports for a single service, optional
+	// Name of the port classifies ports for a single service, optional only for
+	// a single port service
 	Name string `json:"name,omitempty"`
+
+	// Port is defined on the service address
+	Port int `json:"port"`
+
 	// Protocol to be used for the port
 	Protocol Protocol `json:"protocol,omitempty"`
 }
@@ -159,9 +187,9 @@ func ParseServiceString(s string) *Service {
 		names = []string{""}
 	}
 
-	var ports []Port
+	var ports []*Port
 	for _, name := range names {
-		ports = append(ports, Port{Name: name})
+		ports = append(ports, &Port{Name: name})
 	}
 
 	var tags []Tag

@@ -11,7 +11,7 @@ gometalinter --deadline=300s --disable-all\
   --cyclo-over=15\
 	--enable=gofmt\
 	--enable=goimports\
-	--enable=golint --exclude=.pb.go --exclude="should have a package comment"\
+	--enable=golint --exclude=.pb.go\
 	--enable=gosimple\
   --enable=gotype\
 	--enable=ineffassign\

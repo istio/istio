@@ -11,6 +11,9 @@ spec:
   - port: 80
     targetPort: {{.port1}}
     name: http
+  - port: 8080
+    targetPort: {{.port2}}
+    name: http-alternative
   selector:
     app: {{.name}}
 ---
@@ -44,8 +47,11 @@ spec:
         args:
           - --port
           - "{{.port1}}"
+          - --port
+          - "{{.port2}}"
         ports:
         - containerPort: {{.port1}}
+        - containerPort: {{.port2}}
       - name: proxy
         image: {{.hub}}/runtime:{{.tag}}
         securityContext:

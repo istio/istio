@@ -60,6 +60,7 @@ docker_build(
         ":config",
         ":proxy",
     ],
+    visibility = ["//visibility:public"],
 )
 
 docker_build(
@@ -69,4 +70,5 @@ docker_build(
     repository = "istio",
     tags = ["manual"],
     tars = [":test"],
+    visibility = ["//visibility:public"],
 )

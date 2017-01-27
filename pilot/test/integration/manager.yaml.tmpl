@@ -8,8 +8,9 @@ spec:
   type: NodePort
   ports:
   - port: 80
-    targetPort: 8080
     name: http
+  - port: 8080
+    name: http-alternative
   selector:
     app: t
 ---
@@ -27,7 +28,13 @@ spec:
       containers:
       - name: app
         image: {{.hub}}/app:{{.tag}}
+        args:
+          - --port
+          - "80"
+          - --port
+          - "8080"
         ports:
+        - containerPort: 80
         - containerPort: 8080
 ---
 apiVersion: v1
@@ -35,13 +42,13 @@ kind: Service
 metadata:
   name: manager
   labels:
-    app: manager
+    infra: manager
 spec:
   ports:
   - port: 8080
     name: http-discovery
   selector:
-    app: manager
+    infra: manager
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -52,7 +59,7 @@ spec:
   template:
     metadata:
       labels:
-        app: manager
+        infra: manager
     spec:
       containers:
       - name: manager

@@ -4,3 +4,4 @@ platform/kube/config
 vendor
 .idea*
 *.iml
+echo.yaml

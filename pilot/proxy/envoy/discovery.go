@@ -92,7 +92,7 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 	for _, ep := range ds.services.Instances(svc) {
 		out = append(out, host{
 			Address: ep.Endpoint.Address,
-			Port:    ep.Endpoint.Port.Port,
+			Port:    ep.Endpoint.Port,
 		})
 	}
 	if err := response.WriteEntity(hosts{out}); err != nil {

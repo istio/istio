@@ -21,25 +21,25 @@ var validServices = map[string]Service{
 		Name:      "example-service1",
 		Namespace: "default",
 		Tags:      []Tag{{"e": "f"}, {"c": "d", "a": "b"}},
-		Ports:     []Port{{Name: "http"}, {Name: "grpc"}}},
+		Ports:     []*Port{{Name: "http"}, {Name: "grpc"}}},
 	"my-service": {
 		Name:  "my-service",
-		Ports: []Port{{Name: ""}}},
+		Ports: []*Port{{Name: ""}}},
 	"svc.ns": {
 		Name:      "svc",
 		Namespace: "ns",
-		Ports:     []Port{{Name: ""}}},
+		Ports:     []*Port{{Name: ""}}},
 	"svc::istio.io/my_tag-v1.test=my_value-v2.value": {
 		Name:  "svc",
 		Tags:  []Tag{{"istio.io/my_tag-v1.test": "my_value-v2.value"}},
-		Ports: []Port{{Name: ""}}},
+		Ports: []*Port{{Name: ""}}},
 	"svc:test:prod": {
 		Name:  "svc",
 		Tags:  []Tag{{"prod": ""}},
-		Ports: []Port{{Name: "test"}}},
+		Ports: []*Port{{Name: "test"}}},
 	"svc:http-test": {
 		Name:  "svc",
-		Ports: []Port{{Name: "http-test"}}},
+		Ports: []*Port{{Name: "http-test"}}},
 }
 
 func TestServiceString(t *testing.T) {

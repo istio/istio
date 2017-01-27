@@ -120,8 +120,12 @@ func (c *Controller) notify(obj interface{}, event model.Event) error {
 	if !c.HasSynced() {
 		return errors.New("Waiting till full synchronization")
 	}
-	k, _ := keyFunc(obj)
-	glog.V(2).Infof("Event %s: key %#v", event, k)
+	k, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		glog.V(2).Infof("Error retrieving key: %v", err)
+	} else {
+		glog.V(2).Infof("Event %s: key %#v", event, k)
+	}
 	return nil
 }
 
@@ -207,15 +211,13 @@ func (c *Controller) Run(stop chan struct{}) {
 	glog.V(2).Info("Controller terminated")
 }
 
-// key function used internally by kubernetes
-// Typically, key is a string "namespace"/"name"
-func keyFunc(obj interface{}) (string, bool) {
-	k, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-	if err != nil {
-		glog.Warningf("Creating a key failed: %v", err)
-		return k, false
+// keyFunc is the internal key function that returns "namespace"/"name" or
+// "name" if "namespace" is empty
+func keyFunc(name, namespace string) string {
+	if len(namespace) == 0 {
+		return name
 	}
-	return k, true
+	return namespace + "/" + name
 }
 
 // Get implements a registry operation
@@ -284,30 +286,56 @@ func (c *Controller) Services() []*model.Service {
 	return out
 }
 
-// Instances implements a service catalog operation
-func (c *Controller) Instances(s *model.Service) []*model.ServiceInstance {
-	ports := make(map[string]bool)
-	for _, port := range s.Ports {
-		ports[port.Name] = true
+// GetService implements a service catalog operation
+func (c *Controller) GetService(name string, namespace string) (*model.Service, bool) {
+	item, exists, err := c.services.informer.GetStore().GetByKey(keyFunc(name, namespace))
+	if err != nil {
+		glog.V(2).Infof("GetService(%s, %s) => error %v", name, namespace, err)
+		return nil, false
 	}
+	if !exists {
+		return nil, false
+	}
+	return convertService(*item.(*v1.Service)), true
+}
+
+// Instances implements a service catalog operation
+func (c *Controller) Instances(query *model.Service) []*model.ServiceInstance {
+	// Get actual service by name
+	svc, exists := c.GetService(query.Name, query.Namespace)
+	if !exists {
+		return nil
+	}
+
+	// Locate all ports in the actual service
+	ports := make(map[string]*model.Port)
+	if len(query.Ports) == 0 {
+		for _, port := range svc.Ports {
+			ports[port.Name] = port
+		}
+	} else {
+		for _, port := range query.Ports {
+			if svcPort, exists := svc.GetPort(port.Name); exists {
+				ports[port.Name] = svcPort
+			}
+		}
+	}
+
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
-		if ep.Name == s.Name && ep.Namespace == s.Namespace {
+		if ep.Name == svc.Name && ep.Namespace == svc.Namespace {
 			var out []*model.ServiceInstance
 			for _, ss := range ep.Subsets {
 				for _, ea := range ss.Addresses {
 					for _, port := range ss.Ports {
-						if len(s.Ports) == 0 || ports[port.Name] {
+						if svcPort, exists := ports[port.Name]; exists {
 							out = append(out, &model.ServiceInstance{
 								Endpoint: model.Endpoint{
-									Address: ea.IP,
-									Port: model.Port{
-										Name:     port.Name,
-										Port:     int(port.Port),
-										Protocol: convertProtocol(port.Name, port.Protocol),
-									},
+									Address:     ea.IP,
+									Port:        int(port.Port),
+									ServicePort: svcPort,
 								},
-								Service: s,
+								Service: svc,
 								Tag:     nil,
 							})
 						}
@@ -329,20 +357,22 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 			for _, ea := range ss.Addresses {
 				if addrs[ea.IP] {
 					for _, port := range ss.Ports {
+						svc, exists := c.GetService(ep.Name, ep.Namespace)
+						if !exists {
+							continue
+						}
+						svcPort, exists := svc.GetPort(port.Name)
+						if !exists {
+							continue
+						}
 						out = append(out, &model.ServiceInstance{
+							Service: svc,
+							Tag:     nil,
 							Endpoint: model.Endpoint{
-								Address: ea.IP,
-								Port: model.Port{
-									Name:     port.Name,
-									Port:     int(port.Port),
-									Protocol: convertProtocol(port.Name, port.Protocol),
-								},
+								Address:     ea.IP,
+								Port:        int(port.Port),
+								ServicePort: svcPort,
 							},
-							Service: &model.Service{
-								Name:      ep.Name,
-								Namespace: ep.Namespace,
-							},
-							Tag: nil,
 						})
 					}
 				}
@@ -375,18 +405,25 @@ func (c *Controller) AppendInstanceHandler(f func(*model.Service, model.Event)) 
 }
 
 func convertService(svc v1.Service) *model.Service {
-	var ports []model.Port
+	ports := make([]*model.Port, 0)
+	addrs := make(map[string]bool)
+	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
+		addrs[svc.Spec.ClusterIP] = true
+	}
+
 	for _, port := range svc.Spec.Ports {
-		ports = append(ports, model.Port{
+		ports = append(ports, &model.Port{
 			Name:     port.Name,
 			Port:     int(port.Port),
 			Protocol: convertProtocol(port.Name, port.Protocol),
 		})
 	}
+
 	return &model.Service{
 		Name:      svc.Name,
 		Namespace: svc.Namespace,
 		Ports:     ports,
+		Addresses: addrs,
 		// TODO: empty set of service tags for now
 		Tags: nil,
 	}

@@ -159,7 +159,7 @@ func (s *Service) Validate() error {
 			errs = multierror.Append(errs, fmt.Errorf("Invalid name: %q", port.Name))
 		}
 		if port.Port < 0 {
-			errs = multierror.Append(errs, fmt.Errorf("Invalid port value %d for %q", port.Port, port.Name))
+			errs = multierror.Append(errs, fmt.Errorf("Invalid service port value %d for %q", port.Port, port.Name))
 		}
 	}
 	return errs
