@@ -35,7 +35,7 @@ before_install:
 - cat .bazelrc.travis .bazelrc.orig > .bazelrc
 
 script:
-- bazel test //...
+- bazel --output_base=$HOME/bazel/outbase test //...
 - bin/linters.sh
 - bin/codecov.sh
 
