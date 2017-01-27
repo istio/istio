@@ -52,3 +52,6 @@ bazel-*
 
 .idea/
 *.iml
+
+# key file
+istio-testing.json
