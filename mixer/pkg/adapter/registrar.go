@@ -25,6 +25,9 @@ type Registrar interface {
 	// RegisterLogger registers a new Logger builder.
 	RegisterLogger(LoggerBuilder)
 
+	// RegisterAccessLogger registers a new AccessLogger builder.
+	RegisterAccessLogger(AccessLoggerBuilder)
+
 	// RegisterQuota registers a new Quota builder.
 	RegisterQuota(QuotaBuilder)
 }

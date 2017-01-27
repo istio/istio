@@ -67,6 +67,11 @@ func (r *registry) RegisterLogger(logger adapter.LoggerBuilder) {
 	r.insert(logger)
 }
 
+// RegisterAccessLogger registers a new Logger builder.
+func (r *registry) RegisterAccessLogger(logger adapter.AccessLoggerBuilder) {
+	r.insert(logger)
+}
+
 // RegisterQuota registers a new Quota builder.
 func (r *registry) RegisterQuota(quota adapter.QuotaBuilder) {
 	r.insert(quota)

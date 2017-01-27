@@ -57,13 +57,13 @@ type (
 	AccessLogEntry struct {
 		// LogName is the name of the access log stream to which the
 		// entry corresponds.
-		LogName string
+		LogName string `json:"logName,omitempty"`
 		// Log is the text-formatted access log entry data. It will
 		// be prepared by the aspect manager, based upon aspect config.
-		Log string
+		Log string `json:"log,omitempty"`
 		// Labels is the set of key-value pairs that can be used to
 		// generate a structured access log for this entry. The aspect
 		// manager will populate this map based on aspect config.
-		Labels map[string]interface{}
+		Labels map[string]interface{} `json:"labels,omitempty"`
 	}
 )

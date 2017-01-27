@@ -97,6 +97,28 @@ func TestRegisterLogger(t *testing.T) {
 	}
 }
 
+type accessLoggerBuilder struct{ testBuilder }
+
+func (accessLoggerBuilder) NewAccessLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.AccessLoggerAspect, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func TestRegistry_RegisterAccessLogger(t *testing.T) {
+	reg := newRegistry(nil)
+	builder := accessLoggerBuilder{testBuilder{name: "foo"}}
+
+	reg.RegisterAccessLogger(builder)
+
+	impl, ok := reg.FindBuilder(builder.Name())
+	if !ok {
+		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
+	}
+
+	if deny, ok := impl.(accessLoggerBuilder); !ok || deny != builder {
+		t.Errorf("reg.ByImpl(%s) expected builder '%v', actual '%v'", builder.Name(), builder, impl)
+	}
+}
+
 type quotaBuilder struct{ testBuilder }
 
 func (quotaBuilder) NewQuota(env adapter.Env, cfg adapter.AspectConfig) (adapter.QuotaAspect, error) {

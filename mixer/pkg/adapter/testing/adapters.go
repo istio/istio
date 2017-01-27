@@ -23,10 +23,11 @@ import (
 )
 
 type fakeRegistrar struct {
-	denyCheckers []adapter.DenyCheckerBuilder
-	listCheckers []adapter.ListCheckerBuilder
-	loggers      []adapter.LoggerBuilder
-	quotas       []adapter.QuotaBuilder
+	denyCheckers  []adapter.DenyCheckerBuilder
+	listCheckers  []adapter.ListCheckerBuilder
+	loggers       []adapter.LoggerBuilder
+	accessLoggers []adapter.AccessLoggerBuilder
+	quotas        []adapter.QuotaBuilder
 }
 
 func (r *fakeRegistrar) RegisterListChecker(b adapter.ListCheckerBuilder) {
@@ -39,6 +40,10 @@ func (r *fakeRegistrar) RegisterDenyChecker(b adapter.DenyCheckerBuilder) {
 
 func (r *fakeRegistrar) RegisterLogger(b adapter.LoggerBuilder) {
 	r.loggers = append(r.loggers, b)
+}
+
+func (r *fakeRegistrar) RegisterAccessLogger(b adapter.AccessLoggerBuilder) {
+	r.accessLoggers = append(r.accessLoggers, b)
 }
 
 func (r *fakeRegistrar) RegisterQuota(b adapter.QuotaBuilder) {

@@ -42,9 +42,14 @@ var (
 func Register(r adapter.Registrar) {
 	b := builder{adapter.NewDefaultBuilder(name, desc, conf)}
 	r.RegisterLogger(b)
+	r.RegisterAccessLogger(b)
 }
 
 func (builder) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.LoggerAspect, error) {
+	return newLogger(env, cfg)
+}
+
+func (builder) NewAccessLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.AccessLoggerAspect, error) {
 	return newLogger(env, cfg)
 }
 
@@ -62,6 +67,21 @@ func newLogger(env adapter.Env, cfg adapter.AspectConfig) (*logger, error) {
 func (l *logger) Log(entries []adapter.LogEntry) error {
 	var errors *me.Error
 	for _, entry := range entries {
+		if err := writeJSON(l.logStream, entry); err != nil {
+			errors = me.Append(errors, err)
+		}
+	}
+
+	return errors.ErrorOrNil()
+}
+
+func (l *logger) LogAccess(entries []adapter.AccessLogEntry) error {
+	var errors *me.Error
+	for _, entry := range entries {
+		// since stdioLogger will be writing structured logs
+		// it will not output the formatted log line provided
+		// by the mixer
+		entry.Log = ""
 		if err := writeJSON(l.logStream, entry); err != nil {
 			errors = me.Append(errors, err)
 		}
