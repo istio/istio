@@ -18,6 +18,7 @@
 using ::istio::mixer::v1::CheckResponse;
 using ::istio::mixer::v1::ReportResponse;
 using ::istio::mixer::v1::QuotaResponse;
+using ::google::protobuf::util::Status;
 
 namespace istio {
 namespace mixer_client {
@@ -38,18 +39,30 @@ MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
 MixerClientImpl::~MixerClientImpl() {}
 
 void MixerClientImpl::Check(const Attributes &attributes, DoneFunc on_done) {
-  CheckResponse response;
-  check_transport_->Send(attributes, &response, on_done);
+  auto response = new CheckResponse;
+  check_transport_->Send(attributes, response,
+                         [response, on_done](const Status &status) {
+                           delete response;
+                           on_done(status);
+                         });
 }
 
 void MixerClientImpl::Report(const Attributes &attributes, DoneFunc on_done) {
-  ReportResponse response;
-  report_transport_->Send(attributes, &response, on_done);
+  auto response = new ReportResponse;
+  report_transport_->Send(attributes, response,
+                          [response, on_done](const Status &status) {
+                            delete response;
+                            on_done(status);
+                          });
 }
 
 void MixerClientImpl::Quota(const Attributes &attributes, DoneFunc on_done) {
-  QuotaResponse response;
-  quota_transport_->Send(attributes, &response, on_done);
+  auto response = new QuotaResponse;
+  quota_transport_->Send(attributes, response,
+                         [response, on_done](const Status &status) {
+                           delete response;
+                           on_done(status);
+                         });
 }
 
 // Creates a MixerClient object.
