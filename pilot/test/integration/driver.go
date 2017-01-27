@@ -47,8 +47,7 @@ func write(in string, data map[string]string, out io.Writer) error {
 }
 
 const (
-	yaml      = "echo.yaml"
-	namespace = "default"
+	yaml = "echo.yaml"
 )
 
 func check(err error) {
@@ -58,14 +57,16 @@ func check(err error) {
 }
 
 var (
-	hub    string
-	tag    string
-	client *kubernetes.Clientset
+	hub       string
+	tag       string
+	namespace string
+	client    *kubernetes.Clientset
 )
 
 func init() {
 	flag.StringVarP(&hub, "hub", "h", "gcr.io/istio-test", "Docker hub")
 	flag.StringVarP(&tag, "tag", "t", "test", "Docker tag")
+	flag.StringVarP(&namespace, "namespace", "n", "default", "Namespace used for testing")
 }
 
 func main() {
@@ -111,18 +112,6 @@ func main() {
 		}
 		run("kubectl apply -f " + yaml + " -n " + namespace)
 	}
-	/*
-	   # Wait for pods to be ready
-	   while : ; do
-	     kubectl get pods | grep -i "init\|creat\|error" || break
-	     sleep 1
-	   done
-
-	   # Get pod names
-	   for pod in a b t; do
-	     declare "${pod}"="$(kubectl get pods -l app=$pod -o jsonpath='{range .items[*]}{@.metadata.name}')"
-	   done
-	*/
 
 	client = connect()
 	pods := getPods()
@@ -134,7 +123,7 @@ func main() {
 }
 
 func run(command string) {
-	log.Println("run", command)
+	log.Println(command)
 	parts := strings.Split(command, " ")
 	/* #nosec */
 	c := exec.Command(parts[0], parts[1:]...)
@@ -144,7 +133,7 @@ func run(command string) {
 }
 
 func shell(command string) string {
-	log.Println("exec", command)
+	log.Println(command)
 	parts := strings.Split(command, " ")
 	/* #nosec */
 	c := exec.Command(parts[0], parts[1:]...)
@@ -167,10 +156,8 @@ func connect() *kubernetes.Clientset {
 func getPods() map[string]string {
 	pods := make([]v1.Pod, 0)
 	out := make(map[string]string)
-	n := 0
-	for {
+	for n := 0; ; n++ {
 		log.Println("Checking all pods are running...")
-		n = n + 1
 		list, err := client.Pods(namespace).List(v1.ListOptions{})
 		check(err)
 		pods = list.Items
@@ -192,7 +179,7 @@ func getPods() map[string]string {
 			log.Fatal("Exceeded budget for checking pod status")
 		}
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(time.Second)
 	}
 
 	for _, pod := range pods {
@@ -215,18 +202,31 @@ func makeRequests(pods map[string]string) map[string][]string {
 		for dst := range pods {
 			for _, port := range []string{"", ":80", ":8080"} {
 				for _, domain := range []string{"", "." + namespace} {
-					url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
-					log.Printf("Making a request %s from %s...\n", url, src)
-					request := shell(fmt.Sprintf("kubectl exec %s -c app client %s", pods[src], url))
-					log.Println(request)
-					match := regexp.MustCompile("X-Request-Id=(.*)").FindStringSubmatch(request)
-					if len(match) > 1 {
-						id := match[1]
-						log.Printf("id=%s\n", id)
-						out[src] = append(out[src], id)
-						out[dst] = append(out[dst], id)
-					} else if src != "t" || dst != "t" {
-						log.Fatalf("Failed to inject proxy from %s to %s (url %s)", src, dst, url)
+					for n := 0; ; n++ {
+						url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
+						log.Printf("Making a request %s from %s (attempt %d)...\n", url, src, n)
+						request := shell(fmt.Sprintf("kubectl exec %s -n %s -c app client %s",
+							pods[src], namespace, url))
+						log.Println(request)
+						match := regexp.MustCompile("X-Request-Id=(.*)").FindStringSubmatch(request)
+						if len(match) > 1 {
+							id := match[1]
+							log.Printf("id=%s\n", id)
+							out[src] = append(out[src], id)
+							out[dst] = append(out[dst], id)
+							break
+						}
+
+						if src == "t" && dst == "t" {
+							log.Println("Expected no match")
+							break
+						}
+
+						if n > 30 {
+							log.Fatalf("Failed to inject proxy from %s to %s (url %s)", src, dst, url)
+						}
+
+						time.Sleep(1 * time.Second)
 					}
 				}
 			}
@@ -236,14 +236,13 @@ func makeRequests(pods map[string]string) map[string][]string {
 	return out
 }
 
+// checkAccessLogs searches for request ids in the access logs
 func checkAccessLogs(pods map[string]string, ids map[string][]string) {
-	n := 0
-	for {
+	for n := 0; ; n++ {
 		found := true
-		n = n + 1
 		for _, pod := range []string{"a", "b"} {
 			log.Printf("Checking access log of %s\n", pod)
-			access := shell(fmt.Sprintf("kubectl logs %s -c proxy", pods[pod]))
+			access := shell(fmt.Sprintf("kubectl logs %s -n %s -c proxy", pods[pod], namespace))
 			for _, id := range ids[pod] {
 				if !strings.Contains(access, id) {
 					log.Printf("Failed to find request id %s in log of %s\n", id, pod)
@@ -264,6 +263,6 @@ func checkAccessLogs(pods map[string]string, ids map[string][]string) {
 			log.Fatalf("Exceeded budget for checking access logs")
 		}
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(time.Second)
 	}
 }
