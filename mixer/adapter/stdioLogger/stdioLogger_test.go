@@ -31,7 +31,7 @@ func TestAdapterInvariants(t *testing.T) {
 	at.TestAdapterInvariants(Register, t)
 }
 
-func TestAdapter_NewAspect(t *testing.T) {
+func TestBuilder_NewLogger(t *testing.T) {
 	tests := []newAspectTests{
 		{&config.Params{}, defaultAspectImpl},
 		{defaultParams, defaultAspectImpl},
@@ -52,14 +52,35 @@ func TestAdapter_NewAspect(t *testing.T) {
 	}
 }
 
-func TestAspectImpl_Close(t *testing.T) {
+func TestBuilder_NewAccessLogger(t *testing.T) {
+	tests := []newAspectTests{
+		{&config.Params{}, defaultAspectImpl},
+		{defaultParams, defaultAspectImpl},
+		{overridesParams, overridesAspectImpl},
+	}
+
+	e := testEnv{}
+	a := builder{}
+	for _, v := range tests {
+		asp, err := a.NewAccessLogger(e, v.config)
+		if err != nil {
+			t.Errorf("NewAccessLogger(env, %s) => unexpected error: %v", v.config, err)
+		}
+		got := asp.(*logger)
+		if !reflect.DeepEqual(got, v.want) {
+			t.Errorf("NewAccessLogger(env, %s) => %v, want %v", v.config, got, v.want)
+		}
+	}
+}
+
+func TestLogger_Close(t *testing.T) {
 	a := &logger{}
 	if err := a.Close(); err != nil {
 		t.Errorf("Close() => unexpected error: %v", err)
 	}
 }
 
-func TestAspectImpl_Log(t *testing.T) {
+func TestLogger_Log(t *testing.T) {
 
 	tw := &testWriter{lines: make([]string, 0)}
 
@@ -77,7 +98,11 @@ func TestAspectImpl_Log(t *testing.T) {
 
 	baseAspectImpl := &logger{tw}
 
-	tests := []logTests{
+	tests := []struct {
+		asp   *logger
+		input []adapter.LogEntry
+		want  []string
+	}{
 		{baseAspectImpl, []adapter.LogEntry{}, []string{}},
 		{baseAspectImpl, []adapter.LogEntry{noPayloadEntry}, []string{baseLog}},
 		{baseAspectImpl, []adapter.LogEntry{textPayloadEntry}, []string{textPayloadLog}},
@@ -96,13 +121,59 @@ func TestAspectImpl_Log(t *testing.T) {
 	}
 }
 
-func TestAspectImpl_LogFailure(t *testing.T) {
+func TestLogger_LogFailure(t *testing.T) {
 	tw := &testWriter{errorOnWrite: true}
 	textPayloadEntry := adapter.LogEntry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: adapter.Info}
 	baseAspectImpl := &logger{tw}
 
 	if err := baseAspectImpl.Log([]adapter.LogEntry{textPayloadEntry}); err == nil {
 		t.Error("Log() should have produced error")
+	}
+}
+
+func TestLogger_LogAccess(t *testing.T) {
+	tw := &testWriter{lines: make([]string, 0)}
+
+	noLabelsEntry := adapter.AccessLogEntry{LogName: "access_log"}
+	labelsEntry := adapter.AccessLogEntry{LogName: "access_log", Labels: map[string]interface{}{"test": false, "val": 42}}
+	labelsWithTextEntry := adapter.AccessLogEntry{
+		LogName: "access_log",
+		Labels:  map[string]interface{}{"test": false, "val": 42},
+		Log:     "this is a log line",
+	}
+
+	baseLog := `{"logName":"access_log"}`
+	labelsLog := `{"logName":"access_log","labels":{"test":false,"val":42}}`
+
+	tests := []struct {
+		input []adapter.AccessLogEntry
+		want  []string
+	}{
+		{[]adapter.AccessLogEntry{}, []string{}},
+		{[]adapter.AccessLogEntry{noLabelsEntry}, []string{baseLog}},
+		{[]adapter.AccessLogEntry{labelsEntry}, []string{labelsLog}},
+		{[]adapter.AccessLogEntry{labelsWithTextEntry}, []string{labelsLog}},
+	}
+
+	for _, v := range tests {
+		log := &logger{tw}
+		if err := log.LogAccess(v.input); err != nil {
+			t.Errorf("LogAccess(%v) => unexpected error: %v", v.input, err)
+		}
+		if !reflect.DeepEqual(tw.lines, v.want) {
+			t.Errorf("LogAccess(%v) => %v, want %s", v.input, tw.lines, v.want)
+		}
+		tw.lines = make([]string, 0)
+	}
+}
+
+func TestLogger_LogAccessFailure(t *testing.T) {
+	tw := &testWriter{errorOnWrite: true}
+	entry := adapter.AccessLogEntry{LogName: "access_log"}
+	l := &logger{tw}
+
+	if err := l.LogAccess([]adapter.AccessLogEntry{entry}); err == nil {
+		t.Error("LogAccess() should have produced error")
 	}
 }
 
@@ -113,11 +184,6 @@ type (
 	newAspectTests struct {
 		config *config.Params
 		want   *logger
-	}
-	logTests struct {
-		asp   *logger
-		input []adapter.LogEntry
-		want  []string
 	}
 	testWriter struct {
 		io.Writer
