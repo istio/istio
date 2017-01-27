@@ -32,17 +32,19 @@ type (
 	logger  struct{ logStream io.Writer }
 )
 
-var (
-	name = "istio/stdioLogger"
-	desc = "Writes structured log entries to a standard I/O stream"
-	conf = &config.Params{}
-)
-
 // Register records the builders exposed by this adapter.
 func Register(r adapter.Registrar) {
-	b := builder{adapter.NewDefaultBuilder(name, desc, conf)}
-	r.RegisterLogger(b)
-	r.RegisterAccessLogger(b)
+	//TODO update registration code after https://github.com/istio/mixer/issues/204 is resolved.
+	r.RegisterLogger(builder{adapter.NewDefaultBuilder(
+		"istio/stdioLogger",
+		"Writes structured log entries to a standard I/O stream",
+		&config.Params{},
+	)})
+	r.RegisterAccessLogger(builder{adapter.NewDefaultBuilder(
+		"istio/stdioAccessLogger",
+		"Writes structured access log entries to a standard I/O stream",
+		&config.Params{},
+	)})
 }
 
 func (builder) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.LoggerAspect, error) {
