@@ -14,169 +14,103 @@
  */
 #include "contrib/endpoints/src/api_manager/mixer/mixer.h"
 
-#include <sstream>
-#include "mixer/api/v1/service.pb.h"
-
 using ::google::api_manager::utils::Status;
-using ::google::protobuf::util::error::Code;
-using ::google::protobuf::Map;
+using ::istio::mixer_client::Attributes;
 
 namespace google {
 namespace api_manager {
 namespace mixer {
 namespace {
 
-const char kMixerServiceName[] = "istio.mixer.v1.Mixer";
+const std::string kAttrNameServiceName = "serviceName";
+const std::string kAttrNamePeerId = "peerId";
+const std::string kAttrNameOperationName = "operationName";
+const std::string kAttrNameApiKey = "apiKey";
+const std::string kAttrNameResponseCode = "responseCode";
+const std::string kAttrNameURL = "url";
+const std::string kAttrNameLocation = "location";
+const std::string kAttrNameApiName = "apiName";
+const std::string kAttrNameApiVersion = "apiVersion";
+const std::string kAttrNameApiMethod = "apiMethod";
+const std::string kAttrNameRequestSize = "requestSize";
+const std::string kAttrNameResponseSize = "responseSize";
+const std::string kAttrNameLogMessage = "logMessage";
 
-enum AttributeIndex {
-  ATTR_SERVICE_NAME = 0,
-  ATTR_PEER_ID,
-  ATTR_OPERATION_NAME,
-  ATTR_API_KEY,
-  ATTR_RESPONSE_CODE,
-  ATTR_URL,
-  ATTR_LOCATION,
-  ATTR_API_NAME,
-  ATTR_API_VERSION,
-  ATTR_API_METHOD,
-  ATTR_REQUEST_SIZE,
-  ATTR_RESPONSE_SIZE,
-  ATTR_LOG_MESSAGE,
-};
-
-struct AttributeDict {
-  int index;
-  std::string name;
-} kAttributeNames[] = {
-    {
-        ATTR_SERVICE_NAME, "serviceName",
-    },
-    {
-        ATTR_PEER_ID, "peerId",
-    },
-    {
-        ATTR_OPERATION_NAME, "operationName",
-    },
-    {
-        ATTR_API_KEY, "apiKey",
-    },
-    {
-        ATTR_RESPONSE_CODE, "responseCode",
-    },
-    {
-        ATTR_URL, "URL",
-    },
-    {
-        ATTR_LOCATION, "location",
-    },
-    {
-        ATTR_API_NAME, "apiName",
-    },
-    {
-        ATTR_API_VERSION, "apiVersion",
-    },
-    {
-        ATTR_API_METHOD, "apiMethod",
-    },
-    {
-        ATTR_REQUEST_SIZE, "requestSize",
-    },
-    {
-        ATTR_RESPONSE_SIZE, "responesSize",
-    },
-    {
-        ATTR_LOG_MESSAGE, "logMessage",
-    },
-};
-
-void SetAttributeDict(Map<int32_t, std::string>* dict) {
-  for (auto attr : kAttributeNames) {
-    (*dict)[attr.index] = attr.name;
-  }
+Attributes::Value StringValue(const std::string& str) {
+  Attributes::Value v;
+  v.type = Attributes::Value::STRING;
+  v.str_v = str;
+  return v;
 }
 
-void CovertToPb(const service_control::CheckRequestInfo& info,
-                const std::string& service_name,
-                ::istio::mixer::v1::Attributes* attr) {
-  SetAttributeDict(attr->mutable_dictionary());
-
-  auto* str_attrs = attr->mutable_string_attributes();
-  (*str_attrs)[ATTR_SERVICE_NAME] = service_name;
-  (*str_attrs)[ATTR_PEER_ID] = "Proxy";
-  (*str_attrs)[ATTR_OPERATION_NAME] = info.operation_name;
-  (*str_attrs)[ATTR_API_KEY] = info.api_key;
+Attributes::Value Int64Value(int64_t value) {
+  Attributes::Value v;
+  v.type = Attributes::Value::INT64;
+  v.value.int64_v = value;
+  return v;
 }
 
-void CovertToPb(const service_control::ReportRequestInfo& info,
-                const std::string& service_name,
-                ::istio::mixer::v1::Attributes* attr) {
-  SetAttributeDict(attr->mutable_dictionary());
+void FillCheckAttributes(const service_control::CheckRequestInfo& info,
+                         const std::string& service_name,
+                         ::istio::mixer_client::Attributes* attr) {
+  attr->attributes[kAttrNameServiceName] = StringValue(service_name);
+  attr->attributes[kAttrNamePeerId] = StringValue("Proxy");
+  attr->attributes[kAttrNameOperationName] = StringValue(info.operation_name);
+  attr->attributes[kAttrNameApiKey] = StringValue(info.api_key);
+}
 
-  auto* str_attrs = attr->mutable_string_attributes();
-  (*str_attrs)[ATTR_SERVICE_NAME] = service_name;
-  (*str_attrs)[ATTR_PEER_ID] = "Proxy";
-  (*str_attrs)[ATTR_OPERATION_NAME] = info.operation_name;
-  (*str_attrs)[ATTR_API_KEY] = info.api_key;
+void FillReportAttributes(const service_control::ReportRequestInfo& info,
+                          const std::string& service_name,
+                          ::istio::mixer_client::Attributes* attr) {
+  attr->attributes[kAttrNameServiceName] = StringValue(service_name);
+  attr->attributes[kAttrNamePeerId] = StringValue("Proxy");
+  attr->attributes[kAttrNameOperationName] = StringValue(info.operation_name);
+  attr->attributes[kAttrNameApiKey] = StringValue(info.api_key);
 
-  (*str_attrs)[ATTR_URL] = info.url;
-  (*str_attrs)[ATTR_LOCATION] = info.location;
+  attr->attributes[kAttrNameURL] = StringValue(info.url);
+  attr->attributes[kAttrNameLocation] = StringValue(info.location);
 
-  (*str_attrs)[ATTR_API_NAME] = info.api_name;
-  (*str_attrs)[ATTR_API_VERSION] = info.api_version;
-  (*str_attrs)[ATTR_API_METHOD] = info.api_method;
+  attr->attributes[kAttrNameApiName] = StringValue(info.api_name);
+  attr->attributes[kAttrNameApiVersion] = StringValue(info.api_version);
+  attr->attributes[kAttrNameApiMethod] = StringValue(info.api_method);
 
-  (*str_attrs)[ATTR_LOG_MESSAGE] = info.log_message;
+  attr->attributes[kAttrNameLogMessage] = StringValue(info.log_message);
 
-  auto* int_attrs = attr->mutable_int64_attributes();
-  (*int_attrs)[ATTR_RESPONSE_CODE] = info.response_code;
-  (*int_attrs)[ATTR_REQUEST_SIZE] = info.request_size;
-  (*int_attrs)[ATTR_RESPONSE_SIZE] = info.response_size;
+  attr->attributes[kAttrNameResponseCode] = Int64Value(info.response_code);
+  attr->attributes[kAttrNameRequestSize] = Int64Value(info.request_size);
+  attr->attributes[kAttrNameResponseSize] = Int64Value(info.response_size);
 }
 
 }  // namespace
 
 Mixer::Mixer(ApiManagerEnvInterface* env, const Config* config)
-    : env_(env), request_index_(0), config_(config) {}
+    : env_(env), config_(config) {}
 
 Mixer::~Mixer() {}
 
-Status Mixer::Init() { return Status::OK; }
+Status Mixer::Init() {
+  ::istio::mixer_client::MixerClientOptions options;
+  options.mixer_server =
+      config_->server_config()->mixer_options().mixer_server();
+  mixer_client_ = ::istio::mixer_client::CreateMixerClient(options);
+  return Status::OK;
+}
 
 Status Mixer::Close() { return Status::OK; }
 
 Status Mixer::Report(const service_control::ReportRequestInfo& info) {
-  std::unique_ptr<GRPCRequest> grpc_request(new GRPCRequest([this](
-      Status status, std::string&& body) {
-    if (status.ok()) {
-      // Handle 200 response
-      ::istio::mixer::v1::ReportResponse response;
-      if (!response.ParseFromString(body)) {
-        status =
-            Status(Code::INVALID_ARGUMENT, std::string("Invalid response"));
-        env_->LogError(std::string("Failed parse report response: ") + body);
-      }
-      env_->LogInfo(std::string("Report response: ") + response.DebugString());
-    } else {
-      env_->LogError(std::string("Failed to call Mixer::report, Error: ") +
-                     status.ToString());
-    }
-  }));
-
-  ::istio::mixer::v1::ReportRequest request;
-  request.set_request_index(++request_index_);
-  CovertToPb(info, config_->service_name(), request.mutable_attribute_update());
-  env_->LogInfo(std::string("Send Report: ") + request.DebugString());
-
-  std::string request_body;
-  request.SerializeToString(&request_body);
-
-  grpc_request
-      ->set_server(config_->server_config()->mixer_options().mixer_server())
-      .set_service(kMixerServiceName)
-      .set_method("Report")
-      .set_body(request_body);
-
-  env_->RunGRPCRequest(std::move(grpc_request));
+  ::istio::mixer_client::Attributes attributes;
+  FillReportAttributes(info, config_->service_name(), &attributes);
+  env_->LogInfo("Send Report: ");
+  mixer_client_->Report(
+      attributes, [this](const ::google::protobuf::util::Status& status) {
+        if (status.ok()) {
+          env_->LogInfo("Report response: OK");
+        } else {
+          env_->LogError(std::string("Failed to call Mixer::report, Error: ") +
+                         status.ToString());
+        }
+      });
   return Status::OK;
 }
 
@@ -185,40 +119,23 @@ void Mixer::Check(
     cloud_trace::CloudTraceSpan* parent_span,
     std::function<void(Status, const service_control::CheckResponseInfo&)>
         on_done) {
-  std::unique_ptr<GRPCRequest> grpc_request(new GRPCRequest([this, on_done](
-      Status status, std::string&& body) {
-    if (status.ok()) {
-      // Handle 200 response
-      ::istio::mixer::v1::CheckResponse response;
-      if (!response.ParseFromString(body)) {
-        status =
-            Status(Code::INVALID_ARGUMENT, std::string("Invalid response"));
-        env_->LogError(std::string("Failed parse check response: ") + body);
-      }
-      env_->LogInfo(std::string("Check response: ") + response.DebugString());
-    } else {
-      env_->LogError(std::string("Failed to call Mixer::check, Error: ") +
-                     status.ToString());
-    }
-    service_control::CheckResponseInfo info;
-    on_done(status, info);
-  }));
-
-  ::istio::mixer::v1::CheckRequest request;
-  request.set_request_index(++request_index_);
-  CovertToPb(info, config_->service_name(), request.mutable_attribute_update());
-  env_->LogInfo(std::string("Send Check: ") + request.DebugString());
-
-  std::string request_body;
-  request.SerializeToString(&request_body);
-
-  grpc_request
-      ->set_server(config_->server_config()->mixer_options().mixer_server())
-      .set_service(kMixerServiceName)
-      .set_method("Check")
-      .set_body(request_body);
-
-  env_->RunGRPCRequest(std::move(grpc_request));
+  ::istio::mixer_client::Attributes attributes;
+  FillCheckAttributes(info, config_->service_name(), &attributes);
+  env_->LogInfo("Send Check: ");
+  mixer_client_->Check(
+      attributes,
+      [this, on_done](const ::google::protobuf::util::Status& status) {
+        if (status.ok()) {
+          env_->LogInfo("Check response: OK");
+        } else {
+          env_->LogError(std::string("Failed to call Mixer::check, Error: ") +
+                         status.ToString());
+        }
+        service_control::CheckResponseInfo info;
+        on_done(Status(status.error_code(), status.error_message(),
+                       Status::SERVICE_CONTROL),
+                info);
+      });
 }
 
 Status Mixer::GetStatistics(service_control::Statistics* esp_stat) const {

@@ -214,13 +214,16 @@ class Instance : public Http::StreamFilter,
                 status.ToJson());
     if (!status.ok() && state_ != Responded) {
       state_ = Responded;
-      Utility::sendLocalReply(*decoder_callbacks_, Code(status.HttpCode()),
-                              status.ToJson());
+      decoder_callbacks_->dispatcher().post([this, status]() {
+        Utility::sendLocalReply(*decoder_callbacks_, Code(status.HttpCode()),
+                                status.ToJson());
+      });
       return;
     }
     state_ = Complete;
     if (!initiating_call_) {
-      decoder_callbacks_->continueDecoding();
+      decoder_callbacks_->dispatcher().post(
+          [this]() { decoder_callbacks_->continueDecoding(); });
     }
   }
 

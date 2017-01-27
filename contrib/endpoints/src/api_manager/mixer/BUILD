@@ -32,11 +32,11 @@ cc_library(
         ],
     }),
     deps = [
-        "//external:grpc++",
-        "//external:mixer_api_cc_proto",
-        "//external:protobuf",
         "//contrib/endpoints/src/api_manager:impl_headers",
         "//contrib/endpoints/src/api_manager/service_control",
         "//contrib/endpoints/src/api_manager/utils",
+        "//external:grpc++",
+        "//external:mixer_client_lib",
+        "//external:protobuf",
     ],
 )
