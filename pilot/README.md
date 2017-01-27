@@ -33,23 +33,23 @@ Gazelle binary is located in Bazel external tools:
 
 ## Test environment ##
 
-Manager tests require an access to a Kubernetes cluster version >=1.5. Each
-test creates a temporary namespace and deletes it on completion.  Please
-configure your `kubectl` to point to a development cluster before invoking the
-tests. If you are using GKE, please make sure you are using static client
+Manager tests require access to a Kubernetes cluster. We recommend Kubernetes 
+version >=1.5.2 due to its improved support for Third-Party Resources. Each
+test operates on a temporary namespace and deletes it on completion.  Please
+configure your `kubectl` to point to a development cluster before building or
+invoking the tests and add a symbolic link to your
+repository pointing to Kubernetes cluster credentials:
+
+    ln -s ~/.kube/config platform/kube/
+
+If you are using GKE, please make sure you are using static client
 certificates before fetching cluster credentials:
 
     gcloud config set container/use_client_certificate True
 
-To let Bazel sandboxes access the cluster, please add a symbolic link to your
-repository pointing to your Kubernetes configuration file:
+To run the tests:
 
-    ln -s ~/.kube/config platform/kube/
     bazel test //...
-
-_Note_: Due to a known issue, the namespaces are not deleted completely
-after running the tests and permanently reside in a terminating state
-(see [issues](https://github.com/istio/manager/issues/15)).
 
 ## Build instructions without Bazel ##
 
@@ -58,4 +58,12 @@ check out your repository clone `$REPO_PATH` into `$GOPATH` (e.g.
 `$GOPATH/src/istio.io/manager`). Then run this script in the repository root:
 
     bin/init.sh
+        
+## Docker images ##
+
+We provide Bazel targets to output Istio runtime images:
+
+    bazel run //docker:runtime
+    
+The image includes Istio Proxy and Istio Manager.
 
