@@ -295,8 +295,15 @@ func makeClient(t *testing.T) *Client {
 	if _, err = os.Stat(kubeconfig); err != nil {
 		kubeconfig, _ = os.Getwd()
 		kubeconfig = kubeconfig + "/config"
-		if _, err = os.Stat(kubeconfig); err != nil {
+		info, exists := os.Stat(kubeconfig)
+		if exists != nil {
 			t.Fatalf("Cannot find .kube/config file")
+		}
+
+		// if it's an empty file, switch to in-cluster config
+		if info.Size() == 0 {
+			glog.Info("Using in-cluster configuration")
+			kubeconfig = ""
 		}
 	}
 

@@ -323,3 +323,21 @@ docker_build(
     type = "zip",
     url = "https://codeload.github.com/tianon/docker-brew-ubuntu-core/zip/e406914e5f648003dfe8329b512c30c9ad0d2f9c",
 )
+
+http_file(
+    name = "deb_iptables",
+    url = "http://mirrors.kernel.org/ubuntu/pool/main/i/iptables/iptables_1.6.0-2ubuntu3_amd64.deb",
+    sha256 = "d2cafb4f1860435ce69a4971e3af5f4bb20753054020f32e1b767e4ba79c0831",
+)
+
+http_file(
+    name = "deb_libnfnetlink",
+    url = "http://mirrors.kernel.org/ubuntu/pool/main/libn/libnfnetlink/libnfnetlink0_1.0.1-3_amd64.deb",
+    sha256 = "fbaf9b8914a607e2a07e5525c6c9c0ecb71d70236f54ad185f4cc81b4541f6ba",
+)
+
+http_file(
+    name = "deb_libxtables",
+    url = "http://mirrors.kernel.org/ubuntu/pool/main/i/iptables/libxtables11_1.6.0-2ubuntu3_amd64.deb",
+    sha256 = "9a4140b0b599612af1006efeee1c6b98771b0bc8dcdcd0510218ef69d6652c7f",
+)

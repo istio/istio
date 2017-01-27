@@ -42,11 +42,14 @@ def presubmit(gitUtils, bazel) {
     stage('Go Build') {
       sh('bin/init.sh')
     }
+    stage('Code Check') {
+      sh('bin/check.sh')
+    }
     stage('Bazel Tests') {
       bazel.test('//...')
     }
-    stage('Code Check') {
-      sh('bin/check.sh')
+    stage('Integration Tests') {
+      sh('go run test/integration/driver.go -c "" -t alpha-' + gitUtils.GIT_SHA)
     }
   }
 }

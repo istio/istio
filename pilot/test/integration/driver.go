@@ -30,48 +30,57 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	flag "github.com/spf13/pflag"
 )
 
-func write(in string, data map[string]string, out io.Writer) error {
-	tmpl, err := template.ParseFiles(in)
-	if err != nil {
-		return err
-	}
-	if err := tmpl.Execute(out, data); err != nil {
-		return err
-	}
-	return nil
-}
-
 const (
 	yaml = "echo.yaml"
+
+	// budget is the maximum number of retries with 1s delays
+	budget = 30
 )
+
+var (
+	kubeconfig string
+	hub        string
+	tag        string
+	namespace  string
+	client     *kubernetes.Clientset
+)
+
+func cleanup() {
+	deleteNamespace(client, namespace)
+}
 
 func check(err error) {
 	if err != nil {
-		log.Fatalf(err.Error())
+		fail(err.Error())
 	}
 }
 
-var (
-	hub       string
-	tag       string
-	namespace string
-	client    *kubernetes.Clientset
-)
+func fail(msg string) {
+	log.Printf("Test failure: %v\n", msg)
+	cleanup()
+	os.Exit(1)
+}
 
 func init() {
-	flag.StringVarP(&hub, "hub", "h", "gcr.io/istio-test", "Docker hub")
-	flag.StringVarP(&tag, "tag", "t", "test", "Docker tag")
-	flag.StringVarP(&namespace, "namespace", "n", "default", "Namespace used for testing")
+	flag.StringVarP(&kubeconfig, "config", "c", "platform/kube/config",
+		"kube config file or empty for in-cluster")
+	flag.StringVarP(&hub, "hub", "h", "gcr.io/istio-testing",
+		"Docker hub")
+	flag.StringVarP(&tag, "tag", "t", "test",
+		"Docker tag")
+	flag.StringVarP(&namespace, "namespace", "n", "",
+		"Namespace to use for testing (empty to create/delete temporary one)")
 }
 
 func main() {
 	flag.Parse()
-	create := true
+	build := true
 
 	// write template
 	f, err := os.Create(yaml)
@@ -103,23 +112,38 @@ func main() {
 	check(f.Close())
 
 	// push docker images
-	if create {
+	if build {
 		run("gcloud docker --authorize-only")
-		for _, image := range []string{"app", "runtime"} {
+		for _, image := range []string{"app", "init", "runtime"} {
 			run(fmt.Sprintf("bazel run //docker:%s", image))
 			run(fmt.Sprintf("docker tag istio/docker:%s %s/%s:%s", image, hub, image, tag))
 			run(fmt.Sprintf("docker push %s/%s:%s", hub, image, tag))
 		}
-		run("kubectl apply -f " + yaml + " -n " + namespace)
 	}
 
 	client = connect()
+	if namespace == "" {
+		namespace = generateNamespace(client)
+	}
+	run("kubectl apply -f " + yaml + " -n " + namespace)
 	pods := getPods()
 	log.Println("pods:", pods)
 	ids := makeRequests(pods)
 	log.Println("requests:", ids)
 	checkAccessLogs(pods, ids)
 	log.Println("Success!")
+	cleanup()
+}
+
+func write(in string, data map[string]string, out io.Writer) error {
+	tmpl, err := template.ParseFiles(in)
+	if err != nil {
+		return err
+	}
+	if err := tmpl.Execute(out, data); err != nil {
+		return err
+	}
+	return nil
 }
 
 func run(command string) {
@@ -139,13 +163,20 @@ func shell(command string) string {
 	c := exec.Command(parts[0], parts[1:]...)
 	bytes, err := c.CombinedOutput()
 	if err != nil {
-		log.Fatal(string(bytes), err)
+		log.Println(string(bytes))
+		fail(err.Error())
 	}
 	return string(bytes)
 }
 
 func connect() *kubernetes.Clientset {
-	config, err := clientcmd.BuildConfigFromFlags("", "platform/kube/config")
+	var err error
+	var config *rest.Config
+	if kubeconfig == "" {
+		config, err = rest.InClusterConfig()
+	} else {
+		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+	}
 	check(err)
 	cl, err := kubernetes.NewForConfig(config)
 	check(err)
@@ -175,8 +206,8 @@ func getPods() map[string]string {
 			break
 		}
 
-		if n > 30 {
-			log.Fatal("Exceeded budget for checking pod status")
+		if n > budget {
+			fail("Exceeded budget for checking pod status")
 		}
 
 		time.Sleep(time.Second)
@@ -222,8 +253,8 @@ func makeRequests(pods map[string]string) map[string][]string {
 							break
 						}
 
-						if n > 30 {
-							log.Fatalf("Failed to inject proxy from %s to %s (url %s)", src, dst, url)
+						if n > budget {
+							fail(fmt.Sprintf("Failed to inject proxy from %s to %s (url %s)", src, dst, url))
 						}
 
 						time.Sleep(1 * time.Second)
@@ -259,10 +290,30 @@ func checkAccessLogs(pods map[string]string, ids map[string][]string) {
 			break
 		}
 
-		if n > 30 {
-			log.Fatalf("Exceeded budget for checking access logs")
+		if n > budget {
+			fail("Exceeded budget for checking access logs")
 		}
 
 		time.Sleep(time.Second)
+	}
+}
+
+func generateNamespace(cl *kubernetes.Clientset) string {
+	ns, err := cl.Core().Namespaces().Create(&v1.Namespace{
+		ObjectMeta: v1.ObjectMeta{
+			GenerateName: "istio-integration-",
+		},
+	})
+	check(err)
+	log.Printf("Created namespace %s\n", ns.Name)
+	return ns.Name
+}
+
+func deleteNamespace(cl *kubernetes.Clientset, ns string) {
+	if cl != nil && ns != "" && ns != "default" {
+		if err := cl.Core().Namespaces().Delete(ns, &v1.DeleteOptions{}); err != nil {
+			log.Printf("Error deleting namespace: %v\n", err)
+		}
+		log.Printf("Deleted namespace %s\n", ns)
 	}
 }

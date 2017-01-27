@@ -50,6 +50,19 @@ pkg_tar(
 )
 
 docker_build(
+    name = "init",
+    base = "@docker_ubuntu//:xenial",
+    debs = [
+        "@deb_iptables//file",
+        "@deb_libnfnetlink//file",
+        "@deb_libxtables//file",
+    ],
+    repository = "istio",
+    tags = ["manual"],
+)
+
+
+docker_build(
     name = "runtime",
     base = "@docker_ubuntu//:xenial",
     entrypoint = ["/usr/local/bin/manager"],
@@ -60,7 +73,6 @@ docker_build(
         ":config",
         ":proxy",
     ],
-    visibility = ["//visibility:public"],
 )
 
 docker_build(
@@ -70,5 +82,4 @@ docker_build(
     repository = "istio",
     tags = ["manual"],
     tars = [":test"],
-    visibility = ["//visibility:public"],
 )

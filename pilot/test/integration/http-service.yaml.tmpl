@@ -31,13 +31,13 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "{{.hub}}/init:test",
+            "image": "{{.hub}}/init:{{.tag}}",
             "imagePullPolicy": "Always",
             "securityContext": {
               "privileged": true
             },
             "command": ["/bin/sh", "-c",
-              "sudo iptables -t nat -A PREROUTING -p tcp -j REDIRECT --to-port 5001; sudo iptables -t nat -A OUTPUT -p tcp -j REDIRECT --to-port 5001 -m owner '!' --uid-owner 1337; sudo iptables -t nat --list"
+              "iptables -t nat -A PREROUTING -p tcp -j REDIRECT --to-port 5001; iptables -t nat -A OUTPUT -p tcp -j REDIRECT --to-port 5001 -m owner '!' --uid-owner 1337; iptables -t nat --list"
             ]
           }]
     spec:
