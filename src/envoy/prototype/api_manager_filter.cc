@@ -81,6 +81,7 @@ class Request : public google::api_manager::Request {
     return header_map_.Path()->value().c_str();
   }
   virtual std::string GetClientIP() override { return ""; }
+  virtual std::string GetClientHost() override { return ""; }
   virtual bool FindQuery(const std::string& name, std::string* query) override {
     if (!query_parsed_) {
       auto header = header_map_.Path();

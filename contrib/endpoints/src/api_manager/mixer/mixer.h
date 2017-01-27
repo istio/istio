@@ -50,6 +50,16 @@ class Mixer : public service_control::Interface {
   // The constructor.
   Mixer(ApiManagerEnvInterface* env, const Config* config);
 
+  // Fill common attributes for both check and report.
+  void FillCommonAttributes(const service_control::OperationInfo& info,
+                            ::istio::mixer_client::Attributes* attr);
+  // Fill attributes for check.
+  void FillCheckAttributes(const service_control::CheckRequestInfo& info,
+                           ::istio::mixer_client::Attributes* attr);
+  // Fill attributes for report.
+  void FillReportAttributes(const service_control::ReportRequestInfo& info,
+                            ::istio::mixer_client::Attributes* attr);
+
   // The Api Manager environment interface.
   ApiManagerEnvInterface* env_;
   // The config.

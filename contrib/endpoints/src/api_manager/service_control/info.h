@@ -60,13 +60,17 @@ struct OperationInfo {
   // and Report.
   std::chrono::system_clock::time_point request_start_time;
 
+  // The client IP address.
+  std::string client_ip;
+
+  // The client host name.
+  std::string client_host;
+
   OperationInfo() {}
 };
 
 // Information to fill Check request protobuf.
 struct CheckRequestInfo : public OperationInfo {
-  // The client IP address.
-  std::string client_ip;
   // Whether the method allow unregistered calls.
   bool allow_unregistered_calls;
 

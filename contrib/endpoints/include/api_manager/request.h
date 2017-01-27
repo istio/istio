@@ -43,6 +43,8 @@ class Request {
   // Gets Client IP
   // This will be used by service control Check() call.
   virtual std::string GetClientIP() = 0;
+  // Gets Client Host.
+  virtual std::string GetClientHost() { return ""; }
 
   // Get GRPC stats.
   virtual int64_t GetGrpcRequestBytes() = 0;

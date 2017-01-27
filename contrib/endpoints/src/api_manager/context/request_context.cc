@@ -171,6 +171,8 @@ void RequestContext::FillOperationInfo(service_control::OperationInfo *info) {
   info->producer_project_id = service_context()->project_id();
   info->referer = http_referer_;
   info->request_start_time = start_time_;
+  info->client_ip = request_->GetClientIP();
+  info->client_host = request_->GetClientHost();
 }
 
 void RequestContext::FillLocation(service_control::ReportRequestInfo *info) {
@@ -221,7 +223,6 @@ void RequestContext::FillLogMessage(service_control::ReportRequestInfo *info) {
 void RequestContext::FillCheckRequestInfo(
     service_control::CheckRequestInfo *info) {
   FillOperationInfo(info);
-  info->client_ip = request_->GetClientIP();
   info->allow_unregistered_calls = method()->allow_unregistered_calls();
 }
 

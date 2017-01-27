@@ -22,8 +22,11 @@ namespace api_manager {
 namespace mixer {
 namespace {
 
+const std::string kProxyPeerID = "Istio/Proxy";
+
 const std::string kAttrNameServiceName = "serviceName";
 const std::string kAttrNamePeerId = "peerId";
+const std::string kAttrNameOperationId = "operationId";
 const std::string kAttrNameOperationName = "operationName";
 const std::string kAttrNameApiKey = "apiKey";
 const std::string kAttrNameResponseCode = "responseCode";
@@ -35,6 +38,9 @@ const std::string kAttrNameApiMethod = "apiMethod";
 const std::string kAttrNameRequestSize = "requestSize";
 const std::string kAttrNameResponseSize = "responseSize";
 const std::string kAttrNameLogMessage = "logMessage";
+const std::string kAttrNameResponseTime = "responseTime";
+const std::string kAttrNameOriginIp = "originIp";
+const std::string kAttrNameOriginHost = "originHost";
 
 Attributes::Value StringValue(const std::string& str) {
   Attributes::Value v;
@@ -48,37 +54,6 @@ Attributes::Value Int64Value(int64_t value) {
   v.type = Attributes::Value::INT64;
   v.value.int64_v = value;
   return v;
-}
-
-void FillCheckAttributes(const service_control::CheckRequestInfo& info,
-                         const std::string& service_name,
-                         ::istio::mixer_client::Attributes* attr) {
-  attr->attributes[kAttrNameServiceName] = StringValue(service_name);
-  attr->attributes[kAttrNamePeerId] = StringValue("Proxy");
-  attr->attributes[kAttrNameOperationName] = StringValue(info.operation_name);
-  attr->attributes[kAttrNameApiKey] = StringValue(info.api_key);
-}
-
-void FillReportAttributes(const service_control::ReportRequestInfo& info,
-                          const std::string& service_name,
-                          ::istio::mixer_client::Attributes* attr) {
-  attr->attributes[kAttrNameServiceName] = StringValue(service_name);
-  attr->attributes[kAttrNamePeerId] = StringValue("Proxy");
-  attr->attributes[kAttrNameOperationName] = StringValue(info.operation_name);
-  attr->attributes[kAttrNameApiKey] = StringValue(info.api_key);
-
-  attr->attributes[kAttrNameURL] = StringValue(info.url);
-  attr->attributes[kAttrNameLocation] = StringValue(info.location);
-
-  attr->attributes[kAttrNameApiName] = StringValue(info.api_name);
-  attr->attributes[kAttrNameApiVersion] = StringValue(info.api_version);
-  attr->attributes[kAttrNameApiMethod] = StringValue(info.api_method);
-
-  attr->attributes[kAttrNameLogMessage] = StringValue(info.log_message);
-
-  attr->attributes[kAttrNameResponseCode] = Int64Value(info.response_code);
-  attr->attributes[kAttrNameRequestSize] = Int64Value(info.request_size);
-  attr->attributes[kAttrNameResponseSize] = Int64Value(info.response_size);
 }
 
 }  // namespace
@@ -98,9 +73,75 @@ Status Mixer::Init() {
 
 Status Mixer::Close() { return Status::OK; }
 
+void Mixer::FillCommonAttributes(const service_control::OperationInfo& info,
+                                 ::istio::mixer_client::Attributes* attr) {
+  attr->attributes[kAttrNameServiceName] = StringValue(config_->service_name());
+  attr->attributes[kAttrNamePeerId] = StringValue(kProxyPeerID);
+
+  if (!info.operation_id.empty()) {
+    attr->attributes[kAttrNameOperationId] = StringValue(info.operation_id);
+  }
+  if (!info.operation_name.empty()) {
+    attr->attributes[kAttrNameOperationName] = StringValue(info.operation_name);
+  }
+  if (!info.api_key.empty()) {
+    attr->attributes[kAttrNameApiKey] = StringValue(info.api_key);
+  }
+  if (!info.client_ip.empty()) {
+    attr->attributes[kAttrNameOriginIp] = StringValue(info.client_ip);
+  }
+  if (!info.client_host.empty()) {
+    attr->attributes[kAttrNameOriginHost] = StringValue(info.client_host);
+  }
+}
+
+void Mixer::FillCheckAttributes(const service_control::CheckRequestInfo& info,
+                                ::istio::mixer_client::Attributes* attr) {
+  FillCommonAttributes(info, attr);
+}
+
+void Mixer::FillReportAttributes(const service_control::ReportRequestInfo& info,
+                                 ::istio::mixer_client::Attributes* attr) {
+  FillCommonAttributes(info, attr);
+
+  if (!info.url.empty()) {
+    attr->attributes[kAttrNameURL] = StringValue(info.url);
+  }
+  if (!info.location.empty()) {
+    attr->attributes[kAttrNameLocation] = StringValue(info.location);
+  }
+
+  if (!info.api_name.empty()) {
+    attr->attributes[kAttrNameApiName] = StringValue(info.api_name);
+  }
+  if (!info.api_version.empty()) {
+    attr->attributes[kAttrNameApiVersion] = StringValue(info.api_version);
+  }
+  if (!info.api_method.empty()) {
+    attr->attributes[kAttrNameApiMethod] = StringValue(info.api_method);
+  }
+
+  if (!info.log_message.empty()) {
+    attr->attributes[kAttrNameLogMessage] = StringValue(info.log_message);
+  }
+
+  attr->attributes[kAttrNameResponseCode] = Int64Value(info.response_code);
+  if (info.request_size >= 0) {
+    attr->attributes[kAttrNameRequestSize] = Int64Value(info.request_size);
+  }
+  if (info.response_size >= 0) {
+    attr->attributes[kAttrNameResponseSize] = Int64Value(info.response_size);
+  }
+
+  if (info.latency.request_time_ms >= 0) {
+    attr->attributes[kAttrNameResponseTime] =
+        Int64Value(info.latency.request_time_ms);
+  }
+}
+
 Status Mixer::Report(const service_control::ReportRequestInfo& info) {
   ::istio::mixer_client::Attributes attributes;
-  FillReportAttributes(info, config_->service_name(), &attributes);
+  FillReportAttributes(info, &attributes);
   env_->LogInfo("Send Report: ");
   mixer_client_->Report(
       attributes, [this](const ::google::protobuf::util::Status& status) {
@@ -120,7 +161,7 @@ void Mixer::Check(
     std::function<void(Status, const service_control::CheckResponseInfo&)>
         on_done) {
   ::istio::mixer_client::Attributes attributes;
-  FillCheckAttributes(info, config_->service_name(), &attributes);
+  FillCheckAttributes(info, &attributes);
   env_->LogInfo("Send Check: ");
   mixer_client_->Check(
       attributes,
