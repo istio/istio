@@ -1,6 +1,11 @@
 
 This Proxy will use Envoy and talk to Mixer server. 
 
+## Install dependencies
+
+```
+  apt-get install uuid-dev
+```
 
 ## Build Mixer server
 
