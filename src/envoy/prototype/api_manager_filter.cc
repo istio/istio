@@ -13,6 +13,12 @@
 
 namespace Http {
 namespace ApiManager {
+namespace {
+
+// Define lower case string for X-Forwarded-Host.
+const LowerCaseString kHeaderNameXFH("x-forwarded-host", false);
+
+}  // namespace
 
 std::string ReadFile(const std::string& file_name) {
   std::ifstream t(file_name);
@@ -65,12 +71,18 @@ typedef std::shared_ptr<Config> ConfigPtr;
 class Request : public google::api_manager::Request {
  private:
   HeaderMap& header_map_;
+  std::string downstream_address_;
+  std::string virtual_host_;
   bool query_parsed_;
   std::map<std::string, std::string> query_params_;
 
  public:
-  Request(HeaderMap& header_map)
-      : header_map_(header_map), query_parsed_(false) {}
+  Request(HeaderMap& header_map, const std::string& downstream_address,
+          const std::string& virtual_host)
+      : header_map_(header_map),
+        downstream_address_(downstream_address),
+        virtual_host_(virtual_host),
+        query_parsed_(false) {}
   virtual std::string GetRequestHTTPMethod() override {
     return header_map_.Method()->value().c_str();
   }
@@ -80,8 +92,31 @@ class Request : public google::api_manager::Request {
   virtual std::string GetUnparsedRequestPath() override {
     return header_map_.Path()->value().c_str();
   }
-  virtual std::string GetClientIP() override { return ""; }
-  virtual std::string GetClientHost() override { return ""; }
+
+  virtual std::string GetClientIP() override {
+    if (!header_map_.ForwardedFor()) {
+      return downstream_address_;
+    }
+    std::vector<std::string> xff_address_list =
+        StringUtil::split(header_map_.ForwardedFor()->value().c_str(), ',');
+    if (xff_address_list.empty()) {
+      return downstream_address_;
+    }
+    return xff_address_list.front();
+  }
+
+  virtual std::string GetClientHost() override {
+    const HeaderEntry* entry = header_map_.get(kHeaderNameXFH);
+    if (entry == nullptr) {
+      return virtual_host_;
+    }
+    auto xff_list = StringUtil::split(entry->value().c_str(), ',');
+    if (xff_list.empty()) {
+      return virtual_host_;
+    }
+    return xff_list.back();
+  }
+
   virtual bool FindQuery(const std::string& name, std::string* query) override {
     if (!query_parsed_) {
       auto header = header_map_.Path();
@@ -159,6 +194,15 @@ class Instance : public Http::StreamFilter,
 
   bool initiating_call_;
 
+  std::string getRouteVirtualHost(HeaderMap& headers) const {
+    const Router::Route* route =
+        decoder_callbacks_->routeTable().route(headers);
+    if (route && route->routeEntry()) {
+      return route->routeEntry()->virtualHost().name();
+    }
+    return "";
+  }
+
  public:
   Instance(ConfigPtr config)
       : api_manager_(config->api_manager()),
@@ -170,7 +214,9 @@ class Instance : public Http::StreamFilter,
   FilterHeadersStatus decodeHeaders(HeaderMap& headers,
                                     bool end_stream) override {
     log().debug("Called ApiManager::Instance : {}", __func__);
-    std::unique_ptr<google::api_manager::Request> request(new Request(headers));
+    std::unique_ptr<google::api_manager::Request> request(
+        new Request(headers, decoder_callbacks_->downstreamAddress(),
+                    getRouteVirtualHost(headers)));
     request_handler_ = api_manager_->CreateRequestHandler(std::move(request));
     state_ = Calling;
     initiating_call_ = true;
