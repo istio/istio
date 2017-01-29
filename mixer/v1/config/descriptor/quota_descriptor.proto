@@ -52,23 +52,8 @@ message QuotaDescriptor {
   // The default imposed maximum amount for values of this quota.
   int64 max_amount = 6;
 
-  // The type of quota behavior expected, defaults to ALLOCATION_LIMIT if not specified
-  QuotaKind kind = 7;
-
-  // Whether the quota's current value is tracked precisely or not.
-  // Precisely tracked quotas only allow a relatively modest level of
-  // scaling, whereas imprecise quotas can support a nearly unbounded
-  // level of scaling at the cost of potential accounting inaccuracies.
-  bool precise = 8;
-
-  enum QuotaKind {
-    // Quota values are always explicitly manipulated via API calls.
-    ALLOCATION_LIMIT = 0;
-
-    // Quota limit expresses a maximum amount over a rolling time interval
-    PER_SECOND_LIMIT = 1;
-
-    // Quota limit expresses a maximum amount over a rolling time interval
-    PER_MINUTE_LIMIT = 2;
-  }
+  // The amount of time allocated quota remains valid before it is
+  // automatically released. If this is 0, then allocated quota is
+  // not automatically released.
+  int32 expiration_seconds = 7;
 }
