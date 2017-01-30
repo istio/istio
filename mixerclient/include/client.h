@@ -81,6 +81,9 @@ struct Attributes {
   };
 
   std::map<std::string, Value> attributes;
+
+  // Generates a string for logging or debugging.
+  std::string DebugString() const;
 };
 
 class MixerClient {

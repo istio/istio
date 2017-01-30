@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "src/client_impl.h"
+#include <sstream>
 #include "mixer/api/v1/service.pb.h"
 
 using ::istio::mixer::v1::CheckResponse;
@@ -69,6 +70,38 @@ void MixerClientImpl::Quota(const Attributes &attributes, DoneFunc on_done) {
 std::unique_ptr<MixerClient> CreateMixerClient(
     const MixerClientOptions &options) {
   return std::unique_ptr<MixerClient>(new MixerClientImpl(options));
+}
+
+std::string Attributes::DebugString() const {
+  std::stringstream ss;
+  for (const auto &it : attributes) {
+    ss << it.first << ": ";
+    switch (it.second.type) {
+      case Attributes::Value::ValueType::STRING:
+        ss << "(STRING): " << it.second.str_v;
+        break;
+      case Attributes::Value::ValueType::BYTES:
+        ss << "(BYTES): " << it.second.str_v;
+        break;
+      case Attributes::Value::ValueType::INT64:
+        ss << "(INT64): " << it.second.value.int64_v;
+        break;
+      case Attributes::Value::ValueType::DOUBLE:
+        ss << "(DOUBLE): " << it.second.value.double_v;
+        break;
+      case Attributes::Value::ValueType::BOOL:
+        ss << "(BOOL): " << it.second.value.bool_v;
+        break;
+      case Attributes::Value::ValueType::TIME:
+        ss << "(TIME ms): "
+           << std::chrono::duration_cast<std::chrono::microseconds>(
+                  it.second.time_v.time_since_epoch())
+                  .count();
+        break;
+    }
+    ss << std::endl;
+  }
+  return ss.str();
 }
 
 }  // namespace mixer_client
