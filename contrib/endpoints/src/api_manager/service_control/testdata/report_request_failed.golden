@@ -152,13 +152,34 @@ operations {
         bucket_counts: 0
         bucket_counts: 0
         bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
         bucket_counts: 1
         bucket_counts: 0
         bucket_counts: 0
         bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
         exponential_buckets {
-          num_finite_buckets: 8
-          growth_factor: 10
+          num_finite_buckets: 29
+          growth_factor: 2
           scale: 1e-06
         }
       }
@@ -178,13 +199,34 @@ operations {
         bucket_counts: 0
         bucket_counts: 0
         bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
         bucket_counts: 1
         bucket_counts: 0
         bucket_counts: 0
         bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
         exponential_buckets {
-          num_finite_buckets: 8
-          growth_factor: 10
+          num_finite_buckets: 29
+          growth_factor: 2
           scale: 1e-06
         }
       }
@@ -203,14 +245,35 @@ operations {
         bucket_counts: 0
         bucket_counts: 0
         bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
         bucket_counts: 1
         bucket_counts: 0
         bucket_counts: 0
         bucket_counts: 0
         bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
+        bucket_counts: 0
         exponential_buckets {
-          num_finite_buckets: 8
-          growth_factor: 10
+          num_finite_buckets: 29
+          growth_factor: 2
           scale: 1e-06
         }
       }
