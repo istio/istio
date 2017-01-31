@@ -19,6 +19,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strings"
 
 	"istio.io/manager/model"
 
@@ -126,11 +127,11 @@ func buildListeners(instances []*model.ServiceInstance,
 	clusters := buildClusters(services)
 	listeners := make([]Listener, 0)
 
-	// namespaces from instances
-	namespaces := make(map[string]bool, 0)
+	hostnames := make([][]string, 0)
 	for _, instance := range instances {
-		namespaces[instance.Service.Namespace] = true
+		hostnames = append(hostnames, strings.Split(instance.Service.Hostname, "."))
 	}
+	suffix := sharedHost(hostnames...)
 
 	// group by port values to service with the declared port
 	type listener struct {
@@ -157,10 +158,9 @@ func buildListeners(instances []*model.ServiceInstance,
 		ensure(port)
 		ports[port].instances[instance.Endpoint.ServicePort.Protocol] = append(
 			ports[port].instances[instance.Endpoint.ServicePort.Protocol], &model.Service{
-				Name:      instance.Service.Name,
-				Namespace: instance.Service.Namespace,
-				Addresses: instance.Service.Addresses,
-				Ports:     []*model.Port{instance.Endpoint.ServicePort},
+				Hostname: instance.Service.Hostname,
+				Address:  instance.Service.Address,
+				Ports:    []*model.Port{instance.Endpoint.ServicePort},
 			})
 	}
 
@@ -170,10 +170,9 @@ func buildListeners(instances []*model.ServiceInstance,
 			ensure(port.Port)
 			ports[port.Port].services[port.Protocol] = append(
 				ports[port.Port].services[port.Protocol], &model.Service{
-					Name:      svc.Name,
-					Namespace: svc.Namespace,
-					Addresses: svc.Addresses,
-					Ports:     []*model.Port{port},
+					Hostname: svc.Hostname,
+					Address:  svc.Address,
+					Ports:    []*model.Port{port},
 				})
 		}
 	}
@@ -223,7 +222,7 @@ func buildListeners(instances []*model.ServiceInstance,
 		hosts := make(map[string]VirtualHost, 0)
 		for _, proto := range []model.Protocol{model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC} {
 			for _, svc := range lst.services[proto] {
-				host := buildHost(svc, OutboundClusterPrefix+svc.String(), namespaces)
+				host := buildHost(svc, OutboundClusterPrefix+svc.String(), suffix)
 				hosts[svc.String()] = host
 			}
 
@@ -231,7 +230,7 @@ func buildListeners(instances []*model.ServiceInstance,
 			// we choose the local service instance since we cannot distinguish between inbound and outbound packets.
 			// Note that this may not be a problem if the service port and its endpoint port are distinct.
 			for _, svc := range lst.instances[proto] {
-				host := buildHost(svc, localhost, namespaces)
+				host := buildHost(svc, localhost, suffix)
 				hosts[svc.String()] = host
 			}
 		}
@@ -267,28 +266,67 @@ func buildListeners(instances []*model.ServiceInstance,
 	return listeners, clusters
 }
 
+// sharedHost computes the shared host name suffix for instances.
+func sharedHost(parts ...[]string) []string {
+	switch len(parts) {
+	case 0:
+		return nil
+	case 1:
+		return parts[0]
+	default:
+		// longest common suffix
+		out := make([]string, 0)
+		for i := 1; i <= len(parts[0]); i++ {
+			part := ""
+			all := true
+			for j, host := range parts {
+				hostpart := host[len(host)-i]
+				if j == 0 {
+					part = hostpart
+				} else if part != hostpart {
+					all = false
+					break
+				}
+			}
+			if all {
+				out = append(out, part)
+			} else {
+				break
+			}
+		}
+
+		// reverse
+		for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+			out[i], out[j] = out[j], out[i]
+		}
+		return out
+	}
+}
+
 // buildHost constructs an entry for VirtualHost for a given service.
 // Service contains name, namespace and a single port declaration.
-func buildHost(svc *model.Service, cluster string, namespaces map[string]bool) VirtualHost {
+func buildHost(svc *model.Service, cluster string, suffix []string) VirtualHost {
 	hosts := make([]string, 0)
 	domains := make([]string, 0)
+	parts := strings.Split(svc.Hostname, ".")
+	shared := sharedHost(suffix, parts)
 
-	// add plain name if share namespace
-	if namespaces[svc.Namespace] {
-		hosts = append(hosts, svc.Name)
+	// if shared is "svc.cluster.local", then we can add "name.namespace", "name.namespace.svc", etc
+	host := strings.Join(parts[0:len(parts)-len(shared)], ".")
+	if len(host) > 0 {
+		hosts = append(hosts, host)
+	}
+	for _, part := range shared {
+		if len(host) > 0 {
+			host = host + "."
+		}
+		host = host + part
+		hosts = append(hosts, host)
 	}
 
-	// add default hostnames
-	host := svc.Name + "." + svc.Namespace
-	hosts = append(hosts,
-		host,
-		host+".svc",
-		host+".svc.cluster",
-		host+".svc.cluster.local")
-
-	// add cluster IP host names
-	for ip := range svc.Addresses {
-		hosts = append(hosts, ip)
+	// add cluster IP host name
+	if len(svc.Address) > 0 {
+		hosts = append(hosts, svc.Address)
 	}
 
 	// add ports
@@ -317,9 +355,8 @@ func buildClusters(services []*model.Service) []Cluster {
 	for _, svc := range services {
 		for _, port := range svc.Ports {
 			clusterSvc := model.Service{
-				Name:      svc.Name,
-				Namespace: svc.Namespace,
-				Ports:     []*model.Port{port},
+				Hostname: svc.Hostname,
+				Ports:    []*model.Port{port},
 			}
 			cluster := Cluster{
 				Name:             OutboundClusterPrefix + clusterSvc.String(),

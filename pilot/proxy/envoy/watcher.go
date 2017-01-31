@@ -49,19 +49,19 @@ func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller, mesh *Me
 		addrs:     addrs,
 	}
 
-	if err := ctl.AppendServiceHandler(out.notify); err != nil {
+	if err := ctl.AppendServiceHandler(func(*model.Service, model.Event) { out.reload() }); err != nil {
 		return nil, err
 	}
 
 	// TODO: restrict the notification callback to co-located instances (e.g. with the same IP)
-	if err := ctl.AppendInstanceHandler(out.notify); err != nil {
+	if err := ctl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { out.reload() }); err != nil {
 		return nil, err
 	}
 
 	return out, nil
 }
 
-func (w *watcher) notify(svc *model.Service, ev model.Event) {
+func (w *watcher) reload() {
 	config, err := Generate(w.discovery.HostInstances(w.addrs), w.discovery.Services(), w.mesh)
 	if err != nil {
 		glog.Warningf("Failed to generate Envoy configuration: %v", err)

@@ -15,6 +15,7 @@
 package kube
 
 import (
+	"fmt"
 	"os"
 	"os/user"
 	"testing"
@@ -263,8 +264,7 @@ func TestServices(t *testing.T) {
 		out := sds.Services()
 		glog.Info("Services: %#v", out)
 		return len(out) == 1 &&
-			out[0].Name == testService &&
-			out[0].Namespace == ns &&
+			out[0].Hostname == fmt.Sprintf("%s.%s.%s", testService, ns, ServiceSuffix) &&
 			out[0].Tags == nil &&
 			len(out[0].Ports) == 1 &&
 			out[0].Ports[0].Protocol == model.ProtocolHTTP

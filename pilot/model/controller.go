@@ -32,7 +32,7 @@ type Controller interface {
 
 	// AppendInstanceHandler notifies about changes to the service instances
 	// for a service.
-	AppendInstanceHandler(f func(*Service, Event)) error
+	AppendInstanceHandler(f func(*ServiceInstance, Event)) error
 
 	// Run until a signal is received
 	Run(stop chan struct{})

@@ -26,8 +26,8 @@ type ServiceDiscovery interface {
 	// Services list declarations of all services and their tags
 	Services() []*Service
 
-	// GetService retrieves a service by name if it exists
-	GetService(name, namespace string) (*Service, bool)
+	// GetService retrieves a service by host name if it exists
+	GetService(hostname string) (*Service, bool)
 
 	// Instances takes a union across a set of tags and a set of named ports
 	// defined in the service parameter. An empty tag set or a port set implies
@@ -40,20 +40,17 @@ type ServiceDiscovery interface {
 
 // Service describes an Istio service
 type Service struct {
-	// Name of the service
-	Name string `json:"name"`
+	// Hostname of the service, e.g. "service.default.svc.cluster.local"
+	Hostname string `json:"hostname"`
 
-	// Namespace of the service name, optional
-	Namespace string `json:"namespace,omitempty"`
+	// Address specifies the service IPv4 address, if available
+	Address string `json:"address,omitempty"`
 
 	// Tags is a set of declared distinct tags for the service
 	Tags []Tag `json:"tags,omitempty"`
 
 	// Ports is a set of declared network service ports
 	Ports []*Port `json:"ports,omitempty"`
-
-	// Addresses lists service IPv4 addresses
-	Addresses map[string]bool `json:"addresses"`
 }
 
 // GetPort retrieves a port declaration by name
@@ -119,12 +116,7 @@ const (
 func (s *Service) String() string {
 	// example: name.namespace:http:env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer
-	buffer.WriteString(s.Name)
-	if len(s.Namespace) > 0 {
-		buffer.WriteString(".")
-		buffer.WriteString(s.Namespace)
-	}
-
+	buffer.WriteString(s.Hostname)
 	np := len(s.Ports)
 	nt := len(s.Tags)
 
@@ -170,15 +162,7 @@ func (s *Service) String() string {
 // ParseServiceString is the inverse of the Service.String() method
 func ParseServiceString(s string) *Service {
 	parts := strings.Split(s, ":")
-	var name, namespace string
-
-	dot := strings.Index(parts[0], ".")
-	if dot < 0 {
-		name = parts[0]
-	} else {
-		name = parts[0][:dot]
-		namespace = parts[0][dot+1:]
-	}
+	hostname := parts[0]
 
 	var names []string
 	if len(parts) > 1 {
@@ -200,10 +184,9 @@ func ParseServiceString(s string) *Service {
 	}
 
 	return &Service{
-		Name:      name,
-		Namespace: namespace,
-		Ports:     ports,
-		Tags:      tags,
+		Hostname: hostname,
+		Ports:    ports,
+		Tags:     tags,
 	}
 }
 

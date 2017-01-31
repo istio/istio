@@ -18,28 +18,26 @@ import "testing"
 
 var validServices = map[string]Service{
 	"example-service1.default:grpc,http:a=b,c=d;e=f": {
-		Name:      "example-service1",
-		Namespace: "default",
-		Tags:      []Tag{{"e": "f"}, {"c": "d", "a": "b"}},
-		Ports:     []*Port{{Name: "http"}, {Name: "grpc"}}},
+		Hostname: "example-service1.default",
+		Tags:     []Tag{{"e": "f"}, {"c": "d", "a": "b"}},
+		Ports:    []*Port{{Name: "http"}, {Name: "grpc"}}},
 	"my-service": {
-		Name:  "my-service",
-		Ports: []*Port{{Name: ""}}},
+		Hostname: "my-service",
+		Ports:    []*Port{{Name: ""}}},
 	"svc.ns": {
-		Name:      "svc",
-		Namespace: "ns",
-		Ports:     []*Port{{Name: ""}}},
+		Hostname: "svc.ns",
+		Ports:    []*Port{{Name: ""}}},
 	"svc::istio.io/my_tag-v1.test=my_value-v2.value": {
-		Name:  "svc",
-		Tags:  []Tag{{"istio.io/my_tag-v1.test": "my_value-v2.value"}},
-		Ports: []*Port{{Name: ""}}},
+		Hostname: "svc",
+		Tags:     []Tag{{"istio.io/my_tag-v1.test": "my_value-v2.value"}},
+		Ports:    []*Port{{Name: ""}}},
 	"svc:test:prod": {
-		Name:  "svc",
-		Tags:  []Tag{{"prod": ""}},
-		Ports: []*Port{{Name: "test"}}},
-	"svc:http-test": {
-		Name:  "svc",
-		Ports: []*Port{{Name: "http-test"}}},
+		Hostname: "svc",
+		Tags:     []Tag{{"prod": ""}},
+		Ports:    []*Port{{Name: "test"}}},
+	"svc.default.svc.cluster.local:http-test": {
+		Hostname: "svc.default.svc.cluster.local",
+		Ports:    []*Port{{Name: "http-test"}}},
 }
 
 func TestServiceString(t *testing.T) {
@@ -52,11 +50,8 @@ func TestServiceString(t *testing.T) {
 			t.Errorf("svc.String() => Got %s, expected %s", s1, s)
 		}
 		svc1 := ParseServiceString(s)
-		if svc1.Name != svc.Name {
-			t.Errorf("svc.Name => Got %s, expected %s for %s", svc1.Name, svc.Name, s)
-		}
-		if svc1.Namespace != svc.Namespace {
-			t.Errorf("svc.Name => Got %s, expected %s for %s", svc1.Namespace, svc.Namespace, s)
+		if svc1.Hostname != svc.Hostname {
+			t.Errorf("svc.Hostname => Got %s, expected %s for %s", svc1.Hostname, svc.Hostname, s)
 		}
 		if !compareTags(svc1.Tags, svc.Tags) {
 			t.Errorf("svc.Tags => Got %#v, expected %#v for %s", svc1.Tags, svc.Tags, s)

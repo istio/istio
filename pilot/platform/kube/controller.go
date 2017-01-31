@@ -51,6 +51,12 @@ type cacheHandler struct {
 	handler  *chainHandler
 }
 
+const (
+	// ServiceSuffix is the hostname suffix used by a Kubernetes service
+	// TODO: DNS suffix configurable
+	ServiceSuffix = "svc.cluster.local"
+)
+
 // NewController creates a new Kubernetes controller
 func NewController(
 	client *Client,
@@ -287,10 +293,20 @@ func (c *Controller) Services() []*model.Service {
 }
 
 // GetService implements a service catalog operation
-func (c *Controller) GetService(name string, namespace string) (*model.Service, bool) {
+func (c *Controller) GetService(hostname string) (*model.Service, bool) {
+	name, namespace, err := parseHostname(hostname)
+	if err != nil {
+		glog.V(2).Infof("GetService(%s) => error %v", hostname, err)
+		return nil, false
+	}
+	return c.serviceByKey(name, namespace)
+}
+
+// serviceByKey retrieves a service by name and hostname
+func (c *Controller) serviceByKey(name, namespace string) (*model.Service, bool) {
 	item, exists, err := c.services.informer.GetStore().GetByKey(keyFunc(name, namespace))
 	if err != nil {
-		glog.V(2).Infof("GetService(%s, %s) => error %v", name, namespace, err)
+		glog.V(2).Infof("serviceByKey(%s, %s) => error %v", name, namespace, err)
 		return nil, false
 	}
 	if !exists {
@@ -302,7 +318,13 @@ func (c *Controller) GetService(name string, namespace string) (*model.Service, 
 // Instances implements a service catalog operation
 func (c *Controller) Instances(query *model.Service) []*model.ServiceInstance {
 	// Get actual service by name
-	svc, exists := c.GetService(query.Name, query.Namespace)
+	name, namespace, err := parseHostname(query.Hostname)
+	if err != nil {
+		glog.V(2).Infof("parseHostname(%s) => error %v", query.Hostname, err)
+		return nil
+	}
+
+	svc, exists := c.serviceByKey(name, namespace)
 	if !exists {
 		return nil
 	}
@@ -323,7 +345,7 @@ func (c *Controller) Instances(query *model.Service) []*model.ServiceInstance {
 
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
-		if ep.Name == svc.Name && ep.Namespace == svc.Namespace {
+		if ep.Name == name && ep.Namespace == namespace {
 			var out []*model.ServiceInstance
 			for _, ss := range ep.Subsets {
 				for _, ea := range ss.Addresses {
@@ -357,7 +379,7 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 			for _, ea := range ss.Addresses {
 				if addrs[ea.IP] {
 					for _, port := range ss.Ports {
-						svc, exists := c.GetService(ep.Name, ep.Namespace)
+						svc, exists := c.serviceByKey(ep.Name, ep.Namespace)
 						if !exists {
 							continue
 						}
@@ -392,13 +414,14 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 }
 
 // AppendInstanceHandler implements a service catalog operation
-func (c *Controller) AppendInstanceHandler(f func(*model.Service, model.Event)) error {
+func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	c.endpoints.handler.append(func(obj interface{}, event model.Event) error {
 		ep := *obj.(*v1.Endpoints)
-		f(&model.Service{
-			Name:      ep.Name,
-			Namespace: ep.Namespace,
-		}, event)
+		svc, exists := c.serviceByKey(ep.Name, ep.Namespace)
+		if !exists {
+			svc = nil
+		}
+		f(&model.ServiceInstance{Service: svc}, event)
 		return nil
 	})
 	return nil
@@ -406,9 +429,9 @@ func (c *Controller) AppendInstanceHandler(f func(*model.Service, model.Event)) 
 
 func convertService(svc v1.Service) *model.Service {
 	ports := make([]*model.Port, 0)
-	addrs := make(map[string]bool)
+	addr := ""
 	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
-		addrs[svc.Spec.ClusterIP] = true
+		addr = svc.Spec.ClusterIP
 	}
 
 	for _, port := range svc.Spec.Ports {
@@ -420,13 +443,25 @@ func convertService(svc v1.Service) *model.Service {
 	}
 
 	return &model.Service{
-		Name:      svc.Name,
-		Namespace: svc.Namespace,
-		Ports:     ports,
-		Addresses: addrs,
+		Hostname: fmt.Sprintf("%s.%s.%s", svc.Name, svc.Namespace, ServiceSuffix),
+		Ports:    ports,
+		Address:  addr,
 		// TODO: empty set of service tags for now
 		Tags: nil,
 	}
+}
+
+// parseHostname is the inverse of hostname pattern from Kubernetes/Istio service translation
+func parseHostname(hostname string) (string, string, error) {
+	prefix := strings.TrimSuffix(hostname, "."+ServiceSuffix)
+	if len(prefix) >= len(hostname) {
+		return "", "", fmt.Errorf("Missing hostname suffix: %q", hostname)
+	}
+	parts := strings.Split(prefix, ".")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("Incorrect number of hostname labels, expect 2, got %d, %q", len(parts), prefix)
+	}
+	return parts[0], parts[1], nil
 }
 
 func convertProtocol(name string, proto v1.Protocol) model.Protocol {

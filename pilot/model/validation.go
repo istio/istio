@@ -17,6 +17,7 @@ package model
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 
@@ -130,11 +131,14 @@ func (km KindMap) ValidateConfig(obj *Config) error {
 // Validate ensures that the service object is well-defined
 func (s *Service) Validate() error {
 	var errs error
-	if !IsDNS1123Label(s.Name) {
-		errs = multierror.Append(errs, fmt.Errorf("Invalid name: %q", s.Name))
+	if len(s.Hostname) == 0 {
+		errs = multierror.Append(errs, fmt.Errorf("Invalid empty hostname"))
 	}
-	if s.Namespace != "" && !IsDNS1123Label(s.Namespace) {
-		errs = multierror.Append(errs, fmt.Errorf("Invalid namespace: %q", s.Namespace))
+	parts := strings.Split(s.Hostname, ".")
+	for _, part := range parts {
+		if !IsDNS1123Label(part) {
+			errs = multierror.Append(errs, fmt.Errorf("Invalid hostname part: %q", part))
+		}
 	}
 
 	for _, tag := range s.Tags {
