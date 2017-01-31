@@ -26,12 +26,21 @@ import (
 )
 
 func checkCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
-	return &cobra.Command{
+	repeat := 1
+
+	cmd := &cobra.Command{
 		Use:   "check",
 		Short: "Invokes the mixer's Check API.",
 		Run: func(cmd *cobra.Command, args []string) {
-			check(rootArgs, args, errorf)
+			for i := 0; i < repeat; i++ {
+				check(rootArgs, args, errorf)
+			}
 		}}
+
+	cmd.PersistentFlags().IntVarP(&repeat, "repeat", "", 1,
+		"Sends the specified number of Check requests in quick succession")
+
+	return cmd
 }
 
 func check(rootArgs *rootArgs, args []string, errorf errorFn) {

@@ -93,26 +93,43 @@ func newBuilder() builder {
 	return builder{adapter.NewDefaultBuilder(name, desc, conf)}
 }
 
+func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+	c := cfg.(*config.Params)
+
+	if c.MinDeduplicationWindowSeconds <= 0 {
+		ce = ce.Appendf("MinDeduplicationWindowSeconds", "deduplication window of %d is invalid, must be >= 0", c.MinDeduplicationWindowSeconds)
+	}
+
+	return
+}
+
 func (builder) NewQuota(env adapter.Env, c adapter.AspectConfig, d map[string]*adapter.QuotaDefinition) (adapter.QuotaAspect, error) {
 	return newAspect(env, c.(*config.Params), d)
 }
 
 // newAspect returns a new aspect.
 func newAspect(env adapter.Env, c *config.Params, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotaAspect, error) {
+	return newAspectWithDedup(env, time.Duration(c.MinDeduplicationWindowSeconds)*time.Second, definitions)
+}
+
+// newAspect returns a new aspect.
+func newAspectWithDedup(env adapter.Env, dedup time.Duration, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotaAspect, error) {
 	mq := &memQuota{
 		definitions: definitions,
 		cells:       make(map[string]int64),
 		windows:     make(map[string]*rollingWindow),
 		recentDedup: make(map[string]int64),
 		oldDedup:    make(map[string]int64),
-		ticker:      time.NewTicker(time.Duration(c.MinDeduplicationWindowSeconds) * time.Second),
+		ticker:      time.NewTicker(dedup),
 		getTick:     func() int32 { return int32(time.Now().UnixNano() / (1000000000 / ticksPerSecond)) },
 		logger:      env.Logger(),
 	}
 
 	go func() {
 		for range mq.ticker.C {
+			mq.Lock()
 			mq.reapDedup()
+			mq.Unlock()
 		}
 	}()
 
