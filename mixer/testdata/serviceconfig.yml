@@ -2,7 +2,7 @@ subject: namespace:ns
 revision: "2022"
 rules:
         #- selector: service.name == “*”
-- selector: 
+- selector:
   aspects:
-  - kind: istio/denyChecker
+  - kind: istio/quota
     params:

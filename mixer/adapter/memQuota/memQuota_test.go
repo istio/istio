@@ -264,6 +264,16 @@ func TestBadAmount(t *testing.T) {
 	}
 }
 
+func TestBadConfig(t *testing.T) {
+	b := newBuilder()
+	c := b.DefaultConfig().(*config.Params)
+	c.MinDeduplicationWindowSeconds = 0
+
+	if err := b.ValidateConfig(c); err == nil {
+		t.Errorf("Expecting failure, got success")
+	}
+}
+
 func TestReaper(t *testing.T) {
 	definitions := make(map[string]*adapter.QuotaDefinition)
 	definitions["Q1"] = &adapter.QuotaDefinition{
@@ -332,6 +342,54 @@ func TestReaper(t *testing.T) {
 
 	if err := b.Close(); err != nil {
 		t.Errorf("Unable to close builder: %v", err)
+	}
+}
+
+func TestReaperTicker(t *testing.T) {
+	definitions := make(map[string]*adapter.QuotaDefinition)
+	definitions["Q1"] = &adapter.QuotaDefinition{
+		MaxAmount: 10,
+		Window:    0,
+	}
+
+	a, err := newAspectWithDedup(&fakeEnv{t}, time.Duration(1)*time.Millisecond, definitions)
+	if err != nil {
+		t.Errorf("Unable to create aspect: %v", err)
+	}
+
+	qa := adapter.QuotaArgs{
+		Name:            "Q1",
+		QuotaAmount:     10,
+		DeduplicationID: "0",
+	}
+
+	amount, _ := a.Alloc(qa)
+	if amount != 10 {
+		t.Errorf("Alloc(): expecting 10, got %d", amount)
+	}
+
+	amount, _ = a.Alloc(qa)
+	if amount != 10 {
+		t.Errorf("Alloc(): expecting 10, got %d", amount)
+	}
+
+	// give enough time for the reaper go routine to run
+	time.Sleep(time.Duration(5) * time.Millisecond)
+
+	qa.DeduplicationID = "1"
+	amount, _ = a.Alloc(qa)
+	if amount != 0 {
+		t.Errorf("Alloc(): expecting 0, got %d", amount)
+	}
+
+	qa.DeduplicationID = "0"
+	amount, _ = a.Alloc(qa)
+	if amount != 0 {
+		t.Errorf("Alloc(): expecting 0, got %d", amount)
+	}
+
+	if err := a.Close(); err != nil {
+		t.Errorf("Unable to close aspect: %v", err)
 	}
 }
 
