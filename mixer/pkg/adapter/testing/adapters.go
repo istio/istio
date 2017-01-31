@@ -28,6 +28,7 @@ type fakeRegistrar struct {
 	loggers       []adapter.LoggerBuilder
 	accessLoggers []adapter.AccessLoggerBuilder
 	quotas        []adapter.QuotaBuilder
+	metrics       []adapter.MetricsBuilder
 }
 
 func (r *fakeRegistrar) RegisterListChecker(b adapter.ListCheckerBuilder) {
@@ -48,6 +49,10 @@ func (r *fakeRegistrar) RegisterAccessLogger(b adapter.AccessLoggerBuilder) {
 
 func (r *fakeRegistrar) RegisterQuota(b adapter.QuotaBuilder) {
 	r.quotas = append(r.quotas, b)
+}
+
+func (r *fakeRegistrar) RegisterMetrics(b adapter.MetricsBuilder) {
+	r.metrics = append(r.metrics, b)
 }
 
 // TestAdapterInvariants ensures that adapters implement expected semantics.

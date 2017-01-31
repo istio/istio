@@ -77,6 +77,11 @@ func (r *registry) RegisterQuota(quota adapter.QuotaBuilder) {
 	r.insert(quota)
 }
 
+// RegisterMetrics registers a new Metrics builder.
+func (r *registry) RegisterMetrics(quota adapter.MetricsBuilder) {
+	r.insert(quota)
+}
+
 func (r *registry) insert(b adapter.Builder) {
 	if _, exists := r.buildersByName[b.Name()]; exists {
 		panic(fmt.Errorf("attempting to register a builder with a name already in the registry: %s", b.Name()))

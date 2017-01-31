@@ -141,20 +141,20 @@ new_go_repository(
 new_go_repository(
     name = "com_github_opentracing_basictracer",
     commit = "1b32af207119a14b1b231d451df3ed04a72efebf",
-    importpath = "github.com/opentracing/basictracer-go"
+    importpath = "github.com/opentracing/basictracer-go",
 )
 
 # Transitive dep of com_github_opentracing_basictracer
 new_go_repository(
     name = "com_github_gogo_protobuf",
     commit = "909568be09de550ed094403c2bf8a261b5bb730a",
-    importpath = "github.com/gogo/protobuf"
+    importpath = "github.com/gogo/protobuf",
 )
 
 new_go_repository(
     name = "com_github_mitchellh_mapstructure",
     commit = "bfdb1a85537d60bc7e954e600c250219ea497417",
-    importpath = "github.com/mitchellh/mapstructure"
+    importpath = "github.com/mitchellh/mapstructure",
 )
 
 load("//:repositories.bzl", "new_git_or_local_repository")
@@ -171,9 +171,44 @@ new_git_or_local_repository(
 
 new_http_archive(
     name = "docker_ubuntu",
-    url = "https://codeload.github.com/tianon/docker-brew-ubuntu-core/zip/b6f1fe19228e5b6b7aed98dcba02f18088282f90",
     build_file = "BUILD.ubuntu",
-    type = "zip",
     sha256 = "2c63dd81d714b825acd1cb3629c57d6ee733645479d0fcdf645203c2c35924c5",
+    type = "zip",
+    url = "https://codeload.github.com/tianon/docker-brew-ubuntu-core/zip/b6f1fe19228e5b6b7aed98dcba02f18088282f90",
 )
 
+new_go_repository(
+    name = "com_github_prometheus_client_golang",
+    commit = "c317fb74746eac4fc65fe3909195f4cf67c5562a",
+    importpath = "github.com/prometheus/client_golang",
+)
+
+new_go_repository(
+    name = "com_github_prometheus_common",
+    commit = "dd2f054febf4a6c00f2343686efb775948a8bff4",
+    importpath = "github.com/prometheus/common",
+)
+
+new_go_repository(
+    name = "com_github_matttproud_golang_protobuf_extensions",
+    commit = "c12348ce28de40eed0136aa2b644d0ee0650e56c",
+    importpath = "github.com/matttproud/golang_protobuf_extensions",
+)
+
+new_go_repository(
+    name = "com_github_prometheus_procfs",
+    commit = "fcdb11ccb4389efb1b210b7ffb623ab71c5fdd60",
+    importpath = "github.com/prometheus/procfs",
+)
+
+new_go_repository(
+    name = "com_github_beorn7_perks",
+    commit = "4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9",
+    importpath = "github.com/beorn7/perks",
+)
+
+new_go_repository(
+    name = "com_github_prometheus_client_model",
+    commit = "fa8ad6fec33561be4280a8f0514318c79d7f6cb6",
+    importpath = "github.com/prometheus/client_model",
+)

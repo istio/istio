@@ -38,6 +38,7 @@ func Inventory() []APIBinding {
 		{NewDenyCheckerManager(), config.CheckMethod},
 		{NewListCheckerManager(), config.CheckMethod},
 		{NewLoggerManager(), config.ReportMethod},
+		{NewAccessLoggerManager(), config.ReportMethod},
 		{NewQuotaManager(), config.QuotaMethod},
 	}
 }
