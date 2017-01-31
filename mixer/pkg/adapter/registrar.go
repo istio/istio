@@ -30,6 +30,9 @@ type Registrar interface {
 
 	// RegisterQuota registers a new Quota builder.
 	RegisterQuota(QuotaBuilder)
+
+	// RegisterMetrics registers a new Metrics builder.
+	RegisterMetrics(MetricsBuilder)
 }
 
 // RegisterFn is a function the mixer invokes to trigger adapters to register
