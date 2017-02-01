@@ -55,7 +55,8 @@ To run the tests:
 
 Bazel does not preclude you from using `go` tool in development. You should
 check out your repository clone `$REPO_PATH` into `$GOPATH` (e.g.
-`$GOPATH/src/istio.io/manager`). Then run this script in the repository root:
+`$GOPATH/src/istio.io/manager`) and then run `bazel build //cmd/...` to let Bazel
+fetch all dependencies. Then run this script in the repository root:
 
     bin/init.sh
         
