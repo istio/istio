@@ -32,9 +32,7 @@ func checkCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
 		Use:   "check",
 		Short: "Invokes the mixer's Check API.",
 		Run: func(cmd *cobra.Command, args []string) {
-			for i := 0; i < repeat; i++ {
-				check(rootArgs, args, errorf)
-			}
+			check(rootArgs, args, errorf, repeat)
 		}}
 
 	cmd.PersistentFlags().IntVarP(&repeat, "repeat", "", 1,
@@ -43,7 +41,7 @@ func checkCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
 	return cmd
 }
 
-func check(rootArgs *rootArgs, args []string, errorf errorFn) {
+func check(rootArgs *rootArgs, args []string, errorf errorFn, repeat int) {
 	var attrs *mixerpb.Attributes
 	var err error
 
@@ -68,22 +66,26 @@ func check(rootArgs *rootArgs, args []string, errorf errorFn) {
 		return
 	}
 
-	// send the request
-	request := mixerpb.CheckRequest{RequestIndex: 0, AttributeUpdate: attrs}
+	for i := 0; i < repeat; i++ {
+		// send the request
+		request := mixerpb.CheckRequest{RequestIndex: 0, AttributeUpdate: attrs}
 
-	if err = stream.Send(&request); err != nil {
-		errorf("Failed to send Check RPC: %v", err)
-		return
-	}
+		if err = stream.Send(&request); err != nil {
+			errorf("Failed to send Check RPC: %v", err)
+			return
+		}
 
-	var response *mixerpb.CheckResponse
-	response, err = stream.Recv()
-	if err == io.EOF {
-		errorf("Got no response from Check RPC")
-		return
-	} else if err != nil {
-		errorf("Failed to receive a response from Check RPC: %v", err)
-		return
+		var response *mixerpb.CheckResponse
+		response, err = stream.Recv()
+		if err == io.EOF {
+			errorf("Got no response from Check RPC")
+			return
+		} else if err != nil {
+			errorf("Failed to receive a response from Check RPC: %v", err)
+			return
+		}
+
+		fmt.Printf("Check RPC returned %v\n", response.Result)
 	}
 
 	if err = stream.CloseSend(); err != nil {
@@ -91,6 +93,4 @@ func check(rootArgs *rootArgs, args []string, errorf errorFn) {
 	}
 
 	span.Finish()
-
-	fmt.Printf("Check RPC returned %v\n", response.Result)
 }
