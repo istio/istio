@@ -60,25 +60,38 @@ func TestAdapterInvariants(r adapter.RegisterFn, t *gt.T) {
 	fr := &fakeRegistrar{}
 	r(fr)
 
+	count := len(fr.denyCheckers)
 	for _, b := range fr.denyCheckers {
 		testBuilder(b, t)
 	}
 
+	count += len(fr.listCheckers)
 	for _, b := range fr.listCheckers {
 		testBuilder(b, t)
 	}
 
+	count += len(fr.loggers)
 	for _, b := range fr.loggers {
 		testBuilder(b, t)
 	}
 
+	count += len(fr.quotas)
 	for _, b := range fr.quotas {
 		testBuilder(b, t)
 	}
 
-	count := len(fr.denyCheckers) + len(fr.listCheckers) + len(fr.loggers) + len(fr.quotas)
+	count += len(fr.metrics)
+	for _, b := range fr.metrics {
+		testBuilder(b, t)
+	}
+
+	count += len(fr.accessLoggers)
+	for _, b := range fr.accessLoggers {
+		testBuilder(b, t)
+	}
+
 	if count == 0 {
-		t.Errorf("Register() => adapter didn't register any aspects")
+		t.Errorf("Register() => adapter didn't register any builders")
 	}
 }
 
