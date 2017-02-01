@@ -5,3 +5,8 @@ adapters:
     kind: istio/quota
     impl: istio/memQuota
     params:
+  - name: default
+    kind: istio/accessLogger
+    impl: istio/stdioLogger
+    params:
+      logStream: 0 # STDERR
