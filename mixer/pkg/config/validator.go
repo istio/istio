@@ -30,7 +30,6 @@ import (
 	"github.com/mitchellh/mapstructure"
 	yaml "gopkg.in/yaml.v2"
 
-	"github.com/golang/glog"
 	"istio.io/mixer/pkg/adapter"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
@@ -252,10 +251,6 @@ func Decode(src interface{}, dst adapter.AspectConfig, strict bool, newDecoders 
 	}
 
 	if strict && len(md.Unused) > 0 {
-		if glog.V(2) {
-			out, _ := yaml.Marshal(dst)
-			glog.Infof(string(out[:]))
-		}
 		return fmt.Errorf("unused fields while parsing %s", md.Unused)
 	}
 

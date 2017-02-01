@@ -34,16 +34,21 @@ type registry struct {
 // newRegistry returns a new Builder registry.
 func newRegistry(builders []adapter.RegisterFn) *registry {
 	r := &registry{buildersByName: make(map[string]adapter.Builder)}
-	for _, builder := range builders {
+	for idx, builder := range builders {
+		glog.V(2).Infof("Registering [%d] %v", idx, builder)
 		builder(r)
 	}
-	glog.V(2).Infof("Available Builders: %v", r.buildersByName)
-
 	// ensure interfaces are satisfied.
 	// should be compiled out.
 	var _ adapter.Registrar = r
 	var _ builderFinder = r
 	return r
+}
+
+// BuilderMap returns map[string]adapter.Builder given a list of registerFns.
+func BuilderMap(builders []adapter.RegisterFn) map[string]adapter.Builder {
+	r := newRegistry(builders)
+	return r.buildersByName
 }
 
 // FindBuilder finds builder by name.
@@ -83,14 +88,15 @@ func (r *registry) RegisterMetrics(quota adapter.MetricsBuilder) {
 }
 
 func (r *registry) insert(b adapter.Builder) {
-	if _, exists := r.buildersByName[b.Name()]; exists {
-		panic(fmt.Errorf("attempting to register a builder with a name already in the registry: %s", b.Name()))
+	glog.V(2).Infof("Registering %v", b)
+	if old, exists := r.buildersByName[b.Name()]; exists {
+		panic(fmt.Errorf("duplicate registration for '%s' : %v %v", b.Name(), old, b))
 	}
 	r.buildersByName[b.Name()] = b
 }
 
-// processBindings returns a fully constructed manager map and aspectSet given APIBinding.
-func processBindings(bnds []aspect.APIBinding) (map[string]aspect.Manager, map[config.APIMethod]config.AspectSet) {
+// ProcessBindings returns a fully constructed manager map and aspectSet given APIBinding.
+func ProcessBindings(bnds []aspect.APIBinding) (map[string]aspect.Manager, map[config.APIMethod]config.AspectSet) {
 	r := make(map[string]aspect.Manager)
 	as := make(map[config.APIMethod]config.AspectSet)
 
