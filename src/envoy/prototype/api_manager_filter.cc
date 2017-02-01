@@ -195,8 +195,7 @@ class Instance : public Http::StreamFilter,
   bool initiating_call_;
 
   std::string getRouteVirtualHost(HeaderMap& headers) const {
-    const Router::Route* route =
-        decoder_callbacks_->routeTable().route(headers);
+    const Router::Route* route = decoder_callbacks_->route();
     if (route && route->routeEntry()) {
       return route->routeEntry()->virtualHost().name();
     }

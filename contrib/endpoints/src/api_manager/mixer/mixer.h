@@ -66,6 +66,8 @@ class Mixer : public service_control::Interface {
   const Config* config_;
   // The mixer client
   std::unique_ptr<::istio::mixer_client::MixerClient> mixer_client_;
+  // Target service
+  std::string target_service_;
 };
 
 }  // namespace mixer

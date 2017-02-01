@@ -23,6 +23,7 @@ namespace mixer {
 namespace {
 
 const std::string kProxyPeerID = "Istio/Proxy";
+const std::string kEnvNameTargetService = "TARGET_SERVICE";
 
 const std::string kAttrNameServiceName = "serviceName";
 const std::string kAttrNamePeerId = "peerId";
@@ -41,6 +42,7 @@ const std::string kAttrNameLogMessage = "logMessage";
 const std::string kAttrNameResponseTime = "responseTime";
 const std::string kAttrNameOriginIp = "originIp";
 const std::string kAttrNameOriginHost = "originHost";
+const std::string kAttrNameTargetService = "targetService";
 
 Attributes::Value StringValue(const std::string& str) {
   Attributes::Value v;
@@ -68,6 +70,10 @@ Status Mixer::Init() {
   options.mixer_server =
       config_->server_config()->mixer_options().mixer_server();
   mixer_client_ = ::istio::mixer_client::CreateMixerClient(options);
+  auto target_service = getenv(kEnvNameTargetService.c_str());
+  if (target_service) {
+    target_service_ = target_service;
+  }
   return Status::OK;
 }
 
@@ -92,6 +98,9 @@ void Mixer::FillCommonAttributes(const service_control::OperationInfo& info,
   }
   if (!info.client_host.empty()) {
     attr->attributes[kAttrNameOriginHost] = StringValue(info.client_host);
+  }
+  if (!target_service_.empty()) {
+    attr->attributes[kAttrNameTargetService] = StringValue(target_service_);
   }
 }
 
@@ -143,6 +152,7 @@ Status Mixer::Report(const service_control::ReportRequestInfo& info) {
   ::istio::mixer_client::Attributes attributes;
   FillReportAttributes(info, &attributes);
   env_->LogInfo("Send Report: ");
+  env_->LogInfo(attributes.DebugString());
   mixer_client_->Report(
       attributes, [this](const ::google::protobuf::util::Status& status) {
         if (status.ok()) {
@@ -163,6 +173,7 @@ void Mixer::Check(
   ::istio::mixer_client::Attributes attributes;
   FillCheckAttributes(info, &attributes);
   env_->LogInfo("Send Check: ");
+  env_->LogInfo(attributes.DebugString());
   mixer_client_->Check(
       attributes,
       [this, on_done](const ::google::protobuf::util::Status& status) {

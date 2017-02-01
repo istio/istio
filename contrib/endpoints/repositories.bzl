@@ -337,7 +337,7 @@ def servicecontrol_client_repositories(bind=True):
 def mixer_client_repositories(bind=True):
     native.git_repository(
         name = "mixerclient_git",
-        commit = "1569430f1e27b31e23c029c6bec0d8d5062d9e55",
+        commit = "80e450a5126960e8e6337c3631cf2ef984038eab",
         remote = "https://github.com/istio/mixerclient.git",
     )
 

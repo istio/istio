@@ -103,7 +103,7 @@ class HTTPRequest : public Http::Message {
   virtual void body(Buffer::InstancePtr &&body) override {}
   virtual HeaderMap *trailers() override { return nullptr; }
   virtual void trailers(HeaderMapPtr &&trailers) override {}
-  virtual std::string bodyAsString() override { return ""; }
+  virtual std::string bodyAsString() const override { return ""; }
 };
 
 class HTTPRequestCallbacks : public AsyncClient::Callbacks {
