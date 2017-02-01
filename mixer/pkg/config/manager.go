@@ -182,6 +182,6 @@ func (c *Manager) Start() {
 	// If it is not successful, we will continue to watch for changes.
 	go c.loop()
 	if err != nil {
-		glog.Warning("Unable to process config", err)
+		glog.Warning("Unable to process config: ", err)
 	}
 }
