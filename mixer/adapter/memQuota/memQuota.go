@@ -109,18 +109,18 @@ func (builder) NewQuota(env adapter.Env, c adapter.AspectConfig, d map[string]*a
 
 // newAspect returns a new aspect.
 func newAspect(env adapter.Env, c *config.Params, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotaAspect, error) {
-	return newAspectWithDedup(env, time.Duration(c.MinDeduplicationWindowSeconds)*time.Second, definitions)
+	return newAspectWithDedup(env, time.NewTicker(time.Duration(c.MinDeduplicationWindowSeconds)*time.Second), definitions)
 }
 
 // newAspect returns a new aspect.
-func newAspectWithDedup(env adapter.Env, dedup time.Duration, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotaAspect, error) {
+func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotaAspect, error) {
 	mq := &memQuota{
 		definitions: definitions,
 		cells:       make(map[string]int64),
 		windows:     make(map[string]*rollingWindow),
 		recentDedup: make(map[string]int64),
 		oldDedup:    make(map[string]int64),
-		ticker:      time.NewTicker(dedup),
+		ticker:      ticker,
 		getTick:     func() int32 { return int32(time.Now().UnixNano() / (1000000000 / ticksPerSecond)) },
 		logger:      env.Logger(),
 	}
