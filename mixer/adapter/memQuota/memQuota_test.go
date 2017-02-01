@@ -352,7 +352,9 @@ func TestReaperTicker(t *testing.T) {
 		Window:    0,
 	}
 
-	a, err := newAspectWithDedup(&fakeEnv{t}, time.Duration(1)*time.Millisecond, definitions)
+	testChan := make(chan time.Time)
+	testTicker := &time.Ticker{C: testChan}
+	a, err := newAspectWithDedup(&fakeEnv{t}, testTicker, definitions)
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
@@ -373,8 +375,10 @@ func TestReaperTicker(t *testing.T) {
 		t.Errorf("Alloc(): expecting 10, got %d", amount)
 	}
 
-	// give enough time for the reaper go routine to run
-	time.Sleep(time.Duration(5) * time.Millisecond)
+	// Advance 3 ticks, ensuring clearing of the de-dup cache
+	testChan <- time.Now()
+	testChan <- time.Now()
+	testChan <- time.Now()
 
 	qa.DeduplicationID = "1"
 	amount, _ = a.Alloc(qa)
