@@ -163,24 +163,30 @@ class Request : public google::api_manager::Request {
 };
 
 class Response : public google::api_manager::Response {
+  const AccessLog::RequestInfo& request_info_;
+
+ public:
+  Response(const AccessLog::RequestInfo& request_info)
+      : request_info_(request_info) {}
+
   google::api_manager::utils::Status GetResponseStatus() {
     return google::api_manager::utils::Status::OK;
   }
 
-  std::size_t GetRequestSize() { return 0; }
+  std::size_t GetRequestSize() { return request_info_.bytesReceived(); }
 
-  std::size_t GetResponseSize() { return 0; }
+  std::size_t GetResponseSize() { return request_info_.bytesSent(); }
 
   google::api_manager::utils::Status GetLatencyInfo(
       google::api_manager::service_control::LatencyInfo* info) {
+    info->request_time_ms = request_info_.duration().count();
     return google::api_manager::utils::Status::OK;
   }
 };
 
 const Http::HeaderMapImpl BadRequest{{Http::Headers::get().Status, "400"}};
 
-class Instance : public Http::StreamFilter,
-                 public Logger::Loggable<Logger::Id::http> {
+class Instance : public Http::StreamFilter, public Http::AccessLog::Instance {
  private:
   std::shared_ptr<google::api_manager::ApiManager> api_manager_;
   std::unique_ptr<google::api_manager::RequestHandlerInterface>
@@ -207,12 +213,12 @@ class Instance : public Http::StreamFilter,
       : api_manager_(config->api_manager()),
         state_(NotStarted),
         initiating_call_(false) {
-    log().debug("Called ApiManager::Instance : {}", __func__);
+    Log().debug("Called ApiManager::Instance : {}", __func__);
   }
 
   FilterHeadersStatus decodeHeaders(HeaderMap& headers,
                                     bool end_stream) override {
-    log().debug("Called ApiManager::Instance : {}", __func__);
+    Log().debug("Called ApiManager::Instance : {}", __func__);
     std::unique_ptr<google::api_manager::Request> request(
         new Request(headers, decoder_callbacks_->downstreamAddress(),
                     getRouteVirtualHost(headers)));
@@ -227,13 +233,13 @@ class Instance : public Http::StreamFilter,
     if (state_ == Complete) {
       return FilterHeadersStatus::Continue;
     }
-    log().debug("Called ApiManager::Instance : {} Stop", __func__);
+    Log().debug("Called ApiManager::Instance : {} Stop", __func__);
     return FilterHeadersStatus::StopIteration;
   }
 
   FilterDataStatus decodeData(Buffer::Instance& data,
                               bool end_stream) override {
-    log().debug("Called ApiManager::Instance : {} ({}, {})", __func__,
+    Log().debug("Called ApiManager::Instance : {} ({}, {})", __func__,
                 data.length(), end_stream);
     if (state_ == Calling) {
       return FilterDataStatus::StopIterationAndBuffer;
@@ -242,7 +248,7 @@ class Instance : public Http::StreamFilter,
   }
 
   FilterTrailersStatus decodeTrailers(HeaderMap& trailers) override {
-    log().debug("Called ApiManager::Instance : {}", __func__);
+    Log().debug("Called ApiManager::Instance : {}", __func__);
     if (state_ == Calling) {
       return FilterTrailersStatus::StopIteration;
     }
@@ -250,13 +256,13 @@ class Instance : public Http::StreamFilter,
   }
   void setDecoderFilterCallbacks(
       StreamDecoderFilterCallbacks& callbacks) override {
-    log().debug("Called ApiManager::Instance : {}", __func__);
+    Log().debug("Called ApiManager::Instance : {}", __func__);
     decoder_callbacks_ = &callbacks;
     decoder_callbacks_->addResetStreamCallback(
         [this]() { state_ = Responded; });
   }
   void completeCheck(const google::api_manager::utils::Status& status) {
-    log().debug("Called ApiManager::Instance : check complete {}",
+    Log().debug("Called ApiManager::Instance : check complete {}",
                 status.ToJson());
     if (!status.ok() && state_ != Responded) {
       state_ = Responded;
@@ -275,30 +281,37 @@ class Instance : public Http::StreamFilter,
 
   virtual FilterHeadersStatus encodeHeaders(HeaderMap& headers,
                                             bool end_stream) override {
-    log().debug("Called ApiManager::Instance : {}", __func__);
+    Log().debug("Called ApiManager::Instance : {}", __func__);
     return FilterHeadersStatus::Continue;
   }
   virtual FilterDataStatus encodeData(Buffer::Instance& data,
                                       bool end_stream) override {
-    log().debug("Called ApiManager::Instance : {}", __func__);
+    Log().debug("Called ApiManager::Instance : {}", __func__);
     return FilterDataStatus::Continue;
   }
   virtual FilterTrailersStatus encodeTrailers(HeaderMap& trailers) override {
-    log().debug("Called ApiManager::Instance : {}", __func__);
+    Log().debug("Called ApiManager::Instance : {}", __func__);
     return FilterTrailersStatus::Continue;
   }
   virtual void setEncoderFilterCallbacks(
       StreamEncoderFilterCallbacks& callbacks) override {
-    log().debug("Called ApiManager::Instance : {}", __func__);
+    Log().debug("Called ApiManager::Instance : {}", __func__);
     encoder_callbacks_ = &callbacks;
   }
 
-  // note: cannot extend ~ActiveStream for access log, placing it here
-  ~Instance() {
-    log().debug("Called ApiManager::Instance : {}", __func__);
-    std::unique_ptr<google::api_manager::Response> response(new Response());
-    request_handler_->Report(std::move(response),
-                             [this]() { log().debug("Report returns"); });
+  virtual void log(const HeaderMap* request_headers,
+                   const HeaderMap* response_headers,
+                   const AccessLog::RequestInfo& request_info) override {
+    Log().debug("Called ApiManager::Instance : {}", __func__);
+    std::unique_ptr<google::api_manager::Response> response(
+        new Response(request_info));
+    request_handler_->Report(std::move(response), []() {});
+  }
+
+  spdlog::logger& Log() {
+    static spdlog::logger& instance =
+        Logger::Registry::getLog(Logger::Id::http);
+    return instance;
   }
 };
 }
@@ -320,8 +333,10 @@ class ApiManagerConfig : public HttpFilterConfigFactory {
         new Http::ApiManager::Config(config, server));
     return [api_manager_config](
                Http::FilterChainFactoryCallbacks& callbacks) -> void {
-      auto instance = new Http::ApiManager::Instance(api_manager_config);
-      callbacks.addStreamFilter(Http::StreamFilterPtr{instance});
+      std::shared_ptr<Http::ApiManager::Instance> instance(
+          new Http::ApiManager::Instance(api_manager_config));
+      callbacks.addStreamFilter(Http::StreamFilterPtr(instance));
+      callbacks.addAccessLogHandler(Http::AccessLog::InstancePtr(instance));
     };
   }
 };
