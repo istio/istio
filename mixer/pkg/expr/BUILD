@@ -7,7 +7,10 @@ go_library(
         "identity.go",
     ],
     visibility = ["//visibility:public"],
-    deps = ["//pkg/attribute:go_default_library"],
+    deps = [
+        "//pkg/attribute:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
+    ],
 )
 
 go_test(
