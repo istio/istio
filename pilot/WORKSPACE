@@ -267,22 +267,9 @@ new_go_repository(
 
 git_repository(
     name = "istio_proxy",
-    commit = "92541b79f45fb3ada59e36d3abd87bd7724b27f9",
+    commit = "27962094adf801685a8547284fb60ca7c75ad1f8",
     remote = "https://github.com/istio/proxy",
 )
-
-load(
-    "@istio_proxy//contrib/endpoints:repositories.bzl",
-    "grpc_repositories",
-    "servicecontrol_client_repositories",
-    "mixerapi_repositories",
-)
-
-grpc_repositories()
-
-servicecontrol_client_repositories()
-
-mixerapi_repositories()
 
 load(
     "@istio_proxy//:repositories.bzl",
@@ -303,6 +290,38 @@ load(
 )
 
 envoy_repositories()
+
+load(
+    "@istio_proxy//contrib/endpoints:repositories.bzl",
+    "grpc_repositories",
+    "mixer_client_repositories",
+    "servicecontrol_client_repositories",
+)
+
+grpc_repositories()
+
+servicecontrol_client_repositories()
+
+mixer_client_repositories()
+
+load(
+    "@mixerclient_git//:repositories.bzl",
+    "mixerapi_repositories",
+)
+
+
+# Workaround for Bazel > 0.4.0 since it needs newer protobuf.bzl from:
+# https://github.com/google/protobuf/pull/2246
+# Do not use this git_repository for anything else than protobuf.bzl
+new_git_repository(
+    name = "protobuf_bzl",
+    # Injecting an empty BUILD file to prevent using any build target
+    build_file_content = "",
+    commit = "05090726144b6e632c50f47720ff51049bfcbef6",
+    remote = "https://github.com/google/protobuf.git",
+)
+
+mixerapi_repositories(protobuf_repo="@protobuf_bzl//")
 
 ##
 ## Docker rules
