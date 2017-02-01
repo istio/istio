@@ -89,7 +89,7 @@ func newCacheKey(cfg *config.Combined) (*cacheKey, error) {
 
 // NewManager creates a new adapterManager.
 func NewManager(builders []adapter.RegisterFn, managers []aspect.APIBinding, exp expr.Evaluator) *Manager {
-	mm, am := processBindings(managers)
+	mm, am := ProcessBindings(managers)
 	return newManager(newRegistry(builders), mm, exp, am)
 }
 
