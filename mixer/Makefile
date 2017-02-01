@@ -29,3 +29,6 @@ fmt:
 
 coverage:
 	@bin/codecov.sh
+
+racetest:
+	@bin/racetest.sh

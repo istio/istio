@@ -31,6 +31,7 @@ branch, but release branches of the Istio mixer should not change.
   - [Getting coverage numbers](#getting-coverage-numbers)
   - [Auto-formatting source code](#auto-formatting-source-code)
   - [Running the linters](#running-the-linters)
+  - [Running race detection tests](#running-race-detection-tests)
 - [About testing](#about-testing)
 
 Other docs you should look at:
@@ -180,7 +181,7 @@ To build the mixer, enter:
 
 ```
 cd $(ISTIO)/mixer
-bazel build ...:all
+bazel build ...
 ```
 
 This figures out what it needs to do and does not need any input from you.
@@ -222,6 +223,14 @@ You can run all the linters we require on your local repo by going to the top of
 
 ```
 make lint
+```
+
+### Race detection tests
+
+You can run the test suite using the Go race detection tools using:
+
+```
+make racetest
 ```
 
 ## About testing

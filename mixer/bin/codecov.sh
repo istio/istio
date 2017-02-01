@@ -12,6 +12,3 @@ for d in $(go list ./... | grep -v vendor); do
         rm profile.out
     fi
 done
-
-echo "Race test"
-go test -race ./...

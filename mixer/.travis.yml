@@ -38,6 +38,7 @@ script:
 - bazel --output_base=$HOME/bazel/outbase test //...
 - bin/linters.sh
 - bin/codecov.sh
+- bin/racetest.sh
 
 after_success:
 - bash <(curl -s https://codecov.io/bash)
