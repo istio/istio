@@ -15,8 +15,8 @@
 package adapter
 
 type (
-	// AccessLoggerAspect handles access log data within the mixer.
-	AccessLoggerAspect interface {
+	// AccessLogsAspect handles access log data within the mixer.
+	AccessLogsAspect interface {
 		Aspect
 
 		// LogAccess directs a backend adapter to process a batch of
@@ -28,11 +28,11 @@ type (
 		LogAccess([]LogEntry) error
 	}
 
-	// AccessLoggerBuilder builds instances of the AccessLogger aspect.
-	AccessLoggerBuilder interface {
+	// AccessLogsBuilder builds instances of the AccessLogger aspect.
+	AccessLogsBuilder interface {
 		Builder
 
 		// NewAccessLogger returns a new instance of the AccessLogger aspect.
-		NewAccessLogger(env Env, c AspectConfig) (AccessLoggerAspect, error)
+		NewAccessLogger(env Env, c AspectConfig) (AccessLogsAspect, error)
 	}
 )

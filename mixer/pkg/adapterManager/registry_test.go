@@ -34,7 +34,7 @@ func (testBuilder) ValidateConfig(c adapter.AspectConfig) *adapter.ConfigErrors 
 
 type denyBuilder struct{ testBuilder }
 
-func (denyBuilder) NewDenyChecker(env adapter.Env, cfg adapter.AspectConfig) (adapter.DenyCheckerAspect, error) {
+func (denyBuilder) NewDenyChecker(env adapter.Env, cfg adapter.AspectConfig) (adapter.DenialsAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -42,7 +42,7 @@ func TestRegisterDenyChecker(t *testing.T) {
 	reg := newRegistry(nil)
 	builder := denyBuilder{testBuilder{name: "foo"}}
 
-	reg.RegisterDenyChecker(builder)
+	reg.RegisterDenialsBuilder(builder)
 
 	impl, ok := reg.FindBuilder(aspect.DenyKind, builder.Name())
 	if !ok {
@@ -56,7 +56,7 @@ func TestRegisterDenyChecker(t *testing.T) {
 
 type listBuilder struct{ testBuilder }
 
-func (listBuilder) NewListChecker(env adapter.Env, cfg adapter.AspectConfig) (adapter.ListCheckerAspect, error) {
+func (listBuilder) NewListChecker(env adapter.Env, cfg adapter.AspectConfig) (adapter.ListsAdapter, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -64,7 +64,7 @@ func TestRegisterListChecker(t *testing.T) {
 	reg := newRegistry(nil)
 	builder := listBuilder{testBuilder{name: "foo"}}
 
-	reg.RegisterListChecker(builder)
+	reg.RegisterListsBuilder(builder)
 
 	impl, ok := reg.FindBuilder(aspect.ListKind, builder.Name())
 	if !ok {
@@ -78,7 +78,7 @@ func TestRegisterListChecker(t *testing.T) {
 
 type loggerBuilder struct{ testBuilder }
 
-func (loggerBuilder) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.LoggerAspect, error) {
+func (loggerBuilder) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.ApplicationLogsAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -86,7 +86,7 @@ func TestRegisterLogger(t *testing.T) {
 	reg := newRegistry(nil)
 	builder := loggerBuilder{testBuilder{name: "foo"}}
 
-	reg.RegisterLogger(builder)
+	reg.RegisterApplicationLogsBuilder(builder)
 
 	impl, ok := reg.FindBuilder(aspect.LogKind, builder.Name())
 	if !ok {
@@ -100,7 +100,7 @@ func TestRegisterLogger(t *testing.T) {
 
 type accessLoggerBuilder struct{ testBuilder }
 
-func (accessLoggerBuilder) NewAccessLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.AccessLoggerAspect, error) {
+func (accessLoggerBuilder) NewAccessLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.AccessLogsAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -108,7 +108,7 @@ func TestRegistry_RegisterAccessLogger(t *testing.T) {
 	reg := newRegistry(nil)
 	builder := accessLoggerBuilder{testBuilder{name: "foo"}}
 
-	reg.RegisterAccessLogger(builder)
+	reg.RegisterAccessLogsBuilder(builder)
 
 	impl, ok := reg.FindBuilder(aspect.AccessLogKind, builder.Name())
 	if !ok {
@@ -122,7 +122,7 @@ func TestRegistry_RegisterAccessLogger(t *testing.T) {
 
 type quotaBuilder struct{ testBuilder }
 
-func (quotaBuilder) NewQuota(env adapter.Env, cfg adapter.AspectConfig, d map[string]*adapter.QuotaDefinition) (adapter.QuotaAspect, error) {
+func (quotaBuilder) NewQuota(env adapter.Env, cfg adapter.AspectConfig, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -130,7 +130,7 @@ func TestRegisterQuota(t *testing.T) {
 	reg := newRegistry(nil)
 	builder := quotaBuilder{testBuilder{name: "foo"}}
 
-	reg.RegisterQuota(builder)
+	reg.RegisterQuotasBuilder(builder)
 	impl, ok := reg.FindBuilder(aspect.QuotaKind, builder.Name())
 	if !ok {
 		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
@@ -146,7 +146,7 @@ func TestCollision(t *testing.T) {
 	name := "some name that they both have"
 
 	a1 := listBuilder{testBuilder{name}}
-	reg.RegisterListChecker(a1)
+	reg.RegisterListsBuilder(a1)
 
 	if a, ok := reg.FindBuilder(aspect.ListKind, name); !ok || a != a1 {
 		t.Errorf("Failed to get first adapter by impl name; expected: '%v', actual: '%v'", a1, a)
@@ -159,6 +159,6 @@ func TestCollision(t *testing.T) {
 	}()
 
 	a2 := listBuilder{testBuilder{name}}
-	reg.RegisterListChecker(a2)
+	reg.RegisterListsBuilder(a2)
 	t.Error("Should not reach this statement due to panic.")
 }

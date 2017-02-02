@@ -17,8 +17,8 @@ package adapter
 import "time"
 
 type (
-	// QuotaAspect handles quotas and rate limits within the mixer.
-	QuotaAspect interface {
+	// QuotasAspect handles quotas and rate limits within the mixer.
+	QuotasAspect interface {
 		Aspect
 
 		// Alloc allocates the specified amount or fails when not available.
@@ -31,12 +31,12 @@ type (
 		ReleaseBestEffort(QuotaArgs) (int64, error)
 	}
 
-	// QuotaBuilder builds new instances of the Quota aspect.
-	QuotaBuilder interface {
+	// QuotasBuilder builds new instances of the Quota aspect.
+	QuotasBuilder interface {
 		Builder
 
 		// NewQuota returns a new instance of the Quota aspect.
-		NewQuota(env Env, c AspectConfig, d map[string]*QuotaDefinition) (QuotaAspect, error)
+		NewQuota(env Env, c AspectConfig, d map[string]*QuotaDefinition) (QuotasAspect, error)
 	}
 
 	// QuotaKind determines the usage semantics

@@ -63,34 +63,34 @@ func (r *registry) FindBuilder(kind string, name string) (adapter.Builder, bool)
 	return b, ok
 }
 
-// RegisterListChecker registers a new ListChecker builder.
-func (r *registry) RegisterListChecker(list adapter.ListCheckerBuilder) {
-	r.insert(aspect.ListKind, list)
+// RegisterListsBuilder registers a new ListChecker builder.
+func (r *registry) RegisterListsBuilder(b adapter.ListsBuilder) {
+	r.insert(aspect.ListKind, b)
 }
 
-// RegisterDenyChecker registers a new DenyChecker builder.
-func (r *registry) RegisterDenyChecker(deny adapter.DenyCheckerBuilder) {
-	r.insert(aspect.DenyKind, deny)
+// RegisterDenialsBuilder registers a new DenyChecker builder.
+func (r *registry) RegisterDenialsBuilder(b adapter.DenialsBuilder) {
+	r.insert(aspect.DenyKind, b)
 }
 
-// RegisterLogger registers a new Logger builder.
-func (r *registry) RegisterLogger(logger adapter.LoggerBuilder) {
-	r.insert(aspect.LogKind, logger)
+// RegisterApplicationLogsBuilder registers a new Logger builder.
+func (r *registry) RegisterApplicationLogsBuilder(b adapter.ApplicationLogsBuilder) {
+	r.insert(aspect.LogKind, b)
 }
 
-// RegisterAccessLogger registers a new Logger builder.
-func (r *registry) RegisterAccessLogger(logger adapter.AccessLoggerBuilder) {
-	r.insert(aspect.AccessLogKind, logger)
+// RegisterAccessLogsBuilder registers a new Logger builder.
+func (r *registry) RegisterAccessLogsBuilder(b adapter.AccessLogsBuilder) {
+	r.insert(aspect.AccessLogKind, b)
 }
 
-// RegisterQuota registers a new Quota builder.
-func (r *registry) RegisterQuota(quota adapter.QuotaBuilder) {
-	r.insert(aspect.QuotaKind, quota)
+// RegisterQuotasBuilder registers a new Quotas builder.
+func (r *registry) RegisterQuotasBuilder(b adapter.QuotasBuilder) {
+	r.insert(aspect.QuotaKind, b)
 }
 
-// RegisterMetrics registers a new Metrics builder.
-func (r *registry) RegisterMetrics(metrics adapter.MetricsBuilder) {
-	r.insert(aspect.MetricKind, metrics)
+// RegisterMetricsBuilder registers a new Metrics builder.
+func (r *registry) RegisterMetricsBuilder(b adapter.MetricsBuilder) {
+	r.insert(aspect.MetricKind, b)
 }
 
 func (r *registry) insert(kind string, b adapter.Builder) {

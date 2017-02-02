@@ -16,23 +16,23 @@ package adapter
 
 // Registrar is used by adapters to register aspect builders.
 type Registrar interface {
-	// RegisterListChecker registers a new ListChecker builder.
-	RegisterListChecker(ListCheckerBuilder)
+	// RegisterListsBuilder registers a new ListChecker builder.
+	RegisterListsBuilder(ListsBuilder)
 
-	// RegisterDenyChecker registers a new DenyChecker builder.
-	RegisterDenyChecker(DenyCheckerBuilder)
+	// RegisterDenialsBuilder registers a new DenyChecker builder.
+	RegisterDenialsBuilder(DenialsBuilder)
 
-	// RegisterLogger registers a new Logger builder.
-	RegisterLogger(LoggerBuilder)
+	// RegisterApplicationLogsBuilder registers a new Logger builder.
+	RegisterApplicationLogsBuilder(ApplicationLogsBuilder)
 
-	// RegisterAccessLogger registers a new AccessLogger builder.
-	RegisterAccessLogger(AccessLoggerBuilder)
+	// RegisterAccessLogsBuilder registers a new AccessLogger builder.
+	RegisterAccessLogsBuilder(AccessLogsBuilder)
 
-	// RegisterQuota registers a new Quota builder.
-	RegisterQuota(QuotaBuilder)
+	// RegisterQuotasBuilder registers a new Quota builder.
+	RegisterQuotasBuilder(QuotasBuilder)
 
-	// RegisterMetrics registers a new Metrics builder.
-	RegisterMetrics(MetricsBuilder)
+	// RegisterMetricsBuilder registers a new Metrics builder.
+	RegisterMetricsBuilder(MetricsBuilder)
 }
 
 // RegisterFn is a function the mixer invokes to trigger adapters to register

@@ -39,11 +39,11 @@ const (
 func Inventory() []APIBinding {
 	// Update the following list to add a new Aspect manager
 	return []APIBinding{
-		{NewDenyCheckerManager(), config.CheckMethod},
-		{NewListCheckerManager(), config.CheckMethod},
-		{NewLoggerManager(), config.ReportMethod},
-		{NewAccessLoggerManager(), config.ReportMethod},
-		{NewQuotaManager(), config.CheckMethod},
-		{NewQuotaManager(), config.QuotaMethod},
+		{NewDenialsManager(), config.CheckMethod},
+		{NewListsManager(), config.CheckMethod},
+		{NewApplicationLogsManager(), config.ReportMethod},
+		{NewAccessLogsManager(), config.ReportMethod},
+		{NewQuotasManager(), config.CheckMethod},
+		{NewQuotasManager(), config.QuotaMethod},
 	}
 }

@@ -86,7 +86,7 @@ const (
 
 // Register records the builders exposed by this adapter.
 func Register(r adapter.Registrar) {
-	r.RegisterQuota(newBuilder())
+	r.RegisterQuotasBuilder(newBuilder())
 }
 
 func newBuilder() builder {
@@ -103,17 +103,17 @@ func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigError
 	return
 }
 
-func (builder) NewQuota(env adapter.Env, c adapter.AspectConfig, d map[string]*adapter.QuotaDefinition) (adapter.QuotaAspect, error) {
+func (builder) NewQuota(env adapter.Env, c adapter.AspectConfig, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
 	return newAspect(env, c.(*config.Params), d)
 }
 
 // newAspect returns a new aspect.
-func newAspect(env adapter.Env, c *config.Params, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotaAspect, error) {
+func newAspect(env adapter.Env, c *config.Params, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
 	return newAspectWithDedup(env, time.NewTicker(time.Duration(c.MinDeduplicationWindowSeconds)*time.Second), definitions)
 }
 
 // newAspect returns a new aspect.
-func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotaAspect, error) {
+func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
 	mq := &memQuota{
 		definitions: definitions,
 		cells:       make(map[string]int64),

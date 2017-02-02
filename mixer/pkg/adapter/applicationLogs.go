@@ -21,8 +21,8 @@ import (
 )
 
 type (
-	// LoggerAspect handles log data within the mixer.
-	LoggerAspect interface {
+	// ApplicationLogsAspect handles log data within the mixer.
+	ApplicationLogsAspect interface {
 		Aspect
 
 		// Log directs a backend adapter to process a batch of
@@ -55,12 +55,12 @@ type (
 	// Severity provides a set of logging levels for logger.Entry.
 	Severity int
 
-	// LoggerBuilder builds instances of the Logger aspect.
-	LoggerBuilder interface {
+	// ApplicationLogsBuilder builds instances of the Logger aspect.
+	ApplicationLogsBuilder interface {
 		Builder
 
 		// NewLogger returns a new instance of the Logger aspect.
-		NewLogger(env Env, c AspectConfig) (LoggerAspect, error)
+		NewLogger(env Env, c AspectConfig) (ApplicationLogsAspect, error)
 	}
 )
 

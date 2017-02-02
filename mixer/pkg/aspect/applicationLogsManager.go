@@ -30,16 +30,16 @@ import (
 )
 
 type (
-	loggerManager struct{}
+	applicationLogsManager struct{}
 
-	loggerWrapper struct {
+	applicationLogsWrapper struct {
 		logName            string
 		descriptors        []dpb.LogEntryDescriptor // describe entries to gen
 		inputs             map[string]string        // map from param to expr
 		severityAttribute  string
 		timestampAttribute string
 		timestampFmt       string
-		aspect             adapter.LoggerAspect
+		aspect             adapter.ApplicationLogsAspect
 		defaultTimeFn      func() time.Time
 	}
 )
@@ -70,13 +70,13 @@ var (
 	}
 )
 
-// NewLoggerManager returns an aspect manager for the logger aspect.
-func NewLoggerManager() Manager {
-	return loggerManager{}
+// NewApplicationLogsManager returns an aspect manager for the logger aspect.
+func NewApplicationLogsManager() Manager {
+	return applicationLogsManager{}
 }
 
-func (loggerManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
-	aspect, err := a.(adapter.LoggerBuilder).NewLogger(env, c.Builder.Params.(adapter.AspectConfig))
+func (applicationLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+	aspect, err := a.(adapter.ApplicationLogsBuilder).NewLogger(env, c.Builder.Params.(adapter.AspectConfig))
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (loggerManager) NewAspect(c *config.Combined, a adapter.Builder, env adapte
 	// TODO: look up actual descriptors by name and build an array
 	logCfg := c.Aspect.Params.(*aconfig.LoggerParams)
 
-	return &loggerWrapper{
+	return &applicationLogsWrapper{
 		logCfg.LogName,
 		[]dpb.LogEntryDescriptor{defaultLog},
 		c.Aspect.GetInputs(),
@@ -96,17 +96,19 @@ func (loggerManager) NewAspect(c *config.Combined, a adapter.Builder, env adapte
 	}, nil
 }
 
-func (loggerManager) Kind() string { return LogKind }
-func (loggerManager) DefaultConfig() adapter.AspectConfig {
+func (applicationLogsManager) Kind() string { return LogKind }
+func (applicationLogsManager) DefaultConfig() adapter.AspectConfig {
 	return &aconfig.LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
 }
 
 // TODO: validation of timestamp format
-func (loggerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return nil }
+func (applicationLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+	return nil
+}
 
-func (e *loggerWrapper) Close() error { return e.aspect.Close() }
+func (e *applicationLogsWrapper) Close() error { return e.aspect.Close() }
 
-func (e *loggerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
+func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
 	var entries []adapter.LogEntry
 
 	// TODO: would be nice if we could use a mutable.Bag here and could pass it around

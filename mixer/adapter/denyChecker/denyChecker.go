@@ -34,14 +34,14 @@ var (
 
 // Register records the builders exposed by this adapter.
 func Register(r adapter.Registrar) {
-	r.RegisterDenyChecker(newBuilder())
+	r.RegisterDenialsBuilder(newBuilder())
 }
 
 func newBuilder() builder {
 	return builder{adapter.NewDefaultBuilder(name, desc, conf)}
 }
 
-func (builder) NewDenyChecker(env adapter.Env, c adapter.AspectConfig) (adapter.DenyCheckerAspect, error) {
+func (builder) NewDenyChecker(env adapter.Env, c adapter.AspectConfig) (adapter.DenialsAspect, error) {
 	return newDenyChecker(c.(*config.Params))
 }
 

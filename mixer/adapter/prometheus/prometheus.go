@@ -43,7 +43,7 @@ var (
 
 // Register records the builders exposed by this adapter.
 func Register(r adapter.Registrar) {
-	r.RegisterMetrics(newFactory())
+	r.RegisterMetricsBuilder(newFactory())
 }
 
 func newFactory() *factory {
