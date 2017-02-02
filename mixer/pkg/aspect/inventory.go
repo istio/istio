@@ -18,17 +18,21 @@ import (
 	"istio.io/mixer/pkg/config"
 )
 
-// ManagerFinder find an aspect Manager given aspect kind.
-type ManagerFinder interface {
-	// ByImpl queries the registry by adapter name.
-	FindManager(kind string) (Manager, bool)
-}
-
 // APIBinding associates an aspect with an API method
 type APIBinding struct {
 	Aspect Manager
 	Method config.APIMethod
 }
+
+// Name of all supported aspect kinds.
+const (
+	AccessLogKind = "access-logs"
+	DenyKind      = "denials"
+	ListKind      = "lists"
+	LogKind       = "application-logs"
+	MetricKind    = "metrics"
+	QuotaKind     = "quotas"
+)
 
 // Inventory returns a manager inventory that contains
 // all available aspect managers

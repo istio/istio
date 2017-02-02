@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/aspect"
 )
 
 type testBuilder struct {
@@ -43,7 +44,7 @@ func TestRegisterDenyChecker(t *testing.T) {
 
 	reg.RegisterDenyChecker(builder)
 
-	impl, ok := reg.FindBuilder(builder.Name())
+	impl, ok := reg.FindBuilder(aspect.DenyKind, builder.Name())
 	if !ok {
 		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
@@ -65,7 +66,7 @@ func TestRegisterListChecker(t *testing.T) {
 
 	reg.RegisterListChecker(builder)
 
-	impl, ok := reg.FindBuilder(builder.Name())
+	impl, ok := reg.FindBuilder(aspect.ListKind, builder.Name())
 	if !ok {
 		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
@@ -87,7 +88,7 @@ func TestRegisterLogger(t *testing.T) {
 
 	reg.RegisterLogger(builder)
 
-	impl, ok := reg.FindBuilder(builder.Name())
+	impl, ok := reg.FindBuilder(aspect.LogKind, builder.Name())
 	if !ok {
 		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
@@ -109,7 +110,7 @@ func TestRegistry_RegisterAccessLogger(t *testing.T) {
 
 	reg.RegisterAccessLogger(builder)
 
-	impl, ok := reg.FindBuilder(builder.Name())
+	impl, ok := reg.FindBuilder(aspect.AccessLogKind, builder.Name())
 	if !ok {
 		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
@@ -130,7 +131,7 @@ func TestRegisterQuota(t *testing.T) {
 	builder := quotaBuilder{testBuilder{name: "foo"}}
 
 	reg.RegisterQuota(builder)
-	impl, ok := reg.FindBuilder(builder.Name())
+	impl, ok := reg.FindBuilder(aspect.QuotaKind, builder.Name())
 	if !ok {
 		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
 	}
@@ -144,10 +145,10 @@ func TestCollision(t *testing.T) {
 	reg := newRegistry(nil)
 	name := "some name that they both have"
 
-	a1 := denyBuilder{testBuilder{name}}
-	reg.RegisterDenyChecker(a1)
+	a1 := listBuilder{testBuilder{name}}
+	reg.RegisterListChecker(a1)
 
-	if a, ok := reg.FindBuilder(name); !ok || a != a1 {
+	if a, ok := reg.FindBuilder(aspect.ListKind, name); !ok || a != a1 {
 		t.Errorf("Failed to get first adapter by impl name; expected: '%v', actual: '%v'", a1, a)
 	}
 

@@ -7,11 +7,11 @@ go_library(
     srcs = [
         "accessLoggerManager.go",
         "denyCheckerManager.go",
+        "inventory.go",
         "listCheckerManager.go",
         "loggerManager.go",
         "manager.go",
         "quotaManager.go",
-        "registry.go",
     ],
     deps = [
         "//pkg/adapter:go_default_library",

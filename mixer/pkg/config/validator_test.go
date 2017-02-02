@@ -29,7 +29,7 @@ type fakeVFinder struct {
 	v map[string]adapter.ConfigValidator
 }
 
-func (f *fakeVFinder) FindValidator(name string) (adapter.ConfigValidator, bool) {
+func (f *fakeVFinder) FindValidator(kind string, name string) (adapter.ConfigValidator, bool) {
 	v, found := f.v[name]
 	return v, found
 }

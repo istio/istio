@@ -119,7 +119,7 @@ func (m *fakemgr) NewAspect(cfg *config.Combined, adp adapter.Builder, env adapt
 	return m.w, nil
 }
 
-func (m *fakeBuilderReg) FindBuilder(adapterName string) (adapter.Builder, bool) {
+func (m *fakeBuilderReg) FindBuilder(kind string, adapterName string) (adapter.Builder, bool) {
 	return m.adp, m.found
 }
 

@@ -74,7 +74,7 @@ type keyWorkspace struct {
 var keyWorkspacePool = sync.Pool{New: func() interface{} { return &keyWorkspace{} }}
 
 var (
-	name = "istio/memQuota"
+	name = "memQuota"
 	desc = "Simple volatile memory-based quotas."
 	conf = &config.Params{MinDeduplicationWindowSeconds: 1}
 )

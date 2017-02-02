@@ -25,7 +25,7 @@ type (
 )
 
 var (
-	name = "istio/genericListChecker"
+	name = "genericListChecker"
 	desc = "Checks whether a symbol is present in a list."
 	conf = &config.Params{}
 )

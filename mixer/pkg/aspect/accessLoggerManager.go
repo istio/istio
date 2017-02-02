@@ -102,7 +102,7 @@ func (m accessLoggerManager) NewAspect(c *config.Combined, a adapter.Builder, en
 	}, nil
 }
 
-func (accessLoggerManager) Kind() string { return "istio/accessLogger" }
+func (accessLoggerManager) Kind() string { return AccessLogKind }
 func (accessLoggerManager) DefaultConfig() adapter.AspectConfig {
 	return &aconfig.AccessLoggerParams{
 		LogName:   "access_log",

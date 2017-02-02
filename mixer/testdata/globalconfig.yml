@@ -2,16 +2,16 @@ subject: "namespace:ns"
 revision: "2022"
 adapters:
   - name: default
-    kind: istio/quota
-    impl: istio/memQuota
+    kind: quotas
+    impl: memQuota
     params:
   - name: default
-    kind: istio/accessLogger
-    impl: istio/stdioAccessLogger
+    kind: access-logs
+    impl: stdioLogger
     params:
       logStream: 0 # STDERR
   - name: default
-    kind: istio/logger
-    impl: istio/stdioLogger
+    kind: applications-logs
+    impl: stdioLogger
     params:
       logStream: 0 # STDERR

@@ -77,18 +77,29 @@ func listAspects() error {
 
 func listBuilders() error {
 	builderMap := adapterManager.BuilderMap(adapter.Inventory())
-	keys := []string{}
-	for impl := range builderMap {
-		keys = append(keys, impl)
+	kinds := []string{}
+	for k := range builderMap {
+		kinds = append(kinds, k)
 	}
 
-	sort.Strings(keys)
+	sort.Strings(kinds)
 
-	for _, impl := range keys {
-		b := builderMap[impl]
-		fmt.Printf("adapter %s: %s\n", impl, b.Description())
-		printConfigValidator(b)
+	for _, kind := range kinds {
+		m := builderMap[kind]
 
+		keys := []string{}
+		for impl := range m {
+			keys = append(keys, impl)
+		}
+
+		sort.Strings(keys)
+
+		for _, impl := range keys {
+			b := m[impl]
+			fmt.Printf("adapter %s/%s: %s\n", kind, impl, b.Description())
+			printConfigValidator(b)
+
+		}
 	}
 
 	return nil

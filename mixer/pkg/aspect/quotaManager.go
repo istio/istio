@@ -80,7 +80,7 @@ func (m *quotaManager) NewAspect(c *config.Combined, a adapter.Builder, env adap
 	}, nil
 }
 
-func (*quotaManager) Kind() string                                                   { return "istio/quota" }
+func (*quotaManager) Kind() string                                                   { return QuotaKind }
 func (*quotaManager) DefaultConfig() adapter.AspectConfig                            { return &aconfig.QuotaParams{} }
 func (*quotaManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 
