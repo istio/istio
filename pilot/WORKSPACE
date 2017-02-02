@@ -267,7 +267,7 @@ new_go_repository(
 
 git_repository(
     name = "istio_proxy",
-    commit = "27962094adf801685a8547284fb60ca7c75ad1f8",
+    commit = "53fd02610571f8c05af2e50fea911f89f935e678",
     remote = "https://github.com/istio/proxy",
 )
 
