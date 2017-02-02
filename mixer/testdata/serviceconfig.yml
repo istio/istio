@@ -4,13 +4,13 @@ rules:
         #- selector: service.name == “*”
 - selector:
   aspects:
-  - kind: istio/quota
+  - kind: quotas
     params:
-  - kind: istio/accessLogger
+  - kind: access-logs
     params:
       logName: "access_log"
       logFormat: 0 # Common Log Format
-  - kind: istio/logger
+  - kind: application-logs
     params:
       logName: "mixer_log"
       logEntryDescriptorNames: ["default"]

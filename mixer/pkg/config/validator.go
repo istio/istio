@@ -40,7 +40,7 @@ type (
 	// Manager registry and adapter registry should implement this interface
 	// so ConfigValidators can be uniformly accessed.
 	ValidatorFinder interface {
-		FindValidator(name string) (adapter.ConfigValidator, bool)
+		FindValidator(kind string, name string) (adapter.ConfigValidator, bool)
 	}
 )
 
@@ -92,7 +92,7 @@ func (p *Validator) validateGlobalConfig(cfg string) (ce *adapter.ConfigErrors) 
 	var aArr []*pb.Adapter
 	var found bool
 	for _, aa := range m.GetAdapters() {
-		if acfg, err = ConvertParams(p.adapterFinder, aa.Impl, aa.Params, p.strict); err != nil {
+		if acfg, err = ConvertParams(p.adapterFinder, aa.Kind, aa.Impl, aa.Params, p.strict); err != nil {
 			ce = ce.Append("Adapter: "+aa.Impl, err)
 			continue
 		}
@@ -131,7 +131,7 @@ func (p *Validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 		}
 		path = path + "/" + rule.GetSelector()
 		for idx, aa := range rule.GetAspects() {
-			if acfg, err = ConvertParams(p.managerFinder, aa.GetKind(), aa.GetParams(), p.strict); err != nil {
+			if acfg, err = ConvertParams(p.managerFinder, "", aa.GetKind(), aa.GetParams(), p.strict); err != nil {
 				ce = ce.Append(fmt.Sprintf("%s:%s[%d]", path, aa.Kind, idx), err)
 				continue
 			}
@@ -199,11 +199,11 @@ func UnknownValidator(name string) error {
 }
 
 // ConvertParams converts returns a typed proto message based on available Validator.
-func ConvertParams(finder ValidatorFinder, name string, params interface{}, strict bool) (adapter.AspectConfig, error) {
+func ConvertParams(finder ValidatorFinder, kind string, name string, params interface{}, strict bool) (adapter.AspectConfig, error) {
 	var avl adapter.ConfigValidator
 	var found bool
 
-	if avl, found = finder.FindValidator(name); !found {
+	if avl, found = finder.FindValidator(kind, name); !found {
 		return nil, UnknownValidator(name)
 	}
 

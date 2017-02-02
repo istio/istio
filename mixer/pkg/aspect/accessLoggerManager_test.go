@@ -33,7 +33,7 @@ import (
 
 func TestNewAccessLoggerManager(t *testing.T) {
 	m := NewAccessLoggerManager()
-	if m.Kind() != "istio/accessLogger" {
+	if m.Kind() != AccessLogKind {
 		t.Errorf("Wrong kind of adapter; got %s, want %s", m.Kind(), "istio/accessLogger")
 	}
 }

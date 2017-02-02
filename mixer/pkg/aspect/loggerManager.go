@@ -96,7 +96,7 @@ func (loggerManager) NewAspect(c *config.Combined, a adapter.Builder, env adapte
 	}, nil
 }
 
-func (loggerManager) Kind() string { return "istio/logger" }
+func (loggerManager) Kind() string { return LogKind }
 func (loggerManager) DefaultConfig() adapter.AspectConfig {
 	return &aconfig.LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
 }

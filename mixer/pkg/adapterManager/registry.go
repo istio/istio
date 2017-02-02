@@ -20,20 +20,25 @@ import (
 	"github.com/golang/glog"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/config"
 )
+
+// BuildersByName holds a set of builders of the same aspect kind, indexed by their name.
+type BuildersByName map[string]adapter.Builder
+
+// BuildersPerKind holds a set of builders, indexed by aspect kind.
+type BuildersPerKind map[string]BuildersByName
 
 // registry implements pkg/adapter/Registrar.
 // registry is initialized in the constructor and is immutable thereafter.
-// All registered builders must have unique names.
+// All registered builders must have unique names per aspect kind.
 // It also implements builderFinder that manager uses.
 type registry struct {
-	buildersByName map[string]adapter.Builder
+	builders BuildersPerKind
 }
 
 // newRegistry returns a new Builder registry.
 func newRegistry(builders []adapter.RegisterFn) *registry {
-	r := &registry{buildersByName: make(map[string]adapter.Builder)}
+	r := &registry{make(BuildersPerKind)}
 	for idx, builder := range builders {
 		glog.V(2).Infof("Registering [%d] %v", idx, builder)
 		builder(r)
@@ -45,68 +50,61 @@ func newRegistry(builders []adapter.RegisterFn) *registry {
 	return r
 }
 
-// BuilderMap returns map[string]adapter.Builder given a list of registerFns.
-func BuilderMap(builders []adapter.RegisterFn) map[string]adapter.Builder {
+// BuilderMap returns the known builders, indexed by kind.
+func BuilderMap(builders []adapter.RegisterFn) BuildersPerKind {
 	r := newRegistry(builders)
-	return r.buildersByName
+	return r.builders
 }
 
 // FindBuilder finds builder by name.
-func (r *registry) FindBuilder(name string) (adapter.Builder, bool) {
-	b, ok := r.buildersByName[name]
+func (r *registry) FindBuilder(kind string, name string) (adapter.Builder, bool) {
+	m := r.builders[kind]
+	b, ok := m[name]
 	return b, ok
 }
 
 // RegisterListChecker registers a new ListChecker builder.
 func (r *registry) RegisterListChecker(list adapter.ListCheckerBuilder) {
-	r.insert(list)
+	r.insert(aspect.ListKind, list)
 }
 
 // RegisterDenyChecker registers a new DenyChecker builder.
 func (r *registry) RegisterDenyChecker(deny adapter.DenyCheckerBuilder) {
-	r.insert(deny)
+	r.insert(aspect.DenyKind, deny)
 }
 
 // RegisterLogger registers a new Logger builder.
 func (r *registry) RegisterLogger(logger adapter.LoggerBuilder) {
-	r.insert(logger)
+	r.insert(aspect.LogKind, logger)
 }
 
 // RegisterAccessLogger registers a new Logger builder.
 func (r *registry) RegisterAccessLogger(logger adapter.AccessLoggerBuilder) {
-	r.insert(logger)
+	r.insert(aspect.AccessLogKind, logger)
 }
 
 // RegisterQuota registers a new Quota builder.
 func (r *registry) RegisterQuota(quota adapter.QuotaBuilder) {
-	r.insert(quota)
+	r.insert(aspect.QuotaKind, quota)
 }
 
 // RegisterMetrics registers a new Metrics builder.
-func (r *registry) RegisterMetrics(quota adapter.MetricsBuilder) {
-	r.insert(quota)
+func (r *registry) RegisterMetrics(metrics adapter.MetricsBuilder) {
+	r.insert(aspect.MetricKind, metrics)
 }
 
-func (r *registry) insert(b adapter.Builder) {
-	glog.V(2).Infof("Registering %v", b)
-	if old, exists := r.buildersByName[b.Name()]; exists {
-		panic(fmt.Errorf("duplicate registration for '%s' : %v %v", b.Name(), old, b))
-	}
-	r.buildersByName[b.Name()] = b
-}
+func (r *registry) insert(kind string, b adapter.Builder) {
+	glog.V(2).Infof("Registering %v:%v", kind, b)
 
-// ProcessBindings returns a fully constructed manager map and aspectSet given APIBinding.
-func ProcessBindings(bnds []aspect.APIBinding) (map[string]aspect.Manager, map[config.APIMethod]config.AspectSet) {
-	r := make(map[string]aspect.Manager)
-	as := make(map[config.APIMethod]config.AspectSet)
+	m := r.builders[kind]
+	if m == nil {
+		m = make(map[string]adapter.Builder)
+		r.builders[kind] = m
+	}
 
-	// setup aspect sets for all methods
-	for _, am := range config.APIMethods() {
-		as[am] = config.AspectSet{}
+	if old, exists := m[b.Name()]; exists {
+		panic(fmt.Errorf("duplicate registration for '%v:%s' : %v %v", kind, b.Name(), old, b))
 	}
-	for _, bnd := range bnds {
-		r[bnd.Aspect.Kind()] = bnd.Aspect
-		as[bnd.Method][bnd.Aspect.Kind()] = true
-	}
-	return r, as
+
+	m[b.Name()] = b
 }

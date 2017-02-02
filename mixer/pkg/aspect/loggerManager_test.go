@@ -42,8 +42,8 @@ type (
 
 func TestNewLoggerManager(t *testing.T) {
 	m := NewLoggerManager()
-	if m.Kind() != "istio/logger" {
-		t.Error("Wrong kind of adapter")
+	if m.Kind() != LogKind {
+		t.Error("Wrong kind of manager")
 	}
 }
 

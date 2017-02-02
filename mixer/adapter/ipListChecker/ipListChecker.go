@@ -47,7 +47,7 @@ type (
 )
 
 var (
-	name = "istio/ipListChecker"
+	name = "ipListChecker"
 	desc = "Checks whether an IP address is present in an IP address list."
 	conf = &config.Params{
 		ProviderUrl:     "http://localhost",

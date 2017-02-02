@@ -43,10 +43,10 @@ type Manager struct {
 	aspectCache map[cacheKey]aspect.Wrapper
 }
 
-// builderFinder finds a builder by name.
+// builderFinder finds a builder by kind & name.
 type builderFinder interface {
-	// FindBuilder finds a builder by name.
-	FindBuilder(name string) (adapter.Builder, bool)
+	// FindBuilder finds a builder by kind & name.
+	FindBuilder(kind string, name string) (adapter.Builder, bool)
 }
 
 // cacheKey is used to cache fully constructed aspects
@@ -114,7 +114,7 @@ func (m *Manager) Execute(cfg *config.Combined, attrs attribute.Bag) (out *aspec
 	}
 
 	var adp adapter.Builder
-	if adp, found = m.builderFinder.FindBuilder(cfg.Builder.Impl); !found {
+	if adp, found = m.builderFinder.FindBuilder(cfg.Aspect.Kind, cfg.Builder.Impl); !found {
 		return nil, fmt.Errorf("could not find registered adapter %#v", cfg.Builder.Impl)
 	}
 
@@ -135,7 +135,7 @@ func (m *Manager) Execute(cfg *config.Combined, attrs attribute.Bag) (out *aspec
 	return asp.Execute(attrs, m.mapper)
 }
 
-// CacheGet -- get from the cache, use adapter.Manager to construct an object in case of a cache miss
+// cacheGet -- get from the cache, use adapter.Manager to construct an object in case of a cache miss
 func (m *Manager) cacheGet(cfg *config.Combined, mgr aspect.Manager, builder adapter.Builder) (asp aspect.Wrapper, err error) {
 	var key *cacheKey
 	if key, err = newCacheKey(cfg); err != nil {
@@ -182,7 +182,7 @@ type aspectValidatorFinder struct {
 	m map[string]aspect.Manager
 }
 
-func (a *aspectValidatorFinder) FindValidator(name string) (adapter.ConfigValidator, bool) {
+func (a *aspectValidatorFinder) FindValidator(kind string, name string) (adapter.ConfigValidator, bool) {
 	c, ok := a.m[name]
 	return c, ok
 }
@@ -196,8 +196,8 @@ type builderValidatorFinder struct {
 	b builderFinder
 }
 
-func (a *builderValidatorFinder) FindValidator(name string) (adapter.ConfigValidator, bool) {
-	return a.b.FindBuilder(name)
+func (a *builderValidatorFinder) FindValidator(kind string, name string) (adapter.ConfigValidator, bool) {
+	return a.b.FindBuilder(kind, name)
 }
 
 // BuilderValidatorFinder returns ValidatorFinder for builders.
@@ -208,4 +208,20 @@ func (m *Manager) BuilderValidatorFinder() config.ValidatorFinder {
 // AspectMap returns map of APIMethod --> AspectSet.
 func (m *Manager) AspectMap() map[config.APIMethod]config.AspectSet {
 	return m.aspectmap
+}
+
+// ProcessBindings returns a fully constructed manager map and aspectSet given APIBinding.
+func ProcessBindings(bnds []aspect.APIBinding) (map[string]aspect.Manager, map[config.APIMethod]config.AspectSet) {
+	r := make(map[string]aspect.Manager)
+	as := make(map[config.APIMethod]config.AspectSet)
+
+	// setup aspect sets for all methods
+	for _, am := range config.APIMethods() {
+		as[am] = config.AspectSet{}
+	}
+	for _, bnd := range bnds {
+		r[bnd.Aspect.Kind()] = bnd.Aspect
+		as[bnd.Method][bnd.Aspect.Kind()] = true
+	}
+	return r, as
 }

@@ -52,7 +52,7 @@ func (denyCheckerManager) NewAspect(cfg *config.Combined, ga adapter.Builder, en
 	}, nil
 }
 
-func (denyCheckerManager) Kind() string                                                     { return "istio/denyChecker" }
+func (denyCheckerManager) Kind() string                                                     { return DenyKind }
 func (denyCheckerManager) DefaultConfig() adapter.AspectConfig                              { return &aconfig.DenyCheckerParams{} }
 func (denyCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 

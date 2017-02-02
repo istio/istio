@@ -58,7 +58,7 @@ func (listCheckerManager) NewAspect(cfg *config.Combined, ga adapter.Builder, en
 }
 
 func (listCheckerManager) Kind() string {
-	return "istio/listChecker"
+	return ListKind
 }
 
 func (listCheckerManager) DefaultConfig() adapter.AspectConfig {

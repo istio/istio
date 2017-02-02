@@ -27,7 +27,7 @@ type (
 )
 
 var (
-	name = "istio/denyChecker"
+	name = "denyChecker"
 	desc = "Denies every check request"
 	conf = &config.Params{Error: &status.Status{Code: int32(code.Code_FAILED_PRECONDITION)}}
 )
