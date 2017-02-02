@@ -44,6 +44,32 @@ type (
 	}
 )
 
+var (
+	defaultLog = dpb.LogEntryDescriptor{
+		Name:             "default",
+		DisplayName:      "Default Log Entry",
+		Description:      "Placeholder log descriptor",
+		PayloadAttribute: "logMessage",
+		Attributes: []string{
+			"serviceName",
+			"peerId",
+			"operationId",
+			"operationName",
+			"apiKey",
+			"url",
+			"location",
+			"apiName",
+			"apiVersion",
+			"apiMethod",
+			"requestSize",
+			"responseSize",
+			"responseTime",
+			"originIp",
+			"originHost",
+		},
+	}
+)
+
 // NewLoggerManager returns an aspect manager for the logger aspect.
 func NewLoggerManager() Manager {
 	return loggerManager{}
@@ -60,7 +86,7 @@ func (loggerManager) NewAspect(c *config.Combined, a adapter.Builder, env adapte
 
 	return &loggerWrapper{
 		logCfg.LogName,
-		[]dpb.LogEntryDescriptor{},
+		[]dpb.LogEntryDescriptor{defaultLog},
 		c.Aspect.GetInputs(),
 		logCfg.SeverityAttribute,
 		logCfg.TimestampAttribute,
