@@ -21,8 +21,11 @@ type (
 
 		// LogAccess directs a backend adapter to process a batch of
 		// access log entries derived from potentially several Report()
-		// calls.
-		LogAccess([]AccessLogEntry) error
+		// calls. LogEntries generated for this Aspect will only have
+		// the fields LogName, Labels, and TextPayload populated.
+		// TextPayload will contain the generated access log string,
+		// based on the aspect configuration.
+		LogAccess([]LogEntry) error
 	}
 
 	// AccessLoggerBuilder builds instances of the AccessLogger aspect.
@@ -31,39 +34,5 @@ type (
 
 		// NewAccessLogger returns a new instance of the AccessLogger aspect.
 		NewAccessLogger(env Env, c AspectConfig) (AccessLoggerAspect, error)
-	}
-
-	// AccessLogEntry defines a basic wrapper around the access log information for
-	// a single log entry. It is the job of the aspect manager to produce
-	// the access log data, based on the aspect configuration and pass the
-	// entries to the various backend adapters.
-	//
-	// Examples:
-	//
-	//  &AccessLogEntry{
-	// 	  LogName: "logs/access_log",
-	//    Log: "127.0.0.1 - testuser [10/Oct/2000:13:55:36 -0700] "GET /test.gif HTTP/1.0" 200 2326",
-	//  }
-	//
-	//  &AccessLogEntry{
-	//	  LogName: "logs/access_log",
-	//	  Labels: map[string]interface{}{
-	//            "source_ip": "127.0.0.1",
-	//            "url": "/test.gif",
-	//            "protocol": "HTTP",
-	//            "response_code": 200,
-	//      }
-	//   }
-	AccessLogEntry struct {
-		// LogName is the name of the access log stream to which the
-		// entry corresponds.
-		LogName string `json:"logName,omitempty"`
-		// Log is the text-formatted access log entry data. It will
-		// be prepared by the aspect manager, based upon aspect config.
-		Log string `json:"log,omitempty"`
-		// Labels is the set of key-value pairs that can be used to
-		// generate a structured access log for this entry. The aspect
-		// manager will populate this map based on aspect config.
-		Labels map[string]interface{} `json:"labels,omitempty"`
 	}
 )

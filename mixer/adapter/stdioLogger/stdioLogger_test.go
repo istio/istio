@@ -134,25 +134,26 @@ func TestLogger_LogFailure(t *testing.T) {
 func TestLogger_LogAccess(t *testing.T) {
 	tw := &testWriter{lines: make([]string, 0)}
 
-	noLabelsEntry := adapter.AccessLogEntry{LogName: "access_log"}
-	labelsEntry := adapter.AccessLogEntry{LogName: "access_log", Labels: map[string]interface{}{"test": false, "val": 42}}
-	labelsWithTextEntry := adapter.AccessLogEntry{
-		LogName: "access_log",
-		Labels:  map[string]interface{}{"test": false, "val": 42},
-		Log:     "this is a log line",
+	noLabelsEntry := adapter.LogEntry{LogName: "access_log"}
+	labelsEntry := adapter.LogEntry{LogName: "access_log", Labels: map[string]interface{}{"test": false, "val": 42}}
+	labelsWithTextEntry := adapter.LogEntry{
+		LogName:     "access_log",
+		Labels:      map[string]interface{}{"test": false, "val": 42},
+		TextPayload: "this is a log line",
 	}
 
 	baseLog := `{"logName":"access_log"}`
 	labelsLog := `{"logName":"access_log","labels":{"test":false,"val":42}}`
+	labelsWithTextLog := `{"logName":"access_log","labels":{"test":false,"val":42},"textPayload":"this is a log line"}`
 
 	tests := []struct {
-		input []adapter.AccessLogEntry
+		input []adapter.LogEntry
 		want  []string
 	}{
-		{[]adapter.AccessLogEntry{}, []string{}},
-		{[]adapter.AccessLogEntry{noLabelsEntry}, []string{baseLog}},
-		{[]adapter.AccessLogEntry{labelsEntry}, []string{labelsLog}},
-		{[]adapter.AccessLogEntry{labelsWithTextEntry}, []string{labelsLog}},
+		{[]adapter.LogEntry{}, []string{}},
+		{[]adapter.LogEntry{noLabelsEntry}, []string{baseLog}},
+		{[]adapter.LogEntry{labelsEntry}, []string{labelsLog}},
+		{[]adapter.LogEntry{labelsWithTextEntry}, []string{labelsWithTextLog}},
 	}
 
 	for _, v := range tests {
@@ -169,10 +170,10 @@ func TestLogger_LogAccess(t *testing.T) {
 
 func TestLogger_LogAccessFailure(t *testing.T) {
 	tw := &testWriter{errorOnWrite: true}
-	entry := adapter.AccessLogEntry{LogName: "access_log"}
+	entry := adapter.LogEntry{LogName: "access_log"}
 	l := &logger{tw}
 
-	if err := l.LogAccess([]adapter.AccessLogEntry{entry}); err == nil {
+	if err := l.LogAccess([]adapter.LogEntry{entry}); err == nil {
 		t.Error("LogAccess() should have produced error")
 	}
 }

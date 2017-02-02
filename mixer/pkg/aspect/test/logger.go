@@ -29,7 +29,7 @@ type Logger struct {
 	DefaultCfg     adapter.AspectConfig
 	EntryCount     int
 	Logs           []adapter.LogEntry
-	AccessLogs     []adapter.AccessLogEntry
+	AccessLogs     []adapter.LogEntry
 	ErrOnNewAspect bool
 	ErrOnLog       bool
 }
@@ -73,7 +73,7 @@ func (t *Logger) Log(l []adapter.LogEntry) error {
 }
 
 // LogAccess simulates processing a batch of access log entries.
-func (t *Logger) LogAccess(l []adapter.AccessLogEntry) error {
+func (t *Logger) LogAccess(l []adapter.LogEntry) error {
 	if t.ErrOnLog {
 		return errors.New("log access error")
 	}
