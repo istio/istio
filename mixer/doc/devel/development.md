@@ -32,7 +32,8 @@ branch, but release branches of the Istio mixer should not change.
   - [Auto-formatting source code](#auto-formatting-source-code)
   - [Running the linters](#running-the-linters)
   - [Running race detection tests](#running-race-detection-tests)
-- [About testing](#about-testing)
+  - [About testing](#about-testing)
+- [Using the mixer](#using-the-mixer)
 
 Other docs you should look at:
 
@@ -233,7 +234,7 @@ You can run the test suite using the Go race detection tools using:
 make racetest
 ```
 
-## About testing
+### About testing
 
 Before sending pull requests you should at least make sure your changes have
 passed both unit and integration tests. We only merges pull requests when
@@ -245,3 +246,19 @@ passed both unit and integration tests. We only merges pull requests when
 * The preferred method of testing multiple scenarios or input is
   [table driven testing](https://github.com/golang/go/wiki/TableDrivenTests)
 * Concurrent unit test runs must pass.
+
+## Using the mixer
+
+Once you've built the source base, you can run the mixer in a basic mode using:
+
+```
+bazel-bin/cmd/server/mixs server
+  --globalConfigFile testdata/globalconfig.yml
+  --serviceConfigFile testdata/serviceconfig.yml  --logtostderr
+```
+
+You can also run a simple client to interact with the server:
+
+```
+bazel-bin/cmd/client/mixc check
+```

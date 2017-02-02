@@ -11,7 +11,7 @@ adapters:
     params:
       logStream: 0 # STDERR
   - name: default
-    kind: applications-logs
+    kind: application-logs
     impl: stdioLogger
     params:
       logStream: 0 # STDERR
