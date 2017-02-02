@@ -10,3 +10,8 @@ adapters:
     impl: istio/stdioLogger
     params:
       logStream: 0 # STDERR
+  - name: default
+    kind: istio/logger
+    impl: istio/stdioLogger
+    params:
+      logStream: 0 # STDERR

@@ -54,7 +54,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 		timestampFmt: time.RFC3339,
 		aspect:       tl,
 		inputs:       map[string]string{},
-		descriptors:  []dpb.LogEntryDescriptor{},
+		descriptors:  []dpb.LogEntryDescriptor{defaultLog},
 	}
 
 	overrideExec := &loggerWrapper{
@@ -62,7 +62,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 		timestampFmt: "2006-Jan-02",
 		aspect:       tl,
 		inputs:       map[string]string{},
-		descriptors:  []dpb.LogEntryDescriptor{},
+		descriptors:  []dpb.LogEntryDescriptor{defaultLog},
 	}
 
 	newAspectShouldSucceed := []aspectTestCase{
