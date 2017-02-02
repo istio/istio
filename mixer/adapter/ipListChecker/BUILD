@@ -19,5 +19,5 @@ go_test(
     size = "small",
     srcs = ["ipListChecker_test.go"],
     library = ":go_default_library",
-    deps = ["//pkg/adapter/testing:go_default_library"],
+    deps = ["//pkg/adapter/test:go_default_library"],
 )

@@ -21,6 +21,6 @@ go_test(
     srcs = ["server_test.go"],
     library = ":go_default_library",
     deps = [
-        "//pkg/adapter/testing:go_default_library",
+        "//pkg/adapter/test:go_default_library",
     ],
 )

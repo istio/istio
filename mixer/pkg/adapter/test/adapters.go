@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package testing provides utility functions to assist in creating quality tests for
+// Package test provides utility functions to assist in creating quality tests for
 // adapters.
-package testing
+package test
 
 import (
 	gt "testing"
@@ -55,8 +55,8 @@ func (r *fakeRegistrar) RegisterMetrics(b adapter.MetricsBuilder) {
 	r.metrics = append(r.metrics, b)
 }
 
-// TestAdapterInvariants ensures that adapters implement expected semantics.
-func TestAdapterInvariants(r adapter.RegisterFn, t *gt.T) {
+// AdapterInvariants ensures that adapters implement expected semantics.
+func AdapterInvariants(r adapter.RegisterFn, t *gt.T) {
 	fr := &fakeRegistrar{}
 	r(fr)
 

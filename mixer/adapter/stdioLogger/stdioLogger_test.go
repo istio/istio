@@ -24,11 +24,11 @@ import (
 
 	"istio.io/mixer/adapter/stdioLogger/config"
 	"istio.io/mixer/pkg/adapter"
-	at "istio.io/mixer/pkg/adapter/testing"
+	"istio.io/mixer/pkg/adapter/test"
 )
 
 func TestAdapterInvariants(t *testing.T) {
-	at.TestAdapterInvariants(Register, t)
+	test.AdapterInvariants(Register, t)
 }
 
 func TestBuilder_NewLogger(t *testing.T) {
