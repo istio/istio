@@ -33,12 +33,7 @@ spec:
             "name": "iptables",
             "image": "{{.hub}}/init:{{.tag}}",
             "imagePullPolicy": "Always",
-            "securityContext": {
-              "privileged": true
-            },
-            "command": ["/bin/sh", "-c",
-              "iptables -t nat -A PREROUTING -p tcp -j REDIRECT --to-port 5001; iptables -t nat -A OUTPUT -p tcp -j REDIRECT --to-port 5001 -m owner '!' --uid-owner 1337; iptables -t nat --list"
-            ]
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
     spec:
       containers:

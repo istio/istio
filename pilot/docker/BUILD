@@ -26,7 +26,6 @@ pkg_tar(
     tags = ["manual"],
 )
 
-
 pkg_tar(
     name = "config",
     extension = "tar.gz",
@@ -49,6 +48,17 @@ pkg_tar(
     tags = ["manual"],
 )
 
+pkg_tar(
+    name = "prepare_proxy",
+    extension = "tar.gz",
+    files = [
+        "prepare_proxy.sh",
+    ],
+    mode = "0755",
+    package_dir = "/usr/local/bin/",
+    tags = ["manual"],
+)
+
 docker_build(
     name = "init",
     base = "@docker_ubuntu//:xenial",
@@ -57,10 +67,11 @@ docker_build(
         "@deb_libnfnetlink//file",
         "@deb_libxtables//file",
     ],
+    entrypoint = ["/usr/local/bin/prepare_proxy.sh"],
     repository = "istio",
     tags = ["manual"],
+    tars = [":prepare_proxy"],
 )
-
 
 docker_build(
     name = "runtime",
