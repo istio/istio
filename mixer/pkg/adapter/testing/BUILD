@@ -7,6 +7,7 @@ go_library(
     testonly = 1,
     srcs = [
         "adapters.go",
+        "env.go",
     ],
     deps = [
         "//pkg/adapter:go_default_library",
