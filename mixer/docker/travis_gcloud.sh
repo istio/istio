@@ -2,6 +2,7 @@
 set -ev
 
 export PROJECT="istio-testing"
+export BAZEL_OUTBASE=$HOME/bazel/outbase
 
 if [ "${TRAVIS_PULL_REQUEST}" = "false" ]; then
 	openssl aes-256-cbc -K $encrypted_2f660428f0db_key -iv $encrypted_2f660428f0db_iv -in $PROJECT.json.enc -out $PROJECT.json -d
