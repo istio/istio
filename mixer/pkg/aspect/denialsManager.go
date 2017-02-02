@@ -25,40 +25,40 @@ import (
 )
 
 type (
-	denyCheckerManager struct{}
+	denialsManager struct{}
 
-	denyCheckerWrapper struct {
-		aspect adapter.DenyCheckerAspect
+	denialsWrapper struct {
+		aspect adapter.DenialsAspect
 	}
 )
 
-// NewDenyCheckerManager returns a DenyCheckerManager.
-func NewDenyCheckerManager() Manager {
-	return denyCheckerManager{}
+// NewDenialsManager returns a DenyCheckerManager.
+func NewDenialsManager() Manager {
+	return denialsManager{}
 }
 
 // NewAspect creates a denyChecker aspect.
-func (denyCheckerManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
-	aa := ga.(adapter.DenyCheckerBuilder)
-	var asp adapter.DenyCheckerAspect
+func (denialsManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
+	aa := ga.(adapter.DenialsBuilder)
+	var asp adapter.DenialsAspect
 	var err error
 
 	if asp, err = aa.NewDenyChecker(env, cfg.Builder.Params.(adapter.AspectConfig)); err != nil {
 		return nil, err
 	}
 
-	return &denyCheckerWrapper{
+	return &denialsWrapper{
 		aspect: asp,
 	}, nil
 }
 
-func (denyCheckerManager) Kind() string                                                     { return DenyKind }
-func (denyCheckerManager) DefaultConfig() adapter.AspectConfig                              { return &aconfig.DenyCheckerParams{} }
-func (denyCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
+func (denialsManager) Kind() string                                                     { return DenyKind }
+func (denialsManager) DefaultConfig() adapter.AspectConfig                              { return &aconfig.DenyCheckerParams{} }
+func (denialsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 
-func (a *denyCheckerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
+func (a *denialsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
 	status := a.aspect.Deny()
 	return &Output{Code: code.Code(status.Code)}, nil
 }
 
-func (a *denyCheckerWrapper) Close() error { return a.aspect.Close() }
+func (a *denialsWrapper) Close() error { return a.aspect.Close() }

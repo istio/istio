@@ -27,47 +27,47 @@ import (
 )
 
 type (
-	listCheckerManager struct{}
+	listsManager struct{}
 
-	listCheckerWrapper struct {
+	listsWrapper struct {
 		inputs map[string]string
-		aspect adapter.ListCheckerAspect
+		aspect adapter.ListsAdapter
 		params *aconfig.ListCheckerParams
 	}
 )
 
-// NewListCheckerManager returns "this" aspect Manager
-func NewListCheckerManager() Manager {
-	return listCheckerManager{}
+// NewListsManager returns "this" aspect Manager
+func NewListsManager() Manager {
+	return listsManager{}
 }
 
 // NewAspect creates a listChecker aspect.
-func (listCheckerManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
-	aa := ga.(adapter.ListCheckerBuilder)
-	var asp adapter.ListCheckerAspect
+func (listsManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
+	aa := ga.(adapter.ListsBuilder)
+	var asp adapter.ListsAdapter
 	var err error
 
 	if asp, err = aa.NewListChecker(env, cfg.Builder.Params.(adapter.AspectConfig)); err != nil {
 		return nil, err
 	}
-	return &listCheckerWrapper{
+	return &listsWrapper{
 		inputs: cfg.Aspect.Inputs,
 		aspect: asp,
 		params: cfg.Aspect.Params.(*aconfig.ListCheckerParams),
 	}, nil
 }
 
-func (listCheckerManager) Kind() string {
+func (listsManager) Kind() string {
 	return ListKind
 }
 
-func (listCheckerManager) DefaultConfig() adapter.AspectConfig {
+func (listsManager) DefaultConfig() adapter.AspectConfig {
 	return &aconfig.ListCheckerParams{
 		CheckAttribute: "src.ip",
 	}
 }
 
-func (listCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (listsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	lc := c.(*aconfig.ListCheckerParams)
 	if lc.CheckAttribute == "" {
 		ce = ce.Appendf("CheckAttribute", "Missing")
@@ -75,7 +75,7 @@ func (listCheckerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.Co
 	return
 }
 
-func (a *listCheckerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
+func (a *listsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
 	var found bool
 	var err error
 
@@ -102,4 +102,4 @@ func (a *listCheckerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator)
 	return &Output{Code: rCode}, nil
 }
 
-func (a *listCheckerWrapper) Close() error { return a.aspect.Close() }
+func (a *listsWrapper) Close() error { return a.aspect.Close() }

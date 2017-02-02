@@ -5,13 +5,13 @@ load("@io_bazel_rules_go//go:def.bzl", "go_prefix", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "accessLoggerManager.go",
-        "denyCheckerManager.go",
+        "accessLogsManager.go",
+        "applicationLogsManager.go",
+        "denialsManager.go",
         "inventory.go",
-        "listCheckerManager.go",
-        "loggerManager.go",
+        "listsManager.go",
         "manager.go",
-        "quotaManager.go",
+        "quotasManager.go",
     ],
     deps = [
         "//pkg/adapter:go_default_library",
@@ -35,11 +35,11 @@ go_test(
     name = "small_tests",
     size = "small",
     srcs = [
-        "accessLoggerManager_test.go",
-        "denyCheckerManager_test.go",
-        "listCheckerManager_test.go",
-        "loggerManager_test.go",
-        "quotaManager_test.go",
+        "accessLogsManager_test.go",
+        "applicationLogsManager_test.go",
+        "denialsManager_test.go",
+        "listsManager_test.go",
+        "quotasManager_test.go",
     ],
     library = ":go_default_library",
     deps = [

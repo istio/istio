@@ -58,14 +58,14 @@ var (
 
 // Register records the builders exposed by this adapter.
 func Register(r adapter.Registrar) {
-	r.RegisterListChecker(newBuilder())
+	r.RegisterListsBuilder(newBuilder())
 }
 
-func newBuilder() adapter.ListCheckerBuilder {
+func newBuilder() adapter.ListsBuilder {
 	return builder{adapter.NewDefaultBuilder(name, desc, conf)}
 }
 
-func (builder) NewListChecker(env adapter.Env, c adapter.AspectConfig) (adapter.ListCheckerAspect, error) {
+func (builder) NewListChecker(env adapter.Env, c adapter.AspectConfig) (adapter.ListsAdapter, error) {
 	return newListChecker(env, c.(*config.Params))
 }
 

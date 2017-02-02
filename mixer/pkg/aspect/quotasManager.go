@@ -31,25 +31,25 @@ import (
 )
 
 type (
-	quotaManager struct {
+	quotasManager struct {
 		dedupCounter int64
 	}
 
-	quotaWrapper struct {
-		manager     *quotaManager
-		aspect      adapter.QuotaAspect
+	quotasWrapper struct {
+		manager     *quotasManager
+		aspect      adapter.QuotasAspect
 		descriptors []dpb.QuotaDescriptor
 		inputs      map[string]string
 	}
 )
 
-// NewQuotaManager returns an instance of the Quota aspect manager.
-func NewQuotaManager() Manager {
-	return &quotaManager{}
+// NewQuotasManager returns an instance of the Quota aspect manager.
+func NewQuotasManager() Manager {
+	return &quotasManager{}
 }
 
 // NewAspect creates a quota aspect.
-func (m *quotaManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
 	// TODO: get this from config
 	desc := []dpb.QuotaDescriptor{
 		{
@@ -67,12 +67,12 @@ func (m *quotaManager) NewAspect(c *config.Combined, a adapter.Builder, env adap
 		}
 	}
 
-	aspect, err := a.(adapter.QuotaBuilder).NewQuota(env, c.Builder.Params.(adapter.AspectConfig), defs)
+	aspect, err := a.(adapter.QuotasBuilder).NewQuota(env, c.Builder.Params.(adapter.AspectConfig), defs)
 	if err != nil {
 		return nil, err
 	}
 
-	return &quotaWrapper{
+	return &quotasWrapper{
 		manager:     m,
 		descriptors: desc,
 		inputs:      c.Aspect.GetInputs(),
@@ -80,11 +80,11 @@ func (m *quotaManager) NewAspect(c *config.Combined, a adapter.Builder, env adap
 	}, nil
 }
 
-func (*quotaManager) Kind() string                                                   { return QuotaKind }
-func (*quotaManager) DefaultConfig() adapter.AspectConfig                            { return &aconfig.QuotaParams{} }
-func (*quotaManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
+func (*quotasManager) Kind() string                                                   { return QuotaKind }
+func (*quotasManager) DefaultConfig() adapter.AspectConfig                            { return &aconfig.QuotaParams{} }
+func (*quotasManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 
-func (w *quotaWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
+func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
 	// labels holds the generated attributes from mapper
 	labels := make(map[string]interface{})
 	for attr, expr := range w.inputs {
@@ -146,6 +146,6 @@ func prepQuotaArgs(attrs attribute.Bag, d *dpb.QuotaDescriptor,
 	return qa
 }
 
-func (w *quotaWrapper) Close() error {
+func (w *quotasWrapper) Close() error {
 	return w.aspect.Close()
 }

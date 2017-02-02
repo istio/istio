@@ -28,12 +28,12 @@ import (
 )
 
 type (
-	accessLoggerManager struct{}
+	accessLogsManager struct{}
 
-	accessLoggerWrapper struct {
+	accessLogsWrapper struct {
 		logName   string
 		inputs    map[string]string // map from param to expr
-		aspect    adapter.AccessLoggerAspect
+		aspect    adapter.AccessLogsAspect
 		attrNames []string
 		template  *template.Template
 	}
@@ -55,13 +55,13 @@ var (
 	combinedLogAttributes = append(commonLogAttributes, "referer", "user_agent")
 )
 
-// NewAccessLoggerManager returns an instance of the accessLogger aspect manager.
-func NewAccessLoggerManager() Manager {
-	return accessLoggerManager{}
+// NewAccessLogsManager returns an instance of the accessLogger aspect manager.
+func NewAccessLogsManager() Manager {
+	return accessLogsManager{}
 }
 
-func (m accessLoggerManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
-	var aspect adapter.AccessLoggerAspect
+func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+	var aspect adapter.AccessLogsAspect
 	var err error
 	var tmpl *template.Template
 
@@ -89,11 +89,11 @@ func (m accessLoggerManager) NewAspect(c *config.Combined, a adapter.Builder, en
 		return nil, err
 	}
 
-	if aspect, err = a.(adapter.AccessLoggerBuilder).NewAccessLogger(env, c.Builder.Params.(adapter.AspectConfig)); err != nil {
+	if aspect, err = a.(adapter.AccessLogsBuilder).NewAccessLogger(env, c.Builder.Params.(adapter.AspectConfig)); err != nil {
 		return nil, err
 	}
 
-	return &accessLoggerWrapper{
+	return &accessLogsWrapper{
 		logName,
 		c.Aspect.GetInputs(),
 		aspect,
@@ -102,8 +102,8 @@ func (m accessLoggerManager) NewAspect(c *config.Combined, a adapter.Builder, en
 	}, nil
 }
 
-func (accessLoggerManager) Kind() string { return AccessLogKind }
-func (accessLoggerManager) DefaultConfig() adapter.AspectConfig {
+func (accessLogsManager) Kind() string { return AccessLogKind }
+func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
 	return &aconfig.AccessLoggerParams{
 		LogName:   "access_log",
 		LogFormat: aconfig.AccessLoggerParams_COMMON,
@@ -114,7 +114,7 @@ func (accessLoggerManager) DefaultConfig() adapter.AspectConfig {
 	}
 }
 
-func (accessLoggerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (accessLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.AccessLoggerParams)
 	if cfg.LogFormat != aconfig.AccessLoggerParams_CUSTOM {
 		return nil
@@ -126,11 +126,11 @@ func (accessLoggerManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.C
 	return nil
 }
 
-func (e *accessLoggerWrapper) Close() error {
+func (e *accessLogsWrapper) Close() error {
 	return e.aspect.Close()
 }
 
-func (e *accessLoggerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
+func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
 	// TODO: would be nice if we could use a mutable.Bag here and could pass it around
 	// labels holds the generated attributes from mapper
 	labels := make(map[string]interface{})

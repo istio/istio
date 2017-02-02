@@ -36,12 +36,12 @@ type (
 	aspectTestCase struct {
 		name   string
 		params adapter.AspectConfig
-		want   *loggerWrapper
+		want   *applicationLogsWrapper
 	}
 )
 
 func TestNewLoggerManager(t *testing.T) {
-	m := NewLoggerManager()
+	m := NewApplicationLogsManager()
 	if m.Kind() != LogKind {
 		t.Error("Wrong kind of manager")
 	}
@@ -49,7 +49,7 @@ func TestNewLoggerManager(t *testing.T) {
 
 func TestLoggerManager_NewLogger(t *testing.T) {
 	tl := &test.Logger{}
-	defaultExec := &loggerWrapper{
+	defaultExec := &applicationLogsWrapper{
 		logName:      "istio_log",
 		timestampFmt: time.RFC3339,
 		aspect:       tl,
@@ -57,7 +57,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 		descriptors:  []dpb.LogEntryDescriptor{defaultLog},
 	}
 
-	overrideExec := &loggerWrapper{
+	overrideExec := &applicationLogsWrapper{
 		logName:      "istio_log",
 		timestampFmt: "2006-Jan-02",
 		aspect:       tl,
@@ -70,7 +70,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 		{"override", &aconfig.LoggerParams{LogName: "istio_log", TimestampFormat: "2006-Jan-02"}, overrideExec},
 	}
 
-	m := NewLoggerManager()
+	m := NewApplicationLogsManager()
 
 	for _, v := range newAspectShouldSucceed {
 		c := config.Combined{
@@ -81,7 +81,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 		if err != nil {
 			t.Errorf("NewAspect(): should not have received error for %s (%v)", v.name, err)
 		}
-		got := asp.(*loggerWrapper)
+		got := asp.(*applicationLogsWrapper)
 		got.defaultTimeFn = nil // ignore time fns in equality comp
 		if !reflect.DeepEqual(got, v.want) {
 			t.Errorf("%s NewAspect() => %v (%T), want %v (%T)", v.name, got, got, v.want, v.want)
@@ -109,7 +109,7 @@ func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 		{defaultCfg, errLogger},
 	}
 
-	m := NewLoggerManager()
+	m := NewApplicationLogsManager()
 	for _, v := range failureCases {
 		if _, err := m.NewAspect(v.cfg, v.adptr, test.Env{}); err == nil {
 			t.Errorf("NewAspect(): expected error for bad adapter (%T)", v.adptr)
@@ -140,13 +140,16 @@ func TestLoggerManager_Execute(t *testing.T) {
 		PayloadAttribute: "attr",
 	}
 
-	noDescriptorExec := &loggerWrapper{"istio_log", []dpb.LogEntryDescriptor{}, map[string]string{}, "severity", "ts", "", nil, time.Now}
-	noPayloadExec := &loggerWrapper{"istio_log", []dpb.LogEntryDescriptor{noPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
-	payloadExec := &loggerWrapper{"istio_log", []dpb.LogEntryDescriptor{payloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
-	jsonPayloadExec := &loggerWrapper{"istio_log", []dpb.LogEntryDescriptor{jsonPayloadDesc},
+	noDescriptorExec := &applicationLogsWrapper{"istio_log", []dpb.LogEntryDescriptor{}, map[string]string{}, "severity", "ts", "", nil, time.Now}
+	noPayloadExec := &applicationLogsWrapper{"istio_log",
+		[]dpb.LogEntryDescriptor{noPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
+	payloadExec := &applicationLogsWrapper{"istio_log",
+		[]dpb.LogEntryDescriptor{payloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
+	jsonPayloadExec := &applicationLogsWrapper{"istio_log", []dpb.LogEntryDescriptor{jsonPayloadDesc},
 		map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
-	withInputsExec := &loggerWrapper{"istio_log", []dpb.LogEntryDescriptor{withInputsDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
-	withTimestampFormatExec := &loggerWrapper{
+	withInputsExec := &applicationLogsWrapper{"istio_log",
+		[]dpb.LogEntryDescriptor{withInputsDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
+	withTimestampFormatExec := &applicationLogsWrapper{
 		"istio_log",
 		[]dpb.LogEntryDescriptor{noPayloadDesc},
 		map[string]string{"attr": "val"},
@@ -171,7 +174,7 @@ func TestLoggerManager_Execute(t *testing.T) {
 
 	executeShouldSucceed := []struct {
 		name        string
-		exec        *loggerWrapper
+		exec        *applicationLogsWrapper
 		bag         attribute.Bag
 		mapper      expr.Evaluator
 		wantEntries []adapter.LogEntry
@@ -218,14 +221,16 @@ func TestLoggerManager_ExecuteFailures(t *testing.T) {
 		PayloadFormat:    dpb.LogEntryDescriptor_JSON,
 	}
 
-	errorExec := &loggerWrapper{"istio_log", []dpb.LogEntryDescriptor{desc}, map[string]string{}, "severity", "ts", "", &test.Logger{ErrOnLog: true}, time.Now}
-	jsonErrorExec := &loggerWrapper{"istio_log", []dpb.LogEntryDescriptor{jsonPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
+	errorExec := &applicationLogsWrapper{"istio_log",
+		[]dpb.LogEntryDescriptor{desc}, map[string]string{}, "severity", "ts", "", &test.Logger{ErrOnLog: true}, time.Now}
+	jsonErrorExec := &applicationLogsWrapper{"istio_log",
+		[]dpb.LogEntryDescriptor{jsonPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
 
 	jsonPayloadBag := &test.Bag{Strs: map[string]string{"key": "value", "payload": `{"obj":{"val":54},"question":`}}
 
 	executeShouldFail := []struct {
 		name   string
-		exec   *loggerWrapper
+		exec   *applicationLogsWrapper
 		bag    attribute.Bag
 		mapper expr.Evaluator
 	}{
@@ -241,7 +246,7 @@ func TestLoggerManager_ExecuteFailures(t *testing.T) {
 }
 
 func TestLoggerManager_DefaultConfig(t *testing.T) {
-	m := NewLoggerManager()
+	m := NewApplicationLogsManager()
 	got := m.DefaultConfig()
 	want := &aconfig.LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
 	if !proto.Equal(got, want) {
@@ -250,7 +255,7 @@ func TestLoggerManager_DefaultConfig(t *testing.T) {
 }
 
 func TestLoggerManager_ValidateConfig(t *testing.T) {
-	m := NewLoggerManager()
+	m := NewApplicationLogsManager()
 	if err := m.ValidateConfig(&empty.Empty{}); err != nil {
 		t.Errorf("ValidateConfig(): unexpected error: %v", err)
 	}

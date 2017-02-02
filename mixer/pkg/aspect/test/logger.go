@@ -23,8 +23,8 @@ import (
 
 // Logger is a test struct that implements logger and accessLogger aspects.
 type Logger struct {
-	adapter.AccessLoggerBuilder
-	adapter.LoggerBuilder
+	adapter.AccessLogsBuilder
+	adapter.ApplicationLogsBuilder
 
 	DefaultCfg     adapter.AspectConfig
 	EntryCount     int
@@ -35,7 +35,7 @@ type Logger struct {
 }
 
 // NewLogger returns a new instance of the Logger aspect.
-func (t *Logger) NewLogger(e adapter.Env, m adapter.AspectConfig) (adapter.LoggerAspect, error) {
+func (t *Logger) NewLogger(e adapter.Env, m adapter.AspectConfig) (adapter.ApplicationLogsAspect, error) {
 	if t.ErrOnNewAspect {
 		return nil, errors.New("new aspect error")
 	}
@@ -43,7 +43,7 @@ func (t *Logger) NewLogger(e adapter.Env, m adapter.AspectConfig) (adapter.Logge
 }
 
 // NewAccessLogger returns a new instance of the accessLogger aspect.
-func (t *Logger) NewAccessLogger(e adapter.Env, m adapter.AspectConfig) (adapter.AccessLoggerAspect, error) {
+func (t *Logger) NewAccessLogger(e adapter.Env, m adapter.AspectConfig) (adapter.AccessLogsAspect, error) {
 	if t.ErrOnNewAspect {
 		return nil, errors.New("new aspect error")
 	}

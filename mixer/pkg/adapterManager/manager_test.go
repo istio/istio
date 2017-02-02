@@ -97,7 +97,7 @@ func (m testManager) NewAspect(cfg *config.Combined, adapter adapter.Builder, en
 	}
 	return m.instance, nil
 }
-func (m testManager) NewDenyChecker(env adapter.Env, c adapter.AspectConfig) (adapter.DenyCheckerAspect, error) {
+func (m testManager) NewDenyChecker(env adapter.Env, c adapter.AspectConfig) (adapter.DenialsAspect, error) {
 	return m.instance, nil
 }
 

@@ -23,35 +23,35 @@ import (
 )
 
 type fakeRegistrar struct {
-	denyCheckers  []adapter.DenyCheckerBuilder
-	listCheckers  []adapter.ListCheckerBuilder
-	loggers       []adapter.LoggerBuilder
-	accessLoggers []adapter.AccessLoggerBuilder
-	quotas        []adapter.QuotaBuilder
+	denyCheckers  []adapter.DenialsBuilder
+	listCheckers  []adapter.ListsBuilder
+	loggers       []adapter.ApplicationLogsBuilder
+	accessLoggers []adapter.AccessLogsBuilder
+	quotas        []adapter.QuotasBuilder
 	metrics       []adapter.MetricsBuilder
 }
 
-func (r *fakeRegistrar) RegisterListChecker(b adapter.ListCheckerBuilder) {
+func (r *fakeRegistrar) RegisterListsBuilder(b adapter.ListsBuilder) {
 	r.listCheckers = append(r.listCheckers, b)
 }
 
-func (r *fakeRegistrar) RegisterDenyChecker(b adapter.DenyCheckerBuilder) {
+func (r *fakeRegistrar) RegisterDenialsBuilder(b adapter.DenialsBuilder) {
 	r.denyCheckers = append(r.denyCheckers, b)
 }
 
-func (r *fakeRegistrar) RegisterLogger(b adapter.LoggerBuilder) {
+func (r *fakeRegistrar) RegisterApplicationLogsBuilder(b adapter.ApplicationLogsBuilder) {
 	r.loggers = append(r.loggers, b)
 }
 
-func (r *fakeRegistrar) RegisterAccessLogger(b adapter.AccessLoggerBuilder) {
+func (r *fakeRegistrar) RegisterAccessLogsBuilder(b adapter.AccessLogsBuilder) {
 	r.accessLoggers = append(r.accessLoggers, b)
 }
 
-func (r *fakeRegistrar) RegisterQuota(b adapter.QuotaBuilder) {
+func (r *fakeRegistrar) RegisterQuotasBuilder(b adapter.QuotasBuilder) {
 	r.quotas = append(r.quotas, b)
 }
 
-func (r *fakeRegistrar) RegisterMetrics(b adapter.MetricsBuilder) {
+func (r *fakeRegistrar) RegisterMetricsBuilder(b adapter.MetricsBuilder) {
 	r.metrics = append(r.metrics, b)
 }
 
