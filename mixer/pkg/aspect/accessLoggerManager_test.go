@@ -191,19 +191,19 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 		template:  tmpl,
 	}
 
-	emptyEntry := adapter.AccessLogEntry{LogName: "access_log", Log: "<no value>", Labels: map[string]interface{}{}}
-	sourceEntry := adapter.AccessLogEntry{LogName: "access_log", Log: "<no value>", Labels: map[string]interface{}{"source_ip": "127.0.0.1"}}
+	emptyEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "<no value>", Labels: map[string]interface{}{}}
+	sourceEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "<no value>", Labels: map[string]interface{}{"source_ip": "127.0.0.1"}}
 
 	tests := []struct {
 		name        string
 		exec        *accessLoggerWrapper
 		bag         attribute.Bag
 		mapper      expr.Evaluator
-		wantEntries []adapter.AccessLogEntry
+		wantEntries []adapter.LogEntry
 	}{
-		{"empty bag with defaults", commonExec, &test.Bag{}, &test.Evaluator{}, []adapter.AccessLogEntry{emptyEntry}},
-		{"attrs in bag", commonExec, &test.Bag{Strs: map[string]string{"source_ip": "127.0.0.1"}}, &test.Evaluator{}, []adapter.AccessLogEntry{sourceEntry}},
-		{"attrs from inputs", commonExecWithInputs, &test.Bag{}, &test.Evaluator{}, []adapter.AccessLogEntry{sourceEntry}},
+		{"empty bag with defaults", commonExec, &test.Bag{}, &test.Evaluator{}, []adapter.LogEntry{emptyEntry}},
+		{"attrs in bag", commonExec, &test.Bag{Strs: map[string]string{"source_ip": "127.0.0.1"}}, &test.Evaluator{}, []adapter.LogEntry{sourceEntry}},
+		{"attrs from inputs", commonExecWithInputs, &test.Bag{}, &test.Evaluator{}, []adapter.LogEntry{sourceEntry}},
 	}
 
 	for _, v := range tests {

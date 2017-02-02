@@ -140,7 +140,7 @@ func (e *accessLoggerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator
 		// TODO: throw error on failed mapping?
 	}
 
-	entry := adapter.AccessLogEntry{
+	entry := adapter.LogEntry{
 		LogName: e.logName,
 		Labels:  make(map[string]interface{}),
 	}
@@ -162,8 +162,8 @@ func (e *accessLoggerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator
 	if err := e.template.Execute(buf, entry.Labels); err != nil {
 		return nil, err
 	}
-	entry.Log = buf.String()
-	if err := e.aspect.LogAccess([]adapter.AccessLogEntry{entry}); err != nil {
+	entry.TextPayload = buf.String()
+	if err := e.aspect.LogAccess([]adapter.LogEntry{entry}); err != nil {
 		return nil, err
 	}
 	return &Output{Code: code.Code_OK}, nil

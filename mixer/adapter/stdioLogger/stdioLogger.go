@@ -67,23 +67,16 @@ func newLogger(env adapter.Env, cfg adapter.AspectConfig) (*logger, error) {
 }
 
 func (l *logger) Log(entries []adapter.LogEntry) error {
-	var errors *me.Error
-	for _, entry := range entries {
-		if err := writeJSON(l.logStream, entry); err != nil {
-			errors = me.Append(errors, err)
-		}
-	}
-
-	return errors.ErrorOrNil()
+	return l.log(entries)
 }
 
-func (l *logger) LogAccess(entries []adapter.AccessLogEntry) error {
+func (l *logger) LogAccess(entries []adapter.LogEntry) error {
+	return l.log(entries)
+}
+
+func (l *logger) log(entries []adapter.LogEntry) error {
 	var errors *me.Error
 	for _, entry := range entries {
-		// since stdioLogger will be writing structured logs
-		// it will not output the formatted log line provided
-		// by the mixer
-		entry.Log = ""
 		if err := writeJSON(l.logStream, entry); err != nil {
 			errors = me.Append(errors, err)
 		}
