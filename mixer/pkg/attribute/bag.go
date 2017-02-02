@@ -26,20 +26,38 @@ type Bag interface {
 	// String returns the named attribute if it exists.
 	String(name string) (string, bool)
 
+	// StringKeys returns a snapshot of all keys corresponding to string attributes this bag knows about.
+	StringKeys() []string
+
 	// Int64 returns the named attribute if it exists.
 	Int64(name string) (int64, bool)
+
+	// Int64Keys returns a snapshot of all keys corresponding to int64 attributes this bag knows about.
+	Int64Keys() []string
 
 	// Float64 returns the named attribute if it exists.
 	Float64(name string) (float64, bool)
 
+	// Float64Keys returns a snapshot of all keys corresponding to float64 attributes this bag knows about.
+	Float64Keys() []string
+
 	// Bool returns the named attribute if it exists.
 	Bool(name string) (bool, bool)
+
+	// BoolKeys returns a snapshot of all keys corresponding to bool attributes this bag knows about.
+	BoolKeys() []string
 
 	// Time returns the named attribute if it exists.
 	Time(name string) (time.Time, bool)
 
+	// TimeKeys returns a snapshot of all keys corresponding to time attributes this bag knows about.
+	TimeKeys() []string
+
 	// Bytes returns the named attribute if it exists.
 	Bytes(name string) ([]uint8, bool)
+
+	// ByteKeys returns a snapshot of all keys corresponding to byte attributes this bag knows about.
+	BytesKeys() []string
 
 	// Done indicates the bag can be reclaimed.
 	Done()

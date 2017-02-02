@@ -25,23 +25,25 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 )
 
-func TestBag(t *testing.T) {
-	t9 := time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
-	t10 := time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
-	t42 := time.Date(2001, 1, 1, 1, 1, 1, 42, time.UTC)
-	ts9, _ := ptypes.TimestampProto(t9)
-	ts10, _ := ptypes.TimestampProto(t10)
+var (
+	t9      = time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
+	t10     = time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
+	t42     = time.Date(2001, 1, 1, 1, 1, 1, 42, time.UTC)
+	ts9, _  = ptypes.TimestampProto(t9)
+	ts10, _ = ptypes.TimestampProto(t10)
 
-	attrs := mixerpb.Attributes{
+	attrs = mixerpb.Attributes{
 		Dictionary:          dictionary{1: "N1", 2: "N2", 3: "N3", 4: "N4", 5: "N5", 6: "N6", 7: "N7", 8: "N8", 9: "N9", 10: "N10", 11: "N11", 12: "N12"},
 		StringAttributes:    map[int32]string{1: "1", 2: "2"},
 		Int64Attributes:     map[int32]int64{3: 3, 4: 4},
 		DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
 		BoolAttributes:      map[int32]bool{7: true, 8: false},
 		TimestampAttributes: map[int32]*ts.Timestamp{9: ts9, 10: ts10},
-		BytesAttributes:     map[int32][]uint8{11: []byte{11}, 12: []byte{12}},
+		BytesAttributes:     map[int32][]uint8{11: {11}, 12: {12}},
 	}
+)
 
+func TestBag(t *testing.T) {
 	am := NewManager()
 	at := am.NewTracker()
 	defer at.Done()
@@ -245,7 +247,7 @@ func TestBadTimestamp(t *testing.T) {
 	// a bogus timestamp value
 	ts1 := &ts.Timestamp{Seconds: -1, Nanos: -1}
 
-	attrs := mixerpb.Attributes{
+	attr := mixerpb.Attributes{
 		Dictionary:          dictionary{1: "N1"},
 		TimestampAttributes: map[int32]*ts.Timestamp{1: ts1},
 	}
@@ -254,7 +256,7 @@ func TestBadTimestamp(t *testing.T) {
 	at := am.NewTracker()
 	defer at.Done()
 
-	_, err := at.StartRequest(&attrs)
+	_, err := at.StartRequest(&attr)
 	if err == nil {
 		t.Error("Successfully updated attributes, expected an error")
 	}
@@ -262,21 +264,6 @@ func TestBadTimestamp(t *testing.T) {
 }
 
 func TestValue(t *testing.T) {
-	t9 := time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
-	t10 := time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
-	ts9, _ := ptypes.TimestampProto(t9)
-	ts10, _ := ptypes.TimestampProto(t10)
-
-	attrs := mixerpb.Attributes{
-		Dictionary:          dictionary{1: "N1", 2: "N2", 3: "N3", 4: "N4", 5: "N5", 6: "N6", 7: "N7", 8: "N8", 9: "N9", 10: "N10", 11: "N11", 12: "N12"},
-		StringAttributes:    map[int32]string{1: "1", 2: "2"},
-		Int64Attributes:     map[int32]int64{3: 3, 4: 4},
-		DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
-		BoolAttributes:      map[int32]bool{7: true, 8: false},
-		TimestampAttributes: map[int32]*ts.Timestamp{9: ts9, 10: ts10},
-		BytesAttributes:     map[int32][]uint8{11: []byte{11}, 12: []byte{12}},
-	}
-
 	am := NewManager()
 	at := am.NewTracker()
 	defer at.Done()
@@ -340,4 +327,257 @@ func TestValue(t *testing.T) {
 	if _, found := Value(ab, "FOO"); found {
 		t.Error("Expecting FOO to not be found.")
 	}
+}
+
+type d map[string]interface{}
+type ttable struct {
+	inRoot  d
+	inChild d
+	out     d
+}
+
+func TestStringKeys(t *testing.T) {
+	testKeys(t,
+		[]ttable{
+			{
+				d{},
+				d{},
+				d{},
+			},
+			{
+				d{"root": "r"},
+				d{},
+				d{"root": "r"},
+			},
+			{
+				d{},
+				d{"one": "a", "two": "b"},
+				d{"one": "a", "two": "b"},
+			},
+			{
+				d{"root": "r"},
+				d{"one": "a", "two": "b"},
+				d{"root": "r", "one": "a", "two": "b"},
+			},
+		},
+		func(ab MutableBag, k string, v interface{}) {
+			vs := v.(string)
+			ab.SetString(k, vs)
+		},
+		func(b Bag) []string {
+			return b.StringKeys()
+		},
+	)
+}
+
+func TestInt64Keys(t *testing.T) {
+	testKeys(t,
+		[]ttable{
+			{
+				d{},
+				d{},
+				d{},
+			},
+			{
+				d{"root": int64(1)},
+				d{},
+				d{"root": int64(1)},
+			},
+			{
+				d{},
+				d{"one": int64(2), "two": int64(3)},
+				d{"one": int64(2), "two": int64(3)},
+			},
+			{
+				d{"root": int64(1)},
+				d{"one": int64(2), "two": int64(3)},
+				d{"root": int64(1), "one": int64(2), "two": int64(3)},
+			},
+		},
+		func(ab MutableBag, k string, v interface{}) {
+			vs := v.(int64)
+			ab.SetInt64(k, vs)
+		},
+		func(b Bag) []string {
+			return b.Int64Keys()
+		},
+	)
+}
+
+func TestFloat64Keys(t *testing.T) {
+	testKeys(t,
+		[]ttable{
+			{
+				d{},
+				d{},
+				d{},
+			},
+			{
+				d{"root": float64(1)},
+				d{},
+				d{"root": float64(1)},
+			},
+			{
+				d{},
+				d{"one": float64(2), "two": float64(3)},
+				d{"one": float64(2), "two": float64(3)},
+			},
+			{
+				d{"root": float64(1)},
+				d{"one": float64(2), "two": float64(3)},
+				d{"root": float64(1), "one": float64(2), "two": float64(3)},
+			},
+		},
+		func(ab MutableBag, k string, v interface{}) {
+			vs := v.(float64)
+			ab.SetFloat64(k, vs)
+		},
+		func(b Bag) []string {
+			return b.Float64Keys()
+		},
+	)
+}
+
+func TestBoolKeys(t *testing.T) {
+	testKeys(t,
+		[]ttable{
+			{
+				d{},
+				d{},
+				d{},
+			},
+			{
+				d{"root": true},
+				d{},
+				d{"root": true},
+			},
+			{
+				d{},
+				d{"one": true, "two": false},
+				d{"one": true, "two": false},
+			},
+			{
+				d{"root": false},
+				d{"one": true, "two": false},
+				d{"root": false, "one": true, "two": false},
+			},
+		},
+		func(ab MutableBag, k string, v interface{}) {
+			vs := v.(bool)
+			ab.SetBool(k, vs)
+		},
+		func(b Bag) []string {
+			return b.BoolKeys()
+		},
+	)
+}
+
+func TestTimeKeys(t *testing.T) {
+	testKeys(t,
+		[]ttable{
+			{
+				d{},
+				d{},
+				d{},
+			},
+			{
+				d{"root": t9},
+				d{},
+				d{"root": t9},
+			},
+			{
+				d{},
+				d{"one": t10, "two": t42},
+				d{"one": t10, "two": t42},
+			},
+			{
+				d{"root": t9},
+				d{"one": t10, "two": t42},
+				d{"root": t9, "one": t10, "two": t42},
+			},
+		},
+		func(ab MutableBag, k string, v interface{}) {
+			vs := v.(time.Time)
+			ab.SetTime(k, vs)
+		},
+		func(b Bag) []string {
+			return b.TimeKeys()
+		},
+	)
+}
+
+func TestByteKeys(t *testing.T) {
+	testKeys(t,
+		[]ttable{
+			{
+				d{},
+				d{},
+				d{},
+			},
+			{
+				d{"root": []byte{11}},
+				d{},
+				d{"root": []byte{11}},
+			},
+			{
+				d{},
+				d{"one": []byte{12}, "two": []byte{13}},
+				d{"one": []byte{12}, "two": []byte{13}},
+			},
+			{
+				d{"root": []byte{1}},
+				d{"one": []byte{2}, "two": []byte{3}},
+				d{"root": []byte{1}, "one": []byte{2}, "two": []byte{3}},
+			},
+		},
+		func(ab MutableBag, k string, v interface{}) {
+			vs := v.([]byte)
+			ab.SetBytes(k, vs)
+		},
+		func(b Bag) []string {
+			return b.BytesKeys()
+		},
+	)
+}
+
+func testKeys(t *testing.T, cases []ttable, setVal func(MutableBag, string, interface{}), keyFn func(Bag) []string) {
+	for _, tc := range cases {
+		at := NewManager().NewTracker()
+		root, _ := at.StartRequest(&mixerpb.Attributes{})
+		for k, v := range tc.inRoot {
+			setVal(root, k, v)
+		}
+
+		ab := root.Child()
+		for k, v := range tc.inChild {
+			setVal(ab, k, v)
+		}
+
+		keys := keyFn(ab)
+		// verify everything that was returned was expected
+		for _, key := range keys {
+			if _, found := tc.out[key]; !found {
+				t.Errorf("keyFn() = [..., %s, ...], wanted (key, val) in set: %v", key, tc.out)
+			}
+		}
+		// and that everything that was expected was returned
+		for key := range tc.out {
+			if !contains(keys, key) {
+				t.Errorf("keyFn() = %v, wanted '%s' in set", keys, key)
+			}
+		}
+
+		at.Done()
+		root.Done()
+		ab.Done()
+	}
+}
+
+func contains(keys []string, key string) bool {
+	for _, k := range keys {
+		if k == key {
+			return true
+		}
+	}
+	return false
 }

@@ -64,9 +64,29 @@ func (rb *rootBag) String(name string) (string, bool) {
 	return r, b
 }
 
+func (rb *rootBag) StringKeys() []string {
+	i := 0
+	keys := make([]string, len(rb.strings))
+	for k := range rb.strings {
+		keys[i] = k
+		i++
+	}
+	return keys
+}
+
 func (rb *rootBag) Int64(name string) (int64, bool) {
 	r, b := rb.int64s[name]
 	return r, b
+}
+
+func (rb *rootBag) Int64Keys() []string {
+	i := 0
+	keys := make([]string, len(rb.int64s))
+	for k := range rb.int64s {
+		keys[i] = k
+		i++
+	}
+	return keys
 }
 
 func (rb *rootBag) Float64(name string) (float64, bool) {
@@ -74,9 +94,29 @@ func (rb *rootBag) Float64(name string) (float64, bool) {
 	return r, b
 }
 
+func (rb *rootBag) Float64Keys() []string {
+	i := 0
+	keys := make([]string, len(rb.float64s))
+	for k := range rb.float64s {
+		keys[i] = k
+		i++
+	}
+	return keys
+}
+
 func (rb *rootBag) Bool(name string) (bool, bool) {
 	r, b := rb.bools[name]
 	return r, b
+}
+
+func (rb *rootBag) BoolKeys() []string {
+	i := 0
+	keys := make([]string, len(rb.bools))
+	for k := range rb.bools {
+		keys[i] = k
+		i++
+	}
+	return keys
 }
 
 func (rb *rootBag) Time(name string) (time.Time, bool) {
@@ -84,9 +124,29 @@ func (rb *rootBag) Time(name string) (time.Time, bool) {
 	return r, b
 }
 
+func (rb *rootBag) TimeKeys() []string {
+	i := 0
+	keys := make([]string, len(rb.times))
+	for k := range rb.times {
+		keys[i] = k
+		i++
+	}
+	return keys
+}
+
 func (rb *rootBag) Bytes(name string) ([]uint8, bool) {
 	r, b := rb.bytes[name]
 	return r, b
+}
+
+func (rb *rootBag) BytesKeys() []string {
+	i := 0
+	keys := make([]string, len(rb.bytes))
+	for k := range rb.bytes {
+		keys[i] = k
+		i++
+	}
+	return keys
 }
 
 func (rb *rootBag) reset() {
