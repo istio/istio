@@ -18,8 +18,13 @@ We are using [Bazel 0.4.3](https://bazel.io) to build Istio Manager:
 
     bazel build //cmd/...
 
+_Note the three dots_
+
 _Note_: Due to issues with case-insensitive file systems, macOS is not
-supported at the moment by Bazel Go rules.
+supported at the moment by Bazel Go rules. As a workaround, create a case sensitive partition
+on your macOS as described [here](https://coderwall.com/p/mgi8ja/case-sensitive-git-in-mac-os-x-like-a-pro), and build using 
+
+    bazel --output_base=/Volumes/case-sensitive-volume-name/bazel-out build //cmd/... --spawn_strategy=standalone
 
 Bazel uses `BUILD` files to keep track of dependencies between sources.
 If you add a new source file or change the imports, please run the following command
@@ -27,16 +32,20 @@ to update all `BUILD` files:
 
     gazelle -go_prefix "istio.io/manager" --mode fix -repo_root .
 
-Gazelle binary is located in Bazel external tools:
+Gazelle binary is located in `bazel-bin/external` folder under the manager repository, after your initial bazel build:
 
-    external/io_bazel_rules_go_repository_tools/bin/gazelle
+    bazel-bin/external/io_bazel_rules_go_repository_tools/bin/gazelle
+
+_Note_: If you cant find the gazelle binary in the path mentioned above, try to update the mlocate database (`sudo updatedb` or the equivalent in macOS) and run `locate gazelle`. The gazelle binary should typically be in
+
+    $HOME/.cache/bazel/_bazel_<username>/<somelongfoldername>/external/io_bazel_rules_go_repository_tools/bin/gazelle
 
 ## Test environment ##
 
 Manager tests require access to a Kubernetes cluster. We recommend Kubernetes 
 version >=1.5.2 due to its improved support for Third-Party Resources. Each
 test operates on a temporary namespace and deletes it on completion.  Please
-configure your `kubectl` to point to a development cluster before building or
+configure your `kubectl` to point to a development cluster (e.g. minikube) before building or
 invoking the tests and add a symbolic link to your
 repository pointing to Kubernetes cluster credentials:
 
@@ -51,15 +60,20 @@ To run the tests:
 
     bazel test //...
 
-## Build instructions without Bazel ##
+_Note for minikube users_: You need to configure minikube to use kubernetes 1.5.2 as default
 
-Bazel does not preclude you from using `go` tool in development. You should
-check out your repository clone `$REPO_PATH` into `$GOPATH` (e.g.
-`$GOPATH/src/istio.io/manager`) and then run `bazel build //cmd/...` to let Bazel
-fetch all dependencies. Then run this script in the repository root:
+    minikube config set kubernetes-version v1.5.2
+
+## Using `go` tool in IDEs ##
+
+Clone the repository into `$GOPATH` (e.g.
+`$GOPATH/src/istio.io/manager`), run `bazel build //cmd/...` once to let Bazel
+fetch all dependencies, and finally run the following script in the repository root:
 
     bin/init.sh
-        
+
+The script above installs dependencies in the vendor directory allowing IDEs to compile the code using standard commands like `go build`.
+
 ## Docker images ##
 
 We provide Bazel targets to output Istio runtime images:
@@ -67,4 +81,3 @@ We provide Bazel targets to output Istio runtime images:
     bazel run //docker:runtime
     
 The image includes Istio Proxy and Istio Manager.
-
