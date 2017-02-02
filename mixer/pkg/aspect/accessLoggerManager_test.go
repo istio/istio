@@ -184,15 +184,22 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 	commonExecWithInputs := &accessLoggerWrapper{
 		logName: "access_log",
 		inputs: map[string]string{
-			"test":      "testExpr",
-			"source_ip": "127.0.0.1",
+			"test":     "testExpr",
+			"originIp": "127.0.0.1",
 		},
 		attrNames: commonLogAttributes,
 		template:  tmpl,
 	}
 
+	customEmpty := &accessLoggerWrapper{
+		logName:   "empty_log",
+		inputs:    map[string]string{},
+		attrNames: []string{},
+		template:  tmpl,
+	}
+
 	emptyEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "<no value>", Labels: map[string]interface{}{}}
-	sourceEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "<no value>", Labels: map[string]interface{}{"source_ip": "127.0.0.1"}}
+	sourceEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "<no value>", Labels: map[string]interface{}{"originIp": "127.0.0.1"}}
 
 	tests := []struct {
 		name        string
@@ -201,9 +208,11 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 		mapper      expr.Evaluator
 		wantEntries []adapter.LogEntry
 	}{
+
 		{"empty bag with defaults", commonExec, &test.Bag{}, &test.Evaluator{}, []adapter.LogEntry{emptyEntry}},
-		{"attrs in bag", commonExec, &test.Bag{Strs: map[string]string{"source_ip": "127.0.0.1"}}, &test.Evaluator{}, []adapter.LogEntry{sourceEntry}},
+		{"attrs in bag", commonExec, &test.Bag{Strs: map[string]string{"originIp": "127.0.0.1"}}, &test.Evaluator{}, []adapter.LogEntry{sourceEntry}},
 		{"attrs from inputs", commonExecWithInputs, &test.Bag{}, &test.Evaluator{}, []adapter.LogEntry{sourceEntry}},
+		{"custom - no attrs", customEmpty, &test.Bag{}, &test.Evaluator{}, nil},
 	}
 
 	for _, v := range tests {
@@ -216,6 +225,12 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 		if l.EntryCount != len(v.wantEntries) {
 			t.Errorf("Execute(): got %d entries, wanted %d for %s", l.EntryCount, len(v.wantEntries), v.name)
 		}
+
+		// don't compare timestamps here (not important to test)
+		for _, e := range l.AccessLogs {
+			delete(e.Labels, "timestamp")
+		}
+
 		if !reflect.DeepEqual(l.AccessLogs, v.wantEntries) {
 			t.Errorf("Execute(): got %v, wanted %v for %s", l.AccessLogs, v.wantEntries, v.name)
 		}
@@ -246,5 +261,14 @@ func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 		if _, err := v.exec.Execute(v.bag, v.mapper); err == nil {
 			t.Errorf("Execute(): expected error for %s", v.name)
 		}
+	}
+}
+
+func TestAccessLoggerWrapper_Close(t *testing.T) {
+	aw := &accessLoggerWrapper{
+		aspect: &test.Logger{ErrOnLog: true},
+	}
+	if err := aw.Close(); err != nil {
+		t.Errorf("Close() should not return error: got %v", err)
 	}
 }

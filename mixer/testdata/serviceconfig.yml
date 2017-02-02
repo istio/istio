@@ -9,8 +9,7 @@ rules:
   - kind: istio/accessLogger
     params:
       logName: "access_log"
-      logFormat: 99 # AccessLoggerParams_CUSTOM
-      attributes: ["responseCode", "requestSize", "responseSize", "responseTime", "originIp", "originHost", "url", "serviceName"]
+      logFormat: 0 # Common Log Format
   - kind: istio/logger
     params:
       logName: "mixer_log"

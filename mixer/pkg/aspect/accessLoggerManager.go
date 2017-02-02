@@ -17,6 +17,7 @@ package aspect
 import (
 	"bytes"
 	"text/template"
+	"time"
 
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"istio.io/mixer/pkg/adapter"
@@ -40,16 +41,16 @@ type (
 
 const (
 	// TODO: revisit when well-known attributes are defined.
-	commonLogFormat = `{{or (.source_ip) "-"}} - {{or (.source_user) "-"}} ` +
-		`[{{.timestamp.Format "02/Jan/2006:15:04:05 -0700"}}] "{{or (.api_method) "-"}} ` +
-		`{{or (.api_resource) "-"}} {{or (.protocol) "-"}}" {{or (.status_code) "-"}} {{or (.response_size) "-"}}`
+	commonLogFormat = `{{or (.originIp) "-"}} - {{or (.source_user) "-"}} ` +
+		`[{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.apiMethod) "-"}} ` +
+		`{{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}`
 	// TODO: revisit when well-known attributes are defined.
 	combinedLogFormat = commonLogFormat + ` "{{or (.referer) "-"}}" "{{or (.user_agent) "-"}}"`
 )
 
 var (
 	// TODO: revisit when well-known attributes are defined
-	commonLogAttributes = []string{"source_ip", "source_user", "timestamp", "api_method", "api_resource", "protocol", "status_code", "response_size"}
+	commonLogAttributes = []string{"originIp", "source_user", "timestamp", "apiMethod", "url", "protocol", "responseCode", "responseSize"}
 	// TODO: revisit when well-known attributes are defined
 	combinedLogAttributes = append(commonLogAttributes, "referer", "user_agent")
 )
@@ -140,6 +141,12 @@ func (e *accessLoggerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator
 		// TODO: throw error on failed mapping?
 	}
 
+	// TODO: better way to ensure timestamp is available if not supplied
+	// in Report() requests.
+	if _, found := labels["timestamp"]; !found {
+		labels["timestamp"] = time.Now()
+	}
+
 	entry := adapter.LogEntry{
 		LogName: e.logName,
 		Labels:  make(map[string]interface{}),
@@ -156,6 +163,11 @@ func (e *accessLoggerWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator
 
 		// TODO: do we want to error for attributes that cannot
 		// be found?
+	}
+
+	if len(entry.Labels) == 0 {
+		// don't write empty access logs
+		return &Output{Code: code.Code_OK}, nil
 	}
 
 	buf := new(bytes.Buffer)

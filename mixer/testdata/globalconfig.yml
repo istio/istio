@@ -7,7 +7,7 @@ adapters:
     params:
   - name: default
     kind: istio/accessLogger
-    impl: istio/stdioLogger
+    impl: istio/stdioAccessLogger
     params:
       logStream: 0 # STDERR
   - name: default
