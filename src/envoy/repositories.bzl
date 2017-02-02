@@ -221,7 +221,7 @@ cc_library(
 
     native.new_http_archive(
         name = "tclap_tar",
-        url = "https://sourceforge.net/projects/tclap/files/tclap-1.2.1.tar.gz/download",
+        url = "https://storage.googleapis.com/istio-build-deps/tclap-1.2.1.tar.gz",
         type = "tar.gz",
         strip_prefix = "tclap-1.2.1",
         build_file_content = BUILD,
