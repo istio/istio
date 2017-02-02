@@ -21,7 +21,7 @@ import (
 	"istio.io/mixer/pkg/adapter"
 
 	"istio.io/mixer/adapter/memQuota/config"
-	at "istio.io/mixer/pkg/adapter/testing"
+	"istio.io/mixer/pkg/adapter/test"
 )
 
 func TestAllocAndRelease(t *testing.T) {
@@ -45,7 +45,7 @@ func TestAllocAndRelease(t *testing.T) {
 	c := b.DefaultConfig().(*config.Params)
 	c.MinDeduplicationWindowSeconds = 3600
 
-	a, err := b.NewQuota(at.NewEnv(t), c, definitions)
+	a, err := b.NewQuota(test.NewEnv(t), c, definitions)
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestAllocAndRelease(t *testing.T) {
 
 func TestBadName(t *testing.T) {
 	b := newBuilder()
-	a, err := b.NewQuota(at.NewEnv(t), b.DefaultConfig(), make(map[string]*adapter.QuotaDefinition))
+	a, err := b.NewQuota(test.NewEnv(t), b.DefaultConfig(), make(map[string]*adapter.QuotaDefinition))
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
@@ -199,7 +199,7 @@ func TestBadAmount(t *testing.T) {
 	}
 
 	b := newBuilder()
-	a, err := b.NewQuota(at.NewEnv(t), b.DefaultConfig(), definitions)
+	a, err := b.NewQuota(test.NewEnv(t), b.DefaultConfig(), definitions)
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
@@ -263,7 +263,7 @@ func TestReaper(t *testing.T) {
 	c := b.DefaultConfig().(*config.Params)
 	c.MinDeduplicationWindowSeconds = 3600
 
-	a, err := b.NewQuota(at.NewEnv(t), c, definitions)
+	a, err := b.NewQuota(test.NewEnv(t), c, definitions)
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
@@ -332,7 +332,7 @@ func TestReaperTicker(t *testing.T) {
 
 	testChan := make(chan time.Time)
 	testTicker := &time.Ticker{C: testChan}
-	a, err := newAspectWithDedup(at.NewEnv(t), testTicker, definitions)
+	a, err := newAspectWithDedup(test.NewEnv(t), testTicker, definitions)
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
@@ -376,5 +376,5 @@ func TestReaperTicker(t *testing.T) {
 }
 
 func TestInvariants(t *testing.T) {
-	at.TestAdapterInvariants(Register, t)
+	test.AdapterInvariants(Register, t)
 }
