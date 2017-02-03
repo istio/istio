@@ -35,8 +35,8 @@ type (
 	QuotasBuilder interface {
 		Builder
 
-		// NewQuota returns a new instance of the Quota aspect.
-		NewQuota(env Env, c AspectConfig, d map[string]*QuotaDefinition) (QuotasAspect, error)
+		// NewQuotasAspect returns a new instance of the Quota aspect.
+		NewQuotasAspect(env Env, c AspectConfig, d map[string]*QuotaDefinition) (QuotasAspect, error)
 	}
 
 	// QuotaKind determines the usage semantics

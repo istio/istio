@@ -39,7 +39,7 @@ type lc struct {
 }
 
 func (m *lc) DefaultConfig() (c adapter.AspectConfig) {
-	return &listcheckerpb.ListCheckerParams{}
+	return &listcheckerpb.ListsParams{}
 }
 
 // ValidateConfig determines whether the given configuration meets all correctness requirements.

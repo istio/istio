@@ -21,7 +21,7 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-// Logger is a test struct that implements logger and accessLogger aspects.
+// Logger is a test struct that implements the application-logs and access-logs aspects.
 type Logger struct {
 	adapter.AccessLogsBuilder
 	adapter.ApplicationLogsBuilder
@@ -34,16 +34,16 @@ type Logger struct {
 	ErrOnLog       bool
 }
 
-// NewLogger returns a new instance of the Logger aspect.
-func (t *Logger) NewLogger(e adapter.Env, m adapter.AspectConfig) (adapter.ApplicationLogsAspect, error) {
+// NewApplicationLogsAspect returns a new instance of the Logger aspect.
+func (t *Logger) NewApplicationLogsAspect(e adapter.Env, m adapter.AspectConfig) (adapter.ApplicationLogsAspect, error) {
 	if t.ErrOnNewAspect {
 		return nil, errors.New("new aspect error")
 	}
 	return t, nil
 }
 
-// NewAccessLogger returns a new instance of the accessLogger aspect.
-func (t *Logger) NewAccessLogger(e adapter.Env, m adapter.AspectConfig) (adapter.AccessLogsAspect, error) {
+// NewAccessLogsAspect returns a new instance of the accessLogger aspect.
+func (t *Logger) NewAccessLogsAspect(e adapter.Env, m adapter.AspectConfig) (adapter.AccessLogsAspect, error) {
 	if t.ErrOnNewAspect {
 		return nil, errors.New("new aspect error")
 	}

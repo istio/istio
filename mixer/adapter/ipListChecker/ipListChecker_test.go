@@ -65,7 +65,7 @@ func TestBasic(t *testing.T) {
 		Ttl:             10,
 	}
 
-	a, err := b.NewListChecker(&env{}, &config)
+	a, err := b.NewListsAspect(&env{}, &config)
 	if err != nil {
 		t.Errorf("Unable to create adapter: %v", err)
 	}

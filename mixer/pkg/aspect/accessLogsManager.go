@@ -55,7 +55,7 @@ var (
 	combinedLogAttributes = append(commonLogAttributes, "referer", "user_agent")
 )
 
-// NewAccessLogsManager returns an instance of the accessLogger aspect manager.
+// NewAccessLogsManager returns a manager for the access logs aspect.
 func NewAccessLogsManager() Manager {
 	return accessLogsManager{}
 }
@@ -65,19 +65,19 @@ func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env 
 	var err error
 	var tmpl *template.Template
 
-	logCfg := c.Aspect.Params.(*aconfig.AccessLoggerParams)
+	logCfg := c.Aspect.Params.(*aconfig.AccessLogsParams)
 	logName := logCfg.LogName
 	logFormat := logCfg.LogFormat
 	var attrNames []string
 	var templateStr string
 	switch logFormat {
-	case aconfig.AccessLoggerParams_COMMON:
+	case aconfig.AccessLogsParams_COMMON:
 		attrNames = commonLogAttributes
 		templateStr = commonLogFormat
-	case aconfig.AccessLoggerParams_COMBINED:
+	case aconfig.AccessLogsParams_COMBINED:
 		attrNames = combinedLogAttributes
 		templateStr = combinedLogFormat
-	case aconfig.AccessLoggerParams_CUSTOM:
+	case aconfig.AccessLogsParams_CUSTOM:
 		fallthrough
 	default:
 		templateStr = logCfg.CustomLogTemplate
@@ -85,11 +85,11 @@ func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env 
 	}
 
 	// should never result in error, as this should fail ValidateConfig()
-	if tmpl, err = template.New("accessLoggerTemplate").Parse(templateStr); err != nil {
+	if tmpl, err = template.New("accessLogsTemplate").Parse(templateStr); err != nil {
 		return nil, err
 	}
 
-	if aspect, err = a.(adapter.AccessLogsBuilder).NewAccessLogger(env, c.Builder.Params.(adapter.AspectConfig)); err != nil {
+	if aspect, err = a.(adapter.AccessLogsBuilder).NewAccessLogsAspect(env, c.Builder.Params.(adapter.AspectConfig)); err != nil {
 		return nil, err
 	}
 
@@ -104,9 +104,9 @@ func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env 
 
 func (accessLogsManager) Kind() string { return AccessLogKind }
 func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
-	return &aconfig.AccessLoggerParams{
+	return &aconfig.AccessLogsParams{
 		LogName:   "access_log",
-		LogFormat: aconfig.AccessLoggerParams_COMMON,
+		LogFormat: aconfig.AccessLogsParams_COMMON,
 		// WARNING: we cannot set default attributes here, based on
 		// the params -> proto merge logic. These will override
 		// all other values. This should be mitigated by the move
@@ -115,8 +115,8 @@ func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
 }
 
 func (accessLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
-	cfg := c.(*aconfig.AccessLoggerParams)
-	if cfg.LogFormat != aconfig.AccessLoggerParams_CUSTOM {
+	cfg := c.(*aconfig.AccessLogsParams)
+	if cfg.LogFormat != aconfig.AccessLogsParams_CUSTOM {
 		return nil
 	}
 	tmplStr := cfg.CustomLogTemplate

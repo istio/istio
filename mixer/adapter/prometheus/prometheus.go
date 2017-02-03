@@ -54,7 +54,7 @@ func (f *factory) Close() error {
 	return f.srv.Close()
 }
 
-func (f *factory) NewMetrics(env adapter.Env, cfg adapter.AspectConfig) (adapter.MetricsAspect, error) {
+func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.MetricsAspect, error) {
 
 	var serverErr error
 	f.once.Do(func() { serverErr = f.srv.Start(env.Logger()) })

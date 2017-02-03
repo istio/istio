@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2016 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,9 +18,18 @@ package pkg.aspect.config;
 
 option go_package="config";
 
-// Configures a quota aspect.
-message QuotaParams {
-    // A list of names of istio.mixer.v1.config.descriptor.QuotaDescriptors determining the
-    // set of quotas that will be checked for any Quota call.
-    repeated string quota_descriptor_names = 1;
+// Configures a lists aspect.
+message ListsParams {
+  // blacklist determines if this behaves like a blacklist
+  // default is whitelist
+  bool blacklist = 1;
+  // check_attribute is the attribute to check on the list
+  // should be a well known attribute or must be mapped in mappings
+  string check_attribute = 2;
 }
+
+// Example
+// kind: lists
+// params:
+//	blacklist: true
+//      check_attributes: src.ip

@@ -64,14 +64,14 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 		//attrNames: []string{"test", "other"},
 	}
 
-	combinedStruct := &aconfig.AccessLoggerParams{
+	combinedStruct := &aconfig.AccessLogsParams{
 		LogName:   "combined_access_log",
-		LogFormat: aconfig.AccessLoggerParams_COMBINED,
+		LogFormat: aconfig.AccessLogsParams_COMBINED,
 	}
 
-	customStruct := &aconfig.AccessLoggerParams{
+	customStruct := &aconfig.AccessLogsParams{
 		LogName:           "custom_access_log",
-		LogFormat:         aconfig.AccessLoggerParams_CUSTOM,
+		LogFormat:         aconfig.AccessLogsParams_CUSTOM,
 		CustomLogTemplate: "{{.test}}",
 	}
 
@@ -81,9 +81,9 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 		params     interface{}
 		want       *accessLogsWrapper
 	}{
-		{"empty", &aconfig.AccessLoggerParams{}, dc, commonExec},
-		{"combined", &aconfig.AccessLoggerParams{}, combinedStruct, combinedExec},
-		{"custom", &aconfig.AccessLoggerParams{}, customStruct, customExec},
+		{"empty", &aconfig.AccessLogsParams{}, dc, commonExec},
+		{"combined", &aconfig.AccessLogsParams{}, combinedStruct, combinedExec},
+		{"custom", &aconfig.AccessLogsParams{}, customStruct, customExec},
 	}
 
 	m := NewAccessLogsManager()
@@ -108,15 +108,15 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 	defaultCfg := &config.Combined{
 		Builder: &configpb.Adapter{Params: &empty.Empty{}},
-		Aspect:  &configpb.Aspect{Params: &aconfig.AccessLoggerParams{}},
+		Aspect:  &configpb.Aspect{Params: &aconfig.AccessLogsParams{}},
 	}
 
 	badTemplate := "{{{{}}"
 	badTemplateCfg := &config.Combined{
 		Builder: &configpb.Adapter{Params: &empty.Empty{}},
-		Aspect: &configpb.Aspect{Params: &aconfig.AccessLoggerParams{
+		Aspect: &configpb.Aspect{Params: &aconfig.AccessLogsParams{
 			LogName:           "custom_access_log",
-			LogFormat:         aconfig.AccessLoggerParams_CUSTOM,
+			LogFormat:         aconfig.AccessLogsParams_CUSTOM,
 			CustomLogTemplate: badTemplate,
 		}},
 	}
@@ -143,11 +143,11 @@ func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 
 func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 	configs := []adapter.AspectConfig{
-		&aconfig.AccessLoggerParams{},
-		&aconfig.AccessLoggerParams{LogName: "test"},
-		&aconfig.AccessLoggerParams{LogName: "test", Attributes: []string{"test", "good"}},
-		&aconfig.AccessLoggerParams{LogFormat: aconfig.AccessLoggerParams_COMBINED},
-		&aconfig.AccessLoggerParams{LogFormat: aconfig.AccessLoggerParams_CUSTOM, CustomLogTemplate: "{{.test}}"},
+		&aconfig.AccessLogsParams{},
+		&aconfig.AccessLogsParams{LogName: "test"},
+		&aconfig.AccessLogsParams{LogName: "test", Attributes: []string{"test", "good"}},
+		&aconfig.AccessLogsParams{LogFormat: aconfig.AccessLogsParams_COMBINED},
+		&aconfig.AccessLogsParams{LogFormat: aconfig.AccessLogsParams_CUSTOM, CustomLogTemplate: "{{.test}}"},
 	}
 
 	m := NewAccessLogsManager()
@@ -160,7 +160,7 @@ func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 
 func TestAccessLoggerManager_ValidateConfigFailures(t *testing.T) {
 	configs := []adapter.AspectConfig{
-		&aconfig.AccessLoggerParams{LogFormat: aconfig.AccessLoggerParams_CUSTOM, CustomLogTemplate: "{{.test"},
+		&aconfig.AccessLogsParams{LogFormat: aconfig.AccessLogsParams_CUSTOM, CustomLogTemplate: "{{.test"},
 	}
 
 	m := NewAccessLogsManager()

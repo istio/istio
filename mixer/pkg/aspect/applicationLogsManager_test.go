@@ -66,8 +66,8 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 	}
 
 	newAspectShouldSucceed := []aspectTestCase{
-		{"empty", &aconfig.LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339}, defaultExec},
-		{"override", &aconfig.LoggerParams{LogName: "istio_log", TimestampFormat: "2006-Jan-02"}, overrideExec},
+		{"empty", &aconfig.ApplicationLogsParams{LogName: "istio_log", TimestampFormat: time.RFC3339}, defaultExec},
+		{"override", &aconfig.ApplicationLogsParams{LogName: "istio_log", TimestampFormat: "2006-Jan-02"}, overrideExec},
 	}
 
 	m := NewApplicationLogsManager()
@@ -96,7 +96,7 @@ func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 			Params: &empty.Empty{},
 		},
 		Aspect: &configpb.Aspect{
-			Params: &aconfig.LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339},
+			Params: &aconfig.ApplicationLogsParams{LogName: "istio_log", TimestampFormat: time.RFC3339},
 		},
 	}
 
@@ -248,7 +248,7 @@ func TestLoggerManager_ExecuteFailures(t *testing.T) {
 func TestLoggerManager_DefaultConfig(t *testing.T) {
 	m := NewApplicationLogsManager()
 	got := m.DefaultConfig()
-	want := &aconfig.LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
+	want := &aconfig.ApplicationLogsParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
 	if !proto.Equal(got, want) {
 		t.Errorf("DefaultConfig(): got %v, wanted %v", got, want)
 	}

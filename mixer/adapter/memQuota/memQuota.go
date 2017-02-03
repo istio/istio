@@ -18,12 +18,12 @@
 // - Obviously, the data set must be able to fit in memory.
 //
 // - When the mixer crashes/restarts, all quota values are erased.
-//   This means this isn't good for allocation quotas although
-//   it works well enough for rate limits quotas.
+// This means this isn't good for allocation quotas although
+// it works well enough for rate limits quotas.
 //
 // - Since the data is all memory-resident and there isn't any cross-node
-//   synchronization, this adapter can't be used in an Istio mixer where
-//   a single service can be handled by different mixer instances.
+// synchronization, this adapter can't be used in an Istio mixer where
+// a single service can be handled by different mixer instances.
 package memQuota
 
 import (
@@ -103,7 +103,7 @@ func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigError
 	return
 }
 
-func (builder) NewQuota(env adapter.Env, c adapter.AspectConfig, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
+func (builder) NewQuotasAspect(env adapter.Env, c adapter.AspectConfig, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
 	return newAspect(env, c.(*config.Params), d)
 }
 

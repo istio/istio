@@ -18,10 +18,10 @@ package pkg.aspect.config;
 
 option go_package="config";
 
-// Configures an individual logger aspect implementation.
+// Configures an individual application-logs aspect.
 //
 // Example usage:
-// kind: istio/logger
+// kind: application-logs
 // params:
 //    log_name: "endpoint_log"
 //    log_entry_descriptor_names: "application_log_entry", "action_log_entry"
@@ -29,7 +29,7 @@ option go_package="config";
 //    timestamp_attribute: "timestamp"
 //    timestamp_format: "2006-Jan-02"
 //
-message LoggerParams {
+message ApplicationLogsParams {
     // Provides a way to identify a collection of related log entries.
     string log_name = 1;
 

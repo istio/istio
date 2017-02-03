@@ -32,7 +32,7 @@ type (
 	}
 )
 
-// NewDenialsManager returns a DenyCheckerManager.
+// NewDenialsManager returns a manager for the denials aspect.
 func NewDenialsManager() Manager {
 	return denialsManager{}
 }
@@ -43,7 +43,7 @@ func (denialsManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env ad
 	var asp adapter.DenialsAspect
 	var err error
 
-	if asp, err = aa.NewDenyChecker(env, cfg.Builder.Params.(adapter.AspectConfig)); err != nil {
+	if asp, err = aa.NewDenialsAspect(env, cfg.Builder.Params.(adapter.AspectConfig)); err != nil {
 		return nil, err
 	}
 
@@ -53,7 +53,7 @@ func (denialsManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env ad
 }
 
 func (denialsManager) Kind() string                                                     { return DenyKind }
-func (denialsManager) DefaultConfig() adapter.AspectConfig                              { return &aconfig.DenyCheckerParams{} }
+func (denialsManager) DefaultConfig() adapter.AspectConfig                              { return &aconfig.DenialsParams{} }
 func (denialsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 
 func (a *denialsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
