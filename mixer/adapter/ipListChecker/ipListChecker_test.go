@@ -42,12 +42,26 @@ func (l logger) Warningf(format string, args ...interface{})     {}
 func (l logger) Errorf(format string, args ...interface{}) error { return fmt.Errorf(format, args) }
 
 func TestBasic(t *testing.T) {
-	lp := listPayload{
+	goodList := listPayload{
 		WhiteList: []string{"10.10.11.2", "10.10.11.3", "9.9.9.9/28"},
 	}
 
+	badList := listPayload{
+		WhiteList: []string{"10.10.11.2", "X", "10.10.11.3"},
+	}
+
+	useGoodList := true
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		out, err := yaml.Marshal(lp)
+		var out []byte
+		var err error
+
+		if useGoodList {
+			out, err = yaml.Marshal(goodList)
+		} else {
+			out, err = yaml.Marshal(badList)
+		}
+
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -67,30 +81,77 @@ func TestBasic(t *testing.T) {
 
 	a, err := b.NewListsAspect(&env{}, &config)
 	if err != nil {
-		t.Errorf("Unable to create adapter: %v", err)
+		t.Errorf("Unable to create aspect: %v", err)
 	}
-	cases := []string{"10.10.11.2", "9.9.9.1"}
+
+	cases := []struct {
+		addr   string
+		result bool
+		fail   bool
+	}{
+		{"10.10.11.2", true, false},
+		{"9.9.9.1", true, false},
+		{"120.10.11.2", false, false},
+		{"XYZ", false, true},
+	}
+
 	for _, c := range cases {
-		ok, err := a.CheckList(c)
-		if err != nil {
-			t.Errorf("CheckList(%s) failed with %v", c, err)
+		ok, err := a.CheckList(c.addr)
+		if (err != nil) != c.fail {
+			t.Errorf("CheckList(%s): did not expect err '%v'", c.addr, err)
 		}
 
-		if !ok {
-			t.Errorf("CheckList(%s): expecting 'true', got 'false'", c)
+		if ok != c.result {
+			t.Errorf("CheckList(%s): expecting '%v', got '%v'", c.addr, c.result, ok)
 		}
 	}
 
-	negCases := []string{"120.10.11.2"}
-	for _, c := range negCases {
-		ok, err := a.CheckList(c)
-		if err != nil {
-			t.Errorf("CheckList(%s) failed with %v", c, err)
-		}
+	lc := a.(*listChecker)
 
-		if ok {
-			t.Errorf("CheckList(%s): expecting 'false', got 'true'", c)
-		}
+	// do a NOP refresh of the same data
+	lc.refreshList()
+
+	// now try to parse the bad list
+	useGoodList = false
+	lc.refreshList()
+	list := lc.getList()
+	if len(list.payload) != 2 {
+		t.Errorf("Expecting %d, got %d entries", len(badList.WhiteList)-1, len(list.payload))
+	}
+
+	if err := a.Close(); err != nil {
+		t.Errorf("Unable to close aspect: %v", err)
+	}
+
+	if err := b.Close(); err != nil {
+		t.Errorf("Unable to close builder: %v", err)
+	}
+}
+
+func TestBadUrl(t *testing.T) {
+	b := newBuilder()
+
+	config := config.Params{
+		ProviderUrl:     "http://abadurl.com",
+		RefreshInterval: 1,
+		Ttl:             10,
+	}
+
+	a, err := b.NewListsAspect(&env{}, &config)
+	if err != nil {
+		t.Errorf("Unable to create aspect: %v", err)
+	}
+
+	if _, err = a.CheckList("1.2.3.4"); err == nil {
+		t.Errorf("Expecting failure, got success")
+	}
+
+	if err := a.Close(); err != nil {
+		t.Errorf("Unable to close aspect: %v", err)
+	}
+
+	if err := b.Close(); err != nil {
+		t.Errorf("Unable to close builder: %v", err)
 	}
 }
 
