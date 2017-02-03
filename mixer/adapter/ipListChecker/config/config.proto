@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package adapter.ipListChecker.config;
 
+import "google/protobuf/duration.proto";
+
 option go_package="config";
 
 message Params {
@@ -24,13 +26,11 @@ message Params {
 
     // Determines how often the provider is polled for
     // an updated list
-    // unit: seconds
-    int64 refresh_interval = 2;
+    google.protobuf.Duration refresh_interval = 2;
 
     // Indicates how long to keep a list before discarding it.
     // Typically, the TTL value should be set to noticeably longer (> 2x) than the
     // refresh interval to ensure continued operation in the face of transient
     // server outages.
-    // unit: seconds
-    int64 ttl = 3;
+    google.protobuf.Duration ttl = 3;
 }
