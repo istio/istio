@@ -173,18 +173,25 @@ func (t Tag) Validate() error {
 
 // ValidateRouteRule checks routing rules
 func ValidateRouteRule(msg proto.Message) error {
-	_, ok := msg.(*proxyconfig.RouteRule)
+	routeRule, ok := msg.(*proxyconfig.RouteRule)
 	if !ok {
 		return fmt.Errorf("Cannot cast to routing rule")
+	}
+	if routeRule.GetDstServiceName() == "" {
+		return fmt.Errorf("RouteRule must have a destination service")
 	}
 	return nil
 }
 
 // ValidateUpstreamCluster checks proxy policies
 func ValidateUpstreamCluster(msg proto.Message) error {
-	_, ok := msg.(*proxyconfig.UpstreamCluster)
+	upstreamCluster, ok := msg.(*proxyconfig.UpstreamCluster)
 	if !ok {
 		return fmt.Errorf("Cannot cast to destination policy")
+	}
+	cluster := upstreamCluster.GetCluster()
+	if cluster == nil || cluster.GetName() == "" {
+		return fmt.Errorf("Upstream Cluster should have a valid service Name in cluster.name field")
 	}
 	return nil
 }

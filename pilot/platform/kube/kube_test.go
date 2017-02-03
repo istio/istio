@@ -246,6 +246,7 @@ func TestProxyConfig(t *testing.T) {
 	defer deleteNamespace(cl.client, ns)
 
 	rule := &proxyconfig.RouteRule{
+		DstServiceName: "foo",
 		RouteRule: &proxyconfig.RouteRule_Http{
 			Http: &proxyconfig.HttpRouteRule{
 				Match: &proxyconfig.HttpMatchCondition{
