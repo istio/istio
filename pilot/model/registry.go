@@ -110,3 +110,18 @@ func (i *IstioRegistry) RouteRules(namespace string) []*proxyconfig.RouteRule {
 	}
 	return out
 }
+
+// UpstreamClusters lists all destination policies in a namespace (or all if namespace is "")
+func (i *IstioRegistry) UpstreamClusters(namespace string) []*proxyconfig.UpstreamCluster {
+	out := make([]*proxyconfig.UpstreamCluster, 0)
+	rs, err := i.List(UpstreamCluster, namespace)
+	if err != nil {
+		glog.V(2).Infof("UpstreamClusters => %v", err)
+	}
+	for _, r := range rs {
+		if rule, ok := r.(*proxyconfig.UpstreamCluster); ok {
+			out = append(out, rule)
+		}
+	}
+	return out
+}
