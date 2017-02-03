@@ -100,7 +100,7 @@ message RouteRule {
   // Note: The name used here must match with the 'name' field in the
   // ClusterIdentifier, that is used to uniquely identify a version of the
   // upstream service.
-  string dst_service_name = 1;
+  string destination = 1;
   oneof route_rule {
     L4RouteRule layer4 = 2;
     HttpRouteRule http = 3;
@@ -196,7 +196,7 @@ message L4MatchAttributes {
 // tag string could be parsed into a pod label (key:value))
 message ClusterIdentifier {
   // Note: When used in the context of upstream clusters, the value of the
-  // name field used here must match with the 'dst_service_name' field in
+  // name field used here must match with the 'destination' field in
   // the RouteRule, that is used to assign the RouteRule to a particular
   // service
   string name = 1;
