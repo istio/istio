@@ -19,7 +19,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 	"gopkg.in/yaml.v2"
 
 	"istio.io/mixer/adapter/ipListChecker/config"
@@ -27,39 +30,35 @@ import (
 	"istio.io/mixer/pkg/adapter/test"
 )
 
-// TODO: this test suite needs to be beefed up considerably.
-// Should be testing more edge cases, testing refresh behavior with and without errors,
-// testing TTL handling, testing malformed input, etc.
+type junk struct{}
 
-type env struct{}
-
-func (e env) Logger() adapter.Logger { return logger{} }
-
-type logger struct{}
-
-func (l logger) Infof(format string, args ...interface{})        {}
-func (l logger) Warningf(format string, args ...interface{})     {}
-func (l logger) Errorf(format string, args ...interface{}) error { return fmt.Errorf(format, args) }
+func (junk) Read(p []byte) (n int, err error) {
+	return 0, fmt.Errorf("nothing good ever happens to me")
+}
 
 func TestBasic(t *testing.T) {
-	goodList := listPayload{
+	list0 := listPayload{
 		WhiteList: []string{"10.10.11.2", "10.10.11.3", "9.9.9.9/28"},
 	}
 
-	badList := listPayload{
+	list1 := listPayload{
 		WhiteList: []string{"10.10.11.2", "X", "10.10.11.3"},
 	}
 
-	useGoodList := true
+	list2 := []string{"JUNK"}
+
+	listToUse := 0
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var out []byte
 		var err error
 
-		if useGoodList {
-			out, err = yaml.Marshal(goodList)
+		if listToUse == 0 {
+			out, err = yaml.Marshal(list0)
+		} else if listToUse == 1 {
+			out, err = yaml.Marshal(list1)
 		} else {
-			out, err = yaml.Marshal(badList)
+			out, err = yaml.Marshal(list2)
 		}
 
 		if err != nil {
@@ -75,11 +74,11 @@ func TestBasic(t *testing.T) {
 
 	config := config.Params{
 		ProviderUrl:     ts.URL,
-		RefreshInterval: 1,
-		Ttl:             10,
+		RefreshInterval: toDuration(1),
+		Ttl:             toDuration(10),
 	}
 
-	a, err := b.NewListsAspect(&env{}, &config)
+	a, err := b.NewListsAspect(test.NewEnv(t), &config)
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
@@ -102,21 +101,46 @@ func TestBasic(t *testing.T) {
 		}
 
 		if ok != c.result {
-			t.Errorf("CheckList(%s): expecting '%v', got '%v'", c.addr, c.result, ok)
+			t.Errorf("CheckList(%s): got '%v', expecting '%v'", c.addr, ok, c.result)
 		}
 	}
 
 	lc := a.(*listChecker)
 
 	// do a NOP refresh of the same data
-	lc.refreshList()
+	lc.fetchList()
+	ls := lc.getListState()
+	if ls.fetchError != nil {
+		t.Errorf("Unable to refresh list: %v", ls.fetchError)
+	}
 
-	// now try to parse the bad list
-	useGoodList = false
-	lc.refreshList()
-	list := lc.getList()
-	if len(list.payload) != 2 {
-		t.Errorf("Expecting %d, got %d entries", len(badList.WhiteList)-1, len(list.payload))
+	// now try to parse a list with errors
+	listToUse = 1
+	lc.fetchList()
+	ls = lc.getListState()
+	if ls.fetchError != nil {
+		t.Errorf("Unable to refresh list: %v", ls.fetchError)
+	}
+	if len(ls.entries) != 2 {
+		t.Errorf("Got %d entries, expected %d", len(ls.entries), len(list1.WhiteList)-1)
+	}
+
+	// now try to parse a list in the wrong format
+	listToUse = 2
+	lc.fetchList()
+	ls = lc.getListState()
+	if ls.fetchError == nil {
+		t.Errorf("Got success, expected error")
+	}
+	if len(ls.entries) != 2 {
+		t.Errorf("Got %d entries, expected %d", len(ls.entries), len(list1.WhiteList)-1)
+	}
+
+	// now try to process an incorrect body
+	lc.fetchListWithBody(junk{})
+	ls = lc.getListState()
+	if ls.fetchError == nil {
+		t.Errorf("Got success, expected failure")
 	}
 
 	if err := a.Close(); err != nil {
@@ -133,17 +157,17 @@ func TestBadUrl(t *testing.T) {
 
 	config := config.Params{
 		ProviderUrl:     "http://abadurl.com",
-		RefreshInterval: 1,
-		Ttl:             10,
+		RefreshInterval: toDuration(1),
+		Ttl:             toDuration(10),
 	}
 
-	a, err := b.NewListsAspect(&env{}, &config)
+	a, err := b.NewListsAspect(test.NewEnv(t), &config)
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
 
 	if _, err = a.CheckList("1.2.3.4"); err == nil {
-		t.Errorf("Expecting failure, got success")
+		t.Errorf("Got success, expected failure")
 	}
 
 	if err := a.Close(); err != nil {
@@ -163,28 +187,53 @@ func TestValidateConfig(t *testing.T) {
 
 	cases := []testCase{
 		{
-			cfg:   config.Params{ProviderUrl: "Foo", RefreshInterval: 1, Ttl: 2},
+			cfg:   config.Params{ProviderUrl: "Foo", RefreshInterval: toDuration(1), Ttl: toDuration(2)},
 			field: "ProviderUrl",
 		},
 
 		{
-			cfg:   config.Params{ProviderUrl: ":", RefreshInterval: 1, Ttl: 2},
+			cfg:   config.Params{ProviderUrl: ":", RefreshInterval: toDuration(1), Ttl: toDuration(2)},
 			field: "ProviderUrl",
 		},
 
 		{
-			cfg:   config.Params{ProviderUrl: "http:", RefreshInterval: 1, Ttl: 2},
+			cfg:   config.Params{ProviderUrl: "http:", RefreshInterval: toDuration(1), Ttl: toDuration(2)},
 			field: "ProviderUrl",
 		},
 
 		{
-			cfg:   config.Params{ProviderUrl: "http://", RefreshInterval: 1, Ttl: 2},
+			cfg:   config.Params{ProviderUrl: "http://", RefreshInterval: toDuration(1), Ttl: toDuration(2)},
 			field: "ProviderUrl",
 		},
 
 		{
-			cfg:   config.Params{ProviderUrl: "http:///FOO", RefreshInterval: 1, Ttl: 2},
+			cfg:   config.Params{ProviderUrl: "http:///FOO", RefreshInterval: toDuration(1), Ttl: toDuration(2)},
 			field: "ProviderUrl",
+		},
+
+		{
+			cfg:   config.Params{ProviderUrl: "http://foo.com", RefreshInterval: toDuration(0), Ttl: toDuration(2)},
+			field: "RefreshInterval",
+		},
+
+		{
+			cfg:   config.Params{ProviderUrl: "http://foo.com", RefreshInterval: &duration.Duration{Seconds: -1, Nanos: -1}, Ttl: toDuration(2)},
+			field: "RefreshInterval",
+		},
+
+		{
+			cfg:   config.Params{ProviderUrl: "http://foo.com", RefreshInterval: &duration.Duration{Seconds: 0x7fffffffffffffff, Nanos: -1}, Ttl: toDuration(2)},
+			field: "RefreshInterval",
+		},
+
+		{
+			cfg:   config.Params{ProviderUrl: "http://foo.com", RefreshInterval: toDuration(1), Ttl: &duration.Duration{Seconds: 0x7fffffffffffffff, Nanos: -1}},
+			field: "Ttl",
+		},
+
+		{
+			cfg:   config.Params{ProviderUrl: "http://foo.com", RefreshInterval: toDuration(1), Ttl: toDuration(0)},
+			field: "Ttl",
 		},
 	}
 
@@ -192,11 +241,97 @@ func TestValidateConfig(t *testing.T) {
 	for i, c := range cases {
 		err := b.ValidateConfig(&c.cfg).Multi.Errors[0].(adapter.ConfigError)
 		if err.Field != c.field {
-			t.Errorf("Case %d: expecting error for field %s, got %s", i, c.field, err.Field)
+			t.Errorf("Case %d: got field %s, expected field %s", i, err.Field, c.field)
 		}
+	}
+}
+
+func TestRefreshAndPurge(t *testing.T) {
+	list := listPayload{
+		WhiteList: []string{"10.10.11.2", "10.10.11.3", "9.9.9.9/28"},
+	}
+
+	blocker := make(chan bool, 1)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var out []byte
+		var err error
+
+		out, err = yaml.Marshal(list)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if _, err := w.Write(out); err != nil {
+			t.Errorf("w.Write failed: %v", err)
+		}
+
+		<-blocker
+	}))
+	defer ts.Close()
+
+	config := config.Params{
+		ProviderUrl:     ts.URL,
+		RefreshInterval: toDuration(3600),
+		Ttl:             toDuration(360000),
+	}
+
+	refreshChan := make(chan time.Time)
+	purgeChan := make(chan time.Time, 1)
+
+	refreshTicker := time.NewTicker(time.Second * 3600)
+	purgeTimer := time.NewTimer(time.Second * 3600)
+
+	refreshTicker.C = refreshChan
+	purgeTimer.C = purgeChan
+
+	// allow the initial synchronous fetch to go through
+	blocker <- true
+
+	a, err := newListCheckerWithTimers(test.NewEnv(t), &config, refreshTicker, purgeTimer, time.Second*3600)
+	if err != nil {
+		t.Errorf("Unable to create aspect: %v", err)
+	}
+
+	// cause a redundant refresh
+	refreshChan <- time.Now()
+	blocker <- true
+
+	// cause a purge
+	purgeChan <- time.Now()
+	for len(a.getListState().entries) != 0 {
+		time.Sleep(time.Millisecond)
+	}
+
+	// start a new fetch
+	refreshChan <- time.Now()
+
+	// while the fetch is blocked, prime the purge channel. We want to exercise the
+	// purge cancellation logic
+	purgeChan <- time.Now()
+
+	// unblock the fetch
+	blocker <- true
+
+	// start another fetch so we can synchronize
+	refreshChan <- time.Now()
+
+	// while the fetch is blocked, make sure the list wasn't purged
+	if len(a.getListState().entries) == 0 {
+		t.Error("Got an empty list, expecting some entries")
+	}
+
+	// allow the fetch to complete
+	blocker <- true
+
+	if err := a.Close(); err != nil {
+		t.Errorf("Unable to close aspect: %v", err)
 	}
 }
 
 func TestInvariants(t *testing.T) {
 	test.AdapterInvariants(Register, t)
+}
+
+func toDuration(seconds int32) *duration.Duration {
+	return ptypes.DurationProto(time.Duration(seconds) * time.Second)
 }
