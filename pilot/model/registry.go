@@ -96,10 +96,10 @@ type IstioRegistry struct {
 	Registry
 }
 
-// RouteRules lists all rules
-func (i *IstioRegistry) RouteRules() []*proxyconfig.RouteRule {
+// RouteRules lists all rules in a namespace (or all rules if namespace is "")
+func (i *IstioRegistry) RouteRules(namespace string) []*proxyconfig.RouteRule {
 	out := make([]*proxyconfig.RouteRule, 0)
-	rs, err := i.List(RouteRule, "")
+	rs, err := i.List(RouteRule, namespace)
 	if err != nil {
 		glog.V(2).Infof("RouteRules => %v", err)
 	}
@@ -109,5 +109,4 @@ func (i *IstioRegistry) RouteRules() []*proxyconfig.RouteRule {
 		}
 	}
 	return out
-
 }
