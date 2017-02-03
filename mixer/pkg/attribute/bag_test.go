@@ -331,7 +331,7 @@ func TestValue(t *testing.T) {
 
 type d map[string]interface{}
 type ttable struct {
-	inRoot  d
+	inRoot  *mixerpb.Attributes
 	inChild d
 	out     d
 }
@@ -340,22 +340,28 @@ func TestStringKeys(t *testing.T) {
 	testKeys(t,
 		[]ttable{
 			{
-				d{},
+				&mixerpb.Attributes{},
 				d{},
 				d{},
 			},
 			{
-				d{"root": "r"},
+				&mixerpb.Attributes{
+					Dictionary:       map[int32]string{1: "root"},
+					StringAttributes: map[int32]string{1: "r"},
+				},
 				d{},
 				d{"root": "r"},
 			},
 			{
-				d{},
+				&mixerpb.Attributes{},
 				d{"one": "a", "two": "b"},
 				d{"one": "a", "two": "b"},
 			},
 			{
-				d{"root": "r"},
+				&mixerpb.Attributes{
+					Dictionary:       map[int32]string{1: "root"},
+					StringAttributes: map[int32]string{1: "r"},
+				},
 				d{"one": "a", "two": "b"},
 				d{"root": "r", "one": "a", "two": "b"},
 			},
@@ -374,22 +380,28 @@ func TestInt64Keys(t *testing.T) {
 	testKeys(t,
 		[]ttable{
 			{
-				d{},
+				&mixerpb.Attributes{},
 				d{},
 				d{},
 			},
 			{
-				d{"root": int64(1)},
+				&mixerpb.Attributes{
+					Dictionary:      map[int32]string{1: "root"},
+					Int64Attributes: map[int32]int64{1: 1},
+				},
 				d{},
 				d{"root": int64(1)},
 			},
 			{
-				d{},
+				&mixerpb.Attributes{},
 				d{"one": int64(2), "two": int64(3)},
 				d{"one": int64(2), "two": int64(3)},
 			},
 			{
-				d{"root": int64(1)},
+				&mixerpb.Attributes{
+					Dictionary:      map[int32]string{1: "root"},
+					Int64Attributes: map[int32]int64{1: 1},
+				},
 				d{"one": int64(2), "two": int64(3)},
 				d{"root": int64(1), "one": int64(2), "two": int64(3)},
 			},
@@ -408,22 +420,28 @@ func TestFloat64Keys(t *testing.T) {
 	testKeys(t,
 		[]ttable{
 			{
-				d{},
+				&mixerpb.Attributes{},
 				d{},
 				d{},
 			},
 			{
-				d{"root": float64(1)},
+				&mixerpb.Attributes{
+					Dictionary:       map[int32]string{1: "root"},
+					DoubleAttributes: map[int32]float64{1: 1},
+				},
 				d{},
 				d{"root": float64(1)},
 			},
 			{
-				d{},
+				&mixerpb.Attributes{},
 				d{"one": float64(2), "two": float64(3)},
 				d{"one": float64(2), "two": float64(3)},
 			},
 			{
-				d{"root": float64(1)},
+				&mixerpb.Attributes{
+					Dictionary:       map[int32]string{1: "root"},
+					DoubleAttributes: map[int32]float64{1: 1},
+				},
 				d{"one": float64(2), "two": float64(3)},
 				d{"root": float64(1), "one": float64(2), "two": float64(3)},
 			},
@@ -442,22 +460,28 @@ func TestBoolKeys(t *testing.T) {
 	testKeys(t,
 		[]ttable{
 			{
-				d{},
+				&mixerpb.Attributes{},
 				d{},
 				d{},
 			},
 			{
-				d{"root": true},
+				&mixerpb.Attributes{
+					Dictionary:     map[int32]string{1: "root"},
+					BoolAttributes: map[int32]bool{1: true},
+				},
 				d{},
 				d{"root": true},
 			},
 			{
-				d{},
+				&mixerpb.Attributes{},
 				d{"one": true, "two": false},
 				d{"one": true, "two": false},
 			},
 			{
-				d{"root": false},
+				&mixerpb.Attributes{
+					Dictionary:     map[int32]string{1: "root"},
+					BoolAttributes: map[int32]bool{1: false},
+				},
 				d{"one": true, "two": false},
 				d{"root": false, "one": true, "two": false},
 			},
@@ -476,22 +500,28 @@ func TestTimeKeys(t *testing.T) {
 	testKeys(t,
 		[]ttable{
 			{
-				d{},
+				&mixerpb.Attributes{},
 				d{},
 				d{},
 			},
 			{
-				d{"root": t9},
+				&mixerpb.Attributes{
+					Dictionary:          map[int32]string{1: "root"},
+					TimestampAttributes: map[int32]*ts.Timestamp{1: ts9},
+				},
 				d{},
 				d{"root": t9},
 			},
 			{
-				d{},
+				&mixerpb.Attributes{},
 				d{"one": t10, "two": t42},
 				d{"one": t10, "two": t42},
 			},
 			{
-				d{"root": t9},
+				&mixerpb.Attributes{
+					Dictionary:          map[int32]string{1: "root"},
+					TimestampAttributes: map[int32]*ts.Timestamp{1: ts9},
+				},
 				d{"one": t10, "two": t42},
 				d{"root": t9, "one": t10, "two": t42},
 			},
@@ -510,22 +540,28 @@ func TestByteKeys(t *testing.T) {
 	testKeys(t,
 		[]ttable{
 			{
-				d{},
+				&mixerpb.Attributes{},
 				d{},
 				d{},
 			},
 			{
-				d{"root": []byte{11}},
+				&mixerpb.Attributes{
+					Dictionary:      map[int32]string{1: "root"},
+					BytesAttributes: map[int32][]byte{1: {11}},
+				},
 				d{},
 				d{"root": []byte{11}},
 			},
 			{
-				d{},
+				&mixerpb.Attributes{},
 				d{"one": []byte{12}, "two": []byte{13}},
 				d{"one": []byte{12}, "two": []byte{13}},
 			},
 			{
-				d{"root": []byte{1}},
+				&mixerpb.Attributes{
+					Dictionary:      map[int32]string{1: "root"},
+					BytesAttributes: map[int32][]byte{1: {1}},
+				},
 				d{"one": []byte{2}, "two": []byte{3}},
 				d{"root": []byte{1}, "one": []byte{2}, "two": []byte{3}},
 			},
@@ -543,11 +579,7 @@ func TestByteKeys(t *testing.T) {
 func testKeys(t *testing.T, cases []ttable, setVal func(MutableBag, string, interface{}), keyFn func(Bag) []string) {
 	for _, tc := range cases {
 		at := NewManager().NewTracker()
-		root, _ := at.StartRequest(&mixerpb.Attributes{})
-		for k, v := range tc.inRoot {
-			setVal(root, k, v)
-		}
-
+		root, _ := at.StartRequest(tc.inRoot)
 		ab := root.Child()
 		for k, v := range tc.inChild {
 			setVal(ab, k, v)
