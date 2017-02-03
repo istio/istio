@@ -35,14 +35,18 @@ type (
 
 	listChecker struct {
 		log             adapter.Logger
-		backend         *url.URL
+		providerURL     string
 		atomicList      atomic.Value
-		fetchedSha      [sha1.Size]byte
 		refreshInterval time.Duration
 		ttl             time.Duration
 		closing         chan bool
-		fetchError      error
 		client          http.Client
+	}
+
+	listState struct {
+		payload    []*net.IPNet
+		payloadSha [sha1.Size]byte
+		fetchError error
 	}
 )
 
@@ -85,29 +89,23 @@ func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigError
 }
 
 func newListChecker(env adapter.Env, c *config.Params) (*listChecker, error) {
-	var u *url.URL
-	var err error
-	if u, err = url.Parse(c.ProviderUrl); err != nil {
-		// bogus URL format
-		return nil, err
-	}
-
-	aa := listChecker{
+	l := &listChecker{
 		log:             env.Logger(),
-		backend:         u,
+		providerURL:     c.ProviderUrl,
 		closing:         make(chan bool),
 		refreshInterval: time.Second * time.Duration(c.RefreshInterval),
 		ttl:             time.Second * time.Duration(c.Ttl),
 	}
-	aa.client = http.Client{Timeout: aa.ttl}
+	l.client = http.Client{Timeout: l.ttl}
+	l.setList(listState{})
 
 	// load up the list synchronously so we're ready to accept traffic immediately
-	aa.refreshList()
+	l.refreshList()
 
 	// crank up the async list refresher
-	go aa.listRefresher()
+	go l.listRefresher()
 
-	return &aa, nil
+	return l, nil
 }
 
 func (l *listChecker) Close() error {
@@ -124,11 +122,11 @@ func (l *listChecker) CheckList(symbol string) (bool, error) {
 
 	// get an atomic snapshot of the current list
 	list := l.getList()
-	if len(list) == 0 {
-		return false, l.fetchError
+	if len(list.payload) == 0 {
+		return false, list.fetchError
 	}
 
-	for _, ipnet := range list {
+	for _, ipnet := range list.payload {
 		if ipnet.Contains(ipa) {
 			return true, nil
 		}
@@ -139,12 +137,12 @@ func (l *listChecker) CheckList(symbol string) (bool, error) {
 }
 
 // Typed accessors for the atomic list
-func (l *listChecker) getList() []*net.IPNet {
-	return l.atomicList.Load().([]*net.IPNet)
+func (l *listChecker) getList() listState {
+	return l.atomicList.Load().(listState)
 }
 
 // Typed accessor for the atomic list
-func (l *listChecker) setList(list []*net.IPNet) {
+func (l *listChecker) setList(list listState) {
 	l.atomicList.Store(list)
 }
 
@@ -165,7 +163,10 @@ func (l *listChecker) listRefresher() {
 
 		case <-purgeTimer.C:
 			// times up, nuke the list and start returning errors
-			l.setList(nil)
+			list := l.getList()
+			list.payload = nil
+			list.payloadSha = [20]byte{}
+			l.setList(list)
 
 		case <-l.closing:
 			return
@@ -179,12 +180,15 @@ type listPayload struct {
 }
 
 func (l *listChecker) refreshList() {
-	l.log.Infof("Fetching list from %s", l.backend)
+	l.log.Infof("Fetching list from %s", l.providerURL)
 
-	resp, err := l.client.Get(l.backend.String())
+	list := l.getList()
+
+	resp, err := l.client.Get(l.providerURL)
 	if err != nil {
-		l.fetchError = err
-		l.log.Warningf("Could not connect to %s: %v", l.backend, err)
+		list.fetchError = err
+		l.setList(list)
+		l.log.Warningf("Could not connect to %s: %v", l.providerURL, err)
 		return
 	}
 
@@ -192,16 +196,15 @@ func (l *listChecker) refreshList() {
 	var buf []byte
 	buf, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		l.fetchError = err
-		l.log.Warningf("Could not read from %s: %v", l.backend, err)
+		list.fetchError = err
+		l.setList(list)
+		l.log.Warningf("Could not read from %s: %v", l.providerURL, err)
 		return
 	}
 
 	// determine whether the list has changed since the last fetch
-	// Note that a.fetchedSha is only read and written by this function
-	// in a single thread
 	newsha := sha1.Sum(buf)
-	if newsha == l.fetchedSha {
+	if newsha == list.payloadSha {
 		// the list hasn't changed since last time, just bail
 		l.log.Infof("Fetched list is unchanged")
 		return
@@ -211,13 +214,14 @@ func (l *listChecker) refreshList() {
 	lp := listPayload{}
 	err = yaml.Unmarshal(buf, &lp)
 	if err != nil {
-		l.fetchError = err
-		l.log.Warningf("Could not unmarshal %s: %v", l.backend, err)
+		list.fetchError = err
+		l.setList(list)
+		l.log.Warningf("Could not unmarshal data from %s: %v", l.providerURL, err)
 		return
 	}
 
 	// copy to the internal format
-	list := make([]*net.IPNet, 0, len(lp.WhiteList))
+	entries := make([]*net.IPNet, 0, len(lp.WhiteList))
 	for _, ip := range lp.WhiteList {
 		if !strings.Contains(ip, "/") {
 			ip += "/32"
@@ -225,15 +229,16 @@ func (l *listChecker) refreshList() {
 
 		_, ipnet, err := net.ParseCIDR(ip)
 		if err != nil {
-			l.log.Warningf("Unable to parse %s: %v", ip, err)
+			l.log.Warningf("Skipping unparsable entry %s: %v", ip, err)
 			continue
 		}
-		list = append(list, ipnet)
+		entries = append(entries, ipnet)
 	}
 
 	// Now create a new map and install it
-	l.log.Infof("Installing updated list")
+	l.log.Infof("Installing updated list with %d entries", len(entries))
+	list.payload = entries
+	list.payloadSha = newsha
+	list.fetchError = nil
 	l.setList(list)
-	l.fetchedSha = newsha
-	l.fetchError = nil
 }
