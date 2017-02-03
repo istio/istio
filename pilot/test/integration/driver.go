@@ -126,6 +126,7 @@ func main() {
 	run("kubectl apply -f " + yaml + " -n " + namespace)
 	pods := getPods()
 	log.Println("pods:", pods)
+	dumpLogs(pods)
 	ids := makeRequests(pods)
 	log.Println("requests:", ids)
 	checkAccessLogs(pods, ids)
@@ -310,6 +311,19 @@ func checkAccessLogs(pods map[string]string, ids map[string][]string) {
 
 		time.Sleep(time.Second)
 	}
+}
+
+// dumpLogs spews out the logs from each pod (useful for debugging in Jenkins)
+func dumpLogs(pods map[string]string) {
+	for _, pod := range []string{"a", "b"} {
+		log.Printf("Checking access log of %s [app]\n", pod)
+		log.Printf(shell(fmt.Sprintf("kubectl logs %s -n %s -c app", pods[pod], namespace)))
+		log.Printf("Checking access log of %s [proxy]\n", pod)
+		log.Printf(shell(fmt.Sprintf("kubectl logs %s -n %s -c proxy", pods[pod], namespace)))
+
+	}
+	log.Printf("Checking access log of manager [manager]\n")
+	log.Printf(shell(fmt.Sprintf("kubectl logs %s -n %s -c manager", pods["manager"], namespace)))
 }
 
 func generateNamespace(cl *kubernetes.Clientset) string {
