@@ -8,6 +8,7 @@ go_library(
         "env.go",
         "logger.go",
         "manager.go",
+        "parallelManager.go",
         "registry.go",
     ],
     deps = [
@@ -27,6 +28,7 @@ go_test(
     srcs = [
         "env_test.go",
         "manager_test.go",
+        "parallelManager_test.go",
         "registry_test.go",
     ],
     library = ":go_default_library",

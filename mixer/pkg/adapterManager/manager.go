@@ -16,13 +16,13 @@ package adapterManager
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"encoding/gob"
 	"fmt"
 	"sync"
 
 	"github.com/golang/glog"
-
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
@@ -104,8 +104,23 @@ func newManager(r builderFinder, m map[string]aspect.Manager, exp expr.Evaluator
 	}
 }
 
-// Execute performs action described in the combined config using the attribute bag
-func (m *Manager) Execute(cfg *config.Combined, attrs attribute.Bag) (out *aspect.Output, err error) {
+// Execute iterates over cfgs and performs the actions described by the combined config using the attribute bag on each config.
+// It returns the first error it encounters or the output of every combined config execution.
+func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag) ([]*aspect.Output, error) {
+	// TODO: pool these arrays, we'll be making many and len(cfg) is constant for the life of the configuration.
+	outputs := make([]*aspect.Output, len(cfgs))
+	for i, cfg := range cfgs {
+		out, err := m.execute(ctx, cfg, attrs)
+		if err != nil {
+			return nil, err // we could return outputs (the results so far) too.
+		}
+		outputs[i] = out
+	}
+	return outputs, nil
+}
+
+// execute performs action described in the combined config using the attribute bag
+func (m *Manager) execute(ctx context.Context, cfg *config.Combined, attrs attribute.Bag) (out *aspect.Output, err error) {
 	var mgr aspect.Manager
 	var found bool
 
@@ -131,11 +146,13 @@ func (m *Manager) Execute(cfg *config.Combined, attrs attribute.Bag) (out *aspec
 		return nil, err
 	}
 
-	// TODO act on adapter.Output
+	// TODO: plumb  ctx through asp.Execute
+	_ = ctx
+	// TODO: act on asp.Output
 	return asp.Execute(attrs, m.mapper)
 }
 
-// cacheGet -- get from the cache, use adapter.Manager to construct an object in case of a cache miss
+// CacheGet -- get from the cache, use adapter.Manager to construct an object in case of a cache miss
 func (m *Manager) cacheGet(cfg *config.Combined, mgr aspect.Manager, builder adapter.Builder) (asp aspect.Wrapper, err error) {
 	var key *cacheKey
 	if key, err = newCacheKey(cfg); err != nil {
