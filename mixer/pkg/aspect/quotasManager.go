@@ -43,7 +43,7 @@ type (
 	}
 )
 
-// NewQuotasManager returns an instance of the Quota aspect manager.
+// NewQuotasManager returns a manager for the quotas aspect.
 func NewQuotasManager() Manager {
 	return &quotasManager{}
 }
@@ -67,7 +67,7 @@ func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env ada
 		}
 	}
 
-	aspect, err := a.(adapter.QuotasBuilder).NewQuota(env, c.Builder.Params.(adapter.AspectConfig), defs)
+	aspect, err := a.(adapter.QuotasBuilder).NewQuotasAspect(env, c.Builder.Params.(adapter.AspectConfig), defs)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env ada
 }
 
 func (*quotasManager) Kind() string                                                   { return QuotaKind }
-func (*quotasManager) DefaultConfig() adapter.AspectConfig                            { return &aconfig.QuotaParams{} }
+func (*quotasManager) DefaultConfig() adapter.AspectConfig                            { return &aconfig.QuotasParams{} }
 func (*quotasManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 
 func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {

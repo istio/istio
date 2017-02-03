@@ -15,8 +15,8 @@
 package adapter
 
 type (
-	// ListsAdapter checks the presence of a given symbol against a list.
-	ListsAdapter interface {
+	// ListsAspect checks the presence of a given symbol against a list.
+	ListsAspect interface {
 		Aspect
 
 		// CheckList verifies whether the given symbol is on the list.
@@ -27,7 +27,7 @@ type (
 	ListsBuilder interface {
 		Builder
 
-		// NewListChecker returns a new instance of the ListChecker aspect.
-		NewListChecker(env Env, c AspectConfig) (ListsAdapter, error)
+		// NewListsAspect returns a new instance of the ListChecker aspect.
+		NewListsAspect(env Env, c AspectConfig) (ListsAspect, error)
 	}
 )

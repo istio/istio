@@ -59,8 +59,8 @@ type (
 	ApplicationLogsBuilder interface {
 		Builder
 
-		// NewLogger returns a new instance of the Logger aspect.
-		NewLogger(env Env, c AspectConfig) (ApplicationLogsAspect, error)
+		// NewApplicationLogsAspect returns a new instance of the Logger aspect.
+		NewApplicationLogsAspect(env Env, c AspectConfig) (ApplicationLogsAspect, error)
 	}
 )
 

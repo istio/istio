@@ -32,7 +32,7 @@ type (
 	AccessLogsBuilder interface {
 		Builder
 
-		// NewAccessLogger returns a new instance of the AccessLogger aspect.
-		NewAccessLogger(env Env, c AspectConfig) (AccessLogsAspect, error)
+		// NewAccessLogsAspect returns a new instance of the AccessLogger aspect.
+		NewAccessLogsAspect(env Env, c AspectConfig) (AccessLogsAspect, error)
 	}
 )

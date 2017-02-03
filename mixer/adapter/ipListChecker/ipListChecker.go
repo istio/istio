@@ -65,7 +65,7 @@ func newBuilder() adapter.ListsBuilder {
 	return builder{adapter.NewDefaultBuilder(name, desc, conf)}
 }
 
-func (builder) NewListChecker(env adapter.Env, c adapter.AspectConfig) (adapter.ListsAdapter, error) {
+func (builder) NewListsAspect(env adapter.Env, c adapter.AspectConfig) (adapter.ListsAspect, error) {
 	return newListChecker(env, c.(*config.Params))
 }
 

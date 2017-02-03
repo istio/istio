@@ -18,15 +18,15 @@ package pkg.aspect.config;
 
 option go_package="config";
 
-// Configures an individual logger aspect implementation.
+// Configures an individual access-logs aspect.
 //
 // Example usage:
-// kind: istio/accessLogger
+// kind: access-logs
 // params:
 //    log_name: "logs/access_log"
 //    attributes: "source.ip","host.URL","
 //    log_format: "COMMON"
-message AccessLoggerParams {
+message AccessLogsParams {
     // Provides a way to identify a collection of related log entries.
     // Default value: "access_log"
     string log_name = 1;

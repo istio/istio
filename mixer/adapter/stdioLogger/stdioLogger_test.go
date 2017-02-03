@@ -41,13 +41,13 @@ func TestBuilder_NewLogger(t *testing.T) {
 	e := testEnv{}
 	a := builder{}
 	for _, v := range tests {
-		asp, err := a.NewLogger(e, v.config)
+		asp, err := a.NewApplicationLogsAspect(e, v.config)
 		if err != nil {
-			t.Errorf("NewLogger(env, %s) => unexpected error: %v", v.config, err)
+			t.Errorf("NewApplicationLogsAspect(env, %s) => unexpected error: %v", v.config, err)
 		}
 		got := asp.(*logger)
 		if !reflect.DeepEqual(got, v.want) {
-			t.Errorf("NewLogger(env, %s) => %v, want %v", v.config, got, v.want)
+			t.Errorf("NewApplicationLogsAspect(env, %s) => %v, want %v", v.config, got, v.want)
 		}
 	}
 }
@@ -62,13 +62,13 @@ func TestBuilder_NewAccessLogger(t *testing.T) {
 	e := testEnv{}
 	a := builder{}
 	for _, v := range tests {
-		asp, err := a.NewAccessLogger(e, v.config)
+		asp, err := a.NewAccessLogsAspect(e, v.config)
 		if err != nil {
-			t.Errorf("NewAccessLogger(env, %s) => unexpected error: %v", v.config, err)
+			t.Errorf("NewAccessLogsAspect(env, %s) => unexpected error: %v", v.config, err)
 		}
 		got := asp.(*logger)
 		if !reflect.DeepEqual(got, v.want) {
-			t.Errorf("NewAccessLogger(env, %s) => %v, want %v", v.config, got, v.want)
+			t.Errorf("NewAccessLogsAspect(env, %s) => %v, want %v", v.config, got, v.want)
 		}
 	}
 }

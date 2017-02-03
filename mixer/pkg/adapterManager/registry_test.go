@@ -34,7 +34,7 @@ func (testBuilder) ValidateConfig(c adapter.AspectConfig) *adapter.ConfigErrors 
 
 type denyBuilder struct{ testBuilder }
 
-func (denyBuilder) NewDenyChecker(env adapter.Env, cfg adapter.AspectConfig) (adapter.DenialsAspect, error) {
+func (denyBuilder) NewDenialsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.DenialsAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -56,7 +56,7 @@ func TestRegisterDenyChecker(t *testing.T) {
 
 type listBuilder struct{ testBuilder }
 
-func (listBuilder) NewListChecker(env adapter.Env, cfg adapter.AspectConfig) (adapter.ListsAdapter, error) {
+func (listBuilder) NewListsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.ListsAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -78,7 +78,7 @@ func TestRegisterListChecker(t *testing.T) {
 
 type loggerBuilder struct{ testBuilder }
 
-func (loggerBuilder) NewLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.ApplicationLogsAspect, error) {
+func (loggerBuilder) NewApplicationLogsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.ApplicationLogsAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -100,7 +100,7 @@ func TestRegisterLogger(t *testing.T) {
 
 type accessLoggerBuilder struct{ testBuilder }
 
-func (accessLoggerBuilder) NewAccessLogger(env adapter.Env, cfg adapter.AspectConfig) (adapter.AccessLogsAspect, error) {
+func (accessLoggerBuilder) NewAccessLogsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.AccessLogsAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -122,7 +122,7 @@ func TestRegistry_RegisterAccessLogger(t *testing.T) {
 
 type quotaBuilder struct{ testBuilder }
 
-func (quotaBuilder) NewQuota(env adapter.Env, cfg adapter.AspectConfig, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
+func (quotaBuilder) NewQuotasAspect(env adapter.Env, cfg adapter.AspectConfig, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

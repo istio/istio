@@ -70,19 +70,19 @@ var (
 	}
 )
 
-// NewApplicationLogsManager returns an aspect manager for the logger aspect.
+// NewApplicationLogsManager returns a manager for the application logs aspect.
 func NewApplicationLogsManager() Manager {
 	return applicationLogsManager{}
 }
 
 func (applicationLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
-	aspect, err := a.(adapter.ApplicationLogsBuilder).NewLogger(env, c.Builder.Params.(adapter.AspectConfig))
+	aspect, err := a.(adapter.ApplicationLogsBuilder).NewApplicationLogsAspect(env, c.Builder.Params.(adapter.AspectConfig))
 	if err != nil {
 		return nil, err
 	}
 
 	// TODO: look up actual descriptors by name and build an array
-	logCfg := c.Aspect.Params.(*aconfig.LoggerParams)
+	logCfg := c.Aspect.Params.(*aconfig.ApplicationLogsParams)
 
 	return &applicationLogsWrapper{
 		logCfg.LogName,
@@ -98,7 +98,7 @@ func (applicationLogsManager) NewAspect(c *config.Combined, a adapter.Builder, e
 
 func (applicationLogsManager) Kind() string { return LogKind }
 func (applicationLogsManager) DefaultConfig() adapter.AspectConfig {
-	return &aconfig.LoggerParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
+	return &aconfig.ApplicationLogsParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
 }
 
 // TODO: validation of timestamp format

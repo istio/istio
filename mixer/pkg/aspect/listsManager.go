@@ -31,12 +31,12 @@ type (
 
 	listsWrapper struct {
 		inputs map[string]string
-		aspect adapter.ListsAdapter
-		params *aconfig.ListCheckerParams
+		aspect adapter.ListsAspect
+		params *aconfig.ListsParams
 	}
 )
 
-// NewListsManager returns "this" aspect Manager
+// NewListsManager returns a manager for the lists aspect.
 func NewListsManager() Manager {
 	return listsManager{}
 }
@@ -44,16 +44,16 @@ func NewListsManager() Manager {
 // NewAspect creates a listChecker aspect.
 func (listsManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
 	aa := ga.(adapter.ListsBuilder)
-	var asp adapter.ListsAdapter
+	var asp adapter.ListsAspect
 	var err error
 
-	if asp, err = aa.NewListChecker(env, cfg.Builder.Params.(adapter.AspectConfig)); err != nil {
+	if asp, err = aa.NewListsAspect(env, cfg.Builder.Params.(adapter.AspectConfig)); err != nil {
 		return nil, err
 	}
 	return &listsWrapper{
 		inputs: cfg.Aspect.Inputs,
 		aspect: asp,
-		params: cfg.Aspect.Params.(*aconfig.ListCheckerParams),
+		params: cfg.Aspect.Params.(*aconfig.ListsParams),
 	}, nil
 }
 
@@ -62,13 +62,13 @@ func (listsManager) Kind() string {
 }
 
 func (listsManager) DefaultConfig() adapter.AspectConfig {
-	return &aconfig.ListCheckerParams{
+	return &aconfig.ListsParams{
 		CheckAttribute: "src.ip",
 	}
 }
 
 func (listsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
-	lc := c.(*aconfig.ListCheckerParams)
+	lc := c.(*aconfig.ListsParams)
 	if lc.CheckAttribute == "" {
 		ce = ce.Appendf("CheckAttribute", "Missing")
 	}

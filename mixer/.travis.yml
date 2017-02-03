@@ -11,7 +11,7 @@ jdk:
 
 env:
   global:
-  - BAZEL_VERSION=0.4.2
+  - BAZEL_VERSION=0.4.3
 
 addons:
   apt:

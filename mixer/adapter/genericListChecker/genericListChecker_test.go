@@ -45,7 +45,7 @@ func TestAll(t *testing.T) {
 	for _, c := range cases {
 		b := newBuilder()
 
-		a, err := b.NewListChecker(nil, &c.ac)
+		a, err := b.NewListsAspect(nil, &c.ac)
 		if err != nil {
 			t.Errorf("Unable to create aspect: %v", err)
 		}

@@ -18,6 +18,6 @@ package pkg.aspect.config;
 
 option go_package="config";
 
-// Configures a deny checker aspect
-message DenyCheckerParams {
+// Configures a denials aspect.
+message DenialsParams {
 }

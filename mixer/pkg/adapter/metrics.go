@@ -68,8 +68,8 @@ type (
 	MetricsBuilder interface {
 		Builder
 
-		// NewMetrics returns a new instance of the Metrics aspect.
-		NewMetrics(env Env, config AspectConfig) (MetricsAspect, error)
+		// NewMetricsAspect returns a new instance of the Metrics aspect.
+		NewMetricsAspect(env Env, config AspectConfig) (MetricsAspect, error)
 	}
 )
 
