@@ -29,10 +29,9 @@ type ServiceDiscovery interface {
 	// GetService retrieves a service by host name if it exists
 	GetService(hostname string) (*Service, bool)
 
-	// Instances takes a union across a set of tags and a set of named ports
-	// defined in the service parameter. An empty tag set or a port set implies
-	// the union of all available tags and ports, respectively.
-	Instances(s *Service) []*ServiceInstance
+	// Instances takes a union across a set of tags and a set of named ports.
+	// An empty tag set implies the union of all available tags.
+	Instances(hostname string, ports []string, tags []Tag) []*ServiceInstance
 
 	// HostInstances lists service instances for a given set of IPv4 addresses.
 	HostInstances(addrs map[string]bool) []*ServiceInstance
@@ -50,17 +49,7 @@ type Service struct {
 	Tags []Tag `json:"tags,omitempty"`
 
 	// Ports is a set of declared network service ports
-	Ports []*Port `json:"ports,omitempty"`
-}
-
-// GetPort retrieves a port declaration by name
-func (s *Service) GetPort(name string) (*Port, bool) {
-	for _, port := range s.Ports {
-		if port.Name == name {
-			return port, true
-		}
-	}
-	return nil, false
+	Ports PortList `json:"ports,omitempty"`
 }
 
 // Tag describes an Istio service tag which provides finer-grained control
@@ -98,6 +87,28 @@ type Port struct {
 
 	// Protocol to be used for the port
 	Protocol Protocol `json:"protocol,omitempty"`
+}
+
+// PortList is a list of ports
+type PortList []*Port
+
+// GetNames returns port names
+func (ports PortList) GetNames() []string {
+	names := make([]string, 0)
+	for _, port := range ports {
+		names = append(names, port.Name)
+	}
+	return names
+}
+
+// Get retrieves a port declaration by name
+func (ports PortList) Get(name string) (*Port, bool) {
+	for _, port := range ports {
+		if port.Name == name {
+			return port, true
+		}
+	}
+	return nil, false
 }
 
 // Protocol defines network protocols for ports

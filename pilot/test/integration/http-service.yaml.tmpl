@@ -1,4 +1,4 @@
-# Kubernetes set-up
+# Example service with an injected proxy
 apiVersion: v1
 kind: Service
 metadata:
@@ -6,7 +6,6 @@ metadata:
   labels:
     app: {{.name}}
 spec:
-  type: NodePort
   ports:
   - port: 80
     targetPort: {{.port1}}

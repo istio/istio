@@ -26,17 +26,20 @@ on your macOS as described [here](https://coderwall.com/p/mgi8ja/case-sensitive-
 
     bazel --output_base=/Volumes/case-sensitive-volume-name/bazel-out build //cmd/... --spawn_strategy=standalone
 
-Bazel uses `BUILD` files to keep track of dependencies between sources.
-If you add a new source file or change the imports, please run the following command
+Bazel uses `BUILD` files to keep track of dependencies between sources.  If you
+add a new source file or change the imports, please run the following command
 to update all `BUILD` files:
 
     gazelle -go_prefix "istio.io/manager" --mode fix -repo_root .
 
-Gazelle binary is located in `bazel-bin/external` folder under the manager repository, after your initial bazel build:
+Gazelle binary is located in `bazel-bin/external` folder under the manager
+repository, after your initial bazel build:
 
     bazel-bin/external/io_bazel_rules_go_repository_tools/bin/gazelle
 
-_Note_: If you cant find the gazelle binary in the path mentioned above, try to update the mlocate database (`sudo updatedb` or the equivalent in macOS) and run `locate gazelle`. The gazelle binary should typically be in
+_Note_: If you cant find the gazelle binary in the path mentioned above, try to
+update the mlocate database (`sudo updatedb` or the equivalent in macOS) and
+run `locate gazelle`. The gazelle binary should typically be in
 
     $HOME/.cache/bazel/_bazel_<username>/<somelongfoldername>/external/io_bazel_rules_go_repository_tools/bin/gazelle
 

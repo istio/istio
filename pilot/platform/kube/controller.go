@@ -18,7 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
+	"strconv"
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
@@ -50,12 +50,6 @@ type cacheHandler struct {
 	informer cache.SharedIndexInformer
 	handler  *chainHandler
 }
-
-const (
-	// ServiceSuffix is the hostname suffix used by a Kubernetes service
-	// TODO: DNS suffix configurable
-	ServiceSuffix = "svc.cluster.local"
-)
 
 // NewController creates a new Kubernetes controller
 func NewController(
@@ -299,11 +293,16 @@ func (c *Controller) GetService(hostname string) (*model.Service, bool) {
 		glog.V(2).Infof("GetService(%s) => error %v", hostname, err)
 		return nil, false
 	}
-	return c.serviceByKey(name, namespace)
+	item, exists := c.serviceByKey(name, namespace)
+	if !exists {
+		return nil, false
+	}
+
+	return convertService(*item), true
 }
 
-// serviceByKey retrieves a service by name and hostname
-func (c *Controller) serviceByKey(name, namespace string) (*model.Service, bool) {
+// serviceByKey retrieves a service by name and namespace
+func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
 	item, exists, err := c.services.informer.GetStore().GetByKey(keyFunc(name, namespace))
 	if err != nil {
 		glog.V(2).Infof("serviceByKey(%s, %s) => error %v", name, namespace, err)
@@ -312,37 +311,60 @@ func (c *Controller) serviceByKey(name, namespace string) (*model.Service, bool)
 	if !exists {
 		return nil, false
 	}
-	return convertService(*item.(*v1.Service)), true
+	return item.(*v1.Service), true
 }
 
 // Instances implements a service catalog operation
-func (c *Controller) Instances(query *model.Service) []*model.ServiceInstance {
+func (c *Controller) Instances(hostname string, ports []string, tags []model.Tag) []*model.ServiceInstance {
 	// Get actual service by name
-	name, namespace, err := parseHostname(query.Hostname)
+	name, namespace, err := parseHostname(hostname)
 	if err != nil {
-		glog.V(2).Infof("parseHostname(%s) => error %v", query.Hostname, err)
+		glog.V(2).Infof("parseHostname(%s) => error %v", hostname, err)
 		return nil
 	}
 
-	svc, exists := c.serviceByKey(name, namespace)
+	item, exists := c.serviceByKey(name, namespace)
 	if !exists {
 		return nil
 	}
 
 	// Locate all ports in the actual service
-	ports := make(map[string]*model.Port)
-	if len(query.Ports) == 0 {
-		for _, port := range svc.Ports {
-			ports[port.Name] = port
-		}
-	} else {
-		for _, port := range query.Ports {
-			if svcPort, exists := svc.GetPort(port.Name); exists {
-				ports[port.Name] = svcPort
-			}
+	svc := convertService(*item)
+	svcPorts := make(map[string]*model.Port)
+	for _, port := range ports {
+		if svcPort, exists := svc.Ports.Get(port); exists {
+			svcPorts[port] = svcPort
 		}
 	}
 
+	switch item.Spec.Type {
+	case v1.ServiceTypeClusterIP, v1.ServiceTypeNodePort:
+	case v1.ServiceTypeLoadBalancer:
+		// TODO: load balancer service will get traffic from external IPs
+	case v1.ServiceTypeExternalName:
+		// resolve to external name service, and update name and namespace
+		target, exists := c.GetService(item.Spec.ExternalName)
+		if !exists {
+			glog.V(2).Infof("Missing target service %q for %q", item.Spec.ExternalName, hostname)
+			return nil
+		}
+		name, namespace, err = parseHostname(target.Hostname)
+		if err != nil {
+			return nil
+		}
+
+		// rewrite service ports to use target service port names, which are just numbers
+		targetPorts := make(map[string]*model.Port)
+		for _, port := range svcPorts {
+			targetPorts[strconv.Itoa(port.Port)] = port
+		}
+		svcPorts = targetPorts
+	default:
+		glog.Warningf("Unexpected service type %q", item.Spec.Type)
+		return nil
+	}
+
+	// TODO: single port service missing name
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 		if ep.Name == name && ep.Namespace == namespace {
@@ -350,7 +372,7 @@ func (c *Controller) Instances(query *model.Service) []*model.ServiceInstance {
 			for _, ss := range ep.Subsets {
 				for _, ea := range ss.Addresses {
 					for _, port := range ss.Ports {
-						if svcPort, exists := ports[port.Name]; exists {
+						if svcPort, exists := svcPorts[port.Name]; exists {
 							out = append(out, &model.ServiceInstance{
 								Endpoint: model.Endpoint{
 									Address:     ea.IP,
@@ -379,11 +401,12 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 			for _, ea := range ss.Addresses {
 				if addrs[ea.IP] {
 					for _, port := range ss.Ports {
-						svc, exists := c.serviceByKey(ep.Name, ep.Namespace)
+						item, exists := c.serviceByKey(ep.Name, ep.Namespace)
 						if !exists {
 							continue
 						}
-						svcPort, exists := svc.GetPort(port.Name)
+						svc := convertService(*item)
+						svcPort, exists := svc.Ports.Get(port.Name)
 						if !exists {
 							continue
 						}
@@ -417,74 +440,13 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	c.endpoints.handler.append(func(obj interface{}, event model.Event) error {
 		ep := *obj.(*v1.Endpoints)
-		svc, exists := c.serviceByKey(ep.Name, ep.Namespace)
-		if !exists {
-			svc = nil
+		item, exists := c.serviceByKey(ep.Name, ep.Namespace)
+		var svc *model.Service
+		if exists {
+			svc = convertService(*item)
 		}
 		f(&model.ServiceInstance{Service: svc}, event)
 		return nil
 	})
 	return nil
-}
-
-func convertService(svc v1.Service) *model.Service {
-	ports := make([]*model.Port, 0)
-	addr := ""
-	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
-		addr = svc.Spec.ClusterIP
-	}
-
-	for _, port := range svc.Spec.Ports {
-		ports = append(ports, &model.Port{
-			Name:     port.Name,
-			Port:     int(port.Port),
-			Protocol: convertProtocol(port.Name, port.Protocol),
-		})
-	}
-
-	return &model.Service{
-		Hostname: fmt.Sprintf("%s.%s.%s", svc.Name, svc.Namespace, ServiceSuffix),
-		Ports:    ports,
-		Address:  addr,
-		// TODO: empty set of service tags for now
-		Tags: nil,
-	}
-}
-
-// parseHostname is the inverse of hostname pattern from Kubernetes/Istio service translation
-func parseHostname(hostname string) (string, string, error) {
-	prefix := strings.TrimSuffix(hostname, "."+ServiceSuffix)
-	if len(prefix) >= len(hostname) {
-		return "", "", fmt.Errorf("Missing hostname suffix: %q", hostname)
-	}
-	parts := strings.Split(prefix, ".")
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("Incorrect number of hostname labels, expect 2, got %d, %q", len(parts), prefix)
-	}
-	return parts[0], parts[1], nil
-}
-
-func convertProtocol(name string, proto v1.Protocol) model.Protocol {
-	out := model.ProtocolTCP
-	switch proto {
-	case v1.ProtocolUDP:
-		out = model.ProtocolUDP
-	case v1.ProtocolTCP:
-		prefix := name
-		i := strings.Index(name, "-")
-		if i >= 0 {
-			prefix = name[:i]
-		}
-		switch prefix {
-		case "grpc":
-			out = model.ProtocolGRPC
-		case "http":
-			out = model.ProtocolHTTP
-		case "http2":
-			out = model.ProtocolHTTP2
-		case "https":
-			out = model.ProtocolHTTPS
-		}
-	}
-	return out
 }

@@ -15,7 +15,6 @@
 package kube
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -279,27 +278,6 @@ func (cl *Client) List(kind string, ns string) ([]*model.Config, error) {
 		out = append(out, elt)
 	}
 	return out, errs
-}
-
-// camelCaseToKabobCase converts "MyName" to "my-name"
-func camelCaseToKabobCase(s string) string {
-	var out bytes.Buffer
-	for i := range s {
-		if 'A' <= s[i] && s[i] <= 'Z' {
-			if i > 0 {
-				out.WriteByte('-')
-			}
-			out.WriteByte(s[i] - 'A' + 'a')
-		} else {
-			out.WriteByte(s[i])
-		}
-	}
-	return out.String()
-}
-
-// kindToAPIName converts Kind name to 3rd party API group
-func kindToAPIName(s string) string {
-	return camelCaseToKabobCase(s) + "." + IstioAPIGroup
 }
 
 func kubeToModel(kind string, schema model.ProtoSchema, config *Config) (*model.Config, error) {

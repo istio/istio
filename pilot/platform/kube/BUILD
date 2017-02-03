@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_prefix", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -6,6 +6,7 @@ go_library(
         "client.go",
         "config.go",
         "controller.go",
+        "conversion.go",
         "queue.go",
     ],
     visibility = ["//visibility:public"],
@@ -33,13 +34,20 @@ go_library(
     ],
 )
 
+filegroup(
+    name = "kubeconfig",
+    srcs = ["config"],
+    visibility = ["//visibility:public"],
+)
+
 go_test(
     name = "go_default_test",
     srcs = [
+        "conversion_test.go",
         "kube_test.go",
         "queue_test.go",
     ],
-    data = ["config"],
+    data = [":kubeconfig"],
     library = ":go_default_library",
     deps = [
         "//model:go_default_library",
@@ -49,5 +57,3 @@ go_test(
         "@io_k8s_client_go//pkg/api/v1:go_default_library",
     ],
 )
-
-go_prefix("istio.io/manager")

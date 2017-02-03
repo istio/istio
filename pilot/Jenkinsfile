@@ -49,7 +49,7 @@ def presubmit(gitUtils, bazel) {
       bazel.test('//...')
     }
     stage('Integration Tests') {
-      sh('go run test/integration/driver.go -c "" -t alpha-' + gitUtils.GIT_SHA)
+      sh('bin/e2e.sh -t alpha-' + gitUtils.GIT_SHA + ' -c ""')
     }
   }
 }

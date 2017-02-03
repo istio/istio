@@ -31,50 +31,8 @@ import (
 )
 
 var (
-	camelKabobs = []struct{ in, out string }{
-		{"ExampleNameX", "example-name-x"},
-		{"example1", "example1"},
-		{"exampleXY", "example-x-y"},
-	}
-
-	protocols = []struct {
-		name  string
-		proto v1.Protocol
-		out   model.Protocol
-	}{
-		{"", v1.ProtocolTCP, model.ProtocolTCP},
-		{"http", v1.ProtocolTCP, model.ProtocolHTTP},
-		{"http-test", v1.ProtocolTCP, model.ProtocolHTTP},
-		{"http", v1.ProtocolUDP, model.ProtocolUDP},
-		{"httptest", v1.ProtocolTCP, model.ProtocolTCP},
-		{"https", v1.ProtocolTCP, model.ProtocolHTTPS},
-		{"https-test", v1.ProtocolTCP, model.ProtocolHTTPS},
-		{"http2", v1.ProtocolTCP, model.ProtocolHTTP2},
-		{"http2-test", v1.ProtocolTCP, model.ProtocolHTTP2},
-		{"grpc", v1.ProtocolTCP, model.ProtocolGRPC},
-		{"grpc-test", v1.ProtocolTCP, model.ProtocolGRPC},
-	}
-
 	testService = "test"
 )
-
-func TestCamelKabob(t *testing.T) {
-	for _, tt := range camelKabobs {
-		s := camelCaseToKabobCase(tt.in)
-		if s != tt.out {
-			t.Errorf("camelCaseToKabobCase(%q) => %q, want %q", tt.in, s, tt.out)
-		}
-	}
-}
-
-func TestConvertProtocol(t *testing.T) {
-	for _, tt := range protocols {
-		out := convertProtocol(tt.name, tt.proto)
-		if out != tt.out {
-			t.Errorf("convertProtocol(%q, %q) => %q, want %q", tt.name, tt.proto, out, tt.out)
-		}
-	}
-}
 
 func TestThirdPartyResourcesClient(t *testing.T) {
 	if testing.Short() {
@@ -258,17 +216,33 @@ func TestServices(t *testing.T) {
 	ctl := NewController(cl, ns, 256*time.Millisecond)
 	go ctl.Run(stop)
 
+	hostname := fmt.Sprintf("%s.%s.%s", testService, ns, ServiceSuffix)
+
 	var sds model.ServiceDiscovery = ctl
-	createService(testService, ns, cl.client, t)
+	makeService(testService, ns, cl.client, t)
 	eventually(func() bool {
 		out := sds.Services()
 		glog.Info("Services: %#v", out)
 		return len(out) == 1 &&
-			out[0].Hostname == fmt.Sprintf("%s.%s.%s", testService, ns, ServiceSuffix) &&
+			out[0].Hostname == hostname &&
 			out[0].Tags == nil &&
 			len(out[0].Ports) == 1 &&
 			out[0].Ports[0].Protocol == model.ProtocolHTTP
 	}, t)
+
+	svc, exists := sds.GetService(hostname)
+	if !exists {
+		t.Errorf("GetService(%q) => %t, want true", hostname, exists)
+	}
+	if svc.Hostname != hostname {
+		t.Errorf("GetService(%q) => %q", hostname, svc.Hostname)
+	}
+
+	missing := fmt.Sprintf("does-not-exist.%s.%s", ns, ServiceSuffix)
+	_, exists = sds.GetService(missing)
+	if exists {
+		t.Errorf("GetService(%q) => %t, want false", missing, exists)
+	}
 }
 
 func eventually(f func() bool, t *testing.T) {
@@ -333,7 +307,7 @@ func makeNamespace(cl *kubernetes.Clientset, t *testing.T) string {
 	return ns.Name
 }
 
-func createService(n, ns string, cl *kubernetes.Clientset, t *testing.T) {
+func makeService(n, ns string, cl *kubernetes.Clientset, t *testing.T) {
 	_, err := cl.Core().Services(ns).Create(&v1.Service{
 		ObjectMeta: v1.ObjectMeta{Name: n},
 		Spec: v1.ServiceSpec{

@@ -89,7 +89,7 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 	key := request.PathParameter("service-key")
 	svc := model.ParseServiceString(key)
 	out := make([]host, 0)
-	for _, ep := range ds.services.Instances(svc) {
+	for _, ep := range ds.services.Instances(svc.Hostname, svc.Ports.GetNames(), svc.Tags) {
 		out = append(out, host{
 			Address: ep.Endpoint.Address,
 			Port:    ep.Endpoint.Port,

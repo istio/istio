@@ -1,3 +1,4 @@
+# Test service without the proxy
 apiVersion: v1
 kind: Service
 metadata:
@@ -5,7 +6,6 @@ metadata:
   labels:
     app: t
 spec:
-  type: NodePort
   ports:
   - port: 80
     name: http
@@ -37,6 +37,7 @@ spec:
         - containerPort: 80
         - containerPort: 8080
 ---
+# Manager service for discovery
 apiVersion: v1
 kind: Service
 metadata:
