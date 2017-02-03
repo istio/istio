@@ -213,10 +213,10 @@ type Cluster struct {
 // CircuitBreaker definition
 // See: https://lyft.github.io/envoy/docs/configuration/cluster_manager/cluster_circuit_breakers.html#circuit-breakers
 type CircuitBreaker struct {
-	MaxConnections    int `json:"max_connections,omitempty"`
-	MaxPendingRequest int `json:"max_pending_requests,omitempty"`
-	MaxRequests       int `json:"max_requests,omitempty"`
-	MaxRetries        int `json:"max_retries,omitempty"`
+	MaxConnections     int `json:"max_connections,omitempty"`
+	MaxPendingRequests int `json:"max_pending_requests,omitempty"`
+	MaxRequests        int `json:"max_requests,omitempty"`
+	MaxRetries         int `json:"max_retries,omitempty"`
 }
 
 // OutlierDetection definition
