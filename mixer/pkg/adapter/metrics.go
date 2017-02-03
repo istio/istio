@@ -69,7 +69,19 @@ type (
 		Builder
 
 		// NewMetricsAspect returns a new instance of the Metrics aspect.
-		NewMetricsAspect(env Env, config AspectConfig) (MetricsAspect, error)
+		NewMetricsAspect(env Env, config AspectConfig, metrics []MetricDefinition) (MetricsAspect, error)
+	}
+
+	// MetricDefinition provides the basic description of a metric schema
+	// for which metrics adapters will be sent Values at runtime.
+	MetricDefinition struct {
+		// Name is the canonical name of the metric.
+		Name string
+		// Kind provides type information about the metric.
+		Kind Kind
+		// Labels are the names of keys for dimensional data that will
+		// generated at runtime and passed along with metric values.
+		Labels []string
 	}
 )
 
