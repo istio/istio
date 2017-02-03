@@ -12,7 +12,9 @@ go_repositories()
 
 git_repository(
     name = "org_pubref_rules_protobuf",
-    commit = "d762b0d564b8dd5b55b58ac7e3f47c940e2750e3",
+    # Nov 28 2016 - not a tagged release
+    # Justification: needed for importmap support in gogo_proto_library
+    commit = "b0acb9ecaba79716a36fdadc0bcc47dedf6b711a",
     remote = "https://github.com/pubref/rules_protobuf",
 )
 
@@ -20,12 +22,11 @@ load("@org_pubref_rules_protobuf//protobuf:rules.bzl", "proto_repositories")
 
 proto_repositories()
 
-load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_repositories")
+load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_repositories")
 load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cpp_proto_repositories")
 
 cpp_proto_repositories()
-
-go_proto_repositories()
+gogo_proto_repositories()
 
 new_go_repository(
     name = "com_github_golang_glog",
@@ -142,13 +143,6 @@ new_go_repository(
     name = "com_github_opentracing_basictracer",
     commit = "1b32af207119a14b1b231d451df3ed04a72efebf",
     importpath = "github.com/opentracing/basictracer-go",
-)
-
-# Transitive dep of com_github_opentracing_basictracer
-new_go_repository(
-    name = "com_github_gogo_protobuf",
-    commit = "909568be09de550ed094403c2bf8a261b5bb730a",
-    importpath = "github.com/gogo/protobuf",
 )
 
 new_go_repository(

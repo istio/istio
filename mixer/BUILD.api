@@ -6,9 +6,9 @@ load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
 
 go_prefix("istio.io/api")
 
-load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
+load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_library")
 
-go_proto_library(
+gogo_proto_library(
     name = "mixer/v1",
     importmap = {
         "google/rpc/status.proto": "google.golang.org/genproto/googleapis/rpc/status",
@@ -37,7 +37,7 @@ go_proto_library(
     ],
 )
 
-go_proto_library(
+gogo_proto_library(
     name = "mixer/v1/config",
     imports = [
         "../../external/com_github_google_protobuf/src",
@@ -56,7 +56,7 @@ go_proto_library(
     ],
 )
 
-go_proto_library(
+gogo_proto_library(
     name = "mixer/v1/config/descriptor",
     protos = [
         "mixer/v1/config/descriptor/attribute_descriptor.proto",

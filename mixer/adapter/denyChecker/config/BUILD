@@ -1,6 +1,6 @@
-load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
+load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_library")
 
-go_proto_library(
+gogo_proto_library(
     name = "go_default_library",
     importmap = {
         "google/rpc/status.proto": "google.golang.org/genproto/googleapis/rpc/status",
