@@ -211,7 +211,7 @@ type Runtime struct {
 	Default int    `json:"default"`
 }
 
-// WeightedClusters definition
+// WeightedCluster definition
 // See https://lyft.github.io/envoy/docs/configuration/http_conn_man/route_config/route.html
 type WeightedCluster struct {
 	Clusters         []WeightedClusterEntry `json:"clusters"`
