@@ -45,11 +45,11 @@ run `locate gazelle`. The gazelle binary should typically be in
 
 ## Test environment ##
 
-Manager tests require access to a Kubernetes cluster. We recommend Kubernetes 
+Manager tests require access to a Kubernetes cluster. We recommend Kubernetes
 version >=1.5.2 due to its improved support for Third-Party Resources. Each
 test operates on a temporary namespace and deletes it on completion.  Please
-configure your `kubectl` to point to a development cluster (e.g. minikube) before building or
-invoking the tests and add a symbolic link to your
+configure your `kubectl` to point to a development cluster (e.g. minikube)
+before building or invoking the tests and add a symbolic link to your
 repository pointing to Kubernetes cluster credentials:
 
     ln -s ~/.kube/config platform/kube/

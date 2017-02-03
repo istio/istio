@@ -10,6 +10,8 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//model/proxy/alphav1/config:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
     ],

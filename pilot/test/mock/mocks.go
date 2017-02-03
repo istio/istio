@@ -27,96 +27,36 @@ import (
 
 // Mock values
 const (
-	Kind      = "MockConfig"
+	Kind      = "mock-config"
 	Name      = "my-qualified-name"
 	Namespace = "test"
 )
 
 // Mock values
 var (
-	Key = model.ConfigKey{
+	Key = model.Key{
 		Kind:      Kind,
 		Name:      Name,
 		Namespace: Namespace,
 	}
-	ConfigObject = MockConfig{
+	ConfigObject = &MockConfig{
 		Pairs: []*ConfigPair{
 			{Key: "key", Value: "value"},
 		},
 	}
-	Object = model.Config{
-		ConfigKey: Key,
-		Spec:      &ConfigObject,
-		Status:    &MockConfigStatus{},
-	}
 	Mapping = model.KindMap{
 		Kind: model.ProtoSchema{
-			MessageName:       "mock.MockConfig",
-			StatusMessageName: "mock.MockConfigStatus",
-			Description:       "Sample config kind",
-			Validate:          func(proto.Message) error { return nil },
+			MessageName: "mock.MockConfig",
+			Validate:    func(proto.Message) error { return nil },
 		},
 	}
 )
 
-// Registry is a fake registry
-type Registry struct {
-	store   map[model.ConfigKey]*model.Config
-	mapping model.KindMap
-}
-
-// NewRegistry makes a fake registry
-func NewRegistry() model.Registry {
-	return &Registry{
-		store:   make(map[model.ConfigKey]*model.Config),
-		mapping: Mapping,
-	}
-}
-
-// Get implementation
-func (r *Registry) Get(key model.ConfigKey) (*model.Config, bool) {
-	out, err := r.store[key]
-	return out, err
-}
-
-// Put implementation
-func (r *Registry) Put(obj *model.Config) error {
-	if err := r.mapping.ValidateConfig(obj); err != nil {
-		return err
-	}
-	r.store[obj.ConfigKey] = obj
-	return nil
-}
-
-// Delete implementation
-func (r *Registry) Delete(key model.ConfigKey) error {
-	delete(r.store, key)
-	return nil
-}
-
-// List implementation
-func (r *Registry) List(kind string, ns string) ([]*model.Config, error) {
-	var out = make([]*model.Config, 0)
-	for _, v := range r.store {
-		if v.Kind == kind && (ns == "" || v.Namespace == ns) {
-			out = append(out, v)
-		}
-	}
-	return out, nil
-}
-
 // Make creates a fake config
-func Make(i int, namespace string) *model.Config {
-	return &model.Config{
-		ConfigKey: model.ConfigKey{
-			Kind:      Kind,
-			Name:      fmt.Sprintf("%s%d", Name, i),
-			Namespace: namespace,
-		},
-		Spec: &MockConfig{
-			Pairs: []*ConfigPair{
-				{Key: "key", Value: strconv.Itoa(i)},
-			},
+func Make(i int) proto.Message {
+	return &MockConfig{
+		Pairs: []*ConfigPair{
+			{Key: "key", Value: strconv.Itoa(i)},
 		},
 	}
 }
@@ -124,27 +64,33 @@ func Make(i int, namespace string) *model.Config {
 // CheckMapInvariant validates operational invariants of a registry
 func CheckMapInvariant(r model.Registry, t *testing.T, namespace string, n int) {
 	// create configuration objects
-	elts := make(map[int]*model.Config, 0)
+	keys := make(map[int]model.Key, 0)
+	elts := make(map[int]proto.Message, 0)
 	for i := 0; i < n; i++ {
-		elts[i] = Make(i, namespace)
+		keys[i] = model.Key{
+			Kind:      Kind,
+			Name:      fmt.Sprintf("%s%d", Name, i),
+			Namespace: namespace,
+		}
+		elts[i] = Make(i)
 	}
 
 	// put all elements
-	for _, elt := range elts {
-		if err := r.Put(elt); err != nil {
+	for i, elt := range elts {
+		if err := r.Put(keys[i], elt); err != nil {
 			t.Error(err)
 		}
 	}
 
 	// check that elements are stored
-	for _, elt := range elts {
-		if v1, ok := r.Get(elt.ConfigKey); !ok || !reflect.DeepEqual(*v1, *elt) {
+	for i, elt := range elts {
+		if v1, ok := r.Get(keys[i]); !ok || !reflect.DeepEqual(v1, elt) {
 			t.Errorf("Wanted %v, got %v", elt, v1)
 		}
 	}
 
 	// check for missing element
-	if _, ok := r.Get(model.ConfigKey{
+	if _, ok := r.Get(model.Key{
 		Kind:      Kind,
 		Name:      Name,
 		Namespace: namespace,
@@ -155,15 +101,15 @@ func CheckMapInvariant(r model.Registry, t *testing.T, namespace string, n int) 
 	// list elements
 	l, err := r.List(Kind, namespace)
 	if err != nil {
-		t.Error(err)
+		t.Errorf("List error %#v, %v", l, err)
 	}
 	if len(l) != n {
 		t.Errorf("Wanted %d element(s), got %d in %v", n, len(l), l)
 	}
 
 	// delete all elements
-	for _, elt := range elts {
-		if err = r.Delete(elt.ConfigKey); err != nil {
+	for i := range elts {
+		if err = r.Delete(keys[i]); err != nil {
 			t.Error(err)
 		}
 	}

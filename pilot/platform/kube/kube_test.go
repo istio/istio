@@ -18,8 +18,11 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+	"reflect"
 	"testing"
 	"time"
+
+	"github.com/golang/protobuf/proto"
 
 	"github.com/golang/glog"
 
@@ -27,6 +30,7 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 
 	"istio.io/manager/model"
+	proxyconfig "istio.io/manager/model/proxy/alphav1/config"
 	"istio.io/manager/test/mock"
 )
 
@@ -35,10 +39,6 @@ var (
 )
 
 func TestThirdPartyResourcesClient(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test in short mode.")
-	}
-
 	cl := makeClient(t)
 	ns := makeNamespace(cl.client, t)
 	defer deleteNamespace(cl.client, ns)
@@ -51,10 +51,6 @@ func TestThirdPartyResourcesClient(t *testing.T) {
 }
 
 func TestController(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test in short mode.")
-	}
-
 	cl := makeClient(t)
 	ns := makeNamespace(cl.client, t)
 	defer deleteNamespace(cl.client, ns)
@@ -65,7 +61,7 @@ func TestController(t *testing.T) {
 	ctl := NewController(cl, ns, 256*time.Millisecond)
 	added, deleted := 0, 0
 	n := 5
-	err := ctl.AppendConfigHandler(mock.Kind, func(c *model.Config, ev model.Event) {
+	err := ctl.AppendConfigHandler(mock.Kind, func(k model.Key, o proto.Message, ev model.Event) {
 		switch ev {
 		case model.EventAdd:
 			if deleted != 0 {
@@ -86,14 +82,11 @@ func TestController(t *testing.T) {
 	go ctl.Run(stop)
 
 	mock.CheckMapInvariant(cl, t, ns, n)
+	glog.Infof("Waiting till all events are received")
 	eventually(func() bool { return added == n && deleted == n }, t)
 }
 
 func TestControllerCacheFreshness(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test in short mode.")
-	}
-
 	cl := makeClient(t)
 	ns := makeNamespace(cl.client, t)
 	defer deleteNamespace(cl.client, ns)
@@ -103,15 +96,18 @@ func TestControllerCacheFreshness(t *testing.T) {
 	// test interface implementation
 	var _ model.Controller = ctl
 
+	done := false
+
 	// validate cache consistency
-	err := ctl.AppendConfigHandler(mock.Kind, func(c *model.Config, ev model.Event) {
+	err := ctl.AppendConfigHandler(mock.Kind, func(k model.Key, v proto.Message, ev model.Event) {
 		elts, _ := ctl.List(mock.Kind, ns)
 		switch ev {
 		case model.EventAdd:
 			if len(elts) != 1 {
 				t.Errorf("Got %#v, expected %d element(s) on ADD event", elts, 1)
 			}
-			err := ctl.Delete(c.ConfigKey)
+			glog.Infof("Calling Delete(%#v)", k)
+			err := ctl.Delete(k)
 			if err != nil {
 				t.Error(err)
 			}
@@ -119,7 +115,9 @@ func TestControllerCacheFreshness(t *testing.T) {
 			if len(elts) != 0 {
 				t.Errorf("Got %#v, expected zero elements on DELETE event", elts)
 			}
+			glog.Infof("Stopping channel for (%#v)", k)
 			close(stop)
+			done = true
 		}
 	})
 	if err != nil {
@@ -127,19 +125,18 @@ func TestControllerCacheFreshness(t *testing.T) {
 	}
 
 	go ctl.Run(stop)
-	o := mock.Make(0, ns)
+	k := model.Key{Kind: mock.Kind, Name: "test", Namespace: ns}
+	o := mock.Make(0)
 
 	// put followed by delete
-	if err := ctl.Put(o); err != nil {
+	glog.Infof("Calling Put(%#v)", k)
+	if err := ctl.Put(k, o); err != nil {
 		t.Error(err)
 	}
+	eventually(func() bool { return done }, t)
 }
 
 func TestControllerClientSync(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test in short mode.")
-	}
-
 	cl := makeClient(t)
 	ns := makeNamespace(cl.client, t)
 	n := 5
@@ -147,9 +144,11 @@ func TestControllerClientSync(t *testing.T) {
 	stop := make(chan struct{})
 	defer close(stop)
 
+	keys := make(map[int]model.Key, 0)
 	// add elements directly through client
 	for i := 0; i < n; i++ {
-		if err := cl.Put(mock.Make(i, ns)); err != nil {
+		keys[i] = model.Key{Name: fmt.Sprintf("test%d", i), Namespace: ns, Kind: mock.Kind}
+		if err := cl.Put(keys[i], mock.Make(i)); err != nil {
 			t.Error(err)
 		}
 	}
@@ -165,7 +164,7 @@ func TestControllerClientSync(t *testing.T) {
 
 	// remove elements directly through client
 	for i := 0; i < n; i++ {
-		if err := cl.Delete(mock.Make(i, ns).ConfigKey); err != nil {
+		if err := cl.Delete(keys[i]); err != nil {
 			t.Error(err)
 		}
 	}
@@ -179,7 +178,7 @@ func TestControllerClientSync(t *testing.T) {
 
 	// now add through the controller
 	for i := 0; i < n; i++ {
-		if err := ctl.Put(mock.Make(i, ns)); err != nil {
+		if err := ctl.Put(keys[i], mock.Make(i)); err != nil {
 			t.Error(err)
 		}
 	}
@@ -195,17 +194,13 @@ func TestControllerClientSync(t *testing.T) {
 
 	// remove elements directly through the client
 	for i := 0; i < n; i++ {
-		if err := cl.Delete(mock.Make(i, ns).ConfigKey); err != nil {
+		if err := cl.Delete(keys[i]); err != nil {
 			t.Error(err)
 		}
 	}
 }
 
 func TestServices(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test in short mode")
-	}
-
 	cl := makeClient(t)
 	ns := makeNamespace(cl.client, t)
 	defer deleteNamespace(cl.client, ns)
@@ -245,6 +240,48 @@ func TestServices(t *testing.T) {
 	}
 }
 
+func TestProxyConfig(t *testing.T) {
+	cl := makeClient(t)
+	ns := makeNamespace(cl.client, t)
+	defer deleteNamespace(cl.client, ns)
+
+	rule := &proxyconfig.RouteRule{
+		RouteRule: &proxyconfig.RouteRule_Http{
+			Http: &proxyconfig.HttpRouteRule{
+				Match: &proxyconfig.HttpMatchCondition{
+					Uri: &proxyconfig.StringMatch{
+						MatchType: &proxyconfig.StringMatch_Exact{
+							Exact: "test",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	key := model.Key{Kind: model.RouteRule, Name: "test", Namespace: ns}
+
+	err := cl.Put(key, rule)
+	if err != nil {
+		t.Errorf("cl.Put() => error %v, want no error", err)
+	}
+
+	out, exists := cl.Get(key)
+	if !exists {
+		t.Errorf("cl.Get() => missing")
+		return
+	}
+
+	if !reflect.DeepEqual(rule, out) {
+		t.Errorf("cl.Get(%v) => %v, want %v", key, out, rule)
+	}
+
+	rules := (&model.IstioRegistry{Registry: cl}).RouteRules()
+	if len(rules) != 1 || !reflect.DeepEqual(rules[0], rule) {
+		t.Errorf("RouteRules() => %v, want %v", rules, rule)
+	}
+}
+
 func eventually(f func() bool, t *testing.T) {
 	interval := 64 * time.Millisecond
 	for i := 0; i < 10; i++ {
@@ -281,7 +318,13 @@ func makeClient(t *testing.T) *Client {
 		}
 	}
 
-	cl, err := NewClient(kubeconfig, mock.Mapping)
+	km := model.KindMap{}
+	for k, v := range model.IstioConfig {
+		km[k] = v
+	}
+	km[mock.Kind] = mock.Mapping[mock.Kind]
+
+	cl, err := NewClient(kubeconfig, km)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

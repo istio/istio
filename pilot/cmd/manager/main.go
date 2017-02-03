@@ -21,6 +21,7 @@ import (
 	"syscall"
 	"time"
 
+	"istio.io/manager/model"
 	"istio.io/manager/platform/kube"
 	"istio.io/manager/proxy/envoy"
 
@@ -57,7 +58,7 @@ Istio Manager provides management plane functionality to the Istio proxy mesh an
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			glog.V(2).Infof("flags: %#v", flags)
 
-			client, err := kube.NewClient(flags.kubeconfig, nil)
+			client, err := kube.NewClient(flags.kubeconfig, model.IstioConfig)
 			if err != nil {
 				return multierror.Prefix(err, "Failed to connect to Kubernetes API.")
 			}

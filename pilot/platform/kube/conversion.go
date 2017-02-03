@@ -16,12 +16,20 @@ package kube
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
+
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 
 	"istio.io/manager/model"
 
+	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
+
+	meta_v1 "k8s.io/client-go/pkg/apis/meta/v1"
 )
 
 const (
@@ -111,4 +119,63 @@ func convertProtocol(name string, proto v1.Protocol) model.Protocol {
 		}
 	}
 	return out
+}
+
+// modelToKube translate Istio config to k8s config JSON
+func modelToKube(km model.KindMap, k *model.Key, v proto.Message) (*Config, error) {
+	if err := km.ValidateConfig(k, v); err != nil {
+		return nil, err
+	}
+	spec, err := protoToMap(v)
+	if err != nil {
+		return nil, err
+	}
+	out := &Config{
+		TypeMeta: meta_v1.TypeMeta{
+			Kind: IstioKind,
+		},
+		Metadata: api.ObjectMeta{
+			Name:      k.Kind + "-" + k.Name,
+			Namespace: k.Namespace,
+		},
+		Spec: spec,
+	}
+
+	return out, nil
+}
+
+func protoToMap(msg proto.Message) (map[string]interface{}, error) {
+	// Marshal from proto to json bytes
+	m := jsonpb.Marshaler{}
+	bytes, err := m.MarshalToString(msg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal from json bytes to go map
+	var data map[string]interface{}
+	err = json.Unmarshal([]byte(bytes), &data)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func mapToProto(message string, data map[string]interface{}) (proto.Message, error) {
+	// Marshal to json bytes
+	str, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal from bytes to proto
+	pbt := proto.MessageType(message)
+	pb := reflect.New(pbt.Elem()).Interface().(proto.Message)
+	err = jsonpb.UnmarshalString(string(str), pb)
+	if err != nil {
+		return nil, err
+	}
+
+	return pb, nil
 }

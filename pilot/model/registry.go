@@ -14,25 +14,21 @@
 
 package model
 
-import "github.com/golang/protobuf/proto"
+import (
+	"github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
 
-// ConfigKey is the identity of the configuration object
-type ConfigKey struct {
-	// Kind specifies the type of the configuration artifact, e.g. "MyKind"
+	proxyconfig "istio.io/manager/model/proxy/alphav1/config"
+)
+
+// Key is the registry configuration key
+type Key struct {
+	// Kind specifies the type of configuration
 	Kind string
-	// Name of the artifact, e.g. "my-name"
+	// Name specifies the unique name per namespace
 	Name string
-	// Namespace provides the name qualifier for Kubernetes, e.g. "default"
+	// Namespace qualifies names
 	Namespace string
-}
-
-// Config object holds the normalized config objects defined by Kind schema
-type Config struct {
-	ConfigKey
-	// Spec holds the configuration struct
-	Spec interface{}
-	// Status holds the status information (may be null)
-	Status interface{}
 }
 
 // Registry of the configuration objects
@@ -40,22 +36,22 @@ type Config struct {
 // treated as read-only. Modifying them might violate thread-safety.
 type Registry interface {
 	// Get retrieves a configuration element, bool indicates existence
-	Get(key ConfigKey) (*Config, bool)
+	Get(key Key) (proto.Message, bool)
 
-	// List returns objects for a kind in a namespace ("" namespace implies all)
-	List(kind string, namespace string) ([]*Config, error)
+	// List returns objects for a kind in a namespace keyed by name
+	List(kind string, namespace string) (map[string]proto.Message, error)
 
 	// Put adds an object to the distributed store.
 	// This implies that you might not see the effect immediately (e.g. Get
 	// might not return the object immediately).
 	// Intermittent errors might occur even though the operation succeeds.
-	Put(obj *Config) error
+	Put(key Key, v proto.Message) error
 
 	// Delete remotes an object from the distributed store.
 	// This implies that you might not see the effect immediately (e.g. Get
 	// might not return the object immediately).
 	// Intermittent errors might occur even though the operation succeeds.
-	Delete(key ConfigKey) error
+	Delete(key Key) error
 }
 
 // KindMap defines bijection between Kind name and proto message name
@@ -65,10 +61,53 @@ type KindMap map[string]ProtoSchema
 type ProtoSchema struct {
 	// MessageName refers to the protobuf message type name
 	MessageName string
-	// StatusMessageName refers to the protubuf message type name for the StatusMessageName
-	StatusMessageName string
-	// Description of the configuration type
-	Description string
 	// Validate configuration as a protobuf message
 	Validate func(o proto.Message) error
+}
+
+const (
+	// RouteRule kind
+	RouteRule = "route-rule"
+	// RouteRuleProto message name
+	RouteRuleProto = "istio.proxy.v1alpha.config.RouteRule"
+
+	// UpstreamCluster kind
+	UpstreamCluster = "upstream-cluster"
+	// UpstreamClusterProto message name
+	UpstreamClusterProto = "istio.proxy.v1alpha.config.UpstreamCluster"
+)
+
+var (
+	// IstioConfig lists all Istio config kinds
+	IstioConfig = KindMap{
+		RouteRule: ProtoSchema{
+			MessageName: RouteRuleProto,
+			Validate:    ValidateRouteRule,
+		},
+		UpstreamCluster: ProtoSchema{
+			MessageName: UpstreamClusterProto,
+			Validate:    ValidateUpstreamCluster,
+		},
+	}
+)
+
+// IstioRegistry provides a simple adapter to edit Istio configuration
+type IstioRegistry struct {
+	Registry
+}
+
+// RouteRules lists all rules
+func (i *IstioRegistry) RouteRules() []*proxyconfig.RouteRule {
+	out := make([]*proxyconfig.RouteRule, 0)
+	rs, err := i.List(RouteRule, "")
+	if err != nil {
+		glog.V(2).Infof("RouteRules => %v", err)
+	}
+	for _, r := range rs {
+		if rule, ok := r.(*proxyconfig.RouteRule); ok {
+			out = append(out, rule)
+		}
+	}
+	return out
+
 }

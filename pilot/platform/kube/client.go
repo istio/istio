@@ -15,12 +15,10 @@
 package kube
 
 import (
-	"encoding/json"
 	"fmt"
-	"reflect"
+	"strings"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/golang/glog"
@@ -46,8 +44,13 @@ import (
 const (
 	// IstioAPIGroup defines Kubernetes API group for TPR
 	IstioAPIGroup = "istio.io"
-	// IstioResourceVersion defined Kubernetes API group version
-	IstioResourceVersion = "v1"
+
+	// IstioResourceVersion defines Kubernetes API group version
+	IstioResourceVersion = "v1alpha1"
+
+	// IstioKind defines the shared TPR kind to avoid boilerplate
+	// code for each custom kind
+	IstioKind = "IstioConfig"
 )
 
 // Client provides state-less Kubernetes bindings for the manager:
@@ -61,7 +64,7 @@ type Client struct {
 }
 
 // CreateRESTConfig for cluster API server, pass empty config file for in-cluster
-func CreateRESTConfig(kubeconfig string, km model.KindMap) (config *rest.Config, err error) {
+func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 	if kubeconfig == "" {
 		config, err = rest.InClusterConfig()
 	} else {
@@ -89,18 +92,16 @@ func CreateRESTConfig(kubeconfig string, km model.KindMap) (config *rest.Config,
 				&v1.ListOptions{},
 				&v1.DeleteOptions{},
 			)
-			for kind := range km {
-				scheme.AddKnownTypeWithName(schema.GroupVersionKind{
-					Group:   IstioAPIGroup,
-					Version: IstioResourceVersion,
-					Kind:    kind,
-				}, &Config{})
-				scheme.AddKnownTypeWithName(schema.GroupVersionKind{
-					Group:   IstioAPIGroup,
-					Version: IstioResourceVersion,
-					Kind:    kind + "List",
-				}, &ConfigList{})
-			}
+			scheme.AddKnownTypeWithName(schema.GroupVersionKind{
+				Group:   IstioAPIGroup,
+				Version: IstioResourceVersion,
+				Kind:    IstioKind,
+			}, &Config{})
+			scheme.AddKnownTypeWithName(schema.GroupVersionKind{
+				Group:   IstioAPIGroup,
+				Version: IstioResourceVersion,
+				Kind:    IstioKind + "List",
+			}, &ConfigList{})
 			return nil
 		})
 	err = schemeBuilder.AddToScheme(api.Scheme)
@@ -111,7 +112,7 @@ func CreateRESTConfig(kubeconfig string, km model.KindMap) (config *rest.Config,
 // NewClient creates a client to Kubernetes API using a kubeconfig file.
 // Use an empty value for `kubeconfig` to use the in-cluster config.
 func NewClient(kubeconfig string, km model.KindMap) (*Client, error) {
-	config, err := CreateRESTConfig(kubeconfig, km)
+	config, err := CreateRESTConfig(kubeconfig)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +138,8 @@ func NewClient(kubeconfig string, km model.KindMap) (*Client, error) {
 // RegisterResources creates third party resources
 func (cl *Client) RegisterResources() error {
 	var out error
-	for kind, v := range cl.mapping {
+	kinds := []string{IstioKind}
+	for _, kind := range kinds {
 		apiName := kindToAPIName(kind)
 		res, err := cl.client.
 			Extensions().
@@ -150,7 +152,7 @@ func (cl *Client) RegisterResources() error {
 			tpr := &v1beta1.ThirdPartyResource{
 				ObjectMeta:  v1.ObjectMeta{Name: apiName},
 				Versions:    []v1beta1.APIVersion{{Name: IstioResourceVersion}},
-				Description: v.Description,
+				Description: "Istio configuration",
 			}
 			res, err = cl.client.
 				Extensions().
@@ -171,10 +173,14 @@ func (cl *Client) RegisterResources() error {
 	glog.V(2).Infof("Checking for TPR resources")
 	for i := 0; i < 30; i++ {
 		ready = true
-		for kind := range cl.mapping {
-			_, err := cl.List(kind, "")
+		for _, kind := range kinds {
+			list := &ConfigList{}
+			err := cl.dyn.Get().
+				Namespace(api.NamespaceAll).
+				Resource(IstioKind + "s").
+				Do().Into(list)
 			if err != nil {
-				glog.V(2).Infof("TPR %q is not ready. Waiting...", kind)
+				glog.V(2).Infof("TPR %q is not ready (%v). Waiting...", kind, err)
 				ready = false
 				break
 			}
@@ -195,7 +201,8 @@ func (cl *Client) RegisterResources() error {
 // DeregisterResources removes third party resources
 func (cl *Client) DeregisterResources() error {
 	var out error
-	for kind := range cl.mapping {
+	kinds := []string{IstioKind}
+	for _, kind := range kinds {
 		apiName := kindToAPIName(kind)
 		err := cl.client.Extensions().ThirdPartyResources().
 			Delete(apiName, &v1.DeleteOptions{})
@@ -207,7 +214,7 @@ func (cl *Client) DeregisterResources() error {
 }
 
 // Get implements registry operation
-func (cl *Client) Get(key model.ConfigKey) (*model.Config, bool) {
+func (cl *Client) Get(key model.Key) (proto.Message, bool) {
 	if err := cl.mapping.ValidateKey(&key); err != nil {
 		glog.Warning(err)
 		return nil, false
@@ -216,14 +223,16 @@ func (cl *Client) Get(key model.ConfigKey) (*model.Config, bool) {
 	config := &Config{}
 	err := cl.dyn.Get().
 		Namespace(key.Namespace).
-		Resource(key.Kind + "s").
-		Name(key.Name).
+		Resource(IstioKind + "s").
+		Name(configKey(&key)).
 		Do().Into(config)
+
 	if err != nil {
 		glog.Warning(err)
 		return nil, false
 	}
-	out, err := kubeToModel(key.Kind, cl.mapping[key.Kind], config)
+
+	out, err := mapToProto(cl.mapping[key.Kind].MessageName, config.Spec)
 	if err != nil {
 		glog.Warning(err)
 		return nil, false
@@ -232,144 +241,72 @@ func (cl *Client) Get(key model.ConfigKey) (*model.Config, bool) {
 }
 
 // Put implements registry operation
-func (cl *Client) Put(obj *model.Config) error {
-	out, err := modelToKube(cl.mapping, obj)
+func (cl *Client) Put(k model.Key, v proto.Message) error {
+	out, err := modelToKube(cl.mapping, &k, v)
 	if err != nil {
 		return err
 	}
 	return cl.dyn.Post().
-		Namespace(obj.Namespace).
-		Resource(obj.Kind + "s").
+		Namespace(k.Namespace).
+		Resource(IstioKind + "s").
 		Body(out).
 		Do().Error()
 }
 
 // Delete implements registry operation
-func (cl *Client) Delete(key model.ConfigKey) error {
+func (cl *Client) Delete(key model.Key) error {
 	if err := cl.mapping.ValidateKey(&key); err != nil {
 		return err
 	}
 
 	return cl.dyn.Delete().
 		Namespace(key.Namespace).
-		Resource(key.Kind + "s").
-		Name(key.Name).
+		Resource(IstioKind + "s").
+		Name(configKey(&key)).
 		Do().Error()
 }
 
 // List implements registry operation
-func (cl *Client) List(kind string, ns string) ([]*model.Config, error) {
+func (cl *Client) List(kind, namespace string) (map[string]proto.Message, error) {
 	if _, ok := cl.mapping[kind]; !ok {
 		return nil, fmt.Errorf("Missing kind %q", kind)
 	}
 
 	list := &ConfigList{}
 	errs := cl.dyn.Get().
-		Namespace(ns).
-		Resource(kind + "s").
+		Namespace(namespace).
+		Resource(IstioKind + "s").
 		Do().Into(list)
 
-	var out []*model.Config
+	out := make(map[string]proto.Message, 0)
 	for _, item := range list.Items {
-		elt, err := kubeToModel(kind, cl.mapping[kind], &item)
-		if err != nil {
-			errs = multierror.Append(errs, err)
+		name, _, kind, data, err := cl.convertConfig(&item)
+		if kind != "" {
+			if err != nil {
+				errs = multierror.Append(errs, err)
+			} else {
+				out[name] = data
+			}
 		}
-		out = append(out, elt)
 	}
 	return out, errs
 }
 
-func kubeToModel(kind string, schema model.ProtoSchema, config *Config) (*model.Config, error) {
-	// TODO: validate incoming kube object
-	spec, err := mapToProto(schema.MessageName, config.Spec)
-	if err != nil {
-		return nil, err
-	}
-	var status proto.Message
-	if config.Status != nil {
-		status, err = mapToProto(schema.StatusMessageName, config.Status)
-		if err != nil {
-			return nil, err
+// configKey assigns k8s TPR name to Istio config
+func configKey(k *model.Key) string {
+	return k.Kind + "-" + k.Name
+}
+
+// convertConfig extracts Istio config data from k8s TPRs and leaves kind empty if no kind matches
+func (cl *Client) convertConfig(item *Config) (name, namespace, kind string, data proto.Message, err error) {
+	for k, v := range cl.mapping {
+		if strings.HasPrefix(item.Metadata.Name, k) {
+			kind = k
+			name = strings.TrimPrefix(item.Metadata.Name, kind+"-")
+			namespace = item.Metadata.Namespace
+			data, err = mapToProto(v.MessageName, item.Spec)
+			return
 		}
 	}
-
-	out := model.Config{
-		ConfigKey: model.ConfigKey{
-			Kind:      kind,
-			Name:      config.GetObjectMeta().GetName(),
-			Namespace: config.GetObjectMeta().GetNamespace(),
-		},
-		Spec:   spec,
-		Status: status,
-	}
-
-	return &out, nil
-}
-
-func modelToKube(km model.KindMap, obj *model.Config) (*Config, error) {
-	if err := km.ValidateConfig(obj); err != nil {
-		return nil, err
-	}
-	spec, err := protoToMap(obj.Spec.(proto.Message))
-	if err != nil {
-		return nil, err
-	}
-	var status map[string]interface{}
-	if obj.Status != nil {
-		status, err = protoToMap(obj.Status.(proto.Message))
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	out := &Config{
-		TypeMeta: meta_v1.TypeMeta{
-			Kind: obj.Kind,
-		},
-		Metadata: api.ObjectMeta{
-			Name:      obj.ConfigKey.Name,
-			Namespace: obj.ConfigKey.Namespace,
-		},
-		Spec:   spec,
-		Status: status,
-	}
-
-	return out, nil
-}
-
-func protoToMap(msg proto.Message) (map[string]interface{}, error) {
-	// Marshal from proto to json bytes
-	m := jsonpb.Marshaler{}
-	bytes, err := m.MarshalToString(msg)
-	if err != nil {
-		return nil, err
-	}
-
-	// Unmarshal from json bytes to go map
-	var data map[string]interface{}
-	err = json.Unmarshal([]byte(bytes), &data)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
-func mapToProto(message string, data map[string]interface{}) (proto.Message, error) {
-	// Marshal to json bytes
-	str, err := json.Marshal(data)
-	if err != nil {
-		return nil, err
-	}
-
-	// Unmarshal from bytes to proto
-	pbt := proto.MessageType(message)
-	pb := reflect.New(pbt.Elem()).Interface().(proto.Message)
-	err = jsonpb.UnmarshalString(string(str), pb)
-	if err != nil {
-		return nil, err
-	}
-
-	return pb, nil
+	return
 }

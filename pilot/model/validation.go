@@ -22,6 +22,8 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	multierror "github.com/hashicorp/go-multierror"
+
+	proxyconfig "istio.io/manager/model/proxy/alphav1/config"
 )
 
 const (
@@ -33,7 +35,6 @@ const (
 
 var (
 	dns1123LabelRex = regexp.MustCompile("^" + dns1123LabelFmt + "$")
-	kindRegexp      = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9]*$")
 	tagRegexp       = regexp.MustCompile("^" + qualifiedNameFmt + "$")
 )
 
@@ -44,9 +45,9 @@ func IsDNS1123Label(value string) bool {
 }
 
 // Validate confirms that the names in the configuration key are appropriate
-func (k *ConfigKey) Validate() error {
+func (k *Key) Validate() error {
 	var errs error
-	if !kindRegexp.MatchString(k.Kind) {
+	if !IsDNS1123Label(k.Kind) {
 		errs = multierror.Append(errs, fmt.Errorf("Invalid kind: %q", k.Kind))
 	}
 	if !IsDNS1123Label(k.Name) {
@@ -62,7 +63,7 @@ func (k *ConfigKey) Validate() error {
 func (km KindMap) Validate() error {
 	var errs error
 	for k, v := range km {
-		if !kindRegexp.MatchString(k) {
+		if !IsDNS1123Label(k) {
 			errs = multierror.Append(errs, fmt.Errorf("Invalid kind: %q", k))
 		}
 		if proto.MessageType(v.MessageName) == nil {
@@ -73,7 +74,7 @@ func (km KindMap) Validate() error {
 }
 
 // ValidateKey ensures that the key is well-defined and kind is well-defined
-func (km KindMap) ValidateKey(k *ConfigKey) error {
+func (km KindMap) ValidateKey(k *Key) error {
 	if err := k.Validate(); err != nil {
 		return err
 	}
@@ -84,45 +85,29 @@ func (km KindMap) ValidateKey(k *ConfigKey) error {
 }
 
 // ValidateConfig ensures that the config object is well-defined
-func (km KindMap) ValidateConfig(obj *Config) error {
-	if obj == nil {
+func (km KindMap) ValidateConfig(k *Key, obj interface{}) error {
+	if k == nil || obj == nil {
 		return fmt.Errorf("Invalid nil configuration object")
 	}
 
-	if err := obj.ConfigKey.Validate(); err != nil {
+	if err := k.Validate(); err != nil {
 		return err
 	}
-	t, ok := km[obj.Kind]
+	t, ok := km[k.Kind]
 	if !ok {
-		return fmt.Errorf("Undeclared kind: %q", obj.Kind)
+		return fmt.Errorf("Undeclared kind: %q", k.Kind)
 	}
 
-	// Validate spec field
-	if obj.Spec == nil {
-		return fmt.Errorf("Want a proto message, received empty content")
-	}
-	v, ok := obj.Spec.(proto.Message)
+	v, ok := obj.(proto.Message)
 	if !ok {
-		return fmt.Errorf("Cannot cast spec to a proto message")
+		return fmt.Errorf("Cannot cast to a proto message")
 	}
 	if proto.MessageName(v) != t.MessageName {
-		return fmt.Errorf("Mismatched spec message type %q and kind %q",
+		return fmt.Errorf("Mismatched message type %q and kind %q",
 			proto.MessageName(v), t.MessageName)
 	}
 	if err := t.Validate(v); err != nil {
 		return err
-	}
-
-	// Validate status field
-	if obj.Status != nil {
-		v, ok := obj.Status.(proto.Message)
-		if !ok {
-			return fmt.Errorf("Cannot cast status to a proto message")
-		}
-		if proto.MessageName(v) != t.StatusMessageName {
-			return fmt.Errorf("Mismatched status message type %q and kind %q",
-				proto.MessageName(v), t.StatusMessageName)
-		}
 	}
 
 	return nil
@@ -184,4 +169,22 @@ func (t Tag) Validate() error {
 		}
 	}
 	return errs
+}
+
+// ValidateRouteRule checks routing rules
+func ValidateRouteRule(msg proto.Message) error {
+	_, ok := msg.(*proxyconfig.RouteRule)
+	if !ok {
+		return fmt.Errorf("Cannot cast to routing rule")
+	}
+	return nil
+}
+
+// ValidateUpstreamCluster checks proxy policies
+func ValidateUpstreamCluster(msg proto.Message) error {
+	_, ok := msg.(*proxyconfig.UpstreamCluster)
+	if !ok {
+		return fmt.Errorf("Cannot cast to destination policy")
+	}
+	return nil
 }

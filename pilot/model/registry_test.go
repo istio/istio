@@ -17,16 +17,16 @@ package model
 import "testing"
 
 var (
-	validKeys = []ConfigKey{
-		{Kind: "MyConfig", Name: "example-config-name", Namespace: "default"},
-		{Kind: "MyConfig", Name: "x", Namespace: "default"},
-		{Kind: "SomeKind", Name: "x", Namespace: "default"},
+	validKeys = []Key{
+		{Kind: "my-config", Name: "example-config-name", Namespace: "default"},
+		{Kind: "my-config", Name: "x", Namespace: "default"},
+		{Kind: "some-kind", Name: "x", Namespace: "default"},
 	}
-	invalidKeys = []ConfigKey{
-		{Kind: "MyConfig", Name: "exampleConfigName", Namespace: "default"},
+	invalidKeys = []Key{
+		{Kind: "my-config", Name: "exampleConfigName", Namespace: "default"},
 		{Name: "x"},
-		{Kind: "MyConfig", Name: "x"},
-		{Kind: "example-kind", Name: "x", Namespace: "default"},
+		{Kind: "my-config", Name: "x"},
+		{Kind: "ExampleKind", Name: "x", Namespace: "default"},
 	}
 )
 
@@ -40,5 +40,12 @@ func TestConfigValidation(t *testing.T) {
 		if err := invalid.Validate(); err == nil {
 			t.Errorf("Inalid config passed validation: %#v", invalid)
 		}
+	}
+}
+
+func TestConfigKinds(t *testing.T) {
+	err := IstioConfig.Validate()
+	if err != nil {
+		t.Errorf(err.Error())
 	}
 }

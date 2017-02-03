@@ -14,6 +14,8 @@
 
 package model
 
+import "github.com/golang/protobuf/proto"
+
 // Controller defines an event controller loop.  Used in combination with
 // registry, the controller guarantees the following consistency requirement:
 // registry view in the controller is as AT LEAST as fresh as the moment
@@ -25,7 +27,7 @@ package model
 // that all handlers must be appended before starting the controller.
 type Controller interface {
 	// AppendConfigHandler appends a handler for a config resource.
-	AppendConfigHandler(kind string, f func(*Config, Event)) error
+	AppendConfigHandler(kind string, f func(Key, proto.Message, Event)) error
 
 	// AppendServiceHandler notifies about changes to the service catalog.
 	AppendServiceHandler(f func(*Service, Event)) error

@@ -5,6 +5,7 @@ go_library(
     srcs = ["main.go"],
     visibility = ["//visibility:private"],
     deps = [
+        "//model:go_default_library",
         "//platform/kube:go_default_library",
         "//proxy/envoy:go_default_library",
         "@com_github_golang_glog//:go_default_library",
