@@ -177,7 +177,7 @@ func ValidateRouteRule(msg proto.Message) error {
 	if !ok {
 		return fmt.Errorf("Cannot cast to routing rule")
 	}
-	if routeRule.GetDstServiceName() == "" {
+	if routeRule.GetDestination() == "" {
 		return fmt.Errorf("RouteRule must have a destination service")
 	}
 	return nil
