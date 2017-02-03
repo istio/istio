@@ -39,7 +39,8 @@ type Registry interface {
 	Get(key Key) (proto.Message, bool)
 
 	// List returns objects for a kind in a namespace keyed by name
-	List(kind string, namespace string) (map[string]proto.Message, error)
+	// Use namespace "" to list all resources across namespaces
+	List(kind string, namespace string) (map[Key]proto.Message, error)
 
 	// Put adds an object to the distributed store.
 	// This implies that you might not see the effect immediately (e.g. Get

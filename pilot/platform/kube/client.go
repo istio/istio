@@ -232,7 +232,8 @@ func (cl *Client) Get(key model.Key) (proto.Message, bool) {
 		return nil, false
 	}
 
-	out, err := mapToProto(cl.mapping[key.Kind].MessageName, config.Spec)
+	kind := cl.mapping[key.Kind]
+	out, err := kind.FromJSONMap(config.Spec)
 	if err != nil {
 		glog.Warning(err)
 		return nil, false
@@ -267,7 +268,7 @@ func (cl *Client) Delete(key model.Key) error {
 }
 
 // List implements registry operation
-func (cl *Client) List(kind, namespace string) (map[string]proto.Message, error) {
+func (cl *Client) List(kind, namespace string) (map[model.Key]proto.Message, error) {
 	if _, ok := cl.mapping[kind]; !ok {
 		return nil, fmt.Errorf("Missing kind %q", kind)
 	}
@@ -278,14 +279,18 @@ func (cl *Client) List(kind, namespace string) (map[string]proto.Message, error)
 		Resource(IstioKind + "s").
 		Do().Into(list)
 
-	out := make(map[string]proto.Message, 0)
+	out := make(map[model.Key]proto.Message, 0)
 	for _, item := range list.Items {
-		name, _, kind, data, err := cl.convertConfig(&item)
+		name, ns, kind, data, err := cl.convertConfig(&item)
 		if kind != "" {
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			} else {
-				out[name] = data
+				out[model.Key{
+					Name:      name,
+					Namespace: ns,
+					Kind:      kind,
+				}] = data
 			}
 		}
 	}
@@ -304,7 +309,7 @@ func (cl *Client) convertConfig(item *Config) (name, namespace, kind string, dat
 			kind = k
 			name = strings.TrimPrefix(item.Metadata.Name, kind+"-")
 			namespace = item.Metadata.Namespace
-			data, err = mapToProto(v.MessageName, item.Spec)
+			data, err = v.FromJSONMap(item.Spec)
 			return
 		}
 	}

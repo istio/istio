@@ -34,7 +34,7 @@ import (
 type args struct {
 	kubeconfig string
 	namespace  string
-	controller *kube.Controller
+	client     *kube.Client
 	server     serverArgs
 	proxy      envoy.MeshConfig
 }
@@ -55,46 +55,49 @@ var (
 		Short: "Istio Manager",
 		Long: `
 Istio Manager provides management plane functionality to the Istio proxy mesh and Istio Mixer.`,
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) (err error) {
 			glog.V(2).Infof("flags: %#v", flags)
-
-			client, err := kube.NewClient(flags.kubeconfig, model.IstioConfig)
+			flags.client, err = kube.NewClient(flags.kubeconfig, model.IstioConfig)
 			if err != nil {
-				return multierror.Prefix(err, "Failed to connect to Kubernetes API.")
+				flags.client, err = kube.NewClient(os.Getenv("HOME")+"/.kube/config", model.IstioConfig)
+				if err != nil {
+					return multierror.Prefix(err, "Failed to connect to Kubernetes API.")
+				}
 			}
-			if err = client.RegisterResources(); err != nil {
+			if err = flags.client.RegisterResources(); err != nil {
 				return multierror.Prefix(err, "Failed to register Third-Party Resources.")
 			}
-
-			flags.controller = kube.NewController(client, flags.namespace, resyncPeriod)
-			return nil
+			return
 		},
 	}
 
 	serverCmd = &cobra.Command{
 		Use:   "server",
 		Short: "Start Istio Manager service",
-		Run: func(cmd *cobra.Command, args []string) {
-			sds := envoy.NewDiscoveryService(flags.controller, flags.server.sdsPort)
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			controller := kube.NewController(flags.client, flags.namespace, resyncPeriod)
+			sds := envoy.NewDiscoveryService(controller, flags.server.sdsPort)
 			stop := make(chan struct{})
-			go flags.controller.Run(stop)
+			go controller.Run(stop)
 			go sds.Run()
 			waitSignal(stop)
+			return
 		},
 	}
 
 	proxyCmd = &cobra.Command{
 		Use:   "proxy",
 		Short: "Start Istio Proxy sidecar agent",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := envoy.NewWatcher(flags.controller, flags.controller, &flags.proxy)
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			controller := kube.NewController(flags.client, flags.namespace, resyncPeriod)
+			_, err = envoy.NewWatcher(controller, controller, &flags.proxy)
 			if err != nil {
-				return err
+				return
 			}
 			stop := make(chan struct{})
-			go flags.controller.Run(stop)
+			go controller.Run(stop)
 			waitSignal(stop)
-			return nil
+			return
 		},
 	}
 
@@ -114,7 +117,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&flags.kubeconfig, "kubeconfig", "c", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	rootCmd.PersistentFlags().StringVarP(&flags.namespace, "namespace", "n", "",
-		"Monitor the specified namespace instead of all namespaces")
+		"Select the specified namespace instead of all namespaces")
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
 	serverCmd.PersistentFlags().IntVarP(&flags.server.sdsPort, "port", "p", 8080,
@@ -135,6 +138,8 @@ func init() {
 		"Mixer DNS address (or empty to disable Mixer)")
 	rootCmd.AddCommand(proxyCmd)
 	proxyCmd.AddCommand(egressCmd)
+
+	rootCmd.AddCommand(configCmd)
 }
 
 func main() {

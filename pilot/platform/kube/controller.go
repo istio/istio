@@ -250,7 +250,8 @@ func (c *Controller) Get(key model.Key) (proto.Message, bool) {
 		return nil, false
 	}
 
-	out, err := mapToProto(c.client.mapping[key.Kind].MessageName, config.Spec)
+	kind := c.client.mapping[key.Kind]
+	out, err := kind.FromJSONMap(config.Spec)
 	if err != nil {
 		glog.Warning(err)
 		return nil, false
@@ -269,22 +270,26 @@ func (c *Controller) Delete(key model.Key) error {
 }
 
 // List implements a registry operation
-func (c *Controller) List(k, namespace string) (map[string]proto.Message, error) {
+func (c *Controller) List(k, namespace string) (map[model.Key]proto.Message, error) {
 	if _, ok := c.client.mapping[k]; !ok {
 		return nil, fmt.Errorf("Missing kind %q", k)
 	}
 
 	var errs error
-	out := make(map[string]proto.Message, 0)
+	out := make(map[model.Key]proto.Message, 0)
 	for _, data := range c.kinds[IstioKind].informer.GetStore().List() {
 		item, ok := data.(*Config)
 		if ok && (namespace == "" || item.Metadata.Namespace == namespace) {
-			name, _, kind, data, err := c.client.convertConfig(item)
+			name, ns, kind, data, err := c.client.convertConfig(item)
 			if kind == k {
 				if err != nil {
 					errs = multierror.Append(errs, err)
 				} else {
-					out[name] = data
+					out[model.Key{
+						Name:      name,
+						Namespace: ns,
+						Kind:      kind,
+					}] = data
 				}
 			}
 		}
