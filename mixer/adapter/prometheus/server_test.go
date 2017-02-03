@@ -42,14 +42,11 @@ func TestServer(t *testing.T) {
 		t.Fatalf("Failed to retrieve '%s' path: %v", metricsPath, err)
 	}
 
-	defer func() {
-		err := resp.Body.Close()
-		t.Logf("Error closing response body: %v", err)
-	}()
-
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("http.GET => %v, wanted '%v'", resp.StatusCode, http.StatusOK)
 	}
+
+	_ = resp.Body.Close()
 
 	if err := s.Close(); err != nil {
 		t.Errorf("Failed to close server properly: %v", err)
