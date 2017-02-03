@@ -28,110 +28,27 @@ type MeshConfig struct {
 	BinaryPath string
 	// Envoy config root path
 	ConfigPath string
+	// Envoy runtime config path
+	RuntimePath string
+	// Envoy access log path
+	AccessLogPath string
 }
 
 // Config defines the schema for Envoy JSON configuration format
+// See: https://lyft.github.io/envoy/docs/configuration/overview/overview.html
 type Config struct {
+	RootRuntime    RootRuntime    `json:"runtime"`
 	Listeners      []Listener     `json:"listeners"`
 	Admin          Admin          `json:"admin"`
 	ClusterManager ClusterManager `json:"cluster_manager"`
 }
 
-// AbortFilter definition
-type AbortFilter struct {
-	Percent    int `json:"abort_percent,omitempty"`
-	HTTPStatus int `json:"http_status,omitempty"`
-}
-
-// DelayFilter definition
-type DelayFilter struct {
-	Type     string `json:"type,omitempty"`
-	Percent  int    `json:"fixed_delay_percent,omitempty"`
-	Duration int    `json:"fixed_duration_ms,omitempty"`
-}
-
-// Header definition
-type Header struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-}
-
-// FilterEndpointsConfig definition
-type FilterEndpointsConfig struct {
-	ServiceConfig string `json:"service_config,omitempty"`
-	ServerConfig  string `json:"server_config,omitempty"`
-}
-
-// FilterFaultConfig definition
-type FilterFaultConfig struct {
-	Abort   *AbortFilter `json:"abort,omitempty"`
-	Delay   *DelayFilter `json:"delay,omitempty"`
-	Headers []Header     `json:"headers,omitempty"`
-}
-
-// FilterRouterConfig definition
-type FilterRouterConfig struct {
-	// DynamicStats defaults to true
-	DynamicStats bool `json:"dynamic_stats,omitempty"`
-}
-
-// Filter definition
-type Filter struct {
-	Type   string      `json:"type"`
-	Name   string      `json:"name"`
-	Config interface{} `json:"config"`
-}
-
-// Runtime definition
-type Runtime struct {
-	Key     string `json:"key"`
-	Default int    `json:"default"`
-}
-
-// Route definition
-type Route struct {
-	Runtime       *Runtime `json:"runtime,omitempty"`
-	Prefix        string   `json:"prefix"`
-	PrefixRewrite string   `json:"prefix_rewrite,omitempty"`
-	Cluster       string   `json:"cluster"`
-	Headers       []Header `json:"headers,omitempty"`
-}
-
-// VirtualHost definition
-type VirtualHost struct {
-	Name    string   `json:"name"`
-	Domains []string `json:"domains"`
-	Routes  []Route  `json:"routes"`
-}
-
-// RouteConfig definition
-type RouteConfig struct {
-	VirtualHosts []VirtualHost `json:"virtual_hosts"`
-}
-
-// AccessLog definition.
-type AccessLog struct {
-	Path   string `json:"path"`
-	Format string `json:"format,omitempty"`
-	Filter string `json:"filter,omitempty"`
-}
-
-// NetworkFilterConfig definition
-type NetworkFilterConfig struct {
-	CodecType         string      `json:"codec_type"`
-	StatPrefix        string      `json:"stat_prefix"`
-	GenerateRequestID bool        `json:"generate_request_id,omitempty"`
-	RouteConfig       RouteConfig `json:"route_config"`
-	Filters           []Filter    `json:"filters"`
-	AccessLog         []AccessLog `json:"access_log"`
-	Cluster           string      `json:"cluster,omitempty"`
-}
-
-// NetworkFilter definition
-type NetworkFilter struct {
-	Type   string              `json:"type"`
-	Name   string              `json:"name"`
-	Config NetworkFilterConfig `json:"config"`
+// RootRuntime definition.
+// See: https://lyft.github.io/envoy/docs/configuration/overview/overview.html
+type RootRuntime struct {
+	SymlinkRoot          string `json:"symlink_root"`
+	Subdirectory         string `json:"subdirectory"`
+	OverrideSubdirectory string `json:"override_subdirectory,omitempty"`
 }
 
 // Listener definition
@@ -148,6 +65,172 @@ type Admin struct {
 	Port          int    `json:"port"`
 }
 
+// ClusterManager definition
+type ClusterManager struct {
+	Clusters []Cluster `json:"clusters"`
+	SDS      SDS       `json:"sds"`
+}
+
+// SDS is a service discovery service definition
+type SDS struct {
+	Cluster        Cluster `json:"cluster"`
+	RefreshDelayMs int     `json:"refresh_delay_ms"`
+}
+
+// Cluster definition
+type Cluster struct {
+	Name                     string            `json:"name"`
+	ServiceName              string            `json:"service_name,omitempty"`
+	ConnectTimeoutMs         int               `json:"connect_timeout_ms"`
+	Type                     string            `json:"type"`
+	LbType                   string            `json:"lb_type"`
+	MaxRequestsPerConnection int               `json:"max_requests_per_connection,omitempty"`
+	Hosts                    []Host            `json:"hosts,omitempty"`
+	Features                 string            `json:"features,omitempty"`
+	CircuitBreaker           *CircuitBreaker   `json:"circuit_breaker,omitempty"`
+	OutlierDetection         *OutlierDetection `json:"outlier_detection,omitempty"`
+}
+
+// CircuitBreaker definition
+// See: https://lyft.github.io/envoy/docs/configuration/cluster_manager/cluster_circuit_breakers.html#circuit-breakers
+type CircuitBreaker struct {
+	MaxConnections    int `json:"max_connections,omitempty"`
+	MaxPendingRequest int `json:"max_pending_requests,omitempty"`
+	MaxRequests       int `json:"max_requests,omitempty"`
+	MaxRetries        int `json:"max_retries,omitempty"`
+}
+
+// OutlierDetection definition
+// See: https://lyft.github.io/envoy/docs/configuration/cluster_manager/cluster_runtime.html#outlier-detection
+type OutlierDetection struct {
+	ConsecutiveError   int `json:"consecutive_5xx,omitempty"`
+	IntervalMS         int `json:"interval_ms,omitempty"`
+	BaseEjectionTimeMS int `json:"base_ejection_time_ms,omitempty"`
+	MaxEjectionPercent int `json:"max_ejection_percent,omitempty"`
+}
+
+// Filter definition
+type Filter struct {
+	Type   string      `json:"type"`
+	Name   string      `json:"name"`
+	Config interface{} `json:"config"`
+}
+
+// FilterRouterConfig definition
+type FilterRouterConfig struct {
+	// DynamicStats defaults to true
+	DynamicStats bool `json:"dynamic_stats,omitempty"`
+}
+
+// FilterEndpointsConfig definition
+type FilterEndpointsConfig struct {
+	ServiceConfig string `json:"service_config,omitempty"`
+	ServerConfig  string `json:"server_config,omitempty"`
+}
+
+// FilterFaultConfig definition
+type FilterFaultConfig struct {
+	Abort           *AbortFilter `json:"abort,omitempty"`
+	Delay           *DelayFilter `json:"delay,omitempty"`
+	Headers         []Header     `json:"headers,omitempty"`
+	UpstreamCluster string       `json:"upstream_cluster,omitempty"`
+}
+
+// AbortFilter definition
+type AbortFilter struct {
+	Percent    int `json:"abort_percent,omitempty"`
+	HTTPStatus int `json:"http_status,omitempty"`
+}
+
+// DelayFilter definition
+type DelayFilter struct {
+	Type     string `json:"type,omitempty"`
+	Percent  int    `json:"fixed_delay_percent,omitempty"`
+	Duration int    `json:"fixed_duration_ms,omitempty"`
+}
+
+// NetworkFilter definition
+type NetworkFilter struct {
+	Type   string              `json:"type"`
+	Name   string              `json:"name"`
+	Config NetworkFilterConfig `json:"config"`
+}
+
+// NetworkFilterConfig definition
+type NetworkFilterConfig struct {
+	CodecType         string      `json:"codec_type"`
+	StatPrefix        string      `json:"stat_prefix"`
+	GenerateRequestID bool        `json:"generate_request_id,omitempty"`
+	RouteConfig       RouteConfig `json:"route_config"`
+	Filters           []Filter    `json:"filters"`
+	AccessLog         []AccessLog `json:"access_log"`
+	Cluster           string      `json:"cluster,omitempty"`
+}
+
+// AccessLog definition.
+type AccessLog struct {
+	Path   string `json:"path"`
+	Format string `json:"format,omitempty"`
+	Filter string `json:"filter,omitempty"`
+}
+
+// RouteConfig definition
+type RouteConfig struct {
+	VirtualHosts []VirtualHost `json:"virtual_hosts"`
+}
+
+// VirtualHost definition
+type VirtualHost struct {
+	Name    string   `json:"name"`
+	Domains []string `json:"domains"`
+	Routes  []Route  `json:"routes"`
+}
+
+// Route definition
+type Route struct {
+	Runtime          *Runtime         `json:"runtime,omitempty"`
+	Prefix           string           `json:"prefix"`
+	PrefixRewrite    string           `json:"prefix_rewrite,omitempty"`
+	Cluster          string           `json:"cluster"`
+	WeightedClusters *WeightedCluster `json:"weighted_clusters",omitempty`
+	Headers          []Header         `json:"headers,omitempty"`
+	TimeoutMS        int              `json:"timeout_ms,omitempty"`
+	RetryPolicy      RetryPolicy      `json:"retry_policy"`
+}
+
+// RetryPolicy definition
+// See: https://lyft.github.io/envoy/docs/configuration/http_conn_man/route_config/route.html#retry-policy
+type RetryPolicy struct {
+	Policy     string `json:"retry_on"` //5xx,connect-failure,refused-stream
+	NumRetries int    `json:"num_retries,omitempty"`
+}
+
+// Runtime definition
+type Runtime struct {
+	Key     string `json:"key"`
+	Default int    `json:"default"`
+}
+
+// WeightedClusters definition
+// See https://lyft.github.io/envoy/docs/configuration/http_conn_man/route_config/route.html#config-http-conn-man-route-table-route-weighted-clusters
+
+type WeightedCluster struct {
+	Clusters         []WeightedClusterEntry `json:"clusters"`
+	RuntimeKeyPrefix string                 `json:"runtime_key_prefix",omitempty`
+}
+
+type WeightedClusterEntry struct {
+	Name   string `json:"name"`
+	Weight int    `json:"weight"`
+}
+
+// Header definition
+type Header struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+	Regex bool   `json:"regex",omitempty`
+}
+
 // Host definition
 type Host struct {
 	URL string `json:"url"`
@@ -157,18 +240,6 @@ type Host struct {
 const (
 	LbTypeRoundRobin = "round_robin"
 )
-
-// Cluster definition
-type Cluster struct {
-	Name                     string `json:"name"`
-	ServiceName              string `json:"service_name,omitempty"`
-	ConnectTimeoutMs         int    `json:"connect_timeout_ms"`
-	Type                     string `json:"type"`
-	LbType                   string `json:"lb_type"`
-	MaxRequestsPerConnection int    `json:"max_requests_per_connection,omitempty"`
-	Hosts                    []Host `json:"hosts,omitempty"`
-	Features                 string `json:"features,omitempty"`
-}
 
 // ListenersByPort sorts listeners by port
 type ListenersByPort []Listener
@@ -228,18 +299,6 @@ func (r RoutesByCluster) Swap(i, j int) {
 
 func (r RoutesByCluster) Less(i, j int) bool {
 	return r[i].Cluster < r[j].Cluster
-}
-
-// SDS is a service discovery service definition
-type SDS struct {
-	Cluster        Cluster `json:"cluster"`
-	RefreshDelayMs int     `json:"refresh_delay_ms"`
-}
-
-// ClusterManager definition
-type ClusterManager struct {
-	Clusters []Cluster `json:"clusters"`
-	SDS      SDS       `json:"sds"`
 }
 
 // ByName implements sort
