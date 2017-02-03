@@ -33,7 +33,9 @@ const (
 	Bool
 	Time
 	IPAddress
-	URL
+	EmailAddress
+	URI
+	DNSName
 )
 
 type (
