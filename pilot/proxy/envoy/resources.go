@@ -36,7 +36,7 @@ type MeshConfig struct {
 
 // Config defines the schema for Envoy JSON configuration format
 type Config struct {
-	RootRuntime    RootRuntime    `json:"runtime"`
+	RootRuntime    *RootRuntime   `json:"runtime,omitempty"`
 	Listeners      []Listener     `json:"listeners"`
 	Admin          Admin          `json:"admin"`
 	ClusterManager ClusterManager `json:"cluster_manager"`
@@ -112,14 +112,14 @@ type Route struct {
 	WeightedClusters *WeightedCluster `json:"weighted_clusters,omitempty"`
 	Headers          []Header         `json:"headers,omitempty"`
 	TimeoutMS        int              `json:"timeout_ms,omitempty"`
-	RetryPolicy      RetryPolicy      `json:"retry_policy,omitempty"`
+	RetryPolicy      *RetryPolicy     `json:"retry_policy,omitempty"`
 }
 
 // RetryPolicy definition
 // See: https://lyft.github.io/envoy/docs/configuration/http_conn_man/route_config/route.html#retry-policy
 type RetryPolicy struct {
-	Policy     string `json:"retry_on"` //5xx,connect-failure,refused-stream
-	NumRetries int    `json:"num_retries"`
+	Policy     string `json:"retry_on"` //if unset, set to 5xx,connect-failure,refused-stream
+	NumRetries int    `json:"num_retries,omitempty"`
 }
 
 // WeightedCluster definition
