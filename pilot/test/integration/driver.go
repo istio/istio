@@ -317,13 +317,13 @@ func checkAccessLogs(pods map[string]string, ids map[string][]string) {
 func dumpLogs(pods map[string]string) {
 	for _, pod := range []string{"a", "b"} {
 		log.Printf("Checking access log of %s [app]\n", pod)
-		log.Printf(shell(fmt.Sprintf("kubectl logs %s -n %s -c app", pods[pod], namespace)))
+		log.Print(shell(fmt.Sprintf("kubectl logs %s -n %s -c app", pods[pod], namespace)))
 		log.Printf("Checking access log of %s [proxy]\n", pod)
-		log.Printf(shell(fmt.Sprintf("kubectl logs %s -n %s -c proxy", pods[pod], namespace)))
+		log.Print(shell(fmt.Sprintf("kubectl logs %s -n %s -c proxy", pods[pod], namespace)))
 
 	}
 	log.Printf("Checking access log of manager [manager]\n")
-	log.Printf(shell(fmt.Sprintf("kubectl logs %s -n %s -c manager", pods["manager"], namespace)))
+	log.Print(shell(fmt.Sprintf("kubectl logs %s -n %s -c manager", pods["manager"], namespace)))
 }
 
 func generateNamespace(cl *kubernetes.Clientset) string {
