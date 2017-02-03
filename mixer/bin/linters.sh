@@ -14,12 +14,7 @@ prep_linters() {
     bin/bazel_to_go.py
 }
 
-go_metalinter(){
-    # TODO: Enable this once more of mixer is connected and we don't
-    # have dead code on purpose
-    # codecoroner funcs ./...
-    # codecoroner idents ./...
-
+go_metalinter() {
     if [[ ! -z ${TRAVIS_PULL_REQUEST} ]];then
 	# if travis pull request only lint changed code.
 	if [[ ${TRAVIS_PULL_REQUEST} != "false" ]]; then
@@ -76,6 +71,11 @@ run_linters() {
     buildifier -showlog -mode=check $(find . -name BUILD -type f)
     go_metalinter
     $SCRIPTPATH/check_license.sh
+
+    # TODO: Enable this once more of mixer is connected and we don't
+    # have dead code on purpose
+    # codecoroner funcs ./...
+    # codecoroner idents ./...
 }
 
 set -e

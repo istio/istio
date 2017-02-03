@@ -101,6 +101,7 @@ cd $ISTIO
 git clone https://github.com/$YOUR_GITHUB_USERNAME/mixer.git
 cd mixer
 git remote add upstream 'https://github.com/istio/mixer.git'
+git config --global --add http.followRedirects 1
 ```
 ### Enable pre-commit hook
 
