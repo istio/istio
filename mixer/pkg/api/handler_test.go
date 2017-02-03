@@ -20,7 +20,10 @@ import (
 
 	"google.golang.org/genproto/googleapis/rpc/code"
 
+	"fmt"
+
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 )
@@ -34,15 +37,28 @@ func (f *fakeresolver) Resolve(bag attribute.Bag, aspectSet config.AspectSet) ([
 	return f.ret, f.err
 }
 
-func TestRequestCancellation(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	// we're skipping NewMethodHandlers so we don't have to deal with config since configuration should've matter when we have a canceled ctx
-	handler := &handlerState{}
-	handler.ConfigChange(&fakeresolver{[]*config.Combined{nil, nil}, nil})
-	cancel()
+type fakeExecutor struct {
+	body func() (*aspect.Output, error)
+}
 
-	s := handler.execute(ctx, attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, config.CheckMethod)
-	if s.Code != int32(code.Code_DEADLINE_EXCEEDED) {
-		t.Errorf("execute(canceledContext, ...) got: %s [%v], want: %v", code.Code_name[s.Code], s, code.Code_DEADLINE_EXCEEDED)
+// BulkExecute takes a set of configurations and Executes all of them.
+func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag) ([]*aspect.Output, error) {
+	o, err := f.body()
+	if err != nil {
+		return nil, err
+	}
+	return []*aspect.Output{o}, nil
+}
+
+func TestAspectManagerErrorsPropagated(t *testing.T) {
+	f := &fakeExecutor{func() (*aspect.Output, error) {
+		return nil, fmt.Errorf("expected")
+	}}
+	h := &handlerState{aspectExecutor: f, methodmap: map[config.APIMethod]config.AspectSet{}}
+	h.ConfigChange(&fakeresolver{[]*config.Combined{nil, nil}, nil})
+
+	s := h.execute(context.Background(), attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, config.CheckMethod)
+	if s.Code != int32(code.Code_INTERNAL) {
+		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", s, code.Code_INTERNAL)
 	}
 }

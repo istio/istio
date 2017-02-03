@@ -55,8 +55,8 @@ type Handler interface {
 
 // Executor executes any aspect as described by config.Combined.
 type Executor interface {
-	// Execute performs actions described in combined config using an attribute bag.
-	Execute(cfg *config.Combined, attrs attribute.Bag) (*aspect.Output, error)
+	// Execute takes a set of configurations and Executes all of them.
+	Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag) ([]*aspect.Output, error)
 }
 
 // handlerState holds state and configuration for the handler.
@@ -104,26 +104,14 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 	if glog.V(2) {
 		glog.Infof("Resolved [%d] ==> %v ", len(cfgs), cfgs)
 	}
-	for _, conf := range cfgs {
-		select {
-		case <-ctx.Done():
-			// TODO: determine the correct response to return: if we get a cancel on anything other than the first adapter
-			// then that adapter must have returned an OK code since we exit processing at the first non-OK status.
-			return newStatusWithMessage(code.Code_DEADLINE_EXCEEDED, ctx.Err().Error())
-		default: // Don't block on Done, keep on processing with adapters.
-		}
 
-		// TODO: plumb ctx through adaptermanager.Execute
-		_ = ctx
-		out, err := h.aspectExecutor.Execute(conf, ab)
-		if err != nil {
-			errorStr := fmt.Sprintf("Adapter '%s' returned err: %v", conf.Builder.Name, err)
-			glog.Warning(errorStr)
-			return newStatusWithMessage(code.Code_INTERNAL, errorStr)
-		}
+	outs, err := h.aspectExecutor.Execute(ctx, cfgs, ab)
+	if err != nil {
+		return newStatusWithMessage(code.Code_INTERNAL, err.Error())
+	}
+	for _, out := range outs {
 		if out.Code != code.Code_OK {
-			return newStatusWithMessage(out.Code,
-				fmt.Sprintf("Rejected by %s [%s %s]", conf.Aspect.Kind, conf.Builder.Impl, conf.Builder.Name))
+			return newStatus(out.Code)
 		}
 	}
 	return newStatus(code.Code_OK)
