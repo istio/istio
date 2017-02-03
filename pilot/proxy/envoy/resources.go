@@ -192,7 +192,7 @@ type Route struct {
 	Prefix           string           `json:"prefix"`
 	PrefixRewrite    string           `json:"prefix_rewrite,omitempty"`
 	Cluster          string           `json:"cluster"`
-	WeightedClusters *WeightedCluster `json:"weighted_clusters",omitempty`
+	WeightedClusters *WeightedCluster `json:"weighted_clusters,omitempty"`
 	Headers          []Header         `json:"headers,omitempty"`
 	TimeoutMS        int              `json:"timeout_ms,omitempty"`
 	RetryPolicy      RetryPolicy      `json:"retry_policy"`
@@ -212,13 +212,13 @@ type Runtime struct {
 }
 
 // WeightedClusters definition
-// See https://lyft.github.io/envoy/docs/configuration/http_conn_man/route_config/route.html#config-http-conn-man-route-table-route-weighted-clusters
-
+// See https://lyft.github.io/envoy/docs/configuration/http_conn_man/route_config/route.html
 type WeightedCluster struct {
 	Clusters         []WeightedClusterEntry `json:"clusters"`
-	RuntimeKeyPrefix string                 `json:"runtime_key_prefix",omitempty`
+	RuntimeKeyPrefix string                 `json:"runtime_key_prefix,omitempty"`
 }
 
+// WeightedClusterEntry definition. Describes the format of each entry in the WeightedCluster
 type WeightedClusterEntry struct {
 	Name   string `json:"name"`
 	Weight int    `json:"weight"`
@@ -228,7 +228,7 @@ type WeightedClusterEntry struct {
 type Header struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
-	Regex bool   `json:"regex",omitempty`
+	Regex bool   `json:"regex,omitempty"`
 }
 
 // Host definition
