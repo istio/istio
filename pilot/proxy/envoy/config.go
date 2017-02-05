@@ -26,6 +26,8 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	"fmt"
+
+	"istio.io/manager/model/proxy/alphav1/config"
 )
 
 // WriteFile saves config to a file
@@ -69,7 +71,9 @@ const (
 )
 
 // Generate Envoy configuration for service instances co-located with Envoy and all services in the mesh
-func Generate(instances []*model.ServiceInstance, services []*model.Service, mesh *MeshConfig) (*Config, error) {
+func Generate(instances []*model.ServiceInstance, services []*model.Service, rules []*config.RouteRule,
+	upstreams []*config.UpstreamCluster, mesh *MeshConfig) (*Config, error) {
+
 	listeners, clusters := buildListeners(instances, services, mesh)
 	// TODO: add catch-all filters to prevent Envoy from crashing
 	listeners = append(listeners, Listener{

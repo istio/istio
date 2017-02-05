@@ -90,7 +90,7 @@ Istio Manager provides management plane functionality to the Istio proxy mesh an
 		Short: "Start Istio Proxy sidecar agent",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			controller := kube.NewController(flags.client, flags.namespace, resyncPeriod)
-			_, err = envoy.NewWatcher(controller, controller, &flags.proxy)
+			_, err = envoy.NewWatcher(controller, controller, controller, &flags.proxy)
 			if err != nil {
 				return
 			}
