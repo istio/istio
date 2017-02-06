@@ -14,7 +14,7 @@ If you have a question about the Istio Manager or have a problem using it, pleas
 
 ## Build instructions ##
 
-We are using [Bazel 0.4.3](https://bazel.io) to build Istio Manager:
+We are using [Bazel 0.4.4](https://bazel.io) to build Istio Manager:
 
     bazel build //cmd/...
 

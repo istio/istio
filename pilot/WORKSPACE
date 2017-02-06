@@ -1,6 +1,6 @@
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "76c63b5cd0d47c1f2b47ab4953db96c574af1c1d",
+    commit = "bfa3601d9ab664b448ddb4cc7e48eea511217aaf",
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
@@ -52,7 +52,7 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_coreos_pkg",
-    commit = "fa29b1d70f0beaddd4c7021607cc3c3be8ce94b8",
+    commit = "1c941d73110817a80b9fa6e14d5d2b00d977ce2a", # Date: 2/6/17 with "build" file rename
     importpath = "github.com/coreos/pkg",
 )
 
@@ -251,6 +251,7 @@ new_go_repository(
 
 new_go_repository(
     name = "org_golang_x_text",
+    build_file_name = "BUILD.bazel",
     commit = "2910a502d2bf9e43193af9d68ca516529614eed3",
     importpath = "golang.org/x/text",
 )
