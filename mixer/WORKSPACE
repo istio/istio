@@ -2,7 +2,7 @@ workspace(name = "com_github_istio_mixer")
 
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "76c63b5cd0d47c1f2b47ab4953db96c574af1c1d",
+    commit = "76c63b5cd0d47c1f2b47ab4953db96c574af1c1d", # Jan 16, 2017 (v0.3.3/0.4.0)
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
@@ -12,9 +12,7 @@ go_repositories()
 
 git_repository(
     name = "org_pubref_rules_protobuf",
-    # Nov 28 2016 - not a tagged release
-    # Justification: needed for importmap support in gogo_proto_library
-    commit = "b0acb9ecaba79716a36fdadc0bcc47dedf6b711a",
+    commit = "b0acb9ecaba79716a36fdadc0bcc47dedf6b711a", # Nov 28 2016 (importmap support for gogo_proto_library)
     remote = "https://github.com/pubref/rules_protobuf",
 )
 
@@ -30,19 +28,19 @@ gogo_proto_repositories()
 
 new_go_repository(
     name = "com_github_golang_glog",
-    commit = "23def4e6c14b4da8ac2ed8007337bc5eb5007998",
+    commit = "23def4e6c14b4da8ac2ed8007337bc5eb5007998", # Jan 26, 2016 (no releases)
     importpath = "github.com/golang/glog",
 )
 
 new_go_repository(
     name = "in_gopkg_yaml_v2",
-    commit = "14227de293ca979cf205cd88769fe71ed96a97e2",
+    commit = "14227de293ca979cf205cd88769fe71ed96a97e2", # Jan 24, 2017 (no releases)
     importpath = "gopkg.in/yaml.v2",
 )
 
 new_go_repository(
     name = "com_github_golang_protobuf",
-    commit = "8ee79997227bf9b34611aee7946ae64735e6fd93",
+    commit = "8ee79997227bf9b34611aee7946ae64735e6fd93", # Nov 16, 2016 (no releases)
     importpath = "github.com/golang/protobuf",
 )
 
@@ -52,9 +50,9 @@ package(default_visibility = ["//visibility:public"])
 load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
 go_prefix("github.com/googleapis/googleapis")
 
-load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
+load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_library")
 
-go_proto_library(
+gogo_proto_library(
     name = "go_status_proto",
     protos = [
         "google/rpc/status.proto",
@@ -93,61 +91,61 @@ filegroup(
 new_git_repository(
     name = "com_github_googleapis_googleapis",
     build_file_content = GOOGLEAPIS_BUILD_FILE,
-    commit = "13ac2436c5e3d568bd0e938f6ed58b77a48aba15",
+    commit = "13ac2436c5e3d568bd0e938f6ed58b77a48aba15", # Oct 21, 2016 (only release pre-dates sha)
     remote = "https://github.com/googleapis/googleapis.git",
 )
 
 new_go_repository(
     name = "com_github_google_go_genproto",
-    commit = "b3e7c2fb04031add52c4817f53f43757ccbf9c18",
+    commit = "b3e7c2fb04031add52c4817f53f43757ccbf9c18", # Dec 15, 2016 (no releases)
     importpath = "google.golang.org/genproto",
 )
 
 new_go_repository(
     name = "org_golang_google_grpc",
-    commit = "21f8ed309495401e6fd79b3a9fd549582aed1b4c",
+    commit = "708a7f9f3283aa2d4f6132d287d78683babe55c8", # Dec 5, 2016 (v1.0.5)
     importpath = "google.golang.org/grpc",
 )
 
 new_go_repository(
     name = "com_github_spf13_cobra",
-    commit = "35136c09d8da66b901337c6e86fd8e88a1a255bd",
+    commit = "35136c09d8da66b901337c6e86fd8e88a1a255bd", # Jan 30, 2017 (no releases)
     importpath = "github.com/spf13/cobra",
 )
 
 new_go_repository(
     name = "com_github_spf13_pflag",
-    commit = "9ff6c6923cfffbcd502984b8e0c80539a94968b7",
+    commit = "9ff6c6923cfffbcd502984b8e0c80539a94968b7", # Jan 30, 2017 (no releases)
     importpath = "github.com/spf13/pflag",
 )
 
 new_go_repository(
     name = "com_github_hashicorp_go_multierror",
-    commit = "ed905158d87462226a13fe39ddf685ea65f1c11f",
+    commit = "ed905158d87462226a13fe39ddf685ea65f1c11f", # Dec 16, 2016 (no releases)
     importpath = "github.com/hashicorp/go-multierror",
 )
 
 new_go_repository(
     name = "com_github_hashicorp_errwrap",
-    commit = "7554cd9344cec97297fa6649b055a8c98c2a1e55",
+    commit = "7554cd9344cec97297fa6649b055a8c98c2a1e55", # Oct 27, 2014 (no releases)
     importpath = "github.com/hashicorp/errwrap",
 )
 
 new_go_repository(
     name = "com_github_opentracing_opentracing_go",
-    commit = "ac5446f53f2c0fc68dc16dc5f426eae1cd288b34",
+    commit = "0c3154a3c2ce79d3271985848659870599dfb77c", # Sep 26, 2016 (v1.0.0)
     importpath = "github.com/opentracing/opentracing-go",
 )
 
 new_go_repository(
     name = "com_github_opentracing_basictracer",
-    commit = "1b32af207119a14b1b231d451df3ed04a72efebf",
+    commit = "1b32af207119a14b1b231d451df3ed04a72efebf", # Sep 29, 2016 (no releases)
     importpath = "github.com/opentracing/basictracer-go",
 )
 
 new_go_repository(
     name = "com_github_mitchellh_mapstructure",
-    commit = "bfdb1a85537d60bc7e954e600c250219ea497417",
+    commit = "db1efb556f84b25a0a13a04aad883943538ad2e0", # Jan 24, 2017 (no releases)
     importpath = "github.com/mitchellh/mapstructure",
 )
 
@@ -157,7 +155,7 @@ new_git_or_local_repository(
     name = "com_github_istio_api",
     build_file = "BUILD.api",
     path = "../api",
-    commit = "7917b2d041a9ef931e242ae58caa584158eb4cf3",
+    commit = "7917b2d041a9ef931e242ae58caa584158eb4cf3", # Jan 31, 2017 (no releases)
     remote = "https://github.com/istio/api.git",
     # Change this to True to use ../api directory
     use_local = False,
@@ -173,36 +171,36 @@ new_http_archive(
 
 new_go_repository(
     name = "com_github_prometheus_client_golang",
-    commit = "c317fb74746eac4fc65fe3909195f4cf67c5562a",
+    commit = "c5b7fccd204277076155f10851dad72b76a49317", # Aug 17, 2016 (v0.8.0)
     importpath = "github.com/prometheus/client_golang",
 )
 
 new_go_repository(
     name = "com_github_prometheus_common",
-    commit = "dd2f054febf4a6c00f2343686efb775948a8bff4",
+    commit = "dd2f054febf4a6c00f2343686efb775948a8bff4", # Jan 8, 2017 (no releases)
     importpath = "github.com/prometheus/common",
 )
 
 new_go_repository(
     name = "com_github_matttproud_golang_protobuf_extensions",
-    commit = "c12348ce28de40eed0136aa2b644d0ee0650e56c",
+    commit = "c12348ce28de40eed0136aa2b644d0ee0650e56c", # Apr 24, 2016 (v1.0.0)
     importpath = "github.com/matttproud/golang_protobuf_extensions",
 )
 
 new_go_repository(
     name = "com_github_prometheus_procfs",
-    commit = "fcdb11ccb4389efb1b210b7ffb623ab71c5fdd60",
+    commit = "1878d9fbb537119d24b21ca07effd591627cd160", # Jan 28, 2017 (no releases)
     importpath = "github.com/prometheus/procfs",
 )
 
 new_go_repository(
     name = "com_github_beorn7_perks",
-    commit = "4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9",
+    commit = "4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9", # Aug 4, 2016 (no releases)
     importpath = "github.com/beorn7/perks",
 )
 
 new_go_repository(
     name = "com_github_prometheus_client_model",
-    commit = "fa8ad6fec33561be4280a8f0514318c79d7f6cb6",
+    commit = "fa8ad6fec33561be4280a8f0514318c79d7f6cb6", # Feb 12, 2015 (only release too old)
     importpath = "github.com/prometheus/client_model",
 )
