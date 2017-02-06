@@ -16,18 +16,20 @@
 #
 ################################################################################
 #
+set -ex
+
+# Make sure to this script on x86_64 Ubuntu Xenial
 
 # The bucket name to store proxy binary
 BUCKET_NAME="istio-build/proxy"
 
 # The proxy binary name.
-BINARY_FORMAT='proxy-alpha-%H'
+BINARY_FORMAT='envoy-alpha-%H.tar.gz'
 BINARY_NAME="$(git show -q HEAD --pretty=format:"${BINARY_FORMAT}")"
 
 # Build the binary
-bazel build --config=release //src/envoy/mixer:envoy_esp
-
-SRC="bazel-bin/src/envoy/mixer/envoy_esp"
+bazel build --config=release //src/envoy/mixer:envoy_tar
+SRC="bazel-bin/src/envoy/mixer/envoy_tar.tar.gz"
 DST="gs://${BUCKET_NAME}/${BINARY_NAME}"
 
 # Copy it to the bucket.

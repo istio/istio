@@ -15,7 +15,7 @@
 ################################################################################
 #
 
-package(default_visibility = ["//visibility:public"])
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 cc_library(
     name = "filter_lib",
@@ -32,10 +32,18 @@ cc_library(
 )
 
 cc_binary(
-    name = "envoy_esp",
+    name = "envoy",
     linkstatic = 1,
     deps = [
         ":filter_lib",
         "@envoy_git//:envoy-main",
     ],
+)
+
+pkg_tar(
+    name = "envoy_tar",
+    extension = "tar.gz",
+    files = [":envoy"],
+    mode = "0755",
+    package_dir = "/usr/local/bin/",
 )

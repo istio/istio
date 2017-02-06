@@ -12,10 +12,10 @@ This Proxy will use Envoy and talk to Mixer server.
   
 ## Build Envoy proxy
 
-* Build target envoy_esp:
+* Build target envoy:
 
 ```
-  bazel build //src/envoy/mixer:envoy_esp
+  bazel build //src/envoy/mixer:envoy
 ```
 
 ## How to run it
@@ -38,7 +38,7 @@ This Proxy will use Envoy and talk to Mixer server.
 * Start Envoy proxy, run
 
 ```
-  bazel-bin/src/envoy/mixer/envoy_esp -c src/envoy/prototype/envoy-mixer.conf
+  bazel-bin/src/envoy/mixer/envoy -c src/envoy/prototype/envoy-mixer.conf
 ```
   
 * Then issue HTTP request to proxy.
