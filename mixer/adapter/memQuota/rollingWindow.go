@@ -25,7 +25,7 @@ type rollingWindow struct {
 	currentSlot int
 
 	// the tick count associated with the current slot
-	currentSlotTick int32
+	currentSlotTick int64
 
 	// the total # of units currently available in the window
 	avail int64
@@ -39,14 +39,14 @@ type rollingWindow struct {
 // The ticksPerWindow parameter determines the number of quantized time intervals within the window.
 // When quota is allocated, it belongs to the current tick. As time marches on,
 // the quota associated with older ticks is reclaimed.
-func newRollingWindow(limit int64, ticksInWindow int32) *rollingWindow {
+func newRollingWindow(limit int64, ticksInWindow int64) *rollingWindow {
 	return &rollingWindow{
 		avail: limit,
 		slots: make([]int64, ticksInWindow),
 	}
 }
 
-func (w *rollingWindow) alloc(amount int64, currentTick int32) bool {
+func (w *rollingWindow) alloc(amount int64, currentTick int64) bool {
 	w.roll(currentTick)
 
 	if amount > w.avail {
@@ -61,7 +61,7 @@ func (w *rollingWindow) alloc(amount int64, currentTick int32) bool {
 	return true
 }
 
-func (w *rollingWindow) release(amount int64, currentTick int32) int64 {
+func (w *rollingWindow) release(amount int64, currentTick int64) int64 {
 	w.roll(currentTick)
 
 	// we release from the leading edge of the window moving back in time
@@ -91,7 +91,7 @@ func (w *rollingWindow) release(amount int64, currentTick int32) int64 {
 	return total
 }
 
-func (w *rollingWindow) roll(currentTick int32) {
+func (w *rollingWindow) roll(currentTick int64) {
 	// how many ticks has the window moved since we were last here?
 	behind := int(currentTick - w.currentSlotTick)
 	if behind > len(w.slots) {

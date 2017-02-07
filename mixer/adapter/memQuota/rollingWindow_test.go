@@ -21,7 +21,7 @@ import (
 func TestAlloc(t *testing.T) {
 	cases := []struct {
 		amount int64
-		tick   int32
+		tick   int64
 		avail  int64
 		result bool
 	}{
@@ -58,9 +58,9 @@ func TestAlloc(t *testing.T) {
 func TestRelease(t *testing.T) {
 	cases := []struct {
 		allocAmount   int64
-		allocTick     int32
+		allocTick     int64
 		releaseAmount int64
-		releaseTick   int32
+		releaseTick   int64
 		releaseResult int64
 		avail         int64
 	}{
