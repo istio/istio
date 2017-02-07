@@ -115,7 +115,7 @@ func (ts *testState) Report(ctx context.Context, tracker attribute.Tracker, requ
 
 func (ts *testState) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
 	response.RequestIndex = request.RequestIndex
-	response.Result = newStatus(code.Code_UNIMPLEMENTED)
+	response.Amount = 0
 }
 
 func TestCheck(t *testing.T) {

@@ -32,6 +32,7 @@ gogo_proto_library(
     visibility = ["//visibility:public"],
     with_grpc = True,
     deps = [
+        "@com_github_golang_protobuf//ptypes/duration:go_default_library",
         "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
         "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
     ],
@@ -58,15 +59,26 @@ gogo_proto_library(
 
 gogo_proto_library(
     name = "mixer/v1/config/descriptor",
+    imports = [
+        "../../external/com_github_google_protobuf/src",
+    ],
+    inputs = [
+        "@com_github_google_protobuf//:well_known_protos",
+    ],
     protos = [
         "mixer/v1/config/descriptor/attribute_descriptor.proto",
+        "mixer/v1/config/descriptor/label_descriptor.proto",
         "mixer/v1/config/descriptor/log_entry_descriptor.proto",
         "mixer/v1/config/descriptor/metric_descriptor.proto",
         "mixer/v1/config/descriptor/monitored_resource_descriptor.proto",
         "mixer/v1/config/descriptor/principal_descriptor.proto",
         "mixer/v1/config/descriptor/quota_descriptor.proto",
+        "mixer/v1/config/descriptor/value_type.proto",
     ],
     verbose = 0,
     visibility = ["//visibility:public"],
     with_grpc = False,
+    deps = [
+        "@com_github_golang_protobuf//ptypes/duration:go_default_library",
+    ],
 )

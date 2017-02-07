@@ -29,23 +29,25 @@ import (
 // only via an Attributes proto. This code is not protected by locks because
 // we know it is always mutated in a single-threaded context.
 type rootBag struct {
-	strings  map[string]string
-	int64s   map[string]int64
-	float64s map[string]float64
-	bools    map[string]bool
-	times    map[string]time.Time
-	bytes    map[string][]uint8
+	strings   map[string]string
+	int64s    map[string]int64
+	float64s  map[string]float64
+	bools     map[string]bool
+	times     map[string]time.Time
+	durations map[string]time.Duration
+	bytes     map[string][]uint8
 }
 
 var rootBags = sync.Pool{
 	New: func() interface{} {
 		return &rootBag{
-			strings:  make(map[string]string),
-			int64s:   make(map[string]int64),
-			float64s: make(map[string]float64),
-			bools:    make(map[string]bool),
-			times:    make(map[string]time.Time),
-			bytes:    make(map[string][]uint8),
+			strings:   make(map[string]string),
+			int64s:    make(map[string]int64),
+			float64s:  make(map[string]float64),
+			bools:     make(map[string]bool),
+			times:     make(map[string]time.Time),
+			durations: make(map[string]time.Duration),
+			bytes:     make(map[string][]uint8),
 		}
 	},
 }
@@ -134,6 +136,21 @@ func (rb *rootBag) TimeKeys() []string {
 	return keys
 }
 
+func (rb *rootBag) Duration(name string) (time.Duration, bool) {
+	r, b := rb.durations[name]
+	return r, b
+}
+
+func (rb *rootBag) DurationKeys() []string {
+	i := 0
+	keys := make([]string, len(rb.durations))
+	for k := range rb.durations {
+		keys[i] = k
+		i++
+	}
+	return keys
+}
+
 func (rb *rootBag) Bytes(name string) ([]uint8, bool) {
 	r, b := rb.bytes[name]
 	return r, b
@@ -170,6 +187,10 @@ func (rb *rootBag) reset() {
 
 	for k := range rb.times {
 		delete(rb.times, k)
+	}
+
+	for k := range rb.durations {
+		delete(rb.durations, k)
 	}
 
 	for k := range rb.bytes {
@@ -221,6 +242,16 @@ func checkPreconditions(dictionary dictionary, attrs *mixerpb.Attributes) error 
 		}
 	}
 
+	for k, v := range attrs.DurationAttributes {
+		if _, present := dictionary[k]; !present {
+			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
+		}
+
+		if _, err := ptypes.Duration(v); err != nil {
+			e = me.Append(e, err)
+		}
+	}
+
 	for k := range attrs.BytesAttributes {
 		if _, present := dictionary[k]; !present {
 			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
@@ -263,6 +294,10 @@ func (rb *rootBag) update(dictionary dictionary, attrs *mixerpb.Attributes) erro
 		rb.times[dictionary[k]], _ = ptypes.Timestamp(v)
 	}
 
+	for k, v := range attrs.DurationAttributes {
+		rb.durations[dictionary[k]], _ = ptypes.Duration(v)
+	}
+
 	for k, v := range attrs.BytesAttributes {
 		rb.bytes[dictionary[k]] = v
 	}
@@ -275,6 +310,7 @@ func (rb *rootBag) update(dictionary dictionary, attrs *mixerpb.Attributes) erro
 			delete(rb.float64s, name)
 			delete(rb.bools, name)
 			delete(rb.times, name)
+			delete(rb.durations, name)
 			delete(rb.bytes, name)
 		}
 	}

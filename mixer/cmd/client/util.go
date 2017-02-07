@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/grpc"
 
@@ -80,6 +81,15 @@ func parseTime(s string) (interface{}, error) {
 	return ptypes.TimestampProto(time)
 }
 
+func parseDuration(s string) (interface{}, error) {
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return nil, err
+	}
+
+	return ptypes.DurationProto(d), nil
+}
+
 func parseBytes(s string) (interface{}, error) {
 	var bytes []uint8
 	for _, seg := range strings.Split(s, ":") {
@@ -134,6 +144,7 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 	attrs.DoubleAttributes = make(map[int32]float64)
 	attrs.BoolAttributes = make(map[int32]bool)
 	attrs.TimestampAttributes = make(map[int32]*timestamp.Timestamp)
+	attrs.DurationAttributes = make(map[int32]*duration.Duration)
 	attrs.BytesAttributes = make(map[int32][]uint8)
 
 	// the following boilerplate would be more succinct with generics...
@@ -176,6 +187,13 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 		attrs.TimestampAttributes[k] = v.(*timestamp.Timestamp)
 	}
 
+	if m, err = process(attrs.Dictionary, rootArgs.durationAttributes, parseDuration); err != nil {
+		return nil, err
+	}
+	for k, v := range m {
+		attrs.DurationAttributes[k] = v.(*duration.Duration)
+	}
+
 	if m, err = process(attrs.Dictionary, rootArgs.bytesAttributes, parseBytes); err != nil {
 		return nil, err
 	}
@@ -189,7 +207,7 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 	for k, v := range m {
 		s := v.(string)
 
-		// auto-sense the type of attributes based on being to parse the value
+		// auto-sense the type of attributes based on being able to parse the value
 		if val, err := parseInt64(s); err == nil {
 			attrs.Int64Attributes[k] = val.(int64)
 		} else if val, err := parseFloat64(s); err == nil {
@@ -198,6 +216,8 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 			attrs.BoolAttributes[k] = val.(bool)
 		} else if val, err := parseTime(s); err == nil {
 			attrs.TimestampAttributes[k] = val.(*timestamp.Timestamp)
+		} else if val, err := parseDuration(s); err == nil {
+			attrs.DurationAttributes[k] = val.(*duration.Duration)
 		} else if val, err := parseBytes(s); err == nil {
 			attrs.BytesAttributes[k] = val.([]uint8)
 		} else {

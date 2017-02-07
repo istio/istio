@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 	ts "github.com/golang/protobuf/ptypes/timestamp"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -32,13 +33,19 @@ var (
 	ts9, _  = ptypes.TimestampProto(t9)
 	ts10, _ = ptypes.TimestampProto(t10)
 
+	d1  = time.Duration(42) * time.Second
+	d2  = time.Duration(34) * time.Second
+	d3  = time.Duration(56) * time.Second
+	td1 = ptypes.DurationProto(d1)
+
 	attrs = mixerpb.Attributes{
-		Dictionary:          dictionary{1: "N1", 2: "N2", 3: "N3", 4: "N4", 5: "N5", 6: "N6", 7: "N7", 8: "N8", 9: "N9", 10: "N10", 11: "N11", 12: "N12"},
+		Dictionary:          dictionary{1: "N1", 2: "N2", 3: "N3", 4: "N4", 5: "N5", 6: "N6", 7: "N7", 8: "N8", 9: "N9", 10: "N10", 11: "N11", 12: "N12", 13: "N13"},
 		StringAttributes:    map[int32]string{1: "1", 2: "2"},
 		Int64Attributes:     map[int32]int64{3: 3, 4: 4},
 		DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
 		BoolAttributes:      map[int32]bool{7: true, 8: false},
 		TimestampAttributes: map[int32]*ts.Timestamp{9: ts9, 10: ts10},
+		DurationAttributes:  map[int32]*duration.Duration{13: td1},
 		BytesAttributes:     map[int32][]uint8{11: {11}, 12: {12}},
 	}
 )
@@ -50,7 +57,7 @@ func TestBag(t *testing.T) {
 
 	ab, err := at.StartRequest(&attrs)
 	if err != nil {
-		t.Errorf("Unable to update attrs: %v", err)
+		t.Errorf("Unable to start request: %v", err)
 	}
 	defer at.EndRequest()
 
@@ -60,6 +67,7 @@ func TestBag(t *testing.T) {
 	ab.SetFloat64("N6", 42.0)
 	ab.SetBool("N8", true)
 	ab.SetTime("N10", t42)
+	ab.SetDuration("N13", d2)
 	ab.SetBytes("N12", []byte{42})
 
 	// make sure the overrides worked and didn't disturb non-overridden values
@@ -184,6 +192,23 @@ func TestBag(t *testing.T) {
 		}
 	}
 
+	// Duration
+	{
+		var r time.Duration
+		var found bool
+
+		if r, found = ab.Duration("N13"); !found {
+			t.Error("N13 not found")
+		}
+		if r != d2 {
+			t.Error("N13 has wrong value")
+		}
+
+		if _, found = ab.Duration("XYZ"); found {
+			t.Error("XYZ was found")
+		}
+	}
+
 	// []uint8
 	{
 		var r []uint8
@@ -263,6 +288,28 @@ func TestBadTimestamp(t *testing.T) {
 	defer at.EndRequest()
 }
 
+func TestBadDuration(t *testing.T) {
+	// ensure we handle bogus on-the-wire duration values properly
+
+	// a bogus duration value
+	d1 := &duration.Duration{Seconds: 1, Nanos: -1}
+
+	attr := mixerpb.Attributes{
+		Dictionary:         dictionary{1: "N1"},
+		DurationAttributes: map[int32]*duration.Duration{1: d1},
+	}
+
+	am := NewManager()
+	at := am.NewTracker()
+	defer at.Done()
+
+	_, err := at.StartRequest(&attr)
+	if err == nil {
+		t.Error("Successfully updated attributes, expected an error")
+	}
+	defer at.EndRequest()
+}
+
 func TestValue(t *testing.T) {
 	am := NewManager()
 	at := am.NewTracker()
@@ -312,6 +359,15 @@ func TestValue(t *testing.T) {
 		x := v.(time.Time)
 		if x != t9 {
 			t.Errorf("Expecting N9 to return '%v', got '%s'", ts9, x)
+		}
+	}
+
+	if v, found := Value(ab, "N13"); !found {
+		t.Error("Expecting N13 to be found")
+	} else {
+		x := v.(time.Duration)
+		if x != d1 {
+			t.Errorf("Expecting N13 to return '%v', got '%s'", d1, x)
 		}
 	}
 
@@ -536,6 +592,46 @@ func TestTimeKeys(t *testing.T) {
 	)
 }
 
+func TestDurationKeys(t *testing.T) {
+	testKeys(t,
+		[]ttable{
+			{
+				&mixerpb.Attributes{},
+				d{},
+				d{},
+			},
+			{
+				&mixerpb.Attributes{
+					Dictionary:         map[int32]string{1: "root"},
+					DurationAttributes: map[int32]*duration.Duration{1: td1},
+				},
+				d{},
+				d{"root": d1},
+			},
+			{
+				&mixerpb.Attributes{},
+				d{"one": d2, "two": d3},
+				d{"one": d2, "two": d3},
+			},
+			{
+				&mixerpb.Attributes{
+					Dictionary:         map[int32]string{1: "root"},
+					DurationAttributes: map[int32]*duration.Duration{1: td1},
+				},
+				d{"one": d2, "two": d3},
+				d{"root": d1, "one": d2, "two": d3},
+			},
+		},
+		func(ab MutableBag, k string, v interface{}) {
+			vs := v.(time.Duration)
+			ab.SetDuration(k, vs)
+		},
+		func(b Bag) []string {
+			return b.DurationKeys()
+		},
+	)
+}
+
 func TestByteKeys(t *testing.T) {
 	testKeys(t,
 		[]ttable{
@@ -577,7 +673,7 @@ func TestByteKeys(t *testing.T) {
 }
 
 func testKeys(t *testing.T, cases []ttable, setVal func(MutableBag, string, interface{}), keyFn func(Bag) []string) {
-	for _, tc := range cases {
+	for i, tc := range cases {
 		at := NewManager().NewTracker()
 		root, _ := at.StartRequest(tc.inRoot)
 		ab := root.Child()
@@ -589,13 +685,13 @@ func testKeys(t *testing.T, cases []ttable, setVal func(MutableBag, string, inte
 		// verify everything that was returned was expected
 		for _, key := range keys {
 			if _, found := tc.out[key]; !found {
-				t.Errorf("keyFn() = [..., %s, ...], wanted (key, val) in set: %v", key, tc.out)
+				t.Errorf("keyFn(%d) = [..., %s, ...], wanted (key, val) in set: %v", i, key, tc.out)
 			}
 		}
 		// and that everything that was expected was returned
 		for key := range tc.out {
 			if !contains(keys, key) {
-				t.Errorf("keyFn() = %v, wanted '%s' in set", keys, key)
+				t.Errorf("keyFn(%d) = %v, wanted '%s' in set", i, keys, key)
 			}
 		}
 

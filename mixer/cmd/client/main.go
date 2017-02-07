@@ -41,6 +41,9 @@ type rootArgs struct {
 	// timestampAttributes is the list of name/value pairs of timestamp attributes that will be sent with requests.
 	timestampAttributes string
 
+	// durationAttributes is the list of name/value pairs of duration attributes that will be sent with requests.
+	durationAttributes string
+
 	// bytesAttributes is the list of name/value pairs of bytes attributes that will be sent with requests.
 	bytesAttributes string
 

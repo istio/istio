@@ -53,6 +53,12 @@ type Bag interface {
 	// TimeKeys returns a snapshot of all keys corresponding to time attributes this bag knows about.
 	TimeKeys() []string
 
+	// Duration returns the named attribute if it exists.
+	Duration(name string) (time.Duration, bool)
+
+	// DurationKeys returns a snapshot of all keys corresponding to time attributes this bag knows about.
+	DurationKeys() []string
+
 	// Bytes returns the named attribute if it exists.
 	Bytes(name string) ([]uint8, bool)
 
@@ -88,6 +94,9 @@ type MutableBag interface {
 
 	// SetTime sets an override for a named attribute.
 	SetTime(name string, value time.Time)
+
+	// SetDuration sets an override for a named attribute.
+	SetDuration(name string, value time.Duration)
 
 	// SetBytes sets an override for a named attribute.
 	SetBytes(name string, value []uint8)
@@ -138,6 +147,10 @@ func Value(b Bag, name string) (interface{}, bool) {
 	}
 
 	if r, found := b.Time(name); found {
+		return r, true
+	}
+
+	if r, found := b.Duration(name); found {
 		return r, true
 	}
 
