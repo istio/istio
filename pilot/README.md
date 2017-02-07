@@ -12,19 +12,11 @@ other components of the system, including the Istio mixer and the Istio proxy me
 If you have a question about the Istio Manager or have a problem using it, please
 [file an issue](https://github.com/istio/manager/issues/new).
 
-## Build instructions for Linux##
+## Build instructions for Linux and Mac ##
 
 We are using [Bazel 0.4.4](https://bazel.io) to build Istio Manager:
 
-    bazel build //cmd/...
-
-_Note the three dots_
-
-<!-- _Note_: Due to issues with case-insensitive file systems, macOS is not -->
-<!-- supported at the moment by Bazel Go rules. As a workaround, create a case sensitive partition -->
-<!-- on your macOS as described [here](https://coderwall.com/p/mgi8ja/case-sensitive-git-in-mac-os-x-like-a-pro), and build using  -->
-
-<!--     bazel --output_base=/Volumes/case-sensitive-volume-name/bazel-out build //cmd/... --spawn_strategy=standalone -->
+    bazel build //cmd/manager
 
 Bazel uses `BUILD` files to keep track of dependencies between sources.  If you
 add a new source file or change the imports, please run the following command
@@ -72,7 +64,7 @@ To run the tests:
 
     bazel test //...
 
-## Docker images ##
+## Docker images (Linux-only) ##
 
 We provide Bazel targets to output Istio runtime images:
 
