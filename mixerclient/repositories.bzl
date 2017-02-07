@@ -36,7 +36,7 @@ def boringssl_repositories(bind=True):
 def protobuf_repositories(bind=True):
     native.git_repository(
         name = "protobuf_git",
-        commit = "a428e42072765993ff674fda72863c9f1aa2d268",  # v3.1.0
+        commit = "593e917c176b5bc5aafa57bf9f6030d749d91cd5",  # v3.2.0
         remote = "https://github.com/google/protobuf.git",
     )
 
@@ -68,7 +68,7 @@ def protobuf_repositories(bind=True):
 
         native.bind(
             name = "protobuf_clib",
-            actual = "@protobuf_git//:protobuf_lite",
+            actual = "@protobuf_git//:protoc_lib",
         )
 
 
@@ -300,7 +300,7 @@ def grpc_repositories(bind=True):
 
     native.git_repository(
         name = "grpc_git",
-        commit = "d28417c856366df704200f544e72d31056931bce",
+        commit = "bb3edafea245a9780cc4c10f0b58da21e8193f38", # v1.1.1
         remote = "https://github.com/grpc/grpc.git",
     )
 
@@ -327,7 +327,7 @@ def grpc_repositories(bind=True):
 
         native.bind(
             name = "grpc_lib",
-            actual = "@grpc_git//:grpc++_reflection",
+            actual = "@grpc_git//:grpc++_codegen_proto",
         )
 
 def googleapis_repositories(protobuf_repo="@protobuf_git//", bind=True):

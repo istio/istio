@@ -44,6 +44,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":simple_lru_cache",
+        "//external:grpc++",
         "//external:boringssl_crypto",
         "//external:mixer_api_cc_proto",
     ],
