@@ -106,7 +106,8 @@ type Runtime struct {
 // Route definition
 type Route struct {
 	Runtime          *Runtime         `json:"runtime,omitempty"`
-	Prefix           string           `json:"prefix"`
+	Path             string           `json:"path,omitempty"`
+	Prefix           string           `json:"prefix,omitempty"`
 	PrefixRewrite    string           `json:"prefix_rewrite,omitempty"`
 	Cluster          string           `json:"cluster"`
 	WeightedClusters *WeightedCluster `json:"weighted_clusters,omitempty"`
