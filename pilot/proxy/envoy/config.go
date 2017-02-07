@@ -253,11 +253,14 @@ func buildListeners(instances []*model.ServiceInstance,
 
 		// For HTTP, the routing decision is based on the virtual host.
 		hosts := make(map[string]VirtualHost, 0)
+		faultsByPort := make([]Filter, 0)
 		for _, proto := range []model.Protocol{model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC} {
 			for _, svc := range lst.services[proto] {
-				routes := buildRoutes(svc, rulesMap, upstreamNameToInternalNameMap)
+				routes, faultsByHost := buildHTTPRoutesAndFaults(svc, rulesMap,
+					upstreamNameToInternalNameMap)
 				host := buildVirtualHost(svc, suffix, routes)
 				hosts[svc.String()] = host
+				faultsByPort = append(faultsByPort, faultsByHost...)
 			}
 
 			// If the traffic is sent to a service that has instances co-located with the proxy,
@@ -285,7 +288,8 @@ func buildListeners(instances []*model.ServiceInstance,
 					StatPrefix:  "http",
 					AccessLog:   []AccessLog{{Path: DefaultAccessLog}},
 					RouteConfig: RouteConfig{VirtualHosts: vhosts},
-					Filters:     buildFilters(mesh),
+					// TODO decide if mesh filter should come before faults or vice versa
+					Filters: append(buildFilters(mesh), faultsByPort...),
 				},
 			})
 		}
@@ -381,11 +385,13 @@ func buildVirtualHost(svc *model.Service, suffix []string, routes []Route) Virtu
 	}
 }
 
-// buildRoutes adds one or more route entries in a virtual host based on the routing rules
-func buildRoutes(svc *model.Service, rulesMap map[string][]*config.RouteRule,
-	upstreamNameToInternalNameMap map[string]string) []Route {
+// buildHttpRoutesAndFaults adds one or more route entries in a virtual host based on the routing rules
+// and generates a list of fault injection filters to be injected into the filter array in Envoy's config.
+func buildHTTPRoutesAndFaults(svc *model.Service, rulesMap map[string][]*config.RouteRule,
+	upstreamNameToInternalNameMap map[string]string) ([]Route, []Filter) {
 
 	routes := make([]Route, 0)
+	faultsByDestination := make([]Filter, 0)
 	ruleByDestination, prs := rulesMap[svc.Hostname]
 	if prs {
 		for _, rule := range ruleByDestination {
@@ -402,6 +408,11 @@ func buildRoutes(svc *model.Service, rulesMap map[string][]*config.RouteRule,
 				} else {
 					route.Cluster = OutboundClusterPrefix + svc.String()
 				}
+
+				if httpRule.Fault != nil {
+					faultsByRoute := buildFaultFilters(&route, httpRule.Fault)
+					faultsByDestination = append(faultsByDestination, faultsByRoute...)
+				}
 			}
 			routes = append(routes, route)
 		}
@@ -410,7 +421,61 @@ func buildRoutes(svc *model.Service, rulesMap map[string][]*config.RouteRule,
 		routes = append(routes, Route{Prefix: "/", Cluster: OutboundClusterPrefix + svc.String()})
 	}
 
-	return routes
+	return routes, faultsByDestination
+}
+
+// buildFaultFilters builds a list of fault filters for the http route. If the route points to a single
+// cluster, an array of size 1 is returned. If the route points to a weighted cluster, an array of fault
+// filters (one per cluster entry in the weighted cluster) is returned.
+func buildFaultFilters(route *Route, faultRule *config.HttpFaultInjection) []Filter {
+	faults := make([]Filter, 0)
+	if route.WeightedClusters != nil {
+		for _, cluster := range route.WeightedClusters.Clusters {
+			faults = append(faults, buildFaultFilter(cluster.Name, faultRule))
+		}
+	} else {
+		faults = append(faults, buildFaultFilter(route.Cluster, faultRule))
+	}
+	return faults
+}
+
+// buildFaultFilter builds a single fault filter
+func buildFaultFilter(internalUpstreamName string, faultRule *config.HttpFaultInjection) Filter {
+	return Filter{
+		Type: "decoder",
+		Name: "fault",
+		Config: FilterFaultConfig{
+			UpstreamCluster: internalUpstreamName,
+			Headers:         buildHeaders(faultRule.Headers),
+			Abort:           buildAbortConfig(faultRule.Abort),
+			Delay:           buildDelayConfig(faultRule.Delay),
+		},
+	}
+}
+
+// buildAbortConfig builds the envoy config related to abort spec in a fault filter
+func buildAbortConfig(abortRule *config.HttpFaultInjection_Abort) *AbortFilter {
+	if abortRule == nil || abortRule.GetHttpStatus() == 0 {
+		return nil
+	}
+
+	return &AbortFilter{
+		Percent:    int(abortRule.Percent),
+		HTTPStatus: int(abortRule.GetHttpStatus()),
+	}
+}
+
+// buildDelayConfig builds the envoy config related to delay spec in a fault filter
+func buildDelayConfig(delayRule *config.HttpFaultInjection_Delay) *DelayFilter {
+	if delayRule == nil || delayRule.GetFixedDelay() == nil {
+		return nil
+	}
+
+	return &DelayFilter{
+		Type:     "fixed",
+		Percent:  int(delayRule.GetFixedDelay().Percent),
+		Duration: int(delayRule.GetFixedDelay().FixedDelaySeconds * 1000),
+	}
 }
 
 func buildHeaders(headerMatches map[string]*config.StringMatch) []Header {
