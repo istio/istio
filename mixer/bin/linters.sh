@@ -71,6 +71,7 @@ run_linters() {
     buildifier -showlog -mode=check $(find . -name BUILD -type f)
     go_metalinter
     $SCRIPTPATH/check_license.sh
+    $SCRIPTPATH/check_workspace.sh
 
     # TODO: Enable this once more of mixer is connected and we don't
     # have dead code on purpose
