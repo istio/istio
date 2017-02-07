@@ -32,6 +32,7 @@ branch, but release branches of the Istio mixer should not change.
   - [Auto-formatting source code](#auto-formatting-source-code)
   - [Running the linters](#running-the-linters)
   - [Running race detection tests](#running-race-detection-tests)
+  - [Adding dependencies](#adding-dependencies)
   - [About testing](#about-testing)
 - [Using the mixer](#using-the-mixer)
 
@@ -234,6 +235,42 @@ You can run the test suite using the Go race detection tools using:
 ```
 make racetest
 ```
+
+### Adding dependencies
+
+It will occasionally be necessary to add a new dependency to the Istio Mixer, 
+either in support of a new adapter or to provide additional core functionality. 
+
+Mixer dependencies are maintained in the [WORKSPACE](https://github.com/istio/mixer/blob/master/WORKSPACE)
+file. To add a new dependency, please append to the bottom on the file. A dependency
+can be added manually, or via [wtool](https://github.com/bazelbuild/rules_go/blob/master/go/tools/wtool/main.go).
+
+All dependencies:
+- *MUST* be specified in terms of commit SHA (vs release tag).
+- *MUST* be annotated with the commit date and an explanation for the choice of
+commit. Annotations *MUST* follow the `commit` param as a comment field.
+- *SHOULD* be targeted at a commit that corresponds to a stable release of the 
+library. If the library does not provide regular releases, etc., pulling from a 
+known good recent commit is acceptable.
+
+Examples:
+
+```
+new_go_repository(
+    name = "org_golang_google_grpc",
+    commit = "708a7f9f3283aa2d4f6132d287d78683babe55c8", # Dec 5, 2016 (v1.0.5)
+    importpath = "google.golang.org/grpc",
+)
+```
+
+```
+git_repository(
+    name = "org_pubref_rules_protobuf",
+    commit = "b0acb9ecaba79716a36fdadc0bcc47dedf6b711a", # Nov 28 2016 (importmap support for gogo_proto_library)
+    remote = "https://github.com/pubref/rules_protobuf",
+)
+```
+
 
 ### About testing
 
