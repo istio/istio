@@ -22,6 +22,8 @@ go_library(
         "//pkg/expr:go_default_library",
         "@com_github_golang_protobuf//jsonpb:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_golang_protobuf//ptypes:go_default_library",
+        "@com_github_golang_protobuf//ptypes/duration:go_default_library",
         "@com_github_golang_protobuf//ptypes/empty:go_default_library",
         "@com_github_golang_protobuf//ptypes/struct:go_default_library",
         "@com_github_google_go_genproto//googleapis/rpc/code:go_default_library",

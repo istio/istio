@@ -21,24 +21,26 @@ import (
 
 type mutableBag struct {
 	sync.RWMutex
-	parent   Bag
-	strings  map[string]string
-	int64s   map[string]int64
-	float64s map[string]float64
-	bools    map[string]bool
-	times    map[string]time.Time
-	bytes    map[string][]uint8
+	parent    Bag
+	strings   map[string]string
+	int64s    map[string]int64
+	float64s  map[string]float64
+	bools     map[string]bool
+	times     map[string]time.Time
+	durations map[string]time.Duration
+	bytes     map[string][]uint8
 }
 
 var mutableBags = sync.Pool{
 	New: func() interface{} {
 		return &mutableBag{
-			strings:  make(map[string]string),
-			int64s:   make(map[string]int64),
-			float64s: make(map[string]float64),
-			bools:    make(map[string]bool),
-			times:    make(map[string]time.Time),
-			bytes:    make(map[string][]uint8),
+			strings:   make(map[string]string),
+			int64s:    make(map[string]int64),
+			float64s:  make(map[string]float64),
+			bools:     make(map[string]bool),
+			times:     make(map[string]time.Time),
+			durations: make(map[string]time.Duration),
+			bytes:     make(map[string][]uint8),
 		}
 	},
 }
@@ -205,6 +207,36 @@ func (mb *mutableBag) TimeKeys() []string {
 	return append(keys, mb.parent.TimeKeys()...)
 }
 
+func (mb *mutableBag) Duration(name string) (time.Duration, bool) {
+	var r time.Duration
+	var b bool
+	mb.RLock()
+	if r, b = mb.durations[name]; !b {
+		r, b = mb.parent.Duration(name)
+	}
+	mb.RUnlock()
+	return r, b
+}
+
+func (mb *mutableBag) SetDuration(name string, value time.Duration) {
+	mb.Lock()
+	mb.durations[name] = value
+	mb.Unlock()
+}
+
+func (mb *mutableBag) DurationKeys() []string {
+	i := 0
+
+	mb.RLock()
+	keys := make([]string, len(mb.durations))
+	for k := range mb.durations {
+		keys[i] = k
+		i++
+	}
+	mb.RUnlock()
+	return append(keys, mb.parent.DurationKeys()...)
+}
+
 func (mb *mutableBag) Bytes(name string) ([]uint8, bool) {
 	var r []uint8
 	var b bool
@@ -258,6 +290,10 @@ func (mb *mutableBag) Reset() {
 
 	for k := range mb.times {
 		delete(mb.times, k)
+	}
+
+	for k := range mb.durations {
+		delete(mb.durations, k)
 	}
 
 	for k := range mb.bytes {

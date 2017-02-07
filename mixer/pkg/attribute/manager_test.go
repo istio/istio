@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/ptypes/duration"
 	ts "github.com/golang/protobuf/ptypes/timestamp"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -54,6 +55,12 @@ func TestAttributeManager(t *testing.T) {
 		present bool
 	}
 
+	type getDurationCase struct {
+		name    string
+		result  time.Duration
+		present bool
+	}
+
 	type getBytesCase struct {
 		name    string
 		result  []uint8
@@ -61,14 +68,15 @@ func TestAttributeManager(t *testing.T) {
 	}
 
 	type testCase struct {
-		attrs      mixerpb.Attributes
-		result     bool
-		getString  []getStringCase
-		getInt64   []getInt64Case
-		getFloat64 []getFloat64Case
-		getBool    []getBoolCase
-		getTime    []getTimeCase
-		getBytes   []getBytesCase
+		attrs       mixerpb.Attributes
+		result      bool
+		getString   []getStringCase
+		getInt64    []getInt64Case
+		getFloat64  []getFloat64Case
+		getBool     []getBoolCase
+		getTime     []getTimeCase
+		getDuration []getDurationCase
+		getBytes    []getBytesCase
 	}
 
 	cases := []testCase{
@@ -83,12 +91,13 @@ func TestAttributeManager(t *testing.T) {
 		// 1: basic case to try out adding one of everything
 		{
 			attrs: mixerpb.Attributes{
-				Dictionary:          dictionary{1: "name1", 2: "name2", 3: "name3", 4: "name4", 5: "name5", 6: "name6"},
+				Dictionary:          dictionary{1: "name1", 2: "name2", 3: "name3", 4: "name4", 5: "name5", 6: "name6", 7: "name7"},
 				StringAttributes:    map[int32]string{1: "1"},
 				Int64Attributes:     map[int32]int64{2: 2},
 				DoubleAttributes:    map[int32]float64{3: 3.0},
 				BoolAttributes:      map[int32]bool{4: true},
 				TimestampAttributes: map[int32]*ts.Timestamp{5: {Seconds: 5, Nanos: 5}},
+				DurationAttributes:  map[int32]*duration.Duration{7: {Seconds: 42}},
 				BytesAttributes:     map[int32][]uint8{6: []byte{6}},
 				ResetContext:        false,
 				AttributeContext:    0,
@@ -125,6 +134,12 @@ func TestAttributeManager(t *testing.T) {
 				{"name42", time.Time{}, false},
 			},
 
+			getDuration: []getDurationCase{
+				{"name7", time.Second * 42, true},
+				{"name1", time.Duration(0), false},
+				{"name42", time.Duration(0), false},
+			},
+
 			getBytes: []getBytesCase{
 				{"name6", []byte{6}, true},
 				{"name1", nil, false},
@@ -135,7 +150,7 @@ func TestAttributeManager(t *testing.T) {
 		// 2: now switch dictionaries and make sure we can still find things
 		{
 			attrs: mixerpb.Attributes{
-				Dictionary: dictionary{11: "name1", 22: "name2", 33: "name3", 44: "name4", 55: "name5", 66: "name6"},
+				Dictionary: dictionary{11: "name1", 22: "name2", 33: "name3", 44: "name4", 55: "name5", 66: "name6", 77: "name7"},
 			},
 			result: true,
 			getString: []getStringCase{
@@ -168,6 +183,12 @@ func TestAttributeManager(t *testing.T) {
 				{"name42", time.Time{}, false},
 			},
 
+			getDuration: []getDurationCase{
+				{"name7", time.Second * 42, true},
+				{"name1", time.Duration(0), false},
+				{"name42", time.Duration(0), false},
+			},
+
 			getBytes: []getBytesCase{
 				{"name6", []byte{6}, true},
 				{"name1", nil, false},
@@ -178,26 +199,28 @@ func TestAttributeManager(t *testing.T) {
 		// 3: now delete everything and make sure it's all gone
 		{
 			attrs: mixerpb.Attributes{
-				DeletedAttributes: []int32{11, 22, 33, 44, 55, 66},
+				DeletedAttributes: []int32{11, 22, 33, 44, 55, 66, 77},
 			},
-			result:     true,
-			getString:  []getStringCase{{"name1", "", false}},
-			getInt64:   []getInt64Case{{"name2", 0, false}},
-			getFloat64: []getFloat64Case{{"name3", 0.0, false}},
-			getBool:    []getBoolCase{{"name4", false, false}},
-			getTime:    []getTimeCase{{"name5", time.Time{}, false}},
-			getBytes:   []getBytesCase{{"name6", []byte{}, false}},
+			result:      true,
+			getString:   []getStringCase{{"name1", "", false}},
+			getInt64:    []getInt64Case{{"name2", 0, false}},
+			getFloat64:  []getFloat64Case{{"name3", 0.0, false}},
+			getBool:     []getBoolCase{{"name4", false, false}},
+			getTime:     []getTimeCase{{"name5", time.Time{}, false}},
+			getDuration: []getDurationCase{{"name7", time.Duration(0), false}},
+			getBytes:    []getBytesCase{{"name6", []byte{}, false}},
 		},
 
 		// 4: add stuff back in
 		{
 			attrs: mixerpb.Attributes{
-				Dictionary:          dictionary{1: "name1", 2: "name2", 3: "name3", 4: "name4", 5: "name5", 6: "name6"},
+				Dictionary:          dictionary{1: "name1", 2: "name2", 3: "name3", 4: "name4", 5: "name5", 6: "name6", 7: "name7"},
 				StringAttributes:    map[int32]string{1: "1"},
 				Int64Attributes:     map[int32]int64{2: 2},
 				DoubleAttributes:    map[int32]float64{3: 3.0},
 				BoolAttributes:      map[int32]bool{4: true},
 				TimestampAttributes: map[int32]*ts.Timestamp{5: {Seconds: 5, Nanos: 5}},
+				DurationAttributes:  map[int32]*duration.Duration{7: {Seconds: 42}},
 				BytesAttributes:     map[int32][]uint8{6: []byte{6}},
 				ResetContext:        false,
 				AttributeContext:    0,
@@ -211,13 +234,14 @@ func TestAttributeManager(t *testing.T) {
 			attrs: mixerpb.Attributes{
 				ResetContext: true,
 			},
-			result:     true,
-			getString:  []getStringCase{{"name1", "", false}},
-			getInt64:   []getInt64Case{{"name2", 0, false}},
-			getFloat64: []getFloat64Case{{"name3", 0.0, false}},
-			getBool:    []getBoolCase{{"name4", false, false}},
-			getTime:    []getTimeCase{{"name5", time.Time{}, false}},
-			getBytes:   []getBytesCase{{"name6", []byte{}, false}},
+			result:      true,
+			getString:   []getStringCase{{"name1", "", false}},
+			getInt64:    []getInt64Case{{"name2", 0, false}},
+			getFloat64:  []getFloat64Case{{"name3", 0.0, false}},
+			getBool:     []getBoolCase{{"name4", false, false}},
+			getTime:     []getTimeCase{{"name5", time.Time{}, false}},
+			getDuration: []getDurationCase{{"name7", time.Duration(0), false}},
+			getBytes:    []getBytesCase{{"name6", []byte{}, false}},
 		},
 
 		// 6: make sure reset works against a reset state
@@ -258,13 +282,19 @@ func TestAttributeManager(t *testing.T) {
 			result: false,
 		},
 
-		// 12: try out bad dictionary index for bytes
+		// 12: try out bad dictionary index for duration
+		{
+			attrs:  mixerpb.Attributes{DurationAttributes: map[int32]*duration.Duration{42: {Seconds: 0}}},
+			result: false,
+		},
+
+		// 13: try out bad dictionary index for bytes
 		{
 			attrs:  mixerpb.Attributes{BytesAttributes: map[int32][]uint8{42: {}}},
 			result: false,
 		},
 
-		// 13: try to delete attributes that don't exist
+		// 14: try to delete attributes that don't exist
 		{
 			attrs:  mixerpb.Attributes{DeletedAttributes: []int32{111, 222, 333}},
 			result: true,
@@ -338,6 +368,17 @@ func TestAttributeManager(t *testing.T) {
 
 			if present != g.present {
 				t.Errorf("Expecting present=%v, got present=%v for time test case %v:%v", g.present, present, i, j)
+			}
+		}
+
+		for j, g := range c.getDuration {
+			result, present := ab.Duration(g.name)
+			if result != g.result {
+				t.Errorf("Expecting result='%v', got result='%v' for duration test case %v:%v", g.result, result, i, j)
+			}
+
+			if present != g.present {
+				t.Errorf("Expecting present=%v, got present=%v for duration test case %v:%v", g.present, present, i, j)
 			}
 		}
 

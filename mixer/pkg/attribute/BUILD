@@ -30,6 +30,7 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
+        "@com_github_golang_protobuf//ptypes/duration:go_default_library",
         "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
     ],
 )

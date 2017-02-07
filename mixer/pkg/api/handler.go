@@ -139,7 +139,10 @@ func (h *handlerState) Report(ctx context.Context, tracker attribute.Tracker, re
 func (h *handlerState) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
 	response.RequestIndex = request.RequestIndex
 	status := h.execute(ctx, tracker, request.AttributeUpdate, config.QuotaMethod)
-	response.Result = newStatus(code.Code(status.Code))
+
+	if status.Code == int32(code.Code_OK) {
+		response.Amount = 1
+	}
 }
 
 func newStatus(c code.Code) *status.Status {

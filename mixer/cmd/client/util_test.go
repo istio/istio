@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/timestamp"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -33,6 +34,7 @@ func TestAttributeHandling(t *testing.T) {
 	}
 
 	ts, _ := ptypes.TimestampProto(time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC))
+	d := ptypes.DurationProto(time.Duration(42) * time.Second)
 
 	cases := []testCase{
 		{
@@ -42,20 +44,22 @@ func TestAttributeHandling(t *testing.T) {
 				doubleAttributes:    "i=1,j=2,kkk=345.678",
 				boolAttributes:      "l=true,m=false,nnn=true",
 				timestampAttributes: "o=2006-01-02T15:04:05Z",
-				bytesAttributes:     "p=1,q=34:56",
-				attributes:          "r=XYZ,s=2,t=3.0,u=true,v=2006-01-02T15:04:05Z,w=98:76",
+				durationAttributes:  "p=42s",
+				bytesAttributes:     "q=1,r=34:56",
+				attributes:          "s=XYZ,t=2,u=3.0,v=true,w=2006-01-02T15:04:05Z,x=98:76,y=42s",
 			},
 			attrs: mixerpb.Attributes{
 				Dictionary: map[int32]string{
 					0: "a", 1: "b", 2: "ccc", 3: "d", 4: "e", 5: "f", 6: "g",
 					7: "hhh", 8: "i", 9: "j", 10: "kkk", 11: "l", 12: "m", 13: "nnn", 14: "o",
-					15: "p", 16: "q", 17: "r", 18: "s", 19: "t", 20: "u", 21: "v", 22: "w"},
-				StringAttributes:    map[int32]string{0: "X", 1: "Y", 2: "XYZ", 3: "X Z", 4: "X", 17: "XYZ"},
-				Int64Attributes:     map[int32]int64{5: 1, 6: 2, 7: 345, 18: 2},
-				DoubleAttributes:    map[int32]float64{8: 1, 9: 2, 10: 345.678, 19: 3.0},
-				BoolAttributes:      map[int32]bool{11: true, 12: false, 13: true, 20: true},
-				TimestampAttributes: map[int32]*timestamp.Timestamp{14: ts, 21: ts},
-				BytesAttributes:     map[int32][]uint8{15: {1}, 16: {0x34, 0x56}, 22: {0x98, 0x76}},
+					15: "p", 16: "q", 17: "r", 18: "s", 19: "t", 20: "u", 21: "v", 22: "w", 23: "x", 24: "y"},
+				StringAttributes:    map[int32]string{0: "X", 1: "Y", 2: "XYZ", 3: "X Z", 4: "X", 18: "XYZ"},
+				Int64Attributes:     map[int32]int64{5: 1, 6: 2, 7: 345, 19: 2},
+				DoubleAttributes:    map[int32]float64{8: 1, 9: 2, 10: 345.678, 20: 3.0},
+				BoolAttributes:      map[int32]bool{11: true, 12: false, 13: true, 21: true},
+				TimestampAttributes: map[int32]*timestamp.Timestamp{14: ts, 22: ts},
+				DurationAttributes:  map[int32]*duration.Duration{15: d, 24: d},
+				BytesAttributes:     map[int32][]uint8{16: {1}, 17: {0x34, 0x56}, 23: {0x98, 0x76}},
 			},
 			result: true,
 		},
@@ -87,6 +91,12 @@ func TestAttributeHandling(t *testing.T) {
 		{rootArgs: rootArgs{timestampAttributes: "="}},
 		{rootArgs: rootArgs{timestampAttributes: "=2006-01-02T15:04:05Z"}},
 		{rootArgs: rootArgs{timestampAttributes: "o=XYZ"}},
+
+		{rootArgs: rootArgs{durationAttributes: "x"}},
+		{rootArgs: rootArgs{durationAttributes: "x="}},
+		{rootArgs: rootArgs{durationAttributes: "="}},
+		{rootArgs: rootArgs{durationAttributes: "=1.2"}},
+		{rootArgs: rootArgs{durationAttributes: "x=XYZ"}},
 
 		{rootArgs: rootArgs{bytesAttributes: "p,q=34:56"}},
 		{rootArgs: rootArgs{bytesAttributes: "p=,q=34:56"}},
