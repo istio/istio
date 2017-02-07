@@ -1,6 +1,0 @@
-cloud_tracing_config {
-  force_disable: true
-}
-mixer_options {
-  mixer_server: "mixer"
-}
