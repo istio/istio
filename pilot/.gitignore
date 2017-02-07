@@ -5,3 +5,4 @@ vendor
 .idea*
 *.iml
 echo.yaml
+.vagrant

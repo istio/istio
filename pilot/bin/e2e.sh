@@ -12,7 +12,10 @@ while getopts :h:t: arg; do
   esac
 done
 
-gcloud docker --authorize-only
+if [ "$hub" == "gcr.io/istio-testing" ]; then
+    gcloud docker --authorize-only
+fi
+
 for image in app init runtime; do
 	bazel run //docker:$image
 	docker tag istio/docker:$image $hub/$image:$tag
