@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package istio.mixer.v1.config.descriptor;
 
+import "mixer/v1/config/descriptor/value_type.proto";
+
 // An `AttributeDescriptor` describes the schema of an Istio attribute type.
 //
 // ## Istio Attributes
@@ -75,34 +77,4 @@ message AttributeDescriptor {
 
   // The type of data carried by attributes
   ValueType value_type = 3;
-
-  // Types of supported attribute values.
-  enum ValueType {
-    // An undiscriminated variable-length string.
-    STRING = 0;
-
-    // An undiscriminated 64-bit signed integer.
-    INT64 = 1;
-
-    // An undiscriminated 64-bit floating-point value.
-    DOUBLE = 2;
-
-    // An undiscriminated boolean value.
-    BOOL = 3;
-
-    // A point in time.
-    TIMESTAMP = 4;
-
-    // An IP address, encoded as bytes.
-    IP_ADDRESS = 5;
-
-    // An email address, encoded as a string.
-    EMAIL_ADDRESS = 6;
-
-    // A URI, encoded as a string.
-    URI = 7;
-
-    // A DNS name, encoded as a string.
-    DNS_NAME = 8;
-  }
 }
