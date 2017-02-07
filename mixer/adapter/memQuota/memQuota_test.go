@@ -18,9 +18,10 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/mixer/pkg/adapter"
+	"github.com/golang/protobuf/ptypes/duration"
 
 	"istio.io/mixer/adapter/memQuota/config"
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
 )
 
@@ -43,7 +44,7 @@ func TestAllocAndRelease(t *testing.T) {
 
 	b := newBuilder()
 	c := b.DefaultConfig().(*config.Params)
-	c.MinDeduplicationWindowSeconds = 3600
+	c.MinDeduplicationDuration = &duration.Duration{Seconds: 3600}
 
 	a, err := b.NewQuotasAspect(test.NewEnv(t), c, definitions)
 	if err != nil {
@@ -58,7 +59,7 @@ func TestAllocAndRelease(t *testing.T) {
 		allocAmount     int64
 		allocResult     int64
 		allocBestEffort bool
-		tick            int32
+		tick            int64
 		releaseAmount   int64
 		releaseResult   int64
 	}{
@@ -99,7 +100,7 @@ func TestAllocAndRelease(t *testing.T) {
 			Labels:          labels,
 		}
 
-		asp.getTick = func() int32 {
+		asp.getTick = func() int64 {
 			return c.tick * ticksPerSecond
 		}
 
@@ -245,8 +246,13 @@ func TestBadAmount(t *testing.T) {
 func TestBadConfig(t *testing.T) {
 	b := newBuilder()
 	c := b.DefaultConfig().(*config.Params)
-	c.MinDeduplicationWindowSeconds = 0
 
+	c.MinDeduplicationDuration = &duration.Duration{}
+	if err := b.ValidateConfig(c); err == nil {
+		t.Errorf("Expecting failure, got success")
+	}
+
+	c.MinDeduplicationDuration = &duration.Duration{Seconds: 0x7fffffffffffffff, Nanos: -1}
 	if err := b.ValidateConfig(c); err == nil {
 		t.Errorf("Expecting failure, got success")
 	}
@@ -261,7 +267,7 @@ func TestReaper(t *testing.T) {
 
 	b := newBuilder()
 	c := b.DefaultConfig().(*config.Params)
-	c.MinDeduplicationWindowSeconds = 3600
+	c.MinDeduplicationDuration = &duration.Duration{Seconds: 3600}
 
 	a, err := b.NewQuotasAspect(test.NewEnv(t), c, definitions)
 	if err != nil {
@@ -270,7 +276,7 @@ func TestReaper(t *testing.T) {
 
 	asp := a.(*memQuota)
 
-	asp.getTick = func() int32 {
+	asp.getTick = func() int64 {
 		return 1
 	}
 
@@ -372,6 +378,16 @@ func TestReaperTicker(t *testing.T) {
 
 	if err := a.Close(); err != nil {
 		t.Errorf("Unable to close aspect: %v", err)
+	}
+}
+
+func TestGetCurrentTick(t *testing.T) {
+	t1 := time.Now().UnixNano() / nanosPerTick
+	ticks := int64(getCurrentTicks())
+	t2 := time.Now().UnixNano() / nanosPerTick
+
+	if ticks < t1 || ticks > t2 {
+		t.Errorf("Got tick value %v, expected in the range %v..%v", ticks, t1, t2)
 	}
 }
 

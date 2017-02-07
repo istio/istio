@@ -16,9 +16,11 @@ syntax = "proto3";
 
 package adapter.memQuota.config;
 
+import "google/protobuf/duration.proto";
+
 option go_package="config";
 
 message Params {
 	// Minimum number of seconds that deduplication is possible for a given operation.
-	int32 min_deduplication_window_seconds = 1;
+	google.protobuf.Duration min_deduplication_duration = 1;
 }

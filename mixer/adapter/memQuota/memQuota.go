@@ -33,6 +33,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
+
 	"istio.io/mixer/adapter/memQuota/config"
 	"istio.io/mixer/pkg/adapter"
 )
@@ -59,7 +62,7 @@ type memQuota struct {
 	ticker *time.Ticker
 
 	// indirection to support fast deterministic tests
-	getTick func() int32
+	getTick func() int64
 
 	logger adapter.Logger
 }
@@ -76,12 +79,17 @@ var keyWorkspacePool = sync.Pool{New: func() interface{} { return &keyWorkspace{
 var (
 	name = "memQuota"
 	desc = "Simple volatile memory-based quotas."
-	conf = &config.Params{MinDeduplicationWindowSeconds: 1}
+	conf = &config.Params{
+		MinDeduplicationDuration: &duration.Duration{Seconds: 1},
+	}
 )
 
 const (
 	// See the rollingWindow comment for a description of what this is for.
 	ticksPerSecond = 10
+
+	// ns/tick
+	nanosPerTick = int64(time.Second / ticksPerSecond)
 )
 
 // Register records the builders exposed by this adapter.
@@ -96,8 +104,11 @@ func newBuilder() builder {
 func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	c := cfg.(*config.Params)
 
-	if c.MinDeduplicationWindowSeconds <= 0 {
-		ce = ce.Appendf("MinDeduplicationWindowSeconds", "deduplication window of %d is invalid, must be >= 0", c.MinDeduplicationWindowSeconds)
+	dedupWindow, err := ptypes.Duration(c.MinDeduplicationDuration)
+	if err != nil {
+		ce = ce.Append("MinDeduplicationDuration", err)
+	} else if dedupWindow <= 0 {
+		ce = ce.Appendf("MinDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", dedupWindow)
 	}
 
 	return
@@ -109,7 +120,9 @@ func (builder) NewQuotasAspect(env adapter.Env, c adapter.AspectConfig, d map[st
 
 // newAspect returns a new aspect.
 func newAspect(env adapter.Env, c *config.Params, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
-	return newAspectWithDedup(env, time.NewTicker(time.Duration(c.MinDeduplicationWindowSeconds)*time.Second), definitions)
+	dedupWindow, _ := ptypes.Duration(c.MinDeduplicationDuration)
+
+	return newAspectWithDedup(env, time.NewTicker(dedupWindow), definitions)
 }
 
 // newAspect returns a new aspect.
@@ -121,7 +134,7 @@ func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, definitions map[st
 		recentDedup: make(map[string]int64),
 		oldDedup:    make(map[string]int64),
 		ticker:      ticker,
-		getTick:     func() int32 { return int32(time.Now().UnixNano() / (1000000000 / ticksPerSecond)) },
+		getTick:     getCurrentTicks,
 		logger:      env.Logger(),
 	}
 
@@ -139,6 +152,11 @@ func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, definitions map[st
 func (mq *memQuota) Close() error {
 	mq.ticker.Stop()
 	return nil
+}
+
+// getCurrentTicks returns the number of ticks since January 1st 1970 UTC
+func getCurrentTicks() int64 {
+	return time.Now().UnixNano() / nanosPerTick
 }
 
 func (mq *memQuota) Alloc(args adapter.QuotaArgs) (int64, error) {
@@ -172,7 +190,7 @@ func (mq *memQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (int64, error
 		window, ok := mq.windows[key]
 		if !ok {
 			seconds := int32((d.Window + time.Second - 1) / time.Second)
-			window = newRollingWindow(d.MaxAmount, seconds*ticksPerSecond)
+			window = newRollingWindow(d.MaxAmount, int64(seconds)*ticksPerSecond)
 			mq.windows[key] = window
 		}
 
