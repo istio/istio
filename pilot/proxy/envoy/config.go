@@ -393,6 +393,8 @@ func buildRoutes(svc *model.Service, rulesMap map[string][]*config.RouteRule,
 			route := Route{}
 			if httpRule != nil {
 				match := httpRule.GetMatch()
+
+				route.Headers = buildHeaders(match.GetHeaders())
 				route.Path, route.Prefix = buildPathAndPrefix(match)
 				if httpRule.WeightedClusters != nil {
 					route.WeightedClusters = buildWeightedClusters(httpRule.WeightedClusters,
@@ -409,6 +411,37 @@ func buildRoutes(svc *model.Service, rulesMap map[string][]*config.RouteRule,
 	}
 
 	return routes
+}
+
+func buildHeaders(headerMatches map[string]*config.StringMatch) []Header {
+	headers := make([]Header, 0, len(headerMatches))
+	for name, stringMatch := range headerMatches {
+		header := buildHeader(name, stringMatch)
+		headers = append(headers, header)
+	}
+	sort.Sort(HeadersByNameValue(headers))
+	return headers
+}
+
+func buildHeader(name string, match *config.StringMatch) Header {
+	var value string
+	var regex bool
+
+	if match.GetExact() != "" {
+		value = match.GetExact()
+	} else if match.GetPrefix() != "" {
+		value = fmt.Sprintf("^%v.*", match.GetPrefix())
+		regex = true
+	} else if match.GetRegex() != "" {
+		value = match.GetRegex()
+		regex = true
+	}
+
+	return Header{
+		Name:  name,
+		Value: value,
+		Regex: regex,
+	}
 }
 
 // buildPathAndPrefix returns the path and prefix fields in HTTP route based on routing rule

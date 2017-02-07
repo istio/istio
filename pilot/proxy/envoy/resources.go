@@ -289,6 +289,24 @@ func (r RoutesByCluster) Less(i, j int) bool {
 	return r[i].Cluster < r[j].Cluster
 }
 
+// HeadersByNameValue sorts headers by name, then value.
+type HeadersByNameValue []Header
+
+func (s HeadersByNameValue) Len() int {
+	return len(s)
+}
+
+func (s HeadersByNameValue) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s HeadersByNameValue) Less(i, j int) bool {
+	if s[i].Name == s[j].Name {
+		return s[i].Value < s[j].Value
+	}
+	return s[i].Name < s[j].Name
+}
+
 // SDS is a service discovery service definition
 type SDS struct {
 	Cluster        Cluster `json:"cluster"`
