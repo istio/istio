@@ -16,7 +16,8 @@ syntax = "proto3";
 
 package istio.mixer.v1;
 
-import "google/rpc/status.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 import "mixer/v1/attributes.proto";
 
 message QuotaRequest {
@@ -28,32 +29,18 @@ message QuotaRequest {
 
   // Used for deduplicating quota allocation/free calls in the case of
   // failed RPCs and retries. This should be a UUID per call, where the same
-  // UUID is used for retries of the same quota allocation or release call.
-  string deduplication_id = 4;
-
-  enum OperationKind {
-    QUOTA_MODE_UNSPECIFIED = 0;
-
-    // Allocate the specified amount, fail if insufficient resources available.
-    ALLOC_NORMAL = 1;
-
-    // Allocate from 0 to the specified amount, never fails.
-    ALLOC_BEST_EFFORT = 2;
-
-    // Release from 0 to the specified amount, never fails.
-    RELEASE_BEST_EFFORT = 3;
-  }
+  // UUID is used for retries of the same quota allocation call.
+  string deduplication_id = 3;
 }
 
-// Used to update quota values before and/or after performing an action.
-//
-// A common use case for quotas is to implement rate limits within a service.
-// Quotas can also be used to impose upper limits on the number of specific
-// resources exposed by a service to its consumers.
 message QuotaResponse {
   // Index of the request this response is associated with
   int64 request_index = 1;
 
-  // Indicates whether or not the quota operation succeeded.
-  google.rpc.Status result = 2;
+  // The time at which the returned quota expires
+  google.protobuf.Timestamp expiration = 2;
+
+  // The total amount of quota returned, can be used to satisfy
+  // quota requests with matching attributes until the given expiration time.
+  int64 amount = 3;
 }

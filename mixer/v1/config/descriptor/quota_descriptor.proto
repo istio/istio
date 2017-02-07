@@ -16,6 +16,9 @@ syntax = "proto3";
 
 package istio.mixer.v1.config.descriptor;
 
+import "google/protobuf/duration.proto";
+import "mixer/v1/config/descriptor/label_descriptor.proto";
+
 // Configuration state for a particular quota.
 //
 // Quotas are similar to metrics, except that they are mutated through method
@@ -26,34 +29,25 @@ package istio.mixer.v1.config.descriptor;
 // A given quota is described by a set of attributes. These attributes represent
 // the different dimensions to associate with the quota. A given quota holds a
 // unique value for potentially any combination of these attributes.
-//
-// The quota kind controls the general behavior of the quota. An allocation
-// quota is only adjusted through explicit method calls. A rate limit quota's
-// values are reset to 0 automatically at a fixed interval.
 message QuotaDescriptor {
   // The name of this descriptor.
   string name = 1;
 
-  // A optional concise name for the quota, which can be displayed in user interfaces.
-  // Use sentence case without an ending period, for example "Request count".
+  // An optional concise name for the quota which can be displayed in user interfaces.
   string display_name = 2;
 
-  // An optional description of the quota, which can be used in documentation.
+  // An optional description of the quota which can be used in documentation.
   string description = 3;
 
-  // The name of the attribute that supplies the amount for a given
-  // quota allocation or release operation.
-  string amount_attribute = 4;
-
-  // The set of attributes that are necessary to describe a specific value cell
+  // The set of labels that are necessary to describe a specific value cell
   // for a quota of this type.
-  repeated string attributes = 5;
+  repeated LabelDescriptor labels = 4;
 
   // The default imposed maximum amount for values of this quota.
-  int64 max_amount = 6;
+  int64 max_amount = 5;
 
   // The amount of time allocated quota remains valid before it is
   // automatically released. If this is 0, then allocated quota is
   // not automatically released.
-  int32 expiration_seconds = 7;
+  google.protobuf.Duration expiration = 6;
 }
