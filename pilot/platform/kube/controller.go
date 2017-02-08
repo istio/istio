@@ -45,7 +45,8 @@ type Controller struct {
 	kinds     map[string]cacheHandler
 	services  cacheHandler
 	endpoints cacheHandler
-	pods      cacheHandler
+
+	pods *PodCache
 }
 
 type cacheHandler struct {
@@ -82,13 +83,13 @@ func NewController(
 			return client.client.Endpoints(namespace).Watch(opts)
 		})
 
-	out.pods = out.createInformer(&v1.Pod{}, resyncPeriod,
+	out.pods = newPodCache(out.createInformer(&v1.Pod{}, resyncPeriod,
 		func(opts v1.ListOptions) (runtime.Object, error) {
 			return client.client.Pods(namespace).List(opts)
 		},
 		func(opts v1.ListOptions) (watch.Interface, error) {
 			return client.client.Pods(namespace).Watch(opts)
-		})
+		}))
 
 	// add stores for TPR kinds
 	for _, kind := range []string{IstioKind} {
@@ -335,7 +336,7 @@ func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
 }
 
 // Instances implements a service catalog operation
-func (c *Controller) Instances(hostname string, ports []string, tags []model.Tag) []*model.ServiceInstance {
+func (c *Controller) Instances(hostname string, ports []string, tags model.TagList) []*model.ServiceInstance {
 	// Get actual service by name
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
@@ -391,6 +392,14 @@ func (c *Controller) Instances(hostname string, ports []string, tags []model.Tag
 			var out []*model.ServiceInstance
 			for _, ss := range ep.Subsets {
 				for _, ea := range ss.Addresses {
+					tag, _ := c.pods.tagByIP(ea.IP)
+
+					// check that one of the input tags is a subset of this tag
+					if !tags.HasSubsetOf(tag) {
+						continue
+					}
+
+					// identify the port by name
 					for _, port := range ss.Ports {
 						if svcPort, exists := svcPorts[port.Name]; exists {
 							out = append(out, &model.ServiceInstance{
@@ -400,7 +409,7 @@ func (c *Controller) Instances(hostname string, ports []string, tags []model.Tag
 									ServicePort: svcPort,
 								},
 								Service: svc,
-								Tag:     nil,
+								Tag:     tag,
 							})
 						}
 					}
@@ -430,14 +439,15 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 						if !exists {
 							continue
 						}
+						tag, _ := c.pods.tagByIP(ea.IP)
 						out = append(out, &model.ServiceInstance{
-							Service: svc,
-							Tag:     nil,
 							Endpoint: model.Endpoint{
 								Address:     ea.IP,
 								Port:        int(port.Port),
 								ServicePort: svcPort,
 							},
+							Service: svc,
+							Tag:     tag,
 						})
 					}
 				}
@@ -465,8 +475,54 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 		if exists {
 			svc = convertService(*item)
 		}
+		// TODO: we're passing an incomplete instance to the handler since endpoints is an aggregate
+		// structure
 		f(&model.ServiceInstance{Service: svc}, event)
 		return nil
 	})
 	return nil
+}
+
+// PodCache is an eventually consistent pod cache
+type PodCache struct {
+	cacheHandler
+
+	// keys maintains stable pod IP to name key mapping
+	// this allows us to retrieve the latest status by pod IP
+	keys map[string]string
+}
+
+func newPodCache(ch cacheHandler) *PodCache {
+	out := &PodCache{
+		cacheHandler: ch,
+		keys:         make(map[string]string),
+	}
+
+	ch.handler.append(func(obj interface{}, ev model.Event) error {
+		pod := *obj.(*v1.Pod)
+		ip := pod.Status.PodIP
+		if len(ip) > 0 {
+			switch ev {
+			case model.EventAdd, model.EventUpdate:
+				out.keys[ip] = keyFunc(pod.Name, pod.Namespace)
+			case model.EventDelete:
+				delete(out.keys, ip)
+			}
+		}
+		return nil
+	})
+	return out
+}
+
+// tagByIP returns pod tags or nil if pod not found or an error occurred
+func (pc *PodCache) tagByIP(addr string) (model.Tag, bool) {
+	key, exists := pc.keys[addr]
+	if !exists {
+		return nil, false
+	}
+	item, exists, err := pc.informer.GetStore().GetByKey(key)
+	if !exists || err != nil {
+		return nil, false
+	}
+	return convertTags(item.(*v1.Pod).ObjectMeta), true
 }

@@ -34,8 +34,9 @@ import (
 	"istio.io/manager/test/mock"
 )
 
-var (
+const (
 	testService = "test"
+	resync      = 100 * time.Millisecond
 )
 
 func TestThirdPartyResourcesClient(t *testing.T) {
@@ -58,7 +59,7 @@ func TestController(t *testing.T) {
 	stop := make(chan struct{})
 	defer close(stop)
 
-	ctl := NewController(cl, ns, 256*time.Millisecond)
+	ctl := NewController(cl, ns, resync)
 	added, deleted := 0, 0
 	n := 5
 	err := ctl.AppendConfigHandler(mock.Kind, func(k model.Key, o proto.Message, ev model.Event) {
@@ -91,7 +92,7 @@ func TestControllerCacheFreshness(t *testing.T) {
 	ns := makeNamespace(cl.client, t)
 	defer deleteNamespace(cl.client, ns)
 	stop := make(chan struct{})
-	ctl := NewController(cl, ns, 256*time.Millisecond)
+	ctl := NewController(cl, ns, resync)
 
 	// test interface implementation
 	var _ model.Controller = ctl
@@ -154,7 +155,7 @@ func TestControllerClientSync(t *testing.T) {
 	}
 
 	// check in the controller cache
-	ctl := NewController(cl, ns, 256*time.Millisecond)
+	ctl := NewController(cl, ns, resync)
 	go ctl.Run(stop)
 	eventually(func() bool { return ctl.HasSynced() }, t)
 	os, _ := ctl.List(mock.Kind, ns)
@@ -208,7 +209,7 @@ func TestServices(t *testing.T) {
 	stop := make(chan struct{})
 	defer close(stop)
 
-	ctl := NewController(cl, ns, 256*time.Millisecond)
+	ctl := NewController(cl, ns, resync)
 	go ctl.Run(stop)
 
 	hostname := fmt.Sprintf("%s.%s.%s", testService, ns, ServiceSuffix)

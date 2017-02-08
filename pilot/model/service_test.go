@@ -97,3 +97,48 @@ func compareTags(a, b []Tag) bool {
 	}
 	return compare(as, bs)
 }
+
+func TestTags(t *testing.T) {
+	a := Tag{"app": "a"}
+	b := Tag{"app": "b"}
+	a1 := Tag{"app": "a", "prod": "env"}
+	ab := TagList{a, b}
+	a1b := TagList{a1, b}
+	none := TagList{}
+
+	var empty Tag
+	if !empty.SubsetOf(a) {
+		t.Errorf("nil.SubsetOf({a}) => Got false")
+	}
+
+	if a.SubsetOf(empty) {
+		t.Errorf("{a}.SubsetOf(nil) => Got true")
+	}
+
+	matching := []struct {
+		tag  Tag
+		list TagList
+	}{
+		{a, ab},
+		{b, ab},
+		{a, none},
+		{a, nil},
+		{a1, ab},
+		{b, a1b},
+	}
+
+	if (TagList{a}).HasSubsetOf(b) {
+		t.Errorf("{a}.HasSubsetOf(b) => Got true")
+	}
+
+	if a1.SubsetOf(a) {
+		t.Errorf("%v.SubsetOf(%v) => Got true", a1, a)
+	}
+
+	for _, pair := range matching {
+		if !pair.list.HasSubsetOf(pair.tag) {
+			t.Errorf("%v.HasSubsetOf(%v) => Got false", pair.list, pair.tag)
+		}
+	}
+
+}

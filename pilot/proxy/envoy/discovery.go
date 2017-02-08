@@ -37,6 +37,7 @@ type hosts struct {
 type host struct {
 	Address string `json:"ip_address"`
 	Port    int    `json:"port"`
+
 	// Weight is an integer in the range [1, 100] or empty
 	Weight int `json:"load_balancing_weight,omitempty"`
 }

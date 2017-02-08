@@ -48,6 +48,7 @@ var (
 	hub        string
 	tag        string
 	namespace  string
+	dump       bool
 	client     *kubernetes.Clientset
 )
 
@@ -76,6 +77,8 @@ func init() {
 		"Docker tag")
 	flag.StringVarP(&namespace, "namespace", "n", "",
 		"Namespace to use for testing (empty to create/delete temporary one)")
+	flag.BoolVarP(&dump, "dump", "d", false,
+		"Dump proxy logs from all containers")
 }
 
 func main() {
@@ -126,7 +129,10 @@ func main() {
 	run("kubectl apply -f " + yaml + " -n " + namespace)
 	pods := getPods()
 	log.Println("pods:", pods)
-	dumpLogs(pods, false)
+	if dump {
+		dumpProxyLogs(pods["a"])
+		dumpProxyLogs(pods["b"])
+	}
 	ids := makeRequests(pods)
 	log.Println("requests:", ids)
 	checkAccessLogs(pods, ids)
@@ -207,19 +213,7 @@ func getPods() map[string]string {
 
 		if n > budget {
 			for _, pod := range pods {
-				log.Println("Pod proxy logs", pod.Name)
-				for _, container := range pod.Spec.Containers {
-					if container.Name == "proxy" {
-						raw, err := client.Pods(namespace).
-							GetLogs(pod.Name, &v1.PodLogOptions{Container: container.Name}).
-							Do().Raw()
-						if err != nil {
-							log.Println("Request error", err)
-						} else {
-							log.Println(string(raw))
-						}
-					}
-				}
+				dumpProxyLogs(pod.Name)
 			}
 			fail("Exceeded budget for checking pod status")
 		}
@@ -234,6 +228,18 @@ func getPods() map[string]string {
 	}
 
 	return out
+}
+
+func dumpProxyLogs(name string) {
+	log.Println("Pod proxy logs", name)
+	raw, err := client.Pods(namespace).
+		GetLogs(name, &v1.PodLogOptions{Container: "proxy"}).
+		Do().Raw()
+	if err != nil {
+		log.Println("Request error", err)
+	} else {
+		log.Println(string(raw))
+	}
 }
 
 // makeRequests executes requests in pods and collects request ids per pod to check against access logs
@@ -310,21 +316,6 @@ func checkAccessLogs(pods map[string]string, ids map[string][]string) {
 		}
 
 		time.Sleep(time.Second)
-	}
-}
-
-// dumpLogs spews out the logs from each pod (useful for debugging in Jenkins)
-func dumpLogs(pods map[string]string, enabled bool) {
-	if !enabled {
-		return
-	}
-
-	for _, pod := range []string{"a", "b"} {
-		log.Printf("Checking access log of %s [app]\n", pod)
-		log.Print(shell(fmt.Sprintf("kubectl logs %s -n %s -c app", pods[pod], namespace)))
-		log.Printf("Checking access log of %s [proxy]\n", pod)
-		log.Print(shell(fmt.Sprintf("kubectl logs %s -n %s -c proxy", pods[pod], namespace)))
-
 	}
 }
 

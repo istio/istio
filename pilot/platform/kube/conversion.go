@@ -56,6 +56,14 @@ func kindToAPIName(s string) string {
 	return camelCaseToKabobCase(s) + "." + IstioAPIGroup
 }
 
+func convertTags(obj v1.ObjectMeta) model.Tag {
+	out := make(model.Tag)
+	for k, v := range obj.Labels {
+		out[k] = v
+	}
+	return out
+}
+
 func convertService(svc v1.Service) *model.Service {
 	ports := make([]*model.Port, 0)
 	addr := ""

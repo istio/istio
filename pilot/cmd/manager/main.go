@@ -44,7 +44,7 @@ type serverArgs struct {
 }
 
 const (
-	resyncPeriod = 256 * time.Millisecond
+	resyncPeriod = 100 * time.Millisecond
 )
 
 var (

@@ -29,9 +29,9 @@ type ServiceDiscovery interface {
 	// GetService retrieves a service by host name if it exists
 	GetService(hostname string) (*Service, bool)
 
-	// Instances takes a union across a set of tags and a set of named ports.
-	// An empty tag set implies the union of all available tags.
-	Instances(hostname string, ports []string, tags []Tag) []*ServiceInstance
+	// Instances retrieves instances for a service and its ports that match any
+	// of the supplied tags. All instances match an empty tag list.
+	Instances(hostname string, ports []string, tags TagList) []*ServiceInstance
 
 	// HostInstances lists service instances for a given set of IPv4 addresses.
 	HostInstances(addrs map[string]bool) []*ServiceInstance
@@ -46,7 +46,7 @@ type Service struct {
 	Address string `json:"address,omitempty"`
 
 	// Tags is a set of declared distinct tags for the service
-	Tags []Tag `json:"tags,omitempty"`
+	Tags TagList `json:"tags,omitempty"`
 
 	// Ports is a set of declared network service ports
 	Ports PortList `json:"ports,omitempty"`
@@ -56,6 +56,33 @@ type Service struct {
 // over the set of service endpoints.
 // Tag is a non-empty set of key-value pairs.
 type Tag map[string]string
+
+// SubsetOf is true if the tag has identical values for the keys
+func (tag Tag) SubsetOf(that Tag) bool {
+	for k, v := range tag {
+		if that[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
+// TagList is a set of tags
+type TagList []Tag
+
+// HasSubsetOf returns true if the input tag is a super set of one of the tags
+// in the list or if the tag list is empty
+func (tags TagList) HasSubsetOf(that Tag) bool {
+	if len(tags) == 0 {
+		return true
+	}
+	for _, tag := range tags {
+		if tag.SubsetOf(that) {
+			return true
+		}
+	}
+	return false
+}
 
 // Endpoint defines a network endpoint
 type Endpoint struct {
@@ -73,7 +100,7 @@ type Endpoint struct {
 type ServiceInstance struct {
 	Endpoint Endpoint `json:"endpoint,omitempty"`
 	Service  *Service `json:"service,omitempty"`
-	Tag      *Tag     `json:"tag,omitempty"`
+	Tag      Tag      `json:"tag,omitempty"`
 }
 
 // Port represents a network port
@@ -89,7 +116,7 @@ type Port struct {
 	Protocol Protocol `json:"protocol,omitempty"`
 }
 
-// PortList is a list of ports
+// PortList is a set of ports
 type PortList []*Port
 
 // GetNames returns port names
@@ -201,9 +228,9 @@ func ParseServiceString(s string) *Service {
 	}
 }
 
-func (t Tag) String() string {
+func (tag Tag) String() string {
 	labels := make([]string, 0)
-	for k, v := range t {
+	for k, v := range tag {
 		if len(v) > 0 {
 			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
 		} else {

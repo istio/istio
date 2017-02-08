@@ -2,7 +2,7 @@
 set -ex
 
 hub="gcr.io/istio-testing"
-tag="test"
+tag="$(whoami)"
 
 while getopts :h:t: arg; do
   case ${arg} in
@@ -12,7 +12,7 @@ while getopts :h:t: arg; do
   esac
 done
 
-if [ "$hub" == "gcr.io/istio-testing" ]; then
+if [[ "$hub" =~ ^gcr\.io ]]; then
     gcloud docker --authorize-only
 fi
 
