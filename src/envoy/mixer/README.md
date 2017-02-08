@@ -38,7 +38,7 @@ This Proxy will use Envoy and talk to Mixer server.
 * Start Envoy proxy, run
 
 ```
-  bazel-bin/src/envoy/mixer/envoy -c src/envoy/prototype/envoy-mixer.conf
+  bazel-bin/src/envoy/mixer/envoy -c src/envoy/mixer/envoy-mixer.conf
 ```
   
 * Then issue HTTP request to proxy.
