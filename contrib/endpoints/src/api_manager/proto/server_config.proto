@@ -35,10 +35,6 @@ message ServerConfig {
   // Server config used for API authentication
   ApiAuthenticationConfig api_authentication_config = 5;
 
-  // Mixer option flag. If not present, default to use service_control. When
-  // Envoy/esp talks to Mixer, has to specify this field.
-  MixerOptions mixer_options = 6;
-
   // Experimental flags
   Experimental experimental = 999;
 }
@@ -141,11 +137,6 @@ message ApiAuthenticationConfig {
   // Allows to disable the API authentication regardless of the auth
   // configuration in service config.
   bool force_disable = 1;
-}
-
-message MixerOptions {
-  // For envoy, it is the cluster name for mixer server.
-  string mixer_server = 1;
 }
 
 message Experimental {

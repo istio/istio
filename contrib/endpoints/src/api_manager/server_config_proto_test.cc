@@ -76,9 +76,6 @@ experimental {
   disable_log_status: false
 }
 
-mixer_options {
-  mixer_server: "mixer_server"
-}
 )";
 
 TEST(ServerConfigProto, ServerConfigFromString) {
@@ -125,9 +122,6 @@ TEST(ServerConfigProto, ServerConfigFromString) {
 
   // Check disable_log_status
   EXPECT_EQ(false, server_config.experimental().disable_log_status());
-
-  // Check mixer options
-  EXPECT_EQ("mixer_server", server_config.mixer_options().mixer_server());
 }
 
 TEST(ServerConfigProto, ValidateSampleServerConfig) {

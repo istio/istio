@@ -334,15 +334,3 @@ def servicecontrol_client_repositories(bind=True):
             actual = "@servicecontrol_client_git//:service_control_client_lib",
         )
 
-def mixer_client_repositories(bind=True):
-    native.git_repository(
-        name = "mixerclient_git",
-        commit = "80e450a5126960e8e6337c3631cf2ef984038eab",
-        remote = "https://github.com/istio/mixerclient.git",
-    )
-
-    if bind:
-        native.bind(
-            name = "mixer_client_lib",
-            actual = "@mixerclient_git//:mixer_client_lib",
-        )

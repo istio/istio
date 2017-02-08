@@ -31,15 +31,19 @@ googletest_repositories()
 load(
     "//contrib/endpoints:repositories.bzl",
     "grpc_repositories",
-    "mixer_client_repositories",
     "servicecontrol_client_repositories",
 )
 
 grpc_repositories()
 
-mixer_client_repositories()
-
 servicecontrol_client_repositories()
+
+load(
+    "//src/envoy/mixer:repositories.bzl",
+    "mixer_client_repositories",
+)
+
+mixer_client_repositories()
 
 # Workaround for Bazel > 0.4.0 since it needs newer protobuf.bzl from:
 # https://github.com/google/protobuf/pull/2246

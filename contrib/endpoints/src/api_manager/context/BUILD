@@ -39,7 +39,6 @@ cc_library(
         "//contrib/endpoints/src/api_manager/auth",
         "//contrib/endpoints/src/api_manager/auth:service_account_token",
         "//contrib/endpoints/src/api_manager/cloud_trace",
-        "//contrib/endpoints/src/api_manager/mixer",
         "//contrib/endpoints/src/api_manager/service_control",
         "//contrib/endpoints/src/api_manager/utils",
         "//external:cc_wkt_protos",
