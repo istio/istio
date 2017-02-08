@@ -53,11 +53,11 @@ class ReadInterface {
   virtual void OnClose(const ::google::protobuf::util::Status &) = 0;
 };
 
-typedef std::unique_ptr<WriteInterface<::istio::mixer::v1::CheckRequest>>
+typedef std::shared_ptr<WriteInterface<::istio::mixer::v1::CheckRequest>>
     CheckWriterPtr;
-typedef std::unique_ptr<WriteInterface<::istio::mixer::v1::ReportRequest>>
+typedef std::shared_ptr<WriteInterface<::istio::mixer::v1::ReportRequest>>
     ReportWriterPtr;
-typedef std::unique_ptr<WriteInterface<::istio::mixer::v1::QuotaRequest>>
+typedef std::shared_ptr<WriteInterface<::istio::mixer::v1::QuotaRequest>>
     QuotaWriterPtr;
 
 typedef ReadInterface<::istio::mixer::v1::CheckResponse> *CheckReaderRawPtr;

@@ -145,9 +145,7 @@ class StreamTransport {
     std::shared_ptr<ReaderImpl<ResponseType>> reader = reader_.lock();
     if (!writer || !reader || writer->is_write_closed()) {
       reader = std::make_shared<ReaderImpl<ResponseType>>();
-      auto writer_unique_ptr = transport_->NewStream(reader.get());
-      // Transfer writer ownership to shared_ptr.
-      writer.reset(writer_unique_ptr.release());
+      writer = transport_->NewStream(reader.get());
       reader_ = reader;
       writer_ = writer;
       // Reader and Writer objects are owned by the OnClose callback.

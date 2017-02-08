@@ -31,10 +31,13 @@ class GrpcStream final : public WriteInterface<RequestType> {
   GrpcStream(ReadInterface<ResponseType>* reader, StreamNewFunc create_func)
       : reader_(reader), write_closed_(false) {
     stream_ = create_func(context_);
-    worker_thread_ = std::thread([this]() { WorkerThread(); });
   }
 
-  ~GrpcStream() { worker_thread_.join(); }
+  static void Start(
+      std::shared_ptr<GrpcStream<RequestType, ResponseType>> grpc_stream) {
+    std::thread t([grpc_stream]() { grpc_stream->ReadMainLoop(); });
+    t.detach();
+  }
 
   void Write(const RequestType& request) override {
     if (!stream_->Write(request)) {
@@ -51,7 +54,7 @@ class GrpcStream final : public WriteInterface<RequestType> {
 
  private:
   // The worker loop to read response messages.
-  void WorkerThread() {
+  void ReadMainLoop() {
     ResponseType response;
     while (stream_->Read(&response)) {
       reader_->OnRead(response);
@@ -68,8 +71,6 @@ class GrpcStream final : public WriteInterface<RequestType> {
   ::grpc::ClientContext context_;
   // The reader writer stream.
   StreamPtr stream_;
-  // The thread to read response.
-  std::thread worker_thread_;
   // The reader interface from caller.
   ReadInterface<ResponseType>* reader_;
   // Indicates if write is closed.
@@ -94,27 +95,33 @@ GrpcTransport::GrpcTransport(const std::string& mixer_server) {
 }
 
 CheckWriterPtr GrpcTransport::NewStream(CheckReaderRawPtr reader) {
-  return CheckWriterPtr(new CheckGrpcStream(
+  auto writer = std::make_shared<CheckGrpcStream>(
       reader,
       [this](::grpc::ClientContext& context) -> CheckGrpcStream::StreamPtr {
         return stub_->Check(&context);
-      }));
+      });
+  CheckGrpcStream::Start(writer);
+  return writer;
 }
 
 ReportWriterPtr GrpcTransport::NewStream(ReportReaderRawPtr reader) {
-  return ReportWriterPtr(new ReportGrpcStream(
+  auto writer = std::make_shared<ReportGrpcStream>(
       reader,
       [this](::grpc::ClientContext& context) -> ReportGrpcStream::StreamPtr {
         return stub_->Report(&context);
-      }));
+      });
+  ReportGrpcStream::Start(writer);
+  return writer;
 }
 
 QuotaWriterPtr GrpcTransport::NewStream(QuotaReaderRawPtr reader) {
-  return QuotaWriterPtr(new QuotaGrpcStream(
+  auto writer = std::make_shared<QuotaGrpcStream>(
       reader,
       [this](::grpc::ClientContext& context) -> QuotaGrpcStream::StreamPtr {
         return stub_->Quota(&context);
-      }));
+      });
+  QuotaGrpcStream::Start(writer);
+  return writer;
 }
 
 }  // namespace mixer_client
