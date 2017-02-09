@@ -37,7 +37,7 @@ func BenchmarkTracker(b *testing.B) {
 			DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
 			BoolAttributes:      map[int32]bool{7: true, 8: false},
 			TimestampAttributes: map[int32]*ptypes.Timestamp{9: ts9, 10: ts10},
-			BytesAttributes:     map[int32][]uint8{11: []byte{11}, 12: []byte{12}},
+			BytesAttributes:     map[int32][]uint8{11: {11}, 12: {12}},
 		},
 
 		{},
@@ -48,7 +48,7 @@ func BenchmarkTracker(b *testing.B) {
 			DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
 			BoolAttributes:      map[int32]bool{7: true, 8: false},
 			TimestampAttributes: map[int32]*ptypes.Timestamp{9: ts9, 10: ts10},
-			BytesAttributes:     map[int32][]uint8{11: []byte{11}, 12: []byte{12}},
+			BytesAttributes:     map[int32][]uint8{11: {11}, 12: {12}},
 		},
 	}
 

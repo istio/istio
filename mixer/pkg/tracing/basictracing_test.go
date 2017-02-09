@@ -15,10 +15,9 @@
 package tracing
 
 import (
+	"bytes"
 	"testing"
 	"time"
-
-	"bytes"
 
 	"github.com/golang/glog"
 	bt "github.com/opentracing/basictracer-go"

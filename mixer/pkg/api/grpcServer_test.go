@@ -23,9 +23,8 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/grpc"
 
-	"istio.io/mixer/pkg/attribute"
-
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/attribute"
 )
 
 const (

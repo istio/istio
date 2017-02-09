@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
 
-	"github.com/opentracing/opentracing-go/ext"
 	mixerpb "istio.io/api/mixer/v1"
 )
 

@@ -70,12 +70,12 @@ func parseFloat64(s string) (interface{}, error) { return strconv.ParseFloat(s, 
 func parseBool(s string) (interface{}, error)    { return strconv.ParseBool(s) }
 
 func parseTime(s string) (interface{}, error) {
-	time, err := time.Parse(time.RFC3339, s)
+	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
 		return nil, err
 	}
 
-	return ptypes.TimestampProto(time)
+	return ptypes.TimestampProto(t)
 }
 
 func parseDuration(s string) (interface{}, error) {

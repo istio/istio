@@ -19,11 +19,11 @@ import (
 	"sort"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
+
 	"istio.io/mixer/adapter"
 	pkgadapter "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
-
-	"gopkg.in/yaml.v2"
 	"istio.io/mixer/pkg/aspect"
 )
 

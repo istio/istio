@@ -71,13 +71,13 @@ func TestBasic(t *testing.T) {
 	defer ts.Close()
 	b := newBuilder()
 
-	config := config.Params{
+	cfg := config.Params{
 		ProviderUrl:     ts.URL,
 		RefreshInterval: toDuration(1),
 		Ttl:             toDuration(10),
 	}
 
-	a, err := b.NewListsAspect(test.NewEnv(t), &config)
+	a, err := b.NewListsAspect(test.NewEnv(t), &cfg)
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
@@ -154,13 +154,13 @@ func TestBasic(t *testing.T) {
 func TestBadUrl(t *testing.T) {
 	b := newBuilder()
 
-	config := config.Params{
+	cfg := config.Params{
 		ProviderUrl:     "http://abadurl.com",
 		RefreshInterval: toDuration(1),
 		Ttl:             toDuration(10),
 	}
 
-	a, err := b.NewListsAspect(test.NewEnv(t), &config)
+	a, err := b.NewListsAspect(test.NewEnv(t), &cfg)
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
@@ -268,7 +268,7 @@ func TestRefreshAndPurge(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	config := config.Params{
+	cfg := config.Params{
 		ProviderUrl:     ts.URL,
 		RefreshInterval: toDuration(3600),
 		Ttl:             toDuration(360000),
@@ -286,7 +286,7 @@ func TestRefreshAndPurge(t *testing.T) {
 	// allow the initial synchronous fetch to go through
 	blocker <- true
 
-	a, err := newListCheckerWithTimers(test.NewEnv(t), &config, refreshTicker, purgeTimer, time.Second*3600)
+	a, err := newListCheckerWithTimers(test.NewEnv(t), &cfg, refreshTicker, purgeTimer, time.Second*3600)
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}

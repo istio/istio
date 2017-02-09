@@ -34,17 +34,16 @@ import (
 	"net"
 
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/tracing"
-
-	proto "github.com/golang/protobuf/proto"
-	mixerpb "istio.io/api/mixer/v1"
 )
 
 // GRPCServerOptions controls the behavior of a gRPC server.
