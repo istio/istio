@@ -1,7 +1,7 @@
 {
   "listeners": [
     {
-      "port": 9090,
+      "port": ${PORT},
       "bind_to_port": true,
       "filters": [
         {
@@ -35,7 +35,7 @@
                 "type": "both",
                 "name": "mixer",
                 "config": {
-                  "mixer_server": "localhost:9091"
+                  "mixer_server": "${MIXER_SERVER}"
                 }
               },
               {
@@ -62,7 +62,7 @@
         "lb_type": "round_robin",
         "hosts": [
           {
-            "url": "tcp://localhost:8080"
+            "url": "tcp://${BACKEND}"
           }
         ]
       }

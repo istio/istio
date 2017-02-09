@@ -69,3 +69,19 @@ load(
 )
 
 envoy_repositories()
+
+new_http_archive(
+    name = "docker_ubuntu",
+    build_file_content = """
+load("@bazel_tools//tools/build_defs/docker:docker.bzl", "docker_build")
+docker_build(
+  name = "xenial",
+  tars = ["xenial/ubuntu-xenial-core-cloudimg-amd64-root.tar.gz"],
+  visibility = ["//visibility:public"],
+)
+""",
+    sha256 = "de31e6fcb843068965de5945c11a6f86399be5e4208c7299fb7311634fb41943",
+    strip_prefix = "docker-brew-ubuntu-core-e406914e5f648003dfe8329b512c30c9ad0d2f9c",
+    type = "zip",
+    url = "https://codeload.github.com/tianon/docker-brew-ubuntu-core/zip/e406914e5f648003dfe8329b512c30c9ad0d2f9c",
+)
