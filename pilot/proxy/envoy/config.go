@@ -74,7 +74,7 @@ func Generate(instances []*model.ServiceInstance, services []*model.Service, rul
 
 	// Generate all upstream blocks (called clusters) in Envoy terminology
 	// service name and hostname are used interchangeably
-	hostToUpstreamsMap, upstreamNameToInternalNameMap := enumerateServiceVersions(services, upstreams)
+	hostToUpstreamsMap, upstreamNameToInternalNameMap := enumerateServiceVersions(services, rules)
 	// flatten the map of host->[clusters] into array of clusters
 	serviceUpstreams := make([]*model.Service, 0)
 	for _, val := range hostToUpstreamsMap {
@@ -560,7 +560,7 @@ func ruleTagsToSvcTag(tags []string) []model.Tag {
 // different versions of a service through a set of tags.
 // returns a map of hostname to array of upstreams, and a map of users upstreamName to internalName
 func enumerateServiceVersions(services []*model.Service,
-	serviceVersions []*config.UpstreamCluster) (map[string][]*model.Service, map[string]string) {
+	rules []*config.RouteRule) (map[string][]*model.Service, map[string]string) {
 
 	servicesMap := make(map[string]*model.Service, len(services))
 	for _, svc := range services {
@@ -569,27 +569,31 @@ func enumerateServiceVersions(services []*model.Service,
 
 	serviceVersionsMap := make(map[string][]*model.Service, 0)
 	upstreamNameToInternalNameMap := make(map[string]string, 0) // Hostname + tags -> svc.String()
-	for _, svc := range serviceVersions {
-		tags := ruleTagsToSvcTag(svc.Cluster.Tags)
-		_, prs := serviceVersionsMap[svc.Cluster.Name]
-		if !prs {
-			serviceVersionsMap[svc.Cluster.Name] = make([]*model.Service, 0)
+	for _, rule := range rules {
+		var weightedClusters []*config.WeightedCluster
+		if httpRule := rule.GetHttp(); httpRule != nil {
+			weightedClusters = httpRule.GetWeightedClusters()
+		} else if l4Rule := rule.GetLayer4(); l4Rule != nil {
+			weightedClusters = l4Rule.GetWeightedClusters()
 		}
-		svcVersion := model.Service{
-			Hostname: svc.Cluster.Name,
-			Tags:     tags,
-			Ports:    servicesMap[svc.Cluster.Name].Ports,
-			Address:  servicesMap[svc.Cluster.Name].Address,
+
+		for _, w := range weightedClusters {
+			name := w.DstCluster.Name
+			tags := ruleTagsToSvcTag(w.DstCluster.Tags)
+			svcVersion := model.Service{
+				Hostname: name,
+				Tags:     tags,
+				Ports:    servicesMap[name].Ports,
+				Address:  servicesMap[name].Address,
+			}
+			serviceVersionsMap[name] = append(serviceVersionsMap[w.DstCluster.Name], &svcVersion)
+			upstreamNameToInternalNameMap[toInternalUpstreamName(w.DstCluster)] = svcVersion.String()
 		}
-		serviceVersionsMap[svc.Cluster.Name] = append(serviceVersionsMap[svc.Cluster.Name], &svcVersion)
-		upstreamNameToInternalNameMap[toInternalUpstreamName(svc.Cluster)] = svcVersion.String()
 	}
 
 	// Now merge the maps, giving preference to serviceVersion over service
 	for svc := range servicesMap {
-		_, prs := serviceVersionsMap[svc]
-		if !prs {
-			serviceVersionsMap[svc] = make([]*model.Service, 0)
+		if _, exists := serviceVersionsMap[svc]; !exists {
 			serviceVersionsMap[svc] = append(serviceVersionsMap[svc], servicesMap[svc])
 		}
 	}
