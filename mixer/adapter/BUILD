@@ -13,6 +13,7 @@ go_library(
         "//adapter/ipListChecker:go_default_library",
         "//adapter/memQuota:go_default_library",
         "//adapter/prometheus:go_default_library",
+        "//adapter/statsd:go_default_library",
         "//adapter/stdioLogger:go_default_library",
         "//pkg/adapter:go_default_library",
     ],

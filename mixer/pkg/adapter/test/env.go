@@ -16,33 +16,62 @@ package test
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 
 	"istio.io/mixer/pkg/adapter"
 )
 
-type env struct {
+// Env is an adapter environment that defers to the testing context t. Tracks all messages logged so they can be tested against.
+type Env struct {
 	t *testing.T
+
+	lock sync.Mutex // guards logs
+	logs []string
 }
 
 // NewEnv returns an adapter environment that redirects logging output to the given testing context.
-func NewEnv(t *testing.T) adapter.Env {
-	return env{t}
+func NewEnv(t *testing.T) *Env {
+	return &Env{t, sync.Mutex{}, make([]string, 0)}
 }
 
-func (e env) Logger() adapter.Logger {
+// Logger returns a logger that writes to testing.T.Log
+func (e *Env) Logger() adapter.Logger {
 	return e
 }
 
-func (e env) Infof(format string, args ...interface{}) {
-	e.t.Logf(format, args...)
+// Infof logs the provided message.
+func (e *Env) Infof(format string, args ...interface{}) {
+	e.log(format, args...)
 }
 
-func (e env) Warningf(format string, args ...interface{}) {
-	e.t.Logf(format, args...)
+// Warningf logs the provided message.
+func (e *Env) Warningf(format string, args ...interface{}) {
+	e.log(format, args...)
 }
 
-func (e env) Errorf(format string, args ...interface{}) error {
-	e.t.Logf(format, args...)
-	return fmt.Errorf(format, args)
+// Errorf logs the provided message and returns it as an error.
+func (e *Env) Errorf(format string, args ...interface{}) error {
+	s := e.log(format, args...)
+	return fmt.Errorf(s)
+}
+
+// GetLogs returns a snapshot of all logs that've been written to this environment
+func (e *Env) GetLogs() []string {
+	e.lock.Lock()
+	snapshot := make([]string, len(e.logs))
+	_ = copy(snapshot, e.logs)
+	e.lock.Unlock()
+	return snapshot
+}
+
+func (e *Env) log(format string, args ...interface{}) string {
+	l := fmt.Sprintf(format, args...)
+
+	e.lock.Lock()
+	e.logs = append(e.logs, l)
+	e.lock.Unlock()
+
+	e.t.Log(l)
+	return l
 }

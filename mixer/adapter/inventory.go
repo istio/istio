@@ -20,6 +20,7 @@ import (
 	"istio.io/mixer/adapter/ipListChecker"
 	"istio.io/mixer/adapter/memQuota"
 	"istio.io/mixer/adapter/prometheus"
+	"istio.io/mixer/adapter/statsd"
 	"istio.io/mixer/adapter/stdioLogger"
 	"istio.io/mixer/pkg/adapter"
 )
@@ -30,8 +31,9 @@ func Inventory() []adapter.RegisterFn {
 		denyChecker.Register,
 		genericListChecker.Register,
 		ipListChecker.Register,
-		stdioLogger.Register,
-		prometheus.Register,
 		memQuota.Register,
+		prometheus.Register,
+		statsd.Register,
+		stdioLogger.Register,
 	}
 }
