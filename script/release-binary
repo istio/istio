@@ -24,16 +24,19 @@ set -ex
 BUCKET_NAME="istio-build/proxy"
 
 # The proxy binary name.
-BINARY_FORMAT='envoy-alpha-%H.tar.gz'
-BINARY_NAME="$(git show -q HEAD --pretty=format:"${BINARY_FORMAT}")"
+SHA="$(git rev-parse --verify HEAD)"
+BINARY_NAME="envoy-alpha-${SHA}.tar.gz"
+SHA256_NAME="envoy-alpha-${SHA}.sha256"
 
 # Build the binary
 bazel build --config=release //src/envoy/mixer:envoy_tar
-SRC="bazel-bin/src/envoy/mixer/envoy_tar.tar.gz"
-DST="gs://${BUCKET_NAME}/${BINARY_NAME}"
+BAZEL_TARGET="bazel-bin/src/envoy/mixer/envoy_tar.tar.gz"
+ln "${BAZEL_TARGET}" "${BINARY_NAME}"
+sha256sum "${BINARY_NAME}" > "${SHA256_NAME}"
+DST="gs://${BUCKET_NAME}/"
 
 # Copy it to the bucket.
-echo "Copying ${SRC} to ${DST}"
-gsutil cp ${SRC} ${DST}
+echo "Copying ${BINARY_NAME} ${SHA256_NAME} to ${DST}"
+gsutil cp "${BINARY_NAME}" "${SHA256_NAME}" "${DST}"
 
 
