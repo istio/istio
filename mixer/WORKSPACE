@@ -207,3 +207,9 @@ new_go_repository(
     commit = "fa8ad6fec33561be4280a8f0514318c79d7f6cb6", # Feb 12, 2015 (only release too old)
     importpath = "github.com/prometheus/client_model",
 )
+
+new_go_repository(
+    name = "com_github_cactus_statsd_client",
+    commit = "91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d", # release 3.1.0, 5/30/2016
+    importpath = "github.com/cactus/go-statsd-client",
+)
