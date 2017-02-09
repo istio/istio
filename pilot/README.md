@@ -72,7 +72,28 @@ We provide Bazel targets to output Istio runtime images:
     
 The image includes Istio Proxy and Istio Manager.
 
-## Vagrant build environment ##
+For interactive debug and development it is often useful to 'exec' into the
+application pod, modify iptable rules, ping, curl, etc. For this purpose the
+prebuilt *docker.io/istio/debug:test* image has been created. To use this image
+add the following snippet to your deployment spec alongside the proxy and app
+containers.
+
+    - name: debug
+      image: docker.io/istio/debug:test
+      securityContext:
+          privileged: true
+
+Use `kubectl exec` to access the debug container.
+
+    kubectl exec -it <pod-name> bash -c debug
+
+The proxy injection process redirects *all* inbound and outbound traffic through
+the proxy via iptables. This can sometimes be undesirable while debugging, e.g.
+trying to install additional test tools via apt-get. Use
+`proxy-redirection-clear` to temporarily disable the iptable redirection rules
+and `proxy-redirection-restore` to restore them.
+
+## Vagrant build environment
 
 _Note:_ This section applies to Mac and Windows users only.
 

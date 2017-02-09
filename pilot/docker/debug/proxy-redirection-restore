@@ -1,0 +1,12 @@
+#!/bin/sh
+
+set -e
+
+if [ -x /tmp/saved-iptable-rules ]; then
+  cat /tmp/saved-iptable-rules | iptables-restore
+  echo "iptable rules restored"
+fi
+
+
+
+
