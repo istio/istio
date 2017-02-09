@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
+	ptypes "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/empty"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
@@ -74,7 +74,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 
 	for _, v := range newAspectShouldSucceed {
 		c := config.Combined{
-			Builder: &configpb.Adapter{Params: &empty.Empty{}},
+			Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 			Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
 		}
 		asp, err := m.NewAspect(&c, tl, test.Env{})
@@ -93,14 +93,14 @@ func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 
 	defaultCfg := &config.Combined{
 		Builder: &configpb.Adapter{
-			Params: &empty.Empty{},
+			Params: &ptypes.Empty{},
 		},
 		Aspect: &configpb.Aspect{
 			Params: &aconfig.ApplicationLogsParams{LogName: "istio_log", TimestampFormat: time.RFC3339},
 		},
 	}
 
-	errLogger := &test.Logger{DefaultCfg: &empty.Empty{}, ErrOnNewAspect: true}
+	errLogger := &test.Logger{DefaultCfg: &ptypes.Empty{}, ErrOnNewAspect: true}
 
 	failureCases := []struct {
 		cfg   *config.Combined
@@ -132,7 +132,7 @@ func TestLoggerManager_Execute(t *testing.T) {
 		Name:             "test",
 		Attributes:       []string{"key"},
 		PayloadAttribute: "payload",
-		PayloadFormat:    dpb.LogEntryDescriptor_JSON,
+		PayloadFormat:    dpb.JSON,
 	}
 	withInputsDesc := dpb.LogEntryDescriptor{
 		Name:             "test",
@@ -218,7 +218,7 @@ func TestLoggerManager_ExecuteFailures(t *testing.T) {
 		Name:             "test",
 		Attributes:       []string{"key"},
 		PayloadAttribute: "payload",
-		PayloadFormat:    dpb.LogEntryDescriptor_JSON,
+		PayloadFormat:    dpb.JSON,
 	}
 
 	errorExec := &applicationLogsWrapper{"istio_log",
@@ -256,7 +256,7 @@ func TestLoggerManager_DefaultConfig(t *testing.T) {
 
 func TestLoggerManager_ValidateConfig(t *testing.T) {
 	m := NewApplicationLogsManager()
-	if err := m.ValidateConfig(&empty.Empty{}); err != nil {
+	if err := m.ValidateConfig(&ptypes.Empty{}); err != nil {
 		t.Errorf("ValidateConfig(): unexpected error: %v", err)
 	}
 }

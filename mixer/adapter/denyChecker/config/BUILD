@@ -1,13 +1,13 @@
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_library")
+load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
 
-gogo_proto_library(
+gogoslick_proto_library(
     name = "go_default_library",
     importmap = {
-        "google/rpc/status.proto": "google.golang.org/genproto/googleapis/rpc/status",
+        "google/rpc/status.proto": "github.com/googleapis/googleapis/google/rpc",
     },
     imports = [
         "external/com_github_google_protobuf/src",
-        "external/com_github_googleapis_googleapis",
+        "external/com_github_googleapis_googleapis/",
     ],
     inputs = [
         "@com_github_google_protobuf//:well_known_protos",
@@ -19,7 +19,6 @@ gogo_proto_library(
     verbose = 0,
     visibility = ["//adapter/denyChecker:__pkg__"],
     deps = [
-        "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
-        "@com_github_googleapis_googleapis//:go_status_proto",
+        "@com_github_googleapis_googleapis//:google/rpc",
     ],
 )

@@ -18,8 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	ts "github.com/golang/protobuf/ptypes/timestamp"
+	ptypes "github.com/gogo/protobuf/types"
 
 	mixerpb "istio.io/api/mixer/v1"
 )
@@ -37,7 +36,7 @@ func BenchmarkTracker(b *testing.B) {
 			Int64Attributes:     map[int32]int64{3: 3, 4: 4},
 			DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
 			BoolAttributes:      map[int32]bool{7: true, 8: false},
-			TimestampAttributes: map[int32]*ts.Timestamp{9: ts9, 10: ts10},
+			TimestampAttributes: map[int32]*ptypes.Timestamp{9: ts9, 10: ts10},
 			BytesAttributes:     map[int32][]uint8{11: []byte{11}, 12: []byte{12}},
 		},
 
@@ -48,7 +47,7 @@ func BenchmarkTracker(b *testing.B) {
 			Int64Attributes:     map[int32]int64{3: 3, 4: 4},
 			DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
 			BoolAttributes:      map[int32]bool{7: true, 8: false},
-			TimestampAttributes: map[int32]*ts.Timestamp{9: ts9, 10: ts10},
+			TimestampAttributes: map[int32]*ptypes.Timestamp{9: ts9, 10: ts10},
 			BytesAttributes:     map[int32][]uint8{11: []byte{11}, 12: []byte{12}},
 		},
 	}

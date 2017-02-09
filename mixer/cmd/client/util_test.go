@@ -19,9 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/timestamp"
+	ptypes "github.com/gogo/protobuf/types"
 
 	mixerpb "istio.io/api/mixer/v1"
 )
@@ -57,8 +55,8 @@ func TestAttributeHandling(t *testing.T) {
 				Int64Attributes:     map[int32]int64{5: 1, 6: 2, 7: 345, 19: 2},
 				DoubleAttributes:    map[int32]float64{8: 1, 9: 2, 10: 345.678, 20: 3.0},
 				BoolAttributes:      map[int32]bool{11: true, 12: false, 13: true, 21: true},
-				TimestampAttributes: map[int32]*timestamp.Timestamp{14: ts, 22: ts},
-				DurationAttributes:  map[int32]*duration.Duration{15: d, 24: d},
+				TimestampAttributes: map[int32]*ptypes.Timestamp{14: ts, 22: ts},
+				DurationAttributes:  map[int32]*ptypes.Duration{15: d, 24: d},
 				BytesAttributes:     map[int32][]uint8{16: {1}, 17: {0x34, 0x56}, 23: {0x98, 0x76}},
 			},
 			result: true,

@@ -130,9 +130,9 @@ func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evalua
 
 		payloadStr := stringVal(d.PayloadAttribute, attrs, labels, "")
 		switch d.PayloadFormat {
-		case dpb.LogEntryDescriptor_TEXT:
+		case dpb.TEXT:
 			entry.TextPayload = payloadStr
-		case dpb.LogEntryDescriptor_JSON:
+		case dpb.JSON:
 			err := json.Unmarshal([]byte(payloadStr), &entry.StructPayload)
 			if err != nil {
 				return nil, fmt.Errorf("could not unmarshal json payload: %v", err)

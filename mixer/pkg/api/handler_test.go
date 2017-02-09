@@ -16,11 +16,10 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"google.golang.org/genproto/googleapis/rpc/code"
-
-	"fmt"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/aspect"

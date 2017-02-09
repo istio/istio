@@ -18,8 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/duration"
-	ts "github.com/golang/protobuf/ptypes/timestamp"
+	ptypes "github.com/gogo/protobuf/types"
 
 	mixerpb "istio.io/api/mixer/v1"
 )
@@ -96,8 +95,8 @@ func TestAttributeManager(t *testing.T) {
 				Int64Attributes:     map[int32]int64{2: 2},
 				DoubleAttributes:    map[int32]float64{3: 3.0},
 				BoolAttributes:      map[int32]bool{4: true},
-				TimestampAttributes: map[int32]*ts.Timestamp{5: {Seconds: 5, Nanos: 5}},
-				DurationAttributes:  map[int32]*duration.Duration{7: {Seconds: 42}},
+				TimestampAttributes: map[int32]*ptypes.Timestamp{5: {Seconds: 5, Nanos: 5}},
+				DurationAttributes:  map[int32]*ptypes.Duration{7: {Seconds: 42}},
 				BytesAttributes:     map[int32][]uint8{6: []byte{6}},
 				ResetContext:        false,
 				AttributeContext:    0,
@@ -219,8 +218,8 @@ func TestAttributeManager(t *testing.T) {
 				Int64Attributes:     map[int32]int64{2: 2},
 				DoubleAttributes:    map[int32]float64{3: 3.0},
 				BoolAttributes:      map[int32]bool{4: true},
-				TimestampAttributes: map[int32]*ts.Timestamp{5: {Seconds: 5, Nanos: 5}},
-				DurationAttributes:  map[int32]*duration.Duration{7: {Seconds: 42}},
+				TimestampAttributes: map[int32]*ptypes.Timestamp{5: {Seconds: 5, Nanos: 5}},
+				DurationAttributes:  map[int32]*ptypes.Duration{7: {Seconds: 42}},
 				BytesAttributes:     map[int32][]uint8{6: []byte{6}},
 				ResetContext:        false,
 				AttributeContext:    0,
@@ -278,13 +277,13 @@ func TestAttributeManager(t *testing.T) {
 
 		// 11: try out bad dictionary index for timestamp
 		{
-			attrs:  mixerpb.Attributes{TimestampAttributes: map[int32]*ts.Timestamp{42: {}}},
+			attrs:  mixerpb.Attributes{TimestampAttributes: map[int32]*ptypes.Timestamp{42: {}}},
 			result: false,
 		},
 
 		// 12: try out bad dictionary index for duration
 		{
-			attrs:  mixerpb.Attributes{DurationAttributes: map[int32]*duration.Duration{42: {Seconds: 0}}},
+			attrs:  mixerpb.Attributes{DurationAttributes: map[int32]*ptypes.Duration{42: {Seconds: 0}}},
 			result: false,
 		},
 

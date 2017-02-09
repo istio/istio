@@ -26,8 +26,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
+	ptypes "github.com/gogo/protobuf/types"
 	"gopkg.in/yaml.v2"
 
 	"istio.io/mixer/adapter/ipListChecker/config"
@@ -60,8 +59,8 @@ var (
 	desc = "Checks whether an IP address is present in an IP address list."
 	conf = &config.Params{
 		ProviderUrl:     "http://localhost",
-		RefreshInterval: &duration.Duration{Seconds: 60},
-		Ttl:             &duration.Duration{Seconds: 300},
+		RefreshInterval: &ptypes.Duration{Seconds: 60},
+		Ttl:             &ptypes.Duration{Seconds: 300},
 	}
 )
 
@@ -90,17 +89,19 @@ func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigError
 		}
 	}
 
-	refresh, err := ptypes.Duration(c.RefreshInterval)
+	refresh, err := ptypes.DurationFromProto(c.RefreshInterval)
 	if err != nil {
 		ce = ce.Append("RefreshInterval", err)
 	} else if refresh <= 0 {
-		ce = ce.Appendf("RefreshInterval", "refresh interval must be > 0, it is %v", refresh)
+		ce = ce.Appendf("RefreshInterval", "refresh interval must be at least 1 second, it is %v", refresh)
 	}
 
-	ttl, err := ptypes.Duration(c.Ttl)
+	ttl, err := ptypes.DurationFromProto(c.Ttl)
 	if err != nil {
 		ce = ce.Append("Ttl", err)
-	} else if ttl < refresh {
+		return
+	}
+	if ttl < refresh {
 		ce = ce.Appendf("Ttl", "Ttl must be > RefreshInterval, Ttl is %v and RefreshInterval is %v", ttl, refresh)
 	}
 
@@ -108,8 +109,8 @@ func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigError
 }
 
 func newListChecker(env adapter.Env, c *config.Params) (*listChecker, error) {
-	refresh, _ := ptypes.Duration(c.RefreshInterval)
-	ttl, _ := ptypes.Duration(c.Ttl)
+	refresh, _ := ptypes.DurationFromProto(c.RefreshInterval)
+	ttl, _ := ptypes.DurationFromProto(c.Ttl)
 
 	return newListCheckerWithTimers(env, c, time.NewTicker(refresh), time.NewTimer(ttl), ttl)
 }

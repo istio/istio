@@ -18,19 +18,16 @@ package api
 
 import (
 	"context"
-
-	"github.com/golang/glog"
-	"google.golang.org/genproto/googleapis/rpc/code"
-	"google.golang.org/genproto/googleapis/rpc/status"
-
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/attribute"
-
 	"fmt"
-
 	"sync/atomic"
 
+	"github.com/golang/glog"
+	rpc "github.com/googleapis/googleapis/google/rpc"
+	"google.golang.org/genproto/googleapis/rpc/code"
+
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 )
 
@@ -78,7 +75,7 @@ func NewHandler(aspectExecutor Executor, methodmap map[config.APIMethod]config.A
 }
 
 // execute performs common function shared across the api surface.
-func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, attrs *mixerpb.Attributes, method config.APIMethod) *status.Status {
+func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, attrs *mixerpb.Attributes, method config.APIMethod) *rpc.Status {
 	ab, err := tracker.StartRequest(attrs)
 	if err != nil {
 		glog.Warningf("Unable to process attribute update. error: '%v'", err)
@@ -145,12 +142,12 @@ func (h *handlerState) Quota(ctx context.Context, tracker attribute.Tracker, req
 	}
 }
 
-func newStatus(c code.Code) *status.Status {
-	return &status.Status{Code: int32(c)}
+func newStatus(c code.Code) *rpc.Status {
+	return &rpc.Status{Code: int32(c)}
 }
 
-func newStatusWithMessage(c code.Code, message string) *status.Status {
-	return &status.Status{Code: int32(c), Message: message}
+func newStatusWithMessage(c code.Code, message string) *rpc.Status {
+	return &rpc.Status{Code: int32(c), Message: message}
 }
 
 // ConfigChange listens for config change notifications.
