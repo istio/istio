@@ -42,7 +42,7 @@ type (
 
 func TestNewLoggerManager(t *testing.T) {
 	m := NewApplicationLogsManager()
-	if m.Kind() != LogKind {
+	if m.Kind() != ApplicationLogsKind {
 		t.Error("Wrong kind of manager")
 	}
 }

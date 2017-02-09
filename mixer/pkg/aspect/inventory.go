@@ -14,36 +14,87 @@
 
 package aspect
 
-import (
-	"istio.io/mixer/pkg/config"
+// APIMethod constants are used to refer to the methods handled by api.Handler
+type APIMethod int
+
+// Supported API methods
+const (
+	CheckMethod APIMethod = iota
+	ReportMethod
+	QuotaMethod
 )
 
-// APIBinding associates an aspect with an API method
-type APIBinding struct {
-	Aspect Manager
-	Method config.APIMethod
-}
+// Kind of aspect
+type Kind int
+
+// Supported kinds of aspects
+const (
+	AccessLogsKind Kind = iota
+	ApplicationLogsKind
+	DenialsKind
+	ListsKind
+	MetricsKind
+	QuotasKind
+)
 
 // Name of all supported aspect kinds.
 const (
-	AccessLogKind = "access-logs"
-	DenyKind      = "denials"
-	ListKind      = "lists"
-	LogKind       = "application-logs"
-	MetricKind    = "metrics"
-	QuotaKind     = "quotas"
+	AccessLogsKindName      = "access-logs"
+	ApplicationLogsKindName = "application-logs"
+	DenialsKindName         = "denials"
+	ListsKindName           = "lists"
+	MetricsKindName         = "metrics"
+	QuotasKindName          = "quotas"
 )
 
-// Inventory returns a manager inventory that contains
-// all available aspect managers
-func Inventory() []APIBinding {
-	// Update the following list to add a new Aspect manager
-	return []APIBinding{
-		{NewDenialsManager(), config.CheckMethod},
-		{NewListsManager(), config.CheckMethod},
-		{NewApplicationLogsManager(), config.ReportMethod},
-		{NewAccessLogsManager(), config.ReportMethod},
-		{NewQuotasManager(), config.CheckMethod},
-		{NewQuotasManager(), config.QuotaMethod},
+// kindToString maps from kinds to their names.
+var kindToString = map[Kind]string{
+	AccessLogsKind:      AccessLogsKindName,
+	ApplicationLogsKind: ApplicationLogsKindName,
+	DenialsKind:         DenialsKindName,
+	ListsKind:           ListsKindName,
+	MetricsKind:         MetricsKindName,
+	QuotasKind:          QuotasKindName,
+}
+
+// String returns the string representation of the kind, or "" if an unknown kind is given.
+func (k Kind) String() string {
+	return kindToString[k]
+}
+
+// stringToKinds maps from kind name to kind enum.
+var stringToKind = map[string]Kind{
+	AccessLogsKindName:      AccessLogsKind,
+	ApplicationLogsKindName: ApplicationLogsKind,
+	DenialsKindName:         DenialsKind,
+	ListsKindName:           ListsKind,
+	MetricsKindName:         MetricsKind,
+	QuotasKindName:          QuotasKind,
+}
+
+// ParseKind converts a string into a Kind.
+func ParseKind(s string) (Kind, bool) {
+	k, found := stringToKind[s]
+	return k, found
+}
+
+// ManagerInventory holds a set of aspect managers.
+type ManagerInventory map[APIMethod][]Manager
+
+// Inventory returns the authoritative set of aspect managers used by the mixer.
+func Inventory() ManagerInventory {
+	return ManagerInventory{
+		CheckMethod: {
+			NewDenialsManager(),
+			NewListsManager(),
+			NewQuotasManager(),
+		},
+
+		ReportMethod: {
+			NewApplicationLogsManager(),
+			NewAccessLogsManager(),
+		},
+
+		QuotaMethod: {},
 	}
 }

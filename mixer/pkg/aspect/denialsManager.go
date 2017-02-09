@@ -52,7 +52,7 @@ func (denialsManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env ad
 	}, nil
 }
 
-func (denialsManager) Kind() string                                                     { return DenyKind }
+func (denialsManager) Kind() Kind                                                       { return DenialsKind }
 func (denialsManager) DefaultConfig() adapter.AspectConfig                              { return &aconfig.DenialsParams{} }
 func (denialsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 

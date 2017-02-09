@@ -34,7 +34,7 @@ func TestExecute(t *testing.T) {
 		inErr    error
 		wantCode code.Code
 	}{
-		{"ok", code.Code_OK, nil, code.Code_OK},
+		{aspect.DenialsKindName, code.Code_OK, nil, code.Code_OK},
 		{"error", code.Code_UNKNOWN, fmt.Errorf("expected"), code.Code_UNKNOWN},
 	}
 
@@ -42,8 +42,8 @@ func TestExecute(t *testing.T) {
 		mngr := newTestManager(c.name, false, func() (*aspect.Output, error) {
 			return &aspect.Output{Code: c.inCode}, c.inErr
 		})
-		mreg := map[string]aspect.Manager{
-			c.name: mngr,
+		mreg := map[aspect.Kind]aspect.Manager{
+			aspect.DenialsKind: mngr,
 		}
 		breg := &fakeBuilderReg{
 			adp:   mngr,
@@ -89,8 +89,8 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 		<-blockChan
 		return &aspect.Output{Code: code.Code_OK}, nil
 	})
-	mreg := map[string]aspect.Manager{
-		name: mngr,
+	mreg := map[aspect.Kind]aspect.Manager{
+		aspect.DenialsKind: mngr,
 	}
 	breg := &fakeBuilderReg{
 		adp:   mngr,

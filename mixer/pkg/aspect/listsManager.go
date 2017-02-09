@@ -57,8 +57,8 @@ func (listsManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env adap
 	}, nil
 }
 
-func (listsManager) Kind() string {
-	return ListKind
+func (listsManager) Kind() Kind {
+	return ListsKind
 }
 
 func (listsManager) DefaultConfig() adapter.AspectConfig {
