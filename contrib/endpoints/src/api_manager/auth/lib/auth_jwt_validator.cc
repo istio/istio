@@ -150,6 +150,8 @@ class JwtValidatorImpl : public JwtValidator {
   RSA *rsa_;
   EVP_PKEY *pkey_;
   EVP_MD_CTX *md_ctx_;
+
+  grpc_exec_ctx exec_ctx_;
 };
 
 // Gets EVP_MD mapped from an alg (algorithm string).
@@ -159,12 +161,12 @@ const EVP_MD *EvpMdFromAlg(const char *alg);
 size_t HashSizeFromAlg(const char *alg);
 
 // Parses str into grpc_json object. Does not own buffer.
-grpc_json *DecodeBase64AndParseJson(const char *str, size_t len,
-                                    gpr_slice *buffer);
+grpc_json *DecodeBase64AndParseJson(grpc_exec_ctx *exec_ctx, const char *str,
+                                    size_t len, gpr_slice *buffer);
 
 // Gets BIGNUM from b64 string, used for extracting pkey from jwk.
 // Result owned by rsa_.
-BIGNUM *BigNumFromBase64String(const char *b64);
+BIGNUM *BigNumFromBase64String(grpc_exec_ctx *exec_ctx, const char *b64);
 
 }  // namespace
 
@@ -185,7 +187,8 @@ JwtValidatorImpl::JwtValidatorImpl(const char *jwt, size_t jwt_len)
       x509_(nullptr),
       rsa_(nullptr),
       pkey_(nullptr),
-      md_ctx_(nullptr) {
+      md_ctx_(nullptr),
+      exec_ctx_(GRPC_EXEC_CTX_INIT) {
   header_buffer_ = gpr_empty_slice();
   signed_buffer_ = gpr_empty_slice();
   sig_buffer_ = gpr_empty_slice();
@@ -204,7 +207,7 @@ JwtValidatorImpl::~JwtValidatorImpl() {
     grpc_json_destroy(pkey_json_);
   }
   if (claims_ != nullptr) {
-    grpc_jwt_claims_destroy(claims_);
+    grpc_jwt_claims_destroy(&exec_ctx_, claims_);
   }
   if (!GPR_SLICE_IS_EMPTY(header_buffer_)) {
     gpr_slice_unref(header_buffer_);
@@ -304,7 +307,8 @@ grpc_jwt_verifier_status JwtValidatorImpl::ParseImpl() {
   if (dot == nullptr) {
     return GRPC_JWT_VERIFIER_BAD_FORMAT;
   }
-  header_json_ = DecodeBase64AndParseJson(cur, dot - cur, &header_buffer_);
+  header_json_ =
+      DecodeBase64AndParseJson(&exec_ctx_, cur, dot - cur, &header_buffer_);
   CreateJoseHeader();
   if (header_ == nullptr) {
     return GRPC_JWT_VERIFIER_BAD_FORMAT;
@@ -323,7 +327,7 @@ grpc_jwt_verifier_status JwtValidatorImpl::ParseImpl() {
   // case, and it is owned by claims_ for successful case.
   gpr_slice claims_buffer = gpr_empty_slice();
   grpc_json *claims_json =
-      DecodeBase64AndParseJson(cur, dot - cur, &claims_buffer);
+      DecodeBase64AndParseJson(&exec_ctx_, cur, dot - cur, &claims_buffer);
   if (claims_json == nullptr) {
     if (!GPR_SLICE_IS_EMPTY(claims_buffer)) {
       gpr_slice_unref(claims_buffer);
@@ -332,10 +336,13 @@ grpc_jwt_verifier_status JwtValidatorImpl::ParseImpl() {
   }
   UpdateAudience(claims_json);
   // Takes ownershp of claims_json and claims_buffer.
-  claims_ = grpc_jwt_claims_from_json(claims_json, claims_buffer);
-  if (claims_ == nullptr) {
+  claims_ = grpc_jwt_claims_from_json(&exec_ctx_, claims_json, claims_buffer);
+
+  // issuer is mandatory. grpc_jwt_claims_issuer checks if claims_ is nullptr.
+  if (grpc_jwt_claims_issuer(claims_) == nullptr) {
     return GRPC_JWT_VERIFIER_BAD_FORMAT;
   }
+
   // Check timestamp.
   // Passing in its own audience to skip audience check.
   // Audience check should be done by the caller.
@@ -354,8 +361,8 @@ grpc_jwt_verifier_status JwtValidatorImpl::ParseImpl() {
     return GRPC_JWT_VERIFIER_BAD_FORMAT;
   }
   cur = dot + 1;
-  sig_buffer_ =
-      grpc_base64_decode_with_len(cur, jwt_len - signed_jwt_len - 1, 1);
+  sig_buffer_ = grpc_base64_decode_with_len(&exec_ctx_, cur,
+                                            jwt_len - signed_jwt_len - 1, 1);
   if (GPR_SLICE_IS_EMPTY(sig_buffer_)) {
     return GRPC_JWT_VERIFIER_BAD_FORMAT;
   }
@@ -576,9 +583,11 @@ bool JwtValidatorImpl::ExtractPubkeyFromJwk(const grpc_json *jkey) {
   }
 
   const char *rsa_n = GetStringValue(jkey, "n");
-  rsa_->n = rsa_n == nullptr ? nullptr : BigNumFromBase64String(rsa_n);
+  rsa_->n =
+      rsa_n == nullptr ? nullptr : BigNumFromBase64String(&exec_ctx_, rsa_n);
   const char *rsa_e = GetStringValue(jkey, "e");
-  rsa_->e = rsa_e == nullptr ? nullptr : BigNumFromBase64String(rsa_e);
+  rsa_->e =
+      rsa_e == nullptr ? nullptr : BigNumFromBase64String(&exec_ctx_, rsa_e);
 
   if (rsa_->e == nullptr || rsa_->n == nullptr) {
     gpr_log(GPR_ERROR, "Missing RSA public key field.");
@@ -651,7 +660,7 @@ grpc_jwt_verifier_status JwtValidatorImpl::VerifyHsSignature(const char *pkey,
   const EVP_MD *md = EvpMdFromAlg(header_->alg);
   GPR_ASSERT(md != nullptr);  // Checked before.
 
-  pkey_buffer_ = grpc_base64_decode_with_len(pkey, pkey_len, 1);
+  pkey_buffer_ = grpc_base64_decode_with_len(&exec_ctx_, pkey, pkey_len, 1);
   if (GPR_SLICE_IS_EMPTY(pkey_buffer_)) {
     gpr_log(GPR_ERROR, "Unable to decode base64 of secret");
     return GRPC_JWT_VERIFIER_KEY_RETRIEVAL_ERROR;
@@ -735,11 +744,11 @@ size_t HashSizeFromAlg(const char *alg) {
   }
 }
 
-grpc_json *DecodeBase64AndParseJson(const char *str, size_t len,
-                                    gpr_slice *buffer) {
+grpc_json *DecodeBase64AndParseJson(grpc_exec_ctx *exec_ctx, const char *str,
+                                    size_t len, gpr_slice *buffer) {
   grpc_json *json;
 
-  *buffer = grpc_base64_decode_with_len(str, len, 1);
+  *buffer = grpc_base64_decode_with_len(exec_ctx, str, len, 1);
   if (GPR_SLICE_IS_EMPTY(*buffer)) {
     gpr_log(GPR_ERROR, "Invalid base64.");
     return nullptr;
@@ -753,12 +762,12 @@ grpc_json *DecodeBase64AndParseJson(const char *str, size_t len,
   return json;
 }
 
-BIGNUM *BigNumFromBase64String(const char *b64) {
+BIGNUM *BigNumFromBase64String(grpc_exec_ctx *exec_ctx, const char *b64) {
   BIGNUM *result = nullptr;
   gpr_slice bin;
 
   if (b64 == nullptr) return nullptr;
-  bin = grpc_base64_decode(b64, 1);
+  bin = grpc_base64_decode(exec_ctx, b64, 1);
   if (GPR_SLICE_IS_EMPTY(bin)) {
     gpr_log(GPR_ERROR, "Invalid base64 for big num.");
     return nullptr;

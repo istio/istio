@@ -200,7 +200,8 @@ char *GenerateJwtClaim(const char *issuer, const char *subject,
 }
 
 char *GenerateSignatueHs256(const char *data, const char *key) {
-  gpr_slice key_buffer = grpc_base64_decode(key, 1);
+  grpc_exec_ctx exec_ctx = GRPC_EXEC_CTX_INIT;
+  gpr_slice key_buffer = grpc_base64_decode(&exec_ctx, key, 1);
   if (GPR_SLICE_IS_EMPTY(key_buffer)) {
     gpr_log(GPR_ERROR, "Unable to decode base64 of secret");
     return nullptr;
