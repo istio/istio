@@ -21,8 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
+	ptypes "github.com/gogo/protobuf/types"
 	"gopkg.in/yaml.v2"
 
 	"istio.io/mixer/adapter/ipListChecker/config"
@@ -217,17 +216,17 @@ func TestValidateConfig(t *testing.T) {
 		},
 
 		{
-			cfg:   config.Params{ProviderUrl: "http://foo.com", RefreshInterval: &duration.Duration{Seconds: -1, Nanos: -1}, Ttl: toDuration(2)},
+			cfg:   config.Params{ProviderUrl: "http://foo.com", RefreshInterval: &ptypes.Duration{Seconds: -1, Nanos: -1}, Ttl: toDuration(2)},
 			field: "RefreshInterval",
 		},
 
 		{
-			cfg:   config.Params{ProviderUrl: "http://foo.com", RefreshInterval: &duration.Duration{Seconds: 0x7fffffffffffffff, Nanos: -1}, Ttl: toDuration(2)},
+			cfg:   config.Params{ProviderUrl: "http://foo.com", RefreshInterval: &ptypes.Duration{Seconds: 0x7fffffffffffffff, Nanos: -1}, Ttl: toDuration(2)},
 			field: "RefreshInterval",
 		},
 
 		{
-			cfg:   config.Params{ProviderUrl: "http://foo.com", RefreshInterval: toDuration(1), Ttl: &duration.Duration{Seconds: 0x7fffffffffffffff, Nanos: -1}},
+			cfg:   config.Params{ProviderUrl: "http://foo.com", RefreshInterval: toDuration(1), Ttl: &ptypes.Duration{Seconds: 0x7fffffffffffffff, Nanos: -1}},
 			field: "Ttl",
 		},
 
@@ -332,6 +331,6 @@ func TestInvariants(t *testing.T) {
 	test.AdapterInvariants(Register, t)
 }
 
-func toDuration(seconds int32) *duration.Duration {
+func toDuration(seconds int32) *ptypes.Duration {
 	return ptypes.DurationProto(time.Duration(seconds) * time.Second)
 }

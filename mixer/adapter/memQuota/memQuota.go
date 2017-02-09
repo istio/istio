@@ -33,8 +33,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
+	ptypes "github.com/gogo/protobuf/types"
 
 	"istio.io/mixer/adapter/memQuota/config"
 	"istio.io/mixer/pkg/adapter"
@@ -80,7 +79,7 @@ var (
 	name = "memQuota"
 	desc = "Simple volatile memory-based quotas."
 	conf = &config.Params{
-		MinDeduplicationDuration: &duration.Duration{Seconds: 1},
+		MinDeduplicationDuration: &ptypes.Duration{Seconds: 1},
 	}
 )
 
@@ -104,13 +103,14 @@ func newBuilder() builder {
 func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	c := cfg.(*config.Params)
 
-	dedupWindow, err := ptypes.Duration(c.MinDeduplicationDuration)
+	dedupWindow, err := ptypes.DurationFromProto(c.MinDeduplicationDuration)
 	if err != nil {
 		ce = ce.Append("MinDeduplicationDuration", err)
-	} else if dedupWindow <= 0 {
+		return
+	}
+	if dedupWindow <= 0 {
 		ce = ce.Appendf("MinDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", dedupWindow)
 	}
-
 	return
 }
 
@@ -120,7 +120,7 @@ func (builder) NewQuotasAspect(env adapter.Env, c adapter.AspectConfig, d map[st
 
 // newAspect returns a new aspect.
 func newAspect(env adapter.Env, c *config.Params, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
-	dedupWindow, _ := ptypes.Duration(c.MinDeduplicationDuration)
+	dedupWindow, _ := ptypes.DurationFromProto(c.MinDeduplicationDuration)
 
 	return newAspectWithDedup(env, time.NewTicker(dedupWindow), definitions)
 }

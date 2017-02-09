@@ -18,17 +18,15 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
+	ptypes "github.com/gogo/protobuf/types"
 	"google.golang.org/genproto/googleapis/rpc/code"
 
+	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
-
-	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
 type (
@@ -56,13 +54,13 @@ func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env ada
 		{
 			Name:       "RequestCount",
 			MaxAmount:  5,
-			Expiration: &duration.Duration{Seconds: 1},
+			Expiration: &ptypes.Duration{Seconds: 1},
 		},
 	}
 
 	defs := make(map[string]*adapter.QuotaDefinition)
 	for _, d := range desc {
-		dur, _ := ptypes.Duration(d.Expiration)
+		dur, _ := ptypes.DurationFromProto(d.Expiration)
 
 		defs[d.Name] = &adapter.QuotaDefinition{
 			MaxAmount: d.MaxAmount,

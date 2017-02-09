@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"google.golang.org/genproto/googleapis/rpc/code"
+
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
@@ -71,13 +72,13 @@ func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env 
 	var attrNames []string
 	var templateStr string
 	switch logFormat {
-	case aconfig.AccessLogsParams_COMMON:
+	case aconfig.COMMON:
 		attrNames = commonLogAttributes
 		templateStr = commonLogFormat
-	case aconfig.AccessLogsParams_COMBINED:
+	case aconfig.COMBINED:
 		attrNames = combinedLogAttributes
 		templateStr = combinedLogFormat
-	case aconfig.AccessLogsParams_CUSTOM:
+	case aconfig.CUSTOM:
 		fallthrough
 	default:
 		templateStr = logCfg.CustomLogTemplate
@@ -106,7 +107,7 @@ func (accessLogsManager) Kind() string { return AccessLogKind }
 func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
 	return &aconfig.AccessLogsParams{
 		LogName:   "access_log",
-		LogFormat: aconfig.AccessLogsParams_COMMON,
+		LogFormat: aconfig.COMMON,
 		// WARNING: we cannot set default attributes here, based on
 		// the params -> proto merge logic. These will override
 		// all other values. This should be mitigated by the move
@@ -116,7 +117,7 @@ func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
 
 func (accessLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.AccessLogsParams)
-	if cfg.LogFormat != aconfig.AccessLogsParams_CUSTOM {
+	if cfg.LogFormat != aconfig.CUSTOM {
 		return nil
 	}
 	tmplStr := cfg.CustomLogTemplate

@@ -15,21 +15,22 @@
 package denyChecker
 
 import (
+	rpc "github.com/googleapis/googleapis/google/rpc"
 	"google.golang.org/genproto/googleapis/rpc/code"
-	"google.golang.org/genproto/googleapis/rpc/status"
+
 	"istio.io/mixer/adapter/denyChecker/config"
 	"istio.io/mixer/pkg/adapter"
 )
 
 type (
 	builder struct{ adapter.DefaultBuilder }
-	denier  struct{ status status.Status }
+	denier  struct{ status rpc.Status }
 )
 
 var (
 	name = "denyChecker"
 	desc = "Denies every check request"
-	conf = &config.Params{Error: &status.Status{Code: int32(code.Code_FAILED_PRECONDITION)}}
+	conf = &config.Params{Error: &rpc.Status{Code: int32(code.Code_FAILED_PRECONDITION)}}
 )
 
 // Register records the builders exposed by this adapter.
@@ -49,5 +50,5 @@ func newDenyChecker(c *config.Params) (*denier, error) {
 	return &denier{status: *c.Error}, nil
 }
 
-func (d *denier) Close() error        { return nil }
-func (d *denier) Deny() status.Status { return d.status }
+func (d *denier) Close() error     { return nil }
+func (d *denier) Deny() rpc.Status { return d.status }

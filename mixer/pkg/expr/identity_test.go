@@ -15,17 +15,13 @@
 package expr
 
 import (
-	"testing"
-
-	"github.com/golang/protobuf/ptypes"
-	ts "github.com/golang/protobuf/ptypes/timestamp"
-
 	"bytes"
+	"fmt"
+	"strings"
+	"testing"
 	"time"
 
-	"strings"
-
-	"fmt"
+	ptypes "github.com/gogo/protobuf/types"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/attribute"
@@ -50,7 +46,7 @@ func TestEval(t *testing.T) {
 		{attrs: &mixerpb.Attributes{Dictionary: dictionary{4: "i64"}, Int64Attributes: map[int32]int64{4: 37}}, in: "i64", out: int64(37), err: false},
 		{attrs: &mixerpb.Attributes{Dictionary: dictionary{17: "dbl"}, DoubleAttributes: map[int32]float64{17: 5.9}}, in: "dbl", out: 5.9, err: false},
 		{attrs: &mixerpb.Attributes{Dictionary: dictionary{0: "bool"}, BoolAttributes: map[int32]bool{0: true}}, in: "bool", out: true, err: false},
-		{attrs: &mixerpb.Attributes{Dictionary: dictionary{5: "time"}, TimestampAttributes: map[int32]*ts.Timestamp{5: ts1}}, in: "time", out: t1, err: false},
+		{attrs: &mixerpb.Attributes{Dictionary: dictionary{5: "time"}, TimestampAttributes: map[int32]*ptypes.Timestamp{5: ts1}}, in: "time", out: t1, err: false},
 		{attrs: &mixerpb.Attributes{Dictionary: dictionary{2: "a"}, StringAttributes: map[int32]string{2: "foo"}}, in: "b", out: nil, err: true},
 	}
 	for _, c := range cases {
@@ -67,7 +63,7 @@ func TestEval(t *testing.T) {
 			t.Errorf("Failed to eval mapExpression '%s' in bag: %v; with err: %v", c.in, bag, err)
 		}
 		if val != c.out {
-			t.Errorf("Expected val '%v' for key '%s', actual '%v'", c.out, c.in, val)
+			t.Errorf("Expected val '%#v' for key '%s', actual '%#v'", c.out, c.in, val)
 		}
 	}
 }
@@ -120,7 +116,7 @@ func TestEvalString(t *testing.T) {
 		{attrs: &mixerpb.Attributes{Dictionary: dictionary{4: "i64"}, Int64Attributes: map[int32]int64{4: 37}}, in: "i64", out: int64(0), err: true},
 		{attrs: &mixerpb.Attributes{Dictionary: dictionary{17: "dbl"}, DoubleAttributes: map[int32]float64{17: 5.9}}, in: "dbl", out: 0, err: true},
 		{attrs: &mixerpb.Attributes{Dictionary: dictionary{0: "bool"}, BoolAttributes: map[int32]bool{0: true}}, in: "bool", out: true, err: true},
-		{attrs: &mixerpb.Attributes{Dictionary: dictionary{5: "time"}, TimestampAttributes: map[int32]*ts.Timestamp{5: ts1}}, in: "time", out: nil, err: true},
+		{attrs: &mixerpb.Attributes{Dictionary: dictionary{5: "time"}, TimestampAttributes: map[int32]*ptypes.Timestamp{5: ts1}}, in: "time", out: nil, err: true},
 		{attrs: &mixerpb.Attributes{Dictionary: dictionary{2: "a"}, StringAttributes: map[int32]string{2: "foo"}}, in: "b", out: nil, err: true},
 	}
 	for _, c := range cases {

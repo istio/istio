@@ -14,9 +14,7 @@
 
 package adapter
 
-import (
-	"google.golang.org/genproto/googleapis/rpc/status"
-)
+import rpc "github.com/googleapis/googleapis/google/rpc"
 
 type (
 	// DenialsAspect always fail with an error.
@@ -24,7 +22,7 @@ type (
 		Aspect
 
 		// Deny always returns an error
-		Deny() status.Status
+		Deny() rpc.Status
 	}
 
 	// DenialsBuilder builds instances of the DenyChecker aspect.

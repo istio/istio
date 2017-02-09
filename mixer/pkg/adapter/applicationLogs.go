@@ -69,7 +69,7 @@ const (
 	Default Severity = iota
 	// Debug indicates that the log entry has debug or trace information.
 	Debug
-	// Info indicates that the log entry has routine info, including status or performance data
+	// Info indicates that the log entry has routine info, including rpc or performance data
 	Info
 	// Notice indicates that the log entry has normal, but significant events, such as config changes.
 	Notice

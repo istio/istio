@@ -19,9 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
-	ts "github.com/golang/protobuf/ptypes/timestamp"
+	ptypes "github.com/gogo/protobuf/types"
 
 	mixerpb "istio.io/api/mixer/v1"
 )
@@ -44,8 +42,8 @@ var (
 		Int64Attributes:     map[int32]int64{3: 3, 4: 4},
 		DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
 		BoolAttributes:      map[int32]bool{7: true, 8: false},
-		TimestampAttributes: map[int32]*ts.Timestamp{9: ts9, 10: ts10},
-		DurationAttributes:  map[int32]*duration.Duration{13: td1},
+		TimestampAttributes: map[int32]*ptypes.Timestamp{9: ts9, 10: ts10},
+		DurationAttributes:  map[int32]*ptypes.Duration{13: td1},
 		BytesAttributes:     map[int32][]uint8{11: {11}, 12: {12}},
 	}
 )
@@ -270,11 +268,11 @@ func TestBadTimestamp(t *testing.T) {
 	// ensure we handle bogus on-the-wire timestamp values properly
 
 	// a bogus timestamp value
-	ts1 := &ts.Timestamp{Seconds: -1, Nanos: -1}
+	ts1 := &ptypes.Timestamp{Seconds: -1, Nanos: -1}
 
 	attr := mixerpb.Attributes{
 		Dictionary:          dictionary{1: "N1"},
-		TimestampAttributes: map[int32]*ts.Timestamp{1: ts1},
+		TimestampAttributes: map[int32]*ptypes.Timestamp{1: ts1},
 	}
 
 	am := NewManager()
@@ -292,11 +290,11 @@ func TestBadDuration(t *testing.T) {
 	// ensure we handle bogus on-the-wire duration values properly
 
 	// a bogus duration value
-	d1 := &duration.Duration{Seconds: 1, Nanos: -1}
+	d1 := &ptypes.Duration{Seconds: 1, Nanos: -1}
 
 	attr := mixerpb.Attributes{
 		Dictionary:         dictionary{1: "N1"},
-		DurationAttributes: map[int32]*duration.Duration{1: d1},
+		DurationAttributes: map[int32]*ptypes.Duration{1: d1},
 	}
 
 	am := NewManager()
@@ -563,7 +561,7 @@ func TestTimeKeys(t *testing.T) {
 			{
 				&mixerpb.Attributes{
 					Dictionary:          map[int32]string{1: "root"},
-					TimestampAttributes: map[int32]*ts.Timestamp{1: ts9},
+					TimestampAttributes: map[int32]*ptypes.Timestamp{1: ts9},
 				},
 				d{},
 				d{"root": t9},
@@ -576,7 +574,7 @@ func TestTimeKeys(t *testing.T) {
 			{
 				&mixerpb.Attributes{
 					Dictionary:          map[int32]string{1: "root"},
-					TimestampAttributes: map[int32]*ts.Timestamp{1: ts9},
+					TimestampAttributes: map[int32]*ptypes.Timestamp{1: ts9},
 				},
 				d{"one": t10, "two": t42},
 				d{"root": t9, "one": t10, "two": t42},
@@ -603,7 +601,7 @@ func TestDurationKeys(t *testing.T) {
 			{
 				&mixerpb.Attributes{
 					Dictionary:         map[int32]string{1: "root"},
-					DurationAttributes: map[int32]*duration.Duration{1: td1},
+					DurationAttributes: map[int32]*ptypes.Duration{1: td1},
 				},
 				d{},
 				d{"root": d1},
@@ -616,7 +614,7 @@ func TestDurationKeys(t *testing.T) {
 			{
 				&mixerpb.Attributes{
 					Dictionary:         map[int32]string{1: "root"},
-					DurationAttributes: map[int32]*duration.Duration{1: td1},
+					DurationAttributes: map[int32]*ptypes.Duration{1: td1},
 				},
 				d{"one": d2, "two": d3},
 				d{"root": d1, "one": d2, "two": d3},

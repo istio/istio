@@ -19,8 +19,7 @@ import (
 	"testing"
 	"text/template"
 
-	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/golang/protobuf/ptypes/struct"
+	ptypes "github.com/gogo/protobuf/types"
 
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
@@ -66,12 +65,12 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 
 	combinedStruct := &aconfig.AccessLogsParams{
 		LogName:   "combined_access_log",
-		LogFormat: aconfig.AccessLogsParams_COMBINED,
+		LogFormat: aconfig.COMBINED,
 	}
 
 	customStruct := &aconfig.AccessLogsParams{
 		LogName:           "custom_access_log",
-		LogFormat:         aconfig.AccessLogsParams_CUSTOM,
+		LogFormat:         aconfig.CUSTOM,
 		CustomLogTemplate: "{{.test}}",
 	}
 
@@ -90,7 +89,7 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 
 	for _, v := range newAspectShouldSucceed {
 		c := config.Combined{
-			Builder: &configpb.Adapter{Params: &empty.Empty{}},
+			Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 			Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
 		}
 		asp, err := m.NewAspect(&c, tl, test.Env{})
@@ -107,22 +106,22 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 
 func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 	defaultCfg := &config.Combined{
-		Builder: &configpb.Adapter{Params: &empty.Empty{}},
+		Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 		Aspect:  &configpb.Aspect{Params: &aconfig.AccessLogsParams{}},
 	}
 
 	badTemplate := "{{{{}}"
 	badTemplateCfg := &config.Combined{
-		Builder: &configpb.Adapter{Params: &empty.Empty{}},
+		Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 		Aspect: &configpb.Aspect{Params: &aconfig.AccessLogsParams{
 			LogName:           "custom_access_log",
-			LogFormat:         aconfig.AccessLogsParams_CUSTOM,
+			LogFormat:         aconfig.CUSTOM,
 			CustomLogTemplate: badTemplate,
 		}},
 	}
 
-	errLogger := &test.Logger{DefaultCfg: &structpb.Struct{}, ErrOnNewAspect: true}
-	okLogger := &test.Logger{DefaultCfg: &structpb.Struct{}}
+	errLogger := &test.Logger{DefaultCfg: &ptypes.Struct{}, ErrOnNewAspect: true}
+	okLogger := &test.Logger{DefaultCfg: &ptypes.Struct{}}
 
 	failureCases := []struct {
 		name  string
@@ -146,8 +145,8 @@ func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 		&aconfig.AccessLogsParams{},
 		&aconfig.AccessLogsParams{LogName: "test"},
 		&aconfig.AccessLogsParams{LogName: "test", Attributes: []string{"test", "good"}},
-		&aconfig.AccessLogsParams{LogFormat: aconfig.AccessLogsParams_COMBINED},
-		&aconfig.AccessLogsParams{LogFormat: aconfig.AccessLogsParams_CUSTOM, CustomLogTemplate: "{{.test}}"},
+		&aconfig.AccessLogsParams{LogFormat: aconfig.COMBINED},
+		&aconfig.AccessLogsParams{LogFormat: aconfig.CUSTOM, CustomLogTemplate: "{{.test}}"},
 	}
 
 	m := NewAccessLogsManager()
@@ -160,7 +159,7 @@ func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 
 func TestAccessLoggerManager_ValidateConfigFailures(t *testing.T) {
 	configs := []adapter.AspectConfig{
-		&aconfig.AccessLogsParams{LogFormat: aconfig.AccessLogsParams_CUSTOM, CustomLogTemplate: "{{.test"},
+		&aconfig.AccessLogsParams{LogFormat: aconfig.CUSTOM, CustomLogTemplate: "{{.test"},
 	}
 
 	m := NewAccessLogsManager()

@@ -196,10 +196,10 @@ type (
 )
 
 var (
-	defaultParams     = &config.Params{LogStream: config.Params_STDERR}
+	defaultParams     = &config.Params{LogStream: config.STDERR}
 	defaultAspectImpl = &logger{os.Stderr}
 
-	overridesParams     = &config.Params{LogStream: config.Params_STDOUT}
+	overridesParams     = &config.Params{LogStream: config.STDOUT}
 	overridesAspectImpl = &logger{os.Stdout}
 )
 

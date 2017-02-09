@@ -20,8 +20,9 @@ import (
 	"strings"
 	"testing"
 
+	rpc "github.com/googleapis/googleapis/google/rpc"
 	"google.golang.org/genproto/googleapis/rpc/code"
-	"google.golang.org/genproto/googleapis/rpc/status"
+
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
@@ -107,7 +108,7 @@ func (testAspect) Close() error { return nil }
 func (t testAspect) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.Output, error) {
 	return t.body()
 }
-func (testAspect) Deny() status.Status { return status.Status{Code: int32(code.Code_INTERNAL)} }
+func (testAspect) Deny() rpc.Status { return rpc.Status{Code: int32(code.Code_INTERNAL)} }
 
 func (m *fakemgr) NewAspect(cfg *config.Combined, adp adapter.Builder, env adapter.Env) (aspect.Wrapper, error) {
 	m.called++
@@ -145,19 +146,19 @@ func newFakeMgrReg(w *fakewrapper) map[string]aspect.Manager {
 
 func TestManager(t *testing.T) {
 	goodcfg := &config.Combined{
-		Aspect:  &configpb.Aspect{Kind: "k1", Params: &status.Status{}},
-		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1", Params: &status.Status{}},
+		Aspect:  &configpb.Aspect{Kind: "k1", Params: &rpc.Status{}},
+		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1", Params: &rpc.Status{}},
 	}
 
 	badcfg1 := &config.Combined{
-		Aspect: &configpb.Aspect{Kind: "k1", Params: &status.Status{}},
+		Aspect: &configpb.Aspect{Kind: "k1", Params: &rpc.Status{}},
 		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1",
 			Params: make(chan int)},
 	}
 	badcfg2 := &config.Combined{
 		Aspect: &configpb.Aspect{Kind: "k1", Params: make(chan int)},
 		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1",
-			Params: &status.Status{}},
+			Params: &rpc.Status{}},
 	}
 	emptyMgrs := map[string]aspect.Manager{}
 	attrs := &fakebag{}
@@ -216,19 +217,19 @@ func TestManager(t *testing.T) {
 
 func TestManager_BulkExecute(t *testing.T) {
 	goodcfg := &config.Combined{
-		Aspect:  &configpb.Aspect{Kind: "k1", Params: &status.Status{}},
-		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1", Params: &status.Status{}},
+		Aspect:  &configpb.Aspect{Kind: "k1", Params: &rpc.Status{}},
+		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1", Params: &rpc.Status{}},
 	}
 
 	badcfg1 := &config.Combined{
-		Aspect: &configpb.Aspect{Kind: "k1", Params: &status.Status{}},
+		Aspect: &configpb.Aspect{Kind: "k1", Params: &rpc.Status{}},
 		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1",
 			Params: make(chan int)},
 	}
 	badcfg2 := &config.Combined{
 		Aspect: &configpb.Aspect{Kind: "k1", Params: make(chan int)},
 		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1",
-			Params: &status.Status{}},
+			Params: &rpc.Status{}},
 	}
 	cases := []struct {
 		errString string

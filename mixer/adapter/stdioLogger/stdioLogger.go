@@ -56,7 +56,7 @@ func newLogger(env adapter.Env, cfg adapter.AspectConfig) (*logger, error) {
 	c := cfg.(*config.Params)
 
 	w := os.Stderr
-	if c.LogStream == config.Params_STDOUT {
+	if c.LogStream == config.STDOUT {
 		w = os.Stdout
 	}
 
