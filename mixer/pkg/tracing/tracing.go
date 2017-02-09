@@ -18,11 +18,11 @@ package tracing
 import (
 	"context"
 
-	"google.golang.org/grpc/metadata"
-
 	"github.com/golang/glog"
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
+
+	"google.golang.org/grpc/metadata"
 )
 
 // TODO: investigate wrapping the server stream in one with a mutable context, so that we can use an interceptor or TAP

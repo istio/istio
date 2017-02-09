@@ -21,10 +21,10 @@ import (
 	"io"
 	"os"
 
+	me "github.com/hashicorp/go-multierror"
+
 	"istio.io/mixer/adapter/stdioLogger/config"
 	"istio.io/mixer/pkg/adapter"
-
-	me "github.com/hashicorp/go-multierror"
 )
 
 type (

@@ -18,10 +18,10 @@ import (
 	"flag"
 	"os"
 
-	_ "google.golang.org/grpc/grpclog/glogger"
-
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
+
+	_ "google.golang.org/grpc/grpclog/glogger"
 )
 
 // A function used for error output.

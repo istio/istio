@@ -135,8 +135,8 @@ func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) 
 	// TODO: would be nice if we could use a mutable.Bag here and could pass it around
 	// labels holds the generated attributes from mapper
 	labels := make(map[string]interface{})
-	for attr, expr := range e.inputs {
-		if val, err := mapper.Eval(expr, attrs); err == nil {
+	for attr, e := range e.inputs {
+		if val, err := mapper.Eval(e, attrs); err == nil {
 			labels[attr] = val
 		}
 		// TODO: throw error on failed mapping?

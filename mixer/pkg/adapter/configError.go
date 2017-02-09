@@ -50,12 +50,13 @@ type ConfigError struct {
 // in configuration. The field parameter indicates the name of the
 // specific configuration field name that is problematic.
 func (e *ConfigErrors) Appendf(field, format string, args ...interface{}) *ConfigErrors {
-	if e == nil {
-		e = &ConfigErrors{}
+	ce := e
+	if ce == nil {
+		ce = &ConfigErrors{}
 	}
 
-	e.Multi = me.Append(e.Multi, ConfigError{field, fmt.Errorf(format, args...)})
-	return e
+	ce.Multi = me.Append(ce.Multi, ConfigError{field, fmt.Errorf(format, args...)})
+	return ce
 }
 
 // Append adds a ConfigError to a multierror. This function is intended
@@ -63,12 +64,13 @@ func (e *ConfigErrors) Appendf(field, format string, args ...interface{}) *Confi
 // in configuration. The field parameter indicates the name of the
 // specific configuration field name that is problematic.
 func (e *ConfigErrors) Append(field string, err error) *ConfigErrors {
-	if e == nil {
-		e = &ConfigErrors{}
+	ce := e
+	if ce == nil {
+		ce = &ConfigErrors{}
 	}
 
-	e.Multi = me.Append(e.Multi, ConfigError{field, err})
-	return e
+	ce.Multi = me.Append(ce.Multi, ConfigError{field, err})
+	return ce
 }
 
 // Error returns a string representation of the configuration error.
@@ -85,11 +87,12 @@ func (e *ConfigErrors) Error() string {
 
 // Extend joins 2 configErrors together.
 func (e *ConfigErrors) Extend(ee *ConfigErrors) *ConfigErrors {
-	if e == nil {
-		e = &ConfigErrors{}
+	ce := e
+	if ce == nil {
+		ce = &ConfigErrors{}
 	}
 	if ee != nil {
-		e.Multi = me.Append(e.Multi, ee.Multi.Errors...)
+		ce.Multi = me.Append(ce.Multi, ee.Multi.Errors...)
 	}
-	return e
+	return ce
 }

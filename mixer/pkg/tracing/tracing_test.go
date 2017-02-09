@@ -18,10 +18,10 @@ import (
 	"context"
 	"testing"
 
-	"google.golang.org/grpc/metadata"
-
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/mocktracer"
+
+	"google.golang.org/grpc/metadata"
 )
 
 func TestCurrentSpan(t *testing.T) {

@@ -15,13 +15,11 @@
 package tracing
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	mixerpb "istio.io/api/mixer/v1"
-
-	"context"
-	"fmt"
-
 	"istio.io/mixer/pkg/attribute"
 )
 

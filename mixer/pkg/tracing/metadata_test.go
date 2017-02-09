@@ -15,9 +15,8 @@
 package tracing
 
 import (
-	"testing"
-
 	"fmt"
+	"testing"
 
 	"google.golang.org/grpc/metadata"
 )
