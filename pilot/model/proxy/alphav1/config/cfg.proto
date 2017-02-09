@@ -21,286 +21,212 @@ package istio.proxy.v1alpha.config;
 option go_package = "config";
 
 // Glossary & concepts
-
-// Cluster - set of pods/VMs/containers where the service is running. The
-// members of a cluster share one or more common attributes. For e.g., all
-// pods in a cluster could share a common set of labels, or be running the
-// same version of the application binary.
-
-// Multiple clusters/service - In a continuous deployment scenario, for a
-// given service, there can be multiple clusters running potentially
-// different variants of the application binary. These variants are not
-// necessarily different API versions. They could be iterative changes to
-// the same service, deployed in different environments (prod, staging,
-// dev, etc.). Common scenarios where this occurs include A/B testing,
-// canary rollouts, etc. The choice of a particular cluster can be decided
-// based on various criterion (headers, url, etc.) and/or by weights
-// assigned to each cluster.
-
-// Cluster identifier: A name and one or more tags uniquely identify each
-// cluster in a service. Names and tags can be arbitrary strings. Parsing
-// of names and tags is specific to the platform (e.g., in kubernetes, name
-// could correspond to the service Name, while each tag string could be
-// parsed into a pod label (key:value))
-
-// Downstream service/cluster - client (browser or another service cluster)
-// calling the proxy/sidecar (typically to reach another service).
-
-// Upstream service - The remote service to which the proxy/sidecar is
-// talking to, on behalf of the Downstream service. There can be one or
-// more upstream clusters for a given upstream service (see the discussion
-// on versions above). The proxy would choose the upstream cluster based on
-// various routing rules.
-
-// Applications address only the upstream service using without knowledge
-// of individual upstream clusters. The actual choice of the cluster is
-// determined by the proxy, enabling the application code to decouple
-// itself from the evolution of dependent services.
+//
+// Service is a unit of an application with a unique name that other services
+// use to refer to the functionality being called. Service instances are
+// pods/VMs/containers that implement the service.
+//
+// Service versions - In a continuous deployment scenario, for a given service,
+// there can be multiple sets of instances running potentially different
+// variants of the application binary. These variants are not necessarily
+// different API versions. They could be iterative changes to the same service,
+// deployed in different environments (prod, staging, dev, etc.). Common
+// scenarios where this occurs include A/B testing, canary rollouts, etc. The
+// choice of a particular version can be decided based on various criterion
+// (headers, url, etc.) and/or by weights assigned to each version.  Each
+// service has a default version consisting of all its instances.
+//
+// Source - downstream client (browser or another service) calling the
+// proxy/sidecar (typically to reach another service).
+//
+// Destination - The remote upstream service to which the proxy/sidecar is
+// talking to, on behalf of the source service. There can be one or more
+// service versions for a given service (see the discussion on versions above).
+// The proxy would choose the version based on various routing rules.
+//
+// Applications address only the destination service without knowledge of
+// individual service versions. The actual choice of the version is determined
+// by the proxy, enabling the application code to decouple itself from the
+// evolution of dependent services.
 
 // Proxy level global configurations go here
-message ProxyConfig {
-  // config specification version.
-  int32 revision = 1;
-
-  // Traffic routing (http|l4) related configurations for the
-  // proxy/sidecar.  The configuration generated for the proxy will
-  // preserve the order of rules specified by the user in the Istio config.
-
-  // Requests can match either a l4 or Http (l7) rule, but not both. A
-  // request can match multiple Http (l7) rules, but it can match only one
-  // L4 rule. This can be enforced by checking the match attributes. A Http
-  // match rule matches on both L4 and L7 attributes, while a L4 rule
-  // matches based only on L4 attributes. Any duplication or collision in
-  // the match attributes between two L4 rules or between a L4 and L7 rule
-  // should throw an error.
-
-  // Since a Http request can match multiple route rules (e.g., there are
-  // two routes for the prefix /foo, with differing Http match attributes
-  // such as Http headers), the first rule to match will/should be chosen
-  // by proxy implementations N.B.: When a request does not match any rule
-  // for Http, the downstream service would receive a HTTP 404.
-  repeated RouteRule route_rules = 2;
-  
-  // RouteRule determines the upstream cluster to which traffic should be
-  // routed to.  The UpstreamCluster describes how to obtain cluster
-  // members (through discovery or through static configuration), and
-  // policies that determine how to handle traffic (load balancing
-  // policies, failure recovery policies such as timeouts, retries, circuit
-  // breakers), etc.
-  repeated UpstreamCluster upstream_clusters = 3;
+message ProxyMeshConfig {
 }
 
-// Describes rules for routing a request/connection to an upstream
-// service, based on attributes associated with the request/connection
-// and downstream service invoking the API call. The choice of the specific
-// upstream cluster will be determined by the routing rule.
-message RouteRule {
-  // Uniquely identifies the upstream service (not its versions) associated
-  // with this RouteRule. This is applicable for both Http and Tcp.
-  // Note: The name used here must match with the 'name' field in the
-  // ClusterIdentifier, that is used to uniquely identify a version of the
-  // upstream service.
+// Destination declares policies that determine how to handle traffic for a
+// destination service (load balancing policies, failure recovery policies such
+// as timeouts, retries, circuit breakers, etc).  Policies are applicable per
+// individual service versions. It is an error to define multiple policies for
+// the same service version.
+//
+// N.B. The policies are enforced on client-side connections or requests, i.e.,
+// enforced when the service is opening a connection/sending a request via the
+// proxy to the destination.
+message Destination {
+  // Service name for which the service version is defined.
+  // The name should be fully-qualified, e.g. "my-service.default.svc.cluster.local".
   string destination = 1;
-  oneof route_rule {
-    L4RouteRule layer4 = 2;
-    HttpRouteRule http = 3;
-  }
+
+  // Service version destination identifier for the destination service.
+  // The identifier is qualified by the destination service name, e.g. version
+  // "env=prod" in "my-service.default.svc.cluster.local".
+  //
+  // N.B. The map is used instead of pstruct due to lack of serialization support
+  // in golang protobuf library (see https://github.com/golang/protobuf/pull/208)
+  map<string, string> version = 2;
+
+  // Load balancing policy
+  LoadBalancing load_balancing = 3;
+
+  // Circuit breaker policy
+  CircuitBreaker circuit_breaker = 4;
+
+  // Timeout policy. N.B. Applicable to the default service version only.
+  HTTPTimeout http_timeout = 5;
+
+  // Retry policy. N.B. Applicable to the default service version only.
+  HTTPRetry http_retry = 6;
+
+  // L7 fault injection policy applies to L7 traffic
+  HTTPFaultInjection http_fault = 7;
+
+  // L4 fault injection policy applies to L4 traffic
+  L4FaultInjection l4_fault = 8;
+
+  // Custom policy implementations
+  google.protobuf.Any custom = 9;
 }
 
-// Routes incoming Tcp/Udp traffic to one of the clusters of a service
-// based on match criterion.
-message L4RouteRule {
-  // Set of conditions that must be satisfied, such as downstream cluster
-  // labels, connection attributes, etc.
-  L4MatchCondition match = 1;
+// Route rule provides a custom routing policy based on the source and
+// destination service versions and connection/request metadata.  The rule must
+// provide a set of conditions for each protocol (TCP, UDP, HTTP) that the
+// destination service exposes on its ports. The rule applies only to the ports
+// on the destination service for which it provides protocol-specific match
+// condition, e.g. if the rule does not specify TCP condition, the rule does
+// not apply to TCP traffic towards the destination service.
+message RouteRule {
+  // Uniquely identifies the destination  associated with this routing rule.
+  // This is applicable for hostname-based resolution for HTTP traffic as well as
+  // IP-based resolution for TCP/UDP traffic.
+  //
+  // The value is either the fully qualified service name or the cluster subdomain
+  // with the interpretation that the cluster route rule applies to its ingress traffic.
+  // For example, "my-service.default.svc.cluster.local" refers to a service by its
+  // name, while "svc.cluster.local" refers to the cluster ingress traffic.
+  //
+  // The destination field is mandatory for each route rule.
+  //
+  // Examples: "my-service.default.svc.cluster.local", "svc.cluster.local".
+  string destination = 1;
 
-  // Each routing rule is associated with one or more upstream clusters,
-  // (see glossary in beginning of document). Weights associated with the
-  // cluster determine the proportion of traffic it receives.
-  repeated WeightedCluster weighted_clusters = 2;
+  // Match condition is optional.
+  // By default, the rule applies to HTTP traffic only.
+  MatchCondition match = 2;
 
-  // Faults can be injected into the connections from downstream by the
-  // proxy, for testing the failure recovery capabilities of downstream
-  // services.  Faults include aborting the request/connection from
-  // downstream service, delaying the proxying of request/connection to the
-  // upstream service, and throttling the bandwidth of the connection
-  // (either end).
+  // Each routing rule is associated with one or more service version destinations
+  // (see glossary in beginning of document). Weights associated with the service
+  // version determine the proportion of traffic it receives.
+  repeated DestinationWeight route = 3;
 
-  // TODO: This should be done on per-cluster basis.
-  L4FaultInjection fault = 3;
+  // Precedence is used to disambiguate the order of application of rules for
+  // the same destination service. A higher number takes priority.  If not
+  // specified, the value is assumed to be 0.  The order of application for rules
+  // with the same precedence is unspecified.
+  //
+  // Rule precedence can be used to order routes for a single destination, as
+  // well as override existing routes with the same attribute condition.
+  int32 precedence = 4;
 }
 
-// Routes Http requests to one of the upstream clusters based on
-// match criterion.
-message HttpRouteRule {
-  // Set of conditions that must be satisfied, such as downstream service
-  // labels, request attributes, etc.
-  HttpMatchCondition match = 1;
+// Match condition selects traffic for routing application.
+// The condition provides distinct set of conditions for each protocol with the
+// intention that conditions apply only to the service ports that match the protocol.
+message MatchCondition {
+  // Identifies the service initiating a connection or a request by its name.
+  string source = 1;
 
-  // TODO: add redirect support
+  // Identifies the source service version. The identifier is interpreted
+  // by the platform to match a service version for the source service.
+  //
+  // N.B. The map is used instead of pstruct due to lack of serialization support
+  // in golang protobuf library (see https://github.com/golang/protobuf/pull/208)
+  map<string, string> source_version = 2;
 
-  // Each routing rule is associated with one or more upstream clusters,
-  // (see glossary in beginning of document). Weights associated with the
-  // cluster determine the proportion of traffic it receives.
-  repeated WeightedCluster weighted_clusters = 2;
+  // Set of layer 4 match conditions based on the IP ranges
+  L4MatchAttributes tcp = 3;
 
-  // Faults can be injected into the API calls by the proxy, for
-  // testing the failure recovery capabilities of downstream services.
-  // Faults include aborting the Http request from downstream service,
-  // delaying the proxying of request to the upstream service, or both.
-  // TODO: This should move into UpstreamCluster
-  HttpFaultInjection fault = 3;
+  // Set of layer 4 match conditions based on the IP ranges
+  L4MatchAttributes udp = 4;
 
-  // Custom properties per rule (depends on proxy), such as open tracing,
-  // access log formats, etc. Some of these will be defined in future
-  // iterations.
-  google.protobuf.Any custom_impl = 4;
+  // Set of HTTP match conditions based on HTTP/1.1, HTTP/2, GRPC request metadata,
+  // such as "uri", "scheme", "authority".
+  // The header keys are case-insensitive.
+  map<string, StringMatch> http = 5;
 }
 
-// Basic routing rule match criterion using Tcp attributes and downstream
-// cluster identifier
-message L4MatchCondition {
-  // Set of layer 4 match attributes such as src ip/port, dst ip/port and
-  // protocol
-  L4MatchAttributes l4attributes = 1;
+// Each routing rule is associated with one or more service versions (see
+// glossary in beginning of document). Weights associated with the version
+// determine the proportion of traffic it receives.
+message DestinationWeight {
+  // Uniquely identifies the destination service.
+  // If not specified, the value is inherited from the parent route rule.
+  //
+  // Example: "my-service.default.svc.cluster.local".
+  string destination = 1;
 
-  // Identify the downstream cluster initiating the connection.
-  ClusterIdentifier src_cluster = 2;
+  // Service version identifier for the destination service.
+  //
+  // N.B. The map is used instead of pstruct due to lack of serialization support
+  // in golang protobuf library (see https://github.com/golang/protobuf/pull/208)
+  map<string, string> version = 2;
+
+  // The proportion of traffic to be forwarded to the service version Max is
+  // 100. Sum of weights across destinations should add up to 100.
+  // If there is only destination in a rule, the weight value is assumed to be 100.
+  int32 weight = 3;
 }
 
 // L4 connection match attributes
 message L4MatchAttributes {
   // IPv4 or IPv6 ip address with optional subnet. E.g., a.b.c.d/xx form or
   // just a.b.c.d
-  repeated string src_ip_subnet = 1;
-  // source port
-  google.protobuf.UInt32Value src_port = 2;
+  repeated string source_subnet = 1;
+
   // IPv4 or IPv6 ip address with optional subnet. E.g., a.b.c.d/xx form or
   // just a.b.c.d
-  repeated string dst_ip_subnet = 3;
-  // destination port
-  google.protobuf.UInt32Value dst_port = 4;
-
-  // protocol Tcp|Udp
-  enum L4Protocol {
-    TCP = 0;
-    UDP = 1;
-  }
-  L4Protocol protocol = 5;
-}
-
-// A name and one or more tags uniquely identify an upstream or downstream
-// cluster. Names and tags can be arbitrary strings, and their
-// interpretation is specific to the underlying platform (e.g., in
-// kubernetes, name field could correspond to the service Name, while each
-// tag string could be parsed into a pod label (key:value))
-message ClusterIdentifier {
-  // Note: When used in the context of upstream clusters, the value of the
-  // name field used here must match with the 'destination' field in
-  // the RouteRule, that is used to assign the RouteRule to a particular
-  // service
-  string name = 1;
-  repeated string tags = 2;
-}
-
-// Each routing rule is associated with one or more upstream clusters,
-// (see glossary in beginning of document). Weights associated with the
-// cluster determine the proportion of traffic it receives.
-message WeightedCluster {
-  // Unique identity of the upstream cluster. Must be the same as those used
-  // in the definition of the UpstreamClusterPolicy.
-  ClusterIdentifier dst_cluster = 1;
-
-  // The proportion of connections to be forwarded to the upstream
-  // cluster. Max is 100. Sum of weights across versions should add up to
-  // 100.
-  uint32 weight = 2;
-}
-
-// TODO: Merge with the proposal for "Deriving Request Metadata in
-// Kubernetes" by Sven Manson
-
-// Http/1.1|Http/2|gRPC routing rule match criterion built on top of BaseMatchCondition
-message HttpMatchCondition {
-  // Set of layer 4 match attributes such as src ip/port, dst ip/port and
-  // protocol
-  L4MatchAttributes l4attributes = 1;
-
-  // Identify the downstream cluster initiating the connection.
-  ClusterIdentifier src_cluster = 2;
-
-  // Set of Http request level match attributes
-  string scheme = 3;
-
-  // Match based on authority
-  StringMatch authority = 4;
-
-  // Match based on URI
-  StringMatch uri = 5;
-
-  // Match Http requests based on the specified headers
-  // Support exact/prefix/regex match on header values
-  map<string, StringMatch> headers = 6;
+  repeated string destination_subnet = 2;
 }
 
 // Describes how to matches a given string (exact match, prefix-based match
-// or posix style regex based match).
+// or posix style regex based match). Match is case-sensitive.
+// It is a validation error to supply a regex for a proxy that does not support it.
 message StringMatch {
   oneof match_type {
     string exact = 1;
     string prefix = 2;
-    // posix style regex match. Throw error if user's chosen proxy does not
-    // support posix regex.
     string regex = 3;
   }
 }
 
-// Describes how to identify members of a specific upstream cluster along
-// with load balancing and failure recovery policies for the cluster.  The
-// load balancing/failure recovery policies are cluster specific. For a
-// given upstream service, one can have multiple upstream clusters running
-// different versions of the service, each with a different
-// policy.
-
-// N.B. The policies are enforced on egress connections or requests,
-// i.e., enforced when the downstream service (caller) is opening a
-// connection/sending a request via the proxy to the upstream service.
-message UpstreamCluster {
-  // Unique identifier of the upstream cluster. The name and tags in the
-  // cluster identifier are used by the service discovery component of the
-  // proxy to identify the IP addresses of the pods|VMs running this
-  // service.
-  // TODO: Need to have a way to statically specify the hosts/IPs.
-  ClusterIdentifier cluster = 1;
-  
-  // Should be either http://.. or tcp://.. 
-  string health_check_endpoint = 2;
-  LoadBalancingPolicy lb_policy = 3;
-  TimeoutPolicy timeout = 4;
-  RetryPolicy retry = 5;
-  CircuitBreakerPolicy circuit_breaker = 6;
-}
-
-// Load balancing policy to use when forwarding traffic to upstream clusters.
-message LoadBalancingPolicy {
+// Load balancing policy to use when forwarding traffic.
+message LoadBalancing {
   enum SimpleLBPolicy {
     // These four simple load balancing policies have literally no
     // additional configuration.
     ROUND_ROBIN = 0;
     LEAST_CONN = 1;
-    IP_HASH = 2;
     RANDOM = 3;
   }
   oneof lb_policy {
     SimpleLBPolicy name = 1;
     //Custom policy implementations
-    google.protobuf.Any custom_impl = 2;
+    google.protobuf.Any custom = 2;
   }
 }
 
 // Request timeout: wait time until a response is received. Does not
-// indicate the time for the entire response to arrive. 
-message TimeoutPolicy {
+// indicate the time for the entire response to arrive.
+message HTTPTimeout {
   message SimpleTimeoutPolicy {
     // timeout is per attempt, when retries are specified as well.
     // seconds.nanoseconds format
@@ -312,16 +238,16 @@ message TimeoutPolicy {
   oneof timeout_policy {
     SimpleTimeoutPolicy simple_timeout = 1;
     // For proxies that support custom timeout policies
-    google.protobuf.Any custom_impl = 2;
+    google.protobuf.Any custom = 2;
   }
 }
 
-// Retry policy to use when a request to the upstream cluster fails.
-message RetryPolicy {
+// Retry policy to use when a request fails.
+message HTTPRetry {
   message SimpleRetryPolicy {
-    // number of times the request to the upstream cluster should be retried.
+    // number of times the request should be retried.
     // total timeout would be attempts * timeout
-    uint32 attempts = 1;
+    int32 attempts = 1;
     // Downstream Service could specify retry attempts via Http header to
     // the proxy, if the proxy supports such a feature.
     string override_header_name = 2;
@@ -329,40 +255,62 @@ message RetryPolicy {
   oneof retry_policy {
     SimpleRetryPolicy simple_retry = 1;
     // For proxies that support custom retry policies
-    google.protobuf.Any custom_impl = 2;
+    google.protobuf.Any custom = 2;
   }
 }
 
-// A minimal circuit breaker configuration for the upstream cluster.
-message CircuitBreakerPolicy {
+// TODO(rshriram) add all Envoy CB capabilities
+// A minimal circuit breaker configuration.
+message CircuitBreaker {
   message SimpleCircuitBreakerPolicy {
-    // (for an unhealthy upstream cluster) number of consecutive requests that
-    // should succeed before the upstream cluster is marked healthy.
-    uint32 success_threshold = 1;
+    // (for an unhealthy upstream) number of consecutive requests that
+    // should succeed before the upstream is marked healthy.
+    int32 success_threshold = 1;
 
-    // (for a healthy upstream cluster) number of consecutive requests that
-    // can fail before the upstream cluster is marked unhealthy.
-    uint32 failure_threshold = 2;
+    // (for a healthy upstream) number of consecutive requests that
+    // can fail before the upstream is marked unhealthy.
+    int32 failure_threshold = 2;
 
-    // When a healthy upstream cluster becomes unhealthy, duration to wait before
-    // attempting to send requests to that upstream cluster.
+    // When a healthy upstream becomes unhealthy, duration to wait before
+    // attempting to send requests to that upstream.
     // format seconds.nanoseconds
     double reset_timeout_seconds = 3;
+
+    // Maximum number of connections to a backend.
+    int32 max_connections = 4;
+
+    // Maximum number of pending requests to a backend.
+    int32 http_max_pending_requests = 5;
+
+    // Maximum number of requests to a backend.
+    int32 http_max_requests = 6;
+
+    // Minimum time the circuit will be closed.
+    string sleep_window = 7;
+
+    // Number of 5XX errors before circuit is opened.
+    int32 http_consecutive_errors = 8;
+
+    // Interval for checking state of hystrix circuit.
+    int32 http_detection_interval = 9;
+
+    // Maximum number of requests per connection to a backend.
+    int32 http_max_requests_per_connection = 10;
   }
   oneof cb_policy {
     SimpleCircuitBreakerPolicy simple_cb = 1;
     // For proxies that support custom circuit breaker policies.
-    google.protobuf.Any custom_impl = 2;
+    google.protobuf.Any custom = 2;
   }
 }
 
 // Faults can be injected into the API calls by the proxy, for testing the
 // failure recovery capabilities of downstream services.  Faults include
-// aborting the Http request from downstream service, delaying the proxying
-// of request to the upstream clusters, or both.
-message HttpFaultInjection {
-  // Delay requests before forwarding to upstream cluster, emulating
-  // various failures such as network issues, overloaded upstream service, etc.
+// aborting the Http request from downstream service, delaying the proxying of
+// requests, or both.
+message HTTPFaultInjection {
+  // Delay requests before forwarding, emulating various failures such as
+  // network issues, overloaded upstream service, etc.
   Delay delay = 1;
 
   // Abort Http request attempts and return error codes back to downstream
@@ -374,7 +322,7 @@ message HttpFaultInjection {
   // service. It may be the case that one or more requests being aborted
   // were also delayed.
   Abort abort = 2;
-  
+
   // Only requests with these Http headers will be subjected to fault
   // injection
   map<string, StringMatch> headers = 3;
@@ -390,7 +338,7 @@ message HttpFaultInjection {
     string override_header_name = 3;
   }
 
-  // Add a fixed delay before forwarding the request to upstream cluster
+  // Add a fixed delay before forwarding the request
   message FixedDelay {
     // percentage of requests on which the delay will be injected
     float percent = 1;
@@ -399,7 +347,7 @@ message HttpFaultInjection {
   }
 
   // Add a delay (based on an exponential function) before forwarding the
-  // request to upstream cluster
+  // request
   message ExponentialDelay {
     // percentage of requests on which the delay will be injected
     float percent = 1;
@@ -418,18 +366,20 @@ message HttpFaultInjection {
     oneof error_type {
       string grpc_status = 2;
       string http2_error = 3;
-      uint32 http_status = 4;
+      int32 http_status = 4;
     }
     // Specify abort code as part of Http request.
-    // TODO: The semantics and syntax of the headers is undefined.    
+    // TODO: The semantics and syntax of the headers is undefined.
     string override_header_name = 5;
   }
 }
 
-// Faults can be injected into the L4 traffic forwarded by the proxy, for
-// testing the failure recovery capabilities of downstream services.
-// Faults include terminating established Tcp connections, throttling the
-// upstream/downstream bandwidth (for Tcp|Udp), or both.
+// Faults can be injected into the connections from downstream by the
+// proxy, for testing the failure recovery capabilities of downstream
+// services.  Faults include aborting the request/connection from
+// downstream service, delaying the proxying of request/connection to the
+// upstream service, and throttling the bandwidth of the connection
+// (either end).
 message L4FaultInjection {
   // Unlike Http services, we have very little context for raw Tcp|Udp
   // connections. We could throttle bandwidth of the connections (slow down
@@ -445,9 +395,9 @@ message L4FaultInjection {
     // percentage of connections to throttle.
     float percent = 1;
     // bandwidth limit in "bits" per second between downstream and proxy
-    uint64 downstream_limit_bps = 2;
+    int64 downstream_limit_bps = 2;
     // bandwidth limits in "bits" per second between proxy and upstream
-    uint64 upstream_limit_bps = 3;
+    int64 upstream_limit_bps = 3;
 
     oneof throttle_after {
       // Wait for X seconds after the connection is established, before
