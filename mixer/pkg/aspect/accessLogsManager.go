@@ -103,7 +103,7 @@ func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env 
 	}, nil
 }
 
-func (accessLogsManager) Kind() string { return AccessLogKind }
+func (accessLogsManager) Kind() Kind { return AccessLogsKind }
 func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
 	return &aconfig.AccessLogsParams{
 		LogName:   "access_log",

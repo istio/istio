@@ -141,13 +141,13 @@ func runServer(sa *serverArgs) error {
 
 	var handler api.Handler
 	if sa.workerPoolSize == 0 {
-		handler = api.NewHandler(adapterMgr, adapterMgr.AspectMap())
+		handler = api.NewHandler(adapterMgr, adapterMgr.MethodMap())
 	} else {
 		poolsize := int(sa.workerPoolSize)
 		if poolsize < 0 {
 			return fmt.Errorf("worker pool size must be less than int max value, got pool size %d", poolsize)
 		}
-		handler = api.NewHandler(adapterManager.NewParallelManager(adapterMgr, poolsize), adapterMgr.AspectMap())
+		handler = api.NewHandler(adapterManager.NewParallelManager(adapterMgr, poolsize), adapterMgr.MethodMap())
 	}
 
 	grpcServerOptions, err := serverOpts(sa, handler)

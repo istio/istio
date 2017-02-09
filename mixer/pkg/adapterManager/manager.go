@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
+
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
@@ -33,10 +34,10 @@ import (
 // Manager manages all aspects - provides uniform interface to
 // all aspect managers
 type Manager struct {
-	managerFinder map[string]aspect.Manager
-	mapper        expr.Evaluator
-	builderFinder builderFinder
-	aspectmap     map[config.APIMethod]config.AspectSet
+	managers  map[aspect.Kind]aspect.Manager
+	mapper    expr.Evaluator
+	builders  builderFinder
+	methodMap map[aspect.APIMethod]config.AspectSet
 
 	// protects cache
 	lock        sync.RWMutex
@@ -46,21 +47,21 @@ type Manager struct {
 // builderFinder finds a builder by kind & name.
 type builderFinder interface {
 	// FindBuilder finds a builder by kind & name.
-	FindBuilder(kind string, name string) (adapter.Builder, bool)
+	FindBuilder(kind aspect.Kind, name string) (adapter.Builder, bool)
 }
 
 // cacheKey is used to cache fully constructed aspects
 // These parameters are used in constructing an aspect
 type cacheKey struct {
-	kind             string
+	kind             aspect.Kind
 	impl             string
 	builderParamsSHA [sha1.Size]byte
 	aspectParamsSHA  [sha1.Size]byte
 }
 
-func newCacheKey(cfg *config.Combined) (*cacheKey, error) {
+func newCacheKey(kind aspect.Kind, cfg *config.Combined) (*cacheKey, error) {
 	ret := cacheKey{
-		kind: cfg.Aspect.GetKind(),
+		kind: kind,
 		impl: cfg.Builder.GetImpl(),
 	}
 
@@ -88,19 +89,19 @@ func newCacheKey(cfg *config.Combined) (*cacheKey, error) {
 }
 
 // NewManager creates a new adapterManager.
-func NewManager(builders []adapter.RegisterFn, managers []aspect.APIBinding, exp expr.Evaluator) *Manager {
+func NewManager(builders []adapter.RegisterFn, managers aspect.ManagerInventory, exp expr.Evaluator) *Manager {
 	mm, am := ProcessBindings(managers)
 	return newManager(newRegistry(builders), mm, exp, am)
 }
 
 // newManager
-func newManager(r builderFinder, m map[string]aspect.Manager, exp expr.Evaluator, am map[config.APIMethod]config.AspectSet) *Manager {
+func newManager(r builderFinder, m map[aspect.Kind]aspect.Manager, exp expr.Evaluator, am map[aspect.APIMethod]config.AspectSet) *Manager {
 	return &Manager{
-		managerFinder: m,
-		builderFinder: r,
-		mapper:        exp,
-		aspectCache:   make(map[cacheKey]aspect.Wrapper),
-		aspectmap:     am,
+		managers:    m,
+		builders:    r,
+		mapper:      exp,
+		aspectCache: make(map[cacheKey]aspect.Wrapper),
+		methodMap:   am,
 	}
 }
 
@@ -124,12 +125,18 @@ func (m *Manager) execute(ctx context.Context, cfg *config.Combined, attrs attri
 	var mgr aspect.Manager
 	var found bool
 
-	if mgr, found = m.managerFinder[cfg.Aspect.Kind]; !found {
+	kind, found := aspect.ParseKind(cfg.Aspect.Kind)
+	if !found {
+		return nil, fmt.Errorf("invalid aspect %#v", cfg.Aspect.Kind)
+	}
+
+	mgr, found = m.managers[kind]
+	if !found {
 		return nil, fmt.Errorf("could not find aspect manager %#v", cfg.Aspect.Kind)
 	}
 
 	var adp adapter.Builder
-	if adp, found = m.builderFinder.FindBuilder(cfg.Aspect.Kind, cfg.Builder.Impl); !found {
+	if adp, found = m.builders.FindBuilder(kind, cfg.Builder.Impl); !found {
 		return nil, fmt.Errorf("could not find registered adapter %#v", cfg.Builder.Impl)
 	}
 
@@ -152,10 +159,10 @@ func (m *Manager) execute(ctx context.Context, cfg *config.Combined, attrs attri
 	return asp.Execute(attrs, m.mapper)
 }
 
-// CacheGet -- get from the cache, use adapter.Manager to construct an object in case of a cache miss
+// cacheGet gets an aspect wrapper from the cache, use adapter.Manager to construct an object in case of a cache miss
 func (m *Manager) cacheGet(cfg *config.Combined, mgr aspect.Manager, builder adapter.Builder) (asp aspect.Wrapper, err error) {
 	var key *cacheKey
-	if key, err = newCacheKey(cfg); err != nil {
+	if key, err = newCacheKey(mgr.Kind(), cfg); err != nil {
 		return nil, err
 	}
 	// try fast path with read lock
@@ -195,50 +202,48 @@ func closeWrapper(asp aspect.Wrapper) {
 	}
 }
 
-type aspectValidatorFinder struct {
-	m map[string]aspect.Manager
-}
+// AspectValidatorFinder returns a ValidatorFinderFunc for aspects.
+func (m *Manager) AspectValidatorFinder() config.ValidatorFinderFunc {
+	return func(kind string, name string) (adapter.ConfigValidator, bool) {
+		k, found := aspect.ParseKind(name)
+		if !found {
+			return nil, false
+		}
 
-func (a *aspectValidatorFinder) FindValidator(kind string, name string) (adapter.ConfigValidator, bool) {
-	c, ok := a.m[name]
-	return c, ok
-}
-
-// AspectValidatorFinder returns ValidatorFinder for aspects.
-func (m *Manager) AspectValidatorFinder() config.ValidatorFinder {
-	return &aspectValidatorFinder{m: m.managerFinder}
-}
-
-type builderValidatorFinder struct {
-	b builderFinder
-}
-
-func (a *builderValidatorFinder) FindValidator(kind string, name string) (adapter.ConfigValidator, bool) {
-	return a.b.FindBuilder(kind, name)
-}
-
-// BuilderValidatorFinder returns ValidatorFinder for builders.
-func (m *Manager) BuilderValidatorFinder() config.ValidatorFinder {
-	return &builderValidatorFinder{b: m.builderFinder}
-}
-
-// AspectMap returns map of APIMethod --> AspectSet.
-func (m *Manager) AspectMap() map[config.APIMethod]config.AspectSet {
-	return m.aspectmap
-}
-
-// ProcessBindings returns a fully constructed manager map and aspectSet given APIBinding.
-func ProcessBindings(bnds []aspect.APIBinding) (map[string]aspect.Manager, map[config.APIMethod]config.AspectSet) {
-	r := make(map[string]aspect.Manager)
-	as := make(map[config.APIMethod]config.AspectSet)
-
-	// setup aspect sets for all methods
-	for _, am := range config.APIMethods() {
-		as[am] = config.AspectSet{}
+		c, found := m.managers[k]
+		return c, found
 	}
-	for _, bnd := range bnds {
-		r[bnd.Aspect.Kind()] = bnd.Aspect
-		as[bnd.Method][bnd.Aspect.Kind()] = true
+}
+
+// BuilderValidatorFinder returns a ValidatorFinderFunc for builders.
+func (m *Manager) BuilderValidatorFinder() config.ValidatorFinderFunc {
+	return func(kind string, name string) (adapter.ConfigValidator, bool) {
+		k, found := aspect.ParseKind(kind)
+		if !found {
+			return nil, false
+		}
+		return m.builders.FindBuilder(k, name)
 	}
+}
+
+// MethodMap returns map of APIMethod --> AspectSet.
+func (m *Manager) MethodMap() map[aspect.APIMethod]config.AspectSet {
+	return m.methodMap
+}
+
+// ProcessBindings returns a fully constructed manager map and aspectSet.
+func ProcessBindings(managers aspect.ManagerInventory) (map[aspect.Kind]aspect.Manager, map[aspect.APIMethod]config.AspectSet) {
+	r := make(map[aspect.Kind]aspect.Manager)
+	as := make(map[aspect.APIMethod]config.AspectSet)
+
+	for method, mgrs := range managers {
+		as[method] = config.AspectSet{}
+
+		for _, m := range mgrs {
+			r[m.Kind()] = m
+			as[method][m.Kind().String()] = true
+		}
+	}
+
 	return r, as
 }

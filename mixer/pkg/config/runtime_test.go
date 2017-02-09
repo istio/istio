@@ -69,9 +69,6 @@ func TestRuntime(t *testing.T) {
 		adapterByName: map[string]*pb.Adapter{
 			"a1": a1, "a2": a2,
 		},
-		adapterByKind: map[string][]*pb.Adapter{
-			LC: {a1, a2},
-		},
 		serviceConfig: &pb.ServiceConfig{
 			Rules: []*pb.AspectRule{
 				{

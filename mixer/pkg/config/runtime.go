@@ -38,8 +38,7 @@ type (
 		Aspect  *pb.Aspect
 	}
 
-	// AspectSet is a set of aspects. ex: Check call will result in {"listChecker", "iam"}
-	// Runtime should only return aspects matching a certain type.
+	// AspectSet is a set of aspects by name.
 	AspectSet map[string]bool
 )
 
@@ -69,7 +68,7 @@ func (r *Runtime) evalPredicate(selector string, bag attribute.Bag) (bool, error
 	return r.eval.EvalPredicate(selector, bag)
 }
 
-// resolveRules recurses thru the config struct and returns a list of combined aspects
+// resolveRules recurses through the config struct and returns a list of combined aspects
 func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*pb.AspectRule, path string, dlist *[]*Combined) (err error) {
 	var selected bool
 	var lerr error
@@ -105,19 +104,14 @@ func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*
 
 // combined returns a Combined config given an aspect config
 func (r *Runtime) combined(aa *pb.Aspect, aspectSet AspectSet) *Combined {
-	if !aspectSet[aa.GetKind()] {
-		glog.V(3).Infof("Aspect Rejected %v not is set (%v)", aa.GetKind(), aspectSet)
+	if !aspectSet[aa.Kind] {
+		glog.V(3).Infof("Aspect rejected: %v not in set [%v]", aa.Kind, aspectSet)
 		return nil
 	}
 
-	var adp *pb.Adapter
 	// find matching adapter
 	// assume that config references are correct
-	if aa.GetAdapter() != "" {
-		adp = r.adapterByName[aa.GetAdapter()]
-	} else {
-		adp = r.adapterByKind[aa.GetKind()][0]
-	}
+	adp := r.adapterByName[aa.Adapter]
 
 	return &Combined{adp, aa}
 }

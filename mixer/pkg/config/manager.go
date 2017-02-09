@@ -44,8 +44,8 @@ type ChangeListener interface {
 // api.Handler listens for config changes.
 type Manager struct {
 	eval          expr.Evaluator
-	aspectFinder  ValidatorFinder
-	builderFinder ValidatorFinder
+	aspectFinder  ValidatorFinderFunc
+	builderFinder ValidatorFinderFunc
 	loopDelay     time.Duration
 	globalConfig  string
 	serviceConfig string
@@ -70,7 +70,7 @@ type Manager struct {
 // as command line input parameters.
 // GlobalConfig specifies the location of Global Config.
 // ServiceConfig specifies the location of Service config.
-func NewManager(eval expr.Evaluator, aspectFinder ValidatorFinder, builderFinder ValidatorFinder,
+func NewManager(eval expr.Evaluator, aspectFinder ValidatorFinderFunc, builderFinder ValidatorFinderFunc,
 	globalConfig string, serviceConfig string, loopDelay time.Duration) *Manager {
 	m := &Manager{
 		eval:          eval,

@@ -32,7 +32,7 @@ import (
 )
 
 // Handler holds pointers to the functions that implement
-// request-level processing for incoming all public APIs.
+// request-level processing for all public APIs.
 type Handler interface {
 	// Check performs the configured set of precondition checks.
 	// Note that the request parameter is immutable, while the response parameter is where
@@ -44,7 +44,7 @@ type Handler interface {
 	// results are specified
 	Report(context.Context, attribute.Tracker, *mixerpb.ReportRequest, *mixerpb.ReportResponse)
 
-	// Quota increments, decrements, or queries the specified quotas.
+	// Quota increments the specified quotas.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
 	Quota(context.Context, attribute.Tracker, *mixerpb.QuotaRequest, *mixerpb.QuotaResponse)
@@ -62,24 +62,25 @@ type handlerState struct {
 	// Configs for the aspects that'll be used to serve each API method. <*config.Runtime>
 	cfg atomic.Value
 
-	// methodmap maps apimethod to aspectSet
-	methodmap map[config.APIMethod]config.AspectSet
+	// methodMap maps an API method to a set of aspects configured for the method
+	methodMap map[aspect.APIMethod]config.AspectSet
 }
 
 // NewHandler returns a canonical Handler that implements all of the mixer's API surface
-func NewHandler(aspectExecutor Executor, methodmap map[config.APIMethod]config.AspectSet) Handler {
+func NewHandler(aspectExecutor Executor, methodMap map[aspect.APIMethod]config.AspectSet) Handler {
 	return &handlerState{
 		aspectExecutor: aspectExecutor,
-		methodmap:      methodmap,
+		methodMap:      methodMap,
 	}
 }
 
 // execute performs common function shared across the api surface.
-func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, attrs *mixerpb.Attributes, method config.APIMethod) *rpc.Status {
+func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, attrs *mixerpb.Attributes, method aspect.APIMethod) *rpc.Status {
 	ab, err := tracker.StartRequest(attrs)
 	if err != nil {
-		glog.Warningf("Unable to process attribute update. error: '%v'", err)
-		return newStatus(code.Code_INVALID_ARGUMENT)
+		msg := fmt.Sprintf("Unable to process attribute update: %v", err)
+		glog.Error(msg)
+		return newStatusWithMessage(code.Code_INVALID_ARGUMENT, msg)
 	}
 	defer tracker.EndRequest()
 
@@ -88,16 +89,19 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 
 	untypedCfg := h.cfg.Load()
 	if untypedCfg == nil {
-		const gerr = "configuration is not available"
 		// config has NOT been loaded yet
-		glog.Error(gerr)
-		return newStatusWithMessage(code.Code_INTERNAL, gerr)
+		const msg = "Configuration is not available"
+		glog.Error(msg)
+		return newStatusWithMessage(code.Code_INTERNAL, msg)
 	}
 	cfg := untypedCfg.(config.Resolver)
-	cfgs, err := cfg.Resolve(ab, h.methodmap[method])
+	cfgs, err := cfg.Resolve(ab, h.methodMap[method])
 	if err != nil {
-		return newStatusWithMessage(code.Code_INTERNAL, fmt.Sprintf("unable to resolve config %s", err.Error()))
+		msg := fmt.Sprintf("unable to resolve config: %v", err)
+		glog.Error(msg)
+		return newStatusWithMessage(code.Code_INTERNAL, msg)
 	}
+
 	if glog.V(2) {
 		glog.Infof("Resolved [%d] ==> %v ", len(cfgs), cfgs)
 	}
@@ -106,6 +110,7 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 	if err != nil {
 		return newStatusWithMessage(code.Code_INTERNAL, err.Error())
 	}
+
 	for _, out := range outs {
 		if out.Code != code.Code_OK {
 			return newStatus(out.Code)
@@ -117,7 +122,7 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 // Check performs 'check' function corresponding to the mixer api.
 func (h *handlerState) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	response.RequestIndex = request.RequestIndex
-	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, config.CheckMethod)
+	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, aspect.CheckMethod)
 	if glog.V(2) {
 		glog.Infof("Check (%v %v) ==> %v ", tracker, request.AttributeUpdate, response)
 	}
@@ -126,7 +131,7 @@ func (h *handlerState) Check(ctx context.Context, tracker attribute.Tracker, req
 // Report performs 'report' function corresponding to the mixer api.
 func (h *handlerState) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 	response.RequestIndex = request.RequestIndex
-	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, config.ReportMethod)
+	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, aspect.ReportMethod)
 	if glog.V(2) {
 		glog.Infof("Report (%v %v) ==> %v ", tracker, request.AttributeUpdate, response)
 	}
@@ -135,7 +140,7 @@ func (h *handlerState) Report(ctx context.Context, tracker attribute.Tracker, re
 // Quota performs 'quota' function corresponding to the mixer api.
 func (h *handlerState) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
 	response.RequestIndex = request.RequestIndex
-	status := h.execute(ctx, tracker, request.AttributeUpdate, config.QuotaMethod)
+	status := h.execute(ctx, tracker, request.AttributeUpdate, aspect.QuotaMethod)
 
 	if status.Code == int32(code.Code_OK) {
 		response.Amount = 1

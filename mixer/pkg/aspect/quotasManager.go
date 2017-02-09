@@ -81,7 +81,7 @@ func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env ada
 	}, nil
 }
 
-func (*quotasManager) Kind() string                                                   { return QuotaKind }
+func (*quotasManager) Kind() Kind                                                     { return QuotasKind }
 func (*quotasManager) DefaultConfig() adapter.AspectConfig                            { return &aconfig.QuotasParams{} }
 func (*quotasManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 

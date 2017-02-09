@@ -61,17 +61,17 @@ func TestConfigManager(t *testing.T) {
 		{sGlobalConfig, "globalconfig", "", "", nil, "no such file or directory"},
 		{sGlobalConfig, "globalconfig", sSvcConfig, "serviceconfig", nil, "failed validation"},
 		{sGlobalConfigValid, "globalconfig", sSvcConfig2, "serviceconfig", map[string]adapter.ConfigValidator{
-			"istio/denychecker": &lc{},
-			"metrics":           &lc{},
-			"listchecker":       &lc{},
+			"denyChecker": &lc{},
+			"metrics":     &lc{},
+			"listchecker": &lc{},
 		}, ""},
 	}
 	for idx, mt := range mlist {
 		loopDelay := time.Millisecond * 50
 		vf := &fakeVFinder{v: mt.v}
 		ma := &managerArgs{
-			aspectFinder:  vf,
-			builderFinder: vf,
+			aspectFinder:  vf.FindValidator,
+			builderFinder: vf.FindValidator,
 			eval:          evaluator,
 			loopDelay:     loopDelay,
 		}
@@ -100,8 +100,8 @@ func newmanager(args *managerArgs) *Manager {
 
 type managerArgs struct {
 	eval          expr.Evaluator
-	aspectFinder  ValidatorFinder
-	builderFinder ValidatorFinder
+	aspectFinder  ValidatorFinderFunc
+	builderFinder ValidatorFinderFunc
 	loopDelay     time.Duration
 	globalConfig  string
 	serviceConfig string

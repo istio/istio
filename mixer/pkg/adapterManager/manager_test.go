@@ -38,8 +38,8 @@ type (
 	}
 
 	fakemgr struct {
-		kind string
 		aspect.Manager
+		kind   aspect.Kind
 		w      *fakewrapper
 		called int8
 	}
@@ -80,7 +80,7 @@ func (f *fakewrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (outpu
 }
 func (f *fakewrapper) Close() error { return nil }
 
-func (m *fakemgr) Kind() string {
+func (m *fakemgr) Kind() aspect.Kind {
 	return m.kind
 }
 
@@ -90,7 +90,7 @@ func newTestManager(name string, throwOnNewAspect bool, body func() (*aspect.Out
 func (testManager) Close() error                                                { return nil }
 func (testManager) DefaultConfig() adapter.AspectConfig                         { return nil }
 func (testManager) ValidateConfig(c adapter.AspectConfig) *adapter.ConfigErrors { return nil }
-func (testManager) Kind() string                                                { return "denyChecker" }
+func (testManager) Kind() aspect.Kind                                           { return aspect.DenialsKind }
 func (m testManager) Name() string                                              { return m.name }
 func (testManager) Description() string                                         { return "deny checker aspect manager for testing" }
 
@@ -119,7 +119,7 @@ func (m *fakemgr) NewAspect(cfg *config.Combined, adp adapter.Builder, env adapt
 	return m.w, nil
 }
 
-func (m *fakeBuilderReg) FindBuilder(kind string, adapterName string) (adapter.Builder, bool) {
+func (m *fakeBuilderReg) FindBuilder(kind aspect.Kind, adapterName string) (adapter.Builder, bool) {
 	return m.adp, m.found
 }
 
@@ -135,9 +135,9 @@ func getReg(found bool) *fakeBuilderReg {
 	return &fakeBuilderReg{&fakeadp{name: "k1impl1"}, found}
 }
 
-func newFakeMgrReg(w *fakewrapper) map[string]aspect.Manager {
-	mgrs := []aspect.Manager{&fakemgr{kind: "k1", w: w}, &fakemgr{kind: "k2"}}
-	mreg := make(map[string]aspect.Manager, len(mgrs))
+func newFakeMgrReg(w *fakewrapper) map[aspect.Kind]aspect.Manager {
+	mgrs := []aspect.Manager{&fakemgr{kind: aspect.DenialsKind, w: w}, &fakemgr{kind: aspect.AccessLogsKind}}
+	mreg := make(map[aspect.Kind]aspect.Manager, len(mgrs))
 	for _, mgr := range mgrs {
 		mreg[mgr.Kind()] = mgr
 	}
@@ -146,21 +146,21 @@ func newFakeMgrReg(w *fakewrapper) map[string]aspect.Manager {
 
 func TestManager(t *testing.T) {
 	goodcfg := &config.Combined{
-		Aspect:  &configpb.Aspect{Kind: "k1", Params: &rpc.Status{}},
-		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1", Params: &rpc.Status{}},
+		Aspect:  &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
+		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1", Params: &rpc.Status{}},
 	}
 
 	badcfg1 := &config.Combined{
-		Aspect: &configpb.Aspect{Kind: "k1", Params: &rpc.Status{}},
-		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1",
+		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
+		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
 			Params: make(chan int)},
 	}
 	badcfg2 := &config.Combined{
-		Aspect: &configpb.Aspect{Kind: "k1", Params: make(chan int)},
-		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1",
+		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: make(chan int)},
+		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
 			Params: &rpc.Status{}},
 	}
-	emptyMgrs := map[string]aspect.Manager{}
+	emptyMgrs := map[aspect.Kind]aspect.Manager{}
 	attrs := &fakebag{}
 	mapper := &fakeevaluator{}
 
@@ -195,7 +195,7 @@ func TestManager(t *testing.T) {
 		if tt.wrapper.called != 1 {
 			t.Errorf("[%d] Expected wrapper call", idx)
 		}
-		mgr1, _ := mgr["k1"]
+		mgr1, _ := mgr[aspect.DenialsKind]
 		fmgr := mgr1.(*fakemgr)
 		if fmgr.called != 1 {
 			t.Errorf("[%d] Expected mgr.NewAspect call", idx)
@@ -209,7 +209,7 @@ func TestManager(t *testing.T) {
 		}
 
 		if fmgr.called != 1 {
-			t.Errorf("[%d] UnExpected mgr.NewAspect call %d", idx, fmgr.called)
+			t.Errorf("[%d] Unexpected mgr.NewAspect call %d", idx, fmgr.called)
 		}
 
 	}
@@ -217,18 +217,18 @@ func TestManager(t *testing.T) {
 
 func TestManager_BulkExecute(t *testing.T) {
 	goodcfg := &config.Combined{
-		Aspect:  &configpb.Aspect{Kind: "k1", Params: &rpc.Status{}},
-		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1", Params: &rpc.Status{}},
+		Aspect:  &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
+		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1", Params: &rpc.Status{}},
 	}
 
 	badcfg1 := &config.Combined{
-		Aspect: &configpb.Aspect{Kind: "k1", Params: &rpc.Status{}},
-		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1",
+		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
+		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
 			Params: make(chan int)},
 	}
 	badcfg2 := &config.Combined{
-		Aspect: &configpb.Aspect{Kind: "k1", Params: make(chan int)},
-		Builder: &configpb.Adapter{Kind: "k1", Impl: "k1impl1",
+		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: make(chan int)},
+		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
 			Params: &rpc.Status{}},
 	}
 	cases := []struct {
@@ -279,8 +279,8 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 			return nil, fmt.Errorf("empty")
 		})
 	}
-	mreg := map[string]aspect.Manager{
-		name: cacheThrow,
+	mreg := map[aspect.Kind]aspect.Manager{
+		aspect.DenialsKind: cacheThrow,
 	}
 	breg := &fakeBuilderReg{
 		adp:   cacheThrow,

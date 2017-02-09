@@ -48,7 +48,7 @@ type (
 		NewAspect(cfg *config.Combined, adapter adapter.Builder, env adapter.Env) (Wrapper, error)
 
 		// Kind return the kind of aspect
-		Kind() string
+		Kind() Kind
 	}
 
 	// Wrapper encapsulates a single aspect and allows it to be invoked.

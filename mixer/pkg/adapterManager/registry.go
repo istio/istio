@@ -26,12 +26,12 @@ import (
 type BuildersByName map[string]adapter.Builder
 
 // BuildersPerKind holds a set of builders, indexed by aspect kind.
-type BuildersPerKind map[string]BuildersByName
+type BuildersPerKind map[aspect.Kind]BuildersByName
 
 // registry implements pkg/adapter/Registrar.
 // registry is initialized in the constructor and is immutable thereafter.
 // All registered builders must have unique names per aspect kind.
-// It also implements builderFinder that manager uses.
+// It also implements builders that manager uses.
 type registry struct {
 	builders BuildersPerKind
 }
@@ -57,7 +57,7 @@ func BuilderMap(builders []adapter.RegisterFn) BuildersPerKind {
 }
 
 // FindBuilder finds builder by name.
-func (r *registry) FindBuilder(kind string, name string) (adapter.Builder, bool) {
+func (r *registry) FindBuilder(kind aspect.Kind, name string) (adapter.Builder, bool) {
 	m := r.builders[kind]
 	b, ok := m[name]
 	return b, ok
@@ -65,35 +65,35 @@ func (r *registry) FindBuilder(kind string, name string) (adapter.Builder, bool)
 
 // RegisterListsBuilder registers a new ListChecker builder.
 func (r *registry) RegisterListsBuilder(b adapter.ListsBuilder) {
-	r.insert(aspect.ListKind, b)
+	r.insert(aspect.ListsKind, b)
 }
 
 // RegisterDenialsBuilder registers a new DenyChecker builder.
 func (r *registry) RegisterDenialsBuilder(b adapter.DenialsBuilder) {
-	r.insert(aspect.DenyKind, b)
+	r.insert(aspect.DenialsKind, b)
 }
 
 // RegisterApplicationLogsBuilder registers a new Logger builder.
 func (r *registry) RegisterApplicationLogsBuilder(b adapter.ApplicationLogsBuilder) {
-	r.insert(aspect.LogKind, b)
+	r.insert(aspect.ApplicationLogsKind, b)
 }
 
 // RegisterAccessLogsBuilder registers a new Logger builder.
 func (r *registry) RegisterAccessLogsBuilder(b adapter.AccessLogsBuilder) {
-	r.insert(aspect.AccessLogKind, b)
+	r.insert(aspect.AccessLogsKind, b)
 }
 
 // RegisterQuotasBuilder registers a new Quotas builder.
 func (r *registry) RegisterQuotasBuilder(b adapter.QuotasBuilder) {
-	r.insert(aspect.QuotaKind, b)
+	r.insert(aspect.QuotasKind, b)
 }
 
 // RegisterMetricsBuilder registers a new Metrics builder.
 func (r *registry) RegisterMetricsBuilder(b adapter.MetricsBuilder) {
-	r.insert(aspect.MetricKind, b)
+	r.insert(aspect.MetricsKind, b)
 }
 
-func (r *registry) insert(kind string, b adapter.Builder) {
+func (r *registry) insert(kind aspect.Kind, b adapter.Builder) {
 	glog.V(2).Infof("Registering %v:%v", kind, b)
 
 	m := r.builders[kind]
