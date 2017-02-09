@@ -55,6 +55,8 @@ class HttpControl final : public Logger::Loggable<Logger::Id::http> {
 
   // The mixer client
   std::unique_ptr<::istio::mixer_client::MixerClient> mixer_client_;
+  // Source service
+  std::string source_service_;
   // Target service
   std::string target_service_;
 };

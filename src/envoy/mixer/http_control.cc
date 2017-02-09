@@ -25,7 +25,6 @@ namespace Mixer {
 namespace {
 
 const std::string kProxyPeerID = "Istio/Proxy";
-const std::string kEnvNameTargetService = "TARGET_SERVICE";
 
 // Define lower case string for X-Forwarded-Host.
 const LowerCaseString kHeaderNameXFH("x-forwarded-host", false);
@@ -44,6 +43,11 @@ const std::string kAttrNameLogMessage = "logMessage";
 const std::string kAttrNameResponseTime = "responseTime";
 const std::string kAttrNameOriginIp = "originIp";
 const std::string kAttrNameOriginHost = "originHost";
+
+const std::string kEnvNameSourceService = "SOURCE_SERVICE";
+const std::string kEnvNameTargetService = "TARGET_SERVICE";
+
+const std::string kAttrNameSourceService = "sourceService";
 const std::string kAttrNameTargetService = "targetService";
 
 Attributes::Value StringValue(const std::string& str) {
@@ -147,6 +151,10 @@ HttpControl::HttpControl(const std::string& mixer_server) {
   options.mixer_server = mixer_server;
   mixer_client_ = ::istio::mixer_client::CreateMixerClient(options);
 
+  auto source_service = getenv(kEnvNameSourceService.c_str());
+  if (source_service) {
+    source_service_ = source_service;
+  }
   auto target_service = getenv(kEnvNameTargetService.c_str());
   if (target_service) {
     target_service_ = target_service;
@@ -157,6 +165,7 @@ void HttpControl::FillCheckAttributes(const HeaderMap& header_map,
                                       Attributes* attr) {
   FillRequestHeaderAttributes(header_map, attr);
 
+  SetStringAttribute(kAttrNameSourceService, source_service_, attr);
   SetStringAttribute(kAttrNameTargetService, target_service_, attr);
   attr->attributes[kAttrNamePeerId] = StringValue(kProxyPeerID);
 }
