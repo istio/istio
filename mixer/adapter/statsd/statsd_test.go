@@ -195,7 +195,7 @@ func TestRecord(t *testing.T) {
 	invalidCounter.MetricValue = 1.0
 
 	invalidKind := validCounter
-	invalidKind.Kind = adapter.Kind(37)
+	invalidKind.Kind = adapter.MetricKind(37)
 
 	methodCodeMetric := validCounter
 	methodCodeMetric.Name = templateMetricName // this needs to match the name in conf.MetricNameTemplateStrings

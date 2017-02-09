@@ -18,7 +18,13 @@ package prometheus
 
 import (
 	"fmt"
+	"math"
+	"strconv"
+	"strings"
 	"sync"
+
+	"github.com/hashicorp/go-multierror"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/mixer/adapter/prometheus/config"
 	"istio.io/mixer/pkg/adapter"
@@ -32,28 +38,33 @@ type (
 		once sync.Once
 	}
 
-	prom struct{}
+	prom struct {
+		metrics map[string]prometheus.Collector
+	}
 )
 
 var (
 	name = "prometheus"
 	desc = "Publishes prometheus metrics"
 	conf = &config.Params{}
+
+	charReplacer = strings.NewReplacer("/", "_", ".", "_", " ", "_")
 )
 
 // Register records the builders exposed by this adapter.
 func Register(r adapter.Registrar) {
-	r.RegisterMetricsBuilder(newFactory())
+	r.RegisterMetricsBuilder(newFactory(newServer(defaultAddr)))
 }
 
-func newFactory() *factory {
-	return &factory{adapter.NewDefaultBuilder(name, desc, conf), newServer(defaultAddr), sync.Once{}}
+func newFactory(srv server) *factory {
+	return &factory{adapter.NewDefaultBuilder(name, desc, conf), srv, sync.Once{}}
 }
 
 func (f *factory) Close() error {
 	return f.srv.Close()
 }
 
+// NewMetricsAspect provides an implementation for adapter.MetricsBuilder.
 func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metrics []adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	var serverErr error
 	f.once.Do(func() { serverErr = f.srv.Start(env.Logger()) })
@@ -61,11 +72,140 @@ func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, me
 		return nil, fmt.Errorf("could not start prometheus server: %v", serverErr)
 	}
 
-	return &prom{}, nil
+	var metricErr *multierror.Error
+
+	metricsMap := make(map[string]prometheus.Collector, len(metrics))
+	for _, m := range metrics {
+		switch m.Kind {
+		case adapter.Gauge:
+			c, err := registerOrGet(newGaugeVec(m.Name, m.Description, m.Labels))
+			if err != nil {
+				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
+				continue
+			}
+			metricsMap[m.Name] = c
+		case adapter.Counter:
+			c, err := registerOrGet(newCounterVec(m.Name, m.Description, m.Labels))
+			if err != nil {
+				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
+				continue
+			}
+			metricsMap[m.Name] = c
+		default:
+			metricErr = multierror.Append(metricErr, fmt.Errorf("unknown metric kind (%d); could not register metric", m.Kind))
+		}
+	}
+
+	return &prom{metricsMap}, metricErr.ErrorOrNil()
 }
 
-func (*prom) Record([]adapter.Value) error {
-	return nil
+func (p *prom) Record(vals []adapter.Value) error {
+	var result *multierror.Error
+
+	for _, val := range vals {
+		collector, found := p.metrics[val.Name]
+		if !found {
+			result = multierror.Append(result, fmt.Errorf("could not find metric description for %s", val.Name))
+			continue
+		}
+		switch val.Kind {
+		case adapter.Gauge:
+			vec := collector.(*prometheus.GaugeVec)
+			amt, err := promValue(val)
+			if err != nil {
+				result = multierror.Append(result, fmt.Errorf("could get value for metric %s", val.Name))
+				continue
+			}
+			vec.With(promLabels(val.Labels)).Set(amt)
+		case adapter.Counter:
+			vec := collector.(*prometheus.CounterVec)
+			amt, err := promValue(val)
+			if err != nil {
+				result = multierror.Append(result, fmt.Errorf("could get value for metric %s", val.Name))
+				continue
+			}
+			vec.With(promLabels(val.Labels)).Add(amt)
+		default:
+			result = multierror.Append(result, fmt.Errorf("could not process metric value: %v", val))
+		}
+	}
+
+	return result.ErrorOrNil()
 }
 
 func (*prom) Close() error { return nil }
+
+func newCounterVec(name, desc string, labels map[string]adapter.LabelKind) *prometheus.CounterVec {
+	c := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: safeName(name),
+			Help: desc,
+		},
+		labelNames(labels),
+	)
+	return c
+}
+
+func newGaugeVec(name, desc string, labels map[string]adapter.LabelKind) *prometheus.GaugeVec {
+	c := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: safeName(name),
+			Help: desc,
+		},
+		labelNames(labels),
+	)
+	return c
+}
+
+func labelNames(m map[string]adapter.LabelKind) []string {
+	i := 0
+	keys := make([]string, len(m))
+	for k := range m {
+		keys[i] = safeName(k)
+		i++
+	}
+	return keys
+}
+
+// borrowed from prometheus.RegisterOrGet. However, that method is
+// targeted for removal soon(tm). So, we duplicate that functionality here
+// to maintain it long-term, as we have a use case for the convenience.
+func registerOrGet(c prometheus.Collector) (prometheus.Collector, error) {
+	if err := prometheus.Register(c); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return are.ExistingCollector, nil
+		}
+		return nil, err
+	}
+	return c, nil
+}
+
+func safeName(n string) string {
+	s := strings.TrimPrefix(n, "/")
+	return charReplacer.Replace(s)
+}
+
+func promValue(val adapter.Value) (float64, error) {
+	switch i := val.MetricValue.(type) {
+	case float64:
+		return i, nil
+	case int64:
+		return float64(i), nil
+	case string:
+		f, err := strconv.ParseFloat(i, 64)
+		if err != nil {
+			return math.NaN(), err
+		}
+		return f, err
+	default:
+		return math.NaN(), fmt.Errorf("could not extract numeric value for metric %s", val.Name)
+	}
+}
+
+func promLabels(l map[string]interface{}) prometheus.Labels {
+	labels := make(prometheus.Labels, len(l))
+	for i, label := range l {
+		labels[i] = fmt.Sprintf("%v", label)
+	}
+	return labels
+}

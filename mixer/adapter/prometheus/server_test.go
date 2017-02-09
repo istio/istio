@@ -51,8 +51,4 @@ func TestServer(t *testing.T) {
 	if err := s.Close(); err != nil {
 		t.Errorf("Failed to close server properly: %v", err)
 	}
-
-	if resp, err := http.Get(testURL); err == nil {
-		t.Errorf("http.GET should have failed for '%s'; got %v", metricsPath, resp)
-	}
 }

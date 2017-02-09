@@ -21,8 +21,8 @@ import (
 
 // Metric kinds supported by mixer.
 const (
-	Gauge   Kind = iota // records instantaneous (non-cumulative) measurements
-	Counter             // records increasing cumulative values
+	Gauge   MetricKind = iota // records instantaneous (non-cumulative) measurements
+	Counter                   // records increasing cumulative values
 )
 
 // Label kinds supported by mixer.
@@ -56,7 +56,7 @@ type (
 		// value is being reported.
 		Name string
 		// Kind provides type information on the metric itself
-		Kind Kind // TODO: will this be needed? Will adapters get descriptors ahead of time?
+		Kind MetricKind
 		// Labels provide metadata about the metric value. They are
 		// generated from the set of attributes provided by Report().
 		Labels map[string]interface{}
@@ -73,9 +73,9 @@ type (
 		MetricValue interface{}
 	}
 
-	// Kind defines the set of known metrics types that can be generated
+	// MetricKind defines the set of known metrics types that can be generated
 	// by the mixer.
-	Kind int
+	MetricKind int
 
 	// MetricsBuilder builds instances of the Metrics aspect.
 	MetricsBuilder interface {
@@ -90,8 +90,10 @@ type (
 	MetricDefinition struct {
 		// Name is the canonical name of the metric.
 		Name string
+		// Description provides information about this metric.
+		Description string
 		// Kind provides type information about the metric.
-		Kind Kind
+		Kind MetricKind
 		// Labels are the names of keys for dimensional data that will
 		// be generated at runtime and passed along with metric values.
 		Labels map[string]LabelKind
