@@ -16,7 +16,6 @@ syntax = "proto3";
 
 package istio.mixer.v1;
 
-import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "mixer/v1/attributes.proto";
 
@@ -31,16 +30,26 @@ message QuotaRequest {
   // failed RPCs and retries. This should be a UUID per call, where the same
   // UUID is used for retries of the same quota allocation call.
   string deduplication_id = 3;
+
+  // The quota to allocate from.
+  string quota = 4;
+
+  // The amount of quota to allocate.
+  int64 amount = 5;
+
+  // If true, allows a response to return less quota than requested. When
+  // false, the exact requested amount is returned or 0 if not enough quota
+  // was available.
+  bool best_effort = 6;
 }
 
 message QuotaResponse {
-  // Index of the request this response is associated with
+  // Index of the request this response is associated with.
   int64 request_index = 1;
 
-  // The time at which the returned quota expires
+  // The time at which the returned quota expires, this is 0 for non-expiring quotas.
   google.protobuf.Timestamp expiration = 2;
 
-  // The total amount of quota returned, can be used to satisfy
-  // quota requests with matching attributes until the given expiration time.
+  // The total amount of quota returned, may be less than requested.
   int64 amount = 3;
 }
