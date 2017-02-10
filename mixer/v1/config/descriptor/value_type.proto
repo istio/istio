@@ -52,4 +52,7 @@ enum ValueType {
 
     // A span between two points in time.
     DURATION = 10;
+
+    // A map string -> string, typically used by headers.
+    STRING_MAP = 1;
 }
