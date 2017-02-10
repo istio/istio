@@ -29,15 +29,23 @@ func BenchmarkTracker(b *testing.B) {
 	ts9, _ := ptypes.TimestampProto(t9)
 	ts10, _ := ptypes.TimestampProto(t10)
 
+	d := time.Duration(42) * time.Second
+	ds := ptypes.DurationProto(d)
+
+	sm := &mixerpb.StringMap{Map: map[int32]string{14: "14"}}
+
 	attrs := []mixerpb.Attributes{
 		{
-			Dictionary:          dictionary{1: "N1", 2: "N2", 3: "N3", 4: "N4", 5: "N5", 6: "N6", 7: "N7", 8: "N8", 9: "N9", 10: "N10", 11: "N11", 12: "N12"},
+			Dictionary: dictionary{1: "N1", 2: "N2", 3: "N3", 4: "N4", 5: "N5", 6: "N6", 7: "N7", 8: "N8",
+				9: "N9", 10: "N10", 11: "N11", 12: "N12", 13: "N13", 14: "N14"},
 			StringAttributes:    map[int32]string{1: "1", 2: "2"},
 			Int64Attributes:     map[int32]int64{3: 3, 4: 4},
 			DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
 			BoolAttributes:      map[int32]bool{7: true, 8: false},
 			TimestampAttributes: map[int32]*ptypes.Timestamp{9: ts9, 10: ts10},
-			BytesAttributes:     map[int32][]uint8{11: {11}, 12: {12}},
+			DurationAttributes:  map[int32]*ptypes.Duration{11: ds},
+			BytesAttributes:     map[int32][]uint8{12: {12}, 13: {13}},
+			StringMapAttributes: map[int32]*mixerpb.StringMap{14: sm},
 		},
 
 		{},
@@ -48,7 +56,9 @@ func BenchmarkTracker(b *testing.B) {
 			DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
 			BoolAttributes:      map[int32]bool{7: true, 8: false},
 			TimestampAttributes: map[int32]*ptypes.Timestamp{9: ts9, 10: ts10},
-			BytesAttributes:     map[int32][]uint8{11: {11}, 12: {12}},
+			DurationAttributes:  map[int32]*ptypes.Duration{11: ds},
+			BytesAttributes:     map[int32][]uint8{12: {12}, 13: {13}},
+			StringMapAttributes: map[int32]*mixerpb.StringMap{14: sm},
 		},
 	}
 
@@ -68,7 +78,9 @@ func BenchmarkTracker(b *testing.B) {
 			_, _ = b.Float64("a")
 			_, _ = b.Bool("a")
 			_, _ = b.Time("a")
+			_, _ = b.Duration("a")
 			_, _ = b.Bytes("a")
+			_, _ = b.StringMap("a")
 
 			t.EndRequest()
 		}

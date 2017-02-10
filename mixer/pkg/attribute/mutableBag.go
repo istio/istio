@@ -21,26 +21,28 @@ import (
 
 type mutableBag struct {
 	sync.RWMutex
-	parent    Bag
-	strings   map[string]string
-	int64s    map[string]int64
-	float64s  map[string]float64
-	bools     map[string]bool
-	times     map[string]time.Time
-	durations map[string]time.Duration
-	bytes     map[string][]uint8
+	parent     Bag
+	strings    map[string]string
+	int64s     map[string]int64
+	float64s   map[string]float64
+	bools      map[string]bool
+	times      map[string]time.Time
+	durations  map[string]time.Duration
+	bytes      map[string][]uint8
+	stringMaps map[string]map[string]string
 }
 
 var mutableBags = sync.Pool{
 	New: func() interface{} {
 		return &mutableBag{
-			strings:   make(map[string]string),
-			int64s:    make(map[string]int64),
-			float64s:  make(map[string]float64),
-			bools:     make(map[string]bool),
-			times:     make(map[string]time.Time),
-			durations: make(map[string]time.Duration),
-			bytes:     make(map[string][]uint8),
+			strings:    make(map[string]string),
+			int64s:     make(map[string]int64),
+			float64s:   make(map[string]float64),
+			bools:      make(map[string]bool),
+			times:      make(map[string]time.Time),
+			durations:  make(map[string]time.Duration),
+			bytes:      make(map[string][]uint8),
+			stringMaps: make(map[string]map[string]string),
 		}
 	},
 }
@@ -267,6 +269,36 @@ func (mb *mutableBag) BytesKeys() []string {
 	return append(keys, mb.parent.BytesKeys()...)
 }
 
+func (mb *mutableBag) StringMap(name string) (map[string]string, bool) {
+	var r map[string]string
+	var b bool
+	mb.RLock()
+	if r, b = mb.stringMaps[name]; !b {
+		r, b = mb.parent.StringMap(name)
+	}
+	mb.RUnlock()
+	return r, b
+}
+
+func (mb *mutableBag) SetStringMap(name string, value map[string]string) {
+	mb.Lock()
+	mb.stringMaps[name] = value
+	mb.Unlock()
+}
+
+func (mb *mutableBag) StringMapKeys() []string {
+	i := 0
+
+	mb.RLock()
+	keys := make([]string, len(mb.stringMaps))
+	for k := range mb.stringMaps {
+		keys[i] = k
+		i++
+	}
+	mb.RUnlock()
+	return append(keys, mb.parent.StringMapKeys()...)
+}
+
 func (mb *mutableBag) Reset() {
 	mb.Lock()
 
@@ -298,6 +330,10 @@ func (mb *mutableBag) Reset() {
 
 	for k := range mb.bytes {
 		delete(mb.bytes, k)
+	}
+
+	for k := range mb.stringMaps {
+		delete(mb.stringMaps, k)
 	}
 
 	mb.Unlock()

@@ -99,6 +99,45 @@ func parseBytes(s string) (interface{}, error) {
 	return bytes, nil
 }
 
+func parseStringMap(s string) (interface{}, error) {
+	m := make(map[string]string)
+	for _, pair := range strings.Split(s, ";") {
+		colon := strings.Index(pair, ":")
+		if colon < 0 {
+			return nil, fmt.Errorf("%s is not a valid key/value pair in the form key:value", pair)
+		}
+
+		k := pair[0:colon]
+		v := pair[colon+1:]
+		m[k] = v
+	}
+	return m, nil
+}
+
+// add to dictionary
+func add2Dict(dictionary map[int32]string, s string) int32 {
+	// linear search to see if this string is already in the dictionary
+	for k, v := range dictionary {
+		if v == s {
+			return k
+		}
+	}
+
+	index := int32(len(dictionary))
+	dictionary[index] = s
+	return index
+}
+
+func makeStringMap(dictionary map[int32]string, m map[string]string) *mixerpb.StringMap {
+	sm := mixerpb.StringMap{Map: make(map[int32]string)}
+
+	for k, v := range m {
+		sm.Map[add2Dict(dictionary, k)] = v
+	}
+
+	return &sm
+}
+
 type convertFn func(string) (interface{}, error)
 
 func process(dictionary map[int32]string, s string, f convertFn) (map[int32]interface{}, error) {
@@ -121,12 +160,8 @@ func process(dictionary map[int32]string, s string, f convertFn) (map[int32]inte
 				return nil, err
 			}
 
-			// add to dictionary
-			index := int32(len(dictionary))
-			dictionary[index] = name
-
 			// add to results
-			m[index] = nv
+			m[add2Dict(dictionary, name)] = nv
 		}
 	}
 
@@ -143,6 +178,7 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 	attrs.TimestampAttributes = make(map[int32]*ptypes.Timestamp)
 	attrs.DurationAttributes = make(map[int32]*ptypes.Duration)
 	attrs.BytesAttributes = make(map[int32][]uint8)
+	attrs.StringMapAttributes = make(map[int32]*mixerpb.StringMap)
 
 	// the following boilerplate would be more succinct with generics...
 
@@ -198,6 +234,13 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 		attrs.BytesAttributes[k] = v.([]uint8)
 	}
 
+	if m, err = process(attrs.Dictionary, rootArgs.stringMapAttributes, parseStringMap); err != nil {
+		return nil, err
+	}
+	for k, v := range m {
+		attrs.StringMapAttributes[k] = makeStringMap(attrs.Dictionary, v.(map[string]string))
+	}
+
 	if m, err = process(attrs.Dictionary, rootArgs.attributes, parseString); err != nil {
 		return nil, err
 	}
@@ -217,6 +260,8 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 			attrs.DurationAttributes[k] = val.(*ptypes.Duration)
 		} else if val, err := parseBytes(s); err == nil {
 			attrs.BytesAttributes[k] = val.([]uint8)
+		} else if val, err := parseStringMap(s); err == nil {
+			attrs.StringMapAttributes[k] = makeStringMap(attrs.Dictionary, val.(map[string]string))
 		} else {
 			attrs.StringAttributes[k] = s
 		}

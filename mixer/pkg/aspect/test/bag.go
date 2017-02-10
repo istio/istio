@@ -64,3 +64,8 @@ func (t *Bag) Duration(name string) (time.Duration, bool) {
 func (t *Bag) Bytes(name string) ([]uint8, bool) {
 	return []uint8{}, false
 }
+
+// StringMap returns the named attribute if it exists.
+func (t *Bag) StringMap(name string) (map[string]string, bool) {
+	return nil, false
+}

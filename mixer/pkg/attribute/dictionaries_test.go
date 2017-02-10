@@ -15,17 +15,16 @@
 package attribute
 
 import (
+	"strconv"
 	"testing"
 )
 
 func TestCompareDictionary(t *testing.T) {
-	type testCase struct {
+	cases := []struct {
 		d1             dictionary
 		d2             dictionary
 		expectedResult bool
-	}
-
-	cases := []testCase{
+	}{
 		{make(dictionary), nil, true},
 		{make(dictionary), make(dictionary), true},
 		{dictionary{1: "1"}, nil, false},
@@ -37,15 +36,17 @@ func TestCompareDictionary(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		r := compareDictionaries(c.d1, c.d2)
-		if r != c.expectedResult {
-			t.Errorf("Dictionary comparison %v returned %v, expected %v", i, r, c.expectedResult)
-		}
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			r := compareDictionaries(c.d1, c.d2)
+			if r != c.expectedResult {
+				t.Errorf("Comparison returned %v, expected %v", r, c.expectedResult)
+			}
 
-		r = compareDictionaries(c.d2, c.d1)
-		if r != c.expectedResult {
-			t.Errorf("Dictionary comparison %v returned %v, expected %v", i, r, c.expectedResult)
-		}
+			r = compareDictionaries(c.d2, c.d1)
+			if r != c.expectedResult {
+				t.Errorf("Comparison returned %v, expected %v", r, c.expectedResult)
+			}
+		})
 	}
 }
 
