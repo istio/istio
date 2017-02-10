@@ -19,24 +19,29 @@
 set -ex
 
 # Make sure to this script on x86_64 Ubuntu Xenial
+UBUNTU_RELEASE="$(lsb_release -c -s)"
+[[ "${UBUNTU_RELEASE}" == 'xenial' ]] || { echo 'must run on Ubuntu Xenial'; exit 1; }
 
 # The bucket name to store proxy binary
-BUCKET_NAME="istio-build/proxy"
+DST="gs://istio-build/proxy"
 
 # The proxy binary name.
 SHA="$(git rev-parse --verify HEAD)"
 BINARY_NAME="envoy-alpha-${SHA}.tar.gz"
 SHA256_NAME="envoy-alpha-${SHA}.sha256"
 
+# If binary already exists skip.
+gsutil stat "${DST}/${BINARY_NAME}" \
+  && { echo 'Binary already exists'; exit 0; } \
+  || echo 'Building a new binary.'
+
 # Build the binary
 bazel build --config=release //src/envoy/mixer:envoy_tar
 BAZEL_TARGET="bazel-bin/src/envoy/mixer/envoy_tar.tar.gz"
 ln "${BAZEL_TARGET}" "${BINARY_NAME}"
 sha256sum "${BINARY_NAME}" > "${SHA256_NAME}"
-DST="gs://${BUCKET_NAME}/"
 
 # Copy it to the bucket.
-echo "Copying ${BINARY_NAME} ${SHA256_NAME} to ${DST}"
-gsutil cp "${BINARY_NAME}" "${SHA256_NAME}" "${DST}"
-
+echo "Copying ${BINARY_NAME} ${SHA256_NAME} to ${DST}/"
+gsutil cp "${BINARY_NAME}" "${SHA256_NAME}" "${DST}/"
 
