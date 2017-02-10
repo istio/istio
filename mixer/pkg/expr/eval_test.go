@@ -131,8 +131,6 @@ func TestGoodEval(tt *testing.T) {
 			},
 			false, "unknown function: QUO",
 		},
-		// The following will not work until we support
-		// map as an attribute type
 		{
 			`request.header["X-FORWARDED-HOST"] == "aaa"`,
 			map[string]interface{}{
@@ -141,7 +139,7 @@ func TestGoodEval(tt *testing.T) {
 				},
 				"y": int64(10),
 			},
-			true, "unresolved attribute",
+			false, "",
 		},
 	}
 

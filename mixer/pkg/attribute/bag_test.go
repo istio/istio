@@ -16,6 +16,8 @@ package attribute
 
 import (
 	"context"
+	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -35,20 +37,27 @@ var (
 	d2  = time.Duration(34) * time.Second
 	d3  = time.Duration(56) * time.Second
 	td1 = ptypes.DurationProto(d1)
+)
 
-	attrs = mixerpb.Attributes{
-		Dictionary:          dictionary{1: "N1", 2: "N2", 3: "N3", 4: "N4", 5: "N5", 6: "N6", 7: "N7", 8: "N8", 9: "N9", 10: "N10", 11: "N11", 12: "N12", 13: "N13"},
+func TestBag(t *testing.T) {
+	sm1 := &mixerpb.StringMap{Map: map[int32]string{16: "Sixteen"}}
+	sm2 := &mixerpb.StringMap{Map: map[int32]string{17: "Seventeen"}}
+	m1 := map[string]string{"N16": "Sixteen"}
+	m3 := map[string]string{"N42": "FourtyTwo"}
+
+	attrs := mixerpb.Attributes{
+		Dictionary: dictionary{1: "N1", 2: "N2", 3: "N3", 4: "N4", 5: "N5", 6: "N6", 7: "N7", 8: "N8",
+			9: "N9", 10: "N10", 11: "N11", 12: "N12", 13: "N13", 14: "N14", 15: "N15", 16: "N16", 17: "N17"},
 		StringAttributes:    map[int32]string{1: "1", 2: "2"},
 		Int64Attributes:     map[int32]int64{3: 3, 4: 4},
 		DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
 		BoolAttributes:      map[int32]bool{7: true, 8: false},
 		TimestampAttributes: map[int32]*ptypes.Timestamp{9: ts9, 10: ts10},
-		DurationAttributes:  map[int32]*ptypes.Duration{13: td1},
-		BytesAttributes:     map[int32][]uint8{11: {11}, 12: {12}},
+		DurationAttributes:  map[int32]*ptypes.Duration{11: td1},
+		BytesAttributes:     map[int32][]uint8{12: {12}, 13: {13}},
+		StringMapAttributes: map[int32]*mixerpb.StringMap{14: sm1, 15: sm2},
 	}
-)
 
-func TestBag(t *testing.T) {
 	am := NewManager()
 	at := am.NewTracker()
 	defer at.Done()
@@ -65,170 +74,47 @@ func TestBag(t *testing.T) {
 	ab.SetFloat64("N6", 42.0)
 	ab.SetBool("N8", true)
 	ab.SetTime("N10", t42)
-	ab.SetDuration("N13", d2)
-	ab.SetBytes("N12", []byte{42})
+	ab.SetDuration("N11", d2)
+	ab.SetBytes("N13", []byte{42})
+	ab.SetStringMap("N15", m3)
 
 	// make sure the overrides worked and didn't disturb non-overridden values
-
-	// strings
-	{
-		var r string
-		var found bool
-
-		if r, found = ab.String("N1"); !found {
-			t.Error("N1 not found")
-		}
-		if r != "1" {
-			t.Error("N1 has wrong value")
-		}
-
-		if r, found = ab.String("N2"); !found {
-			t.Error("N2 not found")
-		}
-		if r != "42" {
-			t.Error("N2 has wrong value")
-		}
-
-		if _, found = ab.String("XYZ"); found {
-			t.Error("XYZ was found")
-		}
+	results := []struct {
+		name  string
+		value interface{}
+	}{
+		{"N1", "1"},
+		{"N2", "42"},
+		{"N3", int64(3)},
+		{"N4", int64(42)},
+		{"N5", 5.0},
+		{"N6", 42.0},
+		{"N7", true},
+		{"N8", true},
+		{"N9", t9},
+		{"N10", t42},
+		{"N11", d2},
+		{"N12", []byte{12}},
+		{"N13", []byte{42}},
+		{"N14", m1},
+		{"N15", m3},
 	}
 
-	// int64
-	{
-		var r int64
-		var found bool
+	for _, r := range results {
+		t.Run(r.name, func(t *testing.T) {
+			v, found := Value(ab, r.name)
+			if !found {
+				t.Error("Got false, expecting true")
+			}
 
-		if r, found = ab.Int64("N3"); !found {
-			t.Error("N3 not found")
-		}
-		if r != 3 {
-			t.Error("N3 has wrong value")
-		}
-
-		if r, found = ab.Int64("N4"); !found {
-			t.Error("N4 not found")
-		}
-		if r != 42 {
-			t.Error("N4 has wrong value")
-		}
-
-		if _, found = ab.Int64("XYZ"); found {
-			t.Error("XYZ was found")
-		}
+			if !reflect.DeepEqual(v, r.value) {
+				t.Errorf("Got %v, expected %v", v, r.value)
+			}
+		})
 	}
 
-	// float64
-	{
-		var r float64
-		var found bool
-
-		if r, found = ab.Float64("N5"); !found {
-			t.Error("N5 not found")
-		}
-		if r != 5.0 {
-			t.Error("N5 has wrong value")
-		}
-
-		if r, found = ab.Float64("N6"); !found {
-			t.Error("N6 not found")
-		}
-		if r != 42 {
-			t.Error("N6 has wrong value")
-		}
-
-		if _, found = ab.Float64("XYZ"); found {
-			t.Error("XYZ was found")
-		}
-	}
-
-	// bool
-	{
-		var r bool
-		var found bool
-
-		if r, found = ab.Bool("N7"); !found {
-			t.Error("N7 not found")
-		}
-		if !r {
-			t.Error("N7 has wrong value")
-		}
-
-		if r, found = ab.Bool("N8"); !found {
-			t.Error("N8 not found")
-		}
-		if !r {
-			t.Error("N8 has wrong value")
-		}
-
-		if _, found = ab.Bool("XYZ"); found {
-			t.Error("XYZ was found")
-		}
-	}
-
-	// Time
-	{
-		var r time.Time
-		var found bool
-
-		if r, found = ab.Time("N9"); !found {
-			t.Error("N9 not found")
-		}
-		if r != t9 {
-			t.Error("N9 has wrong value")
-		}
-
-		if r, found = ab.Time("N10"); !found {
-			t.Error("N10 not found")
-		}
-		if r != t42 {
-			t.Error("N10 has wrong value")
-		}
-
-		if _, found = ab.Time("XYZ"); found {
-			t.Error("XYZ was found")
-		}
-	}
-
-	// Duration
-	{
-		var r time.Duration
-		var found bool
-
-		if r, found = ab.Duration("N13"); !found {
-			t.Error("N13 not found")
-		}
-		if r != d2 {
-			t.Error("N13 has wrong value")
-		}
-
-		if _, found = ab.Duration("XYZ"); found {
-			t.Error("XYZ was found")
-		}
-	}
-
-	// []uint8
-	{
-		var r []uint8
-		var found bool
-
-		if r, found = ab.Bytes("N11"); !found {
-			t.Error("N11 not found")
-		}
-		if r[0] != 11 {
-			t.Error("N11 has wrong value")
-		}
-
-		if r, found = ab.Bytes("N12"); !found {
-			t.Error("N12 not found")
-		}
-		if r[0] != 42 {
-			t.Error("N12 has wrong value")
-		}
-
-		if _, found = ab.Bytes("XYZ"); found {
-			t.Error("XYZ was found")
-		}
+	if _, found := Value(ab, "XYZ"); found {
+		t.Error("XYZ was found")
 	}
 
 	// try another level of overrides just to make sure that path is OK
@@ -308,79 +194,25 @@ func TestBadDuration(t *testing.T) {
 	defer at.EndRequest()
 }
 
-func TestValue(t *testing.T) {
+func TestBadStringMapKey(t *testing.T) {
+	// ensure we handle bogus on-the-wire string map key indices
+
+	sm1 := &mixerpb.StringMap{Map: map[int32]string{16: "Sixteen"}}
+
+	attr := mixerpb.Attributes{
+		Dictionary:          dictionary{1: "N1"},
+		StringMapAttributes: map[int32]*mixerpb.StringMap{1: sm1},
+	}
+
 	am := NewManager()
 	at := am.NewTracker()
 	defer at.Done()
-	ab, _ := at.StartRequest(&attrs)
-	defer ab.Done()
 
-	if v, found := Value(ab, "N1"); !found {
-		t.Error("Expecting N1 to be found")
-	} else {
-		x := v.(string)
-		if x != "1" {
-			t.Errorf("Expecting N1 to return '1', got '%s'", x)
-		}
+	_, err := at.StartRequest(&attr)
+	if err == nil {
+		t.Error("Successfully updated attributes, expected an error")
 	}
-
-	if v, found := Value(ab, "N3"); !found {
-		t.Error("Expecting N3 to be found")
-	} else {
-		x := v.(int64)
-		if x != 3 {
-			t.Errorf("Expecting N3 to return '3', got '%d'", x)
-		}
-	}
-
-	if v, found := Value(ab, "N5"); !found {
-		t.Error("Expecting N5 to be found")
-	} else {
-		x := v.(float64)
-		if x != 5.0 {
-			t.Errorf("Expecting N5 to return '5', got '%v'", x)
-		}
-	}
-
-	if v, found := Value(ab, "N7"); !found {
-		t.Error("Expecting N7 to be found")
-	} else {
-		x := v.(bool)
-		if !x {
-			t.Errorf("Expecting N7 to return true, got false")
-		}
-	}
-
-	if v, found := Value(ab, "N9"); !found {
-		t.Error("Expecting N9 to be found")
-	} else {
-		x := v.(time.Time)
-		if x != t9 {
-			t.Errorf("Expecting N9 to return '%v', got '%s'", ts9, x)
-		}
-	}
-
-	if v, found := Value(ab, "N13"); !found {
-		t.Error("Expecting N13 to be found")
-	} else {
-		x := v.(time.Duration)
-		if x != d1 {
-			t.Errorf("Expecting N13 to return '%v', got '%s'", d1, x)
-		}
-	}
-
-	if v, found := Value(ab, "N11"); !found {
-		t.Error("Expecting N11 to be found")
-	} else {
-		x := v.([]byte)
-		if x[0] != 11 {
-			t.Errorf("Expecting N11 to return []byte{11}")
-		}
-	}
-
-	if _, found := Value(ab, "FOO"); found {
-		t.Error("Expecting FOO to not be found.")
-	}
+	defer at.EndRequest()
 }
 
 type d map[string]interface{}
@@ -670,32 +502,79 @@ func TestByteKeys(t *testing.T) {
 	)
 }
 
+func TestStringMapKeys(t *testing.T) {
+	sm1 := &mixerpb.StringMap{Map: map[int32]string{2: "One"}}
+	m1 := map[string]string{"key1": "One"}
+	m2 := map[string]string{"key2": "Two"}
+	m3 := map[string]string{"key3": "Three"}
+
+	testKeys(t,
+		[]ttable{
+			{
+				&mixerpb.Attributes{},
+				d{},
+				d{},
+			},
+			{
+				&mixerpb.Attributes{
+					Dictionary:          map[int32]string{1: "root", 2: "key1"},
+					StringMapAttributes: map[int32]*mixerpb.StringMap{1: sm1},
+				},
+				d{},
+				d{"root": m1},
+			},
+			{
+				&mixerpb.Attributes{},
+				d{"one": m1, "two": m2},
+				d{"one": m1, "two": m2},
+			},
+			{
+				&mixerpb.Attributes{
+					Dictionary:          map[int32]string{1: "root", 2: "key1"},
+					StringMapAttributes: map[int32]*mixerpb.StringMap{1: sm1},
+				},
+				d{"one": m2, "two": m3},
+				d{"root": m1, "one": m2, "two": m3},
+			},
+		},
+		func(ab MutableBag, k string, v interface{}) {
+			vs := v.(map[string]string)
+			ab.SetStringMap(k, vs)
+		},
+		func(b Bag) []string {
+			return b.StringMapKeys()
+		},
+	)
+}
+
 func testKeys(t *testing.T, cases []ttable, setVal func(MutableBag, string, interface{}), keyFn func(Bag) []string) {
 	for i, tc := range cases {
-		at := NewManager().NewTracker()
-		root, _ := at.StartRequest(tc.inRoot)
-		ab := root.Child()
-		for k, v := range tc.inChild {
-			setVal(ab, k, v)
-		}
-
-		keys := keyFn(ab)
-		// verify everything that was returned was expected
-		for _, key := range keys {
-			if _, found := tc.out[key]; !found {
-				t.Errorf("keyFn(%d) = [..., %s, ...], wanted (key, val) in set: %v", i, key, tc.out)
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			at := NewManager().NewTracker()
+			root, _ := at.StartRequest(tc.inRoot)
+			ab := root.Child()
+			for k, v := range tc.inChild {
+				setVal(ab, k, v)
 			}
-		}
-		// and that everything that was expected was returned
-		for key := range tc.out {
-			if !contains(keys, key) {
-				t.Errorf("keyFn(%d) = %v, wanted '%s' in set", i, keys, key)
-			}
-		}
 
-		at.Done()
-		root.Done()
-		ab.Done()
+			keys := keyFn(ab)
+			// verify everything that was returned was expected
+			for _, key := range keys {
+				if _, found := tc.out[key]; !found {
+					t.Errorf("keyFn = [..., %s, ...], wanted (key, val) in set: %v", key, tc.out)
+				}
+			}
+			// and that everything that was expected was returned
+			for key := range tc.out {
+				if !contains(keys, key) {
+					t.Errorf("keyFn = %v, wanted '%s' in set", keys, key)
+				}
+			}
+
+			at.Done()
+			root.Done()
+			ab.Done()
+		})
 	}
 }
 

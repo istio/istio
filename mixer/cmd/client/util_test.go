@@ -16,113 +16,145 @@ package main
 
 import (
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
-	ptypes "github.com/gogo/protobuf/types"
-
-	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/attribute"
 )
 
 func TestAttributeHandling(t *testing.T) {
-	type testCase struct {
-		rootArgs rootArgs
-		attrs    mixerpb.Attributes
-		result   bool
+	ra := rootArgs{
+		stringAttributes:    "a=X,b=Y,ccc=XYZ,d=X Z,e=X",
+		int64Attributes:     "f=1,g=2,hhh=345",
+		doubleAttributes:    "i=1,j=2,kkk=345.678",
+		boolAttributes:      "l=true,m=false,nnn=true",
+		timestampAttributes: "o=2006-01-02T15:04:05Z",
+		durationAttributes:  "p=42s",
+		bytesAttributes:     "q=1,r=34:56",
+		stringMapAttributes: "s=k1:v1;k2:v2",
+		attributes:          "t=XYZ,u=2,v=3.0,w=true,x=2006-01-02T15:04:05Z,y=42s,z=98:76,zz=k3:v3",
 	}
 
-	ts, _ := ptypes.TimestampProto(time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC))
-	d := ptypes.DurationProto(time.Duration(42) * time.Second)
+	a, err := parseAttributes(&ra)
+	if err != nil {
+		t.Errorf("Expected to parse attributes, got failure %v", err)
+	}
 
-	cases := []testCase{
-		{
-			rootArgs: rootArgs{
-				stringAttributes:    "a=X,b=Y,ccc=XYZ,d=X Z,e=X",
-				int64Attributes:     "f=1,g=2,hhh=345",
-				doubleAttributes:    "i=1,j=2,kkk=345.678",
-				boolAttributes:      "l=true,m=false,nnn=true",
-				timestampAttributes: "o=2006-01-02T15:04:05Z",
-				durationAttributes:  "p=42s",
-				bytesAttributes:     "q=1,r=34:56",
-				attributes:          "s=XYZ,t=2,u=3.0,v=true,w=2006-01-02T15:04:05Z,x=98:76,y=42s",
-			},
-			attrs: mixerpb.Attributes{
-				Dictionary: map[int32]string{
-					0: "a", 1: "b", 2: "ccc", 3: "d", 4: "e", 5: "f", 6: "g",
-					7: "hhh", 8: "i", 9: "j", 10: "kkk", 11: "l", 12: "m", 13: "nnn", 14: "o",
-					15: "p", 16: "q", 17: "r", 18: "s", 19: "t", 20: "u", 21: "v", 22: "w", 23: "x", 24: "y"},
-				StringAttributes:    map[int32]string{0: "X", 1: "Y", 2: "XYZ", 3: "X Z", 4: "X", 18: "XYZ"},
-				Int64Attributes:     map[int32]int64{5: 1, 6: 2, 7: 345, 19: 2},
-				DoubleAttributes:    map[int32]float64{8: 1, 9: 2, 10: 345.678, 20: 3.0},
-				BoolAttributes:      map[int32]bool{11: true, 12: false, 13: true, 21: true},
-				TimestampAttributes: map[int32]*ptypes.Timestamp{14: ts, 22: ts},
-				DurationAttributes:  map[int32]*ptypes.Duration{15: d, 24: d},
-				BytesAttributes:     map[int32][]uint8{16: {1}, 17: {0x34, 0x56}, 23: {0x98, 0x76}},
-			},
-			result: true,
-		},
+	tracker := attribute.NewManager().NewTracker()
 
-		{rootArgs: rootArgs{stringAttributes: "a,b=Y,ccc=XYZ,d=X Z,e=X"}},
-		{rootArgs: rootArgs{stringAttributes: "=,b=Y,ccc=XYZ,d=X Z,e=X"}},
-		{rootArgs: rootArgs{stringAttributes: "=X,b=Y,ccc=XYZ,d=X Z,e=X"}},
+	var b attribute.Bag
+	if b, err = tracker.StartRequest(a); err != nil {
+		t.Errorf("Expected to start request, got failure %v", err)
+	}
 
-		{rootArgs: rootArgs{int64Attributes: "f,g=2,hhh=345"}},
-		{rootArgs: rootArgs{int64Attributes: "f=,g=2,hhh=345"}},
-		{rootArgs: rootArgs{int64Attributes: "=,g=2,hhh=345"}},
-		{rootArgs: rootArgs{int64Attributes: "=1,g=2,hhh=345"}},
-		{rootArgs: rootArgs{int64Attributes: "f=XY,g=2,hhh=345"}},
+	results := []struct {
+		name  string
+		value interface{}
+	}{
+		{"a", "X"},
+		{"b", "Y"},
+		{"ccc", "XYZ"},
+		{"d", "X Z"},
+		{"e", "X"},
+		{"f", int64(1)},
+		{"g", int64(2)},
+		{"hhh", int64(345)},
+		{"i", 1.0},
+		{"j", 2.0},
+		{"kkk", 345.678},
+		{"l", true},
+		{"m", false},
+		{"nnn", true},
+		{"o", time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)},
+		{"p", time.Duration(42) * time.Second},
+		{"q", []byte{1}},
+		{"r", []byte{0x34, 0x56}},
+		{"s", map[string]string{"k1": "v1", "k2": "v2"}},
+		{"t", "XYZ"},
+		{"u", int64(2)},
+		{"v", 3.0},
+		{"w", true},
+		{"x", time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)},
+		{"y", time.Duration(42) * time.Second},
+		{"z", []byte{0x98, 0x76}},
+		{"zz", map[string]string{"k3": "v3"}},
+	}
 
-		{rootArgs: rootArgs{doubleAttributes: "i,j=2,kkk=345.678"}},
-		{rootArgs: rootArgs{doubleAttributes: "i=,j=2,kkk=345.678"}},
-		{rootArgs: rootArgs{doubleAttributes: "=,j=2,kkk=345.678"}},
-		{rootArgs: rootArgs{doubleAttributes: "=1,j=2,kkk=345.678"}},
-		{rootArgs: rootArgs{doubleAttributes: "i=XY,j=2,kkk=345.678"}},
+	for _, r := range results {
+		t.Run(r.name, func(t *testing.T) {
+			v, found := attribute.Value(b, r.name)
+			if !found {
+				t.Error("Got false, expecting true")
+			}
 
-		{rootArgs: rootArgs{boolAttributes: "l,m=false,nnn=true"}},
-		{rootArgs: rootArgs{boolAttributes: "l=,m=false,nnn=true"}},
-		{rootArgs: rootArgs{boolAttributes: "=,m=false,nnn=true"}},
-		{rootArgs: rootArgs{boolAttributes: "=true,m=false,nnn=true"}},
-		{rootArgs: rootArgs{boolAttributes: "l=EURT,m=false,nnn=true"}},
+			if !reflect.DeepEqual(v, r.value) {
+				t.Errorf("Got %v, expected %v", v, r.value)
+			}
+		})
+	}
+}
 
-		{rootArgs: rootArgs{timestampAttributes: "o"}},
-		{rootArgs: rootArgs{timestampAttributes: "o="}},
-		{rootArgs: rootArgs{timestampAttributes: "="}},
-		{rootArgs: rootArgs{timestampAttributes: "=2006-01-02T15:04:05Z"}},
-		{rootArgs: rootArgs{timestampAttributes: "o=XYZ"}},
+func TestAttributeErrorHandling(t *testing.T) {
+	cases := []rootArgs{
+		{stringAttributes: "a,b=Y,ccc=XYZ,d=X Z,e=X"},
+		{stringAttributes: "=,b=Y,ccc=XYZ,d=X Z,e=X"},
+		{stringAttributes: "=X,b=Y,ccc=XYZ,d=X Z,e=X"},
 
-		{rootArgs: rootArgs{durationAttributes: "x"}},
-		{rootArgs: rootArgs{durationAttributes: "x="}},
-		{rootArgs: rootArgs{durationAttributes: "="}},
-		{rootArgs: rootArgs{durationAttributes: "=1.2"}},
-		{rootArgs: rootArgs{durationAttributes: "x=XYZ"}},
+		{int64Attributes: "f,g=2,hhh=345"},
+		{int64Attributes: "f=,g=2,hhh=345"},
+		{int64Attributes: "=,g=2,hhh=345"},
+		{int64Attributes: "=1,g=2,hhh=345"},
+		{int64Attributes: "f=XY,g=2,hhh=345"},
 
-		{rootArgs: rootArgs{bytesAttributes: "p,q=34:56"}},
-		{rootArgs: rootArgs{bytesAttributes: "p=,q=34:56"}},
-		{rootArgs: rootArgs{bytesAttributes: "=,q=34:56"}},
-		{rootArgs: rootArgs{bytesAttributes: "=1,q=34:56"}},
-		{rootArgs: rootArgs{bytesAttributes: "p=XY,q=34:56"}},
-		{rootArgs: rootArgs{bytesAttributes: "p=123,q=34:56"}},
+		{doubleAttributes: "i,j=2,kkk=345.678"},
+		{doubleAttributes: "i=,j=2,kkk=345.678"},
+		{doubleAttributes: "=,j=2,kkk=345.678"},
+		{doubleAttributes: "=1,j=2,kkk=345.678"},
+		{doubleAttributes: "i=XY,j=2,kkk=345.678"},
+
+		{boolAttributes: "l,m=false,nnn=true"},
+		{boolAttributes: "l=,m=false,nnn=true"},
+		{boolAttributes: "=,m=false,nnn=true"},
+		{boolAttributes: "=true,m=false,nnn=true"},
+		{boolAttributes: "l=EURT,m=false,nnn=true"},
+
+		{timestampAttributes: "o"},
+		{timestampAttributes: "o="},
+		{timestampAttributes: "="},
+		{timestampAttributes: "=2006-01-02T15:04:05Z"},
+		{timestampAttributes: "o=XYZ"},
+
+		{durationAttributes: "x"},
+		{durationAttributes: "x="},
+		{durationAttributes: "="},
+		{durationAttributes: "=1.2"},
+		{durationAttributes: "x=XYZ"},
+
+		{bytesAttributes: "p,q=34:56"},
+		{bytesAttributes: "p=,q=34:56"},
+		{bytesAttributes: "=,q=34:56"},
+		{bytesAttributes: "=1,q=34:56"},
+		{bytesAttributes: "p=XY,q=34:56"},
+		{bytesAttributes: "p=123,q=34:56"},
+
+		{stringMapAttributes: "p,q=34:56"},
+		{stringMapAttributes: "p=,q=34:56"},
+		{stringMapAttributes: "=,q=34:56"},
+		{stringMapAttributes: "=1,q=34:56"},
+		{stringMapAttributes: "p=XY,q=34:56"},
+		{stringMapAttributes: "p=123,q=34:56"},
 	}
 
 	for i, c := range cases {
-		if a, err := parseAttributes(&c.rootArgs); err == nil {
-			if !c.result {
-				t.Errorf("Expected failure for test case %v, got success", i)
-			}
-
-			// technically, this is enforcing the dictionary mappings, which is not guaranteed by the
-			// API contract, but that's OK...
-			if !reflect.DeepEqual(a, &c.attrs) {
-				t.Errorf("Mismatched results for test %v\nGot:\n%#v\nExpected\n%#v\n", i, a, c.attrs)
-			}
-		} else {
-			if c.result {
-				t.Errorf("Expected success for test case %v, got failure %v", i, err)
-			}
-
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			a, err := parseAttributes(&c)
 			if a != nil {
-				t.Errorf("Expecting nil attributes, got some instead for test case %v", i)
+				t.Error("Got a valid struct, expected nil")
 			}
-		}
+			if err == nil {
+				t.Error("Got success, expected failure")
+			}
+		})
 	}
 }

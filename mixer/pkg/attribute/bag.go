@@ -65,6 +65,12 @@ type Bag interface {
 	// ByteKeys returns a snapshot of all keys corresponding to byte attributes this bag knows about.
 	BytesKeys() []string
 
+	// StringMap returns the named attribute if it exists.
+	StringMap(name string) (map[string]string, bool)
+
+	// StringMapKeys returns a snapshot of all keys corresponding to stringMap attributes this bag knows about.
+	StringMapKeys() []string
+
 	// Done indicates the bag can be reclaimed.
 	Done()
 }
@@ -100,6 +106,9 @@ type MutableBag interface {
 
 	// SetBytes sets an override for a named attribute.
 	SetBytes(name string, value []uint8)
+
+	// SetStringMap sets an override for a named attribute.
+	SetStringMap(name string, value map[string]string)
 
 	// Reset removes all local state
 	Reset()
@@ -155,6 +164,10 @@ func Value(b Bag, name string) (interface{}, bool) {
 	}
 
 	if r, found := b.Bytes(name); found {
+		return r, true
+	}
+
+	if r, found := b.StringMap(name); found {
 		return r, true
 	}
 

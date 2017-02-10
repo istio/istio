@@ -29,25 +29,27 @@ import (
 // only via an Attributes proto. This code is not protected by locks because
 // we know it is always mutated in a single-threaded context.
 type rootBag struct {
-	strings   map[string]string
-	int64s    map[string]int64
-	float64s  map[string]float64
-	bools     map[string]bool
-	times     map[string]time.Time
-	durations map[string]time.Duration
-	bytes     map[string][]uint8
+	strings    map[string]string
+	int64s     map[string]int64
+	float64s   map[string]float64
+	bools      map[string]bool
+	times      map[string]time.Time
+	durations  map[string]time.Duration
+	bytes      map[string][]uint8
+	stringMaps map[string]map[string]string
 }
 
 var rootBags = sync.Pool{
 	New: func() interface{} {
 		return &rootBag{
-			strings:   make(map[string]string),
-			int64s:    make(map[string]int64),
-			float64s:  make(map[string]float64),
-			bools:     make(map[string]bool),
-			times:     make(map[string]time.Time),
-			durations: make(map[string]time.Duration),
-			bytes:     make(map[string][]uint8),
+			strings:    make(map[string]string),
+			int64s:     make(map[string]int64),
+			float64s:   make(map[string]float64),
+			bools:      make(map[string]bool),
+			times:      make(map[string]time.Time),
+			durations:  make(map[string]time.Duration),
+			bytes:      make(map[string][]uint8),
+			stringMaps: make(map[string]map[string]string),
 		}
 	},
 }
@@ -166,6 +168,21 @@ func (rb *rootBag) BytesKeys() []string {
 	return keys
 }
 
+func (rb *rootBag) StringMap(name string) (map[string]string, bool) {
+	r, b := rb.stringMaps[name]
+	return r, b
+}
+
+func (rb *rootBag) StringMapKeys() []string {
+	i := 0
+	keys := make([]string, len(rb.stringMaps))
+	for k := range rb.stringMaps {
+		keys[i] = k
+		i++
+	}
+	return keys
+}
+
 func (rb *rootBag) reset() {
 	// my kingdom for a clear method on maps!
 
@@ -195,6 +212,10 @@ func (rb *rootBag) reset() {
 
 	for k := range rb.bytes {
 		delete(rb.bytes, k)
+	}
+
+	for k := range rb.stringMaps {
+		delete(rb.stringMaps, k)
 	}
 }
 
@@ -258,6 +279,20 @@ func checkPreconditions(dictionary dictionary, attrs *mixerpb.Attributes) error 
 		}
 	}
 
+	for k, v := range attrs.StringMapAttributes {
+		if _, present := dictionary[k]; !present {
+			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
+		}
+
+		if v != nil {
+			for k2 := range v.Map {
+				if _, present := dictionary[k2]; !present {
+					e = me.Append(e, fmt.Errorf("string map index %d is not defined in the current dictionary", k2))
+				}
+			}
+		}
+	}
+
 	return e.ErrorOrNil()
 }
 
@@ -302,6 +337,16 @@ func (rb *rootBag) update(dictionary dictionary, attrs *mixerpb.Attributes) erro
 		rb.bytes[dictionary[k]] = v
 	}
 
+	for k, v := range attrs.StringMapAttributes {
+		m := make(map[string]string)
+		rb.stringMaps[dictionary[k]] = m
+		if v != nil {
+			for k2, v2 := range v.Map {
+				m[dictionary[k2]] = v2
+			}
+		}
+	}
+
 	// delete requested attributes
 	for _, d := range attrs.DeletedAttributes {
 		if name, present := dictionary[d]; present {
@@ -312,6 +357,7 @@ func (rb *rootBag) update(dictionary dictionary, attrs *mixerpb.Attributes) erro
 			delete(rb.times, name)
 			delete(rb.durations, name)
 			delete(rb.bytes, name)
+			delete(rb.stringMaps, name)
 		}
 	}
 

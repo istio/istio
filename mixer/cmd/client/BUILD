@@ -32,6 +32,9 @@ go_test(
     srcs = ["util_test.go"],
     library = ":go_default_library",
     visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/attribute:go_default_library",
+    ],
 )
 
 go_binary(

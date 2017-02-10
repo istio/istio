@@ -66,19 +66,27 @@ func TestAttributeManager(t *testing.T) {
 		present bool
 	}
 
-	type testCase struct {
-		attrs       mixerpb.Attributes
-		result      bool
-		getString   []getStringCase
-		getInt64    []getInt64Case
-		getFloat64  []getFloat64Case
-		getBool     []getBoolCase
-		getTime     []getTimeCase
-		getDuration []getDurationCase
-		getBytes    []getBytesCase
+	type getStringMapCase struct {
+		name    string
+		result  map[string]string
+		present bool
 	}
 
-	cases := []testCase{
+	sm := &mixerpb.StringMap{Map: map[int32]string{9: "Nine"}}
+	m := map[string]string{"name9": "Nine"}
+
+	cases := []struct {
+		attrs        mixerpb.Attributes
+		result       bool
+		getString    []getStringCase
+		getInt64     []getInt64Case
+		getFloat64   []getFloat64Case
+		getBool      []getBoolCase
+		getTime      []getTimeCase
+		getDuration  []getDurationCase
+		getBytes     []getBytesCase
+		getStringMap []getStringMapCase
+	}{
 		// 0: make sure reset works against a fresh state
 		{
 			attrs: mixerpb.Attributes{
@@ -90,7 +98,7 @@ func TestAttributeManager(t *testing.T) {
 		// 1: basic case to try out adding one of everything
 		{
 			attrs: mixerpb.Attributes{
-				Dictionary:          dictionary{1: "name1", 2: "name2", 3: "name3", 4: "name4", 5: "name5", 6: "name6", 7: "name7"},
+				Dictionary:          dictionary{1: "name1", 2: "name2", 3: "name3", 4: "name4", 5: "name5", 6: "name6", 7: "name7", 8: "name8", 9: "name9"},
 				StringAttributes:    map[int32]string{1: "1"},
 				Int64Attributes:     map[int32]int64{2: 2},
 				DoubleAttributes:    map[int32]float64{3: 3.0},
@@ -98,6 +106,7 @@ func TestAttributeManager(t *testing.T) {
 				TimestampAttributes: map[int32]*ptypes.Timestamp{5: {Seconds: 5, Nanos: 5}},
 				DurationAttributes:  map[int32]*ptypes.Duration{7: {Seconds: 42}},
 				BytesAttributes:     map[int32][]uint8{6: {6}},
+				StringMapAttributes: map[int32]*mixerpb.StringMap{8: sm},
 				ResetContext:        false,
 				AttributeContext:    0,
 				DeletedAttributes:   nil,
@@ -144,12 +153,18 @@ func TestAttributeManager(t *testing.T) {
 				{"name1", nil, false},
 				{"name42", nil, false},
 			},
+
+			getStringMap: []getStringMapCase{
+				{"name8", m, true},
+				{"name1", nil, false},
+				{"name42", nil, false},
+			},
 		},
 
 		// 2: now switch dictionaries and make sure we can still find things
 		{
 			attrs: mixerpb.Attributes{
-				Dictionary: dictionary{11: "name1", 22: "name2", 33: "name3", 44: "name4", 55: "name5", 66: "name6", 77: "name7"},
+				Dictionary: dictionary{11: "name1", 22: "name2", 33: "name3", 44: "name4", 55: "name5", 66: "name6", 77: "name7", 88: "name8", 99: "name9"},
 			},
 			result: true,
 			getString: []getStringCase{
@@ -193,27 +208,34 @@ func TestAttributeManager(t *testing.T) {
 				{"name1", nil, false},
 				{"name42", nil, false},
 			},
+
+			getStringMap: []getStringMapCase{
+				{"name8", m, true},
+				{"name1", nil, false},
+				{"name42", nil, false},
+			},
 		},
 
 		// 3: now delete everything and make sure it's all gone
 		{
 			attrs: mixerpb.Attributes{
-				DeletedAttributes: []int32{11, 22, 33, 44, 55, 66, 77},
+				DeletedAttributes: []int32{11, 22, 33, 44, 55, 66, 77, 88},
 			},
-			result:      true,
-			getString:   []getStringCase{{"name1", "", false}},
-			getInt64:    []getInt64Case{{"name2", 0, false}},
-			getFloat64:  []getFloat64Case{{"name3", 0.0, false}},
-			getBool:     []getBoolCase{{"name4", false, false}},
-			getTime:     []getTimeCase{{"name5", time.Time{}, false}},
-			getDuration: []getDurationCase{{"name7", time.Duration(0), false}},
-			getBytes:    []getBytesCase{{"name6", []byte{}, false}},
+			result:       true,
+			getString:    []getStringCase{{"name1", "", false}},
+			getInt64:     []getInt64Case{{"name2", 0, false}},
+			getFloat64:   []getFloat64Case{{"name3", 0.0, false}},
+			getBool:      []getBoolCase{{"name4", false, false}},
+			getTime:      []getTimeCase{{"name5", time.Time{}, false}},
+			getDuration:  []getDurationCase{{"name7", time.Duration(0), false}},
+			getBytes:     []getBytesCase{{"name6", []byte{}, false}},
+			getStringMap: []getStringMapCase{{"name8", map[string]string{}, false}},
 		},
 
 		// 4: add stuff back in
 		{
 			attrs: mixerpb.Attributes{
-				Dictionary:          dictionary{1: "name1", 2: "name2", 3: "name3", 4: "name4", 5: "name5", 6: "name6", 7: "name7"},
+				Dictionary:          dictionary{1: "name1", 2: "name2", 3: "name3", 4: "name4", 5: "name5", 6: "name6", 7: "name7", 8: "name8", 9: "name9"},
 				StringAttributes:    map[int32]string{1: "1"},
 				Int64Attributes:     map[int32]int64{2: 2},
 				DoubleAttributes:    map[int32]float64{3: 3.0},
@@ -221,6 +243,7 @@ func TestAttributeManager(t *testing.T) {
 				TimestampAttributes: map[int32]*ptypes.Timestamp{5: {Seconds: 5, Nanos: 5}},
 				DurationAttributes:  map[int32]*ptypes.Duration{7: {Seconds: 42}},
 				BytesAttributes:     map[int32][]uint8{6: {6}},
+				StringMapAttributes: map[int32]*mixerpb.StringMap{8: sm},
 				ResetContext:        false,
 				AttributeContext:    0,
 				DeletedAttributes:   nil,
@@ -233,14 +256,15 @@ func TestAttributeManager(t *testing.T) {
 			attrs: mixerpb.Attributes{
 				ResetContext: true,
 			},
-			result:      true,
-			getString:   []getStringCase{{"name1", "", false}},
-			getInt64:    []getInt64Case{{"name2", 0, false}},
-			getFloat64:  []getFloat64Case{{"name3", 0.0, false}},
-			getBool:     []getBoolCase{{"name4", false, false}},
-			getTime:     []getTimeCase{{"name5", time.Time{}, false}},
-			getDuration: []getDurationCase{{"name7", time.Duration(0), false}},
-			getBytes:    []getBytesCase{{"name6", []byte{}, false}},
+			result:       true,
+			getString:    []getStringCase{{"name1", "", false}},
+			getInt64:     []getInt64Case{{"name2", 0, false}},
+			getFloat64:   []getFloat64Case{{"name3", 0.0, false}},
+			getBool:      []getBoolCase{{"name4", false, false}},
+			getTime:      []getTimeCase{{"name5", time.Time{}, false}},
+			getDuration:  []getDurationCase{{"name7", time.Duration(0), false}},
+			getBytes:     []getBytesCase{{"name6", []byte{}, false}},
+			getStringMap: []getStringMapCase{{"name8", map[string]string{}, false}},
 		},
 
 		// 6: make sure reset works against a reset state
@@ -293,7 +317,13 @@ func TestAttributeManager(t *testing.T) {
 			result: false,
 		},
 
-		// 14: try to delete attributes that don't exist
+		// 14: try out bad dictionary index for string map
+		{
+			attrs:  mixerpb.Attributes{StringMapAttributes: map[int32]*mixerpb.StringMap{42: nil}},
+			result: false,
+		},
+
+		// 15: try to delete attributes that don't exist
 		{
 			attrs:  mixerpb.Attributes{DeletedAttributes: []int32{111, 222, 333}},
 			result: true,
@@ -400,6 +430,28 @@ func TestAttributeManager(t *testing.T) {
 
 			if present != g.present {
 				t.Errorf("Expecting present=%v, got present=%v for bytes test case %v:%v", g.present, present, i, j)
+			}
+		}
+
+		for j, g := range c.getStringMap {
+			result, present := ab.StringMap(g.name)
+
+			same := len(result) == len(g.result)
+			if same {
+				for i := range result {
+					if result[i] != g.result[i] {
+						same = false
+						break
+					}
+				}
+			}
+
+			if !same {
+				t.Errorf("Expecting result='%v', got result='%v' for string map test case %v:%v", g.result, result, i, j)
+			}
+
+			if present != g.present {
+				t.Errorf("Expecting present=%v, got present=%v for string map test case %v:%v", g.present, present, i, j)
 			}
 		}
 	}
