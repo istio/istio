@@ -55,7 +55,7 @@ func TestExecute(t *testing.T) {
 			{&configpb.Adapter{Name: c.name}, &configpb.Aspect{Kind: c.name}},
 		}
 
-		o, err := m.Execute(context.Background(), cfg, nil)
+		o, err := m.Execute(context.Background(), cfg, nil, nil)
 		if c.inErr != nil && err == nil {
 			t.Errorf("m.Execute(...) = %v; want err: %v", err, c.inErr)
 		}
@@ -74,7 +74,7 @@ func TestExecute_Cancellation(t *testing.T) {
 	cfg := []*config.Combined{
 		{&configpb.Adapter{Name: ""}, &configpb.Aspect{Kind: ""}},
 	}
-	if _, err := handler.Execute(ctx, cfg, &fakebag{}); err == nil {
+	if _, err := handler.Execute(ctx, cfg, &fakebag{}, nil); err == nil {
 		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")
 	}
 
@@ -107,7 +107,7 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 		&configpb.Adapter{Name: name},
 		&configpb.Aspect{Kind: name},
 	}}
-	if _, err := m.Execute(ctx, cfg, &fakebag{}); err == nil {
+	if _, err := m.Execute(ctx, cfg, &fakebag{}, nil); err == nil {
 		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")
 	}
 	close(blockChan)

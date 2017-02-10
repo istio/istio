@@ -36,28 +36,38 @@ type (
 		Builder
 
 		// NewQuotasAspect returns a new instance of the Quota aspect.
-		NewQuotasAspect(env Env, c AspectConfig, d map[string]*QuotaDefinition) (QuotasAspect, error)
+		NewQuotasAspect(env Env, c AspectConfig, quotas map[string]*QuotaDefinition) (QuotasAspect, error)
 	}
 
-	// QuotaKind determines the usage semantics
-	QuotaKind int8
-
-	// QuotaDefinition is used to describe an individual quota the aspect will encounter at runtime
+	// QuotaDefinition is used to describe an individual quota that the aspect will encounter at runtime.
 	QuotaDefinition struct {
-		// MaxAmount specifies the upper limit for the quota
+		// Name of this quota definition.
+		Name string
+
+		// DisplayName is an optional user-friendly name for this quota.
+		DisplayName string
+
+		// Description is an optional user-friendly description for this quota.
+		Description string
+
+		// MaxAmount defines the upper limit for the quota
 		MaxAmount int64
 
-		// Size of rolling window. A value of 0 means no rolling window, allocated quota remains
-		// allocated until explicitly released.
-		Window time.Duration
+		// Expiration determines the size of rolling window. A value of 0 means no rolling window,
+		// allocated quota remains allocated until explicitly released.
+		Expiration time.Duration
+
+		// Labels are the names of keys for dimensional data that will
+		// be generated at runtime and passed along with quota values.
+		Labels map[string]LabelType
 	}
 
 	// QuotaArgs supplies the arguments for quota operations.
 	QuotaArgs struct {
-		// The name of the associated quota definition.
-		Name string
+		// The metadata describing the quota.
+		Definition *QuotaDefinition
 
-		// DeduplicationId is used for deduplicating quota allocation/free calls in the case of
+		// DeduplicationID is used for deduplicating quota allocation/free calls in the case of
 		// failed RPCs and retries. This should be a UUID per call, where the same
 		// UUID is used for retries of the same quota allocation or release call.
 		DeduplicationID string

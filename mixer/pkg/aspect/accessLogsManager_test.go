@@ -217,7 +217,7 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 		l := &test.Logger{}
 		v.exec.aspect = l
 
-		if _, err := v.exec.Execute(v.bag, v.mapper); err != nil {
+		if _, err := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); err != nil {
 			t.Errorf("Execute(): should not have received error for %s (%v)", v.name, err)
 		}
 		if l.EntryCount != len(v.wantEntries) {
@@ -256,7 +256,7 @@ func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 	}
 
 	for _, v := range tests {
-		if _, err := v.exec.Execute(v.bag, v.mapper); err == nil {
+		if _, err := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); err == nil {
 			t.Errorf("Execute(): expected error for %s", v.name)
 		}
 	}

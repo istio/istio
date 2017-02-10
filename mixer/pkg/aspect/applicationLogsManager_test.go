@@ -196,7 +196,7 @@ func TestLoggerManager_Execute(t *testing.T) {
 		l := &test.Logger{}
 		v.exec.aspect = l
 
-		if _, err := v.exec.Execute(v.bag, v.mapper); err != nil {
+		if _, err := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); err != nil {
 			t.Errorf("Execute(): should not have received error for %s (%v)", v.name, err)
 		}
 		if l.EntryCount != len(v.wantEntries) {
@@ -239,7 +239,7 @@ func TestLoggerManager_ExecuteFailures(t *testing.T) {
 	}
 
 	for _, v := range executeShouldFail {
-		if _, err := v.exec.Execute(v.bag, v.mapper); err == nil {
+		if _, err := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); err == nil {
 			t.Errorf("Execute(): should have received error for %s", v.name)
 		}
 	}

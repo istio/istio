@@ -6,10 +6,12 @@ go_library(
     name = "go_default_library",
     srcs = [
         "accessLogsManager.go",
+        "apiMethod.go",
         "applicationLogsManager.go",
         "denialsManager.go",
         "descriptors.go",
         "inventory.go",
+        "kind.go",
         "listsManager.go",
         "manager.go",
         "metricsManager.go",

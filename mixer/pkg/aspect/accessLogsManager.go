@@ -131,7 +131,7 @@ func (e *accessLogsWrapper) Close() error {
 	return e.aspect.Close()
 }
 
-func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
+func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) (*Output, error) {
 	// TODO: would be nice if we could use a mutable.Bag here and could pass it around
 	// labels holds the generated attributes from mapper
 	labels := make(map[string]interface{})

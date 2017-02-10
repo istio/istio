@@ -54,7 +54,8 @@ type (
 	// Wrapper encapsulates a single aspect and allows it to be invoked.
 	Wrapper interface {
 		io.Closer
+
 		// Execute dispatches to the adapter.
-		Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error)
+		Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) (*Output, error)
 	}
 )

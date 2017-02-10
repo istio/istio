@@ -14,81 +14,6 @@
 
 package aspect
 
-// APIMethod constants are used to refer to the methods handled by api.Handler
-type APIMethod int
-
-// Supported API methods
-const (
-	CheckMethod APIMethod = iota
-	ReportMethod
-	QuotaMethod
-)
-
-var apiMethodToString = map[APIMethod]string{
-	CheckMethod:  "Check",
-	ReportMethod: "Report",
-	QuotaMethod:  "Quota",
-}
-
-// String returns the string representation of the kind, or "" if an unknown kind is given.
-func (a APIMethod) String() string {
-	return apiMethodToString[a]
-}
-
-// Kind of aspect
-type Kind int
-
-// Supported kinds of aspects
-const (
-	AccessLogsKind Kind = iota
-	ApplicationLogsKind
-	DenialsKind
-	ListsKind
-	MetricsKind
-	QuotasKind
-)
-
-// Name of all supported aspect kinds.
-const (
-	AccessLogsKindName      = "access-logs"
-	ApplicationLogsKindName = "application-logs"
-	DenialsKindName         = "denials"
-	ListsKindName           = "lists"
-	MetricsKindName         = "metrics"
-	QuotasKindName          = "quotas"
-)
-
-// kindToString maps from kinds to their names.
-var kindToString = map[Kind]string{
-	AccessLogsKind:      AccessLogsKindName,
-	ApplicationLogsKind: ApplicationLogsKindName,
-	DenialsKind:         DenialsKindName,
-	ListsKind:           ListsKindName,
-	MetricsKind:         MetricsKindName,
-	QuotasKind:          QuotasKindName,
-}
-
-// String returns the string representation of the kind, or "" if an unknown kind is given.
-func (k Kind) String() string {
-	return kindToString[k]
-}
-
-// stringToKinds maps from kind name to kind enum.
-var stringToKind = map[string]Kind{
-	AccessLogsKindName:      AccessLogsKind,
-	ApplicationLogsKindName: ApplicationLogsKind,
-	DenialsKindName:         DenialsKind,
-	ListsKindName:           ListsKind,
-	MetricsKindName:         MetricsKind,
-	QuotasKindName:          QuotasKind,
-}
-
-// ParseKind converts a string into a Kind.
-func ParseKind(s string) (Kind, bool) {
-	k, found := stringToKind[s]
-	return k, found
-}
-
 // ManagerInventory holds a set of aspect managers.
 type ManagerInventory map[APIMethod][]Manager
 
@@ -98,7 +23,7 @@ func Inventory() ManagerInventory {
 		CheckMethod: {
 			NewDenialsManager(),
 			NewListsManager(),
-			NewQuotasManager(),
+			NewQuotasManager(), // TODO: Remove once proxy uses the Quota method
 		},
 
 		ReportMethod: {
@@ -107,6 +32,8 @@ func Inventory() ManagerInventory {
 			NewMetricsManager(),
 		},
 
-		QuotaMethod: {},
+		QuotaMethod: {
+			NewQuotasManager(),
+		},
 	}
 }

@@ -89,17 +89,17 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 	metadata := make(map[string]*metricInfo)
 	defs := make(map[string]*adapter.MetricDefinition, len(desc))
 	for _, d := range desc {
-		// TODO: once we plumb descriptors into the validation, remove this err: no descriptor should make it through validation
-		// if it cannot be converted into a MetricDefinition, so we should never have to handle the error case.
-		def, err := definitionFromProto(d)
-		if err != nil {
-			_ = env.Logger().Errorf("Failed to convert metric descriptor '%s' to definition with err: %s; skipping it.", d.Name, err)
+		metric, found := findMetric(params.Metrics, d.Name)
+		if !found {
+			env.Logger().Warningf("No metric found for descriptor %s, skipping it", d.Name)
 			continue
 		}
 
-		metric, found := find(params.Metrics, def.Name)
-		if !found {
-			env.Logger().Warningf("No metric found for descriptor %s, skipping it", def.Name)
+		// TODO: once we plumb descriptors into the validation, remove this err: no descriptor should make it through validation
+		// if it cannot be converted into a MetricDefinition, so we should never have to handle the error case.
+		def, err := metricDefinitionFromProto(d)
+		if err != nil {
+			_ = env.Logger().Errorf("Failed to convert metric descriptor '%s' to definition with err: %s; skipping it.", d.Name, err)
 			continue
 		}
 
@@ -131,7 +131,7 @@ func (*metricsManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigE
 	return
 }
 
-func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
+func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) (*Output, error) {
 	result := &multierror.Error{}
 	var values []adapter.Value
 
@@ -194,7 +194,7 @@ func evalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evalu
 	return labels, result.ErrorOrNil()
 }
 
-func definitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefinition, error) {
+func metricDefinitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefinition, error) {
 	labels := make(map[string]adapter.LabelType, len(desc.Labels))
 	for _, label := range desc.Labels {
 		l, err := valueTypeToLabelType(label.ValueType)
@@ -218,9 +218,9 @@ func definitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefinition,
 	}, nil
 }
 
-func find(defs []*aconfig.MetricsParams_Metric, name string) (*aconfig.MetricsParams_Metric, bool) {
+func findMetric(defs []*aconfig.MetricsParams_Metric, name string) (*aconfig.MetricsParams_Metric, bool) {
 	for _, def := range defs {
-		if def.Descriptor_ == name {
+		if def.DescriptorName == name {
 			return def, true
 		}
 	}

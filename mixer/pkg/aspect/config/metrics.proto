@@ -38,7 +38,7 @@ message MetricsParams {
     // the form of a metric:
     //
     //    metric:
-    //      descriptor: "response_code" # must match metric_descriptor.name
+    //      descriptor_name: "response_code" # must match metric_descriptor.name
     //      value: $requestCount        # Istio expression syntax for the attribute named "requestCount"
     //      labels:
     //        # either the attribute named 'apiMethod' or the literal string 'unknown'; must eval to a string
@@ -47,7 +47,7 @@ message MetricsParams {
     //        response_code: $responseCode | 500
     message Metric {
         // Must match the name of some metric_descriptor in the global config.
-        string descriptor = 1;
+        string descriptor_name = 1;
 
         // Attribute expression to evaluate to determine the value for this metric;
         // the result of the evaluation must match the value ValueType of the metric_descriptor.
