@@ -24,31 +24,25 @@ namespace Http {
 namespace Mixer {
 namespace {
 
-const std::string kProxyPeerID = "Istio/Proxy";
-
 // Define lower case string for X-Forwarded-Host.
 const LowerCaseString kHeaderNameXFH("x-forwarded-host", false);
 
-const std::string kRequestHeaderPrefix = "requestHeader:";
-const std::string kRequestParamPrefix = "requestParameter:";
-const std::string kResponseHeaderPrefix = "responseHeader:";
+const std::string kRequestHeaderPrefix = "request.headers.";
+const std::string kResponseHeaderPrefix = "response.headers.";
 
 // Define attribute names
-const std::string kAttrNamePeerId = "peerId";
-const std::string kAttrNameURL = "url";
-const std::string kAttrNameHttpMethod = "httpMethod";
-const std::string kAttrNameRequestSize = "requestSize";
-const std::string kAttrNameResponseSize = "responseSize";
-const std::string kAttrNameLogMessage = "logMessage";
-const std::string kAttrNameResponseTime = "responseTime";
-const std::string kAttrNameOriginIp = "originIp";
-const std::string kAttrNameOriginHost = "originHost";
+const std::string kAttrNameRequestPath = "request.path";
+const std::string kAttrNameRequestSize = "request.size";
+const std::string kAttrNameResponseSize = "response.size";
+const std::string kAttrNameResponseTime = "response.time";
+const std::string kAttrNameOriginIp = "origin.ip";
+const std::string kAttrNameOriginHost = "origin.host";
 
 const std::string kEnvNameSourceService = "SOURCE_SERVICE";
 const std::string kEnvNameTargetService = "TARGET_SERVICE";
 
-const std::string kAttrNameSourceService = "sourceService";
-const std::string kAttrNameTargetService = "targetService";
+const std::string kAttrNameSourceService = "source.service";
+const std::string kAttrNameTargetService = "target.service";
 
 Attributes::Value StringValue(const std::string& str) {
   Attributes::Value v;
@@ -106,14 +100,8 @@ void FillRequestHeaderAttributes(const HeaderMap& header_map,
       },
       attr);
 
-  // Pass in all Query parameters.
-  auto path = header_map.Path();
-  if (path != nullptr) {
-    for (const auto& it : Utility::parseQueryString(path->value().c_str())) {
-      attr->attributes[kRequestParamPrefix + it.first] = StringValue(it.second);
-    }
-  }
-
+  SetStringAttribute(kAttrNameRequestPath, header_map.Path()->value().c_str(),
+                     attr);
   SetStringAttribute(kAttrNameOriginIp, GetFirstForwardedFor(header_map), attr);
   SetStringAttribute(kAttrNameOriginHost, GetLastForwardedHost(header_map),
                      attr);
@@ -167,7 +155,6 @@ void HttpControl::FillCheckAttributes(const HeaderMap& header_map,
 
   SetStringAttribute(kAttrNameSourceService, source_service_, attr);
   SetStringAttribute(kAttrNameTargetService, target_service_, attr);
-  attr->attributes[kAttrNamePeerId] = StringValue(kProxyPeerID);
 }
 
 void HttpControl::Check(HttpRequestDataPtr request_data, HeaderMap& headers,
