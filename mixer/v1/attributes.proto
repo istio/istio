@@ -101,8 +101,15 @@ message Attributes {
   map<int32, google.protobuf.Timestamp> timestamp_attributes = 8;
   map<int32, google.protobuf.Duration> duration_attributes = 9;
   map<int32, bytes> bytes_attributes = 10;
+  map<int32, StringMap> stringMap_attributes = 11;
 
   // Attributes that should be removed from the specified attribute context. Deleting
   // attributes which aren't currently in the attribute context is not considered an error.
-  repeated int32 deleted_attributes = 11;
+  repeated int32 deleted_attributes = 12;
+}
+
+// A map of string to string. The keys in these maps are from the current
+// dictionary.
+message StringMap {
+  map<int32, string> map = 1;
 }

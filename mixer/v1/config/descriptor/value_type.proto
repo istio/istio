@@ -54,5 +54,5 @@ enum ValueType {
     DURATION = 10;
 
     // A map string -> string, typically used by headers.
-    STRING_MAP = 1;
+    STRING_MAP = 11;
 }
