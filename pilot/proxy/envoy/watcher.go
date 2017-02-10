@@ -31,7 +31,7 @@ type Watcher interface {
 type watcher struct {
 	agent     Agent
 	discovery model.ServiceDiscovery
-	registry  model.IstioRegistry
+	registry  *model.IstioRegistry
 	mesh      *MeshConfig
 	addrs     map[string]bool
 }
@@ -48,7 +48,7 @@ func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 	out := &watcher{
 		agent:     NewAgent(mesh.BinaryPath, mesh.ConfigPath),
 		discovery: discovery,
-		registry:  model.IstioRegistry{Registry: registry},
+		registry:  &model.IstioRegistry{Registry: registry},
 		mesh:      mesh,
 		addrs:     addrs,
 	}
@@ -68,7 +68,7 @@ func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 		return nil, err
 	}
 
-	if err = ctl.AppendConfigHandler(model.UpstreamCluster, handler); err != nil {
+	if err = ctl.AppendConfigHandler(model.Destination, handler); err != nil {
 		return nil, err
 	}
 
@@ -77,14 +77,8 @@ func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 
 func (w *watcher) reload() {
 	// FIXME: namespace?
-	config, err := Generate(w.discovery.HostInstances(w.addrs), w.discovery.Services(),
-		w.registry.RouteRules(""), w.registry.UpstreamClusters(""), w.mesh)
-
-	if err != nil {
-		glog.Warningf("Failed to generate Envoy configuration: %v", err)
-		return
-	}
-
+	config := Generate(w.discovery.HostInstances(w.addrs), w.discovery.Services(),
+		w.registry, w.mesh)
 	current := w.agent.ActiveConfig()
 
 	if reflect.DeepEqual(config, current) {

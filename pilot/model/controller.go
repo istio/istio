@@ -16,15 +16,22 @@ package model
 
 import "github.com/golang/protobuf/proto"
 
-// Controller defines an event controller loop.  Used in combination with
-// registry, the controller guarantees the following consistency requirement:
-// registry view in the controller is as AT LEAST as fresh as the moment
-// notification arrives, but MAY BE more fresh (e.g. "delete" cancels an "add"
-// event).
+// Controller defines an event controller loop. Essentially, it provides
+// callbacks to the code in proxy/* whenever data objects (config files,
+// route rules) are added or removed from the storage layer.  Upon invoking
+// the callbacks, the code in proxy/* can decide to regenerate the
+// configuration (and reload the proxy) or skip the reload if the
+// configuration is the same.
 //
-// Handlers execute on the single worker queue in the order they are appended.
-// Handlers receive the notification event and the associated object.  Note
-// that all handlers must be appended before starting the controller.
+// Used in combination with registry, the controller guarantees the
+// following consistency requirement: registry view in the controller is as
+// AT LEAST as fresh as the moment notification arrives, but MAY BE more
+// fresh (e.g. "delete" cancels an "add" event).
+//
+// Handlers execute on the single worker queue in the order they are
+// appended.  Handlers receive the notification event and the associated
+// object.  Note that all handlers must be appended before starting the
+// controller.
 type Controller interface {
 	// AppendConfigHandler appends a handler for a config resource.
 	AppendConfigHandler(kind string, f func(Key, proto.Message, Event)) error

@@ -16,48 +16,57 @@ package model
 
 import "testing"
 
-var validServices = map[string]Service{
+var validServiceKeys = map[string]struct {
+	service Service
+	tags    TagList
+}{
 	"example-service1.default:grpc,http:a=b,c=d;e=f": {
-		Hostname: "example-service1.default",
-		Tags:     []Tag{{"e": "f"}, {"c": "d", "a": "b"}},
-		Ports:    []*Port{{Name: "http"}, {Name: "grpc"}}},
+		service: Service{
+			Hostname: "example-service1.default",
+			Ports:    []*Port{{Name: "http"}, {Name: "grpc"}}},
+		tags: TagList{{"e": "f"}, {"c": "d", "a": "b"}}},
 	"my-service": {
-		Hostname: "my-service",
-		Ports:    []*Port{{Name: ""}}},
+		service: Service{
+			Hostname: "my-service",
+			Ports:    []*Port{{Name: ""}}}},
 	"svc.ns": {
-		Hostname: "svc.ns",
-		Ports:    []*Port{{Name: ""}}},
+		service: Service{
+			Hostname: "svc.ns",
+			Ports:    []*Port{{Name: ""}}}},
 	"svc::istio.io/my_tag-v1.test=my_value-v2.value": {
-		Hostname: "svc",
-		Tags:     []Tag{{"istio.io/my_tag-v1.test": "my_value-v2.value"}},
-		Ports:    []*Port{{Name: ""}}},
+		service: Service{
+			Hostname: "svc",
+			Ports:    []*Port{{Name: ""}}},
+		tags: TagList{{"istio.io/my_tag-v1.test": "my_value-v2.value"}}},
 	"svc:test:prod": {
-		Hostname: "svc",
-		Tags:     []Tag{{"prod": ""}},
-		Ports:    []*Port{{Name: "test"}}},
+		service: Service{
+			Hostname: "svc",
+			Ports:    []*Port{{Name: "test"}}},
+		tags: TagList{{"prod": ""}}},
 	"svc.default.svc.cluster.local:http-test": {
-		Hostname: "svc.default.svc.cluster.local",
-		Ports:    []*Port{{Name: "http-test"}}},
+		service: Service{
+			Hostname: "svc.default.svc.cluster.local",
+			Ports:    []*Port{{Name: "http-test"}}}},
 }
 
 func TestServiceString(t *testing.T) {
-	for s, svc := range validServices {
-		if err := svc.Validate(); err != nil {
-			t.Errorf("Valid service failed validation: %v,  %#v", err, svc)
+	for s, svc := range validServiceKeys {
+		if err := svc.service.Validate(); err != nil {
+			t.Errorf("Valid service failed validation: %v,  %#v", err, svc.service)
 		}
-		s1 := svc.String()
+		s1 := ServiceKey(svc.service.Hostname, svc.service.Ports, svc.tags)
 		if s1 != s {
-			t.Errorf("svc.String() => Got %s, expected %s", s1, s)
+			t.Errorf("ServiceKey => Got %s, expected %s", s1, s)
 		}
-		svc1 := ParseServiceString(s)
-		if svc1.Hostname != svc.Hostname {
-			t.Errorf("svc.Hostname => Got %s, expected %s for %s", svc1.Hostname, svc.Hostname, s)
+		hostname, ports, tags := ParseServiceKey(s)
+		if hostname != svc.service.Hostname {
+			t.Errorf("ParseServiceKey => Got %s, expected %s for %s", hostname, svc.service.Hostname, s)
 		}
-		if !compareTags(svc1.Tags, svc.Tags) {
-			t.Errorf("svc.Tags => Got %#v, expected %#v for %s", svc1.Tags, svc.Tags, s)
+		if !compareTags(tags, svc.tags) {
+			t.Errorf("ParseServiceKey => Got %#v, expected %#v for %s", tags, svc.tags, s)
 		}
-		if len(svc1.Ports) != len(svc.Ports) {
-			t.Errorf("svc.Ports => Got %#v, expected %#v for %s", svc1.Ports, svc.Ports, s)
+		if len(ports) != len(svc.service.Ports) {
+			t.Errorf("ParseServiceKey => Got %#v, expected %#v for %s", ports, svc.service.Ports, s)
 		}
 	}
 }
@@ -106,6 +115,9 @@ func TestTags(t *testing.T) {
 	a1b := TagList{a1, b}
 	none := TagList{}
 
+	// equivalent to empty tag list
+	singleton := TagList{nil}
+
 	var empty Tag
 	if !empty.SubsetOf(a) {
 		t.Errorf("nil.SubsetOf({a}) => Got false")
@@ -123,6 +135,7 @@ func TestTags(t *testing.T) {
 		{b, ab},
 		{a, none},
 		{a, nil},
+		{a, singleton},
 		{a1, ab},
 		{b, a1b},
 	}

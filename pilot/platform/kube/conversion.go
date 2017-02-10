@@ -83,8 +83,6 @@ func convertService(svc v1.Service) *model.Service {
 		Hostname: fmt.Sprintf("%s.%s.%s", svc.Name, svc.Namespace, ServiceSuffix),
 		Ports:    ports,
 		Address:  addr,
-		// TODO: empty set of service tags for now
-		Tags: nil,
 	}
 }
 

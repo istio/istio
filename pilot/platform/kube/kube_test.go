@@ -221,7 +221,6 @@ func TestServices(t *testing.T) {
 		glog.Info("Services: %#v", out)
 		return len(out) == 1 &&
 			out[0].Hostname == hostname &&
-			out[0].Tags == nil &&
 			len(out[0].Ports) == 1 &&
 			out[0].Ports[0].Protocol == model.ProtocolHTTP
 	}, t)
@@ -248,13 +247,11 @@ func TestProxyConfig(t *testing.T) {
 
 	rule := &proxyconfig.RouteRule{
 		Destination: "foo",
-		RouteRule: &proxyconfig.RouteRule_Http{
-			Http: &proxyconfig.HttpRouteRule{
-				Match: &proxyconfig.HttpMatchCondition{
-					Uri: &proxyconfig.StringMatch{
-						MatchType: &proxyconfig.StringMatch_Exact{
-							Exact: "test",
-						},
+		Match: &proxyconfig.MatchCondition{
+			Http: map[string]*proxyconfig.StringMatch{
+				"uri": {
+					MatchType: &proxyconfig.StringMatch_Exact{
+						Exact: "test",
 					},
 				},
 			},

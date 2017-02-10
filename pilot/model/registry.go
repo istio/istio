@@ -15,11 +15,27 @@
 package model
 
 import (
+	"sort"
+
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	proxyconfig "istio.io/manager/model/proxy/alphav1/config"
 )
+
+// The Registry describes a set of platform agnostic APIs that must be
+// supported by the underlying platform to store and retrieve routing
+// rules. The code in proxy/* uses these interfaces to retrieve the routing
+// rules pertaining to each service. The exact storage constructs to use
+// depends on the platform.  For example, in Kubernetes, one can use the
+// ThirdPartyResources to store/retrieve rules.
+
+// The storage registry presented here assumes that the underlying storage
+// layer supports GET (list), PUT (add), PATCH (edit) and DELETE semantics
+
+// FIXME rename me to something else for clarity. Registry conflates with
+// service registry, while the code here deals only with third party
+// resources in kubernetes
 
 // Key is the registry configuration key
 type Key struct {
@@ -72,10 +88,10 @@ const (
 	// RouteRuleProto message name
 	RouteRuleProto = "istio.proxy.v1alpha.config.RouteRule"
 
-	// UpstreamCluster kind
-	UpstreamCluster = "upstream-cluster"
-	// UpstreamClusterProto message name
-	UpstreamClusterProto = "istio.proxy.v1alpha.config.UpstreamCluster"
+	// Destination kind
+	Destination = "destination"
+	// DestinationProto message name
+	DestinationProto = "istio.proxy.v1alpha.config.Destination"
 )
 
 var (
@@ -85,9 +101,9 @@ var (
 			MessageName: RouteRuleProto,
 			Validate:    ValidateRouteRule,
 		},
-		UpstreamCluster: ProtoSchema{
-			MessageName: UpstreamClusterProto,
-			Validate:    ValidateUpstreamCluster,
+		Destination: ProtoSchema{
+			MessageName: DestinationProto,
+			Validate:    ValidateDestination,
 		},
 	}
 )
@@ -112,17 +128,45 @@ func (i *IstioRegistry) RouteRules(namespace string) []*proxyconfig.RouteRule {
 	return out
 }
 
-// UpstreamClusters lists all destination policies in a namespace (or all if namespace is "")
-func (i *IstioRegistry) UpstreamClusters(namespace string) []*proxyconfig.UpstreamCluster {
-	out := make([]*proxyconfig.UpstreamCluster, 0)
-	rs, err := i.List(UpstreamCluster, namespace)
+// DestinationRouteRules lists all rules for a destination by precedence
+func (i *IstioRegistry) DestinationRouteRules(destination string) []*proxyconfig.RouteRule {
+	out := make([]*proxyconfig.RouteRule, 0)
+	for _, rule := range i.RouteRules("") {
+		if rule.Destination == destination {
+			out = append(out, rule)
+		}
+	}
+	sort.Sort(RouteRulePrecedence(out))
+	return out
+}
+
+// Destinations lists all destination policies in a namespace (or all if namespace is "")
+func (i *IstioRegistry) Destinations(namespace string) []*proxyconfig.Destination {
+	out := make([]*proxyconfig.Destination, 0)
+	rs, err := i.List(Destination, namespace)
 	if err != nil {
-		glog.V(2).Infof("UpstreamClusters => %v", err)
+		glog.V(2).Infof("Destinations => %v", err)
 	}
 	for _, r := range rs {
-		if rule, ok := r.(*proxyconfig.UpstreamCluster); ok {
+		if rule, ok := r.(*proxyconfig.Destination); ok {
 			out = append(out, rule)
 		}
 	}
 	return out
+}
+
+// RouteRulePrecedence sorts rules by precedence (high precedence first)
+type RouteRulePrecedence []*proxyconfig.RouteRule
+
+func (s RouteRulePrecedence) Len() int {
+	return len(s)
+}
+
+func (s RouteRulePrecedence) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+// TODO: define stable order for same precedence
+func (s RouteRulePrecedence) Less(i, j int) bool {
+	return s[i].Precedence > s[j].Precedence
 }

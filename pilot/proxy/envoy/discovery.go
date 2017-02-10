@@ -88,9 +88,9 @@ func (ds *DiscoveryService) Run() {
 // ListEndpoints responds to SDS requests
 func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *restful.Response) {
 	key := request.PathParameter("service-key")
-	svc := model.ParseServiceString(key)
+	hostname, ports, tags := model.ParseServiceKey(key)
 	out := make([]host, 0)
-	for _, ep := range ds.services.Instances(svc.Hostname, svc.Ports.GetNames(), svc.Tags) {
+	for _, ep := range ds.services.Instances(hostname, ports.GetNames(), tags) {
 		out = append(out, host{
 			Address: ep.Endpoint.Address,
 			Port:    ep.Endpoint.Port,
@@ -103,8 +103,11 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 
 // ListClusters responds to CDS requests
 func (ds *DiscoveryService) ListClusters(request *restful.Request, response *restful.Response) {
-	svc := ds.services.Services()
-	if err := response.WriteEntity(clusters{buildClusters(svc)}); err != nil {
-		glog.Warning(err)
-	}
+	_ = ds.services.Services()
+	// TODO: fix this
+	/*
+		if err := response.WriteEntity(clusters{buildClusters(svc)}); err != nil {
+			glog.Warning(err)
+		}
+	*/
 }

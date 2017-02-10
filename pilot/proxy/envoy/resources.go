@@ -14,6 +14,12 @@
 
 package envoy
 
+import (
+	"sort"
+
+	"istio.io/manager/model"
+)
+
 // MeshConfig defines proxy mesh variables
 type MeshConfig struct {
 	// DiscoveryAddress is the DNS address for Envoy discovery service
@@ -33,6 +39,20 @@ type MeshConfig struct {
 	// Envoy access log path
 	AccessLogPath string
 }
+
+// TODO: these values used in the Envoy configuration will be configurable
+const (
+	DefaultTimeoutMs = 1000
+	DefaultLbType    = LbTypeRoundRobin
+	DefaultAccessLog = "/dev/stdout"
+	LbTypeRoundRobin = "round_robin"
+
+	// HTTPConnectionManager is the name of HTTP filter
+	HTTPConnectionManager = "http_connection_manager"
+
+	// URI HTTP header
+	HeaderURI = "uri"
+)
 
 // Config defines the schema for Envoy JSON configuration format
 type Config struct {
@@ -80,7 +100,7 @@ type FilterEndpointsConfig struct {
 type FilterFaultConfig struct {
 	Abort           *AbortFilter `json:"abort,omitempty"`
 	Delay           *DelayFilter `json:"delay,omitempty"`
-	Headers         []Header     `json:"headers,omitempty"`
+	Headers         Headers      `json:"headers,omitempty"`
 	UpstreamCluster string       `json:"upstream_cluster,omitempty"`
 }
 
@@ -105,15 +125,21 @@ type Runtime struct {
 
 // Route definition
 type Route struct {
-	Runtime          *Runtime         `json:"runtime,omitempty"`
-	Path             string           `json:"path,omitempty"`
-	Prefix           string           `json:"prefix,omitempty"`
-	PrefixRewrite    string           `json:"prefix_rewrite,omitempty"`
+	Runtime       *Runtime `json:"runtime,omitempty"`
+	Path          string   `json:"path,omitempty"`
+	Prefix        string   `json:"prefix,omitempty"`
+	PrefixRewrite string   `json:"prefix_rewrite,omitempty"`
+
 	Cluster          string           `json:"cluster"`
 	WeightedClusters *WeightedCluster `json:"weighted_clusters,omitempty"`
-	Headers          []Header         `json:"headers,omitempty"`
-	TimeoutMS        int              `json:"timeout_ms,omitempty"`
-	RetryPolicy      *RetryPolicy     `json:"retry_policy,omitempty"`
+
+	Headers     Headers      `json:"headers,omitempty"`
+	TimeoutMS   int          `json:"timeout_ms,omitempty"`
+	RetryPolicy *RetryPolicy `json:"retry_policy,omitempty"`
+
+	// clusters contains the set of referenced clusters in the route; the field is special
+	// and used only to aggregate cluster information after composing routes
+	clusters []*Cluster
 }
 
 // RetryPolicy definition
@@ -126,8 +152,8 @@ type RetryPolicy struct {
 // WeightedCluster definition
 // See https://lyft.github.io/envoy/docs/configuration/http_conn_man/route_config/route.html
 type WeightedCluster struct {
-	Clusters         []WeightedClusterEntry `json:"clusters"`
-	RuntimeKeyPrefix string                 `json:"runtime_key_prefix,omitempty"`
+	Clusters         []*WeightedClusterEntry `json:"clusters"`
+	RuntimeKeyPrefix string                  `json:"runtime_key_prefix,omitempty"`
 }
 
 // WeightedClusterEntry definition. Describes the format of each entry in the WeightedCluster
@@ -140,12 +166,40 @@ type WeightedClusterEntry struct {
 type VirtualHost struct {
 	Name    string   `json:"name"`
 	Domains []string `json:"domains"`
-	Routes  []Route  `json:"routes"`
+	Routes  []*Route `json:"routes"`
 }
 
 // RouteConfig definition
 type RouteConfig struct {
-	VirtualHosts []VirtualHost `json:"virtual_hosts"`
+	VirtualHosts []*VirtualHost `json:"virtual_hosts"`
+}
+
+// Merge operation selects a union of two route configs prioritizing the first.
+// It matches virtual hosts by name.
+func (rc *RouteConfig) merge(that *RouteConfig) *RouteConfig {
+	out := &RouteConfig{}
+	set := make(map[string]bool)
+	for _, host := range rc.VirtualHosts {
+		set[host.Name] = true
+		out.VirtualHosts = append(out.VirtualHosts, host)
+	}
+	for _, host := range that.VirtualHosts {
+		if !set[host.Name] {
+			out.VirtualHosts = append(out.VirtualHosts, host)
+		}
+	}
+	return out
+}
+
+// Clusters aggregates clusters across routes
+func (rc *RouteConfig) clusters() []*Cluster {
+	out := make([]*Cluster, 0)
+	for _, host := range rc.VirtualHosts {
+		for _, route := range host.Routes {
+			out = append(out, route.clusters...)
+		}
+	}
+	return out
 }
 
 // AccessLog definition.
@@ -157,13 +211,13 @@ type AccessLog struct {
 
 // NetworkFilterConfig definition
 type NetworkFilterConfig struct {
-	CodecType         string      `json:"codec_type"`
-	StatPrefix        string      `json:"stat_prefix"`
-	GenerateRequestID bool        `json:"generate_request_id,omitempty"`
-	RouteConfig       RouteConfig `json:"route_config"`
-	Filters           []Filter    `json:"filters"`
-	AccessLog         []AccessLog `json:"access_log"`
-	Cluster           string      `json:"cluster,omitempty"`
+	CodecType         string       `json:"codec_type"`
+	StatPrefix        string       `json:"stat_prefix"`
+	GenerateRequestID bool         `json:"generate_request_id,omitempty"`
+	RouteConfig       *RouteConfig `json:"route_config"`
+	Filters           []Filter     `json:"filters"`
+	AccessLog         []AccessLog  `json:"access_log"`
+	Cluster           string       `json:"cluster,omitempty"`
 }
 
 // NetworkFilter definition
@@ -175,10 +229,23 @@ type NetworkFilter struct {
 
 // Listener definition
 type Listener struct {
-	Port           int             `json:"port"`
-	Filters        []NetworkFilter `json:"filters"`
-	BindToPort     bool            `json:"bind_to_port"`
-	UseOriginalDst bool            `json:"use_original_dst,omitempty"`
+	Port           int              `json:"port"`
+	Filters        []*NetworkFilter `json:"filters"`
+	BindToPort     bool             `json:"bind_to_port"`
+	UseOriginalDst bool             `json:"use_original_dst,omitempty"`
+}
+
+// RouteConfigs provides routes by virtual host and port
+type RouteConfigs map[int]*RouteConfig
+
+// EnsurePort creates a route config if necessary
+func (hosts RouteConfigs) EnsurePort(port int) *RouteConfig {
+	config, ok := hosts[port]
+	if !ok {
+		config = &RouteConfig{}
+		hosts[port] = config
+	}
+	return config
 }
 
 // Admin definition
@@ -192,11 +259,6 @@ type Host struct {
 	URL string `json:"url"`
 }
 
-// Constant values
-const (
-	LbTypeRoundRobin = "round_robin"
-)
-
 // Cluster definition
 type Cluster struct {
 	Name                     string            `json:"name"`
@@ -209,6 +271,11 @@ type Cluster struct {
 	Features                 string            `json:"features,omitempty"`
 	CircuitBreaker           *CircuitBreaker   `json:"circuit_breaker,omitempty"`
 	OutlierDetection         *OutlierDetection `json:"outlier_detection,omitempty"`
+
+	// special values used by the post-processing passes for outbound clusters
+	hostname string
+	port     *model.Port
+	tag      model.Tag
 }
 
 // CircuitBreaker definition
@@ -244,23 +311,37 @@ func (l ListenersByPort) Less(i, j int) bool {
 	return l[i].Port < l[j].Port
 }
 
-// ClustersByName sorts clusters by name
-type ClustersByName []Cluster
+// Clusters is a collection of clusters
+type Clusters []*Cluster
 
-func (s ClustersByName) Len() int {
+func (s Clusters) Len() int {
 	return len(s)
 }
 
-func (s ClustersByName) Swap(i, j int) {
+func (s Clusters) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func (s ClustersByName) Less(i, j int) bool {
+func (s Clusters) Less(i, j int) bool {
 	return s[i].Name < s[j].Name
 }
 
+// Normalize deduplicates and sorts clusters
+func (s Clusters) Normalize() Clusters {
+	out := make(Clusters, 0)
+	set := make(map[string]bool)
+	for _, cluster := range s {
+		if !set[cluster.Name] {
+			set[cluster.Name] = true
+			out = append(out, cluster)
+		}
+	}
+	sort.Sort(out)
+	return out
+}
+
 // HostsByName sorts clusters by name
-type HostsByName []VirtualHost
+type HostsByName []*VirtualHost
 
 func (s HostsByName) Len() int {
 	return len(s)
@@ -289,34 +370,38 @@ func (r RoutesByCluster) Less(i, j int) bool {
 	return r[i].Cluster < r[j].Cluster
 }
 
-// HeadersByNameValue sorts headers by name, then value.
-type HeadersByNameValue []Header
+// Headers sorts headers
+type Headers []Header
 
-func (s HeadersByNameValue) Len() int {
+func (s Headers) Len() int {
 	return len(s)
 }
 
-func (s HeadersByNameValue) Swap(i, j int) {
+func (s Headers) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func (s HeadersByNameValue) Less(i, j int) bool {
+func (s Headers) Less(i, j int) bool {
 	if s[i].Name == s[j].Name {
-		return s[i].Value < s[j].Value
+		if s[i].Regex == s[j].Regex {
+			return s[i].Value < s[j].Value
+		}
+		// true is less, false is more
+		return s[i].Regex
 	}
 	return s[i].Name < s[j].Name
 }
 
 // SDS is a service discovery service definition
 type SDS struct {
-	Cluster        Cluster `json:"cluster"`
-	RefreshDelayMs int     `json:"refresh_delay_ms"`
+	Cluster        *Cluster `json:"cluster"`
+	RefreshDelayMs int      `json:"refresh_delay_ms"`
 }
 
 // ClusterManager definition
 type ClusterManager struct {
-	Clusters []Cluster `json:"clusters"`
-	SDS      SDS       `json:"sds"`
+	Clusters []*Cluster `json:"clusters"`
+	SDS      SDS        `json:"sds"`
 }
 
 // ByName implements sort

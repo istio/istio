@@ -126,12 +126,6 @@ func (s *Service) Validate() error {
 		}
 	}
 
-	for _, tag := range s.Tags {
-		if err := tag.Validate(); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
 	// Require at least one port
 	if len(s.Ports) == 0 {
 		errs = multierror.Append(errs, fmt.Errorf("Service must have at least one declared port"))
@@ -173,25 +167,24 @@ func (t Tag) Validate() error {
 
 // ValidateRouteRule checks routing rules
 func ValidateRouteRule(msg proto.Message) error {
-	routeRule, ok := msg.(*proxyconfig.RouteRule)
+	value, ok := msg.(*proxyconfig.RouteRule)
 	if !ok {
 		return fmt.Errorf("Cannot cast to routing rule")
 	}
-	if routeRule.GetDestination() == "" {
+	if value.GetDestination() == "" {
 		return fmt.Errorf("RouteRule must have a destination service")
 	}
 	return nil
 }
 
-// ValidateUpstreamCluster checks proxy policies
-func ValidateUpstreamCluster(msg proto.Message) error {
-	upstreamCluster, ok := msg.(*proxyconfig.UpstreamCluster)
+// ValidateDestination checks proxy policies
+func ValidateDestination(msg proto.Message) error {
+	value, ok := msg.(*proxyconfig.Destination)
 	if !ok {
 		return fmt.Errorf("Cannot cast to destination policy")
 	}
-	cluster := upstreamCluster.GetCluster()
-	if cluster == nil || cluster.GetName() == "" {
-		return fmt.Errorf("Upstream Cluster should have a valid service Name in cluster.name field")
+	if value.GetDestination() == "" {
+		return fmt.Errorf("Destination should have a valid service name in its destination field")
 	}
 	return nil
 }

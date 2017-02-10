@@ -9,22 +9,18 @@ It is generated from these files:
 	cfg.proto
 
 It has these top-level messages:
-	ProxyConfig
+	ProxyMeshConfig
+	Destination
 	RouteRule
-	L4RouteRule
-	HttpRouteRule
-	L4MatchCondition
+	MatchCondition
+	DestinationWeight
 	L4MatchAttributes
-	ClusterIdentifier
-	WeightedCluster
-	HttpMatchCondition
 	StringMatch
-	UpstreamCluster
-	LoadBalancingPolicy
-	TimeoutPolicy
-	RetryPolicy
-	CircuitBreakerPolicy
-	HttpFaultInjection
+	LoadBalancing
+	HTTPTimeout
+	HTTPRetry
+	CircuitBreaker
+	HTTPFaultInjection
 	L4FaultInjection
 */
 package config
@@ -46,148 +42,189 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-// protocol Tcp|Udp
-type L4MatchAttributes_L4Protocol int32
-
-const (
-	L4MatchAttributes_TCP L4MatchAttributes_L4Protocol = 0
-	L4MatchAttributes_UDP L4MatchAttributes_L4Protocol = 1
-)
-
-var L4MatchAttributes_L4Protocol_name = map[int32]string{
-	0: "TCP",
-	1: "UDP",
-}
-var L4MatchAttributes_L4Protocol_value = map[string]int32{
-	"TCP": 0,
-	"UDP": 1,
-}
-
-func (x L4MatchAttributes_L4Protocol) String() string {
-	return proto.EnumName(L4MatchAttributes_L4Protocol_name, int32(x))
-}
-func (L4MatchAttributes_L4Protocol) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{5, 0}
-}
-
-type LoadBalancingPolicy_SimpleLBPolicy int32
+type LoadBalancing_SimpleLBPolicy int32
 
 const (
 	// These four simple load balancing policies have literally no
 	// additional configuration.
-	LoadBalancingPolicy_ROUND_ROBIN LoadBalancingPolicy_SimpleLBPolicy = 0
-	LoadBalancingPolicy_LEAST_CONN  LoadBalancingPolicy_SimpleLBPolicy = 1
-	LoadBalancingPolicy_IP_HASH     LoadBalancingPolicy_SimpleLBPolicy = 2
-	LoadBalancingPolicy_RANDOM      LoadBalancingPolicy_SimpleLBPolicy = 3
+	LoadBalancing_ROUND_ROBIN LoadBalancing_SimpleLBPolicy = 0
+	LoadBalancing_LEAST_CONN  LoadBalancing_SimpleLBPolicy = 1
+	LoadBalancing_RANDOM      LoadBalancing_SimpleLBPolicy = 3
 )
 
-var LoadBalancingPolicy_SimpleLBPolicy_name = map[int32]string{
+var LoadBalancing_SimpleLBPolicy_name = map[int32]string{
 	0: "ROUND_ROBIN",
 	1: "LEAST_CONN",
-	2: "IP_HASH",
 	3: "RANDOM",
 }
-var LoadBalancingPolicy_SimpleLBPolicy_value = map[string]int32{
+var LoadBalancing_SimpleLBPolicy_value = map[string]int32{
 	"ROUND_ROBIN": 0,
 	"LEAST_CONN":  1,
-	"IP_HASH":     2,
 	"RANDOM":      3,
 }
 
-func (x LoadBalancingPolicy_SimpleLBPolicy) String() string {
-	return proto.EnumName(LoadBalancingPolicy_SimpleLBPolicy_name, int32(x))
+func (x LoadBalancing_SimpleLBPolicy) String() string {
+	return proto.EnumName(LoadBalancing_SimpleLBPolicy_name, int32(x))
 }
-func (LoadBalancingPolicy_SimpleLBPolicy) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{11, 0}
+func (LoadBalancing_SimpleLBPolicy) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor0, []int{7, 0}
 }
 
 // Proxy level global configurations go here
-type ProxyConfig struct {
-	// config specification version.
-	Revision int32 `protobuf:"varint,1,opt,name=revision" json:"revision,omitempty"`
-	// Since a Http request can match multiple route rules (e.g., there are
-	// two routes for the prefix /foo, with differing Http match attributes
-	// such as Http headers), the first rule to match will/should be chosen
-	// by proxy implementations N.B.: When a request does not match any rule
-	// for Http, the downstream service would receive a HTTP 404.
-	RouteRules []*RouteRule `protobuf:"bytes,2,rep,name=route_rules,json=routeRules" json:"route_rules,omitempty"`
-	// RouteRule determines the upstream cluster to which traffic should be
-	// routed to.  The UpstreamCluster describes how to obtain cluster
-	// members (through discovery or through static configuration), and
-	// policies that determine how to handle traffic (load balancing
-	// policies, failure recovery policies such as timeouts, retries, circuit
-	// breakers), etc.
-	UpstreamClusters []*UpstreamCluster `protobuf:"bytes,3,rep,name=upstream_clusters,json=upstreamClusters" json:"upstream_clusters,omitempty"`
+type ProxyMeshConfig struct {
 }
 
-func (m *ProxyConfig) Reset()                    { *m = ProxyConfig{} }
-func (m *ProxyConfig) String() string            { return proto.CompactTextString(m) }
-func (*ProxyConfig) ProtoMessage()               {}
-func (*ProxyConfig) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+func (m *ProxyMeshConfig) Reset()                    { *m = ProxyMeshConfig{} }
+func (m *ProxyMeshConfig) String() string            { return proto.CompactTextString(m) }
+func (*ProxyMeshConfig) ProtoMessage()               {}
+func (*ProxyMeshConfig) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
-func (m *ProxyConfig) GetRevision() int32 {
-	if m != nil {
-		return m.Revision
-	}
-	return 0
-}
-
-func (m *ProxyConfig) GetRouteRules() []*RouteRule {
-	if m != nil {
-		return m.RouteRules
-	}
-	return nil
-}
-
-func (m *ProxyConfig) GetUpstreamClusters() []*UpstreamCluster {
-	if m != nil {
-		return m.UpstreamClusters
-	}
-	return nil
-}
-
-// Describes rules for routing a request/connection to an upstream
-// service, based on attributes associated with the request/connection
-// and downstream service invoking the API call. The choice of the specific
-// upstream cluster will be determined by the routing rule.
-type RouteRule struct {
-	// Uniquely identifies the upstream service (not its versions) associated
-	// with this RouteRule. This is applicable for both Http and Tcp.
-	// Note: The name used here must match with the 'name' field in the
-	// ClusterIdentifier, that is used to uniquely identify a version of the
-	// upstream service.
+// Destination declares policies that determine how to handle traffic for a
+// destination service (load balancing policies, failure recovery policies such
+// as timeouts, retries, circuit breakers, etc).  Policies are applicable per
+// individual service versions. It is an error to define multiple policies for
+// the same service version.
+//
+// N.B. The policies are enforced on client-side connections or requests, i.e.,
+// enforced when the service is opening a connection/sending a request via the
+// proxy to the destination.
+type Destination struct {
+	// Service name for which the service version is defined.
+	// The name should be fully-qualified, e.g. "my-service.default.svc.cluster.local".
 	Destination string `protobuf:"bytes,1,opt,name=destination" json:"destination,omitempty"`
-	// Types that are valid to be assigned to RouteRule:
-	//	*RouteRule_Layer4
-	//	*RouteRule_Http
-	RouteRule isRouteRule_RouteRule `protobuf_oneof:"route_rule"`
+	// Service version destination identifier for the destination service.
+	// The identifier is qualified by the destination service name, e.g. version
+	// "env=prod" in "my-service.default.svc.cluster.local".
+	//
+	// N.B. The map is used instead of pstruct due to lack of serialization support
+	// in golang protobuf library (see https://github.com/golang/protobuf/pull/208)
+	Version map[string]string `protobuf:"bytes,2,rep,name=version" json:"version,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Load balancing policy
+	LoadBalancing *LoadBalancing `protobuf:"bytes,3,opt,name=load_balancing,json=loadBalancing" json:"load_balancing,omitempty"`
+	// Circuit breaker policy
+	CircuitBreaker *CircuitBreaker `protobuf:"bytes,4,opt,name=circuit_breaker,json=circuitBreaker" json:"circuit_breaker,omitempty"`
+	// Timeout policy. N.B. Applicable to the default service version only.
+	HttpTimeout *HTTPTimeout `protobuf:"bytes,5,opt,name=http_timeout,json=httpTimeout" json:"http_timeout,omitempty"`
+	// Retry policy. N.B. Applicable to the default service version only.
+	HttpRetry *HTTPRetry `protobuf:"bytes,6,opt,name=http_retry,json=httpRetry" json:"http_retry,omitempty"`
+	// L7 fault injection policy applies to L7 traffic
+	HttpFault *HTTPFaultInjection `protobuf:"bytes,7,opt,name=http_fault,json=httpFault" json:"http_fault,omitempty"`
+	// L4 fault injection policy applies to L4 traffic
+	L4Fault *L4FaultInjection `protobuf:"bytes,8,opt,name=l4_fault,json=l4Fault" json:"l4_fault,omitempty"`
+	// Custom policy implementations
+	Custom *google_protobuf.Any `protobuf:"bytes,9,opt,name=custom" json:"custom,omitempty"`
+}
+
+func (m *Destination) Reset()                    { *m = Destination{} }
+func (m *Destination) String() string            { return proto.CompactTextString(m) }
+func (*Destination) ProtoMessage()               {}
+func (*Destination) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+
+func (m *Destination) GetDestination() string {
+	if m != nil {
+		return m.Destination
+	}
+	return ""
+}
+
+func (m *Destination) GetVersion() map[string]string {
+	if m != nil {
+		return m.Version
+	}
+	return nil
+}
+
+func (m *Destination) GetLoadBalancing() *LoadBalancing {
+	if m != nil {
+		return m.LoadBalancing
+	}
+	return nil
+}
+
+func (m *Destination) GetCircuitBreaker() *CircuitBreaker {
+	if m != nil {
+		return m.CircuitBreaker
+	}
+	return nil
+}
+
+func (m *Destination) GetHttpTimeout() *HTTPTimeout {
+	if m != nil {
+		return m.HttpTimeout
+	}
+	return nil
+}
+
+func (m *Destination) GetHttpRetry() *HTTPRetry {
+	if m != nil {
+		return m.HttpRetry
+	}
+	return nil
+}
+
+func (m *Destination) GetHttpFault() *HTTPFaultInjection {
+	if m != nil {
+		return m.HttpFault
+	}
+	return nil
+}
+
+func (m *Destination) GetL4Fault() *L4FaultInjection {
+	if m != nil {
+		return m.L4Fault
+	}
+	return nil
+}
+
+func (m *Destination) GetCustom() *google_protobuf.Any {
+	if m != nil {
+		return m.Custom
+	}
+	return nil
+}
+
+// Route rule provides a custom routing policy based on the source and
+// destination service versions and connection/request metadata.  The rule must
+// provide a set of conditions for each protocol (TCP, UDP, HTTP) that the
+// destination service exposes on its ports. The rule applies only to the ports
+// on the destination service for which it provides protocol-specific match
+// condition, e.g. if the rule does not specify TCP condition, the rule does
+// not apply to TCP traffic towards the destination service.
+type RouteRule struct {
+	// Uniquely identifies the destination  associated with this routing rule.
+	// This is applicable for hostname-based resolution for HTTP traffic as well as
+	// IP-based resolution for TCP/UDP traffic.
+	//
+	// The value is either the fully qualified service name or the cluster subdomain
+	// with the interpretation that the cluster route rule applies to its ingress traffic.
+	// For example, "my-service.default.svc.cluster.local" refers to a service by its
+	// name, while "svc.cluster.local" refers to the cluster ingress traffic.
+	//
+	// The destination field is mandatory for each route rule.
+	//
+	// Examples: "my-service.default.svc.cluster.local", "svc.cluster.local".
+	Destination string `protobuf:"bytes,1,opt,name=destination" json:"destination,omitempty"`
+	// Match condition is optional.
+	// By default, the rule applies to HTTP traffic only.
+	Match *MatchCondition `protobuf:"bytes,2,opt,name=match" json:"match,omitempty"`
+	// Each routing rule is associated with one or more service version destinations
+	// (see glossary in beginning of document). Weights associated with the service
+	// version determine the proportion of traffic it receives.
+	Route []*DestinationWeight `protobuf:"bytes,3,rep,name=route" json:"route,omitempty"`
+	// Precedence is used to disambiguate the order of application of rules for
+	// the same destination service. A higher number takes priority.  If not
+	// specified, the value is assumed to be 0.  The order of application for rules
+	// with the same precedence is unspecified.
+	//
+	// Rule precedence can be used to order routes for a single destination, as
+	// well as override existing routes with the same attribute condition.
+	Precedence int32 `protobuf:"varint,4,opt,name=precedence" json:"precedence,omitempty"`
 }
 
 func (m *RouteRule) Reset()                    { *m = RouteRule{} }
 func (m *RouteRule) String() string            { return proto.CompactTextString(m) }
 func (*RouteRule) ProtoMessage()               {}
-func (*RouteRule) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
-
-type isRouteRule_RouteRule interface {
-	isRouteRule_RouteRule()
-}
-
-type RouteRule_Layer4 struct {
-	Layer4 *L4RouteRule `protobuf:"bytes,2,opt,name=layer4,oneof"`
-}
-type RouteRule_Http struct {
-	Http *HttpRouteRule `protobuf:"bytes,3,opt,name=http,oneof"`
-}
-
-func (*RouteRule_Layer4) isRouteRule_RouteRule() {}
-func (*RouteRule_Http) isRouteRule_RouteRule()   {}
-
-func (m *RouteRule) GetRouteRule() isRouteRule_RouteRule {
-	if m != nil {
-		return m.RouteRule
-	}
-	return nil
-}
+func (*RouteRule) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
 func (m *RouteRule) GetDestination() string {
 	if m != nil {
@@ -196,231 +233,143 @@ func (m *RouteRule) GetDestination() string {
 	return ""
 }
 
-func (m *RouteRule) GetLayer4() *L4RouteRule {
-	if x, ok := m.GetRouteRule().(*RouteRule_Layer4); ok {
-		return x.Layer4
-	}
-	return nil
-}
-
-func (m *RouteRule) GetHttp() *HttpRouteRule {
-	if x, ok := m.GetRouteRule().(*RouteRule_Http); ok {
-		return x.Http
-	}
-	return nil
-}
-
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*RouteRule) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _RouteRule_OneofMarshaler, _RouteRule_OneofUnmarshaler, _RouteRule_OneofSizer, []interface{}{
-		(*RouteRule_Layer4)(nil),
-		(*RouteRule_Http)(nil),
-	}
-}
-
-func _RouteRule_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*RouteRule)
-	// route_rule
-	switch x := m.RouteRule.(type) {
-	case *RouteRule_Layer4:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Layer4); err != nil {
-			return err
-		}
-	case *RouteRule_Http:
-		b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Http); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("RouteRule.RouteRule has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _RouteRule_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*RouteRule)
-	switch tag {
-	case 2: // route_rule.layer4
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(L4RouteRule)
-		err := b.DecodeMessage(msg)
-		m.RouteRule = &RouteRule_Layer4{msg}
-		return true, err
-	case 3: // route_rule.http
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(HttpRouteRule)
-		err := b.DecodeMessage(msg)
-		m.RouteRule = &RouteRule_Http{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _RouteRule_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*RouteRule)
-	// route_rule
-	switch x := m.RouteRule.(type) {
-	case *RouteRule_Layer4:
-		s := proto.Size(x.Layer4)
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *RouteRule_Http:
-		s := proto.Size(x.Http)
-		n += proto.SizeVarint(3<<3 | proto.WireBytes)
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
-}
-
-// Routes incoming Tcp/Udp traffic to one of the clusters of a service
-// based on match criterion.
-type L4RouteRule struct {
-	// Set of conditions that must be satisfied, such as downstream cluster
-	// labels, connection attributes, etc.
-	Match *L4MatchCondition `protobuf:"bytes,1,opt,name=match" json:"match,omitempty"`
-	// Each routing rule is associated with one or more upstream clusters,
-	// (see glossary in beginning of document). Weights associated with the
-	// cluster determine the proportion of traffic it receives.
-	WeightedClusters []*WeightedCluster `protobuf:"bytes,2,rep,name=weighted_clusters,json=weightedClusters" json:"weighted_clusters,omitempty"`
-	// TODO: This should be done on per-cluster basis.
-	Fault *L4FaultInjection `protobuf:"bytes,3,opt,name=fault" json:"fault,omitempty"`
-}
-
-func (m *L4RouteRule) Reset()                    { *m = L4RouteRule{} }
-func (m *L4RouteRule) String() string            { return proto.CompactTextString(m) }
-func (*L4RouteRule) ProtoMessage()               {}
-func (*L4RouteRule) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
-
-func (m *L4RouteRule) GetMatch() *L4MatchCondition {
+func (m *RouteRule) GetMatch() *MatchCondition {
 	if m != nil {
 		return m.Match
 	}
 	return nil
 }
 
-func (m *L4RouteRule) GetWeightedClusters() []*WeightedCluster {
+func (m *RouteRule) GetRoute() []*DestinationWeight {
 	if m != nil {
-		return m.WeightedClusters
+		return m.Route
 	}
 	return nil
 }
 
-func (m *L4RouteRule) GetFault() *L4FaultInjection {
+func (m *RouteRule) GetPrecedence() int32 {
 	if m != nil {
-		return m.Fault
+		return m.Precedence
+	}
+	return 0
+}
+
+// Match condition selects traffic for routing application.
+// The condition provides distinct set of conditions for each protocol with the
+// intention that conditions apply only to the service ports that match the protocol.
+type MatchCondition struct {
+	// Identifies the service initiating a connection or a request by its name.
+	Source string `protobuf:"bytes,1,opt,name=source" json:"source,omitempty"`
+	// Identifies the source service version. The identifier is interpreted
+	// by the platform to match a service version for the source service.
+	//
+	// N.B. The map is used instead of pstruct due to lack of serialization support
+	// in golang protobuf library (see https://github.com/golang/protobuf/pull/208)
+	SourceVersion map[string]string `protobuf:"bytes,2,rep,name=source_version,json=sourceVersion" json:"source_version,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Set of layer 4 match conditions based on the IP ranges
+	Tcp *L4MatchAttributes `protobuf:"bytes,3,opt,name=tcp" json:"tcp,omitempty"`
+	// Set of layer 4 match conditions based on the IP ranges
+	Udp *L4MatchAttributes `protobuf:"bytes,4,opt,name=udp" json:"udp,omitempty"`
+	// Set of HTTP match conditions based on HTTP/1.1, HTTP/2, GRPC request metadata,
+	// such as "uri", "scheme", "authority".
+	// The header keys are case-insensitive.
+	Http map[string]*StringMatch `protobuf:"bytes,5,rep,name=http" json:"http,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+}
+
+func (m *MatchCondition) Reset()                    { *m = MatchCondition{} }
+func (m *MatchCondition) String() string            { return proto.CompactTextString(m) }
+func (*MatchCondition) ProtoMessage()               {}
+func (*MatchCondition) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+
+func (m *MatchCondition) GetSource() string {
+	if m != nil {
+		return m.Source
+	}
+	return ""
+}
+
+func (m *MatchCondition) GetSourceVersion() map[string]string {
+	if m != nil {
+		return m.SourceVersion
 	}
 	return nil
 }
 
-// Routes Http requests to one of the upstream clusters based on
-// match criterion.
-type HttpRouteRule struct {
-	// Set of conditions that must be satisfied, such as downstream service
-	// labels, request attributes, etc.
-	Match *HttpMatchCondition `protobuf:"bytes,1,opt,name=match" json:"match,omitempty"`
-	// Each routing rule is associated with one or more upstream clusters,
-	// (see glossary in beginning of document). Weights associated with the
-	// cluster determine the proportion of traffic it receives.
-	WeightedClusters []*WeightedCluster `protobuf:"bytes,2,rep,name=weighted_clusters,json=weightedClusters" json:"weighted_clusters,omitempty"`
-	// Faults can be injected into the API calls by the proxy, for
-	// testing the failure recovery capabilities of downstream services.
-	// Faults include aborting the Http request from downstream service,
-	// delaying the proxying of request to the upstream service, or both.
-	// TODO: This should move into UpstreamCluster
-	Fault *HttpFaultInjection `protobuf:"bytes,3,opt,name=fault" json:"fault,omitempty"`
-	// Custom properties per rule (depends on proxy), such as open tracing,
-	// access log formats, etc. Some of these will be defined in future
-	// iterations.
-	CustomImpl *google_protobuf.Any `protobuf:"bytes,4,opt,name=custom_impl,json=customImpl" json:"custom_impl,omitempty"`
-}
-
-func (m *HttpRouteRule) Reset()                    { *m = HttpRouteRule{} }
-func (m *HttpRouteRule) String() string            { return proto.CompactTextString(m) }
-func (*HttpRouteRule) ProtoMessage()               {}
-func (*HttpRouteRule) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
-
-func (m *HttpRouteRule) GetMatch() *HttpMatchCondition {
+func (m *MatchCondition) GetTcp() *L4MatchAttributes {
 	if m != nil {
-		return m.Match
+		return m.Tcp
 	}
 	return nil
 }
 
-func (m *HttpRouteRule) GetWeightedClusters() []*WeightedCluster {
+func (m *MatchCondition) GetUdp() *L4MatchAttributes {
 	if m != nil {
-		return m.WeightedClusters
+		return m.Udp
 	}
 	return nil
 }
 
-func (m *HttpRouteRule) GetFault() *HttpFaultInjection {
+func (m *MatchCondition) GetHttp() map[string]*StringMatch {
 	if m != nil {
-		return m.Fault
+		return m.Http
 	}
 	return nil
 }
 
-func (m *HttpRouteRule) GetCustomImpl() *google_protobuf.Any {
+// Each routing rule is associated with one or more service versions (see
+// glossary in beginning of document). Weights associated with the version
+// determine the proportion of traffic it receives.
+type DestinationWeight struct {
+	// Uniquely identifies the destination service.
+	// If not specified, the value is inherited from the parent route rule.
+	//
+	// Example: "my-service.default.svc.cluster.local".
+	Destination string `protobuf:"bytes,1,opt,name=destination" json:"destination,omitempty"`
+	// Service version identifier for the destination service.
+	//
+	// N.B. The map is used instead of pstruct due to lack of serialization support
+	// in golang protobuf library (see https://github.com/golang/protobuf/pull/208)
+	Version map[string]string `protobuf:"bytes,2,rep,name=version" json:"version,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// The proportion of traffic to be forwarded to the service version Max is
+	// 100. Sum of weights across destinations should add up to 100.
+	// If there is only destination in a rule, the weight value is assumed to be 100.
+	Weight int32 `protobuf:"varint,3,opt,name=weight" json:"weight,omitempty"`
+}
+
+func (m *DestinationWeight) Reset()                    { *m = DestinationWeight{} }
+func (m *DestinationWeight) String() string            { return proto.CompactTextString(m) }
+func (*DestinationWeight) ProtoMessage()               {}
+func (*DestinationWeight) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+
+func (m *DestinationWeight) GetDestination() string {
 	if m != nil {
-		return m.CustomImpl
+		return m.Destination
+	}
+	return ""
+}
+
+func (m *DestinationWeight) GetVersion() map[string]string {
+	if m != nil {
+		return m.Version
 	}
 	return nil
 }
 
-// Basic routing rule match criterion using Tcp attributes and downstream
-// cluster identifier
-type L4MatchCondition struct {
-	// Set of layer 4 match attributes such as src ip/port, dst ip/port and
-	// protocol
-	L4Attributes *L4MatchAttributes `protobuf:"bytes,1,opt,name=l4attributes" json:"l4attributes,omitempty"`
-	// Identify the downstream cluster initiating the connection.
-	SrcCluster *ClusterIdentifier `protobuf:"bytes,2,opt,name=src_cluster,json=srcCluster" json:"src_cluster,omitempty"`
-}
-
-func (m *L4MatchCondition) Reset()                    { *m = L4MatchCondition{} }
-func (m *L4MatchCondition) String() string            { return proto.CompactTextString(m) }
-func (*L4MatchCondition) ProtoMessage()               {}
-func (*L4MatchCondition) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
-
-func (m *L4MatchCondition) GetL4Attributes() *L4MatchAttributes {
+func (m *DestinationWeight) GetWeight() int32 {
 	if m != nil {
-		return m.L4Attributes
+		return m.Weight
 	}
-	return nil
-}
-
-func (m *L4MatchCondition) GetSrcCluster() *ClusterIdentifier {
-	if m != nil {
-		return m.SrcCluster
-	}
-	return nil
+	return 0
 }
 
 // L4 connection match attributes
 type L4MatchAttributes struct {
 	// IPv4 or IPv6 ip address with optional subnet. E.g., a.b.c.d/xx form or
 	// just a.b.c.d
-	SrcIpSubnet []string `protobuf:"bytes,1,rep,name=src_ip_subnet,json=srcIpSubnet" json:"src_ip_subnet,omitempty"`
-	// source port
-	SrcPort *google_protobuf1.UInt32Value `protobuf:"bytes,2,opt,name=src_port,json=srcPort" json:"src_port,omitempty"`
+	SourceSubnet []string `protobuf:"bytes,1,rep,name=source_subnet,json=sourceSubnet" json:"source_subnet,omitempty"`
 	// IPv4 or IPv6 ip address with optional subnet. E.g., a.b.c.d/xx form or
 	// just a.b.c.d
-	DstIpSubnet []string `protobuf:"bytes,3,rep,name=dst_ip_subnet,json=dstIpSubnet" json:"dst_ip_subnet,omitempty"`
-	// destination port
-	DstPort  *google_protobuf1.UInt32Value `protobuf:"bytes,4,opt,name=dst_port,json=dstPort" json:"dst_port,omitempty"`
-	Protocol L4MatchAttributes_L4Protocol  `protobuf:"varint,5,opt,name=protocol,enum=istio.proxy.v1alpha.config.L4MatchAttributes_L4Protocol" json:"protocol,omitempty"`
+	DestinationSubnet []string `protobuf:"bytes,2,rep,name=destination_subnet,json=destinationSubnet" json:"destination_subnet,omitempty"`
 }
 
 func (m *L4MatchAttributes) Reset()                    { *m = L4MatchAttributes{} }
@@ -428,173 +377,23 @@ func (m *L4MatchAttributes) String() string            { return proto.CompactTex
 func (*L4MatchAttributes) ProtoMessage()               {}
 func (*L4MatchAttributes) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
 
-func (m *L4MatchAttributes) GetSrcIpSubnet() []string {
+func (m *L4MatchAttributes) GetSourceSubnet() []string {
 	if m != nil {
-		return m.SrcIpSubnet
+		return m.SourceSubnet
 	}
 	return nil
 }
 
-func (m *L4MatchAttributes) GetSrcPort() *google_protobuf1.UInt32Value {
+func (m *L4MatchAttributes) GetDestinationSubnet() []string {
 	if m != nil {
-		return m.SrcPort
-	}
-	return nil
-}
-
-func (m *L4MatchAttributes) GetDstIpSubnet() []string {
-	if m != nil {
-		return m.DstIpSubnet
-	}
-	return nil
-}
-
-func (m *L4MatchAttributes) GetDstPort() *google_protobuf1.UInt32Value {
-	if m != nil {
-		return m.DstPort
-	}
-	return nil
-}
-
-func (m *L4MatchAttributes) GetProtocol() L4MatchAttributes_L4Protocol {
-	if m != nil {
-		return m.Protocol
-	}
-	return L4MatchAttributes_TCP
-}
-
-// A name and one or more tags uniquely identify an upstream or downstream
-// cluster. Names and tags can be arbitrary strings, and their
-// interpretation is specific to the underlying platform (e.g., in
-// kubernetes, name field could correspond to the service Name, while each
-// tag string could be parsed into a pod label (key:value))
-type ClusterIdentifier struct {
-	// Note: When used in the context of upstream clusters, the value of the
-	// name field used here must match with the 'destination' field in
-	// the RouteRule, that is used to assign the RouteRule to a particular
-	// service
-	Name string   `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
-	Tags []string `protobuf:"bytes,2,rep,name=tags" json:"tags,omitempty"`
-}
-
-func (m *ClusterIdentifier) Reset()                    { *m = ClusterIdentifier{} }
-func (m *ClusterIdentifier) String() string            { return proto.CompactTextString(m) }
-func (*ClusterIdentifier) ProtoMessage()               {}
-func (*ClusterIdentifier) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
-
-func (m *ClusterIdentifier) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
-
-func (m *ClusterIdentifier) GetTags() []string {
-	if m != nil {
-		return m.Tags
-	}
-	return nil
-}
-
-// Each routing rule is associated with one or more upstream clusters,
-// (see glossary in beginning of document). Weights associated with the
-// cluster determine the proportion of traffic it receives.
-type WeightedCluster struct {
-	// Unique identity of the upstream cluster. Must be the same as those used
-	// in the definition of the UpstreamClusterPolicy.
-	DstCluster *ClusterIdentifier `protobuf:"bytes,1,opt,name=dst_cluster,json=dstCluster" json:"dst_cluster,omitempty"`
-	// The proportion of connections to be forwarded to the upstream
-	// cluster. Max is 100. Sum of weights across versions should add up to
-	// 100.
-	Weight uint32 `protobuf:"varint,2,opt,name=weight" json:"weight,omitempty"`
-}
-
-func (m *WeightedCluster) Reset()                    { *m = WeightedCluster{} }
-func (m *WeightedCluster) String() string            { return proto.CompactTextString(m) }
-func (*WeightedCluster) ProtoMessage()               {}
-func (*WeightedCluster) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
-
-func (m *WeightedCluster) GetDstCluster() *ClusterIdentifier {
-	if m != nil {
-		return m.DstCluster
-	}
-	return nil
-}
-
-func (m *WeightedCluster) GetWeight() uint32 {
-	if m != nil {
-		return m.Weight
-	}
-	return 0
-}
-
-// Http/1.1|Http/2|gRPC routing rule match criterion built on top of BaseMatchCondition
-type HttpMatchCondition struct {
-	// Set of layer 4 match attributes such as src ip/port, dst ip/port and
-	// protocol
-	L4Attributes *L4MatchAttributes `protobuf:"bytes,1,opt,name=l4attributes" json:"l4attributes,omitempty"`
-	// Identify the downstream cluster initiating the connection.
-	SrcCluster *ClusterIdentifier `protobuf:"bytes,2,opt,name=src_cluster,json=srcCluster" json:"src_cluster,omitempty"`
-	// Set of Http request level match attributes
-	Scheme string `protobuf:"bytes,3,opt,name=scheme" json:"scheme,omitempty"`
-	// Match based on authority
-	Authority *StringMatch `protobuf:"bytes,4,opt,name=authority" json:"authority,omitempty"`
-	// Match based on URI
-	Uri *StringMatch `protobuf:"bytes,5,opt,name=uri" json:"uri,omitempty"`
-	// Match Http requests based on the specified headers
-	// Support exact/prefix/regex match on header values
-	Headers map[string]*StringMatch `protobuf:"bytes,6,rep,name=headers" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-}
-
-func (m *HttpMatchCondition) Reset()                    { *m = HttpMatchCondition{} }
-func (m *HttpMatchCondition) String() string            { return proto.CompactTextString(m) }
-func (*HttpMatchCondition) ProtoMessage()               {}
-func (*HttpMatchCondition) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
-
-func (m *HttpMatchCondition) GetL4Attributes() *L4MatchAttributes {
-	if m != nil {
-		return m.L4Attributes
-	}
-	return nil
-}
-
-func (m *HttpMatchCondition) GetSrcCluster() *ClusterIdentifier {
-	if m != nil {
-		return m.SrcCluster
-	}
-	return nil
-}
-
-func (m *HttpMatchCondition) GetScheme() string {
-	if m != nil {
-		return m.Scheme
-	}
-	return ""
-}
-
-func (m *HttpMatchCondition) GetAuthority() *StringMatch {
-	if m != nil {
-		return m.Authority
-	}
-	return nil
-}
-
-func (m *HttpMatchCondition) GetUri() *StringMatch {
-	if m != nil {
-		return m.Uri
-	}
-	return nil
-}
-
-func (m *HttpMatchCondition) GetHeaders() map[string]*StringMatch {
-	if m != nil {
-		return m.Headers
+		return m.DestinationSubnet
 	}
 	return nil
 }
 
 // Describes how to matches a given string (exact match, prefix-based match
-// or posix style regex based match).
+// or posix style regex based match). Match is case-sensitive.
+// It is a validation error to supply a regex for a proxy that does not support it.
 type StringMatch struct {
 	// Types that are valid to be assigned to MatchType:
 	//	*StringMatch_Exact
@@ -606,7 +405,7 @@ type StringMatch struct {
 func (m *StringMatch) Reset()                    { *m = StringMatch{} }
 func (m *StringMatch) String() string            { return proto.CompactTextString(m) }
 func (*StringMatch) ProtoMessage()               {}
-func (*StringMatch) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
+func (*StringMatch) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
 
 type isStringMatch_MatchType interface {
 	isStringMatch_MatchType()
@@ -735,178 +534,113 @@ func _StringMatch_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-// N.B. The policies are enforced on egress connections or requests,
-// i.e., enforced when the downstream service (caller) is opening a
-// connection/sending a request via the proxy to the upstream service.
-type UpstreamCluster struct {
-	// Unique identifier of the upstream cluster. The name and tags in the
-	// cluster identifier are used by the service discovery component of the
-	// proxy to identify the IP addresses of the pods|VMs running this
-	// service.
-	// TODO: Need to have a way to statically specify the hosts/IPs.
-	Cluster *ClusterIdentifier `protobuf:"bytes,1,opt,name=cluster" json:"cluster,omitempty"`
-	// Should be either http://.. or tcp://..
-	HealthCheckEndpoint string                `protobuf:"bytes,2,opt,name=health_check_endpoint,json=healthCheckEndpoint" json:"health_check_endpoint,omitempty"`
-	LbPolicy            *LoadBalancingPolicy  `protobuf:"bytes,3,opt,name=lb_policy,json=lbPolicy" json:"lb_policy,omitempty"`
-	Timeout             *TimeoutPolicy        `protobuf:"bytes,4,opt,name=timeout" json:"timeout,omitempty"`
-	Retry               *RetryPolicy          `protobuf:"bytes,5,opt,name=retry" json:"retry,omitempty"`
-	CircuitBreaker      *CircuitBreakerPolicy `protobuf:"bytes,6,opt,name=circuit_breaker,json=circuitBreaker" json:"circuit_breaker,omitempty"`
-}
-
-func (m *UpstreamCluster) Reset()                    { *m = UpstreamCluster{} }
-func (m *UpstreamCluster) String() string            { return proto.CompactTextString(m) }
-func (*UpstreamCluster) ProtoMessage()               {}
-func (*UpstreamCluster) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
-
-func (m *UpstreamCluster) GetCluster() *ClusterIdentifier {
-	if m != nil {
-		return m.Cluster
-	}
-	return nil
-}
-
-func (m *UpstreamCluster) GetHealthCheckEndpoint() string {
-	if m != nil {
-		return m.HealthCheckEndpoint
-	}
-	return ""
-}
-
-func (m *UpstreamCluster) GetLbPolicy() *LoadBalancingPolicy {
-	if m != nil {
-		return m.LbPolicy
-	}
-	return nil
-}
-
-func (m *UpstreamCluster) GetTimeout() *TimeoutPolicy {
-	if m != nil {
-		return m.Timeout
-	}
-	return nil
-}
-
-func (m *UpstreamCluster) GetRetry() *RetryPolicy {
-	if m != nil {
-		return m.Retry
-	}
-	return nil
-}
-
-func (m *UpstreamCluster) GetCircuitBreaker() *CircuitBreakerPolicy {
-	if m != nil {
-		return m.CircuitBreaker
-	}
-	return nil
-}
-
-// Load balancing policy to use when forwarding traffic to upstream clusters.
-type LoadBalancingPolicy struct {
+// Load balancing policy to use when forwarding traffic.
+type LoadBalancing struct {
 	// Types that are valid to be assigned to LbPolicy:
-	//	*LoadBalancingPolicy_Name
-	//	*LoadBalancingPolicy_CustomImpl
-	LbPolicy isLoadBalancingPolicy_LbPolicy `protobuf_oneof:"lb_policy"`
+	//	*LoadBalancing_Name
+	//	*LoadBalancing_Custom
+	LbPolicy isLoadBalancing_LbPolicy `protobuf_oneof:"lb_policy"`
 }
 
-func (m *LoadBalancingPolicy) Reset()                    { *m = LoadBalancingPolicy{} }
-func (m *LoadBalancingPolicy) String() string            { return proto.CompactTextString(m) }
-func (*LoadBalancingPolicy) ProtoMessage()               {}
-func (*LoadBalancingPolicy) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
+func (m *LoadBalancing) Reset()                    { *m = LoadBalancing{} }
+func (m *LoadBalancing) String() string            { return proto.CompactTextString(m) }
+func (*LoadBalancing) ProtoMessage()               {}
+func (*LoadBalancing) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
 
-type isLoadBalancingPolicy_LbPolicy interface {
-	isLoadBalancingPolicy_LbPolicy()
+type isLoadBalancing_LbPolicy interface {
+	isLoadBalancing_LbPolicy()
 }
 
-type LoadBalancingPolicy_Name struct {
-	Name LoadBalancingPolicy_SimpleLBPolicy `protobuf:"varint,1,opt,name=name,enum=istio.proxy.v1alpha.config.LoadBalancingPolicy_SimpleLBPolicy,oneof"`
+type LoadBalancing_Name struct {
+	Name LoadBalancing_SimpleLBPolicy `protobuf:"varint,1,opt,name=name,enum=istio.proxy.v1alpha.config.LoadBalancing_SimpleLBPolicy,oneof"`
 }
-type LoadBalancingPolicy_CustomImpl struct {
-	CustomImpl *google_protobuf.Any `protobuf:"bytes,2,opt,name=custom_impl,json=customImpl,oneof"`
+type LoadBalancing_Custom struct {
+	Custom *google_protobuf.Any `protobuf:"bytes,2,opt,name=custom,oneof"`
 }
 
-func (*LoadBalancingPolicy_Name) isLoadBalancingPolicy_LbPolicy()       {}
-func (*LoadBalancingPolicy_CustomImpl) isLoadBalancingPolicy_LbPolicy() {}
+func (*LoadBalancing_Name) isLoadBalancing_LbPolicy()   {}
+func (*LoadBalancing_Custom) isLoadBalancing_LbPolicy() {}
 
-func (m *LoadBalancingPolicy) GetLbPolicy() isLoadBalancingPolicy_LbPolicy {
+func (m *LoadBalancing) GetLbPolicy() isLoadBalancing_LbPolicy {
 	if m != nil {
 		return m.LbPolicy
 	}
 	return nil
 }
 
-func (m *LoadBalancingPolicy) GetName() LoadBalancingPolicy_SimpleLBPolicy {
-	if x, ok := m.GetLbPolicy().(*LoadBalancingPolicy_Name); ok {
+func (m *LoadBalancing) GetName() LoadBalancing_SimpleLBPolicy {
+	if x, ok := m.GetLbPolicy().(*LoadBalancing_Name); ok {
 		return x.Name
 	}
-	return LoadBalancingPolicy_ROUND_ROBIN
+	return LoadBalancing_ROUND_ROBIN
 }
 
-func (m *LoadBalancingPolicy) GetCustomImpl() *google_protobuf.Any {
-	if x, ok := m.GetLbPolicy().(*LoadBalancingPolicy_CustomImpl); ok {
-		return x.CustomImpl
+func (m *LoadBalancing) GetCustom() *google_protobuf.Any {
+	if x, ok := m.GetLbPolicy().(*LoadBalancing_Custom); ok {
+		return x.Custom
 	}
 	return nil
 }
 
 // XXX_OneofFuncs is for the internal use of the proto package.
-func (*LoadBalancingPolicy) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _LoadBalancingPolicy_OneofMarshaler, _LoadBalancingPolicy_OneofUnmarshaler, _LoadBalancingPolicy_OneofSizer, []interface{}{
-		(*LoadBalancingPolicy_Name)(nil),
-		(*LoadBalancingPolicy_CustomImpl)(nil),
+func (*LoadBalancing) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _LoadBalancing_OneofMarshaler, _LoadBalancing_OneofUnmarshaler, _LoadBalancing_OneofSizer, []interface{}{
+		(*LoadBalancing_Name)(nil),
+		(*LoadBalancing_Custom)(nil),
 	}
 }
 
-func _LoadBalancingPolicy_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*LoadBalancingPolicy)
+func _LoadBalancing_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*LoadBalancing)
 	// lb_policy
 	switch x := m.LbPolicy.(type) {
-	case *LoadBalancingPolicy_Name:
+	case *LoadBalancing_Name:
 		b.EncodeVarint(1<<3 | proto.WireVarint)
 		b.EncodeVarint(uint64(x.Name))
-	case *LoadBalancingPolicy_CustomImpl:
+	case *LoadBalancing_Custom:
 		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.CustomImpl); err != nil {
+		if err := b.EncodeMessage(x.Custom); err != nil {
 			return err
 		}
 	case nil:
 	default:
-		return fmt.Errorf("LoadBalancingPolicy.LbPolicy has unexpected type %T", x)
+		return fmt.Errorf("LoadBalancing.LbPolicy has unexpected type %T", x)
 	}
 	return nil
 }
 
-func _LoadBalancingPolicy_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*LoadBalancingPolicy)
+func _LoadBalancing_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*LoadBalancing)
 	switch tag {
 	case 1: // lb_policy.name
 		if wire != proto.WireVarint {
 			return true, proto.ErrInternalBadWireType
 		}
 		x, err := b.DecodeVarint()
-		m.LbPolicy = &LoadBalancingPolicy_Name{LoadBalancingPolicy_SimpleLBPolicy(x)}
+		m.LbPolicy = &LoadBalancing_Name{LoadBalancing_SimpleLBPolicy(x)}
 		return true, err
-	case 2: // lb_policy.custom_impl
+	case 2: // lb_policy.custom
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		msg := new(google_protobuf.Any)
 		err := b.DecodeMessage(msg)
-		m.LbPolicy = &LoadBalancingPolicy_CustomImpl{msg}
+		m.LbPolicy = &LoadBalancing_Custom{msg}
 		return true, err
 	default:
 		return false, nil
 	}
 }
 
-func _LoadBalancingPolicy_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*LoadBalancingPolicy)
+func _LoadBalancing_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*LoadBalancing)
 	// lb_policy
 	switch x := m.LbPolicy.(type) {
-	case *LoadBalancingPolicy_Name:
+	case *LoadBalancing_Name:
 		n += proto.SizeVarint(1<<3 | proto.WireVarint)
 		n += proto.SizeVarint(uint64(x.Name))
-	case *LoadBalancingPolicy_CustomImpl:
-		s := proto.Size(x.CustomImpl)
+	case *LoadBalancing_Custom:
+		s := proto.Size(x.Custom)
 		n += proto.SizeVarint(2<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
@@ -919,117 +653,117 @@ func _LoadBalancingPolicy_OneofSizer(msg proto.Message) (n int) {
 
 // Request timeout: wait time until a response is received. Does not
 // indicate the time for the entire response to arrive.
-type TimeoutPolicy struct {
+type HTTPTimeout struct {
 	// Types that are valid to be assigned to TimeoutPolicy:
-	//	*TimeoutPolicy_SimpleTimeout
-	//	*TimeoutPolicy_CustomImpl
-	TimeoutPolicy isTimeoutPolicy_TimeoutPolicy `protobuf_oneof:"timeout_policy"`
+	//	*HTTPTimeout_SimpleTimeout
+	//	*HTTPTimeout_Custom
+	TimeoutPolicy isHTTPTimeout_TimeoutPolicy `protobuf_oneof:"timeout_policy"`
 }
 
-func (m *TimeoutPolicy) Reset()                    { *m = TimeoutPolicy{} }
-func (m *TimeoutPolicy) String() string            { return proto.CompactTextString(m) }
-func (*TimeoutPolicy) ProtoMessage()               {}
-func (*TimeoutPolicy) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
+func (m *HTTPTimeout) Reset()                    { *m = HTTPTimeout{} }
+func (m *HTTPTimeout) String() string            { return proto.CompactTextString(m) }
+func (*HTTPTimeout) ProtoMessage()               {}
+func (*HTTPTimeout) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
 
-type isTimeoutPolicy_TimeoutPolicy interface {
-	isTimeoutPolicy_TimeoutPolicy()
+type isHTTPTimeout_TimeoutPolicy interface {
+	isHTTPTimeout_TimeoutPolicy()
 }
 
-type TimeoutPolicy_SimpleTimeout struct {
-	SimpleTimeout *TimeoutPolicy_SimpleTimeoutPolicy `protobuf:"bytes,1,opt,name=simple_timeout,json=simpleTimeout,oneof"`
+type HTTPTimeout_SimpleTimeout struct {
+	SimpleTimeout *HTTPTimeout_SimpleTimeoutPolicy `protobuf:"bytes,1,opt,name=simple_timeout,json=simpleTimeout,oneof"`
 }
-type TimeoutPolicy_CustomImpl struct {
-	CustomImpl *google_protobuf.Any `protobuf:"bytes,2,opt,name=custom_impl,json=customImpl,oneof"`
+type HTTPTimeout_Custom struct {
+	Custom *google_protobuf.Any `protobuf:"bytes,2,opt,name=custom,oneof"`
 }
 
-func (*TimeoutPolicy_SimpleTimeout) isTimeoutPolicy_TimeoutPolicy() {}
-func (*TimeoutPolicy_CustomImpl) isTimeoutPolicy_TimeoutPolicy()    {}
+func (*HTTPTimeout_SimpleTimeout) isHTTPTimeout_TimeoutPolicy() {}
+func (*HTTPTimeout_Custom) isHTTPTimeout_TimeoutPolicy()        {}
 
-func (m *TimeoutPolicy) GetTimeoutPolicy() isTimeoutPolicy_TimeoutPolicy {
+func (m *HTTPTimeout) GetTimeoutPolicy() isHTTPTimeout_TimeoutPolicy {
 	if m != nil {
 		return m.TimeoutPolicy
 	}
 	return nil
 }
 
-func (m *TimeoutPolicy) GetSimpleTimeout() *TimeoutPolicy_SimpleTimeoutPolicy {
-	if x, ok := m.GetTimeoutPolicy().(*TimeoutPolicy_SimpleTimeout); ok {
+func (m *HTTPTimeout) GetSimpleTimeout() *HTTPTimeout_SimpleTimeoutPolicy {
+	if x, ok := m.GetTimeoutPolicy().(*HTTPTimeout_SimpleTimeout); ok {
 		return x.SimpleTimeout
 	}
 	return nil
 }
 
-func (m *TimeoutPolicy) GetCustomImpl() *google_protobuf.Any {
-	if x, ok := m.GetTimeoutPolicy().(*TimeoutPolicy_CustomImpl); ok {
-		return x.CustomImpl
+func (m *HTTPTimeout) GetCustom() *google_protobuf.Any {
+	if x, ok := m.GetTimeoutPolicy().(*HTTPTimeout_Custom); ok {
+		return x.Custom
 	}
 	return nil
 }
 
 // XXX_OneofFuncs is for the internal use of the proto package.
-func (*TimeoutPolicy) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _TimeoutPolicy_OneofMarshaler, _TimeoutPolicy_OneofUnmarshaler, _TimeoutPolicy_OneofSizer, []interface{}{
-		(*TimeoutPolicy_SimpleTimeout)(nil),
-		(*TimeoutPolicy_CustomImpl)(nil),
+func (*HTTPTimeout) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _HTTPTimeout_OneofMarshaler, _HTTPTimeout_OneofUnmarshaler, _HTTPTimeout_OneofSizer, []interface{}{
+		(*HTTPTimeout_SimpleTimeout)(nil),
+		(*HTTPTimeout_Custom)(nil),
 	}
 }
 
-func _TimeoutPolicy_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*TimeoutPolicy)
+func _HTTPTimeout_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*HTTPTimeout)
 	// timeout_policy
 	switch x := m.TimeoutPolicy.(type) {
-	case *TimeoutPolicy_SimpleTimeout:
+	case *HTTPTimeout_SimpleTimeout:
 		b.EncodeVarint(1<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.SimpleTimeout); err != nil {
 			return err
 		}
-	case *TimeoutPolicy_CustomImpl:
+	case *HTTPTimeout_Custom:
 		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.CustomImpl); err != nil {
+		if err := b.EncodeMessage(x.Custom); err != nil {
 			return err
 		}
 	case nil:
 	default:
-		return fmt.Errorf("TimeoutPolicy.TimeoutPolicy has unexpected type %T", x)
+		return fmt.Errorf("HTTPTimeout.TimeoutPolicy has unexpected type %T", x)
 	}
 	return nil
 }
 
-func _TimeoutPolicy_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*TimeoutPolicy)
+func _HTTPTimeout_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*HTTPTimeout)
 	switch tag {
 	case 1: // timeout_policy.simple_timeout
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		msg := new(TimeoutPolicy_SimpleTimeoutPolicy)
+		msg := new(HTTPTimeout_SimpleTimeoutPolicy)
 		err := b.DecodeMessage(msg)
-		m.TimeoutPolicy = &TimeoutPolicy_SimpleTimeout{msg}
+		m.TimeoutPolicy = &HTTPTimeout_SimpleTimeout{msg}
 		return true, err
-	case 2: // timeout_policy.custom_impl
+	case 2: // timeout_policy.custom
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		msg := new(google_protobuf.Any)
 		err := b.DecodeMessage(msg)
-		m.TimeoutPolicy = &TimeoutPolicy_CustomImpl{msg}
+		m.TimeoutPolicy = &HTTPTimeout_Custom{msg}
 		return true, err
 	default:
 		return false, nil
 	}
 }
 
-func _TimeoutPolicy_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*TimeoutPolicy)
+func _HTTPTimeout_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*HTTPTimeout)
 	// timeout_policy
 	switch x := m.TimeoutPolicy.(type) {
-	case *TimeoutPolicy_SimpleTimeout:
+	case *HTTPTimeout_SimpleTimeout:
 		s := proto.Size(x.SimpleTimeout)
 		n += proto.SizeVarint(1<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *TimeoutPolicy_CustomImpl:
-		s := proto.Size(x.CustomImpl)
+	case *HTTPTimeout_Custom:
+		s := proto.Size(x.Custom)
 		n += proto.SizeVarint(2<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
@@ -1040,7 +774,7 @@ func _TimeoutPolicy_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-type TimeoutPolicy_SimpleTimeoutPolicy struct {
+type HTTPTimeout_SimpleTimeoutPolicy struct {
 	// timeout is per attempt, when retries are specified as well.
 	// seconds.nanoseconds format
 	TimeoutSeconds float64 `protobuf:"fixed64,1,opt,name=timeout_seconds,json=timeoutSeconds" json:"timeout_seconds,omitempty"`
@@ -1049,139 +783,139 @@ type TimeoutPolicy_SimpleTimeoutPolicy struct {
 	OverrideHeaderName string `protobuf:"bytes,2,opt,name=override_header_name,json=overrideHeaderName" json:"override_header_name,omitempty"`
 }
 
-func (m *TimeoutPolicy_SimpleTimeoutPolicy) Reset()         { *m = TimeoutPolicy_SimpleTimeoutPolicy{} }
-func (m *TimeoutPolicy_SimpleTimeoutPolicy) String() string { return proto.CompactTextString(m) }
-func (*TimeoutPolicy_SimpleTimeoutPolicy) ProtoMessage()    {}
-func (*TimeoutPolicy_SimpleTimeoutPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{12, 0}
+func (m *HTTPTimeout_SimpleTimeoutPolicy) Reset()         { *m = HTTPTimeout_SimpleTimeoutPolicy{} }
+func (m *HTTPTimeout_SimpleTimeoutPolicy) String() string { return proto.CompactTextString(m) }
+func (*HTTPTimeout_SimpleTimeoutPolicy) ProtoMessage()    {}
+func (*HTTPTimeout_SimpleTimeoutPolicy) Descriptor() ([]byte, []int) {
+	return fileDescriptor0, []int{8, 0}
 }
 
-func (m *TimeoutPolicy_SimpleTimeoutPolicy) GetTimeoutSeconds() float64 {
+func (m *HTTPTimeout_SimpleTimeoutPolicy) GetTimeoutSeconds() float64 {
 	if m != nil {
 		return m.TimeoutSeconds
 	}
 	return 0
 }
 
-func (m *TimeoutPolicy_SimpleTimeoutPolicy) GetOverrideHeaderName() string {
+func (m *HTTPTimeout_SimpleTimeoutPolicy) GetOverrideHeaderName() string {
 	if m != nil {
 		return m.OverrideHeaderName
 	}
 	return ""
 }
 
-// Retry policy to use when a request to the upstream cluster fails.
-type RetryPolicy struct {
+// Retry policy to use when a request fails.
+type HTTPRetry struct {
 	// Types that are valid to be assigned to RetryPolicy:
-	//	*RetryPolicy_SimpleRetry
-	//	*RetryPolicy_CustomImpl
-	RetryPolicy isRetryPolicy_RetryPolicy `protobuf_oneof:"retry_policy"`
+	//	*HTTPRetry_SimpleRetry
+	//	*HTTPRetry_Custom
+	RetryPolicy isHTTPRetry_RetryPolicy `protobuf_oneof:"retry_policy"`
 }
 
-func (m *RetryPolicy) Reset()                    { *m = RetryPolicy{} }
-func (m *RetryPolicy) String() string            { return proto.CompactTextString(m) }
-func (*RetryPolicy) ProtoMessage()               {}
-func (*RetryPolicy) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
+func (m *HTTPRetry) Reset()                    { *m = HTTPRetry{} }
+func (m *HTTPRetry) String() string            { return proto.CompactTextString(m) }
+func (*HTTPRetry) ProtoMessage()               {}
+func (*HTTPRetry) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
 
-type isRetryPolicy_RetryPolicy interface {
-	isRetryPolicy_RetryPolicy()
+type isHTTPRetry_RetryPolicy interface {
+	isHTTPRetry_RetryPolicy()
 }
 
-type RetryPolicy_SimpleRetry struct {
-	SimpleRetry *RetryPolicy_SimpleRetryPolicy `protobuf:"bytes,1,opt,name=simple_retry,json=simpleRetry,oneof"`
+type HTTPRetry_SimpleRetry struct {
+	SimpleRetry *HTTPRetry_SimpleRetryPolicy `protobuf:"bytes,1,opt,name=simple_retry,json=simpleRetry,oneof"`
 }
-type RetryPolicy_CustomImpl struct {
-	CustomImpl *google_protobuf.Any `protobuf:"bytes,2,opt,name=custom_impl,json=customImpl,oneof"`
+type HTTPRetry_Custom struct {
+	Custom *google_protobuf.Any `protobuf:"bytes,2,opt,name=custom,oneof"`
 }
 
-func (*RetryPolicy_SimpleRetry) isRetryPolicy_RetryPolicy() {}
-func (*RetryPolicy_CustomImpl) isRetryPolicy_RetryPolicy()  {}
+func (*HTTPRetry_SimpleRetry) isHTTPRetry_RetryPolicy() {}
+func (*HTTPRetry_Custom) isHTTPRetry_RetryPolicy()      {}
 
-func (m *RetryPolicy) GetRetryPolicy() isRetryPolicy_RetryPolicy {
+func (m *HTTPRetry) GetRetryPolicy() isHTTPRetry_RetryPolicy {
 	if m != nil {
 		return m.RetryPolicy
 	}
 	return nil
 }
 
-func (m *RetryPolicy) GetSimpleRetry() *RetryPolicy_SimpleRetryPolicy {
-	if x, ok := m.GetRetryPolicy().(*RetryPolicy_SimpleRetry); ok {
+func (m *HTTPRetry) GetSimpleRetry() *HTTPRetry_SimpleRetryPolicy {
+	if x, ok := m.GetRetryPolicy().(*HTTPRetry_SimpleRetry); ok {
 		return x.SimpleRetry
 	}
 	return nil
 }
 
-func (m *RetryPolicy) GetCustomImpl() *google_protobuf.Any {
-	if x, ok := m.GetRetryPolicy().(*RetryPolicy_CustomImpl); ok {
-		return x.CustomImpl
+func (m *HTTPRetry) GetCustom() *google_protobuf.Any {
+	if x, ok := m.GetRetryPolicy().(*HTTPRetry_Custom); ok {
+		return x.Custom
 	}
 	return nil
 }
 
 // XXX_OneofFuncs is for the internal use of the proto package.
-func (*RetryPolicy) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _RetryPolicy_OneofMarshaler, _RetryPolicy_OneofUnmarshaler, _RetryPolicy_OneofSizer, []interface{}{
-		(*RetryPolicy_SimpleRetry)(nil),
-		(*RetryPolicy_CustomImpl)(nil),
+func (*HTTPRetry) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _HTTPRetry_OneofMarshaler, _HTTPRetry_OneofUnmarshaler, _HTTPRetry_OneofSizer, []interface{}{
+		(*HTTPRetry_SimpleRetry)(nil),
+		(*HTTPRetry_Custom)(nil),
 	}
 }
 
-func _RetryPolicy_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*RetryPolicy)
+func _HTTPRetry_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*HTTPRetry)
 	// retry_policy
 	switch x := m.RetryPolicy.(type) {
-	case *RetryPolicy_SimpleRetry:
+	case *HTTPRetry_SimpleRetry:
 		b.EncodeVarint(1<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.SimpleRetry); err != nil {
 			return err
 		}
-	case *RetryPolicy_CustomImpl:
+	case *HTTPRetry_Custom:
 		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.CustomImpl); err != nil {
+		if err := b.EncodeMessage(x.Custom); err != nil {
 			return err
 		}
 	case nil:
 	default:
-		return fmt.Errorf("RetryPolicy.RetryPolicy has unexpected type %T", x)
+		return fmt.Errorf("HTTPRetry.RetryPolicy has unexpected type %T", x)
 	}
 	return nil
 }
 
-func _RetryPolicy_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*RetryPolicy)
+func _HTTPRetry_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*HTTPRetry)
 	switch tag {
 	case 1: // retry_policy.simple_retry
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		msg := new(RetryPolicy_SimpleRetryPolicy)
+		msg := new(HTTPRetry_SimpleRetryPolicy)
 		err := b.DecodeMessage(msg)
-		m.RetryPolicy = &RetryPolicy_SimpleRetry{msg}
+		m.RetryPolicy = &HTTPRetry_SimpleRetry{msg}
 		return true, err
-	case 2: // retry_policy.custom_impl
+	case 2: // retry_policy.custom
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		msg := new(google_protobuf.Any)
 		err := b.DecodeMessage(msg)
-		m.RetryPolicy = &RetryPolicy_CustomImpl{msg}
+		m.RetryPolicy = &HTTPRetry_Custom{msg}
 		return true, err
 	default:
 		return false, nil
 	}
 }
 
-func _RetryPolicy_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*RetryPolicy)
+func _HTTPRetry_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*HTTPRetry)
 	// retry_policy
 	switch x := m.RetryPolicy.(type) {
-	case *RetryPolicy_SimpleRetry:
+	case *HTTPRetry_SimpleRetry:
 		s := proto.Size(x.SimpleRetry)
 		n += proto.SizeVarint(1<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *RetryPolicy_CustomImpl:
-		s := proto.Size(x.CustomImpl)
+	case *HTTPRetry_Custom:
+		s := proto.Size(x.Custom)
 		n += proto.SizeVarint(2<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
@@ -1192,148 +926,147 @@ func _RetryPolicy_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-type RetryPolicy_SimpleRetryPolicy struct {
-	// number of times the request to the upstream cluster should be retried.
+type HTTPRetry_SimpleRetryPolicy struct {
+	// number of times the request should be retried.
 	// total timeout would be attempts * timeout
-	Attempts uint32 `protobuf:"varint,1,opt,name=attempts" json:"attempts,omitempty"`
+	Attempts int32 `protobuf:"varint,1,opt,name=attempts" json:"attempts,omitempty"`
 	// Downstream Service could specify retry attempts via Http header to
 	// the proxy, if the proxy supports such a feature.
 	OverrideHeaderName string `protobuf:"bytes,2,opt,name=override_header_name,json=overrideHeaderName" json:"override_header_name,omitempty"`
 }
 
-func (m *RetryPolicy_SimpleRetryPolicy) Reset()         { *m = RetryPolicy_SimpleRetryPolicy{} }
-func (m *RetryPolicy_SimpleRetryPolicy) String() string { return proto.CompactTextString(m) }
-func (*RetryPolicy_SimpleRetryPolicy) ProtoMessage()    {}
-func (*RetryPolicy_SimpleRetryPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{13, 0}
-}
+func (m *HTTPRetry_SimpleRetryPolicy) Reset()                    { *m = HTTPRetry_SimpleRetryPolicy{} }
+func (m *HTTPRetry_SimpleRetryPolicy) String() string            { return proto.CompactTextString(m) }
+func (*HTTPRetry_SimpleRetryPolicy) ProtoMessage()               {}
+func (*HTTPRetry_SimpleRetryPolicy) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9, 0} }
 
-func (m *RetryPolicy_SimpleRetryPolicy) GetAttempts() uint32 {
+func (m *HTTPRetry_SimpleRetryPolicy) GetAttempts() int32 {
 	if m != nil {
 		return m.Attempts
 	}
 	return 0
 }
 
-func (m *RetryPolicy_SimpleRetryPolicy) GetOverrideHeaderName() string {
+func (m *HTTPRetry_SimpleRetryPolicy) GetOverrideHeaderName() string {
 	if m != nil {
 		return m.OverrideHeaderName
 	}
 	return ""
 }
 
-// A minimal circuit breaker configuration for the upstream cluster.
-type CircuitBreakerPolicy struct {
+// TODO(rshriram) add all Envoy CB capabilities
+// A minimal circuit breaker configuration.
+type CircuitBreaker struct {
 	// Types that are valid to be assigned to CbPolicy:
-	//	*CircuitBreakerPolicy_SimpleCb
-	//	*CircuitBreakerPolicy_CustomImpl
-	CbPolicy isCircuitBreakerPolicy_CbPolicy `protobuf_oneof:"cb_policy"`
+	//	*CircuitBreaker_SimpleCb
+	//	*CircuitBreaker_Custom
+	CbPolicy isCircuitBreaker_CbPolicy `protobuf_oneof:"cb_policy"`
 }
 
-func (m *CircuitBreakerPolicy) Reset()                    { *m = CircuitBreakerPolicy{} }
-func (m *CircuitBreakerPolicy) String() string            { return proto.CompactTextString(m) }
-func (*CircuitBreakerPolicy) ProtoMessage()               {}
-func (*CircuitBreakerPolicy) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
+func (m *CircuitBreaker) Reset()                    { *m = CircuitBreaker{} }
+func (m *CircuitBreaker) String() string            { return proto.CompactTextString(m) }
+func (*CircuitBreaker) ProtoMessage()               {}
+func (*CircuitBreaker) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
 
-type isCircuitBreakerPolicy_CbPolicy interface {
-	isCircuitBreakerPolicy_CbPolicy()
+type isCircuitBreaker_CbPolicy interface {
+	isCircuitBreaker_CbPolicy()
 }
 
-type CircuitBreakerPolicy_SimpleCb struct {
-	SimpleCb *CircuitBreakerPolicy_SimpleCircuitBreakerPolicy `protobuf:"bytes,1,opt,name=simple_cb,json=simpleCb,oneof"`
+type CircuitBreaker_SimpleCb struct {
+	SimpleCb *CircuitBreaker_SimpleCircuitBreakerPolicy `protobuf:"bytes,1,opt,name=simple_cb,json=simpleCb,oneof"`
 }
-type CircuitBreakerPolicy_CustomImpl struct {
-	CustomImpl *google_protobuf.Any `protobuf:"bytes,2,opt,name=custom_impl,json=customImpl,oneof"`
+type CircuitBreaker_Custom struct {
+	Custom *google_protobuf.Any `protobuf:"bytes,2,opt,name=custom,oneof"`
 }
 
-func (*CircuitBreakerPolicy_SimpleCb) isCircuitBreakerPolicy_CbPolicy()   {}
-func (*CircuitBreakerPolicy_CustomImpl) isCircuitBreakerPolicy_CbPolicy() {}
+func (*CircuitBreaker_SimpleCb) isCircuitBreaker_CbPolicy() {}
+func (*CircuitBreaker_Custom) isCircuitBreaker_CbPolicy()   {}
 
-func (m *CircuitBreakerPolicy) GetCbPolicy() isCircuitBreakerPolicy_CbPolicy {
+func (m *CircuitBreaker) GetCbPolicy() isCircuitBreaker_CbPolicy {
 	if m != nil {
 		return m.CbPolicy
 	}
 	return nil
 }
 
-func (m *CircuitBreakerPolicy) GetSimpleCb() *CircuitBreakerPolicy_SimpleCircuitBreakerPolicy {
-	if x, ok := m.GetCbPolicy().(*CircuitBreakerPolicy_SimpleCb); ok {
+func (m *CircuitBreaker) GetSimpleCb() *CircuitBreaker_SimpleCircuitBreakerPolicy {
+	if x, ok := m.GetCbPolicy().(*CircuitBreaker_SimpleCb); ok {
 		return x.SimpleCb
 	}
 	return nil
 }
 
-func (m *CircuitBreakerPolicy) GetCustomImpl() *google_protobuf.Any {
-	if x, ok := m.GetCbPolicy().(*CircuitBreakerPolicy_CustomImpl); ok {
-		return x.CustomImpl
+func (m *CircuitBreaker) GetCustom() *google_protobuf.Any {
+	if x, ok := m.GetCbPolicy().(*CircuitBreaker_Custom); ok {
+		return x.Custom
 	}
 	return nil
 }
 
 // XXX_OneofFuncs is for the internal use of the proto package.
-func (*CircuitBreakerPolicy) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _CircuitBreakerPolicy_OneofMarshaler, _CircuitBreakerPolicy_OneofUnmarshaler, _CircuitBreakerPolicy_OneofSizer, []interface{}{
-		(*CircuitBreakerPolicy_SimpleCb)(nil),
-		(*CircuitBreakerPolicy_CustomImpl)(nil),
+func (*CircuitBreaker) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _CircuitBreaker_OneofMarshaler, _CircuitBreaker_OneofUnmarshaler, _CircuitBreaker_OneofSizer, []interface{}{
+		(*CircuitBreaker_SimpleCb)(nil),
+		(*CircuitBreaker_Custom)(nil),
 	}
 }
 
-func _CircuitBreakerPolicy_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*CircuitBreakerPolicy)
+func _CircuitBreaker_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*CircuitBreaker)
 	// cb_policy
 	switch x := m.CbPolicy.(type) {
-	case *CircuitBreakerPolicy_SimpleCb:
+	case *CircuitBreaker_SimpleCb:
 		b.EncodeVarint(1<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.SimpleCb); err != nil {
 			return err
 		}
-	case *CircuitBreakerPolicy_CustomImpl:
+	case *CircuitBreaker_Custom:
 		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.CustomImpl); err != nil {
+		if err := b.EncodeMessage(x.Custom); err != nil {
 			return err
 		}
 	case nil:
 	default:
-		return fmt.Errorf("CircuitBreakerPolicy.CbPolicy has unexpected type %T", x)
+		return fmt.Errorf("CircuitBreaker.CbPolicy has unexpected type %T", x)
 	}
 	return nil
 }
 
-func _CircuitBreakerPolicy_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*CircuitBreakerPolicy)
+func _CircuitBreaker_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*CircuitBreaker)
 	switch tag {
 	case 1: // cb_policy.simple_cb
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		msg := new(CircuitBreakerPolicy_SimpleCircuitBreakerPolicy)
+		msg := new(CircuitBreaker_SimpleCircuitBreakerPolicy)
 		err := b.DecodeMessage(msg)
-		m.CbPolicy = &CircuitBreakerPolicy_SimpleCb{msg}
+		m.CbPolicy = &CircuitBreaker_SimpleCb{msg}
 		return true, err
-	case 2: // cb_policy.custom_impl
+	case 2: // cb_policy.custom
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		msg := new(google_protobuf.Any)
 		err := b.DecodeMessage(msg)
-		m.CbPolicy = &CircuitBreakerPolicy_CustomImpl{msg}
+		m.CbPolicy = &CircuitBreaker_Custom{msg}
 		return true, err
 	default:
 		return false, nil
 	}
 }
 
-func _CircuitBreakerPolicy_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*CircuitBreakerPolicy)
+func _CircuitBreaker_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*CircuitBreaker)
 	// cb_policy
 	switch x := m.CbPolicy.(type) {
-	case *CircuitBreakerPolicy_SimpleCb:
+	case *CircuitBreaker_SimpleCb:
 		s := proto.Size(x.SimpleCb)
 		n += proto.SizeVarint(1<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *CircuitBreakerPolicy_CustomImpl:
-		s := proto.Size(x.CustomImpl)
+	case *CircuitBreaker_Custom:
+		s := proto.Size(x.Custom)
 		n += proto.SizeVarint(2<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
@@ -1344,59 +1077,120 @@ func _CircuitBreakerPolicy_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-type CircuitBreakerPolicy_SimpleCircuitBreakerPolicy struct {
-	// (for an unhealthy upstream cluster) number of consecutive requests that
-	// should succeed before the upstream cluster is marked healthy.
-	SuccessThreshold uint32 `protobuf:"varint,1,opt,name=success_threshold,json=successThreshold" json:"success_threshold,omitempty"`
-	// (for a healthy upstream cluster) number of consecutive requests that
-	// can fail before the upstream cluster is marked unhealthy.
-	FailureThreshold uint32 `protobuf:"varint,2,opt,name=failure_threshold,json=failureThreshold" json:"failure_threshold,omitempty"`
-	// When a healthy upstream cluster becomes unhealthy, duration to wait before
-	// attempting to send requests to that upstream cluster.
+type CircuitBreaker_SimpleCircuitBreakerPolicy struct {
+	// (for an unhealthy upstream) number of consecutive requests that
+	// should succeed before the upstream is marked healthy.
+	SuccessThreshold int32 `protobuf:"varint,1,opt,name=success_threshold,json=successThreshold" json:"success_threshold,omitempty"`
+	// (for a healthy upstream) number of consecutive requests that
+	// can fail before the upstream is marked unhealthy.
+	FailureThreshold int32 `protobuf:"varint,2,opt,name=failure_threshold,json=failureThreshold" json:"failure_threshold,omitempty"`
+	// When a healthy upstream becomes unhealthy, duration to wait before
+	// attempting to send requests to that upstream.
 	// format seconds.nanoseconds
 	ResetTimeoutSeconds float64 `protobuf:"fixed64,3,opt,name=reset_timeout_seconds,json=resetTimeoutSeconds" json:"reset_timeout_seconds,omitempty"`
+	// Maximum number of connections to a backend.
+	MaxConnections int32 `protobuf:"varint,4,opt,name=max_connections,json=maxConnections" json:"max_connections,omitempty"`
+	// Maximum number of pending requests to a backend.
+	HttpMaxPendingRequests int32 `protobuf:"varint,5,opt,name=http_max_pending_requests,json=httpMaxPendingRequests" json:"http_max_pending_requests,omitempty"`
+	// Maximum number of requests to a backend.
+	HttpMaxRequests int32 `protobuf:"varint,6,opt,name=http_max_requests,json=httpMaxRequests" json:"http_max_requests,omitempty"`
+	// Minimum time the circuit will be closed.
+	SleepWindow string `protobuf:"bytes,7,opt,name=sleep_window,json=sleepWindow" json:"sleep_window,omitempty"`
+	// Number of 5XX errors before circuit is opened.
+	HttpConsecutiveErrors int32 `protobuf:"varint,8,opt,name=http_consecutive_errors,json=httpConsecutiveErrors" json:"http_consecutive_errors,omitempty"`
+	// Interval for checking state of hystrix circuit.
+	HttpDetectionInterval int32 `protobuf:"varint,9,opt,name=http_detection_interval,json=httpDetectionInterval" json:"http_detection_interval,omitempty"`
+	// Maximum number of requests per connection to a backend.
+	HttpMaxRequestsPerConnection int32 `protobuf:"varint,10,opt,name=http_max_requests_per_connection,json=httpMaxRequestsPerConnection" json:"http_max_requests_per_connection,omitempty"`
 }
 
-func (m *CircuitBreakerPolicy_SimpleCircuitBreakerPolicy) Reset() {
-	*m = CircuitBreakerPolicy_SimpleCircuitBreakerPolicy{}
+func (m *CircuitBreaker_SimpleCircuitBreakerPolicy) Reset() {
+	*m = CircuitBreaker_SimpleCircuitBreakerPolicy{}
 }
-func (m *CircuitBreakerPolicy_SimpleCircuitBreakerPolicy) String() string {
-	return proto.CompactTextString(m)
-}
-func (*CircuitBreakerPolicy_SimpleCircuitBreakerPolicy) ProtoMessage() {}
-func (*CircuitBreakerPolicy_SimpleCircuitBreakerPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{14, 0}
+func (m *CircuitBreaker_SimpleCircuitBreakerPolicy) String() string { return proto.CompactTextString(m) }
+func (*CircuitBreaker_SimpleCircuitBreakerPolicy) ProtoMessage()    {}
+func (*CircuitBreaker_SimpleCircuitBreakerPolicy) Descriptor() ([]byte, []int) {
+	return fileDescriptor0, []int{10, 0}
 }
 
-func (m *CircuitBreakerPolicy_SimpleCircuitBreakerPolicy) GetSuccessThreshold() uint32 {
+func (m *CircuitBreaker_SimpleCircuitBreakerPolicy) GetSuccessThreshold() int32 {
 	if m != nil {
 		return m.SuccessThreshold
 	}
 	return 0
 }
 
-func (m *CircuitBreakerPolicy_SimpleCircuitBreakerPolicy) GetFailureThreshold() uint32 {
+func (m *CircuitBreaker_SimpleCircuitBreakerPolicy) GetFailureThreshold() int32 {
 	if m != nil {
 		return m.FailureThreshold
 	}
 	return 0
 }
 
-func (m *CircuitBreakerPolicy_SimpleCircuitBreakerPolicy) GetResetTimeoutSeconds() float64 {
+func (m *CircuitBreaker_SimpleCircuitBreakerPolicy) GetResetTimeoutSeconds() float64 {
 	if m != nil {
 		return m.ResetTimeoutSeconds
 	}
 	return 0
 }
 
+func (m *CircuitBreaker_SimpleCircuitBreakerPolicy) GetMaxConnections() int32 {
+	if m != nil {
+		return m.MaxConnections
+	}
+	return 0
+}
+
+func (m *CircuitBreaker_SimpleCircuitBreakerPolicy) GetHttpMaxPendingRequests() int32 {
+	if m != nil {
+		return m.HttpMaxPendingRequests
+	}
+	return 0
+}
+
+func (m *CircuitBreaker_SimpleCircuitBreakerPolicy) GetHttpMaxRequests() int32 {
+	if m != nil {
+		return m.HttpMaxRequests
+	}
+	return 0
+}
+
+func (m *CircuitBreaker_SimpleCircuitBreakerPolicy) GetSleepWindow() string {
+	if m != nil {
+		return m.SleepWindow
+	}
+	return ""
+}
+
+func (m *CircuitBreaker_SimpleCircuitBreakerPolicy) GetHttpConsecutiveErrors() int32 {
+	if m != nil {
+		return m.HttpConsecutiveErrors
+	}
+	return 0
+}
+
+func (m *CircuitBreaker_SimpleCircuitBreakerPolicy) GetHttpDetectionInterval() int32 {
+	if m != nil {
+		return m.HttpDetectionInterval
+	}
+	return 0
+}
+
+func (m *CircuitBreaker_SimpleCircuitBreakerPolicy) GetHttpMaxRequestsPerConnection() int32 {
+	if m != nil {
+		return m.HttpMaxRequestsPerConnection
+	}
+	return 0
+}
+
 // Faults can be injected into the API calls by the proxy, for testing the
 // failure recovery capabilities of downstream services.  Faults include
-// aborting the Http request from downstream service, delaying the proxying
-// of request to the upstream clusters, or both.
-type HttpFaultInjection struct {
-	// Delay requests before forwarding to upstream cluster, emulating
-	// various failures such as network issues, overloaded upstream service, etc.
-	Delay *HttpFaultInjection_Delay `protobuf:"bytes,1,opt,name=delay" json:"delay,omitempty"`
+// aborting the Http request from downstream service, delaying the proxying of
+// requests, or both.
+type HTTPFaultInjection struct {
+	// Delay requests before forwarding, emulating various failures such as
+	// network issues, overloaded upstream service, etc.
+	Delay *HTTPFaultInjection_Delay `protobuf:"bytes,1,opt,name=delay" json:"delay,omitempty"`
 	// Abort Http request attempts and return error codes back to downstream
 	// service, giving the impression that the upstream service is faulty.
 	// N.B. Both delay and abort can be specified simultaneously. Delay and
@@ -1405,32 +1199,32 @@ type HttpFaultInjection struct {
 	// 10% in abort specification applies to all requests directed to the
 	// service. It may be the case that one or more requests being aborted
 	// were also delayed.
-	Abort *HttpFaultInjection_Abort `protobuf:"bytes,2,opt,name=abort" json:"abort,omitempty"`
+	Abort *HTTPFaultInjection_Abort `protobuf:"bytes,2,opt,name=abort" json:"abort,omitempty"`
 	// Only requests with these Http headers will be subjected to fault
 	// injection
 	Headers map[string]*StringMatch `protobuf:"bytes,3,rep,name=headers" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 
-func (m *HttpFaultInjection) Reset()                    { *m = HttpFaultInjection{} }
-func (m *HttpFaultInjection) String() string            { return proto.CompactTextString(m) }
-func (*HttpFaultInjection) ProtoMessage()               {}
-func (*HttpFaultInjection) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
+func (m *HTTPFaultInjection) Reset()                    { *m = HTTPFaultInjection{} }
+func (m *HTTPFaultInjection) String() string            { return proto.CompactTextString(m) }
+func (*HTTPFaultInjection) ProtoMessage()               {}
+func (*HTTPFaultInjection) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
 
-func (m *HttpFaultInjection) GetDelay() *HttpFaultInjection_Delay {
+func (m *HTTPFaultInjection) GetDelay() *HTTPFaultInjection_Delay {
 	if m != nil {
 		return m.Delay
 	}
 	return nil
 }
 
-func (m *HttpFaultInjection) GetAbort() *HttpFaultInjection_Abort {
+func (m *HTTPFaultInjection) GetAbort() *HTTPFaultInjection_Abort {
 	if m != nil {
 		return m.Abort
 	}
 	return nil
 }
 
-func (m *HttpFaultInjection) GetHeaders() map[string]*StringMatch {
+func (m *HTTPFaultInjection) GetHeaders() map[string]*StringMatch {
 	if m != nil {
 		return m.Headers
 	}
@@ -1438,57 +1232,57 @@ func (m *HttpFaultInjection) GetHeaders() map[string]*StringMatch {
 }
 
 // Either a fixed delay or exponential delay.
-type HttpFaultInjection_Delay struct {
+type HTTPFaultInjection_Delay struct {
 	// Types that are valid to be assigned to HttpDelayType:
-	//	*HttpFaultInjection_Delay_FixedDelay
-	//	*HttpFaultInjection_Delay_ExpDelay
-	HttpDelayType isHttpFaultInjection_Delay_HttpDelayType `protobuf_oneof:"http_delay_type"`
+	//	*HTTPFaultInjection_Delay_FixedDelay
+	//	*HTTPFaultInjection_Delay_ExpDelay
+	HttpDelayType isHTTPFaultInjection_Delay_HttpDelayType `protobuf_oneof:"http_delay_type"`
 	// Specify delay duration as part of Http request.
 	// TODO: The semantics and syntax of the headers is undefined.
 	OverrideHeaderName string `protobuf:"bytes,3,opt,name=override_header_name,json=overrideHeaderName" json:"override_header_name,omitempty"`
 }
 
-func (m *HttpFaultInjection_Delay) Reset()                    { *m = HttpFaultInjection_Delay{} }
-func (m *HttpFaultInjection_Delay) String() string            { return proto.CompactTextString(m) }
-func (*HttpFaultInjection_Delay) ProtoMessage()               {}
-func (*HttpFaultInjection_Delay) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15, 1} }
+func (m *HTTPFaultInjection_Delay) Reset()                    { *m = HTTPFaultInjection_Delay{} }
+func (m *HTTPFaultInjection_Delay) String() string            { return proto.CompactTextString(m) }
+func (*HTTPFaultInjection_Delay) ProtoMessage()               {}
+func (*HTTPFaultInjection_Delay) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11, 1} }
 
-type isHttpFaultInjection_Delay_HttpDelayType interface {
-	isHttpFaultInjection_Delay_HttpDelayType()
+type isHTTPFaultInjection_Delay_HttpDelayType interface {
+	isHTTPFaultInjection_Delay_HttpDelayType()
 }
 
-type HttpFaultInjection_Delay_FixedDelay struct {
-	FixedDelay *HttpFaultInjection_FixedDelay `protobuf:"bytes,1,opt,name=fixed_delay,json=fixedDelay,oneof"`
+type HTTPFaultInjection_Delay_FixedDelay struct {
+	FixedDelay *HTTPFaultInjection_FixedDelay `protobuf:"bytes,1,opt,name=fixed_delay,json=fixedDelay,oneof"`
 }
-type HttpFaultInjection_Delay_ExpDelay struct {
-	ExpDelay *HttpFaultInjection_ExponentialDelay `protobuf:"bytes,2,opt,name=exp_delay,json=expDelay,oneof"`
+type HTTPFaultInjection_Delay_ExpDelay struct {
+	ExpDelay *HTTPFaultInjection_ExponentialDelay `protobuf:"bytes,2,opt,name=exp_delay,json=expDelay,oneof"`
 }
 
-func (*HttpFaultInjection_Delay_FixedDelay) isHttpFaultInjection_Delay_HttpDelayType() {}
-func (*HttpFaultInjection_Delay_ExpDelay) isHttpFaultInjection_Delay_HttpDelayType()   {}
+func (*HTTPFaultInjection_Delay_FixedDelay) isHTTPFaultInjection_Delay_HttpDelayType() {}
+func (*HTTPFaultInjection_Delay_ExpDelay) isHTTPFaultInjection_Delay_HttpDelayType()   {}
 
-func (m *HttpFaultInjection_Delay) GetHttpDelayType() isHttpFaultInjection_Delay_HttpDelayType {
+func (m *HTTPFaultInjection_Delay) GetHttpDelayType() isHTTPFaultInjection_Delay_HttpDelayType {
 	if m != nil {
 		return m.HttpDelayType
 	}
 	return nil
 }
 
-func (m *HttpFaultInjection_Delay) GetFixedDelay() *HttpFaultInjection_FixedDelay {
-	if x, ok := m.GetHttpDelayType().(*HttpFaultInjection_Delay_FixedDelay); ok {
+func (m *HTTPFaultInjection_Delay) GetFixedDelay() *HTTPFaultInjection_FixedDelay {
+	if x, ok := m.GetHttpDelayType().(*HTTPFaultInjection_Delay_FixedDelay); ok {
 		return x.FixedDelay
 	}
 	return nil
 }
 
-func (m *HttpFaultInjection_Delay) GetExpDelay() *HttpFaultInjection_ExponentialDelay {
-	if x, ok := m.GetHttpDelayType().(*HttpFaultInjection_Delay_ExpDelay); ok {
+func (m *HTTPFaultInjection_Delay) GetExpDelay() *HTTPFaultInjection_ExponentialDelay {
+	if x, ok := m.GetHttpDelayType().(*HTTPFaultInjection_Delay_ExpDelay); ok {
 		return x.ExpDelay
 	}
 	return nil
 }
 
-func (m *HttpFaultInjection_Delay) GetOverrideHeaderName() string {
+func (m *HTTPFaultInjection_Delay) GetOverrideHeaderName() string {
 	if m != nil {
 		return m.OverrideHeaderName
 	}
@@ -1496,68 +1290,68 @@ func (m *HttpFaultInjection_Delay) GetOverrideHeaderName() string {
 }
 
 // XXX_OneofFuncs is for the internal use of the proto package.
-func (*HttpFaultInjection_Delay) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _HttpFaultInjection_Delay_OneofMarshaler, _HttpFaultInjection_Delay_OneofUnmarshaler, _HttpFaultInjection_Delay_OneofSizer, []interface{}{
-		(*HttpFaultInjection_Delay_FixedDelay)(nil),
-		(*HttpFaultInjection_Delay_ExpDelay)(nil),
+func (*HTTPFaultInjection_Delay) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _HTTPFaultInjection_Delay_OneofMarshaler, _HTTPFaultInjection_Delay_OneofUnmarshaler, _HTTPFaultInjection_Delay_OneofSizer, []interface{}{
+		(*HTTPFaultInjection_Delay_FixedDelay)(nil),
+		(*HTTPFaultInjection_Delay_ExpDelay)(nil),
 	}
 }
 
-func _HttpFaultInjection_Delay_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*HttpFaultInjection_Delay)
+func _HTTPFaultInjection_Delay_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*HTTPFaultInjection_Delay)
 	// http_delay_type
 	switch x := m.HttpDelayType.(type) {
-	case *HttpFaultInjection_Delay_FixedDelay:
+	case *HTTPFaultInjection_Delay_FixedDelay:
 		b.EncodeVarint(1<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.FixedDelay); err != nil {
 			return err
 		}
-	case *HttpFaultInjection_Delay_ExpDelay:
+	case *HTTPFaultInjection_Delay_ExpDelay:
 		b.EncodeVarint(2<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.ExpDelay); err != nil {
 			return err
 		}
 	case nil:
 	default:
-		return fmt.Errorf("HttpFaultInjection_Delay.HttpDelayType has unexpected type %T", x)
+		return fmt.Errorf("HTTPFaultInjection_Delay.HttpDelayType has unexpected type %T", x)
 	}
 	return nil
 }
 
-func _HttpFaultInjection_Delay_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*HttpFaultInjection_Delay)
+func _HTTPFaultInjection_Delay_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*HTTPFaultInjection_Delay)
 	switch tag {
 	case 1: // http_delay_type.fixed_delay
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		msg := new(HttpFaultInjection_FixedDelay)
+		msg := new(HTTPFaultInjection_FixedDelay)
 		err := b.DecodeMessage(msg)
-		m.HttpDelayType = &HttpFaultInjection_Delay_FixedDelay{msg}
+		m.HttpDelayType = &HTTPFaultInjection_Delay_FixedDelay{msg}
 		return true, err
 	case 2: // http_delay_type.exp_delay
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		msg := new(HttpFaultInjection_ExponentialDelay)
+		msg := new(HTTPFaultInjection_ExponentialDelay)
 		err := b.DecodeMessage(msg)
-		m.HttpDelayType = &HttpFaultInjection_Delay_ExpDelay{msg}
+		m.HttpDelayType = &HTTPFaultInjection_Delay_ExpDelay{msg}
 		return true, err
 	default:
 		return false, nil
 	}
 }
 
-func _HttpFaultInjection_Delay_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*HttpFaultInjection_Delay)
+func _HTTPFaultInjection_Delay_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*HTTPFaultInjection_Delay)
 	// http_delay_type
 	switch x := m.HttpDelayType.(type) {
-	case *HttpFaultInjection_Delay_FixedDelay:
+	case *HTTPFaultInjection_Delay_FixedDelay:
 		s := proto.Size(x.FixedDelay)
 		n += proto.SizeVarint(1<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *HttpFaultInjection_Delay_ExpDelay:
+	case *HTTPFaultInjection_Delay_ExpDelay:
 		s := proto.Size(x.ExpDelay)
 		n += proto.SizeVarint(2<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
@@ -1569,29 +1363,29 @@ func _HttpFaultInjection_Delay_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-// Add a fixed delay before forwarding the request to upstream cluster
-type HttpFaultInjection_FixedDelay struct {
+// Add a fixed delay before forwarding the request
+type HTTPFaultInjection_FixedDelay struct {
 	// percentage of requests on which the delay will be injected
 	Percent float32 `protobuf:"fixed32,1,opt,name=percent" json:"percent,omitempty"`
 	// delay duration in seconds.nanoseconds
 	FixedDelaySeconds float64 `protobuf:"fixed64,2,opt,name=fixed_delay_seconds,json=fixedDelaySeconds" json:"fixed_delay_seconds,omitempty"`
 }
 
-func (m *HttpFaultInjection_FixedDelay) Reset()         { *m = HttpFaultInjection_FixedDelay{} }
-func (m *HttpFaultInjection_FixedDelay) String() string { return proto.CompactTextString(m) }
-func (*HttpFaultInjection_FixedDelay) ProtoMessage()    {}
-func (*HttpFaultInjection_FixedDelay) Descriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{15, 2}
+func (m *HTTPFaultInjection_FixedDelay) Reset()         { *m = HTTPFaultInjection_FixedDelay{} }
+func (m *HTTPFaultInjection_FixedDelay) String() string { return proto.CompactTextString(m) }
+func (*HTTPFaultInjection_FixedDelay) ProtoMessage()    {}
+func (*HTTPFaultInjection_FixedDelay) Descriptor() ([]byte, []int) {
+	return fileDescriptor0, []int{11, 2}
 }
 
-func (m *HttpFaultInjection_FixedDelay) GetPercent() float32 {
+func (m *HTTPFaultInjection_FixedDelay) GetPercent() float32 {
 	if m != nil {
 		return m.Percent
 	}
 	return 0
 }
 
-func (m *HttpFaultInjection_FixedDelay) GetFixedDelaySeconds() float64 {
+func (m *HTTPFaultInjection_FixedDelay) GetFixedDelaySeconds() float64 {
 	if m != nil {
 		return m.FixedDelaySeconds
 	}
@@ -1599,29 +1393,29 @@ func (m *HttpFaultInjection_FixedDelay) GetFixedDelaySeconds() float64 {
 }
 
 // Add a delay (based on an exponential function) before forwarding the
-// request to upstream cluster
-type HttpFaultInjection_ExponentialDelay struct {
+// request
+type HTTPFaultInjection_ExponentialDelay struct {
 	// percentage of requests on which the delay will be injected
 	Percent float32 `protobuf:"fixed32,1,opt,name=percent" json:"percent,omitempty"`
 	// mean delay needed to derive the exponential delay values
 	MeanDelaySeconds float64 `protobuf:"fixed64,2,opt,name=mean_delay_seconds,json=meanDelaySeconds" json:"mean_delay_seconds,omitempty"`
 }
 
-func (m *HttpFaultInjection_ExponentialDelay) Reset()         { *m = HttpFaultInjection_ExponentialDelay{} }
-func (m *HttpFaultInjection_ExponentialDelay) String() string { return proto.CompactTextString(m) }
-func (*HttpFaultInjection_ExponentialDelay) ProtoMessage()    {}
-func (*HttpFaultInjection_ExponentialDelay) Descriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{15, 3}
+func (m *HTTPFaultInjection_ExponentialDelay) Reset()         { *m = HTTPFaultInjection_ExponentialDelay{} }
+func (m *HTTPFaultInjection_ExponentialDelay) String() string { return proto.CompactTextString(m) }
+func (*HTTPFaultInjection_ExponentialDelay) ProtoMessage()    {}
+func (*HTTPFaultInjection_ExponentialDelay) Descriptor() ([]byte, []int) {
+	return fileDescriptor0, []int{11, 3}
 }
 
-func (m *HttpFaultInjection_ExponentialDelay) GetPercent() float32 {
+func (m *HTTPFaultInjection_ExponentialDelay) GetPercent() float32 {
 	if m != nil {
 		return m.Percent
 	}
 	return 0
 }
 
-func (m *HttpFaultInjection_ExponentialDelay) GetMeanDelaySeconds() float64 {
+func (m *HTTPFaultInjection_ExponentialDelay) GetMeanDelaySeconds() float64 {
 	if m != nil {
 		return m.MeanDelaySeconds
 	}
@@ -1630,7 +1424,7 @@ func (m *HttpFaultInjection_ExponentialDelay) GetMeanDelaySeconds() float64 {
 
 // Abort Http request attempts and return error codes back to downstream
 // service.
-type HttpFaultInjection_Abort struct {
+type HTTPFaultInjection_Abort struct {
 	// percentage of requests to be aborted with the error code provided.
 	Percent float32 `protobuf:"fixed32,1,opt,name=percent" json:"percent,omitempty"`
 	// Error code to use to abort the Http request. Requests can be aborted
@@ -1638,74 +1432,74 @@ type HttpFaultInjection_Abort struct {
 	// codes.
 	//
 	// Types that are valid to be assigned to ErrorType:
-	//	*HttpFaultInjection_Abort_GrpcStatus
-	//	*HttpFaultInjection_Abort_Http2Error
-	//	*HttpFaultInjection_Abort_HttpStatus
-	ErrorType isHttpFaultInjection_Abort_ErrorType `protobuf_oneof:"error_type"`
+	//	*HTTPFaultInjection_Abort_GrpcStatus
+	//	*HTTPFaultInjection_Abort_Http2Error
+	//	*HTTPFaultInjection_Abort_HttpStatus
+	ErrorType isHTTPFaultInjection_Abort_ErrorType `protobuf_oneof:"error_type"`
 	// Specify abort code as part of Http request.
 	// TODO: The semantics and syntax of the headers is undefined.
 	OverrideHeaderName string `protobuf:"bytes,5,opt,name=override_header_name,json=overrideHeaderName" json:"override_header_name,omitempty"`
 }
 
-func (m *HttpFaultInjection_Abort) Reset()                    { *m = HttpFaultInjection_Abort{} }
-func (m *HttpFaultInjection_Abort) String() string            { return proto.CompactTextString(m) }
-func (*HttpFaultInjection_Abort) ProtoMessage()               {}
-func (*HttpFaultInjection_Abort) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15, 4} }
+func (m *HTTPFaultInjection_Abort) Reset()                    { *m = HTTPFaultInjection_Abort{} }
+func (m *HTTPFaultInjection_Abort) String() string            { return proto.CompactTextString(m) }
+func (*HTTPFaultInjection_Abort) ProtoMessage()               {}
+func (*HTTPFaultInjection_Abort) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11, 4} }
 
-type isHttpFaultInjection_Abort_ErrorType interface {
-	isHttpFaultInjection_Abort_ErrorType()
+type isHTTPFaultInjection_Abort_ErrorType interface {
+	isHTTPFaultInjection_Abort_ErrorType()
 }
 
-type HttpFaultInjection_Abort_GrpcStatus struct {
+type HTTPFaultInjection_Abort_GrpcStatus struct {
 	GrpcStatus string `protobuf:"bytes,2,opt,name=grpc_status,json=grpcStatus,oneof"`
 }
-type HttpFaultInjection_Abort_Http2Error struct {
+type HTTPFaultInjection_Abort_Http2Error struct {
 	Http2Error string `protobuf:"bytes,3,opt,name=http2_error,json=http2Error,oneof"`
 }
-type HttpFaultInjection_Abort_HttpStatus struct {
-	HttpStatus uint32 `protobuf:"varint,4,opt,name=http_status,json=httpStatus,oneof"`
+type HTTPFaultInjection_Abort_HttpStatus struct {
+	HttpStatus int32 `protobuf:"varint,4,opt,name=http_status,json=httpStatus,oneof"`
 }
 
-func (*HttpFaultInjection_Abort_GrpcStatus) isHttpFaultInjection_Abort_ErrorType() {}
-func (*HttpFaultInjection_Abort_Http2Error) isHttpFaultInjection_Abort_ErrorType() {}
-func (*HttpFaultInjection_Abort_HttpStatus) isHttpFaultInjection_Abort_ErrorType() {}
+func (*HTTPFaultInjection_Abort_GrpcStatus) isHTTPFaultInjection_Abort_ErrorType() {}
+func (*HTTPFaultInjection_Abort_Http2Error) isHTTPFaultInjection_Abort_ErrorType() {}
+func (*HTTPFaultInjection_Abort_HttpStatus) isHTTPFaultInjection_Abort_ErrorType() {}
 
-func (m *HttpFaultInjection_Abort) GetErrorType() isHttpFaultInjection_Abort_ErrorType {
+func (m *HTTPFaultInjection_Abort) GetErrorType() isHTTPFaultInjection_Abort_ErrorType {
 	if m != nil {
 		return m.ErrorType
 	}
 	return nil
 }
 
-func (m *HttpFaultInjection_Abort) GetPercent() float32 {
+func (m *HTTPFaultInjection_Abort) GetPercent() float32 {
 	if m != nil {
 		return m.Percent
 	}
 	return 0
 }
 
-func (m *HttpFaultInjection_Abort) GetGrpcStatus() string {
-	if x, ok := m.GetErrorType().(*HttpFaultInjection_Abort_GrpcStatus); ok {
+func (m *HTTPFaultInjection_Abort) GetGrpcStatus() string {
+	if x, ok := m.GetErrorType().(*HTTPFaultInjection_Abort_GrpcStatus); ok {
 		return x.GrpcStatus
 	}
 	return ""
 }
 
-func (m *HttpFaultInjection_Abort) GetHttp2Error() string {
-	if x, ok := m.GetErrorType().(*HttpFaultInjection_Abort_Http2Error); ok {
+func (m *HTTPFaultInjection_Abort) GetHttp2Error() string {
+	if x, ok := m.GetErrorType().(*HTTPFaultInjection_Abort_Http2Error); ok {
 		return x.Http2Error
 	}
 	return ""
 }
 
-func (m *HttpFaultInjection_Abort) GetHttpStatus() uint32 {
-	if x, ok := m.GetErrorType().(*HttpFaultInjection_Abort_HttpStatus); ok {
+func (m *HTTPFaultInjection_Abort) GetHttpStatus() int32 {
+	if x, ok := m.GetErrorType().(*HTTPFaultInjection_Abort_HttpStatus); ok {
 		return x.HttpStatus
 	}
 	return 0
 }
 
-func (m *HttpFaultInjection_Abort) GetOverrideHeaderName() string {
+func (m *HTTPFaultInjection_Abort) GetOverrideHeaderName() string {
 	if m != nil {
 		return m.OverrideHeaderName
 	}
@@ -1713,76 +1507,76 @@ func (m *HttpFaultInjection_Abort) GetOverrideHeaderName() string {
 }
 
 // XXX_OneofFuncs is for the internal use of the proto package.
-func (*HttpFaultInjection_Abort) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _HttpFaultInjection_Abort_OneofMarshaler, _HttpFaultInjection_Abort_OneofUnmarshaler, _HttpFaultInjection_Abort_OneofSizer, []interface{}{
-		(*HttpFaultInjection_Abort_GrpcStatus)(nil),
-		(*HttpFaultInjection_Abort_Http2Error)(nil),
-		(*HttpFaultInjection_Abort_HttpStatus)(nil),
+func (*HTTPFaultInjection_Abort) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _HTTPFaultInjection_Abort_OneofMarshaler, _HTTPFaultInjection_Abort_OneofUnmarshaler, _HTTPFaultInjection_Abort_OneofSizer, []interface{}{
+		(*HTTPFaultInjection_Abort_GrpcStatus)(nil),
+		(*HTTPFaultInjection_Abort_Http2Error)(nil),
+		(*HTTPFaultInjection_Abort_HttpStatus)(nil),
 	}
 }
 
-func _HttpFaultInjection_Abort_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*HttpFaultInjection_Abort)
+func _HTTPFaultInjection_Abort_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*HTTPFaultInjection_Abort)
 	// error_type
 	switch x := m.ErrorType.(type) {
-	case *HttpFaultInjection_Abort_GrpcStatus:
+	case *HTTPFaultInjection_Abort_GrpcStatus:
 		b.EncodeVarint(2<<3 | proto.WireBytes)
 		b.EncodeStringBytes(x.GrpcStatus)
-	case *HttpFaultInjection_Abort_Http2Error:
+	case *HTTPFaultInjection_Abort_Http2Error:
 		b.EncodeVarint(3<<3 | proto.WireBytes)
 		b.EncodeStringBytes(x.Http2Error)
-	case *HttpFaultInjection_Abort_HttpStatus:
+	case *HTTPFaultInjection_Abort_HttpStatus:
 		b.EncodeVarint(4<<3 | proto.WireVarint)
 		b.EncodeVarint(uint64(x.HttpStatus))
 	case nil:
 	default:
-		return fmt.Errorf("HttpFaultInjection_Abort.ErrorType has unexpected type %T", x)
+		return fmt.Errorf("HTTPFaultInjection_Abort.ErrorType has unexpected type %T", x)
 	}
 	return nil
 }
 
-func _HttpFaultInjection_Abort_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*HttpFaultInjection_Abort)
+func _HTTPFaultInjection_Abort_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*HTTPFaultInjection_Abort)
 	switch tag {
 	case 2: // error_type.grpc_status
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		x, err := b.DecodeStringBytes()
-		m.ErrorType = &HttpFaultInjection_Abort_GrpcStatus{x}
+		m.ErrorType = &HTTPFaultInjection_Abort_GrpcStatus{x}
 		return true, err
 	case 3: // error_type.http2_error
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		x, err := b.DecodeStringBytes()
-		m.ErrorType = &HttpFaultInjection_Abort_Http2Error{x}
+		m.ErrorType = &HTTPFaultInjection_Abort_Http2Error{x}
 		return true, err
 	case 4: // error_type.http_status
 		if wire != proto.WireVarint {
 			return true, proto.ErrInternalBadWireType
 		}
 		x, err := b.DecodeVarint()
-		m.ErrorType = &HttpFaultInjection_Abort_HttpStatus{uint32(x)}
+		m.ErrorType = &HTTPFaultInjection_Abort_HttpStatus{int32(x)}
 		return true, err
 	default:
 		return false, nil
 	}
 }
 
-func _HttpFaultInjection_Abort_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*HttpFaultInjection_Abort)
+func _HTTPFaultInjection_Abort_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*HTTPFaultInjection_Abort)
 	// error_type
 	switch x := m.ErrorType.(type) {
-	case *HttpFaultInjection_Abort_GrpcStatus:
+	case *HTTPFaultInjection_Abort_GrpcStatus:
 		n += proto.SizeVarint(2<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(len(x.GrpcStatus)))
 		n += len(x.GrpcStatus)
-	case *HttpFaultInjection_Abort_Http2Error:
+	case *HTTPFaultInjection_Abort_Http2Error:
 		n += proto.SizeVarint(3<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(len(x.Http2Error)))
 		n += len(x.Http2Error)
-	case *HttpFaultInjection_Abort_HttpStatus:
+	case *HTTPFaultInjection_Abort_HttpStatus:
 		n += proto.SizeVarint(4<<3 | proto.WireVarint)
 		n += proto.SizeVarint(uint64(x.HttpStatus))
 	case nil:
@@ -1792,10 +1586,12 @@ func _HttpFaultInjection_Abort_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-// Faults can be injected into the L4 traffic forwarded by the proxy, for
-// testing the failure recovery capabilities of downstream services.
-// Faults include terminating established Tcp connections, throttling the
-// upstream/downstream bandwidth (for Tcp|Udp), or both.
+// Faults can be injected into the connections from downstream by the
+// proxy, for testing the failure recovery capabilities of downstream
+// services.  Faults include aborting the request/connection from
+// downstream service, delaying the proxying of request/connection to the
+// upstream service, and throttling the bandwidth of the connection
+// (either end).
 type L4FaultInjection struct {
 	// We first throttle (if set) and then terminate the connection.
 	Throttle  *L4FaultInjection_Throttle  `protobuf:"bytes,1,opt,name=throttle" json:"throttle,omitempty"`
@@ -1805,7 +1601,7 @@ type L4FaultInjection struct {
 func (m *L4FaultInjection) Reset()                    { *m = L4FaultInjection{} }
 func (m *L4FaultInjection) String() string            { return proto.CompactTextString(m) }
 func (*L4FaultInjection) ProtoMessage()               {}
-func (*L4FaultInjection) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{16} }
+func (*L4FaultInjection) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
 
 func (m *L4FaultInjection) GetThrottle() *L4FaultInjection_Throttle {
 	if m != nil {
@@ -1826,9 +1622,9 @@ type L4FaultInjection_Throttle struct {
 	// percentage of connections to throttle.
 	Percent float32 `protobuf:"fixed32,1,opt,name=percent" json:"percent,omitempty"`
 	// bandwidth limit in "bits" per second between downstream and proxy
-	DownstreamLimitBps uint64 `protobuf:"varint,2,opt,name=downstream_limit_bps,json=downstreamLimitBps" json:"downstream_limit_bps,omitempty"`
+	DownstreamLimitBps int64 `protobuf:"varint,2,opt,name=downstream_limit_bps,json=downstreamLimitBps" json:"downstream_limit_bps,omitempty"`
 	// bandwidth limits in "bits" per second between proxy and upstream
-	UpstreamLimitBps uint64 `protobuf:"varint,3,opt,name=upstream_limit_bps,json=upstreamLimitBps" json:"upstream_limit_bps,omitempty"`
+	UpstreamLimitBps int64 `protobuf:"varint,3,opt,name=upstream_limit_bps,json=upstreamLimitBps" json:"upstream_limit_bps,omitempty"`
 	// Types that are valid to be assigned to ThrottleAfter:
 	//	*L4FaultInjection_Throttle_ThrottleAfterSeconds
 	//	*L4FaultInjection_Throttle_ThrottleAfterBytes
@@ -1841,7 +1637,7 @@ type L4FaultInjection_Throttle struct {
 func (m *L4FaultInjection_Throttle) Reset()                    { *m = L4FaultInjection_Throttle{} }
 func (m *L4FaultInjection_Throttle) String() string            { return proto.CompactTextString(m) }
 func (*L4FaultInjection_Throttle) ProtoMessage()               {}
-func (*L4FaultInjection_Throttle) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{16, 0} }
+func (*L4FaultInjection_Throttle) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12, 0} }
 
 type isL4FaultInjection_Throttle_ThrottleAfter interface {
 	isL4FaultInjection_Throttle_ThrottleAfter()
@@ -1871,14 +1667,14 @@ func (m *L4FaultInjection_Throttle) GetPercent() float32 {
 	return 0
 }
 
-func (m *L4FaultInjection_Throttle) GetDownstreamLimitBps() uint64 {
+func (m *L4FaultInjection_Throttle) GetDownstreamLimitBps() int64 {
 	if m != nil {
 		return m.DownstreamLimitBps
 	}
 	return 0
 }
 
-func (m *L4FaultInjection_Throttle) GetUpstreamLimitBps() uint64 {
+func (m *L4FaultInjection_Throttle) GetUpstreamLimitBps() int64 {
 	if m != nil {
 		return m.UpstreamLimitBps
 	}
@@ -1983,7 +1779,7 @@ type L4FaultInjection_Terminate struct {
 func (m *L4FaultInjection_Terminate) Reset()                    { *m = L4FaultInjection_Terminate{} }
 func (m *L4FaultInjection_Terminate) String() string            { return proto.CompactTextString(m) }
 func (*L4FaultInjection_Terminate) ProtoMessage()               {}
-func (*L4FaultInjection_Terminate) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{16, 1} }
+func (*L4FaultInjection_Terminate) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12, 1} }
 
 func (m *L4FaultInjection_Terminate) GetPercent() float32 {
 	if m != nil {
@@ -2000,151 +1796,142 @@ func (m *L4FaultInjection_Terminate) GetTerminateAfterSeconds() float64 {
 }
 
 func init() {
-	proto.RegisterType((*ProxyConfig)(nil), "istio.proxy.v1alpha.config.ProxyConfig")
+	proto.RegisterType((*ProxyMeshConfig)(nil), "istio.proxy.v1alpha.config.ProxyMeshConfig")
+	proto.RegisterType((*Destination)(nil), "istio.proxy.v1alpha.config.Destination")
 	proto.RegisterType((*RouteRule)(nil), "istio.proxy.v1alpha.config.RouteRule")
-	proto.RegisterType((*L4RouteRule)(nil), "istio.proxy.v1alpha.config.L4RouteRule")
-	proto.RegisterType((*HttpRouteRule)(nil), "istio.proxy.v1alpha.config.HttpRouteRule")
-	proto.RegisterType((*L4MatchCondition)(nil), "istio.proxy.v1alpha.config.L4MatchCondition")
+	proto.RegisterType((*MatchCondition)(nil), "istio.proxy.v1alpha.config.MatchCondition")
+	proto.RegisterType((*DestinationWeight)(nil), "istio.proxy.v1alpha.config.DestinationWeight")
 	proto.RegisterType((*L4MatchAttributes)(nil), "istio.proxy.v1alpha.config.L4MatchAttributes")
-	proto.RegisterType((*ClusterIdentifier)(nil), "istio.proxy.v1alpha.config.ClusterIdentifier")
-	proto.RegisterType((*WeightedCluster)(nil), "istio.proxy.v1alpha.config.WeightedCluster")
-	proto.RegisterType((*HttpMatchCondition)(nil), "istio.proxy.v1alpha.config.HttpMatchCondition")
 	proto.RegisterType((*StringMatch)(nil), "istio.proxy.v1alpha.config.StringMatch")
-	proto.RegisterType((*UpstreamCluster)(nil), "istio.proxy.v1alpha.config.UpstreamCluster")
-	proto.RegisterType((*LoadBalancingPolicy)(nil), "istio.proxy.v1alpha.config.LoadBalancingPolicy")
-	proto.RegisterType((*TimeoutPolicy)(nil), "istio.proxy.v1alpha.config.TimeoutPolicy")
-	proto.RegisterType((*TimeoutPolicy_SimpleTimeoutPolicy)(nil), "istio.proxy.v1alpha.config.TimeoutPolicy.SimpleTimeoutPolicy")
-	proto.RegisterType((*RetryPolicy)(nil), "istio.proxy.v1alpha.config.RetryPolicy")
-	proto.RegisterType((*RetryPolicy_SimpleRetryPolicy)(nil), "istio.proxy.v1alpha.config.RetryPolicy.SimpleRetryPolicy")
-	proto.RegisterType((*CircuitBreakerPolicy)(nil), "istio.proxy.v1alpha.config.CircuitBreakerPolicy")
-	proto.RegisterType((*CircuitBreakerPolicy_SimpleCircuitBreakerPolicy)(nil), "istio.proxy.v1alpha.config.CircuitBreakerPolicy.SimpleCircuitBreakerPolicy")
-	proto.RegisterType((*HttpFaultInjection)(nil), "istio.proxy.v1alpha.config.HttpFaultInjection")
-	proto.RegisterType((*HttpFaultInjection_Delay)(nil), "istio.proxy.v1alpha.config.HttpFaultInjection.Delay")
-	proto.RegisterType((*HttpFaultInjection_FixedDelay)(nil), "istio.proxy.v1alpha.config.HttpFaultInjection.FixedDelay")
-	proto.RegisterType((*HttpFaultInjection_ExponentialDelay)(nil), "istio.proxy.v1alpha.config.HttpFaultInjection.ExponentialDelay")
-	proto.RegisterType((*HttpFaultInjection_Abort)(nil), "istio.proxy.v1alpha.config.HttpFaultInjection.Abort")
+	proto.RegisterType((*LoadBalancing)(nil), "istio.proxy.v1alpha.config.LoadBalancing")
+	proto.RegisterType((*HTTPTimeout)(nil), "istio.proxy.v1alpha.config.HTTPTimeout")
+	proto.RegisterType((*HTTPTimeout_SimpleTimeoutPolicy)(nil), "istio.proxy.v1alpha.config.HTTPTimeout.SimpleTimeoutPolicy")
+	proto.RegisterType((*HTTPRetry)(nil), "istio.proxy.v1alpha.config.HTTPRetry")
+	proto.RegisterType((*HTTPRetry_SimpleRetryPolicy)(nil), "istio.proxy.v1alpha.config.HTTPRetry.SimpleRetryPolicy")
+	proto.RegisterType((*CircuitBreaker)(nil), "istio.proxy.v1alpha.config.CircuitBreaker")
+	proto.RegisterType((*CircuitBreaker_SimpleCircuitBreakerPolicy)(nil), "istio.proxy.v1alpha.config.CircuitBreaker.SimpleCircuitBreakerPolicy")
+	proto.RegisterType((*HTTPFaultInjection)(nil), "istio.proxy.v1alpha.config.HTTPFaultInjection")
+	proto.RegisterType((*HTTPFaultInjection_Delay)(nil), "istio.proxy.v1alpha.config.HTTPFaultInjection.Delay")
+	proto.RegisterType((*HTTPFaultInjection_FixedDelay)(nil), "istio.proxy.v1alpha.config.HTTPFaultInjection.FixedDelay")
+	proto.RegisterType((*HTTPFaultInjection_ExponentialDelay)(nil), "istio.proxy.v1alpha.config.HTTPFaultInjection.ExponentialDelay")
+	proto.RegisterType((*HTTPFaultInjection_Abort)(nil), "istio.proxy.v1alpha.config.HTTPFaultInjection.Abort")
 	proto.RegisterType((*L4FaultInjection)(nil), "istio.proxy.v1alpha.config.L4FaultInjection")
 	proto.RegisterType((*L4FaultInjection_Throttle)(nil), "istio.proxy.v1alpha.config.L4FaultInjection.Throttle")
 	proto.RegisterType((*L4FaultInjection_Terminate)(nil), "istio.proxy.v1alpha.config.L4FaultInjection.Terminate")
-	proto.RegisterEnum("istio.proxy.v1alpha.config.L4MatchAttributes_L4Protocol", L4MatchAttributes_L4Protocol_name, L4MatchAttributes_L4Protocol_value)
-	proto.RegisterEnum("istio.proxy.v1alpha.config.LoadBalancingPolicy_SimpleLBPolicy", LoadBalancingPolicy_SimpleLBPolicy_name, LoadBalancingPolicy_SimpleLBPolicy_value)
+	proto.RegisterEnum("istio.proxy.v1alpha.config.LoadBalancing_SimpleLBPolicy", LoadBalancing_SimpleLBPolicy_name, LoadBalancing_SimpleLBPolicy_value)
 }
 
 func init() { proto.RegisterFile("cfg.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 1793 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xd4, 0x58, 0x4f, 0x6f, 0xe3, 0xc6,
-	0x15, 0x17, 0x25, 0x4b, 0x96, 0x1e, 0xfd, 0x47, 0x1e, 0x7b, 0xb7, 0xaa, 0x50, 0x04, 0xae, 0x80,
-	0x22, 0x5b, 0x24, 0xd5, 0x6e, 0x15, 0x67, 0x93, 0x6d, 0x90, 0x06, 0x96, 0xed, 0xad, 0x9c, 0x3a,
-	0x5e, 0x67, 0x2c, 0xa7, 0x6d, 0xd0, 0x86, 0xa0, 0xc8, 0x91, 0xc4, 0x2c, 0x45, 0x12, 0x33, 0xc3,
-	0x5d, 0xeb, 0x2b, 0x14, 0xe8, 0x07, 0xe8, 0x57, 0x28, 0x7a, 0x6c, 0x4f, 0x3d, 0xf4, 0xd0, 0x5b,
-	0x7b, 0xeb, 0x17, 0xc9, 0xa9, 0xbd, 0x15, 0x28, 0xe6, 0x0f, 0x29, 0x52, 0xb6, 0xb4, 0x96, 0x0b,
-	0xb4, 0xe8, 0x8d, 0xf3, 0xfe, 0xfc, 0x66, 0xde, 0xef, 0xbd, 0x37, 0x7c, 0x24, 0xd4, 0x9c, 0xe1,
-	0xa8, 0x1d, 0xd1, 0x90, 0x87, 0xa8, 0xe9, 0x31, 0xee, 0x85, 0x62, 0x71, 0x3d, 0x6d, 0xbf, 0xfa,
-	0xa1, 0xed, 0x47, 0x63, 0xbb, 0xed, 0x84, 0xc1, 0xd0, 0x1b, 0x35, 0xbf, 0x3d, 0x0a, 0xc3, 0x91,
-	0x4f, 0x1e, 0x4b, 0xcb, 0x41, 0x3c, 0x7c, 0x6c, 0x07, 0x53, 0xe5, 0xd6, 0x7c, 0x6b, 0x5e, 0xf5,
-	0x9a, 0xda, 0x51, 0x44, 0x28, 0x53, 0xfa, 0xd6, 0xdf, 0x0c, 0x30, 0x2f, 0x04, 0xe6, 0x91, 0x84,
-	0x42, 0x4d, 0xa8, 0x52, 0xf2, 0xca, 0x63, 0x5e, 0x18, 0x34, 0x8c, 0x7d, 0xe3, 0x51, 0x19, 0xa7,
-	0x6b, 0xf4, 0x1c, 0x4c, 0x1a, 0xc6, 0x9c, 0x58, 0x34, 0xf6, 0x09, 0x6b, 0x14, 0xf7, 0x4b, 0x8f,
-	0xcc, 0xce, 0xf7, 0xda, 0x8b, 0x0f, 0xd6, 0xc6, 0xc2, 0x1c, 0xc7, 0x3e, 0xc1, 0x40, 0x93, 0x47,
-	0x86, 0x7e, 0x0e, 0x3b, 0x71, 0xc4, 0x38, 0x25, 0xf6, 0xc4, 0x72, 0xfc, 0x98, 0x71, 0x42, 0x59,
-	0xa3, 0x24, 0xd1, 0xde, 0x59, 0x86, 0x76, 0xa5, 0x9d, 0x8e, 0x94, 0x0f, 0xae, 0xc7, 0x79, 0x01,
-	0x6b, 0xfd, 0xd9, 0x80, 0x5a, 0xba, 0x27, 0xda, 0x07, 0xd3, 0x25, 0x8c, 0x7b, 0x81, 0xcd, 0x93,
-	0x70, 0x6a, 0x38, 0x2b, 0x42, 0x87, 0x50, 0xf1, 0xed, 0x29, 0xa1, 0x07, 0x8d, 0xe2, 0xbe, 0xf1,
-	0xc8, 0xec, 0xbc, 0xbd, 0x6c, 0xfb, 0xb3, 0x83, 0x14, 0xba, 0x57, 0xc0, 0xda, 0x11, 0x7d, 0x02,
-	0x6b, 0x63, 0xce, 0xa3, 0x46, 0x49, 0x02, 0x7c, 0x7f, 0x19, 0x40, 0x8f, 0xf3, 0x28, 0x0b, 0x21,
-	0x1d, 0xbb, 0x1b, 0x00, 0x33, 0x56, 0x5b, 0xdf, 0x18, 0x60, 0x66, 0x36, 0x42, 0x5d, 0x28, 0x4f,
-	0x6c, 0xee, 0x8c, 0xe5, 0xe9, 0xcd, 0xce, 0xbb, 0xcb, 0x0f, 0xf8, 0x99, 0x30, 0x3d, 0x0a, 0x03,
-	0xd7, 0x13, 0xe1, 0x61, 0xe5, 0x2a, 0xf8, 0x7e, 0x4d, 0xbc, 0xd1, 0x98, 0x13, 0x77, 0xc6, 0x77,
-	0xf1, 0xcd, 0x7c, 0xff, 0x4c, 0x3b, 0xa5, 0x7c, 0xbf, 0xce, 0x0b, 0x98, 0x38, 0xdd, 0xd0, 0x8e,
-	0x7d, 0xae, 0xa3, 0x7f, 0xc3, 0xe9, 0x9e, 0x0b, 0xd3, 0xd3, 0xe0, 0x6b, 0xe2, 0xa8, 0xd3, 0x49,
-	0xd7, 0xd6, 0xef, 0x8b, 0xb0, 0x99, 0x63, 0x06, 0x1d, 0xe7, 0x63, 0x6e, 0xbf, 0x89, 0xd3, 0xff,
-	0x76, 0xd4, 0xc7, 0xf9, 0xa8, 0xdf, 0x78, 0xbe, 0x5b, 0xe3, 0x46, 0xef, 0x83, 0xe9, 0xc4, 0x8c,
-	0x87, 0x13, 0xcb, 0x9b, 0x44, 0x7e, 0x63, 0x4d, 0x62, 0xed, 0xb5, 0x55, 0xbf, 0xb6, 0x93, 0x7e,
-	0x6d, 0x1f, 0x06, 0x53, 0x0c, 0xca, 0xf0, 0x74, 0x12, 0xf9, 0xad, 0x3f, 0x1a, 0x50, 0x9f, 0x4f,
-	0x34, 0xfa, 0x1c, 0x36, 0xfc, 0x03, 0x9b, 0x73, 0xea, 0x0d, 0x62, 0x4e, 0x98, 0x26, 0xee, 0x07,
-	0x77, 0x28, 0x96, 0xc3, 0xd4, 0x09, 0xe7, 0x20, 0xd0, 0x39, 0x98, 0x8c, 0x3a, 0x09, 0x73, 0xba,
-	0x3f, 0x96, 0x22, 0x6a, 0x7e, 0x4e, 0x5d, 0x12, 0x70, 0x6f, 0xe8, 0x11, 0x8a, 0x81, 0x51, 0x47,
-	0x4b, 0x5b, 0x7f, 0x29, 0xc2, 0xce, 0x8d, 0x3d, 0x51, 0x0b, 0x36, 0xc5, 0x2e, 0x5e, 0x64, 0xb1,
-	0x78, 0x10, 0x10, 0xde, 0x30, 0xf6, 0x4b, 0xa2, 0x49, 0x19, 0x75, 0x4e, 0xa3, 0x4b, 0x29, 0x42,
-	0x1f, 0x40, 0x55, 0xd8, 0x44, 0x21, 0xe5, 0xfa, 0x18, 0xdf, 0xb9, 0xc1, 0xd2, 0xd5, 0x69, 0xc0,
-	0xdf, 0xeb, 0x7c, 0x61, 0xfb, 0x31, 0xc1, 0xeb, 0x8c, 0x3a, 0x17, 0x21, 0xe5, 0x02, 0xdc, 0x65,
-	0x3c, 0x03, 0x5e, 0x52, 0xe0, 0x2e, 0xe3, 0x59, 0x70, 0x61, 0x23, 0xc1, 0xd7, 0xee, 0x02, 0xee,
-	0x32, 0x2e, 0xc1, 0xfb, 0x50, 0x95, 0x06, 0x4e, 0xe8, 0x37, 0xca, 0xfb, 0xc6, 0xa3, 0xad, 0xce,
-	0x87, 0x2b, 0xd1, 0xdd, 0x3e, 0x3b, 0xb8, 0xd0, 0xfe, 0x38, 0x45, 0x6a, 0xbd, 0x05, 0x30, 0x93,
-	0xa3, 0x75, 0x28, 0xf5, 0x8f, 0x2e, 0xea, 0x05, 0xf1, 0x70, 0x75, 0x7c, 0x51, 0x37, 0x5a, 0x1f,
-	0xc1, 0xce, 0x0d, 0x9a, 0x11, 0x82, 0xb5, 0xc0, 0x9e, 0x10, 0x7d, 0xc1, 0xc9, 0x67, 0x21, 0xe3,
-	0xf6, 0x48, 0x15, 0x7c, 0x0d, 0xcb, 0xe7, 0xd6, 0x14, 0xb6, 0xe7, 0x8a, 0x5b, 0x64, 0x59, 0x84,
-	0x9f, 0x64, 0xd9, 0xb8, 0x57, 0x96, 0x5d, 0xc6, 0x13, 0xbc, 0x87, 0x50, 0x51, 0xed, 0x22, 0x33,
-	0xb5, 0x89, 0xf5, 0xaa, 0xf5, 0x9b, 0x35, 0x40, 0x37, 0x5b, 0xf5, 0xff, 0xa0, 0x6e, 0x45, 0x44,
-	0xcc, 0x19, 0x93, 0x09, 0x91, 0xdd, 0x5e, 0xc3, 0x7a, 0x85, 0x4e, 0xa0, 0x66, 0xc7, 0x7c, 0x1c,
-	0x52, 0x8f, 0x4f, 0x75, 0xe5, 0x2c, 0x7d, 0x7b, 0x5c, 0x72, 0xea, 0x05, 0x23, 0x79, 0x76, 0x3c,
-	0xf3, 0x44, 0xcf, 0xa0, 0x14, 0x53, 0x4f, 0x56, 0xd0, 0x0a, 0x00, 0xc2, 0x07, 0x5d, 0xc1, 0xfa,
-	0x98, 0xd8, 0xae, 0xb8, 0xd6, 0x2a, 0xf2, 0x5a, 0xfb, 0x68, 0xb5, 0x8b, 0xb2, 0xdd, 0x53, 0xde,
-	0x27, 0x01, 0xa7, 0x53, 0x9c, 0x60, 0x35, 0x1d, 0xd8, 0xc8, 0x2a, 0x50, 0x1d, 0x4a, 0x2f, 0xc9,
-	0x54, 0x17, 0x97, 0x78, 0x44, 0x1f, 0x43, 0xf9, 0x95, 0x68, 0x86, 0xbb, 0xbc, 0x34, 0xb3, 0xa7,
-	0x56, 0x5e, 0x3f, 0x2a, 0x7e, 0x68, 0xb4, 0x08, 0x98, 0x19, 0x0d, 0x7a, 0x08, 0x65, 0x72, 0x6d,
-	0x3b, 0x5c, 0xed, 0xd2, 0x2b, 0x60, 0xb5, 0x44, 0x0d, 0xa8, 0x44, 0x94, 0x0c, 0xbd, 0x6b, 0xb9,
-	0x95, 0x50, 0xe8, 0xb5, 0xf0, 0xa0, 0x64, 0x44, 0xae, 0x55, 0x56, 0x84, 0x87, 0x5c, 0x8a, 0xb7,
-	0xa9, 0xbc, 0xfe, 0x2d, 0x3e, 0x8d, 0x48, 0xeb, 0x4f, 0x25, 0xd8, 0x9e, 0x9b, 0x1a, 0xd0, 0x4f,
-	0x60, 0xfd, 0x3f, 0x2a, 0xf7, 0xc4, 0x1b, 0x75, 0xe0, 0xc1, 0x98, 0xd8, 0x3e, 0x1f, 0x5b, 0xce,
-	0x98, 0x38, 0x2f, 0x2d, 0x12, 0xb8, 0x51, 0xe8, 0x05, 0xaa, 0xf4, 0x6b, 0x78, 0x57, 0x29, 0x8f,
-	0x84, 0xee, 0x44, 0xab, 0xd0, 0x19, 0xd4, 0xfc, 0x81, 0x15, 0x85, 0xbe, 0xe7, 0x4c, 0xf5, 0xeb,
-	0xe3, 0xf1, 0xd2, 0x6a, 0x0f, 0x6d, 0xb7, 0x6b, 0xfb, 0x76, 0xe0, 0x78, 0xc1, 0xe8, 0x42, 0xba,
-	0xe1, 0xaa, 0x3f, 0x50, 0x4f, 0xe8, 0x08, 0xd6, 0xb9, 0x37, 0x21, 0x61, 0x9c, 0xdc, 0x5d, 0x4b,
-	0xc7, 0x8f, 0xbe, 0x32, 0xd5, 0x28, 0x89, 0xa7, 0xc8, 0x26, 0x25, 0x9c, 0x4e, 0xef, 0x52, 0x83,
-	0x58, 0x18, 0x6a, 0x00, 0xe5, 0x85, 0x7e, 0x01, 0xdb, 0x8e, 0x47, 0x9d, 0xd8, 0xe3, 0xd6, 0x80,
-	0x12, 0xfb, 0x25, 0xa1, 0x8d, 0x8a, 0x04, 0x7a, 0xb2, 0x94, 0x56, 0xe5, 0xd2, 0x55, 0x1e, 0x1a,
-	0x71, 0xcb, 0xc9, 0x49, 0x5b, 0xff, 0x32, 0x60, 0xf7, 0x16, 0x02, 0x50, 0x3f, 0x73, 0xdf, 0x6d,
-	0x75, 0x7e, 0xbc, 0x22, 0x7f, 0xed, 0x4b, 0xf1, 0xbe, 0x25, 0x67, 0x5d, 0xb5, 0x14, 0x73, 0x98,
-	0xbc, 0x31, 0x3f, 0xc8, 0xbf, 0x8f, 0x8b, 0x8b, 0xdf, 0xc7, 0xbd, 0x42, 0xee, 0x8d, 0xfc, 0x29,
-	0x6c, 0xe5, 0x21, 0xd1, 0x36, 0x98, 0xf8, 0xc5, 0xd5, 0xf9, 0xb1, 0x85, 0x5f, 0x74, 0x4f, 0xcf,
-	0xeb, 0x05, 0xb4, 0x05, 0x70, 0x76, 0x72, 0x78, 0xd9, 0xb7, 0x8e, 0x5e, 0x9c, 0x9f, 0xd7, 0x0d,
-	0x64, 0xc2, 0xfa, 0xe9, 0x85, 0xd5, 0x3b, 0xbc, 0xec, 0xd5, 0x8b, 0x08, 0xa0, 0x82, 0x0f, 0xcf,
-	0x8f, 0x5f, 0x7c, 0x56, 0x2f, 0x75, 0xcd, 0x4c, 0x7d, 0xb4, 0xfe, 0x50, 0x84, 0xcd, 0x5c, 0xd2,
-	0xd0, 0x10, 0xb6, 0x98, 0xdc, 0xca, 0x4a, 0xf2, 0xae, 0x4a, 0xf8, 0xe3, 0x3b, 0xe7, 0x5d, 0x47,
-	0x9f, 0x93, 0xf5, 0x0a, 0x78, 0x93, 0x65, 0xc5, 0xf7, 0xe6, 0xa2, 0x19, 0xc1, 0xee, 0x2d, 0x1b,
-	0xa0, 0xb7, 0x61, 0x5b, 0x1f, 0xd8, 0x62, 0xc4, 0x09, 0x03, 0x57, 0x5d, 0xf5, 0x06, 0xde, 0xd2,
-	0xe2, 0x4b, 0x25, 0x45, 0x4f, 0x60, 0x2f, 0x7c, 0x45, 0x28, 0xf5, 0x5c, 0x62, 0xa9, 0x0b, 0xc9,
-	0x92, 0xa9, 0x56, 0x2d, 0x85, 0x12, 0x9d, 0xba, 0xa0, 0xce, 0xed, 0x09, 0xe9, 0xd6, 0x21, 0xc1,
-	0x48, 0x68, 0xfb, 0x6d, 0x11, 0xcc, 0x4c, 0xa1, 0xa2, 0xaf, 0x60, 0x43, 0x93, 0xa6, 0xea, 0x5c,
-	0x51, 0xf6, 0xec, 0x8e, 0x75, 0xae, 0x09, 0xcb, 0x48, 0x7a, 0x05, 0x6c, 0xb2, 0x99, 0xf0, 0xfe,
-	0x64, 0xd9, 0xb0, 0x73, 0x03, 0x5c, 0x7c, 0x80, 0xd9, 0x9c, 0x93, 0x49, 0xc4, 0x15, 0x47, 0x9b,
-	0x38, 0x5d, 0xdf, 0x83, 0x9d, 0x2d, 0xd8, 0x90, 0x41, 0x27, 0xdc, 0xfc, 0xa3, 0x08, 0x7b, 0xb7,
-	0xf5, 0x1e, 0xfa, 0x1a, 0x6a, 0x9a, 0x24, 0x67, 0xa0, 0x19, 0xfa, 0xe9, 0xaa, 0x0d, 0xac, 0xa9,
-	0xba, 0x4d, 0xd5, 0x2b, 0xe0, 0xaa, 0xc2, 0x3f, 0x1a, 0xdc, 0x9f, 0xb0, 0xdf, 0x19, 0xd0, 0x5c,
-	0xbc, 0x07, 0x7a, 0x07, 0x76, 0x58, 0xec, 0x38, 0x84, 0x31, 0x8b, 0x8f, 0x29, 0x61, 0xe3, 0xd0,
-	0x77, 0x35, 0x87, 0x75, 0xad, 0xe8, 0x27, 0x72, 0x61, 0x3c, 0xb4, 0x3d, 0x3f, 0xa6, 0x24, 0x63,
-	0xac, 0x86, 0x96, 0xba, 0x56, 0xcc, 0x8c, 0x3b, 0xf0, 0x80, 0x12, 0x46, 0xb8, 0x35, 0x5f, 0xc5,
-	0x25, 0x59, 0xc5, 0xbb, 0x52, 0xd9, 0xcf, 0x95, 0xb2, 0x68, 0x65, 0x27, 0x6d, 0xe5, 0x7f, 0xae,
-	0xab, 0xf9, 0x27, 0xff, 0x29, 0x80, 0x3e, 0x85, 0xb2, 0x4b, 0x7c, 0x3b, 0xa9, 0xc9, 0x83, 0xd5,
-	0xbe, 0x24, 0xda, 0xc7, 0xc2, 0x17, 0x2b, 0x08, 0x81, 0x65, 0x0f, 0x66, 0x33, 0xf2, 0xaa, 0x58,
-	0x87, 0xc2, 0x17, 0x2b, 0x88, 0xec, 0x68, 0x51, 0xba, 0xdb, 0x68, 0x31, 0x87, 0xf6, 0xbf, 0x1b,
-	0x2d, 0x9a, 0xbf, 0x2e, 0x42, 0x59, 0x12, 0x83, 0x7e, 0x09, 0xe6, 0xd0, 0xbb, 0x26, 0xae, 0x95,
-	0xe5, 0xf8, 0xd9, 0x8a, 0x91, 0x3c, 0x17, 0x08, 0x12, 0x4f, 0x14, 0xe3, 0x30, 0x5d, 0xa1, 0xaf,
-	0xa0, 0x46, 0xae, 0x23, 0x8d, 0xad, 0x8e, 0xfb, 0xc9, 0x8a, 0xd8, 0x27, 0xd7, 0x51, 0x18, 0x88,
-	0xc1, 0xc2, 0xf6, 0x93, 0x1d, 0xaa, 0xe4, 0x3a, 0x52, 0xf8, 0x8b, 0x9a, 0xbd, 0xb4, 0xb0, 0xd9,
-	0x77, 0x60, 0x7b, 0xcc, 0xb9, 0x3e, 0x92, 0x1c, 0x80, 0x9a, 0x5f, 0x00, 0xcc, 0x02, 0x40, 0x0d,
-	0x58, 0x8f, 0x08, 0x75, 0x48, 0xa0, 0xde, 0x1b, 0x45, 0x9c, 0x2c, 0x51, 0x1b, 0x76, 0x33, 0x54,
-	0xa5, 0xe5, 0x5d, 0x94, 0xe5, 0xbd, 0x33, 0x8b, 0x5a, 0x17, 0x77, 0xf3, 0x4b, 0xa8, 0xcf, 0x1f,
-	0x7e, 0x09, 0xfa, 0xbb, 0x80, 0x26, 0xc4, 0x0e, 0x6e, 0x05, 0xaf, 0x0b, 0x4d, 0x0e, 0xfb, 0xaf,
-	0x06, 0x94, 0x65, 0x35, 0x2e, 0x41, 0xfc, 0x2e, 0x98, 0x23, 0x1a, 0x39, 0x16, 0xe3, 0x36, 0x8f,
-	0x59, 0x3a, 0x1d, 0x82, 0x10, 0x5e, 0x4a, 0x99, 0x30, 0x11, 0x6c, 0x74, 0x2c, 0x42, 0x69, 0x48,
-	0xd3, 0x39, 0x11, 0xa4, 0xf0, 0x44, 0xc8, 0x12, 0x93, 0x04, 0x45, 0xcc, 0x50, 0x9b, 0x89, 0x89,
-	0x46, 0x59, 0x94, 0x85, 0xf2, 0xc2, 0x2c, 0x6c, 0x00, 0xc8, 0x1d, 0xd5, 0x04, 0xfa, 0xcd, 0x9a,
-	0xf8, 0x5c, 0x9f, 0x6b, 0xfb, 0xcf, 0xa1, 0xca, 0xc7, 0x34, 0xe4, 0xdc, 0x27, 0xba, 0x2a, 0xdf,
-	0x5f, 0xe5, 0xcf, 0x49, 0xbb, 0xaf, 0x9d, 0x71, 0x0a, 0x83, 0xfa, 0x50, 0xe3, 0x84, 0x4e, 0xbc,
-	0xc0, 0xe6, 0x49, 0xf3, 0x3c, 0x5d, 0x0d, 0x33, 0xf1, 0xc6, 0x33, 0xa0, 0xe6, 0xdf, 0x8b, 0x50,
-	0x4d, 0x36, 0x5b, 0x92, 0x8d, 0x27, 0xb0, 0xe7, 0x86, 0xaf, 0x03, 0xfd, 0x4b, 0xcf, 0xf7, 0x26,
-	0x62, 0x18, 0x8c, 0x54, 0x5a, 0xd6, 0x30, 0x9a, 0xe9, 0xce, 0x84, 0xaa, 0x1b, 0x31, 0x51, 0x11,
-	0xe9, 0x2f, 0xc0, 0x99, 0x7d, 0x49, 0xda, 0xa7, 0xbf, 0xf5, 0x52, 0xeb, 0xa7, 0xf0, 0x30, 0x09,
-	0xd4, 0xb2, 0x87, 0x9c, 0xd0, 0xb4, 0x86, 0x44, 0xca, 0x8c, 0x5e, 0x01, 0xef, 0x25, 0xfa, 0x43,
-	0xa1, 0x4e, 0xa6, 0x89, 0x0e, 0xec, 0xcd, 0xf9, 0x0d, 0xa6, 0xe2, 0x33, 0xb3, 0xac, 0xbd, 0x50,
-	0xce, 0xab, 0x3b, 0x55, 0xdf, 0x8f, 0x33, 0x9f, 0x61, 0x38, 0xdb, 0xa9, 0xb2, 0xe0, 0xe7, 0xc0,
-	0x71, 0x18, 0x0f, 0x7c, 0xa2, 0x7e, 0x0e, 0xa4, 0x78, 0xcf, 0xc3, 0xe4, 0x0c, 0x72, 0x3e, 0xc9,
-	0x9d, 0xa1, 0xf9, 0x2b, 0xa8, 0xa5, 0x64, 0x2f, 0x21, 0xf5, 0x29, 0x7c, 0x2b, 0x4d, 0xc4, 0x5c,
-	0xd4, 0xaa, 0x73, 0x1e, 0xa4, 0xea, 0x6c, 0xd0, 0xdd, 0xea, 0x97, 0x15, 0x95, 0xe3, 0x41, 0x45,
-	0x1e, 0xf2, 0xbd, 0x7f, 0x07, 0x00, 0x00, 0xff, 0xff, 0x6c, 0xc8, 0xca, 0xd0, 0x46, 0x16, 0x00,
-	0x00,
+	// 1731 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xb4, 0x98, 0x5f, 0x73, 0x23, 0x47,
+	0x11, 0xc0, 0x2d, 0xc9, 0x2b, 0x5b, 0x2d, 0x9d, 0x2c, 0xcd, 0xf9, 0x1c, 0x45, 0x95, 0x4a, 0x39,
+	0xa6, 0xa8, 0x3b, 0xc2, 0x9d, 0x12, 0xcc, 0x71, 0x24, 0x97, 0xba, 0x4a, 0x2c, 0xdb, 0x87, 0x2e,
+	0x75, 0x96, 0xcd, 0x58, 0xb9, 0x54, 0xa5, 0x02, 0xcb, 0x6a, 0xb7, 0x25, 0x2d, 0x59, 0xed, 0x2e,
+	0xb3, 0xb3, 0xb6, 0xf4, 0x15, 0x28, 0x5e, 0xf9, 0x0c, 0x7c, 0x07, 0x3e, 0x02, 0xbc, 0x51, 0xbc,
+	0xf1, 0xc0, 0x47, 0xe0, 0x8d, 0x47, 0x8a, 0x9a, 0x3f, 0xbb, 0x5a, 0xc9, 0x67, 0x59, 0x82, 0xca,
+	0x9b, 0xa6, 0xff, 0xfc, 0x76, 0xba, 0xa7, 0xa7, 0xa7, 0x6d, 0x28, 0xd9, 0x83, 0x61, 0x2b, 0x64,
+	0x01, 0x0f, 0x48, 0xd3, 0x8d, 0xb8, 0x1b, 0x88, 0xc5, 0x64, 0xda, 0xba, 0xfa, 0x89, 0xe5, 0x85,
+	0x23, 0xab, 0x65, 0x07, 0xfe, 0xc0, 0x1d, 0x36, 0xdf, 0x1d, 0x06, 0xc1, 0xd0, 0xc3, 0x8f, 0xa4,
+	0x65, 0x3f, 0x1e, 0x7c, 0x64, 0xf9, 0x53, 0xe5, 0xd6, 0x7c, 0x7f, 0x51, 0x75, 0xcd, 0xac, 0x30,
+	0x44, 0x16, 0x29, 0xfd, 0x41, 0x1d, 0x76, 0x2e, 0x04, 0xf2, 0x0c, 0xa3, 0xd1, 0xb1, 0xa4, 0x1d,
+	0xfc, 0xd9, 0x80, 0xf2, 0x09, 0x46, 0xdc, 0xf5, 0x2d, 0xee, 0x06, 0x3e, 0xd9, 0x87, 0xb2, 0x33,
+	0x5b, 0x36, 0x72, 0xfb, 0xb9, 0x47, 0x25, 0x9a, 0x15, 0x91, 0x2e, 0x6c, 0x5d, 0x21, 0x8b, 0x84,
+	0x36, 0xbf, 0x5f, 0x78, 0x54, 0x3e, 0x7c, 0xda, 0xba, 0x7d, 0xb7, 0xad, 0x0c, 0xbb, 0xf5, 0x46,
+	0xb9, 0x9d, 0xfa, 0x9c, 0x4d, 0x69, 0x02, 0x21, 0x17, 0x50, 0xf5, 0x02, 0xcb, 0x31, 0xfb, 0x96,
+	0x67, 0xf9, 0xb6, 0xeb, 0x0f, 0x1b, 0x85, 0xfd, 0xdc, 0xa3, 0xf2, 0xe1, 0x8f, 0x96, 0x61, 0x5f,
+	0x07, 0x96, 0xd3, 0x4e, 0x1c, 0xe8, 0x3d, 0x2f, 0xbb, 0x24, 0x97, 0xb0, 0x63, 0xbb, 0xcc, 0x8e,
+	0x5d, 0x6e, 0xf6, 0x19, 0x5a, 0xdf, 0x21, 0x6b, 0x6c, 0x4a, 0xe4, 0x87, 0xcb, 0x90, 0xc7, 0xca,
+	0xa5, 0xad, 0x3c, 0x68, 0xd5, 0x9e, 0x5b, 0x93, 0x2f, 0xa1, 0x32, 0xe2, 0x3c, 0x34, 0xb9, 0x3b,
+	0xc6, 0x20, 0xe6, 0x0d, 0x43, 0x12, 0x1f, 0x2e, 0x23, 0x76, 0x7a, 0xbd, 0x8b, 0x9e, 0x32, 0xa7,
+	0x65, 0xe1, 0xac, 0x17, 0xe4, 0x04, 0x40, 0xb2, 0x18, 0x72, 0x36, 0x6d, 0x14, 0x25, 0xe9, 0x87,
+	0x77, 0x91, 0xa8, 0x30, 0xa6, 0x25, 0xe1, 0x28, 0x7f, 0x92, 0x33, 0x4d, 0x19, 0x58, 0xb1, 0xc7,
+	0x1b, 0x5b, 0x92, 0xd2, 0xba, 0x8b, 0xf2, 0x52, 0x18, 0xbf, 0xf2, 0x7f, 0x8b, 0xb6, 0x38, 0x12,
+	0x85, 0x93, 0x32, 0xf2, 0x0b, 0xd8, 0xf6, 0x9e, 0x6a, 0xd8, 0xb6, 0x84, 0x3d, 0x5e, 0x7a, 0x02,
+	0x4f, 0x17, 0x50, 0x5b, 0x9e, 0x92, 0x90, 0xc7, 0x50, 0xb4, 0xe3, 0x88, 0x07, 0xe3, 0x46, 0x49,
+	0x62, 0x76, 0x5b, 0xaa, 0x2c, 0x5b, 0x49, 0x59, 0xb6, 0x8e, 0xfc, 0x29, 0xd5, 0x36, 0xcd, 0xe7,
+	0x50, 0xc9, 0xd6, 0x05, 0xa9, 0x41, 0xe1, 0x3b, 0x9c, 0xea, 0xc2, 0x13, 0x3f, 0xc9, 0x2e, 0x18,
+	0x57, 0x96, 0x17, 0x63, 0x23, 0x2f, 0x65, 0x6a, 0xf1, 0x3c, 0xff, 0x49, 0xee, 0xe0, 0xef, 0x39,
+	0x28, 0xd1, 0x20, 0xe6, 0x48, 0x63, 0x0f, 0x57, 0x28, 0xdd, 0x2f, 0xc0, 0x18, 0x5b, 0xdc, 0x1e,
+	0x49, 0xd2, 0x1d, 0xe5, 0x70, 0x26, 0x0c, 0x8f, 0x03, 0xdf, 0x71, 0x65, 0x74, 0xca, 0x91, 0x1c,
+	0x83, 0xc1, 0xc4, 0x07, 0x1b, 0x05, 0x59, 0xfa, 0x4f, 0x56, 0x2c, 0xfd, 0xaf, 0xd1, 0x1d, 0x8e,
+	0x38, 0x55, 0xbe, 0xe4, 0x7d, 0x80, 0x90, 0xa1, 0x8d, 0x0e, 0xfa, 0x36, 0xca, 0xd2, 0x34, 0x68,
+	0x46, 0x72, 0xf0, 0x9f, 0x02, 0x54, 0xe7, 0x3f, 0x4f, 0xf6, 0xa0, 0x18, 0x05, 0x31, 0xb3, 0x51,
+	0x87, 0xa5, 0x57, 0xc4, 0x81, 0xaa, 0xfa, 0x65, 0xce, 0xdf, 0xc9, 0x17, 0xab, 0x87, 0xd6, 0xba,
+	0x94, 0x80, 0xb9, 0xcb, 0x79, 0x2f, 0xca, 0xca, 0xc8, 0xe7, 0x50, 0xe0, 0x76, 0xa8, 0xef, 0xe5,
+	0x93, 0xe5, 0x55, 0x21, 0xe1, 0x47, 0x9c, 0x33, 0xb7, 0x1f, 0x73, 0x8c, 0xa8, 0xf0, 0x14, 0x80,
+	0xd8, 0x09, 0xf5, 0x2d, 0x5c, 0x17, 0x10, 0x3b, 0x21, 0xe9, 0xc0, 0xa6, 0xa8, 0xd4, 0x86, 0x71,
+	0x77, 0xc7, 0x59, 0x88, 0xae, 0xc3, 0x79, 0xa8, 0x82, 0x92, 0x84, 0xe6, 0x17, 0x40, 0x6e, 0x06,
+	0xbc, 0x4e, 0xd5, 0x35, 0x7f, 0x03, 0xa5, 0x14, 0xfa, 0x16, 0xc7, 0x17, 0x59, 0xc7, 0x3b, 0x3a,
+	0xc4, 0x25, 0x67, 0xae, 0x3f, 0x94, 0x3b, 0xce, 0xd6, 0xf5, 0x3f, 0x73, 0x50, 0xbf, 0x51, 0x3d,
+	0x2b, 0xd4, 0x77, 0x6f, 0xb1, 0x35, 0x3f, 0x5f, 0xab, 0x3e, 0x6f, 0x69, 0xd0, 0x7b, 0x50, 0xbc,
+	0x96, 0x7a, 0x59, 0x00, 0x06, 0xd5, 0xab, 0xff, 0xeb, 0xe6, 0x0e, 0xa1, 0x7e, 0xe3, 0xa4, 0xc9,
+	0x0f, 0x40, 0xd7, 0x9d, 0x19, 0xc5, 0x7d, 0x1f, 0x79, 0x23, 0xb7, 0x5f, 0x78, 0x54, 0xa2, 0x15,
+	0x25, 0xbc, 0x94, 0x32, 0xf2, 0x04, 0x48, 0x26, 0xe4, 0xc4, 0x32, 0x2f, 0x2d, 0xeb, 0x19, 0x8d,
+	0x32, 0x3f, 0x40, 0x28, 0x67, 0x92, 0x4c, 0xf6, 0xc0, 0xc0, 0x89, 0x65, 0x73, 0xb5, 0xcb, 0xce,
+	0x06, 0x55, 0x4b, 0xd2, 0x80, 0x62, 0xc8, 0x70, 0xe0, 0x4e, 0xd4, 0x56, 0x3b, 0x1b, 0x54, 0xaf,
+	0x85, 0x07, 0xc3, 0x21, 0x4e, 0x64, 0xf0, 0xd2, 0x43, 0x2e, 0xdb, 0x15, 0x00, 0xd9, 0x12, 0x4c,
+	0x3e, 0x0d, 0xf1, 0xe0, 0x1f, 0x39, 0xb8, 0x37, 0xf7, 0x26, 0x91, 0x2e, 0x6c, 0xfa, 0xd6, 0x58,
+	0xdd, 0xd7, 0xea, 0xe1, 0x27, 0x2b, 0x3f, 0x66, 0xad, 0x4b, 0x77, 0x1c, 0x7a, 0xf8, 0xba, 0x7d,
+	0x11, 0x78, 0xae, 0x3d, 0xed, 0x6c, 0x50, 0xc9, 0x21, 0xad, 0xb4, 0xab, 0xe6, 0x6f, 0xef, 0xaa,
+	0x62, 0xdf, 0xca, 0xea, 0xe0, 0x05, 0x54, 0xe7, 0x49, 0x64, 0x07, 0xca, 0xf4, 0xfc, 0xab, 0xee,
+	0x89, 0x49, 0xcf, 0xdb, 0xaf, 0xba, 0xb5, 0x0d, 0x52, 0x05, 0x78, 0x7d, 0x7a, 0x74, 0xd9, 0x33,
+	0x8f, 0xcf, 0xbb, 0xdd, 0x5a, 0x8e, 0x00, 0x14, 0xe9, 0x51, 0xf7, 0xe4, 0xfc, 0xac, 0x56, 0x68,
+	0x97, 0xa1, 0xe4, 0xf5, 0xcd, 0x50, 0x7a, 0x1e, 0xfc, 0x29, 0x0f, 0xe5, 0xcc, 0x63, 0x26, 0xbb,
+	0x8e, 0x64, 0xa7, 0xaf, 0x61, 0x4e, 0xee, 0xe9, 0xb3, 0x15, 0x5f, 0x43, 0x1d, 0xa3, 0x5e, 0xa5,
+	0x81, 0xde, 0x8b, 0xb2, 0xe2, 0x75, 0x23, 0x6e, 0x86, 0x70, 0xff, 0x2d, 0x5c, 0xf2, 0x10, 0x76,
+	0xf4, 0x2e, 0xcd, 0x08, 0xed, 0xc0, 0x77, 0x22, 0xb9, 0xdb, 0x1c, 0xad, 0x6a, 0xf1, 0xa5, 0x92,
+	0x92, 0x8f, 0x61, 0x37, 0xb8, 0x42, 0xc6, 0x5c, 0x07, 0xcd, 0x11, 0x5a, 0x0e, 0x32, 0x53, 0x9e,
+	0xa0, 0x2a, 0x5e, 0x92, 0xe8, 0x3a, 0x52, 0xd5, 0xb5, 0xc6, 0xd8, 0xae, 0x41, 0xc2, 0x48, 0x32,
+	0xf5, 0x87, 0x3c, 0x94, 0xd2, 0xc7, 0x9a, 0x7c, 0x0b, 0x15, 0x9d, 0x27, 0xf5, 0xd2, 0xab, 0x2c,
+	0xfd, 0x7c, 0xa5, 0x97, 0x5e, 0xe7, 0x48, 0xfe, 0x4e, 0x33, 0x54, 0x8e, 0x66, 0xc2, 0xb5, 0xf3,
+	0x63, 0x41, 0xfd, 0x06, 0x93, 0x34, 0x61, 0xdb, 0xe2, 0x1c, 0xc7, 0x21, 0x57, 0x69, 0x31, 0x68,
+	0xba, 0xfe, 0x1f, 0x12, 0x52, 0x85, 0x8a, 0x8c, 0x34, 0x49, 0xc7, 0x5f, 0x0d, 0xa8, 0xce, 0xcf,
+	0x55, 0xc4, 0x81, 0x92, 0xce, 0x89, 0xdd, 0xd7, 0x09, 0x39, 0x5d, 0x7d, 0x2c, 0xd3, 0x59, 0x99,
+	0x17, 0xa6, 0xe9, 0xd9, 0x56, 0xe4, 0xe3, 0xfe, 0xda, 0xb9, 0xf9, 0xe3, 0x26, 0x34, 0x6f, 0x47,
+	0x93, 0x1f, 0x43, 0x3d, 0x8a, 0x6d, 0x1b, 0xa3, 0xc8, 0xe4, 0x23, 0x86, 0xd1, 0x28, 0xf0, 0x1c,
+	0x9d, 0xae, 0x9a, 0x56, 0xf4, 0x12, 0xb9, 0x30, 0x1e, 0x58, 0xae, 0x17, 0x33, 0xcc, 0x18, 0xe7,
+	0x95, 0xb1, 0x56, 0xcc, 0x8c, 0x0f, 0xe1, 0x01, 0xc3, 0x08, 0xb9, 0xb9, 0x58, 0xa3, 0x05, 0x59,
+	0xa3, 0xf7, 0xa5, 0xb2, 0x37, 0x5f, 0xa8, 0x0f, 0x61, 0x67, 0x6c, 0x4d, 0x4c, 0x3b, 0xf0, 0x7d,
+	0x35, 0x7b, 0x45, 0x7a, 0x88, 0xa8, 0x8e, 0xad, 0xc9, 0xf1, 0x4c, 0x4a, 0x3e, 0x85, 0x77, 0xe5,
+	0x84, 0x28, 0xac, 0x43, 0xf4, 0x1d, 0xd7, 0x1f, 0x9a, 0x0c, 0x7f, 0x17, 0x63, 0xc4, 0x23, 0x39,
+	0xc0, 0x1a, 0x74, 0x4f, 0x18, 0x9c, 0x59, 0x93, 0x0b, 0xa5, 0xa6, 0x5a, 0x4b, 0x3e, 0x84, 0x7a,
+	0xea, 0x9a, 0xba, 0x14, 0xa5, 0xcb, 0x8e, 0x76, 0x49, 0x6d, 0x3f, 0x80, 0x4a, 0xe4, 0x21, 0x86,
+	0xe6, 0xb5, 0xeb, 0x3b, 0xc1, 0xb5, 0x1c, 0x45, 0x4b, 0xb4, 0x2c, 0x65, 0x5f, 0x4b, 0x11, 0x79,
+	0x06, 0xef, 0x48, 0x9c, 0x1d, 0xf8, 0x11, 0xda, 0x31, 0x77, 0xaf, 0xd0, 0x44, 0xc6, 0x02, 0x16,
+	0xc9, 0x59, 0xd3, 0xa0, 0x0f, 0x84, 0xfa, 0x78, 0xa6, 0x3d, 0x95, 0xca, 0xd4, 0xcf, 0x41, 0xae,
+	0x82, 0x32, 0x5d, 0x9f, 0x23, 0xbb, 0xb2, 0x3c, 0x39, 0x5c, 0x6a, 0xbf, 0x93, 0x44, 0xfb, 0x4a,
+	0x2b, 0xc9, 0x4b, 0xd8, 0xbf, 0xb1, 0x7d, 0x33, 0x44, 0x96, 0x49, 0x5a, 0x03, 0x24, 0xe0, 0xbd,
+	0x85, 0x68, 0x2e, 0x90, 0xcd, 0x52, 0x28, 0xda, 0xa0, 0x9d, 0xb6, 0xc1, 0x7f, 0x6f, 0x01, 0xb9,
+	0x39, 0x43, 0x93, 0x2f, 0xc1, 0x70, 0xd0, 0xb3, 0x92, 0xeb, 0xfd, 0x74, 0xbd, 0x11, 0xbc, 0x75,
+	0x22, 0x7c, 0xa9, 0x42, 0x08, 0x96, 0xd5, 0x0f, 0x18, 0xd7, 0x65, 0xbb, 0x2e, 0xeb, 0x48, 0xf8,
+	0x52, 0x85, 0x20, 0x5f, 0xc1, 0x96, 0xba, 0xb5, 0x91, 0x9e, 0x56, 0x3f, 0x5b, 0x93, 0xa6, 0x2e,
+	0x76, 0xa4, 0xc7, 0x01, 0xcd, 0x6a, 0xda, 0x50, 0xc9, 0x2a, 0xbe, 0x97, 0x09, 0xa8, 0xf9, 0xfb,
+	0x3c, 0x18, 0x32, 0x31, 0xe4, 0x5b, 0x28, 0x0f, 0xdc, 0x09, 0x3a, 0x66, 0x36, 0xc7, 0x9f, 0xae,
+	0x19, 0xc9, 0x4b, 0x41, 0x90, 0xbc, 0xce, 0x06, 0x85, 0x41, 0xba, 0x22, 0xbf, 0x86, 0x12, 0x4e,
+	0x42, 0xcd, 0x56, 0xdb, 0xfd, 0x7c, 0x4d, 0xf6, 0xe9, 0x24, 0x0c, 0x7c, 0xf4, 0xb9, 0x6b, 0x79,
+	0xc9, 0x17, 0xb6, 0x71, 0x12, 0x2a, 0xfe, 0x6d, 0x2d, 0xb4, 0x70, 0x6b, 0x0b, 0xad, 0xc3, 0x8e,
+	0xae, 0x78, 0xcf, 0x9a, 0xca, 0xe1, 0xa2, 0xf9, 0x06, 0x60, 0x16, 0x00, 0x69, 0xc0, 0x56, 0x88,
+	0xcc, 0x46, 0x5f, 0xbd, 0xba, 0x79, 0x9a, 0x2c, 0x49, 0x0b, 0xee, 0x67, 0x52, 0x95, 0x76, 0x92,
+	0xbc, 0xec, 0x24, 0xf5, 0x59, 0xd4, 0xba, 0x8f, 0x34, 0xbf, 0x81, 0xda, 0xe2, 0xe6, 0x97, 0xd0,
+	0x1f, 0x03, 0x19, 0xa3, 0xe5, 0xbf, 0x15, 0x5e, 0x13, 0x9a, 0x39, 0xf6, 0x5f, 0x72, 0x60, 0xc8,
+	0x6a, 0x5c, 0x42, 0xfc, 0x00, 0xca, 0x43, 0x16, 0xda, 0x66, 0xc4, 0x2d, 0x1e, 0x47, 0xe9, 0xe4,
+	0x05, 0x42, 0x78, 0x29, 0x65, 0xc2, 0x44, 0x64, 0xe3, 0x50, 0x35, 0x8b, 0x74, 0x06, 0x93, 0x7f,
+	0xf8, 0x1e, 0xca, 0x1e, 0x91, 0x98, 0x24, 0x14, 0xd9, 0x09, 0x13, 0x13, 0x4d, 0xb9, 0xed, 0x14,
+	0x8c, 0x5b, 0x4f, 0xa1, 0x02, 0x20, 0xbf, 0xa8, 0xa6, 0xbb, 0x7f, 0x6d, 0x42, 0x6d, 0xf1, 0xef,
+	0x5d, 0xf2, 0x4b, 0xd8, 0xe6, 0x23, 0x16, 0x70, 0xee, 0xa1, 0xae, 0xca, 0x9f, 0xad, 0xf3, 0xf7,
+	0x72, 0xab, 0xa7, 0x9d, 0x69, 0x8a, 0x21, 0x3d, 0x28, 0x71, 0x64, 0x63, 0x31, 0xc1, 0x26, 0x97,
+	0xe7, 0xd9, 0x7a, 0xcc, 0xc4, 0x9b, 0xce, 0x40, 0xcd, 0xbf, 0xe5, 0x61, 0x3b, 0xf9, 0xd8, 0x92,
+	0xd3, 0xf8, 0x18, 0x76, 0x9d, 0xe0, 0xda, 0x8f, 0x38, 0x43, 0x6b, 0x6c, 0x7a, 0xee, 0xd8, 0xe5,
+	0x66, 0x3f, 0x54, 0xc7, 0x52, 0xa0, 0x64, 0xa6, 0x7b, 0x2d, 0x54, 0xed, 0x30, 0x12, 0x15, 0x11,
+	0x87, 0x37, 0xec, 0x0b, 0xd2, 0xbe, 0x96, 0x68, 0x52, 0xeb, 0x67, 0xb0, 0x97, 0x04, 0x6a, 0x5a,
+	0x03, 0x8e, 0x2c, 0xad, 0x21, 0x71, 0x64, 0xb9, 0xce, 0x06, 0xdd, 0x4d, 0xf4, 0x47, 0x42, 0x9d,
+	0xbc, 0x76, 0x87, 0xb0, 0xbb, 0xe0, 0xd7, 0x9f, 0x72, 0x54, 0xef, 0x97, 0xf0, 0x22, 0x73, 0x5e,
+	0x6d, 0xa1, 0x23, 0xdd, 0x8c, 0xcf, 0x20, 0x98, 0x7d, 0x49, 0xfd, 0xab, 0xe5, 0xbd, 0x1b, 0xc3,
+	0xc0, 0x49, 0x10, 0xf7, 0x3d, 0x7c, 0x23, 0xda, 0xcf, 0x8c, 0xf7, 0x32, 0x48, 0xf6, 0x20, 0x07,
+	0xbd, 0xb9, 0x3d, 0x34, 0x7f, 0x05, 0xa5, 0x34, 0xd9, 0x4b, 0x92, 0xfa, 0x0c, 0xde, 0x49, 0x0f,
+	0x62, 0x21, 0x6a, 0x75, 0x73, 0x1e, 0xa4, 0xea, 0x6c, 0xd0, 0xed, 0xed, 0x6f, 0x8a, 0xea, 0x8c,
+	0xfb, 0x45, 0xb9, 0xc9, 0x9f, 0xfe, 0x37, 0x00, 0x00, 0xff, 0xff, 0xd4, 0xb5, 0xde, 0x45, 0x1e,
+	0x14, 0x00, 0x00,
 }
