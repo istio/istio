@@ -15,6 +15,7 @@
 package aspect
 
 import (
+	"fmt"
 	"strconv"
 	"sync/atomic"
 
@@ -34,11 +35,15 @@ type (
 		dedupCounter int64
 	}
 
+	quotaInfo struct {
+		definition *adapter.QuotaDefinition
+		labels     map[string]string
+	}
+
 	quotasWrapper struct {
-		manager     *quotasManager
-		aspect      adapter.QuotasAspect
-		descriptors []dpb.QuotaDescriptor
-		inputs      map[string]string
+		manager  *quotasManager
+		aspect   adapter.QuotasAspect
+		metadata map[string]*quotaInfo
 	}
 )
 
@@ -49,6 +54,17 @@ func NewQuotasManager() Manager {
 
 // NewAspect creates a quota aspect.
 func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+	params := c.Aspect.Params.(*aconfig.QuotasParams)
+
+	// TODO: get this from config
+	if len(params.Quotas) == 0 {
+		params = &aconfig.QuotasParams{
+			Quotas: []*aconfig.QuotasParams_Quota{
+				{DescriptorName: "RequestCount"},
+			},
+		}
+	}
+
 	// TODO: get this from config
 	desc := []dpb.QuotaDescriptor{
 		{
@@ -58,26 +74,39 @@ func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env ada
 		},
 	}
 
-	defs := make(map[string]*adapter.QuotaDefinition)
+	metadata := make(map[string]*quotaInfo, len(desc))
+	defs := make(map[string]*adapter.QuotaDefinition, len(desc))
 	for _, d := range desc {
-		dur, _ := ptypes.DurationFromProto(d.Expiration)
+		quota := findQuota(params.Quotas, d.Name)
+		if quota == nil {
+			env.Logger().Warningf("No quota found for descriptor %s, skipping it", d.Name)
+			continue
+		}
 
-		defs[d.Name] = &adapter.QuotaDefinition{
-			MaxAmount: d.MaxAmount,
-			Window:    dur,
+		// TODO: once we plumb descriptors into the validation, remove this err: no descriptor should make it through validation
+		// if it cannot be converted into a QuotaDefinition, so we should never have to handle the error case.
+		def, err := quotaDefinitionFromProto(&d)
+		if err != nil {
+			_ = env.Logger().Errorf("Failed to convert quota descriptor '%s' to definition with err: %s; skipping it.", d.Name, err)
+			continue
+		}
+
+		defs[d.Name] = def
+		metadata[d.Name] = &quotaInfo{
+			labels:     quota.Labels,
+			definition: def,
 		}
 	}
 
-	aspect, err := a.(adapter.QuotasBuilder).NewQuotasAspect(env, c.Builder.Params.(adapter.AspectConfig), defs)
+	asp, err := a.(adapter.QuotasBuilder).NewQuotasAspect(env, c.Builder.Params.(adapter.AspectConfig), defs)
 	if err != nil {
 		return nil, err
 	}
 
 	return &quotasWrapper{
-		manager:     m,
-		descriptors: desc,
-		inputs:      c.Aspect.GetInputs(),
-		aspect:      aspect,
+		manager:  m,
+		metadata: metadata,
+		aspect:   asp,
 	}, nil
 }
 
@@ -85,67 +114,89 @@ func (*quotasManager) Kind() Kind                                               
 func (*quotasManager) DefaultConfig() adapter.AspectConfig                            { return &aconfig.QuotasParams{} }
 func (*quotasManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 
-func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
-	// labels holds the generated attributes from mapper
-	labels := make(map[string]interface{})
-	for attr, e := range w.inputs {
-		if val, err := mapper.Eval(e, attrs); err == nil {
-			labels[attr] = val
+func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) (*Output, error) {
+	qma, ok := ma.(*QuotaMethodArgs)
+
+	// TODO: this conditional is only necessary because we currently perform quota
+	// checking via the Check API, which doesn't generate a QuotaMethodArgs
+	if !ok {
+		qma = &QuotaMethodArgs{
+			Quota:           "RequestCount",
+			Amount:          1,
+			DeduplicationID: strconv.FormatInt(atomic.AddInt64(&w.manager.dedupCounter, 1), 16),
+			BestEffort:      false,
 		}
 	}
 
-	// TODO: for now we don't support dedup semantics
-	dedupID := strconv.FormatInt(atomic.AddInt64(&w.manager.dedupCounter, 1), 16)
-
-	for i, d := range w.descriptors {
-		qa := prepQuotaArgs(attrs, &d, dedupID, labels)
-
-		// TODO: for now we only support Alloc semantics, no AllocBestEffort or ReleaseBestEffort
-		if amount, err := w.aspect.Alloc(qa); err != nil || amount <= 0 {
-			// something went wrong, return any allocated quota
-			for j := i; j >= 0; j-- {
-				qa := prepQuotaArgs(attrs, &w.descriptors[j], dedupID, labels)
-				_, _ = w.aspect.ReleaseBestEffort(qa)
-			}
-
-			if err != nil {
-				return &Output{Code: code.Code_INTERNAL}, err
-			}
-
-			return &Output{Code: code.Code_RESOURCE_EXHAUSTED}, nil
-		}
+	info, ok := w.metadata[qma.Quota]
+	if !ok {
+		return &Output{Code: code.Code_INVALID_ARGUMENT}, fmt.Errorf("unknown quota '%s'", qma.Quota)
 	}
+
+	labels, err := evalAll(info.labels, attrs, mapper)
+	if err != nil {
+		return &Output{Code: code.Code_INTERNAL}, fmt.Errorf("failed to evaluate labels for quota '%s' with err: %s", qma.Quota, err)
+	}
+
+	qa := adapter.QuotaArgs{
+		Definition:      info.definition,
+		Labels:          labels,
+		QuotaAmount:     qma.Amount,
+		DeduplicationID: qma.DeduplicationID,
+	}
+
+	var amount int64
+
+	if qma.BestEffort {
+		amount, err = w.aspect.AllocBestEffort(qa)
+	} else {
+		amount, err = w.aspect.Alloc(qa)
+	}
+
+	if err != nil {
+		return &Output{Code: code.Code_INTERNAL}, err
+	}
+
+	if amount == 0 {
+		return &Output{Code: code.Code_RESOURCE_EXHAUSTED}, nil
+	}
+
+	// TODO: need to return the allocated amount somehow in the Quota API's QuotaResponse message
 
 	return &Output{Code: code.Code_OK}, nil
 }
 
-func prepQuotaArgs(attrs attribute.Bag, d *dpb.QuotaDescriptor,
-	dedupID string, labels map[string]interface{}) adapter.QuotaArgs {
-
-	// TODO: for now, assume no one passed in the amount
-	amount := int64(1)
-
-	qa := adapter.QuotaArgs{
-		Name:            d.Name,
-		Labels:          make(map[string]interface{}),
-		QuotaAmount:     amount,
-		DeduplicationID: dedupID,
-	}
-
-	/*
-		for _, a := range d.Labels {
-			if val, ok := labels[a]; ok {
-				qa.Labels[a] = val
-				continue
-			}
-			if val, found := attribute.Value(attrs, a); found {
-				qa.Labels[a] = val
-			}
-		}
-	*/
-	return qa
-}
-
 func (w *quotasWrapper) Close() error {
 	return w.aspect.Close()
+}
+
+func findQuota(quotas []*aconfig.QuotasParams_Quota, name string) *aconfig.QuotasParams_Quota {
+	for _, q := range quotas {
+		if q.DescriptorName == name {
+			return q
+		}
+	}
+	return nil
+}
+
+func quotaDefinitionFromProto(desc *dpb.QuotaDescriptor) (*adapter.QuotaDefinition, error) {
+	labels := make(map[string]adapter.LabelType, len(desc.Labels))
+	for _, label := range desc.Labels {
+		l, err := valueTypeToLabelType(label.ValueType)
+		if err != nil {
+			return nil, fmt.Errorf("descriptor '%s' label '%s' failed to convert label type value '%v' from proto with err: %s",
+				desc.Name, label.Name, label.ValueType, err)
+		}
+		labels[label.Name] = l
+	}
+
+	dur, _ := ptypes.DurationFromProto(desc.Expiration)
+	return &adapter.QuotaDefinition{
+		MaxAmount:   desc.MaxAmount,
+		Expiration:  dur,
+		Description: desc.Description,
+		DisplayName: desc.DisplayName,
+		Name:        desc.Name,
+		Labels:      labels,
+	}, nil
 }

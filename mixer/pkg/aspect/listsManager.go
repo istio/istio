@@ -75,7 +75,7 @@ func (listsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigEr
 	return
 }
 
-func (a *listsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
+func (a *listsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) (*Output, error) {
 	var found bool
 	var err error
 

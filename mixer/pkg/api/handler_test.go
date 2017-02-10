@@ -41,7 +41,7 @@ type fakeExecutor struct {
 }
 
 // BulkExecute takes a set of configurations and Executes all of them.
-func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag) ([]*aspect.Output, error) {
+func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) ([]*aspect.Output, error) {
 	o, err := f.body()
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func TestAspectManagerErrorsPropagated(t *testing.T) {
 	h := &handlerState{aspectExecutor: f, methodMap: map[aspect.APIMethod]config.AspectSet{}}
 	h.ConfigChange(&fakeresolver{[]*config.Combined{nil, nil}, nil})
 
-	s := h.execute(context.Background(), attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, aspect.CheckMethod)
+	s := h.execute(context.Background(), attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, aspect.CheckMethod, nil)
 	if s.Code != int32(code.Code_INTERNAL) {
 		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", s, code.Code_INTERNAL)
 	}

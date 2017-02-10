@@ -27,6 +27,7 @@
 package memQuota
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strconv"
@@ -43,9 +44,6 @@ type builder struct{ adapter.DefaultBuilder }
 
 type memQuota struct {
 	sync.Mutex
-
-	// the definitions we know about, immutable
-	definitions map[string]*adapter.QuotaDefinition
 
 	// the counters we track for non-expiring quotas, protected by lock
 	cells map[string]int64
@@ -69,7 +67,7 @@ type memQuota struct {
 // we maintain a pool of these for use by the makeKey function
 type keyWorkspace struct {
 	keys   []string
-	buffer []byte
+	buffer bytes.Buffer
 }
 
 // pool of reusable keyWorkspace structs
@@ -128,7 +126,6 @@ func newAspect(env adapter.Env, c *config.Params, definitions map[string]*adapte
 // newAspect returns a new aspect.
 func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
 	mq := &memQuota{
-		definitions: definitions,
 		cells:       make(map[string]int64),
 		windows:     make(map[string]*rollingWindow),
 		recentDedup: make(map[string]int64),
@@ -172,7 +169,7 @@ func (mq *memQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (int64, error
 		result := args.QuotaAmount
 
 		// we optimize storage for non-expiring quotas
-		if d.Window == 0 {
+		if d.Expiration == 0 {
 			inUse := mq.cells[key]
 
 			if result > d.MaxAmount-inUse {
@@ -189,7 +186,7 @@ func (mq *memQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (int64, error
 
 		window, ok := mq.windows[key]
 		if !ok {
-			seconds := int32((d.Window + time.Second - 1) / time.Second)
+			seconds := int32((d.Expiration + time.Second - 1) / time.Second)
 			window = newRollingWindow(d.MaxAmount, int64(seconds)*ticksPerSecond)
 			mq.windows[key] = window
 		}
@@ -213,7 +210,7 @@ func (mq *memQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 	return mq.commonWrapper(args, func(d *adapter.QuotaDefinition, key string) int64 {
 		result := args.QuotaAmount
 
-		if d.Window == 0 {
+		if d.Expiration == 0 {
 			inUse := mq.cells[key]
 
 			if result >= inUse {
@@ -246,11 +243,7 @@ func (mq *memQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
 type quotaFunc func(d *adapter.QuotaDefinition, key string) int64
 
 func (mq *memQuota) commonWrapper(args adapter.QuotaArgs, qf quotaFunc) (int64, error) {
-	d, ok := mq.definitions[args.Name]
-	if !ok {
-		return 0, fmt.Errorf("request for unknown quota '%s' received", args.Name)
-	}
-
+	d := args.Definition
 	if args.QuotaAmount < 0 {
 		return 0, fmt.Errorf("negative quota amount %d received", args.QuotaAmount)
 	}
@@ -259,7 +252,7 @@ func (mq *memQuota) commonWrapper(args adapter.QuotaArgs, qf quotaFunc) (int64, 
 		return 0, nil
 	}
 
-	key := makeKey(args)
+	key := makeKey(args.Definition.Name, args.Labels)
 
 	mq.Lock()
 
@@ -296,46 +289,65 @@ func (mq *memQuota) reapDedup() {
 	}
 }
 
-// Produce a unique key representing the cell
-func makeKey(args adapter.QuotaArgs) string {
+// Produce a unique key representing the given labels.
+func makeKey(name string, labels map[string]interface{}) string {
 	ws := keyWorkspacePool.Get().(*keyWorkspace)
 	keys := ws.keys
 	buffer := ws.buffer
 
-	// get all the label names
-	for k := range args.Labels {
+	// ensure stable order
+	for k := range labels {
 		keys = append(keys, k)
 	}
-
-	// ensure stable order
 	sort.Strings(keys)
 
-	buffer = append(buffer, []byte(args.Name)...)
+	buffer.WriteString(name)
 	for _, k := range keys {
-		buffer = append(buffer, []byte(";")...)
-		buffer = append(buffer, []byte(k)...)
-		buffer = append(buffer, []byte("=")...)
+		buffer.WriteString(";")
+		buffer.WriteString(k)
+		buffer.WriteString("=")
 
-		switch v := args.Labels[k].(type) {
+		switch v := labels[k].(type) {
 		case string:
-			buffer = append(buffer, []byte(v)...)
+			buffer.WriteString(v)
 		case int64:
-			buffer = strconv.AppendInt(buffer, v, 16)
+			var bytes [32]byte
+			buffer.Write(strconv.AppendInt(bytes[:], v, 16))
 		case float64:
-			buffer = strconv.AppendFloat(buffer, v, 'b', -1, 64)
+			var bytes [32]byte
+			buffer.Write(strconv.AppendFloat(bytes[:], v, 'b', -1, 64))
 		case bool:
-			buffer = strconv.AppendBool(buffer, v)
+			var bytes [32]byte
+			buffer.Write(strconv.AppendBool(bytes[:], v))
 		case []byte:
-			buffer = append(buffer, v...)
+			buffer.Write(v)
+		case map[string]string:
+			ws := keyWorkspacePool.Get().(*keyWorkspace)
+			mk := ws.keys
+
+			// ensure stable order
+			for k2 := range v {
+				mk = append(mk, k2)
+			}
+			sort.Strings(mk)
+
+			for _, k2 := range mk {
+				buffer.WriteString(k2)
+				buffer.WriteString(v[k2])
+			}
+
+			ws.keys = keys[:0]
+			keyWorkspacePool.Put(ws)
 		default:
-			buffer = append(buffer, []byte(v.(fmt.Stringer).String())...)
+			buffer.WriteString(v.(fmt.Stringer).String())
 		}
 	}
 
-	result := string(buffer)
+	result := buffer.String()
+	buffer.Reset()
 
 	ws.keys = keys[:0]
-	ws.buffer = buffer[:0]
+	ws.buffer = buffer
 	keyWorkspacePool.Put(ws)
 
 	return result

@@ -108,7 +108,7 @@ func (applicationLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapte
 
 func (e *applicationLogsWrapper) Close() error { return e.aspect.Close() }
 
-func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Output, error) {
+func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) (*Output, error) {
 	var entries []adapter.LogEntry
 
 	// TODO: would be nice if we could use a mutable.Bag here and could pass it around

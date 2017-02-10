@@ -57,7 +57,7 @@ func NewParallelManager(manager *Manager, size int) *ParallelManager {
 }
 
 // Execute takes a set of configurations and uses the ParallelManager's embedded Manager to execute all of them in parallel.
-func (p *ParallelManager) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag) ([]*aspect.Output, error) {
+func (p *ParallelManager) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) ([]*aspect.Output, error) {
 	numCfgs := len(cfgs)
 	// TODO: look into pooling both result array and channel, they're created per-request and are constant size for cfg lifetime.
 	results := make([]*aspect.Output, numCfgs)
@@ -67,7 +67,7 @@ func (p *ParallelManager) Execute(ctx context.Context, cfgs []*config.Combined, 
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("failed to enqueue all config executions with err: %v", ctx.Err())
-		case p.work <- task{ctx, cfg, attrs, r}:
+		case p.work <- task{ctx, cfg, attrs, ma, r}:
 		}
 	}
 
@@ -104,6 +104,7 @@ type task struct {
 	ctx  context.Context
 	cfg  *config.Combined
 	ab   attribute.Bag
+	ma   aspect.APIMethodArgs
 	done chan<- result
 }
 
@@ -113,7 +114,7 @@ func (p *ParallelManager) worker(task <-chan task, quit <-chan struct{}, wg *syn
 	for {
 		select {
 		case t := <-task:
-			out, err := p.execute(t.ctx, t.cfg, t.ab)
+			out, err := p.execute(t.ctx, t.cfg, t.ab, t.ma)
 			t.done <- result{t.cfg.Builder.Name, out, err}
 		case <-quit:
 			return

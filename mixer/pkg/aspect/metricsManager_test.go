@@ -1,4 +1,4 @@
-// Copyright 2017 the Istio Authors.
+/// Copyright 2017 the Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -79,9 +79,9 @@ func TestMetricsManager_NewAspect(t *testing.T) {
 			Params: &aconfig.MetricsParams{
 				Metrics: []*aconfig.MetricsParams_Metric{
 					{
-						Descriptor_: "request_count",
-						Value:       "",
-						Labels:      map[string]string{"source": "", "target": ""},
+						DescriptorName: "request_count",
+						Value:          "",
+						Labels:         map[string]string{"source": "", "target": ""},
 					},
 				},
 			},
@@ -204,7 +204,7 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 				}},
 				metadata: c.mdin,
 			}
-			_, err := wrapper.Execute(test.NewBag(), c.eval)
+			_, err := wrapper.Execute(test.NewBag(), c.eval, &ReportMethodArgs{})
 
 			errString := ""
 			if err != nil {
@@ -246,7 +246,7 @@ func TestMetricsWrapper_Close(t *testing.T) {
 	}
 }
 
-func TestMetrics_DefinitionFromProto(t *testing.T) {
+func TestMetrics_DescToDef(t *testing.T) {
 	cases := []struct {
 		in        *dpb.MetricDescriptor
 		out       *adapter.MetricDefinition
@@ -286,17 +286,17 @@ func TestMetrics_DefinitionFromProto(t *testing.T) {
 	}
 	for idx, c := range cases {
 		t.Run(strconv.Itoa(idx), func(t *testing.T) {
-			result, err := definitionFromProto(c.in)
+			result, err := metricDefinitionFromProto(c.in)
 
 			errString := ""
 			if err != nil {
 				errString = err.Error()
 			}
 			if !strings.Contains(errString, c.errString) {
-				t.Errorf("definitionFromProto(%v) = _, %v; wanted err containing %s", c.in, err, c.errString)
+				t.Errorf("metricsDescToDef(%v) = _, %v; wanted err containing %s", c.in, err, c.errString)
 			}
 			if !reflect.DeepEqual(result, c.out) {
-				t.Errorf("definitionFromProto(%v) = %v, %v; wanted %v", c.in, result, err, c.out)
+				t.Errorf("metricsDescToDef(%v) = %v, %v; wanted %v", c.in, result, err, c.out)
 			}
 		})
 	}
@@ -309,12 +309,12 @@ func TestMetrics_Find(t *testing.T) {
 		out  bool
 	}{
 		{[]*aconfig.MetricsParams_Metric{}, "", false},
-		{[]*aconfig.MetricsParams_Metric{{Descriptor_: "foo"}}, "foo", true},
-		{[]*aconfig.MetricsParams_Metric{{Descriptor_: "bar"}}, "foo", false},
+		{[]*aconfig.MetricsParams_Metric{{DescriptorName: "foo"}}, "foo", true},
+		{[]*aconfig.MetricsParams_Metric{{DescriptorName: "bar"}}, "foo", false},
 	}
 	for _, c := range cases {
 		t.Run(c.find, func(t *testing.T) {
-			if _, found := find(c.in, c.find); found != c.out {
+			if _, found := findMetric(c.in, c.find); found != c.out {
 				t.Errorf("find(%v, %s) = _, %t; wanted %t", c.in, c.find, found, c.out)
 			}
 		})

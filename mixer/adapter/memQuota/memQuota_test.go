@@ -28,18 +28,18 @@ import (
 func TestAllocAndRelease(t *testing.T) {
 	definitions := make(map[string]*adapter.QuotaDefinition)
 	definitions["Q1"] = &adapter.QuotaDefinition{
-		MaxAmount: 10,
-		Window:    0,
+		MaxAmount:  10,
+		Expiration: 0,
 	}
 
 	definitions["Q2"] = &adapter.QuotaDefinition{
-		MaxAmount: 10,
-		Window:    time.Second,
+		MaxAmount:  10,
+		Expiration: time.Second,
 	}
 
 	definitions["Q3"] = &adapter.QuotaDefinition{
-		MaxAmount: 10,
-		Window:    time.Second * 60,
+		MaxAmount:  10,
+		Expiration: time.Second * 60,
 	}
 
 	b := newBuilder()
@@ -91,10 +91,11 @@ func TestAllocAndRelease(t *testing.T) {
 	labels["L4"] = true
 	labels["L5"] = time.Now()
 	labels["L6"] = []byte{0, 1}
+	labels["L7"] = map[string]string{"Foo": "Bar"}
 
 	for i, c := range cases {
 		qa := adapter.QuotaArgs{
-			Name:            c.name,
+			Definition:      definitions[c.name],
 			DeduplicationID: "A" + c.dedup,
 			QuotaAmount:     c.allocAmount,
 			Labels:          labels,
@@ -122,7 +123,7 @@ func TestAllocAndRelease(t *testing.T) {
 		}
 
 		qa = adapter.QuotaArgs{
-			Name:            c.name,
+			Definition:      definitions[c.name],
 			DeduplicationID: "R" + c.dedup,
 			QuotaAmount:     c.releaseAmount,
 			Labels:          labels,
@@ -154,35 +155,6 @@ func TestBadName(t *testing.T) {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
 
-	qa := adapter.QuotaArgs{Name: "FOO"}
-
-	amount, err := a.Alloc(qa)
-	if amount != 0 {
-		t.Errorf("Expected 0 amount, got %d", amount)
-	}
-
-	if err == nil {
-		t.Errorf("Expecting error, got success")
-	}
-
-	amount, err = a.AllocBestEffort(qa)
-	if amount != 0 {
-		t.Errorf("Expected 0 amount, got %d", amount)
-	}
-
-	if err == nil {
-		t.Errorf("Expecting error, got success")
-	}
-
-	amount, err = a.ReleaseBestEffort(qa)
-	if amount != 0 {
-		t.Errorf("Expected 0 amount, got %d", amount)
-	}
-
-	if err == nil {
-		t.Errorf("Expecting error, got success")
-	}
-
 	if err := a.Close(); err != nil {
 		t.Errorf("Unable to close aspect: %v", err)
 	}
@@ -195,8 +167,8 @@ func TestBadName(t *testing.T) {
 func TestBadAmount(t *testing.T) {
 	definitions := make(map[string]*adapter.QuotaDefinition)
 	definitions["Q1"] = &adapter.QuotaDefinition{
-		MaxAmount: 10,
-		Window:    0,
+		MaxAmount:  10,
+		Expiration: 0,
 	}
 
 	b := newBuilder()
@@ -205,7 +177,7 @@ func TestBadAmount(t *testing.T) {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
 
-	qa := adapter.QuotaArgs{Name: "Q1", QuotaAmount: -1}
+	qa := adapter.QuotaArgs{Definition: definitions["Q1"], QuotaAmount: -1}
 
 	amount, err := a.Alloc(qa)
 	if amount != 0 {
@@ -261,8 +233,8 @@ func TestBadConfig(t *testing.T) {
 func TestReaper(t *testing.T) {
 	definitions := make(map[string]*adapter.QuotaDefinition)
 	definitions["Q1"] = &adapter.QuotaDefinition{
-		MaxAmount: 10,
-		Window:    0,
+		MaxAmount:  10,
+		Expiration: 0,
 	}
 
 	b := newBuilder()
@@ -281,7 +253,7 @@ func TestReaper(t *testing.T) {
 	}
 
 	qa := adapter.QuotaArgs{
-		Name:        "Q1",
+		Definition:  definitions["Q1"],
 		QuotaAmount: 10,
 	}
 
@@ -332,8 +304,8 @@ func TestReaper(t *testing.T) {
 func TestReaperTicker(t *testing.T) {
 	definitions := make(map[string]*adapter.QuotaDefinition)
 	definitions["Q1"] = &adapter.QuotaDefinition{
-		MaxAmount: 10,
-		Window:    0,
+		MaxAmount:  10,
+		Expiration: 0,
 	}
 
 	testChan := make(chan time.Time)
@@ -344,7 +316,7 @@ func TestReaperTicker(t *testing.T) {
 	}
 
 	qa := adapter.QuotaArgs{
-		Name:            "Q1",
+		Definition:      definitions["Q1"],
 		QuotaAmount:     10,
 		DeduplicationID: "0",
 	}

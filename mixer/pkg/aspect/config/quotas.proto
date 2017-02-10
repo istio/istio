@@ -20,7 +20,16 @@ option go_package="config";
 
 // Configures a quotas aspect.
 message QuotasParams {
-    // A list of names of istio.mixer.v1.config.descriptor.QuotaDescriptors determining the
-    // set of quotas that will be checked for any Quota call.
-    repeated string quota_descriptor_names = 1;
+    message Quota {
+        // Must match the name of some quota_descriptor in the global config.
+        string descriptor_name = 1;
+
+        // Map of quota_descriptor label name to attribute expression. At run time each
+        // expression will be evaluated to determine the value provided to the aspect. The
+        // result of evaluating the expression must match the ValueType of the label in the quota_descriptor.
+        map<string, string> labels = 3;
+    }
+
+    // The set of quotas that will be populated and handed to aspects at run time.
+    repeated Quota quotas = 1;
 }
