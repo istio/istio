@@ -23,19 +23,12 @@ import (
 	proxyconfig "istio.io/manager/model/proxy/alphav1/config"
 )
 
-// The Registry describes a set of platform agnostic APIs that must be
-// supported by the underlying platform to store and retrieve routing
-// rules. The code in proxy/* uses these interfaces to retrieve the routing
-// rules pertaining to each service. The exact storage constructs to use
-// depends on the platform.  For example, in Kubernetes, one can use the
-// ThirdPartyResources to store/retrieve rules.
-
+// Config Registry describes a set of platform agnostic APIs that must be
+// supported by the underlying platform to store and retrieve Istio configuration.
+//
 // The storage registry presented here assumes that the underlying storage
 // layer supports GET (list), PUT (add), PATCH (edit) and DELETE semantics
-
-// FIXME rename me to something else for clarity. Registry conflates with
-// service registry, while the code here deals only with third party
-// resources in kubernetes
+// but does not guarantee any transactional semantics.
 
 // Key is the registry configuration key
 type Key struct {
@@ -47,10 +40,11 @@ type Key struct {
 	Namespace string
 }
 
-// Registry of the configuration objects
+// ConfigRegistry defines the basic API for retrieving and storing configuration
+// artifacts.
 // Object references supplied and returned from this interface should be
 // treated as read-only. Modifying them might violate thread-safety.
-type Registry interface {
+type ConfigRegistry interface {
 	// Get retrieves a configuration element, bool indicates existence
 	Get(key Key) (proto.Message, bool)
 
@@ -83,19 +77,19 @@ type ProtoSchema struct {
 }
 
 const (
-	// RouteRule kind
+	// RouteRule defines the kind for the route rule configuration
 	RouteRule = "route-rule"
 	// RouteRuleProto message name
 	RouteRuleProto = "istio.proxy.v1alpha.config.RouteRule"
 
-	// Destination kind
+	// Destination defines the kind for the destination policy configuration
 	Destination = "destination"
 	// DestinationProto message name
 	DestinationProto = "istio.proxy.v1alpha.config.Destination"
 )
 
 var (
-	// IstioConfig lists all Istio config kinds
+	// IstioConfig lists all Istio config kinds with schemas and validation
 	IstioConfig = KindMap{
 		RouteRule: ProtoSchema{
 			MessageName: RouteRuleProto,
@@ -108,9 +102,9 @@ var (
 	}
 )
 
-// IstioRegistry provides a simple adapter to edit Istio configuration
+// IstioRegistry provides a simple adapter for Istio configuration kinds
 type IstioRegistry struct {
-	Registry
+	ConfigRegistry
 }
 
 // RouteRules lists all rules in a namespace (or all rules if namespace is "")

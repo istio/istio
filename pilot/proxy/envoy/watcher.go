@@ -38,7 +38,7 @@ type watcher struct {
 
 // NewWatcher creates a new watcher instance with an agent
 func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
-	registry model.Registry, mesh *MeshConfig) (Watcher, error) {
+	registry *model.IstioRegistry, mesh *MeshConfig) (Watcher, error) {
 	addrs, err := hostIP()
 	glog.V(2).Infof("host IPs: %v", addrs)
 	if err != nil {
@@ -48,7 +48,7 @@ func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 	out := &watcher{
 		agent:     NewAgent(mesh.BinaryPath, mesh.ConfigPath),
 		discovery: discovery,
-		registry:  &model.IstioRegistry{Registry: registry},
+		registry:  registry,
 		mesh:      mesh,
 		addrs:     addrs,
 	}
