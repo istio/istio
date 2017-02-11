@@ -71,8 +71,16 @@ func (conf *Config) Write(w io.Writer) error {
 
 // Generate Envoy sidecar proxy configuration
 func Generate(instances []*model.ServiceInstance, services []*model.Service,
-	rules *model.IstioRegistry, mesh *MeshConfig) *Config {
-	listeners, clusters := build(instances, services, rules, mesh)
+	config *model.IstioRegistry, mesh *MeshConfig) *Config {
+	listeners, clusters := build(instances, services, config, mesh)
+
+	// inject mixer filter
+	if mesh.MixerAddress != "" {
+		insertMixerFilter(listeners, mesh.MixerAddress)
+	}
+
+	// TODO: re-implement
+	_ = buildFaultFilters(nil, nil)
 
 	// set bind to port values to values for port redirection
 	for _, listener := range listeners {
@@ -80,7 +88,7 @@ func Generate(instances []*model.ServiceInstance, services []*model.Service,
 	}
 
 	// add an extra listener that binds to a port
-	listeners = append(listeners, Listener{
+	listeners = append(listeners, &Listener{
 		Port:           mesh.ProxyPort,
 		BindToPort:     true,
 		UseOriginalDst: true,
@@ -106,8 +114,8 @@ func Generate(instances []*model.ServiceInstance, services []*model.Service,
 
 // build combines the outbound and inbound routes prioritizing the latter
 func build(instances []*model.ServiceInstance, services []*model.Service,
-	rules *model.IstioRegistry, mesh *MeshConfig) ([]Listener, Clusters) {
-	outbound := buildOutboundFilters(instances, services, rules, mesh)
+	config *model.IstioRegistry, mesh *MeshConfig) ([]*Listener, Clusters) {
+	outbound := buildOutboundFilters(instances, services, config, mesh)
 	inbound := buildInboundFilters(instances)
 
 	// merge the two sets of route configs
@@ -129,11 +137,11 @@ func build(instances []*model.ServiceInstance, services []*model.Service,
 
 	// canonicalize listeners and collect clusters
 	clusters := make(Clusters, 0)
-	listeners := make([]Listener, 0)
+	listeners := make([]*Listener, 0)
 	for port, config := range configs {
 		sort.Sort(HostsByName(config.VirtualHosts))
 		clusters = append(clusters, config.clusters()...)
-		listener := Listener{
+		listener := &Listener{
 			Port: port,
 			Filters: []*NetworkFilter{{
 				Type: "read",
@@ -156,18 +164,13 @@ func build(instances []*model.ServiceInstance, services []*model.Service,
 		listeners = append(listeners, listener)
 	}
 	sort.Sort(ListenersByPort(listeners))
-
-	// TODO: re-implement
-	_ = buildFaultFilters(nil, nil)
-	_ = buildMixerCluster(mesh)
-
 	return listeners, clusters.Normalize()
 }
 
 // buildOutboundFilters creates route configs indexed by ports for the traffic outbound
 // from the proxy instance
 func buildOutboundFilters(instances []*model.ServiceInstance, services []*model.Service,
-	rules *model.IstioRegistry, mesh *MeshConfig) RouteConfigs {
+	config *model.IstioRegistry, mesh *MeshConfig) RouteConfigs {
 	// used for shortcut domain names for outbound hostnames
 	suffix := sharedInstanceHost(instances)
 	httpConfigs := make(RouteConfigs)
@@ -178,7 +181,7 @@ func buildOutboundFilters(instances []*model.ServiceInstance, services []*model.
 		for _, port := range service.Ports {
 			switch port.Protocol {
 			case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
-				routes := buildHTTPRoutes(service.Hostname, port, rules)
+				routes := buildHTTPRoutes(service.Hostname, port, config)
 				host := buildVirtualHost(service, port, suffix, routes)
 				http := httpConfigs.EnsurePort(port.Port)
 				http.VirtualHosts = append(http.VirtualHosts, host)

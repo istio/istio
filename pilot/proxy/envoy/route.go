@@ -77,9 +77,9 @@ func buildOutboundCluster(hostname string, port *model.Port, tag model.Tag) *Clu
 }
 
 // buildHTTPRoutes assembles all routes for the hostname destination
-func buildHTTPRoutes(hostname string, port *model.Port, registry *model.IstioRegistry) []*Route {
+func buildHTTPRoutes(hostname string, port *model.Port, config *model.IstioRegistry) []*Route {
 	routes := make([]*Route, 0)
-	for _, rule := range registry.DestinationRouteRules(hostname) {
+	for _, rule := range config.DestinationRouteRules(hostname) {
 		// TODO: rule applies always, need to check if it's actually HTTP rule
 		routes = append(routes, buildHTTPRoute(rule, port))
 	}
@@ -148,24 +148,6 @@ func buildSDSCluster(mesh *MeshConfig) *Cluster {
 		Hosts: []Host{
 			{
 				URL: "tcp://" + mesh.DiscoveryAddress,
-			},
-		},
-	}
-}
-
-func buildMixerCluster(mesh *MeshConfig) *Cluster {
-	if len(mesh.MixerAddress) == 0 {
-		return nil
-	}
-
-	return &Cluster{
-		Name:             "mixer",
-		Type:             "strict_dns",
-		ConnectTimeoutMs: DefaultTimeoutMs,
-		LbType:           DefaultLbType,
-		Hosts: []Host{
-			{
-				URL: "tcp://" + mesh.MixerAddress,
 			},
 		},
 	}

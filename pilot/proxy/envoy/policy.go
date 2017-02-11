@@ -21,6 +21,20 @@ import "istio.io/manager/model/proxy/alphav1/config"
 
 // TODO: apply fault filter by destination as a post-processing step
 
+func insertMixerFilter(listeners []*Listener, mixer string) {
+	for _, l := range listeners {
+		for _, http := range l.Filters {
+			if http.Name == HTTPConnectionManager {
+				http.Config.Filters = append([]Filter{{
+					Type:   "both",
+					Name:   "mixer",
+					Config: &FilterMixerConfig{MixerServer: mixer},
+				}}, http.Config.Filters...)
+			}
+		}
+	}
+}
+
 // buildFaultFilters builds a list of fault filters for the http route. If the route points to a single
 // cluster, an array of size 1 is returned. If the route points to a weighted cluster, an array of fault
 // filters (one per cluster entry in the weighted cluster) is returned.

@@ -24,7 +24,7 @@ import (
 type MeshConfig struct {
 	// DiscoveryAddress is the DNS address for Envoy discovery service
 	DiscoveryAddress string
-	// MixerAddress is the DNS address for Istio Mixer service
+	// MixerAddress is the authority address for Istio Mixer service (HOST:PORT)
 	MixerAddress string
 	// ProxyPort is the Envoy proxy port
 	ProxyPort int
@@ -57,7 +57,7 @@ const (
 // Config defines the schema for Envoy JSON configuration format
 type Config struct {
 	RootRuntime    *RootRuntime   `json:"runtime,omitempty"`
-	Listeners      []Listener     `json:"listeners"`
+	Listeners      []*Listener    `json:"listeners"`
 	Admin          Admin          `json:"admin"`
 	ClusterManager ClusterManager `json:"cluster_manager"`
 }
@@ -90,10 +90,9 @@ type Header struct {
 	Regex bool   `json:"regex,omitempty"`
 }
 
-// FilterEndpointsConfig definition
-type FilterEndpointsConfig struct {
-	ServiceConfig string `json:"service_config,omitempty"`
-	ServerConfig  string `json:"server_config,omitempty"`
+// FilterMixerConfig definition
+type FilterMixerConfig struct {
+	MixerServer string `json:"mixer_server"`
 }
 
 // FilterFaultConfig definition
@@ -297,7 +296,7 @@ type OutlierDetection struct {
 }
 
 // ListenersByPort sorts listeners by port
-type ListenersByPort []Listener
+type ListenersByPort []*Listener
 
 func (l ListenersByPort) Len() int {
 	return len(l)
