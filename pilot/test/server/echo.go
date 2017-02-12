@@ -29,15 +29,18 @@ import (
 )
 
 var (
-	ports []string
+	ports          []string
+	serviceVersion string
 )
 
 func init() {
 	flag.StringArrayVar(&ports, "port", []string{"8080"}, "HTTP/1.1 ports")
+	flag.StringVar(&serviceVersion, "version", "", "Service version")
 }
 
 func httpHandler(w http.ResponseWriter, r *http.Request) {
 	body := bytes.Buffer{}
+	body.WriteString("ServiceVersion=" + serviceVersion + "\n")
 	body.WriteString("Method=" + r.Method + "\n")
 	body.WriteString("URL=" + r.URL.String() + "\n")
 	body.WriteString("Proto=" + r.Proto + "\n")

@@ -35,7 +35,28 @@ func main() {
 	url := os.Args[1]
 	fmt.Printf("Url=%s\n", url)
 
-	resp, err := http.Get(url)
+	var headerKey, headerVal string
+	if len(os.Args) > 2 {
+		headerKey = os.Args[2]
+		if len(os.Args) > 3 {
+			headerVal = os.Args[3]
+		} else {
+			headerVal = "junk"
+		}
+		fmt.Printf("Header=%s:%s\n", headerKey, headerVal)
+	}
+
+	client := http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+	if headerKey != "" {
+		req.Header.Add(headerKey, headerVal)
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Println(err.Error())
 		return

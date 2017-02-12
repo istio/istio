@@ -1,0 +1,9 @@
+destination: "{{.destination}}.{{.namespace}}.svc.cluster.local"
+precedence: 3
+match:
+  http:
+    version:
+      exact: v2
+route:
+  - version:
+       version: v2
