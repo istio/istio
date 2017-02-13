@@ -57,9 +57,9 @@ func buildInboundCluster(port int, protocol model.Protocol) *Cluster {
 	return cluster
 }
 
-func buildOutboundCluster(hostname string, port *model.Port, tag model.Tag) *Cluster {
+func buildOutboundCluster(hostname string, port *model.Port, tags model.Tags) *Cluster {
 	svc := model.Service{Hostname: hostname}
-	key := svc.Key(port, tag)
+	key := svc.Key(port, tags)
 	cluster := &Cluster{
 		Name:             OutboundClusterPrefix + key,
 		ServiceName:      key,
@@ -68,7 +68,7 @@ func buildOutboundCluster(hostname string, port *model.Port, tag model.Tag) *Clu
 		ConnectTimeoutMs: DefaultTimeoutMs,
 		hostname:         hostname,
 		port:             port,
-		tag:              tag,
+		tags:             tags,
 	}
 	if port.Protocol == model.ProtocolGRPC || port.Protocol == model.ProtocolHTTP2 {
 		cluster.Features = "http2"
@@ -121,7 +121,7 @@ func buildHTTPRoute(rule *config.RouteRule, port *model.Port) *Route {
 			destination = rule.Destination
 		}
 
-		cluster := buildOutboundCluster(destination, port, dst.Version)
+		cluster := buildOutboundCluster(destination, port, dst.Tags)
 		clusters = append(clusters, &WeightedClusterEntry{
 			Name:   cluster.Name,
 			Weight: int(dst.Weight),

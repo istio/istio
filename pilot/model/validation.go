@@ -149,7 +149,7 @@ func (s *Service) Validate() error {
 }
 
 // Validate ensures tag is well-formed
-func (t Tag) Validate() error {
+func (t Tags) Validate() error {
 	var errs error
 	if len(t) == 0 {
 		errs = multierror.Append(errs, fmt.Errorf("Tag must have at least one key-value pair"))

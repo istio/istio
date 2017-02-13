@@ -18,13 +18,13 @@ import "testing"
 
 var validServiceKeys = map[string]struct {
 	service Service
-	tags    TagList
+	tags    TagsList
 }{
 	"example-service1.default:grpc,http:a=b,c=d;e=f": {
 		service: Service{
 			Hostname: "example-service1.default",
 			Ports:    []*Port{{Name: "http"}, {Name: "grpc"}}},
-		tags: TagList{{"e": "f"}, {"c": "d", "a": "b"}}},
+		tags: TagsList{{"e": "f"}, {"c": "d", "a": "b"}}},
 	"my-service": {
 		service: Service{
 			Hostname: "my-service",
@@ -37,12 +37,12 @@ var validServiceKeys = map[string]struct {
 		service: Service{
 			Hostname: "svc",
 			Ports:    []*Port{{Name: ""}}},
-		tags: TagList{{"istio.io/my_tag-v1.test": "my_value-v2.value"}}},
+		tags: TagsList{{"istio.io/my_tag-v1.test": "my_value-v2.value"}}},
 	"svc:test:prod": {
 		service: Service{
 			Hostname: "svc",
 			Ports:    []*Port{{Name: "test"}}},
-		tags: TagList{{"prod": ""}}},
+		tags: TagsList{{"prod": ""}}},
 	"svc.default.svc.cluster.local:http-test": {
 		service: Service{
 			Hostname: "svc.default.svc.cluster.local",
@@ -96,7 +96,7 @@ func compare(a, b []string) bool {
 }
 
 // compareTags compares sets of tags
-func compareTags(a, b []Tag) bool {
+func compareTags(a, b []Tags) bool {
 	var as, bs []string
 	for _, i := range a {
 		as = append(as, i.String())
@@ -108,17 +108,17 @@ func compareTags(a, b []Tag) bool {
 }
 
 func TestTags(t *testing.T) {
-	a := Tag{"app": "a"}
-	b := Tag{"app": "b"}
-	a1 := Tag{"app": "a", "prod": "env"}
-	ab := TagList{a, b}
-	a1b := TagList{a1, b}
-	none := TagList{}
+	a := Tags{"app": "a"}
+	b := Tags{"app": "b"}
+	a1 := Tags{"app": "a", "prod": "env"}
+	ab := TagsList{a, b}
+	a1b := TagsList{a1, b}
+	none := TagsList{}
 
 	// equivalent to empty tag list
-	singleton := TagList{nil}
+	singleton := TagsList{nil}
 
-	var empty Tag
+	var empty Tags
 	if !empty.SubsetOf(a) {
 		t.Errorf("nil.SubsetOf({a}) => Got false")
 	}
@@ -128,8 +128,8 @@ func TestTags(t *testing.T) {
 	}
 
 	matching := []struct {
-		tag  Tag
-		list TagList
+		tag  Tags
+		list TagsList
 	}{
 		{a, ab},
 		{b, ab},
@@ -140,7 +140,7 @@ func TestTags(t *testing.T) {
 		{b, a1b},
 	}
 
-	if (TagList{a}).HasSubsetOf(b) {
+	if (TagsList{a}).HasSubsetOf(b) {
 		t.Errorf("{a}.HasSubsetOf(b) => Got true")
 	}
 

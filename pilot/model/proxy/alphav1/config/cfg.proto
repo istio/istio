@@ -73,7 +73,7 @@ message Destination {
   //
   // N.B. The map is used instead of pstruct due to lack of serialization support
   // in golang protobuf library (see https://github.com/golang/protobuf/pull/208)
-  map<string, string> version = 2;
+  map<string, string> tags = 2;
 
   // Load balancing policy
   LoadBalancing load_balancing = 3;
@@ -150,7 +150,7 @@ message MatchCondition {
   //
   // N.B. The map is used instead of pstruct due to lack of serialization support
   // in golang protobuf library (see https://github.com/golang/protobuf/pull/208)
-  map<string, string> source_version = 2;
+  map<string, string> source_tags = 2;
 
   // Set of layer 4 match conditions based on the IP ranges
   L4MatchAttributes tcp = 3;
@@ -178,7 +178,7 @@ message DestinationWeight {
   //
   // N.B. The map is used instead of pstruct due to lack of serialization support
   // in golang protobuf library (see https://github.com/golang/protobuf/pull/208)
-  map<string, string> version = 2;
+  map<string, string> tags = 2;
 
   // The proportion of traffic to be forwarded to the service version Max is
   // 100. Sum of weights across destinations should add up to 100.

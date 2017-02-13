@@ -116,20 +116,17 @@ type NetworkEndpoint struct {
 	ServicePort *Port `json:"port"`
 }
 
-// Tag is non empty set of arbitrary strings. Each version of a service can
-// be differentiated by a unique set of tags associated with the
-// version. These tags are assigned to all instances of a particular
-// service version. For example, lets say catalog.mystore.com has 2
-// versions v1 and v2. v1 instances could have tags gitCommit=aeiou234,
-// region=us-east, while v2 instances could have tags
-// name=kittyCat,region=us-east.
-type Tag map[string]string
+// Tags is a non empty set of arbitrary strings. Each version of a service can
+// be differentiated by a unique set of tags associated with the version. These
+// tags are assigned to all instances of a particular service version. For
+// example, lets say catalog.mystore.com has 2 versions v1 and v2. v1 instances
+// could have tags gitCommit=aeiou234, region=us-east, while v2 instances could
+// have tags name=kittyCat,region=us-east.
+type Tags map[string]string
 
-// TagList is a set of tags
-//
-// FIXME rename to something else for clarity. Its not clear why one needs
-// TagList when Tag by itself is a set of key=value pairs
-type TagList []Tag
+// TagsList is a collection of tags used for comparing tags against a
+// collection of tags
+type TagsList []Tags
 
 // ServiceInstance represents an individual instance of a specific version
 // of a service. It binds a network endpoint (ip:port), the service
@@ -145,7 +142,7 @@ type TagList []Tag
 type ServiceInstance struct {
 	Endpoint NetworkEndpoint `json:"endpoint,omitempty"`
 	Service  *Service        `json:"service,omitempty"`
-	Tag      Tag             `json:"tag,omitempty"`
+	Tags     Tags            `json:"tags,omitempty"`
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -173,15 +170,15 @@ type ServiceDiscovery interface {
 	//
 	// Similar concepts apply for calling this function with a specific
 	// port, hostname and tags.
-	Instances(hostname string, ports []string, tags TagList) []*ServiceInstance
+	Instances(hostname string, ports []string, tags TagsList) []*ServiceInstance
 
 	// HostInstances lists service instances for a given set of IPv4 addresses.
 	HostInstances(addrs map[string]bool) []*ServiceInstance
 }
 
 // SubsetOf is true if the tag has identical values for the keys
-func (tag Tag) SubsetOf(that Tag) bool {
-	for k, v := range tag {
+func (t Tags) SubsetOf(that Tags) bool {
+	for k, v := range t {
 		if that[k] != v {
 			return false
 		}
@@ -190,19 +187,19 @@ func (tag Tag) SubsetOf(that Tag) bool {
 }
 
 // Equals returns true if the tags are identical
-func (tag Tag) Equals(that Tag) bool {
-	if tag == nil {
+func (t Tags) Equals(that Tags) bool {
+	if t == nil {
 		return that == nil
 	}
 	if that == nil {
-		return tag == nil
+		return t == nil
 	}
-	return tag.SubsetOf(that) && that.SubsetOf(tag)
+	return t.SubsetOf(that) && that.SubsetOf(t)
 }
 
-// HasSubsetOf returns true if the input tag is a super set of one of the
-// tags in the list or if the tag list is empty
-func (tags TagList) HasSubsetOf(that Tag) bool {
+// HasSubsetOf returns true if the input tags are a super set of one tags in a
+// collection or if the tag collection is empty
+func (tags TagsList) HasSubsetOf(that Tags) bool {
 	if len(tags) == 0 {
 		return true
 	}
@@ -233,14 +230,14 @@ func (ports PortList) Get(name string) (*Port, bool) {
 	return nil, false
 }
 
-// Key generates a unique string referencing service instances for a given port and a tag
-func (s *Service) Key(port *Port, tag Tag) string {
+// Key generates a unique string referencing service instances for a given port and tags
+func (s *Service) Key(port *Port, tag Tags) string {
 	// TODO: check port is non nil and membership of port in service
-	return ServiceKey(s.Hostname, PortList{port}, TagList{tag})
+	return ServiceKey(s.Hostname, PortList{port}, TagsList{tag})
 }
 
 // ServiceKey generates a service key for a collection of ports and tags
-func ServiceKey(hostname string, servicePorts PortList, serviceTags TagList) string {
+func ServiceKey(hostname string, servicePorts PortList, serviceTags TagsList) string {
 	// example: name.namespace:http:env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer
 	buffer.WriteString(hostname)
@@ -291,7 +288,7 @@ func ServiceKey(hostname string, servicePorts PortList, serviceTags TagList) str
 }
 
 // ParseServiceKey is the inverse of the Service.String() method
-func ParseServiceKey(s string) (hostname string, ports PortList, tags TagList) {
+func ParseServiceKey(s string) (hostname string, ports PortList, tags TagsList) {
 	parts := strings.Split(s, ":")
 	hostname = parts[0]
 
@@ -314,9 +311,9 @@ func ParseServiceKey(s string) (hostname string, ports PortList, tags TagList) {
 	return
 }
 
-func (tag Tag) String() string {
+func (t Tags) String() string {
 	labels := make([]string, 0)
-	for k, v := range tag {
+	for k, v := range t {
 		if len(v) > 0 {
 			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
 		} else {
@@ -338,8 +335,8 @@ func (tag Tag) String() string {
 	return buffer.String()
 }
 
-// ParseTagString extracts a tag from a string
-func ParseTagString(s string) Tag {
+// ParseTagString extracts tags from a string
+func ParseTagString(s string) Tags {
 	tag := make(map[string]string)
 	for _, pair := range strings.Split(s, ",") {
 		kv := strings.Split(pair, "=")

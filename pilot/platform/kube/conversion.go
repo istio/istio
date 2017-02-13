@@ -56,8 +56,8 @@ func kindToAPIName(s string) string {
 	return camelCaseToKabobCase(s) + "." + IstioAPIGroup
 }
 
-func convertTags(obj v1.ObjectMeta) model.Tag {
-	out := make(model.Tag)
+func convertTags(obj v1.ObjectMeta) model.Tags {
+	out := make(model.Tags)
 	for k, v := range obj.Labels {
 		out[k] = v
 	}

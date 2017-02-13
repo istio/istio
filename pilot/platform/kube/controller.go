@@ -336,7 +336,7 @@ func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
 }
 
 // Instances implements a service catalog operation
-func (c *Controller) Instances(hostname string, ports []string, tags model.TagList) []*model.ServiceInstance {
+func (c *Controller) Instances(hostname string, ports []string, tagsList model.TagsList) []*model.ServiceInstance {
 	// Get actual service by name
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
@@ -392,10 +392,10 @@ func (c *Controller) Instances(hostname string, ports []string, tags model.TagLi
 			var out []*model.ServiceInstance
 			for _, ss := range ep.Subsets {
 				for _, ea := range ss.Addresses {
-					tag, _ := c.pods.tagByIP(ea.IP)
+					tags, _ := c.pods.tagsByIP(ea.IP)
 
-					// check that one of the input tags is a subset of this tag
-					if !tags.HasSubsetOf(tag) {
+					// check that one of the input tags is a subset of the tags
+					if !tagsList.HasSubsetOf(tags) {
 						continue
 					}
 
@@ -409,7 +409,7 @@ func (c *Controller) Instances(hostname string, ports []string, tags model.TagLi
 									ServicePort: svcPort,
 								},
 								Service: svc,
-								Tag:     tag,
+								Tags:    tags,
 							})
 						}
 					}
@@ -439,7 +439,7 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 						if !exists {
 							continue
 						}
-						tag, _ := c.pods.tagByIP(ea.IP)
+						tags, _ := c.pods.tagsByIP(ea.IP)
 						out = append(out, &model.ServiceInstance{
 							Endpoint: model.NetworkEndpoint{
 								Address:     ea.IP,
@@ -447,7 +447,7 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 								ServicePort: svcPort,
 							},
 							Service: svc,
-							Tag:     tag,
+							Tags:    tags,
 						})
 					}
 				}
@@ -514,8 +514,8 @@ func newPodCache(ch cacheHandler) *PodCache {
 	return out
 }
 
-// tagByIP returns pod tags or nil if pod not found or an error occurred
-func (pc *PodCache) tagByIP(addr string) (model.Tag, bool) {
+// tagsByIP returns pod tags or nil if pod not found or an error occurred
+func (pc *PodCache) tagsByIP(addr string) (model.Tags, bool) {
 	key, exists := pc.keys[addr]
 	if !exists {
 		return nil, false

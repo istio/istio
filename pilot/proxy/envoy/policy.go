@@ -41,7 +41,7 @@ func insertMixerFilter(listeners []*Listener, mixer string) {
 func insertDestinationPolicy(config *model.IstioRegistry, cluster *Cluster) {
 	// not all clusters are for outbound services
 	if cluster != nil && cluster.hostname != "" {
-		for _, policy := range config.DestinationPolicies(cluster.hostname, cluster.tag) {
+		for _, policy := range config.DestinationPolicies(cluster.hostname, cluster.tags) {
 			if policy.LoadBalancing != nil {
 				switch policy.LoadBalancing.GetName() {
 				case proxyconfig.LoadBalancing_ROUND_ROBIN:

@@ -274,7 +274,7 @@ type Cluster struct {
 	// special values used by the post-processing passes for outbound clusters
 	hostname string
 	port     *model.Port
-	tag      model.Tag
+	tags     model.Tags
 }
 
 // CircuitBreaker definition

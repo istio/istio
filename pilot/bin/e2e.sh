@@ -1,8 +1,9 @@
 #!/bin/bash
 set -ex
 
+# These default values must be consistent with test/integration/driver.go
 hub="gcr.io/istio-testing"
-tag="$(whoami)"
+tag="test"
 
 while getopts :h:t: arg; do
   case ${arg} in
