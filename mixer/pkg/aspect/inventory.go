@@ -24,6 +24,17 @@ const (
 	QuotaMethod
 )
 
+var apiMethodToString = map[APIMethod]string{
+	CheckMethod:  "Check",
+	ReportMethod: "Report",
+	QuotaMethod:  "Quota",
+}
+
+// String returns the string representation of the kind, or "" if an unknown kind is given.
+func (a APIMethod) String() string {
+	return apiMethodToString[a]
+}
+
 // Kind of aspect
 type Kind int
 

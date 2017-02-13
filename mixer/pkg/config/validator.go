@@ -39,14 +39,22 @@ type (
 	// ValidatorFinderFunc is used to find specific underlying validators.
 	// Manager registry and adapter registry should implement this interface
 	// so ConfigValidators can be uniformly accessed.
-	ValidatorFinderFunc func(kind string, name string) (adapter.ConfigValidator, bool)
+	ValidatorFinderFunc func(name string) (adapter.ConfigValidator, bool)
+
+	// AdapterToAspectMapperFunc given an pb.Adapter.Impl
+	// This is specifically *not* querying by pb.Adapter.Name
+	// returns a list of aspects the adapter provides.
+	// For many adapter this will be exactly 1 aspect.
+	AdapterToAspectMapperFunc func(impl string) []string
 )
 
 // NewValidator returns a validator given component validators.
-func NewValidator(managerFinder ValidatorFinderFunc, adapterFinder ValidatorFinderFunc, strict bool, exprValidator expr.Validator) *Validator {
+func NewValidator(managerFinder ValidatorFinderFunc, adapterFinder ValidatorFinderFunc,
+	findAspects AdapterToAspectMapperFunc, strict bool, exprValidator expr.Validator) *Validator {
 	return &Validator{
 		managerFinder: managerFinder,
 		adapterFinder: adapterFinder,
+		findAspects:   findAspects,
 		strict:        strict,
 		exprValidator: exprValidator,
 		validated:     &Validated{},
@@ -58,19 +66,28 @@ type (
 	Validator struct {
 		managerFinder ValidatorFinderFunc
 		adapterFinder ValidatorFinderFunc
+		findAspects   AdapterToAspectMapperFunc
 		strict        bool
 		exprValidator expr.Validator
 		validated     *Validated
 	}
 
+	adapterKey struct {
+		kind string
+		name string
+	}
 	// Validated store validated configuration.
 	// It has been validated as internally consistent and correct.
 	Validated struct {
-		adapterByName map[string]*pb.Adapter
+		adapterByName map[adapterKey]*pb.Adapter
 		serviceConfig *pb.ServiceConfig
 		numAspects    int
 	}
 )
+
+func (a adapterKey) String() string {
+	return fmt.Sprintf("%s//%s", a.kind, a.name)
+}
 
 // validateGlobalConfig consumes a yml config string with adapter config.
 // It is validated in presence of validators.
@@ -81,15 +98,19 @@ func (p *Validator) validateGlobalConfig(cfg string) (ce *adapter.ConfigErrors) 
 		ce = ce.Append("AdapterConfig", err)
 		return
 	}
-	p.validated.adapterByName = make(map[string]*pb.Adapter)
+	p.validated.adapterByName = make(map[adapterKey]*pb.Adapter)
 	var acfg adapter.AspectConfig
 	for _, aa := range m.GetAdapters() {
-		if acfg, err = ConvertParams(p.adapterFinder, aa.Kind, aa.Impl, aa.Params, p.strict); err != nil {
+		if acfg, err = ConvertParams(p.adapterFinder, aa.Impl, aa.Params, p.strict); err != nil {
 			ce = ce.Append("Adapter: "+aa.Impl, err)
 			continue
 		}
 		aa.Params = acfg
-		p.validated.adapterByName[aa.Name] = aa
+		// check which kinds aa.Impl provides
+		// Then register it for all of them.
+		for _, kind := range p.findAspects(aa.Impl) {
+			p.validated.adapterByName[adapterKey{kind, aa.Name}] = aa
+		}
 	}
 	return
 }
@@ -114,21 +135,20 @@ func (p *Validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 		}
 		path = path + "/" + rule.GetSelector()
 		for idx, aa := range rule.GetAspects() {
-			if acfg, err = ConvertParams(p.managerFinder, "", aa.Kind, aa.GetParams(), p.strict); err != nil {
+			if acfg, err = ConvertParams(p.managerFinder, aa.Kind, aa.GetParams(), p.strict); err != nil {
 				ce = ce.Append(fmt.Sprintf("%s:%s[%d]", path, aa.Kind, idx), err)
 				continue
 			}
 			aa.Params = acfg
 			p.validated.numAspects++
 			if validatePresence {
-				name := aa.Adapter
-				if name == "" {
-					name = "default"
+				if aa.Adapter == "" {
+					aa.Adapter = "default"
 				}
-
 				// ensure that aa.Kind has a registered adapter
-				if aa.Adapter != "" && p.validated.adapterByName[name] == nil {
-					ce = ce.Appendf("NamedAdapter", "adapter by name %s not available", aa.GetAdapter())
+				ak := adapterKey{aa.Kind, aa.Adapter}
+				if p.validated.adapterByName[ak] == nil {
+					ce = ce.Appendf("NamedAdapter", "%s not available", ak)
 				}
 			}
 		}
@@ -184,11 +204,11 @@ func UnknownValidator(name string) error {
 }
 
 // ConvertParams converts returns a typed proto message based on available Validator.
-func ConvertParams(finder ValidatorFinderFunc, kind string, name string, params interface{}, strict bool) (adapter.AspectConfig, error) {
+func ConvertParams(find ValidatorFinderFunc, name string, params interface{}, strict bool) (adapter.AspectConfig, error) {
 	var avl adapter.ConfigValidator
 	var found bool
 
-	if avl, found = finder(kind, name); !found {
+	if avl, found = find(name); !found {
 		return nil, UnknownValidator(name)
 	}
 

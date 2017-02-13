@@ -44,10 +44,14 @@ type Manager struct {
 	aspectCache map[cacheKey]aspect.Wrapper
 }
 
-// builderFinder finds a builder by kind & name.
+// builderFinder finds a builder by name.
+// a builder may produce aspects of multiple kinds.
 type builderFinder interface {
-	// FindBuilder finds a builder by kind & name.
-	FindBuilder(kind aspect.Kind, name string) (adapter.Builder, bool)
+	// FindBuilder finds a builder by name. == cfg.Adapter.Impl.
+	FindBuilder(name string) (adapter.Builder, bool)
+
+	// SupportedKinds returns kinds supported by a builder.
+	SupportedKinds(name string) []string
 }
 
 // cacheKey is used to cache fully constructed aspects
@@ -97,11 +101,11 @@ func NewManager(builders []adapter.RegisterFn, managers aspect.ManagerInventory,
 // newManager
 func newManager(r builderFinder, m map[aspect.Kind]aspect.Manager, exp expr.Evaluator, am map[aspect.APIMethod]config.AspectSet) *Manager {
 	return &Manager{
-		managers:    m,
 		builders:    r,
+		managers:    m,
 		mapper:      exp,
-		aspectCache: make(map[cacheKey]aspect.Wrapper),
 		methodMap:   am,
+		aspectCache: make(map[cacheKey]aspect.Wrapper),
 	}
 }
 
@@ -136,7 +140,7 @@ func (m *Manager) execute(ctx context.Context, cfg *config.Combined, attrs attri
 	}
 
 	var adp adapter.Builder
-	if adp, found = m.builders.FindBuilder(kind, cfg.Builder.Impl); !found {
+	if adp, found = m.builders.FindBuilder(cfg.Builder.Impl); !found {
 		return nil, fmt.Errorf("could not find registered adapter %#v", cfg.Builder.Impl)
 	}
 
@@ -204,25 +208,27 @@ func closeWrapper(asp aspect.Wrapper) {
 
 // AspectValidatorFinder returns a ValidatorFinderFunc for aspects.
 func (m *Manager) AspectValidatorFinder() config.ValidatorFinderFunc {
-	return func(kind string, name string) (adapter.ConfigValidator, bool) {
-		k, found := aspect.ParseKind(name)
+	return func(kind string) (adapter.ConfigValidator, bool) {
+		k, found := aspect.ParseKind(kind)
 		if !found {
 			return nil, false
 		}
-
 		c, found := m.managers[k]
 		return c, found
 	}
 }
 
+// AdapterToAspectMapperFunc returns AdapterToAspectMapperFunc.
+func (m *Manager) AdapterToAspectMapperFunc() config.AdapterToAspectMapperFunc {
+	return func(impl string) (kinds []string) {
+		return m.builders.SupportedKinds(impl)
+	}
+}
+
 // BuilderValidatorFinder returns a ValidatorFinderFunc for builders.
 func (m *Manager) BuilderValidatorFinder() config.ValidatorFinderFunc {
-	return func(kind string, name string) (adapter.ConfigValidator, bool) {
-		k, found := aspect.ParseKind(kind)
-		if !found {
-			return nil, false
-		}
-		return m.builders.FindBuilder(k, name)
+	return func(name string) (adapter.ConfigValidator, bool) {
+		return m.builders.FindBuilder(name)
 	}
 }
 
