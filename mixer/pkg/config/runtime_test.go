@@ -66,8 +66,9 @@ func TestRuntime(t *testing.T) {
 	}
 
 	v := &Validated{
-		adapterByName: map[string]*pb.Adapter{
-			"a1": a1, "a2": a2,
+		adapterByName: map[adapterKey]*pb.Adapter{
+			adapterKey{LC, "a1"}: a1,
+			adapterKey{LC, "a2"}: a2,
 		},
 		serviceConfig: &pb.ServiceConfig{
 			Rules: []*pb.AspectRule{

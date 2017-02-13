@@ -22,25 +22,27 @@ import (
 	"istio.io/mixer/pkg/aspect"
 )
 
-// BuildersByName holds a set of builders of the same aspect kind, indexed by their name.
-type BuildersByName map[string]adapter.Builder
+type builderInfo struct {
+	Builder adapter.Builder
+	Kinds   []string
+}
 
-// BuildersPerKind holds a set of builders, indexed by aspect kind.
-type BuildersPerKind map[aspect.Kind]BuildersByName
+// BuildersByName holds a set of builders of the same aspect kind, indexed by their name.
+type BuildersByName map[string]*builderInfo
 
 // registry implements pkg/adapter/Registrar.
 // registry is initialized in the constructor and is immutable thereafter.
 // All registered builders must have unique names per aspect kind.
 // It also implements builders that manager uses.
 type registry struct {
-	builders BuildersPerKind
+	builders BuildersByName
 }
 
 // newRegistry returns a new Builder registry.
 func newRegistry(builders []adapter.RegisterFn) *registry {
-	r := &registry{make(BuildersPerKind)}
+	r := &registry{make(BuildersByName)}
 	for idx, builder := range builders {
-		glog.V(2).Infof("Registering [%d] %v", idx, builder)
+		glog.V(3).Infof("Registering [%d] %#v", idx, builder)
 		builder(r)
 	}
 	// ensure interfaces are satisfied.
@@ -51,16 +53,26 @@ func newRegistry(builders []adapter.RegisterFn) *registry {
 }
 
 // BuilderMap returns the known builders, indexed by kind.
-func BuilderMap(builders []adapter.RegisterFn) BuildersPerKind {
-	r := newRegistry(builders)
-	return r.builders
+func BuilderMap(builders []adapter.RegisterFn) BuildersByName {
+	return newRegistry(builders).builders
 }
 
 // FindBuilder finds builder by name.
-func (r *registry) FindBuilder(kind aspect.Kind, name string) (adapter.Builder, bool) {
-	m := r.builders[kind]
-	b, ok := m[name]
-	return b, ok
+func (r *registry) FindBuilder(name string) (b adapter.Builder, found bool) {
+	var bi *builderInfo
+	if bi, found = r.builders[name]; !found {
+		return
+	}
+	return bi.Builder, true
+}
+
+func (r *registry) SupportedKinds(name string) []string {
+	var bi *builderInfo
+	var found bool
+	if bi, found = r.builders[name]; !found {
+		return nil
+	}
+	return bi.Kinds
 }
 
 // RegisterListsBuilder registers a new ListChecker builder.
@@ -93,18 +105,37 @@ func (r *registry) RegisterMetricsBuilder(b adapter.MetricsBuilder) {
 	r.insert(aspect.MetricsKind, b)
 }
 
-func (r *registry) insert(kind aspect.Kind, b adapter.Builder) {
-	glog.V(2).Infof("Registering %v:%v", kind, b)
-
-	m := r.builders[kind]
-	if m == nil {
-		m = make(map[string]adapter.Builder)
-		r.builders[kind] = m
+func (r *registry) insert(k aspect.Kind, b adapter.Builder) {
+	kind := k.String()
+	ok := true
+	if glog.V(1) {
+		defer func() {
+			if ok {
+				glog.Infof("Registered %s / %s", kind, b.Name())
+			}
+		}()
 	}
 
-	if old, exists := m[b.Name()]; exists {
-		panic(fmt.Errorf("duplicate registration for '%v:%s' : %v %v", kind, b.Name(), old, b))
+	bi := r.builders[b.Name()]
+	if bi == nil {
+		r.builders[b.Name()] = &builderInfo{b, []string{kind}}
+		return
 	}
 
-	m[b.Name()] = b
+	// panic only if 2 different builder objects are trying to identify by the
+	// same Name.  2nd registration is ok so long as old and the new are same
+	if bi.Builder != b {
+		ok = false
+		panic(fmt.Errorf("duplicate registration for '%s' : old = %v new = %v", b.Name(), bi.Builder, b))
+	}
+
+	// 2nd registration of the same adapter
+	// check if kind is already registered
+	for _, k := range bi.Kinds {
+		if k == kind {
+			return
+		}
+	}
+
+	bi.Kinds = append(bi.Kinds, kind)
 }

@@ -141,7 +141,7 @@ func (a *aspect) Record(values []adapter.Value) error {
 }
 
 func (a *aspect) record(value adapter.Value) error {
-	name := value.Name
+	mname := value.Name
 	if t, found := a.templates[value.Name]; found {
 		buf := bufferPool.Get().(*bytes.Buffer)
 
@@ -149,25 +149,24 @@ func (a *aspect) record(value adapter.Value) error {
 		// we check that the templates are parsable in ValidateConfig and further check that they can be executed
 		// with the metric's labels in NewMetricsAspect, this should never fail.
 		_ = t.Execute(buf, value.Labels)
-		name = buf.String()
+		mname = buf.String()
 
 		buf.Reset()
 		bufferPool.Put(buf)
 	}
-
 	switch value.Kind {
 	case adapter.Gauge:
 		v, err := value.Int64()
 		if err != nil {
-			return fmt.Errorf("could not record gauge '%s' with err: %s", name, err)
+			return fmt.Errorf("could not record gauge '%s' with err: %s", mname, err)
 		}
-		return a.client.Gauge(name, v, a.rate)
+		return a.client.Gauge(mname, v, a.rate)
 	case adapter.Counter:
 		v, err := value.Int64()
 		if err != nil {
-			return fmt.Errorf("could not record counter '%s' with err: %s", name, err)
+			return fmt.Errorf("could not record counter '%s' with err: %s", mname, err)
 		}
-		return a.client.Inc(name, v, a.rate)
+		return a.client.Inc(mname, v, a.rate)
 	default:
 		return fmt.Errorf("unknown metric kind '%v'", value.Kind)
 	}

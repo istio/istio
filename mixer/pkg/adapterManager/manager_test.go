@@ -35,6 +35,7 @@ type (
 	fakeBuilderReg struct {
 		adp   adapter.Builder
 		found bool
+		kinds []string
 	}
 
 	fakemgr struct {
@@ -119,8 +120,12 @@ func (m *fakemgr) NewAspect(cfg *config.Combined, adp adapter.Builder, env adapt
 	return m.w, nil
 }
 
-func (m *fakeBuilderReg) FindBuilder(kind aspect.Kind, adapterName string) (adapter.Builder, bool) {
+func (m *fakeBuilderReg) FindBuilder(adapterName string) (adapter.Builder, bool) {
 	return m.adp, m.found
+}
+
+func (m *fakeBuilderReg) SupportedKinds(name string) []string {
+	return m.kinds
 }
 
 type ttable struct {
@@ -132,7 +137,7 @@ type ttable struct {
 }
 
 func getReg(found bool) *fakeBuilderReg {
-	return &fakeBuilderReg{&fakeadp{name: "k1impl1"}, found}
+	return &fakeBuilderReg{&fakeadp{name: "k1impl1"}, found, []string{aspect.DenialsKind.String()}}
 }
 
 func newFakeMgrReg(w *fakewrapper) map[aspect.Kind]aspect.Manager {

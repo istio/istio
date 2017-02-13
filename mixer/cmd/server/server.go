@@ -137,6 +137,7 @@ func runServer(sa *serverArgs) error {
 	eval := expr.NewIdentityEvaluator()
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder(), adapterMgr.BuilderValidatorFinder(),
+		adapterMgr.AdapterToAspectMapperFunc(),
 		sa.globalConfigFile, sa.serviceConfigFile, time.Second*time.Duration(sa.configFetchIntervalSec))
 
 	var handler api.Handler

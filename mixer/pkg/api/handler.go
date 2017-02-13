@@ -121,20 +121,22 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 
 // Check performs 'check' function corresponding to the mixer api.
 func (h *handlerState) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
+	if glog.V(2) {
+		glog.Infof("Check [%x] --> (%v %v)", request.RequestIndex, tracker, request.AttributeUpdate)
+		defer func() { glog.Infof("Check [%x] <-- %s", request.RequestIndex, response) }()
+	}
 	response.RequestIndex = request.RequestIndex
 	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, aspect.CheckMethod)
-	if glog.V(2) {
-		glog.Infof("Check (%v %v) ==> %v ", tracker, request.AttributeUpdate, response)
-	}
 }
 
 // Report performs 'report' function corresponding to the mixer api.
 func (h *handlerState) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
+	if glog.V(2) {
+		glog.Infof("Report [%x] --> (%v %v)", request.RequestIndex, tracker, request.AttributeUpdate)
+		defer func() { glog.Infof("Report [%x] <-- %s", request.RequestIndex, response) }()
+	}
 	response.RequestIndex = request.RequestIndex
 	response.Result = h.execute(ctx, tracker, request.AttributeUpdate, aspect.ReportMethod)
-	if glog.V(2) {
-		glog.Infof("Report (%v %v) ==> %v ", tracker, request.AttributeUpdate, response)
-	}
 }
 
 // Quota performs 'quota' function corresponding to the mixer api.

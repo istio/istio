@@ -68,10 +68,11 @@ func TestConfigManager(t *testing.T) {
 	}
 	for idx, mt := range mlist {
 		loopDelay := time.Millisecond * 50
-		vf := &fakeVFinder{v: mt.v}
+		vf := newVfinder(mt.v)
 		ma := &managerArgs{
 			aspectFinder:  vf.FindValidator,
 			builderFinder: vf.FindValidator,
+			findKinds:     vf.AdapterToAspectMapperFunc,
 			eval:          evaluator,
 			loopDelay:     loopDelay,
 		}
@@ -95,13 +96,14 @@ func TestConfigManager(t *testing.T) {
 }
 
 func newmanager(args *managerArgs) *Manager {
-	return NewManager(args.eval, args.aspectFinder, args.builderFinder, args.globalConfig, args.serviceConfig, args.loopDelay)
+	return NewManager(args.eval, args.aspectFinder, args.builderFinder, args.findKinds, args.globalConfig, args.serviceConfig, args.loopDelay)
 }
 
 type managerArgs struct {
 	eval          expr.Evaluator
 	aspectFinder  ValidatorFinderFunc
 	builderFinder ValidatorFinderFunc
+	findKinds     AdapterToAspectMapperFunc
 	loopDelay     time.Duration
 	globalConfig  string
 	serviceConfig string

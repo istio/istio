@@ -26,12 +26,17 @@ import (
 )
 
 type fakeVFinder struct {
-	v map[string]adapter.ConfigValidator
+	v     map[string]adapter.ConfigValidator
+	kinds []string
 }
 
-func (f *fakeVFinder) FindValidator(kind string, name string) (adapter.ConfigValidator, bool) {
+func (f *fakeVFinder) FindValidator(name string) (adapter.ConfigValidator, bool) {
 	v, found := f.v[name]
 	return v, found
+}
+
+func (f *fakeVFinder) AdapterToAspectMapperFunc(impl string) []string {
+	return f.kinds
 }
 
 type lc struct {
@@ -54,6 +59,14 @@ type configTable struct {
 	selector string
 	strict   bool
 	cfg      string
+}
+
+func newVfinder(v map[string]adapter.ConfigValidator) *fakeVFinder {
+	kinds := []string{}
+	for k := range v {
+		kinds = append(kinds, k)
+	}
+	return &fakeVFinder{v: v, kinds: kinds}
 }
 
 func TestConfigValidatorError(t *testing.T) {
@@ -92,8 +105,8 @@ func TestConfigValidatorError(t *testing.T) {
 
 	for idx, ctx := range ctable {
 		var ce *adapter.ConfigErrors
-		mgr := &fakeVFinder{v: ctx.v}
-		p := NewValidator(mgr.FindValidator, mgr.FindValidator, ctx.strict, evaluator)
+		mgr := newVfinder(ctx.v)
+		p := NewValidator(mgr.FindValidator, mgr.FindValidator, mgr.AdapterToAspectMapperFunc, ctx.strict, evaluator)
 		if ctx.cfg == sSvcConfig {
 			ce = p.validateServiceConfig(fmt.Sprintf(ctx.cfg, ctx.selector), false)
 		} else {
@@ -137,7 +150,7 @@ func TestFullConfigValidator(t *testing.T) {
 				"metrics":     &lc{},
 				"listchecker": &lc{},
 			}, "", false, sSvcConfig2, nil},
-		{&adapter.ConfigError{Field: "NamedAdapter", Underlying: fmt.Errorf("adapter by name denychecker.2 not available")},
+		{&adapter.ConfigError{Field: "NamedAdapter", Underlying: fmt.Errorf("listchecker//denychecker.2 not available")},
 			map[string]adapter.ConfigValidator{
 				"denyChecker": &lc{},
 				"metrics":     &lc{},
@@ -151,9 +164,9 @@ func TestFullConfigValidator(t *testing.T) {
 			}, "service.name == “*”", false, sSvcConfig1, fmt.Errorf("invalid expression")},
 	}
 	for idx, ctx := range ctable {
-		mgr := &fakeVFinder{v: ctx.v}
+		mgr := newVfinder(ctx.v)
 		fe.err = ctx.exprErr
-		p := NewValidator(mgr.FindValidator, mgr.FindValidator, ctx.strict, fe)
+		p := NewValidator(mgr.FindValidator, mgr.FindValidator, mgr.AdapterToAspectMapperFunc, ctx.strict, fe)
 		// sGlobalConfig only defines 1 adapter: denyChecker
 		_, ce := p.Validate(ctx.cfg, sGlobalConfig)
 		cok := ce == nil
@@ -168,9 +181,8 @@ func TestFullConfigValidator(t *testing.T) {
 			t.Error("expected at least 2 errors reported")
 			continue
 		}
-		if ctx.cerr.Error() != ce.Multi.Errors[1].Error() {
-			t.Errorf("%d expected: %#v\ngot: %#v\n", idx, ctx.cerr.Error(), ce.Multi.Errors[1].Error())
-			t.Errorf("%d expected: %#v\ngot: %#v\n", idx, ctx.cerr, ce.Multi.Errors[1])
+		if !strings.Contains(ce.Multi.Errors[1].Error(), ctx.cerr.Error()) {
+			t.Errorf("%d got: %#v\nwant: %#v\n", idx, ce.Multi.Errors[1].Error(), ctx.cerr.Error())
 		}
 	}
 }
@@ -178,7 +190,7 @@ func TestFullConfigValidator(t *testing.T) {
 func TestConfigParseError(t *testing.T) {
 	mgr := &fakeVFinder{}
 	evaluator := newFakeExpr()
-	p := NewValidator(mgr.FindValidator, mgr.FindValidator, false, evaluator)
+	p := NewValidator(mgr.FindValidator, mgr.FindValidator, mgr.AdapterToAspectMapperFunc, false, evaluator)
 	ce := p.validateServiceConfig("<config>  </config>", false)
 
 	if ce == nil || !strings.Contains(ce.Error(), "unmarshal error") {
@@ -226,7 +238,7 @@ const sGlobalConfigValid = `
 subject: "namespace:ns"
 revision: "2022"
 adapters:
-  - name: denychecker.1
+  - name: default
     kind: denials
     impl: denyChecker
     params:
