@@ -17,7 +17,10 @@
 
 package envoy
 
-import "istio.io/manager/model/proxy/alphav1/config"
+import (
+	"istio.io/manager/model"
+	proxyconfig "istio.io/manager/model/proxy/alphav1/config"
+)
 
 // TODO: apply fault filter by destination as a post-processing step
 
@@ -35,10 +38,29 @@ func insertMixerFilter(listeners []*Listener, mixer string) {
 	}
 }
 
+func insertDestinationPolicy(config *model.IstioRegistry, cluster *Cluster) {
+	// not all clusters are for outbound services
+	if cluster != nil && cluster.hostname != "" {
+		for _, policy := range config.DestinationPolicies(cluster.hostname, cluster.tag) {
+			if policy.LoadBalancing != nil {
+				switch policy.LoadBalancing.GetName() {
+				case proxyconfig.LoadBalancing_ROUND_ROBIN:
+					cluster.LbType = LbTypeRoundRobin
+				case proxyconfig.LoadBalancing_LEAST_CONN:
+					cluster.LbType = "least_request"
+				case proxyconfig.LoadBalancing_RANDOM:
+					cluster.LbType = "random"
+				}
+			}
+		}
+
+	}
+}
+
 // buildFaultFilters builds a list of fault filters for the http route. If the route points to a single
 // cluster, an array of size 1 is returned. If the route points to a weighted cluster, an array of fault
 // filters (one per cluster entry in the weighted cluster) is returned.
-func buildFaultFilters(route *Route, faultRule *config.HTTPFaultInjection) []Filter {
+func buildFaultFilters(route *Route, faultRule *proxyconfig.HTTPFaultInjection) []Filter {
 	if route == nil {
 		return nil
 	}
@@ -54,7 +76,7 @@ func buildFaultFilters(route *Route, faultRule *config.HTTPFaultInjection) []Fil
 }
 
 // buildFaultFilter builds a single fault filter for envoy cluster
-func buildFaultFilter(cluster string, faultRule *config.HTTPFaultInjection) Filter {
+func buildFaultFilter(cluster string, faultRule *proxyconfig.HTTPFaultInjection) Filter {
 	return Filter{
 		Type: "decoder",
 		Name: "fault",
@@ -68,7 +90,7 @@ func buildFaultFilter(cluster string, faultRule *config.HTTPFaultInjection) Filt
 }
 
 // buildAbortConfig builds the envoy config related to abort spec in a fault filter
-func buildAbortConfig(abortRule *config.HTTPFaultInjection_Abort) *AbortFilter {
+func buildAbortConfig(abortRule *proxyconfig.HTTPFaultInjection_Abort) *AbortFilter {
 	if abortRule == nil || abortRule.GetHttpStatus() == 0 {
 		return nil
 	}
@@ -80,7 +102,7 @@ func buildAbortConfig(abortRule *config.HTTPFaultInjection_Abort) *AbortFilter {
 }
 
 // buildDelayConfig builds the envoy config related to delay spec in a fault filter
-func buildDelayConfig(delayRule *config.HTTPFaultInjection_Delay) *DelayFilter {
+func buildDelayConfig(delayRule *proxyconfig.HTTPFaultInjection_Delay) *DelayFilter {
 	if delayRule == nil || delayRule.GetFixedDelay() == nil {
 		return nil
 	}

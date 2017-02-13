@@ -149,6 +149,19 @@ func (i *IstioRegistry) Destinations(namespace string) []*proxyconfig.Destinatio
 	return out
 }
 
+// DestinationPolicies lists all policies for a service version.
+// Policies are not inherited by tag inclusion. The version must match precisely the policy version.
+func (i *IstioRegistry) DestinationPolicies(destination string, version Tag) []*proxyconfig.Destination {
+	out := make([]*proxyconfig.Destination, 0)
+	for _, value := range i.Destinations("") {
+		if value.Destination == destination && version.Equals(value.Version) {
+			out = append(out, value)
+		}
+	}
+	// TODO: sort destination policies
+	return out
+}
+
 // RouteRulePrecedence sorts rules by precedence (high precedence first)
 type RouteRulePrecedence []*proxyconfig.RouteRule
 

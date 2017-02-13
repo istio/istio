@@ -164,7 +164,13 @@ func build(instances []*model.ServiceInstance, services []*model.Service,
 		listeners = append(listeners, listener)
 	}
 	sort.Sort(ListenersByPort(listeners))
-	return listeners, clusters.Normalize()
+
+	clusters = clusters.Normalize()
+	for _, cluster := range clusters {
+		insertDestinationPolicy(config, cluster)
+	}
+
+	return listeners, clusters
 }
 
 // buildOutboundFilters creates route configs indexed by ports for the traffic outbound

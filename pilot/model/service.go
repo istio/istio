@@ -189,6 +189,17 @@ func (tag Tag) SubsetOf(that Tag) bool {
 	return true
 }
 
+// Equals returns true if the tags are identical
+func (tag Tag) Equals(that Tag) bool {
+	if tag == nil {
+		return that == nil
+	}
+	if that == nil {
+		return tag == nil
+	}
+	return tag.SubsetOf(that) && that.SubsetOf(tag)
+}
+
 // HasSubsetOf returns true if the input tag is a super set of one of the
 // tags in the list or if the tag list is empty
 func (tags TagList) HasSubsetOf(that Tag) bool {
