@@ -281,8 +281,8 @@ func (cl *Client) List(kind, namespace string) (map[model.Key]proto.Message, err
 
 	out := make(map[model.Key]proto.Message, 0)
 	for _, item := range list.Items {
-		name, ns, kind, data, err := cl.convertConfig(&item)
-		if kind != "" {
+		name, ns, istioKind, data, err := cl.convertConfig(&item)
+		if kind == istioKind {
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			} else {

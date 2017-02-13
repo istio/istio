@@ -275,9 +275,16 @@ func TestProxyConfig(t *testing.T) {
 		t.Errorf("cl.Get(%v) => %v, want %v", key, out, rule)
 	}
 
-	rules := (&model.IstioRegistry{ConfigRegistry: cl}).RouteRules(ns)
+	registry := model.IstioRegistry{ConfigRegistry: cl}
+
+	rules := registry.RouteRules(ns)
 	if len(rules) != 1 || !reflect.DeepEqual(rules[0], rule) {
 		t.Errorf("RouteRules() => %v, want %v", rules, rule)
+	}
+
+	destinations := registry.Destinations(ns)
+	if len(destinations) > 0 {
+		t.Errorf("Destinations() => %v, want empty", destinations)
 	}
 }
 
