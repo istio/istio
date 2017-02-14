@@ -189,6 +189,12 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_golang_sync",
+    commit = "450f422ab23cf9881c94e2db30cac0eb1b7cf80c",
+    importpath = "github.com/golang/sync",
+)
+
+new_go_repository(
     name = "com_github_stretchr_testify",
     commit = "e3a8ff8ce36581f87a15341206f205b1da467059",
     importpath = "github.com/stretchr/testify",
