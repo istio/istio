@@ -109,7 +109,7 @@ func TestNewMetricsAspect_InvalidTemplate(t *testing.T) {
 	metrics := []adapter.MetricDefinition{
 		{
 			Name:   name,
-			Labels: map[string]adapter.LabelKind{"apiMethod": 1, "responseCode": 2}, // we don't care about the kind
+			Labels: map[string]adapter.LabelType{"apiMethod": 1, "responseCode": 2}, // we don't care about the kind
 		},
 	}
 	env := test.NewEnv(t)
@@ -168,7 +168,7 @@ func TestRecord(t *testing.T) {
 	metrics := []adapter.MetricDefinition{
 		{
 			Name:   templateMetricName,
-			Labels: map[string]adapter.LabelKind{"apiMethod": 1, "responseCode": 2}, // we don't care about the kind
+			Labels: map[string]adapter.LabelType{"apiMethod": 1, "responseCode": 2}, // we don't care about the kind
 		},
 	}
 

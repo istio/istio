@@ -11,6 +11,7 @@ go_library(
         "inventory.go",
         "listsManager.go",
         "manager.go",
+        "metricsManager.go",
         "quotasManager.go",
     ],
     deps = [
@@ -24,6 +25,7 @@ go_library(
         "@com_github_golang_protobuf//jsonpb:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_google_go_genproto//googleapis/rpc/code:go_default_library",
+        "@com_github_hashicorp_go_multierror//:go_default_library",
         "@com_github_istio_api//:mixer/v1",
         "@com_github_istio_api//:mixer/v1/config",
         "@com_github_istio_api//:mixer/v1/config/descriptor",
@@ -38,10 +40,12 @@ go_test(
         "applicationLogsManager_test.go",
         "denialsManager_test.go",
         "listsManager_test.go",
+        "metricsManager_test.go",
         "quotasManager_test.go",
     ],
     library = ":go_default_library",
     deps = [
+        "//pkg/adapter/test:go_default_library",
         "//pkg/aspect/test:go_default_library",
     ],
 )

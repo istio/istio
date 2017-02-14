@@ -135,7 +135,7 @@ func (p *prom) Record(vals []adapter.Value) error {
 
 func (*prom) Close() error { return nil }
 
-func newCounterVec(name, desc string, labels map[string]adapter.LabelKind) *prometheus.CounterVec {
+func newCounterVec(name, desc string, labels map[string]adapter.LabelType) *prometheus.CounterVec {
 	c := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: safeName(name),
@@ -146,7 +146,7 @@ func newCounterVec(name, desc string, labels map[string]adapter.LabelKind) *prom
 	return c
 }
 
-func newGaugeVec(name, desc string, labels map[string]adapter.LabelKind) *prometheus.GaugeVec {
+func newGaugeVec(name, desc string, labels map[string]adapter.LabelType) *prometheus.GaugeVec {
 	c := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: safeName(name),
@@ -157,7 +157,7 @@ func newGaugeVec(name, desc string, labels map[string]adapter.LabelKind) *promet
 	return c
 }
 
-func labelNames(m map[string]adapter.LabelKind) []string {
+func labelNames(m map[string]adapter.LabelType) []string {
 	i := 0
 	keys := make([]string, len(m))
 	for k := range m {

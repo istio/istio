@@ -44,21 +44,21 @@ var (
 		Name:        "/funky::gauge",
 		Description: "funky all the time",
 		Kind:        adapter.Gauge,
-		Labels:      map[string]adapter.LabelKind{},
+		Labels:      map[string]adapter.LabelType{},
 	}
 
 	counterNoLabels = adapter.MetricDefinition{
 		Name:        "the.counter",
 		Description: "count all the tests",
 		Kind:        adapter.Counter,
-		Labels:      map[string]adapter.LabelKind{},
+		Labels:      map[string]adapter.LabelType{},
 	}
 
 	counter = adapter.MetricDefinition{
 		Name:        "special_counter",
 		Description: "count all the special tests",
 		Kind:        adapter.Counter,
-		Labels: map[string]adapter.LabelKind{
+		Labels: map[string]adapter.LabelType{
 			"bool":   adapter.Bool,
 			"string": adapter.String,
 			"email":  adapter.EmailAddress,
@@ -69,7 +69,7 @@ var (
 		Name:        "unknown",
 		Description: "unknown",
 		Kind:        adapter.Gauge - 2,
-		Labels:      map[string]adapter.LabelKind{},
+		Labels:      map[string]adapter.LabelType{},
 	}
 
 	counterVal = adapter.Value{
@@ -127,7 +127,7 @@ func TestFactory_NewMetricsAspectMetricDefinitionErrors(t *testing.T) {
 		Name:        "/funky::gauge",
 		Description: "funky all the time",
 		Kind:        adapter.Gauge,
-		Labels: map[string]adapter.LabelKind{
+		Labels: map[string]adapter.LabelType{
 			"test": adapter.String,
 		},
 	}
@@ -136,7 +136,7 @@ func TestFactory_NewMetricsAspectMetricDefinitionErrors(t *testing.T) {
 		Name:        "special_counter",
 		Description: "count all the special tests",
 		Kind:        adapter.Counter,
-		Labels: map[string]adapter.LabelKind{
+		Labels: map[string]adapter.LabelType{
 			"email": adapter.EmailAddress,
 		},
 	}
