@@ -57,26 +57,31 @@ func insertDestinationPolicy(config *model.IstioRegistry, cluster *Cluster) {
 	}
 }
 
-// buildFaultFilters builds a list of fault filters for the http route. If the route points to a single
-// cluster, an array of size 1 is returned. If the route points to a weighted cluster, an array of fault
-// filters (one per cluster entry in the weighted cluster) is returned.
-func buildFaultFilters(route *Route, faultRule *proxyconfig.HTTPFaultInjection) []Filter {
-	if route == nil {
+// buildFaultFilters builds a list of fault filters for the http route
+func buildFaultFilters(config *model.IstioRegistry, routeConfig *RouteConfig) []Filter {
+	if routeConfig == nil {
 		return nil
 	}
+
+	var clusters Clusters
+	clusters = routeConfig.clusters()
+	clusters = clusters.Normalize()
+
 	faults := make([]Filter, 0)
-	if route.WeightedClusters != nil {
-		for _, cluster := range route.WeightedClusters.Clusters {
-			faults = append(faults, buildFaultFilter(cluster.Name, faultRule))
+	for _, cluster := range clusters {
+		policies := config.DestinationPolicies(cluster.hostname, cluster.tags)
+		for _, policy := range policies {
+			if policy.HttpFault != nil {
+				faults = append(faults, buildHTTPFaultFilter(cluster.Name, policy.HttpFault))
+			}
 		}
-	} else {
-		faults = append(faults, buildFaultFilter(route.Cluster, faultRule))
 	}
+
 	return faults
 }
 
 // buildFaultFilter builds a single fault filter for envoy cluster
-func buildFaultFilter(cluster string, faultRule *proxyconfig.HTTPFaultInjection) Filter {
+func buildHTTPFaultFilter(cluster string, faultRule *proxyconfig.HTTPFaultInjection) Filter {
 	return Filter{
 		Type: "decoder",
 		Name: "fault",

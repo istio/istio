@@ -1,0 +1,11 @@
+destination: "{{.destination}}.{{.namespace}}.svc.cluster.local"
+tags:
+  version: v2
+http_fault:
+  delay:
+    fixed_delay:
+      percent: 100
+      fixed_delay_seconds: 5
+  abort:
+    percent: 100
+    http_status: 503

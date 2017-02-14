@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -345,6 +346,33 @@ func checkRouting(pods map[string]string) error {
 		return err
 	}
 	log.Println("Success!")
+
+	log.Println("Testing fault injection..")
+	// Create a bytes buffer to hold the YAML form of rules
+	var faultPolicy bytes.Buffer
+	w = bufio.NewWriter(&faultPolicy)
+
+	if err := write("test/integration/policy-fault-injection.yaml.tmpl", map[string]string{
+		"destination": "world",
+		"namespace":   namespace,
+	}, w); err != nil {
+		return err
+	}
+
+	if err := w.Flush(); err != nil {
+		return err
+	}
+	if err := addRule(faultPolicy.Bytes(), model.Destination, "fault-policy", namespace); err != nil {
+		return err
+	}
+
+	// sleep for a while so that envoy has a chance to reload
+	time.Sleep(time.Second * 15)
+	if err := verifyFaultInjection(pods, "hello", "world", "version", "v2", time.Second*5, 503); err != nil {
+		return err
+	}
+	log.Println("Success!")
+
 	return nil
 }
 
@@ -647,6 +675,43 @@ func verifyRouting(pods map[string]string, src, dst, headerKey, headerVal string
 
 	if failures > 0 {
 		return errors.New("routing verification failed")
+	}
+	return nil
+}
+
+// verifyFaultInjection verifies if the fault filter was setup properly
+func verifyFaultInjection(pods map[string]string, src, dst, headerKey, headerVal string,
+	respTime time.Duration, respCode int) error {
+
+	url := fmt.Sprintf("http://%s/%s", dst, src)
+	log.Printf("Making 1 request (%s) from %s...\n", url, src)
+	cmd := fmt.Sprintf("kubectl exec %s -n %s -c app client %s %s %s", pods[src], namespace, url, headerKey, headerVal)
+
+	start := time.Now()
+	request, err := shell(cmd, false)
+	elapsed := time.Since(start)
+	if err != nil {
+		return err
+	}
+	if verbose {
+		log.Println(request)
+	}
+
+	match := regexp.MustCompile("StatusCode=(.*)").FindStringSubmatch(request)
+	statusCode := 0
+	if len(match) > 1 {
+		statusCode, err = strconv.Atoi(match[1])
+		if err != nil {
+			statusCode = -1
+		}
+	}
+
+	// +/- 1s variance
+	epsilon := time.Second * 2
+	log.Printf("Response time is %s with status code %d\n", elapsed, statusCode)
+	log.Printf("Expected response time is %s +/- %s with status code %d\n", respTime, epsilon, respCode)
+	if elapsed > respTime+epsilon || elapsed < respTime-epsilon || respCode != statusCode {
+		return errors.New("fault injection verification failed")
 	}
 	return nil
 }

@@ -62,6 +62,7 @@ func main() {
 		return
 	}
 
+	fmt.Printf("StatusCode=%d\n", resp.StatusCode)
 	_, err = io.Copy(os.Stdout, resp.Body)
 	if err != nil {
 		log.Println(err.Error())

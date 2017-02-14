@@ -26,6 +26,7 @@ go_binary(
         "rule-default-route.yaml.tmpl",
         "rule-weighted-route.yaml.tmpl",
         "rule-content-route.yaml.tmpl",
+        "policy-fault-injection.yaml.tmpl",
         "//platform/kube:kubeconfig",
     ],
     library = ":go_default_library",

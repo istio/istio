@@ -79,9 +79,6 @@ func Generate(instances []*model.ServiceInstance, services []*model.Service,
 		insertMixerFilter(listeners, mesh.MixerAddress)
 	}
 
-	// TODO: re-implement
-	_ = buildFaultFilters(nil, nil)
-
 	// set bind to port values to values for port redirection
 	for _, listener := range listeners {
 		listener.BindToPort = false
@@ -119,28 +116,37 @@ func build(instances []*model.ServiceInstance, services []*model.Service,
 	inbound := buildInboundFilters(instances)
 
 	// merge the two sets of route configs
-	configs := make(RouteConfigs)
-	for port, config := range inbound {
-		configs[port] = config
+	routeConfigs := make(RouteConfigs)
+	for port, routeConfig := range inbound {
+		routeConfigs[port] = routeConfig
 	}
 
 	for port, outgoing := range outbound {
-		if incoming, ok := configs[port]; ok {
+		if incoming, ok := routeConfigs[port]; ok {
 			// If the traffic is sent to a service that has instances co-located with the proxy,
 			// we choose the local service instance since we cannot distinguish between inbound and outbound packets.
 			// Note that this may not be a problem if the service port and its endpoint port are distinct.
-			configs[port] = incoming.merge(outgoing)
+			routeConfigs[port] = incoming.merge(outgoing)
 		} else {
-			configs[port] = outgoing
+			routeConfigs[port] = outgoing
 		}
 	}
 
 	// canonicalize listeners and collect clusters
 	clusters := make(Clusters, 0)
 	listeners := make([]*Listener, 0)
-	for port, config := range configs {
-		sort.Sort(HostsByName(config.VirtualHosts))
-		clusters = append(clusters, config.clusters()...)
+	for port, routeConfig := range routeConfigs {
+		sort.Sort(HostsByName(routeConfig.VirtualHosts))
+		clusters = append(clusters, routeConfig.clusters()...)
+
+		filters := buildFaultFilters(config, routeConfig)
+
+		filters = append(filters, Filter{
+			Type:   "decoder",
+			Name:   "router",
+			Config: FilterRouterConfig{},
+		})
+
 		listener := &Listener{
 			Port: port,
 			Filters: []*NetworkFilter{{
@@ -152,12 +158,8 @@ func build(instances []*model.ServiceInstance, services []*model.Service,
 					AccessLog: []AccessLog{{
 						Path: DefaultAccessLog,
 					}},
-					RouteConfig: config,
-					Filters: []Filter{{
-						Type:   "decoder",
-						Name:   "router",
-						Config: FilterRouterConfig{},
-					}},
+					RouteConfig: routeConfig,
+					Filters:     filters,
 				},
 			}},
 		}
