@@ -7,11 +7,15 @@ gogoslick_proto_library(
         "applicationLogs.proto",
         "denials.proto",
         "lists.proto",
+        "metrics.proto",
         "quotas.proto",
     ],
     verbose = 0,
     visibility = [
         "//pkg/aspect:__pkg__",
         "//pkg/config:__pkg__",
+    ],
+    deps = [
+        "@com_github_gogo_protobuf//sortkeys:go_default_library",
     ],
 )

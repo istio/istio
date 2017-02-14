@@ -28,6 +28,9 @@ go_library(
 go_test(
     name = "small_tests",
     size = "small",
-    srcs = ["configError_test.go"],
+    srcs = [
+        "configError_test.go",
+        "metrics_test.go",
+    ],
     library = ":go_default_library",
 )
