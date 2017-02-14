@@ -16,7 +16,7 @@ node {
   bazel.setVars()
 }
 
-node('master') {
+mainFlow(utils) {
   if (utils.runStage('PRESUBMIT')) {
     def success = true
     utils.updatePullRequest('run')
