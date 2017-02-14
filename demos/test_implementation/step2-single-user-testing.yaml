@@ -1,0 +1,9 @@
+destination: "reviews.default.svc.cluster.local"
+precedence: 2
+match:
+  http:
+    cookie:
+      regex: ".+?(user=jason)"
+route:
+  - tags:
+       version: v2
