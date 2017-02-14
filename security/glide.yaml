@@ -1,0 +1,12 @@
+package: github.com/istio/auth
+import:
+- package: k8s.io/client-go
+  version: ~2.0.0-alpha.1
+  subpackages:
+  - kubernetes/typed/core/v1
+  - pkg/api
+  - pkg/api/v1
+  - pkg/labels
+  - pkg/runtime
+  - pkg/watch
+  - tools/cache
