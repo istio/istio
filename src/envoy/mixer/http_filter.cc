@@ -96,7 +96,15 @@ class Config : public Logger::Loggable<Logger::Id::http> {
           __func__);
     }
 
-    http_control_ = std::make_shared<HttpControl>(mixer_server);
+    std::map<std::string, std::string> attributes;
+    if (config.hasObject("attributes")) {
+      for (const std::string& attr : config.getStringArray("attributes")) {
+        attributes[attr] = config.getString(attr);
+      }
+    }
+
+    http_control_ =
+        std::make_shared<HttpControl>(mixer_server, std::move(attributes));
     log().debug("Called Mixer::Config contructor with mixer_server: ",
                 mixer_server);
   }

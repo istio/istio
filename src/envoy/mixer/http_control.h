@@ -37,7 +37,8 @@ typedef std::shared_ptr<HttpRequestData> HttpRequestDataPtr;
 class HttpControl final : public Logger::Loggable<Logger::Id::http> {
  public:
   // The constructor.
-  HttpControl(const std::string& mixer_server);
+  HttpControl(const std::string& mixer_server,
+              std::map<std::string, std::string>&& attributes);
 
   // Make mixer check call.
   void Check(HttpRequestDataPtr request_data, HeaderMap& headers,
@@ -55,10 +56,8 @@ class HttpControl final : public Logger::Loggable<Logger::Id::http> {
 
   // The mixer client
   std::unique_ptr<::istio::mixer_client::MixerClient> mixer_client_;
-  // Source service
-  std::string source_service_;
-  // Target service
-  std::string target_service_;
+  // The attributes read from the config file.
+  std::map<std::string, std::string> config_attributes_;
 };
 
 }  // namespace Mixer

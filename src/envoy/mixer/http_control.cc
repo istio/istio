@@ -38,12 +38,6 @@ const std::string kAttrNameResponseTime = "response.time";
 const std::string kAttrNameOriginIp = "origin.ip";
 const std::string kAttrNameOriginHost = "origin.host";
 
-const std::string kEnvNameSourceService = "SOURCE_SERVICE";
-const std::string kEnvNameTargetService = "TARGET_SERVICE";
-
-const std::string kAttrNameSourceService = "source.service";
-const std::string kAttrNameTargetService = "target.service";
-
 Attributes::Value StringValue(const std::string& str) {
   Attributes::Value v;
   v.type = Attributes::Value::STRING;
@@ -134,27 +128,21 @@ void FillRequestInfoAttributes(const AccessLog::RequestInfo& info,
 
 }  // namespace
 
-HttpControl::HttpControl(const std::string& mixer_server) {
+HttpControl::HttpControl(const std::string& mixer_server,
+                         std::map<std::string, std::string>&& attributes)
+    : config_attributes_(std::move(attributes)) {
   ::istio::mixer_client::MixerClientOptions options;
   options.mixer_server = mixer_server;
   mixer_client_ = ::istio::mixer_client::CreateMixerClient(options);
-
-  auto source_service = getenv(kEnvNameSourceService.c_str());
-  if (source_service) {
-    source_service_ = source_service;
-  }
-  auto target_service = getenv(kEnvNameTargetService.c_str());
-  if (target_service) {
-    target_service_ = target_service;
-  }
 }
 
 void HttpControl::FillCheckAttributes(const HeaderMap& header_map,
                                       Attributes* attr) {
   FillRequestHeaderAttributes(header_map, attr);
 
-  SetStringAttribute(kAttrNameSourceService, source_service_, attr);
-  SetStringAttribute(kAttrNameTargetService, target_service_, attr);
+  for (const auto& attribute : config_attributes_) {
+    SetStringAttribute(attribute.first, attribute.second, attr);
+  }
 }
 
 void HttpControl::Check(HttpRequestDataPtr request_data, HeaderMap& headers,
