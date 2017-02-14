@@ -1,0 +1,11 @@
+destination: "ratings.default.svc.cluster.local"
+tags:
+  version: v1
+http_fault:
+  headers:
+    cookie:
+      regex: ".+?(user=jason)"
+  delay:
+    fixed_delay:
+      percent: 100
+      fixed_delay_seconds: 7.0
