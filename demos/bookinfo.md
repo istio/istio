@@ -1,12 +1,3 @@
----
-layout: page
-title: Bookinfo
-permalink: /docs/demo-bookinfo.html
-redirect_from: /docs/demo/bookinfo/
-category: Demo
-order: 3
----
-
 In this demo, we will deploy a simple app that displays information about a
 book, similar to a single catalog entry of an online book store. Displayed
 on the page is a description of the book, book details (ISBN, number of
@@ -27,7 +18,7 @@ There are 3 versions of the reviews microservice:
 
 The end-to-end architecture of the application is shown below.
 
-![Bookinfo app](example-app-bookinfo.svg)
+![Bookinfo app](example-app-bookinfo.png)
 
 This application is polyglot, i.e., the microservices are written in
 different languages. All microservices are packaged with an
