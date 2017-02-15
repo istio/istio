@@ -1,9 +1,15 @@
-destination: "reviews.default.svc.cluster.local"
-precedence: 3
-route:
-  - tags:
-       version: v1
-    weight: 75
-  - tags:
-       version: v3
-    weight: 25
+apiVersion: istio.io/v1alpha1
+kind: IstioConfig
+metadata:
+  name: route-rule-weighted-route-25
+  namespace: default
+spec:
+  destination: reviews.default.svc.cluster.local
+  precedence: 3
+  route:
+    - tags:
+        version: v1
+      weight: 75
+    - tags:
+        version: v3
+      weight: 25

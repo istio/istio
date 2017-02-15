@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
       - name: istio-route-controller
-        image: docker.io/rshriram/istio-manager
+        image: docker.io/rshriram/istio-manager:stable
         args: ["server", "--logtostderr", "-v", "2"]
         imagePullPolicy: Always
         ports:
