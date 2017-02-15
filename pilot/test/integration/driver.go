@@ -60,6 +60,7 @@ var (
 	tag         string
 	namespace   string
 	verbose     bool
+	norouting   bool
 	client      *kubernetes.Clientset
 	istioClient *kube.Client
 )
@@ -75,6 +76,8 @@ func init() {
 		"Namespace to use for testing (empty to create/delete temporary one)")
 	flag.BoolVarP(&verbose, "dump", "d", false,
 		"Dump proxy logs and request logs")
+	flag.BoolVar(&norouting, "norouting", false,
+		"Disable route rule tests")
 }
 
 func main() {
@@ -117,8 +120,10 @@ func main() {
 		}
 		log.Fatal(err)
 	}
-	if err := checkRouting(pods); err != nil {
-		log.Fatal(err)
+	if !norouting {
+		if err := checkRouting(pods); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 

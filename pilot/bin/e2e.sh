@@ -23,4 +23,4 @@ for image in app init runtime; do
 	docker push $hub/$image:$tag
 done
 
-bazel run //test/integration -- "$@"
+bazel run //test/integration -- "$@" --norouting
