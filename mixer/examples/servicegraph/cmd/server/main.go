@@ -47,17 +47,45 @@ func (fs justFilesFilesystem) Open(name string) (http.File, error) {
 	return f, nil
 }
 
+func (s *state) addNode(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusNotImplemented)
+		_, err := w.Write([]byte("requests of this type not supported at this time"))
+		if err != nil {
+			log.Print(err)
+		}
+		return
+	}
+	nodeName := r.URL.Query().Get("name")
+	if nodeName == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		_, err := w.Write([]byte("missing argument 'name'"))
+		if err != nil {
+			log.Print(err)
+		}
+		return
+	}
+	s.staticGraph.Nodes[nodeName] = struct{}{}
+}
+
+type state struct {
+	staticGraph *servicegraph.Static
+}
+
 func main() {
 	bindAddr := flag.String("bindAddr", ":8088", "Address to bind to for serving")
 	promAddr := flag.String("prometheusAddr", "http://localhost:9090", "Address of prometheus instance for graph generation")
 	flag.Parse()
 
+	s := &state{staticGraph: &servicegraph.Static{Nodes: make(map[string]struct{})}}
+
 	// don't allow directory listing
 	jf := &justFilesFilesystem{http.Dir("examples/servicegraph")}
 	http.Handle("/", http.FileServer(jf))
-	http.Handle("/graph", promgen.NewPromHandler(*promAddr, writeJSON))
-	http.Handle("/dotgraph", promgen.NewPromHandler(*promAddr, dot.GenerateRaw))
-	http.Handle("/dotviz", promgen.NewPromHandler(*promAddr, dot.GenerateHTML))
+	http.Handle("/graph", promgen.NewPromHandler(*promAddr, s.staticGraph, writeJSON))
+	http.HandleFunc("/node", s.addNode)
+	http.Handle("/dotgraph", promgen.NewPromHandler(*promAddr, s.staticGraph, dot.GenerateRaw))
+	http.Handle("/dotviz", promgen.NewPromHandler(*promAddr, s.staticGraph, dot.GenerateHTML))
 
 	log.Printf("Starting servicegraph service at %s", *bindAddr)
 	log.Fatal(http.ListenAndServe(*bindAddr, nil))

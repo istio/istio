@@ -36,13 +36,14 @@ type genOpts struct {
 
 type promHandler struct {
 	addr   string
+	static *servicegraph.Static
 	writer servicegraph.SerializeFn
 }
 
 // NewPromHandler returns a new http.Handler that will serve servicegraph data
 // based on queries against a prometheus backend.
-func NewPromHandler(addr string, writer servicegraph.SerializeFn) http.Handler {
-	return &promHandler{addr, writer}
+func NewPromHandler(addr string, static *servicegraph.Static, writer servicegraph.SerializeFn) http.Handler {
+	return &promHandler{addr, static, writer}
 }
 
 func (p *promHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -56,6 +57,7 @@ func (p *promHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	g, err := p.generate(genOpts{timeHorizon})
+	g.Merge(p.static)
 	if err != nil {
 		writeError(w, err)
 		return
