@@ -1,4 +1,4 @@
-# Copyright 2016 IBM Corporation
+# Copyright 2017 Istio Authors
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -19,6 +19,4 @@ COPY . /opt/microservices/
 EXPOSE 9080
 WORKDIR /opt/microservices
 
-CMD ruby details.rb 9080 http://localhost:6379
-
-
+CMD ruby details.rb 9080

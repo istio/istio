@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2016 IBM Corporation
+# Copyright 2017 Istio Authors
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -26,28 +26,27 @@ import requests
 app = Flask(__name__)
 from flask_bootstrap import Bootstrap
 Bootstrap(app)
-proxyurl=None
 
 details = {
-    "name" : "details",
+    "name" : "http://details.default.svc:9080",
     "endpoint" : "details",
     "children" : []
 }
 
 ratings = {
-    "name" : "ratings",
+    "name" : "http://ratings.default.svc:9080",
     "endpoint" : "ratings",
     "children" : []
 }
 
 reviews = {
-    "name" : "reviews",
+    "name" : "http://reviews.default.svc:9080",,
     "endpoint" : "reviews",
     "children" : [ratings]
 }
 
 productpage = {
-    "name" : "productpage",
+    "name" : "http://productpage.default.svc:9080",
     "endpoint" : "details",
     "children" : [details, reviews]
 }
@@ -112,7 +111,7 @@ def getReviews(headers):
 
     for i in range(2):
         try:
-            res = requests.get(proxyurl+"/"+reviews['name']+"/"+reviews['endpoint'], headers=headers, timeout=3.0)
+            res = requests.get(reviews['name']+"/"+reviews['endpoint'], headers=headers, timeout=3.0)
         except:
             res = None
 
@@ -125,7 +124,7 @@ def getReviews(headers):
 def getDetails(headers):
     global proxyurl
     try:
-        res = requests.get(proxyurl+"/"+details['name']+"/"+details['endpoint'], headers=headers, timeout=1.0)
+        res = requests.get(details['name']+"/"+details['endpoint'], headers=headers, timeout=1.0)
     except:
         res = None
 

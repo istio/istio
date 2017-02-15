@@ -1,4 +1,4 @@
-# Copyright 2016 IBM Corporation
+# Copyright 2017 Istio Authors
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -18,4 +18,4 @@ RUN mkdir -p /opt/microservices
 COPY . /opt/microservices/
 EXPOSE 9080
 WORKDIR /opt/microservices
-CMD python productpage.py 9080 http://localhost:6379
+CMD python productpage.py 9080
