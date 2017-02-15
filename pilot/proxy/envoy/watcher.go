@@ -15,7 +15,6 @@
 package envoy
 
 import (
-	"net"
 	"reflect"
 	"time"
 
@@ -28,6 +27,12 @@ import (
 type Watcher interface {
 }
 
+// ProxyNode provides the local proxy node name and IP address
+type ProxyNode struct {
+	Name string
+	IP   string
+}
+
 type watcher struct {
 	agent     Agent
 	discovery model.ServiceDiscovery
@@ -38,37 +43,37 @@ type watcher struct {
 
 // NewWatcher creates a new watcher instance with an agent
 func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
-	registry *model.IstioRegistry, mesh *MeshConfig) (Watcher, error) {
-	addrs, err := hostIP()
-	glog.V(2).Infof("host IPs: %v", addrs)
-	if err != nil {
-		return nil, err
+	registry *model.IstioRegistry, mesh *MeshConfig, identity *ProxyNode) (Watcher, error) {
+	addrs := make(map[string]bool)
+	if identity.IP != "" {
+		addrs[identity.IP] = true
 	}
+	glog.V(2).Infof("Local instance address: %#v", addrs)
 
 	out := &watcher{
-		agent:     NewAgent(mesh.BinaryPath, mesh.ConfigPath),
+		agent:     NewAgent(mesh.BinaryPath, mesh.ConfigPath, identity.Name),
 		discovery: discovery,
 		registry:  registry,
 		mesh:      mesh,
 		addrs:     addrs,
 	}
 
-	if err = ctl.AppendServiceHandler(func(*model.Service, model.Event) { out.reload() }); err != nil {
+	if err := ctl.AppendServiceHandler(func(*model.Service, model.Event) { out.reload() }); err != nil {
 		return nil, err
 	}
 
 	// TODO: restrict the notification callback to co-located instances (e.g. with the same IP)
-	if err = ctl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { out.reload() }); err != nil {
+	if err := ctl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { out.reload() }); err != nil {
 		return nil, err
 	}
 
 	handler := func(model.Key, proto.Message, model.Event) { out.reload() }
 
-	if err = ctl.AppendConfigHandler(model.RouteRule, handler); err != nil {
+	if err := ctl.AppendConfigHandler(model.RouteRule, handler); err != nil {
 		return nil, err
 	}
 
-	if err = ctl.AppendConfigHandler(model.Destination, handler); err != nil {
+	if err := ctl.AppendConfigHandler(model.Destination, handler); err != nil {
 		return nil, err
 	}
 
@@ -76,8 +81,9 @@ func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 }
 
 func (w *watcher) reload() {
-	// FIXME: namespace?
-	config := Generate(w.discovery.HostInstances(w.addrs), w.discovery.Services(),
+	config := Generate(
+		w.discovery.HostInstances(w.addrs),
+		w.discovery.Services(),
 		w.registry, w.mesh)
 	current := w.agent.ActiveConfig()
 
@@ -96,21 +102,4 @@ func (w *watcher) reload() {
 	// The condition occurs when the active Envoy instance terminates in the middle of
 	// the Reload() function.
 	time.Sleep(256 * time.Millisecond)
-}
-
-// hostIP returns IPv4 non-loopback host addresses
-func hostIP() (map[string]bool, error) {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[string]bool, 0)
-	for _, addr := range addrs {
-		if ip, ok := addr.(*net.IPNet); ok {
-			if !ip.IP.IsLoopback() && ip.IP.To4() != nil {
-				out[ip.IP.String()] = true
-			}
-		}
-	}
-	return out, nil
 }

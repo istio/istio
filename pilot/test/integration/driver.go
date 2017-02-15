@@ -73,7 +73,7 @@ func init() {
 		"Docker tag")
 	flag.StringVarP(&namespace, "namespace", "n", "",
 		"Namespace to use for testing (empty to create/delete temporary one)")
-	flag.BoolVarP(&verbose, "verbose", "v", false,
+	flag.BoolVarP(&verbose, "dump", "d", false,
 		"Dump proxy logs and request logs")
 }
 
@@ -109,12 +109,12 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Println("pods:", pods)
-	if verbose {
-		dumpProxyLogs(pods["a"])
-		dumpProxyLogs(pods["b"])
-	}
 
 	if err := checkBasicReachability(pods); err != nil {
+		if verbose {
+			dumpProxyLogs(pods["a"])
+			dumpProxyLogs(pods["b"])
+		}
 		log.Fatal(err)
 	}
 	if err := checkRouting(pods); err != nil {

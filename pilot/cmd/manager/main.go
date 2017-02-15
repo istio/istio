@@ -16,6 +16,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -37,6 +38,7 @@ type args struct {
 	client     *kube.Client
 	server     serverArgs
 	proxy      envoy.MeshConfig
+	identity   envoy.ProxyNode
 }
 
 type serverArgs struct {
@@ -71,9 +73,9 @@ Istio Manager provides management plane functionality to the Istio proxy mesh an
 		},
 	}
 
-	serverCmd = &cobra.Command{
-		Use:   "server",
-		Short: "Start Istio Manager service",
+	discoveryCmd = &cobra.Command{
+		Use:   "discovery",
+		Short: "Start Istio Manager discovery service",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			controller := kube.NewController(flags.client, flags.namespace, resyncPeriod)
 			sds := envoy.NewDiscoveryService(controller, flags.server.sdsPort)
@@ -87,11 +89,17 @@ Istio Manager provides management plane functionality to the Istio proxy mesh an
 
 	proxyCmd = &cobra.Command{
 		Use:   "proxy",
-		Short: "Start Istio Proxy sidecar agent",
+		Short: "Istio Proxy agent",
+	}
+
+	sidecarCmd = &cobra.Command{
+		Use:   "sidecar",
+		Short: "Istio Proxy sidecar agent",
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			setFlagsFromEnv()
 			controller := kube.NewController(flags.client, flags.namespace, resyncPeriod)
 			_, err = envoy.NewWatcher(controller, controller, &model.IstioRegistry{ConfigRegistry: controller},
-				&flags.proxy)
+				&flags.proxy, &flags.identity)
 			if err != nil {
 				return
 			}
@@ -104,7 +112,7 @@ Istio Manager provides management plane functionality to the Istio proxy mesh an
 
 	egressCmd = &cobra.Command{
 		Use:   "egress",
-		Short: "Start Istio Proxy external service agent",
+		Short: "Istio Proxy external service agent",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// TODO: implement this method
 			stop := make(chan struct{})
@@ -118,13 +126,16 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&flags.kubeconfig, "kubeconfig", "c", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	rootCmd.PersistentFlags().StringVarP(&flags.namespace, "namespace", "n", "",
-		"Select the specified namespace instead of all namespaces")
+		"Select the specified namespace for the Kubernetes controller to watch instead of all namespaces")
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
-	serverCmd.PersistentFlags().IntVarP(&flags.server.sdsPort, "port", "p", 8080,
+	discoveryCmd.PersistentFlags().IntVarP(&flags.server.sdsPort, "port", "p", 8080,
 		"Discovery service port")
-	rootCmd.AddCommand(serverCmd)
 
+	proxyCmd.PersistentFlags().StringVar(&flags.identity.IP, "nodeIP", "",
+		"Proxy node IP address. If not provided uses ${POD_IP} environment variable.")
+	proxyCmd.PersistentFlags().StringVar(&flags.identity.Name, "nodeName", "",
+		"Proxy node name. If not provided uses ${POD_NAME}.${POD_NAMESPACE}")
 	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.DiscoveryAddress, "sds", "s", "manager:8080",
 		"Discovery service DNS address")
 	proxyCmd.PersistentFlags().IntVarP(&flags.proxy.ProxyPort, "port", "p", 5001,
@@ -137,10 +148,12 @@ func init() {
 		"Envoy config root location")
 	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.MixerAddress, "mixer", "m", "",
 		"Mixer DNS address (or empty to disable Mixer)")
-	rootCmd.AddCommand(proxyCmd)
-	proxyCmd.AddCommand(egressCmd)
 
+	rootCmd.AddCommand(discoveryCmd)
 	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(proxyCmd)
+	proxyCmd.AddCommand(sidecarCmd)
+	proxyCmd.AddCommand(egressCmd)
 }
 
 func main() {
@@ -156,4 +169,15 @@ func waitSignal(stop chan struct{}) {
 	<-sigs
 	close(stop)
 	glog.Flush()
+}
+
+// setFlagsFromEnv sets default values for flags that are not specified
+func setFlagsFromEnv() {
+	if flags.identity.IP == "" {
+		flags.identity.IP = os.Getenv("POD_IP")
+	}
+	if flags.identity.Name == "" {
+		flags.identity.Name = fmt.Sprintf("%s.%s", os.Getenv("POD_NAME"), os.Getenv("POD_NAMESPACE"))
+	}
+
 }

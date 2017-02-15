@@ -54,10 +54,24 @@ spec:
           runAsUser: 1337
         args:
           - proxy
+          - sidecar
           - -s
           - manager:8080
           - --logtostderr
           - -v
           - "2"
         imagePullPolicy: Always
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
 ---

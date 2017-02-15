@@ -194,7 +194,7 @@ func buildOutboundFilters(instances []*model.ServiceInstance, services []*model.
 				http := httpConfigs.EnsurePort(port.Port)
 				http.VirtualHosts = append(http.VirtualHosts, host)
 			default:
-				glog.Warningf("Unsupported outbound protocol %v for port %d", port.Protocol, port)
+				glog.Warningf("Unsupported outbound protocol %v for port %d", port.Protocol, port.Port)
 			}
 		}
 	}

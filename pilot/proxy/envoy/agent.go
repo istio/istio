@@ -34,6 +34,11 @@ type agent struct {
 	binary string
 	// Envoy config root
 	configRoot string
+	// serviceCluster is the first component of the local proxy identityi (cluster name)
+	serviceCluster string
+	// serviceNode is the second component of the local proxy identity (node name)
+	serviceNode string
+
 	// Map of known running Envoy processes and their restart epochs.
 	cmdMap map[*exec.Cmd]instance
 	// mutex protects cmdMap
@@ -48,14 +53,29 @@ type instance struct {
 const (
 	// EnvoyFileTemplate is a template for the root config JSON
 	EnvoyFileTemplate = "%s/envoy-rev%d.json"
+
+	// DrainTimeSeconds is the duration of the grace period to drain connections
+	// from an older proxy instance
+	DrainTimeSeconds = 30
+
+	// ParentShutdownTimeSeconds is the duration to wait to shutdown the older
+	// proxy instance
+	ParentShutdownTimeSeconds = 45
+
+	// ServiceCluster defines the name for the service_cluster that is shared by
+	// all proxy instances. Since Istio does not assign a local service/service version
+	// to each proxy instance, the name is same for all of them
+	ServiceCluster = "istio-proxy"
 )
 
-// NewAgent creates a new proxy instance agent for a config root
-func NewAgent(binary string, configRoot string) Agent {
+// NewAgent creates a new proxy instance agent for a config root and a local node name
+func NewAgent(binary string, configRoot string, nodeName string) Agent {
 	return &agent{
-		binary:     binary,
-		configRoot: configRoot,
-		cmdMap:     make(map[*exec.Cmd]instance),
+		binary:         binary,
+		configRoot:     configRoot,
+		serviceCluster: ServiceCluster,
+		serviceNode:    nodeName,
+		cmdMap:         make(map[*exec.Cmd]instance),
 	}
 }
 
@@ -90,11 +110,18 @@ func (s *agent) Reload(config *Config) error {
 	}
 
 	// Spin up a new Envoy process
-	args := []string{"-c", fname, "--restart-epoch", fmt.Sprint(epoch),
-		"--drain-time-s", "60", "--parent-shutdown-time-s", "90"}
+	args := []string{"-c", fname,
+		"--restart-epoch", fmt.Sprint(epoch),
+		"--drain-time-s", fmt.Sprint(DrainTimeSeconds),
+		"--parent-shutdown-time-s", fmt.Sprint(ParentShutdownTimeSeconds),
+		"--service-cluster", s.serviceCluster,
+		"--service-node", s.serviceNode,
+	}
+
 	if glog.V(3) {
 		args = append(args, "-l", "debug")
 	}
+
 	if glog.V(2) {
 		if err := config.Write(os.Stderr); err != nil {
 			glog.Error(err)
@@ -102,6 +129,7 @@ func (s *agent) Reload(config *Config) error {
 	}
 
 	glog.V(2).Infof("Envoy starting: %v", args)
+
 	/* #nosec */
 	cmd := exec.Command(s.binary, args...)
 	cmd.Stdout = os.Stdout
