@@ -16,7 +16,6 @@ var http = require('http');
 var dispatcher = require('httpdispatcher');
 
 port = parseInt(process.argv[2]);
-proxyURL = process.argv[3];
 
 var ratingsResponse = {"Reviewer1": 5, "Reviewer2": 4}
 
@@ -69,5 +68,5 @@ function handleRequest(request, response){
 var server = http.createServer(handleRequest);
 
 server.listen(port, function(){
-    console.log("Server listening on: http://localhost:%s", port);
+    console.log("Server listening on: http://0.0.0.0:%s", port);
 });

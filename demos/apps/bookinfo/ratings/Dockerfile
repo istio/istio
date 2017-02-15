@@ -15,4 +15,4 @@
 FROM node:4-onbuild
 
 EXPOSE 9080
-CMD node ratings.js 9080 http://localhost:6379
+CMD node ratings.js 9080

@@ -2,8 +2,6 @@ FROM websphere-liberty:latest
 
 ENV SERVERDIRNAME reviews
 
-COPY ./startup.sh /opt/startup.sh
-
 ADD ./servers/LibertyProjectServer /opt/ibm/wlp/usr/servers/defaultServer/
 
 RUN /opt/ibm/wlp/bin/installUtility install  --acceptLicense /opt/ibm/wlp/usr/servers/defaultServer/server.xml

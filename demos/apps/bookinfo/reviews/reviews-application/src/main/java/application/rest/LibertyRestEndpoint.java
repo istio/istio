@@ -41,7 +41,7 @@ public class LibertyRestEndpoint extends Application {
 
     private final static Boolean ratings_enabled = Boolean.valueOf(System.getenv("ENABLE_RATINGS"));
     private final static String star_color = System.getenv("STAR_COLOR") == null ? "black" : System.getenv("STAR_COLOR");
-    private final static String ratings_service = System.getenv("PROXY_SERVICE") == null ? "http://127.0.0.1:6379/ratings/ratings" : System.getenv("PROXY_SERVICE")+"/ratings/ratings";
+    private final static String ratings_service = "http://ratings.default.svc:9080/ratings";
 
     private final static String review_resp = ""+
       "<blockquote>"+
