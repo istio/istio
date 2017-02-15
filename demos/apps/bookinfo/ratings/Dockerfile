@@ -1,4 +1,4 @@
-# Copyright 2016 IBM Corporation
+# Copyright 2017 Istio Authors
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -15,4 +15,4 @@
 FROM node:4-onbuild
 
 EXPOSE 9080
-CMD node ratings.js 9080 http://localhost:6379
+CMD node ratings.js 9080
