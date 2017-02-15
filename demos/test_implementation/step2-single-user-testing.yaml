@@ -2,8 +2,8 @@ destination: "reviews.default.svc.cluster.local"
 precedence: 2
 match:
   http:
-    cookie:
-      regex: ".+?(user=jason)"
+    Cookie:
+      regex: "^(.*?;)?(user=jason)(;.*)?$"
 route:
   - tags:
        version: v2

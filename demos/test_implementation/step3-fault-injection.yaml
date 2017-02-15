@@ -3,8 +3,8 @@ tags:
   version: v1
 http_fault:
   headers:
-    cookie:
-      regex: ".+?(user=jason)"
+    Cookie:
+      regex: "^(.*?;)?(user=jason)(;.*)?$"
   delay:
     fixed_delay:
       percent: 100
