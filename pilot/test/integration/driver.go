@@ -87,7 +87,12 @@ func init() {
 
 func main() {
 	flag.Parse()
+	if err := endToEndTest(); err != nil {
+		log.Fatal(err)
+	}
+}
 
+func endToEndTest() error {
 	if tag == "" {
 		// tag is the date with format <username>_YYYYMMDD-HHMMSS
 		user, err := user.Current()
@@ -105,31 +110,32 @@ func main() {
 
 	// connect to k8s and set up TPRs
 	if err := setup(); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if namespace == "" {
 		var err error
 		if namespace, err = generateNamespace(client); err != nil {
-			log.Fatal(err)
+			return err
 		}
+
 		defer func() {
 			deleteNamespace(client, namespace)
 		}()
 	}
 
 	if err := setupManager(); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if err := setupSimpleApp(); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if err := setupVersionedApp(); err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	pods, err := getPods()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	log.Println("pods:", pods)
 
@@ -145,6 +151,8 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+
+	return nil
 }
 
 func prepareDockerImages() error {
