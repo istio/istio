@@ -5,7 +5,7 @@ build.reviews:
 	@GOOS=linux GOARCH=amd64 go build -o reviews reviews.go
 
 build.ratings:
-	@GOOS=linux GOARCH=amd64 go build -o ratings details.go
+	@GOOS=linux GOARCH=amd64 go build -o ratings ratings.go
 
 build.details:
 	@GOOS=linux GOARCH=amd64 go build -o details details.go
