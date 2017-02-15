@@ -19,6 +19,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -30,15 +31,31 @@ var requests = prometheus.NewCounterVec(
 		Name: "request_count",
 		Help: "requests",
 	},
-	[]string{"source", "target", "service"},
+	[]string{"source", "target", "service", "response_code"},
 )
+
+// List of response codes from which to randomly draw.
+// OK appears most frequently, because we want most of the response codes
+// to be non-error cases for this demo system.
+var responseCodes = []int{
+	http.StatusOK,
+	http.StatusOK,
+	http.StatusOK,
+	http.StatusOK,
+	http.StatusOK,
+	http.StatusOK,
+	http.StatusOK,
+	http.StatusBadRequest,
+	http.StatusNotFound,
+	http.StatusInternalServerError,
+}
 
 func init() {
 	prometheus.MustRegister(requests)
 }
 
-func incrReq(source, target, service string) {
-	requests.WithLabelValues(source, target, service).Inc()
+func incrReq(source, target, service string, code int) {
+	requests.WithLabelValues(source, target, service, strconv.Itoa(code)).Inc()
 }
 
 func main() {
@@ -55,7 +72,8 @@ func main() {
 				source := fmt.Sprintf("App %d", s)
 				target := fmt.Sprintf("App %d", t)
 				service := fmt.Sprintf("Service %d", rand.Intn(5))
-				incrReq(source, target, service)
+				code := responseCodes[rand.Intn(len(responseCodes))]
+				incrReq(source, target, service, code)
 			}
 		}()
 	}
