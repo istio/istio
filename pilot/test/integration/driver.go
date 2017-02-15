@@ -26,6 +26,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/user"
 	"regexp"
 	"strconv"
 	"strings"
@@ -59,6 +60,7 @@ var (
 	hub         string
 	tag         string
 	namespace   string
+	layers      string
 	verbose     bool
 	norouting   bool
 	client      *kubernetes.Clientset
@@ -66,23 +68,41 @@ var (
 )
 
 func init() {
+
 	flag.StringVarP(&kubeconfig, "config", "c", "platform/kube/config",
 		"kube config file or empty for in-cluster")
 	flag.StringVarP(&hub, "hub", "h", "gcr.io/istio-testing",
 		"Docker hub")
-	flag.StringVarP(&tag, "tag", "t", "test",
-		"Docker tag")
+	flag.StringVarP(&tag, "tag", "t", "",
+		"Docker tag (default <username>_YYYMMDD_HHMMSS formatted date)")
 	flag.StringVarP(&namespace, "namespace", "n", "",
 		"Namespace to use for testing (empty to create/delete temporary one)")
 	flag.BoolVarP(&verbose, "dump", "d", false,
 		"Dump proxy logs and request logs")
-	flag.BoolVar(&norouting, "norouting", false,
+	flag.BoolVar(&norouting, "norouting", true,
 		"Disable route rule tests")
+	flag.StringVar(&layers, "layers", "docker",
+		"path to directory with manager docker layers")
 }
 
 func main() {
 	flag.Parse()
+
+	if tag == "" {
+		// tag is the date with format <username>_YYYYMMDD-HHMMSS
+		user, err := user.Current()
+		if err != nil {
+			log.Fatal(err)
+		}
+		tag = fmt.Sprintf("%s_%s", user.Username, time.Now().UTC().Format("20160102_150405"))
+	}
+
 	log.Printf("hub %v, tag %v", hub, tag)
+
+	if err := prepareDockerImages(); err != nil {
+		log.Fatal(err)
+	}
+
 	// connect to k8s and set up TPRs
 	if err := setup(); err != nil {
 		log.Fatal(err)
@@ -125,6 +145,34 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+}
+
+func prepareDockerImages() error {
+	if strings.HasPrefix(hub, "gcr.io") {
+		if err := run("gcloud docker --authorize-only"); err != nil {
+			return err
+		}
+	}
+
+	re := regexp.MustCompile(`Loaded image ID: sha256:([a-zA-Z0-9]{10,})`)
+	for _, image := range []string{"app", "init", "runtime"} {
+		out, err := shell(fmt.Sprintf("docker load -i %s/%s-layer.tar", layers, image), true)
+		if err != nil {
+			return err
+		}
+		groups := re.FindStringSubmatch(out)
+		if len(groups) != 2 {
+			return fmt.Errorf("could not find docker Image ID for %q: %q", image, out)
+		}
+		srcTag := groups[1][:10]
+		if err := run(fmt.Sprintf("docker tag %s %s/%s:%s", srcTag, hub, image, tag)); err != nil {
+			return err
+		}
+		if err := run(fmt.Sprintf("docker push %s/%s:%s", hub, image, tag)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func setupManager() error {

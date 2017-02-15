@@ -158,7 +158,7 @@ Login to your docker hub account
 
 Run a end to end test to make sure the VM can talk to minikube
 
-    ./bin/e2e.sh
+    bazel run //test/integration -- --hub docker.io/<yourusername>
 
 ### 4. Use your favorite IDE on the host
 
@@ -171,6 +171,6 @@ commands described in the the build instructions section below.
 
 Run the end to end integration tests in the VM
 
-    ./bin/e2e.sh -h docker.io/<yourusername>
+    bazel run //test/integration -- --hub docker.io/<yourusername>
 
 Note that this script will push some images to your dockerhub account.

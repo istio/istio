@@ -49,7 +49,7 @@ def presubmit(gitUtils, bazel) {
       bazel.test('//...')
     }
     stage('Integration Tests') {
-      sh('bin/e2e.sh -t alpha' + gitUtils.GIT_SHA + ' -d -c ""')
+      bazel.run('//test/integration -- -t alpha-' + gitUtils.GIT_SHA + ' -d -c ""')
     }
   }
 }
