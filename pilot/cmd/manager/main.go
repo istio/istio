@@ -110,6 +110,24 @@ Istio Manager provides management plane functionality to the Istio proxy mesh an
 		},
 	}
 
+	ingressCmd = &cobra.Command{
+		Use:   "ingress",
+		Short: "Istio Proxy ingress controller",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			setFlagsFromEnv()
+			controller := kube.NewController(flags.client, flags.namespace, resyncPeriod)
+			_, err := envoy.NewIngressWatcher(controller, controller, &model.IstioRegistry{ConfigRegistry: controller},
+				&flags.proxy, &flags.identity)
+			if err != nil {
+				return err
+			}
+			stop := make(chan struct{})
+			go controller.Run(stop)
+			waitSignal(stop)
+			return nil
+		},
+	}
+
 	egressCmd = &cobra.Command{
 		Use:   "egress",
 		Short: "Istio Proxy external service agent",
@@ -153,6 +171,7 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(proxyCmd)
 	proxyCmd.AddCommand(sidecarCmd)
+	proxyCmd.AddCommand(ingressCmd)
 	proxyCmd.AddCommand(egressCmd)
 }
 

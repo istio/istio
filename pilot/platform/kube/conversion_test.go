@@ -65,3 +65,50 @@ func TestConvertProtocol(t *testing.T) {
 		}
 	}
 }
+
+func TestDecodeIngressRuleName(t *testing.T) {
+	cases := []struct {
+		ingressName string
+		ruleNum     int
+		pathNum     int
+	}{
+		{"myingress", 0, 0},
+		{"myingress", 1, 2},
+		{"my-ingress", 1, 2},
+		{"my-cool-ingress", 1, 2},
+	}
+
+	for _, c := range cases {
+		encoded := encodeIngressRuleName(c.ingressName, c.ruleNum, c.pathNum)
+		ingressName, ruleNum, pathNum, err := decodeIngressRuleName(encoded)
+		if err != nil {
+			t.Errorf("decodeIngressRuleName(%q) => error %v", encoded, err)
+		}
+		if ingressName != c.ingressName || ruleNum != c.ruleNum || pathNum != c.pathNum {
+			t.Errorf("decodeIngressRuleName(%q) => (%q, %d, %d), want (%q, %d, %d)",
+				encoded,
+				ingressName, ruleNum, pathNum,
+				c.ingressName, c.ruleNum, c.pathNum,
+			)
+		}
+	}
+}
+
+func TestIsRegularExpression(t *testing.T) {
+	cases := []struct {
+		s       string
+		isRegex bool
+	}{
+		{"/api/v1/", false},
+		{"/api/v1/.*", true},
+		{"/api/.*/resource", true},
+		{"/api/v[1-9]/resource", true},
+		{"/api/.*/.*", true},
+	}
+
+	for _, c := range cases {
+		if isRegularExpression(c.s) != c.isRegex {
+			t.Errorf("isRegularExpression(%q) => %v, want %v", c.s, !c.isRegex, c.isRegex)
+		}
+	}
+}

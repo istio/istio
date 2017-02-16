@@ -177,6 +177,12 @@ func ValidateRouteRule(msg proto.Message) error {
 	return nil
 }
 
+// ValidateIngressRule checks ingress rules
+func ValidateIngressRule(msg proto.Message) error {
+	// TODO: Add ingress-only validation checks, if any?
+	return ValidateRouteRule(msg)
+}
+
 // ValidateDestination checks proxy policies
 func ValidateDestination(msg proto.Message) error {
 	value, ok := msg.(*proxyconfig.Destination)

@@ -15,6 +15,7 @@
 package model
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/golang/glog"
@@ -38,6 +39,11 @@ type Key struct {
 	Name string
 	// Namespace qualifies names
 	Namespace string
+}
+
+// String returns a human-readable textual representation of a key
+func (k Key) String() string {
+	return fmt.Sprintf("%s/%s-%s", k.Namespace, k.Kind, k.Name)
 }
 
 // ConfigRegistry defines the basic API for retrieving and storing configuration
@@ -82,6 +88,11 @@ const (
 	// RouteRuleProto message name
 	RouteRuleProto = "istio.proxy.v1alpha.config.RouteRule"
 
+	// IngressRule kind
+	IngressRule = "ingress-rule"
+	// IngressRuleProto message name
+	IngressRuleProto = RouteRuleProto
+
 	// Destination defines the kind for the destination policy configuration
 	Destination = "destination"
 	// DestinationProto message name
@@ -95,6 +106,10 @@ var (
 			MessageName: RouteRuleProto,
 			Validate:    ValidateRouteRule,
 		},
+		IngressRule: ProtoSchema{
+			MessageName: IngressRuleProto,
+			Validate:    ValidateIngressRule,
+		},
 		Destination: ProtoSchema{
 			MessageName: DestinationProto,
 			Validate:    ValidateDestination,
@@ -107,12 +122,27 @@ type IstioRegistry struct {
 	ConfigRegistry
 }
 
-// RouteRules lists all rules in a namespace (or all rules if namespace is "")
+// RouteRules lists all routing rules in a namespace (or all rules if namespace is "")
 func (i *IstioRegistry) RouteRules(namespace string) []*proxyconfig.RouteRule {
 	out := make([]*proxyconfig.RouteRule, 0)
 	rs, err := i.List(RouteRule, namespace)
 	if err != nil {
 		glog.V(2).Infof("RouteRules => %v", err)
+	}
+	for _, r := range rs {
+		if rule, ok := r.(*proxyconfig.RouteRule); ok {
+			out = append(out, rule)
+		}
+	}
+	return out
+}
+
+// IngressRules lists all ingress rules in a namespace (or all rules if namespace is "")
+func (i *IstioRegistry) IngressRules(namespace string) []*proxyconfig.RouteRule {
+	out := make([]*proxyconfig.RouteRule, 0)
+	rs, err := i.List(IngressRule, namespace)
+	if err != nil {
+		glog.V(2).Infof("IngressRules => %v", err)
 	}
 	for _, r := range rs {
 		if rule, ok := r.(*proxyconfig.RouteRule); ok {

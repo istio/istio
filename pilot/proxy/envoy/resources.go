@@ -339,7 +339,7 @@ func (s Clusters) Normalize() Clusters {
 	return out
 }
 
-// HostsByName sorts clusters by name
+// HostsByName sorts VirtualHost's by name
 type HostsByName []*VirtualHost
 
 func (s HostsByName) Len() int {
@@ -354,19 +354,38 @@ func (s HostsByName) Less(i, j int) bool {
 	return s[i].Name < s[j].Name
 }
 
-// RoutesByCluster sorts routes by name
-type RoutesByCluster []Route
+// RoutesByPath sorts routes by their path and/or prefix, such that:
+// - Exact path routes are "less than" than prefix path routes
+// - Exact path routes are sorted lexicographically
+// - Prefix path routes are sorted anti-lexicographically
+//
+// This order ensures that prefix path routes do not shadow more
+// specific routes which share the same prefix.
+type RoutesByPath []*Route
 
-func (r RoutesByCluster) Len() int {
+func (r RoutesByPath) Len() int {
 	return len(r)
 }
 
-func (r RoutesByCluster) Swap(i, j int) {
+func (r RoutesByPath) Swap(i, j int) {
 	r[i], r[j] = r[j], r[i]
 }
 
-func (r RoutesByCluster) Less(i, j int) bool {
-	return r[i].Cluster < r[j].Cluster
+func (r RoutesByPath) Less(i, j int) bool {
+	if r[i].Path != "" {
+		if r[j].Path != "" {
+			// i and j are both path
+			return r[i].Path < r[j].Path
+		}
+		// i is path and j is prefix => i is "less than" j
+		return true
+	}
+	if r[j].Path != "" {
+		// i is prefix nad j is path => j is "less than" i
+		return false
+	}
+	// i and j are both prefix
+	return r[i].Prefix > r[j].Prefix
 }
 
 // Headers sorts headers

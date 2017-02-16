@@ -7,6 +7,7 @@ go_library(
         "config.go",
         "discovery.go",
         "header.go",
+        "ingress.go",
         "policy.go",
         "resources.go",
         "route.go",
@@ -25,6 +26,9 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["route_test.go"],
+    srcs = [
+        "config_test.go",
+        "route_test.go",
+    ],
     library = ":go_default_library",
 )

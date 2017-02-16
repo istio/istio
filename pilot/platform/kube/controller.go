@@ -21,16 +21,15 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-
-	multierror "github.com/hashicorp/go-multierror"
-
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/manager/model"
 
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/client-go/pkg/runtime"
 	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/tools/cache"
@@ -45,6 +44,7 @@ type Controller struct {
 	kinds     map[string]cacheHandler
 	services  cacheHandler
 	endpoints cacheHandler
+	ingresses cacheHandler
 
 	pods *PodCache
 }
@@ -90,6 +90,14 @@ func NewController(
 		func(opts v1.ListOptions) (watch.Interface, error) {
 			return client.client.Pods(namespace).Watch(opts)
 		}))
+
+	out.ingresses = out.createInformer(&v1beta1.Ingress{}, resyncPeriod,
+		func(opts v1.ListOptions) (runtime.Object, error) {
+			return client.client.ExtensionsV1beta1().Ingresses(namespace).List(opts)
+		},
+		func(opts v1.ListOptions) (watch.Interface, error) {
+			return client.client.ExtensionsV1beta1().Ingresses(namespace).Watch(opts)
+		})
 
 	// add stores for TPR kinds
 	for _, kind := range []string{IstioKind} {
@@ -168,6 +176,15 @@ func (c *Controller) createInformer(
 
 // AppendConfigHandler adds a notification handler.
 func (c *Controller) AppendConfigHandler(k string, f func(model.Key, proto.Message, model.Event)) error {
+	switch k {
+	case model.IngressRule:
+		return c.appendIngressConfigHandler(k, f)
+	default:
+		return c.appendTPRConfigHandler(k, f)
+	}
+}
+
+func (c *Controller) appendTPRConfigHandler(k string, f func(model.Key, proto.Message, model.Event)) error {
 	c.kinds[IstioKind].handler.append(func(obj interface{}, ev model.Event) error {
 		config, ok := obj.(*Config)
 		if ok {
@@ -190,11 +207,26 @@ func (c *Controller) AppendConfigHandler(k string, f func(model.Key, proto.Messa
 	return nil
 }
 
+func (c *Controller) appendIngressConfigHandler(k string, f func(model.Key, proto.Message, model.Event)) error {
+	c.ingresses.handler.append(func(obj interface{}, ev model.Event) error {
+		// Convert the ingress into a map[Key]Message, and invoke handler for each
+		// TODO: This works well for Add and Delete events, but no so for Update:
+		// A updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
+		messages := convertIngress(*obj.(*v1beta1.Ingress), c.serviceByKey)
+		for key, message := range messages {
+			f(key, message, ev)
+		}
+		return nil
+	})
+	return nil
+}
+
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
 	if !c.services.informer.HasSynced() ||
 		!c.endpoints.informer.HasSynced() ||
-		!c.pods.informer.HasSynced() {
+		!c.pods.informer.HasSynced() ||
+		!c.ingresses.informer.HasSynced() {
 		return false
 	}
 	for kind, ctl := range c.kinds {
@@ -212,6 +244,7 @@ func (c *Controller) Run(stop chan struct{}) {
 	go c.services.informer.Run(stop)
 	go c.endpoints.informer.Run(stop)
 	go c.pods.informer.Run(stop)
+	go c.ingresses.informer.Run(stop)
 	for _, ctl := range c.kinds {
 		go ctl.informer.Run(stop)
 	}
@@ -230,6 +263,15 @@ func keyFunc(name, namespace string) string {
 
 // Get implements a registry operation
 func (c *Controller) Get(key model.Key) (proto.Message, bool) {
+	switch key.Kind {
+	case model.IngressRule:
+		return c.getIngress(key)
+	default:
+		return c.getTPR(key)
+	}
+}
+
+func (c *Controller) getTPR(key model.Key) (proto.Message, bool) {
 	if err := c.client.mapping.ValidateKey(&key); err != nil {
 		glog.Warning(err)
 		return nil, false
@@ -260,18 +302,75 @@ func (c *Controller) Get(key model.Key) (proto.Message, bool) {
 	return out, true
 }
 
+func (c *Controller) getIngress(key model.Key) (proto.Message, bool) {
+	ingressName, _, _, err := decodeIngressRuleName(key.Name)
+	if err != nil {
+		glog.V(2).Infof("getIngress(%s) => error %v", key.String(), err)
+		return nil, false
+	}
+	storeKey := keyFunc(ingressName, key.Namespace)
+
+	obj, exists, err := c.ingresses.informer.GetStore().GetByKey(storeKey)
+	if err != nil {
+		glog.V(2).Infof("getIngress(%s) => error %v", key.String(), err)
+		return nil, false
+	}
+	if !exists {
+		return nil, false
+	}
+
+	messages := convertIngress(*obj.(*v1beta1.Ingress), c.serviceByKey)
+	message, exists := messages[key]
+	return message, exists
+}
+
 // Put implements a registry operation
-func (c *Controller) Put(k model.Key, v proto.Message) error {
-	return c.client.Put(k, v)
+func (c *Controller) Put(key model.Key, val proto.Message) error {
+	switch key.Kind {
+	case model.IngressRule:
+		return c.putIngress(key, val)
+	default:
+		return c.putTPR(key, val)
+	}
+}
+
+func (c *Controller) putTPR(key model.Key, val proto.Message) error {
+	return c.client.Put(key, val)
+}
+
+func (c *Controller) putIngress(key model.Key, val proto.Message) error {
+	return fmt.Errorf("unsupported operation: cannot put a config element of kind '%s'", key.Kind)
 }
 
 // Delete implements a registry operation
 func (c *Controller) Delete(key model.Key) error {
+	switch key.Kind {
+	case model.IngressRule:
+		return c.deleteIngress(key)
+	default:
+		return c.deleteTPR(key)
+	}
+}
+
+func (c *Controller) deleteTPR(key model.Key) error {
 	return c.client.Delete(key)
+}
+
+func (c *Controller) deleteIngress(key model.Key) error {
+	return fmt.Errorf("unsupported operation: cannot delete a config element of kind '%s'", key.Kind)
 }
 
 // List implements a registry operation
 func (c *Controller) List(kind, namespace string) (map[model.Key]proto.Message, error) {
+	switch kind {
+	case model.IngressRule:
+		return c.listIngresses(kind, namespace)
+	default:
+		return c.listTPRs(kind, namespace)
+	}
+}
+
+func (c *Controller) listTPRs(kind, namespace string) (map[model.Key]proto.Message, error) {
 	if _, ok := c.client.mapping[kind]; !ok {
 		return nil, fmt.Errorf("Missing kind %q", kind)
 	}
@@ -296,6 +395,22 @@ func (c *Controller) List(kind, namespace string) (map[model.Key]proto.Message, 
 		}
 	}
 	return out, errs
+}
+
+func (c *Controller) listIngresses(kind, namespace string) (map[model.Key]proto.Message, error) {
+	out := make(map[model.Key]proto.Message, 0)
+
+	for _, obj := range c.ingresses.informer.GetStore().List() {
+		ingress, ok := obj.(*v1beta1.Ingress)
+		if ok && (namespace == "" || ingress.GetObjectMeta().GetNamespace() == namespace) {
+			ingressRules := convertIngress(*ingress, c.serviceByKey)
+			for key, message := range ingressRules {
+				out[key] = message
+			}
+		}
+	}
+
+	return out, nil
 }
 
 // Services implements a service catalog operation
