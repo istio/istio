@@ -16,6 +16,7 @@ package envoy
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"sort"
@@ -215,9 +216,16 @@ func buildInboundFilters(instances []*model.ServiceInstance) RouteConfigs {
 		port := instance.Endpoint.ServicePort
 		switch port.Protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
-			cluster := buildInboundCluster(instance.Endpoint.Port, instance.Endpoint.ServicePort.Protocol)
+			cluster := buildInboundCluster(instance.Endpoint.Port, port.Protocol)
 			route := buildDefaultRoute(cluster)
 			host := buildVirtualHost(instance.Service, port, suffix, []*Route{route})
+
+			// insert explicit instance ip:port as a hostname field
+			host.Domains = append(host.Domains, fmt.Sprintf("%s:%d", instance.Endpoint.Address, instance.Endpoint.Port))
+			if instance.Endpoint.Port == 80 {
+				host.Domains = append(host.Domains, instance.Endpoint.Address)
+			}
+
 			http := httpConfigs.EnsurePort(instance.Endpoint.Port)
 			http.VirtualHosts = append(http.VirtualHosts, host)
 		default:
