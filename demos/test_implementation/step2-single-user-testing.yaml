@@ -1,0 +1,15 @@
+apiVersion: istio.io/v1alpha1
+kind: IstioConfig
+metadata:
+  name: route-rule-content-route
+  namespace: default
+spec:
+  destination: reviews.default.svc.cluster.local
+  precedence: 2
+  match:
+    http:
+      Cookie:
+        regex: "^(.*?;)?(user=jason)(;.*)?$"
+  route:
+    - tags:
+        version: v2
