@@ -40,7 +40,7 @@ ratings = {
 }
 
 reviews = {
-    "name" : "http://reviews.default.svc:9080",,
+    "name" : "http://reviews.default.svc:9080",
     "endpoint" : "reviews",
     "children" : [ratings]
 }
@@ -107,8 +107,6 @@ def front():
     return render_template('productpage.html', details=bookdetails, reviews=bookreviews, user=user)
 
 def getReviews(headers):
-    global proxyurl
-
     for i in range(2):
         try:
             res = requests.get(reviews['name']+"/"+reviews['endpoint'], headers=headers, timeout=3.0)
@@ -122,7 +120,6 @@ def getReviews(headers):
 
 
 def getDetails(headers):
-    global proxyurl
     try:
         res = requests.get(details['name']+"/"+details['endpoint'], headers=headers, timeout=1.0)
     except:
@@ -146,11 +143,10 @@ class Writer(object):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print "usage: %s port proxyurl" % (sys.argv[0])
+        print "usage: %s port" % (sys.argv[0])
         sys.exit(-1)
 
     p = int(sys.argv[1])
-    proxyurl = sys.argv[2]
     sys.stderr = Writer('stderr.log')
     sys.stdout = Writer('stdout.log')
     logging.basicConfig(filename='microservice.log',filemode='w',level=logging.DEBUG)
