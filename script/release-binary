@@ -38,7 +38,7 @@ gsutil stat "${DST}/${BINARY_NAME}" \
 # Build the binary
 bazel build -c dbg //src/envoy/mixer:envoy_tar
 BAZEL_TARGET="bazel-bin/src/envoy/mixer/envoy_tar.tar.gz"
-ln "${BAZEL_TARGET}" "${BINARY_NAME}"
+cp -f "${BAZEL_TARGET}" "${BINARY_NAME}"
 sha256sum "${BINARY_NAME}" > "${SHA256_NAME}"
 
 # Copy it to the bucket.
