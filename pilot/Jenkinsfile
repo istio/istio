@@ -49,10 +49,7 @@ def presubmit(gitUtils, bazel) {
       bazel.test('//...')
     }
     stage('Integration Tests') {
-      bazel.run('//docker:app')
-      bazel.run('//docker:init')
-      bazel.run('//docker:runtime')
-      bazel.run('//test/integration -- -t alpha-' + gitUtils.GIT_SHA + ' -d -c ""')
+      sh('bin/e2e.sh -t alpha' + gitUtils.GIT_SHA + ' -d --in_cluster_config')
     }
   }
 }
