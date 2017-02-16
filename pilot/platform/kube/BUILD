@@ -43,6 +43,7 @@ filegroup(
 
 go_test(
     name = "go_default_test",
+    size = "small",
     srcs = [
         "conversion_test.go",
         "kube_test.go",

@@ -26,6 +26,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
+    size = "small",
     srcs = [
         "config_test.go",
         "route_test.go",
