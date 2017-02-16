@@ -1,5 +1,7 @@
 # Istio Authentication Module
 
+[![Build Status](https://travis-ci.org/istio/auth.svg?branch=master)](https://travis-ci.org/istio/auth)
+
 The idea of [service
 mesh](https://docs.google.com/document/d/1RRPrDK0mEwhPb13DSyF6pODugrRTFLAXia9CZLPoQno/edit)
 has been proposed that injects high-level networking functionality in
