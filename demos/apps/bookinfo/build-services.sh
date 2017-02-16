@@ -19,11 +19,11 @@ set -o errexit
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 pushd $SCRIPTDIR/productpage
-  docker build -t istio/examples-bookinfo-productpage:v1 .
+  docker build -t istio/examples-bookinfo-productpage-v1 .
 popd
 
 pushd $SCRIPTDIR/details
-  docker build -t istio/examples-bookinfo-details:v1 .
+  docker build -t istio/examples-bookinfo-details-v1 .
 popd
 
 pushd $SCRIPTDIR/reviews
@@ -31,14 +31,14 @@ pushd $SCRIPTDIR/reviews
   docker run --rm -v `pwd`:/usr/bin/app:rw niaquinto/gradle clean build
   pushd reviews-wlpcfg
     #plain build -- no ratings
-    docker build -t istio/examples-bookinfo-reviews:v1 --build-arg service_version=v1 .
+    docker build -t istio/examples-bookinfo-reviews-v1 --build-arg service_version=v1 .
     #with ratings black stars
-    docker build -t istio/examples-bookinfo-reviews:v2 --build-arg service_version=v2 --build-arg enable_ratings=true .
+    docker build -t istio/examples-bookinfo-reviews-v2 --build-arg service_version=v2 --build-arg enable_ratings=true .
     #with ratings red stars
-    docker build -t istio/examples-bookinfo-reviews:v3 --build-arg service_version=v3 --build-arg enable_ratings=true --build-arg star_color=red .
+    docker build -t istio/examples-bookinfo-reviews-v3 --build-arg service_version=v3 --build-arg enable_ratings=true --build-arg star_color=red .
   popd
 popd
 
 pushd $SCRIPTDIR/ratings
-  docker build -t istio/examples-bookinfo-ratings:v1 .
+  docker build -t istio/examples-bookinfo-ratings-v1 .
 popd
