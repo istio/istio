@@ -43,8 +43,6 @@ spec:
           - "{{.port1}}"
           - --port
           - "{{.port2}}"
-          - --version
-          - "unversioned"
         ports:
         - containerPort: {{.port1}}
         - containerPort: {{.port2}}
@@ -57,6 +55,8 @@ spec:
           - sidecar
           - -s
           - manager:8080
+          - -n
+          - {{.namespace}}
           - --logtostderr
           - -v
           - "2"

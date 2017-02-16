@@ -33,4 +33,5 @@ go_binary(
         "//platform/kube:kubeconfig",
     ],
     library = ":go_default_library",
+    tags = ["manual"],
 )

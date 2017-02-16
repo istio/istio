@@ -118,7 +118,9 @@ func (s *agent) Reload(config *Config) error {
 		"--service-node", s.serviceNode,
 	}
 
-	if glog.V(3) {
+	if glog.V(4) {
+		args = append(args, "-l", "trace")
+	} else if glog.V(3) {
 		args = append(args, "-l", "debug")
 	}
 
