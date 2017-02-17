@@ -28,4 +28,8 @@
 *.out
 *.app
 
+# Intellij
+*.iml
+.idea/*
+
 /bazel-*
