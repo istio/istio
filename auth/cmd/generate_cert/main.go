@@ -25,7 +25,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/istio/auth/cert_manager"
+	"istio.io/auth/cert_manager"
 )
 
 var (
