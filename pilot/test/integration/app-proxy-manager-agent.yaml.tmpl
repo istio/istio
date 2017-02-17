@@ -58,6 +58,8 @@ spec:
           - sidecar
           - -s
           - manager:8080
+          - -m
+          - mixer:9091
           - -n
           - {{.namespace}}
           - --logtostderr
@@ -77,4 +79,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.podIP
+      - name: debug
+        image: docker.io/istio/debug:test
+        securityContext:
+            privileged: true
 ---

@@ -1,0 +1,43 @@
+---
+# Mixer
+apiVersion: v1
+kind: Service
+metadata:
+  name: mixer
+  labels:
+    infra: mixer
+spec:
+  ports:
+  - port: 9091
+    name: tcp
+  selector:
+    infra: mixer
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: mixer
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        infra: mixer
+    spec:
+      containers:
+      - name: mixer
+        image: {{.hub}}/mixer:ea3a8d3e2feb9f06256f92cda5194cc1ea6b599e
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9091
+        args:
+          - --globalConfigFile=/etc/opt/mixer/globalconfig.yml
+          - --serviceConfigFile=/etc/opt/mixer/serviceconfig.yml
+          - --logtostderr
+          - -v
+          - "4"
+      - name: debug
+        image: docker.io/istio/debug:test
+        securityContext:
+            privileged: true
+---

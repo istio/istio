@@ -19,10 +19,11 @@ go_library(
 go_binary(
     name = "integration",
     data = [
-        "external-services.yaml.tmpl",
-        "http-service.yaml.tmpl",
-        "manager.yaml.tmpl",
-        "http-service-versions.yaml.tmpl",
+        "egress-proxy.yaml.tmpl",
+        "app.yaml.tmpl",
+        "app-proxy-manager-agent.yaml.tmpl",
+        "manager-discovery.yaml.tmpl",
+        "mixer.yaml.tmpl",
         "rule-default-route.yaml.tmpl",
         "rule-weighted-route.yaml.tmpl",
         "rule-content-route.yaml.tmpl",

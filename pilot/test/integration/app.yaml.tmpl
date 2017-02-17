@@ -1,0 +1,43 @@
+# Test service without the proxy
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.name}}
+  labels:
+    app: {{.name}}
+spec:
+  ports:
+  - port: 80
+    targetPort: {{.port1}}
+    name: http
+  - port: 8080
+    targetPort: {{.port2}}
+    name: http-alternative
+  selector:
+    app: {{.name}}
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{.name}}
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{.name}}
+    spec:
+      containers:
+      - name: app
+        image: {{.hub}}/app:{{.tag}}
+        args:
+          - --port
+          - "{{.port1}}"
+          - --port
+          - "{{.port2}}"
+          - --version
+          - "{{.version}}"
+        ports:
+        - containerPort: {{.port1}}
+        - containerPort: {{.port2}}
+---
