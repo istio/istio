@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/mitchellh/mapstructure"
+
 	"istio.io/mixer/pkg/adapter"
 	listcheckerpb "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"

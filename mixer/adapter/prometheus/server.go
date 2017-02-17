@@ -21,6 +21,7 @@ import (
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"istio.io/mixer/pkg/adapter"
 )
 

@@ -21,7 +21,6 @@ import (
 	"github.com/golang/glog"
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
-
 	"google.golang.org/grpc/metadata"
 )
 

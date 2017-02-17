@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
+
 	"istio.io/mixer/pkg/attribute"
 )
 

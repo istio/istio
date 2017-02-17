@@ -20,7 +20,6 @@ import (
 
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/mocktracer"
-
 	"google.golang.org/grpc/metadata"
 )
 

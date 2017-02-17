@@ -16,6 +16,7 @@ go_library(
         "//pkg/tracing:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_golang_glog//:go_default_library",
+        "@com_github_google_go_genproto//googleapis/rpc/code:go_default_library",
         "@com_github_istio_api//:mixer/v1",
         "@com_github_opentracing_basictracer//:go_default_library",
         "@com_github_opentracing_opentracing_go//:go_default_library",

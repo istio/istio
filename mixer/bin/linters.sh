@@ -34,6 +34,8 @@ go_metalinter() {
     fi
 
     gometalinter\
+	--concurrency=4\
+	--enable-gc\
 	--vendored-linters\
 	--deadline=300s --disable-all\
         --enable=aligncheck\
