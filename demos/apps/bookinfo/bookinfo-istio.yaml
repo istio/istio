@@ -45,7 +45,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/rshriram/istio-init:stable",
+            "image": "frankb/init:unin4",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -57,16 +57,30 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/rshriram/istio-manager:stable
+        image: frankb/runtime:unin4
         securityContext:
           runAsUser: 1337
         args:
           - proxy
+          - sidecar
           - -s
           - istio-route-controller:8080
           - --logtostderr
           - -v
           - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
         imagePullPolicy: Always
 ---
 ##################################################################################################
@@ -102,7 +116,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/rshriram/istio-init:stable",
+            "image": "frankb/init:unin4",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -114,16 +128,30 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/rshriram/istio-manager:stable
+        image: frankb/runtime:unin4
         securityContext:
           runAsUser: 1337
         args:
           - proxy
+          - sidecar
           - -s
           - istio-route-controller:8080
           - --logtostderr
           - -v
           - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
         imagePullPolicy: Always
 ---
 ##################################################################################################
@@ -159,7 +187,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/rshriram/istio-init:stable",
+            "image": "frankb/init:unin4",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -171,16 +199,30 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/rshriram/istio-manager:stable
+        image: frankb/runtime:unin4
         securityContext:
           runAsUser: 1337
         args:
           - proxy
+          - sidecar
           - -s
           - istio-route-controller:8080
           - --logtostderr
           - -v
           - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
         imagePullPolicy: Always
 ---
 ##################################################################################################
@@ -196,10 +238,12 @@ spec:
   ports:
   - port: 9080
     targetPort: 9080
+    nodePort: 32000
     protocol: TCP
     name: http
   selector:
     app: productpage
+  type: NodePort
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -216,7 +260,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/rshriram/istio-init:stable",
+            "image": "frankb/init:unin4",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -228,59 +272,29 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/rshriram/istio-manager:stable
+        image: frankb/runtime:unin4
         securityContext:
           runAsUser: 1337
         args:
           - proxy
+          - sidecar
           - -s
           - istio-route-controller:8080
           - --logtostderr
           - -v
           - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
         imagePullPolicy: Always
----
-###########################################################################
-# Ingress resource (gateway)
-##########################################################################
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: gateway
-  namespace: default
-spec:
-  rules:
-  - http:
-      paths:
-      - path: /productpage
-        backend:
-          serviceName: productpage
-          servicePort: 9080
----
-#########################################################################
-# Ingress controller (default nginx)
-#########################################################################
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: ingress-controller
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: ingress-controller
-    spec:
-      containers:
-      - name: ingress-controller
-        image: gcr.io/google_containers/defaultbackend:1.0
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8080
-            scheme: HTTP
-          initialDelaySeconds: 30
-          timeoutSeconds: 5
-        ports:
-        - containerPort: 8080
 ---
