@@ -21,6 +21,7 @@ import (
 
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
+	"google.golang.org/genproto/googleapis/rpc/code"
 
 	mixerpb "istio.io/api/mixer/v1"
 )
@@ -85,7 +86,7 @@ func check(rootArgs *rootArgs, args []string, errorf errorFn, repeat int) {
 			return
 		}
 
-		fmt.Printf("Check RPC returned %v\n", response.Result)
+		fmt.Printf("Check RPC returned %s %s\n", code.Code_name[response.Result.Code], response.Result.Message)
 	}
 
 	if err = stream.CloseSend(); err != nil {

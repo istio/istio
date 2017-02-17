@@ -6,12 +6,8 @@ adapters:
     impl: memQuota
     params:
   - name: default
-    kind: access-logs
     impl: stdioLogger
     params:
       logStream: 0 # STDERR
   - name: default
-    kind: application-logs
-    impl: stdioLogger
-    params:
-      logStream: 0 # STDERR
+    impl: denyChecker

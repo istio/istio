@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-multierror"
+
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/attribute"
 	pb "istio.io/mixer/pkg/config/proto"
