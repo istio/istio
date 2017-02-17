@@ -285,6 +285,12 @@ http_file(
 ## Docker rules
 ##
 
+http_file(
+    name = "ubuntu_xenial_debug",
+    url = "https://storage.googleapis.com/istio-build/manager/ubuntu_xenial_debug.tar.gz",
+    sha256 = "02f0ea4b04012562dec4b75ee4337ac77a0003418d02a91bde1b4b4d162a41e4",
+)
+
 new_http_archive(
     name = "docker_ubuntu",
     build_file_content = """

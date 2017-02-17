@@ -106,7 +106,6 @@ func main() {
 
 func setup() {
 	if tag == "" {
-		teardown()
 		log.Fatal("No docker tag specified with -t or --tag")
 	}
 	log.Printf("hub %v, tag %v", hub, tag)

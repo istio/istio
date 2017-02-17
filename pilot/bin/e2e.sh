@@ -3,6 +3,7 @@
 hub="gcr.io/istio-testing"
 tag=$(whoami)_$(date +%Y%m%d_%H%M%S)
 namespace=""
+debug_suffix=""
 
 args=""
 while [[ $# -gt 0 ]]; do
@@ -10,6 +11,7 @@ while [[ $# -gt 0 ]]; do
         -h) hub="$2"; shift ;;
         -t) tag="$2"; shift ;;
         -n) namespace="$2"; shift ;;
+        --use_debug_image) debug_suffix="_debug" ;;
         *) args=$args" $1" ;;
     esac
     shift
@@ -26,8 +28,8 @@ if [[ "$hub" =~ ^gcr\.io ]]; then
 fi
 
 for image in app init runtime; do
-    bazel run //docker:$image
-    docker tag istio/docker:$image $hub/$image:$tag
+    bazel run //docker:$image$debug_suffix
+    docker tag istio/docker:$image$debug_suffix $hub/$image:$tag
     docker push $hub/$image:$tag
 done
 

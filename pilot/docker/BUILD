@@ -50,11 +50,21 @@ pkg_tar(
 docker_build(
     name = "init",
     base = "@docker_ubuntu//:xenial",
+    entrypoint = ["/usr/local/bin/prepare_proxy.sh"],
+    repository = "istio",
+    tags = ["manual"],
     debs = [
         "@deb_iptables//file",
         "@deb_libnfnetlink//file",
         "@deb_libxtables//file",
     ],
+    tars = [":prepare_proxy"],
+    visibility = ["//visibility:public"],
+)
+
+docker_build(
+    name = "init_debug",
+    base = "@ubuntu_xenial_debug//file",
     entrypoint = ["/usr/local/bin/prepare_proxy.sh"],
     repository = "istio",
     tags = ["manual"],
@@ -75,10 +85,34 @@ docker_build(
 )
 
 docker_build(
+    name = "runtime_debug",
+    base = "@ubuntu_xenial_debug//file",
+    entrypoint = ["/usr/local/bin/manager"],
+    repository = "istio",
+    tags = ["manual"],
+    tars = [
+        "@istio_proxy//file",
+        ":manager",
+        ":config",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+docker_build(
     name = "app",
     base = "@docker_ubuntu//:xenial",
     entrypoint = ["/bin/server"],
     repository = "istio",
     tags = ["manual"],
     tars = [":test"],
+)
+
+docker_build(
+    name = "app_debug",
+    base = "@ubuntu_xenial_debug//file",
+    entrypoint = ["/bin/server"],
+    repository = "istio",
+    tags = ["manual"],
+    tars = [":test"],
+    visibility = ["//visibility:public"],
 )
