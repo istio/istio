@@ -128,7 +128,7 @@ func LoadSigningCreds(signerCertFile string, signerPrivFile string) (*x509.Certi
 }
 
 // toFromDates generates the certficiate validity period [notBefore, notAfter]
-// from the given start time and expiration duration. 
+// from the given start time and expiration duration.
 //   validFrom: certficate validity start time. If empty, the certificate
 //              validity start time will be set to time.Now()
 //   validFor: certficate validity duration

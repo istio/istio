@@ -37,3 +37,4 @@ install: true # disable the default install step
 
 script:
 - bazel --output_base=$HOME/bazel/outbase test //...
+- bin/check_format.sh
