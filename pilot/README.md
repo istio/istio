@@ -2,6 +2,7 @@
 [![Build Status](https://travis-ci.org/istio/manager.svg?branch=master)](https://travis-ci.org/istio/manager)
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/manager)](https://goreportcard.com/report/github.com/istio/manager)
 [![GoDoc](https://godoc.org/github.com/istio/manager?status.svg)](https://godoc.org/github.com/istio/manager)
+[![codecov.io](https://codecov.io/github/istio/manager/coverage.svg?branch=master)](https://codecov.io/github/istio/manager?branch=master)
 
 The Istio Manager is used to configure Istio and propagate configuration to the
 other components of the system, including the Istio mixer and the Istio proxy mesh.
@@ -70,7 +71,7 @@ To run the tests:
 We provide Bazel targets to output Istio runtime images:
 
     bazel run //docker:runtime
-    
+
 The image includes Istio Proxy and Istio Manager.
 
 For interactive debug and development it is often useful to 'exec' into the
@@ -113,7 +114,7 @@ Istio manager needs kubernetes versions 1.5.2 or higher.
 
     minikube config set kubernetes-version v1.5.2
     minikube start
-    
+
 Copy the kube config file to the platform/kube directory and update the paths
 
     cp ~/.kube/config platform/kube/
@@ -146,7 +147,7 @@ into /home/ubuntu/config
 ### 3. Build once in the VM
 
     bazel build //...
-    
+
 _Note the three dots_
 Create the vendored directories..
 

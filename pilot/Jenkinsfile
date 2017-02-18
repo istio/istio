@@ -48,6 +48,12 @@ def presubmit(gitUtils, bazel) {
     stage('Bazel Tests') {
       bazel.test('//...')
     }
+    stage('Code Coverage') {
+      sh('bin/codecov.sh')
+      withCredentials([string(credentialsId: 'MANAGER_CODECOV_TOKEN', variable: 'CODECOV_TOKEN')]) {
+        sh('curl -s https://codecov.io/bash | bash /dev/stdin -K')
+      }
+    }
     stage('Integration Tests') {
       sh('bin/e2e.sh -t alpha' + gitUtils.GIT_SHA + ' -d --in_cluster_config')
     }
