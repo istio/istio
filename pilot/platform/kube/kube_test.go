@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/user"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -97,6 +98,7 @@ func TestControllerCacheFreshness(t *testing.T) {
 	// test interface implementation
 	var _ model.Controller = ctl
 
+	var doneMu sync.Mutex
 	done := false
 
 	// validate cache consistency
@@ -118,7 +120,9 @@ func TestControllerCacheFreshness(t *testing.T) {
 			}
 			glog.Infof("Stopping channel for (%#v)", k)
 			close(stop)
+			doneMu.Lock()
 			done = true
+			doneMu.Unlock()
 		}
 	})
 	if err != nil {
@@ -134,7 +138,11 @@ func TestControllerCacheFreshness(t *testing.T) {
 	if err := ctl.Put(k, o); err != nil {
 		t.Error(err)
 	}
-	eventually(func() bool { return done }, t)
+	eventually(func() bool {
+		doneMu.Lock()
+		defer doneMu.Unlock()
+		return done
+	}, t)
 }
 
 func TestControllerClientSync(t *testing.T) {
