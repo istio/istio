@@ -169,8 +169,9 @@ func (w *ingressWatcher) generateConfig() (*Config, error) {
 // buildIngressRoute translates an ingress rule to an Envoy route
 func buildIngressRoute(rule *config.RouteRule) *Route {
 	route := &Route{
-		Path:   "",
-		Prefix: "/",
+		Path:        "",
+		Prefix:      "/",
+		HostRewrite: rule.Destination,
 	}
 
 	if rule.Match != nil {
