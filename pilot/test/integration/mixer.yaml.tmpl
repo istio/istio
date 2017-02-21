@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
       - name: mixer
-        image: {{.hub}}/mixer:ea3a8d3e2feb9f06256f92cda5194cc1ea6b599e
+        image: {{.hub}}/mixer:{{.mixerTag}}
         imagePullPolicy: Always
         ports:
         - containerPort: 9091

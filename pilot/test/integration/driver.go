@@ -35,6 +35,7 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
+	meta_v1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -57,14 +58,16 @@ const (
 )
 
 var (
-	kubeconfig      string
-	inClusterConfig bool
-	hub             string
-	tag             string
-	namespace       string
-	verbose         bool
-	norouting       bool
-	parallel        bool
+	kubeconfig       string
+	inClusterConfig  bool
+	hub              string
+	tag              string
+	mixerTag         string
+	namespace        string
+	verbose          bool
+	norouting        bool
+	parallel         bool
+	nameSpaceCreated bool
 
 	client      *kubernetes.Clientset
 	istioClient *kube.Client
@@ -88,6 +91,9 @@ func init() {
 		"Docker hub")
 	flag.StringVarP(&tag, "tag", "t", "",
 		"Docker tag")
+	// manually update default mixer build tag.
+	flag.StringVarP(&mixerTag, "mixerTag", "", "ea3a8d3e2feb9f06256f92cda5194cc1ea6b599e",
+		"Mixer Docker tag")
 	flag.StringVarP(&namespace, "namespace", "n", "",
 		"Namespace to use for testing (empty to create/delete temporary one)")
 	flag.BoolVarP(&verbose, "dump", "d", false,
@@ -110,6 +116,9 @@ func setup() {
 	if tag == "" {
 		log.Fatal("No docker tag specified with -t or --tag")
 	}
+	if mixerTag == "" {
+		log.Fatal("No mixer tag specified with --mixerTag, 'latest?'")
+	}
 	log.Printf("hub %v, tag %v", hub, tag)
 
 	check(setupClient())
@@ -119,8 +128,10 @@ func setup() {
 		if namespace, err = generateNamespace(client); err != nil {
 			check(err)
 		}
-	}
+	} else {
+		assertNamespaceExists(client, namespace)
 
+	}
 	pods = make(map[string]string)
 
 	// deploy istio-infra
@@ -146,6 +157,12 @@ func setup() {
 
 }
 
+func assertNamespaceExists(cl *kubernetes.Clientset, name string) {
+	if _, err := cl.Core().Namespaces().Get(name, meta_v1.GetOptions{}); err != nil {
+		check(err)
+	}
+}
+
 // check function correctly cleans up on failure
 func check(err error) {
 	if err != nil {
@@ -161,7 +178,7 @@ func teardown() {
 		dumpProxyLogs(pods["a"])
 		dumpProxyLogs(pods["b"])
 	}
-	if namespace != "" && namespace != "default" {
+	if nameSpaceCreated {
 		deleteNamespace(client, namespace)
 		namespace = ""
 	}
@@ -186,6 +203,7 @@ func deploy(name, svcName, dType, namespace, port1, port2, version string) error
 	if err := write("test/integration/"+dType+".yaml.tmpl", map[string]string{
 		"hub":       hub,
 		"tag":       tag,
+		"mixerTag":  mixerTag,
 		"namespace": namespace,
 		"service":   svcName,
 		"name":      name,
@@ -763,6 +781,7 @@ func verifyFaultInjection(pods map[string]string, src, dst, headerKey, headerVal
 }
 
 func generateNamespace(cl *kubernetes.Clientset) (string, error) {
+
 	ns, err := cl.Core().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: v1.ObjectMeta{
 			GenerateName: "istio-integration-",
@@ -772,6 +791,7 @@ func generateNamespace(cl *kubernetes.Clientset) (string, error) {
 		return "", err
 	}
 	log.Printf("Created namespace %s\n", ns.Name)
+	nameSpaceCreated = true
 	return ns.Name, nil
 }
 
