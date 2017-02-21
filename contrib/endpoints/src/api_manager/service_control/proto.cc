@@ -956,14 +956,13 @@ Status Proto::FillReportRequest(const ReportRequestInfo& info,
       }
     }
 
-    // Not to send consumer metrics for following cases:
-    // 1) api_key is not provided, or
-    // 2) the service is not activated for the consumer project,
-    bool send_consumer_metric = true;
-    if (info.api_key.empty() ||
-        !info.check_response_info.service_is_activated) {
-      send_consumer_metric = false;
-    }
+    // Not to send consumer metrics if api_key is empty.
+    // api_key is empty in one of following cases:
+    // 1) api_key is not provided,
+    // 2) api_key is invalid determined by the server from the Check call.
+    // 3) the service is not activated for the consumer project.
+    bool send_consumer_metric = !info.api_key.empty();
+
     // Populate all metrics.
     for (auto it = metrics_.begin(), end = metrics_.end(); it != end; it++) {
       const SupportedMetric* m = *it;
