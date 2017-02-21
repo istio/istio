@@ -1,0 +1,16 @@
+###########################################################################
+# Ingress resource (gateway)
+##########################################################################
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: gateway
+  namespace: default
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /productpage
+        backend:
+          serviceName: productpage
+          servicePort: 9080
