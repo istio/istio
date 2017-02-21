@@ -238,12 +238,10 @@ spec:
   ports:
   - port: 9080
     targetPort: 9080
-    nodePort: 32000
     protocol: TCP
     name: http
   selector:
     app: productpage
-  type: NodePort
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -297,4 +295,21 @@ spec:
               fieldRef:
                 fieldPath: status.podIP
         imagePullPolicy: Always
+---
+###########################################################################
+# Ingress resource (gateway)
+##########################################################################
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: gateway
+  namespace: default
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /productpage
+        backend:
+          serviceName: productpage
+          servicePort: 9080
 ---
