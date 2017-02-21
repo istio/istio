@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/typed/core/v1/fake"
 	"k8s.io/client-go/pkg/api/v1"
 )
@@ -89,11 +90,11 @@ func createService(name string, selector map[string]string) *v1.Service {
 
 func createServiceWithNamespace(name, namespace string, selector map[string]string) *v1.Service {
 	return &v1.Service{
-		ObjectMeta: v1.ObjectMeta{Name: name, Namespace: namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 		Spec:       v1.ServiceSpec{Selector: selector},
 	}
 }
 
 func createPod(labels map[string]string) *v1.Pod {
-	return &v1.Pod{ObjectMeta: v1.ObjectMeta{Labels: labels, Namespace: "default"}}
+	return &v1.Pod{ObjectMeta: metav1.ObjectMeta{Labels: labels, Namespace: "default"}}
 }

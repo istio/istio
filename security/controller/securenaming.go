@@ -19,12 +19,12 @@ package controller
 import (
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/labels"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -32,7 +32,7 @@ import (
 const resyncPeriod = 10 * time.Second
 
 type SecureNamingController struct {
-	serviceController *cache.Controller
+	serviceController cache.Controller
 	serviceIndexer    cache.Indexer
 }
 
@@ -41,15 +41,15 @@ func NewSecureNamingController(core v1core.CoreV1Interface) *SecureNamingControl
 	return &SecureNamingController{sc, si}
 }
 
-func newServiceIndexerInformer(core v1core.CoreV1Interface) (cache.Indexer, *cache.Controller) {
-	si := core.Services(api.NamespaceAll)
+func newServiceIndexerInformer(core v1core.CoreV1Interface) (cache.Indexer, cache.Controller) {
+	si := core.Services(v1.NamespaceAll)
 	return cache.NewIndexerInformer(
 		&cache.ListWatch{
-			ListFunc: func(options api.ListOptions) (runtime.Object, error) {
-				return si.List(v1.ListOptions{})
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return si.List(options)
 			},
-			WatchFunc: func(options api.ListOptions) (watch.Interface, error) {
-				return si.Watch(v1.ListOptions{})
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return si.Watch(options)
 			},
 		},
 		&v1.Service{},
