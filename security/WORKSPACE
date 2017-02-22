@@ -9,6 +9,18 @@ load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "new_go_repository")
 go_repositories()
 
 new_go_repository(
+    name = "com_github_coreos_go_oidc",
+    commit = "f828b1fc9b58b59bd70ace766bfc190216b58b01",
+    importpath = "github.com/coreos/go-oidc",
+)
+
+new_go_repository(
+    name = "com_github_coreos_pkg",
+    commit = "1c941d73110817a80b9fa6e14d5d2b00d977ce2a",
+    importpath = "github.com/coreos/pkg",
+)
+
+new_go_repository(
     name = "com_github_davecgh_go_spew",
     commit = "346938d642f2ec3594ed81d874461961cd0faa76",
     importpath = "github.com/davecgh/go-spew",
@@ -39,9 +51,21 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_googleapis_gax_go",
+    commit = "da06d194a00e19ce00d9011a13931c3f6f6887c7",
+    importpath = "github.com/googleapis/gax-go",
+)
+
+new_go_repository(
     name = "com_github_golang_glog",
     commit = "23def4e6c14b4da8ac2ed8007337bc5eb5007998",
     importpath = "github.com/golang/glog",
+)
+
+new_go_repository(
+    name = "com_github_golang_protobuf",
+    commit = "69b215d01a5606c843240eab4937eab3acee6530",
+    importpath = "github.com/golang/protobuf",
 )
 
 new_go_repository(
@@ -72,6 +96,12 @@ new_go_repository(
     name = "com_github_go_openapi_swag",
     commit = "d5f8ebc3b1c55a4cf6489eeae7354f338cfe299e",
     importpath = "github.com/go-openapi/swag",
+)
+
+new_go_repository(
+    name = "com_github_jonboulle_clockwork",
+    commit = "bcac9884e7502bb2b474c0339d889cb981a2f27f",
+    importpath = "github.com/jonboulle/clockwork",
 )
 
 new_go_repository(
@@ -117,6 +147,12 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_google_cloud_go",
+    commit = "1ed2f0abb2869a51b3a5b9daec801bf9791f95d0",
+    importpath = "cloud.google.com/go",
+)
+
+new_go_repository(
     name = "in_gopkg_inf_v0",
     commit = "3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4",
     importpath = "gopkg.in/inf.v0",
@@ -141,9 +177,21 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "org_golang_google_grpc",
+    commit = "20633fa172ac711ac6a77fd573ed13f23ec56dcb",
+    importpath = "google.golang.org/grpc",
+)
+
+new_go_repository(
     name = "org_golang_x_net",
     commit = "61557ac0112b576429a0df080e1c2cef5dfbb642",
     importpath = "golang.org/x/net",
+)
+
+new_go_repository(
+    name = "org_golang_x_oauth2",
+    commit = "b9780ec78894ab900c062d58ee3076cd9b2a4501",
+    importpath = "golang.org/x/oauth2",
 )
 
 new_go_repository(

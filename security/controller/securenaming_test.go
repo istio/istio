@@ -19,9 +19,105 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/typed/core/v1/fake"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/pkg/api/v1"
 )
+
+func TestProcessNextServices(t *testing.T) {
+	cases := []struct {
+		expectedMapping  map[string]sets.String
+		initialMapping   map[string]sets.String
+		pods             []*v1.Pod
+		serviceToProcess *v1.Service
+		services         []*v1.Service
+	}{
+		// Test that the service to be processed does not exist in the indexer and
+		// make sure the service is removed from secure naming.
+		{
+			expectedMapping: map[string]sets.String{},
+			initialMapping: map[string]sets.String{
+				"default/svc": sets.NewString("acct"),
+			},
+			services:         []*v1.Service{},
+			serviceToProcess: createService("svc", nil),
+		},
+		// Test an empty entry for a service is correctly created.
+		{
+			expectedMapping: map[string]sets.String{
+				"ns/svc": sets.NewString(),
+			},
+			initialMapping:   map[string]sets.String{},
+			services:         []*v1.Service{createServiceWithNamespace("svc", "ns", nil)},
+			serviceToProcess: createServiceWithNamespace("svc", "ns", nil),
+		},
+		// Test service with service accounts.
+		{
+			expectedMapping: map[string]sets.String{
+				"ns/svc": sets.NewString("acct1", "acct4"),
+			},
+			initialMapping: map[string]sets.String{},
+			pods: []*v1.Pod{
+				// A pod that is part of the service.
+				createPod(&podSpec{
+					labels:             map[string]string{"app": "test-app"},
+					name:               "name1",
+					namespace:          "ns",
+					serviceAccountName: "acct1",
+				}),
+				// A pod that is NOT part of the service.
+				createPod(&podSpec{
+					labels:             map[string]string{"app": "prod-app"},
+					name:               "name2",
+					namespace:          "ns",
+					serviceAccountName: "acct2",
+				}),
+				// A pod that is of a different namespace.
+				createPod(&podSpec{
+					labels:             map[string]string{"app": "prod-app"},
+					name:               "name3",
+					namespace:          "ns1",
+					serviceAccountName: "acct3",
+				}),
+				// A pod that is of a different namespace.
+				createPod(&podSpec{
+					labels:             map[string]string{"app": "test-app"},
+					name:               "name4",
+					namespace:          "ns",
+					serviceAccountName: "acct4",
+				}),
+			},
+			services: []*v1.Service{
+				createServiceWithNamespace("svc", "ns", map[string]string{"app": "test-app"}),
+			},
+			serviceToProcess: createServiceWithNamespace("svc", "ns", map[string]string{"app": "test-app"}),
+		},
+	}
+
+	for i, c := range cases {
+		core := fake.NewSimpleClientset().CoreV1()
+		snc := NewSecureNamingController(core)
+
+		snc.mapping.mapping = c.initialMapping
+		snc.enqueueService(c.serviceToProcess)
+
+		// Add services to the service indexer.
+		for _, s := range c.services {
+			snc.serviceIndexer.Add(s)
+		}
+
+		for _, p := range c.pods {
+			core.Pods(p.GetNamespace()).Create(p)
+		}
+
+		snc.processNextService()
+
+		if !reflect.DeepEqual(c.expectedMapping, snc.mapping.mapping) {
+			t.Errorf("Case %d failed: expecting the mapping to be %v but the actual mapping is %v",
+				i, c.expectedMapping, snc.mapping.mapping)
+		}
+	}
+}
 
 func TestGetPodServices(t *testing.T) {
 	cases := []struct {
@@ -32,27 +128,37 @@ func TestGetPodServices(t *testing.T) {
 		{
 			allServices:      []*v1.Service{},
 			expectedServices: []*v1.Service{},
-			pod:              createPod(map[string]string{"app": "test-app"}),
+			pod: createPod(&podSpec{
+				labels: map[string]string{"app": "test-app"},
+			}),
 		},
 		{
 			allServices:      []*v1.Service{createService("service1", nil)},
 			expectedServices: []*v1.Service{},
-			pod:              createPod(map[string]string{"app": "test-app"}),
+			pod: createPod(&podSpec{
+				labels: map[string]string{"app": "test-app"},
+			}),
 		},
 		{
 			allServices:      []*v1.Service{createService("service1", map[string]string{"app": "prod-app"})},
 			expectedServices: []*v1.Service{},
-			pod:              createPod(map[string]string{"app": "test-app"}),
+			pod: createPod(&podSpec{
+				labels: map[string]string{"app": "test-app"},
+			}),
 		},
 		{
 			allServices:      []*v1.Service{createService("service1", map[string]string{"app": "test-app"})},
 			expectedServices: []*v1.Service{createService("service1", map[string]string{"app": "test-app"})},
-			pod:              createPod(map[string]string{"app": "test-app"}),
+			pod: createPod(&podSpec{
+				labels: map[string]string{"app": "test-app"},
+			}),
 		},
 		{
 			allServices:      []*v1.Service{createServiceWithNamespace("service1", "non-default", map[string]string{"app": "test-app"})},
 			expectedServices: []*v1.Service{},
-			pod:              createPod(map[string]string{"app": "test-app"}),
+			pod: createPod(&podSpec{
+				labels: map[string]string{"app": "test-app"},
+			}),
 		},
 		{
 			allServices: []*v1.Service{
@@ -64,13 +170,18 @@ func TestGetPodServices(t *testing.T) {
 				createService("service2", map[string]string{"app": "test-app"}),
 				createService("service3", map[string]string{"version": "v1"}),
 			},
-			pod: createPod(map[string]string{"app": "test-app", "version": "v1"}),
+			pod: createPod(&podSpec{
+				labels: map[string]string{
+					"app":     "test-app",
+					"version": "v1",
+				},
+			}),
 		},
 	}
 
 	for ind, testCase := range cases {
-		fakeCoreV1 := &fake.FakeCoreV1{}
-		snc := NewSecureNamingController(fakeCoreV1)
+		cs := fake.NewSimpleClientset()
+		snc := NewSecureNamingController(cs.CoreV1())
 
 		for _, service := range testCase.allServices {
 			snc.serviceIndexer.Add(service)
@@ -95,6 +206,29 @@ func createServiceWithNamespace(name, namespace string, selector map[string]stri
 	}
 }
 
-func createPod(labels map[string]string) *v1.Pod {
-	return &v1.Pod{ObjectMeta: metav1.ObjectMeta{Labels: labels, Namespace: "default"}}
+type podSpec struct {
+	labels             map[string]string
+	name               string
+	namespace          string
+	serviceAccountName string
+}
+
+func createPod(ps *podSpec) *v1.Pod {
+	return &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      getOrDefault(ps.name, "default-name"),
+			Labels:    ps.labels,
+			Namespace: getOrDefault(ps.namespace, "default"),
+		},
+		Spec: v1.PodSpec{
+			ServiceAccountName: getOrDefault(ps.serviceAccountName, "default"),
+		},
+	}
+}
+
+func getOrDefault(value, defaultValue string) string {
+	if value != "" {
+		return value
+	}
+	return defaultValue
 }

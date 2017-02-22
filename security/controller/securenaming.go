@@ -123,8 +123,6 @@ func (snc *SecureNamingController) processNextService() bool {
 	}
 
 	svc := obj.(*v1.Service)
-	snc.mapping.AddService(svc.GetName())
-
 	lo := metav1.ListOptions{
 		LabelSelector: labels.Set(svc.Spec.Selector).String(),
 	}
@@ -138,7 +136,9 @@ func (snc *SecureNamingController) processNextService() bool {
 	for _, p := range pods.Items {
 		accounts = append(accounts, p.Spec.ServiceAccountName)
 	}
-	snc.mapping.SetServiceAccounts(svc.GetName(), sets.NewString(accounts...))
+	// Use `key` instead of `svc.GetName()` since `key` contains both service
+	// name and service namespace.
+	snc.mapping.SetServiceAccounts(key, sets.NewString(accounts...))
 
 	return true
 }
