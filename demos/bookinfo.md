@@ -24,245 +24,247 @@ This application is polyglot, i.e., the microservices are written in
 different languages. All microservices are packaged with an
 Istio sidecar that manages all incoming and outgoing calls for the service.
 
-### Goals of the demo
+## Running the Bookinfo Application
 
-* We will use Istio's content-based routing feature to selectively
-enable `reviews v2` for a specific QA user named `jason`.
-
-* Using Istio's systematic resilience testing feature, we will inject
-faults into the communication between microservices and test the failure
-recovery capability of the application. The impact of the failure will be
-restricted to only the QA user `jason`.
-
-* After fixing the bugs exposed by systematic resilience testing, we will
-gradually rollout a new version `reviews v3` similar to a canary rollout.
-
-## Deploy the App
-
-The commands to deploy the bookinfo demo application for different
-environments are as follows:
-
-1. Bring up the containers:
+1. Bring up the control plane:
 
    ```bash
-   kubectl create -f examples/bookinfo.yaml
+   $ kubectl create -f ../controlplane.yaml
    ```
+   
+   This command launches the istio manager and an envoy-based ingress controller, which will be used
+   to implement the gateway for the application. 
 
-1. Set the gateway environment variable:
+1. Bring up the application containers:
 
    ```bash
-   export GATEWAY_URL=$(minikube ip):32000
+   $ kubectl create -f bookinfo-istio.yaml
    ```
 
-### List the Services in the App
+   The above command creates the gateway ingress resource and launches the 4 microservices as described
+   in the diagram above. The reviews microservice has 3 versions v1, v2, and v3.
+   Note that in a realistic deployment, new versions of a microservice are deployed over 
+   time instead of deploying all versions simultaneously.
+   
+1. Confirm that all services and pods are correctly defined and running:
 
-You can view the microservices that are running using the following command:
+   ```bash
+   $ kubectl get services
+   NAME                       CLUSTER-IP   EXTERNAL-IP   PORT(S)        AGE
+   details                    10.0.0.192   <none>        9080/TCP       34s
+   istio-ingress-controller   10.0.0.74    <nodes>       80:32000/TCP   1m
+   istio-route-controller     10.0.0.144   <none>        8080/TCP       1m
+   kubernetes                 10.0.0.1     <none>        443/TCP        6h
+   productpage                10.0.0.215   <none>        9080/TCP       34s
+   ratings                    10.0.0.75    <none>        9080/TCP       34s
+   reviews                    10.0.0.113   <none>        9080/TCP       34s
+   ```
 
-```bash
-TODO: command to list running istio services
-```
-    
-The expected output is the following:
+   and
 
-```bash
-TODO: command output showing all the running service versions/instances
-```
+   ```bash
+   $ kubectl get pods
+   NAME                                        READY     STATUS    RESTARTS   AGE
+   details-v1-2834985933-31gns                 2/2       Running   0          41s
+   istio-ingress-controller-1035658521-3ztkr   1/1       Running   0          1m
+   istio-route-controller-3817920337-80753     1/1       Running   0          1m
+   productpage-v1-1157331189-7tsh1             2/2       Running   0          41s
+   ratings-v1-2039116803-k7kr8                 2/2       Running   0          41s
+   reviews-v1-2171892778-57jt6                 2/2       Running   0          41s
+   reviews-v2-2641065004-hfh54                 2/2       Running   0          41s
+   reviews-v3-3110237230-3trfv                 2/2       Running   0          41s
+   ```
 
-There are 4 microservices as described in the diagram above. The `reviews`
-microservice has 3 versions v1, v2, and v3. Note that in a realistic
-deployment, new versions of a microservice are deployed over time
-instead of deploying all versions simultaneously.
+1. Determine the Gateway ingress URL (TEMPORARY - instruction subject to change)
 
-## Set the default routes
+   Determine the node on which the `gateway` (ingress controller) runs, and use the node's IP address
+   as the external gateway IP.
 
-By default, routes need not be set in Istio. When no routes are present,
-Istio sidecars route requests in a random fashion to one of the
-instances of the target microservice. However, _it is advisable to
-explicitly set a default route for each microservice, so that when a new
-version of a microservice is introduced, traffic to the new version can be
-released in a controlled fashion_.
+   ```bash
+   $ kubectl describe pod istio-ingress-controller-1035658521-3ztkr | grep Node
+   Node:		minikube/192.168.99.100
+   $ export GATEWAY_URL=192.168.99.100:32000
+   ```
 
-Lets route all of the incoming traffic to version `v1` only for each service.
+### Content Based Routing
 
-```bash
-TODO: commands to route all traffic to v1 version of all 4 services
-```
+Since we have 3 versions of the reviews microservice running, we need to set the default route.
+Otherwise if you access the application several times, you would notice that sometimes the output contains 
+star ratings. This is because without an explicit default version set, Istio will 
+route requests to all available versions of a service in a random fashon.
+   
+1. Set the default version for the reviews microservice to v1. 
 
-Confirm the routes are set by running the following command:
+   ```bash
+   $ kubectl create -f route-rule-reviews-v1.yaml 
+   istioconfig "route-rule-reviews-v1" created
+   ```
 
-```bash
-TODO: command to show the current routes
-```
+   You can display the routes that are defined with the following command:
 
-You should see the following output:
+   ```bash
+   $ kubectl get istioconfig -o yaml
+   apiVersion: v1
+   items:
+   - apiVersion: istio.io/v1alpha1
+     kind: IstioConfig
+     metadata:
+       creationTimestamp: 2017-02-22T17:11:43Z
+       name: route-rule-reviews-v1
+       namespace: default
+       resourceVersion: "42084"
+       selfLink: /apis/istio.io/v1alpha1/namespaces/default/istioconfigs/route-rule-reviews-v1
+       uid: fb967b00-f921-11e6-a8ad-764cb43dfcf7
+     spec:
+       destination: reviews.default.svc.cluster.local
+       precedence: 1
+       route:
+       - tags:
+           version: v1
+         weight: 100
+   kind: List
+   metadata: {}
+   resourceVersion: ""
+   selfLink: ""
+   ```
 
-```
-TODO: command output showing all 4 services are routing traffic to v1
-```
+   Since rule propagation to the proxies is asynchronous, you ahould wait a few seconds for the rules
+   to propagate to all pods before attempting to access the application.
+   If you open the Bookinfo URL (`http://$GATEWAY_URL/productpage/productpage`) in your browser,
+   you should see the bookinfo application `productpage` displayed. Notice that the `productpage`
+   is displayed, with no rating stars since `reviews:v1` does not access the ratings service.
 
-Open
-[http://GATEWAY_URL/productpage/productpage](http://localhost:32000/productpage/productpage)
-from your browser and you should see the bookinfo application `productpage`
-displayed.  Notice that the `productpage` is displayed, with no rating
-stars since `reviews:v1` does not access the ratings service.
+1. Route a specific user to `reviews:v2`
 
-**Note**: Replace `GATEWAY_URL` with the output of the following command:
+   Lets enable the ratings service for test user "jason" by routing productpage traffic to
+   `reviews:v2` instances.
 
-```bash
-echo $GATEWAY_URL
-```
+   ```bash
+   $ kubectl create -f route-rule-reviews-tester-v2.yaml 
+   istioconfig "route-rule-tester-v2" created
+   ```
 
-## Content-based routing
+   Confirm the rule is created:
 
-Lets enable the ratings service for test user "jason" by routing productpage
-traffic to `reviews:v2` instances.
+   ```bash
+   $ kubectl get istioconfig route-rule-reviews-tester-v2 -o yaml
+   apiVersion: istio.io/v1alpha1
+   kind: IstioConfig
+   metadata:
+     creationTimestamp: 2017-02-21T22:40:52Z
+     name: route-rule-reviews-tester-v2
+     namespace: default
+     resourceVersion: "29368"
+     selfLink: /apis/istio.io/v1alpha1/namespaces/default/istioconfigs/route-rule-reviews-tester-v2
+     uid: ccb35f55-f886-11e6-a8ad-764cb43dfcf7
+   spec:
+     destination: reviews.default.svc.cluster.local
+     match:
+       http:
+         Cookie:
+           regex: ^(.*?;)?(user=jason)(;.*)?$
+     precedence: 2
+     route:
+     - tags:
+         version: v2
+   ```
 
-```bash
-TODO: command to send traffic traffic for user jason to v2
-```
+   Log in as user "jason" at the `productpage` web page. You should now see ratings (1-5 stars) next
+   to each review.
 
-Confirm the routes are set:
+### Fault Injection
 
-```
-TODO: command to show the current routes
-```
+   To test our bookinfo application microservices for resiliency, we will _inject a 7s delay_
+   between the reviews:v2 and ratings microservices. Since the _reviews:v2_ service has a
+   10s timeout for its calls to the ratings service, we expect the end-to-end flow to
+   continue without any errors.
 
-You should see the following output:
+1. Inject the delay
 
-```
-TODO: command output showing updated route
-```
+   Create a fault injection rule, to delay traffic coming from user "jason" (our test user).
 
-Log in as user "jason" at the `productpage` web page.
-You should now see ratings (1-5 stars) next to each review.
+   ```bash
+   $ kubectl create -f route-rule-ratings-tester-delay.yaml
+   istionconfig "route-rule-ratings-tester-delay" created
+   ```
 
-## Fault Injection
+   Allow several seconds to account for rule propagation delay to all pods.
 
-We will now test the bookinfo application with the newly
-introduced `reviews:v2` version of the reviews microservice. The
-_reviews:v2 service has a 10s timeout for its calls to the ratings 
-service. We will _inject a 7s delay_ between the reviews:v2 and ratings
-microservices and ensure that the end-to-end flow works without any errors.
+1. Observe application behavior (NOTE: THIS FUNCTION IS CURRENTLY NOT WORKING)
 
-Lets add a fault injection rule that injects a 7s
-delay in all requests with an HTTP Cookie header containing the value
-`user=jason`. In other words, we are confining the faults only to the QA
-user.
+   If the application's front page was set to correctly handle delays, we expect it
+   to load within approximately 7 seconds. To see the web page response times, open the
+   *Developer Tools* menu in IE, Chrome or Firefox (typically, key combination _Ctrl+Shift+I_
+   or _Alt+Cmd+I_) and reload the `productpage` web page.
 
-```bash
-TODO: command to set a rule that injects delay when reviews:v2 calls ratings service
-```
+   You will see that the webpage loads in about 6 seconds. The reviews section will show
+   *Sorry, product reviews are currently unavailable for this book*.
 
-Verify the rule has been set by running this command:
+   The reason that the entire reviews service has failed is because our bookinfo application
+   has a bug. The timeout between the productpage and reviews service is less (3s + 1 retry = 6s total)
+   than the timeout between the reviews and ratings service (10s). These kinds of bugs can occur in
+   typical enterprise applications where different teams develop different microservices
+   independently. Istio's fault injection rules help you identify such anomalies without
+   impacting end users.
 
-```bash
-TODO: command to list fault injection rule
-```
+   > Notice that we are restricting the failure impact to user "jason" only. If you login
+   > as any other user, you would not experience any delays.
 
-You should see the following output:
-
-```
-TODO: command output showing delay rule
-```
-
-Lets see the fault injection in action. Ideally the frontpage of the
-application should take 7+ seconds to load. To see the web page response
-time, open the *Developer Tools* (IE, Chrome or Firefox). The typical key
-combination is (Ctrl+Shift+I) for Windows and (Alt+Cmd+I) in Mac.
-
-Reload the `productpage` web page.
-
-You will see that the webpage loads in about 6 seconds. The reviews section
-will show *Sorry, product reviews are currently unavailable for this book*.
-
-_**Impact of fault:**_ If the reviews service has a 10s timeout, the
-product page should have returned after 7s with full content. What we saw
-however is that the entire reviews section is unavailable.
-
-Notice that we are restricting the failure impact to user `jason` only. If
-you login as any other user, say "shriram" or "frank", you would not
-experience any delays.
-
-A bug is causing this behavior. The _productpage service has a smaller timeout
-to the reviews service, compared to the timeout duration between the
-reviews and ratings service._
-
-This is a typical bug in microservice applications:
-**conflicting failure handling policies in different microservices**.
-
-#### Fixing the bug
+### Fixing the bug
 
 At this point we would normally fix the problem by either increasing the
 productpage timeout or decreasing the reviews to ratings service timeout,
-terminate and restart the fixed microservice, and then run a gremlin recipe
-again to confirm that the productpage returns its response without any
-errors.  (Left as an exercise for the reader - change the gremlin recipe to
+terminate and restart the fixed microservice, and then confirm that the productpage
+returns its response without any errors.
+(Left as an exercise for the reader - change the delay rule to
 use a 2.8 second delay and then run it against the v3 version of reviews.)
 
 However, we already have this fix running in v3 of the reviews service, so
 we can next demonstrate deployment of a new version.
 
-## Gradually migrate traffic to reviews:v3 for all users
+### Gradually migrate traffic to reviews:v3 for all users
 
 Now that we have tested the reviews service, fixed the bug and deployed a
 new version (`reviews:v3`), lets route all user traffic from `reviews:v1`
 to `reviews:v3` in a gradual manner.
 
-First, stop any `reviews:v2` traffic:
+First, transfer 25% of traffic from `reviews:v1` to `reviews:v3` with the following command:
 
 ```bash
-TODO: command to remove the rule sending traffic to v2 with the delay injected
+   $ kubectl create -f route-rule-reviews-25-v3.yaml
 ```
 
-Now, transfer traffic from `reviews:v1` to `reviews:v3` with the following series of commands:
+You should see *red* colored star ratings, approximately 1 out of every 4 times you refresh
+the `product page`.
+
+Things seem to be going smoothly. Lets route 50% of traffic to `reviews:v3`
 
 ```bash
-TODO: command to start sending traffic to v3
-```
-
-You should see:
-
-```
-TODO: expected output
-```
-
-Things seem to be going smoothly. Lets increase traffic to reviews:v3 by another 10%.
-
-```bash
-TODO: command to bump traffic by another 10%
-```
-
-You should see:
-
-```
-TODO: expected output
-```
-
-Lets route 50% of traffic to `reviews:v3`
-
-```bash
-TODO: command to bump traffic to 50%
+   $ kubectl create -f route-rule-reviews-50-v3.yaml
 ```
 
 We are confident that our Bookinfo app is stable. Lets route 100% of traffic to `reviews:v3`
 
 ```bash
-TODO: command to bump traffic to 100%
+   $ kubectl create -f route-rule-reviews-v3.yaml
 ```
 
-You should see:
-
-```
-TODO: expected output
-```
-
-If you log in to the `productpage` as any user, you should see book reviews
+You can now log in to the `productpage` as any user and you should always see book reviews
 with *red* colored star ratings for each review.
 
 ## Cleanup
 
-To remove the `bookinfo` application:
+1. Delete the routing rules and terminate the application and control plane pods
 
-```bash
-kubectl delete -f examples/bookinfo.yaml
-```
+   ```bash
+   $ ./cleanup.sh
+   ```
+
+1. Confirm shutdown
+
+   ```bash
+   $ kubectl get istioconfig    #-- there should be no more routing rules
+   No resources found.
+   $ kubectl get pods           #-- the bookinfo and control plane services should be deleted
+   No resources found.
+   ```
