@@ -88,7 +88,12 @@ Istio sidecar that manages all incoming and outgoing calls for the service.
 
 ### Content Based Routing
 
-1. Set the default route for the reviews microservice to v1
+Since we have 3 versions of the reviews microservice running, we need to set the default route.
+Otherwise if you access the application several times, you would notice that sometimes the output contains 
+star ratings. This is because without an explicit default version set, Istio will 
+route requests to all available versions of a service in a random fashon.
+   
+1. Set the default version for the reviews microservice to v1. 
 
    ```bash
    $ kubectl create -f route-rule-reviews-v1.yaml 
@@ -174,8 +179,8 @@ Istio sidecar that manages all incoming and outgoing calls for the service.
    *Sorry, product reviews are currently unavailable for this book*.
 
    The reason that the entire reviews service has failed is because our bookinfo application
-   has a bug. The timeout between the productpage and reviews service is less (3s) than the
-   timeout between the reviews and ratings service (10s). These kinds of bugs can occur in
+   has a bug. The timeout between the productpage and reviews service is less (3s + 1 retry = 6s total)
+   than the timeout between the reviews and ratings service (10s). These kinds of bugs can occur in
    typical enterprise applications where different teams develop different microservices
    independently. Istio's fault injection rules help you identify such anomalies without
    impacting end users.
