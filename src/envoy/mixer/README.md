@@ -49,3 +49,51 @@ This Proxy will use Envoy and talk to Mixer server.
   curl http://localhost:9090/echo -d "hello world"
 ```
 
+## How to configurate HTTP filters
+
+This module has two HTTP filters:
+1. mixer filter: intercept all HTTP requests, call the mixer.
+2. forward_attribute filter: Forward attributes to the upstream istio/proxy.
+
+### *mixer* filter:
+
+This filter will intercept all HTTP requests and call Mixer. Here is its config:
+
+```
+   "filters": [
+      "type": "both",
+      "name": "mixer",
+      "config": {
+         "mixer_server": "${MIXER_SERVER}",
+         "attributes" : {
+            "attribute_name1": "attribute_value1",
+            "attribute_name2": "attribute_value2"
+         }
+    }
+```
+
+Notes:
+* mixer_server is required
+* attributes: these attributes will be send to the mixer
+
+### *forward_attribute* HTTP filter:
+
+This filer will forward attributes to the upstream istio/proxy.
+
+```
+   "filters": [
+      "type": "decoder",
+      "name": "forward_attribute",
+      "config": {
+         "attributes": {
+            "attribute_name1": "attribute_value1",
+            "attribute_name2": "attribute_value2"
+ 	    }
+    }
+```
+
+Notes:
+* attributes: these attributes will be forwarded to the upstream istio/proxy.
+
+
+

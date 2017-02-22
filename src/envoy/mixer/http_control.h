@@ -1,4 +1,4 @@
-/* Copyright 2016 Google Inc. All Rights Reserved.
+/* Copyright 2017 Istio Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ class HttpControl final : public Logger::Loggable<Logger::Id::http> {
               ::istio::mixer_client::DoneFunc on_done);
 
  private:
-  void FillCheckAttributes(const HeaderMap& header_map,
+  void FillCheckAttributes(HeaderMap& header_map,
                            ::istio::mixer_client::Attributes* attr);
 
   // The mixer client

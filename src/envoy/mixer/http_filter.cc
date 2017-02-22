@@ -1,4 +1,4 @@
-/* Copyright 2016 Google Inc. All Rights Reserved.
+/* Copyright 2017 Istio Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include "envoy/server/instance.h"
 #include "server/config/network/http_connection_manager.h"
 #include "src/envoy/mixer/http_control.h"
+#include "src/envoy/mixer/utils.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
@@ -30,8 +31,11 @@ namespace Http {
 namespace Mixer {
 namespace {
 
-// Define lower case string for X-Forwarded-Host.
-const LowerCaseString kHeaderNameXFH("x-forwarded-host", false);
+// The Json object name for mixer-server.
+const std::string kJsonNameMixerServer("mixer_server");
+
+// The Json object name for static attributes.
+const std::string kJsonNameMixerAttributes("attributes");
 
 // Convert Status::code to HTTP code
 int HttpCode(int code) {
@@ -88,20 +92,16 @@ class Config : public Logger::Loggable<Logger::Id::http> {
   Config(const Json::Object& config, Server::Instance& server)
       : cm_(server.clusterManager()) {
     std::string mixer_server;
-    if (config.hasObject("mixer_server")) {
-      mixer_server = config.getString("mixer_server");
+    if (config.hasObject(kJsonNameMixerServer)) {
+      mixer_server = config.getString(kJsonNameMixerServer);
     } else {
       log().error(
           "mixer_server is required but not specified in the config: {}",
           __func__);
     }
 
-    std::map<std::string, std::string> attributes;
-    if (config.hasObject("attributes")) {
-      for (const std::string& attr : config.getStringArray("attributes")) {
-        attributes[attr] = config.getString(attr);
-      }
-    }
+    std::map<std::string, std::string> attributes =
+        Utils::ExtractStringMap(config, kJsonNameMixerAttributes);
 
     http_control_ =
         std::make_shared<HttpControl>(mixer_server, std::move(attributes));

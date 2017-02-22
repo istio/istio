@@ -35,7 +35,62 @@
                 "type": "both",
                 "name": "mixer",
                 "config": {
-                  "mixer_server": "${MIXER_SERVER}"
+                  "mixer_server": "${MIXER_SERVER}",
+                  "attributes": {
+                      "target.uid": "POD222",
+                      "target.namespace": "XYZ222"
+                  }
+                }
+              },
+              {
+                "type": "decoder",
+                "name": "router",
+                "config": {}
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "port": 7070,
+      "bind_to_port": true,
+      "filters": [
+        {
+          "type": "read",
+          "name": "http_connection_manager",
+          "config": {
+            "codec_type": "auto",
+            "stat_prefix": "ingress_http",
+            "route_config": {
+              "virtual_hosts": [
+                {
+                  "name": "backend",
+                  "domains": ["*"],
+                  "routes": [
+                    {
+                      "timeout_ms": 0,
+                      "prefix": "/",
+                      "cluster": "service2"
+                    }
+                  ]
+                }
+              ]
+            },
+            "access_log": [
+              {
+                "path": "/dev/stdout"
+              }
+            ],
+            "filters": [
+              {
+                "type": "decoder",
+                "name": "forward_attribute",
+                "config": {
+                   "attributes": {
+                      "source.uid": "POD11",
+                      "source.namespace": "XYZ11"
+                   }
                 }
               },
               {
@@ -63,6 +118,17 @@
         "hosts": [
           {
             "url": "tcp://${BACKEND}"
+          }
+        ]
+      },
+      {
+        "name": "service2",
+        "connect_timeout_ms": 5000,
+        "type": "strict_dns",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://localhost:9090"
           }
         ]
       }
