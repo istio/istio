@@ -62,7 +62,7 @@ var (
 	inClusterConfig  bool
 	hub              string
 	tag              string
-	mixerTag         string
+	mixerImage       string
 	namespace        string
 	verbose          bool
 	norouting        bool
@@ -92,8 +92,8 @@ func init() {
 	flag.StringVarP(&tag, "tag", "t", "",
 		"Docker tag")
 	// manually update default mixer build tag.
-	flag.StringVarP(&mixerTag, "mixerTag", "", "ea3a8d3e2feb9f06256f92cda5194cc1ea6b599e",
-		"Mixer Docker tag")
+	flag.StringVarP(&mixerImage, "mixerImage", "", "gcr.io/istio-testing/mixer:ea3a8d3e2feb9f06256f92cda5194cc1ea6b599e",
+		"Mixer Docker image")
 	flag.StringVarP(&namespace, "namespace", "n", "",
 		"Namespace to use for testing (empty to create/delete temporary one)")
 	flag.BoolVarP(&verbose, "dump", "d", false,
@@ -116,8 +116,8 @@ func setup() {
 	if tag == "" {
 		log.Fatal("No docker tag specified with -t or --tag")
 	}
-	if mixerTag == "" {
-		log.Fatal("No mixer tag specified with --mixerTag, 'latest?'")
+	if mixerImage == "" {
+		log.Fatal("No mixer image specified with --mixerImage, 'latest?'")
 	}
 	log.Printf("hub %v, tag %v", hub, tag)
 
@@ -201,15 +201,15 @@ func deploy(name, svcName, dType, namespace, port1, port2, version string) error
 	w = bufio.NewWriter(f)
 
 	if err := write("test/integration/"+dType+".yaml.tmpl", map[string]string{
-		"hub":       hub,
-		"tag":       tag,
-		"mixerTag":  mixerTag,
-		"namespace": namespace,
-		"service":   svcName,
-		"name":      name,
-		"port1":     port1,
-		"port2":     port2,
-		"version":   version,
+		"hub":        hub,
+		"tag":        tag,
+		"mixerImage": mixerImage,
+		"namespace":  namespace,
+		"service":    svcName,
+		"name":       name,
+		"port1":      port1,
+		"port2":      port2,
+		"version":    version,
 	}, w); err != nil {
 		return err
 	}
