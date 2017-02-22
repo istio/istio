@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 the Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -136,6 +136,9 @@ func (p *prom) Record(vals []adapter.Value) error {
 func (*prom) Close() error { return nil }
 
 func newCounterVec(name, desc string, labels map[string]adapter.LabelType) *prometheus.CounterVec {
+	if desc == "" {
+		desc = name
+	}
 	c := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: safeName(name),
@@ -147,6 +150,9 @@ func newCounterVec(name, desc string, labels map[string]adapter.LabelType) *prom
 }
 
 func newGaugeVec(name, desc string, labels map[string]adapter.LabelType) *prometheus.GaugeVec {
+	if desc == "" {
+		desc = name
+	}
 	c := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: safeName(name),

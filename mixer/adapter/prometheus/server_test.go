@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 the Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,19 +19,13 @@ import (
 	"net/http"
 	"testing"
 
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/test"
 )
-
-type testLogger struct {
-	adapter.Logger
-}
-
-func (t testLogger) Errorf(format string, args ...interface{}) error { return nil }
 
 func TestServer(t *testing.T) {
 	testAddr := "127.0.0.1:9992"
 	s := newServer(testAddr)
-	if err := s.Start(testLogger{}); err != nil {
+	if err := s.Start(test.NewEnv(t).Logger()); err != nil {
 		t.Fatalf("Start() failed unexpectedly: %v", err)
 	}
 
