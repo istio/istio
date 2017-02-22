@@ -272,9 +272,7 @@ new_go_repository(
 ## Proxy build rules
 ##
 
-# TODO investigate why recent Envoy build does not work
-# PROXY="2f69cc985fc28e8131eba36ee24c21cfa535384e"
-PROXY="eb8bfccc391e528fba316c4e081515eb18583e5c"
+PROXY="7444da1c3c22abaab03e9fbe67ba3e77a1cea590"
 
 http_file(
     name = "istio_proxy",
