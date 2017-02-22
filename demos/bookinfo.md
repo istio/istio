@@ -104,6 +104,28 @@ route requests to all available versions of a service in a random fashon.
 
    ```bash
    $ kubectl get istioconfig -o yaml
+   apiVersion: v1
+   items:
+   - apiVersion: istio.io/v1alpha1
+     kind: IstioConfig
+     metadata:
+       creationTimestamp: 2017-02-22T17:11:43Z
+       name: route-rule-reviews-v1
+       namespace: default
+       resourceVersion: "42084"
+       selfLink: /apis/istio.io/v1alpha1/namespaces/default/istioconfigs/route-rule-reviews-v1
+       uid: fb967b00-f921-11e6-a8ad-764cb43dfcf7
+     spec:
+       destination: reviews.default.svc.cluster.local
+       precedence: 1
+       route:
+       - tags:
+           version: v1
+         weight: 100
+   kind: List
+   metadata: {}
+   resourceVersion: ""
+   selfLink: ""
    ```
 
    Since rule propagation to the proxies is asynchronous, you ahould wait a few seconds for the rules
@@ -236,6 +258,11 @@ with *red* colored star ratings for each review.
 
    ```bash
    $ ./cleanup.sh
+   ```
+
+1. Confirm shutdown
+
+   ```bash
    $ kubectl get istioconfig    #-- there should be no more routing rules
    No resources found.
    $ kubectl get pods           #-- the bookinfo and control plane services should be deleted
