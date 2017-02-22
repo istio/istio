@@ -1,0 +1,79 @@
+################################
+# Istio discovery service
+################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-route-controller
+  labels:
+    infra: istio-route-controller
+spec:
+  ports:
+  - port: 8080
+    name: http-route-controller
+  selector:
+    infra: istio-route-controller
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-route-controller
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        infra: istio-route-controller
+    spec:
+      containers:
+      - name: istio-route-controller
+        image: frankb/runtime:unin5
+        args: ["discovery", "--logtostderr", "-v", "2"]
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+---
+################################
+# Istio ingress controller
+################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingress-controller
+  labels:
+    infra: istio-ingress-controller
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 32000
+    name: http
+  selector:
+    infra: istio-ingress-controller
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-ingress-controller
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        infra: istio-ingress-controller
+    spec:
+      containers:
+      - name: istio-ingress-controller
+        image: zcahana/runtime:test
+        args:
+        - proxy
+        - ingress
+        - -s
+        - istio-route-controller:8080
+        - --logtostderr
+        - -v
+        - "2"
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
