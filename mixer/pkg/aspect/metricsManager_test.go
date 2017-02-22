@@ -1,4 +1,4 @@
-// Copyright 2017 The Istio Authors.
+// Copyright 2017 the Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,34 +23,14 @@ import (
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/test"
+	atest "istio.io/mixer/pkg/adapter/test"
 	aconfig "istio.io/mixer/pkg/aspect/config"
+	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
-
-// TODO: consolidate these with //pkg/aspect/test
-type fakeBag struct {
-	attribute.Bag
-}
-
-type fakeEval struct {
-	expr.PredicateEvaluator
-	expr.Validator
-
-	body func(string, attribute.Bag) (interface{}, error)
-}
-
-func (f *fakeEval) Eval(expression string, attrs attribute.Bag) (interface{}, error) {
-	return f.body(expression, attrs)
-}
-
-func (f *fakeEval) EvalString(expression string, attrs attribute.Bag) (string, error) {
-	r, err := f.body(expression, attrs)
-	return r.(string), err
-}
 
 type fakeaspect struct {
 	adapter.Aspect
@@ -69,8 +49,13 @@ func (a *fakeaspect) Record(v []adapter.Value) error {
 
 type fakeBuilder struct {
 	adapter.Builder
+	name string
 
 	body func() (adapter.MetricsAspect, error)
+}
+
+func (b *fakeBuilder) Name() string {
+	return b.name
 }
 
 func (b *fakeBuilder) NewMetricsAspect(env adapter.Env, config adapter.AspectConfig, metrics []adapter.MetricDefinition) (adapter.MetricsAspect, error) {
@@ -103,10 +88,10 @@ func TestMetricsManager_NewAspect(t *testing.T) {
 		// the params we use here don't matter because we're faking the aspect
 		Builder: &pb.Adapter{Params: &aconfig.MetricsParams{}},
 	}
-	builder := &fakeBuilder{body: func() (adapter.MetricsAspect, error) {
+	builder := &fakeBuilder{name: "test", body: func() (adapter.MetricsAspect, error) {
 		return &fakeaspect{body: func([]adapter.Value) error { return nil }}, nil
 	}}
-	if _, err := NewMetricsManager().NewAspect(conf, builder, test.NewEnv(t)); err != nil {
+	if _, err := NewMetricsManager().NewAspect(conf, builder, atest.NewEnv(t)); err != nil {
 		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 }
@@ -122,7 +107,7 @@ func TestMetricsManager_NewAspect_PropagatesError(t *testing.T) {
 		body: func() (adapter.MetricsAspect, error) {
 			return nil, fmt.Errorf(errString)
 		}}
-	_, err := NewMetricsManager().NewAspect(conf, builder, test.NewEnv(t))
+	_, err := NewMetricsManager().NewAspect(conf, builder, atest.NewEnv(t))
 	if err == nil {
 		t.Error("NewMetricsManager().NewAspect(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
 	}
@@ -134,7 +119,7 @@ func TestMetricsManager_NewAspect_PropagatesError(t *testing.T) {
 func TestMetricsWrapper_Execute(t *testing.T) {
 	// TODO: all of these test values are hardcoded to match the metric definitions hardcoded in metricsManager
 	// (since things have to line up for us to test them), they can be made dynamic when we get the ability to set the definitions
-	goodEval := &fakeEval{body: func(exp string, _ attribute.Bag) (interface{}, error) {
+	goodEval := test.NewFakeEval(func(exp string, _ attribute.Bag) (interface{}, error) {
 		switch exp {
 		case "value":
 			return 1, nil
@@ -147,18 +132,18 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 		default:
 			return nil, fmt.Errorf("default case for exp = %s", exp)
 		}
-	}}
-	errEval := &fakeEval{body: func(_ string, _ attribute.Bag) (interface{}, error) {
+	})
+	errEval := test.NewFakeEval(func(_ string, _ attribute.Bag) (interface{}, error) {
 		return nil, fmt.Errorf("expected")
-	}}
-	labelErrEval := &fakeEval{body: func(exp string, _ attribute.Bag) (interface{}, error) {
+	})
+	labelErrEval := test.NewFakeEval(func(exp string, _ attribute.Bag) (interface{}, error) {
 		switch exp {
 		case "value":
 			return 1, nil
 		default:
 			return nil, fmt.Errorf("expected")
 		}
-	}}
+	})
 
 	goodMd := map[string]*metricInfo{
 		"request_count": {
@@ -197,11 +182,11 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 	cases := []struct {
 		mdin      map[string]*metricInfo
 		recordErr error
-		eval      *fakeEval
+		eval      expr.Evaluator
 		out       map[string]o
 		errString string
 	}{
-		{make(map[string]*metricInfo), nil, &fakeEval{}, make(map[string]o), ""},
+		{make(map[string]*metricInfo), nil, test.NewIDEval(), make(map[string]o), ""},
 		{goodMd, nil, errEval, make(map[string]o), "expected"},
 		{goodMd, nil, labelErrEval, make(map[string]o), "expected"},
 		{goodMd, nil, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, ""},
@@ -218,7 +203,7 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 				}},
 				metadata: c.mdin,
 			}
-			_, err := wrapper.Execute(&fakeBag{}, c.eval)
+			_, err := wrapper.Execute(test.NewBag(), c.eval)
 
 			errString := ""
 			if err != nil {

@@ -1,4 +1,4 @@
-// Copyright 2017 The Istio Authors.
+// Copyright 2017 the Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/genproto/googleapis/rpc/code"
 
@@ -40,6 +41,7 @@ type (
 	}
 
 	metricsWrapper struct {
+		name     string
 		aspect   adapter.MetricsAspect
 		metadata map[string]*metricInfo // metric name -> info
 	}
@@ -58,9 +60,10 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 	// TODO: sync these schemas with the new standardized metric schemas.
 	desc := []*dpb.MetricDescriptor{
 		{
-			Name:  "request_count",
-			Kind:  dpb.COUNTER,
-			Value: dpb.INT64,
+			Name:        "request_count",
+			Kind:        dpb.COUNTER,
+			Value:       dpb.INT64,
+			Description: "request count by source, target, service, and code",
 			Labels: []*dpb.LabelDescriptor{
 				{Name: "source", ValueType: dpb.STRING},
 				{Name: "target", ValueType: dpb.STRING},
@@ -69,9 +72,10 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 			},
 		},
 		{
-			Name:  "request_latency",
-			Kind:  dpb.COUNTER, // TODO: nail this down; as is we'll have to do post-processing
-			Value: dpb.DURATION,
+			Name:        "request_latency",
+			Kind:        dpb.COUNTER, // TODO: nail this down; as is we'll have to do post-processing
+			Value:       dpb.DURATION,
+			Description: "request latency by source, target, and service",
 			Labels: []*dpb.LabelDescriptor{
 				{Name: "source", ValueType: dpb.STRING},
 				{Name: "target", ValueType: dpb.STRING},
@@ -104,12 +108,12 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 			labels:     metric.Labels,
 		}
 	}
-
-	asp, err := a.(adapter.MetricsBuilder).NewMetricsAspect(env, c.Builder.Params.(adapter.AspectConfig), defs)
+	b := a.(adapter.MetricsBuilder)
+	asp, err := b.NewMetricsAspect(env, c.Builder.Params.(adapter.AspectConfig), defs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct metrics aspect with config '%v' and err: %s", c, err)
 	}
-	return &metricsWrapper{asp, metadata}, nil
+	return &metricsWrapper{b.Name(), asp, metadata}, nil
 }
 
 func (*metricsManager) Kind() Kind                          { return MetricsKind }
@@ -164,6 +168,10 @@ func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*O
 	if len(values) > 0 {
 		out = &Output{Code: code.Code_OK}
 	}
+	if glog.V(4) {
+		glog.V(4).Infof("completed execution of metric adapter '%s' for %d values", w.name, len(values))
+	}
+
 	return out, result.ErrorOrNil()
 }
 
@@ -201,9 +209,10 @@ func definitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefinition,
 			desc.Name, desc.Kind, err)
 	}
 	return &adapter.MetricDefinition{
-		Name:   desc.Name,
-		Kind:   kind,
-		Labels: labels,
+		Name:        desc.Name,
+		Description: desc.Description,
+		Kind:        kind,
+		Labels:      labels,
 	}, nil
 }
 

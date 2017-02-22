@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 the Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +19,33 @@ import (
 	"istio.io/mixer/pkg/expr"
 )
 
-// Evaluator is a test version of the expr.Evaluator.
-type Evaluator struct {
-	expr.Evaluator
+// EvalBody is a function that will be executed when expr.Evaluator.Eval and expr.Evaluator.EvalString are called.
+type EvalBody func(string, attribute.Bag) (interface{}, error)
+
+type fakeEval struct {
+	expr.PredicateEvaluator
+	expr.Validator
+
+	body EvalBody
 }
 
-// Eval evaluates given expression using the attribute bag.
-func (t Evaluator) Eval(e string, bag attribute.Bag) (interface{}, error) {
-	return e, nil
+// NewFakeEval constructs a new Evaluator with the provided body.
+func NewFakeEval(body EvalBody) expr.Evaluator {
+	return &fakeEval{body: body}
+}
+
+// NewIDEval constructs a new Evaluator that return the expression string its provided.
+func NewIDEval() expr.Evaluator {
+	return NewFakeEval(func(e string, _ attribute.Bag) (interface{}, error) {
+		return e, nil
+	})
+}
+
+func (f *fakeEval) Eval(expression string, attrs attribute.Bag) (interface{}, error) {
+	return f.body(expression, attrs)
+}
+
+func (f *fakeEval) EvalString(expression string, attrs attribute.Bag) (string, error) {
+	r, err := f.body(expression, attrs)
+	return r.(string), err
 }

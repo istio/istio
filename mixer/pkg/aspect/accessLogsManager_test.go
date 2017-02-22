@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 the Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -207,11 +207,10 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 		mapper      expr.Evaluator
 		wantEntries []adapter.LogEntry
 	}{
-
-		{"empty bag with defaults", commonExec, &test.Bag{}, &test.Evaluator{}, []adapter.LogEntry{emptyEntry}},
-		{"attrs in bag", commonExec, &test.Bag{Strs: map[string]string{"originIp": "127.0.0.1"}}, &test.Evaluator{}, []adapter.LogEntry{sourceEntry}},
-		{"attrs from inputs", commonExecWithInputs, &test.Bag{}, &test.Evaluator{}, []adapter.LogEntry{sourceEntry}},
-		{"custom - no attrs", customEmpty, &test.Bag{}, &test.Evaluator{}, nil},
+		{"empty bag with defaults", commonExec, test.NewBag(), test.NewIDEval(), []adapter.LogEntry{emptyEntry}},
+		{"attrs in bag", commonExec, &test.Bag{Strs: map[string]string{"originIp": "127.0.0.1"}}, test.NewIDEval(), []adapter.LogEntry{sourceEntry}},
+		{"attrs from inputs", commonExecWithInputs, test.NewBag(), test.NewIDEval(), []adapter.LogEntry{sourceEntry}},
+		{"custom - no attrs", customEmpty, test.NewBag(), test.NewIDEval(), nil},
 	}
 
 	for _, v := range tests {
@@ -253,7 +252,7 @@ func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 		bag    attribute.Bag
 		mapper expr.Evaluator
 	}{
-		{"LogAccess() error", logErrExec, &test.Bag{}, &test.Evaluator{}},
+		{"LogAccess() error", logErrExec, test.NewBag(), test.NewIDEval()},
 	}
 
 	for _, v := range tests {
