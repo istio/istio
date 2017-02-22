@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 
 	"istio.io/mixer/adapter"
 	pkgadapter "istio.io/mixer/pkg/adapter"

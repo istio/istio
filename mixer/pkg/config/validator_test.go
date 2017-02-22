@@ -19,8 +19,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mitchellh/mapstructure"
-
 	"istio.io/mixer/pkg/adapter"
 	listcheckerpb "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
@@ -129,7 +127,7 @@ func TestConfigValidatorError(t *testing.T) {
 	}
 }
 
-func TestFullConfigValidator(t *testing.T) {
+func TestFullConfigValidator(tt *testing.T) {
 	fe := newFakeExpr()
 	ctable := []struct {
 		cerr     *adapter.ConfigError
@@ -165,26 +163,29 @@ func TestFullConfigValidator(t *testing.T) {
 			}, "service.name == “*”", false, sSvcConfig1, fmt.Errorf("invalid expression")},
 	}
 	for idx, ctx := range ctable {
-		mgr := newVfinder(ctx.v)
-		fe.err = ctx.exprErr
-		p := NewValidator(mgr.FindValidator, mgr.FindValidator, mgr.AdapterToAspectMapperFunc, ctx.strict, fe)
-		// sGlobalConfig only defines 1 adapter: denyChecker
-		_, ce := p.Validate(ctx.cfg, sGlobalConfig)
-		cok := ce == nil
-		ok := ctx.cerr == nil
-		if ok != cok {
-			t.Errorf("%d Expected %t Got %t", idx, ok, cok)
-		}
-		if ce == nil {
-			continue
-		}
-		if len(ce.Multi.Errors) < 2 {
-			t.Error("expected at least 2 errors reported")
-			continue
-		}
-		if !strings.Contains(ce.Multi.Errors[1].Error(), ctx.cerr.Error()) {
-			t.Errorf("%d got: %#v\nwant: %#v\n", idx, ce.Multi.Errors[1].Error(), ctx.cerr.Error())
-		}
+		tt.Run(fmt.Sprintf("%s", ctx.v), func(t *testing.T) {
+			mgr := newVfinder(ctx.v)
+			fe.err = ctx.exprErr
+			p := NewValidator(mgr.FindValidator, mgr.FindValidator, mgr.AdapterToAspectMapperFunc, ctx.strict, fe)
+			// sGlobalConfig only defines 1 adapter: denyChecker
+			_, ce := p.Validate(ctx.cfg, sGlobalConfig)
+			cok := ce == nil
+			ok := ctx.cerr == nil
+			if ok != cok {
+				t.Errorf("%d Expected %t Got %t", idx, ok, cok)
+
+			}
+			if ce == nil {
+				return
+			}
+			if len(ce.Multi.Errors) < 2 {
+				t.Error("expected at least 2 errors reported")
+				return
+			}
+			if !strings.Contains(ce.Multi.Errors[1].Error(), ctx.cerr.Error()) {
+				t.Errorf("%d got: %#v\nwant: %#v\n", idx, ce.Multi.Errors[1].Error(), ctx.cerr.Error())
+			}
+		})
 	}
 }
 
@@ -194,44 +195,26 @@ func TestConfigParseError(t *testing.T) {
 	p := NewValidator(mgr.FindValidator, mgr.FindValidator, mgr.AdapterToAspectMapperFunc, false, evaluator)
 	ce := p.validateServiceConfig("<config>  </config>", false)
 
-	if ce == nil || !strings.Contains(ce.Error(), "unmarshal error") {
+	if ce == nil || !strings.Contains(ce.Error(), "error unmarshaling") {
 		t.Error("Expected unmarshal Error", ce)
 	}
 
 	ce = p.validateGlobalConfig("<config>  </config>")
 
-	if ce == nil || !strings.Contains(ce.Error(), "unmarshal error") {
+	if ce == nil || !strings.Contains(ce.Error(), "error unmarshaling") {
 		t.Error("Expected unmarshal Error", ce)
 	}
 
 	_, ce = p.Validate("<config>  </config>", "<config>  </config>")
-	if ce == nil || !strings.Contains(ce.Error(), "unmarshal error") {
+	if ce == nil || !strings.Contains(ce.Error(), "error unmarshaling") {
 		t.Error("Expected unmarshal Error", ce)
 	}
 }
 
-type fakeDecoder struct {
-	err error
-}
-
-func (f *fakeDecoder) Decode(raw interface{}) error {
-	return f.err
-}
-
-func TestDecodeError(t *testing.T) {
-	var err error
-	newDecoderErr := fmt.Errorf("decoder creation error")
-	if err = Decode(nil, nil, true, func(md *mapstructure.Metadata, dst interface{}) (Decoder, error) {
-		return nil, newDecoderErr
-	}); err != newDecoderErr {
-		t.Error("expected", newDecoderErr, "got:", err)
-	}
-
-	decodeError := fmt.Errorf("decode error")
-	if err = Decode(nil, nil, true, func(md *mapstructure.Metadata, dst interface{}) (Decoder, error) {
-		return &fakeDecoder{decodeError}, nil
-	}); err != decodeError {
-		t.Error("expected", decodeError, "got:", err)
+func TestDecoderError(t *testing.T) {
+	err := Decode(make(chan int), nil, true)
+	if err == nil {
+		t.Errorf("Expected json encode error")
 	}
 }
 
@@ -243,7 +226,7 @@ adapters:
     kind: denials
     impl: denyChecker
     params:
-      checkattribute: src.ip
+      check_attribute: src.ip
       blacklist: true
 `
 const sGlobalConfig = sGlobalConfigValid + `
@@ -296,7 +279,7 @@ rules:
     adapter: ""
     inputs: {}
     params:
-      checkattribute: src.ip
+      check_attribute: src.ip
       blacklist: true
       unknown_field: true
   rules:
@@ -306,7 +289,7 @@ rules:
       adapter: ""
       inputs: {}
       params:
-        checkattribute: src.ip
+        check_attribute: src.ip
         blacklist: true
 `
 
