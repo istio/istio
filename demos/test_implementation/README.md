@@ -112,13 +112,13 @@ curl -s -H "Host: productpage:9080" -b user=jason http://$(minikube ip):32000/pr
 
 You should see that the JSON output has star ratings under reviews. Change the user name to something else and try again
 
-````bash
+```bash
 curl -s -H "Host: productpage:9080" -b user=shriram http://$(minikube ip):32000/productpage |json_pp
 ```
 
 There would be no star ratings.
 
-##### Fault Injection [NOT WORKING]
+#### Fault Injection [NOT WORKING]
 
 Lets inject a 7 second delay between `reviews-v2` and `ratings-v1` only for `user=jason`
 
