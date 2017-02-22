@@ -84,13 +84,19 @@ type Expression struct {
 	Fn    *Function
 }
 
+// AttributeDescriptorFinder finds attribute descriptors.
+type AttributeDescriptorFinder interface {
+	// FindAttributeDescriptor finds attribute descriptor in the vocabulary. returns nil if not found.
+	FindAttributeDescriptor(name string) *config.AttributeDescriptor
+}
+
 // TypeCheck an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
-func (e *Expression) TypeCheck(attrs attribute.DescriptorFinder, fMap map[string]Func) (valueType config.ValueType, err error) {
+func (e *Expression) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]Func) (valueType config.ValueType, err error) {
 	if e.Const != nil {
 		return e.Const.Type, nil
 	}
 	if e.Var != nil {
-		ad := attrs.FindDescriptor(e.Var.Name)
+		ad := attrs.FindAttributeDescriptor(e.Var.Name)
 		if ad == nil {
 			return valueType, fmt.Errorf("unresolved attribute %s", e.Var.Name)
 		}
@@ -211,7 +217,7 @@ func (f *Function) Eval(attrs attribute.Bag, fMap map[string]Func) (interface{},
 }
 
 // TypeCheck Function using fMap and attribute vocabulary. Return static or computed return type if all args have correct type.
-func (f *Function) TypeCheck(attrs attribute.DescriptorFinder, fMap map[string]Func) (valueType config.ValueType, err error) {
+func (f *Function) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]Func) (valueType config.ValueType, err error) {
 	fn := fMap[f.Name]
 	if fn == nil {
 		return valueType, fmt.Errorf("unknown function: %s", f.Name)

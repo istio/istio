@@ -132,7 +132,7 @@ type af struct {
 	v map[string]*dpb.AttributeDescriptor
 }
 
-func (a *af) FindDescriptor(name string) *dpb.AttributeDescriptor { return a.v[name] }
+func (a *af) FindAttributeDescriptor(name string) *dpb.AttributeDescriptor { return a.v[name] }
 
 func newAF(ds []*ad) *af {
 	m := make(map[string]*dpb.AttributeDescriptor)
