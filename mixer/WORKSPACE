@@ -33,6 +33,12 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_ghodss_yaml",
+    commit = "04f313413ffd65ce25f2541bfd2b2ceec5c0908c", # Dec 6, 2016 (no releases)
+    importpath = "github.com/ghodss/yaml",
+)
+
+new_go_repository(
     name = "in_gopkg_yaml_v2",
     commit = "14227de293ca979cf205cd88769fe71ed96a97e2", # Jan 24, 2017 (no releases)
     importpath = "gopkg.in/yaml.v2",
@@ -144,12 +150,6 @@ new_go_repository(
     name = "com_github_opentracing_basictracer",
     commit = "1b32af207119a14b1b231d451df3ed04a72efebf", # Sep 29, 2016 (no releases)
     importpath = "github.com/opentracing/basictracer-go",
-)
-
-new_go_repository(
-    name = "com_github_mitchellh_mapstructure",
-    commit = "db1efb556f84b25a0a13a04aad883943538ad2e0", # Jan 24, 2017 (no releases)
-    importpath = "github.com/mitchellh/mapstructure",
 )
 
 load("//:repositories.bzl", "new_git_or_local_repository")

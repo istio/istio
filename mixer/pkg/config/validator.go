@@ -25,10 +25,12 @@
 package config
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
-	"github.com/mitchellh/mapstructure"
-	yaml "gopkg.in/yaml.v2"
+	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
 
 	"istio.io/mixer/pkg/adapter"
 	pb "istio.io/mixer/pkg/config/proto"
@@ -94,6 +96,7 @@ func (a adapterKey) String() string {
 func (p *Validator) validateGlobalConfig(cfg string) (ce *adapter.ConfigErrors) {
 	var err error
 	m := &pb.GlobalConfig{}
+
 	if err = yaml.Unmarshal([]byte(cfg), m); err != nil {
 		ce = ce.Append("AdapterConfig", err)
 		return
@@ -222,42 +225,14 @@ func ConvertParams(find ValidatorFinderFunc, name string, params interface{}, st
 	return acfg, nil
 }
 
-// Decoder interface is used for injecting alternate decoders
-type Decoder interface {
-	Decode(raw interface{}) error
-}
-
-type newDecoderFn func(md *mapstructure.Metadata, dst interface{}) (Decoder, error)
-
-// NewDecoder creates a standard mapstructure decoder given metadata
-// but returns a Decoder interface
-func NewDecoder(md *mapstructure.Metadata, dst interface{}) (Decoder, error) {
-	return mapstructure.NewDecoder(
-		&mapstructure.DecoderConfig{Metadata: md, Result: dst},
-	)
-}
-
 // Decode interprets src interface{} as the specified proto message.
-// optional newDecoderFn can be passed in, otherwise standard NewDecoder is used.
-func Decode(src interface{}, dst adapter.AspectConfig, strict bool, newDecoders ...newDecoderFn) (err error) {
-	var md mapstructure.Metadata
-	var d Decoder
-	newDecoder := NewDecoder
-	if len(newDecoders) > 0 {
-		newDecoder = newDecoders[0]
-	}
-
-	if d, err = newDecoder(&md, dst); err != nil {
+// if strict is true returns error on unknown fields.
+func Decode(src interface{}, dst adapter.AspectConfig, strict bool) (err error) {
+	var ba []byte
+	ba, err = json.Marshal(src)
+	if err != nil {
 		return err
 	}
-
-	if err = d.Decode(src); err != nil {
-		return err
-	}
-
-	if strict && len(md.Unused) > 0 {
-		return fmt.Errorf("unused fields while parsing %s", md.Unused)
-	}
-
-	return nil
+	um := jsonpb.Unmarshaler{AllowUnknownFields: !strict}
+	return um.Unmarshal(bytes.NewReader(ba), dst)
 }

@@ -26,8 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ghodss/yaml"
 	ptypes "github.com/gogo/protobuf/types"
-	"gopkg.in/yaml.v2"
 
 	"istio.io/mixer/adapter/ipListChecker/config"
 	"istio.io/mixer/pkg/adapter"
