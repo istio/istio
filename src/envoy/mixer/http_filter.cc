@@ -105,7 +105,7 @@ class Config : public Logger::Loggable<Logger::Id::http> {
 
     http_control_ =
         std::make_shared<HttpControl>(mixer_server, std::move(attributes));
-    log().debug("Called Mixer::Config contructor with mixer_server: ",
+    log().debug("Called Mixer::Config constructor with mixer_server: ",
                 mixer_server);
   }
 
@@ -126,12 +126,14 @@ class Instance : public Http::StreamFilter, public Http::AccessLog::Instance {
   StreamEncoderFilterCallbacks* encoder_callbacks_;
 
   bool initiating_call_;
+  int check_status_code_;
 
  public:
   Instance(ConfigPtr config)
       : http_control_(config->http_control()),
         state_(NotStarted),
-        initiating_call_(false) {
+        initiating_call_(false),
+        check_status_code_(HttpCode(StatusCode::UNKNOWN)) {
     Log().debug("Called Mixer::Instance : {}", __func__);
   }
 
@@ -190,8 +192,8 @@ class Instance : public Http::StreamFilter, public Http::AccessLog::Instance {
                 status.ToString());
     if (!status.ok() && state_ != Responded) {
       state_ = Responded;
-      Utility::sendLocalReply(*decoder_callbacks_,
-                              Code(HttpCode(status.error_code())),
+      check_status_code_ = HttpCode(status.error_code());
+      Utility::sendLocalReply(*decoder_callbacks_, Code(check_status_code_),
                               status.ToString());
       return;
     }
@@ -229,7 +231,7 @@ class Instance : public Http::StreamFilter, public Http::AccessLog::Instance {
     // The class may be gone when it is called.
     // Log() is a static function so it is OK.
     http_control_->Report(request_data_, response_headers, request_info,
-                          [](const Status& status) {
+                          check_status_code_, [](const Status& status) {
                             Log().debug("Report returns status: {}",
                                         status.ToString());
                           });

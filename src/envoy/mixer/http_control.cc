@@ -37,6 +37,7 @@ const std::string kAttrNameResponseSize = "response.size";
 const std::string kAttrNameResponseTime = "response.time";
 const std::string kAttrNameOriginIp = "origin.ip";
 const std::string kAttrNameOriginHost = "origin.host";
+const std::string kResponseStatusCode = "response.status.code";
 
 Attributes::Value StringValue(const std::string& str) {
   Attributes::Value v;
@@ -113,7 +114,7 @@ void FillResponseHeaderAttributes(const HeaderMap& header_map,
 }
 
 void FillRequestInfoAttributes(const AccessLog::RequestInfo& info,
-                               Attributes* attr) {
+                               int check_status_code, Attributes* attr) {
   if (info.bytesReceived() >= 0) {
     attr->attributes[kAttrNameRequestSize] = Int64Value(info.bytesReceived());
   }
@@ -123,6 +124,13 @@ void FillRequestInfoAttributes(const AccessLog::RequestInfo& info,
   if (info.duration().count() >= 0) {
     attr->attributes[kAttrNameResponseTime] =
         Int64Value(info.duration().count());
+  }
+  if (info.responseCode().valid()) {
+    attr->attributes[kResponseStatusCode] =
+        StringValue(std::to_string(info.responseCode().value()));
+  } else {
+    attr->attributes[kResponseStatusCode] =
+        StringValue(std::to_string(check_status_code));
   }
 }
 
@@ -155,11 +163,12 @@ void HttpControl::Check(HttpRequestDataPtr request_data, HeaderMap& headers,
 void HttpControl::Report(HttpRequestDataPtr request_data,
                          const HeaderMap* response_headers,
                          const AccessLog::RequestInfo& request_info,
-                         DoneFunc on_done) {
+                         int check_status, DoneFunc on_done) {
   // Use all Check attributes for Report.
   // Add additional Report attributes.
   FillResponseHeaderAttributes(*response_headers, &request_data->attributes);
-  FillRequestInfoAttributes(request_info, &request_data->attributes);
+  FillRequestInfoAttributes(request_info, check_status,
+                            &request_data->attributes);
   log().debug("Send Report: {}", request_data->attributes.DebugString());
   mixer_client_->Report(request_data->attributes, on_done);
 }
