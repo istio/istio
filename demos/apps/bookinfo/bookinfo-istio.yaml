@@ -225,6 +225,112 @@ spec:
                 fieldPath: status.podIP
         imagePullPolicy: Always
 ---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: reviews-v2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: reviews
+        version: v2
+      annotations:
+        pod.beta.kubernetes.io/init-containers: >
+          [{
+            "name": "iptables",
+            "image": "frankb/init:unin4",
+            "imagePullPolicy": "Always",
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+          }]
+    spec:
+      containers:
+      - name: reviews
+        image: istio/examples-bookinfo-reviews-v2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9080
+      - name: proxy
+        image: frankb/runtime:unin4
+        securityContext:
+          runAsUser: 1337
+        args:
+          - proxy
+          - sidecar
+          - -s
+          - istio-route-controller:8080
+          - --logtostderr
+          - -v
+          - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+        imagePullPolicy: Always
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: reviews-v3
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: reviews
+        version: v3
+      annotations:
+        pod.beta.kubernetes.io/init-containers: >
+          [{
+            "name": "iptables",
+            "image": "frankb/init:unin4",
+            "imagePullPolicy": "Always",
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+          }]
+    spec:
+      containers:
+      - name: reviews
+        image: istio/examples-bookinfo-reviews-v3
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9080
+      - name: proxy
+        image: frankb/runtime:unin4
+        securityContext:
+          runAsUser: 1337
+        args:
+          - proxy
+          - sidecar
+          - -s
+          - istio-route-controller:8080
+          - --logtostderr
+          - -v
+          - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+        imagePullPolicy: Always
+---
 ##################################################################################################
 # Productpage service
 ##################################################################################################
@@ -309,6 +415,14 @@ spec:
   - http:
       paths:
       - path: /productpage
+        backend:
+          serviceName: productpage
+          servicePort: 9080
+      - path: /login
+        backend:
+          serviceName: productpage
+          servicePort: 9080
+      - path: /logout
         backend:
           serviceName: productpage
           servicePort: 9080
