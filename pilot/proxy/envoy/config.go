@@ -117,11 +117,10 @@ func build(instances []*model.ServiceInstance, services []*model.Service,
 	inbound := buildInboundFilters(instances)
 
 	// merge the two sets of route configs
-	routeConfigs := make(RouteConfigs)
+	routeConfigs := make(HTTPRouteConfigs)
 	for port, routeConfig := range inbound {
 		routeConfigs[port] = routeConfig
 	}
-
 	for port, outgoing := range outbound {
 		if incoming, ok := routeConfigs[port]; ok {
 			// If the traffic is sent to a service that has instances co-located with the proxy,
@@ -142,7 +141,7 @@ func build(instances []*model.ServiceInstance, services []*model.Service,
 
 		filters := buildFaultFilters(config, routeConfig)
 
-		filters = append(filters, Filter{
+		filters = append(filters, HTTPFilter{
 			Type:   "decoder",
 			Name:   "router",
 			Config: FilterRouterConfig{},
@@ -153,7 +152,7 @@ func build(instances []*model.ServiceInstance, services []*model.Service,
 			Filters: []*NetworkFilter{{
 				Type: "read",
 				Name: HTTPConnectionManager,
-				Config: NetworkFilterConfig{
+				Config: HTTPFilterConfig{
 					CodecType:  "auto",
 					StatPrefix: "http",
 					AccessLog: []AccessLog{{
@@ -166,6 +165,7 @@ func build(instances []*model.ServiceInstance, services []*model.Service,
 		}
 		listeners = append(listeners, listener)
 	}
+
 	sort.Sort(ListenersByPort(listeners))
 
 	clusters = clusters.Normalize()
@@ -179,10 +179,10 @@ func build(instances []*model.ServiceInstance, services []*model.Service,
 // buildOutboundFilters creates route configs indexed by ports for the traffic outbound
 // from the proxy instance
 func buildOutboundFilters(instances []*model.ServiceInstance, services []*model.Service,
-	config *model.IstioRegistry, mesh *MeshConfig) RouteConfigs {
+	config *model.IstioRegistry, mesh *MeshConfig) HTTPRouteConfigs {
 	// used for shortcut domain names for outbound hostnames
 	suffix := sharedInstanceHost(instances)
-	httpConfigs := make(RouteConfigs)
+	httpConfigs := make(HTTPRouteConfigs)
 
 	// outbound connections/requests are redirected to service ports; we create a
 	// map for each service port to define filters
@@ -205,10 +205,10 @@ func buildOutboundFilters(instances []*model.ServiceInstance, services []*model.
 
 // buildInboundFilters creates route configs indexed by ports for the traffic inbound
 // to co-located service instances
-func buildInboundFilters(instances []*model.ServiceInstance) RouteConfigs {
+func buildInboundFilters(instances []*model.ServiceInstance) HTTPRouteConfigs {
 	// used for shortcut domain names for hostnames
 	suffix := sharedInstanceHost(instances)
-	httpConfigs := make(RouteConfigs)
+	httpConfigs := make(HTTPRouteConfigs)
 
 	// inbound connections/requests are redirected to the endpoint port but appear to be sent
 	// to the service port
@@ -218,7 +218,7 @@ func buildInboundFilters(instances []*model.ServiceInstance) RouteConfigs {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
 			cluster := buildInboundCluster(instance.Endpoint.Port, port.Protocol)
 			route := buildDefaultRoute(cluster)
-			host := buildVirtualHost(instance.Service, port, suffix, []*Route{route})
+			host := buildVirtualHost(instance.Service, port, suffix, []*HTTPRoute{route})
 
 			// insert explicit instance ip:port as a hostname field
 			host.Domains = append(host.Domains, fmt.Sprintf("%s:%d", instance.Endpoint.Address, instance.Endpoint.Port))

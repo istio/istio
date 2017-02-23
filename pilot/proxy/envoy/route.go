@@ -35,8 +35,8 @@ const (
 	OutboundClusterPrefix = "outbound:"
 )
 
-func buildDefaultRoute(cluster *Cluster) *Route {
-	return &Route{
+func buildDefaultRoute(cluster *Cluster) *HTTPRoute {
+	return &HTTPRoute{
 		Prefix:   "/",
 		Cluster:  cluster.Name,
 		clusters: []*Cluster{cluster},
@@ -77,8 +77,8 @@ func buildOutboundCluster(hostname string, port *model.Port, tags model.Tags) *C
 }
 
 // buildHTTPRoutes assembles all routes for the hostname destination
-func buildHTTPRoutes(hostname string, port *model.Port, config *model.IstioRegistry) []*Route {
-	routes := make([]*Route, 0)
+func buildHTTPRoutes(hostname string, port *model.Port, config *model.IstioRegistry) []*HTTPRoute {
+	routes := make([]*HTTPRoute, 0)
 	for _, rule := range config.DestinationRouteRules(hostname) {
 		// TODO: rule applies always, need to check if it's actually HTTP rule
 		routes = append(routes, buildHTTPRoute(rule, port))
@@ -89,8 +89,8 @@ func buildHTTPRoutes(hostname string, port *model.Port, config *model.IstioRegis
 }
 
 // buildHTTPRoute translates a route rule to an Envoy route
-func buildHTTPRoute(rule *config.RouteRule, port *model.Port) *Route {
-	route := &Route{
+func buildHTTPRoute(rule *config.RouteRule, port *model.Port) *HTTPRoute {
+	route := &HTTPRoute{
 		Path:   "",
 		Prefix: "/",
 	}
@@ -158,7 +158,7 @@ func buildSDSCluster(mesh *MeshConfig) *Cluster {
 // "svc.ns.svc.cluster.local:http".
 // Suffix provides the proxy context information - it is the shared sub-domain between co-located
 // service instances (e.g. "namespace", "svc", "cluster", "local")
-func buildVirtualHost(svc *model.Service, port *model.Port, suffix []string, routes []*Route) *VirtualHost {
+func buildVirtualHost(svc *model.Service, port *model.Port, suffix []string, routes []*HTTPRoute) *VirtualHost {
 	hosts := make([]string, 0)
 	domains := make([]string, 0)
 	parts := strings.Split(svc.Hostname, ".")

@@ -105,7 +105,7 @@ func (w *ingressWatcher) generateConfig() (*Config, error) {
 	// Phase 2: create a VirtualHost for each host
 	vhosts := make([]*VirtualHost, 0, len(rulesByHost))
 	for host, hostRules := range rulesByHost {
-		routes := make([]*Route, 0, len(hostRules))
+		routes := make([]*HTTPRoute, 0, len(hostRules))
 		for _, rule := range hostRules {
 			routes = append(routes, buildIngressRoute(rule))
 		}
@@ -119,7 +119,7 @@ func (w *ingressWatcher) generateConfig() (*Config, error) {
 	}
 	sort.Sort(HostsByName(vhosts))
 
-	rConfig := &RouteConfig{VirtualHosts: vhosts}
+	rConfig := &HTTPRouteConfig{VirtualHosts: vhosts}
 
 	httpListener := &Listener{
 		Port:       80,
@@ -128,12 +128,12 @@ func (w *ingressWatcher) generateConfig() (*Config, error) {
 			{
 				Type: "read",
 				Name: HTTPConnectionManager,
-				Config: NetworkFilterConfig{
+				Config: HTTPFilterConfig{
 					CodecType:   "auto",
 					StatPrefix:  "http",
 					AccessLog:   []AccessLog{{Path: DefaultAccessLog}},
 					RouteConfig: rConfig,
-					Filters: []Filter{
+					Filters: []HTTPFilter{
 						{
 							Type:   "decoder",
 							Name:   "router",
@@ -167,8 +167,8 @@ func (w *ingressWatcher) generateConfig() (*Config, error) {
 }
 
 // buildIngressRoute translates an ingress rule to an Envoy route
-func buildIngressRoute(rule *config.RouteRule) *Route {
-	route := &Route{
+func buildIngressRoute(rule *config.RouteRule) *HTTPRoute {
+	route := &HTTPRoute{
 		Path:        "",
 		Prefix:      "/",
 		HostRewrite: rule.Destination,

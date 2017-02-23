@@ -21,17 +21,17 @@ import (
 
 func TestRoutesByPath(t *testing.T) {
 	cases := []struct {
-		in       []*Route
-		expected []*Route
+		in       []*HTTPRoute
+		expected []*HTTPRoute
 	}{
 
 		// Case 2: Prefix before path
 		{
-			in: []*Route{
+			in: []*HTTPRoute{
 				{Prefix: "/api"},
 				{Path: "/api/v1"},
 			},
-			expected: []*Route{
+			expected: []*HTTPRoute{
 				{Path: "/api/v1"},
 				{Prefix: "/api"},
 			},
@@ -39,11 +39,11 @@ func TestRoutesByPath(t *testing.T) {
 
 		// Case 3: Longer prefix before shorter prefix
 		{
-			in: []*Route{
+			in: []*HTTPRoute{
 				{Prefix: "/api"},
 				{Prefix: "/api/v1"},
 			},
-			expected: []*Route{
+			expected: []*HTTPRoute{
 				{Prefix: "/api/v1"},
 				{Prefix: "/api"},
 			},
@@ -52,7 +52,7 @@ func TestRoutesByPath(t *testing.T) {
 
 	// Function to determine if two *Route slices
 	// are the same (same Routes, same order)
-	sameOrder := func(r1, r2 []*Route) bool {
+	sameOrder := func(r1, r2 []*HTTPRoute) bool {
 		for i, r := range r1 {
 			if r.Path != r2[i].Path || r.Prefix != r2[i].Prefix {
 				return false

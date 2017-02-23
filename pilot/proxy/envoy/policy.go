@@ -26,13 +26,14 @@ import (
 
 func insertMixerFilter(listeners []*Listener, mixer string) {
 	for _, l := range listeners {
-		for _, http := range l.Filters {
-			if http.Name == HTTPConnectionManager {
-				http.Config.Filters = append([]Filter{{
+		for _, f := range l.Filters {
+			if f.Name == HTTPConnectionManager {
+				http := (f.Config).(HTTPFilterConfig)
+				http.Filters = append([]HTTPFilter{{
 					Type:   "both",
 					Name:   "mixer",
 					Config: &FilterMixerConfig{MixerServer: mixer},
-				}}, http.Config.Filters...)
+				}}, http.Filters...)
 			}
 		}
 	}
@@ -58,7 +59,7 @@ func insertDestinationPolicy(config *model.IstioRegistry, cluster *Cluster) {
 }
 
 // buildFaultFilters builds a list of fault filters for the http route
-func buildFaultFilters(config *model.IstioRegistry, routeConfig *RouteConfig) []Filter {
+func buildFaultFilters(config *model.IstioRegistry, routeConfig *HTTPRouteConfig) []HTTPFilter {
 	if routeConfig == nil {
 		return nil
 	}
@@ -67,7 +68,7 @@ func buildFaultFilters(config *model.IstioRegistry, routeConfig *RouteConfig) []
 	clusters = routeConfig.clusters()
 	clusters = clusters.Normalize()
 
-	faults := make([]Filter, 0)
+	faults := make([]HTTPFilter, 0)
 	for _, cluster := range clusters {
 		policies := config.DestinationPolicies(cluster.hostname, cluster.tags)
 		for _, policy := range policies {
@@ -81,8 +82,8 @@ func buildFaultFilters(config *model.IstioRegistry, routeConfig *RouteConfig) []
 }
 
 // buildFaultFilter builds a single fault filter for envoy cluster
-func buildHTTPFaultFilter(cluster string, faultRule *proxyconfig.HTTPFaultInjection) Filter {
-	return Filter{
+func buildHTTPFaultFilter(cluster string, faultRule *proxyconfig.HTTPFaultInjection) HTTPFilter {
+	return HTTPFilter{
 		Type: "decoder",
 		Name: "fault",
 		Config: FilterFaultConfig{

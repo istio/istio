@@ -47,8 +47,10 @@ const (
 	DefaultAccessLog = "/dev/stdout"
 	LbTypeRoundRobin = "round_robin"
 
-	// HTTPConnectionManager is the name of HTTP filter
+	// HTTPConnectionManager is the name of HTTP filter.
 	HTTPConnectionManager = "http_connection_manager"
+	// TCPProxyFilter is the name of the TCP Proxy network filter.
+	TCPProxyFilter = "tcp_proxy"
 
 	// URI HTTP header
 	HeaderURI = "uri"
@@ -109,8 +111,8 @@ type FilterRouterConfig struct {
 	DynamicStats bool `json:"dynamic_stats,omitempty"`
 }
 
-// Filter definition
-type Filter struct {
+// HTTPFilter definition
+type HTTPFilter struct {
 	Type   string      `json:"type"`
 	Name   string      `json:"name"`
 	Config interface{} `json:"config"`
@@ -122,8 +124,8 @@ type Runtime struct {
 	Default int    `json:"default"`
 }
 
-// Route definition
-type Route struct {
+// HTTPRoute definition
+type HTTPRoute struct {
 	Runtime *Runtime `json:"runtime,omitempty"`
 
 	Path   string `json:"path,omitempty"`
@@ -166,20 +168,20 @@ type WeightedClusterEntry struct {
 
 // VirtualHost definition
 type VirtualHost struct {
-	Name    string   `json:"name"`
-	Domains []string `json:"domains"`
-	Routes  []*Route `json:"routes"`
+	Name    string       `json:"name"`
+	Domains []string     `json:"domains"`
+	Routes  []*HTTPRoute `json:"routes"`
 }
 
-// RouteConfig definition
-type RouteConfig struct {
+// HTTPRouteConfig definition
+type HTTPRouteConfig struct {
 	VirtualHosts []*VirtualHost `json:"virtual_hosts"`
 }
 
 // Merge operation selects a union of two route configs prioritizing the first.
 // It matches virtual hosts by name.
-func (rc *RouteConfig) merge(that *RouteConfig) *RouteConfig {
-	out := &RouteConfig{}
+func (rc *HTTPRouteConfig) merge(that *HTTPRouteConfig) *HTTPRouteConfig {
+	out := &HTTPRouteConfig{}
 	set := make(map[string]bool)
 	for _, host := range rc.VirtualHosts {
 		set[host.Name] = true
@@ -194,7 +196,7 @@ func (rc *RouteConfig) merge(that *RouteConfig) *RouteConfig {
 }
 
 // Clusters aggregates clusters across routes
-func (rc *RouteConfig) clusters() []*Cluster {
+func (rc *HTTPRouteConfig) clusters() []*Cluster {
 	out := make([]*Cluster, 0)
 	for _, host := range rc.VirtualHosts {
 		for _, route := range host.Routes {
@@ -211,22 +213,54 @@ type AccessLog struct {
 	Filter string `json:"filter,omitempty"`
 }
 
-// NetworkFilterConfig definition
-type NetworkFilterConfig struct {
-	CodecType         string       `json:"codec_type"`
-	StatPrefix        string       `json:"stat_prefix"`
-	GenerateRequestID bool         `json:"generate_request_id,omitempty"`
-	RouteConfig       *RouteConfig `json:"route_config"`
-	Filters           []Filter     `json:"filters"`
-	AccessLog         []AccessLog  `json:"access_log"`
-	Cluster           string       `json:"cluster,omitempty"`
+// HTTPFilterConfig definition
+type HTTPFilterConfig struct {
+	CodecType         string           `json:"codec_type"`
+	StatPrefix        string           `json:"stat_prefix"`
+	GenerateRequestID bool             `json:"generate_request_id,omitempty"`
+	RouteConfig       *HTTPRouteConfig `json:"route_config"`
+	Filters           []HTTPFilter     `json:"filters"`
+	AccessLog         []AccessLog      `json:"access_log"`
+}
+
+// TCPRoute definition
+type TCPRoute struct {
+	Cluster           string   `json:"cluster"`
+	DestinationIPList []string `json:"destination_ip_list,omitempty"`
+	DestinationPorts  string   `json:"destination_ports,omitempty"`
+	SourceIPList      []string `json:"source_ip_list,omitempty"`
+	SourcePorts       string   `json:"source_ports,omitempty"`
+}
+
+// TCPRouteConfigs provides routes by port
+type TCPRouteConfigs map[int]*TCPRouteConfig
+
+// TCPRouteConfig (or generalize as RouteConfig or L4RouteConfig for TCP/UDP?)
+type TCPRouteConfig struct {
+	Routes []TCPRoute `json:"routes"`
+}
+
+// EnsurePort creates a route config if necessary
+func (hosts TCPRouteConfigs) EnsurePort(port int) *TCPRouteConfig {
+	config, ok := hosts[port]
+	if !ok {
+		config = &TCPRouteConfig{}
+		hosts[port] = config
+	}
+	return config
+}
+
+// TCPProxyFilterConfig definition
+type TCPProxyFilterConfig struct {
+	StatPrefix  string         `json:"stat_prefix"`
+	RouteConfig TCPRouteConfig `json:"route_config"`
 }
 
 // NetworkFilter definition
 type NetworkFilter struct {
-	Type   string              `json:"type"`
-	Name   string              `json:"name"`
-	Config NetworkFilterConfig `json:"config"`
+	Type   string      `json:"type"`
+	Name   string      `json:"name"`
+	Config interface{} `json:"config"`
 }
 
 // Listener definition
@@ -237,14 +271,14 @@ type Listener struct {
 	UseOriginalDst bool             `json:"use_original_dst,omitempty"`
 }
 
-// RouteConfigs provides routes by virtual host and port
-type RouteConfigs map[int]*RouteConfig
+// HTTPRouteConfigs provides routes by virtual host and port
+type HTTPRouteConfigs map[int]*HTTPRouteConfig
 
 // EnsurePort creates a route config if necessary
-func (hosts RouteConfigs) EnsurePort(port int) *RouteConfig {
+func (hosts HTTPRouteConfigs) EnsurePort(port int) *HTTPRouteConfig {
 	config, ok := hosts[port]
 	if !ok {
-		config = &RouteConfig{}
+		config = &HTTPRouteConfig{}
 		hosts[port] = config
 	}
 	return config
@@ -364,7 +398,7 @@ func (s HostsByName) Less(i, j int) bool {
 //
 // This order ensures that prefix path routes do not shadow more
 // specific routes which share the same prefix.
-type RoutesByPath []*Route
+type RoutesByPath []*HTTPRoute
 
 func (r RoutesByPath) Len() int {
 	return len(r)
