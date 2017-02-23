@@ -150,7 +150,7 @@ func TestRegisterQuota(t *testing.T) {
 
 type metricsBuilder struct{ testBuilder }
 
-func (metricsBuilder) NewMetricsAspect(adapter.Env, adapter.AspectConfig, []adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (metricsBuilder) NewMetricsAspect(adapter.Env, adapter.AspectConfig, map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

@@ -11,6 +11,7 @@ go_library(
         "builder.go",
         "configError.go",
         "denials.go",
+        "labels.go",
         "lists.go",
         "metrics.go",
         "quotas.go",
