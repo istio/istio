@@ -24,6 +24,9 @@ This application is polyglot, i.e., the microservices are written in
 different languages. All microservices are packaged with an
 Istio sidecar that manages all incoming and outgoing calls for the service.
 
+> Note: the following instructions assume that your current working directory
+> is [apps/bookinfo](apps/bookinfo).
+
 ## Running the Bookinfo Application
 
 1. Bring up the control plane:
@@ -42,7 +45,7 @@ Istio sidecar that manages all incoming and outgoing calls for the service.
    ```
 
    The above command creates the gateway ingress resource and launches the 4 microservices as described
-   in the diagram above. The reviews microservice has 3 versions v1, v2, and v3.
+   in the diagram above. The reviews microservice has 3 versions: v1, v2, and v3.
    Note that in a realistic deployment, new versions of a microservice are deployed over 
    time instead of deploying all versions simultaneously.
    
@@ -88,10 +91,12 @@ Istio sidecar that manages all incoming and outgoing calls for the service.
 
 ### Content Based Routing
 
+
+
 Since we have 3 versions of the reviews microservice running, we need to set the default route.
 Otherwise if you access the application several times, you would notice that sometimes the output contains 
 star ratings. This is because without an explicit default version set, Istio will 
-route requests to all available versions of a service in a random fashon.
+route requests to all available versions of a service in a random fashion.
    
 1. Set the default version for the reviews microservice to v1. 
 
@@ -128,7 +133,7 @@ route requests to all available versions of a service in a random fashon.
    selfLink: ""
    ```
 
-   Since rule propagation to the proxies is asynchronous, you ahould wait a few seconds for the rules
+   Since rule propagation to the proxies is asynchronous, you should wait a few seconds for the rules
    to propagate to all pods before attempting to access the application.
 
    If you open the Bookinfo URL (`http://$GATEWAY_URL/productpage`) in your browser,
