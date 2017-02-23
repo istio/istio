@@ -4,7 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = ["main.go"],
     visibility = ["//visibility:private"],
-    deps = ["//cert_manager:go_default_library"],
+    deps = ["//certmanager:go_default_library"],
 )
 
 go_binary(

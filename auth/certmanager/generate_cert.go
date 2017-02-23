@@ -16,7 +16,7 @@
 // options. This implementation is Largely inspired from
 // https://golang.org/src/crypto/tls/generate_cert.go.
 
-package cert_manager
+package certmanager
 
 import (
 	"crypto/rand"
@@ -32,6 +32,7 @@ import (
 	"time"
 )
 
+// CertOptions contains options for generating a new certificate.
 type CertOptions struct {
 	// Comma-separated hostnames and IPs to generate a certificate for.
 	// This can also be set to the identity running the workload,
@@ -90,7 +91,7 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 	}
 
 	// Returns the certificate that carries the RSA public key as well as
-	// the correponding private key.
+	// the corresponding private key.
 	certPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certBytes})
 
 	privDer := x509.MarshalPKCS1PrivateKey(priv)
@@ -98,7 +99,7 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 	return privPem, certPem
 }
 
-// loadSigningCreds loads the signer cert&key from the given files.
+// LoadSigningCreds loads the signer cert&key from the given files.
 //   signerCertFile: cert file name
 //   signerPrivFile: private key file name
 func LoadSigningCreds(signerCertFile string, signerPrivFile string) (*x509.Certificate, *rsa.PrivateKey) {

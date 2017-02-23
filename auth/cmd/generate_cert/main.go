@@ -25,7 +25,7 @@ import (
 	"log"
 	"time"
 
-	"istio.io/auth/cert_manager"
+	"istio.io/auth/certmanager"
 )
 
 var (
@@ -76,13 +76,13 @@ func saveCreds(privPem []byte, certPem []byte) {
 func main() {
 	checkCmdLine()
 
-	var signerCert *x509.Certificate = nil
-	var signerPriv *rsa.PrivateKey = nil
+	var signerCert *x509.Certificate
+	var signerPriv *rsa.PrivateKey
 	if !*isSelfSigned {
-		signerCert, signerPriv = cert_manager.LoadSigningCreds(*signerCertFile, *signerPrivFile)
+		signerCert, signerPriv = certmanager.LoadSigningCreds(*signerCertFile, *signerPrivFile)
 	}
 
-	privPem, certPem := cert_manager.GenCert(cert_manager.CertOptions{
+	privPem, certPem := certmanager.GenCert(certmanager.CertOptions{
 		Host:         *host,
 		ValidFrom:    *validFrom,
 		ValidFor:     *validFor,
