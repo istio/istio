@@ -172,6 +172,14 @@ new_http_archive(
     url = "https://codeload.github.com/tianon/docker-brew-ubuntu-core/zip/b6f1fe19228e5b6b7aed98dcba02f18088282f90",
 )
 
+# See github.com/istio/manager/blob/master/docker/debug/build-and-publish-debug-image.sh
+# for instructions on how to re-build and publish this base image layer.
+http_file(
+    name = "ubuntu_xenial_debug",
+    url = "https://storage.googleapis.com/istio-build/manager/ubuntu_xenial_debug.tar.gz",
+    sha256 = "02f0ea4b04012562dec4b75ee4337ac77a0003418d02a91bde1b4b4d162a41e4",
+)
+
 new_go_repository(
     name = "com_github_prometheus_client_golang",
     commit = "c5b7fccd204277076155f10851dad72b76a49317", # Aug 17, 2016 (v0.8.0)

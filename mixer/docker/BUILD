@@ -33,3 +33,23 @@ docker_build(
         "//testdata:configs_tar",
     ],
 )
+
+docker_build(
+    name = "mixer_debug",
+    base = "@ubuntu_xenial_debug//file",
+    entrypoint = [
+        "/usr/local/bin/mixs",
+        "server",
+        "--globalConfigFile=/etc/opt/mixer/globalconfig.yml",
+        "--serviceConfigFile=/etc/opt/mixer/serviceconfig.yml",
+        "--logtostderr",
+        "--v=2",
+    ],
+    ports = ["9091"],
+    repository = "istio",
+    tags = ["manual"],
+    tars = [
+        ":mixer_tar",
+        "//testdata:configs_tar",
+    ],
+)
