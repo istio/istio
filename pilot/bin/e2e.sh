@@ -1,21 +1,21 @@
 #!/bin/bash
 
-hub="gcr.io/istio-testing"
-namespace=""
-debug_suffix=""
-
-# manager is known to work with this mixer build
-# update manually
-mixerImage="gcr.io/istio-testing/mixer:ea3a8d3e2feb9f06256f92cda5194cc1ea6b599e"
+# This script is a workaround due to inability to invoke bazel run targets from within bazel sandboxes.
+# It is a simple shim over test/integration/driver.go that accepts the same set of flags.
+# Please add new flags to the Go test driver directly instead of extending this file.
+# The additional steps that the script performs are:
+# - set default docker tag based on a timestamp and user name
+# - build and push docker images, including manager pieces and proxy.
 
 args=""
+hub="gcr.io/istio-testing"
+tag=""
+debug_suffix=""
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -h) hub="$2"; shift ;;
         -t) tag="$2"; shift ;;
-        --mixerImage) mixerImage="$2"; shift ;;
-        --skipBuild) SKIP_BUILD=1 ;;
-        -n) namespace="$2"; shift ;;
         --use_debug_image) debug_suffix="_debug" ;;
         *) args=$args" $1" ;;
     esac
@@ -24,28 +24,20 @@ done
 
 set -ex
 
-
-if [[ -z $SKIP_BUILD ]];then
-	if [[ -z $tag ]];then
-		# generate tag if performing a build.
-		tag=$(whoami)_$(date +%Y%m%d_%H%M%S)
-	fi
-	if [[ "$hub" =~ ^gcr\.io ]]; then
-		gcloud docker --authorize-only
-	fi
-	for image in app init runtime; do
-		bazel $BAZEL_ARGS run //docker:$image$debug_suffix
-		docker tag istio/docker:$image$debug_suffix $hub/$image:$tag
-		docker push $hub/$image:$tag
-	done
+if [[ -z $tag ]]; then
+  tag=$(whoami)_$(date +%Y%m%d_%H%M%S)
 fi
+args=$args" -t $tag"
 
-[[ ! -z "$tag" ]]       && args=$args" -t $tag"
-[[ ! -z "$hub" ]]       && args=$args" -h $hub"
-[[ ! -z "$namespace" ]] && args=$args" -n $namespace"
+if [[ "$hub" =~ ^gcr\.io ]]; then
+  gcloud docker --authorize-only
+fi
+args=$args" -h $hub"
 
-# mixerImage will never be empty
-args=$args" --mixerImage $mixerImage"
+for image in app init runtime; do
+  bazel $BAZEL_ARGS run //docker:$image$debug_suffix
+  docker tag istio/docker:$image$debug_suffix $hub/$image:$tag
+  docker push $hub/$image:$tag
+done
 
-
-bazel $BAZEL_ARGS run //test/integration -- $args --norouting
+bazel $BAZEL_ARGS run //test/integration -- $args

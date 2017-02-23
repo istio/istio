@@ -35,6 +35,7 @@ def presubmit(gitUtils, bazel) {
   goBuildNode(gitUtils, 'istio.io/manager') {
     bazel.updateBazelRc()
     stage('Bazel Build') {
+      // Empty kube/config file signals to use in-cluster auto-configuration
       sh('touch platform/kube/config')
       bazel.fetch('-k //...')
       bazel.build('//...')
@@ -55,7 +56,7 @@ def presubmit(gitUtils, bazel) {
       }
     }
     stage('Integration Tests') {
-      sh('bin/e2e.sh -t alpha' + gitUtils.GIT_SHA + ' -d --in_cluster_config')
+      sh('bin/e2e.sh -t alpha' + gitUtils.GIT_SHA + ' -d')
     }
   }
 }

@@ -279,6 +279,11 @@ http_file(
     url = "https://storage.googleapis.com/istio-build/proxy/envoy-alpha-" + PROXY + ".tar.gz",
 )
 
+http_file(
+    name = "istio_proxy_debug",
+    url = "https://storage.googleapis.com/istio-build/proxy/envoy-debug-" + PROXY + ".tar.gz",
+)
+
 ##
 ## Docker rules
 ##

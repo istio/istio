@@ -16,6 +16,7 @@ package kube
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -111,7 +112,21 @@ func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 
 // NewClient creates a client to Kubernetes API using a kubeconfig file.
 // Use an empty value for `kubeconfig` to use the in-cluster config.
+// If the kubeconfig file is empty, defaults to in-cluster config as well.
 func NewClient(kubeconfig string, km model.KindMap) (*Client, error) {
+	if kubeconfig != "" {
+		info, exists := os.Stat(kubeconfig)
+		if exists != nil {
+			return nil, fmt.Errorf("kubernetes configuration file %q does not exist", kubeconfig)
+		}
+
+		// if it's an empty file, switch to in-cluster config
+		if info.Size() == 0 {
+			glog.Info("Using in-cluster configuration")
+			kubeconfig = ""
+		}
+	}
+
 	config, err := CreateRESTConfig(kubeconfig)
 	if err != nil {
 		return nil, err
@@ -133,6 +148,11 @@ func NewClient(kubeconfig string, km model.KindMap) (*Client, error) {
 	}
 
 	return out, nil
+}
+
+// GetKubernetesClient retrieves core set kubernetes client
+func (cl *Client) GetKubernetesClient() *kubernetes.Clientset {
+	return cl.client
 }
 
 // RegisterResources creates third party resources

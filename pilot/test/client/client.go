@@ -17,13 +17,22 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+
+	flag "github.com/spf13/pflag"
 )
+
+var (
+	count int
+)
+
+func init() {
+	flag.IntVar(&count, "count", 1, "Number of times to make the request")
+}
 
 func main() {
 	flag.Parse()
@@ -47,29 +56,34 @@ func main() {
 	}
 
 	client := http.Client{}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		log.Println(err.Error())
-		return
-	}
-	if headerKey != "" {
-		req.Header.Add(headerKey, headerVal)
-	}
 
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Println(err.Error())
-		return
-	}
+	for i := 0; i < count; i++ {
+		fmt.Printf("ClientRequest=%d\n", i)
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			log.Println(err.Error())
+			continue
+		}
 
-	fmt.Printf("StatusCode=%d\n", resp.StatusCode)
-	_, err = io.Copy(os.Stdout, resp.Body)
-	if err != nil {
-		log.Println(err.Error())
-	}
+		if headerKey != "" {
+			req.Header.Add(headerKey, headerVal)
+		}
 
-	err = resp.Body.Close()
-	if err != nil {
-		log.Println(err.Error())
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Println(err.Error())
+			continue
+		}
+
+		fmt.Printf("StatusCode=%d\n", resp.StatusCode)
+		_, err = io.Copy(os.Stdout, resp.Body)
+		if err != nil {
+			log.Println(err.Error())
+		}
+
+		err = resp.Body.Close()
+		if err != nil {
+			log.Println(err.Error())
+		}
 	}
 }

@@ -59,7 +59,6 @@ docker_build(
         "@deb_libxtables//file",
     ],
     tars = [":prepare_proxy"],
-    visibility = ["//visibility:public"],
 )
 
 docker_build(
@@ -91,11 +90,10 @@ docker_build(
     repository = "istio",
     tags = ["manual"],
     tars = [
-        "@istio_proxy//file",
+        "@istio_proxy_debug//file",
         ":manager",
         ":config",
     ],
-    visibility = ["//visibility:public"],
 )
 
 docker_build(
@@ -114,5 +112,4 @@ docker_build(
     repository = "istio",
     tags = ["manual"],
     tars = [":test"],
-    visibility = ["//visibility:public"],
 )
