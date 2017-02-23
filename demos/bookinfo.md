@@ -130,7 +130,8 @@ route requests to all available versions of a service in a random fashon.
 
    Since rule propagation to the proxies is asynchronous, you ahould wait a few seconds for the rules
    to propagate to all pods before attempting to access the application.
-   If you open the Bookinfo URL (`http://$GATEWAY_URL/productpage/productpage`) in your browser,
+
+   If you open the Bookinfo URL (`http://$GATEWAY_URL/productpage`) in your browser,
    you should see the bookinfo application `productpage` displayed. Notice that the `productpage`
    is displayed, with no rating stars since `reviews:v1` does not access the ratings service.
 
@@ -214,7 +215,7 @@ route requests to all available versions of a service in a random fashon.
 
 At this point we would normally fix the problem by either increasing the
 productpage timeout or decreasing the reviews to ratings service timeout,
-terminate and restart the fixed microservice, and then confirm that the productpage
+terminate and restart the fixed microservice, and then confirm that the `productpage`
 returns its response without any errors.
 (Left as an exercise for the reader - change the delay rule to
 use a 2.8 second delay and then run it against the v3 version of reviews.)
@@ -235,7 +236,7 @@ First, transfer 25% of traffic from `reviews:v1` to `reviews:v3` with the follow
 ```
 
 You should see *red* colored star ratings, approximately 1 out of every 4 times you refresh
-the `product page`.
+the `productpage`.
 
 Things seem to be going smoothly. Lets route 50% of traffic to `reviews:v3`
 
