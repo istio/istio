@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-gometalinter --deadline=300s --disable-all\
+gometalinter --concurrency=4 --enable-gc --deadline=300s --disable-all\
   --enable=aligncheck\
   --enable=deadcode\
   --enable=errcheck\
