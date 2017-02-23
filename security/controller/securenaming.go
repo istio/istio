@@ -36,6 +36,8 @@ import (
 // TODO: check whether this resync period is reasonable.
 const resyncPeriod = 10 * time.Second
 
+// SecureNamingController watches services and pods to create a mapping from
+// service names to service accounts running the services.
 type SecureNamingController struct {
 	client v1core.CoreV1Interface
 
@@ -50,6 +52,7 @@ type SecureNamingController struct {
 	serviceQueue workqueue.RateLimitingInterface
 }
 
+// NewSecureNamingController returns a pointer to a new instance of SecureNamingController.
 func NewSecureNamingController(core v1core.CoreV1Interface) *SecureNamingController {
 	snc := &SecureNamingController{
 		client:       core,
@@ -80,6 +83,7 @@ func NewSecureNamingController(core v1core.CoreV1Interface) *SecureNamingControl
 	return snc
 }
 
+// Run starts snc. It doesn't return stopCh is closed.
 func (snc *SecureNamingController) Run(stopCh chan struct{}) {
 	defer snc.serviceQueue.ShutDown()
 
@@ -169,7 +173,8 @@ func (snc *SecureNamingController) updatePod(oldObj, newObj interface{}) {
 	}
 }
 
-func newServiceIndexerInformer(core v1core.CoreV1Interface, rehf cache.ResourceEventHandlerFuncs) (cache.Indexer, cache.Controller) {
+func newServiceIndexerInformer(
+	core v1core.ServicesGetter, rehf cache.ResourceEventHandlerFuncs) (cache.Indexer, cache.Controller) {
 	si := core.Services(v1.NamespaceAll)
 	return cache.NewIndexerInformer(
 		&cache.ListWatch{
@@ -187,7 +192,7 @@ func newServiceIndexerInformer(core v1core.CoreV1Interface, rehf cache.ResourceE
 	)
 }
 
-func newPodInformer(core v1core.CoreV1Interface, rehf cache.ResourceEventHandlerFuncs) (cache.Store, cache.Controller) {
+func newPodInformer(core v1core.PodsGetter, rehf cache.ResourceEventHandlerFuncs) (cache.Store, cache.Controller) {
 	pi := core.Pods(v1.NamespaceAll)
 	return cache.NewInformer(
 		&cache.ListWatch{
@@ -222,9 +227,13 @@ func (snc *SecureNamingController) enqueueServices(ss []*v1.Service) {
 
 func (snc *SecureNamingController) getPodServices(pod *v1.Pod) []*v1.Service {
 	allServices := []*v1.Service{}
-	cache.ListAllByNamespace(snc.serviceIndexer, pod.Namespace, labels.Everything(), func(m interface{}) {
+	err := cache.ListAllByNamespace(snc.serviceIndexer, pod.Namespace, labels.Everything(), func(m interface{}) {
 		allServices = append(allServices, m.(*v1.Service))
 	})
+	if err != nil {
+		glog.Errorf("Failed to list services in namespace %s due to error %v", pod.Namespace, err)
+		return []*v1.Service{}
+	}
 
 	services := []*v1.Service{}
 	for _, service := range allServices {
