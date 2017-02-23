@@ -103,11 +103,17 @@ func TestProcessNextServices(t *testing.T) {
 
 		// Add services to the service indexer.
 		for _, s := range c.services {
-			snc.serviceIndexer.Add(s)
+			err := snc.serviceIndexer.Add(s)
+			if err != nil {
+				t.Errorf("Cannot add service to the indexer (error: %v)", err)
+			}
 		}
 
 		for _, p := range c.pods {
-			core.Pods(p.GetNamespace()).Create(p)
+			_, err := core.Pods(p.GetNamespace()).Create(p)
+			if err != nil {
+				t.Errorf("Cannot create pod in namespace %s (error: %v)", p.GetNamespace(), err)
+			}
 		}
 
 		snc.processNextService()
@@ -154,7 +160,9 @@ func TestGetPodServices(t *testing.T) {
 			}),
 		},
 		{
-			allServices:      []*v1.Service{createServiceWithNamespace("service1", "non-default", map[string]string{"app": "test-app"})},
+			allServices: []*v1.Service{
+				createServiceWithNamespace("service1", "non-default", map[string]string{"app": "test-app"}),
+			},
 			expectedServices: []*v1.Service{},
 			pod: createPod(&podSpec{
 				labels: map[string]string{"app": "test-app"},
@@ -184,7 +192,10 @@ func TestGetPodServices(t *testing.T) {
 		snc := NewSecureNamingController(cs.CoreV1())
 
 		for _, service := range testCase.allServices {
-			snc.serviceIndexer.Add(service)
+			err := snc.serviceIndexer.Add(service)
+			if err != nil {
+				t.Errorf("Failed adding service to the indexer (error: %v)", err)
+			}
 		}
 
 		actualServices := snc.getPodServices(testCase.pod)
