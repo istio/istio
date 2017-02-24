@@ -57,7 +57,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:test2
+        image: frankb/runtime:test5
         securityContext:
           runAsUser: 1337
         args:
@@ -130,7 +130,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:test2
+        image: frankb/runtime:test5
         securityContext:
           runAsUser: 1337
         args:
@@ -203,7 +203,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:test2
+        image: frankb/runtime:test5
         securityContext:
           runAsUser: 1337
         args:
@@ -258,7 +258,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:test2
+        image: frankb/runtime:test5
         securityContext:
           runAsUser: 1337
         args:
@@ -313,7 +313,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:test2
+        image: frankb/runtime:test5
         securityContext:
           runAsUser: 1337
         args:
@@ -386,7 +386,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:test2
+        image: frankb/runtime:test5
         securityContext:
           runAsUser: 1337
         args:
