@@ -43,7 +43,7 @@ const std::string kAttrNameResponseSize = "response.size";
 const std::string kAttrNameResponseTime = "response.time";
 const std::string kAttrNameOriginIp = "origin.ip";
 const std::string kAttrNameOriginHost = "origin.host";
-const std::string kResponseStatusCode = "response.status.code";
+const std::string kResponseHttpCode = "response.http.code";
 
 Attributes::Value StringValue(const std::string& str) {
   Attributes::Value v;
@@ -133,11 +133,10 @@ void FillRequestInfoAttributes(const AccessLog::RequestInfo& info,
         Int64Value(info.duration().count());
   }
   if (info.responseCode().valid()) {
-    attr->attributes[kResponseStatusCode] =
-        StringValue(std::to_string(info.responseCode().value()));
+    attr->attributes[kResponseHttpCode] =
+        Int64Value(info.responseCode().value());
   } else {
-    attr->attributes[kResponseStatusCode] =
-        StringValue(std::to_string(check_status_code));
+    attr->attributes[kResponseHttpCode] = Int64Value(check_status_code);
   }
 }
 
