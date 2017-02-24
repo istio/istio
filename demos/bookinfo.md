@@ -98,11 +98,14 @@ Otherwise if you access the application several times, you would notice that som
 star ratings. This is because without an explicit default version set, Istio will 
 route requests to all available versions of a service in a random fashion.
    
-1. Set the default version for the reviews microservice to v1. 
+1. Set the default version for all microservice to v1. 
 
    ```bash
-   $ kubectl create -f route-rule-reviews-v1.yaml 
+   $ kubectl create -f route-rule-all-v1.yaml 
+   istioconfig "route-rule-productpage-v1" created
    istioconfig "route-rule-reviews-v1" created
+   istioconfig "route-rule-ratings-v1" created
+   istioconfig "route-rule-details-v1" created
    ```
 
    You can display the routes that are defined with the following command:
