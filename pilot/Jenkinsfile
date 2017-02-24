@@ -29,6 +29,14 @@ mainFlow(utils) {
       utils.updatePullRequest('verify', success)
     }
   }
+  if (utils.runStage('POSTSUBMIT')) {
+    buildNode(gitUtils) {
+      bazel.updateBazelRc()
+      def images = 'init,init_debug,app,app_debug,runtime,runtime_debug'
+      def tags = "${gitUtils.GIT_SHORT_SHA},\$(date +%Y%m%d%H%M%S),latest"
+      utils.publishDockerImages(images, tags)
+    }
+  }
 }
 
 def presubmit(gitUtils, bazel) {
