@@ -45,7 +45,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "frankb/init:unin5",
+            "image": "frankb/init:test2",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -57,7 +57,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:unin5
+        image: frankb/runtime:test2
         securityContext:
           runAsUser: 1337
         args:
@@ -66,6 +66,8 @@ spec:
           - -s
           - istio-route-controller:8080
           - --logtostderr
+          - -n
+          - default
           - -v
           - "2"
         env:
@@ -116,7 +118,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "frankb/init:unin5",
+            "image": "frankb/init:test2",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -128,7 +130,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:unin5
+        image: frankb/runtime:test2
         securityContext:
           runAsUser: 1337
         args:
@@ -137,6 +139,8 @@ spec:
           - -s
           - istio-route-controller:8080
           - --logtostderr
+          - -n
+          - default
           - -v
           - "2"
         env:
@@ -187,7 +191,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "frankb/init:unin5",
+            "image": "frankb/init:test2",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -199,7 +203,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:unin5
+        image: frankb/runtime:test2
         securityContext:
           runAsUser: 1337
         args:
@@ -208,6 +212,8 @@ spec:
           - -s
           - istio-route-controller:8080
           - --logtostderr
+          - -n
+          - default
           - -v
           - "2"
         env:
@@ -240,7 +246,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "frankb/init:unin5",
+            "image": "frankb/init:test2",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -252,7 +258,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:unin5
+        image: frankb/runtime:test2
         securityContext:
           runAsUser: 1337
         args:
@@ -261,6 +267,8 @@ spec:
           - -s
           - istio-route-controller:8080
           - --logtostderr
+          - -n
+          - default
           - -v
           - "2"
         env:
@@ -293,7 +301,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "frankb/init:unin5",
+            "image": "frankb/init:test2",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -305,7 +313,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:unin5
+        image: frankb/runtime:test2
         securityContext:
           runAsUser: 1337
         args:
@@ -314,6 +322,8 @@ spec:
           - -s
           - istio-route-controller:8080
           - --logtostderr
+          - -n
+          - default
           - -v
           - "2"
         env:
@@ -364,7 +374,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "frankb/init:unin5",
+            "image": "frankb/init:test2",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -376,7 +386,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:unin5
+        image: frankb/runtime:test2
         securityContext:
           runAsUser: 1337
         args:
@@ -385,6 +395,8 @@ spec:
           - -s
           - istio-route-controller:8080
           - --logtostderr
+          - -n
+          - default
           - -v
           - "2"
         env:

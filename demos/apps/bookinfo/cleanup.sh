@@ -18,7 +18,7 @@ SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 kubectl delete -f $SCRIPTDIR/route-rule-reviews-v1.yaml
 kubectl delete -f $SCRIPTDIR/route-rule-reviews-tester-v2.yaml
-kubectl delete -f $SCRIPTDIR/route-rule-ratings-tester-delay.yaml
+kubectl delete -f $SCRIPTDIR/destination-ratings-tester-delay.yaml
 kubectl delete -f $SCRIPTDIR/route-rule-reviews-25-v3.yaml
 kubectl delete -f $SCRIPTDIR/route-rule-reviews-50-v3.yaml
 kubectl delete -f $SCRIPTDIR/route-rule-reviews-v3.yaml

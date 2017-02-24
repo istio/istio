@@ -191,7 +191,7 @@ route requests to all available versions of a service in a random fashion.
 
    ```bash
    $ kubectl create -f route-rule-ratings-tester-delay.yaml
-   istionconfig "route-rule-ratings-tester-delay" created
+   istionconfig "destination-ratings-tester-delay" created
    ```
 
    Allow several seconds to account for rule propagation delay to all pods.
