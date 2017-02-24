@@ -27,12 +27,19 @@ class AttributeContext {
   AttributeContext() : request_index_(0) {}
 
   // Fill Attributes protobuf.
-  void FillProto(const Attributes &attributes,
-                 ::istio::mixer::v1::Attributes *pb);
+  void FillProto(const Attributes& attributes,
+                 ::istio::mixer::v1::Attributes* pb);
   // Increments request_index
   int64_t IncRequestIndex() { return ++request_index_; }
 
  private:
+  // Find the index for a name. If not found, create a new one.
+  int GetNameIndex(const std::string& name);
+
+  // Create a StringMap message.
+  ::istio::mixer::v1::StringMap CreateStringMap(
+      const std::map<std::string, std::string>& string_map);
+
   // dictionary map.
   std::map<std::string, int> dict_map_;
 

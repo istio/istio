@@ -21,7 +21,7 @@
 #include <string>
 
 #include "google/protobuf/stubs/status.h"
-#include "mixer/api/v1/service.pb.h"
+#include "mixer/v1/service.pb.h"
 
 namespace istio {
 namespace mixer_client {

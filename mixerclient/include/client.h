@@ -66,7 +66,16 @@ struct Attributes {
   // A structure to hold different types of value.
   struct Value {
     // Data type
-    enum ValueType { STRING, INT64, DOUBLE, BOOL, TIME, BYTES } type;
+    enum ValueType {
+      STRING,
+      INT64,
+      DOUBLE,
+      BOOL,
+      TIME,
+      BYTES,
+      DURATION,
+      STRING_MAP
+    } type;
 
     // Data value
     union {
@@ -78,6 +87,8 @@ struct Attributes {
     // It is not easy for union to support them.
     std::string str_v;  // for both STRING and BYTES
     std::chrono::time_point<std::chrono::system_clock> time_v;
+    std::chrono::nanoseconds duration_nanos_v;
+    std::map<std::string, std::string> string_map_v;
   };
 
   std::map<std::string, Value> attributes;

@@ -18,7 +18,7 @@
 #include <grpc++/grpc++.h>
 
 #include "include/transport.h"
-#include "mixer/api/v1/service.grpc.pb.h"
+#include "mixer/v1/service.grpc.pb.h"
 
 namespace istio {
 namespace mixer_client {

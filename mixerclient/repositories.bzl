@@ -481,7 +481,7 @@ load("{}:protobuf.bzl", "cc_proto_library")
 cc_proto_library(
     name = "mixer_api_cc_proto",
     srcs = glob(
-        ["mixer/api/v1/*.proto"],
+        ["mixer/v1/*.proto"],
     ),
     default_runtime = "//external:protobuf",
     protoc = "//external:protoc",
@@ -496,7 +496,7 @@ cc_proto_library(
 
     native.new_git_repository(
         name = "mixerapi_git",
-        commit = "fc5a396185edc72d06d1937f30a8148a37d4fc1b",
+        commit = "acfaa20a074182738494e8fbeb24ab570bda07cb",
         remote = "https://github.com/istio/api.git",
         build_file_content = BUILD,
     )

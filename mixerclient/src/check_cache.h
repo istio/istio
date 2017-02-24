@@ -26,7 +26,7 @@
 #include "google/protobuf/stubs/status.h"
 #include "include/client.h"
 #include "include/options.h"
-#include "mixer/api/v1/service.pb.h"
+#include "mixer/v1/service.pb.h"
 #include "utils/simple_lru_cache.h"
 #include "utils/simple_lru_cache_inl.h"
 

@@ -14,7 +14,6 @@
  */
 #include "src/client_impl.h"
 #include <sstream>
-#include "mixer/api/v1/service.pb.h"
 
 using ::istio::mixer::v1::CheckResponse;
 using ::istio::mixer::v1::ReportResponse;
@@ -97,6 +96,16 @@ std::string Attributes::DebugString() const {
            << std::chrono::duration_cast<std::chrono::microseconds>(
                   it.second.time_v.time_since_epoch())
                   .count();
+        break;
+      case Attributes::Value::ValueType::DURATION:
+        ss << "(DURATION nanos): " << it.second.duration_nanos_v.count();
+        break;
+      case Attributes::Value::ValueType::STRING_MAP:
+        ss << "(STRING MAP):";
+        for (const auto &map_it : it.second.string_map_v) {
+          ss << std::endl;
+          ss << "      " << map_it.first << ": " << map_it.second;
+        }
         break;
     }
     ss << std::endl;
