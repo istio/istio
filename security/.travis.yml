@@ -4,6 +4,8 @@ sudo: required
 
 dist: trusty
 
+go_import_path: istio.io/auth
+
 go:
 - 1.7.x
 
@@ -22,7 +24,6 @@ addons:
 cache:
   directories:
   - $HOME/bazel/install
-  - $HOME/bazel/outbase
 
 before_install:
 - mkdir -p ${HOME}/bazel/install
@@ -33,8 +34,11 @@ before_install:
 - sudo apt-get -f install -qqy
 - cd ${TRAVIS_BUILD_DIR}
 
-install: true # disable the default install step
+install:
+# Install GoMetaLinter and known linters.
+- go get github.com/alecthomas/gometalinter
+- gometalinter --install --vendored-linters
 
 script:
-- bazel --output_base=$HOME/bazel/outbase test //...
-- bin/check_format.sh
+- bazel test //...
+- bin/linters.sh
