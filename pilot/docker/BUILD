@@ -1,5 +1,5 @@
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-load("@bazel_tools//tools/build_defs/docker:docker.bzl", "docker_build")
+load("//docker:manager_docker.bzl", "manager_docker_build")
 
 # Use "manual" target tag to skip rules in the wildcard expansion
 
@@ -47,9 +47,11 @@ pkg_tar(
     tags = ["manual"],
 )
 
-docker_build(
-    name = "init",
-    base = "@docker_ubuntu//:xenial",
+manager_docker_build(
+    images = [
+        {"name": "init",       "base": "@docker_ubuntu//:xenial"},
+        {"name": "init_debug", "base": "@ubuntu_xenial_debug//file"},
+    ],
     entrypoint = ["/usr/local/bin/prepare_proxy.sh"],
     repository = "istio",
     tags = ["manual"],
@@ -61,18 +63,11 @@ docker_build(
     tars = [":prepare_proxy"],
 )
 
-docker_build(
-    name = "init_debug",
-    base = "@ubuntu_xenial_debug//file",
-    entrypoint = ["/usr/local/bin/prepare_proxy.sh"],
-    repository = "istio",
-    tags = ["manual"],
-    tars = [":prepare_proxy"],
-)
-
-docker_build(
-    name = "runtime",
-    base = "@docker_ubuntu//:xenial",
+manager_docker_build(
+    images = [
+        {"name": "runtime",       "base": "@docker_ubuntu//:xenial"},
+        {"name": "runtime_debug", "base": "@ubuntu_xenial_debug//file"},
+    ],
     entrypoint = ["/usr/local/bin/manager"],
     repository = "istio",
     tags = ["manual"],
@@ -83,31 +78,11 @@ docker_build(
     ],
 )
 
-docker_build(
-    name = "runtime_debug",
-    base = "@ubuntu_xenial_debug//file",
-    entrypoint = ["/usr/local/bin/manager"],
-    repository = "istio",
-    tags = ["manual"],
-    tars = [
-        "@istio_proxy_debug//file",
-        ":manager",
-        ":config",
+manager_docker_build(
+    images = [
+        {"name": "app",       "base": "@docker_ubuntu//:xenial"},
+        {"name": "app_debug", "base": "@ubuntu_xenial_debug//file"},
     ],
-)
-
-docker_build(
-    name = "app",
-    base = "@docker_ubuntu//:xenial",
-    entrypoint = ["/bin/server"],
-    repository = "istio",
-    tags = ["manual"],
-    tars = [":test"],
-)
-
-docker_build(
-    name = "app_debug",
-    base = "@ubuntu_xenial_debug//file",
     entrypoint = ["/bin/server"],
     repository = "istio",
     tags = ["manual"],
