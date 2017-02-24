@@ -195,14 +195,14 @@ func evalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evalu
 func definitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefinition, error) {
 	labels := make(map[string]adapter.LabelType, len(desc.Labels))
 	for _, label := range desc.Labels {
-		l, err := adapter.LabelTypeFromProto(label.ValueType)
+		l, err := valueTypeToLabelType(label.ValueType)
 		if err != nil {
 			return nil, fmt.Errorf("descriptor '%s' label '%s' failed to convert label type value '%v' from proto with err: %s",
 				desc.Name, label.Name, label.ValueType, err)
 		}
 		labels[label.Name] = l
 	}
-	kind, err := adapter.MetricKindFromProto(desc.Kind)
+	kind, err := metricKindFromProto(desc.Kind)
 	if err != nil {
 		return nil, fmt.Errorf("descriptor '%s' failed to convert metric kind value '%v' from proto with err: %s",
 			desc.Name, desc.Kind, err)

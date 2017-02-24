@@ -15,11 +15,7 @@
 package adapter
 
 import (
-	"strconv"
-	"strings"
 	"testing"
-
-	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
 func TestString(t *testing.T) {
@@ -83,69 +79,5 @@ func TestFloat64(t *testing.T) {
 	}
 	if s != mv {
 		t.Errorf("val.Float64() = %f; wanted '%v'", s, mv)
-	}
-}
-
-func TestFromPbType(t *testing.T) {
-	cases := []struct {
-		in        dpb.ValueType
-		out       LabelType
-		errString string
-	}{
-		{dpb.VALUE_TYPE_UNSPECIFIED, 0, "unsupported"},
-		{dpb.STRING, String, ""},
-		{dpb.INT64, Int64, ""},
-		{dpb.DOUBLE, Float64, ""},
-		{dpb.BOOL, Bool, ""},
-		{dpb.TIMESTAMP, Time, ""},
-		{dpb.IP_ADDRESS, IPAddress, ""},
-		{dpb.EMAIL_ADDRESS, EmailAddress, ""},
-		{dpb.URI, URI, ""},
-		{dpb.DNS_NAME, DNSName, ""},
-		{dpb.DURATION, Duration, ""},
-	}
-	for idx, c := range cases {
-		t.Run(strconv.Itoa(idx), func(t *testing.T) {
-			out, err := LabelTypeFromProto(c.in)
-			errString := ""
-			if err != nil {
-				errString = err.Error()
-			}
-
-			if !strings.Contains(errString, c.errString) {
-				t.Errorf("LabelTypeFromProto(%v) = _, %v; wanted error containing %s", c.in, err, c.errString)
-			}
-			if out != c.out {
-				t.Errorf("LabelTypeFromProto(%v) = %v; wanted %v", c.in, out, c.out)
-			}
-		})
-	}
-}
-
-func TestFromPbMetricKind(t *testing.T) {
-	cases := []struct {
-		in        dpb.MetricDescriptor_MetricKind
-		out       MetricKind
-		errString string
-	}{
-		{dpb.METRIC_KIND_UNSPECIFIED, 0, "invalid"},
-		{dpb.GAUGE, Gauge, ""},
-		{dpb.COUNTER, Counter, ""},
-	}
-	for idx, c := range cases {
-		t.Run(strconv.Itoa(idx), func(t *testing.T) {
-			out, err := MetricKindFromProto(c.in)
-			errString := ""
-			if err != nil {
-				errString = err.Error()
-			}
-
-			if !strings.Contains(errString, c.errString) {
-				t.Errorf("MetricKindFromProto(%v) = _, %v; wanted erro containing %s", c.in, err, c.errString)
-			}
-			if out != c.out {
-				t.Errorf("MetricKindFromProto(%v) = %v, nil; wanted %v", c.in, out, c.out)
-			}
-		})
 	}
 }
