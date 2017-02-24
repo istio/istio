@@ -11,35 +11,25 @@ def gitUtils = new GitUtilities()
 def utils = new Utilities()
 def bazel = new Bazel()
 
-node {
-  gitUtils.initialize()
-  bazel.setVars()
-}
-
 mainFlow(utils) {
-  if (utils.runStage('PRESUBMIT')) {
-    def success = true
-    utils.updatePullRequest('run')
-    try {
-      presubmit(gitUtils, bazel)
-    } catch (Exception e) {
-      success = false
-      throw e
-    } finally {
-      utils.updatePullRequest('verify', success)
+  pullRequest(utils) {
+
+    node {
+      gitUtils.initialize()
+      bazel.setVars()
     }
-  }
-  if (utils.runStage('POSTSUBMIT')) {
-    buildNode(gitUtils) {
-      bazel.updateBazelRc()
-      def images = 'init,init_debug,app,app_debug,runtime,runtime_debug'
-      def tags = "${gitUtils.GIT_SHORT_SHA},\$(date +%Y%m%d%H%M%S),latest"
-      utils.publishDockerImages(images, tags)
+
+    if (utils.runStage('PRESUBMIT')) {
+      presubmit(gitUtils, bazel, utils)
+    }
+
+    if (utils.runStage('POSTSUBMIT')) {
+      postsubmit(gitUtils, bazel, utils)
     }
   }
 }
 
-def presubmit(gitUtils, bazel) {
+def presubmit(gitUtils, bazel, utils) {
   goBuildNode(gitUtils, 'istio.io/manager') {
     bazel.updateBazelRc()
     stage('Bazel Build') {
@@ -59,12 +49,22 @@ def presubmit(gitUtils, bazel) {
     }
     stage('Code Coverage') {
       sh('bin/codecov.sh')
-      withCredentials([string(credentialsId: 'MANAGER_CODECOV_TOKEN', variable: 'CODECOV_TOKEN')]) {
-        sh('curl -s https://codecov.io/bash | bash /dev/stdin -K')
-      }
+      utils.publishCodeCoverage('MANAGER_CODECOV_TOKEN')
     }
     stage('Integration Tests') {
       sh('bin/e2e.sh -t alpha' + gitUtils.GIT_SHA + ' -d')
+    }
+  }
+}
+
+
+def postsubmit(gitUtils, bazel, utils) {
+  buildNode(gitUtils) {
+    stage('Docker Push') {
+      bazel.updateBazelRc()
+      def images = 'init,init_debug,app,app_debug,runtime,runtime_debug'
+      def tags = "${gitUtils.GIT_SHORT_SHA},\$(date +%Y%m%d%H%M%S),latest"
+      utils.publishDockerImages(images, tags)
     }
   }
 }
