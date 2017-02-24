@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
       - name: istio-route-controller
-        image: frankb/runtime:unin5
+        image: frankb/runtime:test2
         args: ["discovery", "--logtostderr", "-v", "2"]
         imagePullPolicy: Always
         ports:
