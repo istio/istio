@@ -68,6 +68,7 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 				{Name: "source", ValueType: dpb.STRING},
 				{Name: "target", ValueType: dpb.STRING},
 				{Name: "service", ValueType: dpb.STRING},
+				{Name: "method", ValueType: dpb.STRING},
 				{Name: "response_code", ValueType: dpb.INT64},
 			},
 		},
@@ -80,6 +81,7 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 				{Name: "source", ValueType: dpb.STRING},
 				{Name: "target", ValueType: dpb.STRING},
 				{Name: "service", ValueType: dpb.STRING},
+				{Name: "method", ValueType: dpb.STRING},
 			},
 		},
 	}

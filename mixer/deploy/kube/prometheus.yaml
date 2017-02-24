@@ -1,0 +1,41 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: prometheus
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus
+        volumeMounts:
+          - mountPath: /prometheus
+            name: data-prom
+          - mountPath: /etc/opt/mixer
+            name: config
+        ports:
+          - containerPort: 9090
+        args:
+          - -config.file=/etc/opt/mixer/prometheus.yaml
+      volumes:
+      - name: data-prom
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: prometheus-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 9090
+  selector:
+    app: prometheus
