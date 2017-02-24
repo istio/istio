@@ -58,7 +58,8 @@ func (b *fakeBuilder) Name() string {
 	return b.name
 }
 
-func (b *fakeBuilder) NewMetricsAspect(env adapter.Env, config adapter.AspectConfig, metrics []adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (b *fakeBuilder) NewMetricsAspect(env adapter.Env, config adapter.AspectConfig,
+	metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	return b.body()
 }
 
@@ -147,7 +148,7 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 
 	goodMd := map[string]*metricInfo{
 		"request_count": {
-			metricKind: adapter.Counter,
+			definition: &adapter.MetricDefinition{Kind: adapter.Counter, Name: "request_count"},
 			value:      "value",
 			labels: map[string]string{
 				"source":  "source",
@@ -158,14 +159,14 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 	}
 	badGoodMd := map[string]*metricInfo{
 		"bad": {
-			metricKind: adapter.Counter,
+			definition: &adapter.MetricDefinition{Kind: adapter.Counter, Name: "bad"},
 			value:      "bad",
 			labels: map[string]string{
 				"bad": "bad",
 			},
 		},
 		"request_count": {
-			metricKind: adapter.Counter,
+			definition: &adapter.MetricDefinition{Kind: adapter.Counter, Name: "request_count"},
 			value:      "value",
 			labels: map[string]string{
 				"source":  "source",
@@ -217,7 +218,7 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 				t.Errorf("wrapper.Execute(&fakeBag{}, eval) got vals %v, wanted at least %d", receivedValues, len(c.out))
 			}
 			for _, v := range receivedValues {
-				o, found := c.out[v.Name]
+				o, found := c.out[v.Definition.Name]
 				if !found {
 					t.Errorf("Got unexpected value %v, wanted only %v", v, c.out)
 				}

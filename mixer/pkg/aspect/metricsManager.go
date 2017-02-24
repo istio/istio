@@ -35,7 +35,7 @@ type (
 	}
 
 	metricInfo struct {
-		metricKind adapter.MetricKind
+		definition *adapter.MetricDefinition
 		value      string
 		labels     map[string]string
 	}
@@ -85,8 +85,8 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 	}
 
 	metadata := make(map[string]*metricInfo)
-	defs := make([]adapter.MetricDefinition, len(desc))
-	for i, d := range desc {
+	defs := make(map[string]*adapter.MetricDefinition, len(desc))
+	for _, d := range desc {
 		// TODO: once we plumb descriptors into the validation, remove this err: no descriptor should make it through validation
 		// if it cannot be converted into a MetricDefinition, so we should never have to handle the error case.
 		def, err := definitionFromProto(d)
@@ -101,9 +101,9 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 			continue
 		}
 
-		defs[i] = *def
+		defs[def.Name] = def
 		metadata[def.Name] = &metricInfo{
-			metricKind: def.Kind,
+			definition: def,
 			value:      metric.Value,
 			labels:     metric.Labels,
 		}
@@ -148,9 +148,8 @@ func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*O
 		// TODO: investigate either pooling these, or keeping a set around that has only its field's values updated.
 		// we could keep a map[metric name]value, iterate over the it updating only the fields in each value
 		values = append(values, adapter.Value{
-			Name:   name,
-			Kind:   md.metricKind,
-			Labels: labels,
+			Definition: md.definition,
+			Labels:     labels,
 			// TODO: extract standard timestamp attributes for start/end once we det'm what they are
 			StartTime:   time.Now(),
 			EndTime:     time.Now(),
@@ -210,6 +209,7 @@ func definitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefinition,
 	}
 	return &adapter.MetricDefinition{
 		Name:        desc.Name,
+		DisplayName: desc.DisplayName,
 		Description: desc.Description,
 		Kind:        kind,
 		Labels:      labels,

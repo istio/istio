@@ -97,7 +97,7 @@ func (b *builder) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErro
 	return
 }
 
-func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metrics []adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	params := cfg.(*config.Params)
 
 	flushBytes := int(params.FlushBytes)
@@ -112,7 +112,7 @@ func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metr
 
 	templates := make(map[string]*template.Template)
 	for metricName, s := range params.MetricNameTemplateStrings {
-		def, found := findMetric(metrics, metricName)
+		def, found := metrics[metricName]
 		if !found {
 			env.Logger().Infof("template registered for nonexistent metric '%s'", metricName)
 			continue // we don't have a metric that corresponds to this template, skip processing it
@@ -141,8 +141,8 @@ func (a *aspect) Record(values []adapter.Value) error {
 }
 
 func (a *aspect) record(value adapter.Value) error {
-	mname := value.Name
-	if t, found := a.templates[value.Name]; found {
+	mname := value.Definition.Name
+	if t, found := a.templates[mname]; found {
 		buf := bufferPool.Get().(*bytes.Buffer)
 
 		// We don't check the error here because Execute should only fail when the template is invalid; since
@@ -154,31 +154,25 @@ func (a *aspect) record(value adapter.Value) error {
 		buf.Reset()
 		bufferPool.Put(buf)
 	}
-	switch value.Kind {
+
+	var result error
+	switch value.Definition.Kind {
 	case adapter.Gauge:
 		v, err := value.Int64()
 		if err != nil {
 			return fmt.Errorf("could not record gauge '%s' with err: %s", mname, err)
 		}
-		return a.client.Gauge(mname, v, a.rate)
+		result = a.client.Gauge(mname, v, a.rate)
+
 	case adapter.Counter:
 		v, err := value.Int64()
 		if err != nil {
 			return fmt.Errorf("could not record counter '%s' with err: %s", mname, err)
 		}
-		return a.client.Inc(mname, v, a.rate)
-	default:
-		return fmt.Errorf("unknown metric kind '%v'", value.Kind)
+		result = a.client.Inc(mname, v, a.rate)
 	}
+
+	return result
 }
 
 func (a *aspect) Close() error { return a.client.Close() }
-
-func findMetric(metrics []adapter.MetricDefinition, name string) (adapter.MetricDefinition, bool) {
-	for _, m := range metrics {
-		if m.Name == name {
-			return m, true
-		}
-	}
-	return adapter.MetricDefinition{}, false
-}

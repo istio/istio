@@ -92,7 +92,7 @@ func TestFromPbType(t *testing.T) {
 		out       LabelType
 		errString string
 	}{
-		{dpb.VALUE_TYPE_UNSPECIFIED, 0, "invalid"},
+		{dpb.VALUE_TYPE_UNSPECIFIED, 0, "unsupported"},
 		{dpb.STRING, String, ""},
 		{dpb.INT64, Int64, ""},
 		{dpb.DOUBLE, Float64, ""},
@@ -113,7 +113,7 @@ func TestFromPbType(t *testing.T) {
 			}
 
 			if !strings.Contains(errString, c.errString) {
-				t.Errorf("LabelTypeFromProto(%v) = _, %v; wanted erro containing %s", c.in, err, c.errString)
+				t.Errorf("LabelTypeFromProto(%v) = _, %v; wanted error containing %s", c.in, err, c.errString)
 			}
 			if out != c.out {
 				t.Errorf("LabelTypeFromProto(%v) = %v; wanted %v", c.in, out, c.out)

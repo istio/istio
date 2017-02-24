@@ -65,7 +65,7 @@ func (f *factory) Close() error {
 }
 
 // NewMetricsAspect provides an implementation for adapter.MetricsBuilder.
-func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metrics []adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	var serverErr error
 	f.once.Do(func() { serverErr = f.srv.Start(env.Logger()) })
 	if serverErr != nil {
@@ -103,17 +103,17 @@ func (p *prom) Record(vals []adapter.Value) error {
 	var result *multierror.Error
 
 	for _, val := range vals {
-		collector, found := p.metrics[val.Name]
+		collector, found := p.metrics[val.Definition.Name]
 		if !found {
-			result = multierror.Append(result, fmt.Errorf("could not find metric description for %s", val.Name))
+			result = multierror.Append(result, fmt.Errorf("could not find metric description for %s", val.Definition.Name))
 			continue
 		}
-		switch val.Kind {
+		switch val.Definition.Kind {
 		case adapter.Gauge:
 			vec := collector.(*prometheus.GaugeVec)
 			amt, err := promValue(val)
 			if err != nil {
-				result = multierror.Append(result, fmt.Errorf("could get value for metric %s", val.Name))
+				result = multierror.Append(result, fmt.Errorf("could get value for metric %s", val.Definition.Name))
 				continue
 			}
 			vec.With(promLabels(val.Labels)).Set(amt)
@@ -121,12 +121,10 @@ func (p *prom) Record(vals []adapter.Value) error {
 			vec := collector.(*prometheus.CounterVec)
 			amt, err := promValue(val)
 			if err != nil {
-				result = multierror.Append(result, fmt.Errorf("could get value for metric %s", val.Name))
+				result = multierror.Append(result, fmt.Errorf("could get value for metric %s", val.Definition.Name))
 				continue
 			}
 			vec.With(promLabels(val.Labels)).Add(amt)
-		default:
-			result = multierror.Append(result, fmt.Errorf("could not process metric value: %v", val))
 		}
 	}
 
@@ -204,7 +202,7 @@ func promValue(val adapter.Value) (float64, error) {
 		}
 		return f, err
 	default:
-		return math.NaN(), fmt.Errorf("could not extract numeric value for metric %s", val.Name)
+		return math.NaN(), fmt.Errorf("could not extract numeric value for metric %s", val.Definition.Name)
 	}
 }
 
