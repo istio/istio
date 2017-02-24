@@ -23,9 +23,9 @@ message LabelDescriptor {
     // The name of this descriptor, referenced from other descriptors.
     string name = 1;
 
-    // An optional human-readable description of the attribute's purpose.
+    // An optional human-readable description of the label's purpose.
     string description = 2;
 
-    // The type of data carried by this label
+    // The type of data carried by this label.
     ValueType value_type = 3;
 }
