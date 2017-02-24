@@ -113,7 +113,7 @@ func TestNewMetricsAspect_InvalidTemplate(t *testing.T) {
 		},
 	}
 	env := test.NewEnv(t)
-	if _, err := newBuilder().NewMetricsAspect(env, conf, metrics); err != nil {
+	if _, err := newBuilder().NewMetricsAspect(env, conf, makeMetricMap(metrics)); err != nil {
 		t.Errorf("NewMetricsAspect(test.NewEnv(t), conf, metrics) = _, %s, wanted no error", err)
 	}
 
@@ -147,7 +147,7 @@ func TestNewMetricsAspect_BadTemplate(t *testing.T) {
 			t.Error("NewMetricsAspect(test.NewEnv(t), config, nil) didn't panic")
 		}
 	}()
-	if _, err := newBuilder().NewMetricsAspect(test.NewEnv(t), conf, metrics); err != nil {
+	if _, err := newBuilder().NewMetricsAspect(test.NewEnv(t), conf, makeMetricMap(metrics)); err != nil {
 		t.Errorf("NewMetricsAspect(test.NewEnv(t), config, nil) = %v; wanted panic not err", err)
 	}
 	t.Fail()
@@ -172,9 +172,13 @@ func TestRecord(t *testing.T) {
 		},
 	}
 
+	d := &adapter.MetricDefinition{
+		Name: "foo",
+		Kind: adapter.Gauge,
+	}
+
 	validGauge := adapter.Value{
-		Name:        "foo",
-		Kind:        adapter.Gauge,
+		Definition:  d,
 		Labels:      make(map[string]interface{}),
 		StartTime:   time.Now(),
 		EndTime:     time.Now(),
@@ -183,9 +187,13 @@ func TestRecord(t *testing.T) {
 	invalidGauge := validGauge
 	invalidGauge.MetricValue = "bar"
 
+	d = &adapter.MetricDefinition{
+		Name: "bar",
+		Kind: adapter.Counter,
+	}
+
 	validCounter := adapter.Value{
-		Name:        "bar",
-		Kind:        adapter.Counter,
+		Definition:  d,
 		Labels:      make(map[string]interface{}),
 		StartTime:   time.Now(),
 		EndTime:     time.Now(),
@@ -194,11 +202,8 @@ func TestRecord(t *testing.T) {
 	invalidCounter := validCounter
 	invalidCounter.MetricValue = 1.0
 
-	invalidKind := validCounter
-	invalidKind.Kind = adapter.MetricKind(37)
-
 	methodCodeMetric := validCounter
-	methodCodeMetric.Name = templateMetricName // this needs to match the name in conf.MetricNameTemplateStrings
+	methodCodeMetric.Definition = &metrics[0] // this needs to match the name in conf.MetricNameTemplateStrings
 	methodCodeMetric.Labels["apiMethod"] = "methodName"
 	methodCodeMetric.Labels["responseCode"] = "500"
 	expectedMetricName := methodCodeMetric.Labels["apiMethod"].(string) + "-" + methodCodeMetric.Labels["responseCode"].(string)
@@ -213,7 +218,6 @@ func TestRecord(t *testing.T) {
 		{[]adapter.Value{methodCodeMetric}, ""},
 		{[]adapter.Value{validCounter, validGauge}, ""},
 		{[]adapter.Value{validCounter, validGauge, methodCodeMetric}, ""},
-		{[]adapter.Value{invalidKind}, "unknown metric kind"},
 		{[]adapter.Value{invalidCounter}, "could not record"},
 		{[]adapter.Value{invalidGauge}, "could not record"},
 		{[]adapter.Value{validGauge, invalidGauge}, "could not record"},
@@ -226,7 +230,7 @@ func TestRecord(t *testing.T) {
 		if err != nil {
 			t.Errorf("statsd.NewClientWithSender(rs, \"\") = %s; wanted no err", err)
 		}
-		m, err := b.NewMetricsAspect(test.NewEnv(t), conf, metrics)
+		m, err := b.NewMetricsAspect(test.NewEnv(t), conf, makeMetricMap(metrics))
 		if err != nil {
 			t.Errorf("[%d] newBuilder().NewMetrics(test.NewEnv(t), conf) = _, %s; wanted no err", idx, err)
 			continue
@@ -252,8 +256,8 @@ func TestRecord(t *testing.T) {
 
 		metrics := rs.GetSent()
 		for _, val := range c.vals {
-			name := val.Name
-			if val.Name == templateMetricName {
+			name := val.Definition.Name
+			if val.Definition.Name == templateMetricName {
 				name = expectedMetricName
 			}
 			m := metrics.CollectNamed(name)
@@ -262,4 +266,13 @@ func TestRecord(t *testing.T) {
 			}
 		}
 	}
+}
+
+func makeMetricMap(metrics []adapter.MetricDefinition) map[string]*adapter.MetricDefinition {
+	m := make(map[string]*adapter.MetricDefinition, len(metrics))
+	for _, metric := range metrics {
+		m[metric.Name] = &metric
+	}
+
+	return m
 }

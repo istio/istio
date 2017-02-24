@@ -28,20 +28,6 @@ const (
 	Counter                   // records increasing cumulative values
 )
 
-// Label kinds supported by mixer.
-const (
-	String LabelType = iota
-	Int64
-	Float64
-	Bool
-	Time
-	Duration
-	IPAddress
-	EmailAddress
-	URI
-	DNSName
-)
-
 type (
 	// MetricsAspect handles metric reporting within the mixer.
 	MetricsAspect interface {
@@ -56,11 +42,8 @@ type (
 	// a Report() call to the mixer. It is synthesized by the mixer, based
 	// on mixer config and the attributes passed to Report().
 	Value struct {
-		// Name is the canonical name for the metric for which this
-		// value is being reported.
-		Name string
-		// Kind provides type information on the metric itself
-		Kind MetricKind
+		// The definition describing this metric.
+		Definition *MetricDefinition
 		// Labels provide metadata about the metric value. They are
 		// generated from the set of attributes provided by Report().
 		Labels map[string]interface{}
@@ -86,7 +69,7 @@ type (
 		Builder
 
 		// NewMetricsAspect returns a new instance of the Metrics aspect.
-		NewMetricsAspect(env Env, config AspectConfig, metrics []MetricDefinition) (MetricsAspect, error)
+		NewMetricsAspect(env Env, config AspectConfig, metrics map[string]*MetricDefinition) (MetricsAspect, error)
 	}
 
 	// MetricDefinition provides the basic description of a metric schema
@@ -94,7 +77,9 @@ type (
 	MetricDefinition struct {
 		// Name is the canonical name of the metric.
 		Name string
-		// Description provides information about this metric.
+		// Optional user-friendly name of the metric.
+		DisplayName string
+		// Optional user-friendly description of this metric.
 		Description string
 		// Kind provides type information about the metric.
 		Kind MetricKind
@@ -102,10 +87,6 @@ type (
 		// be generated at runtime and passed along with metric values.
 		Labels map[string]LabelType
 	}
-
-	// LabelType defines the set of known label types that can be generated
-	// by the mixer.
-	LabelType int
 )
 
 // String returns the string-valued metric value for a metrics.Value.
@@ -149,33 +130,5 @@ func MetricKindFromProto(pbk dpb.MetricDescriptor_MetricKind) (MetricKind, error
 		return Counter, nil
 	default:
 		return 0, fmt.Errorf("invalid proto MetricKind %v", pbk)
-	}
-}
-
-// LabelTypeFromProto translates from ValueType to LabelType.
-func LabelTypeFromProto(pbt dpb.ValueType) (LabelType, error) {
-	switch pbt {
-	case dpb.STRING:
-		return String, nil
-	case dpb.BOOL:
-		return Bool, nil
-	case dpb.INT64:
-		return Int64, nil
-	case dpb.DOUBLE:
-		return Float64, nil
-	case dpb.TIMESTAMP:
-		return Time, nil
-	case dpb.DNS_NAME:
-		return DNSName, nil
-	case dpb.DURATION:
-		return Duration, nil
-	case dpb.EMAIL_ADDRESS:
-		return EmailAddress, nil
-	case dpb.IP_ADDRESS:
-		return IPAddress, nil
-	case dpb.URI:
-		return URI, nil
-	default:
-		return 0, fmt.Errorf("invalid proto ValueType %v", pbt)
 	}
 }
