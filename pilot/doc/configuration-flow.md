@@ -1,4 +1,4 @@
-# Overview of the configuration flow in Istio Manager
+# Configuration flow in Istio Manager
 
 Istio configuration consists of configuration objects. Each object has kind
 (for example, a routing rule), name and namespace uniquely identifying the
