@@ -45,7 +45,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/rshriram/istio-init:stable",
+            "image": "frankb/init:test2",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -57,16 +57,32 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/rshriram/istio-manager:stable
+        image: frankb/runtime:test2
         securityContext:
           runAsUser: 1337
         args:
           - proxy
+          - sidecar
           - -s
           - istio-route-controller:8080
           - --logtostderr
+          - -n
+          - default
           - -v
           - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
         imagePullPolicy: Always
 ---
 ##################################################################################################
@@ -102,7 +118,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/rshriram/istio-init:stable",
+            "image": "frankb/init:test2",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -114,22 +130,37 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/rshriram/istio-manager:stable
+        image: frankb/runtime:test2
         securityContext:
           runAsUser: 1337
         args:
           - proxy
+          - sidecar
           - -s
           - istio-route-controller:8080
           - --logtostderr
+          - -n
+          - default
           - -v
           - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
         imagePullPolicy: Always
 ---
 ##################################################################################################
 # Reviews service
 ##################################################################################################
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -160,7 +191,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/rshriram/istio-init:stable",
+            "image": "frankb/init:test2",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -172,16 +203,32 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/rshriram/istio-manager:stable
+        image: frankb/runtime:test2
         securityContext:
           runAsUser: 1337
         args:
           - proxy
+          - sidecar
           - -s
           - istio-route-controller:8080
           - --logtostderr
+          - -n
+          - default
           - -v
           - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
         imagePullPolicy: Always
 ---
 apiVersion: extensions/v1beta1
@@ -199,7 +246,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/rshriram/istio-init:stable",
+            "image": "frankb/init:test2",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -211,16 +258,32 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/rshriram/istio-manager:stable
+        image: frankb/runtime:test2
         securityContext:
           runAsUser: 1337
         args:
           - proxy
+          - sidecar
           - -s
           - istio-route-controller:8080
           - --logtostderr
+          - -n
+          - default
           - -v
           - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
         imagePullPolicy: Always
 ---
 apiVersion: extensions/v1beta1
@@ -238,7 +301,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/rshriram/istio-init:stable",
+            "image": "frankb/init:test2",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -250,16 +313,32 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/rshriram/istio-manager:stable
+        image: frankb/runtime:test2
         securityContext:
           runAsUser: 1337
         args:
           - proxy
+          - sidecar
           - -s
           - istio-route-controller:8080
           - --logtostderr
+          - -n
+          - default
           - -v
           - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
         imagePullPolicy: Always
 ---
 ##################################################################################################
@@ -275,12 +354,10 @@ spec:
   ports:
   - port: 9080
     targetPort: 9080
-    nodePort: 32000
     protocol: TCP
     name: http
   selector:
     app: productpage
-  type: NodePort
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -297,7 +374,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/rshriram/istio-init:stable",
+            "image": "frankb/init:test2",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -309,20 +386,56 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/rshriram/istio-manager:stable
+        image: frankb/runtime:test2
         securityContext:
           runAsUser: 1337
         args:
           - proxy
+          - sidecar
           - -s
           - istio-route-controller:8080
           - --logtostderr
+          - -n
+          - default
           - -v
           - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
         imagePullPolicy: Always
 ---
 ###########################################################################
-# Standard ingress controllers will not work as they refer to the pod IP instead
-# of the host IP. Our Envoy config is currently generating virtual hosts that
-# match on service IP, or service Name only.
+# Ingress resource (gateway)
 ##########################################################################
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: gateway
+  namespace: default
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /productpage
+        backend:
+          serviceName: productpage
+          servicePort: 9080
+      - path: /login
+        backend:
+          serviceName: productpage
+          servicePort: 9080
+      - path: /logout
+        backend:
+          serviceName: productpage
+          servicePort: 9080
+---
