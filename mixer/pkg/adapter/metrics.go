@@ -16,10 +16,7 @@ package adapter
 
 import (
 	"errors"
-	"fmt"
 	"time"
-
-	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
 // Metric kinds supported by mixer.
@@ -119,16 +116,4 @@ func (v Value) Float64() (float64, error) {
 		return v, nil
 	}
 	return 0, errors.New("metric value is not a float64")
-}
-
-// MetricKindFromProto translates from MetricDescriptor_MetricKind to Metric Kind.
-func MetricKindFromProto(pbk dpb.MetricDescriptor_MetricKind) (MetricKind, error) {
-	switch pbk {
-	case dpb.GAUGE:
-		return Gauge, nil
-	case dpb.COUNTER:
-		return Counter, nil
-	default:
-		return 0, fmt.Errorf("invalid proto MetricKind %v", pbk)
-	}
 }
