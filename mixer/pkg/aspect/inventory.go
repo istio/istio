@@ -98,7 +98,6 @@ func Inventory() ManagerInventory {
 		CheckMethod: {
 			NewDenialsManager(),
 			NewListsManager(),
-			NewMetricsManager(),
 			NewQuotasManager(),
 		},
 

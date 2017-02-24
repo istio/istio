@@ -27,7 +27,10 @@ mixer_docker_build(
         "--logtostderr",
         "--v=2",
     ],
-    ports = ["9091"],
+    ports = [
+        "9091",
+        "42422",
+    ],
     repository = "istio",
     tags = ["manual"],
     tars = [
