@@ -53,7 +53,7 @@ var (
 )
 
 // Make creates a fake config
-func Make(i int) proto.Message {
+func Make(i int) *MockConfig {
 	return &MockConfig{
 		Pairs: []*ConfigPair{
 			{Key: "key", Value: strconv.Itoa(i)},
@@ -65,7 +65,7 @@ func Make(i int) proto.Message {
 func CheckMapInvariant(r model.ConfigRegistry, t *testing.T, namespace string, n int) {
 	// create configuration objects
 	keys := make(map[int]model.Key, 0)
-	elts := make(map[int]proto.Message, 0)
+	elts := make(map[int]*MockConfig, 0)
 	for i := 0; i < n; i++ {
 		keys[i] = model.Key{
 			Kind:      Kind,
@@ -75,9 +75,9 @@ func CheckMapInvariant(r model.ConfigRegistry, t *testing.T, namespace string, n
 		elts[i] = Make(i)
 	}
 
-	// put all elements
+	// post all elements
 	for i, elt := range elts {
-		if err := r.Put(keys[i], elt); err != nil {
+		if err := r.Post(keys[i], elt); err != nil {
 			t.Error(err)
 		}
 	}
@@ -105,6 +105,21 @@ func CheckMapInvariant(r model.ConfigRegistry, t *testing.T, namespace string, n
 	}
 	if len(l) != n {
 		t.Errorf("Wanted %d element(s), got %d in %v", n, len(l), l)
+	}
+
+	// update all elements
+	for i := 0; i < n; i++ {
+		elts[i].Pairs[0].Value += "(updated)"
+		if err = r.Put(keys[i], elts[i]); err != nil {
+			t.Error(err)
+		}
+	}
+
+	// check that elements are stored
+	for i, elt := range elts {
+		if v1, ok := r.Get(keys[i]); !ok || !reflect.DeepEqual(v1, elt) {
+			t.Errorf("Wanted %v, got %v", elt, v1)
+		}
 	}
 
 	// delete all elements

@@ -324,40 +324,19 @@ func (c *Controller) getIngress(key model.Key) (proto.Message, bool) {
 	return message, exists
 }
 
+// Post implements a registry operation
+func (c *Controller) Post(key model.Key, val proto.Message) error {
+	return c.client.Post(key, val)
+}
+
 // Put implements a registry operation
 func (c *Controller) Put(key model.Key, val proto.Message) error {
-	switch key.Kind {
-	case model.IngressRule:
-		return c.putIngress(key, val)
-	default:
-		return c.putTPR(key, val)
-	}
-}
-
-func (c *Controller) putTPR(key model.Key, val proto.Message) error {
 	return c.client.Put(key, val)
-}
-
-func (c *Controller) putIngress(key model.Key, val proto.Message) error {
-	return fmt.Errorf("unsupported operation: cannot put a config element of kind '%s'", key.Kind)
 }
 
 // Delete implements a registry operation
 func (c *Controller) Delete(key model.Key) error {
-	switch key.Kind {
-	case model.IngressRule:
-		return c.deleteIngress(key)
-	default:
-		return c.deleteTPR(key)
-	}
-}
-
-func (c *Controller) deleteTPR(key model.Key) error {
 	return c.client.Delete(key)
-}
-
-func (c *Controller) deleteIngress(key model.Key) error {
-	return fmt.Errorf("unsupported operation: cannot delete a config element of kind '%s'", key.Kind)
 }
 
 // List implements a registry operation

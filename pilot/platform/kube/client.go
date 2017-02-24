@@ -261,15 +261,47 @@ func (cl *Client) Get(key model.Key) (proto.Message, bool) {
 	return out, true
 }
 
-// Put implements registry operation
-func (cl *Client) Put(k model.Key, v proto.Message) error {
-	out, err := modelToKube(cl.mapping, &k, v)
+// Post implements registry operation
+func (cl *Client) Post(key model.Key, v proto.Message) error {
+	if err := cl.mapping.ValidateConfig(&key, v); err != nil {
+		return err
+	}
+
+	if cl.mapping[key.Kind].Internal {
+		return fmt.Errorf("unsupported operation: cannot post a derived config element of type %q", key.Kind)
+	}
+
+	out, err := modelToKube(cl.mapping, &key, v)
 	if err != nil {
 		return err
 	}
+
 	return cl.dyn.Post().
-		Namespace(k.Namespace).
+		Namespace(key.Namespace).
 		Resource(IstioKind + "s").
+		Body(out).
+		Do().Error()
+}
+
+// Put implements registry operation
+func (cl *Client) Put(key model.Key, v proto.Message) error {
+	if err := cl.mapping.ValidateConfig(&key, v); err != nil {
+		return err
+	}
+
+	if cl.mapping[key.Kind].Internal {
+		return fmt.Errorf("unsupported operation: cannot put a derived config element of type %q", key.Kind)
+	}
+
+	out, err := modelToKube(cl.mapping, &key, v)
+	if err != nil {
+		return err
+	}
+
+	return cl.dyn.Put().
+		Namespace(key.Namespace).
+		Resource(IstioKind + "s").
+		Name(configKey(&key)).
 		Body(out).
 		Do().Error()
 }
@@ -278,6 +310,10 @@ func (cl *Client) Put(k model.Key, v proto.Message) error {
 func (cl *Client) Delete(key model.Key) error {
 	if err := cl.mapping.ValidateKey(&key); err != nil {
 		return err
+	}
+
+	if cl.mapping[key.Kind].Internal {
+		return fmt.Errorf("unsupported operation: cannot delete a derived config element of type %q", key.Kind)
 	}
 
 	return cl.dyn.Delete().

@@ -26,7 +26,7 @@ spec:
       containers:
       - name: manager
         image: {{.hub}}/runtime:{{.tag}}
-        args: ["discovery", "--logtostderr", "-v", "4"]
+        args: ["discovery", "-v", "2"]
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

@@ -31,11 +31,9 @@ func testRouting() error {
 	// First test default routing
 	// Create a bytes buffer to hold the YAML form of rules
 	log.Println("Routing all traffic to world-v1 and verifying..")
-	config, err := writeString("test/integration/rule-default-route.yaml.tmpl", map[string]string{
+	deployConfig("test/integration/rule-default-route.yaml.tmpl", map[string]string{
 		"destination": "world",
-	})
-	check(err)
-	deployConfig(config, model.RouteRule, "default-route", "hello")
+	}, model.RouteRule, "default-route", "hello")
 	check(verifyRouting("hello", "world", "", "",
 		100, map[string]int{
 			"v1": 100,
@@ -44,11 +42,9 @@ func testRouting() error {
 	log.Println("Success!")
 
 	log.Println("Routing 75 percent to world-v1, 25 percent to world-v2 and verifying..")
-	config, err = writeString("test/integration/rule-weighted-route.yaml.tmpl", map[string]string{
+	deployConfig("test/integration/rule-weighted-route.yaml.tmpl", map[string]string{
 		"destination": "world",
-	})
-	check(err)
-	deployConfig(config, model.RouteRule, "weighted-route", "hello")
+	}, model.RouteRule, "default-route", "hello")
 	check(verifyRouting("hello", "world", "", "",
 		100, map[string]int{
 			"v1": 75,
@@ -57,11 +53,9 @@ func testRouting() error {
 	log.Println("Success!")
 
 	log.Println("Routing 100 percent to world-v2 using header based routing and verifying..")
-	config, err = writeString("test/integration/rule-content-route.yaml.tmpl", map[string]string{
+	deployConfig("test/integration/rule-content-route.yaml.tmpl", map[string]string{
 		"destination": "world",
-	})
-	check(err)
-	deployConfig(config, model.RouteRule, "content-route", "hello")
+	}, model.RouteRule, "content-route", "hello")
 	check(verifyRouting("hello", "world", "version", "v2",
 		100, map[string]int{
 			"v1": 0,
@@ -70,11 +64,9 @@ func testRouting() error {
 	log.Println("Success!")
 
 	log.Println("Testing fault injection..")
-	config, err = writeString("test/integration/policy-fault-injection.yaml.tmpl", map[string]string{
+	deployConfig("test/integration/policy-fault-injection.yaml.tmpl", map[string]string{
 		"destination": "world",
-	})
-	check(err)
-	deployConfig(config, model.Destination, "fault-policy", "hello")
+	}, model.Destination, "fault-policy", "hello")
 	check(verifyFaultInjection(pods, "hello", "world", "version", "v2", time.Second*5, 503))
 	log.Println("Success!")
 

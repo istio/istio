@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"reflect"
 
+	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 )
@@ -31,6 +32,16 @@ func (ps *ProtoSchema) ToJSON(msg proto.Message) (string, error) {
 		return "", err
 	}
 	return out, nil
+}
+
+// ToYAML marshals a proto to canonical YAML
+func (ps *ProtoSchema) ToYAML(msg proto.Message) (string, error) {
+	js, err := ps.ToJSON(msg)
+	if err != nil {
+		return "", err
+	}
+	yml, err := yaml.JSONToYAML([]byte(js))
+	return string(yml), err
 }
 
 // ToJSONMap converts a proto message to a generic map using canonical JSON encoding
@@ -61,6 +72,15 @@ func (ps *ProtoSchema) FromJSON(js string) (proto.Message, error) {
 		return nil, err
 	}
 	return pb, nil
+}
+
+// FromYAML converts a canonical YAML to a proto message
+func (ps *ProtoSchema) FromYAML(yml string) (proto.Message, error) {
+	js, err := yaml.YAMLToJSON([]byte(yml))
+	if err != nil {
+		return nil, err
+	}
+	return ps.FromJSON(string(js))
 }
 
 // FromJSONMap converts from a generic map to a proto message using canonical JSON encoding

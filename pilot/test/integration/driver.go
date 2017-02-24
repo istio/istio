@@ -32,7 +32,6 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 	meta_v1 "k8s.io/client-go/pkg/apis/meta/v1"
 
-	"github.com/ghodss/yaml"
 	flag "github.com/spf13/pflag"
 
 	"istio.io/manager/model"
@@ -232,28 +231,34 @@ func getRestartEpoch(pod string) (int, error) {
 	return 0, fmt.Errorf("could not obtain envoy restart epoch")
 }
 
-func addConfig(config []byte, kind, name string) {
+func addConfig(config []byte, kind, name string, create bool) {
 	log.Println("Add config")
 	log.Println(string(config))
-	out, err := yaml.YAMLToJSON(config)
-	check(err)
 	istioKind, ok := model.IstioConfig[kind]
 	if !ok {
 		check(fmt.Errorf("Invalid kind %s", kind))
 	}
-	v, err := istioKind.FromJSON(string(out))
+	v, err := istioKind.FromYAML(string(config))
 	check(err)
-	check(istioClient.Put(model.Key{
+	key := model.Key{
 		Kind:      kind,
 		Name:      name,
 		Namespace: params.namespace,
-	}, v))
+	}
+	if create {
+		check(istioClient.Post(key, v))
+	} else {
+		check(istioClient.Put(key, v))
+	}
 }
 
-func deployConfig(config []byte, kind, name string, envoy string) {
+func deployConfig(in string, data map[string]string, kind, name string, envoy string) {
+	config, err := writeString(in, data)
+	check(err)
 	epoch, err := getRestartEpoch(envoy)
 	check(err)
-	addConfig(config, kind, name)
+	_, exists := istioClient.Get(model.Key{Kind: kind, Name: name, Namespace: params.namespace})
+	addConfig(config, kind, name, !exists)
 	check(waitForNewRestartEpoch(envoy, epoch))
 }
 

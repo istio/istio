@@ -15,34 +15,23 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
+	"istio.io/manager/cmd"
 	"istio.io/manager/model"
 	"istio.io/manager/platform/kube"
 	"istio.io/manager/proxy/envoy"
-
-	multierror "github.com/hashicorp/go-multierror"
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 )
 
 type args struct {
-	kubeconfig string
-	namespace  string
-	client     *kube.Client
-	server     serverArgs
-	proxy      envoy.MeshConfig
-	identity   envoy.ProxyNode
-}
-
-type serverArgs struct {
-	sdsPort int
+	proxy    envoy.MeshConfig
+	identity envoy.ProxyNode
+	sdsPort  int
 }
 
 const (
@@ -52,37 +41,16 @@ const (
 var (
 	flags = &args{}
 
-	rootCmd = &cobra.Command{
-		Use:   "manager",
-		Short: "Istio Manager",
-		Long: `
-Istio Manager provides management plane functionality to the Istio proxy mesh and Istio Mixer.`,
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) (err error) {
-			glog.V(2).Infof("flags: %#v", flags)
-			flags.client, err = kube.NewClient(flags.kubeconfig, model.IstioConfig)
-			if err != nil {
-				flags.client, err = kube.NewClient(os.Getenv("HOME")+"/.kube/config", model.IstioConfig)
-				if err != nil {
-					return multierror.Prefix(err, "Failed to connect to Kubernetes API.")
-				}
-			}
-			if err = flags.client.RegisterResources(); err != nil {
-				return multierror.Prefix(err, "Failed to register Third-Party Resources.")
-			}
-			return
-		},
-	}
-
 	discoveryCmd = &cobra.Command{
 		Use:   "discovery",
 		Short: "Start Istio Manager discovery service",
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			controller := kube.NewController(flags.client, flags.namespace, resyncPeriod)
-			sds := envoy.NewDiscoveryService(controller, flags.server.sdsPort)
+		RunE: func(c *cobra.Command, args []string) (err error) {
+			controller := kube.NewController(cmd.Client, cmd.RootFlags.Namespace, resyncPeriod)
+			sds := envoy.NewDiscoveryService(controller, flags.sdsPort)
 			stop := make(chan struct{})
 			go controller.Run(stop)
 			go sds.Run()
-			waitSignal(stop)
+			cmd.WaitSignal(stop)
 			return
 		},
 	}
@@ -95,9 +63,9 @@ Istio Manager provides management plane functionality to the Istio proxy mesh an
 	sidecarCmd = &cobra.Command{
 		Use:   "sidecar",
 		Short: "Istio Proxy sidecar agent",
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
+		RunE: func(c *cobra.Command, args []string) (err error) {
 			setFlagsFromEnv()
-			controller := kube.NewController(flags.client, flags.namespace, resyncPeriod)
+			controller := kube.NewController(cmd.Client, cmd.RootFlags.Namespace, resyncPeriod)
 			_, err = envoy.NewWatcher(controller, controller, &model.IstioRegistry{ConfigRegistry: controller},
 				&flags.proxy, &flags.identity)
 			if err != nil {
@@ -105,7 +73,7 @@ Istio Manager provides management plane functionality to the Istio proxy mesh an
 			}
 			stop := make(chan struct{})
 			go controller.Run(stop)
-			waitSignal(stop)
+			cmd.WaitSignal(stop)
 			return
 		},
 	}
@@ -113,9 +81,9 @@ Istio Manager provides management plane functionality to the Istio proxy mesh an
 	ingressCmd = &cobra.Command{
 		Use:   "ingress",
 		Short: "Istio Proxy ingress controller",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(c *cobra.Command, args []string) error {
 			setFlagsFromEnv()
-			controller := kube.NewController(flags.client, flags.namespace, resyncPeriod)
+			controller := kube.NewController(cmd.Client, cmd.RootFlags.Namespace, resyncPeriod)
 			_, err := envoy.NewIngressWatcher(controller, controller, &model.IstioRegistry{ConfigRegistry: controller},
 				&flags.proxy, &flags.identity)
 			if err != nil {
@@ -123,7 +91,7 @@ Istio Manager provides management plane functionality to the Istio proxy mesh an
 			}
 			stop := make(chan struct{})
 			go controller.Run(stop)
-			waitSignal(stop)
+			cmd.WaitSignal(stop)
 			return nil
 		},
 	}
@@ -131,23 +99,17 @@ Istio Manager provides management plane functionality to the Istio proxy mesh an
 	egressCmd = &cobra.Command{
 		Use:   "egress",
 		Short: "Istio Proxy external service agent",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(c *cobra.Command, args []string) error {
 			// TODO: implement this method
 			stop := make(chan struct{})
-			waitSignal(stop)
+			cmd.WaitSignal(stop)
 			return nil
 		},
 	}
 )
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&flags.kubeconfig, "kubeconfig", "c", "",
-		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	rootCmd.PersistentFlags().StringVarP(&flags.namespace, "namespace", "n", "",
-		"Select the specified namespace for the Kubernetes controller to watch instead of all namespaces")
-	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-
-	discoveryCmd.PersistentFlags().IntVarP(&flags.server.sdsPort, "port", "p", 8080,
+	discoveryCmd.PersistentFlags().IntVarP(&flags.sdsPort, "port", "p", 8080,
 		"Discovery service port")
 
 	proxyCmd.PersistentFlags().StringVar(&flags.identity.IP, "nodeIP", "",
@@ -166,28 +128,22 @@ func init() {
 		"Envoy config root location")
 	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.MixerAddress, "mixer", "m", "",
 		"Mixer DNS address (or empty to disable Mixer)")
-
-	rootCmd.AddCommand(discoveryCmd)
-	rootCmd.AddCommand(configCmd)
-	rootCmd.AddCommand(proxyCmd)
 	proxyCmd.AddCommand(sidecarCmd)
 	proxyCmd.AddCommand(ingressCmd)
 	proxyCmd.AddCommand(egressCmd)
+
+	cmd.RootCmd.Use = "manager"
+	cmd.RootCmd.Long = `
+Istio Manager provides management plane functionality to the Istio proxy mesh and Istio Mixer.`
+	cmd.RootCmd.AddCommand(discoveryCmd)
+	cmd.RootCmd.AddCommand(proxyCmd)
 }
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := cmd.RootCmd.Execute(); err != nil {
 		glog.Error(err)
 		os.Exit(-1)
 	}
-}
-
-func waitSignal(stop chan struct{}) {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	<-sigs
-	close(stop)
-	glog.Flush()
 }
 
 // setFlagsFromEnv sets default values for flags that are not specified

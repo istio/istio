@@ -46,28 +46,37 @@ func (k Key) String() string {
 	return fmt.Sprintf("%s/%s-%s", k.Namespace, k.Kind, k.Name)
 }
 
-// ConfigRegistry defines the basic API for retrieving and storing configuration
-// artifacts.
+// ConfigRegistry defines the basic API for retrieving and storing
+// configuration artifacts.
+//
+// "Put", "Post", and "Delete" are mutator operations. These operations are
+// asynchronous, and you might not see the effect immediately (e.g. "Get" might
+// not return the object by key immediately after you mutate the store.)
+// Intermittent errors might occur even though the operation succeeds, so you
+// should always check if the object store has been modified even if the
+// mutating operation returns an error.
+//
+// Objects should be created with "Post" operation and updated with "Put" operation.
+//
 // Object references supplied and returned from this interface should be
-// treated as read-only. Modifying them might violate thread-safety.
+// treated as read-only. Modifying them violates thread-safety.
 type ConfigRegistry interface {
 	// Get retrieves a configuration element, bool indicates existence
 	Get(key Key) (proto.Message, bool)
 
-	// List returns objects for a kind in a namespace keyed by name
-	// Use namespace "" to list all resources across namespaces
+	// List returns objects for a kind in a namespace.
+	// Use namespace "" to list resources across namespaces
 	List(kind string, namespace string) (map[Key]proto.Message, error)
 
-	// Put adds an object to the distributed store.
-	// This implies that you might not see the effect immediately (e.g. Get
-	// might not return the object immediately).
-	// Intermittent errors might occur even though the operation succeeds.
+	// Post creates a configuration object. If an object with the same
+	// key already exists, the operation fails with no side effects.
+	Post(key Key, v proto.Message) error
+
+	// Put updates a configuration object in the distributed store.
+	// Put requires that the object has been created.
 	Put(key Key, v proto.Message) error
 
-	// Delete remotes an object from the distributed store.
-	// This implies that you might not see the effect immediately (e.g. Get
-	// might not return the object immediately).
-	// Intermittent errors might occur even though the operation succeeds.
+	// Delete removes an object from the distributed store by key.
 	Delete(key Key) error
 }
 
@@ -80,6 +89,20 @@ type ProtoSchema struct {
 	MessageName string
 	// Validate configuration as a protobuf message
 	Validate func(o proto.Message) error
+	// Internal flag indicates that the configuration type is derived
+	// from other configuration sources. This prohibits direct updates
+	// but allows listing and watching.
+	Internal bool
+}
+
+// Kinds lists all kinds in the kind schemas
+func (km KindMap) Kinds() []string {
+	kinds := make([]string, 0)
+	for kind := range km {
+		kinds = append(kinds, kind)
+	}
+	sort.Strings(kinds)
+	return kinds
 }
 
 const (
@@ -109,6 +132,7 @@ var (
 		IngressRule: ProtoSchema{
 			MessageName: IngressRuleProto,
 			Validate:    ValidateIngressRule,
+			Internal:    true,
 		},
 		Destination: ProtoSchema{
 			MessageName: DestinationProto,

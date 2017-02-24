@@ -133,9 +133,9 @@ func TestControllerCacheFreshness(t *testing.T) {
 	k := model.Key{Kind: mock.Kind, Name: "test", Namespace: ns}
 	o := mock.Make(0)
 
-	// put followed by delete
-	glog.Infof("Calling Put(%#v)", k)
-	if err := ctl.Put(k, o); err != nil {
+	// add and remove
+	glog.Infof("Calling Post(%#v)", k)
+	if err := ctl.Post(k, o); err != nil {
 		t.Error(err)
 	}
 	eventually(func() bool {
@@ -157,7 +157,7 @@ func TestControllerClientSync(t *testing.T) {
 	// add elements directly through client
 	for i := 0; i < n; i++ {
 		keys[i] = model.Key{Name: fmt.Sprintf("test%d", i), Namespace: ns, Kind: mock.Kind}
-		if err := cl.Put(keys[i], mock.Make(i)); err != nil {
+		if err := cl.Post(keys[i], mock.Make(i)); err != nil {
 			t.Error(err)
 		}
 	}
@@ -187,7 +187,7 @@ func TestControllerClientSync(t *testing.T) {
 
 	// now add through the controller
 	for i := 0; i < n; i++ {
-		if err := ctl.Put(keys[i], mock.Make(i)); err != nil {
+		if err := ctl.Post(keys[i], mock.Make(i)); err != nil {
 			t.Error(err)
 		}
 	}
@@ -268,9 +268,8 @@ func TestProxyConfig(t *testing.T) {
 
 	key := model.Key{Kind: model.RouteRule, Name: "test", Namespace: ns}
 
-	err := cl.Put(key, rule)
-	if err != nil {
-		t.Errorf("cl.Put() => error %v, want no error", err)
+	if err := cl.Post(key, rule); err != nil {
+		t.Errorf("cl.Post() => error %v, want no error", err)
 	}
 
 	out, exists := cl.Get(key)
