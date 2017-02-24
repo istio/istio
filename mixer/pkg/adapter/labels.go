@@ -14,12 +14,6 @@
 
 package adapter
 
-import (
-	"fmt"
-
-	dpb "istio.io/api/mixer/v1/config/descriptor"
-)
-
 // LabelType defines the set of known label types that can be generated
 // by the mixer.
 type LabelType int
@@ -36,32 +30,5 @@ const (
 	EmailAddress
 	URI
 	DNSName
+	StringMap
 )
-
-// LabelTypeFromProto translates from ValueType to LabelType.
-func LabelTypeFromProto(pbt dpb.ValueType) (LabelType, error) {
-	switch pbt {
-	case dpb.STRING:
-		return String, nil
-	case dpb.BOOL:
-		return Bool, nil
-	case dpb.INT64:
-		return Int64, nil
-	case dpb.DOUBLE:
-		return Float64, nil
-	case dpb.TIMESTAMP:
-		return Time, nil
-	case dpb.DNS_NAME:
-		return DNSName, nil
-	case dpb.DURATION:
-		return Duration, nil
-	case dpb.EMAIL_ADDRESS:
-		return EmailAddress, nil
-	case dpb.IP_ADDRESS:
-		return IPAddress, nil
-	case dpb.URI:
-		return URI, nil
-	default:
-		return 0, fmt.Errorf("unsupported proto ValueType %v", pbt)
-	}
-}
