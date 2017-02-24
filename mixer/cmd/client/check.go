@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2016 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ func checkCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
 		}}
 
 	cmd.PersistentFlags().IntVarP(&repeat, "repeat", "", 1,
-		"Sends the specified number of Check requests in quick succession")
+		"Sends the specified number of identical Check requests in quick succession")
 
 	return cmd
 }

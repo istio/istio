@@ -15,10 +15,6 @@ pkg_tar(
 )
 
 mixer_docker_build(
-    images = [
-        {"name": "mixer",       "base": "@docker_ubuntu//:xenial"},
-        {"name": "mixer_debug", "base": "@ubuntu_xenial_debug//file"},
-    ],
     entrypoint = [
         "/usr/local/bin/mixs",
         "server",
@@ -26,6 +22,16 @@ mixer_docker_build(
         "--serviceConfigFile=/etc/opt/mixer/serviceconfig.yml",
         "--logtostderr",
         "--v=2",
+    ],
+    images = [
+        {
+            "name": "mixer",
+            "base": "@docker_ubuntu//:xenial",
+        },
+        {
+            "name": "mixer_debug",
+            "base": "@ubuntu_xenial_debug//file",
+        },
     ],
     ports = [
         "9091",
