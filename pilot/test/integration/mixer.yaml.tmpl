@@ -5,13 +5,13 @@ kind: Service
 metadata:
   name: mixer
   labels:
-    infra: mixer
+    app: mixer
 spec:
   ports:
   - port: 9091
     name: tcp
   selector:
-    infra: mixer
+    app: mixer
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -22,7 +22,7 @@ spec:
   template:
     metadata:
       labels:
-        infra: mixer
+        app: mixer
     spec:
       containers:
       - name: mixer
@@ -35,9 +35,5 @@ spec:
           - --serviceConfigFile=/etc/opt/mixer/serviceconfig.yml
           - --logtostderr
           - -v
-          - "4"
-      - name: debug
-        image: docker.io/istio/debug:test
-        securityContext:
-            privileged: true
+          - "3"
 ---

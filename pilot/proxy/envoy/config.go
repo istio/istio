@@ -152,7 +152,7 @@ func build(instances []*model.ServiceInstance, services []*model.Service,
 			Filters: []*NetworkFilter{{
 				Type: "read",
 				Name: HTTPConnectionManager,
-				Config: HTTPFilterConfig{
+				Config: &HTTPFilterConfig{
 					CodecType:  "auto",
 					StatPrefix: "http",
 					AccessLog: []AccessLog{{
