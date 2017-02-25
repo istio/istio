@@ -21,28 +21,20 @@ import (
 
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
-	"google.golang.org/genproto/googleapis/rpc/code"
 
 	mixerpb "istio.io/api/mixer/v1"
 )
 
 func checkCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
-	repeat := 1
-
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "check",
 		Short: "Invokes the mixer's Check API.",
 		Run: func(cmd *cobra.Command, args []string) {
-			check(rootArgs, args, errorf, repeat)
+			check(rootArgs, args, errorf)
 		}}
-
-	cmd.PersistentFlags().IntVarP(&repeat, "repeat", "", 1,
-		"Sends the specified number of identical Check requests in quick succession")
-
-	return cmd
 }
 
-func check(rootArgs *rootArgs, args []string, errorf errorFn, repeat int) {
+func check(rootArgs *rootArgs, args []string, errorf errorFn) {
 	var attrs *mixerpb.Attributes
 	var err error
 
@@ -67,26 +59,26 @@ func check(rootArgs *rootArgs, args []string, errorf errorFn, repeat int) {
 		return
 	}
 
-	for i := 0; i < repeat; i++ {
+	for i := 0; i < rootArgs.repeat; i++ {
 		// send the request
 		request := mixerpb.CheckRequest{RequestIndex: int64(i), AttributeUpdate: attrs}
 
 		if err = stream.Send(&request); err != nil {
 			errorf("Failed to send Check RPC: %v", err)
-			return
+			break
 		}
 
 		var response *mixerpb.CheckResponse
 		response, err = stream.Recv()
 		if err == io.EOF {
 			errorf("Got no response from Check RPC")
-			return
+			break
 		} else if err != nil {
-			errorf("Failed to receive a response from Check RPC: %v", err)
-			return
+			errorf("Failed to receive a response .from Check RPC: %v", err)
+			break
 		}
 
-		fmt.Printf("Check RPC returned %s %s\n", code.Code_name[response.Result.Code], response.Result.Message)
+		fmt.Printf("Check RPC returned %s\n", decodeStatus(response.Result))
 	}
 
 	if err = stream.CloseSend(); err != nil {

@@ -64,36 +64,26 @@ func report(rootArgs *rootArgs, args []string, errorf errorFn) {
 		return
 	}
 
-	// send the request
-	request := mixerpb.ReportRequest{RequestIndex: 0, AttributeUpdate: attrs}
+	for i := 0; i < rootArgs.repeat; i++ {
+		// send the request
+		request := mixerpb.ReportRequest{RequestIndex: 0, AttributeUpdate: attrs}
 
-	/* reinstate this code ASAP
-
-	request.LogEntries = make([]*mixerpb.LogEntry, len(args))
-	for i, arg := range args {
-		now, _ := ptypes.TimestampProto(time.Now())
-		request.LogEntries[i] = &mixerpb.LogEntry{
-			Severity:  mixerpb.LogEntry_DEFAULT,
-			Timestamp: now,
-			Payload: &mixerpb.LogEntry_TextPayload{
-				TextPayload: arg,
-			},
+		if err = stream.Send(&request); err != nil {
+			errorf("Failed to send Report RPC: %v", err)
+			break
 		}
-	}
-	*/
-	if err = stream.Send(&request); err != nil {
-		errorf("Failed to send Report RPC: %v", err)
-		return
-	}
 
-	var response *mixerpb.ReportResponse
-	response, err = stream.Recv()
-	if err == io.EOF {
-		errorf("Got no response from Report RPC")
-		return
-	} else if err != nil {
-		errorf("Failed to receive a response from Report RPC: %v", err)
-		return
+		var response *mixerpb.ReportResponse
+		response, err = stream.Recv()
+		if err == io.EOF {
+			errorf("Got no response from Report RPC")
+			break
+		} else if err != nil {
+			errorf("Failed to receive a response from Report RPC: %v", err)
+			break
+		}
+
+		fmt.Printf("Report RPC returned %s\n", decodeStatus(response.Result))
 	}
 
 	if err = stream.CloseSend(); err != nil {
@@ -101,6 +91,4 @@ func report(rootArgs *rootArgs, args []string, errorf errorFn) {
 	}
 
 	span.Finish()
-
-	fmt.Printf("Report RPC returned %v\n", response.Result)
 }

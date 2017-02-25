@@ -22,7 +22,9 @@ import (
 	"time"
 
 	ptypes "github.com/gogo/protobuf/types"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 	bt "github.com/opentracing/basictracer-go"
+	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -268,4 +270,21 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 	}
 
 	return &attrs, nil
+}
+
+func decodeStatus(status *rpc.Status) string {
+	if status == nil {
+		return "<invalid status>"
+	}
+
+	result, ok := code.Code_name[status.Code]
+	if !ok {
+		result = fmt.Sprintf("Code %d", status.Code)
+	}
+
+	if status.Message != "" {
+		result = result + " (" + status.Message + ")"
+	}
+
+	return result
 }

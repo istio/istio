@@ -55,6 +55,9 @@ type rootArgs struct {
 
 	// enableTracing controls whether client-side traces are generated for calls to the mixer.
 	enableTracing bool
+
+	// # times to repeat the operation
+	repeat int
 }
 
 // A function used for error output.
@@ -84,6 +87,9 @@ func withArgs(args []string, errorf errorFn) {
 
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.mixerAddress, "mixer", "m", "localhost:9091",
 		"Address and port of running instance of the mixer")
+	rootCmd.PersistentFlags().IntVarP(&rootArgs.repeat, "repeat", "r", 1,
+		"Sends the specified number of requests in quick succession")
+
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.attributes, "attributes", "a", "",
 		"List of name/value auto-sensed attributes specified as name1=value1,name2=value2,...")
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.stringAttributes, "string_attributes", "s", "",
