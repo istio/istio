@@ -85,3 +85,11 @@ docker_build(
     type = "zip",
     url = "https://codeload.github.com/tianon/docker-brew-ubuntu-core/zip/e406914e5f648003dfe8329b512c30c9ad0d2f9c",
 )
+
+# See github.com/istio/manager/blob/master/docker/debug/build-and-publish-debug-image.sh
+# for instructions on how to re-build and publish this base image layer.
+http_file(
+    name = "ubuntu_xenial_debug",
+    url = "https://storage.googleapis.com/istio-build/manager/ubuntu_xenial_debug.tar.gz",
+    sha256 = "02f0ea4b04012562dec4b75ee4337ac77a0003418d02a91bde1b4b4d162a41e4",
+)
