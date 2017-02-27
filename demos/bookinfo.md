@@ -199,7 +199,7 @@ route requests to all available versions of a service in a random fashion.
 
    Allow several seconds to account for rule propagation delay to all pods.
 
-1. Observe application behavior (NOTE: THIS FUNCTION IS CURRENTLY NOT WORKING)
+1. Observe application behavior
 
    If the application's front page was set to correctly handle delays, we expect it
    to load within approximately 7 seconds. To see the web page response times, open the
