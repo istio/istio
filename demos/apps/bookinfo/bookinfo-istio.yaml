@@ -45,7 +45,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "frankb/init:test2",
+            "image": "docker.io/istio/init:latest",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -57,7 +57,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:test2
+        image: docker.io/istio/runtime:latest
         securityContext:
           runAsUser: 1337
         args:
@@ -65,9 +65,6 @@ spec:
           - sidecar
           - -s
           - istio-route-controller:8080
-          - --logtostderr
-          - -n
-          - default
           - -v
           - "2"
         env:
@@ -118,7 +115,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "frankb/init:test2",
+            "image": "docker.io/istio/init:latest",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -130,7 +127,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:test2
+        image: docker.io/istio/runtime:latest
         securityContext:
           runAsUser: 1337
         args:
@@ -138,9 +135,6 @@ spec:
           - sidecar
           - -s
           - istio-route-controller:8080
-          - --logtostderr
-          - -n
-          - default
           - -v
           - "2"
         env:
@@ -191,7 +185,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "frankb/init:test2",
+            "image": "docker.io/istio/init:latest",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -203,7 +197,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:test2
+        image: docker.io/istio/runtime:latest
         securityContext:
           runAsUser: 1337
         args:
@@ -211,9 +205,6 @@ spec:
           - sidecar
           - -s
           - istio-route-controller:8080
-          - --logtostderr
-          - -n
-          - default
           - -v
           - "2"
         env:
@@ -246,7 +237,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "frankb/init:test2",
+            "image": "docker.io/istio/init:latest",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -258,7 +249,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:test2
+        image: docker.io/istio/runtime:latest
         securityContext:
           runAsUser: 1337
         args:
@@ -266,9 +257,6 @@ spec:
           - sidecar
           - -s
           - istio-route-controller:8080
-          - --logtostderr
-          - -n
-          - default
           - -v
           - "2"
         env:
@@ -301,7 +289,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "frankb/init:test2",
+            "image": "docker.io/istio/init:latest",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -313,7 +301,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:test2
+        image: docker.io/istio/runtime:latest
         securityContext:
           runAsUser: 1337
         args:
@@ -321,9 +309,6 @@ spec:
           - sidecar
           - -s
           - istio-route-controller:8080
-          - --logtostderr
-          - -n
-          - default
           - -v
           - "2"
         env:
@@ -374,7 +359,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "frankb/init:test2",
+            "image": "docker.io/istio/init:latest",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -386,7 +371,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: frankb/runtime:test2
+        image: docker.io/istio/runtime:latest
         securityContext:
           runAsUser: 1337
         args:
@@ -394,9 +379,6 @@ spec:
           - sidecar
           - -s
           - istio-route-controller:8080
-          - --logtostderr
-          - -n
-          - default
           - -v
           - "2"
         env:
