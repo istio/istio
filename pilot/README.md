@@ -82,6 +82,7 @@ containers.
 
     - name: debug
       image: docker.io/istio/debug:test
+      imagePullPolicy: Always
       securityContext:
           privileged: true
 

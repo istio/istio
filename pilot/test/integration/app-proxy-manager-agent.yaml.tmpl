@@ -39,6 +39,7 @@ spec:
       containers:
       - name: app
         image: {{.hub}}/app:{{.tag}}
+        imagePullPolicy: Always
         args:
           - --port
           - "{{.port1}}"
@@ -51,6 +52,7 @@ spec:
         - containerPort: {{.port2}}
       - name: proxy
         image: {{.hub}}/runtime:{{.tag}}
+        imagePullPolicy: Always
         securityContext:
           runAsUser: 1337
         args:
@@ -64,7 +66,6 @@ spec:
           - {{.namespace}}
           - -v
           - "2"
-        imagePullPolicy: Always
         env:
           - name: POD_NAME
             valueFrom:
@@ -80,6 +81,7 @@ spec:
                 fieldPath: status.podIP
       - name: debug
         image: docker.io/istio/debug:test
+        imagePullPolicy: Always
         securityContext:
             privileged: true
 ---
