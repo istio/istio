@@ -8,5 +8,3 @@ go_library(
         "servicegraph.go",
     ],
 )
-
-exports_files(["js/viz-lite.js"])

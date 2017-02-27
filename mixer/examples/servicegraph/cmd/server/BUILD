@@ -1,4 +1,4 @@
-package(default_visibility = ["//visibility:private"])
+package(default_visibility = ["//examples/servicegraph:__subpackages__"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_binary")
 
@@ -16,6 +16,6 @@ go_library(
 
 go_binary(
     name = "servicegraph",
-    data = ["//examples/servicegraph:js/viz-lite.js"],
+    data = ["//examples/servicegraph/js:viz/viz-lite.js"],
     library = ":go_default_library",
 )

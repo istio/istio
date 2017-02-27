@@ -75,12 +75,13 @@ type state struct {
 func main() {
 	bindAddr := flag.String("bindAddr", ":8088", "Address to bind to for serving")
 	promAddr := flag.String("prometheusAddr", "http://localhost:9090", "Address of prometheus instance for graph generation")
+	assetDir := flag.String("assetDir", "examples/servicegraph", "directory find assets to serve")
 	flag.Parse()
 
 	s := &state{staticGraph: &servicegraph.Static{Nodes: make(map[string]struct{})}}
 
 	// don't allow directory listing
-	jf := &justFilesFilesystem{http.Dir("examples/servicegraph")}
+	jf := &justFilesFilesystem{http.Dir(*assetDir)}
 	http.Handle("/", http.FileServer(jf))
 	http.Handle("/graph", promgen.NewPromHandler(*promAddr, s.staticGraph, writeJSON))
 	http.HandleFunc("/node", s.addNode)
