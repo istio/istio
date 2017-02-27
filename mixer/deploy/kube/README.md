@@ -14,7 +14,7 @@ mixer server with our test client (`mixc`), providing some attribute values:
 
 ```shell
 $ MIXS=$(minikube service mixer --url --format "{{.IP}}:{{.Port}}" | head -n 1)
-$ bazel run //cmd/client:mixc -- check -m $MIXS -a source.name=source,target.name=target,api.name=myapi,response.code=200,response.latency=100,client.id=$USER
+$ bazel run //cmd/client:mixc -- report "something happened" -m $MIXS -a source.name=source,target.name=target,api.name=myapi,api.method=v1.foo.bar,response.http.code=200,response.latency=100,client.id=$USER
 ```
 
 <aside class="notice">
@@ -25,7 +25,7 @@ before Prometheus will be able to scrape metrics.
 ## mixer.yaml
 `mixer.yaml` describes a deployment and service for the mixer server binary. Two pieces of configuration are required to
 run the mixer: a global configuration and a service configuration. Example configurations can be found in the `//testdata`
-directory (`//` indicates the [root of the Istio Mixer project directory](https://github.com/istio/mixer). These
+directory (`//` indicates the [root of the Istio Mixer project directory](https://github.com/istio/mixer)). These
 configurations are expected to be mounted in two files at `/etc/opt/mixer/`. We use a configmap named `mixer-config` to
 provide these configurations. Usually this configmap is created from the `//testdata/` directory by:
 
@@ -80,15 +80,17 @@ adapters:
     params: # the prometheus adapter doesn't take any parameters; see //adapter/prometheus/config/config.proto
 ```
          
-Then the metrics aspect must be configured so that the adapter can populate metric values from attributes at runtime:
+Then the metrics aspect must be configured so that the adapter can populate metric values from attributes at runtime. This
+is part of the service config:
 ```yaml
 aspects:
   - kind: metrics
-    adapter: prometheus
+    adapter: prometheus # needs to match the name of the prometheus metrics adapter in the global config
     params:
       metrics:
       - descriptor: request_count
-        value: "1" # we want to increment this counter by 1 for each unique (source, target, service, response_code) tuple
+        # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
+        value: "1"
         labels:
           source: source.name
           target: target.name
