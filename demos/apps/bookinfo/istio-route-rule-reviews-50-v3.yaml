@@ -1,0 +1,9 @@
+destination: reviews.default.svc.cluster.local
+precedence: 3
+route:
+- tags:
+    version: v1
+  weight: 50
+- tags:
+    version: v3
+  weight: 50
