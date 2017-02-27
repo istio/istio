@@ -118,7 +118,7 @@ curl -s -b user=shriram http://$(minikube ip):32000/productpage |json_pp
 
 There would be no star ratings.
 
-#### Fault Injection [NOT WORKING]
+#### Fault Injection
 
 Lets inject a 7 second delay between `reviews-v2` and `ratings-v1` only for `user=jason`
 
