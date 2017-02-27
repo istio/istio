@@ -24,6 +24,9 @@ This application is polyglot, i.e., the microservices are written in
 different languages. All microservices are packaged with an
 Istio sidecar that manages all incoming and outgoing calls for the service.
 
+> Note: the following instructions assume that your current working directory
+> is [apps/bookinfo](apps/bookinfo).
+
 ## Running the Bookinfo Application
 
 1. Bring up the control plane:
@@ -42,7 +45,7 @@ Istio sidecar that manages all incoming and outgoing calls for the service.
    ```
 
    The above command creates the gateway ingress resource and launches the 4 microservices as described
-   in the diagram above. The reviews microservice has 3 versions v1, v2, and v3.
+   in the diagram above. The reviews microservice has 3 versions: v1, v2, and v3.
    Note that in a realistic deployment, new versions of a microservice are deployed over 
    time instead of deploying all versions simultaneously.
    
@@ -88,16 +91,21 @@ Istio sidecar that manages all incoming and outgoing calls for the service.
 
 ### Content Based Routing
 
+
+
 Since we have 3 versions of the reviews microservice running, we need to set the default route.
 Otherwise if you access the application several times, you would notice that sometimes the output contains 
 star ratings. This is because without an explicit default version set, Istio will 
-route requests to all available versions of a service in a random fashon.
+route requests to all available versions of a service in a random fashion.
    
-1. Set the default version for the reviews microservice to v1. 
+1. Set the default version for all microservice to v1. 
 
    ```bash
-   $ kubectl create -f route-rule-reviews-v1.yaml 
+   $ kubectl create -f route-rule-all-v1.yaml 
+   istioconfig "route-rule-productpage-v1" created
    istioconfig "route-rule-reviews-v1" created
+   istioconfig "route-rule-ratings-v1" created
+   istioconfig "route-rule-details-v1" created
    ```
 
    You can display the routes that are defined with the following command:
@@ -128,7 +136,7 @@ route requests to all available versions of a service in a random fashon.
    selfLink: ""
    ```
 
-   Since rule propagation to the proxies is asynchronous, you ahould wait a few seconds for the rules
+   Since rule propagation to the proxies is asynchronous, you should wait a few seconds for the rules
    to propagate to all pods before attempting to access the application.
 
    If you open the Bookinfo URL (`http://$GATEWAY_URL/productpage`) in your browser,
@@ -185,13 +193,13 @@ route requests to all available versions of a service in a random fashon.
    Create a fault injection rule, to delay traffic coming from user "jason" (our test user).
 
    ```bash
-   $ kubectl create -f route-rule-ratings-tester-delay.yaml
-   istionconfig "route-rule-ratings-tester-delay" created
+   $ kubectl create -f destination-ratings-tester-delay.yaml
+   istionconfig "destination-ratings-tester-delay" created
    ```
 
    Allow several seconds to account for rule propagation delay to all pods.
 
-1. Observe application behavior (NOTE: THIS FUNCTION IS CURRENTLY NOT WORKING)
+1. Observe application behavior
 
    If the application's front page was set to correctly handle delays, we expect it
    to load within approximately 7 seconds. To see the web page response times, open the

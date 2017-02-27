@@ -1,7 +1,7 @@
 apiVersion: istio.io/v1alpha1
 kind: IstioConfig
 metadata:
-  name: route-rule-ratings-tester-delay
+  name: destination-ratings-tester-delay
   namespace: default
 spec:
   destination: ratings.default.svc.cluster.local

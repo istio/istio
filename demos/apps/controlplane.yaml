@@ -27,8 +27,8 @@ spec:
     spec:
       containers:
       - name: istio-route-controller
-        image: frankb/runtime:unin5
-        args: ["discovery", "--logtostderr", "-v", "2"]
+        image: docker.io/istio/runtime:20170224214559
+        args: ["discovery", "-v", "2"]
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -65,13 +65,12 @@ spec:
     spec:
       containers:
       - name: istio-ingress-controller
-        image: zcahana/runtime:test
+        image: docker.io/istio/runtime:20170224214559
         args:
         - proxy
         - ingress
         - -s
         - istio-route-controller:8080
-        - --logtostderr
         - -v
         - "2"
         imagePullPolicy: Always
