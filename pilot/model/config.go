@@ -146,7 +146,7 @@ type IstioRegistry struct {
 	ConfigRegistry
 }
 
-// RouteRules lists all routing rules in a namespace (or all rules if namespace is "")
+// RouteRules lists all unsorted routing rules in a namespace (or all rules if namespace is "")
 func (i *IstioRegistry) RouteRules(namespace string) []*proxyconfig.RouteRule {
 	out := make([]*proxyconfig.RouteRule, 0)
 	rs, err := i.List(RouteRule, namespace)
@@ -158,6 +158,32 @@ func (i *IstioRegistry) RouteRules(namespace string) []*proxyconfig.RouteRule {
 			out = append(out, rule)
 		}
 	}
+	return out
+}
+
+// RouteRulesBySource selects routing rules from source to destination (sorted by precedence)
+func (i *IstioRegistry) RouteRulesBySource(namespace string, instances []*ServiceInstance) []*proxyconfig.RouteRule {
+	out := make([]*proxyconfig.RouteRule, 0)
+	for _, rule := range i.RouteRules(namespace) {
+		if rule.Match != nil {
+			found := false
+			for _, instance := range instances {
+				if rule.Match.Source != "" && rule.Match.Source != instance.Service.Hostname {
+					continue
+				}
+				var tags Tags = rule.Match.SourceTags
+				if tags.SubsetOf(instance.Tags) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				continue
+			}
+		}
+		out = append(out, rule)
+	}
+	sort.Sort(RouteRulePrecedence(out))
 	return out
 }
 
@@ -173,18 +199,6 @@ func (i *IstioRegistry) IngressRules(namespace string) []*proxyconfig.RouteRule 
 			out = append(out, rule)
 		}
 	}
-	return out
-}
-
-// DestinationRouteRules lists all rules for a destination by precedence
-func (i *IstioRegistry) DestinationRouteRules(destination string) []*proxyconfig.RouteRule {
-	out := make([]*proxyconfig.RouteRule, 0)
-	for _, rule := range i.RouteRules("") {
-		if rule.Destination == destination {
-			out = append(out, rule)
-		}
-	}
-	sort.Sort(RouteRulePrecedence(out))
 	return out
 }
 

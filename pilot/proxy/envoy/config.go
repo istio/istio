@@ -184,13 +184,28 @@ func buildOutboundFilters(instances []*model.ServiceInstance, services []*model.
 	suffix := sharedInstanceHost(instances)
 	httpConfigs := make(HTTPRouteConfigs)
 
+	// get all the route rules applicable to the instances
+	rules := config.RouteRulesBySource("", instances)
+
 	// outbound connections/requests are redirected to service ports; we create a
 	// map for each service port to define filters
 	for _, service := range services {
 		for _, port := range service.Ports {
 			switch port.Protocol {
 			case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
-				routes := buildHTTPRoutes(service.Hostname, port, config)
+				routes := make([]*HTTPRoute, 0)
+
+				// collect route rules
+				for _, rule := range rules {
+					if rule.Destination == service.Hostname {
+						routes = append(routes, buildHTTPRoute(rule, port))
+					}
+				}
+
+				// default route for the destination
+				cluster := buildOutboundCluster(service.Hostname, port, nil)
+				routes = append(routes, buildDefaultRoute(cluster))
+
 				host := buildVirtualHost(service, port, suffix, routes)
 				http := httpConfigs.EnsurePort(port.Port)
 				http.VirtualHosts = append(http.VirtualHosts, host)

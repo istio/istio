@@ -24,7 +24,7 @@ import (
 	"github.com/golang/glog"
 
 	"istio.io/manager/model"
-	"istio.io/manager/model/proxy/alphav1/config"
+	proxyconfig "istio.io/manager/model/proxy/alphav1/config"
 )
 
 const (
@@ -76,20 +76,8 @@ func buildOutboundCluster(hostname string, port *model.Port, tags model.Tags) *C
 	return cluster
 }
 
-// buildHTTPRoutes assembles all routes for the hostname destination
-func buildHTTPRoutes(hostname string, port *model.Port, config *model.IstioRegistry) []*HTTPRoute {
-	routes := make([]*HTTPRoute, 0)
-	for _, rule := range config.DestinationRouteRules(hostname) {
-		// TODO: rule applies always, need to check if it's actually HTTP rule
-		routes = append(routes, buildHTTPRoute(rule, port))
-	}
-	cluster := buildOutboundCluster(hostname, port, nil)
-	routes = append(routes, buildDefaultRoute(cluster))
-	return routes
-}
-
 // buildHTTPRoute translates a route rule to an Envoy route
-func buildHTTPRoute(rule *config.RouteRule, port *model.Port) *HTTPRoute {
+func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port) *HTTPRoute {
 	route := &HTTPRoute{
 		Path:   "",
 		Prefix: "/",
@@ -100,13 +88,13 @@ func buildHTTPRoute(rule *config.RouteRule, port *model.Port) *HTTPRoute {
 
 		if uri, ok := rule.Match.Http[HeaderURI]; ok {
 			switch m := uri.MatchType.(type) {
-			case *config.StringMatch_Exact:
+			case *proxyconfig.StringMatch_Exact:
 				route.Path = m.Exact
 				route.Prefix = ""
-			case *config.StringMatch_Prefix:
+			case *proxyconfig.StringMatch_Prefix:
 				route.Path = ""
 				route.Prefix = m.Prefix
-			case *config.StringMatch_Regex:
+			case *proxyconfig.StringMatch_Regex:
 				glog.Warningf("Unsupported route match condition: regex")
 			}
 		}

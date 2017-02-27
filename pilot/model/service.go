@@ -133,6 +133,9 @@ type TagsList []Tags
 // description (which is oblivious to various versions) and a set of tags
 // that describe the service version associated with this instance.
 //
+// The tags associated with a service instance are unique per a network endpoint.
+// There is one well defined set of tags for each service instance network endpoint.
+//
 // For example, the set of service instances associated with catalog.mystore.com
 // are modeled like this
 //      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Tag(foo=bar)

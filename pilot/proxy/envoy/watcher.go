@@ -63,6 +63,7 @@ func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 	}
 
 	// TODO: restrict the notification callback to co-located instances (e.g. with the same IP)
+	// TODO: editing pod tags directly does not trigger instance handlers, we need to listen on pod resources.
 	if err := ctl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { out.reload() }); err != nil {
 		return nil, err
 	}

@@ -46,7 +46,7 @@ const (
 	appProxyManagerAgent = "app-proxy-manager-agent"
 
 	// budget is the maximum number of retries with 1s delays
-	budget = 30
+	budget = 90
 
 	// Mixer SHA *update manually*
 	mixerSHA = "ea3a8d3e2feb9f06256f92cda5194cc1ea6b599e"

@@ -54,6 +54,7 @@ func testRouting() error {
 
 	log.Println("Routing 100 percent to world-v2 using header based routing and verifying..")
 	deployConfig("test/integration/rule-content-route.yaml.tmpl", map[string]string{
+		"source":      "hello",
 		"destination": "world",
 	}, model.RouteRule, "content-route", "hello")
 	check(verifyRouting("hello", "world", "version", "v2",
