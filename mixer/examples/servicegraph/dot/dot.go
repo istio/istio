@@ -34,7 +34,7 @@ var htmlTmpl = `<!DOCTYPE html>
   </head>
   <body>
 
-    <script src="/js/viz-lite.js"></script>
+    <script src="/js/viz/viz-lite.js"></script>
 
     <script type="text/graphviz" id="cluster">
 {{.}}
