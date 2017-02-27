@@ -193,7 +193,7 @@ route requests to all available versions of a service in a random fashion.
    Create a fault injection rule, to delay traffic coming from user "jason" (our test user).
 
    ```bash
-   $ kubectl create -f route-rule-ratings-tester-delay.yaml
+   $ kubectl create -f destination-ratings-tester-delay.yaml
    istionconfig "destination-ratings-tester-delay" created
    ```
 
