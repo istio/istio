@@ -1,6 +1,6 @@
 This is a simple bookinfo application broken into four separate microservices setup as shown in the diagram below
 
-![Bookinfo app](demos/example-app-bookinfo.png)
+![Bookinfo app](../example-app-bookinfo.png)
 
 **NOTE: To run this demo on Minikube or any kubernetes cluster, you need kubernetes version 1.5.2 or higher.**. In minikube, you can set the kubernetes version using this command
 
