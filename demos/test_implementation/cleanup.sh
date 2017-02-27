@@ -16,12 +16,9 @@
 
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-kubectl delete -f $SCRIPTDIR/route-rule-all-v1.yaml
-kubectl delete -f $SCRIPTDIR/route-rule-reviews-tester-v2.yaml
-kubectl delete -f $SCRIPTDIR/destination-ratings-tester-delay.yaml
-kubectl delete -f $SCRIPTDIR/route-rule-reviews-25-v3.yaml
-kubectl delete -f $SCRIPTDIR/route-rule-reviews-50-v3.yaml
-kubectl delete -f $SCRIPTDIR/route-rule-reviews-v3.yaml
+kubectl delete -f $SCRIPTDIR/step3-fault-injection.yaml
+kubectl delete -f $SCRIPTDIR/step2-single-user-testing.yaml
+kubectl delete -f $SCRIPTDIR/step1-default-route.yaml
 
-kubectl delete -f $SCRIPTDIR/bookinfo-istio.yaml
-kubectl delete -f $SCRIPTDIR/../controlplane.yaml
+kubectl delete -f $SCRIPTDIR/bookinfo.yaml
+kubectl delete -f $SCRIPTDIR/controlplane.yaml
