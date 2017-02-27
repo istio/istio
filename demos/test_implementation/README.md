@@ -1,6 +1,6 @@
 This is a simple bookinfo application broken into four separate microservices setup as shown in the diagram below
 
-![Bookinfo app](demos/example-app-bookinfo.png)
+![Bookinfo app](../example-app-bookinfo.png)
 
 **NOTE: To run this demo on Minikube or any kubernetes cluster, you need kubernetes version 1.5.2 or higher.**. In minikube, you can set the kubernetes version using this command
 
@@ -29,7 +29,7 @@ kubectl create -f bookinfo.yaml
 Once the apps are up and running (check using `kubectl get po`), you can query the productpage by 
 
 ```bash
-curl -sH "Host: productpage:9080" http://$(minikube ip):32000/productpage |json_pp
+curl -s http://$(minikube ip):32000/productpage |json_pp
 ````
 
 and you should see the productpage JSON of the form
@@ -107,18 +107,18 @@ kubectl create -f step2-single-user-testing.yaml
 To test, try 
 
 ```bash
-curl -s -H "Host: productpage:9080" -b user=jason http://$(minikube ip):32000/productpage |json_pp
+curl -s -b user=jason http://$(minikube ip):32000/productpage |json_pp
 ```
 
 You should see that the JSON output has star ratings under reviews. Change the user name to something else and try again
 
 ```bash
-curl -s -H "Host: productpage:9080" -b user=shriram http://$(minikube ip):32000/productpage |json_pp
+curl -s -b user=shriram http://$(minikube ip):32000/productpage |json_pp
 ```
 
 There would be no star ratings.
 
-#### Fault Injection [NOT WORKING]
+#### Fault Injection
 
 Lets inject a 7 second delay between `reviews-v2` and `ratings-v1` only for `user=jason`
 
@@ -129,7 +129,7 @@ kubectl create -f step3-fault-injection.yaml
 To test,
 
 ```bash
-time curl -s -H "Host: productpage:9080" -b user=jason http://$(minikube ip):32000/productpage
+time curl -b user=jason http://$(minikube ip):32000/productpage
 ```
 
 The execution time should be about 6-7seconds
@@ -137,7 +137,7 @@ The execution time should be about 6-7seconds
 <!--- 
 kubectl delete -f step3-fault-injection.yaml # Remove delay else you cant proceed to next step
 
-`time curl -s -H "Host: productpage:9080" -b user=jason http://$(minikube ip):32000/productpage` should show <1s execution time
+`time curl -s -b user=jason http://$(minikube ip):32000/productpage` should show <1s execution time
 --->
 
 
@@ -150,7 +150,7 @@ kubectl create -f step4-rollout-v3-25-percent.yaml
 To test, run the following set of commands:
 
 ```bash
-for i in `seq 1 100`; do curl -s -H "Host: productpage:9080" http://$(minikube ip):32000/productpage >>a; echo "" >>a; done
+for i in `seq 1 100`; do curl -s http://$(minikube ip):32000/productpage >>a; echo "" >>a; done
 cat a|sort|grep -c '"color":"red"'
 ```
 
@@ -167,7 +167,7 @@ kubectl create -f step5-rollout-v3-50-percent.yaml
 To test, run the following commands
 
 ```bash
-for i in `seq 1 100`; do curl -s -H "Host: productpage:9080" http://$(minikube ip):32000/productpage >>b; echo "" >>b; done
+for i in `seq 1 100`; do curl -s http://$(minikube ip):32000/productpage >>b; echo "" >>b; done
 cat b|sort|grep -c '"color":"red"'
 ```
 
@@ -182,7 +182,7 @@ kubectl create -f step6-rollout-v3-100-percent.yaml
 To test, run the following commands:
 
 ```bash
-for i in `seq 1 100`; do curl -s -H "Host: productpage:9080" http://$(minikube ip):32000/productpage >>c; echo "" >>c; done
+for i in `seq 1 100`; do curl -s http://$(minikube ip):32000/productpage >>c; echo "" >>c; done
 cat c|sort|grep -c '"color":"red"'
 ```
 
