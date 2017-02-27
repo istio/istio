@@ -4,11 +4,11 @@ set -ex
 
 hub=gcr.io/istio-testing
 tag=ubuntu_xenial_debug
-filename=ubuntu_xenial_debug
+name=ubuntu_xenial_debug
 
 docker build . -t $hub:$tag
-docker save $hub:$tag | gzip > $filename.tar.gz
-gsutil cp $filename.tar.gz gs://istio-build/manager/$filename.tar.gz
-sum=$(sha256sum $filename.tar.gz)
+docker save $hub:$tag | gzip > $name.tar.gz
+sum=$(sha256sum $name.tar.gz | cut -f1 -d' ')
+gsutil cp $name.tar.gz gs://istio-build/manager/$name-$sum.tar.gz
 
-echo "Update the sha256 to $sum for the $filename http_file() rule in WORKSPACE"
+echo "Update DEBUG_BASE_IMAGE_SHA to $sum in WORKSPACE"

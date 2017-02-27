@@ -9,7 +9,9 @@ RUN apt-get update && \
 	    curl \
 	    iptables \
 	    iproute2 \
-	    iputils-ping
+	    iputils-ping \
+	    dnsutils \
+	    netcat
 
 ADD proxy-redirection-clear /usr/local/bin/proxy-redirection-clear
 ADD proxy-redirection-restore /usr/local/bin/proxy-redirection-restore

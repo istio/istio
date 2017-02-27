@@ -288,10 +288,12 @@ http_file(
 ## Docker rules
 ##
 
+DEBUG_BASE_IMAGE_SHA="3f57ae2aceef79e4000fb07ec850bbf4bce811e6f81dc8cfd970e16cdf33e622"
+
 http_file(
     name = "ubuntu_xenial_debug",
-    url = "https://storage.googleapis.com/istio-build/manager/ubuntu_xenial_debug.tar.gz",
-    sha256 = "02f0ea4b04012562dec4b75ee4337ac77a0003418d02a91bde1b4b4d162a41e4",
+    url = "https://storage.googleapis.com/istio-build/manager/ubuntu_xenial_debug-" + DEBUG_BASE_IMAGE_SHA + ".tar.gz",
+    sha256 = DEBUG_BASE_IMAGE_SHA
 )
 
 new_http_archive(
