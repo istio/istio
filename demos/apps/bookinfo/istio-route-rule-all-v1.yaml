@@ -1,0 +1,27 @@
+destination: productpage.default.svc.cluster.local
+precedence: 1
+route:
+- tags:
+    version: v1
+  weight: 100
+---
+destination: reviews.default.svc.cluster.local
+precedence: 1
+route:
+- tags:
+    version: v1
+  weight: 100
+---
+destination: ratings.default.svc.cluster.local
+precedence: 1
+route:
+- tags:
+    version: v1
+  weight: 100
+---
+destination: details.default.svc.cluster.local
+precedence: 1
+route:
+- tags:
+    version: v1
+  weight: 100
