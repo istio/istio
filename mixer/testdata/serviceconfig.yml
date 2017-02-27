@@ -15,16 +15,16 @@ rules:
         # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
         value: "1"
         labels:
-          source: source.name
-          target: target.name
+          source: source.name | "unknown"
+          target: target.name | "unknown"
           service: api.name | "unknown"
           method: api.method | "unknown"
-          response_code: response.http.code
+          response_code: response.http.code | "unknown"
       - descriptor_name:  request_latency
-        value: response.latency
+        value: response.latency | "unknown"
         labels:
-          source: source.name
-          target: target.name
+          source: source.name | "unknown"
+          target: target.name | "unknown"
           service: api.name | "unknown"
           method: api.method | "unknown"
   - kind: access-logs
@@ -35,6 +35,3 @@ rules:
     params:
       logName: "mixer_log"
       logEntryDescriptorNames: ["default"]
-- selector: client.id == "bad_client"
-  aspects:
-  - kind: denials
