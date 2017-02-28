@@ -45,7 +45,11 @@ We do not check in this file because we consider the yaml files in `//testdata` 
 The Grafana UI is exposed on port `3000`. This configuration stores Grafana's data in the `/data/grafana` dir, which we
 configure to be an ephemeral directory. To persist your Grafana configuration for longer than the lifetime of the `grafana`
 pod, map this directory to a real volume. Note that it is possible to export your Grafana config and re-import it later.
-TODO: create a sample grafana config and link it here
+
+An example grafana dashboard is provided in `conf/grafana-dashboard.json`. It can
+be imported into a running grafana instance that has a `prometheus` datasource
+configured at `http://prometheus:9090/`.
+
 
 If you're using minikube to test these deployments locally, get to the UI by running:
 
@@ -60,12 +64,12 @@ source is at `http://prometheus:9090/` (no auth required, access via proxy).
 `prometheus.yaml` describes a deployment and service for a Prometheus collection server. An example configuration that
 works with these deployments is stored in `//testdata/`. Prometheus expects its config to be mounted at
 `/etc/opt/mixer/prometheus.yaml`. We use a configmap named `prometheus-config` to provide these configurations. Usually
-this configmap is created from the `//testdata` directory by:
+this configmap is created from the `//deploy/kube/conf` directory by:
 ```shell
-$ kubectl create configmap prometheus-config --from-file=testdata/prometheus.yaml
+$ kubectl create configmap prometheus-config --from-file=prometheus.yaml
 ```
 
-The Prometheus configuration at `//testdata/prometheus.yaml` looks for a Kubernetes service named `mixer` with a port
+The Prometheus configuration at `conf/prometheus.yaml` looks for a Kubernetes service named `mixer` with a port
 named `prometheus` to scrape. The Kubernetes service defined in `mixer.yaml` satisfies these requirements.
 
 #### Configuring the mixer to produce Prometheus metrics
