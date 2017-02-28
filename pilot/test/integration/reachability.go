@@ -146,6 +146,9 @@ func (r *reachability) checkAccessLogs() error {
 		for _, pod := range []string{"a", "b"} {
 			log.Printf("Checking access log of %s\n", pod)
 			access := podLogs(pods[pod], "proxy")
+			if strings.Contains(access, "segmentation fault") {
+				return fmt.Errorf("segmentation fault in proxy %s", pod)
+			}
 			for _, id := range r.accessLogs[pod] {
 				if !strings.Contains(access, id) {
 					log.Printf("Failed to find request id %s in log of %s\n", id, pod)
