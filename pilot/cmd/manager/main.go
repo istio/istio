@@ -116,18 +116,26 @@ func init() {
 		"Proxy node IP address. If not provided uses ${POD_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&flags.identity.Name, "nodeName", "",
 		"Proxy node name. If not provided uses ${POD_NAME}.${POD_NAMESPACE}")
-	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.DiscoveryAddress, "sds", "s", "manager:8080",
+
+	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.DiscoveryAddress, "sds", "s",
+		envoy.DefaultMeshConfig.DiscoveryAddress,
 		"Discovery service DNS address")
-	proxyCmd.PersistentFlags().IntVarP(&flags.proxy.ProxyPort, "port", "p", 5001,
+	proxyCmd.PersistentFlags().IntVarP(&flags.proxy.ProxyPort, "port", "p",
+		envoy.DefaultMeshConfig.ProxyPort,
 		"Envoy proxy port")
-	proxyCmd.PersistentFlags().IntVarP(&flags.proxy.AdminPort, "admin_port", "a", 5000,
+	proxyCmd.PersistentFlags().IntVarP(&flags.proxy.AdminPort, "admin_port", "a",
+		envoy.DefaultMeshConfig.AdminPort,
 		"Envoy admin port")
-	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.BinaryPath, "envoy_path", "b", "/usr/local/bin/envoy",
+	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.BinaryPath, "envoy_path", "b",
+		envoy.DefaultMeshConfig.BinaryPath,
 		"Envoy binary location")
-	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.ConfigPath, "config_path", "e", "/etc/envoy",
+	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.ConfigPath, "config_path", "e",
+		envoy.DefaultMeshConfig.ConfigPath,
 		"Envoy config root location")
-	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.MixerAddress, "mixer", "m", "",
+	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.MixerAddress, "mixer", "m",
+		envoy.DefaultMeshConfig.MixerAddress,
 		"Mixer DNS address (or empty to disable Mixer)")
+
 	proxyCmd.AddCommand(sidecarCmd)
 	proxyCmd.AddCommand(ingressCmd)
 	proxyCmd.AddCommand(egressCmd)

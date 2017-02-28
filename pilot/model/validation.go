@@ -148,6 +148,45 @@ func (s *Service) Validate() error {
 	return errs
 }
 
+// Validate ensures that the service instance is well-defined
+func (instance *ServiceInstance) Validate() error {
+	var errs error
+	if instance.Service == nil {
+		errs = multierror.Append(errs, fmt.Errorf("Missing service in the instance"))
+	} else if err := instance.Service.Validate(); err != nil {
+		errs = multierror.Append(errs, err)
+	}
+
+	if err := instance.Tags.Validate(); err != nil {
+		errs = multierror.Append(errs, err)
+	}
+
+	if instance.Endpoint.Port < 0 {
+		errs = multierror.Append(errs, fmt.Errorf("Negative port value: %d", instance.Endpoint.Port))
+	}
+
+	port := instance.Endpoint.ServicePort
+	if port == nil {
+		errs = multierror.Append(errs, fmt.Errorf("Missing service port"))
+	} else if instance.Service != nil {
+		expected, ok := instance.Service.Ports.Get(port.Name)
+		if !ok {
+			errs = multierror.Append(errs, fmt.Errorf("Missing service port %q", port.Name))
+		} else {
+			if expected.Port != port.Port {
+				errs = multierror.Append(errs,
+					fmt.Errorf("Unexpected service port value %d, expected %d", port.Port, expected.Port))
+			}
+			if expected.Protocol != port.Protocol {
+				errs = multierror.Append(errs,
+					fmt.Errorf("Unexpected service protocol %s, expected %s", port.Protocol, expected.Protocol))
+			}
+		}
+	}
+
+	return errs
+}
+
 // Validate ensures tag is well-formed
 func (t Tags) Validate() error {
 	var errs error

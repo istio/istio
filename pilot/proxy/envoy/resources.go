@@ -34,11 +34,19 @@ type MeshConfig struct {
 	BinaryPath string
 	// Envoy config root path
 	ConfigPath string
-	// Envoy runtime config path
-	RuntimePath string
-	// Envoy access log path
-	AccessLogPath string
 }
+
+var (
+	// DefaultMeshConfig configuration
+	DefaultMeshConfig = &MeshConfig{
+		DiscoveryAddress: "manager:8080",
+		MixerAddress:     "mixer:9091",
+		ProxyPort:        5001,
+		AdminPort:        5000,
+		BinaryPath:       "/usr/local/bin/envoy",
+		ConfigPath:       "/etc/envoy",
+	}
+)
 
 // TODO: these values used in the Envoy configuration will be configurable
 const (

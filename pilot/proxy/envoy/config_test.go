@@ -15,8 +15,11 @@
 package envoy
 
 import (
+	"io/ioutil"
 	"sort"
 	"testing"
+
+	"istio.io/manager/test/mock"
 )
 
 func TestRoutesByPath(t *testing.T) {
@@ -66,5 +69,40 @@ func TestRoutesByPath(t *testing.T) {
 		if !sameOrder(c.in, c.expected) {
 			t.Errorf("Invalid sort order for case %d", i)
 		}
+	}
+}
+
+const (
+	envoyData   = "testdata/envoy.json"
+	envoyGolden = "testdata/envoy.json.golden"
+)
+
+func TestMockConfigGenerate(t *testing.T) {
+	ds := mock.Discovery
+	r := mock.MakeRegistry()
+	config := Generate(
+		ds.HostInstances(map[string]bool{mock.HostInstance: true}),
+		ds.Services(), r,
+		DefaultMeshConfig)
+	if config == nil {
+		t.Fatalf("Failed to generate config")
+	}
+	err := config.WriteFile(envoyData)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	expected, err := ioutil.ReadFile(envoyGolden)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	data, err := ioutil.ReadFile(envoyData)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	// TODO: use difflib to obtain detailed diff
+	if string(expected) != string(data) {
+		t.Errorf("Envoy config master copy changed")
 	}
 }

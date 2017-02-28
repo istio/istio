@@ -523,12 +523,12 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 		for _, ss := range ep.Subsets {
 			for _, ea := range ss.Addresses {
 				if addrs[ea.IP] {
+					item, exists := c.serviceByKey(ep.Name, ep.Namespace)
+					if !exists {
+						continue
+					}
+					svc := convertService(*item)
 					for _, port := range ss.Ports {
-						item, exists := c.serviceByKey(ep.Name, ep.Namespace)
-						if !exists {
-							continue
-						}
-						svc := convertService(*item)
 						svcPort, exists := svc.Ports.Get(port.Name)
 						if !exists {
 							continue

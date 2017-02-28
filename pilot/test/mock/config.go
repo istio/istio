@@ -52,6 +52,62 @@ var (
 	}
 )
 
+// MakeRegistry creates a mock config registry
+func MakeRegistry() *model.IstioRegistry {
+	return &model.IstioRegistry{
+		ConfigRegistry: &ConfigRegistry{
+			data: make(map[model.Key]proto.Message),
+		}}
+}
+
+// ConfigRegistry is a mock config registry
+type ConfigRegistry struct {
+	data map[model.Key]proto.Message
+}
+
+// Get implements config registry method
+func (cr *ConfigRegistry) Get(key model.Key) (proto.Message, bool) {
+	val, ok := cr.data[key]
+	return val, ok
+}
+
+// Delete implements config registry method
+func (cr *ConfigRegistry) Delete(key model.Key) error {
+	delete(cr.data, key)
+	return nil
+}
+
+// Post implements config registry method
+func (cr *ConfigRegistry) Post(key model.Key, v proto.Message) error {
+	_, ok := cr.data[key]
+	if !ok {
+		cr.data[key] = v
+		return nil
+	}
+	return fmt.Errorf("Item already exists")
+}
+
+// Put implements config registry method
+func (cr *ConfigRegistry) Put(key model.Key, v proto.Message) error {
+	_, ok := cr.data[key]
+	if !ok {
+		return fmt.Errorf("Item is missing")
+	}
+	cr.data[key] = v
+	return nil
+}
+
+// List implements config registry method
+func (cr *ConfigRegistry) List(kind string, namespace string) (map[model.Key]proto.Message, error) {
+	out := make(map[model.Key]proto.Message)
+	for k, v := range cr.data {
+		if k.Kind == kind && (namespace == "" || k.Namespace == namespace) {
+			out[k] = v
+		}
+	}
+	return out, nil
+}
+
 // Make creates a fake config
 func Make(i int) *MockConfig {
 	return &MockConfig{
@@ -61,7 +117,7 @@ func Make(i int) *MockConfig {
 	}
 }
 
-// CheckMapInvariant validates operational invariants of a registry
+// CheckMapInvariant validates operational invariants of a config registry
 func CheckMapInvariant(r model.ConfigRegistry, t *testing.T, namespace string, n int) {
 	// create configuration objects
 	keys := make(map[int]model.Key, 0)
