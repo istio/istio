@@ -11,30 +11,20 @@ def gitUtils = new GitUtilities()
 def utils = new Utilities()
 def bazel = new Bazel()
 
-node {
-  gitUtils.initialize()
-  // Proxy does build work correctly with Hazelcast.
-  // Must use .bazelrc.jenkins
-  bazel.setVars('', '')
-}
-
 mainFlow(utils) {
-  if (utils.runStage('PRESUBMIT')) {
-    def success = true
-    utils.updatePullRequest('run')
-    try {
-      presubmit(gitUtils, bazel)
-    } catch (Exception e) {
-      success = false
-      throw e
-    } finally {
-      utils.updatePullRequest('verify', success)
+  pullRequest(utils) {
+    node {
+      gitUtils.initialize()
+      // Proxy does build work correctly with Hazelcast.
+      // Must use .bazelrc.jenkins
+      bazel.setVars('', '')
     }
-  }
-  if (utils.runStage('POSTSUBMIT')) {
-    buildNode(gitUtils) {
-      bazel.updateBazelRc()
-      sh 'script/release-binary'
+
+    if (utils.runStage('PRESUBMIT')) {
+      presubmit(gitUtils, bazel)
+    }
+    if (utils.runStage('POSTSUBMIT')) {
+      postsubmit(gitUtils, bazel, utils)
     }
   }
 }
@@ -56,6 +46,20 @@ def presubmit(gitUtils, bazel) {
     }
     stage('Push Test Binary') {
       sh 'script/release-binary'
+    }
+  }
+}
+
+def postsubmit(gitUtils, bazel, utils) {
+  buildNode(gitUtils) {
+    bazel.updateBazelRc()
+    stage('Push Binary') {
+      sh 'script/release-binary'
+    }
+    stage('Docker Push') {
+      def images = 'proxy,proxy_debug'
+      def tags = "${gitUtils.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
+      utils.publishDockerImages(images, tags)
     }
   }
 }
