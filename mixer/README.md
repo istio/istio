@@ -14,30 +14,19 @@ that Istio supports.
 
 The Istio mixer provides three distinct features:
 
-- *Precondition Checking*. The `Check` method enables
-the caller to verify a number of preconditions before
-responding to an incoming request from a service consumer.
-Preconditions can include whether the service consumer
-is on the service's whitelist, whether the service consumer
-has the right access privilege, and more.
+- **Precondition Checking**. Enables callers to verify a number of preconditions before responding to an incoming request from a service consumer. 
+Preconditions can include whether the service consumer is properly authenticated, is on the service's whitelist, passes ACL checks, and more.
 
-- *Telemetry Reporting*. The `Report` method enables services
-to produce logging and monitoring streams intended for
-service consumers.
+- **Telemetry Reporting**. Enables services to produce logging, monitoring, tracing and billing streams intended for the service producer itself as well as 
+for its consumers.
 
-- *Quota Management*. The `Quota` method enables services
-to allocate and free quota on a number of dimensions, Quotas
-are used as a relatively simple resource management tool to
-provide some fairness between service consumers when contending
-for limited service resources.
+- **Quota Management**. Enables services to allocate and free quota on a number of dimensions, Quotas are used as a relatively simple resource management 
+tool to provide some fairness between service consumers when contending for limited resources.
 
-To learn more...
+Please see the main Istio [README](https://github.com/istio/istio/blob/master/README.md)
+file to learn about the overall Istio project and how to get in touch with us. To learn how you can
+contribute to any of the Istio components, including the mixer, please 
+see the Istio [contribution guidelines](https://github.com/istio/istio/blob/master/CONTRIBUTING.md).
 
-- [Mixer user guide](doc/userGuide/README.md)
-- [Using the mixer API](doc/api.md)
-- [Contributing to the project](./CONTRIBUTING.md)
-
-### Filing issues
-
-If you have a question about the Istio mixer or have a problem using it, please
-[file an issue](https://github.com/istio/mixer/issues/new).
+The Istio mixer's [developer's guide](doc/dev/development.md) presents everything
+you need to know to create, build, and test code for the mixer.
