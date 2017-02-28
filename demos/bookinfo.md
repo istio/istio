@@ -32,7 +32,7 @@ convenient way to apply routing rules and policies for upstreams. The
 `demos/` directory has three binaries: `istioctl-osx`, `istioctl-windows`,
 `istioctl-linux` targeted at Mac, Windows and Linux users
 respectively. Please download the tool appropriate to your platform and
-rename the tool to `istioctl`. For example,
+rename the tool to `istioctl`. For example:
 
 ```bash
 $ cp istioctl-osx /usr/local/bin/istioctl
@@ -303,7 +303,7 @@ the `productpage`.
 > Note: With the Envoy sidecar implementation, you may need to refresh the `productpage` 100 times
 > to see the proper distribution.
 
-WHen we are confident that our Bookinfo app is stable, we route 100% of the traffic to `reviews:v3`:
+When we are confident that our Bookinfo app is stable, we route 100% of the traffic to `reviews:v3`:
 
 ```bash
    $ istioctl update route-rule reviews-default -f apps/bookinfo/route-rule-reviews-v3.yaml
