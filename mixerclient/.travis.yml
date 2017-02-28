@@ -1,5 +1,9 @@
 sudo: required
 
+branches:
+  except:
+  - stable
+
 addons:
   apt:
     sources:
