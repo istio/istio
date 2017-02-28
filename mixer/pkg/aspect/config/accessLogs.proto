@@ -21,54 +21,75 @@ option go_package="config";
 // Configures an individual access-logs aspect.
 //
 // Example usage:
-// kind: access-logs
-// params:
-//    log_name: "logs/access_log"
-//    attributes: "source.ip","host.URL","
-//    log_format: "COMMON"
+//     kind: access-logs
+//     params:
+//       logName: "access_log"
+//       log:
+//         logFormat: COMMON
+//         templateExpressions:
+//            originIp: origin.ip
+//            source_user: origin.user
+//            timestamp: request.time
+//            method: request.method | ""
+//            url: request.path
+//            protocol: request.scheme
+//            responseCode: response.code
+//            responseSize: response.size
+//         labels:
+//            originIp: origin.ip
+//            source_user: origin.user
+//            timestamp: request.time
+//            method: request.method | ""
+//            url: request.path
+//            protocol: request.scheme
+//            responseCode: response.code
+//            responseSize: response.size
 message AccessLogsParams {
-    // Provides a way to identify a collection of related log entries.
-    // Default value: "access_log"
+    // Identifies a collection of related log entries.
     string log_name = 1;
 
-    // A list of names of attributes that will be used to generate
-    // access log entries.
-    repeated string attributes = 2;
+    // Describes how attributes must be evaluated to produce values for a log message.
+    message AccessLog {
+        // AccessLogFormat specifies the format to use for generating textual log
+        // entries for the accessLogger aspect of the mixer.
+        enum AccessLogFormat {
+            // Invalid default value.
+            ACCESS_LOG_FORMAT_UNSPECIFIED = 0;
 
-    // AccessLogFormat specifies the format to use for generating textual log
-    // entries for the accessLogger aspect of mixer.
-    //
-    // Default value: COMMON.
-    enum AccessLogFormat {
+            // Refers to the [Common Log Format](https://en.wikipedia.org/wiki/Common_Log_Format).
+            // It is used to generate entries like:
+            // `127.0.0.1 user-identifier frank [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0" 200 2326`
+            COMMON = 1;
 
-        // Refers to the [Common Log Format](https://en.wikipedia.org/wiki/Common_Log_Format).
-        // It is used to generate entries like:
-        // `127.0.0.1 user-identifier frank [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0" 200 2326`
-        COMMON = 0;
+            // Refers to the Apache [Combined Log Format](https://httpd.apache.org/docs/1.3/logs.html#combined).
+            // It is used to generate entries like:
+            // `127.0.0.1 user-identifier frank [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0" 200 2326 "http://www.example.com/start.html" "Mozilla/4.08 [en] (Win98; I ;Nav)"`
+            COMBINED = 2;
 
-        // Refers to the Apache [Combined Log Format](https://httpd.apache.org/docs/1.3/logs.html#combined).
-        // It is used to generate entries like:
-        // `127.0.0.1 user-identifier frank [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0" 200 2326 "http://www.example.com/start.html" "Mozilla/4.08 [en] (Win98; I ;Nav)"`
-        COMBINED = 1;
+            // TODO: add back CUSTOM logging formats after plumbing descriptors through config.
+            // // Used to enable operator-specified formats.
+            // CUSTOM = 99;
+        }
+        AccessLogFormat log_format = 1;
 
-        // Used to enable operator-specified formats. This format should be used
-        // in tandem with `custom_log_template` to provide an alternate format
-        // for access log entries.
-        CUSTOM = 99;
+        // Only used if log_format is CUSTOM. Links this AccessLog to a LogEntryDescriptor
+        // that describes the log's template.
+        string descriptor_name = 2;
+
+        // Map of template variable name to expression for the descriptor's log_template. At
+        // run time each expression will be evaluated, and together they will provide values
+        // for the log's template string. Labels and template expressions do not mix: if the
+        // result of some expression is needed for both constructing the payload and for
+        // dimensioning the log entry, it must be included both in these expressions and in
+        // the `labels` expressions.
+        map<string, string> template_expressions = 3;
+
+        // Map of LogEntryDescriptor label name to attribute expression. At run time each
+        // expression will be evaluated to determine the value that will be used to fill
+        // in the log template. The result of evaluating the expression must match the
+        // ValueType of the label in the LogEntryDescriptor.
+        map<string, string> labels = 4;
     }
-
-    AccessLogFormat log_format = 3;
-
-    // This template will be applied to the map of attributes names to values
-    // generated by the mixer from the specified set of attributes
-    // to create a textual access log entry.
-    //
-    // The template MUST be specified in a format compatible with:
-    // https://golang.org/pkg/text/template/.
-    //
-    // Mixer will use the "missingkey=default" behavior for template execution.
-    // The default behavior:
-    //    If the key is not found, do nothing and continue execution.
-    //    If printed, the result of the index operation is the string "<no value>".
-    string custom_log_template = 4;
+    // The log that will be constructed and handed to the aspect at runtime.
+    AccessLog log = 2;
 }
