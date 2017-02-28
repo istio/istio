@@ -4,25 +4,30 @@
 set -e
 
 prep_linters() {
-	if ! which codecoroner > /dev/null; then
-		echo "Preparing linters"
-		go get -u github.com/alecthomas/gometalinter
-		go get -u github.com/bazelbuild/buildifier/buildifier
-		go get -u github.com/3rf/codecoroner
-		gometalinter --install --vendored-linters >/dev/null
-	fi
+    if ! which codecoroner > /dev/null; then
+        echo "Preparing linters"
+        go get -u github.com/alecthomas/gometalinter
+        go get -u github.com/bazelbuild/buildifier/buildifier
+        go get -u github.com/3rf/codecoroner
+        gometalinter --install --vendored-linters >/dev/null
+    fi
     bin/bazel_to_go.py
 }
 
 go_metalinter() {
     if [[ ! -z ${TRAVIS_PULL_REQUEST} ]];then
-	# if travis pull request only lint changed code.
-	if [[ ${TRAVIS_PULL_REQUEST} != "false" ]]; then
-	    LAST_GOOD_GITSHA=${TRAVIS_COMMIT_RANGE}
-	fi
+        # if travis pull request only lint changed code.
+        if [[ ${TRAVIS_PULL_REQUEST} != "false" ]]; then
+            LAST_GOOD_GITSHA=${TRAVIS_COMMIT_RANGE}
+        fi
+    elif [[ ! -z ${GITHUB_PR_TARGET_BRANCH} ]]; then
+        git fetch origin-pull refs/heads/${GITHUB_PR_TARGET_BRANCH}:parent
+        LAST_GOOD_GITSHA="$(git log parent.. --pretty="%H"|tail -1)^" \
+          || LAST_GOOD_GITSHA='HEAD^'
     else
         # for local run, only lint the current branch
-	LAST_GOOD_GITSHA=$(git log master.. --pretty="%H"|tail -1)
+        LAST_GOOD_GITSHA="$(git log master.. --pretty="%H"|tail -1)^" \
+          || LAST_GOOD_GITSHA='HEAD^'
     fi
 
     # default: lint everything. This runs on the main build
@@ -34,10 +39,10 @@ go_metalinter() {
     fi
 
     gometalinter\
-	--concurrency=4\
-	--enable-gc\
-	--vendored-linters\
-	--deadline=600s --disable-all\
+        --concurrency=4\
+        --enable-gc\
+        --vendored-linters\
+        --deadline=600s --disable-all\
         --enable=aligncheck\
         --enable=deadcode\
         --enable=errcheck\
@@ -58,7 +63,7 @@ go_metalinter() {
         --enable=varcheck\
         --enable=vet\
         --enable=vetshadow\
-	$PKGS
+        $PKGS
 
     # TODO: These generate warnings which we should fix, and then should enable the linters
     # --enable=dupl\
