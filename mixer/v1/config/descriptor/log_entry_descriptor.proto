@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package istio.mixer.v1.config.descriptor;
 
+import "mixer/v1/config/descriptor/label_descriptor.proto";
+
 // Defines the format of a single log entry.
 message LogEntryDescriptor {
     // The name of this descriptor.
@@ -28,23 +30,30 @@ message LogEntryDescriptor {
     // An optional description of the log entry type, which can be used in documentation.
     string description = 3;
 
-    // The set of attributes that are necessary to describe a log entry of this type.
-    repeated string attributes = 4;
-
-    // The name of the attribute to treat as the payload of the log entry.
-    string payload_attribute = 5;
-
     // PayloadFormat details the currently supported logging payload formats.
     // TEXT is the default payload format.
     enum PayloadFormat {
+        // Invalid, default value.
+        PAYLOAD_FORMAT_UNSPECIFIED = 0;
 
         // Indicates a payload format of raw text.
-        TEXT = 0;
+        TEXT = 1;
 
         // Indicates that the payload is a serialized JSON object.
-        JSON = 1;
+        JSON = 2;
     }
-
     // Format of the value of the payload attribute.
-    PayloadFormat payload_format = 6;
+    PayloadFormat payload_format = 4;
+
+    // The template that will be populated with labels at runtime to generate a log message; the labels describe the
+    // parameters for this template.
+    //
+    // The template strings must conform to go's text/template syntax.
+    // TODO: unify templates to use our expression language when its finalized
+    string log_template = 5;
+
+    // Labels describe the parameters of this log's template string. At runtime expressions will be evaluated to provide
+    // values for each label. Label names are mapped to expressions in the service config as part of configuring the
+    // application and access log aspects.
+    repeated LabelDescriptor labels = 6;
 }
