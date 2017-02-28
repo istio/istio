@@ -15,6 +15,7 @@
 package aspect
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"text/template"
@@ -33,7 +34,7 @@ import (
 func TestNewAccessLoggerManager(t *testing.T) {
 	m := newAccessLogsManager()
 	if m.Kind() != AccessLogsKind {
-		t.Errorf("Wrong kind of adapter; got %v, want %v", m.Kind(), AccessLogsKind)
+		t.Fatalf("Wrong kind of adapter; got %v, want %v", m.Kind(), AccessLogsKind)
 	}
 }
 
@@ -42,86 +43,91 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 
 	dc := accessLogsManager{}.DefaultConfig()
 	commonExec := &accessLogsWrapper{
-		logName:   "access_log",
-		aspect:    tl,
-		inputs:    map[string]string{},
-		attrNames: commonLogAttributes,
+		name:   "access_log",
+		aspect: tl,
 	}
 
 	combinedExec := &accessLogsWrapper{
-		logName:   "combined_access_log",
-		aspect:    tl,
-		inputs:    map[string]string{},
-		attrNames: combinedLogAttributes,
+		name:   "combined_access_log",
+		aspect: tl,
 	}
 
-	customExec := &accessLogsWrapper{
-		logName: "custom_access_log",
-		aspect:  tl,
-		inputs:  map[string]string{},
-		// TODO: cannot test overriding of attributes at the moment.
-		//attrNames: []string{"test", "other"},
-	}
+	// TODO: add back tests for custom when we introduce descriptors
+	//customExec := &accessLogsWrapper{
+	//	name:   "custom_access_log",
+	//	aspect: tl,
+	//	labels: map[string]string{"test": "test"},
+	//}
 
 	combinedStruct := &aconfig.AccessLogsParams{
-		LogName:   "combined_access_log",
-		LogFormat: aconfig.COMBINED,
+		LogName: "combined_access_log",
+		Log: &aconfig.AccessLogsParams_AccessLog{
+			LogFormat: aconfig.COMBINED,
+		},
 	}
 
-	customStruct := &aconfig.AccessLogsParams{
-		LogName:           "custom_access_log",
-		LogFormat:         aconfig.CUSTOM,
-		CustomLogTemplate: "{{.test}}",
-	}
+	//customStruct := &aconfig.AccessLogsParams{
+	//	LogName: "custom_access_log",
+	//	Log: &aconfig.AccessLogsParams_AccessLog{
+	//		LogFormat: aconfig.CUSTOM,
+	//		Labels:    map[string]string{"test": "test"},
+	//	},
+	//}
 
 	newAspectShouldSucceed := []struct {
-		name       string
-		defaultCfg adapter.AspectConfig
-		params     interface{}
-		want       *accessLogsWrapper
+		name   string
+		params interface{}
+		want   *accessLogsWrapper
 	}{
-		{"empty", &aconfig.AccessLogsParams{}, dc, commonExec},
-		{"combined", &aconfig.AccessLogsParams{}, combinedStruct, combinedExec},
-		{"custom", &aconfig.AccessLogsParams{}, customStruct, customExec},
+		{"empty", dc, commonExec},
+		{"combined", combinedStruct, combinedExec},
+		//{"custom", customStruct, customExec},
 	}
 
 	m := newAccessLogsManager()
 
-	for _, v := range newAspectShouldSucceed {
-		c := config.Combined{
-			Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
-			Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
-		}
-		asp, err := m.NewAspect(&c, tl, test.Env{})
-		if err != nil {
-			t.Errorf("NewAspect(): should not have received error for %s (%v)", v.name, err)
-		}
-		got := asp.(*accessLogsWrapper)
-		got.template = nil // ignore template values in equality comp
-		if !reflect.DeepEqual(got, v.want) {
-			t.Errorf("NewAspect() => [%s]\ngot: %v (%T)\nwant: %v (%T)", v.name, got, got, v.want, v.want)
-		}
+	for idx, v := range newAspectShouldSucceed {
+		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
+			c := &config.Combined{
+				Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
+				Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{"template": "{{.test}}"}},
+			}
+			asp, err := m.NewAspect(c, tl, test.Env{})
+			if err != nil {
+				t.Fatalf("NewAspect(): should not have received error for %s (%v)", v.name, err)
+			}
+			got := asp.(*accessLogsWrapper)
+			got.template = nil // ignore template values in equality comp
+			if !reflect.DeepEqual(got, v.want) {
+				t.Fatalf("NewAspect() => [%s]\ngot: %v (%T)\nwant: %v (%T)", v.name, got, got, v.want, v.want)
+			}
+		})
 	}
 }
 
 func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 	defaultCfg := &config.Combined{
 		Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
-		Aspect:  &configpb.Aspect{Params: &aconfig.AccessLogsParams{}},
-	}
-
-	badTemplate := "{{{{}}"
-	badTemplateCfg := &config.Combined{
-		Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 		Aspect: &configpb.Aspect{Params: &aconfig.AccessLogsParams{
-			LogName:           "custom_access_log",
-			LogFormat:         aconfig.CUSTOM,
-			CustomLogTemplate: badTemplate,
+			Log: &aconfig.AccessLogsParams_AccessLog{
+				LogFormat: aconfig.COMMON,
+			},
 		}},
 	}
 
+	// TODO: add back tests for bad templates when we introduce descriptors.
+	//badTemplateCfg := &config.Combined{
+	//	Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
+	//	Aspect: &configpb.Aspect{Params: &aconfig.AccessLogsParams{
+	//		LogName: "custom_access_log",
+	//		Log: &aconfig.AccessLogsParams_AccessLog{
+	//			LogFormat: aconfig.CUSTOM,
+	//		},
+	//	}, Inputs: map[string]string{"template": "{{{}}"}},
+	//}
+
 	errLogger := &test.Logger{DefaultCfg: &ptypes.Struct{}, ErrOnNewAspect: true}
-	okLogger := &test.Logger{DefaultCfg: &ptypes.Struct{}}
+	//okLogger := &test.Logger{DefaultCfg: &ptypes.Struct{}}
 
 	failureCases := []struct {
 		name  string
@@ -129,76 +135,76 @@ func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 		adptr adapter.Builder
 	}{
 		{"errorLogger", defaultCfg, errLogger},
-		{"badTemplateCfg", badTemplateCfg, okLogger},
+		//{"badTemplateCfg", badTemplateCfg, okLogger},
 	}
 
 	m := newAccessLogsManager()
-	for _, v := range failureCases {
-		if _, err := m.NewAspect(v.cfg, v.adptr, test.Env{}); err == nil {
-			t.Errorf("NewAspect()[%s]: expected error for bad adapter (%T)", v.name, v.adptr)
-		}
+	for idx, v := range failureCases {
+		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
+			if _, err := m.NewAspect(v.cfg, v.adptr, test.Env{}); err == nil {
+				t.Fatalf("NewAspect()[%s]: expected error for bad adapter (%T)", v.name, v.adptr)
+			}
+		})
 	}
 }
 
 func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 	configs := []adapter.AspectConfig{
-		&aconfig.AccessLogsParams{},
-		&aconfig.AccessLogsParams{LogName: "test"},
-		&aconfig.AccessLogsParams{LogName: "test", Attributes: []string{"test", "good"}},
-		&aconfig.AccessLogsParams{LogFormat: aconfig.COMBINED},
-		&aconfig.AccessLogsParams{LogFormat: aconfig.CUSTOM, CustomLogTemplate: "{{.test}}"},
+		&aconfig.AccessLogsParams{
+			LogName: "test",
+			Log: &aconfig.AccessLogsParams_AccessLog{
+				Labels:    map[string]string{"test": "good"},
+				LogFormat: aconfig.COMMON,
+			},
+		},
+		&aconfig.AccessLogsParams{Log: &aconfig.AccessLogsParams_AccessLog{LogFormat: aconfig.COMBINED}},
 	}
 
 	m := newAccessLogsManager()
-	for _, v := range configs {
-		if err := m.ValidateConfig(v); err != nil {
-			t.Errorf("ValidateConfig(%v) => unexpected error: %v", v, err)
-		}
+	for idx, v := range configs {
+		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
+			if err := m.ValidateConfig(v); err != nil {
+				t.Fatalf("ValidateConfig(%v) => unexpected error: %v", v, err)
+			}
+		})
 	}
 }
 
 func TestAccessLoggerManager_ValidateConfigFailures(t *testing.T) {
 	configs := []adapter.AspectConfig{
-		&aconfig.AccessLogsParams{LogFormat: aconfig.CUSTOM, CustomLogTemplate: "{{.test"},
+		&aconfig.AccessLogsParams{},
+		&aconfig.AccessLogsParams{Log: &aconfig.AccessLogsParams_AccessLog{LogFormat: aconfig.ACCESS_LOG_FORMAT_UNSPECIFIED}},
 	}
 
 	m := newAccessLogsManager()
-	for _, v := range configs {
-		if err := m.ValidateConfig(v); err == nil {
-			t.Errorf("ValidateConfig(%v): expected error", v)
-		}
+	for idx, v := range configs {
+		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
+			if err := m.ValidateConfig(v); err == nil {
+				t.Fatalf("ValidateConfig(%v) expected err", v)
+			}
+		})
 	}
 }
 
 func TestAccessLoggerWrapper_Execute(t *testing.T) {
 	tmpl, _ := template.New("test").Parse("{{.test}}")
 
-	commonExec := &accessLogsWrapper{
-		logName:   "access_log",
-		inputs:    map[string]string{},
-		attrNames: commonLogAttributes,
-		template:  tmpl,
+	noLabels := &accessLogsWrapper{
+		name:     "access_log",
+		labels:   map[string]string{},
+		template: tmpl,
 	}
 
-	commonExecWithInputs := &accessLogsWrapper{
-		logName: "access_log",
-		inputs: map[string]string{
-			"test":     "testExpr",
-			"originIp": "127.0.0.1",
+	labelsInBag := &accessLogsWrapper{
+		name: "access_log",
+		labels: map[string]string{
+			"test": "foo",
 		},
-		attrNames: commonLogAttributes,
-		template:  tmpl,
-	}
-
-	customEmpty := &accessLogsWrapper{
-		logName:   "empty_log",
-		inputs:    map[string]string{},
-		attrNames: []string{},
-		template:  tmpl,
+		template: tmpl,
 	}
 
 	emptyEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "<no value>", Labels: map[string]interface{}{}}
-	sourceEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "<no value>", Labels: map[string]interface{}{"originIp": "127.0.0.1"}}
+	sourceEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "<no value>", Labels: map[string]interface{}{"test": "foo"}}
 
 	tests := []struct {
 		name        string
@@ -207,43 +213,53 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 		mapper      expr.Evaluator
 		wantEntries []adapter.LogEntry
 	}{
-		{"empty bag with defaults", commonExec, test.NewBag(), test.NewIDEval(), []adapter.LogEntry{emptyEntry}},
-		{"attrs in bag", commonExec, &test.Bag{Strs: map[string]string{"originIp": "127.0.0.1"}}, test.NewIDEval(), []adapter.LogEntry{sourceEntry}},
-		{"attrs from inputs", commonExecWithInputs, test.NewBag(), test.NewIDEval(), []adapter.LogEntry{sourceEntry}},
-		{"custom - no attrs", customEmpty, test.NewBag(), test.NewIDEval(), nil},
+		{"empty bag with defaults", noLabels, test.NewBag(), test.NewIDEval(), []adapter.LogEntry{emptyEntry}},
+		{"attrs in bag", labelsInBag, &test.Bag{Strs: map[string]string{"foo": ""}}, test.NewIDEval(), []adapter.LogEntry{sourceEntry}},
 	}
 
-	for _, v := range tests {
-		l := &test.Logger{}
-		v.exec.aspect = l
+	for idx, v := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
+			l := &test.Logger{}
+			v.exec.aspect = l
 
-		if out := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); !out.IsOK() {
-			t.Errorf("Execute(): should not have received error for %s (%v)", v.name, out.Message())
-		}
-		if l.EntryCount != len(v.wantEntries) {
-			t.Errorf("Execute(): got %d entries, wanted %d for %s", l.EntryCount, len(v.wantEntries), v.name)
-		}
+			if status := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); !status.IsOK() {
+				t.Fatalf("Execute(): should not have received error for %s (%v)", v.name, status)
+			}
+			if l.EntryCount != len(v.wantEntries) {
+				t.Fatalf("Execute(): got %d entries, wanted %d for %s", l.EntryCount, len(v.wantEntries), v.name)
+			}
 
-		// don't compare timestamps here (not important to test)
-		for _, e := range l.AccessLogs {
-			delete(e.Labels, "timestamp")
-		}
+			// don't compare timestamps here (not important to test)
+			for _, e := range l.AccessLogs {
+				delete(e.Labels, "timestamp")
+			}
 
-		if !reflect.DeepEqual(l.AccessLogs, v.wantEntries) {
-			t.Errorf("Execute(): got %v, wanted %v for %s", l.AccessLogs, v.wantEntries, v.name)
-		}
+			if !reflect.DeepEqual(l.AccessLogs, v.wantEntries) {
+				t.Fatalf("Execute(): got %v, wanted %v for %s", l.AccessLogs, v.wantEntries, v.name)
+			}
+		})
 	}
 }
 
 func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
-	tmpl, _ := template.New("test").Parse("{{.test}}")
+	timeTmpl, _ := template.New("test").Parse(`{{(.timestamp.Format "02/Jan/2006:15:04:05 -0700")}}`)
+	errEval := test.NewFakeEval(func(string, attribute.Bag) (interface{}, error) {
+		return nil, fmt.Errorf("expected")
+	})
 
-	logErrExec := &accessLogsWrapper{
-		logName:   "access_log",
-		inputs:    map[string]string{},
-		attrNames: commonLogAttributes,
-		template:  tmpl,
-		aspect:    &test.Logger{ErrOnLog: true},
+	executeErr := &accessLogsWrapper{
+		name: "access_log",
+		templateExprs: map[string]string{
+			"timestamp": "foo",
+		},
+		template: timeTmpl,
+	}
+
+	logErr := &accessLogsWrapper{
+		name:     "access_log",
+		aspect:   &test.Logger{ErrOnLog: true},
+		labels:   map[string]string{},
+		template: timeTmpl,
 	}
 
 	tests := []struct {
@@ -252,13 +268,17 @@ func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 		bag    attribute.Bag
 		mapper expr.Evaluator
 	}{
-		{"LogAccess() error", logErrExec, test.NewBag(), test.NewIDEval()},
+		{"template.Execute() error", executeErr, test.NewBag(), test.NewIDEval()},
+		{"evalAll() error", executeErr, test.NewBag(), errEval},
+		{"LogAccess() error", logErr, test.NewBag(), test.NewIDEval()},
 	}
 
-	for _, v := range tests {
-		if out := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); out.IsOK() {
-			t.Errorf("Execute(): expected error for %s", v.name)
-		}
+	for idx, v := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
+			if status := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); status.IsOK() {
+				t.Fatalf("Execute(): expected error for %s", v.name)
+			}
+		})
 	}
 }
 
@@ -267,6 +287,6 @@ func TestAccessLoggerWrapper_Close(t *testing.T) {
 		aspect: &test.Logger{ErrOnLog: true},
 	}
 	if err := aw.Close(); err != nil {
-		t.Errorf("Close() should not return error: got %v", err)
+		t.Fatalf("Close() should not return error: got %v", err)
 	}
 }
