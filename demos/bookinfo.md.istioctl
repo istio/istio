@@ -35,7 +35,7 @@ respectively. Please download the tool appropriate to your platform and
 rename the tool to `istioctl`. For example,
 
 ```bash
-$ mv istioctl-osx istioctl
+$ cp istioctl-osx /usr/local/bin/istioctl
 ```
 
 ## Running the Bookinfo Application
@@ -112,39 +112,60 @@ route requests to all available versions of a service in a random fashion.
 1. Set the default version for all microservice to v1. 
 
    ```bash
-   $ istioctl create route-rule default-versions -f apps/bookinfo/istio-route-rule-all-v1.yaml 
-   istioconfig "route-rule-productpage-v1" created
-   istioconfig "route-rule-reviews-v1" created
-   istioconfig "route-rule-ratings-v1" created
-   istioconfig "route-rule-details-v1" created
+   $ istioctl create route-rule productpage-default -f apps/bookinfo/istio-route-rule-productpage-v1.yaml; \
+     istioctl create route-rule reviews-default -f apps/bookinfo/istio-route-rule-reviews-v1.yaml; \
+     istioctl create route-rule ratings-default -f apps/bookinfo/istio-route-rule-ratings-v1.yaml; \
+     istioctl create route-rule details-default -f apps/bookinfo/istio-route-rule-details-v1.yaml
    ```
 
    You can display the routes that are defined with the following command:
 
    ```bash
-   $ istioconfig list route-rule
-   apiVersion: v1
-   items:
-   - apiVersion: istio.io/v1alpha1
-     kind: IstioConfig
-     metadata:
-       creationTimestamp: 2017-02-22T17:11:43Z
-       name: route-rule-reviews-v1
-       namespace: default
-       resourceVersion: "42084"
-       selfLink: /apis/istio.io/v1alpha1/namespaces/default/istioconfigs/route-rule-reviews-v1
-       uid: fb967b00-f921-11e6-a8ad-764cb43dfcf7
-     spec:
-       destination: reviews.default.svc.cluster.local
-       precedence: 1
-       route:
-       - tags:
-           version: v1
-         weight: 100
-   kind: List
-   metadata: {}
-   resourceVersion: ""
-   selfLink: ""
+   $ istioctl list route-rule
+   kind: route-rule
+   name: ratings-default
+   namespace: default
+   spec:
+     destination: ratings.default.svc.cluster.local
+     precedence: 1
+     route:
+     - tags:
+         version: v1
+       weight: 100
+   ---
+   kind: route-rule
+   name: reviews-default
+   namespace: default
+   spec:
+     destination: reviews.default.svc.cluster.local
+     precedence: 1
+     route:
+     - tags:
+         version: v1
+       weight: 100
+   ---
+   kind: route-rule
+   name: details-default
+   namespace: default
+   spec:
+     destination: details.default.svc.cluster.local
+     precedence: 1
+     route:
+     - tags:
+         version: v1
+       weight: 100
+   ---
+   kind: route-rule
+   name: productpage-default
+   namespace: default
+   spec:
+     destination: productpage.default.svc.cluster.local
+     precedence: 1
+     route:
+     - tags:
+         version: v1
+       weight: 100
+   ---
    ```
 
    Since rule propagation to the proxies is asynchronous, you should wait a few seconds for the rules
@@ -160,33 +181,22 @@ route requests to all available versions of a service in a random fashion.
    `reviews:v2` instances.
 
    ```bash
-   $ istioctl create route-rule reviews-v2 -f apps/bookinfo/istio-route-rule-reviews-tester-v2.yaml 
-   istioconfig "route-rule-tester-v2" created
+   $ istioctl create route-rule reviews-test-v2 -f apps/bookinfo/istio-route-rule-reviews-test-v2.yaml 
    ```
 
    Confirm the rule is created:
 
    ```bash
-   $ istioctl get route-rule reviews-v2
-   apiVersion: istio.io/v1alpha1
-   kind: IstioConfig
-   metadata:
-     creationTimestamp: 2017-02-21T22:40:52Z
-     name: route-rule-reviews-tester-v2
-     namespace: default
-     resourceVersion: "29368"
-     selfLink: /apis/istio.io/v1alpha1/namespaces/default/istioconfigs/route-rule-reviews-tester-v2
-     uid: ccb35f55-f886-11e6-a8ad-764cb43dfcf7
-   spec:
-     destination: reviews.default.svc.cluster.local
-     match:
-       http:
-         Cookie:
-           regex: ^(.*?;)?(user=jason)(;.*)?$
-     precedence: 2
-     route:
-     - tags:
-         version: v2
+   $ istioctl get route-rule reviews-test-v2
+   destination: reviews.default.svc.cluster.local
+   match:
+     http:
+       Cookie:
+         regex: ^(.*?;)?(user=jason)(;.*)?$
+   precedence: 2
+   route:
+   - tags:
+       version: v2
    ```
 
    Log in as user "jason" at the `productpage` web page. You should now see ratings (1-5 stars) next
@@ -204,8 +214,24 @@ route requests to all available versions of a service in a random fashion.
    Create a fault injection rule, to delay traffic coming from user "jason" (our test user).
 
    ```bash
-   $ istioctl create destination delay-test -f apps/bookinfo/istio-destination-ratings-tester-delay.yaml
-   istionconfig "destination-delay-test" created
+   $ istioctl create destination ratings-test-delay -f apps/bookinfo/istio-destination-ratings-test-delay.yaml
+   ```
+
+   Confirm the rule is created:
+
+   ```bash
+   $ istioctl get destination ratings-test-delay
+   destination: ratings.default.svc.cluster.local
+   httpFault:
+     delay:
+       fixedDelay:
+         fixedDelaySeconds: 7
+         percent: 100
+     headers:
+       Cookie:
+         regex: ^(.*?;)?(user=jason)(;.*)?$
+   tags:
+     version: v1
    ```
 
    Allow several seconds to account for rule propagation delay to all pods.
@@ -246,29 +272,34 @@ we can next demonstrate deployment of a new version.
 
 Now that we have tested the reviews service, fixed the bug and deployed a
 new version (`reviews:v3`), lets route all user traffic from `reviews:v1`
-to `reviews:v3` in a gradual manner.
+to `reviews:v3` in two steps.
 
-First, transfer 25% of traffic from `reviews:v1` to `reviews:v3` with the following command:
+First, transfer 50% of traffic from `reviews:v1` to `reviews:v3` with the following command:
 
 ```bash
-   $ istioctl create route-rule reviews-v3 -f apps/bookinfo/istio-route-rule-reviews-25-v3.yaml
+   $ istioctl update route-rule reviews-default -f apps/bookinfo/istio-route-rule-reviews-50-v3.yaml
 ```
 
-You should see *red* colored star ratings, approximately 1 out of every 4 times you refresh
+> Notice that we are using `istioctl update` instead of `create`.
+
+To see the new version you need to either Log out as test user "jason" or delete the test rules
+that we created exclusively for him:
+
+```bash
+   $ istioctl delete route-rule reviews-test-v2
+   $ istioctl delete destination ratings-test-delay
+```
+
+You should now see *red* colored star ratings approximately 50% of the time when you refresh
 the `productpage`.
 
-Things seem to be going smoothly. Lets route 50% of traffic to `reviews:v3`
+> Note: With the Envoy sidecar implementation, you may need to refresh the `productpage` 100 times
+> to see the proper distribution.
+
+WHen we are confident that our Bookinfo app is stable, we route 100% of the traffic to `reviews:v3`:
 
 ```bash
-   $ istioctl update route-rule reviews-v3 -f apps/bookinfo/istio-route-rule-reviews-50-v3.yaml
-```
-
-> Notice that we are using update instead of create.
-
-We are confident that our Bookinfo app is stable. Lets route 100% of traffic to `reviews:v3`
-
-```bash
-   $ istioctl update route-rule reviews-v3 -f apps/bookinfo/istio-route-rule-reviews-v3.yaml
+   $ istioctl update route-rule reviews-default -f apps/bookinfo/istio-route-rule-reviews-v3.yaml
 ```
 
 You can now log in to the `productpage` as any user and you should always see book reviews
