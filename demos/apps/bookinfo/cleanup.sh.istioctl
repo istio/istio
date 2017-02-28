@@ -16,10 +16,13 @@
 
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-istioctl delete route-rule default-versions
-kubectl delete route-rule reviews-v2
-kubectl delete destination delay-test
-kubectl delete route-rule reviews-v3
+istioctl delete route-rule productpage-default
+istioctl delete route-rule reviews-default
+istioctl delete route-rule ratings-default
+istioctl delete route-rule details-default
+kubectl delete route-rule reviews-test-v2
+kubectl delete destination ratings-test-delay
+kubectl delete route-rule reviews-default
 
 kubectl delete -f $SCRIPTDIR/bookinfo-istio.yaml
 kubectl delete -f $SCRIPTDIR/../controlplane.yaml

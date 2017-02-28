@@ -8,4 +8,4 @@ http_fault:
   delay:
     fixed_delay:
       percent: 100
-    fixed_delay_seconds: 7.0
+      fixed_delay_seconds: 7.0

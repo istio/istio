@@ -1,5 +1,5 @@
 destination: reviews.default.svc.cluster.local
-precedence: 3
+precedence: 1
 route:
 - tags:
     version: v3
