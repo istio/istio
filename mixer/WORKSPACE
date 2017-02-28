@@ -172,12 +172,14 @@ new_http_archive(
     url = "https://codeload.github.com/tianon/docker-brew-ubuntu-core/zip/b6f1fe19228e5b6b7aed98dcba02f18088282f90",
 )
 
+DEBUG_BASE_IMAGE_SHA="3f57ae2aceef79e4000fb07ec850bbf4bce811e6f81dc8cfd970e16cdf33e622"
+
 # See github.com/istio/manager/blob/master/docker/debug/build-and-publish-debug-image.sh
 # for instructions on how to re-build and publish this base image layer.
 http_file(
     name = "ubuntu_xenial_debug",
-    url = "https://storage.googleapis.com/istio-build/manager/ubuntu_xenial_debug.tar.gz",
-    sha256 = "02f0ea4b04012562dec4b75ee4337ac77a0003418d02a91bde1b4b4d162a41e4",
+    url = "https://storage.googleapis.com/istio-build/manager/ubuntu_xenial_debug-" + DEBUG_BASE_IMAGE_SHA + ".tar.gz",
+    sha256 = DEBUG_BASE_IMAGE_SHA,
 )
 
 new_go_repository(
