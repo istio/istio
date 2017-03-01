@@ -17,6 +17,7 @@ package prometheus
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
@@ -180,6 +181,8 @@ func TestProm_Close(t *testing.T) {
 }
 
 func TestProm_Record(t *testing.T) {
+	duration, _ := time.ParseDuration("386ms")
+
 	f := newFactory(&testServer{})
 	tests := []struct {
 		name    string
@@ -190,6 +193,7 @@ func TestProm_Record(t *testing.T) {
 		{"Change Gauge", []*adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{gaugeVal}},
 		{"Counter and Gauge", []*adapter.MetricDefinition{counterNoLabels, gaugeNoLabels}, []adapter.Value{gaugeVal, newCounterVal(float64(16))}},
 		{"Int64", []*adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(int64(8))}},
+		{"Duration", []*adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(duration)}},
 		{"String", []*adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal("8.243543")}},
 	}
 

@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
@@ -195,6 +196,10 @@ func promValue(val adapter.Value) (float64, error) {
 		return i, nil
 	case int64:
 		return float64(i), nil
+	case time.Duration:
+		// TODO: what is the right thing here?
+		// convert to millis for now
+		return i.Seconds() * 1e3, nil
 	case string:
 		f, err := strconv.ParseFloat(i, 64)
 		if err != nil {
