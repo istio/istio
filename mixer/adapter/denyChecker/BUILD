@@ -10,7 +10,6 @@ go_library(
     deps = [
         "//adapter/denyChecker/config:go_default_library",
         "//pkg/adapter:go_default_library",
-        "@com_github_google_go_genproto//googleapis/rpc/code:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
     ],
 )

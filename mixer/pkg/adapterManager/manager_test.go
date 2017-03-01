@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
-	"google.golang.org/genproto/googleapis/rpc/code"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
@@ -109,7 +108,7 @@ func (testAspect) Close() error { return nil }
 func (t testAspect) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma aspect.APIMethodArgs) (*aspect.Output, error) {
 	return t.body()
 }
-func (testAspect) Deny() rpc.Status { return rpc.Status{Code: int32(code.Code_INTERNAL)} }
+func (testAspect) Deny() rpc.Status { return rpc.Status{Code: int32(rpc.INTERNAL)} }
 
 func (m *fakemgr) NewAspect(cfg *config.Combined, adp adapter.Builder, env adapter.Env) (aspect.Wrapper, error) {
 	m.called++

@@ -20,7 +20,7 @@ import (
 	"sync/atomic"
 
 	ptypes "github.com/gogo/protobuf/types"
-	"google.golang.org/genproto/googleapis/rpc/code"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
@@ -130,12 +130,12 @@ func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma A
 
 	info, ok := w.metadata[qma.Quota]
 	if !ok {
-		return &Output{Code: code.Code_INVALID_ARGUMENT}, fmt.Errorf("unknown quota '%s'", qma.Quota)
+		return &Output{Code: rpc.INVALID_ARGUMENT}, fmt.Errorf("unknown quota '%s'", qma.Quota)
 	}
 
 	labels, err := evalAll(info.labels, attrs, mapper)
 	if err != nil {
-		return &Output{Code: code.Code_INTERNAL}, fmt.Errorf("failed to evaluate labels for quota '%s' with err: %s", qma.Quota, err)
+		return &Output{Code: rpc.INTERNAL}, fmt.Errorf("failed to evaluate labels for quota '%s' with err: %s", qma.Quota, err)
 	}
 
 	qa := adapter.QuotaArgs{
@@ -154,16 +154,16 @@ func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma A
 	}
 
 	if err != nil {
-		return &Output{Code: code.Code_INTERNAL}, err
+		return &Output{Code: rpc.INTERNAL}, err
 	}
 
 	if amount == 0 {
-		return &Output{Code: code.Code_RESOURCE_EXHAUSTED}, nil
+		return &Output{Code: rpc.RESOURCE_EXHAUSTED}, nil
 	}
 
 	// TODO: need to return the allocated amount somehow in the Quota API's QuotaResponse message
 
-	return &Output{Code: code.Code_OK}, nil
+	return &Output{Code: rpc.OK}, nil
 }
 
 func (w *quotasWrapper) Close() error {

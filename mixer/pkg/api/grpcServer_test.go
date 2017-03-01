@@ -20,7 +20,7 @@ import (
 	"io"
 	"testing"
 
-	"google.golang.org/genproto/googleapis/rpc/code"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -104,12 +104,12 @@ func (ts *testState) cleanupTestState() {
 
 func (ts *testState) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	response.RequestIndex = request.RequestIndex
-	response.Result = newStatus(code.Code_UNIMPLEMENTED)
+	response.Result = newStatus(rpc.UNIMPLEMENTED)
 }
 
 func (ts *testState) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 	response.RequestIndex = request.RequestIndex
-	response.Result = newStatus(code.Code_UNIMPLEMENTED)
+	response.Result = newStatus(rpc.UNIMPLEMENTED)
 }
 
 func (ts *testState) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {

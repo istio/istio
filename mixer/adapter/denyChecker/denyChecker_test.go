@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
-	"google.golang.org/genproto/googleapis/rpc/code"
 
 	"istio.io/mixer/adapter/denyChecker/config"
 	"istio.io/mixer/pkg/adapter/test"
@@ -33,22 +32,22 @@ func TestAll(t *testing.T) {
 	}
 
 	s := a.Deny()
-	if s.Code != int32(code.Code_FAILED_PRECONDITION) {
-		t.Errorf("a.Deny returned %d, expected %d", s.Code, int32(code.Code_FAILED_PRECONDITION))
+	if s.Code != int32(rpc.FAILED_PRECONDITION) {
+		t.Errorf("a.Deny returned %d, expected %d", s.Code, int32(rpc.FAILED_PRECONDITION))
 	}
 
 	if err = a.Close(); err != nil {
 		t.Errorf("a.Close failed: %v", err)
 	}
 
-	a, err = b.NewDenialsAspect(nil, &config.Params{Error: &rpc.Status{Code: int32(code.Code_INVALID_ARGUMENT)}})
+	a, err = b.NewDenialsAspect(nil, &config.Params{Error: &rpc.Status{Code: int32(rpc.INVALID_ARGUMENT)}})
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
 
 	s = a.Deny()
-	if s.Code != int32(code.Code_INVALID_ARGUMENT) {
-		t.Errorf("a.Deny returned %d, expected %d", s.Code, int32(code.Code_INVALID_ARGUMENT))
+	if s.Code != int32(rpc.INVALID_ARGUMENT) {
+		t.Errorf("a.Deny returned %d, expected %d", s.Code, int32(rpc.INVALID_ARGUMENT))
 	}
 
 	if err = a.Close(); err != nil {

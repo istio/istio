@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	"google.golang.org/genproto/googleapis/rpc/code"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
@@ -163,7 +163,7 @@ func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evalua
 			return nil, err
 		}
 	}
-	return &Output{Code: code.Code_OK}, nil
+	return &Output{Code: rpc.OK}, nil
 }
 
 type attrBagFn func(bag attribute.Bag, name string) (interface{}, bool)

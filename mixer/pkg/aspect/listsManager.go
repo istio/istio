@@ -17,7 +17,7 @@ package aspect
 import (
 	"fmt"
 
-	"google.golang.org/genproto/googleapis/rpc/code"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
@@ -94,10 +94,10 @@ func (a *listsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma AP
 	if found, err = a.aspect.CheckList(symbol); err != nil {
 		return nil, err
 	}
-	rCode := code.Code_PERMISSION_DENIED
+	rCode := rpc.PERMISSION_DENIED
 
 	if found != a.params.Blacklist {
-		rCode = code.Code_OK
+		rCode = rpc.OK
 	}
 	return &Output{Code: rCode}, nil
 }
