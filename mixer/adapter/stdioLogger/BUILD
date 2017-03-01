@@ -21,6 +21,5 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//pkg/adapter/test:go_default_library",
-        "@com_github_google_go_genproto//googleapis/rpc/status:go_default_library",
     ],
 )

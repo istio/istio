@@ -19,7 +19,7 @@ import (
 	"text/template"
 	"time"
 
-	"google.golang.org/genproto/googleapis/rpc/code"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
@@ -168,7 +168,7 @@ func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, 
 
 	if len(entry.Labels) == 0 {
 		// don't write empty access logs
-		return &Output{Code: code.Code_OK}, nil
+		return &Output{Code: rpc.OK}, nil
 	}
 
 	buf := new(bytes.Buffer)
@@ -179,5 +179,5 @@ func (e *accessLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, 
 	if err := e.aspect.LogAccess([]adapter.LogEntry{entry}); err != nil {
 		return nil, err
 	}
-	return &Output{Code: code.Code_OK}, nil
+	return &Output{Code: rpc.OK}, nil
 }

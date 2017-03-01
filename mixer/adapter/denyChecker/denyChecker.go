@@ -16,7 +16,6 @@ package denyChecker
 
 import (
 	rpc "github.com/googleapis/googleapis/google/rpc"
-	"google.golang.org/genproto/googleapis/rpc/code"
 
 	"istio.io/mixer/adapter/denyChecker/config"
 	"istio.io/mixer/pkg/adapter"
@@ -30,7 +29,7 @@ type (
 var (
 	name = "denyChecker"
 	desc = "Denies every check request"
-	conf = &config.Params{Error: &rpc.Status{Code: int32(code.Code_FAILED_PRECONDITION)}}
+	conf = &config.Params{Error: &rpc.Status{Code: int32(rpc.FAILED_PRECONDITION)}}
 )
 
 // Register records the builders exposed by this adapter.

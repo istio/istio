@@ -21,7 +21,6 @@ import (
 	"time"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
-	"google.golang.org/genproto/googleapis/rpc/code"
 
 	"istio.io/mixer/pkg/attribute"
 )
@@ -165,10 +164,10 @@ func TestAttributeErrorHandling(t *testing.T) {
 func TestDecodeStatus(t *testing.T) {
 	// just making sure all paths work properly
 	cases := []rpc.Status{
-		{Code: int32(code.Code_ALREADY_EXISTS)},
+		{Code: int32(rpc.ALREADY_EXISTS)},
 		{Code: 123456},
 
-		{Code: int32(code.Code_ALREADY_EXISTS), Message: "FOO"},
+		{Code: int32(rpc.ALREADY_EXISTS), Message: "FOO"},
 		{Code: 123456, Message: "FOO"},
 	}
 

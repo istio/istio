@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"testing"
 
-	"google.golang.org/genproto/googleapis/rpc/code"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/aspect"
@@ -57,7 +57,7 @@ func TestAspectManagerErrorsPropagated(t *testing.T) {
 	h.ConfigChange(&fakeresolver{[]*config.Combined{nil, nil}, nil})
 
 	s := h.execute(context.Background(), attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, aspect.CheckMethod, nil)
-	if s.Code != int32(code.Code_INTERNAL) {
-		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", s, code.Code_INTERNAL)
+	if s.Code != int32(rpc.INTERNAL) {
+		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", s, rpc.INTERNAL)
 	}
 }

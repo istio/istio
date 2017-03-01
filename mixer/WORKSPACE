@@ -62,6 +62,7 @@ gogoslick_proto_library(
     name = "google/rpc",
     protos = [
         "google/rpc/status.proto",
+        "google/rpc/code.proto",
     ],
     importmap = {
         "google/protobuf/any.proto": "github.com/gogo/protobuf/types",
@@ -95,6 +96,11 @@ filegroup(
     name = "status_proto",
     srcs = [ "google/rpc/status.proto" ],
 )
+
+filegroup(
+    name = "code_proto",
+    srcs = [ "google/rpc/code.proto" ],
+)
 """
 
 new_git_repository(
@@ -102,12 +108,6 @@ new_git_repository(
     build_file_content = GOOGLEAPIS_BUILD_FILE,
     commit = "13ac2436c5e3d568bd0e938f6ed58b77a48aba15", # Oct 21, 2016 (only release pre-dates sha)
     remote = "https://github.com/googleapis/googleapis.git",
-)
-
-new_go_repository(
-    name = "com_github_google_go_genproto",
-    commit = "b3e7c2fb04031add52c4817f53f43757ccbf9c18", # Dec 15, 2016 (no releases)
-    importpath = "google.golang.org/genproto",
 )
 
 new_go_repository(
