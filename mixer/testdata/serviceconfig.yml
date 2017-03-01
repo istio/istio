@@ -19,9 +19,9 @@ rules:
           target: target.name | "unknown"
           service: api.name | "unknown"
           method: api.method | "unknown"
-          response_code: response.http.code | "unknown"
+          response_code: response.http.code | 200
       - descriptor_name:  request_latency
-        value: response.latency | 0
+        value: response.latency | "0ms"
         labels:
           source: source.name | "unknown"
           target: target.name | "unknown"
