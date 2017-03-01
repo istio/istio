@@ -238,6 +238,34 @@ type TCPRoute struct {
 	DestinationPorts  string   `json:"destination_ports,omitempty"`
 	SourceIPList      []string `json:"source_ip_list,omitempty"`
 	SourcePorts       string   `json:"source_ports,omitempty"`
+
+	// special value to retain dependent cluster definition for TCP routes.
+	clusterRef *Cluster
+}
+
+// Merge operation selects a union of two route configs prioritizing the first.
+func (rc *TCPRouteConfig) merge(that *TCPRouteConfig) *TCPRouteConfig {
+	out := &TCPRouteConfig{}
+	set := make(map[string]bool)
+	for _, route := range rc.Routes {
+		set[route.clusterRef.hostname] = true
+		out.Routes = append(out.Routes, route)
+	}
+	for _, route := range that.Routes {
+		if !set[route.clusterRef.hostname] {
+			out.Routes = append(out.Routes, route)
+		}
+	}
+	return out
+}
+
+// Clusters aggregates clusters across routes
+func (rc *TCPRouteConfig) clusters() []*Cluster {
+	out := make([]*Cluster, 0)
+	for _, route := range rc.Routes {
+		out = append(out, route.clusterRef)
+	}
+	return out
 }
 
 // TCPRouteConfigs provides routes by port
@@ -260,8 +288,8 @@ func (hosts TCPRouteConfigs) EnsurePort(port int) *TCPRouteConfig {
 
 // TCPProxyFilterConfig definition
 type TCPProxyFilterConfig struct {
-	StatPrefix  string         `json:"stat_prefix"`
-	RouteConfig TCPRouteConfig `json:"route_config"`
+	StatPrefix  string          `json:"stat_prefix"`
+	RouteConfig *TCPRouteConfig `json:"route_config"`
 }
 
 // NetworkFilter definition
@@ -320,6 +348,7 @@ type Cluster struct {
 	hostname string
 	port     *model.Port
 	tags     model.Tags
+	outbound bool
 }
 
 // CircuitBreaker definition

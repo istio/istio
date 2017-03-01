@@ -157,6 +157,37 @@
       "bind_to_port": false
     },
     {
+      "port": 90,
+      "filters": [
+        {
+          "type": "read",
+          "name": "tcp_proxy",
+          "config": {
+            "stat_prefix": "tcp",
+            "route_config": {
+              "routes": [
+                {
+                  "cluster": "inbound:1090",
+                  "destination_ip_list": [
+                    "10.1.1.0/32"
+                  ],
+                  "destination_ports": "1090"
+                },
+                {
+                  "cluster": "outbound:world.default.svc.cluster.local:custom",
+                  "destination_ip_list": [
+                    "10.2.0.0/32"
+                  ],
+                  "destination_ports": "90"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "bind_to_port": false
+    },
+    {
       "port": 1081,
       "filters": [
         {
@@ -236,6 +267,17 @@
         ]
       },
       {
+        "name": "inbound:1090",
+        "connect_timeout_ms": 1000,
+        "type": "static",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://127.0.0.1:1090"
+          }
+        ]
+      },
+      {
         "name": "inbound:80",
         "connect_timeout_ms": 1000,
         "type": "static",
@@ -249,6 +291,13 @@
       {
         "name": "outbound:hello.default.svc.cluster.local:http-status",
         "service_name": "hello.default.svc.cluster.local:http-status",
+        "connect_timeout_ms": 1000,
+        "type": "sds",
+        "lb_type": "round_robin"
+      },
+      {
+        "name": "outbound:world.default.svc.cluster.local:custom",
+        "service_name": "world.default.svc.cluster.local:custom",
         "connect_timeout_ms": 1000,
         "type": "sds",
         "lb_type": "round_robin"

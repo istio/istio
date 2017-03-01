@@ -113,29 +113,46 @@ func Generate(instances []*model.ServiceInstance, services []*model.Service,
 // build combines the outbound and inbound routes prioritizing the latter
 func build(instances []*model.ServiceInstance, services []*model.Service,
 	config *model.IstioRegistry, mesh *MeshConfig) ([]*Listener, Clusters) {
-	outbound := buildOutboundFilters(instances, services, config, mesh)
-	inbound := buildInboundFilters(instances)
+	httpOutbound, tcpOutbound := buildOutboundFilters(instances, services, config, mesh)
+	httpInbound, tcpInbound := buildInboundFilters(instances)
 
-	// merge the two sets of route configs
-	routeConfigs := make(HTTPRouteConfigs)
-	for port, routeConfig := range inbound {
-		routeConfigs[port] = routeConfig
+	// merge the two sets of HTTP route configs
+	httpRouteConfigs := make(HTTPRouteConfigs)
+	for port, httpRouteConfig := range httpInbound {
+		httpRouteConfigs[port] = httpRouteConfig
 	}
-	for port, outgoing := range outbound {
-		if incoming, ok := routeConfigs[port]; ok {
+	for port, outgoing := range httpOutbound {
+		if incoming, ok := httpRouteConfigs[port]; ok {
 			// If the traffic is sent to a service that has instances co-located with the proxy,
 			// we choose the local service instance since we cannot distinguish between inbound and outbound packets.
 			// Note that this may not be a problem if the service port and its endpoint port are distinct.
-			routeConfigs[port] = incoming.merge(outgoing)
+			httpRouteConfigs[port] = incoming.merge(outgoing)
 		} else {
-			routeConfigs[port] = outgoing
+			httpRouteConfigs[port] = outgoing
+		}
+	}
+
+	// merge the two sets of TCP route configs
+	tcpRouteConfigs := make(TCPRouteConfigs)
+	for port, tcpRouteConfig := range tcpInbound {
+		tcpRouteConfigs[port] = tcpRouteConfig
+	}
+	for port, outgoing := range tcpOutbound {
+		if incoming, ok := tcpRouteConfigs[port]; ok {
+			// If the traffic is sent to a service that has instances co-located with the proxy,
+			// we choose the local service instance since we cannot distinguish between inbound and outbound packets.
+			// Note that this may not be a problem if the service port and its endpoint port are distinct.
+			tcpRouteConfigs[port] = incoming.merge(outgoing)
+		} else {
+			tcpRouteConfigs[port] = outgoing
 		}
 	}
 
 	// canonicalize listeners and collect clusters
 	clusters := make(Clusters, 0)
 	listeners := make([]*Listener, 0)
-	for port, routeConfig := range routeConfigs {
+
+	for port, routeConfig := range httpRouteConfigs {
 		sort.Sort(HostsByName(routeConfig.VirtualHosts))
 		clusters = append(clusters, routeConfig.clusters()...)
 
@@ -163,6 +180,39 @@ func build(instances []*model.ServiceInstance, services []*model.Service,
 				},
 			}},
 		}
+
+		// TODO(github.com/istio/manager/issues/237)
+		//
+		// Sharing tcp_proxy and http_connection_manager filters on
+		// the same port for different destination services doesn't work
+		// with Envoy (yet). When the tcp_proxy filter's route matching
+		// fails for the http service the connection is closed without
+		// falling back to the http_connection_manager.
+		//
+		// Temporary workaround is to not share ports between
+		// destination services. If the user does share ports, remove the
+		// TCP service from the envoy config and print a warning.
+		if config, ok := tcpRouteConfigs[port]; ok {
+			glog.Warningf("TCP and HTTP services on same port not supported")
+			glog.Warningf("Omitting tcp service %v on port %v", config, port)
+			delete(tcpRouteConfigs, port)
+		}
+		listeners = append(listeners, listener)
+	}
+
+	for port, tcpConfig := range tcpRouteConfigs {
+		clusters = append(clusters, tcpConfig.clusters()...)
+		listener := &Listener{
+			Port: port,
+			Filters: []*NetworkFilter{{
+				Type: "read",
+				Name: TCPProxyFilter,
+				Config: TCPProxyFilterConfig{
+					StatPrefix:  "tcp",
+					RouteConfig: tcpConfig,
+				},
+			}},
+		}
 		listeners = append(listeners, listener)
 	}
 
@@ -179,10 +229,11 @@ func build(instances []*model.ServiceInstance, services []*model.Service,
 // buildOutboundFilters creates route configs indexed by ports for the traffic outbound
 // from the proxy instance
 func buildOutboundFilters(instances []*model.ServiceInstance, services []*model.Service,
-	config *model.IstioRegistry, mesh *MeshConfig) HTTPRouteConfigs {
+	config *model.IstioRegistry, mesh *MeshConfig) (HTTPRouteConfigs, TCPRouteConfigs) {
 	// used for shortcut domain names for outbound hostnames
 	suffix := sharedInstanceHost(instances)
 	httpConfigs := make(HTTPRouteConfigs)
+	tcpConfigs := make(TCPRouteConfigs)
 
 	// get all the route rules applicable to the instances
 	rules := config.RouteRulesBySource("", instances)
@@ -209,44 +260,56 @@ func buildOutboundFilters(instances []*model.ServiceInstance, services []*model.
 				host := buildVirtualHost(service, port, suffix, routes)
 				http := httpConfigs.EnsurePort(port.Port)
 				http.VirtualHosts = append(http.VirtualHosts, host)
+			case model.ProtocolTCP:
+				cluster := buildOutboundCluster(service.Hostname, port, nil)
+				route := buildTCPRoute(cluster, service.Address, port.Port)
+				config := tcpConfigs.EnsurePort(port.Port)
+				config.Routes = append(config.Routes, route)
 			default:
 				glog.Warningf("Unsupported outbound protocol %v for port %d", port.Protocol, port.Port)
 			}
 		}
 	}
-
-	return httpConfigs
+	return httpConfigs, tcpConfigs
 }
 
 // buildInboundFilters creates route configs indexed by ports for the traffic inbound
 // to co-located service instances
-func buildInboundFilters(instances []*model.ServiceInstance) HTTPRouteConfigs {
+func buildInboundFilters(instances []*model.ServiceInstance) (HTTPRouteConfigs, TCPRouteConfigs) {
 	// used for shortcut domain names for hostnames
 	suffix := sharedInstanceHost(instances)
 	httpConfigs := make(HTTPRouteConfigs)
+	tcpConfigs := make(TCPRouteConfigs)
 
 	// inbound connections/requests are redirected to the endpoint port but appear to be sent
 	// to the service port
 	for _, instance := range instances {
-		port := instance.Endpoint.ServicePort
+		service := instance.Service
+		endpoint := instance.Endpoint
+		port := endpoint.ServicePort
 		switch port.Protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
-			cluster := buildInboundCluster(instance.Endpoint.Port, port.Protocol)
+			cluster := buildInboundCluster(service.Hostname, endpoint.Port, port.Protocol)
 			route := buildDefaultRoute(cluster)
-			host := buildVirtualHost(instance.Service, port, suffix, []*HTTPRoute{route})
+			host := buildVirtualHost(service, port, suffix, []*HTTPRoute{route})
 
 			// insert explicit instance ip:port as a hostname field
-			host.Domains = append(host.Domains, fmt.Sprintf("%s:%d", instance.Endpoint.Address, instance.Endpoint.Port))
-			if instance.Endpoint.Port == 80 {
-				host.Domains = append(host.Domains, instance.Endpoint.Address)
+			host.Domains = append(host.Domains, fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port))
+			if endpoint.Port == 80 {
+				host.Domains = append(host.Domains, endpoint.Address)
 			}
 
-			http := httpConfigs.EnsurePort(instance.Endpoint.Port)
+			http := httpConfigs.EnsurePort(endpoint.Port)
 			http.VirtualHosts = append(http.VirtualHosts, host)
+		case model.ProtocolTCP:
+			cluster := buildInboundCluster(service.Hostname, endpoint.Port, port.Protocol)
+			route := buildTCPRoute(cluster, endpoint.Address, endpoint.Port)
+			config := tcpConfigs.EnsurePort(port.Port)
+			config.Routes = append(config.Routes, route)
 		default:
 			glog.Warningf("Unsupported inbound protocol %v for port %d", port.Protocol, port)
 		}
 	}
 
-	return httpConfigs
+	return httpConfigs, tcpConfigs
 }
