@@ -21,7 +21,7 @@ rules:
           method: api.method | "unknown"
           response_code: response.http.code | "unknown"
       - descriptor_name:  request_latency
-        value: response.latency | "unknown"
+        value: response.latency | 0
         labels:
           source: source.name | "unknown"
           target: target.name | "unknown"
