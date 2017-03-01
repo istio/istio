@@ -59,7 +59,7 @@ def postsubmit(gitUtils, bazel, utils) {
     stage('Docker Push') {
       def images = 'proxy,proxy_debug'
       def tags = "${gitUtils.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
-      utils.publishDockerImages(images, tags)
+      utils.publishDockerImages(images, tags, 'release')
     }
   }
 }
