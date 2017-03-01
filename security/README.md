@@ -1,6 +1,7 @@
 # Istio Authentication Module
 
 [![Build Status](https://travis-ci.org/istio/auth.svg?branch=master)](https://travis-ci.org/istio/auth)
+[![codecov](https://codecov.io/gh/istio/auth/branch/master/graph/badge.svg)](https://codecov.io/gh/istio/auth)
 
 The idea of [service
 mesh](https://docs.google.com/document/d/1RRPrDK0mEwhPb13DSyF6pODugrRTFLAXia9CZLPoQno/edit)
