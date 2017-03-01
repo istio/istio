@@ -34,9 +34,10 @@ template <class RequestType, class ResponseType>
 class WriterImpl : public WriteInterface<RequestType> {
  public:
   void Write(const RequestType& request) {
-    ResponseType response;
-    response.set_request_index(request.request_index());
     if (done_status.ok()) {
+      ResponseType response;
+      response.set_request_index(request.request_index());
+      *response.mutable_result() = rpc_status;
       reader->OnRead(response);
     }
     reader->OnClose(done_status);
@@ -46,6 +47,7 @@ class WriterImpl : public WriteInterface<RequestType> {
 
   ReadInterface<ResponseType>* reader;
   Status done_status;
+  ::google::rpc::Status rpc_status;
 };
 
 class MixerClientImplTest : public ::testing::Test, public TransportInterface {
@@ -91,13 +93,24 @@ TEST_F(MixerClientImplTest, TestSuccessCheck) {
   EXPECT_TRUE(done_status.ok());
 }
 
-TEST_F(MixerClientImplTest, TestFailedCheck) {
+TEST_F(MixerClientImplTest, TestCanceledCheck) {
   check_writer_->done_status = Status::CANCELLED;
   Attributes attributes;
   Status done_status = Status::UNKNOWN;
   client_->Check(attributes,
                  [&done_status](Status status) { done_status = status; });
   EXPECT_EQ(done_status, Status::CANCELLED);
+}
+
+TEST_F(MixerClientImplTest, TestFailedCheck) {
+  check_writer_->rpc_status.set_code(Code::OUT_OF_RANGE);
+  check_writer_->rpc_status.set_message("out of range");
+  Attributes attributes;
+  Status done_status = Status::UNKNOWN;
+  client_->Check(attributes,
+                 [&done_status](Status status) { done_status = status; });
+  EXPECT_EQ(done_status.error_code(), Code::OUT_OF_RANGE);
+  EXPECT_EQ(done_status.error_message(), "out of range");
 }
 
 }  // namespace mixer_client
