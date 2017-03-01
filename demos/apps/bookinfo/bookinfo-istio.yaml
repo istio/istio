@@ -45,7 +45,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/istio/init:latest",
+            "image": "docker.io/istio/init:20170224214559",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -57,7 +57,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/istio/runtime:latest
+        image: docker.io/istio/runtime:20170224214559
         securityContext:
           runAsUser: 1337
         args:
@@ -115,7 +115,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/istio/init:latest",
+            "image": "docker.io/istio/init:20170224214559",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -127,7 +127,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/istio/runtime:latest
+        image: docker.io/istio/runtime:20170224214559
         securityContext:
           runAsUser: 1337
         args:
@@ -185,7 +185,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/istio/init:latest",
+            "image": "docker.io/istio/init:20170224214559",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -197,7 +197,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/istio/runtime:latest
+        image: docker.io/istio/runtime:20170224214559
         securityContext:
           runAsUser: 1337
         args:
@@ -237,7 +237,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/istio/init:latest",
+            "image": "docker.io/istio/init:20170224214559",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -249,7 +249,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/istio/runtime:latest
+        image: docker.io/istio/runtime:20170224214559
         securityContext:
           runAsUser: 1337
         args:
@@ -289,7 +289,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/istio/init:latest",
+            "image": "docker.io/istio/init:20170224214559",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -301,7 +301,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/istio/runtime:latest
+        image: docker.io/istio/runtime:20170224214559
         securityContext:
           runAsUser: 1337
         args:
@@ -359,7 +359,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/istio/init:latest",
+            "image": "docker.io/istio/init:20170224214559",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -371,7 +371,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/istio/runtime:latest
+        image: docker.io/istio/runtime:20170224214559
         securityContext:
           runAsUser: 1337
         args:
