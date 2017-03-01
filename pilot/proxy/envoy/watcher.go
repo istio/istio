@@ -58,6 +58,14 @@ func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 		addrs:     addrs,
 	}
 
+	// Initialize envoy according to the current model state,
+	// instead of waiting for the first event to arrive.
+	// Note that this is currently done synchronously (blocking),
+	// to avoid racing with controller events lurking around the corner.
+	// This can be improved once we switch to a mechanism where reloads
+	// are linearized (e.g., by a single goroutine reloader).
+	out.reload()
+
 	if err := ctl.AppendServiceHandler(func(*model.Service, model.Event) { out.reload() }); err != nil {
 		return nil, err
 	}
