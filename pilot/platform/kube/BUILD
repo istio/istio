@@ -45,6 +45,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
+        "controller_test.go",
         "conversion_test.go",
         "kube_test.go",
         "queue_test.go",
@@ -59,5 +60,7 @@ go_test(
         "@com_github_golang_protobuf//proto:go_default_library",
         "@io_k8s_client_go//kubernetes:go_default_library",
         "@io_k8s_client_go//pkg/api/v1:go_default_library",
+        "@io_k8s_client_go//pkg/apis/extensions/v1beta1:go_default_library",
+        "@io_k8s_client_go//pkg/util/intstr:go_default_library",
     ],
 )

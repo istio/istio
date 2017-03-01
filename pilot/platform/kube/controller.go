@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -33,6 +34,11 @@ import (
 	"k8s.io/client-go/pkg/runtime"
 	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/tools/cache"
+)
+
+const (
+	ingressClassAnnotation = "kubernetes.io/ingress.class"
+	ingressClass           = "istio"
 )
 
 // Controller is a collection of synchronized resource watchers
@@ -209,13 +215,19 @@ func (c *Controller) appendTPRConfigHandler(k string, f func(model.Key, proto.Me
 
 func (c *Controller) appendIngressConfigHandler(k string, f func(model.Key, proto.Message, model.Event)) error {
 	c.ingresses.handler.append(func(obj interface{}, ev model.Event) error {
+		ingress := obj.(*v1beta1.Ingress)
+		if ingressIgnored(ingress) {
+			return nil
+		}
+
 		// Convert the ingress into a map[Key]Message, and invoke handler for each
 		// TODO: This works well for Add and Delete events, but no so for Update:
 		// A updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
-		messages := convertIngress(*obj.(*v1beta1.Ingress), c.serviceByKey)
+		messages := convertIngress(*ingress, c.serviceByKey)
 		for key, message := range messages {
 			f(key, message, ev)
 		}
+
 		return nil
 	})
 	return nil
@@ -319,7 +331,12 @@ func (c *Controller) getIngress(key model.Key) (proto.Message, bool) {
 		return nil, false
 	}
 
-	messages := convertIngress(*obj.(*v1beta1.Ingress), c.serviceByKey)
+	ingress := obj.(*v1beta1.Ingress)
+	if ingressIgnored(ingress) {
+		return nil, false
+	}
+
+	messages := convertIngress(*ingress, c.serviceByKey)
 	message, exists := messages[key]
 	return message, exists
 }
@@ -380,8 +397,8 @@ func (c *Controller) listIngresses(kind, namespace string) (map[model.Key]proto.
 	out := make(map[model.Key]proto.Message, 0)
 
 	for _, obj := range c.ingresses.informer.GetStore().List() {
-		ingress, ok := obj.(*v1beta1.Ingress)
-		if ok && (namespace == "" || ingress.GetObjectMeta().GetNamespace() == namespace) {
+		ingress := obj.(*v1beta1.Ingress)
+		if !ingressIgnored(ingress) && (namespace == "" || ingress.GetObjectMeta().GetNamespace() == namespace) {
 			ingressRules := convertIngress(*ingress, c.serviceByKey)
 			for key, message := range ingressRules {
 				out[key] = message
@@ -619,4 +636,16 @@ func (pc *PodCache) tagsByIP(addr string) (model.Tags, bool) {
 		return nil, false
 	}
 	return convertTags(item.(*v1.Pod).ObjectMeta), true
+}
+
+// ingressIgnored determine whether the given ingress resource should be ignored
+// by the given ingress controller, based on its ingress class annotation.
+// See https://github.com/kubernetes/ingress/blob/master/examples/PREREQUISITES.md#ingress-class
+func ingressIgnored(ingress *v1beta1.Ingress) bool {
+	if ingress.Annotations == nil {
+		return false
+	}
+
+	class, exists := ingress.Annotations[ingressClassAnnotation]
+	return exists && strings.ToLower(class) != ingressClass
 }
