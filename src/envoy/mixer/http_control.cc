@@ -108,10 +108,12 @@ void FillRequestHeaderAttributes(const HeaderMap& header_map,
       StringMapValue(ExtractHeaders(header_map));
 }
 
-void FillResponseHeaderAttributes(const HeaderMap& header_map,
+void FillResponseHeaderAttributes(const HeaderMap* header_map,
                                   Attributes* attr) {
-  attr->attributes[kResponseHeaders] =
-      StringMapValue(ExtractHeaders(header_map));
+  if (header_map) {
+    attr->attributes[kResponseHeaders] =
+        StringMapValue(ExtractHeaders(*header_map));
+  }
   attr->attributes[kResponseTime] = TimeValue(std::chrono::system_clock::now());
 }
 
@@ -180,7 +182,7 @@ void HttpControl::Report(HttpRequestDataPtr request_data,
                          int check_status, DoneFunc on_done) {
   // Use all Check attributes for Report.
   // Add additional Report attributes.
-  FillResponseHeaderAttributes(*response_headers, &request_data->attributes);
+  FillResponseHeaderAttributes(response_headers, &request_data->attributes);
 
   FillRequestInfoAttributes(request_info, check_status,
                             &request_data->attributes);
