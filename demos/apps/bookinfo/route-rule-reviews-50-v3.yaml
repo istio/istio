@@ -1,15 +1,9 @@
-apiVersion: istio.io/v1alpha1
-kind: IstioConfig
-metadata:
-  name: route-rule-reviews-50-v3
-  namespace: default
-spec:
-  destination: reviews.default.svc.cluster.local
-  precedence: 4
-  route:
-  - tags:
-      version: v1
-    weight: 50
-  - tags:
-      version: v3
-    weight: 50
+destination: reviews.default.svc.cluster.local
+precedence: 1
+route:
+- tags:
+    version: v1
+  weight: 50
+- tags:
+    version: v3
+  weight: 50

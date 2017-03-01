@@ -24,15 +24,26 @@ This application is polyglot, i.e., the microservices are written in
 different languages. All microservices are packaged with an
 Istio sidecar that manages all incoming and outgoing calls for the service.
 
-> Note: the following instructions assume that your current working directory
-> is [apps/bookinfo](apps/bookinfo).
+<!-- > Note: the following instructions assume that your current working directory -->
+<!-- > is [apps/bookinfo](apps/bookinfo). -->
+
+*CLI*: This walkthrough will use the _istioctl_ CLI that provides a
+convenient way to apply routing rules and policies for upstreams. The
+`demos/` directory has three binaries: `istioctl-osx`, `istioctl-windows`,
+`istioctl-linux` targeted at Mac, Windows and Linux users
+respectively. Please download the tool appropriate to your platform and
+rename the tool to `istioctl`. For example:
+
+```bash
+$ cp istioctl-osx /usr/local/bin/istioctl
+```
 
 ## Running the Bookinfo Application
 
 1. Bring up the control plane:
 
    ```bash
-   $ kubectl create -f ../controlplane.yaml
+   $ kubectl create -f apps/controlplane.yaml
    ```
    
    This command launches the istio manager and an envoy-based ingress controller, which will be used
@@ -41,7 +52,7 @@ Istio sidecar that manages all incoming and outgoing calls for the service.
 1. Bring up the application containers:
 
    ```bash
-   $ kubectl create -f bookinfo-istio.yaml
+   $ kubectl create -f apps/bookinfo/bookinfo-istio.yaml
    ```
 
    The above command creates the gateway ingress resource and launches the 4 microservices as described
@@ -97,44 +108,72 @@ Since we have 3 versions of the reviews microservice running, we need to set the
 Otherwise if you access the application several times, you would notice that sometimes the output contains 
 star ratings. This is because without an explicit default version set, Istio will 
 route requests to all available versions of a service in a random fashion.
-   
+
 1. Set the default version for all microservice to v1. 
 
    ```bash
-   $ kubectl create -f route-rule-all-v1.yaml 
-   istioconfig "route-rule-productpage-v1" created
-   istioconfig "route-rule-reviews-v1" created
-   istioconfig "route-rule-ratings-v1" created
-   istioconfig "route-rule-details-v1" created
+   $ istioctl create route-rule productpage-default -f apps/bookinfo/route-rule-productpage-v1.yaml; \
+     istioctl create route-rule reviews-default -f apps/bookinfo/route-rule-reviews-v1.yaml; \
+     istioctl create route-rule ratings-default -f apps/bookinfo/route-rule-ratings-v1.yaml; \
+     istioctl create route-rule details-default -f apps/bookinfo/route-rule-details-v1.yaml
    ```
 
    You can display the routes that are defined with the following command:
 
    ```bash
-   $ kubectl get istioconfig -o yaml
-   apiVersion: v1
-   items:
-   - apiVersion: istio.io/v1alpha1
-     kind: IstioConfig
-     metadata:
-       creationTimestamp: 2017-02-22T17:11:43Z
-       name: route-rule-reviews-v1
-       namespace: default
-       resourceVersion: "42084"
-       selfLink: /apis/istio.io/v1alpha1/namespaces/default/istioconfigs/route-rule-reviews-v1
-       uid: fb967b00-f921-11e6-a8ad-764cb43dfcf7
-     spec:
-       destination: reviews.default.svc.cluster.local
-       precedence: 1
-       route:
-       - tags:
-           version: v1
-         weight: 100
-   kind: List
-   metadata: {}
-   resourceVersion: ""
-   selfLink: ""
+   $ istioctl list route-rule
+   kind: route-rule
+   name: ratings-default
+   namespace: default
+   spec:
+     destination: ratings.default.svc.cluster.local
+     precedence: 1
+     route:
+     - tags:
+         version: v1
+       weight: 100
+   ---
+   kind: route-rule
+   name: reviews-default
+   namespace: default
+   spec:
+     destination: reviews.default.svc.cluster.local
+     precedence: 1
+     route:
+     - tags:
+         version: v1
+       weight: 100
+   ---
+   kind: route-rule
+   name: details-default
+   namespace: default
+   spec:
+     destination: details.default.svc.cluster.local
+     precedence: 1
+     route:
+     - tags:
+         version: v1
+       weight: 100
+   ---
+   kind: route-rule
+   name: productpage-default
+   namespace: default
+   spec:
+     destination: productpage.default.svc.cluster.local
+     precedence: 1
+     route:
+     - tags:
+         version: v1
+       weight: 100
+   ---
    ```
+
+   > Note: In the current Kubernetes implemention of Istio, the rules are stored in ThirdPartyResources.
+   > You can look directly at the stored rules in Kubernetes using the `kubectl` command. For example,
+   > the following command will display all defined rules:
+   > ```bash
+   > $ kubectl get istioconfig -o yaml
+   > ```
 
    Since rule propagation to the proxies is asynchronous, you should wait a few seconds for the rules
    to propagate to all pods before attempting to access the application.
@@ -149,33 +188,22 @@ route requests to all available versions of a service in a random fashion.
    `reviews:v2` instances.
 
    ```bash
-   $ kubectl create -f route-rule-reviews-tester-v2.yaml 
-   istioconfig "route-rule-tester-v2" created
+   $ istioctl create route-rule reviews-test-v2 -f apps/bookinfo/route-rule-reviews-test-v2.yaml 
    ```
 
    Confirm the rule is created:
 
    ```bash
-   $ kubectl get istioconfig route-rule-reviews-tester-v2 -o yaml
-   apiVersion: istio.io/v1alpha1
-   kind: IstioConfig
-   metadata:
-     creationTimestamp: 2017-02-21T22:40:52Z
-     name: route-rule-reviews-tester-v2
-     namespace: default
-     resourceVersion: "29368"
-     selfLink: /apis/istio.io/v1alpha1/namespaces/default/istioconfigs/route-rule-reviews-tester-v2
-     uid: ccb35f55-f886-11e6-a8ad-764cb43dfcf7
-   spec:
-     destination: reviews.default.svc.cluster.local
-     match:
-       http:
-         Cookie:
-           regex: ^(.*?;)?(user=jason)(;.*)?$
-     precedence: 2
-     route:
-     - tags:
-         version: v2
+   $ istioctl get route-rule reviews-test-v2
+   destination: reviews.default.svc.cluster.local
+   match:
+     http:
+       Cookie:
+         regex: ^(.*?;)?(user=jason)(;.*)?$
+   precedence: 2
+   route:
+   - tags:
+       version: v2
    ```
 
    Log in as user "jason" at the `productpage` web page. You should now see ratings (1-5 stars) next
@@ -193,8 +221,24 @@ route requests to all available versions of a service in a random fashion.
    Create a fault injection rule, to delay traffic coming from user "jason" (our test user).
 
    ```bash
-   $ kubectl create -f destination-ratings-tester-delay.yaml
-   istionconfig "destination-ratings-tester-delay" created
+   $ istioctl create destination ratings-test-delay -f apps/bookinfo/destination-ratings-test-delay.yaml
+   ```
+
+   Confirm the rule is created:
+
+   ```bash
+   $ istioctl get destination ratings-test-delay
+   destination: ratings.default.svc.cluster.local
+   httpFault:
+     delay:
+       fixedDelay:
+         fixedDelaySeconds: 7
+         percent: 100
+     headers:
+       Cookie:
+         regex: ^(.*?;)?(user=jason)(;.*)?$
+   tags:
+     version: v1
    ```
 
    Allow several seconds to account for rule propagation delay to all pods.
@@ -235,27 +279,34 @@ we can next demonstrate deployment of a new version.
 
 Now that we have tested the reviews service, fixed the bug and deployed a
 new version (`reviews:v3`), lets route all user traffic from `reviews:v1`
-to `reviews:v3` in a gradual manner.
+to `reviews:v3` in two steps.
 
-First, transfer 25% of traffic from `reviews:v1` to `reviews:v3` with the following command:
+First, transfer 50% of traffic from `reviews:v1` to `reviews:v3` with the following command:
 
 ```bash
-   $ kubectl create -f route-rule-reviews-25-v3.yaml
+   $ istioctl update route-rule reviews-default -f apps/bookinfo/route-rule-reviews-50-v3.yaml
 ```
 
-You should see *red* colored star ratings, approximately 1 out of every 4 times you refresh
+> Notice that we are using `istioctl update` instead of `create`.
+
+To see the new version you need to either Log out as test user "jason" or delete the test rules
+that we created exclusively for him:
+
+```bash
+   $ istioctl delete route-rule reviews-test-v2
+   $ istioctl delete destination ratings-test-delay
+```
+
+You should now see *red* colored star ratings approximately 50% of the time when you refresh
 the `productpage`.
 
-Things seem to be going smoothly. Lets route 50% of traffic to `reviews:v3`
+> Note: With the Envoy sidecar implementation, you may need to refresh the `productpage` 100 times
+> to see the proper distribution.
+
+When we are confident that our Bookinfo app is stable, we route 100% of the traffic to `reviews:v3`:
 
 ```bash
-   $ kubectl create -f route-rule-reviews-50-v3.yaml
-```
-
-We are confident that our Bookinfo app is stable. Lets route 100% of traffic to `reviews:v3`
-
-```bash
-   $ kubectl create -f route-rule-reviews-v3.yaml
+   $ istioctl update route-rule reviews-default -f apps/bookinfo/route-rule-reviews-v3.yaml
 ```
 
 You can now log in to the `productpage` as any user and you should always see book reviews
@@ -266,14 +317,14 @@ with *red* colored star ratings for each review.
 1. Delete the routing rules and terminate the application and control plane pods
 
    ```bash
-   $ ./cleanup.sh
+   $ ./apps/bookinfo/cleanup.sh
    ```
 
 1. Confirm shutdown
 
    ```bash
-   $ kubectl get istioconfig    #-- there should be no more routing rules
-   No resources found.
+   $ istioctl list route-rule   #-- there should be no more routing rules
+   $ istioctl list destination  #-- there should be no more policy rules
    $ kubectl get pods           #-- the bookinfo and control plane services should be deleted
    No resources found.
    ```
