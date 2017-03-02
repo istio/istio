@@ -19,6 +19,7 @@
 #include "common/http/headers.h"
 #include "common/http/utility.h"
 #include "envoy/server/instance.h"
+#include "envoy/ssl/connection.h"
 #include "server/config/network/http_connection_manager.h"
 #include "src/envoy/mixer/http_control.h"
 #include "src/envoy/mixer/utils.h"
@@ -151,8 +152,16 @@ class Instance : public Http::StreamFilter, public Http::AccessLog::Instance {
     state_ = Calling;
     initiating_call_ = true;
     request_data_ = std::make_shared<HttpRequestData>();
+
+    std::string origin_user;
+    Ssl::Connection* ssl =
+        const_cast<Ssl::Connection*>(decoder_callbacks_->ssl());
+    if (ssl != nullptr) {
+      origin_user = ssl->uriSanPeerCertificate();
+    }
+
     http_control_->Check(
-        request_data_, headers,
+        request_data_, headers, origin_user,
         wrapper([this](const Status& status) { completeCheck(status); }));
     initiating_call_ = false;
 
@@ -180,6 +189,7 @@ class Instance : public Http::StreamFilter, public Http::AccessLog::Instance {
     }
     return FilterTrailersStatus::Continue;
   }
+
   void setDecoderFilterCallbacks(
       StreamDecoderFilterCallbacks& callbacks) override {
     Log().debug("Called Mixer::Instance : {}", __func__);
@@ -187,6 +197,7 @@ class Instance : public Http::StreamFilter, public Http::AccessLog::Instance {
     decoder_callbacks_->addResetStreamCallback(
         [this]() { state_ = Responded; });
   }
+
   void completeCheck(const Status& status) {
     Log().debug("Called Mixer::Instance : check complete {}",
                 status.ToString());
@@ -197,6 +208,7 @@ class Instance : public Http::StreamFilter, public Http::AccessLog::Instance {
                               status.ToString());
       return;
     }
+
     state_ = Complete;
     if (!initiating_call_) {
       decoder_callbacks_->continueDecoding();
@@ -208,15 +220,18 @@ class Instance : public Http::StreamFilter, public Http::AccessLog::Instance {
     Log().debug("Called Mixer::Instance : {}", __func__);
     return FilterHeadersStatus::Continue;
   }
+
   virtual FilterDataStatus encodeData(Buffer::Instance& data,
                                       bool end_stream) override {
     Log().debug("Called Mixer::Instance : {}", __func__);
     return FilterDataStatus::Continue;
   }
+
   virtual FilterTrailersStatus encodeTrailers(HeaderMap& trailers) override {
     Log().debug("Called Mixer::Instance : {}", __func__);
     return FilterTrailersStatus::Continue;
   }
+
   virtual void setEncoderFilterCallbacks(
       StreamEncoderFilterCallbacks& callbacks) override {
     Log().debug("Called Mixer::Instance : {}", __func__);
