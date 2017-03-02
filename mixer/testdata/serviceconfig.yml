@@ -27,6 +27,7 @@ rules:
           target: target.name | "unknown"
           service: api.name | "unknown"
           method: api.method | "unknown"
+          response_code: response.http.code | 200
   - kind: access-logs
     params:
       logName: "access_log"
