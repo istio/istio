@@ -15,6 +15,7 @@
 package config
 
 import (
+	"flag"
 	"fmt"
 	"testing"
 
@@ -130,4 +131,9 @@ func TestRuntime(t *testing.T) {
 			t.Errorf("%d Expected %d resolve got %d", idx, tt.nlen, len(al))
 		}
 	}
+}
+
+func init() {
+	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
+	_ = flag.Lookup("v").Value.Set("99")
 }

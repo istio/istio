@@ -15,6 +15,7 @@
 package aspect
 
 import (
+	"flag"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -319,4 +320,9 @@ func TestMetrics_Find(t *testing.T) {
 			}
 		})
 	}
+}
+
+func init() {
+	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
+	_ = flag.Lookup("v").Value.Set("99")
 }

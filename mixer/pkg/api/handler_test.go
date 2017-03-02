@@ -16,6 +16,7 @@ package api
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"testing"
 
@@ -60,4 +61,9 @@ func TestAspectManagerErrorsPropagated(t *testing.T) {
 	if s.Code != int32(rpc.INTERNAL) {
 		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", s, rpc.INTERNAL)
 	}
+}
+
+func init() {
+	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
+	_ = flag.Lookup("v").Value.Set("99")
 }

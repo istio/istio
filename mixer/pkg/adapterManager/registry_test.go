@@ -15,6 +15,7 @@
 package adapterManager
 
 import (
+	"flag"
 	"fmt"
 	"reflect"
 	"testing"
@@ -246,4 +247,9 @@ func TestBuilderMap(t *testing.T) {
 	if _, found := mp["quotaB"]; !found {
 		t.Error("got nil, want quotaB")
 	}
+}
+
+func init() {
+	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
+	_ = flag.Lookup("v").Value.Set("99")
 }

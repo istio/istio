@@ -15,11 +15,14 @@
 package attribute
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	ptypes "github.com/gogo/protobuf/types"
+	"github.com/golang/glog"
 	me "github.com/hashicorp/go-multierror"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -37,8 +40,10 @@ type rootBag struct {
 	durations  map[string]time.Duration
 	bytes      map[string][]uint8
 	stringMaps map[string]map[string]string
+	id         int64 // strictly for use in diagnostic messages
 }
 
+var id int64
 var rootBags = sync.Pool{
 	New: func() interface{} {
 		return &rootBag{
@@ -50,6 +55,7 @@ var rootBags = sync.Pool{
 			durations:  make(map[string]time.Duration),
 			bytes:      make(map[string][]uint8),
 			stringMaps: make(map[string]map[string]string),
+			id:         atomic.AddInt64(&id, 1),
 		}
 	},
 }
@@ -304,52 +310,108 @@ func (rb *rootBag) update(dictionary dictionary, attrs *mixerpb.Attributes) erro
 		return err
 	}
 
+	var log *bytes.Buffer
+	if glog.V(2) {
+		log = &bytes.Buffer{}
+	}
+
 	if attrs.ResetContext {
+		if log != nil {
+			log.WriteString(" resetting bag to empty state\n")
+		}
 		rb.reset()
 	}
 
 	// apply all attributes
 	for k, v := range attrs.StringAttributes {
+		if log != nil {
+			log.WriteString(fmt.Sprintf("  updating string attribute %s from '%v' to '%v'\n", dictionary[k], rb.strings[dictionary[k]], v))
+		}
 		rb.strings[dictionary[k]] = v
 	}
 
 	for k, v := range attrs.Int64Attributes {
+		if log != nil {
+			log.WriteString(fmt.Sprintf("  updating int64 attribute %s from '%v' to '%v'\n", dictionary[k], rb.int64s[dictionary[k]], v))
+		}
 		rb.int64s[dictionary[k]] = v
 	}
 
 	for k, v := range attrs.DoubleAttributes {
+		if log != nil {
+			log.WriteString(fmt.Sprintf("  updating double attribute %s from '%v' to '%v'\n", dictionary[k], rb.float64s[dictionary[k]], v))
+		}
 		rb.float64s[dictionary[k]] = v
 	}
 
 	for k, v := range attrs.BoolAttributes {
+		if log != nil {
+			log.WriteString(fmt.Sprintf("  updating bool attribute %s from '%v' to '%v'\n", dictionary[k], rb.bools[dictionary[k]], v))
+		}
 		rb.bools[dictionary[k]] = v
 	}
 
 	for k, v := range attrs.TimestampAttributes {
+		if log != nil {
+			log.WriteString(fmt.Sprintf("  updating time attribute %s from '%v' to '%v'\n", dictionary[k], rb.times[dictionary[k]], v))
+		}
 		rb.times[dictionary[k]], _ = ptypes.TimestampFromProto(v)
 	}
 
 	for k, v := range attrs.DurationAttributes {
+		if log != nil {
+			log.WriteString(fmt.Sprintf("  updating duration attribute %s from '%v' to '%v'\n", dictionary[k], rb.durations[dictionary[k]], v))
+		}
 		rb.durations[dictionary[k]], _ = ptypes.DurationFromProto(v)
 	}
 
 	for k, v := range attrs.BytesAttributes {
+		if log != nil {
+			log.WriteString(fmt.Sprintf("  updating bytes attribute %s from '%v' to '%v'\n", dictionary[k], rb.bytes[dictionary[k]], v))
+		}
 		rb.bytes[dictionary[k]] = v
 	}
 
 	for k, v := range attrs.StringMapAttributes {
 		m := make(map[string]string)
-		rb.stringMaps[dictionary[k]] = m
 		if v != nil {
 			for k2, v2 := range v.Map {
 				m[dictionary[k2]] = v2
 			}
 		}
+
+		if log != nil {
+			log.WriteString(fmt.Sprintf("  updating stringmap attribute %s from\n", dictionary[k]))
+
+			old := rb.stringMaps[dictionary[k]]
+			if len(old) > 0 {
+				for k2, v2 := range old {
+					log.WriteString(fmt.Sprintf("    %s:%s\n", k2, v2))
+				}
+			} else {
+				log.WriteString("    <empty>\n")
+			}
+
+			log.WriteString("  to\n")
+
+			if len(m) > 0 {
+				for k2, v2 := range m {
+					log.WriteString(fmt.Sprintf("    %s:%s\n", k2, v2))
+				}
+			} else {
+				log.WriteString("    <empty>\n")
+			}
+		}
+		rb.stringMaps[dictionary[k]] = m
 	}
 
 	// delete requested attributes
 	for _, d := range attrs.DeletedAttributes {
 		if name, present := dictionary[d]; present {
+			if log != nil {
+				log.WriteString(fmt.Sprintf("  attempting to delete attribute %s\n", name))
+			}
+
 			delete(rb.strings, name)
 			delete(rb.int64s, name)
 			delete(rb.float64s, name)
@@ -358,6 +420,12 @@ func (rb *rootBag) update(dictionary dictionary, attrs *mixerpb.Attributes) erro
 			delete(rb.durations, name)
 			delete(rb.bytes, name)
 			delete(rb.stringMaps, name)
+		}
+	}
+
+	if log != nil {
+		if log.Len() > 0 {
+			glog.Infof("Updatiing attribute bag %d:\n%s", rb.id, log.String())
 		}
 	}
 
