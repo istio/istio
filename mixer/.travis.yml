@@ -3,6 +3,10 @@ dist: trusty
 language: go
 go_import_path: istio.io/mixer
 
+branches:
+  except:
+  - stable
+
 go:
 - 1.7.x
 
