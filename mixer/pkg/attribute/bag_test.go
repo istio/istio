@@ -141,6 +141,7 @@ func TestStringMapEdgeCase(t *testing.T) {
 
 	// full to empty
 	sm1 = &mixerpb.StringMap{Map: map[int32]string{}}
+	attrs.DeletedAttributes = []int32{1}
 	attrs.StringMapAttributes = map[int32]*mixerpb.StringMap{1: sm1}
 	_ = rb.update(d, attrs)
 }

@@ -323,6 +323,24 @@ func (rb *rootBag) update(dictionary dictionary, attrs *mixerpb.Attributes) erro
 		rb.reset()
 	}
 
+	// delete requested attributes
+	for _, d := range attrs.DeletedAttributes {
+		if name, present := dictionary[d]; present {
+			if log != nil {
+				log.WriteString(fmt.Sprintf("  attempting to delete attribute %s\n", name))
+			}
+
+			delete(rb.strings, name)
+			delete(rb.int64s, name)
+			delete(rb.float64s, name)
+			delete(rb.bools, name)
+			delete(rb.times, name)
+			delete(rb.durations, name)
+			delete(rb.bytes, name)
+			delete(rb.stringMaps, name)
+		}
+	}
+
 	// apply all attributes
 	for k, v := range attrs.StringAttributes {
 		if log != nil {
@@ -374,26 +392,14 @@ func (rb *rootBag) update(dictionary dictionary, attrs *mixerpb.Attributes) erro
 	}
 
 	for k, v := range attrs.StringMapAttributes {
-		m := make(map[string]string)
-		if v != nil {
-			for k2, v2 := range v.Map {
-				m[dictionary[k2]] = v2
-			}
+		m := rb.stringMaps[dictionary[k]]
+		if m == nil {
+			m = make(map[string]string)
+			rb.stringMaps[dictionary[k]] = m
 		}
 
 		if log != nil {
 			log.WriteString(fmt.Sprintf("  updating stringmap attribute %s from\n", dictionary[k]))
-
-			old := rb.stringMaps[dictionary[k]]
-			if len(old) > 0 {
-				for k2, v2 := range old {
-					log.WriteString(fmt.Sprintf("    %s:%s\n", k2, v2))
-				}
-			} else {
-				log.WriteString("    <empty>\n")
-			}
-
-			log.WriteString("  to\n")
 
 			if len(m) > 0 {
 				for k2, v2 := range m {
@@ -402,25 +408,24 @@ func (rb *rootBag) update(dictionary dictionary, attrs *mixerpb.Attributes) erro
 			} else {
 				log.WriteString("    <empty>\n")
 			}
+
+			log.WriteString("  to\n")
 		}
-		rb.stringMaps[dictionary[k]] = m
-	}
 
-	// delete requested attributes
-	for _, d := range attrs.DeletedAttributes {
-		if name, present := dictionary[d]; present {
-			if log != nil {
-				log.WriteString(fmt.Sprintf("  attempting to delete attribute %s\n", name))
+		if v != nil {
+			for k2, v2 := range v.Map {
+				m[dictionary[k2]] = v2
 			}
+		}
 
-			delete(rb.strings, name)
-			delete(rb.int64s, name)
-			delete(rb.float64s, name)
-			delete(rb.bools, name)
-			delete(rb.times, name)
-			delete(rb.durations, name)
-			delete(rb.bytes, name)
-			delete(rb.stringMaps, name)
+		if log != nil {
+			if len(m) > 0 {
+				for k2, v2 := range m {
+					log.WriteString(fmt.Sprintf("    %s:%s\n", k2, v2))
+				}
+			} else {
+				log.WriteString("    <empty>\n")
+			}
 		}
 	}
 
