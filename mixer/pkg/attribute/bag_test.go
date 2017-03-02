@@ -16,6 +16,7 @@ package attribute
 
 import (
 	"context"
+	"flag"
 	"reflect"
 	"strconv"
 	"testing"
@@ -124,6 +125,24 @@ func TestBag(t *testing.T) {
 	if !found || r != "42" {
 		t.Error("N2 has wrong value")
 	}
+}
+
+func TestStringMapEdgeCase(t *testing.T) {
+	// ensure coverage for some obscure logging paths
+
+	d := dictionary{1: "N1", 2: "N2"}
+	rb := getRootBag()
+	attrs := &mixerpb.Attributes{}
+
+	// empty to full
+	sm1 := &mixerpb.StringMap{Map: map[int32]string{2: "Two"}}
+	attrs.StringMapAttributes = map[int32]*mixerpb.StringMap{1: sm1}
+	_ = rb.update(d, attrs)
+
+	// full to empty
+	sm1 = &mixerpb.StringMap{Map: map[int32]string{}}
+	attrs.StringMapAttributes = map[int32]*mixerpb.StringMap{1: sm1}
+	_ = rb.update(d, attrs)
 }
 
 func TestContext(t *testing.T) {
@@ -585,4 +604,8 @@ func contains(keys []string, key string) bool {
 		}
 	}
 	return false
+}
+func init() {
+	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
+	_ = flag.Lookup("v").Value.Set("99")
 }
