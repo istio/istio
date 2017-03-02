@@ -9,7 +9,9 @@ Istio Manager services model introduces the concept of a service version, a fine
 
 ## Configuration model
 
-The overview of the configuration flow in Istio Manager is [here](configuration-flow.md).
+The overview of the configuration flow in Istio Manager is
+[here](configuration-flow.md). The schema for specifying routing rules can
+be found [here](https://github.com/istio/api/blob/master/proxy/v1/config/cfg.md).
 Istio configuration is backed by a distributed key-value store. Istio Manager components subscribe to change events in the configuration store to enforce live configuration updates.
 
 ## Proxy controller

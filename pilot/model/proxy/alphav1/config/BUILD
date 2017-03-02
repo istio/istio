@@ -11,8 +11,8 @@ go_library(
     ],
 )
 
-filegroup(
-    name = "go_default_library_protos",
-    srcs = ["cfg.proto"],
-    visibility = ["//visibility:public"],
-)
+#filegroup(
+#    name = "go_default_library_protos",
+#    srcs = ["cfg.proto"],
+#    visibility = ["//visibility:public"],
+#)
