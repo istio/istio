@@ -1,8 +1,8 @@
 {
   "__inputs": [
     {
-      "name": "DS_HTTP://PROMETHEUS:9090",
-      "label": "http://prometheus:9090",
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
       "description": "",
       "type": "datasource",
       "pluginId": "prometheus",
@@ -47,7 +47,7 @@
         {
           "aliasColors": {},
           "bars": false,
-          "datasource": "${DS_HTTP://PROMETHEUS:9090}",
+          "datasource": "${DS_PROMETHEUS}",
           "fill": 0,
           "id": 1,
           "legend": {
@@ -55,7 +55,7 @@
             "current": false,
             "max": false,
             "min": false,
-            "show": false,
+            "show": true,
             "total": false,
             "values": false
           },
@@ -73,9 +73,9 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(request_count{response_code=\"200\",source=~\"$source\",target=~\"$target\",service=~\"$service\"}[5m])",
+              "expr": "rate(request_count{response_code=\"200\",source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])",
               "intervalFactor": 2,
-              "legendFormat": "",
+              "legendFormat": "{{ source }} -> {{ target }}",
               "refId": "A",
               "step": 2
             }
@@ -83,7 +83,7 @@
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Requests (5m)",
+          "title": "Requests (30s)",
           "tooltip": {
             "shared": false,
             "sort": 0,
@@ -132,7 +132,7 @@
         {
           "aliasColors": {},
           "bars": false,
-          "datasource": "${DS_HTTP://PROMETHEUS:9090}",
+          "datasource": "${DS_PROMETHEUS}",
           "fill": 0,
           "id": 2,
           "legend": {
@@ -158,7 +158,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(request_count{response_code!=\"200\",source=~\"$source\",target=~\"$target\",service=~\"$service\"}[5m])",
+              "expr": "rate(request_count{response_code!=\"200\",source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])",
               "intervalFactor": 2,
               "legendFormat": "{{source}} -> {{target}} : {{response_code}}",
               "refId": "A",
@@ -168,7 +168,7 @@
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Errors (5m)",
+          "title": "Errors (30s)",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -215,7 +215,7 @@
         {
           "aliasColors": {},
           "bars": false,
-          "datasource": "${DS_HTTP://PROMETHEUS:9090}",
+          "datasource": "${DS_PROMETHEUS}",
           "fill": 1,
           "id": 3,
           "legend": {
@@ -241,7 +241,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(request_latency[5m])",
+              "expr": "rate(request_latency{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])",
               "hide": true,
               "intervalFactor": 2,
               "refId": "A",
@@ -251,7 +251,7 @@
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Average Request Latency (5m)",
+          "title": "Average Request Latency (30s)",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -300,7 +300,7 @@
       {
         "allValue": null,
         "current": {},
-        "datasource": "${DS_HTTP://PROMETHEUS:9090}",
+        "datasource": "${DS_PROMETHEUS}",
         "hide": 0,
         "includeAll": true,
         "label": "Source",
@@ -320,7 +320,7 @@
       {
         "allValue": null,
         "current": {},
-        "datasource": "${DS_HTTP://PROMETHEUS:9090}",
+        "datasource": "${DS_PROMETHEUS}",
         "hide": 0,
         "includeAll": true,
         "label": "Target",
@@ -340,7 +340,7 @@
       {
         "allValue": null,
         "current": {},
-        "datasource": "${DS_HTTP://PROMETHEUS:9090}",
+        "datasource": "${DS_PROMETHEUS}",
         "hide": 0,
         "includeAll": true,
         "label": "Service",
@@ -360,7 +360,7 @@
     ]
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-15m",
     "to": "now"
   },
   "timepicker": {
@@ -390,5 +390,5 @@
   },
   "timezone": "browser",
   "title": "Istio Dashboard",
-  "version": 5
+  "version": 2
 }
