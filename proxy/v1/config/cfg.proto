@@ -13,11 +13,11 @@
 //   limitations under the License.
 
 /// Glossary & concepts
-
+///
 /// Service is a unit of an application with a unique name that other services
 /// use to refer to the functionality being called. Service instances are
 /// pods/VMs/containers that implement the service.
-
+///
 /// Service versions - In a continuous deployment scenario, for a given service,
 /// there can be multiple sets of instances running potentially different
 /// variants of the application binary. These variants are not necessarily
@@ -27,20 +27,20 @@
 /// choice of a particular version can be decided based on various criterion
 /// (headers, url, etc.) and/or by weights assigned to each version.  Each
 /// service has a default version consisting of all its instances.
-
+///
 /// Source - downstream client (browser or another service) calling the
 /// proxy/sidecar (typically to reach another service).
-
+///
 /// Destination - The remote upstream service to which the proxy/sidecar is
 /// talking to, on behalf of the source service. There can be one or more
 /// service versions for a given service (see the discussion on versions above).
 /// The proxy would choose the version based on various routing rules.
-
+///
 /// Applications address only the destination service without knowledge of
 /// individual service versions. The actual choice of the version is determined
 /// by the proxy, enabling the application code to decouple itself from the
 /// evolution of dependent services.
-
+///
 /// Most fields in this configuration are optional and fallback to sensible
 /// defaults. Mandatory fields contain the word REQUIRED in the
 /// description.
@@ -53,11 +53,11 @@ import "google/protobuf/wrappers.proto";
 package istio.proxy.v1alpha.config;
 option go_package = "config";
 
-// Proxy level global configurations go here
+///@exclude Proxy level global configurations go here
 message ProxyMeshConfig {
 }
 
-/// Destination declares policies that determine how to handle traffic for a
+/// DestinationPolicy declares policies that determine how to handle traffic for a
 /// destination service (load balancing policies, failure recovery policies such
 /// as timeouts, retries, circuit breakers, etc).  Policies are applicable per
 /// individual service versions. ONLY ONE policy can be defined per service version.
@@ -65,7 +65,7 @@ message ProxyMeshConfig {
 /// Note that these policies are enforced on client-side connections or
 /// requests, i.e., enforced when the service is opening a
 /// connection/sending a request via the proxy to the destination.
-message Destination {
+message DestinationPolicy {
   /// REQUIRED. Service name for which the service version is defined. The
   /// value MUST be a fully-qualified domain name,
   /// e.g. "my-service.default.svc.cluster.local".
@@ -84,10 +84,10 @@ message Destination {
   /// Circuit breaker policy
   CircuitBreaker circuit_breaker = 4;
 
-  /// L7 fault injection policy applies to Http traffic
+  ///L7 fault injection policy applies to Http traffic
   HTTPFaultInjection http_fault = 5;
 
-  // L4 fault injection policy applies to Tcp/Udp (not Http) traffic
+  ///@exclude L4 fault injection policy applies to Tcp/Udp (not Http) traffic
   L4FaultInjection l4_fault = 6;
 
   /// Other custom policy implementations
@@ -362,59 +362,59 @@ message HTTPFaultInjection {
   }
 }
 
-// Faults can be injected into the connections from downstream by the
-// proxy, for testing the failure recovery capabilities of downstream
-// services.  Faults include aborting the connection from downstream
-// service, delaying the proxying of connection to the destination
-// service, and throttling the bandwidth of the connection (either
-// end). Bandwidth throttling for failure testing should not be confused
-// with the rate limiting policy enforcement provided by the Mixer
-// component. L4 fault injection is not supported at the moment.
+///@exclude Faults can be injected into the connections from downstream by the
+/// proxy, for testing the failure recovery capabilities of downstream
+/// services.  Faults include aborting the connection from downstream
+/// service, delaying the proxying of connection to the destination
+/// service, and throttling the bandwidth of the connection (either
+/// end). Bandwidth throttling for failure testing should not be confused
+/// with the rate limiting policy enforcement provided by the Mixer
+/// component. L4 fault injection is not supported at the moment.
 message L4FaultInjection {
-  // Unlike Http services, we have very little context for raw Tcp|Udp
-  // connections. We could throttle bandwidth of the connections (slow down
-  // the connection) and/or abruptly reset (terminate) the Tcp connection
-  // after it has been established.
+  /// Unlike Http services, we have very little context for raw Tcp|Udp
+  /// connections. We could throttle bandwidth of the connections (slow down
+  /// the connection) and/or abruptly reset (terminate) the Tcp connection
+  /// after it has been established.
 
-  // We first throttle (if set) and then terminate the connection.
+  /// We first throttle (if set) and then terminate the connection.
   Throttle throttle = 1;
   Terminate terminate = 2;
 
-  // Bandwidth throttling for Tcp and Udp connections
+  /// Bandwidth throttling for Tcp and Udp connections
   message Throttle {
-    // percentage of connections to throttle.
+    /// percentage of connections to throttle.
     float percent = 1;
-    // bandwidth limit in "bits" per second between downstream and proxy
+    /// bandwidth limit in "bits" per second between downstream and proxy
     int64 downstream_limit_bps = 2;
-    // bandwidth limits in "bits" per second between proxy and upstream
+    /// bandwidth limits in "bits" per second between proxy and upstream
     int64 upstream_limit_bps = 3;
 
     oneof throttle_after {
-      // Wait for X seconds after the connection is established, before
-      // starting bandwidth throttling. This would allow us to inject fault
-      // after the application protocol (e.g., MySQL) has had time to
-      // establish sessions/whatever handshake necessary.
+      /// Wait for X seconds after the connection is established, before
+      /// starting bandwidth throttling. This would allow us to inject fault
+      /// after the application protocol (e.g., MySQL) has had time to
+      /// establish sessions/whatever handshake necessary.
       double throttle_after_seconds = 4;
 
-      // Alternatively, we could wait for a certain number of bytes to be
-      // transferred to upstream before throttling the bandwidth.
+      /// Alternatively, we could wait for a certain number of bytes to be
+      /// transferred to upstream before throttling the bandwidth.
       double throttle_after_bytes = 5;
     }
 
-    // Stop throttling after the given duration. If not set, the connection
-    // will be throttled for its lifetime.
+    /// Stop throttling after the given duration. If not set, the connection
+    /// will be throttled for its lifetime.
     google.protobuf.DoubleValue throttle_for_seconds = 6;
   }
 
-  // Abruptly reset (terminate) the Tcp connection after it has been
-  // established, emulating remote server crash or link failure.
+  /// Abruptly reset (terminate) the Tcp connection after it has been
+  /// established, emulating remote server crash or link failure.
   message Terminate {
-    // percentage of established Tcp connections to be terminated/reset
+    /// percentage of established Tcp connections to be terminated/reset
     float percent = 1;
 
-    // Wait for X seconds after the connection is established, before
-    // terminating the connection. Set to 0 to terminate immediately on
-    // connection establishment.
+    /// Wait for X seconds after the connection is established, before
+    /// terminating the connection. Set to 0 to terminate immediately on
+    /// connection establishment.
 
     // TODO: see if it makes sense to create a generic Duration type to
     // express time interval related configs.
