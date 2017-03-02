@@ -116,10 +116,10 @@ const (
 	// IngressRuleProto message name
 	IngressRuleProto = RouteRuleProto
 
-	// Destination defines the kind for the destination policy configuration
-	Destination = "destination"
-	// DestinationProto message name
-	DestinationProto = "istio.proxy.v1alpha.config.Destination"
+	// DestinationPolicy defines the kind for the destination policy configuration
+	DestinationPolicy = "destination-policy"
+	// DestinationPolicyProto message name
+	DestinationPolicyProto = "istio.proxy.v1alpha.config.DestinationPolicy"
 )
 
 var (
@@ -134,9 +134,9 @@ var (
 			Validate:    ValidateIngressRule,
 			Internal:    true,
 		},
-		Destination: ProtoSchema{
-			MessageName: DestinationProto,
-			Validate:    ValidateDestination,
+		DestinationPolicy: ProtoSchema{
+			MessageName: DestinationPolicyProto,
+			Validate:    ValidateDestinationPolicy,
 		},
 	}
 )
@@ -202,15 +202,15 @@ func (i *IstioRegistry) IngressRules(namespace string) []*proxyconfig.RouteRule 
 	return out
 }
 
-// Destinations lists all destination policies in a namespace (or all if namespace is "")
-func (i *IstioRegistry) Destinations(namespace string) []*proxyconfig.Destination {
-	out := make([]*proxyconfig.Destination, 0)
-	rs, err := i.List(Destination, namespace)
+// PoliciesByNamespace lists all destination policies in a namespace (or all if namespace is "")
+func (i *IstioRegistry) PoliciesByNamespace(namespace string) []*proxyconfig.DestinationPolicy {
+	out := make([]*proxyconfig.DestinationPolicy, 0)
+	rs, err := i.List(DestinationPolicy, namespace)
 	if err != nil {
-		glog.V(2).Infof("Destinations => %v", err)
+		glog.V(2).Infof("DestinationPolicies => %v", err)
 	}
 	for _, r := range rs {
-		if rule, ok := r.(*proxyconfig.Destination); ok {
+		if rule, ok := r.(*proxyconfig.DestinationPolicy); ok {
 			out = append(out, rule)
 		}
 	}
@@ -219,9 +219,9 @@ func (i *IstioRegistry) Destinations(namespace string) []*proxyconfig.Destinatio
 
 // DestinationPolicies lists all policies for a service version.
 // Policies are not inherited by tags inclusion. The policy tags must match the tags precisely.
-func (i *IstioRegistry) DestinationPolicies(destination string, tags Tags) []*proxyconfig.Destination {
-	out := make([]*proxyconfig.Destination, 0)
-	for _, value := range i.Destinations("") {
+func (i *IstioRegistry) DestinationPolicies(destination string, tags Tags) []*proxyconfig.DestinationPolicy {
+	out := make([]*proxyconfig.DestinationPolicy, 0)
+	for _, value := range i.PoliciesByNamespace("") {
 		if value.Destination == destination && tags.Equals(value.Tags) {
 			out = append(out, value)
 		}

@@ -222,14 +222,14 @@ func ValidateIngressRule(msg proto.Message) error {
 	return ValidateRouteRule(msg)
 }
 
-// ValidateDestination checks proxy policies
-func ValidateDestination(msg proto.Message) error {
-	value, ok := msg.(*proxyconfig.Destination)
+// ValidateDestinationPolicy checks proxy policies
+func ValidateDestinationPolicy(msg proto.Message) error {
+	value, ok := msg.(*proxyconfig.DestinationPolicy)
 	if !ok {
 		return fmt.Errorf("Cannot cast to destination policy")
 	}
 	if value.GetDestination() == "" {
-		return fmt.Errorf("Destination should have a valid service name in its destination field")
+		return fmt.Errorf("DestinationPolicy should have a valid service name in its destination field")
 	}
 	return nil
 }

@@ -289,9 +289,9 @@ func TestProxyConfig(t *testing.T) {
 		t.Errorf("RouteRules() => %v, want %v", rules, rule)
 	}
 
-	destinations := registry.Destinations(ns)
+	destinations := registry.PoliciesByNamespace(ns)
 	if len(destinations) > 0 {
-		t.Errorf("Destinations() => %v, want empty", destinations)
+		t.Errorf("DestinationPolicies() => %v, want empty", destinations)
 	}
 }
 

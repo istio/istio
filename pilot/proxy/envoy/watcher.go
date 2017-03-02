@@ -82,7 +82,7 @@ func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 		return nil, err
 	}
 
-	if err := ctl.AppendConfigHandler(model.Destination, handler); err != nil {
+	if err := ctl.AppendConfigHandler(model.DestinationPolicy, handler); err != nil {
 		return nil, err
 	}
 
