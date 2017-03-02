@@ -15,7 +15,6 @@
 package adapterManager
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/gob"
@@ -29,6 +28,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/pool"
 )
 
 // Manager manages all aspects - provides uniform interface to
@@ -70,9 +70,9 @@ func newCacheKey(kind aspect.Kind, cfg *config.Combined) (*cacheKey, error) {
 	}
 
 	//TODO pre-compute shas and store with params
-	var b bytes.Buffer
+	b := pool.GetBuffer()
 	// use gob encoding so that we don't rely on proto marshal
-	enc := gob.NewEncoder(&b)
+	enc := gob.NewEncoder(b)
 
 	if cfg.Builder.GetParams() != nil {
 		if err := enc.Encode(cfg.Builder.GetParams()); err != nil {
@@ -88,6 +88,7 @@ func newCacheKey(kind aspect.Kind, cfg *config.Combined) (*cacheKey, error) {
 
 		ret.aspectParamsSHA = sha1.Sum(b.Bytes())
 	}
+	pool.PutBuffer(b)
 
 	return &ret, nil
 }

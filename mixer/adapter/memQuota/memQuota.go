@@ -27,7 +27,6 @@
 package memQuota
 
 import (
-	"bytes"
 	"fmt"
 	"sort"
 	"strconv"
@@ -38,6 +37,7 @@ import (
 
 	"istio.io/mixer/adapter/memQuota/config"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/pool"
 )
 
 type builder struct{ adapter.DefaultBuilder }
@@ -66,8 +66,7 @@ type memQuota struct {
 
 // we maintain a pool of these for use by the makeKey function
 type keyWorkspace struct {
-	keys   []string
-	buffer bytes.Buffer
+	keys []string
 }
 
 // pool of reusable keyWorkspace structs
@@ -293,7 +292,7 @@ func (mq *memQuota) reapDedup() {
 func makeKey(name string, labels map[string]interface{}) string {
 	ws := keyWorkspacePool.Get().(*keyWorkspace)
 	keys := ws.keys
-	buffer := ws.buffer
+	buf := pool.GetBuffer()
 
 	// ensure stable order
 	for k := range labels {
@@ -301,26 +300,26 @@ func makeKey(name string, labels map[string]interface{}) string {
 	}
 	sort.Strings(keys)
 
-	buffer.WriteString(name)
+	buf.WriteString(name)
 	for _, k := range keys {
-		buffer.WriteString(";")
-		buffer.WriteString(k)
-		buffer.WriteString("=")
+		buf.WriteString(";")
+		buf.WriteString(k)
+		buf.WriteString("=")
 
 		switch v := labels[k].(type) {
 		case string:
-			buffer.WriteString(v)
+			buf.WriteString(v)
 		case int64:
 			var bytes [32]byte
-			buffer.Write(strconv.AppendInt(bytes[:], v, 16))
+			buf.Write(strconv.AppendInt(bytes[:], v, 16))
 		case float64:
 			var bytes [32]byte
-			buffer.Write(strconv.AppendFloat(bytes[:], v, 'b', -1, 64))
+			buf.Write(strconv.AppendFloat(bytes[:], v, 'b', -1, 64))
 		case bool:
 			var bytes [32]byte
-			buffer.Write(strconv.AppendBool(bytes[:], v))
+			buf.Write(strconv.AppendBool(bytes[:], v))
 		case []byte:
-			buffer.Write(v)
+			buf.Write(v)
 		case map[string]string:
 			ws := keyWorkspacePool.Get().(*keyWorkspace)
 			mk := ws.keys
@@ -332,22 +331,21 @@ func makeKey(name string, labels map[string]interface{}) string {
 			sort.Strings(mk)
 
 			for _, k2 := range mk {
-				buffer.WriteString(k2)
-				buffer.WriteString(v[k2])
+				buf.WriteString(k2)
+				buf.WriteString(v[k2])
 			}
 
 			ws.keys = keys[:0]
 			keyWorkspacePool.Put(ws)
 		default:
-			buffer.WriteString(v.(fmt.Stringer).String())
+			buf.WriteString(v.(fmt.Stringer).String())
 		}
 	}
 
-	result := buffer.String()
-	buffer.Reset()
+	result := buf.String()
 
+	pool.PutBuffer(buf)
 	ws.keys = keys[:0]
-	ws.buffer = buffer
 	keyWorkspacePool.Put(ws)
 
 	return result

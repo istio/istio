@@ -26,6 +26,7 @@ import (
 	me "github.com/hashicorp/go-multierror"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/pool"
 )
 
 // The rootBag is always the base of a chain of bags. Its state is updated
@@ -312,7 +313,7 @@ func (rb *rootBag) update(dictionary dictionary, attrs *mixerpb.Attributes) erro
 
 	var log *bytes.Buffer
 	if glog.V(2) {
-		log = &bytes.Buffer{}
+		log = pool.GetBuffer()
 	}
 
 	if attrs.ResetContext {
