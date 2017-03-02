@@ -431,8 +431,8 @@ cc_library(
 
     native.new_http_archive(
         name = "nghttp2_tar",
-        url = "https://github.com/nghttp2/nghttp2/releases/download/v1.14.1/nghttp2-1.14.1.tar.gz",
-        strip_prefix = "nghttp2-1.14.1",
+        url = "https://github.com/nghttp2/nghttp2/releases/download/v1.20.0/nghttp2-1.20.0.tar.gz",
+        strip_prefix = "nghttp2-1.20.0",
         build_file_content = BUILD,
     )
 
@@ -752,6 +752,6 @@ cc_test(
     native.new_git_repository(
         name = "envoy_git",
         remote = "https://github.com/lyft/envoy.git",
-        commit = "abef64f738d269f6c7f8265233d3ea377eef9596", # 2/16/2017
+        commit = "70e5d651b55d356770529e5bee9c6b2707d9cf21", # 3/1/2017
         build_file_content = BUILD,
     )
