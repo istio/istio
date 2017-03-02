@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package intern
+package pool
 
 import (
 	"testing"
 )
 
 func TestIntern(t *testing.T) {
-	p := NewPool(4)
-
 	strings := []string{
 		"a",
 		"b",
@@ -36,8 +34,16 @@ func TestIntern(t *testing.T) {
 	// verifying that interning has taken place. That's too hard to
 	// do in Go...
 
+	p := newStringPool(4)
 	for _, s := range strings {
 		r := p.Intern(s)
+		if r != s {
+			t.Errorf("Got mismatch %v != %v", r, s)
+		}
+	}
+
+	for _, s := range strings {
+		r := Intern(s)
 		if r != s {
 			t.Errorf("Got mismatch %v != %v", r, s)
 		}

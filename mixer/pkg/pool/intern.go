@@ -12,16 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package intern exposes a general purpose string interning model to reduce memory
-// consumption and improve processor cache efficiency.
-package intern
+package pool
 
 import (
 	"sync"
 )
 
-// Pool is container of interned strings.
-type Pool struct {
+// stringPool is a container of interned strings.
+type stringPool struct {
 	sync.RWMutex
 	strings     map[string]string
 	currentSize int
@@ -29,11 +27,22 @@ type Pool struct {
 }
 
 const (
-	// just a guess of course...
+	// TODO: just a guess, tune with real-world use
 	averageStringLength = 10
+
+	// TODO: just a guess, tune with real-world use
+	maxSize = 16384
 )
 
-// NewPool allocates a new interning pool ready for use.
+var globalStringPool = newStringPool(maxSize)
+
+// Intern returns a sharable version of the string, allowing the
+// parameter's storage to be garbage collected.
+func Intern(s string) string {
+	return globalStringPool.Intern(s)
+}
+
+// newStringPool allocates a new interning pool ready for use.
 //
 // Go doesn't currently have sophisticated GC primitives, such as weak pointers.
 // As a result, a simple string interning solution can easily become subject to
@@ -41,18 +50,18 @@ const (
 // an eventual OOM condition. Can easily be leveraged to DDoS a server for example.
 //
 // The code here uses a simple approach to work around this problem. If the table
-// holding the interned strings ever holds more than than maxSize's worth of strings,
+// holding the interned strings ever holds more than maxSize's worth of strings,
 // the table is completely dropped on the floor and a new table is allocated. This
 // allows any stale strings pointed to by the old table to be reclaimed by the GC.
 // This effectively puts a cap on the memory held by any single pool. The cost of
 // this approach of course is that interning will be less efficient.
-func NewPool(maxSize int) *Pool {
-	return &Pool{strings: make(map[string]string, maxSize/averageStringLength), maxSize: maxSize}
+func newStringPool(maxSize int) *stringPool {
+	return &stringPool{strings: make(map[string]string, maxSize/averageStringLength), maxSize: maxSize}
 }
 
 // Intern returns a sharable version of the string, allowing the
 // parameter's storage to be garbage collected.
-func (p *Pool) Intern(s string) string {
+func (p *stringPool) Intern(s string) string {
 	// quick try if its already in the table
 	p.RLock()
 	result, found := p.strings[s]

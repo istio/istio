@@ -15,7 +15,6 @@
 package expr
 
 import (
-	"bytes"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -28,6 +27,7 @@ import (
 
 	config "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/pool"
 )
 
 // This private variable is an extract from go/token
@@ -185,7 +185,7 @@ type Function struct {
 }
 
 func (f *Function) String() string {
-	var w bytes.Buffer
+	w := pool.GetBuffer()
 	w.WriteString(f.Name + "(")
 	for idx, arg := range f.Args {
 		if idx != 0 {
@@ -194,7 +194,9 @@ func (f *Function) String() string {
 		w.WriteString(arg.String())
 	}
 	w.WriteString(")")
-	return w.String()
+	s := w.String()
+	pool.PutBuffer(w)
+	return s
 }
 
 // Eval evaluate function.
@@ -317,12 +319,13 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 		if err = processSelectorExpr(v, &w); err != nil {
 			return
 		}
-		var ww bytes.Buffer
+		ww := pool.GetBuffer()
 		ww.WriteString(w[len(w)-1])
 		for idx := len(w) - 2; idx >= 0; idx-- {
 			ww.WriteString("." + w[idx])
 		}
 		tgt.Var = &Variable{Name: ww.String()}
+		pool.PutBuffer(ww)
 	case *ast.IndexExpr:
 		// accessing a map
 		// request.header["abc"]

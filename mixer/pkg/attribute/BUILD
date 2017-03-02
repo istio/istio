@@ -13,6 +13,7 @@ go_library(
         "tracker.go",
     ],
     deps = [
+        "//pkg/pool:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",

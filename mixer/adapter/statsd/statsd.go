@@ -15,10 +15,8 @@
 package statsd
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
-	"sync"
 	"text/template"
 	"time"
 
@@ -28,6 +26,7 @@ import (
 
 	"istio.io/mixer/adapter/statsd/config"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/pool"
 )
 
 const (
@@ -58,12 +57,6 @@ var (
 		MetricNameTemplateStrings: make(map[string]string),
 	}
 )
-
-var bufferPool = sync.Pool{
-	New: func() interface{} {
-		return new(bytes.Buffer)
-	},
-}
 
 // Register records the builders exposed by this adapter.
 func Register(r adapter.Registrar) {
@@ -143,7 +136,7 @@ func (a *aspect) Record(values []adapter.Value) error {
 func (a *aspect) record(value adapter.Value) error {
 	mname := value.Definition.Name
 	if t, found := a.templates[mname]; found {
-		buf := bufferPool.Get().(*bytes.Buffer)
+		buf := pool.GetBuffer()
 
 		// We don't check the error here because Execute should only fail when the template is invalid; since
 		// we check that the templates are parsable in ValidateConfig and further check that they can be executed
@@ -152,7 +145,7 @@ func (a *aspect) record(value adapter.Value) error {
 		mname = buf.String()
 
 		buf.Reset()
-		bufferPool.Put(buf)
+		pool.PutBuffer(buf)
 	}
 
 	var result error

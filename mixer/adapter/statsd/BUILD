@@ -10,6 +10,7 @@ go_library(
     deps = [
         "//adapter/statsd/config:go_default_library",
         "//pkg/adapter:go_default_library",
+        "//pkg/pool:go_default_library",
         "@com_github_cactus_statsd_client//statsd:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
