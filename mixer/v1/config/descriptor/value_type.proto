@@ -38,16 +38,16 @@ enum ValueType {
     // A point in time.
     TIMESTAMP = 5;
 
-    // An IP address, encoded as bytes.
+    // An IP address.
     IP_ADDRESS = 6;
 
-    // An email address, encoded as a string.
+    // An email address.
     EMAIL_ADDRESS = 7;
 
-    // A URI, encoded as a string.
+    // A URI.
     URI = 8;
 
-    // A DNS name, encoded as a string.
+    // A DNS name.
     DNS_NAME = 9;
 
     // A span between two points in time.

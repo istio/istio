@@ -42,9 +42,9 @@ import "google/protobuf/timestamp.proto";
 //   * If reset_context is true, then the attribute context is reset to the
 //     empty state.
 //
-//   * All attribute changes are applied to the attribute context.
+//   * All attributes to deleted are removed from the attribute context.
 //
-//   * All deleted attributes are removed from the attribute context.
+//   * All attribute changes are applied to the attribute context.
 //
 message Attributes {
   // A dictionary that provides a mapping of shorthand index values to

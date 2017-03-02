@@ -67,9 +67,9 @@ message AttributeDescriptor {
   //
   // Where `IDENT` must match the regular expression `[a-z][a-z0-9]+`.
   //
-  // Attribute descriptor names must be unique within a single Istio deployment. There is a well
+  // Attribute descriptor names must be unique within a single Istio deployment. There is a well-
   // known set of attributes which have succinct names. Attributes not on this list should be
-  // name with a component-specific suffix such as request_count-my_component
+  // named with a component-specific suffix such as request.count-my.component
   string name = 1;
 
   // An optional human-readable description of the attribute's purpose.
