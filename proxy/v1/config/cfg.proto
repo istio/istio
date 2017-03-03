@@ -264,25 +264,28 @@ message HTTPRetry {
 message CircuitBreaker {
   message SimpleCircuitBreakerPolicy {
     /// Maximum number of connections to a backend.
-    int32 max_connections = 4;
+    int32 max_connections = 1;
 
     /// Maximum number of pending requests to a backend.
-    int32 http_max_pending_requests = 5;
+    int32 http_max_pending_requests = 2;
 
     /// Maximum number of requests to a backend.
-    int32 http_max_requests = 6;
+    int32 http_max_requests = 3;
 
-    /// Minimum time the circuit will be closed.
-    string sleep_window = 7;
+    /// Minimum time the circuit will be closed. In floating point seconds format.
+    double sleep_window_seconds = 4;
 
     /// Number of 5XX errors before circuit is opened.
-    int32 http_consecutive_errors = 8;
+    int32 http_consecutive_errors = 5;
 
     /// Interval for checking state of hystrix circuit.
-    int32 http_detection_interval = 9;
+    double http_detection_interval_seconds = 6;
 
     /// Maximum number of requests per connection to a backend.
-    int32 http_max_requests_per_connection = 10;
+    int32 http_max_requests_per_connection = 7;
+
+    /// Maximum % of hosts in the destination service that can be ejected due to circuit breaking. Defaults to 10%.
+    int32 http_max_ejection_percent = 8;
   }
   oneof cb_policy {
     SimpleCircuitBreakerPolicy simple_cb = 1;
