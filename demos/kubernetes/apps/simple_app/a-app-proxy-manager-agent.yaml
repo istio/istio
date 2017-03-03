@@ -1,0 +1,87 @@
+# Example service with an injected proxy
+apiVersion: v1
+kind: Service
+metadata:
+  name: a
+  labels:
+    app: a
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  - port: 8080
+    targetPort: 80
+    name: http-alternative
+  selector:
+    app: a
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: a
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: a
+        version: unversioned
+      annotations:
+        pod.beta.kubernetes.io/init-containers: >
+          [{
+            "name": "iptables",
+            "image": "gcr.io/istio-testing/init:demo",
+            "imagePullPolicy": "Always",
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+          }]
+    spec:
+      containers:
+      - name: app
+        image: gcr.io/istio-testing/app:demo
+        imagePullPolicy: Always
+        args:
+          - --port
+          - "8080"
+          - --port
+          - "80"
+          - --version
+          - "unversioned"
+        ports:
+        - containerPort: 8080
+        - containerPort: 80
+      - name: proxy
+        image: gcr.io/istio-testing/runtime:demo
+        imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1337
+        args:
+          - proxy
+          - sidecar
+          - -s
+          - manager:8080
+          - -m
+          - mixer:9091
+          - -n
+          - demo
+          - -v
+          - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+      - name: debug
+        image: docker.io/istio/debug:test
+        imagePullPolicy: Always
+        securityContext:
+            privileged: true
+---
