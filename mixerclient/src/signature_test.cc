@@ -30,62 +30,38 @@ namespace {
 class SignatureUtilTest : public ::testing::Test {
  protected:
   void AddString(const string& key, const string& value) {
-    Attributes::Value string_value;
-    string_value.type = Attributes::Value::STRING;
-    string_value.str_v = value;
-    attributes_.attributes[key] = string_value;
+    attributes_.attributes[key] = Attributes::StringValue(value);
   }
 
   void AddBytes(const string& key, const string& value) {
-    Attributes::Value bytes_value;
-    bytes_value.type = Attributes::Value::BYTES;
-    bytes_value.str_v = value;
-    attributes_.attributes[key] = bytes_value;
+    attributes_.attributes[key] = Attributes::BytesValue(value);
   }
 
   void AddTime(
       const string& key,
       const std::chrono::time_point<std::chrono::system_clock>& value) {
-    Attributes::Value time_value;
-    time_value.type = Attributes::Value::TIME;
-    time_value.time_v = value;
-    attributes_.attributes[key] = time_value;
+    attributes_.attributes[key] = Attributes::TimeValue(value);
   }
 
   void AddDoublePair(const string& key, double value) {
-    Attributes::Value double_value;
-    double_value.type = Attributes::Value::DOUBLE;
-    double_value.value.double_v = value;
-    attributes_.attributes[key] = double_value;
+    attributes_.attributes[key] = Attributes::DoubleValue(value);
   }
 
   void AddInt64Pair(const string& key, int64_t value) {
-    Attributes::Value int64_value;
-    int64_value.type = Attributes::Value::INT64;
-    int64_value.value.int64_v = value;
-    attributes_.attributes[key] = int64_value;
+    attributes_.attributes[key] = Attributes::Int64Value(value);
   }
 
   void AddBoolPair(const string& key, bool value) {
-    Attributes::Value bool_value;
-    bool_value.type = Attributes::Value::BOOL;
-    bool_value.value.bool_v = value;
-    attributes_.attributes[key] = bool_value;
+    attributes_.attributes[key] = Attributes::BoolValue(value);
   }
 
   void AddDuration(const string& key, std::chrono::nanoseconds value) {
-    Attributes::Value a_value;
-    a_value.type = Attributes::Value::DURATION;
-    a_value.duration_nanos_v = value;
-    attributes_.attributes[key] = a_value;
+    attributes_.attributes[key] = Attributes::DurationValue(value);
   }
 
   void AddStringMap(const string& key,
                     std::map<std::string, std::string>&& value) {
-    Attributes::Value a_value;
-    a_value.type = Attributes::Value::STRING_MAP;
-    a_value.string_map_v.swap(value);
-    attributes_.attributes[key] = a_value;
+    attributes_.attributes[key] = Attributes::StringMapValue(std::move(value));
   }
 
   Attributes attributes_;

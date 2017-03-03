@@ -17,6 +17,7 @@
 #define MIXERCLIENT_ATTRIBUTE_CONTEXT_H
 
 #include "include/client.h"
+#include "src/context_update.h"
 
 namespace istio {
 namespace mixer_client {
@@ -33,28 +34,6 @@ class AttributeContext {
   int64_t IncRequestIndex() { return ++request_index_; }
 
  private:
-  // A class to keep track of current request context.
-  class Context {
-   public:
-    // Start a update for a request.
-    void UpdateStart();
-
-    // Check an attribute, return true if the attribute
-    // is in the context with same value, not need to send it.
-    // Otherwise, update the context.
-    bool Update(int index, Attributes::Value value);
-
-    // Finish a update for a request, remove these not in
-    // the current request, and return the deleted set.
-    std::set<int> UpdateFinish();
-
-   private:
-    // The remaining attribute set in a request.
-    std::set<int> curr_set_;
-    // The attribute map in the context.
-    std::map<int, Attributes::Value> map_;
-  };
-
   // Find the index for a name. If not found, create a new one.
   int GetNameIndex(const std::string& name);
 
@@ -68,8 +47,8 @@ class AttributeContext {
   // The request_index for this context.
   int64_t request_index_;
 
-  // The attribute context.
-  Context context_;
+  // The attribute context update object.
+  ContextUpdate context_;
 };
 
 }  // namespace mixer_client

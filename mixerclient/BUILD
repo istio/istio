@@ -27,6 +27,8 @@ cc_library(
         "src/check_cache.h",
         "src/client_impl.cc",
         "src/client_impl.h",
+        "src/context_update.cc",
+        "src/context_update.h",
         "src/grpc_transport.cc",
         "src/grpc_transport.h",
         "src/signature.cc",
@@ -73,6 +75,39 @@ cc_test(
     linkstatic = 1,
     deps = [
         ":simple_lru_cache",
+        "//external:googletest_main",
+    ],
+)
+
+cc_test(
+    name = "attribute_test",
+    size = "small",
+    srcs = ["src/attribute_test.cc"],
+    linkstatic = 1,
+    deps = [
+        ":mixer_client_lib",
+        "//external:googletest_main",
+    ],
+)
+
+cc_test(
+    name = "attribute_context_test",
+    size = "small",
+    srcs = ["src/attribute_context_test.cc"],
+    linkstatic = 1,
+    deps = [
+        ":mixer_client_lib",
+        "//external:googletest_main",
+    ],
+)
+
+cc_test(
+    name = "context_update_test",
+    size = "small",
+    srcs = ["src/context_update_test.cc"],
+    linkstatic = 1,
+    deps = [
+        ":mixer_client_lib",
         "//external:googletest_main",
     ],
 )

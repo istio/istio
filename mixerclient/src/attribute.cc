@@ -19,7 +19,65 @@
 namespace istio {
 namespace mixer_client {
 
-bool Attributes::Value::operator==(const Attributes::Value &v) const {
+Attributes::Value Attributes::StringValue(const std::string& str) {
+  Attributes::Value v;
+  v.type = Attributes::Value::STRING;
+  v.str_v = str;
+  return v;
+}
+
+Attributes::Value Attributes::BytesValue(const std::string& bytes) {
+  Attributes::Value v;
+  v.type = Attributes::Value::BYTES;
+  v.str_v = bytes;
+  return v;
+}
+
+Attributes::Value Attributes::Int64Value(int64_t value) {
+  Attributes::Value v;
+  v.type = Attributes::Value::INT64;
+  v.value.int64_v = value;
+  return v;
+}
+
+Attributes::Value Attributes::DoubleValue(double value) {
+  Attributes::Value v;
+  v.type = Attributes::Value::DOUBLE;
+  v.value.double_v = value;
+  return v;
+}
+
+Attributes::Value Attributes::BoolValue(bool value) {
+  Attributes::Value v;
+  v.type = Attributes::Value::BOOL;
+  v.value.bool_v = value;
+  return v;
+}
+
+Attributes::Value Attributes::TimeValue(
+    std::chrono::time_point<std::chrono::system_clock> value) {
+  Attributes::Value v;
+  v.type = Attributes::Value::TIME;
+  v.time_v = value;
+  return v;
+}
+
+Attributes::Value Attributes::DurationValue(std::chrono::nanoseconds value) {
+  Attributes::Value v;
+  v.type = Attributes::Value::DURATION;
+  v.duration_nanos_v = value;
+  return v;
+}
+
+Attributes::Value Attributes::StringMapValue(
+    std::map<std::string, std::string>&& string_map) {
+  Attributes::Value v;
+  v.type = Attributes::Value::STRING_MAP;
+  v.string_map_v.swap(string_map);
+  return v;
+}
+
+bool Attributes::Value::operator==(const Attributes::Value& v) const {
   if (type != v.type) {
     return false;
   }
@@ -52,7 +110,7 @@ bool Attributes::Value::operator==(const Attributes::Value &v) const {
 
 std::string Attributes::DebugString() const {
   std::stringstream ss;
-  for (const auto &it : attributes) {
+  for (const auto& it : attributes) {
     ss << it.first << ": ";
     switch (it.second.type) {
       case Attributes::Value::ValueType::STRING:
@@ -81,7 +139,7 @@ std::string Attributes::DebugString() const {
         break;
       case Attributes::Value::ValueType::STRING_MAP:
         ss << "(STRING MAP):";
-        for (const auto &map_it : it.second.string_map_v) {
+        for (const auto& map_it : it.second.string_map_v) {
           ss << std::endl;
           ss << "      " << map_it.first << ": " << map_it.second;
         }

@@ -23,11 +23,6 @@ namespace istio {
 namespace mixer_client {
 namespace {
 
-// TODO: add code to build context to reduce attributes.
-// Only check these attributes to build context.
-std::set<std::string> kContextSet = {"serviceName", "peerId", "location",
-                                     "apiName", "apiVersion"};
-
 // Convert timestamp from time_point to Timestamp
 Timestamp CreateTimestamp(std::chrono::system_clock::time_point tp) {
   Timestamp time_stamp;
@@ -48,30 +43,6 @@ Duration CreateDuration(std::chrono::nanoseconds value) {
 }
 
 }  // namespace
-
-void AttributeContext::Context::UpdateStart() {
-  curr_set_.clear();
-  for (const auto& it : map_) {
-    curr_set_.insert(it.first);
-  }
-}
-
-bool AttributeContext::Context::Update(int index, Attributes::Value value) {
-  auto it = map_.find(index);
-  bool same = (it != map_.end() && it->second == value);
-  if (!same) {
-    map_[index] = value;
-  }
-  curr_set_.erase(index);
-  return same;
-}
-
-std::set<int> AttributeContext::Context::UpdateFinish() {
-  for (const auto it : curr_set_) {
-    map_.erase(it);
-  }
-  return curr_set_;
-}
 
 int AttributeContext::GetNameIndex(const std::string& name) {
   const auto& dict_it = dict_map_.find(name);
@@ -99,11 +70,10 @@ int AttributeContext::GetNameIndex(const std::string& name) {
 
 void AttributeContext::FillProto(const Attributes& attributes,
                                  ::istio::mixer::v1::Attributes* pb) {
-  // TODO build context use kContextSet to reduce attributes.
-
   size_t old_dict_size = dict_map_.size();
 
   context_.UpdateStart();
+  std::set<int> string_map_indexes;
 
   // Fill attributes.
   for (const auto& it : attributes.attributes) {
@@ -144,11 +114,16 @@ void AttributeContext::FillProto(const Attributes& attributes,
       case Attributes::Value::ValueType::STRING_MAP:
         (*pb->mutable_stringmap_attributes())[index] =
             CreateStringMap(it.second.string_map_v);
+        string_map_indexes.insert(index);
         break;
     }
   }
 
   auto deleted_attrs = context_.UpdateFinish();
+  // TODO: support string map update.  Before that,
+  // all string_map fields should be marked as "deleted"
+  // in order to replace the whole map.
+  deleted_attrs.insert(string_map_indexes.begin(), string_map_indexes.end());
   for (const auto& it : deleted_attrs) {
     pb->add_deleted_attributes(it);
   }

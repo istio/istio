@@ -59,10 +59,22 @@ struct Attributes {
     bool operator==(const Value& v) const;
   };
 
-  std::map<std::string, Value> attributes;
+  // Helper functions to construct different value types
+  static Value StringValue(const std::string& str);
+  static Value BytesValue(const std::string& bytes);
+  static Value Int64Value(int64_t value);
+  static Value DoubleValue(double value);
+  static Value BoolValue(bool value);
+  static Value TimeValue(
+      std::chrono::time_point<std::chrono::system_clock> value);
+  static Value DurationValue(std::chrono::nanoseconds value);
+  static Value StringMapValue(std::map<std::string, std::string>&& string_map);
 
   // Generates a string for logging or debugging.
   std::string DebugString() const;
+
+  // The attribute map.
+  std::map<std::string, Value> attributes;
 };
 
 }  // namespace mixer_client
