@@ -176,8 +176,6 @@ stringMap_attributes {
     }
   }
 }
-deleted_attributes: 15
-deleted_attributes: 16
 )";
 
 // A expected delta attribute protobuf in text.
@@ -205,6 +203,47 @@ string_attributes {
 string_attributes {
   key: 4
   value: "string4"
+}
+deleted_attributes: 3
+)";
+
+// A expected delta attribute protobuf in text
+// for string map update.
+const char kAttributeStringMapDelta[] = R"(
+stringMap_attributes {
+  key: 1
+  value {
+    map {
+      key: 1
+      value: "value11"
+    }
+  }
+}
+stringMap_attributes {
+  key: 2
+  value {
+    map {
+      key: 2
+      value: "value22"
+    }
+    map {
+      key: 3
+      value: "value3"
+    }
+  }
+}
+stringMap_attributes {
+  key: 3
+  value {
+    map {
+      key: 1
+      value: "value1"
+    }
+    map {
+      key: 2
+      value: "value2"
+    }
+  }
 }
 deleted_attributes: 3
 )";
@@ -288,6 +327,48 @@ TEST(AttributeContextTest, TestDeltaUpdate) {
 
   ::istio::mixer::v1::Attributes expected_attr;
   ASSERT_TRUE(TextFormat::ParseFromString(kAttributeDelta, &expected_attr));
+  EXPECT_TRUE(MessageDifferencer::Equals(pb_attrs, expected_attr));
+}
+
+TEST(AttributeContextTest, TestStingMapUpdate) {
+  AttributeContext c;
+
+  Attributes a;
+  a.attributes["key1"] = Attributes::StringMapValue({{"key1", "value1"}});
+  a.attributes["key2"] =
+      Attributes::StringMapValue({{"key1", "value1"}, {"key2", "value2"}});
+  a.attributes["key3"] = Attributes::StringMapValue(
+      {{"key1", "value1"}, {"key2", "value2"}, {"key3", "value3"}});
+
+  ::istio::mixer::v1::Attributes pb_attrs;
+  c.FillProto(a, &pb_attrs);
+
+  // Update same attribute again, should generate an empty proto
+  pb_attrs.Clear();
+  c.FillProto(a, &pb_attrs);
+  ::istio::mixer::v1::Attributes empty_attr;
+  EXPECT_TRUE(MessageDifferencer::Equals(pb_attrs, empty_attr));
+
+  Attributes b;
+  // Value changed
+  b.attributes["key1"] = Attributes::StringMapValue({{"key1", "value11"}});
+  // an new key added
+  b.attributes["key2"] = Attributes::StringMapValue(
+      {{"key1", "value1"}, {"key2", "value22"}, {"key3", "value3"}});
+  // a key removed.
+  b.attributes["key3"] =
+      Attributes::StringMapValue({{"key1", "value1"}, {"key2", "value2"}});
+
+  pb_attrs.Clear();
+  c.FillProto(b, &pb_attrs);
+
+  std::string out_str;
+  TextFormat::PrintToString(pb_attrs, &out_str);
+  GOOGLE_LOG(INFO) << "===" << out_str << "===";
+
+  ::istio::mixer::v1::Attributes expected_attr;
+  ASSERT_TRUE(
+      TextFormat::ParseFromString(kAttributeStringMapDelta, &expected_attr));
   EXPECT_TRUE(MessageDifferencer::Equals(pb_attrs, expected_attr));
 }
 

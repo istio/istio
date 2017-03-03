@@ -29,10 +29,16 @@ class ContextUpdate {
   // Start a update for a request.
   void UpdateStart();
 
+  // A function to compare two values.
+  typedef std::function<void(const Attributes::Value& old_value,
+                             const Attributes::Value& new_value)>
+      CompValueFunc;
+
   // Check an attribute, return true if the attribute
   // is in the context with same value, not need to send it.
   // Otherwise, update the context.
-  bool Update(int index, Attributes::Value value);
+  // If the attribute is in the context, call cmp_func.
+  bool Update(int index, Attributes::Value value, CompValueFunc cmp_func);
 
   // Finish a update for a request, remove these not in
   // the current request, and return the deleted set.

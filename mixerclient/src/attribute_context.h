@@ -39,7 +39,8 @@ class AttributeContext {
 
   // Create a StringMap message.
   ::istio::mixer::v1::StringMap CreateStringMap(
-      const std::map<std::string, std::string>& string_map);
+      const std::map<std::string, std::string>& string_map,
+      const std::set<std::string>& exclude_keys);
 
   // dictionary map.
   std::map<std::string, int> dict_map_;

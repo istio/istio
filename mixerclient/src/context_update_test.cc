@@ -21,19 +21,20 @@ namespace mixer_client {
 
 TEST(ContextUpdateTest, Test1) {
   ContextUpdate d;
+  ContextUpdate::CompValueFunc cmp_func;
 
   // Build a context with 1, and 2
   d.UpdateStart();
-  EXPECT_FALSE(d.Update(1, Attributes::Int64Value(1)));
-  EXPECT_FALSE(d.Update(2, Attributes::Int64Value(2)));
-  EXPECT_FALSE(d.Update(3, Attributes::Int64Value(3)));
+  EXPECT_FALSE(d.Update(1, Attributes::Int64Value(1), cmp_func));
+  EXPECT_FALSE(d.Update(2, Attributes::Int64Value(2), cmp_func));
+  EXPECT_FALSE(d.Update(3, Attributes::Int64Value(3), cmp_func));
   EXPECT_TRUE(d.UpdateFinish().empty());
 
   d.UpdateStart();
   // 1 is the same.
-  EXPECT_TRUE(d.Update(1, Attributes::Int64Value(1)));
+  EXPECT_TRUE(d.Update(1, Attributes::Int64Value(1), cmp_func));
   // 3 is with different value.
-  EXPECT_FALSE(d.Update(3, Attributes::Int64Value(33)));
+  EXPECT_FALSE(d.Update(3, Attributes::Int64Value(33), cmp_func));
   // 2 is in the deleted list.
   std::set<int> deleted_list = {2};
   EXPECT_EQ(d.UpdateFinish(), deleted_list);

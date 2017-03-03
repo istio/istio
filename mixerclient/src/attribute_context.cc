@@ -42,6 +42,25 @@ Duration CreateDuration(std::chrono::nanoseconds value) {
   return duration;
 }
 
+// Compare two string maps to check
+// 1) any removed keys: ones in the old, but not in the new.
+// 2) Get all key/value pairs which are the same in the two maps.
+// Return true if there are some keys removed.
+bool CompareStringMaps(const std::map<std::string, std::string>& old_map,
+                       const std::map<std::string, std::string>& new_map,
+                       std::set<std::string>* same_keys) {
+  for (const auto& old_it : old_map) {
+    const auto& new_it = new_map.find(old_it.first);
+    if (new_it == new_map.end()) {
+      return true;
+    }
+    if (old_it.second == new_it->second) {
+      same_keys->insert(old_it.first);
+    }
+  }
+  return false;
+}
+
 }  // namespace
 
 int AttributeContext::GetNameIndex(const std::string& name) {
@@ -59,11 +78,14 @@ int AttributeContext::GetNameIndex(const std::string& name) {
 }
 
 ::istio::mixer::v1::StringMap AttributeContext::CreateStringMap(
-    const std::map<std::string, std::string>& string_map) {
+    const std::map<std::string, std::string>& string_map,
+    const std::set<std::string>& exclude_keys) {
   ::istio::mixer::v1::StringMap map_msg;
   auto* map_pb = map_msg.mutable_map();
   for (const auto& it : string_map) {
-    (*map_pb)[GetNameIndex(it.first)] = it.second;
+    if (exclude_keys.find(it.first) == exclude_keys.end()) {
+      (*map_pb)[GetNameIndex(it.first)] = it.second;
+    }
   }
   return map_msg;
 }
@@ -73,7 +95,7 @@ void AttributeContext::FillProto(const Attributes& attributes,
   size_t old_dict_size = dict_map_.size();
 
   context_.UpdateStart();
-  std::set<int> string_map_indexes;
+  std::set<int> deleted_indexes;
 
   // Fill attributes.
   for (const auto& it : attributes.attributes) {
@@ -81,8 +103,21 @@ void AttributeContext::FillProto(const Attributes& attributes,
 
     int index = GetNameIndex(name);
 
-    // Check the context, if same, no need to send it.
-    if (context_.Update(index, it.second)) {
+    // Handle StringMap differently to support its delta update.
+    std::set<std::string> same_keys;
+    bool has_removed_keys = false;
+    ContextUpdate::CompValueFunc cmp_func;
+    if (it.second.type == Attributes::Value::ValueType::STRING_MAP) {
+      cmp_func = [&](const Attributes::Value& old_value,
+                     const Attributes::Value& new_value) {
+        has_removed_keys = CompareStringMaps(
+            old_value.string_map_v, new_value.string_map_v, &same_keys);
+      };
+    }
+
+    // The function returns true if the attribute is same as one
+    // in the context.
+    if (context_.Update(index, it.second, cmp_func)) {
       continue;
     }
 
@@ -112,19 +147,20 @@ void AttributeContext::FillProto(const Attributes& attributes,
             CreateDuration(it.second.duration_nanos_v);
         break;
       case Attributes::Value::ValueType::STRING_MAP:
+        // If there are some keys removed, do a whole map replacement
+        if (has_removed_keys) {
+          deleted_indexes.insert(index);
+          same_keys.clear();
+        }
         (*pb->mutable_stringmap_attributes())[index] =
-            CreateStringMap(it.second.string_map_v);
-        string_map_indexes.insert(index);
+            CreateStringMap(it.second.string_map_v, same_keys);
         break;
     }
   }
 
-  auto deleted_attrs = context_.UpdateFinish();
-  // TODO: support string map update.  Before that,
-  // all string_map fields should be marked as "deleted"
-  // in order to replace the whole map.
-  deleted_attrs.insert(string_map_indexes.begin(), string_map_indexes.end());
-  for (const auto& it : deleted_attrs) {
+  auto deleted = context_.UpdateFinish();
+  deleted.insert(deleted_indexes.begin(), deleted_indexes.end());
+  for (const auto& it : deleted) {
     pb->add_deleted_attributes(it);
   }
 

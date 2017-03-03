@@ -24,9 +24,19 @@ void ContextUpdate::UpdateStart() {
   }
 }
 
-bool ContextUpdate::Update(int index, Attributes::Value value) {
+bool ContextUpdate::Update(int index, Attributes::Value value,
+                           CompValueFunc cmp_func) {
   auto it = map_.find(index);
-  bool same = (it != map_.end() && it->second == value);
+  bool same = false;
+  if (it != map_.end()) {
+    if (it->second == value) {
+      same = true;
+    } else {
+      if (cmp_func) {
+        cmp_func(it->second, value);
+      }
+    }
+  }
   if (!same) {
     map_[index] = value;
   }
