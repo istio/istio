@@ -1,18 +1,20 @@
 # Istio Kubernetes Demos
 
-Create a k8s namespace
+cd demos/kubernetes/
+
+**Create a k8s namespace**
 
 kubectl create ns demo
 
-Deploy istio infra
+**Deploy istio infra**
 
-kubectl apply -f istio -n demo
+kubectl apply -f ./istio -n demo
 
-Deploy simple app
+**Deploy a simple echo app with proxy injected**
 
-kubectl apply -f apps/simple_app/ -n demo
+kubectl apply -f ./apps/simple_app/ -n demo
 
-Send a HTTP request from a to b
+**Send a HTTP request from "a" pod to "b" service**
 
 kubectl get pods -n demo
 
