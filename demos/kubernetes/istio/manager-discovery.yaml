@@ -1,0 +1,38 @@
+# Manager service for discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: manager
+  labels:
+    infra: manager
+spec:
+  ports:
+  - port: 8080
+    name: http-discovery
+  selector:
+    infra: manager
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: manager
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        infra: manager
+    spec:
+      containers:
+      - name: manager
+        image: gcr.io/istio-testing/runtime:demo
+        imagePullPolicy: Always
+        args: ["discovery", "-v", "2"]
+        ports:
+        - containerPort: 8080
+      - name: debug
+        image: docker.io/istio/debug:test
+        imagePullPolicy: Always
+        securityContext:
+            privileged: true
+---
