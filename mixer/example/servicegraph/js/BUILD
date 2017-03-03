@@ -10,10 +10,10 @@ pkg_tar(
         exclude = ["BUILD"],
     ),
     mode = "0755",
+    package_dir = "/example/servicegraph/js",
     strip_prefix = "./",
-    package_dir = "/examples/servicegraph/js",
     tags = ["manual"],
-    visibility = ["//examples/servicegraph/docker:__pkg__"],
+    visibility = ["//example/servicegraph/docker:__pkg__"],
 )
 
 exports_files(["viz/viz-lite.js"])

@@ -7,7 +7,7 @@ pkg_tar(
     name = "mixer_servicegraph_tar",
     extension = "tar.gz",
     files = [
-        "//examples/servicegraph/cmd/server:servicegraph",
+        "//example/servicegraph/cmd/server:servicegraph",
     ],
     mode = "0755",
     package_dir = "/usr/local/bin/",
@@ -15,13 +15,19 @@ pkg_tar(
 )
 
 mixer_docker_build(
-    images = [
-        {"name": "servicegraph",       "base": "@docker_ubuntu//:xenial"},
-        {"name": "servicegraph_debug", "base": "@ubuntu_xenial_debug//file"},
-    ],
     entrypoint = [
         "/usr/local/bin/servicegraph",
-        "--assetDir=/examples/servicegraph",
+        "--assetDir=/example/servicegraph",
+    ],
+    images = [
+        {
+            "name": "servicegraph",
+            "base": "@docker_ubuntu//:xenial",
+        },
+        {
+            "name": "servicegraph_debug",
+            "base": "@ubuntu_xenial_debug//file",
+        },
     ],
     ports = [
         "8088",
@@ -30,6 +36,6 @@ mixer_docker_build(
     tags = ["manual"],
     tars = [
         ":mixer_servicegraph_tar",
-        "//examples/servicegraph/js:js_tar",
+        "//example/servicegraph/js:js_tar",
     ],
 )
