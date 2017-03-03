@@ -58,7 +58,7 @@ A given Istio deployment has a fixed vocabulary of attributes that it understand
 determined by the set of attribute producers being used in the deployment. The primary attribute producer in Istio
 is the proxy, although the mixer and services can also introduce attributes.
 
-Attribute producers declare the set of attributes they produce using the `[AttributeDescriptor](https://raw.githubusercontent.com/istio/api/master/mixer/v1/config/descriptor/attribute_descriptor.proto)`
+Attribute producers declare the set of attributes they produce using the [`AttributeDescriptor`](https://raw.githubusercontent.com/istio/api/master/mixer/v1/config/descriptor/attribute_descriptor.proto)
 message:
 
     message AttributeDescriptor {
