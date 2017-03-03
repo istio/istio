@@ -49,6 +49,30 @@ Duration CreateDuration(std::chrono::nanoseconds value) {
 
 }  // namespace
 
+void AttributeContext::Context::UpdateStart() {
+  curr_set_.clear();
+  for (const auto& it : map_) {
+    curr_set_.insert(it.first);
+  }
+}
+
+bool AttributeContext::Context::Update(int index, Attributes::Value value) {
+  auto it = map_.find(index);
+  bool same = (it != map_.end() && it->second == value);
+  if (!same) {
+    map_[index] = value;
+  }
+  curr_set_.erase(index);
+  return same;
+}
+
+std::set<int> AttributeContext::Context::UpdateFinish() {
+  for (const auto it : curr_set_) {
+    map_.erase(it);
+  }
+  return curr_set_;
+}
+
 int AttributeContext::GetNameIndex(const std::string& name) {
   const auto& dict_it = dict_map_.find(name);
   int index;
@@ -79,11 +103,19 @@ void AttributeContext::FillProto(const Attributes& attributes,
 
   size_t old_dict_size = dict_map_.size();
 
+  context_.UpdateStart();
+
   // Fill attributes.
   for (const auto& it : attributes.attributes) {
     const std::string& name = it.first;
 
     int index = GetNameIndex(name);
+
+    // Check the context, if same, no need to send it.
+    if (context_.Update(index, it.second)) {
+      continue;
+    }
+
     // Fill the attribute to proper map.
     switch (it.second.type) {
       case Attributes::Value::ValueType::STRING:
@@ -114,6 +146,11 @@ void AttributeContext::FillProto(const Attributes& attributes,
             CreateStringMap(it.second.string_map_v);
         break;
     }
+  }
+
+  auto deleted_attrs = context_.UpdateFinish();
+  for (const auto& it : deleted_attrs) {
+    pb->add_deleted_attributes(it);
   }
 
   // Send the dictionary if it is changed.

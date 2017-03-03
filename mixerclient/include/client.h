@@ -16,11 +16,7 @@
 #ifndef MIXERCLIENT_CLIENT_H
 #define MIXERCLIENT_CLIENT_H
 
-#include <chrono>
-#include <functional>
-#include <memory>
-#include <string>
-
+#include "attribute.h"
 #include "google/protobuf/stubs/status.h"
 #include "options.h"
 #include "transport.h"
@@ -60,41 +56,6 @@ struct MixerClientOptions {
 
   // A custom transport object.
   TransportInterface* transport;
-};
-
-struct Attributes {
-  // A structure to hold different types of value.
-  struct Value {
-    // Data type
-    enum ValueType {
-      STRING,
-      INT64,
-      DOUBLE,
-      BOOL,
-      TIME,
-      BYTES,
-      DURATION,
-      STRING_MAP
-    } type;
-
-    // Data value
-    union {
-      int64_t int64_v;
-      double double_v;
-      bool bool_v;
-    } value;
-    // Move types with constructor outside of union.
-    // It is not easy for union to support them.
-    std::string str_v;  // for both STRING and BYTES
-    std::chrono::time_point<std::chrono::system_clock> time_v;
-    std::chrono::nanoseconds duration_nanos_v;
-    std::map<std::string, std::string> string_map_v;
-  };
-
-  std::map<std::string, Value> attributes;
-
-  // Generates a string for logging or debugging.
-  std::string DebugString() const;
 };
 
 class MixerClient {

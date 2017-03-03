@@ -19,6 +19,7 @@ load("@protobuf_git//:protobuf.bzl", "cc_proto_library")
 cc_library(
     name = "mixer_client_lib",
     srcs = [
+        "src/attribute.cc",
         "src/attribute_context.cc",
         "src/attribute_context.h",
         "src/attribute_converter.h",
@@ -37,6 +38,7 @@ cc_library(
         "utils/status_test_util.h",
     ],
     hdrs = [
+        "include/attribute.h",
         "include/client.h",
         "include/options.h",
         "include/transport.h",
@@ -44,8 +46,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":simple_lru_cache",
-        "//external:grpc++",
         "//external:boringssl_crypto",
+        "//external:grpc++",
         "//external:mixer_api_cc_proto",
     ],
 )

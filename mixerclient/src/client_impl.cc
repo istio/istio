@@ -89,47 +89,5 @@ std::unique_ptr<MixerClient> CreateMixerClient(
   return std::unique_ptr<MixerClient>(new MixerClientImpl(options));
 }
 
-std::string Attributes::DebugString() const {
-  std::stringstream ss;
-  for (const auto &it : attributes) {
-    ss << it.first << ": ";
-    switch (it.second.type) {
-      case Attributes::Value::ValueType::STRING:
-        ss << "(STRING): " << it.second.str_v;
-        break;
-      case Attributes::Value::ValueType::BYTES:
-        ss << "(BYTES): " << it.second.str_v;
-        break;
-      case Attributes::Value::ValueType::INT64:
-        ss << "(INT64): " << it.second.value.int64_v;
-        break;
-      case Attributes::Value::ValueType::DOUBLE:
-        ss << "(DOUBLE): " << it.second.value.double_v;
-        break;
-      case Attributes::Value::ValueType::BOOL:
-        ss << "(BOOL): " << it.second.value.bool_v;
-        break;
-      case Attributes::Value::ValueType::TIME:
-        ss << "(TIME ms): "
-           << std::chrono::duration_cast<std::chrono::microseconds>(
-                  it.second.time_v.time_since_epoch())
-                  .count();
-        break;
-      case Attributes::Value::ValueType::DURATION:
-        ss << "(DURATION nanos): " << it.second.duration_nanos_v.count();
-        break;
-      case Attributes::Value::ValueType::STRING_MAP:
-        ss << "(STRING MAP):";
-        for (const auto &map_it : it.second.string_map_v) {
-          ss << std::endl;
-          ss << "      " << map_it.first << ": " << map_it.second;
-        }
-        break;
-    }
-    ss << std::endl;
-  }
-  return ss.str();
-}
-
 }  // namespace mixer_client
 }  // namespace istio
