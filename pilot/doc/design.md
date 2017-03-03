@@ -20,3 +20,5 @@ The overview of the proxy controllers in Istio Manager is [here](proxy-controlle
 Istio Manager supervises a mesh of proxies co-located with service instances as sidecar container. A proxy agent generates fresh configuration adapted to the local proxy instances from the services and configuration models, and triggers proxy re-configuration.
 
 ![architecture](https://cdn.rawgit.com/istio/manager/master/doc/manager.svg)
+
+The diagram uses _black_ arrows for the data path and _red_ arrows for the control path. Proxies capture traffic from services and route them internally and externally using control information from the discovery services and agent-generated configurations. This control information is stored in the API server in Kubernetes and is managed by the operator using `kubectl` or `istioctl`.
