@@ -19,3 +19,4 @@ Istio configuration is backed by a distributed key-value store. Istio Manager co
 The overview of the proxy controllers in Istio Manager is [here](proxy-controller.md).
 Istio Manager supervises a mesh of proxies co-located with service instances as sidecar container. A proxy agent generates fresh configuration adapted to the local proxy instances from the services and configuration models, and triggers proxy re-configuration.
 
+![architecture](https://cdn.rawgit.com/istio/manager/master/doc/manager.svg)
