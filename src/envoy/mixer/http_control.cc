@@ -45,47 +45,10 @@ const std::string kResponseLatency = "response.latency";
 const std::string kResponseSize = "response.size";
 const std::string kResponseTime = "response.time";
 
-Attributes::Value StringValue(const std::string& str) {
-  Attributes::Value v;
-  v.type = Attributes::Value::STRING;
-  v.str_v = str;
-  return v;
-}
-
-Attributes::Value StringMapValue(
-    std::map<std::string, std::string>&& string_map) {
-  Attributes::Value v;
-  v.type = Attributes::Value::STRING_MAP;
-  v.string_map_v.swap(string_map);
-  return v;
-}
-
-Attributes::Value Int64Value(int64_t value) {
-  Attributes::Value v;
-  v.type = Attributes::Value::INT64;
-  v.value.int64_v = value;
-  return v;
-}
-
-Attributes::Value TimeValue(
-    std::chrono::time_point<std::chrono::system_clock> value) {
-  Attributes::Value v;
-  v.type = Attributes::Value::TIME;
-  v.time_v = value;
-  return v;
-}
-
-Attributes::Value DurationValue(std::chrono::nanoseconds value) {
-  Attributes::Value v;
-  v.type = Attributes::Value::DURATION;
-  v.duration_nanos_v = value;
-  return v;
-}
-
 void SetStringAttribute(const std::string& name, const std::string& value,
                         Attributes* attr) {
   if (!value.empty()) {
-    attr->attributes[name] = StringValue(value);
+    attr->attributes[name] = Attributes::StringValue(value);
   }
 }
 
@@ -105,39 +68,43 @@ void FillRequestHeaderAttributes(const HeaderMap& header_map,
                                  Attributes* attr) {
   SetStringAttribute(kRequestPath, header_map.Path()->value().c_str(), attr);
   SetStringAttribute(kRequestHost, header_map.Host()->value().c_str(), attr);
-  attr->attributes[kRequestTime] = TimeValue(std::chrono::system_clock::now());
+  attr->attributes[kRequestTime] =
+      Attributes::TimeValue(std::chrono::system_clock::now());
   attr->attributes[kRequestHeaders] =
-      StringMapValue(ExtractHeaders(header_map));
+      Attributes::StringMapValue(ExtractHeaders(header_map));
 }
 
 void FillResponseHeaderAttributes(const HeaderMap* header_map,
                                   Attributes* attr) {
   if (header_map) {
     attr->attributes[kResponseHeaders] =
-        StringMapValue(ExtractHeaders(*header_map));
+        Attributes::StringMapValue(ExtractHeaders(*header_map));
   }
-  attr->attributes[kResponseTime] = TimeValue(std::chrono::system_clock::now());
+  attr->attributes[kResponseTime] =
+      Attributes::TimeValue(std::chrono::system_clock::now());
 }
 
 void FillRequestInfoAttributes(const AccessLog::RequestInfo& info,
                                int check_status_code, Attributes* attr) {
   if (info.bytesReceived() >= 0) {
-    attr->attributes[kRequestSize] = Int64Value(info.bytesReceived());
+    attr->attributes[kRequestSize] =
+        Attributes::Int64Value(info.bytesReceived());
   }
   if (info.bytesSent() >= 0) {
-    attr->attributes[kResponseSize] = Int64Value(info.bytesSent());
+    attr->attributes[kResponseSize] = Attributes::Int64Value(info.bytesSent());
   }
 
   if (info.duration().count() > 0) {
-    attr->attributes[kResponseLatency] = DurationValue(
+    attr->attributes[kResponseLatency] = Attributes::DurationValue(
         std::chrono::duration_cast<std::chrono::nanoseconds>(info.duration()));
   }
 
   if (info.responseCode().valid()) {
     attr->attributes[kResponseHttpCode] =
-        Int64Value(info.responseCode().value());
+        Attributes::Int64Value(info.responseCode().value());
   } else {
-    attr->attributes[kResponseHttpCode] = Int64Value(check_status_code);
+    attr->attributes[kResponseHttpCode] =
+        Attributes::Int64Value(check_status_code);
   }
 }
 
