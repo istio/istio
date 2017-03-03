@@ -32,6 +32,7 @@
   "annotations": {
     "list": []
   },
+  "editMode": false,
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
@@ -75,8 +76,15 @@
             {
               "expr": "rate(request_count{response_code=\"200\",source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])",
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} -> {{ target }}",
+              "legendFormat": "{{ source }} -> {{ target }} : 200",
               "refId": "A",
+              "step": 2
+            },
+            {
+              "expr": "rate(request_count{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])",
+              "intervalFactor": 2,
+              "legendFormat": "{{ source }} -> {{ target }} : ALL",
+              "refId": "B",
               "step": 2
             }
           ],
@@ -223,7 +231,7 @@
             "current": false,
             "max": false,
             "min": false,
-            "show": true,
+            "show": false,
             "total": false,
             "values": false
           },
@@ -241,11 +249,12 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(request_latency{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])",
-              "hide": true,
+              "expr": "sum(increase(request_latency{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) / (sum(increase(request_count{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) + 1)",
+              "hide": false,
               "intervalFactor": 2,
+              "legendFormat": "",
               "refId": "A",
-              "step": 20
+              "step": 2
             }
           ],
           "thresholds": [],
