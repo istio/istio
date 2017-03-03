@@ -48,8 +48,8 @@ const (
 	// budget is the maximum number of retries with 1s delays
 	budget = 90
 
-	// Mixer SHA *update manually*
-	mixerSHA = "ea3a8d3e2feb9f06256f92cda5194cc1ea6b599e"
+	// Mixer image tag is the short SHA *update manually*
+	mixerTag = "6655a67"
 )
 
 // params contain default template parameter values
@@ -83,7 +83,7 @@ func init() {
 		"Docker hub")
 	flag.StringVarP(&params.tag, "tag", "t", "",
 		"Docker tag")
-	flag.StringVar(&params.mixerImage, "mixerImage", "gcr.io/istio-testing/mixer:"+mixerSHA,
+	flag.StringVar(&params.mixerImage, "mixerImage", "gcr.io/istio-testing/mixer:"+mixerTag,
 		"Mixer Docker image")
 	flag.StringVarP(&params.namespace, "namespace", "n", "",
 		"Namespace to use for testing (empty to create/delete temporary one)")
@@ -195,7 +195,7 @@ func deploy(name, svcName, dType, port1, port2, version string) error {
 }
 
 func waitForNewRestartEpoch(pod string, start int) error {
-	log.Println("Waiting for Envoy restart epoch to increment...")
+	log.Println("Waiting for Envoy restart epoch to increment from ", start)
 	for n := 0; n < budget; n++ {
 		current, err := getRestartEpoch(pod)
 		if err != nil {

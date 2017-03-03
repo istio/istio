@@ -1,4 +1,65 @@
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mixer-config
+data:
+  globalconfig.yml: |-
+    subject: "namespace:ns"
+    revision: "2022"
+    adapters:
+      - name: default
+        kind: quotas
+        impl: memQuota
+        params:
+      - name: default
+        impl: stdioLogger
+        params:
+          logStream: 0 # STDERR
+      - name: prometheus
+        kind: metrics
+        impl: prometheus
+        params:
+      - name: default
+        impl: denyChecker
+  serviceconfig.yml: |-
+    subject: namespace:ns
+    revision: "2022"
+    rules:
+            #- selector: service.name == “*”
+            #- selector: service.name == "myservice"
+    - selector: true
+      aspects:
+      - kind: metrics
+        adapter: prometheus
+        params:
+          metrics:
+          - descriptor_name: request_count
+            # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
+            value: "1"
+            labels:
+              source: source.name | "unknown"
+              target: target.name | "unknown"
+              service: api.name | "unknown"
+              method: api.method | "unknown"
+              response_code: response.http.code | 200
+          - descriptor_name:  request_latency
+            value: response.latency | "0ms"
+            labels:
+              source: source.name | "unknown"
+              target: target.name | "unknown"
+              service: api.name | "unknown"
+              method: api.method | "unknown"
+              response_code: response.http.code | 200
+      - kind: access-logs
+        params:
+          logName: "access_log"
+          logFormat: 0 # Common Log Format
+      - kind: application-logs
+        params:
+          logName: "mixer_log"
+          logEntryDescriptorNames: ["default"]
+---
 # Mixer
 apiVersion: v1
 kind: Service
@@ -8,8 +69,10 @@ metadata:
     app: mixer
 spec:
   ports:
-  - port: 9091
-    name: tcp
+  - name: tcp
+    port: 9091
+  - name: prometheus
+    port: 42422
   selector:
     app: mixer
 ---
@@ -30,10 +93,22 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 9091
+        - containerPort: 42422
         args:
           - --globalConfigFile=/etc/opt/mixer/globalconfig.yml
           - --serviceConfigFile=/etc/opt/mixer/serviceconfig.yml
           - --logtostderr
           - -v
           - "3"
+        volumeMounts:
+          - mountPath: /etc/opt/mixer
+            name: config
+      - name: debug
+        image: docker.io/istio/debug:test
+        securityContext:
+            privileged: true
+      volumes:
+        - name: config
+          configMap:
+            name: mixer-config
 ---
