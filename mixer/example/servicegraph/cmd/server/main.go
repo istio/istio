@@ -22,9 +22,9 @@ import (
 	"net/http"
 	"os"
 
-	"istio.io/mixer/examples/servicegraph"
-	"istio.io/mixer/examples/servicegraph/dot"
-	"istio.io/mixer/examples/servicegraph/promgen"
+	"istio.io/mixer/example/servicegraph"
+	"istio.io/mixer/example/servicegraph/dot"
+	"istio.io/mixer/example/servicegraph/promgen"
 )
 
 func writeJSON(w io.Writer, g *servicegraph.Dynamic) error {
@@ -75,7 +75,7 @@ type state struct {
 func main() {
 	bindAddr := flag.String("bindAddr", ":8088", "Address to bind to for serving")
 	promAddr := flag.String("prometheusAddr", "http://localhost:9090", "Address of prometheus instance for graph generation")
-	assetDir := flag.String("assetDir", "examples/servicegraph", "directory find assets to serve")
+	assetDir := flag.String("assetDir", "example/servicegraph", "directory find assets to serve")
 	flag.Parse()
 
 	s := &state{staticGraph: &servicegraph.Static{Nodes: make(map[string]struct{})}}
