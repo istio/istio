@@ -31,7 +31,7 @@ import (
 )
 
 func TestNewAccessLoggerManager(t *testing.T) {
-	m := NewAccessLogsManager()
+	m := newAccessLogsManager()
 	if m.Kind() != AccessLogsKind {
 		t.Errorf("Wrong kind of adapter; got %v, want %v", m.Kind(), AccessLogsKind)
 	}
@@ -85,7 +85,7 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 		{"custom", &aconfig.AccessLogsParams{}, customStruct, customExec},
 	}
 
-	m := NewAccessLogsManager()
+	m := newAccessLogsManager()
 
 	for _, v := range newAspectShouldSucceed {
 		c := config.Combined{
@@ -132,7 +132,7 @@ func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 		{"badTemplateCfg", badTemplateCfg, okLogger},
 	}
 
-	m := NewAccessLogsManager()
+	m := newAccessLogsManager()
 	for _, v := range failureCases {
 		if _, err := m.NewAspect(v.cfg, v.adptr, test.Env{}); err == nil {
 			t.Errorf("NewAspect()[%s]: expected error for bad adapter (%T)", v.name, v.adptr)
@@ -149,7 +149,7 @@ func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 		&aconfig.AccessLogsParams{LogFormat: aconfig.CUSTOM, CustomLogTemplate: "{{.test}}"},
 	}
 
-	m := NewAccessLogsManager()
+	m := newAccessLogsManager()
 	for _, v := range configs {
 		if err := m.ValidateConfig(v); err != nil {
 			t.Errorf("ValidateConfig(%v) => unexpected error: %v", v, err)
@@ -162,7 +162,7 @@ func TestAccessLoggerManager_ValidateConfigFailures(t *testing.T) {
 		&aconfig.AccessLogsParams{LogFormat: aconfig.CUSTOM, CustomLogTemplate: "{{.test"},
 	}
 
-	m := NewAccessLogsManager()
+	m := newAccessLogsManager()
 	for _, v := range configs {
 		if err := m.ValidateConfig(v); err == nil {
 			t.Errorf("ValidateConfig(%v): expected error", v)
@@ -217,8 +217,8 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 		l := &test.Logger{}
 		v.exec.aspect = l
 
-		if _, err := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); err != nil {
-			t.Errorf("Execute(): should not have received error for %s (%v)", v.name, err)
+		if out := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); !out.IsOK() {
+			t.Errorf("Execute(): should not have received error for %s (%v)", v.name, out.Message())
 		}
 		if l.EntryCount != len(v.wantEntries) {
 			t.Errorf("Execute(): got %d entries, wanted %d for %s", l.EntryCount, len(v.wantEntries), v.name)
@@ -256,7 +256,7 @@ func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 	}
 
 	for _, v := range tests {
-		if _, err := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); err == nil {
+		if out := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); out.IsOK() {
 			t.Errorf("Execute(): expected error for %s", v.name)
 		}
 	}

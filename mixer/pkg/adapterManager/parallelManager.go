@@ -15,18 +15,23 @@
 package adapterManager
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"sync"
 
+	rpc "github.com/googleapis/googleapis/google/rpc"
+
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/pool"
+	"istio.io/mixer/pkg/status"
 )
 
-// ParallelManager is an istio.io/mixer/pkg/api.Executor which wraps a Manager. Its BulkExecute method calls the
-// wrapped Manager's Execute in parallel across a pool of go routines. The pool of worker go routines is shared by all
-// request go routines, i.e. it's global.
+// ParallelManager is an istio.io/mixer/pkg/api.Executor which wraps a Manager. Its Execute method calls the
+// wrapped Manager's Execute in parallel across a pool of goroutines. The pool of worker goroutines is shared by all
+// request goroutines, i.e. it's global.
 type ParallelManager struct {
 	*Manager
 
@@ -57,16 +62,16 @@ func NewParallelManager(manager *Manager, size int) *ParallelManager {
 }
 
 // Execute takes a set of configurations and uses the ParallelManager's embedded Manager to execute all of them in parallel.
-func (p *ParallelManager) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) ([]*aspect.Output, error) {
+func (p *ParallelManager) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) aspect.Output {
 	numCfgs := len(cfgs)
 	// TODO: look into pooling both result array and channel, they're created per-request and are constant size for cfg lifetime.
-	results := make([]*aspect.Output, numCfgs)
+	results := make([]result, numCfgs)
 	r := make(chan result, numCfgs)
 	for _, cfg := range cfgs {
 		// Take whichever case happens first: the context being canceled or a worker freeing up to accept our task.
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("failed to enqueue all config executions with err: %v", ctx.Err())
+			return aspect.Output{Status: status.WithDeadlineExceeded(fmt.Sprintf("failed to enqueue all config executions with err: %v", ctx.Err()))}
 		case p.work <- task{ctx, cfg, attrs, ma, r}:
 		}
 	}
@@ -74,16 +79,40 @@ func (p *ParallelManager) Execute(ctx context.Context, cfgs []*config.Combined, 
 	for i := 0; i < numCfgs; i++ {
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("deadline exceeded waiting for adapter results with err: %v", ctx.Err())
+			return aspect.Output{Status: status.WithDeadlineExceeded(fmt.Sprintf("deadline exceeded waiting for adapter results with err: %v", ctx.Err()))}
 		case res := <-r:
-			if res.err != nil {
-				// TODO: should we return partial results too when we encounter an err?
-				return nil, fmt.Errorf("%s returned err: %v", res.name, res.err)
-			}
-			results[i] = res.out
+			results[i] = res
 		}
 	}
-	return results, nil
+
+	return combineResults(results)
+}
+
+// Combines a bunch of distinct result structs and turns 'em into one single Output struct
+func combineResults(results []result) aspect.Output {
+	var buf *bytes.Buffer
+	code := rpc.OK
+
+	for _, r := range results {
+		if !r.out.IsOK() {
+			if buf == nil {
+				buf = pool.GetBuffer()
+				// the first failure result's code becomes the result code for the output
+				code = rpc.Code(r.out.Status.Code)
+			} else {
+				buf.WriteString(", ")
+			}
+			buf.WriteString(r.cfg.String() + ":" + r.out.Message())
+		}
+	}
+
+	s := status.OK
+	if buf != nil {
+		s = status.WithMessage(code, buf.String())
+		pool.PutBuffer(buf)
+	}
+
+	return aspect.Output{Status: s}
 }
 
 // Shutdown gracefully drains the ParallelManager's worker pool and terminates the worker go routines.
@@ -92,11 +121,10 @@ func (p *ParallelManager) Shutdown() {
 	p.wg.Wait()
 }
 
-// result holds the values returned by the execution of an adapter on a go routine in the pool
+// result holds the values returned by the execution of an adapter
 type result struct {
-	name string
-	out  *aspect.Output
-	err  error
+	cfg *config.Combined
+	out aspect.Output
 }
 
 // task describes one unit of work to be executed by the pool
@@ -114,8 +142,8 @@ func (p *ParallelManager) worker(task <-chan task, quit <-chan struct{}, wg *syn
 	for {
 		select {
 		case t := <-task:
-			out, err := p.execute(t.ctx, t.cfg, t.ab, t.ma)
-			t.done <- result{t.cfg.Builder.Name, out, err}
+			out := p.execute(t.ctx, t.cfg, t.ab, t.ma)
+			t.done <- result{t.cfg, out}
 		case <-quit:
 			return
 		}

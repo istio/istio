@@ -21,19 +21,19 @@ type ManagerInventory map[APIMethod][]Manager
 func Inventory() ManagerInventory {
 	return ManagerInventory{
 		CheckMethod: {
-			NewDenialsManager(),
-			NewListsManager(),
-			NewQuotasManager(), // TODO: Remove once proxy uses the Quota method
+			newDenialsManager(),
+			newListsManager(),
+			newQuotasManager(), // TODO: Remove once proxy uses the Quota method
 		},
 
 		ReportMethod: {
-			NewApplicationLogsManager(),
-			NewAccessLogsManager(),
-			NewMetricsManager(),
+			newApplicationLogsManager(),
+			newAccessLogsManager(),
+			newMetricsManager(),
 		},
 
 		QuotaMethod: {
-			NewQuotasManager(),
+			newQuotasManager(),
 		},
 	}
 }

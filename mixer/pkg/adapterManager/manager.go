@@ -29,6 +29,7 @@ import (
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
+	"istio.io/mixer/pkg/status"
 )
 
 // Manager manages all aspects - provides uniform interface to
@@ -111,51 +112,45 @@ func newManager(r builderFinder, m map[aspect.Kind]aspect.Manager, exp expr.Eval
 }
 
 // Execute iterates over cfgs and performs the actions described by the combined config using the attribute bag on each config.
-// It returns the first error it encounters or the output of every combined config execution.
-func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) ([]*aspect.Output, error) {
+func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) aspect.Output {
 	// TODO: pool these arrays, we'll be making many and len(cfg) is constant for the life of the configuration.
-	outputs := make([]*aspect.Output, len(cfgs))
+	results := make([]result, len(cfgs))
 	for i, cfg := range cfgs {
-		out, err := m.execute(ctx, cfg, attrs, ma)
-		if err != nil {
-			return nil, err // we could return outputs (the results so far) too.
-		}
-		outputs[i] = out
+		results[i] = result{cfg, m.execute(ctx, cfg, attrs, ma)}
 	}
-	return outputs, nil
+	return combineResults(results)
 }
 
 // execute performs action described in the combined config using the attribute bag
-func (m *Manager) execute(ctx context.Context, cfg *config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) (out *aspect.Output, err error) {
+func (m *Manager) execute(ctx context.Context, cfg *config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) (out aspect.Output) {
 	var mgr aspect.Manager
 	var found bool
 
 	kind, found := aspect.ParseKind(cfg.Aspect.Kind)
 	if !found {
-		return nil, fmt.Errorf("invalid aspect %#v", cfg.Aspect.Kind)
+		return aspect.Output{Status: status.WithError(fmt.Errorf("invalid aspect %#v", cfg.Aspect.Kind))}
 	}
 
 	mgr, found = m.managers[kind]
 	if !found {
-		return nil, fmt.Errorf("could not find aspect manager %#v", cfg.Aspect.Kind)
+		return aspect.Output{Status: status.WithError(fmt.Errorf("could not find aspect manager %#v", cfg.Aspect.Kind))}
 	}
 
 	var adp adapter.Builder
 	if adp, found = m.builders.FindBuilder(cfg.Builder.Impl); !found {
-		return nil, fmt.Errorf("could not find registered adapter %#v", cfg.Builder.Impl)
+		return aspect.Output{Status: status.WithError(fmt.Errorf("could not find registered adapter %#v", cfg.Builder.Impl))}
 	}
 
 	// Both cacheGet and asp.Execute call adapter-supplied code, so we need to guard against both panicking.
 	defer func() {
 		if r := recover(); r != nil {
-			out = nil
-			err = fmt.Errorf("adapter '%s' panicked with '%v'", adp.Name(), r)
+			out = aspect.Output{Status: status.WithError(fmt.Errorf("adapter '%s' panicked with '%v'", adp.Name(), r))}
 		}
 	}()
 
-	var asp aspect.Wrapper
-	if asp, err = m.cacheGet(cfg, mgr, adp); err != nil {
-		return nil, err
+	asp, err := m.cacheGet(cfg, mgr, adp)
+	if err != nil {
+		return aspect.Output{Status: status.WithError(err)}
 	}
 
 	// TODO: plumb  ctx through asp.Execute

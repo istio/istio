@@ -19,14 +19,13 @@ import (
 	"fmt"
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
-
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/status"
 )
 
 type (
@@ -70,8 +69,8 @@ var (
 	}
 )
 
-// NewApplicationLogsManager returns a manager for the application logs aspect.
-func NewApplicationLogsManager() Manager {
+// newApplicationLogsManager returns a manager for the application logs aspect.
+func newApplicationLogsManager() Manager {
 	return applicationLogsManager{}
 }
 
@@ -108,7 +107,7 @@ func (applicationLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapte
 
 func (e *applicationLogsWrapper) Close() error { return e.aspect.Close() }
 
-func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) (*Output, error) {
+func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
 	var entries []adapter.LogEntry
 
 	// TODO: would be nice if we could use a mutable.Bag here and could pass it around
@@ -135,7 +134,7 @@ func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evalua
 		case dpb.JSON:
 			err := json.Unmarshal([]byte(payloadStr), &entry.StructPayload)
 			if err != nil {
-				return nil, fmt.Errorf("could not unmarshal json payload: %v", err)
+				return Output{Status: status.WithError(fmt.Errorf("could not unmarshal json payload: %v", err))}
 			}
 		}
 
@@ -160,10 +159,10 @@ func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evalua
 
 	if len(entries) > 0 {
 		if err := e.aspect.Log(entries); err != nil {
-			return nil, err
+			return Output{Status: status.WithError(err)}
 		}
 	}
-	return &Output{Code: rpc.OK}, nil
+	return Output{Status: status.OK}
 }
 
 type attrBagFn func(bag attribute.Bag, name string) (interface{}, bool)

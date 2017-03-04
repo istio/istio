@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	"github.com/hashicorp/go-multierror"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
@@ -28,6 +27,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/status"
 )
 
 type (
@@ -47,8 +47,8 @@ type (
 	}
 )
 
-// NewMetricsManager returns a manager for the metric aspect.
-func NewMetricsManager() Manager {
+// newMetricsManager returns a manager for the metric aspect.
+func newMetricsManager() Manager {
 	return &metricsManager{}
 }
 
@@ -132,7 +132,7 @@ func (*metricsManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigE
 	return
 }
 
-func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) (*Output, error) {
+func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
 	result := &multierror.Error{}
 	var values []adapter.Value
 
@@ -164,17 +164,16 @@ func (w *metricsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma 
 		result = multierror.Append(result, fmt.Errorf("failed to record all values with err: %s", err))
 	}
 
-	// We may accumulate errors while still being able to record some metrics; if we have any values at all we'll
-	// return an OK alongside our errors (since presumably we're able to record at least a few).
-	var out *Output
-	if len(values) > 0 {
-		out = &Output{Code: rpc.OK}
-	}
 	if glog.V(4) {
 		glog.V(4).Infof("completed execution of metric adapter '%s' for %d values", w.name, len(values))
 	}
 
-	return out, result.ErrorOrNil()
+	err := result.ErrorOrNil()
+	if err != nil {
+		return Output{Status: status.WithError(err)}
+	}
+
+	return Output{Status: status.OK}
 }
 
 func (w *metricsWrapper) Close() error {
