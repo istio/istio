@@ -2,30 +2,30 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: b
+  name: logic
   labels:
-    app: b
+    app: logic
 spec:
   ports:
   - port: 80
-    targetPort: 80
+    targetPort: 8080
     name: http
   - port: 8080
-    targetPort: 8080
+    targetPort: 80
     name: http-alternative
   selector:
-    app: b
+    app: logic
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: b
+  name: logic
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: b
+        app: logic
         version: unversioned
       annotations:
         pod.beta.kubernetes.io/init-containers: >
@@ -42,14 +42,14 @@ spec:
         imagePullPolicy: Always
         args:
           - --port
-          - "80"
-          - --port
           - "8080"
+          - --port
+          - "80"
           - --version
           - "unversioned"
         ports:
-        - containerPort: 80
         - containerPort: 8080
+        - containerPort: 80
       - name: proxy
         image: gcr.io/istio-testing/runtime:demo
         imagePullPolicy: Always
@@ -79,9 +79,4 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: status.podIP
-      - name: debug
-        image: docker.io/istio/debug:test
-        imagePullPolicy: Always
-        securityContext:
-            privileged: true
 ---

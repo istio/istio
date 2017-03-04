@@ -1,23 +1,35 @@
-# Istio Kubernetes Demos
+# Istio Kubernetes Demo
 
-cd demos/kubernetes/
 
-**Create a k8s namespace**
+**Optional - Create a k8s namespace**
 
-kubectl create ns demo
+    kubectl create ns <ns>
 
 **Deploy istio infra**
 
-kubectl apply -f ./istio -n demo
+    kubectl apply -f ./istio -n <ns>
 
-**Deploy a simple echo app with proxy injected**
+This will deploy istio discovery manager, istio mixer and istio egress proxy.
 
-kubectl apply -f ./apps/simple_app/ -n demo
+**Deploy a simple echo app with manually injected proxy**
 
-**Send a HTTP request from "a" pod to "b" service**
+    kubectl apply -f ./apps/simple_echo_app -n <ns>
 
-kubectl get pods -n demo
+This will deploy two pods, each running a simple echo server and client, and will create two kubernetes services called "echo" and "logic".
 
-Note the pod corresponding to app "a"
+**Send some traffic**
 
-kubectl exec <a-pod> -c app -n demo /bin/client http://b/someurl
+Note the pod corresponding to the apps "echo" and "logic"
+    
+    kubectl get pods -n <ns>
+
+
+Send HTTP request from "echo" pod to "logic" service
+
+    kubectl exec <echo-pod> -c app -n <ns> /bin/client http://logic/<some-text>
+    
+Send HTTP request from "logic" pod to "echo" service
+
+    kubectl exec -it <logic-pod> -c app -n demo /bin/client http://echo/<some-text>
+
+This will echo the URL and print HTTP headers, including "X-Envoy-Expected-Rq-Timeout-Ms".
