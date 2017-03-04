@@ -80,9 +80,9 @@
               "step": 2
             },
             {
-              "expr": "rate(request_count{response_code!=\"200\",source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])",
+              "expr": "sum(rate(request_count{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) without (response_code)",
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} -> {{ target }} : {{ response_code }}",
+              "legendFormat": "{{ source }} -> {{ target }} : ALL",
               "refId": "B",
               "step": 2
             }
@@ -398,5 +398,5 @@
   },
   "timezone": "browser",
   "title": "Istio Dashboard",
-  "version": 2
+  "version": 3
 }
