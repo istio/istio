@@ -17,5 +17,5 @@ package aspect
 import "testing"
 
 func TestDenyCheckerManager(t *testing.T) {
-	_ = NewDenialsManager()
+	_ = newDenialsManager()
 }

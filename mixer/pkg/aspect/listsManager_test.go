@@ -17,5 +17,5 @@ package aspect
 import "testing"
 
 func TestListCheckerManager(t *testing.T) {
-	_ = NewListsManager()
+	_ = newListsManager()
 }

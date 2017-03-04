@@ -26,6 +26,7 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/status"
 )
 
 type fakeresolver struct {
@@ -38,21 +39,17 @@ func (f *fakeresolver) Resolve(bag attribute.Bag, aspectSet config.AspectSet) ([
 }
 
 type fakeExecutor struct {
-	body func() (*aspect.Output, error)
+	body func() aspect.Output
 }
 
-// BulkExecute takes a set of configurations and Executes all of them.
-func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) ([]*aspect.Output, error) {
-	o, err := f.body()
-	if err != nil {
-		return nil, err
-	}
-	return []*aspect.Output{o}, nil
+// Execute takes a set of configurations and Executes all of them.
+func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) aspect.Output {
+	return f.body()
 }
 
 func TestAspectManagerErrorsPropagated(t *testing.T) {
-	f := &fakeExecutor{func() (*aspect.Output, error) {
-		return nil, fmt.Errorf("expected")
+	f := &fakeExecutor{func() aspect.Output {
+		return aspect.Output{Status: status.WithError(fmt.Errorf("expected"))}
 	}}
 	h := &handlerState{aspectExecutor: f, methodMap: map[aspect.APIMethod]config.AspectSet{}}
 	h.ConfigChange(&fakeresolver{[]*config.Combined{nil, nil}, nil})

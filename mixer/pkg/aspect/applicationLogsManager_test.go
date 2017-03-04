@@ -41,7 +41,7 @@ type (
 )
 
 func TestNewLoggerManager(t *testing.T) {
-	m := NewApplicationLogsManager()
+	m := newApplicationLogsManager()
 	if m.Kind() != ApplicationLogsKind {
 		t.Error("Wrong kind of manager")
 	}
@@ -70,7 +70,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 		{"override", &aconfig.ApplicationLogsParams{LogName: "istio_log", TimestampFormat: "2006-Jan-02"}, overrideExec},
 	}
 
-	m := NewApplicationLogsManager()
+	m := newApplicationLogsManager()
 
 	for _, v := range newAspectShouldSucceed {
 		c := config.Combined{
@@ -109,7 +109,7 @@ func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 		{defaultCfg, errLogger},
 	}
 
-	m := NewApplicationLogsManager()
+	m := newApplicationLogsManager()
 	for _, v := range failureCases {
 		if _, err := m.NewAspect(v.cfg, v.adptr, test.Env{}); err == nil {
 			t.Errorf("NewAspect(): expected error for bad adapter (%T)", v.adptr)
@@ -196,8 +196,8 @@ func TestLoggerManager_Execute(t *testing.T) {
 		l := &test.Logger{}
 		v.exec.aspect = l
 
-		if _, err := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); err != nil {
-			t.Errorf("Execute(): should not have received error for %s (%v)", v.name, err)
+		if out := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); !out.IsOK() {
+			t.Errorf("Execute(): should not have received error for %s (%v)", v.name, out.Message())
 		}
 		if l.EntryCount != len(v.wantEntries) {
 			t.Errorf("Execute(): got %d entries, wanted %d for %s", l.EntryCount, len(v.wantEntries), v.name)
@@ -239,14 +239,14 @@ func TestLoggerManager_ExecuteFailures(t *testing.T) {
 	}
 
 	for _, v := range executeShouldFail {
-		if _, err := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); err == nil {
+		if out := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); out.IsOK() {
 			t.Errorf("Execute(): should have received error for %s", v.name)
 		}
 	}
 }
 
 func TestLoggerManager_DefaultConfig(t *testing.T) {
-	m := NewApplicationLogsManager()
+	m := newApplicationLogsManager()
 	got := m.DefaultConfig()
 	want := &aconfig.ApplicationLogsParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
 	if !proto.Equal(got, want) {
@@ -255,7 +255,7 @@ func TestLoggerManager_DefaultConfig(t *testing.T) {
 }
 
 func TestLoggerManager_ValidateConfig(t *testing.T) {
-	m := NewApplicationLogsManager()
+	m := newApplicationLogsManager()
 	if err := m.ValidateConfig(&ptypes.Empty{}); err != nil {
 		t.Errorf("ValidateConfig(): unexpected error: %v", err)
 	}

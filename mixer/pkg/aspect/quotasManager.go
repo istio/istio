@@ -20,7 +20,6 @@ import (
 	"sync/atomic"
 
 	ptypes "github.com/gogo/protobuf/types"
-	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
@@ -28,6 +27,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/status"
 )
 
 type (
@@ -47,8 +47,8 @@ type (
 	}
 )
 
-// NewQuotasManager returns a manager for the quotas aspect.
-func NewQuotasManager() Manager {
+// newQuotasManager returns a manager for the quotas aspect.
+func newQuotasManager() Manager {
 	return &quotasManager{}
 }
 
@@ -114,7 +114,7 @@ func (*quotasManager) Kind() Kind                                               
 func (*quotasManager) DefaultConfig() adapter.AspectConfig                            { return &aconfig.QuotasParams{} }
 func (*quotasManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
 
-func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) (*Output, error) {
+func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
 	qma, ok := ma.(*QuotaMethodArgs)
 
 	// TODO: this conditional is only necessary because we currently perform quota
@@ -130,12 +130,12 @@ func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma A
 
 	info, ok := w.metadata[qma.Quota]
 	if !ok {
-		return &Output{Code: rpc.INVALID_ARGUMENT}, fmt.Errorf("unknown quota '%s'", qma.Quota)
+		return Output{Status: status.WithInvalidArgument(fmt.Sprintf("unknown quota '%s'", qma.Quota))}
 	}
 
 	labels, err := evalAll(info.labels, attrs, mapper)
 	if err != nil {
-		return &Output{Code: rpc.INTERNAL}, fmt.Errorf("failed to evaluate labels for quota '%s' with err: %s", qma.Quota, err)
+		return Output{Status: status.WithInvalidArgument(fmt.Sprintf("failed to evaluate labels for quota '%s' with err: %s", qma.Quota, err))}
 	}
 
 	qa := adapter.QuotaArgs{
@@ -154,16 +154,16 @@ func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma A
 	}
 
 	if err != nil {
-		return &Output{Code: rpc.INTERNAL}, err
+		return Output{Status: status.WithError(err)}
 	}
 
 	if amount == 0 {
-		return &Output{Code: rpc.RESOURCE_EXHAUSTED}, nil
+		return Output{Status: status.WithResourceExhausted(fmt.Sprintf("Unable to allocate %v units from quota %s", amount, info.definition.Name))}
 	}
 
 	// TODO: need to return the allocated amount somehow in the Quota API's QuotaResponse message
 
-	return &Output{Code: rpc.OK}, nil
+	return Output{Status: status.OK}
 }
 
 func (w *quotasWrapper) Close() error {

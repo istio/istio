@@ -75,7 +75,7 @@ func (b *fakeQuotaBuilder) NewQuotasAspect(env adapter.Env, config adapter.Aspec
 }
 
 func TestNewQuotasManager(t *testing.T) {
-	m := NewQuotasManager()
+	m := newQuotasManager()
 	if m.Kind() != QuotasKind {
 		t.Errorf("m.Kind() = %s wanted %s", m.Kind(), QuotasKind)
 	}
@@ -108,12 +108,12 @@ func TestQuotasManager_NewAspect(t *testing.T) {
 	}}
 
 	conf := newQuotaConfig("RequestCount", map[string]string{"source": "", "target": ""})
-	if _, err := NewQuotasManager().NewAspect(conf, builder, atest.NewEnv(t)); err != nil {
+	if _, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t)); err != nil {
 		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 
 	conf = newQuotaConfig("FOOBAR", map[string]string{})
-	if _, err := NewQuotasManager().NewAspect(conf, builder, atest.NewEnv(t)); err != nil {
+	if _, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t)); err != nil {
 		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 }
@@ -129,9 +129,9 @@ func TestQuotasManager_NewAspect_PropagatesError(t *testing.T) {
 		body: func() (adapter.QuotasAspect, error) {
 			return nil, fmt.Errorf(errString)
 		}}
-	_, err := NewQuotasManager().NewAspect(conf, builder, atest.NewEnv(t))
+	_, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t))
 	if err == nil {
-		t.Error("NewQuotasManager().NewAspect(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
+		t.Error("newQuotasManager().NewAspect(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
 	}
 	if !strings.Contains(err.Error(), errString) {
 		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted err %s", err, errString)
@@ -207,21 +207,18 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 				}},
 				metadata: c.mdin,
 			}
-			_, err := wrapper.Execute(test.NewBag(), c.eval, &QuotaMethodArgs{
+			out := wrapper.Execute(test.NewBag(), c.eval, &QuotaMethodArgs{
 				Quota:      "request_count",
 				Amount:     1,
 				BestEffort: c.bestEffort,
 			})
 
-			errString := ""
-			if err != nil {
-				errString = err.Error()
-			}
+			errString := out.Message()
 			if !strings.Contains(errString, c.errString) {
-				t.Errorf("wrapper.Execute(&fakeBag{}, eval) = _, %v; wanted err containing %s", err, c.errString)
+				t.Errorf("wrapper.Execute(&fakeBag{}, eval) = _, %v; wanted error containing %s", out.Message(), c.errString)
 			}
 
-			if err == nil {
+			if out.IsOK() {
 				o, found := c.out[receivedArgs.Definition.Name]
 				if !found {
 					t.Errorf("Got unexpected args %v, wanted only %v", receivedArgs, c.out)
