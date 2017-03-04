@@ -32,14 +32,13 @@
   "annotations": {
     "list": []
   },
-  "editMode": false,
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
   "hideControls": false,
   "id": null,
   "links": [],
-  "refresh": false,
+  "refresh": "5s",
   "rows": [
     {
       "collapse": false,
@@ -81,9 +80,9 @@
               "step": 2
             },
             {
-              "expr": "rate(request_count{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])",
+              "expr": "rate(request_count{response_code!=\"200\",source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])",
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} -> {{ target }} : ALL",
+              "legendFormat": "{{ source }} -> {{ target }} : {{ response_code }}",
               "refId": "B",
               "step": 2
             }
@@ -369,7 +368,7 @@
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-5m",
     "to": "now"
   },
   "timepicker": {
