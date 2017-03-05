@@ -169,9 +169,8 @@
                 {
                   "cluster": "inbound:1090",
                   "destination_ip_list": [
-                    "10.1.1.0/32"
-                  ],
-                  "destination_ports": "1090"
+                    "10.1.0.0/32"
+                  ]
                 },
                 {
                   "cluster": "outbound:world.default.svc.cluster.local:custom",
@@ -237,6 +236,29 @@
                 "path": "/dev/stdout"
               }
             ]
+          }
+        }
+      ],
+      "bind_to_port": false
+    },
+    {
+      "port": 1090,
+      "filters": [
+        {
+          "type": "read",
+          "name": "tcp_proxy",
+          "config": {
+            "stat_prefix": "tcp",
+            "route_config": {
+              "routes": [
+                {
+                  "cluster": "inbound:1090",
+                  "destination_ip_list": [
+                    "10.1.1.0/32"
+                  ]
+                }
+              ]
+            }
           }
         }
       ],

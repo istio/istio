@@ -127,17 +127,17 @@ func setup() {
 	pods = make(map[string]string)
 
 	// deploy istio-infra
-	check(deploy("http-discovery", "http-discovery", managerDiscovery, "8080", "80", "unversioned"))
-	check(deploy("mixer", "mixer", mixer, "8080", "80", "unversioned"))
-	check(deploy("istio-egress", "istio-egress", egressProxy, "8080", "80", "unversioned"))
+	check(deploy("http-discovery", "http-discovery", managerDiscovery, "8080", "80", "9090", "90", "unversioned"))
+	check(deploy("mixer", "mixer", mixer, "8080", "80", "9090", "90", "unversioned"))
+	check(deploy("istio-egress", "istio-egress", egressProxy, "8080", "80", "9090", "90", "unversioned"))
 
 	// deploy a healthy mix of apps, with and without proxy
-	check(deploy("t", "t", app, "8080", "80", "unversioned"))
-	check(deploy("a", "a", appProxyManagerAgent, "8080", "80", "unversioned"))
-	check(deploy("b", "b", appProxyManagerAgent, "80", "8080", "unversioned"))
-	check(deploy("hello", "hello", appProxyManagerAgent, "8080", "80", "v1"))
-	check(deploy("world-v1", "world", appProxyManagerAgent, "80", "8000", "v1"))
-	check(deploy("world-v2", "world", appProxyManagerAgent, "80", "8000", "v2"))
+	check(deploy("t", "t", app, "8080", "80", "9090", "90", "unversioned"))
+	check(deploy("a", "a", appProxyManagerAgent, "8080", "80", "9090", "90", "unversioned"))
+	check(deploy("b", "b", appProxyManagerAgent, "80", "8080", "90", "9090", "unversioned"))
+	check(deploy("hello", "hello", appProxyManagerAgent, "8080", "80", "9090", "90", "v1"))
+	check(deploy("world-v1", "world", appProxyManagerAgent, "80", "8000", "90", "9090", "v1"))
+	check(deploy("world-v2", "world", appProxyManagerAgent, "80", "8000", "90", "9090", "v2"))
 	check(setPods())
 }
 
@@ -161,7 +161,7 @@ func teardown() {
 	}
 }
 
-func deploy(name, svcName, dType, port1, port2, version string) error {
+func deploy(name, svcName, dType, port1, port2, port3, port4, version string) error {
 	// write template
 	configFile := name + "-" + dType + ".yaml"
 	var w *bufio.Writer
@@ -182,6 +182,8 @@ func deploy(name, svcName, dType, port1, port2, version string) error {
 		"name":    name,
 		"port1":   port1,
 		"port2":   port2,
+		"port3":   port3,
+		"port4":   port4,
 		"version": version,
 	}, w); err != nil {
 		return err

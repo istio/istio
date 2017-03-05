@@ -43,19 +43,23 @@ func (r *reachability) run() error {
 		r.accessLogs[app] = make([]string, 0)
 	}
 
-	err := r.makeRequests()
-	if err != nil {
+	if err := r.makeRequests(); err != nil {
 		return err
 	}
+
+	if err := r.verifyTCPRouting(); err != nil {
+		return err
+	}
+
 	if verbose {
 		log.Println("requests:", r.accessLogs)
 	}
 
-	if err = r.checkAccessLogs(); err != nil {
+	if err := r.checkAccessLogs(); err != nil {
 		return err
 	}
 
-	if err = r.checkMixerLogs(); err != nil {
+	if err := r.checkMixerLogs(); err != nil {
 		return err
 	}
 
@@ -196,4 +200,62 @@ func (r *reachability) checkMixerLogs() error {
 		time.Sleep(time.Second)
 	}
 	return fmt.Errorf("exceeded budget for checking mixer logs")
+}
+
+func (r *reachability) makeTCPRequest(src, dst, port, domain string, done func() bool) func() error {
+	return func() error {
+		url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
+		for n := 0; n < budget; n++ {
+			log.Printf("Making a request %s from %s (attempt %d)...\n", url, src, n)
+			request, err := shell(fmt.Sprintf("kubectl exec %s -n %s -c app client %s",
+				pods[src], params.namespace, url), verbose)
+			if err != nil {
+				return err
+			}
+			match := regexp.MustCompile("StatusCode=(.*)").FindStringSubmatch(request)
+			if len(match) > 1 && match[1] == "200" {
+				return nil
+			}
+			if done() {
+				return nil
+			}
+		}
+		return fmt.Errorf("failed to verify TCP routing from %s to %s (url %s)", src, dst, url)
+	}
+}
+
+func (r *reachability) verifyTCPRouting() error {
+	log.Printf("verifyTCPRouting parallel=%t\n", parallel)
+	g, ctx := errgroup.WithContext(context.Background())
+	testPods := []string{"a", "b", "t"}
+	for _, src := range testPods {
+		for _, dst := range testPods {
+			for _, port := range []string{":90", ":9090"} {
+				for _, domain := range []string{"", "." + params.namespace} {
+					if parallel {
+						g.Go(r.makeTCPRequest(src, dst, port, domain, func() bool {
+							select {
+							case <-time.After(time.Second):
+								// try again
+							case <-ctx.Done():
+								return true
+							}
+							return false
+
+						}))
+					} else {
+						if err := r.makeTCPRequest(src, dst, port, domain, func() bool { return false })(); err != nil {
+							return err
+						}
+					}
+				}
+			}
+		}
+	}
+	if parallel {
+		if err := g.Wait(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

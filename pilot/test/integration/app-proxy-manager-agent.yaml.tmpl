@@ -13,6 +13,12 @@ spec:
   - port: 8080
     targetPort: {{.port2}}
     name: http-alternative
+  - port: 90
+    targetPort: {{.port3}}
+    name: tcp
+  - port: 9090
+    targetPort: {{.port4}}
+    name: tcp-alternative
   selector:
     app: {{.service}}
 ---
@@ -45,11 +51,17 @@ spec:
           - "{{.port1}}"
           - --port
           - "{{.port2}}"
+          - --port
+          - "{{.port3}}"
+          - --port
+          - "{{.port4}}"
           - --version
           - "{{.version}}"
         ports:
         - containerPort: {{.port1}}
         - containerPort: {{.port2}}
+        - containerPort: {{.port3}}
+        - containerPort: {{.port4}}
       - name: proxy
         image: {{.hub}}/runtime:{{.tag}}
         imagePullPolicy: Always

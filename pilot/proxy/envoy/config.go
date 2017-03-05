@@ -262,7 +262,7 @@ func buildOutboundFilters(instances []*model.ServiceInstance, services []*model.
 				http.VirtualHosts = append(http.VirtualHosts, host)
 			case model.ProtocolTCP:
 				cluster := buildOutboundCluster(service.Hostname, port, nil)
-				route := buildTCPRoute(cluster, service.Address, port.Port)
+				route := buildTCPRoute(cluster, []string{service.Address}, port.Port)
 				config := tcpConfigs.EnsurePort(port.Port)
 				config.Routes = append(config.Routes, route)
 			default:
@@ -286,12 +286,13 @@ func buildInboundFilters(instances []*model.ServiceInstance) (HTTPRouteConfigs, 
 	for _, instance := range instances {
 		service := instance.Service
 		endpoint := instance.Endpoint
-		port := endpoint.ServicePort
-		switch port.Protocol {
+		servicePort := endpoint.ServicePort
+		protocol := servicePort.Protocol
+		switch protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
-			cluster := buildInboundCluster(service.Hostname, endpoint.Port, port.Protocol)
+			cluster := buildInboundCluster(service.Hostname, endpoint.Port, protocol)
 			route := buildDefaultRoute(cluster)
-			host := buildVirtualHost(service, port, suffix, []*HTTPRoute{route})
+			host := buildVirtualHost(service, servicePort, suffix, []*HTTPRoute{route})
 
 			// insert explicit instance ip:port as a hostname field
 			host.Domains = append(host.Domains, fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port))
@@ -302,12 +303,34 @@ func buildInboundFilters(instances []*model.ServiceInstance) (HTTPRouteConfigs, 
 			http := httpConfigs.EnsurePort(endpoint.Port)
 			http.VirtualHosts = append(http.VirtualHosts, host)
 		case model.ProtocolTCP:
-			cluster := buildInboundCluster(service.Hostname, endpoint.Port, port.Protocol)
-			route := buildTCPRoute(cluster, endpoint.Address, endpoint.Port)
-			config := tcpConfigs.EnsurePort(port.Port)
-			config.Routes = append(config.Routes, route)
+			cluster := buildInboundCluster(service.Hostname, endpoint.Port, protocol)
+
+			// Local service instances can be accessed through one of three
+			// addresses: localhost, endpoint IP, and service
+			// VIP. Localhost bypasses the proxy and doesn't need any TCP
+			// route config. Endpoint IP and Service VIP routes are
+			// handled below.
+			//
+			// Also, omit the destination port here since TCP routes are
+			// already declared in the scope of a particular listener
+			// port.
+
+			// Traffic sent to our service VIP is redirected by remote
+			// services' kubeproxy to our specific endpoint IP.
+			config := tcpConfigs.EnsurePort(endpoint.Port)
+			config.Routes = append(config.Routes,
+				buildTCPRoute(cluster, []string{endpoint.Address}, -1),
+			)
+
+			// Traffic sent to our service VIP by a container
+			// co-located in our same pod will be intercepted by envoy
+			// proxy before it is redirected to the endpoint IP.
+			config = tcpConfigs.EnsurePort(servicePort.Port)
+			config.Routes = append(config.Routes,
+				buildTCPRoute(cluster, []string{service.Address}, -1),
+			)
 		default:
-			glog.Warningf("Unsupported inbound protocol %v for port %d", port.Protocol, port)
+			glog.Warningf("Unsupported inbound protocol %v for port %d", protocol, servicePort)
 		}
 	}
 
