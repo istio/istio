@@ -243,6 +243,51 @@ type TCPRoute struct {
 	clusterRef *Cluster
 }
 
+// TCPRouteByRoute sorts TCP routes over all route sub fields.
+type TCPRouteByRoute []TCPRoute
+
+func (r TCPRouteByRoute) Len() int {
+	return len(r)
+}
+
+func (r TCPRouteByRoute) Swap(i, j int) {
+	r[i], r[j] = r[j], r[i]
+}
+
+func (r TCPRouteByRoute) Less(i, j int) bool {
+	if r[i].Cluster != r[j].Cluster {
+		return r[i].Cluster < r[j].Cluster
+	}
+
+	compare := func(a, b []string) bool {
+		lenA, lenB := len(a), len(b)
+		min := lenA
+		if min > lenB {
+			min = lenB
+		}
+		for k := 0; k < min; k++ {
+			if a[k] != b[k] {
+				return a[k] < b[k]
+			}
+		}
+		return lenA < lenB
+	}
+
+	if less := compare(r[i].DestinationIPList, r[j].DestinationIPList); less {
+		return less
+	}
+	if r[i].DestinationPorts != r[j].DestinationPorts {
+		return r[i].DestinationPorts < r[j].DestinationPorts
+	}
+	if less := compare(r[i].SourceIPList, r[j].SourceIPList); less {
+		return less
+	}
+	if r[i].SourcePorts != r[j].SourcePorts {
+		return r[i].SourcePorts < r[j].SourcePorts
+	}
+	return false
+}
+
 // Merge operation selects a union of two route configs prioritizing the first.
 func (rc *TCPRouteConfig) merge(that *TCPRouteConfig) *TCPRouteConfig {
 	out := &TCPRouteConfig{}

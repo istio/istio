@@ -16,6 +16,7 @@ package envoy
 
 import (
 	"io/ioutil"
+	"reflect"
 	"sort"
 	"testing"
 
@@ -68,6 +69,143 @@ func TestRoutesByPath(t *testing.T) {
 		sort.Sort(RoutesByPath(c.in))
 		if !sameOrder(c.in, c.expected) {
 			t.Errorf("Invalid sort order for case %d", i)
+		}
+	}
+}
+
+func TestTCPRouteConfigByRoute(t *testing.T) {
+	cases := []struct {
+		name string
+		in   []TCPRoute
+		want []TCPRoute
+	}{
+		{
+			name: "sorted by cluster",
+			in: []TCPRoute{{
+				Cluster:           "cluster-b",
+				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
+				DestinationPorts:  "5000",
+			}, {
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.1.2/32", "192.168.1.1/32"},
+				DestinationPorts:  "5000",
+			}},
+			want: []TCPRoute{{
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.1.2/32", "192.168.1.1/32"},
+				DestinationPorts:  "5000",
+			}, {
+				Cluster:           "cluster-b",
+				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
+				DestinationPorts:  "5000",
+			}},
+		},
+		{
+			name: "sorted by DestinationIPList",
+			in: []TCPRoute{{
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.2.1/32", "192.168.2.2/32"},
+				DestinationPorts:  "5000",
+			}, {
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
+				DestinationPorts:  "5000",
+			}},
+			want: []TCPRoute{{
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
+				DestinationPorts:  "5000",
+			}, {
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.2.1/32", "192.168.2.2/32"},
+				DestinationPorts:  "5000",
+			}},
+		},
+		{
+			name: "sorted by DestinationPorts",
+			in: []TCPRoute{{
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
+				DestinationPorts:  "5001",
+			}, {
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
+				DestinationPorts:  "5000",
+			}},
+			want: []TCPRoute{{
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
+				DestinationPorts:  "5000",
+			}, {
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
+				DestinationPorts:  "5001",
+			}},
+		},
+		{
+			name: "sorted by SourceIPList",
+			in: []TCPRoute{{
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
+				DestinationPorts:  "5000",
+				SourceIPList:      []string{"192.168.3.1/32", "192.168.3.2/32"},
+				SourcePorts:       "5002",
+			}, {
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
+				DestinationPorts:  "5000",
+				SourceIPList:      []string{"192.168.2.1/32", "192.168.2.2/32"},
+				SourcePorts:       "5002",
+			}},
+			want: []TCPRoute{{
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
+				DestinationPorts:  "5000",
+				SourceIPList:      []string{"192.168.2.1/32", "192.168.2.2/32"},
+				SourcePorts:       "5002",
+			}, {
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
+				DestinationPorts:  "5000",
+				SourceIPList:      []string{"192.168.3.1/32", "192.168.3.2/32"},
+				SourcePorts:       "5002",
+			}},
+		},
+		{
+			name: "sorted by SourcePorts",
+			in: []TCPRoute{{
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
+				DestinationPorts:  "5000",
+				SourceIPList:      []string{"192.168.2.1/32", "192.168.2.2/32"},
+				SourcePorts:       "5003",
+			}, {
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
+				DestinationPorts:  "5000",
+				SourceIPList:      []string{"192.168.2.1/32", "192.168.2.2/32"},
+				SourcePorts:       "5002",
+			}},
+			want: []TCPRoute{{
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
+				DestinationPorts:  "5000",
+				SourceIPList:      []string{"192.168.2.1/32", "192.168.2.2/32"},
+				SourcePorts:       "5002",
+			}, {
+				Cluster:           "cluster-a",
+				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
+				DestinationPorts:  "5000",
+				SourceIPList:      []string{"192.168.2.1/32", "192.168.2.2/32"},
+				SourcePorts:       "5003",
+			}},
+		},
+	}
+
+	for _, c := range cases {
+		sort.Sort(TCPRouteByRoute(c.in))
+		if !reflect.DeepEqual(c.in, c.want) {
+			t.Errorf("Invalid sort order for case %q:\n got  %#v\n want %#v", c.name, c.in, c.want)
 		}
 	}
 }

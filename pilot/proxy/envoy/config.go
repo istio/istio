@@ -201,6 +201,7 @@ func build(instances []*model.ServiceInstance, services []*model.Service,
 	}
 
 	for port, tcpConfig := range tcpRouteConfigs {
+		sort.Sort(TCPRouteByRoute(tcpConfig.Routes))
 		clusters = append(clusters, tcpConfig.clusters()...)
 		listener := &Listener{
 			Port: port,

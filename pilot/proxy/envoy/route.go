@@ -19,6 +19,7 @@ package envoy
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -246,6 +247,7 @@ func buildTCPRoute(cluster *Cluster, addresses []string, port int) TCPRoute {
 	if port >= 0 {
 		route.DestinationPorts = strconv.Itoa(port)
 	}
+	sort.Sort(sort.StringSlice(addresses))
 	for _, addr := range addresses {
 		route.DestinationIPList = append(route.DestinationIPList, addr+"/32")
 	}
