@@ -8,10 +8,10 @@
     * [Weighted Routing to Different Destination Service Versions](#istio.proxy.v1alpha.config.DestinationWeight)
     * [HTTP Req Retries](#istio.proxy.v1alpha.config.HTTPRetry)
     * [HTTP Req Timeouts](#istio.proxy.v1alpha.config.HTTPTimeout)
+    * [HTTP Fault Injection](#istio.proxy.v1alpha.config.HTTPFaultInjection)    
   * [Destination Policies](#istio.proxy.v1alpha.config.DestinationPolicy)
     * [Load Balancing](#istio.proxy.v1alpha.config.LoadBalancing)
     * [Circuit Breakers](#istio.proxy.v1alpha.config.CircuitBreaker)
-    * [Fault Injection](#istio.proxy.v1alpha.config.HTTPFaultInjection)
 
 <a name="cfg.proto"/>
 <p align="right"><a href="#top">Top</a></p>
@@ -68,7 +68,7 @@ not apply to TCP traffic towards the destination service.
 | route | [DestinationWeight](#istio.proxy.v1alpha.config.DestinationWeight) | repeated | Each routing rule is associated with one or more service version destinations (see glossary in beginning of document). Weights associated with the service version determine the proportion of traffic it receives. |
 | http_req_timeout | [HTTPTimeout](#istio.proxy.v1alpha.config.HTTPTimeout) | optional | Timeout policy for HTTP requests. |
 | http_req_retries | [HTTPRetry](#istio.proxy.v1alpha.config.HTTPRetry) | optional | Retry policy for HTTP requests. |
-
+| http_fault | [HTTPFaultInjection](#istio.proxy.v1alpha.config.HTTPFaultInjection) | optional | L7 fault injection policy applies to Http traffic |
 
 <a name="istio.proxy.v1alpha.config.MatchCondition"/>
 ### Match Conditions
@@ -84,7 +84,7 @@ Match condition specifies a set of criterion to be met in order for the
 | source_tags | [MatchCondition.SourceTagsEntry](#istio.proxy.v1alpha.config.MatchCondition.SourceTagsEntry) | repeated | Identifies the source service version. The identifier is interpreted by the platform to match a service version for the source service.N.B. The map is used instead of pstruct due to lack of serialization supportin golang protobuf library (see https://github.com/golang/protobuf/pull/208) |
 | tcp | [L4MatchAttributes](#istio.proxy.v1alpha.config.L4MatchAttributes) | optional | Set of layer 4 match conditions based on the IP ranges. INCOMPLETE implementation |
 | udp | [L4MatchAttributes](#istio.proxy.v1alpha.config.L4MatchAttributes) | optional |  |
-| http | [MatchCondition.HttpEntry](#istio.proxy.v1alpha.config.MatchCondition.HttpEntry) | repeated | Set of HTTP match conditions based on HTTP/1.1, HTTP/2, GRPC request metadata, such as "uri", "scheme", "authority". The header keys are case-insensitive. |
+| http_headers | [MatchCondition.HttpEntry](#istio.proxy.v1alpha.config.MatchCondition.HttpEntry) | repeated | Set of HTTP match conditions based on HTTP/1.1, HTTP/2, GRPC request metadata, such as "uri", "scheme", "authority". The header keys are case-insensitive. |
 
 
 <a name="istio.proxy.v1alpha.config.MatchCondition.HttpEntry"/>
@@ -213,7 +213,6 @@ DestinationPolicy declares policies that determine how to handle traffic for a
 | tags | [DestinationPolicy.TagsEntry](#istio.proxy.v1alpha.config.DestinationPolicy.TagsEntry) | repeated | Service version destination identifier for the destination service. The identifier is qualified by the destination service name, e.g. version "env=prod" in "my-service.default.svc.cluster.local".N.B. The map is used instead of pstruct due to lack of serialization supportin golang protobuf library (see https://github.com/golang/protobuf/pull/208) |
 | load_balancing | [LoadBalancing](#istio.proxy.v1alpha.config.LoadBalancing) | optional | Load balancing policy |
 | circuit_breaker | [CircuitBreaker](#istio.proxy.v1alpha.config.CircuitBreaker) | optional | Circuit breaker policy |
-| http_fault | [HTTPFaultInjection](#istio.proxy.v1alpha.config.HTTPFaultInjection) | optional | L7 fault injection policy applies to Http traffic |
 | custom | [Any](#google.protobuf.Any) | optional | Other custom policy implementations |
 
 
@@ -299,7 +298,6 @@ Abort Http request attempts and return error codes back to downstream
 | grpc_status | [string](#string) | optional |  |
 | http2_error | [string](#string) | optional |  |
 | http_status | [int32](#int32) | optional |  |
-| override_header_name | [string](#string) | optional |  |
 
 
 <a name="istio.proxy.v1alpha.config.HTTPFaultInjection.Delay"/>
@@ -309,39 +307,6 @@ MUST specify either a fixed delay or exponential delay. Exponential
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| fixed_delay | [HTTPFaultInjection.FixedDelay](#istio.proxy.v1alpha.config.HTTPFaultInjection.FixedDelay) | optional |  |
-| exp_delay | [HTTPFaultInjection.ExponentialDelay](#istio.proxy.v1alpha.config.HTTPFaultInjection.ExponentialDelay) | optional |  |
-| override_header_name | [string](#string) | optional |  |
-
-
-<a name="istio.proxy.v1alpha.config.HTTPFaultInjection.ExponentialDelay"/>
-### HTTPFaultInjection.ExponentialDelay
-Add a delay (based on an exponential function) before forwarding the
- request
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
 | percent | [float](#float) | optional | percentage of requests on which the delay will be injected |
-| mean_delay_seconds | [double](#double) | optional | mean delay needed to derive the exponential delay values |
-
-
-<a name="istio.proxy.v1alpha.config.HTTPFaultInjection.FixedDelay"/>
-### HTTPFaultInjection.FixedDelay
-Add a fixed delay before forwarding the request
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| percent | [float](#float) | optional | percentage of requests on which the delay will be injected |
-| fixed_delay_seconds | [double](#double) | optional | delay duration in seconds.nanoseconds |
-
-
-<a name="istio.proxy.v1alpha.config.HTTPFaultInjection.HeadersEntry"/>
-### HTTPFaultInjection.HeadersEntry
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| key | [string](#string) | optional |  |
-| value | [StringMatch](#istio.proxy.v1alpha.config.StringMatch) | optional |  |
-
-
+| fixed_delay_seconds | [double](#double) | optional | Add a fixed delay before forwarding the request. Delay duration in seconds.nanoseconds |
+| exponential_delay_seconds | [double](#double) | optional | Add a delay (based on an exponential function) before forwarding the request. mean delay needed to derive the exponential delay values |

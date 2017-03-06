@@ -84,14 +84,8 @@ message DestinationPolicy {
   /// Circuit breaker policy
   CircuitBreaker circuit_breaker = 4;
 
-  ///L7 fault injection policy applies to Http traffic
-  HTTPFaultInjection http_fault = 5;
-
-  ///@exclude L4 fault injection policy applies to Tcp/Udp (not Http) traffic
-  L4FaultInjection l4_fault = 6;
-
   /// Other custom policy implementations
-  google.protobuf.Any custom = 7;
+  google.protobuf.Any custom = 5;
 }
 
 /// Route rule provides a custom routing policy based on the source and
@@ -130,6 +124,12 @@ message RouteRule {
 
   /// Retry policy for HTTP requests.
   HTTPRetry http_req_retries = 6;
+
+  ///L7 fault injection policy applies to Http traffic
+  HTTPFaultInjection http_fault = 7;
+
+  ///@exclude L4 fault injection policy applies to Tcp/Udp (not Http) traffic
+  L4FaultInjection l4_fault = 8;
 }
 
 /// Match condition specifies a set of criterion to be met in order for the
@@ -158,7 +158,7 @@ message MatchCondition {
   /// Set of HTTP match conditions based on HTTP/1.1, HTTP/2, GRPC request metadata,
   /// such as "uri", "scheme", "authority".
   /// The header keys are case-insensitive.
-  map<string, StringMatch> http = 5;
+  map<string, StringMatch> http_headers = 5;
 }
 
 /// Each routing rule is associated with one or more service versions (see
@@ -313,37 +313,22 @@ message HTTPFaultInjection {
   /// were also delayed.
   Abort abort = 2;
 
-  /// Only requests with these Http headers will be subjected to fault
-  /// injection
-  map<string, StringMatch> headers = 3;
-
   /// MUST specify either a fixed delay or exponential delay. Exponential
   /// delay is unsupported at the moment.
   message Delay {
+    /// percentage of requests on which the delay will be injected
+    float percent = 1;
     oneof http_delay_type {
-      FixedDelay fixed_delay = 1;
-      ExponentialDelay exp_delay = 2;
+      /// Add a fixed delay before forwarding the request. Delay duration in seconds.nanoseconds
+      double fixed_delay_seconds = 2;
+      /// Add a delay (based on an exponential function) before forwarding
+      /// the request. mean delay needed to derive the exponential delay
+      /// values
+      double exponential_delay_seconds = 3;
     }
     // Specify delay duration as part of Http request.
     // TODO: The semantics and syntax of the headers is undefined.
-    string override_header_name = 3;
-  }
-
-  /// Add a fixed delay before forwarding the request
-  message FixedDelay {
-    /// percentage of requests on which the delay will be injected
-    float percent = 1;
-    /// delay duration in seconds.nanoseconds
-    double fixed_delay_seconds = 2;
-  }
-
-  /// Add a delay (based on an exponential function) before forwarding the
-  /// request
-  message ExponentialDelay {
-    /// percentage of requests on which the delay will be injected
-    float percent = 1;
-    /// mean delay needed to derive the exponential delay values
-    double mean_delay_seconds = 2;
+    string override_header_name = 4;
   }
 
   /// Abort Http request attempts and return error codes back to downstream
