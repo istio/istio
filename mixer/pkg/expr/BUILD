@@ -6,7 +6,6 @@ go_library(
         "evaluator.go",
         "expr.go",
         "func.go",
-        "identity.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -25,7 +24,6 @@ go_test(
         "eval_test.go",
         "expr_test.go",
         "func_test.go",
-        "identity_test.go",
     ],
     library = ":go_default_library",
     deps = [
