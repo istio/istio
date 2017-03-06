@@ -26,7 +26,7 @@ go_binary(
         "egress-proxy.yaml.tmpl",
         "manager-discovery.yaml.tmpl",
         "mixer.yaml.tmpl",
-        "policy-fault-injection.yaml.tmpl",
+        "rule-fault-injection.yaml.tmpl",
         "rule-content-route.yaml.tmpl",
         "rule-default-route.yaml.tmpl",
         "rule-weighted-route.yaml.tmpl",

@@ -98,7 +98,7 @@ func (w *ingressWatcher) generateConfig() (*Config, error) {
 	for _, rule := range rules {
 		host := "*"
 		if rule.Match != nil {
-			if authority, ok := rule.Match.Http["authority"]; ok {
+			if authority, ok := rule.Match.HttpHeaders["authority"]; ok {
 				switch match := authority.GetMatchType().(type) {
 				case *config.StringMatch_Exact:
 					host = match.Exact
@@ -187,8 +187,8 @@ func buildIngressRoute(rule *config.RouteRule) (*HTTPRoute, error) {
 		Prefix: "/",
 	}
 
-	if rule.Match != nil && rule.Match.Http != nil {
-		if uri, ok := rule.Match.Http[HeaderURI]; ok {
+	if rule.Match != nil && rule.Match.HttpHeaders != nil {
+		if uri, ok := rule.Match.HttpHeaders[HeaderURI]; ok {
 			switch m := uri.MatchType.(type) {
 			case *config.StringMatch_Exact:
 				route.Path = m.Exact

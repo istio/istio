@@ -256,7 +256,7 @@ func TestProxyConfig(t *testing.T) {
 	rule := &proxyconfig.RouteRule{
 		Destination: "foo",
 		Match: &proxyconfig.MatchCondition{
-			Http: map[string]*proxyconfig.StringMatch{
+			HttpHeaders: map[string]*proxyconfig.StringMatch{
 				"uri": {
 					MatchType: &proxyconfig.StringMatch_Exact{
 						Exact: "test",

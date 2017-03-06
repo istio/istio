@@ -1,0 +1,15 @@
+{
+  "destination": "world.default.svc.cluster.local",
+  "circuit_breaker": {
+    "simple_cb": {
+      "max_connections": 100,
+      "sleep_window_seconds": 15.5,
+      "http_max_requests": 100,
+      "http_max_requests_per_connection": 100,
+      "http_max_pending_requests": 100,
+      "http_consecutive_errors": 10,
+      "http_detection_interval_seconds": 30,
+      "http_max_ejection_percent": 100
+    }
+  }
+}

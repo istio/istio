@@ -156,7 +156,7 @@ func build(instances []*model.ServiceInstance, services []*model.Service,
 		sort.Sort(HostsByName(routeConfig.VirtualHosts))
 		clusters = append(clusters, routeConfig.clusters()...)
 
-		filters := buildFaultFilters(config, routeConfig)
+		filters := buildFaultFilters(routeConfig)
 
 		filters = append(filters, HTTPFilter{
 			Type:   "decoder",
@@ -247,16 +247,33 @@ func buildOutboundFilters(instances []*model.ServiceInstance, services []*model.
 			case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
 				routes := make([]*HTTPRoute, 0)
 
+				// User can provide timeout/retry policies without any match condition,
+				// or specific route. User could also provide a single default route, in
+				// which case, we should not be generating another default route.
+				// For every HTTPRoute we build, the return value also provides a boolean
+				// "catchAll" flag indicating if the route that was built was a catch all route.
+				// When such a route is encountered, we stop building further routes for the
+				// destination and we will not add the default route after of the for loop.
+
+				catchAll := false
+				var httpRoute *HTTPRoute
+
 				// collect route rules
 				for _, rule := range rules {
 					if rule.Destination == service.Hostname {
-						routes = append(routes, buildHTTPRoute(rule, port))
+						httpRoute, catchAll = buildHTTPRoute(rule, port)
+						routes = append(routes, httpRoute)
+						if catchAll {
+							break
+						}
 					}
 				}
 
-				// default route for the destination
-				cluster := buildOutboundCluster(service.Hostname, port, nil)
-				routes = append(routes, buildDefaultRoute(cluster))
+				if !catchAll {
+					// default route for the destination
+					cluster := buildOutboundCluster(service.Hostname, port, nil)
+					routes = append(routes, buildDefaultRoute(cluster))
+				}
 
 				host := buildVirtualHost(service, port, suffix, routes)
 				http := httpConfigs.EnsurePort(port.Port)

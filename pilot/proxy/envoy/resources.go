@@ -152,6 +152,10 @@ type HTTPRoute struct {
 	// clusters contains the set of referenced clusters in the route; the field is special
 	// and used only to aggregate cluster information after composing routes
 	clusters []*Cluster
+
+	// faults contains the set of referenced faults in the route; the field is special
+	// and used only to aggregate fault filter information after composing routes
+	faults []*HTTPFilter
 }
 
 // RetryPolicy definition
@@ -203,12 +207,23 @@ func (rc *HTTPRouteConfig) merge(that *HTTPRouteConfig) *HTTPRouteConfig {
 	return out
 }
 
-// Clusters aggregates clusters across routes
+// Clusters aggregates clusters across HTTP routes
 func (rc *HTTPRouteConfig) clusters() []*Cluster {
 	out := make([]*Cluster, 0)
 	for _, host := range rc.VirtualHosts {
 		for _, route := range host.Routes {
 			out = append(out, route.clusters...)
+		}
+	}
+	return out
+}
+
+// Faults aggregates fault filters across virtual hosts in single http_conn_man
+func (rc *HTTPRouteConfig) faults() []*HTTPFilter {
+	out := make([]*HTTPFilter, 0)
+	for _, host := range rc.VirtualHosts {
+		for _, route := range host.Routes {
+			out = append(out, route.faults...)
 		}
 	}
 	return out
@@ -304,7 +319,7 @@ func (rc *TCPRouteConfig) merge(that *TCPRouteConfig) *TCPRouteConfig {
 	return out
 }
 
-// Clusters aggregates clusters across routes
+// Clusters aggregates clusters across TCP routes
 func (rc *TCPRouteConfig) clusters() []*Cluster {
 	out := make([]*Cluster, 0)
 	for _, route := range rc.Routes {
@@ -386,7 +401,7 @@ type Cluster struct {
 	MaxRequestsPerConnection int               `json:"max_requests_per_connection,omitempty"`
 	Hosts                    []Host            `json:"hosts,omitempty"`
 	Features                 string            `json:"features,omitempty"`
-	CircuitBreaker           *CircuitBreaker   `json:"circuit_breaker,omitempty"`
+	CircuitBreaker           *CircuitBreaker   `json:"circuit_breakers,omitempty"`
 	OutlierDetection         *OutlierDetection `json:"outlier_detection,omitempty"`
 
 	// special values used by the post-processing passes for outbound clusters
@@ -399,6 +414,11 @@ type Cluster struct {
 // CircuitBreaker definition
 // See: https://lyft.github.io/envoy/docs/configuration/cluster_manager/cluster_circuit_breakers.html#circuit-breakers
 type CircuitBreaker struct {
+	Default DefaultCBPriority `json:"default"`
+}
+
+// DefaultCBPriority defines the circuit breaker for default cluster priority
+type DefaultCBPriority struct {
 	MaxConnections     int `json:"max_connections,omitempty"`
 	MaxPendingRequests int `json:"max_pending_requests,omitempty"`
 	MaxRequests        int `json:"max_requests,omitempty"`
@@ -408,7 +428,7 @@ type CircuitBreaker struct {
 // OutlierDetection definition
 // See: https://lyft.github.io/envoy/docs/configuration/cluster_manager/cluster_runtime.html#outlier-detection
 type OutlierDetection struct {
-	ConsecutiveError   int `json:"consecutive_5xx,omitempty"`
+	ConsecutiveErrors  int `json:"consecutive_5xx,omitempty"`
 	IntervalMS         int `json:"interval_ms,omitempty"`
 	BaseEjectionTimeMS int `json:"base_ejection_time_ms,omitempty"`
 	MaxEjectionPercent int `json:"max_ejection_percent,omitempty"`

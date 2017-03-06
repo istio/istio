@@ -20,6 +20,7 @@ import (
 	"sort"
 	"testing"
 
+	"istio.io/manager/model"
 	"istio.io/manager/test/mock"
 )
 
@@ -211,26 +212,32 @@ func TestTCPRouteConfigByRoute(t *testing.T) {
 }
 
 const (
-	envoyData   = "testdata/envoy.json"
-	envoyGolden = "testdata/envoy.json.golden"
+	envoyData              = "testdata/envoy.json"
+	envoyPlainGolden       = "testdata/envoy-no-route-rule.json.golden"
+	envoyTimeoutRuleGolden = "testdata/envoy-timeout-rule.json.golden"
+	envoyCBPolicyGolden    = "testdata/envoy-cb-policy.json.golden"
+	timeoutRouteRule       = "testdata/timeout-route-rule.json.golden"
+	cbPolicy               = "testdata/cb-policy.json.golden"
 )
 
-func TestMockConfigGenerate(t *testing.T) {
+func TestMockConfigGeneratePlain(t *testing.T) {
 	ds := mock.Discovery
 	r := mock.MakeRegistry()
+
 	config := Generate(
 		ds.HostInstances(map[string]bool{mock.HostInstance: true}),
 		ds.Services(), r,
 		DefaultMeshConfig)
 	if config == nil {
-		t.Fatalf("Failed to generate config")
+		t.Fatal("Failed to generate config in non-route rule case")
 	}
+
 	err := config.WriteFile(envoyData)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
-	expected, err := ioutil.ReadFile(envoyGolden)
+	expected, err := ioutil.ReadFile(envoyPlainGolden)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -241,6 +248,114 @@ func TestMockConfigGenerate(t *testing.T) {
 
 	// TODO: use difflib to obtain detailed diff
 	if string(expected) != string(data) {
-		t.Errorf("Envoy config master copy changed")
+		t.Error("Envoy config differs from master copy for Plain config")
+	}
+}
+
+func TestMockConfigGenerateWithTimeoutRules(t *testing.T) {
+	ds := mock.Discovery
+	r := mock.MakeRegistry()
+
+	rTemp, err := ioutil.ReadFile(timeoutRouteRule)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	routeRule := string(rTemp)
+
+	ps := model.IstioConfig[model.RouteRule]
+	rule, err := ps.FromJSON(routeRule)
+
+	if err != nil {
+		t.Errorf("Failed to translate timeout route rule %v", err)
+	}
+
+	key := model.Key{
+		Kind:      model.RouteRule,
+		Name:      "timeouts",
+		Namespace: "",
+	}
+
+	if err = r.Post(key, rule); err != nil {
+		t.Errorf("Failed to add timeout route rule to config registry %v", err)
+	}
+
+	config := Generate(
+		ds.HostInstances(map[string]bool{mock.HostInstance: true}),
+		ds.Services(), r,
+		DefaultMeshConfig)
+	if config == nil {
+		t.Fatal("Failed to generate config for timeout route rule")
+	}
+	err = config.WriteFile(envoyData)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	expected, err := ioutil.ReadFile(envoyTimeoutRuleGolden)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	data, err := ioutil.ReadFile(envoyData)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	// TODO: use difflib to obtain detailed diff
+	if string(expected) != string(data) {
+		t.Error("Envoy config differs from master config for timeout rule")
+	}
+}
+
+func TestMockConfigGenerateWithCBPolicy(t *testing.T) {
+	ds := mock.Discovery
+	r := mock.MakeRegistry()
+
+	rTemp, err := ioutil.ReadFile(cbPolicy)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	policyRule := string(rTemp)
+
+	ps := model.IstioConfig[model.DestinationPolicy]
+	rule, err := ps.FromJSON(policyRule)
+
+	if err != nil {
+		t.Errorf("Failed to translate circuit breaker policy %v", err)
+	}
+
+	key := model.Key{
+		Kind:      model.DestinationPolicy,
+		Name:      "circuitBreaker",
+		Namespace: "",
+	}
+
+	if err = r.Post(key, rule); err != nil {
+		t.Errorf("Failed to add circuit_breaker to config registry %v", err)
+	}
+
+	config := Generate(
+		ds.HostInstances(map[string]bool{mock.HostInstance: true}),
+		ds.Services(), r,
+		DefaultMeshConfig)
+	if config == nil {
+		t.Fatal("Failed to generate config for circuit breaker")
+	}
+	err = config.WriteFile(envoyData)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	expected, err := ioutil.ReadFile(envoyCBPolicyGolden)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	data, err := ioutil.ReadFile(envoyData)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	// TODO: use difflib to obtain detailed diff
+	if string(expected) != string(data) {
+		t.Error("Envoy config differs from master config for Circuit Breaker policy")
 	}
 }

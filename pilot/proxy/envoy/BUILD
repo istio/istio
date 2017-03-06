@@ -12,6 +12,7 @@ go_library(
         "resources.go",
         "route.go",
         "watcher.go",
+        "fault.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -27,7 +28,11 @@ go_library(
 go_test(
     name = "go_default_test",
     data = [
-        "testdata/envoy.json.golden",
+        "testdata/envoy-no-route-rule.json.golden",
+        "testdata/envoy-timeout-rule.json.golden",
+        "testdata/envoy-cb-policy.json.golden",
+        "testdata/timeout-route-rule.json.golden",
+        "testdata/cb-policy.json.golden",
     ],
     size = "small",
     srcs = [

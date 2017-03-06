@@ -1,5 +1,5 @@
 destination: {{.destination}}.{{.namespace}}.svc.cluster.local
-precedence: 2
+precedence: 3
 match:
   source: {{.source}}.{{.namespace}}.svc.cluster.local
   source_tags:
@@ -10,3 +10,10 @@ match:
 route:
   - tags:
        version: v2
+http_fault:
+  delay:
+    percent: 100
+    fixed_delay_seconds: 5
+  abort:
+    percent: 100
+    http_status: 503

@@ -81,16 +81,37 @@ func buildOutboundCluster(hostname string, port *model.Port, tags model.Tags) *C
 }
 
 // buildHTTPRoute translates a route rule to an Envoy route
-func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port) *HTTPRoute {
+func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port) (*HTTPRoute, bool) {
 	route := &HTTPRoute{
 		Path:   "",
 		Prefix: "/",
 	}
 
-	if rule.Match != nil {
-		route.Headers = buildHeaders(rule.Match.Http)
+	catchAll := true
 
-		if uri, ok := rule.Match.Http[HeaderURI]; ok {
+	// setup timeouts for the route
+	if rule.HttpReqTimeout != nil &&
+		rule.HttpReqTimeout.GetSimpleTimeout() != nil &&
+		rule.HttpReqTimeout.GetSimpleTimeout().TimeoutSeconds > 0 {
+		// convert from float sec to ms
+		route.TimeoutMS = int(rule.HttpReqTimeout.GetSimpleTimeout().TimeoutSeconds * 1000)
+	}
+
+	// setup retries
+	if rule.HttpReqRetries != nil &&
+		rule.HttpReqRetries.GetSimpleRetry() != nil &&
+		rule.HttpReqRetries.GetSimpleRetry().Attempts > 0 {
+		route.RetryPolicy = &RetryPolicy{
+			NumRetries: int(rule.HttpReqRetries.GetSimpleRetry().Attempts),
+			// These are the safest retry policies as per envoy docs
+			Policy: "5xx,connect-failure,refused-stream",
+		}
+	}
+
+	if rule.Match != nil {
+		route.Headers = buildHeaders(rule.Match.HttpHeaders)
+
+		if uri, ok := rule.Match.HttpHeaders[HeaderURI]; ok {
 			switch m := uri.MatchType.(type) {
 			case *proxyconfig.StringMatch_Exact:
 				route.Path = m.Exact
@@ -102,33 +123,54 @@ func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port) *HTTPRoute {
 				glog.Warningf("Unsupported route match condition: regex")
 			}
 		}
+
+		if len(route.Headers) > 0 || route.Path != "" || route.Prefix != "/" {
+			catchAll = false
+		}
 	}
 
-	clusters := make([]*WeightedClusterEntry, 0)
-	for _, dst := range rule.Route {
-		destination := dst.Destination
+	if len(rule.Route) > 0 {
+		clusters := make([]*WeightedClusterEntry, 0)
+		for _, dst := range rule.Route {
+			destination := dst.Destination
 
-		// fallback to rule destination
-		if destination == "" {
-			destination = rule.Destination
+			// fallback to rule destination
+			if destination == "" {
+				destination = rule.Destination
+			}
+
+			cluster := buildOutboundCluster(destination, port, dst.Tags)
+			clusters = append(clusters, &WeightedClusterEntry{
+				Name:   cluster.Name,
+				Weight: int(dst.Weight),
+			})
+			route.clusters = append(route.clusters, cluster)
 		}
+		route.WeightedClusters = &WeightedCluster{Clusters: clusters}
 
-		cluster := buildOutboundCluster(destination, port, dst.Tags)
-		clusters = append(clusters, &WeightedClusterEntry{
-			Name:   cluster.Name,
-			Weight: int(dst.Weight),
-		})
+		// rewrite to a single cluster if it's one weighted cluster
+		if len(rule.Route) == 1 {
+			route.Cluster = route.WeightedClusters.Clusters[0].Name
+			route.WeightedClusters = nil
+		}
+	} else {
+		route.WeightedClusters = nil
+		// default route for the destination
+		cluster := buildOutboundCluster(rule.Destination, port, nil)
+		route.Cluster = cluster.Name
+		route.clusters = make([]*Cluster, 0)
 		route.clusters = append(route.clusters, cluster)
 	}
-	route.WeightedClusters = &WeightedCluster{Clusters: clusters}
 
-	// rewrite to a single cluster if it's one weighted cluster
-	if len(rule.Route) == 1 {
-		route.Cluster = route.WeightedClusters.Clusters[0].Name
-		route.WeightedClusters = nil
+	// Add the fault filters, one per cluster defined in weighted cluster or cluster
+	if rule.HttpFault != nil {
+		route.faults = make([]*HTTPFilter, 0)
+		for _, c := range route.clusters {
+			route.faults = append(route.faults, buildHTTPFaultFilter(c.Name, rule.HttpFault, route.Headers))
+		}
 	}
 
-	return route
+	return route, catchAll
 }
 
 func buildSDSCluster(mesh *MeshConfig) *Cluster {

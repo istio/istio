@@ -194,7 +194,7 @@ func createIngressRule(host string, path string, namespace string,
 	rule := &config.RouteRule{
 		Destination: destination,
 		Match: &config.MatchCondition{
-			Http: make(map[string]*config.StringMatch, 2),
+			HttpHeaders: make(map[string]*config.StringMatch, 2),
 		},
 		Route: []*config.DestinationWeight{
 			{
@@ -215,7 +215,7 @@ func createIngressRule(host string, path string, namespace string,
 	}
 
 	if host != "" {
-		rule.Match.Http["authority"] = &config.StringMatch{
+		rule.Match.HttpHeaders["authority"] = &config.StringMatch{
 			MatchType: &config.StringMatch_Exact{Exact: host},
 		}
 	}
@@ -223,16 +223,16 @@ func createIngressRule(host string, path string, namespace string,
 	if path != "" {
 		if isRegularExpression(path) {
 			if strings.HasSuffix(path, ".*") && !isRegularExpression(strings.TrimSuffix(path, ".*")) {
-				rule.Match.Http["uri"] = &config.StringMatch{
+				rule.Match.HttpHeaders["uri"] = &config.StringMatch{
 					MatchType: &config.StringMatch_Prefix{Prefix: strings.TrimSuffix(path, ".*")},
 				}
 			} else {
-				rule.Match.Http["uri"] = &config.StringMatch{
+				rule.Match.HttpHeaders["uri"] = &config.StringMatch{
 					MatchType: &config.StringMatch_Regex{Regex: path},
 				}
 			}
 		} else {
-			rule.Match.Http["uri"] = &config.StringMatch{
+			rule.Match.HttpHeaders["uri"] = &config.StringMatch{
 				MatchType: &config.StringMatch_Exact{Exact: path},
 			}
 		}

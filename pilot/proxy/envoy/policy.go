@@ -22,8 +22,6 @@ import (
 	proxyconfig "istio.io/manager/model/proxy/alphav1/config"
 )
 
-// TODO: apply fault filter by destination as a post-processing step
-
 func insertMixerFilter(listeners []*Listener, mixer string) {
 	for _, l := range listeners {
 		for _, f := range l.Filters {
@@ -42,6 +40,7 @@ func insertMixerFilter(listeners []*Listener, mixer string) {
 func insertDestinationPolicy(config *model.IstioRegistry, cluster *Cluster) {
 	// not all clusters are for outbound services
 	if cluster != nil && cluster.hostname != "" && cluster.outbound {
+		// TODO: this has to be a singleton. Cannot have multiple dst policies
 		for _, policy := range config.DestinationPolicies(cluster.hostname, cluster.tags) {
 			if policy.LoadBalancing != nil {
 				switch policy.LoadBalancing.GetName() {
@@ -53,69 +52,43 @@ func insertDestinationPolicy(config *model.IstioRegistry, cluster *Cluster) {
 					cluster.LbType = "random"
 				}
 			}
-		}
 
-	}
-}
+			// Set up circuit breakers and outlier detection
+			if policy.CircuitBreaker != nil && policy.CircuitBreaker.GetSimpleCb() != nil {
+				cbconfig := policy.CircuitBreaker.GetSimpleCb()
+				cluster.MaxRequestsPerConnection = int(cbconfig.HttpMaxRequestsPerConnection)
 
-// buildFaultFilters builds a list of fault filters for the http route
-func buildFaultFilters(config *model.IstioRegistry, routeConfig *HTTPRouteConfig) []HTTPFilter {
-	if routeConfig == nil {
-		return nil
-	}
+				// Envoy's circuit breaker is a combination of its circuit breaker (which is actually a bulk head)
+				// outlier detection (which is per pod circuit breaker)
+				cluster.CircuitBreaker = &CircuitBreaker{}
+				if cbconfig.MaxConnections > 0 {
+					cluster.CircuitBreaker.Default.MaxConnections = int(cbconfig.MaxConnections)
+				}
+				if cbconfig.HttpMaxRequests > 0 {
+					cluster.CircuitBreaker.Default.MaxRequests = int(cbconfig.HttpMaxRequests)
+				}
+				if cbconfig.HttpMaxPendingRequests > 0 {
+					cluster.CircuitBreaker.Default.MaxPendingRequests = int(cbconfig.HttpMaxPendingRequests)
+				}
+				//TODO: need to add max_retries as well. Currently it defaults to 3
 
-	var clusters Clusters
-	clusters = routeConfig.clusters()
-	clusters = clusters.Normalize()
+				cluster.OutlierDetection = &OutlierDetection{}
 
-	faults := make([]HTTPFilter, 0)
-	for _, cluster := range clusters {
-		policies := config.DestinationPolicies(cluster.hostname, cluster.tags)
-		for _, policy := range policies {
-			if policy.HttpFault != nil {
-				faults = append(faults, buildHTTPFaultFilter(cluster.Name, policy.HttpFault))
+				cluster.OutlierDetection.MaxEjectionPercent = 10
+				if cbconfig.SleepWindowSeconds > 0 {
+					cluster.OutlierDetection.BaseEjectionTimeMS = int(cbconfig.SleepWindowSeconds * 1000)
+				}
+				if cbconfig.HttpConsecutiveErrors > 0 {
+					cluster.OutlierDetection.ConsecutiveErrors = int(cbconfig.HttpConsecutiveErrors)
+				}
+				if cbconfig.HttpDetectionIntervalSeconds > 0 {
+					cluster.OutlierDetection.IntervalMS = int(cbconfig.HttpDetectionIntervalSeconds * 1000)
+				}
+				if cbconfig.HttpMaxEjectionPercent > 0 {
+					cluster.OutlierDetection.MaxEjectionPercent = int(cbconfig.HttpMaxEjectionPercent)
+				}
 			}
 		}
-	}
 
-	return faults
-}
-
-// buildFaultFilter builds a single fault filter for envoy cluster
-func buildHTTPFaultFilter(cluster string, faultRule *proxyconfig.HTTPFaultInjection) HTTPFilter {
-	return HTTPFilter{
-		Type: "decoder",
-		Name: "fault",
-		Config: FilterFaultConfig{
-			UpstreamCluster: cluster,
-			Headers:         buildHeaders(faultRule.Headers),
-			Abort:           buildAbortConfig(faultRule.Abort),
-			Delay:           buildDelayConfig(faultRule.Delay),
-		},
-	}
-}
-
-// buildAbortConfig builds the envoy config related to abort spec in a fault filter
-func buildAbortConfig(abortRule *proxyconfig.HTTPFaultInjection_Abort) *AbortFilter {
-	if abortRule == nil || abortRule.GetHttpStatus() == 0 {
-		return nil
-	}
-
-	return &AbortFilter{
-		Percent:    int(abortRule.Percent),
-		HTTPStatus: int(abortRule.GetHttpStatus()),
-	}
-}
-
-// buildDelayConfig builds the envoy config related to delay spec in a fault filter
-func buildDelayConfig(delayRule *proxyconfig.HTTPFaultInjection_Delay) *DelayFilter {
-	if delayRule == nil || delayRule.GetFixedDelay() == nil {
-		return nil
-	}
-
-	return &DelayFilter{
-		Type:     "fixed",
-		Percent:  int(delayRule.GetFixedDelay().Percent),
-		Duration: int(delayRule.GetFixedDelay().FixedDelaySeconds * 1000),
 	}
 }
