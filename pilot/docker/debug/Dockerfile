@@ -11,7 +11,9 @@ RUN apt-get update && \
 	    iproute2 \
 	    iputils-ping \
 	    dnsutils \
-	    netcat
+	    netcat \
+	    tcpdump \
+	    net-tools
 
 ADD proxy-redirection-clear /usr/local/bin/proxy-redirection-clear
 ADD proxy-redirection-restore /usr/local/bin/proxy-redirection-restore

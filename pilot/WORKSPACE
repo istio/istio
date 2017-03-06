@@ -288,7 +288,7 @@ http_file(
 ## Docker rules
 ##
 
-DEBUG_BASE_IMAGE_SHA="3f57ae2aceef79e4000fb07ec850bbf4bce811e6f81dc8cfd970e16cdf33e622"
+DEBUG_BASE_IMAGE_SHA="356a53b250bcea8b8574acd9ab0c41163b218820709fba2447eda392fb045f66"
 
 http_file(
     name = "ubuntu_xenial_debug",
