@@ -19,19 +19,21 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"strings"
 	"time"
 
 	bt "github.com/opentracing/basictracer-go"
-	ot "github.com/opentracing/opentracing-go"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
+	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/adapter"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/tracing"
@@ -91,47 +93,6 @@ func serverCmd(errorf errorFn) *cobra.Command {
 	return &serverCmd
 }
 
-func serverOpts(sa *serverArgs, handlers api.Handler) (*api.GRPCServerOptions, error) {
-	var serverCert *tls.Certificate
-	var clientCerts *x509.CertPool
-
-	if sa.serverCertFile != "" && sa.serverKeyFile != "" {
-		sc, err := tls.LoadX509KeyPair(sa.serverCertFile, sa.serverKeyFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load server certificate and server key: %v", err)
-		}
-		serverCert = &sc
-	}
-
-	if sa.clientCertFiles != "" {
-		clientCerts = x509.NewCertPool()
-		for _, clientCertFile := range strings.Split(sa.clientCertFiles, ",") {
-			pem, err := ioutil.ReadFile(clientCertFile)
-			if err != nil {
-				return nil, fmt.Errorf("failed to load client certificate: %v", err)
-			}
-			clientCerts.AppendCertsFromPEM(pem)
-		}
-	}
-
-	var tracer ot.Tracer
-	if sa.enableTracing {
-		tracer = bt.New(tracing.IORecorder(os.Stdout))
-	}
-
-	return &api.GRPCServerOptions{
-		Port:                 uint16(sa.port),
-		MaxMessageSize:       sa.maxMessageSize,
-		MaxConcurrentStreams: sa.maxConcurrentStreams,
-		CompressedPayload:    sa.compressedPayload,
-		ServerCertificate:    serverCert,
-		ClientCertificates:   clientCerts,
-		Handler:              handlers,
-		AttributeManager:     attribute.NewManager(),
-		Tracer:               tracer,
-	}, nil
-}
-
 func runServer(sa *serverArgs) error {
 	// get aspect registry with proper aspect --> api mappings
 	eval := expr.NewCEXLEvaluator()
@@ -151,17 +112,74 @@ func runServer(sa *serverArgs) error {
 		handler = api.NewHandler(adapterManager.NewParallelManager(adapterMgr, poolsize), adapterMgr.MethodMap())
 	}
 
-	grpcServerOptions, err := serverOpts(sa, handler)
+	var serverCert *tls.Certificate
+	var clientCerts *x509.CertPool
+
+	if sa.serverCertFile != "" && sa.serverKeyFile != "" {
+		sc, err := tls.LoadX509KeyPair(sa.serverCertFile, sa.serverKeyFile)
+		if err != nil {
+			return fmt.Errorf("failed to load server certificate and server key: %v", err)
+		}
+		serverCert = &sc
+	}
+
+	if sa.clientCertFiles != "" {
+		clientCerts = x509.NewCertPool()
+		for _, clientCertFile := range strings.Split(sa.clientCertFiles, ",") {
+			pem, err := ioutil.ReadFile(clientCertFile)
+			if err != nil {
+				return fmt.Errorf("failed to load client certificate: %v", err)
+			}
+			clientCerts.AppendCertsFromPEM(pem)
+		}
+	}
+
+	// get the network stuff setup
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", uint16(sa.port)))
 	if err != nil {
 		return err
+	}
+
+	// construct the gRPC options
+
+	var grpcOptions []grpc.ServerOption
+	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(sa.maxConcurrentStreams)))
+	grpcOptions = append(grpcOptions, grpc.MaxMsgSize(int(sa.maxMessageSize)))
+
+	if sa.compressedPayload {
+		grpcOptions = append(grpcOptions, grpc.RPCCompressor(grpc.NewGZIPCompressor()))
+		grpcOptions = append(grpcOptions, grpc.RPCDecompressor(grpc.NewGZIPDecompressor()))
+	}
+
+	if serverCert != nil {
+		// enable TLS
+		tlsConfig := &tls.Config{}
+		tlsConfig.Certificates = []tls.Certificate{*serverCert}
+
+		if clientCerts != nil {
+			// enable TLS mutual auth
+			tlsConfig.ClientCAs = clientCerts
+			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+		}
+		tlsConfig.BuildNameToCertificate()
+
+		grpcOptions = append(grpcOptions, grpc.Creds(credentials.NewTLS(tlsConfig)))
+	}
+
+	var tracer tracing.Tracer
+	if sa.enableTracing {
+		tracer = tracing.NewTracer(bt.New(tracing.IORecorder(os.Stdout)))
+	} else {
+		tracer = tracing.DisabledTracer()
 	}
 
 	configManager.Register(handler.(config.ChangeListener))
 	configManager.Start()
 
-	var grpcServer *api.GRPCServer
-	if grpcServer, err = api.NewGRPCServer(grpcServerOptions); err != nil {
-		return fmt.Errorf("unable to initialize gRPC server " + err.Error())
-	}
-	return grpcServer.Start()
+	// get everything wired up
+	gs := grpc.NewServer(grpcOptions...)
+	s := api.NewGRPCServer(handler, tracer)
+	mixerpb.RegisterMixerServer(gs, s)
+
+	return gs.Serve(listener)
 }
