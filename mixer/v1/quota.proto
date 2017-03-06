@@ -16,7 +16,7 @@ syntax = "proto3";
 
 package istio.mixer.v1;
 
-import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
 import "google/rpc/status.proto";
 import "mixer/v1/attributes.proto";
 
@@ -51,8 +51,8 @@ message QuotaResponse {
   // Indicates whether the quota request was successfully processed.
   google.rpc.Status result = 2;
 
-  // The time at which the returned quota expires, this is 0 for non-expiring quotas.
-  google.protobuf.Timestamp expiration = 3;
+  // The amount of time the returned quota can be considered valid, this is 0 for non-expiring quotas.
+  google.protobuf.Duration expiration = 3;
 
   // The total amount of quota returned, may be less than requested.
   int64 amount = 4;

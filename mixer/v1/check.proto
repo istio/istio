@@ -16,6 +16,7 @@ syntax = "proto3";
 
 package istio.mixer.v1;
 
+import "google/protobuf/duration.proto";
 import "google/rpc/status.proto";
 import "mixer/v1/attributes.proto";
 
@@ -34,4 +35,7 @@ message CheckResponse {
 
   // Indicates whether or not the preconditions succeeded
   google.rpc.Status result = 2;
+
+  // The amount of time for which this result can be considered valid, given the same inputs
+  google.protobuf.Duration expiration = 3;
 }
