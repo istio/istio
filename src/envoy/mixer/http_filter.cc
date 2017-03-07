@@ -242,6 +242,8 @@ class Instance : public Http::StreamFilter, public Http::AccessLog::Instance {
                    const HeaderMap* response_headers,
                    const AccessLog::RequestInfo& request_info) override {
     Log().debug("Called Mixer::Instance : {}", __func__);
+    // If decodeHaeders() is not called, not to call Mixer report.
+    if (!request_data_) return;
     // Make sure not to use any class members at the callback.
     // The class may be gone when it is called.
     // Log() is a static function so it is OK.
