@@ -1,14 +1,10 @@
-# Skip large tests on jenkins
-test --test_size_filters=-large,-enormous
-
 # Quiet
 fetch --noshow_progress
 build --noshow_progress
 test --noshow_progress
 
-# This is so we understand failures better
-build --verbose_failures
-test --test_output=errors --test_env KUBERNETES_SERVICE_PORT --test_env KUBERNETES_SERVICE_HOST
+# Pass kubernetes environment variables to the tests
+test --test_env KUBERNETES_SERVICE_PORT --test_env KUBERNETES_SERVICE_HOST
 
 # Below this line, Jenkins will cat the default bazelrc.
 # This is needed so Bazel starts with the base workspace in its

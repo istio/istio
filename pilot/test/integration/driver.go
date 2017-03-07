@@ -22,8 +22,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"regexp"
-	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -196,6 +194,7 @@ func deploy(name, svcName, dType, port1, port2, port3, port4, version string) er
 	return run("kubectl apply -f " + configFile + " -n " + params.namespace)
 }
 
+/*
 func waitForNewRestartEpoch(pod string, start int) error {
 	log.Println("Waiting for Envoy restart epoch to increment from ", start)
 	for n := 0; n < budget; n++ {
@@ -232,6 +231,7 @@ func getRestartEpoch(pod string) (int, error) {
 
 	return 0, fmt.Errorf("could not obtain envoy restart epoch")
 }
+*/
 
 func addConfig(config []byte, kind, name string, create bool) {
 	log.Println("Add config")
@@ -254,14 +254,13 @@ func addConfig(config []byte, kind, name string, create bool) {
 	}
 }
 
-func deployConfig(in string, data map[string]string, kind, name string, envoy string) {
+func deployDynamicConfig(in string, data map[string]string, kind, name, envoy string) {
 	config, err := writeString(in, data)
-	check(err)
-	epoch, err := getRestartEpoch(envoy)
 	check(err)
 	_, exists := istioClient.Get(model.Key{Kind: kind, Name: name, Namespace: params.namespace})
 	addConfig(config, kind, name, !exists)
-	check(waitForNewRestartEpoch(envoy, epoch))
+	log.Println("Sleeping for the config to propagate")
+	time.Sleep(3 * time.Second)
 }
 
 func write(in string, data map[string]string, out io.Writer) error {

@@ -15,6 +15,7 @@
 package envoy
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -24,14 +25,16 @@ import (
 	"istio.io/manager/model"
 )
 
-// DiscoveryService publishes services, clusters, and routes for proxies
+// DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
 	services model.ServiceDiscovery
+	config   *model.IstioRegistry
+	mesh     *MeshConfig
 	server   *http.Server
 }
 
 type hosts struct {
-	Hosts []host `json:"hosts"`
+	Hosts []*host `json:"hosts"`
 }
 
 type host struct {
@@ -42,14 +45,21 @@ type host struct {
 	Weight int `json:"load_balancing_weight,omitempty"`
 }
 
-type clusters struct {
-	Clusters []Cluster `json:"clusters"`
-}
+// Request parameters for discovery services
+const (
+	ServiceKey      = "service-key"
+	ServiceCluster  = "service-cluster"
+	ServiceNode     = "service-node"
+	RouteConfigName = "route-config-name"
+)
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
-func NewDiscoveryService(services model.ServiceDiscovery, port int) *DiscoveryService {
+func NewDiscoveryService(services model.ServiceDiscovery, config *model.IstioRegistry,
+	mesh *MeshConfig, port int) *DiscoveryService {
 	out := &DiscoveryService{
 		services: services,
+		config:   config,
+		mesh:     mesh,
 	}
 	container := restful.NewContainer()
 	out.Register(container)
@@ -61,19 +71,31 @@ func NewDiscoveryService(services model.ServiceDiscovery, port int) *DiscoverySe
 func (ds *DiscoveryService) Register(container *restful.Container) {
 	ws := &restful.WebService{}
 	ws.Produces(restful.MIME_JSON)
+
 	ws.Route(ws.
-		GET("/v1/registration/{service-key}").
+		GET(fmt.Sprintf("/v1/registration/{%s}", ServiceKey)).
 		To(ds.ListEndpoints).
 		Doc("SDS registration").
-		Param(ws.PathParameter("service-key", "tuple of service name and tag name").DataType("string")).
+		Param(ws.PathParameter(ServiceKey, "tuple of service name and tag name").DataType("string")).
 		Writes(hosts{}))
+
 	ws.Route(ws.
-		GET("/v1/clusters/{service-cluster}/{service-node}").
+		GET(fmt.Sprintf("/v1/clusters/{%s}/{%s}", ServiceCluster, ServiceNode)).
 		To(ds.ListClusters).
 		Doc("CDS registration").
-		Param(ws.PathParameter("service-cluster", "").DataType("string")).
-		Param(ws.PathParameter("service-node", "").DataType("string")).
-		Writes(clusters{}))
+		Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
+		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")).
+		Writes(ClusterManager{}))
+
+	ws.Route(ws.
+		GET(fmt.Sprintf("/v1/routes/{%s}/{%s}/{%s}", RouteConfigName, ServiceCluster, ServiceNode)).
+		To(ds.ListRoutes).
+		Doc("RDS registration").
+		Param(ws.PathParameter(RouteConfigName, "route configuration name").DataType("string")).
+		Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
+		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")).
+		Writes(HTTPRouteConfig{}))
+
 	container.Add(ws)
 }
 
@@ -87,27 +109,106 @@ func (ds *DiscoveryService) Run() {
 
 // ListEndpoints responds to SDS requests
 func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *restful.Response) {
-	key := request.PathParameter("service-key")
-	hostname, ports, tags := model.ParseServiceKey(key)
-	out := make([]host, 0)
+	hostname, ports, tags := model.ParseServiceKey(request.PathParameter(ServiceKey))
+	// envoy expects an empty array if no hosts are available
+	out := make([]*host, 0)
 	for _, ep := range ds.services.Instances(hostname, ports.GetNames(), tags) {
-		out = append(out, host{
+		out = append(out, &host{
 			Address: ep.Endpoint.Address,
 			Port:    ep.Endpoint.Port,
 		})
 	}
-	if err := response.WriteEntity(hosts{out}); err != nil {
+	if err := response.WriteEntity(hosts{Hosts: out}); err != nil {
 		glog.Warning(err)
 	}
 }
 
-// ListClusters responds to CDS requests
+// ListClusters responds to CDS requests for all outbound clusters
 func (ds *DiscoveryService) ListClusters(request *restful.Request, response *restful.Response) {
-	_ = ds.services.Services()
-	// TODO: fix this
-	/*
-		if err := response.WriteEntity(clusters{buildClusters(svc)}); err != nil {
-			glog.Warning(err)
-		}
-	*/
+	if serviceCluster := request.PathParameter(ServiceCluster); serviceCluster != IstioServiceCluster {
+		errorResponse(fmt.Sprintf("Unexpected %s %q", ServiceCluster, serviceCluster), response)
+		return
+	}
+
+	// service-node holds the IP address
+	ip := request.PathParameter(ServiceNode)
+
+	// CDS computes clusters that are referenced by RDS routes for a particular proxy node
+	// TODO: this implementation is inefficient as it is recomputing all the routes for all proxies
+	// There is a lot of potential to cache and reuse cluster definitions across proxies and also
+	// skip computing the actual HTTP routes
+	httpRouteConfigs, tcpRouteConfigs := buildRoutes(&ProxyContext{
+		Discovery:  ds.services,
+		Config:     ds.config,
+		MeshConfig: ds.mesh,
+		Addrs:      map[string]bool{ip: true},
+	})
+
+	clusters := make(Clusters, 0)
+	for _, httpRouteConfig := range httpRouteConfigs {
+		clusters = append(clusters, httpRouteConfig.filterClusters(func(cluster *Cluster) bool {
+			return cluster.outbound
+		})...)
+	}
+	for _, tcpRouteConfig := range tcpRouteConfigs {
+		clusters = append(clusters, tcpRouteConfig.filterClusters(func(cluster *Cluster) bool {
+			return cluster.outbound
+		})...)
+	}
+
+	// de-duplicate and canonicalize clusters
+	clusters = clusters.Normalize()
+
+	for _, cluster := range clusters {
+		insertDestinationPolicy(ds.config, cluster)
+	}
+
+	if err := response.WriteEntity(ClusterManager{Clusters: clusters}); err != nil {
+		glog.Warning(err)
+	}
+}
+
+// ListRoutes responds to RDS requests, used by HTTP routes
+// Routes correspond to HTTP routes and use the listener port as the route name
+// to identify HTTP filters in the config. Service node value holds the local proxy identity.
+func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restful.Response) {
+	if serviceCluster := request.PathParameter(ServiceCluster); serviceCluster != IstioServiceCluster {
+		errorResponse(fmt.Sprintf("Unexpected %s %q", ServiceCluster, serviceCluster), response)
+		return
+	}
+
+	// service-node holds the IP address
+	ip := request.PathParameter(ServiceNode)
+
+	// route-config-name holds the listener port
+	routeConfigName := request.PathParameter(RouteConfigName)
+	port, err := strconv.Atoi(routeConfigName)
+	if err != nil {
+		errorResponse(fmt.Sprintf("Unexpected %s %q", RouteConfigName, routeConfigName), response)
+		return
+	}
+
+	httpRouteConfigs, _ := buildRoutes(&ProxyContext{
+		Discovery:  ds.services,
+		Config:     ds.config,
+		MeshConfig: ds.mesh,
+		Addrs:      map[string]bool{ip: true},
+	})
+
+	routeConfig, ok := httpRouteConfigs[port]
+	if !ok {
+		errorResponse(fmt.Sprintf("Missing route config for port %d", port), response)
+		return
+	}
+
+	if err = response.WriteEntity(routeConfig); err != nil {
+		glog.Warning(err)
+	}
+}
+
+func errorResponse(msg string, response *restful.Response) {
+	glog.Warning(msg)
+	if err := response.WriteErrorString(404, msg); err != nil {
+		glog.Warning(err)
+	}
 }

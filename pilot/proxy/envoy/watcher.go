@@ -27,6 +27,18 @@ import (
 type Watcher interface {
 }
 
+// ProxyContext defines local proxy context information about the service mesh
+type ProxyContext struct {
+	// Discovery interface for listing services and instances
+	Discovery model.ServiceDiscovery
+	// Config interface for listing routing rules
+	Config *model.IstioRegistry
+	// MeshConfig defines global configuration settings
+	MeshConfig *MeshConfig
+	// Addrs is a set of IP addressed assigned to the proxy
+	Addrs map[string]bool
+}
+
 // ProxyNode provides the local proxy node name and IP address
 type ProxyNode struct {
 	Name string
@@ -34,11 +46,8 @@ type ProxyNode struct {
 }
 
 type watcher struct {
-	agent     Agent
-	discovery model.ServiceDiscovery
-	registry  *model.IstioRegistry
-	mesh      *MeshConfig
-	addrs     map[string]bool
+	agent   Agent
+	context *ProxyContext
 }
 
 // NewWatcher creates a new watcher instance with an agent
@@ -50,12 +59,18 @@ func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 	}
 	glog.V(2).Infof("Local instance address: %#v", addrs)
 
+	// Use proxy node IP as the node name
+	// This parameter is used as the value for "service-node"
+	agent := NewAgent(mesh.BinaryPath, mesh.ConfigPath, identity.IP)
+
 	out := &watcher{
-		agent:     NewAgent(mesh.BinaryPath, mesh.ConfigPath, identity.Name),
-		discovery: discovery,
-		registry:  registry,
-		mesh:      mesh,
-		addrs:     addrs,
+		agent: agent,
+		context: &ProxyContext{
+			Discovery:  discovery,
+			Config:     registry,
+			MeshConfig: mesh,
+			Addrs:      addrs,
+		},
 	}
 
 	// Initialize envoy according to the current model state,
@@ -90,10 +105,7 @@ func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 }
 
 func (w *watcher) reload() {
-	config := Generate(
-		w.discovery.HostInstances(w.addrs),
-		w.discovery.Services(),
-		w.registry, w.mesh)
+	config := Generate(w.context)
 	current := w.agent.ActiveConfig()
 
 	if reflect.DeepEqual(config, current) {

@@ -212,150 +212,88 @@ func TestTCPRouteConfigByRoute(t *testing.T) {
 }
 
 const (
-	envoyData              = "testdata/envoy.json"
-	envoyPlainGolden       = "testdata/envoy-no-route-rule.json.golden"
-	envoyTimeoutRuleGolden = "testdata/envoy-timeout-rule.json.golden"
-	envoyCBPolicyGolden    = "testdata/envoy-cb-policy.json.golden"
-	timeoutRouteRule       = "testdata/timeout-route-rule.json.golden"
-	cbPolicy               = "testdata/cb-policy.json.golden"
+	envoyConfig       = "testdata/envoy.json"
+	cbPolicy          = "testdata/cb-policy.yaml.golden"
+	timeoutRouteRule  = "testdata/timeout-route-rule.yaml.golden"
+	weightedRouteRule = "testdata/weighted-route.yaml.golden"
 )
 
-func TestMockConfigGeneratePlain(t *testing.T) {
+func testConfig(r *model.IstioRegistry, envoyConfig, testCase string, t *testing.T) {
 	ds := mock.Discovery
-	r := mock.MakeRegistry()
 
-	config := Generate(
-		ds.HostInstances(map[string]bool{mock.HostInstance: true}),
-		ds.Services(), r,
-		DefaultMeshConfig)
+	config := Generate(&ProxyContext{
+		Discovery:  ds,
+		Config:     r,
+		MeshConfig: DefaultMeshConfig,
+		Addrs:      map[string]bool{mock.HostInstance: true},
+	})
 	if config == nil {
-		t.Fatal("Failed to generate config in non-route rule case")
+		t.Fatal("Failed to generate config")
 	}
 
-	err := config.WriteFile(envoyData)
+	err := config.WriteFile(envoyConfig)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	data, err := ioutil.ReadFile(envoyConfig)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
-	expected, err := ioutil.ReadFile(envoyPlainGolden)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	data, err := ioutil.ReadFile(envoyData)
+	expected, err := ioutil.ReadFile(envoyConfig + ".golden")
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
 	// TODO: use difflib to obtain detailed diff
 	if string(expected) != string(data) {
-		t.Error("Envoy config differs from master copy for Plain config")
+		t.Errorf("Envoy config differs from master copy for %q", testCase)
+	}
+}
+
+func addCircuitBreaker(r *model.IstioRegistry, t *testing.T) {
+	msg, err := model.IstioConfig.FromYAML(model.DestinationPolicy, cbPolicy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Post(model.Key{
+		Kind: model.DestinationPolicy,
+		Name: "circuit-breaker"},
+		msg); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func addTimeout(r *model.IstioRegistry, t *testing.T) {
+	msg, err := model.IstioConfig.FromYAML(model.RouteRule, timeoutRouteRule)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Post(model.Key{Kind: model.RouteRule, Name: "timeouts"}, msg); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func addWeightedRoute(r *model.IstioRegistry, t *testing.T) {
+	msg, err := model.IstioConfig.FromYAML(model.RouteRule, weightedRouteRule)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Post(model.Key{Kind: model.RouteRule, Name: "weighted-route"}, msg); err != nil {
+		t.Fatal(err)
 	}
 }
 
 func TestMockConfigGenerateWithTimeoutRules(t *testing.T) {
-	ds := mock.Discovery
 	r := mock.MakeRegistry()
+	testConfig(r, envoyConfig, "default", t)
 
-	rTemp, err := ioutil.ReadFile(timeoutRouteRule)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	routeRule := string(rTemp)
+	addTimeout(r, t)
+	testConfig(r, envoyConfig, timeoutRouteRule, t)
 
-	ps := model.IstioConfig[model.RouteRule]
-	rule, err := ps.FromJSON(routeRule)
+	addCircuitBreaker(r, t)
+	testConfig(r, envoyConfig, cbPolicy, t)
 
-	if err != nil {
-		t.Errorf("Failed to translate timeout route rule %v", err)
-	}
-
-	key := model.Key{
-		Kind:      model.RouteRule,
-		Name:      "timeouts",
-		Namespace: "",
-	}
-
-	if err = r.Post(key, rule); err != nil {
-		t.Errorf("Failed to add timeout route rule to config registry %v", err)
-	}
-
-	config := Generate(
-		ds.HostInstances(map[string]bool{mock.HostInstance: true}),
-		ds.Services(), r,
-		DefaultMeshConfig)
-	if config == nil {
-		t.Fatal("Failed to generate config for timeout route rule")
-	}
-	err = config.WriteFile(envoyData)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	expected, err := ioutil.ReadFile(envoyTimeoutRuleGolden)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	data, err := ioutil.ReadFile(envoyData)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	// TODO: use difflib to obtain detailed diff
-	if string(expected) != string(data) {
-		t.Error("Envoy config differs from master config for timeout rule")
-	}
-}
-
-func TestMockConfigGenerateWithCBPolicy(t *testing.T) {
-	ds := mock.Discovery
-	r := mock.MakeRegistry()
-
-	rTemp, err := ioutil.ReadFile(cbPolicy)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	policyRule := string(rTemp)
-
-	ps := model.IstioConfig[model.DestinationPolicy]
-	rule, err := ps.FromJSON(policyRule)
-
-	if err != nil {
-		t.Errorf("Failed to translate circuit breaker policy %v", err)
-	}
-
-	key := model.Key{
-		Kind:      model.DestinationPolicy,
-		Name:      "circuitBreaker",
-		Namespace: "",
-	}
-
-	if err = r.Post(key, rule); err != nil {
-		t.Errorf("Failed to add circuit_breaker to config registry %v", err)
-	}
-
-	config := Generate(
-		ds.HostInstances(map[string]bool{mock.HostInstance: true}),
-		ds.Services(), r,
-		DefaultMeshConfig)
-	if config == nil {
-		t.Fatal("Failed to generate config for circuit breaker")
-	}
-	err = config.WriteFile(envoyData)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	expected, err := ioutil.ReadFile(envoyCBPolicyGolden)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	data, err := ioutil.ReadFile(envoyData)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	// TODO: use difflib to obtain detailed diff
-	if string(expected) != string(data) {
-		t.Error("Envoy config differs from master config for Circuit Breaker policy")
-	}
+	addWeightedRoute(r, t)
+	testConfig(r, envoyConfig, weightedRouteRule, t)
 }

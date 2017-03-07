@@ -1,0 +1,7 @@
+destination: world.default.svc.cluster.local
+http_req_timeout:
+  simple_timeout:
+    timeout_seconds: 30
+http_req_retries:
+  simple_retry:
+    attempts: 1

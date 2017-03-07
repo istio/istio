@@ -46,7 +46,10 @@ var (
 		Short: "Start Istio Manager discovery service",
 		RunE: func(c *cobra.Command, args []string) (err error) {
 			controller := kube.NewController(cmd.Client, cmd.RootFlags.Namespace, resyncPeriod)
-			sds := envoy.NewDiscoveryService(controller, flags.sdsPort)
+			sds := envoy.NewDiscoveryService(controller,
+				&model.IstioRegistry{ConfigRegistry: controller},
+				&flags.proxy,
+				flags.sdsPort)
 			stop := make(chan struct{})
 			go controller.Run(stop)
 			go sds.Run()
@@ -66,8 +69,11 @@ var (
 		RunE: func(c *cobra.Command, args []string) (err error) {
 			setFlagsFromEnv()
 			controller := kube.NewController(cmd.Client, cmd.RootFlags.Namespace, resyncPeriod)
-			_, err = envoy.NewWatcher(controller, controller, &model.IstioRegistry{ConfigRegistry: controller},
-				&flags.proxy, &flags.identity)
+			_, err = envoy.NewWatcher(controller,
+				controller,
+				&model.IstioRegistry{ConfigRegistry: controller},
+				&flags.proxy,
+				&flags.identity)
 			if err != nil {
 				return
 			}
@@ -84,8 +90,11 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			setFlagsFromEnv()
 			controller := kube.NewController(cmd.Client, cmd.RootFlags.Namespace, resyncPeriod)
-			_, err := envoy.NewIngressWatcher(controller, controller, &model.IstioRegistry{ConfigRegistry: controller},
-				&flags.proxy, &flags.identity)
+			_, err := envoy.NewIngressWatcher(controller,
+				controller,
+				&model.IstioRegistry{ConfigRegistry: controller},
+				&flags.proxy,
+				&flags.identity)
 			if err != nil {
 				return err
 			}

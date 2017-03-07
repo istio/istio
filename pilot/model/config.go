@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"io/ioutil"
 	"sort"
 
 	"github.com/golang/glog"
@@ -103,6 +104,19 @@ func (km KindMap) Kinds() []string {
 	}
 	sort.Strings(kinds)
 	return kinds
+}
+
+// FromYAML reads object contents from a file
+func (km KindMap) FromYAML(kind, file string) (proto.Message, error) {
+	schema, ok := km[kind]
+	if !ok {
+		return nil, fmt.Errorf("Missing kind %q", kind)
+	}
+	content, err := ioutil.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	return schema.FromYAML(string(content))
 }
 
 const (

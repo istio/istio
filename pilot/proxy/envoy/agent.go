@@ -34,9 +34,15 @@ type agent struct {
 	binary string
 	// Envoy config root
 	configRoot string
-	// serviceCluster is the first component of the local proxy identityi (cluster name)
+	// serviceCluster is the first component of the local proxy identity
+	// (cluster name, e.g. "istio-proxy")
 	serviceCluster string
-	// serviceNode is the second component of the local proxy identity (node name)
+	// serviceNode is the second component of the local proxy identity
+	// (node name, e.g. pod name)
+	// The value is used by the proxy to identify its set of local instances to RDS for
+	// source-based routing. For example, if proxy sends its IP address, the RDS
+	// can compute routes that are relative to the service instances located at that
+	// IP address.
 	serviceNode string
 
 	// Map of known running Envoy processes and their restart epochs.
@@ -62,10 +68,10 @@ const (
 	// proxy instance
 	ParentShutdownTimeSeconds = 45
 
-	// ServiceCluster defines the name for the service_cluster that is shared by
+	// IstioServiceCluster defines the name for the service_cluster that is shared by
 	// all proxy instances. Since Istio does not assign a local service/service version
 	// to each proxy instance, the name is same for all of them
-	ServiceCluster = "istio-proxy"
+	IstioServiceCluster = "istio-proxy"
 )
 
 // NewAgent creates a new proxy instance agent for a config root and a local node name
@@ -73,7 +79,7 @@ func NewAgent(binary string, configRoot string, nodeName string) Agent {
 	return &agent{
 		binary:         binary,
 		configRoot:     configRoot,
-		serviceCluster: ServiceCluster,
+		serviceCluster: IstioServiceCluster,
 		serviceNode:    nodeName,
 		cmdMap:         make(map[*exec.Cmd]instance),
 	}

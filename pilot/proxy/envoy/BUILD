@@ -6,13 +6,13 @@ go_library(
         "agent.go",
         "config.go",
         "discovery.go",
+        "fault.go",
         "header.go",
         "ingress.go",
         "policy.go",
         "resources.go",
         "route.go",
         "watcher.go",
-        "fault.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -27,18 +27,17 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    data = [
-        "testdata/envoy-no-route-rule.json.golden",
-        "testdata/envoy-timeout-rule.json.golden",
-        "testdata/envoy-cb-policy.json.golden",
-        "testdata/timeout-route-rule.json.golden",
-        "testdata/cb-policy.json.golden",
-    ],
     size = "small",
     srcs = [
         "config_test.go",
+        "discovery_test.go",
         "route_test.go",
     ],
+    data = glob(["testdata/*.golden"]),
     library = ":go_default_library",
-    deps = ["//test/mock:go_default_library"],
+    deps = [
+        "//model:go_default_library",
+        "//test/mock:go_default_library",
+        "@com_github_emicklei_go_restful//:go_default_library",
+    ],
 )

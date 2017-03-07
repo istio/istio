@@ -1,0 +1,8 @@
+destination: world.default.svc.cluster.local
+route:
+  - tags:
+       version: v0
+    weight: 75
+  - tags:
+       version: v1
+    weight: 25

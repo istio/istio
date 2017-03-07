@@ -54,6 +54,7 @@ const (
 	DefaultLbType    = LbTypeRoundRobin
 	DefaultAccessLog = "/dev/stdout"
 	LbTypeRoundRobin = "round_robin"
+	RDSName          = "rds"
 
 	// HTTPConnectionManager is the name of HTTP filter.
 	HTTPConnectionManager = "http_connection_manager"
@@ -187,7 +188,7 @@ type VirtualHost struct {
 
 // HTTPRouteConfig definition
 type HTTPRouteConfig struct {
-	VirtualHosts []*VirtualHost `json:"virtual_hosts"`
+	VirtualHosts []*VirtualHost `json:"virtual_hosts,omitempty"`
 }
 
 // Merge operation selects a union of two route configs prioritizing the first.
@@ -208,11 +209,15 @@ func (rc *HTTPRouteConfig) merge(that *HTTPRouteConfig) *HTTPRouteConfig {
 }
 
 // Clusters aggregates clusters across HTTP routes
-func (rc *HTTPRouteConfig) clusters() []*Cluster {
+func (rc *HTTPRouteConfig) filterClusters(f func(*Cluster) bool) []*Cluster {
 	out := make([]*Cluster, 0)
 	for _, host := range rc.VirtualHosts {
 		for _, route := range host.Routes {
-			out = append(out, route.clusters...)
+			for _, cluster := range route.clusters {
+				if f(cluster) {
+					out = append(out, cluster)
+				}
+			}
 		}
 	}
 	return out
@@ -241,7 +246,8 @@ type HTTPFilterConfig struct {
 	CodecType         string           `json:"codec_type"`
 	StatPrefix        string           `json:"stat_prefix"`
 	GenerateRequestID bool             `json:"generate_request_id,omitempty"`
-	RouteConfig       *HTTPRouteConfig `json:"route_config"`
+	RouteConfig       *HTTPRouteConfig `json:"route_config,omitempty"`
+	RDS               *RDS             `json:"rds,omitempty"`
 	Filters           []HTTPFilter     `json:"filters"`
 	AccessLog         []AccessLog      `json:"access_log"`
 }
@@ -319,11 +325,13 @@ func (rc *TCPRouteConfig) merge(that *TCPRouteConfig) *TCPRouteConfig {
 	return out
 }
 
-// Clusters aggregates clusters across TCP routes
-func (rc *TCPRouteConfig) clusters() []*Cluster {
+// filterClusters aggregates clusters across TCP routes
+func (rc *TCPRouteConfig) filterClusters(f func(*Cluster) bool) []*Cluster {
 	out := make([]*Cluster, 0)
 	for _, route := range rc.Routes {
-		out = append(out, route.clusterRef)
+		if f(route.clusterRef) {
+			out = append(out, route.clusterRef)
+		}
 	}
 	return out
 }
@@ -371,11 +379,11 @@ type Listener struct {
 type HTTPRouteConfigs map[int]*HTTPRouteConfig
 
 // EnsurePort creates a route config if necessary
-func (hosts HTTPRouteConfigs) EnsurePort(port int) *HTTPRouteConfig {
-	config, ok := hosts[port]
+func (routes HTTPRouteConfigs) EnsurePort(port int) *HTTPRouteConfig {
+	config, ok := routes[port]
 	if !ok {
 		config = &HTTPRouteConfig{}
-		hosts[port] = config
+		routes[port] = config
 	}
 	return config
 }
@@ -555,10 +563,24 @@ type SDS struct {
 	RefreshDelayMs int      `json:"refresh_delay_ms"`
 }
 
+// CDS is a service discovery service definition
+type CDS struct {
+	Cluster        *Cluster `json:"cluster"`
+	RefreshDelayMs int      `json:"refresh_delay_ms"`
+}
+
+// RDS definition
+type RDS struct {
+	Cluster         string `json:"cluster"`
+	RouteConfigName string `json:"route_config_name"`
+	RefreshDelayMs  int    `json:"refresh_delay_ms"`
+}
+
 // ClusterManager definition
 type ClusterManager struct {
-	Clusters []*Cluster `json:"clusters"`
-	SDS      SDS        `json:"sds"`
+	Clusters []*Cluster `json:"clusters,omitempty"`
+	SDS      *SDS       `json:"sds,omitempty"`
+	CDS      *CDS       `json:"cds,omitempty"`
 }
 
 // ByName implements sort

@@ -53,6 +53,7 @@ func buildInboundCluster(hostname string, port int, protocol model.Protocol) *Cl
 		LbType:           DefaultLbType,
 		Hosts:            []Host{{URL: fmt.Sprintf("tcp://%s:%d", "127.0.0.1", port)}},
 		hostname:         hostname,
+		outbound:         false,
 	}
 	if protocol == model.ProtocolGRPC || protocol == model.ProtocolHTTP2 {
 		cluster.Features = "http2"
@@ -173,15 +174,15 @@ func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port) (*HTTPRoute, 
 	return route, catchAll
 }
 
-func buildSDSCluster(mesh *MeshConfig) *Cluster {
+func buildDiscoveryCluster(address, name string) *Cluster {
 	return &Cluster{
-		Name:             "sds",
+		Name:             name,
 		Type:             "strict_dns",
 		ConnectTimeoutMs: DefaultTimeoutMs,
 		LbType:           DefaultLbType,
 		Hosts: []Host{
 			{
-				URL: "tcp://" + mesh.DiscoveryAddress,
+				URL: "tcp://" + address,
 			},
 		},
 	}
