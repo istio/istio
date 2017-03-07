@@ -28,7 +28,7 @@ import (
 
 type dictionary map[int32]string
 
-type dictionaryEntry struct {
+type refCountedDictionary struct {
 	// immutable dictionary
 	dictionary dictionary
 
@@ -42,7 +42,7 @@ type dictionaryEntry struct {
 // memory consumption and improves processor cache efficiency.
 type dictionaries struct {
 	sync.Mutex
-	entries []dictionaryEntry
+	entries []refCountedDictionary
 }
 
 // See if two dictionaries are identical
@@ -87,7 +87,7 @@ func (d *dictionaries) Intern(dict dictionary) dictionary {
 		}
 	}
 
-	d.entries = append(d.entries, dictionaryEntry{dict, 1})
+	d.entries = append(d.entries, refCountedDictionary{dict, 1})
 	return dict
 }
 
