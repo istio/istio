@@ -1,7 +1,7 @@
 # Configuring Request Routing in Istio
 
 * [Overview](#overview)
-* [Routing Rules](#routing-rules)
+* [Route Rules](#route-rules)
     * [destination](#destination)
     * [precedence](#precendence)
     * [match](#match)
@@ -14,19 +14,22 @@
         * [route.destination](#route-destination)
         * [route.tags](#route-tags)
         * [route.weight](#route-weight)
+    * [http_req_timeout](#http_req_timeout)
+    * [http_req_retries](#http_req_retries)
+    * [http_fault](#http_fault)
+        * [http_fault.delay](#http_fault_delay)
+        * [http_fault.abort](#http_fault_abort)
+    * [Route Rule Evaluation](#route-rule-evaluation)
 * [Destination Policies](#destination-policies)
     * [destination](#pdestination)
     * [tags](#tags)
     * [load_balancing](#load_balancing)
     * [circuit_breaker](#circuit_breaker)
-    * [http_fault](#http_fault)
-        * [http_fault.delay](#http_fault_delay)
-        * [http_fault.abort](#http_fault_abort)
-        * [http_fault.headers](#http_fault_headers)
+    * [Destination Policy Evaluation](#destination-policy-evaluation)
 
 ## Overview <a id="overview"></a>
 
-Istio routing rules can be configured in YAML using a Rules DSL based on a proto3 schema
+Request routing in Istio can be configured in YAML using a Rules DSL based on the proto3 schema
 documented [here](https://github.com/istio/api/blob/master/proxy/v1/config/cfg.md).
 For example, a simple rule to send 100% of incoming traffic for a "reviews" microservice
 to version "v1" can be described using the Rules DSL as follows:
@@ -39,16 +42,16 @@ route:
   weight: 100
 ```
 
-This is a simple example of a "routing rule".
+This is a simple example of a "route rule".
 
-There are two types of rules in Istio, `Routing Rules`,
+There are two types of rules in Istio, `Route Rules`,
 which control request routing, and `Destination Policies`,
-which perform actions such as fault injection in the request path.
+which specify policies, for example, circuit breakers, that control requests for a destination service.
 
 Istio rules can be set and displayed using the [istioctl CLI]() (Documentation TBD).
 For example, the above rule can be set using the following command:
 ```bash
-$ cat <<EOF | istioctl create route-rule reviews-default -f -
+$ cat <<EOF | istioctl create route-rule reviews-default
 destination: reviews.default.svc.cluster.local
 route:
 - tags:
@@ -59,17 +62,16 @@ EOF
 An end-to-end Istio example which sets several rules using `istioctl` can be found
 [here](https://github.com/istio/istio/blob/master/demos/bookinfo.md).
 
-## Routing Rules <a id="routing-rules"></a>
+## Route Rules <a id="route-rules"></a>
 
-The following subsections provide a overview of the basic fields of a routing rule.
-A complete and detailed description of a routing rule structure can be found
+The following subsections provide a overview of the basic fields of a route rule.
+A complete and detailed description of a route rule structure can be found
 [here](https://github.com/istio/api/blob/master/proxy/v1/config/cfg.md#route-rules).
 
 #### Property: destination <a id="destination"></a>
 
 Every rule corresponds to some destination microservice identified by a `destination` field in the
-Istio Rules DSL.
-For example, all rules that apply to calls to the "reviews" microservice will include the following field.
+rule. For example, all rules that apply to calls to the "reviews" microservice will include the following field.
 
 ```yaml
 destination: reviews.default.svc.cluster.local
@@ -78,7 +80,7 @@ destination: reviews.default.svc.cluster.local
 #### Property: precedence <a id="precedence"></a>
 
 The order of evaluation of rules corresponding to a given destination, when there is more than one, can be specified 
-by setting the `precedence` field of the rule.
+by setting the `precedence` field of the rule. 
 
 ```yaml
 destination: reviews.default.svc.cluster.local
@@ -86,8 +88,10 @@ precedence: 1
 ```
 
 The `precedence` field is an optional integer value, 0 by default.
-Rules with higher priority values are executed earlier.
-If there is more than one rule with the same priority value, the order of execution is undefined.
+Rules with higher precedence values are evaluated first.
+If there is more than one rule with the same precedence value, the order of evaluation is undefined.
+
+For further details, see [Route Rule Evaluation](#route-rule-evaluation).
 
 #### Property: match <a id="match"></a>
 
@@ -134,6 +138,7 @@ match:
 
 The `http` field is a set of one or more property-value pairs where each property is an HTTP header name
 and the corresponding value is one of the following:
+
 1. `exact: value`, where the header value must match `value` exactly
 2. `prefix: value`, where `value` must be a prefix of the header value
 3. `regex: value`, where `value` is a regular expression that matches the header value
@@ -201,14 +206,14 @@ For example, the following rule will route 25% of traffic for the "reviews" serv
 the "v2" tag and the remaining traffic (i.e., 75%) to "v1".
 
 ```yaml
-`destination: reviews.default.svc.cluster.local
- route:
- - tags:
-     version: v2
-   weight: 25
- - tags:
-     version: v1
-   weight: 75
+destination: reviews.default.svc.cluster.local
+route:
+- tags:
+    version: v2
+  weight: 25
+- tags:
+    version: v1
+  weight: 75
 ```
 
 #### Property: route.destination <a id="route-destination"></a>
@@ -216,13 +221,153 @@ the "v2" tag and the remaining traffic (i.e., 75%) to "v1".
 The `destination` field is optional and specifies the service name of the target instances. 
 If not specified, it defaults to the value of the rule's `destination` field.
 
-### Routing Rule Execution
+#### Property: http_req_timeout <a id="http_req_timeout"></a>
+
+A timeout for http requests can be specified using the `http_req_timeout` field.
+By default, the timeout is 15 seconds, but this can be overridden as follows:
+
+```yaml
+destination: "ratings.default.svc.cluster.local"
+route:
+- tags:
+    version: v1
+http_req_timeout:
+  simple_timeout:
+    timeout_seconds: 10
+```
+
+Alternatively, you can specify a timeout override header that downstream clients can use to
+dynamically override the timeout on a per request basis:
+
+```yaml
+destination: "ratings.default.svc.cluster.local"
+route:
+- tags:
+    version: v1
+http_req_timeout:
+  simple_timeout:
+    override_header_name: My-Request-Timeout
+```
+
+#### Property: http_req_retries <a id="http_req_retries"></a>
+
+The `http_req_retries` field can be used to control the number retries for a given http request.
+The maximum number of attempts, or as many as possible within the time period
+specified by `http_req_timeout`, can be set as follows:
+
+```yaml
+destination: "ratings.default.svc.cluster.local"
+route:
+- tags:
+    version: v1
+http_req_retries:
+  simple_retry:
+    attempts: 3
+```
+
+Just like timeouts, a retry override header can be specified to allow downstream clients to
+dynamically override the value on a per request basis:
+
+```yaml
+destination: "ratings.default.svc.cluster.local"
+route:
+- tags:
+    version: v1
+http_req_timeout:
+  simple_retry:
+    override_header_name: My-Request-Attempts
+```
+
+#### Property: http_fault <a id="http_fault"></a>
+
+The `http_fault` field is used to specify one or more fault actions to execute
+during http requests to the rule's corresponding request destination.
+The actions(s) that will be executed depend on the following nested fields:
+
+* `delay`
+* `abort`
+
+#### Property: http_fault.delay <a id="http_fault_delay"></a>
+
+The `delay` field is used to delay a request by a specified amount of time. Nested fields,
+`percent` and one of either `fixed_delay_seconds` or `exponential_delay_seconds`, are used to specify the delay.
+
+The `fixed_delay_seconds` field is used to indicate the amount of delay, in seconds.
+
+Alternatively, the `exponential_delay_seconds` field can be used to specify the mean delay
+for values derived according to an exponential function.
+
+An optional `percent` field, a value between 0 and 100, can be used to only delay a certain percentage of requests.
+All request are delayed by default.
+
+The following example will introduce a 5 second delay in 10% of the requests to the "v1" version of the "reviews" microserivice.
+
+```yaml
+destination: reviews.default.svc.cluster.local
+route:
+- tags:
+    version: v1
+http_fault:
+  delay:
+    percent: 10
+    fixed_delay_seconds: 5
+```
+
+#### Property: http_fault.abort <a id="http_fault_abort"></a>
+
+An `abort` field is used to prematurely abort a request, usually to simulate a failure. Nested fields,
+`percent` and one of `http_status`, `http2_error`, or `grpc_status`, are used to specify the abort.
+
+The optional `percent` field, a value between 0 and 100, is used to only abort a certain percentage of requests.
+All request are aborted by default.
+
+The `http_status` field is used to indicate a value to return from an HTTP request, instead of calling the backend.
+Its value is an integer HTTP 2xx, 3xx, 4xx, or 5xx status code.
+
+Similarly, to abort HTTP/2 or gRPC, the value to return 
+can be specified using the `http2_error` or `grpc_status`, respectively.
+
+The following example will return an HTTP 400 error code for 10% of the requests to the "ratings" service "v1".
+
+```yaml
+destination: "ratings.default.svc.cluster.local"
+route:
+- tags:
+    version: v1
+http_fault:
+  abort:
+    percent: 10
+    http_status: 400
+```
+
+Sometimes delays and abort faults are used together. For example, the following rule will delay
+by 5 seconds all requests from the "reviews" service "v2" to the "ratings" service "v1" and 
+then abort 10 percent of them:
+
+```yaml
+destination: ratings.default.svc.cluster.local
+match:
+  source: reviews.default.svc.cluster.local
+  source_tags:
+    version: v2
+route:
+- tags:
+    version: v1
+http_fault:
+  delay:
+    fixed_delay_seconds: 5
+  abort:
+    percent: 10
+    http_status: 400
+```
+
+### Route Rule Evaluation <a id="route-rule-evaluation"></a>
 
 Whenever the routing story for a particular microservice is purely weight base,
 it can be specified in a single rule, as in the previous example.
 When, on the other hand, other crieria (e.g., requests from a specific user) are being used to route traffic,
 more than one rule will be needed to specify the routing.
-This is where the rule `precedence` field must be set to make sure that the rules are executed in the right order.
+This is where the rule `precedence` field must be set to make sure that the rules are evaluated in the right order.
 
 A common pattern for generalized route specification is to provide one or more higher priority rules
 that use the `match` field (see [match](#match)) to provide specific rules,
@@ -252,10 +397,10 @@ route:
   weight: 100
 ```
 
-Notice that the header-based rule has the higher priority (2 vs. 1). If it was lower, these rules wouldn't work as expected since the
-weight-based rule, with no specific match criteria, would be executed first which would then simply route all traffic
+Notice that the header-based rule has the higher precedence (2 vs. 1). If it was lower, these rules wouldn't work as expected since the
+weight-based rule, with no specific match criteria, would be evaluated first which would then simply route all traffic
 to "v1", even requests that include the matching "Foo" header. Once a rule is found that applies to the incoming
-request, it will be executed and the rule-execution process will terminate. That's why it's very important to
+request, it will be executed and the rule-evaluation process will terminate. That's why it's very important to
 carefully consider the priorities of each rule when there is more than one.
 
 ## Destination Policies <a id="destination-policies"></a>
@@ -266,7 +411,7 @@ A complete and detailed description of a destination policy structure can be fou
 
 #### Property: destination <a id="pdestination"></a>
 
-Exactly the same as in a [routing rule](#destination),
+Exactly the same as in a [route rule](#destination),
 every destination policy includes a `destination` field
 which identifies the destination microservice for the rule.
 For example, a destination policy for calls to the "reviews" microservice will include the following field.
@@ -277,7 +422,7 @@ destination: reviews.default.svc.cluster.local
 
 #### Property: tags <a id="tags"></a>
 
-Another optional field, `tags`, is a list of destination tags that can be used to only apply the policy
+An optional field, `tags`, is a list of destination tags that can be used to only apply the policy
 to requests that are routed to backends with the specified tags.
 
 The following policy will only apply to requests targetting the "v1" version of the "reviews" microserivice.
@@ -290,107 +435,46 @@ tags:
 
 #### Property: load_balancing <a id="load_balancing"></a>
 
-TBD
+The `load_balancing` field can be used to specify the load balancing policy for a destination service.
+The value can be one of `LEAST_CONN`, `RANDOM`, or `ROUND_ROBIN` (default).
+
+The following destination policy specifies that RANDOM load balancing be used for balancing across
+instances of any version of the "reviews" microservice:
+
+```yaml
+destination: reviews.default.svc.cluster.local
+load_balancing: RANDOM
+```
 
 #### Property: circuit_breaker <a id="circuit_breaker"></a>
 
-TBD
+The `circuit_breaker` field can be used to set a circuit breaker for a particular microservice. 
+A simple circuit breaker can be set based on a number of criteria such as connection and request limits.
 
-#### Property: http_fault <a id="http_fault"></a>
-
-The `http_fault` field is used to specify one or more actions to execute
-during http requests to the rule's corresponding request destination.
-The actions(s) that will be executed depend on the following nested fields:
-
-* `delay`
-* `abort`
-* `headers`
-
-#### Property: http_fault.delay <a id="http_fault_delay"></a>
-
-The delay field is used to delay a request by a specified amount of time.
-
-#### Property: http_fault.delay.fixed_delay_seconds <a id="actions-fixed_delay_seconds"></a>
-
-The `fixed_delay_seconds` field is used to indicate the amount of delay, in seconds.
-
-#### Property: actions.percent <a id="actions-delay-percent"></a>
-
-An optional `percent` field, a value between 0 and 100, can be used to only delay a certain percentage of requests.
-All request are delayed by default.
-
-The following example will introduce a 5 second delay in 10% of the requests to the "v1" version of the "reviews" microserivice.
+For example, the following destination policy
+sets a limit of 100 connections to "reviews" service version "v1" backends.
 
 ```yaml
 destination: reviews.default.svc.cluster.local
 tags:
   version: v1
-http_fault:
-  delay:
-    fixed_delay:
-      percent: 10
-      fixed_delay_seconds: 5
+circuit_breaker:
+  simple_cb:
+    max_connections: 100
 ```
 
-#### Property: http_fault.abort <a id="http_fault_abort"></a>
+The complete set of simple circuit breaker fields can be found
+[here](https://github.com/rshriram/api/blob/master/proxy/v1/config/cfg.md#circuitbreakersimplecircuitbreakerpolicy).
 
-An abort action is used to prematurely abort a request, usually to simulate a failure.
+### Destination Policy Evaluation <a id="destination-policy-evaluation"></a>
 
-#### Property: actions.return_code <a id="actions-abort-return_code"></a>
+Similar to route rules, destination policies are associated with a particular `destination` however
+if they also include `tags` their activation depends on route rule evaluation results.
 
-The `return_code` field is used to indicate a value to return from the request, instead of calling the backend.
-Its value is an integer value between -5 and 599, usually an http 2xx, 3xx, 4xx, or 5xx status code.
-
-#### Property: actions.probability <a id="actions-abort-probability"></a>
-
-An optional `probability` field, a value between 0 and 1, can be used to only abort a certain percentage of requests.
-All request are aborted by default.
-
-#### Property: actions.tags <a id="actions-abort-tags"></a>
-
-Another optional field, `tags`, is a list of destination tags that can be used to only abort
-requests that are routed to backends with the specified tags.
-
-The following example will return an http 400 error code for all requests from the "reviews" service "v2" to the "ratings" service "v1".
-
-```yaml
-destination: "ratings.default.svc.cluster.local"
-tags:
-  version: v1
-http_fault:
-  abort:
-    percent: 100
-    http_status: 400
-```
-
-```json
-{
-  "destination": "ratings",
-  "match": {
-    "source": {
-      "name": "reviews",
-      "tags": [ "v2" ]
-    }
-  },
-  "actions" : [
-    {
-      "action": "abort",
-      "tags": [ "v1" ],
-      "return_code": 400
-    }
-  ]
-}
-```
-
-### Action Rule Execution
-
-Similar to routing rules, the destination policies are associated with a particular `destination` however
-their activation often depends on routing rule results.
-
-The first step in the rule execution process evaluates the routing rules for the `destination`,
+The first step in the rule evaluation process evaluates the route rules for a `destination`,
 if any are defined, to determine the tags (i.e., specific version) of the destination service
-that the current request will be routed to. Next, the set of destination  rules, if any, are evaluated
-according to their priorities, to find the action rule to apply.
+that the current request will be routed to. Next, the set of destination policies, if any, are evaluated
+to determine if they apply.
 
 One subtlety of the algorithm to keep in mind is that policies that are defined for specific
 tagged destinations will only be applied if the corresponding tagged instances are explicity
@@ -401,22 +485,20 @@ the "reviews" microservice.
 destination: reviews.default.svc.cluster.local
 tags:
   version: v1
-http_fault:
-  delay:
-    fixed_delay:
-      percent: 10
-      fixed_delay_seconds: 5
+circuit_breaker:
+  simple_cb:
+    max_connections: 100
 ```
 
-Since there is no specific routing rule defined for the "reviews" microservice, default
+Since there is no specific route rule defined for the "reviews" microservice, default
 round-robin routing behavior will apply, which will persumably call "v1" instances on occasion,
-maybe even alway if "v1" is the only running version. Nevertheless, the above policy will never
-be invoked since the default routing is done at a lower level. The rule execution engine will be
+maybe even always if "v1" is the only running version. Nevertheless, the above policy will never
+be invoked since the default routing is done at a lower level. The rule evaluation engine will be
 unaware of the final destination and therefore unable to match the destination policy to the request. 
 
 You can fix the above example in one of two ways. You can either remove the `tags:`
-from the rule, if "v1" is the only instance anyway, or, better yet, define proper routing rules
-for the service. For example, you can add a simple routing rule for "reviews:v1".
+from the rule, if "v1" is the only instance anyway, or, better yet, define proper route rules
+for the service. For example, you can add a simple route rule for "reviews:v1".
 
 ```yaml
 destination: reviews.default.svc.cluster.local
@@ -425,4 +507,4 @@ route:
     version: v1
 ```
 
-Setting a default rule like this for every microservice is generally considered a best practice.
+Setting a default rule like this for every microservice is generally considered a best practice in Istio.
