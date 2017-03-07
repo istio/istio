@@ -9,7 +9,7 @@
 
     kubectl apply -f ./istio -n <ns>
 
-This will deploy istio discovery manager, istio mixer and istio egress proxy.
+This will deploy istio discovery manager and istio mixer.
 
 **Deploy a simple echo app with manually injected proxy**
 
