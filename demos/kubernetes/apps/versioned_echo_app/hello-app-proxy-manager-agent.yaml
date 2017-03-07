@@ -28,6 +28,7 @@ spec:
         app: hello
         version: v1
       annotations:
+        # init container uses iptables rules to redirect traffic to the proxy
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
