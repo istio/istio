@@ -13,7 +13,6 @@ issues and merge pull requests (PRs).
   - [Holds](#holds)
 - [Project maintainers](#project-maintainers)
 - [Merging PRs](#merging-prs)
-  - [Merge hours](#merge-hours)
 
 ## Pull requests welcome
 
@@ -29,17 +28,6 @@ Consequently, as a community we expect that all active participants in the
 community will also be active reviewers. We ask that active contributors to
 the project participate in the code review process in areas where that
 contributor has expertise.
-
-Active contributors are considered to be anyone who meets any of the following
-criteria:
-   * Sent more than two pull requests (PRs) in the previous one month, or more
-   than 20 PRs in the previous year.
-   * Filed more than three issues in the previous month, or more than 30 issues
-   in the previous 12 months.
-   * Commented on more than 5 pull requests in the previous month, or
-   more than 50 pull requests in the previous 12 months.
-   * Marked any PR as LGTM in the previous month.
-   * Have *collaborator* permissions in the respective repository.
 
 ## Reviewing changes
 
@@ -110,29 +98,3 @@ PRs may only be merged after the following criteria are met:
 1. It has been `LGTM`-ed by at least one of the maintainers listed in
    the OWNERS file for that repository.
 1. It has all appropriate corresponding documentation and tests.
-
-### Merge hours
-
-Maintainers will do merges of appropriately reviewed-and-approved changes during
-their local "business hours" (typically 7:00 am Monday to 5:00 pm (17:00h)
-Friday). PRs that arrive over the weekend or on holidays will only be merged if
-there is a very good reason for it and if the code review requirements have been
-met. Concretely this means that nobody should merge changes immediately before
-going to bed for the night.
-
-There may be discussion and even approvals granted outside of the above hours,
-but merges will generally be deferred.
-
-If a PR is considered complex or controversial, the merge of that PR should be
-delayed to give all interested parties in all timezones the opportunity to
-provide feedback. Concretely, this means that such PRs should be held for 24
-hours before merging. Of course "complex" and "controversial" are left to the
-judgment of the people involved, but we trust that part of being a committer is
-the judgment required to evaluate such things honestly, and not be motivated by
-your desire (or your cube-mate's desire) to get their code merged. Any reviewer
-can issue a ["hold"](#holds) to indicate that the PR is in fact complicated 
-or complex and deserves further review.
-
-PRs that are incorrectly judged to be merge-able, may be reverted and subject to
-re-review, if subsequent reviewers believe that they in fact are controversial
-or complex.
