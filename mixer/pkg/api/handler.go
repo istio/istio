@@ -88,7 +88,7 @@ func (h *handlerState) execute(ctx context.Context, tracker attribute.Tracker, a
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, ab)
 
-	cfg := h.cfg.Load().(config.Resolver)
+	cfg, _ := h.cfg.Load().(config.Resolver)
 	if cfg == nil {
 		// config has not been loaded yet
 		const msg = "Configuration is not yet available"

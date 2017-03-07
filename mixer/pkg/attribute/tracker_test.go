@@ -86,3 +86,231 @@ func BenchmarkTracker(b *testing.B) {
 		}
 	}
 }
+
+func TestTracker_StartRequest(t *testing.T) {
+	t9 := time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
+	t10 := time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
+	ts9, _ := ptypes.TimestampProto(t9)
+	ts10, _ := ptypes.TimestampProto(t10)
+	d := time.Duration(42) * time.Second
+	ds := ptypes.DurationProto(d)
+	sm := &mixerpb.StringMap{Map: map[int32]string{14: "14"}}
+
+	attr1 := mixerpb.Attributes{
+		Dictionary: dictionary{1: "N1", 2: "N2", 3: "N3", 4: "N4", 5: "N5", 6: "N6", 7: "N7", 8: "N8",
+			9: "N9", 10: "N10", 11: "N11", 12: "N12", 13: "N13", 14: "N14"},
+		StringAttributes:    map[int32]string{1: "1", 2: "2"},
+		Int64Attributes:     map[int32]int64{3: 3, 4: 4},
+		DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
+		BoolAttributes:      map[int32]bool{7: true, 8: false},
+		TimestampAttributes: map[int32]*ptypes.Timestamp{9: ts9, 10: ts10},
+		DurationAttributes:  map[int32]*ptypes.Duration{11: ds},
+		BytesAttributes:     map[int32][]uint8{12: {12}, 13: {13}},
+		StringMapAttributes: map[int32]*mixerpb.StringMap{14: sm},
+	}
+
+	attr2 := mixerpb.Attributes{
+		Dictionary: dictionary{1: "X1", 2: "X2", 3: "X3", 4: "X4", 5: "X5", 6: "X6", 7: "X7", 8: "X8",
+			9: "X9", 10: "X10", 11: "X11", 12: "X12", 13: "X13", 14: "X14"},
+		StringAttributes:    map[int32]string{1: "1", 2: "2"},
+		Int64Attributes:     map[int32]int64{3: 3, 4: 4},
+		DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
+		BoolAttributes:      map[int32]bool{7: true, 8: false},
+		TimestampAttributes: map[int32]*ptypes.Timestamp{9: ts9, 10: ts10},
+		DurationAttributes:  map[int32]*ptypes.Duration{11: ds},
+		BytesAttributes:     map[int32][]uint8{12: {12}, 13: {13}},
+		StringMapAttributes: map[int32]*mixerpb.StringMap{14: sm, 15: sm},
+	}
+
+	tracker := NewManager().NewTracker().(*tracker)
+	_, err := tracker.StartRequest(&attr1)
+	if err != nil {
+		t.Errorf("Expecting success, got %v", err)
+	}
+
+	oldDict := tracker.currentDictionary
+	oldBag := copyBag(tracker.contexts[0])
+
+	_, err = tracker.StartRequest(&attr2)
+	if err == nil {
+		t.Error("Expecting failure, got success")
+	}
+
+	// make sure nothing has changed due to the second failed attribute update
+	if !compareDictionaries(oldDict, tracker.currentDictionary) {
+		t.Error("Expected dictionaries to be consistent, they're different")
+	}
+
+	if !compareBags(oldBag, tracker.contexts[0]) {
+		t.Error("Expecting bags to be consistent, they're different")
+	}
+}
+
+func copyBag(b Bag) Bag {
+	mb := getMutableBag(getRootBag())
+	for _, k := range b.StringKeys() {
+		v, _ := b.String(k)
+		mb.SetString(k, v)
+	}
+
+	for _, k := range b.Int64Keys() {
+		v, _ := b.Int64(k)
+		mb.SetInt64(k, v)
+	}
+
+	for _, k := range b.Float64Keys() {
+		v, _ := b.Float64(k)
+		mb.SetFloat64(k, v)
+	}
+
+	for _, k := range b.BoolKeys() {
+		v, _ := b.Bool(k)
+		mb.SetBool(k, v)
+	}
+
+	for _, k := range b.TimeKeys() {
+		v, _ := b.Time(k)
+		mb.SetTime(k, v)
+	}
+
+	for _, k := range b.DurationKeys() {
+		v, _ := b.Duration(k)
+		mb.SetDuration(k, v)
+	}
+
+	for _, k := range b.BytesKeys() {
+		v, _ := b.Bytes(k)
+
+		c := make([]byte, len(v))
+		for i := 0; i < len(v); i++ {
+			c[i] = v[i]
+		}
+		mb.SetBytes(k, c)
+	}
+
+	for _, k := range b.StringMapKeys() {
+		v, _ := b.StringMap(k)
+
+		c := make(map[string]string, len(v))
+		for k, v := range v {
+			c[k] = v
+		}
+		mb.SetStringMap(k, c)
+	}
+
+	return mb
+}
+
+func compareBags(b1 Bag, b2 Bag) bool {
+	if len(b1.StringKeys()) != len(b2.StringKeys()) {
+		return false
+	}
+
+	for _, k := range b1.StringKeys() {
+		v1, _ := b1.String(k)
+		v2, _ := b2.String(k)
+		if v1 != v2 {
+			return false
+		}
+	}
+
+	if len(b1.Int64Keys()) != len(b2.Int64Keys()) {
+		return false
+	}
+
+	for _, k := range b1.Int64Keys() {
+		v1, _ := b1.Int64(k)
+		v2, _ := b2.Int64(k)
+		if v1 != v2 {
+			return false
+		}
+	}
+
+	if len(b1.Float64Keys()) != len(b2.Float64Keys()) {
+		return false
+	}
+
+	for _, k := range b1.Float64Keys() {
+		v1, _ := b1.Float64(k)
+		v2, _ := b2.Float64(k)
+		if v1 != v2 {
+			return false
+		}
+	}
+
+	if len(b1.BoolKeys()) != len(b2.BoolKeys()) {
+		return false
+	}
+
+	for _, k := range b1.BoolKeys() {
+		v1, _ := b1.Bool(k)
+		v2, _ := b2.Bool(k)
+		if v1 != v2 {
+			return false
+		}
+	}
+
+	if len(b1.TimeKeys()) != len(b2.TimeKeys()) {
+		return false
+	}
+
+	for _, k := range b1.TimeKeys() {
+		v1, _ := b1.Time(k)
+		v2, _ := b2.Time(k)
+		if v1 != v2 {
+			return false
+		}
+	}
+
+	if len(b1.DurationKeys()) != len(b2.DurationKeys()) {
+		return false
+	}
+
+	for _, k := range b1.DurationKeys() {
+		v1, _ := b1.Duration(k)
+		v2, _ := b2.Duration(k)
+		if v1 != v2 {
+			return false
+		}
+	}
+
+	if len(b1.BytesKeys()) != len(b2.BytesKeys()) {
+		return false
+	}
+
+	for _, k := range b1.BytesKeys() {
+		v1, _ := b1.Bytes(k)
+		v2, _ := b2.Bytes(k)
+
+		if len(v1) != len(v2) {
+			return false
+		}
+
+		for i := 0; i < len(v1); i++ {
+			if v1[i] != v2[i] {
+				return false
+			}
+		}
+	}
+
+	if len(b1.StringMapKeys()) != len(b2.StringMapKeys()) {
+		return false
+	}
+
+	for _, k := range b1.StringMapKeys() {
+		v1, _ := b1.StringMap(k)
+		v2, _ := b2.StringMap(k)
+
+		if len(v1) != len(v2) {
+			return false
+		}
+
+		for k, v := range v1 {
+			if v != v2[k] {
+				return false
+			}
+		}
+	}
+
+	return true
+}
