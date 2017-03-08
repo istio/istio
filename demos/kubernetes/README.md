@@ -44,6 +44,12 @@ Grafana custom image contains a build-in Istio-dashboard that you can access fro
     
     http://<grafana-svc-external-IP>:3000/dashboard/db/istio-dashboard
 
+The example templates contain services configured as type LoadBalancer. If services are deployed with type NodePort,
+kubectl proxy must be started, and the istio-dashboard in grafana must be edited to use the proxy. Grafana can be 
+accessed via the proxy from:
+
+    http://127.0.0.1:8001/api/v1/proxy/namespaces/<ns>/services/grafana:3000/dashboard/db/istio-dashboard
+    
 **Optional - Service Graph**
 
     kubectl apply -f ./servicegraph.yaml -n <ns>
