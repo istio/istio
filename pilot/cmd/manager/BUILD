@@ -17,5 +17,6 @@ go_library(
 go_binary(
     name = "manager",
     library = ":go_default_library",
+    linkstamp = "istio.io/manager/cmd/version",
     visibility = ["//visibility:public"],
 )

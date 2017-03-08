@@ -25,6 +25,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
+	"istio.io/manager/cmd/version"
 	"istio.io/manager/model"
 	"istio.io/manager/platform/kube"
 )
@@ -60,6 +61,18 @@ var (
 			return
 		},
 	}
+	versionCmd = &cobra.Command{
+		Use:   "version",
+		Short: "Display version information and exit",
+		RunE: func(*cobra.Command, []string) error {
+			fmt.Printf("Version: %v\n", version.Info.Version)
+			fmt.Printf("GitRevision: %v\n", version.Info.GitRevision)
+			fmt.Printf("GitBranch: %v\n", version.Info.GitBranch)
+			fmt.Printf("User: %v@%v\n", version.Info.User, version.Info.Host)
+			fmt.Printf("GolangVersion: %v\n", version.Info.GolangVersion)
+			return nil
+		},
+	}
 )
 
 func init() {
@@ -82,6 +95,8 @@ func init() {
 			RootCmd.PersistentFlags().AddGoFlag(gf)
 		}
 	})
+
+	RootCmd.AddCommand(versionCmd)
 }
 
 // WaitSignal awaits for SIGINT or SIGTERM and closes the channel
