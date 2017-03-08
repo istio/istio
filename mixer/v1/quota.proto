@@ -16,16 +16,21 @@ syntax = "proto3";
 
 package istio.mixer.v1;
 
+import "gogoproto/gogo.proto";
 import "google/protobuf/duration.proto";
 import "google/rpc/status.proto";
 import "mixer/v1/attributes.proto";
+
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
 
 message QuotaRequest {
   // Index within the stream for this request, used to match to responses
   int64 request_index = 1;
 
   // The attributes to use for this request
-  Attributes attribute_update = 2;
+  Attributes attribute_update = 2 [(gogoproto.nullable) = false];
 
   // Used for deduplicating quota allocation/free calls in the case of
   // failed RPCs and retries. This should be a UUID per call, where the same
@@ -49,10 +54,10 @@ message QuotaResponse {
   int64 request_index = 1;
 
   // Indicates whether the quota request was successfully processed.
-  google.rpc.Status result = 2;
+  google.rpc.Status result = 2 [(gogoproto.nullable) = false];
 
   // The amount of time the returned quota can be considered valid, this is 0 for non-expiring quotas.
-  google.protobuf.Duration expiration = 3;
+  google.protobuf.Duration expiration = 3 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 
   // The total amount of quota returned, may be less than requested.
   int64 amount = 4;

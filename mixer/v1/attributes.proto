@@ -16,8 +16,13 @@ syntax = "proto3";
 
 package istio.mixer.v1;
 
+import "gogoproto/gogo.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
+
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
 
 // An instance of this message is delivered to the mixer with every
 // API call.
@@ -98,14 +103,19 @@ message Attributes {
   map<int32, int64> int64_attributes = 5;
   map<int32, double> double_attributes = 6;
   map<int32, bool> bool_attributes = 7;
-  map<int32, google.protobuf.Timestamp> timestamp_attributes = 8;
-  map<int32, google.protobuf.Duration> duration_attributes = 9;
+  map<int32, google.protobuf.Timestamp> timestamp_attributes = 8 [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
+  map<int32, google.protobuf.Duration> duration_attributes = 9 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
   map<int32, bytes> bytes_attributes = 10;
   map<int32, StringMap> stringMap_attributes = 11;
 
   // Attributes that should be removed from the specified attribute context. Deleting
   // attributes which aren't currently in the attribute context is not considered an error.
   repeated int32 deleted_attributes = 12;
+
+  // TODO: temporary workaround for gogoprotobuf code gen error (https://github.com/gogo/protobuf/issues/273). Remove
+  // when issue is fixed.
+  map<int32, google.protobuf.Timestamp> timestamp_attributes_HACK = 13 [(gogoproto.nullable) = false, (gogoproto.stdtime) = false];
+  map<int32, google.protobuf.Duration> duration_attributes_HACK = 14 [(gogoproto.nullable) = false, (gogoproto.stdduration) = false];
 }
 
 // A map of string to string. The keys in these maps are from the current

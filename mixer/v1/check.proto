@@ -16,9 +16,14 @@ syntax = "proto3";
 
 package istio.mixer.v1;
 
+import "gogoproto/gogo.proto";
 import "google/protobuf/duration.proto";
 import "google/rpc/status.proto";
 import "mixer/v1/attributes.proto";
+
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
 
 // Used to verify preconditions before performing an action.
 message CheckRequest {
@@ -26,7 +31,7 @@ message CheckRequest {
   int64 request_index = 1;
 
   // The attributes to use for this request
-  Attributes attribute_update = 2;
+  Attributes attribute_update = 2 [(gogoproto.nullable) = false];
 }
 
 message CheckResponse {
@@ -34,8 +39,8 @@ message CheckResponse {
   int64 request_index = 1;
 
   // Indicates whether or not the preconditions succeeded
-  google.rpc.Status result = 2;
+  google.rpc.Status result = 2 [(gogoproto.nullable) = false];
 
   // The amount of time for which this result can be considered valid, given the same inputs
-  google.protobuf.Duration expiration = 3;
+  google.protobuf.Duration expiration = 3 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 }

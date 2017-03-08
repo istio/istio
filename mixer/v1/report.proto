@@ -16,8 +16,13 @@ syntax = "proto3";
 
 package istio.mixer.v1;
 
+import "gogoproto/gogo.proto";
 import "google/rpc/status.proto";
 import "mixer/v1/attributes.proto";
+
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
 
 // Used to report telemetry after performing an action.
 message ReportRequest {
@@ -25,7 +30,7 @@ message ReportRequest {
   int64 request_index = 1;
 
   // The attributes to use for this request
-  Attributes attribute_update = 2;
+  Attributes attribute_update = 2 [(gogoproto.nullable) = false];
 }
 
 message ReportResponse {
@@ -33,5 +38,5 @@ message ReportResponse {
   int64 request_index = 1;
 
   // Indicates whether the report was processed or not
-  google.rpc.Status result = 2;
+  google.rpc.Status result = 2 [(gogoproto.nullable) = false];
 }
