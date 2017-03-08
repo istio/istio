@@ -212,20 +212,23 @@ func TestTCPRouteConfigByRoute(t *testing.T) {
 }
 
 const (
-	envoyConfig       = "testdata/envoy.json"
+	envoyV0Config     = "testdata/envoy-v0.json"
+	envoyV1Config     = "testdata/envoy-v1.json"
+	envoyFaultConfig  = "testdata/envoy-fault.json"
 	cbPolicy          = "testdata/cb-policy.yaml.golden"
 	timeoutRouteRule  = "testdata/timeout-route-rule.yaml.golden"
 	weightedRouteRule = "testdata/weighted-route.yaml.golden"
+	faultRouteRule    = "testdata/fault-route.yaml.golden"
 )
 
-func testConfig(r *model.IstioRegistry, envoyConfig, testCase string, t *testing.T) {
+func testConfig(r *model.IstioRegistry, instance, envoyConfig, testCase string, t *testing.T) {
 	ds := mock.Discovery
 
 	config := Generate(&ProxyContext{
 		Discovery:  ds,
 		Config:     r,
 		MeshConfig: DefaultMeshConfig,
-		Addrs:      map[string]bool{mock.HostInstance: true},
+		Addrs:      map[string]bool{instance: true},
 	})
 	if config == nil {
 		t.Fatal("Failed to generate config")
@@ -247,7 +250,7 @@ func testConfig(r *model.IstioRegistry, envoyConfig, testCase string, t *testing
 
 	// TODO: use difflib to obtain detailed diff
 	if string(expected) != string(data) {
-		t.Errorf("Envoy config differs from master copy for %q", testCase)
+		t.Errorf("Envoy config %q differs from master copy for %q", envoyConfig, testCase)
 	}
 }
 
@@ -284,16 +287,47 @@ func addWeightedRoute(r *model.IstioRegistry, t *testing.T) {
 	}
 }
 
-func TestMockConfigGenerateWithTimeoutRules(t *testing.T) {
+func addFaultRoute(r *model.IstioRegistry, t *testing.T) {
+	msg, err := model.IstioConfig.FromYAML(model.RouteRule, faultRouteRule)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Post(model.Key{Kind: model.RouteRule, Name: "fault-route"}, msg); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestMockConfig(t *testing.T) {
 	r := mock.MakeRegistry()
-	testConfig(r, envoyConfig, "default", t)
+	testConfig(r, mock.HostInstanceV0, envoyV0Config, "default", t)
+	testConfig(r, mock.HostInstanceV1, envoyV1Config, "default", t)
+}
 
+func TestMockConfigTimeout(t *testing.T) {
+	r := mock.MakeRegistry()
 	addTimeout(r, t)
-	testConfig(r, envoyConfig, timeoutRouteRule, t)
+	testConfig(r, mock.HostInstanceV0, envoyV0Config, timeoutRouteRule, t)
+	testConfig(r, mock.HostInstanceV1, envoyV1Config, timeoutRouteRule, t)
+}
 
+func TestMockConfigCircuitBreaker(t *testing.T) {
+	r := mock.MakeRegistry()
 	addCircuitBreaker(r, t)
-	testConfig(r, envoyConfig, cbPolicy, t)
+	testConfig(r, mock.HostInstanceV0, envoyV0Config, cbPolicy, t)
+	testConfig(r, mock.HostInstanceV1, envoyV1Config, cbPolicy, t)
+}
 
+func TestMockConfigWeighted(t *testing.T) {
+	r := mock.MakeRegistry()
 	addWeightedRoute(r, t)
-	testConfig(r, envoyConfig, weightedRouteRule, t)
+	testConfig(r, mock.HostInstanceV0, envoyV0Config, weightedRouteRule, t)
+	testConfig(r, mock.HostInstanceV1, envoyV1Config, weightedRouteRule, t)
+}
+
+func TestMockConfigFault(t *testing.T) {
+	r := mock.MakeRegistry()
+	addFaultRoute(r, t)
+	// Fault rule uses source condition
+	testConfig(r, mock.HostInstanceV0, envoyFaultConfig, faultRouteRule, t)
+	testConfig(r, mock.HostInstanceV1, envoyV1Config, faultRouteRule, t)
 }

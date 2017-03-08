@@ -32,7 +32,8 @@ var (
 		},
 		versions: 2,
 	}
-	HostInstance = MakeIP(HelloService, 0)
+	HostInstanceV0 = MakeIP(HelloService, 0)
+	HostInstanceV1 = MakeIP(HelloService, 1)
 )
 
 // MakeService creates a mock service

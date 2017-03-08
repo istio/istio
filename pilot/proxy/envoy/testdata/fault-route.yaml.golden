@@ -1,0 +1,22 @@
+destination: world.default.svc.cluster.local
+match:
+  source: hello.default.svc.cluster.local
+  source_tags:
+    version: v0
+  httpHeaders:
+    scooby:
+      exact: doo
+    animal:
+      prefix: dog
+    name:
+      regex: "sco+do+"
+route:
+  - tags:
+       version: v1
+http_fault:
+  delay:
+    percent: 100
+    fixed_delay_seconds: 5
+  abort:
+    percent: 100
+    http_status: 503
