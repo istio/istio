@@ -13,15 +13,21 @@ The details for proxy injection are [here](proxy-injection.md). Since all networ
 
 ## Proxy agent
 
-Proxy agent is a simple agent whose primary duty is to subscribe to changes in the mesh topology and configuration store, and reconfigure proxy. As parts of Envoy configuration become available through discovery services, we are gradually delegating configuration generation to the discovery service.
+Proxy agent is a simple agent whose primary duty is to subscribe to changes in the mesh topology and configuration store, and reconfigure proxy. As more and more parts of Envoy configuration become available through discovery services, we are gradually delegating configuration generation to the discovery services. For example, TCP proxy configuration is mostly configured through the local proxy agent since Envoy has not implemented support for the route discovery for the `tcp_proxy` filter.
 
 ## Discovery service
 
-Discovery service publishes service topology and routing information to all proxies in the mesh. Each proxy carries an identity (pod name, in case of Kubernetes sidecar deployment).
+Discovery service publishes service topology and routing information to all proxies in the mesh. Each proxy carries an identity (pod name and IP address, in case of Kubernetes sidecar deployment). Envoy uses this identity to construct a request to the discovery service. The discovery service computes the set of service instances running at the proxy address from the service registry, and creates Envoy configuration adapted to the proxy making the request. 
+
+There are three types of discovery services exposed by Istio Manager:
+
+- SDS is the service discovery and is responsible for listing a set of `ip:port` pairs for a cluster;
+- CDS is the cluster discovery and is responsible for listing all Envoy clusters;
+- RDS is the route discovery and is responsible for listing HTTP routes; the proxy identity is important for applying route rules with source service conditions.
 
 ## Routing rules
 
-Routing rules follow a proto3 schema [here](../model/proxy/alphav1/config/cfg.proto). Examples are available in the [integration tests](../test/integration).
+Routing rules are defined by Istio API [proto schema](https://github.com/istio/api/blob/master/proxy/v1/config/cfg.md). Examples are available in the [integration tests](../test/integration).
 
 ## Ingress and egress
 
