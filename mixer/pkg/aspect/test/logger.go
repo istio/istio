@@ -32,6 +32,7 @@ type Logger struct {
 	AccessLogs     []adapter.LogEntry
 	ErrOnNewAspect bool
 	ErrOnLog       bool
+	Closed         bool
 }
 
 // NewApplicationLogsAspect returns a new instance of the Logger aspect.
@@ -67,7 +68,7 @@ func (t *Logger) Log(l []adapter.LogEntry) error {
 	if t.ErrOnLog {
 		return errors.New("log error")
 	}
-	t.EntryCount++
+	t.EntryCount += len(l)
 	t.Logs = append(t.Logs, l...)
 	return nil
 }
@@ -77,13 +78,16 @@ func (t *Logger) LogAccess(l []adapter.LogEntry) error {
 	if t.ErrOnLog {
 		return errors.New("log access error")
 	}
-	t.EntryCount++
+	t.EntryCount += len(l)
 	t.AccessLogs = append(t.AccessLogs, l...)
 	return nil
 }
 
-// Close does nothing at the moment.
-func (t *Logger) Close() error { return nil }
+// Close marks the logger as being closed.
+func (t *Logger) Close() error {
+	t.Closed = true
+	return nil
+}
 
 // NewLogEntry creates an adapter.LogEntry instance.
 func NewLogEntry(n string, l map[string]interface{}, ts string, s adapter.Severity, tp string, sp map[string]interface{}) adapter.LogEntry {

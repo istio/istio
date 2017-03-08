@@ -17,7 +17,11 @@ package aspect
 import (
 	"encoding/json"
 	"fmt"
+	"text/template"
 	"time"
+
+	"github.com/golang/glog"
+	"github.com/hashicorp/go-multierror"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
@@ -25,48 +29,38 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
 )
 
 type (
+	// PayloadFormat describes the format of the LogEntry's payload.
+	PayloadFormat int
+
 	applicationLogsManager struct{}
 
+	logInfo struct {
+		format     PayloadFormat
+		severity   string
+		timestamp  string
+		timeFormat string
+		tmpl       *template.Template
+		tmplExprs  map[string]string
+		labels     map[string]string
+	}
+
 	applicationLogsWrapper struct {
-		logName            string
-		descriptors        []dpb.LogEntryDescriptor // describe entries to gen
-		inputs             map[string]string        // map from param to expr
-		severityAttribute  string
-		timestampAttribute string
-		timestampFmt       string
-		aspect             adapter.ApplicationLogsAspect
-		defaultTimeFn      func() time.Time
+		name     string
+		aspect   adapter.ApplicationLogsAspect
+		metadata map[string]*logInfo // descriptor_name -> info
 	}
 )
 
-var (
-	defaultLog = dpb.LogEntryDescriptor{
-		Name:             "default",
-		DisplayName:      "Default Log Entry",
-		Description:      "Placeholder log descriptor",
-		PayloadAttribute: "logMessage",
-		Attributes: []string{
-			"serviceName",
-			"peerId",
-			"operationId",
-			"operationName",
-			"apiKey",
-			"url",
-			"location",
-			"apiName",
-			"apiVersion",
-			"apiMethod",
-			"requestSize",
-			"responseSize",
-			"responseTime",
-			"originIp",
-			"originHost",
-		},
-	}
+const (
+	// Text describes a log entry whose TextPayload should be set.
+	Text PayloadFormat = iota
+	// JSON describes a log entry whose StructPayload should be set.
+	JSON
 )
 
 // newApplicationLogsManager returns a manager for the application logs aspect.
@@ -75,29 +69,57 @@ func newApplicationLogsManager() Manager {
 }
 
 func (applicationLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
-	aspect, err := a.(adapter.ApplicationLogsBuilder).NewApplicationLogsAspect(env, c.Builder.Params.(adapter.AspectConfig))
+	// TODO: look up actual descriptors by name and build an array
+	cfg := c.Aspect.Params.(*aconfig.ApplicationLogsParams)
+
+	desc := []*dpb.LogEntryDescriptor{
+		{
+			Name:        "default",
+			DisplayName: "Default Log Entry",
+			Description: "Placeholder log descriptor",
+		},
+	}
+
+	metadata := make(map[string]*logInfo)
+	for _, d := range desc {
+		l, found := findLog(cfg.Logs, d.Name)
+		if !found {
+			env.Logger().Warningf("No application log found for descriptor %s, skipping it", d.Name)
+			continue
+		}
+
+		// TODO: remove this error handling once validate config is given descriptors to validate
+		t, err := template.New(d.Name).Parse(d.LogTemplate)
+		if err != nil {
+			env.Logger().Warningf("log descriptors %s's template '%s' failed to parse with err: %s", d.Name, d.LogTemplate, err)
+		}
+
+		metadata[d.Name] = &logInfo{
+			format:     payloadFormatFromProto(d.PayloadFormat),
+			severity:   l.Severity,
+			timestamp:  l.Timestamp,
+			timeFormat: l.TimeFormat,
+			tmpl:       t,
+			tmplExprs:  l.TemplateExpressions,
+			labels:     l.Labels,
+		}
+	}
+
+	asp, err := a.(adapter.ApplicationLogsBuilder).NewApplicationLogsAspect(env, c.Builder.Params.(adapter.AspectConfig))
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: look up actual descriptors by name and build an array
-	logCfg := c.Aspect.Params.(*aconfig.ApplicationLogsParams)
-
 	return &applicationLogsWrapper{
-		logCfg.LogName,
-		[]dpb.LogEntryDescriptor{defaultLog},
-		c.Aspect.GetInputs(),
-		logCfg.SeverityAttribute,
-		logCfg.TimestampAttribute,
-		logCfg.TimestampFormat,
-		aspect,
-		time.Now,
+		name:     cfg.LogName,
+		aspect:   asp,
+		metadata: metadata,
 	}, nil
 }
 
 func (applicationLogsManager) Kind() Kind { return ApplicationLogsKind }
 func (applicationLogsManager) DefaultConfig() adapter.AspectConfig {
-	return &aconfig.ApplicationLogsParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
+	return &aconfig.ApplicationLogsParams{LogName: "istio_log"}
 }
 
 // TODO: validation of timestamp format
@@ -108,107 +130,100 @@ func (applicationLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapte
 func (e *applicationLogsWrapper) Close() error { return e.aspect.Close() }
 
 func (e *applicationLogsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
+	result := &multierror.Error{}
 	var entries []adapter.LogEntry
 
-	// TODO: would be nice if we could use a mutable.Bag here and could pass it around
-	// labels holds the generated attributes from mapper
-	labels := make(map[string]interface{})
-	for attr, exp := range e.inputs {
-		if val, err := mapper.Eval(exp, attrs); err == nil {
-			labels[attr] = val
+	for name, md := range e.metadata {
+		labels, err := evalAll(md.labels, attrs, mapper)
+		if err != nil {
+			result = multierror.Append(result, fmt.Errorf("failed to eval labels for log entry '%s' with err: %s", name, err))
+			continue
 		}
-	}
 
-	for _, d := range e.descriptors {
+		templateVals, err := evalAll(md.tmplExprs, attrs, mapper)
+		if err != nil {
+			result = multierror.Append(result, fmt.Errorf("failed to eval template values for log entry '%s' with err: %s", name, err))
+			continue
+		}
+
+		buf := pool.GetBuffer()
+		err = md.tmpl.Execute(buf, templateVals)
+		if err != nil {
+			pool.PutBuffer(buf)
+			result = multierror.Append(result, fmt.Errorf(
+				"failed to construct payload string for log entry '%s' with template execution err: %s", name, err))
+			continue
+		}
+
+		sevStr, err := mapper.EvalString(md.severity, attrs)
+		if err != nil {
+			result = multierror.Append(result,
+				fmt.Errorf("failed to eval severity for log entry '%s', continuing with DEFAULT severity. Eval err: %s", name, err))
+			sevStr = ""
+		}
+		// If we can't parse the string we'll get the default severity, so we don't care about the success return.
+		severity, _ := adapter.SeverityByName(sevStr)
+
+		et, err := mapper.Eval(md.timestamp, attrs)
+		if err != nil {
+			result = multierror.Append(result,
+				fmt.Errorf("failed to eval time for log entry '%s', continuing with time.Now(). Eval err: %s", name, err))
+			et = time.Now()
+		}
+		t, _ := et.(time.Time) // we don't check the cast because expression type checking ensures we get a time.
+
 		entry := adapter.LogEntry{
-			LogName:   e.logName,
-			Labels:    make(map[string]interface{}),
-			Severity:  severityVal(e.severityAttribute, attrs, labels),
-			Timestamp: timeVal(e.timestampAttribute, attrs, labels, e.defaultTimeFn()).Format(e.timestampFmt),
+			LogName:   e.name,
+			Labels:    labels,
+			Timestamp: t.Format(md.timeFormat),
+			Severity:  severity,
 		}
 
-		payloadStr := stringVal(d.PayloadAttribute, attrs, labels, "")
-		switch d.PayloadFormat {
-		case dpb.TEXT:
-			entry.TextPayload = payloadStr
-		case dpb.JSON:
-			err := json.Unmarshal([]byte(payloadStr), &entry.StructPayload)
-			if err != nil {
-				return Output{Status: status.WithError(fmt.Errorf("could not unmarshal json payload: %v", err))}
-			}
-		}
-
-		for _, a := range d.Attributes {
-			if a == d.PayloadAttribute {
+		switch md.format {
+		case Text:
+			entry.TextPayload = buf.String()
+		case JSON:
+			if err := json.Unmarshal(buf.Bytes(), &entry.StructPayload); err != nil {
+				result = multierror.Append(result, fmt.Errorf("failed to unmarshall json payload for log entry %s with err: %s", name, err))
 				continue
 			}
-			if val, ok := labels[a]; ok {
-				entry.Labels[a] = val
-				continue
-			}
-			if val, found := attribute.Value(attrs, a); found {
-				entry.Labels[a] = val
-			}
-
-			// TODO: do we want to error for attributes that cannot
-			// be found?
 		}
+		pool.PutBuffer(buf)
 
 		entries = append(entries, entry)
 	}
-
 	if len(entries) > 0 {
 		if err := e.aspect.Log(entries); err != nil {
 			return Output{Status: status.WithError(err)}
 		}
 	}
+
+	err := result.ErrorOrNil()
+	if glog.V(4) {
+		glog.Infof("completed execution of application logging adapter '%s' for %d entries with errs: %v", e.name, len(entries), err)
+	}
+	if err != nil {
+		return Output{Status: status.WithError(err)}
+	}
 	return Output{Status: status.OK}
 }
 
-type attrBagFn func(bag attribute.Bag, name string) (interface{}, bool)
-
-var (
-	strFn  = func(bag attribute.Bag, name string) (interface{}, bool) { return bag.String(name) }
-	timeFn = func(bag attribute.Bag, name string) (interface{}, bool) { return bag.Time(name) }
-)
-
-func stringVal(attrName string, attrs attribute.Bag, labels map[string]interface{}, dfault string) string {
-	if v, ok := value(attrName, attrs, strFn, labels).(string); ok {
-		return v
-	}
-	return dfault
-}
-
-func severityVal(attrName string, attrs attribute.Bag, labels map[string]interface{}) adapter.Severity {
-	if name, ok := value(attrName, attrs, strFn, labels).(string); ok {
-		if s, found := adapter.SeverityByName(name); found {
-			return s
+func findLog(defs []*aconfig.ApplicationLogsParams_ApplicationLog, name string) (*aconfig.ApplicationLogsParams_ApplicationLog, bool) {
+	for _, def := range defs {
+		if def.DescriptorName == name {
+			return def, true
 		}
 	}
-	return adapter.Default
+	return nil, false
 }
 
-func timeVal(attrName string, attrs attribute.Bag, labels map[string]interface{}, dfault time.Time) time.Time {
-	if v, ok := value(attrName, attrs, timeFn, labels).(time.Time); ok {
-		return v
+func payloadFormatFromProto(format dpb.LogEntryDescriptor_PayloadFormat) PayloadFormat {
+	switch format {
+	case dpb.JSON:
+		return JSON
+	case dpb.TEXT:
+		fallthrough
+	default:
+		return Text
 	}
-	return dfault
-}
-
-func value(attrName string, attrBag attribute.Bag, fn attrBagFn, labels map[string]interface{}) interface{} {
-	if attrName == "" {
-		return nil
-	}
-
-	// check generated labels first, then attributes
-	if v, ok := labels[attrName]; ok {
-		return v
-	}
-
-	if v, ok := fn(attrBag, attrName); ok {
-		return v
-	}
-
-	// TODO: errors needed here? As of now, this causes default vals to be returned
-	return nil
 }
