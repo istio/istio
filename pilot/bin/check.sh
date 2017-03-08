@@ -1,6 +1,8 @@
 #!/bin/bash
 set -ex
 
+buildifier -showlog -mode=check $(find . -type f \( -name 'BUILD' -or -name 'WORKSPACE' -or -wholename '.*bazel' -or -wholename '.*bzl' \) -print )
+
 gometalinter --concurrency=4 --enable-gc --deadline=300s --disable-all\
   --enable=aligncheck\
   --enable=deadcode\

@@ -48,27 +48,39 @@ pkg_tar(
 )
 
 manager_docker_build(
-    images = [
-        {"name": "init",       "base": "@docker_ubuntu//:xenial"},
-        {"name": "init_debug", "base": "@ubuntu_xenial_debug//file"},
-    ],
-    entrypoint = ["/usr/local/bin/prepare_proxy.sh"],
-    repository = "istio",
-    tags = ["manual"],
     debs = [
         "@deb_iptables//file",
         "@deb_libnfnetlink//file",
         "@deb_libxtables//file",
     ],
+    entrypoint = ["/usr/local/bin/prepare_proxy.sh"],
+    images = [
+        {
+            "name": "init",
+            "base": "@docker_ubuntu//:xenial",
+        },
+        {
+            "name": "init_debug",
+            "base": "@ubuntu_xenial_debug//file",
+        },
+    ],
+    repository = "istio",
+    tags = ["manual"],
     tars = [":prepare_proxy"],
 )
 
 manager_docker_build(
-    images = [
-        {"name": "runtime",       "base": "@docker_ubuntu//:xenial"},
-        {"name": "runtime_debug", "base": "@ubuntu_xenial_debug//file"},
-    ],
     entrypoint = ["/usr/local/bin/manager"],
+    images = [
+        {
+            "name": "runtime",
+            "base": "@docker_ubuntu//:xenial",
+        },
+        {
+            "name": "runtime_debug",
+            "base": "@ubuntu_xenial_debug//file",
+        },
+    ],
     repository = "istio",
     tags = ["manual"],
     tars = [
@@ -79,11 +91,17 @@ manager_docker_build(
 )
 
 manager_docker_build(
-    images = [
-        {"name": "app",       "base": "@docker_ubuntu//:xenial"},
-        {"name": "app_debug", "base": "@ubuntu_xenial_debug//file"},
-    ],
     entrypoint = ["/bin/server"],
+    images = [
+        {
+            "name": "app",
+            "base": "@docker_ubuntu//:xenial",
+        },
+        {
+            "name": "app_debug",
+            "base": "@ubuntu_xenial_debug//file",
+        },
+    ],
     repository = "istio",
     tags = ["manual"],
     tars = [":test"],

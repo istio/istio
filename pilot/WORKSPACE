@@ -52,7 +52,7 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_coreos_pkg",
-    commit = "1c941d73110817a80b9fa6e14d5d2b00d977ce2a", # Date: 2/6/17 with "build" file rename
+    commit = "1c941d73110817a80b9fa6e14d5d2b00d977ce2a",  # Date: 2/6/17 with "build" file rename
     importpath = "github.com/coreos/pkg",
 )
 
@@ -272,7 +272,7 @@ new_go_repository(
 ## Proxy build rules
 ##
 
-PROXY="83e1d58c8e841c47fb9c4b14352249f9e96f927e"
+PROXY = "83e1d58c8e841c47fb9c4b14352249f9e96f927e"
 
 http_file(
     name = "istio_proxy",
@@ -288,12 +288,12 @@ http_file(
 ## Docker rules
 ##
 
-DEBUG_BASE_IMAGE_SHA="356a53b250bcea8b8574acd9ab0c41163b218820709fba2447eda392fb045f66"
+DEBUG_BASE_IMAGE_SHA = "356a53b250bcea8b8574acd9ab0c41163b218820709fba2447eda392fb045f66"
 
 http_file(
     name = "ubuntu_xenial_debug",
+    sha256 = DEBUG_BASE_IMAGE_SHA,
     url = "https://storage.googleapis.com/istio-build/manager/ubuntu_xenial_debug-" + DEBUG_BASE_IMAGE_SHA + ".tar.gz",
-    sha256 = DEBUG_BASE_IMAGE_SHA
 )
 
 new_http_archive(
@@ -314,18 +314,18 @@ docker_build(
 
 http_file(
     name = "deb_iptables",
-    url = "http://mirrors.kernel.org/ubuntu/pool/main/i/iptables/iptables_1.6.0-2ubuntu3_amd64.deb",
     sha256 = "d2cafb4f1860435ce69a4971e3af5f4bb20753054020f32e1b767e4ba79c0831",
+    url = "http://mirrors.kernel.org/ubuntu/pool/main/i/iptables/iptables_1.6.0-2ubuntu3_amd64.deb",
 )
 
 http_file(
     name = "deb_libnfnetlink",
-    url = "http://mirrors.kernel.org/ubuntu/pool/main/libn/libnfnetlink/libnfnetlink0_1.0.1-3_amd64.deb",
     sha256 = "fbaf9b8914a607e2a07e5525c6c9c0ecb71d70236f54ad185f4cc81b4541f6ba",
+    url = "http://mirrors.kernel.org/ubuntu/pool/main/libn/libnfnetlink/libnfnetlink0_1.0.1-3_amd64.deb",
 )
 
 http_file(
     name = "deb_libxtables",
-    url = "http://mirrors.kernel.org/ubuntu/pool/main/i/iptables/libxtables11_1.6.0-2ubuntu3_amd64.deb",
     sha256 = "9a4140b0b599612af1006efeee1c6b98771b0bc8dcdcd0510218ef69d6652c7f",
+    url = "http://mirrors.kernel.org/ubuntu/pool/main/i/iptables/libxtables11_1.6.0-2ubuntu3_amd64.deb",
 )

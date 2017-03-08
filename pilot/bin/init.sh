@@ -9,4 +9,5 @@ rm -rf vendor/k8s.io/client-go/vendor
 
 go install ./...
 go get -u github.com/alecthomas/gometalinter
+go get -u github.com/bazelbuild/buildifier/buildifier
 gometalinter --install --vendored-linters
