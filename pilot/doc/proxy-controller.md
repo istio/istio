@@ -1,9 +1,9 @@
 # Proxy controller
 
-Istio Manager controls the mesh of Istio Proxies by propagating service registry information and routing rules to the destination proxies. Currently, Istio Proxy is based on [Envoy](github.com/lyft/envoy), and the controller for Envoy consists of two parts:
+Istio Manager controls the mesh of Istio Proxies by propagating service registry information and routing rules to the destination proxies. Currently, Istio Proxy is based on [Envoy](https://github.com/lyft/envoy), and the controller for Envoy consists of two parts:
 
 - proxy agent, a supervisor script that generates Envoy configuration from the abstract model of services and rules, and triggers a proxy restart
-- discovery service, an Envoy Discovery Service that publishes information about service - instance IP mappings.
+- discovery services, implementing Envoy Discovery Service APIs, that publish information for Envoy proxies to consume.
 
 ## Proxy injection
 
@@ -21,9 +21,9 @@ Discovery service publishes service topology and routing information to all prox
 
 There are three types of discovery services exposed by Istio Manager:
 
-- SDS is the service discovery and is responsible for listing a set of `ip:port` pairs for a cluster;
-- CDS is the cluster discovery and is responsible for listing all Envoy clusters;
-- RDS is the route discovery and is responsible for listing HTTP routes; the proxy identity is important for applying route rules with source service conditions.
+- SDS is the service discovery that is responsible for listing a set of `ip:port` pairs for a cluster;
+- CDS is the cluster discovery that is responsible for listing all Envoy clusters;
+- RDS is the route discovery that is responsible for listing HTTP routes; the proxy identity is important for applying route rules with source service conditions.
 
 ## Routing rules
 
