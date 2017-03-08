@@ -50,7 +50,7 @@ Grafana custom image contains a build-in Istio-dashboard that you can access fro
 
 View the graph json data and image at:
 
-    http://<servicegraph-svc-external-IP>:8088/graph?time_horizon=600s
+    http://<servicegraph-svc-external-IP>:8088/graph?time_horizon=10m
 
     http://<servicegraph-svc-external-IP>:8088/dotgraph
 
