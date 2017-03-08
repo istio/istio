@@ -1,0 +1,3 @@
+coverage:
+  ignore:
+    - "**/*.pb.go" # Auto-generated proto files
