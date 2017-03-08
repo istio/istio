@@ -15,10 +15,14 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/golang/glog"
@@ -28,7 +32,20 @@ import (
 
 	"istio.io/manager/cmd"
 	"istio.io/manager/model"
+
+	"k8s.io/client-go/pkg/util/yaml"
 )
+
+// Each entry in the multi-doc YAML file used by `istioctl create -f` MUST have this format
+type inputDoc struct {
+	// Type SHOULD be one of the kinds in model.IstioConfig; a route-rule, ingress-rule, or destination-policy
+	Type string      `json:"type,omitempty"`
+	Name string      `json:"name,omitempty"`
+	Spec interface{} `json:"spec,omitempty"`
+	// ParsedSpec will be one of the messages in model.IstioConfig: for example an
+	// istio.proxy.v1alpha.config.RouteRule or DestinationPolicy
+	ParsedSpec proto.Message `json:"-"`
+}
 
 var (
 	// input file name
@@ -38,20 +55,32 @@ var (
 	schema model.ProtoSchema
 
 	postCmd = &cobra.Command{
-		Use:   "create [type] [name]",
-		Short: "Create a configuration object",
+		Use:   "create",
+		Short: "Create configuration objects",
 		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) != 2 {
-				return fmt.Errorf("provide configuration type and name")
+			if len(args) != 0 {
+				return fmt.Errorf("create takes no arguments")
 			}
-			if err := setup(args[0], args[1]); err != nil {
-				return err
-			}
-			v, err := readInput()
+			// Initialize schema global
+			varr, err := readInputs()
 			if err != nil {
 				return err
 			}
-			return cmd.Client.Post(key, v)
+			if len(varr) == 0 {
+				return errors.New("Nothing to create")
+			}
+			for _, v := range varr {
+				if err = setup(v.Type, v.Name); err != nil {
+					return err
+				}
+				err = cmd.Client.Post(key, v.ParsedSpec)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Posted %v %v\n", v.Type, v.Name)
+			}
+
+			return nil
 		},
 	}
 
@@ -222,4 +251,64 @@ func readInput() (proto.Message, error) {
 	}
 
 	return v, nil
+}
+
+// readInput reads multiple documents from the input and checks with the schema
+func readInputs() ([]inputDoc, error) {
+
+	var reader io.Reader
+	var err error
+
+	if file == "" {
+		reader = os.Stdin
+	} else {
+		reader, err = os.Open(file)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var varr []inputDoc
+
+	// We store route-rules as a YaML stream; there may be more than one decoder.
+	yamlDecoder := yaml.NewYAMLOrJSONDecoder(reader, 512*1024)
+	for {
+		v := inputDoc{}
+		err = yamlDecoder.Decode(&v)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse proto message: %v", err)
+		}
+
+		// Do a second decode pass, to get the data into structured format
+		byteRule, err := json.Marshal(v.Spec)
+		if err != nil {
+			return nil, fmt.Errorf("Could not encode Spec: %v", err)
+		}
+
+		reader2 := bytes.NewReader(byteRule)
+
+		schema, ok := model.IstioConfig[v.Type]
+		if !ok {
+			return nil, fmt.Errorf("Unknown spec type %s", v.Type)
+		}
+		pbt := proto.MessageType(schema.MessageName)
+		if pbt == nil {
+			return nil, fmt.Errorf("cannot create pbt from %v", v.Type)
+		}
+		rr := reflect.New(pbt.Elem()).Interface().(proto.Message)
+		yamlDecoder2 := yaml.NewYAMLOrJSONDecoder(reader2, 512*1024)
+		err = yamlDecoder2.Decode(&rr)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse proto message: %v", err)
+		}
+
+		v.ParsedSpec = rr
+
+		varr = append(varr, v)
+	}
+
+	return varr, nil
 }

@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_prefix", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -11,6 +11,7 @@ go_library(
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
         "@io_k8s_client_go//pkg/api:go_default_library",
+        "@io_k8s_client_go//pkg/util/yaml:go_default_library",
     ],
 )
 
@@ -19,4 +20,13 @@ go_binary(
     library = ":go_default_library",
     linkstamp = "istio.io/manager/cmd/version",
     visibility = ["//visibility:public"],
+)
+
+go_prefix("istio.io/manager")
+
+go_test(
+    name = "go_default_test",
+    srcs = ["istioctl_test.go"],
+    library = ":go_default_library",
+    deps = ["//cmd:go_default_library"],
 )

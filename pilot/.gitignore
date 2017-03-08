@@ -6,3 +6,7 @@ vendor
 *.iml
 echo.yaml
 .vagrant
+
+# Eclipse artifacts
+.project
+
