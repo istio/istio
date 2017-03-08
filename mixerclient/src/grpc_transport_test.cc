@@ -128,6 +128,9 @@ TEST_F(GrpcTransportTest, TestSuccessCheck) {
   EXPECT_CALL(mock_reader, OnClose(_))
       .WillOnce(Invoke([&status_promise](Status status) {
         std::promise<Status> moved_promise(std::move(status_promise));
+        if (!status.ok()) {
+          GOOGLE_LOG(ERROR) << "Failed in OnClose: " << status.error_message();
+        }
         moved_promise.set_value(status);
       }));
 

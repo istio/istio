@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "src/grpc_transport.h"
+#include <mutex>
 #include <thread>
 
 namespace istio {
@@ -40,12 +41,15 @@ class GrpcStream final : public WriteInterface<RequestType> {
   }
 
   void Write(const RequestType& request) override {
+    std::lock_guard<std::mutex> lock(write_mutex_);
     if (!stream_->Write(request)) {
-      WritesDone();
+      stream_->WritesDone();
+      write_closed_ = true;
     }
   }
 
   void WritesDone() override {
+    std::lock_guard<std::mutex> lock(write_mutex_);
     stream_->WritesDone();
     write_closed_ = true;
   }
@@ -69,6 +73,8 @@ class GrpcStream final : public WriteInterface<RequestType> {
 
   // The client context.
   ::grpc::ClientContext context_;
+  // Mutex to make sure not calling stream_->Write() parallelly.
+  std::mutex write_mutex_;
   // The reader writer stream.
   StreamPtr stream_;
   // The reader interface from caller.
