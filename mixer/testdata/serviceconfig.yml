@@ -56,4 +56,4 @@ rules:
   - kind: application-logs
     params:
       logName: "mixer_log"
-      logEntryDescriptorNames: ["default"]
+      logs:

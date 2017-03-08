@@ -19,42 +19,36 @@ package pkg.aspect.config;
 option go_package="config";
 
 // Configures an individual application-logs aspect.
-//
-// Example usage:
-// kind: application-logs
-// params:
-//    log_name: "endpoint_log"
-//    log_entry_descriptor_names: "application_log_entry", "action_log_entry"
-//    severity_attribute: "severity"
-//    timestamp_attribute: "timestamp"
-//    timestamp_format: "2006-Jan-02"
-//
 message ApplicationLogsParams {
-    // Provides a way to identify a collection of related log entries.
+    // Identifies a collection of related log entries.
     string log_name = 1;
 
-    // A list of names of istio.mixer.v1.config.descriptor.LogEntryDescriptors
-    // for log entries that will be generated for a Report() call. If no
-    // LogEntryDescriptor is named in the config, the logger will not generate
-    // any log entries.
-    repeated string log_entry_descriptor_names = 2;
+    message ApplicationLog {
+        // Must match the name of some LogEntryDescriptor.
+        string descriptor_name = 1;
 
-    // The name of the attribute that will be used to derive log severity.
-    // If this attribute is not found in the set of attributes passed to this
-    // implementation, a default severity of "DEFAULT" will be used.
-    string severity_attribute = 3;
+        // The expression to evaluate to determine this log's severity at runtime.
+        string severity = 2;
 
-    // The name of the attribute that will be used to derive the timestamp
-    // for the corresponding log enty. If this attribute is not specified, the
-    // value from time.Now() will be used as the timestamp for the log.
-    string timestamp_attribute = 4;
+        // The expression to evaluate to determine this log's timestamp.
+        string timestamp = 3;
 
-    // The format to use when serializing timestamps. It is expected that
-    // this format string will follow the conventions of golang's time.Time
-    // package and use the reference date as defined in:
-    // https://golang.org/pkg/time/#pkg-constants.
-    //
-    // Default Value: "2006-01-02T15:04:05Z07:00" (RFC3339)
-    string timestamp_format = 5;
+        // The golang time layout format string used to print the timestamp
+        string time_format = 4;
 
+        // Map of template variable name to expression for the descriptor's log_template. At
+        // run time each expression will be evaluated, and together they will provide values
+        // for the log's template string. Labels and template expressions do not mix: if the
+        // result of some expression is needed for both constructing the payload and for
+        // dimensioning the log entry, it must be included both in these expressions and in
+        // the `labels` expressions.
+        map<string, string> template_expressions = 5;
+
+        // Map of LogEntryDescriptor label name to attribute expression. At run time each
+        // expression will be evaluated to determine the value that will be used to fill
+        // in the log template. The result of evaluating the expression must match the
+        // ValueType of the label in the LogEntryDescriptor.
+        map<string, string> labels = 6;
+    }
+    repeated ApplicationLog logs = 2;
 }

@@ -15,8 +15,10 @@
 package aspect
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
+	"text/template"
 	"time"
 
 	ptypes "github.com/gogo/protobuf/types"
@@ -24,6 +26,7 @@ import (
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
+	atest "istio.io/mixer/pkg/adapter/test"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
@@ -40,6 +43,15 @@ type (
 	}
 )
 
+func evalErrOnStr(s string) expr.Evaluator {
+	return test.NewFakeEval(func(e string, _ attribute.Bag) (interface{}, error) {
+		if e == s {
+			return "", fmt.Errorf("expected error for %s", s)
+		}
+		return e, nil
+	})
+}
+
 func TestNewLoggerManager(t *testing.T) {
 	m := newApplicationLogsManager()
 	if m.Kind() != ApplicationLogsKind {
@@ -50,205 +62,306 @@ func TestNewLoggerManager(t *testing.T) {
 func TestLoggerManager_NewLogger(t *testing.T) {
 	tl := &test.Logger{}
 	defaultExec := &applicationLogsWrapper{
-		logName:      "istio_log",
-		timestampFmt: time.RFC3339,
-		aspect:       tl,
-		inputs:       map[string]string{},
-		descriptors:  []dpb.LogEntryDescriptor{defaultLog},
+		name:   "istio_log",
+		aspect: tl,
+		metadata: map[string]*logInfo{
+			"default": {
+				timeFormat: time.RFC3339,
+			},
+		},
 	}
 
 	overrideExec := &applicationLogsWrapper{
-		logName:      "istio_log",
-		timestampFmt: "2006-Jan-02",
-		aspect:       tl,
-		inputs:       map[string]string{},
-		descriptors:  []dpb.LogEntryDescriptor{defaultLog},
+		name:   "istio_log",
+		aspect: tl,
+		metadata: map[string]*logInfo{
+			"default": {
+				timeFormat: "2006-Jan-02",
+			},
+		},
+	}
+
+	emptyExec := &applicationLogsWrapper{
+		name:     "istio_log",
+		aspect:   tl,
+		metadata: make(map[string]*logInfo),
 	}
 
 	newAspectShouldSucceed := []aspectTestCase{
-		{"empty", &aconfig.ApplicationLogsParams{LogName: "istio_log", TimestampFormat: time.RFC3339}, defaultExec},
-		{"override", &aconfig.ApplicationLogsParams{LogName: "istio_log", TimestampFormat: "2006-Jan-02"}, overrideExec},
+		{"empty", &aconfig.ApplicationLogsParams{
+			LogName: "istio_log",
+			Logs: []*aconfig.ApplicationLogsParams_ApplicationLog{
+				{
+					DescriptorName: "default",
+					TimeFormat:     time.RFC3339,
+				},
+			}}, defaultExec},
+		{"override", &aconfig.ApplicationLogsParams{
+			LogName: "istio_log",
+			Logs: []*aconfig.ApplicationLogsParams_ApplicationLog{
+				{
+					DescriptorName: "default",
+					TimeFormat:     "2006-Jan-02",
+				},
+			}}, overrideExec},
+		// TODO: should this be an error? An aspect with no logInfo objects will never do any work.
+		{"no descriptors", &aconfig.ApplicationLogsParams{
+			LogName: "istio_log",
+			Logs: []*aconfig.ApplicationLogsParams_ApplicationLog{
+				{
+					DescriptorName: "no descriptor with this name",
+				},
+			}}, emptyExec},
 	}
 
 	m := newApplicationLogsManager()
 
-	for _, v := range newAspectShouldSucceed {
-		c := config.Combined{
-			Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
-			Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
-		}
-		asp, err := m.NewAspect(&c, tl, test.Env{})
-		if err != nil {
-			t.Errorf("NewAspect(): should not have received error for %s (%v)", v.name, err)
-		}
-		got := asp.(*applicationLogsWrapper)
-		got.defaultTimeFn = nil // ignore time fns in equality comp
-		if !reflect.DeepEqual(got, v.want) {
-			t.Errorf("%s NewAspect() => %v (%T), want %v (%T)", v.name, got, got, v.want, v.want)
-		}
+	for idx, v := range newAspectShouldSucceed {
+		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
+			c := config.Combined{
+				Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
+				Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
+			}
+			asp, err := m.NewAspect(&c, tl, atest.NewEnv(t))
+			if err != nil {
+				t.Fatalf("NewAspect(): should not have received error for %s (%v)", v.name, err)
+			}
+			got := asp.(*applicationLogsWrapper)
+			// We ignore templates because reflect.DeepEqual doesn't seem to work with them.
+			for key := range got.metadata {
+				got.metadata[key].tmpl = nil
+			}
+			if !reflect.DeepEqual(got, v.want) {
+				t.Errorf("NewAspect() = %#+v, wanted %#+v", got, v.want)
+			}
+		})
 	}
 }
 
 func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 
-	defaultCfg := &config.Combined{
-		Builder: &configpb.Adapter{
-			Params: &ptypes.Empty{},
-		},
-		Aspect: &configpb.Aspect{
-			Params: &aconfig.ApplicationLogsParams{LogName: "istio_log", TimestampFormat: time.RFC3339},
+	defaultCfg := &aconfig.ApplicationLogsParams{
+		LogName: "istio_log",
+		Logs: []*aconfig.ApplicationLogsParams_ApplicationLog{
+			{
+				DescriptorName: "default",
+				TimeFormat:     time.RFC3339,
+			},
 		},
 	}
 
 	errLogger := &test.Logger{DefaultCfg: &ptypes.Empty{}, ErrOnNewAspect: true}
 
 	failureCases := []struct {
-		cfg   *config.Combined
+		name  string
+		cfg   *aconfig.ApplicationLogsParams
 		adptr adapter.Builder
 	}{
-		{defaultCfg, errLogger},
+		{"new aspect error", defaultCfg, errLogger},
 	}
 
 	m := newApplicationLogsManager()
-	for _, v := range failureCases {
-		if _, err := m.NewAspect(v.cfg, v.adptr, test.Env{}); err == nil {
-			t.Errorf("NewAspect(): expected error for bad adapter (%T)", v.adptr)
-		}
+	for idx, v := range failureCases {
+		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
+			cfg := &config.Combined{
+				Builder: &configpb.Adapter{
+					Params: &ptypes.Empty{},
+				},
+				Aspect: &configpb.Aspect{
+					Params: v.cfg,
+				},
+			}
+
+			if _, err := m.NewAspect(cfg, v.adptr, atest.NewEnv(t)); err == nil {
+				t.Fatalf("NewAspect(): expected error for bad adapter (%T)", v.adptr)
+			}
+		})
 	}
 }
 
-func TestLoggerManager_Execute(t *testing.T) {
-	testTime, _ := time.Parse("2006-Jan-02", "2011-Aug-14")
-	noPayloadDesc := dpb.LogEntryDescriptor{
-		Name:       "test",
-		Attributes: []string{"attr"},
-	}
-	payloadDesc := dpb.LogEntryDescriptor{
-		Name:             "test",
-		Attributes:       []string{"attr", "payload"},
-		PayloadAttribute: "payload",
-	}
-	jsonPayloadDesc := dpb.LogEntryDescriptor{
-		Name:             "test",
-		Attributes:       []string{"key"},
-		PayloadAttribute: "payload",
-		PayloadFormat:    dpb.JSON,
-	}
-	withInputsDesc := dpb.LogEntryDescriptor{
-		Name:             "test",
-		Attributes:       []string{"key"},
-		PayloadAttribute: "attr",
-	}
+func TestLogWrapper_Execute(t *testing.T) {
+	timeAttrName := "timestamp"
+	knownTime := time.Now()
+	idEvalWithTime := test.NewFakeEval(func(s string, _ attribute.Bag) (interface{}, error) {
+		if s == timeAttrName {
+			return knownTime, nil
+		}
+		return s, nil
+	})
 
-	noDescriptorExec := &applicationLogsWrapper{"istio_log", []dpb.LogEntryDescriptor{}, map[string]string{}, "severity", "ts", "", nil, time.Now}
-	noPayloadExec := &applicationLogsWrapper{"istio_log",
-		[]dpb.LogEntryDescriptor{noPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
-	payloadExec := &applicationLogsWrapper{"istio_log",
-		[]dpb.LogEntryDescriptor{payloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
-	jsonPayloadExec := &applicationLogsWrapper{"istio_log", []dpb.LogEntryDescriptor{jsonPayloadDesc},
-		map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
-	withInputsExec := &applicationLogsWrapper{"istio_log",
-		[]dpb.LogEntryDescriptor{withInputsDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
-	withTimestampFormatExec := &applicationLogsWrapper{
-		"istio_log",
-		[]dpb.LogEntryDescriptor{noPayloadDesc},
-		map[string]string{"attr": "val"},
-		"severity",
-		"ts",
-		"2006-Jan-02",
-		nil,
-		time.Now,
+	tmpl, _ := template.New("test").Parse("{{.test}}")
+	jsontmpl, _ := template.New("test").Parse(`{"value": "{{.test}}"}`)
+
+	textLogInfo := logInfo{
+		format:     Text,
+		severity:   "DEFAULT",
+		timestamp:  "timestamp",
+		timeFormat: time.RFC822Z,
+		tmpl:       tmpl,
+		tmplExprs:  map[string]string{"test": "value"},
+		labels:     map[string]string{"label1": "label1val"},
 	}
 
-	jsonBag := &test.Bag{Strs: map[string]string{"key": "value", "payload": `{"obj":{"val":54},"question":true}`}}
-	tsBag := &test.Bag{Times: map[string]time.Time{"ts": testTime}}
+	noDescriptors := &applicationLogsWrapper{
+		name:     "name",
+		metadata: make(map[string]*logInfo),
+	}
 
-	structPayload := map[string]interface{}{"obj": map[string]interface{}{"val": float64(54)}, "question": true}
+	textPayload := &applicationLogsWrapper{
+		name: "name",
+		metadata: map[string]*logInfo{
+			"text": &textLogInfo,
+		},
+	}
+	textPayloadEntry := adapter.LogEntry{
+		LogName:     "name",
+		Labels:      map[string]interface{}{"label1": "label1val"},
+		TextPayload: "value",
+		Timestamp:   knownTime.Format(time.RFC822Z),
+		Severity:    adapter.Default,
+	}
 
-	defaultEntry := test.NewLogEntry("istio_log", map[string]interface{}{"attr": "val"}, "", adapter.Default, "", nil)
-	infoEntry := test.NewLogEntry("istio_log", map[string]interface{}{"attr": "val"}, "", adapter.Info, "", nil)
-	textPayloadEntry := test.NewLogEntry("istio_log", map[string]interface{}{"attr": "val"}, "", adapter.Default, "test", nil)
-	jsonPayloadEntry := test.NewLogEntry("istio_log", map[string]interface{}{"key": "value"}, "", adapter.Default, "", structPayload)
-	inputsEntry := test.NewLogEntry("istio_log", map[string]interface{}{"key": "value"}, "", adapter.Default, "val", nil)
-	timeEntry := test.NewLogEntry("istio_log", map[string]interface{}{"attr": "val"}, "2011-Aug-14", adapter.Default, "", nil)
+	jsonLogInfo := textLogInfo
+	jsonLogInfo.format = JSON
+	jsonLogInfo.tmpl = jsontmpl
 
-	executeShouldSucceed := []struct {
+	jsonPayload := &applicationLogsWrapper{
+		name: "name",
+		metadata: map[string]*logInfo{
+			"json": &jsonLogInfo,
+		},
+	}
+	jsonPayloadEntry := textPayloadEntry
+	jsonPayloadEntry.TextPayload = ""
+	jsonPayloadEntry.StructPayload = map[string]interface{}{"value": "value"}
+
+	multipleLogs := &applicationLogsWrapper{
+		name: "name",
+		metadata: map[string]*logInfo{
+			"json": jsonPayload.metadata["json"],
+			"text": textPayload.metadata["text"],
+		},
+	}
+
+	tests := []struct {
 		name        string
 		exec        *applicationLogsWrapper
 		bag         attribute.Bag
 		mapper      expr.Evaluator
 		wantEntries []adapter.LogEntry
 	}{
-		{"no descriptors", noDescriptorExec, test.NewBag(), test.NewIDEval(), nil},
-		{"no payload", noPayloadExec, &test.Bag{Strs: map[string]string{"key": "value"}}, test.NewIDEval(), []adapter.LogEntry{defaultEntry}},
-		{"severity", noPayloadExec, &test.Bag{Strs: map[string]string{"key": "value", "severity": "info"}}, test.NewIDEval(), []adapter.LogEntry{infoEntry}},
-		{"bad severity", noPayloadExec, &test.Bag{Strs: map[string]string{"key": "value", "severity": "500"}}, test.NewIDEval(), []adapter.LogEntry{defaultEntry}},
-		{"payload not found", payloadExec, &test.Bag{Strs: map[string]string{"key": "value"}}, test.NewIDEval(), []adapter.LogEntry{defaultEntry}},
-		{"with payload", payloadExec, &test.Bag{Strs: map[string]string{"key": "value", "payload": "test"}}, test.NewIDEval(), []adapter.LogEntry{textPayloadEntry}},
-		{"with json payload", jsonPayloadExec, jsonBag, test.NewIDEval(), []adapter.LogEntry{jsonPayloadEntry}},
-		{"with payload from inputs", withInputsExec, &test.Bag{Strs: map[string]string{"key": "value"}}, test.NewIDEval(), []adapter.LogEntry{inputsEntry}},
-		{"with non-default time", payloadExec, &test.Bag{Times: map[string]time.Time{"ts": time.Now()}}, test.NewIDEval(), []adapter.LogEntry{defaultEntry}},
-		{"with non-default time and format", withTimestampFormatExec, tsBag, test.NewIDEval(), []adapter.LogEntry{timeEntry}},
-		{"with inputs", withInputsExec, &test.Bag{Strs: map[string]string{"key": "value", "payload": "test"}}, test.NewIDEval(), []adapter.LogEntry{inputsEntry}},
+		{"no descriptors", noDescriptors, test.NewBag(), idEvalWithTime, nil},
+		{"text payload", textPayload, test.NewBag(), idEvalWithTime, []adapter.LogEntry{textPayloadEntry}},
+		{"json payload", jsonPayload, test.NewBag(), idEvalWithTime, []adapter.LogEntry{jsonPayloadEntry}},
+		{"multiple logs", multipleLogs, test.NewBag(), idEvalWithTime, []adapter.LogEntry{jsonPayloadEntry, textPayloadEntry}},
 	}
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			l := &test.Logger{}
+			tt.exec.aspect = l
 
-	for _, v := range executeShouldSucceed {
-		l := &test.Logger{}
-		v.exec.aspect = l
-
-		if out := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); !out.IsOK() {
-			t.Errorf("Execute(): should not have received error for %s (%v)", v.name, out.Message())
-		}
-		if l.EntryCount != len(v.wantEntries) {
-			t.Errorf("Execute(): got %d entries, wanted %d for %s", l.EntryCount, len(v.wantEntries), v.name)
-		}
-		if !reflect.DeepEqual(l.Logs, v.wantEntries) {
-			t.Errorf("Execute(): got %v, wanted %v for %s", l.Logs, v.wantEntries, v.name)
-		}
+			if out := tt.exec.Execute(tt.bag, tt.mapper, &ReportMethodArgs{}); !out.IsOK() {
+				t.Fatalf("Execute(): should not have received error for %s (%v)", tt.name, out)
+			}
+			if l.EntryCount != len(tt.wantEntries) {
+				t.Fatalf("Execute(): got %d entries, wanted %d for %s", l.EntryCount, len(tt.wantEntries), tt.name)
+			}
+			if !deepEqualIgnoreOrder(l.Logs, tt.wantEntries) {
+				t.Fatalf("Execute(): got %v, wanted %v for %s", l.Logs, tt.wantEntries, tt.name)
+			}
+		})
 	}
 }
 
-func TestLoggerManager_ExecuteFailures(t *testing.T) {
+func TestLogWrapper_ExecuteFailures(t *testing.T) {
+	tmpl, _ := template.New("test").Parse("{{.test}}")
 
-	desc := dpb.LogEntryDescriptor{
-		Name:       "test",
-		Attributes: []string{"key"},
+	textLogInfo := logInfo{
+		format:    Text,
+		severity:  "DEFAULT",
+		timestamp: "timestamp",
+		tmpl:      tmpl,
+		tmplExprs: map[string]string{"tmplExprs": "tmplExprs"},
+		labels:    map[string]string{"labels": "labels"},
 	}
-	jsonPayloadDesc := dpb.LogEntryDescriptor{
-		Name:             "test",
-		Attributes:       []string{"key"},
-		PayloadAttribute: "payload",
-		PayloadFormat:    dpb.JSON,
+	jsonLogInfo := textLogInfo
+	jsonLogInfo.format = JSON
+
+	textPayload := applicationLogsWrapper{
+		name:   "name",
+		aspect: &test.Logger{},
+		metadata: map[string]*logInfo{
+			"text": &textLogInfo,
+		},
+	}
+	jsonPayload := applicationLogsWrapper{
+		name:   "name",
+		aspect: &test.Logger{},
+		metadata: map[string]*logInfo{
+			"json": &jsonLogInfo,
+		},
+	}
+	logError := applicationLogsWrapper{
+		name:   "name",
+		aspect: &test.Logger{ErrOnLog: true},
+		metadata: map[string]*logInfo{
+			"don't care": &jsonLogInfo,
+		},
 	}
 
-	errorExec := &applicationLogsWrapper{"istio_log",
-		[]dpb.LogEntryDescriptor{desc}, map[string]string{}, "severity", "ts", "", &test.Logger{ErrOnLog: true}, time.Now}
-	jsonErrorExec := &applicationLogsWrapper{"istio_log",
-		[]dpb.LogEntryDescriptor{jsonPayloadDesc}, map[string]string{"attr": "val"}, "severity", "ts", "", nil, time.Now}
+	timeTmpl, _ := template.New("test").Parse(`{{ .foo "-" .bar }}`)
+	errorLogInfo := textLogInfo
+	errorLogInfo.tmpl = timeTmpl
+	errorPayload := applicationLogsWrapper{
+		name:   "name",
+		aspect: &test.Logger{},
+		metadata: map[string]*logInfo{
+			"error": &errorLogInfo,
+		},
+	}
 
-	jsonPayloadBag := &test.Bag{Strs: map[string]string{"key": "value", "payload": `{"obj":{"val":54},"question":`}}
-
-	executeShouldFail := []struct {
+	tests := []struct {
 		name   string
 		exec   *applicationLogsWrapper
 		bag    attribute.Bag
 		mapper expr.Evaluator
 	}{
-		{"log failure", errorExec, &test.Bag{Strs: map[string]string{"key": "value"}}, test.NewIDEval()},
-		{"json payload failure", jsonErrorExec, jsonPayloadBag, test.NewIDEval()},
+		{"invalid json template", &jsonPayload, test.NewBag(), test.NewIDEval()},
+		{"err on log", &logError, test.NewBag(), test.NewIDEval()},
+		{"err on label eval", &textPayload, test.NewBag(), evalErrOnStr("labels")},
+		{"err on template eval", &jsonPayload, test.NewBag(), evalErrOnStr("tmplExprs")},
+		{"err on severity", &jsonPayload, test.NewBag(), evalErrOnStr("DEFAULT")},
+		{"err on timestamp", &jsonPayload, test.NewBag(), evalErrOnStr("timestamp")},
+		{"err on execute", &errorPayload, test.NewBag(), test.NewIDEval()},
 	}
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			if out := tt.exec.Execute(tt.bag, tt.mapper, &ReportMethodArgs{}); out.IsOK() {
+				t.Fatalf("Execute(): should have received error for %s", tt.name)
+			}
+		})
+	}
+}
 
-	for _, v := range executeShouldFail {
-		if out := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); out.IsOK() {
-			t.Errorf("Execute(): should have received error for %s", v.name)
-		}
+func TestLogWrapper_Close(t *testing.T) {
+	l := &test.Logger{}
+	wrapper := applicationLogsWrapper{
+		name:     "name",
+		aspect:   l,
+		metadata: make(map[string]*logInfo),
+	}
+	if err := wrapper.Close(); err != nil {
+		t.Fatalf("wrapper.Close() = %s, wanted no err.", err)
+	}
+	if !l.Closed {
+		t.Fatal("wrapper.Close() didn't call aspect.Close()")
 	}
 }
 
 func TestLoggerManager_DefaultConfig(t *testing.T) {
 	m := newApplicationLogsManager()
 	got := m.DefaultConfig()
-	want := &aconfig.ApplicationLogsParams{LogName: "istio_log", TimestampFormat: time.RFC3339}
+	want := &aconfig.ApplicationLogsParams{LogName: "istio_log"}
 	if !proto.Equal(got, want) {
 		t.Errorf("DefaultConfig(): got %v, wanted %v", got, want)
 	}
@@ -259,4 +372,39 @@ func TestLoggerManager_ValidateConfig(t *testing.T) {
 	if err := m.ValidateConfig(&ptypes.Empty{}); err != nil {
 		t.Errorf("ValidateConfig(): unexpected error: %v", err)
 	}
+}
+
+func TestPayloadFormatFromProto(t *testing.T) {
+	tests := []struct {
+		name string
+		in   dpb.LogEntryDescriptor_PayloadFormat
+		out  PayloadFormat
+	}{
+		{"json", dpb.JSON, JSON},
+		{"text", dpb.TEXT, Text},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			if r := payloadFormatFromProto(tt.in); r != tt.out {
+				t.Errorf("payloadFormatFromProto(%s) = %v, wanted %v", tt.in, r, tt.out)
+			}
+		})
+	}
+}
+
+// We can't actually nail down which entries correspond to each other as there's no unique identifier per entry.
+// We'll do the n^2 compare-everything-to-everything method. Keep actual and expected small!
+func deepEqualIgnoreOrder(actual, expected []adapter.LogEntry) bool {
+	for _, e := range expected {
+		result := false
+		for _, a := range actual {
+			result = result || reflect.DeepEqual(e, a)
+		}
+		// bail early: we found no match for this e
+		if !result {
+			return false
+		}
+	}
+	return true
 }
