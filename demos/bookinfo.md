@@ -221,24 +221,26 @@ route requests to all available versions of a service in a random fashion.
    Create a fault injection rule, to delay traffic coming from user "jason" (our test user).
 
    ```bash
-   $ istioctl create destination ratings-test-delay -f apps/bookinfo/destination-ratings-test-delay.yaml
+   $ istioctl create route-rule ratings-test-delay -f apps/bookinfo/destination-ratings-test-delay.yaml
    ```
 
    Confirm the rule is created:
 
    ```bash
-   $ istioctl get destination ratings-test-delay
+   $ istioctl get route-rule ratings-test-delay
    destination: ratings.default.svc.cluster.local
    httpFault:
      delay:
-       fixedDelay:
-         fixedDelaySeconds: 7
-         percent: 100
-     headers:
+       fixedDelaySeconds: 7
+       percent: 100
+   match:
+     http:
        Cookie:
-         regex: ^(.*?;)?(user=jason)(;.*)?$
-   tags:
-     version: v1
+         regex: "^(.*?;)?(user=jason)(;.*)?$"
+   precedence: 2
+   route:
+   - tags:
+       version: v1
    ```
 
    Allow several seconds to account for rule propagation delay to all pods.
@@ -294,7 +296,7 @@ that we created exclusively for him:
 
 ```bash
    $ istioctl delete route-rule reviews-test-v2
-   $ istioctl delete destination ratings-test-delay
+   $ istioctl delete route-rule ratings-test-delay
 ```
 
 You should now see *red* colored star ratings approximately 50% of the time when you refresh
