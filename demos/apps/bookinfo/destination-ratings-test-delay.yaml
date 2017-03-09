@@ -1,11 +1,13 @@
 destination: ratings.default.svc.cluster.local
-tags:
-  version: v1
-http_fault:
-  headers:
+precedence: 2
+match:
+  http:
     Cookie:
       regex: "^(.*?;)?(user=jason)(;.*)?$"
+route:
+- tags:
+    version: v1
+http_fault:
   delay:
-    fixed_delay:
-      percent: 100
-      fixed_delay_seconds: 7.0
+    percent: 100
+    fixed_delay_seconds: 7.0
