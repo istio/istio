@@ -25,16 +25,14 @@ import (
 )
 
 func TestProcessNextServices(t *testing.T) {
-	cases := []struct {
+	cases := map[string]struct {
 		expectedMapping  map[string]sets.String
 		initialMapping   map[string]sets.String
 		pods             []*v1.Pod
 		serviceToProcess *v1.Service
 		services         []*v1.Service
 	}{
-		// Test that the service to be processed does not exist in the indexer and
-		// make sure the service is removed from secure naming.
-		{
+		"Non-existent service is removed from secure naming": {
 			expectedMapping: map[string]sets.String{},
 			initialMapping: map[string]sets.String{
 				"default/svc": sets.NewString("acct"),
@@ -42,8 +40,7 @@ func TestProcessNextServices(t *testing.T) {
 			services:         []*v1.Service{},
 			serviceToProcess: createService("svc", nil),
 		},
-		// Test an empty entry for a service is correctly created.
-		{
+		"An empty entry for a service is created properly": {
 			expectedMapping: map[string]sets.String{
 				"ns/svc": sets.NewString(),
 			},
@@ -51,8 +48,7 @@ func TestProcessNextServices(t *testing.T) {
 			services:         []*v1.Service{createServiceWithNamespace("svc", "ns", nil)},
 			serviceToProcess: createServiceWithNamespace("svc", "ns", nil),
 		},
-		// Test service with service accounts.
-		{
+		"A service with service accounts": {
 			expectedMapping: map[string]sets.String{
 				"ns/svc": sets.NewString("acct1", "acct4"),
 			},
@@ -94,7 +90,7 @@ func TestProcessNextServices(t *testing.T) {
 		},
 	}
 
-	for i, c := range cases {
+	for d, c := range cases {
 		core := fake.NewSimpleClientset().CoreV1()
 		snc := NewSecureNamingController(core)
 
@@ -119,8 +115,8 @@ func TestProcessNextServices(t *testing.T) {
 		snc.processNextService()
 
 		if !reflect.DeepEqual(c.expectedMapping, snc.mapping.mapping) {
-			t.Errorf("Case %d failed: expecting the mapping to be %v but the actual mapping is %v",
-				i, c.expectedMapping, snc.mapping.mapping)
+			t.Errorf("%s: expecting the mapping to be %v but the actual mapping is %v",
+				d, c.expectedMapping, snc.mapping.mapping)
 		}
 	}
 }
