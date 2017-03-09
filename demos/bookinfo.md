@@ -112,10 +112,7 @@ route requests to all available versions of a service in a random fashion.
 1. Set the default version for all microservice to v1. 
 
    ```bash
-   $ istioctl create route-rule productpage-default -f apps/bookinfo/route-rule-productpage-v1.yaml; \
-     istioctl create route-rule reviews-default -f apps/bookinfo/route-rule-reviews-v1.yaml; \
-     istioctl create route-rule ratings-default -f apps/bookinfo/route-rule-ratings-v1.yaml; \
-     istioctl create route-rule details-default -f apps/bookinfo/route-rule-details-v1.yaml
+   $ istioctl create -f apps/bookinfo/route-rule-all-v1.yaml
    ```
 
    You can display the routes that are defined with the following command:
@@ -188,7 +185,7 @@ route requests to all available versions of a service in a random fashion.
    `reviews:v2` instances.
 
    ```bash
-   $ istioctl create route-rule reviews-test-v2 -f apps/bookinfo/route-rule-reviews-test-v2.yaml 
+   $ istioctl create -f apps/bookinfo/route-rule-reviews-test-v2.yaml 
    ```
 
    Confirm the rule is created:
@@ -197,7 +194,7 @@ route requests to all available versions of a service in a random fashion.
    $ istioctl get route-rule reviews-test-v2
    destination: reviews.default.svc.cluster.local
    match:
-     http:
+     httpHeaders:
        Cookie:
          regex: ^(.*?;)?(user=jason)(;.*)?$
    precedence: 2
@@ -221,7 +218,7 @@ route requests to all available versions of a service in a random fashion.
    Create a fault injection rule, to delay traffic coming from user "jason" (our test user).
 
    ```bash
-   $ istioctl create route-rule ratings-test-delay -f apps/bookinfo/destination-ratings-test-delay.yaml
+   $ istioctl create -f apps/bookinfo/destination-ratings-test-delay.yaml
    ```
 
    Confirm the rule is created:
@@ -234,7 +231,7 @@ route requests to all available versions of a service in a random fashion.
        fixedDelaySeconds: 7
        percent: 100
    match:
-     http:
+     httpHeaders:
        Cookie:
          regex: "^(.*?;)?(user=jason)(;.*)?$"
    precedence: 2
@@ -326,7 +323,6 @@ with *red* colored star ratings for each review.
 
    ```bash
    $ istioctl list route-rule   #-- there should be no more routing rules
-   $ istioctl list destination  #-- there should be no more policy rules
    $ kubectl get pods           #-- the bookinfo and control plane services should be deleted
    No resources found.
    ```
