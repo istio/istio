@@ -44,7 +44,7 @@ class GrpcStream final : public WriteInterface<RequestType> {
   void Write(const RequestType& request) override {
     std::lock_guard<std::mutex> lock(write_mutex_);
     if (!stream_->Write(request)) {
-      stream_->Finish();
+      write_closed_ = true;
     }
   }
 
