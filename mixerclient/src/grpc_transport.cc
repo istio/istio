@@ -31,6 +31,7 @@ class GrpcStream final : public WriteInterface<RequestType> {
 
   GrpcStream(ReadInterface<ResponseType>* reader, StreamNewFunc create_func)
       : reader_(reader), write_closed_(false) {
+    context_.set_fail_fast(true);
     stream_ = create_func(context_);
   }
 
@@ -43,8 +44,7 @@ class GrpcStream final : public WriteInterface<RequestType> {
   void Write(const RequestType& request) override {
     std::lock_guard<std::mutex> lock(write_mutex_);
     if (!stream_->Write(request)) {
-      stream_->WritesDone();
-      write_closed_ = true;
+      stream_->Finish();
     }
   }
 
