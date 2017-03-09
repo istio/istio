@@ -85,6 +85,13 @@ class MockMixerServerImpl final : public ::istio::mixer::v1::Mixer::Service {
   }
 };
 
+// Wait for up to 10 seconds for channel to be connected.
+void WaitForServer(const std::string& server) {
+  auto channel = CreateChannel(server, ::grpc::InsecureChannelCredentials());
+  channel->WaitForConnected(gpr_time_add(
+      gpr_now(GPR_CLOCK_REALTIME), gpr_time_from_seconds(10, GPR_TIMESPAN)));
+}
+
 template <class T>
 class MockReader : public ReadInterface<T> {
  public:
@@ -101,6 +108,8 @@ class GrpcTransportTest : public ::testing::Test {
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
     builder.RegisterService(&service_);
     server_ = builder.BuildAndStart();
+
+    WaitForServer(server_address);
 
     grpc_transport_.reset(new GrpcTransport(server_address));
   }
