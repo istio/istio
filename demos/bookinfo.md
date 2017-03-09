@@ -112,10 +112,7 @@ route requests to all available versions of a service in a random fashion.
 1. Set the default version for all microservice to v1. 
 
    ```bash
-   $ istioctl create route-rule productpage-default -f apps/bookinfo/route-rule-productpage-v1.yaml; \
-     istioctl create route-rule reviews-default -f apps/bookinfo/route-rule-reviews-v1.yaml; \
-     istioctl create route-rule ratings-default -f apps/bookinfo/route-rule-ratings-v1.yaml; \
-     istioctl create route-rule details-default -f apps/bookinfo/route-rule-details-v1.yaml
+   $ istioctl create -f apps/bookinfo/route-rule-all-v1.yaml
    ```
 
    You can display the routes that are defined with the following command:
@@ -188,7 +185,7 @@ route requests to all available versions of a service in a random fashion.
    `reviews:v2` instances.
 
    ```bash
-   $ istioctl create route-rule reviews-test-v2 -f apps/bookinfo/route-rule-reviews-test-v2.yaml 
+   $ istioctl create -f apps/bookinfo/route-rule-reviews-test-v2.yaml 
    ```
 
    Confirm the rule is created:
@@ -197,7 +194,7 @@ route requests to all available versions of a service in a random fashion.
    $ istioctl get route-rule reviews-test-v2
    destination: reviews.default.svc.cluster.local
    match:
-     http:
+     httpHeaders:
        Cookie:
          regex: ^(.*?;)?(user=jason)(;.*)?$
    precedence: 2
@@ -221,24 +218,26 @@ route requests to all available versions of a service in a random fashion.
    Create a fault injection rule, to delay traffic coming from user "jason" (our test user).
 
    ```bash
-   $ istioctl create destination ratings-test-delay -f apps/bookinfo/destination-ratings-test-delay.yaml
+   $ istioctl create -f apps/bookinfo/destination-ratings-test-delay.yaml
    ```
 
    Confirm the rule is created:
 
    ```bash
-   $ istioctl get destination ratings-test-delay
+   $ istioctl get route-rule ratings-test-delay
    destination: ratings.default.svc.cluster.local
    httpFault:
      delay:
-       fixedDelay:
-         fixedDelaySeconds: 7
-         percent: 100
-     headers:
+       fixedDelaySeconds: 7
+       percent: 100
+   match:
+     httpHeaders:
        Cookie:
-         regex: ^(.*?;)?(user=jason)(;.*)?$
-   tags:
-     version: v1
+         regex: "^(.*?;)?(user=jason)(;.*)?$"
+   precedence: 2
+   route:
+   - tags:
+       version: v1
    ```
 
    Allow several seconds to account for rule propagation delay to all pods.
@@ -284,17 +283,17 @@ to `reviews:v3` in two steps.
 First, transfer 50% of traffic from `reviews:v1` to `reviews:v3` with the following command:
 
 ```bash
-   $ istioctl update route-rule reviews-default -f apps/bookinfo/route-rule-reviews-50-v3.yaml
+   $ istioctl replace -f apps/bookinfo/route-rule-reviews-50-v3.yaml
 ```
 
-> Notice that we are using `istioctl update` instead of `create`.
+> Notice that we are using `istioctl replace` instead of `create`.
 
 To see the new version you need to either Log out as test user "jason" or delete the test rules
 that we created exclusively for him:
 
 ```bash
    $ istioctl delete route-rule reviews-test-v2
-   $ istioctl delete destination ratings-test-delay
+   $ istioctl delete route-rule ratings-test-delay
 ```
 
 You should now see *red* colored star ratings approximately 50% of the time when you refresh
@@ -306,7 +305,7 @@ the `productpage`.
 When we are confident that our Bookinfo app is stable, we route 100% of the traffic to `reviews:v3`:
 
 ```bash
-   $ istioctl update route-rule reviews-default -f apps/bookinfo/route-rule-reviews-v3.yaml
+   $ istioctl replace -f apps/bookinfo/route-rule-reviews-v3.yaml
 ```
 
 You can now log in to the `productpage` as any user and you should always see book reviews
@@ -324,7 +323,6 @@ with *red* colored star ratings for each review.
 
    ```bash
    $ istioctl list route-rule   #-- there should be no more routing rules
-   $ istioctl list destination  #-- there should be no more policy rules
    $ kubectl get pods           #-- the bookinfo and control plane services should be deleted
    No resources found.
    ```
