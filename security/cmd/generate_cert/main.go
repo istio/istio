@@ -34,8 +34,8 @@ var (
 	validFor       = flag.Duration("duration", 365*24*time.Hour, "Duration that certificate is valid for.")
 	isCA           = flag.Bool("ca", false, "Whether this cert should be a Cerificate Authority.")
 	isSelfSigned   = flag.Bool("self-signed", false, "Whether this cerificate is self-signed.")
-	signerPrivFile = flag.String("signer-priv", "", "Signer private key file (PEM encoded).")
 	signerCertFile = flag.String("signer-cert", "", "Signer certificate file (PEM encoded).")
+	signerPrivFile = flag.String("signer-priv", "", "Signer private key file (PEM encoded).")
 	isClient       = flag.Bool("client", false, "Whether this certificate is for a client.")
 	org            = flag.String("organization", "Juju org", "Organization for the cert.")
 	outCert        = flag.String("out-cert", "cert.pem", "Output certificate file.")
@@ -47,21 +47,21 @@ func checkCmdLine() {
 	if len(*host) == 0 {
 		log.Fatalf("Missing required --host parameter.")
 	}
-	hasPriv, hasCert := len(*signerPrivFile) != 0, len(*signerCertFile) != 0
+	hasCert, hasPriv := len(*signerCertFile) != 0, len(*signerPrivFile) != 0
 	if *isSelfSigned {
-		if hasPriv || hasCert {
-			log.Fatalf("--self-signed is incompatible with --signer-priv or --signer-cert.")
+		if hasCert || hasPriv {
+			log.Fatalf("--self-signed is incompatible with --signer-cert or --signer-priv.")
 		}
 	} else {
-		if !hasPriv && !hasCert {
-			log.Fatalf("Need --self-signed or --signer-priv and --signer-cert.")
-		} else if !(hasPriv && hasCert) {
+		if !hasCert && !hasPriv {
+			log.Fatalf("Need --self-signed or --signer-cert and --signer-priv.")
+		} else if !(hasCert && hasPriv) {
 			log.Fatalf("Missing --signer-cert or --signer-priv.")
 		}
 	}
 }
 
-func saveCreds(privPem []byte, certPem []byte) {
+func saveCreds(certPem []byte, privPem []byte) {
 	err := ioutil.WriteFile(*outCert, certPem, 0644)
 	if err != nil {
 		log.Fatalf("Could not write output certificate: %s.", err)
@@ -79,10 +79,10 @@ func main() {
 	var signerCert *x509.Certificate
 	var signerPriv *rsa.PrivateKey
 	if !*isSelfSigned {
-		signerCert, signerPriv = certmanager.LoadSigningCreds(*signerCertFile, *signerPrivFile)
+		signerCert, signerPriv = certmanager.LoadSignerCredsFromFiles(*signerCertFile, *signerPrivFile)
 	}
 
-	privPem, certPem := certmanager.GenCert(certmanager.CertOptions{
+	certPem, privPem := certmanager.GenCert(certmanager.CertOptions{
 		Host:         *host,
 		ValidFrom:    *validFrom,
 		ValidFor:     *validFor,
@@ -93,6 +93,6 @@ func main() {
 		IsSelfSigned: *isSelfSigned,
 		IsClient:     *isClient})
 
-	saveCreds(privPem, certPem)
+	saveCreds(certPem, privPem)
 	fmt.Printf("Certificate and private files successfully saved in %s and %s\n", *outCert, *outPriv)
 }

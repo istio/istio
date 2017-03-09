@@ -78,6 +78,9 @@ const (
 
 	// The URI scheme for Istio identities.
 	uriScheme = "istio:"
+
+	// Layout for parsing time
+	timeLayout = "Jan 2 15:04:05 2006"
 )
 
 // See http://www.alvestrand.no/objectid/2.5.29.17.html.
@@ -95,11 +98,11 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 		log.Fatalf("RSA key generation failed with error %s.", err)
 	}
 	template := genCertTemplate(options)
-	signingCert, signingKey := &template, priv
+	signerCert, signerKey := &template, priv
 	if !options.IsSelfSigned {
-		signingCert, signingKey = options.SignerCert, options.SignerPriv
+		signerCert, signerKey = options.SignerCert, options.SignerPriv
 	}
-	certBytes, err := x509.CreateCertificate(rand.Reader, &template, signingCert, &priv.PublicKey, signingKey)
+	certBytes, err := x509.CreateCertificate(rand.Reader, &template, signerCert, &priv.PublicKey, signerKey)
 	if err != nil {
 		log.Fatalf("Could not create certificate (err = %s).", err)
 	}
@@ -110,36 +113,41 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 
 	privDer := x509.MarshalPKCS1PrivateKey(priv)
 	privPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privDer})
-	return privPem, certPem
+	return certPem, privPem
 }
 
-// LoadSigningCreds loads the signer cert&key from the given files.
+// LoadSignerCredsFromFiles loads the signer cert&key from the given files.
 //   signerCertFile: cert file name
 //   signerPrivFile: private key file name
-func LoadSigningCreds(signerCertFile string, signerPrivFile string) (*x509.Certificate, *rsa.PrivateKey) {
-	fileBytes, err := ioutil.ReadFile(signerCertFile)
+func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x509.Certificate, *rsa.PrivateKey) {
+	signerCertBytes, err := ioutil.ReadFile(signerCertFile)
 	if err != nil {
 		log.Fatalf("Reading cert file failed with error %s.", err)
 	}
-	der, _ := pem.Decode(fileBytes)
+
+	signerPrivBytes, err := ioutil.ReadFile(signerPrivFile)
+	if err != nil {
+		log.Fatalf("Reading private key file failed with error %s.", err)
+	}
+	return loadSignerCreds(signerCertBytes, signerPrivBytes)
+}
+
+func loadSignerCreds(signerCertBytes []byte, signerPrivBytes []byte) (*x509.Certificate, *rsa.PrivateKey) {
+	der, _ := pem.Decode(signerCertBytes)
 	if der == nil {
 		log.Fatalf("Invalid PEM encoding.")
 	}
-	signingCert, err := x509.ParseCertificate(der.Bytes)
+	signerCert, err := x509.ParseCertificate(der.Bytes)
 	if err != nil {
 		log.Fatalf("Certificate parsing failed with error %s.", err)
 	}
 
-	fileBytes, err = ioutil.ReadFile(signerPrivFile)
-	if err != nil {
-		log.Fatalf("Reading private key file failed with error %s.", err)
-	}
-	der, _ = pem.Decode(fileBytes)
-	signingKey, err := x509.ParsePKCS1PrivateKey(der.Bytes)
+	der, _ = pem.Decode(signerPrivBytes)
+	signerKey, err := x509.ParsePKCS1PrivateKey(der.Bytes)
 	if err != nil {
 		log.Fatalf("Private key parsing failed with error %s.", err)
 	}
-	return signingCert, signingKey
+	return signerCert, signerKey
 }
 
 // toFromDates generates the certficiate validity period [notBefore, notAfter]
@@ -153,7 +161,7 @@ func toFromDates(validFrom string, validFor time.Duration) (time.Time, time.Time
 		notBefore = time.Now()
 	} else {
 		var err error
-		notBefore, err = time.Parse("Jan 2 15:04:05 2006", validFrom)
+		notBefore, err = time.Parse(timeLayout, validFrom)
 		if err != nil {
 			log.Fatalf("Failed to parse creation date: %s\n", err)
 		}

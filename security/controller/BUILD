@@ -28,14 +28,17 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
+        "secret_test.go",
         "securenaming_test.go",
         "storage_test.go",
     ],
     library = ":go_default_library",
     deps = [
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
         "@io_k8s_apimachinery//pkg/util/sets:go_default_library",
         "@io_k8s_client_go//kubernetes/fake:go_default_library",
         "@io_k8s_client_go//pkg/api/v1:go_default_library",
+        "@io_k8s_client_go//testing:go_default_library",
     ],
 )
