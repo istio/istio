@@ -15,10 +15,13 @@
 package envoy
 
 import (
+	"fmt"
 	"io/ioutil"
 	"reflect"
 	"sort"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
 
 	"istio.io/manager/model"
 	"istio.io/manager/test/mock"
@@ -254,8 +257,20 @@ func testConfig(r *model.IstioRegistry, instance, envoyConfig, testCase string, 
 	}
 }
 
+func configObjectFromYAML(kind, file string) (proto.Message, error) {
+	schema, ok := model.IstioConfig[kind]
+	if !ok {
+		return nil, fmt.Errorf("Missing kind %q", kind)
+	}
+	content, err := ioutil.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	return schema.FromYAML(string(content))
+}
+
 func addCircuitBreaker(r *model.IstioRegistry, t *testing.T) {
-	msg, err := model.IstioConfig.FromYAML(model.DestinationPolicy, cbPolicy)
+	msg, err := configObjectFromYAML(model.DestinationPolicy, cbPolicy)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -268,7 +283,7 @@ func addCircuitBreaker(r *model.IstioRegistry, t *testing.T) {
 }
 
 func addTimeout(r *model.IstioRegistry, t *testing.T) {
-	msg, err := model.IstioConfig.FromYAML(model.RouteRule, timeoutRouteRule)
+	msg, err := configObjectFromYAML(model.RouteRule, timeoutRouteRule)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +293,7 @@ func addTimeout(r *model.IstioRegistry, t *testing.T) {
 }
 
 func addWeightedRoute(r *model.IstioRegistry, t *testing.T) {
-	msg, err := model.IstioConfig.FromYAML(model.RouteRule, weightedRouteRule)
+	msg, err := configObjectFromYAML(model.RouteRule, weightedRouteRule)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,7 +303,7 @@ func addWeightedRoute(r *model.IstioRegistry, t *testing.T) {
 }
 
 func addFaultRoute(r *model.IstioRegistry, t *testing.T) {
-	msg, err := model.IstioConfig.FromYAML(model.RouteRule, faultRouteRule)
+	msg, err := configObjectFromYAML(model.RouteRule, faultRouteRule)
 	if err != nil {
 		t.Fatal(err)
 	}

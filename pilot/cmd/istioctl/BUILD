@@ -28,5 +28,4 @@ go_test(
     name = "go_default_test",
     srcs = ["istioctl_test.go"],
     library = ":go_default_library",
-    deps = ["//cmd:go_default_library"],
 )

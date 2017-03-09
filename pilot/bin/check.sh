@@ -3,6 +3,8 @@ set -ex
 
 buildifier -showlog -mode=check $(find . -type f \( -name 'BUILD' -or -name 'WORKSPACE' -or -wholename '.*bazel' -or -wholename '.*bzl' \) -print )
 
+go generate ./...
+
 gometalinter --concurrency=4 --enable-gc --deadline=300s --disable-all\
   --enable=aligncheck\
   --enable=deadcode\
@@ -11,7 +13,9 @@ gometalinter --concurrency=4 --enable-gc --deadline=300s --disable-all\
   --enable=goconst\
   --enable=gofmt\
   --enable=goimports\
-  --enable=golint --exclude=.pb.go\
+  --enable=golint\
+  --exclude=.pb.go\
+  --exclude=gen_test.go\
   --enable=gosimple\
   --enable=gotype\
   --enable=ineffassign\

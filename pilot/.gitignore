@@ -10,3 +10,8 @@ echo.yaml
 # Eclipse artifacts
 .project
 
+# codecov.io test coverage
+coverage.out
+
+# auto-generated test files, e.g. mockgen
+*_gen_test.go

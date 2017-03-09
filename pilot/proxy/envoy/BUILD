@@ -39,5 +39,6 @@ go_test(
         "//model:go_default_library",
         "//test/mock:go_default_library",
         "@com_github_emicklei_go_restful//:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
     ],
 )
