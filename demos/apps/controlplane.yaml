@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
       - name: istio-route-controller
-        image: docker.io/istio/runtime:2017-03-08-21.20.48
+        image: docker.io/istio/runtime:a87bea5
         args: ["discovery", "-v", "2", "-n", "default"]
         imagePullPolicy: Always
         ports:
@@ -64,7 +64,7 @@ spec:
     spec:
       containers:
       - name: istio-ingress-controller
-        image: docker.io/istio/runtime:2017-03-08-21.20.48
+        image: docker.io/istio/runtime:a87bea5
         args:
         - proxy
         - ingress
