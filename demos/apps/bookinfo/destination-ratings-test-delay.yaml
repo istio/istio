@@ -1,5 +1,5 @@
 type: route-rule
-name: reviews-test-delay
+name: ratings-test-delay
 spec:
   destination: ratings.default.svc.cluster.local
   precedence: 2
