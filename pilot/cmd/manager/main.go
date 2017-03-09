@@ -142,7 +142,7 @@ func init() {
 		envoy.DefaultMeshConfig.ConfigPath,
 		"Envoy config root location")
 	proxyCmd.PersistentFlags().StringVarP(&flags.proxy.MixerAddress, "mixer", "m",
-		envoy.DefaultMeshConfig.MixerAddress,
+		"",
 		"Mixer DNS address (or empty to disable Mixer)")
 
 	proxyCmd.AddCommand(sidecarCmd)
