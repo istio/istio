@@ -40,15 +40,31 @@ gogoslick_proto_library(
     ],
 )
 
+DESCRIPTOR_FILE_GROUP = [
+    "mixer/v1/config/descriptor/attribute_descriptor.proto",
+    "mixer/v1/config/descriptor/label_descriptor.proto",
+    "mixer/v1/config/descriptor/log_entry_descriptor.proto",
+    "mixer/v1/config/descriptor/metric_descriptor.proto",
+    "mixer/v1/config/descriptor/monitored_resource_descriptor.proto",
+    "mixer/v1/config/descriptor/principal_descriptor.proto",
+    "mixer/v1/config/descriptor/quota_descriptor.proto",
+    "mixer/v1/config/descriptor/value_type.proto",
+]
+
 gogoslick_proto_library(
     name = "mixer/v1/config",
     importmap = {
         "google/protobuf/struct.proto": "github.com/gogo/protobuf/types",
+        "mixer/v1/config/descriptor/log_entry_descriptor.proto": "istio.io/api/mixer/v1/config/descriptor",
+        "mixer/v1/config/descriptor/metric_descriptor.proto": "istio.io/api/mixer/v1/config/descriptor",
+        "mixer/v1/config/descriptor/monitored_resource_descriptor.proto": "istio.io/api/mixer/v1/config/descriptor",
+        "mixer/v1/config/descriptor/principal_descriptor.proto": "istio.io/api/mixer/v1/config/descriptor",
+        "mixer/v1/config/descriptor/quota_descriptor.proto": "istio.io/api/mixer/v1/config/descriptor",
     },
     imports = [
         "../../external/com_github_google_protobuf/src",
     ],
-    inputs = [
+    inputs = DESCRIPTOR_FILE_GROUP + [
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -58,6 +74,7 @@ gogoslick_proto_library(
     visibility = ["//visibility:public"],
     with_grpc = False,
     deps = [
+        ":mixer/v1/config/descriptor",
         "@com_github_gogo_protobuf//sortkeys:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
@@ -75,16 +92,7 @@ gogoslick_proto_library(
     inputs = [
         "@com_github_google_protobuf//:well_known_protos",
     ],
-    protos = [
-        "mixer/v1/config/descriptor/attribute_descriptor.proto",
-        "mixer/v1/config/descriptor/label_descriptor.proto",
-        "mixer/v1/config/descriptor/log_entry_descriptor.proto",
-        "mixer/v1/config/descriptor/metric_descriptor.proto",
-        "mixer/v1/config/descriptor/monitored_resource_descriptor.proto",
-        "mixer/v1/config/descriptor/principal_descriptor.proto",
-        "mixer/v1/config/descriptor/quota_descriptor.proto",
-        "mixer/v1/config/descriptor/value_type.proto",
-    ],
+    protos = DESCRIPTOR_FILE_GROUP,
     verbose = 0,
     visibility = ["//visibility:public"],
     with_grpc = False,
