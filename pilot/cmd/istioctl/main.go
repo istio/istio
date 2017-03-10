@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -54,12 +53,11 @@ var (
 
 	postCmd = &cobra.Command{
 		Use:   "create",
-		Short: "Create configuration objects",
+		Short: "Create policies and rules",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("create takes no arguments")
 			}
-			// Initialize schema global
 			varr, err := readInputs()
 			if err != nil {
 				return err
@@ -83,26 +81,37 @@ var (
 	}
 
 	putCmd = &cobra.Command{
-		Use:   "update [type] [name]",
-		Short: "Update a configuration object",
+		Use:   "replace",
+		Short: "Replace policies and rules",
 		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) != 2 {
-				return fmt.Errorf("provide configuration type and name")
+			if len(args) != 0 {
+				return fmt.Errorf("replace takes no arguments")
 			}
-			if err := setup(args[0], args[1]); err != nil {
-				return err
-			}
-			v, err := readInput()
+			varr, err := readInputs()
 			if err != nil {
 				return err
 			}
-			return cmd.Client.Put(key, v)
+			if len(varr) == 0 {
+				return errors.New("Nothing to replace")
+			}
+			for _, v := range varr {
+				if err = setup(v.Type, v.Name); err != nil {
+					return err
+				}
+				err = cmd.Client.Put(key, v.ParsedSpec)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Put %v %v\n", v.Type, v.Name)
+			}
+
+			return nil
 		},
 	}
 
 	getCmd = &cobra.Command{
-		Use:   "get [type] [name]",
-		Short: "Retrieve a configuration object",
+		Use:   "get <type> <name>",
+		Short: "Retrieve a policy or rule",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 2 {
 				return fmt.Errorf("provide configuration type and name")
@@ -124,8 +133,8 @@ var (
 	}
 
 	deleteCmd = &cobra.Command{
-		Use:   "delete [type] [name]",
-		Short: "Delete a configuration object",
+		Use:   "delete <type> <name>",
+		Short: "Delete a policy or rule",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 2 {
 				return fmt.Errorf("provide configuration type and name")
@@ -139,8 +148,8 @@ var (
 	}
 
 	listCmd = &cobra.Command{
-		Use:   "list [type]",
-		Short: "List configuration objects",
+		Use:   "list <type>",
+		Short: "List policies and rules",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("please specify configuration type (one of %v)", model.IstioConfig.Kinds())
@@ -179,7 +188,7 @@ var (
 
 func init() {
 	postCmd.PersistentFlags().StringVarP(&file, "file", "f", "",
-		"Input file with the content of the configuration object (if not set, command reads from the standard input)")
+		"Input file with the content of the configuration objects (if not set, command reads from the standard input)")
 	putCmd.PersistentFlags().AddFlag(postCmd.PersistentFlags().Lookup("file"))
 
 	cmd.RootCmd.Use = "istioctl"
@@ -204,7 +213,7 @@ func setup(kind, name string) error {
 	// set proto schema
 	schema, ok = model.IstioConfig[kind]
 	if !ok {
-		return fmt.Errorf("missing configuration type %s", kind)
+		return fmt.Errorf("unknown configuration type %s; use one of %v", kind, model.IstioConfig.Kinds())
 	}
 
 	// use default namespace by default
@@ -222,36 +231,7 @@ func setup(kind, name string) error {
 	return nil
 }
 
-// readInput reads from the input and checks with the schema
-func readInput() (proto.Message, error) {
-	var reader io.Reader
-	var err error
-
-	if file == "" {
-		reader = os.Stdin
-	} else {
-		reader, err = os.Open(file)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// read from reader
-	bytes, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return nil, fmt.Errorf("cannot read input: %v", err)
-	}
-
-	// convert
-	v, err := schema.FromYAML(string(bytes))
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse proto message: %v", err)
-	}
-
-	return v, nil
-}
-
-// readInput reads multiple documents from the input and checks with the schema
+// readInputs reads multiple documents from the input and checks with the schema
 func readInputs() ([]inputDoc, error) {
 
 	var reader io.Reader
