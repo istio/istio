@@ -131,8 +131,8 @@ func newListCheckerWithTimers(env adapter.Env, c *config.Params,
 	// Failures here don't matter, they will be logged appropriately by fetchList.
 	l.fetchList()
 
-	// go routine to periodically refresh the list
-	go l.listRefresher()
+	// goroutine to periodically refresh the list
+	env.ScheduleWork(l.listRefresher)
 
 	return l, nil
 }

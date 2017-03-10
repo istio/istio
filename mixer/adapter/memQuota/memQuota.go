@@ -139,13 +139,13 @@ func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, definitions map[st
 		logger:      env.Logger(),
 	}
 
-	go func() {
+	env.ScheduleWork(func() {
 		for range mq.ticker.C {
 			mq.Lock()
 			mq.reapDedup()
 			mq.Unlock()
 		}
-	}()
+	})
 
 	return mq, nil
 }

@@ -7,6 +7,7 @@ go_library(
     srcs = [
         "buffer.go",
         "intern.go",
+        "worker.go",
     ],
 )
 
@@ -16,6 +17,7 @@ go_test(
     srcs = [
         "buffer_test.go",
         "intern_test.go",
+        "worker_test.go",
     ],
     library = ":go_default_library",
 )

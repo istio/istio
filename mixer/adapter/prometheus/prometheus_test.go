@@ -33,7 +33,7 @@ type testServer struct {
 	errOnStart bool
 }
 
-func (t testServer) Start(adapter.Logger) error {
+func (t testServer) Start(adapter.Env) error {
 	if t.errOnStart {
 		return errors.New("could not start server")
 	}
