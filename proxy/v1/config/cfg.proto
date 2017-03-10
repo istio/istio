@@ -47,14 +47,11 @@
 
 syntax = "proto3";
 
-package istio.proxy.v1alpha.config;
-
 import "google/protobuf/any.proto";
 import "google/protobuf/wrappers.proto";
-import "gogoproto/gogo.proto";
 
+package istio.proxy.v1alpha.config;
 option go_package = "config";
-option (gogoproto.compare_all) = true;
 
 ///@exclude Proxy level global configurations go here
 message ProxyMeshConfig {
