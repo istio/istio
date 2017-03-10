@@ -6,25 +6,25 @@
     * [precedence](#precendence)
     * [match](#match)
         * [match.source](#match-source)
-        * [match.source_tags](#match-source_tags)
-        * [match.http](#match-http)
+        * [match.sourceTags](#match-sourceTags)
+        * [match.httpHeaders](#match-httpHeaders)
         * [match.tcp](#match-tcp)
         * [match.udp](#match-udp)
     * [route](#route)
         * [route.destination](#route-destination)
         * [route.tags](#route-tags)
         * [route.weight](#route-weight)
-    * [http_req_timeout](#http_req_timeout)
-    * [http_req_retries](#http_req_retries)
-    * [http_fault](#http_fault)
-        * [http_fault.delay](#http_fault_delay)
-        * [http_fault.abort](#http_fault_abort)
+    * [httpReqTimeout](#httpReqTimeout)
+    * [httpReqRetries](#httpReqRetries)
+    * [httpFault](#httpFault)
+        * [httpFault.delay](#httpFault-delay)
+        * [httpFault.abort](#httpFault-abort)
     * [Route Rule Evaluation](#route-rule-evaluation)
 * [Destination Policies](#destination-policies)
     * [destination](#pdestination)
     * [tags](#tags)
-    * [load_balancing](#load_balancing)
-    * [circuit_breaker](#circuit_breaker)
+    * [loadBalancing](#loadBalancing)
+    * [circuitBreaker](#circuitBreaker)
     * [Destination Policy Evaluation](#destination-policy-evaluation)
 
 ## Overview <a id="overview"></a>
@@ -51,7 +51,7 @@ which specify policies, for example, circuit breakers, that control requests for
 Istio rules can be set and displayed using the [istioctl CLI]() (Documentation TBD).
 For example, the above rule can be set using the following command:
 ```bash
-$ cat <<EOF | istioctl create route-rule reviews-default
+$ cat <<EOF | istioctl create
 destination: reviews.default.svc.cluster.local
 route:
 - tags:
@@ -101,8 +101,8 @@ as a specific request source and/or headers. An optional `match` field is used f
 The `match` field is an object with the following nested fields:
 
 * `source`
-* `source_tags`
-* `http`
+* `sourceTags`
+* `httpHeaders`
 * `tcp`
 * `udp`
 
@@ -118,9 +118,9 @@ match:
   source: reviews.default.svc.cluster.local
 ```
 
-#### Property: match.source_tags <a id="match-source_tags"></a>
+#### Property: match.sourceTags <a id="match-sourceTags"></a>
 
-The `source_tags` field can be used to further qualify a rule to only apply to specific instances of a
+The `sourceTags` field can be used to further qualify a rule to only apply to specific instances of a
 calling service.
 For example,
 the following `match` clause refines the previous example to qualify the rule to only 
@@ -130,13 +130,13 @@ apply to calls from version "v2" of the "reviews" microservice.
 destination: ratings.default.svc.cluster.local
 match:
   source: reviews.default.svc.cluster.local
-  source_tags:
+  sourceTags:
     version: v2
 ```
 
-#### Property: match.http <a id="match-http"></a>
+#### Property: match.httpHeaders <a id="match-httpHeaders"></a>
 
-The `http` field is a set of one or more property-value pairs where each property is an HTTP header name
+The `httpHeaders` field is a set of one or more property-value pairs where each property is an HTTP header name
 and the corresponding value is one of the following:
 
 1. `exact: value`, where the header value must match `value` exactly
@@ -149,7 +149,7 @@ to an incoming request if it includes a "Cookie" header that contains the substr
 ```yaml
 destination: reviews.default.svc.cluster.local
 match:
-  http:
+  httpHeaders:
     Cookie:
       regex: "^(.*?;)?(user=jason)(;.*)?$"
 ```
@@ -157,7 +157,7 @@ match:
 If more than one property-value pair is provided, then all of the corresponding headers
 must match for the rule to apply.
 
-The `source` and `http` fields can both be set in the `match` object in which case both criteria must pass.
+The `source` and `httpHeaders` fields can both be set in the `match` object in which case both criteria must pass.
 For example, the following rule only applies if the source of the request is "reviews:v2" 
 AND the "Cookie" header containing "user=jason" is present. 
 
@@ -165,9 +165,9 @@ AND the "Cookie" header containing "user=jason" is present.
 destination: ratings.default.svc.cluster.local
 match:
   source: reviews.default.svc.cluster.local
-  source_tags:
+  sourceTags:
     version: v2
-  http:
+  httpHeaders:
     Cookie:
       regex: "^(.*?;)?(user=jason)(;.*)?$"
 ```
@@ -182,7 +182,7 @@ TBD
 
 #### Property: route <a id="route"></a>
 
-The `route` field identifies a set of one or more the weighted backends to call when the rule is activated.
+The `route` field identifies a set of one or more weighted backends to call when the rule is activated.
 Each `route` backend is an object with the following fields:
 
 * `tags`
@@ -221,9 +221,9 @@ route:
 The `destination` field is optional and specifies the service name of the target instances. 
 If not specified, it defaults to the value of the rule's `destination` field.
 
-#### Property: http_req_timeout <a id="http_req_timeout"></a>
+#### Property: httpReqTimeout <a id="httpReqTimeout"></a>
 
-A timeout for http requests can be specified using the `http_req_timeout` field.
+A timeout for http requests can be specified using the `httpReqTimeout` field.
 By default, the timeout is 15 seconds, but this can be overridden as follows:
 
 ```yaml
@@ -231,9 +231,9 @@ destination: "ratings.default.svc.cluster.local"
 route:
 - tags:
     version: v1
-http_req_timeout:
-  simple_timeout:
-    timeout_seconds: 10
+httpReqTimeout:
+  simpleTimeout:
+    timeoutSeconds: 10
 ```
 
 Alternatively, you can specify a timeout override header that downstream clients can use to
@@ -244,24 +244,24 @@ destination: "ratings.default.svc.cluster.local"
 route:
 - tags:
     version: v1
-http_req_timeout:
-  simple_timeout:
-    override_header_name: My-Request-Timeout
+httpReqTimeout:
+  simpleTimeout:
+    overrideHeaderName: My-Request-Timeout
 ```
 
-#### Property: http_req_retries <a id="http_req_retries"></a>
+#### Property: httpReqRetries <a id="httpReqRetries"></a>
 
-The `http_req_retries` field can be used to control the number retries for a given http request.
+The `httpReqRetries` field can be used to control the number retries for a given http request.
 The maximum number of attempts, or as many as possible within the time period
-specified by `http_req_timeout`, can be set as follows:
+specified by `httpReqTimeout`, can be set as follows:
 
 ```yaml
 destination: "ratings.default.svc.cluster.local"
 route:
 - tags:
     version: v1
-http_req_retries:
-  simple_retry:
+httpReqRetries:
+  simpleRetry:
     attempts: 3
 ```
 
@@ -273,28 +273,28 @@ destination: "ratings.default.svc.cluster.local"
 route:
 - tags:
     version: v1
-http_req_timeout:
-  simple_retry:
-    override_header_name: My-Request-Attempts
+httpReqTimeout:
+  simpleRetry:
+    overrideHeaderName: My-Request-Attempts
 ```
 
-#### Property: http_fault <a id="http_fault"></a>
+#### Property: httpFault <a id="httpFault"></a>
 
-The `http_fault` field is used to specify one or more fault actions to execute
+The `httpFault` field is used to specify one or more fault actions to execute
 during http requests to the rule's corresponding request destination.
 The actions(s) that will be executed depend on the following nested fields:
 
 * `delay`
 * `abort`
 
-#### Property: http_fault.delay <a id="http_fault_delay"></a>
+#### Property: httpFault.delay <a id="httpFault-delay"></a>
 
 The `delay` field is used to delay a request by a specified amount of time. Nested fields,
-`percent` and one of either `fixed_delay_seconds` or `exponential_delay_seconds`, are used to specify the delay.
+`percent` and one of either `fixedDelaySeconds` or `exponentialDelaySeconds`, are used to specify the delay.
 
-The `fixed_delay_seconds` field is used to indicate the amount of delay, in seconds.
+The `fixedDelaySeconds` field is used to indicate the amount of delay, in seconds.
 
-Alternatively, the `exponential_delay_seconds` field can be used to specify the mean delay
+Alternatively, the `exponentialDelaySeconds` field can be used to specify the mean delay
 for values derived according to an exponential function.
 
 An optional `percent` field, a value between 0 and 100, can be used to only delay a certain percentage of requests.
@@ -307,25 +307,25 @@ destination: reviews.default.svc.cluster.local
 route:
 - tags:
     version: v1
-http_fault:
+httpFault:
   delay:
     percent: 10
-    fixed_delay_seconds: 5
+    fixedDelaySeconds: 5
 ```
 
-#### Property: http_fault.abort <a id="http_fault_abort"></a>
+#### Property: httpFault.abort <a id="httpFault-abort"></a>
 
 An `abort` field is used to prematurely abort a request, usually to simulate a failure. Nested fields,
-`percent` and one of `http_status`, `http2_error`, or `grpc_status`, are used to specify the abort.
+`percent` and one of `httpStatus`, `http2Error`, or `grpcStatus`, are used to specify the abort.
 
 The optional `percent` field, a value between 0 and 100, is used to only abort a certain percentage of requests.
 All request are aborted by default.
 
-The `http_status` field is used to indicate a value to return from an HTTP request, instead of calling the backend.
+The `httpStatus` field is used to indicate a value to return from an HTTP request, instead of calling the backend.
 Its value is an integer HTTP 2xx, 3xx, 4xx, or 5xx status code.
 
 Similarly, to abort HTTP/2 or gRPC, the value to return 
-can be specified using the `http2_error` or `grpc_status`, respectively.
+can be specified using the `http2Error` or `grpcStatus`, respectively.
 
 The following example will return an HTTP 400 error code for 10% of the requests to the "ratings" service "v1".
 
@@ -334,10 +334,10 @@ destination: "ratings.default.svc.cluster.local"
 route:
 - tags:
     version: v1
-http_fault:
+httpFault:
   abort:
     percent: 10
-    http_status: 400
+    httpStatus: 400
 ```
 
 Sometimes delays and abort faults are used together. For example, the following rule will delay
@@ -348,17 +348,17 @@ then abort 10 percent of them:
 destination: ratings.default.svc.cluster.local
 match:
   source: reviews.default.svc.cluster.local
-  source_tags:
+  sourceTags:
     version: v2
 route:
 - tags:
     version: v1
-http_fault:
+httpFault:
   delay:
-    fixed_delay_seconds: 5
+    fixedDelaySeconds: 5
   abort:
     percent: 10
-    http_status: 400
+    httpStatus: 400
 ```
 
 ### Route Rule Evaluation <a id="route-rule-evaluation"></a>
@@ -382,7 +382,7 @@ All remaining requests will be sent to "v1".
 destination: reviews.default.svc.cluster.local
 precedence: 2
 match:
-  http:
+  httpHeaders:
     Foo:
       exact: bar
 route:
@@ -433,9 +433,9 @@ tags:
   version: v1
 ```
 
-#### Property: load_balancing <a id="load_balancing"></a>
+#### Property: loadBalancing <a id="loadBalancing"></a>
 
-The `load_balancing` field can be used to specify the load balancing policy for a destination service.
+The `loadBalancing` field can be used to specify the load balancing policy for a destination service.
 The value can be one of `LEAST_CONN`, `RANDOM`, or `ROUND_ROBIN` (default).
 
 The following destination policy specifies that RANDOM load balancing be used for balancing across
@@ -443,12 +443,12 @@ instances of any version of the "reviews" microservice:
 
 ```yaml
 destination: reviews.default.svc.cluster.local
-load_balancing: RANDOM
+loadBalancing: RANDOM
 ```
 
-#### Property: circuit_breaker <a id="circuit_breaker"></a>
+#### Property: circuitBreaker <a id="circuitBreaker"></a>
 
-The `circuit_breaker` field can be used to set a circuit breaker for a particular microservice. 
+The `circuitBreaker` field can be used to set a circuit breaker for a particular microservice. 
 A simple circuit breaker can be set based on a number of criteria such as connection and request limits.
 
 For example, the following destination policy
@@ -458,9 +458,9 @@ sets a limit of 100 connections to "reviews" service version "v1" backends.
 destination: reviews.default.svc.cluster.local
 tags:
   version: v1
-circuit_breaker:
-  simple_cb:
-    max_connections: 100
+circuitBreaker:
+  simpleCb:
+    maxConnections: 100
 ```
 
 The complete set of simple circuit breaker fields can be found
@@ -485,9 +485,9 @@ the "reviews" microservice.
 destination: reviews.default.svc.cluster.local
 tags:
   version: v1
-circuit_breaker:
-  simple_cb:
-    max_connections: 100
+circuitBreaker:
+  simpleCb:
+    maxConnections: 100
 ```
 
 Since there is no specific route rule defined for the "reviews" microservice, default
