@@ -14,6 +14,8 @@
 
 package aspect
 
+import "time"
+
 // APIMethod constants are used to refer to the methods handled by api.Handler
 type APIMethod int
 
@@ -46,14 +48,27 @@ type (
 	// APIMethodArgs provides additional method-specific parameters
 	APIMethodArgs interface{}
 
+	// APIMethodResp provides additional method-specific output values
+	APIMethodResp interface{}
+
 	// CheckMethodArgs is supplied by invocations of the Check method.
 	CheckMethodArgs struct {
 		APIMethodArgs
 	}
 
+	// CheckMethodResp is returned by invocations of the Check method.
+	CheckMethodResp struct {
+		APIMethodResp
+	}
+
 	// ReportMethodArgs is supplied by invocations of the Report method.
 	ReportMethodArgs struct {
 		APIMethodArgs
+	}
+
+	// ReportMethodResp is returned by invocations of the Report method.
+	ReportMethodResp struct {
+		APIMethodResp
 	}
 
 	// QuotaMethodArgs is supplied by invocations of the Quota method.
@@ -75,5 +90,16 @@ type (
 		// false, the exact requested amount is returned or 0 if not enough quota
 		// was available.
 		BestEffort bool
+	}
+
+	// QuotaMethodResp is returned by invocations of the Quota method.
+	QuotaMethodResp struct {
+		APIMethodResp
+
+		// The amount of time until which the returned quota expires, this is 0 for non-expiring quotas.
+		Expiration time.Duration
+
+		// The total amount of quota returned, may be less than requested.
+		Amount int64
 	}
 )

@@ -15,6 +15,7 @@
 package memQuota
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -59,29 +60,32 @@ func TestAllocAndRelease(t *testing.T) {
 		allocAmount     int64
 		allocResult     int64
 		allocBestEffort bool
-		tick            int64
+		exp             time.Duration
+		seconds         int64
 		releaseAmount   int64
 		releaseResult   int64
 	}{
-		{"Q1", "0", 2, 2, false, 0, 0, 0},
-		{"Q1", "0", 2, 2, false, 0, 0, 0}, // should be a nop due to dedup
-		{"Q1", "1", 6, 6, false, 0, 0, 0},
-		{"Q1", "2", 2, 2, false, 0, 0, 0},
-		{"Q1", "3", 2, 0, false, 0, 0, 0},
-		{"Q1", "4", 1, 0, true, 0, 0, 0},
-		{"Q1", "5", 0, 0, true, 0, 0, 0},
-		{"Q1", "5b", 0, 0, false, 0, 5, 5},
-		{"Q1", "5b", 0, 0, false, 0, 5, 5},
-		{"Q1", "5c", 0, 0, false, 0, 15, 5},
+		{"Q1", "0", 2, 2, false, 0, 0, 0, 0},
+		{"Q1", "0", 2, 2, false, 0, 0, 0, 0}, // should be a nop due to dedup
+		{"Q1", "1", 6, 6, false, 0, 0, 0, 0},
+		{"Q1", "2", 2, 2, false, 0, 0, 0, 0},
+		{"Q1", "3", 2, 0, false, 0, 0, 0, 0},
+		{"Q1", "4", 1, 0, true, 0, 0, 0, 0},
+		{"Q1", "5", 0, 0, true, 0, 0, 0, 0},
+		{"Q1", "5b", 0, 0, false, 0, 0, 5, 5},
+		{"Q1", "5b", 0, 0, false, 0, 0, 5, 5},
+		{"Q1", "5c", 0, 0, false, 0, 0, 15, 5},
 
-		{"Q3", "6", 10, 10, false, 1, 0, 0},
-		{"Q3", "7", 10, 0, false, 2, 0, 0},
-		{"Q3", "8", 10, 0, false, 60, 0, 0},
-		{"Q3", "9", 10, 10, false, 61, 0, 0},
-		{"Q3", "10", 100, 10, true, 121, 0, 0},
-		{"Q3", "11", 100, 0, false, 122, 10, 10},
-		{"Q3", "12", 0, 0, false, 123, 1000, 0},
-		{"Q3", "12", 0, 0, false, 124, 1000, 0},
+		{"Q3", "6", 10, 10, false, time.Second * 60, 1, 0, 0},
+		{"Q3", "7", 10, 0, false, 0, 2, 0, 0},
+
+		{"Q3", "8", 10, 0, false, 0, 60, 0, 0},
+		{"Q3", "9", 10, 10, false, time.Second * 60, 61, 0, 0},
+
+		{"Q3", "10", 100, 10, true, time.Second * 60, 121, 0, 0},
+		{"Q3", "11", 100, 0, false, 0, 122, 10, 10},
+		{"Q3", "12", 0, 0, false, 0, 123, 1000, 0},
+		{"Q3", "12", 0, 0, false, 0, 124, 1000, 0},
 	}
 
 	labels := make(map[string]interface{})
@@ -93,50 +97,58 @@ func TestAllocAndRelease(t *testing.T) {
 	labels["L6"] = []byte{0, 1}
 	labels["L7"] = map[string]string{"Foo": "Bar"}
 
+	now := time.Now()
 	for i, c := range cases {
-		qa := adapter.QuotaArgs{
-			Definition:      definitions[c.name],
-			DeduplicationID: "A" + c.dedup,
-			QuotaAmount:     c.allocAmount,
-			Labels:          labels,
-		}
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			qa := adapter.QuotaArgs{
+				Definition:      definitions[c.name],
+				DeduplicationID: "A" + c.dedup,
+				QuotaAmount:     c.allocAmount,
+				Labels:          labels,
+			}
 
-		asp.getTick = func() int64 {
-			return c.tick * ticksPerSecond
-		}
+			asp.getTime = func() time.Time {
+				return now.Add(time.Duration(c.seconds) * time.Second)
+			}
 
-		var amount int64
-		var err error
+			var qr adapter.QuotaResult
+			var err error
 
-		if c.allocBestEffort {
-			amount, err = a.AllocBestEffort(qa)
-		} else {
-			amount, err = a.Alloc(qa)
-		}
+			if c.allocBestEffort {
+				qr, err = a.AllocBestEffort(qa)
+			} else {
+				qr, err = a.Alloc(qa)
+			}
 
-		if err != nil {
-			t.Errorf("Alloc(%v): expecting success, got %v", i, err)
-		}
+			if err != nil {
+				t.Errorf("Expecting success, got %v", err)
+			}
 
-		if amount != c.allocResult {
-			t.Errorf("Alloc(%v): expecting %d, got %d", i, c.allocResult, amount)
-		}
+			if qr.Amount != c.allocResult {
+				t.Errorf("Expecting %d, got %d", c.allocResult, qr.Amount)
+			}
 
-		qa = adapter.QuotaArgs{
-			Definition:      definitions[c.name],
-			DeduplicationID: "R" + c.dedup,
-			QuotaAmount:     c.releaseAmount,
-			Labels:          labels,
-		}
+			if qr.Expiration != c.exp {
+				t.Errorf("Expecting %v, got %v", c.exp, qr.Expiration)
+			}
 
-		amount, err = a.ReleaseBestEffort(qa)
-		if err != nil {
-			t.Errorf("Release(%v): expecting success, got %v", i, err)
-		}
+			qa = adapter.QuotaArgs{
+				Definition:      definitions[c.name],
+				DeduplicationID: "R" + c.dedup,
+				QuotaAmount:     c.releaseAmount,
+				Labels:          labels,
+			}
 
-		if amount != c.releaseResult {
-			t.Errorf("Release(%v): expecting %d, got %d", i, c.releaseResult, amount)
-		}
+			var amount int64
+			amount, err = a.ReleaseBestEffort(qa)
+			if err != nil {
+				t.Errorf("Expecting success, got %v", err)
+			}
+
+			if amount != c.releaseResult {
+				t.Errorf("Expecting %d, got %d", c.releaseResult, amount)
+			}
+		})
 	}
 
 	if err := a.Close(); err != nil {
@@ -179,31 +191,32 @@ func TestBadAmount(t *testing.T) {
 
 	qa := adapter.QuotaArgs{Definition: definitions["Q1"], QuotaAmount: -1}
 
-	amount, err := a.Alloc(qa)
-	if amount != 0 {
-		t.Errorf("Expected 0 amount, got %d", amount)
+	qr, err := a.Alloc(qa)
+	if qr.Amount != 0 {
+		t.Errorf("Expected 0 amount, got %d", qr.Amount)
 	}
 
 	if err == nil {
-		t.Errorf("Expecting error, got success")
+		t.Error("Expecting error, got success")
 	}
 
-	amount, err = a.AllocBestEffort(qa)
-	if amount != 0 {
-		t.Errorf("Expected 0 amount, got %d", amount)
+	qr, err = a.AllocBestEffort(qa)
+	if qr.Amount != 0 {
+		t.Errorf("Expected 0 amount, got %d", qr.Amount)
 	}
 
 	if err == nil {
-		t.Errorf("Expecting error, got success")
+		t.Error("Expecting error, got success")
 	}
 
+	var amount int64
 	amount, err = a.ReleaseBestEffort(qa)
 	if amount != 0 {
 		t.Errorf("Expected 0 amount, got %d", amount)
 	}
 
 	if err == nil {
-		t.Errorf("Expecting error, got success")
+		t.Error("Expecting error, got success")
 	}
 
 	if err := a.Close(); err != nil {
@@ -248,8 +261,9 @@ func TestReaper(t *testing.T) {
 
 	asp := a.(*memQuota)
 
-	asp.getTick = func() int64 {
-		return 1
+	now := time.Now()
+	asp.getTime = func() time.Time {
+		return now
 	}
 
 	qa := adapter.QuotaArgs{
@@ -258,38 +272,38 @@ func TestReaper(t *testing.T) {
 	}
 
 	qa.DeduplicationID = "0"
-	amount, _ := asp.Alloc(qa)
-	if amount != 10 {
-		t.Errorf("Alloc(): expecting 10, got %d", amount)
+	qr, _ := asp.Alloc(qa)
+	if qr.Amount != 10 {
+		t.Errorf("Alloc(): expecting 10, got %d", qr.Amount)
 	}
 
-	amount, _ = asp.Alloc(qa)
-	if amount != 10 {
-		t.Errorf("Alloc(): expecting 10, got %d", amount)
+	qr, _ = asp.Alloc(qa)
+	if qr.Amount != 10 {
+		t.Errorf("Alloc(): expecting 10, got %d", qr.Amount)
 	}
 
 	qa.DeduplicationID = "1"
-	amount, _ = asp.Alloc(qa)
-	if amount != 0 {
-		t.Errorf("Alloc(): expecting 0, got %d", amount)
+	qr, _ = asp.Alloc(qa)
+	if qr.Amount != 0 {
+		t.Errorf("Alloc(): expecting 0, got %d", qr.Amount)
 	}
 
 	// move current dedup state into old dedup state
 	asp.reapDedup()
 
 	qa.DeduplicationID = "2"
-	amount, _ = asp.Alloc(qa)
-	if amount != 0 {
-		t.Errorf("Alloc(): expecting 0, got %d", amount)
+	qr, _ = asp.Alloc(qa)
+	if qr.Amount != 0 {
+		t.Errorf("Alloc(): expecting 0, got %d", qr.Amount)
 	}
 
 	// retire original dedup state
 	asp.reapDedup()
 
 	qa.DeduplicationID = "0"
-	amount, _ = asp.Alloc(qa)
-	if amount != 0 {
-		t.Errorf("Alloc(): expecting 0, got %d", amount)
+	qr, _ = asp.Alloc(qa)
+	if qr.Amount != 0 {
+		t.Errorf("Alloc(): expecting 0, got %d", qr.Amount)
 	}
 
 	if err := a.Close(); err != nil {
@@ -321,14 +335,14 @@ func TestReaperTicker(t *testing.T) {
 		DeduplicationID: "0",
 	}
 
-	amount, _ := a.Alloc(qa)
-	if amount != 10 {
-		t.Errorf("Alloc(): expecting 10, got %d", amount)
+	qr, _ := a.Alloc(qa)
+	if qr.Amount != 10 {
+		t.Errorf("Alloc(): expecting 10, got %d", qr.Amount)
 	}
 
-	amount, _ = a.Alloc(qa)
-	if amount != 10 {
-		t.Errorf("Alloc(): expecting 10, got %d", amount)
+	qr, _ = a.Alloc(qa)
+	if qr.Amount != 10 {
+		t.Errorf("Alloc(): expecting 10, got %d", qr.Amount)
 	}
 
 	// Advance 3 ticks, ensuring clearing of the de-dup cache
@@ -337,29 +351,19 @@ func TestReaperTicker(t *testing.T) {
 	testChan <- time.Now()
 
 	qa.DeduplicationID = "1"
-	amount, _ = a.Alloc(qa)
-	if amount != 0 {
-		t.Errorf("Alloc(): expecting 0, got %d", amount)
+	qr, _ = a.Alloc(qa)
+	if qr.Amount != 0 {
+		t.Errorf("Alloc(): expecting 0, got %d", qr.Amount)
 	}
 
 	qa.DeduplicationID = "0"
-	amount, _ = a.Alloc(qa)
-	if amount != 0 {
-		t.Errorf("Alloc(): expecting 0, got %d", amount)
+	qr, _ = a.Alloc(qa)
+	if qr.Amount != 0 {
+		t.Errorf("Alloc(): expecting 0, got %d", qr.Amount)
 	}
 
 	if err := a.Close(); err != nil {
 		t.Errorf("Unable to close aspect: %v", err)
-	}
-}
-
-func TestGetCurrentTick(t *testing.T) {
-	t1 := time.Now().UnixNano() / nanosPerTick
-	ticks := int64(getCurrentTicks())
-	t2 := time.Now().UnixNano() / nanosPerTick
-
-	if ticks < t1 || ticks > t2 {
-		t.Errorf("Got tick value %v, expected in the range %v..%v", ticks, t1, t2)
 	}
 }
 

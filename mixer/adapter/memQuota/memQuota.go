@@ -52,16 +52,21 @@ type memQuota struct {
 	windows map[string]*rollingWindow
 
 	// two ping-ponging maps of active dedup ids
-	recentDedup map[string]int64
-	oldDedup    map[string]int64
+	recentDedup map[string]dedupState
+	oldDedup    map[string]dedupState
 
 	// used for reaping dedup ids
 	ticker *time.Ticker
 
 	// indirection to support fast deterministic tests
-	getTick func() int64
+	getTime func() time.Time
 
 	logger adapter.Logger
+}
+
+type dedupState struct {
+	amount int64
+	exp    time.Time
 }
 
 // we maintain a pool of these for use by the makeKey function
@@ -127,10 +132,10 @@ func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, definitions map[st
 	mq := &memQuota{
 		cells:       make(map[string]int64),
 		windows:     make(map[string]*rollingWindow),
-		recentDedup: make(map[string]int64),
-		oldDedup:    make(map[string]int64),
+		recentDedup: make(map[string]dedupState),
+		oldDedup:    make(map[string]dedupState),
 		ticker:      ticker,
-		getTick:     getCurrentTicks,
+		getTime:     time.Now,
 		logger:      env.Logger(),
 	}
 
@@ -150,21 +155,17 @@ func (mq *memQuota) Close() error {
 	return nil
 }
 
-// getCurrentTicks returns the number of ticks since January 1st 1970 UTC
-func getCurrentTicks() int64 {
-	return time.Now().UnixNano() / nanosPerTick
-}
-
-func (mq *memQuota) Alloc(args adapter.QuotaArgs) (int64, error) {
+func (mq *memQuota) Alloc(args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	return mq.alloc(args, false)
 }
 
-func (mq *memQuota) AllocBestEffort(args adapter.QuotaArgs) (int64, error) {
+func (mq *memQuota) AllocBestEffort(args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	return mq.alloc(args, true)
 }
 
-func (mq *memQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (int64, error) {
-	return mq.commonWrapper(args, func(d *adapter.QuotaDefinition, key string) int64 {
+func (mq *memQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (adapter.QuotaResult, error) {
+	amount, exp, err := mq.commonWrapper(args, func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time,
+		time.Duration) {
 		result := args.QuotaAmount
 
 		// we optimize storage for non-expiring quotas
@@ -173,14 +174,14 @@ func (mq *memQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (int64, error
 
 			if result > d.MaxAmount-inUse {
 				if !bestEffort {
-					return 0
+					return 0, time.Time{}, 0
 				}
 
 				// grab as much as we can
 				result = d.MaxAmount - inUse
 			}
 			mq.cells[key] = inUse + result
-			return result
+			return result, time.Time{}, 0
 		}
 
 		window, ok := mq.windows[key]
@@ -190,10 +191,9 @@ func (mq *memQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (int64, error
 			mq.windows[key] = window
 		}
 
-		currentTick := mq.getTick()
 		if !window.alloc(result, currentTick) {
 			if !bestEffort {
-				return 0
+				return 0, time.Time{}, 0
 			}
 
 			// grab as much as we can
@@ -201,59 +201,77 @@ func (mq *memQuota) alloc(args adapter.QuotaArgs, bestEffort bool) (int64, error
 			_ = window.alloc(result, currentTick)
 		}
 
-		return result
+		return result, currentTime.Add(d.Expiration), d.Expiration
 	})
+
+	return adapter.QuotaResult{
+		Amount:     amount,
+		Expiration: exp,
+	}, err
 }
 
 func (mq *memQuota) ReleaseBestEffort(args adapter.QuotaArgs) (int64, error) {
-	return mq.commonWrapper(args, func(d *adapter.QuotaDefinition, key string) int64 {
-		result := args.QuotaAmount
+	amount, _, err := mq.commonWrapper(args,
+		func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time, time.Duration) {
+			result := args.QuotaAmount
 
-		if d.Expiration == 0 {
-			inUse := mq.cells[key]
+			if d.Expiration == 0 {
+				inUse := mq.cells[key]
 
-			if result >= inUse {
-				// delete the cell since it contains no useful state
-				delete(mq.cells, key)
-				return inUse
+				if result >= inUse {
+					// delete the cell since it contains no useful state
+					delete(mq.cells, key)
+					return inUse, time.Time{}, 0
+				}
+
+				mq.cells[key] = inUse - result
+				return result, time.Time{}, 0
 			}
 
-			mq.cells[key] = inUse - result
-			return result
-		}
+			// WARNING: Releasing quota in the case of rate limits is
+			//          inherently racy. A release can easily end up
+			//          freeing quota in the wrong window.
 
-		window, ok := mq.windows[key]
-		if !ok {
-			return 0
-		}
+			window, ok := mq.windows[key]
+			if !ok {
+				return 0, time.Time{}, 0
+			}
 
-		currentTick := mq.getTick()
-		result = window.release(result, currentTick)
+			result = window.release(result, currentTick)
 
-		if window.available() == d.MaxAmount {
-			// delete the cell since it contains no useful state
-			delete(mq.windows, key)
-		}
+			if window.available() == d.MaxAmount {
+				// delete the cell since it contains no useful state
+				delete(mq.windows, key)
+			}
 
-		return result
-	})
+			return result, time.Time{}, 0
+		})
+
+	return amount, err
 }
 
-type quotaFunc func(d *adapter.QuotaDefinition, key string) int64
+type quotaFunc func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time, time.Duration)
 
-func (mq *memQuota) commonWrapper(args adapter.QuotaArgs, qf quotaFunc) (int64, error) {
+func (mq *memQuota) commonWrapper(args adapter.QuotaArgs, qf quotaFunc) (int64, time.Duration, error) {
 	d := args.Definition
 	if args.QuotaAmount < 0 {
-		return 0, fmt.Errorf("negative quota amount %d received", args.QuotaAmount)
+		return 0, 0, fmt.Errorf("negative quota amount %d received", args.QuotaAmount)
 	}
 
 	if args.QuotaAmount == 0 {
-		return 0, nil
+		return 0, 0, nil
 	}
 
 	key := makeKey(args.Definition.Name, args.Labels)
 
 	mq.Lock()
+
+	currentTime := mq.getTime()
+	currentTick := currentTime.UnixNano() / nanosPerTick
+
+	var amount int64
+	var t time.Time
+	var exp time.Duration
 
 	result, dup := mq.recentDedup[args.DeduplicationID]
 	if !dup {
@@ -261,15 +279,20 @@ func (mq *memQuota) commonWrapper(args adapter.QuotaArgs, qf quotaFunc) (int64, 
 	}
 
 	if dup {
-		mq.logger.Infof("Quota operation satisfied through deduplication: dedupID %v, amount %v", args.DeduplicationID, result)
+		mq.logger.Infof("Quota operation satisfied through deduplication: dedupID %v, amount %v", args.DeduplicationID, result.amount)
+		amount = result.amount
+		exp = result.exp.Sub(currentTime)
+		if exp < 0 {
+			exp = 0
+		}
 	} else {
-		result = qf(d, key)
-		mq.recentDedup[args.DeduplicationID] = result
+		amount, t, exp = qf(d, key, currentTime, currentTick)
+		mq.recentDedup[args.DeduplicationID] = dedupState{amount: amount, exp: t}
 	}
 
 	mq.Unlock()
 
-	return result, nil
+	return amount, exp, nil
 }
 
 // reapDedup cleans up dedup entries from the oldDedup map and moves all entries from

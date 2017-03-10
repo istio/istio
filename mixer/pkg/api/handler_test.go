@@ -54,9 +54,9 @@ func TestAspectManagerErrorsPropagated(t *testing.T) {
 	h := &handlerState{aspectExecutor: f, methodMap: map[aspect.APIMethod]config.AspectSet{}}
 	h.ConfigChange(&fakeresolver{[]*config.Combined{nil, nil}, nil})
 
-	s := h.execute(context.Background(), attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, aspect.CheckMethod, nil)
-	if s.Code != int32(rpc.INTERNAL) {
-		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", s, rpc.INTERNAL)
+	o := h.execute(context.Background(), attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, aspect.CheckMethod, nil)
+	if o.Status.Code != int32(rpc.INTERNAL) {
+		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", o.Status, rpc.INTERNAL)
 	}
 }
 
