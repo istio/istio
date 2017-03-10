@@ -1,0 +1,15 @@
+type: route-rule
+name: snaketest1
+spec:
+  destination: snakecase.default.svc.cluster.local
+  precedence: 2
+  match:
+    source: somehost.default.svc.cluster.local
+    source_tags:
+      version: v1
+    httpHeaders:
+      version:
+        exact: v2
+  route:
+    - tags:
+         version: v2

@@ -31,3 +31,10 @@ func TestInvalidType(t *testing.T) {
 		t.Fatalf("Did not fail when presented with invalid rule type")
 	}
 }
+
+func TestInvalidRuleStructure(t *testing.T) {
+	file = "testdata/invalid-dest-policy.yaml"
+	if err := postCmd.RunE(postCmd, []string{}); err == nil {
+		t.Fatalf("Did not fail when presented with invalid rule structure")
+	}
+}

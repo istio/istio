@@ -15,14 +15,12 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
-	"reflect"
 	"strings"
 
 	"github.com/golang/glog"
@@ -288,22 +286,15 @@ func readInputs() ([]inputDoc, error) {
 			return nil, fmt.Errorf("Could not encode Spec: %v", err)
 		}
 
-		reader2 := bytes.NewReader(byteRule)
-
 		schema, ok := model.IstioConfig[v.Type]
 		if !ok {
 			return nil, fmt.Errorf("Unknown spec type %s", v.Type)
 		}
-		pbt := proto.MessageType(schema.MessageName)
-		if pbt == nil {
-			return nil, fmt.Errorf("cannot create pbt from %v", v.Type)
-		}
-		rr := reflect.New(pbt.Elem()).Interface().(proto.Message)
-		yamlDecoder2 := yaml.NewYAMLOrJSONDecoder(reader2, 512*1024)
-		err = yamlDecoder2.Decode(&rr)
+		rr, err := schema.FromJSON(string(byteRule))
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse proto message: %v", err)
 		}
+		glog.V(2).Info(fmt.Sprintf("Parsed %v %v into %v %v", v.Type, v.Name, schema.MessageName, rr))
 
 		v.ParsedSpec = rr
 
