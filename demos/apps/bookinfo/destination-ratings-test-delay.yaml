@@ -1,11 +1,16 @@
-destination: ratings.default.svc.cluster.local
-tags:
-  version: v1
-http_fault:
-  headers:
-    Cookie:
-      regex: "^(.*?;)?(user=jason)(;.*)?$"
-  delay:
-    fixed_delay:
+type: route-rule
+name: ratings-test-delay
+spec:
+  destination: ratings.default.svc.cluster.local
+  precedence: 2
+  match:
+    httpHeaders:
+      Cookie:
+        regex: "^(.*?;)?(user=jason)(;.*)?$"
+  route:
+  - tags:
+      version: v1
+  httpFault:
+    delay:
       percent: 100
-      fixed_delay_seconds: 7.0
+      fixedDelaySeconds: 7.0
