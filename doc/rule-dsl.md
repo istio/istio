@@ -19,13 +19,13 @@
     * [httpFault](#httpFault)
         * [httpFault.delay](#httpFault-delay)
         * [httpFault.abort](#httpFault-abort)
-    * [Route Rule Evaluation](#route-rule-evaluation)
+* [Route Rule Evaluation](#route-rule-evaluation)
 * [Destination Policies](#destination-policies)
     * [destination](#pdestination)
     * [tags](#tags)
     * [loadBalancing](#loadBalancing)
     * [circuitBreaker](#circuitBreaker)
-    * [Destination Policy Evaluation](#destination-policy-evaluation)
+* [Destination Policy Evaluation](#destination-policy-evaluation)
 
 ## Overview <a id="overview"></a>
 
@@ -77,6 +77,9 @@ rule. For example, all rules that apply to calls to the "reviews" microservice w
 destination: reviews.default.svc.cluster.local
 ```
 
+The `destination` value is a fully qualified domain name (FQDN) of the form
+`serviceName.namespace.dnsSuffix`. It is used by the Istio runtime for matching rules to services.
+
 #### Property: precedence <a id="precedence"></a>
 
 The order of evaluation of rules corresponding to a given destination, when there is more than one, can be specified 
@@ -118,6 +121,8 @@ match:
   source: reviews.default.svc.cluster.local
 ```
 
+The `source` value, just like `destination`, is an FQDN of a service.
+
 #### Property: match.sourceTags <a id="match-sourceTags"></a>
 
 The `sourceTags` field can be used to further qualify a rule to only apply to specific instances of a
@@ -139,9 +144,9 @@ match:
 The `httpHeaders` field is a set of one or more property-value pairs where each property is an HTTP header name
 and the corresponding value is one of the following:
 
-1. `exact: value`, where the header value must match `value` exactly
-2. `prefix: value`, where `value` must be a prefix of the header value
-3. `regex: value`, where `value` is a regular expression that matches the header value
+1. `exact: "value"`, where the header value must match `value` exactly
+2. `prefix: "value"`, where `value` must be a prefix of the header value
+3. `regex: "value"`, where `value` is a regular expression that matches the header value
 
 For example, the following rule will only apply
 to an incoming request if it includes a "Cookie" header that contains the substring "user=jason".
@@ -194,7 +199,9 @@ Of these fields, `tags` is the only required one, the others are optional.
 #### Property: route.tags <a id="route-tags"></a>
 
 The `tags` field is a list of instance tags to identify the target instances (e.g., version) to route requests to.
-If there are multiple registered instances with the specified tag(s), they will be routed to in a round-robin fashion.
+If there are multiple registered instances with the specified tag(s),
+they will be routed to based on the [load balancing policy](#loadBalancing) configured for the service,
+or round-robin by default.
 
 #### Property: route.weight <a id="route-weight"></a>
 
@@ -236,19 +243,6 @@ httpReqTimeout:
     timeoutSeconds: 10
 ```
 
-Alternatively, you can specify a timeout override header that downstream clients can use to
-dynamically override the timeout on a per request basis:
-
-```yaml
-destination: "ratings.default.svc.cluster.local"
-route:
-- tags:
-    version: v1
-httpReqTimeout:
-  simpleTimeout:
-    overrideHeaderName: My-Request-Timeout
-```
-
 #### Property: httpReqRetries <a id="httpReqRetries"></a>
 
 The `httpReqRetries` field can be used to control the number retries for a given http request.
@@ -263,19 +257,6 @@ route:
 httpReqRetries:
   simpleRetry:
     attempts: 3
-```
-
-Just like timeouts, a retry override header can be specified to allow downstream clients to
-dynamically override the value on a per request basis:
-
-```yaml
-destination: "ratings.default.svc.cluster.local"
-route:
-- tags:
-    version: v1
-httpReqTimeout:
-  simpleRetry:
-    overrideHeaderName: My-Request-Attempts
 ```
 
 #### Property: httpFault <a id="httpFault"></a>
@@ -361,10 +342,10 @@ httpFault:
     httpStatus: 400
 ```
 
-### Route Rule Evaluation <a id="route-rule-evaluation"></a>
+## Route Rule Evaluation <a id="route-rule-evaluation"></a>
 
-Whenever the routing story for a particular microservice is purely weight base,
-it can be specified in a single rule, as in the previous example.
+Whenever the routing story for a particular microservice is purely weight based,
+it can be specified in a single rule, as shown in the [route.weight](#route-weight) example.
 When, on the other hand, other crieria (e.g., requests from a specific user) are being used to route traffic,
 more than one rule will be needed to specify the routing.
 This is where the rule `precedence` field must be set to make sure that the rules are evaluated in the right order.
@@ -466,7 +447,7 @@ circuitBreaker:
 The complete set of simple circuit breaker fields can be found
 [here](https://github.com/rshriram/api/blob/master/proxy/v1/config/cfg.md#circuitbreakersimplecircuitbreakerpolicy).
 
-### Destination Policy Evaluation <a id="destination-policy-evaluation"></a>
+## Destination Policy Evaluation <a id="destination-policy-evaluation"></a>
 
 Similar to route rules, destination policies are associated with a particular `destination` however
 if they also include `tags` their activation depends on route rule evaluation results.
@@ -507,4 +488,9 @@ route:
     version: v1
 ```
 
-Setting a default rule like this for every microservice is generally considered a best practice in Istio.
+Although the default Istio behavior conveniently sends traffic from all versions of a source service
+to all versions of a destination service, without any rules being set, 
+as soon as version discrimination is desired, rules are going to be needed.
+
+Therefore, setting a default rule for every microservice, right from the start,
+is generally considered a best practice in Istio.
