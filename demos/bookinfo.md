@@ -283,10 +283,10 @@ to `reviews:v3` in two steps.
 First, transfer 50% of traffic from `reviews:v1` to `reviews:v3` with the following command:
 
 ```bash
-   $ istioctl update route-rule reviews-default -f apps/bookinfo/route-rule-reviews-50-v3.yaml
+   $ istioctl replace -f apps/bookinfo/route-rule-reviews-50-v3.yaml
 ```
 
-> Notice that we are using `istioctl update` instead of `create`.
+> Notice that we are using `istioctl replace` instead of `create`.
 
 To see the new version you need to either Log out as test user "jason" or delete the test rules
 that we created exclusively for him:
@@ -305,7 +305,7 @@ the `productpage`.
 When we are confident that our Bookinfo app is stable, we route 100% of the traffic to `reviews:v3`:
 
 ```bash
-   $ istioctl update route-rule reviews-default -f apps/bookinfo/route-rule-reviews-v3.yaml
+   $ istioctl replace -f apps/bookinfo/route-rule-reviews-v3.yaml
 ```
 
 You can now log in to the `productpage` as any user and you should always see book reviews
