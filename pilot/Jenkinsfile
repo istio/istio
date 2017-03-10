@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('testutils')
+@Library('testutils@stable-838b134')
 
 import org.istio.testutils.Utilities
 import org.istio.testutils.GitUtilities
@@ -53,7 +53,9 @@ def presubmit(gitUtils, bazel, utils) {
       utils.publishCodeCoverage('MANAGER_CODECOV_TOKEN')
     }
     stage('Integration Tests') {
-      sh('bin/e2e.sh -t alpha' + gitUtils.GIT_SHA + ' -d')
+      timeout(900) {
+        sh('bin/e2e.sh -t alpha' + gitUtils.GIT_SHA + ' -d')
+      }
     }
   }
 }
