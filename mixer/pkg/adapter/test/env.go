@@ -40,6 +40,11 @@ func (e *Env) Logger() adapter.Logger {
 	return e
 }
 
+// ScheduleWork runs the given function asynchronously.
+func (e *Env) ScheduleWork(fn adapter.WorkFunc) {
+	go fn()
+}
+
 // Infof logs the provided message.
 func (e *Env) Infof(format string, args ...interface{}) {
 	e.log(format, args...)

@@ -32,7 +32,7 @@ type (
 	server interface {
 		io.Closer
 
-		Start(adapter.Logger) error
+		Start(adapter.Env) error
 	}
 
 	serverInst struct {
@@ -52,7 +52,7 @@ func newServer(addr string) server {
 	return &serverInst{addr: addr}
 }
 
-func (s *serverInst) Start(logger adapter.Logger) error {
+func (s *serverInst) Start(env adapter.Env) error {
 	var listener net.Listener
 	srv := &http.Server{Addr: s.addr}
 	listener, err := net.Listen("tcp", s.addr)
@@ -61,12 +61,12 @@ func (s *serverInst) Start(logger adapter.Logger) error {
 	}
 
 	http.Handle(metricsPath, promhttp.Handler())
-	go func() {
-		logger.Infof("serving prometheus metrics on %s", s.addr)
+	env.ScheduleWork(func() {
+		env.Logger().Infof("serving prometheus metrics on %s", s.addr)
 		if err := srv.Serve(listener.(*net.TCPListener)); err != nil {
-			_ = logger.Errorf("prometheus HTTP server error: %v", err)
+			_ = env.Logger().Errorf("prometheus HTTP server error: %v", err)
 		}
-	}()
+	})
 
 	s.connCloser = listener
 	return nil

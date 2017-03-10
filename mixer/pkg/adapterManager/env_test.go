@@ -15,12 +15,19 @@
 package adapterManager
 
 import (
+	"sync"
 	"testing"
+	"time"
+
+	"istio.io/mixer/pkg/pool"
 )
 
 func TestEnv(t *testing.T) {
 	// for now, just make sure nothing crashes...
-	env := newEnv("Foo")
+	gp := pool.NewGoroutinePool(128)
+	gp.AddWorkers(32)
+
+	env := newEnv("Foo", gp)
 	log := env.Logger()
 	log.Infof("Test%s", "ing")
 	log.Warningf("Test%s", "ing")
@@ -28,4 +35,18 @@ func TestEnv(t *testing.T) {
 	if err == nil {
 		t.Error("Expected an error but got nil")
 	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	env.ScheduleWork(func() {
+		wg.Done()
+	})
+	wg.Wait()
+
+	env.ScheduleWork(func() {
+		panic("bye!")
+	})
+
+	// hack to give time for the panic to 'take hold' if it doesn't get recovered properly
+	time.Sleep(time.Duration(200) * time.Millisecond)
 }

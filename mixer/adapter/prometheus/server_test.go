@@ -25,7 +25,7 @@ import (
 func TestServer(t *testing.T) {
 	testAddr := "127.0.0.1:9992"
 	s := newServer(testAddr)
-	if err := s.Start(test.NewEnv(t).Logger()); err != nil {
+	if err := s.Start(test.NewEnv(t)); err != nil {
 		t.Fatalf("Start() failed unexpectedly: %v", err)
 	}
 

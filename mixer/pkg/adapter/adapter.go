@@ -56,10 +56,18 @@ type (
 		ValidateConfig(c AspectConfig) *ConfigErrors
 	}
 
+	// WorkFunc represents a function to invoke asynchronously.
+	WorkFunc func()
+
 	// Env defines the environment in which an aspect executes.
 	Env interface {
 		// Logger returns the logger for the aspect to use at runtime.
 		Logger() Logger
+
+		// ScheduleWork records a function for async execution.
+		//
+		// This is the preferred way for adapters to do async work.
+		ScheduleWork(fn WorkFunc)
 
 		// Possible other things:
 		// Return how much time remains until the mixer considers the aspect call having timed out and kills it

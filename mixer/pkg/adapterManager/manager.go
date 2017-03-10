@@ -15,6 +15,7 @@
 package adapterManager
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/gob"
@@ -22,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
@@ -39,6 +41,9 @@ type Manager struct {
 	mapper    expr.Evaluator
 	builders  builderFinder
 	methodMap map[aspect.APIMethod]config.AspectSet
+	wg        sync.WaitGroup
+	gp        *pool.GoroutinePool
+	adapterGP *pool.GoroutinePool
 
 	// protects cache
 	lock        sync.RWMutex
@@ -95,30 +100,105 @@ func newCacheKey(kind aspect.Kind, cfg *config.Combined) (*cacheKey, error) {
 }
 
 // NewManager creates a new adapterManager.
-func NewManager(builders []adapter.RegisterFn, managers aspect.ManagerInventory, exp expr.Evaluator) *Manager {
+func NewManager(builders []adapter.RegisterFn, managers aspect.ManagerInventory, exp expr.Evaluator, gp *pool.GoroutinePool) *Manager {
 	mm, am := ProcessBindings(managers)
-	return newManager(newRegistry(builders), mm, exp, am)
+	return newManager(newRegistry(builders), mm, exp, am, gp)
 }
 
-// newManager
-func newManager(r builderFinder, m map[aspect.Kind]aspect.Manager, exp expr.Evaluator, am map[aspect.APIMethod]config.AspectSet) *Manager {
+func newManager(r builderFinder, m map[aspect.Kind]aspect.Manager, exp expr.Evaluator,
+	am map[aspect.APIMethod]config.AspectSet, gp *pool.GoroutinePool) *Manager {
+
+	// TODO: make the pool parameters configurable
+	adapterGP := pool.NewGoroutinePool(128)
+	adapterGP.AddWorkers(1024)
+
 	return &Manager{
 		builders:    r,
 		managers:    m,
 		mapper:      exp,
 		methodMap:   am,
 		aspectCache: make(map[cacheKey]aspect.Wrapper),
+		gp:          gp,
+		adapterGP:   adapterGP,
+	}
+}
+
+// Shutdown gracefully drains the manager's worker pool.
+func (m *Manager) Shutdown() {
+	m.wg.Wait()
+	if m.adapterGP != nil {
+		m.adapterGP.Close()
 	}
 }
 
 // Execute iterates over cfgs and performs the actions described by the combined config using the attribute bag on each config.
 func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) aspect.Output {
-	// TODO: pool these arrays, we'll be making many and len(cfg) is constant for the life of the configuration.
-	results := make([]result, len(cfgs))
-	for i, cfg := range cfgs {
-		results[i] = result{cfg, m.execute(ctx, cfg, attrs, ma)}
+	numCfgs := len(cfgs)
+
+	// TODO: look into pooling both result array and channel, they're created per-request and are constant size for cfg lifetime.
+	results := make([]result, numCfgs)
+	resultChan := make(chan result, numCfgs)
+
+	if m.gp == nil {
+		for i, cfg := range cfgs {
+			results[i] = result{cfg, m.execute(ctx, cfg, attrs, ma)}
+		}
+	} else {
+		// schedule all the work that needs to happen
+		for _, cfg := range cfgs {
+			m.wg.Add(1)
+			m.gp.ScheduleWork(func() {
+				out := m.execute(ctx, cfg, attrs, ma)
+				resultChan <- result{cfg, out}
+				m.wg.Done()
+			})
+		}
+
+		// wait for all the work to be done or the context to be cancelled
+		for i := 0; i < numCfgs; i++ {
+			select {
+			case <-ctx.Done():
+				return aspect.Output{Status: status.WithDeadlineExceeded(fmt.Sprintf("deadline exceeded waiting for adapter results with err: %v", ctx.Err()))}
+			case res := <-resultChan:
+				results[i] = res
+			}
+		}
 	}
+
 	return combineResults(results)
+}
+
+// Combines a bunch of distinct result structs and turns 'em into one single Output struct
+func combineResults(results []result) aspect.Output {
+	var buf *bytes.Buffer
+	code := rpc.OK
+
+	for _, r := range results {
+		if !r.out.IsOK() {
+			if buf == nil {
+				buf = pool.GetBuffer()
+				// the first failure result's code becomes the result code for the output
+				code = rpc.Code(r.out.Status.Code)
+			} else {
+				buf.WriteString(", ")
+			}
+			buf.WriteString(r.cfg.String() + ":" + r.out.Message())
+		}
+	}
+
+	s := status.OK
+	if buf != nil {
+		s = status.WithMessage(code, buf.String())
+		pool.PutBuffer(buf)
+	}
+
+	return aspect.Output{Status: s}
+}
+
+// result holds the values returned by the execution of an adapter
+type result struct {
+	cfg *config.Combined
+	out aspect.Output
 }
 
 // execute performs action described in the combined config using the attribute bag
@@ -174,7 +254,7 @@ func (m *Manager) cacheGet(cfg *config.Combined, mgr aspect.Manager, builder ada
 	}
 
 	// create an aspect
-	env := newEnv(builder.Name())
+	env := newEnv(builder.Name(), m.adapterGP)
 	asp, err = mgr.NewAspect(cfg, builder, env)
 	if err != nil {
 		return nil, err

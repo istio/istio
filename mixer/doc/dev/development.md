@@ -40,6 +40,7 @@ Other docs you should look at:
 
 - [Project conventions](./conventions.md)
 - [Creating fast and lean code](./performance.md)
+- [Writing mixer adapters](./adapters.md)
 - [Go landmines](https://gist.github.com/lavalamp/4bd23295a9f32706a48f)
 - [Go style mistakes](https://github.com/golang/go/wiki/CodeReviewComments)
 
