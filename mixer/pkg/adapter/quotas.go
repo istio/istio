@@ -22,10 +22,10 @@ type (
 		Aspect
 
 		// Alloc allocates the specified amount or fails when not available.
-		Alloc(QuotaArgs) (int64, error)
+		Alloc(QuotaArgs) (QuotaResult, error)
 
 		// AllocBestEffort allocates from 0 to the specified amount, based on availability.
-		AllocBestEffort(QuotaArgs) (int64, error)
+		AllocBestEffort(QuotaArgs) (QuotaResult, error)
 
 		// ReleaseBestEffort releases from 0 to the specified amount, based on current usage.
 		ReleaseBestEffort(QuotaArgs) (int64, error)
@@ -77,5 +77,14 @@ type (
 
 		// Labels determine the identity of the quota cell.
 		Labels map[string]interface{}
+	}
+
+	// QuotaResult provides return values from quota allocation calls
+	QuotaResult struct {
+		// The amount of time until which the returned quota expires, this is 0 for non-expiring quotas.
+		Expiration time.Duration
+
+		// The total amount of quota returned, may be less than requested.
+		Amount int64
 	}
 )

@@ -35,6 +35,9 @@ type (
 		// status code
 		Status rpc.Status
 
+		// Additional method-specific returned state
+		Response APIMethodResp
+
 		//TODO attribute mutator
 		//If any attributes should change in the context for the next call
 		//context remains immutable during the call

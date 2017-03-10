@@ -38,7 +38,7 @@ import (
 type fakeQuotaAspect struct {
 	adapter.Aspect
 	closed bool
-	body   func(adapter.QuotaArgs) (int64, error)
+	body   func(adapter.QuotaArgs) (adapter.QuotaResult, error)
 }
 
 func (a *fakeQuotaAspect) Close() error {
@@ -46,11 +46,11 @@ func (a *fakeQuotaAspect) Close() error {
 	return nil
 }
 
-func (a fakeQuotaAspect) Alloc(qa adapter.QuotaArgs) (int64, error) {
+func (a fakeQuotaAspect) Alloc(qa adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	return a.body(qa)
 }
 
-func (a fakeQuotaAspect) AllocBestEffort(qa adapter.QuotaArgs) (int64, error) {
+func (a fakeQuotaAspect) AllocBestEffort(qa adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	return a.body(qa)
 }
 
@@ -201,9 +201,9 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 		t.Run(strconv.Itoa(idx), func(t *testing.T) {
 			var receivedArgs adapter.QuotaArgs
 			wrapper := &quotasWrapper{
-				aspect: &fakeQuotaAspect{body: func(qa adapter.QuotaArgs) (int64, error) {
+				aspect: &fakeQuotaAspect{body: func(qa adapter.QuotaArgs) (adapter.QuotaResult, error) {
 					receivedArgs = qa
-					return c.allocAmount, c.allocErr
+					return adapter.QuotaResult{Amount: c.allocAmount, Expiration: time.Duration(0)}, c.allocErr
 				}},
 				metadata: c.mdin,
 			}

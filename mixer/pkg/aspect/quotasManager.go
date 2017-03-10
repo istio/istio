@@ -145,25 +145,28 @@ func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma A
 		DeduplicationID: qma.DeduplicationID,
 	}
 
-	var amount int64
+	var qr adapter.QuotaResult
 
 	if qma.BestEffort {
-		amount, err = w.aspect.AllocBestEffort(qa)
+		qr, err = w.aspect.AllocBestEffort(qa)
 	} else {
-		amount, err = w.aspect.Alloc(qa)
+		qr, err = w.aspect.Alloc(qa)
 	}
 
 	if err != nil {
 		return Output{Status: status.WithError(err)}
 	}
 
-	if amount == 0 {
-		return Output{Status: status.WithResourceExhausted(fmt.Sprintf("Unable to allocate %v units from quota %s", amount, info.definition.Name))}
+	if qr.Amount == 0 {
+		return Output{Status: status.WithResourceExhausted(fmt.Sprintf("Unable to allocate %v units from quota %s", qa.QuotaAmount, info.definition.Name))}
 	}
 
-	// TODO: need to return the allocated amount somehow in the Quota API's QuotaResponse message
-
-	return Output{Status: status.OK}
+	return Output{
+		Status: status.OK,
+		Response: QuotaMethodResp{
+			Amount:     qr.Amount,
+			Expiration: qr.Expiration,
+		}}
 }
 
 func (w *quotasWrapper) Close() error {
