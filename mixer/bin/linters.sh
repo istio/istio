@@ -3,6 +3,15 @@
 # Runs all requisite linters over the whole mixer code base.
 set -e
 
+PARENT_BRANCH=''
+
+while getopts :c: arg; do
+  case ${arg} in
+    c) PARENT_BRANCH="${OPTARG}";;
+    *) error_exit "Unrecognized argument ${OPTARG}";;
+  esac
+done
+
 prep_linters() {
     if ! which codecoroner > /dev/null; then
         echo "Preparing linters"
@@ -15,7 +24,7 @@ prep_linters() {
 }
 
 go_metalinter() {
-    local parent_branch='master'
+    local parent_branch="${PARENT_BRANCH}"
     if [[ ! -z ${TRAVIS_PULL_REQUEST} ]];then
         # if travis pull request only lint changed code.
         if [[ ${TRAVIS_PULL_REQUEST} != "false" ]]; then
@@ -26,7 +35,7 @@ go_metalinter() {
         git fetch origin-pull "refs/heads/${GITHUB_PR_TARGET_BRANCH}:${parent_branch}"
     fi
 
-    if [[ -z ${LAST_GOOD_GITSHA} ]]; then
+    if [[ -z ${LAST_GOOD_GITSHA} ]] && [[ -n "${parent_branch}" ]]; then
         LAST_GOOD_GITSHA="$(git log ${parent_branch}.. --pretty="%H"|tail -1)"
         [[ ! -z ${LAST_GOOD_GITSHA} ]] && LAST_GOOD_GITSHA="${LAST_GOOD_GITSHA}^"
     fi
