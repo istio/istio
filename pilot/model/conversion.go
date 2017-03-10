@@ -16,6 +16,7 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 
 	"github.com/ghodss/yaml"
@@ -66,6 +67,9 @@ func (ps *ProtoSchema) ToJSONMap(msg proto.Message) (map[string]interface{}, err
 func (ps *ProtoSchema) FromJSON(js string) (proto.Message, error) {
 	// Unmarshal from bytes to proto
 	pbt := proto.MessageType(ps.MessageName)
+	if pbt == nil {
+		return nil, fmt.Errorf("unknown type %q", ps.MessageName)
+	}
 	pb := reflect.New(pbt.Elem()).Interface().(proto.Message)
 	err := jsonpb.UnmarshalString(js, pb)
 	if err != nil {

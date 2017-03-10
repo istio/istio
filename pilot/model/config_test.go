@@ -246,36 +246,44 @@ func (r *testRegistry) shutdown() {
 var (
 	defaultNamespace = "default"
 
+	endpoint1 = NetworkEndpoint{
+		Address:     "192.168.1.1",
+		Port:        10001,
+		ServicePort: &Port{Name: "http", Port: 81, Protocol: ProtocolHTTP},
+	}
+	endpoint2 = NetworkEndpoint{
+		Address:     "192.168.1.2",
+		Port:        10002,
+		ServicePort: &Port{Name: "http", Port: 82, Protocol: ProtocolHTTP},
+	}
+
+	service1 = &Service{
+		Hostname: "one.service.com",
+		Address:  "192.168.3.1", // VIP
+		Ports: PortList{
+			&Port{Name: "http", Port: 81, Protocol: ProtocolHTTP},
+			&Port{Name: "http-alt", Port: 8081, Protocol: ProtocolHTTP},
+		},
+	}
+	service2 = &Service{
+		Hostname: "two.service.com",
+		Address:  "192.168.3.2", // VIP
+		Ports: PortList{
+			&Port{Name: "http", Port: 82, Protocol: ProtocolHTTP},
+			&Port{Name: "http-alt", Port: 8282, Protocol: ProtocolHTTP},
+		},
+	}
+
 	serviceInstance1 = &ServiceInstance{
-		Endpoint: NetworkEndpoint{
-			Address:     "192.168.1.1",
-			Port:        10001,
-			ServicePort: &Port{Name: "http", Port: 81, Protocol: ProtocolHTTP},
-		},
-		Service: &Service{
-			Hostname: "one.service.com",
-			Address:  "192.168.3.1", // VIP
-			Ports: PortList{
-				&Port{Name: "http", Port: 81, Protocol: ProtocolHTTP},
-				&Port{Name: "http-alt", Port: 8081, Protocol: ProtocolHTTP},
-			},
-		},
-		Tags: Tags{"a": "b", "c": "d"},
+		Endpoint: endpoint1,
+		Service:  service1,
+		Tags:     Tags{"a": "b", "c": "d"},
 	}
 	serviceInstance2 = &ServiceInstance{
-		Endpoint: NetworkEndpoint{
-			Address:     "192.168.1.2",
-			Port:        10002,
-			ServicePort: &Port{Name: "http", Port: 82, Protocol: ProtocolHTTP},
-		},
-		Service: &Service{
-			Hostname: "two.service.com",
-			Address:  "192.168.3.2", // VIP
-			Ports: PortList{
-				&Port{Name: "http", Port: 82, Protocol: ProtocolHTTP},
-				&Port{Name: "http-alt", Port: 8282, Protocol: ProtocolHTTP},
-			},
-		},
+		Endpoint: endpoint2,
+
+		Service: service2,
+
 		Tags: Tags{"e": "f", "g": "h"},
 	}
 
@@ -496,6 +504,387 @@ func TestKeyString(t *testing.T) {
 	for _, c := range cases {
 		if c.in.String() != c.want {
 			t.Errorf("Bad human-readable string: got %v want %v", c.in.String(), c.want)
+		}
+	}
+}
+
+func TestEventString(t *testing.T) {
+	cases := []struct {
+		in   Event
+		want string
+	}{
+		{EventAdd, "add"},
+		{EventUpdate, "update"},
+		{EventDelete, "delete"},
+	}
+	for _, c := range cases {
+		if got := c.in.String(); got != c.want {
+			t.Errorf("Failed: got %q want %q", got, c.want)
+		}
+	}
+}
+
+func TestProtoSchemaConversions(t *testing.T) {
+	routeRuleSchema := &ProtoSchema{MessageName: RouteRuleProto}
+
+	msg := &proxyconfig.RouteRule{
+		Destination: "foo",
+		Precedence:  5,
+		Route: []*proxyconfig.DestinationWeight{
+			{Destination: "bar", Weight: 75},
+			{Destination: "baz", Weight: 25},
+		},
+	}
+
+	wantYAML := "destination: foo\n" +
+		"precedence: 5\n" +
+		"route:\n" +
+		"- destination: bar\n" +
+		"  weight: 75\n" +
+		"- destination: baz\n" +
+		"  weight: 25\n"
+
+	wantJSONMap := map[string]interface{}{
+		"destination": "foo",
+		"precedence":  5.0,
+		"route": []interface{}{
+			map[string]interface{}{
+				"destination": "bar",
+				"weight":      75.0,
+			},
+			map[string]interface{}{
+				"destination": "baz",
+				"weight":      25.0,
+			},
+		},
+	}
+
+	badSchema := &ProtoSchema{MessageName: "bad-name"}
+	if _, err := badSchema.FromYAML(wantYAML); err == nil {
+		t.Errorf("FromYAML should have failed using ProtoSchema with bad MessageName")
+	}
+
+	gotYAML, err := routeRuleSchema.ToYAML(msg)
+	if err != nil {
+		t.Errorf("ToYAML failed: %v", err)
+	}
+	if !reflect.DeepEqual(gotYAML, wantYAML) {
+		t.Errorf("ToYAML failed: got %+v want %+v", spew.Sdump(gotYAML), spew.Sdump(wantYAML))
+	}
+	gotFromYAML, err := routeRuleSchema.FromYAML(wantYAML)
+	if err != nil {
+		t.Errorf("FromYAML failed: %v", err)
+	}
+	if !reflect.DeepEqual(gotFromYAML, msg) {
+		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromYAML), spew.Sdump(msg))
+	}
+
+	gotJSONMap, err := routeRuleSchema.ToJSONMap(msg)
+	if err != nil {
+		t.Errorf("ToJSONMap failed: %v", err)
+	}
+	if !reflect.DeepEqual(gotJSONMap, wantJSONMap) {
+		t.Errorf("ToJSONMap failed: \ngot %vwant %v", spew.Sdump(gotJSONMap), spew.Sdump(wantJSONMap))
+	}
+	gotFromJSONMap, err := routeRuleSchema.FromJSONMap(wantJSONMap)
+	if err != nil {
+		t.Errorf("FromJSONMap failed: %v", err)
+	}
+	if !reflect.DeepEqual(gotFromJSONMap, msg) {
+		t.Errorf("FromJSONMap failed: got %+v want %+v", spew.Sdump(gotFromJSONMap), spew.Sdump(msg))
+	}
+}
+
+func TestPortList(t *testing.T) {
+	pl := PortList{
+		{Name: "http", Port: 80, Protocol: ProtocolHTTP},
+		{Name: "http-alt", Port: 8080, Protocol: ProtocolHTTP},
+	}
+
+	gotNames := pl.GetNames()
+	wantNames := []string{"http", "http-alt"}
+	if !reflect.DeepEqual(gotNames, wantNames) {
+		t.Errorf("GetNames() failed: got %v want %v", gotNames, wantNames)
+	}
+
+	cases := []struct {
+		name  string
+		port  *Port
+		found bool
+	}{
+		{name: pl[0].Name, port: pl[0], found: true},
+		{name: "foobar", found: false},
+	}
+
+	for _, c := range cases {
+		gotPort, gotFound := pl.Get(c.name)
+		if c.found != gotFound || !reflect.DeepEqual(gotPort, c.port) {
+			t.Errorf("Get() failed: gotFound=%v wantFound=%v\ngot %+vwant %+v",
+				gotFound, c.found, spew.Sdump(gotPort), spew.Sdump(c.port))
+		}
+	}
+}
+
+func TestServiceKey(t *testing.T) {
+	svc := &Service{Hostname: "hostname"}
+
+	// Verify Service.Key() delegates to ServiceKey()
+	{
+		want := "hostname:http:a=b,c=d"
+		port := &Port{Name: "http", Port: 80, Protocol: ProtocolHTTP}
+		tags := Tags{"a": "b", "c": "d"}
+		got := svc.Key(port, tags)
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("Service.Key() failed: got %v want %v", got, want)
+		}
+	}
+
+	cases := []struct {
+		port PortList
+		tags TagsList
+		want string
+	}{
+		{
+			port: PortList{
+				{Name: "http", Port: 80, Protocol: ProtocolHTTP},
+				{Name: "http-alt", Port: 8080, Protocol: ProtocolHTTP},
+			},
+			tags: TagsList{{"a": "b", "c": "d"}},
+			want: "hostname:http,http-alt:a=b,c=d",
+		},
+		{
+			port: PortList{{Name: "http", Port: 80, Protocol: ProtocolHTTP}},
+			tags: TagsList{{"a": "b", "c": "d"}},
+			want: "hostname:http:a=b,c=d",
+		},
+		{
+			port: PortList{{Port: 80, Protocol: ProtocolHTTP}},
+			tags: TagsList{{"a": "b", "c": "d"}},
+			want: "hostname::a=b,c=d",
+		},
+		{
+			port: PortList{},
+			tags: TagsList{{"a": "b", "c": "d"}},
+			want: "hostname::a=b,c=d",
+		},
+		{
+			port: PortList{{Name: "http", Port: 80, Protocol: ProtocolHTTP}},
+			tags: TagsList{nil},
+			want: "hostname:http",
+		},
+		{
+			port: PortList{{Name: "http", Port: 80, Protocol: ProtocolHTTP}},
+			tags: TagsList{},
+			want: "hostname:http",
+		},
+		{
+			port: PortList{},
+			tags: TagsList{},
+			want: "hostname",
+		},
+	}
+
+	for _, c := range cases {
+		got := ServiceKey(svc.Hostname, c.port, c.tags)
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("Failed: got %q want %q", got, c.want)
+		}
+	}
+
+}
+
+func TestServiceInstanceValidate(t *testing.T) {
+	cases := []struct {
+		name     string
+		instance *ServiceInstance
+		valid    bool
+	}{
+		{
+			name: "nil service",
+			instance: &ServiceInstance{
+				Tags:     Tags{},
+				Endpoint: endpoint1,
+			},
+		},
+		{
+			name: "invalid service",
+			instance: &ServiceInstance{
+				Service: &Service{},
+			},
+		},
+		{
+			name: "invalid endpoint port and service port",
+			instance: &ServiceInstance{
+				Service: service1,
+				Endpoint: NetworkEndpoint{
+					Address: "192.168.1.2",
+					Port:    -80,
+				},
+			},
+		},
+		{
+			name: "endpoint missing service port",
+			instance: &ServiceInstance{
+				Service: service1,
+				Endpoint: NetworkEndpoint{
+					Address: "192.168.1.2",
+					Port:    service1.Ports[1].Port,
+					ServicePort: &Port{
+						Name:     service1.Ports[1].Name + "-extra",
+						Port:     service1.Ports[1].Port,
+						Protocol: service1.Ports[1].Protocol,
+					},
+				},
+			},
+		},
+		{
+			name: "endpoint port and protocol mismatch",
+			instance: &ServiceInstance{
+				Service: service1,
+				Endpoint: NetworkEndpoint{
+					Address: "192.168.1.2",
+					Port:    service1.Ports[1].Port,
+					ServicePort: &Port{
+						Name:     "http",
+						Port:     service1.Ports[1].Port + 1,
+						Protocol: ProtocolGRPC,
+					},
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		if got := c.instance.Validate(); (got == nil) != c.valid {
+			t.Errorf("%s failed: got valid=%v but wanted valid=%v: %v", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestServiceValidate(t *testing.T) {
+	ports := PortList{
+		{Name: "http", Port: 80, Protocol: ProtocolHTTP},
+		{Name: "http-alt", Port: 8080, Protocol: ProtocolHTTP},
+	}
+	badPorts := PortList{
+		{Port: 80, Protocol: ProtocolHTTP},
+		{Name: "http-alt^", Port: 8080, Protocol: ProtocolHTTP},
+		{Name: "http", Port: -80, Protocol: ProtocolHTTP},
+	}
+
+	address := "192.168.1.1"
+
+	cases := []struct {
+		name    string
+		service *Service
+		valid   bool
+	}{
+		{
+			name:    "empty hostname",
+			service: &Service{Hostname: "", Address: address, Ports: ports},
+		},
+		{
+			name:    "invalid hostname",
+			service: &Service{Hostname: "hostname.^.com", Address: address, Ports: ports},
+		},
+		{
+			name:    "empty ports",
+			service: &Service{Hostname: "hostname", Address: address},
+		},
+		{
+			name:    "bad ports",
+			service: &Service{Hostname: "hostname", Address: address, Ports: badPorts},
+		},
+	}
+	for _, c := range cases {
+		if got := c.service.Validate(); (got == nil) != c.valid {
+			t.Errorf("%s failed: got valid=%v but wanted valid=%v: %v", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestTagsValidate(t *testing.T) {
+	cases := []struct {
+		name  string
+		tags  Tags
+		valid bool
+	}{
+		{
+			name: "empty tags",
+		},
+		{
+			name: "bad tag",
+			tags: Tags{"^": "^"},
+		},
+		{
+			name:  "good tag",
+			tags:  Tags{"key": "value"},
+			valid: true,
+		},
+	}
+	for _, c := range cases {
+		if got := c.tags.Validate(); (got == nil) != c.valid {
+			t.Errorf("%s failed: got valid=%v but wanted valid=%v: %v", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestTagsEquals(t *testing.T) {
+	cases := []struct {
+		a, b Tags
+		want bool
+	}{
+		{
+			a: nil,
+			b: Tags{"a": "b"},
+		},
+		{
+			a: Tags{"a": "b"},
+			b: nil,
+		},
+		{
+			a:    Tags{"a": "b"},
+			b:    Tags{"a": "b"},
+			want: true,
+		},
+	}
+	for _, c := range cases {
+		if got := c.a.Equals(c.b); got != c.want {
+			t.Errorf("Failed: got eq=%v want=%v for %q ?= %q", got, c.want, c.a, c.b)
+		}
+	}
+}
+
+func TestValidateRouteAndIngressRule(t *testing.T) {
+	cases := []struct {
+		in    proto.Message
+		valid bool
+	}{
+		{in: &proxyconfig.DestinationPolicy{}, valid: false},
+		{in: &proxyconfig.RouteRule{}, valid: false},
+		{in: &proxyconfig.RouteRule{Destination: "foobar"}, valid: true},
+	}
+	for _, c := range cases {
+		if got := ValidateRouteRule(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateRouteRule failed: got valid=%v but wanted valid=%v: %v", got == nil, c.valid, got)
+		}
+		if got := ValidateIngressRule(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateIngressRule failed: got valid=%v but wanted valid=%v: %v", got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateDestinationPolicy(t *testing.T) {
+	cases := []struct {
+		in    proto.Message
+		valid bool
+	}{
+		{in: &proxyconfig.RouteRule{}, valid: false},
+		{in: &proxyconfig.DestinationPolicy{}, valid: false},
+		{in: &proxyconfig.DestinationPolicy{Destination: "foobar"}, valid: true},
+	}
+	for _, c := range cases {
+		if got := ValidateDestinationPolicy(c.in); (got == nil) != c.valid {
+			t.Errorf("Failed: got valid=%v but wanted valid=%v: %v", got == nil, c.valid, got)
 		}
 	}
 }
