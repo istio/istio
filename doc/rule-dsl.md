@@ -489,8 +489,8 @@ route:
 ```
 
 Although the default Istio behavior conveniently sends traffic from all versions of a source service
-to all versions of a destination service, without any rules being set, 
-as soon as version discrimination is desired, rules are going to be needed.
+to all versions of a destination service without any rules being set, 
+as soon as version discrimination is desired rules are going to be needed.
 
 Therefore, setting a default rule for every microservice, right from the start,
 is generally considered a best practice in Istio.
