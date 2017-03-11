@@ -124,6 +124,18 @@ func TestGoodEval(tt *testing.T) {
 			true, "",
 		},
 		{
+			`( origin.name | "unknown" ) == "users"`,
+			map[string]interface{}{},
+			false, "",
+		},
+		{
+			`( origin.name | "unknown" ) == "users"`,
+			map[string]interface{}{
+				"origin.name": "users",
+			},
+			true, "",
+		},
+		{
 			`(x/y) == 30`,
 			map[string]interface{}{
 				"x": int64(20),
