@@ -53,7 +53,7 @@ def presubmit(gitUtils, bazel, utils) {
       utils.publishCodeCoverage('MANAGER_CODECOV_TOKEN')
     }
     stage('Integration Tests') {
-      timeout(900) {
+      timeout(15) {
         sh('bin/e2e.sh -t alpha' + gitUtils.GIT_SHA + ' -d')
       }
     }
