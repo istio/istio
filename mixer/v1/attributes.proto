@@ -106,7 +106,7 @@ message Attributes {
   map<int32, google.protobuf.Timestamp> timestamp_attributes = 8 [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
   map<int32, google.protobuf.Duration> duration_attributes = 9 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
   map<int32, bytes> bytes_attributes = 10;
-  map<int32, StringMap> stringMap_attributes = 11;
+  map<int32, StringMap> stringMap_attributes = 11 [(gogoproto.nullable) = false];
 
   // Attributes that should be removed from the specified attribute context. Deleting
   // attributes which aren't currently in the attribute context is not considered an error.
