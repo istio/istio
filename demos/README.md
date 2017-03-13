@@ -1,11 +1,18 @@
 # Istio Demos
 
-This directory contains a stripped down version of the Amalgam8 demo applications (a simple helloworld app and a bookinfo app). The intent is to use this as the starting point for the outline of one or more Istio demos highlighting features such as ACLs, rate limiting, routing, etc. The Istio demo is intended to serve as the first milestone for the project (end of March) as well as serve as a checkpoint for functional parity with Amalgam8. 
+This directory contains a stripped down version of the [Amalgam8](https://www.amalgam8.io/) 
+bookinfo demo application. The intent is to use this as
+the starting point for the outline of one or more Istio demos highlighting features 
+such as ACLs, rate limiting, routing, etc. The Istio demo is intended to serve as the first
+milestone for the project (end of March) as well as serve as a checkpoint for functional parity 
+with Amalgam8. 
 
 ## Outline of Milestone 1 Demo
 
 This is a rough outline of the demo. It is based on the bookinfo application in [apps/bookinfo](apps/bookinfo).
-Once finalized, it will be described in detail in [bookinfo.md](bookinfo.md), which is currently still rough around the edges. Here are the key steps:
+The current demo, although still a work in progress, does work and can be found [here](bookinfo.md).
+
+Once completed, the intent is for the demo to cover the following key Istio features:
 
 1. **Seamless integration** Show that users can take an *unmodified* app (composed of services) and drop it into Istio. It should work out of the box with the Istio Service Mesh.
 

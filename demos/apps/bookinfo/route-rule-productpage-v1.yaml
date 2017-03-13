@@ -1,6 +1,0 @@
-destination: productpage.default.svc.cluster.local
-precedence: 1
-route:
-- tags:
-    version: v1
-  weight: 100
