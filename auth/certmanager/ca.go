@@ -14,7 +14,70 @@
 
 package certmanager
 
+import (
+	"crypto"
+	"crypto/x509"
+	"fmt"
+	"time"
+)
+
+const (
+	// The time to live for issued certificate.
+	certTTL = time.Hour
+	// The time to live for self-signed root CA certificate.
+	rootCertTTL = 24 * time.Hour
+)
+
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
-	Generate(name string) (key, cert []byte)
+	Generate(name, namespace string) (cert, key []byte)
+}
+
+// IstioCA generates keys and certificates for Istio identities.
+type IstioCA struct {
+	signerCert *x509.Certificate
+	signerKey  crypto.PrivateKey
+}
+
+// NewSelfSignedIstioCA returns a new IstioCA instance using self-signed certificate.
+func NewSelfSignedIstioCA() *IstioCA {
+	validFrom := time.Now().Format(timeLayout)
+	options := CertOptions{
+		ValidFrom:    validFrom,
+		ValidFor:     rootCertTTL,
+		Org:          "istio.io",
+		IsCA:         true,
+		IsSelfSigned: true,
+	}
+	pemCert, pemKey := GenCert(options)
+	cert, key := parsePemEncodedCertificateAndKey(pemCert, pemKey)
+
+	return NewIstioCA(cert, key)
+}
+
+// NewIstioCA returns a new IstioCA instance.
+func NewIstioCA(cert *x509.Certificate, key crypto.PrivateKey) *IstioCA {
+	return &IstioCA{
+		signerCert: cert,
+		signerKey:  key,
+	}
+}
+
+// Generate returns a key and a certificate of an Istio identity defined by
+// the name and the namespace.
+func (ca IstioCA) Generate(name, namepsace string) (cert, key []byte) {
+	// Currently the domain is always set to "cluster.local" since we only
+	// support in-cluster identities.
+	id := fmt.Sprintf("%s:%s.%s.cluster.local", uriScheme, name, namepsace)
+	validFrom := time.Now().Format(timeLayout)
+	options := CertOptions{
+		Host:         id,
+		ValidFrom:    validFrom,
+		ValidFor:     certTTL,
+		SignerCert:   ca.signerCert,
+		SignerPriv:   ca.signerKey,
+		IsCA:         false,
+		IsSelfSigned: false,
+	}
+	return GenCert(options)
 }

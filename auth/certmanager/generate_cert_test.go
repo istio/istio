@@ -59,7 +59,7 @@ func TestGenCert(t *testing.T) {
 		org:         "MyOrg",
 	})
 
-	caCert, caPriv := loadSignerCreds(caCertPem, caPrivPem)
+	caCert, caPriv := parsePemEncodedCertificateAndKey(caCertPem, caPrivPem)
 	cases := []struct {
 		certOptions CertOptions
 	}{

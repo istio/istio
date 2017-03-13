@@ -27,9 +27,9 @@ import (
 
 type fakeCa struct{}
 
-func (ca fakeCa) Generate(name string) (key, cert []byte) {
-	key = []byte("fake key")
+func (ca fakeCa) Generate(name, namespace string) (cert, key []byte) {
 	cert = []byte("fake cert")
+	key = []byte("fake key")
 	return
 }
 
