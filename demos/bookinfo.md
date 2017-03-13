@@ -102,8 +102,6 @@ $ cp istioctl-osx /usr/local/bin/istioctl
 
 ### Content Based Routing
 
-
-
 Since we have 3 versions of the reviews microservice running, we need to set the default route.
 Otherwise if you access the application several times, you would notice that sometimes the output contains 
 star ratings. This is because without an explicit default version set, Istio will 
@@ -310,6 +308,24 @@ When we are confident that our Bookinfo app is stable, we route 100% of the traf
 
 You can now log in to the `productpage` as any user and you should always see book reviews
 with *red* colored star ratings for each review.
+
+### Rate Limiting
+
+Now we'll pretend that `ratings` is an external service for which we are paying (like going to rotten tomatoes),
+so we will set a rate limit on the service such that the load remains under the Free quota (100q/s):
+
+```bash
+   $ istioctl create -f apps/bookinfo/mixer-policy-ratings-ratelimit.yaml
+```
+
+We now generate load on the `productpage` with the following command:
+
+```bash
+   $ while true; do curl -s -o /dev/null http://$GATEWAY_URL/productpage; done
+```
+
+If you now refresh the `productpage` you'll see that while the load generator is running
+(i.e., generating more than 100 req/s), we stop seeing stars.
 
 ## Cleanup
 
