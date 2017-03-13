@@ -19,6 +19,7 @@
 package certmanager
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -40,8 +41,8 @@ type CertOptions struct {
 	// like kubernetes service account.
 	Host string
 
-	// This certificate's validity start time formatted as
-	// Jan 1 15:04:05 2011.
+	// This certificate's validity start time. The start time must be formatted
+	// as the layout specified in certmanager.LayoutStartTime.
 	// If empty string, the validity start time is set to time.Now()
 	ValidFrom string
 
@@ -52,7 +53,7 @@ type CertOptions struct {
 	SignerCert *x509.Certificate
 
 	// Signer private key (PEM encoded).
-	SignerPriv *rsa.PrivateKey
+	SignerPriv crypto.PrivateKey
 
 	// Organization for this certificate.
 	Org string
@@ -77,7 +78,7 @@ const (
 	tarIP      = 7
 
 	// The URI scheme for Istio identities.
-	uriScheme = "istio:"
+	uriScheme = "istio"
 
 	// Layout for parsing time
 	timeLayout = "Jan 2 15:04:05 2006"
@@ -98,7 +99,7 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 		log.Fatalf("RSA key generation failed with error %s.", err)
 	}
 	template := genCertTemplate(options)
-	signerCert, signerKey := &template, priv
+	signerCert, signerKey := &template, crypto.PrivateKey(priv)
 	if !options.IsSelfSigned {
 		signerCert, signerKey = options.SignerCert, options.SignerPriv
 	}
@@ -119,7 +120,7 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 // LoadSignerCredsFromFiles loads the signer cert&key from the given files.
 //   signerCertFile: cert file name
 //   signerPrivFile: private key file name
-func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x509.Certificate, *rsa.PrivateKey) {
+func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x509.Certificate, crypto.PrivateKey) {
 	signerCertBytes, err := ioutil.ReadFile(signerCertFile)
 	if err != nil {
 		log.Fatalf("Reading cert file failed with error %s.", err)
@@ -129,25 +130,8 @@ func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x5
 	if err != nil {
 		log.Fatalf("Reading private key file failed with error %s.", err)
 	}
-	return loadSignerCreds(signerCertBytes, signerPrivBytes)
-}
 
-func loadSignerCreds(signerCertBytes []byte, signerPrivBytes []byte) (*x509.Certificate, *rsa.PrivateKey) {
-	der, _ := pem.Decode(signerCertBytes)
-	if der == nil {
-		log.Fatalf("Invalid PEM encoding.")
-	}
-	signerCert, err := x509.ParseCertificate(der.Bytes)
-	if err != nil {
-		log.Fatalf("Certificate parsing failed with error %s.", err)
-	}
-
-	der, _ = pem.Decode(signerPrivBytes)
-	signerKey, err := x509.ParsePKCS1PrivateKey(der.Bytes)
-	if err != nil {
-		log.Fatalf("Private key parsing failed with error %s.", err)
-	}
-	return signerCert, signerKey
+	return parsePemEncodedCertificateAndKey(signerCertBytes, signerPrivBytes)
 }
 
 // toFromDates generates the certficiate validity period [notBefore, notAfter]
@@ -218,7 +202,7 @@ func buildSubjectAltNameExtension(host string) pkix.Extension {
 			rv = &asn1.RawValue{Tag: tarIP, Class: asn1.ClassContextSpecific, Bytes: ip}
 		} else {
 			tag := tagDNSName
-			if strings.HasPrefix(h, uriScheme) {
+			if strings.HasPrefix(h, uriScheme+":") {
 				// Use URI for Istio identities
 				tag = tagURI
 			}

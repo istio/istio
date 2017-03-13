@@ -17,7 +17,7 @@
 package main
 
 import (
-	"crypto/rsa"
+	"crypto"
 	"crypto/x509"
 	"flag"
 	"fmt"
@@ -77,7 +77,7 @@ func main() {
 	checkCmdLine()
 
 	var signerCert *x509.Certificate
-	var signerPriv *rsa.PrivateKey
+	var signerPriv crypto.PrivateKey
 	if !*isSelfSigned {
 		signerCert, signerPriv = certmanager.LoadSignerCredsFromFiles(*signerCertFile, *signerPrivFile)
 	}
