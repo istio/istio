@@ -1,19 +1,21 @@
 # Istio Kubernetes Demo
 
 
-**Optional - Create a k8s namespace**
+**Optional - Create a k8s namespace and set your current context to use that namespace**
 
     kubectl create ns <ns>
+    
+    kubectl config set-context `kubectl config view | grep current-context | awk '{print $2}'` --namespace <ns>
 
 **Deploy istio infra**
 
-    kubectl apply -f ./istio -n <ns>
+    kubectl apply -f ./istio
 
 This will deploy istio discovery service and istio mixer.
 
 **Deploy a simple echo app with manually injected proxy**
 
-    kubectl apply -f ./apps/simple_echo_app -n <ns>
+    kubectl apply -f ./apps/simple_echo_app
 
 This will deploy two pods, each running a simple echo server and client, and will create two kubernetes services called "echo" and "logic".
 
@@ -21,24 +23,24 @@ This will deploy two pods, each running a simple echo server and client, and wil
 
 Note the pod corresponding to the apps "echo" and "logic":
     
-    kubectl get pods -n <ns>
+    kubectl get pods
 
 
 Send HTTP request from "echo" pod to "logic" service:
 
-    kubectl exec <echo-pod> -c app -n <ns> /bin/client http://logic/<some-text> -- --count 10
+    kubectl exec <echo-pod> -c app /bin/client http://logic/<some-text> -- --count 10
     
 Send HTTP request from "logic" pod to "echo" service:
 
-    kubectl exec -it <logic-pod> -c app -n demo /bin/client http://echo/<some-text> -- --count 10
+    kubectl exec -it <logic-pod> -c app /bin/client http://echo/<some-text> -- --count 10
 
 This will echo the URL and print HTTP headers, including "X-Envoy-Expected-Rq-Timeout-Ms".
 
 **Optional - Monitoring with Prometheus and Grafana**
 
-    kubectl apply -f ./prometheus.yaml -n <ns>    
+    kubectl apply -f ./prometheus.yaml  
 
-    kubectl apply -f ./grafana.yaml -n <ns>   
+    kubectl apply -f ./grafana.yaml   
 
 Grafana custom image contains a build-in Istio-dashboard that you can access from:
     
@@ -52,7 +54,7 @@ accessed via the proxy from:
     
 **Optional - Service Graph**
 
-    kubectl apply -f ./servicegraph.yaml -n <ns>
+    kubectl apply -f ./servicegraph.yaml
 
 View the graph json data and image at:
 
