@@ -92,3 +92,10 @@ func TestCreateReplaceDeletePolicy(t *testing.T) {
 		t.Fatalf("Second attempt to delete destination policy did not fail")
 	}
 }
+
+func TestBogusExplicitKubeConfig(t *testing.T) {
+	cmd.RootFlags.Kubeconfig = "/dummy/does-not-exist.yaml"
+	if err := cmd.RootCmd.PersistentPreRunE(postCmd, []string{}); err == nil { // Set up Client
+		t.Fatalf("Did not fail setting up client with bogus kubeconfig: %v", err)
+	}
+}

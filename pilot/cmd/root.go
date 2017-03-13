@@ -48,13 +48,23 @@ var (
 		Short: "Istio Manager",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) (err error) {
 			glog.V(2).Infof("Root flags: %#v", RootFlags)
-			Client, err = kube.NewClient(RootFlags.Kubeconfig, model.IstioConfig)
-			if err != nil {
-				Client, err = kube.NewClient(os.Getenv("HOME")+"/.kube/config", model.IstioConfig)
-				if err != nil {
-					return multierror.Prefix(err, "failed to connect to Kubernetes API.")
+
+			if RootFlags.Kubeconfig == "" {
+				if os.Getenv("KUBECONFIG") != "" {
+					glog.V(2).Infof("Setting configuration from KUBECONFIG environment variable")
+					RootFlags.Kubeconfig = os.Getenv("KUBECONFIG")
 				}
 			}
+
+			Client, err = kube.NewClient(RootFlags.Kubeconfig, model.IstioConfig)
+			if err != nil && RootFlags.Kubeconfig == "" {
+				// If no configuration was specified, and the platform client failed, try again using ~/.kube/config
+				Client, err = kube.NewClient(os.Getenv("HOME")+"/.kube/config", model.IstioConfig)
+			}
+			if err != nil {
+				return multierror.Prefix(err, "failed to connect to Kubernetes API.")
+			}
+
 			if err = Client.RegisterResources(); err != nil {
 				return multierror.Prefix(err, "failed to register Third-Party Resources.")
 			}
