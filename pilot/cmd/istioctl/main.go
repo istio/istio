@@ -133,17 +133,49 @@ var (
 	}
 
 	deleteCmd = &cobra.Command{
-		Use:   "delete <type> <name>",
-		Short: "Delete a policy or rule",
+		Use:   "delete <type> <name> [<name2> ... <nameN>]",
+		Short: "Delete policies or rules",
 		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) != 2 {
-				return fmt.Errorf("provide configuration type and name")
+			// If we did not receive a file option, get names of resources to delete from command line
+			if file == "" {
+				if len(args) < 2 {
+					return fmt.Errorf("provide configuration type and name or -f option")
+				}
+				for i := 1; i < len(args); i++ {
+					if err := setup(args[0], args[i]); err != nil {
+						return err
+					}
+					if err := cmd.Client.Delete(key); err != nil {
+						return err
+					}
+					fmt.Printf("Deleted %v %v\n", args[0], args[i])
+				}
+				return nil
 			}
-			if err := setup(args[0], args[1]); err != nil {
+
+			// As we did get a file option, make sure the command line did not include any resources to delete
+			if len(args) != 0 {
+				return fmt.Errorf("delete takes no arguments when the file option is used")
+			}
+			varr, err := readInputs()
+			if err != nil {
 				return err
 			}
-			err := cmd.Client.Delete(key)
-			return err
+			if len(varr) == 0 {
+				return errors.New("Nothing to delete")
+			}
+			for _, v := range varr {
+				if err = setup(v.Type, v.Name); err != nil {
+					return err
+				}
+				err = cmd.Client.Delete(key)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Deleted %v %v\n", v.Type, v.Name)
+			}
+
+			return nil
 		},
 	}
 
@@ -190,6 +222,7 @@ func init() {
 	postCmd.PersistentFlags().StringVarP(&file, "file", "f", "",
 		"Input file with the content of the configuration objects (if not set, command reads from the standard input)")
 	putCmd.PersistentFlags().AddFlag(postCmd.PersistentFlags().Lookup("file"))
+	deleteCmd.PersistentFlags().AddFlag(postCmd.PersistentFlags().Lookup("file"))
 
 	cmd.RootCmd.Use = "istioctl"
 	cmd.RootCmd.Long = fmt.Sprintf("Istio configuration command line utility. Available configuration types: %v",
