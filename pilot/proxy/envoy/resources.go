@@ -188,7 +188,7 @@ type VirtualHost struct {
 
 // HTTPRouteConfig definition
 type HTTPRouteConfig struct {
-	VirtualHosts []*VirtualHost `json:"virtual_hosts,omitempty"`
+	VirtualHosts []*VirtualHost `json:"virtual_hosts"`
 }
 
 // Merge operation selects a union of two route configs prioritizing the first.
