@@ -154,6 +154,9 @@ def bazel_to_vendor(WKSPC):
         if not link:
             # print "Could not resolve", ext_target
             continue
+        if link in pathmap:
+            # skip remapped deps
+            continue
         linksrc = vendor + "/" + link
 
         # only make this link if we have not made it above
