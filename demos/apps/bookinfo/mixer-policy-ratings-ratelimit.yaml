@@ -1,0 +1,10 @@
+type: mixer-policy
+name: ratings-ratelimit
+spec:
+  scope: global
+  rules:
+    selector: target.service == "ratings.default.svc.cluster.local"
+    aspects:
+      ratelimit:
+        list:
+        - limit: 20qps
