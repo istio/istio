@@ -66,7 +66,7 @@ func report(rootArgs *rootArgs, args []string, errorf errorFn) {
 
 	for i := 0; i < rootArgs.repeat; i++ {
 		// send the request
-		request := mixerpb.ReportRequest{RequestIndex: 0, AttributeUpdate: attrs}
+		request := mixerpb.ReportRequest{RequestIndex: 0, AttributeUpdate: *attrs}
 
 		if err = stream.Send(&request); err != nil {
 			errorf("Failed to send Report RPC: %v", err)

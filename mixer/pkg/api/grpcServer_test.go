@@ -107,21 +107,18 @@ func (ts *testState) cleanupTestState() {
 }
 
 func (ts *testState) Check(ctx context.Context, tracker attribute.Tracker, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
-	s := status.New(rpc.UNIMPLEMENTED)
 	response.RequestIndex = request.RequestIndex
-	response.Result = &s
+	response.Result = status.New(rpc.UNIMPLEMENTED)
 }
 
 func (ts *testState) Report(ctx context.Context, tracker attribute.Tracker, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
-	s := status.New(rpc.UNIMPLEMENTED)
 	response.RequestIndex = request.RequestIndex
-	response.Result = &s
+	response.Result = status.New(rpc.UNIMPLEMENTED)
 }
 
 func (ts *testState) Quota(ctx context.Context, tracker attribute.Tracker, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
-	s := status.New(rpc.UNIMPLEMENTED)
 	response.RequestIndex = request.RequestIndex
-	response.Result = &s
+	response.Result = status.New(rpc.UNIMPLEMENTED)
 	response.Amount = 0
 }
 

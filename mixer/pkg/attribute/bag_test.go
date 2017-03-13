@@ -22,22 +22,17 @@ import (
 	"testing"
 	"time"
 
-	ptypes "github.com/gogo/protobuf/types"
-
 	mixerpb "istio.io/api/mixer/v1"
 )
 
 var (
-	t9      = time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
-	t10     = time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
-	t42     = time.Date(2001, 1, 1, 1, 1, 1, 42, time.UTC)
-	ts9, _  = ptypes.TimestampProto(t9)
-	ts10, _ = ptypes.TimestampProto(t10)
+	t9  = time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
+	t10 = time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
+	t42 = time.Date(2001, 1, 1, 1, 1, 1, 42, time.UTC)
 
-	d1  = time.Duration(42) * time.Second
-	d2  = time.Duration(34) * time.Second
-	d3  = time.Duration(56) * time.Second
-	td1 = ptypes.DurationProto(d1)
+	d1 = time.Duration(42) * time.Second
+	d2 = time.Duration(34) * time.Second
+	d3 = time.Duration(56) * time.Second
 )
 
 func TestBag(t *testing.T) {
@@ -53,8 +48,8 @@ func TestBag(t *testing.T) {
 		Int64Attributes:     map[int32]int64{3: 3, 4: 4},
 		DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
 		BoolAttributes:      map[int32]bool{7: true, 8: false},
-		TimestampAttributes: map[int32]*ptypes.Timestamp{9: ts9, 10: ts10},
-		DurationAttributes:  map[int32]*ptypes.Duration{11: td1},
+		TimestampAttributes: map[int32]time.Time{9: t9, 10: t10},
+		DurationAttributes:  map[int32]time.Duration{11: d1},
 		BytesAttributes:     map[int32][]uint8{12: {12}, 13: {13}},
 		StringMapAttributes: map[int32]*mixerpb.StringMap{14: sm1, 15: sm2},
 	}
@@ -168,50 +163,6 @@ func TestContext(t *testing.T) {
 	if found || nb != nil {
 		t.Error("Expecting FromContext to fail cleanly")
 	}
-}
-
-func TestBadTimestamp(t *testing.T) {
-	// ensure we handle bogus on-the-wire timestamp values properly
-
-	// a bogus timestamp value
-	ts1 := &ptypes.Timestamp{Seconds: -1, Nanos: -1}
-
-	attr := mixerpb.Attributes{
-		Dictionary:          dictionary{1: "N1"},
-		TimestampAttributes: map[int32]*ptypes.Timestamp{1: ts1},
-	}
-
-	am := NewManager()
-	at := am.NewTracker()
-	defer at.Done()
-
-	_, err := at.StartRequest(&attr)
-	if err == nil {
-		t.Error("Successfully updated attributes, expected an error")
-	}
-	defer at.EndRequest()
-}
-
-func TestBadDuration(t *testing.T) {
-	// ensure we handle bogus on-the-wire duration values properly
-
-	// a bogus duration value
-	d1 := &ptypes.Duration{Seconds: 1, Nanos: -1}
-
-	attr := mixerpb.Attributes{
-		Dictionary:         dictionary{1: "N1"},
-		DurationAttributes: map[int32]*ptypes.Duration{1: d1},
-	}
-
-	am := NewManager()
-	at := am.NewTracker()
-	defer at.Done()
-
-	_, err := at.StartRequest(&attr)
-	if err == nil {
-		t.Error("Successfully updated attributes, expected an error")
-	}
-	defer at.EndRequest()
 }
 
 func TestBadStringMapKey(t *testing.T) {
@@ -413,7 +364,7 @@ func TestTimeKeys(t *testing.T) {
 			{
 				&mixerpb.Attributes{
 					Dictionary:          map[int32]string{1: "root"},
-					TimestampAttributes: map[int32]*ptypes.Timestamp{1: ts9},
+					TimestampAttributes: map[int32]time.Time{1: t9},
 				},
 				d{},
 				d{"root": t9},
@@ -426,7 +377,7 @@ func TestTimeKeys(t *testing.T) {
 			{
 				&mixerpb.Attributes{
 					Dictionary:          map[int32]string{1: "root"},
-					TimestampAttributes: map[int32]*ptypes.Timestamp{1: ts9},
+					TimestampAttributes: map[int32]time.Time{1: t9},
 				},
 				d{"one": t10, "two": t42},
 				d{"root": t9, "one": t10, "two": t42},
@@ -453,7 +404,7 @@ func TestDurationKeys(t *testing.T) {
 			{
 				&mixerpb.Attributes{
 					Dictionary:         map[int32]string{1: "root"},
-					DurationAttributes: map[int32]*ptypes.Duration{1: td1},
+					DurationAttributes: map[int32]time.Duration{1: d1},
 				},
 				d{},
 				d{"root": d1},
@@ -466,7 +417,7 @@ func TestDurationKeys(t *testing.T) {
 			{
 				&mixerpb.Attributes{
 					Dictionary:         map[int32]string{1: "root"},
-					DurationAttributes: map[int32]*ptypes.Duration{1: td1},
+					DurationAttributes: map[int32]time.Duration{1: d1},
 				},
 				d{"one": d2, "two": d3},
 				d{"root": d1, "one": d2, "two": d3},

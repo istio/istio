@@ -41,7 +41,7 @@ go_metalinter() {
     fi
 
     # default: lint everything. This runs on the main build
-    PKGS="./pkg/... ./cmd/... ./adapter/..."
+    PKGS="./pkg/... ./cmd/... ./adapter/... ./example/..."
 
     # convert LAST_GOOD_GITSHA to list of packages.
     if [[ ! -z ${LAST_GOOD_GITSHA} ]];then

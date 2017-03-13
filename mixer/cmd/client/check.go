@@ -61,7 +61,7 @@ func check(rootArgs *rootArgs, args []string, errorf errorFn) {
 
 	for i := 0; i < rootArgs.repeat; i++ {
 		// send the request
-		request := mixerpb.CheckRequest{RequestIndex: int64(i), AttributeUpdate: attrs}
+		request := mixerpb.CheckRequest{RequestIndex: int64(i), AttributeUpdate: *attrs}
 
 		if err = stream.Send(&request); err != nil {
 			errorf("Failed to send Check RPC: %v", err)

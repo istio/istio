@@ -173,7 +173,7 @@ func TestDecodeStatus(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			s := decodeStatus(&c)
+			s := decodeStatus(c)
 			if s == "" {
 				t.Error("Got '', expecting a valid string")
 			}

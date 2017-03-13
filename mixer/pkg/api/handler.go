@@ -22,7 +22,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	ptypes "github.com/gogo/protobuf/types"
 	"github.com/golang/glog"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -117,14 +116,14 @@ func (h *handlerState) Check(ctx context.Context, tracker attribute.Tracker, req
 		glog.Infof("Check [%x]", request.RequestIndex)
 	}
 
-	o := h.execute(ctx, tracker, request.AttributeUpdate, aspect.CheckMethod, &aspect.CheckMethodArgs{})
+	o := h.execute(ctx, tracker, &request.AttributeUpdate, aspect.CheckMethod, &aspect.CheckMethodArgs{})
 	response.RequestIndex = request.RequestIndex
-	response.Result = &o.Status
+	response.Result = o.Status
 
 	// TODO: this value needs to initially come from config, and be modulated by the kind of attribute
 	//       that was used in the check and the in-used aspects (for example, maybe an auth check has a
 	//       30s TTL but a whitelist check has got a 120s TTL)
-	response.Expiration = ptypes.DurationProto(time.Duration(5) * time.Second)
+	response.Expiration = time.Duration(5) * time.Second
 
 	if glog.V(2) {
 		glog.Infof("Check [%x] <-- %s", request.RequestIndex, response)
@@ -137,9 +136,9 @@ func (h *handlerState) Report(ctx context.Context, tracker attribute.Tracker, re
 		glog.Infof("Report [%x]", request.RequestIndex)
 	}
 
-	o := h.execute(ctx, tracker, request.AttributeUpdate, aspect.ReportMethod, &aspect.ReportMethodArgs{})
+	o := h.execute(ctx, tracker, &request.AttributeUpdate, aspect.ReportMethod, &aspect.ReportMethodArgs{})
 	response.RequestIndex = request.RequestIndex
-	response.Result = &o.Status
+	response.Result = o.Status
 
 	if glog.V(2) {
 		glog.Infof("Report [%x] <-- %s", request.RequestIndex, response)
@@ -153,7 +152,7 @@ func (h *handlerState) Quota(ctx context.Context, tracker attribute.Tracker, req
 	}
 
 	response.RequestIndex = request.RequestIndex
-	o := h.execute(ctx, tracker, request.AttributeUpdate, aspect.QuotaMethod,
+	o := h.execute(ctx, tracker, &request.AttributeUpdate, aspect.QuotaMethod,
 		&aspect.QuotaMethodArgs{
 			Quota:           request.Quota,
 			Amount:          request.Amount,
@@ -161,11 +160,11 @@ func (h *handlerState) Quota(ctx context.Context, tracker attribute.Tracker, req
 			BestEffort:      request.BestEffort,
 		})
 
-	response.Result = &o.Status
+	response.Result = o.Status
 	if o.IsOK() {
 		resp := o.Response.(*aspect.QuotaMethodResp)
 		response.Amount = resp.Amount
-		response.Expiration = ptypes.DurationProto(resp.Expiration)
+		response.Expiration = resp.Expiration
 	}
 
 	if glog.V(2) {
