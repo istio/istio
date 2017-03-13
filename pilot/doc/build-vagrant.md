@@ -5,7 +5,7 @@ _Note:_ This section applies to Mac and Windows users only. You can develop nati
 
 ## Pre-requisites ##
 
-- Setup Go 1.7.5+ on your host machine
+- Setup Go 1.8+ on your host machine
 - Clone this repository
 - Install [Virtualbox](https://github.com/kubernetes/minikube/releases)
 - Install [Minikube](https://github.com/kubernetes/minikube/releases)

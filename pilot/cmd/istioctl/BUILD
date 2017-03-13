@@ -27,6 +27,8 @@ go_prefix("istio.io/manager")
 go_test(
     name = "go_default_test",
     srcs = ["istioctl_test.go"],
-    data = glob(["testdata/*.yaml"]),
+    data = glob(["testdata/*.yaml"]) + [
+        "//platform/kube:kubeconfig",
+    ],
     library = ":go_default_library",
 )

@@ -20,7 +20,15 @@ import (
 	"istio.io/manager/cmd"
 )
 
+func rootSetup(t *testing.T) {
+	cmd.RootFlags.Kubeconfig = "../../platform/kube/config"
+	if err := cmd.RootCmd.PersistentPreRunE(postCmd, []string{}); err != nil { // Set up Client
+		t.Fatalf("Could not set up root command: %v", err)
+	}
+}
+
 func TestCreateInvalidFile(t *testing.T) {
+	rootSetup(t)
 	file = "does-not-exist.yaml"
 	if err := postCmd.RunE(postCmd, []string{}); err == nil {
 		t.Fatalf("Did not fail looking for file")
@@ -28,6 +36,7 @@ func TestCreateInvalidFile(t *testing.T) {
 }
 
 func TestInvalidType(t *testing.T) {
+	rootSetup(t)
 	file = "testdata/invalid-type.yaml"
 	if err := postCmd.RunE(postCmd, []string{}); err == nil {
 		t.Fatalf("Did not fail when presented with invalid rule type")
@@ -35,6 +44,7 @@ func TestInvalidType(t *testing.T) {
 }
 
 func TestInvalidRuleStructure(t *testing.T) {
+	rootSetup(t)
 	file = "testdata/invalid-dest-policy.yaml"
 	if err := postCmd.RunE(postCmd, []string{}); err == nil {
 		t.Fatalf("Did not fail when presented with invalid rule structure")
@@ -42,10 +52,8 @@ func TestInvalidRuleStructure(t *testing.T) {
 }
 
 func TestCreateReplaceDeleteRoutes(t *testing.T) {
+	rootSetup(t)
 	file = "testdata/four-route-rules.yaml"
-	if err := cmd.RootCmd.PersistentPreRunE(postCmd, []string{}); err != nil { // Set up Client
-		t.Fatalf("Could not set up root command: %v", err)
-	}
 	if err := postCmd.RunE(postCmd, []string{}); err != nil {
 		t.Fatalf("Could not create routes: %v", err)
 	}
@@ -65,10 +73,8 @@ func TestCreateReplaceDeleteRoutes(t *testing.T) {
 }
 
 func TestCreateReplaceDeletePolicy(t *testing.T) {
+	rootSetup(t)
 	file = "testdata/dest-policy.yaml"
-	if err := cmd.RootCmd.PersistentPreRunE(postCmd, []string{}); err != nil { // Set up Client
-		t.Fatalf("Could not set up root command: %v", err)
-	}
 	if err := postCmd.RunE(postCmd, []string{}); err != nil {
 		t.Fatalf("Could not create destination policy: %v", err)
 	}

@@ -39,8 +39,6 @@ import (
 // - lists in the config must be de-duplicated and ordered in a canonical way
 
 // TODO: missing features in the config generation:
-// - TCP routing
-// - HTTPS protocol for inbound and outbound configuration using TCP routing or SNI
 // - HTTP pod port collision creates duplicate virtual host entries
 // - (bug) two service ports with the same target port create two virtual hosts with same domains
 //   (not allowed by envoy). FIXME - need to detect and eliminate such ports in validation
@@ -299,7 +297,7 @@ func buildOutboundRoutes(instances []*model.ServiceInstance, services []*model.S
 				http := httpConfigs.EnsurePort(port.Port)
 				http.VirtualHosts = append(http.VirtualHosts, host)
 
-			case model.ProtocolTCP:
+			case model.ProtocolTCP, model.ProtocolHTTPS:
 				cluster := buildOutboundCluster(service.Hostname, port, nil)
 				route := buildTCPRoute(cluster, []string{service.Address}, port.Port)
 				config := tcpConfigs.EnsurePort(port.Port)
@@ -343,7 +341,7 @@ func buildInboundRoutes(instances []*model.ServiceInstance) (HTTPRouteConfigs, T
 			http := httpConfigs.EnsurePort(endpoint.Port)
 			http.VirtualHosts = append(http.VirtualHosts, host)
 
-		case model.ProtocolTCP:
+		case model.ProtocolTCP, model.ProtocolHTTPS:
 			cluster := buildInboundCluster(service.Hostname, endpoint.Port, protocol)
 
 			// Local service instances can be accessed through one of three

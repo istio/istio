@@ -152,6 +152,7 @@ func check(err error) {
 func teardown() {
 	if verbose {
 		log.Print(podLogs(pods["a"], "proxy"))
+		log.Print(podLogs(pods["b"], "proxy"))
 	}
 	if nameSpaceCreated {
 		deleteNamespace(client, params.namespace)

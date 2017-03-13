@@ -18,7 +18,7 @@ spec:
     name: tcp
   - port: 9090
     targetPort: {{.port4}}
-    name: tcp-alternative
+    name: https
   selector:
     app: {{.service}}
 ---

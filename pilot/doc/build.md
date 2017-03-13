@@ -4,9 +4,9 @@
 
 Install additional build dependencies before trying to build.
 
-    sh bin/install-prereqs.sh
+    bin/install-prereqs.sh
 
-We are using [Bazel 0.4.4](https://github.com/bazelbuild/bazel/releases) as the main build system in Istio Manager. The following commands builds all targets in Istio Manager:
+We are using [Bazel 0.4.4](https://github.com/bazelbuild/bazel/releases) as the main build system in Istio Manager. The following command builds all targets in Istio Manager:
 
     bazel build //:all
 
@@ -25,11 +25,13 @@ try to update the mlocate database and run `locate gazelle`.
 
 ## Go tooling compatibility
 
+Istio Manager requires Go1.8+ toolchain.
+
 Bazel build environment is compatible with the standard Golang tooling, except you need to vendorize all dependencies in Istio Manager. If you have successfully built with Bazel, run the following script to put dependencies fetched by Bazel into `vendor` directory:
 
     bin/init.sh
 
-After running this command, you should be able to use standard go tools:
+After running this command, you should be able to use all standard go tools:
 
     go generate istio.io/manager/...
     go build istio.io/manager/...

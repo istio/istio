@@ -368,9 +368,9 @@ func TestIstioRegistryRouteAndIngressRules(t *testing.T) {
 		{
 			name: "Slice of unsorted RouteRules",
 			mockObjs: map[Key]proto.Message{
-				Key{Kind: "foo"}: routeRule1MatchNil,
-				Key{Kind: "bar"}: routeRule3SourceMismatch,
-				Key{Kind: "baz"}: routeRule2SourceEmpty,
+				{Kind: "foo"}: routeRule1MatchNil,
+				{Kind: "bar"}: routeRule3SourceMismatch,
+				{Kind: "baz"}: routeRule2SourceEmpty,
 			},
 			want: []*proxyconfig.RouteRule{
 				routeRule1MatchNil,
@@ -409,12 +409,12 @@ func TestIstioRegistryRouteRulesBySource(t *testing.T) {
 	instances := []*ServiceInstance{serviceInstance1, serviceInstance2}
 
 	mockObjs := map[Key]proto.Message{
-		Key{Kind: "match-nil"}:              routeRule1MatchNil,
-		Key{Kind: "source-empty"}:           routeRule2SourceEmpty,
-		Key{Kind: "source-mismatch"}:        routeRule3SourceMismatch,
-		Key{Kind: "source-match"}:           routeRule4SourceMatch,
-		Key{Kind: "tag-subset-of-mismatch"}: routeRule5TagSubsetOfMismatch,
-		Key{Kind: "tag-subset-of-match"}:    routeRule6TagSubsetOfMatch,
+		{Kind: "match-nil"}:              routeRule1MatchNil,
+		{Kind: "source-empty"}:           routeRule2SourceEmpty,
+		{Kind: "source-mismatch"}:        routeRule3SourceMismatch,
+		{Kind: "source-match"}:           routeRule4SourceMatch,
+		{Kind: "tag-subset-of-mismatch"}: routeRule5TagSubsetOfMismatch,
+		{Kind: "tag-subset-of-match"}:    routeRule6TagSubsetOfMatch,
 	}
 	want := []*proxyconfig.RouteRule{
 		routeRule6TagSubsetOfMatch,
@@ -449,9 +449,9 @@ func TestIstioRegistryPoliciesByNamespace(t *testing.T) {
 		{
 			name: "Slice of unsorted DestinationPolicy",
 			mockObjs: map[Key]proto.Message{
-				Key{Kind: "foo"}: dstPolicy1,
-				Key{Kind: "bar"}: dstPolicy2,
-				Key{Kind: "baz"}: dstPolicy3,
+				{Kind: "foo"}: dstPolicy1,
+				{Kind: "bar"}: dstPolicy2,
+				{Kind: "baz"}: dstPolicy3,
 			},
 			want: []*proxyconfig.DestinationPolicy{
 				dstPolicy1, dstPolicy2, dstPolicy3,
@@ -479,10 +479,10 @@ func TestIstioRegistryDestinationPolicies(t *testing.T) {
 	defer r.shutdown()
 
 	mockObjs := map[Key]proto.Message{
-		Key{Kind: "foo"}:  dstPolicy1,
-		Key{Kind: "foo2"}: dstPolicy2,
-		Key{Kind: "bar"}:  dstPolicy3,
-		Key{Kind: "baz"}:  dstPolicy4,
+		{Kind: "foo"}:  dstPolicy1,
+		{Kind: "foo2"}: dstPolicy2,
+		{Kind: "bar"}:  dstPolicy3,
+		{Kind: "baz"}:  dstPolicy4,
 	}
 	want := []*proxyconfig.DestinationPolicy{dstPolicy1}
 

@@ -113,7 +113,7 @@ type NetworkEndpoint struct {
 	// Port declaration from the service declaration This is the port for
 	// the service associated with this instance (e.g.,
 	// catalog.mystore.com)
-	ServicePort *Port `json:"port"`
+	ServicePort *Port `json:"service_port"`
 }
 
 // Tags is a non empty set of arbitrary strings. Each version of a service can

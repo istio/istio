@@ -63,7 +63,7 @@ var (
 				return err
 			}
 			if len(varr) == 0 {
-				return errors.New("Nothing to create")
+				return errors.New("nothing to create")
 			}
 			for _, v := range varr {
 				if err = setup(v.Type, v.Name); err != nil {
@@ -92,7 +92,7 @@ var (
 				return err
 			}
 			if len(varr) == 0 {
-				return errors.New("Nothing to replace")
+				return errors.New("nothing to replace")
 			}
 			for _, v := range varr {
 				if err = setup(v.Type, v.Name); err != nil {
@@ -162,7 +162,7 @@ var (
 				return err
 			}
 			if len(varr) == 0 {
-				return errors.New("Nothing to delete")
+				return errors.New("nothing to delete")
 			}
 			for _, v := range varr {
 				if err = setup(v.Type, v.Name); err != nil {
@@ -296,12 +296,12 @@ func readInputs() ([]inputDoc, error) {
 		// Do a second decode pass, to get the data into structured format
 		byteRule, err := json.Marshal(v.Spec)
 		if err != nil {
-			return nil, fmt.Errorf("Could not encode Spec: %v", err)
+			return nil, fmt.Errorf("could not encode Spec: %v", err)
 		}
 
 		schema, ok := model.IstioConfig[v.Type]
 		if !ok {
-			return nil, fmt.Errorf("Unknown spec type %s", v.Type)
+			return nil, fmt.Errorf("unknown spec type %s", v.Type)
 		}
 		rr, err := schema.FromJSON(string(byteRule))
 		if err != nil {
