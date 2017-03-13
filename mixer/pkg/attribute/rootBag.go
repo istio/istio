@@ -21,7 +21,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	ptypes "github.com/gogo/protobuf/types"
 	"github.com/golang/glog"
 	me "github.com/hashicorp/go-multierror"
 
@@ -260,23 +259,15 @@ func checkPreconditions(dictionary dictionary, attrs *mixerpb.Attributes) error 
 		}
 	}
 
-	for k, v := range attrs.TimestampAttributes {
+	for k := range attrs.TimestampAttributes {
 		if _, present := dictionary[k]; !present {
 			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
-		}
-
-		if _, err := ptypes.TimestampFromProto(v); err != nil {
-			e = me.Append(e, err)
 		}
 	}
 
-	for k, v := range attrs.DurationAttributes {
+	for k := range attrs.DurationAttributes {
 		if _, present := dictionary[k]; !present {
 			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
-		}
-
-		if _, err := ptypes.DurationFromProto(v); err != nil {
-			e = me.Append(e, err)
 		}
 	}
 
@@ -374,14 +365,14 @@ func (rb *rootBag) update(dictionary dictionary, attrs *mixerpb.Attributes) erro
 		if log != nil {
 			log.WriteString(fmt.Sprintf("  updating time attribute %s from '%v' to '%v'\n", dictionary[k], rb.times[dictionary[k]], v))
 		}
-		rb.times[dictionary[k]], _ = ptypes.TimestampFromProto(v)
+		rb.times[dictionary[k]] = v
 	}
 
 	for k, v := range attrs.DurationAttributes {
 		if log != nil {
 			log.WriteString(fmt.Sprintf("  updating duration attribute %s from '%v' to '%v'\n", dictionary[k], rb.durations[dictionary[k]], v))
 		}
-		rb.durations[dictionary[k]], _ = ptypes.DurationFromProto(v)
+		rb.durations[dictionary[k]] = v
 	}
 
 	for k, v := range attrs.BytesAttributes {

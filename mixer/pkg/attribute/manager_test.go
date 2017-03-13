@@ -18,8 +18,6 @@ import (
 	"testing"
 	"time"
 
-	ptypes "github.com/gogo/protobuf/types"
-
 	mixerpb "istio.io/api/mixer/v1"
 )
 
@@ -103,8 +101,8 @@ func TestAttributeManager(t *testing.T) {
 				Int64Attributes:     map[int32]int64{2: 2},
 				DoubleAttributes:    map[int32]float64{3: 3.0},
 				BoolAttributes:      map[int32]bool{4: true},
-				TimestampAttributes: map[int32]*ptypes.Timestamp{5: {Seconds: 5, Nanos: 5}},
-				DurationAttributes:  map[int32]*ptypes.Duration{7: {Seconds: 42}},
+				TimestampAttributes: map[int32]time.Time{5: time.Date(1970, time.January, 1, 0, 0, 5, 5, time.UTC)},
+				DurationAttributes:  map[int32]time.Duration{7: time.Duration(42) * time.Second},
 				BytesAttributes:     map[int32][]uint8{6: {6}},
 				StringMapAttributes: map[int32]*mixerpb.StringMap{8: sm},
 				ResetContext:        false,
@@ -240,8 +238,8 @@ func TestAttributeManager(t *testing.T) {
 				Int64Attributes:     map[int32]int64{2: 2},
 				DoubleAttributes:    map[int32]float64{3: 3.0},
 				BoolAttributes:      map[int32]bool{4: true},
-				TimestampAttributes: map[int32]*ptypes.Timestamp{5: {Seconds: 5, Nanos: 5}},
-				DurationAttributes:  map[int32]*ptypes.Duration{7: {Seconds: 42}},
+				TimestampAttributes: map[int32]time.Time{5: time.Date(0, 0, 0, 0, 0, 5, 5, time.UTC)},
+				DurationAttributes:  map[int32]time.Duration{7: time.Duration(42) * time.Second},
 				BytesAttributes:     map[int32][]uint8{6: {6}},
 				StringMapAttributes: map[int32]*mixerpb.StringMap{8: sm},
 				ResetContext:        false,
@@ -301,13 +299,13 @@ func TestAttributeManager(t *testing.T) {
 
 		// 11: try out bad dictionary index for timestamp
 		{
-			attrs:  mixerpb.Attributes{TimestampAttributes: map[int32]*ptypes.Timestamp{42: {}}},
+			attrs:  mixerpb.Attributes{TimestampAttributes: map[int32]time.Time{42: {}}},
 			result: false,
 		},
 
 		// 12: try out bad dictionary index for duration
 		{
-			attrs:  mixerpb.Attributes{DurationAttributes: map[int32]*ptypes.Duration{42: {Seconds: 0}}},
+			attrs:  mixerpb.Attributes{DurationAttributes: map[int32]time.Duration{42: time.Duration(0)}},
 			result: false,
 		},
 

@@ -18,19 +18,14 @@ import (
 	"testing"
 	"time"
 
-	ptypes "github.com/gogo/protobuf/types"
-
 	mixerpb "istio.io/api/mixer/v1"
 )
 
 func BenchmarkTracker(b *testing.B) {
 	t9 := time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
 	t10 := time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
-	ts9, _ := ptypes.TimestampProto(t9)
-	ts10, _ := ptypes.TimestampProto(t10)
 
 	d := time.Duration(42) * time.Second
-	ds := ptypes.DurationProto(d)
 
 	sm := &mixerpb.StringMap{Map: map[int32]string{14: "14"}}
 
@@ -42,8 +37,8 @@ func BenchmarkTracker(b *testing.B) {
 			Int64Attributes:     map[int32]int64{3: 3, 4: 4},
 			DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
 			BoolAttributes:      map[int32]bool{7: true, 8: false},
-			TimestampAttributes: map[int32]*ptypes.Timestamp{9: ts9, 10: ts10},
-			DurationAttributes:  map[int32]*ptypes.Duration{11: ds},
+			TimestampAttributes: map[int32]time.Time{9: t9, 10: t10},
+			DurationAttributes:  map[int32]time.Duration{11: d},
 			BytesAttributes:     map[int32][]uint8{12: {12}, 13: {13}},
 			StringMapAttributes: map[int32]*mixerpb.StringMap{14: sm},
 		},
@@ -55,8 +50,8 @@ func BenchmarkTracker(b *testing.B) {
 			Int64Attributes:     map[int32]int64{3: 3, 4: 4},
 			DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
 			BoolAttributes:      map[int32]bool{7: true, 8: false},
-			TimestampAttributes: map[int32]*ptypes.Timestamp{9: ts9, 10: ts10},
-			DurationAttributes:  map[int32]*ptypes.Duration{11: ds},
+			TimestampAttributes: map[int32]time.Time{9: t9, 10: t10},
+			DurationAttributes:  map[int32]time.Duration{11: d},
 			BytesAttributes:     map[int32][]uint8{12: {12}, 13: {13}},
 			StringMapAttributes: map[int32]*mixerpb.StringMap{14: sm},
 		},
@@ -90,10 +85,7 @@ func BenchmarkTracker(b *testing.B) {
 func TestTracker_StartRequest(t *testing.T) {
 	t9 := time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
 	t10 := time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
-	ts9, _ := ptypes.TimestampProto(t9)
-	ts10, _ := ptypes.TimestampProto(t10)
 	d := time.Duration(42) * time.Second
-	ds := ptypes.DurationProto(d)
 	sm := &mixerpb.StringMap{Map: map[int32]string{14: "14"}}
 
 	attr1 := mixerpb.Attributes{
@@ -103,8 +95,8 @@ func TestTracker_StartRequest(t *testing.T) {
 		Int64Attributes:     map[int32]int64{3: 3, 4: 4},
 		DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
 		BoolAttributes:      map[int32]bool{7: true, 8: false},
-		TimestampAttributes: map[int32]*ptypes.Timestamp{9: ts9, 10: ts10},
-		DurationAttributes:  map[int32]*ptypes.Duration{11: ds},
+		TimestampAttributes: map[int32]time.Time{9: t9, 10: t10},
+		DurationAttributes:  map[int32]time.Duration{11: d},
 		BytesAttributes:     map[int32][]uint8{12: {12}, 13: {13}},
 		StringMapAttributes: map[int32]*mixerpb.StringMap{14: sm},
 	}
@@ -116,8 +108,8 @@ func TestTracker_StartRequest(t *testing.T) {
 		Int64Attributes:     map[int32]int64{3: 3, 4: 4},
 		DoubleAttributes:    map[int32]float64{5: 5.0, 6: 6.0},
 		BoolAttributes:      map[int32]bool{7: true, 8: false},
-		TimestampAttributes: map[int32]*ptypes.Timestamp{9: ts9, 10: ts10},
-		DurationAttributes:  map[int32]*ptypes.Duration{11: ds},
+		TimestampAttributes: map[int32]time.Time{9: t9, 10: t10},
+		DurationAttributes:  map[int32]time.Duration{11: d},
 		BytesAttributes:     map[int32][]uint8{12: {12}, 13: {13}},
 		StringMapAttributes: map[int32]*mixerpb.StringMap{14: sm, 15: sm},
 	}

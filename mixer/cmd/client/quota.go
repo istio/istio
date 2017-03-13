@@ -76,7 +76,7 @@ func quota(rootArgs *rootArgs, args []string, errorf errorFn, name string, dedup
 		// send the request
 		request := mixerpb.QuotaRequest{
 			RequestIndex:    int64(i),
-			AttributeUpdate: attrs,
+			AttributeUpdate: *attrs,
 			Quota:           name,
 			Amount:          amount,
 			DeduplicationId: dedup,

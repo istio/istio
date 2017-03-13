@@ -43,7 +43,6 @@ go_test(
     size = "small",
     srcs = [
         "accessLogsManager_test.go",
-        "applicationLogsManager_test.go",
         "denialsManager_test.go",
         "descriptors_test.go",
         "listsManager_test.go",

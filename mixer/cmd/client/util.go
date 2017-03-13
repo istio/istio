@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	ptypes "github.com/gogo/protobuf/types"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 	bt "github.com/opentracing/basictracer-go"
 	"google.golang.org/grpc"
@@ -76,7 +75,7 @@ func parseTime(s string) (interface{}, error) {
 		return nil, err
 	}
 
-	return ptypes.TimestampProto(t)
+	return t, nil
 }
 
 func parseDuration(s string) (interface{}, error) {
@@ -85,7 +84,7 @@ func parseDuration(s string) (interface{}, error) {
 		return nil, err
 	}
 
-	return ptypes.DurationProto(d), nil
+	return d, nil
 }
 
 func parseBytes(s string) (interface{}, error) {
@@ -176,8 +175,8 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 	attrs.Int64Attributes = make(map[int32]int64)
 	attrs.DoubleAttributes = make(map[int32]float64)
 	attrs.BoolAttributes = make(map[int32]bool)
-	attrs.TimestampAttributes = make(map[int32]*ptypes.Timestamp)
-	attrs.DurationAttributes = make(map[int32]*ptypes.Duration)
+	attrs.TimestampAttributes = make(map[int32]time.Time)
+	attrs.DurationAttributes = make(map[int32]time.Duration)
 	attrs.BytesAttributes = make(map[int32][]uint8)
 	attrs.StringMapAttributes = make(map[int32]*mixerpb.StringMap)
 
@@ -218,14 +217,14 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 		return nil, err
 	}
 	for k, v := range m {
-		attrs.TimestampAttributes[k] = v.(*ptypes.Timestamp)
+		attrs.TimestampAttributes[k] = v.(time.Time)
 	}
 
 	if m, err = process(attrs.Dictionary, rootArgs.durationAttributes, parseDuration); err != nil {
 		return nil, err
 	}
 	for k, v := range m {
-		attrs.DurationAttributes[k] = v.(*ptypes.Duration)
+		attrs.DurationAttributes[k] = v.(time.Duration)
 	}
 
 	if m, err = process(attrs.Dictionary, rootArgs.bytesAttributes, parseBytes); err != nil {
@@ -256,9 +255,9 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 		} else if val, err := parseBool(s); err == nil {
 			attrs.BoolAttributes[k] = val.(bool)
 		} else if val, err := parseTime(s); err == nil {
-			attrs.TimestampAttributes[k] = val.(*ptypes.Timestamp)
+			attrs.TimestampAttributes[k] = val.(time.Time)
 		} else if val, err := parseDuration(s); err == nil {
-			attrs.DurationAttributes[k] = val.(*ptypes.Duration)
+			attrs.DurationAttributes[k] = val.(time.Duration)
 		} else if val, err := parseBytes(s); err == nil {
 			attrs.BytesAttributes[k] = val.([]uint8)
 		} else if val, err := parseStringMap(s); err == nil {
@@ -271,11 +270,7 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 	return &attrs, nil
 }
 
-func decodeStatus(status *rpc.Status) string {
-	if status == nil {
-		return "<invalid status>"
-	}
-
+func decodeStatus(status rpc.Status) string {
 	result, ok := rpc.Code_name[status.Code]
 	if !ok {
 		result = fmt.Sprintf("Code %d", status.Code)
