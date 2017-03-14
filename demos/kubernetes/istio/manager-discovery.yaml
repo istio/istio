@@ -27,6 +27,8 @@ spec:
       - name: manager
         image: gcr.io/istio-testing/runtime:demo
         imagePullPolicy: Always
+        securityContext:
+          privileged: true
         args: ["discovery", "-v", "2"]
         ports:
         - containerPort: 8080
