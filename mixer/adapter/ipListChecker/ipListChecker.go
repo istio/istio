@@ -132,7 +132,7 @@ func newListCheckerWithTimers(env adapter.Env, c *config.Params,
 	l.fetchList()
 
 	// goroutine to periodically refresh the list
-	env.ScheduleWork(l.listRefresher)
+	env.ScheduleDaemon(l.listRefresher)
 
 	return l, nil
 }

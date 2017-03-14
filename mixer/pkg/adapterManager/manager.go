@@ -41,7 +41,6 @@ type Manager struct {
 	mapper    expr.Evaluator
 	builders  builderFinder
 	methodMap map[aspect.APIMethod]config.AspectSet
-	wg        sync.WaitGroup
 	gp        *pool.GoroutinePool
 	adapterGP *pool.GoroutinePool
 
@@ -100,17 +99,14 @@ func newCacheKey(kind aspect.Kind, cfg *config.Combined) (*cacheKey, error) {
 }
 
 // NewManager creates a new adapterManager.
-func NewManager(builders []adapter.RegisterFn, managers aspect.ManagerInventory, exp expr.Evaluator, gp *pool.GoroutinePool) *Manager {
+func NewManager(builders []adapter.RegisterFn, managers aspect.ManagerInventory,
+	exp expr.Evaluator, gp *pool.GoroutinePool, adapterGP *pool.GoroutinePool) *Manager {
 	mm, am := ProcessBindings(managers)
-	return newManager(newRegistry(builders), mm, exp, am, gp)
+	return newManager(newRegistry(builders), mm, exp, am, gp, adapterGP)
 }
 
 func newManager(r builderFinder, m map[aspect.Kind]aspect.Manager, exp expr.Evaluator,
-	am map[aspect.APIMethod]config.AspectSet, gp *pool.GoroutinePool) *Manager {
-
-	// TODO: make the pool parameters configurable
-	adapterGP := pool.NewGoroutinePool(128)
-	adapterGP.AddWorkers(1024)
+	am map[aspect.APIMethod]config.AspectSet, gp *pool.GoroutinePool, adapterGP *pool.GoroutinePool) *Manager {
 
 	return &Manager{
 		builders:    r,
@@ -123,14 +119,6 @@ func newManager(r builderFinder, m map[aspect.Kind]aspect.Manager, exp expr.Eval
 	}
 }
 
-// Shutdown gracefully drains the manager's worker pool.
-func (m *Manager) Shutdown() {
-	m.wg.Wait()
-	if m.adapterGP != nil {
-		m.adapterGP.Close()
-	}
-}
-
 // Execute iterates over cfgs and performs the actions described by the combined config using the attribute bag on each config.
 func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) aspect.Output {
 	numCfgs := len(cfgs)
@@ -139,29 +127,24 @@ func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs at
 	results := make([]result, numCfgs)
 	resultChan := make(chan result, numCfgs)
 
-	if m.gp == nil {
-		for i, cfg := range cfgs {
-			results[i] = result{cfg, m.execute(ctx, cfg, attrs, ma)}
-		}
-	} else {
-		// schedule all the work that needs to happen
-		for _, cfg := range cfgs {
-			m.wg.Add(1)
-			m.gp.ScheduleWork(func() {
-				out := m.execute(ctx, cfg, attrs, ma)
-				resultChan <- result{cfg, out}
-				m.wg.Done()
-			})
-		}
+	// schedule all the work that needs to happen
+	for _, cfg := range cfgs {
+		m.gp.ScheduleWork(func() {
+			out := m.execute(ctx, cfg, attrs, ma)
+			resultChan <- result{cfg, out}
+		})
+	}
 
-		// wait for all the work to be done or the context to be cancelled
-		for i := 0; i < numCfgs; i++ {
-			select {
-			case <-ctx.Done():
-				return aspect.Output{Status: status.WithDeadlineExceeded(fmt.Sprintf("deadline exceeded waiting for adapter results with err: %v", ctx.Err()))}
-			case res := <-resultChan:
-				results[i] = res
+	// wait for all the work to be done or the context to be cancelled
+	for i := 0; i < numCfgs; i++ {
+		select {
+		case <-ctx.Done():
+			if ctx.Err() == context.Canceled {
+				return aspect.Output{Status: status.WithCancelled(fmt.Sprintf("request cancelled: %v", ctx.Err()))}
 			}
+			return aspect.Output{Status: status.WithDeadlineExceeded(fmt.Sprintf("deadline exceeded waiting for adapter results with err: %v", ctx.Err()))}
+		case res := <-resultChan:
+			results[i] = res
 		}
 	}
 

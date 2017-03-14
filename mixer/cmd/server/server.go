@@ -41,15 +41,17 @@ import (
 )
 
 type serverArgs struct {
-	port                 uint
-	maxMessageSize       uint
-	maxConcurrentStreams uint
-	workerPoolSize       uint
-	compressedPayload    bool
-	enableTracing        bool
-	serverCertFile       string
-	serverKeyFile        string
-	clientCertFiles      string
+	port                  uint
+	maxMessageSize        uint
+	maxConcurrentStreams  uint
+	apiWorkerPoolSize     uint
+	adapterWorkerPoolSize uint
+	singleThreaded        bool
+	compressedPayload     bool
+	enableTracing         bool
+	serverCertFile        string
+	serverKeyFile         string
+	clientCertFiles       string
 
 	// mixer manager args
 	serviceConfigFile      string
@@ -74,7 +76,10 @@ func serverCmd(errorf errorFn) *cobra.Command {
 	serverCmd.PersistentFlags().UintVarP(&sa.port, "port", "p", 9091, "TCP port to use for the mixer's gRPC API")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxMessageSize, "maxMessageSize", "", 1024*1024, "Maximum size of individual gRPC messages")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxConcurrentStreams, "maxConcurrentStreams", "", 32, "Maximum supported number of concurrent gRPC streams")
-	serverCmd.PersistentFlags().UintVarP(&sa.workerPoolSize, "workerPoolSize", "", 1024, "Number of goroutines in the global worker pool")
+	serverCmd.PersistentFlags().UintVarP(&sa.apiWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max # of goroutines in the API worker pool")
+	serverCmd.PersistentFlags().UintVarP(&sa.adapterWorkerPoolSize, "adapterWorkerPoolSize", "", 1024, "Max # of goroutines in the adapter worker pool")
+	serverCmd.PersistentFlags().BoolVarP(&sa.singleThreaded, "singleThreaded", "", false, "Whether to run the mixer in single-threaded mode (useful "+
+		"for debugging)")
 	serverCmd.PersistentFlags().BoolVarP(&sa.compressedPayload, "compressedPayload", "", false, "Whether to compress gRPC messages")
 	serverCmd.PersistentFlags().StringVarP(&sa.serverCertFile, "serverCertFile", "", "", "The TLS cert file")
 	serverCmd.PersistentFlags().StringVarP(&sa.serverKeyFile, "serverKeyFile", "", "", "The TLS key file")
@@ -91,24 +96,28 @@ func serverCmd(errorf errorFn) *cobra.Command {
 	return &serverCmd
 }
 
-// The queue depth for the global worker pool
-const globalPoolQueueDepth = 128
-
 func runServer(sa *serverArgs) error {
-	poolSize := int(sa.workerPoolSize)
-	if poolSize <= 0 {
-		return fmt.Errorf("worker pool size must be >= 0 and <= 2^31-1, got pool size %d", poolSize)
+	apiPoolSize := int(sa.apiWorkerPoolSize)
+	if apiPoolSize <= 0 {
+		return fmt.Errorf("api worker pool size must be >= 0 and <= 2^31-1, got pool size %d", apiPoolSize)
 	}
 
-	var gp *pool.GoroutinePool
-	if poolSize > 1 {
-		gp = pool.NewGoroutinePool(globalPoolQueueDepth)
-		gp.AddWorkers(poolSize)
+	adapterPoolSize := int(sa.adapterWorkerPoolSize)
+	if adapterPoolSize <= 0 {
+		return fmt.Errorf("adapter worker pool size must be >= 0 and <= 2^31-1, got pool size %d", adapterPoolSize)
 	}
+
+	gp := pool.NewGoroutinePool(apiPoolSize, sa.singleThreaded)
+	gp.AddWorkers(apiPoolSize)
+	defer gp.Close()
+
+	adapterGP := pool.NewGoroutinePool(adapterPoolSize, sa.singleThreaded)
+	adapterGP.AddWorkers(adapterPoolSize)
+	defer adapterGP.Close()
 
 	// get aspect registry with proper aspect --> api mappings
 	eval := expr.NewCEXLEvaluator()
-	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp)
+	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder(), adapterMgr.BuilderValidatorFinder(),
 		adapterMgr.AdapterToAspectMapperFunc(),
 		sa.globalConfigFile, sa.serviceConfigFile, time.Second*time.Duration(sa.configFetchIntervalSec))
@@ -181,7 +190,7 @@ func runServer(sa *serverArgs) error {
 
 	// get everything wired up
 	gs := grpc.NewServer(grpcOptions...)
-	s := api.NewGRPCServer(handler, tracer)
+	s := api.NewGRPCServer(handler, tracer, gp)
 	mixerpb.RegisterMixerServer(gs, s)
 
 	return gs.Serve(listener)

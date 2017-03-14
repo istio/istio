@@ -18,6 +18,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"strings"
 	"testing"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
@@ -51,12 +52,90 @@ func TestAspectManagerErrorsPropagated(t *testing.T) {
 	f := &fakeExecutor{func() aspect.Output {
 		return aspect.Output{Status: status.WithError(fmt.Errorf("expected"))}
 	}}
-	h := &handlerState{aspectExecutor: f, methodMap: map[aspect.APIMethod]config.AspectSet{}}
+	h := NewHandler(f, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
 	h.ConfigChange(&fakeresolver{[]*config.Combined{nil, nil}, nil})
 
-	o := h.execute(context.Background(), attribute.NewManager().NewTracker(), &mixerpb.Attributes{}, aspect.CheckMethod, nil)
+	bag, _ := attribute.NewManager().NewTracker().ApplyAttributes(&mixerpb.Attributes{})
+	o := h.execute(context.Background(), bag, aspect.CheckMethod, nil)
 	if o.Status.Code != int32(rpc.INTERNAL) {
 		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", o.Status, rpc.INTERNAL)
+	}
+}
+
+func TestHandler(t *testing.T) {
+	bag, _ := attribute.NewManager().NewTracker().ApplyAttributes(&mixerpb.Attributes{})
+
+	checkReq := &mixerpb.CheckRequest{}
+	checkResp := &mixerpb.CheckResponse{}
+	reportReq := &mixerpb.ReportRequest{}
+	reportResp := &mixerpb.ReportResponse{}
+	quotaReq := &mixerpb.QuotaRequest{}
+	quotaResp := &mixerpb.QuotaResponse{}
+
+	cases := []struct {
+		resolver    *fakeresolver
+		resolverErr string
+		executorErr string
+		resultErr   string
+		code        rpc.Code
+	}{
+		{nil, "", "", "", rpc.INTERNAL},
+		{&fakeresolver{[]*config.Combined{nil, nil}, nil}, "RESOLVER", "", "RESOLVER", rpc.INTERNAL},
+		{&fakeresolver{[]*config.Combined{nil, nil}, nil}, "", "BADASPECT", "BADASPECT", rpc.INTERNAL},
+	}
+
+	for _, c := range cases {
+		e := &fakeExecutor{}
+		if c.executorErr != "" {
+			e = &fakeExecutor{func() aspect.Output {
+				return aspect.Output{Status: status.WithInternal(c.executorErr)}
+			}}
+		}
+
+		h := NewHandler(e, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
+
+		if c.resolver != nil {
+			r := c.resolver
+			if c.resolverErr != "" {
+				r.err = fmt.Errorf(c.resolverErr)
+			}
+			h.ConfigChange(r)
+		}
+
+		h.Check(context.Background(), bag, checkReq, checkResp)
+		h.Report(context.Background(), bag, reportReq, reportResp)
+		h.Quota(context.Background(), bag, quotaReq, quotaResp)
+
+		if checkResp.Result.Code != int32(c.code) || reportResp.Result.Code != int32(c.code) || quotaResp.Result.Code != int32(c.code) {
+			t.Errorf("Expected %v for all responses, got %v, %v, %v", c.code, checkResp.Result.Code, reportResp.Result.Code, quotaResp.Result.Code)
+		}
+
+		if c.resultErr != "" {
+			if !strings.Contains(checkResp.Result.Message, c.resultErr) ||
+				!strings.Contains(reportResp.Result.Message, c.resultErr) ||
+				!strings.Contains(quotaResp.Result.Message, c.resultErr) {
+				t.Errorf("Expecting %s in error messages, got %s, %s, %s", c.resultErr, checkResp.Result.Message, reportResp.Result.Message,
+					quotaResp.Result.Message)
+			}
+		}
+	}
+
+	f := &fakeExecutor{func() aspect.Output {
+		return aspect.Output{Status: status.OK, Response: &aspect.QuotaMethodResp{Amount: 42}}
+	}}
+	r := &fakeresolver{[]*config.Combined{nil, nil}, nil}
+	h := NewHandler(f, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
+	h.ConfigChange(r)
+
+	// Should succeed
+	h.Quota(context.Background(), bag, quotaReq, quotaResp)
+
+	if !status.IsOK(quotaResp.Result) {
+		t.Errorf("Expected successful quota allocation, got %v", quotaResp.Result)
+	}
+
+	if quotaResp.Amount != 42 {
+		t.Errorf("Expected 42, got %v", quotaResp.Amount)
 	}
 }
 

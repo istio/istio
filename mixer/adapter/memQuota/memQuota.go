@@ -139,7 +139,7 @@ func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, definitions map[st
 		logger:      env.Logger(),
 	}
 
-	env.ScheduleWork(func() {
+	env.ScheduleDaemon(func() {
 		for range mq.ticker.C {
 			mq.Lock()
 			mq.reapDedup()

@@ -105,7 +105,7 @@ func TestRuntime(t *testing.T) {
 		numAspects: 1,
 	}
 
-	bag, err := attribute.NewManager().NewTracker().StartRequest(&mixerpb.Attributes{})
+	bag, err := attribute.NewManager().NewTracker().ApplyAttributes(&mixerpb.Attributes{})
 	if err != nil {
 		t.Error("Unable to get attribute bag")
 	}

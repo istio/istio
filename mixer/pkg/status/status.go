@@ -42,6 +42,11 @@ func WithInternal(message string) rpc.Status {
 	return rpc.Status{Code: int32(rpc.INTERNAL), Message: message}
 }
 
+// WithCancelled returns an initialized status with the rpc.CANCELLED error code and the error's message.
+func WithCancelled(message string) rpc.Status {
+	return rpc.Status{Code: int32(rpc.CANCELLED), Message: message}
+}
+
 // WithInvalidArgument returns an initialized status with the rpc.INVALID_ARGUMENT code and the given message.
 func WithInvalidArgument(message string) rpc.Status {
 	return rpc.Status{Code: int32(rpc.INVALID_ARGUMENT), Message: message}

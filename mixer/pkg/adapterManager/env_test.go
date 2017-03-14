@@ -23,30 +23,43 @@ import (
 )
 
 func TestEnv(t *testing.T) {
-	// for now, just make sure nothing crashes...
-	gp := pool.NewGoroutinePool(128)
-	gp.AddWorkers(32)
+	for i := 0; i < 2; i++ {
+		gp := pool.NewGoroutinePool(128, i == 0)
+		gp.AddWorkers(32)
 
-	env := newEnv("Foo", gp)
-	log := env.Logger()
-	log.Infof("Test%s", "ing")
-	log.Warningf("Test%s", "ing")
-	err := log.Errorf("Test%s", "ing")
-	if err == nil {
-		t.Error("Expected an error but got nil")
+		env := newEnv("Foo", gp)
+		log := env.Logger()
+		log.Infof("Test%s", "ing")
+		log.Warningf("Test%s", "ing")
+		err := log.Errorf("Test%s", "ing")
+		if err == nil {
+			t.Error("Expected an error but got nil")
+		}
+
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+		env.ScheduleWork(func() {
+			wg.Done()
+		})
+
+		wg.Add(1)
+		env.ScheduleDaemon(func() {
+			wg.Done()
+		})
+
+		env.ScheduleWork(func() {
+			panic("bye!")
+		})
+
+		env.ScheduleDaemon(func() {
+			panic("bye!")
+		})
+
+		wg.Wait()
+
+		// hack to give time for the panic to 'take hold' if it doesn't get recovered properly
+		time.Sleep(time.Duration(200) * time.Millisecond)
+
+		gp.Close()
 	}
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	env.ScheduleWork(func() {
-		wg.Done()
-	})
-	wg.Wait()
-
-	env.ScheduleWork(func() {
-		panic("bye!")
-	})
-
-	// hack to give time for the panic to 'take hold' if it doesn't get recovered properly
-	time.Sleep(time.Duration(200) * time.Millisecond)
 }
