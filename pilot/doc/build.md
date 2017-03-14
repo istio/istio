@@ -8,7 +8,7 @@ Install additional build dependencies before trying to build.
 
 We are using [Bazel 0.4.4](https://github.com/bazelbuild/bazel/releases) as the main build system in Istio Manager. The following command builds all targets in Istio Manager:
 
-    bazel build //:all
+    bazel build //...
 
 Bazel uses `BUILD` files to keep track of dependencies between sources.  If you
 add a new source file, change the imports, or add a data depenency, please run the following command
