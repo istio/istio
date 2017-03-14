@@ -64,7 +64,7 @@ spec:
           - -m
           - mixer:9091
           - -n
-          - demo
+          - $(POD_NAMESPACE)
           - -v
           - "2"
         env:
