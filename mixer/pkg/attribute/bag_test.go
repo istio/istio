@@ -36,8 +36,8 @@ var (
 )
 
 func TestBag(t *testing.T) {
-	sm1 := &mixerpb.StringMap{Map: map[int32]string{16: "Sixteen"}}
-	sm2 := &mixerpb.StringMap{Map: map[int32]string{17: "Seventeen"}}
+	sm1 := mixerpb.StringMap{Map: map[int32]string{16: "Sixteen"}}
+	sm2 := mixerpb.StringMap{Map: map[int32]string{17: "Seventeen"}}
 	m1 := map[string]string{"N16": "Sixteen"}
 	m3 := map[string]string{"N42": "FourtyTwo"}
 
@@ -51,7 +51,7 @@ func TestBag(t *testing.T) {
 		TimestampAttributes: map[int32]time.Time{9: t9, 10: t10},
 		DurationAttributes:  map[int32]time.Duration{11: d1},
 		BytesAttributes:     map[int32][]uint8{12: {12}, 13: {13}},
-		StringMapAttributes: map[int32]*mixerpb.StringMap{14: sm1, 15: sm2},
+		StringMapAttributes: map[int32]mixerpb.StringMap{14: sm1, 15: sm2},
 	}
 
 	am := NewManager()
@@ -129,18 +129,18 @@ func TestStringMapEdgeCase(t *testing.T) {
 	attrs := &mixerpb.Attributes{}
 
 	// empty to non-empty
-	sm1 := &mixerpb.StringMap{Map: map[int32]string{2: "Two"}}
-	attrs.StringMapAttributes = map[int32]*mixerpb.StringMap{1: sm1}
+	sm1 := mixerpb.StringMap{Map: map[int32]string{2: "Two"}}
+	attrs.StringMapAttributes = map[int32]mixerpb.StringMap{1: sm1}
 	_ = rb.update(d, attrs)
 
 	// non-empty to non-empty
-	sm1 = &mixerpb.StringMap{Map: map[int32]string{}}
-	attrs.StringMapAttributes = map[int32]*mixerpb.StringMap{1: sm1, 2: sm1}
+	sm1 = mixerpb.StringMap{Map: map[int32]string{}}
+	attrs.StringMapAttributes = map[int32]mixerpb.StringMap{1: sm1, 2: sm1}
 	_ = rb.update(d, attrs)
 
 	// non-empty to empty
 	attrs.DeletedAttributes = []int32{1}
-	attrs.StringMapAttributes = map[int32]*mixerpb.StringMap{}
+	attrs.StringMapAttributes = map[int32]mixerpb.StringMap{}
 	_ = rb.update(d, attrs)
 }
 
@@ -171,11 +171,11 @@ func TestContext(t *testing.T) {
 func TestBadStringMapKey(t *testing.T) {
 	// ensure we handle bogus on-the-wire string map key indices
 
-	sm1 := &mixerpb.StringMap{Map: map[int32]string{16: "Sixteen"}}
+	sm1 := mixerpb.StringMap{Map: map[int32]string{16: "Sixteen"}}
 
 	attr := mixerpb.Attributes{
 		Dictionary:          dictionary{1: "N1"},
-		StringMapAttributes: map[int32]*mixerpb.StringMap{1: sm1},
+		StringMapAttributes: map[int32]mixerpb.StringMap{1: sm1},
 	}
 
 	am := NewManager()
@@ -476,7 +476,7 @@ func TestByteKeys(t *testing.T) {
 }
 
 func TestStringMapKeys(t *testing.T) {
-	sm1 := &mixerpb.StringMap{Map: map[int32]string{2: "One"}}
+	sm1 := mixerpb.StringMap{Map: map[int32]string{2: "One"}}
 	m1 := map[string]string{"key1": "One"}
 	m2 := map[string]string{"key2": "Two"}
 	m3 := map[string]string{"key3": "Three"}
@@ -491,7 +491,7 @@ func TestStringMapKeys(t *testing.T) {
 			{
 				&mixerpb.Attributes{
 					Dictionary:          map[int32]string{1: "root", 2: "key1"},
-					StringMapAttributes: map[int32]*mixerpb.StringMap{1: sm1},
+					StringMapAttributes: map[int32]mixerpb.StringMap{1: sm1},
 				},
 				d{},
 				d{"root": m1},
@@ -504,7 +504,7 @@ func TestStringMapKeys(t *testing.T) {
 			{
 				&mixerpb.Attributes{
 					Dictionary:          map[int32]string{1: "root", 2: "key1"},
-					StringMapAttributes: map[int32]*mixerpb.StringMap{1: sm1},
+					StringMapAttributes: map[int32]mixerpb.StringMap{1: sm1},
 				},
 				d{"one": m2, "two": m3},
 				d{"root": m1, "one": m2, "two": m3},

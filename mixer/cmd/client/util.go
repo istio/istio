@@ -128,14 +128,14 @@ func add2Dict(dictionary map[int32]string, s string) int32 {
 	return index
 }
 
-func makeStringMap(dictionary map[int32]string, m map[string]string) *mixerpb.StringMap {
+func makeStringMap(dictionary map[int32]string, m map[string]string) mixerpb.StringMap {
 	sm := mixerpb.StringMap{Map: make(map[int32]string)}
 
 	for k, v := range m {
 		sm.Map[add2Dict(dictionary, k)] = v
 	}
 
-	return &sm
+	return sm
 }
 
 type convertFn func(string) (interface{}, error)
@@ -178,7 +178,7 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 	attrs.TimestampAttributes = make(map[int32]time.Time)
 	attrs.DurationAttributes = make(map[int32]time.Duration)
 	attrs.BytesAttributes = make(map[int32][]uint8)
-	attrs.StringMapAttributes = make(map[int32]*mixerpb.StringMap)
+	attrs.StringMapAttributes = make(map[int32]mixerpb.StringMap)
 
 	// the following boilerplate would be more succinct with generics...
 

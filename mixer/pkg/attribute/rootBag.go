@@ -282,11 +282,9 @@ func checkPreconditions(dictionary dictionary, attrs *mixerpb.Attributes) error 
 			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
 		}
 
-		if v != nil {
-			for k2 := range v.Map {
-				if _, present := dictionary[k2]; !present {
-					e = me.Append(e, fmt.Errorf("string map index %d is not defined in the current dictionary", k2))
-				}
+		for k2 := range v.Map {
+			if _, present := dictionary[k2]; !present {
+				e = me.Append(e, fmt.Errorf("string map index %d is not defined in the current dictionary", k2))
 			}
 		}
 	}
@@ -403,10 +401,8 @@ func (rb *rootBag) update(dictionary dictionary, attrs *mixerpb.Attributes) erro
 			log.WriteString("  to\n")
 		}
 
-		if v != nil {
-			for k2, v2 := range v.Map {
-				m[dictionary[k2]] = v2
-			}
+		for k2, v2 := range v.Map {
+			m[dictionary[k2]] = v2
 		}
 
 		if log != nil {
