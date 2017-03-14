@@ -91,8 +91,6 @@ spec:
       - name: mixer
         image: gcr.io/istio-testing/mixer:6655a67
         imagePullPolicy: Always
-        securityContext:
-          privileged: true
         ports:
         - containerPort: 9091
         - containerPort: 42422
