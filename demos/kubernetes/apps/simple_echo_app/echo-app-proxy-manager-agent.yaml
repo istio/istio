@@ -56,7 +56,6 @@ spec:
         imagePullPolicy: Always
         securityContext:
           runAsUser: 1337
-          privileged: true
         args:
           - proxy
           - sidecar
