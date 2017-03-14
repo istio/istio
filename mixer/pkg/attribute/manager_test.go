@@ -70,7 +70,7 @@ func TestAttributeManager(t *testing.T) {
 		present bool
 	}
 
-	sm := &mixerpb.StringMap{Map: map[int32]string{9: "Nine"}}
+	sm := mixerpb.StringMap{Map: map[int32]string{9: "Nine"}}
 	m := map[string]string{"name9": "Nine"}
 
 	cases := []struct {
@@ -104,7 +104,7 @@ func TestAttributeManager(t *testing.T) {
 				TimestampAttributes: map[int32]time.Time{5: time.Date(1970, time.January, 1, 0, 0, 5, 5, time.UTC)},
 				DurationAttributes:  map[int32]time.Duration{7: time.Duration(42) * time.Second},
 				BytesAttributes:     map[int32][]uint8{6: {6}},
-				StringMapAttributes: map[int32]*mixerpb.StringMap{8: sm},
+				StringMapAttributes: map[int32]mixerpb.StringMap{8: sm},
 				ResetContext:        false,
 				AttributeContext:    0,
 				DeletedAttributes:   nil,
@@ -241,7 +241,7 @@ func TestAttributeManager(t *testing.T) {
 				TimestampAttributes: map[int32]time.Time{5: time.Date(0, 0, 0, 0, 0, 5, 5, time.UTC)},
 				DurationAttributes:  map[int32]time.Duration{7: time.Duration(42) * time.Second},
 				BytesAttributes:     map[int32][]uint8{6: {6}},
-				StringMapAttributes: map[int32]*mixerpb.StringMap{8: sm},
+				StringMapAttributes: map[int32]mixerpb.StringMap{8: sm},
 				ResetContext:        false,
 				AttributeContext:    0,
 				DeletedAttributes:   nil,
@@ -317,7 +317,7 @@ func TestAttributeManager(t *testing.T) {
 
 		// 14: try out bad dictionary index for string map
 		{
-			attrs:  mixerpb.Attributes{StringMapAttributes: map[int32]*mixerpb.StringMap{42: nil}},
+			attrs:  mixerpb.Attributes{StringMapAttributes: map[int32]mixerpb.StringMap{42: {}}},
 			result: false,
 		},
 

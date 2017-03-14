@@ -27,7 +27,7 @@ func BenchmarkTracker(b *testing.B) {
 
 	d := time.Duration(42) * time.Second
 
-	sm := &mixerpb.StringMap{Map: map[int32]string{14: "14"}}
+	sm := mixerpb.StringMap{Map: map[int32]string{14: "14"}}
 
 	attrs := []mixerpb.Attributes{
 		{
@@ -40,7 +40,7 @@ func BenchmarkTracker(b *testing.B) {
 			TimestampAttributes: map[int32]time.Time{9: t9, 10: t10},
 			DurationAttributes:  map[int32]time.Duration{11: d},
 			BytesAttributes:     map[int32][]uint8{12: {12}, 13: {13}},
-			StringMapAttributes: map[int32]*mixerpb.StringMap{14: sm},
+			StringMapAttributes: map[int32]mixerpb.StringMap{14: sm},
 		},
 
 		{},
@@ -53,7 +53,7 @@ func BenchmarkTracker(b *testing.B) {
 			TimestampAttributes: map[int32]time.Time{9: t9, 10: t10},
 			DurationAttributes:  map[int32]time.Duration{11: d},
 			BytesAttributes:     map[int32][]uint8{12: {12}, 13: {13}},
-			StringMapAttributes: map[int32]*mixerpb.StringMap{14: sm},
+			StringMapAttributes: map[int32]mixerpb.StringMap{14: sm},
 		},
 	}
 
@@ -84,7 +84,7 @@ func TestTracker_ApplyAttributes(t *testing.T) {
 	t9 := time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
 	t10 := time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
 	d := time.Duration(42) * time.Second
-	sm := &mixerpb.StringMap{Map: map[int32]string{14: "14"}}
+	sm := mixerpb.StringMap{Map: map[int32]string{14: "14"}}
 
 	attr1 := mixerpb.Attributes{
 		Dictionary: dictionary{1: "N1", 2: "N2", 3: "N3", 4: "N4", 5: "N5", 6: "N6", 7: "N7", 8: "N8",
@@ -96,7 +96,7 @@ func TestTracker_ApplyAttributes(t *testing.T) {
 		TimestampAttributes: map[int32]time.Time{9: t9, 10: t10},
 		DurationAttributes:  map[int32]time.Duration{11: d},
 		BytesAttributes:     map[int32][]uint8{12: {12}, 13: {13}},
-		StringMapAttributes: map[int32]*mixerpb.StringMap{14: sm},
+		StringMapAttributes: map[int32]mixerpb.StringMap{14: sm},
 	}
 
 	attr2 := mixerpb.Attributes{
@@ -109,7 +109,7 @@ func TestTracker_ApplyAttributes(t *testing.T) {
 		TimestampAttributes: map[int32]time.Time{9: t9, 10: t10},
 		DurationAttributes:  map[int32]time.Duration{11: d},
 		BytesAttributes:     map[int32][]uint8{12: {12}, 13: {13}},
-		StringMapAttributes: map[int32]*mixerpb.StringMap{14: sm, 15: sm},
+		StringMapAttributes: map[int32]mixerpb.StringMap{14: sm, 15: sm},
 	}
 
 	tracker := NewManager().NewTracker().(*tracker)
