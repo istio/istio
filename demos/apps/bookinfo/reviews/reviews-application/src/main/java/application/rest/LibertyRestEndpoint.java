@@ -127,8 +127,6 @@ public class LibertyRestEndpoint extends Application {
           // return Response.serverError().build();
           r1 = r2 = "<span class="bg-warning">product ratings not available</span>"
         }
-
-        }
       }
       String replyBody = String.format(review_resp,r1,r2);
       return Response.ok().type(MediaType.TEXT_HTML_TYPE).entity(replyBody).build();
