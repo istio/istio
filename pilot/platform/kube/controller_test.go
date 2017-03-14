@@ -339,7 +339,7 @@ func TestIstioConfig(t *testing.T) {
 	registry := model.IstioRegistry{ConfigRegistry: cl}
 
 	rules := registry.RouteRules(ns)
-	if len(rules) != 1 || !reflect.DeepEqual(rules[0], rule) {
+	if len(rules) != 1 || !reflect.DeepEqual(rules[key], rule) {
 		t.Errorf("RouteRules() => %v, want %v", rules, rule)
 	}
 

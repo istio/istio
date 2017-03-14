@@ -146,25 +146,32 @@ type IstioRegistry struct {
 	ConfigRegistry
 }
 
-// RouteRules lists all unsorted routing rules in a namespace (or all rules if namespace is "")
-func (i *IstioRegistry) RouteRules(namespace string) []*proxyconfig.RouteRule {
-	out := make([]*proxyconfig.RouteRule, 0)
+// RouteRules lists all routing rules in a namespace (or all rules if namespace is "")
+func (i *IstioRegistry) RouteRules(namespace string) map[Key]*proxyconfig.RouteRule {
+	out := make(map[Key]*proxyconfig.RouteRule, 0)
 	rs, err := i.List(RouteRule, namespace)
 	if err != nil {
 		glog.V(2).Infof("RouteRules => %v", err)
 	}
-	for _, r := range rs {
+	for key, r := range rs {
 		if rule, ok := r.(*proxyconfig.RouteRule); ok {
-			out = append(out, rule)
+			out[key] = rule
 		}
 	}
 	return out
 }
 
-// RouteRulesBySource selects routing rules from source to destination (sorted by precedence)
+type routeRuleConfig struct {
+	Key
+	rule *proxyconfig.RouteRule
+}
+
+// RouteRulesBySource selects routing rules by source service instances.
+// The rules are sorted by precedence (high first) in a stable manner.
 func (i *IstioRegistry) RouteRulesBySource(namespace string, instances []*ServiceInstance) []*proxyconfig.RouteRule {
-	out := make([]*proxyconfig.RouteRule, 0)
-	for _, rule := range i.RouteRules(namespace) {
+	rules := make([]*routeRuleConfig, 0)
+	for key, rule := range i.RouteRules(namespace) {
+		// validate that rule match predicate applies to source service instances
 		if rule.Match != nil {
 			found := false
 			for _, instance := range instances {
@@ -181,22 +188,32 @@ func (i *IstioRegistry) RouteRulesBySource(namespace string, instances []*Servic
 				continue
 			}
 		}
-		out = append(out, rule)
+		rules = append(rules, &routeRuleConfig{Key: key, rule: rule})
 	}
-	sort.Sort(RouteRulePrecedence(out))
+	// sort by high precedence first, key string second (keys are unique)
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].rule.Precedence > rules[j].rule.Precedence ||
+			(rules[i].rule.Precedence == rules[j].rule.Precedence && rules[i].Key.String() < rules[j].Key.String())
+	})
+
+	// project to rules
+	out := make([]*proxyconfig.RouteRule, len(rules))
+	for i, rule := range rules {
+		out[i] = rule.rule
+	}
 	return out
 }
 
 // IngressRules lists all ingress rules in a namespace (or all rules if namespace is "")
-func (i *IstioRegistry) IngressRules(namespace string) []*proxyconfig.RouteRule {
-	out := make([]*proxyconfig.RouteRule, 0)
+func (i *IstioRegistry) IngressRules(namespace string) map[Key]*proxyconfig.RouteRule {
+	out := make(map[Key]*proxyconfig.RouteRule, 0)
 	rs, err := i.List(IngressRule, namespace)
 	if err != nil {
 		glog.V(2).Infof("IngressRules => %v", err)
 	}
-	for _, r := range rs {
+	for key, r := range rs {
 		if rule, ok := r.(*proxyconfig.RouteRule); ok {
-			out = append(out, rule)
+			out[key] = rule
 		}
 	}
 	return out
@@ -228,20 +245,4 @@ func (i *IstioRegistry) DestinationPolicies(destination string, tags Tags) []*pr
 	}
 	// TODO: sort destination policies
 	return out
-}
-
-// RouteRulePrecedence sorts rules by precedence (high precedence first)
-type RouteRulePrecedence []*proxyconfig.RouteRule
-
-func (s RouteRulePrecedence) Len() int {
-	return len(s)
-}
-
-func (s RouteRulePrecedence) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
-
-// TODO: define stable order for same precedence
-func (s RouteRulePrecedence) Less(i, j int) bool {
-	return s[i].Precedence > s[j].Precedence
 }
