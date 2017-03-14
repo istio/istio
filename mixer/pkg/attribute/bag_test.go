@@ -58,11 +58,10 @@ func TestBag(t *testing.T) {
 	at := am.NewTracker()
 	defer at.Done()
 
-	ab, err := at.StartRequest(&attrs)
+	ab, err := at.ApplyAttributes(&attrs)
 	if err != nil {
 		t.Errorf("Unable to start request: %v", err)
 	}
-	defer at.EndRequest()
 
 	// override a bunch of values
 	ab.SetString("N2", "42")
@@ -129,15 +128,19 @@ func TestStringMapEdgeCase(t *testing.T) {
 	rb := getRootBag()
 	attrs := &mixerpb.Attributes{}
 
-	// empty to full
+	// empty to non-empty
 	sm1 := &mixerpb.StringMap{Map: map[int32]string{2: "Two"}}
 	attrs.StringMapAttributes = map[int32]*mixerpb.StringMap{1: sm1}
 	_ = rb.update(d, attrs)
 
-	// full to empty
+	// non-empty to non-empty
 	sm1 = &mixerpb.StringMap{Map: map[int32]string{}}
+	attrs.StringMapAttributes = map[int32]*mixerpb.StringMap{1: sm1, 2: sm1}
+	_ = rb.update(d, attrs)
+
+	// non-empty to empty
 	attrs.DeletedAttributes = []int32{1}
-	attrs.StringMapAttributes = map[int32]*mixerpb.StringMap{1: sm1}
+	attrs.StringMapAttributes = map[int32]*mixerpb.StringMap{}
 	_ = rb.update(d, attrs)
 }
 
@@ -179,11 +182,10 @@ func TestBadStringMapKey(t *testing.T) {
 	at := am.NewTracker()
 	defer at.Done()
 
-	_, err := at.StartRequest(&attr)
+	_, err := at.ApplyAttributes(&attr)
 	if err == nil {
 		t.Error("Successfully updated attributes, expected an error")
 	}
-	defer at.EndRequest()
 }
 
 type d map[string]interface{}
@@ -522,8 +524,8 @@ func testKeys(t *testing.T, cases []ttable, setVal func(MutableBag, string, inte
 	for i, tc := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			at := NewManager().NewTracker()
-			root, _ := at.StartRequest(tc.inRoot)
-			ab := root.Child()
+			root, _ := at.ApplyAttributes(tc.inRoot)
+			ab := getMutableBag(root)
 			for k, v := range tc.inChild {
 				setVal(ab, k, v)
 			}

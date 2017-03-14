@@ -186,8 +186,10 @@ func TestManager(t *testing.T) {
 		if tt.mgrFound {
 			mgr = newFakeMgrReg(tt.wrapper)
 		}
-		m := newManager(r, mgr, mapper, nil, nil)
-		defer m.Shutdown()
+
+		gp := pool.NewGoroutinePool(1, true)
+		agp := pool.NewGoroutinePool(1, true)
+		m := newManager(r, mgr, mapper, nil, gp, agp)
 
 		out := m.Execute(context.Background(), tt.cfg, attrs, nil)
 		errStr := out.Message()
@@ -219,6 +221,8 @@ func TestManager(t *testing.T) {
 			t.Errorf("[%d] Unexpected mgr.NewAspect call %d", idx, fmgr.called)
 		}
 
+		gp.Close()
+		agp.Close()
 	}
 }
 
@@ -254,7 +258,10 @@ func TestManager_BulkExecute(t *testing.T) {
 	for idx, c := range cases {
 		r := getReg(true)
 		mgr := newFakeMgrReg(&fakewrapper{})
-		m := newManager(r, mgr, mapper, nil, nil)
+
+		gp := pool.NewGoroutinePool(1, true)
+		agp := pool.NewGoroutinePool(1, true)
+		m := newManager(r, mgr, mapper, nil, gp, agp)
 
 		out := m.Execute(context.Background(), c.cfgs, attrs, nil)
 		errStr := out.Message()
@@ -262,7 +269,8 @@ func TestManager_BulkExecute(t *testing.T) {
 			t.Errorf("[%d] got: '%s' want: '%s'", idx, c.errString, errStr)
 		}
 
-		m.Shutdown()
+		gp.Close()
+		agp.Close()
 	}
 }
 
@@ -292,8 +300,10 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 		adp:   cacheThrow,
 		found: true,
 	}
-	m := newManager(breg, mreg, nil, nil, nil)
-	defer m.Shutdown()
+
+	gp := pool.NewGoroutinePool(1, true)
+	agp := pool.NewGoroutinePool(1, true)
+	m := newManager(breg, mreg, nil, nil, gp, agp)
 
 	cfg := []*config.Combined{
 		{
@@ -310,6 +320,9 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 	if !strings.Contains(out.Message(), want) {
 		t.Errorf("Expected err from panic with message containing '%s', got: %v", want, out.Message())
 	}
+
+	gp.Close()
+	agp.Close()
 }
 
 func TestExecute(t *testing.T) {
@@ -334,7 +347,10 @@ func TestExecute(t *testing.T) {
 			adp:   mngr,
 			found: true,
 		}
-		m := newManager(breg, mreg, nil, nil, nil)
+
+		gp := pool.NewGoroutinePool(1, true)
+		agp := pool.NewGoroutinePool(1, true)
+		m := newManager(breg, mreg, nil, nil, gp, agp)
 
 		cfg := []*config.Combined{
 			{&configpb.Adapter{Name: c.name}, &configpb.Aspect{Kind: c.name}},
@@ -348,14 +364,22 @@ func TestExecute(t *testing.T) {
 			t.Errorf("m.Execute(...) = %v; wanted o.Status.Code == rpc.OK", o)
 		}
 
-		m.Shutdown()
+		gp.Close()
+		agp.Close()
 	}
 }
 
 func TestExecute_Cancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	// we're skipping NewMethodHandlers so we don't have to deal with config since configuration should've matter when we have a canceled ctx
-	handler := &Manager{}
+
+	gp := pool.NewGoroutinePool(128, true)
+	gp.AddWorkers(32)
+
+	agp := pool.NewGoroutinePool(128, true)
+	agp.AddWorkers(32)
+
+	// we're skipping NewMethodHandlers so we don't have to deal with config since configuration shouldn't matter when we have a canceled ctx
+	handler := &Manager{gp: gp, adapterGP: agp}
 	cancel()
 
 	cfg := []*config.Combined{
@@ -365,6 +389,8 @@ func TestExecute_Cancellation(t *testing.T) {
 		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")
 	}
 
+	gp.Close()
+	agp.Close()
 }
 
 func TestExecute_TimeoutWaitingForResults(t *testing.T) {
@@ -383,11 +409,14 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 		adp:   mngr,
 		found: true,
 	}
-	gp := pool.NewGoroutinePool(128)
-	defer gp.Close()
+
+	gp := pool.NewGoroutinePool(128, true)
 	gp.AddWorkers(32)
-	m := newManager(breg, mreg, nil, nil, gp)
-	defer m.Shutdown()
+
+	agp := pool.NewGoroutinePool(128, true)
+	agp.AddWorkers(32)
+
+	m := newManager(breg, mreg, nil, nil, gp, agp)
 
 	go func() {
 		time.Sleep(1 * time.Millisecond)
@@ -402,29 +431,7 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 		t.Error("handler.Execute(canceledContext, ...) = _, nil; wanted any err")
 	}
 	close(blockChan)
-}
 
-func TestShutdown(t *testing.T) {
-	fail := make(chan struct{})
-	succeed := make(chan struct{})
-	gp := pool.NewGoroutinePool(128)
-	defer gp.Close()
-	gp.AddWorkers(32)
-	p := &Manager{gp: gp}
-
-	go func() {
-		time.Sleep(1 * time.Second)
-		close(fail)
-	}()
-
-	go func() {
-		p.Shutdown()
-		close(succeed)
-	}()
-
-	select {
-	case <-fail:
-		t.Error("parallelManager.shutdown() didn't complete in the expected time")
-	case <-succeed:
-	}
+	gp.Close()
+	agp.Close()
 }

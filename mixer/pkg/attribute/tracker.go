@@ -26,7 +26,7 @@ import (
 // mixer. The instance tracks a current dictionary along with a set of
 // attribute contexts.
 type Tracker interface {
-	// StartRequest refreshes the set of attributes tracked based on an incoming proto.
+	// ApplyAttributes refreshes the set of attributes tracked based on an incoming proto.
 	//
 	// This returns a Bag that can be used to query and update the current
 	// set of attributes.
@@ -34,10 +34,7 @@ type Tracker interface {
 	// If this returns a non-nil error, it indicates there was a problem in the
 	// supplied Attributes proto. When this happens, none of the tracked attribute
 	// state will have been affected.
-	StartRequest(attrs *mixerpb.Attributes) (MutableBag, error)
-
-	// EndRequest performs post-request cleanup
-	EndRequest()
+	ApplyAttributes(attrs *mixerpb.Attributes) (MutableBag, error)
 
 	// Done indicates the tracker can be reclaimed.
 	Done()
@@ -51,9 +48,6 @@ type tracker struct {
 
 	// the current live dictionary
 	currentDictionary dictionary
-
-	// the bag currently in use by an outstanding request
-	currentChild *mutableBag
 }
 
 var trackers = sync.Pool{
@@ -78,13 +72,12 @@ func (at *tracker) Done() {
 
 	at.dictionaries.Release(at.currentDictionary)
 	at.currentDictionary = nil
-	at.currentChild = nil
 	at.dictionaries = nil
 
 	trackers.Put(at)
 }
 
-func (at *tracker) StartRequest(attrs *mixerpb.Attributes) (MutableBag, error) {
+func (at *tracker) ApplyAttributes(attrs *mixerpb.Attributes) (MutableBag, error) {
 	// find the context or create it if needed
 	rb := at.contexts[attrs.AttributeContext]
 	if rb == nil {
@@ -107,17 +100,60 @@ func (at *tracker) StartRequest(attrs *mixerpb.Attributes) (MutableBag, error) {
 		at.currentDictionary = at.dictionaries.Intern(attrs.Dictionary)
 	}
 
-	// to maintain the integrity of the API-level attribute protocol,
-	// we need to ensure that the rest of the mixer's processing pipeline
-	// doesn't mutate the set of protocol-level attributes. We do this
-	// by returning a child bag.
-	at.currentChild = rb.child()
-	return at.currentChild, nil
+	return copyBag(rb), nil
 }
 
-func (at *tracker) EndRequest() {
-	if at.currentChild != nil {
-		at.currentChild.Done()
-		at.currentChild = nil
+func copyBag(b Bag) MutableBag {
+	mb := getMutableBag(getRootBag())
+	for _, k := range b.StringKeys() {
+		v, _ := b.String(k)
+		mb.SetString(k, v)
 	}
+
+	for _, k := range b.Int64Keys() {
+		v, _ := b.Int64(k)
+		mb.SetInt64(k, v)
+	}
+
+	for _, k := range b.Float64Keys() {
+		v, _ := b.Float64(k)
+		mb.SetFloat64(k, v)
+	}
+
+	for _, k := range b.BoolKeys() {
+		v, _ := b.Bool(k)
+		mb.SetBool(k, v)
+	}
+
+	for _, k := range b.TimeKeys() {
+		v, _ := b.Time(k)
+		mb.SetTime(k, v)
+	}
+
+	for _, k := range b.DurationKeys() {
+		v, _ := b.Duration(k)
+		mb.SetDuration(k, v)
+	}
+
+	for _, k := range b.BytesKeys() {
+		v, _ := b.Bytes(k)
+
+		c := make([]byte, len(v))
+		for i := 0; i < len(v); i++ {
+			c[i] = v[i]
+		}
+		mb.SetBytes(k, c)
+	}
+
+	for _, k := range b.StringMapKeys() {
+		v, _ := b.StringMap(k)
+
+		c := make(map[string]string, len(v))
+		for k, v := range v {
+			c[k] = v
+		}
+		mb.SetStringMap(k, c)
+	}
+
+	return mb
 }

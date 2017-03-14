@@ -9,7 +9,7 @@ execution. This logger understands about which adapter
 is running and routes the data to the place where the
 operator wants to see it.
 
-- Adapters must use env.ScheduleWork in order to 
-dispatch goroutines. This ensures all adapter goroutines
+- Adapters must use env.ScheduleWork or env.ScheduleDaemon
+in order to dispatch goroutines. This ensures all adapter goroutines
 are prevented from crashing the mixer as a whole by catching
 any panics they produce.

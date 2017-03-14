@@ -66,7 +66,7 @@ func BenchmarkTracker(b *testing.B) {
 		t := am.NewTracker()
 
 		for _, a := range attrs {
-			b, _ := t.StartRequest(&a)
+			b, _ := t.ApplyAttributes(&a)
 
 			_, _ = b.String("a")
 			_, _ = b.Int64("a")
@@ -76,13 +76,11 @@ func BenchmarkTracker(b *testing.B) {
 			_, _ = b.Duration("a")
 			_, _ = b.Bytes("a")
 			_, _ = b.StringMap("a")
-
-			t.EndRequest()
 		}
 	}
 }
 
-func TestTracker_StartRequest(t *testing.T) {
+func TestTracker_ApplyAttributes(t *testing.T) {
 	t9 := time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
 	t10 := time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
 	d := time.Duration(42) * time.Second
@@ -115,7 +113,7 @@ func TestTracker_StartRequest(t *testing.T) {
 	}
 
 	tracker := NewManager().NewTracker().(*tracker)
-	_, err := tracker.StartRequest(&attr1)
+	_, err := tracker.ApplyAttributes(&attr1)
 	if err != nil {
 		t.Errorf("Expecting success, got %v", err)
 	}
@@ -123,7 +121,7 @@ func TestTracker_StartRequest(t *testing.T) {
 	oldDict := tracker.currentDictionary
 	oldBag := copyBag(tracker.contexts[0])
 
-	_, err = tracker.StartRequest(&attr2)
+	_, err = tracker.ApplyAttributes(&attr2)
 	if err == nil {
 		t.Error("Expecting failure, got success")
 	}
@@ -136,61 +134,11 @@ func TestTracker_StartRequest(t *testing.T) {
 	if !compareBags(oldBag, tracker.contexts[0]) {
 		t.Error("Expecting bags to be consistent, they're different")
 	}
-}
 
-func copyBag(b Bag) Bag {
-	mb := getMutableBag(getRootBag())
-	for _, k := range b.StringKeys() {
-		v, _ := b.String(k)
-		mb.SetString(k, v)
+	copy := copyBag(oldBag)
+	if !compareBags(oldBag, copy) {
+		t.Error("Expecting copied bag to match original")
 	}
-
-	for _, k := range b.Int64Keys() {
-		v, _ := b.Int64(k)
-		mb.SetInt64(k, v)
-	}
-
-	for _, k := range b.Float64Keys() {
-		v, _ := b.Float64(k)
-		mb.SetFloat64(k, v)
-	}
-
-	for _, k := range b.BoolKeys() {
-		v, _ := b.Bool(k)
-		mb.SetBool(k, v)
-	}
-
-	for _, k := range b.TimeKeys() {
-		v, _ := b.Time(k)
-		mb.SetTime(k, v)
-	}
-
-	for _, k := range b.DurationKeys() {
-		v, _ := b.Duration(k)
-		mb.SetDuration(k, v)
-	}
-
-	for _, k := range b.BytesKeys() {
-		v, _ := b.Bytes(k)
-
-		c := make([]byte, len(v))
-		for i := 0; i < len(v); i++ {
-			c[i] = v[i]
-		}
-		mb.SetBytes(k, c)
-	}
-
-	for _, k := range b.StringMapKeys() {
-		v, _ := b.StringMap(k)
-
-		c := make(map[string]string, len(v))
-		for k, v := range v {
-			c[k] = v
-		}
-		mb.SetStringMap(k, c)
-	}
-
-	return mb
 }
 
 func compareBags(b1 Bag, b2 Bag) bool {

@@ -35,7 +35,7 @@ var (
 )
 
 func TestContext(t *testing.T) {
-	bag, err := attribute.NewManager().NewTracker().StartRequest(attrs)
+	bag, err := attribute.NewManager().NewTracker().ApplyAttributes(attrs)
 	if err != nil {
 		t.Errorf("Failed to construct bag with err: %s", err)
 	}
@@ -54,7 +54,7 @@ func TestContext(t *testing.T) {
 }
 
 func TestSet(t *testing.T) {
-	bag, err := attribute.NewManager().NewTracker().StartRequest(attrs)
+	bag, err := attribute.NewManager().NewTracker().ApplyAttributes(attrs)
 	if err != nil {
 		t.Errorf("Failed to construct bag with err: %s", err)
 	}
@@ -77,7 +77,7 @@ func TestSet(t *testing.T) {
 }
 
 func TestForeachKey(t *testing.T) {
-	bag, err := attribute.NewManager().NewTracker().StartRequest(attrs)
+	bag, err := attribute.NewManager().NewTracker().ApplyAttributes(attrs)
 	if err != nil {
 		t.Errorf("Failed to construct bag with err: %s", err)
 	}
@@ -106,7 +106,7 @@ func TestForeachKey(t *testing.T) {
 }
 
 func TestForeachKey_PropagatesErr(t *testing.T) {
-	bag, err := attribute.NewManager().NewTracker().StartRequest(attrs)
+	bag, err := attribute.NewManager().NewTracker().ApplyAttributes(attrs)
 	if err != nil {
 		t.Errorf("Failed to construct bag with err: %s", err)
 	}

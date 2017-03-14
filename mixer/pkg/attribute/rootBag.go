@@ -428,7 +428,3 @@ func (rb *rootBag) update(dictionary dictionary, attrs *mixerpb.Attributes) erro
 
 	return nil
 }
-
-func (rb *rootBag) child() *mutableBag {
-	return getMutableBag(rb)
-}

@@ -56,20 +56,39 @@ type (
 		ValidateConfig(c AspectConfig) *ConfigErrors
 	}
 
-	// WorkFunc represents a function to invoke asynchronously.
+	// WorkFunc represents a function to invoke.
 	WorkFunc func()
+
+	// DaemonFunc represents a function to invoke asynchronously to run a long-running background processing loop.
+	DaemonFunc func()
 
 	// Env defines the environment in which an aspect executes.
 	Env interface {
 		// Logger returns the logger for the aspect to use at runtime.
 		Logger() Logger
 
-		// ScheduleWork records a function for async execution.
+		// ScheduleWork records a function for execution.
 		//
-		// This is the preferred way for adapters to do async work.
+		// Under normal circumstances, this method executes the
+		// function on a separate goroutine. But when the mixer
+		// is running in single-threaded mode, then the function
+		// will be invoked synchronously on the same goroutine.
+		//
+		// Adapters should not spawn 'naked' goroutines, they should
+		// use this method or ScheduleDaemon instead.
 		ScheduleWork(fn WorkFunc)
 
-		// Possible other things:
+		// ScheduleDaemon records a function for background execution.
+		// Unlike ScheduleWork, this method guarantees execution on a
+		// different goroutine. Use ScheduleDaemon for long-running
+		// background operations, whereas ScheduleWork is for bursty
+		// one-shot kind of things.
+		//
+		// Adapters should not spawn 'naked' goroutines, they should
+		// use this method or ScheduleWork instead.
+		ScheduleDaemon(fn DaemonFunc)
+
+		// Possible other features for Env:
 		// Return how much time remains until the mixer considers the aspect call having timed out and kills it
 		// Return true/false to indicate this is a 'recovery mode' execution following a prior crash of the aspect
 		// ?

@@ -333,7 +333,7 @@ func TestAttributeManager(t *testing.T) {
 	defer at.Done()
 
 	for i, c := range cases {
-		ab, err := at.StartRequest(&c.attrs)
+		ab, err := at.ApplyAttributes(&c.attrs)
 		if (err == nil) != c.result {
 			if c.result {
 				t.Errorf("Expected StartRequest to succeed but it returned %v for test case %d", err, i)
@@ -341,7 +341,6 @@ func TestAttributeManager(t *testing.T) {
 				t.Errorf("Expected StartRequest to fail but it succeeded for test case %d", i)
 			}
 		}
-		defer at.EndRequest()
 
 		for j, g := range c.getString {
 			result, present := ab.String(g.name)
