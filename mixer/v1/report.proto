@@ -37,6 +37,9 @@ message ReportResponse {
   // Index of the request this response is associated with
   int64 request_index = 1;
 
+  // The attributes to use for this response
+  Attributes attribute_update = 2;
+
   // Indicates whether the report was processed or not
-  google.rpc.Status result = 2 [(gogoproto.nullable) = false];
+  google.rpc.Status result = 3 [(gogoproto.nullable) = false];
 }

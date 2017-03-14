@@ -38,9 +38,12 @@ message CheckResponse {
   // Index of the request this response is associated with
   int64 request_index = 1;
 
+  // The attributes to use for this response
+  Attributes attribute_update = 2;
+
   // Indicates whether or not the preconditions succeeded
-  google.rpc.Status result = 2 [(gogoproto.nullable) = false];
+  google.rpc.Status result = 3 [(gogoproto.nullable) = false];
 
   // The amount of time for which this result can be considered valid, given the same inputs
-  google.protobuf.Duration expiration = 3 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+  google.protobuf.Duration expiration = 4 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 }

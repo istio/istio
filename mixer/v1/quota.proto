@@ -53,12 +53,15 @@ message QuotaResponse {
   // Index of the request this response is associated with.
   int64 request_index = 1;
 
+  // The attributes to use for this response
+  Attributes attribute_update = 2;
+
   // Indicates whether the quota request was successfully processed.
-  google.rpc.Status result = 2 [(gogoproto.nullable) = false];
+  google.rpc.Status result = 3 [(gogoproto.nullable) = false];
 
   // The amount of time the returned quota can be considered valid, this is 0 for non-expiring quotas.
-  google.protobuf.Duration expiration = 3 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+  google.protobuf.Duration expiration = 4 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 
   // The total amount of quota returned, may be less than requested.
-  int64 amount = 4;
+  int64 amount = 5;
 }
