@@ -8,14 +8,14 @@ branches:
   - stable
 
 go:
-- 1.7.x
+- 1.8.x
 
 jdk:
 - oraclejdk8
 
 env:
   global:
-  - BAZEL_VERSION=0.4.3
+  - BAZEL_VERSION=0.4.4
 
 addons:
   apt:
