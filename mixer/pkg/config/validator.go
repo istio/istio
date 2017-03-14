@@ -82,6 +82,7 @@ type (
 	// It has been validated as internally consistent and correct.
 	Validated struct {
 		adapterByName map[adapterKey]*pb.Adapter
+		globalConfig  *pb.GlobalConfig
 		serviceConfig *pb.ServiceConfig
 		numAspects    int
 	}
@@ -115,6 +116,7 @@ func (p *Validator) validateGlobalConfig(cfg string) (ce *adapter.ConfigErrors) 
 			p.validated.adapterByName[adapterKey{kind, aa.Name}] = aa
 		}
 	}
+	p.validated.globalConfig = m
 	return
 }
 

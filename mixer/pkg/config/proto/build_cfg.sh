@@ -11,16 +11,19 @@ WD=$(dirname $0)
 WD=$(cd $WD; pwd)
 PKG=$(dirname $WD)
 
+BUILD_DIR=$(dirname $(dirname $(readlink  ${WD}/../../../bazel-mixer)))
+ISTIO_API=${BUILD_DIR}/external/com_github_istio_api
 
-BLDDIR=$(dirname $(dirname $(readlink  ${WD}/../../../bazel-mixer)))
+cd ${ISTIO_API}
+CKSUM=$(cksum mixer/v1/config/cfg.proto)
 
-ISTIO_API=${BLDDIR}/external/com_github_istio_api
+# protoc keeps the directory structure leading up to the proto file, so it creates
+# the dir ${WD}/mixer/v1/config/. We don't want that, so we'll move the pb.go file
+# out and remove the dir.
+protoc mixer/v1/config/cfg.proto --go_out=${WD}
+mv ${WD}/mixer/v1/config/cfg.pb.go ${WD}/cfg.pb.go
+rm -rd ${WD}/mixer
 
-cd ${ISTIO_API}/mixer/v1/config
-
-CKSUM=$(cksum cfg.proto)
-
-protoc cfg.proto --go_out=${WD} 
 cd ${WD}
 TMPF="_cfg.pb.go"
 PB="cfg.pb.go"
@@ -30,6 +33,7 @@ echo "// ${CKSUM}"  >> ${TMPF}
 cat ${PB} >> ${TMPF}
 mv ${TMPF} ${PB}
 
-sed -i "" 's/*google_protobuf.Struct/interface{}/g' ${PB}
+sed -i 's/*google_protobuf.Struct/interface{}/g' ${PB}
+sed -i 's/mixer\/v1\/config\/descriptor/istio.io\/api\/mixer\/v1\/config\/descriptor/g' ${PB}
 
 goimports -w ${PB}

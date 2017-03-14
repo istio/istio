@@ -24,6 +24,7 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config/descriptors"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -43,13 +44,14 @@ type ChangeListener interface {
 // It applies validated changes to the registered config change listeners.
 // api.Handler listens for config changes.
 type Manager struct {
-	eval          expr.Evaluator
-	aspectFinder  ValidatorFinderFunc
-	builderFinder ValidatorFinderFunc
-	findAspects   AdapterToAspectMapperFunc
-	loopDelay     time.Duration
-	globalConfig  string
-	serviceConfig string
+	eval             expr.Evaluator
+	aspectFinder     ValidatorFinderFunc
+	builderFinder    ValidatorFinderFunc
+	descriptorFinder descriptors.Finder
+	findAspects      AdapterToAspectMapperFunc
+	loopDelay        time.Duration
+	globalConfig     string
+	serviceConfig    string
 
 	cl      []ChangeListener
 	closing chan bool
@@ -123,6 +125,8 @@ func (c *Manager) fetch() (*Runtime, error) {
 	if vd, cerr = v.Validate(sc, gc); cerr != nil {
 		return nil, cerr
 	}
+
+	c.descriptorFinder = descriptors.NewFinder(v.validated.globalConfig)
 
 	c.gcSHA = gcSHA
 	c.scSHA = scSHA
