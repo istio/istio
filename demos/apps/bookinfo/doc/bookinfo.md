@@ -24,8 +24,8 @@ This application is polyglot, i.e., the microservices are written in
 different languages. All microservices are packaged with an
 Istio sidecar that manages all incoming and outgoing calls for the service.
 
-<!-- > Note: the following instructions assume that your current working directory -->
-<!-- > is [demos/apps/bookinfo](..). -->
+> Note: the following instructions assume that your current working directory
+> is [demos/apps/bookinfo](..).
 
 *CLI*: This walkthrough will use the _istioctl_ CLI that provides a
 convenient way to apply routing rules and policies for upstreams. The
