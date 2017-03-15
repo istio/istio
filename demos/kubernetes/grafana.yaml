@@ -39,6 +39,8 @@ spec:
           value: Admin
         - name: GF_PATHS_DATA
           value: /data/grafana
+        - name: DASHBOARD_URL
+          value: https://raw.githubusercontent.com/istio/mixer/master/deploy/kube/conf/grafana-dashboard.json
         volumeMounts:
         - mountPath: /data/grafana
           name: grafana-data
