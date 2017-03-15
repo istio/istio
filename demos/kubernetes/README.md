@@ -36,6 +36,10 @@ Send HTTP request from "logic" pod to "echo" service:
 
 This will echo the URL and print HTTP headers, including "X-Envoy-Expected-Rq-Timeout-Ms".
 
+**Enable rate limiting in mixer**
+
+    kubectl replace -f ./mixer-config-quota.yaml
+    
 **Optional - Monitoring with Prometheus and Grafana**
 
     kubectl apply -f ./prometheus.yaml  
