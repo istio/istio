@@ -94,10 +94,8 @@ void FillRequestInfoAttributes(const AccessLog::RequestInfo& info,
     attr->attributes[kResponseSize] = Attributes::Int64Value(info.bytesSent());
   }
 
-  if (info.duration().count() > 0) {
-    attr->attributes[kResponseLatency] = Attributes::DurationValue(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(info.duration()));
-  }
+  attr->attributes[kResponseLatency] = Attributes::DurationValue(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(info.duration()));
 
   if (info.responseCode().valid()) {
     attr->attributes[kResponseHttpCode] =
