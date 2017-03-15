@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
       - name: manager
-        image: docker.io/istio/runtime:d19b270
+        image: docker.io/istio/runtime:8b99d8a
         imagePullPolicy: Always
         args: ["discovery", "-v", "2", "default"]
         ports:
