@@ -314,7 +314,7 @@ When we are confident that our Bookinfo app is stable, we route 100% of the traf
 You can now log in to the `productpage` as any user and you should always see book reviews
 with *red* colored star ratings for each review.
 
-### Rate Limiting
+### Rate Limiting (NOT WORKING YET)
 
 Now we'll pretend that `ratings` is an external service for which we are paying (like going to rotten tomatoes),
 so we will set a rate limit on the service such that the load remains under the Free quota (20q/s):
