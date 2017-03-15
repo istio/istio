@@ -40,13 +40,13 @@ $ cp istioctl-osx /usr/local/bin/istioctl
 
 ## Running the Bookinfo Application
 
-1. Bring up the control plane:
+1. Bring up the Istio control plane:
 
    ```bash
-   $ kubectl create -f apps/controlplane.yaml
+   $ kubectl apply -f ./apps/istio
    ```
    
-   This command launches the istio manager and an envoy-based ingress controller, which will be used
+   This command launches the Istio manager, mixer, and an envoy-based ingress controller, which will be used
    to implement the gateway for the application. 
 
 1. Bring up the application containers:
@@ -64,14 +64,15 @@ $ cp istioctl-osx /usr/local/bin/istioctl
 
    ```bash
    $ kubectl get services
-   NAME                       CLUSTER-IP   EXTERNAL-IP   PORT(S)        AGE
-   details                    10.0.0.192   <none>        9080/TCP       34s
-   istio-ingress-controller   10.0.0.74    <nodes>       80:32000/TCP   1m
-   istio-route-controller     10.0.0.144   <none>        8080/TCP       1m
-   kubernetes                 10.0.0.1     <none>        443/TCP        6h
-   productpage                10.0.0.215   <none>        9080/TCP       34s
-   ratings                    10.0.0.75    <none>        9080/TCP       34s
-   reviews                    10.0.0.113   <none>        9080/TCP       34s
+   NAME                       CLUSTER-IP   EXTERNAL-IP   PORT(S)              AGE
+   details                    10.0.0.31    <none>        9080/TCP             6m
+   istio-ingress-controller   10.0.0.122   <pending>     80:32000/TCP         8m
+   istio-manager              10.0.0.189   <none>        8080/TCP             8m
+   istio-mixer                10.0.0.132   <none>        9091/TCP,42422/TCP   8m
+   kubernetes                 10.0.0.1     <none>        443/TCP              14d
+   productpage                10.0.0.120   <none>        9080/TCP             6m
+   ratings                    10.0.0.15    <none>        9080/TCP             6m
+   reviews                    10.0.0.170   <none>        9080/TCP             6m
    ```
 
    and
@@ -79,14 +80,15 @@ $ cp istioctl-osx /usr/local/bin/istioctl
    ```bash
    $ kubectl get pods
    NAME                                        READY     STATUS    RESTARTS   AGE
-   details-v1-2834985933-31gns                 2/2       Running   0          41s
-   istio-ingress-controller-1035658521-3ztkr   1/1       Running   0          1m
-   istio-route-controller-3817920337-80753     1/1       Running   0          1m
-   productpage-v1-1157331189-7tsh1             2/2       Running   0          41s
-   ratings-v1-2039116803-k7kr8                 2/2       Running   0          41s
-   reviews-v1-2171892778-57jt6                 2/2       Running   0          41s
-   reviews-v2-2641065004-hfh54                 2/2       Running   0          41s
-   reviews-v3-3110237230-3trfv                 2/2       Running   0          41s
+   details-v1-1520924117-48z17                 2/2       Running   0          6m
+   istio-ingress-controller-3181829929-xrrk5   1/1       Running   0          8m
+   istio-manager-175173354-d6jm7               2/2       Running   0          8m
+   istio-mixer-3883863574-jt09j                2/2       Running   0          8m
+   productpage-v1-560495357-jk1lz              2/2       Running   0          6m
+   ratings-v1-734492171-rnr5l                  2/2       Running   0          6m
+   reviews-v1-874083890-f0qf0                  2/2       Running   0          6m
+   reviews-v2-1343845940-b34q5                 2/2       Running   0          6m
+   reviews-v3-1813607990-8ch52                 2/2       Running   0          6m
    ```
 
 1. Determine the Gateway ingress URL (TEMPORARY - instruction subject to change)
@@ -95,7 +97,7 @@ $ cp istioctl-osx /usr/local/bin/istioctl
    as the external gateway IP.
 
    ```bash
-   $ kubectl describe pod istio-ingress-controller-1035658521-3ztkr | grep Node
+   $ kubectl describe pod istio-ingress-controller- | grep Node
    Node:		minikube/192.168.99.100
    $ export GATEWAY_URL=192.168.99.100:32000
    ```
