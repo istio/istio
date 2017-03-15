@@ -64,7 +64,7 @@ spec:
           - -n
           - default
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
           - -v
           - "2"
         env:
@@ -136,7 +136,7 @@ spec:
           - -n
           - default
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
           - -v
           - "2"
         env:
@@ -208,7 +208,7 @@ spec:
           - -n
           - default
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
           - -v
           - "2"
         env:
@@ -262,7 +262,7 @@ spec:
           - -n
           - default
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
           - -v
           - "2"
         env:
@@ -316,7 +316,7 @@ spec:
           - -n
           - default
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
           - -v
           - "2"
         env:
@@ -388,7 +388,7 @@ spec:
           - -n
           - default
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
           - -v
           - "2"
         env:
