@@ -18,15 +18,15 @@ set -o errexit
 
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-pushd $SCRIPTDIR/productpage
+pushd $SCRIPTDIR/src/productpage
   docker build -t istio/examples-bookinfo-productpage-v1 .
 popd
 
-pushd $SCRIPTDIR/details
+pushd $SCRIPTDIR/src/details
   docker build -t istio/examples-bookinfo-details-v1 .
 popd
 
-pushd $SCRIPTDIR/reviews
+pushd $SCRIPTDIR/src/reviews
   #java build the app.
   docker run --rm -v `pwd`:/usr/bin/app:rw niaquinto/gradle clean build
   pushd reviews-wlpcfg
@@ -39,6 +39,6 @@ pushd $SCRIPTDIR/reviews
   popd
 popd
 
-pushd $SCRIPTDIR/ratings
+pushd $SCRIPTDIR/src/ratings
   docker build -t istio/examples-bookinfo-ratings-v1 .
 popd
