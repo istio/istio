@@ -29,6 +29,7 @@ type VerifyFields struct {
 	notBefore   time.Time
 	notAfter    time.Time
 	extKeyUsage x509.ExtKeyUsage
+	keyUsage    x509.KeyUsage
 	isCA        bool
 	org         string
 }
@@ -55,13 +56,15 @@ func TestGenCert(t *testing.T) {
 		notBefore:   notBefore,
 		notAfter:    notAfter,
 		extKeyUsage: x509.ExtKeyUsageServerAuth,
+		keyUsage:    x509.KeyUsageCertSign,
 		isCA:        true,
 		org:         "MyOrg",
 	})
 
 	caCert, caPriv := parsePemEncodedCertificateAndKey(caCertPem, caPrivPem)
 	cases := []struct {
-		certOptions CertOptions
+		certOptions  CertOptions
+		verifyFields VerifyFields
 	}{
 		// These certs are signed by the CA cert
 		{
@@ -77,6 +80,14 @@ func TestGenCert(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     false,
 			},
+			verifyFields: VerifyFields{
+				extKeyUsage: x509.ExtKeyUsageServerAuth,
+				isCA:        false,
+				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				notAfter:    notBefore.Add(time.Hour * 24),
+				notBefore:   notBefore,
+				org:         "MyOrg",
+			},
 		},
 		{
 			// client cert with DNS as SAN
@@ -90,6 +101,14 @@ func TestGenCert(t *testing.T) {
 				IsCA:         false,
 				IsSelfSigned: false,
 				IsClient:     true,
+			},
+			verifyFields: VerifyFields{
+				extKeyUsage: x509.ExtKeyUsageClientAuth,
+				isCA:        false,
+				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				notAfter:    notBefore.Add(time.Hour * 36),
+				notBefore:   notBefore,
+				org:         "MyOrg",
 			},
 		},
 		{
@@ -105,6 +124,14 @@ func TestGenCert(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     false,
 			},
+			verifyFields: VerifyFields{
+				extKeyUsage: x509.ExtKeyUsageServerAuth,
+				isCA:        false,
+				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				notAfter:    notBefore.Add(time.Hour * 24),
+				notBefore:   notBefore,
+				org:         "MyOrg",
+			},
 		},
 		{
 			// client cert with service account as SAN
@@ -118,6 +145,14 @@ func TestGenCert(t *testing.T) {
 				IsCA:         false,
 				IsSelfSigned: false,
 				IsClient:     true,
+			},
+			verifyFields: VerifyFields{
+				extKeyUsage: x509.ExtKeyUsageClientAuth,
+				isCA:        false,
+				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				notAfter:    notBefore.Add(time.Hour * 100),
+				notBefore:   notBefore,
+				org:         "MyOrg",
 			},
 		},
 		{
@@ -133,32 +168,28 @@ func TestGenCert(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     false,
 			},
+			verifyFields: VerifyFields{
+				extKeyUsage: x509.ExtKeyUsageServerAuth,
+				isCA:        false,
+				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				notAfter:    notBefore.Add(time.Hour * 50),
+				notBefore:   notBefore,
+				org:         "MyOrg",
+			},
 		},
 	}
+
 	for _, c := range cases {
 		certOptions := c.certOptions
 		certPem, privPem := GenCert(certOptions)
-		notAfter = notBefore.Add(certOptions.ValidFor)
-
-		var extKeyUsage x509.ExtKeyUsage
-		if certOptions.IsClient {
-			extKeyUsage = x509.ExtKeyUsageClientAuth
-		} else {
-			extKeyUsage = x509.ExtKeyUsageServerAuth
-		}
-		verifyCert(t, privPem, certPem, caCertPem, certOptions.Host, VerifyFields{
-			notBefore:   notBefore,
-			notAfter:    notAfter,
-			extKeyUsage: extKeyUsage,
-			isCA:        false,
-			org:         "MyOrg",
-		})
+		verifyCert(t, privPem, certPem, caCertPem, certOptions.Host, c.verifyFields)
 	}
 }
 
 func verifyCert(
 	t *testing.T, privPem []byte, certPem []byte, rootCertPem []byte,
 	host string, expectedFields VerifyFields) {
+
 	roots := x509.NewCertPool()
 	var ok bool
 	if rootCertPem == nil {
@@ -212,6 +243,7 @@ func verifyCert(
 		notBefore:   cert.NotBefore,
 		notAfter:    cert.NotAfter,
 		extKeyUsage: cert.ExtKeyUsage[0],
+		keyUsage:    cert.KeyUsage,
 		isCA:        cert.IsCA,
 		org:         cert.Issuer.Organization[0],
 	}
