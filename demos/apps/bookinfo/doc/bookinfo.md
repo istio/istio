@@ -25,7 +25,7 @@ different languages. All microservices are packaged with an
 Istio sidecar that manages all incoming and outgoing calls for the service.
 
 <!-- > Note: the following instructions assume that your current working directory -->
-<!-- > is [apps/bookinfo](apps/bookinfo). -->
+<!-- > is [demos/apps/bookinfo](..). -->
 
 *CLI*: This walkthrough will use the _istioctl_ CLI that provides a
 convenient way to apply routing rules and policies for upstreams. The
@@ -43,7 +43,7 @@ $ cp istioctl-osx /usr/local/bin/istioctl
 1. Bring up the Istio control plane:
 
    ```bash
-   $ kubectl apply -f ./apps/istio
+   $ kubectl apply -f ../istio
    ```
    
    This command launches the Istio manager, mixer, and an envoy-based ingress controller, which will be used
@@ -52,7 +52,7 @@ $ cp istioctl-osx /usr/local/bin/istioctl
 1. Bring up the application containers:
 
    ```bash
-   $ kubectl create -f apps/bookinfo/bookinfo-istio.yaml
+   $ kubectl create -f bookinfo-istio.yaml
    ```
 
    The above command creates the gateway ingress resource and launches the 4 microservices as described
@@ -112,7 +112,7 @@ route requests to all available versions of a service in a random fashion.
 1. Set the default version for all microservice to v1. 
 
    ```bash
-   $ istioctl create -f apps/bookinfo/route-rule-all-v1.yaml
+   $ istioctl create -f route-rule-all-v1.yaml
    ```
 
    You can display the routes that are defined with the following command:
@@ -185,7 +185,7 @@ route requests to all available versions of a service in a random fashion.
    `reviews:v2` instances.
 
    ```bash
-   $ istioctl create -f apps/bookinfo/route-rule-reviews-test-v2.yaml 
+   $ istioctl create -f route-rule-reviews-test-v2.yaml 
    ```
 
    Confirm the rule is created:
@@ -218,7 +218,7 @@ route requests to all available versions of a service in a random fashion.
    Create a fault injection rule, to delay traffic coming from user "jason" (our test user).
 
    ```bash
-   $ istioctl create -f apps/bookinfo/destination-ratings-test-delay.yaml
+   $ istioctl create -f destination-ratings-test-delay.yaml
    ```
 
    Confirm the rule is created:
@@ -283,7 +283,7 @@ to `reviews:v3` in two steps.
 First, transfer 50% of traffic from `reviews:v1` to `reviews:v3` with the following command:
 
 ```bash
-   $ istioctl replace -f apps/bookinfo/route-rule-reviews-50-v3.yaml
+   $ istioctl replace -f route-rule-reviews-50-v3.yaml
 ```
 
 > Notice that we are using `istioctl replace` instead of `create`.
@@ -305,7 +305,7 @@ the `productpage`.
 When we are confident that our Bookinfo app is stable, we route 100% of the traffic to `reviews:v3`:
 
 ```bash
-   $ istioctl replace -f apps/bookinfo/route-rule-reviews-v3.yaml
+   $ istioctl replace -f route-rule-reviews-v3.yaml
 ```
 
 You can now log in to the `productpage` as any user and you should always see book reviews
@@ -317,7 +317,7 @@ Now we'll pretend that `ratings` is an external service for which we are paying 
 so we will set a rate limit on the service such that the load remains under the Free quota (100q/s):
 
 ```bash
-   $ istioctl create -f apps/bookinfo/mixer-policy-ratings-ratelimit.yaml
+   $ istioctl create -f mixer-policy-ratings-ratelimit.yaml
 ```
 
 We now generate load on the `productpage` with the following command:
@@ -334,7 +334,7 @@ If you now refresh the `productpage` you'll see that while the load generator is
 1. Delete the routing rules and terminate the application and control plane pods
 
    ```bash
-   $ ./apps/bookinfo/cleanup.sh
+   $ ./cleanup.sh
    ```
 
 1. Confirm shutdown
