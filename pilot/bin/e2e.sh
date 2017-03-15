@@ -14,9 +14,9 @@ debug_suffix=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -h) hub="$2"; shift ;;
-        -t) tag="$2"; shift ;;
-        --use_debug_image) debug_suffix="_debug" ;;
+        -tag) tag="$2"; shift ;;
+        -hub) hub="$2"; args=$args" -hub $hub"; shift ;;
+        -debug) debug_suffix="_debug" ; args=$args" -debug" ;;
         *) args=$args" $1" ;;
     esac
     shift
@@ -27,12 +27,11 @@ set -ex
 if [[ -z $tag ]]; then
   tag=$(whoami)_$(date +%Y%m%d_%H%M%S)
 fi
-args=$args" -t $tag"
+args=$args" -tag $tag"
 
 if [[ "$hub" =~ ^gcr\.io ]]; then
   gcloud docker --authorize-only
 fi
-args=$args" -h $hub"
 
 for image in app init runtime; do
   bazel $BAZEL_ARGS run //docker:$image$debug_suffix
@@ -40,4 +39,4 @@ for image in app init runtime; do
   docker push $hub/$image:$tag
 done
 
-bazel $BAZEL_ARGS run //test/integration -- $args
+bazel $BAZEL_ARGS run //test/integration -- --logtostderr $args

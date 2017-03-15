@@ -17,20 +17,19 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
 	"text/template"
 	"time"
 
+	"github.com/golang/glog"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
 	meta_v1 "k8s.io/client-go/pkg/apis/meta/v1"
-
-	flag "github.com/spf13/pflag"
 
 	"istio.io/manager/model"
 	"istio.io/manager/platform/kube"
@@ -50,21 +49,18 @@ const (
 	mixerTag = "6655a67"
 )
 
-// params contain default template parameter values
 type parameters struct {
 	hub        string
 	tag        string
 	mixerImage string
 	namespace  string
+	kubeconfig string
+	debug      bool
+	parallel   bool
 }
 
 var (
 	params parameters
-
-	kubeconfig string
-
-	verbose  bool
-	parallel bool
 
 	client      *kubernetes.Clientset
 	istioClient *kube.Client
@@ -77,20 +73,16 @@ var (
 )
 
 func init() {
-	flag.StringVarP(&params.hub, "hub", "h", "gcr.io/istio-testing",
-		"Docker hub")
-	flag.StringVarP(&params.tag, "tag", "t", "",
-		"Docker tag")
-	flag.StringVar(&params.mixerImage, "mixerImage", "gcr.io/istio-testing/mixer:"+mixerTag,
+	flag.StringVar(&params.hub, "hub", "gcr.io/istio-testing", "Docker hub")
+	flag.StringVar(&params.tag, "tag", "", "Docker tag")
+	flag.StringVar(&params.mixerImage, "mixer", "gcr.io/istio-testing/mixer:"+mixerTag,
 		"Mixer Docker image")
-	flag.StringVarP(&params.namespace, "namespace", "n", "",
+	flag.StringVar(&params.namespace, "n", "",
 		"Namespace to use for testing (empty to create/delete temporary one)")
-	flag.StringVarP(&kubeconfig, "config", "c", "platform/kube/config",
+	flag.StringVar(&params.kubeconfig, "c", "platform/kube/config",
 		"kube config file (missing or empty file makes the test use in-cluster kube config instead)")
-	flag.BoolVarP(&verbose, "dump", "d", false,
-		"Dump proxy logs and request logs")
-	flag.BoolVar(&parallel, "parallel", true,
-		"Run requests in parallel")
+	flag.BoolVar(&params.debug, "debug", false, "Extra logging in the containers")
+	flag.BoolVar(&params.parallel, "parallel", true, "Run requests in parallel")
 }
 
 func main() {
@@ -103,12 +95,12 @@ func main() {
 
 func setup() {
 	if params.tag == "" {
-		log.Fatal("No docker tag specified with -t or --tag")
+		glog.Fatal("No docker tag specified")
 	}
 	if params.mixerImage == "" {
-		log.Fatal("No mixer image specified with --mixerImage, 'latest?'")
+		glog.Fatal("No mixer image specified")
 	}
-	log.Printf("params %#v", params)
+	glog.Infof("params %#v", params)
 
 	check(setupClient())
 
@@ -142,7 +134,12 @@ func setup() {
 // check function correctly cleans up on failure
 func check(err error) {
 	if err != nil {
-		log.Print(err)
+		glog.Info(err)
+		if glog.V(2) {
+			for _, pod := range pods {
+				glog.Info(podLogs(pod, "proxy"))
+			}
+		}
 		teardown()
 		os.Exit(1)
 	}
@@ -150,10 +147,6 @@ func check(err error) {
 
 // teardown removes resources
 func teardown() {
-	if verbose {
-		log.Print(podLogs(pods["a"], "proxy"))
-		log.Print(podLogs(pods["b"], "proxy"))
-	}
 	if nameSpaceCreated {
 		deleteNamespace(client, params.namespace)
 		params.namespace = ""
@@ -170,7 +163,7 @@ func deploy(name, svcName, dType, port1, port2, port3, port4, version string) er
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			log.Printf("Error closing file " + configFile)
+			glog.Info("Error closing file " + configFile)
 		}
 	}()
 
@@ -235,8 +228,7 @@ func getRestartEpoch(pod string) (int, error) {
 */
 
 func addConfig(config []byte, kind, name string, create bool) {
-	log.Println("Add config")
-	log.Println(string(config))
+	glog.Infof("Add config %s", string(config))
 	istioKind, ok := model.IstioConfig[kind]
 	if !ok {
 		check(fmt.Errorf("Invalid kind %s", kind))
@@ -260,7 +252,7 @@ func deployDynamicConfig(in string, data map[string]string, kind, name, envoy st
 	check(err)
 	_, exists := istioClient.Get(model.Key{Kind: kind, Name: name, Namespace: params.namespace})
 	addConfig(config, kind, name, !exists)
-	log.Println("Sleeping for the config to propagate")
+	glog.Info("Sleeping for the config to propagate")
 	time.Sleep(3 * time.Second)
 }
 
@@ -271,6 +263,11 @@ func write(in string, data map[string]string, out io.Writer) error {
 	values["tag"] = params.tag
 	values["mixerImage"] = params.mixerImage
 	values["namespace"] = params.namespace
+	if params.debug {
+		values["verbosity"] = "3"
+	} else {
+		values["verbosity"] = "2"
+	}
 	for k, v := range data {
 		values[k] = v
 	}
@@ -300,7 +297,7 @@ func writeString(in string, data map[string]string) ([]byte, error) {
 }
 
 func run(command string) error {
-	log.Println(command)
+	glog.V(2).Info(command)
 	parts := strings.Split(command, " ")
 	/* #nosec */
 	c := exec.Command(parts[0], parts[1:]...)
@@ -309,16 +306,14 @@ func run(command string) error {
 	return c.Run()
 }
 
-func shell(command string, printCmd bool) (string, error) {
-	if printCmd {
-		log.Println(command)
-	}
+func shell(command string) (string, error) {
+	glog.V(2).Info(command)
 	parts := strings.Split(command, " ")
 	/* #nosec */
 	c := exec.Command(parts[0], parts[1:]...)
 	bytes, err := c.CombinedOutput()
 	if err != nil {
-		log.Println(string(bytes))
+		glog.V(2).Info(string(bytes))
 		return "", fmt.Errorf("command failed: %q %v", string(bytes), err)
 	}
 	return string(bytes), nil
@@ -327,7 +322,7 @@ func shell(command string, printCmd bool) (string, error) {
 // connect to K8S cluster and register TPRs
 func setupClient() error {
 	var err error
-	istioClient, err = kube.NewClient(kubeconfig, model.IstioConfig)
+	istioClient, err = kube.NewClient(params.kubeconfig, model.IstioConfig)
 	if err != nil {
 		return err
 	}
@@ -336,9 +331,9 @@ func setupClient() error {
 }
 
 func setPods() error {
-	items := make([]v1.Pod, 0)
+	var items []v1.Pod
 	for n := 0; ; n++ {
-		log.Println("Checking all pods are running...")
+		glog.Info("Checking all pods are running...")
 		list, err := client.Pods(params.namespace).List(v1.ListOptions{})
 		if err != nil {
 			return err
@@ -348,7 +343,7 @@ func setPods() error {
 
 		for _, pod := range items {
 			if pod.Status.Phase != "Running" {
-				log.Printf("Pod %s has status %s\n", pod.Name, pod.Status.Phase)
+				glog.Infof("Pod %s has status %s\n", pod.Name, pod.Status.Phase)
 				ready = false
 				break
 			}
@@ -360,7 +355,7 @@ func setPods() error {
 
 		if n > budget {
 			for _, pod := range items {
-				log.Print(podLogs(pod.Name, "proxy"))
+				glog.Infof(podLogs(pod.Name, "proxy"))
 			}
 			return fmt.Errorf("exceeded budget for checking pod status")
 		}
@@ -379,12 +374,12 @@ func setPods() error {
 
 // podLogs gets pod logs by container
 func podLogs(name string, container string) string {
-	log.Println("Pod proxy logs", name)
+	glog.Infof("Pod proxy logs %q", name)
 	raw, err := client.Pods(params.namespace).
 		GetLogs(name, &v1.PodLogOptions{Container: container}).
 		Do().Raw()
 	if err != nil {
-		log.Println("Request error", err)
+		glog.Info("Request error", err)
 		return ""
 	}
 
@@ -400,7 +395,7 @@ func generateNamespace(cl *kubernetes.Clientset) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Printf("Created namespace %s\n", ns.Name)
+	glog.Infof("Created namespace %s\n", ns.Name)
 	nameSpaceCreated = true
 	return ns.Name, nil
 }
@@ -408,8 +403,8 @@ func generateNamespace(cl *kubernetes.Clientset) (string, error) {
 func deleteNamespace(cl *kubernetes.Clientset, ns string) {
 	if cl != nil && ns != "" && ns != "default" {
 		if err := cl.Core().Namespaces().Delete(ns, &v1.DeleteOptions{}); err != nil {
-			log.Printf("Error deleting namespace: %v\n", err)
+			glog.Infof("Error deleting namespace: %v\n", err)
 		}
-		log.Printf("Deleted namespace %s\n", ns)
+		glog.Infof("Deleted namespace %s\n", ns)
 	}
 }

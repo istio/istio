@@ -19,9 +19,11 @@ import (
 	"io/ioutil"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pmezard/go-difflib/difflib"
 
 	"istio.io/manager/model"
 	"istio.io/manager/test/mock"
@@ -224,7 +226,34 @@ const (
 	faultRouteRule    = "testdata/fault-route.yaml.golden"
 )
 
-func testConfig(r *model.IstioRegistry, instance, envoyConfig, testCase string, t *testing.T) {
+func compareJSON(jsonFile string, t *testing.T) {
+	file, err := ioutil.ReadFile(jsonFile)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	golden, err := ioutil.ReadFile(jsonFile + ".golden")
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	data := strings.TrimSpace(string(file))
+	expected := strings.TrimSpace(string(golden))
+
+	if data != expected {
+		diff := difflib.UnifiedDiff{
+			A:        difflib.SplitLines(expected),
+			B:        difflib.SplitLines(data),
+			FromFile: jsonFile + ".golden",
+			ToFile:   jsonFile,
+			Context:  2,
+		}
+		text, _ := difflib.GetUnifiedDiffString(diff)
+		fmt.Println(text)
+		t.Errorf("Failed validating golden artifact %s.golden", jsonFile)
+	}
+}
+
+func testConfig(r *model.IstioRegistry, instance, envoyConfig string, t *testing.T) {
 	ds := mock.Discovery
 
 	config := Generate(&ProxyContext{
@@ -241,20 +270,8 @@ func testConfig(r *model.IstioRegistry, instance, envoyConfig, testCase string, 
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	data, err := ioutil.ReadFile(envoyConfig)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
 
-	expected, err := ioutil.ReadFile(envoyConfig + ".golden")
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	// TODO: use difflib to obtain detailed diff
-	if string(expected) != string(data) {
-		t.Errorf("Envoy config %q differs from master copy for %q", envoyConfig, testCase)
-	}
+	compareJSON(envoyConfig, t)
 }
 
 func configObjectFromYAML(kind, file string) (proto.Message, error) {
@@ -314,35 +331,35 @@ func addFaultRoute(r *model.IstioRegistry, t *testing.T) {
 
 func TestMockConfig(t *testing.T) {
 	r := mock.MakeRegistry()
-	testConfig(r, mock.HostInstanceV0, envoyV0Config, "default", t)
-	testConfig(r, mock.HostInstanceV1, envoyV1Config, "default", t)
+	testConfig(r, mock.HostInstanceV0, envoyV0Config, t)
+	testConfig(r, mock.HostInstanceV1, envoyV1Config, t)
 }
 
 func TestMockConfigTimeout(t *testing.T) {
 	r := mock.MakeRegistry()
 	addTimeout(r, t)
-	testConfig(r, mock.HostInstanceV0, envoyV0Config, timeoutRouteRule, t)
-	testConfig(r, mock.HostInstanceV1, envoyV1Config, timeoutRouteRule, t)
+	testConfig(r, mock.HostInstanceV0, envoyV0Config, t)
+	testConfig(r, mock.HostInstanceV1, envoyV1Config, t)
 }
 
 func TestMockConfigCircuitBreaker(t *testing.T) {
 	r := mock.MakeRegistry()
 	addCircuitBreaker(r, t)
-	testConfig(r, mock.HostInstanceV0, envoyV0Config, cbPolicy, t)
-	testConfig(r, mock.HostInstanceV1, envoyV1Config, cbPolicy, t)
+	testConfig(r, mock.HostInstanceV0, envoyV0Config, t)
+	testConfig(r, mock.HostInstanceV1, envoyV1Config, t)
 }
 
 func TestMockConfigWeighted(t *testing.T) {
 	r := mock.MakeRegistry()
 	addWeightedRoute(r, t)
-	testConfig(r, mock.HostInstanceV0, envoyV0Config, weightedRouteRule, t)
-	testConfig(r, mock.HostInstanceV1, envoyV1Config, weightedRouteRule, t)
+	testConfig(r, mock.HostInstanceV0, envoyV0Config, t)
+	testConfig(r, mock.HostInstanceV1, envoyV1Config, t)
 }
 
 func TestMockConfigFault(t *testing.T) {
 	r := mock.MakeRegistry()
 	addFaultRoute(r, t)
-	// Fault rule uses source condition
-	testConfig(r, mock.HostInstanceV0, envoyFaultConfig, faultRouteRule, t)
-	testConfig(r, mock.HostInstanceV1, envoyV1Config, faultRouteRule, t)
+	// Fault rule uses source condition, hence the different golden artifacts
+	testConfig(r, mock.HostInstanceV0, envoyFaultConfig, t)
+	testConfig(r, mock.HostInstanceV1, envoyV1Config, t)
 }

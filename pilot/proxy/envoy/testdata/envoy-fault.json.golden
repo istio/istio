@@ -51,7 +51,7 @@
                       "value": "doo"
                     }
                   ],
-                  "upstream_cluster": "outbound:world.default.svc.cluster.local:http:version=v1"
+                  "upstream_cluster": "out:world.default.svc.cluster.local:http:version=v1"
                 }
               },
               {
@@ -121,7 +121,7 @@
                       "value": "doo"
                     }
                   ],
-                  "upstream_cluster": "outbound:world.default.svc.cluster.local:http-status:version=v1"
+                  "upstream_cluster": "out:world.default.svc.cluster.local:http-status:version=v1"
                 }
               },
               {
@@ -151,13 +151,13 @@
             "route_config": {
               "routes": [
                 {
-                  "cluster": "inbound:1090",
+                  "cluster": "in:1090",
                   "destination_ip_list": [
                     "10.1.0.0/32"
                   ]
                 },
                 {
-                  "cluster": "outbound:world.default.svc.cluster.local:custom",
+                  "cluster": "out:world.default.svc.cluster.local:custom",
                   "destination_ip_list": [
                     "10.2.0.0/32"
                   ],
@@ -219,7 +219,7 @@
             "route_config": {
               "routes": [
                 {
-                  "cluster": "inbound:1090",
+                  "cluster": "in:1090",
                   "destination_ip_list": [
                     "10.1.1.0/32"
                   ]
@@ -245,7 +245,7 @@
   "cluster_manager": {
     "clusters": [
       {
-        "name": "inbound:1081",
+        "name": "in:1081",
         "connect_timeout_ms": 1000,
         "type": "static",
         "lb_type": "round_robin",
@@ -256,7 +256,7 @@
         ]
       },
       {
-        "name": "inbound:1090",
+        "name": "in:1090",
         "connect_timeout_ms": 1000,
         "type": "static",
         "lb_type": "round_robin",
@@ -267,7 +267,7 @@
         ]
       },
       {
-        "name": "inbound:80",
+        "name": "in:80",
         "connect_timeout_ms": 1000,
         "type": "static",
         "lb_type": "round_robin",
@@ -278,7 +278,7 @@
         ]
       },
       {
-        "name": "outbound:world.default.svc.cluster.local:custom",
+        "name": "out:world.default.svc.cluster.local:custom",
         "service_name": "world.default.svc.cluster.local:custom",
         "connect_timeout_ms": 1000,
         "type": "sds",

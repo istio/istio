@@ -21,7 +21,7 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "inbound:80"
+      "cluster": "in:80"
      }
     ]
    },
@@ -48,11 +48,11 @@
       "weighted_clusters": {
        "clusters": [
         {
-         "name": "outbound:world.default.svc.cluster.local:http:version=v0",
+         "name": "out:world.default.svc.cluster.local:http:version=v0",
          "weight": 75
         },
         {
-         "name": "outbound:world.default.svc.cluster.local:http:version=v1",
+         "name": "out:world.default.svc.cluster.local:http:version=v1",
          "weight": 25
         }
        ]

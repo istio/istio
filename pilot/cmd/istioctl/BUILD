@@ -31,4 +31,5 @@ go_test(
         "//platform/kube:kubeconfig",
     ],
     library = ":go_default_library",
+    deps = ["//cmd:go_default_library"],
 )

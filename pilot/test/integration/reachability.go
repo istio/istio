@@ -19,12 +19,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/golang/sync/errgroup"
 )
 
@@ -36,7 +36,7 @@ type reachability struct {
 }
 
 func (r *reachability) run() error {
-	log.Printf("Verifying basic reachability across pods/services (a, b, and t)..")
+	glog.Info("Verifying basic reachability across pods/services (a, b, and t)..")
 
 	r.accessLogs = make(map[string][]string)
 	for app := range pods {
@@ -51,8 +51,8 @@ func (r *reachability) run() error {
 		return err
 	}
 
-	if verbose {
-		log.Println("requests:", r.accessLogs)
+	if glog.V(2) {
+		glog.Infof("requests: %#v", r.accessLogs)
 	}
 
 	if err := r.checkAccessLogs(); err != nil {
@@ -63,7 +63,7 @@ func (r *reachability) run() error {
 		return err
 	}
 
-	log.Println("Success!")
+	glog.Info("Success!")
 	return nil
 }
 
@@ -72,19 +72,16 @@ func (r *reachability) makeRequest(src, dst, port, domain string, done func() bo
 	return func() error {
 		url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
 		for n := 0; n < budget; n++ {
-			log.Printf("Making a request %s from %s (attempt %d)...\n", url, src, n)
-
+			glog.Infof("Making a request %s from %s (attempt %d)...\n", url, src, n)
 			request, err := shell(fmt.Sprintf("kubectl exec %s -n %s -c app client %s",
-				pods[src], params.namespace, url), verbose)
+				pods[src], params.namespace, url))
 			if err != nil {
 				return err
 			}
 			match := regexp.MustCompile("X-Request-Id=(.*)").FindStringSubmatch(request)
 			if len(match) > 1 {
 				id := match[1]
-				if verbose {
-					log.Printf("id=%s\n", id)
-				}
+				glog.V(2).Infof("id=%s\n", id)
 				r.accessMu.Lock()
 				r.accessLogs[src] = append(r.accessLogs[src], id)
 				r.accessLogs[dst] = append(r.accessLogs[dst], id)
@@ -94,9 +91,7 @@ func (r *reachability) makeRequest(src, dst, port, domain string, done func() bo
 
 			// Expected no match
 			if src == "t" && dst == "t" {
-				if verbose {
-					log.Println("Expected no match for t->t")
-				}
+				glog.V(2).Info("Expected no match for t->t")
 				return nil
 			}
 			if done() {
@@ -109,14 +104,13 @@ func (r *reachability) makeRequest(src, dst, port, domain string, done func() bo
 
 // makeRequests executes requests in pods and collects request ids per pod to check against access logs
 func (r *reachability) makeRequests() error {
-	log.Printf("makeRequests parallel=%t\n", parallel)
 	g, ctx := errgroup.WithContext(context.Background())
 	testPods := []string{"a", "b", "t"}
 	for _, src := range testPods {
 		for _, dst := range testPods {
 			for _, port := range []string{"", ":80", ":8080"} {
 				for _, domain := range []string{"", "." + params.namespace} {
-					if parallel {
+					if params.parallel {
 						g.Go(r.makeRequest(src, dst, port, domain, func() bool {
 							select {
 							case <-time.After(time.Second):
@@ -135,7 +129,7 @@ func (r *reachability) makeRequests() error {
 			}
 		}
 	}
-	if parallel {
+	if params.parallel {
 		if err := g.Wait(); err != nil {
 			return err
 		}
@@ -144,11 +138,11 @@ func (r *reachability) makeRequests() error {
 }
 
 func (r *reachability) checkAccessLogs() error {
-	log.Println("Checking access logs of pods to correlate request IDs...")
+	glog.Info("Checking access logs of pods to correlate request IDs...")
 	for n := 0; n < budget; n++ {
 		found := true
 		for _, pod := range []string{"a", "b"} {
-			log.Printf("Checking access log of %s\n", pod)
+			glog.Infof("Checking access log of %s\n", pod)
 			access := podLogs(pods[pod], "proxy")
 			if strings.Contains(access, "segmentation fault") {
 				return fmt.Errorf("segmentation fault in proxy %s", pod)
@@ -158,7 +152,7 @@ func (r *reachability) checkAccessLogs() error {
 			}
 			for _, id := range r.accessLogs[pod] {
 				if !strings.Contains(access, id) {
-					log.Printf("Failed to find request id %s in log of %s\n", id, pod)
+					glog.Infof("Failed to find request id %s in log of %s\n", id, pod)
 					found = false
 					break
 				}
@@ -178,7 +172,7 @@ func (r *reachability) checkAccessLogs() error {
 }
 
 func (r *reachability) checkMixerLogs() error {
-	log.Println("Checking mixer logs for request IDs...")
+	glog.Info("Checking mixer logs for request IDs...")
 
 	for n := 0; n < budget; n++ {
 		found := true
@@ -186,7 +180,7 @@ func (r *reachability) checkMixerLogs() error {
 		for _, pod := range []string{"a", "b"} {
 			for _, id := range r.accessLogs[pod] {
 				if !strings.Contains(access, id) {
-					log.Printf("Failed to find request id %s in mixer logs\n", id)
+					glog.Infof("Failed to find request id %s in mixer logs\n", id)
 					found = false
 					break
 				}
@@ -209,9 +203,9 @@ func (r *reachability) makeTCPRequest(src, dst, port, domain string, done func()
 	return func() error {
 		url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
 		for n := 0; n < budget; n++ {
-			log.Printf("Making a request %s from %s (attempt %d)...\n", url, src, n)
+			glog.Infof("Making a request %s from %s (attempt %d)...\n", url, src, n)
 			request, err := shell(fmt.Sprintf("kubectl exec %s -n %s -c app client %s",
-				pods[src], params.namespace, url), verbose)
+				pods[src], params.namespace, url))
 			if err != nil {
 				return err
 			}
@@ -228,14 +222,13 @@ func (r *reachability) makeTCPRequest(src, dst, port, domain string, done func()
 }
 
 func (r *reachability) verifyTCPRouting() error {
-	log.Printf("verifyTCPRouting parallel=%t\n", parallel)
 	g, ctx := errgroup.WithContext(context.Background())
 	testPods := []string{"a", "b", "t"}
 	for _, src := range testPods {
 		for _, dst := range testPods {
 			for _, port := range []string{":90", ":9090"} {
 				for _, domain := range []string{"", "." + params.namespace} {
-					if parallel {
+					if params.parallel {
 						g.Go(r.makeTCPRequest(src, dst, port, domain, func() bool {
 							select {
 							case <-time.After(time.Second):
@@ -255,7 +248,7 @@ func (r *reachability) verifyTCPRouting() error {
 			}
 		}
 	}
-	if parallel {
+	if params.parallel {
 		if err := g.Wait(); err != nil {
 			return err
 		}

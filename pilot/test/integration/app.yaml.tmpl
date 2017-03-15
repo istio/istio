@@ -12,13 +12,13 @@ spec:
     name: http
   - port: 8080
     targetPort: {{.port2}}
-    name: http-alternative
+    name: http-two
   - port: 90
     targetPort: {{.port3}}
     name: tcp
   - port: 9090
     targetPort: {{.port4}}
-    name: tcp-alternative
+    name: https
   selector:
     app: {{.name}}
 ---

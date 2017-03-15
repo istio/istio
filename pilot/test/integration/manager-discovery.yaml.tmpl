@@ -27,12 +27,7 @@ spec:
       - name: manager
         image: {{.hub}}/runtime:{{.tag}}
         imagePullPolicy: Always
-        args: ["discovery", "-v", "2", "-n", "{{.namespace}}"]
+        args: ["discovery", "-v", "{{.verbosity}}", "-n", "{{.namespace}}"]
         ports:
         - containerPort: 8080
-      - name: debug
-        image: docker.io/istio/debug:test
-        imagePullPolicy: Always
-        securityContext:
-            privileged: true
 ---

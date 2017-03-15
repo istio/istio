@@ -19,10 +19,11 @@ package main
 import (
 	"errors"
 	"fmt"
-	"log"
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/golang/glog"
 
 	"istio.io/manager/model"
 )
@@ -30,7 +31,7 @@ import (
 func testRouting() error {
 	// First test default routing
 	// Create a bytes buffer to hold the YAML form of rules
-	log.Println("Routing all traffic to world-v1 and verifying..")
+	glog.Info("Routing all traffic to world-v1 and verifying..")
 	deployDynamicConfig("test/integration/rule-default-route.yaml.tmpl", map[string]string{
 		"destination": "world",
 	}, model.RouteRule, "default-route", "hello")
@@ -39,9 +40,9 @@ func testRouting() error {
 			"v1": 100,
 			"v2": 0,
 		}))
-	log.Println("Success!")
+	glog.Info("Success!")
 
-	log.Println("Routing 75 percent to world-v1, 25 percent to world-v2 and verifying..")
+	glog.Info("Routing 75 percent to world-v1, 25 percent to world-v2 and verifying..")
 	deployDynamicConfig("test/integration/rule-weighted-route.yaml.tmpl", map[string]string{
 		"destination": "world",
 	}, model.RouteRule, "default-route", "hello")
@@ -50,9 +51,9 @@ func testRouting() error {
 			"v1": 75,
 			"v2": 25,
 		}))
-	log.Println("Success!")
+	glog.Info("Success!")
 
-	log.Println("Routing 100 percent to world-v2 using header based routing and verifying..")
+	glog.Info("Routing 100 percent to world-v2 using header based routing and verifying..")
 	deployDynamicConfig("test/integration/rule-content-route.yaml.tmpl", map[string]string{
 		"source":      "hello",
 		"destination": "world",
@@ -62,15 +63,18 @@ func testRouting() error {
 			"v1": 0,
 			"v2": 100,
 		}))
-	log.Println("Success!")
+	glog.Info("Success!")
 
-	log.Println("Testing fault injection..")
+	glog.Info("Testing fault injection..")
 	deployDynamicConfig("test/integration/rule-fault-injection.yaml.tmpl", map[string]string{
 		"source":      "hello",
 		"destination": "world",
 	}, model.RouteRule, "fault-injection", "hello")
 	check(verifyFaultInjection(pods, "hello", "world", "version", "v2", time.Second*5, 503))
-	log.Println("Success!")
+	glog.Info("Success!")
+
+	glog.Info("Cleaning up route rules...")
+	check(run("kubectl delete istioconfigs --all -n " + params.namespace))
 
 	return nil
 }
@@ -83,11 +87,12 @@ func verifyRouting(src, dst, headerKey, headerVal string, samples int, expectedC
 	}
 
 	url := fmt.Sprintf("http://%s/%s", dst, src)
-	log.Printf("Making %d requests (%s) from %s...\n", samples, url, src)
+	glog.Infof("Making %d requests (%s) from %s...\n", samples, url, src)
 
 	cmd := fmt.Sprintf("kubectl exec %s -n %s -c app -- client %s %s %s --count %d",
 		pods[src], params.namespace, url, headerKey, headerVal, samples)
-	request, err := shell(cmd, false)
+	request, err := shell(cmd)
+	glog.V(2).Info(request)
 	if err != nil {
 		return err
 	}
@@ -105,7 +110,7 @@ func verifyRouting(src, dst, headerKey, headerVal string, samples int, expectedC
 	var failures int
 	for version, expected := range expectedCount {
 		if count[version] > expected+epsilon || count[version] < expected-epsilon {
-			log.Printf("Expected %v requests (+/-%v) to reach %s => Got %v\n", expected, epsilon, version, count[version])
+			glog.Infof("Expected %v requests (+/-%v) to reach %s => Got %v\n", expected, epsilon, version, count[version])
 			failures++
 		}
 	}
@@ -121,18 +126,16 @@ func verifyFaultInjection(pods map[string]string, src, dst, headerKey, headerVal
 	respTime time.Duration, respCode int) error {
 
 	url := fmt.Sprintf("http://%s/%s", dst, src)
-	log.Printf("Making 1 request (%s) from %s...\n", url, src)
+	glog.Infof("Making 1 request (%s) from %s...\n", url, src)
 	cmd := fmt.Sprintf("kubectl exec %s -n %s -c app client %s %s %s",
 		pods[src], params.namespace, url, headerKey, headerVal)
 
 	start := time.Now()
-	request, err := shell(cmd, false)
+	request, err := shell(cmd)
+	glog.V(2).Info(request)
 	elapsed := time.Since(start)
 	if err != nil {
 		return err
-	}
-	if verbose {
-		log.Println(request)
 	}
 
 	match := regexp.MustCompile("StatusCode=(.*)").FindStringSubmatch(request)
@@ -146,8 +149,8 @@ func verifyFaultInjection(pods map[string]string, src, dst, headerKey, headerVal
 
 	// +/- 1s variance
 	epsilon := time.Second * 2
-	log.Printf("Response time is %s with status code %d\n", elapsed, statusCode)
-	log.Printf("Expected response time is %s +/- %s with status code %d\n", respTime, epsilon, respCode)
+	glog.Infof("Response time is %s with status code %d\n", elapsed, statusCode)
+	glog.Infof("Expected response time is %s +/- %s with status code %d\n", respTime, epsilon, respCode)
 	if elapsed > respTime+epsilon || elapsed < respTime-epsilon || respCode != statusCode {
 		return errors.New("fault injection verification failed")
 	}

@@ -148,7 +148,7 @@ type IstioRegistry struct {
 
 // RouteRules lists all routing rules in a namespace (or all rules if namespace is "")
 func (i *IstioRegistry) RouteRules(namespace string) map[Key]*proxyconfig.RouteRule {
-	out := make(map[Key]*proxyconfig.RouteRule, 0)
+	out := make(map[Key]*proxyconfig.RouteRule)
 	rs, err := i.List(RouteRule, namespace)
 	if err != nil {
 		glog.V(2).Infof("RouteRules => %v", err)
@@ -206,7 +206,7 @@ func (i *IstioRegistry) RouteRulesBySource(namespace string, instances []*Servic
 
 // IngressRules lists all ingress rules in a namespace (or all rules if namespace is "")
 func (i *IstioRegistry) IngressRules(namespace string) map[Key]*proxyconfig.RouteRule {
-	out := make(map[Key]*proxyconfig.RouteRule, 0)
+	out := make(map[Key]*proxyconfig.RouteRule)
 	rs, err := i.List(IngressRule, namespace)
 	if err != nil {
 		glog.V(2).Infof("IngressRules => %v", err)

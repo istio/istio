@@ -171,7 +171,7 @@ func TestControllerClientSync(t *testing.T) {
 	stop := make(chan struct{})
 	defer close(stop)
 
-	keys := make(map[int]model.Key, 0)
+	keys := make(map[int]model.Key)
 	// add elements directly through client
 	for i := 0; i < n; i++ {
 		keys[i] = model.Key{Name: fmt.Sprintf("test%d", i), Namespace: ns, Kind: mock.Kind}

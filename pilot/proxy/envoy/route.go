@@ -31,10 +31,10 @@ import (
 
 const (
 	// InboundClusterPrefix is the prefix for service clusters co-hosted on the proxy instance
-	InboundClusterPrefix = "inbound:"
+	InboundClusterPrefix = "in:"
 
 	// OutboundClusterPrefix is the prefix for service clusters external to the proxy instance
-	OutboundClusterPrefix = "outbound:"
+	OutboundClusterPrefix = "out:"
 )
 
 func buildDefaultRoute(cluster *Cluster) *HTTPRoute {

@@ -76,6 +76,6 @@ commands described in the the build instructions section below.
 
 Run the end to end integration tests in the VM
 
-    ./bin/e2e.sh -h docker.io/<yourusername>
+    ./bin/e2e.sh -hub docker.io/<yourusername>
 
 Note that this script will push some images to your dockerhub account.

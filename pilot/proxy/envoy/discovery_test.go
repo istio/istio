@@ -56,17 +56,7 @@ func compareResponse(body []byte, file string, t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	data, err := ioutil.ReadFile(file)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	expected, err := ioutil.ReadFile(file + ".golden")
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	if string(expected) != string(data) {
-		t.Errorf("Discovery service response changed: %q", file)
-	}
+	compareJSON(file, t)
 }
 
 func TestServiceDiscovery(t *testing.T) {

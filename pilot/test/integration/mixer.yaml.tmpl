@@ -103,10 +103,6 @@ spec:
         volumeMounts:
           - mountPath: /etc/opt/mixer
             name: config
-      - name: debug
-        image: docker.io/istio/debug:test
-        securityContext:
-            privileged: true
       volumes:
         - name: config
           configMap:

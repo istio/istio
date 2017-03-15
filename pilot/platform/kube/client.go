@@ -335,7 +335,7 @@ func (cl *Client) List(kind, namespace string) (map[model.Key]proto.Message, err
 		Resource(IstioKind + "s").
 		Do().Into(list)
 
-	out := make(map[model.Key]proto.Message, 0)
+	out := make(map[model.Key]proto.Message)
 	for _, item := range list.Items {
 		name, ns, istioKind, data, err := cl.convertConfig(&item)
 		if kind == istioKind {

@@ -372,7 +372,7 @@ func (c *Controller) listTPRs(kind, namespace string) (map[model.Key]proto.Messa
 	}
 
 	var errs error
-	out := make(map[model.Key]proto.Message, 0)
+	out := make(map[model.Key]proto.Message)
 	for _, data := range c.kinds[IstioKind].informer.GetStore().List() {
 		item, ok := data.(*Config)
 		if ok && (namespace == "" || item.Metadata.Namespace == namespace) {
@@ -394,7 +394,7 @@ func (c *Controller) listTPRs(kind, namespace string) (map[model.Key]proto.Messa
 }
 
 func (c *Controller) listIngresses(kind, namespace string) (map[model.Key]proto.Message, error) {
-	out := make(map[model.Key]proto.Message, 0)
+	out := make(map[model.Key]proto.Message)
 
 	for _, obj := range c.ingresses.informer.GetStore().List() {
 		ingress := obj.(*v1beta1.Ingress)
