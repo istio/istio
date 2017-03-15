@@ -75,16 +75,21 @@ manager_docker_build(
         {
             "name": "runtime",
             "base": "@docker_ubuntu//:xenial",
+            "tars": [
+              "@istio_proxy//file",
+            ],
         },
         {
             "name": "runtime_debug",
             "base": "@ubuntu_xenial_debug//file",
+            "tars": [
+              "@istio_proxy_debug//file",
+            ],
         },
     ],
     repository = "istio",
     tags = ["manual"],
     tars = [
-        "@istio_proxy//file",
         ":manager",
         ":config",
     ],
