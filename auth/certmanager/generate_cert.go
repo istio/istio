@@ -166,11 +166,23 @@ func genSerialNum() *big.Int {
 // genCertTemplate generates a certificate template with the given options.
 func genCertTemplate(options CertOptions) x509.Certificate {
 	notBefore, notAfter := toFromDates(options.ValidFrom, options.ValidFor)
+
+	var keyUsage x509.KeyUsage
+	if options.IsCA {
+		// If the cert is a CA cert, the private key is allowed to sign other certificate.
+		keyUsage = x509.KeyUsageCertSign
+	} else {
+		// Otherwise the private key is allowed for digital signature and key encipherment.
+		keyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment
+	}
+
 	extKeyUsage := x509.ExtKeyUsageServerAuth
 	if options.IsClient {
 		extKeyUsage = x509.ExtKeyUsageClientAuth
 	}
+
 	sanExt := buildSubjectAltNameExtension(options.Host)
+
 	template := x509.Certificate{
 		SerialNumber: genSerialNum(),
 		Subject: pkix.Name{
@@ -178,7 +190,7 @@ func genCertTemplate(options CertOptions) x509.Certificate {
 		},
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		KeyUsage:              keyUsage,
 		ExtKeyUsage:           []x509.ExtKeyUsage{extKeyUsage},
 		BasicConstraintsValid: true,
 		ExtraExtensions:       []pkix.Extension{sanExt},
