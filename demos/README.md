@@ -1,66 +1,69 @@
-# Istio Demos
+# Istio Kubernetes Demo
 
-This directory contains a stripped down version of the [Amalgam8](https://www.amalgam8.io/) 
-bookinfo demo application. The intent is to use this as
-the starting point for the outline of one or more Istio demos highlighting features 
-such as ACLs, rate limiting, routing, etc. The Istio demo is intended to serve as the first
-milestone for the project (end of March) as well as serve as a checkpoint for functional parity 
-with Amalgam8. 
 
-## Outline of Milestone 1 Demo
+**Optional - Create a k8s namespace and set your current context to use that namespace**
 
-This is a rough outline of the demo. It is based on the bookinfo application in [apps/bookinfo](apps/bookinfo).
-The current demo, although still a work in progress, does work and can be found [here](bookinfo.md).
+    kubectl create ns <ns>
+    
+    kubectl config set-context `kubectl config view | grep current-context | awk '{print $2}'` --namespace <ns>
 
-Once completed, the intent is for the demo to cover the following key Istio features:
+**Deploy istio infra**
 
-1. **Seamless integration** Show that users can take an *unmodified* app (composed of services) and drop it into Istio. It should work out of the box with the Istio Service Mesh.
+    kubectl apply -f ./istio
 
-   We provide instuctions to run the bookinfo services (`productpage`, `details` and `reviews-v1`), which will be coded to call each other 
-   directly using DNS names (e.g., `productpage` talks to `reviews.bookinfo` and `details.bookinfo`). *The vanilla app will not be using 
-   any proxy*. To simulate an existing (non-Istio) environment, we will include a docker compose file with hardcoded hostnames so people 
-   can run it standalone using docker-compose. For example,
+This will deploy istio discovery service and istio mixer.
 
-    ```
-    productpage.bookinfo:
-     - links:
-        -details.bookinfo
-        -reviews.bookinfo
-    ```
+**Deploy a simple echo app with manually injected proxy**
 
-   The next step would be to take the exact same container images, use Istio config files and start up the app in kubernetes. The config 
-   file should be simple enough and prove that there is nothing needed on the end user's behalf to migrate the app to Istio. The Istio 
-   version of the app would be running with Envoy as the service mesh.
- 
-   *Now we add a new version of `reviews` service called `reviews-v2`, which calls a new "third party" service called `ratings`.*
+    kubectl apply -f ./apps/simple_echo_app
 
-1. **Content-based routing w/ ACLs:** Lets say everyone in our US branch (`@us.squirrel.com`) can potentially access this reviews 
-service. We set a routing rule (e.g., `Cookie: .+?(user=([a-zA-z]+)@us.squirrel.com)`) to route traffic from US branch to `reviews-v2`. 
-Other users, including those outside the organization, continue to see `reviews-v1`.
+This will deploy two pods, each running a simple echo server and client, and will create two kubernetes services called "echo" and "logic".
 
- * Since we are doing internal testing, we'll set an ACL to make sure that only devs with role `Tester` can access the `reviews-v2` 
-   service. In our case, users `Chipmunk` and `Marmot` are the only ones with `Tester` access. Others devs in our company
-   (Red, Plantain) will not be able to call `reviews-v2`. We will also show how ACL checking works by logging in as a `Plantain` 
-   and show that the reviews service calls are blocked.
-   
- * We will also show that users outside the us.squirrel.com domain (say `Prairie` from eu.squirrel.com) still see `reviews-v1`.
+**Send some traffic**
 
-1. **Systematic Fault injection** Now we demonstrate how to test the resilience of the new service by injecting faults and testing the end 
-to end functionality.
+Note the pod corresponding to the apps "echo" and "logic":
+    
+    kubectl get pods
 
-   We will set the Istio config to insert a 5 second delay between the `reviews-v2` and `ratings` microservices and then return a HTTP 429 
-   (*too many requests*) to indicate that the third party Ratings service was throttling our API calls and finally denied our requests as 
-   we exceeded the free quota. However, the user ends up seeing this backend error (entire reviews section in webpage is gone).
-   We'll explain how the application should have behaved and point out how this has uncovered a bug.
 
-1. **Incremental rollout using % traffic split**  After presumably fixing the bug (not shown) in `reviews-v2` in a new v3 version,
-we now use Istio to do a gradual rollout to public, by shifting traffic to 
-`reviews-v3`. We start by sending 10% of traffic to `reviews-v3`, and then setup config that increases traffic
-to 20%, 50%, and finally 100%.
+Send HTTP request from "echo" pod to "logic" service:
 
- * *Highlight the difference between what is available in kubernetes and other systems today vs what Istio does.* Explicitly call 
-   out/show (`kubectl list po`) the fact that traffic split and instance scaling are decoupled thanks to the service mesh.
+    kubectl exec <echo-pod> -c app /bin/client http://logic/<some-text> -- --count 10
+    
+Send HTTP request from "logic" pod to "echo" service:
 
-1. **Rate Limiting:**  * Since `ratings` is an external service for which we are paying (like going to rotten tomatoes),
-we set a rate limit on the `ratings` service such that the load remains under the Free quota (100q/s). We now
-launch a simple load gen on the webpage and see that beyond 100 req/s, we stop seeing stars.
+    kubectl exec -it <logic-pod> -c app /bin/client http://echo/<some-text> -- --count 10
+
+This will echo the URL and print HTTP headers, including "X-Envoy-Expected-Rq-Timeout-Ms".
+
+**Enable rate limiting in mixer**
+
+    kubectl replace -f ./mixer-config-quota.yaml
+    
+**Optional - Monitoring with Prometheus and Grafana**
+
+    kubectl apply -f ./prometheus.yaml  
+
+    kubectl apply -f ./grafana.yaml   
+
+Grafana custom image contains a build-in Istio-dashboard that you can access from:
+    
+    http://<grafana-svc-external-IP>:3000/dashboard/db/istio-dashboard
+
+The example templates contain services configured as type LoadBalancer. If services are deployed with type NodePort,
+kubectl proxy must be started, and the istio-dashboard in grafana must be edited to use the proxy. Grafana can be 
+accessed via the proxy from:
+
+    http://127.0.0.1:8001/api/v1/proxy/namespaces/<ns>/services/grafana:3000/dashboard/db/istio-dashboard
+    
+**Optional - Service Graph**
+
+    kubectl apply -f ./servicegraph.yaml
+
+View the graph json data and image at:
+
+    http://<servicegraph-svc-external-IP>:8088/graph?time_horizon=10m
+
+    http://<servicegraph-svc-external-IP>:8088/dotgraph
+
+    http://<servicegraph-svc-external-IP>:8088/dotviz
