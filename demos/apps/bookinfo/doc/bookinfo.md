@@ -25,7 +25,10 @@ different languages. All microservices are packaged with an
 Istio sidecar that manages all incoming and outgoing calls for the service.
 
 > Note: the following instructions assume that your current working directory
-> is [demos/apps/bookinfo](..).
+> is [demos/apps/bookinfo](..):
+> ```bash
+> cd demos/apps/bookinfo
+> ```
 
 *CLI*: This walkthrough will use the _istioctl_ CLI that provides a
 convenient way to apply routing rules and policies for upstreams. The
@@ -43,7 +46,7 @@ $ cp istioctl-osx /usr/local/bin/istioctl
 1. Bring up the Istio control plane:
 
    ```bash
-   $ kubectl apply -f ../istio
+   $ kubectl apply -f ../../istio
    ```
    
    This command launches the Istio manager, mixer, and an envoy-based ingress controller, which will be used
