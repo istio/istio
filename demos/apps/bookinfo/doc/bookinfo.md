@@ -30,7 +30,7 @@ Istio sidecar that manages all incoming and outgoing calls for the service.
 > cd demos/apps/bookinfo
 > ```
 
-*CLI*: This walkthrough will use the _istioctl_ CLI that provides a
+*CLI*: This walkthrough will use the []istioctl](../../../../doc/istioctl.md) CLI that provides a
 convenient way to apply routing rules and policies for upstreams. The
 `demos/` directory has three binaries: `istioctl-osx`, `istioctl-windows`,
 `istioctl-linux` targeted at Mac, Windows and Linux users
@@ -112,7 +112,7 @@ Otherwise if you access the application several times, you would notice that som
 star ratings. This is because without an explicit default version set, Istio will 
 route requests to all available versions of a service in a random fashion.
 
-1. Set the default version for all microservice to v1. 
+1. Set the default version for all microservices to v1. 
 
    ```bash
    $ istioctl create -f route-rule-all-v1.yaml
@@ -317,10 +317,10 @@ with *red* colored star ratings for each review.
 ### Rate Limiting
 
 Now we'll pretend that `ratings` is an external service for which we are paying (like going to rotten tomatoes),
-so we will set a rate limit on the service such that the load remains under the Free quota (100q/s):
+so we will set a rate limit on the service such that the load remains under the Free quota (20q/s):
 
 ```bash
-   $ istioctl create -f mixer-policy-ratings-ratelimit.yaml
+   $ istioctl create -f mixer-rule-ratings-ratelimit.yaml
 ```
 
 We now generate load on the `productpage` with the following command:
@@ -330,7 +330,7 @@ We now generate load on the `productpage` with the following command:
 ```
 
 If you now refresh the `productpage` you'll see that while the load generator is running
-(i.e., generating more than 100 req/s), we stop seeing stars.
+(i.e., generating more than 20 req/s), we stop seeing stars.
 
 ## Cleanup
 
