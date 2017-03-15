@@ -43,7 +43,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/istio/init:a87bea5",
+            "image": "istio/init:8b99d8a",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -55,7 +55,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/istio/runtime:a87bea5
+        image: istio/runtime:8b99d8a
         securityContext:
           runAsUser: 1337
         args:
@@ -64,7 +64,7 @@ spec:
           - -n
           - default
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
           - -v
           - "2"
         env:
@@ -94,8 +94,6 @@ metadata:
 spec:
   ports:
   - port: 9080
-    targetPort: 9080
-    protocol: TCP
     name: http
   selector:
     app: ratings
@@ -115,7 +113,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/istio/init:a87bea5",
+            "image": "istio/init:8b99d8a",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -127,7 +125,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/istio/runtime:a87bea5
+        image: istio/runtime:8b99d8a
         securityContext:
           runAsUser: 1337
         args:
@@ -136,7 +134,7 @@ spec:
           - -n
           - default
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
           - -v
           - "2"
         env:
@@ -166,8 +164,6 @@ metadata:
 spec:
   ports:
   - port: 9080
-    targetPort: 9080
-    protocol: TCP
     name: http
   selector:
     app: reviews
@@ -187,7 +183,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/istio/init:a87bea5",
+            "image": "istio/init:8b99d8a",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -199,7 +195,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/istio/runtime:a87bea5
+        image: istio/runtime:8b99d8a
         securityContext:
           runAsUser: 1337
         args:
@@ -208,7 +204,7 @@ spec:
           - -n
           - default
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
           - -v
           - "2"
         env:
@@ -241,7 +237,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/istio/init:a87bea5",
+            "image": "istio/init:8b99d8a",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -253,7 +249,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/istio/runtime:a87bea5
+        image: istio/runtime:8b99d8a
         securityContext:
           runAsUser: 1337
         args:
@@ -262,7 +258,7 @@ spec:
           - -n
           - default
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
           - -v
           - "2"
         env:
@@ -295,7 +291,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/istio/init:a87bea5",
+            "image": "istio/init:8b99d8a",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -307,7 +303,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/istio/runtime:a87bea5
+        image: istio/runtime:8b99d8a
         securityContext:
           runAsUser: 1337
         args:
@@ -316,7 +312,7 @@ spec:
           - -n
           - default
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
           - -v
           - "2"
         env:
@@ -346,8 +342,6 @@ metadata:
 spec:
   ports:
   - port: 9080
-    targetPort: 9080
-    protocol: TCP
     name: http
   selector:
     app: productpage
@@ -367,7 +361,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/istio/init:a87bea5",
+            "image": "istio/init:8b99d8a",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -379,7 +373,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/istio/runtime:a87bea5
+        image: istio/runtime:8b99d8a
         securityContext:
           runAsUser: 1337
         args:
@@ -388,7 +382,7 @@ spec:
           - -n
           - default
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
           - -v
           - "2"
         env:
