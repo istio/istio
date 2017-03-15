@@ -1,5 +1,5 @@
 allprojects {
-   group = 'org.amalgam8'
+   group = 'org.istio'
    version = '1.0'
    repositories {
      mavenCentral()
