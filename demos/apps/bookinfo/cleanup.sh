@@ -22,6 +22,7 @@ istioctl delete route-rule ratings-default
 istioctl delete route-rule details-default
 istioctl delete route-rule reviews-test-v2
 istioctl delete route-rule ratings-test-delay
+#istioctl delete mixer-rule ratings-ratelimit
 
 kubectl delete -f $SCRIPTDIR/bookinfo-istio.yaml
-kubectl delete -f $SCRIPTDIR/../controlplane.yaml
+kubectl delete -f $SCRIPTDIR/../../istio
