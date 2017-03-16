@@ -30,7 +30,7 @@ Istio sidecar that manages all incoming and outgoing calls for the service.
 > cd demos/apps/bookinfo
 > ```
 
-*CLI*: This walkthrough will use the [istioctl](../../../../doc/istioctl.md) CLI that provides a
+*CLI*: This walkthrough will use the [istioctl](../../../doc/istioctl.md) CLI that provides a
 convenient way to apply routing rules and policies for upstreams. The
 `demos/` directory has three binaries: `istioctl-osx`, `istioctl-windows`,
 `istioctl-linux` targeted at Mac, Windows and Linux users
