@@ -1,0 +1,35 @@
+type: route-rule
+name: productpage-_CHANGEME_
+spec:
+  destination: productpage._CHANGEME_.svc.cluster.local
+  precedence: 1
+  route:
+  - tags:
+      version: v1
+---
+type: route-rule
+name: reviews-_CHANGEME_
+spec:
+  destination: reviews._CHANGEME_.svc.cluster.local
+  precedence: 1
+  route:
+  - tags:
+      version: v1
+---
+type: route-rule
+name: ratings-_CHANGEME_
+spec:
+  destination: ratings._CHANGEME_.svc.cluster.local
+  precedence: 1
+  route:
+  - tags:
+      version: v1
+---
+type: route-rule
+name: details-_CHANGEME_
+spec:
+  destination: details._CHANGEME_.svc.cluster.local
+  precedence: 1
+  route:
+  - tags:
+      version: v1
