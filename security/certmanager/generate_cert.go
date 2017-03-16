@@ -41,13 +41,8 @@ type CertOptions struct {
 	// like kubernetes service account.
 	Host string
 
-	// This certificate's validity start time. The start time must be formatted
-	// as the layout specified in certmanager.LayoutStartTime.
-	// If empty string, the validity start time is set to time.Now()
-	ValidFrom string
-
-	// Duration that this certificate is valid for.
-	ValidFor time.Duration
+	// The validity bounds of the issued certificate.
+	NotBefore, NotAfter time.Time
 
 	// Signer certificate (PEM encoded).
 	SignerCert *x509.Certificate
@@ -79,9 +74,6 @@ const (
 
 	// The URI scheme for Istio identities.
 	uriScheme = "istio"
-
-	// Layout for parsing time
-	timeLayout = "Jan 2 15:04:05 2006"
 )
 
 // See http://www.alvestrand.no/objectid/2.5.29.17.html.
@@ -134,26 +126,6 @@ func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x5
 	return parsePemEncodedCertificateAndKey(signerCertBytes, signerPrivBytes)
 }
 
-// toFromDates generates the certficiate validity period [notBefore, notAfter]
-// from the given start time and expiration duration.
-//   validFrom: certficate validity start time. If empty, the certificate
-//              validity start time will be set to time.Now()
-//   validFor: certficate validity duration
-func toFromDates(validFrom string, validFor time.Duration) (time.Time, time.Time) {
-	var notBefore time.Time
-	if len(validFrom) == 0 {
-		notBefore = time.Now()
-	} else {
-		var err error
-		notBefore, err = time.Parse(timeLayout, validFrom)
-		if err != nil {
-			log.Fatalf("Failed to parse creation date: %s\n", err)
-		}
-	}
-	notAfter := notBefore.Add(validFor)
-	return notBefore, notAfter
-}
-
 func genSerialNum() *big.Int {
 	serialNumLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNum, err := rand.Int(rand.Reader, serialNumLimit)
@@ -165,8 +137,6 @@ func genSerialNum() *big.Int {
 
 // genCertTemplate generates a certificate template with the given options.
 func genCertTemplate(options CertOptions) x509.Certificate {
-	notBefore, notAfter := toFromDates(options.ValidFrom, options.ValidFor)
-
 	var keyUsage x509.KeyUsage
 	if options.IsCA {
 		// If the cert is a CA cert, the private key is allowed to sign other certificate.
@@ -188,8 +158,8 @@ func genCertTemplate(options CertOptions) x509.Certificate {
 		Subject: pkix.Name{
 			Organization: []string{options.Org},
 		},
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
+		NotBefore:             options.NotBefore,
+		NotAfter:              options.NotAfter,
 		KeyUsage:              keyUsage,
 		ExtKeyUsage:           []x509.ExtKeyUsage{extKeyUsage},
 		BasicConstraintsValid: true,
