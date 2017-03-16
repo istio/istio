@@ -41,10 +41,10 @@ type IstioCA struct {
 
 // NewSelfSignedIstioCA returns a new IstioCA instance using self-signed certificate.
 func NewSelfSignedIstioCA() *IstioCA {
-	validFrom := time.Now().Format(timeLayout)
+	now := time.Now()
 	options := CertOptions{
-		ValidFrom:    validFrom,
-		ValidFor:     rootCertTTL,
+		NotBefore:    now,
+		NotAfter:     now.Add(rootCertTTL),
 		Org:          "istio.io",
 		IsCA:         true,
 		IsSelfSigned: true,
@@ -69,11 +69,11 @@ func (ca IstioCA) Generate(name, namepsace string) (cert, key []byte) {
 	// Currently the domain is always set to "cluster.local" since we only
 	// support in-cluster identities.
 	id := fmt.Sprintf("%s:%s.%s.cluster.local", uriScheme, name, namepsace)
-	validFrom := time.Now().Format(timeLayout)
+	now := time.Now()
 	options := CertOptions{
 		Host:         id,
-		ValidFrom:    validFrom,
-		ValidFor:     certTTL,
+		NotBefore:    now,
+		NotAfter:     now.Add(certTTL),
 		SignerCert:   ca.signerCert,
 		SignerPriv:   ca.signerKey,
 		IsCA:         false,

@@ -34,14 +34,19 @@ type VerifyFields struct {
 	org         string
 }
 
+var now = time.Now().Round(time.Second).UTC()
+
 func TestGenCert(t *testing.T) {
-	now := time.Now()
-	nowInString := now.Format(timeLayout)
+	caCertNotBefore := now
+	caCertNotAfter := now.Add(24 * time.Hour)
+
+	t.Logf("now: %+v\n", now)
+
 	// Options to generate a CA cert.
 	caCertOptions := CertOptions{
 		Host:         "test_ca.com",
-		ValidFrom:    nowInString,
-		ValidFor:     time.Hour * 24 * 30,
+		NotBefore:    caCertNotBefore,
+		NotAfter:     caCertNotAfter,
 		SignerCert:   nil,
 		SignerPriv:   nil,
 		Org:          "MyOrg",
@@ -49,12 +54,11 @@ func TestGenCert(t *testing.T) {
 		IsSelfSigned: true,
 		IsClient:     false,
 	}
-	notBefore, _ := time.Parse(timeLayout, nowInString)
-	notAfter := notBefore.Add(caCertOptions.ValidFor)
+
 	caCertPem, caPrivPem := GenCert(caCertOptions)
 	verifyCert(t, caPrivPem, caCertPem, nil, caCertOptions.Host, VerifyFields{
-		notBefore:   notBefore,
-		notAfter:    notAfter,
+		notBefore:   caCertNotBefore,
+		notAfter:    caCertNotAfter,
 		extKeyUsage: x509.ExtKeyUsageServerAuth,
 		keyUsage:    x509.KeyUsageCertSign,
 		isCA:        true,
@@ -71,8 +75,8 @@ func TestGenCert(t *testing.T) {
 			// server cert with DNS as SAN
 			certOptions: CertOptions{
 				Host:         "test_server.com",
-				ValidFrom:    nowInString,
-				ValidFor:     time.Hour * 24,
+				NotBefore:    now,
+				NotAfter:     now.Add(time.Hour * 24),
 				SignerCert:   caCert,
 				SignerPriv:   caPriv,
 				Org:          "",
@@ -84,8 +88,8 @@ func TestGenCert(t *testing.T) {
 				extKeyUsage: x509.ExtKeyUsageServerAuth,
 				isCA:        false,
 				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				notAfter:    notBefore.Add(time.Hour * 24),
-				notBefore:   notBefore,
+				notAfter:    now.Add(time.Hour * 24),
+				notBefore:   now,
 				org:         "MyOrg",
 			},
 		},
@@ -93,8 +97,8 @@ func TestGenCert(t *testing.T) {
 			// client cert with DNS as SAN
 			certOptions: CertOptions{
 				Host:         "test_client.com",
-				ValidFrom:    nowInString,
-				ValidFor:     time.Hour * 36,
+				NotBefore:    now,
+				NotAfter:     now.Add(time.Hour * 36),
 				SignerCert:   caCert,
 				SignerPriv:   caPriv,
 				Org:          "",
@@ -106,8 +110,8 @@ func TestGenCert(t *testing.T) {
 				extKeyUsage: x509.ExtKeyUsageClientAuth,
 				isCA:        false,
 				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				notAfter:    notBefore.Add(time.Hour * 36),
-				notBefore:   notBefore,
+				notAfter:    now.Add(time.Hour * 36),
+				notBefore:   now,
 				org:         "MyOrg",
 			},
 		},
@@ -115,8 +119,8 @@ func TestGenCert(t *testing.T) {
 			// server cert with IP as SAN
 			certOptions: CertOptions{
 				Host:         "1.2.3.4",
-				ValidFrom:    nowInString,
-				ValidFor:     time.Hour * 24,
+				NotBefore:    now,
+				NotAfter:     now.Add(time.Hour * 24),
 				SignerCert:   caCert,
 				SignerPriv:   caPriv,
 				Org:          "",
@@ -128,8 +132,8 @@ func TestGenCert(t *testing.T) {
 				extKeyUsage: x509.ExtKeyUsageServerAuth,
 				isCA:        false,
 				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				notAfter:    notBefore.Add(time.Hour * 24),
-				notBefore:   notBefore,
+				notAfter:    now.Add(time.Hour * 24),
+				notBefore:   now,
 				org:         "MyOrg",
 			},
 		},
@@ -137,8 +141,8 @@ func TestGenCert(t *testing.T) {
 			// client cert with service account as SAN
 			certOptions: CertOptions{
 				Host:         "istio:foo.serviceaccount.com",
-				ValidFrom:    nowInString,
-				ValidFor:     time.Hour * 100,
+				NotBefore:    now,
+				NotAfter:     now.Add(time.Hour * 100),
 				SignerCert:   caCert,
 				SignerPriv:   caPriv,
 				Org:          "",
@@ -150,8 +154,8 @@ func TestGenCert(t *testing.T) {
 				extKeyUsage: x509.ExtKeyUsageClientAuth,
 				isCA:        false,
 				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				notAfter:    notBefore.Add(time.Hour * 100),
-				notBefore:   notBefore,
+				notAfter:    now.Add(time.Hour * 100),
+				notBefore:   now,
 				org:         "MyOrg",
 			},
 		},
@@ -159,8 +163,8 @@ func TestGenCert(t *testing.T) {
 			// server cert with service account as SAN
 			certOptions: CertOptions{
 				Host:         "istio:bar.serviceaccount.com",
-				ValidFrom:    nowInString,
-				ValidFor:     time.Hour * 50,
+				NotBefore:    now,
+				NotAfter:     now.Add(time.Hour * 50),
 				SignerCert:   caCert,
 				SignerPriv:   caPriv,
 				Org:          "",
@@ -172,8 +176,8 @@ func TestGenCert(t *testing.T) {
 				extKeyUsage: x509.ExtKeyUsageServerAuth,
 				isCA:        false,
 				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				notAfter:    notBefore.Add(time.Hour * 50),
-				notBefore:   notBefore,
+				notAfter:    now.Add(time.Hour * 50),
+				notBefore:   now,
 				org:         "MyOrg",
 			},
 		},
@@ -218,8 +222,9 @@ func verifyCert(
 		san = ""
 	}
 	opts := x509.VerifyOptions{
-		DNSName: san,
-		Roots:   roots,
+		CurrentTime: now.Add(5 * time.Minute),
+		DNSName:     san,
+		Roots:       roots,
 	}
 	opts.KeyUsages = append(opts.KeyUsages, x509.ExtKeyUsageAny)
 

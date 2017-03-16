@@ -28,9 +28,12 @@ import (
 	"istio.io/auth/certmanager"
 )
 
+// Layout for parsing time
+const timeLayout = "Jan 2 15:04:05 2006"
+
 var (
 	host           = flag.String("host", "", "Comma-separated hostnames and IPs to generate a certificate for.")
-	validFrom      = flag.String("start-date", "", "Creation date formatted as Jan 1 15:04:05 2011.")
+	validFrom      = flag.String("start-date", "", "Creation date in format of "+timeLayout)
 	validFor       = flag.Duration("duration", 365*24*time.Hour, "Duration that certificate is valid for.")
 	isCA           = flag.Bool("ca", false, "Whether this cert should be a Cerificate Authority.")
 	isSelfSigned   = flag.Bool("self-signed", false, "Whether this cerificate is self-signed.")
@@ -82,10 +85,11 @@ func main() {
 		signerCert, signerPriv = certmanager.LoadSignerCredsFromFiles(*signerCertFile, *signerPrivFile)
 	}
 
+	nb := getNotBefore()
 	certPem, privPem := certmanager.GenCert(certmanager.CertOptions{
 		Host:         *host,
-		ValidFrom:    *validFrom,
-		ValidFor:     *validFor,
+		NotBefore:    getNotBefore(),
+		NotAfter:     nb.Add(*validFor),
 		SignerCert:   signerCert,
 		SignerPriv:   signerPriv,
 		Org:          *org,
@@ -95,4 +99,17 @@ func main() {
 
 	saveCreds(certPem, privPem)
 	fmt.Printf("Certificate and private files successfully saved in %s and %s\n", *outCert, *outPriv)
+}
+
+func getNotBefore() time.Time {
+	if *validFrom == "" {
+		return time.Now()
+	}
+
+	t, err := time.Parse(timeLayout, *validFrom)
+	if err != nil {
+		log.Fatalf("Failed to parse the '-start-from' option as a time (error: %s)", err)
+	}
+
+	return t
 }
