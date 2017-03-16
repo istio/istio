@@ -3,8 +3,8 @@
 This document describes Istio's end-to-end design, to help you understand what it does and how
 it does it.
 
-- [Problem statement](#problem-statement)
-- [High-level composition](#high-level-composition)
+- [Context](#context)
+- [High-level architecture](#high-level-architecture)
 - [Attributes](#attributes)
 - [Configuration](#configuration)
 - [The proxy](#the-proxy)
@@ -13,29 +13,29 @@ it does it.
 - [The manager](#the-manager)
 - [Istio and Kubernetes](#istio-and-kubernetes)
 
-## Problem statement
+## Context
 
 As we move towards a world where cloud developers think in terms of microservices, rather than in terms of low level resources like VMs and firewalls, there 
 is a need for a simplifying technology that can take care of common cross-cutting capabilities around service communication and management such as secure 
-interconnect, load balancing, service discovery, rate limiting, authentication, access control, monitoring, logging, etc. Having a common, open and 
-uniform way to enable these capabilities across services, independent of environment, makes services thinner and portable, teams more agile and focused on 
-core business logic, enables sweeping changes through configuration, and makes it easy to monitor the entire service fabric uniformly. Such a fabric can 
+interconnect, service discovery & load balancing, staged rollouts, A/B testing, intelligent rate limiting, authentication, access control, monitoring, logging, etc. Having a common, open and 
+uniform way to enable these capabilities across services, independent of the platform, makes services thinner and portable, teams more agile and focused on 
+core business logic, enables sweeping changes through configuration, and makes it easy to monitor the entire service mesh uniformly. Such a mesh can 
 help enterprises have a shared horizontal layer which can be maintained by central ops teams and make service teams and code lighter and network agnostic.
 
-## High-level composition
+## High-level Architecture
 
-Istio consists of three major components:
+The Istio service mesh consists of three major components:
 
 - **Proxy**. The Istio proxy is designed to mediate inbound and outbound traffic for all Istio-managed services. It enforces
-access control and usage policies, and provides rich routing, load balancing, and protocol conversion. The Istio proxy is based on the
-[Envoy proxy](https://lyft.github.io/envoy/) with extensions to fit within the Istio service mesh.
+access control and usage policies, and provides rich routing, load balancing, and protocol conversion. The Istio proxy is based on 
+[Envoy](https://lyft.github.io/envoy/) with extensions to fit within the Istio service mesh.
 
 - **Mixer**. The Istio mixer is the nexus of the Istio service mesh. The proxy delegates policy decisions to the mixer, and both the
 proxy and Istio-managed services direct all telemetry data to the mixer. The mixer includes a flexible plugin model enabling it
 to interface to a variety of host environments and configured backends, abstracting the proxy and Istio-managed services
 from these details.
 
-- **Manager**. The Istio manager is used to configure Istio deployments and propagate configuration to 
+- **Configuration Manager**. The Istio manager is used to configure Istio deployments and propagate configuration to 
 the other components of the system, including the Istio mixer and the Istio 
 proxies deployed in the mesh.
 
