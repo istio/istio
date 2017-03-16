@@ -1,10 +1,10 @@
-# Istio Architecture
+# Istio
 
 This document describes Istio's end-to-end design, to help you understand what it does and how
 it does it.
 
 - [Context](#context)
-- [High-level architecture](#high-level-architecture)
+- [Architecture](#architecture)
 - [Attributes](#attributes)
 - [Configuration](#configuration)
 - [The proxy](#the-proxy)
@@ -15,12 +15,22 @@ it does it.
 
 ## Context
 
-As we move towards a world where cloud developers think in terms of microservices, rather than in terms of low level resources like VMs and firewalls, there 
-is a need for a simplifying technology that can take care of common cross-cutting capabilities around service communication and management such as secure 
-interconnect, service discovery & load balancing, staged rollouts, A/B testing, intelligent rate limiting, authentication, access control, monitoring, logging, etc. Having a common, open and 
-uniform way to enable these capabilities across services, independent of the platform, makes services thinner and portable, teams more agile and focused on 
-core business logic, enables sweeping changes through configuration, and makes it easy to monitor the entire service mesh uniformly. Such a mesh can 
-help enterprises have a shared horizontal layer which can be maintained by central ops teams and make service teams and code lighter and network agnostic.
+As enterprises migrate from traditional VM infrastructures to more agile
+microservice-based deployments on container platforms, there is a need for
+a simplifying technology that can take care of common cross-cutting
+capabilities around service communication and management such as secure
+interconnect, service discovery & load balancing, staged rollouts, A/B
+testing, intelligent rate limiting, authentication, access control,
+monitoring, logging, etc.
+
+Broadly speaking, an _open, platform independent service mesh_ that
+simplifies traffic management, policy enforcement, and telemetry collection
+has two main benefits. It allows application developers to focus on the
+business logic and iterate quickly on new features by managing how traffic
+flows across their services. It simplifies the operators job of enforcing
+various policies and monitor the mesh from a central control point,
+independent of the evolution of the application ensuring continuous
+compliance with policies of the organization/business unit.
 
 ## High-level Architecture
 
@@ -151,7 +161,7 @@ enable the mixer to expose a single consistent control API, independent of the b
 used at runtime is determined through configuration.
 
 <figure id="fig-adapters" class="center">
-<img src="images/adapters.png" alt="Mixer and its adapters.">
+<img src="../images/adapters.png" alt="Mixer and its adapters.">
 <figcaption><b>Figure 2</b>: Mixer Adapters</figcaption>
 </figure>
 
