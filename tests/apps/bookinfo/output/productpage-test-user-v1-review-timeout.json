@@ -1,0 +1,9 @@
+{
+    "details":{
+        "isbn_10":"1234567890",
+        "isbn_13":"123-1234567980",
+        "language":"English",
+        "paperback":"200 pages",
+        "publisher":"PublisherA"
+    }
+}

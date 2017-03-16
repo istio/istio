@@ -1,0 +1,77 @@
+################################
+# Istio discovery service
+################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-route-controller
+  labels:
+    infra: istio-route-controller
+spec:
+  ports:
+  - port: 8080
+    name: http-route-controller
+  selector:
+    infra: istio-route-controller
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-route-controller
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        infra: istio-route-controller
+    spec:
+      containers:
+      - name: istio-route-controller
+        image: docker.io/istio/runtime:a87bea5
+        args: ["discovery", "-v", "2", "-n", "default"]
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+---
+################################
+# Istio ingress controller
+################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingress-controller
+  labels:
+    infra: istio-ingress-controller
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    nodePort: 32000
+    name: http
+  selector:
+    infra: istio-ingress-controller
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-ingress-controller
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        infra: istio-ingress-controller
+    spec:
+      containers:
+      - name: istio-ingress-controller
+        image: docker.io/istio/runtime:a87bea5
+        args:
+        - proxy
+        - ingress
+        - -s
+        - istio-route-controller:8080
+        - -v
+        - "2"
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80

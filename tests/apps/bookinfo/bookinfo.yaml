@@ -1,0 +1,434 @@
+
+# Copyright 2017 Istio Authors
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
+##################################################################################################
+# Details service
+##################################################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: details
+  labels:
+    app: details
+spec:
+  ports:
+  - port: 9080
+    name: http
+  selector:
+    app: details
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: details-v1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: details
+        version: v1
+      annotations:
+        pod.beta.kubernetes.io/init-containers: >
+          [{
+            "name": "iptables",
+            "image": "docker.io/istio/init:a87bea5",
+            "imagePullPolicy": "Always",
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+          }]
+    spec:
+      containers:
+      - name: details
+        image: istio/test-e2e-details-v1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9080
+      - name: proxy
+        image: docker.io/istio/runtime:a87bea5
+        securityContext:
+          runAsUser: 1337
+        args:
+          - proxy
+          - sidecar
+          - -n
+          - default
+          - -s
+          - istio-route-controller:8080
+          - -v
+          - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+        imagePullPolicy: Always
+---
+##################################################################################################
+# Ratings service
+##################################################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: ratings
+  labels:
+    app: ratings
+spec:
+  ports:
+  - port: 9080
+    targetPort: 9080
+    protocol: TCP
+    name: http
+  selector:
+    app: ratings
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: ratings-v1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ratings
+        version: v1
+      annotations:
+        pod.beta.kubernetes.io/init-containers: >
+          [{
+            "name": "iptables",
+            "image": "docker.io/istio/init:a87bea5",
+            "imagePullPolicy": "Always",
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+          }]
+    spec:
+      containers:
+      - name: ratings
+        image: istio/test-e2e-ratings-v1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9080
+      - name: proxy
+        image: docker.io/istio/runtime:a87bea5
+        securityContext:
+          runAsUser: 1337
+        args:
+          - proxy
+          - sidecar
+          - -n
+          - default
+          - -s
+          - istio-route-controller:8080
+          - -v
+          - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+        imagePullPolicy: Always
+---
+##################################################################################################
+# Reviews service
+##################################################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviews
+  labels:
+    app: reviews
+spec:
+  ports:
+  - port: 9080
+    targetPort: 9080
+    protocol: TCP
+    name: http
+  selector:
+    app: reviews
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: reviews-v1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: reviews
+        version: v1
+      annotations:
+        pod.beta.kubernetes.io/init-containers: >
+          [{
+            "name": "iptables",
+            "image": "docker.io/istio/init:a87bea5",
+            "imagePullPolicy": "Always",
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+          }]
+    spec:
+      containers:
+      - name: reviews
+        image: istio/test-e2e-reviews-v1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9080
+      - name: proxy
+        image: docker.io/istio/runtime:a87bea5
+        securityContext:
+          runAsUser: 1337
+        args:
+          - proxy
+          - sidecar
+          - -n
+          - default
+          - -s
+          - istio-route-controller:8080
+          - -v
+          - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+        imagePullPolicy: Always
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: reviews-v2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: reviews
+        version: v2
+      annotations:
+        pod.beta.kubernetes.io/init-containers: >
+          [{
+            "name": "iptables",
+            "image": "docker.io/istio/init:a87bea5",
+            "imagePullPolicy": "Always",
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+          }]
+    spec:
+      containers:
+      - name: reviews
+        image: istio/test-e2e-reviews-v2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9080
+      - name: proxy
+        image: docker.io/istio/runtime:a87bea5
+        securityContext:
+          runAsUser: 1337
+        args:
+          - proxy
+          - sidecar
+          - -n
+          - default
+          - -s
+          - istio-route-controller:8080
+          - -v
+          - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+        imagePullPolicy: Always
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: reviews-v3
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: reviews
+        version: v3
+      annotations:
+        pod.beta.kubernetes.io/init-containers: >
+          [{
+            "name": "iptables",
+            "image": "docker.io/istio/init:a87bea5",
+            "imagePullPolicy": "Always",
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+          }]
+    spec:
+      containers:
+      - name: reviews
+        image: istio/test-e2e-reviews-v3
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9080
+      - name: proxy
+        image: docker.io/istio/runtime:a87bea5
+        securityContext:
+          runAsUser: 1337
+        args:
+          - proxy
+          - sidecar
+          - -n
+          - default
+          - -s
+          - istio-route-controller:8080
+          - -v
+          - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+        imagePullPolicy: Always
+---
+##################################################################################################
+# Productpage service
+##################################################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: productpage
+  labels:
+    app: productpage
+spec:
+  ports:
+  - port: 9080
+    targetPort: 9080
+    protocol: TCP
+    name: http
+  selector:
+    app: productpage
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: productpage-v1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: productpage
+        version: v1
+      annotations:
+        pod.beta.kubernetes.io/init-containers: >
+          [{
+            "name": "iptables",
+            "image": "docker.io/istio/init:a87bea5",
+            "imagePullPolicy": "Always",
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+          }]
+    spec:
+      containers:
+      - name: productpage
+        image: istio/test-e2e-productpage-v1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9080
+      - name: proxy
+        image: docker.io/istio/runtime:a87bea5
+        securityContext:
+          runAsUser: 1337
+        args:
+          - proxy
+          - sidecar
+          - -n
+          - default
+          - -s
+          - istio-route-controller:8080
+          - -v
+          - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+        imagePullPolicy: Always
+---
+###########################################################################
+# Ingress resource (gateway)
+##########################################################################
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: gateway
+  namespace: default
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /productpage
+        backend:
+          serviceName: productpage
+          servicePort: 9080
+      - path: /login
+        backend:
+          serviceName: productpage
+          servicePort: 9080
+      - path: /logout
+        backend:
+          serviceName: productpage
+          servicePort: 9080
+---

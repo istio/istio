@@ -1,0 +1,12 @@
+type: route-rule
+name: reviews-test-v2
+spec:
+  destination: reviews.default.svc.cluster.local
+  precedence: 2
+  match:
+    httpHeaders:
+      Cookie:
+        regex: "^(.*?;)?(user=test-user)(;.*)?$"
+  route:
+  - tags:
+      version: v2
