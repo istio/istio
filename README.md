@@ -8,12 +8,20 @@ A service mesh for polyglot microservices.
 
 ## Introduction
 
-Istio is an open source system providing a uniform way to manage and connect
-microservices. It is composed of:
-*  A proxy handling service-to-service and external-to-service traffic.
-*  A mixer supporting access checks, quota allocation and deallocation,
-monitoring and logging.
-*  A manager handling system configuration, discovery, and automation.
+Istio is an open source system providing a uniform way to connect
+microservices and manage their networking.  Istio provides load balancing,
+rate limiting, authorization checking, and other connection features to
+microservices.
+
+Istio's control plane provides an abstraction layer
+over the underlying cluster management platform, such as Kubernetes.
+
+Istio is composed of:
+
+*  A **manager** handling system configuration, discovery, and automation.
+*  A **mixer** supporting access checks for microservices, quota allocation,
+traffic monitoring and traffic logging.
+*  One **proxy** per microservice handling service-to-service and external-to-service traffic forming a **microservice mesh**.
 
 The [architectural overview](doc/ARCHITECTURE.md) provides a high-level summary of
 the design. The [milestone plan](MILESTONES.md) gives a rough estimate of 
@@ -27,17 +35,18 @@ repository contains information about how to build and test it.
 - [istio/api](https://github.com/istio/api). This repository defines
 component-level APIs and common configuration  formats for the Istio platform.
 
-- [istio/istio](https://github.com/istio/istio). The main Istio repo which is
-used to host the high-level documentation for the project, along with 
+- [istio/istio](https://github.com/istio/istio). The main Istio repo which
+hosts the high-level documentation for the project, along with 
 examples & demos.
 
 - [istio/manager](https://github.com/istio/manager). The Istio manager is 
-used to configure Istio and propagate configuration to the other components 
-of the system, including the Istio mixer and the Istio proxy mesh.
+used to configure Istio.  It propagates configuration to the other components 
+of the system, including the Istio mixer and the Istio proxies.  The [_istioctl_](doc/istioctl.md)
+command line is here.
 
 - [istio/mixer](https://github.com/istio/mixer). The Istio mixer is the nexus of
-the Istio service mesh. The proxy delegates policy decisions to the mixer, and
-both the proxy and Istio-managed services direct all telemetry data to the
+the Istio service mesh. The proxy delegates policy decisions to the mixer.  
+Proxies and Istio-managed services direct telemetry data to the
 mixer. The mixer includes a flexible plugin model enabling it to interface to
 a variety of host environments and configured backends, abstracting the 
 proxy and Istio-managed services from these details.
