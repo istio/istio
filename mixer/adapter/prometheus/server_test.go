@@ -42,6 +42,11 @@ func TestServer(t *testing.T) {
 
 	_ = resp.Body.Close()
 
+	s2 := newServer(testAddr)
+	if err := s2.Start(test.NewEnv(t)); err == nil {
+		t.Fatal("Start() succeeded, expecting a failure")
+	}
+
 	if err := s.Close(); err != nil {
 		t.Errorf("Failed to close server properly: %v", err)
 	}
