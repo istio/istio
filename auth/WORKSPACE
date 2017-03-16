@@ -99,6 +99,18 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_howeyc_gopass",
+    commit = "bf9dde6d0d2c004a008c27aaee91170c786f6db8",
+    importpath = "github.com/howeyc/gopass",
+)
+
+new_go_repository(
+    name = "com_github_imdario_mergo",
+    commit = "50d4dbd4eb0e84778abe37cefef140271d96fade",
+    importpath = "github.com/imdario/mergo",
+)
+
+new_go_repository(
     name = "com_github_jonboulle_clockwork",
     commit = "bcac9884e7502bb2b474c0339d889cb981a2f27f",
     importpath = "github.com/jonboulle/clockwork",
@@ -183,6 +195,12 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "org_golang_x_crypto",
+    commit = "728b753d0135da6801d45a38e6f43ff55779c5c2",
+    importpath = "golang.org/x/crypto",
+)
+
+new_go_repository(
     name = "org_golang_x_net",
     commit = "61557ac0112b576429a0df080e1c2cef5dfbb642",
     importpath = "golang.org/x/net",
@@ -199,3 +217,12 @@ new_go_repository(
     commit = "06d6eba81293389cafdff7fca90d75592194b2d9",
     importpath = "golang.org/x/text",
 )
+
+new_http_archive(
+    name = "docker_ubuntu",
+    build_file = "BUILD.ubuntu",
+    sha256 = "2c63dd81d714b825acd1cb3629c57d6ee733645479d0fcdf645203c2c35924c5",
+    type = "zip",
+    url = "https://codeload.github.com/tianon/docker-brew-ubuntu-core/zip/b6f1fe19228e5b6b7aed98dcba02f18088282f90",
+)
+
