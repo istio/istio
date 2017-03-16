@@ -42,8 +42,11 @@ route:
   weight: 100
 ```
 
-When using Kubernetes the destination "reviews.default.svc.cluster.local" is merely a Kubernetes fully qualified domain name (FQDN).
-The route *tag* "version: v1" corresponds to a Kubernetes *label* "version: v1".  The rule ensures that Kubernetes Pods that are not tagged v1 will receive no traffic.
+The destination is the name of the service (specified as a fully qualified
+domain name (FQDN)) to which the traffic is being routed. The route *tag*
+"version: v1" corresponds to a Kubernetes *label* "version: v1".  The rule
+ensures that only Kubernetes pods that containing the label "version: v1"
+will receive traffic.
 
 There are two types of rules in Istio, **Route Rules**,
 which control request routing, and **Destination Policies**,
@@ -61,12 +64,12 @@ route:
   weight: 100
 EOF
 
-# Give the file to istioctl
+# Supply the file as input to istioctl
 istioctl create -f /tmp/rev-rule.yaml
 ```
 
 An end-to-end Istio example which sets several rules using `istioctl` can be found
-[here](../demos/apps/bookinfo/README.md).
+[here](../demos/apps/bookinfo/).
 
 ## Route Rules <a id="route-rules"></a>
 
@@ -83,8 +86,10 @@ rule. For example, all rules that apply to calls to the "reviews" microservice w
 destination: reviews.default.svc.cluster.local
 ```
 
-The *destination* value is a fully qualified domain name (FQDN) of the form
-*serviceName.namespace.dnsSuffix*. It is used by the Istio runtime for matching rules to services.
+The *destination* value SHOULD be a fully qualified domain name (FQDN). It
+is used by the Istio runtime for matching rules to services. For example,
+in Kubernetes, a fully qualified domain name for a service can be
+constructed using the following format: *serviceName.namespace.dnsSuffix*. 
 
 #### Property: precedence <a id="precedence"></a>
 
@@ -267,15 +272,12 @@ httpReqRetries:
 
 #### Property: httpFault <a id="httpFault"></a>
 
-The *httpFault* field is used to specify one or more fault actions to execute
-during http requests to the rule's corresponding request destination.
-The actions(s) that will be executed depend on the following nested fields:
+The *httpFault* field is used to specify one or more faults to inject
+while forwarding http requests to the rule's corresponding request destination.
+The faults injected depend on the following nested fields:
 
 * **delay**
 * **abort**
-
-Faults are used to recreate problem conditions for debugging.  They can also sever the connection
-between microservices to when triaging problems in a live system.
 
 #### Property: httpFault.delay <a id="httpFault-delay"></a>
 
@@ -311,7 +313,7 @@ An *abort* field is used to prematurely abort a request, usually to simulate a f
 The optional *percent* field, a value between 0 and 100, is used to only abort a certain percentage of requests.
 All requests are aborted by default.
 
-The *httpStatus* field is used to indicate a value to return from an HTTP request, instead of invoking the destination.
+The *httpStatus* field is used to indicate a value to return from an HTTP request, instead of forwarding the request to the destination.
 Its value is an integer HTTP 2xx, 3xx, 4xx, or 5xx status code.
 
 Similarly, to abort HTTP/2 or gRPC, the value to return 
