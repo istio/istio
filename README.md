@@ -8,24 +8,26 @@ A service mesh for polyglot microservices.
 
 ## Introduction
 
-Istio is an open source system providing a uniform way to connect
-microservices and manage their networking.  Istio provides load balancing,
-rate limiting, authorization checking, and other connection features to
-microservices.
+Istio is an open platform for providing a uniform way to integrate
+microservices, manage traffic flow across microservices, enforce policies
+and aggregate telemetry data. Istio's control plane provides an abstraction
+layer over the underlying cluster management platform, such as Kubernetes,
+Mesos, etc.
 
-Istio's control plane provides an abstraction layer
-over the underlying cluster management platform, such as Kubernetes.
+Istio is composed of three main components:
 
-Istio is composed of:
+* **Proxy** - Sidecars per microservice to handle ingress/egress traffic
+   between services in the cluster and from a service to external
+   services. The proxies form a _secure Layer-7 microservice mesh_ enabling a rich variety of
+   traffic management, policy enforcement and telemetry recording/reporting
+   functions.
+* **Mixer** - Central component that co-ordinates with various proxies to
+   enforce policies such as ACLs, rate limits, authentication, request tracing
+   and metrics collection.
+* **Manager** - A configuration manager responsible for configuring the
+  proxies and the mixer at runtime.
 
-*  A **manager** handling system configuration, discovery, and automation.
-*  A **mixer** supporting access checks for microservices, quota allocation,
-traffic monitoring and traffic logging.
-*  One **proxy** per microservice handling service-to-service and external-to-service traffic forming a **microservice mesh**.
-
-The [architectural overview](doc/ARCHITECTURE.md) provides a high-level summary of
-the design. The [milestone plan](MILESTONES.md) gives a rough estimate of 
-what we expect to release and when.
+A high-level overview of various components in Istio is available [here](doc/overview.md).
 
 ## Repositories
 
@@ -33,7 +35,7 @@ The Istio project is divided across multiple GitHub repositories. Each
 repository contains information about how to build and test it.
 
 - [istio/api](https://github.com/istio/api). This repository defines
-component-level APIs and common configuration  formats for the Istio platform.
+component-level APIs and common configuration formats for the Istio platform.
 
 - [istio/istio](https://github.com/istio/istio). The main Istio repo which
 hosts the high-level documentation for the project, along with 
@@ -42,7 +44,7 @@ examples & demos.
 - [istio/manager](https://github.com/istio/manager). The Istio manager is 
 used to configure Istio.  It propagates configuration to the other components 
 of the system, including the Istio mixer and the Istio proxies.  The [_istioctl_](doc/istioctl.md)
-command line is here.
+command line utility is also available in this repository.
 
 - [istio/mixer](https://github.com/istio/mixer). The Istio mixer is the nexus of
 the Istio service mesh. The proxy delegates policy decisions to the mixer.  
