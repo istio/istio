@@ -41,7 +41,6 @@ proxies deployed in the mesh.
 
 <figure id="fig-arch" class="center">
 <img src="../images/arch.png" alt="The overall architecture of an Istio-based service.">
-<figcaption><b>Figure 1</b>: Istio Composition</figcaption>
 </figure>
 
 ## Attributes
