@@ -15,7 +15,7 @@ microservices. It is composed of:
 monitoring and logging.
 *  A manager handling system configuration, discovery, and automation.
 
-The [architectural overview](ARCHITECTURE.md) provides a high-level summary of
+The [architectural overview](doc/ARCHITECTURE.md) provides a high-level summary of
 the design. The [milestone plan](MILESTONES.md) gives a rough estimate of 
 what we expect to release and when.
 
