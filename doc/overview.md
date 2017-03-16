@@ -43,6 +43,6 @@ proxies deployed in the mesh.
 The following pages describe individual aspects of Istio.
 
 1. [Abstract Service Model](model.md)
-2. [Istio Routing Rules Specification](rules-dsl.md)
+2. [Istio Routing Rules Specification](rule-dsl.md)
 3. [Istio Mixer](mixer.md)
 4. [Istioctl CLI Manual](istioctl.md)
