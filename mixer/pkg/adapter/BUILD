@@ -28,6 +28,8 @@ go_test(
     name = "small_tests",
     size = "small",
     srcs = [
+        "applicationLogs_test.go",
+        "builder_test.go",
         "configError_test.go",
         "metrics_test.go",
     ],

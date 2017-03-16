@@ -97,6 +97,8 @@ var (
 		Alert:     "ALERT",
 		Emergency: "EMERGENCY",
 	}
+
+	severityReverseMap = map[string]Severity{}
 )
 
 func (s Severity) String() string {
@@ -106,15 +108,11 @@ func (s Severity) String() string {
 	return fmt.Sprintf("%d", s)
 }
 
-// SeverityByName returns a logger.Severity based on the supplied string. It
-// attempts to look up the logger.Severity based on a map from enum to string.
+// SeverityByName returns a logger.Severity based on the supplied string.
 // Default (with false) is returned if the name is not found.
 func SeverityByName(s string) (Severity, bool) {
-	s = strings.ToUpper(s)
-	for severity, name := range severityMap {
-		if name == s {
-			return severity, true
-		}
+	if sev, ok := severityReverseMap[strings.ToUpper(s)]; ok {
+		return sev, true
 	}
 	return Default, false
 }
@@ -122,4 +120,10 @@ func SeverityByName(s string) (Severity, bool) {
 // MarshalJSON implements the json.Marshaler interface.
 func (s Severity) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
+}
+
+func init() {
+	for k, v := range severityMap {
+		severityReverseMap[v] = k
+	}
 }
