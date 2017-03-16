@@ -4,4 +4,4 @@ spec:
   selector: target.service == "ratings.default.svc.cluster.local"
   aspects:
   - kind: quotas
-      params:
+    params:
