@@ -317,7 +317,7 @@ with *red* colored star ratings for each review.
 ### Rate Limiting (NOT WORKING YET)
 
 Now we'll pretend that `ratings` is an external service for which we are paying (like going to rotten tomatoes),
-so we will set a rate limit on the service such that the load remains under the Free quota (20q/s):
+so we will set a rate limit on the service such that the load remains under the Free quota (5q/s):
 
 ```bash
    $ istioctl create -f mixer-rule-ratings-ratelimit.yaml
@@ -330,7 +330,7 @@ We now generate load on the `productpage` with the following command:
 ```
 
 If you now refresh the `productpage` you'll see that while the load generator is running
-(i.e., generating more than 20 req/s), we stop seeing stars.
+(i.e., generating more than 5 req/s), we stop seeing stars.
 
 ## Cleanup
 
