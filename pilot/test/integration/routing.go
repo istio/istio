@@ -89,8 +89,8 @@ func verifyRouting(src, dst, headerKey, headerVal string, samples int, expectedC
 	url := fmt.Sprintf("http://%s/%s", dst, src)
 	glog.Infof("Making %d requests (%s) from %s...\n", samples, url, src)
 
-	cmd := fmt.Sprintf("kubectl exec %s -n %s -c app -- client %s %s %s --count %d",
-		pods[src], params.namespace, url, headerKey, headerVal, samples)
+	cmd := fmt.Sprintf("kubectl exec %s -n %s -c app -- client -url %s -count %d -key %s -val %s",
+		pods[src], params.namespace, url, samples, headerKey, headerVal)
 	request, err := shell(cmd)
 	glog.V(2).Info(request)
 	if err != nil {
@@ -116,6 +116,7 @@ func verifyRouting(src, dst, headerKey, headerVal string, samples int, expectedC
 	}
 
 	if failures > 0 {
+		glog.Info(request)
 		return errors.New("routing verification failed")
 	}
 	return nil
@@ -127,7 +128,7 @@ func verifyFaultInjection(pods map[string]string, src, dst, headerKey, headerVal
 
 	url := fmt.Sprintf("http://%s/%s", dst, src)
 	glog.Infof("Making 1 request (%s) from %s...\n", url, src)
-	cmd := fmt.Sprintf("kubectl exec %s -n %s -c app client %s %s %s",
+	cmd := fmt.Sprintf("kubectl exec %s -n %s -c app -- client -url %s -key %s -val %s",
 		pods[src], params.namespace, url, headerKey, headerVal)
 
 	start := time.Now()

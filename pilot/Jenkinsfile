@@ -54,7 +54,7 @@ def presubmit(gitUtils, bazel, utils) {
     }
     stage('Integration Tests') {
       timeout(15) {
-        sh('bin/e2e.sh -debug -tag alpha' + gitUtils.GIT_SHA + ' -v 2')
+        sh('bin/e2e.sh -tag alpha' + gitUtils.GIT_SHA + ' -v 2')
       }
     }
   }
@@ -68,6 +68,13 @@ def postsubmit(gitUtils, bazel, utils) {
       def images = 'init,init_debug,app,app_debug,runtime,runtime_debug'
       def tags = "${gitUtils.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
       utils.publishDockerImages(images, tags)
+    }
+    stage('Integration Tests') {
+      // Empty kube/config file signals to use in-cluster auto-configuration
+      sh('touch platform/kube/config')
+      timeout(30) {
+        sh('bin/e2e.sh -count 10 -debug -tag alpha' + gitUtils.GIT_SHA + ' -v 2')
+      }
     }
   }
 }

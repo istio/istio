@@ -17,78 +17,98 @@
 package main
 
 import (
-	"fmt"
-	"io"
+	"context"
+	"flag"
+	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
+	"strings"
 	"time"
 
-	flag "github.com/spf13/pflag"
+	"github.com/golang/sync/errgroup"
 )
 
 var (
-	count   int
-	timeout time.Duration
+	count    int
+	parallel bool
+	timeout  time.Duration
+	client   *http.Client
+
+	url       string
+	headerKey string
+	headerVal string
 )
 
 func init() {
 	flag.IntVar(&count, "count", 1, "Number of times to make the request")
+	flag.BoolVar(&parallel, "parallel", true, "Run requests in parallel")
 	flag.DurationVar(&timeout, "timeout", 60*time.Second, "Request timeout")
+	flag.StringVar(&url, "url", "", "Specify URL")
+	flag.StringVar(&headerKey, "key", "", "Header key")
+	flag.StringVar(&headerVal, "val", "", "Header value")
 }
 
-func main() {
-	flag.Parse()
-
-	if len(os.Args) < 2 {
-		log.Fatal("Must supply at least one URL")
-	}
-
-	url := os.Args[1]
-	fmt.Printf("Url=%s\n", url)
-
-	var headerKey, headerVal string
-	if len(os.Args) > 2 {
-		headerKey = os.Args[2]
-		if len(os.Args) > 3 {
-			headerVal = os.Args[3]
-		} else {
-			headerVal = "junk"
-		}
-		fmt.Printf("Header=%s:%s\n", headerKey, headerVal)
-	}
-
-	client := http.Client{
-		Timeout: timeout,
-	}
-
-	for i := 0; i < count; i++ {
-		fmt.Printf("ClientRequest=%d\n", i)
+func makeRequest(i int) func() error {
+	return func() error {
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
-			log.Println(err.Error())
-			continue
+			return err
 		}
 
+		log.Printf("[%d] Url=%s\n", i, url)
 		if headerKey != "" {
 			req.Header.Add(headerKey, headerVal)
+			log.Printf("[%d] Header=%s:%s\n", i, headerKey, headerVal)
 		}
 
 		resp, err := client.Do(req)
 		if err != nil {
-			log.Println(err.Error())
-			continue
+			return err
 		}
 
-		fmt.Printf("StatusCode=%d\n", resp.StatusCode)
-		_, err = io.Copy(os.Stdout, resp.Body)
+		log.Printf("[%d] StatusCode=%d\n", i, resp.StatusCode)
+
+		data, err := ioutil.ReadAll(resp.Body)
+		defer func() {
+			if err = resp.Body.Close(); err != nil {
+				log.Printf("[%d error] %s\n", i, err)
+			}
+		}()
+
 		if err != nil {
-			log.Println(err.Error())
+			return err
 		}
 
-		err = resp.Body.Close()
+		for _, line := range strings.Split(string(data), "\n") {
+			if line != "" {
+				log.Printf("[%d body] %s\n", i, line)
+			}
+		}
+
+		return nil
+	}
+}
+
+func main() {
+	flag.Parse()
+	client = &http.Client{Timeout: timeout}
+	g, _ := errgroup.WithContext(context.Background())
+	for i := 0; i < count; i++ {
+		if parallel {
+			g.Go(makeRequest(i))
+		} else {
+			err := makeRequest(i)()
+			if err != nil {
+				log.Printf("[%d error] %s\n", i, err)
+			}
+		}
+	}
+	if parallel {
+		err := g.Wait()
 		if err != nil {
-			log.Println(err.Error())
+			log.Printf("Error %s\n", err)
+		} else {
+			log.Println("All requests succeeded")
 		}
 	}
 }

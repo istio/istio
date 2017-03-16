@@ -55,12 +55,13 @@ func (r *reachability) run() error {
 		glog.Infof("requests: %#v", r.accessLogs)
 	}
 
-	if err := r.checkAccessLogs(); err != nil {
-		return err
-	}
-
-	if err := r.checkMixerLogs(); err != nil {
-		return err
+	if params.logs {
+		if err := r.checkProxyAccessLogs(); err != nil {
+			return err
+		}
+		if err := r.checkMixerLogs(); err != nil {
+			return err
+		}
 	}
 
 	glog.Info("Success!")
@@ -73,7 +74,7 @@ func (r *reachability) makeRequest(src, dst, port, domain string, done func() bo
 		url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
 		for n := 0; n < budget; n++ {
 			glog.Infof("Making a request %s from %s (attempt %d)...\n", url, src, n)
-			request, err := shell(fmt.Sprintf("kubectl exec %s -n %s -c app client %s",
+			request, err := shell(fmt.Sprintf("kubectl exec %s -n %s -c app -- client -url %s",
 				pods[src], params.namespace, url))
 			if err != nil {
 				return err
@@ -137,7 +138,7 @@ func (r *reachability) makeRequests() error {
 	return nil
 }
 
-func (r *reachability) checkAccessLogs() error {
+func (r *reachability) checkProxyAccessLogs() error {
 	glog.Info("Checking access logs of pods to correlate request IDs...")
 	for n := 0; n < budget; n++ {
 		found := true
@@ -204,7 +205,7 @@ func (r *reachability) makeTCPRequest(src, dst, port, domain string, done func()
 		url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
 		for n := 0; n < budget; n++ {
 			glog.Infof("Making a request %s from %s (attempt %d)...\n", url, src, n)
-			request, err := shell(fmt.Sprintf("kubectl exec %s -n %s -c app client %s",
+			request, err := shell(fmt.Sprintf("kubectl exec %s -n %s -c app -- client -url %s",
 				pods[src], params.namespace, url))
 			if err != nil {
 				return err
