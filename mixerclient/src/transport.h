@@ -34,13 +34,15 @@ class Transport : public AttributeConverter<RequestType> {
   // Send the attributes
   void Send(const Attributes& attributes, ResponseType* response,
             DoneFunc on_done) {
+    std::lock_guard<std::mutex> lock(mutex_);
     stream_.Call(attributes, response, on_done);
   }
 
+ private:
   // Convert to a protobuf
+  // This is called by stream_.Call so it is within the mutex lock.
   void FillProto(StreamID stream_id, const Attributes& attributes,
                  RequestType* request) {
-    std::lock_guard<std::mutex> lock(mutex_);
     if (stream_id != last_stream_id_) {
       attribute_context_.reset(new AttributeContext);
       last_stream_id_ = stream_id;
@@ -50,10 +52,9 @@ class Transport : public AttributeConverter<RequestType> {
     request->set_request_index(attribute_context_->IncRequestIndex());
   }
 
- private:
   // A stream transport
   StreamTransport<RequestType, ResponseType> stream_;
-  // Mutex guarding the access of attribute_context and last_stream_id;
+  // Mutex to sync-up stream_.Call, only one at time.
   std::mutex mutex_;
   // The attribute context for sending attributes
   std::unique_ptr<AttributeContext> attribute_context_;
