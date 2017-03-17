@@ -16,7 +16,7 @@ package adapterManager
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -116,7 +116,7 @@ func (testAspect) Deny() rpc.Status { return rpc.Status{Code: int32(rpc.INTERNAL
 func (m *fakemgr) NewAspect(cfg *config.Combined, adp adapter.Builder, env adapter.Env) (aspect.Wrapper, error) {
 	m.called++
 	if m.w == nil {
-		return nil, fmt.Errorf("unable to create aspect")
+		return nil, errors.New("unable to create aspect")
 	}
 
 	return m.w, nil
@@ -204,7 +204,7 @@ func TestManager(t *testing.T) {
 		if tt.wrapper.called != 1 {
 			t.Errorf("[%d] Expected wrapper call", idx)
 		}
-		mgr1, _ := mgr[aspect.DenialsKind]
+		mgr1 := mgr[aspect.DenialsKind]
 		fmgr := mgr1.(*fakemgr)
 		if fmgr.called != 1 {
 			t.Errorf("[%d] Expected mgr.NewAspect call", idx)
@@ -290,7 +290,7 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 		})
 	} else {
 		cacheThrow = newTestManager(name, throwOnNewAspect, func() aspect.Output {
-			return aspect.Output{Status: status.WithError(fmt.Errorf("empty"))}
+			return aspect.Output{Status: status.WithError(errors.New("empty"))}
 		})
 	}
 	mreg := map[aspect.Kind]aspect.Manager{
@@ -333,7 +333,7 @@ func TestExecute(t *testing.T) {
 		wantCode rpc.Code
 	}{
 		{aspect.DenialsKindName, rpc.OK, nil, rpc.OK},
-		{"error", rpc.UNKNOWN, fmt.Errorf("expected"), rpc.UNKNOWN},
+		{"error", rpc.UNKNOWN, errors.New("expected"), rpc.UNKNOWN},
 	}
 
 	for _, c := range cases {

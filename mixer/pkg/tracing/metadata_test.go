@@ -15,7 +15,7 @@
 package tracing
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
 	"google.golang.org/grpc/metadata"
@@ -47,7 +47,7 @@ func TestMetadataReaderWriter_PropagateErr(t *testing.T) {
 
 	rw.Set("foo", "bar")
 	rw.Set("foo", "bar2")
-	expectedErr := fmt.Errorf("expected error")
+	expectedErr := errors.New("expected error")
 
 	err := rw.ForeachKey(func(key, val string) error { return expectedErr })
 	if err != expectedErr {

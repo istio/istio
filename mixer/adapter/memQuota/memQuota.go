@@ -117,18 +117,18 @@ func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigError
 }
 
 func (builder) NewQuotasAspect(env adapter.Env, c adapter.AspectConfig, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
-	return newAspect(env, c.(*config.Params), d)
+	return newAspect(env, c.(*config.Params))
 }
 
 // newAspect returns a new aspect.
-func newAspect(env adapter.Env, c *config.Params, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
+func newAspect(env adapter.Env, c *config.Params) (adapter.QuotasAspect, error) {
 	dedupWindow, _ := ptypes.DurationFromProto(c.MinDeduplicationDuration)
 
-	return newAspectWithDedup(env, time.NewTicker(dedupWindow), definitions)
+	return newAspectWithDedup(env, time.NewTicker(dedupWindow))
 }
 
 // newAspect returns a new aspect.
-func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, definitions map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
+func newAspectWithDedup(env adapter.Env, ticker *time.Ticker) (adapter.QuotasAspect, error) {
 	mq := &memQuota{
 		cells:       make(map[string]int64),
 		windows:     make(map[string]*rollingWindow),

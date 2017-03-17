@@ -15,7 +15,7 @@
 package ipListChecker
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -32,7 +32,7 @@ import (
 type junk struct{}
 
 func (junk) Read(p []byte) (n int, err error) {
-	return 0, fmt.Errorf("nothing good ever happens to me")
+	return 0, errors.New("nothing good ever happens to me")
 }
 
 func TestBasic(t *testing.T) {
@@ -129,7 +129,7 @@ func TestBasic(t *testing.T) {
 	lc.fetchList()
 	ls = lc.getListState()
 	if ls.fetchError == nil {
-		t.Errorf("Got success, expected error")
+		t.Error("Got success, expected error")
 	}
 	if len(ls.entries) != 2 {
 		t.Errorf("Got %d entries, expected %d", len(ls.entries), len(list1.WhiteList)-1)
@@ -139,7 +139,7 @@ func TestBasic(t *testing.T) {
 	lc.fetchListWithBody(junk{})
 	ls = lc.getListState()
 	if ls.fetchError == nil {
-		t.Errorf("Got success, expected failure")
+		t.Error("Got success, expected failure")
 	}
 
 	if err := a.Close(); err != nil {
@@ -166,7 +166,7 @@ func TestBadUrl(t *testing.T) {
 	}
 
 	if _, err = a.CheckList("1.2.3.4"); err == nil {
-		t.Errorf("Got success, expected failure")
+		t.Error("Got success, expected failure")
 	}
 
 	if err := a.Close(); err != nil {

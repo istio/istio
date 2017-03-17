@@ -234,12 +234,12 @@ func TestBadConfig(t *testing.T) {
 
 	c.MinDeduplicationDuration = &ptypes.Duration{}
 	if err := b.ValidateConfig(c); err == nil {
-		t.Errorf("Expecting failure, got success")
+		t.Error("Expecting failure, got success")
 	}
 
 	c.MinDeduplicationDuration = &ptypes.Duration{Seconds: 0x7fffffffffffffff, Nanos: -1}
 	if err := b.ValidateConfig(c); err == nil {
-		t.Errorf("Expecting failure, got success")
+		t.Error("Expecting failure, got success")
 	}
 }
 
@@ -324,7 +324,7 @@ func TestReaperTicker(t *testing.T) {
 
 	testChan := make(chan time.Time)
 	testTicker := &time.Ticker{C: testChan}
-	a, err := newAspectWithDedup(test.NewEnv(t), testTicker, definitions)
+	a, err := newAspectWithDedup(test.NewEnv(t), testTicker)
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}

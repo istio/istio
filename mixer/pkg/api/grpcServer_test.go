@@ -16,6 +16,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -405,7 +406,7 @@ func TestBadAttr(t *testing.T) {
 
 	// install a failing SendMsg to exercise the failure path
 	ts.s.sendMsg = func(stream grpc.Stream, m proto.Message) error {
-		err := fmt.Errorf("nothing good")
+		err := errors.New("nothing good")
 		wg.Done()
 		return err
 	}
@@ -461,7 +462,7 @@ func TestBrokenStream(t *testing.T) {
 
 	// install a failing SendMsg to exercise the failure path
 	ts.s.sendMsg = func(stream grpc.Stream, m proto.Message) error {
-		err = fmt.Errorf("nothing good")
+		err = errors.New("nothing good")
 		wg.Done()
 		return err
 	}

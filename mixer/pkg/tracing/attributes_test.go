@@ -16,7 +16,7 @@ package tracing
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -114,7 +114,7 @@ func TestForeachKey_PropagatesErr(t *testing.T) {
 	c := NewCarrier(bag)
 	c.Set("k", "v")
 
-	err = fmt.Errorf("expected")
+	err = errors.New("expected")
 	propErr := c.ForeachKey(func(key, val string) error {
 		return err
 	})

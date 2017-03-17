@@ -91,7 +91,7 @@ func AdapterInvariants(r adapter.RegisterFn, t *gt.T) {
 	}
 
 	if count == 0 {
-		t.Errorf("Register() => adapter didn't register any builders")
+		t.Error("Register() => adapter didn't register any builders")
 	}
 }
 

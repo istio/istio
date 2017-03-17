@@ -15,7 +15,6 @@
 package main
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/ghodss/yaml"
@@ -27,7 +26,7 @@ import (
 	"istio.io/mixer/pkg/aspect"
 )
 
-func adapterCmd(errorf errorFn) *cobra.Command {
+func adapterCmd(outf outFn, errorf errorFn) *cobra.Command {
 	adapterCmd := cobra.Command{
 		Use:   "inventory",
 		Short: "Inventory of available adapters and aspects in the mixer",
@@ -37,7 +36,7 @@ func adapterCmd(errorf errorFn) *cobra.Command {
 		Use:   "adapter",
 		Short: "List available adapter builders",
 		Run: func(cmd *cobra.Command, args []string) {
-			err := listBuilders()
+			err := listBuilders(outf)
 			if err != nil {
 				errorf("%v", err)
 			}
@@ -48,7 +47,7 @@ func adapterCmd(errorf errorFn) *cobra.Command {
 		Use:   "aspect",
 		Short: "List available aspects",
 		Run: func(cmd *cobra.Command, args []string) {
-			err := listAspects()
+			err := listAspects(outf)
 			if err != nil {
 				errorf("%v", err)
 			}
@@ -58,7 +57,7 @@ func adapterCmd(errorf errorFn) *cobra.Command {
 	return &adapterCmd
 }
 
-func listAspects() error {
+func listAspects(outf outFn) error {
 	aspectMap, _ := adapterManager.ProcessBindings(aspect.Inventory())
 
 	keys := []string{}
@@ -69,14 +68,14 @@ func listAspects() error {
 	sort.Strings(keys)
 
 	for _, kind := range keys {
-		fmt.Printf("aspect %s\n", kind)
+		outf("aspect %s\n", kind)
 		k, _ := aspect.ParseKind(kind)
-		printConfigValidator(aspectMap[k])
+		printConfigValidator(outf, aspectMap[k])
 	}
 	return nil
 }
 
-func listBuilders() error {
+func listBuilders(outf outFn) error {
 	builderMap := adapterManager.BuilderMap(adapter.Inventory())
 	keys := []string{}
 	for k := range builderMap {
@@ -87,23 +86,23 @@ func listBuilders() error {
 	for _, impl := range keys {
 		b := builderMap[impl].Builder
 
-		fmt.Printf("adapter %s: %s\n", impl, b.Description())
-		printConfigValidator(b)
+		outf("adapter %s: %s\n", impl, b.Description())
+		printConfigValidator(outf, b)
 
 	}
 	return nil
 }
 
-func printConfigValidator(v pkgadapter.ConfigValidator) {
+func printConfigValidator(outf outFn, v pkgadapter.ConfigValidator) {
 
-	fmt.Printf("Params: \n")
+	outf("Params: \n")
 	c := v.DefaultConfig()
 	if c == nil {
 		return
 	}
 	out, err := yaml.Marshal(c)
 	if err != nil {
-		fmt.Print(err)
+		outf("%s", err)
 	}
-	fmt.Printf(string(out[:]) + "\n")
+	outf("%s", string(out[:])+"\n")
 }

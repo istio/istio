@@ -16,6 +16,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"strings"
@@ -50,7 +51,7 @@ func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*config.Combined, att
 
 func TestAspectManagerErrorsPropagated(t *testing.T) {
 	f := &fakeExecutor{func() aspect.Output {
-		return aspect.Output{Status: status.WithError(fmt.Errorf("expected"))}
+		return aspect.Output{Status: status.WithError(errors.New("expected"))}
 	}}
 	h := NewHandler(f, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
 	h.ConfigChange(&fakeresolver{[]*config.Combined{nil, nil}, nil})

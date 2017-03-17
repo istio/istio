@@ -16,7 +16,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/opentracing/opentracing-go/ext"
@@ -25,7 +24,7 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 )
 
-func quotaCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
+func quotaCmd(rootArgs *rootArgs, outf outFn, errorf errorFn) *cobra.Command {
 	name := ""
 	dedup := ""
 	amount := int64(1)
@@ -35,7 +34,7 @@ func quotaCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
 		Use:   "quota",
 		Short: "Invokes the mixer's Quota API.",
 		Run: func(cmd *cobra.Command, args []string) {
-			quota(rootArgs, args, errorf, name, dedup, amount, bestEffort)
+			quota(rootArgs, outf, errorf, name, dedup, amount, bestEffort)
 		},
 	}
 
@@ -47,7 +46,7 @@ func quotaCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
 	return cmd
 }
 
-func quota(rootArgs *rootArgs, args []string, errorf errorFn, name string, dedup string, amount int64, bestEffort bool) {
+func quota(rootArgs *rootArgs, outf outFn, errorf errorFn, name string, dedup string, amount int64, bestEffort bool) {
 	var attrs *mixerpb.Attributes
 	var err error
 
@@ -98,7 +97,7 @@ func quota(rootArgs *rootArgs, args []string, errorf errorFn, name string, dedup
 			break
 		}
 
-		fmt.Printf("Quota RPC returned %s, amount %v, expiration %v\n",
+		outf("Quota RPC returned %s, amount %v, expiration %v\n",
 			decodeStatus(response.Result),
 			response.Amount,
 			response.Expiration)

@@ -135,8 +135,8 @@ func TestTracker_ApplyAttributes(t *testing.T) {
 		t.Error("Expecting bags to be consistent, they're different")
 	}
 
-	copy := copyBag(oldBag)
-	if !compareBags(oldBag, copy) {
+	cp := copyBag(oldBag)
+	if !compareBags(oldBag, cp) {
 		t.Error("Expecting copied bag to match original")
 	}
 }

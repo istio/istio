@@ -15,8 +15,8 @@
 package adapterManager
 
 import (
+	"errors"
 	"flag"
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -37,7 +37,7 @@ func (testBuilder) ValidateConfig(c adapter.AspectConfig) *adapter.ConfigErrors 
 type denyBuilder struct{ testBuilder }
 
 func (denyBuilder) NewDenialsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.DenialsAspect, error) {
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func TestRegisterDenyChecker(t *testing.T) {
@@ -60,7 +60,7 @@ type listBuilder struct{ testBuilder }
 type listBuilder2 struct{ listBuilder }
 
 func (listBuilder) NewListsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.ListsAspect, error) {
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func TestRegisterListChecker(t *testing.T) {
@@ -82,7 +82,7 @@ func TestRegisterListChecker(t *testing.T) {
 type loggerBuilder struct{ testBuilder }
 
 func (loggerBuilder) NewApplicationLogsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.ApplicationLogsAspect, error) {
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func TestRegisterLogger(t *testing.T) {
@@ -104,7 +104,7 @@ func TestRegisterLogger(t *testing.T) {
 type accessLoggerBuilder struct{ testBuilder }
 
 func (accessLoggerBuilder) NewAccessLogsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.AccessLogsAspect, error) {
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func TestRegistry_RegisterAccessLogger(t *testing.T) {
@@ -126,12 +126,12 @@ func TestRegistry_RegisterAccessLogger(t *testing.T) {
 type quotaBuilder struct{ testBuilder }
 
 func (quotaBuilder) NewQuotasAspect(env adapter.Env, cfg adapter.AspectConfig, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 // enables multiple aspects for testing.
 func (quotaBuilder) NewAccessLogsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.AccessLogsAspect, error) {
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func TestRegisterQuota(t *testing.T) {
@@ -152,7 +152,7 @@ func TestRegisterQuota(t *testing.T) {
 type metricsBuilder struct{ testBuilder }
 
 func (metricsBuilder) NewMetricsAspect(adapter.Env, adapter.AspectConfig, map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func TestRegisterMetrics(t *testing.T) {
@@ -222,11 +222,11 @@ func TestMultiKinds(t *testing.T) {
 	}
 
 	if _, ok = reg.FindBuilder("DOES_NOT_EXIST"); ok {
-		t.Errorf("Unexpectedly found builder: DOES_NOT_EXIST")
+		t.Error("Unexpectedly found builder: DOES_NOT_EXIST")
 	}
 
 	if len(reg.SupportedKinds("DOES_NOT_EXIST")) != 0 {
-		t.Errorf("Unexpectedly found kinds for builder: DOES_NOT_EXIST")
+		t.Error("Unexpectedly found kinds for builder: DOES_NOT_EXIST")
 	}
 
 }

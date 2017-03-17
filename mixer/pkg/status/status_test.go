@@ -15,7 +15,7 @@
 package status
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
@@ -36,7 +36,7 @@ func TestStatus(t *testing.T) {
 		t.Errorf("Got %v %v, expected rpc.ABORTED Aborted!", s.Code, s.Message)
 	}
 
-	s = WithError(fmt.Errorf("aborted"))
+	s = WithError(errors.New("aborted"))
 	if s.Code != int32(rpc.INTERNAL) || s.Message != "aborted" {
 		t.Errorf("Got %v %v, expected rpc.INTERNAL aborted", s.Code, s.Message)
 	}

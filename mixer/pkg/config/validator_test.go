@@ -15,6 +15,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -149,18 +150,18 @@ func TestFullConfigValidator(tt *testing.T) {
 				"metrics":     &lc{},
 				"listchecker": &lc{},
 			}, "", false, sSvcConfig2, nil},
-		{&adapter.ConfigError{Field: "NamedAdapter", Underlying: fmt.Errorf("listchecker//denychecker.2 not available")},
+		{&adapter.ConfigError{Field: "NamedAdapter", Underlying: errors.New("listchecker//denychecker.2 not available")},
 			map[string]adapter.ConfigValidator{
 				"denyChecker": &lc{},
 				"metrics":     &lc{},
 				"listchecker": &lc{},
 			}, "", false, sSvcConfig3, nil},
-		{&adapter.ConfigError{Field: ":Selector service.name == “*”", Underlying: fmt.Errorf("invalid expression")},
+		{&adapter.ConfigError{Field: ":Selector service.name == “*”", Underlying: errors.New("invalid expression")},
 			map[string]adapter.ConfigValidator{
 				"denyChecker": &lc{},
 				"metrics":     &lc{},
 				"listchecker": &lc{},
-			}, "service.name == “*”", false, sSvcConfig1, fmt.Errorf("invalid expression")},
+			}, "service.name == “*”", false, sSvcConfig1, errors.New("invalid expression")},
 	}
 	for idx, ctx := range ctable {
 		tt.Run(fmt.Sprintf("%s", ctx.v), func(t *testing.T) {
@@ -214,7 +215,7 @@ func TestConfigParseError(t *testing.T) {
 func TestDecoderError(t *testing.T) {
 	err := Decode(make(chan int), nil, true)
 	if err == nil {
-		t.Errorf("Expected json encode error")
+		t.Error("Expected json encode error")
 	}
 }
 

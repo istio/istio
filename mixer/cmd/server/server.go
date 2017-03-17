@@ -59,13 +59,13 @@ type serverArgs struct {
 	configFetchIntervalSec uint
 }
 
-func serverCmd(errorf errorFn) *cobra.Command {
+func serverCmd(outf outFn, errorf errorFn) *cobra.Command {
 	sa := &serverArgs{}
 	serverCmd := cobra.Command{
 		Use:   "server",
 		Short: "Starts the mixer as a server",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Starting gRPC server on port %v\n", sa.port)
+			outf("Starting gRPC server on port %v\n", sa.port)
 
 			err := runServer(sa)
 			if err != nil {

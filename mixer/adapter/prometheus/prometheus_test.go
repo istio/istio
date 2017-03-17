@@ -264,7 +264,7 @@ func TestProm_RecordFailures(t *testing.T) {
 			}
 			err = aspect.Record(v.values)
 			if err == nil {
-				t.Errorf("Record() - expected error, got none")
+				t.Error("Record() - expected error, got none")
 			}
 		})
 	}
