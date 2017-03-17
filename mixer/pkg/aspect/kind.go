@@ -47,23 +47,22 @@ var kindToString = map[Kind]string{
 	QuotasKind:          QuotasKindName,
 }
 
+// stringToKinds maps from kind name to kind enum.
+var stringToKind = map[string]Kind{}
+
 // String returns the string representation of the kind, or "" if an unknown kind is given.
 func (k Kind) String() string {
 	return kindToString[k]
-}
-
-// stringToKinds maps from kind name to kind enum.
-var stringToKind = map[string]Kind{
-	AccessLogsKindName:      AccessLogsKind,
-	ApplicationLogsKindName: ApplicationLogsKind,
-	DenialsKindName:         DenialsKind,
-	ListsKindName:           ListsKind,
-	MetricsKindName:         MetricsKind,
-	QuotasKindName:          QuotasKind,
 }
 
 // ParseKind converts a string into a Kind.
 func ParseKind(s string) (Kind, bool) {
 	k, found := stringToKind[s]
 	return k, found
+}
+
+func init() {
+	for k, v := range kindToString {
+		stringToKind[v] = k
+	}
 }
