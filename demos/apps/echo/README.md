@@ -1,6 +1,6 @@
 # Istio Kubernetes Demo with simple echo app
 
-**Prerequisite: existing Kubernetes cluster with Istio installated as per [../../../k8s/INSTALL.md](../../../k8s/INSTALL.md).
+**Prerequisite: existing Kubernetes cluster with Istio installated as per [../../../kubernetes/INSTALL.md](../../../kubernetes/INSTALL.md).
 
 
 **Deploy a simple echo app with manually injected proxy**
