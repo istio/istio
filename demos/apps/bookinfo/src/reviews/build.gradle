@@ -1,0 +1,7 @@
+allprojects {
+   group = 'org.istio'
+   version = '1.0'
+   repositories {
+     mavenCentral()
+   }
+}
