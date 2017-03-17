@@ -30,7 +30,7 @@ Istio sidecar that manages all incoming and outgoing calls for the service.
 > cd demos/apps/bookinfo
 > ```
 
-*CLI*: This walkthrough will use the [istioctl](../../../../doc/istioctl.md) CLI that provides a
+*CLI*: This walkthrough will use the [istioctl](../../../doc/istioctl.md) CLI that provides a
 convenient way to apply routing rules and policies for upstreams. The
 `demos/` directory has three binaries: `istioctl-osx`, `istioctl-windows`,
 `istioctl-linux` targeted at Mac, Windows and Linux users
@@ -96,7 +96,7 @@ $ cp istioctl-osx /usr/local/bin/istioctl
 
 1. Determine the Gateway ingress URL (TEMPORARY - instruction subject to change)
 
-   Determine the node on which the `gateway` (ingress controller) runs, and use the node's IP address
+   Determine the node on which the `gateway` (ingress controller) runs and use the node's IP address
    as the external gateway IP.
 
    ```bash
@@ -180,7 +180,7 @@ route requests to all available versions of a service in a random fashion.
 
    If you open the Bookinfo URL (`http://$GATEWAY_URL/productpage`) in your browser,
    you should see the bookinfo application `productpage` displayed. Notice that the `productpage`
-   is displayed, with no rating stars since `reviews:v1` does not access the ratings service.
+   is displayed with no rating stars since `reviews:v1` does not access the ratings service.
 
 1. Route a specific user to `reviews:v2`
 
@@ -317,7 +317,7 @@ with *red* colored star ratings for each review.
 ### Rate Limiting (NOT WORKING YET)
 
 Now we'll pretend that `ratings` is an external service for which we are paying (like going to rotten tomatoes),
-so we will set a rate limit on the service such that the load remains under the Free quota (20q/s):
+so we will set a rate limit on the service such that the load remains under the Free quota (5q/s):
 
 ```bash
    $ istioctl create -f mixer-rule-ratings-ratelimit.yaml
@@ -330,7 +330,7 @@ We now generate load on the `productpage` with the following command:
 ```
 
 If you now refresh the `productpage` you'll see that while the load generator is running
-(i.e., generating more than 20 req/s), we stop seeing stars.
+(i.e., generating more than 5 req/s), we stop seeing stars.
 
 ## Cleanup
 
