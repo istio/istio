@@ -1,0 +1,58 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: frontend-with-istio-proxy
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: hello
+        tier: frontend
+        track: stable
+      annotations:
+        pod.beta.kubernetes.io/init-containers: >
+          [{
+            "name": "iptables",
+            "image": "istio/init:8b99d8a",
+            "imagePullPolicy": "Always",
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+          }]
+    spec:
+      containers:
+        - name: nginx
+          image: "gcr.io/google-samples/hello-frontend:1.0"
+          ports:
+            - name: http
+              containerPort: 80
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/usr/sbin/nginx","-s","quit"]
+        - name: proxy
+          image: istio/runtime:8b99d8a
+          securityContext:
+            runAsUser: 1337
+          args:
+            - proxy
+            - sidecar
+            - -n
+            - default
+            - -s
+            - istio-manager:8080
+            - -v
+            - "2"
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          imagePullPolicy: Always
