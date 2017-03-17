@@ -30,8 +30,6 @@ data:
             #- selector: service.name == "myservice"
     - selector: true
       aspects:
-      - kind: quotas
-        params:
       - kind: metrics
         adapter: prometheus
         params:
@@ -61,4 +59,56 @@ data:
         params:
           logName: "mixer_log"
           logEntryDescriptorNames: ["default"]
+---
+# Mixer
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-mixer
+  labels:
+    istio: mixer
+spec:
+  ports:
+  - name: tcp
+    port: 9091
+  - name: prometheus
+    port: 42422
+  selector:
+    istio: mixer
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-mixer
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: mixer
+    spec:
+      containers:
+      - name: mixer
+        image: gcr.io/istio-testing/mixer:6655a67
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9091
+        - containerPort: 42422
+        args:
+          - --globalConfigFile=/etc/opt/mixer/globalconfig.yml
+          - --serviceConfigFile=/etc/opt/mixer/serviceconfig.yml
+          - --logtostderr
+          - -v
+          - "3"
+        volumeMounts:
+          - mountPath: /etc/opt/mixer
+            name: config
+      - name: debug
+        image: docker.io/istio/debug:test
+        securityContext:
+            privileged: true
+      volumes:
+        - name: config
+          configMap:
+            name: mixer-config
 ---
