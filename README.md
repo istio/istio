@@ -18,16 +18,22 @@ Istio is composed of three main components:
 
 * **Proxy** - Sidecars per microservice to handle ingress/egress traffic
    between services in the cluster and from a service to external
-   services. The proxies form a _secure Layer-7 microservice mesh_ enabling a rich variety of
-   traffic management, policy enforcement and telemetry recording/reporting
-   functions.
+   services. The proxies form a _secure Layer-7 microservice mesh_ enabling
+   a rich variety of traffic management, policy enforcement and telemetry
+   recording/reporting functions.
+
 * **Mixer** - Central component that co-ordinates with various proxies to
-   enforce policies such as ACLs, rate limits, authentication, request tracing
-   and metrics collection.
+   enforce policies such as ACLs, rate limits, authentication, request
+   tracing and metrics collection.
+
 * **Manager** - A configuration manager responsible for configuring the
   proxies and the mixer at runtime.
 
-A high-level overview of various components in Istio is available [here](doc/overview.md).
+A high-level overview of various components in Istio is available
+[here](doc/overview.md). In terms of platforms, Istio currently supports
+Kubernetes. We plan to add support for additional platforms in the near
+future. See the [getting started](doc/getting-started.md) tutorial for more
+information on using Istio in your Kubernetes deployments.
 
 ## Repositories
 
@@ -37,9 +43,11 @@ repository contains information about how to build and test it.
 - [istio/api](https://github.com/istio/api). This repository defines
 component-level APIs and common configuration formats for the Istio platform.
 
-- [istio/istio](https://github.com/istio/istio). The main Istio repo which
-hosts the high-level documentation for the project, along with 
-examples & demos.
+- [istio/istio](README.md). This is the main Istio repo (the one you are
+currently looking at). It hosts hosts the high-level documentation for the
+project, along with [tutorials](doc/getting-started.md) and two demo
+applications: a [basic echo app](demos/apps/simple_echo_app) and a slightly
+more advanced [polyglot application](demos/apps/bookinfo).
 
 - [istio/manager](https://github.com/istio/manager). The Istio manager is 
 used to configure Istio.  It propagates configuration to the other components 
