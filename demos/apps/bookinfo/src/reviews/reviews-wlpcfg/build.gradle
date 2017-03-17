@@ -1,0 +1,23 @@
+apply plugin: 'eclipse'
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+}
+
+task copyApplication(type: Copy) {
+    from '../reviews-application/build/libs/reviews-application-1.0.war'
+    into 'servers/LibertyProjectServer/apps/'
+}
+
+task build(dependsOn: ['copyApplication']){
+}
+
+task clean {
+    delete "servers/LibertyProjectServer/apps"
+    delete "servers/LibertyProjectServer/lib"
+    delete "servers/LibertyProjectServer/logs"
+    delete "servers/LibertyProjectServer/workarea"
+    delete "servers/LibertyProjectServer/resources"
+}

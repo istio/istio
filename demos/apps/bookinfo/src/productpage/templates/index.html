@@ -1,0 +1,32 @@
+{% extends "bootstrap/base.html" %}
+{% block metas %}
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{% endblock %}
+
+{% block styles %}
+<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+
+<!-- Optional theme -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+{% endblock %}
+{% block scripts %}
+<!-- Latest compiled and minified JavaScript -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+
+<!-- Latest compiled and minified JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+{% endblock %}
+{% block title %}Simple Bookstore App{% endblock %}
+{% block content %}
+    <p><h3>Hello! This is a simple bookstore application consisting of three services as shown below</h3></p>
+    {% autoescape false %}
+    {{ serviceTable }}
+    {% endautoescape %}
+    <p><h4>Click on one of the links below to auto generate a request to the backend as a real user or a tester
+    </h4></p>
+    <p><a href="/productpage?u=normal">Normal user</a></p>
+    <p><a href="/productpage?u=test">Test user</a></p>
+{% endblock %}

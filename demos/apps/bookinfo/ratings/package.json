@@ -1,8 +1,0 @@
-{
-  "scripts": {
-    "start": "node ratings.js"
-  },
-  "dependencies": {
-    "httpdispatcher": "1.0.0"
-  }
-}
