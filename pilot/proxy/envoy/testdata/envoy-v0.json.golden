@@ -21,9 +21,11 @@
                 "config": {
                   "mixer_server": "mixer:9091",
                   "mixer_attributes": {
+                    "target.service": "hello.default.svc.cluster.local",
                     "target.uid": "10.1.1.0"
                   },
                   "forward_attributes": {
+                    "source.service": "hello.default.svc.cluster.local",
                     "source.uid": "10.1.1.0"
                   }
                 }
@@ -65,9 +67,11 @@
                 "config": {
                   "mixer_server": "mixer:9091",
                   "mixer_attributes": {
+                    "target.service": "hello.default.svc.cluster.local",
                     "target.uid": "10.1.1.0"
                   },
                   "forward_attributes": {
+                    "source.service": "hello.default.svc.cluster.local",
                     "source.uid": "10.1.1.0"
                   }
                 }
@@ -139,9 +143,11 @@
                 "config": {
                   "mixer_server": "mixer:9091",
                   "mixer_attributes": {
+                    "target.service": "hello.default.svc.cluster.local",
                     "target.uid": "10.1.1.0"
                   },
                   "forward_attributes": {
+                    "source.service": "hello.default.svc.cluster.local",
                     "source.uid": "10.1.1.0"
                   }
                 }
