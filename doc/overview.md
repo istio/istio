@@ -13,7 +13,7 @@ platform-independent service mesh_ that takes care of traffic management,
 policy enforcement, rate limiting, and telemetry collection.
 It allows application developers to focus on the
 business logic and iterate quickly on new features by managing how traffic
-flows across their services. And it simplifies the operators job of enforcing
+flows across their services. And it simplifies the operators' job of enforcing
 various policies and monitor the mesh from a central control point,
 independent of the evolution of the application ensuring continuous
 compliance with policies of the organization/business unit.
