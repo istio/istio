@@ -47,9 +47,7 @@ var (
 
 func checkCmdLine() {
 	flag.Parse()
-	if len(*host) == 0 {
-		log.Fatalf("Missing required --host parameter.")
-	}
+
 	hasCert, hasPriv := len(*signerCertFile) != 0, len(*signerPrivFile) != 0
 	if *isSelfSigned {
 		if hasCert || hasPriv {

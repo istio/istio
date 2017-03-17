@@ -151,8 +151,6 @@ func genCertTemplate(options CertOptions) x509.Certificate {
 		extKeyUsage = x509.ExtKeyUsageClientAuth
 	}
 
-	sanExt := buildSubjectAltNameExtension(options.Host)
-
 	template := x509.Certificate{
 		SerialNumber: genSerialNum(),
 		Subject: pkix.Name{
@@ -163,8 +161,13 @@ func genCertTemplate(options CertOptions) x509.Certificate {
 		KeyUsage:              keyUsage,
 		ExtKeyUsage:           []x509.ExtKeyUsage{extKeyUsage},
 		BasicConstraintsValid: true,
-		ExtraExtensions:       []pkix.Extension{sanExt},
 	}
+
+	if h := options.Host; len(h) > 0 {
+		s := buildSubjectAltNameExtension(h)
+		template.ExtraExtensions = []pkix.Extension{s}
+	}
+
 	if options.IsCA {
 		template.IsCA = true
 		template.KeyUsage |= x509.KeyUsageCertSign
