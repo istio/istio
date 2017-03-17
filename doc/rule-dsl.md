@@ -1,4 +1,4 @@
-# Configuring Request Routing in Istio
+# Traffic Management (Layer-7 Routing) in Istio
 
 * [Overview](#overview)
 * [Route Rules](#route-rules)
@@ -29,8 +29,16 @@
 
 ## Overview <a id="overview"></a>
 
-Request routing in Istio can be configured in YAML using a Rules Domain-specific language (DSL) based on the proto3 schema
-documented [here](https://github.com/istio/api/blob/master/proxy/v1/config/cfg.md).
+Istio provides a simple Domain-specific language (DSL) based on the proto3
+schema (documented
+[here](https://github.com/istio/api/blob/master/proxy/v1/config/cfg.md)) to
+control how API calls and layer-4 traffic flows across various
+microservices in the application deployment. The DSL allows the operator to
+configure service level properties such as circuit breakers, timeouts,
+retries, as well as set up common continuous deployment tasks such as
+canary rollouts, A/B testing, staged rollouts with %-based traffic splits,
+etc.
+
 For example, a simple rule to send 100% of incoming traffic for a "reviews" microservice
 to version "v1" can be described using the Rules DSL as follows:
 
