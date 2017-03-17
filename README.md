@@ -18,23 +18,26 @@ Istio is composed of three main components:
 
 * **Proxy** - Sidecars per microservice to handle ingress/egress traffic
    between services in the cluster and from a service to external
-   services. The proxies form a _secure Layer-7 microservice mesh_
-   providing a rich set of functions like discovery, rich layer-7 routing,
-   circuit breakers, policy enforcement and telemetry recording/reporting
-   functions.
+   services. The proxies form a _secure microservice mesh_ providing a rich
+   set of functions like discovery, rich layer-7 routing, circuit breakers,
+   policy enforcement and telemetry recording/reporting
+   functions. **Note:** The service mesh is not an overlay network. It
+   simplifies and enhances how microservices in an application talk to each
+   other over the network provided by the underlying platform.
 
-* **Mixer** - Central component that co-ordinates with various proxies to
-   enforce policies such as ACLs, rate limits, authentication, request
-   tracing and metrics collection.
+* **Mixer** - Central component that is leveraged by the proxies and microservices
+   enforce policies such as ACLs, rate limits, quotas, authentication, request
+   tracing and telemetry collection.
 
-* **Manager** - A configuration manager responsible for configuring the
+* **Manager** - A component responsible for configuring the
   proxies and the mixer at runtime.
 
-A high-level overview of various components in Istio is available
-[here](doc/overview.md). In terms of platforms, Istio currently supports
-Kubernetes. We plan to add support for additional platforms in the near
-future. See the [getting started](doc/getting-started.md) tutorial for more
-information on using Istio in your Kubernetes deployments.
+A high-level overview of Istio's components is available
+[here](doc/overview.md). Istio currently only supports the Kubernetes
+platform, although we plan support for additional platforms such as
+CloudFoundry, and Mesos in the near future. See the
+[getting started](doc/getting-started.md) tutorial for more information on
+using Istio in your Kubernetes deployments.
 
 ## Repositories
 
@@ -51,24 +54,32 @@ applications: a [basic echo app](demos/apps/simple_echo_app) and a slightly
 more advanced [polyglot application](demos/apps/bookinfo).
 
 - [istio/manager](https://github.com/istio/manager). This repository
-contains platform specific code to populate the
+contains platform-specific code to populate the
 [abstract service model](doc/model.md), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
 [routing rules](doc/rule-dsl.md) into proxy specific configuration.  The
 [_istioctl_](doc/istioctl.md) command line utility is also available in
 this repository.
 
-- [istio/mixer](https://github.com/istio/mixer). The mixer repository
-contains platform agnostic code for the mixer service, that is responsible
-for interfacing with the proxies (southbound) and various provider specific
-extensions to the mixer.
+- [istio/mixer](https://github.com/istio/mixer). This repository contains
+contains code to enforce various policies for traffic passing through the
+proxies, and collect telemetry data from proxies and microservices. There
+are plugins for interfacing with various cloud platforms, policy
+management services, and monitoring services.
+
+<!-- The proxies delegate policy enforcement decisions (such as ACLs, rate -->
+<!-- limits, etc.) to the mixer, and both the proxy and Istio-managed -->
+<!-- microservices direct all telemetry data to the mixer.  The mixer repository -->
+<!-- contains plugins that allow it to interface with different cloud provider -->
+<!-- backends and monitoring backends. -->
 
 - [istio/mixerclient](https://github.com/istio/mixerclient). Client libraries
 for the mixer API.
 
 - [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
-extensions to Envoy proxy (in the form of Envoy filters), that allow the
-proxy to delegate policy enforcement decisions to the mixer.
+extensions to [Envoy proxy](https://github.com/lyft/envoy) (in the form of
+Envoy filters), that allow the proxy to delegate policy enforcement
+decisions to the mixer.
 
 ## Contributing to the project
 

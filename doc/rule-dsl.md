@@ -1,4 +1,4 @@
-# Traffic Management (Layer-7 Routing) in Istio
+# Request Routing and General Traffic Management in Istio
 
 * [Overview](#overview)
 * [Route Rules](#route-rules)
