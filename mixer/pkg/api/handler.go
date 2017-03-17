@@ -37,17 +37,17 @@ type Handler interface {
 	// Check performs the configured set of precondition checks.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Check(context.Context, attribute.MutableBag, *mixerpb.CheckRequest, *mixerpb.CheckResponse)
+	Check(context.Context, *attribute.MutableBag, *mixerpb.CheckRequest, *mixerpb.CheckResponse)
 
 	// Report performs the requested set of reporting operations.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Report(context.Context, attribute.MutableBag, *mixerpb.ReportRequest, *mixerpb.ReportResponse)
+	Report(context.Context, *attribute.MutableBag, *mixerpb.ReportRequest, *mixerpb.ReportResponse)
 
 	// Quota increments the specified quotas.
 	// Note that the request parameter is immutable, while the response parameter is where
 	// results are specified
-	Quota(context.Context, attribute.MutableBag, *mixerpb.QuotaRequest, *mixerpb.QuotaResponse)
+	Quota(context.Context, *attribute.MutableBag, *mixerpb.QuotaRequest, *mixerpb.QuotaResponse)
 }
 
 // Executor executes any aspect as described by config.Combined.
@@ -75,7 +75,7 @@ func NewHandler(aspectExecutor Executor, methodMap map[aspect.APIMethod]config.A
 }
 
 // execute performs common functions shared across the api surface.
-func (h *handlerState) execute(ctx context.Context, bag attribute.MutableBag,
+func (h *handlerState) execute(ctx context.Context, bag *attribute.MutableBag,
 	method aspect.APIMethod, ma aspect.APIMethodArgs) aspect.Output {
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, bag)
@@ -103,7 +103,7 @@ func (h *handlerState) execute(ctx context.Context, bag attribute.MutableBag,
 }
 
 // Check performs 'check' function corresponding to the mixer api.
-func (h *handlerState) Check(ctx context.Context, bag attribute.MutableBag, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
+func (h *handlerState) Check(ctx context.Context, bag *attribute.MutableBag, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	if glog.V(2) {
 		glog.Infof("Check [%x]", request.RequestIndex)
 	}
@@ -123,7 +123,7 @@ func (h *handlerState) Check(ctx context.Context, bag attribute.MutableBag, requ
 }
 
 // Report performs 'report' function corresponding to the mixer api.
-func (h *handlerState) Report(ctx context.Context, bag attribute.MutableBag, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
+func (h *handlerState) Report(ctx context.Context, bag *attribute.MutableBag, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 	if glog.V(2) {
 		glog.Infof("Report [%x]", request.RequestIndex)
 	}
@@ -138,7 +138,7 @@ func (h *handlerState) Report(ctx context.Context, bag attribute.MutableBag, req
 }
 
 // Quota performs 'quota' function corresponding to the mixer api.
-func (h *handlerState) Quota(ctx context.Context, bag attribute.MutableBag, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
+func (h *handlerState) Quota(ctx context.Context, bag *attribute.MutableBag, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
 	if glog.V(2) {
 		glog.Infof("Quota [%x]", request.RequestIndex)
 	}

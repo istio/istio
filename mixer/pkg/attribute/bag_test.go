@@ -18,7 +18,7 @@ import (
 	"context"
 	"flag"
 	"reflect"
-	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -32,7 +32,6 @@ var (
 
 	d1 = time.Duration(42) * time.Second
 	d2 = time.Duration(34) * time.Second
-	d3 = time.Duration(56) * time.Second
 )
 
 func TestBag(t *testing.T) {
@@ -64,14 +63,14 @@ func TestBag(t *testing.T) {
 	}
 
 	// override a bunch of values
-	ab.SetString("N2", "42")
-	ab.SetInt64("N4", 42)
-	ab.SetFloat64("N6", 42.0)
-	ab.SetBool("N8", true)
-	ab.SetTime("N10", t42)
-	ab.SetDuration("N11", d2)
-	ab.SetBytes("N13", []byte{42})
-	ab.SetStringMap("N15", m3)
+	ab.Set("N2", "42")
+	ab.Set("N4", int64(42))
+	ab.Set("N6", float64(42.0))
+	ab.Set("N8", true)
+	ab.Set("N10", t42)
+	ab.Set("N11", d2)
+	ab.Set("N13", []byte{42})
+	ab.Set("N15", m3)
 
 	// make sure the overrides worked and didn't disturb non-overridden values
 	results := []struct {
@@ -97,7 +96,7 @@ func TestBag(t *testing.T) {
 
 	for _, r := range results {
 		t.Run(r.name, func(t *testing.T) {
-			v, found := Value(ab, r.name)
+			v, found := ab.Get(r.name)
 			if !found {
 				t.Error("Got false, expecting true")
 			}
@@ -108,15 +107,15 @@ func TestBag(t *testing.T) {
 		})
 	}
 
-	if _, found := Value(ab, "XYZ"); found {
+	if _, found := ab.Get("XYZ"); found {
 		t.Error("XYZ was found")
 	}
 
 	// try another level of overrides just to make sure that path is OK
 	child := ab.Child()
-	child.SetString("N2", "31415692")
-	r, found := ab.String("N2")
-	if !found || r != "42" {
+	child.Set("N2", "31415692")
+	r, found := ab.Get("N2")
+	if !found || r.(string) != "42" {
 		t.Error("N2 has wrong value")
 	}
 }
@@ -125,7 +124,7 @@ func TestStringMapEdgeCase(t *testing.T) {
 	// ensure coverage for some obscure logging paths
 
 	d := dictionary{1: "N1", 2: "N2"}
-	rb := getRootBag()
+	rb := getMutableBag(nil)
 	attrs := &mixerpb.Attributes{}
 
 	// empty to non-empty
@@ -147,7 +146,7 @@ func TestStringMapEdgeCase(t *testing.T) {
 func TestContext(t *testing.T) {
 	// simple bag
 	b := getMutableBag(nil)
-	b.SetInt64("42", 42)
+	b.Set("42", int64(42))
 
 	// make sure we can store and fetch the bag in a context
 	ctx := NewContext(context.Background(), b)
@@ -156,8 +155,8 @@ func TestContext(t *testing.T) {
 		t.Error("Expecting to find bag, got nil")
 	}
 
-	r, found := nb.Int64("42")
-	if !found || r != 42 {
+	r, found := nb.Get("42")
+	if !found || r.(int64) != 42 {
 		t.Error("Got different or altered bag return from FromContext")
 	}
 
@@ -188,377 +187,44 @@ func TestBadStringMapKey(t *testing.T) {
 	}
 }
 
-type d map[string]interface{}
-type ttable struct {
-	inRoot  *mixerpb.Attributes
-	inChild d
-	out     d
-}
+func TestMerge(t *testing.T) {
+	mb := getMutableBag(empty)
 
-func TestStringKeys(t *testing.T) {
-	testKeys(t,
-		[]ttable{
-			{
-				&mixerpb.Attributes{},
-				d{},
-				d{},
-			},
-			{
-				&mixerpb.Attributes{
-					Dictionary:       map[int32]string{1: "root"},
-					StringAttributes: map[int32]string{1: "r"},
-				},
-				d{},
-				d{"root": "r"},
-			},
-			{
-				&mixerpb.Attributes{},
-				d{"one": "a", "two": "b"},
-				d{"one": "a", "two": "b"},
-			},
-			{
-				&mixerpb.Attributes{
-					Dictionary:       map[int32]string{1: "root"},
-					StringAttributes: map[int32]string{1: "r"},
-				},
-				d{"one": "a", "two": "b"},
-				d{"root": "r", "one": "a", "two": "b"},
-			},
-		},
-		func(ab MutableBag, k string, v interface{}) {
-			vs := v.(string)
-			ab.SetString(k, vs)
-		},
-		func(b Bag) []string {
-			return b.StringKeys()
-		},
-	)
-}
+	c1 := mb.Child()
+	c2 := mb.Child()
 
-func TestInt64Keys(t *testing.T) {
-	testKeys(t,
-		[]ttable{
-			{
-				&mixerpb.Attributes{},
-				d{},
-				d{},
-			},
-			{
-				&mixerpb.Attributes{
-					Dictionary:      map[int32]string{1: "root"},
-					Int64Attributes: map[int32]int64{1: 1},
-				},
-				d{},
-				d{"root": int64(1)},
-			},
-			{
-				&mixerpb.Attributes{},
-				d{"one": int64(2), "two": int64(3)},
-				d{"one": int64(2), "two": int64(3)},
-			},
-			{
-				&mixerpb.Attributes{
-					Dictionary:      map[int32]string{1: "root"},
-					Int64Attributes: map[int32]int64{1: 1},
-				},
-				d{"one": int64(2), "two": int64(3)},
-				d{"root": int64(1), "one": int64(2), "two": int64(3)},
-			},
-		},
-		func(ab MutableBag, k string, v interface{}) {
-			vs := v.(int64)
-			ab.SetInt64(k, vs)
-		},
-		func(b Bag) []string {
-			return b.Int64Keys()
-		},
-	)
-}
+	c1.Set("STRING1", "A")
+	c2.Set("STRING2", "B")
 
-func TestFloat64Keys(t *testing.T) {
-	testKeys(t,
-		[]ttable{
-			{
-				&mixerpb.Attributes{},
-				d{},
-				d{},
-			},
-			{
-				&mixerpb.Attributes{
-					Dictionary:       map[int32]string{1: "root"},
-					DoubleAttributes: map[int32]float64{1: 1},
-				},
-				d{},
-				d{"root": float64(1)},
-			},
-			{
-				&mixerpb.Attributes{},
-				d{"one": float64(2), "two": float64(3)},
-				d{"one": float64(2), "two": float64(3)},
-			},
-			{
-				&mixerpb.Attributes{
-					Dictionary:       map[int32]string{1: "root"},
-					DoubleAttributes: map[int32]float64{1: 1},
-				},
-				d{"one": float64(2), "two": float64(3)},
-				d{"root": float64(1), "one": float64(2), "two": float64(3)},
-			},
-		},
-		func(ab MutableBag, k string, v interface{}) {
-			vs := v.(float64)
-			ab.SetFloat64(k, vs)
-		},
-		func(b Bag) []string {
-			return b.Float64Keys()
-		},
-	)
-}
+	if err := mb.Merge([]*MutableBag{c1, c2}); err != nil {
+		t.Errorf("Got %v, expecting success", err)
+	}
 
-func TestBoolKeys(t *testing.T) {
-	testKeys(t,
-		[]ttable{
-			{
-				&mixerpb.Attributes{},
-				d{},
-				d{},
-			},
-			{
-				&mixerpb.Attributes{
-					Dictionary:     map[int32]string{1: "root"},
-					BoolAttributes: map[int32]bool{1: true},
-				},
-				d{},
-				d{"root": true},
-			},
-			{
-				&mixerpb.Attributes{},
-				d{"one": true, "two": false},
-				d{"one": true, "two": false},
-			},
-			{
-				&mixerpb.Attributes{
-					Dictionary:     map[int32]string{1: "root"},
-					BoolAttributes: map[int32]bool{1: false},
-				},
-				d{"one": true, "two": false},
-				d{"root": false, "one": true, "two": false},
-			},
-		},
-		func(ab MutableBag, k string, v interface{}) {
-			vs := v.(bool)
-			ab.SetBool(k, vs)
-		},
-		func(b Bag) []string {
-			return b.BoolKeys()
-		},
-	)
-}
+	if v, ok := mb.Get("STRING1"); !ok || v.(string) != "A" {
+		t.Errorf("Got %v, expected A", v)
+	}
 
-func TestTimeKeys(t *testing.T) {
-	testKeys(t,
-		[]ttable{
-			{
-				&mixerpb.Attributes{},
-				d{},
-				d{},
-			},
-			{
-				&mixerpb.Attributes{
-					Dictionary:          map[int32]string{1: "root"},
-					TimestampAttributes: map[int32]time.Time{1: t9},
-				},
-				d{},
-				d{"root": t9},
-			},
-			{
-				&mixerpb.Attributes{},
-				d{"one": t10, "two": t42},
-				d{"one": t10, "two": t42},
-			},
-			{
-				&mixerpb.Attributes{
-					Dictionary:          map[int32]string{1: "root"},
-					TimestampAttributes: map[int32]time.Time{1: t9},
-				},
-				d{"one": t10, "two": t42},
-				d{"root": t9, "one": t10, "two": t42},
-			},
-		},
-		func(ab MutableBag, k string, v interface{}) {
-			vs := v.(time.Time)
-			ab.SetTime(k, vs)
-		},
-		func(b Bag) []string {
-			return b.TimeKeys()
-		},
-	)
-}
-
-func TestDurationKeys(t *testing.T) {
-	testKeys(t,
-		[]ttable{
-			{
-				&mixerpb.Attributes{},
-				d{},
-				d{},
-			},
-			{
-				&mixerpb.Attributes{
-					Dictionary:         map[int32]string{1: "root"},
-					DurationAttributes: map[int32]time.Duration{1: d1},
-				},
-				d{},
-				d{"root": d1},
-			},
-			{
-				&mixerpb.Attributes{},
-				d{"one": d2, "two": d3},
-				d{"one": d2, "two": d3},
-			},
-			{
-				&mixerpb.Attributes{
-					Dictionary:         map[int32]string{1: "root"},
-					DurationAttributes: map[int32]time.Duration{1: d1},
-				},
-				d{"one": d2, "two": d3},
-				d{"root": d1, "one": d2, "two": d3},
-			},
-		},
-		func(ab MutableBag, k string, v interface{}) {
-			vs := v.(time.Duration)
-			ab.SetDuration(k, vs)
-		},
-		func(b Bag) []string {
-			return b.DurationKeys()
-		},
-	)
-}
-
-func TestByteKeys(t *testing.T) {
-	testKeys(t,
-		[]ttable{
-			{
-				&mixerpb.Attributes{},
-				d{},
-				d{},
-			},
-			{
-				&mixerpb.Attributes{
-					Dictionary:      map[int32]string{1: "root"},
-					BytesAttributes: map[int32][]byte{1: {11}},
-				},
-				d{},
-				d{"root": []byte{11}},
-			},
-			{
-				&mixerpb.Attributes{},
-				d{"one": []byte{12}, "two": []byte{13}},
-				d{"one": []byte{12}, "two": []byte{13}},
-			},
-			{
-				&mixerpb.Attributes{
-					Dictionary:      map[int32]string{1: "root"},
-					BytesAttributes: map[int32][]byte{1: {1}},
-				},
-				d{"one": []byte{2}, "two": []byte{3}},
-				d{"root": []byte{1}, "one": []byte{2}, "two": []byte{3}},
-			},
-		},
-		func(ab MutableBag, k string, v interface{}) {
-			vs := v.([]byte)
-			ab.SetBytes(k, vs)
-		},
-		func(b Bag) []string {
-			return b.BytesKeys()
-		},
-	)
-}
-
-func TestStringMapKeys(t *testing.T) {
-	sm1 := mixerpb.StringMap{Map: map[int32]string{2: "One"}}
-	m1 := map[string]string{"key1": "One"}
-	m2 := map[string]string{"key2": "Two"}
-	m3 := map[string]string{"key3": "Three"}
-
-	testKeys(t,
-		[]ttable{
-			{
-				&mixerpb.Attributes{},
-				d{},
-				d{},
-			},
-			{
-				&mixerpb.Attributes{
-					Dictionary:          map[int32]string{1: "root", 2: "key1"},
-					StringMapAttributes: map[int32]mixerpb.StringMap{1: sm1},
-				},
-				d{},
-				d{"root": m1},
-			},
-			{
-				&mixerpb.Attributes{},
-				d{"one": m1, "two": m2},
-				d{"one": m1, "two": m2},
-			},
-			{
-				&mixerpb.Attributes{
-					Dictionary:          map[int32]string{1: "root", 2: "key1"},
-					StringMapAttributes: map[int32]mixerpb.StringMap{1: sm1},
-				},
-				d{"one": m2, "two": m3},
-				d{"root": m1, "one": m2, "two": m3},
-			},
-		},
-		func(ab MutableBag, k string, v interface{}) {
-			vs := v.(map[string]string)
-			ab.SetStringMap(k, vs)
-		},
-		func(b Bag) []string {
-			return b.StringMapKeys()
-		},
-	)
-}
-
-func testKeys(t *testing.T, cases []ttable, setVal func(MutableBag, string, interface{}), keyFn func(Bag) []string) {
-	for i, tc := range cases {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			at := NewManager().NewTracker()
-			root, _ := at.ApplyAttributes(tc.inRoot)
-			ab := getMutableBag(root)
-			for k, v := range tc.inChild {
-				setVal(ab, k, v)
-			}
-
-			keys := keyFn(ab)
-			// verify everything that was returned was expected
-			for _, key := range keys {
-				if _, found := tc.out[key]; !found {
-					t.Errorf("keyFn = [..., %s, ...], wanted (key, val) in set: %v", key, tc.out)
-				}
-			}
-			// and that everything that was expected was returned
-			for key := range tc.out {
-				if !contains(keys, key) {
-					t.Errorf("keyFn = %v, wanted '%s' in set", keys, key)
-				}
-			}
-
-			at.Done()
-			root.Done()
-			ab.Done()
-		})
+	if v, ok := mb.Get("STRING2"); !ok || v.(string) != "B" {
+		t.Errorf("Got %v, expected B", v)
 	}
 }
 
-func contains(keys []string, key string) bool {
-	for _, k := range keys {
-		if k == key {
-			return true
-		}
+func TestMergeErrors(t *testing.T) {
+	mb := getMutableBag(empty)
+
+	c1 := mb.Child()
+	c2 := mb.Child()
+
+	c1.Set("FOO", "X")
+	c2.Set("FOO", "Y")
+
+	if err := mb.Merge([]*MutableBag{c1, c2}); err == nil {
+		t.Error("Got success, expected failure")
+	} else if !strings.Contains(err.Error(), "FOO") {
+		t.Errorf("Expected error to contain the word FOO, got %s", err.Error())
 	}
-	return false
 }
+
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
 	_ = flag.Lookup("v").Value.Set("99")

@@ -85,7 +85,7 @@ func TestAttributeHandling(t *testing.T) {
 
 	for _, r := range results {
 		t.Run(r.name, func(t *testing.T) {
-			v, found := attribute.Value(b, r.name)
+			v, found := b.Get(r.name)
 			if !found {
 				t.Error("Got false, expecting true")
 			}

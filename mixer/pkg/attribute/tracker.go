@@ -34,7 +34,7 @@ type Tracker interface {
 	// If this returns a non-nil error, it indicates there was a problem in the
 	// supplied Attributes proto. When this happens, none of the tracked attribute
 	// state will have been affected.
-	ApplyAttributes(attrs *mixerpb.Attributes) (MutableBag, error)
+	ApplyAttributes(attrs *mixerpb.Attributes) (*MutableBag, error)
 
 	// Done indicates the tracker can be reclaimed.
 	Done()
@@ -44,7 +44,7 @@ type tracker struct {
 	dictionaries *dictionaries
 
 	// all active attribute contexts
-	contexts map[int32]*rootBag
+	contexts map[int32]*MutableBag
 
 	// the current live dictionary
 	currentDictionary dictionary
@@ -53,7 +53,7 @@ type tracker struct {
 var trackers = sync.Pool{
 	New: func() interface{} {
 		return &tracker{
-			contexts: make(map[int32]*rootBag),
+			contexts: make(map[int32]*MutableBag),
 		}
 	},
 }
@@ -77,12 +77,12 @@ func (at *tracker) Done() {
 	trackers.Put(at)
 }
 
-func (at *tracker) ApplyAttributes(attrs *mixerpb.Attributes) (MutableBag, error) {
+func (at *tracker) ApplyAttributes(attrs *mixerpb.Attributes) (*MutableBag, error) {
 	// find the context or create it if needed
-	rb := at.contexts[attrs.AttributeContext]
-	if rb == nil {
-		rb = getRootBag()
-		at.contexts[attrs.AttributeContext] = rb
+	mb := at.contexts[attrs.AttributeContext]
+	if mb == nil {
+		mb = getMutableBag(nil)
+		at.contexts[attrs.AttributeContext] = mb
 	}
 
 	dict := at.currentDictionary
@@ -90,7 +90,7 @@ func (at *tracker) ApplyAttributes(attrs *mixerpb.Attributes) (MutableBag, error
 		dict = attrs.Dictionary
 	}
 
-	if err := rb.update(dict, attrs); err != nil {
+	if err := mb.update(dict, attrs); err != nil {
 		return nil, err
 	}
 
@@ -100,60 +100,5 @@ func (at *tracker) ApplyAttributes(attrs *mixerpb.Attributes) (MutableBag, error
 		at.currentDictionary = at.dictionaries.Intern(attrs.Dictionary)
 	}
 
-	return copyBag(rb), nil
-}
-
-func copyBag(b Bag) MutableBag {
-	mb := getMutableBag(getRootBag())
-	for _, k := range b.StringKeys() {
-		v, _ := b.String(k)
-		mb.SetString(k, v)
-	}
-
-	for _, k := range b.Int64Keys() {
-		v, _ := b.Int64(k)
-		mb.SetInt64(k, v)
-	}
-
-	for _, k := range b.Float64Keys() {
-		v, _ := b.Float64(k)
-		mb.SetFloat64(k, v)
-	}
-
-	for _, k := range b.BoolKeys() {
-		v, _ := b.Bool(k)
-		mb.SetBool(k, v)
-	}
-
-	for _, k := range b.TimeKeys() {
-		v, _ := b.Time(k)
-		mb.SetTime(k, v)
-	}
-
-	for _, k := range b.DurationKeys() {
-		v, _ := b.Duration(k)
-		mb.SetDuration(k, v)
-	}
-
-	for _, k := range b.BytesKeys() {
-		v, _ := b.Bytes(k)
-
-		c := make([]byte, len(v))
-		for i := 0; i < len(v); i++ {
-			c[i] = v[i]
-		}
-		mb.SetBytes(k, c)
-	}
-
-	for _, k := range b.StringMapKeys() {
-		v, _ := b.StringMap(k)
-
-		c := make(map[string]string, len(v))
-		for k, v := range v {
-			c[k] = v
-		}
-		mb.SetStringMap(k, c)
-	}
-
-	return mb
+	return copyBag(mb), nil
 }

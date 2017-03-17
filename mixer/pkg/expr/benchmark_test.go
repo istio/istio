@@ -45,20 +45,21 @@ func BenchmarkExpression(b *testing.B) {
 	success := "_SUCCESS_"
 	exprStr := `a == 20 || request.header["host"] == "abc"`
 	dff := func(a attribute.Bag) (bool, error) {
-		var aa int64
 		var b bool
-		var s map[string]string
-		if aa, b = a.Int64("a"); !b {
-			return false, errors.New("a not found")
-		}
-		if aa == 20 {
-			return true, nil
-		}
-
-		s, b = a.StringMap("request.header")
+		var v interface{}
+		v, b = a.Get("a")
 		if !b {
 			return false, errors.New("a not found")
 		}
+		if v.(int64) == 20 {
+			return true, nil
+		}
+
+		v, b = a.Get("request.header")
+		if !b {
+			return false, errors.New("a not found")
+		}
+		s := v.(map[string]string)
 		ss := s["host"]
 		if ss == "abc" {
 			return true, nil

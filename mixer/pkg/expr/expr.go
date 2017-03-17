@@ -111,7 +111,7 @@ func (e *Expression) Eval(attrs attribute.Bag, fMap map[string]Func) (interface{
 		return e.Const.Value, nil
 	}
 	if e.Var != nil {
-		v, ok := attribute.Value(attrs, e.Var.Name)
+		v, ok := attrs.Get(e.Var.Name)
 		if !ok {
 			return nil, fmt.Errorf("unresolved attribute %s", e.Var.Name)
 		}

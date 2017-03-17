@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"istio.io/mixer/pkg/attribute"
 )
@@ -320,73 +319,14 @@ type bag struct {
 	attrs map[string]interface{}
 }
 
-func (b *bag) String(name string) (string, bool) {
+func (b *bag) Get(name string) (interface{}, bool) {
 	c, found := b.attrs[name]
-	if !found {
-		return "", false
-	}
-	s, found := c.(string)
-	if !found {
-		return "", false
-	}
-	return s, true
+	return c, found
 }
 
-// Int64 returns the named attribute if it exists.
-func (b *bag) Int64(name string) (int64, bool) {
-	c, found := b.attrs[name]
-	if !found {
-		return 0, false
-	}
-	if _, found = c.(int64); !found {
-		return 0, false
-	}
-
-	return c.(int64), true
+func (b *bag) Names() []string {
+	return []string{}
 }
 
-// Float64 returns the named attribute if it exists.
-func (b *bag) Float64(name string) (float64, bool) {
-	c, found := b.attrs[name]
-	if !found {
-		return 0.0, false
-	}
-	if _, found = c.(float64); !found {
-		return 0.0, false
-	}
-
-	return c.(float64), true
+func (b *bag) Done() {
 }
-
-// Bool returns the named attribute if it exists.
-func (b *bag) Bool(name string) (bool, bool) {
-	c, found := b.attrs[name]
-	if !found {
-		return false, false
-	}
-	if _, found = c.(bool); !found {
-		return false, false
-	}
-
-	return c.(bool), true
-}
-
-func (b *bag) StringMap(name string) (map[string]string, bool) {
-	c, found := b.attrs[name]
-	if !found {
-		return nil, false
-	}
-	if _, found = c.(map[string]string); !found {
-		return nil, false
-	}
-
-	return c.(map[string]string), true
-
-}
-func (b *bag) Time(name string) (tt time.Time, bb bool) { return }
-
-// Duration returns the named attribute if it exists.
-func (b *bag) Duration(name string) (tt time.Duration, bb bool) { return }
-
-// Bytes returns the named attribute if it exists.
-func (b *bag) Bytes(name string) (u []uint8, bb bool) { return }
