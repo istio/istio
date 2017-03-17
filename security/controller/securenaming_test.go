@@ -16,6 +16,8 @@ package controller
 
 import (
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -195,6 +197,7 @@ func TestGetPodServices(t *testing.T) {
 		}
 
 		actualServices := snc.getPodServices(testCase.pod)
+		sort.Sort(sortableServices(actualServices))
 
 		if !reflect.DeepEqual(actualServices, testCase.expectedServices) {
 			t.Errorf("Case %d failed: Actual services does not match expected services\n", ind)
@@ -238,4 +241,12 @@ func getOrDefault(value, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+type sortableServices []*v1.Service
+
+func (ss sortableServices) Len() int      { return len(ss) }
+func (ss sortableServices) Swap(i, j int) { ss[i], ss[j] = ss[j], ss[i] }
+func (ss sortableServices) Less(i, j int) bool {
+	return strings.Compare(ss[i].GetName(), ss[j].GetName()) < 0
 }
