@@ -25,9 +25,9 @@ spec:
     spec:
       containers:
       - name: manager
-        image: gcr.io/istio-testing/runtime:demo
+        image: docker.io/istio/runtime:2017-03-17-17.26.10
         imagePullPolicy: Always
-        args: ["discovery", "-v", "2"]
+        args: ["discovery", "-v", "2", "-m", "istio-mixer:9091"]
         ports:
         - containerPort: 8080
 ---

@@ -32,14 +32,14 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "gcr.io/istio-testing/init:demo",
+            "image": "docker.io/istio/init:2017-03-17-17.26.10",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
     spec:
       containers:
       - name: app
-        image: gcr.io/istio-testing/app:demo
+        image: docker.io/istio/app:2017-03-17-17.26.10
         imagePullPolicy: Always
         args:
           - --port
@@ -52,7 +52,7 @@ spec:
         - containerPort: 8080
         - containerPort: 80
       - name: proxy
-        image: gcr.io/istio-testing/runtime:demo
+        image: docker.io/istio/runtime:2017-03-17-17.26.10
         imagePullPolicy: Always
         securityContext:
           runAsUser: 1337
