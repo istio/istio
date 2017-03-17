@@ -18,20 +18,39 @@
 package envoy
 
 import (
+	"strings"
+
 	"istio.io/manager/model"
 	proxyconfig "istio.io/manager/model/proxy/alphav1/config"
 )
 
-func insertMixerFilter(listeners []*Listener, mixer string) {
-	for _, l := range listeners {
-		for _, f := range l.Filters {
-			if f.Name == HTTPConnectionManager {
-				http := (f.Config).(*HTTPFilterConfig)
-				http.Filters = append([]HTTPFilter{{
-					Type:   "both",
-					Name:   "mixer",
-					Config: &FilterMixerConfig{MixerServer: mixer},
-				}}, http.Filters...)
+func insertMixerFilter(listeners []*Listener, context *ProxyContext) {
+	if context.MeshConfig.MixerAddress != "" {
+		// join IPs with a comma
+		ips := make([]string, 0)
+		for ip := range context.Addrs {
+			ips = append(ips, ip)
+		}
+		id := strings.Join(ips, ",")
+
+		for _, l := range listeners {
+			for _, f := range l.Filters {
+				if f.Name == HTTPConnectionManager {
+					http := (f.Config).(*HTTPFilterConfig)
+					http.Filters = append([]HTTPFilter{{
+						Type: "decoder",
+						Name: "mixer",
+						Config: &FilterMixerConfig{
+							MixerServer: context.MeshConfig.MixerAddress,
+							MixerAttributes: map[string]string{
+								"target.uid": id,
+							},
+							ForwardAttributes: map[string]string{
+								"source.uid": id,
+							},
+						},
+					}}, http.Filters...)
+				}
 			}
 		}
 	}

@@ -120,6 +120,9 @@ var (
 func init() {
 	discoveryCmd.PersistentFlags().IntVarP(&flags.sdsPort, "port", "p", 8080,
 		"Discovery service port")
+	discoveryCmd.PersistentFlags().StringVarP(&flags.proxy.MixerAddress, "mixer", "m",
+		"",
+		"Mixer DNS address (or empty to disable Mixer)")
 
 	proxyCmd.PersistentFlags().StringVar(&flags.identity.IP, "nodeIP", "",
 		"Proxy node IP address. If not provided uses ${POD_IP} environment variable.")

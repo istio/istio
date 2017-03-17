@@ -103,7 +103,16 @@ type Header struct {
 
 // FilterMixerConfig definition
 type FilterMixerConfig struct {
+	// MixerServer specifies the address of the mixer server (e.g. "mixer:9090")
 	MixerServer string `json:"mixer_server"`
+
+	// MixerAttributes specifies the static list of attributes that are sent with
+	// each request to Mixer.
+	MixerAttributes map[string]string `json:"mixer_attributes,omitempty"`
+
+	// ForwardAttributes specifies the list of attribute keys and values that
+	// are forwarded as an HTTP header to the server side proxy
+	ForwardAttributes map[string]string `json:"forward_attributes,omitempty"`
 }
 
 // FilterFaultConfig definition
@@ -146,9 +155,10 @@ type HTTPRoute struct {
 	Cluster          string           `json:"cluster"`
 	WeightedClusters *WeightedCluster `json:"weighted_clusters,omitempty"`
 
-	Headers     Headers      `json:"headers,omitempty"`
-	TimeoutMS   int          `json:"timeout_ms,omitempty"`
-	RetryPolicy *RetryPolicy `json:"retry_policy,omitempty"`
+	Headers      Headers           `json:"headers,omitempty"`
+	TimeoutMS    int               `json:"timeout_ms,omitempty"`
+	RetryPolicy  *RetryPolicy      `json:"retry_policy,omitempty"`
+	OpaqueConfig map[string]string `json:"opaque_config,omitempty"`
 
 	// clusters contains the set of referenced clusters in the route; the field is special
 	// and used only to aggregate cluster information after composing routes

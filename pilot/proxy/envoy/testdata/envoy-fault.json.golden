@@ -16,10 +16,16 @@
             },
             "filters": [
               {
-                "type": "both",
+                "type": "decoder",
                 "name": "mixer",
                 "config": {
-                  "mixer_server": "mixer:9091"
+                  "mixer_server": "mixer:9091",
+                  "mixer_attributes": {
+                    "target.uid": "10.1.1.0"
+                  },
+                  "forward_attributes": {
+                    "source.uid": "10.1.1.0"
+                  }
                 }
               },
               {
@@ -86,10 +92,16 @@
             },
             "filters": [
               {
-                "type": "both",
+                "type": "decoder",
                 "name": "mixer",
                 "config": {
-                  "mixer_server": "mixer:9091"
+                  "mixer_server": "mixer:9091",
+                  "mixer_attributes": {
+                    "target.uid": "10.1.1.0"
+                  },
+                  "forward_attributes": {
+                    "source.uid": "10.1.1.0"
+                  }
                 }
               },
               {
@@ -186,10 +198,16 @@
             },
             "filters": [
               {
-                "type": "both",
+                "type": "decoder",
                 "name": "mixer",
                 "config": {
-                  "mixer_server": "mixer:9091"
+                  "mixer_server": "mixer:9091",
+                  "mixer_attributes": {
+                    "target.uid": "10.1.1.0"
+                  },
+                  "forward_attributes": {
+                    "source.uid": "10.1.1.0"
+                  }
                 }
               },
               {

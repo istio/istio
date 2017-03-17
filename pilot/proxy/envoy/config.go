@@ -73,10 +73,7 @@ func Generate(context *ProxyContext) *Config {
 	mesh := context.MeshConfig
 	listeners, clusters := build(context)
 
-	// inject mixer filter
-	if mesh.MixerAddress != "" {
-		insertMixerFilter(listeners, mesh.MixerAddress)
-	}
+	insertMixerFilter(listeners, context)
 
 	// set bind to port values to values for port redirection
 	for _, listener := range listeners {
@@ -209,6 +206,20 @@ func buildRoutes(context *ProxyContext) (HTTPRouteConfigs, TCPRouteConfigs) {
 	services := context.Discovery.Services()
 	httpOutbound, tcpOutbound := buildOutboundRoutes(instances, services, context.Config, context.MeshConfig)
 	httpInbound, tcpInbound := buildInboundRoutes(instances)
+
+	// set server-side mixer filter config for inbound routes
+	if context.MeshConfig.MixerAddress != "" {
+		for _, httpRouteConfig := range httpInbound {
+			for _, vhost := range httpRouteConfig.VirtualHosts {
+				for _, route := range vhost.Routes {
+					route.OpaqueConfig = map[string]string{
+						"mixer_control": "on",
+						"mixer_forward": "off",
+					}
+				}
+			}
+		}
+	}
 
 	// merge the two sets of HTTP route configs
 	httpRouteConfigs := make(HTTPRouteConfigs)

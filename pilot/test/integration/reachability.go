@@ -33,11 +33,15 @@ type reachability struct {
 
 	// accessLogs is a mapping from app name to a list of request ids that should be present in it
 	accessLogs map[string][]string
+
+	// mixerLogs is a collection of request IDs that we expect to find in the mixer logs
+	mixerLogs map[string]string
 }
 
 func (r *reachability) run() error {
 	glog.Info("Verifying basic reachability across pods/services (a, b, and t)..")
 
+	r.mixerLogs = make(map[string]string)
 	r.accessLogs = make(map[string][]string)
 	for app := range pods {
 		r.accessLogs[app] = make([]string, 0)
@@ -86,6 +90,11 @@ func (r *reachability) makeRequest(src, dst, port, domain string, done func() bo
 				r.accessMu.Lock()
 				r.accessLogs[src] = append(r.accessLogs[src], id)
 				r.accessLogs[dst] = append(r.accessLogs[dst], id)
+				// TODO no logs when source and destination is same (e.g. from "a" pod to "a" pod)
+				// server side should have a proxy, so skip "t" destined requests
+				if src != dst && dst != "t" {
+					r.mixerLogs[id] = fmt.Sprintf("from %s to %s, port %s", src, dst, port)
+				}
 				r.accessMu.Unlock()
 				return nil
 			}
@@ -178,15 +187,11 @@ func (r *reachability) checkMixerLogs() error {
 	for n := 0; n < budget; n++ {
 		found := true
 		access := podLogs(pods["mixer"], "mixer")
-		for _, pod := range []string{"a", "b"} {
-			for _, id := range r.accessLogs[pod] {
-				if !strings.Contains(access, id) {
-					glog.Infof("Failed to find request id %s in mixer logs\n", id)
-					found = false
-					break
-				}
-			}
-			if !found {
+
+		for id, desc := range r.mixerLogs {
+			if !strings.Contains(access, id) {
+				glog.Infof("Failed to find request id %s for %s in mixer logs\n", id, desc)
+				found = false
 				break
 			}
 		}
