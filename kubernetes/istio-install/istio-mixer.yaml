@@ -38,27 +38,48 @@ data:
             # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
             value: "1"
             labels:
-              source: source.name | "unknown"
-              target: target.name | "unknown"
+              source: source.service | "unknown"
+              target: target.service | "unknown"
               service: api.name | "unknown"
               method: api.method | "unknown"
               response_code: response.http.code | 200
           - descriptor_name:  request_latency
             value: response.latency | "0ms"
             labels:
-              source: source.name | "unknown"
-              target: target.name | "unknown"
+              source: source.service | "unknown"
+              target: target.service | "unknown"
               service: api.name | "unknown"
               method: api.method | "unknown"
               response_code: response.http.code | 200
       - kind: access-logs
         params:
           logName: "access_log"
-          logFormat: 0 # Common Log Format
+          log:
+            logFormat: COMMON
+            templateExpressions:
+               originIp: origin.ip
+               source_user: origin.user
+               timestamp: request.time
+               # TODO: remove this OR when the proxy has implemented support for the request.method attribute
+               method: request.method | ""
+               url: request.path
+               protocol: request.scheme
+               responseCode: response.code
+               responseSize: response.size
+            labels:
+               originIp: origin.ip
+               source_user: origin.user
+               timestamp: request.time
+               # TODO: remove this OR when the proxy has implemented support for the request.method attribute
+               method: request.method | ""
+               url: request.path
+               protocol: request.scheme
+               responseCode: response.code
+               responseSize: response.size
       - kind: application-logs
         params:
           logName: "mixer_log"
-          logEntryDescriptorNames: ["default"]
+          logs:
 ---
 # Mixer
 apiVersion: v1
@@ -89,7 +110,7 @@ spec:
     spec:
       containers:
       - name: mixer
-        image: docker.io/istio/mixer:2017-03-15-02.28.35
+        image: docker.io/istio/mixer:2017-03-17-21.29.23
         imagePullPolicy: Always
         ports:
         - containerPort: 9091
