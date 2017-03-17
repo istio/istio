@@ -64,23 +64,17 @@ when the application topology changes, as well as translate
 [_istioctl_](doc/istioctl.md) command line utility is also available in
 this repository.
 
-- [istio/mixer](https://github.com/istio/mixer). This repository contains
+- [istio/mixer](https://github.com/istio/mixer). This repository 
 contains code to enforce various policies for traffic passing through the
 proxies, and collect telemetry data from proxies and microservices. There
 are plugins for interfacing with various cloud platforms, policy
 management services, and monitoring services.
 
-<!-- The proxies delegate policy enforcement decisions (such as ACLs, rate -->
-<!-- limits, etc.) to the mixer, and both the proxy and Istio-managed -->
-<!-- microservices direct all telemetry data to the mixer.  The mixer repository -->
-<!-- contains plugins that allow it to interface with different cloud provider -->
-<!-- backends and monitoring backends. -->
-
 - [istio/mixerclient](https://github.com/istio/mixerclient). Client libraries
 for the mixer API.
 
 - [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
-extensions to [Envoy proxy](https://github.com/lyft/envoy) (in the form of
+extensions to the [Envoy proxy](https://github.com/lyft/envoy) (in the form of
 Envoy filters), that allow the proxy to delegate policy enforcement
 decisions to the mixer.
 
