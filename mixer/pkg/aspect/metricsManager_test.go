@@ -15,6 +15,7 @@
 package aspect
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"reflect"
@@ -107,7 +108,7 @@ func TestMetricsManager_NewAspect_PropagatesError(t *testing.T) {
 	errString := "expected"
 	builder := &fakeBuilder{
 		body: func() (adapter.MetricsAspect, error) {
-			return nil, fmt.Errorf(errString)
+			return nil, errors.New(errString)
 		}}
 	_, err := newMetricsManager().NewAspect(conf, builder, atest.NewEnv(t))
 	if err == nil {
@@ -136,14 +137,14 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 		}
 	})
 	errEval := test.NewFakeEval(func(_ string, _ attribute.Bag) (interface{}, error) {
-		return nil, fmt.Errorf("expected")
+		return nil, errors.New("expected")
 	})
 	labelErrEval := test.NewFakeEval(func(exp string, _ attribute.Bag) (interface{}, error) {
 		switch exp {
 		case "value":
 			return 1, nil
 		default:
-			return nil, fmt.Errorf("expected")
+			return nil, errors.New("expected")
 		}
 	})
 
@@ -192,7 +193,7 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 		{goodMd, nil, errEval, make(map[string]o), "expected"},
 		{goodMd, nil, labelErrEval, make(map[string]o), "expected"},
 		{goodMd, nil, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, ""},
-		{goodMd, fmt.Errorf("record"), goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, "record"},
+		{goodMd, errors.New("record"), goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, "record"},
 		{badGoodMd, nil, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, "default case"},
 	}
 	for idx, c := range cases {

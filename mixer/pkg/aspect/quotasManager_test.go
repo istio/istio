@@ -15,6 +15,7 @@
 package aspect
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -127,7 +128,7 @@ func TestQuotasManager_NewAspect_PropagatesError(t *testing.T) {
 	errString := "expected"
 	builder := &fakeQuotaBuilder{
 		body: func() (adapter.QuotasAspect, error) {
-			return nil, fmt.Errorf(errString)
+			return nil, errors.New(errString)
 		}}
 	_, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t))
 	if err == nil {
@@ -154,14 +155,14 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 		}
 	})
 	errEval := test.NewFakeEval(func(_ string, _ attribute.Bag) (interface{}, error) {
-		return nil, fmt.Errorf("expected")
+		return nil, errors.New("expected")
 	})
 	labelErrEval := test.NewFakeEval(func(exp string, _ attribute.Bag) (interface{}, error) {
 		switch exp {
 		case "value":
 			return 1, nil
 		default:
-			return nil, fmt.Errorf("expected")
+			return nil, errors.New("expected")
 		}
 	})
 
@@ -193,7 +194,8 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 		{goodMd, 1, nil, false, errEval, make(map[string]o), "expected"},
 		{goodMd, 1, nil, false, labelErrEval, make(map[string]o), "expected"},
 		{goodMd, 1, nil, false, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, ""},
-		{goodMd, 0, fmt.Errorf("alloc-forced-error"), false, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, "alloc-forced-error"},
+		{goodMd, 0, errors.New("alloc-forced-error"), false, goodEval,
+			map[string]o{"request_count": {1, []string{"source", "target"}}}, "alloc-forced-error"},
 		{goodMd, 1, nil, true, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, ""},
 		{goodMd, 0, nil, false, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, ""},
 	}

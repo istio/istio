@@ -16,9 +16,9 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
-	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 )
 
@@ -60,14 +60,17 @@ type rootArgs struct {
 	repeat int
 }
 
+// A function used for normal output.
+type outFn func(format string, a ...interface{})
+
 // A function used for error output.
 type errorFn func(format string, a ...interface{})
 
 // withArgs is like main except that it is parameterized with the
-// command-line arguments to use, along with a function to call
-// in case of errors. This allows the function to be invoked
-// from test code.
-func withArgs(args []string, errorf errorFn) {
+// command-line arguments to use, along with functions to call
+// in case of normal output or errors. This allows the function to
+// be invoked from test code.
+func withArgs(args []string, outf outFn, errorf errorFn) {
 	// RootCmd represents the base command when called without any subcommands
 	rootCmd := &cobra.Command{
 		Use:   "mixc",
@@ -112,20 +115,22 @@ func withArgs(args []string, errorf errorFn) {
 	rootCmd.PersistentFlags().BoolVarP(&rootArgs.enableTracing, "trace", "", false,
 		"Whether to trace rpc executions")
 
-	rootCmd.AddCommand(checkCmd(rootArgs, errorf))
-	rootCmd.AddCommand(reportCmd(rootArgs, errorf))
-	rootCmd.AddCommand(quotaCmd(rootArgs, errorf))
+	rootCmd.AddCommand(checkCmd(rootArgs, outf, errorf))
+	rootCmd.AddCommand(reportCmd(rootArgs, outf, errorf))
+	rootCmd.AddCommand(quotaCmd(rootArgs, outf, errorf))
 
 	if err := rootCmd.Execute(); err != nil {
 		errorf(err.Error())
-		os.Exit(-1)
 	}
 }
 
 func main() {
 	withArgs(os.Args[1:],
 		func(format string, a ...interface{}) {
-			glog.Errorf(format, a...)
+			fmt.Printf(format, a...)
+		},
+		func(format string, a ...interface{}) {
+			fmt.Fprintf(os.Stderr, format, a...)
 			os.Exit(1)
 		})
 }

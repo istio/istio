@@ -16,21 +16,24 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
-	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	_ "google.golang.org/grpc/grpclog/glogger"
 )
+
+// A function used for normal output.
+type outFn func(format string, a ...interface{})
 
 // A function used for error output.
 type errorFn func(format string, a ...interface{})
 
 // withArgs is like main except that it is parameterized with the
-// command-line arguments to use, along with a function to call
-// in case of errors. This allows the function to be invoked
-// from test code.
-func withArgs(args []string, errorf errorFn) {
+// command-line arguments to use, along with functions to call
+// in case of normal output or errors. This allows the function to
+// be invoked from test code.
+func withArgs(args []string, outf outFn, errorf errorFn) {
 	rootCmd := cobra.Command{
 		Use:   "mixs",
 		Short: "The Istio mixer provides control plane functionality to the Istio proxy and services",
@@ -45,8 +48,8 @@ func withArgs(args []string, errorf errorFn) {
 	_ = fs.Parse([]string{})
 	flag.CommandLine = fs
 
-	rootCmd.AddCommand(adapterCmd(errorf))
-	rootCmd.AddCommand(serverCmd(errorf))
+	rootCmd.AddCommand(adapterCmd(outf, errorf))
+	rootCmd.AddCommand(serverCmd(outf, errorf))
 
 	if err := rootCmd.Execute(); err != nil {
 		errorf("%v", err)
@@ -56,7 +59,10 @@ func withArgs(args []string, errorf errorFn) {
 func main() {
 	withArgs(os.Args[1:],
 		func(format string, a ...interface{}) {
-			glog.Errorf(format, a...)
+			fmt.Printf(format, a...)
+		},
+		func(format string, a ...interface{}) {
+			fmt.Fprintf(os.Stderr, format, a...)
 			os.Exit(1)
 		})
 }

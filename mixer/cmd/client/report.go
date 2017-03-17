@@ -16,7 +16,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/opentracing/opentracing-go/ext"
@@ -25,16 +24,16 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 )
 
-func reportCmd(rootArgs *rootArgs, errorf errorFn) *cobra.Command {
+func reportCmd(rootArgs *rootArgs, outf outFn, errorf errorFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "report <message>...",
 		Short: "Invokes the mixer's Report API.",
 		Run: func(cmd *cobra.Command, args []string) {
-			report(rootArgs, args, errorf)
+			report(rootArgs, args, outf, errorf)
 		}}
 }
 
-func report(rootArgs *rootArgs, args []string, errorf errorFn) {
+func report(rootArgs *rootArgs, args []string, outf outFn, errorf errorFn) {
 	var attrs *mixerpb.Attributes
 	var err error
 
@@ -83,7 +82,7 @@ func report(rootArgs *rootArgs, args []string, errorf errorFn) {
 			break
 		}
 
-		fmt.Printf("Report RPC returned %s\n", decodeStatus(response.Result))
+		outf("Report RPC returned %s\n", decodeStatus(response.Result))
 	}
 
 	if err = stream.CloseSend(); err != nil {

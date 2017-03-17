@@ -15,8 +15,8 @@
 package config
 
 import (
+	"errors"
 	"flag"
-	"fmt"
 	"testing"
 
 	"github.com/hashicorp/go-multierror"
@@ -52,9 +52,9 @@ func TestRuntime(t *testing.T) {
 	table := []*ttable{
 		{nil, 0, true, 4, []string{"listChecker"}},
 		{nil, 1, false, 2, []string{"listChecker"}},
-		{fmt.Errorf("predicate error"), 1, false, 2, []string{"listChecker"}},
+		{errors.New("predicate error"), 1, false, 2, []string{"listChecker"}},
 		{nil, 0, true, 0, []string{}},
-		{fmt.Errorf("predicate error"), 0, true, 0, []string{"listChecker"}},
+		{errors.New("predicate error"), 0, true, 0, []string{"listChecker"}},
 	}
 
 	LC := "listChecker"

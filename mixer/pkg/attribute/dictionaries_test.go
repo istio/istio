@@ -62,7 +62,7 @@ func TestDictionaries(t *testing.T) {
 	d2 := mgr.Intern(d1)
 
 	if !compareDictionaries(d1, d2) {
-		t.Errorf("Didn't receive an equivalent dictionary from Intern")
+		t.Error("Didn't receive an equivalent dictionary from Intern")
 	}
 
 	l = len(mgr.entries)
@@ -73,7 +73,7 @@ func TestDictionaries(t *testing.T) {
 	// intern again and make sure no new entry is added
 	d2 = mgr.Intern(d1)
 	if !compareDictionaries(d1, d2) {
-		t.Errorf("Didn't receive an equivalent dictionary from Intern")
+		t.Error("Didn't receive an equivalent dictionary from Intern")
 	}
 
 	l = len(mgr.entries)
@@ -86,7 +86,7 @@ func TestDictionaries(t *testing.T) {
 	d4 := mgr.Intern(d3)
 
 	if !compareDictionaries(d3, d4) {
-		t.Errorf("Didn't receive an equivalent dictionary from Intern")
+		t.Error("Didn't receive an equivalent dictionary from Intern")
 	}
 
 	l = len(mgr.entries)

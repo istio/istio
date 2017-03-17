@@ -15,6 +15,7 @@
 package aspect
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -244,7 +245,7 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 	timeTmpl, _ := template.New("test").Parse(`{{(.timestamp.Format "02/Jan/2006:15:04:05 -0700")}}`)
 	errEval := test.NewFakeEval(func(string, attribute.Bag) (interface{}, error) {
-		return nil, fmt.Errorf("expected")
+		return nil, errors.New("expected")
 	})
 
 	executeErr := &accessLogsWrapper{

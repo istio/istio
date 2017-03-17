@@ -15,7 +15,7 @@
 package expr
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 	"testing"
 
@@ -49,7 +49,7 @@ func BenchmarkExpression(b *testing.B) {
 		var b bool
 		var s map[string]string
 		if aa, b = a.Int64("a"); !b {
-			return false, fmt.Errorf("a not found")
+			return false, errors.New("a not found")
 		}
 		if aa == 20 {
 			return true, nil
@@ -57,10 +57,9 @@ func BenchmarkExpression(b *testing.B) {
 
 		s, b = a.StringMap("request.header")
 		if !b {
-			return false, fmt.Errorf("a not found")
+			return false, errors.New("a not found")
 		}
-		var ss string
-		ss = s["host"]
+		ss := s["host"]
 		if ss == "abc" {
 			return true, nil
 		}

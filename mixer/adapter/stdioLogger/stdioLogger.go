@@ -45,14 +45,14 @@ func Register(r adapter.Registrar) {
 }
 
 func (builder) NewApplicationLogsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.ApplicationLogsAspect, error) {
-	return newLogger(env, cfg)
+	return newLogger(cfg)
 }
 
 func (builder) NewAccessLogsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.AccessLogsAspect, error) {
-	return newLogger(env, cfg)
+	return newLogger(cfg)
 }
 
-func newLogger(env adapter.Env, cfg adapter.AspectConfig) (*logger, error) {
+func newLogger(cfg adapter.AspectConfig) (*logger, error) {
 	c := cfg.(*config.Params)
 
 	w := os.Stderr
