@@ -19,7 +19,11 @@
                     {
                       "timeout_ms": 0,
                       "prefix": "/",
-                      "cluster": "service1"
+                      "cluster": "service1",
+                      "opaque_config": {
+                        "mixer_control": "on",
+                        "mixer_forward": "off"
+                      }
                     }
                   ]
                 }
@@ -32,11 +36,11 @@
             ],
             "filters": [
               {
-                "type": "both",
+                "type": "decoder",
                 "name": "mixer",
                 "config": {
                   "mixer_server": "${MIXER_SERVER}",
-                  "attributes": {
+                  "mixer_attributes": {
                       "target.uid": "POD222",
                       "target.namespace": "XYZ222"
                   }
@@ -85,9 +89,10 @@
             "filters": [
               {
                 "type": "decoder",
-                "name": "forward_attribute",
+                "name": "mixer",
                 "config": {
-                   "attributes": {
+                   "mixer_server": "${MIXER_SERVER}",
+                   "forward_attributes": {
                       "source.uid": "POD11",
                       "source.namespace": "XYZ11"
                    }

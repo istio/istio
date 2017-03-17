@@ -263,10 +263,8 @@ class Instance : public Http::StreamDecoderFilter,
       StreamDecoderFilterCallbacks& callbacks) override {
     Log().debug("Called Mixer::Instance : {}", __func__);
     decoder_callbacks_ = &callbacks;
-    if (!mixer_disabled()) {
-      decoder_callbacks_->addResetStreamCallback(
-          [this]() { state_ = Responded; });
-    }
+    decoder_callbacks_->addResetStreamCallback(
+        [this]() { state_ = Responded; });
   }
 
   void completeCheck(const Status& status) {
