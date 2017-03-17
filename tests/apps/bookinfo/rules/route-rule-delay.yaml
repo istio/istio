@@ -1,7 +1,7 @@
 type: route-rule
 name: ratings-test-delay
 spec:
-  destination: ratings.default.svc.cluster.local
+  destination: ratings.ndefault.svc.cluster.local
   precedence: 2
   match:
     httpHeaders:

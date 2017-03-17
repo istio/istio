@@ -43,6 +43,11 @@ compare_output() {
     fi
 }
 
+modify_rules_namespace(){
+    print_block_echo "Modifying rules to match namespace"
+    find $SCRIPTDIR/apps/bookinfo/rules/ -type f -print0 | xargs -0 sed -i "s/_CHANGEME_/$NAMESPACE/g"
+}
+
 # Call the specified endpoint and compare against expected output
 # Ensure the % falls within the expected range
 check_routing_rules() {

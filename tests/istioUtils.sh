@@ -15,17 +15,17 @@
 #   limitations under the License.
 
 create_rule() {
-	$ISTIOCLI create -f $1
+	$ISTIOCLI -n $NAMESPACE create -f $1
     return $?
 }
 
 cleanup_all_rules() {
     echo "Cleaning up rules"
-    $ISTIOCLI list route-rule | grep "name:" | awk '{print $2}' | xargs istioctl delete route-rule
+    $ISTIOCLI -n $NAMESPACE list route-rule | grep "name:" | awk '{print $2}' | xargs istioctl -n $NAMESPACE delete route-rule
 	return $?
 }
 
 delete_rule() {
-    $ISTIOCLI delete -f $1
+    $ISTIOCLI -n $NAMESPACE delete -f $1
     return $?
 }

@@ -28,7 +28,7 @@ spec:
       containers:
       - name: istio-route-controller
         image: docker.io/istio/runtime:a87bea5
-        args: ["discovery", "-v", "2", "-n", "default"]
+        args: ["discovery", "-v", "2", "-n", "ndefault"]
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -68,6 +68,8 @@ spec:
         args:
         - proxy
         - ingress
+        - -n
+        - "ndefault"
         - -s
         - istio-route-controller:8080
         - -v

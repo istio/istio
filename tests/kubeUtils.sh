@@ -59,21 +59,25 @@ deploy_bookinfo(){
 
 # Clean up all the things
 cleanup(){
-    print_block_echo "Deleting namespace"
-    $K8CLI delete namespace $NAMESPACE
+    print_block_echo "Cleaning up ISTIO"
+    $K8CLI -n $NAMESPACE delete -f istio/controlplane.yaml
+    print_block_echo "Cleaning up BookInfo"
+    $K8CLI -n $NAMESPACE delete -f apps/bookinfo/bookinfo.yaml
+
+    # print_block_echo "Deleting namespace"
+    # $K8CLI delete namespace $NAMESPACE
 }
 
 # Debug dump for failures
 dump_debug() {
     echo ""
-    $K8CLI -n $NAMESPACE get pods
-    $K8CLI -n $NAMESPACE get thirdpartyresources
-    $K8CLI -n $NAMESPACE get thirdpartyresources -o json
-    GATEWAY_PODNAME=$($K8CLI -n $NAMESPACE get pods | grep istio-ingress | awk '{print $1}')
-    $K8CLI -n $NAMESPACE logs $GATEWAY_PODNAME
-    PRODUCTPAGE_PODNAME=$($K8CLI -n $NAMESPACE get pods | grep productpage | awk '{print $1}')
-    $K8CLI -n $NAMESPACE logs $PRODUCTPAGE_PODNAME -c productpage
-    $K8CLI -n $NAMESPACE logs $PRODUCTPAGE_PODNAME -c proxy
-    # RULES_PODNAME=$($K8CLI get pods | grep rules | awk '{print $1}')
-    # $K8CLI logs $RULES_PODNAME
+    # $K8CLI -n $NAMESPACE get pods
+    # $K8CLI -n $NAMESPACE get thirdpartyresources
+    # $K8CLI -n $NAMESPACE get thirdpartyresources -o json
+    # GATEWAY_PODNAME=$($K8CLI -n $NAMESPACE get pods | grep istio-ingress | awk '{print $1}')
+    # $K8CLI -n $NAMESPACE logs $GATEWAY_PODNAME
+    # PRODUCTPAGE_PODNAME=$($K8CLI -n $NAMESPACE get pods | grep productpage | awk '{print $1}')
+    # $K8CLI -n $NAMESPACE logs $PRODUCTPAGE_PODNAME -c productpage
+    # $K8CLI -n $NAMESPACE logs $PRODUCTPAGE_PODNAME -c proxy
+    $K8CLI -n $NAMESPACE get istioconfig -o yaml
 }

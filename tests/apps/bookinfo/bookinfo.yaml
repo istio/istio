@@ -44,7 +44,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/istio/init:a87bea5",
+            "image": "istio/init:b37ec11",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -56,7 +56,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: docker.io/istio/runtime:a87bea5
+        image: istio/runtime:b37ec11
         securityContext:
           runAsUser: 1337
         args:

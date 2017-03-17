@@ -17,7 +17,8 @@
 
 # Local vars
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-NAMESPACE=$(uuidgen)
+NAMESPACE="ndefault"
+#$(uuidgen)
 K8CLI="kubectl"
 ISTIOCLI="istioctl"
 RULESDIR=$SCRIPTDIR/apps/bookinfo/rules
@@ -33,6 +34,7 @@ export POD_NAMESPACE=$NAMESPACE
 
 # Setup
 create_namespace
+modify_rules_namespace
 deploy_istio
 deploy_bookinfo
 
@@ -81,89 +83,92 @@ test_version_routing_response() {
 }
 
 test_version_routing_response "normal-user" "v1"
-test_version_routing_response "test-user" "v2"
 
-# Test fault injection
-print_block_echo "Testing fault injection..."
-
-create_rule $RULESDIR/route-rule-delay.yaml
-
-test_fault_delay() {
-    USER=$1
-    VERSION=$2
-    EXP_MIN_DELAY=$3
-    EXP_MAX_DELAY=$4
-    
-    for (( i=0; i<=4; i++ ))
-    do  
-        echo "injecting traffic for user=$USER, expecting productpage-$USER-$VERSION in $EXP_MIN_DELAY to $EXP_MAX_DELAY seconds"
-        before=$(date +"%s")
-        curl -s -b "foo=bar;user=$USER;" http://$GATEWAYIP:32000/productpage > /tmp/productpage-$USER-$VERSION.json
-        after=$(date +"%s")
-        delta=$(($after-$before))
-        if [ $delta -ge $EXP_MIN_DELAY ] && [ $delta -le $EXP_MAX_DELAY ]
-        then
-            echo "Success!"
-            if [ $EXP_MIN_DELAY -gt 0 ]
-            then
-                compare_output $EXAMPLESDIR/productpage-$USER-$VERSION-review-timeout.json /tmp/productpage-$USER-$VERSION.json $USER
-            else
-                compare_output $EXAMPLESDIR/productpage-$USER-$VERSION.json /tmp/productpage-$USER-$VERSION.json $USER
-            fi
-            return 0
-        elif [ $i -eq 4 ]
-        then
-            echo "Productpage took $delta seconds to respond (expected between $EXP_MIN_DELAY and $EXP_MAX_DELAY) for user=$USER in fault injection phase"
-            PASS=false
-            dump_debug
-        fi
-        sleep 10
-    done
-    return 1
-}
-
-test_fault_delay "normal-user" "v1" 0 2
-test_fault_delay "test-user" "v1" 5 8
-
-# Remove fault injection and verify
-print_block_echo "Deleting fault injection..."
-
-delete_rule $RULESDIR/route-rule-delay.yaml
-echo "Waiting for rule clean up to propagate..."
-sleep 10
-test_fault_delay "test-user" "v2" 0 2
-if [ $? -eq 0 ]
-then
-    echo "Fault injection was successfully cleared up"
-else
-    echo "Fault injection persisted"
-    PASS=false
-    dump_debug
-fi
-
-# Test gradual migration traffic to reviews:v3 for all users
+cleanup
 cleanup_all_rules
-print_block_echo "Testing gradual migration..."
+# test_version_routing_response "test-user" "v2"
 
-COMMAND_INPUT="curl -s -b 'foo=bar;user=normal-user;' http://$GATEWAYIP:32000/productpage"
-EXPECTED_OUTPUT1="$EXAMPLESDIR/productpage-normal-user-v1.json"
-EXPECTED_OUTPUT2="$EXAMPLESDIR/productpage-normal-user-v3.json"
-create_rule $RULESDIR/route-rule-reviews-50-v3.yaml
-echo "Expected percentage based routing is 50% to v1 and 50% to v3."
-sleep 10 # Give it a bit to process the request
+# # Test fault injection
+# print_block_echo "Testing fault injection..."
 
-# Validate that 50% of traffic is routing to v1
-# Curl the health check and check the version cookie
-check_routing_rules "$COMMAND_INPUT" "$EXPECTED_OUTPUT1" "$EXPECTED_OUTPUT2" 50
-if [ $? -ne 0 ]
-then
-    PASS=fail
-    dump_debug
-fi
+# create_rule $RULESDIR/route-rule-delay.yaml
+
+# test_fault_delay() {
+#     USER=$1
+#     VERSION=$2
+#     EXP_MIN_DELAY=$3
+#     EXP_MAX_DELAY=$4
+    
+#     for (( i=0; i<=4; i++ ))
+#     do  
+#         echo "injecting traffic for user=$USER, expecting productpage-$USER-$VERSION in $EXP_MIN_DELAY to $EXP_MAX_DELAY seconds"
+#         before=$(date +"%s")
+#         curl -s -b "foo=bar;user=$USER;" http://$GATEWAYIP:32000/productpage > /tmp/productpage-$USER-$VERSION.json
+#         after=$(date +"%s")
+#         delta=$(($after-$before))
+#         if [ $delta -ge $EXP_MIN_DELAY ] && [ $delta -le $EXP_MAX_DELAY ]
+#         then
+#             echo "Success!"
+#             if [ $EXP_MIN_DELAY -gt 0 ]
+#             then
+#                 compare_output $EXAMPLESDIR/productpage-$USER-$VERSION-review-timeout.json /tmp/productpage-$USER-$VERSION.json $USER
+#             else
+#                 compare_output $EXAMPLESDIR/productpage-$USER-$VERSION.json /tmp/productpage-$USER-$VERSION.json $USER
+#             fi
+#             return 0
+#         elif [ $i -eq 4 ]
+#         then
+#             echo "Productpage took $delta seconds to respond (expected between $EXP_MIN_DELAY and $EXP_MAX_DELAY) for user=$USER in fault injection phase"
+#             PASS=false
+#             dump_debug
+#         fi
+#         sleep 10
+#     done
+#     return 1
+# }
+
+# test_fault_delay "normal-user" "v1" 0 2
+# test_fault_delay "test-user" "v1" 5 8
+
+# # Remove fault injection and verify
+# print_block_echo "Deleting fault injection..."
+
+# delete_rule $RULESDIR/route-rule-delay.yaml
+# echo "Waiting for rule clean up to propagate..."
+# sleep 10
+# test_fault_delay "test-user" "v2" 0 2
+# if [ $? -eq 0 ]
+# then
+#     echo "Fault injection was successfully cleared up"
+# else
+#     echo "Fault injection persisted"
+#     PASS=false
+#     dump_debug
+# fi
+
+# # Test gradual migration traffic to reviews:v3 for all users
+# cleanup_all_rules
+# print_block_echo "Testing gradual migration..."
+
+# COMMAND_INPUT="curl -s -b 'foo=bar;user=normal-user;' http://$GATEWAYIP:32000/productpage"
+# EXPECTED_OUTPUT1="$EXAMPLESDIR/productpage-normal-user-v1.json"
+# EXPECTED_OUTPUT2="$EXAMPLESDIR/productpage-normal-user-v3.json"
+# create_rule $RULESDIR/route-rule-reviews-50-v3.yaml
+# echo "Expected percentage based routing is 50% to v1 and 50% to v3."
+# sleep 10 # Give it a bit to process the request
+
+# # Validate that 50% of traffic is routing to v1
+# # Curl the health check and check the version cookie
+# check_routing_rules "$COMMAND_INPUT" "$EXPECTED_OUTPUT1" "$EXPECTED_OUTPUT2" 50
+# if [ $? -ne 0 ]
+# then
+#     PASS=fail
+#     dump_debug
+# fi
 
 # Teardown
-cleanup_all_rules
-cleanup
+# cleanup_all_rules
+# cleanup
 
 echo ""
 if [ $PASS == false ]

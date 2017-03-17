@@ -1,34 +1,34 @@
 type: route-rule
-name: productpage-default
+name: productpage-ndefault
 spec:
-  destination: productpage.default.svc.cluster.local
+  destination: productpage.ndefault.svc.cluster.local
   precedence: 1
   route:
   - tags:
       version: v1
 ---
 type: route-rule
-name: reviews-default
+name: reviews-ndefault
 spec:
-  destination: reviews.default.svc.cluster.local
+  destination: reviews.ndefault.svc.cluster.local
   precedence: 1
   route:
   - tags:
       version: v1
 ---
 type: route-rule
-name: ratings-default
+name: ratings-ndefault
 spec:
-  destination: ratings.default.svc.cluster.local
+  destination: ratings.ndefault.svc.cluster.local
   precedence: 1
   route:
   - tags:
       version: v1
 ---
 type: route-rule
-name: details-default
+name: details-ndefault
 spec:
-  destination: details.default.svc.cluster.local
+  destination: details.ndefault.svc.cluster.local
   precedence: 1
   route:
   - tags:
