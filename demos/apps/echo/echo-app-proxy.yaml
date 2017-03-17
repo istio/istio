@@ -32,14 +32,14 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/istio/init:ceade42",
+            "image": "docker.io/istio/init:2017-03-17-17.26.10",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
     spec:
       containers:
       - name: app
-        image: docker.io/istio/app:ceade42
+        image: docker.io/istio/app:2017-03-17-17.26.10
         imagePullPolicy: Always
         args:
           - --port
@@ -52,7 +52,7 @@ spec:
         - containerPort: 80
         - containerPort: 8080
       - name: proxy
-        image: docker.io/istio/runtime:ceade42
+        image: docker.io/istio/runtime:2017-03-17-17.26.10
         imagePullPolicy: Always
         securityContext:
           runAsUser: 1337
