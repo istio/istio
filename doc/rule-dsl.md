@@ -37,7 +37,7 @@ microservices in the application deployment. The DSL allows the operator to
 configure service level properties such as circuit breakers, timeouts,
 retries, as well as set up common continuous deployment tasks such as
 canary rollouts, A/B testing, staged rollouts with %-based traffic splits,
-etc.
+etc..
 
 For example, a simple rule to send 100% of incoming traffic for a "reviews" microservice
 to version "v1" can be described using the Rules DSL as follows:
@@ -51,9 +51,10 @@ route:
 ```
 
 The destination is the name of the service (specified as a fully qualified
-domain name (FQDN)) to which the traffic is being routed. The route *tag*
+domain name (FQDN)) to which the traffic is being routed. In a Kubernetes
+deployment of Istio, the route *tag*
 "version: v1" corresponds to a Kubernetes *label* "version: v1".  The rule
-ensures that only Kubernetes pods that containing the label "version: v1"
+ensures that only Kubernetes pods containing the label "version: v1"
 will receive traffic.
 
 There are two types of rules in Istio, **Route Rules**,
@@ -63,17 +64,16 @@ which specify policies, for example, circuit breakers, that control requests for
 Istio rules can be set and displayed using the [istioctl CLI](istioctl.md).
 For example, the above rule can be set using the following command:
 ```bash
-# First, create a rule file
-$ cat <<EOF > /tmp/rev-rule.yaml
-destination: reviews.default.svc.cluster.local
-route:
-- tags:
-    version: v1
-  weight: 100
+$ cat <<EOF | istioctl create
+type: route-rule
+name: reviews-default
+spec:
+  destination: reviews.default.svc.cluster.local
+  route:
+  - tags:
+      version: v1
+    weight: 100
 EOF
-
-# Supply the file as input to istioctl
-istioctl create -f /tmp/rev-rule.yaml
 ```
 
 An end-to-end Istio example which sets several rules using `istioctl` can be found
