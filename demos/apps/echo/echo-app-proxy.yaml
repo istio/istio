@@ -2,30 +2,30 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: logic
+  name: echo
   labels:
-    app: logic
+    app: echo
 spec:
   ports:
   - port: 80
-    targetPort: 8080
+    targetPort: 80
     name: http
   - port: 8080
-    targetPort: 80
+    targetPort: 8080
     name: http-alternative
   selector:
-    app: logic
+    app: echo
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: logic
+  name: echo
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: logic
+        app: echo
         version: unversioned
       annotations:
         # init container uses iptables rules to redirect traffic to the proxy
@@ -43,14 +43,14 @@ spec:
         imagePullPolicy: Always
         args:
           - --port
-          - "8080"
-          - --port
           - "80"
+          - --port
+          - "8080"
           - --version
           - "unversioned"
         ports:
-        - containerPort: 8080
         - containerPort: 80
+        - containerPort: 8080
       - name: proxy
         image: gcr.io/istio-testing/runtime:demo
         imagePullPolicy: Always
@@ -60,9 +60,9 @@ spec:
           - proxy
           - sidecar
           - -s
-          - manager:8080
+          - istio-manager:8080
           - -m
-          - mixer:9091
+          - istio-mixer:9091
           - -n
           - $(POD_NAMESPACE)
           - -v
