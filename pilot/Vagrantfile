@@ -53,15 +53,15 @@ sudo chown -R ubuntu:ubuntu /home/ubuntu/.kube
 
 # Install golang
 cd /tmp
-curl -O https://storage.googleapis.com/golang/go1.7.5.linux-amd64.tar.gz
-tar -C /usr/local -xzf go1.7.5.linux-amd64.tar.gz
+curl -O https://storage.googleapis.com/golang/go1.8.linux-amd64.tar.gz
+tar -C /usr/local -xzf go1.8.linux-amd64.tar.gz
 if ! grep -Fq "/home/ubuntu/go" /home/ubuntu/.profile; then
 	echo 'export GOPATH=/home/ubuntu/go' >> /home/ubuntu/.profile
 fi
 if ! grep -Fq "/usr/local/go/bin" /home/ubuntu/.profile; then
 	echo 'export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin' >> /home/ubuntu/.profile
 fi
-rm /tmp/go1.7.5.linux-amd64.tar.gz
+rm /tmp/go1.8.linux-amd64.tar.gz
 
 mkdir -p /home/ubuntu/go/src/istio.io/manager
 chown -R ubuntu:ubuntu /home/ubuntu/go
