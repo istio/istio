@@ -67,8 +67,6 @@ def postsubmit(gitUtils, bazel, utils) {
       utils.publishDockerImages(images, tags)
     }
     stage('Integration Tests') {
-      // Empty kube/config file signals to use in-cluster auto-configuration
-      sh('touch platform/kube/config')
       timeout(30) {
         sh('bin/e2e.sh -count 10 -debug -tag alpha' + gitUtils.GIT_SHA + ' -v 2')
       }
