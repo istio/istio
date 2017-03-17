@@ -45,7 +45,7 @@ repository contains information about how to build and test it.
 component-level APIs and common configuration formats for the Istio platform.
 
 - [istio/istio](README.md). This is the main Istio repo (the one you are
-currently looking at). It hosts hosts the high-level documentation for the
+currently looking at). It hosts the high-level documentation for the
 project, along with [tutorials](doc/getting-started.md) and two demo
 applications: a [basic echo app](demos/apps/simple_echo_app) and a slightly
 more advanced [polyglot application](demos/apps/bookinfo).
