@@ -8,30 +8,22 @@ composing together independent sets of services. Individual services are
 referenced by their fully-qualified domain name (FQDN) and one or more
 ports where the service is listening for connections.
 
-**Instances:** Each service has one or more instances, i.e., actual
-manifestations of the service. Instances represent entities such as
-containers, pods (kubernetes/mesos), VMs, etc. 
-
 **Platform-agnostic internal representation:** The Istio model of a
-microservice is independent of how its represented in the underlying
+microservice is independent of how it is represented in the underlying
 platform (Kubernetes, Mesos, CloudFoundry, etc.). Platform-specific
 adapters are responsible for populating the internal model representation
 with various fields, from the metadata found in the platform.
 
 ## Multiple versions of a service
 
-In a continuous deployment scenario, for a given service, there can be
-multiple sets of instances running potentially different variants of the
-service binary and configuration. These variants are not necessarily
-different API versions: they could be iterative changes to the same
-service, deployed in different environments (prod, staging, dev,
-etc.). Common scenarios where this occurs include A/B testing, canary
-rollouts, etc.
-
-<!-- Istio introduces the concept of a service version, which is a finer-grained -->
-<!-- way to subdivide service instances by versions (`v1`, `v2`) or environment -->
-<!-- (`staging`, `prod`). Istio routing rules can refer to the service versions, -->
-<!-- to provide additional control over traffic between services. -->
+Istio introduces the concept of a service version, which is a finer-grained
+way to subdivide service instances by versions (`v1`, `v2`) or environment
+(`staging`, `prod`). These variants are not necessarily different API
+versions: they could be iterative changes to the same service, deployed in
+different environments (prod, staging, dev, etc.). Common scenarios where
+this occurs include A/B testing, canary rollouts, etc. Istio
+[routing rules](rule-dsl.md) can refer to the service versions, to provide
+additional control over traffic between services.
 
 **Tags** Each version of a service can be differentiated by a unique set of
 tags associated with the version. Tags are simple key value pairs
