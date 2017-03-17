@@ -26,7 +26,7 @@ Istio is composed of three main components:
    other over the network provided by the underlying platform.
 
 * **Mixer** - Central component that is leveraged by the proxies and microservices
-   enforce policies such as ACLs, rate limits, quotas, authentication, request
+   to enforce policies such as ACLs, rate limits, quotas, authentication, request
    tracing and telemetry collection.
 
 * **Manager** - A component responsible for configuring the
