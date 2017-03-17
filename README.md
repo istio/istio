@@ -50,24 +50,25 @@ project, along with [tutorials](doc/getting-started.md) and two demo
 applications: a [basic echo app](demos/apps/simple_echo_app) and a slightly
 more advanced [polyglot application](demos/apps/bookinfo).
 
-- [istio/manager](https://github.com/istio/manager). The Istio manager is 
-used to configure Istio.  It propagates configuration to the other components 
-of the system, including the Istio mixer and the Istio proxies.  The [_istioctl_](doc/istioctl.md)
-command line utility is also available in this repository.
+- [istio/manager](https://github.com/istio/manager). This repository
+contains platform specific code to populate the
+[abstract service model](doc/model.md), dynamically reconfigure the proxies
+when the application topology changes, as well as translate
+[routing rules](doc/rule-dsl.md) into proxy specific configuration.  The
+[_istioctl_](doc/istioctl.md) command line utility is also available in
+this repository.
 
-- [istio/mixer](https://github.com/istio/mixer). The Istio mixer is the nexus of
-the Istio service mesh. The proxy delegates policy decisions to the mixer.  
-Proxies and Istio-managed services direct telemetry data to the
-mixer. The mixer includes a flexible plugin model enabling it to interface to
-a variety of host environments and configured backends, abstracting the 
-proxy and Istio-managed services from these details.
+- [istio/mixer](https://github.com/istio/mixer). The mixer repository
+contains platform agnostic code for the mixer service, that is responsible
+for interfacing with the proxies (southbound) and various provider specific
+extensions to the mixer.
 
 - [istio/mixerclient](https://github.com/istio/mixerclient). Client libraries
 for the mixer API.
 
-- [istio/proxy](https://github.com/istio/proxy). The Istio proxy is a
-microservice proxy that can be used on the client and server side, and forms a
-microservice mesh. 
+- [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
+extensions to Envoy proxy (in the form of Envoy filters), that allow the
+proxy to delegate policy enforcement decisions to the mixer.
 
 ## Contributing to the project
 
