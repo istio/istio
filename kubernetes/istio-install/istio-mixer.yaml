@@ -64,9 +64,9 @@ data:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mixer
+  name: istio-mixer
   labels:
-    app: mixer
+    istio: mixer
 spec:
   ports:
   - name: tcp
@@ -74,18 +74,18 @@ spec:
   - name: prometheus
     port: 42422
   selector:
-    app: mixer
+    istio: mixer
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: mixer
+  name: istio-mixer
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: mixer
+        istio: mixer
     spec:
       containers:
       - name: mixer

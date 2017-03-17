@@ -9,14 +9,14 @@
 
 **Install Istio infra**
 
-    kubectl apply -f ./k8s/istio-install
+    kubectl apply -f ./kubernetes/istio-install
 
 This will install istio-manager and istio mixer.
 
     
 **Optional addons - Monitoring with Prometheus, Grafana and Service Graph**
 
-    kubectl apply -f ./k8s/addons/
+    kubectl apply -f ./kubernetes/addons/
 
 
 Grafana custom image contains a build-in Istio-dashboard that you can access from:
