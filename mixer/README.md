@@ -1,6 +1,7 @@
-<h1>The Istio Mixer</h1>
+# The Istio Mixer #
 ![Mixer](doc/logo.png)
-<br/>
+
+
 [![GoDoc](https://godoc.org/github.com/istio/mixer?status.svg)](http://godoc.org/github.com/istio/mixer)
 [![Build Status](https://testing.istio.io/buildStatus/icon?job=mixer/postsubmit)](https://testing.istio.io/job/mixer/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/mixer)](https://goreportcard.com/report/github.com/istio/mixer)
