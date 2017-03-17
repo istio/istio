@@ -27,12 +27,12 @@ traffic for all Istio-managed services. The Istio proxy is based on
 Istio service mesh. Envoy has been operational in production at Lyft at
 large scale (over 10,000 VMs, handling 100+ services). 
 
-Istio leverages Envoy's features such as service discovery, load balancing,
-TLS termination, HTTP/2 & gRPC proxying, circuit breakers, health checks,
-staged rollouts with %-based traffic split, fault injection, and a rich set
-of metrics. In addition, Istio extends the proxy to interact with the mixer
-to enforce various access control policies rate limiting, ACLs, as well as
-telemetry reporting.
+ Istio leverages Envoy's features such as service discovery, load balancing,
+ TLS termination, HTTP/2 & gRPC proxying, circuit breakers, health checks,
+ staged rollouts with %-based traffic split, fault injection, and a rich set
+ of metrics. In addition, Istio extends the proxy to interact with the mixer
+ to enforce various access control policies rate limiting, ACLs, as well as
+ telemetry reporting.
 
 - **Mixer**. The Istio mixer is responsible for enforcing access control
 and usage policies across the service mesh and collects telemetry data from
@@ -62,6 +62,6 @@ The following pages describe individual aspects of Istio.
 
 1. [Abstract Service Model](model.md)
 2. [Attributes & Policy Evaluation](attributes.md)
-2. [Traffic Management (Layer-7 Routing)](rule-dsl.md)
-3. [Istio Mixer](mixer.md)
-4. [Istioctl CLI Manual](istioctl.md)
+3. [Traffic Management (Layer-7 Routing)](rule-dsl.md)
+4. [Istio Mixer](mixer.md)
+5. [Istioctl CLI Manual](istioctl.md)
