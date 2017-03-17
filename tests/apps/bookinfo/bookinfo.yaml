@@ -63,7 +63,7 @@ spec:
           - proxy
           - sidecar
           - -n
-          - default
+          - $(POD_NAMESPACE)
           - -s
           - istio-route-controller:8080
           - -v
@@ -135,13 +135,13 @@ spec:
           - proxy
           - sidecar
           - -n
-          - default
+          - $(POD_NAMESPACE)
           - -s
           - istio-route-controller:8080
           - -v
           - "2"
         env:
-          - name: POD_NAME
+          - name: POD_NAMESPACE
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
@@ -207,7 +207,7 @@ spec:
           - proxy
           - sidecar
           - -n
-          - default
+          - $(POD_NAMESPACE)
           - -s
           - istio-route-controller:8080
           - -v
@@ -261,7 +261,7 @@ spec:
           - proxy
           - sidecar
           - -n
-          - default
+          - $(POD_NAMESPACE)
           - -s
           - istio-route-controller:8080
           - -v
@@ -315,7 +315,7 @@ spec:
           - proxy
           - sidecar
           - -n
-          - default
+          - $(POD_NAMESPACE)
           - -s
           - istio-route-controller:8080
           - -v
@@ -387,7 +387,7 @@ spec:
           - proxy
           - sidecar
           - -n
-          - default
+          - $(POD_NAMESPACE)
           - -s
           - istio-route-controller:8080
           - -v
@@ -414,7 +414,6 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: gateway
-  namespace: default
 spec:
   rules:
   - http:

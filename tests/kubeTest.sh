@@ -17,11 +17,14 @@
 
 # Local vars
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+NAMESPACE=$(uuidgen)
 K8CLI="kubectl"
 ISTIOCLI="istioctl"
 RULESDIR=$SCRIPTDIR/apps/bookinfo/rules
 EXAMPLESDIR=$SCRIPTDIR/apps/bookinfo/output
 PASS=true
+
+export POD_NAMESPACE=$NAMESPACE
 
 # Import relevant common utils
 . $SCRIPTDIR/commonUtils.sh # Must be first for print_block_echo in kubeUtils
@@ -29,11 +32,12 @@ PASS=true
 . $SCRIPTDIR/istioUtils.sh
 
 # Setup
+create_namespace
 deploy_istio
 deploy_bookinfo
 
 # Get gateway IP
-GATEWAYIP=$(kubectl describe pod $(kubectl get pods | awk 'NR>1 {print $1}' | grep istio-ingress-controller) | grep Node | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b")
+GATEWAYIP=$($K8CLI -n $NAMESPACE describe pod $($K8CLI -n $NAMESPACE get pods | awk 'NR>1 {print $1}' | grep istio-ingress-controller) | grep Node | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b")
 
 # Verify default routes
 print_block_echo "Testing default route behavior..."
@@ -45,7 +49,8 @@ do
         if [ $i -eq 4 ]
         then
             echo "Failed to resolve default routes"
-            exit 1
+            PASS=false
+            dump_debug
         fi
         echo "Couldn't get to the bookinfo product page, trying again...'"
     else
@@ -158,8 +163,7 @@ fi
 
 # Teardown
 cleanup_all_rules
-cleanup_bookinfo
-cleanup_istio
+cleanup
 
 echo ""
 if [ $PASS == false ]
