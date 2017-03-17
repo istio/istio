@@ -21,9 +21,11 @@ Istio is composed of three main components:
    services. The proxies form a _secure microservice mesh_ providing a rich
    set of functions like discovery, rich layer-7 routing, circuit breakers,
    policy enforcement and telemetry recording/reporting
-   functions. **Note:** The service mesh is not an overlay network. It
-   simplifies and enhances how microservices in an application talk to each
-   other over the network provided by the underlying platform.
+   functions.
+
+  >  Note: The service mesh is not an overlay network. It
+  >  simplifies and enhances how microservices in an application talk to each
+  >  other over the network provided by the underlying platform.
 
 * **Mixer** - Central component that is leveraged by the proxies and microservices
    to enforce policies such as ACLs, rate limits, quotas, authentication, request
@@ -32,6 +34,7 @@ Istio is composed of three main components:
 * **Manager** - A component responsible for configuring the
   proxies and the mixer at runtime.
 
+     
 A high-level overview of Istio's components is available
 [here](doc/overview.md). Istio currently only supports the Kubernetes
 platform, although we plan support for additional platforms such as
