@@ -60,14 +60,16 @@ def presubmit(gitUtils, bazel, utils) {
 
 def postsubmit(gitUtils, bazel, utils) {
   buildNode(gitUtils) {
+    bazel.updateBazelRc()
+    utils.initTestingCluster()
     stage('Docker Push') {
-      bazel.updateBazelRc()
       def images = 'init,init_debug,app,app_debug,runtime,runtime_debug'
       def tags = "${gitUtils.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
       utils.publishDockerImages(images, tags)
     }
     stage('Integration Tests') {
       timeout(30) {
+        sh('ln -s ~/.kube/config platform/kube/')
         sh('bin/e2e.sh -count 10 -debug -tag alpha' + gitUtils.GIT_SHA + ' -v 2')
       }
     }
