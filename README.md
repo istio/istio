@@ -18,9 +18,10 @@ Istio is composed of three main components:
 
 * **Proxy** - Sidecars per microservice to handle ingress/egress traffic
    between services in the cluster and from a service to external
-   services. The proxies form a _secure Layer-7 microservice mesh_ enabling
-   a rich variety of traffic management, policy enforcement and telemetry
-   recording/reporting functions.
+   services. The proxies form a _secure Layer-7 microservice mesh_
+   providing a rich set of functions like discovery, rich layer-7 routing,
+   circuit breakers, policy enforcement and telemetry recording/reporting
+   functions.
 
 * **Mixer** - Central component that co-ordinates with various proxies to
    enforce policies such as ACLs, rate limits, authentication, request
