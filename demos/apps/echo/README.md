@@ -18,11 +18,11 @@ Note the pod corresponding to the apps "echo" and "logic":
 
 Send HTTP request from "echo" pod to "logic" service:
 
-    kubectl exec <echo-pod> -c app /bin/client http://logic/<some-text> -- --count 10
+    kubectl exec <echo-pod> -c app /bin/client -- -url http://logic/<some-text> -- --count 10
     
 Send HTTP request from "logic" pod to "echo" service:
 
-    kubectl exec -it <logic-pod> -c app /bin/client http://echo/<some-text> -- --count 10
+    kubectl exec -it <logic-pod> -c app /bin/client -- -url http://echo/<some-text> -- --count 10
 
 This will echo the URL and print HTTP headers, including "X-Envoy-Expected-Rq-Timeout-Ms".
 

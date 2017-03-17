@@ -7,7 +7,7 @@
     
     kubectl config set-context `kubectl config view | grep current-context | awk '{print $2}'` --namespace <ns>
 
-**Install Istio control plane and management plane**
+**Install Istio core components**
 
     kubectl apply -f ./kubernetes/istio-install
 
