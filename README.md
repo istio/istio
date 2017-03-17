@@ -19,6 +19,10 @@ The [architectural overview](ARCHITECTURE.md) provides a high-level summary of
 the design. The [milestone plan](MILESTONES.md) gives a rough estimate of 
 what we expect to release and when.
 
+## Installation
+
+Please refer to [INSTALL.md](INSTALL.md) for detailed steps.
+
 ## Repositories
 
 The Istio project is divided across multiple GitHub repositories. Each
