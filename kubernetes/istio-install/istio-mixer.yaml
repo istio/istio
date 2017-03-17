@@ -89,7 +89,7 @@ spec:
     spec:
       containers:
       - name: mixer
-        image: gcr.io/istio-testing/mixer:6655a67
+        image: docker.io/istio/mixer:20e36eb
         imagePullPolicy: Always
         ports:
         - containerPort: 9091
@@ -103,10 +103,6 @@ spec:
         volumeMounts:
           - mountPath: /etc/opt/mixer
             name: config
-      - name: debug
-        image: docker.io/istio/debug:test
-        securityContext:
-            privileged: true
       volumes:
         - name: config
           configMap:
