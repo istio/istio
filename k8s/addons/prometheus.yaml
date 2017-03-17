@@ -15,7 +15,7 @@ data:
       # metrics_path defaults to '/metrics'
       # scheme defaults to 'http'.
       static_configs:
-      - targets: ['mixer:42422']
+      - targets: ['istio-mixer:42422']
 ---
 apiVersion: v1
 kind: Service
