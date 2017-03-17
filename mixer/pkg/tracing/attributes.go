@@ -33,11 +33,11 @@ const (
 
 // AttributeCarrier implements opentracing's TextMapWriter and TextMapReader interfaces using Istio's attribute system.
 type AttributeCarrier struct {
-	mb attribute.MutableBag
+	mb *attribute.MutableBag
 }
 
 // NewCarrier initializes a carrier that can be used to modify the attributes in the current request context.
-func NewCarrier(bag attribute.MutableBag) *AttributeCarrier {
+func NewCarrier(bag *attribute.MutableBag) *AttributeCarrier {
 	return &AttributeCarrier{mb: bag.Child()}
 }
 
@@ -61,12 +61,15 @@ func FromContext(ctx context.Context) *AttributeCarrier {
 // AttributeCarrier to denote opentracing attributes. The AttributeCarrier specific prefix is stripped from the key
 // before its passed to handler.
 func (c *AttributeCarrier) ForeachKey(handler func(key, val string) error) error {
-	keys := c.mb.StringKeys()
+	keys := c.mb.Names()
 	for _, key := range keys {
 		if strings.HasPrefix(key, prefix) {
-			if val, found := c.mb.String(key); found {
-				if err := handler(key[prefixLength:], val); err != nil {
-					return err
+			if val, found := c.mb.Get(key); found {
+				s, ok := val.(string)
+				if ok {
+					if err := handler(key[prefixLength:], s); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -77,5 +80,5 @@ func (c *AttributeCarrier) ForeachKey(handler func(key, val string) error) error
 // Set adds (key, val) to the set of string attributes in the request scope. It prefixes the key with an istio-private
 // string to avoid collisions with other attributes when arbitrary tracer implementations are used.
 func (c *AttributeCarrier) Set(key, val string) {
-	c.mb.SetString(prefix+key, val)
+	c.mb.Set(prefix+key, val)
 }

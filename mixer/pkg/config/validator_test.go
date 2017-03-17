@@ -311,22 +311,22 @@ func UnboundVariable(vname string) error {
 func (e *fakeExpr) Eval(mapExpression string, attrs attribute.Bag) (v interface{}, err error) {
 	var found bool
 
-	v, found = attrs.String(mapExpression)
+	v, found = attrs.Get(mapExpression)
 	if found {
 		return
 	}
 
-	v, found = attrs.Bool(mapExpression)
+	v, found = attrs.Get(mapExpression)
 	if found {
 		return
 	}
 
-	v, found = attrs.Int64(mapExpression)
+	v, found = attrs.Get(mapExpression)
 	if found {
 		return
 	}
 
-	v, found = attrs.Float64(mapExpression)
+	v, found = attrs.Get(mapExpression)
 	if found {
 		return
 	}
@@ -335,23 +335,21 @@ func (e *fakeExpr) Eval(mapExpression string, attrs attribute.Bag) (v interface{
 }
 
 // EvalString evaluates given expression using the attribute bag to a string
-func (e *fakeExpr) EvalString(mapExpression string, attrs attribute.Bag) (v string, err error) {
-	var found bool
-	v, found = attrs.String(mapExpression)
+func (e *fakeExpr) EvalString(mapExpression string, attrs attribute.Bag) (string, error) {
+	v, found := attrs.Get(mapExpression)
 	if found {
-		return
+		return v.(string), nil
 	}
-	return v, UnboundVariable(mapExpression)
+	return "", UnboundVariable(mapExpression)
 }
 
 // EvalPredicate evaluates given predicate using the attribute bag
-func (e *fakeExpr) EvalPredicate(mapExpression string, attrs attribute.Bag) (v bool, err error) {
-	var found bool
-	v, found = attrs.Bool(mapExpression)
+func (e *fakeExpr) EvalPredicate(mapExpression string, attrs attribute.Bag) (bool, error) {
+	v, found := attrs.Get(mapExpression)
 	if found {
-		return
+		return v.(bool), nil
 	}
-	return v, UnboundVariable(mapExpression)
+	return false, UnboundVariable(mapExpression)
 }
 
 func (e *fakeExpr) Validate(expression string) error { return e.err }

@@ -72,7 +72,7 @@ func NewGRPCServer(handlers Handler, tracer tracing.Tracer, gp *pool.GoroutinePo
 // protocol and dispatching to the right API handler.
 func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 	getState func() (request proto.Message, response proto.Message, requestAttrs *mixerpb.Attributes, result *rpc.Status),
-	worker func(context.Context, attribute.MutableBag, proto.Message, proto.Message)) error {
+	worker func(context.Context, *attribute.MutableBag, proto.Message, proto.Message)) error {
 
 	// tracks attribute state for this stream
 	tracker := s.attrMgr.NewTracker()
@@ -152,7 +152,7 @@ func (s *grpcServer) Check(stream mixerpb.Mixer_CheckServer) error {
 			response := &mixerpb.CheckResponse{}
 			return request, response, &request.AttributeUpdate, &response.Result
 		},
-		func(ctx context.Context, bag attribute.MutableBag, request proto.Message, response proto.Message) {
+		func(ctx context.Context, bag *attribute.MutableBag, request proto.Message, response proto.Message) {
 			s.handlers.Check(ctx, bag, request.(*mixerpb.CheckRequest), response.(*mixerpb.CheckResponse))
 		})
 }
@@ -165,7 +165,7 @@ func (s *grpcServer) Report(stream mixerpb.Mixer_ReportServer) error {
 			response := &mixerpb.ReportResponse{}
 			return request, response, &request.AttributeUpdate, &response.Result
 		},
-		func(ctx context.Context, bag attribute.MutableBag, request proto.Message, response proto.Message) {
+		func(ctx context.Context, bag *attribute.MutableBag, request proto.Message, response proto.Message) {
 			s.handlers.Report(ctx, bag, request.(*mixerpb.ReportRequest), response.(*mixerpb.ReportResponse))
 		})
 }
@@ -178,7 +178,7 @@ func (s *grpcServer) Quota(stream mixerpb.Mixer_QuotaServer) error {
 			response := &mixerpb.QuotaResponse{}
 			return request, response, &request.AttributeUpdate, &response.Result
 		},
-		func(ctx context.Context, bag attribute.MutableBag, request proto.Message, response proto.Message) {
+		func(ctx context.Context, bag *attribute.MutableBag, request proto.Message, response proto.Message) {
 			s.handlers.Quota(ctx, bag, request.(*mixerpb.QuotaRequest), response.(*mixerpb.QuotaResponse))
 		})
 }

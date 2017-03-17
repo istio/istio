@@ -68,14 +68,7 @@ func BenchmarkTracker(b *testing.B) {
 		for _, a := range attrs {
 			b, _ := t.ApplyAttributes(&a)
 
-			_, _ = b.String("a")
-			_, _ = b.Int64("a")
-			_, _ = b.Float64("a")
-			_, _ = b.Bool("a")
-			_, _ = b.Time("a")
-			_, _ = b.Duration("a")
-			_, _ = b.Bytes("a")
-			_, _ = b.StringMap("a")
+			_, _ = b.Get("a")
 		}
 	}
 }
@@ -142,112 +135,78 @@ func TestTracker_ApplyAttributes(t *testing.T) {
 }
 
 func compareBags(b1 Bag, b2 Bag) bool {
-	if len(b1.StringKeys()) != len(b2.StringKeys()) {
+	if len(b1.Names()) != len(b2.Names()) {
 		return false
 	}
 
-	for _, k := range b1.StringKeys() {
-		v1, _ := b1.String(k)
-		v2, _ := b2.String(k)
-		if v1 != v2 {
-			return false
-		}
-	}
+	for _, k := range b1.Names() {
+		v1, ok1 := b1.Get(k)
+		v2, ok2 := b2.Get(k)
 
-	if len(b1.Int64Keys()) != len(b2.Int64Keys()) {
-		return false
-	}
-
-	for _, k := range b1.Int64Keys() {
-		v1, _ := b1.Int64(k)
-		v2, _ := b2.Int64(k)
-		if v1 != v2 {
-			return false
-		}
-	}
-
-	if len(b1.Float64Keys()) != len(b2.Float64Keys()) {
-		return false
-	}
-
-	for _, k := range b1.Float64Keys() {
-		v1, _ := b1.Float64(k)
-		v2, _ := b2.Float64(k)
-		if v1 != v2 {
-			return false
-		}
-	}
-
-	if len(b1.BoolKeys()) != len(b2.BoolKeys()) {
-		return false
-	}
-
-	for _, k := range b1.BoolKeys() {
-		v1, _ := b1.Bool(k)
-		v2, _ := b2.Bool(k)
-		if v1 != v2 {
-			return false
-		}
-	}
-
-	if len(b1.TimeKeys()) != len(b2.TimeKeys()) {
-		return false
-	}
-
-	for _, k := range b1.TimeKeys() {
-		v1, _ := b1.Time(k)
-		v2, _ := b2.Time(k)
-		if v1 != v2 {
-			return false
-		}
-	}
-
-	if len(b1.DurationKeys()) != len(b2.DurationKeys()) {
-		return false
-	}
-
-	for _, k := range b1.DurationKeys() {
-		v1, _ := b1.Duration(k)
-		v2, _ := b2.Duration(k)
-		if v1 != v2 {
-			return false
-		}
-	}
-
-	if len(b1.BytesKeys()) != len(b2.BytesKeys()) {
-		return false
-	}
-
-	for _, k := range b1.BytesKeys() {
-		v1, _ := b1.Bytes(k)
-		v2, _ := b2.Bytes(k)
-
-		if len(v1) != len(v2) {
+		if ok1 != ok2 {
 			return false
 		}
 
-		for i := 0; i < len(v1); i++ {
-			if v1[i] != v2[i] {
+		switch t1 := v1.(type) {
+		case string:
+			t2, ok := v2.(string)
+			if !ok || t1 != t2 {
 				return false
 			}
-		}
-	}
-
-	if len(b1.StringMapKeys()) != len(b2.StringMapKeys()) {
-		return false
-	}
-
-	for _, k := range b1.StringMapKeys() {
-		v1, _ := b1.StringMap(k)
-		v2, _ := b2.StringMap(k)
-
-		if len(v1) != len(v2) {
-			return false
-		}
-
-		for k, v := range v1 {
-			if v != v2[k] {
+		case int64:
+			t2, ok := v2.(int64)
+			if !ok || t1 != t2 {
 				return false
+			}
+		case float64:
+			t2, ok := v2.(float64)
+			if !ok || t1 != t2 {
+				return false
+			}
+		case bool:
+			t2, ok := v2.(bool)
+			if !ok || t1 != t2 {
+				return false
+			}
+		case time.Time:
+			t2, ok := v2.(time.Time)
+			if !ok || t1 != t2 {
+				return false
+			}
+		case time.Duration:
+			t2, ok := v2.(time.Duration)
+			if !ok || t1 != t2 {
+				return false
+			}
+		case []byte:
+			t2, ok := v2.([]byte)
+			if !ok {
+				return false
+			}
+
+			if len(t1) != len(t2) {
+				return false
+			}
+
+			for i := 0; i < len(t1); i++ {
+				if t1[i] != t2[i] {
+					return false
+				}
+			}
+		case map[string]string:
+			t2, ok := v2.(map[string]string)
+			if !ok {
+				return false
+			}
+
+			if len(t1) != len(t2) {
+				return false
+			}
+
+			for k, v := range t1 {
+				if v != t2[k] {
+					return false
+				}
 			}
 		}
 	}

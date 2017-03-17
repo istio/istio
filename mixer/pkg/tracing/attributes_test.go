@@ -70,7 +70,7 @@ func TestSet(t *testing.T) {
 	for _, c := range cases {
 		cr := NewCarrier(bag)
 		cr.Set(c.key, c.val)
-		if val, ok := cr.mb.String(prefix + c.key); !ok || val != c.val {
+		if val, ok := cr.mb.Get(prefix + c.key); !ok || val.(string) != c.val {
 			t.Errorf("carrier.Set(%s, %s); bag.String(%s) = %s; wanted %s", c.key, c.val, prefix+c.key, val, c.val)
 		}
 	}
@@ -90,7 +90,7 @@ func TestForeachKey(t *testing.T) {
 	for _, c := range cases {
 		b := bag.Child()
 		for k, v := range c.data {
-			b.SetString(prefix+k, v)
+			b.Set(prefix+k, v)
 		}
 
 		err := NewCarrier(b).ForeachKey(func(key, val string) error {

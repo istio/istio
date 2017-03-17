@@ -15,330 +15,347 @@
 package attribute
 
 import (
+	"bytes"
+	"fmt"
 	"sync"
-	"time"
+	"sync/atomic"
+
+	"github.com/golang/glog"
+	me "github.com/hashicorp/go-multierror"
+
+	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/pool"
 )
 
-type mutableBag struct {
-	sync.RWMutex
-	parent     Bag
-	strings    map[string]string
-	int64s     map[string]int64
-	float64s   map[string]float64
-	bools      map[string]bool
-	times      map[string]time.Time
-	durations  map[string]time.Duration
-	bytes      map[string][]uint8
-	stringMaps map[string]map[string]string
+// MutableBag is a generic mechanism to read and write a set of attributes.
+//
+// Bags can be chained together in a parent/child relationship. A child bag
+// represents a delta over a parent. By default a child looks identical to
+// the parent. But as mutations occur to the child, the two start to diverge.
+// Resetting a child makes it look identical to its parent again.
+type MutableBag struct {
+	parent Bag
+	values map[string]interface{}
+	id     int64 // strictly for use in diagnostic messages
 }
 
+var id int64
 var mutableBags = sync.Pool{
 	New: func() interface{} {
-		return &mutableBag{
-			strings:    make(map[string]string),
-			int64s:     make(map[string]int64),
-			float64s:   make(map[string]float64),
-			bools:      make(map[string]bool),
-			times:      make(map[string]time.Time),
-			durations:  make(map[string]time.Duration),
-			bytes:      make(map[string][]uint8),
-			stringMaps: make(map[string]map[string]string),
+		return &MutableBag{
+			values: make(map[string]interface{}),
+			id:     atomic.AddInt64(&id, 1),
 		}
 	},
 }
 
-func getMutableBag(parent Bag) *mutableBag {
-	mb := mutableBags.Get().(*mutableBag)
+func getMutableBag(parent Bag) *MutableBag {
+	mb := mutableBags.Get().(*MutableBag)
+
 	mb.parent = parent
+	if parent == nil {
+		mb.parent = empty
+	}
+
 	return mb
 }
 
-func (mb *mutableBag) Done() {
+func copyBag(b Bag) *MutableBag {
+	mb := getMutableBag(nil)
+	for _, k := range b.Names() {
+		v, _ := b.Get(k)
+		mb.Set(k, copyValue(v))
+	}
+
+	return mb
+}
+
+// Given an attribute value, create a deep copy of it
+func copyValue(v interface{}) interface{} {
+	switch t := v.(type) {
+	case []byte:
+		c := make([]byte, len(t))
+		copy(c, t)
+		return c
+
+	case map[string]string:
+		c := make(map[string]string, len(t))
+		for k2, v2 := range t {
+			c[k2] = v2
+		}
+		return c
+	}
+
+	return v
+}
+
+// Done indicates the bag can be reclaimed.
+func (mb *MutableBag) Done() {
 	mb.Reset()
 	mb.parent = nil
 	mutableBags.Put(mb)
 }
 
-func (mb *mutableBag) String(name string) (string, bool) {
-	var r string
+// Get returns an attribute value.
+func (mb *MutableBag) Get(name string) (interface{}, bool) {
+	var r interface{}
 	var b bool
-	mb.RLock()
-	if r, b = mb.strings[name]; !b {
-		r, b = mb.parent.String(name)
+	if r, b = mb.values[name]; !b {
+		r, b = mb.parent.Get(name)
 	}
-	mb.RUnlock()
 	return r, b
 }
 
-func (mb *mutableBag) SetString(name string, value string) {
-	mb.Lock()
-	mb.strings[name] = value
-	mb.Unlock()
-}
-
-func (mb *mutableBag) StringKeys() []string {
+// Names return the names of all the attributes known to this bag.
+func (mb *MutableBag) Names() []string {
 	i := 0
-
-	mb.RLock()
-	keys := make([]string, len(mb.strings))
-	for k := range mb.strings {
+	keys := make([]string, len(mb.values))
+	for k := range mb.values {
 		keys[i] = k
 		i++
 	}
-	mb.RUnlock()
-	return append(keys, mb.parent.StringKeys()...)
+	return append(keys, mb.parent.Names()...)
 }
 
-func (mb *mutableBag) Int64(name string) (int64, bool) {
-	var r int64
-	var b bool
-	mb.RLock()
-	if r, b = mb.int64s[name]; !b {
-		r, b = mb.parent.Int64(name)
-	}
-	mb.RUnlock()
-	return r, b
+// Set creates an override for a named attribute.
+func (mb *MutableBag) Set(name string, value interface{}) {
+	mb.values[name] = value
 }
 
-func (mb *mutableBag) SetInt64(name string, value int64) {
-	mb.Lock()
-	mb.int64s[name] = value
-	mb.Unlock()
-}
-
-func (mb *mutableBag) Int64Keys() []string {
-	i := 0
-
-	mb.RLock()
-	keys := make([]string, len(mb.int64s))
-	for k := range mb.int64s {
-		keys[i] = k
-		i++
-	}
-	mb.RUnlock()
-	return append(keys, mb.parent.Int64Keys()...)
-}
-
-func (mb *mutableBag) Float64(name string) (float64, bool) {
-	var r float64
-	var b bool
-	mb.RLock()
-	if r, b = mb.float64s[name]; !b {
-		r, b = mb.parent.Float64(name)
-	}
-	mb.RUnlock()
-	return r, b
-}
-
-func (mb *mutableBag) SetFloat64(name string, value float64) {
-	mb.Lock()
-	mb.float64s[name] = value
-	mb.Unlock()
-}
-
-func (mb *mutableBag) Float64Keys() []string {
-	i := 0
-
-	mb.RLock()
-	keys := make([]string, len(mb.float64s))
-	for k := range mb.float64s {
-		keys[i] = k
-		i++
-	}
-	mb.RUnlock()
-	return append(keys, mb.parent.Float64Keys()...)
-}
-
-func (mb *mutableBag) Bool(name string) (bool, bool) {
-	var r bool
-	var b bool
-	mb.RLock()
-	if r, b = mb.bools[name]; !b {
-		r, b = mb.parent.Bool(name)
-	}
-	mb.RUnlock()
-	return r, b
-}
-
-func (mb *mutableBag) SetBool(name string, value bool) {
-	mb.Lock()
-	mb.bools[name] = value
-	mb.Unlock()
-}
-
-func (mb *mutableBag) BoolKeys() []string {
-	i := 0
-
-	mb.RLock()
-	keys := make([]string, len(mb.bools))
-	for k := range mb.bools {
-		keys[i] = k
-		i++
-	}
-	mb.RUnlock()
-	return append(keys, mb.parent.BoolKeys()...)
-}
-
-func (mb *mutableBag) Time(name string) (time.Time, bool) {
-	var r time.Time
-	var b bool
-	mb.RLock()
-	if r, b = mb.times[name]; !b {
-		r, b = mb.parent.Time(name)
-	}
-	mb.RUnlock()
-	return r, b
-}
-
-func (mb *mutableBag) SetTime(name string, value time.Time) {
-	mb.Lock()
-	mb.times[name] = value
-	mb.Unlock()
-}
-
-func (mb *mutableBag) TimeKeys() []string {
-	i := 0
-
-	mb.RLock()
-	keys := make([]string, len(mb.times))
-	for k := range mb.times {
-		keys[i] = k
-		i++
-	}
-	mb.RUnlock()
-	return append(keys, mb.parent.TimeKeys()...)
-}
-
-func (mb *mutableBag) Duration(name string) (time.Duration, bool) {
-	var r time.Duration
-	var b bool
-	mb.RLock()
-	if r, b = mb.durations[name]; !b {
-		r, b = mb.parent.Duration(name)
-	}
-	mb.RUnlock()
-	return r, b
-}
-
-func (mb *mutableBag) SetDuration(name string, value time.Duration) {
-	mb.Lock()
-	mb.durations[name] = value
-	mb.Unlock()
-}
-
-func (mb *mutableBag) DurationKeys() []string {
-	i := 0
-
-	mb.RLock()
-	keys := make([]string, len(mb.durations))
-	for k := range mb.durations {
-		keys[i] = k
-		i++
-	}
-	mb.RUnlock()
-	return append(keys, mb.parent.DurationKeys()...)
-}
-
-func (mb *mutableBag) Bytes(name string) ([]uint8, bool) {
-	var r []uint8
-	var b bool
-	mb.RLock()
-	if r, b = mb.bytes[name]; !b {
-		r, b = mb.parent.Bytes(name)
-	}
-	mb.RUnlock()
-	return r, b
-}
-
-func (mb *mutableBag) SetBytes(name string, value []uint8) {
-	mb.Lock()
-	mb.bytes[name] = value
-	mb.Unlock()
-}
-
-func (mb *mutableBag) BytesKeys() []string {
-	i := 0
-
-	mb.RLock()
-	keys := make([]string, len(mb.bytes))
-	for k := range mb.bytes {
-		keys[i] = k
-		i++
-	}
-	mb.RUnlock()
-	return append(keys, mb.parent.BytesKeys()...)
-}
-
-func (mb *mutableBag) StringMap(name string) (map[string]string, bool) {
-	var r map[string]string
-	var b bool
-	mb.RLock()
-	if r, b = mb.stringMaps[name]; !b {
-		r, b = mb.parent.StringMap(name)
-	}
-	mb.RUnlock()
-	return r, b
-}
-
-func (mb *mutableBag) SetStringMap(name string, value map[string]string) {
-	mb.Lock()
-	mb.stringMaps[name] = value
-	mb.Unlock()
-}
-
-func (mb *mutableBag) StringMapKeys() []string {
-	i := 0
-
-	mb.RLock()
-	keys := make([]string, len(mb.stringMaps))
-	for k := range mb.stringMaps {
-		keys[i] = k
-		i++
-	}
-	mb.RUnlock()
-	return append(keys, mb.parent.StringMapKeys()...)
-}
-
-func (mb *mutableBag) Reset() {
-	mb.Lock()
-
+// Reset removes all local state.
+func (mb *MutableBag) Reset() {
 	// my kingdom for a clear method on maps!
-
-	for k := range mb.strings {
-		delete(mb.strings, k)
+	for k := range mb.values {
+		delete(mb.values, k)
 	}
-
-	for k := range mb.int64s {
-		delete(mb.int64s, k)
-	}
-
-	for k := range mb.float64s {
-		delete(mb.float64s, k)
-	}
-
-	for k := range mb.bools {
-		delete(mb.bools, k)
-	}
-
-	for k := range mb.times {
-		delete(mb.times, k)
-	}
-
-	for k := range mb.durations {
-		delete(mb.durations, k)
-	}
-
-	for k := range mb.bytes {
-		delete(mb.bytes, k)
-	}
-
-	for k := range mb.stringMaps {
-		delete(mb.stringMaps, k)
-	}
-
-	mb.Unlock()
 }
 
-func (mb *mutableBag) Child() MutableBag {
+// Merge combines an array of bags into the current bag.
+//
+// The individual bags may not contain any conflicting attribute
+// values. If that happens, then the merge fails and no mutation
+// will have occurred to the current bag.
+func (mb *MutableBag) Merge(bags []*MutableBag) error {
+	// first step is to make sure there are no redundant definitions of the same attribute
+	keys := make(map[string]bool)
+	for _, bag := range bags {
+		for k := range bag.values {
+			if keys[k] {
+				return fmt.Errorf("conflicting value for attribute %s", k)
+			}
+			keys[k] = true
+		}
+	}
+
+	// now that we know there are no conflicting definitions, do the actual merging...
+	for _, bag := range bags {
+		for k, v := range bag.values {
+			mb.values[k] = copyValue(v)
+		}
+	}
+
+	return nil
+}
+
+// Child allocates a derived mutable bag.
+//
+// Mutating a child doesn't affect the parent's state, all mutations are deltas.
+func (mb *MutableBag) Child() *MutableBag {
 	return getMutableBag(mb)
+}
+
+// Ensure that all dictionary indices are valid and that all values
+// are in range.
+//
+// Note that since we don't have the attribute schema, this doesn't validate
+// that a given attribute is being treated as the right type. That is, an
+// attribute called 'source.ip' which is of type IP_ADDRESS could be listed as
+// a string or an int, and we wouldn't catch it here.
+func checkPreconditions(dictionary dictionary, attrs *mixerpb.Attributes) error {
+	var e *me.Error
+
+	for k := range attrs.StringAttributes {
+		if _, present := dictionary[k]; !present {
+			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
+		}
+	}
+
+	for k := range attrs.Int64Attributes {
+		if _, present := dictionary[k]; !present {
+			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
+		}
+	}
+
+	for k := range attrs.DoubleAttributes {
+		if _, present := dictionary[k]; !present {
+			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
+		}
+	}
+
+	for k := range attrs.BoolAttributes {
+		if _, present := dictionary[k]; !present {
+			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
+		}
+	}
+
+	for k := range attrs.TimestampAttributes {
+		if _, present := dictionary[k]; !present {
+			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
+		}
+	}
+
+	for k := range attrs.DurationAttributes {
+		if _, present := dictionary[k]; !present {
+			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
+		}
+	}
+
+	for k := range attrs.BytesAttributes {
+		if _, present := dictionary[k]; !present {
+			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
+		}
+	}
+
+	for k, v := range attrs.StringMapAttributes {
+		if _, present := dictionary[k]; !present {
+			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
+		}
+
+		for k2 := range v.Map {
+			if _, present := dictionary[k2]; !present {
+				e = me.Append(e, fmt.Errorf("string map index %d is not defined in the current dictionary", k2))
+			}
+		}
+	}
+
+	// TODO: we should catch the case where the same attribute is being repeated in different types
+	//       (that is, an attribute called FOO which is both an int and a string for example)
+
+	return e.ErrorOrNil()
+}
+
+// Update the state of the bag based on the content of an Attributes struct
+func (mb *MutableBag) update(dictionary dictionary, attrs *mixerpb.Attributes) error {
+	// check preconditions up front and bail if there are any
+	// errors without mutating the bag.
+	if err := checkPreconditions(dictionary, attrs); err != nil {
+		return err
+	}
+
+	var log *bytes.Buffer
+	if glog.V(2) {
+		log = pool.GetBuffer()
+	}
+
+	if attrs.ResetContext {
+		if log != nil {
+			log.WriteString(" resetting bag to empty state\n")
+		}
+		mb.Reset()
+	}
+
+	// delete requested attributes
+	for _, d := range attrs.DeletedAttributes {
+		if name, present := dictionary[d]; present {
+			if log != nil {
+				log.WriteString(fmt.Sprintf("  attempting to delete attribute %s\n", name))
+			}
+
+			delete(mb.values, name)
+		}
+	}
+
+	// apply all attributes
+	for k, v := range attrs.StringAttributes {
+		if log != nil {
+			log.WriteString(fmt.Sprintf("  updating string attribute %s from '%v' to '%v'\n", dictionary[k], mb.values[dictionary[k]], v))
+		}
+		mb.values[dictionary[k]] = v
+	}
+
+	for k, v := range attrs.Int64Attributes {
+		if log != nil {
+			log.WriteString(fmt.Sprintf("  updating int64 attribute %s from '%v' to '%v'\n", dictionary[k], mb.values[dictionary[k]], v))
+		}
+		mb.values[dictionary[k]] = v
+	}
+
+	for k, v := range attrs.DoubleAttributes {
+		if log != nil {
+			log.WriteString(fmt.Sprintf("  updating double attribute %s from '%v' to '%v'\n", dictionary[k], mb.values[dictionary[k]], v))
+		}
+		mb.values[dictionary[k]] = v
+	}
+
+	for k, v := range attrs.BoolAttributes {
+		if log != nil {
+			log.WriteString(fmt.Sprintf("  updating bool attribute %s from '%v' to '%v'\n", dictionary[k], mb.values[dictionary[k]], v))
+		}
+		mb.values[dictionary[k]] = v
+	}
+
+	for k, v := range attrs.TimestampAttributes {
+		if log != nil {
+			log.WriteString(fmt.Sprintf("  updating time attribute %s from '%v' to '%v'\n", dictionary[k], mb.values[dictionary[k]], v))
+		}
+		mb.values[dictionary[k]] = v
+	}
+
+	for k, v := range attrs.DurationAttributes {
+		if log != nil {
+			log.WriteString(fmt.Sprintf("  updating duration attribute %s from '%v' to '%v'\n", dictionary[k], mb.values[dictionary[k]], v))
+		}
+		mb.values[dictionary[k]] = v
+	}
+
+	for k, v := range attrs.BytesAttributes {
+		if log != nil {
+			log.WriteString(fmt.Sprintf("  updating bytes attribute %s from '%v' to '%v'\n", dictionary[k], mb.values[dictionary[k]], v))
+		}
+		mb.values[dictionary[k]] = v
+	}
+
+	for k, v := range attrs.StringMapAttributes {
+		m, ok := mb.values[dictionary[k]].(map[string]string)
+		if !ok {
+			m = make(map[string]string)
+			mb.values[dictionary[k]] = m
+		}
+
+		if log != nil {
+			log.WriteString(fmt.Sprintf("  updating stringmap attribute %s from\n", dictionary[k]))
+
+			if len(m) > 0 {
+				for k2, v2 := range m {
+					log.WriteString(fmt.Sprintf("    %s:%s\n", k2, v2))
+				}
+			} else {
+				log.WriteString("    <empty>\n")
+			}
+
+			log.WriteString("  to\n")
+		}
+
+		for k2, v2 := range v.Map {
+			m[dictionary[k2]] = v2
+		}
+
+		if log != nil {
+			if len(m) > 0 {
+				for k2, v2 := range m {
+					log.WriteString(fmt.Sprintf("    %s:%s\n", k2, v2))
+				}
+			} else {
+				log.WriteString("    <empty>\n")
+			}
+		}
+	}
+
+	if log != nil {
+		if log.Len() > 0 {
+			glog.Infof("Updating attribute bag %d:\n%s", mb.id, log.String())
+		}
+	}
+
+	return nil
 }

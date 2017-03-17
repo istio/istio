@@ -7,9 +7,9 @@ go_library(
     srcs = [
         "bag.go",
         "dictionaries.go",
+        "emptyBag.go",
         "manager.go",
         "mutableBag.go",
-        "rootBag.go",
         "tracker.go",
     ],
     deps = [
