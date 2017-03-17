@@ -42,6 +42,10 @@ CloudFoundry, and Mesos in the near future. See the
 [getting started](doc/getting-started.md) tutorial for more information on
 using Istio in your Kubernetes deployments.
 
+## Installation
+
+Please refer to [INSTALL.md](INSTALL.md) for detailed steps.
+
 ## Repositories
 
 The Istio project is divided across multiple GitHub repositories. Each
