@@ -1,4 +1,4 @@
 # Install Istio
 
-For kubernetes installation, please refer to [k8s/INSTALL.md](k8s/INSTALL.md). 
+For kubernetes installation, please refer to [kubernetes/INSTALL.md](kubernetes/INSTALL.md). 
 
