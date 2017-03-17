@@ -96,7 +96,7 @@ $ cp istioctl-osx /usr/local/bin/istioctl
 
 1. Determine the Gateway ingress URL (TEMPORARY - instruction subject to change)
 
-   Determine the node on which the `gateway` (ingress controller) runs, and use the node's IP address
+   Determine the node on which the `gateway` (ingress controller) runs and use the node's IP address
    as the external gateway IP.
 
    ```bash
@@ -180,7 +180,7 @@ route requests to all available versions of a service in a random fashion.
 
    If you open the Bookinfo URL (`http://$GATEWAY_URL/productpage`) in your browser,
    you should see the bookinfo application `productpage` displayed. Notice that the `productpage`
-   is displayed, with no rating stars since `reviews:v1` does not access the ratings service.
+   is displayed with no rating stars since `reviews:v1` does not access the ratings service.
 
 1. Route a specific user to `reviews:v2`
 
