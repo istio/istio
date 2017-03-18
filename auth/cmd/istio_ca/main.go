@@ -16,6 +16,7 @@ package main
 
 import (
 	"flag"
+	"io/ioutil"
 
 	"istio.io/auth/certmanager"
 	"istio.io/auth/controller"
@@ -27,10 +28,14 @@ import (
 )
 
 var (
-	caCertFile     = flag.String("ca-cert", "", "Specifies path to the CA certificate file")
-	caKeyFile      = flag.String("ca-key", "", "Specifies path to the CA key file")
+	certChainFile   = flag.String("cert-chain", "", "Speicifies path to the certificate chain file")
+	signingCertFile = flag.String("signing-cert", "", "Specifies path to the CA signing certificate file")
+	signingKeyFile  = flag.String("signing-key", "", "Specifies path to the CA signing key file")
+	rootCertFile    = flag.String("root-cert", "", "Specifies path to the root certificate file")
+
 	kubeConfigFile = flag.String("kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
+
 	selfSignedCA = flag.Bool("self-signed-ca", false,
 		"Indicates whether to use auto-generated self-signed CA certificate. "+
 			"When set to true, the '-ca-cert' and '-ca-key' options are ignored.")
@@ -65,11 +70,24 @@ func createCA() certmanager.CertificateAuthority {
 	if *selfSignedCA {
 		glog.Info("Use self-signed certificate as the CA certificate")
 
-		return certmanager.NewSelfSignedIstioCA()
+		ca, err := certmanager.NewSelfSignedIstioCA()
+		if err != nil {
+			glog.Fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
+		}
+		return ca
 	}
 
-	c, k := certmanager.LoadSignerCredsFromFiles(*caCertFile, *caKeyFile)
-	return certmanager.NewIstioCA(c, k)
+	opts := &certmanager.IstioCAOptions{
+		CertChainBytes:   readFile(certChainFile),
+		SigningCertBytes: readFile(signingCertFile),
+		SigningKeyBytes:  readFile(signingKeyFile),
+		RootCertBytes:    readFile(rootCertFile),
+	}
+	ca, err := certmanager.NewIstioCA(opts)
+	if err != nil {
+		glog.Errorf("Failed to create an Istio CA (error %v)", err)
+	}
+	return ca
 }
 
 func generateConfig() *rest.Config {
@@ -89,18 +107,40 @@ func generateConfig() *rest.Config {
 	return c
 }
 
+func readFile(filename *string) []byte {
+	bs, err := ioutil.ReadFile(*filename)
+	if err != nil {
+		glog.Fatalf("Failed to read file %s (error: %v)", *filename, err)
+	}
+	return bs
+}
+
 func verifyCommandLineOptions() {
 	if *selfSignedCA {
 		return
 	}
 
-	if *caCertFile == "" {
+	if *certChainFile == "" {
 		glog.Fatalf(
-			"No CA cert has been specified. Either specify a cert file via '-ca-cert' option or use '-self-signed-ca'")
+			"No certificate chain has been specified. Either specify a cert chain file via '-cert-chain' option " +
+				"or use '-self-signed-ca'")
 	}
 
-	if *caKeyFile == "" {
+	if *signingCertFile == "" {
 		glog.Fatalf(
-			"No CA key has been specified. Either specify a key file via '-ca-key' option or use '-self-signed-ca'")
+			"No signing cert has been specified. Either specify a cert file via '-signing-cert' option " +
+				"or use '-self-signed-ca'")
+	}
+
+	if *signingKeyFile == "" {
+		glog.Fatalf(
+			"No signing key has been specified. Either specify a key file via '-signing-key' option " +
+				"or use '-self-signed-ca'")
+	}
+
+	if *rootCertFile == "" {
+		glog.Fatalf(
+			"No root cert has been specified. Either specify a root cert file via '-root-cert' option " +
+				"or use '-self-signed-ca'")
 	}
 }

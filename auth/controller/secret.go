@@ -107,14 +107,15 @@ func (sc *SecretController) updateFunc(oldObj, curObj interface{}) {
 }
 
 func (sc *SecretController) createSecret(saName, saNamespace string) {
-	cert, key := sc.ca.Generate(saName, saNamespace)
+	chain, key := sc.ca.Generate(saName, saNamespace)
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: getSecretName(saName),
 		},
 		Data: map[string][]byte{
-			"cert": cert,
-			"key":  key,
+			"cert-chain.pem": chain,
+			"key.pem":        key,
+			"root-cert.pem":  sc.ca.GetRootCertificate(),
 		},
 	}
 
