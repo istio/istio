@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
       - name: app
-        image: docker.io/istio/app:2017-03-17-17.26.10
+        image: docker.io/istio/app:2017-03-17-22.11.25
         imagePullPolicy: Always
         args:
           - --port
