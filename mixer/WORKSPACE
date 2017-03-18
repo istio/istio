@@ -61,11 +61,13 @@ load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
 gogoslick_proto_library(
     name = "google/rpc",
     protos = [
-        "google/rpc/status.proto",
         "google/rpc/code.proto",
+        "google/rpc/error_details.proto",
+        "google/rpc/status.proto",
     ],
     importmap = {
         "google/protobuf/any.proto": "github.com/gogo/protobuf/types",
+        "google/protobuf/duration.proto": "github.com/gogo/protobuf/types",
     },
     imports = [
         "../../external/com_github_google_protobuf/src",
