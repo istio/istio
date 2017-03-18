@@ -27,11 +27,12 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"io/ioutil"
-	"log"
 	"math/big"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/golang/glog"
 )
 
 // CertOptions contains options for generating a new certificate.
@@ -88,7 +89,7 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 	// as specified in the CertOptions.
 	priv, err := rsa.GenerateKey(rand.Reader, rsaBits)
 	if err != nil {
-		log.Fatalf("RSA key generation failed with error %s.", err)
+		glog.Fatalf("RSA key generation failed with error %s.", err)
 	}
 	template := genCertTemplate(options)
 	signerCert, signerKey := &template, crypto.PrivateKey(priv)
@@ -97,7 +98,7 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 	}
 	certBytes, err := x509.CreateCertificate(rand.Reader, &template, signerCert, &priv.PublicKey, signerKey)
 	if err != nil {
-		log.Fatalf("Could not create certificate (err = %s).", err)
+		glog.Fatalf("Could not create certificate (err = %s).", err)
 	}
 
 	// Returns the certificate that carries the RSA public key as well as
@@ -115,12 +116,12 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x509.Certificate, crypto.PrivateKey) {
 	signerCertBytes, err := ioutil.ReadFile(signerCertFile)
 	if err != nil {
-		log.Fatalf("Reading cert file failed with error %s.", err)
+		glog.Fatalf("Reading cert file failed with error %s.", err)
 	}
 
 	signerPrivBytes, err := ioutil.ReadFile(signerPrivFile)
 	if err != nil {
-		log.Fatalf("Reading private key file failed with error %s.", err)
+		glog.Fatalf("Reading private key file failed with error %s.", err)
 	}
 
 	cert := parsePemEncodedCertificate(signerCertBytes)
@@ -133,7 +134,7 @@ func genSerialNum() *big.Int {
 	serialNumLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNum, err := rand.Int(rand.Reader, serialNumLimit)
 	if err != nil {
-		log.Fatalf("Failed to generate serial number: %s.", err)
+		glog.Fatalf("Failed to generate serial number: %s.", err)
 	}
 	return serialNum
 }
@@ -201,7 +202,7 @@ func buildSubjectAltNameExtension(host string) pkix.Extension {
 
 	bs, err := asn1.Marshal(rawValues)
 	if err != nil {
-		log.Fatalf("Failed to marshal the raw values for SAN field (err: %s)", err)
+		glog.Fatalf("Failed to marshal the raw values for SAN field (err: %s)", err)
 	}
 
 	return pkix.Extension{Id: oidSubjectAltName, Value: bs}

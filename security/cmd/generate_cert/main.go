@@ -22,8 +22,9 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"time"
+
+	"github.com/golang/glog"
 
 	"istio.io/auth/certmanager"
 )
@@ -51,13 +52,13 @@ func checkCmdLine() {
 	hasCert, hasPriv := len(*signerCertFile) != 0, len(*signerPrivFile) != 0
 	if *isSelfSigned {
 		if hasCert || hasPriv {
-			log.Fatalf("--self-signed is incompatible with --signer-cert or --signer-priv.")
+			glog.Fatalf("--self-signed is incompatible with --signer-cert or --signer-priv.")
 		}
 	} else {
 		if !hasCert && !hasPriv {
-			log.Fatalf("Need --self-signed or --signer-cert and --signer-priv.")
+			glog.Fatalf("Need --self-signed or --signer-cert and --signer-priv.")
 		} else if !(hasCert && hasPriv) {
-			log.Fatalf("Missing --signer-cert or --signer-priv.")
+			glog.Fatalf("Missing --signer-cert or --signer-priv.")
 		}
 	}
 }
@@ -65,12 +66,12 @@ func checkCmdLine() {
 func saveCreds(certPem []byte, privPem []byte) {
 	err := ioutil.WriteFile(*outCert, certPem, 0644)
 	if err != nil {
-		log.Fatalf("Could not write output certificate: %s.", err)
+		glog.Fatalf("Could not write output certificate: %s.", err)
 	}
 
 	err = ioutil.WriteFile(*outPriv, privPem, 0600)
 	if err != nil {
-		log.Fatalf("Could not write output private key: %s.", err)
+		glog.Fatalf("Could not write output private key: %s.", err)
 	}
 }
 
@@ -106,7 +107,7 @@ func getNotBefore() time.Time {
 
 	t, err := time.Parse(timeLayout, *validFrom)
 	if err != nil {
-		log.Fatalf("Failed to parse the '-start-from' option as a time (error: %s)", err)
+		glog.Fatalf("Failed to parse the '-start-from' option as a time (error: %s)", err)
 	}
 
 	return t
