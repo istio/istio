@@ -28,32 +28,3 @@ rules:
           service: api.name | "unknown"
           method: api.method | "unknown"
           response_code: response.http.code | 200
-  - kind: access-logs
-    params:
-      logName: "access_log"
-      log:
-        logFormat: COMMON
-        templateExpressions:
-           originIp: origin.ip
-           source_user: origin.user
-           timestamp: request.time
-           # TODO: remove this OR when the proxy has implemented support for the request.method attribute
-           method: request.method | ""
-           url: request.path
-           protocol: request.scheme
-           responseCode: response.code
-           responseSize: response.size
-        labels:
-           originIp: origin.ip
-           source_user: origin.user
-           timestamp: request.time
-           # TODO: remove this OR when the proxy has implemented support for the request.method attribute
-           method: request.method | ""
-           url: request.path
-           protocol: request.scheme
-           responseCode: response.code
-           responseSize: response.size
-  - kind: application-logs
-    params:
-      logName: "mixer_log"
-      logs:
