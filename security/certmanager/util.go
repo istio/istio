@@ -22,9 +22,8 @@ import (
 	"github.com/golang/glog"
 )
 
-// Given the bytes of PEM-encoded certificate and key, parse the bytes into
-// proper Go objects. RSA and ECDSA key algorithm are supported.
-func parsePemEncodedCertificateAndKey(certBytes, keyBytes []byte) (*x509.Certificate, crypto.PrivateKey) {
+// Given a PEM-encoded certificate, construct a `x509.Certificate` object.
+func parsePemEncodedCertificate(certBytes []byte) *x509.Certificate {
 	cb, _ := pem.Decode(certBytes)
 	if cb == nil {
 		glog.Fatalf("Invalid PEM encoding for the certificate: %s", certBytes)
@@ -33,28 +32,33 @@ func parsePemEncodedCertificateAndKey(certBytes, keyBytes []byte) (*x509.Certifi
 	if err != nil {
 		glog.Fatalf("Failed to parse X.509 certificate (error: %s)", err)
 	}
+	return cert
+}
 
+// Given a PEM-encoded key, parse the bytes into a `crypto.PrivateKey`
+// according to the provided `x509.PublicKeyAlgorithm`.
+func parsePemEncodedKey(algo x509.PublicKeyAlgorithm, keyBytes []byte) crypto.PrivateKey {
 	kb, _ := pem.Decode(keyBytes)
 	if kb == nil {
 		glog.Fatalf("Invalid PEM encoding for the key: %s", keyBytes)
 	}
 
-	var key crypto.PrivateKey
-
-	switch cert.PublicKeyAlgorithm {
+	switch algo {
 	case x509.RSA:
-		key, err = x509.ParsePKCS1PrivateKey(kb.Bytes)
+		key, err := x509.ParsePKCS1PrivateKey(kb.Bytes)
 		if err != nil {
 			glog.Fatalf("Failed to parse the RSA private key (error: %s)", err)
 		}
+		return key
 	case x509.ECDSA:
-		key, err = x509.ParseECPrivateKey(kb.Bytes)
+		key, err := x509.ParseECPrivateKey(kb.Bytes)
 		if err != nil {
 			glog.Fatalf("Failed to parse the ECDSA private key (error: %s)", err)
 		}
+		return key
 	default:
-		glog.Fatalf("Unknown public key algorithm: %d", cert.PublicKeyAlgorithm)
+		glog.Fatalf("Unknown public key algorithm: %d", algo)
 	}
 
-	return cert, key
+	return nil
 }

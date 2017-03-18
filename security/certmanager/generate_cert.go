@@ -123,7 +123,10 @@ func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x5
 		log.Fatalf("Reading private key file failed with error %s.", err)
 	}
 
-	return parsePemEncodedCertificateAndKey(signerCertBytes, signerPrivBytes)
+	cert := parsePemEncodedCertificate(signerCertBytes)
+	key := parsePemEncodedKey(cert.PublicKeyAlgorithm, signerPrivBytes)
+
+	return cert, key
 }
 
 func genSerialNum() *big.Int {
