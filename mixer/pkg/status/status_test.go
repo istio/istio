@@ -18,7 +18,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/gogo/protobuf/proto"
 	rpc "github.com/googleapis/googleapis/google/rpc"
+	"github.com/hashicorp/go-multierror"
 )
 
 func TestStatus(t *testing.T) {
@@ -70,4 +72,39 @@ func TestStatus(t *testing.T) {
 	if s.Code != int32(rpc.DEADLINE_EXCEEDED) || s.Message != "Aborted!" {
 		t.Errorf("Got %v %v, expected rpc.DEADLINE_EXCEEDED Aborted!", s.Code, s.Message)
 	}
+
+	s = InvalidWithDetails("Invalid", NewBadRequest("test", errors.New("error")))
+	if s.Code != int32(rpc.INVALID_ARGUMENT) && s.Message != "Invalid" && len(s.Details) != 1 {
+		t.Errorf("Got %v, expected status with code = rpc.INVALID_ARGUMENT and populated details", s)
+	}
+}
+
+func TestNewBadRequest(t *testing.T) {
+	me := multierror.Append(errors.New("error one"), errors.New("error two"))
+
+	cases := []struct {
+		name  string
+		field string
+		err   error
+		want  *rpc.BadRequest
+	}{
+		{"simple error", "field", errors.New("error"), newBadReq(newViolation("field", "error"))},
+		{"go-multierror", "field", me, newBadReq(newViolation("field", "error one"), newViolation("field", "error two"))},
+	}
+	for _, v := range cases {
+		t.Run(v.name, func(t *testing.T) {
+			got := NewBadRequest(v.field, v.err)
+			if !proto.Equal(got, v.want) {
+				t.Fatalf("Got %v, want %v", got, v.want)
+			}
+		})
+	}
+}
+
+func newViolation(field, desc string) *rpc.BadRequest_FieldViolation {
+	return &rpc.BadRequest_FieldViolation{Field: field, Description: desc}
+}
+
+func newBadReq(violations ...*rpc.BadRequest_FieldViolation) *rpc.BadRequest {
+	return &rpc.BadRequest{FieldViolations: violations}
 }

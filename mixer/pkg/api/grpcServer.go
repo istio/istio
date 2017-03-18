@@ -27,7 +27,6 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"sync"
 
@@ -102,9 +101,10 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 
 		bag, err := tracker.ApplyAttributes(attrs)
 		if err != nil {
-			msg := fmt.Sprintf("Unable to process attribute update: %v", err)
-			glog.Error(msg)
-			*result = status.WithInvalidArgument(msg)
+			msg := "Request could not be processed due to invalid 'attribute_update'."
+			glog.Error(msg, "\n", err)
+			details := status.NewBadRequest("attribute_update", err)
+			*result = status.InvalidWithDetails(msg, details)
 
 			sendLock.Lock()
 			err = s.sendMsg(stream, response)

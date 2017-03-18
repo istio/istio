@@ -399,6 +399,9 @@ func TestBadAttr(t *testing.T) {
 		if response.Result.Code != int32(rpc.INVALID_ARGUMENT) {
 			t.Errorf("Got result %d, expecting %d", response.Result.Code, rpc.INVALID_ARGUMENT)
 		}
+		if response.Result.Details == nil {
+			t.Errorf("No details supplied in response: %v", response.Result)
+		}
 	}
 
 	wg := sync.WaitGroup{}
