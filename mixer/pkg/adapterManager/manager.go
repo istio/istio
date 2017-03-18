@@ -129,9 +129,10 @@ func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs at
 
 	// schedule all the work that needs to happen
 	for _, cfg := range cfgs {
+		c := cfg // ensure proper capture in the worker func below
 		m.gp.ScheduleWork(func() {
-			out := m.execute(ctx, cfg, attrs, ma)
-			resultChan <- result{cfg, out}
+			out := m.execute(ctx, c, attrs, ma)
+			resultChan <- result{c, out}
 		})
 	}
 
