@@ -51,6 +51,9 @@ $ cp istioctl-osx /usr/local/bin/istioctl
    
    This command launches the Istio manager, mixer, and an envoy-based ingress controller, which will be used
    to implement the gateway for the application. 
+   
+   **Note:** If you have a load balancer attached to the Ingress
+   controller, change the ingress controller service type from NodePort to LoadBalancer accordingly.
 
 1. Bring up the application containers:
 
