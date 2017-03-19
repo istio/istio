@@ -8,7 +8,7 @@ metadata:
   labels:
     infra: istio-ingress-controller
 spec:
-  type: LoadBalancer
+  type: NodePort
   ports:
   - port: 80
     nodePort: 32000
