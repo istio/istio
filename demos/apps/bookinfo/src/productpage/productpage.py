@@ -28,25 +28,25 @@ from flask_bootstrap import Bootstrap
 Bootstrap(app)
 
 details = {
-    "name" : "http://details.default.svc:9080",
+    "name" : "http://details:9080",
     "endpoint" : "details",
     "children" : []
 }
 
 ratings = {
-    "name" : "http://ratings.default.svc:9080",
+    "name" : "http://ratings:9080",
     "endpoint" : "ratings",
     "children" : []
 }
 
 reviews = {
-    "name" : "http://reviews.default.svc:9080",
+    "name" : "http://reviews:9080",
     "endpoint" : "reviews",
     "children" : [ratings]
 }
 
 productpage = {
-    "name" : "http://productpage.default.svc:9080",
+    "name" : "http://productpage:9080",
     "endpoint" : "details",
     "children" : [details, reviews]
 }
