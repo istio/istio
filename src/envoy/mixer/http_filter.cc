@@ -156,11 +156,14 @@ class Instance : public Http::StreamDecoderFilter,
 
   // mixer control switch (off by default)
   bool mixer_disabled() {
-    auto route = decoder_callbacks_->route()->routeEntry();
+    auto route = decoder_callbacks_->route();
     if (route != nullptr) {
-      auto key = route->opaqueConfig().find(kJsonNameMixerSwitch);
-      if (key != route->opaqueConfig().end() && key->second == "on") {
-        return false;
+      auto entry = route->routeEntry();
+      if (entry != nullptr) {
+        auto key = entry->opaqueConfig().find(kJsonNameMixerSwitch);
+        if (key != entry->opaqueConfig().end() && key->second == "on") {
+          return false;
+        }
       }
     }
     return true;
@@ -168,11 +171,14 @@ class Instance : public Http::StreamDecoderFilter,
 
   // attribute forward switch (on by default)
   bool forward_disabled() {
-    auto route = decoder_callbacks_->route()->routeEntry();
+    auto route = decoder_callbacks_->route();
     if (route != nullptr) {
-      auto key = route->opaqueConfig().find(kJsonNameForwardSwitch);
-      if (key != route->opaqueConfig().end() && key->second == "off") {
-        return true;
+      auto entry = route->routeEntry();
+      if (entry != nullptr) {
+        auto key = entry->opaqueConfig().find(kJsonNameForwardSwitch);
+        if (key != entry->opaqueConfig().end() && key->second == "off") {
+          return true;
+        }
       }
     }
     return false;
