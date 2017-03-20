@@ -112,7 +112,7 @@ func TestTracker_ApplyAttributes(t *testing.T) {
 	}
 
 	oldDict := tracker.currentDictionary
-	oldBag := copyBag(tracker.contexts[0])
+	oldBag := CopyBag(tracker.contexts[0])
 
 	_, err = tracker.ApplyAttributes(&attr2)
 	if err == nil {
@@ -128,7 +128,7 @@ func TestTracker_ApplyAttributes(t *testing.T) {
 		t.Error("Expecting bags to be consistent, they're different")
 	}
 
-	cp := copyBag(oldBag)
+	cp := CopyBag(oldBag)
 	if !compareBags(oldBag, cp) {
 		t.Error("Expecting copied bag to match original")
 	}
