@@ -16,6 +16,7 @@ package tracing
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	ot "github.com/opentracing/opentracing-go"
@@ -111,6 +112,17 @@ func TestPropagateSpan(t *testing.T) {
 	if mockCtx.SpanID != mockSpan.SpanContext.SpanID {
 		t.Errorf("tracer.Extract(...).SpanID = '%d'; want %v; ctx was %v", mockSpan.SpanContext.SpanID, mockCtx.SpanID, ctx)
 	}
+}
+
+func TestPropagateSpanError(t *testing.T) {
+	tracer := NewTracer(mocktracer.New())
+	tracer.inject = func(sm ot.SpanContext, format interface{}, carrier interface{}) error {
+		return errors.New("error")
+	}
+	span := tracer.StartSpan("first")
+	_, _ = tracer.PropagateSpan(context.Background(), span)
+
+	// yay, we didn't crash!
 }
 
 func TestDisabledTracer(t *testing.T) {

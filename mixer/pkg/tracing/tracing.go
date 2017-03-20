@@ -67,16 +67,27 @@ type Tracer struct {
 	ot.Tracer
 
 	enabled bool
+
+	// this indirection exists strictly to enable error injection
+	inject func(sm ot.SpanContext, format interface{}, carrier interface{}) error
 }
 
 // NewTracer wraps the provided tracer and enables tracing.
 func NewTracer(tracer ot.Tracer) Tracer {
-	return Tracer{tracer, true}
+	return Tracer{
+		Tracer:  tracer,
+		enabled: true,
+		inject:  tracer.Inject,
+	}
 }
 
 // DisabledTracer disables tracing, letting methods in tracing.go short-circuit.
 func DisabledTracer() Tracer {
-	return Tracer{ot.NoopTracer{}, false}
+	return Tracer{
+		Tracer:  ot.NoopTracer{},
+		enabled: false,
+		inject:  nil,
+	}
 }
 
 // StartRootSpan creates a span that is the root of all Istio spans in the current request context. This span will be a
@@ -118,7 +129,7 @@ func (t *Tracer) PropagateSpan(ctx context.Context, span ot.Span) (metadata.MD, 
 		return md, ctx
 	}
 
-	if err := t.Inject(span.Context(), ot.TextMap, metadataReaderWriter{md}); err != nil {
+	if err := t.inject(span.Context(), ot.TextMap, metadataReaderWriter{md}); err != nil {
 		glog.Warningf("Failed to inject opentracing span state with tracer %v into ctx %v with err %v", t.Tracer, ctx, err)
 	}
 	return md, metadata.NewContext(ctx, md)
