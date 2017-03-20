@@ -14,16 +14,23 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. ${TESTS_DIR}/commonUtils.sh || { echo "Cannot load common utilities"; exit 1; }
+
+K8CLI="kubectl"
+
 # Create a kube namespace to isolate test
 create_namespace(){
     print_block_echo "Creating kube namespace"
-    $K8CLI create namespace $NAMESPACE
+    $K8CLI create namespace $NAMESPACE \
+    || error_exit 'Failed to create namespace'
 }
 
 # Bring up control plane
 deploy_istio() {
     print_block_echo "Deploying ISTIO"
-    $K8CLI -n $NAMESPACE create -f istio/controlplane.yaml
+    $K8CLI -n $NAMESPACE create -f "${TESTS_DIR}/istio/controlplane.yaml" \
+      || error_exit 'Failed to create control plane'
     for (( i=0; i<=19; i++ ))
     do
         ready=$($K8CLI -n $NAMESPACE get pods | awk 'NR>1 {print $1 "\t" $2}' | grep "istio" | grep "1/1" | wc -l)
@@ -42,7 +49,8 @@ deploy_istio() {
 deploy_bookinfo(){
     print_block_echo "Deploying BookInfo to kube"
 
-    $K8CLI -n $NAMESPACE create -f apps/bookinfo/bookinfo.yaml
+    $K8CLI -n $NAMESPACE create -f "${TESTS_DIR}/apps/bookinfo/bookinfo.yaml" \
+      || error_exit 'Failed to deploy bookinfo'
     for (( i=0; i<=49; i++ )) # Has to be this high to prevent flaky tests, caused by kube taking an age pulling images
     do
         ready=$($K8CLI -n $NAMESPACE get pods | awk 'NR>1 {print $1 "\t" $2}' | grep -v "istio" | grep "2/2" | wc -l)
@@ -60,9 +68,9 @@ deploy_bookinfo(){
 # Clean up all the things
 cleanup(){
     print_block_echo "Cleaning up ISTIO"
-    $K8CLI -n $NAMESPACE delete -f istio/controlplane.yaml
+    $K8CLI -n $NAMESPACE delete -f "${TESTS_DIR}/istio/controlplane.yaml"
     print_block_echo "Cleaning up BookInfo"
-    $K8CLI -n $NAMESPACE delete -f apps/bookinfo/bookinfo.yaml
+    $K8CLI -n $NAMESPACE delete -f "${TESTS_DIR}/apps/bookinfo/bookinfo.yaml"
     print_block_echo "Deleting namespace"
     $K8CLI delete namespace $NAMESPACE
 }

@@ -18,18 +18,37 @@
 # Local vars
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 NAMESPACE=$(uuidgen)
-K8CLI="kubectl"
-ISTIOCLI="istioctl"
 RULESDIR=$SCRIPTDIR/apps/bookinfo/rules
 EXAMPLESDIR=$SCRIPTDIR/apps/bookinfo/output
-PASS=true
+FAILURE_COUNT=0
+TEAR_DOWN=true
+
+while getopts :i:sn: arg; do
+  case ${arg} in
+    i) ISTIOCLI="${OPTARG}";;
+    s) TEAR_DOWN=false;;
+    n) NAMESPACE="${OPTARG}";;
+    *) error_exit "Unrecognized argument -${OPTARG}";;
+  esac
+done
+
+[[ -z ${NAMESPACE} ]] && error_exit 'Namespace cannot be empty'
 
 export POD_NAMESPACE=$NAMESPACE
 
 # Import relevant utils
-. $SCRIPTDIR/commonUtils.sh # Must be first for print_block_echo usage in other util files
 . $SCRIPTDIR/kubeUtils.sh
 . $SCRIPTDIR/istioUtils.sh
+
+function tear_down {
+    [[ ${TEAR_DOWN} == false ]] && exit 0
+    # Teardown
+    cleanup_all_rules
+    cleanup
+    revert_rules_namespace # only really needed for local retests...
+}
+
+trap tear_down EXIT
 
 # Setup
 create_namespace
@@ -44,14 +63,14 @@ PORT=$($K8CLI -n $NAMESPACE get services | grep istio-ingress-controller | awk '
 # Verify default routes
 print_block_echo "Testing default route behavior..."
 for (( i=0; i<=4; i++ ))
-do  
+do
     response=$(curl --write-out %{http_code} --silent --output /dev/null http://$GATEWAYIP:$PORT/productpage)
     if [ $response -ne 200 ]
     then
         if [ $i -eq 4 ]
         then
             echo "Failed to resolve default routes"
-            PASS=false
+            ((FAILURE_COUNT++))
             dump_debug
         fi
         echo "Couldn't get to the bookinfo product page, trying again...'"
@@ -77,7 +96,7 @@ test_version_routing_response() {
     compare_output $EXAMPLESDIR/productpage-$USER-$VERSION.html /tmp/productpage-$USER-$VERSION.html $USER
     if [ $? -ne 0 ]
     then
-        PASS=false
+        ((FAILURE_COUNT++))
         dump_debug
     fi
 }
@@ -95,9 +114,9 @@ test_fault_delay() {
     VERSION=$2
     EXP_MIN_DELAY=$3
     EXP_MAX_DELAY=$4
-    
+
     for (( i=0; i<=4; i++ ))
-    do  
+    do
         echo "injecting traffic for user=$USER, expecting productpage-$USER-$VERSION in $EXP_MIN_DELAY to $EXP_MAX_DELAY seconds"
         before=$(date +"%s")
         curl -s -b "foo=bar;user=$USER;" http://$GATEWAYIP:$PORT/productpage > /tmp/productpage-$USER-$VERSION.html
@@ -116,7 +135,7 @@ test_fault_delay() {
         elif [ $i -eq 4 ]
         then
             echo "Productpage took $delta seconds to respond (expected between $EXP_MIN_DELAY and $EXP_MAX_DELAY) for user=$USER in fault injection phase"
-            PASS=false
+            ((FAILURE_COUNT++))
             dump_debug
         fi
         sleep 10
@@ -139,7 +158,7 @@ then
     echo "Fault injection was successfully cleared up"
 else
     echo "Fault injection persisted"
-    PASS=false
+    ((FAILURE_COUNT++))
     dump_debug
 fi
 
@@ -160,16 +179,11 @@ echo "Expected percentage based routing is 50% to v1 and 50% to v3."
 check_routing_rules "$COMMAND_INPUT" "$EXPECTED_OUTPUT1" "$EXPECTED_OUTPUT2" 50
 if [ $? -ne 0 ]
 then
-    PASS=false
+    ((FAILURE_COUNT++))
     dump_debug
 fi
 
-# Teardown
-cleanup_all_rules
-cleanup
-revert_rules_namespace # only really needed for local retests...
-
-if [ $PASS == false ]
+if [ ${FAILURE_COUNT} -gt 0 ]
 then
     echo "ONE OR MORE TESTS HAVE FAILED"
     exit 1

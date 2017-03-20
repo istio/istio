@@ -14,6 +14,12 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+error_exit() {
+    # ${BASH_SOURCE[1]} is the file name of the caller.
+    print_block_echo "${BASH_SOURCE[1]}: line ${BASH_LINENO[0]}: ${1:-Unknown Error.} (exit ${2:-1})" 1>&2
+    exit ${2:-1}
+}
+
 print_block_echo(){
     echo ""
     echo "#################################"
@@ -26,10 +32,10 @@ compare_output() {
     EXPECTED=$1
     RECEIVED=$2
     USER=$3
-    
+
     diff $EXPECTED $RECEIVED #&>/dev/null
     if [ $? -gt 0 ]
-    then   
+    then
         echo "Received product page does not match $EXPECTED for user=$USER"
         return 1
     else
@@ -40,12 +46,16 @@ compare_output() {
 
 modify_rules_namespace(){
     print_block_echo "Modifying rules to match namespace"
-    find $SCRIPTDIR/apps/bookinfo/rules/ -type f -print0 | xargs -0 sed -i "s/_CHANGEME_/$NAMESPACE/g"
+    find $SCRIPTDIR/apps/bookinfo/rules/ -type f -print0 \
+      | xargs -0 sed -i "s/_CHANGEME_/$NAMESPACE/g" \
+      || error_exit 'Could not modify namespace rules'
 }
 
 revert_rules_namespace(){
     print_block_echo "Reverting rules to _CHANGEME_"
-    find $SCRIPTDIR/apps/bookinfo/rules/ -type f -print0 | xargs -0 sed -i "s/$NAMESPACE/_CHANGEME_/g"
+    find $SCRIPTDIR/apps/bookinfo/rules/ -type f -print0 \
+      | xargs -0 sed -i "s/$NAMESPACE/_CHANGEME_/g" \
+      || error_exit 'Could not revert namespace rules'
 }
 
 # Call the specified endpoint and compare against expected output

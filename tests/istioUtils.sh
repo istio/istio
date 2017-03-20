@@ -14,15 +14,21 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TESTS_DIR="${ROOT}/tests"
+. ${TESTS_DIR}/commonUtils.sh || { echo "Cannot load common utilities"; exit 1; }
+
+ISTIOCLI="${ROOT}/demos/istioctl-linux"
+
 create_rule() {
-	$ISTIOCLI -n $NAMESPACE create -f $1
-    return $?
+    $ISTIOCLI -n $NAMESPACE create -f $1 \
+      || error_exit 'Could not create rule'
 }
 
 cleanup_all_rules() {
     print_block_echo "Cleaning up rules"
     $ISTIOCLI -n $NAMESPACE list route-rule | grep "name:" | awk '{print $2}' | xargs istioctl -n $NAMESPACE delete route-rule
-	return $?
+    return $?
 }
 
 delete_rule() {
