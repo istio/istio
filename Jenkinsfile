@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('testutils@stable-838b134')
+@Library('testutils@stable-63c264e')
 
 import org.istio.testutils.Utilities
 import org.istio.testutils.GitUtilities
@@ -12,20 +12,17 @@ def utils = new Utilities()
 def bazel = new Bazel()
 
 mainFlow(utils) {
-  pullRequest(utils) {
-    node {
-      gitUtils.initialize()
-      // Proxy does build work correctly with Hazelcast.
-      // Must use .bazelrc.jenkins
-      bazel.setVars('', '')
-    }
-
-    if (utils.runStage('PRESUBMIT')) {
-      presubmit(gitUtils, bazel)
-    }
-    if (utils.runStage('POSTSUBMIT')) {
-      postsubmit(gitUtils, bazel, utils)
-    }
+  node {
+    gitUtils.initialize()
+    // Proxy does build work correctly with Hazelcast.
+    // Must use .bazelrc.jenkins
+    bazel.setVars('', '')
+  }
+  if (utils.runStage('PRESUBMIT')) {
+    presubmit(gitUtils, bazel)
+  }
+  if (utils.runStage('POSTSUBMIT')) {
+    postsubmit(gitUtils, bazel, utils)
   }
 }
 
