@@ -1,12 +1,6 @@
 # Install Istio on an existing Kubernetes cluster
 
 
-**Optional - Create a Kubernetes namespace and set the current context to use that namespace**
-
-    kubectl create ns <ns>
-    
-    kubectl config set-context `kubectl config view | grep current-context | awk '{print $2}'` --namespace <ns>
-
 **Install Istio core components**
 
     kubectl apply -f ./kubernetes/istio-install
