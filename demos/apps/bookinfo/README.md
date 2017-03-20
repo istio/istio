@@ -42,7 +42,8 @@ $ cp istioctl-osx /usr/local/bin/istioctl
 
 Execute the [Istio installation instructions](../../../kubernetes/README.md) 
 to install the Istio manager, mixer, and an envoy-based ingress controller,
-which will be used to implement the gateway for the application. 
+which will be used to implement the gateway for the application.
+(Note: the current version of the bookinfo application MUST use the `default` Kubernetes namespace.)
 
 # Running the Bookinfo Application
 
