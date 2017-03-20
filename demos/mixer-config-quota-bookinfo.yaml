@@ -28,14 +28,11 @@ data:
     rules:
             #- selector: service.name == “*”
             #- selector: service.name == "myservice"
-    - selector: target.service == "reviews.*"
+    - selector: target.service == "ratings.*"
       aspects:
       - kind: quotas
         params:
     - selector: true
-      aspects:
-      - kind: quotas
-        params:
       - kind: metrics
         adapter: prometheus
         params:
