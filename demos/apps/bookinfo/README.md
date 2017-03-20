@@ -320,7 +320,8 @@ Now we'll pretend that `ratings` is an external service for which we are paying 
 so we will set a rate limit on the service such that the load remains under the Free quota (5q/s):
 
 ```bash
-   $ istioctl create -f mixer-rule-ratings-ratelimit.yaml
+   $ # (TODO) istioctl create -f mixer-rule-ratings-ratelimit.yaml
+   $ kubectl apply -f ../../mixer-config-quota.yaml
 ```
 
 We now generate load on the `productpage` with the following command:
@@ -340,13 +341,8 @@ If you now refresh the `productpage` you'll see that while the load generator is
    $ ./cleanup.sh
    ```
 
-1. Shutdown Istio control plane (optional)
-
-   ```bash
-   $ kubectl delete -f ../../../kubernetes/istio-install
-
-   ```
-
+1. Optionally shut down the control plane services using the cleanup instructions [here](../../../kubernetes/README.md).
+ 
 1. Confirm shutdown
 
    ```bash
