@@ -100,5 +100,5 @@ func (at *tracker) ApplyAttributes(attrs *mixerpb.Attributes) (*MutableBag, erro
 		at.currentDictionary = at.dictionaries.Intern(attrs.Dictionary)
 	}
 
-	return copyBag(mb), nil
+	return CopyBag(mb), nil
 }
