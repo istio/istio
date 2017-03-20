@@ -24,12 +24,6 @@ This application is polyglot, i.e., the microservices are written in
 different languages. All microservices are packaged with an
 Istio sidecar that manages all incoming and outgoing calls for the service.
 
-> Note: the following instructions assume that your current working directory
-> is [demos/apps/bookinfo](..):
-> ```bash
-> cd demos/apps/bookinfo
-> ```
-
 *CLI*: This walkthrough will use the [istioctl](../../../doc/istioctl.md) CLI that provides a
 convenient way to apply routing rules and policies for upstreams. The
 `demos/` directory has three binaries: `istioctl-osx`, `istioctl-windows`,
@@ -41,19 +35,23 @@ rename the tool to `istioctl`. For example:
 $ cp istioctl-osx /usr/local/bin/istioctl
 ```
 
-## Running the Bookinfo Application
+> Note: The following instructions assume your current working directory 
+> is the [istio repo root](https://github.com/istio/istio).
 
-1. Bring up the Istio control plane:
+## Setup
 
+Execute the [Istio installation instructions](../../../kubernetes/README.md) 
+to install the Istio manager, mixer, and an envoy-based ingress controller,
+which will be used to implement the gateway for the application.
+(Note: the current version of the bookinfo application MUST use the `default` Kubernetes namespace.)
+
+# Running the Bookinfo Application
+
+1. Change your current working directory to the bookinfo application directory:
+   
    ```bash
-   $ kubectl apply -f ../../istio
+   cd demos/apps/bookinfo
    ```
-   
-   This command launches the Istio manager, mixer, and an envoy-based ingress controller, which will be used
-   to implement the gateway for the application. 
-   
-   **Note:** If you have a load balancer attached to the Ingress
-   controller, change the ingress controller service type from NodePort to LoadBalancer accordingly.
 
 1. Bring up the application containers:
 
@@ -323,7 +321,8 @@ Now we'll pretend that `ratings` is an external service for which we are paying 
 so we will set a rate limit on the service such that the load remains under the Free quota (5q/s):
 
 ```bash
-   $ istioctl create -f mixer-rule-ratings-ratelimit.yaml
+   $ # (TODO) istioctl create -f mixer-rule-ratings-ratelimit.yaml
+   $ kubectl apply -f ../../mixer-config-quota.yaml
 ```
 
 We now generate load on the `productpage` with the following command:
@@ -343,10 +342,12 @@ If you now refresh the `productpage` you'll see that while the load generator is
    $ ./cleanup.sh
    ```
 
+1. Optionally shut down the control plane services using the cleanup instructions [here](../../../kubernetes/README.md).
+ 
 1. Confirm shutdown
 
    ```bash
    $ istioctl list route-rule   #-- there should be no more routing rules
-   $ kubectl get pods           #-- the bookinfo and control plane services should be deleted
+   $ kubectl get pods           #-- the bookinfo, and (optionally) control plane services, should be deleted
    No resources found.
    ```
