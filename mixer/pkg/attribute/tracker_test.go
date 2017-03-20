@@ -66,14 +66,14 @@ func BenchmarkTracker(b *testing.B) {
 		t := am.NewTracker()
 
 		for _, a := range attrs {
-			b, _ := t.ApplyAttributes(&a)
+			b, _ := t.ApplyRequestAttributes(&a)
 
 			_, _ = b.Get("a")
 		}
 	}
 }
 
-func TestTracker_ApplyAttributes(t *testing.T) {
+func TestTracker_ApplyRequestAttributes(t *testing.T) {
 	t9 := time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
 	t10 := time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
 	d := time.Duration(42) * time.Second
@@ -106,25 +106,25 @@ func TestTracker_ApplyAttributes(t *testing.T) {
 	}
 
 	tracker := NewManager().NewTracker().(*tracker)
-	_, err := tracker.ApplyAttributes(&attr1)
+	_, err := tracker.ApplyRequestAttributes(&attr1)
 	if err != nil {
 		t.Errorf("Expecting success, got %v", err)
 	}
 
-	oldDict := tracker.currentDictionary
-	oldBag := CopyBag(tracker.contexts[0])
+	oldDict := tracker.currentRequestDictionary
+	oldBag := CopyBag(tracker.requestContexts[0])
 
-	_, err = tracker.ApplyAttributes(&attr2)
+	_, err = tracker.ApplyRequestAttributes(&attr2)
 	if err == nil {
 		t.Error("Expecting failure, got success")
 	}
 
 	// make sure nothing has changed due to the second failed attribute update
-	if !compareDictionaries(oldDict, tracker.currentDictionary) {
+	if !compareDictionaries(oldDict, tracker.currentRequestDictionary) {
 		t.Error("Expected dictionaries to be consistent, they're different")
 	}
 
-	if !compareBags(oldBag, tracker.contexts[0]) {
+	if !compareBags(oldBag, tracker.requestContexts[0]) {
 		t.Error("Expecting bags to be consistent, they're different")
 	}
 

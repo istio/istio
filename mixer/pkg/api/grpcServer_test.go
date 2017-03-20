@@ -117,17 +117,20 @@ func (ts *testState) cleanupTestState() {
 	ts.deleteGRPCServer()
 }
 
-func (ts *testState) Check(ctx context.Context, bag *attribute.MutableBag, request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
+func (ts *testState) Check(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag,
+	request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	response.RequestIndex = request.RequestIndex
 	response.Result = status.New(rpc.UNIMPLEMENTED)
 }
 
-func (ts *testState) Report(ctx context.Context, bag *attribute.MutableBag, request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
+func (ts *testState) Report(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag,
+	request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 	response.RequestIndex = request.RequestIndex
 	response.Result = status.New(rpc.UNIMPLEMENTED)
 }
 
-func (ts *testState) Quota(ctx context.Context, bag *attribute.MutableBag, request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
+func (ts *testState) Quota(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag,
+	request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
 	response.RequestIndex = request.RequestIndex
 	response.Result = status.New(rpc.UNIMPLEMENTED)
 	response.Amount = 0

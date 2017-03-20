@@ -21,7 +21,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/attribute"
 	pb "istio.io/mixer/pkg/config/proto"
 )
@@ -105,10 +104,7 @@ func TestRuntime(t *testing.T) {
 		numAspects: 1,
 	}
 
-	bag, err := attribute.NewManager().NewTracker().ApplyAttributes(&mixerpb.Attributes{})
-	if err != nil {
-		t.Error("Unable to get attribute bag")
-	}
+	bag := attribute.GetMutableBag(nil)
 
 	for idx, tt := range table {
 		fe := &trueEval{tt.err, tt.ncalls, tt.ret}

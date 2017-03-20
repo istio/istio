@@ -26,7 +26,7 @@ import (
 // mixer. The instance tracks a current dictionary along with a set of
 // attribute contexts.
 type Tracker interface {
-	// ApplyAttributes refreshes the set of attributes tracked based on an incoming proto.
+	// ApplyRequestAttributes refreshes the set of input attributes tracked based on an incoming proto.
 	//
 	// This returns a Bag that can be used to query and update the current
 	// set of attributes.
@@ -34,7 +34,10 @@ type Tracker interface {
 	// If this returns a non-nil error, it indicates there was a problem in the
 	// supplied Attributes proto. When this happens, none of the tracked attribute
 	// state will have been affected.
-	ApplyAttributes(attrs *mixerpb.Attributes) (*MutableBag, error)
+	ApplyRequestAttributes(attrs *mixerpb.Attributes) (*MutableBag, error)
+
+	// GetResponseAttributes refreshes the set of output attributes tracked for outgoing communication.
+	GetResponseAttributes(bag *MutableBag, output *mixerpb.Attributes)
 
 	// Done indicates the tracker can be reclaimed.
 	Done()
@@ -43,17 +46,17 @@ type Tracker interface {
 type tracker struct {
 	dictionaries *dictionaries
 
-	// all active attribute contexts
-	contexts map[int32]*MutableBag
+	// all active request (incoming) attribute contexts
+	requestContexts map[int32]*MutableBag
 
-	// the current live dictionary
-	currentDictionary dictionary
+	// the current live request (incoming) dictionary
+	currentRequestDictionary dictionary
 }
 
 var trackers = sync.Pool{
 	New: func() interface{} {
 		return &tracker{
-			contexts: make(map[int32]*MutableBag),
+			requestContexts: make(map[int32]*MutableBag),
 		}
 	},
 }
@@ -65,27 +68,27 @@ func getTracker(dictionaries *dictionaries) *tracker {
 }
 
 func (at *tracker) Done() {
-	for k, rb := range at.contexts {
+	for k, rb := range at.requestContexts {
 		rb.Done()
-		delete(at.contexts, k)
+		delete(at.requestContexts, k)
 	}
 
-	at.dictionaries.Release(at.currentDictionary)
-	at.currentDictionary = nil
+	at.dictionaries.Release(at.currentRequestDictionary)
+	at.currentRequestDictionary = nil
 	at.dictionaries = nil
 
 	trackers.Put(at)
 }
 
-func (at *tracker) ApplyAttributes(attrs *mixerpb.Attributes) (*MutableBag, error) {
+func (at *tracker) ApplyRequestAttributes(attrs *mixerpb.Attributes) (*MutableBag, error) {
 	// find the context or create it if needed
-	mb := at.contexts[attrs.AttributeContext]
+	mb := at.requestContexts[attrs.AttributeContext]
 	if mb == nil {
-		mb = getMutableBag(nil)
-		at.contexts[attrs.AttributeContext] = mb
+		mb = GetMutableBag(nil)
+		at.requestContexts[attrs.AttributeContext] = mb
 	}
 
-	dict := at.currentDictionary
+	dict := at.currentRequestDictionary
 	if len(attrs.Dictionary) > 0 {
 		dict = attrs.Dictionary
 	}
@@ -96,9 +99,13 @@ func (at *tracker) ApplyAttributes(attrs *mixerpb.Attributes) (*MutableBag, erro
 
 	// remember any new dictionary for later
 	if len(attrs.Dictionary) > 0 {
-		at.dictionaries.Release(at.currentDictionary)
-		at.currentDictionary = at.dictionaries.Intern(attrs.Dictionary)
+		at.dictionaries.Release(at.currentRequestDictionary)
+		at.currentRequestDictionary = at.dictionaries.Intern(attrs.Dictionary)
 	}
 
 	return CopyBag(mb), nil
+}
+
+func (at *tracker) GetResponseAttributes(bag *MutableBag, output *mixerpb.Attributes) {
+	// TODO: fill in!
 }

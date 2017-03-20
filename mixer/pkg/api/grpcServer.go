@@ -70,8 +70,9 @@ func NewGRPCServer(handlers Handler, tracer tracing.Tracer, gp *pool.GoroutinePo
 // dispatcher does all the nitty-gritty details of handling the mixer's low-level API
 // protocol and dispatching to the right API handler.
 func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
-	getState func() (request proto.Message, response proto.Message, requestAttrs *mixerpb.Attributes, result *rpc.Status),
-	worker func(context.Context, *attribute.MutableBag, proto.Message, proto.Message)) error {
+	getState func() (request proto.Message, response proto.Message, requestAttrs *mixerpb.Attributes, responseAttrs *mixerpb.Attributes, result *rpc.Status),
+	worker func(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+		request proto.Message, response proto.Message)) error {
 
 	// tracks attribute state for this stream
 	tracker := s.attrMgr.NewTracker()
@@ -88,7 +89,7 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 	defer wg.Wait()
 
 	for {
-		request, response, attrs, result := getState()
+		request, response, requestAttrs, responseAttrs, result := getState()
 
 		// get a single message
 		err := stream.RecvMsg(request)
@@ -99,7 +100,7 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 			return err
 		}
 
-		bag, err := tracker.ApplyAttributes(attrs)
+		requestBag, err := tracker.ApplyRequestAttributes(requestAttrs)
 		if err != nil {
 			msg := "Request could not be processed due to invalid 'attribute_update'."
 			glog.Error(msg, "\n", err)
@@ -123,10 +124,13 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 			span, ctx2 := s.tracer.StartSpanFromContext(ctx, "RequestProcessing")
 			span.LogFields(log.Object("gRPC request", request))
 
+			responseBag := attribute.GetMutableBag(nil)
+
 			// do the actual work for the message
-			worker(ctx2, bag, request, response)
+			worker(ctx2, requestBag, responseBag, request, response)
 
 			sendLock.Lock()
+			tracker.GetResponseAttributes(responseBag, responseAttrs)
 			err := s.sendMsg(stream, response)
 			sendLock.Unlock()
 
@@ -134,7 +138,8 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 				glog.Errorf("Unable to send gRPC response message: %v", err)
 			}
 
-			bag.Done()
+			requestBag.Done()
+			responseBag.Done()
 
 			span.LogFields(log.Object("gRPC response", response))
 			span.Finish()
@@ -147,38 +152,41 @@ func (s *grpcServer) dispatcher(stream grpc.Stream, methodName string,
 // Check is the entry point for the external Check method
 func (s *grpcServer) Check(stream mixerpb.Mixer_CheckServer) error {
 	return s.dispatcher(stream, "/istio.mixer.v1.Mixer/Check",
-		func() (proto.Message, proto.Message, *mixerpb.Attributes, *rpc.Status) {
+		func() (proto.Message, proto.Message, *mixerpb.Attributes, *mixerpb.Attributes, *rpc.Status) {
 			request := &mixerpb.CheckRequest{}
 			response := &mixerpb.CheckResponse{}
-			return request, response, &request.AttributeUpdate, &response.Result
+			response.AttributeUpdate = &mixerpb.Attributes{}
+			return request, response, &request.AttributeUpdate, response.AttributeUpdate, &response.Result
 		},
-		func(ctx context.Context, bag *attribute.MutableBag, request proto.Message, response proto.Message) {
-			s.handlers.Check(ctx, bag, request.(*mixerpb.CheckRequest), response.(*mixerpb.CheckResponse))
+		func(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag, request proto.Message, response proto.Message) {
+			s.handlers.Check(ctx, requestBag, responseBag, request.(*mixerpb.CheckRequest), response.(*mixerpb.CheckResponse))
 		})
 }
 
 // Report is the entry point for the external Report method
 func (s *grpcServer) Report(stream mixerpb.Mixer_ReportServer) error {
 	return s.dispatcher(stream, "/istio.mixer.v1.Mixer/Report",
-		func() (proto.Message, proto.Message, *mixerpb.Attributes, *rpc.Status) {
+		func() (proto.Message, proto.Message, *mixerpb.Attributes, *mixerpb.Attributes, *rpc.Status) {
 			request := &mixerpb.ReportRequest{}
 			response := &mixerpb.ReportResponse{}
-			return request, response, &request.AttributeUpdate, &response.Result
+			response.AttributeUpdate = &mixerpb.Attributes{}
+			return request, response, &request.AttributeUpdate, response.AttributeUpdate, &response.Result
 		},
-		func(ctx context.Context, bag *attribute.MutableBag, request proto.Message, response proto.Message) {
-			s.handlers.Report(ctx, bag, request.(*mixerpb.ReportRequest), response.(*mixerpb.ReportResponse))
+		func(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag, request proto.Message, response proto.Message) {
+			s.handlers.Report(ctx, requestBag, responseBag, request.(*mixerpb.ReportRequest), response.(*mixerpb.ReportResponse))
 		})
 }
 
 // Quota is the entry point for the external Quota method
 func (s *grpcServer) Quota(stream mixerpb.Mixer_QuotaServer) error {
 	return s.dispatcher(stream, "/istio.mixer.v1.Mixer/Quota",
-		func() (proto.Message, proto.Message, *mixerpb.Attributes, *rpc.Status) {
+		func() (proto.Message, proto.Message, *mixerpb.Attributes, *mixerpb.Attributes, *rpc.Status) {
 			request := &mixerpb.QuotaRequest{}
 			response := &mixerpb.QuotaResponse{}
-			return request, response, &request.AttributeUpdate, &response.Result
+			response.AttributeUpdate = &mixerpb.Attributes{}
+			return request, response, &request.AttributeUpdate, response.AttributeUpdate, &response.Result
 		},
-		func(ctx context.Context, bag *attribute.MutableBag, request proto.Message, response proto.Message) {
-			s.handlers.Quota(ctx, bag, request.(*mixerpb.QuotaRequest), response.(*mixerpb.QuotaResponse))
+		func(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag, request proto.Message, response proto.Message) {
+			s.handlers.Quota(ctx, requestBag, responseBag, request.(*mixerpb.QuotaRequest), response.(*mixerpb.QuotaResponse))
 		})
 }
