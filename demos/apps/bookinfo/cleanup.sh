@@ -25,5 +25,3 @@ istioctl delete route-rule ratings-test-delay
 #istioctl delete mixer-rule ratings-ratelimit
 
 kubectl delete -f $SCRIPTDIR/bookinfo-istio.yaml
-kubectl delete -f $SCRIPTDIR/../../ingress-controller.yaml
-kubectl delete -f $SCRIPTDIR/../../../kubernetes/istio-install
