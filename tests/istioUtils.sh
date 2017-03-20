@@ -20,18 +20,18 @@ TESTS_DIR="${ROOT}/tests"
 
 ISTIOCLI="${ROOT}/demos/istioctl-linux"
 
-create_rule() {
+function create_rule() {
     $ISTIOCLI -n $NAMESPACE create -f $1 \
       || error_exit 'Could not create rule'
 }
 
-cleanup_all_rules() {
+function cleanup_all_rules() {
     print_block_echo "Cleaning up rules"
     $ISTIOCLI -n $NAMESPACE list route-rule | grep "name:" | awk '{print $2}' | xargs istioctl -n $NAMESPACE delete route-rule
     return $?
 }
 
-delete_rule() {
+function delete_rule() {
     $ISTIOCLI -n $NAMESPACE delete -f $1
     return $?
 }

@@ -55,16 +55,17 @@ create_namespace
 modify_rules_namespace
 deploy_istio
 deploy_bookinfo
-
 # Get gateway IP and port
-GATEWAYIP=$($K8CLI -n $NAMESPACE describe pod $($K8CLI -n $NAMESPACE get pods | awk 'NR>1 {print $1}' | grep istio-ingress-controller) | grep Node | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b")
-PORT=$($K8CLI -n $NAMESPACE get services | grep istio-ingress-controller | awk '{print $4}' | grep -oE 3[0-9]{4})
+GATEWAY_IP="$(${K8CLI} get ingress gateway -n ${NAMESPACE} \
+  -o jsonpath='{.status.loadBalancer.ingress[*].ip}')" \
+  || error_exit "Cannot get ingress ip."
+URL="http://${GATEWAY_IP}"
 
 # Verify default routes
-print_block_echo "Testing default route behavior..."
+print_block_echo "Testing default route behavior on ${URL} ..."
 for (( i=0; i<=4; i++ ))
 do
-    response=$(curl --write-out %{http_code} --silent --output /dev/null http://$GATEWAYIP:$PORT/productpage)
+    response=$(curl --write-out %{http_code} --silent --output /dev/null ${URL}/productpage)
     if [ $response -ne 200 ]
     then
         if [ $i -eq 4 ]
@@ -88,11 +89,11 @@ create_rule $RULESDIR/route-rule-reviews-test-v2.yaml
 echo "Waiting for rules to propagate..."
 sleep 30
 
-test_version_routing_response() {
+function test_version_routing_response() {
     USER=$1
     VERSION=$2
     echo "injecting traffic for user=$USER, expecting productpage-$USER-$VERSION..."
-    curl -s -b "foo=bar;user=$USER;" http://$GATEWAYIP:$PORT/productpage > /tmp/productpage-$USER-$VERSION.html
+    curl -s -b "foo=bar;user=$USER;" ${URL}/productpage > /tmp/productpage-$USER-$VERSION.html
     compare_output $EXAMPLESDIR/productpage-$USER-$VERSION.html /tmp/productpage-$USER-$VERSION.html $USER
     if [ $? -ne 0 ]
     then
@@ -109,7 +110,7 @@ print_block_echo "Testing fault injection..."
 
 create_rule $RULESDIR/route-rule-delay.yaml
 
-test_fault_delay() {
+function test_fault_delay() {
     USER=$1
     VERSION=$2
     EXP_MIN_DELAY=$3
@@ -119,7 +120,7 @@ test_fault_delay() {
     do
         echo "injecting traffic for user=$USER, expecting productpage-$USER-$VERSION in $EXP_MIN_DELAY to $EXP_MAX_DELAY seconds"
         before=$(date +"%s")
-        curl -s -b "foo=bar;user=$USER;" http://$GATEWAYIP:$PORT/productpage > /tmp/productpage-$USER-$VERSION.html
+        curl -s -b "foo=bar;user=$USER;" ${URL}/productpage > /tmp/productpage-$USER-$VERSION.html
         after=$(date +"%s")
         delta=$(($after-$before))
         if [ $delta -ge $EXP_MIN_DELAY ] && [ $delta -le $EXP_MAX_DELAY ]
@@ -166,7 +167,7 @@ fi
 cleanup_all_rules
 print_block_echo "Testing gradual migration..."
 
-COMMAND_INPUT="curl -s -b 'foo=bar;user=normal-user;' http://$GATEWAYIP:$PORT/productpage"
+COMMAND_INPUT="curl -s -b 'foo=bar;user=normal-user;' ${URL}/productpage"
 EXPECTED_OUTPUT1="$EXAMPLESDIR/productpage-normal-user-v1.html"
 EXPECTED_OUTPUT2="$EXAMPLESDIR/productpage-normal-user-v3.html"
 create_rule $RULESDIR/route-rule-reviews-50-v3.yaml
