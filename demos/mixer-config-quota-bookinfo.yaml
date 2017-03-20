@@ -33,6 +33,7 @@ data:
       - kind: quotas
         params:
     - selector: true
+      aspects:
       - kind: metrics
         adapter: prometheus
         params:
