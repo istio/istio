@@ -7,11 +7,11 @@
     
     kubectl config set-context `kubectl config view | grep current-context | awk '{print $2}'` --namespace <ns>
 
-**Install Istio core components**
+**Install Istio core microservices**
 
     kubectl apply -f ./kubernetes/istio-install
 
-This will install istio-manager and istio-mixer.
+This will install istio-manager, istio-mixer, istio ingress controller and istio egress controller.
 
     
 **Optional addons - Monitoring with Prometheus, Grafana and Service Graph**
@@ -37,3 +37,10 @@ start kubectl proxy, and edit Grafana's Istio-dashboard to use the proxy. Access
 **Deploy your apps**
 
 Deploy your apps, or try one of the example apps from demos directory. Each app directory contains an associated README.md providing more details.
+
+
+**Optional : uninstall Istio core microservices**
+
+If you wish tu uninstall istio, run the following command:
+
+    kubectl delete -f ./kubernetes/istio-install
