@@ -120,8 +120,13 @@ func newManager(r builderFinder, m map[aspect.Kind]aspect.Manager, exp expr.Eval
 }
 
 // Execute iterates over cfgs and performs the actions described by the combined config using the attribute bag on each config.
-func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) aspect.Output {
+func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined,
+	requestBag *attribute.MutableBag, responseBag *attribute.MutableBag, ma aspect.APIMethodArgs) aspect.Output {
 	numCfgs := len(cfgs)
+
+	// TODO: consider implementing a fast path when there is only a single config.
+	//       we don't need to schedule goroutines, we could use the incoming attribute
+	//       bags without needing children & merging, etc.
 
 	// TODO: look into pooling both result array and channel, they're created per-request and are constant size for cfg lifetime.
 	results := make([]result, numCfgs)
@@ -131,8 +136,13 @@ func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs at
 	for _, cfg := range cfgs {
 		c := cfg // ensure proper capture in the worker func below
 		m.gp.ScheduleWork(func() {
-			out := m.execute(ctx, c, attrs, ma)
-			resultChan <- result{c, out}
+			childRequestBag := requestBag.Child()
+			childResponseBag := responseBag.Child()
+
+			out := m.execute(ctx, c, childRequestBag, childResponseBag, ma)
+			resultChan <- result{c, out, childResponseBag}
+
+			childRequestBag.Done()
 		})
 	}
 
@@ -147,6 +157,21 @@ func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined, attrs at
 		case res := <-resultChan:
 			results[i] = res
 		}
+	}
+
+	// TODO: look into having a pool of these to avoid frequent allocs
+	bags := make([]*attribute.MutableBag, numCfgs)
+	for i, r := range results {
+		bags[i] = r.responseBag
+	}
+
+	if err := responseBag.Merge(bags); err != nil {
+		glog.Errorf("Unable to merge response attributes: %v", err)
+		return aspect.Output{Status: status.WithError(err)}
+	}
+
+	for _, b := range bags {
+		b.Done()
 	}
 
 	return combineResults(results)
@@ -181,12 +206,14 @@ func combineResults(results []result) aspect.Output {
 
 // result holds the values returned by the execution of an adapter
 type result struct {
-	cfg *config.Combined
-	out aspect.Output
+	cfg         *config.Combined
+	out         aspect.Output
+	responseBag *attribute.MutableBag
 }
 
 // execute performs action described in the combined config using the attribute bag
-func (m *Manager) execute(ctx context.Context, cfg *config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) (out aspect.Output) {
+func (m *Manager) execute(ctx context.Context, cfg *config.Combined, requestBag attribute.Bag, responseBag *attribute.MutableBag,
+	ma aspect.APIMethodArgs) (out aspect.Output) {
 	var mgr aspect.Manager
 	var found bool
 
@@ -220,7 +247,7 @@ func (m *Manager) execute(ctx context.Context, cfg *config.Combined, attrs attri
 	// TODO: plumb  ctx through asp.Execute
 	_ = ctx
 	// TODO: act on asp.Output
-	return asp.Execute(attrs, m.mapper, ma)
+	return asp.Execute(requestBag, m.mapper, ma)
 }
 
 // cacheGet gets an aspect wrapper from the cache, use adapter.Manager to construct an object in case of a cache miss

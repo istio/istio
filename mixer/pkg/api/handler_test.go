@@ -45,7 +45,8 @@ type fakeExecutor struct {
 }
 
 // Execute takes a set of configurations and Executes all of them.
-func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*config.Combined, attrs attribute.Bag, ma aspect.APIMethodArgs) aspect.Output {
+func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*config.Combined, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+	ma aspect.APIMethodArgs) aspect.Output {
 	return f.body()
 }
 
@@ -56,15 +57,15 @@ func TestAspectManagerErrorsPropagated(t *testing.T) {
 	h := NewHandler(f, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
 	h.ConfigChange(&fakeresolver{[]*config.Combined{nil, nil}, nil})
 
-	bag, _ := attribute.NewManager().NewTracker().ApplyAttributes(&mixerpb.Attributes{})
-	o := h.execute(context.Background(), bag, aspect.CheckMethod, nil)
+	o := h.execute(context.Background(), attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), aspect.CheckMethod, nil)
 	if o.Status.Code != int32(rpc.INTERNAL) {
 		t.Errorf("execute(..., invalidConfig, ...) returned %v, wanted status with code %v", o.Status, rpc.INTERNAL)
 	}
 }
 
 func TestHandler(t *testing.T) {
-	bag, _ := attribute.NewManager().NewTracker().ApplyAttributes(&mixerpb.Attributes{})
+	bag := attribute.GetMutableBag(nil)
+	output := attribute.GetMutableBag(nil)
 
 	checkReq := &mixerpb.CheckRequest{}
 	checkResp := &mixerpb.CheckResponse{}
@@ -103,9 +104,9 @@ func TestHandler(t *testing.T) {
 			h.ConfigChange(r)
 		}
 
-		h.Check(context.Background(), bag, checkReq, checkResp)
-		h.Report(context.Background(), bag, reportReq, reportResp)
-		h.Quota(context.Background(), bag, quotaReq, quotaResp)
+		h.Check(context.Background(), bag, output, checkReq, checkResp)
+		h.Report(context.Background(), bag, output, reportReq, reportResp)
+		h.Quota(context.Background(), bag, output, quotaReq, quotaResp)
 
 		if checkResp.Result.Code != int32(c.code) || reportResp.Result.Code != int32(c.code) || quotaResp.Result.Code != int32(c.code) {
 			t.Errorf("Expected %v for all responses, got %v, %v, %v", c.code, checkResp.Result.Code, reportResp.Result.Code, quotaResp.Result.Code)
@@ -129,7 +130,7 @@ func TestHandler(t *testing.T) {
 	h.ConfigChange(r)
 
 	// Should succeed
-	h.Quota(context.Background(), bag, quotaReq, quotaResp)
+	h.Quota(context.Background(), bag, output, quotaReq, quotaResp)
 
 	if !status.IsOK(quotaResp.Result) {
 		t.Errorf("Expected successful quota allocation, got %v", quotaResp.Result)

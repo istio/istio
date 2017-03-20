@@ -57,7 +57,7 @@ func TestBag(t *testing.T) {
 	at := am.NewTracker()
 	defer at.Done()
 
-	ab, err := at.ApplyAttributes(&attrs)
+	ab, err := at.ApplyRequestAttributes(&attrs)
 	if err != nil {
 		t.Errorf("Unable to start request: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestStringMapEdgeCase(t *testing.T) {
 	// ensure coverage for some obscure logging paths
 
 	d := dictionary{1: "N1", 2: "N2"}
-	rb := getMutableBag(nil)
+	rb := GetMutableBag(nil)
 	attrs := &mixerpb.Attributes{}
 
 	// empty to non-empty
@@ -145,7 +145,7 @@ func TestStringMapEdgeCase(t *testing.T) {
 
 func TestContext(t *testing.T) {
 	// simple bag
-	b := getMutableBag(nil)
+	b := GetMutableBag(nil)
 	b.Set("42", int64(42))
 
 	// make sure we can store and fetch the bag in a context
@@ -181,14 +181,14 @@ func TestBadStringMapKey(t *testing.T) {
 	at := am.NewTracker()
 	defer at.Done()
 
-	_, err := at.ApplyAttributes(&attr)
+	_, err := at.ApplyRequestAttributes(&attr)
 	if err == nil {
 		t.Error("Successfully updated attributes, expected an error")
 	}
 }
 
 func TestMerge(t *testing.T) {
-	mb := getMutableBag(empty)
+	mb := GetMutableBag(empty)
 
 	c1 := mb.Child()
 	c2 := mb.Child()
@@ -210,7 +210,7 @@ func TestMerge(t *testing.T) {
 }
 
 func TestMergeErrors(t *testing.T) {
-	mb := getMutableBag(empty)
+	mb := GetMutableBag(empty)
 
 	c1 := mb.Child()
 	c2 := mb.Child()
@@ -223,6 +223,20 @@ func TestMergeErrors(t *testing.T) {
 	} else if !strings.Contains(err.Error(), "FOO") {
 		t.Errorf("Expected error to contain the word FOO, got %s", err.Error())
 	}
+}
+
+func TestEmpty(t *testing.T) {
+	b := &emptyBag{}
+
+	if names := b.Names(); len(names) > 0 {
+		t.Errorf("Get len %d, expected 0", len(names))
+	}
+
+	if _, ok := b.Get("XYZ"); ok {
+		t.Errorf("Got true, expected false")
+	}
+
+	b.Done()
 }
 
 func init() {
