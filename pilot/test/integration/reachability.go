@@ -55,6 +55,10 @@ func (r *reachability) run() error {
 		return err
 	}
 
+	if err := r.verifyIngress(); err != nil {
+		return err
+	}
+
 	if glog.V(2) {
 		glog.Infof("requests: %#v", r.accessLogs)
 	}
@@ -251,6 +255,63 @@ func (r *reachability) verifyTCPRouting() error {
 						}
 					}
 				}
+			}
+		}
+	}
+	if params.parallel {
+		if err := g.Wait(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// makeIngressRequest creates a function to make ingress requests; done should return true to quickly exit the
+// retry loop
+func (r *reachability) makeIngressRequest(src, dst string, done func() bool) func() error {
+	return func() error {
+		url := fmt.Sprintf("https://ingress:443/%s", dst)
+		for n := 0; n < budget; n++ {
+			glog.Infof("Making a request %s from %s (attempt %d)...\n", url, src, n)
+			request, err := shell(fmt.Sprintf("kubectl exec %s -n %s -c app -- client -url %s -insecure",
+				pods[src], params.namespace, url))
+			if err != nil {
+				return err
+			}
+			match := regexp.MustCompile("X-Request-Id=(.*)").FindStringSubmatch(request)
+			if len(match) > 1 {
+				id := match[1]
+				glog.V(2).Infof("id=%s\n", id)
+				r.accessMu.Lock()
+				r.accessLogs[dst] = append(r.accessLogs[dst], id)
+				r.accessMu.Unlock()
+				return nil
+			}
+			if done() {
+				return nil
+			}
+		}
+		return fmt.Errorf("failed to inject proxy from %s to %s (url %s)", src, dst, url)
+	}
+}
+
+func (r *reachability) verifyIngress() error {
+	g, ctx := errgroup.WithContext(context.Background())
+	for _, dst := range []string{"a", "b"} {
+		if params.parallel {
+			g.Go(r.makeIngressRequest("t", dst, func() bool {
+				select {
+				case <-time.After(time.Second):
+				// try again
+				case <-ctx.Done():
+					return true
+				}
+				return false
+
+			}))
+		} else {
+			if err := r.makeIngressRequest("t", dst, func() bool { return false })(); err != nil {
+				return err
 			}
 		}
 	}

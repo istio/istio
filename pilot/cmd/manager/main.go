@@ -29,9 +29,10 @@ import (
 )
 
 type args struct {
-	proxy    envoy.MeshConfig
-	identity envoy.ProxyNode
-	sdsPort  int
+	proxy         envoy.MeshConfig
+	identity      envoy.ProxyNode
+	sdsPort       int
+	ingressSecret string
 }
 
 const (
@@ -93,8 +94,11 @@ var (
 			_, err := envoy.NewIngressWatcher(controller,
 				controller,
 				&model.IstioRegistry{ConfigRegistry: controller},
+				cmd.Client.GetKubernetesClient(),
 				&flags.proxy,
-				&flags.identity)
+				&flags.identity,
+				flags.ingressSecret,
+				cmd.RootFlags.Namespace)
 			if err != nil {
 				return err
 			}
@@ -151,6 +155,11 @@ func init() {
 	proxyCmd.AddCommand(sidecarCmd)
 	proxyCmd.AddCommand(ingressCmd)
 	proxyCmd.AddCommand(egressCmd)
+
+	// TODO: remove this once we write the logic to obtain secrets dynamically
+	ingressCmd.PersistentFlags().StringVar(&flags.ingressSecret, "secret",
+		"",
+		"Kubernetes secret name for ingress SSL termination")
 
 	cmd.RootCmd.Use = "manager"
 	cmd.RootCmd.Long = `

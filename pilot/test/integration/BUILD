@@ -23,7 +23,11 @@ go_binary(
     data = [
         "app.yaml.tmpl",
         "app-proxy-manager-agent.yaml.tmpl",
+        "cert.crt",
+        "cert.key",
         "egress-proxy.yaml.tmpl",
+        "ingress.yaml",
+        "ingress-proxy.yaml.tmpl",
         "manager-discovery.yaml.tmpl",
         "mixer.yaml.tmpl",
         "rule-content-route.yaml.tmpl",

@@ -381,8 +381,16 @@ type NetworkFilter struct {
 type Listener struct {
 	Port           int              `json:"port"`
 	Filters        []*NetworkFilter `json:"filters"`
+	SSLContext     *SSLContext      `json:"ssl_context,omitempty"`
 	BindToPort     bool             `json:"bind_to_port"`
 	UseOriginalDst bool             `json:"use_original_dst,omitempty"`
+}
+
+// SSLContext definition
+type SSLContext struct {
+	CertChainFile  string `json:"cert_chain_file"`
+	PrivateKeyFile string `json:"private_key_file"`
+	CACertFile     string `json:"ca_cert_file,omitempty"`
 }
 
 // HTTPRouteConfigs provides routes by virtual host and port

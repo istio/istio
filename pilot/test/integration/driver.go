@@ -39,6 +39,7 @@ const (
 	managerDiscovery     = "manager-discovery"
 	mixer                = "mixer"
 	egressProxy          = "egress-proxy"
+	ingressProxy         = "ingress-proxy"
 	app                  = "app"
 	appProxyManagerAgent = "app-proxy-manager-agent"
 
@@ -124,10 +125,21 @@ func setup() {
 
 	pods = make(map[string]string)
 
+	// setup ingress resources
+	_, err = shell(fmt.Sprintf("kubectl -n %s create secret generic ingress "+
+		"--from-file=tls.key=test/integration/cert.key "+
+		"--from-file=tls.crt=test/integration/cert.crt",
+		params.namespace))
+	check(err)
+
+	_, err = shell(fmt.Sprintf("kubectl -n %s create -f test/integration/ingress.yaml", params.namespace))
+	check(err)
+
 	// deploy istio-infra
 	check(deploy("http-discovery", "http-discovery", managerDiscovery, "8080", "80", "9090", "90", "unversioned"))
 	check(deploy("mixer", "mixer", mixer, "8080", "80", "9090", "90", "unversioned"))
 	check(deploy("istio-egress", "istio-egress", egressProxy, "8080", "80", "9090", "90", "unversioned"))
+	check(deploy("istio-ingress", "istio-ingress", ingressProxy, "8080", "80", "9090", "90", "unversioned"))
 
 	// deploy a healthy mix of apps, with and without proxy
 	check(deploy("t", "t", app, "8080", "80", "9090", "90", "unversioned"))

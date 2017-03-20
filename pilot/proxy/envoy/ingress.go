@@ -27,23 +27,37 @@ import (
 
 	"istio.io/manager/model"
 	"istio.io/manager/model/proxy/alphav1/config"
+
+	"io/ioutil"
+
+	"github.com/hashicorp/errwrap"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/apis/meta/v1"
 )
 
 type ingressWatcher struct {
 	agent     Agent
 	discovery model.ServiceDiscovery
 	registry  *model.IstioRegistry
+	client    *kubernetes.Clientset
+	secret    string
+	namespace string
 	mesh      *MeshConfig
 }
 
 // NewIngressWatcher creates a new ingress watcher instance with an agent
 func NewIngressWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
-	registry *model.IstioRegistry, mesh *MeshConfig, identity *ProxyNode) (Watcher, error) {
+	registry *model.IstioRegistry, client *kubernetes.Clientset, mesh *MeshConfig,
+	identity *ProxyNode, secret, namespace string,
+) (Watcher, error) {
 
 	out := &ingressWatcher{
 		agent:     NewAgent(mesh.BinaryPath, mesh.ConfigPath, identity.Name),
 		discovery: discovery,
 		registry:  registry,
+		client:    client,
+		secret:    secret,
+		namespace: namespace,
 		mesh:      mesh,
 	}
 
@@ -57,10 +71,10 @@ func NewIngressWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 
 	err := ctl.AppendConfigHandler(model.IngressRule,
 		func(model.Key, proto.Message, model.Event) { out.reload() })
-
 	if err != nil {
 		return nil, err
 	}
+
 	return out, nil
 }
 
@@ -135,7 +149,7 @@ func (w *ingressWatcher) generateConfig() (*Config, error) {
 
 	rConfig := &HTTPRouteConfig{VirtualHosts: vhosts}
 
-	httpListener := &Listener{
+	listener := &Listener{
 		Port:       80,
 		BindToPort: true,
 		Filters: []*NetworkFilter{
@@ -159,8 +173,17 @@ func (w *ingressWatcher) generateConfig() (*Config, error) {
 		},
 	}
 
-	// TODO: HTTPS listener
-	listeners := []*Listener{httpListener}
+	// configure for HTTPS if provided with a secret name
+	if w.secret != "" {
+		sslContext, err := w.buildSSLContext(w.secret)
+		if err != nil {
+			return nil, err
+		}
+		listener.Port = 443
+		listener.SSLContext = sslContext
+	}
+
+	listeners := []*Listener{listener}
 	clusters := Clusters(rConfig.filterClusters(func(cl *Cluster) bool { return true })).Normalize()
 
 	return &Config{
@@ -177,7 +200,43 @@ func (w *ingressWatcher) generateConfig() (*Config, error) {
 			},
 		},
 	}, nil
+}
 
+// TODO: with multiple keys/certs, these will have to be dynamic.
+const (
+	certChainFile  = "/etc/envoy/tls.crt"
+	privateKeyFile = "/etc/envoy/tls.key"
+)
+
+func (w *ingressWatcher) buildSSLContext(secret string) (*SSLContext, error) {
+	// TODO: use cache
+	s, err := w.client.Core().Secrets(w.namespace).Get(secret, v1.GetOptions{})
+	if err != nil {
+		return nil, errwrap.Wrap(fmt.Errorf("could not get secret %s", secret), err)
+	}
+
+	cert, exists := s.Data["tls.crt"]
+	if !exists {
+		return nil, fmt.Errorf("could not find tls.crt in secret %s", w.secret)
+	}
+
+	key, exists := s.Data["tls.key"]
+	if !exists {
+		return nil, fmt.Errorf("could not find tls.key in secret %s", w.secret)
+	}
+
+	// Write to files
+	if err = ioutil.WriteFile(certChainFile, cert, 0755); err != nil {
+		return nil, err
+	}
+	if err = ioutil.WriteFile(privateKeyFile, key, 0755); err != nil {
+		return nil, err
+	}
+
+	return &SSLContext{
+		CertChainFile:  certChainFile,
+		PrivateKeyFile: privateKeyFile,
+	}, nil
 }
 
 // buildIngressRoute translates an ingress rule to an Envoy route

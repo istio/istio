@@ -1,0 +1,24 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress
+  annotations:
+    kubernetes.io/ingress.class: "istio"
+spec:
+  tls:
+    - secretName: ingress
+  rules:
+  - http:
+      paths:
+      - path: /a
+        backend:
+          serviceName: a
+          servicePort: 80
+      - path: /b
+        backend:
+          serviceName: b
+          servicePort: 80
+      - path: /hello
+        backend:
+          serviceName: hello
+          servicePort: 8080
