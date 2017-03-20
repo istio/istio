@@ -420,6 +420,12 @@ const char kServiceControlServiceAgent[] =
 const char kServiceControlUserAgent[] =
     "servicecontrol.googleapis.com/user_agent";
 const char kServiceControlPlatform[] = "servicecontrol.googleapis.com/platform";
+const char kServiceControlAndroidPackageName[] =
+    "servicecontrol.googleapis.com/android_package_name";
+const char kServiceControlAndroidCertFingerprint[] =
+    "servicecontrol.googleapis.com/android_cert_fingerprint";
+const char kServiceControlIosBundleId[] =
+    "servicecontrol.googleapis.com/ios_bundle_id";
 
 // User agent label value
 // The value for kUserAgent should be configured at service control server.
@@ -928,6 +934,18 @@ Status Proto::FillCheckRequest(const CheckRequestInfo& info,
   (*labels)[kServiceControlUserAgent] = kUserAgent;
   (*labels)[kServiceControlServiceAgent] =
       kServiceAgentPrefix + utils::Version::instance().get();
+
+  if (!info.android_package_name.empty()) {
+    (*labels)[kServiceControlAndroidPackageName] = info.android_package_name;
+  }
+  if (!info.android_cert_fingerprint.empty()) {
+    (*labels)[kServiceControlAndroidCertFingerprint] =
+        info.android_cert_fingerprint;
+  }
+  if (!info.ios_bundle_id.empty()) {
+    (*labels)[kServiceControlIosBundleId] = info.ios_bundle_id;
+  }
+
   return Status::OK;
 }
 

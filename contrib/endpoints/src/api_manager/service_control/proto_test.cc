@@ -161,6 +161,24 @@ TEST_F(ProtoTest, FillGoodCheckRequestTest) {
   ASSERT_EQ(expected_text, text);
 }
 
+TEST_F(ProtoTest, FillGoodCheckRequestAndroidIosTest) {
+  CheckRequestInfo info;
+  FillOperationInfo(&info);
+  FillCheckRequestInfo(&info);
+
+  info.android_package_name = "com.google.cloud";
+  info.android_cert_fingerprint = "AIzaSyB4Gz8nyaSaWo63IPUcy5d_L8dpKtOTSD0";
+  info.ios_bundle_id = "5b40ad6af9a806305a0a56d7cb91b82a27c26909";
+
+  gasv1::CheckRequest request;
+  ASSERT_TRUE(scp_.FillCheckRequest(info, &request).ok());
+
+  std::string text = CheckRequestToString(&request);
+  std::string expected_text =
+      ReadTestBaseline("check_request_android_ios.golden");
+  ASSERT_EQ(expected_text, text);
+}
+
 TEST_F(ProtoTest, FillNoApiKeyCheckRequestTest) {
   CheckRequestInfo info;
   info.operation_id = "operation_id";

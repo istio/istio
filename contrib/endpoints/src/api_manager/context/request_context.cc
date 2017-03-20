@@ -51,6 +51,16 @@ const char kDefaultApiKeyQueryName1[] = "key";
 const char kDefaultApiKeyQueryName2[] = "api_key";
 const char kDefaultApiKeyHeaderName[] = "x-api-key";
 
+// Header for android package name, used for api key restriction check.
+const char kXAndroidPackage[] = "x-android-package";
+
+// Header for android certificate fingerprint, used for api key restriction
+// check.
+const char kXAndroidCert[] = "x-android-cert";
+
+// Header for IOS bundle identifier, used for api key restriction check.
+const char kXIosBundleId[] = "x-ios-bundle-identifier";
+
 // Default location
 const char kDefaultLocation[] = "us-central1";
 
@@ -225,6 +235,10 @@ void RequestContext::FillCheckRequestInfo(
     service_control::CheckRequestInfo *info) {
   FillOperationInfo(info);
   info->allow_unregistered_calls = method()->allow_unregistered_calls();
+
+  request_->FindHeader(kXAndroidPackage, &info->android_package_name);
+  request_->FindHeader(kXAndroidCert, &info->android_cert_fingerprint);
+  request_->FindHeader(kXIosBundleId, &info->ios_bundle_id);
 }
 
 void RequestContext::FillReportRequestInfo(
