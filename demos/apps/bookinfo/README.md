@@ -24,12 +24,6 @@ This application is polyglot, i.e., the microservices are written in
 different languages. All microservices are packaged with an
 Istio sidecar that manages all incoming and outgoing calls for the service.
 
-> Note: the following instructions assume that your current working directory
-> is [demos/apps/bookinfo](..):
-> ```bash
-> cd demos/apps/bookinfo
-> ```
-
 *CLI*: This walkthrough will use the [istioctl](../../../doc/istioctl.md) CLI that provides a
 convenient way to apply routing rules and policies for upstreams. The
 `demos/` directory has three binaries: `istioctl-osx`, `istioctl-windows`,
@@ -41,19 +35,31 @@ rename the tool to `istioctl`. For example:
 $ cp istioctl-osx /usr/local/bin/istioctl
 ```
 
-## Running the Bookinfo Application
+## Setup
 
-1. Bring up the Istio control plane:
+Execute the following instructions to install the Istio manager, mixer, and an envoy-based
+ingress controller, which will be used to implement the gateway for the application. 
 
+> Note: The following instructions assume your crurrent working directory is the [istio repo root](../../..).
+
+1. Follow the [Instio installation instructions](../../../kubernetes/INSTALL.md) to bring 
+   up the Istio control plane services.  
+
+   > Note: the current version of the bookinfo demo **MUST** run in the `default` Kubernetes namespace.
+
+1. Launch the ingress controller using the following command (TODO: move this to the install addons?):
+   
    ```bash
-   $ kubectl apply -f ../../istio
+   $ kubectl apply -f ./demos/ingress-controller.yaml
    ```
+
+# Running the Bookinfo Application
+
+1. Change your current working directory to [demos/apps/bookinfo](../..):
    
-   This command launches the Istio manager, mixer, and an envoy-based ingress controller, which will be used
-   to implement the gateway for the application. 
-   
-   **Note:** If you have a load balancer attached to the Ingress
-   controller, change the ingress controller service type from NodePort to LoadBalancer accordingly.
+   ```bash
+   cd demos/apps/bookinfo
+   ```
 
 1. Bring up the application containers:
 
