@@ -7,7 +7,7 @@
     
     kubectl config set-context `kubectl config view | grep current-context | awk '{print $2}'` --namespace <ns>
 
-**Install Istio core microservices**
+**Install Istio core services**
 
     kubectl apply -f ./kubernetes/istio-install
 
@@ -39,8 +39,8 @@ start kubectl proxy, and edit Grafana's Istio-dashboard to use the proxy. Access
 Deploy your apps, or try one of the example apps from demos directory. Each app directory contains an associated README.md providing more details.
 
 
-**Optional : uninstall Istio core microservices**
+**Optional cleanup - Uninstall Istio core services**
 
-If you wish tu uninstall istio, run the following command:
+If you wish tu uninstall Istio, run the following command:
 
     kubectl delete -f ./kubernetes/istio-install
