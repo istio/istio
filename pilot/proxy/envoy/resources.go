@@ -41,8 +41,8 @@ var (
 	DefaultMeshConfig = &MeshConfig{
 		DiscoveryAddress: "manager:8080",
 		MixerAddress:     "mixer:9091",
-		ProxyPort:        5001,
-		AdminPort:        5000,
+		ProxyPort:        15001,
+		AdminPort:        15000,
 		BinaryPath:       "/usr/local/bin/envoy",
 		ConfigPath:       "/etc/envoy",
 	}

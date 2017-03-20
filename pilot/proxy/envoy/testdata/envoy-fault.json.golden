@@ -256,7 +256,7 @@
       "bind_to_port": false
     },
     {
-      "port": 5001,
+      "port": 15001,
       "filters": [],
       "bind_to_port": true,
       "use_original_dst": true
@@ -264,7 +264,7 @@
   ],
   "admin": {
     "access_log_path": "/dev/stdout",
-    "port": 5000
+    "port": 15000
   },
   "cluster_manager": {
     "clusters": [

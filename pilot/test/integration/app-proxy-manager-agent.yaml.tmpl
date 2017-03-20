@@ -38,6 +38,7 @@ spec:
           [{
             "name": "iptables",
             "image": "{{.hub}}/init:{{.tag}}",
+            "args": ["-p", "15001", "-u", "1337"],
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
