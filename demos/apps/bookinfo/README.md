@@ -35,22 +35,14 @@ rename the tool to `istioctl`. For example:
 $ cp istioctl-osx /usr/local/bin/istioctl
 ```
 
+> Note: The following instructions assume your current working directory 
+> is the [istio repo root](https://github.com/istio/istio).
+
 ## Setup
 
-Execute the following instructions to install the Istio manager, mixer, and an envoy-based
-ingress controller, which will be used to implement the gateway for the application. 
-
-> Note: The following instructions assume your crurrent working directory is the [istio repo root](https://github.com/istio/istio).
-
-1. Follow the [Instio installation instructions](../../../kubernetes/README.md) to bring 
-   up the Istio control plane services. (Note: no addons are currently needed to run
-   the bookinfo demo.)
-
-1. Launch the ingress controller using the following command (TODO: move this to the install addons?):
-   
-   ```bash
-   $ kubectl apply -f ./demos/ingress-controller.yaml
-   ```
+Execute the [Istio installation instructions](../../../kubernetes/README.md) 
+to install the Istio manager, mixer, and an envoy-based ingress controller,
+which will be used to implement the gateway for the application. 
 
 # Running the Bookinfo Application
 
@@ -348,10 +340,17 @@ If you now refresh the `productpage` you'll see that while the load generator is
    $ ./cleanup.sh
    ```
 
+1. Shutdown Istio control plane (optional)
+
+   ```bash
+   $ kubectl delete -f ../../../kubernetes/istio-install
+
+   ```
+
 1. Confirm shutdown
 
    ```bash
    $ istioctl list route-rule   #-- there should be no more routing rules
-   $ kubectl get pods           #-- the bookinfo and control plane services should be deleted
+   $ kubectl get pods           #-- the bookinfo, and (optionally) control plane services, should be deleted
    No resources found.
    ```
