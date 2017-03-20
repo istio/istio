@@ -8,16 +8,43 @@ A service mesh for polyglot microservices.
 
 ## Introduction
 
-Istio is an open source system providing a uniform way to manage and connect
-microservices. It is composed of:
-*  A proxy handling service-to-service and external-to-service traffic.
-*  A mixer supporting access checks, quota allocation and deallocation,
-monitoring and logging.
-*  A manager handling system configuration, discovery, and automation.
+Istio is an open platform for providing a uniform way to integrate
+microservices, manage traffic flow across microservices, enforce policies
+and aggregate telemetry data. Istio's control plane provides an abstraction
+layer over the underlying cluster management platform, such as Kubernetes,
+Mesos, etc.
 
-The [architectural overview](ARCHITECTURE.md) provides a high-level summary of
-the design. The [milestone plan](MILESTONES.md) gives a rough estimate of 
-what we expect to release and when.
+Istio is composed of three main components:
+
+* **Proxy** - Sidecars per microservice to handle ingress/egress traffic
+   between services in the cluster and from a service to external
+   services. The proxies form a _secure microservice mesh_ providing a rich
+   set of functions like discovery, rich layer-7 routing, circuit breakers,
+   policy enforcement and telemetry recording/reporting
+   functions.
+
+  >  Note: The service mesh is not an overlay network. It
+  >  simplifies and enhances how microservices in an application talk to each
+  >  other over the network provided by the underlying platform.
+
+* **Mixer** - Central component that is leveraged by the proxies and microservices
+   to enforce policies such as ACLs, rate limits, quotas, authentication, request
+   tracing and telemetry collection.
+
+* **Manager** - A component responsible for configuring the
+  proxies and the mixer at runtime.
+
+     
+A high-level overview of Istio's components is available
+[here](doc/overview.md). Istio currently only supports the Kubernetes
+platform, although we plan support for additional platforms such as
+CloudFoundry, and Mesos in the near future. See the
+[getting started](doc/getting-started.md) tutorial for more information on
+using Istio in your Kubernetes deployments.
+
+## Installation
+
+Please refer to [INSTALL.md](INSTALL.md) for detailed steps.
 
 ## Repositories
 
@@ -25,29 +52,35 @@ The Istio project is divided across multiple GitHub repositories. Each
 repository contains information about how to build and test it.
 
 - [istio/api](https://github.com/istio/api). This repository defines
-component-level APIs and common configuration  formats for the Istio platform.
+component-level APIs and common configuration formats for the Istio platform.
 
-- [istio/istio](https://github.com/istio/istio). The main Istio repo which is
-used to host the high-level documentation for the project, along with 
-examples & demos.
+- [istio/istio](README.md). This is the main Istio repo (the one you are
+currently looking at). It hosts the high-level documentation for the
+project, along with [tutorials](doc/getting-started.md) and two demo
+applications: a [basic echo app](demos/apps/simple_echo_app) and a slightly
+more advanced [polyglot application](demos/apps/bookinfo).
 
-- [istio/manager](https://github.com/istio/manager). The Istio manager is 
-used to configure Istio and propagate configuration to the other components 
-of the system, including the Istio mixer and the Istio proxy mesh.
+- [istio/manager](https://github.com/istio/manager). This repository
+contains platform-specific code to populate the
+[abstract service model](doc/model.md), dynamically reconfigure the proxies
+when the application topology changes, as well as translate
+[routing rules](doc/rule-dsl.md) into proxy specific configuration.  The
+[_istioctl_](doc/istioctl.md) command line utility is also available in
+this repository.
 
-- [istio/mixer](https://github.com/istio/mixer). The Istio mixer is the nexus of
-the Istio service mesh. The proxy delegates policy decisions to the mixer, and
-both the proxy and Istio-managed services direct all telemetry data to the
-mixer. The mixer includes a flexible plugin model enabling it to interface to
-a variety of host environments and configured backends, abstracting the 
-proxy and Istio-managed services from these details.
+- [istio/mixer](https://github.com/istio/mixer). This repository 
+contains code to enforce various policies for traffic passing through the
+proxies, and collect telemetry data from proxies and microservices. There
+are plugins for interfacing with various cloud platforms, policy
+management services, and monitoring services.
 
 - [istio/mixerclient](https://github.com/istio/mixerclient). Client libraries
 for the mixer API.
 
-- [istio/proxy](https://github.com/istio/proxy). The Istio proxy is a
-microservice proxy that can be used on the client and server side, and forms a
-microservice mesh. 
+- [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
+extensions to the [Envoy proxy](https://github.com/lyft/envoy) (in the form of
+Envoy filters), that allow the proxy to delegate policy enforcement
+decisions to the mixer.
 
 ## Contributing to the project
 

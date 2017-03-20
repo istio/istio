@@ -1,0 +1,83 @@
+# Example service with an injected proxy
+apiVersion: v1
+kind: Service
+metadata:
+  name: logic
+  labels:
+    app: logic
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  - port: 8080
+    targetPort: 80
+    name: http-alternative
+  selector:
+    app: logic
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: logic
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: logic
+        version: unversioned
+      annotations:
+        # init container uses iptables rules to redirect traffic to the proxy
+        pod.beta.kubernetes.io/init-containers: >
+          [{
+            "name": "iptables",
+            "image": "docker.io/istio/init:2017-03-17-22.11.25",
+            "imagePullPolicy": "Always",
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+          }]
+    spec:
+      containers:
+      - name: app
+        image: docker.io/istio/app:2017-03-17-22.11.25
+        imagePullPolicy: Always
+        args:
+          - --port
+          - "8080"
+          - --port
+          - "80"
+          - --version
+          - "unversioned"
+        ports:
+        - containerPort: 8080
+        - containerPort: 80
+      - name: proxy
+        image: docker.io/istio/runtime:2017-03-17-22.11.25
+        imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1337
+        args:
+          - proxy
+          - sidecar
+          - -s
+          - istio-manager:8080
+          - -m
+          - istio-mixer:9091
+          - -n
+          - $(POD_NAMESPACE)
+          - -v
+          - "2"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+---
