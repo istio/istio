@@ -65,6 +65,8 @@ spec:
           - default
           - -s
           - istio-manager:8080
+          - -m
+          - istio-mixer:9091
           - -v
           - "2"
         env:
@@ -135,6 +137,8 @@ spec:
           - default
           - -s
           - istio-manager:8080
+          - -m
+          - istio-mixer:9091
           - -v
           - "2"
         env:
@@ -205,6 +209,8 @@ spec:
           - default
           - -s
           - istio-manager:8080
+          - -m
+          - istio-mixer:9091
           - -v
           - "2"
         env:
@@ -259,6 +265,8 @@ spec:
           - default
           - -s
           - istio-manager:8080
+          - -m
+          - istio-mixer:9091
           - -v
           - "2"
         env:
@@ -313,6 +321,8 @@ spec:
           - default
           - -s
           - istio-manager:8080
+          - -m
+          - istio-mixer:9091
           - -v
           - "2"
         env:
@@ -383,6 +393,8 @@ spec:
           - default
           - -s
           - istio-manager:8080
+          - -m
+          - istio-mixer:9091
           - -v
           - "2"
         env:

@@ -322,7 +322,7 @@ so we will set a rate limit on the service such that the load remains under the 
 
 ```bash
    $ # (TODO) istioctl create -f mixer-rule-ratings-ratelimit.yaml
-   $ kubectl apply -f ../../mixer-config-quota.yaml
+   $ kubectl apply -f test-ratelimit.yaml
 ```
 
 We now generate load on the `productpage` with the following command:
