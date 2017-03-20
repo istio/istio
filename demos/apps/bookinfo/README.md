@@ -54,7 +54,7 @@ ingress controller, which will be used to implement the gateway for the applicat
 
 # Running the Bookinfo Application
 
-1. Change your current working directory to [demos/apps/bookinfo](.):
+1. Change your current working directory to the bookinfo application directory:
    
    ```bash
    cd demos/apps/bookinfo
