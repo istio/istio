@@ -38,11 +38,11 @@ class Transport : public AttributeConverter<RequestType> {
     stream_.Call(attributes, response, on_done);
   }
 
- private:
+ protected:
   // Convert to a protobuf
   // This is called by stream_.Call so it is within the mutex lock.
   void FillProto(StreamID stream_id, const Attributes& attributes,
-                 RequestType* request) {
+                 RequestType* request) override {
     if (stream_id != last_stream_id_) {
       attribute_context_.reset(new AttributeContext);
       last_stream_id_ = stream_id;
@@ -52,6 +52,7 @@ class Transport : public AttributeConverter<RequestType> {
     request->set_request_index(attribute_context_->IncRequestIndex());
   }
 
+ private:
   // A stream transport
   StreamTransport<RequestType, ResponseType> stream_;
   // Mutex to sync-up stream_.Call, only one at time.
@@ -70,7 +71,39 @@ typedef Transport<::istio::mixer::v1::ReportRequest,
     ReportTransport;
 typedef Transport<::istio::mixer::v1::QuotaRequest,
                   ::istio::mixer::v1::QuotaResponse>
-    QuotaTransport;
+    QuotaBaseTransport;
+
+// FillProto for Quota needs to be handled differently.
+// 1) convert "quota.name" and "quota.amount" to proto fields.
+// 2) set deduplication_id and best_effort
+class QuotaTransport : public QuotaBaseTransport {
+ public:
+  QuotaTransport(TransportInterface* transport)
+      : QuotaBaseTransport(transport), deduplication_id_(0) {}
+
+ private:
+  void FillProto(StreamID stream_id, const Attributes& attributes,
+                 ::istio::mixer::v1::QuotaRequest* request) override {
+    Attributes filtered_attributes;
+    for (const auto& it : attributes.attributes) {
+      if (it.first == kQuotaName &&
+          it.second.type == Attributes::Value::STRING) {
+        request->set_quota(it.second.str_v);
+      } else if (it.first == kQuotaAmount &&
+                 it.second.type == Attributes::Value::INT64) {
+        request->set_amount(it.second.value.int64_v);
+      } else {
+        filtered_attributes.attributes[it.first] = it.second;
+      }
+    }
+    request->set_deduplication_id(std::to_string(deduplication_id_++));
+    request->set_best_effort(false);
+
+    QuotaBaseTransport::FillProto(stream_id, filtered_attributes, request);
+  }
+
+  int64_t deduplication_id_;
+};
 
 }  // namespace mixer_client
 }  // namespace istio

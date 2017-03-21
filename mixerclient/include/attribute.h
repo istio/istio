@@ -77,6 +77,11 @@ struct Attributes {
   std::map<std::string, Value> attributes;
 };
 
+// The attribute key to fill "quota" field in the QuotaRequest.
+extern const std::string kQuotaName;
+// The attribute key to fill "amount" field in the QuotaRequest.
+extern const std::string kQuotaAmount;
+
 }  // namespace mixer_client
 }  // namespace istio
 
