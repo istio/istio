@@ -201,7 +201,17 @@ func combineResults(results []result) aspect.Output {
 		pool.PutBuffer(buf)
 	}
 
-	return aspect.Output{Status: s}
+	// Note that we don't try to merge multiple responses together and just
+	// take the response from the first result.
+	var resp aspect.APIMethodResp
+	if len(results) > 0 {
+		resp = results[0].out.Response
+
+		if len(results) > 1 {
+			glog.Infof("Ignoring potential responses for %d aspects", len(results)-1)
+		}
+	}
+	return aspect.Output{Status: s, Response: resp}
 }
 
 // result holds the values returned by the execution of an adapter

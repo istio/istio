@@ -329,14 +329,15 @@ func TestExecute(t *testing.T) {
 		inCode   rpc.Code
 		inErr    error
 		wantCode rpc.Code
+		resp     aspect.APIMethodResp
 	}{
-		{aspect.DenialsKindName, rpc.OK, nil, rpc.OK},
-		{"error", rpc.UNKNOWN, errors.New("expected"), rpc.UNKNOWN},
+		{aspect.DenialsKindName, rpc.OK, nil, rpc.OK, "RESPONSE"},
+		{"error", rpc.UNKNOWN, errors.New("expected"), rpc.UNKNOWN, nil},
 	}
 
 	for _, c := range cases {
 		mngr := newTestManager(c.name, false, func() aspect.Output {
-			return aspect.Output{Status: status.New(c.inCode)}
+			return aspect.Output{Status: status.New(c.inCode), Response: c.resp}
 		})
 		mreg := map[aspect.Kind]aspect.Manager{
 			aspect.DenialsKind: mngr,
@@ -360,6 +361,10 @@ func TestExecute(t *testing.T) {
 		}
 		if c.inErr == nil && !o.IsOK() {
 			t.Errorf("m.Execute(...) = %v; wanted o.Status.Code == rpc.OK", o)
+		}
+
+		if c.resp != o.Response {
+			t.Errorf("m.Execute(...) got response %v, expected %v", o.Response, c.resp)
 		}
 
 		gp.Close()
