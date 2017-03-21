@@ -24,27 +24,6 @@ import (
 
 func TestIndexFunc(tt *testing.T) {
 	fn := newIndex()
-	mp := map[string]interface{}{
-		"X-FORWARDED-HOST": "aaa",
-		"X-request-size":   2000,
-	}
-	tbl := []struct {
-		key  interface{}
-		want interface{}
-	}{
-		{"Does not Exists", nil},
-		{"X-FORWARDED-HOST", "aaa"},
-		{"X-request-size", 2000},
-	}
-
-	for idx, tst := range tbl {
-		tt.Run(fmt.Sprintf("[%d] %s", idx, tst.key), func(t *testing.T) {
-			rv := fn.Call([]interface{}{mp, tst.key})
-			if rv != tst.want {
-				t.Errorf("[%d] got %#v\nwant %#v", idx, rv, tst.want)
-			}
-		})
-	}
 
 	check(tt, "ReturnType", fn.ReturnType(), config.VALUE_TYPE_UNSPECIFIED)
 	check(tt, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.STRING_MAP, config.STRING})
@@ -57,7 +36,7 @@ func check(t *testing.T, msg string, got interface{}, want interface{}) {
 }
 
 func TestEQFunc(tt *testing.T) {
-	fn := newEQ()
+	fn := newEQ().(*eqFunc)
 	tbl := []struct {
 		val   interface{}
 		match interface{}
@@ -73,7 +52,7 @@ func TestEQFunc(tt *testing.T) {
 	}
 	for idx, tst := range tbl {
 		tt.Run(fmt.Sprintf("[%d] %s", idx, tst.val), func(t *testing.T) {
-			rv := fn.Call([]interface{}{tst.val, tst.match})
+			rv := fn.call(tst.val, tst.match)
 			if rv != tst.equal {
 				tt.Errorf("[%d] %v ?= %v -- got %#v\nwant %#v", idx, tst.val, tst.match, rv, tst.equal)
 			}

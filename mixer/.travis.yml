@@ -43,6 +43,7 @@ script:
 - bin/linters.sh
 - bin/codecov.sh
 - bin/racetest.sh
+- bin/perftest.sh
 
 after_success:
 - bash <(curl -s https://codecov.io/bash)

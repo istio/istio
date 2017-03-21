@@ -21,6 +21,7 @@ go_test(
     name = "small_tests",
     size = "small",
     srcs = [
+        "benchmark_test.go",
         "eval_test.go",
         "expr_test.go",
         "func_test.go",
