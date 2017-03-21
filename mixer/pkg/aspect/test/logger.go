@@ -88,15 +88,3 @@ func (t *Logger) Close() error {
 	t.Closed = true
 	return nil
 }
-
-// NewLogEntry creates an adapter.LogEntry instance.
-func NewLogEntry(n string, l map[string]interface{}, ts string, s adapter.Severity, tp string, sp map[string]interface{}) adapter.LogEntry {
-	return adapter.LogEntry{
-		LogName:       n,
-		Labels:        l,
-		Timestamp:     ts,
-		Severity:      s,
-		TextPayload:   tp,
-		StructPayload: sp,
-	}
-}
