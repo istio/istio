@@ -35,8 +35,8 @@ done
 [[ -z ${NAMESPACE} ]] && error_exit 'Namespace cannot be empty'
 
 # Import relevant utils
-. $SCRIPTDIR/kubeUtils.sh
-. $SCRIPTDIR/istioUtils.sh
+. $SCRIPTDIR/kubeUtils.sh || error_exit 'Could not load k8s utilities'
+. $SCRIPTDIR/istioUtils.sh || error_exit 'Could not load istio utilities'
 
 function tear_down {
     [[ ${TEAR_DOWN} == false ]] && exit 0
@@ -68,9 +68,9 @@ do
     then
         if [ $i -eq 4 ]
         then
-            echo "Failed to resolve default routes"
             ((FAILURE_COUNT++))
             dump_debug
+            error_exit 'Failed to resolve default routes'
         fi
         echo "Couldn't get to the bookinfo product page, trying again...'"
     else

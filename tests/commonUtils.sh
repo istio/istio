@@ -52,6 +52,7 @@ function modify_rules_namespace(){
 }
 
 function revert_rules_namespace(){
+    [[ -z ${NAMESPACE} ]] && return 0
     print_block_echo "Reverting rules to _CHANGEME_"
     find $SCRIPTDIR/apps/bookinfo/rules/ -type f -print0 \
       | xargs -0 sed -i "s/$NAMESPACE/_CHANGEME_/g" \
