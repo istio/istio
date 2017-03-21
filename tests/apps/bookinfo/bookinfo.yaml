@@ -141,7 +141,7 @@ spec:
           - -v
           - "2"
         env:
-          - name: POD_NAMESPACE
+          - name: POD_NAME
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
