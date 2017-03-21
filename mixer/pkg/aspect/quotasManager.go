@@ -21,6 +21,7 @@ import (
 
 	ptypes "github.com/gogo/protobuf/types"
 
+	"github.com/golang/glog"
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
@@ -44,6 +45,7 @@ type (
 		manager  *quotasManager
 		aspect   adapter.QuotasAspect
 		metadata map[string]*quotaInfo
+		adapter  string
 	}
 )
 
@@ -107,6 +109,7 @@ func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env ada
 		manager:  m,
 		metadata: metadata,
 		aspect:   asp,
+		adapter:  a.Name(),
 	}, nil
 }
 
@@ -130,12 +133,16 @@ func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma A
 
 	info, ok := w.metadata[qma.Quota]
 	if !ok {
-		return Output{Status: status.WithInvalidArgument(fmt.Sprintf("unknown quota '%s'", qma.Quota))}
+		msg := fmt.Sprintf("Unknown quota '%s' requested", qma.Quota)
+		glog.Error(msg)
+		return Output{Status: status.WithInvalidArgument(msg)}
 	}
 
 	labels, err := evalAll(info.labels, attrs, mapper)
 	if err != nil {
-		return Output{Status: status.WithInvalidArgument(fmt.Sprintf("failed to evaluate labels for quota '%s' with err: %s", qma.Quota, err))}
+		msg := fmt.Sprintf("Unable to evaluate labels for quota '%s' with err: %s", qma.Quota, err)
+		glog.Error(msg)
+		return Output{Status: status.WithInvalidArgument(msg)}
 	}
 
 	qa := adapter.QuotaArgs{
@@ -147,6 +154,10 @@ func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma A
 
 	var qr adapter.QuotaResult
 
+	if glog.V(2) {
+		glog.Info("Invoking adapter %s for quota %s with amount %d", w.adapter, qa.Definition.Name, qa.QuotaAmount)
+	}
+
 	if qma.BestEffort {
 		qr, err = w.aspect.AllocBestEffort(qa)
 	} else {
@@ -154,11 +165,18 @@ func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma A
 	}
 
 	if err != nil {
+		glog.Errorf("Quota allocation failed: %v", err)
 		return Output{Status: status.WithError(err)}
 	}
 
 	if qr.Amount == 0 {
-		return Output{Status: status.WithResourceExhausted(fmt.Sprintf("Unable to allocate %v units from quota %s", qa.QuotaAmount, info.definition.Name))}
+		msg := fmt.Sprintf("Unable to allocate %v units from quota %s", qa.QuotaAmount, qa.Definition.Name)
+		glog.Warning(msg)
+		return Output{Status: status.WithResourceExhausted(msg)}
+	}
+
+	if glog.V(2) {
+		glog.Infof("Allocate %v units from quota %s", qa.QuotaAmount, qa.Definition.Name)
 	}
 
 	return Output{

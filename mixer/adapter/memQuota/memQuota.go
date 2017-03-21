@@ -305,6 +305,8 @@ func (mq *memQuota) reapDedup() {
 	mq.oldDedup = mq.recentDedup
 	mq.recentDedup = t
 
+	mq.logger.Infof("Running repear to reclaim %d old deduplication entries", len(t))
+
 	// TODO: why isn't there a O(1) way to clear a map to the empty state?!
 	for k := range t {
 		delete(t, k)
