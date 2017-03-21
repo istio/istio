@@ -28,5 +28,5 @@ This will echo the URL and print HTTP headers, including "X-Envoy-Expected-Rq-Ti
 
 **Enable rate limiting in mixer**
 
-    kubectl replace -f ./demos/mixer-config-quota.yaml
+    kubectl replace -f ./demos/mixer-config-quota-echo.yaml
     
