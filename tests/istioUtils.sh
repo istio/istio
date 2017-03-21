@@ -27,7 +27,8 @@ function create_rule() {
 
 function cleanup_all_rules() {
     print_block_echo "Cleaning up rules"
-    $ISTIOCLI -n $NAMESPACE list route-rule | grep "name:" | awk '{print $2}' | xargs istioctl -n $NAMESPACE delete route-rule
+    ${ISTIOCLI} -n ${NAMESPACE} list route-rule | grep "name:" \
+      | awk '{print $2}' | xargs ${ISTIOCLI} -n ${NAMESPACE} delete route-rule
     return $?
 }
 

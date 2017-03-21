@@ -34,8 +34,6 @@ done
 
 [[ -z ${NAMESPACE} ]] && error_exit 'Namespace cannot be empty'
 
-export POD_NAMESPACE=$NAMESPACE
-
 # Import relevant utils
 . $SCRIPTDIR/kubeUtils.sh
 . $SCRIPTDIR/istioUtils.sh
