@@ -3,7 +3,7 @@ This Proxy will use Envoy and talk to Mixer server.
 
 ## Build Mixer server
 
-* Follow https://github.com/istio/mixer/blob/master/doc/devel/development.md to set up environment, and build via:
+* Follow https://github.com/istio/mixer/blob/master/doc/dev/development.md to set up environment, and build via:
 
 ```
   cd $(ISTIO)/mixer
