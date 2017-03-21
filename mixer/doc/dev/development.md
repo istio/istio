@@ -96,7 +96,7 @@ there is more than one directory in your `$GOPATH`.
 
 ```
 export ISTIO=~/go/src/istio.io
-mkdir -p $(ISTIO)/mixer
+mkdir -p $ISTIO/mixer
 cd $ISTIO
 
 # Replace "$YOUR_GITHUB_USERNAME" below with your github username
@@ -291,8 +291,8 @@ passed both unit and integration tests. We only merges pull requests when
 Once you've built the source base, you can run the mixer in a basic mode using:
 
 ```
-bazel-bin/cmd/server/mixs server
-  --globalConfigFile testdata/globalconfig.yml
+bazel-bin/cmd/server/mixs server \
+  --globalConfigFile testdata/globalconfig.yml \
   --serviceConfigFile testdata/serviceconfig.yml  --logtostderr
 ```
 
