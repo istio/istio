@@ -1,3 +1,5 @@
 # Eclipse artifacts
 .project
 .pydevproject
+*.iml
+.idea/

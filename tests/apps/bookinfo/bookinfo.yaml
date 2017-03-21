@@ -1,4 +1,3 @@
-
 # Copyright 2017 Istio Authors
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,7 +43,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "istio/init:b37ec11",
+            "image": "istio/init:2017-03-17-22.11.25",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -52,11 +51,11 @@ spec:
       containers:
       - name: details
         image: istio/examples-bookinfo-details-v1
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
       - name: proxy
-        image: istio/runtime:b37ec11
+        image: istio/runtime:2017-03-17-22.11.25
         securityContext:
           runAsUser: 1337
         args:
@@ -65,7 +64,9 @@ spec:
           - -n
           - $(POD_NAMESPACE)
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
+          - -m
+          - istio-mixer:9091
           - -v
           - "2"
         env:
@@ -95,8 +96,6 @@ metadata:
 spec:
   ports:
   - port: 9080
-    targetPort: 9080
-    protocol: TCP
     name: http
   selector:
     app: ratings
@@ -116,7 +115,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "istio/init:b37ec11",
+            "image": "istio/init:2017-03-17-22.11.25",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -124,11 +123,11 @@ spec:
       containers:
       - name: ratings
         image: istio/examples-bookinfo-ratings-v1
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
       - name: proxy
-        image: istio/runtime:b37ec11
+        image: istio/runtime:2017-03-17-22.11.25
         securityContext:
           runAsUser: 1337
         args:
@@ -137,11 +136,13 @@ spec:
           - -n
           - $(POD_NAMESPACE)
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
+          - -m
+          - istio-mixer:9091
           - -v
           - "2"
         env:
-          - name: POD_NAMESPACE
+          - name: POD_NAME
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
@@ -167,8 +168,6 @@ metadata:
 spec:
   ports:
   - port: 9080
-    targetPort: 9080
-    protocol: TCP
     name: http
   selector:
     app: reviews
@@ -188,7 +187,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "istio/init:b37ec11",
+            "image": "istio/init:2017-03-17-22.11.25",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -196,11 +195,11 @@ spec:
       containers:
       - name: reviews
         image: istio/examples-bookinfo-reviews-v1
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
       - name: proxy
-        image: istio/runtime:b37ec11
+        image: istio/runtime:2017-03-17-22.11.25
         securityContext:
           runAsUser: 1337
         args:
@@ -209,7 +208,9 @@ spec:
           - -n
           - $(POD_NAMESPACE)
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
+          - -m
+          - istio-mixer:9091
           - -v
           - "2"
         env:
@@ -242,7 +243,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "istio/init:b37ec11",
+            "image": "istio/init:2017-03-17-22.11.25",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -250,11 +251,11 @@ spec:
       containers:
       - name: reviews
         image: istio/examples-bookinfo-reviews-v2
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
       - name: proxy
-        image: istio/runtime:b37ec11
+        image: istio/runtime:2017-03-17-22.11.25
         securityContext:
           runAsUser: 1337
         args:
@@ -263,7 +264,9 @@ spec:
           - -n
           - $(POD_NAMESPACE)
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
+          - -m
+          - istio-mixer:9091
           - -v
           - "2"
         env:
@@ -296,7 +299,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "istio/init:b37ec11",
+            "image": "istio/init:2017-03-17-22.11.25",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -304,11 +307,11 @@ spec:
       containers:
       - name: reviews
         image: istio/examples-bookinfo-reviews-v3
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
       - name: proxy
-        image: istio/runtime:b37ec11
+        image: istio/runtime:2017-03-17-22.11.25
         securityContext:
           runAsUser: 1337
         args:
@@ -317,7 +320,9 @@ spec:
           - -n
           - $(POD_NAMESPACE)
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
+          - -m
+          - istio-mixer:9091
           - -v
           - "2"
         env:
@@ -347,8 +352,6 @@ metadata:
 spec:
   ports:
   - port: 9080
-    targetPort: 9080
-    protocol: TCP
     name: http
   selector:
     app: productpage
@@ -368,7 +371,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "istio/init:b37ec11",
+            "image": "istio/init:2017-03-17-22.11.25",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -376,11 +379,11 @@ spec:
       containers:
       - name: productpage
         image: istio/examples-bookinfo-productpage-v1
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
       - name: proxy
-        image: istio/runtime:b37ec11
+        image: istio/runtime:2017-03-17-22.11.25
         securityContext:
           runAsUser: 1337
         args:
@@ -389,7 +392,9 @@ spec:
           - -n
           - $(POD_NAMESPACE)
           - -s
-          - istio-route-controller:8080
+          - istio-manager:8080
+          - -m
+          - istio-mixer:9091
           - -v
           - "2"
         env:
