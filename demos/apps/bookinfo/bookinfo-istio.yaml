@@ -45,7 +45,7 @@ spec:
             "name": "iptables",
             "image": "istio/init:2017-03-17-22.11.25",
             "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] }, "privileged": true }
           }]
     spec:
       containers:
@@ -115,7 +115,7 @@ spec:
             "name": "iptables",
             "image": "istio/init:2017-03-17-22.11.25",
             "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] }, "privileged": true }
           }]
     spec:
       containers:
@@ -185,7 +185,7 @@ spec:
             "name": "iptables",
             "image": "istio/init:2017-03-17-22.11.25",
             "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] }, "privileged": true }
           }]
     spec:
       containers:
@@ -239,7 +239,7 @@ spec:
             "name": "iptables",
             "image": "istio/init:2017-03-17-22.11.25",
             "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] }, "privileged": true }
           }]
     spec:
       containers:
@@ -293,7 +293,7 @@ spec:
             "name": "iptables",
             "image": "istio/init:2017-03-17-22.11.25",
             "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] }, "privileged": true }
           }]
     spec:
       containers:
@@ -363,7 +363,7 @@ spec:
             "name": "iptables",
             "image": "istio/init:2017-03-17-22.11.25",
             "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] }, "privileged": true }
           }]
     spec:
       containers:
