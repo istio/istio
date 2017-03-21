@@ -10,7 +10,6 @@ go_library(
         "env.go",
         "evaluator.go",
         "logger.go",
-        "structutil.go",
     ],
     deps = [
         "//pkg/adapter:go_default_library",
