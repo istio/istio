@@ -389,7 +389,7 @@ func TestBadAttr(t *testing.T) {
 	}
 
 	request := mixerpb.ReportRequest{AttributeUpdate: attrs}
-	if err := stream.Send(&request); err != nil {
+	if err = stream.Send(&request); err != nil {
 		t.Errorf("Failed to send request: %v", err)
 	}
 
@@ -443,7 +443,7 @@ func TestRudeClose(t *testing.T) {
 	}
 
 	request := mixerpb.ReportRequest{}
-	if err := stream.Send(&request); err != nil {
+	if err = stream.Send(&request); err != nil {
 		t.Errorf("Failed to send request: %v", err)
 	}
 

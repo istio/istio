@@ -19,11 +19,12 @@ import (
 	"strings"
 
 	config "istio.io/api/mixer/v1/config/descriptor"
+	"istio.io/mixer/pkg/attribute"
 )
 
-// Func defines the interface that every expression function provider must implement.
-type Func interface {
-	// Name uniquely identified the function.
+// FuncBase defines the interface that every expression function must implement.
+type FuncBase interface {
+	// Name uniquely identifies the function.
 	Name() string
 
 	// ReturnType specifies the return type of this function.
@@ -31,16 +32,20 @@ type Func interface {
 
 	// ArgTypes specifies the argument types in order expected by the function.
 	ArgTypes() []config.ValueType
-
-	// NullArgs specifies if the function accepts null args
-	AcceptsNulls() bool
-
-	// Call performs the function call. It is guaranteed
-	// that call will be made with correct types and arity.
-	// may panic.
-	Call([]interface{}) interface{}
 }
 
+// Func implements a function call.
+// It needs to know details about Expressions and attribute bag.
+type Func interface {
+	FuncBase
+
+	// Call performs the function call. It is guaranteed
+	// that call will be made with correct arity.
+	// may panic.
+	Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error)
+}
+
+// baseFunc is basetype for many funcs
 type baseFunc struct {
 	name         string
 	argTypes     []config.ValueType
@@ -51,7 +56,6 @@ type baseFunc struct {
 func (f *baseFunc) Name() string                 { return f.name }
 func (f *baseFunc) ReturnType() config.ValueType { return f.retType }
 func (f *baseFunc) ArgTypes() []config.ValueType { return f.argTypes }
-func (f *baseFunc) AcceptsNulls() bool           { return f.acceptsNulls }
 
 type eqFunc struct {
 	*baseFunc
@@ -82,27 +86,40 @@ func newNEQ() Func {
 	}
 }
 
-func (f *eqFunc) Call(args []interface{}) interface{} {
-	res := f.call(args)
-	if f.invert {
-		return !res
+func (f *eqFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
+	arg0, err := args[0].Eval(attrs, fMap)
+	if err != nil {
+		return nil, err
 	}
-	return res
+
+	arg1, err := args[1].Eval(attrs, fMap)
+	if err != nil {
+		return nil, err
+	}
+
+	res := f.call(arg0, arg1)
+
+	if f.invert {
+		return !res, nil
+	}
+	return res, nil
 }
 
-func (f *eqFunc) call(args []interface{}) bool {
-	var s0 string
-	var s1 string
-	var ok bool
-
-	if s0, ok = args[0].(string); !ok {
-		return reflect.DeepEqual(args[0], args[1])
+func (f *eqFunc) call(args0 interface{}, args1 interface{}) bool {
+	switch s0 := args0.(type) {
+	default:
+		return reflect.DeepEqual(args0, args1)
+	case bool, int64, float64:
+		return args0 == args1
+	case string:
+		var s1 string
+		var ok bool
+		if s1, ok = args1.(string); !ok {
+			// s0 is string and s1 is not
+			return false
+		}
+		return matchWithWildcards(s0, s1)
 	}
-	if s1, ok = args[1].(string); !ok {
-		// s0 is string and s1 is not
-		return false
-	}
-	return matchWithWildcards(s0, s1)
 }
 
 // matchWithWildcards     s0 == ns1.*   --> ns1 should be a prefix of s0
@@ -135,8 +152,22 @@ func newLAND() Func {
 
 // Call returns true if both elements true
 // may panic
-func (f *lAndFunc) Call(args []interface{}) interface{} {
-	return args[0].(bool) && args[1].(bool)
+func (f *lAndFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
+	return logicalAndOr(false, attrs, args, fMap)
+}
+
+func logicalAndOr(exitVal bool, attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
+	for _, arg := range args {
+		ret, err := arg.Eval(attrs, fMap)
+		if err != nil {
+			return nil, err
+		}
+		if ret == exitVal {
+			return exitVal, nil
+		}
+	}
+
+	return !exitVal, nil
 }
 
 type lOrFunc struct {
@@ -155,8 +186,8 @@ func newLOR() Func {
 }
 
 // Call should return true if at least one element is true
-func (f *lOrFunc) Call(args []interface{}) interface{} {
-	return args[0].(bool) || args[1].(bool)
+func (f *lOrFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
+	return logicalAndOr(true, attrs, args, fMap)
 }
 
 // applies to non bools.
@@ -177,17 +208,17 @@ func newOR() Func {
 	}
 }
 
-// Call selects first non empty argument
+// Call selects first non empty argument / non erroneous
 // may return nil
-func (f *orFunc) Call(args []interface{}) interface{} {
-	if args[0] == nil {
-		return args[1]
+func (f *orFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
+	for _, arg := range args {
+		ret, _ := arg.Eval(attrs, fMap)
+		if ret != nil {
+			return ret, nil
+		}
 	}
-	v := reflect.ValueOf(args[0])
-	if v.Interface() != reflect.Zero(v.Type()).Interface() {
-		return args[0]
-	}
-	return args[1]
+
+	return nil, nil
 }
 
 // func (Value) MapIndex
@@ -206,20 +237,20 @@ func newIndex() Func {
 	}
 }
 
-// Call returns map[key]
-// panics if arg[0] is not a map
-func (f *indexFunc) Call(args []interface{}) interface{} {
-	m := reflect.ValueOf(args[0])
-	k := reflect.ValueOf(args[1])
-	if v := m.MapIndex(k); v.IsValid() {
-		return v.Interface()
+func (f *indexFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
+	mp, err := args[0].Var.Eval(attrs)
+	if err != nil {
+		return nil, err
 	}
-
-	return nil
+	key, err := args[1].Eval(attrs, fMap)
+	if err != nil {
+		return nil, err
+	}
+	return mp.(map[string]string)[key.(string)], nil
 }
 
-func inventory() []Func {
-	return []Func{
+func inventory() []FuncBase {
+	return []FuncBase{
 		newEQ(),
 		newNEQ(),
 		newOR(),
@@ -230,8 +261,8 @@ func inventory() []Func {
 }
 
 // FuncMap provides inventory of available functions.
-func FuncMap() map[string]Func {
-	m := make(map[string]Func)
+func FuncMap() map[string]FuncBase {
+	m := make(map[string]FuncBase)
 	for _, fn := range inventory() {
 		m[fn.Name()] = fn
 	}

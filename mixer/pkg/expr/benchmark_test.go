@@ -24,54 +24,61 @@ import (
 
 // run micro benchmark using expression evaluator.
 // Results vs hand coded expression eval function
-// 2017-03-10
+// 2017-03-16
 /*
-$ go test -bench=.
-BenchmarkExpression/ok_constantAST-8         	500000000	         3.70 ns/op
-BenchmarkExpression/ok_constantDirect-8      	1000000000	         2.43 ns/op
-BenchmarkExpression/ok_1stAST-8              	 1000000	      1626 ns/op
-BenchmarkExpression/ok_1stDirect-8           	100000000	        19.9 ns/op
-BenchmarkExpression/ok_2ndAST-8              	 1000000	      1623 ns/op
-BenchmarkExpression/ok_2ndDirect-8           	30000000	        41.5 ns/op
-BenchmarkExpression/ok_notfoundAST-8         	 1000000	      1628 ns/op
-BenchmarkExpression/ok_notfoundDirect-8      	30000000	        38.7 ns/op
+$ go test -run=^$  -bench=.  -benchmem
+LOR(EQ($a, 20), EQ(INDEX($request.header, "host"), "abc"))
+BenchmarkExpressionAST/ok_1stAST-8         	10000000	       188 ns/op	      16 B/op	       3 allocs/op
+BenchmarkExpressionAST/ok_2ndAST-8         	 3000000	       446 ns/op	      32 B/op	       5 allocs/op
+BenchmarkExpressionAST/ok_notfoundAST-8    	 3000000	       435 ns/op	      32 B/op	       5 allocs/op
+LOR(EQ($a, 20), EQ(INDEX($request.header, "host"), "abc"))
+BenchmarkExpressionDirect/ok_1stDirect-8   	100000000	        12.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpressionDirect/ok_2ndDirect-8   	50000000	        31.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpressionDirect/ok_notfoundDirect-8         	50000000	        29.5 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	istio.io/mixer/pkg/expr	10.049s
 */
 
 type exprFunc func(a attribute.Bag) (bool, error)
 
-// a == 20 || request.header["host"] == 50
+// dff implements `a == 20 || request.header["host"] == "abc"`
+// this is done so we can compare Expr processed expression with
+// raw direct golang performance.
+func dff(a attribute.Bag) (bool, error) {
+	var v interface{}
+	var b bool
+	if v, b = a.Get("a"); !b {
+		return false, errors.New("a not found")
+	}
+	aa := v.(int64)
+	if aa == 20 {
+		return true, nil
+	}
 
-func BenchmarkExpression(b *testing.B) {
+	if v, b = a.Get("request.header"); !b {
+		return false, errors.New("a not found")
+	}
+	ss := v.(map[string]string)["host"]
+	if ss == "abc" {
+		return true, nil
+	}
+	return false, nil
+}
+
+func BenchmarkExpressionAST(b *testing.B) {
+	benchmarkExpression(b, "AST")
+}
+
+func BenchmarkExpressionDirect(b *testing.B) {
+	benchmarkExpression(b, "Direct")
+}
+
+func benchmarkExpression(b *testing.B, stype string) {
 	success := "_SUCCESS_"
 	exprStr := `a == 20 || request.header["host"] == "abc"`
-	dff := func(a attribute.Bag) (bool, error) {
-		var b bool
-		var v interface{}
-		v, b = a.Get("a")
-		if !b {
-			return false, errors.New("a not found")
-		}
-		if v.(int64) == 20 {
-			return true, nil
-		}
-
-		v, b = a.Get("request.header")
-		if !b {
-			return false, errors.New("a not found")
-		}
-		s := v.(map[string]string)
-		ss := s["host"]
-		if ss == "abc" {
-			return true, nil
-		}
-		return false, nil
-	}
 	exf, _ := Parse(exprStr)
 
-	exprConstant := "true"
-	ex2, _ := Parse(exprConstant)
-	df2 := func(a attribute.Bag) (bool, error) { return true, nil }
-
+	b.Logf("%s\n", exf.String())
 	fm := FuncMap()
 	tests := []struct {
 		name   string
@@ -81,13 +88,6 @@ func BenchmarkExpression(b *testing.B) {
 		df     exprFunc
 		ex     *Expression
 	}{
-		{"ok_constant", map[string]interface{}{
-			"a": int64(20),
-			"request.header": map[string]string{
-				"host": "abc",
-			},
-		}, true, success, df2, ex2,
-		},
 		{"ok_1st", map[string]interface{}{
 			"a": int64(20),
 			"request.header": map[string]string{
@@ -130,21 +130,26 @@ func BenchmarkExpression(b *testing.B) {
 	}
 
 	for _, tst := range tests {
-		attrs := &bag{attrs: tst.tmap}
-		ii, err := tst.ex.Eval(attrs, fm)
-		assertNoError(err, tst.err, ii, tst.result, b)
-		b.Run(tst.name+"AST", func(bb *testing.B) {
-			for n := 0; n < bb.N; n++ {
-				_, _ = tst.ex.Eval(attrs, fm)
-			}
-		})
 
-		ii, err = tst.df(attrs)
-		assertNoError(err, tst.err, ii, tst.result, b)
-		b.Run(tst.name+"Direct", func(bb *testing.B) {
-			for n := 0; n < bb.N; n++ {
-				_, _ = tst.df(attrs)
-			}
-		})
+		attrs := &bag{attrs: tst.tmap}
+
+		if stype == "AST" {
+			ii, err := tst.ex.Eval(attrs, fm)
+			assertNoError(err, tst.err, ii, tst.result, b)
+			b.Run(tst.name+"AST", func(bb *testing.B) {
+				for n := 0; n < bb.N; n++ {
+					_, _ = tst.ex.Eval(attrs, fm)
+				}
+			})
+		} else {
+			ii, err := tst.df(attrs)
+			assertNoError(err, tst.err, ii, tst.result, b)
+			b.Run(tst.name+"Direct", func(bb *testing.B) {
+				for n := 0; n < bb.N; n++ {
+					_, _ = tst.df(attrs)
+				}
+			})
+
+		}
 	}
 }
