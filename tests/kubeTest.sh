@@ -18,41 +18,59 @@
 # Local vars
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 NAMESPACE=$(uuidgen)
-K8CLI="kubectl"
-ISTIOCLI="istioctl"
 RULESDIR=$SCRIPTDIR/apps/bookinfo/rules
 EXAMPLESDIR=$SCRIPTDIR/apps/bookinfo/output
-PASS=true
+FAILURE_COUNT=0
+TEAR_DOWN=true
 
-export POD_NAMESPACE=$NAMESPACE
+while getopts :i:sn: arg; do
+  case ${arg} in
+    i) ISTIOCLI="${OPTARG}";;
+    s) TEAR_DOWN=false;;
+    n) NAMESPACE="${OPTARG}";;
+    *) error_exit "Unrecognized argument -${OPTARG}";;
+  esac
+done
+
+[[ -z ${NAMESPACE} ]] && error_exit 'Namespace cannot be empty'
 
 # Import relevant utils
-. $SCRIPTDIR/commonUtils.sh # Must be first for print_block_echo usage in other util files
-. $SCRIPTDIR/kubeUtils.sh
-. $SCRIPTDIR/istioUtils.sh
+. $SCRIPTDIR/kubeUtils.sh || error_exit 'Could not load k8s utilities'
+. $SCRIPTDIR/istioUtils.sh || error_exit 'Could not load istio utilities'
+
+function tear_down {
+    [[ ${TEAR_DOWN} == false ]] && exit 0
+    # Teardown
+    cleanup_all_rules
+    cleanup
+    revert_rules_namespace # only really needed for local retests...
+}
+
+trap tear_down EXIT
 
 # Setup
 create_namespace
 modify_rules_namespace
 deploy_istio
 deploy_bookinfo
-
 # Get gateway IP and port
-GATEWAYIP=$($K8CLI -n $NAMESPACE describe pod $($K8CLI -n $NAMESPACE get pods | awk 'NR>1 {print $1}' | grep istio-ingress-controller) | grep Node | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b")
-PORT=$($K8CLI -n $NAMESPACE get services | grep istio-ingress-controller | awk '{print $4}' | grep -oE 3[0-9]{4})
+GATEWAY_IP="$(${K8CLI} get svc istio-ingress-controller -n ${NAMESPACE} \
+  -o jsonpath='{.status.loadBalancer.ingress[*].ip}')" \
+  || error_exit "Cannot get ingress ip."
+URL="http://${GATEWAY_IP}"
 
 # Verify default routes
-print_block_echo "Testing default route behavior..."
+print_block_echo "Testing default route behavior on ${URL} ..."
 for (( i=0; i<=4; i++ ))
-do  
-    response=$(curl --write-out %{http_code} --silent --output /dev/null http://$GATEWAYIP:$PORT/productpage)
+do
+    response=$(curl --write-out %{http_code} --silent --output /dev/null ${URL}/productpage)
     if [ $response -ne 200 ]
     then
         if [ $i -eq 4 ]
         then
-            echo "Failed to resolve default routes"
-            PASS=false
+            ((FAILURE_COUNT++))
             dump_debug
+            error_exit 'Failed to resolve default routes'
         fi
         echo "Couldn't get to the bookinfo product page, trying again...'"
     else
@@ -69,15 +87,15 @@ create_rule $RULESDIR/route-rule-reviews-test-v2.yaml
 echo "Waiting for rules to propagate..."
 sleep 30
 
-test_version_routing_response() {
+function test_version_routing_response() {
     USER=$1
     VERSION=$2
     echo "injecting traffic for user=$USER, expecting productpage-$USER-$VERSION..."
-    curl -s -b "foo=bar;user=$USER;" http://$GATEWAYIP:$PORT/productpage > /tmp/productpage-$USER-$VERSION.html
+    curl -s -b "foo=bar;user=$USER;" ${URL}/productpage > /tmp/productpage-$USER-$VERSION.html
     compare_output $EXAMPLESDIR/productpage-$USER-$VERSION.html /tmp/productpage-$USER-$VERSION.html $USER
     if [ $? -ne 0 ]
     then
-        PASS=false
+        ((FAILURE_COUNT++))
         dump_debug
     fi
 }
@@ -90,17 +108,17 @@ print_block_echo "Testing fault injection..."
 
 create_rule $RULESDIR/route-rule-delay.yaml
 
-test_fault_delay() {
+function test_fault_delay() {
     USER=$1
     VERSION=$2
     EXP_MIN_DELAY=$3
     EXP_MAX_DELAY=$4
-    
+
     for (( i=0; i<=4; i++ ))
-    do  
+    do
         echo "injecting traffic for user=$USER, expecting productpage-$USER-$VERSION in $EXP_MIN_DELAY to $EXP_MAX_DELAY seconds"
         before=$(date +"%s")
-        curl -s -b "foo=bar;user=$USER;" http://$GATEWAYIP:$PORT/productpage > /tmp/productpage-$USER-$VERSION.html
+        curl -s -b "foo=bar;user=$USER;" ${URL}/productpage > /tmp/productpage-$USER-$VERSION.html
         after=$(date +"%s")
         delta=$(($after-$before))
         if [ $delta -ge $EXP_MIN_DELAY ] && [ $delta -le $EXP_MAX_DELAY ]
@@ -116,7 +134,7 @@ test_fault_delay() {
         elif [ $i -eq 4 ]
         then
             echo "Productpage took $delta seconds to respond (expected between $EXP_MIN_DELAY and $EXP_MAX_DELAY) for user=$USER in fault injection phase"
-            PASS=false
+            ((FAILURE_COUNT++))
             dump_debug
         fi
         sleep 10
@@ -139,7 +157,7 @@ then
     echo "Fault injection was successfully cleared up"
 else
     echo "Fault injection persisted"
-    PASS=false
+    ((FAILURE_COUNT++))
     dump_debug
 fi
 
@@ -147,7 +165,7 @@ fi
 cleanup_all_rules
 print_block_echo "Testing gradual migration..."
 
-COMMAND_INPUT="curl -s -b 'foo=bar;user=normal-user;' http://$GATEWAYIP:$PORT/productpage"
+COMMAND_INPUT="curl -s -b 'foo=bar;user=normal-user;' ${URL}/productpage"
 EXPECTED_OUTPUT1="$EXAMPLESDIR/productpage-normal-user-v1.html"
 EXPECTED_OUTPUT2="$EXAMPLESDIR/productpage-normal-user-v3.html"
 create_rule $RULESDIR/route-rule-reviews-50-v3.yaml
@@ -160,16 +178,11 @@ echo "Expected percentage based routing is 50% to v1 and 50% to v3."
 check_routing_rules "$COMMAND_INPUT" "$EXPECTED_OUTPUT1" "$EXPECTED_OUTPUT2" 50
 if [ $? -ne 0 ]
 then
-    PASS=false
+    ((FAILURE_COUNT++))
     dump_debug
 fi
 
-# Teardown
-cleanup_all_rules
-cleanup
-revert_rules_namespace # only really needed for local retests...
-
-if [ $PASS == false ]
+if [ ${FAILURE_COUNT} -gt 0 ]
 then
     echo "ONE OR MORE TESTS HAVE FAILED"
     exit 1
