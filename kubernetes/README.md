@@ -1,20 +1,21 @@
 # Install Istio on an existing Kubernetes cluster
 
-<!--
+<!---
 **Optional - Create a Kubernetes namespace and set the current context to use that namespace**
 
     kubectl create ns <ns>
     
     kubectl config set-context `kubectl config view | grep current-context | awk '{print $2}'` --namespace <ns>
+--->
 
-**Install Istio core services**
--->
+## Install Istio core services
+
     kubectl apply -f ./kubernetes/istio-install
 
 This will install istio-manager, istio-mixer, and the istio ingress controller.
 
     
-**Optional addons - Monitoring with Prometheus, Grafana and Service Graph**
+## Optional addons - Monitoring with Prometheus, Grafana and Service Graph
 
     kubectl apply -f ./kubernetes/addons/
 
