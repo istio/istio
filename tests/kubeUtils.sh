@@ -14,61 +14,64 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. ${TESTS_DIR}/commonUtils.sh || { echo "Cannot load common utilities"; exit 1; }
+
+K8CLI="kubectl"
+
 # Create a kube namespace to isolate test
-create_namespace(){
+function create_namespace(){
     print_block_echo "Creating kube namespace"
-    $K8CLI create namespace $NAMESPACE
+    $K8CLI create namespace $NAMESPACE \
+    || error_exit 'Failed to create namespace'
 }
 
 # Bring up control plane
-deploy_istio() {
+function deploy_istio() {
     print_block_echo "Deploying ISTIO"
-    $K8CLI -n $NAMESPACE create -f istio/controlplane.yaml
-    for (( i=0; i<=19; i++ ))
-    do
-        ready=$($K8CLI -n $NAMESPACE get pods | awk 'NR>1 {print $1 "\t" $2}' | grep "istio" | grep "1/1" | wc -l)
-        if [ $ready -eq 2 ]
-        then
-            echo "ISTIO control plane deployed"
-            return 0
-        fi
-        sleep 10
-    done
-    echo "Unable to deploy ISTIO"
+    $K8CLI -n $NAMESPACE create -f "${TESTS_DIR}/istio/controlplane.yaml" \
+      || error_exit 'Failed to create control plane'
+    retry -n 10 find_istio_endpoints \
+      || error_exit 'Could not deploy istio'
+}
+
+function find_istio_endpoints() {
+    local endpoints=($(${K8CLI} get endpoints -n ${NAMESPACE} \
+      -o jsonpath='{.items[*].subsets[*].addresses[*].ip}'))
+    echo ${endpoints[@]}
+    [[ ${#endpoints[@]} -eq 2 ]] && return 0
     return 1
 }
 
 # Deploy the bookinfo microservices
-deploy_bookinfo(){
+function deploy_bookinfo(){
     print_block_echo "Deploying BookInfo to kube"
+    $K8CLI -n $NAMESPACE create -f "${TESTS_DIR}/apps/bookinfo/bookinfo.yaml" \
+      || error_exit 'Failed to deploy bookinfo'
+    retry -n 10 find_ingress_gateway \
+      || error_exit 'Could not deploy bookstore'
+}
 
-    $K8CLI -n $NAMESPACE create -f apps/bookinfo/bookinfo.yaml
-    for (( i=0; i<=49; i++ )) # Has to be this high to prevent flaky tests, caused by kube taking an age pulling images
-    do
-        ready=$($K8CLI -n $NAMESPACE get pods | awk 'NR>1 {print $1 "\t" $2}' | grep -v "istio" | grep "2/2" | wc -l)
-        if [ $ready -eq 6 ]
-        then
-            echo "BookInfo deployed"
-            return 0
-        fi
-        sleep 10
-    done
-    echo "Unable to deploy BookInfo"
+function find_ingress_gateway() {
+    local ip="$(${K8CLI} get ingress gateway -n ${NAMESPACE} \
+      -o jsonpath='{.status.loadBalancer.ingress[*].ip}')"
+    echo ${ip[@]}
+    [[ ${ip} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && return 0
     return 1
 }
 
 # Clean up all the things
-cleanup(){
+function cleanup() {
     print_block_echo "Cleaning up ISTIO"
-    $K8CLI -n $NAMESPACE delete -f istio/controlplane.yaml
+    $K8CLI -n $NAMESPACE delete -f "${TESTS_DIR}/istio/controlplane.yaml"
     print_block_echo "Cleaning up BookInfo"
-    $K8CLI -n $NAMESPACE delete -f apps/bookinfo/bookinfo.yaml
+    $K8CLI -n $NAMESPACE delete -f "${TESTS_DIR}/apps/bookinfo/bookinfo.yaml"
     print_block_echo "Deleting namespace"
     $K8CLI delete namespace $NAMESPACE
 }
 
 # Debug dump for failures
-dump_debug() {
+function dump_debug() {
     echo ""
     $K8CLI -n $NAMESPACE get pods
     $K8CLI -n $NAMESPACE get thirdpartyresources
