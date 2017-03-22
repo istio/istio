@@ -66,7 +66,8 @@ This filter will intercept all HTTP requests and call Mixer. Here is its config:
          "mixer_server": "${MIXER_SERVER}",
          "mixer_attributes" : {
             "attribute_name1": "attribute_value1",
-            "attribute_name2": "attribute_value2"
+            "attribute_name2": "attribute_value2",
+            "quota.name": "RequestCount"
          },
          "forward_attributes" : {
             "attribute_name1": "attribute_value1",
@@ -79,6 +80,7 @@ Notes:
 * mixer_server is required
 * mixer_attributes: these attributes will be send to the mixer
 * forward_attributes: these attributes will be forwarded to the upstream istio/proxy.
+* "quota.name" and "quota.amount" are used for quota call. "quota.amount" is default to 1 if missing.
 
 By default, mixer filter forwards attributes and does not invoke mixer server. You can customize this behavior per HTTP route by supplying an opaque config:
 

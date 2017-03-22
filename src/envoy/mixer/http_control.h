@@ -58,6 +58,8 @@ class HttpControl final : public Logger::Loggable<Logger::Id::http> {
   std::unique_ptr<::istio::mixer_client::MixerClient> mixer_client_;
   // The attributes read from the config file.
   std::map<std::string, std::string> config_attributes_;
+  // Quota attributes; extracted from envoy filter config.
+  ::istio::mixer_client::Attributes quota_attributes_;
 };
 
 }  // namespace Mixer

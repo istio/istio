@@ -56,9 +56,10 @@ type MixerServer struct {
 	gp  *pool.GoroutinePool
 	s   mixerpb.MixerServer
 
-	check  *Handler
-	report *Handler
-	quota  *Handler
+	check         *Handler
+	report        *Handler
+	quota         *Handler
+	quota_request *mixerpb.QuotaRequest
 }
 
 func (ts *MixerServer) Check(ctx context.Context, bag *attribute.MutableBag,
@@ -76,6 +77,7 @@ func (ts *MixerServer) Report(ctx context.Context, bag *attribute.MutableBag,
 func (ts *MixerServer) Quota(ctx context.Context, bag *attribute.MutableBag,
 	request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
 	response.RequestIndex = request.RequestIndex
+	ts.quota_request = request
 	response.Result = ts.quota.run(bag)
 	response.Amount = 0
 }
