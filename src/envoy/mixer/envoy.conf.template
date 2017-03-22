@@ -1,7 +1,7 @@
 {
   "listeners": [
     {
-      "port": ${PORT},
+      "address": "tcp://0.0.0.0:${PORT}",
       "bind_to_port": true,
       "filters": [
         {
@@ -58,7 +58,7 @@
       ]
     },
     {
-      "port": 7070,
+      "address": "tcp://0.0.0.0:7070",
       "bind_to_port": true,
       "filters": [
         {
@@ -112,7 +112,7 @@
   ],
   "admin": {
     "access_log_path": "/dev/stdout",
-    "port": 9001
+    "address": "tcp://0.0.0.0:9001"
   },
   "cluster_manager": {
     "clusters": [

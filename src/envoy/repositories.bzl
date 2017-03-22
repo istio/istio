@@ -235,25 +235,6 @@ def lightstep_repositories(bind=True):
     BUILD = """
 load("@protobuf_git//:protobuf.bzl", "cc_proto_library")
 
-genrule(
-    name = "envoy_carrier_pb",
-    srcs = ["src/c++11/envoy/envoy_carrier.proto"],
-    outs = ["lightstep/envoy_carrier.proto"],
-    cmd = "cp $(SRCS) $@",
-)
-
-cc_proto_library(
-    name = "envoy_carrier_proto",
-    srcs = ["lightstep/envoy_carrier.proto"],
-    include = ".",
-    deps = [
-        "//external:cc_wkt_protos",
-    ],
-    protoc = "//external:protoc",
-    default_runtime = "//external:protobuf",
-    visibility = ["//visibility:public"],
-)
-
 cc_library(
     name = "lightstep_core",
     srcs = [
@@ -266,7 +247,7 @@ cc_library(
         "src/c++11/lightstep/impl.h",
         "src/c++11/lightstep/options.h",
         "src/c++11/lightstep/propagation.h",
-        "src/c++11/lightstep/envoy.h",
+        "src/c++11/lightstep/carrier.h",
         "src/c++11/lightstep/span.h",
         "src/c++11/lightstep/tracer.h",
         "src/c++11/lightstep/util.h",
@@ -275,7 +256,7 @@ cc_library(
         "src/c++11/mapbox_variant/variant.hpp",
     ],
     copts = [
-        "-DPACKAGE_VERSION='\\"0.19\\"'",
+        "-DPACKAGE_VERSION='\\"0.36\\"'",
         "-Iexternal/lightstep_git/src/c++11/lightstep",
         "-Iexternal/lightstep_git/src/c++11/mapbox_variant",
     ],
@@ -285,7 +266,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "@lightstep_common_git//:collector_proto",
-        ":envoy_carrier_proto",
+        "@lightstep_common_git//:lightstep_carrier_proto",
         "//external:protobuf",
     ],
 )"""
@@ -293,16 +274,9 @@ cc_library(
     COMMON_BUILD = """
 load("@protobuf_git//:protobuf.bzl", "cc_proto_library")
 
-genrule(
-    name = "collector_pb",
-    srcs = ["collector.proto"],
-    outs = ["lightstep/collector.proto"],
-    cmd = "cp $(SRCS) $@",
-)
-
 cc_proto_library(
     name = "collector_proto",
-    srcs = ["lightstep/collector.proto"],
+    srcs = ["collector.proto"],
     include = ".",
     deps = [
         "//external:cc_wkt_protos",
@@ -310,19 +284,32 @@ cc_proto_library(
     protoc = "//external:protoc",
     default_runtime = "//external:protobuf",
     visibility = ["//visibility:public"],
-)"""
+)
+
+cc_proto_library(
+    name = "lightstep_carrier_proto",
+    srcs = ["lightstep_carrier.proto"],
+    include = ".",
+    deps = [
+        "//external:cc_wkt_protos",
+    ],
+    protoc = "//external:protoc",
+    default_runtime = "//external:protobuf",
+    visibility = ["//visibility:public"],
+)
+"""
 
     native.new_git_repository(
         name = "lightstep_common_git",
         remote = "https://github.com/lightstep/lightstep-tracer-common.git",
-        commit = "8d932f7f76cd286691e6179621d0012b0ff1e6aa",
+        commit = "cbbecd671c1ae1f20ae873c5da688c8c14d04ec3",
         build_file_content = COMMON_BUILD,
     )
 
     native.new_git_repository(
         name = "lightstep_git",
         remote = "https://github.com/lightstep/lightstep-tracer-cpp.git",
-        commit = "5a71d623cac17a059041b04fabca4ed86ffff7cc",
+        commit = "f1dc8f3dfd529350e053fd21273e627f409ae428", # 0.36
         build_file_content = BUILD,
     )
 
@@ -751,7 +738,6 @@ cc_test(
     native.new_git_repository(
         name = "envoy_git",
         remote = "https://github.com/lyft/envoy.git",
-        commit = "b72309da41fba0c1222a72262b83bedc7294df65", # Mar 13 2017
+        commit = "09f078b016da908ba8b861857f2a12a43933ba40", # Mar 21 2017
         build_file_content = BUILD,
     )
-

@@ -1,25 +1,27 @@
 sudo: required
-dist: xenial
+
+dist: trusty
+
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    packages:
+    - gcc-4.9
+    - g++-4.9
+    - wget
 
 branches:
   except:
   - stable
 
-lang: go
-
-go:
-  - 1.7.x
+language: cpp
 
 jdk:
   - oraclejdk8
 
 env:
-  - BAZEL_VERSION=0.4.3
-
-addons:
-  apt:
-    packages:
-      - wget
+  - BAZEL_VERSION=0.4.5
 
 cache:
   directories:
@@ -39,7 +41,7 @@ before_install:
 
 script:
   - script/check-style
-  - bazel --output_base=${HOME}/bazel/outbase test //...
+  - CC=/usr/bin/gcc-4.9 CXX=/usr/bin/g++-4.9 bazel --output_base=${HOME}/bazel/outbase test //...
 
 notifications:
   slack: istio-dev:wEEEbaabdP5ieCgDOFetA9nX
