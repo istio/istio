@@ -1,0 +1,43 @@
+# Manager service for discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-manager
+  labels:
+    istio: manager
+spec:
+  ports:
+  - port: 8080
+    name: http-discovery
+  selector:
+    istio: manager
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-manager
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: manager
+    spec:
+      containers:
+      - name: manager
+        image: docker.io/istio/runtime:2017-03-17-22.11.25
+        imagePullPolicy: Always
+        args: [
+          "discovery",
+          "-v", "2",
+          "-m", "istio-mixer:9091",
+          "-n", $(POD_NAMESPACE)
+        ]
+        ports:
+        - containerPort: 8080
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+---
