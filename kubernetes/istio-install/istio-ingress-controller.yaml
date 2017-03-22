@@ -8,10 +8,10 @@ metadata:
   labels:
     infra: istio-ingress-controller
 spec:
-  type: NodePort
+  type: LoadBalancer
   ports:
   - port: 80
-    nodePort: 32000
+#   nodePort: 32000
     name: http
   selector:
     infra: istio-ingress-controller
@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
       - name: istio-ingress-controller
-        image: docker.io/istio/runtime:2017-03-17-22.11.25
+        image: docker.io/istio/runtime:2017-03-22-17.30.06
         args:
         - proxy
         - ingress

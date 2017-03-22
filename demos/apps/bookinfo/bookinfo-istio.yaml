@@ -43,7 +43,8 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "istio/init:2017-03-17-22.11.25",
+            "image": "istio/init:2017-03-22-17.30.06",
+            "args": ["-p", "15001", "-u", "1337"],
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -55,7 +56,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: istio/runtime:2017-03-17-22.11.25
+        image: istio/runtime:2017-03-22-17.30.06
         securityContext:
           runAsUser: 1337
         args:
@@ -115,7 +116,8 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "istio/init:2017-03-17-22.11.25",
+            "image": "istio/init:2017-03-22-17.30.06",
+            "args": ["-p", "15001", "-u", "1337"],
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -127,7 +129,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: istio/runtime:2017-03-17-22.11.25
+        image: istio/runtime:2017-03-22-17.30.06
         securityContext:
           runAsUser: 1337
         args:
@@ -187,7 +189,8 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "istio/init:2017-03-17-22.11.25",
+            "image": "istio/init:2017-03-22-17.30.06",
+            "args": ["-p", "15001", "-u", "1337"],
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -199,7 +202,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: istio/runtime:2017-03-17-22.11.25
+        image: istio/runtime:2017-03-22-17.30.06
         securityContext:
           runAsUser: 1337
         args:
@@ -243,7 +246,8 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "istio/init:2017-03-17-22.11.25",
+            "image": "istio/init:2017-03-22-17.30.06",
+            "args": ["-p", "15001", "-u", "1337"],
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -255,7 +259,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: istio/runtime:2017-03-17-22.11.25
+        image: istio/runtime:2017-03-22-17.30.06
         securityContext:
           runAsUser: 1337
         args:
@@ -299,7 +303,8 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "istio/init:2017-03-17-22.11.25",
+            "image": "istio/init:2017-03-22-17.30.06",
+            "args": ["-p", "15001", "-u", "1337"],
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -311,7 +316,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: istio/runtime:2017-03-17-22.11.25
+        image: istio/runtime:2017-03-22-17.30.06
         securityContext:
           runAsUser: 1337
         args:
@@ -371,7 +376,8 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "istio/init:2017-03-17-22.11.25",
+            "image": "istio/init:2017-03-22-17.30.06",
+            "args": ["-p", "15001", "-u", "1337"],
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
@@ -383,7 +389,7 @@ spec:
         ports:
         - containerPort: 9080
       - name: proxy
-        image: istio/runtime:2017-03-17-22.11.25
+        image: istio/runtime:2017-03-22-17.30.06
         securityContext:
           runAsUser: 1337
         args:
@@ -420,6 +426,8 @@ kind: Ingress
 metadata:
   name: gateway
   namespace: default
+  annotations:
+    kubernetes.io/ingress.class: "istio"
 spec:
   rules:
   - http:

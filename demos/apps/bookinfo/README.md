@@ -97,13 +97,10 @@ which will be used to implement the gateway for the application.
 
 1. Determine the Gateway ingress URL (TEMPORARY - instruction subject to change)
 
-   Determine the node on which the `gateway` (ingress controller) runs and use the node's IP address
-   as the external gateway IP.
-
    ```bash
-   $ kubectl describe pod istio-ingress-controller- | grep Node
-   Node:		minikube/192.168.99.100
-   $ export GATEWAY_URL=192.168.99.100:32000
+   $ export GATEWAY_URL=$(kubectl get po -l infra=istio-ingress-controller -o jsonpath={.items[0]..status.hostIP}):$(kubectl get svc istio-ingress-controller -o jsonpath={.spec.ports[0].nodePort})
+   $ echo $GATEWAY_URL
+   192.168.99.100:32567 
    ```
 
 ### Content Based Routing
