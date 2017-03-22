@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
       - name: istio-ingress-controller
-        image: docker.io/istio/runtime:2017-03-22-17.30.06
+        image: docker.io/istio/runtime:2017-03-22-21.21.48
         args:
         - proxy
         - ingress
