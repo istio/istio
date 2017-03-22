@@ -28,6 +28,7 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
@@ -68,7 +69,7 @@ func newApplicationLogsManager() Manager {
 	return applicationLogsManager{}
 }
 
-func (applicationLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (applicationLogsManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
 	// TODO: look up actual descriptors by name and build an array
 	cfg := c.Aspect.Params.(*aconfig.ApplicationLogsParams)
 
@@ -105,7 +106,7 @@ func (applicationLogsManager) NewAspect(c *config.Combined, a adapter.Builder, e
 		}
 	}
 
-	asp, err := a.(adapter.ApplicationLogsBuilder).NewApplicationLogsAspect(env, c.Builder.Params.(adapter.AspectConfig))
+	asp, err := a.(adapter.ApplicationLogsBuilder).NewApplicationLogsAspect(env, c.Builder.Params.(adapter.Config))
 	if err != nil {
 		return nil, err
 	}
@@ -118,12 +119,12 @@ func (applicationLogsManager) NewAspect(c *config.Combined, a adapter.Builder, e
 }
 
 func (applicationLogsManager) Kind() Kind { return ApplicationLogsKind }
-func (applicationLogsManager) DefaultConfig() adapter.AspectConfig {
+func (applicationLogsManager) DefaultConfig() config.AspectParams {
 	return &aconfig.ApplicationLogsParams{LogName: "istio_log"}
 }
 
 // TODO: validation of timestamp format
-func (applicationLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (applicationLogsManager) ValidateConfig(c config.AspectParams) (ce *adapter.ConfigErrors) {
 	return nil
 }
 

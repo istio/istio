@@ -19,6 +19,7 @@ import (
 	"errors"
 
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/config"
 )
 
 // Logger is a test struct that implements the application-logs and access-logs aspects.
@@ -26,7 +27,7 @@ type Logger struct {
 	adapter.AccessLogsBuilder
 	adapter.ApplicationLogsBuilder
 
-	DefaultCfg     adapter.AspectConfig
+	DefaultCfg     config.AspectParams
 	EntryCount     int
 	Logs           []adapter.LogEntry
 	AccessLogs     []adapter.LogEntry
@@ -36,7 +37,7 @@ type Logger struct {
 }
 
 // NewApplicationLogsAspect returns a new instance of the Logger aspect.
-func (t *Logger) NewApplicationLogsAspect(e adapter.Env, m adapter.AspectConfig) (adapter.ApplicationLogsAspect, error) {
+func (t *Logger) NewApplicationLogsAspect(e adapter.Env, m adapter.Config) (adapter.ApplicationLogsAspect, error) {
 	if t.ErrOnNewAspect {
 		return nil, errors.New("new aspect error")
 	}
@@ -44,7 +45,7 @@ func (t *Logger) NewApplicationLogsAspect(e adapter.Env, m adapter.AspectConfig)
 }
 
 // NewAccessLogsAspect returns a new instance of the accessLogger aspect.
-func (t *Logger) NewAccessLogsAspect(e adapter.Env, m adapter.AspectConfig) (adapter.AccessLogsAspect, error) {
+func (t *Logger) NewAccessLogsAspect(e adapter.Env, m adapter.Config) (adapter.AccessLogsAspect, error) {
 	if t.ErrOnNewAspect {
 		return nil, errors.New("new aspect error")
 	}
@@ -58,10 +59,10 @@ func (t *Logger) Name() string { return "testLogger" }
 func (t *Logger) Description() string { return "A test logger" }
 
 // DefaultConfig returns a default configuration struct for this adapter.
-func (t *Logger) DefaultConfig() adapter.AspectConfig { return t.DefaultCfg }
+func (t *Logger) DefaultConfig() adapter.Config { return t.DefaultCfg }
 
 // ValidateConfig determines whether the given configuration meets all correctness requirements.
-func (t *Logger) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) { return nil }
+func (t *Logger) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) { return nil }
 
 // Log simulates processing a batch of log entries.
 func (t *Logger) Log(l []adapter.LogEntry) error {

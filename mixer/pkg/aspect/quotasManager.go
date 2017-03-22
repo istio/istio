@@ -20,13 +20,14 @@ import (
 	"sync/atomic"
 
 	ptypes "github.com/gogo/protobuf/types"
-
 	"github.com/golang/glog"
+
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
@@ -55,7 +56,7 @@ func newQuotasManager() Manager {
 }
 
 // NewAspect creates a quota aspect.
-func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (m *quotasManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
 	params := c.Aspect.Params.(*aconfig.QuotasParams)
 
 	// TODO: get this from config
@@ -100,7 +101,7 @@ func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env ada
 		}
 	}
 
-	asp, err := a.(adapter.QuotasBuilder).NewQuotasAspect(env, c.Builder.Params.(adapter.AspectConfig), defs)
+	asp, err := a.(adapter.QuotasBuilder).NewQuotasAspect(env, c.Builder.Params.(adapter.Config), defs)
 	if err != nil {
 		return nil, err
 	}
@@ -113,9 +114,9 @@ func (m *quotasManager) NewAspect(c *config.Combined, a adapter.Builder, env ada
 	}, nil
 }
 
-func (*quotasManager) Kind() Kind                                                     { return QuotasKind }
-func (*quotasManager) DefaultConfig() adapter.AspectConfig                            { return &aconfig.QuotasParams{} }
-func (*quotasManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigErrors) { return }
+func (*quotasManager) Kind() Kind                                                    { return QuotasKind }
+func (*quotasManager) DefaultConfig() config.AspectParams                            { return &aconfig.QuotasParams{} }
+func (*quotasManager) ValidateConfig(config.AspectParams) (ce *adapter.ConfigErrors) { return }
 
 func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
 	qma, ok := ma.(*QuotaMethodArgs)

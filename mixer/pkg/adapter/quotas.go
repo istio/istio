@@ -36,7 +36,7 @@ type (
 		Builder
 
 		// NewQuotasAspect returns a new instance of the Quota aspect.
-		NewQuotasAspect(env Env, c AspectConfig, quotas map[string]*QuotaDefinition) (QuotasAspect, error)
+		NewQuotasAspect(env Env, c Config, quotas map[string]*QuotaDefinition) (QuotasAspect, error)
 	}
 
 	// QuotaDefinition is used to describe an individual quota that the aspect will encounter at runtime.

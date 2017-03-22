@@ -66,7 +66,7 @@ func (f *factory) Close() error {
 }
 
 // NewMetricsAspect provides an implementation for adapter.MetricsBuilder.
-func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.AspectConfig, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	var serverErr error
 	f.once.Do(func() { serverErr = f.srv.Start(env) })
 	if serverErr != nil {

@@ -29,6 +29,7 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	configpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
@@ -68,7 +69,7 @@ type cacheKey struct {
 	aspectParamsSHA  [sha1.Size]byte
 }
 
-func newCacheKey(kind aspect.Kind, cfg *config.Combined) (*cacheKey, error) {
+func newCacheKey(kind aspect.Kind, cfg *configpb.Combined) (*cacheKey, error) {
 	ret := cacheKey{
 		kind: kind,
 		impl: cfg.Builder.GetImpl(),
@@ -120,7 +121,7 @@ func newManager(r builderFinder, m map[aspect.Kind]aspect.Manager, exp expr.Eval
 }
 
 // Execute iterates over cfgs and performs the actions described by the combined config using the attribute bag on each config.
-func (m *Manager) Execute(ctx context.Context, cfgs []*config.Combined,
+func (m *Manager) Execute(ctx context.Context, cfgs []*configpb.Combined,
 	requestBag *attribute.MutableBag, responseBag *attribute.MutableBag, ma aspect.APIMethodArgs) aspect.Output {
 	numCfgs := len(cfgs)
 
@@ -216,13 +217,13 @@ func combineResults(results []result) aspect.Output {
 
 // result holds the values returned by the execution of an adapter
 type result struct {
-	cfg         *config.Combined
+	cfg         *configpb.Combined
 	out         aspect.Output
 	responseBag *attribute.MutableBag
 }
 
 // execute performs action described in the combined config using the attribute bag
-func (m *Manager) execute(ctx context.Context, cfg *config.Combined, requestBag attribute.Bag, responseBag *attribute.MutableBag,
+func (m *Manager) execute(ctx context.Context, cfg *configpb.Combined, requestBag attribute.Bag, responseBag *attribute.MutableBag,
 	ma aspect.APIMethodArgs) (out aspect.Output) {
 	var mgr aspect.Manager
 	var found bool
@@ -261,7 +262,7 @@ func (m *Manager) execute(ctx context.Context, cfg *config.Combined, requestBag 
 }
 
 // cacheGet gets an aspect wrapper from the cache, use adapter.Manager to construct an object in case of a cache miss
-func (m *Manager) cacheGet(cfg *config.Combined, mgr aspect.Manager, builder adapter.Builder) (asp aspect.Wrapper, err error) {
+func (m *Manager) cacheGet(cfg *configpb.Combined, mgr aspect.Manager, builder adapter.Builder) (asp aspect.Wrapper, err error) {
 	var key *cacheKey
 	if key, err = newCacheKey(mgr.Kind(), cfg); err != nil {
 		return nil, err
@@ -303,9 +304,9 @@ func closeWrapper(asp aspect.Wrapper) {
 	}
 }
 
-// AspectValidatorFinder returns a ValidatorFinderFunc for aspects.
-func (m *Manager) AspectValidatorFinder() config.ValidatorFinderFunc {
-	return func(kind string) (adapter.ConfigValidator, bool) {
+// AspectValidatorFinder returns a AdapterValidatorFinder for aspects.
+func (m *Manager) AspectValidatorFinder() config.AspectValidatorFinder {
+	return func(kind string) (config.AspectValidator, bool) {
 		k, found := aspect.ParseKind(kind)
 		if !found {
 			return nil, false
@@ -315,15 +316,15 @@ func (m *Manager) AspectValidatorFinder() config.ValidatorFinderFunc {
 	}
 }
 
-// AdapterToAspectMapperFunc returns AdapterToAspectMapperFunc.
-func (m *Manager) AdapterToAspectMapperFunc() config.AdapterToAspectMapperFunc {
+// AdapterToAspectMapperFunc returns AdapterToAspectMapper.
+func (m *Manager) AdapterToAspectMapperFunc() config.AdapterToAspectMapper {
 	return func(impl string) (kinds []string) {
 		return m.builders.SupportedKinds(impl)
 	}
 }
 
-// BuilderValidatorFinder returns a ValidatorFinderFunc for builders.
-func (m *Manager) BuilderValidatorFinder() config.ValidatorFinderFunc {
+// BuilderValidatorFinder returns a AdapterValidatorFinder for builders.
+func (m *Manager) BuilderValidatorFinder() config.AdapterValidatorFinder {
 	return func(name string) (adapter.ConfigValidator, bool) {
 		return m.builders.FindBuilder(name)
 	}

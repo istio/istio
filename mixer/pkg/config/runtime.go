@@ -32,25 +32,10 @@ type (
 		// used to evaluate selectors
 		eval expr.PredicateEvaluator
 	}
-	// Combined config is given to aspect managers.
-	Combined struct {
-		Builder *pb.Adapter
-		Aspect  *pb.Aspect
-	}
 
 	// AspectSet is a set of aspects by name.
 	AspectSet map[string]bool
 )
-
-func (c *Combined) String() (ret string) {
-	if c.Builder != nil {
-		ret += "builder: " + c.Builder.String() + " "
-	}
-	if c.Aspect != nil {
-		ret += "aspect: " + c.Aspect.String()
-	}
-	return
-}
 
 // NewRuntime returns a Runtime object given a validated config and a predicate eval.
 func NewRuntime(v *Validated, evaluator expr.PredicateEvaluator) *Runtime {
@@ -64,12 +49,12 @@ func NewRuntime(v *Validated, evaluator expr.PredicateEvaluator) *Runtime {
 // It will only return config from the requested set of aspects.
 // For example the Check handler and Report handler will request
 // a disjoint set of aspects check: {iplistChecker, iam}, report: {Log, metrics}
-func (r *Runtime) Resolve(bag attribute.Bag, aspectSet AspectSet) (dlist []*Combined, err error) {
+func (r *Runtime) Resolve(bag attribute.Bag, aspectSet AspectSet) (dlist []*pb.Combined, err error) {
 	if glog.V(2) {
 		glog.Infof("resolving for: %s", aspectSet)
 		defer func() { glog.Infof("resolved (err=%v): %s", err, dlist) }()
 	}
-	dlist = make([]*Combined, 0, r.numAspects)
+	dlist = make([]*pb.Combined, 0, r.numAspects)
 	return r.resolveRules(bag, aspectSet, r.serviceConfig.GetRules(), "/", dlist)
 }
 
@@ -82,7 +67,7 @@ func (r *Runtime) evalPredicate(selector string, bag attribute.Bag) (bool, error
 }
 
 // resolveRules recurses through the config struct and returns a list of combined aspects
-func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*pb.AspectRule, path string, dlist []*Combined) ([]*Combined, error) {
+func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*pb.AspectRule, path string, dlist []*pb.Combined) ([]*pb.Combined, error) {
 	var selected bool
 	var lerr error
 	var err error
@@ -106,7 +91,7 @@ func (r *Runtime) resolveRules(bag attribute.Bag, aspectSet AspectSet, rules []*
 			}
 			adp := r.adapterByName[adapterKey{aa.Kind, aa.Adapter}]
 			glog.V(2).Infof("selected aspect %s -> %s", aa.Kind, adp)
-			dlist = append(dlist, &Combined{adp, aa})
+			dlist = append(dlist, &pb.Combined{adp, aa})
 		}
 		rs := rule.GetRules()
 		if len(rs) == 0 {

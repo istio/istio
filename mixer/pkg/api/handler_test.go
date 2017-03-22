@@ -28,15 +28,16 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/status"
 )
 
 type fakeresolver struct {
-	ret []*config.Combined
+	ret []*cpb.Combined
 	err error
 }
 
-func (f *fakeresolver) Resolve(bag attribute.Bag, aspectSet config.AspectSet) ([]*config.Combined, error) {
+func (f *fakeresolver) Resolve(bag attribute.Bag, aspectSet config.AspectSet) ([]*cpb.Combined, error) {
 	return f.ret, f.err
 }
 
@@ -45,7 +46,7 @@ type fakeExecutor struct {
 }
 
 // Execute takes a set of configurations and Executes all of them.
-func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*config.Combined, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*cpb.Combined, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
 	ma aspect.APIMethodArgs) aspect.Output {
 	return f.body()
 }
@@ -55,7 +56,7 @@ func TestAspectManagerErrorsPropagated(t *testing.T) {
 		return aspect.Output{Status: status.WithError(errors.New("expected"))}
 	}}
 	h := NewHandler(f, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
-	h.ConfigChange(&fakeresolver{[]*config.Combined{nil, nil}, nil})
+	h.ConfigChange(&fakeresolver{[]*cpb.Combined{nil, nil}, nil})
 
 	o := h.execute(context.Background(), attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), aspect.CheckMethod, nil)
 	if o.Status.Code != int32(rpc.INTERNAL) {
@@ -82,8 +83,8 @@ func TestHandler(t *testing.T) {
 		code        rpc.Code
 	}{
 		{nil, "", "", "", rpc.INTERNAL},
-		{&fakeresolver{[]*config.Combined{nil, nil}, nil}, "RESOLVER", "", "RESOLVER", rpc.INTERNAL},
-		{&fakeresolver{[]*config.Combined{nil, nil}, nil}, "", "BADASPECT", "BADASPECT", rpc.INTERNAL},
+		{&fakeresolver{[]*cpb.Combined{nil, nil}, nil}, "RESOLVER", "", "RESOLVER", rpc.INTERNAL},
+		{&fakeresolver{[]*cpb.Combined{nil, nil}, nil}, "", "BADASPECT", "BADASPECT", rpc.INTERNAL},
 	}
 
 	for _, c := range cases {
@@ -125,7 +126,7 @@ func TestHandler(t *testing.T) {
 	f := &fakeExecutor{func() aspect.Output {
 		return aspect.Output{Status: status.OK, Response: &aspect.QuotaMethodResp{Amount: 42}}
 	}}
-	r := &fakeresolver{[]*config.Combined{nil, nil}, nil}
+	r := &fakeresolver{[]*cpb.Combined{nil, nil}, nil}
 	h := NewHandler(f, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
 	h.ConfigChange(r)
 

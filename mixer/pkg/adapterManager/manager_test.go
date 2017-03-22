@@ -57,6 +57,7 @@ type (
 		instance testAspect
 	}
 
+	// implements adapter.Builder too.
 	testAspect struct {
 		body func() aspect.Output
 	}
@@ -86,20 +87,20 @@ func (m *fakemgr) Kind() aspect.Kind {
 func newTestManager(name string, throwOnNewAspect bool, body func() aspect.Output) testManager {
 	return testManager{name, throwOnNewAspect, testAspect{body}}
 }
-func (testManager) Close() error                                                { return nil }
-func (testManager) DefaultConfig() adapter.AspectConfig                         { return nil }
-func (testManager) ValidateConfig(c adapter.AspectConfig) *adapter.ConfigErrors { return nil }
-func (testManager) Kind() aspect.Kind                                           { return aspect.DenialsKind }
-func (m testManager) Name() string                                              { return m.name }
-func (testManager) Description() string                                         { return "deny checker aspect manager for testing" }
+func (testManager) Close() error                                             { return nil }
+func (testManager) DefaultConfig() config.AspectParams                       { return nil }
+func (testManager) ValidateConfig(config.AspectParams) *adapter.ConfigErrors { return nil }
+func (testManager) Kind() aspect.Kind                                        { return aspect.DenialsKind }
+func (m testManager) Name() string                                           { return m.name }
+func (testManager) Description() string                                      { return "deny checker aspect manager for testing" }
 
-func (m testManager) NewAspect(cfg *config.Combined, adapter adapter.Builder, env adapter.Env) (aspect.Wrapper, error) {
+func (m testManager) NewAspect(cfg *configpb.Combined, adapter adapter.Builder, env adapter.Env) (aspect.Wrapper, error) {
 	if m.throw {
 		panic("NewAspect panic")
 	}
 	return m.instance, nil
 }
-func (m testManager) NewDenyChecker(env adapter.Env, c adapter.AspectConfig) (adapter.DenialsAspect, error) {
+func (m testManager) NewDenyChecker(env adapter.Env, c adapter.Config) (adapter.DenialsAspect, error) {
 	return m.instance, nil
 }
 
@@ -107,9 +108,13 @@ func (testAspect) Close() error { return nil }
 func (t testAspect) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma aspect.APIMethodArgs) aspect.Output {
 	return t.body()
 }
-func (testAspect) Deny() rpc.Status { return rpc.Status{Code: int32(rpc.INTERNAL)} }
+func (testAspect) Deny() rpc.Status                                    { return rpc.Status{Code: int32(rpc.INTERNAL)} }
+func (testAspect) DefaultConfig() adapter.Config                       { return nil }
+func (testAspect) ValidateConfig(adapter.Config) *adapter.ConfigErrors { return nil }
+func (testAspect) Name() string                                        { return "" }
+func (testAspect) Description() string                                 { return "" }
 
-func (m *fakemgr) NewAspect(cfg *config.Combined, adp adapter.Builder, env adapter.Env) (aspect.Wrapper, error) {
+func (m *fakemgr) NewAspect(cfg *configpb.Combined, adp adapter.Builder, env adapter.Env) (aspect.Wrapper, error) {
 	m.called++
 	if m.w == nil {
 		return nil, errors.New("unable to create aspect")
@@ -131,7 +136,7 @@ type ttable struct {
 	kindFound bool
 	errString string
 	wrapper   *fakewrapper
-	cfg       []*config.Combined
+	cfg       []*configpb.Combined
 }
 
 func getReg(found bool) *fakeBuilderReg {
@@ -148,17 +153,17 @@ func newFakeMgrReg(w *fakewrapper) map[aspect.Kind]aspect.Manager {
 }
 
 func TestManager(t *testing.T) {
-	goodcfg := &config.Combined{
+	goodcfg := &configpb.Combined{
 		Aspect:  &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
 		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1", Params: &rpc.Status{}},
 	}
 
-	badcfg1 := &config.Combined{
+	badcfg1 := &configpb.Combined{
 		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
 		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
 			Params: make(chan int)},
 	}
-	badcfg2 := &config.Combined{
+	badcfg2 := &configpb.Combined{
 		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: make(chan int)},
 		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
 			Params: &rpc.Status{}},
@@ -169,12 +174,12 @@ func TestManager(t *testing.T) {
 	mapper := &fakeevaluator{}
 
 	ttt := []ttable{
-		{false, false, "could not find aspect manager", nil, []*config.Combined{goodcfg}},
-		{true, false, "could not find registered adapter", nil, []*config.Combined{goodcfg}},
-		{true, true, "", &fakewrapper{}, []*config.Combined{goodcfg}},
-		{true, true, "", nil, []*config.Combined{goodcfg}},
-		{true, true, "can't handle type", nil, []*config.Combined{badcfg1}},
-		{true, true, "can't handle type", nil, []*config.Combined{badcfg2}},
+		{false, false, "could not find aspect manager", nil, []*configpb.Combined{goodcfg}},
+		{true, false, "could not find registered adapter", nil, []*configpb.Combined{goodcfg}},
+		{true, true, "", &fakewrapper{}, []*configpb.Combined{goodcfg}},
+		{true, true, "", nil, []*configpb.Combined{goodcfg}},
+		{true, true, "can't handle type", nil, []*configpb.Combined{badcfg1}},
+		{true, true, "can't handle type", nil, []*configpb.Combined{badcfg2}},
 	}
 
 	for idx, tt := range ttt {
@@ -224,30 +229,30 @@ func TestManager(t *testing.T) {
 }
 
 func TestManager_BulkExecute(t *testing.T) {
-	goodcfg := &config.Combined{
+	goodcfg := &configpb.Combined{
 		Aspect:  &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
 		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1", Params: &rpc.Status{}},
 	}
 
-	badcfg1 := &config.Combined{
+	badcfg1 := &configpb.Combined{
 		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
 		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
 			Params: make(chan int)},
 	}
-	badcfg2 := &config.Combined{
+	badcfg2 := &configpb.Combined{
 		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: make(chan int)},
 		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
 			Params: &rpc.Status{}},
 	}
 	cases := []struct {
 		errString string
-		cfgs      []*config.Combined
+		cfgs      []*configpb.Combined
 	}{
-		{"", []*config.Combined{}},
-		{"", []*config.Combined{goodcfg}},
-		{"", []*config.Combined{goodcfg, goodcfg}},
-		{"can't handle type", []*config.Combined{badcfg1, goodcfg}},
-		{"can't handle type", []*config.Combined{goodcfg, badcfg2}},
+		{"", []*configpb.Combined{}},
+		{"", []*configpb.Combined{goodcfg}},
+		{"", []*configpb.Combined{goodcfg, goodcfg}},
+		{"can't handle type", []*configpb.Combined{badcfg1, goodcfg}},
+		{"can't handle type", []*configpb.Combined{goodcfg, badcfg2}},
 	}
 
 	requestBag := attribute.GetMutableBag(nil)
@@ -295,7 +300,7 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 		aspect.DenialsKind: cacheThrow,
 	}
 	breg := &fakeBuilderReg{
-		adp:   cacheThrow,
+		adp:   cacheThrow.instance,
 		found: true,
 	}
 
@@ -303,7 +308,7 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 	agp := pool.NewGoroutinePool(1, true)
 	m := newManager(breg, mreg, nil, nil, gp, agp)
 
-	cfg := []*config.Combined{
+	cfg := []*configpb.Combined{
 		{
 			Builder: &configpb.Adapter{Name: name},
 			Aspect:  &configpb.Aspect{Kind: name},
@@ -343,7 +348,7 @@ func TestExecute(t *testing.T) {
 			aspect.DenialsKind: mngr,
 		}
 		breg := &fakeBuilderReg{
-			adp:   mngr,
+			adp:   mngr.instance,
 			found: true,
 		}
 
@@ -351,7 +356,7 @@ func TestExecute(t *testing.T) {
 		agp := pool.NewGoroutinePool(1, true)
 		m := newManager(breg, mreg, nil, nil, gp, agp)
 
-		cfg := []*config.Combined{
+		cfg := []*configpb.Combined{
 			{&configpb.Adapter{Name: c.name}, &configpb.Aspect{Kind: c.name}},
 		}
 
@@ -385,7 +390,7 @@ func TestExecute_Cancellation(t *testing.T) {
 	handler := &Manager{gp: gp, adapterGP: agp}
 	cancel()
 
-	cfg := []*config.Combined{
+	cfg := []*configpb.Combined{
 		{&configpb.Adapter{Name: ""}, &configpb.Aspect{Kind: ""}},
 	}
 	if out := handler.Execute(ctx, cfg, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), nil); out.IsOK() {
@@ -409,7 +414,7 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 		aspect.DenialsKind: mngr,
 	}
 	breg := &fakeBuilderReg{
-		adp:   mngr,
+		adp:   mngr.instance,
 		found: true,
 	}
 
@@ -426,7 +431,7 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 		cancel()
 	}()
 
-	cfg := []*config.Combined{{
+	cfg := []*configpb.Combined{{
 		&configpb.Adapter{Name: name},
 		&configpb.Aspect{Kind: name},
 	}}

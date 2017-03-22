@@ -33,6 +33,6 @@ type (
 		Builder
 
 		// NewAccessLogsAspect returns a new instance of the AccessLogger aspect.
-		NewAccessLogsAspect(env Env, c AspectConfig) (AccessLogsAspect, error)
+		NewAccessLogsAspect(env Env, c Config) (AccessLogsAspect, error)
 	}
 )

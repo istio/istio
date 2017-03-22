@@ -28,15 +28,15 @@ type testBuilder struct {
 	name string
 }
 
-func (t testBuilder) Name() string                                              { return t.name }
-func (testBuilder) Close() error                                                { return nil }
-func (testBuilder) Description() string                                         { return "mock builder for testing" }
-func (testBuilder) DefaultConfig() adapter.AspectConfig                         { return nil }
-func (testBuilder) ValidateConfig(c adapter.AspectConfig) *adapter.ConfigErrors { return nil }
+func (t testBuilder) Name() string                                        { return t.name }
+func (testBuilder) Close() error                                          { return nil }
+func (testBuilder) Description() string                                   { return "mock builder for testing" }
+func (testBuilder) DefaultConfig() adapter.Config                         { return nil }
+func (testBuilder) ValidateConfig(c adapter.Config) *adapter.ConfigErrors { return nil }
 
 type denyBuilder struct{ testBuilder }
 
-func (denyBuilder) NewDenialsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.DenialsAspect, error) {
+func (denyBuilder) NewDenialsAspect(env adapter.Env, cfg adapter.Config) (adapter.DenialsAspect, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -59,7 +59,7 @@ func TestRegisterDenyChecker(t *testing.T) {
 type listBuilder struct{ testBuilder }
 type listBuilder2 struct{ listBuilder }
 
-func (listBuilder) NewListsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.ListsAspect, error) {
+func (listBuilder) NewListsAspect(env adapter.Env, cfg adapter.Config) (adapter.ListsAspect, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -81,7 +81,7 @@ func TestRegisterListChecker(t *testing.T) {
 
 type loggerBuilder struct{ testBuilder }
 
-func (loggerBuilder) NewApplicationLogsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.ApplicationLogsAspect, error) {
+func (loggerBuilder) NewApplicationLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.ApplicationLogsAspect, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -103,7 +103,7 @@ func TestRegisterLogger(t *testing.T) {
 
 type accessLoggerBuilder struct{ testBuilder }
 
-func (accessLoggerBuilder) NewAccessLogsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.AccessLogsAspect, error) {
+func (accessLoggerBuilder) NewAccessLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.AccessLogsAspect, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -125,12 +125,12 @@ func TestRegistry_RegisterAccessLogger(t *testing.T) {
 
 type quotaBuilder struct{ testBuilder }
 
-func (quotaBuilder) NewQuotasAspect(env adapter.Env, cfg adapter.AspectConfig, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
+func (quotaBuilder) NewQuotasAspect(env adapter.Env, cfg adapter.Config, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
 	return nil, errors.New("not implemented")
 }
 
 // enables multiple aspects for testing.
-func (quotaBuilder) NewAccessLogsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.AccessLogsAspect, error) {
+func (quotaBuilder) NewAccessLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.AccessLogsAspect, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -151,7 +151,7 @@ func TestRegisterQuota(t *testing.T) {
 
 type metricsBuilder struct{ testBuilder }
 
-func (metricsBuilder) NewMetricsAspect(adapter.Env, adapter.AspectConfig, map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (metricsBuilder) NewMetricsAspect(adapter.Env, adapter.Config, map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	return nil, errors.New("not implemented")
 }
 

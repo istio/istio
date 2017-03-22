@@ -26,6 +26,7 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
@@ -53,7 +54,7 @@ func newMetricsManager() Manager {
 }
 
 // NewAspect creates a metric aspect.
-func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (m *metricsManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
 	params := c.Aspect.Params.(*aconfig.MetricsParams)
 
 	// TODO: get descriptors from config
@@ -112,17 +113,17 @@ func (m *metricsManager) NewAspect(c *config.Combined, a adapter.Builder, env ad
 		}
 	}
 	b := a.(adapter.MetricsBuilder)
-	asp, err := b.NewMetricsAspect(env, c.Builder.Params.(adapter.AspectConfig), defs)
+	asp, err := b.NewMetricsAspect(env, c.Builder.Params.(adapter.Config), defs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct metrics aspect with config '%v' and err: %s", c, err)
 	}
 	return &metricsWrapper{b.Name(), asp, metadata}, nil
 }
 
-func (*metricsManager) Kind() Kind                          { return MetricsKind }
-func (*metricsManager) DefaultConfig() adapter.AspectConfig { return &aconfig.MetricsParams{} }
+func (*metricsManager) Kind() Kind                         { return MetricsKind }
+func (*metricsManager) DefaultConfig() config.AspectParams { return &aconfig.MetricsParams{} }
 
-func (*metricsManager) ValidateConfig(adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (*metricsManager) ValidateConfig(config.AspectParams) (ce *adapter.ConfigErrors) {
 	// TODO: we need to be provided the metric descriptors in addition to the metrics themselves here, so we can do type assertions.
 	// We also need some way to assert the type of the result of evaluating an expression, but we don't have any attributes or an
 	// evaluator on hand.

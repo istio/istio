@@ -22,6 +22,7 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
@@ -53,7 +54,7 @@ func newAccessLogsManager() Manager {
 	return accessLogsManager{}
 }
 
-func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (m accessLogsManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
 	cfg := c.Aspect.Params.(*aconfig.AccessLogsParams)
 
 	var templateStr string
@@ -73,7 +74,7 @@ func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env 
 		return nil, fmt.Errorf("log %s failed to parse template '%s' with err: %s", cfg.LogName, templateStr, err)
 	}
 
-	asp, err := a.(adapter.AccessLogsBuilder).NewAccessLogsAspect(env, c.Builder.Params.(adapter.AspectConfig))
+	asp, err := a.(adapter.AccessLogsBuilder).NewAccessLogsAspect(env, c.Builder.Params.(adapter.Config))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create aspect for log %s with err: %s", cfg.LogName, err)
 	}
@@ -88,7 +89,7 @@ func (m accessLogsManager) NewAspect(c *config.Combined, a adapter.Builder, env 
 }
 
 func (accessLogsManager) Kind() Kind { return AccessLogsKind }
-func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
+func (accessLogsManager) DefaultConfig() config.AspectParams {
 	return &aconfig.AccessLogsParams{
 		LogName: "access_log",
 		Log: &aconfig.AccessLogsParams_AccessLog{
@@ -97,7 +98,7 @@ func (accessLogsManager) DefaultConfig() adapter.AspectConfig {
 	}
 }
 
-func (accessLogsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (accessLogsManager) ValidateConfig(c config.AspectParams) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.AccessLogsParams)
 	if cfg.Log == nil {
 		ce = ce.Appendf("Log", "an AccessLog entry must be provided")

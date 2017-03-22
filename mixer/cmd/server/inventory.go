@@ -24,6 +24,7 @@ import (
 	pkgadapter "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/config"
 )
 
 func adapterCmd(outf outFn, errorf errorFn) *cobra.Command {
@@ -70,7 +71,7 @@ func listAspects(outf outFn) error {
 	for _, kind := range keys {
 		outf("aspect %s\n", kind)
 		k, _ := aspect.ParseKind(kind)
-		printConfigValidator(outf, aspectMap[k])
+		printAspectConfigValidator(outf, aspectMap[k])
 	}
 	return nil
 }
@@ -87,14 +88,13 @@ func listBuilders(outf outFn) error {
 		b := builderMap[impl].Builder
 
 		outf("adapter %s: %s\n", impl, b.Description())
-		printConfigValidator(outf, b)
+		printAdapterConfigValidator(outf, b)
 
 	}
 	return nil
 }
 
-func printConfigValidator(outf outFn, v pkgadapter.ConfigValidator) {
-
+func printAdapterConfigValidator(outf outFn, v pkgadapter.ConfigValidator) {
 	outf("Params: \n")
 	c := v.DefaultConfig()
 	if c == nil {
@@ -104,5 +104,18 @@ func printConfigValidator(outf outFn, v pkgadapter.ConfigValidator) {
 	if err != nil {
 		outf("%s", err)
 	}
-	outf("%s", string(out[:])+"\n")
+	outf("%s\n", string(out[:]))
+}
+
+func printAspectConfigValidator(outf outFn, v config.AspectValidator) {
+	outf("Params: \n")
+	c := v.DefaultConfig()
+	if c == nil {
+		return
+	}
+	out, err := yaml.Marshal(c)
+	if err != nil {
+		outf("%s", err)
+	}
+	outf("%s\n", string(out[:]))
 }

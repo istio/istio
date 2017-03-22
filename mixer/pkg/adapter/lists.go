@@ -28,6 +28,6 @@ type (
 		Builder
 
 		// NewListsAspect returns a new instance of the ListChecker aspect.
-		NewListsAspect(env Env, c AspectConfig) (ListsAspect, error)
+		NewListsAspect(env Env, c Config) (ListsAspect, error)
 	}
 )
