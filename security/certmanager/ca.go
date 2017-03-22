@@ -103,7 +103,9 @@ func (ca IstioCA) Generate(name, namepsace string) (chain, key []byte) {
 		SignerCert:   ca.signingCert,
 		SignerPriv:   ca.signingKey,
 		IsCA:         false,
+		IsClient:     true,
 		IsSelfSigned: false,
+		IsServer:     true,
 	}
 	cert, key := GenCert(options)
 	chain = append(cert, ca.certChainBytes...)
