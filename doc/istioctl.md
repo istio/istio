@@ -26,6 +26,12 @@ where `command`, `targets` and `flags` are:
 * **replace**: Replace policies and rules
 * **version**: Display CLI version information
 
+_kubernetes specific_
+* **kube-inject**: Inject istio runtime proxy into kubernetes
+  resources. This command has been added to aid in `istiofying`
+  services for kubernetes and should eventually go away once a proper
+  istio admission controller for kubernetes is available.
+
 # Policy and Rule types
 
 * **route-rule** Describes a rule for routing network traffic.  See [Route Rules](rule-dsl.md#route-rules) for details on routing rules.
@@ -55,4 +61,62 @@ istioctl list route-rule
 
 // List destination policies
 istioctl list destination-policy
+```
+
+# kube-inject
+
+A short term workaround for the lack of a proper istio admision
+controller is client-side injection. Use `istioctl kube-inject` to add the
+necessary configurations to a kubernetes resource files.
+
+    istioctl kube-inject -f deployment.yaml -o deployment-with-istio.yaml
+
+Or update the resource on the fly before applying.
+
+    istioctl kube-inject -f depoyment.yaml | kubectl apply -f -
+
+Or update an existing deployment.
+
+    kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
+
+`istioctl kube-inject` will update
+the [PodTemplateSpec](https://kubernetes.io/docs/api-reference/v1/definitions/#_v1_podtemplatespec) in
+kubernetes Job, DaemonSet, ReplicaSet, and Deployment YAML resource
+documents. Support for additional pod-based resource types can be
+added as necessary.
+
+Unsupported resources are left unmodified so, for example, it is safe
+to run `istioctl kube-inject` over a single file that contains multiple
+Service, ConfigMap, and Deployment definitions for a complex
+application.
+
+For convenience you can use the `istio-inject` shell function which wraps
+`istioctl kube-inject` and provides known good default values for some
+of the flags noted above.
+
+    $ source istioctl-kube-inject.sh
+    $ istio-inject <kubernetes-yaml-resource> | kubectl apply -f -
+
+The Istio project is continually evolving so the low-level proxy
+configuration may change unannounced. When in doubt re-run `istioctl kube-inject`
+on your original deployments.
+
+```
+$ istioctl kube-inject --help
+Inject istio runtime into existing kubernete resources
+
+Usage:
+   inject [flags]
+
+Flags:
+      --discoveryPort int         Manager discovery port (default 8080)
+  -f, --filename string           Input kubernetes resource filename
+      --initImage string          Istio init image (default "docker.io/istio/init:latest")
+      --mixerPort int             Mixer port (default 9091)
+  -o, --output string             Modified output kubernetes resource filename
+      --runtimeImage string       Istio runtime image (default "docker.io/istio/runtime:latest")
+      --setVersionString string   Override version info injected into resource
+      --sidecarProxyPort int      Sidecar proxy Port (default 15001)
+      --sidecarProxyUID int       Sidecar proxy UID (default 1337)
+      --verbosity int             Runtime verbosity (default 2)
 ```

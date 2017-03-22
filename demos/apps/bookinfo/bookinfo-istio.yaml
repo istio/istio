@@ -39,15 +39,6 @@ spec:
       labels:
         app: details
         version: v1
-      annotations:
-        pod.beta.kubernetes.io/init-containers: >
-          [{
-            "name": "iptables",
-            "image": "istio/init:2017-03-22-21.21.48",
-            "args": ["-p", "15001", "-u", "1337"],
-            "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
-          }]
     spec:
       containers:
       - name: details
@@ -55,35 +46,6 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
-      - name: proxy
-        image: istio/runtime:2017-03-22-21.21.48
-        securityContext:
-          runAsUser: 1337
-        args:
-          - proxy
-          - sidecar
-          - -n
-          - default
-          - -s
-          - istio-manager:8080
-          - -m
-          - istio-mixer:9091
-          - -v
-          - "2"
-        env:
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: POD_IP
-            valueFrom:
-              fieldRef:
-                fieldPath: status.podIP
-        imagePullPolicy: Always
 ---
 ##################################################################################################
 # Ratings service
@@ -112,15 +74,6 @@ spec:
       labels:
         app: ratings
         version: v1
-      annotations:
-        pod.beta.kubernetes.io/init-containers: >
-          [{
-            "name": "iptables",
-            "image": "istio/init:2017-03-22-21.21.48",
-            "args": ["-p", "15001", "-u", "1337"],
-            "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
-          }]
     spec:
       containers:
       - name: ratings
@@ -128,35 +81,6 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
-      - name: proxy
-        image: istio/runtime:2017-03-22-21.21.48
-        securityContext:
-          runAsUser: 1337
-        args:
-          - proxy
-          - sidecar
-          - -n
-          - default
-          - -s
-          - istio-manager:8080
-          - -m
-          - istio-mixer:9091
-          - -v
-          - "2"
-        env:
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: POD_IP
-            valueFrom:
-              fieldRef:
-                fieldPath: status.podIP
-        imagePullPolicy: Always
 ---
 ##################################################################################################
 # Reviews service
@@ -185,15 +109,6 @@ spec:
       labels:
         app: reviews
         version: v1
-      annotations:
-        pod.beta.kubernetes.io/init-containers: >
-          [{
-            "name": "iptables",
-            "image": "istio/init:2017-03-22-21.21.48",
-            "args": ["-p", "15001", "-u", "1337"],
-            "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
-          }]
     spec:
       containers:
       - name: reviews
@@ -201,35 +116,6 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
-      - name: proxy
-        image: istio/runtime:2017-03-22-21.21.48
-        securityContext:
-          runAsUser: 1337
-        args:
-          - proxy
-          - sidecar
-          - -n
-          - default
-          - -s
-          - istio-manager:8080
-          - -m
-          - istio-mixer:9091
-          - -v
-          - "2"
-        env:
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: POD_IP
-            valueFrom:
-              fieldRef:
-                fieldPath: status.podIP
-        imagePullPolicy: Always
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -242,15 +128,6 @@ spec:
       labels:
         app: reviews
         version: v2
-      annotations:
-        pod.beta.kubernetes.io/init-containers: >
-          [{
-            "name": "iptables",
-            "image": "istio/init:2017-03-22-21.21.48",
-            "args": ["-p", "15001", "-u", "1337"],
-            "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
-          }]
     spec:
       containers:
       - name: reviews
@@ -258,35 +135,6 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
-      - name: proxy
-        image: istio/runtime:2017-03-22-21.21.48
-        securityContext:
-          runAsUser: 1337
-        args:
-          - proxy
-          - sidecar
-          - -n
-          - default
-          - -s
-          - istio-manager:8080
-          - -m
-          - istio-mixer:9091
-          - -v
-          - "2"
-        env:
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: POD_IP
-            valueFrom:
-              fieldRef:
-                fieldPath: status.podIP
-        imagePullPolicy: Always
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -299,15 +147,6 @@ spec:
       labels:
         app: reviews
         version: v3
-      annotations:
-        pod.beta.kubernetes.io/init-containers: >
-          [{
-            "name": "iptables",
-            "image": "istio/init:2017-03-22-21.21.48",
-            "args": ["-p", "15001", "-u", "1337"],
-            "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
-          }]
     spec:
       containers:
       - name: reviews
@@ -315,35 +154,6 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
-      - name: proxy
-        image: istio/runtime:2017-03-22-21.21.48
-        securityContext:
-          runAsUser: 1337
-        args:
-          - proxy
-          - sidecar
-          - -n
-          - default
-          - -s
-          - istio-manager:8080
-          - -m
-          - istio-mixer:9091
-          - -v
-          - "2"
-        env:
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: POD_IP
-            valueFrom:
-              fieldRef:
-                fieldPath: status.podIP
-        imagePullPolicy: Always
 ---
 ##################################################################################################
 # Productpage service
@@ -372,15 +182,6 @@ spec:
       labels:
         app: productpage
         version: v1
-      annotations:
-        pod.beta.kubernetes.io/init-containers: >
-          [{
-            "name": "iptables",
-            "image": "istio/init:2017-03-22-21.21.48",
-            "args": ["-p", "15001", "-u", "1337"],
-            "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
-          }]
     spec:
       containers:
       - name: productpage
@@ -388,35 +189,6 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
-      - name: proxy
-        image: istio/runtime:2017-03-22-21.21.48
-        securityContext:
-          runAsUser: 1337
-        args:
-          - proxy
-          - sidecar
-          - -n
-          - default
-          - -s
-          - istio-manager:8080
-          - -m
-          - istio-mixer:9091
-          - -v
-          - "2"
-        env:
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: POD_IP
-            valueFrom:
-              fieldRef:
-                fieldPath: status.podIP
-        imagePullPolicy: Always
 ---
 ###########################################################################
 # Ingress resource (gateway)
