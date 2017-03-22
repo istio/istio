@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
 	// need to pull this in
 	_ "google.golang.org/grpc/grpclog/glogger"
 )

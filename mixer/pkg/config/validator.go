@@ -34,6 +34,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
@@ -50,7 +51,7 @@ type (
 		DefaultConfig() (c AspectParams)
 
 		// ValidateConfig determines whether the given configuration meets all correctness requirements.
-		ValidateConfig(c AspectParams) *adapter.ConfigErrors
+		ValidateConfig(c AspectParams, finder descriptor.Finder) *adapter.ConfigErrors
 	}
 
 	// AdapterValidatorFinder is used to find specific underlying validators.
@@ -86,12 +87,13 @@ func NewValidator(managerFinder AspectValidatorFinder, adapterFinder AdapterVali
 type (
 	// Validator is the Configuration validator.
 	Validator struct {
-		managerFinder AspectValidatorFinder
-		adapterFinder AdapterValidatorFinder
-		findAspects   AdapterToAspectMapper
-		strict        bool
-		exprValidator expr.Validator
-		validated     *Validated
+		managerFinder    AspectValidatorFinder
+		adapterFinder    AdapterValidatorFinder
+		findAspects      AdapterToAspectMapper
+		descriptorFinder descriptor.Finder
+		strict           bool
+		exprValidator    expr.Validator
+		validated        *Validated
 	}
 
 	adapterKey struct {
@@ -160,7 +162,7 @@ func (p *Validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 		}
 		path = path + "/" + rule.GetSelector()
 		for idx, aa := range rule.GetAspects() {
-			if acfg, err = ConvertAspectParams(p.managerFinder, aa.Kind, aa.GetParams(), p.strict); err != nil {
+			if acfg, err = ConvertAspectParams(p.managerFinder, aa.Kind, aa.GetParams(), p.strict, p.descriptorFinder); err != nil {
 				ce = ce.Append(fmt.Sprintf("%s:%s[%d]", path, aa.Kind, idx), err)
 				continue
 			}
@@ -197,6 +199,7 @@ func (p *Validator) Validate(serviceCfg string, globalCfg string) (rt *Validated
 		return rt, cerr.Extend(re)
 	}
 	// The order is important here, because serviceConfig refers to global config
+	p.descriptorFinder = descriptor.NewFinder(p.validated.globalConfig)
 
 	if re := p.validateServiceConfig(serviceCfg, true); re != nil {
 		cerr = ce.Appendf("ServiceConfig", "failed validation")
@@ -248,7 +251,7 @@ func ConvertAdapterParams(find AdapterValidatorFinder, name string, params inter
 }
 
 // ConvertAspectParams converts returns a typed proto message based on available Validator.
-func ConvertAspectParams(find AspectValidatorFinder, name string, params interface{}, strict bool) (AspectParams, error) {
+func ConvertAspectParams(find AspectValidatorFinder, name string, params interface{}, strict bool, df descriptor.Finder) (AspectParams, error) {
 	var avl AspectValidator
 	var found bool
 
@@ -260,7 +263,7 @@ func ConvertAspectParams(find AspectValidatorFinder, name string, params interfa
 	if err := Decode(params, acfg, strict); err != nil {
 		return nil, err
 	}
-	if verr := avl.ValidateConfig(acfg); verr != nil {
+	if verr := avl.ValidateConfig(acfg, df); verr != nil {
 		return nil, verr
 	}
 	return acfg, nil
