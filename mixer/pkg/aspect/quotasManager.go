@@ -16,8 +16,6 @@ package aspect
 
 import (
 	"fmt"
-	"strconv"
-	"sync/atomic"
 
 	ptypes "github.com/gogo/protobuf/types"
 	"github.com/golang/glog"
@@ -34,9 +32,7 @@ import (
 )
 
 type (
-	quotasManager struct {
-		dedupCounter int64
-	}
+	quotasManager struct{}
 
 	quotaInfo struct {
 		definition *adapter.QuotaDefinition
@@ -122,18 +118,7 @@ func (*quotasManager) ValidateConfig(config.AspectParams, expr.Validator, descri
 }
 
 func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
-	qma, ok := ma.(*QuotaMethodArgs)
-
-	// TODO: this conditional is only necessary because we currently perform quota
-	// checking via the Check API, which doesn't generate a QuotaMethodArgs
-	if !ok {
-		qma = &QuotaMethodArgs{
-			Quota:           "RequestCount",
-			Amount:          1,
-			DeduplicationID: strconv.FormatInt(atomic.AddInt64(&w.manager.dedupCounter, 1), 16),
-			BestEffort:      false,
-		}
-	}
+	qma := ma.(*QuotaMethodArgs)
 
 	info, ok := w.metadata[qma.Quota]
 	if !ok {
