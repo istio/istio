@@ -44,15 +44,15 @@ func Register(r adapter.Registrar) {
 	r.RegisterAccessLogsBuilder(b)
 }
 
-func (builder) NewApplicationLogsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.ApplicationLogsAspect, error) {
+func (builder) NewApplicationLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.ApplicationLogsAspect, error) {
 	return newLogger(cfg)
 }
 
-func (builder) NewAccessLogsAspect(env adapter.Env, cfg adapter.AspectConfig) (adapter.AccessLogsAspect, error) {
+func (builder) NewAccessLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.AccessLogsAspect, error) {
 	return newLogger(cfg)
 }
 
-func newLogger(cfg adapter.AspectConfig) (*logger, error) {
+func newLogger(cfg adapter.Config) (*logger, error) {
 	c := cfg.(*config.Params)
 
 	w := os.Stderr

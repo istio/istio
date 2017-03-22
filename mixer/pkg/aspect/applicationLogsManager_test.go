@@ -38,7 +38,7 @@ import (
 type (
 	aspectTestCase struct {
 		name   string
-		params adapter.AspectConfig
+		params config.AspectParams
 		want   *applicationLogsWrapper
 	}
 )
@@ -118,7 +118,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 
 	for idx, v := range newAspectShouldSucceed {
 		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
-			c := config.Combined{
+			c := configpb.Combined{
 				Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 				Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
 			}
@@ -163,7 +163,7 @@ func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 	m := newApplicationLogsManager()
 	for idx, v := range failureCases {
 		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
-			cfg := &config.Combined{
+			cfg := &configpb.Combined{
 				Builder: &configpb.Adapter{
 					Params: &ptypes.Empty{},
 				},

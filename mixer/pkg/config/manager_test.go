@@ -17,13 +17,13 @@ package config
 import (
 	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/expr"
 )
 
 type mtest struct {
@@ -31,7 +31,8 @@ type mtest struct {
 	gc        string
 	scContent string
 	sc        string
-	v         map[string]adapter.ConfigValidator
+	ada       map[string]adapter.ConfigValidator
+	asp       map[string]AspectValidator
 	errStr    string
 }
 
@@ -57,59 +58,46 @@ func (f *fakelistener) Called() int {
 func TestConfigManager(t *testing.T) {
 	evaluator := newFakeExpr()
 	mlist := []mtest{
-		{"", "", "", "", nil, "no such file or directory"},
-		{sGlobalConfig, "globalconfig", "", "", nil, "no such file or directory"},
-		{sGlobalConfig, "globalconfig", sSvcConfig, "serviceconfig", nil, "failed validation"},
+		{"", "", "", "", nil, nil, "no such file or directory"},
+		{sGlobalConfig, "globalconfig", "", "", nil, nil, "no such file or directory"},
+		{sGlobalConfig, "globalconfig", sSvcConfig, "serviceconfig", nil, nil, "failed validation"},
 		{sGlobalConfigValid, "globalconfig", sSvcConfig2, "serviceconfig", map[string]adapter.ConfigValidator{
 			"denyChecker": &lc{},
 			"metrics":     &lc{},
 			"listchecker": &lc{},
+		}, map[string]AspectValidator{
+			"denyChecker": &ac{},
+			"metrics":     &ac{},
+			"listchecker": &ac{},
 		}, ""},
 	}
 	for idx, mt := range mlist {
-		loopDelay := time.Millisecond * 50
-		vf := newVfinder(mt.v)
-		ma := &managerArgs{
-			aspectFinder:  vf.FindValidator,
-			builderFinder: vf.FindValidator,
-			findKinds:     vf.AdapterToAspectMapperFunc,
-			eval:          evaluator,
-			loopDelay:     loopDelay,
-		}
-		if mt.gc != "" {
-			tmpfile, _ := ioutil.TempFile("", mt.gc)
-			ma.globalConfig = tmpfile.Name()
-			defer func() { _ = os.Remove(ma.globalConfig) }()
-			_, _ = tmpfile.Write([]byte(mt.gcContent))
-			_ = tmpfile.Close()
-		}
-
-		if mt.sc != "" {
-			tmpfile, _ := ioutil.TempFile("", mt.sc)
-			ma.serviceConfig = tmpfile.Name()
-			defer func() { _ = os.Remove(ma.serviceConfig) }()
-			_, _ = tmpfile.Write([]byte(mt.scContent))
-			_ = tmpfile.Close()
-		}
-		testConfigManager(t, newmanager(ma), mt, idx, loopDelay)
+		t.Run(strconv.Itoa(idx), func(t *testing.T) {
+			loopDelay := time.Millisecond * 50
+			vf := newVfinder(mt.ada, mt.asp)
+			gc := ""
+			if mt.gc != "" {
+				tmpfile, _ := ioutil.TempFile("", mt.gc)
+				gc = tmpfile.Name()
+				defer func() { _ = os.Remove(gc) }()
+				_, _ = tmpfile.Write([]byte(mt.gcContent))
+				_ = tmpfile.Close()
+			}
+			sc := ""
+			if mt.sc != "" {
+				tmpfile, _ := ioutil.TempFile("", mt.sc)
+				sc = tmpfile.Name()
+				defer func() { _ = os.Remove(sc) }()
+				_, _ = tmpfile.Write([]byte(mt.scContent))
+				_ = tmpfile.Close()
+			}
+			ma := NewManager(evaluator, vf.FindAspectValidator, vf.FindAdapterValidator, vf.AdapterToAspectMapperFunc, gc, sc, loopDelay)
+			testConfigManager(t, ma, mt, loopDelay)
+		})
 	}
 }
 
-func newmanager(args *managerArgs) *Manager {
-	return NewManager(args.eval, args.aspectFinder, args.builderFinder, args.findKinds, args.globalConfig, args.serviceConfig, args.loopDelay)
-}
-
-type managerArgs struct {
-	eval          expr.Evaluator
-	aspectFinder  ValidatorFinderFunc
-	builderFinder ValidatorFinderFunc
-	findKinds     AdapterToAspectMapperFunc
-	loopDelay     time.Duration
-	globalConfig  string
-	serviceConfig string
-}
-
-func testConfigManager(t *testing.T, mgr *Manager, mt mtest, idx int, loopDelay time.Duration) {
+func testConfigManager(t *testing.T, mgr *Manager, mt mtest, loopDelay time.Duration) {
 	fl := &fakelistener{}
 	mgr.Register(fl)
 
@@ -119,17 +107,15 @@ func testConfigManager(t *testing.T, mgr *Manager, mt mtest, idx int, loopDelay 
 	le := mgr.LastError()
 
 	if mt.errStr != "" && le == nil {
-		t.Errorf("[%d] Expected an error %s Got nothing", idx, mt.errStr)
-		return
+		t.Fatalf("Expected an error %s Got nothing", mt.errStr)
 	}
 
 	if mt.errStr == "" && le != nil {
-		t.Errorf("[%d] Unexpected an error %s", idx, le)
-		return
+		t.Fatalf("Unexpected an error %s", le)
 	}
 
 	if mt.errStr == "" && fl.rt == nil {
-		t.Errorf("[%d] Config listener was not notified", idx)
+		t.Error("Config listener was not notified")
 	}
 
 	if mt.errStr == "" && le == nil {
@@ -149,7 +135,6 @@ func testConfigManager(t *testing.T, mgr *Manager, mt mtest, idx int, loopDelay 
 	}
 
 	if !strings.Contains(le.Error(), mt.errStr) {
-		t.Errorf("[%d] Unexpected error. Expected %s\nGot: %s\n", idx, mt.errStr, le)
-		return
+		t.Fatalf("Unexpected error. Expected %s\nGot: %s\n", mt.errStr, le)
 	}
 }

@@ -31,8 +31,7 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/config"
-	pb "istio.io/mixer/pkg/config/proto"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -70,7 +69,7 @@ func (b *fakeQuotaBuilder) Name() string {
 	return b.name
 }
 
-func (b *fakeQuotaBuilder) NewQuotasAspect(env adapter.Env, config adapter.AspectConfig,
+func (b *fakeQuotaBuilder) NewQuotasAspect(env adapter.Env, config adapter.Config,
 	quotas map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
 	return b.body()
 }
@@ -85,9 +84,9 @@ func TestNewQuotasManager(t *testing.T) {
 	}
 }
 
-func newQuotaConfig(desc string, labels map[string]string) *config.Combined {
-	return &config.Combined{
-		Aspect: &pb.Aspect{
+func newQuotaConfig(desc string, labels map[string]string) *cpb.Combined {
+	return &cpb.Combined{
+		Aspect: &cpb.Aspect{
 			Params: &aconfig.QuotasParams{
 				Quotas: []*aconfig.QuotasParams_Quota{
 					{
@@ -99,7 +98,7 @@ func newQuotaConfig(desc string, labels map[string]string) *config.Combined {
 		},
 
 		// the params we use here don't matter because we're faking the aspect
-		Builder: &pb.Adapter{Params: &aconfig.QuotasParams{}},
+		Builder: &cpb.Adapter{Params: &aconfig.QuotasParams{}},
 	}
 }
 
@@ -120,10 +119,10 @@ func TestQuotasManager_NewAspect(t *testing.T) {
 }
 
 func TestQuotasManager_NewAspect_PropagatesError(t *testing.T) {
-	conf := &config.Combined{
-		Aspect: &pb.Aspect{Params: &aconfig.QuotasParams{}},
+	conf := &cpb.Combined{
+		Aspect: &cpb.Aspect{Params: &aconfig.QuotasParams{}},
 		// the params we use here don't matter because we're faking the aspect
-		Builder: &pb.Adapter{Params: &aconfig.QuotasParams{}},
+		Builder: &cpb.Adapter{Params: &aconfig.QuotasParams{}},
 	}
 	errString := "expected"
 	builder := &fakeQuotaBuilder{

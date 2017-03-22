@@ -66,7 +66,7 @@ type (
 		Builder
 
 		// NewMetricsAspect returns a new instance of the Metrics aspect.
-		NewMetricsAspect(env Env, config AspectConfig, metrics map[string]*MetricDefinition) (MetricsAspect, error)
+		NewMetricsAspect(env Env, config Config, metrics map[string]*MetricDefinition) (MetricsAspect, error)
 	}
 
 	// MetricDefinition provides the basic description of a metric schema

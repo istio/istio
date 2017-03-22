@@ -73,11 +73,11 @@ func newBuilder() adapter.ListsBuilder {
 	return builder{adapter.NewDefaultBuilder(name, desc, conf)}
 }
 
-func (builder) NewListsAspect(env adapter.Env, c adapter.AspectConfig) (adapter.ListsAspect, error) {
+func (builder) NewListsAspect(env adapter.Env, c adapter.Config) (adapter.ListsAspect, error) {
 	return newListChecker(env, c.(*config.Params))
 }
 
-func (builder) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (builder) ValidateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 	c := cfg.(*config.Params)
 
 	u, err := url.Parse(c.ProviderUrl)

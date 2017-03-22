@@ -29,8 +29,7 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/config"
-	pb "istio.io/mixer/pkg/config/proto"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -60,7 +59,7 @@ func (b *fakeBuilder) Name() string {
 	return b.name
 }
 
-func (b *fakeBuilder) NewMetricsAspect(env adapter.Env, config adapter.AspectConfig,
+func (b *fakeBuilder) NewMetricsAspect(env adapter.Env, config adapter.Config,
 	metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	return b.body()
 }
@@ -76,8 +75,8 @@ func TestNewMetricsManager(t *testing.T) {
 }
 
 func TestMetricsManager_NewAspect(t *testing.T) {
-	conf := &config.Combined{
-		Aspect: &pb.Aspect{
+	conf := &cpb.Combined{
+		Aspect: &cpb.Aspect{
 			Params: &aconfig.MetricsParams{
 				Metrics: []*aconfig.MetricsParams_Metric{
 					{
@@ -89,7 +88,7 @@ func TestMetricsManager_NewAspect(t *testing.T) {
 			},
 		},
 		// the params we use here don't matter because we're faking the aspect
-		Builder: &pb.Adapter{Params: &aconfig.MetricsParams{}},
+		Builder: &cpb.Adapter{Params: &aconfig.MetricsParams{}},
 	}
 	builder := &fakeBuilder{name: "test", body: func() (adapter.MetricsAspect, error) {
 		return &fakeaspect{body: func([]adapter.Value) error { return nil }}, nil
@@ -100,10 +99,10 @@ func TestMetricsManager_NewAspect(t *testing.T) {
 }
 
 func TestMetricsManager_NewAspect_PropagatesError(t *testing.T) {
-	conf := &config.Combined{
-		Aspect: &pb.Aspect{Params: &aconfig.MetricsParams{}},
+	conf := &cpb.Combined{
+		Aspect: &cpb.Aspect{Params: &aconfig.MetricsParams{}},
 		// the params we use here don't matter because we're faking the aspect
-		Builder: &pb.Adapter{Params: &aconfig.MetricsParams{}},
+		Builder: &cpb.Adapter{Params: &aconfig.MetricsParams{}},
 	}
 	errString := "expected"
 	builder := &fakeBuilder{

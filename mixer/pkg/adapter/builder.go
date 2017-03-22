@@ -19,11 +19,11 @@ package adapter
 type DefaultBuilder struct {
 	name string
 	desc string
-	conf AspectConfig
+	conf Config
 }
 
 // NewDefaultBuilder creates a new builder struct with the supplied params.
-func NewDefaultBuilder(name, desc string, config AspectConfig) DefaultBuilder {
+func NewDefaultBuilder(name, desc string, config Config) DefaultBuilder {
 	return DefaultBuilder{name, desc, config}
 }
 
@@ -34,10 +34,10 @@ func (b DefaultBuilder) Name() string { return b.name }
 func (b DefaultBuilder) Description() string { return b.desc }
 
 // DefaultConfig returns a default configuration struct for the adapters built by this builder.
-func (b DefaultBuilder) DefaultConfig() AspectConfig { return b.conf }
+func (b DefaultBuilder) DefaultConfig() Config { return b.conf }
 
 // ValidateConfig determines whether the given configuration meets all correctness requirements.
-func (DefaultBuilder) ValidateConfig(c AspectConfig) (ce *ConfigErrors) { return nil }
+func (DefaultBuilder) ValidateConfig(c Config) (ce *ConfigErrors) { return nil }
 
 // Close provides a hook for behavior used to cleanup a builder when it is removed.
 func (DefaultBuilder) Close() error { return nil }

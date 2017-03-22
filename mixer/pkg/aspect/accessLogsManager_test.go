@@ -89,7 +89,7 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 
 	for idx, v := range newAspectShouldSucceed {
 		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
-			c := &config.Combined{
+			c := &configpb.Combined{
 				Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 				Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{"template": "{{.test}}"}},
 			}
@@ -107,7 +107,7 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 }
 
 func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
-	defaultCfg := &config.Combined{
+	defaultCfg := &configpb.Combined{
 		Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 		Aspect: &configpb.Aspect{Params: &aconfig.AccessLogsParams{
 			Log: &aconfig.AccessLogsParams_AccessLog{
@@ -132,7 +132,7 @@ func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 
 	failureCases := []struct {
 		name  string
-		cfg   *config.Combined
+		cfg   *configpb.Combined
 		adptr adapter.Builder
 	}{
 		{"errorLogger", defaultCfg, errLogger},
@@ -150,7 +150,7 @@ func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 }
 
 func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
-	configs := []adapter.AspectConfig{
+	configs := []config.AspectParams{
 		&aconfig.AccessLogsParams{
 			LogName: "test",
 			Log: &aconfig.AccessLogsParams_AccessLog{
@@ -172,7 +172,7 @@ func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 }
 
 func TestAccessLoggerManager_ValidateConfigFailures(t *testing.T) {
-	configs := []adapter.AspectConfig{
+	configs := []config.AspectParams{
 		&aconfig.AccessLogsParams{},
 		&aconfig.AccessLogsParams{Log: &aconfig.AccessLogsParams_AccessLog{LogFormat: aconfig.ACCESS_LOG_FORMAT_UNSPECIFIED}},
 	}

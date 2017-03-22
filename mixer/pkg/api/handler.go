@@ -28,6 +28,7 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/status"
 )
 
@@ -56,7 +57,7 @@ type Handler interface {
 // Executor executes any aspect as described by config.Combined.
 type Executor interface {
 	// Execute takes a set of configurations and Executes all of them.
-	Execute(ctx context.Context, cfgs []*config.Combined, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+	Execute(ctx context.Context, cfgs []*cpb.Combined, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
 		ma aspect.APIMethodArgs) aspect.Output
 }
 

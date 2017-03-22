@@ -21,6 +21,7 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
@@ -41,12 +42,12 @@ func newListsManager() Manager {
 }
 
 // NewAspect creates a listChecker aspect.
-func (listsManager) NewAspect(cfg *config.Combined, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (listsManager) NewAspect(cfg *cpb.Combined, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
 	aa := ga.(adapter.ListsBuilder)
 	var asp adapter.ListsAspect
 	var err error
 
-	if asp, err = aa.NewListsAspect(env, cfg.Builder.Params.(adapter.AspectConfig)); err != nil {
+	if asp, err = aa.NewListsAspect(env, cfg.Builder.Params.(config.AspectParams)); err != nil {
 		return nil, err
 	}
 	return &listsWrapper{
@@ -60,13 +61,13 @@ func (listsManager) Kind() Kind {
 	return ListsKind
 }
 
-func (listsManager) DefaultConfig() adapter.AspectConfig {
+func (listsManager) DefaultConfig() config.AspectParams {
 	return &aconfig.ListsParams{
 		CheckAttribute: "src.ip",
 	}
 }
 
-func (listsManager) ValidateConfig(c adapter.AspectConfig) (ce *adapter.ConfigErrors) {
+func (listsManager) ValidateConfig(c config.AspectParams) (ce *adapter.ConfigErrors) {
 	lc := c.(*aconfig.ListsParams)
 	if lc.CheckAttribute == "" {
 		ce = ce.Appendf("CheckAttribute", "Missing")

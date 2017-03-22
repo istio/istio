@@ -42,18 +42,18 @@ type (
 		Description() string
 	}
 
-	// AspectConfig represents a chunk of configuration state
-	AspectConfig proto.Message
+	// Config represents a chunk of adapter configuration state
+	Config proto.Message
 
 	// ConfigValidator handles adapter configuration defaults and validation.
 	ConfigValidator interface {
 		// DefaultConfig returns a default configuration struct for this
 		// adapter. This will be used by the configuration system to establish
 		// the shape of the block of configuration state passed to the NewAspect method.
-		DefaultConfig() (c AspectConfig)
+		DefaultConfig() (c Config)
 
 		// ValidateConfig determines whether the given configuration meets all correctness requirements.
-		ValidateConfig(c AspectConfig) *ConfigErrors
+		ValidateConfig(c Config) *ConfigErrors
 	}
 
 	// WorkFunc represents a function to invoke.

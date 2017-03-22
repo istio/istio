@@ -60,7 +60,7 @@ type (
 		Builder
 
 		// NewApplicationLogsAspect returns a new instance of the Logger aspect.
-		NewApplicationLogsAspect(env Env, c AspectConfig) (ApplicationLogsAspect, error)
+		NewApplicationLogsAspect(env Env, c Config) (ApplicationLogsAspect, error)
 	}
 )
 
