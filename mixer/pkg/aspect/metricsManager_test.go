@@ -69,7 +69,7 @@ func TestNewMetricsManager(t *testing.T) {
 	if m.Kind() != MetricsKind {
 		t.Errorf("m.Kind() = %s wanted %s", m.Kind(), MetricsKind)
 	}
-	if err := m.ValidateConfig(m.DefaultConfig(), nil); err != nil {
+	if err := m.ValidateConfig(m.DefaultConfig(), nil, nil); err != nil {
 		t.Errorf("m.ValidateConfig(m.DefaultConfig()) = %v; wanted no err", err)
 	}
 }

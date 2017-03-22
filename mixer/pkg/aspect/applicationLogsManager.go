@@ -125,7 +125,7 @@ func (applicationLogsManager) DefaultConfig() config.AspectParams {
 }
 
 // TODO: validation of timestamp format
-func (applicationLogsManager) ValidateConfig(config.AspectParams, descriptor.Finder) (ce *adapter.ConfigErrors) {
+func (applicationLogsManager) ValidateConfig(config.AspectParams, expr.Validator, descriptor.Finder) (ce *adapter.ConfigErrors) {
 	return nil
 }
 

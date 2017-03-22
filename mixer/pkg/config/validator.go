@@ -51,7 +51,7 @@ type (
 		DefaultConfig() (c AspectParams)
 
 		// ValidateConfig determines whether the given configuration meets all correctness requirements.
-		ValidateConfig(c AspectParams, finder descriptor.Finder) *adapter.ConfigErrors
+		ValidateConfig(c AspectParams, validator expr.Validator, finder descriptor.Finder) *adapter.ConfigErrors
 	}
 
 	// AdapterValidatorFinder is used to find specific underlying validators.
@@ -263,7 +263,7 @@ func ConvertAspectParams(find AspectValidatorFinder, name string, params interfa
 	if err := Decode(params, acfg, strict); err != nil {
 		return nil, err
 	}
-	if verr := avl.ValidateConfig(acfg, df); verr != nil {
+	if verr := avl.ValidateConfig(acfg, expr.NewCEXLEvaluator(), df); verr != nil {
 		return nil, verr
 	}
 	return acfg, nil

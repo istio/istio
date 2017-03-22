@@ -124,7 +124,7 @@ func (m *metricsManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapt
 func (*metricsManager) Kind() Kind                         { return MetricsKind }
 func (*metricsManager) DefaultConfig() config.AspectParams { return &aconfig.MetricsParams{} }
 
-func (*metricsManager) ValidateConfig(config.AspectParams, descriptor.Finder) (ce *adapter.ConfigErrors) {
+func (*metricsManager) ValidateConfig(config.AspectParams, expr.Validator, descriptor.Finder) (ce *adapter.ConfigErrors) {
 	// TODO: we need to be provided the metric descriptors in addition to the metrics themselves here, so we can do type assertions.
 	// We also need some way to assert the type of the result of evaluating an expression, but we don't have any attributes or an
 	// evaluator on hand.

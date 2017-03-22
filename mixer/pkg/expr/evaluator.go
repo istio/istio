@@ -14,7 +14,10 @@
 
 package expr
 
-import "istio.io/mixer/pkg/attribute"
+import (
+	pb "istio.io/api/mixer/v1/config/descriptor"
+	"istio.io/mixer/pkg/attribute"
+)
 
 type (
 	// Evaluator evaluates an expression written in the implementation defined
@@ -41,5 +44,9 @@ type (
 	Validator interface {
 		// Validate ensures that the given expression is syntactically correct
 		Validate(expr string) error
+
+		// TypeCheck produces the type of an expression or an error if the type cannot be evaluated.
+		// TODO: we probably want to use a golang type rather than pb.ValueType (a proto).
+		TypeCheck(expr string, attrFinder AttributeDescriptorFinder) (pb.ValueType, error)
 	}
 )

@@ -99,7 +99,7 @@ func (accessLogsManager) DefaultConfig() config.AspectParams {
 	}
 }
 
-func (accessLogsManager) ValidateConfig(c config.AspectParams, _ descriptor.Finder) (ce *adapter.ConfigErrors) {
+func (accessLogsManager) ValidateConfig(c config.AspectParams, _ expr.Validator, _ descriptor.Finder) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.AccessLogsParams)
 	if cfg.Log == nil {
 		ce = ce.Appendf("Log", "an AccessLog entry must be provided")

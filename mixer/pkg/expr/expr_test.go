@@ -19,11 +19,10 @@ import (
 	"strings"
 	"testing"
 
-	config "istio.io/api/mixer/v1/config/descriptor"
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 )
 
-func TestGoodParse(tst *testing.T) {
+func TestGoodParse(t *testing.T) {
 	tests := []struct {
 		src     string
 		postfix string
@@ -43,7 +42,7 @@ func TestGoodParse(tst *testing.T) {
 		{`request.header["X-FORWARDED-HOST"] == "aaa"`, `EQ(INDEX($request.header, "X-FORWARDED-HOST"), "aaa")`},
 	}
 	for idx, tt := range tests {
-		tst.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
 			ex, err := Parse(tt.src)
 			if err != nil {
 				t.Error(err)
@@ -56,22 +55,22 @@ func TestGoodParse(tst *testing.T) {
 	}
 }
 
-func TestNewConstant(tst *testing.T) {
+func TestNewConstant(t *testing.T) {
 	tests := []struct {
 		v        string
-		vType    config.ValueType
+		vType    dpb.ValueType
 		typedVal interface{}
 		err      string
 	}{
-		{"3.75", config.DOUBLE, float64(3.75), "SUCCESS"},
-		{"not a double", config.DOUBLE, float64(3.75), "invalid syntax"},
-		{"1001", config.INT64, int64(1001), "SUCCESS"},
-		{"not an int64", config.INT64, int64(1001), "invalid syntax"},
-		{`"back quoted"`, config.STRING, "back quoted", "SUCCESS"},
-		{`'aaa'`, config.STRING, "aaa", "invalid syntax"},
+		{"3.75", dpb.DOUBLE, float64(3.75), "SUCCESS"},
+		{"not a double", dpb.DOUBLE, float64(3.75), "invalid syntax"},
+		{"1001", dpb.INT64, int64(1001), "SUCCESS"},
+		{"not an int64", dpb.INT64, int64(1001), "invalid syntax"},
+		{`"back quoted"`, dpb.STRING, "back quoted", "SUCCESS"},
+		{`'aaa'`, dpb.STRING, "aaa", "invalid syntax"},
 	}
 	for idx, tt := range tests {
-		tst.Run(fmt.Sprintf("[%d] %s", idx, tt.v), func(t *testing.T) {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.v), func(t *testing.T) {
 			c, err := newConstant(tt.v, tt.vType)
 			if err != nil {
 				if !strings.Contains(err.Error(), tt.err) {
@@ -86,7 +85,7 @@ func TestNewConstant(tst *testing.T) {
 	}
 }
 
-func TestBadParse(tst *testing.T) {
+func TestBadParse(t *testing.T) {
 	tests := []struct {
 		src string
 		err string
@@ -104,11 +103,10 @@ func TestBadParse(tst *testing.T) {
 		{`atr == 'aaa'`, "parse error"},
 	}
 	for idx, tt := range tests {
-		tst.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
 			_, err := Parse(tt.src)
 			if err == nil {
-				t.Errorf("[%d] got: <nil>\nwant: %s", idx, tt.err)
-				return
+				t.Fatalf("[%d] got: <nil>\nwant: %s", idx, tt.err)
 			}
 
 			if !strings.Contains(err.Error(), tt.err) {
@@ -120,19 +118,19 @@ func TestBadParse(tst *testing.T) {
 	// nil test
 	tex := &Expression{}
 	if tex.String() != "<nil>" {
-		tst.Errorf("got: %s\nwant: <nil>", tex.String())
+		t.Errorf("got: %s\nwant: <nil>", tex.String())
 	}
 }
 
 type ad struct {
 	name string
-	v    config.ValueType
+	v    dpb.ValueType
 }
 type af struct {
 	v map[string]*dpb.AttributeDescriptor
 }
 
-func (a *af) FindAttributeDescriptor(name string) *dpb.AttributeDescriptor { return a.v[name] }
+func (a *af) GetAttribute(name string) *dpb.AttributeDescriptor { return a.v[name] }
 
 func newAF(ds []*ad) *af {
 	m := make(map[string]*dpb.AttributeDescriptor)
@@ -142,34 +140,90 @@ func newAF(ds []*ad) *af {
 	return &af{m}
 }
 
-func TestTypeCheck(tt *testing.T) {
+func TestTypeCheck(t *testing.T) {
+	af := newAF([]*ad{
+		{"int", dpb.INT64},
+		{"bool", dpb.BOOL},
+		{"double", dpb.DOUBLE},
+		{"string", dpb.STRING},
+		{"timestamp", dpb.TIMESTAMP},
+		{"ip", dpb.IP_ADDRESS},
+		{"email", dpb.EMAIL_ADDRESS},
+		{"uri", dpb.URI},
+		{"dns", dpb.DNS_NAME},
+		{"duration", dpb.DURATION},
+		{"stringmap", dpb.STRING_MAP},
+	})
+
+	tests := []struct {
+		in  string
+		out dpb.ValueType
+		err string
+	}{
+		// identity
+		{"int", dpb.INT64, ""},
+		{"bool", dpb.BOOL, ""},
+		{"double", dpb.DOUBLE, ""},
+		{"string", dpb.STRING, ""},
+		{"timestamp", dpb.TIMESTAMP, ""},
+		{"ip", dpb.IP_ADDRESS, ""},
+		{"email", dpb.EMAIL_ADDRESS, ""},
+		{"uri", dpb.URI, ""},
+		{"dns", dpb.DNS_NAME, ""},
+		{"duration", dpb.DURATION, ""},
+		{"stringmap", dpb.STRING_MAP, ""},
+		// expressions
+		{"int == 2", dpb.BOOL, ""},
+		{"double == 2.0", dpb.BOOL, ""},
+		{`string | "foobar"`, dpb.STRING, ""},
+		// invalid expressions
+		{"int | bool", dpb.VALUE_TYPE_UNSPECIFIED, "typeError"},
+		{"stringmap | ", dpb.VALUE_TYPE_UNSPECIFIED, "failed to parse"},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.in), func(t *testing.T) {
+			vt, err := NewCEXLEvaluator().TypeCheck(tt.in, af)
+			if tt.err != "" || err != nil {
+				if !strings.Contains(err.Error(), tt.err) {
+					t.Fatalf("TypeCheck(%s, adf) = %v, wanted err %v", tt.in, err, tt.err)
+				}
+			}
+			if vt != tt.out {
+				t.Fatalf("TypeCheck(%s, adf) = %v, wanted type %v", tt.in, vt, tt.out)
+			}
+		})
+	}
+}
+
+func TestInternalTypeCheck(t *testing.T) {
 	success := "__SUCCESS__"
 	tests := []struct {
 		s       string
-		retType config.ValueType
+		retType dpb.ValueType
 		ds      []*ad
 		err     string
 	}{
-		{"a == 2", config.BOOL, []*ad{{"a", config.INT64}}, success},
-		{"a == 2", config.BOOL, []*ad{{"a", config.BOOL}}, "typeError"},
-		{"a == 2 || a == 5", config.BOOL, []*ad{{"a", config.INT64}}, success},
-		{"a | b | 5", config.INT64, []*ad{{"a", config.INT64}, {"b", config.INT64}}, success},
-		{`a | b | "5"`, config.INT64, []*ad{{"a", config.INT64}, {"b", config.INT64}}, "typeError"},
-		{`a["5"] == "abc"`, config.BOOL, []*ad{{"a", config.STRING_MAP}, {"b", config.INT64}}, success},
-		{`a["5"] == "abc"`, config.BOOL, []*ad{{"a", config.STRING}, {"b", config.INT64}}, "typeError"},
-		{`a | b | "abc"`, config.STRING, []*ad{{"a", config.STRING}, {"b", config.STRING}}, success},
-		{`x | y | "abc"`, config.STRING, []*ad{{"a", config.STRING}, {"b", config.STRING}}, "unresolved attribute"},
-		{`EQ("abc")`, config.BOOL, []*ad{{"a", config.STRING}, {"b", config.STRING}}, "arity mismatch"},
-		{`a % 5`, config.BOOL, []*ad{{"a", config.INT64}}, "unknown function"},
+		{"a == 2", dpb.BOOL, []*ad{{"a", dpb.INT64}}, success},
+		{"a == 2", dpb.BOOL, []*ad{{"a", dpb.BOOL}}, "typeError"},
+		{"a == 2 || a == 5", dpb.BOOL, []*ad{{"a", dpb.INT64}}, success},
+		{"a | b | 5", dpb.INT64, []*ad{{"a", dpb.INT64}, {"b", dpb.INT64}}, success},
+		{`a | b | "5"`, dpb.INT64, []*ad{{"a", dpb.INT64}, {"b", dpb.INT64}}, "typeError"},
+		{`a["5"] == "abc"`, dpb.BOOL, []*ad{{"a", dpb.STRING_MAP}, {"b", dpb.INT64}}, success},
+		{`a["5"] == "abc"`, dpb.BOOL, []*ad{{"a", dpb.STRING}, {"b", dpb.INT64}}, "typeError"},
+		{`a | b | "abc"`, dpb.STRING, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, success},
+		{`x | y | "abc"`, dpb.STRING, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, "unresolved attribute"},
+		{`EQ("abc")`, dpb.BOOL, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, "arity mismatch"},
+		{`a % 5`, dpb.BOOL, []*ad{{"a", dpb.INT64}}, "unknown function"},
 	}
 	fMap := FuncMap()
 	for idx, c := range tests {
-		tt.Run(fmt.Sprintf("[%d] %s", idx, c.s), func(t *testing.T) {
+		t.Run(fmt.Sprintf("[%d] %s", idx, c.s), func(t *testing.T) {
 			var ex *Expression
 			var err error
-			var retType config.ValueType
+			var retType dpb.ValueType
 			if ex, err = Parse(c.s); err != nil {
-				t.Errorf("unexpected error %s", err)
+				t.Fatalf("unexpected error %s", err)
 			}
 
 			retType, err = ex.TypeCheck(newAF(c.ds), fMap)
@@ -181,12 +235,11 @@ func TestTypeCheck(tt *testing.T) {
 			}
 
 			if c.err != success {
-				t.Errorf("got err==nil want %s", c.err)
-				return
+				t.Fatalf("got err==nil want %s", c.err)
 			}
 
 			if retType != c.retType {
-				t.Errorf("incorrect return type got %s want %s", retType, c.retType)
+				t.Fatalf("incorrect return type got %s want %s", retType, c.retType)
 			}
 
 		})

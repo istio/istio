@@ -79,7 +79,7 @@ func TestNewQuotasManager(t *testing.T) {
 	if m.Kind() != QuotasKind {
 		t.Errorf("m.Kind() = %s wanted %s", m.Kind(), QuotasKind)
 	}
-	if err := m.ValidateConfig(m.DefaultConfig(), nil); err != nil {
+	if err := m.ValidateConfig(m.DefaultConfig(), nil, nil); err != nil {
 		t.Errorf("m.ValidateConfig(m.DefaultConfig()) = %v; wanted no err", err)
 	}
 }

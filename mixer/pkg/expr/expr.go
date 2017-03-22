@@ -86,8 +86,8 @@ type Expression struct {
 
 // AttributeDescriptorFinder finds attribute descriptors.
 type AttributeDescriptorFinder interface {
-	// FindAttributeDescriptor finds attribute descriptor in the vocabulary. returns nil if not found.
-	FindAttributeDescriptor(name string) *config.AttributeDescriptor
+	// GetAttribute finds attribute descriptor in the vocabulary. returns nil if not found.
+	GetAttribute(name string) *config.AttributeDescriptor
 }
 
 // TypeCheck an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
@@ -96,7 +96,7 @@ func (e *Expression) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]
 		return e.Const.Type, nil
 	}
 	if e.Var != nil {
-		ad := attrs.FindAttributeDescriptor(e.Var.Name)
+		ad := attrs.GetAttribute(e.Var.Name)
 		if ad == nil {
 			return valueType, fmt.Errorf("unresolved attribute %s", e.Var.Name)
 		}
@@ -412,6 +412,14 @@ func (e *cexl) EvalPredicate(s string, attrs attribute.Bag) (ret bool, err error
 		return
 	}
 	return false, fmt.Errorf("typeError: got %s, expected bool", reflect.TypeOf(uret).String())
+}
+
+func (e *cexl) TypeCheck(expr string, attrFinder AttributeDescriptorFinder) (config.ValueType, error) {
+	v, err := Parse(expr)
+	if err != nil {
+		return config.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s' with err: %v", expr, err)
+	}
+	return v.TypeCheck(attrFinder, e.fMap)
 }
 
 // Validate validates expression for syntactic correctness.
