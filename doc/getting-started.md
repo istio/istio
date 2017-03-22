@@ -29,15 +29,28 @@ In this example we use two microservices:
 The communicating microservices are examples from Kubernetes'
 [Connecting a Front End to a Back End Using a Service](https://kubernetes.io/docs/tutorials/connecting-apps/connecting-frontend-backend/) tutorial.
 
-First we will stand the microservices using the Istio pattern of a proxy within frontend's pod:
+First we will stand the microservices using the Istio pattern of a proxy within frontend's pod. The following uses `istioctl kube-inject` to inject the runtime proxies into the kubernetes resources. This will eventually be replaced with transparent injection via kubernetes admission controller.
 
 ```
 # Backend "hello" service with an instance of container gcr.io/istio-testing/runtime:demo
-kubectl create -f doc/hello-and-proxy.yaml
+istioctl kube-inject \
+      -f doc/hello-and-proxy.yaml \
+      --initImage=docker.io/istio/runtime:2017-03-17-22.11.25 \
+      --runtimeImage=docker.io/istio/runtime:2017-03-17-22.11.25 | \
+      kubectl create -f -
 
 # "Frontend" service with an instance of container gcr.io/istio-testing/runtime:demo
-kubectl create -f doc/frontend-and-proxy.yaml
-kubectl expose -f doc/frontend-and-proxy.yaml --type=NodePort --name=frontend
+istioctl kube-inject \
+      -f doc/frontend-and-proxy.yaml \
+      --initImage=docker.io/istio/runtime:2017-03-17-22.11.25 \
+      --runtimeImage=docker.io/istio/runtime:2017-03-17-22.11.25 | \
+      kubectl create -f -
+
+istioctl kube-inject \
+      -f doc/frontend-and-proxy.yaml \
+      --initImage=docker.io/istio/runtime:2017-03-17-22.11.25 \
+      --runtimeImage=docker.io/istio/runtime:2017-03-17-22.11.25 | 
+      kubectl expose -f - --type=NodePort --name=frontend
 ```
 
 <!---
