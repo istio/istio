@@ -27,10 +27,15 @@ const char kDelimiter[] = "\0";
 const int kDelimiterLength = 1;
 }  // namespace
 
-string GenerateSignature(const Attributes& attributes) {
+string GenerateSignature(const Attributes& attributes,
+                         const std::set<std::string>& cache_keys) {
   MD5 hasher;
 
   for (const auto& attribute : attributes.attributes) {
+    // Skip the attributes not in the cache keys
+    if (cache_keys.find(attribute.first) == cache_keys.end()) {
+      continue;
+    }
     hasher.Update(attribute.first);
     hasher.Update(kDelimiter, kDelimiterLength);
     switch (attribute.second.type) {

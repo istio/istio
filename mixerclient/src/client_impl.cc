@@ -40,21 +40,39 @@ MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
   check_transport_.reset(new CheckTransport(transport));
   report_transport_.reset(new ReportTransport(transport));
   quota_transport_.reset(new QuotaTransport(transport));
+
+  check_cache_ =
+      std::unique_ptr<CheckCache>(new CheckCache(options.check_options));
 }
 
-MixerClientImpl::~MixerClientImpl() {}
+MixerClientImpl::~MixerClientImpl() { check_cache_->FlushAll(); }
 
 void MixerClientImpl::Check(const Attributes &attributes, DoneFunc on_done) {
   auto response = new CheckResponse;
-  check_transport_->Send(attributes, response,
-                         [response, on_done](const Status &status) {
-                           if (status.ok()) {
-                             on_done(ConvertRpcStatus(response->result()));
-                           } else {
-                             on_done(status);
-                           }
-                           delete response;
-                         });
+  std::string signature;
+  Status status = check_cache_->Check(attributes, response, &signature);
+  if (status.error_code() == Code::NOT_FOUND) {
+    std::shared_ptr<CheckCache> check_cache_copy = check_cache_;
+    check_transport_->Send(
+        attributes, response,
+        [check_cache_copy, signature, response, on_done](const Status &status) {
+          if (status.ok()) {
+            check_cache_copy->CacheResponse(signature, *response);
+            on_done(ConvertRpcStatus(response->result()));
+          } else {
+            on_done(status);
+          }
+          delete response;
+        });
+    return;
+  }
+
+  if (status.ok()) {
+    on_done(ConvertRpcStatus(response->result()));
+  } else {
+    on_done(status);
+  }
+  delete response;
 }
 
 void MixerClientImpl::Report(const Attributes &attributes, DoneFunc on_done) {

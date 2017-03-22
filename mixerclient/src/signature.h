@@ -26,7 +26,8 @@ namespace istio {
 namespace mixer_client {
 
 // Generates signature for Attributes.
-std::string GenerateSignature(const Attributes& attributes);
+std::string GenerateSignature(const Attributes& attributes,
+                              const std::set<std::string>& cache_keys);
 
 }  // namespace mixer_client
 }  // namespace istio

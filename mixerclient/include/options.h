@@ -17,6 +17,7 @@
 #define MIXERCLIENT_OPTIONS_H
 
 #include <memory>
+#include <set>
 
 namespace istio {
 namespace mixer_client {
@@ -55,6 +56,10 @@ struct CheckOptions {
   // deletion is triggered by a timer. This value must be larger than
   // flush_interval_ms.
   const int expiration_ms;
+
+  // Only the attributes in this set are used to caclculate cache key.
+  // If empty, check cache is disabled.
+  std::set<std::string> cache_keys;
 };
 
 // Options controlling report behavior.

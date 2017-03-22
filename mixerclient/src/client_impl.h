@@ -17,6 +17,7 @@
 #define MIXERCLIENT_CLIENT_IMPL_H
 
 #include "include/client.h"
+#include "src/check_cache.h"
 #include "src/grpc_transport.h"
 #include "src/transport.h"
 
@@ -41,6 +42,8 @@ class MixerClientImpl : public MixerClient {
   std::unique_ptr<ReportTransport> report_transport_;
   std::unique_ptr<QuotaTransport> quota_transport_;
   std::unique_ptr<GrpcTransport> grpc_transport_;
+
+  std::shared_ptr<CheckCache> check_cache_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MixerClientImpl);
 };

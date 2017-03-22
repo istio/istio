@@ -64,47 +64,55 @@ class SignatureUtilTest : public ::testing::Test {
     attributes_.attributes[key] = Attributes::StringMapValue(std::move(value));
   }
 
+  std::set<std::string> GetKeys() const {
+    std::set<std::string> keys;
+    for (const auto& it : attributes_.attributes) {
+      keys.insert(it.first);
+    }
+    return keys;
+  }
+
   Attributes attributes_;
 };
 
 TEST_F(SignatureUtilTest, Attributes) {
   AddString("string-key", "this is a string value");
   EXPECT_EQ("26f8f724383c46e7f5803380ab9c17ba",
-            MD5::DebugString(GenerateSignature(attributes_)));
+            MD5::DebugString(GenerateSignature(attributes_, GetKeys())));
 
   AddBytes("bytes-key", "this is a bytes value");
   EXPECT_EQ("1f409524b79b9b5760032dab7ecaf960",
-            MD5::DebugString(GenerateSignature(attributes_)));
+            MD5::DebugString(GenerateSignature(attributes_, GetKeys())));
 
   AddDoublePair("double-key", 99.9);
   EXPECT_EQ("6183342ff222018f6300de51cdcd4501",
-            MD5::DebugString(GenerateSignature(attributes_)));
+            MD5::DebugString(GenerateSignature(attributes_, GetKeys())));
 
   AddInt64Pair("int-key", 35);
   EXPECT_EQ("d681b9c72d648f9c831d95b4748fe1c2",
-            MD5::DebugString(GenerateSignature(attributes_)));
+            MD5::DebugString(GenerateSignature(attributes_, GetKeys())));
 
   AddBoolPair("bool-key", true);
   EXPECT_EQ("958930b41f0d8b43f5c61c31b0b092e2",
-            MD5::DebugString(GenerateSignature(attributes_)));
+            MD5::DebugString(GenerateSignature(attributes_, GetKeys())));
 
   // default to Clock's epoch.
   std::chrono::time_point<std::chrono::system_clock> time_point;
   AddTime("time-key", time_point);
   EXPECT_EQ("f7dd61e1a5881e2492d93ad023ab49a2",
-            MD5::DebugString(GenerateSignature(attributes_)));
+            MD5::DebugString(GenerateSignature(attributes_, GetKeys())));
 
   std::chrono::seconds secs(5);
   AddDuration("duration-key",
               std::chrono::duration_cast<std::chrono::nanoseconds>(secs));
   EXPECT_EQ("13ae11ea2bea216da46688cd9698645e",
-            MD5::DebugString(GenerateSignature(attributes_)));
+            MD5::DebugString(GenerateSignature(attributes_, GetKeys())));
 
   std::map<std::string, std::string> string_map = {{"key1", "value1"},
                                                    {"key2", "value2"}};
   AddStringMap("string-map-key", std::move(string_map));
   EXPECT_EQ("c861f02e251c896513eb0f7c97aa2ce7",
-            MD5::DebugString(GenerateSignature(attributes_)));
+            MD5::DebugString(GenerateSignature(attributes_, GetKeys())));
 }
 
 }  // namespace

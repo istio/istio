@@ -32,7 +32,7 @@ CheckCache::CheckCache(const CheckOptions& options) : options_(options) {
   flush_interval_in_cycle_ =
       options_.flush_interval_ms * SimpleCycleTimer::Frequency() / 1000;
 
-  if (options.num_entries >= 0) {
+  if (options.num_entries >= 0 && !options.cache_keys.empty()) {
     cache_.reset(new CheckLRUCache(
         options.num_entries, std::bind(&CheckCache::OnCacheEntryDelete, this,
                                        std::placeholders::_1)));
@@ -50,9 +50,19 @@ bool CheckCache::ShouldFlush(const CacheElem& elem) {
   return age >= flush_interval_in_cycle_;
 }
 
-Status CheckCache::Check(const Attributes& attributes,
-                         CheckResponse* response) {
-  string request_signature = GenerateSignature(attributes);
+Status CheckCache::Check(const Attributes& attributes, CheckResponse* response,
+                         std::string* signature) {
+  if (!cache_) {
+    // By returning NOT_FOUND, caller will send request to server.
+    return Status(Code::NOT_FOUND, "");
+  }
+
+  std::string request_signature =
+      GenerateSignature(attributes, options_.cache_keys);
+  if (signature) {
+    *signature = request_signature;
+  }
+
   std::lock_guard<std::mutex> lock(cache_mutex_);
   CheckLRUCache::ScopedLookup lookup(cache_.get(), request_signature);
 
@@ -75,12 +85,10 @@ Status CheckCache::Check(const Attributes& attributes,
   return Status::OK;
 }
 
-Status CheckCache::CacheResponse(const Attributes& attributes,
+Status CheckCache::CacheResponse(const std::string& request_signature,
                                  const CheckResponse& response) {
-  std::lock_guard<std::mutex> lock(cache_mutex_);
-
   if (cache_) {
-    string request_signature = GenerateSignature(attributes);
+    std::lock_guard<std::mutex> lock(cache_mutex_);
     CheckLRUCache::ScopedLookup lookup(cache_.get(), request_signature);
 
     int64_t now = SimpleCycleTimer::Now();
@@ -97,12 +105,12 @@ Status CheckCache::CacheResponse(const Attributes& attributes,
   return Status::OK;
 }
 
+// TODO: need to hook up a timer to call Flush.
 // Flush aggregated requests whom are longer than flush_interval.
 // Called at time specified by GetNextFlushInterval().
 Status CheckCache::Flush() {
-  std::lock_guard<std::mutex> lock(cache_mutex_);
-
   if (cache_) {
+    std::lock_guard<std::mutex> lock(cache_mutex_);
     cache_->RemoveExpiredEntries();
   }
 
@@ -114,10 +122,9 @@ void CheckCache::OnCacheEntryDelete(CacheElem* elem) { delete elem; }
 // Flush out aggregated check requests, clear all cache items.
 // Usually called at destructor.
 Status CheckCache::FlushAll() {
-  GOOGLE_LOG(INFO) << "Remove all entries of check cache.";
-  std::lock_guard<std::mutex> lock(cache_mutex_);
-
   if (cache_) {
+    GOOGLE_LOG(INFO) << "Remove all entries of check cache.";
+    std::lock_guard<std::mutex> lock(cache_mutex_);
     cache_->RemoveAll();
   }
 
