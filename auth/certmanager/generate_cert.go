@@ -62,6 +62,9 @@ type CertOptions struct {
 
 	// Whether this certificate is for a client.
 	IsClient bool
+
+	// Whether this certificate is for a server.
+	IsServer bool
 }
 
 const (
@@ -150,9 +153,12 @@ func genCertTemplate(options CertOptions) x509.Certificate {
 		keyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment
 	}
 
-	extKeyUsage := x509.ExtKeyUsageServerAuth
+	extKeyUsages := []x509.ExtKeyUsage{}
+	if options.IsServer {
+		extKeyUsages = append(extKeyUsages, x509.ExtKeyUsageServerAuth)
+	}
 	if options.IsClient {
-		extKeyUsage = x509.ExtKeyUsageClientAuth
+		extKeyUsages = append(extKeyUsages, x509.ExtKeyUsageClientAuth)
 	}
 
 	template := x509.Certificate{
@@ -163,7 +169,7 @@ func genCertTemplate(options CertOptions) x509.Certificate {
 		NotBefore:             options.NotBefore,
 		NotAfter:              options.NotAfter,
 		KeyUsage:              keyUsage,
-		ExtKeyUsage:           []x509.ExtKeyUsage{extKeyUsage},
+		ExtKeyUsage:           extKeyUsages,
 		BasicConstraintsValid: true,
 	}
 

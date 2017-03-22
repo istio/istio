@@ -28,7 +28,7 @@ import (
 type VerifyFields struct {
 	notBefore   time.Time
 	notAfter    time.Time
-	extKeyUsage x509.ExtKeyUsage
+	extKeyUsage []x509.ExtKeyUsage
 	keyUsage    x509.KeyUsage
 	isCA        bool
 	org         string
@@ -53,13 +53,14 @@ func TestGenCert(t *testing.T) {
 		IsCA:         true,
 		IsSelfSigned: true,
 		IsClient:     false,
+		IsServer:     true,
 	}
 
 	caCertPem, caPrivPem := GenCert(caCertOptions)
 	verifyCert(t, caPrivPem, caCertPem, nil, caCertOptions.Host, VerifyFields{
 		notBefore:   caCertNotBefore,
 		notAfter:    caCertNotAfter,
-		extKeyUsage: x509.ExtKeyUsageServerAuth,
+		extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		keyUsage:    x509.KeyUsageCertSign,
 		isCA:        true,
 		org:         "MyOrg",
@@ -84,9 +85,10 @@ func TestGenCert(t *testing.T) {
 				IsCA:         false,
 				IsSelfSigned: false,
 				IsClient:     false,
+				IsServer:     true,
 			},
 			verifyFields: VerifyFields{
-				extKeyUsage: x509.ExtKeyUsageServerAuth,
+				extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 				isCA:        false,
 				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 				notAfter:    now.Add(time.Hour * 24),
@@ -106,9 +108,10 @@ func TestGenCert(t *testing.T) {
 				IsCA:         false,
 				IsSelfSigned: false,
 				IsClient:     true,
+				IsServer:     true,
 			},
 			verifyFields: VerifyFields{
-				extKeyUsage: x509.ExtKeyUsageClientAuth,
+				extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 				isCA:        false,
 				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 				notAfter:    now.Add(time.Hour * 36),
@@ -128,9 +131,10 @@ func TestGenCert(t *testing.T) {
 				IsCA:         false,
 				IsSelfSigned: false,
 				IsClient:     false,
+				IsServer:     true,
 			},
 			verifyFields: VerifyFields{
-				extKeyUsage: x509.ExtKeyUsageServerAuth,
+				extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 				isCA:        false,
 				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 				notAfter:    now.Add(time.Hour * 24),
@@ -150,9 +154,10 @@ func TestGenCert(t *testing.T) {
 				IsCA:         false,
 				IsSelfSigned: false,
 				IsClient:     true,
+				IsServer:     true,
 			},
 			verifyFields: VerifyFields{
-				extKeyUsage: x509.ExtKeyUsageClientAuth,
+				extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 				isCA:        false,
 				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 				notAfter:    now.Add(time.Hour * 100),
@@ -172,9 +177,33 @@ func TestGenCert(t *testing.T) {
 				IsCA:         false,
 				IsSelfSigned: false,
 				IsClient:     false,
+				IsServer:     true,
 			},
 			verifyFields: VerifyFields{
-				extKeyUsage: x509.ExtKeyUsageServerAuth,
+				extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+				isCA:        false,
+				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				notAfter:    now.Add(time.Hour * 50),
+				notBefore:   now,
+				org:         "MyOrg",
+			},
+		},
+		{
+			// a cert that can only be used as client-side cert
+			certOptions: CertOptions{
+				Host:         "istio:bar.serviceaccount.com",
+				NotBefore:    now,
+				NotAfter:     now.Add(time.Hour * 50),
+				SignerCert:   caCert,
+				SignerPriv:   caPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     true,
+				IsServer:     false,
+			},
+			verifyFields: VerifyFields{
+				extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 				isCA:        false,
 				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 				notAfter:    now.Add(time.Hour * 50),
@@ -248,7 +277,7 @@ func verifyCert(
 	certFields := VerifyFields{
 		notBefore:   cert.NotBefore,
 		notAfter:    cert.NotAfter,
-		extKeyUsage: cert.ExtKeyUsage[0],
+		extKeyUsage: cert.ExtKeyUsage,
 		keyUsage:    cert.KeyUsage,
 		isCA:        cert.IsCA,
 		org:         cert.Issuer.Organization[0],
