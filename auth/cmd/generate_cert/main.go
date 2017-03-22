@@ -44,6 +44,7 @@ var (
 	org            = flag.String("organization", "Juju org", "Organization for the cert.")
 	outCert        = flag.String("out-cert", "cert.pem", "Output certificate file.")
 	outPriv        = flag.String("out-priv", "priv.pem", "Output private key file.")
+	keySize        = flag.Int("key-size", 1024, "Size of the generated private key")
 )
 
 func checkCmdLine() {
@@ -94,7 +95,9 @@ func main() {
 		Org:          *org,
 		IsCA:         *isCA,
 		IsSelfSigned: *isSelfSigned,
-		IsClient:     *isClient})
+		IsClient:     *isClient,
+		RSAKeySize:   *keySize,
+	})
 
 	saveCreds(certPem, privPem)
 	fmt.Printf("Certificate and private files successfully saved in %s and %s\n", *outCert, *outPriv)

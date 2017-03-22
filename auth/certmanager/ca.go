@@ -25,8 +25,15 @@ import (
 const (
 	// The time to live for issued certificate.
 	certTTL = time.Hour
+
 	// The time to live for self-signed root CA certificate.
 	rootCertTTL = 24 * time.Hour
+
+	// The size of a private key for a leaf certificate.
+	keySize = 1024
+
+	// The size of a private key for a self-signed Istio CA.
+	caKeySize = 2048
 )
 
 // CertificateAuthority contains methods to be supported by a CA.
@@ -61,6 +68,7 @@ func NewSelfSignedIstioCA() (*IstioCA, error) {
 		Org:          "istio.io",
 		IsCA:         true,
 		IsSelfSigned: true,
+		RSAKeySize:   caKeySize,
 	}
 	pemCert, pemKey := GenCert(options)
 
@@ -106,6 +114,7 @@ func (ca IstioCA) Generate(name, namepsace string) (chain, key []byte) {
 		IsClient:     true,
 		IsSelfSigned: false,
 		IsServer:     true,
+		RSAKeySize:   keySize,
 	}
 	cert, key := GenCert(options)
 	chain = append(cert, ca.certChainBytes...)
