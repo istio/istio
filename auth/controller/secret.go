@@ -36,10 +36,16 @@ const secretNamePrefix = "istio."
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
 type SecretController struct {
-	ca           certmanager.CertificateAuthority
-	core         corev1.CoreV1Interface
+	ca   certmanager.CertificateAuthority
+	core corev1.CoreV1Interface
+
+	// Controller and store for service account objects.
 	saController cache.Controller
 	saStore      cache.Store
+
+	// Controller and store for secret objects.
+	scrtController cache.Controller
+	scrtStore      cache.Store
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
@@ -49,7 +55,7 @@ func NewSecretController(ca certmanager.CertificateAuthority, core corev1.CoreV1
 		core: core,
 	}
 
-	lw := &cache.ListWatch{
+	saLW := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			return core.ServiceAccounts(metav1.NamespaceAll).List(options)
 		},
@@ -62,20 +68,32 @@ func NewSecretController(ca certmanager.CertificateAuthority, core corev1.CoreV1
 		DeleteFunc: c.deleteFunc,
 		UpdateFunc: c.updateFunc,
 	}
-	c.saStore, c.saController = cache.NewInformer(lw, &v1.ServiceAccount{}, time.Minute, rehf)
+	c.saStore, c.saController = cache.NewInformer(saLW, &v1.ServiceAccount{}, time.Minute, rehf)
+
+	scrtLW := &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			return core.Secrets(metav1.NamespaceAll).List(options)
+		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			return core.Secrets(metav1.NamespaceAll).Watch(options)
+		},
+	}
+	c.scrtStore, c.scrtController =
+		cache.NewInformer(scrtLW, &v1.Secret{}, time.Minute, cache.ResourceEventHandlerFuncs{})
 
 	return c
 }
 
 // Run starts the SecretController until stopCh is closed.
 func (sc *SecretController) Run(stopCh chan struct{}) {
+	go sc.scrtController.Run(stopCh)
 	go sc.saController.Run(stopCh)
 	<-stopCh
 }
 
 func (sc *SecretController) addFunc(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
-	sc.createSecret(acct.GetName(), acct.GetNamespace())
+	sc.upsertSecret(acct.GetName(), acct.GetNamespace())
 }
 
 func (sc *SecretController) deleteFunc(obj interface{}) {
@@ -99,33 +117,42 @@ func (sc *SecretController) updateFunc(oldObj, curObj interface{}) {
 	// We only care the name and namespace of a service account.
 	if curName != oldName || curNamespace != oldNamespace {
 		sc.deleteSecret(oldName, oldNamespace)
-		sc.createSecret(curName, curNamespace)
+		sc.upsertSecret(curName, curNamespace)
 
 		glog.Infof("Service account \"%s\" in namespace \"%s\" has been updated to \"%s\" in namespace \"%s\"",
 			oldName, oldNamespace, curName, curNamespace)
 	}
 }
 
-func (sc *SecretController) createSecret(saName, saNamespace string) {
-	chain, key := sc.ca.Generate(saName, saNamespace)
+func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: getSecretName(saName),
-		},
-		Data: map[string][]byte{
-			"cert-chain.pem": chain,
-			"key.pem":        key,
-			"root-cert.pem":  sc.ca.GetRootCertificate(),
+			Name:      getSecretName(saName),
+			Namespace: saNamespace,
 		},
 	}
 
-	// TODO: We currently use Update() instead of Create() to handle pre-existing
-	// secrets. We should however do it correctly by querying the apiserver to
-	// check secret existence first.
-	_, err := sc.core.Secrets(saNamespace).Update(secret)
-	// Ingore `NotFound` error since it is returned when updating a non-existent
-	// secret.
-	if err != nil && !errors.IsNotFound(err) {
+	_, exists, err := sc.scrtStore.Get(secret)
+	if err != nil {
+		glog.Errorf("Failed to get secret from the store (error %v)", err)
+	}
+
+	if exists {
+		// TODO (Yang Guan): https://github.com/istio/auth/issues/56
+		// For an existing secret, we should check the cert expiration time and refresh it when necessary.
+		return
+	}
+
+	// Now we know the secret does not exist yet. So we create a new one.
+	chain, key := sc.ca.Generate(saName, saNamespace)
+	rootCert := sc.ca.GetRootCertificate()
+	secret.Data = map[string][]byte{
+		"cert-chain.pem": chain,
+		"key.pem":        key,
+		"root-cert.pem":  rootCert,
+	}
+	_, err = sc.core.Secrets(saNamespace).Create(secret)
+	if err != nil {
 		glog.Errorf("Failed to create secret (error: %s)", err)
 		return
 	}
