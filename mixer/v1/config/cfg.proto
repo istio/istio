@@ -16,6 +16,7 @@ syntax = "proto3";
 
 import "google/protobuf/struct.proto";
 
+import "mixer/v1/config/descriptor/attribute_descriptor.proto";
 import "mixer/v1/config/descriptor/log_entry_descriptor.proto";
 import "mixer/v1/config/descriptor/metric_descriptor.proto";
 import "mixer/v1/config/descriptor/monitored_resource_descriptor.proto";
@@ -127,11 +128,12 @@ message GlobalConfig {
   repeated Adapter adapters = 2;
 
   // TODO: remove these in https://github.com/istio/api/pull/45
-  repeated istio.mixer.v1.config.descriptor.LogEntryDescriptor logs = 3;
-  repeated istio.mixer.v1.config.descriptor.MetricDescriptor metrics = 4;
-  repeated istio.mixer.v1.config.descriptor.MonitoredResourceDescriptor monitored_resources = 5;
-  repeated istio.mixer.v1.config.descriptor.PrincipalDescriptor principals = 6;
-  repeated istio.mixer.v1.config.descriptor.QuotaDescriptor quotas = 7;
+  repeated istio.mixer.v1.config.descriptor.AttributeDescriptor attributes = 3;
+  repeated istio.mixer.v1.config.descriptor.LogEntryDescriptor logs = 4;
+  repeated istio.mixer.v1.config.descriptor.MetricDescriptor metrics = 5;
+  repeated istio.mixer.v1.config.descriptor.MonitoredResourceDescriptor monitored_resources = 6;
+  repeated istio.mixer.v1.config.descriptor.PrincipalDescriptor principals = 7;
+  repeated istio.mixer.v1.config.descriptor.QuotaDescriptor quotas = 8;
 }
 
 // ClientConfig defines configuration from a client perspective.
