@@ -46,6 +46,8 @@ spec:
       app: prometheus
   template:
     metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
       name: prometheus
       labels:
         app: prometheus

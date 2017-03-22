@@ -10,14 +10,6 @@ spec:
         app: hello
         tier: frontend
         track: stable
-      annotations:
-        pod.beta.kubernetes.io/init-containers: >
-          [{
-            "name": "iptables",
-            "image": "docker.io/istio/init:2017-03-17-22.11.25",
-            "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
-          }]
     spec:
       containers:
         - name: nginx
@@ -29,30 +21,3 @@ spec:
             preStop:
               exec:
                 command: ["/usr/sbin/nginx","-s","quit"]
-        - name: proxy
-          image: docker.io/istio/runtime:2017-03-17-22.11.25
-          securityContext:
-            runAsUser: 1337
-          args:
-            - proxy
-            - sidecar
-            - -n
-            - default
-            - -s
-            - istio-manager:8080
-            - -v
-            - "2"
-          env:
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-          imagePullPolicy: Always
