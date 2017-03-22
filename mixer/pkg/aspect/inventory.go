@@ -23,7 +23,6 @@ func Inventory() ManagerInventory {
 		CheckMethod: {
 			newDenialsManager(),
 			newListsManager(),
-			newQuotasManager(), // TODO: Remove once proxy uses the Quota method
 		},
 
 		ReportMethod: {
