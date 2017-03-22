@@ -71,6 +71,8 @@ func (r *reachability) run() error {
 			return err
 		}
 	}
+	glog.Info("Cleaning up ingress secret.")
+	check(run("kubectl delete secret ingress -n " + params.namespace))
 
 	glog.Info("Success!")
 	return nil

@@ -42,7 +42,7 @@ type Controller interface {
 	AppendInstanceHandler(f func(*ServiceInstance, Event)) error
 
 	// Run until a signal is received
-	Run(stop chan struct{})
+	Run(stop <-chan struct{})
 }
 
 // Event represents a registry update event

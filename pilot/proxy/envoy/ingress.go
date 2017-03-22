@@ -16,7 +16,6 @@ package envoy
 
 import (
 	"fmt"
-	"reflect"
 	"sort"
 	"strconv"
 	"time"
@@ -27,6 +26,7 @@ import (
 
 	"istio.io/manager/model"
 	"istio.io/manager/model/proxy/alphav1/config"
+	"istio.io/manager/proxy"
 
 	"io/ioutil"
 
@@ -36,7 +36,8 @@ import (
 )
 
 type ingressWatcher struct {
-	agent     Agent
+	agent     proxy.Agent
+	ctl       model.Controller
 	discovery model.ServiceDiscovery
 	registry  *model.IstioRegistry
 	client    *kubernetes.Clientset
@@ -52,7 +53,8 @@ func NewIngressWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 ) (Watcher, error) {
 
 	out := &ingressWatcher{
-		agent:     NewAgent(mesh.BinaryPath, mesh.ConfigPath, identity.Name),
+		agent:     proxy.NewAgent(runEnvoy(mesh, "ingress"), cleanupEnvoy(mesh), 10, 100*time.Millisecond),
+		ctl:       ctl,
 		discovery: discovery,
 		registry:  registry,
 		client:    client,
@@ -61,20 +63,11 @@ func NewIngressWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 		mesh:      mesh,
 	}
 
-	// Initialize envoy according to the current model state,
-	// instead of waiting for the first event to arrive.
-	// Note that this is currently done synchronously (blocking),
-	// to avoid racing with controller events lurking around the corner.
-	// This can be improved once we switch to a mechanism where reloads
-	// are linearized (e.g., by a single goroutine reloader).
-	out.reload()
-
 	err := ctl.AppendConfigHandler(model.IngressRule,
 		func(model.Key, proto.Message, model.Event) { out.reload() })
 	if err != nil {
 		return nil, err
 	}
-
 	return out, nil
 }
 
@@ -84,23 +77,20 @@ func (w *ingressWatcher) reload() {
 		glog.Warningf("Failed to generate Envoy configuration: %v", err)
 		return
 	}
+	w.agent.ScheduleConfigUpdate(config)
+}
 
-	current := w.agent.ActiveConfig()
-	if reflect.DeepEqual(config, current) {
-		glog.V(2).Info("Configuration is identical, skipping reload")
-		return
-	}
+func (w *ingressWatcher) Run(stop <-chan struct{}) {
+	go w.agent.Run(stop)
 
-	// TODO: add retry logic
-	if err := w.agent.Reload(config); err != nil {
-		glog.Warningf("Envoy reload error: %v", err)
-		return
-	}
-
-	// Add a short delay to de-risk a potential race condition in envoy hot reload code.
-	// The condition occurs when the active Envoy instance terminates in the middle of
-	// the Reload() function.
-	time.Sleep(256 * time.Millisecond)
+	// Initialize envoy according to the current model state,
+	// instead of waiting for the first event to arrive.
+	// Note that this is currently done synchronously (blocking),
+	// to avoid racing with controller events lurking around the corner.
+	// This can be improved once we switch to a mechanism where reloads
+	// are linearized (e.g., by a single goroutine reloader).
+	w.reload()
+	w.ctl.Run(stop)
 }
 
 func (w *ingressWatcher) generateConfig() (*Config, error) {

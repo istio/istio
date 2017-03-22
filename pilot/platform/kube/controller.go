@@ -251,7 +251,7 @@ func (c *Controller) HasSynced() bool {
 }
 
 // Run all controllers until a signal is received
-func (c *Controller) Run(stop chan struct{}) {
+func (c *Controller) Run(stop <-chan struct{}) {
 	go c.queue.Run(stop)
 	go c.services.informer.Run(stop)
 	go c.endpoints.informer.Run(stop)

@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "agent.go",
         "config.go",
         "discovery.go",
         "fault.go",
@@ -18,6 +17,7 @@ go_library(
     deps = [
         "//model:go_default_library",
         "//model/proxy/alphav1/config:go_default_library",
+        "//proxy:go_default_library",
         "@com_github_emicklei_go_restful//:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",

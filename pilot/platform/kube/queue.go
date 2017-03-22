@@ -30,7 +30,7 @@ type Queue interface {
 	// Push a ticket
 	Push(Task)
 	// Run the loop until a signal on the channel
-	Run(chan struct{})
+	Run(<-chan struct{})
 }
 
 // Handler specifies a function to apply on an object for a given event type
@@ -68,7 +68,7 @@ func (q *queueImpl) Push(item Task) {
 	q.lock.Unlock()
 }
 
-func (q *queueImpl) Run(stop chan struct{}) {
+func (q *queueImpl) Run(stop <-chan struct{}) {
 	go func() {
 		<-stop
 		q.lock.Lock()

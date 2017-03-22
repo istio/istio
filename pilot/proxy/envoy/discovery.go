@@ -125,7 +125,7 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 
 // ListClusters responds to CDS requests for all outbound clusters
 func (ds *DiscoveryService) ListClusters(request *restful.Request, response *restful.Response) {
-	if serviceCluster := request.PathParameter(ServiceCluster); serviceCluster != IstioServiceCluster {
+	if serviceCluster := request.PathParameter(ServiceCluster); serviceCluster != ds.mesh.IstioServiceCluster {
 		errorResponse(fmt.Sprintf("Unexpected %s %q", ServiceCluster, serviceCluster), response)
 		return
 	}
@@ -172,7 +172,7 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 // Routes correspond to HTTP routes and use the listener port as the route name
 // to identify HTTP filters in the config. Service node value holds the local proxy identity.
 func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restful.Response) {
-	if serviceCluster := request.PathParameter(ServiceCluster); serviceCluster != IstioServiceCluster {
+	if serviceCluster := request.PathParameter(ServiceCluster); serviceCluster != ds.mesh.IstioServiceCluster {
 		errorResponse(fmt.Sprintf("Unexpected %s %q", ServiceCluster, serviceCluster), response)
 		return
 	}

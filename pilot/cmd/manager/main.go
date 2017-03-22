@@ -40,7 +40,9 @@ const (
 )
 
 var (
-	flags = &args{}
+	flags = &args{
+		proxy: *envoy.DefaultMeshConfig,
+	}
 
 	discoveryCmd = &cobra.Command{
 		Use:   "discovery",
@@ -70,7 +72,7 @@ var (
 		RunE: func(c *cobra.Command, args []string) (err error) {
 			setFlagsFromEnv()
 			controller := kube.NewController(cmd.Client, cmd.RootFlags.Namespace, resyncPeriod)
-			_, err = envoy.NewWatcher(controller,
+			w, err := envoy.NewWatcher(controller,
 				controller,
 				&model.IstioRegistry{ConfigRegistry: controller},
 				&flags.proxy,
@@ -79,7 +81,7 @@ var (
 				return
 			}
 			stop := make(chan struct{})
-			go controller.Run(stop)
+			go w.Run(stop)
 			cmd.WaitSignal(stop)
 			return
 		},
@@ -91,7 +93,7 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			setFlagsFromEnv()
 			controller := kube.NewController(cmd.Client, cmd.RootFlags.Namespace, resyncPeriod)
-			_, err := envoy.NewIngressWatcher(controller,
+			w, err := envoy.NewIngressWatcher(controller,
 				controller,
 				&model.IstioRegistry{ConfigRegistry: controller},
 				cmd.Client.GetKubernetesClient(),
@@ -103,7 +105,7 @@ var (
 				return err
 			}
 			stop := make(chan struct{})
-			go controller.Run(stop)
+			go w.Run(stop)
 			cmd.WaitSignal(stop)
 			return nil
 		},

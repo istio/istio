@@ -45,6 +45,13 @@ import (
 
 // WriteFile saves config to a file
 func (conf *Config) WriteFile(fname string) error {
+	if glog.V(2) {
+		glog.Infof("writing configuration to %s", fname)
+		if err := conf.Write(os.Stderr); err != nil {
+			glog.Error(err)
+		}
+	}
+
 	file, err := os.Create(fname)
 	if err != nil {
 		return err

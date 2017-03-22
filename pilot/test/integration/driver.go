@@ -132,7 +132,7 @@ func setup() {
 		params.namespace))
 	check(err)
 
-	_, err = shell(fmt.Sprintf("kubectl -n %s create -f test/integration/ingress.yaml", params.namespace))
+	_, err = shell(fmt.Sprintf("kubectl -n %s apply -f test/integration/ingress.yaml", params.namespace))
 	check(err)
 
 	// deploy istio-infra
