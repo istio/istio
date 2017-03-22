@@ -26,6 +26,9 @@ where `command`, `targets` and `flags` are:
 * **replace**: Replace policies and rules
 * **version**: Display CLI version information
 
+_kubernetes specific_
+* **kube-inject**: Inject istio runtime proxy into kubernetes resources. This command has been added to aid in `istiofying` services for kubernetes and should eventually go away once a proper istio admission controller for kubernetes is available. 
+
 # Policy and Rule types
 
 * **route-rule** Describes a rule for routing network traffic.  See [Route Rules](rule-dsl.md#route-rules) for details on routing rules.
@@ -56,3 +59,34 @@ istioctl list route-rule
 // List destination policies
 istioctl list destination-policy
 ```
+
+# kube-inject
+
+A short term workaround for the lack of a proper istio admision
+controller is client-side injection. Use `istioutil inject` to add the
+necessary configurations to a kubernetes resource files.
+
+    istioutil inject -f deployment.yaml -o deployment-with-istio.yaml
+
+Or update the resource on the fly before applying.
+
+    istioutil inject -f depoyment.yaml | kubectl appy -f -
+
+Or update an existing deployment.
+
+    kubectl get deployment -o yaml | istioutil inject -f - | kubectl apply -f -
+
+`istioutil inject` will update
+the [PodTemplateSpec](https://kubernetes.io/docs/api-reference/v1/definitions/#_v1_podtemplatespec) in
+kubernetes Job, DaemonSet, ReplicaSet, and Deployment YAML resource
+documents. Support for additional pod-based resource types can be
+added as necessary.
+
+Unsupported resources are left unmodified so, for example, it is safe
+to run `istioutil inject` over a single file that contains multiple
+Service, ConfigMap, and Deployment definitions for a complex
+application.
+
+The Istio project is continually evolving so the low-level proxy
+configuration may change unannounced. When it doubt re-run `istioutil
+inject` on your original deployments.
