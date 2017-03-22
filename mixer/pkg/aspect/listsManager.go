@@ -68,7 +68,7 @@ func (listsManager) DefaultConfig() config.AspectParams {
 	}
 }
 
-func (listsManager) ValidateConfig(c config.AspectParams, _ descriptor.Finder) (ce *adapter.ConfigErrors) {
+func (listsManager) ValidateConfig(c config.AspectParams, _ expr.Validator, _ descriptor.Finder) (ce *adapter.ConfigErrors) {
 	lc := c.(*aconfig.ListsParams)
 	if lc.CheckAttribute == "" {
 		ce = ce.Appendf("CheckAttribute", "Missing")

@@ -54,7 +54,7 @@ func (denialsManager) NewAspect(cfg *cpb.Combined, ga adapter.Builder, env adapt
 
 func (denialsManager) Kind() Kind                         { return DenialsKind }
 func (denialsManager) DefaultConfig() config.AspectParams { return &aconfig.DenialsParams{} }
-func (denialsManager) ValidateConfig(config.AspectParams, descriptor.Finder) (ce *adapter.ConfigErrors) {
+func (denialsManager) ValidateConfig(config.AspectParams, expr.Validator, descriptor.Finder) (ce *adapter.ConfigErrors) {
 	return
 }
 

@@ -59,6 +59,7 @@ gogoslick_proto_library(
     name = "mixer/v1/config",
     importmap = {
         "google/protobuf/struct.proto": "github.com/gogo/protobuf/types",
+        "mixer/v1/config/descriptor/attribute_descriptor.proto": "istio.io/api/mixer/v1/config/descriptor",
         "mixer/v1/config/descriptor/log_entry_descriptor.proto": "istio.io/api/mixer/v1/config/descriptor",
         "mixer/v1/config/descriptor/metric_descriptor.proto": "istio.io/api/mixer/v1/config/descriptor",
         "mixer/v1/config/descriptor/monitored_resource_descriptor.proto": "istio.io/api/mixer/v1/config/descriptor",

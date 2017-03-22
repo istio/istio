@@ -20,10 +20,12 @@ import (
 	"strings"
 	"testing"
 
+	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	listcheckerpb "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config/descriptor"
+	"istio.io/mixer/pkg/expr"
 )
 
 type fakeVFinder struct {
@@ -68,7 +70,7 @@ func (*ac) DefaultConfig() AspectParams {
 }
 
 // ValidateConfig determines whether the given configuration meets all correctness requirements.
-func (a *ac) ValidateConfig(AspectParams, descriptor.Finder) *adapter.ConfigErrors {
+func (a *ac) ValidateConfig(AspectParams, expr.Validator, descriptor.Finder) *adapter.ConfigErrors {
 	return a.ce
 }
 
@@ -387,3 +389,6 @@ func (e *fakeExpr) EvalPredicate(mapExpression string, attrs attribute.Bag) (boo
 }
 
 func (e *fakeExpr) Validate(expression string) error { return e.err }
+func (e *fakeExpr) TypeCheck(string, expr.AttributeDescriptorFinder) (dpb.ValueType, error) {
+	return dpb.VALUE_TYPE_UNSPECIFIED, e.err
+}

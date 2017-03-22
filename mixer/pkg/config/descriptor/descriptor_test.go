@@ -26,7 +26,7 @@ import (
 )
 
 type (
-	getter func(Finder) (proto.Message, bool)
+	getter func(Finder) proto.Message
 
 	cases []struct {
 		name string
@@ -45,7 +45,7 @@ var (
 	}
 
 	getLog = func(k string) getter {
-		return func(f Finder) (proto.Message, bool) {
+		return func(f Finder) proto.Message {
 			return f.GetLog(k)
 		}
 	}
@@ -56,7 +56,7 @@ var (
 	}
 
 	getMetric = func(k string) getter {
-		return func(f Finder) (proto.Message, bool) {
+		return func(f Finder) proto.Message {
 			return f.GetMetric(k)
 		}
 	}
@@ -67,7 +67,7 @@ var (
 	}
 
 	getMR = func(k string) getter {
-		return func(f Finder) (proto.Message, bool) {
+		return func(f Finder) proto.Message {
 			return f.GetMonitoredResource(k)
 		}
 	}
@@ -78,7 +78,7 @@ var (
 	}
 
 	getPrincipal = func(k string) getter {
-		return func(f Finder) (proto.Message, bool) {
+		return func(f Finder) proto.Message {
 			return f.GetPrincipal(k)
 		}
 	}
@@ -89,8 +89,19 @@ var (
 	}
 
 	getQuota = func(k string) getter {
-		return func(f Finder) (proto.Message, bool) {
+		return func(f Finder) proto.Message {
 			return f.GetQuota(k)
+		}
+	}
+
+	attributeDesc = dpb.AttributeDescriptor{
+		Name:      "attr",
+		ValueType: dpb.BOOL,
+	}
+
+	getAttr = func(k string) getter {
+		return func(f Finder) proto.Message {
+			return f.GetAttribute(k)
 		}
 	}
 )
@@ -131,7 +142,15 @@ func TestGetQuota(t *testing.T) {
 	execute(t, cases{
 		{"empty", &pb.GlobalConfig{Quotas: []*dpb.QuotaDescriptor{&quotaDesc}}, getQuota("quota"), &quotaDesc},
 		{"missing", &pb.GlobalConfig{Quotas: []*dpb.QuotaDescriptor{&quotaDesc}}, getQuota("foo"), nil},
-		{"no quotas", &pb.GlobalConfig{}, getQuota("log"), nil},
+		{"no quotas", &pb.GlobalConfig{}, getQuota("quota"), nil},
+	})
+}
+
+func TestGetAttribute(t *testing.T) {
+	execute(t, cases{
+		{"empty", &pb.GlobalConfig{Attributes: []*dpb.AttributeDescriptor{&attributeDesc}}, getAttr("attr"), &attributeDesc},
+		{"missing", &pb.GlobalConfig{Attributes: []*dpb.AttributeDescriptor{&attributeDesc}}, getAttr("foo"), nil},
+		{"no attributes", &pb.GlobalConfig{}, getAttr("attr"), nil},
 	})
 }
 
@@ -139,8 +158,8 @@ func execute(t *testing.T, tests cases) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			f := NewFinder(tt.cfg)
-			d, found := tt.get(f)
-			if !found && tt.out != nil {
+			d := tt.get(f)
+			if d == nil && tt.out != nil {
 				t.Fatalf("tt.fn() = _, false; expected descriptor %v", tt.out)
 			}
 			if tt.out != nil && !reflect.DeepEqual(d, tt.out) {

@@ -117,7 +117,7 @@ func (m *quotasManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapte
 
 func (*quotasManager) Kind() Kind                         { return QuotasKind }
 func (*quotasManager) DefaultConfig() config.AspectParams { return &aconfig.QuotasParams{} }
-func (*quotasManager) ValidateConfig(config.AspectParams, descriptor.Finder) (ce *adapter.ConfigErrors) {
+func (*quotasManager) ValidateConfig(config.AspectParams, expr.Validator, descriptor.Finder) (ce *adapter.ConfigErrors) {
 	return
 }
 
