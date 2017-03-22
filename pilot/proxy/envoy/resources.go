@@ -596,7 +596,7 @@ type RDS struct {
 
 // ClusterManager definition
 type ClusterManager struct {
-	Clusters []*Cluster `json:"clusters,omitempty"`
+	Clusters []*Cluster `json:"clusters"`
 	SDS      *SDS       `json:"sds,omitempty"`
 	CDS      *CDS       `json:"cds,omitempty"`
 }

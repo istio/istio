@@ -8,17 +8,10 @@ spec:
   ports:
   - name: https
     port: 443
-    targetPort: 443
-    nodePort: 32443
-    protocol: TCP
   - name: http
     port: 80
-    targetPort: 80
-    nodePort: 32000
-    protocol: TCP
   selector:
     infra: ingress
-  type: NodePort
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
