@@ -23,6 +23,7 @@ import (
 	"istio.io/mixer/pkg/adapter"
 	listcheckerpb "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config/descriptor"
 )
 
 type fakeVFinder struct {
@@ -67,7 +68,7 @@ func (*ac) DefaultConfig() AspectParams {
 }
 
 // ValidateConfig determines whether the given configuration meets all correctness requirements.
-func (a *ac) ValidateConfig(AspectParams) *adapter.ConfigErrors {
+func (a *ac) ValidateConfig(AspectParams, descriptor.Finder) *adapter.ConfigErrors {
 	return a.ce
 }
 

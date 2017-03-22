@@ -27,6 +27,7 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
 	configpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
@@ -87,12 +88,14 @@ func (m *fakemgr) Kind() aspect.Kind {
 func newTestManager(name string, throwOnNewAspect bool, body func() aspect.Output) testManager {
 	return testManager{name, throwOnNewAspect, testAspect{body}}
 }
-func (testManager) Close() error                                             { return nil }
-func (testManager) DefaultConfig() config.AspectParams                       { return nil }
-func (testManager) ValidateConfig(config.AspectParams) *adapter.ConfigErrors { return nil }
-func (testManager) Kind() aspect.Kind                                        { return aspect.DenialsKind }
-func (m testManager) Name() string                                           { return m.name }
-func (testManager) Description() string                                      { return "deny checker aspect manager for testing" }
+func (testManager) Close() error                       { return nil }
+func (testManager) DefaultConfig() config.AspectParams { return nil }
+func (testManager) ValidateConfig(config.AspectParams, descriptor.Finder) *adapter.ConfigErrors {
+	return nil
+}
+func (testManager) Kind() aspect.Kind   { return aspect.DenialsKind }
+func (m testManager) Name() string      { return m.name }
+func (testManager) Description() string { return "deny checker aspect manager for testing" }
 
 func (m testManager) NewAspect(cfg *configpb.Combined, adapter adapter.Builder, env adapter.Env) (aspect.Wrapper, error) {
 	if m.throw {

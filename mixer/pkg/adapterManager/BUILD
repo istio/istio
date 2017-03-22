@@ -34,6 +34,7 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
+        "//pkg/config/descriptor:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_istio_api//:mixer/v1/config",
         "@com_github_istio_api//:mixer/v1/config/descriptor",

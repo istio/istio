@@ -369,7 +369,7 @@ func TestLoggerManager_DefaultConfig(t *testing.T) {
 
 func TestLoggerManager_ValidateConfig(t *testing.T) {
 	m := newApplicationLogsManager()
-	if err := m.ValidateConfig(&ptypes.Empty{}); err != nil {
+	if err := m.ValidateConfig(&ptypes.Empty{}, nil); err != nil {
 		t.Errorf("ValidateConfig(): unexpected error: %v", err)
 	}
 }

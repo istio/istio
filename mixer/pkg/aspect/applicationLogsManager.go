@@ -28,6 +28,7 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
 	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
@@ -124,7 +125,7 @@ func (applicationLogsManager) DefaultConfig() config.AspectParams {
 }
 
 // TODO: validation of timestamp format
-func (applicationLogsManager) ValidateConfig(c config.AspectParams) (ce *adapter.ConfigErrors) {
+func (applicationLogsManager) ValidateConfig(config.AspectParams, descriptor.Finder) (ce *adapter.ConfigErrors) {
 	return nil
 }
 

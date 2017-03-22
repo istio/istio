@@ -24,7 +24,7 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/config/descriptors"
+	"istio.io/mixer/pkg/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
@@ -48,7 +48,7 @@ type Manager struct {
 	eval             expr.Evaluator
 	aspectFinder     AspectValidatorFinder
 	builderFinder    AdapterValidatorFinder
-	descriptorFinder descriptors.Finder
+	descriptorFinder descriptor.Finder
 	findAspects      AdapterToAspectMapper
 	loopDelay        time.Duration
 	globalConfig     string
@@ -127,7 +127,7 @@ func (c *Manager) fetch() (*Runtime, error) {
 		return nil, cerr
 	}
 
-	c.descriptorFinder = descriptors.NewFinder(v.validated.globalConfig)
+	c.descriptorFinder = descriptor.NewFinder(v.validated.globalConfig)
 
 	c.gcSHA = gcSHA
 	c.scSHA = scSHA
