@@ -65,12 +65,12 @@ type CertOptions struct {
 
 	// Whether this certificate is for a server.
 	IsServer bool
+
+	// The size of RSA private key to be generated.
+	RSAKeySize int
 }
 
 const (
-	// Size of RSA key to generate.
-	rsaBits = 2048
-
 	// OID tag values for X.509 SAN field (see https://tools.ietf.org/html/rfc5280#appendix-A.2)
 	tagDNSName = 2
 	tagURI     = 6
@@ -90,7 +90,7 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 	// private key will be used to sign this certificate in the self-signed
 	// case, otherwise the certificate is signed by the signer private key
 	// as specified in the CertOptions.
-	priv, err := rsa.GenerateKey(rand.Reader, rsaBits)
+	priv, err := rsa.GenerateKey(rand.Reader, options.RSAKeySize)
 	if err != nil {
 		glog.Fatalf("RSA key generation failed with error %s.", err)
 	}
