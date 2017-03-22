@@ -181,7 +181,7 @@ func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma A
 
 	return Output{
 		Status: status.OK,
-		Response: QuotaMethodResp{
+		Response: &QuotaMethodResp{
 			Amount:     qr.Amount,
 			Expiration: qr.Expiration,
 		}}

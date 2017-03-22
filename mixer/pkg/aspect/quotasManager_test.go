@@ -189,15 +189,16 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 		eval        expr.Evaluator
 		out         map[string]o
 		errString   string
+		resp        QuotaMethodResp
 	}{
-		{make(map[string]*quotaInfo), 1, nil, false, test.NewIDEval(), make(map[string]o), ""},
-		{goodMd, 1, nil, false, errEval, make(map[string]o), "expected"},
-		{goodMd, 1, nil, false, labelErrEval, make(map[string]o), "expected"},
-		{goodMd, 1, nil, false, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, ""},
+		{make(map[string]*quotaInfo), 1, nil, false, test.NewIDEval(), make(map[string]o), "", QuotaMethodResp{}},
+		{goodMd, 1, nil, false, errEval, make(map[string]o), "expected", QuotaMethodResp{}},
+		{goodMd, 1, nil, false, labelErrEval, make(map[string]o), "expected", QuotaMethodResp{}},
+		{goodMd, 1, nil, false, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, "", QuotaMethodResp{Amount: 1}},
 		{goodMd, 0, errors.New("alloc-forced-error"), false, goodEval,
-			map[string]o{"request_count": {1, []string{"source", "target"}}}, "alloc-forced-error"},
-		{goodMd, 1, nil, true, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, ""},
-		{goodMd, 0, nil, false, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, ""},
+			map[string]o{"request_count": {1, []string{"source", "target"}}}, "alloc-forced-error", QuotaMethodResp{}},
+		{goodMd, 1, nil, true, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, "", QuotaMethodResp{Amount: 1}},
+		{goodMd, 0, nil, false, goodEval, map[string]o{"request_count": {1, []string{"source", "target"}}}, "", QuotaMethodResp{}},
 	}
 	for idx, c := range cases {
 		t.Run(strconv.Itoa(idx), func(t *testing.T) {
@@ -232,6 +233,19 @@ func TestQuotaWrapper_Execute(t *testing.T) {
 					if _, found := receivedArgs.Labels[l]; !found {
 						t.Errorf("value.Labels = %v; wanted label named %s", receivedArgs.Labels, l)
 					}
+				}
+
+				resp := out.Response.(*QuotaMethodResp)
+				if resp.Amount != c.resp.Amount {
+					t.Errorf("Got amount %d, expecting %d", resp.Amount, c.resp.Amount)
+				}
+
+				if resp.Expiration != c.resp.Expiration {
+					t.Errorf("Got expiration %d, expecting %d", resp.Expiration, c.resp.Expiration)
+				}
+			} else {
+				if out.Response != nil {
+					t.Errorf("Got response %v, expecting nil", out.Response)
 				}
 			}
 		})
