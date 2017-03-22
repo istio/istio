@@ -18,7 +18,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TESTS_DIR="${ROOT}/tests"
 . ${TESTS_DIR}/commonUtils.sh || { echo "Cannot load common utilities"; exit 1; }
 
-ISTIOCLI="${ROOT}/demos/istioctl-linux"
+ISTIOCLI="${ROOT}/demos/istioctl-linux -c ${HOME}/.kube/config"
 
 function create_rule() {
     $ISTIOCLI -n $NAMESPACE create -f $1 \
