@@ -1,0 +1,77 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: frontend
+spec:
+  selector:
+    app: hello
+    tier: frontend
+  ports:
+    - protocol: "TCP"
+      port: 80
+      targetPort: 80
+  type: LoadBalancer
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: frontend
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: injected
+        alpha.istio.io/version: "12345678"
+        pod.beta.kubernetes.io/init-containers: '[{"args":["-p","15001","-u","1337"],"image":"docker.io/istio/init:latest","imagePullPolicy":"Always","name":"init","securityContext":{"capabilities":{"add":["NET_ADMIN"]}}}]'
+      creationTimestamp: null
+      labels:
+        app: hello
+        tier: frontend
+        track: stable
+    spec:
+      containers:
+      - image: gcr.io/google-samples/hello-frontend:1.0
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /usr/sbin/nginx
+              - -s
+              - quit
+        name: nginx
+        resources: {}
+      - args:
+        - proxy
+        - sidecar
+        - -s
+        - manager:8080
+        - -m
+        - mixer:9091
+        - -n
+        - $(POD_NAMESPACE)
+        - -v
+        - "2"
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: docker.io/istio/runtime:latest
+        imagePullPolicy: Always
+        name: proxy
+        resources: {}
+        securityContext:
+          runAsUser: 1337
+status: {}
+---

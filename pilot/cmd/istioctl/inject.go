@@ -1,0 +1,118 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package main
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"os"
+
+	"istio.io/manager/cmd"
+	"istio.io/manager/cmd/version"
+	"istio.io/manager/platform/kube/inject"
+
+	"github.com/spf13/cobra"
+)
+
+var (
+	initImage        string
+	runtimeImage     string
+	discoveryPort    int
+	mixerPort        int
+	sidecarProxyUID  int64
+	sidecarProxyPort int
+	runtimeVerbosity int
+	versionStr       string // override build version
+
+	inFilename  string
+	outFilename string
+)
+
+var (
+	injectCmd = &cobra.Command{
+		Use:   "kube-inject",
+		Short: "Inject istio runtime into kubernete resources",
+		RunE: func(_ *cobra.Command, _ []string) (err error) {
+			if inFilename == "" {
+				return errors.New("filename not specified (see --filename or -f)")
+			}
+			var reader io.Reader
+			if inFilename == "-" {
+				reader = os.Stdin
+			} else {
+				reader, err = os.Open(inFilename)
+				if err != nil {
+					return err
+				}
+			}
+
+			var writer io.Writer
+			if outFilename == "" {
+				writer = os.Stdout
+			} else {
+				file, err := os.Create(outFilename)
+				if err != nil {
+					return err
+				}
+				writer = file
+				defer func() { err = file.Close() }()
+			}
+
+			if versionStr == "" {
+				versionStr = fmt.Sprintf("%v@%v-%v-%v",
+					version.Info.User,
+					version.Info.Host,
+					version.Info.Version,
+					version.Info.GitRevision)
+			}
+			params := &inject.Params{
+				InitImage:        initImage,
+				RuntimeImage:     runtimeImage,
+				RuntimeVerbosity: runtimeVerbosity,
+				DiscoveryPort:    discoveryPort,
+				MixerPort:        mixerPort,
+				SidecarProxyUID:  sidecarProxyUID,
+				SidecarProxyPort: sidecarProxyPort,
+				Version:          versionStr,
+			}
+			return inject.IntoResourceFile(params, reader, writer)
+		},
+	}
+)
+
+func init() {
+	injectCmd.PersistentFlags().StringVar(&initImage, "initImage",
+		inject.DefaultInitImage, "Istio init image")
+	injectCmd.PersistentFlags().StringVar(&runtimeImage, "runtimeImage",
+		inject.DefaultRuntimeImage, "Istio runtime image")
+	injectCmd.PersistentFlags().StringVarP(&inFilename, "filename", "f",
+		"", "Input kubernetes resource filename")
+	injectCmd.PersistentFlags().StringVarP(&outFilename, "output", "o",
+		"", "Modified output kubernetes resource filename")
+	injectCmd.PersistentFlags().IntVar(&discoveryPort, "discoveryPort",
+		inject.DefaultManagerDiscoveryPort, "Manager discovery port")
+	injectCmd.PersistentFlags().IntVar(&mixerPort, "mixerPort",
+		inject.DefaultMixerPort, "Mixer port")
+	injectCmd.PersistentFlags().IntVar(&runtimeVerbosity, "verbosity",
+		inject.DefaultRuntimeVerbosity, "Runtime verbosity")
+	injectCmd.PersistentFlags().Int64Var(&sidecarProxyUID, "sidecarProxyUID",
+		inject.DefaultSidecarProxyUID, "Sidecar proxy UID")
+	injectCmd.PersistentFlags().IntVar(&sidecarProxyPort, "sidecarProxyPort",
+		inject.DefaultSidecarProxyPort, "Sidecar proxy Port")
+	injectCmd.PersistentFlags().StringVar(&versionStr, "setVersionString",
+		"", "Override version info injected into resource")
+	cmd.RootCmd.AddCommand(injectCmd)
+}
