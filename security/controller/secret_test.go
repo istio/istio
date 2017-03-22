@@ -37,9 +37,12 @@ func (ca fakeCa) GetRootCertificate() []byte {
 	return []byte("fake root cert")
 }
 
-func createSecret(name string) *v1.Secret {
+func createSecret(name, namespace string) *v1.Secret {
 	return &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
 		Data: map[string][]byte{
 			"cert-chain.pem": []byte("fake cert chain"),
 			"key.pem":        []byte("fake key"),
@@ -68,6 +71,7 @@ func TestSecretController(t *testing.T) {
 		Version:  "v1",
 	}
 	testCases := map[string]struct {
+		existingSecret  *v1.Secret
 		saToAdd         *v1.ServiceAccount
 		saToDelete      *v1.ServiceAccount
 		sasToUpdate     *updatedSas
@@ -76,7 +80,7 @@ func TestSecretController(t *testing.T) {
 		"adding service account creates new secret": {
 			saToAdd: createServiceAccount("test", "test-ns"),
 			expectedActions: []ktesting.Action{
-				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("istio.test")),
+				ktesting.NewCreateAction(gvr, "test-ns", createSecret("istio.test", "test-ns")),
 			},
 		},
 		"removing service account deletes existing secret": {
@@ -99,14 +103,26 @@ func TestSecretController(t *testing.T) {
 			},
 			expectedActions: []ktesting.Action{
 				ktesting.NewDeleteAction(gvr, "old-ns", "istio.old-name"),
-				ktesting.NewUpdateAction(gvr, "new-ns", createSecret("istio.new-name")),
+				ktesting.NewCreateAction(gvr, "new-ns", createSecret("istio.new-name", "new-ns")),
 			},
+		},
+		"adding new service account does not overwrite existing secret": {
+			existingSecret:  createSecret("istio.test", "test-ns"),
+			saToAdd:         createServiceAccount("test", "test-ns"),
+			expectedActions: []ktesting.Action{},
 		},
 	}
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		controller := NewSecretController(fakeCa{}, client.CoreV1())
+
+		if tc.existingSecret != nil {
+			err := controller.scrtStore.Add(tc.existingSecret)
+			if err != nil {
+				t.Errorf("Failed to add a secret (error %v)", err)
+			}
+		}
 
 		if tc.saToAdd != nil {
 			controller.addFunc(tc.saToAdd)
