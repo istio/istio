@@ -420,6 +420,8 @@ kind: Ingress
 metadata:
   name: gateway
   namespace: default
+  annotations:
+    kubernetes.io/ingress.class: "istio"
 spec:
   rules:
   - http:
