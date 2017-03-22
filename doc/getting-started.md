@@ -29,15 +29,24 @@ In this example we use two microservices:
 The communicating microservices are examples from Kubernetes'
 [Connecting a Front End to a Back End Using a Service](https://kubernetes.io/docs/tutorials/connecting-apps/connecting-frontend-backend/) tutorial.
 
-First we will stand the microservices using the Istio pattern of a proxy within frontend's pod:
+First we will start the microservices using the Istio pattern of a
+proxy within frontend's pod. The following uses the `istio-inject` shell
+function, which is a wrapper around `istioctl kube-inject`, to inject
+the runtime proxies into the kubernetes resources. `istio-inject` and
+`istioctl kube-inject` are documented [here](https://github.com/istio/istio/blob/master/doc/istioctl.md#kube-inject).
+
 
 ```
+# Source istioctl-kube-inject.sh to make the `istio-inject` bash function available.
+source kubernetes/istioctl-kube-inject.sh
+
 # Backend "hello" service with an instance of container gcr.io/istio-testing/runtime:demo
-kubectl create -f doc/hello-and-proxy.yaml
+istio-inject doc/hello-and-proxy.yaml | kubectl apply -f -
 
 # "Frontend" service with an instance of container gcr.io/istio-testing/runtime:demo
-kubectl create -f doc/frontend-and-proxy.yaml
-kubectl expose -f doc/frontend-and-proxy.yaml --type=NodePort --name=frontend
+istio-inject doc/frontend-and-proxy.yaml | kubectl apply -f -
+istio-inject doc/frontend-and-proxy.yaml | kubectl expose -f - --type=NodePort --name=frontend
+
 ```
 
 <!---

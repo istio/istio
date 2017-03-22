@@ -8,7 +8,7 @@ The bookinfo application is broken into four separate microservices:
 * *productpage*. The productpage microservice calls the *details* and *reviews* microservices to populate the page.
 * *details*. The details microservice contains book information.
 * *reviews*. The reviews microservice contains book reviews. It also calls the *ratings* microservice.
-* *ratings*. The ratings microservice contains book ranking information that accompanies a book review. 
+* *ratings*. The ratings microservice contains book ranking information that accompanies a book review.
 
 There are 3 versions of the reviews microservice:
 
@@ -35,12 +35,12 @@ rename the tool to `istioctl`. For example:
 $ cp istioctl-osx /usr/local/bin/istioctl
 ```
 
-> Note: The following instructions assume your current working directory 
+> Note: The following instructions assume your current working directory
 > is the [istio repo root](https://github.com/istio/istio).
 
 ## Setup
 
-Execute the [Istio installation instructions](../../../kubernetes/README.md) 
+Execute the [Istio installation instructions](../../../kubernetes/README.md)
 to install the Istio manager, mixer, and an envoy-based ingress controller,
 which will be used to implement the gateway for the application.
 (Note: the current version of the bookinfo application MUST use the `default` Kubernetes namespace.)
@@ -48,7 +48,7 @@ which will be used to implement the gateway for the application.
 ## Running the Bookinfo Application
 
 1. Change your current working directory to the bookinfo application directory:
-   
+
    ```bash
    cd demos/apps/bookinfo
    ```
@@ -56,14 +56,25 @@ which will be used to implement the gateway for the application.
 1. Bring up the application containers:
 
    ```bash
-   $ kubectl create -f bookinfo-istio.yaml
+   $ source ../../../kubernetes/istioctl-kube-inject.sh
    ```
 
-   The above command creates the gateway ingress resource and launches the 4 microservices as described
-   in the diagram above. The reviews microservice has 3 versions: v1, v2, and v3.
-   Note that in a realistic deployment, new versions of a microservice are deployed over 
-   time instead of deploying all versions simultaneously.
-   
+   `istio-inject` is a wrapper function around `istioctl
+   kube-inject` which injects the istio runtime proxy into kubernetes
+   resources files. `istio-inject` and `istioctl kube-inject` are documented [here](https://github.com/istio/istio/blob/master/doc/istioctl.md#kube-inject).
+
+   ```bash
+   $ isito-inject bookinfo-istio.yaml | kubectl apply -f -
+   ```
+
+   The above command creates the gateway ingress resource and launches
+   the 4 microservices as described in the diagram above. The reviews
+   microservice has 3 versions: v1, v2, and v3.  Note that in a
+   realistic deployment, new versions of a microservice are deployed
+   over time instead of deploying all versions
+   simultaneously.
+
+
 1. Confirm that all services and pods are correctly defined and running:
 
    ```bash
@@ -100,18 +111,18 @@ which will be used to implement the gateway for the application.
    ```bash
    $ export GATEWAY_URL=$(kubectl get po -l infra=istio-ingress-controller -o jsonpath={.items[0]..status.hostIP}):$(kubectl get svc istio-ingress-controller -o jsonpath={.spec.ports[0].nodePort})
    $ echo $GATEWAY_URL
-   192.168.99.100:32567 
+   192.168.99.100:32567
    ```
 1. If you open the Bookinfo URL (http://$GATEWAY_URL/productpage) in your browser, you should see the bookinfo application productpage displayed.
 
 ### Content Based Routing
 
 Since we have 3 versions of the reviews microservice running, we need to set the default route.
-Otherwise if you access the application several times, you would notice that sometimes the output contains 
-star ratings. This is because without an explicit default version set, Istio will 
+Otherwise if you access the application several times, you would notice that sometimes the output contains
+star ratings. This is because without an explicit default version set, Istio will
 route requests to all available versions of a service in a random fashion.
 
-1. Set the default version for all microservices to v1. 
+1. Set the default version for all microservices to v1.
 
    ```bash
    $ istioctl create -f route-rule-all-v1.yaml
@@ -187,7 +198,7 @@ route requests to all available versions of a service in a random fashion.
    `reviews:v2` instances.
 
    ```bash
-   $ istioctl create -f route-rule-reviews-test-v2.yaml 
+   $ istioctl create -f route-rule-reviews-test-v2.yaml
    ```
 
    Confirm the rule is created:
@@ -343,7 +354,7 @@ If you now refresh the `productpage` you'll see that while the load generator is
    ```
 
 1. Optionally shut down the control plane services using the cleanup instructions [here](../../../kubernetes/README.md).
- 
+
 1. Confirm shutdown
 
    ```bash
