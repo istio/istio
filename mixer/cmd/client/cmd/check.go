@@ -1,4 +1,4 @@
-// Copyright 2016 Istio Authors
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"context"
@@ -24,65 +24,54 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 )
 
-func reportCmd(rootArgs *rootArgs, outf outFn, errorf errorFn) *cobra.Command {
+func checkCmd(rootArgs *rootArgs, outf outFn, errorf errorFn) *cobra.Command {
 	return &cobra.Command{
-		Use:   "report <message>...",
-		Short: "Invokes the mixer's Report API.",
+		Use:   "check",
+		Short: "Invokes the mixer's Check API.",
 		Run: func(cmd *cobra.Command, args []string) {
-			report(rootArgs, args, outf, errorf)
+			check(rootArgs, outf, errorf)
 		}}
 }
 
-func report(rootArgs *rootArgs, args []string, outf outFn, errorf errorFn) {
+func check(rootArgs *rootArgs, outf outFn, errorf errorFn) {
 	var attrs *mixerpb.Attributes
 	var err error
 
 	if attrs, err = parseAttributes(rootArgs); err != nil {
-		errorf(err.Error())
-		return
-	}
-
-	if len(args) == 0 {
-		errorf("Message is missing.")
-		return
+		errorf("%v", err)
 	}
 
 	var cs *clientState
 	if cs, err = createAPIClient(rootArgs.mixerAddress, rootArgs.enableTracing); err != nil {
-		errorf("Unable to establish connection to %s: %v", rootArgs.mixerAddress, err)
-		return
+		errorf("Unable to establish connection to %s", rootArgs.mixerAddress)
 	}
 	defer deleteAPIClient(cs)
 
-	span, ctx := cs.tracer.StartRootSpan(context.Background(), "mixc Report", ext.SpanKindRPCClient)
+	span, ctx := cs.tracer.StartRootSpan(context.Background(), "mixc Check", ext.SpanKindRPCClient)
 	_, ctx = cs.tracer.PropagateSpan(ctx, span)
 
-	var stream mixerpb.Mixer_ReportClient
-	if stream, err = cs.client.Report(ctx); err != nil {
-		errorf("Report RPC failed: %v", err)
-		return
+	var stream mixerpb.Mixer_CheckClient
+	if stream, err = cs.client.Check(ctx); err != nil {
+		errorf("Check RPC failed: %v", err)
 	}
 
 	for i := 0; i < rootArgs.repeat; i++ {
 		// send the request
-		request := mixerpb.ReportRequest{RequestIndex: 0, AttributeUpdate: *attrs}
+		request := mixerpb.CheckRequest{RequestIndex: int64(i), AttributeUpdate: *attrs}
 
 		if err = stream.Send(&request); err != nil {
-			errorf("Failed to send Report RPC: %v", err)
-			break
+			errorf("Failed to send Check RPC: %v", err)
 		}
 
-		var response *mixerpb.ReportResponse
+		var response *mixerpb.CheckResponse
 		response, err = stream.Recv()
 		if err == io.EOF {
-			errorf("Got no response from Report RPC")
-			break
+			errorf("Got no response from Check RPC")
 		} else if err != nil {
-			errorf("Failed to receive a response from Report RPC: %v", err)
-			break
+			errorf("Failed to receive a response from Check RPC: %v", err)
 		}
 
-		outf("Report RPC returned %s\n", decodeStatus(response.Result))
+		outf("Check RPC returned %s\n", decodeStatus(response.Result))
 	}
 
 	if err = stream.CloseSend(); err != nil {
