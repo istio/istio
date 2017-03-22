@@ -1,0 +1,25 @@
+{
+    "details":{
+        "isbn_10":"1234567890",
+        "isbn_13":"123-1234567980",
+        "language":"English",
+        "paperback":"200 pages",
+        "publisher":"PublisherA"
+    },
+    "reviews":{
+        "reviewer1":{
+            "text":"An extremely entertaining play by Shakespeare. The slapstick humour is refreshing!",
+            "rating":{
+                "stars":5,
+                "color":"black"
+            }
+        },
+        "reviewer2":{
+            "text":"Absolutely fun and entertaining. The play lacks thematic depth when compared to other plays by Shakespeare.",
+            "rating":{
+                "stars":4,
+                "color":"black"
+            }
+        }
+    }
+}
