@@ -1,4 +1,4 @@
-// Copyright 2016 Istio Authors
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"context"
@@ -51,14 +51,12 @@ func quota(rootArgs *rootArgs, outf outFn, errorf errorFn, name string, dedup st
 	var err error
 
 	if attrs, err = parseAttributes(rootArgs); err != nil {
-		errorf(err.Error())
-		return
+		errorf("%v", err)
 	}
 
 	var cs *clientState
 	if cs, err = createAPIClient(rootArgs.mixerAddress, rootArgs.enableTracing); err != nil {
 		errorf("Unable to establish connection to %s", rootArgs.mixerAddress)
-		return
 	}
 	defer deleteAPIClient(cs)
 
@@ -68,7 +66,6 @@ func quota(rootArgs *rootArgs, outf outFn, errorf errorFn, name string, dedup st
 	var stream mixerpb.Mixer_QuotaClient
 	if stream, err = cs.client.Quota(ctx); err != nil {
 		errorf("Quota RPC failed: %v", err)
-		return
 	}
 
 	for i := 0; i < rootArgs.repeat; i++ {
@@ -84,17 +81,14 @@ func quota(rootArgs *rootArgs, outf outFn, errorf errorFn, name string, dedup st
 
 		if err = stream.Send(&request); err != nil {
 			errorf("Failed to send Quota RPC: %v", err)
-			break
 		}
 
 		var response *mixerpb.QuotaResponse
 		response, err = stream.Recv()
 		if err == io.EOF {
 			errorf("Got no response from Quota RPC")
-			break
 		} else if err != nil {
 			errorf("Failed to receive a response from Quota RPC: %v", err)
-			break
 		}
 
 		outf("Quota RPC returned %s, amount %v, expiration %v\n",

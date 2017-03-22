@@ -131,6 +131,24 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_cpuguy83_go_md2man",
+    commit = "648eed146d3f3beacb64063cd0daae908015eebd", # Mar 19, 2017 (no releases)
+    importpath = "github.com/cpuguy83/go-md2man",
+)
+
+new_go_repository(
+    name = "com_github_russross_blackfriday",
+    commit = "35eb537633d9950afc8ae7bdf0edb6134584e9fc", # Mar 19, 2017 (no releases)
+    importpath = "github.com/russross/blackfriday",
+)
+
+new_go_repository(
+    name = "com_github_shurcooL_sanitized_anchor_name",
+    commit = "10ef21a441db47d8b13ebcc5fd2310f636973c77", # Mar 19, 2017 (no releases)
+    importpath = "github.com/shurcooL/sanitized_anchor_name",
+)
+
+new_go_repository(
     name = "com_github_hashicorp_go_multierror",
     commit = "ed905158d87462226a13fe39ddf685ea65f1c11f", # Dec 16, 2016 (no releases)
     importpath = "github.com/hashicorp/go-multierror",
