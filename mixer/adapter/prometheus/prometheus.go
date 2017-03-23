@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/mixer/adapter/prometheus/config"
@@ -114,7 +114,7 @@ func (p *prom) Record(vals []adapter.Value) error {
 			vec := collector.(*prometheus.GaugeVec)
 			amt, err := promValue(val)
 			if err != nil {
-				result = multierror.Append(result, fmt.Errorf("could get value for metric %s", val.Definition.Name))
+				result = multierror.Append(result, fmt.Errorf("could not get value for metric %s: %v", val.Definition.Name, err))
 				continue
 			}
 			vec.With(promLabels(val.Labels)).Set(amt)
@@ -122,7 +122,7 @@ func (p *prom) Record(vals []adapter.Value) error {
 			vec := collector.(*prometheus.CounterVec)
 			amt, err := promValue(val)
 			if err != nil {
-				result = multierror.Append(result, fmt.Errorf("could get value for metric %s", val.Definition.Name))
+				result = multierror.Append(result, fmt.Errorf("could not get value for metric %s: %v", val.Definition.Name, err))
 				continue
 			}
 			vec.With(promLabels(val.Labels)).Add(amt)
