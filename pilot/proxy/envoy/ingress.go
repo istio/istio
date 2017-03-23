@@ -31,8 +31,6 @@ import (
 	"io/ioutil"
 
 	"github.com/hashicorp/errwrap"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/apis/meta/v1"
 )
 
 type ingressWatcher struct {
@@ -40,7 +38,7 @@ type ingressWatcher struct {
 	ctl       model.Controller
 	discovery model.ServiceDiscovery
 	registry  *model.IstioRegistry
-	client    *kubernetes.Clientset
+	secrets   model.SecretRegistry
 	secret    string
 	namespace string
 	mesh      *MeshConfig
@@ -48,8 +46,8 @@ type ingressWatcher struct {
 
 // NewIngressWatcher creates a new ingress watcher instance with an agent
 func NewIngressWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
-	registry *model.IstioRegistry, client *kubernetes.Clientset, mesh *MeshConfig,
-	identity *ProxyNode, secret, namespace string,
+	registry *model.IstioRegistry, secrets model.SecretRegistry, mesh *MeshConfig,
+	secret, namespace string,
 ) (Watcher, error) {
 
 	out := &ingressWatcher{
@@ -57,27 +55,30 @@ func NewIngressWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 		ctl:       ctl,
 		discovery: discovery,
 		registry:  registry,
-		client:    client,
+		secrets:   secrets,
 		secret:    secret,
 		namespace: namespace,
 		mesh:      mesh,
 	}
 
-	err := ctl.AppendConfigHandler(model.IngressRule,
-		func(model.Key, proto.Message, model.Event) { out.reload() })
-	if err != nil {
+	if err := ctl.AppendConfigHandler(model.IngressRule, func(model.Key, proto.Message, model.Event) {
+		out.reload()
+	}); err != nil {
 		return nil, err
 	}
+
+	// ingress rule listing depends on the service declaration being up to date
+	if err := ctl.AppendServiceHandler(func(*model.Service, model.Event) {
+		out.reload()
+	}); err != nil {
+		return nil, err
+	}
+
 	return out, nil
 }
 
 func (w *ingressWatcher) reload() {
-	config, err := w.generateConfig()
-	if err != nil {
-		glog.Warningf("Failed to generate Envoy configuration: %v", err)
-		return
-	}
-	w.agent.ScheduleConfigUpdate(config)
+	w.agent.ScheduleConfigUpdate(w.generateConfig())
 }
 
 func (w *ingressWatcher) Run(stop <-chan struct{}) {
@@ -93,9 +94,8 @@ func (w *ingressWatcher) Run(stop <-chan struct{}) {
 	w.ctl.Run(stop)
 }
 
-func (w *ingressWatcher) generateConfig() (*Config, error) {
-	// TODO: Configurable namespace?
-	rules := w.registry.IngressRules("")
+func (w *ingressWatcher) generateConfig() *Config {
+	rules := w.registry.IngressRules(w.namespace)
 
 	// Phase 1: group rules by host
 	rulesByHost := make(map[string][]*config.RouteRule, len(rules))
@@ -165,10 +165,7 @@ func (w *ingressWatcher) generateConfig() (*Config, error) {
 
 	// configure for HTTPS if provided with a secret name
 	if w.secret != "" {
-		sslContext, err := w.buildSSLContext(w.secret)
-		if err != nil {
-			return nil, err
-		}
+		sslContext := w.buildSSLContext()
 		listener.Port = 443
 		listener.SSLContext = sslContext
 	}
@@ -189,7 +186,7 @@ func (w *ingressWatcher) generateConfig() (*Config, error) {
 				RefreshDelayMs: 1000,
 			},
 		},
-	}, nil
+	}
 }
 
 // TODO: with multiple keys/certs, these will have to be dynamic.
@@ -198,35 +195,50 @@ const (
 	privateKeyFile = "/etc/envoy/tls.key"
 )
 
-func (w *ingressWatcher) buildSSLContext(secret string) (*SSLContext, error) {
-	// TODO: use cache
-	s, err := w.client.Core().Secrets(w.namespace).Get(secret, v1.GetOptions{})
+func (w *ingressWatcher) buildSSLContext() *SSLContext {
+	var uri string
+	if w.namespace == "" {
+		uri = w.secret + ".default"
+	} else {
+		uri = fmt.Sprintf("%s.%s", w.secret, w.namespace)
+	}
+
+	err := w.writeTLS(uri)
 	if err != nil {
-		return nil, errwrap.Wrap(fmt.Errorf("could not get secret %s", secret), err)
-	}
-
-	cert, exists := s.Data["tls.crt"]
-	if !exists {
-		return nil, fmt.Errorf("could not find tls.crt in secret %s", w.secret)
-	}
-
-	key, exists := s.Data["tls.key"]
-	if !exists {
-		return nil, fmt.Errorf("could not find tls.key in secret %s", w.secret)
-	}
-
-	// Write to files
-	if err = ioutil.WriteFile(certChainFile, cert, 0755); err != nil {
-		return nil, err
-	}
-	if err = ioutil.WriteFile(privateKeyFile, key, 0755); err != nil {
-		return nil, err
+		glog.Warning("Failed to get and save secrets. Envoy will crash and trigger a retry...")
 	}
 
 	return &SSLContext{
 		CertChainFile:  certChainFile,
 		PrivateKeyFile: privateKeyFile,
-	}, nil
+	}
+}
+
+func (w *ingressWatcher) writeTLS(uri string) error {
+	s, err := w.secrets.GetSecret(uri)
+	if err != nil {
+		return errwrap.Wrap(fmt.Errorf("could not get secret %q", uri), err)
+	}
+
+	cert, exists := s["tls.crt"]
+	if !exists {
+		return fmt.Errorf("could not find tls.crt in secret %q", uri)
+	}
+
+	key, exists := s["tls.key"]
+	if !exists {
+		return fmt.Errorf("could not find tls.key in secret %q", uri)
+	}
+
+	// Write to files
+	if err = ioutil.WriteFile(certChainFile, cert, 0755); err != nil {
+		return err
+	}
+	if err = ioutil.WriteFile(privateKeyFile, key, 0755); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // buildIngressRoute translates an ingress rule to an Envoy route

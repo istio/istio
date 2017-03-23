@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: ingress
   labels:
-    infra: ingress
+    app: ingress
 spec:
   ports:
   - name: https
@@ -11,7 +11,7 @@ spec:
   - name: http
     port: 80
   selector:
-    infra: ingress
+    app: ingress
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -22,18 +22,13 @@ spec:
   template:
     metadata:
       labels:
-        infra: ingress
+        app: ingress
     spec:
       containers:
-      - name: ingress
+      - name: proxy
         image: {{.hub}}/runtime:{{.tag}}
         args: ["proxy", "ingress", "-s", "manager:8080", "-v", "2", "-n", "{{.namespace}}", "--secret", "ingress"]
         imagePullPolicy: Always
         ports:
         - containerPort: 443
         - containerPort: 80
-      - name: debug
-        image: docker.io/istio/debug:test
-        imagePullPolicy: Always
-        securityContext:
-            privileged: true

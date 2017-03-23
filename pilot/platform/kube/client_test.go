@@ -15,6 +15,7 @@
 package kube
 
 import (
+	"fmt"
 	"os"
 	"os/user"
 	"testing"
@@ -34,6 +35,31 @@ func TestThirdPartyResourcesClient(t *testing.T) {
 	defer deleteNamespace(cl.client, ns)
 
 	mock.CheckMapInvariant(cl, t, ns, 5)
+
+	// check secret
+	secret := "istio-secret"
+	_, err := cl.client.Core().Secrets(ns).Create(&v1.Secret{
+		ObjectMeta: v1.ObjectMeta{Name: secret},
+		Data:       map[string][]byte{"value": []byte(secret)},
+	})
+	if err != nil {
+		t.Error(err)
+	}
+
+	data, err := cl.GetSecret(fmt.Sprintf("%s.%s", secret, ns))
+	if err != nil {
+		t.Errorf("GetSecret => got %q", err)
+	} else {
+		value := string(data["value"])
+		if value != secret || len(data) != 1 {
+			t.Errorf("GetSecret => got %q, want %q", data, secret)
+		}
+	}
+
+	_, err = cl.GetSecret(secret)
+	if err == nil {
+		t.Errorf("GetSecret(%q) => got no error", secret)
+	}
 
 	// TODO(kuat) initial watch always fails, takes time to register TPR, keep
 	// around as a work-around
