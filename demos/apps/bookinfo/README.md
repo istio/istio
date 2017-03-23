@@ -102,6 +102,8 @@ which will be used to implement the gateway for the application.
    $ echo $GATEWAY_URL
    192.168.99.100:32567 
    ```
+ 
+1. If you open the Bookinfo URL (http://$GATEWAY_URL/productpage) in your browser, you should see the bookinfo application productpage displayed.
 
 ### Content Based Routing
 
