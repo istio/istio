@@ -28,6 +28,7 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
 	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/status"
 )
@@ -41,13 +42,17 @@ func (f *fakeresolver) Resolve(bag attribute.Bag, aspectSet config.AspectSet) ([
 	return f.ret, f.err
 }
 
+type fakeDf struct {
+	descriptor.Finder
+}
+
 type fakeExecutor struct {
 	body func() aspect.Output
 }
 
 // Execute takes a set of configurations and Executes all of them.
 func (f *fakeExecutor) Execute(ctx context.Context, cfgs []*cpb.Combined, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
-	ma aspect.APIMethodArgs) aspect.Output {
+	ma aspect.APIMethodArgs, df descriptor.Finder) aspect.Output {
 	return f.body()
 }
 
@@ -56,7 +61,7 @@ func TestAspectManagerErrorsPropagated(t *testing.T) {
 		return aspect.Output{Status: status.WithError(errors.New("expected"))}
 	}}
 	h := NewHandler(f, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
-	h.ConfigChange(&fakeresolver{[]*cpb.Combined{nil, nil}, nil})
+	h.ConfigChange(&fakeresolver{[]*cpb.Combined{nil, nil}, nil}, &fakeDf{})
 
 	o := h.execute(context.Background(), attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), aspect.CheckMethod, nil)
 	if o.Status.Code != int32(rpc.INTERNAL) {
@@ -102,7 +107,7 @@ func TestHandler(t *testing.T) {
 			if c.resolverErr != "" {
 				r.err = fmt.Errorf(c.resolverErr)
 			}
-			h.ConfigChange(r)
+			h.ConfigChange(r, &fakeDf{})
 		}
 
 		h.Check(context.Background(), bag, output, checkReq, checkResp)
@@ -128,7 +133,7 @@ func TestHandler(t *testing.T) {
 	}}
 	r := &fakeresolver{[]*cpb.Combined{nil, nil}, nil}
 	h := NewHandler(f, map[aspect.APIMethod]config.AspectSet{}).(*handlerState)
-	h.ConfigChange(r)
+	h.ConfigChange(r, &fakeDf{})
 
 	// Should succeed
 	h.Quota(context.Background(), bag, output, quotaReq, quotaResp)

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/config/descriptor"
 )
 
 type mtest struct {
@@ -39,12 +40,14 @@ type mtest struct {
 type fakelistener struct {
 	called int
 	rt     Resolver
+	df     descriptor.Finder
 	sync.Mutex
 }
 
-func (f *fakelistener) ConfigChange(cfg Resolver) {
+func (f *fakelistener) ConfigChange(cfg Resolver, df descriptor.Finder) {
 	f.Lock()
 	f.rt = cfg
+	f.df = df
 	f.called++
 	f.Unlock()
 }

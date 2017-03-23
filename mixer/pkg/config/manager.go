@@ -37,7 +37,7 @@ type Resolver interface {
 
 // ChangeListener listens for config change notifications.
 type ChangeListener interface {
-	ConfigChange(cfg Resolver)
+	ConfigChange(cfg Resolver, df descriptor.Finder)
 }
 
 // Manager represents the config Manager.
@@ -104,39 +104,39 @@ func read(fname string) ([sha1.Size]byte, string, error) {
 }
 
 // fetch config and return runtime if a new one is available.
-func (c *Manager) fetch() (*Runtime, error) {
+func (c *Manager) fetch() (*Runtime, descriptor.Finder, error) {
 	var vd *Validated
 	var cerr *adapter.ConfigErrors
 
 	gcSHA, gc, err2 := read(c.globalConfig)
 	if err2 != nil {
-		return nil, err2
+		return nil, nil, err2
 	}
 
 	scSHA, sc, err1 := read(c.serviceConfig)
 	if err1 != nil {
-		return nil, err1
+		return nil, nil, err1
 	}
 
 	if gcSHA == c.gcSHA && scSHA == c.scSHA {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	v := NewValidator(c.aspectFinder, c.builderFinder, c.findAspects, true, c.eval)
 	if vd, cerr = v.Validate(sc, gc); cerr != nil {
-		return nil, cerr
+		return nil, nil, cerr
 	}
 
 	c.descriptorFinder = descriptor.NewFinder(v.validated.globalConfig)
 
 	c.gcSHA = gcSHA
 	c.scSHA = scSHA
-	return NewRuntime(vd, c.eval), nil
+	return NewRuntime(vd, c.eval), c.descriptorFinder, nil
 }
 
 // fetchAndNotify fetches a new config and notifies listeners if something has changed
 func (c *Manager) fetchAndNotify() error {
-	rt, err := c.fetch()
+	rt, df, err := c.fetch()
 	if err != nil {
 		c.Lock()
 		c.lastError = err
@@ -149,7 +149,7 @@ func (c *Manager) fetchAndNotify() error {
 
 	glog.Infof("Installing new config from %s sha=%x ", c.serviceConfig, c.scSHA)
 	for _, cl := range c.cl {
-		cl.ConfigChange(rt)
+		cl.ConfigChange(rt, df)
 	}
 	return nil
 }

@@ -122,7 +122,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 				Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 				Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
 			}
-			asp, err := m.NewAspect(&c, tl, atest.NewEnv(t))
+			asp, err := m.NewAspect(&c, tl, atest.NewEnv(t), nil)
 			if err != nil {
 				t.Fatalf("NewAspect(): should not have received error for %s (%v)", v.name, err)
 			}
@@ -172,7 +172,7 @@ func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 				},
 			}
 
-			if _, err := m.NewAspect(cfg, v.adptr, atest.NewEnv(t)); err == nil {
+			if _, err := m.NewAspect(cfg, v.adptr, atest.NewEnv(t), nil); err == nil {
 				t.Fatalf("NewAspect(): expected error for bad adapter (%T)", v.adptr)
 			}
 		})

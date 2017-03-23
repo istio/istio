@@ -53,7 +53,7 @@ func newQuotasManager() Manager {
 }
 
 // NewAspect creates a quota aspect.
-func (m *quotasManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (m *quotasManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (Wrapper, error) {
 	params := c.Aspect.Params.(*aconfig.QuotasParams)
 
 	// TODO: get this from config

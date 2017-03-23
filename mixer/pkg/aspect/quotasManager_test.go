@@ -108,12 +108,12 @@ func TestQuotasManager_NewAspect(t *testing.T) {
 	}}
 
 	conf := newQuotaConfig("RequestCount", map[string]string{"source": "", "target": ""})
-	if _, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t)); err != nil {
+	if _, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t), nil); err != nil {
 		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 
 	conf = newQuotaConfig("FOOBAR", map[string]string{})
-	if _, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t)); err != nil {
+	if _, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t), nil); err != nil {
 		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 }
@@ -129,7 +129,7 @@ func TestQuotasManager_NewAspect_PropagatesError(t *testing.T) {
 		body: func() (adapter.QuotasAspect, error) {
 			return nil, errors.New(errString)
 		}}
-	_, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t))
+	_, err := newQuotasManager().NewAspect(conf, builder, atest.NewEnv(t), nil)
 	if err == nil {
 		t.Error("newQuotasManager().NewAspect(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
 	}
