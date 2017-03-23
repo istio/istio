@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -33,15 +34,15 @@ import (
 
 	"istio.io/manager/model"
 	"istio.io/manager/platform/kube"
+	"istio.io/manager/platform/kube/inject"
 )
 
 const (
-	managerDiscovery     = "manager-discovery"
-	mixer                = "mixer"
-	egressProxy          = "egress-proxy"
-	ingressProxy         = "ingress-proxy"
-	app                  = "app"
-	appProxyManagerAgent = "app-proxy-manager-agent"
+	managerDiscovery = "manager-discovery"
+	mixer            = "mixer"
+	egressProxy      = "egress-proxy"
+	ingressProxy     = "ingress-proxy"
+	app              = "app"
 
 	// budget is the maximum number of retries with 1s delays
 	budget = 90
@@ -60,6 +61,8 @@ type parameters struct {
 	debug      bool
 	parallel   bool
 	logs       bool
+
+	verbosity int
 }
 
 var (
@@ -111,6 +114,12 @@ func setup() {
 	}
 	glog.Infof("params %#v", params)
 
+	if params.debug {
+		params.verbosity = 3
+	} else {
+		params.verbosity = 2
+	}
+
 	check(setupClient())
 
 	var err error
@@ -136,18 +145,18 @@ func setup() {
 	check(err)
 
 	// deploy istio-infra
-	check(deploy("http-discovery", "http-discovery", managerDiscovery, "8080", "80", "9090", "90", "unversioned"))
-	check(deploy("mixer", "mixer", mixer, "8080", "80", "9090", "90", "unversioned"))
-	check(deploy("istio-egress", "istio-egress", egressProxy, "8080", "80", "9090", "90", "unversioned"))
-	check(deploy("istio-ingress", "istio-ingress", ingressProxy, "8080", "80", "9090", "90", "unversioned"))
+	check(deploy("http-discovery", "http-discovery", managerDiscovery, "8080", "80", "9090", "90", "unversioned", false))
+	check(deploy("mixer", "mixer", mixer, "8080", "80", "9090", "90", "unversioned", false))
+	check(deploy("istio-egress", "istio-egress", egressProxy, "8080", "80", "9090", "90", "unversioned", false))
+	check(deploy("istio-ingress", "istio-ingress", ingressProxy, "8080", "80", "9090", "90", "unversioned", false))
 
 	// deploy a healthy mix of apps, with and without proxy
-	check(deploy("t", "t", app, "8080", "80", "9090", "90", "unversioned"))
-	check(deploy("a", "a", appProxyManagerAgent, "8080", "80", "9090", "90", "unversioned"))
-	check(deploy("b", "b", appProxyManagerAgent, "80", "8080", "90", "9090", "unversioned"))
-	check(deploy("hello", "hello", appProxyManagerAgent, "8080", "80", "9090", "90", "v1"))
-	check(deploy("world-v1", "world", appProxyManagerAgent, "80", "8000", "90", "9090", "v1"))
-	check(deploy("world-v2", "world", appProxyManagerAgent, "80", "8000", "90", "9090", "v2"))
+	check(deploy("t", "t", app, "8080", "80", "9090", "90", "unversioned", false))
+	check(deploy("a", "a", app, "8080", "80", "9090", "90", "unversioned", true))
+	check(deploy("b", "b", app, "80", "8080", "90", "9090", "unversioned", true))
+	check(deploy("hello", "hello", app, "8080", "80", "9090", "90", "v1", true))
+	check(deploy("world-v1", "world", app, "80", "8000", "90", "9090", "v1", true))
+	check(deploy("world-v2", "world", app, "80", "8000", "90", "9090", "v2", true))
 	check(setPods())
 }
 
@@ -173,10 +182,10 @@ func teardown() {
 	}
 }
 
-func deploy(name, svcName, dType, port1, port2, port3, port4, version string) error {
+func deploy(name, svcName, dType, port1, port2, port3, port4, version string, injectProxy bool) error {
 	// write template
 	configFile := name + "-" + dType + ".yaml"
-	var w *bufio.Writer
+
 	f, err := os.Create(configFile)
 	if err != nil {
 		return err
@@ -187,8 +196,7 @@ func deploy(name, svcName, dType, port1, port2, port3, port4, version string) er
 		}
 	}()
 
-	w = bufio.NewWriter(f)
-
+	w := &bytes.Buffer{}
 	if err := write("test/integration/"+dType+".yaml.tmpl", map[string]string{
 		"service": svcName,
 		"name":    name,
@@ -201,7 +209,27 @@ func deploy(name, svcName, dType, port1, port2, port3, port4, version string) er
 		return err
 	}
 
-	if err := w.Flush(); err != nil {
+	writer := bufio.NewWriter(f)
+	if injectProxy {
+		p := &inject.Params{
+			InitImage:        fmt.Sprintf("%s/init:%s", params.hub, params.tag),
+			RuntimeImage:     fmt.Sprintf("%s/runtime:%s", params.hub, params.tag),
+			RuntimeVerbosity: params.verbosity,
+			DiscoveryPort:    inject.DefaultManagerDiscoveryPort,
+			MixerPort:        inject.DefaultMixerPort,
+			SidecarProxyUID:  inject.DefaultSidecarProxyUID,
+			SidecarProxyPort: inject.DefaultSidecarProxyPort,
+			Version:          "manager-integration-test",
+		}
+		if err := inject.IntoResourceFile(p, w, writer); err != nil {
+			return err
+		}
+	} else {
+		if _, err := io.Copy(writer, w); err != nil {
+			return err
+		}
+	}
+	if err := writer.Flush(); err != nil {
 		return err
 	}
 
@@ -283,11 +311,8 @@ func write(in string, data map[string]string, out io.Writer) error {
 	values["tag"] = params.tag
 	values["mixerImage"] = params.mixerImage
 	values["namespace"] = params.namespace
-	if params.debug {
-		values["verbosity"] = "3"
-	} else {
-		values["verbosity"] = "2"
-	}
+	values["verbosity"] = strconv.Itoa(params.verbosity)
+
 	for k, v := range data {
 		values[k] = v
 	}
