@@ -38,7 +38,7 @@ func newDenialsManager() Manager {
 }
 
 // NewAspect creates a denyChecker aspect.
-func (denialsManager) NewAspect(cfg *cpb.Combined, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (denialsManager) NewAspect(cfg *cpb.Combined, ga adapter.Builder, env adapter.Env, df descriptor.Finder) (Wrapper, error) {
 	aa := ga.(adapter.DenialsBuilder)
 	var asp adapter.DenialsAspect
 	var err error

@@ -43,7 +43,7 @@ func newListsManager() Manager {
 }
 
 // NewAspect creates a listChecker aspect.
-func (listsManager) NewAspect(cfg *cpb.Combined, ga adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (listsManager) NewAspect(cfg *cpb.Combined, ga adapter.Builder, env adapter.Env, df descriptor.Finder) (Wrapper, error) {
 	aa := ga.(adapter.ListsBuilder)
 	var asp adapter.ListsAspect
 	var err error

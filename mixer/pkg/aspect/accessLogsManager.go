@@ -55,7 +55,7 @@ func newAccessLogsManager() Manager {
 	return accessLogsManager{}
 }
 
-func (m accessLogsManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (m accessLogsManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (Wrapper, error) {
 	cfg := c.Aspect.Params.(*aconfig.AccessLogsParams)
 
 	var templateStr string

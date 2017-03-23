@@ -29,6 +29,7 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
 	configpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
@@ -122,7 +123,7 @@ func newManager(r builderFinder, m map[aspect.Kind]aspect.Manager, exp expr.Eval
 
 // Execute iterates over cfgs and performs the actions described by the combined config using the attribute bag on each config.
 func (m *Manager) Execute(ctx context.Context, cfgs []*configpb.Combined,
-	requestBag *attribute.MutableBag, responseBag *attribute.MutableBag, ma aspect.APIMethodArgs) aspect.Output {
+	requestBag *attribute.MutableBag, responseBag *attribute.MutableBag, ma aspect.APIMethodArgs, df descriptor.Finder) aspect.Output {
 	numCfgs := len(cfgs)
 
 	// TODO: consider implementing a fast path when there is only a single config.
@@ -140,7 +141,7 @@ func (m *Manager) Execute(ctx context.Context, cfgs []*configpb.Combined,
 			childRequestBag := requestBag.Child()
 			childResponseBag := responseBag.Child()
 
-			out := m.execute(ctx, c, childRequestBag, childResponseBag, ma)
+			out := m.execute(ctx, c, childRequestBag, childResponseBag, ma, df)
 			resultChan <- result{c, out, childResponseBag}
 
 			childRequestBag.Done()
@@ -224,7 +225,7 @@ type result struct {
 
 // execute performs action described in the combined config using the attribute bag
 func (m *Manager) execute(ctx context.Context, cfg *configpb.Combined, requestBag attribute.Bag, responseBag *attribute.MutableBag,
-	ma aspect.APIMethodArgs) (out aspect.Output) {
+	ma aspect.APIMethodArgs, df descriptor.Finder) (out aspect.Output) {
 	var mgr aspect.Manager
 	var found bool
 
@@ -250,7 +251,7 @@ func (m *Manager) execute(ctx context.Context, cfg *configpb.Combined, requestBa
 		}
 	}()
 
-	asp, err := m.cacheGet(cfg, mgr, adp)
+	asp, err := m.cacheGet(cfg, mgr, adp, df)
 	if err != nil {
 		return aspect.Output{Status: status.WithError(err)}
 	}
@@ -262,7 +263,7 @@ func (m *Manager) execute(ctx context.Context, cfg *configpb.Combined, requestBa
 }
 
 // cacheGet gets an aspect wrapper from the cache, use adapter.Manager to construct an object in case of a cache miss
-func (m *Manager) cacheGet(cfg *configpb.Combined, mgr aspect.Manager, builder adapter.Builder) (asp aspect.Wrapper, err error) {
+func (m *Manager) cacheGet(cfg *configpb.Combined, mgr aspect.Manager, builder adapter.Builder, df descriptor.Finder) (asp aspect.Wrapper, err error) {
 	var key *cacheKey
 	if key, err = newCacheKey(mgr.Kind(), cfg); err != nil {
 		return nil, err
@@ -277,7 +278,8 @@ func (m *Manager) cacheGet(cfg *configpb.Combined, mgr aspect.Manager, builder a
 
 	// create an aspect
 	env := newEnv(builder.Name(), m.adapterGP)
-	asp, err = mgr.NewAspect(cfg, builder, env)
+
+	asp, err = mgr.NewAspect(cfg, builder, env, df)
 	if err != nil {
 		return nil, err
 	}

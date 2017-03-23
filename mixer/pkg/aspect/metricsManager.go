@@ -55,7 +55,7 @@ func newMetricsManager() Manager {
 }
 
 // NewAspect creates a metric aspect.
-func (m *metricsManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapter.Env) (Wrapper, error) {
+func (m *metricsManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (Wrapper, error) {
 	params := c.Aspect.Params.(*aconfig.MetricsParams)
 
 	// TODO: get descriptors from config
