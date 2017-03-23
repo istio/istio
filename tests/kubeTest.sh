@@ -14,10 +14,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-
 # Local vars
 SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-NAMESPACE="bookinfo-test-$(uuidgen)"
 EXAMPLES_DIR=$SCRIPT_DIR/apps/bookinfo/output
 FAILURE_COUNT=0
 TEAR_DOWN=true
@@ -35,19 +33,18 @@ while getopts :i:sn: arg; do
   esac
 done
 
-[[ -z ${NAMESPACE} ]] && error_exit 'Namespace cannot be empty'
-
 # Import relevant utils
 . $SCRIPT_DIR/kubeUtils.sh || error_exit 'Could not load k8s utilities'
 . $SCRIPT_DIR/istioUtils.sh || error_exit 'Could not load istio utilities'
 
+[[ -z ${NAMESPACE} ]] && NAMESPACE="$(generate_namespace)"
+
 function tear_down {
     [[ ${TEAR_DOWN} == false ]] && exit 0
     # Teardown
-    rm -rf ${TEST_DIR}
     cleanup_all_rules
     cleanup
-    revert_rules_namespace # only really needed for local retests...
+    rm -rf ${TEST_DIR}
 }
 
 trap tear_down EXIT
