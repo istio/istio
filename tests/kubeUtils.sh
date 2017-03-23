@@ -28,8 +28,9 @@ function create_namespace(){
 
 # Bring up control plane
 function deploy_istio() {
+    local istio_install="${1}"
     print_block_echo "Deploying ISTIO"
-    $K8CLI -n $NAMESPACE create -f "${TESTS_DIR}/istio/" \
+    ${K8CLI} -n ${NAMESPACE} create -f "${istio_install}" \
       || error_exit 'Failed to create control plane'
     retry -n 10 find_istio_endpoints \
       || error_exit 'Could not deploy istio'
@@ -44,9 +45,10 @@ function find_istio_endpoints() {
 }
 
 # Deploy the bookinfo microservices
-function deploy_bookinfo(){
+function deploy_bookinfo() {
+    local bookinfo_dir="${1}"
     print_block_echo "Deploying BookInfo to kube"
-    $K8CLI -n $NAMESPACE create -f "${TESTS_DIR}/apps/bookinfo/bookinfo.yaml" \
+    ${K8CLI} -n ${NAMESPACE} create -f "${bookinfo_dir}" \
       || error_exit 'Failed to deploy bookinfo'
     retry -n 10 find_ingress_controller \
       || error_exit 'Could not deploy bookstore'

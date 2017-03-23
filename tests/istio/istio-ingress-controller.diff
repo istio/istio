@@ -1,9 +1,3 @@
-11c11
-<   type: LoadBalancer
----
->   type: NodePort
-13a14
->     nodePort: 32000
 35,36d35
 <         - -n
 <         - $(POD_NAMESPACE)
