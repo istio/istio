@@ -135,7 +135,7 @@ func (w *ingressWatcher) generateConfig() *Config {
 		}
 		vhosts = append(vhosts, vhost)
 	}
-	sort.Sort(HostsByName(vhosts))
+	sort.Slice(vhosts, func(i, j int) bool { return vhosts[i].Name < vhosts[j].Name })
 
 	rConfig := &HTTPRouteConfig{VirtualHosts: vhosts}
 

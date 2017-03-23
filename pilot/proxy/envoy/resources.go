@@ -530,21 +530,6 @@ func (s Clusters) Normalize() Clusters {
 	return out
 }
 
-// HostsByName sorts VirtualHost's by name
-type HostsByName []*VirtualHost
-
-func (s HostsByName) Len() int {
-	return len(s)
-}
-
-func (s HostsByName) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
-
-func (s HostsByName) Less(i, j int) bool {
-	return s[i].Name < s[j].Name
-}
-
 // RoutesByPath sorts routes by their path and/or prefix, such that:
 // - Exact path routes are "less than" than prefix path routes
 // - Exact path routes are sorted lexicographically

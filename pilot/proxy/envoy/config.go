@@ -129,7 +129,8 @@ func build(context *ProxyContext) ([]*Listener, Clusters) {
 	listeners := make([]*Listener, 0)
 
 	for port, routeConfig := range httpRouteConfigs {
-		sort.Sort(HostsByName(routeConfig.VirtualHosts))
+		hosts := routeConfig.VirtualHosts
+		sort.Slice(hosts, func(i, j int) bool { return hosts[i].Name < hosts[j].Name })
 		clusters = append(clusters, routeConfig.filterClusters(func(cluster *Cluster) bool {
 			return !cluster.outbound
 		})...)
