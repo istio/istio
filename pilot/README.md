@@ -4,8 +4,7 @@
 [![GoDoc](https://godoc.org/github.com/istio/manager?status.svg)](https://godoc.org/github.com/istio/manager)
 [![codecov.io](https://codecov.io/github/istio/manager/coverage.svg?branch=master)](https://codecov.io/github/istio/manager?branch=master)
 
-Istio Manager is used to configure Istio and propagate configuration to the
-other components of the system, including the Istio mixer and the Istio proxies. 
+Istio Manager is the micro-service mesh orchestrator for Istio Proxies and Istio Mixer. It is responsible for dynamically configuring proxies in a cluster platform environment to support L7-based routing, request destination policies (load balancing, circuit breaking), and point-to-point control policies such as fault injection, retries, time-outs.
 
 [Contributing to the project](./CONTRIBUTING.md)
 
