@@ -29,9 +29,9 @@ spec:
         - proxy
         - sidecar
         - -s
-        - manager:8080
+        - istio-manager:8080
         - -m
-        - mixer:9091
+        - istio-mixer:9091
         - -n
         - $(POD_NAMESPACE)
         - -v

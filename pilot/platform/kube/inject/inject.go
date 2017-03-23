@@ -37,13 +37,13 @@ import (
 // Defaults values for injecting istio proxy into kubernetes
 // resources.
 const (
-	DefaultInitImage            = "docker.io/istio/init:latest"
-	DefaultRuntimeImage         = "docker.io/istio/runtime:latest"
-	DefaultManagerDiscoveryPort = 8080
-	DefaultMixerPort            = 9091
-	DefaultSidecarProxyUID      = int64(1337)
-	DefaultSidecarProxyPort     = 15001
-	DefaultRuntimeVerbosity     = 2
+	DefaultInitImage        = "docker.io/istio/init:latest"
+	DefaultRuntimeImage     = "docker.io/istio/runtime:latest"
+	DefaultManagerAddr      = "istio-manager:8080"
+	DefaultMixerAddr        = "istio-mixer:9091"
+	DefaultSidecarProxyUID  = int64(1337)
+	DefaultSidecarProxyPort = 15001
+	DefaultRuntimeVerbosity = 2
 )
 
 const (
@@ -60,8 +60,8 @@ type Params struct {
 	InitImage        string
 	RuntimeImage     string
 	RuntimeVerbosity int
-	DiscoveryPort    int
-	MixerPort        int
+	ManagerAddr      string
+	MixerAddr        string
 	SidecarProxyUID  int64
 	SidecarProxyPort int
 	Version          string
@@ -116,8 +116,8 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 			Args: []string{
 				"proxy",
 				"sidecar",
-				"-s", "manager:" + strconv.Itoa(p.DiscoveryPort),
-				"-m", "mixer:" + strconv.Itoa(p.MixerPort),
+				"-s", p.ManagerAddr,
+				"-m", p.MixerAddr,
 				"-n", "$(POD_NAMESPACE)",
 				"-v", strconv.Itoa(p.RuntimeVerbosity),
 			},

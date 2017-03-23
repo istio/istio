@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: manager
+  name: istio-manager
   labels:
     infra: manager
 spec:
@@ -15,7 +15,7 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: manager
+  name: istio-manager
 spec:
   replicas: 1
   template:

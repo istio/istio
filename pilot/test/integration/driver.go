@@ -49,6 +49,8 @@ const (
 
 	// Mixer image tag is the short SHA *update manually*
 	mixerTag = "6655a67"
+
+	ingressServiceName = "istio-ingress-controller"
 )
 
 type parameters struct {
@@ -215,8 +217,8 @@ func deploy(name, svcName, dType, port1, port2, port3, port4, version string, in
 			InitImage:        fmt.Sprintf("%s/init:%s", params.hub, params.tag),
 			RuntimeImage:     fmt.Sprintf("%s/runtime:%s", params.hub, params.tag),
 			RuntimeVerbosity: params.verbosity,
-			DiscoveryPort:    inject.DefaultManagerDiscoveryPort,
-			MixerPort:        inject.DefaultMixerPort,
+			ManagerAddr:      inject.DefaultManagerAddr,
+			MixerAddr:        inject.DefaultMixerAddr,
 			SidecarProxyUID:  inject.DefaultSidecarProxyUID,
 			SidecarProxyPort: inject.DefaultSidecarProxyPort,
 			Version:          "manager-integration-test",

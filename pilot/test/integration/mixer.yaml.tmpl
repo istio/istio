@@ -64,7 +64,7 @@ data:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mixer
+  name: istio-mixer
   labels:
     app: mixer
 spec:
@@ -79,7 +79,7 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: mixer
+  name: istio-mixer
 spec:
   replicas: 1
   template:

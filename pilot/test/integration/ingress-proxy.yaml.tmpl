@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: ingress
+  name: istio-ingress-controller
   labels:
     app: ingress
 spec:
@@ -16,7 +16,7 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: ingress
+  name: istio-ingress-controller
 spec:
   replicas: 1
   template:
@@ -27,7 +27,7 @@ spec:
       containers:
       - name: proxy
         image: {{.hub}}/runtime:{{.tag}}
-        args: ["proxy", "ingress", "-s", "manager:8080", "-v", "2", "-n", "{{.namespace}}", "--secret", "ingress"]
+        args: ["proxy", "ingress", "-s", "istio-manager:8080", "-v", "2", "-n", "{{.namespace}}", "--secret", "ingress"]
         imagePullPolicy: Always
         ports:
         - containerPort: 443
