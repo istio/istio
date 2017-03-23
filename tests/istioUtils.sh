@@ -21,18 +21,20 @@ TESTS_DIR="${ROOT}/tests"
 ISTIOCLI="${ROOT}/demos/istioctl-linux -c ${HOME}/.kube/config"
 
 function create_rule() {
-    $ISTIOCLI -n $NAMESPACE create -f $1 \
+    ${ISTIOCLI} -n ${NAMESPACE} create -f ${1} \
       || error_exit 'Could not create rule'
 }
 
 function cleanup_all_rules() {
     print_block_echo "Cleaning up rules"
-    ${ISTIOCLI} -n ${NAMESPACE} list route-rule | grep "name:" \
-      | awk '{print $2}' | xargs ${ISTIOCLI} -n ${NAMESPACE} delete route-rule
-    return $?
+    local rules=($(${ISTIOCLI} -n ${NAMESPACE} list route-rule \
+      | grep "name:" | awk '{print $2}'))
+    for r in ${rules[@]}; do
+      ${ISTIOCLI} -n ${NAMESPACE} delete route-rule "${r}"
+    done
 }
 
 function delete_rule() {
-    $ISTIOCLI -n $NAMESPACE delete -f $1
+    ${ISTIOCLI} -n ${NAMESPACE} delete -f ${1}
     return $?
 }

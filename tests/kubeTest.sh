@@ -14,14 +14,15 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-
 # Local vars
-SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-NAMESPACE=$(uuidgen)
-RULESDIR=$SCRIPTDIR/apps/bookinfo/rules
-EXAMPLESDIR=$SCRIPTDIR/apps/bookinfo/output
+SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+EXAMPLES_DIR=$SCRIPT_DIR/apps/bookinfo/output
 FAILURE_COUNT=0
 TEAR_DOWN=true
+TEST_DIR="$(mktemp -d /tmp/kubetest.XXXXX)"
+ISTIO_INSTALL_DIR="${TEST_DIR}/istio"
+BOOKINFO_DIR="${TEST_DIR}/bookinfo"
+RULES_DIR="${BOOKINFO_DIR}/rules"
 
 while getopts :i:sn: arg; do
   case ${arg} in
@@ -32,27 +33,29 @@ while getopts :i:sn: arg; do
   esac
 done
 
-[[ -z ${NAMESPACE} ]] && error_exit 'Namespace cannot be empty'
-
 # Import relevant utils
-. $SCRIPTDIR/kubeUtils.sh || error_exit 'Could not load k8s utilities'
-. $SCRIPTDIR/istioUtils.sh || error_exit 'Could not load istio utilities'
+. $SCRIPT_DIR/kubeUtils.sh || error_exit 'Could not load k8s utilities'
+. $SCRIPT_DIR/istioUtils.sh || error_exit 'Could not load istio utilities'
+
+[[ -z ${NAMESPACE} ]] && NAMESPACE="$(generate_namespace)"
 
 function tear_down {
     [[ ${TEAR_DOWN} == false ]] && exit 0
     # Teardown
     cleanup_all_rules
     cleanup
-    revert_rules_namespace # only really needed for local retests...
+    rm -rf ${TEST_DIR}
 }
 
 trap tear_down EXIT
 
 # Setup
+generate_istio_yaml "${ISTIO_INSTALL_DIR}"
+generate_bookinfo_yaml "${BOOKINFO_DIR}"
+generate_rules_yaml "${RULES_DIR}"
 create_namespace
-modify_rules_namespace
-deploy_istio
-deploy_bookinfo
+deploy_istio "${ISTIO_INSTALL_DIR}"
+deploy_bookinfo "${BOOKINFO_DIR}"
 # Get gateway IP and port
 GATEWAY_IP="$(${K8CLI} get svc istio-ingress-controller -n ${NAMESPACE} \
   -o jsonpath='{.status.loadBalancer.ingress[*].ip}')" \
@@ -82,8 +85,8 @@ done
 
 # Test version routing
 print_block_echo "Testing version routing..."
-create_rule $RULESDIR/route-rule-all-v1.yaml
-create_rule $RULESDIR/route-rule-reviews-test-v2.yaml
+create_rule $RULES_DIR/route-rule-all-v1.yaml
+create_rule $RULES_DIR/route-rule-reviews-test-v2.yaml
 echo "Waiting for rules to propagate..."
 sleep 30
 
@@ -92,7 +95,7 @@ function test_version_routing_response() {
     VERSION=$2
     echo "injecting traffic for user=$USER, expecting productpage-$USER-$VERSION..."
     curl -s -b "foo=bar;user=$USER;" ${URL}/productpage > /tmp/productpage-$USER-$VERSION.html
-    compare_output $EXAMPLESDIR/productpage-$USER-$VERSION.html /tmp/productpage-$USER-$VERSION.html $USER
+    compare_output $EXAMPLES_DIR/productpage-$USER-$VERSION.html /tmp/productpage-$USER-$VERSION.html $USER
     if [ $? -ne 0 ]
     then
         ((FAILURE_COUNT++))
@@ -106,7 +109,7 @@ test_version_routing_response "test-user" "v2"
 # Test fault injection
 print_block_echo "Testing fault injection..."
 
-create_rule $RULESDIR/route-rule-delay.yaml
+create_rule $RULES_DIR/route-rule-delay.yaml
 
 function test_fault_delay() {
     USER=$1
@@ -126,9 +129,9 @@ function test_fault_delay() {
             echo "Success!"
             if [ $EXP_MIN_DELAY -gt 0 ]
             then
-                compare_output $EXAMPLESDIR/productpage-$USER-$VERSION-review-timeout.html /tmp/productpage-$USER-$VERSION.html $USER
+                compare_output $EXAMPLES_DIR/productpage-$USER-$VERSION-review-timeout.html /tmp/productpage-$USER-$VERSION.html $USER
             else
-                compare_output $EXAMPLESDIR/productpage-$USER-$VERSION.html /tmp/productpage-$USER-$VERSION.html $USER
+                compare_output $EXAMPLES_DIR/productpage-$USER-$VERSION.html /tmp/productpage-$USER-$VERSION.html $USER
             fi
             return 0
         elif [ $i -eq 4 ]
@@ -148,7 +151,7 @@ test_fault_delay "test-user" "v1" 5 8
 # Remove fault injection and verify
 print_block_echo "Deleting fault injection..."
 
-delete_rule $RULESDIR/route-rule-delay.yaml
+delete_rule $RULES_DIR/route-rule-delay.yaml
 echo "Waiting for rule clean up to propagate..."
 sleep 30
 test_fault_delay "test-user" "v2" 0 2
@@ -166,9 +169,9 @@ cleanup_all_rules
 print_block_echo "Testing gradual migration..."
 
 COMMAND_INPUT="curl -s -b 'foo=bar;user=normal-user;' ${URL}/productpage"
-EXPECTED_OUTPUT1="$EXAMPLESDIR/productpage-normal-user-v1.html"
-EXPECTED_OUTPUT2="$EXAMPLESDIR/productpage-normal-user-v3.html"
-create_rule $RULESDIR/route-rule-reviews-50-v3.yaml
+EXPECTED_OUTPUT1="$EXAMPLES_DIR/productpage-normal-user-v1.html"
+EXPECTED_OUTPUT2="$EXAMPLES_DIR/productpage-normal-user-v3.html"
+create_rule $RULES_DIR/route-rule-reviews-50-v3.yaml
 echo "Waiting for rules to propagate..."
 sleep 30
 echo "Expected percentage based routing is 50% to v1 and 50% to v3."
