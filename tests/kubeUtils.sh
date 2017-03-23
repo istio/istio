@@ -19,10 +19,17 @@ TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 K8CLI="kubectl"
 
+# Generate a namespace to use for testing
+function generate_namespace() {
+    local uuid="$(uuidgen)"
+    [[ -z "${uuid}" ]] && error_exit 'Please install uuidgen'
+    echo "bookinfo-test-${uuid:0:8}"
+}
+
 # Create a kube namespace to isolate test
 function create_namespace(){
     print_block_echo "Creating kube namespace"
-    $K8CLI create namespace $NAMESPACE \
+    ${K8CLI} create namespace ${NAMESPACE} \
     || error_exit 'Failed to create namespace'
 }
 
@@ -65,11 +72,11 @@ function find_ingress_controller() {
 # Clean up all the things
 function cleanup() {
     print_block_echo "Cleaning up ISTIO"
-    $K8CLI -n $NAMESPACE delete -f "${TESTS_DIR}/istio/"
+    ${K8CLI} -n ${NAMESPACE} delete -f "${ISTIO_INSTALL_DIR}"
     print_block_echo "Cleaning up BookInfo"
-    $K8CLI -n $NAMESPACE delete -f "${TESTS_DIR}/apps/bookinfo/bookinfo.yaml"
+    ${K8CLI} -n ${NAMESPACE} delete -f "${BOOKINFO_DIR}"
     print_block_echo "Deleting namespace"
-    $K8CLI delete namespace $NAMESPACE
+    ${K8CLI} delete namespace ${NAMESPACE}
 }
 
 # Debug dump for failures
