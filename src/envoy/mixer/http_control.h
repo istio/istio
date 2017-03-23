@@ -21,6 +21,7 @@
 #include "common/http/headers.h"
 #include "envoy/http/access_log.h"
 #include "include/client.h"
+#include "src/envoy/mixer/config.h"
 
 namespace Http {
 namespace Mixer {
@@ -37,8 +38,7 @@ typedef std::shared_ptr<HttpRequestData> HttpRequestDataPtr;
 class HttpControl final : public Logger::Loggable<Logger::Id::http> {
  public:
   // The constructor.
-  HttpControl(const std::string& mixer_server,
-              std::map<std::string, std::string>&& attributes);
+  HttpControl(const MixerConfig& mixer_config);
 
   // Make mixer check call.
   void Check(HttpRequestDataPtr request_data, HeaderMap& headers,
@@ -56,8 +56,8 @@ class HttpControl final : public Logger::Loggable<Logger::Id::http> {
 
   // The mixer client
   std::unique_ptr<::istio::mixer_client::MixerClient> mixer_client_;
-  // The attributes read from the config file.
-  std::map<std::string, std::string> config_attributes_;
+  // The mixer config
+  const MixerConfig& mixer_config_;
   // Quota attributes; extracted from envoy filter config.
   ::istio::mixer_client::Attributes quota_attributes_;
 };

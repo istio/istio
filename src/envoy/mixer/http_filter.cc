@@ -22,6 +22,7 @@
 #include "envoy/server/instance.h"
 #include "envoy/ssl/connection.h"
 #include "server/config/network/http_connection_manager.h"
+#include "src/envoy/mixer/config.h"
 #include "src/envoy/mixer/http_control.h"
 #include "src/envoy/mixer/utils.h"
 
@@ -32,16 +33,6 @@ using ::istio::mixer_client::DoneFunc;
 namespace Http {
 namespace Mixer {
 namespace {
-
-// The Json object name for mixer-server.
-const std::string kJsonNameMixerServer("mixer_server");
-
-// The Json object name for static attributes.
-const std::string kJsonNameMixerAttributes("mixer_attributes");
-
-// The Json object name to specify attributes which will be forwarded
-// to the upstream istio proxy.
-const std::string kJsonNameForwardAttributes("forward_attributes");
 
 // Switch to turn off attribute forwarding
 const std::string kJsonNameForwardSwitch("mixer_forward");
@@ -100,35 +91,30 @@ class Config : public Logger::Loggable<Logger::Id::http> {
   std::shared_ptr<HttpControl> http_control_;
   Upstream::ClusterManager& cm_;
   std::string forward_attributes_;
+  MixerConfig mixer_config_;
 
  public:
   Config(const Json::Object& config, Server::Instance& server)
       : cm_(server.clusterManager()) {
-    std::string mixer_server;
-    if (config.hasObject(kJsonNameMixerServer)) {
-      mixer_server = config.getString(kJsonNameMixerServer);
-    } else {
+    mixer_config_.Load(config);
+    if (mixer_config_.mixer_server.empty()) {
       log().error(
           "mixer_server is required but not specified in the config: {}",
           __func__);
+    } else {
+      log().debug("Called Mixer::Config constructor with mixer_server: ",
+                  mixer_config_.mixer_server);
     }
 
-    Utils::StringMap attributes =
-        Utils::ExtractStringMap(config, kJsonNameForwardAttributes);
-    if (!attributes.empty()) {
-      std::string serialized_str = Utils::SerializeStringMap(attributes);
+    if (!mixer_config_.forward_attributes.empty()) {
+      std::string serialized_str =
+          Utils::SerializeStringMap(mixer_config_.forward_attributes);
       forward_attributes_ =
           Base64::encode(serialized_str.c_str(), serialized_str.size());
       log().debug("Mixer forward attributes set: ", serialized_str);
     }
 
-    std::map<std::string, std::string> mixer_attributes =
-        Utils::ExtractStringMap(config, kJsonNameMixerAttributes);
-
-    http_control_ = std::make_shared<HttpControl>(mixer_server,
-                                                  std::move(mixer_attributes));
-    log().debug("Called Mixer::Config constructor with mixer_server: ",
-                mixer_server);
+    http_control_ = std::make_shared<HttpControl>(mixer_config_);
   }
 
   std::shared_ptr<HttpControl>& http_control() { return http_control_; }

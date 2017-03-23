@@ -52,9 +52,7 @@ This Proxy will use Envoy and talk to Mixer server.
   curl http://localhost:7070/echo -d "hello world"
 ```
 
-## How to configurate HTTP filters
-
-### *mixer* filter:
+## How to configurate HTTP Mixer filters
 
 This filter will intercept all HTTP requests and call Mixer. Here is its config:
 
@@ -72,17 +70,25 @@ This filter will intercept all HTTP requests and call Mixer. Here is its config:
          "forward_attributes" : {
             "attribute_name1": "attribute_value1",
             "attribute_name2": "attribute_value2"
-         }
+         },
+         "quota_name": "RequestCount",
+         "quota_amount": "1",
+         "check_cache_keys": [
+              "request.host",
+              "request.path",
+              "origin.user"
+         ]
     }
 ```
 
 Notes:
 * mixer_server is required
-* mixer_attributes: these attributes will be send to the mixer
-* forward_attributes: these attributes will be forwarded to the upstream istio/proxy.
-* "quota.name" and "quota.amount" are used for quota call. "quota.amount" is default to 1 if missing.
+* mixer_attributes: these attributes will be sent to the mixer in both Check and Report calls.
+* forward_attributes: these attributes will be forwarded to the upstream istio/proxy. It will send them to mixer in Check and Report calls.
+* quota_name, quota_amount are used for making quota call. quota_amount is default to 1 if missing.
+* check_cache_keys is to cache check calls. If missing or empty, check calls are not cached.
 
-By default, mixer filter forwards attributes and does not invoke mixer server. You can customize this behavior per HTTP route by supplying an opaque config:
+By default, mixer filter forwards attributes and does not invoke mixer server. You can customize this behavior per HTTP route by supplying an opaque config in the route config:
 
 ```
     "opaque_config": {
@@ -91,4 +97,17 @@ By default, mixer filter forwards attributes and does not invoke mixer server. Y
     }
 ```
 
-This config reverts the behavior by sending requests to mixer server but not forwarding any attributes.
+This route opaque config reverts the behavior by sending requests to mixer server but not forwarding any attributes.
+
+
+## How to enable quota (rate limiting)
+
+Quota (rate limiting) is enforced by the mixer. Mixer needs to be configured with Quota in its global config and service config. Its quota config will have
+"quota name", its limit within a window.  If "Quota" is added but param is missing, the default config is: quota name is "RequestCount", the limit is 10 with 1 second window. Essentially, it is imposing 10 qps rate limiting.
+
+Mixer client can be configured to make Quota call for all requests.  If "quota_name" is specified in the mixer filter config, mixer client will call Quota with the specified quota name.  If "quota_amount" is specified, it will call with that amount, otherwise the used amount is 1.
+
+
+## How to pass some attributes from client proxy to mixer.
+
+Usually client proxy is not configured to call mixer (it can be enabled in the route opaque_config). Client proxy can pass some attributes to mixer by using "forward_attributes" field.  Its attributes will be sent to the upstream proxy (the server proxy). If the server proxy is calling mixer, these attributes will be sent to the mixer.

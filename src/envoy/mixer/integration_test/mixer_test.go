@@ -94,27 +94,6 @@ const reportAttributesOkGet = `
 }
 `
 
-// Check attributes from a good POST request
-const checkAttributesOkPost = `
-{
-  "request.host": "localhost:27070",
-  "request.path": "/echo",
-  "request.time": "*",
-  "source.uid": "POD11",
-  "source.namespace": "XYZ11",
-  "target.uid": "POD222",
-  "target.namespace": "XYZ222",
-  "request.headers": {
-     ":method": "POST",
-     ":path": "/echo",
-     ":authority": "localhost:27070",
-     "x-forwarded-proto": "http",
-     "x-istio-attributes": "-",
-     "x-request-id": "*"
-  }
-}
-`
-
 // Report attributes from a good POST request
 const reportAttributesOkPost = `
 {
@@ -152,7 +131,7 @@ const reportAttributesOkPost = `
 const checkAttributesMixerFail = `
 {
   "request.host": "localhost:27070",
-  "request.path": "/echo",
+  "request.path": "/echo111",
   "request.time": "*",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
@@ -160,7 +139,7 @@ const checkAttributesMixerFail = `
   "target.namespace": "XYZ222",
   "request.headers": {
      ":method": "GET",
-     ":path": "/echo",
+     ":path": "/echo111",
      ":authority": "localhost:27070",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
@@ -173,7 +152,7 @@ const checkAttributesMixerFail = `
 const reportAttributesMixerFail = `
 {
   "request.host": "localhost:27070",
-  "request.path": "/echo",
+  "request.path": "/echo111",
   "request.time": "*",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
@@ -181,7 +160,7 @@ const reportAttributesMixerFail = `
   "target.namespace": "XYZ222",
   "request.headers": {
      ":method": "GET",
-     ":path": "/echo",
+     ":path": "/echo111",
      ":authority": "localhost:27070",
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
@@ -198,27 +177,6 @@ const reportAttributesMixerFail = `
      "content-length": "41",
      ":status": "401",
      "server": "envoy"
-  }
-}
-`
-
-// Check attributes from a fail GET request from backend
-const checkAttributesBackendFail = `
-{
-  "request.host": "localhost:27070",
-  "request.path": "/echo",
-  "request.time": "*",
-  "source.uid": "POD11",
-  "source.namespace": "XYZ11",
-  "target.uid": "POD222",
-  "target.namespace": "XYZ222",
-  "request.headers": {
-     ":method": "GET",
-     ":path": "/echo",
-     ":authority": "localhost:27070",
-     "x-forwarded-proto": "http",
-     "x-istio-attributes": "-",
-     "x-request-id": "*"
   }
 }
 `
@@ -256,14 +214,22 @@ const reportAttributesBackendFail = `
 }
 `
 
-func verifyAttributes(
-	s *TestSetup, tag string, check string, report string, t *testing.T) {
+func verifyCheckCount(s *TestSetup, tag string, count int, t *testing.T) {
+	if s.mixer.check.count != count {
+		t.Fatalf("%s check count doesn't match: %v\n, expected: %+v",
+			tag, s.mixer.check.count, count)
+	}
+}
+
+func verifyCheckAttributes(s *TestSetup, tag string, check string, t *testing.T) {
 	_ = <-s.mixer.check.ch
 	if err := Verify(s.mixer.check.bag, check); err != nil {
 		t.Fatalf("Failed to verify %s check: %v\n, Attributes: %+v",
 			tag, err, s.mixer.check.bag)
 	}
+}
 
+func verifyReportAttributes(s *TestSetup, tag string, report string, t *testing.T) {
 	_ = <-s.mixer.report.ch
 	if err := Verify(s.mixer.report.bag, report); err != nil {
 		t.Fatalf("Failed to verify %s report: %v\n, Attributes: %+v",
@@ -297,14 +263,16 @@ func TestMixer(t *testing.T) {
 	url := fmt.Sprintf("http://localhost:%d/echo", ClientProxyPort)
 
 	// Issues a GET echo request with 0 size body
+	tag := "OKGet"
 	if _, _, err := HTTPGet(url); err != nil {
-		t.Errorf("Failed in GET request: %v", err)
+		t.Errorf("Failed in request %s: %v", tag, err)
 	}
-	verifyAttributes(&s, "OkGet",
-		checkAttributesOkGet, reportAttributesOkGet, t)
-	verifyQuota(&s, "OkGet", t)
+	verifyCheckAttributes(&s, tag, checkAttributesOkGet, t)
+	verifyReportAttributes(&s, tag, reportAttributesOkGet, t)
+	verifyQuota(&s, tag, t)
 
 	// Issues a failed POST request caused by Mixer Quota
+	tag = "QuotaFail"
 	s.mixer.quota.r_status = rpc.Status{
 		Code:    int32(rpc.RESOURCE_EXHAUSTED),
 		Message: mixerQuotaFailMessage,
@@ -313,7 +281,7 @@ func TestMixer(t *testing.T) {
 	// Make sure to restore r_status for next request.
 	s.mixer.quota.r_status = rpc.Status{}
 	if err != nil {
-		t.Errorf("Failed in POST request: %v", err)
+		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	if code != 429 {
 		t.Errorf("Status code 429 is expected.")
@@ -321,11 +289,15 @@ func TestMixer(t *testing.T) {
 	if resp_body != "RESOURCE_EXHAUSTED:"+mixerQuotaFailMessage {
 		t.Errorf("Error response body is not expected.")
 	}
-	verifyAttributes(&s, "OkPost",
-		checkAttributesOkPost, reportAttributesOkPost, t)
-	verifyQuota(&s, "OkPost", t)
+	// Use cached check. so server check count should remain 1.
+	verifyCheckCount(&s, tag, 1, t)
+	verifyReportAttributes(&s, tag, reportAttributesOkPost, t)
+	verifyQuota(&s, tag, t)
 
 	// Issues a failed request caused by mixer
+	// Use a different path to avoid check cache
+	url = fmt.Sprintf("http://localhost:%d/echo111", ClientProxyPort)
+	tag = "MixerFail"
 	s.mixer.check.r_status = rpc.Status{
 		Code:    int32(rpc.UNAUTHENTICATED),
 		Message: mixerAuthFailMessage,
@@ -334,7 +306,7 @@ func TestMixer(t *testing.T) {
 	// Make sure to restore r_status for next request.
 	s.mixer.check.r_status = rpc.Status{}
 	if err != nil {
-		t.Errorf("Failed in GET request: error: %v", err)
+		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	if code != 401 {
 		t.Errorf("Status code 401 is expected.")
@@ -342,16 +314,19 @@ func TestMixer(t *testing.T) {
 	if resp_body != "UNAUTHENTICATED:"+mixerAuthFailMessage {
 		t.Errorf("Error response body is not expected.")
 	}
-	verifyAttributes(&s, "MixerFail",
-		checkAttributesMixerFail, reportAttributesMixerFail, t)
+	verifyCheckAttributes(&s, tag, checkAttributesMixerFail, t)
+	verifyReportAttributes(&s, tag, reportAttributesMixerFail, t)
 	// Not quota call due to Mixer failure.
 
 	// Issues a failed request caused by backend
+	// Use the first path to use check cache
+	url = fmt.Sprintf("http://localhost:%d/echo", ClientProxyPort)
+	tag = "BackendFail"
 	headers := map[string]string{}
 	headers[FailHeader] = "Yes"
 	code, resp_body, err = HTTPGetWithHeaders(url, headers)
 	if err != nil {
-		t.Errorf("Failed in GET request: error: %v", err)
+		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	if code != 400 {
 		t.Errorf("Status code 400 is expected.")
@@ -359,7 +334,7 @@ func TestMixer(t *testing.T) {
 	if resp_body != FailBody {
 		t.Errorf("Error response body is not expected.")
 	}
-	verifyAttributes(&s, "BackendFail",
-		checkAttributesBackendFail, reportAttributesBackendFail, t)
-	verifyQuota(&s, "BackendFail", t)
+	verifyCheckCount(&s, tag, 2, t)
+	verifyReportAttributes(&s, tag, reportAttributesBackendFail, t)
+	verifyQuota(&s, tag, t)
 }

@@ -30,6 +30,8 @@ cc_proto_library(
 cc_library(
     name = "filter_lib",
     srcs = [
+        "config.cc",
+        "config.h",
         "http_control.cc",
         "http_control.h",
         "http_filter.cc",

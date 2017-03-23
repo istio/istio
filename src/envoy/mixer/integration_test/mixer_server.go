@@ -33,6 +33,7 @@ import (
 type Handler struct {
 	bag      *attribute.MutableBag
 	ch       chan int
+	count    int
 	r_status rpc.Status
 }
 
@@ -40,6 +41,7 @@ func newHandler() *Handler {
 	return &Handler{
 		bag:      nil,
 		ch:       make(chan int, 1),
+		count:    0,
 		r_status: rpc.Status{},
 	}
 }
@@ -47,6 +49,7 @@ func newHandler() *Handler {
 func (h *Handler) run(bag *attribute.MutableBag) rpc.Status {
 	h.bag = attribute.CopyBag(bag)
 	h.ch <- 1
+	h.count++
 	return h.r_status
 }
 

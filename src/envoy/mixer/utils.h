@@ -29,9 +29,6 @@ extern const LowerCaseString kIstioAttributeHeader;
 // The string map.
 typedef std::map<std::string, std::string> StringMap;
 
-// Extracts name/value attributes from a json object.
-StringMap ExtractStringMap(const Json::Object& json, const std::string& name);
-
 // Serialize a string map to string.
 std::string SerializeStringMap(const StringMap& map);
 

@@ -21,20 +21,6 @@ namespace Utils {
 
 const LowerCaseString kIstioAttributeHeader("x-istio-attributes");
 
-StringMap ExtractStringMap(const Json::Object& json, const std::string& name) {
-  StringMap map;
-  if (json.hasObject(name)) {
-    Json::ObjectPtr json_obj = json.getObject(name);
-    Json::Object* raw_obj = json_obj.get();
-    json_obj->iterate(
-        [&map, raw_obj](const std::string& key, const Json::Object&) -> bool {
-          map[key] = raw_obj->getString(key);
-          return true;
-        });
-  }
-  return map;
-}
-
 std::string SerializeStringMap(const StringMap& string_map) {
   ::istio::proxy::mixer::StringMap pb;
   ::google::protobuf::Map<std::string, std::string>* map_pb = pb.mutable_map();

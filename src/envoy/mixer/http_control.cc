@@ -108,29 +108,16 @@ void FillRequestInfoAttributes(const AccessLog::RequestInfo& info,
 
 }  // namespace
 
-HttpControl::HttpControl(const std::string& mixer_server,
-                         std::map<std::string, std::string>&& attributes)
-    : config_attributes_(std::move(attributes)) {
+HttpControl::HttpControl(const MixerConfig& mixer_config)
+    : mixer_config_(mixer_config) {
   ::istio::mixer_client::MixerClientOptions options;
-  options.mixer_server = mixer_server;
+  options.mixer_server = mixer_config_.mixer_server;
+  options.check_options.cache_keys.insert(
+      mixer_config_.check_cache_keys.begin(),
+      mixer_config_.check_cache_keys.end());
   mixer_client_ = ::istio::mixer_client::CreateMixerClient(options);
 
-  // Extract quota attributes
-  auto it = config_attributes_.find(::istio::mixer_client::kQuotaName);
-  if (it != config_attributes_.end()) {
-    quota_attributes_.attributes[ ::istio::mixer_client::kQuotaName] =
-        Attributes::StringValue(it->second);
-    config_attributes_.erase(it);
-
-    int64_t amount = 1;  // default amount to 1.
-    it = config_attributes_.find(::istio::mixer_client::kQuotaAmount);
-    if (it != config_attributes_.end()) {
-      amount = std::stoi(it->second);
-      config_attributes_.erase(it);
-    }
-    quota_attributes_.attributes[ ::istio::mixer_client::kQuotaAmount] =
-        Attributes::Int64Value(amount);
-  }
+  mixer_config_.ExtractQuotaAttributes(&quota_attributes_);
 }
 
 void HttpControl::FillCheckAttributes(HeaderMap& header_map, Attributes* attr) {
@@ -148,7 +135,7 @@ void HttpControl::FillCheckAttributes(HeaderMap& header_map, Attributes* attr) {
 
   FillRequestHeaderAttributes(header_map, attr);
 
-  for (const auto& attribute : config_attributes_) {
+  for (const auto& attribute : mixer_config_.mixer_attributes) {
     SetStringAttribute(attribute.first, attribute.second, attr);
   }
 }
