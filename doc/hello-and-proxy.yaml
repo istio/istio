@@ -33,7 +33,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: >
           [{
             "name": "iptables",
-            "image": "docker.io/istio/runtime:2017-03-17-22.11.25",
+            "image": "docker.io/istio/init:2017-03-17-22.11.25",
             "imagePullPolicy": "Always",
             "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
           }]
