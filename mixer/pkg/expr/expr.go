@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -144,8 +145,8 @@ func (e *Expression) String() string {
 	return "<nil>"
 }
 
-// newConstant creates a new constant of given type.
-// It also stores a typed form of the constant.
+// newConstant converts literals recognized by parser (ie. int and string) to
+// `config.ValueType`s, building a typed *Constant.
 func newConstant(v string, vType config.ValueType) (*Constant, error) {
 	var typedVal interface{}
 	var err error
@@ -159,9 +160,20 @@ func newConstant(v string, vType config.ValueType) (*Constant, error) {
 			return nil, err
 		}
 	default: // string
-		if typedVal, err = strconv.Unquote(v); err != nil {
+		// Several `config.ValueType`s are parsed as strings, so
+		// they must be parse separately as those value types
+		// (and the appropriate vType must be set).
+		var unquoted string
+		if unquoted, err = strconv.Unquote(v); err != nil {
 			return nil, err
 		}
+		if typedVal, err = time.ParseDuration(unquoted); err == nil {
+			vType = config.DURATION
+			break
+		}
+		// TODO: add support for other config ValueTypes serialized
+		// as string
+		typedVal = unquoted
 	}
 	return &Constant{StrValue: v, Type: vType, Value: typedVal}, nil
 }

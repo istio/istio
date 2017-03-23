@@ -204,6 +204,23 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 		template: tmpl,
 	}
 
+	errExec := &accessLogsWrapper{
+		name: "access_log",
+		labels: map[string]string{
+			"timestamp": "foo",
+			"notFound":  "missing",
+		},
+		template: tmpl,
+		templateExprs: map[string]string{
+			"timestamp": "foo",
+			"notFound":  "missing",
+		},
+	}
+
+	errEval := test.NewFakeEval(func(string, attribute.Bag) (interface{}, error) {
+		return nil, errors.New("expected")
+	})
+
 	emptyEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "<no value>", Labels: map[string]interface{}{}}
 	sourceEntry := adapter.LogEntry{LogName: "access_log", TextPayload: "<no value>", Labels: map[string]interface{}{"test": "foo"}}
 
@@ -216,6 +233,7 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 	}{
 		{"empty bag with defaults", noLabels, test.NewBag(), test.NewIDEval(), []adapter.LogEntry{emptyEntry}},
 		{"attrs in bag", labelsInBag, &test.Bag{Strs: map[string]string{"foo": ""}}, test.NewIDEval(), []adapter.LogEntry{sourceEntry}},
+		{"failed evals", errExec, test.NewBag(), errEval, []adapter.LogEntry{emptyEntry}},
 	}
 
 	for idx, v := range tests {
@@ -244,9 +262,6 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 
 func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 	timeTmpl, _ := template.New("test").Parse(`{{(.timestamp.Format "02/Jan/2006:15:04:05 -0700")}}`)
-	errEval := test.NewFakeEval(func(string, attribute.Bag) (interface{}, error) {
-		return nil, errors.New("expected")
-	})
 
 	executeErr := &accessLogsWrapper{
 		name: "access_log",
@@ -270,7 +285,6 @@ func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 		mapper expr.Evaluator
 	}{
 		{"template.Execute() error", executeErr, test.NewBag(), test.NewIDEval()},
-		{"evalAll() error", executeErr, test.NewBag(), errEval},
 		{"LogAccess() error", logErr, test.NewBag(), test.NewIDEval()},
 	}
 

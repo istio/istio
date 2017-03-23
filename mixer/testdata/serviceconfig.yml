@@ -28,3 +28,26 @@ rules:
           service: api.name | "unknown"
           method: api.method | "unknown"
           response_code: response.http.code | 200
+  - kind: access-logs
+    params:
+      logName: "access_log"
+      log:
+        logFormat: COMMON
+        templateExpressions:
+           originIp: origin.ip
+           sourceUser: origin.user
+           timestamp: request.time
+           method: request.method
+           url: request.path
+           protocol: request.scheme
+           responseCode: response.code
+           responseSize: response.size
+        labels:
+           originIp: origin.ip
+           sourceUser: origin.user
+           timestamp: request.time
+           method: request.method
+           url: request.path
+           protocol: request.scheme
+           responseCode: response.code
+           responseSize: response.size
