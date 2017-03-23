@@ -14,9 +14,11 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 function error_exit() {
     # ${BASH_SOURCE[1]} is the file name of the caller.
-    print_block_echo "${BASH_SOURCE[1]}: line ${BASH_LINENO[0]}: ${1:-Unknown Error.} (exit ${2:-1})" 1>&2
+    echo "${BASH_SOURCE[1]}: line ${BASH_LINENO[0]}: ${1:-Unknown Error.} (exit ${2:-1})" 1>&2
     exit ${2:-1}
 }
 
@@ -44,19 +46,64 @@ function compare_output() {
     fi
 }
 
-function modify_rules_namespace(){
-    print_block_echo "Modifying rules to match namespace"
-    find $SCRIPTDIR/apps/bookinfo/rules/ -type f -print0 \
-      | xargs -0 sed -i "s/_CHANGEME_/$NAMESPACE/g" \
-      || error_exit 'Could not modify namespace rules'
+function apply_patch() {
+    local src=${1}
+    local dif=${2}
+    local dest=${3}
+
+    patch ${src} -i ${dif} -o ${dest} -R \
+      || error_exit "Could not apply patch ${dif} on ${src}"
 }
 
-function revert_rules_namespace(){
-    [[ -z ${NAMESPACE} ]] && return 0
-    print_block_echo "Reverting rules to _CHANGEME_"
-    find $SCRIPTDIR/apps/bookinfo/rules/ -type f -print0 \
-      | xargs -0 sed -i "s/$NAMESPACE/_CHANGEME_/g" \
-      || error_exit 'Could not revert namespace rules'
+function apply_patch_in_dir() {
+    local diff_dir=${1}
+    local src_dir=${2}
+    local dest_dir=${3}
+    local ext=${4}
+    local files=($(find "${diff_dir}" -maxdepth 1 -type f -name '*.diff'))
+
+    for dif in ${files[@]}; do
+      # Extract the filename from path (basename)
+      local filename=${dif##*/}
+      # Strip out the filename extension and replace with ${ext}
+      filename="${filename/%.*}.${ext}"
+      local src="${src_dir}/${filename}"
+      local dest="${dest_dir}/${filename}"
+      apply_patch "${src}" "${dif}" "${dest}"
+    done
+}
+
+function generate_istio_yaml() {
+    print_block_echo "Generating istio yaml in ${1}"
+    local src_dir="${ROOT}/kubernetes/istio-install"
+    local diff_dir="${ROOT}/tests/istio"
+    local dest_dir="${1}"
+
+    mkdir -p ${dest_dir}
+    apply_patch_in_dir "${diff_dir}" "${src_dir}" "${dest_dir}" yaml
+}
+
+function generate_bookinfo_yaml() {
+    print_block_echo "Generating bookinfo yaml in ${1}"
+    local src_dir="${ROOT}/demos/apps/bookinfo"
+    local diff_dir="${ROOT}/tests/apps/bookinfo"
+    local dest_dir="${1}"
+
+    mkdir -p ${dest_dir}
+    apply_patch_in_dir "${diff_dir}" "${src_dir}" "${dest_dir}" yaml
+}
+
+function generate_rules_yaml() {
+    print_block_echo "Generating istio rules in ${1}"
+    local src_dir="${ROOT}/demos/apps/bookinfo"
+    local diff_dir="${ROOT}/tests/apps/bookinfo/rules"
+    local dest_dir="${1}"
+
+    mkdir -p ${dest_dir}
+    apply_patch_in_dir "${diff_dir}" "${src_dir}" "${dest_dir}" yaml
+    find ${dest_dir} -type f -name '*.yaml' \
+      -exec sed -i "s/_CHANGEME_/$NAMESPACE/g" {} \;\
+      || error_exit 'Could not modify namespace rules'
 }
 
 # Call the specified endpoint and compare against expected output
