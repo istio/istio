@@ -63,7 +63,9 @@ function apply_patch_in_dir() {
     local files=($(find "${diff_dir}" -maxdepth 1 -type f -name '*.diff'))
 
     for dif in ${files[@]}; do
+      # Extract the filename from path (basename)
       local filename=${dif##*/}
+      # Strip out the filename extension and replace with ${ext}
       filename="${filename/%.*}.${ext}"
       local src="${src_dir}/${filename}"
       local dest="${dest_dir}/${filename}"
