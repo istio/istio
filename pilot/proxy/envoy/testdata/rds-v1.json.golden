@@ -1,7 +1,7 @@
 {
   "virtual_hosts": [
    {
-    "name": "hello.default.svc.cluster.local:http",
+    "name": "hello.default.svc.cluster.local|http",
     "domains": [
      "hello:80",
      "hello",
@@ -21,7 +21,7 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "in:80",
+      "cluster": "in.80",
       "opaque_config": {
        "mixer_control": "on",
        "mixer_forward": "off"
@@ -30,7 +30,7 @@
     ]
    },
    {
-    "name": "world.default.svc.cluster.local:http",
+    "name": "world.default.svc.cluster.local|http",
     "domains": [
      "world:80",
      "world",
@@ -48,7 +48,7 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out:world.default.svc.cluster.local:http"
+      "cluster": "out.world.default.svc.cluster.local|http"
      }
     ]
    }

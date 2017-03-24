@@ -240,7 +240,9 @@ func (ports PortList) Get(name string) (*Port, bool) {
 	return nil, false
 }
 
-// Key generates a unique string referencing service instances for a given port and tags
+// Key generates a unique string referencing service instances for a given port and tags.
+// The separator character must be exclusive to the regular expressions allowed in the
+// service declaration.
 func (s *Service) Key(port *Port, tag Tags) string {
 	// TODO: check port is non nil and membership of port in service
 	return ServiceKey(s.Hostname, PortList{port}, TagsList{tag})
@@ -248,7 +250,7 @@ func (s *Service) Key(port *Port, tag Tags) string {
 
 // ServiceKey generates a service key for a collection of ports and tags
 func ServiceKey(hostname string, servicePorts PortList, serviceTags TagsList) string {
-	// example: name.namespace:http:env=prod;env=test,version=my-v1
+	// example: name.namespace|http|env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer
 	buffer.WriteString(hostname)
 	np := len(servicePorts)
@@ -263,7 +265,7 @@ func ServiceKey(hostname string, servicePorts PortList, serviceTags TagsList) st
 	} else if np == 1 && nt == 0 && servicePorts[0].Name == "" {
 		return buffer.String()
 	} else {
-		buffer.WriteString(":")
+		buffer.WriteString("|")
 	}
 
 	if np > 0 {
@@ -281,7 +283,7 @@ func ServiceKey(hostname string, servicePorts PortList, serviceTags TagsList) st
 	}
 
 	if nt > 0 {
-		buffer.WriteString(":")
+		buffer.WriteString("|")
 		tags := make([]string, nt)
 		for i := 0; i < nt; i++ {
 			tags[i] = serviceTags[i].String()
@@ -299,7 +301,7 @@ func ServiceKey(hostname string, servicePorts PortList, serviceTags TagsList) st
 
 // ParseServiceKey is the inverse of the Service.String() method
 func ParseServiceKey(s string) (hostname string, ports PortList, tags TagsList) {
-	parts := strings.Split(s, ":")
+	parts := strings.Split(s, "|")
 	hostname = parts[0]
 
 	var names []string

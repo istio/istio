@@ -617,7 +617,7 @@ func TestServiceKey(t *testing.T) {
 
 	// Verify Service.Key() delegates to ServiceKey()
 	{
-		want := "hostname:http:a=b,c=d"
+		want := "hostname|http|a=b,c=d"
 		port := &Port{Name: "http", Port: 80, Protocol: ProtocolHTTP}
 		tags := Tags{"a": "b", "c": "d"}
 		got := svc.Key(port, tags)
@@ -637,32 +637,32 @@ func TestServiceKey(t *testing.T) {
 				{Name: "http-alt", Port: 8080, Protocol: ProtocolHTTP},
 			},
 			tags: TagsList{{"a": "b", "c": "d"}},
-			want: "hostname:http,http-alt:a=b,c=d",
+			want: "hostname|http,http-alt|a=b,c=d",
 		},
 		{
 			port: PortList{{Name: "http", Port: 80, Protocol: ProtocolHTTP}},
 			tags: TagsList{{"a": "b", "c": "d"}},
-			want: "hostname:http:a=b,c=d",
+			want: "hostname|http|a=b,c=d",
 		},
 		{
 			port: PortList{{Port: 80, Protocol: ProtocolHTTP}},
 			tags: TagsList{{"a": "b", "c": "d"}},
-			want: "hostname::a=b,c=d",
+			want: "hostname||a=b,c=d",
 		},
 		{
 			port: PortList{},
 			tags: TagsList{{"a": "b", "c": "d"}},
-			want: "hostname::a=b,c=d",
+			want: "hostname||a=b,c=d",
 		},
 		{
 			port: PortList{{Name: "http", Port: 80, Protocol: ProtocolHTTP}},
 			tags: TagsList{nil},
-			want: "hostname:http",
+			want: "hostname|http",
 		},
 		{
 			port: PortList{{Name: "http", Port: 80, Protocol: ProtocolHTTP}},
 			tags: TagsList{},
-			want: "hostname:http",
+			want: "hostname|http",
 		},
 		{
 			port: PortList{},

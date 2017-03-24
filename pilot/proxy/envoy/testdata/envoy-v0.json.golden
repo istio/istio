@@ -57,7 +57,7 @@
             "route_config": {
               "routes": [
                 {
-                  "cluster": "in:1090",
+                  "cluster": "in.1090",
                   "destination_ip_list": [
                     "10.1.1.0/32"
                   ]
@@ -172,13 +172,13 @@
             "route_config": {
               "routes": [
                 {
-                  "cluster": "in:1090",
+                  "cluster": "in.1090",
                   "destination_ip_list": [
                     "10.1.0.0/32"
                   ]
                 },
                 {
-                  "cluster": "out:world.default.svc.cluster.local:custom",
+                  "cluster": "out.world.default.svc.cluster.local|custom",
                   "destination_ip_list": [
                     "10.2.0.0/32"
                   ],
@@ -205,7 +205,7 @@
   "cluster_manager": {
     "clusters": [
       {
-        "name": "in:1081",
+        "name": "in.1081",
         "connect_timeout_ms": 1000,
         "type": "static",
         "lb_type": "round_robin",
@@ -216,7 +216,7 @@
         ]
       },
       {
-        "name": "in:1090",
+        "name": "in.1090",
         "connect_timeout_ms": 1000,
         "type": "static",
         "lb_type": "round_robin",
@@ -227,7 +227,7 @@
         ]
       },
       {
-        "name": "in:80",
+        "name": "in.80",
         "connect_timeout_ms": 1000,
         "type": "static",
         "lb_type": "round_robin",
@@ -238,8 +238,8 @@
         ]
       },
       {
-        "name": "out:world.default.svc.cluster.local:custom",
-        "service_name": "world.default.svc.cluster.local:custom",
+        "name": "out.world.default.svc.cluster.local|custom",
+        "service_name": "world.default.svc.cluster.local|custom",
         "connect_timeout_ms": 1000,
         "type": "sds",
         "lb_type": "round_robin"

@@ -20,7 +20,7 @@ var validServiceKeys = map[string]struct {
 	service Service
 	tags    TagsList
 }{
-	"example-service1.default:grpc,http:a=b,c=d;e=f": {
+	"example-service1.default|grpc,http|a=b,c=d;e=f": {
 		service: Service{
 			Hostname: "example-service1.default",
 			Ports:    []*Port{{Name: "http"}, {Name: "grpc"}}},
@@ -33,17 +33,17 @@ var validServiceKeys = map[string]struct {
 		service: Service{
 			Hostname: "svc.ns",
 			Ports:    []*Port{{Name: ""}}}},
-	"svc::istio.io/my_tag-v1.test=my_value-v2.value": {
+	"svc||istio.io/my_tag-v1.test=my_value-v2.value": {
 		service: Service{
 			Hostname: "svc",
 			Ports:    []*Port{{Name: ""}}},
 		tags: TagsList{{"istio.io/my_tag-v1.test": "my_value-v2.value"}}},
-	"svc:test:prod": {
+	"svc|test|prod": {
 		service: Service{
 			Hostname: "svc",
 			Ports:    []*Port{{Name: "test"}}},
 		tags: TagsList{{"prod": ""}}},
-	"svc.default.svc.cluster.local:http-test": {
+	"svc.default.svc.cluster.local|http-test": {
 		service: Service{
 			Hostname: "svc.default.svc.cluster.local",
 			Ports:    []*Port{{Name: "http-test"}}}},
