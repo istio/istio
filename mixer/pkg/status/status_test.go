@@ -20,7 +20,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	rpc "github.com/googleapis/googleapis/google/rpc"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 )
 
 func TestStatus(t *testing.T) {
