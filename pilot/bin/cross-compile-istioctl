@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# bazel's go_binary cross-compilation isn't ready (see
+# github.com/bazelbuild/rules_go/issues/70). Use normal golang toolchain to
+# cross compile istioctl for windows and osx.
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+# build with bazel and run /bin/init.sh first so dependencies are setup
+# correctly.
+bazel build //cmd/istioctl:istioctl
+bin/init.sh
+
+# set linker flags for populating version info
+LDFLAGS=""
+while read line; do
+  read SYMBOL VALUE < <(echo $line)
+  LDFLAGS=${LDFLAGS}" -X istio.io/manager/cmd/version.${SYMBOL}=${VALUE}"
+done < <(./bin/get_workspace_status)
+
+GOOS=darwin GOARCH=amd64 go build -ldflags "${LDFLAGS}" istio.io/manager/cmd/istioctl
+mv istioctl istioctl-osx
+
+# install missing spf13/cobra dependency (windows only)
+go get github.com/inconshreveable/mousetrap
+GOOS=windows GOARCH=amd64 go build -ldflags "${LDFLAGS}" istio.io/manager/cmd/istioctl
+mv istioctl.exe istioctl-win.exe
