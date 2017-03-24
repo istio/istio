@@ -1,2 +1,5 @@
+# Ignore bazel-related directories.
 bazel-*
+
+# Ignore go vendor directories.
 vendor
