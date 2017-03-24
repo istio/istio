@@ -70,17 +70,17 @@ struct Attributes {
   static Value DurationValue(std::chrono::nanoseconds value);
   static Value StringMapValue(std::map<std::string, std::string>&& string_map);
 
+  // The attribute key to fill "quota" field in the QuotaRequest.
+  static const std::string kQuotaName;
+  // The attribute key to fill "amount" field in the QuotaRequest.
+  static const std::string kQuotaAmount;
+
   // Generates a string for logging or debugging.
   std::string DebugString() const;
 
   // The attribute map.
   std::map<std::string, Value> attributes;
 };
-
-// The attribute key to fill "quota" field in the QuotaRequest.
-extern const std::string kQuotaName;
-// The attribute key to fill "amount" field in the QuotaRequest.
-extern const std::string kQuotaAmount;
 
 }  // namespace mixer_client
 }  // namespace istio

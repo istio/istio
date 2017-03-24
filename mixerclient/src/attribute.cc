@@ -19,8 +19,8 @@
 namespace istio {
 namespace mixer_client {
 
-const std::string kQuotaName = "quota.name";
-const std::string kQuotaAmount = "quota.amount";
+const std::string Attributes::kQuotaName = "quota.name";
+const std::string Attributes::kQuotaAmount = "quota.amount";
 
 Attributes::Value Attributes::StringValue(const std::string& str) {
   Attributes::Value v;

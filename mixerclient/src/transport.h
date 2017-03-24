@@ -86,10 +86,10 @@ class QuotaTransport : public QuotaBaseTransport {
                  ::istio::mixer::v1::QuotaRequest* request) override {
     Attributes filtered_attributes;
     for (const auto& it : attributes.attributes) {
-      if (it.first == kQuotaName &&
+      if (it.first == Attributes::kQuotaName &&
           it.second.type == Attributes::Value::STRING) {
         request->set_quota(it.second.str_v);
-      } else if (it.first == kQuotaAmount &&
+      } else if (it.first == Attributes::kQuotaAmount &&
                  it.second.type == Attributes::Value::INT64) {
         request->set_amount(it.second.value.int64_v);
       } else {
