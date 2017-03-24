@@ -16,11 +16,13 @@
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION_FILE="${ROOT}/istio.VERSION"
+QUAL_VERSION_FILE="${ROOT}/istio.VERSION.qual"
 
 REGISTRY='docker.io/istio'
 INIT_KEY='INIT'
 MIXER_KEY='MIXER'
 RUNTIME_KEY='RUNTIME'
+QUAL=false
 
 function usage() {
   [[ -n "${1}" ]] && echo "${1}"
@@ -31,16 +33,18 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -i ... init docker image version
     -m ... mixer docker image version
     -r ... runtime docker image version
+    -Q ... Use "${QUAL_VERSION_FILE}" as input
     -R ... registry to use. Default is ${REGISTRY}
 EOF
   exit 2
 }
 
-while getopts :i:m:r:R: arg; do
+while getopts :i:m:r:QR: arg; do
   case ${arg} in
     i) INIT_VERSION="${OPTARG}";;
     m) MIXER_VERSION="${OPTARG}";;
     r) RUNTIME_VERSION="${OPTARG}";;
+    Q) QUAL=true;;
     R) REGISTRY="${OPTARG}";;
     *) usage;;
   esac
@@ -53,13 +57,8 @@ function error_exit() {
 }
 
 function update_files() {
-  local key="${1}"
-  local new_version="${2}"
-  # Lower case
-  local image="${key,,}"
-  local old_value="$(read_version ${key})"
-  [[ -z ${old_value} ]] && error_exit "Could not find current version for ${key}"
-  local new_value="${REGISTRY}/${image}:${new_version}"
+  local old_value="${1}"
+  local new_value="${2}"
 
   local files=($(find ./ -type f -and -not -path "./.git*" \
     -exec grep -l -e "${old_value}" {} \;))
@@ -71,12 +70,48 @@ function update_files() {
   done
 }
 
+function update_versions() {
+  local key="${1}"
+  local new_version="${2}"
+  # Lower case
+  local image="${key,,}"
+  local old_value="$(read_version ${key} ${VERSION_FILE})"
+  [[ -z ${old_value} ]] && error_exit "Could not find current version for ${key}"
+  local new_value="${REGISTRY}/${image}:${new_version}"
+
+  update_files "${old_value}" "${new_value}"
+}
+
+function update_qual_versions() {
+  local key="${1}"
+  local old_value="$(read_version ${key} ${VERSION_FILE})"
+  local new_value="$(read_version ${key} ${QUAL_VERSION_FILE})"
+
+  if [[ "${old_value}" != "${new_value}" ]]; then
+    update_files "${old_value}" "${new_value}"
+  fi
+}
+
 function read_version() {
   local key="${1}"
-  local version="$(grep -oP -e "${key}\s=\s\"\K.*(?=\")" ${VERSION_FILE})"
+  local file="${2}"
+  local version="$(grep -oP -e "${key}\s=\s\"\K.*(?=\")" ${file})"
   echo "${version}"
 }
 
-[[ -n "${INIT_VERSION}" ]] && update_files "${INIT_KEY}" "${INIT_VERSION}"
-[[ -n "${MIXER_VERSION}" ]] && update_files "${MIXER_KEY}" "${MIXER_VERSION}"
-[[ -n "${RUNTIME_VERSION}" ]] && update_files "${RUNTIME_KEY}" "${RUNTIME_VERSION}"
+function update_qual_version_file() {
+  echo "# This is used for automated testing. Do not edit." > "${QUAL_VERSION_FILE}"
+  grep -v '#' "${VERSION_FILE}" >> "${QUAL_VERSION_FILE}"
+}
+
+if [[ ${QUAL} == true ]]; then
+  update_qual_versions "${INIT_KEY}"
+  update_qual_versions "${MIXER_KEY}"
+  update_qual_versions "${RUNTIME_KEY}"
+else
+  [[ -n "${INIT_VERSION}" ]] && update_versions "${INIT_KEY}" "${INIT_VERSION}"
+  [[ -n "${MIXER_VERSION}" ]] && update_versions "${MIXER_KEY}" "${MIXER_VERSION}"
+  [[ -n "${RUNTIME_VERSION}" ]] && update_versions "${RUNTIME_KEY}" "${RUNTIME_VERSION}"
+fi
+
+update_qual_version_file
