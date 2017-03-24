@@ -44,7 +44,19 @@ var (
 var (
 	injectCmd = &cobra.Command{
 		Use:   "kube-inject",
-		Short: "Inject istio runtime into kubernete resources",
+		Short: "Inject istio sidecar proxy into kubernetes resources",
+		Long: `
+Use kube-inject to manually inject istio sidecar proxy into kubernetes
+resource files. Unsupported resources are left unmodified so it is
+safe to run kube-inject over a single file that contains multiple
+Service, ConfigMap, Deployment, etc. definitions for a complex
+application. Its best to do this when the resource is initially
+created.
+
+Example usage:
+
+	kubectl apply -f <(istioctl kube-inject -f <resource.yaml>)
+`,
 		RunE: func(_ *cobra.Command, _ []string) (err error) {
 			if inFilename == "" {
 				return errors.New("filename not specified (see --filename or -f)")
