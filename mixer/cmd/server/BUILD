@@ -7,8 +7,11 @@ go_binary(
     srcs = [
         "main.go",
     ],
+    linkstamp = "istio.io/mixer/pkg/version",
     visibility = ["//visibility:public"],
     deps = [
         "//cmd/server/cmd:go_default_library",
+        "//cmd/shared:go_default_library",
+        "@com_github_spf13_cobra//:go_default_library",
     ],
 )
