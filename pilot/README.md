@@ -1,5 +1,5 @@
 # Istio Manager #
-[![Build Status](https://travis-ci.org/istio/manager.svg?branch=master)](https://travis-ci.org/istio/manager)
+[![Build Status](https://testing.istio.io/buildStatus/icon?job=manager/postsubmit)](https://testing.istio.io/job/manager/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/manager)](https://goreportcard.com/report/github.com/istio/manager)
 [![GoDoc](https://godoc.org/github.com/istio/manager?status.svg)](https://godoc.org/github.com/istio/manager)
 [![codecov.io](https://codecov.io/github/istio/manager/coverage.svg?branch=master)](https://codecov.io/github/istio/manager?branch=master)
