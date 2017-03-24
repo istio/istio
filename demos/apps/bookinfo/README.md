@@ -57,7 +57,7 @@ which will be used to implement the gateway for the application.
 
 
    ```bash
-   $ kubectl create -f <(istioctl kube-inject -f bookinfo-istio.yaml)
+   $ kubectl create -f <(istioctl kube-inject -f bookinfo.yaml)
    ```
 
    The above command creates the gateway ingress resource and launches
