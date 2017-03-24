@@ -140,7 +140,7 @@ func (w *ingressWatcher) generateConfig() *Config {
 	rConfig := &HTTPRouteConfig{VirtualHosts: vhosts}
 
 	listener := &Listener{
-		Port:       80,
+		Address:    "tcp://0.0.0.0:80",
 		BindToPort: true,
 		Filters: []*NetworkFilter{
 			{
@@ -166,7 +166,7 @@ func (w *ingressWatcher) generateConfig() *Config {
 	// configure for HTTPS if provided with a secret name
 	if w.secret != "" {
 		sslContext := w.buildSSLContext()
-		listener.Port = 443
+		listener.Address = "tcp://0.0.0.0:443"
 		listener.SSLContext = sslContext
 	}
 
@@ -177,7 +177,7 @@ func (w *ingressWatcher) generateConfig() *Config {
 		Listeners: listeners,
 		Admin: Admin{
 			AccessLogPath: DefaultAccessLog,
-			Port:          w.mesh.AdminPort,
+			Address:       fmt.Sprintf("tcp://0.0.0.0:%d", w.mesh.AdminPort),
 		},
 		ClusterManager: ClusterManager{
 			Clusters: clusters,

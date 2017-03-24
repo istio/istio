@@ -89,7 +89,7 @@ func Generate(context *ProxyContext) *Config {
 
 	// add an extra listener that binds to a port
 	listeners = append(listeners, &Listener{
-		Port:           mesh.ProxyPort,
+		Address:        fmt.Sprintf("tcp://0.0.0.0:%d", mesh.ProxyPort),
 		BindToPort:     true,
 		UseOriginalDst: true,
 		Filters:        make([]*NetworkFilter, 0),
@@ -100,7 +100,7 @@ func Generate(context *ProxyContext) *Config {
 		Listeners: listeners,
 		Admin: Admin{
 			AccessLogPath: DefaultAccessLog,
-			Port:          mesh.AdminPort,
+			Address:       fmt.Sprintf("tcp://0.0.0.0:%d", mesh.AdminPort),
 		},
 		ClusterManager: ClusterManager{
 			Clusters: clusters,
@@ -144,7 +144,7 @@ func build(context *ProxyContext) ([]*Listener, Clusters) {
 		})
 
 		listener := &Listener{
-			Port: port,
+			Address: fmt.Sprintf("tcp://0.0.0.0:%d", port),
 			Filters: []*NetworkFilter{{
 				Type: "read",
 				Name: HTTPConnectionManager,
@@ -189,7 +189,7 @@ func build(context *ProxyContext) ([]*Listener, Clusters) {
 			return true
 		})...)
 		listener := &Listener{
-			Port: port,
+			Address: fmt.Sprintf("tcp://0.0.0.0:%d", port),
 			Filters: []*NetworkFilter{{
 				Type: "read",
 				Name: TCPProxyFilter,
@@ -202,7 +202,7 @@ func build(context *ProxyContext) ([]*Listener, Clusters) {
 		listeners = append(listeners, listener)
 	}
 
-	sort.Sort(ListenersByPort(listeners))
+	sort.Slice(listeners, func(i, j int) bool { return listeners[i].Address < listeners[j].Address })
 	clusters = clusters.Normalize()
 
 	return listeners, clusters

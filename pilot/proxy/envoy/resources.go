@@ -405,7 +405,7 @@ type NetworkFilter struct {
 
 // Listener definition
 type Listener struct {
-	Port           int              `json:"port"`
+	Address        string           `json:"address"`
 	Filters        []*NetworkFilter `json:"filters"`
 	SSLContext     *SSLContext      `json:"ssl_context,omitempty"`
 	BindToPort     bool             `json:"bind_to_port"`
@@ -435,7 +435,7 @@ func (routes HTTPRouteConfigs) EnsurePort(port int) *HTTPRouteConfig {
 // Admin definition
 type Admin struct {
 	AccessLogPath string `json:"access_log_path"`
-	Port          int    `json:"port"`
+	Address       string `json:"address"`
 }
 
 // Host definition
@@ -484,21 +484,6 @@ type OutlierDetection struct {
 	IntervalMS         int `json:"interval_ms,omitempty"`
 	BaseEjectionTimeMS int `json:"base_ejection_time_ms,omitempty"`
 	MaxEjectionPercent int `json:"max_ejection_percent,omitempty"`
-}
-
-// ListenersByPort sorts listeners by port
-type ListenersByPort []*Listener
-
-func (l ListenersByPort) Len() int {
-	return len(l)
-}
-
-func (l ListenersByPort) Swap(i, j int) {
-	l[i], l[j] = l[j], l[i]
-}
-
-func (l ListenersByPort) Less(i, j int) bool {
-	return l[i].Port < l[j].Port
 }
 
 // Clusters is a collection of clusters
