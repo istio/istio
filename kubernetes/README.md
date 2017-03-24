@@ -42,13 +42,9 @@ implemented yet . Use `istioctl kube-inject` to modify kubernetes
 resources files client-side *before* submitting them to the kubernetes
 API server. `istioctl kube-inject` is documented
 [here](https://github.com/istio/istio/blob/master/doc/istioctl.md#kube-inject).
-For convenience, you can source
-[`istioctl-kube-inject.sh`](https://github.com/istio/istio/blob/master/kubernetes/istioctl-kube-inject.sh) and
-use the `inject` helper function as follows:
 
     ```bash
-    source ../../../kubernetes/istioctl-kube-inject.sh
-    inject <yaml-resource-file> | kubectl apply -f -
+    kubectl apply -f <(istioctl kube-inject -f <resource.yaml>)
     ```
 
 Deploy your apps, or try one of the example apps from demos directory. Each app directory contains an associated README.md providing more details.
