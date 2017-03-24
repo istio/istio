@@ -93,23 +93,3 @@ application.
 The Istio project is continually evolving so the low-level proxy
 configuration may change unannounced. When in doubt re-run `istioctl kube-inject`
 on your original deployments.
-
-```
-$ istioctl kube-inject --help
-Inject istio runtime into existing kubernete resources
-
-Usage:
-   inject [flags]
-
-Flags:
-      --discoveryPort int         Manager discovery port (default 8080)
-  -f, --filename string           Input kubernetes resource filename
-      --initImage string          Istio init image (default "docker.io/istio/init:latest")
-      --mixerPort int             Mixer port (default 9091)
-  -o, --output string             Modified output kubernetes resource filename
-      --runtimeImage string       Istio runtime image (default "docker.io/istio/runtime:latest")
-      --setVersionString string   Override version info injected into resource
-      --sidecarProxyPort int      Sidecar proxy Port (default 15001)
-      --sidecarProxyUID int       Sidecar proxy UID (default 1337)
-      --verbosity int             Runtime verbosity (default 2)
-```
