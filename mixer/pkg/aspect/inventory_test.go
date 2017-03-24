@@ -23,15 +23,15 @@ func TestInventory(t *testing.T) {
 	// and that we get something back...
 	inventory := Inventory()
 
-	if len(inventory[CheckMethod]) == 0 {
-		t.Error("Expecting some managers for CheckMethod, got 0")
+	if len(inventory.Check) == 0 {
+		t.Error("Expecting some managers for Check, got 0")
 	}
 
-	if len(inventory[ReportMethod]) == 0 {
-		t.Error("Expecting some managers for ReporMethod, got 0")
+	if len(inventory.Report) == 0 {
+		t.Error("Expecting some managers for Repor, got 0")
 	}
 
-	if len(inventory[QuotaMethod]) == 0 {
-		t.Error("Expecting some managers for QuotaMethod, got 0")
+	if len(inventory.Quota) == 0 {
+		t.Error("Expecting some managers for Quota, got 0")
 	}
 }

@@ -33,13 +33,14 @@ import (
 	"istio.io/mixer/pkg/config"
 	configpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/status"
 )
 
 type (
 	aspectTestCase struct {
 		name   string
 		params config.AspectParams
-		want   *applicationLogsWrapper
+		want   *applicationLogsExecutor
 	}
 )
 
@@ -61,7 +62,7 @@ func TestNewLoggerManager(t *testing.T) {
 
 func TestLoggerManager_NewLogger(t *testing.T) {
 	tl := &test.Logger{}
-	defaultExec := &applicationLogsWrapper{
+	defaultExec := &applicationLogsExecutor{
 		name:   "istio_log",
 		aspect: tl,
 		metadata: map[string]*logInfo{
@@ -71,7 +72,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 		},
 	}
 
-	overrideExec := &applicationLogsWrapper{
+	overrideExec := &applicationLogsExecutor{
 		name:   "istio_log",
 		aspect: tl,
 		metadata: map[string]*logInfo{
@@ -81,7 +82,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 		},
 	}
 
-	emptyExec := &applicationLogsWrapper{
+	emptyExec := &applicationLogsExecutor{
 		name:     "istio_log",
 		aspect:   tl,
 		metadata: make(map[string]*logInfo),
@@ -122,17 +123,17 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 				Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 				Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
 			}
-			asp, err := m.NewAspect(&c, tl, atest.NewEnv(t), nil)
+			asp, err := m.NewReportExecutor(&c, tl, atest.NewEnv(t), nil)
 			if err != nil {
-				t.Fatalf("NewAspect(): should not have received error for %s (%v)", v.name, err)
+				t.Fatalf("NewExecutor(): should not have received error for %s (%v)", v.name, err)
 			}
-			got := asp.(*applicationLogsWrapper)
+			got := asp.(*applicationLogsExecutor)
 			// We ignore templates because reflect.DeepEqual doesn't seem to work with them.
 			for key := range got.metadata {
 				got.metadata[key].tmpl = nil
 			}
 			if !reflect.DeepEqual(got, v.want) {
-				t.Errorf("NewAspect() = %#+v, wanted %#+v", got, v.want)
+				t.Errorf("NewExecutor() = %#+v, wanted %#+v", got, v.want)
 			}
 		})
 	}
@@ -172,14 +173,14 @@ func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 				},
 			}
 
-			if _, err := m.NewAspect(cfg, v.adptr, atest.NewEnv(t), nil); err == nil {
-				t.Fatalf("NewAspect(): expected error for bad adapter (%T)", v.adptr)
+			if _, err := m.NewReportExecutor(cfg, v.adptr, atest.NewEnv(t), nil); err == nil {
+				t.Fatalf("NewExecutor(): expected error for bad adapter (%T)", v.adptr)
 			}
 		})
 	}
 }
 
-func TestLogWrapper_Execute(t *testing.T) {
+func TestLogExecutor_Execute(t *testing.T) {
 	timeAttrName := "timestamp"
 	knownTime := time.Now()
 	idEvalWithTime := test.NewFakeEval(func(s string, _ attribute.Bag) (interface{}, error) {
@@ -202,12 +203,12 @@ func TestLogWrapper_Execute(t *testing.T) {
 		labels:     map[string]string{"label1": "label1val"},
 	}
 
-	noDescriptors := &applicationLogsWrapper{
+	noDescriptors := &applicationLogsExecutor{
 		name:     "name",
 		metadata: make(map[string]*logInfo),
 	}
 
-	textPayload := &applicationLogsWrapper{
+	textPayload := &applicationLogsExecutor{
 		name: "name",
 		metadata: map[string]*logInfo{
 			"text": &textLogInfo,
@@ -225,7 +226,7 @@ func TestLogWrapper_Execute(t *testing.T) {
 	jsonLogInfo.format = JSON
 	jsonLogInfo.tmpl = jsontmpl
 
-	jsonPayload := &applicationLogsWrapper{
+	jsonPayload := &applicationLogsExecutor{
 		name: "name",
 		metadata: map[string]*logInfo{
 			"json": &jsonLogInfo,
@@ -235,7 +236,7 @@ func TestLogWrapper_Execute(t *testing.T) {
 	jsonPayloadEntry.TextPayload = ""
 	jsonPayloadEntry.StructPayload = map[string]interface{}{"value": "value"}
 
-	multipleLogs := &applicationLogsWrapper{
+	multipleLogs := &applicationLogsExecutor{
 		name: "name",
 		metadata: map[string]*logInfo{
 			"json": jsonPayload.metadata["json"],
@@ -245,7 +246,7 @@ func TestLogWrapper_Execute(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		exec        *applicationLogsWrapper
+		exec        *applicationLogsExecutor
 		bag         attribute.Bag
 		mapper      expr.Evaluator
 		wantEntries []adapter.LogEntry
@@ -260,7 +261,7 @@ func TestLogWrapper_Execute(t *testing.T) {
 			l := &test.Logger{}
 			tt.exec.aspect = l
 
-			if out := tt.exec.Execute(tt.bag, tt.mapper, &ReportMethodArgs{}); !out.IsOK() {
+			if out := tt.exec.Execute(tt.bag, tt.mapper); !status.IsOK(out) {
 				t.Fatalf("Execute(): should not have received error for %s (%v)", tt.name, out)
 			}
 			if l.EntryCount != len(tt.wantEntries) {
@@ -273,7 +274,7 @@ func TestLogWrapper_Execute(t *testing.T) {
 	}
 }
 
-func TestLogWrapper_ExecuteFailures(t *testing.T) {
+func TestLogExecutor_ExecuteFailures(t *testing.T) {
 	tmpl, _ := template.New("test").Parse("{{.test}}")
 
 	textLogInfo := logInfo{
@@ -287,21 +288,21 @@ func TestLogWrapper_ExecuteFailures(t *testing.T) {
 	jsonLogInfo := textLogInfo
 	jsonLogInfo.format = JSON
 
-	textPayload := applicationLogsWrapper{
+	textPayload := applicationLogsExecutor{
 		name:   "name",
 		aspect: &test.Logger{},
 		metadata: map[string]*logInfo{
 			"text": &textLogInfo,
 		},
 	}
-	jsonPayload := applicationLogsWrapper{
+	jsonPayload := applicationLogsExecutor{
 		name:   "name",
 		aspect: &test.Logger{},
 		metadata: map[string]*logInfo{
 			"json": &jsonLogInfo,
 		},
 	}
-	logError := applicationLogsWrapper{
+	logError := applicationLogsExecutor{
 		name:   "name",
 		aspect: &test.Logger{ErrOnLog: true},
 		metadata: map[string]*logInfo{
@@ -312,7 +313,7 @@ func TestLogWrapper_ExecuteFailures(t *testing.T) {
 	timeTmpl, _ := template.New("test").Parse(`{{ .foo "-" .bar }}`)
 	errorLogInfo := textLogInfo
 	errorLogInfo.tmpl = timeTmpl
-	errorPayload := applicationLogsWrapper{
+	errorPayload := applicationLogsExecutor{
 		name:   "name",
 		aspect: &test.Logger{},
 		metadata: map[string]*logInfo{
@@ -322,7 +323,7 @@ func TestLogWrapper_ExecuteFailures(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		exec   *applicationLogsWrapper
+		exec   *applicationLogsExecutor
 		bag    attribute.Bag
 		mapper expr.Evaluator
 	}{
@@ -336,25 +337,25 @@ func TestLogWrapper_ExecuteFailures(t *testing.T) {
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			if out := tt.exec.Execute(tt.bag, tt.mapper, &ReportMethodArgs{}); out.IsOK() {
+			if out := tt.exec.Execute(tt.bag, tt.mapper); status.IsOK(out) {
 				t.Fatalf("Execute(): should have received error for %s", tt.name)
 			}
 		})
 	}
 }
 
-func TestLogWrapper_Close(t *testing.T) {
+func TestLogExecutor_Close(t *testing.T) {
 	l := &test.Logger{}
-	wrapper := applicationLogsWrapper{
+	executor := applicationLogsExecutor{
 		name:     "name",
 		aspect:   l,
 		metadata: make(map[string]*logInfo),
 	}
-	if err := wrapper.Close(); err != nil {
-		t.Fatalf("wrapper.Close() = %s, wanted no err.", err)
+	if err := executor.Close(); err != nil {
+		t.Fatalf("executor.Close() = %s, wanted no err.", err)
 	}
 	if !l.Closed {
-		t.Fatal("wrapper.Close() didn't call aspect.Close()")
+		t.Fatal("executor.Close() didn't call aspect.Close()")
 	}
 }
 

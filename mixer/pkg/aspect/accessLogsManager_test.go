@@ -30,6 +30,7 @@ import (
 	"istio.io/mixer/pkg/config"
 	configpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/status"
 )
 
 func TestNewAccessLoggerManager(t *testing.T) {
@@ -43,18 +44,18 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 	tl := &test.Logger{}
 
 	dc := accessLogsManager{}.DefaultConfig()
-	commonExec := &accessLogsWrapper{
+	commonExec := &accessLogsExecutor{
 		name:   "access_log",
 		aspect: tl,
 	}
 
-	combinedExec := &accessLogsWrapper{
+	combinedExec := &accessLogsExecutor{
 		name:   "combined_access_log",
 		aspect: tl,
 	}
 
 	// TODO: add back tests for custom when we introduce descriptors
-	//customExec := &accessLogsWrapper{
+	//customExec := &accessLogsExecutor{
 	//	name:   "custom_access_log",
 	//	aspect: tl,
 	//	labels: map[string]string{"test": "test"},
@@ -78,7 +79,7 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 	newAspectShouldSucceed := []struct {
 		name   string
 		params interface{}
-		want   *accessLogsWrapper
+		want   *accessLogsExecutor
 	}{
 		{"empty", dc, commonExec},
 		{"combined", combinedStruct, combinedExec},
@@ -93,14 +94,14 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 				Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 				Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{"template": "{{.test}}"}},
 			}
-			asp, err := m.NewAspect(c, tl, test.Env{}, nil)
+			asp, err := m.NewReportExecutor(c, tl, test.Env{}, nil)
 			if err != nil {
-				t.Fatalf("NewAspect(): should not have received error for %s (%v)", v.name, err)
+				t.Fatalf("NewExecutor(): should not have received error for %s (%v)", v.name, err)
 			}
-			got := asp.(*accessLogsWrapper)
+			got := asp.(*accessLogsExecutor)
 			got.template = nil // ignore template values in equality comp
 			if !reflect.DeepEqual(got, v.want) {
-				t.Fatalf("NewAspect() => [%s]\ngot: %v (%T)\nwant: %v (%T)", v.name, got, got, v.want, v.want)
+				t.Fatalf("NewExecutor() => [%s]\ngot: %v (%T)\nwant: %v (%T)", v.name, got, got, v.want, v.want)
 			}
 		})
 	}
@@ -142,8 +143,8 @@ func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 	m := newAccessLogsManager()
 	for idx, v := range failureCases {
 		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
-			if _, err := m.NewAspect(v.cfg, v.adptr, test.Env{}, nil); err == nil {
-				t.Fatalf("NewAspect()[%s]: expected error for bad adapter (%T)", v.name, v.adptr)
+			if _, err := m.NewReportExecutor(v.cfg, v.adptr, test.Env{}, nil); err == nil {
+				t.Fatalf("NewExecutor()[%s]: expected error for bad adapter (%T)", v.name, v.adptr)
 			}
 		})
 	}
@@ -187,16 +188,16 @@ func TestAccessLoggerManager_ValidateConfigFailures(t *testing.T) {
 	}
 }
 
-func TestAccessLoggerWrapper_Execute(t *testing.T) {
+func TestAccessLoggerExecutor_Execute(t *testing.T) {
 	tmpl, _ := template.New("test").Parse("{{.test}}")
 
-	noLabels := &accessLogsWrapper{
+	noLabels := &accessLogsExecutor{
 		name:     "access_log",
 		labels:   map[string]string{},
 		template: tmpl,
 	}
 
-	labelsInBag := &accessLogsWrapper{
+	labelsInBag := &accessLogsExecutor{
 		name: "access_log",
 		labels: map[string]string{
 			"test": "foo",
@@ -204,7 +205,7 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 		template: tmpl,
 	}
 
-	errExec := &accessLogsWrapper{
+	errExec := &accessLogsExecutor{
 		name: "access_log",
 		labels: map[string]string{
 			"timestamp": "foo",
@@ -226,7 +227,7 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		exec        *accessLogsWrapper
+		exec        *accessLogsExecutor
 		bag         attribute.Bag
 		mapper      expr.Evaluator
 		wantEntries []adapter.LogEntry
@@ -241,8 +242,8 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 			l := &test.Logger{}
 			v.exec.aspect = l
 
-			if status := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); !status.IsOK() {
-				t.Fatalf("Execute(): should not have received error for %s (%v)", v.name, status)
+			if out := v.exec.Execute(v.bag, v.mapper); !status.IsOK(out) {
+				t.Fatalf("Execute(): should not have received error for %s (%v)", v.name, out)
 			}
 			if l.EntryCount != len(v.wantEntries) {
 				t.Fatalf("Execute(): got %d entries, wanted %d for %s", l.EntryCount, len(v.wantEntries), v.name)
@@ -260,10 +261,10 @@ func TestAccessLoggerWrapper_Execute(t *testing.T) {
 	}
 }
 
-func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
+func TestAccessLoggerExecutor_ExecuteFailures(t *testing.T) {
 	timeTmpl, _ := template.New("test").Parse(`{{(.timestamp.Format "02/Jan/2006:15:04:05 -0700")}}`)
 
-	executeErr := &accessLogsWrapper{
+	executeErr := &accessLogsExecutor{
 		name: "access_log",
 		templateExprs: map[string]string{
 			"timestamp": "foo",
@@ -271,7 +272,7 @@ func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 		template: timeTmpl,
 	}
 
-	logErr := &accessLogsWrapper{
+	logErr := &accessLogsExecutor{
 		name:     "access_log",
 		aspect:   &test.Logger{ErrOnLog: true},
 		labels:   map[string]string{},
@@ -280,7 +281,7 @@ func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		exec   *accessLogsWrapper
+		exec   *accessLogsExecutor
 		bag    attribute.Bag
 		mapper expr.Evaluator
 	}{
@@ -290,15 +291,15 @@ func TestAccessLoggerWrapper_ExecuteFailures(t *testing.T) {
 
 	for idx, v := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
-			if status := v.exec.Execute(v.bag, v.mapper, &ReportMethodArgs{}); status.IsOK() {
+			if out := v.exec.Execute(v.bag, v.mapper); status.IsOK(out) {
 				t.Fatalf("Execute(): expected error for %s", v.name)
 			}
 		})
 	}
 }
 
-func TestAccessLoggerWrapper_Close(t *testing.T) {
-	aw := &accessLogsWrapper{
+func TestAccessLoggerExecutor_Close(t *testing.T) {
+	aw := &accessLogsExecutor{
 		aspect: &test.Logger{ErrOnLog: true},
 	}
 	if err := aw.Close(); err != nil {

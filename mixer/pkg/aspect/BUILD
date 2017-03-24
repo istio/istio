@@ -6,7 +6,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "accessLogsManager.go",
-        "apiMethod.go",
         "applicationLogsManager.go",
         "denialsManager.go",
         "descriptors.go",
@@ -44,7 +43,6 @@ go_test(
     size = "small",
     srcs = [
         "accessLogsManager_test.go",
-        "apiMethod_test.go",
         "applicationLogsManager_test.go",
         "denialsManager_test.go",
         "descriptors_test.go",

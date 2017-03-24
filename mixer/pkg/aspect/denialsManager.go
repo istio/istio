@@ -15,6 +15,8 @@
 package aspect
 
 import (
+	rpc "github.com/googleapis/googleapis/google/rpc"
+
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
@@ -27,18 +29,18 @@ import (
 type (
 	denialsManager struct{}
 
-	denialsWrapper struct {
+	denialsExecutor struct {
 		aspect adapter.DenialsAspect
 	}
 )
 
 // newDenialsManager returns a manager for the denials aspect.
-func newDenialsManager() Manager {
+func newDenialsManager() CheckManager {
 	return denialsManager{}
 }
 
-// NewAspect creates a denyChecker aspect.
-func (denialsManager) NewAspect(cfg *cpb.Combined, ga adapter.Builder, env adapter.Env, df descriptor.Finder) (Wrapper, error) {
+// NewCheckExecutor creates a denyChecker aspect.
+func (denialsManager) NewCheckExecutor(cfg *cpb.Combined, ga adapter.Builder, env adapter.Env, df descriptor.Finder) (CheckExecutor, error) {
 	aa := ga.(adapter.DenialsBuilder)
 	var asp adapter.DenialsAspect
 	var err error
@@ -47,7 +49,7 @@ func (denialsManager) NewAspect(cfg *cpb.Combined, ga adapter.Builder, env adapt
 		return nil, err
 	}
 
-	return &denialsWrapper{
+	return &denialsExecutor{
 		aspect: asp,
 	}, nil
 }
@@ -58,8 +60,8 @@ func (denialsManager) ValidateConfig(config.AspectParams, expr.Validator, descri
 	return
 }
 
-func (a *denialsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
-	return Output{Status: a.aspect.Deny()}
+func (a *denialsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
+	return a.aspect.Deny()
 }
 
-func (a *denialsWrapper) Close() error { return a.aspect.Close() }
+func (a *denialsExecutor) Close() error { return a.aspect.Close() }

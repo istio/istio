@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aspect
+package adapterManager
 
 import (
 	"testing"
@@ -20,12 +20,12 @@ import (
 
 func TestMethodNames(t *testing.T) {
 	cases := []struct {
-		method APIMethod
+		method apiMethod
 		name   string
 	}{
-		{CheckMethod, "Check"},
-		{ReportMethod, "Report"},
-		{QuotaMethod, "Quota"},
+		{checkMethod, "Check"},
+		{reportMethod, "Report"},
+		{quotaMethod, "Quota"},
 	}
 
 	for _, c := range cases {
