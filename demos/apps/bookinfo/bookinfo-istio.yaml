@@ -46,7 +46,7 @@ spec:
             "image": "istio/init:2017-03-22-21.21.48",
             "args": ["-p", "15001", "-u", "1337"],
             "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] }, "privileged": true }
           }]
     spec:
       containers:
@@ -119,7 +119,7 @@ spec:
             "image": "istio/init:2017-03-22-21.21.48",
             "args": ["-p", "15001", "-u", "1337"],
             "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] }, "privileged": true }
           }]
     spec:
       containers:
@@ -192,7 +192,7 @@ spec:
             "image": "istio/init:2017-03-22-21.21.48",
             "args": ["-p", "15001", "-u", "1337"],
             "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] }, "privileged": true }
           }]
     spec:
       containers:
@@ -249,7 +249,7 @@ spec:
             "image": "istio/init:2017-03-22-21.21.48",
             "args": ["-p", "15001", "-u", "1337"],
             "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] }, "privileged": true }
           }]
     spec:
       containers:
@@ -306,7 +306,7 @@ spec:
             "image": "istio/init:2017-03-22-21.21.48",
             "args": ["-p", "15001", "-u", "1337"],
             "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] }, "privileged": true }
           }]
     spec:
       containers:
@@ -379,7 +379,7 @@ spec:
             "image": "istio/init:2017-03-22-21.21.48",
             "args": ["-p", "15001", "-u", "1337"],
             "imagePullPolicy": "Always",
-            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] } }
+            "securityContext": { "capabilities" : { "add" : ["NET_ADMIN"] }, "privileged": true }
           }]
     spec:
       containers:
