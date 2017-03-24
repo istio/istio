@@ -38,7 +38,7 @@ start kubectl proxy, and edit Grafana's Istio-dashboard to use the proxy. Access
 ## Deploy your apps
 
 NOTE: Kubernetes admission controller for transparent proxy is not
-implementedyet . Use `istioctl kube-inject` to modify kubernetes
+implemented yet . Use `istioctl kube-inject` to modify kubernetes
 resources files client-side *before* submitting them to the kubernetes
 API server. `istioctl kube-inject` is documented
 [here](https://github.com/istio/istio/blob/master/doc/istioctl.md#kube-inject).
