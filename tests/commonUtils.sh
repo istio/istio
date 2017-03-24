@@ -58,7 +58,7 @@ function apply_patch() {
 function kube_inject() {
     local before=${1}
     local after=${2}
-    istioctl kube-inject -f ${before} -o ${after}
+    ${ISTIOCLI} kube-inject -f ${before} -o ${after}
 }
 
 function apply_patch_in_dir() {
