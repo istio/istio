@@ -87,12 +87,11 @@ func (e *ConfigErrors) Error() string {
 
 // Extend joins 2 configErrors together.
 func (e *ConfigErrors) Extend(ee *ConfigErrors) *ConfigErrors {
-	ce := e
-	if ce == nil {
-		ce = &ConfigErrors{}
+	if e == nil {
+		return ee
 	}
 	if ee != nil {
-		ce.Multi = me.Append(ce.Multi, ee.Multi.Errors...)
+		e.Multi = me.Append(e.Multi, ee.Multi.Errors...)
 	}
-	return ce
+	return e
 }
