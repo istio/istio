@@ -45,7 +45,21 @@ func verifyStringMap(actual map[string]string, expected map[string]interface{}) 
 	return nil
 }
 
-// Please see the comment at top of mixer_test.go for verification rules
+// Attributes verification rules:
+//
+// 1) If value is *,  key must exist, but value is not checked.
+// 1) If value is -,  key must NOT exist.
+// 3) At top level attributes, not inside StringMap, all keys must
+//    be listed. Extra keys are NOT allowed
+// 3) Inside StringMap, not need to list all keys. Extra keys are allowed
+//
+// Attributes provided from envoy config
+// * source.id and source.namespace are forwarded from client proxy
+// * target.id and target.namespace are from server proxy
+//
+// HTTP header "x-istio-attributes" is used to forward attributes between
+// proxy. It should be removed before calling mixer and backend.
+//
 func Verify(b *attribute.MutableBag, json_results string) error {
 	var r map[string]interface{}
 	if err := json.Unmarshal([]byte(json_results), &r); err != nil {

@@ -16,49 +16,78 @@ package test
 
 import (
 	"log"
-)
-
-const (
-	// These ports should match with used envoy.conf
-	// Default is using one in this folder.
-	ServerProxyPort = 29090
-	ClientProxyPort = 27070
-	MixerPort       = 29091
-	BackendPort     = 28080
+	"testing"
 )
 
 type TestSetup struct {
 	envoy   *Envoy
 	mixer   *MixerServer
 	backend *HttpServer
+	t       *testing.T
 }
 
-func SetUp() (ts TestSetup, err error) {
-	ts.envoy, err = NewEnvoy()
+func SetUp(t *testing.T, conf string) (s TestSetup, err error) {
+	s.t = t
+	s.envoy, err = NewEnvoy(conf)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 	} else {
-		ts.envoy.Start()
+		s.envoy.Start()
 	}
 
-	ts.mixer, err = NewMixerServer(MixerPort)
+	s.mixer, err = NewMixerServer(MixerPort)
 	if err != nil {
 		log.Printf("unable to create mixer server %v", err)
 	} else {
-		ts.mixer.Start()
+		s.mixer.Start()
 	}
 
-	ts.backend, err = NewHttpServer(BackendPort)
+	s.backend, err = NewHttpServer(BackendPort)
 	if err != nil {
 		log.Printf("unable to create HTTP server %v", err)
 	} else {
-		ts.backend.Start()
+		s.backend.Start()
 	}
-	return ts, err
+	return s, err
 }
 
-func (ts *TestSetup) TearDown() {
-	ts.envoy.Stop()
-	ts.mixer.Stop()
-	ts.backend.Stop()
+func (s *TestSetup) TearDown() {
+	s.envoy.Stop()
+	s.mixer.Stop()
+	s.backend.Stop()
+}
+
+func (s *TestSetup) VerifyCheckCount(tag string, expected int) {
+	if s.mixer.check.count != expected {
+		s.t.Fatalf("%s check count doesn't match: %v\n, expected: %+v",
+			tag, s.mixer.check.count, expected)
+	}
+}
+
+func (s *TestSetup) VerifyCheck(tag string, result string) {
+	_ = <-s.mixer.check.ch
+	if err := Verify(s.mixer.check.bag, result); err != nil {
+		s.t.Fatalf("Failed to verify %s check: %v\n, Attributes: %+v",
+			tag, err, s.mixer.check.bag)
+	}
+}
+
+func (s *TestSetup) VerifyReport(tag string, result string) {
+	_ = <-s.mixer.report.ch
+	if err := Verify(s.mixer.report.bag, result); err != nil {
+		s.t.Fatalf("Failed to verify %s report: %v\n, Attributes: %+v",
+			tag, err, s.mixer.report.bag)
+	}
+}
+
+func (s *TestSetup) VerifyQuota(tag string, name string, amount int64) {
+	_ = <-s.mixer.quota.ch
+	if s.mixer.quota_request.Quota != name {
+		s.t.Fatalf("Failed to verify %s quota name: %v, expected: %v\n",
+			tag, s.mixer.quota_request.Quota, name)
+	}
+	if s.mixer.quota_request.Amount != amount {
+		s.t.Fatalf("Failed to verify %s quota amount: %v, expected: %v\n",
+			tag, s.mixer.quota_request.Amount, amount)
+	}
 }

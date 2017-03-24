@@ -39,24 +39,6 @@ func getTestBinRootPath() string {
 	}
 }
 
-func getTestDataRootPath() string {
-	switch {
-	// custom path
-	case os.Getenv("TEST_DATA_ROOT") != "":
-		return os.Getenv("TEST_DATA_ROOT")
-	// running under bazel
-	case os.Getenv("TEST_SRCDIR") != "":
-		return os.Getenv("TEST_SRCDIR") + "/__main__"
-	// running with native go
-	case os.Getenv("GOPATH") != "":
-		list := strings.Split(os.Getenv("GOPATH"),
-			string(os.PathListSeparator))
-		return list[0]
-	default:
-		return ""
-	}
-}
-
 type Envoy struct {
 	cmd *exec.Cmd
 }
@@ -76,14 +58,17 @@ func Run(name string, args ...string) (s string, err error) {
 	return
 }
 
-func NewEnvoy() (*Envoy, error) {
-	path := getTestBinRootPath() + "/src/envoy/mixer/envoy"
-	conf := getTestDataRootPath() +
-		"/src/envoy/mixer/integration_test/envoy.conf"
-	log.Printf("Envoy binary: %v\n", path)
-	log.Printf("Envoy config: %v\n", conf)
+func NewEnvoy(conf string) (*Envoy, error) {
+	bin_path := getTestBinRootPath() + "/src/envoy/mixer/envoy"
+	log.Printf("Envoy binary: %v\n", bin_path)
 
-	cmd := exec.Command(path, "-c", conf, "-l", "debug")
+	conf_path := "/tmp/envoy.conf"
+	log.Printf("Envoy config: in %v\n%v\n", conf_path, conf)
+	if err := CreateEnvoyConf(conf_path, conf); err != nil {
+		return nil, err
+	}
+
+	cmd := exec.Command(bin_path, "-c", conf_path, "-l", "debug")
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	return &Envoy{

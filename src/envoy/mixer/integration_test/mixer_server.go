@@ -40,7 +40,7 @@ type Handler struct {
 func newHandler() *Handler {
 	return &Handler{
 		bag:      nil,
-		ch:       make(chan int, 1),
+		ch:       make(chan int, 10), // Allow maximum 10 requests
 		count:    0,
 		r_status: rpc.Status{},
 	}
