@@ -17,6 +17,8 @@ package aspect
 import (
 	"fmt"
 
+	rpc "github.com/googleapis/googleapis/google/rpc"
+
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
@@ -30,7 +32,7 @@ import (
 type (
 	listsManager struct{}
 
-	listsWrapper struct {
+	listsExecutor struct {
 		inputs map[string]string
 		aspect adapter.ListsAspect
 		params *aconfig.ListsParams
@@ -38,12 +40,12 @@ type (
 )
 
 // newListsManager returns a manager for the lists aspect.
-func newListsManager() Manager {
+func newListsManager() CheckManager {
 	return listsManager{}
 }
 
-// NewAspect creates a listChecker aspect.
-func (listsManager) NewAspect(cfg *cpb.Combined, ga adapter.Builder, env adapter.Env, df descriptor.Finder) (Wrapper, error) {
+// NewCheckExecutor creates a listChecker aspect.
+func (listsManager) NewCheckExecutor(cfg *cpb.Combined, ga adapter.Builder, env adapter.Env, df descriptor.Finder) (CheckExecutor, error) {
 	aa := ga.(adapter.ListsBuilder)
 	var asp adapter.ListsAspect
 	var err error
@@ -51,7 +53,7 @@ func (listsManager) NewAspect(cfg *cpb.Combined, ga adapter.Builder, env adapter
 	if asp, err = aa.NewListsAspect(env, cfg.Builder.Params.(config.AspectParams)); err != nil {
 		return nil, err
 	}
-	return &listsWrapper{
+	return &listsExecutor{
 		inputs: cfg.Aspect.Inputs,
 		aspect: asp,
 		params: cfg.Aspect.Params.(*aconfig.ListsParams),
@@ -76,7 +78,7 @@ func (listsManager) ValidateConfig(c config.AspectParams, _ expr.Validator, _ de
 	return
 }
 
-func (a *listsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
+func (a *listsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
 	var found bool
 	var err error
 
@@ -85,21 +87,21 @@ func (a *listsWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma AP
 
 	// CheckAttribute should be processed and sent to input
 	if symbolExpr, found = a.inputs[a.params.CheckAttribute]; !found {
-		return Output{Status: status.WithError(fmt.Errorf("mapping for %s not found", a.params.CheckAttribute))}
+		return status.WithError(fmt.Errorf("mapping for %s not found", a.params.CheckAttribute))
 	}
 
 	if symbol, err = mapper.EvalString(symbolExpr, attrs); err != nil {
-		return Output{Status: status.WithError(err)}
+		return status.WithError(err)
 	}
 
 	if found, err = a.aspect.CheckList(symbol); err != nil {
-		return Output{Status: status.WithError(err)}
+		return status.WithError(err)
 	}
 
 	if found != a.params.Blacklist {
-		return Output{Status: status.OK}
+		return status.OK
 	}
-	return Output{Status: status.WithPermissionDenied(fmt.Sprintf("%s rejected", symbol))}
+	return status.WithPermissionDenied(fmt.Sprintf("%s rejected", symbol))
 }
 
-func (a *listsWrapper) Close() error { return a.aspect.Close() }
+func (a *listsExecutor) Close() error { return a.aspect.Close() }

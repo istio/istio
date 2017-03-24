@@ -93,8 +93,8 @@ func TestMetricsManager_NewAspect(t *testing.T) {
 	builder := &fakeBuilder{name: "test", body: func() (adapter.MetricsAspect, error) {
 		return &fakeaspect{body: func([]adapter.Value) error { return nil }}, nil
 	}}
-	if _, err := newMetricsManager().NewAspect(conf, builder, atest.NewEnv(t), nil); err != nil {
-		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
+	if _, err := newMetricsManager().NewReportExecutor(conf, builder, atest.NewEnv(t), nil); err != nil {
+		t.Errorf("NewExecutor(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 }
 
@@ -109,16 +109,16 @@ func TestMetricsManager_NewAspect_PropagatesError(t *testing.T) {
 		body: func() (adapter.MetricsAspect, error) {
 			return nil, errors.New(errString)
 		}}
-	_, err := newMetricsManager().NewAspect(conf, builder, atest.NewEnv(t), nil)
+	_, err := newMetricsManager().NewReportExecutor(conf, builder, atest.NewEnv(t), nil)
 	if err == nil {
-		t.Error("newMetricsManager().NewAspect(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
+		t.Error("newMetricsManager().NewReportExecutor(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
 	}
 	if !strings.Contains(err.Error(), errString) {
-		t.Errorf("NewAspect(conf, builder, test.NewEnv(t)) = _, %v; wanted err %s", err, errString)
+		t.Errorf("NewExecutor(conf, builder, test.NewEnv(t)) = _, %v; wanted err %s", err, errString)
 	}
 }
 
-func TestMetricsWrapper_Execute(t *testing.T) {
+func TestMetricsExecutor_Execute(t *testing.T) {
 	// TODO: all of these test values are hardcoded to match the metric definitions hardcoded in metricsManager
 	// (since things have to line up for us to test them), they can be made dynamic when we get the ability to set the definitions
 	goodEval := test.NewFakeEval(func(exp string, _ attribute.Bag) (interface{}, error) {
@@ -198,22 +198,22 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 	for idx, c := range cases {
 		t.Run(strconv.Itoa(idx), func(t *testing.T) {
 			var receivedValues []adapter.Value
-			wrapper := &metricsWrapper{
+			executor := &metricsExecutor{
 				aspect: &fakeaspect{body: func(v []adapter.Value) error {
 					receivedValues = v
 					return c.recordErr
 				}},
 				metadata: c.mdin,
 			}
-			out := wrapper.Execute(test.NewBag(), c.eval, &ReportMethodArgs{})
+			out := executor.Execute(test.NewBag(), c.eval)
 
-			errString := out.Message()
+			errString := out.Message
 			if !strings.Contains(errString, c.errString) {
-				t.Errorf("wrapper.Execute(&fakeBag{}, eval) = _, %v; wanted error containing %s", out.Message(), c.errString)
+				t.Errorf("executor.Execute(&fakeBag{}, eval) = _, %v; wanted error containing %s", out.Message, c.errString)
 			}
 
 			if len(receivedValues) != len(c.out) {
-				t.Errorf("wrapper.Execute(&fakeBag{}, eval) got vals %v, wanted at least %d", receivedValues, len(c.out))
+				t.Errorf("executor.Execute(&fakeBag{}, eval) got vals %v, wanted at least %d", receivedValues, len(c.out))
 			}
 			for _, v := range receivedValues {
 				o, found := c.out[v.Definition.Name]
@@ -233,14 +233,14 @@ func TestMetricsWrapper_Execute(t *testing.T) {
 	}
 }
 
-func TestMetricsWrapper_Close(t *testing.T) {
+func TestMetricsExecutor_Close(t *testing.T) {
 	inner := &fakeaspect{closed: false}
-	wrapper := &metricsWrapper{aspect: inner}
-	if err := wrapper.Close(); err != nil {
-		t.Errorf("wrapper.Close() = %v; wanted no err", err)
+	executor := &metricsExecutor{aspect: inner}
+	if err := executor.Close(); err != nil {
+		t.Errorf("executor.Close() = %v; wanted no err", err)
 	}
 	if !inner.closed {
-		t.Error("metricsWrapper.Close() didn't close the aspect inside")
+		t.Error("metricsExecutor.Close() didn't close the aspect inside")
 	}
 }
 

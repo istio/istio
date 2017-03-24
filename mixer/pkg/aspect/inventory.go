@@ -15,23 +15,27 @@
 package aspect
 
 // ManagerInventory holds a set of aspect managers.
-type ManagerInventory map[APIMethod][]Manager
+type ManagerInventory struct {
+	Check  []CheckManager
+	Report []ReportManager
+	Quota  []QuotaManager
+}
 
 // Inventory returns the authoritative set of aspect managers used by the mixer.
 func Inventory() ManagerInventory {
 	return ManagerInventory{
-		CheckMethod: {
+		Check: []CheckManager{
 			newDenialsManager(),
 			newListsManager(),
 		},
 
-		ReportMethod: {
+		Report: []ReportManager{
 			newApplicationLogsManager(),
 			newAccessLogsManager(),
 			newMetricsManager(),
 		},
 
-		QuotaMethod: {
+		Quota: []QuotaManager{
 			newQuotasManager(),
 		},
 	}

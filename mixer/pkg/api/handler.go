@@ -18,110 +18,52 @@ package api
 
 import (
 	"context"
-	"fmt"
-	"sync/atomic"
 	"time"
 
 	"github.com/golang/glog"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/config"
-	"istio.io/mixer/pkg/config/descriptor"
-	cpb "istio.io/mixer/pkg/config/proto"
-	"istio.io/mixer/pkg/status"
 )
 
 // Handler holds pointers to the functions that implement
 // request-level processing for all public APIs.
 type Handler interface {
 	// Check performs the configured set of precondition checks.
-	// Note that the request parameter is immutable, while the response parameter is where
-	// results are specified
 	Check(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
 		request *mixerpb.CheckRequest, response *mixerpb.CheckResponse)
 
 	// Report performs the requested set of reporting operations.
-	// Note that the request parameter is immutable, while the response parameter is where
-	// results are specified
 	Report(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
 		request *mixerpb.ReportRequest, response *mixerpb.ReportResponse)
 
 	// Quota increments the specified quotas.
-	// Note that the request parameter is immutable, while the response parameter is where
-	// results are specified
 	Quota(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
 		request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse)
 }
 
-// Executor executes any aspect as described by config.Combined.
-type Executor interface {
-	// Execute takes a set of configurations and Executes all of them.
-	Execute(ctx context.Context, cfgs []*cpb.Combined, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
-		ma aspect.APIMethodArgs, df descriptor.Finder) aspect.Output
-}
-
-// handlerState holds state and configuration for the handler.
 type handlerState struct {
-	aspectExecutor Executor
-	// Configs for the aspects that'll be used to serve each API method. <*config.Runtime>
-	cfg atomic.Value
-	// Descriptor finder (derived from configs) that'll be used for creating aspect managers to serve API methods. <descriptor.Finder>
-	df atomic.Value
-
-	// methodMap maps an API method to a set of aspects configured for the method
-	methodMap map[aspect.APIMethod]config.AspectSet
+	aspectDispatcher adapterManager.AspectDispatcher
 }
 
 // NewHandler returns a canonical Handler that implements all of the mixer's API surface
-func NewHandler(aspectExecutor Executor, methodMap map[aspect.APIMethod]config.AspectSet) Handler {
+func NewHandler(aspectDispatcher adapterManager.AspectDispatcher) Handler {
 	return &handlerState{
-		aspectExecutor: aspectExecutor,
-		methodMap:      methodMap,
+		aspectDispatcher: aspectDispatcher,
 	}
 }
 
-// execute performs common functions shared across the api surface.
-func (h *handlerState) execute(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
-	method aspect.APIMethod, ma aspect.APIMethodArgs) aspect.Output {
-	// get a new context with the attribute bag attached
-	ctx = attribute.NewContext(ctx, requestBag)
-
-	cfg, _ := h.cfg.Load().(config.Resolver)
-	df, _ := h.df.Load().(descriptor.Finder)
-	if cfg == nil || df == nil {
-		// config has not been loaded yet
-		const msg = "Configuration is not yet available"
-		glog.Error(msg)
-		return aspect.Output{Status: status.WithInternal(msg)}
-	}
-
-	cfgs, err := cfg.Resolve(requestBag, h.methodMap[method])
-	if err != nil {
-		msg := fmt.Sprintf("unable to resolve config: %v", err)
-		glog.Error(msg)
-		return aspect.Output{Status: status.WithInternal(msg)}
-	}
-
-	if glog.V(2) {
-		glog.Infof("Resolved [%d] ==> %v ", len(cfgs), cfgs)
-	}
-
-	return h.aspectExecutor.Execute(ctx, cfgs, requestBag, responseBag, ma, df)
-}
-
-// Check performs 'check' function corresponding to the mixer api.
-func (h *handlerState) Check(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+// Check implements the public Check API.
+func (m *handlerState) Check(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
 	request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
 	if glog.V(2) {
 		glog.Infof("Check [%x]", request.RequestIndex)
 	}
 
-	o := h.execute(ctx, requestBag, responseBag, aspect.CheckMethod, &aspect.CheckMethodArgs{})
 	response.RequestIndex = request.RequestIndex
-	response.Result = o.Status
-
+	response.Result = m.aspectDispatcher.Check(ctx, requestBag, responseBag)
 	// TODO: this value needs to initially come from config, and be modulated by the kind of attribute
 	//       that was used in the check and the in-used aspects (for example, maybe an auth check has a
 	//       30s TTL but a whitelist check has got a 120s TTL)
@@ -132,52 +74,45 @@ func (h *handlerState) Check(ctx context.Context, requestBag *attribute.MutableB
 	}
 }
 
-// Report performs 'report' function corresponding to the mixer api.
-func (h *handlerState) Report(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+// Report implements the public Report API.
+func (m *handlerState) Report(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
 	request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
 	if glog.V(2) {
 		glog.Infof("Report [%x]", request.RequestIndex)
 	}
 
-	o := h.execute(ctx, requestBag, responseBag, aspect.ReportMethod, &aspect.ReportMethodArgs{})
 	response.RequestIndex = request.RequestIndex
-	response.Result = o.Status
+	response.Result = m.aspectDispatcher.Report(ctx, requestBag, responseBag)
 
 	if glog.V(2) {
 		glog.Infof("Report [%x] <-- %s", request.RequestIndex, response)
 	}
 }
 
-// Quota performs 'quota' function corresponding to the mixer api.
-func (h *handlerState) Quota(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+// Quota implements the public Quota API.
+func (m *handlerState) Quota(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
 	request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
 	if glog.V(2) {
 		glog.Infof("Quota [%x]", request.RequestIndex)
 	}
 
-	response.RequestIndex = request.RequestIndex
-	o := h.execute(ctx, requestBag, responseBag, aspect.QuotaMethod,
-		&aspect.QuotaMethodArgs{
-			Quota:           request.Quota,
-			Amount:          request.Amount,
-			DeduplicationID: request.DeduplicationId,
-			BestEffort:      request.BestEffort,
-		})
+	qma := &aspect.QuotaMethodArgs{
+		Quota:           request.Quota,
+		Amount:          request.Amount,
+		DeduplicationID: request.DeduplicationId,
+		BestEffort:      request.BestEffort,
+	}
+	var qmr *aspect.QuotaMethodResp
 
-	response.Result = o.Status
-	if o.IsOK() {
-		resp := o.Response.(*aspect.QuotaMethodResp)
-		response.Amount = resp.Amount
-		response.Expiration = resp.Expiration
+	response.RequestIndex = request.RequestIndex
+	qmr, response.Result = m.aspectDispatcher.Quota(ctx, requestBag, responseBag, qma)
+
+	if qmr != nil {
+		response.Amount = qmr.Amount
+		response.Expiration = qmr.Expiration
 	}
 
 	if glog.V(2) {
 		glog.Infof("Quota [%x] <-- %s", request.RequestIndex, response)
 	}
-}
-
-// ConfigChange listens for config change notifications.
-func (h *handlerState) ConfigChange(cfg config.Resolver, df descriptor.Finder) {
-	h.cfg.Store(cfg)
-	h.df.Store(df)
 }

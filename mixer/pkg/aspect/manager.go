@@ -19,6 +19,7 @@ package aspect
 
 import (
 	"io"
+	"time"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
@@ -28,50 +29,96 @@ import (
 	"istio.io/mixer/pkg/config/descriptor"
 	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/status"
 )
 
 type (
-	// Output captures the output from invoking an aspect.
-	Output struct {
-		// status code
-		Status rpc.Status
-
-		// Additional method-specific returned state
-		Response APIMethodResp
-
-		//TODO attribute mutator
-		//If any attributes should change in the context for the next call
-		//context remains immutable during the call
-	}
-
 	// Manager is responsible for a specific aspect and presents a uniform interface
 	// to the rest of the system.
 	Manager interface {
 		config.AspectValidator
 
-		// NewAspect creates a new aspect instance given configuration.
-		NewAspect(cfg *cpb.Combined, adapter adapter.Builder, env adapter.Env, df descriptor.Finder) (Wrapper, error)
-
-		// Kind return the kind of aspect
+		// Kind return the kind of aspect handled by this manager
 		Kind() Kind
 	}
 
-	// Wrapper encapsulates a single aspect and allows it to be invoked.
-	Wrapper interface {
-		io.Closer
+	// CheckManager take care of aspects used to implement the Check API method
+	CheckManager interface {
+		Manager
 
-		// Execute dispatches to the adapter.
-		Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output
+		// NewCheckExecutor creates a new aspect executor given configuration.
+		NewCheckExecutor(cfg *cpb.Combined, builder adapter.Builder, env adapter.Env, df descriptor.Finder) (CheckExecutor, error)
+	}
+
+	// ReportManager take care of aspects used to implement the Report API method
+	ReportManager interface {
+		Manager
+
+		// NewReportExecutor creates a new aspect executor given configuration.
+		NewReportExecutor(cfg *cpb.Combined, builder adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportExecutor, error)
+	}
+
+	// QuotaManager take care of aspects used to implement the Quota API method
+	QuotaManager interface {
+		Manager
+
+		// NewQuotaExecutor creates a new aspect executor given configuration.
+		NewQuotaExecutor(cfg *cpb.Combined, builder adapter.Builder, env adapter.Env, df descriptor.Finder) (QuotaExecutor, error)
+	}
+
+	// Executor encapsulates a single aspect and allows it to be invoked.
+	Executor interface {
+		io.Closer
+	}
+
+	// CheckExecutor encapsulates a single CheckManager aspect and allows it to be invoked.
+	CheckExecutor interface {
+		Executor
+
+		// Execute dispatches to the aspect manager.
+		Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status
+	}
+
+	// ReportExecutor encapsulates a single ReportManager aspect and allows it to be invoked.
+	ReportExecutor interface {
+		Executor
+
+		// Execute dispatches to the aspect manager.
+		Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status
+	}
+
+	// QuotaExecutor encapsulates a single QuotaManager aspect and allows it to be invoked.
+	QuotaExecutor interface {
+		Executor
+
+		// Execute dispatches to the aspect manager.
+		Execute(attrs attribute.Bag, mapper expr.Evaluator, qma *QuotaMethodArgs) (rpc.Status, *QuotaMethodResp)
+	}
+
+	// QuotaMethodArgs is supplied by invocations of the Quota method.
+	QuotaMethodArgs struct {
+		// Used for deduplicating quota allocation/free calls in the case of
+		// failed RPCs and retries. This should be a UUID per call, where the same
+		// UUID is used for retries of the same quota allocation call.
+		DeduplicationID string
+
+		// The quota to allocate from.
+		Quota string
+
+		// The amount of quota to allocate.
+		Amount int64
+
+		// If true, allows a response to return less quota than requested. When
+		// false, the exact requested amount is returned or 0 if not enough quota
+		// was available.
+		BestEffort bool
+	}
+
+	// QuotaMethodResp is returned by invocations of the Quota method.
+	QuotaMethodResp struct {
+		// The amount of time until which the returned quota expires, this is 0 for non-expiring quotas.
+		Expiration time.Duration
+
+		// The total amount of quota returned, may be less than requested.
+		Amount int64
 	}
 )
-
-// IsOK returns whether the Output represents success or failure
-func (o Output) IsOK() bool {
-	return status.IsOK(o.Status)
-}
-
-// Message returns te the message string of the Output's embedded Status struct
-func (o Output) Message() string {
-	return o.Status.Message
-}

@@ -47,7 +47,7 @@ type ChangeListener interface {
 type Manager struct {
 	eval             expr.Evaluator
 	aspectFinder     AspectValidatorFinder
-	builderFinder    AdapterValidatorFinder
+	builderFinder    BuilderValidatorFinder
 	descriptorFinder descriptor.Finder
 	findAspects      AdapterToAspectMapper
 	loopDelay        time.Duration
@@ -74,7 +74,7 @@ type Manager struct {
 // as command line input parameters.
 // GlobalConfig specifies the location of Global Config.
 // ServiceConfig specifies the location of Service config.
-func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builderFinder AdapterValidatorFinder,
+func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builderFinder BuilderValidatorFinder,
 	findAspects AdapterToAspectMapper, globalConfig string, serviceConfig string, loopDelay time.Duration) *Manager {
 	m := &Manager{
 		eval:          eval,

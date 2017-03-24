@@ -54,10 +54,10 @@ type (
 		ValidateConfig(c AspectParams, validator expr.Validator, finder descriptor.Finder) *adapter.ConfigErrors
 	}
 
-	// AdapterValidatorFinder is used to find specific underlying validators.
+	// BuilderValidatorFinder is used to find specific underlying validators.
 	// Manager registry and adapter registry should implement this interface
 	// so ConfigValidators can be uniformly accessed.
-	AdapterValidatorFinder func(name string) (adapter.ConfigValidator, bool)
+	BuilderValidatorFinder func(name string) (adapter.ConfigValidator, bool)
 
 	// AspectValidatorFinder is used to find specific underlying validators.
 	// Manager registry and adapter registry should implement this interface
@@ -72,7 +72,7 @@ type (
 )
 
 // NewValidator returns a validator given component validators.
-func NewValidator(managerFinder AspectValidatorFinder, adapterFinder AdapterValidatorFinder,
+func NewValidator(managerFinder AspectValidatorFinder, adapterFinder BuilderValidatorFinder,
 	findAspects AdapterToAspectMapper, strict bool, exprValidator expr.Validator) *Validator {
 	return &Validator{
 		managerFinder: managerFinder,
@@ -88,7 +88,7 @@ type (
 	// Validator is the Configuration validator.
 	Validator struct {
 		managerFinder    AspectValidatorFinder
-		adapterFinder    AdapterValidatorFinder
+		adapterFinder    BuilderValidatorFinder
 		findAspects      AdapterToAspectMapper
 		descriptorFinder descriptor.Finder
 		strict           bool
@@ -226,7 +226,7 @@ func UnknownValidator(name string) error {
 }
 
 // ConvertAdapterParams converts returns a typed proto message based on available Validator.
-func ConvertAdapterParams(f AdapterValidatorFinder, name string, params interface{}, strict bool) (ac adapter.Config, ce *adapter.ConfigErrors) {
+func ConvertAdapterParams(f BuilderValidatorFinder, name string, params interface{}, strict bool) (ac adapter.Config, ce *adapter.ConfigErrors) {
 	var avl adapter.ConfigValidator
 	var found bool
 

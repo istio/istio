@@ -19,6 +19,7 @@ import (
 
 	ptypes "github.com/gogo/protobuf/types"
 	"github.com/golang/glog"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
@@ -39,7 +40,7 @@ type (
 		labels     map[string]string
 	}
 
-	quotasWrapper struct {
+	quotasExecutor struct {
 		manager  *quotasManager
 		aspect   adapter.QuotasAspect
 		metadata map[string]*quotaInfo
@@ -48,12 +49,11 @@ type (
 )
 
 // newQuotasManager returns a manager for the quotas aspect.
-func newQuotasManager() Manager {
+func newQuotasManager() QuotaManager {
 	return &quotasManager{}
 }
 
-// NewAspect creates a quota aspect.
-func (m *quotasManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (Wrapper, error) {
+func (m *quotasManager) NewQuotaExecutor(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (QuotaExecutor, error) {
 	params := c.Aspect.Params.(*aconfig.QuotasParams)
 
 	// TODO: get this from config
@@ -103,7 +103,7 @@ func (m *quotasManager) NewAspect(c *cpb.Combined, a adapter.Builder, env adapte
 		return nil, err
 	}
 
-	return &quotasWrapper{
+	return &quotasExecutor{
 		manager:  m,
 		metadata: metadata,
 		aspect:   asp,
@@ -117,21 +117,19 @@ func (*quotasManager) ValidateConfig(config.AspectParams, expr.Validator, descri
 	return
 }
 
-func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma APIMethodArgs) Output {
-	qma := ma.(*QuotaMethodArgs)
-
+func (w *quotasExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma *QuotaMethodArgs) (rpc.Status, *QuotaMethodResp) {
 	info, ok := w.metadata[qma.Quota]
 	if !ok {
 		msg := fmt.Sprintf("Unknown quota '%s' requested", qma.Quota)
 		glog.Error(msg)
-		return Output{Status: status.WithInvalidArgument(msg)}
+		return status.WithInvalidArgument(msg), nil
 	}
 
 	labels, err := evalAll(info.labels, attrs, mapper)
 	if err != nil {
 		msg := fmt.Sprintf("Unable to evaluate labels for quota '%s' with err: %s", qma.Quota, err)
 		glog.Error(msg)
-		return Output{Status: status.WithInvalidArgument(msg)}
+		return status.WithInvalidArgument(msg), nil
 	}
 
 	qa := adapter.QuotaArgs{
@@ -155,28 +153,24 @@ func (w *quotasWrapper) Execute(attrs attribute.Bag, mapper expr.Evaluator, ma A
 
 	if err != nil {
 		glog.Errorf("Quota allocation failed: %v", err)
-		return Output{Status: status.WithError(err)}
+		return status.WithError(err), nil
 	}
 
 	if qr.Amount == 0 {
 		msg := fmt.Sprintf("Unable to allocate %v units from quota %s", qa.QuotaAmount, qa.Definition.Name)
 		glog.Warning(msg)
-		return Output{Status: status.WithResourceExhausted(msg)}
+		return status.WithResourceExhausted(msg), nil
 	}
 
 	if glog.V(2) {
 		glog.Infof("Allocate %v units from quota %s", qa.QuotaAmount, qa.Definition.Name)
 	}
 
-	return Output{
-		Status: status.OK,
-		Response: &QuotaMethodResp{
-			Amount:     qr.Amount,
-			Expiration: qr.Expiration,
-		}}
+	qmr := QuotaMethodResp(qr)
+	return status.OK, &qmr
 }
 
-func (w *quotasWrapper) Close() error {
+func (w *quotasExecutor) Close() error {
 	return w.aspect.Close()
 }
 
