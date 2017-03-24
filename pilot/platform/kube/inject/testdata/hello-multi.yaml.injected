@@ -11,7 +11,7 @@ spec:
       annotations:
         alpha.istio.io/sidecar: injected
         alpha.istio.io/version: "12345678"
-        pod.beta.kubernetes.io/init-containers: '[{"args":["-p","15001","-u","1337"],"image":"docker.io/istio/init:latest","imagePullPolicy":"Always","name":"init","securityContext":{"capabilities":{"add":["NET_ADMIN"]}}}]'
+        pod.beta.kubernetes.io/init-containers: '[{"args":["-p","15001","-u","1337"],"image":"docker.io/init:unittest","imagePullPolicy":"Always","name":"init","securityContext":{"capabilities":{"add":["NET_ADMIN"]}}}]'
       creationTimestamp: null
       labels:
         app: hello
@@ -50,7 +50,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        image: docker.io/istio/runtime:latest
+        image: docker.io/runtime:unittest
         imagePullPolicy: Always
         name: proxy
         resources: {}
@@ -71,7 +71,7 @@ spec:
       annotations:
         alpha.istio.io/sidecar: injected
         alpha.istio.io/version: "12345678"
-        pod.beta.kubernetes.io/init-containers: '[{"args":["-p","15001","-u","1337"],"image":"docker.io/istio/init:latest","imagePullPolicy":"Always","name":"init","securityContext":{"capabilities":{"add":["NET_ADMIN"]}}}]'
+        pod.beta.kubernetes.io/init-containers: '[{"args":["-p","15001","-u","1337"],"image":"docker.io/init:unittest","imagePullPolicy":"Always","name":"init","securityContext":{"capabilities":{"add":["NET_ADMIN"]}}}]'
       creationTimestamp: null
       labels:
         app: hello
@@ -110,7 +110,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        image: docker.io/istio/runtime:latest
+        image: docker.io/runtime:unittest
         imagePullPolicy: Always
         name: proxy
         resources: {}

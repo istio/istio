@@ -23,10 +23,25 @@ import (
 	"github.com/pmezard/go-difflib/difflib"
 )
 
+func TestImageName(t *testing.T) {
+	want := "docker.io/init:latest"
+	if got := InitImageName("docker.io", "latest"); got != want {
+		t.Errorf("InitImage() failed: got %q want %q", got, want)
+	}
+	want = "docker.io/runtime:latest"
+	if got := RuntimeImageName("docker.io", "latest"); got != want {
+		t.Errorf("InitImage() failed: got %q want %q", got, want)
+	}
+}
+
+// Tag name should be kept in sync with value in platform/kube/inject/refresh.sh
+const unitTestTag = "unittest"
+
 func TestIntoResourceFile(t *testing.T) {
 	params := Params{
-		InitImage:        DefaultInitImage,
-		RuntimeImage:     DefaultRuntimeImage,
+
+		InitImage:        InitImageName(DefaultHub, unitTestTag),
+		RuntimeImage:     RuntimeImageName(DefaultHub, unitTestTag),
 		RuntimeVerbosity: DefaultRuntimeVerbosity,
 		ManagerAddr:      DefaultManagerAddr,
 		MixerAddr:        DefaultMixerAddr,

@@ -28,8 +28,8 @@ import (
 )
 
 var (
-	initImage        string
-	runtimeImage     string
+	hub              string
+	tag              string
 	managerAddr      string
 	mixerAddr        string
 	sidecarProxyUID  int64
@@ -79,8 +79,8 @@ var (
 					version.Info.GitRevision)
 			}
 			params := &inject.Params{
-				InitImage:        initImage,
-				RuntimeImage:     runtimeImage,
+				InitImage:        inject.InitImageName(hub, tag),
+				RuntimeImage:     inject.RuntimeImageName(hub, tag),
 				RuntimeVerbosity: runtimeVerbosity,
 				ManagerAddr:      managerAddr,
 				MixerAddr:        mixerAddr,
@@ -94,10 +94,10 @@ var (
 )
 
 func init() {
-	injectCmd.PersistentFlags().StringVar(&initImage, "initImage",
-		inject.DefaultInitImage, "Istio init image")
-	injectCmd.PersistentFlags().StringVar(&runtimeImage, "runtimeImage",
-		inject.DefaultRuntimeImage, "Istio runtime image")
+	injectCmd.PersistentFlags().StringVar(&hub, "hub",
+		inject.DefaultHub, "Docker hub")
+	injectCmd.PersistentFlags().StringVar(&tag, "tag",
+		inject.DefaultTag, "Docker tag")
 	injectCmd.PersistentFlags().StringVarP(&inFilename, "filename", "f",
 		"", "Input kubernetes resource filename")
 	injectCmd.PersistentFlags().StringVarP(&outFilename, "output", "o",
