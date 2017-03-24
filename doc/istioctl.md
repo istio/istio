@@ -73,7 +73,7 @@ necessary configurations to a kubernetes resource files.
 
 Or update the resource on the fly before applying.
 
-    istioctl kube-inject -f depoyment.yaml | kubectl apply -f -
+    kubectl create -f <(istioctl kube-inject -f depoyment.yaml)
 
 Or update an existing deployment.
 
@@ -89,13 +89,6 @@ Unsupported resources are left unmodified so, for example, it is safe
 to run `istioctl kube-inject` over a single file that contains multiple
 Service, ConfigMap, and Deployment definitions for a complex
 application.
-
-For convenience you can use the `istio-inject` shell function which wraps
-`istioctl kube-inject` and provides known good default values for some
-of the flags noted above.
-
-    $ source istioctl-kube-inject.sh
-    $ istio-inject <kubernetes-yaml-resource> | kubectl apply -f -
 
 The Istio project is continually evolving so the low-level proxy
 configuration may change unannounced. When in doubt re-run `istioctl kube-inject`

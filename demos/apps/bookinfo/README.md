@@ -55,16 +55,9 @@ which will be used to implement the gateway for the application.
 
 1. Bring up the application containers:
 
-   ```bash
-   $ source ../../../kubernetes/istioctl-kube-inject.sh
-   ```
-
-   `istio-inject` is a wrapper function around `istioctl
-   kube-inject` which injects the istio runtime proxy into kubernetes
-   resources files. `istio-inject` and `istioctl kube-inject` are documented [here](https://github.com/istio/istio/blob/master/doc/istioctl.md#kube-inject).
 
    ```bash
-   $ isito-inject bookinfo-istio.yaml | kubectl apply -f -
+   $ kubectl create -f <(istioctl kube-inject -f bookinfo-istio.yaml)
    ```
 
    The above command creates the gateway ingress resource and launches
@@ -73,6 +66,9 @@ which will be used to implement the gateway for the application.
    realistic deployment, new versions of a microservice are deployed
    over time instead of deploying all versions
    simultaneously.
+
+   The `istioctl kube-inject` command injects the istio runtime proxy
+   into kubernetes resource files. It is documented [here](../../../doc/istioctl.md#kube-inject).
 
 
 1. Confirm that all services and pods are correctly defined and running:
