@@ -60,7 +60,7 @@ const (
 // - static client exposes Kubernetes API
 type Client struct {
 	mapping model.KindMap
-	client  *kubernetes.Clientset
+	client  kubernetes.Interface
 	dyn     *rest.RESTClient
 }
 
@@ -151,7 +151,7 @@ func NewClient(kubeconfig string, km model.KindMap) (*Client, error) {
 }
 
 // GetKubernetesClient retrieves core set kubernetes client
-func (cl *Client) GetKubernetesClient() *kubernetes.Clientset {
+func (cl *Client) GetKubernetesClient() kubernetes.Interface {
 	return cl.client
 }
 

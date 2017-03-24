@@ -61,7 +61,7 @@ func buildInboundCluster(hostname string, port int, protocol model.Protocol) *Cl
 	return cluster
 }
 
-func buildOutboundCluster(hostname string, port *model.Port, tags model.Tags) *Cluster {
+func buildOutboundCluster(hostname string, port *model.Port, ssl *SSLContextWithSAN, tags model.Tags) *Cluster {
 	svc := model.Service{Hostname: hostname}
 	key := svc.Key(port, tags)
 	cluster := &Cluster{
@@ -70,6 +70,7 @@ func buildOutboundCluster(hostname string, port *model.Port, tags model.Tags) *C
 		Type:             "sds",
 		LbType:           DefaultLbType,
 		ConnectTimeoutMs: DefaultTimeoutMs,
+		SSLContext:       ssl,
 		hostname:         hostname,
 		port:             port,
 		tags:             tags,
@@ -82,7 +83,7 @@ func buildOutboundCluster(hostname string, port *model.Port, tags model.Tags) *C
 }
 
 // buildHTTPRoute translates a route rule to an Envoy route
-func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port) (*HTTPRoute, bool) {
+func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port, ssl *SSLContextWithSAN) (*HTTPRoute, bool) {
 	route := &HTTPRoute{
 		Path:   "",
 		Prefix: "/",
@@ -140,7 +141,7 @@ func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port) (*HTTPRoute, 
 				destination = rule.Destination
 			}
 
-			cluster := buildOutboundCluster(destination, port, dst.Tags)
+			cluster := buildOutboundCluster(destination, port, ssl, dst.Tags)
 			clusters = append(clusters, &WeightedClusterEntry{
 				Name:   cluster.Name,
 				Weight: int(dst.Weight),
@@ -157,7 +158,7 @@ func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port) (*HTTPRoute, 
 	} else {
 		route.WeightedClusters = nil
 		// default route for the destination
-		cluster := buildOutboundCluster(rule.Destination, port, nil)
+		cluster := buildOutboundCluster(rule.Destination, port, ssl, nil)
 		route.Cluster = cluster.Name
 		route.clusters = make([]*Cluster, 0)
 		route.clusters = append(route.clusters, cluster)

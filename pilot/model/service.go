@@ -177,6 +177,13 @@ type ServiceDiscovery interface {
 
 	// HostInstances lists service instances for a given set of IPv4 addresses.
 	HostInstances(addrs map[string]bool) []*ServiceInstance
+
+	// Gets all the Istio service accounts mapped from service hostname, in istio identity format.
+	// For example,
+	// GetIstioServiceAccounts(catalog.myservice.com) -->
+	//      --> [istio:serviceaccount1, istio:serviceaccount2]
+	// GetIstioServiceAccounts(backend.myservice.com) --> [istio:serviceaccount3]
+	GetIstioServiceAccounts(hostname string) ([]string, error)
 }
 
 // SubsetOf is true if the tag has identical values for the keys

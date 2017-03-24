@@ -35,6 +35,17 @@ func makeDiscoveryService(r *model.IstioRegistry) *DiscoveryService {
 	}
 }
 
+func makeDiscoveryServiceWithSSLContext(r *model.IstioRegistry) *DiscoveryService {
+	meshConfigWithSSLContext := *DefaultMeshConfig
+	meshConfigWithSSLContext.EnableAuth = true
+	meshConfigWithSSLContext.AuthConfigPath = "/etc/certs"
+	return &DiscoveryService{
+		services: mock.Discovery,
+		config:   r,
+		mesh:     &meshConfigWithSSLContext,
+	}
+}
+
 func makeDiscoveryRequest(ds *DiscoveryService, url string, t *testing.T) []byte {
 	httpRequest, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -96,6 +107,14 @@ func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	url := fmt.Sprintf("/v1/clusters/%s/%s", ds.mesh.IstioServiceCluster, mock.HostInstanceV0)
 	response := makeDiscoveryRequest(ds, url, t)
 	compareResponse(response, "testdata/cds-circuit-breaker.json", t)
+}
+
+func TestClusterDiscoveryWithSSLContext(t *testing.T) {
+	registry := mock.MakeRegistry()
+	ds := makeDiscoveryServiceWithSSLContext(registry)
+	url := fmt.Sprintf("/v1/clusters/%s/%s", ds.mesh.IstioServiceCluster, mock.HostInstanceV0)
+	response := makeDiscoveryRequest(ds, url, t)
+	compareResponse(response, "testdata/cds-ssl-context.json", t)
 }
 
 func TestRouteDiscovery(t *testing.T) {

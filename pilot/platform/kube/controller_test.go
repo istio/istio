@@ -24,6 +24,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/client-go/pkg/util/intstr"
@@ -284,7 +285,7 @@ func TestServices(t *testing.T) {
 	}
 }
 
-func makeService(n, ns string, cl *kubernetes.Clientset, t *testing.T) {
+func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
 	_, err := cl.Core().Services(ns).Create(&v1.Service{
 		ObjectMeta: v1.ObjectMeta{Name: n},
 		Spec: v1.ServiceSpec{
@@ -300,6 +301,82 @@ func makeService(n, ns string, cl *kubernetes.Clientset, t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	glog.Infof("Created service %s", n)
+}
+
+func TestController_GetIstioServiceAccounts(t *testing.T) {
+	clientSet := fake.NewSimpleClientset()
+
+	createPod(clientSet, map[string]string{"app": "test-app"}, "pod1", "nsA", "acct1", t)
+	createPod(clientSet, map[string]string{"app": "prod-app"}, "pod2", "nsA", "acct2", t)
+	createPod(clientSet, map[string]string{"app": "prod-app"}, "pod3", "nsA", "acct3", t)
+	createPod(clientSet, map[string]string{"app": "prod-app"}, "pod4", "nsA", "acct3", t)
+	createPod(clientSet, map[string]string{"app": "prod-app"}, "pod5", "nsB", "acct4", t)
+
+	controller := NewController(&Client{client: clientSet}, "default", 100*time.Millisecond)
+
+	createService(controller, "svc1", "nsA", map[string]string{"app": "prod-app"}, t)
+	createService(controller, "svc2", "nsA", map[string]string{"app": "staging-app"}, t)
+
+	hostname := serviceHostname("svc1", "nsA")
+	sa, err := controller.GetIstioServiceAccounts(hostname)
+	if err != nil {
+		t.Error("Error returned: ", err)
+	} else if len(sa) != 2 ||
+		!(sa[0] == "istio:acct2.nsA.cluster.local" && sa[1] == "istio:acct3.nsA.cluster.local" ||
+			sa[0] == "istio:acct3.nsA.cluster.local" && sa[1] == "istio:acct2.nsA.cluster.local") {
+		t.Error("Failure: The resolved service accounts are not correct: ", sa)
+	}
+
+	hostname = serviceHostname("svc2", "nsA")
+	sa, err = controller.GetIstioServiceAccounts(hostname)
+	if err != nil {
+		t.Error("Error returned: ", err)
+	} else if len(sa) != 0 {
+		t.Error("Failure: Expected to resolve 0 service accounts, but got: ", sa)
+	}
+
+	hostname = serviceHostname("svc1", "nsB")
+	_, err = controller.GetIstioServiceAccounts(hostname)
+	if err == nil {
+		t.Error("Failure: Expected error due to no service in namespace.")
+	} else if err.Error() != fmt.Sprintf("Failed to get service for hostname %s.", hostname) {
+		t.Error("Failure: Returned incorrect error message: ", err.Error())
+	}
+
+	hostname = serviceHostname("svc1", "nsC")
+	_, err = controller.GetIstioServiceAccounts(hostname)
+	if err == nil {
+		t.Error("Failure: Expected error due to namespace not exist.")
+	} else if err.Error() != fmt.Sprintf("Failed to get service for hostname %s.", hostname) {
+		t.Error("Failure: Returned incorrect error message ", err.Error())
+	}
+}
+
+func createService(controller *Controller, name, namespace string, selector map[string]string, t *testing.T) {
+	service := &v1.Service{
+		ObjectMeta: v1.ObjectMeta{Name: name, Namespace: namespace},
+		Spec:       v1.ServiceSpec{Selector: selector},
+	}
+	if err := controller.services.informer.GetStore().Add(service); err != nil {
+		t.Errorf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
+	}
+}
+
+func createPod(client kubernetes.Interface, labels map[string]string, name string, namespace string,
+	serviceAccountName string, t *testing.T) {
+	pod := &v1.Pod{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      name,
+			Labels:    labels,
+			Namespace: namespace,
+		},
+		Spec: v1.PodSpec{
+			ServiceAccountName: serviceAccountName,
+		},
+	}
+	if _, err := client.CoreV1().Pods(namespace).Create(pod); err != nil {
+		t.Errorf("Cannot create pod in namespace %s (error: %v)", namespace, err)
+	}
 }
 
 func TestIstioConfig(t *testing.T) {

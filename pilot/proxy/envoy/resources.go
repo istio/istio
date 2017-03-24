@@ -40,6 +40,12 @@ type MeshConfig struct {
 	// Envoy config root path
 	ConfigPath string
 
+	// Whether Envoy enforces auth for proxy-proxy traffic
+	EnableAuth bool
+
+	// The path for auth config files
+	AuthConfigPath string
+
 	// DrainTimeSeconds is the duration of the grace period to drain connections
 	// from an older proxy instance
 	DrainTimeSeconds int
@@ -68,6 +74,8 @@ var (
 		AdminPort:                 15000,
 		BinaryPath:                "/usr/local/bin/envoy",
 		ConfigPath:                "/etc/envoy",
+		EnableAuth:                false,
+		AuthConfigPath:            "/etc/certs",
 		DrainTimeSeconds:          30,
 		ParentShutdownTimeSeconds: 45,
 		IstioServiceCluster:       "istio-proxy",
@@ -416,7 +424,15 @@ type Listener struct {
 type SSLContext struct {
 	CertChainFile  string `json:"cert_chain_file"`
 	PrivateKeyFile string `json:"private_key_file"`
-	CACertFile     string `json:"ca_cert_file,omitempty"`
+	CaCertFile     string `json:"ca_cert_file,omitempty"`
+}
+
+// SSLContextWithSAN definition, VerifySubjectAltName cannot be nil.
+type SSLContextWithSAN struct {
+	CertChainFile        string   `json:"cert_chain_file"`
+	PrivateKeyFile       string   `json:"private_key_file"`
+	CaCertFile           string   `json:"ca_cert_file,omitempty"`
+	VerifySubjectAltName []string `json:"verify_subject_alt_name"`
 }
 
 // HTTPRouteConfigs provides routes by virtual host and port
@@ -445,16 +461,17 @@ type Host struct {
 
 // Cluster definition
 type Cluster struct {
-	Name                     string            `json:"name"`
-	ServiceName              string            `json:"service_name,omitempty"`
-	ConnectTimeoutMs         int               `json:"connect_timeout_ms"`
-	Type                     string            `json:"type"`
-	LbType                   string            `json:"lb_type"`
-	MaxRequestsPerConnection int               `json:"max_requests_per_connection,omitempty"`
-	Hosts                    []Host            `json:"hosts,omitempty"`
-	Features                 string            `json:"features,omitempty"`
-	CircuitBreaker           *CircuitBreaker   `json:"circuit_breakers,omitempty"`
-	OutlierDetection         *OutlierDetection `json:"outlier_detection,omitempty"`
+	Name                     string             `json:"name"`
+	ServiceName              string             `json:"service_name,omitempty"`
+	ConnectTimeoutMs         int                `json:"connect_timeout_ms"`
+	Type                     string             `json:"type"`
+	LbType                   string             `json:"lb_type"`
+	MaxRequestsPerConnection int                `json:"max_requests_per_connection,omitempty"`
+	Hosts                    []Host             `json:"hosts,omitempty"`
+	SSLContext               *SSLContextWithSAN `json:"ssl_context,omitempty"`
+	Features                 string             `json:"features,omitempty"`
+	CircuitBreaker           *CircuitBreaker    `json:"circuit_breakers,omitempty"`
+	OutlierDetection         *OutlierDetection  `json:"outlier_detection,omitempty"`
 
 	// special values used by the post-processing passes for outbound clusters
 	hostname string

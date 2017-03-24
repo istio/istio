@@ -70,7 +70,7 @@ type parameters struct {
 var (
 	params parameters
 
-	client      *kubernetes.Clientset
+	client      kubernetes.Interface
 	istioClient *kube.Client
 
 	// pods is a mapping from app name to a pod name (write once, read only)
@@ -388,7 +388,7 @@ func setPods() error {
 	var items []v1.Pod
 	for n := 0; ; n++ {
 		glog.Info("Checking all pods are running...")
-		list, err := client.Pods(params.namespace).List(v1.ListOptions{})
+		list, err := client.CoreV1().Pods(params.namespace).List(v1.ListOptions{})
 		if err != nil {
 			return err
 		}
@@ -429,7 +429,7 @@ func setPods() error {
 // podLogs gets pod logs by container
 func podLogs(name string, container string) string {
 	glog.Infof("Pod proxy logs %q", name)
-	raw, err := client.Pods(params.namespace).
+	raw, err := client.CoreV1().Pods(params.namespace).
 		GetLogs(name, &v1.PodLogOptions{Container: container}).
 		Do().Raw()
 	if err != nil {
@@ -440,7 +440,7 @@ func podLogs(name string, container string) string {
 	return string(raw)
 }
 
-func generateNamespace(cl *kubernetes.Clientset) (string, error) {
+func generateNamespace(cl kubernetes.Interface) (string, error) {
 	ns, err := cl.Core().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: v1.ObjectMeta{
 			GenerateName: "istio-integration-",
@@ -454,7 +454,7 @@ func generateNamespace(cl *kubernetes.Clientset) (string, error) {
 	return ns.Name, nil
 }
 
-func deleteNamespace(cl *kubernetes.Clientset, ns string) {
+func deleteNamespace(cl kubernetes.Interface, ns string) {
 	if cl != nil && ns != "" && ns != "default" {
 		if err := cl.Core().Namespaces().Delete(ns, &v1.DeleteOptions{}); err != nil {
 			glog.Infof("Error deleting namespace: %v\n", err)

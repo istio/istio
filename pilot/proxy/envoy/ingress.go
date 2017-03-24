@@ -276,7 +276,7 @@ func buildIngressRoute(rule *config.RouteRule) (*HTTPRoute, error) {
 			return nil, multierror.Append(fmt.Errorf("failed to extract routing rule destination port"), err)
 		}
 
-		cluster := buildOutboundCluster(destination, port, tags)
+		cluster := buildOutboundCluster(destination, port, nil, tags)
 		clusters = append(clusters, &WeightedClusterEntry{
 			Name:   cluster.Name,
 			Weight: int(dst.Weight),

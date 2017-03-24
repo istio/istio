@@ -28,6 +28,7 @@ import (
 
 	"istio.io/manager/model"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
@@ -75,26 +76,26 @@ func NewController(
 
 	out.services = out.createInformer(&v1.Service{}, resyncPeriod,
 		func(opts v1.ListOptions) (runtime.Object, error) {
-			return client.client.Services(namespace).List(opts)
+			return client.client.CoreV1().Services(namespace).List(opts)
 		},
 		func(opts v1.ListOptions) (watch.Interface, error) {
-			return client.client.Services(namespace).Watch(opts)
+			return client.client.CoreV1().Services(namespace).Watch(opts)
 		})
 
 	out.endpoints = out.createInformer(&v1.Endpoints{}, resyncPeriod,
 		func(opts v1.ListOptions) (runtime.Object, error) {
-			return client.client.Endpoints(namespace).List(opts)
+			return client.client.CoreV1().Endpoints(namespace).List(opts)
 		},
 		func(opts v1.ListOptions) (watch.Interface, error) {
-			return client.client.Endpoints(namespace).Watch(opts)
+			return client.client.CoreV1().Endpoints(namespace).Watch(opts)
 		})
 
 	out.pods = newPodCache(out.createInformer(&v1.Pod{}, resyncPeriod,
 		func(opts v1.ListOptions) (runtime.Object, error) {
-			return client.client.Pods(namespace).List(opts)
+			return client.client.CoreV1().Pods(namespace).List(opts)
 		},
 		func(opts v1.ListOptions) (watch.Interface, error) {
-			return client.client.Pods(namespace).Watch(opts)
+			return client.client.CoreV1().Pods(namespace).Watch(opts)
 		}))
 
 	out.ingresses = out.createInformer(&v1beta1.Ingress{}, resyncPeriod,
@@ -566,6 +567,52 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 		}
 	}
 	return out
+}
+
+const (
+	// IstioServiceAccountPrefix is always the prefix for Istio service accounts.
+	IstioServiceAccountPrefix = "istio:"
+	// LocalDomain is the domain name Istio service account uses for internal traffic.
+	LocalDomain = "cluster.local"
+)
+
+// GetIstioServiceAccounts returns the Istio service accounts running a serivce hostname.
+// An empty array is always returned if an error occurs.
+func (c *Controller) GetIstioServiceAccounts(hostname string) ([]string, error) {
+	name, namespace, err := parseHostname(hostname)
+	saArray := make([]string, 0)
+	if err != nil {
+		glog.Warningf("parseHostname(%s) => error %v", hostname, err)
+		return saArray, err
+	}
+	svc, exists := c.serviceByKey(name, namespace)
+	if !exists {
+		err := fmt.Sprintf("Failed to get service for hostname %s.", hostname)
+		glog.Warningf(err)
+		return saArray, errors.New(err)
+	}
+	lo := v1.ListOptions{
+		LabelSelector: labels.Set(svc.Spec.Selector).String(),
+	}
+	// TODO: This is fragile, improve it.
+	pods, err := c.client.client.CoreV1().Pods(svc.Namespace).List(lo)
+	if err != nil {
+		glog.Warningf("Failed to get pods for service %s.", hostname)
+		return saArray, err
+	}
+	saSet := make(map[string]bool)
+	for _, p := range pods.Items {
+		sa := makeIstioServiceAccount(p.Spec.ServiceAccountName, namespace, LocalDomain)
+		if _, exists := saSet[sa]; !exists {
+			saSet[sa] = true
+			saArray = append(saArray, sa)
+		}
+	}
+	return saArray, nil
+}
+
+func makeIstioServiceAccount(sa string, ns string, domain string) string {
+	return IstioServiceAccountPrefix + sa + "." + ns + "." + domain
 }
 
 // AppendServiceHandler implements a service catalog operation

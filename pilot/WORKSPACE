@@ -265,6 +265,12 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "io_k8s_apimachinery",
+    commit = "d3c1641d0c440b4c1bef7e1fc105f19f713477e0",
+    importpath = "k8s.io/apimachinery",
+)
+
+new_go_repository(
     name = "io_k8s_client_go",
     commit = "243d8a9cb66a51ad8676157f79e71033b4014a2a",
     importpath = "k8s.io/client-go",

@@ -99,7 +99,7 @@ func makeClient(t *testing.T) *Client {
 	return cl
 }
 
-func makeNamespace(cl *kubernetes.Clientset, t *testing.T) string {
+func makeNamespace(cl kubernetes.Interface, t *testing.T) string {
 	ns, err := cl.Core().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: v1.ObjectMeta{
 			GenerateName: "istio-test-",
@@ -112,7 +112,7 @@ func makeNamespace(cl *kubernetes.Clientset, t *testing.T) string {
 	return ns.Name
 }
 
-func deleteNamespace(cl *kubernetes.Clientset, ns string) {
+func deleteNamespace(cl kubernetes.Interface, ns string) {
 	if ns != "" && ns != "default" {
 		if err := cl.Core().Namespaces().Delete(ns, &v1.DeleteOptions{}); err != nil {
 			glog.Warningf("Error deleting namespace: %v", err)

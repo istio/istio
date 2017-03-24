@@ -212,7 +212,7 @@ func build(context *ProxyContext) ([]*Listener, Clusters) {
 func buildRoutes(context *ProxyContext) (HTTPRouteConfigs, TCPRouteConfigs) {
 	instances := context.Discovery.HostInstances(context.Addrs)
 	services := context.Discovery.Services()
-	httpOutbound, tcpOutbound := buildOutboundRoutes(instances, services, context.Config, context.MeshConfig)
+	httpOutbound, tcpOutbound := buildOutboundRoutes(instances, services, context)
 	httpInbound, tcpInbound := buildInboundRoutes(instances)
 
 	// set server-side mixer filter config for inbound routes
@@ -267,18 +267,19 @@ func buildRoutes(context *ProxyContext) (HTTPRouteConfigs, TCPRouteConfigs) {
 // buildOutboundRoutes creates route configs indexed by ports for the traffic outbound
 // from the proxy instance
 func buildOutboundRoutes(instances []*model.ServiceInstance, services []*model.Service,
-	config *model.IstioRegistry, mesh *MeshConfig) (HTTPRouteConfigs, TCPRouteConfigs) {
+	context *ProxyContext) (HTTPRouteConfigs, TCPRouteConfigs) {
 	// used for shortcut domain names for outbound hostnames
 	suffix := sharedInstanceHost(instances)
 	httpConfigs := make(HTTPRouteConfigs)
 	tcpConfigs := make(TCPRouteConfigs)
 
 	// get all the route rules applicable to the instances
-	rules := config.RouteRulesBySource("", instances)
+	rules := context.Config.RouteRulesBySource("", instances)
 
 	// outbound connections/requests are redirected to service ports; we create a
 	// map for each service port to define filters
 	for _, service := range services {
+		sslContext := buildSSLContextWithSAN(service.Hostname, context)
 		for _, port := range service.Ports {
 			switch port.Protocol {
 			case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
@@ -298,7 +299,7 @@ func buildOutboundRoutes(instances []*model.ServiceInstance, services []*model.S
 				// collect route rules
 				for _, rule := range rules {
 					if rule.Destination == service.Hostname {
-						httpRoute, catchAll = buildHTTPRoute(rule, port)
+						httpRoute, catchAll = buildHTTPRoute(rule, port, sslContext)
 						routes = append(routes, httpRoute)
 						if catchAll {
 							break
@@ -308,7 +309,7 @@ func buildOutboundRoutes(instances []*model.ServiceInstance, services []*model.S
 
 				if !catchAll {
 					// default route for the destination
-					cluster := buildOutboundCluster(service.Hostname, port, nil)
+					cluster := buildOutboundCluster(service.Hostname, port, sslContext, nil)
 					routes = append(routes, buildDefaultRoute(cluster))
 				}
 
@@ -317,7 +318,8 @@ func buildOutboundRoutes(instances []*model.ServiceInstance, services []*model.S
 				http.VirtualHosts = append(http.VirtualHosts, host)
 
 			case model.ProtocolTCP, model.ProtocolHTTPS:
-				cluster := buildOutboundCluster(service.Hostname, port, nil)
+				// TODO: Enable SSL context for TCP and HTTPS services.
+				cluster := buildOutboundCluster(service.Hostname, port, nil, nil)
 				route := buildTCPRoute(cluster, []string{service.Address}, port.Port)
 				config := tcpConfigs.EnsurePort(port.Port)
 				config.Routes = append(config.Routes, route)
@@ -328,6 +330,22 @@ func buildOutboundRoutes(instances []*model.ServiceInstance, services []*model.S
 		}
 	}
 	return httpConfigs, tcpConfigs
+}
+
+// buildSSLContextWithSAN returns an SSLContextWithSAN struct with VerifySubjectAltName when auth is enabled.
+// Otherwise, it returns nil.
+func buildSSLContextWithSAN(hostname string, context *ProxyContext) *SSLContextWithSAN {
+	mesh := context.MeshConfig
+	if mesh.EnableAuth {
+		serviceAccounts, _ := context.Discovery.GetIstioServiceAccounts(hostname)
+		return &SSLContextWithSAN{
+			CertChainFile:        mesh.AuthConfigPath + "/cert-chain.pem",
+			PrivateKeyFile:       mesh.AuthConfigPath + "/key.pem",
+			CaCertFile:           mesh.AuthConfigPath + "/root-cert.pem",
+			VerifySubjectAltName: serviceAccounts,
+		}
+	}
+	return nil
 }
 
 // buildInboundRoutes creates route configs indexed by ports for the traffic inbound
