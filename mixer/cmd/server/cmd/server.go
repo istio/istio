@@ -31,6 +31,7 @@ import (
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/adapter"
+	"istio.io/mixer/cmd/shared"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/aspect"
@@ -57,7 +58,7 @@ type serverArgs struct {
 	configFetchIntervalSec uint
 }
 
-func serverCmd(outf outFn, errorf errorFn) *cobra.Command {
+func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	sa := &serverArgs{}
 	serverCmd := cobra.Command{
 		Use:   "server",
@@ -74,7 +75,7 @@ func serverCmd(outf outFn, errorf errorFn) *cobra.Command {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			runServer(sa, outf, errorf)
+			runServer(sa, printf, fatalf)
 		},
 	}
 	serverCmd.PersistentFlags().Uint16VarP(&sa.port, "port", "p", 9091, "TCP port to use for the mixer's gRPC API")
@@ -108,7 +109,7 @@ func serverCmd(outf outFn, errorf errorFn) *cobra.Command {
 	return &serverCmd
 }
 
-func runServer(sa *serverArgs, outf outFn, errorf errorFn) {
+func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	apiPoolSize := sa.apiWorkerPoolSize
 	adapterPoolSize := sa.adapterWorkerPoolSize
 
@@ -135,7 +136,7 @@ func runServer(sa *serverArgs, outf outFn, errorf errorFn) {
 	if sa.serverCertFile != "" && sa.serverKeyFile != "" {
 		sc, err := tls.LoadX509KeyPair(sa.serverCertFile, sa.serverKeyFile)
 		if err != nil {
-			errorf("Failed to load server certificate and server key: %v", err)
+			fatalf("Failed to load server certificate and server key: %v", err)
 		}
 		serverCert = &sc
 	}
@@ -145,7 +146,7 @@ func runServer(sa *serverArgs, outf outFn, errorf errorFn) {
 		for _, clientCertFile := range strings.Split(sa.clientCertFiles, ",") {
 			pem, err := ioutil.ReadFile(clientCertFile)
 			if err != nil {
-				errorf("Failed to load client certificate: %v", err)
+				fatalf("Failed to load client certificate: %v", err)
 			}
 			clientCerts.AppendCertsFromPEM(pem)
 		}
@@ -154,7 +155,7 @@ func runServer(sa *serverArgs, outf outFn, errorf errorFn) {
 	// get the network stuff setup
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", sa.port))
 	if err != nil {
-		errorf("Unable to listen on socket: %v", err)
+		fatalf("Unable to listen on socket: %v", err)
 	}
 
 	// construct the gRPC options
@@ -198,9 +199,9 @@ func runServer(sa *serverArgs, outf outFn, errorf errorFn) {
 	s := api.NewGRPCServer(handler, tracer, gp)
 	mixerpb.RegisterMixerServer(gs, s)
 
-	outf("Starting gRPC server on port %v\n", sa.port)
+	printf("Starting gRPC server on port %v", sa.port)
 
 	if err = gs.Serve(listener); err != nil {
-		errorf("Failed serving gRPC server: %v", err)
+		fatalf("Failed serving gRPC server: %v", err)
 	}
 }

@@ -12,6 +12,7 @@ go_library(
     visibility = ["//cmd:__subpackages__"],
     deps = [
         "//adapter:go_default_library",
+        "//cmd/shared:go_default_library",
         "//pkg/adapter:go_default_library",
         "//pkg/adapterManager:go_default_library",
         "//pkg/api:go_default_library",

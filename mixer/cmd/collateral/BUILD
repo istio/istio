@@ -10,5 +10,6 @@ go_binary(
     visibility = ["//visibility:public"],
     deps = [
         "//cmd/collateral/cmd:go_default_library",
+        "//cmd/shared:go_default_library",
     ],
 )

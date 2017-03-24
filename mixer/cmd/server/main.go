@@ -15,21 +15,14 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"istio.io/mixer/cmd/server/cmd"
+	"istio.io/mixer/cmd/shared"
 )
 
 func main() {
-	rootCmd := cmd.GetRootCmd(os.Args[1:],
-		func(format string, a ...interface{}) {
-			fmt.Printf(format, a...)
-		},
-		func(format string, a ...interface{}) {
-			fmt.Fprintf(os.Stderr, format+"\n", a...)
-			os.Exit(-1)
-		})
+	rootCmd := cmd.GetRootCmd(os.Args[1:], shared.Printf, shared.Fatalf)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)

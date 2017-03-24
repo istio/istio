@@ -22,28 +22,29 @@ import (
 	"github.com/spf13/cobra"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/cmd/shared"
 )
 
-func reportCmd(rootArgs *rootArgs, outf outFn, errorf errorFn) *cobra.Command {
+func reportCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "report",
 		Short: "Invokes the mixer's Report API.",
 		Run: func(cmd *cobra.Command, args []string) {
-			report(rootArgs, outf, errorf)
+			report(rootArgs, printf, fatalf)
 		}}
 }
 
-func report(rootArgs *rootArgs, outf outFn, errorf errorFn) {
+func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 	var attrs *mixerpb.Attributes
 	var err error
 
 	if attrs, err = parseAttributes(rootArgs); err != nil {
-		errorf("%v", err)
+		fatalf("%v", err)
 	}
 
 	var cs *clientState
 	if cs, err = createAPIClient(rootArgs.mixerAddress, rootArgs.enableTracing); err != nil {
-		errorf("Unable to establish connection to %s: %v", rootArgs.mixerAddress, err)
+		fatalf("Unable to establish connection to %s: %v", rootArgs.mixerAddress, err)
 	}
 	defer deleteAPIClient(cs)
 
@@ -52,7 +53,7 @@ func report(rootArgs *rootArgs, outf outFn, errorf errorFn) {
 
 	var stream mixerpb.Mixer_ReportClient
 	if stream, err = cs.client.Report(ctx); err != nil {
-		errorf("Report RPC failed: %v", err)
+		fatalf("Report RPC failed: %v", err)
 	}
 
 	for i := 0; i < rootArgs.repeat; i++ {
@@ -60,22 +61,22 @@ func report(rootArgs *rootArgs, outf outFn, errorf errorFn) {
 		request := mixerpb.ReportRequest{RequestIndex: 0, AttributeUpdate: *attrs}
 
 		if err = stream.Send(&request); err != nil {
-			errorf("Failed to send Report RPC: %v", err)
+			fatalf("Failed to send Report RPC: %v", err)
 		}
 
 		var response *mixerpb.ReportResponse
 		response, err = stream.Recv()
 		if err == io.EOF {
-			errorf("Got no response from Report RPC")
+			fatalf("Got no response from Report RPC")
 		} else if err != nil {
-			errorf("Failed to receive a response from Report RPC: %v", err)
+			fatalf("Failed to receive a response from Report RPC: %v", err)
 		}
 
-		outf("Report RPC returned %s\n", decodeStatus(response.Result))
+		printf("Report RPC returned %s\n", decodeStatus(response.Result))
 	}
 
 	if err = stream.CloseSend(); err != nil {
-		errorf("Failed to close gRPC stream: %v", err)
+		fatalf("Failed to close gRPC stream: %v", err)
 	}
 
 	span.Finish()
