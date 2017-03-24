@@ -56,6 +56,16 @@ function error_exit() {
   exit ${2:-1}
 }
 
+function set_git() {
+  if [[ ! -e "${HOME}/.gitconfig" ]]; then
+    cat > "${HOME}/.gitconfig" << EOF
+[user]
+  name = istio-testing
+  email = istio.testing@gmail.com
+EOF
+  fi
+}
+
 function update_files() {
   local old_value="${1}"
   local new_value="${2}"
@@ -99,10 +109,30 @@ function read_version() {
   echo "${version}"
 }
 
+function create_commit() {
+  set_git
+  # If nothing to commit skip
+  check_git_status && return
+
+  echo 'Creating a commit'
+  git commit -a -m "Updating istio version" \
+    || error_exit 'Could not create a commit'
+
+}
+
+function check_git_status() {
+  local git_files="$(git status -s)"
+  [[ -z "${git_files}" ]] && return 0
+  return 1
+}
+
 function update_qual_version_file() {
   echo "# This is used for automated testing. Do not edit." > "${QUAL_VERSION_FILE}"
   grep -v '#' "${VERSION_FILE}" >> "${QUAL_VERSION_FILE}"
 }
+
+check_git_status \
+  || error_exit "You have modified files. Please commit or reset your workspace."
 
 if [[ ${QUAL} == true ]]; then
   update_qual_versions "${INIT_KEY}"
@@ -115,3 +145,4 @@ else
 fi
 
 update_qual_version_file
+create_commit
