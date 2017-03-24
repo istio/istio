@@ -197,7 +197,6 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: gateway
-  namespace: default
   annotations:
     kubernetes.io/ingress.class: "istio"
 spec:
