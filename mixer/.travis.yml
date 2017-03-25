@@ -35,8 +35,8 @@ before_install:
 - sudo dpkg -i bazel_${BAZEL_VERSION}-linux-x86_64.deb
 - sudo apt-get -f install -qqy
 - cd ${TRAVIS_BUILD_DIR}
-- mv .bazelrc .bazelrc.orig
-- cat .bazelrc.travis .bazelrc.orig > .bazelrc
+- mv tools/bazel.rc tools/bazel.rc.orig
+- cat tools/bazel.rc.travis tools/bazel.rc.orig > tools/bazel.rc
 
 script:
 - bazel --output_base=$HOME/bazel/outbase test //...
