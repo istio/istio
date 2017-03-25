@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('testutils@stable-838b134')
+@Library('testutils@stable-397cafe')
 
 import org.istio.testutils.Utilities
 import org.istio.testutils.GitUtilities
@@ -12,20 +12,17 @@ def utils = new Utilities()
 def bazel = new Bazel()
 
 mainFlow(utils) {
-  pullRequest(utils) {
+  node {
+    gitUtils.initialize()
+    bazel.setVars()
+  }
 
-    node {
-      gitUtils.initialize()
-      bazel.setVars()
-    }
+  if (utils.runStage('PRESUBMIT')) {
+    presubmit(gitUtils, bazel, utils)
+  }
 
-    if (utils.runStage('PRESUBMIT')) {
-      presubmit(gitUtils, bazel, utils)
-    }
-
-    if (utils.runStage('POSTSUBMIT')) {
-      postsubmit(gitUtils, bazel, utils)
-    }
+  if (utils.runStage('POSTSUBMIT')) {
+    postsubmit(gitUtils, bazel, utils)
   }
 }
 
