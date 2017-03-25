@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('testutils@stable-afad32f')
+@Library('testutils@stable-397cafe')
 
 import org.istio.testutils.Utilities
 import org.istio.testutils.GitUtilities
@@ -13,7 +13,13 @@ def bazel = new Bazel()
 
 mainFlow(utils) {
   node {
-    gitUtils.initialize()
+    gitUtils.initialize() {
+      // For automated qualification, update all the files to
+      // use the version built from other module PRs.
+      if (utils.getParam('SUBMODULES_UPDATE') != '') {
+        sh('scripts/update_version.sh -Q')
+      }
+    }
   }
   if (utils.runStage('PRESUBMIT')) {
     presubmit(gitUtils, bazel, utils)
