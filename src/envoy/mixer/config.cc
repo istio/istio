@@ -22,21 +22,22 @@ namespace Mixer {
 namespace {
 
 // The Json object name for mixer-server.
-const std::string kJsonNameMixerServer("mixer_server");
+const std::string kMixerServer("mixer_server");
 
 // The Json object name for static attributes.
-const std::string kJsonNameMixerAttributes("mixer_attributes");
+const std::string kMixerAttributes("mixer_attributes");
 
 // The Json object name to specify attributes which will be forwarded
 // to the upstream istio proxy.
-const std::string kJsonNameForwardAttributes("forward_attributes");
+const std::string kForwardAttributes("forward_attributes");
 
 // The Json object name for quota name and amount.
-const std::string kJsonNameQuotaName("quota_name");
-const std::string kJsonNameQuotaAmount("quota_amount");
+const std::string kQuotaName("quota_name");
+const std::string kQuotaAmount("quota_amount");
 
 // The Json object name for check cache keys.
-const std::string kJsonNameCheckCacheKeys("check_cache_keys");
+const std::string kCheckCacheKeys("check_cache_keys");
+const std::string kCheckCacheExpiration("check_cache_expiration_in_seconds");
 
 void ReadString(const Json::Object& json, const std::string& name,
                 std::string* value) {
@@ -67,28 +68,28 @@ void ReadStringVector(const Json::Object& json, const std::string& name,
 }  // namespace
 
 void MixerConfig::Load(const Json::Object& json) {
-  ReadString(json, kJsonNameMixerServer, &mixer_server);
+  ReadString(json, kMixerServer, &mixer_server);
 
-  ReadStringMap(json, kJsonNameMixerAttributes, &mixer_attributes);
-  ReadStringMap(json, kJsonNameForwardAttributes, &forward_attributes);
+  ReadStringMap(json, kMixerAttributes, &mixer_attributes);
+  ReadStringMap(json, kForwardAttributes, &forward_attributes);
 
-  ReadString(json, kJsonNameQuotaName, &quota_name);
-  ReadString(json, kJsonNameQuotaAmount, &quota_amount);
+  ReadString(json, kQuotaName, &quota_name);
+  ReadString(json, kQuotaAmount, &quota_amount);
 
-  ReadStringVector(json, kJsonNameCheckCacheKeys, &check_cache_keys);
+  ReadStringVector(json, kCheckCacheKeys, &check_cache_keys);
+  ReadString(json, kCheckCacheExpiration, &check_cache_expiration);
 }
 
 void MixerConfig::ExtractQuotaAttributes(Attributes* attr) const {
   if (!quota_name.empty()) {
-    attr->attributes[ ::istio::mixer_client::kQuotaName] =
+    attr->attributes[Attributes::kQuotaName] =
         Attributes::StringValue(quota_name);
 
     int64_t amount = 1;  // default amount to 1.
     if (!quota_amount.empty()) {
       amount = std::stoi(quota_amount);
     }
-    attr->attributes[ ::istio::mixer_client::kQuotaAmount] =
-        Attributes::Int64Value(amount);
+    attr->attributes[Attributes::kQuotaAmount] = Attributes::Int64Value(amount);
   }
 }
 

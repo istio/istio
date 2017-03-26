@@ -41,6 +41,7 @@ struct MixerConfig {
 
   // The attribute names for check cache.
   std::vector<std::string> check_cache_keys;
+  std::string check_cache_expiration;
 
   // Load the config from envoy config.
   void Load(const Json::Object& json);

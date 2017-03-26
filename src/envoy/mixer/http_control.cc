@@ -23,8 +23,12 @@
 #include "src/envoy/mixer/utils.h"
 
 using ::google::protobuf::util::Status;
+using ::istio::mixer_client::CheckOptions;
 using ::istio::mixer_client::Attributes;
 using ::istio::mixer_client::DoneFunc;
+using ::istio::mixer_client::MixerClientOptions;
+using ::istio::mixer_client::ReportOptions;
+using ::istio::mixer_client::QuotaOptions;
 
 namespace Http {
 namespace Mixer {
@@ -44,6 +48,26 @@ const std::string kResponseHttpCode = "response.http.code";
 const std::string kResponseLatency = "response.latency";
 const std::string kResponseSize = "response.size";
 const std::string kResponseTime = "response.time";
+
+// Check cache size: 10000 cache entries.
+const int kCheckCacheEntries = 10000;
+// Default check cache expired in 5 minutes.
+const int kCheckCacheExpirationInSeconds = 300;
+
+CheckOptions GetCheckOptions(const MixerConfig& config) {
+  int expiration = kCheckCacheExpirationInSeconds;
+  if (!config.check_cache_expiration.empty()) {
+    expiration = std::stoi(config.check_cache_expiration);
+  }
+
+  // Remove expired items from cache 1 second later.
+  CheckOptions options(kCheckCacheEntries, expiration * 1000,
+                       (expiration + 1) * 1000);
+
+  options.cache_keys = config.check_cache_keys;
+
+  return options;
+}
 
 void SetStringAttribute(const std::string& name, const std::string& value,
                         Attributes* attr) {
@@ -110,11 +134,9 @@ void FillRequestInfoAttributes(const AccessLog::RequestInfo& info,
 
 HttpControl::HttpControl(const MixerConfig& mixer_config)
     : mixer_config_(mixer_config) {
-  ::istio::mixer_client::MixerClientOptions options;
+  MixerClientOptions options(GetCheckOptions(mixer_config), ReportOptions(),
+                             QuotaOptions());
   options.mixer_server = mixer_config_.mixer_server;
-  options.check_options.cache_keys.insert(
-      mixer_config_.check_cache_keys.begin(),
-      mixer_config_.check_cache_keys.end());
   mixer_client_ = ::istio::mixer_client::CreateMixerClient(options);
 
   mixer_config_.ExtractQuotaAttributes(&quota_attributes_);
