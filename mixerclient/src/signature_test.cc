@@ -64,12 +64,12 @@ class SignatureUtilTest : public ::testing::Test {
     attributes_.attributes[key] = Attributes::StringMapValue(std::move(value));
   }
 
-  std::set<std::string> GetKeys() const {
-    std::set<std::string> keys;
+  CacheKeySet GetKeys() const {
+    std::vector<std::string> keys;
     for (const auto& it : attributes_.attributes) {
-      keys.insert(it.first);
+      keys.push_back(it.first);
     }
-    return keys;
+    return CacheKeySet(keys);
   }
 
   Attributes attributes_;

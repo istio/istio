@@ -27,7 +27,7 @@
 #include "include/client.h"
 #include "include/options.h"
 #include "mixer/v1/service.pb.h"
-#include "src/signature.h"
+#include "src/cache_key_set.h"
 #include "utils/simple_lru_cache.h"
 #include "utils/simple_lru_cache_inl.h"
 
@@ -116,6 +116,9 @@ class CheckCache {
 
   // The check options.
   CheckOptions options_;
+
+  // The cache keys.
+  CacheKeySet cache_keys_;
 
   // Mutex guarding the access of cache_;
   std::mutex cache_mutex_;

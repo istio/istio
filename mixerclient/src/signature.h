@@ -21,13 +21,14 @@
 
 #include <string>
 #include "include/client.h"
+#include "src/cache_key_set.h"
 
 namespace istio {
 namespace mixer_client {
 
 // Generates signature for Attributes.
 std::string GenerateSignature(const Attributes& attributes,
-                              const std::set<std::string>& cache_keys);
+                              const CacheKeySet& cache_keys);
 
 }  // namespace mixer_client
 }  // namespace istio

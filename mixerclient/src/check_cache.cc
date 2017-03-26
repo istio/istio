@@ -27,12 +27,13 @@ using ::google::protobuf::util::error::Code;
 namespace istio {
 namespace mixer_client {
 
-CheckCache::CheckCache(const CheckOptions& options) : options_(options) {
+CheckCache::CheckCache(const CheckOptions& options)
+    : options_(options), cache_keys_(options.cache_keys) {
   // Converts flush_interval_ms to Cycle used by SimpleCycleTimer.
   flush_interval_in_cycle_ =
       options_.flush_interval_ms * SimpleCycleTimer::Frequency() / 1000;
 
-  if (options.num_entries >= 0 && !options.cache_keys.empty()) {
+  if (options.num_entries >= 0 && !cache_keys_.empty()) {
     cache_.reset(new CheckLRUCache(
         options.num_entries, std::bind(&CheckCache::OnCacheEntryDelete, this,
                                        std::placeholders::_1)));
@@ -57,8 +58,7 @@ Status CheckCache::Check(const Attributes& attributes, CheckResponse* response,
     return Status(Code::NOT_FOUND, "");
   }
 
-  std::string request_signature =
-      GenerateSignature(attributes, options_.cache_keys);
+  std::string request_signature = GenerateSignature(attributes, cache_keys_);
   if (signature) {
     *signature = request_signature;
   }

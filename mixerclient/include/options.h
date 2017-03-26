@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <set>
+#include <vector>
 
 namespace istio {
 namespace mixer_client {
@@ -59,7 +60,7 @@ struct CheckOptions {
 
   // Only the attributes in this set are used to caclculate cache key.
   // If empty, check cache is disabled.
-  std::set<std::string> cache_keys;
+  std::vector<std::string> cache_keys;
 };
 
 // Options controlling report behavior.

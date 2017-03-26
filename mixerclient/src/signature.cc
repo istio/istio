@@ -28,12 +28,13 @@ const int kDelimiterLength = 1;
 }  // namespace
 
 string GenerateSignature(const Attributes& attributes,
-                         const std::set<std::string>& cache_keys) {
+                         const CacheKeySet& cache_keys) {
   MD5 hasher;
 
   for (const auto& attribute : attributes.attributes) {
+    const SubKeySet* sub_keys = cache_keys.Find(attribute.first);
     // Skip the attributes not in the cache keys
-    if (cache_keys.find(attribute.first) == cache_keys.end()) {
+    if (sub_keys == nullptr) {
       continue;
     }
     hasher.Update(attribute.first);
@@ -67,10 +68,12 @@ string GenerateSignature(const Attributes& attributes,
         break;
       case Attributes::Value::ValueType::STRING_MAP:
         for (const auto& it : attribute.second.string_map_v) {
-          hasher.Update(it.first);
-          hasher.Update(kDelimiter, kDelimiterLength);
-          hasher.Update(it.second);
-          hasher.Update(kDelimiter, kDelimiterLength);
+          if (sub_keys->Found(it.first)) {
+            hasher.Update(it.first);
+            hasher.Update(kDelimiter, kDelimiterLength);
+            hasher.Update(it.second);
+            hasher.Update(kDelimiter, kDelimiterLength);
+          }
         }
         break;
     }
