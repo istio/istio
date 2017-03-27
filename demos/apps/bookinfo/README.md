@@ -18,32 +18,36 @@ There are 3 versions of the reviews microservice:
 
 The end-to-end architecture of the application is shown below.
 
-![Bookinfo app](example-app-bookinfo.png)
+![Bookinfo app_noistio](example-app-bookinfo-noistio.png)
 
-This application is polyglot, i.e., the microservices are written in
-different languages. All microservices are packaged with an
-Istio sidecar that manages all incoming and outgoing calls for the service.
-
-*CLI*: This walkthrough will use the [istioctl](../../../doc/istioctl.md) CLI that provides a
-convenient way to apply routing rules and policies for upstreams. The
-`demos/` directory has three binaries: `istioctl-osx`, `istioctl-windows`,
-`istioctl-linux` targeted at Mac, Windows and Linux users
-respectively. Please download the tool appropriate to your platform and
-rename the tool to `istioctl`. For example:
-
-```bash
-$ cp istioctl-osx /usr/local/bin/istioctl
-```
-
+This application is polyglot, i.e., the microservices are written in different languages.
+ 
 > Note: The following instructions assume your current working directory
 > is the [istio repo root](https://github.com/istio/istio).
 
 ## Setup
 
-Execute the [Istio installation instructions](../../../kubernetes/README.md)
-to install the Istio manager, mixer, and an envoy-based ingress controller,
-which will be used to implement the gateway for the application.
-(Note: the current version of the bookinfo application MUST use the `default` Kubernetes namespace.)
+1. Execute the [Istio installation instructions](../../../kubernetes/README.md)
+   to install the Istio manager, mixer, and an envoy-based ingress controller,
+   which will be used to implement the gateway for the application.
+   (Note: the current version of the bookinfo application MUST use the `default` Kubernetes namespace.)
+
+2. Install the [istioctl](../../../doc/istioctl.md) CLI, which provides a
+   convenient way to apply routing rules and policies for upstreams. The
+   `demos/` directory has three binaries: `istioctl-osx`, `istioctl-windows`,
+   `istioctl-linux` targeted at Mac, Windows and Linux users
+   respectively. Download the tool appropriate to your platform and
+   rename the tool to `istioctl`. For example:
+
+   ```bash
+   $ cp demos/istioctl-osx /usr/local/bin/istioctl
+   ```
+
+   > Note: If you already have a previously installed version of `istioctl`, make sure that
+   > it is compatible with the manager image used in `demos/kubernetes/istio-manager.yaml`.
+   > If in doubt, download again or add the `--tag` option when running `istioctl kube-inject`.
+   > Invoke `istioctl kube-inject --help` for more details.
+   
 
 ## Running the Bookinfo Application
 
@@ -54,7 +58,6 @@ which will be used to implement the gateway for the application.
    ```
 
 1. Bring up the application containers:
-
 
    ```bash
    $ kubectl create -f <(istioctl kube-inject -f bookinfo.yaml)
@@ -67,8 +70,14 @@ which will be used to implement the gateway for the application.
    over time instead of deploying all versions
    simultaneously.
 
-   The `istioctl kube-inject` command injects the istio runtime proxy
-   into kubernetes resource files. It is documented [here](../../../doc/istioctl.md#kube-inject).
+   Notice that the `istioctl kube-inject` command is used to modify the `bookinfo.yaml`
+   file before creating the deployments. This injects the istio runtime proxy
+   into kubernetes resources as documented [here](../../../doc/istioctl.md#kube-inject).
+   Consequently, all of the microservices are now packaged with an Istio sidecar
+   that manages incoming and outgoing calls for the service. The updated diagram looks
+   like this:
+
+   ![Bookinfo app](example-app-bookinfo.png)
 
 
 1. Confirm that all services and pods are correctly defined and running:
@@ -102,10 +111,10 @@ which will be used to implement the gateway for the application.
    reviews-v3-1813607990-8ch52                 2/2       Running   0          6m
    ```
 
-1. Determine the Gateway ingress URL (TEMPORARY - instruction subject to change)
+1. Determine the Gateway ingress URL
 
    ```bash
-   $ export GATEWAY_URL=$(kubectl get po -l infra=istio-ingress-controller -o jsonpath={.items[0]..status.hostIP}):$(kubectl get svc istio-ingress-controller -o jsonpath={.spec.ports[0].nodePort})
+   $ export GATEWAY_URL=$(kubectl get po -l infra=istio-ingress-controller -o jsonpath={.items[0].status.hostIP}):$(kubectl get svc istio-ingress-controller -o jsonpath={.spec.ports[0].nodePort})
    $ echo $GATEWAY_URL
    192.168.99.100:32567
    ```
@@ -320,7 +329,6 @@ When we are confident that our Bookinfo app is stable, we route 100% of the traf
 You can now log in to the `productpage` as any user and you should always see book reviews
 with *red* colored star ratings for each review.
 
-<!---
 ### Rate Limiting (NOT WORKING YET)
 
 Now we'll pretend that `ratings` is an external service for which we are paying (like going to rotten tomatoes),
@@ -339,7 +347,6 @@ We now generate load on the `productpage` with the following command:
 
 If you now refresh the `productpage` you'll see that while the load generator is running
 (i.e., generating more than 5 req/s), we stop seeing stars.
---->
 
 ## Cleanup
 
@@ -349,7 +356,7 @@ If you now refresh the `productpage` you'll see that while the load generator is
    $ ./cleanup.sh
    ```
 
-1. Optionally shut down the control plane services using the cleanup instructions [here](../../../kubernetes/README.md).
+1. Optionally shut down the control plane services using the uninstall instructions [here](../../../kubernetes/README.md).
 
 1. Confirm shutdown
 
