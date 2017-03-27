@@ -78,7 +78,7 @@ func NewIngressWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 }
 
 func (w *ingressWatcher) reload() {
-	w.agent.ScheduleConfigUpdate(w.generateConfig())
+	w.agent.ScheduleConfigUpdate(generateIngress(w.namespace, w.secret, w.secrets, w.registry, w.mesh))
 }
 
 func (w *ingressWatcher) Run(stop <-chan struct{}) {
@@ -94,8 +94,10 @@ func (w *ingressWatcher) Run(stop <-chan struct{}) {
 	w.ctl.Run(stop)
 }
 
-func (w *ingressWatcher) generateConfig() *Config {
-	rules := w.registry.IngressRules(w.namespace)
+func generateIngress(namespace, secret string, secrets model.SecretRegistry,
+	registry *model.IstioRegistry, mesh *MeshConfig,
+) *Config {
+	rules := registry.IngressRules(namespace)
 
 	// Phase 1: group rules by host
 	rulesByHost := make(map[string][]*config.RouteRule, len(rules))
@@ -164,8 +166,8 @@ func (w *ingressWatcher) generateConfig() *Config {
 	}
 
 	// configure for HTTPS if provided with a secret name
-	if w.secret != "" {
-		sslContext := w.buildSSLContext()
+	if secret != "" {
+		sslContext := buildSSLContext(namespace, secret, secrets)
 		listener.Address = "tcp://0.0.0.0:443"
 		listener.SSLContext = sslContext
 	}
@@ -177,12 +179,12 @@ func (w *ingressWatcher) generateConfig() *Config {
 		Listeners: listeners,
 		Admin: Admin{
 			AccessLogPath: DefaultAccessLog,
-			Address:       fmt.Sprintf("tcp://0.0.0.0:%d", w.mesh.AdminPort),
+			Address:       fmt.Sprintf("tcp://0.0.0.0:%d", mesh.AdminPort),
 		},
 		ClusterManager: ClusterManager{
 			Clusters: clusters,
 			SDS: &SDS{
-				Cluster:        buildDiscoveryCluster(w.mesh.DiscoveryAddress, "sds"),
+				Cluster:        buildDiscoveryCluster(mesh.DiscoveryAddress, "sds"),
 				RefreshDelayMs: 1000,
 			},
 		},
@@ -195,15 +197,15 @@ const (
 	privateKeyFile = "/etc/envoy/tls.key"
 )
 
-func (w *ingressWatcher) buildSSLContext() *SSLContext {
+func buildSSLContext(namespace, secret string, secrets model.SecretRegistry) *SSLContext {
 	var uri string
-	if w.namespace == "" {
-		uri = w.secret + ".default"
+	if namespace == "" {
+		uri = secret + ".default"
 	} else {
-		uri = fmt.Sprintf("%s.%s", w.secret, w.namespace)
+		uri = fmt.Sprintf("%s.%s", secret, namespace)
 	}
 
-	err := w.writeTLS(uri)
+	err := writeTLS(uri, secrets)
 	if err != nil {
 		glog.Warning("Failed to get and save secrets. Envoy will crash and trigger a retry...")
 	}
@@ -214,8 +216,8 @@ func (w *ingressWatcher) buildSSLContext() *SSLContext {
 	}
 }
 
-func (w *ingressWatcher) writeTLS(uri string) error {
-	s, err := w.secrets.GetSecret(uri)
+func writeTLS(uri string, secrets model.SecretRegistry) error {
+	s, err := secrets.GetSecret(uri)
 	if err != nil {
 		return errwrap.Wrap(fmt.Errorf("could not get secret %q", uri), err)
 	}

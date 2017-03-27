@@ -1,0 +1,13 @@
+destination: world.default.svc.cluster.local
+match:
+  httpHeaders:
+    authority:
+      exact: "world.default.svc.cluster.local"
+    uri:
+      prefix: "/hello"
+route:
+  - tags:
+       servicePort.name: http
+       servicePort.protocol: http
+       servicePort.port: "80"
+    weight: 100
