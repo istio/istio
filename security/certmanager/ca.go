@@ -87,7 +87,7 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	ca.certChainBytes = copyBytes(opts.CertChainBytes)
 	ca.rootCertBytes = copyBytes(opts.RootCertBytes)
 
-	ca.signingCert = parsePemEncodedCertificate(opts.SigningCertBytes)
+	ca.signingCert = ParsePemEncodedCertificate(opts.SigningCertBytes)
 	ca.signingKey = parsePemEncodedKey(ca.signingCert.PublicKeyAlgorithm, opts.SigningKeyBytes)
 
 	if err := ca.verify(); err != nil {
