@@ -21,59 +21,68 @@ deployment "istio-mixer" created
 ## Connecting microservices with Istio
 
 This guide shows how to set up Istio and manipulate the proxy mesh to achieve useful behavior.
-In this example we use two microservices:
+In this example we use *CouchDB* and *Nginx* as and demonstrate how to manipulate them:
 
-* microservice "hello" returns a constant bit of JSON.
-* microservice "frontend" calls microservice "hello"
+* CouchDB is the official CouchDB Docker image
+* Nginx is the offical Nginx Docker image.  We will configure it to redirect all calls to CouchDB
 
-The communicating microservices are examples from Kubernetes'
-[Connecting a Front End to a Back End Using a Service](https://kubernetes.io/docs/tutorials/connecting-apps/connecting-frontend-backend/) tutorial.
-
-First we will start the microservices using the Istio pattern of a
-proxy within frontend's pod. The `istioctl kube-inject` command
-injects the istio runtime proxy into kubernetes resource files. It is
-documented [here](istioctl.md#kube-inject).
+We will test as we go along.  To test we will need the IP address of a Kubernetes node.  Before we begin, get that address.
 
 ```
-
-# Backend "hello" service with an instance of container gcr.io/istio-testing/runtime:demo
-kubectl create -f <(istioctl kube-inject -f doc/hello-and-proxy.yaml)
-
-# "Frontend" service with an instance of container gcr.io/istio-testing/runtime:demo
-kubectl create -f <(istioctl kube-inject -f doc/frontend-and-proxy.yaml)
-kubectl expose -f <(istioctl kube-inject -f doc/frontend-and-proxy.yaml) --type=NodePort --name=frontend
-
-```
-
-<!---
-Note that to stand up the frontend without Istio, we can do
-kubectl run frontend --image=gcr.io/google-samples/hello-frontend:1.0 --port=8080 --overrides='{ "apiVersion": "extensions/v1beta1", "spec": { "containers": { "lifecycle": { "preStop": { "exec": { "command": ["/usr/sbin/nginx","-s","quit"] } } } } } }'
-# or
-kubectl run front-no-istio --image=gcr.io/google-samples/hello-frontend:1.0 --port=80
-# and then
-kubectl expose deployment front-no-istio --type=NodePort --name=frontend-no-istio
-kubectl describe services frontend-no-istio
--->
-
-At this point we have two microservices.  Let us test by looking up the public port
-
-```
-# Get the IP address.  (Alternate: gcloud compute instances list)
+# Get the IP address.
 minikube ip
+# Alternate for IBM Container Service: `bx cs workers <MYCLUSTER>` and use the public address
+# Alternet for Google compute cloud `gcloud compute instances list`)
 export IP=`minikube ip`
-# Get the NodePorts for both original and Istio versions
-kubectl describe services frontend
-export NODEPORT=...
 ```
 
-Test the service by doing `curl -i http://$IP:$NODEPORT`  For example, if the IP is 192.168.99.101 and NodePort is 31178/TCP, execute
+First, let's start CouchDB and have it join the Istio service mesh
 
 ```
-$ curl 192.168.99.101:31778
-{"message":"Hello"}
+# Start the official Docker CouchDB image the container in a Kubernetes Pod
+kubectl run couchdb --image=docker.io/library/couchdb
 ```
 
-The output JSON hello message came from the "hello" service via the "frontend" service.
+The _kubectl get deployment_ subcommand simply creates a machine readable description of a service.  The _istioctl kube-inject_ subcommand creates a machine readable description of a service including Istio components.  By piping the commands together and sending the output to _kubectl apply_ we add Istio capabilities to our service.
+
+```
+# The CouchDB deployment must join the Istio service mesh.  Note that the pod will be recreated.
+kubectl get deployment couchdb --output yaml | istioctl kube-inject --filename - --tag 2017-03-22-17.30.06 | kubectl apply -f -
+```
+
+For this tutorial an Nginx front-end will talk to CouchDB.  To enable talking we must expose the deployment
+as a Kubernetes Service.  For this demo we expose as a _NodePort_ so that we may show the behavior independently,
+but this is not needed.
+
+```
+# Expose port 5984 (the CouchDB port) on the pod to a random port on the Kubernetes node
+kubectl expose deployment couchdb --port=5984 --name=couchdb --type=NodePort
+# Get the port on that node that exposes port 5984 on the CouchDB container
+COUCHDB_NODEPORT=$(kubectl get service couchdb --output jsonpath='{.spec.ports[0].nodePort}')
+curl $IP:$COUCHDB_NODEPORT
+```
+
+Next we will start Nginx and configure it to proxy for the CouchDB service started in the previous step
+
+```
+# Create an nginx service
+kubectl run nginx --image=docker.io/nginx
+# The Nginx deployment must join the Istio service mesh.  Note that the pod will be recreated.
+kubectl get deployment nginx --output yaml | istioctl kube-inject --filename - --tag 2017-03-22-17.30.06 | kubectl apply -f -
+# WAIT A FEW SECONDS
+# Configure the nginx to point to the CouchDB.  Note that this step is just for the demo.  You should
+# not make changes to running containers in production, because those changes are lost if the pod restarts.
+NGINX_POD=$(kubectl get pods -l run=nginx --output jsonpath='{.items[*].metadata.name}')
+kubectl exec -it $NGINX_POD /bin/bash -- -c \
+   "echo 'server { listen 9080; location / { proxy_pass http://couchdb:5984; proxy_http_version 1.1;  } }' > /etc/nginx/conf.d/frontend.conf && /usr/sbin/nginx -s reload"
+# (Note: The previous line should response with 'signal process started')
+# Expose the Nginx
+kubectl expose deployment nginx --type=NodePort --port 9080
+NGINX_NODEPORT=$(kubectl get service nginx --output jsonpath='{.spec.ports[0].nodePort}')
+curl $IP:$NGINX_NODEPORT
+```
+
+At this point we have two services.  Both are wired through the Istio service mesh.  Both output the same data -- the CouchDB home JSON response.
 
 ## Manipulating the service mesh with route rules and destination polices
 
@@ -82,11 +91,11 @@ most simple capabilities is to add a delay.
 
 ```
 # First, create a rule file
-cat <<EOF > /tmp/hello-5s-rule.yaml
+cat <<EOF > /tmp/couch-5s-rule.yaml
 type: route-rule
-name: hello-5s-rule
+name: couch-5s-rule
 spec:
-  destination: hello.default.svc.cluster.local
+  destination: couchdb.default.svc.cluster.local
   http_fault:
     delay:
       percent: 100
@@ -94,11 +103,27 @@ spec:
 EOF
 
 # Give the file to istioctl
-istioctl create -f /tmp/hello-5s-rule.yaml
+istioctl create -f /tmp/couch-5s-rule.yaml
 ```
 
-Wait a few seconds, then issue `curl $IP:$NODEPORT` again.  This time it takes five seconds for *frontend* to reach *hello*.
+Wait a few seconds, then issue `curl $IP:$NGINX_NODEPORT` again.  This time it takes five seconds for *frontend* to reach *hello*.
 
+The rule file defines a 5 second delay to be added to 100% of network traffic with the destination host name 
+"couchdb.default.svc.cluster.local".  Although the Nginx configuration only uses "couchdb", the Istio configuration
+requires the full format "<host>.<namespace>.svc.cluster.local" when running on Kubernetes.  The _kube-dns_ service on
+Kubernetes sets up "<namespace>.svc.cluster.local" as the DNS search path so the names are equivelent.
+
+## Cleanup
+
+To remove the deployments and services used in this tutorial:
+
+```
+kubectl delete service couchdb
+kubectl delete deployment couchdb
+kubectl delete service nginx
+kubectl delete deployment nginx
+kubectl delete -f kubernetes/istio-install # OPTIONAL
+```
 
 ## Discussion
 
