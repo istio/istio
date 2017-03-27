@@ -103,7 +103,7 @@ TmngRSxv/dSvGA==
 	}
 
 	for _, c := range testCases {
-		cert := parsePemEncodedCertificate([]byte(c.cert))
+		cert := ParsePemEncodedCertificate([]byte(c.cert))
 		key := parsePemEncodedKey(cert.PublicKeyAlgorithm, []byte(c.key))
 		if keyType := reflect.TypeOf(key); keyType != c.keyType {
 			t.Errorf("Unmatched key type: expected %v but got %v", c.keyType, keyType)

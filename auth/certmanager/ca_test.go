@@ -38,7 +38,7 @@ func TestSelfSignedIstioCA(t *testing.T) {
 	rootPool := x509.NewCertPool()
 	rootPool.AppendCertsFromPEM(ca.GetRootCertificate())
 
-	cert := parsePemEncodedCertificate(cb)
+	cert := ParsePemEncodedCertificate(cb)
 	chain, err := cert.Verify(x509.VerifyOptions{
 		Intermediates: certPool,
 		Roots:         rootPool,
