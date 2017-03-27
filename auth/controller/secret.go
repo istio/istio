@@ -24,6 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -32,7 +33,10 @@ import (
 )
 
 /* #nosec: disable gas linter */
-const secretNamePrefix = "istio."
+const (
+	secretNamePrefix = "istio."
+	istioSecretType  = "istio.io/key-and-cert"
+)
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
 type SecretController struct {
@@ -70,11 +74,14 @@ func NewSecretController(ca certmanager.CertificateAuthority, core corev1.CoreV1
 	}
 	c.saStore, c.saController = cache.NewInformer(saLW, &v1.ServiceAccount{}, time.Minute, rehf)
 
+	istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": istioSecretType}).String()
 	scrtLW := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			options.FieldSelector = istioSecretSelector
 			return core.Secrets(metav1.NamespaceAll).List(options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			options.FieldSelector = istioSecretSelector
 			return core.Secrets(metav1.NamespaceAll).Watch(options)
 		},
 	}
@@ -133,6 +140,7 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 			Name:      getSecretName(saName),
 			Namespace: saNamespace,
 		},
+		Type: istioSecretType,
 	}
 
 	_, exists, err := sc.scrtStore.Get(secret)
