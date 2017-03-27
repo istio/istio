@@ -24,6 +24,8 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
       labels:
         infra: istio-ingress-controller
     spec:

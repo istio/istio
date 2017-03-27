@@ -55,6 +55,12 @@ function apply_patch() {
       || error_exit "Could not apply patch ${dif} on ${src}"
 }
 
+function kube_inject() {
+    local before=${1}
+    local after=${2}
+    ${ISTIOCLI} kube-inject -f ${before} -o ${after}
+}
+
 function apply_patch_in_dir() {
     local diff_dir=${1}
     local src_dir=${2}
@@ -86,11 +92,10 @@ function generate_istio_yaml() {
 function generate_bookinfo_yaml() {
     print_block_echo "Generating bookinfo yaml in ${1}"
     local src_dir="${ROOT}/demos/apps/bookinfo"
-    local diff_dir="${ROOT}/tests/apps/bookinfo"
     local dest_dir="${1}"
 
     mkdir -p ${dest_dir}
-    apply_patch_in_dir "${diff_dir}" "${src_dir}" "${dest_dir}" yaml
+    kube_inject ${src_dir}/bookinfo.yaml ${dest_dir}/bookinfo.yaml
 }
 
 function generate_rules_yaml() {
