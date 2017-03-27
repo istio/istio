@@ -243,3 +243,21 @@ new_go_repository(
     commit = "91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d", # release 3.1.0, 5/30/2016
     importpath = "github.com/cactus/go-statsd-client",
 )
+
+new_go_repository(
+    name = "com_github_redis_client",
+    commit = "1ac54a28f5934ea5e08f588647e734aba2383cb8", # Jan 28, 2017 (no releases)
+    importpath = "github.com/mediocregopher/radix.v2",
+)
+
+new_go_repository(
+    name = "com_github_mini_redis",
+    commit = "bfdf65a73693a032fe06492c5ac63ac08ccf5b7d", # March 25, 2017 (no releases)
+    importpath = "github.com/alicebob/miniredis",
+)
+
+new_go_repository(
+    name = "com_github_bsm_redeo",
+    commit = "1ce09fc76693fb3c1ca9b529c66f38920beb6fb8", # Aug 17, 2016 (no releases)
+    importpath = "github.com/bsm/redeo",
+)
