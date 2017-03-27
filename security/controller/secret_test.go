@@ -39,15 +39,16 @@ func (ca fakeCa) GetRootCertificate() []byte {
 
 func createSecret(name, namespace string) *v1.Secret {
 	return &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
 		Data: map[string][]byte{
 			"cert-chain.pem": []byte("fake cert chain"),
 			"key.pem":        []byte("fake key"),
 			"root-cert.pem":  []byte("fake root cert"),
 		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Type: istioSecretType,
 	}
 }
 
