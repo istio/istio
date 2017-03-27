@@ -37,7 +37,7 @@ import (
 // Defaults values for injecting istio proxy into kubernetes
 // resources.
 const (
-	DefaultHub              = "docker.io"
+	DefaultHub              = "docker.io/istio"
 	DefaultTag              = "2017-03-22-17.30.06"
 	DefaultManagerAddr      = "istio-manager:8080"
 	DefaultMixerAddr        = "istio-mixer:9091"

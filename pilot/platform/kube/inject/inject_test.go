@@ -24,12 +24,12 @@ import (
 )
 
 func TestImageName(t *testing.T) {
-	want := "docker.io/init:latest"
-	if got := InitImageName("docker.io", "latest"); got != want {
+	want := "docker.io/istio/init:latest"
+	if got := InitImageName("docker.io/istio", "latest"); got != want {
 		t.Errorf("InitImage() failed: got %q want %q", got, want)
 	}
-	want = "docker.io/runtime:latest"
-	if got := RuntimeImageName("docker.io", "latest"); got != want {
+	want = "docker.io/istio/runtime:latest"
+	if got := RuntimeImageName("docker.io/istio", "latest"); got != want {
 		t.Errorf("InitImage() failed: got %q want %q", got, want)
 	}
 }
