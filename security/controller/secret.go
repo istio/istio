@@ -64,9 +64,9 @@ func NewSecretController(ca certmanager.CertificateAuthority, core corev1.CoreV1
 		},
 	}
 	rehf := cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addFunc,
-		DeleteFunc: c.deleteFunc,
-		UpdateFunc: c.updateFunc,
+		AddFunc:    c.saAdded,
+		DeleteFunc: c.saDeleted,
+		UpdateFunc: c.saUpdated,
 	}
 	c.saStore, c.saController = cache.NewInformer(saLW, &v1.ServiceAccount{}, time.Minute, rehf)
 
@@ -91,17 +91,20 @@ func (sc *SecretController) Run(stopCh chan struct{}) {
 	<-stopCh
 }
 
-func (sc *SecretController) addFunc(obj interface{}) {
+// Handles the event where a service account is added.
+func (sc *SecretController) saAdded(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
 	sc.upsertSecret(acct.GetName(), acct.GetNamespace())
 }
 
-func (sc *SecretController) deleteFunc(obj interface{}) {
+// Handles the event where a service account is deleted.
+func (sc *SecretController) saDeleted(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
 	sc.deleteSecret(acct.GetName(), acct.GetNamespace())
 }
 
-func (sc *SecretController) updateFunc(oldObj, curObj interface{}) {
+// Handles the event where a service account is updated.
+func (sc *SecretController) saUpdated(oldObj, curObj interface{}) {
 	if reflect.DeepEqual(oldObj, curObj) {
 		// Nothing is changed. The method is invoked by periodical re-sync with the apiserver.
 		return

@@ -125,13 +125,13 @@ func TestSecretController(t *testing.T) {
 		}
 
 		if tc.saToAdd != nil {
-			controller.addFunc(tc.saToAdd)
+			controller.saAdded(tc.saToAdd)
 		}
 		if tc.saToDelete != nil {
-			controller.deleteFunc(tc.saToDelete)
+			controller.saDeleted(tc.saToDelete)
 		}
 		if tc.sasToUpdate != nil {
-			controller.updateFunc(tc.sasToUpdate.oldSa, tc.sasToUpdate.curSa)
+			controller.saUpdated(tc.sasToUpdate.oldSa, tc.sasToUpdate.curSa)
 		}
 
 		actions := client.Actions()
