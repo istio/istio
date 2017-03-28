@@ -34,8 +34,15 @@ import (
 
 /* #nosec: disable gas linter */
 const (
-	secretNamePrefix = "istio."
-	istioSecretType  = "istio.io/key-and-cert"
+	secretNamePrefix   = "istio."
+	istioSecretType    = "istio.io/key-and-cert"
+	secretResyncPeriod = time.Minute
+
+	serviceAccountNameAnnotationKey = "istio.io/service-account.name"
+
+	certChainID  = "cert-chain.pem"
+	privateKeyID = "key.pem"
+	rootCertID   = "root-cert.pem"
 )
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
@@ -86,7 +93,9 @@ func NewSecretController(ca certmanager.CertificateAuthority, core corev1.CoreV1
 		},
 	}
 	c.scrtStore, c.scrtController =
-		cache.NewInformer(scrtLW, &v1.Secret{}, time.Minute, cache.ResourceEventHandlerFuncs{})
+		cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, cache.ResourceEventHandlerFuncs{
+			UpdateFunc: c.scrtUpdated,
+		})
 
 	return c
 }
@@ -137,8 +146,9 @@ func (sc *SecretController) saUpdated(oldObj, curObj interface{}) {
 func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      getSecretName(saName),
-			Namespace: saNamespace,
+			Annotations: map[string]string{serviceAccountNameAnnotationKey: saName},
+			Name:        getSecretName(saName),
+			Namespace:   saNamespace,
 		},
 		Type: istioSecretType,
 	}
@@ -149,8 +159,7 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	}
 
 	if exists {
-		// TODO (Yang Guan): https://github.com/istio/auth/issues/56
-		// For an existing secret, we should check the cert expiration time and refresh it when necessary.
+		// Do nothing for existing secrets. Rotating expiring certs are handled by the `scrtUpdated` method.
 		return
 	}
 
@@ -158,9 +167,9 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	chain, key := sc.ca.Generate(saName, saNamespace)
 	rootCert := sc.ca.GetRootCertificate()
 	secret.Data = map[string][]byte{
-		"cert-chain.pem": chain,
-		"key.pem":        key,
-		"root-cert.pem":  rootCert,
+		certChainID:  chain,
+		privateKeyID: key,
+		rootCertID:   rootCert,
 	}
 	_, err = sc.core.Secrets(saNamespace).Create(secret)
 	if err != nil {
@@ -181,6 +190,33 @@ func (sc *SecretController) deleteSecret(saName, saNamespace string) {
 
 	glog.Errorf("Failed to delete Istio secret for service account \"%s\" in namespace \"%s\" (error: %s)",
 		saName, saNamespace, err)
+}
+
+func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
+	scrt, ok := newObj.(*v1.Secret)
+	if !ok {
+		glog.Warning("Failed to convert to secret object: %v", newObj)
+		return
+	}
+
+	certBytes := scrt.Data[certChainID]
+	cert := certmanager.ParsePemEncodedCertificate(certBytes)
+	ttl := cert.NotAfter.Sub(time.Now())
+	if ttl.Seconds() < secretResyncPeriod.Seconds() {
+		glog.Infof("Certificate %s is about to expire, refreshing it", scrt.GetName())
+
+		saName := scrt.Annotations[serviceAccountNameAnnotationKey]
+		saNamespace := scrt.GetNamespace()
+
+		chain, key := sc.ca.Generate(saName, saNamespace)
+		scrt.Data[certChainID] = chain
+		scrt.Data[privateKeyID] = key
+
+		_, err := sc.core.Secrets(saNamespace).Update(scrt)
+		if err != nil {
+			glog.Errorf("Failed to update secret %s/%s (error: %s)", saNamespace, saName, err)
+		}
+	}
 }
 
 func getSecretName(saName string) string {

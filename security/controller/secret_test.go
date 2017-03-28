@@ -17,6 +17,9 @@ package controller
 import (
 	"reflect"
 	"testing"
+	"time"
+
+	"istio.io/auth/certmanager"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -37,16 +40,17 @@ func (ca fakeCa) GetRootCertificate() []byte {
 	return []byte("fake root cert")
 }
 
-func createSecret(name, namespace string) *v1.Secret {
+func createSecret(saName, scrtName, namespace string) *v1.Secret {
 	return &v1.Secret{
 		Data: map[string][]byte{
-			"cert-chain.pem": []byte("fake cert chain"),
-			"key.pem":        []byte("fake key"),
-			"root-cert.pem":  []byte("fake root cert"),
+			certChainID:  []byte("fake cert chain"),
+			privateKeyID: []byte("fake key"),
+			rootCertID:   []byte("fake root cert"),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Annotations: map[string]string{"istio.io/service-account.name": saName},
+			Name:        scrtName,
+			Namespace:   namespace,
 		},
 		Type: istioSecretType,
 	}
@@ -81,7 +85,7 @@ func TestSecretController(t *testing.T) {
 		"adding service account creates new secret": {
 			saToAdd: createServiceAccount("test", "test-ns"),
 			expectedActions: []ktesting.Action{
-				ktesting.NewCreateAction(gvr, "test-ns", createSecret("istio.test", "test-ns")),
+				ktesting.NewCreateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
 			},
 		},
 		"removing service account deletes existing secret": {
@@ -104,11 +108,11 @@ func TestSecretController(t *testing.T) {
 			},
 			expectedActions: []ktesting.Action{
 				ktesting.NewDeleteAction(gvr, "old-ns", "istio.old-name"),
-				ktesting.NewCreateAction(gvr, "new-ns", createSecret("istio.new-name", "new-ns")),
+				ktesting.NewCreateAction(gvr, "new-ns", createSecret("new-name", "istio.new-name", "new-ns")),
 			},
 		},
 		"adding new service account does not overwrite existing secret": {
-			existingSecret:  createSecret("istio.test", "test-ns"),
+			existingSecret:  createSecret("test", "istio.test", "test-ns"),
 			saToAdd:         createServiceAccount("test", "test-ns"),
 			expectedActions: []ktesting.Action{},
 		},
@@ -134,6 +138,50 @@ func TestSecretController(t *testing.T) {
 		if tc.sasToUpdate != nil {
 			controller.saUpdated(tc.sasToUpdate.oldSa, tc.sasToUpdate.curSa)
 		}
+
+		actions := client.Actions()
+		if !reflect.DeepEqual(actions, tc.expectedActions) {
+			t.Errorf("%s: expect actions to be \n\t%v\n but actual actions are \n\t%v", k, tc.expectedActions, actions)
+		}
+	}
+}
+
+func TestUpdateExpiringSecret(t *testing.T) {
+	gvr := schema.GroupVersionResource{
+		Resource: "secrets",
+		Version:  "v1",
+	}
+	testCases := map[string]struct {
+		expectedActions []ktesting.Action
+		notAfter        time.Time
+	}{
+		"Does not update non-expiring secret": {
+			expectedActions: []ktesting.Action{},
+			notAfter:        time.Now().Add(time.Hour),
+		},
+		"Update expiring secret": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
+			},
+			notAfter: time.Now().Add(-time.Second),
+		},
+	}
+
+	for k, tc := range testCases {
+		client := fake.NewSimpleClientset()
+		controller := NewSecretController(fakeCa{}, client.CoreV1())
+
+		scrt := createSecret("test", "istio.test", "test-ns")
+
+		opts := certmanager.CertOptions{
+			IsSelfSigned: true,
+			NotAfter:     tc.notAfter,
+			RSAKeySize:   512,
+		}
+		bs, _ := certmanager.GenCert(opts)
+		scrt.Data[certChainID] = bs
+
+		controller.scrtUpdated(nil, scrt)
 
 		actions := client.Actions()
 		if !reflect.DeepEqual(actions, tc.expectedActions) {
