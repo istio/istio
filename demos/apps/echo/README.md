@@ -5,9 +5,9 @@
 
 **Deploy a simple echo app with manually injected proxy**
 
-    kubectl apply <(istioctl kube-inject -f ./demos/apps/echo/echo-app.yaml)
-    kubectl apply <(istioctl kube-inject -f ./demos/apps/echo/logic-app.yaml)
-    kubectl apply -f ./demos/apps/echo/vanilla-app.yaml
+    kubectl apply -f <(istioctl kube-inject -f echo-app.yaml)
+    kubectl apply -f <(istioctl kube-inject -f logic-app.yaml)
+    kubectl apply -f vanilla-app.yaml
 
 This will deploy two pods, each running a simple echo server and client, and will create two kubernetes services called "echo" and "logic".
 
