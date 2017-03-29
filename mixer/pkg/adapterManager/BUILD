@@ -5,7 +5,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_prefix", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "apiMethod.go",
         "env.go",
         "logger.go",
         "manager.go",
@@ -30,7 +29,6 @@ go_test(
     name = "small_tests",
     size = "small",
     srcs = [
-        "apiMethod_test.go",
         "env_test.go",
         "manager_test.go",
         "registry_test.go",

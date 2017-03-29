@@ -120,7 +120,7 @@ func (applicationLogsManager) NewReportExecutor(c *cpb.Combined, a adapter.Build
 	}, nil
 }
 
-func (applicationLogsManager) Kind() Kind { return ApplicationLogsKind }
+func (applicationLogsManager) Kind() config.Kind { return config.ApplicationLogsKind }
 func (applicationLogsManager) DefaultConfig() config.AspectParams {
 	return &aconfig.ApplicationLogsParams{LogName: "istio_log"}
 }

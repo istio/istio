@@ -38,7 +38,7 @@ type (
 		config.AspectValidator
 
 		// Kind return the kind of aspect handled by this manager
-		Kind() Kind
+		Kind() config.Kind
 	}
 
 	// CheckManager take care of aspects used to implement the Check API method

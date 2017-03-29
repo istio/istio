@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/aspect"
+	"istio.io/mixer/pkg/config"
 )
 
 type testBuilder struct {
@@ -207,7 +207,7 @@ func TestMultiKinds(t *testing.T) {
 
 	// register as accessLog
 
-	kinds := []string{aspect.QuotasKind.String(), aspect.AccessLogsKind.String()}
+	kinds := config.KindSet(0).Set(config.QuotasKind).Set(config.AccessLogsKind)
 
 	reg.RegisterAccessLogsBuilder(builder)
 	if !reflect.DeepEqual(reg.SupportedKinds(builder.Name()), kinds) {
@@ -225,7 +225,7 @@ func TestMultiKinds(t *testing.T) {
 		t.Error("Unexpectedly found builder: DOES_NOT_EXIST")
 	}
 
-	if len(reg.SupportedKinds("DOES_NOT_EXIST")) != 0 {
+	if reg.SupportedKinds("DOES_NOT_EXIST") != 0 {
 		t.Error("Unexpectedly found kinds for builder: DOES_NOT_EXIST")
 	}
 

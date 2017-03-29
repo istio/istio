@@ -125,7 +125,7 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	eval := expr.NewCEXLEvaluator()
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder,
-		adapterMgr.AdapterToAspectMapper,
+		adapterMgr.SupportedKinds,
 		sa.globalConfigFile, sa.serviceConfigFile, time.Second*time.Duration(sa.configFetchIntervalSec))
 
 	handler := api.NewHandler(adapterMgr)

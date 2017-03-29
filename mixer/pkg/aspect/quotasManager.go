@@ -111,7 +111,7 @@ func (m *quotasManager) NewQuotaExecutor(c *cpb.Combined, a adapter.Builder, env
 	}, nil
 }
 
-func (*quotasManager) Kind() Kind                         { return QuotasKind }
+func (*quotasManager) Kind() config.Kind                  { return config.QuotasKind }
 func (*quotasManager) DefaultConfig() config.AspectParams { return &aconfig.QuotasParams{} }
 func (*quotasManager) ValidateConfig(config.AspectParams, expr.Validator, descriptor.Finder) (ce *adapter.ConfigErrors) {
 	return

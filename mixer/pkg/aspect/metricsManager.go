@@ -120,7 +120,7 @@ func (m *metricsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder, e
 	return &metricsExecutor{b.Name(), asp, metadata}, nil
 }
 
-func (*metricsManager) Kind() Kind                         { return MetricsKind }
+func (*metricsManager) Kind() config.Kind                  { return config.MetricsKind }
 func (*metricsManager) DefaultConfig() config.AspectParams { return &aconfig.MetricsParams{} }
 
 func (*metricsManager) ValidateConfig(config.AspectParams, expr.Validator, descriptor.Finder) (ce *adapter.ConfigErrors) {

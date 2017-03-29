@@ -55,7 +55,7 @@ func evalErrOnStr(s string) expr.Evaluator {
 
 func TestNewLoggerManager(t *testing.T) {
 	m := newApplicationLogsManager()
-	if m.Kind() != ApplicationLogsKind {
+	if m.Kind() != config.ApplicationLogsKind {
 		t.Error("Wrong kind of manager")
 	}
 }

@@ -92,7 +92,7 @@ func (m accessLogsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder,
 	}, nil
 }
 
-func (accessLogsManager) Kind() Kind { return AccessLogsKind }
+func (accessLogsManager) Kind() config.Kind { return config.AccessLogsKind }
 func (accessLogsManager) DefaultConfig() config.AspectParams {
 	return &aconfig.AccessLogsParams{
 		LogName: "access_log",

@@ -57,15 +57,15 @@ func listAspects(printf shared.FormatFn) {
 	aspectMap := adapterManager.Aspects(aspect.Inventory())
 
 	keys := []string{}
-	for kind := range aspectMap {
-		keys = append(keys, kind.String())
+	for i := 0; i < len(aspectMap); i++ {
+		keys = append(keys, aspectMap[i].Kind().String())
 	}
 
 	sort.Strings(keys)
 
 	for _, kind := range keys {
 		printf("aspect %s", kind)
-		k, _ := aspect.ParseKind(kind)
+		k, _ := config.ParseKind(kind)
 		printAspectConfigValidator(printf, aspectMap[k])
 	}
 }
