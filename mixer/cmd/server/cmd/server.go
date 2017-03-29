@@ -39,6 +39,7 @@ import (
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/tracing"
+	"istio.io/mixer/pkg/version"
 )
 
 type serverArgs struct {
@@ -199,6 +200,7 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	s := api.NewGRPCServer(handler, tracer, gp)
 	mixerpb.RegisterMixerServer(gs, s)
 
+	printf("Istio Mixer: %s", version.Info)
 	printf("Starting gRPC server on port %v", sa.port)
 
 	if err = gs.Serve(listener); err != nil {
