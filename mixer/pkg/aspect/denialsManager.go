@@ -54,7 +54,7 @@ func (denialsManager) NewCheckExecutor(cfg *cpb.Combined, ga adapter.Builder, en
 	}, nil
 }
 
-func (denialsManager) Kind() Kind                         { return DenialsKind }
+func (denialsManager) Kind() config.Kind                  { return config.DenialsKind }
 func (denialsManager) DefaultConfig() config.AspectParams { return &aconfig.DenialsParams{} }
 func (denialsManager) ValidateConfig(config.AspectParams, expr.Validator, descriptor.Finder) (ce *adapter.ConfigErrors) {
 	return

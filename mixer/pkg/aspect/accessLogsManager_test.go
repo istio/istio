@@ -35,8 +35,8 @@ import (
 
 func TestNewAccessLoggerManager(t *testing.T) {
 	m := newAccessLogsManager()
-	if m.Kind() != AccessLogsKind {
-		t.Fatalf("Wrong kind of adapter; got %v, want %v", m.Kind(), AccessLogsKind)
+	if m.Kind() != config.AccessLogsKind {
+		t.Fatalf("Wrong kind of adapter; got %v, want %v", m.Kind(), config.AccessLogsKind)
 	}
 }
 

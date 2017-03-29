@@ -29,6 +29,7 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
 	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
@@ -66,8 +67,8 @@ func (b *fakeBuilder) NewMetricsAspect(env adapter.Env, config adapter.Config,
 
 func TestNewMetricsManager(t *testing.T) {
 	m := newMetricsManager()
-	if m.Kind() != MetricsKind {
-		t.Errorf("m.Kind() = %s wanted %s", m.Kind(), MetricsKind)
+	if m.Kind() != config.MetricsKind {
+		t.Errorf("m.Kind() = %s wanted %s", m.Kind(), config.MetricsKind)
 	}
 	if err := m.ValidateConfig(m.DefaultConfig(), nil, nil); err != nil {
 		t.Errorf("m.ValidateConfig(m.DefaultConfig()) = %v; wanted no err", err)

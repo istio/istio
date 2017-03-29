@@ -22,6 +22,7 @@ import (
 	"time"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
+
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
@@ -37,26 +38,26 @@ type (
 	fakeBuilderReg struct {
 		adp   adapter.Builder
 		found bool
-		kinds []string
+		kinds config.KindSet
 	}
 
 	fakeCheckAspectMgr struct {
 		aspect.Manager
-		kind   aspect.Kind
+		kind   config.Kind
 		ce     aspect.CheckExecutor
 		called int8
 	}
 
 	fakeReportAspectMgr struct {
 		aspect.Manager
-		kind   aspect.Kind
+		kind   config.Kind
 		re     aspect.ReportExecutor
 		called int8
 	}
 
 	fakeQuotaAspectMgr struct {
 		aspect.Manager
-		kind   aspect.Kind
+		kind   config.Kind
 		qe     aspect.QuotaExecutor
 		called int8
 	}
@@ -100,7 +101,7 @@ type (
 	}
 )
 
-func (f *fakeResolver) Resolve(bag attribute.Bag, aspectSet config.AspectSet) ([]*configpb.Combined, error) {
+func (f *fakeResolver) Resolve(bag attribute.Bag, kindSet config.KindSet) ([]*configpb.Combined, error) {
 	return f.ret, f.err
 }
 
@@ -124,7 +125,7 @@ func (f *fakeQuotaExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, 
 }
 func (f *fakeQuotaExecutor) Close() error { return nil }
 
-func (m *fakeCheckAspectMgr) Kind() aspect.Kind {
+func (m *fakeCheckAspectMgr) Kind() config.Kind {
 	return m.kind
 }
 
@@ -137,7 +138,7 @@ func (m *fakeCheckAspectMgr) NewCheckExecutor(cfg *configpb.Combined, adp adapte
 	return m.ce, nil
 }
 
-func (m *fakeReportAspectMgr) Kind() aspect.Kind {
+func (m *fakeReportAspectMgr) Kind() config.Kind {
 	return m.kind
 }
 
@@ -152,7 +153,7 @@ func (m *fakeReportAspectMgr) NewReportExecutor(cfg *configpb.Combined, adp adap
 	return m.re, nil
 }
 
-func (m *fakeQuotaAspectMgr) Kind() aspect.Kind {
+func (m *fakeQuotaAspectMgr) Kind() config.Kind {
 	return m.kind
 }
 
@@ -173,7 +174,7 @@ func (testManager) DefaultConfig() config.AspectParams { return nil }
 func (testManager) ValidateConfig(config.AspectParams, expr.Validator, descriptor.Finder) *adapter.ConfigErrors {
 	return nil
 }
-func (testManager) Kind() aspect.Kind   { return aspect.DenialsKind }
+func (testManager) Kind() config.Kind   { return config.DenialsKind }
 func (m testManager) Name() string      { return m.name }
 func (testManager) Description() string { return "deny checker aspect manager for testing" }
 
@@ -202,30 +203,29 @@ func (m *fakeBuilderReg) FindBuilder(adapterName string) (adapter.Builder, bool)
 	return m.adp, m.found
 }
 
-func (m *fakeBuilderReg) SupportedKinds(name string) []string {
+func (m *fakeBuilderReg) SupportedKinds(builder string) config.KindSet {
 	return m.kinds
 }
 
 func getReg(found bool) *fakeBuilderReg {
-	return &fakeBuilderReg{&fakeBuilder{name: "k1impl1"}, found, []string{
-		aspect.DenialsKind.String(),
-		aspect.AccessLogsKind.String(),
-		aspect.QuotasKind.String(),
-	}}
+	var ks config.KindSet
+	return &fakeBuilderReg{&fakeBuilder{name: "k1impl1"}, found,
+		ks.Set(config.DenialsKind).Set(config.AccessLogsKind).Set(config.QuotasKind),
+	}
 }
 
-func newFakeMgrReg(ce *fakeCheckExecutor, re *fakeReportExecutor, qe *fakeQuotaExecutor) map[aspect.Kind]aspect.Manager {
+func newFakeMgrReg(ce *fakeCheckExecutor, re *fakeReportExecutor, qe *fakeQuotaExecutor) [config.NumKinds]aspect.Manager {
 	var f1 aspect.CheckManager
 	var f2 aspect.ReportManager
 	var f3 aspect.QuotaManager
 
-	f1 = &fakeCheckAspectMgr{kind: aspect.DenialsKind, ce: ce}
-	f2 = &fakeReportAspectMgr{kind: aspect.AccessLogsKind, re: re}
-	f3 = &fakeQuotaAspectMgr{kind: aspect.QuotasKind, qe: qe}
+	f1 = &fakeCheckAspectMgr{kind: config.DenialsKind, ce: ce}
+	f2 = &fakeReportAspectMgr{kind: config.AccessLogsKind, re: re}
+	f3 = &fakeQuotaAspectMgr{kind: config.QuotasKind, qe: qe}
 
 	mgrs := []aspect.Manager{f1, f2, f3}
 
-	mreg := make(map[aspect.Kind]aspect.Manager, len(mgrs))
+	mreg := [config.NumKinds]aspect.Manager{}
 	for _, mgr := range mgrs {
 		mreg[mgr.Kind()] = mgr
 	}
@@ -234,26 +234,26 @@ func newFakeMgrReg(ce *fakeCheckExecutor, re *fakeReportExecutor, qe *fakeQuotaE
 
 func TestManager(t *testing.T) {
 	goodcfg := &configpb.Combined{
-		Aspect:  &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
-		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1", Params: &rpc.Status{}},
+		Aspect:  &configpb.Aspect{Kind: config.DenialsKindName, Params: &rpc.Status{}},
+		Builder: &configpb.Adapter{Kind: config.DenialsKindName, Impl: "k1impl1", Params: &rpc.Status{}},
 	}
 
 	goodcfg2 := &configpb.Combined{
-		Aspect:  &configpb.Aspect{Kind: aspect.AccessLogsKindName, Params: &rpc.Status{}},
-		Builder: &configpb.Adapter{Kind: aspect.AccessLogsKindName, Impl: "k1impl2", Params: &rpc.Status{}},
+		Aspect:  &configpb.Aspect{Kind: config.AccessLogsKindName, Params: &rpc.Status{}},
+		Builder: &configpb.Adapter{Kind: config.AccessLogsKindName, Impl: "k1impl2", Params: &rpc.Status{}},
 	}
 
 	badcfg1 := &configpb.Combined{
-		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
-		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
+		Aspect: &configpb.Aspect{Kind: config.DenialsKindName, Params: &rpc.Status{}},
+		Builder: &configpb.Adapter{Kind: config.DenialsKindName, Impl: "k1impl1",
 			Params: make(chan int)},
 	}
 	badcfg2 := &configpb.Combined{
-		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: make(chan int)},
-		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
+		Aspect: &configpb.Aspect{Kind: config.DenialsKindName, Params: make(chan int)},
+		Builder: &configpb.Adapter{Kind: config.DenialsKindName, Impl: "k1impl1",
 			Params: &rpc.Status{}},
 	}
-	emptyMgrs := map[aspect.Kind]aspect.Manager{}
+	emptyMgrs := [config.NumKinds]aspect.Manager{}
 	requestBag := attribute.GetMutableBag(nil)
 	responseBag := attribute.GetMutableBag(nil)
 	mapper := &fakeEvaluator{}
@@ -282,7 +282,7 @@ func TestManager(t *testing.T) {
 
 		gp := pool.NewGoroutinePool(1, true)
 		agp := pool.NewGoroutinePool(1, true)
-		m := newManager(r, mgr, mapper, nil, gp, agp)
+		m := newManager(r, mgr, mapper, aspect.ManagerInventory{}, gp, agp)
 
 		m.cfg.Store(&fakeResolver{tt.cfg, nil})
 
@@ -300,7 +300,7 @@ func TestManager(t *testing.T) {
 			t.Errorf("[%d] Expected executor to have been called once, got %d calls", idx, tt.checkExecutor.called)
 		}
 
-		mgr1 := mgr[aspect.DenialsKind].(aspect.CheckManager)
+		mgr1 := mgr[config.DenialsKind].(aspect.CheckManager)
 		fmgr := mgr1.(*fakeCheckAspectMgr)
 		if fmgr.called != 1 {
 			t.Errorf("[%d] Expected mgr.NewExecutor called 1, got %d calls", idx, fmgr.called)
@@ -332,11 +332,11 @@ func TestReport(t *testing.T) {
 	re := &fakeReportExecutor{}
 	mgrs := newFakeMgrReg(nil, re, nil)
 
-	m := newManager(r, mgrs, mapper, nil, gp, agp)
+	m := newManager(r, mgrs, mapper, aspect.ManagerInventory{}, gp, agp)
 
 	cfg := []*configpb.Combined{
 		{
-			Aspect:  &configpb.Aspect{Kind: aspect.AccessLogsKindName},
+			Aspect:  &configpb.Aspect{Kind: config.AccessLogsKindName},
 			Builder: &configpb.Adapter{Name: "Foo"},
 		},
 	}
@@ -366,11 +366,11 @@ func TestQuota(t *testing.T) {
 	qe := &fakeQuotaExecutor{result: aspect.QuotaMethodResp{Amount: 42}}
 	mgrs := newFakeMgrReg(nil, nil, qe)
 
-	m := newManager(r, mgrs, mapper, nil, gp, agp)
+	m := newManager(r, mgrs, mapper, aspect.ManagerInventory{}, gp, agp)
 
 	cfg := []*configpb.Combined{
 		{
-			Aspect:  &configpb.Aspect{Kind: aspect.QuotasKindName},
+			Aspect:  &configpb.Aspect{Kind: config.QuotasKindName},
 			Builder: &configpb.Adapter{Name: "Foo"},
 		},
 	}
@@ -396,17 +396,17 @@ func TestQuota(t *testing.T) {
 
 func TestManager_BulkExecute(t *testing.T) {
 	goodcfg := &configpb.Combined{
-		Aspect:  &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
-		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1", Params: &rpc.Status{}},
+		Aspect:  &configpb.Aspect{Kind: config.DenialsKindName, Params: &rpc.Status{}},
+		Builder: &configpb.Adapter{Kind: config.DenialsKindName, Impl: "k1impl1", Params: &rpc.Status{}},
 	}
 	badcfg1 := &configpb.Combined{
-		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: &rpc.Status{}},
-		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
+		Aspect: &configpb.Aspect{Kind: config.DenialsKindName, Params: &rpc.Status{}},
+		Builder: &configpb.Adapter{Kind: config.DenialsKindName, Impl: "k1impl1",
 			Params: make(chan int)},
 	}
 	badcfg2 := &configpb.Combined{
-		Aspect: &configpb.Aspect{Kind: aspect.DenialsKindName, Params: make(chan int)},
-		Builder: &configpb.Adapter{Kind: aspect.DenialsKindName, Impl: "k1impl1",
+		Aspect: &configpb.Aspect{Kind: config.DenialsKindName, Params: make(chan int)},
+		Builder: &configpb.Adapter{Kind: config.DenialsKindName, Impl: "k1impl1",
 			Params: &rpc.Status{}},
 	}
 
@@ -430,7 +430,7 @@ func TestManager_BulkExecute(t *testing.T) {
 
 		gp := pool.NewGoroutinePool(1, true)
 		agp := pool.NewGoroutinePool(1, true)
-		m := newManager(r, mgr, mapper, nil, gp, agp)
+		m := newManager(r, mgr, mapper, aspect.ManagerInventory{}, gp, agp)
 
 		m.cfg.Store(&fakeResolver{c.cfgs, nil})
 
@@ -464,9 +464,8 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 			return status.WithError(errors.New("empty"))
 		})
 	}
-	mreg := map[aspect.Kind]aspect.Manager{
-		aspect.DenialsKind: cacheThrow,
-	}
+	mreg := [config.NumKinds]aspect.Manager{}
+	mreg[config.DenialsKind] = cacheThrow
 	breg := &fakeBuilderReg{
 		adp:   cacheThrow.instance,
 		found: true,
@@ -474,7 +473,7 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 
 	gp := pool.NewGoroutinePool(1, true)
 	agp := pool.NewGoroutinePool(1, true)
-	m := newManager(breg, mreg, nil, nil, gp, agp)
+	m := newManager(breg, mreg, nil, aspect.ManagerInventory{}, gp, agp)
 
 	cfg := []*configpb.Combined{
 		{
@@ -504,7 +503,7 @@ func TestExecute(t *testing.T) {
 		inErr    error
 		wantCode rpc.Code
 	}{
-		{aspect.DenialsKindName, rpc.OK, nil, rpc.OK},
+		{config.DenialsKindName, rpc.OK, nil, rpc.OK},
 		{"error", rpc.UNKNOWN, errors.New("expected"), rpc.UNKNOWN},
 	}
 
@@ -512,9 +511,8 @@ func TestExecute(t *testing.T) {
 		mngr := newTestManager(c.name, false, func() rpc.Status {
 			return status.New(c.inCode)
 		})
-		mreg := map[aspect.Kind]aspect.Manager{
-			aspect.DenialsKind: mngr,
-		}
+		mreg := [config.NumKinds]aspect.Manager{}
+		mreg[config.DenialsKind] = mngr
 		breg := &fakeBuilderReg{
 			adp:   mngr.instance,
 			found: true,
@@ -522,14 +520,14 @@ func TestExecute(t *testing.T) {
 
 		gp := pool.NewGoroutinePool(1, true)
 		agp := pool.NewGoroutinePool(1, true)
-		m := newManager(breg, mreg, nil, nil, gp, agp)
+		m := newManager(breg, mreg, nil, aspect.ManagerInventory{}, gp, agp)
 
 		cfg := []*configpb.Combined{
 			{&configpb.Adapter{Name: c.name}, &configpb.Aspect{Kind: c.name}},
 		}
 		m.cfg.Store(&fakeResolver{cfg, nil})
 
-		o := m.dispatch(context.Background(), nil, nil, checkMethod,
+		o := m.dispatch(context.Background(), nil, nil, 0,
 			func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
 				return status.OK
 			})
@@ -562,7 +560,7 @@ func TestExecute_Cancellation(t *testing.T) {
 	}
 	m.cfg.Store(&fakeResolver{cfg, nil})
 
-	if out := m.dispatch(ctx, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), checkMethod, nil); status.IsOK(out) {
+	if out := m.dispatch(ctx, attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), 0, nil); status.IsOK(out) {
 		t.Error("m.dispatch(canceledContext, ...) = _, nil; wanted any err")
 	}
 
@@ -579,9 +577,8 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 		<-blockChan
 		return status.OK
 	})
-	mreg := map[aspect.Kind]aspect.Manager{
-		aspect.DenialsKind: mngr,
-	}
+	mreg := [config.NumKinds]aspect.Manager{}
+	mreg[config.DenialsKind] = mngr
 	breg := &fakeBuilderReg{
 		adp:   mngr.instance,
 		found: true,
@@ -593,7 +590,7 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 	agp := pool.NewGoroutinePool(128, true)
 	agp.AddWorkers(32)
 
-	m := newManager(breg, mreg, nil, nil, gp, agp)
+	m := newManager(breg, mreg, nil, aspect.ManagerInventory{}, gp, agp)
 
 	go func() {
 		time.Sleep(1 * time.Millisecond)

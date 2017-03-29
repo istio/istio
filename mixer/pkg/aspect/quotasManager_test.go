@@ -31,6 +31,7 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
 	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
@@ -77,8 +78,8 @@ func (b *fakeQuotaBuilder) NewQuotasAspect(env adapter.Env, config adapter.Confi
 
 func TestNewQuotasManager(t *testing.T) {
 	m := newQuotasManager()
-	if m.Kind() != QuotasKind {
-		t.Errorf("m.Kind() = %s wanted %s", m.Kind(), QuotasKind)
+	if m.Kind() != config.QuotasKind {
+		t.Errorf("m.Kind() = %s wanted %s", m.Kind(), config.QuotasKind)
 	}
 	if err := m.ValidateConfig(m.DefaultConfig(), nil, nil); err != nil {
 		t.Errorf("m.ValidateConfig(m.DefaultConfig()) = %v; wanted no err", err)

@@ -31,8 +31,8 @@ import (
 
 // Resolver resolves configuration to a list of combined configs.
 type Resolver interface {
-	// Resolve resolves configuration to a list of combined configs.
-	Resolve(bag attribute.Bag, aspectSet AspectSet) ([]*pb.Combined, error)
+	// resolve resolves configuration to a list of combined configs.
+	Resolve(bag attribute.Bag, kindSet KindSet) ([]*pb.Combined, error)
 }
 
 // ChangeListener listens for config change notifications.
@@ -103,7 +103,7 @@ func read(fname string) ([sha1.Size]byte, string, error) {
 }
 
 // fetch config and return runtime if a new one is available.
-func (c *Manager) fetch() (*Runtime, descriptor.Finder, error) {
+func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
 	var vd *Validated
 	var cerr *adapter.ConfigErrors
 
@@ -121,8 +121,8 @@ func (c *Manager) fetch() (*Runtime, descriptor.Finder, error) {
 		return nil, nil, nil
 	}
 
-	v := NewValidator(c.aspectFinder, c.builderFinder, c.findAspects, true, c.eval)
-	if vd, cerr = v.Validate(sc, gc); cerr != nil {
+	v := newValidator(c.aspectFinder, c.builderFinder, c.findAspects, true, c.eval)
+	if vd, cerr = v.validate(sc, gc); cerr != nil {
 		return nil, nil, cerr
 	}
 
@@ -130,7 +130,7 @@ func (c *Manager) fetch() (*Runtime, descriptor.Finder, error) {
 
 	c.gcSHA = gcSHA
 	c.scSHA = scSHA
-	return NewRuntime(vd, c.eval), c.descriptorFinder, nil
+	return newRuntime(vd, c.eval), c.descriptorFinder, nil
 }
 
 // fetchAndNotify fetches a new config and notifies listeners if something has changed

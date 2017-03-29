@@ -60,8 +60,8 @@ func (listsManager) NewCheckExecutor(cfg *cpb.Combined, ga adapter.Builder, env 
 	}, nil
 }
 
-func (listsManager) Kind() Kind {
-	return ListsKind
+func (listsManager) Kind() config.Kind {
+	return config.ListsKind
 }
 
 func (listsManager) DefaultConfig() config.AspectParams {

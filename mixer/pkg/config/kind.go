@@ -12,10 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aspect
+package config
 
 // Kind of aspect
-type Kind int
+type Kind uint
+
+// KindSet is a set of aspects by kind.
+type KindSet uint
 
 // Supported kinds of aspects
 const (
@@ -25,6 +28,8 @@ const (
 	ListsKind
 	MetricsKind
 	QuotasKind
+
+	NumKinds
 )
 
 // Name of all supported aspect kinds.
@@ -59,6 +64,16 @@ func (k Kind) String() string {
 func ParseKind(s string) (Kind, bool) {
 	k, found := stringToKind[s]
 	return k, found
+}
+
+// IsSet tests whether the given kind is enabled in the set.
+func (ks KindSet) IsSet(k Kind) bool {
+	return ((1 << k) & ks) != 0
+}
+
+// Set returns a new KindSet with the given aspect kind enabled.
+func (ks KindSet) Set(k Kind) KindSet {
+	return ks | (1 << k)
 }
 
 func init() {

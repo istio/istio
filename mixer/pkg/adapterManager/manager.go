@@ -53,14 +53,16 @@ type AspectDispatcher interface {
 // Manager manages all aspects - provides uniform interface to
 // all aspect managers
 type Manager struct {
-	managers  map[aspect.Kind]aspect.Manager
-	mapper    expr.Evaluator
-	builders  builderFinder
-	methodMap map[apiMethod]config.AspectSet
-	gp        *pool.GoroutinePool
-	adapterGP *pool.GoroutinePool
+	managers      [config.NumKinds]aspect.Manager
+	mapper        expr.Evaluator
+	builders      builderFinder
+	checkKindSet  config.KindSet
+	reportKindSet config.KindSet
+	quotaKindSet  config.KindSet
+	gp            *pool.GoroutinePool
+	adapterGP     *pool.GoroutinePool
 
-	// Configs for the aspects that'll be used to serve each API method. <*config.Runtime>
+	// Configs for the aspects that'll be used to serve each API method.
 	cfg atomic.Value
 	df  atomic.Value
 
@@ -76,33 +78,46 @@ type builderFinder interface {
 	FindBuilder(name string) (adapter.Builder, bool)
 
 	// SupportedKinds returns kinds supported by a builder.
-	SupportedKinds(name string) []string
+	SupportedKinds(builder string) config.KindSet
 }
 
 // NewManager creates a new adapterManager.
-func NewManager(builders []adapter.RegisterFn, managers aspect.ManagerInventory,
+func NewManager(builders []adapter.RegisterFn, inventory aspect.ManagerInventory,
 	exp expr.Evaluator, gp *pool.GoroutinePool, adapterGP *pool.GoroutinePool) *Manager {
-	mm, am := processBindings(managers)
-	return newManager(newRegistry(builders), mm, exp, am, gp, adapterGP)
+	mm := Aspects(inventory)
+	return newManager(newRegistry(builders), mm, exp, inventory, gp, adapterGP)
 }
 
-func newManager(r builderFinder, m map[aspect.Kind]aspect.Manager, exp expr.Evaluator,
-	am map[apiMethod]config.AspectSet, gp *pool.GoroutinePool, adapterGP *pool.GoroutinePool) *Manager {
+func newManager(r builderFinder, m [config.NumKinds]aspect.Manager, exp expr.Evaluator,
+	inventory aspect.ManagerInventory, gp *pool.GoroutinePool, adapterGP *pool.GoroutinePool) *Manager {
 
-	return &Manager{
+	mg := &Manager{
 		builders:      r,
 		managers:      m,
 		mapper:        exp,
-		methodMap:     am,
 		executorCache: make(map[cacheKey]aspect.Executor),
 		gp:            gp,
 		adapterGP:     adapterGP,
 	}
+
+	for _, m := range inventory.Check {
+		mg.checkKindSet = mg.checkKindSet.Set(m.Kind())
+	}
+
+	for _, m := range inventory.Report {
+		mg.reportKindSet = mg.reportKindSet.Set(m.Kind())
+	}
+
+	for _, m := range inventory.Quota {
+		mg.quotaKindSet = mg.quotaKindSet.Set(m.Kind())
+	}
+
+	return mg
 }
 
 // Check dispatches to the set of aspects associated with the Check API method
 func (m *Manager) Check(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
-	return m.dispatch(ctx, requestBag, responseBag, checkMethod,
+	return m.dispatch(ctx, requestBag, responseBag, m.checkKindSet,
 		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
 			cw := executor.(aspect.CheckExecutor)
 			return cw.Execute(requestBag, evaluator)
@@ -111,7 +126,7 @@ func (m *Manager) Check(ctx context.Context, requestBag *attribute.MutableBag, r
 
 // Report dispatches to the set of aspects associated with the Report API method
 func (m *Manager) Report(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
-	return m.dispatch(ctx, requestBag, responseBag, reportMethod,
+	return m.dispatch(ctx, requestBag, responseBag, m.reportKindSet,
 		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
 			rw := executor.(aspect.ReportExecutor)
 			return rw.Execute(requestBag, evaluator)
@@ -123,7 +138,7 @@ func (m *Manager) Quota(ctx context.Context, requestBag *attribute.MutableBag, r
 	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
 
 	var qmr *aspect.QuotaMethodResp
-	o := m.dispatch(ctx, requestBag, responseBag, quotaMethod,
+	o := m.dispatch(ctx, requestBag, responseBag, m.quotaKindSet,
 		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
 			qw := executor.(aspect.QuotaExecutor)
 			var o rpc.Status
@@ -136,9 +151,9 @@ func (m *Manager) Quota(ctx context.Context, requestBag *attribute.MutableBag, r
 
 type invokeExecutorFunc func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status
 
-// Execute resolves config and invokes the specific set of aspects necessary to service the current request
+// dispatch resolves config and invokes the specific set of aspects necessary to service the current request
 func (m *Manager) dispatch(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
-	method apiMethod, invokeFunc invokeExecutorFunc) rpc.Status {
+	kindSet config.KindSet, invokeFunc invokeExecutorFunc) rpc.Status {
 	// get a new context with the attribute bag attached
 	ctx = attribute.NewContext(ctx, requestBag)
 
@@ -150,7 +165,7 @@ func (m *Manager) dispatch(ctx context.Context, requestBag *attribute.MutableBag
 		return status.WithInternal(msg)
 	}
 
-	cfgs, err := cfg.Resolve(requestBag, m.methodMap[method])
+	cfgs, err := cfg.Resolve(requestBag, kindSet)
 	if err != nil {
 		msg := fmt.Sprintf("unable to resolve config: %v", err)
 		glog.Error(msg)
@@ -217,7 +232,7 @@ func (m *Manager) dispatch(ctx context.Context, requestBag *attribute.MutableBag
 	return combineResults(results)
 }
 
-// Combines a bunch of distinct result structs and turns 'em into one single Output struct
+// Combines a bunch of distinct result structs and turns 'em into one single rpc.Status
 func combineResults(results []result) rpc.Status {
 	var buf *bytes.Buffer
 	code := rpc.OK
@@ -257,13 +272,13 @@ func (m *Manager) execute(ctx context.Context, cfg *configpb.Combined, requestBa
 	var mgr aspect.Manager
 	var found bool
 
-	kind, found := aspect.ParseKind(cfg.Aspect.Kind)
+	kind, found := config.ParseKind(cfg.Aspect.Kind)
 	if !found {
 		return status.WithError(fmt.Errorf("invalid aspect %#v", cfg.Aspect.Kind))
 	}
 
-	mgr, found = m.managers[kind]
-	if !found {
+	mgr = m.managers[kind]
+	if mgr == nil {
 		return status.WithError(fmt.Errorf("could not find aspect manager %#v", cfg.Aspect.Kind))
 	}
 
@@ -293,13 +308,13 @@ func (m *Manager) execute(ctx context.Context, cfg *configpb.Combined, requestBa
 // cacheKey is used to cache fully constructed aspects
 // These parameters are used in constructing an aspect
 type cacheKey struct {
-	kind             aspect.Kind
+	kind             config.Kind
 	impl             string
 	builderParamsSHA [sha1.Size]byte
 	aspectParamsSHA  [sha1.Size]byte
 }
 
-func newCacheKey(kind aspect.Kind, cfg *configpb.Combined) (*cacheKey, error) {
+func newCacheKey(kind config.Kind, cfg *configpb.Combined) (*cacheKey, error) {
 	ret := cacheKey{
 		kind: kind,
 		impl: cfg.Builder.GetImpl(),
@@ -385,13 +400,9 @@ func closeExecutor(executor aspect.Executor) {
 }
 
 // AspectValidatorFinder returns a BuilderValidatorFinder for aspects.
-func (m *Manager) AspectValidatorFinder(kind string) (config.AspectValidator, bool) {
-	k, found := aspect.ParseKind(kind)
-	if !found {
-		return nil, false
-	}
-	c, found := m.managers[k]
-	return c, found
+func (m *Manager) AspectValidatorFinder(kind config.Kind) (config.AspectValidator, bool) {
+	c := m.managers[kind]
+	return c, c != nil
 }
 
 // BuilderValidatorFinder returns a BuilderValidatorFinder for builders.
@@ -399,41 +410,28 @@ func (m *Manager) BuilderValidatorFinder(name string) (adapter.ConfigValidator, 
 	return m.builders.FindBuilder(name)
 }
 
-// AdapterToAspectMapper returns AdapterToAspectMapper.
-func (m *Manager) AdapterToAspectMapper(adapter string) (kinds []string) {
-	return m.builders.SupportedKinds(adapter)
+// SupportedKinds returns the set of aspect kinds supported by the builder
+func (m *Manager) SupportedKinds(builder string) config.KindSet {
+	return m.builders.SupportedKinds(builder)
 }
 
-// Aspects returns a fully constructed manager map.
-func Aspects(inventory aspect.ManagerInventory) map[aspect.Kind]aspect.Manager {
-	a, _ := processBindings(inventory)
-	return a
-}
+// Aspects returns a fully constructed manager table, indexed by config.Kind.
+func Aspects(inventory aspect.ManagerInventory) [config.NumKinds]aspect.Manager {
+	r := [config.NumKinds]aspect.Manager{}
 
-// processBindings returns a fully constructed manager map and aspectSet.
-func processBindings(inventory aspect.ManagerInventory) (map[aspect.Kind]aspect.Manager, map[apiMethod]config.AspectSet) {
-	r := make(map[aspect.Kind]aspect.Manager)
-	as := make(map[apiMethod]config.AspectSet)
-
-	as[checkMethod] = config.AspectSet{}
 	for _, m := range inventory.Check {
 		r[m.Kind()] = m
-		as[checkMethod][m.Kind().String()] = true
 	}
 
-	as[reportMethod] = config.AspectSet{}
 	for _, m := range inventory.Report {
 		r[m.Kind()] = m
-		as[reportMethod][m.Kind().String()] = true
 	}
 
-	as[quotaMethod] = config.AspectSet{}
 	for _, m := range inventory.Quota {
 		r[m.Kind()] = m
-		as[quotaMethod][m.Kind().String()] = true
 	}
 
-	return r, as
+	return r
 }
 
 // ConfigChange listens for config change notifications.

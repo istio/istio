@@ -33,7 +33,7 @@ type mtest struct {
 	scContent string
 	sc        string
 	ada       map[string]adapter.ConfigValidator
-	asp       map[string]AspectValidator
+	asp       map[Kind]AspectValidator
 	errStr    string
 }
 
@@ -68,10 +68,10 @@ func TestConfigManager(t *testing.T) {
 			"denyChecker": &lc{},
 			"metrics":     &lc{},
 			"listchecker": &lc{},
-		}, map[string]AspectValidator{
-			"denyChecker": &ac{},
-			"metrics":     &ac{},
-			"listchecker": &ac{},
+		}, map[Kind]AspectValidator{
+			DenialsKind: &ac{},
+			MetricsKind: &ac{},
+			ListsKind:   &ac{},
 		}, ""},
 	}
 	for idx, mt := range mlist {

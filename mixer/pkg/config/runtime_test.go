@@ -49,14 +49,14 @@ type ttable struct {
 
 func TestRuntime(t *testing.T) {
 	table := []*ttable{
-		{nil, 0, true, 4, []string{"listChecker"}},
-		{nil, 1, false, 2, []string{"listChecker"}},
-		{errors.New("predicate error"), 1, false, 2, []string{"listChecker"}},
+		{nil, 0, true, 4, []string{ListsKindName}},
+		{nil, 1, false, 2, []string{ListsKindName}},
+		{errors.New("predicate error"), 1, false, 2, []string{ListsKindName}},
 		{nil, 0, true, 0, []string{}},
-		{errors.New("predicate error"), 0, true, 0, []string{"listChecker"}},
+		{errors.New("predicate error"), 0, true, 0, []string{ListsKindName}},
 	}
 
-	LC := "listChecker"
+	LC := ListsKindName
 	a1 := &pb.Adapter{
 		Name: "a1",
 		Kind: LC,
@@ -68,8 +68,8 @@ func TestRuntime(t *testing.T) {
 
 	v := &Validated{
 		adapterByName: map[adapterKey]*pb.Adapter{
-			{LC, "a1"}: a1,
-			{LC, "a2"}: a2,
+			{ListsKind, "a1"}: a1,
+			{ListsKind, "a2"}: a2,
 		},
 		serviceConfig: &pb.ServiceConfig{
 			Rules: []*pb.AspectRule{
@@ -108,13 +108,14 @@ func TestRuntime(t *testing.T) {
 
 	for idx, tt := range table {
 		fe := &trueEval{tt.err, tt.ncalls, tt.ret}
-		aspects := make(map[string]bool)
+		var kinds KindSet
 		for _, a := range tt.asp {
-			aspects[a] = true
+			k, _ := ParseKind(a)
+			kinds = kinds.Set(k)
 		}
-		rt := NewRuntime(v, fe)
+		rt := newRuntime(v, fe)
 
-		al, err := rt.Resolve(bag, aspects)
+		al, err := rt.Resolve(bag, kinds)
 
 		if tt.err != nil {
 			merr := err.(*multierror.Error)
