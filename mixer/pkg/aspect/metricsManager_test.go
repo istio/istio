@@ -30,6 +30,7 @@ import (
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
 	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
@@ -65,6 +66,41 @@ func (b *fakeBuilder) NewMetricsAspect(env adapter.Env, config adapter.Config,
 	return b.body()
 }
 
+var (
+	requestCountDesc = &dpb.MetricDescriptor{
+		Name:        "request_count",
+		Kind:        dpb.COUNTER,
+		Value:       dpb.INT64,
+		Description: "request count by source, target, service, and code",
+		Labels: []*dpb.LabelDescriptor{
+			{Name: "source", ValueType: dpb.STRING},
+			{Name: "target", ValueType: dpb.STRING},
+			{Name: "service", ValueType: dpb.STRING},
+			{Name: "method", ValueType: dpb.STRING},
+			{Name: "response_code", ValueType: dpb.INT64},
+		},
+	}
+
+	requestLatencyDesc = &dpb.MetricDescriptor{
+		Name:        "request_latency",
+		Kind:        dpb.COUNTER,
+		Value:       dpb.DURATION,
+		Description: "request latency by source, target, and service",
+		Labels: []*dpb.LabelDescriptor{
+			{Name: "source", ValueType: dpb.STRING},
+			{Name: "target", ValueType: dpb.STRING},
+			{Name: "service", ValueType: dpb.STRING},
+			{Name: "method", ValueType: dpb.STRING},
+			{Name: "response_code", ValueType: dpb.INT64},
+		},
+	}
+
+	df = test.NewDescriptorFinder(map[string]interface{}{
+		"request_count":   requestCountDesc,
+		"request_latency": requestLatencyDesc,
+	})
+)
+
 func TestNewMetricsManager(t *testing.T) {
 	m := newMetricsManager()
 	if m.Kind() != config.MetricsKind {
@@ -94,8 +130,113 @@ func TestMetricsManager_NewAspect(t *testing.T) {
 	builder := &fakeBuilder{name: "test", body: func() (adapter.MetricsAspect, error) {
 		return &fakeaspect{body: func([]adapter.Value) error { return nil }}, nil
 	}}
-	if _, err := newMetricsManager().NewReportExecutor(conf, builder, atest.NewEnv(t), nil); err != nil {
+	if _, err := newMetricsManager().NewReportExecutor(conf, builder, atest.NewEnv(t), df); err != nil {
 		t.Errorf("NewExecutor(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
+	}
+}
+
+func TestMetricsManager_Validation(t *testing.T) {
+	descs := map[string]interface{}{
+		requestCountDesc.Name:   requestCountDesc,
+		requestLatencyDesc.Name: requestLatencyDesc,
+		"invalid desc": &dpb.MetricDescriptor{
+			Name:   "invalid desc",
+			Kind:   dpb.METRIC_KIND_UNSPECIFIED,
+			Value:  dpb.INT64,
+			Labels: []*dpb.LabelDescriptor{},
+		},
+		// our attributes
+		"duration": &dpb.AttributeDescriptor{Name: "duration", ValueType: dpb.DURATION},
+		"string":   &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
+		"int64":    &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
+	}
+	f := test.NewDescriptorFinder(descs)
+	v := expr.NewCEXLEvaluator()
+
+	// matches request count desc
+	validParam := aconfig.MetricsParams_Metric{
+		DescriptorName: requestCountDesc.Name,
+		Value:          "int64",
+		Labels: map[string]string{
+			"source":        "string",
+			"target":        "string",
+			"service":       "string",
+			"method":        "string",
+			"response_code": "int64",
+		},
+	}
+
+	missingDesc := validParam
+	missingDesc.DescriptorName = "not in the descriptor finder"
+
+	// annoyingly, even though we copy force a copy of the struct the copy points at the same map instance, so we need a new one
+	invalidExpr := validParam
+	invalidExpr.Labels = map[string]string{
+		"source":        "string |", // invalid expr
+		"target":        "string",
+		"service":       "string",
+		"method":        "string",
+		"response_code": "int64",
+	}
+
+	wrongLabelType := validParam
+	wrongLabelType.Labels = map[string]string{
+		"source":        "string",
+		"target":        "string",
+		"service":       "int64", // should be string
+		"method":        "string",
+		"response_code": "int64",
+	}
+
+	extraLabel := validParam
+	extraLabel.Labels = map[string]string{
+		"source":        "string",
+		"target":        "string",
+		"service":       "string",
+		"method":        "string",
+		"response_code": "int64",
+		"extra":         "string", // wrong dimensions
+	}
+
+	wrongValueType := validParam
+	wrongValueType.Value = "duration" // should be int64
+
+	invalidValueExpr := validParam
+	invalidValueExpr.Value = "int64 |" // invalid expr
+
+	badDesc := validParam
+	badDesc.DescriptorName = "invalid desc"
+	badDesc.Labels = make(map[string]string)
+
+	tests := []struct {
+		name string
+		cfg  *aconfig.MetricsParams
+		v    expr.Validator
+		df   descriptor.Finder
+		err  string
+	}{
+		{"empty config", &aconfig.MetricsParams{}, v, f, ""},
+		{"valid", &aconfig.MetricsParams{Metrics: []*aconfig.MetricsParams_Metric{&validParam}}, v, f, ""},
+		{"missing descriptor", &aconfig.MetricsParams{Metrics: []*aconfig.MetricsParams_Metric{&missingDesc}}, v, f, "could not find a descriptor"},
+		{"failed type checking (bad expr)", &aconfig.MetricsParams{Metrics: []*aconfig.MetricsParams_Metric{&invalidExpr}}, v, f, "failed to parse expression"},
+		{"eval'd type doesn't match desc", &aconfig.MetricsParams{Metrics: []*aconfig.MetricsParams_Metric{&wrongValueType}}, v, f, "expected type INT64"},
+		{"invalid value expr", &aconfig.MetricsParams{Metrics: []*aconfig.MetricsParams_Metric{&invalidValueExpr}}, v, f, "failed to parse expression"},
+		{"label eval'd type doesn't match desc", &aconfig.MetricsParams{Metrics: []*aconfig.MetricsParams_Metric{&wrongLabelType}}, v, f, "expected type STRING"},
+		{"wrong dimensions for metric", &aconfig.MetricsParams{Metrics: []*aconfig.MetricsParams_Metric{&extraLabel}}, v, f, "wrong dimensions"},
+		{"can't convert proto to adapter rep", &aconfig.MetricsParams{Metrics: []*aconfig.MetricsParams_Metric{&badDesc}}, v, f, "invalid desc"},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			errs := (&metricsManager{}).ValidateConfig(tt.cfg, tt.v, tt.df)
+			if errs != nil {
+				if tt.err == "" {
+					t.Fatalf("ValidateConfig(tt.cfg, tt.v, tt.df) = '%s', wanted no err", errs.Error())
+				} else if !strings.Contains(errs.Error(), tt.err) {
+					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, errs.Error())
+				}
+			}
+		})
 	}
 }
 
@@ -110,7 +251,7 @@ func TestMetricsManager_NewAspect_PropagatesError(t *testing.T) {
 		body: func() (adapter.MetricsAspect, error) {
 			return nil, errors.New(errString)
 		}}
-	_, err := newMetricsManager().NewReportExecutor(conf, builder, atest.NewEnv(t), nil)
+	_, err := newMetricsManager().NewReportExecutor(conf, builder, atest.NewEnv(t), df)
 	if err == nil {
 		t.Error("newMetricsManager().NewReportExecutor(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
 	}
@@ -296,25 +437,6 @@ func TestMetrics_DescToDef(t *testing.T) {
 			}
 			if !reflect.DeepEqual(result, c.out) {
 				t.Errorf("metricsDescToDef(%v) = %v, %v; wanted %v", c.in, result, err, c.out)
-			}
-		})
-	}
-}
-
-func TestMetrics_Find(t *testing.T) {
-	cases := []struct {
-		in   []*aconfig.MetricsParams_Metric
-		find string
-		out  bool
-	}{
-		{[]*aconfig.MetricsParams_Metric{}, "", false},
-		{[]*aconfig.MetricsParams_Metric{{DescriptorName: "foo"}}, "foo", true},
-		{[]*aconfig.MetricsParams_Metric{{DescriptorName: "bar"}}, "foo", false},
-	}
-	for _, c := range cases {
-		t.Run(c.find, func(t *testing.T) {
-			if _, found := findMetric(c.in, c.find); found != c.out {
-				t.Errorf("find(%v, %s) = _, %t; wanted %t", c.in, c.find, found, c.out)
 			}
 		})
 	}

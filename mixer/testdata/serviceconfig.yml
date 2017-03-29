@@ -11,7 +11,7 @@ rules:
     adapter: prometheus
     params:
       metrics:
-      - descriptorName: request_count
+      - descriptor_name: request_count
         # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
         value: "1"
         labels:
@@ -19,20 +19,20 @@ rules:
           target: target.name | "unknown"
           service: api.name | "unknown"
           method: api.method | "unknown"
-          response_code: response.http.code | 200
-      - descriptorName:  request_latency
+          response_code: response.code | 200
+      - descriptor_name:  request_latency
         value: response.latency | "0ms"
         labels:
           source: source.name | "unknown"
           target: target.name | "unknown"
           service: api.name | "unknown"
           method: api.method | "unknown"
-          response_code: response.http.code | 200
+          response_code: response.code | 200
   - kind: access-logs
     params:
       logName: "access_log"
       log:
-        logFormat: COMMON
+        logFormat: 1 # COMMON
         templateExpressions:
            originIp: origin.ip
            sourceUser: origin.user
