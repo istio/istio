@@ -127,7 +127,7 @@ function check_git_status() {
 }
 
 function update_qual_version_file() {
-  echo "# This is used for automated testing. Do not edit." > "${QUAL_VERSION_FILE}"
+  echo "# DO NOT EDIT. AUTO-GENERATED FILE." > "${QUAL_VERSION_FILE}"
   grep -v '#' "${VERSION_FILE}" >> "${QUAL_VERSION_FILE}"
 }
 
