@@ -43,9 +43,7 @@ resources files client-side *before* submitting them to the kubernetes
 API server. `istioctl kube-inject` is documented
 [here](https://github.com/istio/istio/blob/master/doc/istioctl.md#kube-inject).
 
-    ```bash
     kubectl apply -f <(istioctl kube-inject -f <resource.yaml>)
-    ```
 
 Deploy your apps, or try one of the example apps from demos directory. Each app directory contains an associated README.md providing more details.
 
