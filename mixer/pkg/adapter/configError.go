@@ -78,11 +78,19 @@ func (e ConfigError) Error() string {
 	return fmt.Sprintf("%s: %s", e.Field, e.Underlying)
 }
 
+func (e ConfigError) String() string {
+	return e.Error()
+}
+
 func (e *ConfigErrors) Error() string {
 	if e == nil || e.Multi == nil {
 		return ""
 	}
 	return e.Multi.Error()
+}
+
+func (e *ConfigErrors) String() string {
+	return e.Error()
 }
 
 // Extend joins 2 configErrors together.
