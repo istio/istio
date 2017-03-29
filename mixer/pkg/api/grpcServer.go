@@ -29,6 +29,7 @@ import (
 	"context"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
@@ -37,6 +38,8 @@ import (
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/adapterManager"
+	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
@@ -45,22 +48,22 @@ import (
 
 // grpcServer holds the state for the gRPC API server.
 type grpcServer struct {
-	handlers Handler
-	attrMgr  attribute.Manager
-	tracer   tracing.Tracer
-	gp       *pool.GoroutinePool
+	aspectDispatcher adapterManager.AspectDispatcher
+	attrMgr          attribute.Manager
+	tracer           tracing.Tracer
+	gp               *pool.GoroutinePool
 
 	// replaceable sendMsg so we can inject errors in tests
 	sendMsg func(grpc.Stream, proto.Message) error
 }
 
 // NewGRPCServer creates a gRPC serving stack.
-func NewGRPCServer(handlers Handler, tracer tracing.Tracer, gp *pool.GoroutinePool) mixerpb.MixerServer {
+func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, tracer tracing.Tracer, gp *pool.GoroutinePool) mixerpb.MixerServer {
 	return &grpcServer{
-		handlers: handlers,
-		attrMgr:  attribute.NewManager(),
-		tracer:   tracer,
-		gp:       gp,
+		aspectDispatcher: aspectDispatcher,
+		attrMgr:          attribute.NewManager(),
+		tracer:           tracer,
+		gp:               gp,
 		sendMsg: func(stream grpc.Stream, m proto.Message) error {
 			return stream.SendMsg(m)
 		},
@@ -158,9 +161,7 @@ func (s *grpcServer) Check(stream mixerpb.Mixer_CheckServer) error {
 			response.AttributeUpdate = &mixerpb.Attributes{}
 			return request, response, &request.AttributeUpdate, response.AttributeUpdate, &response.Result
 		},
-		func(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag, request proto.Message, response proto.Message) {
-			s.handlers.Check(ctx, requestBag, responseBag, request.(*mixerpb.CheckRequest), response.(*mixerpb.CheckResponse))
-		})
+		s.handleCheck)
 }
 
 // Report is the entry point for the external Report method
@@ -172,9 +173,7 @@ func (s *grpcServer) Report(stream mixerpb.Mixer_ReportServer) error {
 			response.AttributeUpdate = &mixerpb.Attributes{}
 			return request, response, &request.AttributeUpdate, response.AttributeUpdate, &response.Result
 		},
-		func(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag, request proto.Message, response proto.Message) {
-			s.handlers.Report(ctx, requestBag, responseBag, request.(*mixerpb.ReportRequest), response.(*mixerpb.ReportResponse))
-		})
+		s.handleReport)
 }
 
 // Quota is the entry point for the external Quota method
@@ -186,7 +185,73 @@ func (s *grpcServer) Quota(stream mixerpb.Mixer_QuotaServer) error {
 			response.AttributeUpdate = &mixerpb.Attributes{}
 			return request, response, &request.AttributeUpdate, response.AttributeUpdate, &response.Result
 		},
-		func(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag, request proto.Message, response proto.Message) {
-			s.handlers.Quota(ctx, requestBag, responseBag, request.(*mixerpb.QuotaRequest), response.(*mixerpb.QuotaResponse))
-		})
+		s.handleQuota)
+}
+
+func (s *grpcServer) handleCheck(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+	request proto.Message, response proto.Message) {
+	req := request.(*mixerpb.CheckRequest)
+	resp := response.(*mixerpb.CheckResponse)
+
+	if glog.V(2) {
+		glog.Infof("Check [%x]", req.RequestIndex)
+	}
+
+	resp.RequestIndex = req.RequestIndex
+	resp.Result = s.aspectDispatcher.Check(ctx, requestBag, responseBag)
+	// TODO: this value needs to initially come from config, and be modulated by the kind of attribute
+	//       that was used in the check and the in-used aspects (for example, maybe an auth check has a
+	//       30s TTL but a whitelist check has got a 120s TTL)
+	resp.Expiration = time.Duration(5) * time.Second
+
+	if glog.V(2) {
+		glog.Infof("Check [%x] <-- %s", req.RequestIndex, response)
+	}
+}
+
+func (s *grpcServer) handleReport(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+	request proto.Message, response proto.Message) {
+	req := request.(*mixerpb.ReportRequest)
+	resp := response.(*mixerpb.ReportResponse)
+
+	if glog.V(2) {
+		glog.Infof("Report [%x]", req.RequestIndex)
+	}
+
+	resp.RequestIndex = req.RequestIndex
+	resp.Result = s.aspectDispatcher.Report(ctx, requestBag, responseBag)
+
+	if glog.V(2) {
+		glog.Infof("Report [%x] <-- %s", req.RequestIndex, response)
+	}
+}
+
+func (s *grpcServer) handleQuota(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+	request proto.Message, response proto.Message) {
+	req := request.(*mixerpb.QuotaRequest)
+	resp := response.(*mixerpb.QuotaResponse)
+
+	if glog.V(2) {
+		glog.Infof("Quota [%x]", req.RequestIndex)
+	}
+
+	qma := &aspect.QuotaMethodArgs{
+		Quota:           req.Quota,
+		Amount:          req.Amount,
+		DeduplicationID: req.DeduplicationId,
+		BestEffort:      req.BestEffort,
+	}
+	var qmr *aspect.QuotaMethodResp
+
+	resp.RequestIndex = req.RequestIndex
+	qmr, resp.Result = s.aspectDispatcher.Quota(ctx, requestBag, responseBag, qma)
+
+	if qmr != nil {
+		resp.Amount = qmr.Amount
+		resp.Expiration = qmr.Expiration
+	}
+
+	if glog.V(2) {
+		glog.Infof("Quota [%x] <-- %s", req.RequestIndex, response)
+	}
 }

@@ -17,6 +17,7 @@ package api
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -28,6 +29,7 @@ import (
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
@@ -117,23 +119,19 @@ func (ts *testState) cleanupTestState() {
 	ts.deleteGRPCServer()
 }
 
-func (ts *testState) Check(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag,
-	request *mixerpb.CheckRequest, response *mixerpb.CheckResponse) {
-	response.RequestIndex = request.RequestIndex
-	response.Result = status.New(rpc.UNIMPLEMENTED)
+func (ts *testState) Check(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag) rpc.Status {
+	return status.WithPermissionDenied("Not Implementd")
 }
 
-func (ts *testState) Report(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag,
-	request *mixerpb.ReportRequest, response *mixerpb.ReportResponse) {
-	response.RequestIndex = request.RequestIndex
-	response.Result = status.New(rpc.UNIMPLEMENTED)
+func (ts *testState) Report(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag) rpc.Status {
+	return status.WithPermissionDenied("Not Implementd")
 }
 
-func (ts *testState) Quota(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag,
-	request *mixerpb.QuotaRequest, response *mixerpb.QuotaResponse) {
-	response.RequestIndex = request.RequestIndex
-	response.Result = status.New(rpc.UNIMPLEMENTED)
-	response.Amount = 0
+func (ts *testState) Quota(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
+
+	qmr := &aspect.QuotaMethodResp{Amount: 42}
+	return qmr, status.OK
 }
 
 func TestCheck(t *testing.T) {
@@ -268,7 +266,7 @@ func TestQuota(t *testing.T) {
 		return
 	}
 
-	waitc := make(chan int64)
+	waitc := make(chan *mixerpb.QuotaResponse)
 	go func() {
 		for {
 			response, err := stream.Recv()
@@ -279,7 +277,7 @@ func TestQuota(t *testing.T) {
 				t.Errorf("Failed to receive a response : %v", err)
 				return
 			} else {
-				waitc <- response.RequestIndex
+				waitc <- response
 			}
 		}
 	}()
@@ -303,10 +301,15 @@ func TestQuota(t *testing.T) {
 		t.Errorf("Failed to close gRPC stream: %v", err)
 	}
 
-	if (r0 == testRequestID0 && r1 == testRequestID1) || (r0 == testRequestID1 && r1 == testRequestID0) {
+	if (r0.RequestIndex == testRequestID0 && r1.RequestIndex == testRequestID1) ||
+		(r0.RequestIndex == testRequestID1 && r1.RequestIndex == testRequestID0) {
 		t.Log("Worked")
 	} else {
-		t.Errorf("Did not receive the two expected responses: r0=%v, r1=%v", r0, r1)
+		t.Errorf("Did not receive the two expected responses: r0=%v, r1=%v", r0.RequestIndex, r1.RequestIndex)
+	}
+
+	if r0.Amount != 42 || r1.Amount != 42 {
+		t.Errorf("Got quota amount %d and %d, expected 42 for both", r0.Amount, r1.Amount)
 	}
 
 	// wait for the goroutine to be done
@@ -485,4 +488,9 @@ func TestBrokenStream(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+func init() {
+	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
+	_ = flag.Lookup("v").Value.Set("99")
 }

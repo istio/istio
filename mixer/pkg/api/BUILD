@@ -6,7 +6,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "grpcServer.go",
-        "handler.go",
     ],
     deps = [
         "//pkg/adapter:go_default_library",
@@ -38,7 +37,6 @@ go_test(
     size = "small",
     srcs = [
         "grpcServer_test.go",
-        "handler_test.go",
     ],
     library = ":go_default_library",
 )
