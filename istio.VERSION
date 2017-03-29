@@ -1,0 +1,6 @@
+# DO NOT EDIT THAT FILE MANUALLY instead use
+# scripts/update_version.sh -h
+INIT = "docker.io/istio/init:2017-03-22-21.21.48"
+MIXER = "docker.io/istio/mixer:2017-03-22-19.36.02"
+RUNTIME = "docker.io/istio/runtime:2017-03-22-21.21.48"
+
