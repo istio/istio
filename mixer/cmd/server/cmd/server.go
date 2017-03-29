@@ -129,8 +129,6 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 		adapterMgr.SupportedKinds,
 		sa.globalConfigFile, sa.serviceConfigFile, time.Second*time.Duration(sa.configFetchIntervalSec))
 
-	handler := api.NewHandler(adapterMgr)
-
 	var serverCert *tls.Certificate
 	var clientCerts *x509.CertPool
 
@@ -197,7 +195,7 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 
 	// get everything wired up
 	gs := grpc.NewServer(grpcOptions...)
-	s := api.NewGRPCServer(handler, tracer, gp)
+	s := api.NewGRPCServer(adapterMgr, tracer, gp)
 	mixerpb.RegisterMixerServer(gs, s)
 
 	printf("Istio Mixer: %s", version.Info)
