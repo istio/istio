@@ -173,7 +173,7 @@ func generateIngress(namespace, secret string, secrets model.SecretRegistry,
 	}
 
 	listeners := []*Listener{listener}
-	clusters := Clusters(rConfig.filterClusters(func(cl *Cluster) bool { return true })).Normalize()
+	clusters := rConfig.clusters().normalize()
 
 	return &Config{
 		Listeners: listeners,

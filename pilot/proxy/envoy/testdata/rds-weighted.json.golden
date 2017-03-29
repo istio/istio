@@ -14,18 +14,12 @@
      "hello.default.svc.cluster.local:80",
      "hello.default.svc.cluster.local",
      "10.1.0.0:80",
-     "10.1.0.0",
-     "10.1.1.0:80",
-     "10.1.1.0"
+     "10.1.0.0"
     ],
     "routes": [
      {
       "prefix": "/",
-      "cluster": "in.80",
-      "opaque_config": {
-       "mixer_control": "on",
-       "mixer_forward": "off"
-      }
+      "cluster": "out.hello.default.svc.cluster.local|http"
      }
     ]
    },

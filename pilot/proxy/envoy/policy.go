@@ -25,7 +25,7 @@ import (
 	proxyconfig "istio.io/manager/model/proxy/alphav1/config"
 )
 
-func insertMixerFilter(listeners []*Listener, context *ProxyContext) {
+func insertMixerFilter(listeners []*Listener, instances []*model.ServiceInstance, context *ProxyContext) {
 	if context.MeshConfig.MixerAddress == "" {
 		return
 	}
@@ -39,7 +39,6 @@ func insertMixerFilter(listeners []*Listener, context *ProxyContext) {
 	id := strings.Join(ips, ",")
 
 	// join service names with a comma
-	instances := context.Discovery.HostInstances(context.Addrs)
 	serviceSet := make(map[string]bool)
 	for _, instance := range instances {
 		serviceSet[instance.Service.Hostname] = true

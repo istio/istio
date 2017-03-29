@@ -139,11 +139,10 @@ func setup() {
 	pods = make(map[string]string)
 
 	// setup ingress resources
-	_, err = shell(fmt.Sprintf("kubectl -n %s create secret generic ingress "+
+	_, _ = shell(fmt.Sprintf("kubectl -n %s create secret generic ingress "+
 		"--from-file=tls.key=test/integration/cert.key "+
 		"--from-file=tls.crt=test/integration/cert.crt",
 		params.namespace))
-	check(err)
 
 	_, err = shell(fmt.Sprintf("kubectl -n %s apply -f test/integration/ingress.yaml", params.namespace))
 	check(err)

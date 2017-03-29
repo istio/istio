@@ -82,12 +82,12 @@ func TestRoutesByPath(t *testing.T) {
 func TestTCPRouteConfigByRoute(t *testing.T) {
 	cases := []struct {
 		name string
-		in   []TCPRoute
-		want []TCPRoute
+		in   []*TCPRoute
+		want []*TCPRoute
 	}{
 		{
 			name: "sorted by cluster",
-			in: []TCPRoute{{
+			in: []*TCPRoute{{
 				Cluster:           "cluster-b",
 				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
 				DestinationPorts:  "5000",
@@ -96,7 +96,7 @@ func TestTCPRouteConfigByRoute(t *testing.T) {
 				DestinationIPList: []string{"192.168.1.2/32", "192.168.1.1/32"},
 				DestinationPorts:  "5000",
 			}},
-			want: []TCPRoute{{
+			want: []*TCPRoute{{
 				Cluster:           "cluster-a",
 				DestinationIPList: []string{"192.168.1.2/32", "192.168.1.1/32"},
 				DestinationPorts:  "5000",
@@ -108,7 +108,7 @@ func TestTCPRouteConfigByRoute(t *testing.T) {
 		},
 		{
 			name: "sorted by DestinationIPList",
-			in: []TCPRoute{{
+			in: []*TCPRoute{{
 				Cluster:           "cluster-a",
 				DestinationIPList: []string{"192.168.2.1/32", "192.168.2.2/32"},
 				DestinationPorts:  "5000",
@@ -117,7 +117,7 @@ func TestTCPRouteConfigByRoute(t *testing.T) {
 				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
 				DestinationPorts:  "5000",
 			}},
-			want: []TCPRoute{{
+			want: []*TCPRoute{{
 				Cluster:           "cluster-a",
 				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
 				DestinationPorts:  "5000",
@@ -129,7 +129,7 @@ func TestTCPRouteConfigByRoute(t *testing.T) {
 		},
 		{
 			name: "sorted by DestinationPorts",
-			in: []TCPRoute{{
+			in: []*TCPRoute{{
 				Cluster:           "cluster-a",
 				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
 				DestinationPorts:  "5001",
@@ -138,7 +138,7 @@ func TestTCPRouteConfigByRoute(t *testing.T) {
 				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
 				DestinationPorts:  "5000",
 			}},
-			want: []TCPRoute{{
+			want: []*TCPRoute{{
 				Cluster:           "cluster-a",
 				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
 				DestinationPorts:  "5000",
@@ -150,7 +150,7 @@ func TestTCPRouteConfigByRoute(t *testing.T) {
 		},
 		{
 			name: "sorted by SourceIPList",
-			in: []TCPRoute{{
+			in: []*TCPRoute{{
 				Cluster:           "cluster-a",
 				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
 				DestinationPorts:  "5000",
@@ -163,7 +163,7 @@ func TestTCPRouteConfigByRoute(t *testing.T) {
 				SourceIPList:      []string{"192.168.2.1/32", "192.168.2.2/32"},
 				SourcePorts:       "5002",
 			}},
-			want: []TCPRoute{{
+			want: []*TCPRoute{{
 				Cluster:           "cluster-a",
 				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
 				DestinationPorts:  "5000",
@@ -179,7 +179,7 @@ func TestTCPRouteConfigByRoute(t *testing.T) {
 		},
 		{
 			name: "sorted by SourcePorts",
-			in: []TCPRoute{{
+			in: []*TCPRoute{{
 				Cluster:           "cluster-a",
 				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
 				DestinationPorts:  "5000",
@@ -192,7 +192,7 @@ func TestTCPRouteConfigByRoute(t *testing.T) {
 				SourceIPList:      []string{"192.168.2.1/32", "192.168.2.2/32"},
 				SourcePorts:       "5002",
 			}},
-			want: []TCPRoute{{
+			want: []*TCPRoute{{
 				Cluster:           "cluster-a",
 				DestinationIPList: []string{"192.168.1.1/32", "192.168.1.2/32"},
 				DestinationPorts:  "5000",

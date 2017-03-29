@@ -1,75 +1,6 @@
 {
   "listeners": [
     {
-      "address": "tcp://0.0.0.0:1081",
-      "filters": [
-        {
-          "type": "read",
-          "name": "http_connection_manager",
-          "config": {
-            "codec_type": "auto",
-            "stat_prefix": "http",
-            "rds": {
-              "cluster": "rds",
-              "route_config_name": "1081",
-              "refresh_delay_ms": 1000
-            },
-            "filters": [
-              {
-                "type": "decoder",
-                "name": "mixer",
-                "config": {
-                  "mixer_server": "mixer:9091",
-                  "mixer_attributes": {
-                    "target.service": "hello.default.svc.cluster.local",
-                    "target.uid": "10.1.1.0"
-                  },
-                  "forward_attributes": {
-                    "source.service": "hello.default.svc.cluster.local",
-                    "source.uid": "10.1.1.0"
-                  }
-                }
-              },
-              {
-                "type": "decoder",
-                "name": "router",
-                "config": {}
-              }
-            ],
-            "access_log": [
-              {
-                "path": "/dev/stdout"
-              }
-            ]
-          }
-        }
-      ],
-      "bind_to_port": false
-    },
-    {
-      "address": "tcp://0.0.0.0:1090",
-      "filters": [
-        {
-          "type": "read",
-          "name": "tcp_proxy",
-          "config": {
-            "stat_prefix": "tcp",
-            "route_config": {
-              "routes": [
-                {
-                  "cluster": "in.1090",
-                  "destination_ip_list": [
-                    "10.1.1.0/32"
-                  ]
-                }
-              ]
-            }
-          }
-        }
-      ],
-      "bind_to_port": false
-    },
-    {
       "address": "tcp://0.0.0.0:80",
       "filters": [
         {
@@ -226,7 +157,97 @@
       "bind_to_port": false
     },
     {
-      "address": "tcp://0.0.0.0:90",
+      "address": "tcp://10.1.0.0:90",
+      "filters": [
+        {
+          "type": "read",
+          "name": "tcp_proxy",
+          "config": {
+            "stat_prefix": "tcp",
+            "route_config": {
+              "routes": [
+                {
+                  "cluster": "out.hello.default.svc.cluster.local|custom",
+                  "destination_ip_list": [
+                    "10.1.0.0/32"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "bind_to_port": false
+    },
+    {
+      "address": "tcp://10.1.1.0:1081",
+      "filters": [
+        {
+          "type": "read",
+          "name": "http_connection_manager",
+          "config": {
+            "codec_type": "auto",
+            "stat_prefix": "http",
+            "route_config": {
+              "virtual_hosts": [
+                {
+                  "name": "hello.default.svc.cluster.local|http-status",
+                  "domains": [
+                    "hello:81",
+                    "hello.default:81",
+                    "hello.default.svc:81",
+                    "hello.default.svc.cluster:81",
+                    "hello.default.svc.cluster.local:81",
+                    "10.1.0.0:81",
+                    "10.1.1.0:1081"
+                  ],
+                  "routes": [
+                    {
+                      "prefix": "/",
+                      "cluster": "in.1081",
+                      "opaque_config": {
+                        "mixer_control": "on",
+                        "mixer_forward": "off"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "filters": [
+              {
+                "type": "decoder",
+                "name": "mixer",
+                "config": {
+                  "mixer_server": "mixer:9091",
+                  "mixer_attributes": {
+                    "target.service": "hello.default.svc.cluster.local",
+                    "target.uid": "10.1.1.0"
+                  },
+                  "forward_attributes": {
+                    "source.service": "hello.default.svc.cluster.local",
+                    "source.uid": "10.1.1.0"
+                  }
+                }
+              },
+              {
+                "type": "decoder",
+                "name": "router",
+                "config": {}
+              }
+            ],
+            "access_log": [
+              {
+                "path": "/dev/stdout"
+              }
+            ]
+          }
+        }
+      ],
+      "bind_to_port": false
+    },
+    {
+      "address": "tcp://10.1.1.0:1090",
       "filters": [
         {
           "type": "read",
@@ -238,15 +259,105 @@
                 {
                   "cluster": "in.1090",
                   "destination_ip_list": [
-                    "10.1.0.0/32"
+                    "10.1.1.0/32"
                   ]
-                },
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "bind_to_port": false
+    },
+    {
+      "address": "tcp://10.1.1.0:80",
+      "filters": [
+        {
+          "type": "read",
+          "name": "http_connection_manager",
+          "config": {
+            "codec_type": "auto",
+            "stat_prefix": "http",
+            "route_config": {
+              "virtual_hosts": [
+                {
+                  "name": "hello.default.svc.cluster.local|http",
+                  "domains": [
+                    "hello:80",
+                    "hello",
+                    "hello.default:80",
+                    "hello.default",
+                    "hello.default.svc:80",
+                    "hello.default.svc",
+                    "hello.default.svc.cluster:80",
+                    "hello.default.svc.cluster",
+                    "hello.default.svc.cluster.local:80",
+                    "hello.default.svc.cluster.local",
+                    "10.1.0.0:80",
+                    "10.1.0.0",
+                    "10.1.1.0:80",
+                    "10.1.1.0"
+                  ],
+                  "routes": [
+                    {
+                      "prefix": "/",
+                      "cluster": "in.80",
+                      "opaque_config": {
+                        "mixer_control": "on",
+                        "mixer_forward": "off"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "filters": [
+              {
+                "type": "decoder",
+                "name": "mixer",
+                "config": {
+                  "mixer_server": "mixer:9091",
+                  "mixer_attributes": {
+                    "target.service": "hello.default.svc.cluster.local",
+                    "target.uid": "10.1.1.0"
+                  },
+                  "forward_attributes": {
+                    "source.service": "hello.default.svc.cluster.local",
+                    "source.uid": "10.1.1.0"
+                  }
+                }
+              },
+              {
+                "type": "decoder",
+                "name": "router",
+                "config": {}
+              }
+            ],
+            "access_log": [
+              {
+                "path": "/dev/stdout"
+              }
+            ]
+          }
+        }
+      ],
+      "bind_to_port": false
+    },
+    {
+      "address": "tcp://10.2.0.0:90",
+      "filters": [
+        {
+          "type": "read",
+          "name": "tcp_proxy",
+          "config": {
+            "stat_prefix": "tcp",
+            "route_config": {
+              "routes": [
                 {
                   "cluster": "out.world.default.svc.cluster.local|custom",
                   "destination_ip_list": [
                     "10.2.0.0/32"
-                  ],
-                  "destination_ports": "90"
+                  ]
                 }
               ]
             }
@@ -300,6 +411,13 @@
             "url": "tcp://127.0.0.1:80"
           }
         ]
+      },
+      {
+        "name": "out.hello.default.svc.cluster.local|custom",
+        "service_name": "hello.default.svc.cluster.local|custom",
+        "connect_timeout_ms": 1000,
+        "type": "sds",
+        "lb_type": "round_robin"
       },
       {
         "name": "out.world.default.svc.cluster.local|custom",
