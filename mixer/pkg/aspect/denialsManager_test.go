@@ -14,8 +14,97 @@
 
 package aspect
 
-import "testing"
+import (
+	"errors"
+	"testing"
 
-func TestDenyCheckerManager(t *testing.T) {
-	_ = newDenialsManager()
+	rpc "github.com/googleapis/googleapis/google/rpc"
+
+	"istio.io/mixer/pkg/adapter"
+	aconfig "istio.io/mixer/pkg/aspect/config"
+	"istio.io/mixer/pkg/aspect/test"
+	"istio.io/mixer/pkg/config"
+	cpb "istio.io/mixer/pkg/config/proto"
+)
+
+func TestDenialsManager(t *testing.T) {
+	dm := newDenialsManager()
+	if dm.Kind() != config.DenialsKind {
+		t.Errorf("m.Kind() = %s wanted %s", dm.Kind(), config.DenialsKind)
+	}
+	if err := dm.ValidateConfig(dm.DefaultConfig(), nil, nil); err != nil {
+		t.Errorf("ValidateConfig(DefaultConfig()) produced an error: %v", err)
+	}
+}
+
+type testBuilder struct {
+	adapter.DefaultBuilder
+	returnErr bool
+}
+
+func newBuilder(returnErr bool) testBuilder {
+	return testBuilder{adapter.NewDefaultBuilder("test", "test", nil), returnErr}
+}
+
+func (t testBuilder) NewDenialsAspect(env adapter.Env, c adapter.Config) (adapter.DenialsAspect, error) {
+	if t.returnErr {
+		return nil, errors.New("error")
+	}
+	return &testDenier{}, nil
+}
+
+func TestDenialsManager_NewCheckExecutor(t *testing.T) {
+	defaultCfg := &cpb.Combined{
+		Builder: &cpb.Adapter{Params: &aconfig.DenialsParams{}},
+	}
+
+	dm := newDenialsManager()
+	if _, err := dm.NewCheckExecutor(defaultCfg, newBuilder(false), test.Env{}, nil); err != nil {
+		t.Errorf("NewCheckExecutor() returned an unexpected error: %v", err)
+	}
+}
+
+func TestDenialsManager_NewCheckExecutorErrors(t *testing.T) {
+	defaultCfg := &cpb.Combined{
+		Builder: &cpb.Adapter{Params: &aconfig.DenialsParams{}},
+	}
+
+	dm := newDenialsManager()
+	if _, err := dm.NewCheckExecutor(defaultCfg, newBuilder(true), test.Env{}, nil); err == nil {
+		t.Error("NewCheckExecutor() should have propogated error.")
+	}
+}
+
+type testDenier struct {
+	adapter.Aspect
+	closed bool
+}
+
+func (d *testDenier) Close() error {
+	d.closed = true
+	return nil
+}
+
+func (d *testDenier) Deny() rpc.Status {
+	return rpc.Status{Code: int32(rpc.PERMISSION_DENIED)}
+}
+
+func TestDenialsExecutor_Execute(t *testing.T) {
+	executor := &denialsExecutor{&testDenier{}}
+
+	got := executor.Execute(test.NewBag(), test.NewIDEval())
+	if got.Code != int32(rpc.PERMISSION_DENIED) {
+		t.Errorf("Execute() => %v, wanted %v", got.Code, rpc.PERMISSION_DENIED)
+	}
+}
+
+func TestDenialsExecutor_Close(t *testing.T) {
+	inner := &testDenier{closed: false}
+	executor := &denialsExecutor{inner}
+	if err := executor.Close(); err != nil {
+		t.Errorf("Close() returned an error: %v", err)
+	}
+	if !inner.closed {
+		t.Error("Close() should propagate to wrapped aspect.")
+	}
 }
