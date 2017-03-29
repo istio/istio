@@ -53,11 +53,11 @@ type Manager struct {
 	loopDelay        time.Duration
 	globalConfig     string
 	serviceConfig    string
+	ticker           *time.Ticker
 
-	cl      []ChangeListener
-	closing chan bool
-	scSHA   [sha1.Size]byte
-	gcSHA   [sha1.Size]byte
+	cl    []ChangeListener
+	scSHA [sha1.Size]byte
+	gcSHA [sha1.Size]byte
 
 	sync.RWMutex
 	lastError error
@@ -84,7 +84,6 @@ func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builder
 		loopDelay:     loopDelay,
 		globalConfig:  globalConfig,
 		serviceConfig: serviceConfig,
-		closing:       make(chan bool),
 	}
 	return m
 }
@@ -163,21 +162,17 @@ func (c *Manager) LastError() (err error) {
 }
 
 // Close stops the config manager go routine.
-func (c *Manager) Close() { close(c.closing) }
+func (c *Manager) Close() {
+	if c.ticker != nil {
+		c.ticker.Stop()
+	}
+}
 
 func (c *Manager) loop() {
-	ticker := time.NewTicker(c.loopDelay)
-	defer ticker.Stop()
-	done := false
-	for !done {
-		select {
-		case <-ticker.C:
-			err := c.fetchAndNotify()
-			if err != nil {
-				glog.Warning(err)
-			}
-		case <-c.closing:
-			done = true
+	for range c.ticker.C {
+		err := c.fetchAndNotify()
+		if err != nil {
+			glog.Warning(err)
 		}
 	}
 }
@@ -187,6 +182,7 @@ func (c *Manager) Start() {
 	err := c.fetchAndNotify()
 	// We make an attempt to synchronously fetch and notify configuration
 	// If it is not successful, we will continue to watch for changes.
+	c.ticker = time.NewTicker(c.loopDelay)
 	go c.loop()
 	if err != nil {
 		glog.Warning("Unable to process config: ", err)
