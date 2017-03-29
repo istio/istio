@@ -7,6 +7,7 @@ go_library(
     testonly = 1,
     srcs = [
         "bag.go",
+        "descriptor.go",
         "env.go",
         "evaluator.go",
         "logger.go",
@@ -17,5 +18,6 @@ go_library(
         "//pkg/config:go_default_library",
         "//pkg/expr:go_default_library",
         "@com_github_golang_protobuf//ptypes/struct:go_default_library",
+        "@com_github_istio_api//:mixer/v1/config/descriptor",
     ],
 )

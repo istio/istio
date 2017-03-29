@@ -1,4 +1,4 @@
-subject: "namespace:ns"
+subject: namespace:ns
 revision: "2022"
 adapters:
   - name: default
@@ -15,3 +15,47 @@ adapters:
     params:
   - name: default
     impl: denyChecker
+attributes:
+  - name: source.name
+    value_type: 1 # STRING
+  - name: target.name
+    value_type: 1 # STRING
+  - name: api.name
+    value_type: 1 # STRING
+  - name: api.method
+    value_type: 1 # STRING
+  - name: response.code
+    value_type: 2 # INT64
+  - name: response.latency
+    value_type: 10 # DURATION
+metrics:
+  - name: request_count
+    kind: 2 # COUNTER
+    value: 2 # INT64
+    description: request count by source, target, service, and code
+    labels:
+    - name: source
+      value_type: 1 # STRING
+    - name: target
+      value_type: 1 # STRING
+    - name: service
+      value_type: 1 # STRING
+    - name: method
+      value_type: 1 # STRING
+    - name: response_code
+      value_type: 2 # INT64
+  - name: request_latency
+    kind: 2 # COUNTER
+    value: 10 # DURATION
+    description: request latency by source, target, and service
+    labels:
+    - name: source
+      value_type: 1 # STRING
+    - name: target
+      value_type: 1 # STRING
+    - name: service
+      value_type: 1 # STRING
+    - name: method
+      value_type: 1 # STRING
+    - name: response_code
+      value_type: 2 # INT64
