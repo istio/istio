@@ -7,7 +7,6 @@
 
     kubectl apply -f <(istioctl kube-inject -f echo-app.yaml)
     kubectl apply -f <(istioctl kube-inject -f logic-app.yaml)
-    kubectl apply -f vanilla-app.yaml
 
 This will deploy two pods, each running a simple echo server and client, and will create two kubernetes services called "echo" and "logic".
 
@@ -24,10 +23,16 @@ Send HTTP request from "echo" pod to "logic" service:
 
 Send HTTP request from "logic" pod to "echo" service:
 
-    kubectl exec -it <logic-pod> -c app /bin/client -- -url http://echo/<some-text> -- --count 10
+    kubectl exec <logic-pod> -c app /bin/client -- -url http://echo/<some-text> -- --count 10
 
 This will echo the URL and print HTTP headers, including "X-Envoy-Expected-Rq-Timeout-Ms".
 
 **Enable rate limiting in mixer**
 
     kubectl replace -f ./demos/mixer-config-quota-echo.yaml
+
+**Add a third app without istio proxy**
+
+    kubectl apply -f vanilla-app.yaml
+
+This demonstrates apps without proxy can live with the ones with proxy.
