@@ -32,6 +32,7 @@ import (
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
 	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
@@ -76,6 +77,27 @@ func (b *fakeQuotaBuilder) NewQuotasAspect(env adapter.Env, config adapter.Confi
 	return b.body()
 }
 
+var (
+	quotaRequestCount = &dpb.QuotaDescriptor{
+		Name:       "RequestCount",
+		MaxAmount:  5,
+		Expiration: &ptypes.Duration{Seconds: 1},
+		Labels:     []*dpb.LabelDescriptor{},
+	}
+
+	quotaWithLabels = &dpb.QuotaDescriptor{
+		Name:       "desc with labels",
+		Expiration: &ptypes.Duration{Seconds: 1},
+		Labels: []*dpb.LabelDescriptor{
+			{Name: "source", ValueType: dpb.STRING},
+			{Name: "target", ValueType: dpb.STRING},
+			{Name: "service", ValueType: dpb.STRING},
+			{Name: "method", ValueType: dpb.STRING},
+			{Name: "response_code", ValueType: dpb.INT64},
+		},
+	}
+)
+
 func TestNewQuotasManager(t *testing.T) {
 	m := newQuotasManager()
 	if m.Kind() != config.QuotasKind {
@@ -108,15 +130,11 @@ func TestQuotasManager_NewAspect(t *testing.T) {
 	builder := &fakeQuotaBuilder{name: "test", body: func() (adapter.QuotasAspect, error) {
 		return &fakeQuotaAspect{}, nil
 	}}
-
+	df := test.NewDescriptorFinder(map[string]interface{}{quotaRequestCount.Name: quotaRequestCount})
 	conf := newQuotaConfig("RequestCount", map[string]string{"source": "", "target": ""})
-	if _, err := newQuotasManager().NewQuotaExecutor(conf, builder, atest.NewEnv(t), nil); err != nil {
-		t.Errorf("NewExecutor(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
-	}
 
-	conf = newQuotaConfig("FOOBAR", map[string]string{})
-	if _, err := newQuotasManager().NewQuotaExecutor(conf, builder, atest.NewEnv(t), nil); err != nil {
-		t.Errorf("NewQuotaExecutor(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
+	if _, err := newQuotasManager().NewQuotaExecutor(conf, builder, atest.NewEnv(t), df); err != nil {
+		t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 }
 
@@ -137,6 +155,103 @@ func TestQuotasManager_NewAspect_PropagatesError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), errString) {
 		t.Errorf("NewExecutor(conf, builder, test.NewEnv(t)) = _, %v; wanted err %s", err, errString)
+	}
+}
+
+func TestQuotasManager_ValidateConfig(t *testing.T) {
+	df := test.NewDescriptorFinder(map[string]interface{}{
+		quotaRequestCount.Name: quotaRequestCount,
+		quotaWithLabels.Name:   quotaWithLabels,
+		"invalid desc": &dpb.QuotaDescriptor{
+			Name:       "invalid desc",
+			Expiration: nil,
+			Labels:     []*dpb.LabelDescriptor{},
+		},
+		// our attributes
+		"duration": &dpb.AttributeDescriptor{Name: "duration", ValueType: dpb.DURATION},
+		"string":   &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
+		"int64":    &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
+	})
+	v := expr.NewCEXLEvaluator()
+
+	validParam := aconfig.QuotasParams_Quota{
+		DescriptorName: quotaWithLabels.Name,
+		Labels: map[string]string{
+			"source":        "string",
+			"target":        "string",
+			"service":       "string",
+			"method":        "string",
+			"response_code": "int64",
+		},
+	}
+
+	validNoLabels := aconfig.QuotasParams_Quota{
+		DescriptorName: quotaRequestCount.Name,
+		Labels:         map[string]string{},
+	}
+
+	missingDesc := validParam
+	missingDesc.DescriptorName = "not in the descriptor finder"
+
+	// annoyingly, even though we copy force a copy of the struct the copy points at the same map instance, so we need a new one
+	invalidExpr := validParam
+	invalidExpr.Labels = map[string]string{
+		"source":        "string |", // invalid expr
+		"target":        "string",
+		"service":       "string",
+		"method":        "string",
+		"response_code": "int64",
+	}
+
+	wrongLabelType := validParam
+	wrongLabelType.Labels = map[string]string{
+		"source":        "string",
+		"target":        "string",
+		"service":       "int64", // should be string
+		"method":        "string",
+		"response_code": "int64",
+	}
+
+	extraLabel := validParam
+	extraLabel.Labels = map[string]string{
+		"source":        "string",
+		"target":        "string",
+		"service":       "string",
+		"method":        "string",
+		"response_code": "int64",
+		"extra":         "string", // wrong dimensions
+	}
+
+	badDesc := validNoLabels
+	badDesc.DescriptorName = "invalid desc"
+
+	tests := []struct {
+		name string
+		cfg  *aconfig.QuotasParams
+		v    expr.Validator
+		df   descriptor.Finder
+		err  string
+	}{
+		{"empty config", &aconfig.QuotasParams{}, v, df, ""},
+		{"valid", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&validParam}}, v, df, ""},
+		{"no labels", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&validNoLabels}}, v, df, ""},
+		{"missing descriptor", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&missingDesc}}, v, df, "could not find a descriptor"},
+		{"failed type checking (bad expr)", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&invalidExpr}}, v, df, "failed to parse expression"},
+		{"label eval'd type doesn't match desc", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&wrongLabelType}}, v, df, "expected type STRING"},
+		{"wrong dimensions for metric", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&extraLabel}}, v, df, "wrong dimensions"},
+		{"can't convert proto to adapter rep", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&badDesc}}, v, df, "failed to marshal descriptor"},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			if errs := (&quotasManager{}).ValidateConfig(tt.cfg, tt.v, tt.df); errs != nil || tt.err != "" {
+				if tt.err == "" {
+					t.Fatalf("ValidateConfig(tt.cfg, tt.v, tt.df) = '%s', wanted no err", errs.Error())
+				} else if !strings.Contains(errs.Error(), tt.err) {
+					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, errs.Error())
+				}
+			}
+		})
 	}
 }
 
@@ -310,25 +425,6 @@ func TestQuotas_DescToDef(t *testing.T) {
 			}
 			if !reflect.DeepEqual(result, c.out) {
 				t.Errorf("quotaDefinitionFromProto(%v) = %v, %v; wanted %v", c.in, result, err, c.out)
-			}
-		})
-	}
-}
-
-func TestQuotas_Find(t *testing.T) {
-	cases := []struct {
-		in   []*aconfig.QuotasParams_Quota
-		find string
-		out  bool
-	}{
-		{[]*aconfig.QuotasParams_Quota{}, "", false},
-		{[]*aconfig.QuotasParams_Quota{{DescriptorName: "foo"}}, "foo", true},
-		{[]*aconfig.QuotasParams_Quota{{DescriptorName: "bar"}}, "foo", false},
-	}
-	for _, c := range cases {
-		t.Run(c.find, func(t *testing.T) {
-			if q := findQuota(c.in, c.find); (q != nil) != c.out {
-				t.Errorf("find(%v, %s) = _, %t; wanted %t", c.in, c.find, q != nil, c.out)
 			}
 		})
 	}

@@ -59,3 +59,8 @@ metrics:
       value_type: 1 # STRING
     - name: response_code
       value_type: 2 # INT64
+quotas:
+- name: RequestCount
+  max_amount: 5
+  expiration:
+    seconds: 1

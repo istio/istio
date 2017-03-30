@@ -56,45 +56,16 @@ func newQuotasManager() QuotaManager {
 func (m *quotasManager) NewQuotaExecutor(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (QuotaExecutor, error) {
 	params := c.Aspect.Params.(*aconfig.QuotasParams)
 
-	// TODO: get this from config
-	if len(params.Quotas) == 0 {
-		params = &aconfig.QuotasParams{
-			Quotas: []*aconfig.QuotasParams_Quota{
-				{DescriptorName: "RequestCount"},
-			},
-		}
-	}
-
-	// TODO: get this from config
-	desc := []dpb.QuotaDescriptor{
-		{
-			Name:       "RequestCount",
-			MaxAmount:  5,
-			Expiration: &ptypes.Duration{Seconds: 1},
-		},
-	}
-
-	metadata := make(map[string]*quotaInfo, len(desc))
-	defs := make(map[string]*adapter.QuotaDefinition, len(desc))
-	for _, d := range desc {
-		quota := findQuota(params.Quotas, d.Name)
-		if quota == nil {
-			env.Logger().Warningf("No quota found for descriptor %s, skipping it", d.Name)
-			continue
-		}
-
-		// TODO: once we plumb descriptors into the validation, remove this err: no descriptor should make it through validation
-		// if it cannot be converted into a QuotaDefinition, so we should never have to handle the error case.
-		def, err := quotaDefinitionFromProto(&d)
-		if err != nil {
-			_ = env.Logger().Errorf("Failed to convert quota descriptor '%s' to definition with err: %s; skipping it.", d.Name, err)
-			continue
-		}
-
-		defs[d.Name] = def
-		metadata[d.Name] = &quotaInfo{
-			labels:     quota.Labels,
+	metadata := make(map[string]*quotaInfo, len(params.Quotas))
+	defs := make(map[string]*adapter.QuotaDefinition, len(params.Quotas))
+	for _, quota := range params.Quotas {
+		// We don't check the err because ValidateConfig ensures we have all the descriptors we need and that
+		// they can be transformed into their adapter representation.
+		def, _ := quotaDefinitionFromProto(df.GetQuota(quota.DescriptorName))
+		defs[def.Name] = def
+		metadata[def.Name] = &quotaInfo{
 			definition: def,
+			labels:     quota.Labels,
 		}
 	}
 
@@ -113,7 +84,21 @@ func (m *quotasManager) NewQuotaExecutor(c *cpb.Combined, a adapter.Builder, env
 
 func (*quotasManager) Kind() config.Kind                  { return config.QuotasKind }
 func (*quotasManager) DefaultConfig() config.AspectParams { return &aconfig.QuotasParams{} }
-func (*quotasManager) ValidateConfig(config.AspectParams, expr.Validator, descriptor.Finder) (ce *adapter.ConfigErrors) {
+
+func (*quotasManager) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (ce *adapter.ConfigErrors) {
+	cfg := c.(*aconfig.QuotasParams)
+	for _, quota := range cfg.Quotas {
+		desc := df.GetQuota(quota.DescriptorName)
+		if desc == nil {
+			ce = ce.Appendf("Quotas", "could not find a descriptor for the quota '%s'", quota.DescriptorName)
+			continue // we can't do any other validation without the descriptor
+		}
+		ce = ce.Extend(validateLabels(fmt.Sprintf("Quotas[%s].Labels", desc.Name), quota.Labels, desc.Labels, v, df))
+
+		if _, err := quotaDefinitionFromProto(desc); err != nil {
+			ce = ce.Appendf(fmt.Sprintf("Descriptor[%s]", desc.Name), "failed to marshal descriptor into its adapter representation with err: %v", err)
+		}
+	}
 	return
 }
 
@@ -174,15 +159,6 @@ func (w *quotasExecutor) Close() error {
 	return w.aspect.Close()
 }
 
-func findQuota(quotas []*aconfig.QuotasParams_Quota, name string) *aconfig.QuotasParams_Quota {
-	for _, q := range quotas {
-		if q.DescriptorName == name {
-			return q
-		}
-	}
-	return nil
-}
-
 func quotaDefinitionFromProto(desc *dpb.QuotaDescriptor) (*adapter.QuotaDefinition, error) {
 	labels := make(map[string]adapter.LabelType, len(desc.Labels))
 	for _, label := range desc.Labels {
@@ -194,7 +170,10 @@ func quotaDefinitionFromProto(desc *dpb.QuotaDescriptor) (*adapter.QuotaDefiniti
 		labels[label.Name] = l
 	}
 
-	dur, _ := ptypes.DurationFromProto(desc.Expiration)
+	dur, err := ptypes.DurationFromProto(desc.Expiration)
+	if err != nil {
+		return nil, fmt.Errorf("descriptor '%s' failed to parse duration from proto with err: %v", desc.Name, err)
+	}
 	return &adapter.QuotaDefinition{
 		MaxAmount:   desc.MaxAmount,
 		Expiration:  dur,
