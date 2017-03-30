@@ -50,6 +50,16 @@ into /home/ubuntu/config
 
 ## 3. Build once in the VM
 
+At this point, you should be able to jump to the [build](./build.md) instructions to run builds of `istio/manager`. Make sure you run the [bin/install-prereqs.sh](../bin/install-prereqs.sh) before you get started.
+    
+First, install the pre-requisites:
+
+    ./bin/install-prereqs.sh
+
+This will install all of the dependent tools required to do bazel builds.
+
+Then...
+
     bazel build //...
 
 _Note the three dots_
