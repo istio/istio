@@ -106,8 +106,8 @@ func TestListsExecutor_Execute(t *testing.T) {
 		aspect adapter.ListsAspect
 		params *aconfig.ListsParams
 	}{
-		{"not blacklisted", map[string]string{"ipAddr": "source.ip"}, &testList{}, &aconfig.ListsParams{CheckAttribute: "ipAddr", Blacklist: true}},
-		{"whitelisted", map[string]string{"ipAddr": "source.ip"}, &testList{inList: true}, &aconfig.ListsParams{CheckAttribute: "ipAddr", Blacklist: false}},
+		{"not blacklisted", map[string]string{"ipAddr": "source.ip"}, &testList{}, &aconfig.ListsParams{CheckExpression: "ipAddr", Blacklist: true}},
+		{"whitelisted", map[string]string{"ipAddr": "source.ip"}, &testList{inList: true}, &aconfig.ListsParams{CheckExpression: "ipAddr", Blacklist: false}},
 	}
 
 	for _, v := range cases {
@@ -123,8 +123,8 @@ func TestListsExecutor_Execute(t *testing.T) {
 
 func TestListsExecutor_ExecuteErrors(t *testing.T) {
 
-	attrParam := &aconfig.ListsParams{CheckAttribute: "ipAddr"}
-	blacklistParam := &aconfig.ListsParams{CheckAttribute: "ipAddr", Blacklist: true}
+	attrParam := &aconfig.ListsParams{CheckExpression: "ipAddr"}
+	blacklistParam := &aconfig.ListsParams{CheckExpression: "ipAddr", Blacklist: true}
 	internal := int32(rpc.INTERNAL)
 	permDenied := int32(rpc.PERMISSION_DENIED)
 	inputMap := map[string]string{"ipAddr": "source.ip"}
