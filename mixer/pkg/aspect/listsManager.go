@@ -66,14 +66,14 @@ func (listsManager) Kind() config.Kind {
 
 func (listsManager) DefaultConfig() config.AspectParams {
 	return &aconfig.ListsParams{
-		CheckAttribute: "src.ip",
+		CheckExpression: "src.ip",
 	}
 }
 
 func (listsManager) ValidateConfig(c config.AspectParams, _ expr.Validator, _ descriptor.Finder) (ce *adapter.ConfigErrors) {
 	lc := c.(*aconfig.ListsParams)
-	if lc.CheckAttribute == "" {
-		ce = ce.Appendf("CheckAttribute", "Missing")
+	if lc.CheckExpression == "" {
+		ce = ce.Appendf("CheckExpression", "Missing")
 	}
 	return
 }
@@ -85,9 +85,9 @@ func (a *listsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.
 	var symbol string
 	var symbolExpr string
 
-	// CheckAttribute should be processed and sent to input
-	if symbolExpr, found = a.inputs[a.params.CheckAttribute]; !found {
-		return status.WithError(fmt.Errorf("mapping for %s not found", a.params.CheckAttribute))
+	// CheckExpression should be processed and sent to input
+	if symbolExpr, found = a.inputs[a.params.CheckExpression]; !found {
+		return status.WithError(fmt.Errorf("mapping for %s not found", a.params.CheckExpression))
 	}
 
 	if symbol, err = mapper.EvalString(symbolExpr, attrs); err != nil {

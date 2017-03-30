@@ -282,7 +282,7 @@ adapters:
     kind: denials
     impl: denyChecker
     params:
-      check_attribute: src.ip
+      check_expression: src.ip
       blacklist: true
 `
 const sGlobalConfig = sGlobalConfigValid + `
@@ -335,7 +335,7 @@ rules:
     adapter: ""
     inputs: {}
     params:
-      check_attribute: src.ip
+      check_expression: src.ip
       blacklist: true
       unknown_field: true
   rules:
@@ -345,7 +345,7 @@ rules:
       adapter: ""
       inputs: {}
       params:
-        check_attribute: src.ip
+        check_expression: src.ip
         blacklist: true
 `
 
