@@ -5,7 +5,7 @@ kramdown:
 markdown:
   kramdown
 
-baseurl: /istio.github.io
+baseurl: ""
 
 githuburl: https://github.com/istio/istio.github.io/
 
