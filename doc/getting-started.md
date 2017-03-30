@@ -1,9 +1,17 @@
 # Getting started with Istio
 
+![Getting started](getting-started.png)
+
+The Kubernetes-based implementation of Istio used in this tutorial works by injecting behavior
+into Pods.  All Pods that participate in the service mesh are enabled by the addition of a proxy.
+The _istioctl kube-inject_ subcommand can be used to apply the changes to a running Deployment.
+Later we will show how to modify the YAML files used to deploy your application so that it comes
+up immediately with the Istio mesh connection.
+
 ## Before you begin
 
-This tutorial assumes you have a working Kubernetes of at least version 1.5.2.  Do `kubectl version` to verify
-that you have a _kubectl_ command line and connectivity to a version 1.5.2 Kubernetes server.
+This tutorial assumes you have a working Kubernetes of at least version 1.5.2.  `kubectl version` shows
+_kubectl_ command line version and Kubernetes server version.
 
 Bring up the *Istio control plane* from the directory you cloned [https://github.com/istio/istio](https://github.com/istio/istio) into:
 
@@ -42,7 +50,7 @@ For this tutorial an NGINX front-end will talk to CouchDB.  To enable communicat
 
 ```
 kubectl expose deployment couchdb --name=couchdb
-# Let Istio know that the port is HTTP, not generic TCP
+# Set the port name to http or http-* to enable Istio's rich HTTP routing
 kubectl patch service couchdb --type='json' -p='[{"op": "add", "path": "/spec/ports/0/name", "value":"http"}]'
 ```
 
@@ -140,16 +148,9 @@ not be used to introduce delays &mdash; we use that feature for testing the beha
 applications.
 
 A later tutorial will show how to use the features of Istio for administering cloud systems.
-We will demonstrate rolling updates with zero down time.  We will also show the introduction of
-feature flags on unmodified applications.
-
-![Getting started](getting-started.png)
-
-The Kubernetes-based implementation of Istio used in this tutorial works by injecting behavior
-into Pods.  All Pods that participate in the service mesh are enabled by the addition of a proxy.
-The _istioctl kube-inject_ subcommand can be used to apply the changes to a running Deployment.
-Later we will show how to modify the YAML files used to deploy your application so that it comes
-up immediately with the Istio mesh connection.
+We will demonstrate rolling updates with zero down time.  We will also introduce routing
+to different versions of services (possibly with diffent functionality or versions)
+using attributes in the HTTP request headers.
 
 When a Pod has a proxy component, and thus participates in the Istio service mesh, the proxy
 behavior is controlled by the *Istio Manager* and *Istio Mixer*.  We will show how *Istio route
