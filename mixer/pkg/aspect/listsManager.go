@@ -19,6 +19,7 @@ import (
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
+	apipb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
@@ -66,14 +67,20 @@ func (listsManager) Kind() config.Kind {
 
 func (listsManager) DefaultConfig() config.AspectParams {
 	return &aconfig.ListsParams{
-		CheckExpression: "src.ip",
+		CheckExpression: "source.ip",
 	}
 }
 
-func (listsManager) ValidateConfig(c config.AspectParams, _ expr.Validator, _ descriptor.Finder) (ce *adapter.ConfigErrors) {
-	lc := c.(*aconfig.ListsParams)
-	if lc.CheckExpression == "" {
-		ce = ce.Appendf("CheckExpression", "Missing")
+func (listsManager) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (ce *adapter.ConfigErrors) {
+	cfg := c.(*aconfig.ListsParams)
+	if cfg.CheckExpression == "" {
+		ce = ce.Appendf("CheckExpression", "no expression provided")
+		return
+	}
+	if t, err := v.TypeCheck(cfg.CheckExpression, df); err != nil {
+		ce = ce.Appendf("CheckExpression", "typechecking failed with err %v", err)
+	} else if t != apipb.STRING {
+		ce = ce.Appendf("CheckExpression", "evaluated to type %v, expected type STRING", t)
 	}
 	return
 }
