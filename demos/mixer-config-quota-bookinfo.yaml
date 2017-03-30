@@ -67,6 +67,7 @@ data:
       aspects:
       - kind: quotas
         params:
+
     - selector: true
       aspects:
       - kind: metrics
