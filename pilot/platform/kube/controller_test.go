@@ -34,15 +34,167 @@ import (
 	"istio.io/manager/test/mock"
 )
 
-func TestIngressIgnored(t *testing.T) {
+func TestIngressController(t *testing.T) {
+	cl := makeClient(t)
+	ns := makeNamespace(cl.client, t)
+	defer deleteNamespace(cl.client, ns)
+
+	ctl := NewController(cl, ControllerConfig{
+		Namespace:       ns,
+		ResyncPeriod:    resync,
+		IngressSyncMode: IngressDefault,
+		IngressClass:    "istio",
+	})
+
+	stop := make(chan struct{})
+	defer close(stop)
+	go ctl.Run(stop)
+
+	// Append an ingress notification handler that just counts number of notifications
+	notificationCount := 0
+	_ = ctl.AppendConfigHandler(model.IngressRule, func(key model.Key, msg proto.Message, ev model.Event) {
+		notificationCount++
+	})
+
+	// Create an ingress resource of a different class,
+	// So that we can later verify it doesn't generate a notification,
+	// nor returned with List(), Get() etc.
+	nginxIngress := v1beta1.Ingress{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "nginx-ingress",
+			Namespace: ns,
+			Annotations: map[string]string{
+				"kubernetes.io/ingress.class": "nginx",
+			},
+		},
+		Spec: v1beta1.IngressSpec{
+			Backend: &v1beta1.IngressBackend{
+				ServiceName: "service1",
+				ServicePort: intstr.FromInt(80),
+			},
+		},
+	}
+	createIngress(&nginxIngress, cl.client, t)
+
+	// Create a "real" ingress resource, with 4 host/path rules and an additional "default" rule.
+	const expectedRuleCount = 5
+	ingress := v1beta1.Ingress{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test-ingress",
+			Namespace: ns,
+		},
+		Spec: v1beta1.IngressSpec{
+			Backend: &v1beta1.IngressBackend{
+				ServiceName: "default-service",
+				ServicePort: intstr.FromInt(80),
+			},
+			Rules: []v1beta1.IngressRule{
+				{
+					Host: "host1.com",
+					IngressRuleValue: v1beta1.IngressRuleValue{
+						HTTP: &v1beta1.HTTPIngressRuleValue{
+							Paths: []v1beta1.HTTPIngressPath{
+								{
+									Path: "/path1",
+									Backend: v1beta1.IngressBackend{
+										ServiceName: "service1",
+										ServicePort: intstr.FromInt(80),
+									},
+								},
+								{
+									Path: "/path2",
+									Backend: v1beta1.IngressBackend{
+										ServiceName: "service2",
+										ServicePort: intstr.FromInt(80),
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Host: "host2.com",
+					IngressRuleValue: v1beta1.IngressRuleValue{
+						HTTP: &v1beta1.HTTPIngressRuleValue{
+							Paths: []v1beta1.HTTPIngressPath{
+								{
+									Path: "/path3",
+									Backend: v1beta1.IngressBackend{
+										ServiceName: "service3",
+										ServicePort: intstr.FromInt(80),
+									},
+								},
+								{
+									Path: "/path4",
+									Backend: v1beta1.IngressBackend{
+										ServiceName: "service4",
+										ServicePort: intstr.FromInt(80),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	createIngress(&ingress, cl.client, t)
+
+	eventually(func() bool {
+		return notificationCount == expectedRuleCount
+	}, t)
+	if notificationCount != expectedRuleCount {
+		t.Errorf("expected %d IngressRule events to be notified, found %d", expectedRuleCount, notificationCount)
+	}
+
+	eventually(func() bool {
+		rules, _ := ctl.List(model.IngressRule, ns)
+		return len(rules) == expectedRuleCount
+	}, t)
+	rules, err := ctl.List(model.IngressRule, ns)
+	if err != nil {
+		t.Errorf("ctl.List(model.IngressRule, %s) => error: %v", ns, err)
+	}
+	if len(rules) != expectedRuleCount {
+		t.Errorf("expected %d IngressRule objects to be created, found %d", expectedRuleCount, len(rules))
+	}
+
+	for key, listMsg := range rules {
+		getMsg, exists := ctl.Get(key)
+		if !exists {
+			t.Errorf("expected IngressRule with key %v to exist", key)
+
+			listRule := listMsg.(*proxyconfig.RouteRule)
+			getRule := getMsg.(*proxyconfig.RouteRule)
+
+			// TODO:  Compare listRule and getRule objects
+			if listRule == nil {
+				t.Errorf("expected listRule to be of type *proxyconfig.RouteRule")
+			}
+			if getRule == nil {
+				t.Errorf("expected getRule to be of type *proxyconfig.RouteRule")
+			}
+		}
+	}
+
+}
+
+func TestIngressClass(t *testing.T) {
+	cl := makeClient(t)
+	ns := makeNamespace(cl.client, t)
+	defer deleteNamespace(cl.client, ns)
+
 	cases := []struct {
-		ingressClass string
-		shouldIgnore bool
+		ingressMode   IngressSyncMode
+		ingressClass  string
+		shouldProcess bool
 	}{
-		{ingressClass: "nginx", shouldIgnore: true},
-		{ingressClass: "istio", shouldIgnore: false},
-		{ingressClass: "Istio", shouldIgnore: false},
-		{ingressClass: "", shouldIgnore: false},
+		{ingressMode: IngressDefault, ingressClass: "nginx", shouldProcess: false},
+		{ingressMode: IngressStrict, ingressClass: "nginx", shouldProcess: false},
+		{ingressMode: IngressDefault, ingressClass: "istio", shouldProcess: true},
+		{ingressMode: IngressStrict, ingressClass: "istio", shouldProcess: true},
+		{ingressMode: IngressDefault, ingressClass: "", shouldProcess: true},
+		{ingressMode: IngressStrict, ingressClass: "", shouldProcess: false},
 	}
 
 	for _, c := range cases {
@@ -60,13 +212,20 @@ func TestIngressIgnored(t *testing.T) {
 			},
 		}
 
+		ctl := NewController(cl, ControllerConfig{
+			Namespace:       ns,
+			ResyncPeriod:    resync,
+			IngressSyncMode: c.ingressMode,
+			IngressClass:    "istio",
+		})
+
 		if c.ingressClass != "" {
 			ingress.Annotations["kubernetes.io/ingress.class"] = c.ingressClass
 		}
 
-		if c.shouldIgnore != ingressIgnored(&ingress) {
-			t.Errorf("ingressIgnored(<ingress of class '%s'>) => %v, want %v",
-				c.ingressClass, !c.shouldIgnore, c.shouldIgnore)
+		if c.shouldProcess != ctl.shouldProcessIngress(&ingress) {
+			t.Errorf("shouldProcessIngress(<ingress of class '%s'>) => %v, want %v",
+				c.ingressClass, !c.shouldProcess, c.shouldProcess)
 		}
 	}
 }
@@ -79,7 +238,7 @@ func TestController(t *testing.T) {
 	stop := make(chan struct{})
 	defer close(stop)
 
-	ctl := NewController(cl, ns, resync)
+	ctl := NewController(cl, ControllerConfig{Namespace: ns, ResyncPeriod: resync})
 	added, deleted := 0, 0
 	n := 5
 	err := ctl.AppendConfigHandler(mock.Kind, func(k model.Key, o proto.Message, ev model.Event) {
@@ -112,7 +271,7 @@ func TestControllerCacheFreshness(t *testing.T) {
 	ns := makeNamespace(cl.client, t)
 	defer deleteNamespace(cl.client, ns)
 	stop := make(chan struct{})
-	ctl := NewController(cl, ns, resync)
+	ctl := NewController(cl, ControllerConfig{Namespace: ns, ResyncPeriod: resync})
 
 	// test interface implementation
 	var _ model.Controller = ctl
@@ -182,7 +341,7 @@ func TestControllerClientSync(t *testing.T) {
 	}
 
 	// check in the controller cache
-	ctl := NewController(cl, ns, resync)
+	ctl := NewController(cl, ControllerConfig{Namespace: ns, ResyncPeriod: resync})
 	go ctl.Run(stop)
 	eventually(func() bool { return ctl.HasSynced() }, t)
 	os, _ := ctl.List(mock.Kind, ns)
@@ -254,7 +413,7 @@ func TestServices(t *testing.T) {
 	stop := make(chan struct{})
 	defer close(stop)
 
-	ctl := NewController(cl, ns, resync)
+	ctl := NewController(cl, ControllerConfig{Namespace: ns, ResyncPeriod: resync})
 	go ctl.Run(stop)
 
 	hostname := fmt.Sprintf("%s.%s.%s", testService, ns, ServiceSuffix)
@@ -312,7 +471,10 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	createPod(clientSet, map[string]string{"app": "prod-app"}, "pod4", "nsA", "acct3", t)
 	createPod(clientSet, map[string]string{"app": "prod-app"}, "pod5", "nsB", "acct4", t)
 
-	controller := NewController(&Client{client: clientSet}, "default", 100*time.Millisecond)
+	controller := NewController(&Client{client: clientSet}, ControllerConfig{
+		Namespace:    "default",
+		ResyncPeriod: 100 * time.Millisecond,
+	})
 
 	createService(controller, "svc1", "nsA", map[string]string{"app": "prod-app"}, t)
 	createService(controller, "svc2", "nsA", map[string]string{"app": "staging-app"}, t)
@@ -376,6 +538,12 @@ func createPod(client kubernetes.Interface, labels map[string]string, name strin
 	}
 	if _, err := client.CoreV1().Pods(namespace).Create(pod); err != nil {
 		t.Errorf("Cannot create pod in namespace %s (error: %v)", namespace, err)
+	}
+}
+
+func createIngress(ingress *v1beta1.Ingress, client kubernetes.Interface, t *testing.T) {
+	if _, err := client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Create(ingress); err != nil {
+		t.Errorf("Cannot create ingress in namespace %s (error: %v)", ingress.Namespace, err)
 	}
 }
 

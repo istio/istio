@@ -29,10 +29,12 @@ import (
 )
 
 type args struct {
-	proxy         envoy.MeshConfig
-	identity      envoy.ProxyNode
-	sdsPort       int
-	ingressSecret string
+	proxy                    envoy.MeshConfig
+	identity                 envoy.ProxyNode
+	sdsPort                  int
+	ingressSecret            string
+	ingressClass             string
+	defaultIngressController bool
 }
 
 const (
@@ -48,7 +50,11 @@ var (
 		Use:   "discovery",
 		Short: "Start Istio Manager discovery service",
 		RunE: func(c *cobra.Command, args []string) (err error) {
-			controller := kube.NewController(cmd.Client, cmd.RootFlags.Namespace, resyncPeriod)
+			controller := kube.NewController(cmd.Client, kube.ControllerConfig{
+				Namespace:       cmd.RootFlags.Namespace,
+				ResyncPeriod:    resyncPeriod,
+				IngressSyncMode: kube.IngressOff,
+			})
 			sds := envoy.NewDiscoveryService(controller,
 				&model.IstioRegistry{ConfigRegistry: controller},
 				&flags.proxy,
@@ -71,7 +77,11 @@ var (
 		Short: "Istio Proxy sidecar agent",
 		RunE: func(c *cobra.Command, args []string) (err error) {
 			setFlagsFromEnv()
-			controller := kube.NewController(cmd.Client, cmd.RootFlags.Namespace, resyncPeriod)
+			controller := kube.NewController(cmd.Client, kube.ControllerConfig{
+				Namespace:       cmd.RootFlags.Namespace,
+				ResyncPeriod:    resyncPeriod,
+				IngressSyncMode: kube.IngressOff,
+			})
 			w, err := envoy.NewWatcher(controller,
 				controller,
 				&model.IstioRegistry{ConfigRegistry: controller},
@@ -91,7 +101,16 @@ var (
 		Use:   "ingress",
 		Short: "Istio Proxy ingress controller",
 		RunE: func(c *cobra.Command, args []string) error {
-			controller := kube.NewController(cmd.Client, cmd.RootFlags.Namespace, resyncPeriod)
+			controllerConfig := kube.ControllerConfig{
+				Namespace:       cmd.RootFlags.Namespace,
+				ResyncPeriod:    resyncPeriod,
+				IngressSyncMode: kube.IngressStrict,
+				IngressClass:    flags.ingressClass,
+			}
+			if flags.defaultIngressController {
+				controllerConfig.IngressSyncMode = kube.IngressDefault
+			}
+			controller := kube.NewController(cmd.Client, controllerConfig)
 			w, err := envoy.NewIngressWatcher(controller, controller,
 				&model.IstioRegistry{ConfigRegistry: controller},
 				cmd.Client, &flags.proxy, flags.ingressSecret, cmd.RootFlags.Namespace)
@@ -162,6 +181,13 @@ func init() {
 	ingressCmd.PersistentFlags().StringVar(&flags.ingressSecret, "secret",
 		"",
 		"Kubernetes secret name for ingress SSL termination")
+	ingressCmd.PersistentFlags().StringVar(&flags.ingressClass, "ingress_class",
+		"istio",
+		"The class of ingress resources to be processed by this ingress controller")
+	ingressCmd.PersistentFlags().BoolVar(&flags.defaultIngressController, "default_ingress_controller",
+		true,
+		"Specifies whether running as the cluster's default ingress controller, "+
+			"thereby processing unclassified ingress resources")
 
 	cmd.RootCmd.Use = "manager"
 	cmd.RootCmd.Long = `
