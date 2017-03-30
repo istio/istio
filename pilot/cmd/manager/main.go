@@ -142,6 +142,12 @@ func init() {
 	discoveryCmd.PersistentFlags().StringVarP(&flags.proxy.MixerAddress, "mixer", "m",
 		"",
 		"Mixer DNS address (or empty to disable Mixer)")
+	discoveryCmd.PersistentFlags().BoolVar(&flags.proxy.EnableAuth, "enable_auth",
+		envoy.DefaultMeshConfig.EnableAuth,
+		"Enable mutual TLS for proxy-to-proxy traffic")
+	discoveryCmd.PersistentFlags().StringVar(&flags.proxy.AuthConfigPath, "auth_config_path",
+		envoy.DefaultMeshConfig.AuthConfigPath,
+		"The directory in which certificate and key files are stored")
 
 	proxyCmd.PersistentFlags().StringVar(&flags.identity.IP, "nodeIP", "",
 		"Proxy node IP address. If not provided uses ${POD_IP} environment variable.")
@@ -168,10 +174,10 @@ func init() {
 		"Mixer DNS address (or empty to disable Mixer)")
 	proxyCmd.PersistentFlags().BoolVar(&flags.proxy.EnableAuth, "enable_auth",
 		envoy.DefaultMeshConfig.EnableAuth,
-		"The Envoy enforces auth for proxy-proxy traffic")
+		"Enable mutual TLS for proxy-to-proxy traffic")
 	proxyCmd.PersistentFlags().StringVar(&flags.proxy.AuthConfigPath, "auth_config_path",
 		envoy.DefaultMeshConfig.AuthConfigPath,
-		"The path Envoy uses to find files: cert_chain, private_key, ca_cert")
+		"The directory in which certificate and key files are stored")
 
 	proxyCmd.AddCommand(sidecarCmd)
 	proxyCmd.AddCommand(ingressCmd)
