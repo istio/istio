@@ -9,6 +9,7 @@ go_library(
         "redisquota.go",
     ],
     deps = [
+        "//adapter/memQuota/util:go_default_library",
         "//adapter/redisquota/config:go_default_library",
         "//pkg/adapter:go_default_library",
         "//pkg/pool:go_default_library",

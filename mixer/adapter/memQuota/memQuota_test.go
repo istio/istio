@@ -107,7 +107,7 @@ func TestAllocAndRelease(t *testing.T) {
 				Labels:          labels,
 			}
 
-			asp.getTime = func() time.Time {
+			asp.common.GetTime = func() time.Time {
 				return now.Add(time.Duration(c.seconds) * time.Second)
 			}
 
@@ -262,7 +262,7 @@ func TestReaper(t *testing.T) {
 	asp := a.(*memQuota)
 
 	now := time.Now()
-	asp.getTime = func() time.Time {
+	asp.common.GetTime = func() time.Time {
 		return now
 	}
 
@@ -289,7 +289,7 @@ func TestReaper(t *testing.T) {
 	}
 
 	// move current dedup state into old dedup state
-	asp.reapDedup()
+	asp.common.ReapDedup()
 
 	qa.DeduplicationID = "2"
 	qr, _ = asp.Alloc(qa)
@@ -298,7 +298,7 @@ func TestReaper(t *testing.T) {
 	}
 
 	// retire original dedup state
-	asp.reapDedup()
+	asp.common.ReapDedup()
 
 	qa.DeduplicationID = "0"
 	qr, _ = asp.Alloc(qa)
