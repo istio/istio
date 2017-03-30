@@ -90,12 +90,12 @@ In a standard Istio deployment (using the Istio proxy), the system will produce 
 | target.user | string | The user running the target application. | service-account@namespace.cluster.local |
 | origin.ip | ip_address | The IP address of the originating application | |
 | origin.name | string | The fully qualified name of the originating application | |
-origin.uid | string | A unique identifier for the particular instance of the application that originated the request. This must be unique within the cluster. | for in cluster | pod-id gives sufficient to ascertain all other attributes needed by the policy. |
+| origin.uid | string | A unique identifier for the particular instance of the application that originated the request. This must be unique within the cluster. | for in cluster pod-id gives sufficient to ascertain all other attributes needed by the policy. |
 | origin.namespace | string | The namespace of the originator of the request. | |
 | origin.labels | map | A map of key-value pairs attached to the origin. | |
 | origin.user | string | The user running the originating application. | |
 | request.headers | map | A map of HTTP headers attached to the request. | |
-request.id | string | A unique ID for the request, which can be propagated to downstream systems. This should be a guid or a psuedo-guid with a low probability of collision in a | temporal window measured in days or weeks. | |
+| request.id | string | A unique ID for the request, which can be propagated to downstream systems. This should be a guid or a psuedo-guid with a low probability of collision in a temporal window measured in days or weeks. | |
 | request.path | string | The HTTP URL path including query string | |
 | request.host | string | The HTTP Host header. | |
 | request.method | string | The HTTP method. | |
