@@ -22,14 +22,51 @@ data:
         params:
       - name: default
         impl: denyChecker
+    attributes:
+      - name: source.name
+        value_type: 1 # STRING
+      - name: target.name
+        value_type: 1 # STRING
+      - name: response.code
+        value_type: 2 # INT64
+      - name: response.latency
+        value_type: 10 # DURATION
+    metrics:
+      - name: request_count
+        kind: 2 # COUNTER
+        value: 2 # INT64
+        description: request count by source, target, service, and code
+        labels:
+        - name: source
+          value_type: 1 # STRING
+        - name: target
+          value_type: 1 # STRING
+        - name: response_code
+          value_type: 2 # INT64
+      - name: request_latency
+        kind: 2 # COUNTER
+        value: 10 # DURATION
+        description: request latency by source, target, and service
+        labels:
+        - name: source
+          value_type: 1 # STRING
+        - name: target
+          value_type: 1 # STRING
+        - name: response_code
+          value_type: 2 # INT64
+    quotas:
+    - name: RequestCount
+      max_amount: 5
+      expiration:
+        seconds: 1
   serviceconfig.yml: |-
     subject: namespace:ns
     revision: "2022"
     rules:
-            #- selector: service.name == “*”
-            #- selector: service.name == "myservice"
     - selector: true
       aspects:
+      - kind: quotas
+        params:
       - kind: metrics
         adapter: prometheus
         params:
@@ -38,18 +75,14 @@ data:
             # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
             value: "1"
             labels:
-              source: source.service | "unknown"
+              source: source.name | "unknown"
               target: target.service | "unknown"
-              service: api.name | "unknown"
-              method: api.method | "unknown"
               response_code: response.http.code | 200
           - descriptor_name:  request_latency
             value: response.latency | "0ms"
             labels:
-              source: source.service | "unknown"
+              source: source.name | "unknown"
               target: target.service | "unknown"
-              service: api.name | "unknown"
-              method: api.method | "unknown"
               response_code: response.http.code | 200
 ---
 # Mixer
