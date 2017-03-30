@@ -136,7 +136,7 @@ route requests to all available versions of a service in a random fashion.
    You can display the routes that are defined with the following command:
 
    ```bash
-   $ istioctl list route-rule
+   $ istioctl get route-rule
    kind: route-rule
    name: ratings-default
    namespace: default
@@ -361,7 +361,7 @@ If you now refresh the `productpage` you'll see that while the load generator is
 1. Confirm shutdown
 
    ```bash
-   $ istioctl list route-rule   #-- there should be no more routing rules
+   $ istioctl get route-rule   #-- there should be no more routing rules
    $ kubectl get pods           #-- the bookinfo, and (optionally) control plane services, should be deleted
    No resources found.
    ```
