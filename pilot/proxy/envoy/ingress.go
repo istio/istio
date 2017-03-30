@@ -34,31 +34,19 @@ import (
 )
 
 type ingressWatcher struct {
-	agent     proxy.Agent
-	ctl       model.Controller
-	discovery model.ServiceDiscovery
-	registry  *model.IstioRegistry
-	secrets   model.SecretRegistry
-	secret    string
-	namespace string
-	mesh      *MeshConfig
+	agent   proxy.Agent
+	ctl     model.Controller
+	context *IngressConfig
 }
 
 // NewIngressWatcher creates a new ingress watcher instance with an agent
-func NewIngressWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
-	registry *model.IstioRegistry, secrets model.SecretRegistry, mesh *MeshConfig,
-	secret, namespace string,
-) (Watcher, error) {
+func NewIngressWatcher(ctl model.Controller, context *IngressConfig) (Watcher, error) {
+	agent := proxy.NewAgent(runEnvoy(context.Mesh, "ingress"), cleanupEnvoy(context.Mesh), 10, 100*time.Millisecond)
 
 	out := &ingressWatcher{
-		agent:     proxy.NewAgent(runEnvoy(mesh, "ingress"), cleanupEnvoy(mesh), 10, 100*time.Millisecond),
-		ctl:       ctl,
-		discovery: discovery,
-		registry:  registry,
-		secrets:   secrets,
-		secret:    secret,
-		namespace: namespace,
-		mesh:      mesh,
+		agent:   agent,
+		ctl:     ctl,
+		context: context,
 	}
 
 	if err := ctl.AppendConfigHandler(model.IngressRule, func(model.Key, proto.Message, model.Event) {
@@ -78,7 +66,7 @@ func NewIngressWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 }
 
 func (w *ingressWatcher) reload() {
-	w.agent.ScheduleConfigUpdate(generateIngress(w.namespace, w.secret, w.secrets, w.registry, w.mesh))
+	w.agent.ScheduleConfigUpdate(generateIngress(w.context))
 }
 
 func (w *ingressWatcher) Run(stop <-chan struct{}) {
@@ -94,10 +82,20 @@ func (w *ingressWatcher) Run(stop <-chan struct{}) {
 	w.ctl.Run(stop)
 }
 
-func generateIngress(namespace, secret string, secrets model.SecretRegistry,
-	registry *model.IstioRegistry, mesh *MeshConfig,
-) *Config {
-	rules := registry.IngressRules(namespace)
+// IngressConfig defines information for ingress
+type IngressConfig struct {
+	// TODO: cert/key filenames will need to be dynamic for multiple key/cert pairs
+	CertFile  string
+	KeyFile   string
+	Namespace string
+	Secret    string
+	Secrets   model.SecretRegistry
+	Registry  *model.IstioRegistry
+	Mesh      *MeshConfig
+}
+
+func generateIngress(conf *IngressConfig) *Config {
+	rules := conf.Registry.IngressRules(conf.Namespace)
 
 	// Phase 1: group rules by host
 	rulesByHost := make(map[string][]*config.RouteRule, len(rules))
@@ -142,7 +140,7 @@ func generateIngress(namespace, secret string, secrets model.SecretRegistry,
 	rConfig := &HTTPRouteConfig{VirtualHosts: vhosts}
 
 	listener := &Listener{
-		Address:    "tcp://0.0.0.0:80",
+		Address:    fmt.Sprintf("tcp://%s:80", WildcardAddress),
 		BindToPort: true,
 		Filters: []*NetworkFilter{
 			{
@@ -166,10 +164,18 @@ func generateIngress(namespace, secret string, secrets model.SecretRegistry,
 	}
 
 	// configure for HTTPS if provided with a secret name
-	if secret != "" {
-		sslContext := buildSSLContext(namespace, secret, secrets)
-		listener.Address = "tcp://0.0.0.0:443"
-		listener.SSLContext = sslContext
+	if conf.Secret != "" {
+		// configure Envoy
+		listener.Address = fmt.Sprintf("tcp://%s:443", WildcardAddress)
+		listener.SSLContext = &SSLContext{
+			CertChainFile:  conf.CertFile,
+			PrivateKeyFile: conf.KeyFile,
+		}
+
+		if err := writeTLS(conf.CertFile, conf.KeyFile, conf.Namespace,
+			conf.Secret, conf.Secrets); err != nil {
+			glog.Warning("Failed to get and save secrets. Envoy will crash and trigger a retry...")
+		}
 	}
 
 	listeners := []*Listener{listener}
@@ -179,25 +185,19 @@ func generateIngress(namespace, secret string, secrets model.SecretRegistry,
 		Listeners: listeners,
 		Admin: Admin{
 			AccessLogPath: DefaultAccessLog,
-			Address:       fmt.Sprintf("tcp://0.0.0.0:%d", mesh.AdminPort),
+			Address:       fmt.Sprintf("tcp://%s:%d", WildcardAddress, conf.Mesh.AdminPort),
 		},
 		ClusterManager: ClusterManager{
 			Clusters: clusters,
 			SDS: &SDS{
-				Cluster:        buildDiscoveryCluster(mesh.DiscoveryAddress, "sds"),
+				Cluster:        buildDiscoveryCluster(conf.Mesh.DiscoveryAddress, "sds"),
 				RefreshDelayMs: 1000,
 			},
 		},
 	}
 }
 
-// TODO: with multiple keys/certs, these will have to be dynamic.
-const (
-	certChainFile  = "/etc/envoy/tls.crt"
-	privateKeyFile = "/etc/envoy/tls.key"
-)
-
-func buildSSLContext(namespace, secret string, secrets model.SecretRegistry) *SSLContext {
+func writeTLS(certFilename, keyFilename, namespace, secret string, secrets model.SecretRegistry) error {
 	var uri string
 	if namespace == "" {
 		uri = secret + ".default"
@@ -205,18 +205,6 @@ func buildSSLContext(namespace, secret string, secrets model.SecretRegistry) *SS
 		uri = fmt.Sprintf("%s.%s", secret, namespace)
 	}
 
-	err := writeTLS(uri, secrets)
-	if err != nil {
-		glog.Warning("Failed to get and save secrets. Envoy will crash and trigger a retry...")
-	}
-
-	return &SSLContext{
-		CertChainFile:  certChainFile,
-		PrivateKeyFile: privateKeyFile,
-	}
-}
-
-func writeTLS(uri string, secrets model.SecretRegistry) error {
 	s, err := secrets.GetSecret(uri)
 	if err != nil {
 		return errwrap.Wrap(fmt.Errorf("could not get secret %q", uri), err)
@@ -232,11 +220,11 @@ func writeTLS(uri string, secrets model.SecretRegistry) error {
 		return fmt.Errorf("could not find tls.key in secret %q", uri)
 	}
 
-	// Write to files
-	if err = ioutil.WriteFile(certChainFile, cert, 0755); err != nil {
+	// write files
+	if err = ioutil.WriteFile(certFilename, cert, 0755); err != nil {
 		return err
 	}
-	if err = ioutil.WriteFile(privateKeyFile, key, 0755); err != nil {
+	if err = ioutil.WriteFile(keyFilename, key, 0755); err != nil {
 		return err
 	}
 

@@ -107,13 +107,17 @@ var (
 				IngressSyncMode: kube.IngressStrict,
 				IngressClass:    flags.ingressClass,
 			}
-			if flags.defaultIngressController {
-				controllerConfig.IngressSyncMode = kube.IngressDefault
-			}
 			controller := kube.NewController(cmd.Client, controllerConfig)
-			w, err := envoy.NewIngressWatcher(controller, controller,
-				&model.IstioRegistry{ConfigRegistry: controller},
-				cmd.Client, &flags.proxy, flags.ingressSecret, cmd.RootFlags.Namespace)
+			config := &envoy.IngressConfig{
+				CertFile:  "/etc/tls.crt",
+				KeyFile:   "/etc/tls.key",
+				Namespace: cmd.RootFlags.Namespace,
+				Secret:    flags.ingressSecret,
+				Secrets:   cmd.Client,
+				Registry:  &model.IstioRegistry{ConfigRegistry: controller},
+				Mesh:      &flags.proxy,
+			}
+			w, err := envoy.NewIngressWatcher(controller, config)
 			if err != nil {
 				return err
 			}
