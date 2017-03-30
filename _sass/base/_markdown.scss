@@ -1,0 +1,100 @@
+.markdown {
+  padding-bottom: 60px;
+  
+  // Text Blocks
+  p {
+    margin: 10px 0;
+    font-weight: 300;
+    line-height: 1.5;
+    @media (min-width: $tablet) {
+      margin: 20px 0;
+    }
+  }
+  
+  em { 
+    font-style: italic;
+  }
+
+  strong {
+    font-weight: bold;
+  }
+
+  img {
+    width: 100%;
+  }
+
+  // List Items
+  li {
+    line-height: 24px;
+  }
+
+  // Lists
+  ol,
+  ul {
+    list-style: initial;
+    list-style-position: inside;
+    font-size: 15px;
+    font-weight: 300;
+    margin: 0 20px;
+
+    @media (max-width: 768px) {
+      margin: 0;
+    }
+  }
+  
+  ol {
+    list-style: decimal;
+  }
+
+  h1 {
+    color: $secondBrandColor;
+  }
+
+  // Section Headlines 
+  h2 {
+    margin-bottom: 20px; 
+    margin-top: 30px;
+  }
+
+  // Section Headlines 
+  h3 {
+    color: $dark-gray;
+    font-size: 18px;
+    font-weight: 300;
+    letter-spacing: 1px;
+    margin-bottom: 20px; 
+    margin-top: 30px;
+  }
+
+  // Section Subheadlines
+  h4 {
+    margin: 30px 0 20px;
+    font-size: 16px;
+    font-weight: 300;
+    color: $dark-gray;
+    
+    // Text immediately following h4 should have same level of indention  
+    + p {
+      margin: 10px 0;
+
+      @media (max-width: 768px) {
+        margin: 5px 0;
+      }
+    }
+  }
+
+  pre {
+    margin: 5px 25px;
+
+    @media (max-width: 768px) {
+      margin: 5px 0;
+    }
+  }
+
+  // Lead Text Block
+  .lead {
+    margin: 0 0 30px;
+    color: $dark-gray;
+    font-size: 18px;
+  }
+}

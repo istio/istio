@@ -1,0 +1,65 @@
+<nav id="common-nav">
+  <div class="nav-container container">
+    <div class="row">
+      <div class="col-md-11 nofloat center-block">
+        <a class="col-xs-2" href="{{ site.baseurl }}/">
+          <img class="nav-logo" src="{{ site.baseurl }}/img/logo.jpg" alt="Istio"> <span class="page-headline">Istio</span>
+        </a>
+
+        <div class="col-xs-2 col-xs-offset-8">
+          <button type="button" class="hamburger navbar-toggle collapsed" data-target="#navbar-collapse-1">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+        </div>
+
+        <ul class="nav col-xs-10">
+          {% assign current = page.url | downcase | split: '/' %}
+          <li><a href="{{ site.baseurl }}/about/" {% if current[1] == 'about' %}class='current'{% endif %}>About</a></li>
+          <li><a href="{{ site.baseurl }}/docs/" {% if current[1] == 'docs' %}class='current'{% endif %}>Docs</a></li>
+          <li><a href="{{ site.baseurl }}/blog/" {% if current[1] == 'blog' %}class='current'{% endif %}>Blog</a></li>
+          <li><a href="{{ site.baseurl }}/community/" {% if current[1] == 'community' %}class='current'{% endif %}>Community</a></li>
+          <li><a href="{{ site.baseurl }}/faq/" {% if current[1] == 'faq' %}class='current'{% endif %}>FAQ</a></li>
+        </ul>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="top-nav right">
+    {% assign current = page.url | downcase | split: '/' %}
+    <li class="nav-item"><a href="{{ site.baseurl }}/"><p>Home</p></a><div class="nav-toggle icon-close"></div></li>
+    <hr>
+    <li class="nav-item"><a href="{{ site.baseurl }}/about/" {% if current[1] == 'about' %}class='current'{% endif %}><p>About</p></a></li>
+    <hr>
+    <li class="nav-item"><a href="{{ site.baseurl }}/docs/" {% if current[1] == 'docs' %}class='current'{% endif %}><p>Docs</p></a>
+      <div class="nav-doc-toggle icon-caret"></div>
+      <ul class="doc-list">
+        <a href="{{ site.baseurl }}/docs" {% if page.path == 'docs/index.html' %}class='current'{% endif %}><li class="nav-doc-tab">Overview</li></a>
+        <a href="{{ site.baseurl }}/docs/quickstart" {% if current[2] == 'quickstart' %}class='current'{% endif %}><li class="nav-doc-tab">Quick Start</li></a>
+        <a href="{{ site.baseurl }}/docs/guides" {% if current[2] == 'guides' %}class='current'{% endif %}><li class="nav-doc-tab">Guides</li></a>
+        <a href="{{ site.baseurl }}/docs/tutorials" {% if current[2] == 'tutorials' %}class='current'{% endif %}><li class="nav-doc-tab">Tutorials</li></a>
+        <a href="{{ site.baseurl }}/docs/reference" {% if current[2] == 'reference' %}class='current'{% endif %}><li class="nav-doc-tab">Reference API</li></a>
+        <a href="{{ site.baseurl }}/docs/samples" {% if current[2] == 'samples' %}class='current'{% endif %}><li class="nav-doc-tab">Samples</li></a>
+      </ul>
+    </li>
+    <hr>
+    <li class="nav-item"><a href="{{ site.baseurl }}/blog/" {% if current[1] == 'blog' %}class='current'{% endif %}><p>Blog</p></a></li>
+    <hr>
+    <li class="nav-item"><a href="{{ site.baseurl }}/community/" {% if current[1] == 'community' %}class='current'{% endif %}><p>Community</p></a></li>
+    <hr>
+    <li class="nav-item"><a href="{{ site.baseurl }}/faq/" {% if current[1] == 'faq' %}class='current'{% endif %}><p>FAQ</p></a></li>
+  </div>
+  <div class="container">
+    <div class="row">
+      <div class="col-md-11 nofloat center-block">
+        <div class="col-xs-12">
+          <h1 class="page-headline">{{page.headline}}</h1> 
+        </div>
+      </div>
+    </div>
+  </div>
+
+</nav>

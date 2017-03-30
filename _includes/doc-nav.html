@@ -1,0 +1,18 @@
+<div class="container">
+	<div class="row">
+		<div class="col-md-11 nofloat center-block">
+			<ul class="col-sm-10 doc-nav">
+				{% assign current = page.url | downcase | split: '/' %}
+				<li class="tab docs-tab"><a href="{{ site.baseurl }}/docs/">Docs</a></li>
+				<span class="doc-caret">></span>
+				<li class="tab"><a href="{{ site.baseurl }}/docs/" {% if page.path == 'docs/index.html' %}class='current'{% endif %}>Overview</a></li>
+				<li class="tab"><a href="{{ site.baseurl }}/docs/quickstart" {% if current[2] == 'quickstart' %}class='current'{% endif %}>Quick Start</a></li>
+				<li class="tab"><a href="{{ site.baseurl }}/docs/guides" {% if current[2] == 'guides' %}class='current'{% endif %}>Guides</a></li>
+				<li class="tab"><a href="{{ site.baseurl }}/docs/tutorials" {% if current[2] == 'tutorials' %}class='current'{% endif %}>Tutorials</a></li>
+				<li class="tab"><a href="{{ site.baseurl }}/docs/reference" {% if current[2] == 'reference' %}class='current'{% endif %}>Reference API</a></li>
+				<li class="tab"><a href="{{ site.baseurl }}/docs/samples" {% if current[2] == 'samples' %}class='current'{% endif %}>Samples</a></li>
+			 </ul>
+			 {% include contribute-links.html %}
+		</div>
+	</div>
+</div>

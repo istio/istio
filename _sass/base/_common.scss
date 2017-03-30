@@ -1,0 +1,97 @@
+// Shared
+.vpad {
+  padding-top: $vpad;
+}
+
+.page-title-bar{
+  background-color: $thirdBrandColor;
+  border-top: 3px solid $lightPopBrandColor;
+  padding-top: 20px;
+  padding-bottom: 30px;
+
+  .fa {
+    color: $popBrandColor;
+  }
+}
+
+.page-spacer {
+  height: 100px;
+}
+
+.section {
+  padding: 50px 0;
+  position: relative;
+}
+
+.section-divider {
+  border-bottom: 2px solid #e3e3e3;
+  margin: 0;
+  width: 100%; 
+}
+
+.toc {
+  border-left: 2px solid $light-gray;
+  display: none !important;
+  padding: 0;
+
+  @media (min-width: 768px) {
+      display: block !important;
+  }
+
+  ul {
+    list-style-type: none !important;
+    padding-left: 10px;
+    font-size: 12px;
+    font-weight: 500;
+
+    ul {
+        font-weight: 400;
+        font-size: 11px;
+    }
+
+    a {
+        color: $dark-gray;
+    }
+  }
+}
+
+.toc.mobile-toc{
+  display: none !important;
+
+  @media (max-width: 768px) {
+    margin-top: 30px;
+    display: block !important;
+    border-left: 4px solid $light-gray;
+  }
+}
+
+// Tables are table-y
+table,
+th,
+td {
+  border: 1px solid lighten($textColor, 20%);
+  padding: 6px
+}
+
+table {
+  border-collapse: collapse;
+}
+
+th {
+  background-color: $thirdBrandColor;
+}
+
+// Tabs are tabby
+.ui-widget-content {
+  font-size:14px !important;
+  font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  color: $textColor !important;
+}
+
+.ui-widget-content a {
+  color: $mainBrandColor !important;
+}
+
+.ui-widget-content a:hover, a:focus {
+  color: $linkHoverColor !important;
+}

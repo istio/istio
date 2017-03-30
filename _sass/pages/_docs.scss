@@ -1,0 +1,72 @@
+// Docs layout specific
+.docs {
+  
+  *[id]:before { 
+    display: block; 
+    content: " "; 
+    margin-top: -1em;
+    height: 1em;
+    visibility: hidden; 
+  }
+
+  .doc-header {
+    padding-bottom: 30px;
+    padding-top: 30px;
+  }
+  
+  .doc-description {
+    color: $dark-gray;
+    display: block;
+    margin: 0 0 40px;
+
+    p { 
+      font-size: 18px;
+      font-weight: 400;
+    }
+  }
+
+  .use-description {
+    color: $gray;
+    display: block;
+    margin: 20px 0;
+
+    p { 
+      font-size: 15px;
+      font-weight: 300;
+    }
+  }
+
+  .lang-card-selector {
+    padding: 0 0 30px;
+    width: 100%;
+  }
+
+  .lang-card {
+    display: inline-block;
+    margin: 0 1% 30px;
+    text-align: center;
+    vertical-align: top;
+    width: 30%;
+
+    @media (max-width: $tablet) {
+      margin: 20px 1%;
+      padding: 6px 10px;
+      width: 47%;
+    }
+    
+    .lang-card-title {
+      background: $light-gray;
+      color: $dark-gray;
+      margin-bottom: 4px;
+      padding: 8px;
+      text-align: left;
+    }
+
+    .lang-card-link {
+      display: block;
+      font-size: 14px;
+      padding: 8px;
+      text-align: left;
+    }
+  }
+}

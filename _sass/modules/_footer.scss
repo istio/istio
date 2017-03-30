@@ -1,0 +1,207 @@
+// Footer
+footer {
+  background-color: $footerColor;
+  box-shadow: 0px 500px 0px 500px $footerColor;
+  color: $white;
+  overflow: hidden;
+  padding: 35px 0 0px;
+  position: relative;
+
+  @media (max-width: 767px) {
+    padding: 35px 0 120px;
+
+    ul {
+      li {
+        display: none;
+      }
+
+      &.active li {
+        display: initial;
+      }
+    }
+  }
+
+  a {
+    color: $white;
+
+    &:hover {
+      text-decoration: underline;
+      color: $white;
+    }
+
+    &::after {
+      display: none;
+    }
+  }
+
+  a.external:after {
+    display: none;
+  }
+
+  .active {
+    display: initial;
+  }
+
+  .footer-logo {
+    width: 75px;
+    margin-left: -8px;
+    padding: 0 0 10px 0;
+
+    @media (min-width: 768px) {
+      padding: 0 0 20px 0;
+    }
+  }
+
+  .left-links {
+    color: $footerText;
+    display: block;
+    position: absolute;
+    bottom: 0;
+    margin: 60px 15px;
+    text-align: left;
+    width: 100%;
+
+    p {
+      font-weight: 200;
+      font-size: .8em;
+    }
+
+    @media (min-width: 768px) {
+      position: relative;
+      margin: 0 auto;
+      text-align: left;
+      display: inline-block;
+      width: 39%;
+    }
+
+    @media (min-width: 1025px) {
+      width: 45%;
+      margin-left: 5%;
+    }
+
+    .description {
+      @media (min-width: 768px) {
+        padding-top: 9px;
+      }
+    }
+
+  }
+
+  .right-links {
+      width: 100%;
+      display: table;
+      margin: 0 0 60px 0;
+
+    & > div {
+      padding-bottom: 10px;
+    }
+
+    @media (min-width: 768px) {
+      padding: 0 0 0 35px;
+      margin: 0 0 50px 0;
+    }
+
+    p {
+      font-weight: 200;
+      font-size: .8em;
+      padding: 6px 0;
+      letter-spacing: .5px;
+      line-height: 36px;
+    }
+
+    .right-link-headers  {
+      font-weight: 400;
+      font-size: 1em;
+      letter-spacing: .5px;
+      cursor: pointer;
+      padding: 15px 0;
+      position: relative;
+
+        &:after {
+          content: '';
+          background: url('../img/caret.svg') no-repeat center/cover;
+          background-size: contain;
+          height: 45px;
+          width: 35px;
+          position: absolute;
+          right: 0;
+          top: 5px;
+          cursor: pointer;
+        }
+    }
+
+    @media (min-width: $tablet) {
+      padding: 0;
+      display: inline-block;
+      width: 58%;
+      vertical-align: top;
+
+      .right-link-headers {
+        padding: 13px 0 14px;
+        line-height: 1em;
+
+        &:after {
+          content: none;
+        }
+      }
+    }
+
+    @media (min-width: 1025px) {
+      width: 49.5%;
+    }
+  }
+
+  .footer-sections {
+    display: block;
+    width: 120%;
+    margin: 10px -15px;
+    background-color: rgba(234,234,234,0.1);
+    color: rgba(234,234,234,0.1);
+    border: none;
+    height: 1px;
+
+    @media (min-width: 768px) {
+      display: none;
+    }
+  }
+
+  .footer-community p {
+    padding: 7px 0;
+
+    @media(min-width: 990px) {
+      padding: 6px 0;
+    }
+  }
+
+  @mixin social-icon($image-url) {
+    &::before {
+      content: '';
+      display: inline-block;
+      background: url($image-url) no-repeat center/cover;
+      width: 35px;
+      height: 35px;
+      vertical-align: middle;
+      margin: 0 15px 0 0;
+    }
+  }
+
+  .github {
+    @include social-icon('../img/icon_github.svg');
+  }
+
+  .google {
+    @include social-icon('../img/icon_google-plus.svg');
+  }
+
+  .twitter {
+    @include social-icon('../img/icon_twitter.svg');
+  }
+
+  .stack-overflow {
+    @include social-icon('../img/icon_stack-overflow.svg');
+  }
+
+  .youtube {
+    @include social-icon('../img/icon_youtube.svg');
+  }
+}

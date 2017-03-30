@@ -1,0 +1,215 @@
+// Top Static Nav
+#common-nav{
+  background-color: transparent;
+  padding-top: $spacing--xs;
+
+  .nav {
+    display: none;
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-align: right;
+    position: relative;
+    z-index: 9012;
+
+    li {
+      display: inline-block;
+    }
+
+    a {
+      color: $white;
+    }
+
+    @media (min-width: $tablet) {
+      display: initial;
+    }
+
+  }
+
+  @mixin underline() {
+    &:after{
+      background: $white;
+      bottom: 8px;
+      content: "";
+      height: 2px;
+      left: $spacing--xs;
+      margin: auto;
+      position: absolute;
+      right: $spacing--xs;
+    }
+  }
+  
+  .nav li a:active, .nav li a:focus, .nav li a:hover {
+    background: initial;
+    border-bottom: 0;
+    color: $white;
+    @include underline();
+  }
+
+  .page-headline {
+    color: $white;
+    font-weight: 300;
+  }
+
+  span.page-headline {
+    font-size: 3em;
+    vertical-align: middle;    
+  }
+
+  .nav-logo {
+    border: 2px solid $white;
+    //padding-top: 15px;
+    //padding-bottom: 15px;
+    width: 60px;
+  }
+
+
+  .navbar-toggle {
+    margin-right: -6px;
+  }
+
+  .nav .current{
+    @include underline();
+  }
+}
+
+.arrow-d,
+.arrow-r {
+  cursor: pointer;
+
+  &::before{
+    font-family: monospace;
+    font-size: 1.25em;
+    font-weight: bold;
+  }
+}
+
+// Expandy nav items
+.arrow-r::before {
+  content: "+";
+  margin-right: 8px;
+}
+
+.arrow-d::before {
+  content: "-";
+  margin-right: 8px;
+}
+
+.submenu-content {
+  display: none;
+  margin-left: $spacing--xl;
+}
+
+// Mobile Navigation
+.top-nav {
+  background-color: #4f4f4f;
+  border-image: linear-gradient(to right, $black, rgba(0, 0, 0, 0)) 1 100%; 
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  display: initial;
+  height: 100vh;
+  position: fixed;
+  right: 0;
+  top: 0;
+  transition: $transition--secondary;
+  width: 300px;
+  z-index: $z-above-top;
+
+  @media (min-width: $tablet) {
+    display: none;
+  }
+  
+  &.right {
+    right: -300px;
+  }
+
+  .icon-caret {
+    background: url('../img/caret.svg') no-repeat center/cover;  
+    cursor: pointer;
+    height: 20px;
+    position: absolute;
+    right: $spacing--s;
+    top: 15px;
+    width: 45px;
+  }
+
+  .nav-item {
+    list-style: none;
+    padding-left: $spacing--s;
+    position: relative;
+
+    &:hover {
+
+      a:first-child p {
+        text-decoration: underline;
+      }
+    }
+
+    p {
+      line-height: 50px;
+    }
+  }
+
+  .doc-list {
+    
+    li {
+      display: none;
+    }
+
+    &.active {
+      padding-bottom: 15px;
+
+      li {
+        display: block;
+      }
+    }
+
+    .nav-doc-tab {
+      color: $white;
+      font-size: 13px;
+      font-weight: 300;
+      letter-spacing: 1px;
+      line-height: 35px;
+      padding-left: $spacing--s;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+  .icon-close {
+    background: url('../img/x.svg') no-repeat center/cover;  
+    cursor: pointer;
+    height: 20px;
+    position: absolute;
+    right: $spacing--s;
+    top: 15px;
+    width: 45px;
+  }
+
+  hr {
+    margin: 0;
+    border-top: 2px solid #565454;
+  }
+
+  a {
+    color: $white;
+  }
+  a.current {
+    text-decoration: underline;
+  }
+}
+
+// Sticky Nav
+#sticky-nav{
+    @extend #common-nav;
+    background: url('../img/hero-bg.png') no-repeat center/cover;
+    position: fixed;    
+    width: 100%;
+    z-index: 9000;
+    top: -61px;
+    transition: $transition--secondary;
+    &.on-page {
+      top: 0;
+    }
+}
+

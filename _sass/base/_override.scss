@@ -1,0 +1,104 @@
+
+// Override Bootstrap defaults
+body {
+  color: $textColor;
+  font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+a {
+  color: $mainBrandColor;
+  font-weight: 350;
+}
+
+a:hover,
+a:focus {
+  color: $linkHoverColor;
+}
+
+a.external {
+  &:after {
+    @extend .external-link-icon;
+    content: "";
+    margin-left: 5px;
+    display: inline-block;
+  }
+
+  &:hover {
+    &:after {
+      background: url('../img/external-link-dark.svg') no-repeat center/cover;
+    }
+  }
+}
+
+a.disabled {
+    color: #CCCCCC;
+}
+
+p,
+li {line-height: 22px;}
+
+p.note {
+  background-color: $thirdBrandColor;
+  padding: 9.5px;
+}
+
+p.note code {
+  background-color: $thirdBrandColor !important;
+}
+
+code {
+  color: $codeColor;
+  background-color: $inverseBrandColor;
+  font-size: 14px;
+}
+
+pre, pre.prettyprint {
+  background-color: $codeBkColor;
+  color: #000000;
+  border: none !important;
+  font-size: 14px !important;
+  padding: 9.5px !important;
+}
+
+pre code {
+  white-space: pre;
+
+  @media print {
+    white-space: pre-wrap;
+  }
+}
+
+.inverse {
+  background-color: $mainBrandColor;
+  color: white;
+
+  &.inverse-light {
+      background-color: $thirdBrandColor;
+  }
+
+  a {
+    color: $inverseBrandColor;
+  }
+
+  a:hover,
+  a:focus {
+    color: $linkHoverColor;
+  }
+}
+
+.nofloat {
+  float: none;
+}
+
+.lead {
+  color: $titleColor;
+}
+
+// Fix Bootstrap mobile menu colors on inverse navbar.
+.navbar-toggle .icon-bar {
+  background-color: $inverseBrandColor;
+}
+
+
+
+

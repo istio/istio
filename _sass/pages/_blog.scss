@@ -1,0 +1,149 @@
+.blog {
+
+  hr {
+    margin-bottom: 0;
+  }
+
+  hr:last-of-type {
+    display: none;
+  }
+
+  .post-thumbnail {
+    background-repeat: no-repeat;
+    background-size: contain;
+    border-radius: 50%;
+    height: 60px;
+    width: 60px;
+  }
+
+  .post-title {
+    color: $black;
+    font-size: 17px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    margin: $spacing--xxxl 0 8px;
+  }
+
+  .post-date {
+    color: $black;
+    font-size: 11px;
+  }
+
+  .post-thumbnail {
+    display: inline-block;
+    margin: $spacing--s $spacing--xs 0 0;
+    vertical-align: top;
+  }
+
+  .post-author-company {
+    display: inline-block
+  }
+
+  .post-author, .post-company {
+    color: $gray;
+    display: block;
+    font-size: 13px;
+  }
+
+  .post-author {
+    margin-top: $spacing--xl;
+  }
+
+  .post-company {
+    margin-top: $spacing--xs;
+
+    a:after {
+      display: none;
+    }
+  }
+
+
+  .post-excerpt {
+
+    h2 {
+      font-size: 15px;
+      margin-top: $spacing--m;
+    }
+
+    p {
+      font-size: 14px;
+      margin-top: $spacing--m;
+    }
+  }
+
+  .read-more {
+    font-size: 14px;
+    margin: $spacing--xl 0;
+
+    .read-more-text::after {
+      background: url('../img/more-arrow.svg') no-repeat center/contain;
+      content: '';
+      display: inline-block;
+      height: 24px;
+      margin: 0 0 0 10px;
+      vertical-align: middle;
+      width: 24px;
+    }
+
+    .read-more-text {
+      &:hover {
+        &:after {
+          background: url('../img/more-arrow-dark.svg') no-repeat center/contain;
+        }
+      }
+    }
+  }
+  .pagination {
+    padding-bottom: $spacing--xxl;
+    width: 100%;
+  }
+
+  @mixin caret($deg) {
+    background: url('../img/caret.svg') no-repeat center/contain;
+    content: '';
+    display: inline-block;
+    height: 24px;
+    margin: 0;
+    transform: rotate($deg);
+    vertical-align: bottom;
+    width: 24px;
+  }
+
+  .caret-left {
+    @include caret(90deg);
+  }
+
+  .caret-right {
+    @include caret(-90deg);
+  }
+
+  .next,
+  .previous {
+    display: inline-block;
+    line-height: 22px;
+    padding: 0;
+  }
+
+  .next a,
+  .previous a {
+    &:hover {
+      span {
+        background: url("../img/caret-dark.svg") no-repeat center/contain;
+      }
+    }
+  }
+}
+
+.post {
+
+  .post-wrapper {
+    padding-top: $spacing--xxxl;
+  }
+
+  .content-attribution {
+    color: $dark-gray;
+    font-size: 15px;
+    font-style: italic;
+    margin: $spacing--xxxl 0 $spacing--xl;
+  }
+}

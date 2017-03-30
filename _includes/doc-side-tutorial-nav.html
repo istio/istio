@@ -1,0 +1,28 @@
+<ul class="doc-side-nav doc-side-nav-tutorial">
+	{% assign current = page.url | downcase | split: '/' %}
+	<h5 class="doc-side-nav-title">Tutorial</h5>
+    <li class="submenu">
+        <h6 class="arrow-r">Routing Rules</h6>
+        <div class="submenu-content">
+            <a class="submenu-link {% if current[4] == 'l7-routing.html' %}active{% endif %}" href="{{ site.baseurl }}/docs/tutorials/routing/l7-routing.html">Http</a>
+        </div>
+    </li>
+    <li class="submenu">
+        <h6 class="arrow-r">Destination Policies</h6>
+        <div class="submenu-content">
+            <a class="submenu-link {% if current[4] == 'circuit-breakers.html' %}active{% endif %}" href="{{ site.baseurl }}/docs/tutorials/policies/circuit-breakers.html">Circuit Breakers</a>
+        </div>
+    </li>
+    <li class="submenu">
+        <h6 class="arrow-r">Authentication</h6>
+        <div class="submenu-content">
+            <a class="submenu-link {% if current[4] == 'istio-auth-mtls.html' %}active{% endif %}" href="{{ site.baseurl }}/docs/tutorials/auth/istio-auth-mtls.html">Mutual TLS</a>
+        </div>
+    </li>
+    <li class="submenu">
+        <h6 class="arrow-r">Mixer</h6>
+        <div class="submenu-content">
+            <a class="submenu-link {% if current[4] == 'rate-limiting.html' %}active{% endif %}" href="{{ site.baseurl }}/docs/tutorials/mixer/rate-limiting.html">Rate Limiting</a>
+        </div>
+    </li>
+ </ul>

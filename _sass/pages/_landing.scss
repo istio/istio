@@ -1,0 +1,99 @@
+// Landing page
+.landing-content-container {
+  padding-bottom: 60px;
+  padding-top: 30px;
+  position: relative;
+
+  @media (min-width: 767px) {
+    padding-bottom: 90px;
+    padding-top: 90px;
+  }
+
+  .landing-row {
+    padding-top: 60px;
+
+    .landing-row-title {
+      margin-bottom: 15px;
+    }
+
+    p {
+      font-size: 1.2rem;
+      font-weight: 300;
+      line-height: 1.5rem;
+      padding-bottom: 1.5rem;
+    }
+
+    @media (max-width: 767px) {
+      display: flex;
+      flex-direction: column;
+      text-align: center;
+
+      .landing-row-title {
+        margin: 0 auto 30px;
+        order: 1;
+      }
+
+      .landing-image {
+        margin: 0 auto 30px;
+        order: 2;
+      }
+
+      p {
+        margin: 0 auto;
+        order: 3;
+      }
+
+      div {
+        margin: 0 auto;
+        order: 4;
+      }
+    }
+  }
+  .landing-image {
+    height: auto;
+    max-width: 300px;
+    object-fit: contain;
+    object-position: top;
+
+    @media (min-width: $tablet) {
+      max-width: initial;
+      padding-bottom: 50px;
+    }
+  }
+
+  .btn-read-more {
+    margin: 30px 0 40px;
+  }
+}
+
+//Documentation call to action
+.doc-call-container {
+  background-color: lighten($thirdBrandColor, 4%);
+  padding-bottom: 70px;
+  padding-top: 70px;
+
+  .doc-call-title {
+    margin: 0 auto;
+  }
+
+  .doc-call-text {
+    margin: 0 auto;
+    padding-top: 5px;
+  }
+
+  .btn-doc-call {
+    font-size: 14px;
+    margin: 25px auto 45px;
+  }
+
+  .lang-select-row {
+    display: flex;
+    justify-content: center;
+  }
+
+  .lang-selector-text {
+    margin: 0 auto;
+    padding-bottom: 10px;
+    width: 75%;
+  }
+}

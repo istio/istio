@@ -1,0 +1,42 @@
+---
+title: docs
+layout: default
+bodyclass: docs
+---
+
+{% include doc-nav.html %}
+
+{% assign current = page.url | downcase | split: '/' %}
+        {% if current[1] == 'docs' and page.sidenav != null %}
+        <div class="container">
+            <div class="row">
+                <div class="col-md-11 nofloat center-block ">
+                    <div class="col-sm-3">
+                        {% include {{page.sidenav}} %}
+                    </div>
+                    <div class="col-sm-7 {{ page.type }}">
+                        {{ content }}
+                    </div>
+
+                    <div id="toc" class="toc col-sm-2">
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+            {% if page.type == 'markdown' %}
+            <div class="container {{ page.type }}">
+                <div class="row">
+                    <div class="col-md-11 nofloat center-block ">
+                        <div class="col-sm-12">
+                            {{ content }}  
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+                {{ content }}
+            {% endif %}
+        {% endif %}
+
+

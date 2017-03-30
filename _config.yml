@@ -1,1 +1,21 @@
 theme: jekyll-theme-cayman
+=======
+kramdown:
+  input: GFM
+  hard_wrap: false
+
+markdown:
+  kramdown
+
+baseurl:
+
+githuburl: https://github.com/istio/istio.github.io/
+
+sass:
+  style: compressed
+  
+paginate: 2
+
+paginate_path: "/blog/page:num/"
+
+excerpt_separator: <!--more-->
