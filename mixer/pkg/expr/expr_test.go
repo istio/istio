@@ -196,6 +196,37 @@ func TestTypeCheck(t *testing.T) {
 	}
 }
 
+func TestAssertType(t *testing.T) {
+	af := newAF([]*ad{
+		{"int64", dpb.INT64},
+		{"string", dpb.STRING},
+		{"duration", dpb.DURATION},
+	})
+
+	tests := []struct {
+		name     string
+		expr     string
+		expected dpb.ValueType
+		err      string
+	}{
+		{"correct type", "string", dpb.STRING, ""},
+		{"wrong type", "int64", dpb.STRING, "expected type STRING"},
+		{"eval error", "duration |", dpb.DURATION, "failed to parse"},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			if err := NewCEXLEvaluator().AssertType(tt.expr, af, tt.expected); tt.err != "" || err != nil {
+				if tt.err == "" {
+					t.Fatalf("AssertType(%s, af, %v) = %v, wanted no err", tt.expr, tt.expected, err)
+				} else if !strings.Contains(err.Error(), tt.err) {
+					t.Fatalf("AssertType(%s, af, %v) = %v, wanted err %v", tt.expr, tt.expected, err, tt.err)
+				}
+			}
+		})
+	}
+}
+
 func TestInternalTypeCheck(t *testing.T) {
 	success := "__SUCCESS__"
 	tests := []struct {
