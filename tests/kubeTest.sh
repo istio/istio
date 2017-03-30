@@ -187,7 +187,7 @@ fi
 
 if [ ${FAILURE_COUNT} -gt 0 ]
 then
-    echo "ONE OR MORE TESTS HAVE FAILED"
+    echo "${FAILURE_COUNT} TESTS HAVE FAILED"
     exit 1
 else
     echo "TESTS HAVE PASSED"
