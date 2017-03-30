@@ -52,6 +52,8 @@ const (
 	istioSidecarAnnotationVersionKey   = "alpha.istio.io/version"
 	initContainerName                  = "init"
 	runtimeContainerName               = "proxy"
+	enableCoreDumpContainerName        = "enable-core-dump"
+	enableCoreDumpImage                = "alpine"
 )
 
 // InitImageName returns the fully qualified image name for the istio
@@ -73,6 +75,21 @@ type Params struct {
 	SidecarProxyUID  int64
 	SidecarProxyPort int
 	Version          string
+	EnableCoreDump   bool
+}
+
+var enableCoreDumpContainer = map[string]interface{}{
+	"name":    enableCoreDumpContainerName,
+	"image":   enableCoreDumpImage,
+	"command": []string{"/bin/sh"},
+	"args": []string{
+		"-c",
+		"sysctl -w kernel.core_pattern=/tmp/core.%e.%p.%t",
+	},
+	"imagePullPolicy": "Always",
+	"securityContext": map[string]interface{}{
+		"privileged": true,
+	},
 }
 
 func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
@@ -92,24 +109,27 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 			return err
 		}
 	}
-	annotations = append(annotations,
-		map[string]interface{}{
-			"name":  initContainerName,
-			"image": p.InitImage,
-			"args": []string{
-				"-p", strconv.Itoa(p.SidecarProxyPort),
-				"-u", strconv.FormatInt(p.SidecarProxyUID, 10),
-			},
-			"imagePullPolicy": "Always",
-			"securityContext": map[string]interface{}{
-				"capabilities": map[string]interface{}{
-					"add": []string{
-						"NET_ADMIN",
-					},
+	annotations = append(annotations, map[string]interface{}{
+		"name":  initContainerName,
+		"image": p.InitImage,
+		"args": []string{
+			"-p", strconv.Itoa(p.SidecarProxyPort),
+			"-u", strconv.FormatInt(p.SidecarProxyUID, 10),
+		},
+		"imagePullPolicy": "Always",
+		"securityContext": map[string]interface{}{
+			"capabilities": map[string]interface{}{
+				"add": []string{
+					"NET_ADMIN",
 				},
 			},
 		},
-	)
+	})
+
+	if p.EnableCoreDump {
+		annotations = append(annotations, enableCoreDumpContainer)
+	}
+
 	initAnnotationValue, err := json.Marshal(&annotations)
 	if err != nil {
 		return err

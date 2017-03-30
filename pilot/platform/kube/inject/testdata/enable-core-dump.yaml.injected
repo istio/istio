@@ -1,0 +1,60 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: hello
+spec:
+  replicas: 7
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: injected
+        alpha.istio.io/version: "12345678"
+        pod.beta.kubernetes.io/init-containers: '[{"args":["-p","15001","-u","1337"],"image":"docker.io/istio/init:unittest","imagePullPolicy":"Always","name":"init","securityContext":{"capabilities":{"add":["NET_ADMIN"]}}},{"args":["-c","sysctl
+          -w kernel.core_pattern=/tmp/core.%e.%p.%t"],"command":["/bin/sh"],"image":"alpine","imagePullPolicy":"Always","name":"enable-core-dump","securityContext":{"privileged":true}}]'
+      creationTimestamp: null
+      labels:
+        app: hello
+        tier: backend
+        track: stable
+    spec:
+      containers:
+      - image: gcr.io/google-samples/hello-go-gke:1.0
+        name: hello
+        ports:
+        - containerPort: 80
+          name: http
+        resources: {}
+      - args:
+        - proxy
+        - sidecar
+        - -s
+        - istio-manager:8080
+        - -m
+        - istio-mixer:9091
+        - -n
+        - $(POD_NAMESPACE)
+        - -v
+        - "2"
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: docker.io/istio/runtime:unittest
+        imagePullPolicy: Always
+        name: proxy
+        resources: {}
+        securityContext:
+          runAsUser: 1337
+status: {}
+---

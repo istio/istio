@@ -38,21 +38,11 @@ func TestImageName(t *testing.T) {
 const unitTestTag = "unittest"
 
 func TestIntoResourceFile(t *testing.T) {
-	params := Params{
-
-		InitImage:        InitImageName(DefaultHub, unitTestTag),
-		RuntimeImage:     RuntimeImageName(DefaultHub, unitTestTag),
-		RuntimeVerbosity: DefaultRuntimeVerbosity,
-		ManagerAddr:      DefaultManagerAddr,
-		MixerAddr:        DefaultMixerAddr,
-		SidecarProxyUID:  DefaultSidecarProxyUID,
-		SidecarProxyPort: DefaultSidecarProxyPort,
-		Version:          "12345678",
-	}
 
 	cases := []struct {
-		in   string
-		want string
+		in             string
+		want           string
+		enableCoreDump bool
 	}{
 		{
 			in:   "testdata/hello.yaml",
@@ -82,9 +72,25 @@ func TestIntoResourceFile(t *testing.T) {
 			in:   "testdata/multi-init.yaml",
 			want: "testdata/multi-init.yaml.injected",
 		},
+		{
+			in:             "testdata/enable-core-dump.yaml",
+			want:           "testdata/enable-core-dump.yaml.injected",
+			enableCoreDump: true,
+		},
 	}
 
 	for _, c := range cases {
+		params := Params{
+			InitImage:        InitImageName(DefaultHub, unitTestTag),
+			RuntimeImage:     RuntimeImageName(DefaultHub, unitTestTag),
+			RuntimeVerbosity: DefaultRuntimeVerbosity,
+			ManagerAddr:      DefaultManagerAddr,
+			MixerAddr:        DefaultMixerAddr,
+			SidecarProxyUID:  DefaultSidecarProxyUID,
+			SidecarProxyPort: DefaultSidecarProxyPort,
+			Version:          "12345678",
+			EnableCoreDump:   c.enableCoreDump,
+		}
 		in, err := os.Open(c.in)
 		if err != nil {
 			t.Fatalf("Failed to open %q: %v", c.in, err)
