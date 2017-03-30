@@ -24,6 +24,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/pkg/api"
 
@@ -47,6 +48,9 @@ type inputDoc struct {
 var (
 	// input file name
 	file string
+
+	// output format (yaml or short)
+	outputFormat string
 
 	key    model.Key
 	schema model.ProtoSchema
@@ -113,21 +117,48 @@ var (
 		Use:   "get <type> <name>",
 		Short: "Retrieve a policy or rule",
 		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) != 2 {
-				return fmt.Errorf("provide configuration type and name")
+			if len(args) < 1 {
+				return fmt.Errorf("specify the type of resource to get. Types are %v",
+					strings.Join(model.IstioConfig.Kinds(), ", "))
 			}
-			if err := setup(args[0], args[1]); err != nil {
-				return err
+
+			if len(args) > 1 {
+				if err := setup(args[0], args[1]); err != nil {
+					return err
+				}
+				item, exists := cmd.Client.Get(key)
+				if !exists {
+					return fmt.Errorf("%q does not exist", key)
+				}
+				out, err := schema.ToYAML(item)
+				if err != nil {
+					return err
+				}
+				fmt.Print(out)
+			} else {
+				if err := setup(args[0], ""); err != nil {
+					return err
+				}
+
+				list, err := cmd.Client.List(key.Kind, key.Namespace)
+				if err != nil {
+					return fmt.Errorf("error listing %s: %v", key.Kind, err)
+				}
+
+				var outputters = map[string](func(map[model.Key]proto.Message) error){
+					"yaml":  printYamlOutput,
+					"short": printShortOutput,
+				}
+				if outputFunc, ok := outputters[outputFormat]; ok {
+					if err := outputFunc(list); err != nil {
+						return err
+					}
+				} else {
+					return fmt.Errorf("unknown output format %v. Types are yaml|short", outputFormat)
+				}
+
 			}
-			item, exists := cmd.Client.Get(key)
-			if !exists {
-				return fmt.Errorf("does not exist")
-			}
-			out, err := schema.ToYAML(item)
-			if err != nil {
-				return err
-			}
-			fmt.Print(out)
+
 			return nil
 		},
 	}
@@ -178,44 +209,6 @@ var (
 			return nil
 		},
 	}
-
-	listCmd = &cobra.Command{
-		Use:   "list <type>",
-		Short: "List policies and rules",
-		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				return fmt.Errorf("please specify configuration type (one of %v)", model.IstioConfig.Kinds())
-			}
-			if err := setup(args[0], ""); err != nil {
-				return err
-			}
-
-			list, err := cmd.Client.List(key.Kind, key.Namespace)
-			if err != nil {
-				return fmt.Errorf("error listing %s: %v", key.Kind, err)
-			}
-
-			for key, item := range list {
-				out, err := schema.ToYAML(item)
-				if err != nil {
-					fmt.Println(err)
-				} else {
-					fmt.Printf("kind: %s\n", key.Kind)
-					fmt.Printf("name: %s\n", key.Name)
-					fmt.Printf("namespace: %s\n", key.Namespace)
-					fmt.Println("spec:")
-					lines := strings.Split(out, "\n")
-					for _, line := range lines {
-						if line != "" {
-							fmt.Printf("  %s\n", line)
-						}
-					}
-				}
-				fmt.Println("---")
-			}
-			return nil
-		},
-	}
 )
 
 func init() {
@@ -224,13 +217,15 @@ func init() {
 	putCmd.PersistentFlags().AddFlag(postCmd.PersistentFlags().Lookup("file"))
 	deleteCmd.PersistentFlags().AddFlag(postCmd.PersistentFlags().Lookup("file"))
 
+	getCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "short",
+		"Output format. One of:yaml|short")
+
 	cmd.RootCmd.Use = "istioctl"
 	cmd.RootCmd.Long = fmt.Sprintf("Istio configuration command line utility. Available configuration types: %v",
 		model.IstioConfig.Kinds())
 	cmd.RootCmd.AddCommand(postCmd)
 	cmd.RootCmd.AddCommand(putCmd)
 	cmd.RootCmd.AddCommand(getCmd)
-	cmd.RootCmd.AddCommand(listCmd)
 	cmd.RootCmd.AddCommand(deleteCmd)
 }
 
@@ -241,12 +236,25 @@ func main() {
 	}
 }
 
+// Set the schema, key, and cmd.RootFlags.Namespace
+// The schema is based on the kind (for example "route-rule" or "destination-policy")
+// name represents the name of an instance
 func setup(kind, name string) error {
-	var ok bool
+
+	var singularForm = map[string]string{
+		"route-rules":          "route-rule",
+		"destination-policies": "destination-policy",
+	}
+	if singular, ok := singularForm[kind]; ok {
+		kind = singular
+	}
+
 	// set proto schema
+	var ok bool
 	schema, ok = model.IstioConfig[kind]
 	if !ok {
-		return fmt.Errorf("unknown configuration type %s; use one of %v", kind, model.IstioConfig.Kinds())
+		return fmt.Errorf("Istio doesn't have configuration type %s, the types are %v",
+			kind, strings.Join(model.IstioConfig.Kinds(), ", "))
 	}
 
 	// use default namespace by default
@@ -299,15 +307,15 @@ func readInputs() ([]inputDoc, error) {
 			return nil, fmt.Errorf("could not encode Spec: %v", err)
 		}
 
-		schema, ok := model.IstioConfig[v.Type]
+		ischema, ok := model.IstioConfig[v.Type]
 		if !ok {
 			return nil, fmt.Errorf("unknown spec type %s", v.Type)
 		}
-		rr, err := schema.FromJSON(string(byteRule))
+		rr, err := ischema.FromJSON(string(byteRule))
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse proto message: %v", err)
 		}
-		glog.V(2).Info(fmt.Sprintf("Parsed %v %v into %v %v", v.Type, v.Name, schema.MessageName, rr))
+		glog.V(2).Infof("Parsed %v %v into %v %v", v.Type, v.Name, ischema.MessageName, rr)
 
 		v.ParsedSpec = rr
 
@@ -315,4 +323,39 @@ func readInputs() ([]inputDoc, error) {
 	}
 
 	return varr, nil
+}
+
+// Print a simple list of names
+func printShortOutput(list map[model.Key]proto.Message) error {
+	for key := range list {
+		fmt.Printf("%v\n", key.Name)
+	}
+
+	return nil
+}
+
+// Print as YAML
+func printYamlOutput(list map[model.Key]proto.Message) error {
+	var retVal error
+
+	for key, item := range list {
+		out, err := schema.ToYAML(item)
+		if err != nil {
+			retVal = multierror.Append(retVal, err)
+		} else {
+			fmt.Printf("kind: %s\n", key.Kind)
+			fmt.Printf("name: %s\n", key.Name)
+			fmt.Printf("namespace: %s\n", key.Namespace)
+			fmt.Println("spec:")
+			lines := strings.Split(out, "\n")
+			for _, line := range lines {
+				if line != "" {
+					fmt.Printf("  %s\n", line)
+				}
+			}
+		}
+		fmt.Println("---")
+	}
+
+	return retVal
 }

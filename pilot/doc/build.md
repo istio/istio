@@ -11,7 +11,7 @@ We are using [Bazel 0.4.4](https://github.com/bazelbuild/bazel/releases) as the 
     bazel build //...
 
 Bazel uses `BUILD` files to keep track of dependencies between sources.  If you
-add a new source file, change the imports, or add a data depenency, please run the following command
+add a new source file, change the imports, or add a data dependency, please run the following command
 to update all `BUILD` files:
 
     gazelle -go_prefix "istio.io/manager" -mode fix -repo_root .
