@@ -75,12 +75,8 @@ func (listsManager) ValidateConfig(c config.AspectParams, v expr.Validator, df d
 	cfg := c.(*aconfig.ListsParams)
 	if cfg.CheckExpression == "" {
 		ce = ce.Appendf("CheckExpression", "no expression provided")
-		return
-	}
-	if t, err := v.TypeCheck(cfg.CheckExpression, df); err != nil {
-		ce = ce.Appendf("CheckExpression", "typechecking failed with err %v", err)
-	} else if t != apipb.STRING {
-		ce = ce.Appendf("CheckExpression", "evaluated to type %v, expected type STRING", t)
+	} else if err := v.AssertType(cfg.CheckExpression, df, apipb.STRING); err != nil {
+		ce = ce.Appendf("CheckExpression", "error type checking expression: %v", err)
 	}
 	return
 }

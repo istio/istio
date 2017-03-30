@@ -392,3 +392,6 @@ func (e *fakeExpr) Validate(expression string) error { return e.err }
 func (e *fakeExpr) TypeCheck(string, expr.AttributeDescriptorFinder) (dpb.ValueType, error) {
 	return dpb.VALUE_TYPE_UNSPECIFIED, e.err
 }
+func (e *fakeExpr) AssertType(string, expr.AttributeDescriptorFinder, dpb.ValueType) error {
+	return e.err
+}

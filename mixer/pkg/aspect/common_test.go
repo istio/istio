@@ -113,7 +113,7 @@ func TestValidateLabels(t *testing.T) {
 		}, ""},
 		{"missing label", map[string]string{"missing": "not a label"}, descriptors, "wrong dimensions"},
 		{"cardinality mismatch", map[string]string{"stringlabel": "string", "string2": "string"}, descriptors, "wrong dimensions"},
-		{"type eval error", map[string]string{"stringlabel": "string |"}, descriptors, "failed to evaluate type"},
+		{"type eval error", map[string]string{"stringlabel": "string |"}, descriptors, "error type checking label"},
 		{"type doesn't match desc", map[string]string{"stringlabel": "duration"}, descriptors, "expected type STRING"},
 	}
 	df := test.NewDescriptorFinder(map[string]interface{}{

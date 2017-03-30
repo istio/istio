@@ -434,6 +434,15 @@ func (e *cexl) TypeCheck(expr string, attrFinder AttributeDescriptorFinder) (con
 	return v.TypeCheck(attrFinder, e.fMap)
 }
 
+func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expectedType config.ValueType) error {
+	if t, err := e.TypeCheck(expr, finder); err != nil {
+		return err
+	} else if t != expectedType {
+		return fmt.Errorf("expression '%s' evaluated to type %v, expected type %v", expr, t, expectedType)
+	}
+	return nil
+}
+
 // Validate validates expression for syntactic correctness.
 // TODO check if all functions and attributes in the expression are defined.
 // at present this violates the contract with Func.Call that ensures

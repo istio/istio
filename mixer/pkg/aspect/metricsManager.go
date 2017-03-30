@@ -90,12 +90,9 @@ func (*metricsManager) ValidateConfig(c config.AspectParams, v expr.Validator, d
 			continue // we can't do any other validation without the descriptor
 		}
 
-		if valueType, err := v.TypeCheck(metric.Value, df); err != nil {
-			ce = ce.Appendf(fmt.Sprintf("Metric[%s].Value", metric.DescriptorName), "typechecking the value expression failed with err: %v", err)
-		} else if valueType != desc.Value {
-			ce = ce.Appendf(fmt.Sprintf("Metric[%s].Value", metric.DescriptorName), "expected type %v for the value, but evaluated to type %v", desc.Value, valueType)
+		if err := v.AssertType(metric.Value, df, desc.Value); err != nil {
+			ce = ce.Appendf(fmt.Sprintf("Metric[%s].Value", metric.DescriptorName), "error type checking label %s: %v", err)
 		}
-
 		ce = ce.Extend(validateLabels(fmt.Sprintf("Metrics[%s].Labels", desc.Name), metric.Labels, desc.Labels, v, df))
 
 		// TODO: this doesn't feel like quite the right spot to do this check, but it's the best we have ¯\_(ツ)_/¯

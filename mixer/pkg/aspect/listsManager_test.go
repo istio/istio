@@ -61,7 +61,7 @@ func TestListsManager_ValidateConfig(t *testing.T) {
 	}{
 		{"valid", &aconfig.ListsParams{CheckExpression: "string"}, ""},
 		{"empty config", &aconfig.ListsParams{}, "no expression provided"},
-		{"invalid expression", &aconfig.ListsParams{CheckExpression: "string |"}, "typechecking failed with err"},
+		{"invalid expression", &aconfig.ListsParams{CheckExpression: "string |"}, "error type checking expression"},
 		{"wrong type", &aconfig.ListsParams{CheckExpression: "int64"}, "expected type STRING"},
 	}
 

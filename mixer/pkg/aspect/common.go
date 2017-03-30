@@ -31,7 +31,7 @@ func evalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evalu
 	for label, texpr := range expressions {
 		val, err := eval.Eval(texpr, attrs)
 		if err != nil {
-			result = multierror.Append(result, fmt.Errorf("failed to construct value for label '%s' with err: %s", label, err))
+			result = multierror.Append(result, fmt.Errorf("failed to construct value for label '%s' with err: %v", label, err))
 			continue
 		}
 		labels[label] = val
@@ -55,19 +55,10 @@ func validateLabels(ceField string, labels map[string]string, labelDescs []*dpb.
 		ce = ce.Appendf(ceField, "wrong dimensions: descriptor expects %d labels, found %d labels", len(labelDescs), len(labels))
 	}
 	for name, exp := range labels {
-		label := findLabel(name, labelDescs)
-		if label == nil {
+		if label := findLabel(name, labelDescs); label == nil {
 			ce = ce.Appendf(ceField, "wrong dimensions: extra label named %s", name)
-			continue
-		}
-
-		ltype, err := v.TypeCheck(exp, df)
-		if err != nil {
-			ce = ce.Appendf(ceField, "failed to evaluate type label %s with err: %v", name, err)
-			continue
-		}
-		if ltype != label.ValueType {
-			ce = ce.Appendf(ceField, "label %s has evaluated type %v, expected type %v", name, ltype, label.ValueType)
+		} else if err := v.AssertType(exp, df, label.ValueType); err != nil {
+			ce = ce.Appendf(ceField, "error type checking label %s: %v", err)
 		}
 	}
 	return
