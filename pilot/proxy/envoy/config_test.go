@@ -218,7 +218,9 @@ func TestTCPRouteConfigByRoute(t *testing.T) {
 
 const (
 	envoyV0Config     = "testdata/envoy-v0.json"
+	envoyV0ConfigAuth = "testdata/envoy-v0-auth.json"
 	envoyV1Config     = "testdata/envoy-v1.json"
+	envoyV1ConfigAuth = "testdata/envoy-v1-auth.json"
 	envoyFaultConfig  = "testdata/envoy-fault.json"
 	cbPolicy          = "testdata/cb-policy.yaml.golden"
 	timeoutRouteRule  = "testdata/timeout-route-rule.yaml.golden"
@@ -253,13 +255,17 @@ func compareJSON(jsonFile string, t *testing.T) {
 	}
 }
 
-func testConfig(r *model.IstioRegistry, instance, envoyConfig string, t *testing.T) {
-	ds := mock.Discovery
+func testConfig(r *model.IstioRegistry, instance, envoyConfig string, t *testing.T, enableAuth bool) {
+	meshConfig := *DefaultMeshConfig
+	if enableAuth {
+		meshConfig.EnableAuth = true
+		meshConfig.AuthConfigPath = "/etc/certs"
+	}
 
 	config := Generate(&ProxyContext{
-		Discovery:  ds,
+		Discovery:  mock.Discovery,
 		Config:     r,
-		MeshConfig: DefaultMeshConfig,
+		MeshConfig: &meshConfig,
 		Addrs:      map[string]bool{instance: true},
 	})
 	if config == nil {
@@ -331,35 +337,41 @@ func addFaultRoute(r *model.IstioRegistry, t *testing.T) {
 
 func TestMockConfig(t *testing.T) {
 	r := mock.MakeRegistry()
-	testConfig(r, mock.HostInstanceV0, envoyV0Config, t)
-	testConfig(r, mock.HostInstanceV1, envoyV1Config, t)
+	testConfig(r, mock.HostInstanceV0, envoyV0Config, t, false)
+	testConfig(r, mock.HostInstanceV1, envoyV1Config, t, false)
+}
+
+func TestMockConfigWithAuth(t *testing.T) {
+	r := mock.MakeRegistry()
+	testConfig(r, mock.HostInstanceV0, envoyV0ConfigAuth, t, true)
+	testConfig(r, mock.HostInstanceV1, envoyV1ConfigAuth, t, true)
 }
 
 func TestMockConfigTimeout(t *testing.T) {
 	r := mock.MakeRegistry()
 	addTimeout(r, t)
-	testConfig(r, mock.HostInstanceV0, envoyV0Config, t)
-	testConfig(r, mock.HostInstanceV1, envoyV1Config, t)
+	testConfig(r, mock.HostInstanceV0, envoyV0Config, t, false)
+	testConfig(r, mock.HostInstanceV1, envoyV1Config, t, false)
 }
 
 func TestMockConfigCircuitBreaker(t *testing.T) {
 	r := mock.MakeRegistry()
 	addCircuitBreaker(r, t)
-	testConfig(r, mock.HostInstanceV0, envoyV0Config, t)
-	testConfig(r, mock.HostInstanceV1, envoyV1Config, t)
+	testConfig(r, mock.HostInstanceV0, envoyV0Config, t, false)
+	testConfig(r, mock.HostInstanceV1, envoyV1Config, t, false)
 }
 
 func TestMockConfigWeighted(t *testing.T) {
 	r := mock.MakeRegistry()
 	addWeightedRoute(r, t)
-	testConfig(r, mock.HostInstanceV0, envoyV0Config, t)
-	testConfig(r, mock.HostInstanceV1, envoyV1Config, t)
+	testConfig(r, mock.HostInstanceV0, envoyV0Config, t, false)
+	testConfig(r, mock.HostInstanceV1, envoyV1Config, t, false)
 }
 
 func TestMockConfigFault(t *testing.T) {
 	r := mock.MakeRegistry()
 	addFaultRoute(r, t)
 	// Fault rule uses source condition, hence the different golden artifacts
-	testConfig(r, mock.HostInstanceV0, envoyFaultConfig, t)
-	testConfig(r, mock.HostInstanceV1, envoyV1Config, t)
+	testConfig(r, mock.HostInstanceV0, envoyFaultConfig, t, false)
+	testConfig(r, mock.HostInstanceV1, envoyV1Config, t, false)
 }

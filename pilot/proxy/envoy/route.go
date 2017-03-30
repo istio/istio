@@ -36,20 +36,25 @@ const (
 	OutboundClusterPrefix = "out."
 )
 
-// buildSSLContextWithSAN returns an SSLContextWithSAN struct with VerifySubjectAltName when auth is enabled.
-// Otherwise, it returns nil.
-func buildSSLContextWithSAN(hostname string, context *ProxyContext) *SSLContextWithSAN {
-	mesh := context.MeshConfig
-	if mesh.EnableAuth {
-		serviceAccounts, _ := context.Discovery.GetIstioServiceAccounts(hostname)
-		return &SSLContextWithSAN{
-			CertChainFile:        mesh.AuthConfigPath + "/cert-chain.pem",
-			PrivateKeyFile:       mesh.AuthConfigPath + "/key.pem",
-			CaCertFile:           mesh.AuthConfigPath + "/root-cert.pem",
-			VerifySubjectAltName: serviceAccounts,
-		}
+// buildListenerSSLContext returns an SSLContext struct.
+func buildListenerSSLContext(mesh *MeshConfig) *SSLContext {
+	return &SSLContext{
+		CertChainFile:  mesh.AuthConfigPath + "/cert-chain.pem",
+		PrivateKeyFile: mesh.AuthConfigPath + "/key.pem",
+		CaCertFile:     mesh.AuthConfigPath + "/root-cert.pem",
 	}
-	return nil
+}
+
+// buildClusterSSLContext returns an SSLContextWithSAN struct with VerifySubjectAltName.
+func buildClusterSSLContext(hostname string, context *ProxyContext) *SSLContextWithSAN {
+	mesh := context.MeshConfig
+	serviceAccounts, _ := context.Discovery.GetIstioServiceAccounts(hostname)
+	return &SSLContextWithSAN{
+		CertChainFile:        mesh.AuthConfigPath + "/cert-chain.pem",
+		PrivateKeyFile:       mesh.AuthConfigPath + "/key.pem",
+		CaCertFile:           mesh.AuthConfigPath + "/root-cert.pem",
+		VerifySubjectAltName: serviceAccounts,
+	}
 }
 
 func buildDefaultRoute(cluster *Cluster) *HTTPRoute {
