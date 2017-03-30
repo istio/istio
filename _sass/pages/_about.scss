@@ -1,0 +1,374 @@
+.about {
+
+  .about-sections {
+    padding: $spacing--xxxl 0;
+    position: relative;
+  }
+
+  .about-max {
+    margin-bottom: $spacing--s;
+
+    @media(min-width: $tablet) {
+      max-width: 70%;
+    }
+  }
+
+  p {
+    font-size: .9rem;
+  }
+
+  p.lead {
+    font-size: 17px;
+    margin-bottom: $spacing--xxl;
+  }
+
+  .about-lists {
+    list-style: disc inside;
+    padding-left: 1em;
+    text-indent: -1em;
+  }
+
+  .intro {
+    margin-bottom: $spacing--m;
+  }
+
+  .main-usage-title {
+    margin: $spacing--xs 0;
+  }
+
+  .core-features-title {
+    margin: $spacing--s 0 $spacing--xs;
+  }
+
+  .case-studies-title {
+    margin: $spacing--m 0;
+  }
+
+  .case-studies-quote {
+    color: #727272;
+    font-size: 14px;
+    font-style: italic;
+    font-weight: 200;
+    letter-spacing: .5px;
+    line-height: 1.5;
+
+    .apos {
+      color: $gray;
+      display:inline-block;
+      font-weight: 300;
+      height: 20px;
+      margin-right: 10px;
+      transform: scale(4,4);
+    }
+  }
+
+  .more-btn {
+    bottom: 10px;
+    left: 0;
+    margin: 0 auto;
+    position: absolute;
+    right: 0;
+    text-align: center;
+
+    @media(min-width: 992px) {
+      bottom: initial;
+      text-align: right;
+    }
+  }
+
+  .more-btn-text {
+    font-size: .9rem;
+
+    &:after {
+      background: url('../img/more-arrow.svg') no-repeat center/cover;
+      content: '';
+      display: inline-block;
+      height: 25px;
+      margin: 0 0 0 10px;
+      vertical-align: middle;
+      width: 25px;
+    }
+
+    &:hover {
+      &:after {
+        background: url('../img/more-arrow-dark.svg') no-repeat center/cover;
+      }
+    }
+  }
+
+  .case-studies-container {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 35px;
+    margin-top: 35px;
+
+    a::after {
+      content: '';
+      display: table;
+      width: 100%;
+      height: 0;
+    }
+  }
+
+  .case-studies-link {
+    text-align: center;
+
+    &::after {
+      display: none;
+    }
+  }
+
+  .case-studies-img {
+    height: 65px;
+  }
+
+  .case-studies-img {
+    display: block;
+    margin: $spacing--s auto;
+  }
+
+  .pt-container {
+    margin-top: 65px;
+    margin-bottom: $spacing--xxl;
+
+    &::after {
+      content: '';
+      display: table;
+      width: 100%;
+    }
+  }
+
+  .pt:hover {
+    cursor: pointer;
+  }
+
+  .pt-content {
+    text-align: center;
+    width: 100%;
+    height: 100%;
+
+    @media (min-width: $tablet) {
+      margin: 5px 0 $spacing--s;
+    }
+  }
+
+  .pt-video {
+    background: url('../img/pt-video-placeholder.png') no-repeat center/cover;
+    height: auto;
+    max-width: 100%;
+    width: auto;
+
+    @media (min-width: $tablet) {
+      width: 100%;
+    }
+  }
+
+  .pt-desc {
+    font-size: .85em;
+    font-weight: 300;
+    margin-top: $spacing--xs;
+    text-align: center;
+    
+    @media (min-width: 800px) {
+      margin: 0;
+      text-align: left;
+    }
+  }
+
+  .story {
+    padding: $spacing--xxxl 0 100px;
+  }
+
+  .more-story {
+    font-weight: 500;
+    margin: $spacing--m 0 0;
+
+    .underline {
+      text-decoration: underline;
+    }
+
+  }
+
+  .img-container {
+    position: relative;
+  }
+
+  .after-overlay{
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+  }
+
+  .pt-content:hover {
+    .after-overlay {
+      display: block;
+      background: rgba(0,0,0,.2);
+    }
+  }
+
+  .pt-thumbnail {
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .pt-lightbox {
+    opacity: 0;
+    pointer-events: none;
+    position: relative;
+
+    &.active {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      top: 0;
+      pointer-events: all;
+      z-index: 10000;
+      opacity: 1;
+      background: rgba(0,0,0,.7);
+      transition: 250ms linear;
+      -webkit-transition: 250ms linear;
+      -moz-transition: 250ms linear;
+      -ms-transition: 250ms linear;
+      -o-transition: 250ms linear;
+    }
+  }
+  
+  .pt-player {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 320px;
+    height: calc(320px*.5625);
+    margin: auto;
+
+    @media (min-width: $tablet) {
+      top: 0;
+      width: 75%;
+      height: calc(75%*.5625);
+    }
+  }
+  
+  .pt-video-wrapper {
+    height: 0;
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 */
+  }
+
+  .pt-video-wrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  // Slick overrides
+  .slick-next,
+  .slick-prev {
+    top: 35%;
+  }
+
+  .slick-prev {
+    &.active {
+      display: block;
+    }
+  }
+
+  .slick-next {
+    &:before {
+      background: url('../img/more-arrow.png') no-repeat center/cover;
+      content: '';
+      display: inline-block;
+      height: 25px;
+      vertical-align: bottom;
+      width: 25px;
+    }
+  }
+
+  .slick-prev {
+    opacity: 0;
+    pointer-events: none;
+
+    &:before {
+      background: url('../img/more-arrow.png') no-repeat center/cover;
+      content: '';
+      display: inline-block;
+      height: 25px;
+      vertical-align: bottom;
+      width: 25px;
+      transform: rotate(180deg);
+      -webkit-transform: rotate(180deg);
+      -moz-transform: rotate(180deg);
+      -ms-transform: rotate(180deg);
+      -o-transform: rotate(180deg);
+    }
+
+    &.active {
+      opacity: 1;
+      pointer-events: all;
+      transition: 500ms linear;
+      -webkit-transition: 500ms linear;
+      -moz-transition: 500ms linear;
+      -ms-transition: 500ms linear;
+      -o-transition: 500ms linear;
+    }
+  }
+
+  .slick-dots {
+    & li.slick-active button:before {
+      color: $mainBrandColor;
+      opacity: 1;
+    }
+
+    & li button:before {
+      font-size: 12px;
+    }
+
+    & li {
+      margin: 0;
+    }
+  }
+  .platforms-table-row {
+    display: flex;
+  }
+
+  .platforms-table-header {
+    background: $light-gray;
+    color: $black;
+  }
+  .platforms-table-cell {
+    padding: 0 2px;
+    font-size: 11px;
+    font-weight: 300;
+    line-height: 40px;
+    border: 1px solid $light-gray;
+    color: $dark-gray;
+    @media (min-width: $phone-large) { 
+      padding: 0px 10px;
+      font-size: 15px;
+    }
+    li {
+      line-height: inherit;
+    }
+    &.platforms-table-heading{
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 10px 2px;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 22px;
+      @media (min-width: $phone-large) {
+        font-size: 16px;
+        padding: 10px;
+      }
+    }
+  }
+
+}

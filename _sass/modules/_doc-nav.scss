@@ -1,0 +1,114 @@
+// Documentation Navigation Bar
+.doc-nav {
+  display: block;
+  margin-bottom: $spacing--xxxl;
+  margin-top: $spacing--m;
+	.doc-caret {
+		margin-right: 10px;
+		@media (min-width: $tablet) {
+			display: none;
+		}
+	}
+
+	.tab {
+		display: inline-block;
+
+		&.docs-tab a {
+      border-bottom: 2px solid $gray;
+      display: inline-block;
+      font-weight: 300;
+
+			@media (min-width: $tablet) {
+				display: none;
+			}
+		}
+
+		a {
+      border-bottom: 2px solid transparent;
+      color: $gray;
+      display: none;
+      font-size: .85rem;
+      font-weight: 400;
+      letter-spacing: 0.5px;
+      margin-right: 16px;
+
+			&:hover {
+				border-bottom: 2px solid $gray;
+			}
+
+			@media (min-width: $tablet) {
+        display: inline-block;
+        font-weight: 300;
+			}
+		}
+
+		.current {
+      border-bottom: 2px solid $gray;
+      color: $gray;
+      display: inline-block;
+
+			@media (min-width: $tablet) {
+				border-bottom: 2px solid $secondBrandColor !important;
+				color: $secondBrandColor;
+			}
+		}
+	}
+}
+
+// Documentation Side Navigation
+.doc-side-nav {
+	background-color: $light-gray;
+	margin-bottom: 20px;
+	@media (min-width: $tablet) {
+    margin-bottom: 0;
+    padding: $spacing--xs 0 $spacing--xl;
+	}
+
+	// Add caret to current page
+	.current:before{
+		content: '> ';
+	}
+
+	.doc-side-nav-title {
+		padding: $spacing--s;
+	}
+
+	.doc-side-nav-list-item {
+		display: inline-block;
+		padding: 2px $spacing--s;
+		width: 100%;
+
+		a {
+			font-size: 13px;
+			color: $dark-gray;
+			font-weight: 400;
+		}
+	}
+}
+
+// Different styling for doc side nav for tutorial page with nested items
+.doc-side-nav-tutorial {
+
+  h6 {
+    color: $dark-gray;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 22px;
+  }
+
+  .submenu {
+    padding: 2px 15px;
+  }
+
+  .submenu-link {
+    display: block;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 22px;
+    color: $gray;
+
+    &.active:before {
+      content: '> ';
+    }
+  }
+}

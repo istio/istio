@@ -1,0 +1,127 @@
+.btn, .btn-flat {
+
+  &:focus {
+    outline: 0 !important;
+  }
+
+  // GRPC Specific Buttons
+  &.btn-grpc {
+    background-color: $secondBrandColor;
+    color: $white;
+    font-weight: 300;
+    letter-spacing: 1px;
+
+    a {
+      color: $white;
+    }
+
+    // Inverse Colored Button
+    &.inverse {
+      background-color: transparent;
+      border: 2px solid $mainBrandColor;
+      border-radius: 4px;
+      color: $mainBrandColor;
+    }
+
+    &.btn-doc-call, &.btn-hero {
+      padding: 4px 27px;
+    }
+
+    // Landing Page Language Select Button
+    &.lang-select {
+      font-size: 14px;
+      font-weight: 500;
+      margin: 3px;
+      padding-left: 6px;
+      padding-right: 6px;
+      text-align: center;
+      text-transform: none;
+      width: 33%;
+
+      @media (min-width: $tablet) {
+        max-width: 160px;
+        margin: 10px;
+      }
+    }
+
+    // Hero Button
+    &.btn-hero {
+      background-color: $white;
+      border: 2px solid $secondBrandColor;
+      border-radius: 4px;
+      color: $secondBrandColor;
+      font-weight: 500;
+      font-size: 14px;
+    }
+  }
+
+  // Floating Action Button
+  &.btn-floating {
+    background-color: $white;
+    height: 30px;
+    width: 30px;
+    z-index: $z-top;
+
+    @media (min-width: $tablet) {
+      height: 50px;
+      width: 50px;
+    }
+
+    &:hover,
+    &:focus {
+      background-color: $white;
+    }
+
+    &.down-caret {
+      bottom: -15px;
+      left: 50%;
+      padding: 0;
+      position: absolute;
+      transform: translateX(-50%);
+
+      @media (min-width: $tablet) {
+        bottom: -25px;
+      }
+    }
+  }
+}
+
+.fork-btn {
+  position: absolute;
+  display: block;
+  top: -39px;
+  right: -15px;
+  width: 150px;
+  overflow: hidden;
+  height: 200px;
+  z-index: 9011;
+  background: url('../img/github-ribbon.svg') no-repeat center/contain;
+
+  @media (max-width: 830px) {
+    display: none;
+  }
+}
+
+// Link Button
+.btn-link {
+  display: inline-block;
+  cursor: pointer;
+}
+
+.icon-caret {
+  background: url('../img/caret.svg') no-repeat center/cover;
+  height: 20px;
+  margin: 3px auto 0;
+  width: 24px;
+
+  @media (min-width: $tablet) {
+    height: 45px;
+    width: 45px;
+  }
+}
+
+.external-link-icon {
+  background: url('../img/external-link.svg') no-repeat center/cover;
+  width: 15px;
+  height: 15px;
+}

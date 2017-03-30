@@ -1,0 +1,32 @@
+// Brand Colors
+$mainBrandColor: #2DA6B0;
+$secondBrandColor: #01959f;
+$thirdBrandColor: #E7F3F4;
+$inverseBrandColor: #FFFFFF;
+
+// Use as an accent color in small quantities to balance out the main theme.
+$popBrandColor: hsl(3, 90%, 75%);
+$lightPopBrandColor: lighten($popBrandColor, 15%);
+
+
+// General Colors
+$black: #2E2E2E;
+$white: #FFFFFF;
+$gray: #737373;
+$light-gray: lighten($gray, 52%);
+$dark-gray: darken($gray, 20%);
+
+
+$linkColor: $mainBrandColor;
+$linkHoverColor: darken($linkColor, 10%);
+$linkColorSecondary: $white;
+$linkColorTertiary: $gray;
+$codeColor: darken($linkColor, 20%);
+$codeBkColor: #ebfaf8;
+$wellColor: #F9F9F9;
+$textColor: #535f61;
+$titleColor: #555555;
+$headingsColor: rgb(21, 91, 103);
+$footerColor: #4e4f4f;
+$footerText: #eaeaea;
+$errorColor: #C40003;
