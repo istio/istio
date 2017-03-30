@@ -96,31 +96,11 @@ func (*metricsManager) ValidateConfig(c config.AspectParams, v expr.Validator, d
 			ce = ce.Appendf(fmt.Sprintf("Metric[%s].Value", metric.DescriptorName), "expected type %v for the value, but evaluated to type %v", desc.Value, valueType)
 		}
 
-		ce = ce.Extend(validateLabels(metric.Labels, desc, v, df))
+		ce = ce.Extend(validateLabels(fmt.Sprintf("Metrics[%s].Labels", desc.Name), metric.Labels, desc.Labels, v, df))
 
 		// TODO: this doesn't feel like quite the right spot to do this check, but it's the best we have ¯\_(ツ)_/¯
 		if _, err := metricDefinitionFromProto(desc); err != nil {
 			ce = ce.Appendf(fmt.Sprintf("Descriptor[%s]", desc.Name), "failed to marshal descriptor into its adapter representation with err: %v", err)
-		}
-	}
-	return
-}
-
-func validateLabels(labels map[string]string, desc *dpb.MetricDescriptor, v expr.Validator, df expr.AttributeDescriptorFinder) (ce *adapter.ConfigErrors) {
-	for name, exp := range labels {
-		label := findLabel(name, desc.Labels)
-		if label == nil {
-			ce = ce.Appendf(fmt.Sprintf("Metrics[%s].Labels", desc.Name), "wrong dimensions: extra label named %s", name)
-			continue
-		}
-
-		ltype, err := v.TypeCheck(exp, df)
-		if err != nil {
-			ce = ce.Appendf(fmt.Sprintf("Metrics[%s].Labels", desc.Name), "failed to evaluate type label %s with err: %v", name, err)
-			continue
-		}
-		if ltype != label.ValueType {
-			ce = ce.Appendf(fmt.Sprintf("Metrics[%s].Labels", desc.Name), "label %s has evaluated type %v, expected type %v", name, ltype, label.ValueType)
 		}
 	}
 	return
@@ -174,20 +154,6 @@ func (w *metricsExecutor) Close() error {
 	return w.aspect.Close()
 }
 
-func evalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evaluator) (map[string]interface{}, error) {
-	result := &multierror.Error{}
-	labels := make(map[string]interface{}, len(expressions))
-	for label, texpr := range expressions {
-		val, err := eval.Eval(texpr, attrs)
-		if err != nil {
-			result = multierror.Append(result, fmt.Errorf("failed to construct value for label '%s' with err: %s", label, err))
-			continue
-		}
-		labels[label] = val
-	}
-	return labels, result.ErrorOrNil()
-}
-
 func metricDefinitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefinition, error) {
 	labels := make(map[string]adapter.LabelType, len(desc.Labels))
 	for _, label := range desc.Labels {
@@ -210,13 +176,4 @@ func metricDefinitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefin
 		Kind:        kind,
 		Labels:      labels,
 	}, nil
-}
-
-func findLabel(name string, labels []*dpb.LabelDescriptor) *dpb.LabelDescriptor {
-	for _, l := range labels {
-		if l.Name == name {
-			return l
-		}
-	}
-	return nil
 }
