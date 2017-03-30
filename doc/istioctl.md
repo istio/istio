@@ -53,14 +53,14 @@ $ istioctl create -f example-routing.yaml
 $ istioctl delete -f example-routing.yaml
 ```
 
-`istioctl list` - List policies or rules in YAML format
+`istioctl get` - List policies or rules in YAML format
 
 ```
 // List route rules
-istioctl list route-rule
+istioctl get route-rule
 
 // List destination policies
-istioctl list destination-policy
+istioctl get destination-policy
 ```
 
 # kube-inject
