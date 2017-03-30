@@ -54,14 +54,21 @@ data:
           value_type: 1 # STRING
         - name: response_code
           value_type: 2 # INT64
+    quotas:
+    - name: RequestCount
+      max_amount: 5
+      expiration:
+        seconds: 1
   serviceconfig.yml: |-
     subject: namespace:ns
     revision: "2022"
     rules:
-    - selector: true
+    - selector: target.service == "ratings.*"
       aspects:
       - kind: quotas
         params:
+    - selector: true
+      aspects:
       - kind: metrics
         adapter: prometheus
         params:
