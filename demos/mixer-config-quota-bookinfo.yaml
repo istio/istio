@@ -27,10 +27,6 @@ data:
         value_type: 1 # STRING
       - name: target.name
         value_type: 1 # STRING
-      - name: api.name
-        value_type: 1 # STRING
-      - name: api.method
-        value_type: 1 # STRING
       - name: response.code
         value_type: 2 # INT64
       - name: response.latency
@@ -45,10 +41,6 @@ data:
           value_type: 1 # STRING
         - name: target
           value_type: 1 # STRING
-        - name: service
-          value_type: 1 # STRING
-        - name: method
-          value_type: 1 # STRING
         - name: response_code
           value_type: 2 # INT64
       - name: request_latency
@@ -60,24 +52,16 @@ data:
           value_type: 1 # STRING
         - name: target
           value_type: 1 # STRING
-        - name: service
-          value_type: 1 # STRING
-        - name: method
-          value_type: 1 # STRING
         - name: response_code
           value_type: 2 # INT64
   serviceconfig.yml: |-
     subject: namespace:ns
     revision: "2022"
     rules:
-            #- selector: service.name == “*”
-            #- selector: service.name == "myservice"
-    - selector: target.service == "ratings.*"
+    - selector: true
       aspects:
       - kind: quotas
         params:
-    - selector: true
-      aspects:
       - kind: metrics
         adapter: prometheus
         params:
@@ -86,17 +70,13 @@ data:
             # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
             value: "1"
             labels:
-              source: source.service | "unknown"
+              source: source.name | "unknown"
               target: target.service | "unknown"
-              service: api.name | "unknown"
-              method: api.method | "unknown"
               response_code: response.http.code | 200
           - descriptor_name:  request_latency
             value: response.latency | "0ms"
             labels:
-              source: source.service | "unknown"
+              source: source.name | "unknown"
               target: target.service | "unknown"
-              service: api.name | "unknown"
-              method: api.method | "unknown"
               response_code: response.http.code | 200
 ---
