@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
-ROOT=$(dirname $WD)
-
 set -e
+SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+source $SCRIPTPATH/use_bazel_go.sh
+
+ROOT=$SCRIPTPATH/..
+cd $ROOT
+
+
 echo "Perf test"
 DIRS="pkg/expr pkg/attribute"
 cd $ROOT

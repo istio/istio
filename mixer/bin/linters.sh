@@ -2,6 +2,12 @@
 
 # Runs all requisite linters over the whole mixer code base.
 set -e
+SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+source $SCRIPTPATH/use_bazel_go.sh
+
+ROOTDIR=$SCRIPTPATH/..
+cd $ROOTDIR
+
 
 PARENT_BRANCH=''
 
