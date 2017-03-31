@@ -8,10 +8,31 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BIN_DIR='.'
+BUCKET_PATH=''
+
+function cleanup {
+  rm -rf "${BIN_DIR}"
+}
+
+while getopts :p: arg; do
+  case ${arg} in
+    p)
+      BUCKET_PATH="${OPTARG}"
+      BIN_DIR="$(mktemp -d /tmp/istioctl.XXXX)"
+      ;;
+    *) error_exit "Unrecognized argument -${OPTARG}";;
+  esac
+done
+
+[[ "${BIN_DIR}" != '.' ]] && trap cleanup exit
+
 # build with bazel and run /bin/init.sh first so dependencies are setup
 # correctly.
 bazel build //cmd/istioctl:istioctl
 bin/init.sh
+cp -f "${ROOT}/bazel-bin/cmd/istioctl/istioctl" "${BIN_DIR}/istioctl-linux"
 
 # set linker flags for populating version info
 LDFLAGS=""
@@ -21,9 +42,14 @@ while read line; do
 done < <(./bin/get_workspace_status)
 
 GOOS=darwin GOARCH=amd64 go build -ldflags "${LDFLAGS}" istio.io/manager/cmd/istioctl
-mv istioctl istioctl-osx
+mv istioctl "${BIN_DIR}/istioctl-osx"
 
 # install missing spf13/cobra dependency (windows only)
 go get github.com/inconshreveable/mousetrap
 GOOS=windows GOARCH=amd64 go build -ldflags "${LDFLAGS}" istio.io/manager/cmd/istioctl
-mv istioctl.exe istioctl-win.exe
+mv istioctl.exe "${BIN_DIR}/istioctl-win.exe"
+
+if [[ -n "${BUCKET_PATH}" ]]; then
+  gsutil -m cp -r "${BIN_DIR}"/istioctl-* "${BUCKET_PATH}" \
+    || { echo "Failed to upload binaries to ${BUCKET_PATH}"; exit 1; }
+fi
