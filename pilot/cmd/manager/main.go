@@ -182,6 +182,9 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&flags.proxy.AuthConfigPath, "auth_config_path",
 		envoy.DefaultMeshConfig.AuthConfigPath,
 		"The directory in which certificate and key files are stored")
+	proxyCmd.PersistentFlags().DurationVar(&flags.proxy.DiscoveryRefreshDelay, "discovery_refresh_delay",
+		envoy.DefaultMeshConfig.DiscoveryRefreshDelay,
+		"The average delay Envoy uses between fetches to the SDS/CDS/RDS APIs")
 
 	proxyCmd.AddCommand(sidecarCmd)
 	proxyCmd.AddCommand(ingressCmd)

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
@@ -104,11 +105,11 @@ func Generate(context *ProxyContext) *Config {
 			Clusters: clusters,
 			SDS: &SDS{
 				Cluster:        buildDiscoveryCluster(mesh.DiscoveryAddress, "sds"),
-				RefreshDelayMs: 1000,
+				RefreshDelayMs: (int)(mesh.DiscoveryRefreshDelay / time.Millisecond),
 			},
 			CDS: &CDS{
 				Cluster:        buildDiscoveryCluster(mesh.DiscoveryAddress, "cds"),
-				RefreshDelayMs: 1000,
+				RefreshDelayMs: (int)(mesh.DiscoveryRefreshDelay / time.Millisecond),
 			},
 		},
 	}
@@ -162,7 +163,7 @@ func buildHTTPListener(mesh *MeshConfig, routeConfig *HTTPRouteConfig, ip string
 		config.RDS = &RDS{
 			Cluster:         RDSName,
 			RouteConfigName: fmt.Sprintf("%d", port),
-			RefreshDelayMs:  1000,
+			RefreshDelayMs:  (int)(mesh.DiscoveryRefreshDelay / time.Millisecond),
 		}
 	} else {
 		config.RouteConfig = routeConfig

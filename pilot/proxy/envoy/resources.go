@@ -16,6 +16,7 @@ package envoy
 
 import (
 	"sort"
+	"time"
 
 	"istio.io/manager/model"
 )
@@ -63,6 +64,10 @@ type MeshConfig struct {
 	// sends its IP address, the RDS can compute routes that are relative to the
 	// service instances located at that IP address.
 	IstioServiceCluster string
+
+	// DiscoveryRefreshDelay is the average delay Envoy uses between
+	// fetches to the SDS/CDS/RDS APIs.
+	DiscoveryRefreshDelay time.Duration
 }
 
 var (
@@ -79,6 +84,7 @@ var (
 		DrainTimeSeconds:          30,
 		ParentShutdownTimeSeconds: 45,
 		IstioServiceCluster:       "istio-proxy",
+		DiscoveryRefreshDelay:     1000 * time.Millisecond,
 	}
 )
 
