@@ -220,9 +220,9 @@ func deploy(name, svcName, dType, port1, port2, port3, port4, version string, in
 	writer := bufio.NewWriter(f)
 	if injectProxy {
 		p := &inject.Params{
-			InitImage:        fmt.Sprintf("%s/init:%s", params.hub, params.tag),
-			RuntimeImage:     fmt.Sprintf("%s/runtime:%s", params.hub, params.tag),
-			RuntimeVerbosity: params.verbosity,
+			InitImage:        inject.InitImageName(params.hub, params.tag),
+			ProxyImage:       inject.ProxyImageName(params.hub, params.tag),
+			Verbosity:        params.verbosity,
 			ManagerAddr:      inject.DefaultManagerAddr,
 			MixerAddr:        inject.DefaultMixerAddr,
 			SidecarProxyUID:  inject.DefaultSidecarProxyUID,

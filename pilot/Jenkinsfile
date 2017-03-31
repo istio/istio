@@ -71,13 +71,13 @@ def postsubmit(gitUtils, bazel, utils) {
       utils.publishCodeCoverage('MANAGER_CODECOV_TOKEN')
     }
     stage('Docker Push') {
-      def images = 'init,init_debug,app,app_debug,runtime,runtime_debug'
+      def images = 'init,init_debug,app,app_debug,proxy,proxy_debug,manager,manager_debug'
       def tags = "${gitUtils.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
       utils.publishDockerImages(images, tags)
     }
     stage('Integration Tests') {
       timeout(30) {
-        sh('bin/e2e.sh -count 10 -debug -tag alpha' + gitUtils.GIT_SHA + ' -v 2')
+        sh('bin/e2e.sh -count 10 -debug -tag debug' + gitUtils.GIT_SHA + ' -v 2')
       }
     }
   }

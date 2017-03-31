@@ -26,11 +26,11 @@ import (
 func TestImageName(t *testing.T) {
 	want := "docker.io/istio/init:latest"
 	if got := InitImageName("docker.io/istio", "latest"); got != want {
-		t.Errorf("InitImage() failed: got %q want %q", got, want)
+		t.Errorf("InitImageName() failed: got %q want %q", got, want)
 	}
-	want = "docker.io/istio/runtime:latest"
-	if got := RuntimeImageName("docker.io/istio", "latest"); got != want {
-		t.Errorf("InitImage() failed: got %q want %q", got, want)
+	want = "docker.io/istio/proxy:latest"
+	if got := ProxyImageName("docker.io/istio", "latest"); got != want {
+		t.Errorf("ProxyImageName() failed: got %q want %q", got, want)
 	}
 }
 
@@ -82,8 +82,8 @@ func TestIntoResourceFile(t *testing.T) {
 	for _, c := range cases {
 		params := Params{
 			InitImage:        InitImageName(DefaultHub, unitTestTag),
-			RuntimeImage:     RuntimeImageName(DefaultHub, unitTestTag),
-			RuntimeVerbosity: DefaultRuntimeVerbosity,
+			ProxyImage:       ProxyImageName(DefaultHub, unitTestTag),
+			Verbosity:        DefaultVerbosity,
 			ManagerAddr:      DefaultManagerAddr,
 			MixerAddr:        DefaultMixerAddr,
 			SidecarProxyUID:  DefaultSidecarProxyUID,

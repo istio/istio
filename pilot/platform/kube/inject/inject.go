@@ -43,7 +43,7 @@ const (
 	DefaultMixerAddr        = "istio-mixer:9091"
 	DefaultSidecarProxyUID  = int64(1337)
 	DefaultSidecarProxyPort = 15001
-	DefaultRuntimeVerbosity = 2
+	DefaultVerbosity        = 2
 )
 
 const (
@@ -51,7 +51,7 @@ const (
 	istioSidecarAnnotationSidecarValue = "injected"
 	istioSidecarAnnotationVersionKey   = "alpha.istio.io/version"
 	initContainerName                  = "init"
-	runtimeContainerName               = "proxy"
+	proxyContainerName                 = "proxy"
 	enableCoreDumpContainerName        = "enable-core-dump"
 	enableCoreDumpImage                = "alpine"
 )
@@ -60,16 +60,16 @@ const (
 // init image given a docker hub and tag.
 func InitImageName(hub, tag string) string { return hub + "/init:" + tag }
 
-// RuntimeImageName returns the fully qualified image name for the istio
-// runtime image given a docker hub and tag.
-func RuntimeImageName(hub, tag string) string { return hub + "/runtime:" + tag }
+// ProxyImageName returns the fully qualified image name for the istio
+// proxy image given a docker hub and tag.
+func ProxyImageName(hub, tag string) string { return hub + "/proxy:" + tag }
 
 // Params describes configurable parameters for injecting istio proxy
 // into kubernetes resource.
 type Params struct {
 	InitImage        string
-	RuntimeImage     string
-	RuntimeVerbosity int
+	ProxyImage       string
+	Verbosity        int
 	ManagerAddr      string
 	MixerAddr        string
 	SidecarProxyUID  int64
@@ -139,15 +139,15 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 	// sidecar proxy container
 	t.Spec.Containers = append(t.Spec.Containers,
 		v1.Container{
-			Name:  runtimeContainerName,
-			Image: p.RuntimeImage,
+			Name:  proxyContainerName,
+			Image: p.ProxyImage,
 			Args: []string{
 				"proxy",
 				"sidecar",
 				"-s", p.ManagerAddr,
 				"-m", p.MixerAddr,
 				"-n", "$(POD_NAMESPACE)",
-				"-v", strconv.Itoa(p.RuntimeVerbosity),
+				"-v", strconv.Itoa(p.Verbosity),
 			},
 			Env: []v1.EnvVar{{
 				Name: "POD_NAME",
@@ -180,7 +180,7 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 	return nil
 }
 
-// IntoResourceFile injects the istio runtime into the specified
+// IntoResourceFile injects the istio proxy into the specified
 // kubernetes YAML file.
 func IntoResourceFile(p *Params, in io.Reader, out io.Writer) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))

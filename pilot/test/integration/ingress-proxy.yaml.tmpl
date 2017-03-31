@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: {{.hub}}/runtime:{{.tag}}
+        image: {{.hub}}/proxy:{{.tag}}
         args: ["proxy", "ingress", "-s", "istio-manager:8080", "-v", "2", "-n", "{{.namespace}}", "--secret", "ingress"]
         imagePullPolicy: Always
         ports:

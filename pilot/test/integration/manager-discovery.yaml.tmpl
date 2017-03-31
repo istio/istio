@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
       - name: manager
-        image: {{.hub}}/runtime:{{.tag}}
+        image: {{.hub}}/manager:{{.tag}}
         imagePullPolicy: Always
         args: ["discovery", "-v", "{{.verbosity}}", "-n", "{{.namespace}}", "-m", "mixer:9091"]
         ports:

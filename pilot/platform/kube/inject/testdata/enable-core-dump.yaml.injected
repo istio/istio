@@ -50,7 +50,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        image: docker.io/istio/runtime:unittest
+        image: docker.io/istio/proxy:unittest
         imagePullPolicy: Always
         name: proxy
         resources: {}

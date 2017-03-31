@@ -4,7 +4,7 @@ load("//docker:manager_docker.bzl", "manager_docker_build")
 # Use "manual" target tag to skip rules in the wildcard expansion
 
 pkg_tar(
-    name = "manager",
+    name = "manager_tar",
     extension = "tar.gz",
     files = [
         "//cmd/manager",
@@ -15,7 +15,7 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "test",
+    name = "app_tar",
     extension = "tar.gz",
     files = [
         "//test/client",
@@ -27,7 +27,7 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "config",
+    name = "config_tar",
     extension = "tar.gz",
     files = ["envoy"],
     mode = "0666",
@@ -37,7 +37,7 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "prepare_proxy",
+    name = "prepare_proxy_tar",
     extension = "tar.gz",
     files = [
         "prepare_proxy.sh",
@@ -66,21 +66,21 @@ manager_docker_build(
     ],
     repository = "istio",
     tags = ["manual"],
-    tars = [":prepare_proxy"],
+    tars = [":prepare_proxy_tar"],
 )
 
 manager_docker_build(
     entrypoint = ["/usr/local/bin/manager"],
     images = [
         {
-            "name": "runtime",
+            "name": "proxy",
             "base": "@docker_ubuntu//:xenial",
             "tars": [
                 "@istio_proxy//file",
             ],
         },
         {
-            "name": "runtime_debug",
+            "name": "proxy_debug",
             "base": "@ubuntu_xenial_debug//file",
             "tars": [
                 "@istio_proxy_debug//file",
@@ -90,11 +90,27 @@ manager_docker_build(
     repository = "istio",
     tags = ["manual"],
     tars = [
-        ":manager",
-        ":config",
+        ":manager_tar",
+        ":config_tar",
     ],
 )
 
+manager_docker_build(
+    entrypoint = ["/usr/local/bin/manager"],
+    images = [
+        {
+            "name": "manager",
+            "base": "@docker_ubuntu//:xenial",
+        },
+        {
+            "name": "manager_debug",
+            "base": "@ubuntu_xenial_debug//file",
+        },
+    ],
+    repository = "istio",
+    tags = ["manual"],
+    tars = [":manager_tar"],
+)
 manager_docker_build(
     entrypoint = ["/bin/server"],
     images = [
@@ -109,5 +125,5 @@ manager_docker_build(
     ],
     repository = "istio",
     tags = ["manual"],
-    tars = [":test"],
+    tars = [":app_tar"],
 )
