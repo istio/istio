@@ -333,7 +333,7 @@ func TestAttributeManager(t *testing.T) {
 	defer at.Done()
 
 	for i, c := range cases {
-		ab, err := at.ApplyRequestAttributes(&c.attrs)
+		ab, err := at.ApplyProto(&c.attrs)
 		if (err == nil) != c.result {
 			if c.result {
 				t.Errorf("Expected ApplyRequestAttributes to succeed but it returned %v for test case %d", err, i)

@@ -14,6 +14,7 @@ go_library(
     visibility = ["//cmd:__subpackages__"],
     deps = [
         "//cmd/shared:go_default_library",
+        "//pkg/attribute:go_default_library",
         "//pkg/tracing:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_golang_glog//:go_default_library",

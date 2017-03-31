@@ -46,7 +46,7 @@ func TestAttributeHandling(t *testing.T) {
 	tracker := attribute.NewManager().NewTracker()
 
 	var b attribute.Bag
-	if b, err = tracker.ApplyRequestAttributes(a); err != nil {
+	if b, err = tracker.ApplyProto(a); err != nil {
 		t.Errorf("Expected to start request, got failure %v", err)
 	}
 

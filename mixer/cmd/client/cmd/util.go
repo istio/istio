@@ -15,10 +15,13 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
@@ -26,6 +29,8 @@ import (
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/cmd/shared"
+	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/tracing"
 )
 
@@ -111,45 +116,41 @@ func parseStringMap(s string) (interface{}, error) {
 		v := pair[colon+1:]
 		m[k] = v
 	}
+
 	return m, nil
 }
 
-// add to dictionary
-func add2Dict(dictionary map[int32]string, s string) int32 {
-	// linear search to see if this string is already in the dictionary
-	for k, v := range dictionary {
-		if v == s {
-			return k
-		}
+func parseAny(s string) (interface{}, error) {
+	// auto-sense the type of attributes based on being able to parse the value
+	if val, err := parseInt64(s); err == nil {
+		return val, nil
+	} else if val, err := parseFloat64(s); err == nil {
+		return val, nil
+	} else if val, err := parseBool(s); err == nil {
+		return val, nil
+	} else if val, err := parseTime(s); err == nil {
+		return val, nil
+	} else if val, err := parseDuration(s); err == nil {
+		return val, nil
+	} else if val, err := parseBytes(s); err == nil {
+		return val, nil
+	} else if val, err := parseStringMap(s); err == nil {
+		return val, nil
 	}
-
-	index := int32(len(dictionary))
-	dictionary[index] = s
-	return index
-}
-
-func makeStringMap(dictionary map[int32]string, m map[string]string) mixerpb.StringMap {
-	sm := mixerpb.StringMap{Map: make(map[int32]string)}
-
-	for k, v := range m {
-		sm.Map[add2Dict(dictionary, k)] = v
-	}
-
-	return sm
+	return s, nil
 }
 
 type convertFn func(string) (interface{}, error)
 
-func process(dictionary map[int32]string, s string, f convertFn) (map[int32]interface{}, error) {
-	m := make(map[int32]interface{})
+func process(b *attribute.MutableBag, s string, f convertFn) error {
 	if len(s) > 0 {
 		for _, seg := range strings.Split(s, ",") {
 			eq := strings.Index(seg, "=")
 			if eq < 0 {
-				return nil, fmt.Errorf("attribute value %v does not include an = sign", seg)
+				return fmt.Errorf("attribute value %v does not include an = sign", seg)
 			}
 			if eq == 0 {
-				return nil, fmt.Errorf("attribute value %v does not contain a valid name", seg)
+				return fmt.Errorf("attribute value %v does not contain a valid name", seg)
 			}
 			name := seg[0:eq]
 			value := seg[eq+1:]
@@ -157,114 +158,59 @@ func process(dictionary map[int32]string, s string, f convertFn) (map[int32]inte
 			// convert
 			nv, err := f(value)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			// add to results
-			m[add2Dict(dictionary, name)] = nv
+			b.Set(name, nv)
 		}
 	}
 
-	return m, nil
+	return nil
 }
 
 func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
-	attrs := mixerpb.Attributes{}
-	attrs.Dictionary = make(map[int32]string)
-	attrs.StringAttributes = make(map[int32]string)
-	attrs.Int64Attributes = make(map[int32]int64)
-	attrs.DoubleAttributes = make(map[int32]float64)
-	attrs.BoolAttributes = make(map[int32]bool)
-	attrs.TimestampAttributes = make(map[int32]time.Time)
-	attrs.DurationAttributes = make(map[int32]time.Duration)
-	attrs.BytesAttributes = make(map[int32][]uint8)
-	attrs.StringMapAttributes = make(map[int32]mixerpb.StringMap)
+	b := attribute.GetMutableBag(nil)
 
-	// the following boilerplate would be more succinct with generics...
-
-	var m map[int32]interface{}
-	var err error
-
-	if m, err = process(attrs.Dictionary, rootArgs.stringAttributes, parseString); err != nil {
+	if err := process(b, rootArgs.stringAttributes, parseString); err != nil {
 		return nil, err
 	}
-	for k, v := range m {
-		attrs.StringAttributes[k] = v.(string)
-	}
 
-	if m, err = process(attrs.Dictionary, rootArgs.int64Attributes, parseInt64); err != nil {
+	if err := process(b, rootArgs.int64Attributes, parseInt64); err != nil {
 		return nil, err
 	}
-	for k, v := range m {
-		attrs.Int64Attributes[k] = v.(int64)
-	}
 
-	if m, err = process(attrs.Dictionary, rootArgs.doubleAttributes, parseFloat64); err != nil {
+	if err := process(b, rootArgs.doubleAttributes, parseFloat64); err != nil {
 		return nil, err
 	}
-	for k, v := range m {
-		attrs.DoubleAttributes[k] = v.(float64)
-	}
 
-	if m, err = process(attrs.Dictionary, rootArgs.boolAttributes, parseBool); err != nil {
+	if err := process(b, rootArgs.boolAttributes, parseBool); err != nil {
 		return nil, err
 	}
-	for k, v := range m {
-		attrs.BoolAttributes[k] = v.(bool)
-	}
 
-	if m, err = process(attrs.Dictionary, rootArgs.timestampAttributes, parseTime); err != nil {
+	if err := process(b, rootArgs.timestampAttributes, parseTime); err != nil {
 		return nil, err
 	}
-	for k, v := range m {
-		attrs.TimestampAttributes[k] = v.(time.Time)
-	}
 
-	if m, err = process(attrs.Dictionary, rootArgs.durationAttributes, parseDuration); err != nil {
+	if err := process(b, rootArgs.durationAttributes, parseDuration); err != nil {
 		return nil, err
 	}
-	for k, v := range m {
-		attrs.DurationAttributes[k] = v.(time.Duration)
-	}
 
-	if m, err = process(attrs.Dictionary, rootArgs.bytesAttributes, parseBytes); err != nil {
+	if err := process(b, rootArgs.bytesAttributes, parseBytes); err != nil {
 		return nil, err
 	}
-	for k, v := range m {
-		attrs.BytesAttributes[k] = v.([]uint8)
-	}
 
-	if m, err = process(attrs.Dictionary, rootArgs.stringMapAttributes, parseStringMap); err != nil {
+	if err := process(b, rootArgs.stringMapAttributes, parseStringMap); err != nil {
 		return nil, err
 	}
-	for k, v := range m {
-		attrs.StringMapAttributes[k] = makeStringMap(attrs.Dictionary, v.(map[string]string))
-	}
 
-	if m, err = process(attrs.Dictionary, rootArgs.attributes, parseString); err != nil {
+	if err := process(b, rootArgs.attributes, parseAny); err != nil {
 		return nil, err
 	}
-	for k, v := range m {
-		s := v.(string)
 
-		// auto-sense the type of attributes based on being able to parse the value
-		if val, err := parseInt64(s); err == nil {
-			attrs.Int64Attributes[k] = val.(int64)
-		} else if val, err := parseFloat64(s); err == nil {
-			attrs.DoubleAttributes[k] = val.(float64)
-		} else if val, err := parseBool(s); err == nil {
-			attrs.BoolAttributes[k] = val.(bool)
-		} else if val, err := parseTime(s); err == nil {
-			attrs.TimestampAttributes[k] = val.(time.Time)
-		} else if val, err := parseDuration(s); err == nil {
-			attrs.DurationAttributes[k] = val.(time.Duration)
-		} else if val, err := parseBytes(s); err == nil {
-			attrs.BytesAttributes[k] = val.([]uint8)
-		} else if val, err := parseStringMap(s); err == nil {
-			attrs.StringMapAttributes[k] = makeStringMap(attrs.Dictionary, val.(map[string]string))
-		} else {
-			attrs.StringAttributes[k] = s
-		}
+	var attrs mixerpb.Attributes
+	if err := attribute.NewManager().NewTracker().ApplyBag(b, 0, &attrs); err != nil {
+		return nil, err
 	}
 
 	return &attrs, nil
@@ -281,4 +227,35 @@ func decodeStatus(status rpc.Status) string {
 	}
 
 	return result
+}
+
+func dumpAttributes(printf, fatalf shared.FormatFn, attrs *mixerpb.Attributes) {
+	if attrs == nil {
+		return
+	}
+
+	b, err := attribute.NewManager().NewTracker().ApplyProto(attrs)
+	if err != nil {
+		fatalf(fmt.Sprintf("  Unable to decode returned attributes: %v", err))
+	}
+
+	names := b.Names()
+	if len(names) == 0 {
+		return
+	}
+
+	sort.Strings(names)
+
+	buf := bytes.Buffer{}
+	tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
+
+	fmt.Fprint(tw, "  Attribute\tType\tValue\n")
+
+	for _, name := range names {
+		v, _ := b.Get(name)
+		fmt.Fprintf(tw, "  %s\t%T\t%v\n", name, v, v)
+	}
+
+	_ = tw.Flush()
+	printf("%s", buf.String())
 }

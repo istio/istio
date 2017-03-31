@@ -57,7 +57,7 @@ func TestBag(t *testing.T) {
 	at := am.NewTracker()
 	defer at.Done()
 
-	ab, err := at.ApplyRequestAttributes(&attrs)
+	ab, err := at.ApplyProto(&attrs)
 	if err != nil {
 		t.Errorf("Unable to start request: %v", err)
 	}
@@ -181,7 +181,7 @@ func TestBadStringMapKey(t *testing.T) {
 	at := am.NewTracker()
 	defer at.Done()
 
-	_, err := at.ApplyRequestAttributes(&attr)
+	_, err := at.ApplyProto(&attr)
 	if err == nil {
 		t.Error("Successfully updated attributes, expected an error")
 	}

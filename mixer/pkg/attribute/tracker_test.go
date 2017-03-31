@@ -66,7 +66,7 @@ func BenchmarkTracker(b *testing.B) {
 		t := am.NewTracker()
 
 		for _, a := range attrs {
-			b, _ := t.ApplyRequestAttributes(&a)
+			b, _ := t.ApplyProto(&a)
 
 			_, _ = b.Get("a")
 		}
@@ -106,31 +106,86 @@ func TestTracker_ApplyRequestAttributes(t *testing.T) {
 	}
 
 	tracker := NewManager().NewTracker().(*tracker)
-	_, err := tracker.ApplyRequestAttributes(&attr1)
+	b1, err := tracker.ApplyProto(&attr1)
 	if err != nil {
 		t.Errorf("Expecting success, got %v", err)
 	}
 
-	oldDict := tracker.currentRequestDictionary
-	oldBag := CopyBag(tracker.requestContexts[0])
+	// make sure round-tripping works properly
+	var a mixerpb.Attributes
+	if err = NewManager().NewTracker().ApplyBag(b1, 0, &a); err != nil {
+		t.Errorf("Expecting success, got %v", err)
+	}
+	b2, err := NewManager().NewTracker().ApplyProto(&a)
+	if err != nil {
+		t.Errorf("Expecting success, got %v", err)
+	}
+	if !compareBags(b1, b2) {
+		t.Error("Expecting attributes to roundtrip, they didn't")
+	}
 
-	_, err = tracker.ApplyRequestAttributes(&attr2)
+	oldDict := tracker.currentDictionary
+	oldBag := CopyBag(tracker.contexts[0])
+
+	_, err = tracker.ApplyProto(&attr2)
 	if err == nil {
 		t.Error("Expecting failure, got success")
 	}
 
 	// make sure nothing has changed due to the second failed attribute update
-	if !compareDictionaries(oldDict, tracker.currentRequestDictionary) {
+	if !compareDictionaries(oldDict, tracker.currentDictionary) {
 		t.Error("Expected dictionaries to be consistent, they're different")
 	}
 
-	if !compareBags(oldBag, tracker.requestContexts[0]) {
+	if !compareBags(oldBag, tracker.contexts[0]) {
 		t.Error("Expecting bags to be consistent, they're different")
 	}
 
 	cp := CopyBag(oldBag)
 	if !compareBags(oldBag, cp) {
 		t.Error("Expecting copied bag to match original")
+	}
+}
+
+func TestTracker_GetResponseAttributes(t *testing.T) {
+	tracker := NewManager().NewTracker()
+
+	b := GetMutableBag(nil)
+	b.Set("A", "B")
+	b.Set("E", []byte{0, 1})
+	b.Set("F", map[string]string{"X": "Y"})
+	checkRoundtrip(t, tracker, b)
+
+	b = GetMutableBag(nil)
+	b.Set("A", "B")
+	b.Set("C", "D")
+	b.Set("E", []byte{2, 3})
+	b.Set("F", map[string]string{"X": "Z"})
+	checkRoundtrip(t, tracker, b)
+
+	b = GetMutableBag(nil)
+	b.Set("E", []byte{2, 3, 4})
+	b.Set("F", map[string]string{"X": "Y", "Z": "ZZ"})
+	checkRoundtrip(t, tracker, b)
+
+	b = GetMutableBag(nil)
+	checkRoundtrip(t, tracker, b)
+
+	tracker.Done()
+}
+
+func checkRoundtrip(t *testing.T, tracker Tracker, b *MutableBag) {
+	var attrs mixerpb.Attributes
+	if err := tracker.ApplyBag(b, 0, &attrs); err != nil {
+		t.Errorf("Expecting success, got %v", err)
+	}
+
+	o, err := tracker.ApplyProto(&attrs)
+	if err != nil {
+		t.Errorf("Expecting success, got %v", err)
+	}
+	if !compareBags(b, o) {
+		t.Error("Expecting bags to match, they don't")
 	}
 }
 
@@ -147,69 +202,21 @@ func compareBags(b1 Bag, b2 Bag) bool {
 			return false
 		}
 
-		switch t1 := v1.(type) {
-		case string:
-			t2, ok := v2.(string)
-			if !ok || t1 != t2 {
-				return false
-			}
-		case int64:
-			t2, ok := v2.(int64)
-			if !ok || t1 != t2 {
-				return false
-			}
-		case float64:
-			t2, ok := v2.(float64)
-			if !ok || t1 != t2 {
-				return false
-			}
-		case bool:
-			t2, ok := v2.(bool)
-			if !ok || t1 != t2 {
-				return false
-			}
-		case time.Time:
-			t2, ok := v2.(time.Time)
-			if !ok || t1 != t2 {
-				return false
-			}
-		case time.Duration:
-			t2, ok := v2.(time.Duration)
-			if !ok || t1 != t2 {
-				return false
-			}
-		case []byte:
-			t2, ok := v2.([]byte)
-			if !ok {
-				return false
-			}
-
-			if len(t1) != len(t2) {
-				return false
-			}
-
-			for i := 0; i < len(t1); i++ {
-				if t1[i] != t2[i] {
-					return false
-				}
-			}
-		case map[string]string:
-			t2, ok := v2.(map[string]string)
-			if !ok {
-				return false
-			}
-
-			if len(t1) != len(t2) {
-				return false
-			}
-
-			for k, v := range t1 {
-				if v != t2[k] {
-					return false
-				}
-			}
+		if same, _ := compareAttributeValues(v1, v2); !same {
+			return false
 		}
 	}
 
 	return true
+}
+
+func TestTracker_BadValue(t *testing.T) {
+	j := 0
+	same, err := compareAttributeValues(&j, &j)
+	if same {
+		t.Error("Expecting false, got true")
+	}
+	if err == nil {
+		t.Error("Expected error, got success")
+	}
 }
