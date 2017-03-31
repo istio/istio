@@ -225,3 +225,28 @@ func TestStartTwiceStop(t *testing.T) {
 	a.ScheduleConfigUpdate(desired2)
 	<-stop
 }
+
+// TestRecovery tests that recovery is applied once
+func TestRecovery(t *testing.T) {
+	stop := make(chan struct{})
+	desired := "config"
+	failed := false
+	start := func(config interface{}, epoch int) error {
+		if epoch == 0 && !failed {
+			failed = true
+			return errors.New("Cause retry")
+		}
+		if epoch > 0 {
+			t.Errorf("Should not reconcile after success")
+		}
+		<-stop
+		return nil
+	}
+	a := NewAgent(start, func(_ int) {}, 10, time.Millisecond)
+	go a.Run(stop)
+	a.ScheduleConfigUpdate(desired)
+
+	// make sure we don't try to reconcile twice
+	<-time.After(100 * time.Millisecond)
+	close(stop)
+}
