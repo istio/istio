@@ -48,13 +48,63 @@
 syntax = "proto3";
 
 import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
+
 
 package istio.proxy.v1alpha.config;
 option go_package = "config";
 
-///@exclude Proxy level global configurations go here
+// ProxyMeshConfig defines variables shared by all proxies in the Istio
+// service mesh.
 message ProxyMeshConfig {
+  // Address of the discovery service exposing SDS, CDS, RDS (e.g.
+  // "manager:8080")
+  string discovery_address = 1;
+
+  // Address of the mixer service (e.g. "mixer:9090")
+  string mixer_address = 2;
+
+  // Port opened by the proxy for the traffic capture
+  int32 proxy_listen_port = 3;
+
+  // Port opened by the proxy for the administrative interface
+  int32 proxy_admin_port = 4;
+
+  // Duration of the grace period to drain connections from the parent proxy
+  // instance
+  google.protobuf.Duration drain_duration = 5;
+
+  // Duration to wait before shutting down the parent proxy instance
+  google.protobuf.Duration parent_shutdown_duration = 6;
+
+  // IstioServiceCluster defines the name for the service_cluster that is
+  // shared by all proxy instances. Since Istio does not assign a local
+  // service/service version to each proxy instance, the name is same for all
+  // of them. This setting corresponds to "--service-cluster" flag in Envoy.
+  // The value for "--service-node"  is used by the proxy to identify its set
+  // of local instances to RDS for source-based routing. For example, if proxy
+  // sends its IP address, the RDS can compute routes that are relative to the
+  // service instances located at that IP address.
+  string istio_service_cluster = 7;
+
+  // Delay between polling requests to the discovery service
+  google.protobuf.Duration discovery_refresh_delay = 8;
+
+  // Connection timeout used by the Envoy clusters
+  google.protobuf.Duration connect_timeout = 9;
+
+  enum AuthPolicy {
+    NONE = 0;
+    MUTUAL_TLS = 1;
+  }
+
+  // Auth policy defines the global switch to control authentication for
+  // proxy-to-proxy communication
+  AuthPolicy auth_policy = 100;
+
+  // Path to the secrets used by the authentication policy
+  string AuthCertsPath = 101;
 }
 
 /// DestinationPolicy declares policies that determine how to handle traffic for a
