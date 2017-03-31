@@ -21,7 +21,7 @@ The end-to-end architecture of the application is shown below.
 ![Bookinfo app_noistio](example-app-bookinfo-noistio.png)
 
 This application is polyglot, i.e., the microservices are written in different languages.
- 
+
 > Note: The following instructions assume your current working directory
 > is the [istio repo root](https://github.com/istio/istio).
 
@@ -34,7 +34,7 @@ This application is polyglot, i.e., the microservices are written in different l
 
 2. Install the [istioctl](../../../doc/istioctl.md) CLI, which provides a
    convenient way to apply routing rules and policies for upstreams. The
-   `demos/` directory has three binaries: `istioctl-osx`, `istioctl-windows`,
+   `demos/` directory has three binaries: `istioctl-osx`, `istioctl-win.exe`,
    `istioctl-linux` targeted at Mac, Windows and Linux users
    respectively. Download the tool appropriate to your platform and
    rename the tool to `istioctl`. For example:
@@ -47,7 +47,7 @@ This application is polyglot, i.e., the microservices are written in different l
    > it is compatible with the manager image used in `demos/kubernetes/istio-manager.yaml`.
    > If in doubt, download again or add the `--tag` option when running `istioctl kube-inject`.
    > Invoke `istioctl kube-inject --help` for more details.
-   
+
 
 ## Running the Bookinfo Application
 
