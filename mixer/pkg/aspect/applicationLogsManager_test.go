@@ -17,6 +17,7 @@ package aspect
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"text/template"
 	"time"
@@ -31,6 +32,7 @@ import (
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
 	configpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
@@ -42,6 +44,26 @@ type (
 		params config.AspectParams
 		want   *applicationLogsExecutor
 	}
+)
+
+var (
+	validDesc = dpb.LogEntryDescriptor{
+		Name:          "logentry",
+		PayloadFormat: dpb.TEXT,
+		LogTemplate:   "{{.foo}}",
+		Labels: []*dpb.LabelDescriptor{
+			{Name: "label", ValueType: dpb.STRING},
+		},
+	}
+
+	applogsDF = test.NewDescriptorFinder(map[string]interface{}{
+		validDesc.Name: &validDesc,
+		// our attributes
+		"duration":  &dpb.AttributeDescriptor{Name: "duration", ValueType: dpb.DURATION},
+		"string":    &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
+		"int64":     &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
+		"timestamp": &dpb.AttributeDescriptor{Name: "timestamp", ValueType: dpb.TIMESTAMP},
+	})
 )
 
 func evalErrOnStr(s string) expr.Evaluator {
@@ -66,7 +88,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 		name:   "istio_log",
 		aspect: tl,
 		metadata: map[string]*logInfo{
-			"default": {
+			validDesc.Name: {
 				timeFormat: time.RFC3339,
 			},
 		},
@@ -76,16 +98,10 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 		name:   "istio_log",
 		aspect: tl,
 		metadata: map[string]*logInfo{
-			"default": {
+			validDesc.Name: {
 				timeFormat: "2006-Jan-02",
 			},
 		},
-	}
-
-	emptyExec := &applicationLogsExecutor{
-		name:     "istio_log",
-		aspect:   tl,
-		metadata: make(map[string]*logInfo),
 	}
 
 	newAspectShouldSucceed := []aspectTestCase{
@@ -93,7 +109,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 			LogName: "istio_log",
 			Logs: []*aconfig.ApplicationLogsParams_ApplicationLog{
 				{
-					DescriptorName: "default",
+					DescriptorName: validDesc.Name,
 					TimeFormat:     time.RFC3339,
 				},
 			}}, defaultExec},
@@ -101,18 +117,10 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 			LogName: "istio_log",
 			Logs: []*aconfig.ApplicationLogsParams_ApplicationLog{
 				{
-					DescriptorName: "default",
+					DescriptorName: validDesc.Name,
 					TimeFormat:     "2006-Jan-02",
 				},
 			}}, overrideExec},
-		// TODO: should this be an error? An aspect with no logInfo objects will never do any work.
-		{"no descriptors", &aconfig.ApplicationLogsParams{
-			LogName: "istio_log",
-			Logs: []*aconfig.ApplicationLogsParams_ApplicationLog{
-				{
-					DescriptorName: "no descriptor with this name",
-				},
-			}}, emptyExec},
 	}
 
 	m := newApplicationLogsManager()
@@ -123,7 +131,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 				Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 				Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{}},
 			}
-			asp, err := m.NewReportExecutor(&c, tl, atest.NewEnv(t), nil)
+			asp, err := m.NewReportExecutor(&c, tl, atest.NewEnv(t), applogsDF)
 			if err != nil {
 				t.Fatalf("NewExecutor(): should not have received error for %s (%v)", v.name, err)
 			}
@@ -140,12 +148,11 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 }
 
 func TestLoggerManager_NewLoggerFailures(t *testing.T) {
-
 	defaultCfg := &aconfig.ApplicationLogsParams{
 		LogName: "istio_log",
 		Logs: []*aconfig.ApplicationLogsParams_ApplicationLog{
 			{
-				DescriptorName: "default",
+				DescriptorName: validDesc.Name,
 				TimeFormat:     time.RFC3339,
 			},
 		},
@@ -173,8 +180,103 @@ func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 				},
 			}
 
-			if _, err := m.NewReportExecutor(cfg, v.adptr, atest.NewEnv(t), nil); err == nil {
+			if _, err := m.NewReportExecutor(cfg, v.adptr, atest.NewEnv(t), applogsDF); err == nil {
 				t.Fatalf("NewExecutor(): expected error for bad adapter (%T)", v.adptr)
+			}
+		})
+	}
+}
+
+func TestLoggerManager_DefaultConfig(t *testing.T) {
+	m := newApplicationLogsManager()
+	got := m.DefaultConfig()
+	want := &aconfig.ApplicationLogsParams{LogName: "istio_log"}
+	if !proto.Equal(got, want) {
+		t.Errorf("DefaultConfig(): got %v, wanted %v", got, want)
+	}
+}
+
+func TestLoggerManager_ValidateConfig(t *testing.T) {
+	wrap := func(name string, log *aconfig.ApplicationLogsParams_ApplicationLog) *aconfig.ApplicationLogsParams {
+		return &aconfig.ApplicationLogsParams{
+			LogName: name,
+			Logs:    []*aconfig.ApplicationLogsParams_ApplicationLog{log},
+		}
+	}
+
+	validDesc := dpb.LogEntryDescriptor{
+		Name:          "logentry",
+		PayloadFormat: dpb.TEXT,
+		LogTemplate:   "{{.foo}}",
+		Labels: []*dpb.LabelDescriptor{
+			{Name: "label", ValueType: dpb.STRING},
+		},
+	}
+	invalidDesc := validDesc
+	invalidDesc.Name = "invalid"
+	invalidDesc.LogTemplate = "{{.foo"
+
+	df := test.NewDescriptorFinder(map[string]interface{}{
+		validDesc.Name:   &validDesc,
+		invalidDesc.Name: &invalidDesc,
+		// our attributes
+		"duration":  &dpb.AttributeDescriptor{Name: "duration", ValueType: dpb.DURATION},
+		"string":    &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
+		"int64":     &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
+		"timestamp": &dpb.AttributeDescriptor{Name: "timestamp", ValueType: dpb.TIMESTAMP},
+	})
+
+	validLog := aconfig.ApplicationLogsParams_ApplicationLog{
+		DescriptorName:      validDesc.Name,
+		Severity:            "string",
+		Timestamp:           "timestamp",
+		Labels:              map[string]string{"label": "string"},
+		TemplateExpressions: map[string]string{"foo": "int64"},
+	}
+
+	noLogName := wrap("", &validLog)
+
+	missingDesc := validLog
+	missingDesc.DescriptorName = "not in the applogsDF"
+
+	invalidSeverity := validLog
+	invalidSeverity.Severity = "int64"
+
+	invalidTimestamp := validLog
+	invalidTimestamp.Timestamp = "duration"
+
+	invalidLabels := validLog
+	invalidLabels.Labels = map[string]string{
+		"not a label": "string", // correct type, but doesn't match desc's label name
+	}
+
+	invalidDescLog := validLog
+	invalidDescLog.DescriptorName = invalidDesc.Name
+
+	tests := []struct {
+		name      string
+		cfg       *aconfig.ApplicationLogsParams
+		applogsDF descriptor.Finder
+		err       string
+	}{
+		{"valid", wrap("valid", &validLog), df, ""},
+		{"empty config", &aconfig.ApplicationLogsParams{}, df, "LogName"},
+		{"no log name", noLogName, df, "LogName"},
+		{"missing desc", wrap("missing desc", &missingDesc), df, "could not find a descriptor"},
+		{"invalid severity", wrap("sev", &invalidSeverity), df, "Severity"},
+		{"invalid timestamp", wrap("ts", &invalidTimestamp), df, "Timestamp"},
+		{"invalid labels", wrap("labels", &invalidLabels), df, "Labels"},
+		{"invalid logtemplate", wrap("tmpl", &invalidDescLog), df, "LogDescriptor"},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			if err := (&applicationLogsManager{}).ValidateConfig(tt.cfg, expr.NewCEXLEvaluator(), tt.applogsDF); err != nil || tt.err != "" {
+				if tt.err == "" {
+					t.Fatalf("Foo = '%s', wanted no err", err.Error())
+				} else if !strings.Contains(err.Error(), tt.err) {
+					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, err.Error())
+				}
 			}
 		})
 	}
@@ -356,22 +458,6 @@ func TestLogExecutor_Close(t *testing.T) {
 	}
 	if !l.Closed {
 		t.Fatal("executor.Close() didn't call aspect.Close()")
-	}
-}
-
-func TestLoggerManager_DefaultConfig(t *testing.T) {
-	m := newApplicationLogsManager()
-	got := m.DefaultConfig()
-	want := &aconfig.ApplicationLogsParams{LogName: "istio_log"}
-	if !proto.Equal(got, want) {
-		t.Errorf("DefaultConfig(): got %v, wanted %v", got, want)
-	}
-}
-
-func TestLoggerManager_ValidateConfig(t *testing.T) {
-	m := newApplicationLogsManager()
-	if err := m.ValidateConfig(&ptypes.Empty{}, nil, nil); err != nil {
-		t.Errorf("ValidateConfig(): unexpected error: %v", err)
 	}
 }
 
