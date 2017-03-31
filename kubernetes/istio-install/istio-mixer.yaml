@@ -27,6 +27,20 @@ data:
         value_type: 1 # STRING
       - name: target.name
         value_type: 1 # STRING
+      - name: origin.ip
+        value_type: 6 # IP_ADDRESS
+      - name: origin.user
+        value_type: 1 # STRING
+      - name: request.time
+        value_type: 5 # TIMESTAMP
+      - name: request.method
+        value_type: 1 # STRING
+      - name: request.path
+        value_type: 1 # STRING
+      - name: request.scheme
+        value_type: 1 # STRING
+      - name: response.size
+        value_type: 2 # INT64
       - name: response.code
         value_type: 2 # INT64
       - name: response.latency
@@ -55,10 +69,18 @@ data:
         - name: response_code
           value_type: 2 # INT64
     quotas:
-    - name: RequestCount
-      max_amount: 5
-      expiration:
-        seconds: 1
+      - name: RequestCount
+        max_amount: 5
+        expiration:
+          seconds: 1
+    logs:
+      - name: common
+        display_name: Apache Common Log Format
+        log_template: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
+      - name: combined
+        display_name: Apache Combined Log Format
+        log_template: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}} {{or (.referer) "-"}} {{or (.user_agent) "-"}}'
+
   serviceconfig.yml: |-
     subject: namespace:ns
     revision: "2022"
@@ -84,6 +106,20 @@ data:
               source: source.name | "unknown"
               target: target.service | "unknown"
               response_code: response.http.code | 200
+      - kind: access-logs
+        params:
+          logName: "access_log"
+          log:
+            descriptor_name: "common"
+            templateExpressions:
+               originIp: origin.ip
+               sourceUser: origin.user
+               timestamp: request.time
+               method: request.method
+               url: request.path
+               protocol: request.scheme
+               responseCode: response.code
+               responseSize: response.size
 ---
 # Mixer
 apiVersion: v1

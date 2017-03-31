@@ -69,6 +69,7 @@ When an attribute is used in Istio, its name is given along with a value. The va
 type checking makes it possible for the Istio system to statically detect or prevent many configuration errors.
 
 # Standard Istio Attribute Vocabulary
+
 In a standard Istio deployment (using the Istio proxy), the system will produce the following set of attributes. This is considered the canonical attribute set for Istio.
 
 | Name | Type | Description | Kubernetes Example |
