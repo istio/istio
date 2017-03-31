@@ -58,7 +58,7 @@ func work(printf, fatalf shared.FormatFn, outputDir string) {
 		mixs.GetRootCmd(nil, nil, nil),
 	}
 
-	printf("Outputting Mixer CLI collateral files to %s\n", outputDir)
+	printf("Outputting Mixer CLI collateral files to %s", outputDir)
 	for _, r := range roots {
 		hdr := doc.GenManHeader{
 			Title:   "Istio Mixer",

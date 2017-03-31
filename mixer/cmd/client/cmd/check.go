@@ -72,7 +72,8 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 			fatalf("Failed to receive a response from Check RPC: %v", err)
 		}
 
-		printf("Check RPC returned %s\n", decodeStatus(response.Result))
+		printf("Check RPC returned %s", decodeStatus(response.Result))
+		dumpAttributes(printf, fatalf, response.AttributeUpdate)
 	}
 
 	if err = stream.CloseSend(); err != nil {

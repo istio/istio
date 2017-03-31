@@ -72,7 +72,8 @@ func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 			fatalf("Failed to receive a response from Report RPC: %v", err)
 		}
 
-		printf("Report RPC returned %s\n", decodeStatus(response.Result))
+		printf("Report RPC returned %s", decodeStatus(response.Result))
+		dumpAttributes(printf, fatalf, response.AttributeUpdate)
 	}
 
 	if err = stream.CloseSend(); err != nil {

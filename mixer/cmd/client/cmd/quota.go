@@ -92,10 +92,11 @@ func quota(rootArgs *rootArgs, printf, fatalf shared.FormatFn, name string, dedu
 			fatalf("Failed to receive a response from Quota RPC: %v", err)
 		}
 
-		printf("Quota RPC returned %s, amount %v, expiration %v\n",
+		printf("Quota RPC returned %s, amount %v, expiration %v",
 			decodeStatus(response.Result),
 			response.Amount,
 			response.Expiration)
+		dumpAttributes(printf, fatalf, response.AttributeUpdate)
 	}
 
 	if err = stream.CloseSend(); err != nil {
