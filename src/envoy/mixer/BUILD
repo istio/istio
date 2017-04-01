@@ -41,7 +41,7 @@ cc_library(
     deps = [
         ":string_map_proto",
         "//external:mixer_client_lib",
-        "@envoy_git//:envoy-common",
+        "@envoy//source/exe:envoy_common_lib",
     ],
     alwayslink = 1,
 )
@@ -49,10 +49,11 @@ cc_library(
 cc_binary(
     name = "envoy",
     linkstatic = 1,
+    linkopts = ["-lrt"],
     visibility = [":__subpackages__"],
     deps = [
         ":filter_lib",
-        "@envoy_git//:envoy-main",
+        "@envoy//source/exe:envoy_main_lib",
     ],
 )
 
