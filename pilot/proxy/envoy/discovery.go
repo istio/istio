@@ -17,6 +17,7 @@ package envoy
 import (
 	"fmt"
 	"net/http"
+	"net/http/pprof"
 	"strconv"
 
 	restful "github.com/emicklei/go-restful"
@@ -53,17 +54,33 @@ const (
 	RouteConfigName = "route-config-name"
 )
 
+// DiscoveryServiceOptions contains options for create a new discovery
+// service instance.
+type DiscoveryServiceOptions struct {
+	Services        model.ServiceDiscovery
+	Config          *model.IstioRegistry
+	Mesh            *MeshConfig
+	Port            int
+	EnableProfiling bool
+}
+
 // NewDiscoveryService creates an Envoy discovery service on a given port
-func NewDiscoveryService(services model.ServiceDiscovery, config *model.IstioRegistry,
-	mesh *MeshConfig, port int) *DiscoveryService {
+func NewDiscoveryService(o DiscoveryServiceOptions) *DiscoveryService {
 	out := &DiscoveryService{
-		services: services,
-		config:   config,
-		mesh:     mesh,
+		services: o.Services,
+		config:   o.Config,
+		mesh:     o.Mesh,
 	}
 	container := restful.NewContainer()
+	if o.EnableProfiling {
+		container.ServeMux.HandleFunc("/debug/pprof/", pprof.Index)
+		container.ServeMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		container.ServeMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		container.ServeMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		container.ServeMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
 	out.Register(container)
-	out.server = &http.Server{Addr: ":" + strconv.Itoa(port), Handler: container}
+	out.server = &http.Server{Addr: ":" + strconv.Itoa(o.Port), Handler: container}
 	return out
 }
 
