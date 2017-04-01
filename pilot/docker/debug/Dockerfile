@@ -13,7 +13,8 @@ RUN apt-get update && \
 	    dnsutils \
 	    netcat \
 	    tcpdump \
-	    net-tools
+	    net-tools \
+	    wrk
 
 ADD proxy-redirection-clear /usr/local/bin/proxy-redirection-clear
 ADD proxy-redirection-restore /usr/local/bin/proxy-redirection-restore
