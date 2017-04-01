@@ -29,8 +29,8 @@ import (
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/client-go/pkg/util/intstr"
 
+	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
-	proxyconfig "istio.io/manager/model/proxy/alphav1/config"
 	"istio.io/manager/test/mock"
 )
 

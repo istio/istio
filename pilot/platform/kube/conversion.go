@@ -31,8 +31,8 @@ import (
 	meta_v1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/util/intstr"
 
+	"istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
-	"istio.io/manager/model/proxy/alphav1/config"
 )
 
 const (

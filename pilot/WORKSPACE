@@ -276,12 +276,6 @@ new_go_repository(
     importpath = "k8s.io/client-go",
 )
 
-new_go_repository(
-    name = "com_github_golang_mock",
-    commit = "bd3c8e81be01eef76d4b503f5e687d2d1354d2d9",
-    importpath = "github.com/golang/mock",
-)
-
 ##
 ## Proxy build rules
 ##
@@ -342,4 +336,43 @@ http_file(
     name = "deb_libxtables",
     sha256 = "9a4140b0b599612af1006efeee1c6b98771b0bc8dcdcd0510218ef69d6652c7f",
     url = "http://mirrors.kernel.org/ubuntu/pool/main/i/iptables/libxtables11_1.6.0-2ubuntu3_amd64.deb",
+)
+
+##
+## Protobuf codegen rules
+##
+
+load("@io_bazel_rules_go//proto:go_proto_library.bzl", "go_proto_repositories")
+
+go_proto_repositories()
+
+new_git_repository(
+    name = "io_istio_api",
+    build_file_content = """
+load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
+load("@io_bazel_rules_go//proto:go_proto_library.bzl", "go_proto_library")
+package(default_visibility = ["//visibility:public"])
+go_prefix("istio.io/api/proxy/v1/config")
+go_proto_library(
+    name = "go_default_library",
+    srcs = ["proxy/v1/config/cfg.proto"],
+    deps = [
+        "@com_github_golang_protobuf//ptypes/any:go_default_library",
+        "@com_github_golang_protobuf//ptypes/duration:go_default_library",
+        "@com_github_golang_protobuf//ptypes/wrappers:go_default_library",
+    ],
+)
+    """,
+    commit = "38243f4aa912b38f63aba12e695afa669c34a0bf",  # Mar 31 2017
+    remote = "https://github.com/istio/api.git",
+)
+
+##
+## Mock codegen rules
+##
+
+new_go_repository(
+    name = "com_github_golang_mock",
+    commit = "bd3c8e81be01eef76d4b503f5e687d2d1354d2d9",
+    importpath = "github.com/golang/mock",
 )

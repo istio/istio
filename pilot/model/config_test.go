@@ -1,6 +1,3 @@
-// Keep this in sync with the `//model:genmock` build target.
-//go:generate mockgen -source config.go -destination mock_config_gen_test.go -package model
-
 // Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,7 +24,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 
-	proxyconfig "istio.io/manager/model/proxy/alphav1/config"
+	proxyconfig "istio.io/api/proxy/v1/config"
 )
 
 var (

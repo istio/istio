@@ -111,6 +111,7 @@ manager_docker_build(
     tags = ["manual"],
     tars = [":manager_tar"],
 )
+
 manager_docker_build(
     entrypoint = ["/bin/server"],
     images = [

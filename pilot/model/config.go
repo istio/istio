@@ -21,7 +21,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
-	proxyconfig "istio.io/manager/model/proxy/alphav1/config"
+	proxyconfig "istio.io/api/proxy/v1/config"
 )
 
 // Config Registry describes a set of platform agnostic APIs that must be

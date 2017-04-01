@@ -2,26 +2,18 @@
 
 (For Windows and Mac, we recommend using a Linux virtual machine and/or [Vagrant-specific build instructions](build-vagrant.md); Go code compiles on Mac but docker and proxy tests will fail on Mac)
 
-Install additional build dependencies before trying to build.
-
-    bin/install-prereqs.sh
-
 We are using [Bazel 0.4.4](https://github.com/bazelbuild/bazel/releases) as the main build system in Istio Manager. The following command builds all targets in Istio Manager:
 
     bazel build //...
 
 Bazel uses `BUILD` files to keep track of dependencies between sources.  If you
-add a new source file, change the imports, or add a data dependency, please run the following command
-to update all `BUILD` files:
+add a new source file or change the imports  please run the following command
+in the repository root to update all `BUILD` files:
 
-    gazelle -go_prefix "istio.io/manager" -mode fix -repo_root .
+    bin/gazelle
 
-[Gazelle tool](https://github.com/bazelbuild/rules_go/tree/master/go/tools/gazelle) to automatically generate `BUILD` files ships with Bazel and is located in Bazel workspace cache:
-
-    $HOME/.cache/bazel/_bazel_<username>/<somelongfoldername>/external/io_bazel_rules_go_repository_tools/bin/gazelle
-
-_Note_: If you cannot find the gazelle binary in the path mentioned above,
-try to update the mlocate database and run `locate gazelle`.
+Data dependencies such as the ones used by tests require manual declaration in
+the `BUILD` files.
 
 ## Go tooling compatibility
 

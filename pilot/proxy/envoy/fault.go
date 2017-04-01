@@ -18,7 +18,7 @@
 package envoy
 
 import (
-	proxyconfig "istio.io/manager/model/proxy/alphav1/config"
+	proxyconfig "istio.io/api/proxy/v1/config"
 )
 
 // buildFaultFilters builds a list of fault filters for the http route

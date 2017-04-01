@@ -24,8 +24,8 @@ import (
 
 	"github.com/golang/glog"
 
+	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
-	proxyconfig "istio.io/manager/model/proxy/alphav1/config"
 )
 
 const (

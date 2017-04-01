@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/glog"
 
-	"istio.io/manager/model/proxy/alphav1/config"
+	"istio.io/api/proxy/v1/config"
 )
 
 // TODO: test sorting, translation

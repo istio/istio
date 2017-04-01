@@ -23,7 +23,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	proxyconfig "istio.io/manager/model/proxy/alphav1/config"
+	proxyconfig "istio.io/api/proxy/v1/config"
 )
 
 const (
@@ -210,7 +210,7 @@ func ValidateRouteRule(msg proto.Message) error {
 	if !ok {
 		return fmt.Errorf("Cannot cast to routing rule")
 	}
-	if value.GetDestination() == "" {
+	if value.Destination == "" {
 		return fmt.Errorf("RouteRule must have a destination service")
 	}
 	return nil
@@ -228,7 +228,7 @@ func ValidateDestinationPolicy(msg proto.Message) error {
 	if !ok {
 		return fmt.Errorf("Cannot cast to destination policy")
 	}
-	if value.GetDestination() == "" {
+	if value.Destination == "" {
 		return fmt.Errorf("DestinationPolicy should have a valid service name in its destination field")
 	}
 	return nil

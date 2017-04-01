@@ -1,0 +1,12 @@
+#!/bin/bash
+set -ex
+
+if ! type gazelle > /dev/null; then
+  go get github.com/bazelbuild/rules_go/go/tools/gazelle/gazelle
+fi
+
+gazelle -go_prefix "istio.io/manager" -mode fix
+
+# rewrite istio.io/api dependencies due to a custom BUILD file in it
+find . -type f -name BUILD -print0 | xargs -0 \
+  sed -i 's/proxy\/v1\/config:go_default_library/:go_default_library/g'
