@@ -16,7 +16,12 @@ syntax = "proto3";
 
 package adapter.stdioLogger.config;
 
+import "gogoproto/gogo.proto";
+
 option go_package = "config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
 
 message Params {
 

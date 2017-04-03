@@ -17,10 +17,14 @@ syntax = "proto3";
 package adapter.memQuota.config;
 
 import "google/protobuf/duration.proto";
+import "gogoproto/gogo.proto";
 
 option go_package="config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
 
 message Params {
 	// Minimum number of seconds that deduplication is possible for a given operation.
-	google.protobuf.Duration min_deduplication_duration = 1;
+	google.protobuf.Duration min_deduplication_duration = 1 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 }

@@ -40,7 +40,7 @@ func TestAll(t *testing.T) {
 		t.Errorf("a.Close failed: %v", err)
 	}
 
-	a, err = b.NewDenialsAspect(nil, &config.Params{Error: &rpc.Status{Code: int32(rpc.INVALID_ARGUMENT)}})
+	a, err = b.NewDenialsAspect(nil, &config.Params{Error: rpc.Status{Code: int32(rpc.INVALID_ARGUMENT)}})
 	if err != nil {
 		t.Errorf("Unable to create aspect: %v", err)
 	}

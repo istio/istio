@@ -29,7 +29,7 @@ type (
 var (
 	name = "denyChecker"
 	desc = "Denies every check request"
-	conf = &config.Params{Error: &rpc.Status{Code: int32(rpc.FAILED_PRECONDITION)}}
+	conf = &config.Params{Error: rpc.Status{Code: int32(rpc.FAILED_PRECONDITION)}}
 )
 
 // Register records the builders exposed by this adapter.
@@ -46,7 +46,7 @@ func (builder) NewDenialsAspect(env adapter.Env, c adapter.Config) (adapter.Deni
 }
 
 func newDenyChecker(c *config.Params) (*denier, error) {
-	return &denier{status: *c.Error}, nil
+	return &denier{status: c.Error}, nil
 }
 
 func (d *denier) Close() error     { return nil }

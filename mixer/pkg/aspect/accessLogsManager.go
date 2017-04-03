@@ -96,7 +96,7 @@ func (accessLogsManager) Kind() config.Kind { return config.AccessLogsKind }
 func (accessLogsManager) DefaultConfig() config.AspectParams {
 	return &aconfig.AccessLogsParams{
 		LogName: "access_log",
-		Log: &aconfig.AccessLogsParams_AccessLog{
+		Log: aconfig.AccessLogsParams_AccessLog{
 			LogFormat: aconfig.COMMON,
 		},
 	}
@@ -104,11 +104,6 @@ func (accessLogsManager) DefaultConfig() config.AspectParams {
 
 func (accessLogsManager) ValidateConfig(c config.AspectParams, _ expr.Validator, _ descriptor.Finder) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.AccessLogsParams)
-	if cfg.Log == nil {
-		ce = ce.Appendf("Log", "an AccessLog entry must be provided")
-		// We can't do any more validation without a Log
-		return
-	}
 	if cfg.Log.LogFormat == aconfig.ACCESS_LOG_FORMAT_UNSPECIFIED {
 		ce = ce.Appendf("Log.LogFormat", "a log format must be provided")
 	}

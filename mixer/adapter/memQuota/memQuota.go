@@ -29,8 +29,6 @@ package memQuota
 import (
 	"time"
 
-	ptypes "github.com/gogo/protobuf/types"
-
 	"istio.io/mixer/adapter/memQuota/config"
 	"istio.io/mixer/adapter/memQuota/util"
 	"istio.io/mixer/pkg/adapter"
@@ -53,7 +51,7 @@ var (
 	name = "memQuota"
 	desc = "Simple volatile memory-based quotas."
 	conf = &config.Params{
-		MinDeduplicationDuration: &ptypes.Duration{Seconds: 1},
+		MinDeduplicationDuration: time.Duration(1) * time.Second,
 	}
 )
 
@@ -69,13 +67,8 @@ func newBuilder() builder {
 func (builder) ValidateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 	c := cfg.(*config.Params)
 
-	dedupWindow, err := ptypes.DurationFromProto(c.MinDeduplicationDuration)
-	if err != nil {
-		ce = ce.Append("MinDeduplicationDuration", err)
-		return
-	}
-	if dedupWindow <= 0 {
-		ce = ce.Appendf("MinDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", dedupWindow)
+	if c.MinDeduplicationDuration <= 0 {
+		ce = ce.Appendf("MinDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", c.MinDeduplicationDuration)
 	}
 	return
 }
@@ -86,9 +79,7 @@ func (builder) NewQuotasAspect(env adapter.Env, c adapter.Config, d map[string]*
 
 // newAspect returns a new aspect.
 func newAspect(env adapter.Env, c *config.Params) (adapter.QuotasAspect, error) {
-	dedupWindow, _ := ptypes.DurationFromProto(c.MinDeduplicationDuration)
-
-	return newAspectWithDedup(env, time.NewTicker(dedupWindow))
+	return newAspectWithDedup(env, time.NewTicker(c.MinDeduplicationDuration))
 }
 
 // newAspect returns a new aspect.

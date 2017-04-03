@@ -19,8 +19,6 @@ import (
 	"testing"
 	"time"
 
-	ptypes "github.com/gogo/protobuf/types"
-
 	"istio.io/mixer/adapter/memQuota/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
@@ -45,7 +43,7 @@ func TestAllocAndRelease(t *testing.T) {
 
 	b := newBuilder()
 	c := b.DefaultConfig().(*config.Params)
-	c.MinDeduplicationDuration = &ptypes.Duration{Seconds: 3600}
+	c.MinDeduplicationDuration = time.Duration(3600) * time.Second
 
 	a, err := b.NewQuotasAspect(test.NewEnv(t), c, definitions)
 	if err != nil {
@@ -232,12 +230,12 @@ func TestBadConfig(t *testing.T) {
 	b := newBuilder()
 	c := b.DefaultConfig().(*config.Params)
 
-	c.MinDeduplicationDuration = &ptypes.Duration{}
+	c.MinDeduplicationDuration = time.Duration(0)
 	if err := b.ValidateConfig(c); err == nil {
 		t.Error("Expecting failure, got success")
 	}
 
-	c.MinDeduplicationDuration = &ptypes.Duration{Seconds: 0x7fffffffffffffff, Nanos: -1}
+	c.MinDeduplicationDuration = time.Duration(-1)
 	if err := b.ValidateConfig(c); err == nil {
 		t.Error("Expecting failure, got success")
 	}
@@ -252,7 +250,7 @@ func TestReaper(t *testing.T) {
 
 	b := newBuilder()
 	c := b.DefaultConfig().(*config.Params)
-	c.MinDeduplicationDuration = &ptypes.Duration{Seconds: 3600}
+	c.MinDeduplicationDuration = time.Duration(3600) * time.Second
 
 	a, err := b.NewQuotasAspect(test.NewEnv(t), c, definitions)
 	if err != nil {

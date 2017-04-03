@@ -12,7 +12,7 @@ go_repositories()
 
 git_repository(
     name = "org_pubref_rules_protobuf",
-    commit = "d42e895387c658eda90276aea018056fcdcb30e4", # Mar 07 2017 (gogo* support)
+    commit = "9ede1dbc38f0b89ae6cd8e206a22dd93cc1d5637", # Mar 31 2017 (gogo* support)
     remote = "https://github.com/pubref/rules_protobuf",
 )
 
@@ -114,7 +114,7 @@ new_git_repository(
 
 new_go_repository(
     name = "org_golang_google_grpc",
-    commit = "708a7f9f3283aa2d4f6132d287d78683babe55c8", # Dec 5, 2016 (v1.0.5)
+    commit = "cdee119ee21e61eef7093a41ba148fa83585e143", # Mar 14, 2017 (v1.2.0)
     importpath = "google.golang.org/grpc",
 )
 

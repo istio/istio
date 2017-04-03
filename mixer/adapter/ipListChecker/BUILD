@@ -11,7 +11,6 @@ go_library(
         "//adapter/ipListChecker/config:go_default_library",
         "//pkg/adapter:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
-        "@com_github_gogo_protobuf//types:go_default_library",
     ],
 )
 

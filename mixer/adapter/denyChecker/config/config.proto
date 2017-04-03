@@ -16,11 +16,15 @@ syntax = "proto3";
 
 package adapter.denyChecker.config;
 
-option go_package="config";
-
+import "gogoproto/gogo.proto";
 import "google/rpc/status.proto";
+
+option go_package="config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
 
 message Params {
 	// The error to return when denying a request.
-	google.rpc.Status error = 1;
+	google.rpc.Status error = 1 [(gogoproto.nullable) = false];
 }

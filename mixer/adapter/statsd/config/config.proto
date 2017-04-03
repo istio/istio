@@ -16,9 +16,13 @@ syntax = "proto3";
 
 package adapter.statsd.config;
 
-option go_package = "config";
-
 import "google/protobuf/duration.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
 
 message Params {
     // Address of the statsd server, e.g. localhost:8125
@@ -29,7 +33,7 @@ message Params {
 
     // Flush Interval controls the maximum amount of time between sending metrics to the statsd collection server.
     // Metrics are reported when either flush_bytes is full or flush_interval time has elapsed since the last report.
-    google.protobuf.Duration flush_duration = 3;
+    google.protobuf.Duration flush_duration = 3 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 
     // Maximum UDP packet size to send; if not specified defaults to 512 bytes. If the statsd server is running on the
     // same (private) network 1432 bytes is recommended for better performance.

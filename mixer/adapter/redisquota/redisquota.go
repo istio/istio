@@ -19,8 +19,6 @@ package redisquota
 import (
 	"time"
 
-	ptypes "github.com/gogo/protobuf/types"
-
 	"istio.io/mixer/adapter/memQuota/util"
 	"istio.io/mixer/adapter/redisquota/config"
 	"istio.io/mixer/pkg/adapter"
@@ -40,7 +38,7 @@ var (
 	name = "redisQuota"
 	desc = "Redis-based quotas."
 	conf = &config.Params{
-		MinDeduplicationDuration: &ptypes.Duration{Seconds: 1},
+		MinDeduplicationDuration: time.Duration(1) * time.Second,
 		RedisServerUrl:           "localhost:6379",
 		SocketType:               "tcp",
 		ConnectionPoolSize:       10,
@@ -60,13 +58,8 @@ func newBuilder() builder {
 func (builder) ValidateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 	c := cfg.(*config.Params)
 
-	dedupWindow, err := ptypes.DurationFromProto(c.MinDeduplicationDuration)
-	if err != nil {
-		ce = ce.Append("MinDeduplicationDuration", err)
-		return
-	}
-	if dedupWindow <= 0 {
-		ce = ce.Appendf("MinDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", dedupWindow)
+	if c.MinDeduplicationDuration <= 0 {
+		ce = ce.Appendf("MinDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", c.MinDeduplicationDuration)
 	}
 
 	if c.ConnectionPoolSize < 0 {
@@ -83,9 +76,7 @@ func (builder) NewQuotasAspect(env adapter.Env, c adapter.Config, d map[string]*
 
 // newAspect returns a new aspect.
 func newAspect(env adapter.Env, c *config.Params) (adapter.QuotasAspect, error) {
-	dedupWindow, _ := ptypes.DurationFromProto(c.MinDeduplicationDuration)
-
-	return newAspectWithDedup(env, time.NewTicker(dedupWindow), c)
+	return newAspectWithDedup(env, time.NewTicker(c.MinDeduplicationDuration), c)
 }
 
 // newAspectWithDedup returns a new aspect.
