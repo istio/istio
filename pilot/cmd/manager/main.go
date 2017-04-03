@@ -20,15 +20,18 @@ import (
 	"time"
 
 	"istio.io/manager/cmd"
+	"istio.io/manager/cmd/version"
 	"istio.io/manager/model"
 	"istio.io/manager/platform/kube"
 	"istio.io/manager/proxy/envoy"
 
 	"github.com/golang/glog"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 )
 
 type args struct {
+	namespace                string
 	proxy                    envoy.MeshConfig
 	identity                 envoy.ProxyNode
 	sdsPort                  int
@@ -47,12 +50,30 @@ var (
 		proxy: *envoy.DefaultMeshConfig,
 	}
 
+	client *kube.Client
+
+	rootCmd = &cobra.Command{
+		Use:   "manager",
+		Short: "Istio Manager",
+		Long:  "Istio Manager provides management plane functionality to the Istio proxy mesh and Istio Mixer.",
+		PersistentPreRunE: func(*cobra.Command, []string) (err error) {
+			client, err = kube.NewClient("", model.IstioConfig)
+			if err != nil {
+				return multierror.Prefix(err, "failed to connect to Kubernetes API.")
+			}
+			if err = client.RegisterResources(); err != nil {
+				return multierror.Prefix(err, "failed to register Third-Party Resources.")
+			}
+			return
+		},
+	}
+
 	discoveryCmd = &cobra.Command{
 		Use:   "discovery",
 		Short: "Start Istio Manager discovery service",
 		RunE: func(c *cobra.Command, args []string) (err error) {
-			controller := kube.NewController(cmd.Client, kube.ControllerConfig{
-				Namespace:       cmd.RootFlags.Namespace,
+			controller := kube.NewController(client, kube.ControllerConfig{
+				Namespace:       flags.namespace,
 				ResyncPeriod:    resyncPeriod,
 				IngressSyncMode: kube.IngressOff,
 			})
@@ -84,8 +105,8 @@ var (
 		Short: "Istio Proxy sidecar agent",
 		RunE: func(c *cobra.Command, args []string) (err error) {
 			setFlagsFromEnv()
-			controller := kube.NewController(cmd.Client, kube.ControllerConfig{
-				Namespace:       cmd.RootFlags.Namespace,
+			controller := kube.NewController(client, kube.ControllerConfig{
+				Namespace:       flags.namespace,
 				ResyncPeriod:    resyncPeriod,
 				IngressSyncMode: kube.IngressOff,
 			})
@@ -109,18 +130,18 @@ var (
 		Short: "Istio Proxy ingress controller",
 		RunE: func(c *cobra.Command, args []string) error {
 			controllerConfig := kube.ControllerConfig{
-				Namespace:       cmd.RootFlags.Namespace,
+				Namespace:       flags.namespace,
 				ResyncPeriod:    resyncPeriod,
 				IngressSyncMode: kube.IngressStrict,
 				IngressClass:    flags.ingressClass,
 			}
-			controller := kube.NewController(cmd.Client, controllerConfig)
+			controller := kube.NewController(client, controllerConfig)
 			config := &envoy.IngressConfig{
 				CertFile:  "/etc/tls.crt",
 				KeyFile:   "/etc/tls.key",
-				Namespace: cmd.RootFlags.Namespace,
+				Namespace: flags.namespace,
 				Secret:    flags.ingressSecret,
-				Secrets:   cmd.Client,
+				Secrets:   client,
 				Registry:  &model.IstioRegistry{ConfigRegistry: controller},
 				Mesh:      &flags.proxy,
 			}
@@ -148,6 +169,9 @@ var (
 )
 
 func init() {
+	rootCmd.PersistentFlags().StringVarP(&flags.namespace, "namespace", "n", "",
+		"Select a Kubernetes namespace ('' means all namespaces)")
+
 	discoveryCmd.PersistentFlags().IntVarP(&flags.sdsPort, "port", "p", 8080,
 		"Discovery service port")
 	discoveryCmd.PersistentFlags().StringVarP(&flags.proxy.MixerAddress, "mixer", "m",
@@ -211,15 +235,15 @@ func init() {
 		"Specifies whether running as the cluster's default ingress controller, "+
 			"thereby processing unclassified ingress resources")
 
-	cmd.RootCmd.Use = "manager"
-	cmd.RootCmd.Long = `
-Istio Manager provides management plane functionality to the Istio proxy mesh and Istio Mixer.`
-	cmd.RootCmd.AddCommand(discoveryCmd)
-	cmd.RootCmd.AddCommand(proxyCmd)
+	cmd.AddFlags(rootCmd)
+
+	rootCmd.AddCommand(discoveryCmd)
+	rootCmd.AddCommand(proxyCmd)
+	rootCmd.AddCommand(version.VersionCmd)
 }
 
 func main() {
-	if err := cmd.RootCmd.Execute(); err != nil {
+	if err := rootCmd.Execute(); err != nil {
 		glog.Error(err)
 		os.Exit(-1)
 	}

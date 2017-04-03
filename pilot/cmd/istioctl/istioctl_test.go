@@ -17,14 +17,11 @@ package main
 import (
 	"testing"
 
-	"istio.io/manager/cmd"
+	"istio.io/manager/test/mock"
 )
 
 func rootSetup(t *testing.T) {
-	cmd.RootFlags.Kubeconfig = "../../platform/kube/config"
-	if err := cmd.RootCmd.PersistentPreRunE(postCmd, []string{}); err != nil { // Set up Client
-		t.Fatalf("Could not set up root command: %v", err)
-	}
+	config = mock.MakeRegistry()
 }
 
 func TestCreateInvalidFile(t *testing.T) {
@@ -93,13 +90,6 @@ func TestCreateReplaceDeletePolicy(t *testing.T) {
 	}
 }
 
-func TestBogusExplicitKubeConfig(t *testing.T) {
-	cmd.RootFlags.Kubeconfig = "/dummy/does-not-exist.yaml"
-	if err := cmd.RootCmd.PersistentPreRunE(postCmd, []string{}); err == nil { // Set up Client
-		t.Fatalf("Did not fail setting up client with bogus kubeconfig: %v", err)
-	}
-}
-
 func TestGet(t *testing.T) {
 	rootSetup(t)
 	file = "testdata/dest-policy.yaml"
@@ -164,5 +154,4 @@ func TestNewGet(t *testing.T) {
 	if err := deleteCmd.RunE(deleteCmd, []string{"destination-policy", "world-cb"}); err != nil {
 		t.Fatalf("Could not delete world-cb: %v", err)
 	}
-
 }

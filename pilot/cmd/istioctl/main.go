@@ -29,7 +29,9 @@ import (
 	"k8s.io/client-go/pkg/api"
 
 	"istio.io/manager/cmd"
+	"istio.io/manager/cmd/version"
 	"istio.io/manager/model"
+	"istio.io/manager/platform/kube"
 
 	"k8s.io/client-go/pkg/util/yaml"
 )
@@ -46,6 +48,10 @@ type inputDoc struct {
 }
 
 var (
+	kubeconfig string
+	namespace  string
+	config     model.ConfigRegistry
+
 	// input file name
 	file string
 
@@ -54,6 +60,37 @@ var (
 
 	key    model.Key
 	schema model.ProtoSchema
+
+	rootCmd = &cobra.Command{
+		Use:   "istioctl",
+		Short: "Istio control interface",
+		Long: fmt.Sprintf("Istio configuration command line utility. Available configuration types: %v",
+			model.IstioConfig.Kinds()),
+		PersistentPreRunE: func(*cobra.Command, []string) (err error) {
+			if kubeconfig == "" {
+				if v := os.Getenv("KUBECONFIG"); v != "" {
+					glog.V(2).Infof("Setting configuration from KUBECONFIG environment variable")
+					kubeconfig = v
+				}
+			}
+
+			client, err := kube.NewClient(kubeconfig, model.IstioConfig)
+			if err != nil && kubeconfig == "" {
+				// If no configuration was specified, and the platform client failed, try again using ~/.kube/config
+				client, err = kube.NewClient(os.Getenv("HOME")+"/.kube/config", model.IstioConfig)
+			}
+			if err != nil {
+				return multierror.Prefix(err, "failed to connect to Kubernetes API.")
+			}
+
+			if err = client.RegisterResources(); err != nil {
+				return multierror.Prefix(err, "failed to register Third-Party Resources.")
+			}
+
+			config = client
+			return
+		},
+	}
 
 	postCmd = &cobra.Command{
 		Use:   "create",
@@ -73,7 +110,7 @@ var (
 				if err = setup(v.Type, v.Name); err != nil {
 					return err
 				}
-				err = cmd.Client.Post(key, v.ParsedSpec)
+				err = config.Post(key, v.ParsedSpec)
 				if err != nil {
 					return err
 				}
@@ -102,7 +139,7 @@ var (
 				if err = setup(v.Type, v.Name); err != nil {
 					return err
 				}
-				err = cmd.Client.Put(key, v.ParsedSpec)
+				err = config.Put(key, v.ParsedSpec)
 				if err != nil {
 					return err
 				}
@@ -126,7 +163,7 @@ var (
 				if err := setup(args[0], args[1]); err != nil {
 					return err
 				}
-				item, exists := cmd.Client.Get(key)
+				item, exists := config.Get(key)
 				if !exists {
 					return fmt.Errorf("%q does not exist", key)
 				}
@@ -140,7 +177,7 @@ var (
 					return err
 				}
 
-				list, err := cmd.Client.List(key.Kind, key.Namespace)
+				list, err := config.List(key.Kind, key.Namespace)
 				if err != nil {
 					return fmt.Errorf("error listing %s: %v", key.Kind, err)
 				}
@@ -176,7 +213,7 @@ var (
 					if err := setup(args[0], args[i]); err != nil {
 						return err
 					}
-					if err := cmd.Client.Delete(key); err != nil {
+					if err := config.Delete(key); err != nil {
 						return err
 					}
 					fmt.Printf("Deleted %v %v\n", args[0], args[i])
@@ -199,7 +236,7 @@ var (
 				if err = setup(v.Type, v.Name); err != nil {
 					return err
 				}
-				err = cmd.Client.Delete(key)
+				err = config.Delete(key)
 				if err != nil {
 					return err
 				}
@@ -212,6 +249,11 @@ var (
 )
 
 func init() {
+	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", "",
+		"Use a Kubernetes configuration file instead of in-cluster configuration")
+	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "",
+		"Select a Kubernetes namespace")
+
 	postCmd.PersistentFlags().StringVarP(&file, "file", "f", "",
 		"Input file with the content of the configuration objects (if not set, command reads from the standard input)")
 	putCmd.PersistentFlags().AddFlag(postCmd.PersistentFlags().Lookup("file"))
@@ -220,27 +262,27 @@ func init() {
 	getCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "short",
 		"Output format. One of:yaml|short")
 
-	cmd.RootCmd.Use = "istioctl"
-	cmd.RootCmd.Long = fmt.Sprintf("Istio configuration command line utility. Available configuration types: %v",
-		model.IstioConfig.Kinds())
-	cmd.RootCmd.AddCommand(postCmd)
-	cmd.RootCmd.AddCommand(putCmd)
-	cmd.RootCmd.AddCommand(getCmd)
-	cmd.RootCmd.AddCommand(deleteCmd)
+	cmd.AddFlags(rootCmd)
+
+	rootCmd.AddCommand(postCmd)
+	rootCmd.AddCommand(putCmd)
+	rootCmd.AddCommand(getCmd)
+	rootCmd.AddCommand(deleteCmd)
+	rootCmd.AddCommand(injectCmd)
+	rootCmd.AddCommand(version.VersionCmd)
 }
 
 func main() {
-	if err := cmd.RootCmd.Execute(); err != nil {
+	if err := rootCmd.Execute(); err != nil {
 		glog.Error(err)
 		os.Exit(-1)
 	}
 }
 
-// Set the schema, key, and cmd.RootFlags.Namespace
+// Set the schema, key, and namespace
 // The schema is based on the kind (for example "route-rule" or "destination-policy")
 // name represents the name of an instance
 func setup(kind, name string) error {
-
 	var singularForm = map[string]string{
 		"route-rules":          "route-rule",
 		"destination-policies": "destination-policy",
@@ -258,15 +300,15 @@ func setup(kind, name string) error {
 	}
 
 	// use default namespace by default
-	if cmd.RootFlags.Namespace == "" {
-		cmd.RootFlags.Namespace = api.NamespaceDefault
+	if namespace == "" {
+		namespace = api.NamespaceDefault
 	}
 
 	// set the config key
 	key = model.Key{
 		Kind:      kind,
 		Name:      name,
-		Namespace: cmd.RootFlags.Namespace,
+		Namespace: namespace,
 	}
 
 	return nil

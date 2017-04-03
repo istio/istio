@@ -15,6 +15,7 @@
 package mock
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -73,8 +74,11 @@ func (cr *ConfigRegistry) Get(key model.Key) (proto.Message, bool) {
 
 // Delete implements config registry method
 func (cr *ConfigRegistry) Delete(key model.Key) error {
-	delete(cr.data, key)
-	return nil
+	if _, ok := cr.data[key]; ok {
+		delete(cr.data, key)
+		return nil
+	}
+	return errors.New("item is missing")
 }
 
 // Post implements config registry method
@@ -84,14 +88,14 @@ func (cr *ConfigRegistry) Post(key model.Key, v proto.Message) error {
 		cr.data[key] = v
 		return nil
 	}
-	return fmt.Errorf("Item already exists")
+	return errors.New("item already exists")
 }
 
 // Put implements config registry method
 func (cr *ConfigRegistry) Put(key model.Key, v proto.Message) error {
 	_, ok := cr.data[key]
 	if !ok {
-		return fmt.Errorf("Item is missing")
+		return errors.New("item is missing")
 	}
 	cr.data[key] = v
 	return nil

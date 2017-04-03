@@ -15,7 +15,12 @@
 // Package version provides build time version information.
 package version
 
-import "runtime"
+import (
+	"fmt"
+	"runtime"
+
+	"github.com/spf13/cobra"
+)
 
 // The following fields are populated at buildtime with bazel's linkstamp
 // feature. This is equivalent to using golang directly with -ldflags -X.
@@ -39,8 +44,23 @@ type BuildInfo struct {
 	GolangVersion string `json:"golang_version"`
 }
 
-// Info exports the build version information.
-var Info BuildInfo
+var (
+	// Info exports the build version information.
+	Info BuildInfo
+
+	// VersionCmd provides a command to query the version of Istio Manager
+	VersionCmd = &cobra.Command{
+		Use:   "version",
+		Short: "Display version information and exit",
+		Run: func(*cobra.Command, []string) {
+			fmt.Printf("Version: %v\n", Info.Version)
+			fmt.Printf("GitRevision: %v\n", Info.GitRevision)
+			fmt.Printf("GitBranch: %v\n", Info.GitBranch)
+			fmt.Printf("User: %v@%v\n", Info.User, Info.Host)
+			fmt.Printf("GolangVersion: %v\n", Info.GolangVersion)
+		},
+	}
+)
 
 func init() {
 	Info.Version = buildAppVersion

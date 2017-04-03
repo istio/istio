@@ -20,7 +20,6 @@ import (
 	"io"
 	"os"
 
-	"istio.io/manager/cmd"
 	"istio.io/manager/cmd/version"
 	"istio.io/manager/platform/kube/inject"
 
@@ -136,6 +135,4 @@ func init() {
 	injectCmd.PersistentFlags().BoolVar(&enableCoreDump, "coreDump",
 		true, "Enable/Disable core dumps in injected proxy (--coreDump=true affects "+
 			"all pods in a node and should only be used the cluster admin)")
-
-	cmd.RootCmd.AddCommand(injectCmd)
 }
