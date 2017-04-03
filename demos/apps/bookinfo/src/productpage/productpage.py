@@ -64,9 +64,19 @@ def getForwardHeaders(request):
     if user_cookie:
         headers['Cookie'] = 'user=' + user_cookie
 
-    reqTrackingHeader = request.headers.get('X-Request-ID')
-    if reqTrackingHeader is not None:
-        headers['X-Request-ID'] = reqTrackingHeader
+    incoming_headers = [ 'X-Request-ID',
+                         'X-B3-TraceId',
+                         'X-B3-SpanId',
+                         'X-B3-ParentSpanId',
+                         'X-B3-Sampled',
+                         'X-B3-Flags',
+                         'X-Ot-Span-Context'
+    ]
+
+    for ihdr in incoming_headers:
+        val = request.headers.get(ihdr)
+        if val is not None:
+            headers[ihdr] = val
 
     return headers
 
