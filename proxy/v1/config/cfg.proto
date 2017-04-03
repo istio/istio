@@ -104,7 +104,7 @@ message ProxyMeshConfig {
   AuthPolicy auth_policy = 100;
 
   // Path to the secrets used by the authentication policy
-  string AuthCertsPath = 101;
+  string auth_certs_path = 101;
 }
 
 /// DestinationPolicy declares policies that determine how to handle traffic for a
