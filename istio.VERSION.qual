@@ -1,4 +1,5 @@
 # DO NOT EDIT. AUTO-GENERATED FILE.
+ISTIOCTL = "https://storage.googleapis.com/istio-artifacts/bb7e0e5b11b332a01e4aa65ab8adb488b4452d1c/artifacts/istioctl"
 INIT = "docker.io/istio/init:2017-03-22-21.21.48"
 MIXER = "docker.io/istio/mixer:2017-03-22-19.36.02"
 RUNTIME = "docker.io/istio/runtime:2017-03-22-21.21.48"
