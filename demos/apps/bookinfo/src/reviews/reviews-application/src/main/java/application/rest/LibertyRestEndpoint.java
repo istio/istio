@@ -58,7 +58,8 @@ public class LibertyRestEndpoint extends Application {
       "%s"+
       "</blockquote>";
 
-    private JsonObject getRatings(String xreq, Cookie user){
+    private JsonObject getRatings(Cookie user, String xreq, String xtraceid, String xspanid,
+                                  String xparentspanid, String xsampled, String xflags, String xotspan){
       ClientBuilder cb = ClientBuilder.newBuilder();
       String timeout = star_color.equals("black") ? "10000" : "2500";
       cb.property("com.ibm.ws.jaxrs.client.connection.timeout", timeout);
