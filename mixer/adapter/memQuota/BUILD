@@ -13,7 +13,6 @@ go_library(
         "//adapter/memQuota/util:go_default_library",
         "//pkg/adapter:go_default_library",
         "//pkg/pool:go_default_library",
-        "@com_github_gogo_protobuf//types:go_default_library",
     ],
 )
 

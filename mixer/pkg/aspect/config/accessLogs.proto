@@ -16,9 +16,13 @@ syntax = "proto3";
 
 package pkg.aspect.config;
 
-option go_package="config";
+import "gogoproto/gogo.proto";
 
-// Configures an individual access-logs aspect.
+option go_package="config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
 //
 // Example usage:
 //     kind: access-logs
@@ -91,5 +95,5 @@ message AccessLogsParams {
         map<string, string> labels = 4;
     }
     // The log that will be constructed and handed to the aspect at runtime.
-    AccessLog log = 2;
+    AccessLog log = 2 [(gogoproto.nullable) = false];
 }

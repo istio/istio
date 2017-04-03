@@ -107,7 +107,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 	newAspectShouldSucceed := []aspectTestCase{
 		{"empty", &aconfig.ApplicationLogsParams{
 			LogName: "istio_log",
-			Logs: []*aconfig.ApplicationLogsParams_ApplicationLog{
+			Logs: []aconfig.ApplicationLogsParams_ApplicationLog{
 				{
 					DescriptorName: validDesc.Name,
 					TimeFormat:     time.RFC3339,
@@ -115,7 +115,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 			}}, defaultExec},
 		{"override", &aconfig.ApplicationLogsParams{
 			LogName: "istio_log",
-			Logs: []*aconfig.ApplicationLogsParams_ApplicationLog{
+			Logs: []aconfig.ApplicationLogsParams_ApplicationLog{
 				{
 					DescriptorName: validDesc.Name,
 					TimeFormat:     "2006-Jan-02",
@@ -150,7 +150,7 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 	defaultCfg := &aconfig.ApplicationLogsParams{
 		LogName: "istio_log",
-		Logs: []*aconfig.ApplicationLogsParams_ApplicationLog{
+		Logs: []aconfig.ApplicationLogsParams_ApplicationLog{
 			{
 				DescriptorName: validDesc.Name,
 				TimeFormat:     time.RFC3339,
@@ -200,7 +200,7 @@ func TestLoggerManager_ValidateConfig(t *testing.T) {
 	wrap := func(name string, log *aconfig.ApplicationLogsParams_ApplicationLog) *aconfig.ApplicationLogsParams {
 		return &aconfig.ApplicationLogsParams{
 			LogName: name,
-			Logs:    []*aconfig.ApplicationLogsParams_ApplicationLog{log},
+			Logs:    []aconfig.ApplicationLogsParams_ApplicationLog{*log},
 		}
 	}
 

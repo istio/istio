@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	ptypes "github.com/gogo/protobuf/types"
 
 	"istio.io/mixer/adapter/ipListChecker/config"
 	"istio.io/mixer/pkg/adapter"
@@ -59,8 +58,8 @@ var (
 	desc = "Checks whether an IP address is present in an IP address list."
 	conf = &config.Params{
 		ProviderUrl:     "http://localhost",
-		RefreshInterval: &ptypes.Duration{Seconds: 60},
-		Ttl:             &ptypes.Duration{Seconds: 300},
+		RefreshInterval: time.Duration(60) * time.Second,
+		Ttl:             time.Duration(300) * time.Second,
 	}
 )
 
@@ -89,30 +88,19 @@ func (builder) ValidateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 		}
 	}
 
-	refresh, err := ptypes.DurationFromProto(c.RefreshInterval)
-	if err != nil {
-		ce = ce.Append("RefreshInterval", err)
-	} else if refresh <= 0 {
-		ce = ce.Appendf("RefreshInterval", "refresh interval must be at least 1 second, it is %v", refresh)
+	if c.RefreshInterval <= 0 {
+		ce = ce.Appendf("RefreshInterval", "refresh interval must be at least 1 second, it is %v", c.RefreshInterval)
 	}
 
-	ttl, err := ptypes.DurationFromProto(c.Ttl)
-	if err != nil {
-		ce = ce.Append("Ttl", err)
-		return
-	}
-	if ttl < refresh {
-		ce = ce.Appendf("Ttl", "Ttl must be > RefreshInterval, Ttl is %v and RefreshInterval is %v", ttl, refresh)
+	if c.Ttl < c.RefreshInterval {
+		ce = ce.Appendf("Ttl", "Ttl must be > RefreshInterval, Ttl is %v and RefreshInterval is %v", c.Ttl, c.RefreshInterval)
 	}
 
 	return
 }
 
 func newListChecker(env adapter.Env, c *config.Params) (*listChecker, error) {
-	refresh, _ := ptypes.DurationFromProto(c.RefreshInterval)
-	ttl, _ := ptypes.DurationFromProto(c.Ttl)
-
-	return newListCheckerWithTimers(env, c, time.NewTicker(refresh), time.NewTimer(ttl), ttl)
+	return newListCheckerWithTimers(env, c, time.NewTicker(c.RefreshInterval), time.NewTimer(c.Ttl), c.Ttl)
 }
 
 func newListCheckerWithTimers(env adapter.Env, c *config.Params,
