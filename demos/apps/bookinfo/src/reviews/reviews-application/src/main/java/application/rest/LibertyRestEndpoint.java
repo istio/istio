@@ -69,6 +69,24 @@ public class LibertyRestEndpoint extends Application {
       if(xreq!=null) {
         builder.header("X-Request-ID",xreq);
       }
+      if(xtraceid!=null) {
+        builder.header("X-B3-TraceId",xtraceid);
+      }
+      if(xspanid!=null) {
+        builder.header("X-B3-SpanId",xspanid);
+      }
+      if(xparentspanid!=null) {
+        builder.header("X-B3-ParentSpanId",xparentspanid);
+      }
+      if(xsampled!=null) {
+        builder.header("X-B3-Sampled",xsampled);
+      }
+      if(xflags!=null) {
+        builder.header("X-B3-Flags",xflags);
+      }
+      if(xotspan!=null) {
+        builder.header("X-Ot-Span-Context",xotspan);
+      }
       if(user!=null) {
         builder.cookie(user);
       }
@@ -110,12 +128,19 @@ public class LibertyRestEndpoint extends Application {
 
     @GET
     @Path("/reviews")
-    public Response bookReviews(@HeaderParam("X-Request-ID") String xreq, @CookieParam("user") Cookie user) {
+    public Response bookReviews(@CookieParam("user") Cookie user,
+                                @HeaderParam("X-Request-ID") String xreq,
+                                @HeaderParam("X-B3-TraceId") String xtraceid,
+                                @HeaderParam("X-B3-SpanId") String xspanid,
+                                @HeaderParam("X-B3-ParentSpanId") String xparentspanid,
+                                @HeaderParam("X-B3-Sampled") String xsampled,
+                                @HeaderParam("X-B3-Flags") String xflags,
+                                @HeaderParam("X-Ot-Span-Context") String xotspan) {
       String r1 = "";
       String r2 = "";
       if(ratings_enabled){
+        JsonObject ratings = getRatings(user, xreq, xtraceid, xspanid, xparentspanid, xsampled, xflags, xotspan);
 
-        JsonObject ratings = getRatings(xreq,user);
         if(ratings!=null){
           if(ratings.containsKey("Reviewer1")){
             r1 = ratings.getString("Reviewer1");
