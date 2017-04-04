@@ -42,6 +42,11 @@ func TestAllocAndRelease(t *testing.T) {
 		Expiration: 0,
 	}
 
+	definitions["Q3"] = &adapter.QuotaDefinition{
+		MaxAmount:  10,
+		Expiration: time.Second * 2,
+	}
+
 	b := newBuilder()
 	c := b.DefaultConfig().(*config.Params)
 	c.RedisServerUrl = s.Addr()
@@ -74,6 +79,19 @@ func TestAllocAndRelease(t *testing.T) {
 		{"Q1", "5b", 0, 0, false, 0, 0, 5, 5},
 		{"Q1", "5b", 0, 0, false, 0, 0, 5, 5},
 		{"Q1", "5c", 0, 0, false, 0, 0, 15, 5},
+
+		// The following tests works in real redis server, but the mock redis does not implement timeout function,
+		// which means that even set EXPIRE to key, key will persist forever. So unit tests cannot pass.
+		/*
+			{"Q3", "6", 10, 10, false, time.Second * 2, 0, 0, 0},
+			{"Q3", "7", 10, 0, false, 0, 1, 0, 0},
+			{"Q3", "8", 10, 10, false, time.Second * 2, 3, 0, 0},
+			{"Q3", "9", 100, 10, true, time.Second * 2, 5, 0, 0},
+			{"Q3", "10", 10, 0, false, 0, 6, 10, 10},
+			{"Q3", "11", 0, 0, false, 0, 7, 1000, 0},
+			{"Q3", "11", 0, 0, false, 0, 7, 1000, 0},
+		*/
+
 	}
 
 	labels := make(map[string]interface{})
@@ -137,6 +155,17 @@ func TestAllocAndRelease(t *testing.T) {
 				t.Errorf("Expecting %d, got %d", c.releaseResult, amount)
 			}
 		})
+
+		//For test on real redis.
+		/*
+			if i == 9 || i == 12 || i == 13 {
+				time.Sleep(time.Second)
+			}
+			if i == 10 || i == 11 {
+				time.Sleep(2 * time.Second)
+			}
+		*/
+
 	}
 
 	if err := a.Close(); err != nil {
