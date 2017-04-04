@@ -40,6 +40,8 @@ const unitTestTag = "unittest"
 func TestIntoResourceFile(t *testing.T) {
 
 	cases := []struct {
+		authConfigPath string
+		enableAuth     bool
 		in             string
 		want           string
 		enableCoreDump bool
@@ -77,6 +79,24 @@ func TestIntoResourceFile(t *testing.T) {
 			want:           "testdata/enable-core-dump.yaml.injected",
 			enableCoreDump: true,
 		},
+		{
+			enableAuth:     true,
+			authConfigPath: "/etc/certs/",
+			in:             "testdata/auth.yaml",
+			want:           "testdata/auth.yaml.injected",
+		},
+		{
+			enableAuth:     true,
+			authConfigPath: "/etc/certs/",
+			in:             "testdata/auth.non-default-service-account.yaml",
+			want:           "testdata/auth.non-default-service-account.yaml.injected",
+		},
+		{
+			enableAuth:     true,
+			authConfigPath: "/etc/non-default-dir/",
+			in:             "testdata/auth.yaml",
+			want:           "testdata/auth.cert-dir.yaml.injected",
+		},
 	}
 
 	for _, c := range cases {
@@ -90,6 +110,8 @@ func TestIntoResourceFile(t *testing.T) {
 			SidecarProxyPort: DefaultSidecarProxyPort,
 			Version:          "12345678",
 			EnableCoreDump:   c.enableCoreDump,
+			EnableAuth:       c.enableAuth,
+			AuthConfigPath:   c.authConfigPath,
 		}
 		in, err := os.Open(c.in)
 		if err != nil {

@@ -54,6 +54,9 @@ const (
 	proxyContainerName                 = "proxy"
 	enableCoreDumpContainerName        = "enable-core-dump"
 	enableCoreDumpImage                = "alpine"
+
+	istioCertVolumeName   = "istio-cert"
+	istioCertSecretPrefix = "istio."
 )
 
 // InitImageName returns the fully qualified image name for the istio
@@ -76,6 +79,8 @@ type Params struct {
 	SidecarProxyPort int
 	Version          string
 	EnableCoreDump   bool
+	EnableAuth       bool
+	AuthConfigPath   string
 }
 
 var enableCoreDumpContainer = map[string]interface{}{
@@ -137,46 +142,71 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 	t.Annotations["pod.beta.kubernetes.io/init-containers"] = string(initAnnotationValue)
 
 	// sidecar proxy container
-	t.Spec.Containers = append(t.Spec.Containers,
-		v1.Container{
-			Name:  proxyContainerName,
-			Image: p.ProxyImage,
-			Args: []string{
-				"proxy",
-				"sidecar",
-				"-s", p.ManagerAddr,
-				"-m", p.MixerAddr,
-				"-n", "$(POD_NAMESPACE)",
-				"-v", strconv.Itoa(p.Verbosity),
+	args := []string{
+		"proxy",
+		"sidecar",
+		"-s", p.ManagerAddr,
+		"-m", p.MixerAddr,
+		"-n", "$(POD_NAMESPACE)",
+		"-v", strconv.Itoa(p.Verbosity),
+	}
+	var volumeMounts []v1.VolumeMount
+	if p.EnableAuth {
+		args = append(args, "--enable_auth", "--auth_config_path", p.AuthConfigPath)
+		volumeMounts = append(volumeMounts, v1.VolumeMount{
+			Name:      istioCertVolumeName,
+			ReadOnly:  true,
+			MountPath: p.AuthConfigPath,
+		})
+
+		sa := t.Spec.ServiceAccountName
+		if sa == "" {
+			sa = "default"
+		}
+		t.Spec.Volumes = append(t.Spec.Volumes, v1.Volume{
+			Name: istioCertVolumeName,
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: istioCertSecretPrefix + sa,
+				},
 			},
-			Env: []v1.EnvVar{{
-				Name: "POD_NAME",
-				ValueFrom: &v1.EnvVarSource{
-					FieldRef: &v1.ObjectFieldSelector{
-						FieldPath: "metadata.name",
-					},
+		})
+	}
+
+	sidecar := v1.Container{
+		Name:  proxyContainerName,
+		Image: p.ProxyImage,
+		Args:  args,
+		Env: []v1.EnvVar{{
+			Name: "POD_NAME",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
 				},
-			}, {
-				Name: "POD_NAMESPACE",
-				ValueFrom: &v1.EnvVarSource{
-					FieldRef: &v1.ObjectFieldSelector{
-						FieldPath: "metadata.namespace",
-					},
-				},
-			}, {
-				Name: "POD_IP",
-				ValueFrom: &v1.EnvVarSource{
-					FieldRef: &v1.ObjectFieldSelector{
-						FieldPath: "status.podIP",
-					},
-				},
-			}},
-			ImagePullPolicy: v1.PullAlways,
-			SecurityContext: &v1.SecurityContext{
-				RunAsUser: &p.SidecarProxyUID,
 			},
+		}, {
+			Name: "POD_NAMESPACE",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
+			},
+		}, {
+			Name: "POD_IP",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				},
+			},
+		}},
+		ImagePullPolicy: v1.PullAlways,
+		SecurityContext: &v1.SecurityContext{
+			RunAsUser: &p.SidecarProxyUID,
 		},
-	)
+		VolumeMounts: volumeMounts,
+	}
+	t.Spec.Containers = append(t.Spec.Containers, sidecar)
+
 	return nil
 }
 
