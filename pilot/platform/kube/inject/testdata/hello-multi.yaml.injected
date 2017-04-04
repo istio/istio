@@ -20,7 +20,7 @@ spec:
         version: v1
     spec:
       containers:
-      - image: gcr.io/google-samples/hello-go-gke:1.0
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
         name: hello
         ports:
         - containerPort: 80
@@ -80,7 +80,7 @@ spec:
         version: v2
     spec:
       containers:
-      - image: gcr.io/google-samples/hello-go-gke:1.0
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
         name: hello
         ports:
         - containerPort: 81
