@@ -20,6 +20,8 @@ go_library(
         "@com_github_emicklei_go_restful//:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_golang_protobuf//ptypes:go_default_library",
+        "@com_github_golang_protobuf//ptypes/duration:go_default_library",
         "@com_github_hashicorp_errwrap//:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
         "@io_istio_api//:go_default_library",
@@ -40,8 +42,9 @@ go_test(
     deps = [
         "//model:go_default_library",
         "//test/mock:go_default_library",
+        "//test/util:go_default_library",
         "@com_github_emicklei_go_restful//:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
-        "@com_github_pmezard_go_difflib//difflib:go_default_library",
+        "@io_istio_api//:go_default_library",
     ],
 )

@@ -23,6 +23,7 @@ import (
 	restful "github.com/emicklei/go-restful"
 	"github.com/golang/glog"
 
+	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 )
 
@@ -30,7 +31,7 @@ import (
 type DiscoveryService struct {
 	services model.ServiceDiscovery
 	config   *model.IstioRegistry
-	mesh     *MeshConfig
+	mesh     *proxyconfig.ProxyMeshConfig
 	server   *http.Server
 }
 
@@ -59,7 +60,7 @@ const (
 type DiscoveryServiceOptions struct {
 	Services        model.ServiceDiscovery
 	Config          *model.IstioRegistry
-	Mesh            *MeshConfig
+	Mesh            *proxyconfig.ProxyMeshConfig
 	Port            int
 	EnableProfiling bool
 }

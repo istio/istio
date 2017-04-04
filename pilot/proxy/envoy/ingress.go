@@ -89,7 +89,7 @@ type IngressConfig struct {
 	Secret    string
 	Secrets   model.SecretRegistry
 	Registry  *model.IstioRegistry
-	Mesh      *MeshConfig
+	Mesh      *config.ProxyMeshConfig
 }
 
 func generateIngress(conf *IngressConfig) *Config {
@@ -178,18 +178,19 @@ func generateIngress(conf *IngressConfig) *Config {
 
 	listeners := []*Listener{listener}
 	clusters := rConfig.clusters().normalize()
+	clusters.setTimeout(conf.Mesh.ConnectTimeout)
 
 	return &Config{
 		Listeners: listeners,
 		Admin: Admin{
 			AccessLogPath: DefaultAccessLog,
-			Address:       fmt.Sprintf("tcp://%s:%d", WildcardAddress, conf.Mesh.AdminPort),
+			Address:       fmt.Sprintf("tcp://%s:%d", WildcardAddress, conf.Mesh.ProxyAdminPort),
 		},
 		ClusterManager: ClusterManager{
 			Clusters: clusters,
 			SDS: &SDS{
-				Cluster:        buildDiscoveryCluster(conf.Mesh.DiscoveryAddress, "sds"),
-				RefreshDelayMs: (int)(conf.Mesh.DiscoveryRefreshDelay / time.Millisecond),
+				Cluster:        buildDiscoveryCluster(conf.Mesh.DiscoveryAddress, "sds", conf.Mesh.ConnectTimeout),
+				RefreshDelayMs: (int)(convertDuration(conf.Mesh.DiscoveryRefreshDelay) / time.Millisecond),
 			},
 		},
 	}
@@ -264,7 +265,7 @@ func buildIngressRoute(rule *config.RouteRule) (*HTTPRoute, error) {
 			return nil, multierror.Append(fmt.Errorf("failed to extract routing rule destination port"), err)
 		}
 
-		cluster := buildOutboundCluster(destination, port, nil, tags)
+		cluster := buildOutboundCluster(destination, port, tags)
 		clusters = append(clusters, &WeightedClusterEntry{
 			Name:   cluster.Name,
 			Weight: int(dst.Weight),

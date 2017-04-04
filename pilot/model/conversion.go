@@ -24,6 +24,15 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
+// Make creates a new instance of the proto message
+func (ps *ProtoSchema) Make() (proto.Message, error) {
+	pbt := proto.MessageType(ps.MessageName)
+	if pbt == nil {
+		return nil, fmt.Errorf("unknown type %q", ps.MessageName)
+	}
+	return reflect.New(pbt.Elem()).Interface().(proto.Message), nil
+}
+
 // ToJSON marshals a proto to canonical JSON
 func (ps *ProtoSchema) ToJSON(msg proto.Message) (string, error) {
 	// Marshal from proto to json bytes
@@ -65,26 +74,40 @@ func (ps *ProtoSchema) ToJSONMap(msg proto.Message) (map[string]interface{}, err
 
 // FromJSON converts a canonical JSON to a proto message
 func (ps *ProtoSchema) FromJSON(js string) (proto.Message, error) {
-	// Unmarshal from bytes to proto
-	pbt := proto.MessageType(ps.MessageName)
-	if pbt == nil {
-		return nil, fmt.Errorf("unknown type %q", ps.MessageName)
-	}
-	pb := reflect.New(pbt.Elem()).Interface().(proto.Message)
-	err := jsonpb.UnmarshalString(js, pb)
+	pb, err := ps.Make()
 	if err != nil {
+		return nil, err
+	}
+	if err = ApplyJSON(js, pb); err != nil {
 		return nil, err
 	}
 	return pb, nil
 }
 
+// ApplyJSON unmarshals a JSON string into a proto message
+func ApplyJSON(js string, pb proto.Message) error {
+	return jsonpb.UnmarshalString(js, pb)
+}
+
 // FromYAML converts a canonical YAML to a proto message
 func (ps *ProtoSchema) FromYAML(yml string) (proto.Message, error) {
-	js, err := yaml.YAMLToJSON([]byte(yml))
+	pb, err := ps.Make()
 	if err != nil {
 		return nil, err
 	}
-	return ps.FromJSON(string(js))
+	if err = ApplyYAML(yml, pb); err != nil {
+		return nil, err
+	}
+	return pb, nil
+}
+
+// ApplyYAML unmarshals a YAML string into a proto message
+func ApplyYAML(yml string, pb proto.Message) error {
+	js, err := yaml.YAMLToJSON([]byte(yml))
+	if err != nil {
+		return err
+	}
+	return ApplyJSON(string(js), pb)
 }
 
 // FromJSONMap converts from a generic map to a proto message using canonical JSON encoding

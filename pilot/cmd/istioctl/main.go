@@ -26,14 +26,14 @@ import (
 	"github.com/golang/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+
 	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/util/yaml"
 
 	"istio.io/manager/cmd"
 	"istio.io/manager/cmd/version"
 	"istio.io/manager/model"
 	"istio.io/manager/platform/kube"
-
-	"k8s.io/client-go/pkg/util/yaml"
 )
 
 // Each entry in the multi-doc YAML file used by `istioctl create -f` MUST have this format
@@ -50,7 +50,9 @@ type inputDoc struct {
 var (
 	kubeconfig string
 	namespace  string
-	config     model.ConfigRegistry
+	client     *kube.Client
+
+	config model.ConfigRegistry
 
 	// input file name
 	file string
@@ -251,7 +253,7 @@ var (
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "",
+	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", api.NamespaceDefault,
 		"Select a Kubernetes namespace")
 
 	postCmd.PersistentFlags().StringVarP(&file, "file", "f", "",
@@ -297,11 +299,6 @@ func setup(kind, name string) error {
 	if !ok {
 		return fmt.Errorf("Istio doesn't have configuration type %s, the types are %v",
 			kind, strings.Join(model.IstioConfig.Kinds(), ", "))
-	}
-
-	// use default namespace by default
-	if namespace == "" {
-		namespace = api.NamespaceDefault
 	}
 
 	// set the config key

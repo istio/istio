@@ -29,21 +29,20 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
+	yamlDecoder "k8s.io/client-go/pkg/util/yaml"
 
 	"github.com/ghodss/yaml"
-	yamlDecoder "k8s.io/client-go/pkg/util/yaml"
+
+	proxyconfig "istio.io/api/proxy/v1/config"
 )
 
 // Defaults values for injecting istio proxy into kubernetes
 // resources.
 const (
-	DefaultHub              = "docker.io/istio"
-	DefaultTag              = "2017-03-22-17.30.06"
-	DefaultManagerAddr      = "istio-manager:8080"
-	DefaultMixerAddr        = "istio-mixer:9091"
-	DefaultSidecarProxyUID  = int64(1337)
-	DefaultSidecarProxyPort = 15001
-	DefaultVerbosity        = 2
+	DefaultHub             = "docker.io/istio"
+	DefaultTag             = "2017-03-22-17.30.06"
+	DefaultSidecarProxyUID = int64(1337)
+	DefaultVerbosity       = 2
 )
 
 const (
@@ -55,7 +54,7 @@ const (
 	enableCoreDumpContainerName        = "enable-core-dump"
 	enableCoreDumpImage                = "alpine"
 
-	istioCertVolumeName   = "istio-cert"
+	istioCertVolumeName   = "istio-certs"
 	istioCertSecretPrefix = "istio."
 )
 
@@ -70,17 +69,13 @@ func ProxyImageName(hub, tag string) string { return hub + "/proxy:" + tag }
 // Params describes configurable parameters for injecting istio proxy
 // into kubernetes resource.
 type Params struct {
-	InitImage        string
-	ProxyImage       string
-	Verbosity        int
-	ManagerAddr      string
-	MixerAddr        string
-	SidecarProxyUID  int64
-	SidecarProxyPort int
-	Version          string
-	EnableCoreDump   bool
-	EnableAuth       bool
-	AuthConfigPath   string
+	InitImage       string
+	ProxyImage      string
+	Verbosity       int
+	SidecarProxyUID int64
+	Version         string
+	EnableCoreDump  bool
+	Mesh            *proxyconfig.ProxyMeshConfig
 }
 
 var enableCoreDumpContainer = map[string]interface{}{
@@ -118,15 +113,13 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 		"name":  initContainerName,
 		"image": p.InitImage,
 		"args": []string{
-			"-p", strconv.Itoa(p.SidecarProxyPort),
+			"-p", fmt.Sprintf("%d", p.Mesh.ProxyListenPort),
 			"-u", strconv.FormatInt(p.SidecarProxyUID, 10),
 		},
 		"imagePullPolicy": "Always",
 		"securityContext": map[string]interface{}{
 			"capabilities": map[string]interface{}{
-				"add": []string{
-					"NET_ADMIN",
-				},
+				"add": []string{"NET_ADMIN"},
 			},
 		},
 	})
@@ -145,18 +138,15 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 	args := []string{
 		"proxy",
 		"sidecar",
-		"-s", p.ManagerAddr,
-		"-m", p.MixerAddr,
 		"-n", "$(POD_NAMESPACE)",
 		"-v", strconv.Itoa(p.Verbosity),
 	}
 	var volumeMounts []v1.VolumeMount
-	if p.EnableAuth {
-		args = append(args, "--enable_auth", "--auth_config_path", p.AuthConfigPath)
+	if p.Mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
 		volumeMounts = append(volumeMounts, v1.VolumeMount{
 			Name:      istioCertVolumeName,
 			ReadOnly:  true,
-			MountPath: p.AuthConfigPath,
+			MountPath: p.Mesh.AuthCertsPath,
 		})
 
 		sa := t.Spec.ServiceAccountName

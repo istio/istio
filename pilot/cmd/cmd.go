@@ -22,8 +22,42 @@ import (
 	"syscall"
 
 	"github.com/golang/glog"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/apis/meta/v1"
+
+	proxyconfig "istio.io/api/proxy/v1/config"
+	"istio.io/manager/model"
+	"istio.io/manager/proxy/envoy"
 )
+
+const (
+	// ConfigMapKey is the key for mesh configuration data in the config map
+	ConfigMapKey = "mesh"
+)
+
+// GetMeshConfig fetches configuration from a config map
+func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*proxyconfig.ProxyMeshConfig, error) {
+	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, v1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	// values in the data are strings, while proto might use a different data type.
+	// therefore, we have to get a value by a key
+	yaml, exists := config.Data[ConfigMapKey]
+	if !exists {
+		return nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
+	}
+
+	mesh := envoy.DefaultMeshConfig
+	if err = model.ApplyYAML(yaml, &mesh); err != nil {
+		return nil, multierror.Prefix(err, "failed to convert to proto.")
+	}
+
+	return &mesh, nil
+}
 
 // AddFlags carries over glog flags with new defaults
 func AddFlags(rootCmd *cobra.Command) {

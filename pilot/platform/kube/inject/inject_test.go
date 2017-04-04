@@ -16,11 +16,12 @@ package inject
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/pmezard/go-difflib/difflib"
+	proxyconfig "istio.io/api/proxy/v1/config"
+	"istio.io/manager/proxy/envoy"
+	"istio.io/manager/test/util"
 )
 
 func TestImageName(t *testing.T) {
@@ -38,7 +39,6 @@ func TestImageName(t *testing.T) {
 const unitTestTag = "unittest"
 
 func TestIntoResourceFile(t *testing.T) {
-
 	cases := []struct {
 		authConfigPath string
 		enableAuth     bool
@@ -100,18 +100,20 @@ func TestIntoResourceFile(t *testing.T) {
 	}
 
 	for _, c := range cases {
+		mesh := envoy.DefaultMeshConfig
+		if c.enableAuth {
+			mesh.AuthPolicy = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
+			mesh.AuthCertsPath = c.authConfigPath
+		}
+
 		params := Params{
-			InitImage:        InitImageName(DefaultHub, unitTestTag),
-			ProxyImage:       ProxyImageName(DefaultHub, unitTestTag),
-			Verbosity:        DefaultVerbosity,
-			ManagerAddr:      DefaultManagerAddr,
-			MixerAddr:        DefaultMixerAddr,
-			SidecarProxyUID:  DefaultSidecarProxyUID,
-			SidecarProxyPort: DefaultSidecarProxyPort,
-			Version:          "12345678",
-			EnableCoreDump:   c.enableCoreDump,
-			EnableAuth:       c.enableAuth,
-			AuthConfigPath:   c.authConfigPath,
+			InitImage:       InitImageName(DefaultHub, unitTestTag),
+			ProxyImage:      ProxyImageName(DefaultHub, unitTestTag),
+			Verbosity:       DefaultVerbosity,
+			SidecarProxyUID: DefaultSidecarProxyUID,
+			Version:         "12345678",
+			EnableCoreDump:  c.enableCoreDump,
+			Mesh:            &mesh,
 		}
 		in, err := os.Open(c.in)
 		if err != nil {
@@ -122,22 +124,8 @@ func TestIntoResourceFile(t *testing.T) {
 		if err = IntoResourceFile(&params, in, &got); err != nil {
 			t.Fatalf("IntoResourceFile(%v) returned an error: %v", c.in, err)
 		}
-		want, err := ioutil.ReadFile(c.want)
-		if err != nil {
-			t.Fatalf("Failed to read %q: %v", c.want, err)
-		}
-		gotS, wantS := got.String(), string(want)
-		if gotS != wantS {
-			diff := difflib.UnifiedDiff{
-				A:        difflib.SplitLines(gotS),
-				B:        difflib.SplitLines(wantS),
-				FromFile: "Got",
-				ToFile:   "Want",
-				Context:  2,
-			}
-			text, _ := difflib.GetUnifiedDiffString(diff)
-			t.Errorf("IntoResourceFile(%v) failed:\n%v", c.in, text)
-		}
+
+		util.CompareContent(got.Bytes(), c.want, t)
 	}
 
 	// file with mixture of deployment, service, etc.

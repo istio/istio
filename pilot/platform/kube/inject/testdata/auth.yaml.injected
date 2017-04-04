@@ -28,17 +28,10 @@ spec:
       - args:
         - proxy
         - sidecar
-        - -s
-        - istio-manager:8080
-        - -m
-        - istio-mixer:9091
         - -n
         - $(POD_NAMESPACE)
         - -v
         - "2"
-        - --enable_auth
-        - --auth_config_path
-        - /etc/certs/
         env:
         - name: POD_NAME
           valueFrom:
@@ -60,10 +53,10 @@ spec:
           runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/certs/
-          name: istio-cert
+          name: istio-certs
           readOnly: true
       volumes:
-      - name: istio-cert
+      - name: istio-certs
         secret:
           secretName: istio.default
 status: {}

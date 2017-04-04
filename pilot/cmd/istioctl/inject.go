@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 
+	"istio.io/manager/cmd"
 	"istio.io/manager/cmd/version"
 	"istio.io/manager/platform/kube/inject"
 
@@ -27,21 +28,16 @@ import (
 )
 
 var (
-	hub              string
-	tag              string
-	managerAddr      string
-	mixerAddr        string
-	sidecarProxyUID  int64
-	sidecarProxyPort int
-	verbosity        int
-	versionStr       string // override build version
-	enableCoreDump   bool
+	hub             string
+	tag             string
+	sidecarProxyUID int64
+	verbosity       int
+	versionStr      string // override build version
+	enableCoreDump  bool
+	meshConfig      string
 
 	inFilename  string
 	outFilename string
-
-	authConfigPath string
-	enableAuth     bool
 )
 
 var (
@@ -68,8 +64,7 @@ Example usage:
 			if inFilename == "-" {
 				reader = os.Stdin
 			} else {
-				reader, err = os.Open(inFilename)
-				if err != nil {
+				if reader, err = os.Open(inFilename); err != nil {
 					return err
 				}
 			}
@@ -78,8 +73,8 @@ Example usage:
 			if outFilename == "" {
 				writer = os.Stdout
 			} else {
-				file, err := os.Create(outFilename)
-				if err != nil {
+				var file *os.File
+				if file, err = os.Create(outFilename); err != nil {
 					return err
 				}
 				writer = file
@@ -87,24 +82,21 @@ Example usage:
 			}
 
 			if versionStr == "" {
-				versionStr = fmt.Sprintf("%v@%v-%v-%v",
-					version.Info.User,
-					version.Info.Host,
-					version.Info.Version,
-					version.Info.GitRevision)
+				versionStr = version.Line()
+			}
+
+			mesh, err := cmd.GetMeshConfig(client.GetKubernetesClient(), namespace, meshConfig)
+			if err != nil {
+				return err
 			}
 			params := &inject.Params{
-				InitImage:        inject.InitImageName(hub, tag),
-				ProxyImage:       inject.ProxyImageName(hub, tag),
-				Verbosity:        verbosity,
-				ManagerAddr:      managerAddr,
-				MixerAddr:        mixerAddr,
-				SidecarProxyUID:  sidecarProxyUID,
-				SidecarProxyPort: sidecarProxyPort,
-				Version:          versionStr,
-				EnableCoreDump:   enableCoreDump,
-				EnableAuth:       enableAuth,
-				AuthConfigPath:   authConfigPath,
+				InitImage:       inject.InitImageName(hub, tag),
+				ProxyImage:      inject.ProxyImageName(hub, tag),
+				Verbosity:       verbosity,
+				SidecarProxyUID: sidecarProxyUID,
+				Version:         versionStr,
+				EnableCoreDump:  enableCoreDump,
+				Mesh:            mesh,
 			}
 			return inject.IntoResourceFile(params, reader, writer)
 		},
@@ -120,18 +112,14 @@ func init() {
 		"", "Input kubernetes resource filename")
 	injectCmd.PersistentFlags().StringVarP(&outFilename, "output", "o",
 		"", "Modified output kubernetes resource filename")
-	injectCmd.PersistentFlags().StringVar(&managerAddr, "managerAddr",
-		inject.DefaultManagerAddr, "Manager service DNS address")
-	injectCmd.PersistentFlags().StringVar(&mixerAddr, "mixerAddr",
-		inject.DefaultMixerAddr, "Mixer DNS address")
 	injectCmd.PersistentFlags().IntVar(&verbosity, "verbosity",
 		inject.DefaultVerbosity, "Runtime verbosity")
 	injectCmd.PersistentFlags().Int64Var(&sidecarProxyUID, "sidecarProxyUID",
 		inject.DefaultSidecarProxyUID, "Sidecar proxy UID")
-	injectCmd.PersistentFlags().IntVar(&sidecarProxyPort, "sidecarProxyPort",
-		inject.DefaultSidecarProxyPort, "Sidecar proxy Port")
 	injectCmd.PersistentFlags().StringVar(&versionStr, "setVersionString",
 		"", "Override version info injected into resource")
+	injectCmd.PersistentFlags().StringVar(&meshConfig, "meshConfig", "istio",
+		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", cmd.ConfigMapKey))
 
 	// Default --coreDump=true for pre-alpha development. Core dump
 	// settings (i.e. sysctl kernel.*) affect all pods in a node and
@@ -140,9 +128,4 @@ func init() {
 	injectCmd.PersistentFlags().BoolVar(&enableCoreDump, "coreDump",
 		true, "Enable/Disable core dumps in injected proxy (--coreDump=true affects "+
 			"all pods in a node and should only be used the cluster admin)")
-
-	injectCmd.PersistentFlags().BoolVar(&enableAuth, "enable_auth", false,
-		"Enable/Disable mutual TLS authentication for proxy-to-proxy traffic")
-	injectCmd.PersistentFlags().StringVar(&authConfigPath, "auth_config_path", "/etc/certs/",
-		"The directory in which certificate and key files are stored")
 }

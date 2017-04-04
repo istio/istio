@@ -19,14 +19,14 @@ import (
 	"io/ioutil"
 	"reflect"
 	"sort"
-	"strings"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/pmezard/go-difflib/difflib"
 
+	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 	"istio.io/manager/test/mock"
+	"istio.io/manager/test/util"
 )
 
 func TestRoutesByPath(t *testing.T) {
@@ -228,46 +228,14 @@ const (
 	faultRouteRule    = "testdata/fault-route.yaml.golden"
 )
 
-func compareJSON(jsonFile string, t *testing.T) {
-	file, err := ioutil.ReadFile(jsonFile)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	golden, err := ioutil.ReadFile(jsonFile + ".golden")
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	data := strings.TrimSpace(string(file))
-	expected := strings.TrimSpace(string(golden))
-
-	if data != expected {
-		diff := difflib.UnifiedDiff{
-			A:        difflib.SplitLines(expected),
-			B:        difflib.SplitLines(data),
-			FromFile: jsonFile + ".golden",
-			ToFile:   jsonFile,
-			Context:  2,
-		}
-		text, _ := difflib.GetUnifiedDiffString(diff)
-		fmt.Println(text)
-		t.Errorf("Failed validating golden artifact %s.golden", jsonFile)
-	}
-}
-
-func testConfig(r *model.IstioRegistry, instance, envoyConfig string, t *testing.T, enableAuth bool) {
-	meshConfig := *DefaultMeshConfig
-	if enableAuth {
-		meshConfig.EnableAuth = true
-		meshConfig.AuthConfigPath = "/etc/certs"
-	}
-
+func testConfig(r *model.IstioRegistry, mesh *proxyconfig.ProxyMeshConfig, instance, envoyConfig string, t *testing.T) {
 	config := Generate(&ProxyContext{
 		Discovery:  mock.Discovery,
 		Config:     r,
-		MeshConfig: &meshConfig,
+		MeshConfig: mesh,
 		Addrs:      map[string]bool{instance: true},
 	})
+
 	if config == nil {
 		t.Fatal("Failed to generate config")
 	}
@@ -277,7 +245,7 @@ func testConfig(r *model.IstioRegistry, instance, envoyConfig string, t *testing
 		t.Fatalf(err.Error())
 	}
 
-	compareJSON(envoyConfig, t)
+	util.CompareYAML(envoyConfig, t)
 }
 
 func configObjectFromYAML(kind, file string) (proto.Message, error) {
@@ -337,41 +305,54 @@ func addFaultRoute(r *model.IstioRegistry, t *testing.T) {
 
 func TestMockConfig(t *testing.T) {
 	r := mock.MakeRegistry()
-	testConfig(r, mock.HostInstanceV0, envoyV0Config, t, false)
-	testConfig(r, mock.HostInstanceV1, envoyV1Config, t, false)
+	mesh := DefaultMeshConfig
+	mesh.MixerAddress = "mixer:9091"
+	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0Config, t)
+	testConfig(r, &mesh, mock.HostInstanceV1, envoyV1Config, t)
 }
 
 func TestMockConfigWithAuth(t *testing.T) {
 	r := mock.MakeRegistry()
-	testConfig(r, mock.HostInstanceV0, envoyV0ConfigAuth, t, true)
-	testConfig(r, mock.HostInstanceV1, envoyV1ConfigAuth, t, true)
+	mesh := DefaultMeshConfig
+	mesh.MixerAddress = "mixer:9091"
+	mesh.AuthPolicy = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
+	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0ConfigAuth, t)
+	testConfig(r, &mesh, mock.HostInstanceV1, envoyV1ConfigAuth, t)
 }
 
 func TestMockConfigTimeout(t *testing.T) {
 	r := mock.MakeRegistry()
+	mesh := DefaultMeshConfig
+	mesh.MixerAddress = "mixer:9091"
 	addTimeout(r, t)
-	testConfig(r, mock.HostInstanceV0, envoyV0Config, t, false)
-	testConfig(r, mock.HostInstanceV1, envoyV1Config, t, false)
+	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0Config, t)
+	testConfig(r, &mesh, mock.HostInstanceV1, envoyV1Config, t)
 }
 
 func TestMockConfigCircuitBreaker(t *testing.T) {
 	r := mock.MakeRegistry()
+	mesh := DefaultMeshConfig
+	mesh.MixerAddress = "mixer:9091"
 	addCircuitBreaker(r, t)
-	testConfig(r, mock.HostInstanceV0, envoyV0Config, t, false)
-	testConfig(r, mock.HostInstanceV1, envoyV1Config, t, false)
+	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0Config, t)
+	testConfig(r, &mesh, mock.HostInstanceV1, envoyV1Config, t)
 }
 
 func TestMockConfigWeighted(t *testing.T) {
 	r := mock.MakeRegistry()
+	mesh := DefaultMeshConfig
+	mesh.MixerAddress = "mixer:9091"
 	addWeightedRoute(r, t)
-	testConfig(r, mock.HostInstanceV0, envoyV0Config, t, false)
-	testConfig(r, mock.HostInstanceV1, envoyV1Config, t, false)
+	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0Config, t)
+	testConfig(r, &mesh, mock.HostInstanceV1, envoyV1Config, t)
 }
 
 func TestMockConfigFault(t *testing.T) {
 	r := mock.MakeRegistry()
+	mesh := DefaultMeshConfig
+	mesh.MixerAddress = "mixer:9091"
 	addFaultRoute(r, t)
 	// Fault rule uses source condition, hence the different golden artifacts
-	testConfig(r, mock.HostInstanceV0, envoyFaultConfig, t, false)
-	testConfig(r, mock.HostInstanceV1, envoyV1Config, t, false)
+	testConfig(r, &mesh, mock.HostInstanceV0, envoyFaultConfig, t)
+	testConfig(r, &mesh, mock.HostInstanceV1, envoyV1Config, t)
 }

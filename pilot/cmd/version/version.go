@@ -70,3 +70,12 @@ func init() {
 	Info.Host = buildHost
 	Info.GolangVersion = runtime.Version()
 }
+
+// Line combines version information into a single line
+func Line() string {
+	return fmt.Sprintf("%v@%v-%v-%v",
+		Info.User,
+		Info.Host,
+		Info.Version,
+		Info.GitRevision)
+}

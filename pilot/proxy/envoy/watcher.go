@@ -22,6 +22,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
+
+	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 	"istio.io/manager/proxy"
 )
@@ -38,7 +40,7 @@ type ProxyContext struct {
 	// Config interface for listing routing rules
 	Config *model.IstioRegistry
 	// MeshConfig defines global configuration settings
-	MeshConfig *MeshConfig
+	MeshConfig *proxyconfig.ProxyMeshConfig
 	// Addrs is a set of IP addressed assigned to the proxy
 	Addrs map[string]bool
 }
@@ -57,7 +59,7 @@ type watcher struct {
 
 // NewWatcher creates a new watcher instance with an agent
 func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
-	registry *model.IstioRegistry, mesh *MeshConfig, identity *ProxyNode) (Watcher, error) {
+	registry *model.IstioRegistry, mesh *proxyconfig.ProxyMeshConfig, identity *ProxyNode) (Watcher, error) {
 	addrs := make(map[string]bool)
 	if identity.IP != "" {
 		addrs[identity.IP] = true
@@ -128,13 +130,19 @@ func (w *watcher) reload() {
 const (
 	// EpochFileTemplate is a template for the root config JSON
 	EpochFileTemplate = "%s/envoy-rev%d.json"
+
+	// BinaryPath is the path to envoy binary
+	BinaryPath = "/usr/local/bin/envoy"
+
+	// ConfigPath is the directory to hold enovy epoch configurations
+	ConfigPath = "/etc/envoy"
 )
 
 func configFile(config string, epoch int) string {
 	return fmt.Sprintf(EpochFileTemplate, config, epoch)
 }
 
-func runEnvoy(mesh *MeshConfig, ip string) func(interface{}, int) error {
+func runEnvoy(mesh *proxyconfig.ProxyMeshConfig, ip string) func(interface{}, int) error {
 	return func(config interface{}, epoch int) error {
 		envoyConfig, ok := config.(*Config)
 		if !ok {
@@ -142,7 +150,7 @@ func runEnvoy(mesh *MeshConfig, ip string) func(interface{}, int) error {
 		}
 
 		// attempt to write file
-		fname := configFile(mesh.ConfigPath, epoch)
+		fname := configFile(ConfigPath, epoch)
 		if err := envoyConfig.WriteFile(fname); err != nil {
 			return err
 		}
@@ -150,8 +158,8 @@ func runEnvoy(mesh *MeshConfig, ip string) func(interface{}, int) error {
 		// spin up a new Envoy process
 		args := []string{"-c", fname,
 			"--restart-epoch", fmt.Sprint(epoch),
-			"--drain-time-s", fmt.Sprint(mesh.DrainTimeSeconds),
-			"--parent-shutdown-time-s", fmt.Sprint(mesh.ParentShutdownTimeSeconds),
+			"--drain-time-s", fmt.Sprint(int(convertDuration(mesh.DrainDuration) / time.Second)),
+			"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(mesh.ParentShutdownDuration) / time.Second)),
 			"--service-cluster", mesh.IstioServiceCluster,
 			"--service-node", ip,
 		}
@@ -166,7 +174,7 @@ func runEnvoy(mesh *MeshConfig, ip string) func(interface{}, int) error {
 		glog.V(2).Infof("Envoy command: %v", args)
 
 		/* #nosec */
-		cmd := exec.Command(mesh.BinaryPath, args...)
+		cmd := exec.Command(BinaryPath, args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
@@ -174,9 +182,9 @@ func runEnvoy(mesh *MeshConfig, ip string) func(interface{}, int) error {
 	}
 }
 
-func cleanupEnvoy(mesh *MeshConfig) func(int) {
+func cleanupEnvoy(mesh *proxyconfig.ProxyMeshConfig) func(int) {
 	return func(epoch int) {
-		path := configFile(mesh.ConfigPath, epoch)
+		path := configFile(ConfigPath, epoch)
 		if err := os.Remove(path); err != nil {
 			glog.Warningf("Failed to delete config file %s for %d, %v", path, epoch, err)
 		}

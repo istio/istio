@@ -13,7 +13,6 @@ for d in $(go list ./... | grep -v vendor); do
             options=$options" -race"
             ;;
     esac
-    go generate $d
     go test $options $d
 
     if [ -f profile.out ]; then

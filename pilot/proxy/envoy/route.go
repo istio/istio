@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes/duration"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
@@ -37,22 +39,21 @@ const (
 )
 
 // buildListenerSSLContext returns an SSLContext struct.
-func buildListenerSSLContext(mesh *MeshConfig) *SSLContext {
+func buildListenerSSLContext(certsDir string) *SSLContext {
 	return &SSLContext{
-		CertChainFile:  mesh.AuthConfigPath + "/cert-chain.pem",
-		PrivateKeyFile: mesh.AuthConfigPath + "/key.pem",
-		CaCertFile:     mesh.AuthConfigPath + "/root-cert.pem",
+		CertChainFile:  certsDir + "/cert-chain.pem",
+		PrivateKeyFile: certsDir + "/key.pem",
+		CaCertFile:     certsDir + "/root-cert.pem",
 	}
 }
 
 // buildClusterSSLContext returns an SSLContextWithSAN struct with VerifySubjectAltName.
-func buildClusterSSLContext(hostname string, context *ProxyContext) *SSLContextWithSAN {
-	mesh := context.MeshConfig
-	serviceAccounts, _ := context.Discovery.GetIstioServiceAccounts(hostname)
+// The list of service accounts may be empty but not nil.
+func buildClusterSSLContext(certsDir string, serviceAccounts []string) *SSLContextWithSAN {
 	return &SSLContextWithSAN{
-		CertChainFile:        mesh.AuthConfigPath + "/cert-chain.pem",
-		PrivateKeyFile:       mesh.AuthConfigPath + "/key.pem",
-		CaCertFile:           mesh.AuthConfigPath + "/root-cert.pem",
+		CertChainFile:        certsDir + "/cert-chain.pem",
+		PrivateKeyFile:       certsDir + "/key.pem",
+		CaCertFile:           certsDir + "/root-cert.pem",
 		VerifySubjectAltName: serviceAccounts,
 	}
 }
@@ -67,12 +68,11 @@ func buildDefaultRoute(cluster *Cluster) *HTTPRoute {
 
 func buildInboundCluster(hostname string, port int, protocol model.Protocol) *Cluster {
 	cluster := &Cluster{
-		Name:             fmt.Sprintf("%s%d", InboundClusterPrefix, port),
-		Type:             "static",
-		ConnectTimeoutMs: DefaultTimeoutMs,
-		LbType:           DefaultLbType,
-		Hosts:            []Host{{URL: fmt.Sprintf("tcp://%s:%d", "127.0.0.1", port)}},
-		hostname:         hostname,
+		Name:     fmt.Sprintf("%s%d", InboundClusterPrefix, port),
+		Type:     "static",
+		LbType:   DefaultLbType,
+		Hosts:    []Host{{URL: fmt.Sprintf("tcp://%s:%d", "127.0.0.1", port)}},
+		hostname: hostname,
 	}
 	if protocol == model.ProtocolGRPC || protocol == model.ProtocolHTTP2 {
 		cluster.Features = "http2"
@@ -80,19 +80,17 @@ func buildInboundCluster(hostname string, port int, protocol model.Protocol) *Cl
 	return cluster
 }
 
-func buildOutboundCluster(hostname string, port *model.Port, ssl *SSLContextWithSAN, tags model.Tags) *Cluster {
+func buildOutboundCluster(hostname string, port *model.Port, tags model.Tags) *Cluster {
 	svc := model.Service{Hostname: hostname}
 	key := svc.Key(port, tags)
 	cluster := &Cluster{
-		Name:             OutboundClusterPrefix + key,
-		ServiceName:      key,
-		Type:             "sds",
-		LbType:           DefaultLbType,
-		ConnectTimeoutMs: DefaultTimeoutMs,
-		SSLContext:       ssl,
-		hostname:         hostname,
-		port:             port,
-		tags:             tags,
+		Name:        OutboundClusterPrefix + key,
+		ServiceName: key,
+		Type:        "sds",
+		LbType:      DefaultLbType,
+		hostname:    hostname,
+		port:        port,
+		tags:        tags,
 	}
 	if port.Protocol == model.ProtocolGRPC || port.Protocol == model.ProtocolHTTP2 {
 		cluster.Features = "http2"
@@ -101,7 +99,7 @@ func buildOutboundCluster(hostname string, port *model.Port, ssl *SSLContextWith
 }
 
 // buildHTTPRoute translates a route rule to an Envoy route
-func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port, ssl *SSLContextWithSAN) (*HTTPRoute, bool) {
+func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port) (*HTTPRoute, bool) {
 	route := &HTTPRoute{
 		Path:   "",
 		Prefix: "/",
@@ -159,7 +157,7 @@ func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port, ssl *SSLConte
 				destination = rule.Destination
 			}
 
-			cluster := buildOutboundCluster(destination, port, ssl, dst.Tags)
+			cluster := buildOutboundCluster(destination, port, dst.Tags)
 			clusters = append(clusters, &WeightedClusterEntry{
 				Name:   cluster.Name,
 				Weight: int(dst.Weight),
@@ -176,7 +174,7 @@ func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port, ssl *SSLConte
 	} else {
 		route.WeightedClusters = nil
 		// default route for the destination
-		cluster := buildOutboundCluster(rule.Destination, port, ssl, nil)
+		cluster := buildOutboundCluster(rule.Destination, port, nil)
 		route.Cluster = cluster.Name
 		route.clusters = make([]*Cluster, 0)
 		route.clusters = append(route.clusters, cluster)
@@ -193,11 +191,11 @@ func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port, ssl *SSLConte
 	return route, catchAll
 }
 
-func buildDiscoveryCluster(address, name string) *Cluster {
+func buildDiscoveryCluster(address, name string, timeout *duration.Duration) *Cluster {
 	return &Cluster{
 		Name:             name,
 		Type:             "strict_dns",
-		ConnectTimeoutMs: DefaultTimeoutMs,
+		ConnectTimeoutMs: int(convertDuration(timeout) / time.Millisecond),
 		LbType:           DefaultLbType,
 		Hosts: []Host{
 			{

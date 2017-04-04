@@ -18,95 +18,66 @@ import (
 	"sort"
 	"time"
 
+	"github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
+
+	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 )
 
-// MeshConfig defines proxy mesh variables
-type MeshConfig struct {
-	// DiscoveryAddress is the DNS address for Envoy discovery service
-	DiscoveryAddress string
-
-	// MixerAddress is the authority address for Istio Mixer service (HOST:PORT)
-	MixerAddress string
-
-	// ProxyPort is the Envoy proxy port
-	ProxyPort int
-
-	// AdminPort is the administrative interface port
-	AdminPort int
-
-	// Envoy binary path
-	BinaryPath string
-
-	// Envoy config root path
-	ConfigPath string
-
-	// Whether Envoy enforces auth for proxy-proxy traffic
-	EnableAuth bool
-
-	// The path for auth config files
-	AuthConfigPath string
-
-	// DrainTimeSeconds is the duration of the grace period to drain connections
-	// from an older proxy instance
-	DrainTimeSeconds int
-
-	// ParentShutdownTimeSeconds is the duration to wait to shutdown the older
-	// proxy instance
-	ParentShutdownTimeSeconds int
-
-	// IstioServiceCluster defines the name for the service_cluster that is
-	// shared by all proxy instances. Since Istio does not assign a local
-	// service/service version to each proxy instance, the name is same for all
-	// of them. This setting corresponds to "--service-cluster" flag in Envoy.
-	// The value for "--service-node"  is used by the proxy to identify its set
-	// of local instances to RDS for source-based routing. For example, if proxy
-	// sends its IP address, the RDS can compute routes that are relative to the
-	// service instances located at that IP address.
-	IstioServiceCluster string
-
-	// DiscoveryRefreshDelay is the average delay Envoy uses between
-	// fetches to the SDS/CDS/RDS APIs.
-	DiscoveryRefreshDelay time.Duration
-}
-
-var (
-	// DefaultMeshConfig configuration
-	DefaultMeshConfig = &MeshConfig{
-		DiscoveryAddress:          "manager:8080",
-		MixerAddress:              "mixer:9091",
-		ProxyPort:                 15001,
-		AdminPort:                 15000,
-		BinaryPath:                "/usr/local/bin/envoy",
-		ConfigPath:                "/etc/envoy",
-		EnableAuth:                false,
-		AuthConfigPath:            "/etc/certs",
-		DrainTimeSeconds:          30,
-		ParentShutdownTimeSeconds: 45,
-		IstioServiceCluster:       "istio-proxy",
-		DiscoveryRefreshDelay:     1000 * time.Millisecond,
-	}
-)
-
-// TODO: these values used in the Envoy configuration will be configurable
 const (
-	DefaultTimeoutMs = 1000
-	DefaultLbType    = LbTypeRoundRobin
+	// DefaultAccessLog is the name of the log channel (stdout in docker environment)
 	DefaultAccessLog = "/dev/stdout"
+
+	// DefaultLbType defines the default load balancer policy
+	DefaultLbType = LbTypeRoundRobin
+
+	// RDSName is the name of RDS cluster
+	RDSName = "rds"
+
+	// LbTypeRoundRobin is the name for roundrobin LB
 	LbTypeRoundRobin = "round_robin"
-	RDSName          = "rds"
 
 	// HTTPConnectionManager is the name of HTTP filter.
 	HTTPConnectionManager = "http_connection_manager"
+
 	// TCPProxyFilter is the name of the TCP Proxy network filter.
 	TCPProxyFilter = "tcp_proxy"
 
-	// URI HTTP header
+	// HeaderURI is URI HTTP header
 	HeaderURI = "uri"
 
 	// WildcardAddress binds to all IP addresses
 	WildcardAddress = "0.0.0.0"
 )
+
+var (
+	// DefaultMeshConfig configuration
+	DefaultMeshConfig = proxyconfig.ProxyMeshConfig{
+		DiscoveryAddress: "manager:8080",
+
+		ProxyListenPort:        15001,
+		ProxyAdminPort:         15000,
+		DrainDuration:          ptypes.DurationProto(2 * time.Second),
+		ParentShutdownDuration: ptypes.DurationProto(3 * time.Second),
+		DiscoveryRefreshDelay:  ptypes.DurationProto(1 * time.Second),
+		ConnectTimeout:         ptypes.DurationProto(1 * time.Second),
+		IstioServiceCluster:    "istio-proxy",
+
+		AuthPolicy:    proxyconfig.ProxyMeshConfig_NONE,
+		AuthCertsPath: "/etc/certs",
+	}
+)
+
+// convertDuration converts to golang duration and logs errors
+func convertDuration(d *duration.Duration) time.Duration {
+	dur, err := ptypes.Duration(d)
+	if err != nil {
+		glog.Warningf("error converting duration %#v: %v", d, err)
+	}
+	return dur
+}
 
 // Config defines the schema for Envoy JSON configuration format
 type Config struct {
@@ -205,7 +176,7 @@ type HTTPRoute struct {
 
 	// clusters contains the set of referenced clusters in the route; the field is special
 	// and used only to aggregate cluster information after composing routes
-	clusters []*Cluster
+	clusters Clusters
 
 	// faults contains the set of referenced faults in the route; the field is special
 	// and used only to aggregate fault filter information after composing routes
@@ -237,6 +208,14 @@ type VirtualHost struct {
 	Name    string       `json:"name"`
 	Domains []string     `json:"domains"`
 	Routes  []*HTTPRoute `json:"routes"`
+}
+
+func (host *VirtualHost) clusters() Clusters {
+	out := make(Clusters, 0)
+	for _, route := range host.Routes {
+		out = append(out, route.clusters...)
+	}
+	return out
 }
 
 // HTTPRouteConfig definition
@@ -287,11 +266,7 @@ func (rc *HTTPRouteConfig) faults() []*HTTPFilter {
 func (rc *HTTPRouteConfig) clusters() Clusters {
 	out := make(Clusters, 0)
 	for _, host := range rc.VirtualHosts {
-		for _, route := range host.Routes {
-			for _, cluster := range route.clusters {
-				out = append(out, cluster)
-			}
-		}
+		out = append(out, host.clusters()...)
 	}
 	return out
 }
@@ -478,10 +453,10 @@ type OutlierDetection struct {
 type Clusters []*Cluster
 
 // normalize deduplicates and sorts clusters
-func (s Clusters) normalize() Clusters {
+func (clusters Clusters) normalize() Clusters {
 	out := make(Clusters, 0)
 	set := make(map[string]bool)
-	for _, cluster := range s {
+	for _, cluster := range clusters {
 		if !set[cluster.Name] {
 			set[cluster.Name] = true
 			out = append(out, cluster)
@@ -489,6 +464,13 @@ func (s Clusters) normalize() Clusters {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
+}
+
+func (clusters Clusters) setTimeout(timeout *duration.Duration) {
+	duration := int(convertDuration(timeout) / time.Millisecond)
+	for _, cluster := range clusters {
+		cluster.ConnectTimeoutMs = duration
+	}
 }
 
 // RoutesByPath sorts routes by their path and/or prefix, such that:
@@ -568,9 +550,9 @@ type RDS struct {
 
 // ClusterManager definition
 type ClusterManager struct {
-	Clusters []*Cluster `json:"clusters"`
-	SDS      *SDS       `json:"sds,omitempty"`
-	CDS      *CDS       `json:"cds,omitempty"`
+	Clusters Clusters `json:"clusters"`
+	SDS      *SDS     `json:"sds,omitempty"`
+	CDS      *CDS     `json:"cds,omitempty"`
 }
 
 // ByName implements sort

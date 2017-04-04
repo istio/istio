@@ -3,8 +3,6 @@ set -ex
 
 buildifier -showlog -mode=check $(find . -type f \( -name 'BUILD' -or -name 'WORKSPACE' -or -wholename '.*bazel' -or -wholename '.*bzl' \) -print )
 
-go generate ./...
-
 NUM_CPU=$(getconf _NPROCESSORS_ONLN)
 
 gometalinter --concurrency=${NUM_CPU} --enable-gc --deadline=300s --disable-all\
