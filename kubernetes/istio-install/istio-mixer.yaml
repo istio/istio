@@ -27,6 +27,8 @@ data:
         value_type: 1 # STRING
       - name: target.name
         value_type: 1 # STRING
+      - name: target.service
+        value_type: 1 # STRING
       - name: origin.ip
         value_type: 6 # IP_ADDRESS
       - name: origin.user
@@ -99,13 +101,13 @@ data:
             labels:
               source: source.name | "unknown"
               target: target.service | "unknown"
-              response_code: response.http.code | 200
+              response_code: response.code | 200
           - descriptor_name:  request_latency
             value: response.latency | "0ms"
             labels:
               source: source.name | "unknown"
               target: target.service | "unknown"
-              response_code: response.http.code | 200
+              response_code: response.code | 200
       - kind: access-logs
         params:
           logName: "access_log"

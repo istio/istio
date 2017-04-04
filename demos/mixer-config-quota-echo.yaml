@@ -27,6 +27,8 @@ data:
         value_type: 1 # STRING
       - name: target.name
         value_type: 1 # STRING
+      - name: target.service
+        value_type: 1 # STRING
       - name: origin.ip
         value_type: 6 # IP_ADDRESS
       - name: origin.user
