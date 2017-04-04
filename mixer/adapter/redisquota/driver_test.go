@@ -97,7 +97,11 @@ func TestPipe(t *testing.T) {
 			t.Errorf("Unable to get response: %v", err)
 		}
 
-		if resp.int() != 10 {
+		result, err := resp.int()
+		if err != nil {
+			t.Errorf("Unable to get integer: %v", err)
+		}
+		if result != 10 {
 			t.Errorf("Wrong response: %v", err)
 		}
 
@@ -105,8 +109,20 @@ func TestPipe(t *testing.T) {
 			t.Errorf("Unable to delete command: %v", err)
 		}
 
-		resp, err = conn.pipeResponse()
-		if resp.int() != -1 {
+		resp, _ = conn.pipeResponse()
+		result, err = resp.int()
+		if err == nil {
+			t.Errorf("Expecting error, got success")
+		}
+		if result != 0 {
+			t.Errorf("Unable to get response command: %v", err)
+		}
+
+		result, err = conn.getIntResp()
+		if err == nil {
+			t.Errorf("Expecting error, got success")
+		}
+		if result != 0 {
 			t.Errorf("Unable to get response command: %v", err)
 		}
 
