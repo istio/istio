@@ -16,14 +16,16 @@ package aspect
 
 // ManagerInventory holds a set of aspect managers.
 type ManagerInventory struct {
-	Check  []CheckManager
-	Report []ReportManager
-	Quota  []QuotaManager
+	Preprocess []PreprocessManager
+	Check      []CheckManager
+	Report     []ReportManager
+	Quota      []QuotaManager
 }
 
 // Inventory returns the authoritative set of aspect managers used by the mixer.
 func Inventory() ManagerInventory {
 	return ManagerInventory{
+		Preprocess: []PreprocessManager{},
 		Check: []CheckManager{
 			newDenialsManager(),
 			newListsManager(),

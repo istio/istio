@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/pool"
@@ -42,12 +43,15 @@ const (
 )
 
 type testState struct {
-	client        mixerpb.MixerClient
-	connection    *grpc.ClientConn
-	gs            *grpc.Server
-	gp            *pool.GoroutinePool
-	s             *grpcServer
-	reportBadAttr bool
+	adapterManager.AspectDispatcher
+
+	client         mixerpb.MixerClient
+	connection     *grpc.ClientConn
+	gs             *grpc.Server
+	gp             *pool.GoroutinePool
+	s              *grpcServer
+	reportBadAttr  bool
+	failPreprocess bool
 }
 
 func (ts *testState) createGRPCServer() (string, error) {
@@ -122,7 +126,7 @@ func (ts *testState) cleanupTestState() {
 }
 
 func (ts *testState) Check(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag) rpc.Status {
-	return status.WithPermissionDenied("Not Implementd")
+	return status.WithPermissionDenied("Not Implemented")
 }
 
 func (ts *testState) Report(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag) rpc.Status {
@@ -131,7 +135,7 @@ func (ts *testState) Report(ctx context.Context, bag *attribute.MutableBag, outp
 		output.Set("BADATTR", 0)
 	}
 
-	return status.WithPermissionDenied("Not Implementd")
+	return status.WithPermissionDenied("Not Implemented")
 }
 
 func (ts *testState) Quota(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
@@ -139,6 +143,14 @@ func (ts *testState) Quota(ctx context.Context, requestBag *attribute.MutableBag
 
 	qmr := &aspect.QuotaMethodResp{Amount: 42}
 	return qmr, status.OK
+}
+
+func (ts *testState) Preprocess(ctx context.Context, bag, output *attribute.MutableBag) rpc.Status {
+	output.Set("preprocess_attribute", "true")
+	if ts.failPreprocess {
+		return status.WithInternal("failed process")
+	}
+	return status.OK
 }
 
 func TestCheck(t *testing.T) {
@@ -457,7 +469,6 @@ func TestBrokenStream(t *testing.T) {
 	ts, err := prepTestState()
 	if err != nil {
 		t.Fatalf("Unable to prep test state: %v", err)
-		return
 	}
 	defer ts.cleanupTestState()
 
@@ -474,7 +485,6 @@ func TestBrokenStream(t *testing.T) {
 	stream, err := ts.client.Report(context.Background())
 	if err != nil {
 		t.Fatalf("Report failed %v", err)
-		return
 	}
 
 	request := mixerpb.ReportRequest{}
@@ -519,6 +529,55 @@ func TestBadBag(t *testing.T) {
 	// we never hear back from the server (since the send failed). Just wait
 	// for the goroutine to signal it's done
 	wg.Wait()
+}
+
+func TestPreprocessFailure(t *testing.T) {
+	ts, err := prepTestState()
+	if err != nil {
+		t.Fatalf("unable to prep test dispatchState %v", err)
+	}
+	ts.failPreprocess = true
+	defer ts.cleanupTestState()
+
+	stream, err := ts.client.Report(context.Background())
+	if err != nil {
+		t.Fatalf("Report failed %v", err)
+	}
+
+	waitc := make(chan rpc.Status)
+	go func() {
+		for {
+			response, err := stream.Recv()
+			if err == io.EOF {
+				close(waitc)
+				return
+			} else if err != nil {
+				t.Errorf("Failed to receive a response : %v", err)
+				return
+			} else {
+				waitc <- response.Result
+			}
+		}
+	}()
+
+	// send the first request
+	request := mixerpb.ReportRequest{RequestIndex: testRequestID0}
+	if err := stream.Send(&request); err != nil {
+		t.Errorf("Failed to send first request: %v", err)
+	}
+
+	result := <-waitc
+
+	if err := stream.CloseSend(); err != nil {
+		t.Errorf("Failed to close gRPC stream: %v", err)
+	}
+
+	if status.IsOK(result) {
+		t.Error("Got OK; wanted failure.")
+	}
+
+	// wait for the goroutine to be done
+	<-waitc
 }
 
 func init() {
