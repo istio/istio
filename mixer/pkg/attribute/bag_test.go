@@ -196,7 +196,7 @@ func TestMerge(t *testing.T) {
 	c1.Set("STRING1", "A")
 	c2.Set("STRING2", "B")
 
-	if err := mb.Merge([]*MutableBag{c1, c2}); err != nil {
+	if err := mb.Merge(c1, c2); err != nil {
 		t.Errorf("Got %v, expecting success", err)
 	}
 
@@ -218,7 +218,7 @@ func TestMergeErrors(t *testing.T) {
 	c1.Set("FOO", "X")
 	c2.Set("FOO", "Y")
 
-	if err := mb.Merge([]*MutableBag{c1, c2}); err == nil {
+	if err := mb.Merge(c1, c2); err == nil {
 		t.Error("Got success, expected failure")
 	} else if !strings.Contains(err.Error(), "FOO") {
 		t.Errorf("Expected error to contain the word FOO, got %s", err.Error())

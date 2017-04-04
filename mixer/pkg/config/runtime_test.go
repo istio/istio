@@ -130,6 +130,105 @@ func TestRuntime(t *testing.T) {
 	}
 }
 
+func TestRuntime_ResolveUnconditional(t *testing.T) {
+	table := []*ttable{
+		{nil, 0, true, 2, []string{AttributeGenerationKindName}},
+		{nil, 0, true, 0, []string{}},
+	}
+
+	LC := ListsKindName
+	a1 := &pb.Adapter{
+		Name: "a1",
+		Kind: LC,
+	}
+	a2 := &pb.Adapter{
+		Name: "a2",
+		Kind: LC,
+	}
+	ag := &pb.Adapter{
+		Name: "ag",
+		Kind: AttributeGenerationKindName,
+	}
+
+	v := &Validated{
+		adapterByName: map[adapterKey]*pb.Adapter{
+			{ListsKind, "a1"}:               a1,
+			{ListsKind, "a2"}:               a2,
+			{AttributeGenerationKind, "ag"}: ag,
+		},
+		serviceConfig: &pb.ServiceConfig{
+			Rules: []*pb.AspectRule{
+				{
+					Selector: "ok",
+					Aspects: []*pb.Aspect{
+						{
+							Kind: LC,
+						},
+						{
+							Adapter: "a2",
+							Kind:    LC,
+						},
+					},
+					Rules: []*pb.AspectRule{
+						{
+							Selector: "ok",
+							Aspects: []*pb.Aspect{
+								{
+									Kind: LC,
+								},
+								{
+									Adapter: "a2",
+									Kind:    LC,
+								},
+							},
+						},
+					},
+				},
+				{
+					Selector: "",
+					Aspects: []*pb.Aspect{
+						{
+							Kind: AttributeGenerationKindName,
+						},
+						{
+							Adapter: "ag",
+							Kind:    AttributeGenerationKindName,
+						},
+					},
+				},
+			},
+		},
+		numAspects: 2,
+	}
+
+	bag := attribute.GetMutableBag(nil)
+
+	for idx, tt := range table {
+		fe := &trueEval{tt.err, tt.ncalls, tt.ret}
+		var kinds KindSet
+		for _, a := range tt.asp {
+			k, _ := ParseKind(a)
+			kinds = kinds.Set(k)
+		}
+		rt := newRuntime(v, fe)
+
+		al, err := rt.ResolveUnconditional(bag, kinds)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(al) != tt.nlen {
+			t.Errorf("[%d] Expected %d resolves got %d", idx, tt.nlen, len(al))
+		}
+
+		for _, cfg := range al {
+			if cfg.Aspect.Kind != AttributeGenerationKindName {
+				t.Errorf("Got aspect kind: %v, want %v", cfg.Aspect.Kind, AttributeGenerationKindName)
+			}
+		}
+	}
+}
+
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
 	_ = flag.Lookup("v").Value.Set("99")

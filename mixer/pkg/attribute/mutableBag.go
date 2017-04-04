@@ -142,10 +142,13 @@ func (mb *MutableBag) Reset() {
 // The individual bags may not contain any conflicting attribute
 // values. If that happens, then the merge fails and no mutation
 // will have occurred to the current bag.
-func (mb *MutableBag) Merge(bags []*MutableBag) error {
+func (mb *MutableBag) Merge(bags ...*MutableBag) error {
 	// first step is to make sure there are no redundant definitions of the same attribute
 	keys := make(map[string]bool)
 	for _, bag := range bags {
+		if bag == nil {
+			continue
+		}
 		for k := range bag.values {
 			if keys[k] {
 				return fmt.Errorf("conflicting value for attribute %s", k)
@@ -156,6 +159,9 @@ func (mb *MutableBag) Merge(bags []*MutableBag) error {
 
 	// now that we know there are no conflicting definitions, do the actual merging...
 	for _, bag := range bags {
+		if bag == nil {
+			continue
+		}
 		for k, v := range bag.values {
 			mb.values[k] = copyValue(v)
 		}
