@@ -34,7 +34,7 @@ way to subdivide service instances by versions (`v1`, `v2`) or environment
 versions: they could be iterative changes to the same service, deployed in
 different environments (prod, staging, dev, etc.). Common scenarios where
 this occurs include A/B testing, canary rollouts, etc. Istio
-[routing rules](rule-dsl.md) can refer to the service versions, to provide
+[routing rules](docs/reference/rule-dsl.md) can refer to the service versions, to provide
 additional control over traffic between services.
 
 **Tags** Each version of a service can be differentiated by a unique set of
