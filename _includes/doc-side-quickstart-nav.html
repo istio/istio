@@ -1,6 +1,0 @@
-<ul class="doc-side-nav">
-	{% assign current = page.url | downcase | split: '/' %}
-	<li><h5 class="doc-side-nav-title">Quick Start</h5></li>
-	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/quickstart/cpp.html" {% if current[3] == 'with-kube-inject.html' %}class='current'{% endif %}>Add Istio to existing deployments</a></li>
-	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/quickstart/java.html" {% if current[3] == 'from-scratch.html' %}class='current'{% endif %}>Add Istio to new deployments</a></li>
- </ul>

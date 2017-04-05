@@ -1,0 +1,7 @@
+<ul class="doc-side-nav doc-side-nav-reference">
+	{% assign current = page.url | downcase | split: '/' %}
+	<li><h5 class="doc-side-nav-title">Reference</h5></li>
+	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/reference/istioctl.html" {% if current[3] == 'istioctl.html' %}class='current'{% endif %}>istioctl</a></li>
+	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/reference/rule-dsl.html" {% if current[3] == 'rule-dsl.html' %}class='current'{% endif %}>Routing and Traffic Management</a></li>
+	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/reference/attributes.html" {% if current[3] == 'attributes.html' %}class='current'{% endif %}>Attributes</a></li>
+ </ul>

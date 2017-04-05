@@ -1,10 +1,10 @@
 ---
 bodyclass: docs
-headline: Quick Start
+headline: Istio Quick Starts
 layout: docs
-title: Quick Start
+title: Quick Starts
 type: markdown
-sidenav: doc-side-quickstart-nav.html
+sidenav: doc-side-quickstarts-nav.html
 ---
 <p class="lead">
 Get started with Istio

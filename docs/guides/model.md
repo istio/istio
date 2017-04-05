@@ -1,9 +1,9 @@
 ---
 bodyclass: docs
-headline: Istio Service Model
+headline: Service Model
 layout: docs
 sidenav: doc-side-guides-nav.html
-title: Istio Service Model
+title: Service Model
 type: markdown
 ---
 

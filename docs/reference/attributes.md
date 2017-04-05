@@ -4,6 +4,7 @@ headline: 'Mixer Attributes'
 layout: docs
 title: Mixer Attributes
 type: markdown
+sidenav: doc-side-reference-nav.html
 ---
 
 Istio uses *attributes* to describe runtime behavior of services running in the mesh. Attributes are named and typed pieces of metadata

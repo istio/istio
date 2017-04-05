@@ -1,9 +1,9 @@
 ---
 bodyclass: docs
-headline: Istio Mixer
+headline: Mixer
 layout: docs
 sidenav: doc-side-guides-nav.html
-title: Istio Mixer
+title: Mixer
 type: markdown
 ---
 
