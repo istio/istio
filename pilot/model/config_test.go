@@ -176,7 +176,7 @@ func TestKindMapValidateConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "ProtoSchema validation",
+			name: "ProtoSchema validation1",
 			key: &Key{
 				Kind:      RouteRule,
 				Name:      "foo",
@@ -186,7 +186,7 @@ func TestKindMapValidateConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "ProtoSchema validation",
+			name: "ProtoSchema validation2",
 			key: &Key{
 				Kind:      RouteRule,
 				Name:      "foo",
@@ -793,7 +793,8 @@ func TestTagsValidate(t *testing.T) {
 		valid bool
 	}{
 		{
-			name: "empty tags",
+			name:  "empty tags",
+			valid: true,
 		},
 		{
 			name: "bad tag",
@@ -840,19 +841,218 @@ func TestTagsEquals(t *testing.T) {
 
 func TestValidateRouteAndIngressRule(t *testing.T) {
 	cases := []struct {
+		name  string
 		in    proto.Message
 		valid bool
 	}{
-		{in: &proxyconfig.DestinationPolicy{}, valid: false},
-		{in: &proxyconfig.RouteRule{}, valid: false},
-		{in: &proxyconfig.RouteRule{Destination: "foobar"}, valid: true},
+		{name: "empty destination policy", in: &proxyconfig.DestinationPolicy{}, valid: false},
+		{name: "empty route rule", in: &proxyconfig.RouteRule{}, valid: false},
+		{name: "route rule w destination", in: &proxyconfig.RouteRule{Destination: "foobar"}, valid: true},
+		{name: "route rule bad destination", in: &proxyconfig.RouteRule{
+			Destination: "badhost@.default.svc.cluster.local",
+		},
+			valid: false},
+		{name: "route rule bad match source", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Match:       &proxyconfig.MatchCondition{Source: "somehost!.default.svc.cluster.local"},
+		},
+			valid: false},
+		{name: "route rule bad weight dest", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Match:       &proxyconfig.MatchCondition{Source: "somehost.default.svc.cluster.local"},
+			Route: []*proxyconfig.DestinationWeight{
+				{Destination: strings.Repeat(strings.Repeat("1234567890", 6)+".", 6)},
+			},
+		},
+			valid: false},
+		{name: "route rule bad weight", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Match:       &proxyconfig.MatchCondition{Source: "somehost.default.svc.cluster.local"},
+			Route: []*proxyconfig.DestinationWeight{
+				{Weight: -1},
+			},
+		},
+			valid: false},
+		{name: "route rule no weight", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Match:       &proxyconfig.MatchCondition{Source: "somehost.default.svc.cluster.local"},
+			Route: []*proxyconfig.DestinationWeight{
+				{Destination: "host2.default.svc.cluster.local"},
+			},
+		},
+			valid: true},
+		{name: "route rule two destinationweights", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Match:       &proxyconfig.MatchCondition{Source: "somehost.default.svc.cluster.local"},
+			Route: []*proxyconfig.DestinationWeight{
+				{Destination: "host2.default.svc.cluster.local", Weight: 50},
+				{Destination: "host3.default.svc.cluster.local", Weight: 50},
+			},
+		},
+			valid: true},
+		{name: "route rule two destinationweights", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Match:       &proxyconfig.MatchCondition{Source: "somehost.default.svc.cluster.local"},
+			Route: []*proxyconfig.DestinationWeight{
+				{Destination: "host.default.svc.cluster.local", Weight: 75, Tags: map[string]string{"version": "v1"}},
+				{Destination: "host.default.svc.cluster.local", Weight: 25, Tags: map[string]string{"version": "v3"}},
+			},
+		},
+			valid: true},
+		{name: "route rule two destinationweights 99", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Match:       &proxyconfig.MatchCondition{Source: "somehost.default.svc.cluster.local"},
+			Route: []*proxyconfig.DestinationWeight{
+				{Destination: "host.default.svc.cluster.local", Weight: 75, Tags: map[string]string{"version": "v1"}},
+				{Destination: "host.default.svc.cluster.local", Weight: 24, Tags: map[string]string{"version": "v3"}},
+			},
+		},
+			valid: false},
+		{name: "route rule bad route tags", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Match:       &proxyconfig.MatchCondition{Source: "somehost.default.svc.cluster.local"},
+			Route: []*proxyconfig.DestinationWeight{
+				{Tags: map[string]string{"@": "~"}},
+			},
+		},
+			valid: false},
+		{name: "route rule bad timeout", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			HttpReqTimeout: &proxyconfig.HTTPTimeout{
+				TimeoutPolicy: &proxyconfig.HTTPTimeout_SimpleTimeout{
+					SimpleTimeout: &proxyconfig.HTTPTimeout_SimpleTimeoutPolicy{TimeoutSeconds: -1},
+				},
+			},
+		},
+			valid: false},
+		{name: "route rule bad retry attempts", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			HttpReqRetries: &proxyconfig.HTTPRetry{
+				RetryPolicy: &proxyconfig.HTTPRetry_SimpleRetry{
+					SimpleRetry: &proxyconfig.HTTPRetry_SimpleRetryPolicy{Attempts: -1},
+				},
+			},
+		},
+			valid: false},
+		{name: "route rule bad delay fixed seconds", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			HttpFault: &proxyconfig.HTTPFaultInjection{
+				Delay: &proxyconfig.HTTPFaultInjection_Delay{
+					Percent:       -1,
+					HttpDelayType: &proxyconfig.HTTPFaultInjection_Delay_FixedDelaySeconds{FixedDelaySeconds: 3},
+				},
+			},
+		},
+			valid: false},
+		{name: "route rule bad delay fixed seconds", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			HttpFault: &proxyconfig.HTTPFaultInjection{
+				Delay: &proxyconfig.HTTPFaultInjection_Delay{
+					Percent:       100,
+					HttpDelayType: &proxyconfig.HTTPFaultInjection_Delay_FixedDelaySeconds{FixedDelaySeconds: -1},
+				},
+			},
+		},
+			valid: false},
+		{name: "route rule bad abort percent", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			HttpFault: &proxyconfig.HTTPFaultInjection{
+				Abort: &proxyconfig.HTTPFaultInjection_Abort{
+					Percent:   -1,
+					ErrorType: &proxyconfig.HTTPFaultInjection_Abort_HttpStatus{HttpStatus: 500},
+				},
+			},
+		},
+			valid: false},
+		{name: "route rule bad abort status", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			HttpFault: &proxyconfig.HTTPFaultInjection{
+				Abort: &proxyconfig.HTTPFaultInjection_Abort{
+					Percent:   100,
+					ErrorType: &proxyconfig.HTTPFaultInjection_Abort_HttpStatus{HttpStatus: -1},
+				},
+			},
+		},
+			valid: false},
+		{name: "route rule bad delay exp seconds", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			HttpFault: &proxyconfig.HTTPFaultInjection{
+				Delay: &proxyconfig.HTTPFaultInjection_Delay{
+					Percent:       101,
+					HttpDelayType: &proxyconfig.HTTPFaultInjection_Delay_ExponentialDelaySeconds{ExponentialDelaySeconds: -1},
+				},
+			},
+		},
+			valid: false},
+		{name: "route rule bad throttle after seconds", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			L4Fault: &proxyconfig.L4FaultInjection{
+				Throttle: &proxyconfig.L4FaultInjection_Throttle{
+					Percent:            101,
+					DownstreamLimitBps: -1,
+					UpstreamLimitBps:   -1,
+					ThrottleAfter:      &proxyconfig.L4FaultInjection_Throttle_ThrottleAfterSeconds{ThrottleAfterSeconds: -1},
+				},
+				Terminate: &proxyconfig.L4FaultInjection_Terminate{
+					Percent:               101,
+					TerminateAfterSeconds: -1,
+				},
+			},
+		},
+			valid: false},
+		{name: "route rule bad throttle after bytes", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			L4Fault: &proxyconfig.L4FaultInjection{
+				Throttle: &proxyconfig.L4FaultInjection_Throttle{
+					Percent:            101,
+					DownstreamLimitBps: -1,
+					UpstreamLimitBps:   -1,
+					ThrottleAfter:      &proxyconfig.L4FaultInjection_Throttle_ThrottleAfterBytes{ThrottleAfterBytes: -1},
+				},
+			},
+		},
+			valid: false},
+		{name: "route rule bad match source tag label", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Match:       &proxyconfig.MatchCondition{SourceTags: map[string]string{"@": "0"}},
+		},
+			valid: false},
+		{name: "route rule bad match source tag value", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Match:       &proxyconfig.MatchCondition{SourceTags: map[string]string{"a": "~"}},
+		},
+			valid: false},
+		{name: "route rule match valid subnets", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Match: &proxyconfig.MatchCondition{
+				Tcp: &proxyconfig.L4MatchAttributes{
+					SourceSubnet:      []string{"1.2.3.4"},
+					DestinationSubnet: []string{"1.2.3.4/24"},
+				},
+			},
+		},
+			valid: true},
+		{name: "route rule match invalid subnets", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Match: &proxyconfig.MatchCondition{
+				Tcp: &proxyconfig.L4MatchAttributes{
+					SourceSubnet:      []string{"foo", "1.2.3.4/banana"},
+					DestinationSubnet: []string{"1.2.3.4/500", "1.2.3.4/-1"},
+				},
+				Udp: &proxyconfig.L4MatchAttributes{
+					SourceSubnet:      []string{"1.2.3.4", "1.2.3.4/24", ""},
+					DestinationSubnet: []string{"foo.2.3.4", "1.2.3"},
+				},
+			},
+		},
+			valid: false},
 	}
 	for _, c := range cases {
 		if got := ValidateRouteRule(c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateRouteRule failed: got valid=%v but wanted valid=%v: %v", got == nil, c.valid, got)
+			t.Errorf("ValidateRouteRule failed on %v: got valid=%v but wanted valid=%v: %v", c.name, got == nil, c.valid, got)
 		}
 		if got := ValidateIngressRule(c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateIngressRule failed: got valid=%v but wanted valid=%v: %v", got == nil, c.valid, got)
+			t.Errorf("ValidateIngressRule failed on %v: got valid=%v but wanted valid=%v: %v", c.name, got == nil, c.valid, got)
 		}
 	}
 }
@@ -865,6 +1065,49 @@ func TestValidateDestinationPolicy(t *testing.T) {
 		{in: &proxyconfig.RouteRule{}, valid: false},
 		{in: &proxyconfig.DestinationPolicy{}, valid: false},
 		{in: &proxyconfig.DestinationPolicy{Destination: "foobar"}, valid: true},
+		{in: &proxyconfig.DestinationPolicy{
+			Destination: "ratings!.default.svc.cluster.local",
+			CircuitBreaker: &proxyconfig.CircuitBreaker{
+				CbPolicy: &proxyconfig.CircuitBreaker_SimpleCb{
+					SimpleCb: &proxyconfig.CircuitBreaker_SimpleCircuitBreakerPolicy{
+						MaxConnections:               -1,
+						HttpMaxPendingRequests:       -1,
+						HttpMaxRequests:              -1,
+						SleepWindowSeconds:           -1,
+						HttpConsecutiveErrors:        -1,
+						HttpDetectionIntervalSeconds: -1,
+						HttpMaxRequestsPerConnection: -1,
+						HttpMaxEjectionPercent:       -1,
+					},
+				},
+			},
+		},
+			valid: false},
+		{in: &proxyconfig.DestinationPolicy{
+			Destination: "ratings!.default.svc.cluster.local",
+			CircuitBreaker: &proxyconfig.CircuitBreaker{
+				CbPolicy: &proxyconfig.CircuitBreaker_SimpleCb{
+					SimpleCb: &proxyconfig.CircuitBreaker_SimpleCircuitBreakerPolicy{
+						HttpMaxEjectionPercent: 101,
+					},
+				},
+			},
+		},
+			valid: false},
+		{in: &proxyconfig.DestinationPolicy{
+			Destination: "foobar",
+			LoadBalancing: &proxyconfig.LoadBalancing{
+				LbPolicy: &proxyconfig.LoadBalancing_Name{
+					Name: 0,
+				},
+			},
+		},
+			valid: true},
+		{in: &proxyconfig.DestinationPolicy{
+			Destination: "foobar",
+			Tags:        map[string]string{"@": "~"},
+		},
+			valid: false},
 	}
 	for _, c := range cases {
 		if got := ValidateDestinationPolicy(c.in); (got == nil) != c.valid {

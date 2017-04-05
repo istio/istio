@@ -6,7 +6,7 @@ spec:
   route:
   - tags:
       version: v1
-    weight: 25
+    weight: 100
 ---
 type: route-rule
 name: test-v2
@@ -16,7 +16,7 @@ spec:
   route:
   - tags:
       version: v2
-    weight: 25
+    weight: 100
 ---
 type: route-rule
 name: test-v3
@@ -26,7 +26,7 @@ spec:
   route:
   - tags:
       version: v3
-    weight: 25
+    weight: 100
 ---
 type: route-rule
 name: test-v4
@@ -36,4 +36,4 @@ spec:
   route:
   - tags:
       version: v4
-    weight: 25
+    weight: 100
