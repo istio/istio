@@ -18,8 +18,6 @@ TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . ${TESTS_DIR}/commonUtils.sh || { echo "Cannot load common utilities"; exit 1; }
 
 K8CLI="kubectl"
-MANAGER_HUB_TAG='docker.io/istio,2017-03-22-21.21.48'
-MIXER_HUB_TAG='docker.io/istio,2017-03-22-19.36.02'
 
 # Generate a namespace to use for testing
 function generate_namespace() {

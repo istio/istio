@@ -25,7 +25,7 @@ BOOKINFO_DIR="${TEST_DIR}/bookinfo"
 RULES_DIR="${BOOKINFO_DIR}/rules"
 
 # Import relevant utils
-. ${SCRIPT_DIR}/commonUtils.sh || { echo "Cannot load common utilities"; exit 1; }
+. $SCRIPT_DIR/commonUtils.sh || { echo "Cannot load common utilities"; exit 1; }
 . $SCRIPT_DIR/kubeUtils.sh || error_exit 'Could not load k8s utilities'
 . $SCRIPT_DIR/istioUtils.sh || error_exit 'Could not load istio utilities'
 
