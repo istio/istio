@@ -36,7 +36,7 @@ Istio is composed of three main components:
 
      
 A high-level overview of Istio's components is available
-[here](doc/overview.md). Istio currently only supports the Kubernetes
+[here](https://istio.io/docs/guides/index.html). Istio currently only supports the Kubernetes
 platform, although we plan support for additional platforms such as
 CloudFoundry, and Mesos in the near future. See the
 [getting started](doc/getting-started.md) tutorial for more information on
