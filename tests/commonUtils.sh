@@ -15,6 +15,8 @@
 #   limitations under the License.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MANAGER_HUB_TAG='docker.io/istio,2017-03-22-21.21.48'
+MIXER_HUB_TAG='docker.io/istio,2017-03-22-19.36.02'
 
 function error_exit() {
     # ${BASH_SOURCE[1]} is the file name of the caller.
