@@ -25,15 +25,16 @@ import (
 	"github.com/golang/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/manager/model"
-
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/manager/model"
 )
 
 const (
@@ -99,35 +100,35 @@ func NewController(client *Client, config ControllerConfig) *Controller {
 	}
 
 	out.services = out.createInformer(&v1.Service{}, config.ResyncPeriod,
-		func(opts v1.ListOptions) (runtime.Object, error) {
+		func(opts meta_v1.ListOptions) (runtime.Object, error) {
 			return client.client.CoreV1().Services(config.Namespace).List(opts)
 		},
-		func(opts v1.ListOptions) (watch.Interface, error) {
+		func(opts meta_v1.ListOptions) (watch.Interface, error) {
 			return client.client.CoreV1().Services(config.Namespace).Watch(opts)
 		})
 
 	out.endpoints = out.createInformer(&v1.Endpoints{}, config.ResyncPeriod,
-		func(opts v1.ListOptions) (runtime.Object, error) {
+		func(opts meta_v1.ListOptions) (runtime.Object, error) {
 			return client.client.CoreV1().Endpoints(config.Namespace).List(opts)
 		},
-		func(opts v1.ListOptions) (watch.Interface, error) {
+		func(opts meta_v1.ListOptions) (watch.Interface, error) {
 			return client.client.CoreV1().Endpoints(config.Namespace).Watch(opts)
 		})
 
 	out.pods = newPodCache(out.createInformer(&v1.Pod{}, config.ResyncPeriod,
-		func(opts v1.ListOptions) (runtime.Object, error) {
+		func(opts meta_v1.ListOptions) (runtime.Object, error) {
 			return client.client.CoreV1().Pods(config.Namespace).List(opts)
 		},
-		func(opts v1.ListOptions) (watch.Interface, error) {
+		func(opts meta_v1.ListOptions) (watch.Interface, error) {
 			return client.client.CoreV1().Pods(config.Namespace).Watch(opts)
 		}))
 
 	if config.IngressSyncMode != IngressOff {
 		out.ingresses = out.createInformer(&v1beta1.Ingress{}, config.ResyncPeriod,
-			func(opts v1.ListOptions) (runtime.Object, error) {
+			func(opts meta_v1.ListOptions) (runtime.Object, error) {
 				return client.client.ExtensionsV1beta1().Ingresses(config.Namespace).List(opts)
 			},
-			func(opts v1.ListOptions) (watch.Interface, error) {
+			func(opts meta_v1.ListOptions) (watch.Interface, error) {
 				return client.client.ExtensionsV1beta1().Ingresses(config.Namespace).Watch(opts)
 			})
 	}
@@ -135,7 +136,7 @@ func NewController(client *Client, config ControllerConfig) *Controller {
 	// add stores for TPR kinds
 	for _, kind := range []string{IstioKind} {
 		out.kinds[kind] = out.createInformer(&Config{}, config.ResyncPeriod,
-			func(opts v1.ListOptions) (result runtime.Object, err error) {
+			func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
 				result = &ConfigList{}
 				err = client.dyn.Get().
 					Namespace(config.Namespace).
@@ -145,7 +146,7 @@ func NewController(client *Client, config ControllerConfig) *Controller {
 					Into(result)
 				return
 			},
-			func(opts v1.ListOptions) (watch.Interface, error) {
+			func(opts meta_v1.ListOptions) (watch.Interface, error) {
 				return client.dyn.Get().
 					Prefix("watch").
 					Namespace(config.Namespace).
@@ -185,7 +186,7 @@ func (c *Controller) createInformer(
 		&cache.ListWatch{ListFunc: lf, WatchFunc: wf}, o,
 		resyncPeriod, cache.Indexers{})
 
-	err := informer.AddEventHandler(
+	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
@@ -200,9 +201,6 @@ func (c *Controller) createInformer(
 				c.queue.Push(Task{handler: handler.apply, obj: obj, event: model.EventDelete})
 			},
 		})
-	if err != nil {
-		glog.Warning(err)
-	}
 
 	return cacheHandler{informer: informer, handler: handler}
 }
@@ -641,7 +639,7 @@ func (c *Controller) GetIstioServiceAccounts(hostname string) ([]string, error) 
 		glog.Warningf(err)
 		return saArray, errors.New(err)
 	}
-	lo := v1.ListOptions{
+	lo := meta_v1.ListOptions{
 		LabelSelector: labels.Set(svc.Spec.Selector).String(),
 	}
 	// TODO: This is fragile, improve it.

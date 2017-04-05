@@ -26,9 +26,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/util/yaml"
 
 	"istio.io/manager/cmd"
 	"istio.io/manager/cmd/version"

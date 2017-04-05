@@ -6,34 +6,13 @@ git_repository(
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
-
-git_repository(
-    name = "istio_toolbox",
-    remote = "https://github.com/istio/toolbox.git",
-    commit = "55ee1cfbb22863051a45f084404fdf9a77046fc4"
-)
-
 load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "new_go_repository")
 
 go_repositories()
 
-new_go_repository(
-    name = "com_github_hashicorp_errwrap",
-    commit = "7554cd9344cec97297fa6649b055a8c98c2a1e55",
-    importpath = "github.com/hashicorp/errwrap",
-)
-
-new_go_repository(
-    name = "com_github_hashicorp_go_multierror",
-    commit = "8484912a3b9987857bac52e0c5fec2b95f419628",
-    importpath = "github.com/hashicorp/go-multierror",
-)
-
-new_go_repository(
-    name = "com_github_spf13_cobra",
-    commit = "9c28e4bbd74e5c3ed7aacbc552b2cab7cfdfe744",
-    importpath = "github.com/spf13/cobra",
-)
+##
+## Kubernetes dependencies
+##
 
 new_go_repository(
     name = "com_google_cloud_go",
@@ -54,14 +33,14 @@ new_go_repository(
 )
 
 new_go_repository(
-    name = "com_github_blang_semver",
-    commit = "31b736133b98f26d5e078ec9eb591666edfd091f",
-    importpath = "github.com/blang/semver",
+    name = "com_github_coreos_go_oidc",
+    commit = "be73733bb8cc830d0205609b95d125215f8e9c70",
+    importpath = "github.com/coreos/go-oidc",
 )
 
 new_go_repository(
     name = "com_github_coreos_pkg",
-    commit = "1c941d73110817a80b9fa6e14d5d2b00d977ce2a",  # Date: 2/6/17 with "build" file rename
+    commit = "fa29b1d70f0beaddd4c7021607cc3c3be8ce94b8",
     importpath = "github.com/coreos/pkg",
 )
 
@@ -78,14 +57,8 @@ new_go_repository(
 )
 
 new_go_repository(
-    name = "com_github_docker_spdystream",
-    commit = "449fdfce4d962303d702fec724ef0ad181c92528",
-    importpath = "github.com/docker/spdystream",
-)
-
-new_go_repository(
     name = "com_github_emicklei_go_restful",
-    commit = "89ef8af493ab468a45a42bb0d89a06fccdd2fb22",
+    commit = "09691a3b6378b740595c1002f40c34dd5f218a22",
     importpath = "github.com/emicklei/go-restful",
 )
 
@@ -145,7 +118,7 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_google_gofuzz",
-    commit = "bbcb9da2d746f8bdbd6a936686a0a6067ada0ec5",
+    commit = "44d81051d367757e1c7c6a5a86423ece9afcf63c",
     importpath = "github.com/google/gofuzz",
 )
 
@@ -180,12 +153,6 @@ new_go_repository(
 )
 
 new_go_repository(
-    name = "com_github_pborman_uuid",
-    commit = "ca53cad383cad2479bbba7f7a1a05797ec1386e4",
-    importpath = "github.com/pborman/uuid",
-)
-
-new_go_repository(
     name = "com_github_pmezard_go_difflib",
     commit = "d8ed2627bdf02c080bf22230dbb337003b7aba2d",
     importpath = "github.com/pmezard/go-difflib",
@@ -193,14 +160,8 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_spf13_pflag",
-    commit = "5ccb023bc27df288a957c5e994cd44fd19619465",
+    commit = "9ff6c6923cfffbcd502984b8e0c80539a94968b7",
     importpath = "github.com/spf13/pflag",
-)
-
-new_go_repository(
-    name = "com_github_golang_sync",
-    commit = "450f422ab23cf9881c94e2db30cac0eb1b7cf80c",
-    importpath = "github.com/golang/sync",
 )
 
 new_go_repository(
@@ -211,13 +172,13 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_ugorji_go",
-    commit = "f1f1a805ed361a0e078bb537e4ea78cd37dcf065",
+    commit = "ded73eae5db7e7a0ef6f55aace87a2873c5d2b74",
     importpath = "github.com/ugorji/go",
 )
 
 new_go_repository(
     name = "org_golang_x_crypto",
-    commit = "1f22c0103821b9390939b6776727195525381532",
+    commit = "d172538b2cfce0c13cee31e647d0367aa8cd2486",
     importpath = "golang.org/x/crypto",
 )
 
@@ -240,6 +201,12 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "org_golang_x_text",
+    commit = "2910a502d2bf9e43193af9d68ca516529614eed3",
+    importpath = "golang.org/x/text",
+)
+
+new_go_repository(
     name = "org_golang_google_appengine",
     commit = "4f7eeb5305a4ba1966344836ba4af9996b7b4e05",
     importpath = "google.golang.org/appengine",
@@ -258,29 +225,43 @@ new_go_repository(
 )
 
 new_go_repository(
-    name = "com_github_coreos_go_oidc",
-    # commit = "5644a2f50e2d2d5ba0b474bc5bc55fea1925936d",
-    commit = "5a7f09ab5787e846efa7f56f4a08b6d6926d08c4",
-    importpath = "github.com/coreos/go-oidc",
-)
-
-new_go_repository(
-    name = "org_golang_x_text",
-    build_file_name = "BUILD.bazel",
-    commit = "2910a502d2bf9e43193af9d68ca516529614eed3",
-    importpath = "golang.org/x/text",
-)
-
-new_go_repository(
     name = "io_k8s_apimachinery",
-    commit = "d3c1641d0c440b4c1bef7e1fc105f19f713477e0",
+    commit = "20e10d54608f05c3059443a6c0afb9979641e88d",
     importpath = "k8s.io/apimachinery",
 )
 
 new_go_repository(
     name = "io_k8s_client_go",
-    commit = "243d8a9cb66a51ad8676157f79e71033b4014a2a",
+    commit = "4e221f82e2ad6e61bd6190602de9c3400d79f1aa", # Apr 4, 2017
     importpath = "k8s.io/client-go",
+)
+
+##
+## Go dependencies
+##
+
+new_go_repository(
+    name = "com_github_hashicorp_errwrap",
+    commit = "7554cd9344cec97297fa6649b055a8c98c2a1e55",
+    importpath = "github.com/hashicorp/errwrap",
+)
+
+new_go_repository(
+    name = "com_github_hashicorp_go_multierror",
+    commit = "8484912a3b9987857bac52e0c5fec2b95f419628",
+    importpath = "github.com/hashicorp/go-multierror",
+)
+
+new_go_repository(
+    name = "com_github_spf13_cobra",
+    commit = "9c28e4bbd74e5c3ed7aacbc552b2cab7cfdfe744",
+    importpath = "github.com/spf13/cobra",
+)
+
+new_go_repository(
+    name = "com_github_golang_sync",
+    commit = "450f422ab23cf9881c94e2db30cac0eb1b7cf80c",
+    importpath = "github.com/golang/sync",
 )
 
 ##
@@ -382,4 +363,14 @@ new_go_repository(
     name = "com_github_golang_mock",
     commit = "bd3c8e81be01eef76d4b503f5e687d2d1354d2d9",
     importpath = "github.com/golang/mock",
+)
+
+##
+## Testing
+##
+
+git_repository(
+    name = "istio_toolbox",
+    remote = "https://github.com/istio/toolbox.git",
+    commit = "55ee1cfbb22863051a45f084404fdf9a77046fc4"
 )

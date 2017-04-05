@@ -26,10 +26,11 @@ import (
 	"io"
 	"strconv"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/pkg/api/v1"
+	batch "k8s.io/client-go/pkg/apis/batch/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
-	yamlDecoder "k8s.io/client-go/pkg/util/yaml"
 
 	"github.com/ghodss/yaml"
 
@@ -217,9 +218,9 @@ func IntoResourceFile(p *Params, in io.Reader, out io.Writer) error {
 			inject func(typ interface{}) error
 		}{
 			"Job": {
-				typ: &v1beta1.Job{},
+				typ: &batch.Job{},
 				inject: func(typ interface{}) error {
-					return injectIntoPodTemplateSpec(p, &((typ.(*v1beta1.Job)).Spec.Template))
+					return injectIntoPodTemplateSpec(p, &((typ.(*batch.Job)).Spec.Template))
 				},
 			},
 			"DaemonSet": {

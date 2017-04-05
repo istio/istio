@@ -14,9 +14,9 @@ go_library(
         "//proxy/envoy:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_sync//errgroup:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_client_go//kubernetes:go_default_library",
         "@io_k8s_client_go//pkg/api/v1:go_default_library",
-        "@io_k8s_client_go//pkg/apis/meta/v1:go_default_library",
     ],
 )
 

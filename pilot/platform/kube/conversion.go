@@ -25,11 +25,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
 
-	"k8s.io/client-go/pkg/api"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	meta_v1 "k8s.io/client-go/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/util/intstr"
 
 	"istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
@@ -65,7 +64,7 @@ func kindToAPIName(s string) string {
 	return camelCaseToKabobCase(s) + "." + IstioAPIGroup
 }
 
-func convertTags(obj v1.ObjectMeta) model.Tags {
+func convertTags(obj meta_v1.ObjectMeta) model.Tags {
 	out := make(model.Tags)
 	for k, v := range obj.Labels {
 		out[k] = v
@@ -152,7 +151,7 @@ func modelToKube(km model.KindMap, k *model.Key, v proto.Message) (*Config, erro
 		TypeMeta: meta_v1.TypeMeta{
 			Kind: IstioKind,
 		},
-		Metadata: api.ObjectMeta{
+		Metadata: meta_v1.ObjectMeta{
 			Name:      k.Kind + "-" + k.Name,
 			Namespace: k.Namespace,
 		},

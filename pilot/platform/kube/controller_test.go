@@ -23,11 +23,13 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
+
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	"k8s.io/client-go/pkg/util/intstr"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
@@ -60,7 +62,7 @@ func TestIngressController(t *testing.T) {
 	// So that we can later verify it doesn't generate a notification,
 	// nor returned with List(), Get() etc.
 	nginxIngress := v1beta1.Ingress{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      "nginx-ingress",
 			Namespace: ns,
 			Annotations: map[string]string{
@@ -79,7 +81,7 @@ func TestIngressController(t *testing.T) {
 	// Create a "real" ingress resource, with 4 host/path rules and an additional "default" rule.
 	const expectedRuleCount = 5
 	ingress := v1beta1.Ingress{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      "test-ingress",
 			Namespace: ns,
 		},
@@ -199,7 +201,7 @@ func TestIngressClass(t *testing.T) {
 
 	for _, c := range cases {
 		ingress := v1beta1.Ingress{
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: meta_v1.ObjectMeta{
 				Name:        "test-ingress",
 				Namespace:   "default",
 				Annotations: make(map[string]string),
@@ -402,7 +404,7 @@ func eventually(f func() bool, t *testing.T) {
 
 const (
 	testService = "test"
-	resync      = 100 * time.Millisecond
+	resync      = 1 * time.Second
 )
 
 func TestServices(t *testing.T) {
@@ -446,7 +448,7 @@ func TestServices(t *testing.T) {
 
 func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
 	_, err := cl.Core().Services(ns).Create(&v1.Service{
-		ObjectMeta: v1.ObjectMeta{Name: n},
+		ObjectMeta: meta_v1.ObjectMeta{Name: n},
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{
 				{
@@ -473,7 +475,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 
 	controller := NewController(&Client{client: clientSet}, ControllerConfig{
 		Namespace:    "default",
-		ResyncPeriod: 100 * time.Millisecond,
+		ResyncPeriod: resync,
 	})
 
 	createService(controller, "svc1", "nsA", map[string]string{"app": "prod-app"}, t)
@@ -516,7 +518,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 
 func createService(controller *Controller, name, namespace string, selector map[string]string, t *testing.T) {
 	service := &v1.Service{
-		ObjectMeta: v1.ObjectMeta{Name: name, Namespace: namespace},
+		ObjectMeta: meta_v1.ObjectMeta{Name: name, Namespace: namespace},
 		Spec:       v1.ServiceSpec{Selector: selector},
 	}
 	if err := controller.services.informer.GetStore().Add(service); err != nil {
@@ -527,7 +529,7 @@ func createService(controller *Controller, name, namespace string, selector map[
 func createPod(client kubernetes.Interface, labels map[string]string, name string, namespace string,
 	serviceAccountName string, t *testing.T) {
 	pod := &v1.Pod{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      name,
 			Labels:    labels,
 			Namespace: namespace,

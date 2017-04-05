@@ -177,7 +177,7 @@ func init() {
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	rootCmd.PersistentFlags().StringVarP(&flags.namespace, "namespace", "n", "",
 		"Select a Kubernetes namespace for the controller loop ('' means all namespaces)")
-	rootCmd.PersistentFlags().DurationVar(&flags.resyncPeriod, "resync", 100*time.Millisecond,
+	rootCmd.PersistentFlags().DurationVar(&flags.resyncPeriod, "resync", time.Second,
 		"Controller resync interval")
 	rootCmd.PersistentFlags().StringVar(&flags.config, "meshConfig", "istio",
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", cmd.ConfigMapKey))

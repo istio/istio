@@ -6,7 +6,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_golang_glog//:go_default_library",
-        "@io_k8s_client_go//pkg/util/flowcontrol:go_default_library",
+        "@io_k8s_client_go//util/flowcontrol:go_default_library",
     ],
 )
 

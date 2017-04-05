@@ -28,9 +28,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
-	meta_v1 "k8s.io/client-go/pkg/apis/meta/v1"
 
 	"istio.io/manager/model"
 	"istio.io/manager/platform/kube"
@@ -392,7 +392,7 @@ func setPods() error {
 	var items []v1.Pod
 	for n := 0; ; n++ {
 		glog.Info("Checking all pods are running...")
-		list, err := client.CoreV1().Pods(params.namespace).List(v1.ListOptions{})
+		list, err := client.CoreV1().Pods(params.namespace).List(meta_v1.ListOptions{})
 		if err != nil {
 			return err
 		}
@@ -446,7 +446,7 @@ func podLogs(name string, container string) string {
 
 func generateNamespace(cl kubernetes.Interface) (string, error) {
 	ns, err := cl.Core().Namespaces().Create(&v1.Namespace{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: meta_v1.ObjectMeta{
 			GenerateName: "istio-integration-",
 		},
 	})
@@ -460,7 +460,7 @@ func generateNamespace(cl kubernetes.Interface) (string, error) {
 
 func deleteNamespace(cl kubernetes.Interface, ns string) {
 	if cl != nil && ns != "" && ns != "default" {
-		if err := cl.Core().Namespaces().Delete(ns, &v1.DeleteOptions{}); err != nil {
+		if err := cl.Core().Namespaces().Delete(ns, &meta_v1.DeleteOptions{}); err != nil {
 			glog.Infof("Error deleting namespace: %v\n", err)
 		}
 		glog.Infof("Deleted namespace %s\n", ns)

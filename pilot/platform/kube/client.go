@@ -20,26 +20,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-
 	"github.com/golang/glog"
-
+	"github.com/golang/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/manager/model"
-
-	meta_v1 "k8s.io/client-go/pkg/apis/meta/v1"
-
+	"k8s.io/apimachinery/pkg/api/errors"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/errors"
-	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/runtime/schema"
-	"k8s.io/client-go/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"istio.io/manager/model"
 )
 
 const (
@@ -90,8 +86,6 @@ func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 		func(scheme *runtime.Scheme) error {
 			scheme.AddKnownTypes(
 				version,
-				&v1.ListOptions{},
-				&v1.DeleteOptions{},
 			)
 			scheme.AddKnownTypeWithName(schema.GroupVersionKind{
 				Group:   IstioAPIGroup,
@@ -103,8 +97,10 @@ func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 				Version: IstioResourceVersion,
 				Kind:    IstioKind + "List",
 			}, &ConfigList{})
+
 			return nil
 		})
+	meta_v1.AddToGroupVersion(api.Scheme, version)
 	err = schemeBuilder.AddToScheme(api.Scheme)
 
 	return
@@ -170,7 +166,7 @@ func (cl *Client) RegisterResources() error {
 		} else if errors.IsNotFound(err) {
 			glog.V(1).Infof("Creating resource: %q", kind)
 			tpr := &v1beta1.ThirdPartyResource{
-				ObjectMeta:  v1.ObjectMeta{Name: apiName},
+				ObjectMeta:  meta_v1.ObjectMeta{Name: apiName},
 				Versions:    []v1beta1.APIVersion{{Name: IstioResourceVersion}},
 				Description: "Istio configuration",
 			}
@@ -225,7 +221,7 @@ func (cl *Client) DeregisterResources() error {
 	for _, kind := range kinds {
 		apiName := kindToAPIName(kind)
 		err := cl.client.Extensions().ThirdPartyResources().
-			Delete(apiName, &v1.DeleteOptions{})
+			Delete(apiName, &meta_v1.DeleteOptions{})
 		if err != nil {
 			out = multierror.Append(out, err)
 		}

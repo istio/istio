@@ -22,6 +22,7 @@ import (
 
 	"github.com/golang/glog"
 
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
 
@@ -39,7 +40,7 @@ func TestThirdPartyResourcesClient(t *testing.T) {
 	// check secret
 	secret := "istio-secret"
 	_, err := cl.client.Core().Secrets(ns).Create(&v1.Secret{
-		ObjectMeta: v1.ObjectMeta{Name: secret},
+		ObjectMeta: meta_v1.ObjectMeta{Name: secret},
 		Data:       map[string][]byte{"value": []byte(secret)},
 	})
 	if err != nil {
@@ -101,7 +102,7 @@ func makeClient(t *testing.T) *Client {
 
 func makeNamespace(cl kubernetes.Interface, t *testing.T) string {
 	ns, err := cl.Core().Namespaces().Create(&v1.Namespace{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: meta_v1.ObjectMeta{
 			GenerateName: "istio-test-",
 		},
 	})
@@ -114,7 +115,7 @@ func makeNamespace(cl kubernetes.Interface, t *testing.T) string {
 
 func deleteNamespace(cl kubernetes.Interface, ns string) {
 	if ns != "" && ns != "default" {
-		if err := cl.Core().Namespaces().Delete(ns, &v1.DeleteOptions{}); err != nil {
+		if err := cl.Core().Namespaces().Delete(ns, &meta_v1.DeleteOptions{}); err != nil {
 			glog.Warningf("Error deleting namespace: %v", err)
 		}
 		glog.Infof("Deleted namespace %s", ns)
