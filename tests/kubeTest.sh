@@ -24,18 +24,21 @@ ISTIO_INSTALL_DIR="${TEST_DIR}/istio"
 BOOKINFO_DIR="${TEST_DIR}/bookinfo"
 RULES_DIR="${BOOKINFO_DIR}/rules"
 
-while getopts :i:sn: arg; do
+# Import relevant utils
+. ${SCRIPT_DIR}/commonUtils.sh || { echo "Cannot load common utilities"; exit 1; }
+. $SCRIPT_DIR/kubeUtils.sh || error_exit 'Could not load k8s utilities'
+. $SCRIPT_DIR/istioUtils.sh || error_exit 'Could not load istio utilities'
+
+while getopts :i:sn:m:x: arg; do
   case ${arg} in
     i) ISTIOCLI="${OPTARG}";;
     s) TEAR_DOWN=false;;
     n) NAMESPACE="${OPTARG}";;
+    m) MANAGER_HUB_TAG="${OPTARG}";;
+    x) MIXER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     *) error_exit "Unrecognized argument -${OPTARG}";;
   esac
 done
-
-# Import relevant utils
-. $SCRIPT_DIR/kubeUtils.sh || error_exit 'Could not load k8s utilities'
-. $SCRIPT_DIR/istioUtils.sh || error_exit 'Could not load istio utilities'
 
 [[ -z ${NAMESPACE} ]] && NAMESPACE="$(generate_namespace)"
 
@@ -56,11 +59,7 @@ generate_rules_yaml "${RULES_DIR}"
 create_namespace
 deploy_istio "${ISTIO_INSTALL_DIR}"
 deploy_bookinfo "${BOOKINFO_DIR}"
-# Get gateway IP and port
-GATEWAY_IP="$(${K8CLI} get svc istio-ingress-controller -n ${NAMESPACE} \
-  -o jsonpath='{.status.loadBalancer.ingress[*].ip}')" \
-  || error_exit "Cannot get ingress ip."
-URL="http://${GATEWAY_IP}"
+URL=$GATEWAY_URL
 
 # Verify default routes
 print_block_echo "Testing default route behavior on ${URL} ..."
@@ -171,7 +170,7 @@ print_block_echo "Testing gradual migration..."
 COMMAND_INPUT="curl -s -b 'foo=bar;user=normal-user;' ${URL}/productpage"
 EXPECTED_OUTPUT1="$EXAMPLES_DIR/productpage-normal-user-v1.html"
 EXPECTED_OUTPUT2="$EXAMPLES_DIR/productpage-normal-user-v3.html"
-create_rule $RULES_DIR/route-rule-reviews-50-v3.yaml
+replace_rule $RULES_DIR/route-rule-reviews-50-v3.yaml
 echo "Waiting for rules to propagate..."
 sleep 30
 echo "Expected percentage based routing is 50% to v1 and 50% to v3."
