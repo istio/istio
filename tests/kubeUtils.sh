@@ -18,6 +18,8 @@ TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . ${TESTS_DIR}/commonUtils.sh || { echo "Cannot load common utilities"; exit 1; }
 
 K8CLI="kubectl"
+MANAGER_HUB_TAG='docker.io/istio,2017-03-22-21.21.48'
+MIXER_HUB_TAG='docker.io/istio,2017-03-22-19.36.02'
 
 # Generate a namespace to use for testing
 function generate_namespace() {
@@ -62,10 +64,19 @@ function deploy_bookinfo() {
 }
 
 function find_ingress_controller() {
-    local ip="$(${K8CLI} get svc istio-ingress-controller -n ${NAMESPACE} \
-      -o jsonpath='{.status.loadBalancer.ingress[*].ip}')"
-    echo ${ip[@]}
-    [[ ${ip} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && return 0
+    #local gateway="$(${K8CLI} get svc istio-ingress-controller -n ${NAMESPACE} \
+    #  -o jsonpath='{.status.loadBalancer.ingress[*].ip}')"
+    #if [[ ${gateway} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+    #    GATEWAY_URL="http://${gateway}"
+    #    return 0
+    #fi
+    local gateway="$(${K8CLI} get po -l infra=istio-ingress-controller -n ${NAMESPACE} \
+      -o jsonpath='{.items[0].status.hostIP}'):$(${K8CLI} get svc istio-ingress-controller -n ${NAMESPACE} \
+      -o jsonpath={.spec.ports[0].nodePort})"
+    if [[ ${gateway} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\:3[0-2][0-9][0-9][0-9]$ ]]; then
+        GATEWAY_URL="http://${gateway}"
+        return 0
+    fi
     return 1
 }
 
