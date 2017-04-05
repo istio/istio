@@ -67,7 +67,7 @@ There are two types of rules in Istio, **Route Rules**,
 which control request routing, and **Destination Policies**,
 which specify policies, for example, circuit breakers, that control requests for a destination service.
 
-Istio rules can be set and displayed using the [istioctl CLI]({{site.baseurl}}/docs/reference/istioctl.md).
+Istio rules can be set and displayed using the [istioctl CLI](istioctl.md).
 For example, the above rule can be set using the following command:
 ```bash
 $ cat <<EOF | istioctl create

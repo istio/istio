@@ -39,8 +39,8 @@ _kubernetes specific_
 
 # Policy and Rule types
 
-* **route-rule** Describes a rule for routing network traffic.  See [Route Rules]({{site.baseurl}}/docs/reference/rule-dsl.md#route-rules) for details on routing rules.
-* **destination-policy** Describes a policy for traffic destinations.  See [Destination Policies]({{site.baseurl}}/docs/reference/rule-dsl.md#destination-policies) for details on destination policies.
+* **route-rule** Describes a rule for routing network traffic.  See [Route Rules](rule-dsl.md#route-rules) for details on routing rules.
+* **destination-policy** Describes a policy for traffic destinations.  See [Destination Policies](rule-dsl.md#destination-policies) for details on destination policies.
 
 # Examples of common operations
 

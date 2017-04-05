@@ -34,6 +34,6 @@ to different backend systems that deliver core control-plane functionality, such
 enable the mixer to expose a single consistent control API, independent of the backends in use. The exact set of adapters
 used at runtime is determined through configuration.
 
-<img src="{{site.baseurl}}/img/adapters.svg" alt="Mixer and its adapters.">
+<img src="../../img/adapters.svg" alt="Mixer and its adapters.">
 
 <div id="toc" class="toc mobile-toc"></div>
