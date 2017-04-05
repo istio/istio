@@ -15,8 +15,8 @@
 #   limitations under the License.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MANAGER_HUB_TAG='docker.io/istio,2017-03-22-21.21.48'
-MIXER_HUB_TAG='docker.io/istio,2017-03-22-19.36.02'
+MANAGER_HUB_TAG='docker.io/frankb,ubuntu_20170405_192511'
+MIXER_HUB_TAG='docker.io/istio,2017-04-04-22.14.44'
 
 function error_exit() {
     # ${BASH_SOURCE[1]} is the file name of the caller.
@@ -62,7 +62,7 @@ function kube_inject() {
     local after=${2}
     local hub="$(echo ${MANAGER_HUB_TAG}|cut -f1 -d,)"
     local tag="$(echo ${MANAGER_HUB_TAG}|cut -f2 -d,)"
-    ${ISTIOCLI} kube-inject -f ${before} -o ${after} --hub ${hub} --tag ${tag}
+    ${ISTIOCLI} kube-inject -f ${before} -o ${after} --hub ${hub} --tag ${tag} -n ${NAMESPACE}
 }
 
 function apply_patch_in_dir() {

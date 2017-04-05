@@ -54,12 +54,11 @@ trap tear_down EXIT
 
 # Setup
 generate_istio_yaml "${ISTIO_INSTALL_DIR}"
-generate_bookinfo_yaml "${BOOKINFO_DIR}"
-generate_rules_yaml "${RULES_DIR}"
 create_namespace
 deploy_istio "${ISTIO_INSTALL_DIR}"
-deploy_bookinfo "${BOOKINFO_DIR}"
-URL=$GATEWAY_URL
+generate_bookinfo_yaml "${BOOKINFO_DIR}"
+deploy_bookinfo "${BOOKINFO_DIR}"; URL=$GATEWAY_URL
+generate_rules_yaml "${RULES_DIR}"
 
 # Verify default routes
 print_block_echo "Testing default route behavior on ${URL} ..."
