@@ -28,7 +28,7 @@ and usage policies across the service mesh and collects telemetry data from
 proxies and istio-managed services alike. The Istio proxy extracts request
 level attributes that are then evaluated by the mixer. More info on the
 attribute extraction and policy evaluation can be found
-[here](docs/reference/attributes.md). The mixer includes a flexible plugin model enabling
+[here]({{site.baseurl}}/docs/reference/attributes.md). The mixer includes a flexible plugin model enabling
 it to interface to a variety of host environments and configured backends,
 abstracting the proxy and Istio-managed services from these details.
 
@@ -38,11 +38,11 @@ The Istio manager serves as an interface between the user
 and Istio, collecting configuration, validating it and propagating it to
 various components. It abstracts platform-specific implementation details
 from the mixer and proxies, providing them with an
-[abstract representation](model.md) of user's services that is independent
-of the underlying platform. In addition, [traffic management rules](docs/reference/rule-dsl.md)
+[abstract representation]({{site.baseurl}}/docs/guides/model.md) of user's services that is independent
+of the underlying platform. In addition, [traffic management rules]({{site.baseurl}}/docs/reference/rule-dsl.md)
 (i.e. generic layer-4 rules and layer-7 HTTP/gRPC routing rules)
 can be programmed at runtime via the Istio Manager.
 
-<img src="img/arch.svg" alt="The overall architecture of an Istio-based service.">
+<img src="{{site.baseurl}}/img/arch.svg" alt="The overall architecture of an Istio-based service.">
 
 <div id="toc" class="toc mobile-toc"></div>

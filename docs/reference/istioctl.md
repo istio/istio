@@ -27,8 +27,7 @@ where `command`, `targets` and `flags` are:
 
 * **create**: Create policies and rules
 * **delete**: Delete policies or rules
-* **get**: Retrieve a policy or rule
-* **list**: List policies and rules
+* **get**: Retrieve policy/policies or rules
 * **replace**: Replace policies and rules
 * **version**: Display CLI version information
 
@@ -40,8 +39,8 @@ _kubernetes specific_
 
 # Policy and Rule types
 
-* **route-rule** Describes a rule for routing network traffic.  See [Route Rules](rule-dsl.md#route-rules) for details on routing rules.
-* **destination-policy** Describes a policy for traffic destinations.  See [Destination Policies](rule-dsl.md#destination-policies) for details on destination policies.
+* **route-rule** Describes a rule for routing network traffic.  See [Route Rules]({{site.baseurl}}/docs/reference/rule-dsl.md#route-rules) for details on routing rules.
+* **destination-policy** Describes a policy for traffic destinations.  See [Destination Policies]({{site.baseurl}}/docs/reference/rule-dsl.md#destination-policies) for details on destination policies.
 
 # Examples of common operations
 
@@ -59,14 +58,14 @@ $ istioctl create -f example-routing.yaml
 $ istioctl delete -f example-routing.yaml
 ```
 
-`istioctl list` - List policies or rules in YAML format
+`istioctl get` - List policies or rules in YAML format
 
 ```
 // List route rules
-istioctl list route-rule
+istioctl get route-rules
 
 // List destination policies
-istioctl list destination-policy
+istioctl get destination-policies
 ```
 
 # kube-inject

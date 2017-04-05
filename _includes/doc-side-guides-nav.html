@@ -2,7 +2,7 @@
 	{% assign current = page.url | downcase | split: '/' %}
 	<li><h5 class="doc-side-nav-title">Guides</h5></li>
 	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/guides/index.html" {% if current[3] == 'index.html' %}class='current'{% endif %}>What is Istio?</a></li>
-	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/guides/concepts.html" {% if current[3] == 'architecture.html' %}class='current'{% endif %}>Architecture</a></li>
+	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/guides/architecture.html" {% if current[3] == 'architecture.html' %}class='current'{% endif %}>Architecture</a></li>
 	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/guides/model.html" {% if current[3] == 'model.html' %}class='current'{% endif %}>Service Model</a></li>
 	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/guides/mixer.html" {% if current[3] == 'mixer.html' %}class='current'{% endif %}>Mixer</a></li>
  </ul>
