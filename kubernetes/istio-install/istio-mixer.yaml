@@ -27,6 +27,8 @@ data:
         value_type: 1 # STRING
       - name: target.name
         value_type: 1 # STRING
+      - name: target.service
+        value_type: 1 # STRING
       - name: response.code
         value_type: 2 # INT64
       - name: response.latency
@@ -77,13 +79,13 @@ data:
             labels:
               source: source.name | "unknown"
               target: target.service | "unknown"
-              response_code: response.http.code | 200
+              response_code: response.code | 200
           - descriptor_name:  request_latency
             value: response.latency | "0ms"
             labels:
               source: source.name | "unknown"
               target: target.service | "unknown"
-              response_code: response.http.code | 200
+              response_code: response.code | 200
 ---
 # Mixer
 apiVersion: v1
