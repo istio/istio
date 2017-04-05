@@ -179,7 +179,7 @@ func init() {
 		"Select a Kubernetes namespace for the controller loop ('' means all namespaces)")
 	rootCmd.PersistentFlags().DurationVar(&flags.resyncPeriod, "resync", time.Second,
 		"Controller resync interval")
-	rootCmd.PersistentFlags().StringVar(&flags.config, "meshConfig", "istio",
+	rootCmd.PersistentFlags().StringVar(&flags.config, "meshConfig", cmd.DefaultConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", cmd.ConfigMapKey))
 
 	discoveryCmd.PersistentFlags().IntVarP(&flags.sdsPort, "port", "p", 8080,

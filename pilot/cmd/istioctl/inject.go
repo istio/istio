@@ -98,6 +98,9 @@ Example usage:
 				EnableCoreDump:  enableCoreDump,
 				Mesh:            mesh,
 			}
+			if meshConfig != cmd.DefaultConfigMapName {
+				params.MeshConfigMapName = meshConfig
+			}
 			return inject.IntoResourceFile(params, reader, writer)
 		},
 	}
@@ -118,7 +121,7 @@ func init() {
 		inject.DefaultSidecarProxyUID, "Sidecar proxy UID")
 	injectCmd.PersistentFlags().StringVar(&versionStr, "setVersionString",
 		"", "Override version info injected into resource")
-	injectCmd.PersistentFlags().StringVar(&meshConfig, "meshConfig", "istio",
+	injectCmd.PersistentFlags().StringVar(&meshConfig, "meshConfig", cmd.DefaultConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", cmd.ConfigMapKey))
 
 	// Default --coreDump=true for pre-alpha development. Core dump

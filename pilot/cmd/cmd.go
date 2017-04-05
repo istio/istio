@@ -35,6 +35,9 @@ import (
 const (
 	// ConfigMapKey is the key for mesh configuration data in the config map
 	ConfigMapKey = "mesh"
+
+	// DefaultConfigMapName is the default config map name that holds the mesh configuration.
+	DefaultConfigMapName = "istio"
 )
 
 // GetMeshConfig fetches configuration from a config map

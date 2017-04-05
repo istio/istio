@@ -70,13 +70,14 @@ func ProxyImageName(hub, tag string) string { return hub + "/proxy:" + tag }
 // Params describes configurable parameters for injecting istio proxy
 // into kubernetes resource.
 type Params struct {
-	InitImage       string
-	ProxyImage      string
-	Verbosity       int
-	SidecarProxyUID int64
-	Version         string
-	EnableCoreDump  bool
-	Mesh            *proxyconfig.ProxyMeshConfig
+	InitImage         string
+	ProxyImage        string
+	Verbosity         int
+	SidecarProxyUID   int64
+	Version           string
+	EnableCoreDump    bool
+	Mesh              *proxyconfig.ProxyMeshConfig
+	MeshConfigMapName string
 }
 
 var enableCoreDumpContainer = map[string]interface{}{
@@ -141,6 +142,9 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 		"sidecar",
 		"-n", "$(POD_NAMESPACE)",
 		"-v", strconv.Itoa(p.Verbosity),
+	}
+	if p.MeshConfigMapName != "" {
+		args = append(args, "--meshConfig", p.MeshConfigMapName)
 	}
 	var volumeMounts []v1.VolumeMount
 	if p.Mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {

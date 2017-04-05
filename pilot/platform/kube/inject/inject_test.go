@@ -41,6 +41,7 @@ const unitTestTag = "unittest"
 func TestIntoResourceFile(t *testing.T) {
 	cases := []struct {
 		authConfigPath string
+		configMapName  string
 		enableAuth     bool
 		in             string
 		want           string
@@ -49,6 +50,11 @@ func TestIntoResourceFile(t *testing.T) {
 		{
 			in:   "testdata/hello.yaml",
 			want: "testdata/hello.yaml.injected",
+		},
+		{
+			configMapName: "config-map-name",
+			in:            "testdata/hello.yaml",
+			want:          "testdata/hello-config-map-name.yaml.injected",
 		},
 		{
 			in:   "testdata/frontend.yaml",
@@ -115,6 +121,10 @@ func TestIntoResourceFile(t *testing.T) {
 			EnableCoreDump:  c.enableCoreDump,
 			Mesh:            &mesh,
 		}
+		if c.configMapName != "" {
+			params.MeshConfigMapName = c.configMapName
+		}
+
 		in, err := os.Open(c.in)
 		if err != nil {
 			t.Fatalf("Failed to open %q: %v", c.in, err)
