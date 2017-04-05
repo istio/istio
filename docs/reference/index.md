@@ -1,7 +1,7 @@
 ---
 bodyclass: docs
-headline: 'API Reference'
+headline: 'Reference'
 layout: docs
-title: Reference API
+title: Reference
 type: markdown
 ---
