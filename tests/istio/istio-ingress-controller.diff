@@ -1,9 +1,0 @@
-35,36d35
-<         - -n
-<         - $(POD_NAMESPACE)
-44,48d42
-<         env:
-<         - name: POD_NAMESPACE
-<           valueFrom:
-<             fieldRef:
-<               fieldPath: metadata.namespace

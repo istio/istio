@@ -35,10 +35,15 @@ spec:
         args:
         - proxy
         - ingress
-        - -s
-        - istio-manager:8080
         - -v
         - "2"
+        - -n
+        - $(POD_NAMESPACE)
         imagePullPolicy: Always
         ports:
         - containerPort: 80
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
