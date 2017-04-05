@@ -30,14 +30,6 @@ func insertMixerFilter(listeners []*Listener, instances []*model.ServiceInstance
 		return
 	}
 
-	// join IPs with a comma
-	ips := make([]string, 0)
-	for ip := range context.Addrs {
-		ips = append(ips, ip)
-	}
-	sort.Strings(ips)
-	id := strings.Join(ips, ",")
-
 	// join service names with a comma
 	serviceSet := make(map[string]bool)
 	for _, instance := range instances {
@@ -60,11 +52,11 @@ func insertMixerFilter(listeners []*Listener, instances []*model.ServiceInstance
 					Config: &FilterMixerConfig{
 						MixerServer: context.MeshConfig.MixerAddress,
 						MixerAttributes: map[string]string{
-							"target.uid":     id,
+							"target.uid":     context.IPAddress,
 							"target.service": service,
 						},
 						ForwardAttributes: map[string]string{
-							"source.uid":     id,
+							"source.uid":     context.IPAddress,
 							"source.service": service,
 						},
 					},

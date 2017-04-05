@@ -121,7 +121,7 @@ func Generate(context *ProxyContext) *Config {
 // must be present)
 func buildListeners(context *ProxyContext) (Listeners, Clusters) {
 	// query the services model
-	instances := context.Discovery.HostInstances(context.Addrs)
+	instances := context.Discovery.HostInstances(map[string]bool{context.IPAddress: true})
 	services := context.Discovery.Services()
 
 	inbound, inClusters := buildInboundListeners(instances, context.MeshConfig)

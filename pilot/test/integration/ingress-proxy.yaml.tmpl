@@ -27,8 +27,14 @@ spec:
       containers:
       - name: proxy
         image: {{.hub}}/proxy:{{.tag}}
-        args: ["proxy", "ingress", "-v", "2", "-n", "{{.namespace}}", "--secret", "ingress"]
+        args: ["proxy", "ingress", "-v", "{{.verbosity}}", "--secret", "ingress"]
         imagePullPolicy: Always
         ports:
         - containerPort: 443
         - containerPort: 80
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace

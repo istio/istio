@@ -140,8 +140,10 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 	args := []string{
 		"proxy",
 		"sidecar",
-		"-n", "$(POD_NAMESPACE)",
-		"-v", strconv.Itoa(p.Verbosity),
+	}
+
+	if p.Verbosity > 0 {
+		args = append(args, "-v", strconv.Itoa(p.Verbosity))
 	}
 	if p.MeshConfigMapName != "" {
 		args = append(args, "--meshConfig", p.MeshConfigMapName)

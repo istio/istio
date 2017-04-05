@@ -41,14 +41,8 @@ type ProxyContext struct {
 	Config *model.IstioRegistry
 	// MeshConfig defines global configuration settings
 	MeshConfig *proxyconfig.ProxyMeshConfig
-	// Addrs is a set of IP addressed assigned to the proxy
-	Addrs map[string]bool
-}
-
-// ProxyNode provides the local proxy node name and IP address
-type ProxyNode struct {
-	Name string
-	IP   string
+	// IPAddress is the IP address of the proxy used to identify it and its co-located service instances
+	IPAddress string
 }
 
 type watcher struct {
@@ -59,16 +53,12 @@ type watcher struct {
 
 // NewWatcher creates a new watcher instance with an agent
 func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
-	registry *model.IstioRegistry, mesh *proxyconfig.ProxyMeshConfig, identity *ProxyNode) (Watcher, error) {
-	addrs := make(map[string]bool)
-	if identity.IP != "" {
-		addrs[identity.IP] = true
-	}
-	glog.V(2).Infof("Local instance address: %#v", addrs)
+	registry *model.IstioRegistry, mesh *proxyconfig.ProxyMeshConfig, ipAddress string) (Watcher, error) {
+	glog.V(2).Infof("Local instance address: %s", ipAddress)
 
 	// Use proxy node IP as the node name
 	// This parameter is used as the value for "service-node"
-	agent := proxy.NewAgent(runEnvoy(mesh, identity.IP), cleanupEnvoy(mesh), 10, 100*time.Millisecond)
+	agent := proxy.NewAgent(runEnvoy(mesh, ipAddress), cleanupEnvoy(mesh), 10, 100*time.Millisecond)
 
 	out := &watcher{
 		agent: agent,
@@ -76,7 +66,7 @@ func NewWatcher(discovery model.ServiceDiscovery, ctl model.Controller,
 			Discovery:  discovery,
 			Config:     registry,
 			MeshConfig: mesh,
-			Addrs:      addrs,
+			IPAddress:  ipAddress,
 		},
 		ctl: ctl,
 	}

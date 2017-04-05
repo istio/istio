@@ -38,7 +38,8 @@ type args struct {
 	resyncPeriod time.Duration
 	config       string
 
-	identity                 envoy.ProxyNode
+	ipAddress                string
+	podName                  string
 	sdsPort                  int
 	ingressSecret            string
 	ingressClass             string
@@ -47,7 +48,7 @@ type args struct {
 }
 
 var (
-	flags  = &args{}
+	flags  args
 	client *kube.Client
 	mesh   *proxyconfig.ProxyMeshConfig
 
@@ -63,10 +64,25 @@ var (
 			if err = client.RegisterResources(); err != nil {
 				return multierror.Prefix(err, "failed to register Third-Party Resources.")
 			}
+
+			// set values from environment variables
+			if flags.ipAddress == "" {
+				flags.ipAddress = os.Getenv("POD_IP")
+			}
+			if flags.podName == "" {
+				flags.podName = os.Getenv("POD_NAME")
+			}
+			if flags.namespace == "" {
+				flags.namespace = os.Getenv("POD_NAMESPACE")
+			}
+			glog.V(2).Infof("flags %s", spew.Sdump(flags))
+
+			// receive mesh configuration
 			mesh, err = cmd.GetMeshConfig(client.GetKubernetesClient(), flags.namespace, flags.config)
 			if err != nil {
-				return multierror.Prefix(err, "failed to set mesh configuration.")
+				return multierror.Prefix(err, "failed to retrieve mesh configuration.")
 			}
+
 			glog.V(2).Infof("mesh configuration %s", spew.Sdump(mesh))
 			return
 		},
@@ -108,7 +124,6 @@ var (
 		Use:   "sidecar",
 		Short: "Istio Proxy sidecar agent",
 		RunE: func(c *cobra.Command, args []string) (err error) {
-			setFlagsFromEnv()
 			controller := kube.NewController(client, kube.ControllerConfig{
 				Namespace:       flags.namespace,
 				ResyncPeriod:    flags.resyncPeriod,
@@ -118,7 +133,7 @@ var (
 				controller,
 				&model.IstioRegistry{ConfigRegistry: controller},
 				mesh,
-				&flags.identity)
+				flags.ipAddress)
 			if err != nil {
 				return
 			}
@@ -176,7 +191,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	rootCmd.PersistentFlags().StringVarP(&flags.namespace, "namespace", "n", "",
-		"Select a Kubernetes namespace for the controller loop ('' means all namespaces)")
+		"Select a namespace for the controller loop. If not set, uses ${POD_NAMESPACE} environment variable")
 	rootCmd.PersistentFlags().DurationVar(&flags.resyncPeriod, "resync", time.Second,
 		"Controller resync interval")
 	rootCmd.PersistentFlags().StringVar(&flags.config, "meshConfig", cmd.DefaultConfigMapName,
@@ -187,20 +202,17 @@ func init() {
 	discoveryCmd.PersistentFlags().BoolVar(&flags.enableProfiling, "profile", true,
 		"Enable profiling via web interface host:port/debug/pprof")
 
-	proxyCmd.PersistentFlags().StringVar(&flags.identity.IP, "nodeIP", "",
-		"Proxy node IP address. If not provided uses ${POD_IP} environment variable.")
-	proxyCmd.PersistentFlags().StringVar(&flags.identity.Name, "nodeName", "",
-		"Proxy node name. If not provided uses ${POD_NAME}.${POD_NAMESPACE}")
+	proxyCmd.PersistentFlags().StringVar(&flags.ipAddress, "ipAddress", "",
+		"IP address. If not provided uses ${POD_IP} environment variable.")
+	proxyCmd.PersistentFlags().StringVar(&flags.podName, "podName", "",
+		"Pod name. If not provided uses ${POD_NAME} environment variable")
 
 	// TODO: remove this once we write the logic to obtain secrets dynamically
-	ingressCmd.PersistentFlags().StringVar(&flags.ingressSecret, "secret",
-		"",
+	ingressCmd.PersistentFlags().StringVar(&flags.ingressSecret, "secret", "",
 		"Kubernetes secret name for ingress SSL termination")
-	ingressCmd.PersistentFlags().StringVar(&flags.ingressClass, "ingress_class",
-		"istio",
+	ingressCmd.PersistentFlags().StringVar(&flags.ingressClass, "ingress_class", "istio",
 		"The class of ingress resources to be processed by this ingress controller")
-	ingressCmd.PersistentFlags().BoolVar(&flags.defaultIngressController, "default_ingress_controller",
-		true,
+	ingressCmd.PersistentFlags().BoolVar(&flags.defaultIngressController, "default_ingress_controller", true,
 		"Specifies whether running as the cluster's default ingress controller, "+
 			"thereby processing unclassified ingress resources")
 
@@ -219,15 +231,5 @@ func main() {
 	if err := rootCmd.Execute(); err != nil {
 		glog.Error(err)
 		os.Exit(-1)
-	}
-}
-
-// setFlagsFromEnv sets default values for flags that are not specified
-func setFlagsFromEnv() {
-	if flags.identity.IP == "" {
-		flags.identity.IP = os.Getenv("POD_IP")
-	}
-	if flags.identity.Name == "" {
-		flags.identity.Name = fmt.Sprintf("%s.%s", os.Getenv("POD_NAME"), os.Getenv("POD_NAMESPACE"))
 	}
 }

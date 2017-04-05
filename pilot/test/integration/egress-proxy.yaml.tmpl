@@ -38,11 +38,11 @@ spec:
       - name: proxy
         image: {{.hub}}/proxy:{{.tag}}
         imagePullPolicy: Always
-        args:
-          - proxy
-          - egress
-          - -v
-          - "2"
-          - -n
-          - {{.namespace}}
+        args: ["proxy", "egress", "-v", "{{.verbosity}}"]
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
 ---

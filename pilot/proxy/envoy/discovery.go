@@ -155,14 +155,13 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 	// TODO: this implementation is inefficient as it is recomputing all the routes for all proxies
 	// There is a lot of potential to cache and reuse cluster definitions across proxies and also
 	// skip computing the actual HTTP routes
-	addrs := map[string]bool{ip: true}
-	instances := ds.services.HostInstances(addrs)
+	instances := ds.services.HostInstances(map[string]bool{ip: true})
 	services := ds.services.Services()
 	httpRouteConfigs := buildOutboundHTTPRoutes(instances, services, &ProxyContext{
 		Discovery:  ds.services,
 		Config:     ds.config,
 		MeshConfig: ds.mesh,
-		Addrs:      addrs,
+		IPAddress:  ip,
 	})
 
 	// de-duplicate and canonicalize clusters
@@ -198,14 +197,13 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 		return
 	}
 
-	addrs := map[string]bool{ip: true}
-	instances := ds.services.HostInstances(addrs)
+	instances := ds.services.HostInstances(map[string]bool{ip: true})
 	services := ds.services.Services()
 	httpRouteConfigs := buildOutboundHTTPRoutes(instances, services, &ProxyContext{
 		Discovery:  ds.services,
 		Config:     ds.config,
 		MeshConfig: ds.mesh,
-		Addrs:      addrs,
+		IPAddress:  ip,
 	})
 
 	routeConfig, ok := httpRouteConfigs[port]

@@ -27,7 +27,13 @@ spec:
       - name: manager
         image: {{.hub}}/manager:{{.tag}}
         imagePullPolicy: Always
-        args: ["discovery", "-v", "{{.verbosity}}", "-n", "{{.namespace}}"]
+        args: ["discovery", "-v", "{{.verbosity}}"]
         ports:
         - containerPort: 8080
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
 ---

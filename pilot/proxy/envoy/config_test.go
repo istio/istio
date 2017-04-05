@@ -233,7 +233,7 @@ func testConfig(r *model.IstioRegistry, mesh *proxyconfig.ProxyMeshConfig, insta
 		Discovery:  mock.Discovery,
 		Config:     r,
 		MeshConfig: mesh,
-		Addrs:      map[string]bool{instance: true},
+		IPAddress:  instance,
 	})
 
 	if config == nil {
