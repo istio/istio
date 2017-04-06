@@ -18,16 +18,19 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TESTS_DIR="${ROOT}/tests"
 . ${TESTS_DIR}/commonUtils.sh || { echo "Cannot load common utilities"; exit 1; }
 
-ISTIOCLI="${ROOT}/demos/istioctl-linux -c ${HOME}/.kube/config"
-
 function create_rule() {
     ${ISTIOCLI} -n ${NAMESPACE} create -f ${1} \
       || error_exit 'Could not create rule'
 }
 
+function replace_rule() {
+    ${ISTIOCLI} -n ${NAMESPACE} replace -f ${1} \
+      || error_exit 'Could not replace rule'
+}
+
 function cleanup_all_rules() {
     print_block_echo "Cleaning up rules"
-    local rules=($(${ISTIOCLI} -n ${NAMESPACE} list route-rule \
+    local rules=($(${ISTIOCLI} -n ${NAMESPACE} get route-rule \
       | grep "name:" | awk '{print $2}'))
     for r in ${rules[@]}; do
       ${ISTIOCLI} -n ${NAMESPACE} delete route-rule "${r}"
