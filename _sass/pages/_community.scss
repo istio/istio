@@ -105,4 +105,15 @@
       width: 500px;
     }
   }
+
+  table, th, td {
+    border: 0px;
+    margin: 0px;
+    padding-left: 30px;
+  }
+
+  td {
+    width: 350px;
+    text-align:center;
+  }
 }
