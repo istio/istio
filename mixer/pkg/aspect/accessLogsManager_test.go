@@ -18,19 +18,39 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"text/template"
 
 	ptypes "github.com/gogo/protobuf/types"
 
+	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/descriptor"
 	configpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
+)
+
+var (
+	validAccessLogDesc = dpb.LogEntryDescriptor{
+		Name:        "common",
+		LogTemplate: "{{.foo}}",
+		Labels: []*dpb.LabelDescriptor{
+			{Name: "label", ValueType: dpb.STRING},
+		},
+	}
+
+	accesslogsDF = test.NewDescriptorFinder(map[string]interface{}{
+		validAccessLogDesc.Name: &validAccessLogDesc,
+		// our attributes
+		"string": &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
+		"int64":  &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
+	})
 )
 
 func TestNewAccessLoggerManager(t *testing.T) {
@@ -54,27 +74,12 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 		aspect: tl,
 	}
 
-	// TODO: add back tests for custom when we introduce descriptors
-	//customExec := &accessLogsExecutor{
-	//	name:   "custom_access_log",
-	//	aspect: tl,
-	//	labels: map[string]string{"test": "test"},
-	//}
-
 	combinedStruct := &aconfig.AccessLogsParams{
 		LogName: "combined_access_log",
 		Log: aconfig.AccessLogsParams_AccessLog{
-			LogFormat: aconfig.COMBINED,
+			DescriptorName: "common",
 		},
 	}
-
-	//customStruct := &aconfig.AccessLogsParams{
-	//	LogName: "custom_access_log",
-	//	Log: &aconfig.AccessLogsParams_AccessLog{
-	//		LogFormat: aconfig.CUSTOM,
-	//		Labels:    map[string]string{"test": "test"},
-	//	},
-	//}
 
 	newAspectShouldSucceed := []struct {
 		name   string
@@ -83,7 +88,6 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 	}{
 		{"empty", dc, commonExec},
 		{"combined", combinedStruct, combinedExec},
-		//{"custom", customStruct, customExec},
 	}
 
 	m := newAccessLogsManager()
@@ -94,7 +98,7 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 				Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 				Aspect:  &configpb.Aspect{Params: v.params, Inputs: map[string]string{"template": "{{.test}}"}},
 			}
-			asp, err := m.NewReportExecutor(c, tl, test.Env{}, nil)
+			asp, err := m.NewReportExecutor(c, tl, test.Env{}, accesslogsDF)
 			if err != nil {
 				t.Fatalf("NewExecutor(): should not have received error for %s (%v)", v.name, err)
 			}
@@ -112,24 +116,12 @@ func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 		Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
 		Aspect: &configpb.Aspect{Params: &aconfig.AccessLogsParams{
 			Log: aconfig.AccessLogsParams_AccessLog{
-				LogFormat: aconfig.COMMON,
+				DescriptorName: "common",
 			},
 		}},
 	}
 
-	// TODO: add back tests for bad templates when we introduce descriptors.
-	//badTemplateCfg := &config.Combined{
-	//	Builder: &configpb.Adapter{Params: &ptypes.Empty{}},
-	//	Aspect: &configpb.Aspect{Params: &aconfig.AccessLogsParams{
-	//		LogName: "custom_access_log",
-	//		Log: &aconfig.AccessLogsParams_AccessLog{
-	//			LogFormat: aconfig.CUSTOM,
-	//		},
-	//	}, Inputs: map[string]string{"template": "{{{}}"}},
-	//}
-
 	errLogger := &test.Logger{DefaultCfg: &ptypes.Struct{}, ErrOnNewAspect: true}
-	//okLogger := &test.Logger{DefaultCfg: &ptypes.Struct{}}
 
 	failureCases := []struct {
 		name  string
@@ -137,13 +129,12 @@ func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 		adptr adapter.Builder
 	}{
 		{"errorLogger", defaultCfg, errLogger},
-		//{"badTemplateCfg", badTemplateCfg, okLogger},
 	}
 
 	m := newAccessLogsManager()
 	for idx, v := range failureCases {
 		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
-			if _, err := m.NewReportExecutor(v.cfg, v.adptr, test.Env{}, nil); err == nil {
+			if _, err := m.NewReportExecutor(v.cfg, v.adptr, test.Env{}, accesslogsDF); err == nil {
 				t.Fatalf("NewExecutor()[%s]: expected error for bad adapter (%T)", v.name, v.adptr)
 			}
 		})
@@ -151,38 +142,75 @@ func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 }
 
 func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
-	configs := []config.AspectParams{
-		&aconfig.AccessLogsParams{
-			LogName: "test",
-			Log: aconfig.AccessLogsParams_AccessLog{
-				Labels:    map[string]string{"test": "good"},
-				LogFormat: aconfig.COMMON,
-			},
+	wrap := func(name string, log aconfig.AccessLogsParams_AccessLog) *aconfig.AccessLogsParams {
+		return &aconfig.AccessLogsParams{
+			LogName: name,
+			Log:     log,
+		}
+	}
+
+	validDesc := dpb.LogEntryDescriptor{
+		Name:        "logentry",
+		LogTemplate: "{{.foo}}",
+		Labels: []*dpb.LabelDescriptor{
+			{Name: "label", ValueType: dpb.STRING},
 		},
-		&aconfig.AccessLogsParams{Log: aconfig.AccessLogsParams_AccessLog{LogFormat: aconfig.COMBINED}},
+	}
+	invalidDesc := validDesc
+	invalidDesc.Name = "invalid"
+	invalidDesc.LogTemplate = "{{.foo"
+
+	df := test.NewDescriptorFinder(map[string]interface{}{
+		validDesc.Name:   &validDesc,
+		invalidDesc.Name: &invalidDesc,
+		// our attributes
+		"string": &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
+		"int64":  &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
+	})
+
+	validLog := aconfig.AccessLogsParams_AccessLog{
+		DescriptorName:      validDesc.Name,
+		Labels:              map[string]string{"label": "string"},
+		TemplateExpressions: map[string]string{"foo": "int64"},
 	}
 
-	m := newAccessLogsManager()
-	for idx, v := range configs {
-		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
-			if err := m.ValidateConfig(v, nil, nil); err != nil {
-				t.Fatalf("ValidateConfig(%v) => unexpected error: %v", v, err)
-			}
-		})
-	}
-}
+	missingDesc := validLog
+	missingDesc.DescriptorName = "not in the df"
 
-func TestAccessLoggerManager_ValidateConfigFailures(t *testing.T) {
-	configs := []config.AspectParams{
-		&aconfig.AccessLogsParams{},
-		&aconfig.AccessLogsParams{Log: aconfig.AccessLogsParams_AccessLog{LogFormat: aconfig.ACCESS_LOG_FORMAT_UNSPECIFIED}},
+	invalidLabels := validLog
+	invalidLabels.Labels = map[string]string{
+		"not a label": "string", // correct type, but doesn't match desc's label name
 	}
 
-	m := newAccessLogsManager()
-	for idx, v := range configs {
-		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
-			if err := m.ValidateConfig(v, nil, nil); err == nil {
-				t.Fatalf("ValidateConfig(%v) expected err", v)
+	invalidDescLog := validLog
+	invalidDescLog.DescriptorName = invalidDesc.Name
+
+	missingTmplExprs := validLog
+	missingTmplExprs.TemplateExpressions = map[string]string{"foo": "not an attribute"}
+
+	tests := []struct {
+		name string
+		cfg  *aconfig.AccessLogsParams
+		df   descriptor.Finder
+		err  string
+	}{
+		{"valid", wrap("valid", validLog), df, ""},
+		{"empty config", &aconfig.AccessLogsParams{}, df, "LogName"},
+		{"no log name", wrap("", validLog), df, "LogName"}, // name is ""
+		{"missing desc", wrap("missing desc", missingDesc), df, "could not find a descriptor"},
+		{"invalid labels", wrap("labels", invalidLabels), df, "Labels"},
+		{"invalid logtemplate", wrap("tmpl", invalidDescLog), df, "LogDescriptor"},
+		{"template expr attr missing", wrap("missing attr", missingTmplExprs), df, "TemplateExpressions"},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			if err := (&accessLogsManager{}).ValidateConfig(tt.cfg, expr.NewCEXLEvaluator(), tt.df); err != nil || tt.err != "" {
+				if tt.err == "" {
+					t.Fatalf("Foo = '%s', wanted no err", err.Error())
+				} else if !strings.Contains(err.Error(), tt.err) {
+					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, err.Error())
+				}
 			}
 		})
 	}

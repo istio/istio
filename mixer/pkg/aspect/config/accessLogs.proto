@@ -54,28 +54,6 @@ message AccessLogsParams {
 
     // Describes how attributes must be evaluated to produce values for a log message.
     message AccessLog {
-        // AccessLogFormat specifies the format to use for generating textual log
-        // entries for the accessLogger aspect of the mixer.
-        enum AccessLogFormat {
-            // Invalid default value.
-            ACCESS_LOG_FORMAT_UNSPECIFIED = 0;
-
-            // Refers to the [Common Log Format](https://en.wikipedia.org/wiki/Common_Log_Format).
-            // It is used to generate entries like:
-            // `127.0.0.1 user-identifier frank [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0" 200 2326`
-            COMMON = 1;
-
-            // Refers to the Apache [Combined Log Format](https://httpd.apache.org/docs/1.3/logs.html#combined).
-            // It is used to generate entries like:
-            // `127.0.0.1 user-identifier frank [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0" 200 2326 "http://www.example.com/start.html" "Mozilla/4.08 [en] (Win98; I ;Nav)"`
-            COMBINED = 2;
-
-            // TODO: add back CUSTOM logging formats after plumbing descriptors through config.
-            // // Used to enable operator-specified formats.
-            // CUSTOM = 99;
-        }
-        AccessLogFormat log_format = 1;
-
         // Only used if log_format is CUSTOM. Links this AccessLog to a LogEntryDescriptor
         // that describes the log's template.
         string descriptor_name = 2;

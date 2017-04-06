@@ -32,6 +32,10 @@ import (
 	"istio.io/mixer/pkg/status"
 )
 
+// TODO: there are several hard-coded but end-user-configurable things in this file we need to work to eliminiate:
+// - default config assumes a log descriptor named "common" is available
+// - if we get a label or template param named exactly "timestamp" we populate the value with time.Now()
+
 type (
 	accessLogsManager struct{}
 
@@ -44,15 +48,6 @@ type (
 	}
 )
 
-const (
-	// TODO: revisit when well-known attributes are defined.
-	commonLogFormat = `{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} ` +
-		`[{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} ` +
-		`{{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}`
-	// TODO: revisit when well-known attributes are defined.
-	combinedLogFormat = commonLogFormat + ` "{{or (.referer) "-"}}" "{{or (.user_agent) "-"}}"`
-)
-
 // newAccessLogsManager returns a manager for the access logs aspect.
 func newAccessLogsManager() ReportManager {
 	return accessLogsManager{}
@@ -61,22 +56,9 @@ func newAccessLogsManager() ReportManager {
 func (m accessLogsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportExecutor, error) {
 	cfg := c.Aspect.Params.(*aconfig.AccessLogsParams)
 
-	var templateStr string
-	switch cfg.Log.LogFormat {
-	case aconfig.COMMON:
-		templateStr = commonLogFormat
-	case aconfig.COMBINED:
-		templateStr = combinedLogFormat
-	default:
-		// TODO: we should never fall into this case because of validation; should we panic?
-		templateStr = ""
-	}
-
-	// TODO: when users can provide us with descriptors, this error can be removed due to validation
-	tmpl, err := template.New("accessLogsTemplate").Parse(templateStr)
-	if err != nil {
-		return nil, fmt.Errorf("log %s failed to parse template '%s' with err: %s", cfg.LogName, templateStr, err)
-	}
+	// validation ensures both that the descriptor exists and that its template is parsable by the template library.
+	desc := df.GetLog(cfg.Log.DescriptorName)
+	tmpl, _ := template.New("accessLogsTemplate").Parse(desc.LogTemplate)
 
 	asp, err := a.(adapter.AccessLogsBuilder).NewAccessLogsAspect(env, c.Builder.Params.(adapter.Config))
 	if err != nil {
@@ -97,18 +79,31 @@ func (accessLogsManager) DefaultConfig() config.AspectParams {
 	return &aconfig.AccessLogsParams{
 		LogName: "access_log",
 		Log: aconfig.AccessLogsParams_AccessLog{
-			LogFormat: aconfig.COMMON,
+			DescriptorName: "common",
 		},
 	}
 }
 
-func (accessLogsManager) ValidateConfig(c config.AspectParams, _ expr.Validator, _ descriptor.Finder) (ce *adapter.ConfigErrors) {
+func (accessLogsManager) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.AccessLogsParams)
-	if cfg.Log.LogFormat == aconfig.ACCESS_LOG_FORMAT_UNSPECIFIED {
-		ce = ce.Appendf("Log.LogFormat", "a log format must be provided")
+	if cfg.LogName == "" {
+		ce = ce.Appendf("LogName", "no log name provided")
 	}
 
-	// TODO: validate custom templates when users can provide us with descriptors
+	desc := df.GetLog(cfg.Log.DescriptorName)
+	if desc == nil {
+		// nor can we do more validation without a descriptor
+		return ce.Appendf("AccessLogs", "could not find a descriptor for the access log '%s'", cfg.Log.DescriptorName)
+	}
+	ce = ce.Extend(validateLabels(fmt.Sprintf("AccessLogs[%s].Labels", cfg.Log.DescriptorName), cfg.Log.Labels, desc.Labels, v, df))
+	ce = ce.Extend(validateTemplateExpressions(fmt.Sprintf("LogDescriptor[%s].TemplateExpressions", desc.Name), cfg.Log.TemplateExpressions, v, df))
+
+	// TODO: how do we validate the log.TemplateExpressions against desc.LogTemplate? We can't just `Execute` the template
+	// against the expressions: while the keys to the template may be correct, the values will be wrong which could result
+	// in non-nil error returns even when things would be valid at runtime.
+	if _, err := template.New(desc.Name).Parse(desc.LogTemplate); err != nil {
+		ce = ce.Appendf(fmt.Sprintf("LogDescriptor[%s].LogTemplate", desc.Name), "failed to parse template with err: %v", err)
+	}
 	return
 }
 

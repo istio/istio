@@ -16,14 +16,30 @@ adapters:
   - name: default
     impl: denyChecker
 attributes:
-  - name: source.name
-    value_type: 1 # STRING
-  - name: target.name
-    value_type: 1 # STRING
+  # TODO: we really need to remove these, they're not part of the attribute vocab.
   - name: api.name
     value_type: 1 # STRING
   - name: api.method
     value_type: 1 # STRING
+
+  - name: source.name
+    value_type: 1 # STRING
+  - name: target.name
+    value_type: 1 # STRING
+  - name: origin.ip
+    value_type: 6 # IP_ADDRESS
+  - name: origin.user
+    value_type: 1 # STRING
+  - name: request.time
+    value_type: 5 # TIMESTAMP
+  - name: request.method
+    value_type: 1 # STRING
+  - name: request.path
+    value_type: 1 # STRING
+  - name: request.scheme
+    value_type: 1 # STRING
+  - name: response.size
+    value_type: 2 # INT64
   - name: response.code
     value_type: 2 # INT64
   - name: response.latency
@@ -60,7 +76,53 @@ metrics:
     - name: response_code
       value_type: 2 # INT64
 quotas:
-- name: RequestCount
-  max_amount: 5
-  expiration:
-    seconds: 1
+  - name: RequestCount
+    max_amount: 5
+    expiration:
+      seconds: 1
+logs:
+  - name: accesslog.common
+    display_name: Apache Common Log Format
+    log_template: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
+    labels:
+    - name: originIp
+      value_type: 6 # IP_ADDRESS
+    - name: sourceUser
+      value_type: 1 # STRING
+    - name: timestamp
+      value_type: 5 # TIMESTAMP
+    - name: method
+      value_type: 1 # STRING
+    - name: url
+      value_type: 1 # STRING
+    - name: protocol
+      value_type: 1 # STRING
+    - name: responseCode
+      value_type: 2 # INT64
+    - name: responseSize
+      value_type: 2 # INT64
+  - name: accesslog.combined
+    display_name: Apache Combined Log Format
+    log_template: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}} {{or (.referer) "-"}} {{or (.userAgent) "-"}}'
+    labels:
+    - name: originIp
+      value_type: 6 # IP_ADDRESS
+    - name: sourceUser
+      value_type: 1 # STRING
+    - name: timestamp
+      value_type: 5 # TIMESTAMP
+    - name: method
+      value_type: 1 # STRING
+    - name: url
+      value_type: 1 # STRING
+    - name: protocol
+      value_type: 1 # STRING
+    - name: responseCode
+      value_type: 2 # INT64
+    - name: responseSize
+      value_type: 2 # INT64
+    - name: referer
+      value_type: 1 # STRING
+    - name: userAgent
+      value_type: 1 # STRING
+
