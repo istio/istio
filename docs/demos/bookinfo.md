@@ -34,32 +34,36 @@ This application is polyglot, i.e., the microservices are written in different l
 > Note: The following instructions assume that you have access to a kubernetes cluster. To install kubernetes locally, checkout [minikube](https://github.com/kubernetes/minikube)
 
 
-## Setup
+## Setup Istio
 
 1. Clone the istio Github repository and start the core Istio services (the istio-manager, the istio-mixer, and the istio ingress controller).
 
-   ```bash  
-   git clone https://github.com/istio/istio
-   cd istio
-   kubectl apply -f ./kubernetes/istio-install
-   ```
+```bash  
+git clone https://github.com/istio/istio
+cd istio
+kubectl apply -f ./kubernetes/istio-install
+```
    
    > Note: the current version of the bookinfo application MUST use the `default` Kubernetes namespace.
    
 2. If you would like to view the metrics collected by Istio proxies, you need to install the Prometheus addon and start a Grafana service as well.
    
-   ```bash
-   kubectl apply -f ./kubernetes/addons/
-   ```
+```bash
+kubectl apply -f ./kubernetes/addons/
+```
    
    The Grafana image provided as part of this demo contains a built-in Istio-dashboard that you can access from:
 
-   http://<grafana-svc-external-IP>:3000/dashboard/db/istio-dashboard
+```
+http://<grafana-svc-external-IP>:3000/dashboard/db/istio-dashboard
+```
 
    > The addons yaml files contain services configured as type LoadBalancer. If services are deployed with type NodePort,
    > start kubectl proxy, and edit Grafana's Istio-dashboard to use the proxy. Access Grafana via kubectl proxy:*
 
+   ```
    http://127.0.0.1:8001/api/v1/proxy/namespaces/<ns>/services/grafana:3000/dashboard/db/istio-dashboard
+   ```
 
 2. Install the [istioctl](../reference/istioctl.md) CLI, which provides a
    convenient way to apply routing rules and policies for upstreams. The
@@ -78,7 +82,7 @@ This application is polyglot, i.e., the microservices are written in different l
    > Invoke `istioctl kube-inject --help` for more details.
 
 
-## Running the Bookinfo Application
+## Start the Application
 
 1. Change your current working directory to the bookinfo application directory:
 
@@ -309,19 +313,17 @@ route requests to all available versions of a service in a random fashion.
    > Notice that we are restricting the failure impact to user "jason" only. If you login
    > as any other user, you would not experience any delays.
 
-### Fixing the bug
+  **Fixing the bug:** At this point we would normally fix the problem by either increasing the
+  productpage timeout or decreasing the reviews to ratings service timeout,
+  terminate and restart the fixed microservice, and then confirm that the `productpage`
+  returns its response without any errors.
+  (Left as an exercise for the reader - change the delay rule to
+  use a 2.8 second delay and then run it against the v3 version of reviews.)
 
-At this point we would normally fix the problem by either increasing the
-productpage timeout or decreasing the reviews to ratings service timeout,
-terminate and restart the fixed microservice, and then confirm that the `productpage`
-returns its response without any errors.
-(Left as an exercise for the reader - change the delay rule to
-use a 2.8 second delay and then run it against the v3 version of reviews.)
+  However, we already have this fix running in v3 of the reviews service, so
+  we can next demonstrate deployment of a new version.
 
-However, we already have this fix running in v3 of the reviews service, so
-we can next demonstrate deployment of a new version.
-
-### Gradually migrate traffic to reviews:v3 for all users
+### Percentage-based Traffic Split
 
 Now that we have tested the reviews service, fixed the bug and deployed a
 new version (`reviews:v3`), lets route all user traffic from `reviews:v1`
@@ -358,7 +360,7 @@ When we are confident that our Bookinfo app is stable, we route 100% of the traf
 You can now log in to the `productpage` as any user and you should always see book reviews
 with *red* colored star ratings for each review.
 
-### Rate Limiting (NOT WORKING YET)
+### Rate Limiting [WIP]
 
 Now we'll pretend that `ratings` is an external service for which we are paying (like going to rotten tomatoes),
 so we will set a rate limit on the service such that the load remains under the Free quota (5q/s):
