@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
       - name: manager
-        image: gcr.io/istio-testing/manager:alpha9a73dd7feb916a7af889b94558b579ccee261a26
+        image: $MANAGER_HUB/manager:$MANAGER_TAG
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:

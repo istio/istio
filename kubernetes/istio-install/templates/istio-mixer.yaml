@@ -1,0 +1,139 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mixer-config
+data:
+  globalconfig.yml: |-
+    subject: "namespace:ns"
+    revision: "2022"
+    adapters:
+      - name: default
+        kind: quotas
+        impl: memQuota
+        params:
+      - name: default
+        impl: stdioLogger
+        params:
+          logStream: 0 # STDERR
+      - name: prometheus
+        kind: metrics
+        impl: prometheus
+        params:
+      - name: default
+        impl: denyChecker
+    attributes:
+      - name: source.name
+        value_type: 1 # STRING
+      - name: target.name
+        value_type: 1 # STRING
+      - name: target.service
+        value_type: 1 # STRING
+      - name: response.code
+        value_type: 2 # INT64
+      - name: response.latency
+        value_type: 10 # DURATION
+    metrics:
+      - name: request_count
+        kind: 2 # COUNTER
+        value: 2 # INT64
+        description: request count by source, target, service, and code
+        labels:
+        - name: source
+          value_type: 1 # STRING
+        - name: target
+          value_type: 1 # STRING
+        - name: response_code
+          value_type: 2 # INT64
+      - name: request_latency
+        kind: 2 # COUNTER
+        value: 10 # DURATION
+        description: request latency by source, target, and service
+        labels:
+        - name: source
+          value_type: 1 # STRING
+        - name: target
+          value_type: 1 # STRING
+        - name: response_code
+          value_type: 2 # INT64
+    quotas:
+    - name: RequestCount
+      max_amount: 5
+      expiration:
+        seconds: 1
+  serviceconfig.yml: |-
+    subject: namespace:ns
+    revision: "2022"
+    rules:
+    - selector: true
+      aspects:
+      - kind: quotas
+        params:
+      - kind: metrics
+        adapter: prometheus
+        params:
+          metrics:
+          - descriptor_name: request_count
+            # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
+            value: "1"
+            labels:
+              source: source.name | "unknown"
+              target: target.service | "unknown"
+              response_code: response.code | 200
+          - descriptor_name:  request_latency
+            value: response.latency | "0ms"
+            labels:
+              source: source.name | "unknown"
+              target: target.service | "unknown"
+              response_code: response.code | 200
+---
+# Mixer
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-mixer
+  labels:
+    istio: mixer
+spec:
+  ports:
+  - name: tcp
+    port: 9091
+  - name: prometheus
+    port: 42422
+  selector:
+    istio: mixer
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-mixer
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
+      labels:
+        istio: mixer
+    spec:
+      containers:
+      - name: mixer
+        image: $MIXER
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9091
+        - containerPort: 42422
+        args:
+          - --globalConfigFile=/etc/opt/mixer/globalconfig.yml
+          - --serviceConfigFile=/etc/opt/mixer/serviceconfig.yml
+          - --logtostderr
+          - -v
+          - "3"
+        volumeMounts:
+          - mountPath: /etc/opt/mixer
+            name: config
+      volumes:
+        - name: config
+          configMap:
+            name: mixer-config
+---
