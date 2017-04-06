@@ -67,13 +67,16 @@ http://<grafana-svc-external-IP>:3000/dashboard/db/istio-dashboard
 
 2. Install the [istioctl](../reference/istioctl.md) CLI, which provides a
    convenient way to apply routing rules and policies for upstreams. The
-   `demos/` directory has three binaries: `istioctl-osx`, `istioctl-win.exe`,
+   [istio.VERSION](istio.VERSION) file includes the download location of 
+   three OS-specific binaries: `istioctl-osx`, `istioctl-win.exe`,
    `istioctl-linux` targeted at Mac, Windows and Linux users
-   respectively. Download the tool appropriate to your platform and
-   rename the tool to `istioctl`. For example:
+   respectively. Download the tool appropriate to your platform. For
+   example, when running istioctl on a Mac, run the following commands:
 
    ```bash
-   $ cp demos/istioctl-osx /usr/local/bin/istioctl
+   source ./istio.VERSION # set ISTIOCTL env variable
+   wget -O /usr/local/bin/istioctl ${ISTIOCTL}/istioctl-osx
+   chmod +x /usr/local/bin/istioctl
    ```
 
    > Note: If you already have a previously installed version of `istioctl`, make sure that
@@ -93,7 +96,7 @@ http://<grafana-svc-external-IP>:3000/dashboard/db/istio-dashboard
 1. Bring up the application containers:
 
    ```bash
-   $ kubectl create -f <(istioctl kube-inject -f bookinfo.yaml)
+   kubectl create -f <(istioctl kube-inject -f bookinfo.yaml)
    ```
 
    The above command creates the gateway ingress resource and launches
