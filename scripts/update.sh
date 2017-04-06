@@ -26,7 +26,7 @@ VERSION_FILE="${ROOT}/istio.VERSION"
 source $VERSION_FILE
 
 pushd $ROOT/kubernetes/istio-install
-sed -i -s "s|image: .*/|image: $MANAGER_HUB/|;s|image: \(.*\):.*|image: \1:$MANAGER_TAG|" istio-manager.yaml
-sed -i -s "s|image: .*/|image: $MANAGER_HUB/|;s|image: \(.*\):.*|image: \1:$MANAGER_TAG|" istio-ingress-controller.yaml
+sed -i "s|image: .*/\(.*\):.*|image: $MANAGER_HUB/\1:$MANAGER_TAG|" istio-manager.yaml
+sed -i "s|image: .*/\(.*\):.*|image: $MANAGER_HUB/\1:$MANAGER_TAG|" istio-ingress-controller.yaml
 sed -i "s|image: .*|image: $MIXER|" istio-mixer.yaml
 popd
