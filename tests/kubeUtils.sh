@@ -35,9 +35,13 @@ function create_namespace(){
 
 # Bring up control plane
 function deploy_istio() {
-    local istio_install="${1}"
     print_block_echo "Deploying ISTIO"
-    ${K8CLI} -n ${NAMESPACE} create -f "${istio_install}" \
+    # order is important
+    ${K8CLI} -n ${NAMESPACE} create -f $ROOT/kubernetes/istio-install/istio-manager.yaml \
+      || error_exit 'Failed to create control plane'
+    ${K8CLI} -n ${NAMESPACE} create -f $ROOT/kubernetes/istio-install/istio-mixer.yaml \
+      || error_exit 'Failed to create control plane'
+    ${K8CLI} -n ${NAMESPACE} create -f $ROOT/kubernetes/istio-install/istio-ingress-controller.yaml \
       || error_exit 'Failed to create control plane'
     retry -n 10 find_istio_endpoints \
       || error_exit 'Could not deploy istio'
