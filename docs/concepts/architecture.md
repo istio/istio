@@ -2,7 +2,7 @@
 bodyclass: docs
 headline: Architecture
 layout: docs
-sidenav: doc-side-guides-nav.html
+sidenav: doc-side-concepts-nav.html
 title: Architecture
 type: markdown
 ---
