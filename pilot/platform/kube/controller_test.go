@@ -17,6 +17,7 @@ package kube
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -466,67 +467,97 @@ func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
 
 func TestController_GetIstioServiceAccounts(t *testing.T) {
 	clientSet := fake.NewSimpleClientset()
-
-	createPod(clientSet, map[string]string{"app": "test-app"}, "pod1", "nsA", "acct1", t)
-	createPod(clientSet, map[string]string{"app": "prod-app"}, "pod2", "nsA", "acct2", t)
-	createPod(clientSet, map[string]string{"app": "prod-app"}, "pod3", "nsA", "acct3", t)
-	createPod(clientSet, map[string]string{"app": "prod-app"}, "pod4", "nsA", "acct3", t)
-	createPod(clientSet, map[string]string{"app": "prod-app"}, "pod5", "nsB", "acct4", t)
-
 	controller := NewController(&Client{client: clientSet}, ControllerConfig{
 		Namespace:    "default",
 		ResyncPeriod: resync,
 	})
 
-	createService(controller, "svc1", "nsA", map[string]string{"app": "prod-app"}, t)
-	createService(controller, "svc2", "nsA", map[string]string{"app": "staging-app"}, t)
+	createPod(controller, map[string]string{"app": "test-app"}, "pod1", "nsA", "acct1", t)
+	createPod(controller, map[string]string{"app": "prod-app"}, "pod2", "nsA", "acct2", t)
+	createPod(controller, map[string]string{"app": "prod-app"}, "pod3", "nsA", "acct3", t)
+	createPod(controller, map[string]string{"app": "prod-app"}, "pod4", "nsA", "acct3", t)
+	createPod(controller, map[string]string{"app": "prod-app"}, "pod5", "nsB", "acct4", t)
+
+	// Populate pod cache.
+	controller.pods.keys["128.0.0.1"] = "nsA/pod1"
+	controller.pods.keys["128.0.0.2"] = "nsA/pod2"
+	controller.pods.keys["128.0.0.3"] = "nsA/pod3"
+	controller.pods.keys["128.0.0.4"] = "nsA/pod4"
+	controller.pods.keys["128.0.0.5"] = "nsB/pod5"
+
+	createService(controller, "svc1", "nsA", []int32{8080}, map[string]string{"app": "prod-app"}, t)
+	createService(controller, "svc2", "nsA", []int32{8081}, map[string]string{"app": "staging-app"}, t)
+
+	svc1Ips := []string{"128.0.0.1", "128.0.0.2"}
+	portNames := []string{"test-port"}
+	createEndpoints(controller, "svc1", "nsA", portNames, svc1Ips, t)
 
 	hostname := serviceHostname("svc1", "nsA")
-	sa, err := controller.GetIstioServiceAccounts(hostname)
-	if err != nil {
-		t.Error("Error returned: ", err)
-	} else if len(sa) != 2 ||
-		!(sa[0] == "istio:acct2.nsA.cluster.local" && sa[1] == "istio:acct3.nsA.cluster.local" ||
-			sa[0] == "istio:acct3.nsA.cluster.local" && sa[1] == "istio:acct2.nsA.cluster.local") {
-		t.Error("Failure: The resolved service accounts are not correct: ", sa)
+	sa := controller.GetIstioServiceAccounts(hostname, []string{"test-port"})
+	sort.Sort(sort.StringSlice(sa))
+	expected := []string{"istio:acct1.nsA.cluster.local", "istio:acct2.nsA.cluster.local"}
+	if !reflect.DeepEqual(sa, expected) {
+		t.Errorf("Unexpected service accounts %v (expecting %v)", sa, expected)
 	}
 
 	hostname = serviceHostname("svc2", "nsA")
-	sa, err = controller.GetIstioServiceAccounts(hostname)
-	if err != nil {
-		t.Error("Error returned: ", err)
-	} else if len(sa) != 0 {
+	sa = controller.GetIstioServiceAccounts(hostname, []string{})
+	if len(sa) != 0 {
 		t.Error("Failure: Expected to resolve 0 service accounts, but got: ", sa)
-	}
-
-	hostname = serviceHostname("svc1", "nsB")
-	_, err = controller.GetIstioServiceAccounts(hostname)
-	if err == nil {
-		t.Error("Failure: Expected error due to no service in namespace.")
-	} else if err.Error() != fmt.Sprintf("Failed to get service for hostname %s.", hostname) {
-		t.Error("Failure: Returned incorrect error message: ", err.Error())
-	}
-
-	hostname = serviceHostname("svc1", "nsC")
-	_, err = controller.GetIstioServiceAccounts(hostname)
-	if err == nil {
-		t.Error("Failure: Expected error due to namespace not exist.")
-	} else if err.Error() != fmt.Sprintf("Failed to get service for hostname %s.", hostname) {
-		t.Error("Failure: Returned incorrect error message ", err.Error())
 	}
 }
 
-func createService(controller *Controller, name, namespace string, selector map[string]string, t *testing.T) {
+func createEndpoints(controller *Controller, name, namespace string, portNames, ips []string, t *testing.T) {
+	eas := []v1.EndpointAddress{}
+	for _, ip := range ips {
+		eas = append(eas, v1.EndpointAddress{IP: ip})
+	}
+
+	eps := []v1.EndpointPort{}
+	for _, name := range portNames {
+		eps = append(eps, v1.EndpointPort{Name: name})
+	}
+
+	endpoint := &v1.Endpoints{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Subsets: []v1.EndpointSubset{{
+			Addresses: eas,
+			Ports:     eps,
+		}},
+	}
+	if err := controller.endpoints.informer.GetStore().Add(endpoint); err != nil {
+		t.Errorf("failed to create endpoints %s in namespace %s (error %v)", name, namespace, err)
+	}
+}
+
+func createService(controller *Controller, name, namespace string, ports []int32, selector map[string]string,
+	t *testing.T) {
+
+	svcPorts := []v1.ServicePort{}
+	for _, p := range ports {
+		svcPorts = append(svcPorts, v1.ServicePort{
+			Name:     "test-port",
+			Port:     p,
+			Protocol: "http",
+		})
+	}
 	service := &v1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{Name: name, Namespace: namespace},
-		Spec:       v1.ServiceSpec{Selector: selector},
+		Spec: v1.ServiceSpec{
+			Ports:    svcPorts,
+			Selector: selector,
+			Type:     v1.ServiceTypeClusterIP,
+		},
 	}
 	if err := controller.services.informer.GetStore().Add(service); err != nil {
 		t.Errorf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
 	}
 }
 
-func createPod(client kubernetes.Interface, labels map[string]string, name string, namespace string,
+func createPod(controller *Controller, labels map[string]string, name string, namespace string,
 	serviceAccountName string, t *testing.T) {
 	pod := &v1.Pod{
 		ObjectMeta: meta_v1.ObjectMeta{
@@ -538,7 +569,7 @@ func createPod(client kubernetes.Interface, labels map[string]string, name strin
 			ServiceAccountName: serviceAccountName,
 		},
 	}
-	if _, err := client.CoreV1().Pods(namespace).Create(pod); err != nil {
+	if err := controller.pods.informer.GetStore().Add(pod); err != nil {
 		t.Errorf("Cannot create pod in namespace %s (error: %v)", namespace, err)
 	}
 }

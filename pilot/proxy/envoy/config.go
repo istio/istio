@@ -235,7 +235,6 @@ func buildOutboundHTTPRoutes(instances []*model.ServiceInstance, services []*mod
 	for _, service := range services {
 		// clusters aggregate clusters across ports
 		clusters := make(Clusters, 0)
-
 		for _, servicePort := range service.Ports {
 			protocol := servicePort.Protocol
 			switch protocol {
@@ -289,7 +288,7 @@ func buildOutboundHTTPRoutes(instances []*model.ServiceInstance, services []*mod
 		switch context.MeshConfig.AuthPolicy {
 		case proxyconfig.ProxyMeshConfig_NONE:
 		case proxyconfig.ProxyMeshConfig_MUTUAL_TLS:
-			serviceAccounts, _ := context.Discovery.GetIstioServiceAccounts(service.Hostname)
+			serviceAccounts := context.Discovery.GetIstioServiceAccounts(service.Hostname, service.Ports.GetNames())
 			sslContext := buildClusterSSLContext(context.MeshConfig.AuthCertsPath, serviceAccounts)
 			for _, cluster := range clusters {
 				cluster.SSLContext = sslContext

@@ -180,10 +180,11 @@ type ServiceDiscovery interface {
 
 	// Gets all the Istio service accounts mapped from service hostname, in istio identity format.
 	// For example,
-	// GetIstioServiceAccounts(catalog.myservice.com) -->
-	//      --> [istio:serviceaccount1, istio:serviceaccount2]
-	// GetIstioServiceAccounts(backend.myservice.com) --> [istio:serviceaccount3]
-	GetIstioServiceAccounts(hostname string) ([]string, error)
+	// GetIstioServiceAccounts(catalog.myservice.com, 80) ->
+	//      --> [istio:serviceaccount1.ns1.cluster.local, istio:serviceaccount2.ns2.cluster.local]
+	// GetIstioServiceAccounts(backend.myservice.com, 8080) ->
+	//      --> [istio:serviceaccount3.ns3.cluster.local]
+	GetIstioServiceAccounts(hostname string, ports []string) []string
 }
 
 // SubsetOf is true if the tag has identical values for the keys
