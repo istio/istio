@@ -50,7 +50,6 @@ function tear_down {
 trap tear_down EXIT
 
 # Setup
-generate_istio_yaml "${ISTIO_INSTALL_DIR}"
 generate_bookinfo_yaml "${BOOKINFO_DIR}"
 generate_rules_yaml "${RULES_DIR}"
 create_namespace

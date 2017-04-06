@@ -41,4 +41,10 @@ spec:
         args: ["discovery", "-v", "2"]
         ports:
         - containerPort: 8080
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
 ---
