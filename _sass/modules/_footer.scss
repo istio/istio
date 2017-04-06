@@ -98,15 +98,15 @@ footer {
 
     @media (min-width: 768px) {
       padding: 0 0 0 35px;
-      margin: 0 0 50px 0;
+      margin: 0 0 10px 0;
     }
 
     p {
       font-weight: 200;
       font-size: .8em;
-      padding: 6px 0;
+      padding: 0px;
       letter-spacing: .5px;
-      line-height: 36px;
+      line-height: 16px;
     }
 
     .right-link-headers  {
@@ -189,6 +189,10 @@ footer {
     @include social-icon('../img/icon_github.svg');
   }
 
+  .group {
+    @include social-icon('../img/group.png');
+  }
+
   .google {
     @include social-icon('../img/icon_google-plus.svg');
   }
@@ -198,7 +202,11 @@ footer {
   }
 
   .stack-overflow {
-    @include social-icon('../img/icon_stack-overflow.svg');
+    @include social-icon('../img/stackoverflow.png');
+  }
+
+  .slack {
+    @include social-icon('../img/slack.png');
   }
 
   .youtube {
