@@ -2,7 +2,7 @@
 bodyclass: docs
 headline: Service Model
 layout: docs
-sidenav: doc-side-guides-nav.html
+sidenav: doc-side-concepts-nav.html
 title: Service Model
 type: markdown
 ---

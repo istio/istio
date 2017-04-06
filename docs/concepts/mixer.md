@@ -2,7 +2,7 @@
 bodyclass: docs
 headline: Mixer
 layout: docs
-sidenav: doc-side-guides-nav.html
+sidenav: doc-side-concepts-nav.html
 title: Mixer
 type: markdown
 ---
