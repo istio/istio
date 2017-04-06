@@ -31,14 +31,8 @@ spec:
     spec:
       containers:
       - name: istio-ingress-controller
-        image: docker.io/istio/runtime:2017-03-22-21.21.48
-        args:
-        - proxy
-        - ingress
-        - -v
-        - "2"
-        - -n
-        - $(POD_NAMESPACE)
+        image: gcr.io/istio-testing/proxy:alpha9a73dd7feb916a7af889b94558b579ccee261a26
+        args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: Always
         ports:
         - containerPort: 80
@@ -46,4 +40,5 @@ spec:
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
+              apiVersion: v1
               fieldPath: metadata.namespace
