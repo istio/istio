@@ -88,7 +88,7 @@ function generate_istio_yaml() {
     cp ${src_dir}/* ${dest_dir}
     sed -i "s|image: .*/\(.*\):.*|image: $MANAGER_HUB/\1:$MANAGER_TAG|" ${dest_dir}/istio-manager.yaml
     sed -i "s|image: .*/\(.*\):.*|image: $MANAGER_HUB/\1:$MANAGER_TAG|" ${dest_dir}/istio-ingress-controller.yaml
-    sed -i "s|image: .*|image: $MIXER|" ${dest_dir}/istio-mixer.yaml
+    sed -i "s|image: .*/\(.*\):.*|image: $MIXER_HUB/\1:$MIXER_TAG|" ${dest_dir}/istio-mixer.yaml
 }
 
 function generate_bookinfo_yaml() {
