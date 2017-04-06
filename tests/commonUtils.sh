@@ -85,16 +85,6 @@ function apply_patch_in_dir() {
     done
 }
 
-function generate_istio_yaml() {
-    print_block_echo "Generating istio yaml in ${1}"
-    local src_dir="${ROOT}/kubernetes/istio-install"
-    local diff_dir="${ROOT}/tests/istio"
-    local dest_dir="${1}"
-
-    mkdir -p ${dest_dir}
-    apply_patch_in_dir "${diff_dir}" "${src_dir}" "${dest_dir}" yaml
-}
-
 function generate_bookinfo_yaml() {
     print_block_echo "Generating bookinfo yaml in ${1}"
     local src_dir="${ROOT}/demos/apps/bookinfo"
