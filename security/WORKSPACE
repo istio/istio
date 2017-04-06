@@ -1,6 +1,6 @@
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "bfa3601d9ab664b448ddb4cc7e48eea511217aaf",
+    commit = "9496d79880a7d55b8e4a96f04688d70a374eaaf4",
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
