@@ -37,6 +37,11 @@ done
 . $SCRIPT_DIR/kubeUtils.sh || error_exit 'Could not load k8s utilities'
 . $SCRIPT_DIR/istioUtils.sh || error_exit 'Could not load istio utilities'
 
+source $ROOT/istio.VERSION || error_exit "Could not source versions"
+wget -O "${TEST_DIR}/istioctl" "${ISTIOCTL}/istioctl-linux" || error_exit "Could not download istioctl"
+chmod +x "${TEST_DIR}/istioctl"
+ISTIOCLI="${TEST_DIR}/istioctl -c ${HOME}/.kube/config"
+
 [[ -z ${NAMESPACE} ]] && NAMESPACE="$(generate_namespace)"
 
 function tear_down {
