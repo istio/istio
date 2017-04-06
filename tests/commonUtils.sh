@@ -15,8 +15,6 @@
 #   limitations under the License.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RUNTIME_IMAGE='docker.io/istio/runtime:2017-03-22-21.21.48'
-
 
 function error_exit() {
     # ${BASH_SOURCE[1]} is the file name of the caller.
@@ -60,11 +58,7 @@ function apply_patch() {
 function kube_inject() {
     local before=${1}
     local after=${2}
-    # Extract the registry from RUNTIME_IMAGE
-    local hub="$(dirname ${RUNTIME_IMAGE})"
-    # Extract the tag from RUNTIME_IMAGE
-    local tag="${RUNTIME_IMAGE##*:}"
-    ${ISTIOCLI} kube-inject -f ${before} -o ${after} --hub ${hub} --tag ${tag}
+    ${ISTIOCLI} kube-inject -f ${before} -o ${after} --hub ${MANAGER_HUB} --tag ${MANAGER_TAG}
 }
 
 function apply_patch_in_dir() {
