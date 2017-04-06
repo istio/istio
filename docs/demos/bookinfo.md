@@ -31,7 +31,7 @@ The end-to-end architecture of the application is shown below.
 
 This application is polyglot, i.e., the microservices are written in different languages.
 
-> Note: The following instructions assume that you have access to a kubernetes cluster. To install kubernetes locally, checkout [minikube](https://github.com/kubernetes/minikube)
+_Note: The following instructions assume that you have access to a kubernetes cluster. To install kubernetes locally, checkout [minikube](https://github.com/kubernetes/minikube)_
 
 
 ## Setup Istio
@@ -43,8 +43,8 @@ git clone https://github.com/istio/istio
 cd istio
 kubectl apply -f ./kubernetes/istio-install
 ```
-   
-   > Note: the current version of the bookinfo application MUST use the `default` Kubernetes namespace.
+
+   _Note: the current version of the bookinfo application MUST use the `default` Kubernetes namespace._
    
 2. If you would like to view the metrics collected by Istio proxies, you need to install the Prometheus addon and start a Grafana service as well.
    
@@ -152,6 +152,8 @@ http://<grafana-svc-external-IP>:3000/dashboard/db/istio-dashboard
    192.168.99.100:32567
    ```
 1. If you open the Bookinfo URL (http://$GATEWAY_URL/productpage) in your browser, you should see the bookinfo application productpage displayed.
+
+## Traffic Management
 
 ### Content Based Routing
 
@@ -359,6 +361,8 @@ When we are confident that our Bookinfo app is stable, we route 100% of the traf
 
 You can now log in to the `productpage` as any user and you should always see book reviews
 with *red* colored star ratings for each review.
+
+## Policy Enforcement
 
 ### Rate Limiting [WIP]
 
