@@ -1,5 +1,4 @@
----
-# Manager configuration
+# Manager service for discovery
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,7 +8,6 @@ data:
     mixerAddress: istio-mixer:9091
     discoveryAddress: istio-manager:8080
 ---
-# Manager service for discovery
 apiVersion: v1
 kind: Service
 metadata:
@@ -38,20 +36,15 @@ spec:
     spec:
       containers:
       - name: manager
-        image: docker.io/istio/runtime:2017-03-22-21.21.48
+        image: gcr.io/istio-testing/manager:alpha9a73dd7feb916a7af889b94558b579ccee261a26
         imagePullPolicy: Always
- #       args: ["discovery", "-v", "2"]
-        args:
-        - discovery
-        - -v
-        - "2"
-        - -n
-        - $(POD_NAMESPACE)
+        args: ["discovery", "-v", "2"]
         ports:
         - containerPort: 8080
         env:
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
+              apiVersion: v1
               fieldPath: metadata.namespace
 ---

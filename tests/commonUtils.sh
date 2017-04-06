@@ -15,8 +15,6 @@
 #   limitations under the License.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MANAGER_HUB_TAG='docker.io/frankb,ubuntu_20170405_192511'
-MIXER_HUB_TAG='docker.io/istio,2017-04-04-22.14.44'
 
 function error_exit() {
     # ${BASH_SOURCE[1]} is the file name of the caller.
@@ -60,9 +58,7 @@ function apply_patch() {
 function kube_inject() {
     local before=${1}
     local after=${2}
-    local hub="$(echo ${MANAGER_HUB_TAG}|cut -f1 -d,)"
-    local tag="$(echo ${MANAGER_HUB_TAG}|cut -f2 -d,)"
-    ${ISTIOCLI} kube-inject -f ${before} -o ${after} --hub ${hub} --tag ${tag} -n ${NAMESPACE}
+    ${ISTIOCLI} kube-inject -f ${before} -o ${after} --hub ${MANAGER_HUB} --tag ${MANAGER_TAG} -n ${NAMESPACE}
 }
 
 function apply_patch_in_dir() {
@@ -86,19 +82,13 @@ function apply_patch_in_dir() {
 function generate_istio_yaml() {
     print_block_echo "Generating istio yaml in ${1}"
     local src_dir="${ROOT}/kubernetes/istio-install"
-    local diff_dir="${ROOT}/tests/istio"
     local dest_dir="${1}"
 
     mkdir -p ${dest_dir}
-    apply_patch_in_dir "${diff_dir}" "${src_dir}" "${dest_dir}" yaml
-
-    local mhub="$(echo ${MANAGER_HUB_TAG}|cut -f1 -d,)"
-    local mtag="$(echo ${MANAGER_HUB_TAG}|cut -f2 -d,)"
-    local xhub="$(echo ${MIXER_HUB_TAG}|cut -f1 -d,)"
-    local xtag="$(echo ${MIXER_HUB_TAG}|cut -f2 -d,)"
-    sed -i "s#image: .*#image: ${mhub}/proxy:${mtag}#" "${dest_dir}/istio-ingress-controller.yaml"
-    sed -i "s#image: .*#image: ${mhub}/manager:${mtag}#" "${dest_dir}/istio-manager.yaml"
-    sed -i "s#image: .*#image: ${xhub}/mixer:${xtag}#" "${dest_dir}/istio-mixer.yaml"
+    cp ${src_dir}/* ${dest_dir}
+    sed -i "s|image: .*/|image: $MANAGER_HUB/|;s|image: \(.*\):.*|image: \1:$MANAGER_TAG|" ${dest_dir}/istio-manager.yaml
+    sed -i -s "s|image: .*/|image: $MANAGER_HUB/|;s|image: \(.*\):.*|image: \1:$MANAGER_TAG|" ${dest_dir}/istio-ingress-controller.yaml
+    sed -i "s|image: .*|image: $MIXER|" ${dest_dir}/istio-mixer.yaml
 }
 
 function generate_bookinfo_yaml() {
