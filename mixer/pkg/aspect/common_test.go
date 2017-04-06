@@ -123,10 +123,39 @@ func TestValidateLabels(t *testing.T) {
 	})
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			err := validateLabels(tt.name, tt.labels, tt.descs, expr.NewCEXLEvaluator(), df)
-			if err != nil {
+			if err := validateLabels(tt.name, tt.labels, tt.descs, expr.NewCEXLEvaluator(), df); err != nil || tt.err != "" {
 				if tt.err == "" {
-					t.Fatalf("ValidateConfig(tt.cfg, tt.v, tt.df) = '%s', wanted no err", err.Error())
+					t.Fatalf("validateLabels() = '%s', wanted no err", err.Error())
+				} else if !strings.Contains(err.Error(), tt.err) {
+					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, err.Error())
+				}
+			}
+		})
+	}
+}
+
+func TestValidateTemplateExpressions(t *testing.T) {
+	df := test.NewDescriptorFinder(map[string]interface{}{
+		"duration": &dpb.AttributeDescriptor{Name: "duration", ValueType: dpb.DURATION},
+		"string":   &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
+		"int64":    &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
+	})
+
+	tests := []struct {
+		name  string
+		exprs map[string]string
+		err   string
+	}{
+		{"valid", map[string]string{"1": "duration", "2": "string", "3": "int64"}, ""},
+		{"missing attr", map[string]string{"not present": "timestamp"}, "failed to parse expression"},
+		{"invalid expr", map[string]string{"invalid": "string |"}, "failed to parse expression"},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			if err := validateTemplateExpressions(tt.name, tt.exprs, expr.NewCEXLEvaluator(), df); err != nil || tt.err != "" {
+				if tt.err == "" {
+					t.Fatalf("validateTemplateExpressions() = '%s', wanted no err", err.Error())
 				} else if !strings.Contains(err.Error(), tt.err) {
 					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, err.Error())
 				}

@@ -58,7 +58,20 @@ func validateLabels(ceField string, labels map[string]string, labelDescs []*dpb.
 		if label := findLabel(name, labelDescs); label == nil {
 			ce = ce.Appendf(ceField, "wrong dimensions: extra label named %s", name)
 		} else if err := v.AssertType(exp, df, label.ValueType); err != nil {
-			ce = ce.Appendf(ceField, "error type checking label %s: %v", err)
+			ce = ce.Appendf(ceField, "error type checking label '%s': %v", name, err)
+		}
+	}
+	return
+}
+
+func validateTemplateExpressions(ceField string, expressions map[string]string, v expr.Validator, df expr.AttributeDescriptorFinder) (
+	ce *adapter.ConfigErrors) {
+
+	// We can't do type assertions since we don't know what each template param needs to resolve to, but we can
+	// make sure they're syntactically correct and we have the attributes they need available in the system.
+	for name, exp := range expressions {
+		if _, err := v.TypeCheck(exp, df); err != nil {
+			ce = ce.Appendf(ceField, "failed to parse expression '%s' with err: %v", name, err)
 		}
 	}
 	return

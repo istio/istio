@@ -30,10 +30,10 @@ rules:
           response_code: response.code | 200
   - kind: access-logs
     params:
-      logName: "access_log"
+      logName: access_log
       log:
-        logFormat: 1 # COMMON
-        templateExpressions:
+        descriptor_name: accesslog.common
+        template_expressions:
            originIp: origin.ip
            sourceUser: origin.user
            timestamp: request.time
