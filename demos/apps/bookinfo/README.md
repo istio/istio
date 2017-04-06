@@ -33,14 +33,16 @@ This application is polyglot, i.e., the microservices are written in different l
    (Note: the current version of the bookinfo application MUST use the `default` Kubernetes namespace.)
 
 2. Install the [istioctl](../../../doc/istioctl.md) CLI, which provides a
-   convenient way to apply routing rules and policies for upstreams. The
-   `demos/` directory has three binaries: `istioctl-osx`, `istioctl-win.exe`,
+   convenient way to apply routing rules and policies for upstreams.
+   The [istio.VERSION](istio.VERSION) file includes the download location of 
+   a compatible binaries: `istioctl-osx`, `istioctl-win.exe`,
    `istioctl-linux` targeted at Mac, Windows and Linux users
-   respectively. Download the tool appropriate to your platform and
-   rename the tool to `istioctl`. For example:
+   respectively. Download the tool appropriate to your platform. For example:
 
    ```bash
-   $ cp demos/istioctl-osx /usr/local/bin/istioctl
+   source ./istio.VERSION # set ISTIOCTL env variable
+   wget -O /usr/local/bin/istioctl ${ISTIOCTL}/istioctl-osx
+   chmod +x /usr/local/bin/istioctl
    ```
 
    > Note: If you already have a previously installed version of `istioctl`, make sure that
