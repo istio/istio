@@ -15,7 +15,7 @@
 #ifndef GRPC_TRANSCODING_TRANSCODER_H_
 #define GRPC_TRANSCODING_TRANSCODER_H_
 
-#include "google/protobuf/io/zero_copy_stream.h"
+#include "contrib/endpoints/src/grpc/transcoding/transcoder_input_stream.h"
 #include "google/protobuf/stubs/status.h"
 
 namespace google {
@@ -28,11 +28,11 @@ namespace transcoding {
 //  - translated response stream,
 //  - status of response translation.
 //
-// NOTE: Transcoder uses ::google::protobuf::io::ZeroCopyInputStream for
-//       carrying the payloads both for input and output. It assumes the
-//       following interpretation of the ZeroCopyInputStream interface:
+// NOTE: Transcoder uses TranscoderInputStream for carrying the payloads
+//       both for input and output. It assumes the following interpretation
+//       of the TranscoderInputStream interface:
 //
-// bool ZeroCopyInputStream::Next(const void** data, int* size);
+// bool TranscoderInputStream::Next(const void** data, int* size);
 //
 // Obtains a chunk of data from the stream.
 //
@@ -52,7 +52,7 @@ namespace transcoding {
 //   again later.
 //
 //
-// void ZeroCopyInputStream::BackUp(int count);
+// void TranscoderInputStream::BackUp(int count);
 //
 // Backs up a number of bytes, so that the next call to Next() returns
 // data again that was already returned by the last call to Next().  This
@@ -72,12 +72,12 @@ namespace transcoding {
 //   the same data again before producing new data.
 //
 //
-// bool ZeroCopyInputStream::Skip(int count);
+// bool TranscoderInputStream::Skip(int count);
 //
 // Not used and not implemented by the Transcoder.
 //
 //
-// int64 ZeroCopyInputStream::ByteCount() const;
+// int64_t TranscoderInputStream::BytesAvailable() const;
 //
 // Returns the number of bytes available for reading at this moment
 //
@@ -133,7 +133,7 @@ namespace transcoding {
 class Transcoder {
  public:
   // ZeroCopyInputStream to read the transcoded request.
-  virtual ::google::protobuf::io::ZeroCopyInputStream* RequestOutput() = 0;
+  virtual TranscoderInputStream* RequestOutput() = 0;
 
   // The status of request transcoding
   virtual ::google::protobuf::util::Status RequestStatus() = 0;

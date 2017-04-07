@@ -18,7 +18,6 @@
 
 #include <memory>
 
-#include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 
 namespace google {
@@ -29,7 +28,7 @@ namespace transcoding {
 namespace pb = ::google::protobuf;
 namespace pbio = ::google::protobuf::io;
 
-MessageReader::MessageReader(pbio::ZeroCopyInputStream* in)
+MessageReader::MessageReader(TranscoderInputStream* in)
     : in_(in),
       current_message_size_(0),
       have_current_message_size_(false),
@@ -99,7 +98,7 @@ std::unique_ptr<pbio::ZeroCopyInputStream> MessageReader::NextMessage() {
   // Check if we have the current message size. If not try to read it.
   if (!have_current_message_size_) {
     const size_t kDelimiterSize = 5;
-    if (in_->ByteCount() < static_cast<pb::int64>(kDelimiterSize)) {
+    if (in_->BytesAvailable() < static_cast<pb::int64>(kDelimiterSize)) {
       // We don't have 5 bytes available to read the length of the message.
       // Find out whether the stream is finished and return false.
       finished_ = IsStreamFinished(in_);
@@ -117,10 +116,7 @@ std::unique_ptr<pbio::ZeroCopyInputStream> MessageReader::NextMessage() {
     have_current_message_size_ = true;
   }
 
-  // We interpret ZeroCopyInputStream::ByteCount() as the number of bytes
-  // available for reading at the moment. Check if we have the full message
-  // available to read.
-  if (in_->ByteCount() < static_cast<pb::int64>(current_message_size_)) {
+  if (in_->BytesAvailable() < static_cast<pb::int64>(current_message_size_)) {
     // We don't have a full message
     return std::unique_ptr<pbio::ZeroCopyInputStream>();
   }

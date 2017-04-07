@@ -18,7 +18,6 @@
 
 #include <string>
 
-#include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "google/protobuf/stubs/status.h"
 #include "google/protobuf/util/json_util.h"
@@ -31,7 +30,7 @@ namespace transcoding {
 
 ResponseToJsonTranslator::ResponseToJsonTranslator(
     ::google::protobuf::util::TypeResolver* type_resolver, std::string type_url,
-    bool streaming, ::google::protobuf::io::ZeroCopyInputStream* in)
+    bool streaming, TranscoderInputStream* in)
     : type_resolver_(type_resolver),
       type_url_(std::move(type_url)),
       streaming_(streaming),

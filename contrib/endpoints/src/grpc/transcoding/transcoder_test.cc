@@ -139,7 +139,7 @@ class TranscoderTest : public ::testing::Test {
   }
 
   pbutil::Status Build(pbio::ZeroCopyInputStream *request_input,
-                       pbio::ZeroCopyInputStream *response_input,
+                       TranscoderInputStream *response_input,
                        std::unique_ptr<Transcoder> *transcoder) {
     MethodCallInfo call_info;
     call_info.method_info = method_info_.get();

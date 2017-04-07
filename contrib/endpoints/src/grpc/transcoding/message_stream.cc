@@ -19,7 +19,6 @@
 #include <memory>
 #include <string>
 
-#include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 
 namespace google {
@@ -32,12 +31,12 @@ namespace pbio = ::google::protobuf::io;
 namespace {
 
 // a ZeroCopyInputStream implementation over a MessageStream implementation
-class ZeroCopyStreamOverMessageStream : public pbio::ZeroCopyInputStream {
+class InputStreamOverMessageStream : public TranscoderInputStream {
  public:
-  // src - the underlying MessageStream. ZeroCopyStreamOverMessageStream doesn't
+  // src - the underlying MessageStream. InputStreamOverMessageStream doesn't
   //       maintain the ownership of src, the caller must make sure it exists
-  //       throughtout the lifetime of ZeroCopyStreamOverMessageStream.
-  ZeroCopyStreamOverMessageStream(MessageStream* src)
+  //       throughtout the lifetime of InputStreamOverMessageStream.
+  InputStreamOverMessageStream(MessageStream* src)
       : src_(src), message_(), position_(0) {}
 
   // ZeroCopyInputStream implementation
@@ -72,19 +71,15 @@ class ZeroCopyStreamOverMessageStream : public pbio::ZeroCopyInputStream {
 
   bool Skip(int) { return false; }  // Not implemented (no need)
 
-  ::google::protobuf::int64 ByteCount() const {
-    // NOTE: we are changing the ByteCount() interpretation. In our case
-    // ByteCount() returns the number of bytes available for reading at this
-    // moment. In the original interpretation it is supposed to be the number
-    // of bytes read so far.
-    // We need this such that the consumers are able to read the gRPC delimited
-    // message stream only if there is a full message available.
+  google::protobuf::int64 ByteCount() const { return 0; }  // Not implemented
+
+  int64_t BytesAvailable() const {
     if (position_ >= message_.size()) {
       // If the current message is all done, try to read the next message
       // to make sure we return the correct byte count.
-      const_cast<ZeroCopyStreamOverMessageStream*>(this)->ReadNextMessage();
+      const_cast<InputStreamOverMessageStream*>(this)->ReadNextMessage();
     }
-    return static_cast<::google::protobuf::int64>(message_.size() - position_);
+    return static_cast<int64_t>(message_.size() - position_);
   }
 
  private:
@@ -109,10 +104,9 @@ class ZeroCopyStreamOverMessageStream : public pbio::ZeroCopyInputStream {
 
 }  // namespace
 
-std::unique_ptr<::google::protobuf::io::ZeroCopyInputStream>
-MessageStream::CreateZeroCopyInputStream() {
-  return std::unique_ptr<::google::protobuf::io::ZeroCopyInputStream>(
-      new ZeroCopyStreamOverMessageStream(this));
+std::unique_ptr<TranscoderInputStream> MessageStream::CreateInputStream() {
+  return std::unique_ptr<TranscoderInputStream>(
+      new InputStreamOverMessageStream(this));
 }
 
 }  // namespace transcoding

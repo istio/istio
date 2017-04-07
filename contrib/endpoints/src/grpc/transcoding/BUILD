@@ -67,6 +67,7 @@ cc_library(
         "message_stream.h",
     ],
     deps = [
+        ":transcoder_input_stream",
         "//external:protobuf",
     ],
 )
@@ -125,6 +126,7 @@ cc_library(
         "message_reader.h",
     ],
     deps = [
+        ":transcoder_input_stream",
         "//external:protobuf",
     ],
 )
@@ -141,6 +143,17 @@ cc_library(
         ":message_reader",
         ":message_stream",
         "//external:protobuf",
+    ],
+)
+
+cc_library(
+    name = "transcoder_input_stream",
+    srcs = [
+        "transcoder_input_stream.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@protobuf_git//:protobuf",
     ],
 )
 
@@ -223,6 +236,7 @@ cc_library(
     srcs = ["test_common.cc"],
     hdrs = ["test_common.h"],
     deps = [
+        ":transcoder_input_stream",
         "//external:googletest",
         "//external:protobuf",
         "//external:service_config",

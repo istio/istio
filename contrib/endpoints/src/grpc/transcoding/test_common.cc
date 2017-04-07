@@ -81,7 +81,7 @@ void TestZeroCopyInputStream::BackUp(int count) {
   position_ -= count;
 }
 
-pb::int64 TestZeroCopyInputStream::ByteCount() const {
+int64_t TestZeroCopyInputStream::BytesAvailable() const {
   auto total = current_.size() - position_;
   for (auto chunk : chunks_) {
     total += chunk.size();

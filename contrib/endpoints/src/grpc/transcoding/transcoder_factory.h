@@ -19,6 +19,7 @@
 
 #include "contrib/endpoints/include/api_manager/method_call_info.h"
 #include "contrib/endpoints/src/grpc/transcoding/transcoder.h"
+#include "contrib/endpoints/src/grpc/transcoding/transcoder_input_stream.h"
 #include "contrib/endpoints/src/grpc/transcoding/type_helper.h"
 #include "google/api/service.pb.h"
 #include "google/protobuf/io/zero_copy_stream.h"
@@ -71,7 +72,7 @@ class TranscoderFactory {
   ::google::protobuf::util::Status Create(
       const MethodCallInfo& call_info,
       ::google::protobuf::io::ZeroCopyInputStream* request_input,
-      ::google::protobuf::io::ZeroCopyInputStream* response_input,
+      TranscoderInputStream* response_input,
       std::unique_ptr<Transcoder>* transcoder);
 
  private:

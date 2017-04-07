@@ -52,29 +52,23 @@ class TranscoderImpl : public Transcoder {
                  std::unique_ptr<ResponseToJsonTranslator> response_translator)
       : request_translator_(std::move(request_translator)),
         response_translator_(std::move(response_translator)),
-        request_zero_copy_stream_(
-            request_translator_->Output().CreateZeroCopyInputStream()),
-        response_zero_copy_stream_(
-            response_translator_->CreateZeroCopyInputStream()) {}
+        request_stream_(request_translator_->Output().CreateInputStream()),
+        response_stream_(response_translator_->CreateInputStream()) {}
 
   // Transcoder implementation
-  pbio::ZeroCopyInputStream* RequestOutput() {
-    return request_zero_copy_stream_.get();
-  }
+  TranscoderInputStream* RequestOutput() { return request_stream_.get(); }
   pbutil::Status RequestStatus() {
     return request_translator_->Output().Status();
   }
 
-  pbio::ZeroCopyInputStream* ResponseOutput() {
-    return response_zero_copy_stream_.get();
-  }
+  pbio::ZeroCopyInputStream* ResponseOutput() { return response_stream_.get(); }
   pbutil::Status ResponseStatus() { return response_translator_->Status(); }
 
  private:
   std::unique_ptr<JsonRequestTranslator> request_translator_;
   std::unique_ptr<ResponseToJsonTranslator> response_translator_;
-  std::unique_ptr<pbio::ZeroCopyInputStream> request_zero_copy_stream_;
-  std::unique_ptr<pbio::ZeroCopyInputStream> response_zero_copy_stream_;
+  std::unique_ptr<TranscoderInputStream> request_stream_;
+  std::unique_ptr<TranscoderInputStream> response_stream_;
 };
 
 // Converts MethodCallInfo into a RequestInfo structure needed by the
@@ -132,7 +126,7 @@ TranscoderFactory::TranscoderFactory(const ::google::api::Service& service)
 
 pbutil::Status TranscoderFactory::Create(
     const MethodCallInfo& call_info, pbio::ZeroCopyInputStream* request_input,
-    pbio::ZeroCopyInputStream* response_input,
+    TranscoderInputStream* response_input,
     std::unique_ptr<Transcoder>* transcoder) {
   // Convert MethodCallInfo into RequestInfo
   RequestInfo request_info;

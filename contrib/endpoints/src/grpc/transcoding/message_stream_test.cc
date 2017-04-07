@@ -70,14 +70,14 @@ class ZeroCopyInputStreamOverMessageStreamTest : public ::testing::Test {
 
   bool Test(const Messages& messages) {
     TestMessageStream test_message_stream;
-    auto zero_copy_stream = test_message_stream.CreateZeroCopyInputStream();
+    auto input_stream = test_message_stream.CreateInputStream();
 
     const void* data = nullptr;
     int size = 0;
 
     // Check that Next() returns true and a 0-sized buffer meaning that
     // nothing is available at the moment.
-    if (!zero_copy_stream->Next(&data, &size)) {
+    if (!input_stream->Next(&data, &size)) {
       ADD_FAILURE() << "The stream finished unexpectedly" << std::endl;
       return false;
     }
@@ -91,13 +91,13 @@ class ZeroCopyInputStreamOverMessageStreamTest : public ::testing::Test {
       test_message_stream.AddMessage(message);
 
       // message.size() bytes must be available for reading
-      if (static_cast<int>(message.size()) != zero_copy_stream->ByteCount()) {
-        EXPECT_EQ(message.size(), zero_copy_stream->ByteCount());
+      if (static_cast<int>(message.size()) != input_stream->BytesAvailable()) {
+        EXPECT_EQ(message.size(), input_stream->BytesAvailable());
         return false;
       }
 
       // Now try to read & match the message
-      if (!zero_copy_stream->Next(&data, &size)) {
+      if (!input_stream->Next(&data, &size)) {
         ADD_FAILURE() << "The stream finished unexpectedly" << std::endl;
         return false;
       }
@@ -120,16 +120,16 @@ class ZeroCopyInputStreamOverMessageStreamTest : public ::testing::Test {
           // Not a valid test case
           continue;
         }
-        zero_copy_stream->BackUp(backup_size);
+        input_stream->BackUp(backup_size);
 
         // backup_size bytes must be available for reading again
-        if (static_cast<int>(backup_size) != zero_copy_stream->ByteCount()) {
-          EXPECT_EQ(message.size(), zero_copy_stream->ByteCount());
+        if (static_cast<int>(backup_size) != input_stream->BytesAvailable()) {
+          EXPECT_EQ(message.size(), input_stream->BytesAvailable());
           return false;
         }
 
         // Now Next() must return the backed up data again.
-        if (!zero_copy_stream->Next(&data, &size)) {
+        if (!input_stream->Next(&data, &size)) {
           ADD_FAILURE() << "The stream finished unexpectedly" << std::endl;
           return false;
         }
@@ -143,7 +143,7 @@ class ZeroCopyInputStreamOverMessageStreamTest : public ::testing::Test {
       }
 
       // At this point no data should be available
-      if (!zero_copy_stream->Next(&data, &size)) {
+      if (!input_stream->Next(&data, &size)) {
         ADD_FAILURE() << "The stream finished unexpectedly" << std::endl;
         return false;
       }
@@ -156,7 +156,7 @@ class ZeroCopyInputStreamOverMessageStreamTest : public ::testing::Test {
     // Now finish the MessageStream & make sure the ZeroCopyInputStream has
     // ended.
     test_message_stream.Finish();
-    if (zero_copy_stream->Next(&data, &size)) {
+    if (input_stream->Next(&data, &size)) {
       ADD_FAILURE() << "The stream still hasn't finished" << std::endl;
       return false;
     }
@@ -201,14 +201,14 @@ TEST_F(ZeroCopyInputStreamOverMessageStreamTest, DifferenteSizesOneStream) {
 
 TEST_F(ZeroCopyInputStreamOverMessageStreamTest, DirectTest) {
   TestMessageStream test_message_stream;
-  auto zero_copy_stream = test_message_stream.CreateZeroCopyInputStream();
+  auto input_stream = test_message_stream.CreateInputStream();
 
   const void* data = nullptr;
   int size = 0;
 
   // Check that Next() returns true and a 0-sized buffer meaning that
   // nothing is available at the moment.
-  EXPECT_TRUE(zero_copy_stream->Next(&data, &size));
+  EXPECT_TRUE(input_stream->Next(&data, &size));
   EXPECT_EQ(0, size);
 
   // Test messages
@@ -221,16 +221,16 @@ TEST_F(ZeroCopyInputStreamOverMessageStreamTest, DirectTest) {
   test_message_stream.AddMessage(message1);
 
   // message1 is available for reading
-  EXPECT_EQ(message1.size(), zero_copy_stream->ByteCount());
-  EXPECT_TRUE(zero_copy_stream->Next(&data, &size));
+  EXPECT_EQ(message1.size(), input_stream->BytesAvailable());
+  EXPECT_TRUE(input_stream->Next(&data, &size));
   EXPECT_EQ(message1, std::string(reinterpret_cast<const char*>(data), size));
 
   // Back up a bit
-  zero_copy_stream->BackUp(5);
+  input_stream->BackUp(5);
 
   // Now read the backed up data again
-  EXPECT_EQ(5, zero_copy_stream->ByteCount());
-  EXPECT_TRUE(zero_copy_stream->Next(&data, &size));
+  EXPECT_EQ(5, input_stream->BytesAvailable());
+  EXPECT_TRUE(input_stream->Next(&data, &size));
   EXPECT_EQ(message1.substr(message1.size() - 5),
             std::string(reinterpret_cast<const char*>(data), size));
 
@@ -238,20 +238,20 @@ TEST_F(ZeroCopyInputStreamOverMessageStreamTest, DirectTest) {
   test_message_stream.AddMessage(message2);
 
   // message2 is available for reading
-  EXPECT_EQ(message2.size(), zero_copy_stream->ByteCount());
-  EXPECT_TRUE(zero_copy_stream->Next(&data, &size));
+  EXPECT_EQ(message2.size(), input_stream->BytesAvailable());
+  EXPECT_TRUE(input_stream->Next(&data, &size));
   EXPECT_EQ(message2, std::string(reinterpret_cast<const char*>(data), size));
 
   // Back up all of message2
-  zero_copy_stream->BackUp(message2.size());
+  input_stream->BackUp(message2.size());
 
   // Now read message2 again
-  EXPECT_EQ(message2.size(), zero_copy_stream->ByteCount());
-  EXPECT_TRUE(zero_copy_stream->Next(&data, &size));
+  EXPECT_EQ(message2.size(), input_stream->BytesAvailable());
+  EXPECT_TRUE(input_stream->Next(&data, &size));
   EXPECT_EQ(message2, std::string(reinterpret_cast<const char*>(data), size));
 
   // At this point no data should be available
-  EXPECT_TRUE(zero_copy_stream->Next(&data, &size));
+  EXPECT_TRUE(input_stream->Next(&data, &size));
   EXPECT_EQ(0, size);
 
   // Add both message3 & message4 & finish the MessageStream afterwards
@@ -260,16 +260,16 @@ TEST_F(ZeroCopyInputStreamOverMessageStreamTest, DirectTest) {
   test_message_stream.Finish();
 
   // Read & match both message3 & message4
-  EXPECT_EQ(message3.size(), zero_copy_stream->ByteCount());
-  EXPECT_TRUE(zero_copy_stream->Next(&data, &size));
+  EXPECT_EQ(message3.size(), input_stream->BytesAvailable());
+  EXPECT_TRUE(input_stream->Next(&data, &size));
   EXPECT_EQ(message3, std::string(reinterpret_cast<const char*>(data), size));
 
-  EXPECT_EQ(message4.size(), zero_copy_stream->ByteCount());
-  EXPECT_TRUE(zero_copy_stream->Next(&data, &size));
+  EXPECT_EQ(message4.size(), input_stream->BytesAvailable());
+  EXPECT_TRUE(input_stream->Next(&data, &size));
   EXPECT_EQ(message4, std::string(reinterpret_cast<const char*>(data), size));
 
   // All done!
-  EXPECT_FALSE(zero_copy_stream->Next(&data, &size));
+  EXPECT_FALSE(input_stream->Next(&data, &size));
 }
 
 }  // namespace

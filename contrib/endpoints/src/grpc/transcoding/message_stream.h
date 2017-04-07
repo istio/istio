@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 
+#include "contrib/endpoints/src/grpc/transcoding/transcoder_input_stream.h"
 #include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/stubs/status.h"
 
@@ -73,8 +74,7 @@ class MessageStream {
   // Virtual destructor
   virtual ~MessageStream() {}
   // Creates ZeroCopyInputStream implementation based on this stream
-  std::unique_ptr<::google::protobuf::io::ZeroCopyInputStream>
-  CreateZeroCopyInputStream();
+  std::unique_ptr<TranscoderInputStream> CreateInputStream();
 };
 
 }  // namespace transcoding

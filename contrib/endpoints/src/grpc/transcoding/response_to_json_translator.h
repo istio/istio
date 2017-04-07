@@ -66,8 +66,7 @@ class ResponseToJsonTranslator : public MessageStream {
   //      format (http://www.grpc.io/docs/guides/wire.html)
   ResponseToJsonTranslator(
       ::google::protobuf::util::TypeResolver* type_resolver,
-      std::string type_url, bool streaming,
-      ::google::protobuf::io::ZeroCopyInputStream* in);
+      std::string type_url, bool streaming, TranscoderInputStream* in);
 
   // MessageStream implementation
   bool NextMessage(std::string* message);

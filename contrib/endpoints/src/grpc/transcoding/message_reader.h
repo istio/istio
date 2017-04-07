@@ -17,7 +17,7 @@
 
 #include <memory>
 
-#include "google/protobuf/io/zero_copy_stream.h"
+#include "contrib/endpoints/src/grpc/transcoding/transcoder_input_stream.h"
 #include "google/protobuf/stubs/status.h"
 
 namespace google {
@@ -49,11 +49,6 @@ namespace transcoding {
 //     }
 //   }
 //
-// NOTE: MesssageReader assumes that ZeroCopyInputStream::ByteCount() returns
-//       the number of bytes available to read at the moment. That's what
-//       MessageReader uses to determine whether there is a complete message
-//       available or not.
-//
 // NOTE: MessageReader is unable to recognize the case when there is an
 //       incomplete message at the end of the input. The callers will need to
 //       detect it and act appropriately.
@@ -64,7 +59,7 @@ namespace transcoding {
 //
 class MessageReader {
  public:
-  MessageReader(::google::protobuf::io::ZeroCopyInputStream* in);
+  MessageReader(TranscoderInputStream* in);
 
   // If a full message is available, NextMessage() returns a ZeroCopyInputStream
   // over the message. Otherwise returns nullptr - this might be temporary, the
@@ -82,7 +77,7 @@ class MessageReader {
   bool Finished() const { return finished_; }
 
  private:
-  ::google::protobuf::io::ZeroCopyInputStream* in_;
+  TranscoderInputStream* in_;
   // The size of the current message.
   unsigned int current_message_size_;
   // Whether we have read the current message size or not
