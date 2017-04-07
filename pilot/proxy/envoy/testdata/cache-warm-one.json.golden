@@ -1,0 +1,16 @@
+{
+  "cache_stats": {
+   "/v1/clusters/istio-proxy/10.1.1.0": {
+    "hit": 1,
+    "miss": 1
+   },
+   "/v1/registration/hello.default.svc.cluster.local%7Chttp": {
+    "hit": 1,
+    "miss": 1
+   },
+   "/v1/routes/80/istio-proxy/10.1.1.0": {
+    "hit": 1,
+    "miss": 1
+   }
+  }
+ }
