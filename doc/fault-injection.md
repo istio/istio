@@ -1,12 +1,11 @@
-# Troubleshooting with Istio: Simulating slow responses from microservices
+# Injecting Failures Systematically
 
 ![Fault Injection](fault-injection.png)
 
 Slow or unresponsive microservices can reveal defects in other system components.  Unhandled timeout
-exceptions can cascade and affect user experience.  Developers get frustrated trying to diagnose, correct,
-and verify fixes to performance problems on their speedy and responsive test systems.
+exceptions can cascade and affect user experience.
 
-In this tutorial we will show advanced features of the Istio command line to inject performance problems into
+In this tutorial we will show advanced features of the Istio command line to inject delays into
 a running system.
 
 The Kubernetes-based implementation of Istio used in this tutorial works by injecting behavior
