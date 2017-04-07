@@ -36,7 +36,7 @@ _Note: The following instructions assume that you have access to a kubernetes cl
 
 ## Setup Istio
 
-1. Clone the istio Github repository and start the core Istio services (the istio-manager, the istio-mixer, and the istio ingress controller).
+1. Clone the istio GitHub repository and start the core Istio services (the istio-manager, the istio-mixer, and the istio ingress controller).
 
 ```bash  
 git clone https://github.com/istio/istio
