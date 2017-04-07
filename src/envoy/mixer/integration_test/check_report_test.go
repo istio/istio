@@ -61,8 +61,8 @@ const reportAttributesOkGet = `
   "request.size": 0,
   "response.time": "*",
   "response.size": 0,
-  "response.latency": "*",
-  "response.http.code": 200,
+  "response.duration": "*",
+  "response.code": 200,
   "response.headers": {
      "date": "*",
      "content-type": "text/plain; charset=utf-8",
@@ -115,8 +115,8 @@ const reportAttributesOkPost = `
   "request.size": 12,
   "response.time": "*",
   "response.size": 12,
-  "response.latency": "*",
-  "response.http.code": 200,
+  "response.duration": "*",
+  "response.code": 200,
   "response.headers": {
      "date": "*",
      "content-type": "text/plain",

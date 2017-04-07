@@ -44,8 +44,8 @@ const std::string kRequestSize = "request.size";
 const std::string kRequestTime = "request.time";
 
 const std::string kResponseHeaders = "response.headers";
-const std::string kResponseHttpCode = "response.http.code";
-const std::string kResponseLatency = "response.latency";
+const std::string kResponseCode = "response.code";
+const std::string kResponseDuration = "response.duration";
 const std::string kResponseSize = "response.size";
 const std::string kResponseTime = "response.time";
 
@@ -118,15 +118,14 @@ void FillRequestInfoAttributes(const AccessLog::RequestInfo& info,
     attr->attributes[kResponseSize] = Attributes::Int64Value(info.bytesSent());
   }
 
-  attr->attributes[kResponseLatency] = Attributes::DurationValue(
+  attr->attributes[kResponseDuration] = Attributes::DurationValue(
       std::chrono::duration_cast<std::chrono::nanoseconds>(info.duration()));
 
   if (info.responseCode().valid()) {
-    attr->attributes[kResponseHttpCode] =
+    attr->attributes[kResponseCode] =
         Attributes::Int64Value(info.responseCode().value());
   } else {
-    attr->attributes[kResponseHttpCode] =
-        Attributes::Int64Value(check_status_code);
+    attr->attributes[kResponseCode] = Attributes::Int64Value(check_status_code);
   }
 }
 

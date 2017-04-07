@@ -67,8 +67,8 @@ const reportAttributesMixerFail = `
   "request.size": 0,
   "response.time": "*",
   "response.size": 41,
-  "response.latency": "*",
-  "response.http.code": 401,
+  "response.duration": "*",
+  "response.code": 401,
   "response.headers": {
      "date": "*",
      "content-type": "text/plain",
@@ -100,8 +100,8 @@ const reportAttributesBackendFail = `
   "request.size": 0,
   "response.time": "*",
   "response.size": 25,
-  "response.latency": "*",
-  "response.http.code": 400,
+  "response.duration": "*",
+  "response.code": 400,
   "response.headers": {
      "date": "*",
      "content-type": "text/plain; charset=utf-8",
