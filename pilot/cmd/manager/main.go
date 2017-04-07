@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
+	"istio.io/manager/apiserver"
 	"istio.io/manager/cmd"
 	"istio.io/manager/cmd/version"
 	"istio.io/manager/model"
@@ -41,6 +42,7 @@ type args struct {
 	ipAddress                string
 	podName                  string
 	sdsPort                  int
+	apiserverPort            int
 	ingressSecret            string
 	ingressClass             string
 	defaultIngressController bool
@@ -106,10 +108,18 @@ var (
 				Port:            flags.sdsPort,
 				EnableProfiling: flags.enableProfiling,
 			}
+			apiserver := apiserver.NewAPI(apiserver.APIServiceOptions{
+				Version: "v1alpha1",
+				Port:    flags.apiserverPort,
+				Registry: &model.IstioRegistry{
+					ConfigRegistry: controller,
+				},
+			})
 			sds := envoy.NewDiscoveryService(options)
 			stop := make(chan struct{})
 			go controller.Run(stop)
 			go sds.Run()
+			go apiserver.Run()
 			cmd.WaitSignal(stop)
 			return
 		},
@@ -197,8 +207,10 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&flags.config, "meshConfig", cmd.DefaultConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", cmd.ConfigMapKey))
 
-	discoveryCmd.PersistentFlags().IntVarP(&flags.sdsPort, "port", "p", 8080,
+	discoveryCmd.PersistentFlags().IntVarP(&flags.sdsPort, "sdsPort", "p", 8080,
 		"Discovery service port")
+	discoveryCmd.PersistentFlags().IntVar(&flags.apiserverPort, "apiPort", 8081,
+		"API service port")
 	discoveryCmd.PersistentFlags().BoolVar(&flags.enableProfiling, "profile", true,
 		"Enable profiling via web interface host:port/debug/pprof")
 

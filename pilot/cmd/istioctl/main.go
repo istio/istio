@@ -15,7 +15,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -29,22 +28,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/pkg/api"
 
+	"istio.io/manager/apiserver"
 	"istio.io/manager/cmd"
 	"istio.io/manager/cmd/version"
 	"istio.io/manager/model"
 	"istio.io/manager/platform/kube"
 )
-
-// Each entry in the multi-doc YAML file used by `istioctl create -f` MUST have this format
-type inputDoc struct {
-	// Type SHOULD be one of the kinds in model.IstioConfig; a route-rule, ingress-rule, or destination-policy
-	Type string      `json:"type,omitempty"`
-	Name string      `json:"name,omitempty"`
-	Spec interface{} `json:"spec,omitempty"`
-	// ParsedSpec will be one of the messages in model.IstioConfig: for example an
-	// istio.proxy.v1alpha.config.RouteRule or DestinationPolicy
-	ParsedSpec proto.Message `json:"-"`
-}
 
 var (
 	kubeconfig string
@@ -323,7 +312,7 @@ func setup(kind, name string) error {
 }
 
 // readInputs reads multiple documents from the input and checks with the schema
-func readInputs() ([]inputDoc, error) {
+func readInputs() ([]apiserver.Config, error) {
 
 	var reader io.Reader
 	var err error
@@ -337,12 +326,12 @@ func readInputs() ([]inputDoc, error) {
 		}
 	}
 
-	var varr []inputDoc
+	var varr []apiserver.Config
 
 	// We store route-rules as a YaML stream; there may be more than one decoder.
 	yamlDecoder := yaml.NewYAMLOrJSONDecoder(reader, 512*1024)
 	for {
-		v := inputDoc{}
+		v := apiserver.Config{}
 		err = yamlDecoder.Decode(&v)
 		if err == io.EOF {
 			break
@@ -350,25 +339,9 @@ func readInputs() ([]inputDoc, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse proto message: %v", err)
 		}
-
-		// Do a second decode pass, to get the data into structured format
-		byteRule, err := json.Marshal(v.Spec)
-		if err != nil {
-			return nil, fmt.Errorf("could not encode Spec: %v", err)
+		if err = v.ParseSpec(); err != nil {
+			return nil, err
 		}
-
-		ischema, ok := model.IstioConfig[v.Type]
-		if !ok {
-			return nil, fmt.Errorf("unknown spec type %s", v.Type)
-		}
-		rr, err := ischema.FromJSON(string(byteRule))
-		if err != nil {
-			return nil, fmt.Errorf("cannot parse proto message: %v", err)
-		}
-		glog.V(2).Infof("Parsed %v %v into %v %v", v.Type, v.Name, ischema.MessageName, rr)
-
-		v.ParsedSpec = rr
-
 		varr = append(varr, v)
 	}
 
