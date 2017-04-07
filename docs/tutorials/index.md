@@ -6,12 +6,8 @@ bodyclass: docs
 layout: docs
 type: markdown
 ---
-<p class="lead">
-Get started with Istio
-</p>
 
-<div id="toc" class="toc mobile-toc"></div>
+# Tutorials
 
-These pages show you how to get up and running as quickly as possible with Istio,
-including installing all the tools you’ll need.
-
+The Tutorials section contains pages that show how to accomplish specific reasonably significant goals within Istio.
+Typically a tutorial has several sections, each of which has a sequence of steps.

@@ -6,6 +6,7 @@ bodyclass: docs
 layout: docs
 type: markdown
 ---
+# Samples
 
-Take the walkthroughs in this section to get a high-level idea of Istio's features. The samples are currently targeted towards
-Kubernetes users. We are working on adding support for other platforms.
+The Samples section contains pages that present a variety of fully working 
+example uses for Istio that you can experiment with.

@@ -7,12 +7,14 @@ layout: docs
 type: markdown
 ---
 
+Individual topics are built using page templates which provide some consistent
+formatting and style to all pages within Istio documentation. 
 These page templates are available for writers who would like to contribute new topics to the Istio docs:
 
-- [Concept](#concept_template)
-- [Task](#task_tempplate)
-- [Tutorial](#tutorial_template)
-- [Sample](#sample-template)
+- [Concept template](#concept-template)
+- [Task template](#task-tempplate)
+- [Tutorial template](#tutorial-template)
+- [Sample template](#sample-template)
 
 The page templates are in the [_include/templates](https://github.com/istio/istio.github.io/tree/master/_includes/templates) 
 directory of the [istio.github.io](https://github.com/istio/istio.github.io) repository.
