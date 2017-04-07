@@ -57,6 +57,10 @@ TEST(UrlTest, PrependHttps) {
   ASSERT_EQ(
       "https://servicecontrol.googleapis.com/v1/services/https-config:report",
       url.report_url());
+  ASSERT_EQ(
+      "https://servicecontrol.googleapis.com/v1/services/"
+      "https-config:allocateQuota",
+      url.quota_url());
 }
 
 TEST(UrlTest, ServerControlOverride) {

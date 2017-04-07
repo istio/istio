@@ -18,6 +18,7 @@
 #include "contrib/endpoints/src/api_manager/check_auth.h"
 #include "contrib/endpoints/src/api_manager/check_service_control.h"
 #include "contrib/endpoints/src/api_manager/fetch_metadata.h"
+#include "contrib/endpoints/src/api_manager/quota_control.h"
 
 using ::google::api_manager::utils::Status;
 
@@ -33,6 +34,8 @@ void CheckWorkflow::RegisterAll() {
   Register(CheckAuth);
   // Checks service control.
   Register(CheckServiceControl);
+  // Quota control
+  Register(QuotaControl);
 }
 
 void CheckWorkflow::Register(CheckHandler handler) {

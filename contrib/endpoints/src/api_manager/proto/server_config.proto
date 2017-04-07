@@ -66,6 +66,13 @@ message ServiceControlConfig {
   // The intermediate reports for streaming calls should not be more frequent
   // than this value (in seconds)
   int32 intermediate_report_min_interval = 7;
+
+  // Quota aggregator config
+  QuotaAggregatorConfig quota_aggregator_config = 8;
+
+  // Timeout in milliseconds on service control allocate quota requests.
+  // If the value is <= 0, default timeout is 5000 milliseconds.
+  int32 quota_timeout_ms = 9;
 }
 
 // Check aggregator config
@@ -80,6 +87,17 @@ message CheckAggregatorConfig {
 
   // The maximum milliseconds before a cached check response should be deleted.
   int32 response_expiration_ms = 3;
+}
+
+// Quota aggregator config
+message QuotaAggregatorConfig {
+  // The maximum number of cache entries that can be kept in the aggregation
+  // cache. Cache is disabled when entries <= 0.
+  int32 cache_entries = 1;
+
+  // The maximum milliseconds before aggregated quota requests are refreshed to
+  // the server.
+  int32 refresh_interval_ms = 2;
 }
 
 // Report aggregator config

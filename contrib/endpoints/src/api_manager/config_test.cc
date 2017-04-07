@@ -870,6 +870,90 @@ TEST(Config, TestCorsDisabled) {
   ASSERT_EQ(nullptr, method1);
 }
 
+TEST(Config, TestInvalidMetricRules) {
+  MockApiManagerEnvironmentWithLog env;
+  // There is no http.rule or api.method to match the selector.
+  static const char config_text[] = R"(
+name: "Service.Name"
+quota {
+   metric_rules {
+      selector: "GetShelves"
+      metric_costs {
+         key: "test.googleapis.com/operation/read_book"
+         value: 100
+      }
+   }
+}
+)";
+
+  std::unique_ptr<Config> config = Config::Create(&env, config_text, "");
+  EXPECT_EQ(nullptr, config);
+}
+
+TEST(Config, TestMetricRules) {
+  MockApiManagerEnvironmentWithLog env;
+  static const char config_text[] = R"(
+name: "Service.Name"
+http {
+  rules {
+   selector: "DeleteShelf"
+   delete: "/shelves"
+  }
+  rules {
+   selector: "GetShelves"
+   get: "/shelves"
+  }
+}
+quota {
+   metric_rules {
+      selector: "GetShelves"
+      metric_costs {
+         key: "test.googleapis.com/operation/get_shelves"
+         value: 100
+      }
+      metric_costs {
+          key: "test.googleapis.com/operation/request"
+          value: 10
+       }
+   }
+   metric_rules {
+      selector: "DeleteShelf"
+      metric_costs {
+         key: "test.googleapis.com/operation/delete_shelves"
+         value: 200
+      }
+   }
+}
+)";
+
+  std::unique_ptr<Config> config = Config::Create(&env, config_text, "");
+  ASSERT_TRUE(config);
+
+  const MethodInfo *method1 = config->GetMethodInfo("GET", "/shelves");
+  ASSERT_NE(nullptr, method1);
+
+  std::vector<std::pair<std::string, int>> metric_cost_vector =
+      method1->metric_cost_vector();
+  std::sort(metric_cost_vector.begin(), metric_cost_vector.end());
+  ASSERT_EQ(2, metric_cost_vector.size());
+  ASSERT_EQ("test.googleapis.com/operation/get_shelves",
+            metric_cost_vector[0].first);
+  ASSERT_EQ(100, metric_cost_vector[0].second);
+
+  ASSERT_EQ("test.googleapis.com/operation/request",
+            metric_cost_vector[1].first);
+  ASSERT_EQ(10, metric_cost_vector[1].second);
+
+  const MethodInfo *method2 = config->GetMethodInfo("DELETE", "/shelves");
+  ASSERT_NE(nullptr, method1);
+
+  metric_cost_vector = method2->metric_cost_vector();
+  ASSERT_EQ(1, metric_cost_vector.size());
+  ASSERT_EQ("test.googleapis.com/operation/delete_shelves",
+            metric_cost_vector[0].first);
+  ASSERT_EQ(200, metric_cost_vector[0].second);
+}
+
 }  // namespace
 
 }  // namespace api_manager

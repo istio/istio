@@ -27,6 +27,7 @@ namespace {
 //   /v1/services/{service}:report
 const char v1_services_path[] = "/v1/services/";
 const char check_verb[] = ":check";
+const char quota_verb[] = ":allocateQuota";
 const char report_verb[] = ":report";
 const char http[] = "http://";
 const char https[] = "https://";
@@ -66,6 +67,7 @@ Url::Url(const ::google::api::Service* service,
     std::string path = service_control_ + v1_services_path + service->name();
     check_url_ = path + check_verb;
     report_url_ = path + report_verb;
+    quota_url_ = path + quota_verb;
   }
 }
 

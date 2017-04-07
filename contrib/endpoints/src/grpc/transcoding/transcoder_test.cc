@@ -90,6 +90,10 @@ class TestMethodInfo : public MethodInfo {
     return dummy;
   };
 
+  const std::vector<std::pair<std::string, int>> &metric_cost_vector() const {
+    return metric_cost_vector_;
+  }
+
   // Methods that the Transcoder does use
   const std::string &request_type_url() const { return request_type_url_; }
   bool request_streaming() const { return request_streaming_; }
@@ -104,6 +108,7 @@ class TestMethodInfo : public MethodInfo {
   bool response_streaming_;
   std::string body_field_path_;
   std::string empty_;
+  std::vector<std::pair<std::string, int>> metric_cost_vector_;
 };
 
 class TranscoderTest : public ::testing::Test {

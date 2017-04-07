@@ -19,16 +19,20 @@
 #include "contrib/endpoints/src/api_manager/mock_api_manager_environment.h"
 #include "contrib/endpoints/src/api_manager/service_control/proto.h"
 #include "gmock/gmock.h"
+#include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"
 
 using ::google::api::servicecontrol::v1::CheckRequest;
 using ::google::api::servicecontrol::v1::CheckResponse;
+using ::google::api::servicecontrol::v1::AllocateQuotaRequest;
+using ::google::api::servicecontrol::v1::AllocateQuotaResponse;
 using ::google::api::servicecontrol::v1::ReportRequest;
 using ::google::api::servicecontrol::v1::ReportResponse;
 using ::google::api_manager::utils::Status;
 using ::google::protobuf::util::error::Code;
 using ::google::service_control_client::ServiceControlClient;
 using ::google::service_control_client::TransportCheckFunc;
+using ::google::service_control_client::TransportQuotaFunc;
 using ::google::service_control_client::TransportReportFunc;
 using ::testing::Return;
 using ::testing::Invoke;
@@ -39,6 +43,39 @@ namespace api_manager {
 namespace service_control {
 
 namespace {
+
+const char kAllocateQuotaResponse[] = R"(
+operation_id: "test_service"
+quota_metrics {
+  metric_name: "serviceruntime.googleapis.com/api/consumer/quota_used_count"
+  metric_values {
+    labels {
+      key: "/quota_name"
+      value: "metric_first"
+    }
+    int64_value: 2
+  }
+  metric_values {
+    labels {
+      key: "/quota_name"
+      value: "metric"
+    }
+    int64_value: 1
+  }
+}service_config_id: "2017-02-08r9"
+
+)";
+
+const char kAllocateQuotaResponseErrorExhausted[] = R"(
+operation_id: "test_service"
+allocate_errors {
+  code: RESOURCE_EXHAUSTED
+  description: "Insufficient tokens for quota group and limit \'apiWriteQpsPerProject_LOW\' of service \'jaebonginternal.sandbox.google.com\', using the limit by ID \'container:1002409420961\'."
+}
+service_config_id: "2017-02-08r9"
+
+)";
+
 void FillOperationInfo(OperationInfo* op) {
   op->operation_id = "operation_id";
   op->operation_name = "operation_name";
@@ -53,6 +90,15 @@ class MockServiceControClient : public ServiceControlClient {
                                                        CheckResponse*));
   MOCK_METHOD4(Check, void(const CheckRequest&, CheckResponse*, DoneCallback,
                            TransportCheckFunc));
+
+  MOCK_METHOD2(Quota,
+               ::google::protobuf::util::Status(const AllocateQuotaRequest&,
+                                                AllocateQuotaResponse*));
+  MOCK_METHOD3(Quota, void(const AllocateQuotaRequest&, AllocateQuotaResponse*,
+                           DoneCallback));
+  MOCK_METHOD4(Quota, void(const AllocateQuotaRequest&, AllocateQuotaResponse*,
+                           DoneCallback, TransportQuotaFunc));
+
   MOCK_METHOD3(Report,
                void(const ReportRequest&, ReportResponse*, DoneCallback));
   MOCK_METHOD2(Report, ::google::protobuf::util::Status(const ReportRequest&,
@@ -193,6 +239,91 @@ TEST_F(AggregatedTestWithRealClient, CheckOKTest) {
   EXPECT_EQ(stat.send_checks_by_flush, 0);
   EXPECT_EQ(stat.send_checks_in_flight, 1);
   EXPECT_EQ(stat.send_report_operations, 0);
+}
+
+class QuotaAllocationTestWithRealClient : public ::testing::Test {
+ public:
+  void SetUp() {
+    service_.set_name("test_service");
+    service_.mutable_control()->set_environment(
+        "servicecontrol.googleapis.com");
+    env_.reset(new ::testing::NiceMock<MockApiManagerEnvironment>);
+    sc_lib_.reset(Aggregated::Create(service_, nullptr, env_.get(), nullptr));
+    ASSERT_TRUE((bool)(sc_lib_));
+    // This is the call actually creating the client.
+    sc_lib_->Init();
+
+    metric_cost_vector_ = {{"metric_first", 1}, {"metric_second", 2}};
+  }
+
+  std::string getResponseBody(const char* response) {
+    AllocateQuotaResponse quota_response;
+    ::google::protobuf::TextFormat::ParseFromString(response, &quota_response);
+    return quota_response.SerializeAsString();
+  }
+
+  void DoRunHTTPRequest(HTTPRequest* request) {
+    std::map<std::string, std::string> headers;
+
+    AllocateQuotaRequest quota_request;
+
+    ASSERT_TRUE(quota_request.ParseFromString(request->body()));
+    ASSERT_EQ(quota_request.allocate_operation().quota_metrics_size(), 2);
+
+    std::set<std::pair<std::string, int>> expected_costs = {
+        {"metric_first", 1}, {"metric_second", 2}};
+    std::set<std::pair<std::string, int>> actual_costs;
+
+    for (auto rule : quota_request.allocate_operation().quota_metrics()) {
+      actual_costs.insert(std::make_pair(rule.metric_name(),
+                                         rule.metric_values(0).int64_value()));
+    }
+
+    ASSERT_EQ(actual_costs, expected_costs);
+
+    request->OnComplete(Status::OK, std::move(headers),
+                        std::move(getResponseBody(kAllocateQuotaResponse)));
+  }
+
+  void DoRunHTTPRequestAllocationFailed(HTTPRequest* request) {
+    std::map<std::string, std::string> headers;
+
+    request->OnComplete(
+        Status::OK, std::move(headers),
+        std::move(getResponseBody(kAllocateQuotaResponseErrorExhausted)));
+  }
+
+  ::google::api::Service service_;
+  std::unique_ptr<MockApiManagerEnvironment> env_;
+  std::unique_ptr<Interface> sc_lib_;
+  std::vector<std::pair<std::string, int>> metric_cost_vector_;
+};
+
+TEST_F(QuotaAllocationTestWithRealClient, AllocateQuotaTest) {
+  EXPECT_CALL(*env_, DoRunHTTPRequest(_))
+      .WillOnce(
+          Invoke(this, &QuotaAllocationTestWithRealClient::DoRunHTTPRequest));
+
+  QuotaRequestInfo info;
+  info.metric_cost_vector = &metric_cost_vector_;
+
+  FillOperationInfo(&info);
+  sc_lib_->Quota(info, nullptr,
+                 [](Status status) { ASSERT_TRUE(status.ok()); });
+}
+
+TEST_F(QuotaAllocationTestWithRealClient, AllocateQuotaFailedTest) {
+  EXPECT_CALL(*env_, DoRunHTTPRequest(_))
+      .WillOnce(Invoke(this, &QuotaAllocationTestWithRealClient::
+                                 DoRunHTTPRequestAllocationFailed));
+
+  QuotaRequestInfo info;
+  info.metric_cost_vector = &metric_cost_vector_;
+
+  FillOperationInfo(&info);
+  sc_lib_->Quota(info, nullptr, [](Status status) {
+    ASSERT_TRUE(status.code() == Code::RESOURCE_EXHAUSTED);
+  });
 }
 
 TEST(AggregatedServiceControlTest, Create) {

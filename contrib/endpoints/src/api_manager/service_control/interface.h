@@ -70,6 +70,17 @@ class Interface {
       const CheckRequestInfo& info, cloud_trace::CloudTraceSpan* parent_span,
       std::function<void(utils::Status, const CheckResponseInfo&)> on_done) = 0;
 
+  // on_done() function will be called once it is completed.
+  // utils::Status in the on_done callback:
+  // If status.code is more than 100, it is the HTTP response status
+  // from the service control server.
+  // If status code is less than 20, within the ranges defined by
+  // google/protobuf/stubs/status.h, is from parsing error response
+  // body.
+  virtual void Quota(const QuotaRequestInfo& info,
+                     cloud_trace::CloudTraceSpan* parent_span,
+                     std::function<void(utils::Status)> on_done) = 0;
+
   // Get statistics of ServiceControl library.
   virtual utils::Status GetStatistics(Statistics* stat) const = 0;
 };

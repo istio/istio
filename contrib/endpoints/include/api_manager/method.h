@@ -89,6 +89,10 @@ class MethodInfo {
 
   // Get the names of url system parameters
   virtual const std::set<std::string> &system_query_parameter_names() const = 0;
+
+  // Get quota metric cost vector
+  virtual const std::vector<std::pair<std::string, int>> &metric_cost_vector()
+      const = 0;
 };
 
 }  // namespace api_manager

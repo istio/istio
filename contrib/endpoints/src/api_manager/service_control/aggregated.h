@@ -23,6 +23,7 @@
 #include "contrib/endpoints/src/api_manager/service_control/proto.h"
 #include "contrib/endpoints/src/api_manager/service_control/url.h"
 #include "google/api/service.pb.h"
+#include "google/api/servicecontrol/v1/quota_controller.pb.h"
 #include "google/api/servicecontrol/v1/service_controller.pb.h"
 #include "include/service_control_client.h"
 
@@ -48,6 +49,10 @@ class Aggregated : public Interface {
   virtual void Check(
       const CheckRequestInfo& info, cloud_trace::CloudTraceSpan* parent_span,
       std::function<void(utils::Status, const CheckResponseInfo&)> on_done);
+
+  virtual void Quota(const QuotaRequestInfo& info,
+                     cloud_trace::CloudTraceSpan* parent_span,
+                     std::function<void(utils::Status)> on_done);
 
   virtual utils::Status Init();
   virtual utils::Status Close();
@@ -111,7 +116,16 @@ class Aggregated : public Interface {
             ::google::service_control_client::TransportDoneFunc on_done,
             cloud_trace::CloudTraceSpan* parent_span);
 
-  // Gets the auth token to access service control server.
+  // Returns API request url based on RequestType
+  template <class RequestType>
+  const std::string& GetApiReqeustUrl();
+
+  // Returns API request timeout in ms based on RequestType
+  template <class RequestType>
+  int GetHttpRequestTimeout();
+
+  // Returns API request auth token based on RequestType
+  template <class RequestType>
   const std::string& GetAuthToken();
 
   // the sevice config.
@@ -134,6 +148,11 @@ class Aggregated : public Interface {
   // The service control client instance.
   std::unique_ptr<::google::service_control_client::ServiceControlClient>
       client_;
+
+  // The protobuf pool to reuse AllocateQuotaRequest protobuf.
+  ProtoPool<::google::api::servicecontrol::v1::AllocateQuotaRequest>
+      quota_pool_;
+
   // The protobuf pool to reuse CheckRequest protobuf.
   ProtoPool<::google::api::servicecontrol::v1::CheckRequest> check_pool_;
   // The protobuf pool to reuse ReportRequest protobuf.

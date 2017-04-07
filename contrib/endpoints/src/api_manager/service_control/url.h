@@ -31,12 +31,14 @@ class Url {
   // Pre-computed url for service control.
   const std::string& service_control() const { return service_control_; }
   const std::string& check_url() const { return check_url_; }
+  const std::string& quota_url() const { return quota_url_; }
   const std::string& report_url() const { return report_url_; }
 
  private:
   // Pre-computed url for service control methods.
   std::string service_control_;
   std::string check_url_;
+  std::string quota_url_;
   std::string report_url_;
 };
 

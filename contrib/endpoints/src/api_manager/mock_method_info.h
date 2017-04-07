@@ -48,6 +48,8 @@ class MockMethodInfo : public MethodInfo {
   MOCK_CONST_METHOD0(response_streaming, bool());
   MOCK_CONST_METHOD0(system_query_parameter_names,
                      const std::set<std::string>&());
+  MOCK_CONST_METHOD0(metric_cost_vector,
+                     const std::vector<std::pair<std::string, int>>&());
 };
 
 }  // namespace api_manager

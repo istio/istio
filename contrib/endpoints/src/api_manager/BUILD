@@ -81,6 +81,8 @@ cc_library(
         "method_impl.cc",
         "path_matcher.cc",
         "path_matcher_node.cc",
+        "quota_control.cc",
+        "quota_control.h",
         "request_handler.cc",
     ],
     linkopts = select({

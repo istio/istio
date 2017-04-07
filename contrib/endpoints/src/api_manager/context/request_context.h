@@ -66,6 +66,9 @@ class RequestContext {
   // Fill CheckRequestInfo
   void FillCheckRequestInfo(service_control::CheckRequestInfo *info);
 
+  // FillAllocateQuotaRequestInfo
+  void FillAllocateQuotaRequestInfo(service_control::QuotaRequestInfo *info);
+
   // Fill ReportRequestInfo
   void FillReportRequestInfo(Response *response,
                              service_control::ReportRequestInfo *info);

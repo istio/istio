@@ -122,3 +122,16 @@ cc_test(
         "//external:googletest_main",
     ],
 )
+
+cc_test(
+    name = "allocate_quota_response_test",
+    size = "small",
+    srcs = [
+        "allocate_quota_response_test.cc",
+    ],
+    linkstatic = 1,
+    deps = [
+        ":service_control",
+        "//external:googletest_main",
+    ],
+)

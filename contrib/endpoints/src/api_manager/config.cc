@@ -113,6 +113,23 @@ MethodInfoImpl *Config::GetOrCreateMethodInfoImpl(const string &name,
   return i->second.get();
 }
 
+bool Config::LoadQuotaRule(ApiManagerEnvInterface *env) {
+  for (const auto &rule : service_.quota().metric_rules()) {
+    auto method = utils::FindOrNull(method_map_, rule.selector());
+    if (method) {
+      for (auto &metric_cost : rule.metric_costs()) {
+        (*method)->add_metric_cost(metric_cost.first, metric_cost.second);
+      }
+    } else {
+      env->LogError("Metric rule with selector " + rule.selector() +
+                    "is mismatched.");
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool Config::LoadHttpMethods(ApiManagerEnvInterface *env,
                              PathMatcherBuilder *pmb) {
   std::set<std::string> all_urls, urls_with_options;
@@ -441,6 +458,9 @@ std::unique_ptr<Config> Config::Create(ApiManagerEnvInterface *env,
     return nullptr;
   }
   if (!config->LoadBackends(env)) {
+    return nullptr;
+  }
+  if (!config->LoadQuotaRule(env)) {
     return nullptr;
   }
   return config;
