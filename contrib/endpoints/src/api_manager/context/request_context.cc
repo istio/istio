@@ -81,7 +81,9 @@ RequestContext::RequestContext(std::shared_ptr<ServiceContext> service_context,
                                std::unique_ptr<Request> request)
     : service_context_(service_context),
       request_(std::move(request)),
-      is_first_report_(true) {
+      is_first_report_(true),
+      last_request_bytes_(0),
+      last_response_bytes_(0) {
   start_time_ = std::chrono::system_clock::now();
   last_report_time_ = std::chrono::steady_clock::now();
   operation_id_ = GenerateUUID();
@@ -267,13 +269,23 @@ void RequestContext::FillReportRequestInfo(
   info->auth_audience = auth_audience_;
 
   if (!info->is_final_report) {
-    info->request_bytes = request_->GetGrpcRequestBytes();
-    info->response_bytes = request_->GetGrpcResponseBytes();
+    // Make sure we send delta metrics for intermediate reports.
+    info->request_bytes = request_->GetGrpcRequestBytes() - last_request_bytes_;
+    info->response_bytes =
+        request_->GetGrpcResponseBytes() - last_response_bytes_;
+    last_request_bytes_ += info->request_bytes;
+    last_response_bytes_ += info->response_bytes;
   } else {
     info->request_size = response->GetRequestSize();
     info->response_size = response->GetResponseSize();
-    info->request_bytes = info->request_size;
-    info->response_bytes = info->response_size;
+    info->request_bytes = info->request_size - last_request_bytes_;
+    if (info->request_bytes < 0) {
+      info->request_bytes = 0;
+    }
+    info->response_bytes = info->response_size - last_response_bytes_;
+    if (info->response_bytes < 0) {
+      info->response_bytes = 0;
+    }
 
     info->streaming_request_message_counts =
         request_->GetGrpcRequestMessageCounts();
