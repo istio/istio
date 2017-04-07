@@ -272,6 +272,11 @@ func (cl *Client) Post(key model.Key, v proto.Message) error {
 		return err
 	}
 
+	// Check to make sure the namespace exists
+	if _, err := cl.GetKubernetesClient().CoreV1().Namespaces().Get(key.Namespace, meta_v1.GetOptions{}); err != nil {
+		return fmt.Errorf("namespace %q not present", key.Namespace)
+	}
+
 	return cl.dyn.Post().
 		Namespace(key.Namespace).
 		Resource(IstioKind + "s").
