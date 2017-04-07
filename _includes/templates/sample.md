@@ -22,22 +22,13 @@
 {% endif %}
 
 
-{% if steps %}
-
-{{ steps }}
-
-{% else %}
-
-{% include templates/_errorthrower.md missing_block='steps' purpose='lists a sequence of numbered steps that accomplish the task.' %}
-
-{% endif %}
-
-
 {% if discussion %}
 
 {{ discussion }}
 
 {% else %}
+
+{% include templates/_errorthrower.md missing_block='discussion' purpose='supplies the discussion of the page content.' %}
 
 {% endif %}
 

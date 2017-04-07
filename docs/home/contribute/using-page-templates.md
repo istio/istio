@@ -231,18 +231,19 @@ To write a new sample page, create a Markdown file in a subdirectory of the
 variables, and then include templates/sample.md:
 
 - `overview` - required
-- `body` - required
+- `prerequisites` - required
+- `discussion` - required
 - `whatsnext` - optional
 
-In the `body` section, use `##` to start with a level-two heading. For subheadings,
+In the `discussion` section, use `##` to start with a level-two heading. For subheadings,
 use `###` and `####` as needed.
 
 Here's an example of a page that uses the concept template:
 
 {% raw %}
 <pre>---
-title: Trying a Thing
-headline: Trying a Thing
+title: Running a Thing
+headline: Running a Thing
 sidenav: doc-side-samples-nav.html
 bodyclass: docs
 layout: docs
@@ -250,23 +251,36 @@ type: markdown
 ---
 
 {% capture overview %}
-This page explains ...
+This page shows how to ...
 {% endcapture %}
 
-{% capture body %}
+{% capture prerequisites %}
+* Do this.
+* Do this too.
+{% endcapture %}
+
+{% capture discussion %}
+## Building ...
+
+1. Do this.
+1. Do this next. Possibly read this [related explanation](...).
+
 ## Running ...
 
-To run this sample...
+1. Do this.
+1. Do this next.
 
+## Understanding the code
+Here's something interesting about the code you ran in the preceding steps.
 {% endcapture %}
 
 {% capture whatsnext %}
 * Learn more about [this](...).
-* See this [related task](...).
+* See this [related tutorial](...).
 {% endcapture %}
 
 {% include templates/sample.md %}
 </pre>
 {% endraw %}
 
-Here's an example of a published topic that uses the sample template: [TBD]({{site.baseurl}}/docs/samples/TBD.html)
+Here's an example of a published topic that uses the sample template: [BookInfo]({{site.baseurl}}/docs/samples/bookinfo.html)

@@ -1,15 +1,18 @@
 ---
-bodyclass: docs
-headline: Architecture
-layout: docs
-sidenav: doc-side-concepts-nav.html
 title: Architecture
+headline: Architecture
+sidenav: doc-side-concepts-nav.html
+bodyclass: docs
+layout: docs
 type: markdown
 ---
 
-The Istio service mesh consists of three major components:
+{% capture overview %}
+The page explains in broad terms the major components of the Istio service mesh design.
+{% endcapture %}
 
-## Proxy
+{% capture body %}
+## The proxy
 
 The Istio proxy is designed to mediate inbound and outbound
 traffic for all Istio-managed services. The Istio proxy is based on
@@ -21,7 +24,7 @@ Istio extends the proxy to interact with the mixer to enforce various
 access control policies rate limiting, ACLs, as well as telemetry
 reporting.
 
-## Mixer
+## The mixer
 
 The Istio mixer is responsible for enforcing access control
 and usage policies across the service mesh and collects telemetry data from
@@ -32,7 +35,7 @@ attribute extraction and policy evaluation can be found
 it to interface to a variety of host environments and configured backends,
 abstracting the proxy and Istio-managed services from these details.
 
-## Manager
+## The manager
 
 The Istio manager serves as an interface between the user
 and Istio, collecting configuration, validating it and propagating it to
@@ -44,5 +47,6 @@ of the underlying platform. In addition, [traffic management rules](../reference
 can be programmed at runtime via the Istio Manager.
 
 <img src="../../img/arch.svg" alt="The overall architecture of an Istio-based service.">
+{% endcapture %}
 
-<div id="toc" class="toc mobile-toc"></div>
+{% include templates/concept.md %}

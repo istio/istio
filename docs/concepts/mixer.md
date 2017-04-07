@@ -6,6 +6,12 @@ sidenav: doc-side-concepts-nav.html
 title: Mixer
 type: markdown
 ---
+{% capture overview %}
+The page explains the role and composition of the Istio mixer.
+{% endcapture %}
+
+{% capture body %}
+## General usage
 
 The mixer provides the control-plane abstractions necessary for most real-world multi-tenant services.
 The proxy delegates policy decisions to the mixer and dispatches its telemetry data to the mixer, which
@@ -27,7 +33,7 @@ for its consumers.
 **Quota Management**. Enables services to allocate and free quota on a number of dimensions, Quotas are used as a relatively simple resource management 
 tool to provide some fairness between service consumers when contending for limited resources.
 
-## Mixer Adapters
+## Adapters
 
 Adapters are binary-level plugins to the mixer which make it possible to customize the mixer’s behavior. Adapters allow the mixer to interface 
 to different backend systems that deliver core control-plane functionality, such as logging, monitoring, quotas, ACL checking, and more. Adapters
@@ -35,5 +41,6 @@ enable the mixer to expose a single consistent control API, independent of the b
 used at runtime is determined through configuration.
 
 <img src="../../img/adapters.svg" alt="Mixer and its adapters.">
+{% endcapture %}
 
-<div id="toc" class="toc mobile-toc"></div>
+{% include templates/concept.md %}
