@@ -7,6 +7,8 @@ rules:
   aspects:
   - kind: quotas
     params:
+      quotas:
+      - descriptor_name: RequestCount
   - kind: metrics
     adapter: prometheus
     params:
