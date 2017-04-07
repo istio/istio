@@ -100,7 +100,7 @@ http_file(
 # Following go repositories are for building go integration test for mixer filter.
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "9496d79880a7d55b8e4a96f04688d70a374eaaf4", # Mar 3, 2017 (v0.4.1)
+    commit = "2d9f328a9723baf2d037ba9db28d9d0e30683938", # Apr 6, 2017 (buildifier fix)
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
