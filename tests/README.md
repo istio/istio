@@ -48,7 +48,7 @@ Test an arbitrary explicit configuration:
 The [update_version.sh](../scripts/update_version.sh) script is used to update 
 the images specified in [istio.VERSION](../istio.VERSION) and the default Istio
 installation in [../kubernetes/istio-install](../kubernetes/istio-install).
-The resulting configuration is then committed to the `master` branch of `istio/istio`.
+A `git commit` titled "Updating istio version" is created for the resulting changes.
    
 ### Options
 
@@ -61,10 +61,11 @@ Default values for the `-m`, `-x`, and `-i` options are as specified in `istio.V
 
 ## Developer process 
 
-1. Run `kubeTest.sh -m "<manager hub>,<manager tag>` or `kubeTest.sh -x "<mixer hub>,<mixer tag>` 
+1. Run `kubeTest.sh -m "<manager hub>,<manager tag>"` or `kubeTest.sh -x "<mixer hub>,<mixer tag>"` 
    to test your changes. 
 2. Submit a PR with your changes to `istio/manager` or `istio/mixer`.
-3. Run `update_version.sh` to update the default Istio install configuration in `istio/istio`.
+3. Run `update_version.sh` to update the default Istio install configuration and then
+   submit a PR  to `istio/istio` for the generated "Updating istio version" commit.
    
    >>> Note: in the future step 3 will be done by the Jenkins build automatically
    >>> whenever a new manager or mixer is successfully built.
