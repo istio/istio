@@ -58,25 +58,29 @@ option go_package = "config";
 // ProxyMeshConfig defines variables shared by all proxies in the Istio
 // service mesh.
 message ProxyMeshConfig {
+  // Address of the egress proxy service
+  // (e.g. "istio-egress:80")
+  string egress_proxy_address = 1;
+
   // Address of the discovery service exposing SDS, CDS, RDS (e.g.
   // "manager:8080")
-  string discovery_address = 1;
+  string discovery_address = 2;
 
   // Address of the mixer service (e.g. "mixer:9090")
-  string mixer_address = 2;
+  string mixer_address = 3;
 
   // Port opened by the proxy for the traffic capture
-  int32 proxy_listen_port = 3;
+  int32 proxy_listen_port = 4;
 
   // Port opened by the proxy for the administrative interface
-  int32 proxy_admin_port = 4;
+  int32 proxy_admin_port = 5;
 
   // Duration of the grace period to drain connections from the parent proxy
   // instance
-  google.protobuf.Duration drain_duration = 5;
+  google.protobuf.Duration drain_duration = 6;
 
   // Duration to wait before shutting down the parent proxy instance
-  google.protobuf.Duration parent_shutdown_duration = 6;
+  google.protobuf.Duration parent_shutdown_duration = 7;
 
   // IstioServiceCluster defines the name for the service_cluster that is
   // shared by all proxy instances. Since Istio does not assign a local
@@ -86,13 +90,13 @@ message ProxyMeshConfig {
   // of local instances to RDS for source-based routing. For example, if proxy
   // sends its IP address, the RDS can compute routes that are relative to the
   // service instances located at that IP address.
-  string istio_service_cluster = 7;
+  string istio_service_cluster = 8;
 
   // Delay between polling requests to the discovery service
-  google.protobuf.Duration discovery_refresh_delay = 8;
+  google.protobuf.Duration discovery_refresh_delay = 9;
 
   // Connection timeout used by the Envoy clusters
-  google.protobuf.Duration connect_timeout = 9;
+  google.protobuf.Duration connect_timeout = 10;
 
   enum AuthPolicy {
     NONE = 0;
