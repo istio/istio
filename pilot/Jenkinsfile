@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('testutils@stable-3e4d089')
+@Library('testutils@stable-2d6eb00')
 
 import org.istio.testutils.Utilities
 import org.istio.testutils.GitUtilities
@@ -61,7 +61,7 @@ def presubmit(gitUtils, bazel, utils) {
     }
     stage('Integration Tests') {
       timeout(15) {
-        sh("bin/e2e.sh -tag alpha${gitUtils.GIT_SHA} -v 2")
+        sh("bin/e2e.sh -tag ${gitUtils.GIT_SHA} -v 2")
       }
     }
     stage('Build istioctl') {
@@ -78,7 +78,7 @@ def stablePresubmit(gitUtils, bazel, utils) {
     sh('ln -s ~/.kube/config platform/kube/')
     stage('Integration Tests') {
       timeout(30) {
-        sh("bin/e2e.sh -count 10 -debug -tag debug${gitUtils.GIT_SHA} -v 2")
+        sh("bin/e2e.sh -count 10 -debug -tag ${gitUtils.GIT_SHA} -v 2")
       }
     }
     stage('Build istioctl') {
