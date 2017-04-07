@@ -31,7 +31,7 @@ permission to use and redistribute your contributions as part of the project.
 
 ## Issues
 
-Github issues can be used to report bugs or feature requests.
+GitHub issues can be used to report bugs or feature requests.
 
 When reporting a bug please include the following key pieces of information:
 - the version of the project you were using (e.g. version number,
