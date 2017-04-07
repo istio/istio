@@ -118,7 +118,7 @@ spec:
     spec:
       containers:
       - name: mixer
-        image: docker.io/istio/mixer:2017-03-22-19.36.02
+        image: gcr.io/istio-testing/mixer:2017-04-06-18.08.24
         imagePullPolicy: Always
         ports:
         - containerPort: 9091
