@@ -2,7 +2,7 @@ workspace(name = "com_github_istio_manager")
 
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "9496d79880a7d55b8e4a96f04688d70a374eaaf4",
+    commit = "87cdda3fc0fd65c63ef0316533be03ea4956f809",  # April 7 2017 (0.4.2)
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
@@ -232,7 +232,7 @@ new_go_repository(
 
 new_go_repository(
     name = "io_k8s_client_go",
-    commit = "4e221f82e2ad6e61bd6190602de9c3400d79f1aa", # Apr 4, 2017
+    commit = "4e221f82e2ad6e61bd6190602de9c3400d79f1aa",  # Apr 4, 2017
     importpath = "k8s.io/client-go",
 )
 
@@ -371,6 +371,6 @@ new_go_repository(
 
 git_repository(
     name = "istio_toolbox",
+    commit = "55ee1cfbb22863051a45f084404fdf9a77046fc4",
     remote = "https://github.com/istio/toolbox.git",
-    commit = "55ee1cfbb22863051a45f084404fdf9a77046fc4"
 )
