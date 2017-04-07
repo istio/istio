@@ -41,7 +41,7 @@ NOTE: Kubernetes admission controller for transparent proxy is not
 implemented yet . Use `istioctl kube-inject` to modify kubernetes
 resources files client-side *before* submitting them to the kubernetes
 API server. `istioctl kube-inject` is documented
-[here](https://github.com/istio/istio/blob/master/doc/istioctl.md#kube-inject).
+[here](https://github.com/istio/istio.github.io/blob/master/docs/reference/istioctl.md#kube-inject).
 
     kubectl apply -f <(istioctl kube-inject -f <resource.yaml>)
 
