@@ -1,13 +1,13 @@
 ---
-bodyclass: docs
-headline: 'Bookinfo - A Polyglot Microservice App'
-layout: docs
 title: Bookinfo - A Polyglot Microservice App
+headline: 'Bookinfo - A Polyglot Microservice App'
+sidenav: doc-side-samples-nav.html
+bodyclass: docs
+layout: docs
 type: markdown
-sidenav: doc-side-demos-nav.html
 ---
 
-In this demo, we will deploy a simple app that displays information about a
+In this sample, we will deploy a simple app that displays information about a
 book, similar to a single catalog entry of an online book store. Displayed
 on the page is a description of the book, book details (ISBN, number of
 pages, and so on), and a few book reviews.
@@ -52,7 +52,7 @@ kubectl apply -f ./kubernetes/istio-install
 kubectl apply -f ./kubernetes/addons/
 ```
    
-   The Grafana image provided as part of this demo contains a built-in Istio-dashboard that you can access from:
+   The Grafana image provided as part of this sample contains a built-in Istio-dashboard that you can access from:
 
 ```
 http://<grafana-svc-external-IP>:3000/dashboard/db/istio-dashboard

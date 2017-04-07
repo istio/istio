@@ -1,10 +1,10 @@
 ---
+title: Tutorials
+headline: Istio Tutorials
+sidenav: doc-side-tutorials-nav.html
 bodyclass: docs
-headline: Istio Quick Starts
 layout: docs
-title: Quick Starts
 type: markdown
-sidenav: doc-side-quickstarts-nav.html
 ---
 <p class="lead">
 Get started with Istio
