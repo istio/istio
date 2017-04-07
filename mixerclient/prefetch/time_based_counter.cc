@@ -50,10 +50,10 @@ void TimeBasedCounter::Roll(Tick t) {
   }
 }
 
-void TimeBasedCounter::Inc(Tick t) {
+void TimeBasedCounter::Inc(int n, Tick t) {
   Roll(t);
-  slots_[tail_]++;
-  count_++;
+  slots_[tail_] += n;
+  count_ += n;
 }
 
 int TimeBasedCounter::Count(Tick t) {

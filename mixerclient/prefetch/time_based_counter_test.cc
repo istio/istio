@@ -27,9 +27,9 @@ std::chrono::time_point<std::chrono::system_clock> FakeTime(int t) {
 
 TEST(TimeBasedCounterTest, Test1) {
   TimeBasedCounter c(3, std::chrono::nanoseconds(3), FakeTime(0));
-  c.Inc(FakeTime(4));
-  c.Inc(FakeTime(5));
-  c.Inc(FakeTime(7));
+  c.Inc(1, FakeTime(4));
+  c.Inc(1, FakeTime(5));
+  c.Inc(1, FakeTime(7));
 
   // Current slots are 6, 7, 8. and 4 and 5 are out.
   ASSERT_EQ(c.Count(FakeTime(8)), 1);

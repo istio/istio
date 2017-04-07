@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef MIXER_CLIENT_UTILS_CIRCULAR_QUEUE_H_
-#define MIXER_CLIENT_UTILS_CIRCULAR_QUEUE_H_
+#ifndef MIXER_CLIENT_PREFETCH_CIRCULAR_QUEUE_H_
+#define MIXER_CLIENT_PREFETCH_CIRCULAR_QUEUE_H_
 
 #include <functional>
 #include <vector>
@@ -94,4 +94,4 @@ void CircularQueue<T>::Iterate(std::function<bool(const T&)> fn) const {
 }  // namespace mixer_client
 }  // namespace istio
 
-#endif  // MIXER_CLIENT_CLIENT_UTILS_CIRCULAR_QUEUE_H_
+#endif  // MIXER_CLIENT_CLIENT_PREFETCH_CIRCULAR_QUEUE_H_

@@ -37,12 +37,9 @@ cc_library(
         "src/signature.h",
         "src/stream_transport.h",
         "src/transport.h",
-        "utils/circular_queue.h",
         "utils/md5.cc",
         "utils/md5.h",
         "utils/status_test_util.h",
-        "utils/time_based_counter.cc",
-        "utils/time_based_counter.h",
     ],
     hdrs = [
         "include/attribute.h",
@@ -121,28 +118,6 @@ cc_test(
     name = "md5_test",
     size = "small",
     srcs = ["utils/md5_test.cc"],
-    linkstatic = 1,
-    deps = [
-        ":mixer_client_lib",
-        "//external:googletest_main",
-    ],
-)
-
-cc_test(
-    name = "circular_queue_test",
-    size = "small",
-    srcs = ["utils/circular_queue_test.cc"],
-    linkstatic = 1,
-    deps = [
-        ":mixer_client_lib",
-        "//external:googletest_main",
-    ],
-)
-
-cc_test(
-    name = "time_based_counter_test",
-    size = "small",
-    srcs = ["utils/time_based_counter_test.cc"],
     linkstatic = 1,
     deps = [
         ":mixer_client_lib",
