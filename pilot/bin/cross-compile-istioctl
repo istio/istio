@@ -28,9 +28,7 @@ done
 
 [[ "${BIN_DIR}" != '.' ]] && trap cleanup exit
 
-# build with bazel and run /bin/init.sh first so dependencies are setup
-# correctly.
-bazel build //cmd/istioctl:istioctl
+# run /bin/init.sh first so dependencies are setup correctly.
 bin/init.sh
 cp -f "${ROOT}/bazel-bin/cmd/istioctl/istioctl" "${BIN_DIR}/istioctl-linux"
 

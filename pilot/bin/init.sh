@@ -1,6 +1,9 @@
 #!/bin/bash
 set -ex
 
+# Building with Bazel
+bazel build //...
+
 # Vendorize bazel dependencies
 bin/bazel_to_go.py > /dev/null
 
