@@ -1,10 +1,10 @@
 ---
-bodyclass: docs
-headline: 'Istio Reference'
-layout: docs
 title: Reference
-type: markdown
+headline: Reference
 sidenav: doc-side-reference-nav.html
+bodyclass: docs
+layout: docs
+type: markdown
 ---
 
 # Reference

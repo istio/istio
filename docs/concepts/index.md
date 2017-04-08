@@ -1,13 +1,13 @@
 ---
-bodyclass: docs
-headline: Istio Guides
-layout: docs
-title: Guides
-type: markdown
+title: Concepts
+headline: Concepts
 sidenav: doc-side-concepts-nav.html
+bodyclass: docs
+layout: docs
+type: markdown
 ---
 
 # Concepts
 
-The Concepts section helps you learn about the different parts
+Concepts help you learn about the different parts
 of the Istio system and the abstractions it uses.

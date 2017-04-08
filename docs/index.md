@@ -1,11 +1,13 @@
 ---
 title: Docs
-headline: 'Istio Docs'
+headline: Documentation Home
 sidenav: doc-side-home-nav.html
 bodyclass: docs
 layout: docs
 type: markdown
 ---
+
+# Home
 
 Welcome to Istio's documentation home page. From here you can learn all about Istio by following
 the links below:
@@ -23,3 +25,8 @@ intended to highlight a particular set of Istio's features.
 
 - [Reference]({{site.bareurl}}/docs/reference). Detailed exhaustive list of
 command-line options, configuration options, and API definitions.
+
+We're always looking for help improving our documentation, so please don't hesitate to
+[file an issue](https://github.com/istio/istio.github.io/issues/new) if you see some problem.
+Or better yet, submit your own [contributions]({{site.baseurl}}/docs/home/contribute/editing.html) to help
+make our docs better.

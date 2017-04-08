@@ -1,10 +1,10 @@
 ---
-bodyclass: docs
-headline: 'Istioctl CLI'
-layout: docs
-title: Istioctl CLI
-type: markdown
+title: istioctl
+headline: 'The istioctl Command'
 sidenav: doc-side-reference-nav.html
+bodyclass: docs
+layout: docs
+type: markdown
 ---
 
 `istioctl` is a command line interface for managing an Istio service mesh.  This overview covers

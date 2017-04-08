@@ -8,5 +8,5 @@ type: markdown
 ---
 # Tasks
 
-The Tasks section contains pages that each show how to do a single specific and reasonably targeted
+Tasks show you how to do a single specific targeted
 activity with the Istio system.

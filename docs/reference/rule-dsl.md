@@ -7,34 +7,7 @@ type: markdown
 sidenav: doc-side-reference-nav.html
 ---
 
-* [Overview](#overview)
-* [Route Rules](#route-rules)
-    * [destination](#destination)
-    * [precedence](#precendence)
-    * [match](#match)
-        * [match.source](#match-source)
-        * [match.sourceTags](#match-sourceTags)
-        * [match.httpHeaders](#match-httpHeaders)
-        * [match.tcp](#match-tcp)
-        * [match.udp](#match-udp)
-    * [route](#route)
-        * [route.destination](#route-destination)
-        * [route.tags](#route-tags)
-        * [route.weight](#route-weight)
-    * [httpReqTimeout](#httpReqTimeout)
-    * [httpReqRetries](#httpReqRetries)
-    * [httpFault](#httpFault)
-        * [httpFault.delay](#httpFault-delay)
-        * [httpFault.abort](#httpFault-abort)
-* [Route Rule Evaluation](#route-rule-evaluation)
-* [Destination Policies](#destination-policies)
-    * [destination](#pdestination)
-    * [tags](#tags)
-    * [loadBalancing](#loadBalancing)
-    * [circuitBreaker](#circuitBreaker)
-* [Destination Policy Evaluation](#destination-policy-evaluation)
-
-## Overview <a id="overview"></a>
+## Overview
 
 Istio provides a simple Domain-specific language (DSL) based on the proto3
 schema (documented
@@ -44,7 +17,7 @@ microservices in the application deployment. The DSL allows the operator to
 configure service level properties such as circuit breakers, timeouts,
 retries, as well as set up common continuous deployment tasks such as
 canary rollouts, A/B testing, staged rollouts with %-based traffic splits,
-etc..
+etc.
 
 For example, a simple rule to send 100% of incoming traffic for a "reviews" microservice
 to version "v1" can be described using the Rules DSL as follows:
@@ -83,13 +56,13 @@ spec:
 EOF
 ```
 
-## Route Rules <a id="route-rules"></a>
+## Route Rules
 
 The following subsections provide a overview of the basic fields of a route rule.
 A complete and detailed description of a route rule structure can be found
 [here](https://github.com/istio/api/blob/master/proxy/v1/config/cfg.md#route-rules).
 
-#### Property: destination <a id="destination"></a>
+### destination
 
 Every rule corresponds to some destination microservice identified by a *destination* field in the
 rule. For example, all rules that apply to calls to the "reviews" microservice will include the following field.
@@ -103,7 +76,7 @@ is used by the Istio runtime for matching rules to services. For example,
 in Kubernetes, a fully qualified domain name for a service can be
 constructed using the following format: *serviceName.namespace.dnsSuffix*. 
 
-#### Property: precedence <a id="precedence"></a>
+### precedence
 
 The order of evaluation of rules corresponding to a given destination, when there is more than one, can be specified 
 by setting the *precedence* field of the rule. 
@@ -119,7 +92,7 @@ If there is more than one rule with the same precedence value the order of evalu
 
 For further details, see [Route Rule Evaluation](#route-rule-evaluation).
 
-#### Property: match <a id="match"></a>
+### match
 
 Rules can optionally be qualified to only apply to requests that match some specific criteria such
 as a specific request source and/or headers. An optional *match* field is used for this purpose.
@@ -132,7 +105,7 @@ The *match* field is an object with the following nested fields:
 * **tcp**
 * **udp**
 
-#### Property: match.source <a id="match-source"></a>
+#### match.source
 
 The *source* field qualifies a rule to only apply to requests from a specific caller.
 For example,
@@ -146,7 +119,7 @@ match:
 
 The *source* value, just like *destination*, is an FQDN of a service.
 
-#### Property: match.sourceTags <a id="match-sourceTags"></a>
+#### match.sourceTags
 
 The *sourceTags* field can be used to further qualify a rule to only apply to specific instances of a
 calling service.
@@ -162,7 +135,7 @@ match:
     version: v2
 ```
 
-#### Property: match.httpHeaders <a id="match-httpHeaders"></a>
+#### match.httpHeaders
 
 The *httpHeaders* field is a set of one or more property-value pairs where each property is an HTTP header name
 and the corresponding value is one of the following:
@@ -200,15 +173,15 @@ match:
       regex: "^(.*?;)?(user=jason)(;.*)?$"
 ```
 
-#### Property: match.tcp <a id="match-tcp"></a>
+#### match.tcp
 
 TBD
 
-#### Property: match.udp <a id="match-udp"></a>
+#### match.udp
 
 TBD
 
-#### Property: route <a id="route"></a>
+### route
 
 The *route* field identifies a set of one or more weighted backends to call when the rule is activated.
 Each *route* backend is an object with the following fields:
@@ -219,14 +192,14 @@ Each *route* backend is an object with the following fields:
 
 Of these fields, *tags* is the only required one, the others are optional.
 
-#### Property: route.tags <a id="route-tags"></a>
+#### route.tags
 
 The *tags* field is a list of instance tags to identify the target instances (e.g., version) to route requests to.
 If there are multiple registered instances with the specified tag(s),
 they will be routed to based on the [load balancing policy](#loadBalancing) configured for the service,
 or round-robin by default.
 
-#### Property: route.weight <a id="route-weight"></a>
+#### route.weight
 
 The *weight* field is an optional value between 0 and 100 that represents the percentage of requests to route
 to instances associated with the corresponding backend. If not set, the *weight* is assumed to be 100.
@@ -246,12 +219,12 @@ route:
   weight: 75
 ```
 
-#### Property: route.destination <a id="route-destination"></a>
+#### route.destination
 
 The *destination* field is optional and specifies the service name of the target instances. 
 If not specified, it defaults to the value of the rule's *destination* field.
 
-#### Property: httpReqTimeout <a id="httpReqTimeout"></a>
+### httpReqTimeout
 
 A timeout for http requests can be specified using the *httpReqTimeout* field.
 By default, the timeout is 15 seconds, but this can be overridden as follows:
@@ -266,7 +239,7 @@ httpReqTimeout:
     timeoutSeconds: 10
 ```
 
-#### Property: httpReqRetries <a id="httpReqRetries"></a>
+### httpReqRetries
 
 The *httpReqRetries* field can be used to control the number retries for a given http request.
 The maximum number of attempts, or as many as possible within the time period
@@ -282,7 +255,7 @@ httpReqRetries:
     attempts: 3
 ```
 
-#### Property: httpFault <a id="httpFault"></a>
+### httpFault
 
 The *httpFault* field is used to specify one or more faults to inject
 while forwarding http requests to the rule's corresponding request destination.
@@ -291,7 +264,7 @@ The faults injected depend on the following nested fields:
 * **delay**
 * **abort**
 
-#### Property: httpFault.delay <a id="httpFault-delay"></a>
+#### httpFault.delay
 
 The *delay* field is used to delay a request by a specified amount of time. Nested fields
 *percent* and one of either *fixedDelaySeconds* or *exponentialDelaySeconds* are used to specify the delay.
@@ -317,7 +290,7 @@ httpFault:
     fixedDelaySeconds: 5
 ```
 
-#### Property: httpFault.abort <a id="httpFault-abort"></a>
+#### httpFault.abort
 
 An *abort* field is used to prematurely abort a request, usually to simulate a failure. Nested fields
 *percent* and one of *httpStatus*, *http2Error*, or *grpcStatus*, are used to specify the abort.
@@ -365,7 +338,7 @@ httpFault:
     httpStatus: 400
 ```
 
-## Route Rule Evaluation <a id="route-rule-evaluation"></a>
+## Route Rule Evaluation
 
 Whenever the routing story for a particular microservice is purely weight based,
 it can be specified in a single rule, as shown in the [route.weight](#route-weight) example.
@@ -407,13 +380,13 @@ to "v1", even requests that include the matching "Foo" header. Once a rule is fo
 request, it will be executed and the rule-evaluation process will terminate. That's why it's very important to
 carefully consider the priorities of each rule when there is more than one.
 
-## Destination Policies <a id="destination-policies"></a>
+## Destination Policies
 
 The following subsections provide a overview of the basic fields of a destination policy.
 A complete and detailed description of a destination policy structure can be found
 [here](https://github.com/istio/api/blob/master/proxy/v1/config/cfg.md#destination-policies).
 
-#### Property: destination <a id="destination"></a>
+### destination
 
 Exactly the same as in a [route rule](#route-rules),
 every destination policy includes a *destination* field
@@ -424,7 +397,7 @@ For example, a destination policy for calls to the "reviews" microservice will i
 destination: reviews.default.svc.cluster.local
 ```
 
-#### Property: tags <a id="tags"></a>
+### tags
 
 An optional field, *tags*, is a list of destination tags that can be used to only apply the policy
 to requests that are routed to backends with the specified tags.
@@ -437,7 +410,7 @@ tags:
   version: v1
 ```
 
-#### Property: loadBalancing <a id="loadBalancing"></a>
+### loadBalancing
 
 The *loadBalancing* field can be used to specify the load balancing policy for a destination service.
 The value can be one of `LEAST_CONN`, `RANDOM`, or `ROUND_ROBIN` (default).
@@ -450,7 +423,7 @@ destination: reviews.default.svc.cluster.local
 loadBalancing: RANDOM
 ```
 
-#### Property: circuitBreaker <a id="circuitBreaker"></a>
+### circuitBreaker
 
 The *circuitBreaker* field can be used to set a circuit breaker for a particular microservice. 
 A simple circuit breaker can be set based on a number of criteria such as connection and request limits.
@@ -468,9 +441,9 @@ circuitBreaker:
 ```
 
 The complete set of simple circuit breaker fields can be found
-[here](https://github.com/rshriram/api/blob/master/proxy/v1/config/cfg.md#circuitbreakersimplecircuitbreakerpolicy).
+[here](https://github.com/istio/api/blob/master/proxy/v1/config/cfg.md#circuitbreakersimplecircuitbreakerpolicy).
 
-## Destination Policy Evaluation <a id="destination-policy-evaluation"></a>
+## Destination Policy Evaluation
 
 Similar to route rules, destination policies are associated with a particular *destination* however
 if they also include *tags* their activation depends on route rule evaluation results.
