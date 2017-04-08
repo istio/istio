@@ -99,6 +99,14 @@ func newAspectWithDedup(env adapter.Env, ticker *time.Ticker, c *config.Params) 
 		redisPool:  connPool,
 		redisError: nil,
 	}
+
+	env.ScheduleDaemon(func() {
+		for range rq.common.Ticker.C {
+			rq.common.Lock()
+			rq.common.ReapDedup()
+			rq.common.Unlock()
+		}
+	})
 	return rq, nil
 }
 
