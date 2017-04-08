@@ -19,7 +19,6 @@ import (
 	"github.com/mediocregopher/radix.v2/redis"
 )
 
-//TODO: Make sure the code here is thread-safe.
 // ConnPool stores the info for redis connection pool.
 type connPool struct {
 	// TODO: add number of connections here
