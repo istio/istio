@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('testutils@stable-2d6eb00')
+@Library('testutils@stable-518be06')
 
 import org.istio.testutils.Utilities
 import org.istio.testutils.GitUtilities
@@ -31,6 +31,10 @@ mainFlow(utils) {
   // Postsubmit form stable branch, post qualification
   if (utils.runStage('STABLE_POSTSUBMIT')) {
     stablePostsubmit(gitUtils, bazel, utils)
+  }
+  // Regression test to run for modules managed depends on
+  if (utils.runStage('REGRESSION')) {
+    managerRegression(gitUtils, bazel, utils)
   }
 }
 
@@ -115,6 +119,28 @@ def postsubmit(gitUtils, bazel, utils) {
       sh('bin/init.sh')
       sh('bin/codecov.sh')
       utils.publishCodeCoverage('MANAGER_CODECOV_TOKEN')
+    }
+    utils.fastForwardStable('manager')
+  }
+}
+
+def managerRegression(gitUtils, bazel, utils) {
+  goBuildNode(gitUtils, 'istio.io/manager') {
+    bazel.updateBazelRc()
+    utils.initTestingCluster()
+    stage('Bazel Build') {
+      // Use Testing cluster
+      sh('ln -s ~/.kube/config platform/kube/')
+      bazel.fetch('-k //...')
+      bazel.build('//...')
+    }
+    stage('Bazel Tests') {
+      bazel.test('//...')
+    }
+    stage('Integration Tests') {
+      timeout(15) {
+        sh("bin/e2e.sh -tag ${gitUtils.GIT_SHA} -v 2")
+      }
     }
   }
 }
