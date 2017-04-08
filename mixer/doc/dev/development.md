@@ -163,7 +163,7 @@ correctness, bugs, opportunities for improvement, documentation and comments,
 and style.
 
 Very small PRs are easy to review.  Very large PRs are very difficult to
-review. Github has a built-in code review tool, which is what most people use.
+review. GitHub has a built-in code review tool, which is what most people use.
 
 ### When to retain commits and when to squash
 

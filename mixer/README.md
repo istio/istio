@@ -24,8 +24,8 @@ for its consumers.
 - **Quota Management**. Enables services to allocate and free quota on a number of dimensions, Quotas are used as a relatively simple resource management 
 tool to provide some fairness between service consumers when contending for limited resources.
 
-Please see the main Istio [README](https://github.com/istio/istio/blob/master/README.md)
-file to learn about the overall Istio project and how to get in touch with us. To learn how you can
+Please see [istio.io](https://istio.io)
+to learn about the overall Istio project and how to get in touch with us. To learn how you can
 contribute to any of the Istio components, including the mixer, please 
 see the Istio [contribution guidelines](https://github.com/istio/istio/blob/master/CONTRIBUTING.md).
 
