@@ -22,12 +22,7 @@ Server Side Features:
 
 - *Monitoring & Logging*. The Proxy can report server-side metrics and logs to the Mixer.
 
-To learn more...
-
-- User guide coming soon!
-- [Contributing to the project](./CONTRIBUTING.md)
-
-### Filing issues
-
-If you have a question about an Istio proxy or have a problem using one, please
-[file an issue](https://github.com/istio/proxy/issues/new).
+Please see [istio.io](https://istio.io)
+to learn about the overall Istio project and how to get in touch with us. To learn how you can
+contribute to any of the Istio components, including the proxy, please 
+see the Istio [contribution guidelines](https://github.com/istio/istio/blob/master/CONTRIBUTING.md).
