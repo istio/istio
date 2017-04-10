@@ -1,0 +1,16 @@
+---
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: istio-ca-deploy
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: istio-ca-app
+    spec:
+      containers:
+      - name: istio-ca-container
+        image: istio/istio-ca:2017-04-07-06.21.44
+        imagePullPolicy: Always
