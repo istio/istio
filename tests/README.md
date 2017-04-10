@@ -31,7 +31,7 @@ Test a particular manager image (for example, after a successful run of `manager
 Test a particular mixer image:
 
 ```
-./kubeTest.sh -x "gcr.io/istio-testing/mixer:2017-04-06-18.08.24"
+./kubeTest.sh -x "gcr.io/istio-testing,2017-04-06-18.08.24"
 ```
 
 Test an arbitrary explicit configuration:
@@ -54,15 +54,16 @@ A `git commit` titled "Updating istio version" is created for the resulting chan
 
 * `-m <hub>,<tag>` new manager image
 * `-x <hub>,<tag>` new mixer image
-* `-i <istioctl>` new `istioctl` binary
+* `-i <url>` new `istioctl` download URL
 
 Default values for the `-m`, `-x`, and `-i` options are as specified in `istio.VERSION`
 (i.e., unchanged).
 
 ## Developer process 
 
-1. Run `kubeTest.sh -m "<manager hub>,<manager tag>"` or `kubeTest.sh -x "<mixer hub>,<mixer tag>"` 
-   to test your changes. 
+1. Run `kubeTest.sh -m "<manager hub>,<manager tag>"`, `kubeTest.sh -x "<mixer hub>,<mixer tag>"`,
+   or `kubeTest.sh -i "<istioctl binary>"` to test your changes to manager, mixer, 
+   or istioctl, respectively. 
 2. Submit a PR with your changes to `istio/manager` or `istio/mixer`.
 3. Run `updateVersion.sh` to update the default Istio install configuration and then
    submit a PR  to `istio/istio` for the generated "Updating istio version" commit.
