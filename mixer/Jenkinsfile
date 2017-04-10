@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('testutils@stable-2d6eb00')
+@Library('testutils@stable-83d5232')
 
 import org.istio.testutils.Utilities
 import org.istio.testutils.GitUtilities
@@ -71,6 +71,7 @@ def postsubmit(gitUtils, bazel, utils) {
       sh('bin/codecov.sh')
       utils.publishCodeCoverage('MIXER_CODECOV_TOKEN')
     }
+    utils.fastForwardStable('mixer')
   }
 }
 
