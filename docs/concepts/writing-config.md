@@ -36,7 +36,7 @@ message Metric {
     <td>
 <pre>
 {
-  "descriptor_name": "request_count",
+  "descriptorName": "request_count",
   "value": "1",
   "labels": {
       "source": "origin.ip",
@@ -61,7 +61,7 @@ message Metric {
   </tr>
   <tr>
     <td>
-<pre>
+<pre>`
 message Metric {
         string descriptor_name = 1;
         string value = 2;
@@ -78,14 +78,14 @@ message MetricsParams {
 {
   "metrics": [
     {
-      "descriptor_name": "request_count",
+      "descriptorName": "request_count",
       "value": "1",
       "labels": {
             "source": "origin.ip",
             "target": "target.service",
       },
     }, {
-      "descriptor_name": "request_latency",
+      "descriptorName": "request_latency",
       "value": "response.duration",
       "labels": {
             "source": "origin.ip",
@@ -100,7 +100,7 @@ message MetricsParams {
 </tbody>
 </table>
 
-*Note that we never name the outer-most message (the `MetricsParams`), but we do need the outer set of braces marking our JSON as an object.*
+*Note that we never name the outer-most message (the `MetricsParams`), but we do need the outer set of braces marking our JSON as an object. Also note that we shift from snake_case to lowerCamelCase; both are accepted but lowerCamelCase is idiomatic.*
 
 ### Proto `enum` fields uses the name of the value:
 
@@ -131,7 +131,7 @@ message AttributeDescriptor {
 <pre>
 {
   "name": "request.duration",
-  "value_type": "INT64",
+  "valueType": "INT64",
 }
 </pre>
       </td>
@@ -178,10 +178,10 @@ message MonitoredResourceDescriptor {
   "labels": [
     {
       "name": "label one",
-      "value_type": "STRING",
+      "valueType": "STRING",
     }, {
       "name": "second label",
-      "value_type": "DOUBLE",
+      "valueType": "DOUBLE",
     },
   ],
 }
@@ -223,18 +223,18 @@ message Metric {
     <td>
 <pre>
 {
-  "descriptor_name": "request_count",
+  "descriptorName": "request_count",
   "value": "1",
   "labels": {
       "source": "origin.ip",
-        "target": "target.service",
+      "target": "target.service",
   },
 }  
 </pre>
     </td>
     <td>
 <pre>
-descriptor_name: request_count
+descriptorName: request_count
 value: "1"
 labels:
   source: origin.ip
@@ -274,14 +274,14 @@ message MetricsParams {
 {
   "metrics": [
     {
-      "descriptor_name": "request_count",
+      "descriptorName": "request_count",
       "value": "1",
       "labels": {
             "source": "origin.ip",
             "target": "target.service",
       },
     }, {
-      "descriptor_name": "request_latency",
+      "descriptorName": "request_latency",
       "value": "response.duration",
       "labels": {
             "source": "origin.ip",
@@ -295,12 +295,12 @@ message MetricsParams {
     <td>
 <pre>
 metrics:
-- descriptor_name: request_count
+- descriptorName: request_count
   value: "1"
   labels:
     source: origin.ip
     target: target.service
-- descriptor_name: request_latency
+- descriptorName: request_latency
   value: response.duration
   labels:
     source: origin.ip
@@ -340,14 +340,14 @@ message AttributeDescriptor {
 <pre>
 {
   "name": "request.duration",
-  "value_type": "INT64",
+  "valueType": "INT64",
 }
 </pre>
       </td>
       <td>
 <pre>
 name: request.duration
-value_type: INT64
+valueType: INT64
 </pre>
 
 or
@@ -401,10 +401,10 @@ message MonitoredResourceDescriptor {
   "labels": [
     {
       "name": "label one",
-      "value_type": "STRING",
+      "valueType": "STRING",
     }, {
       "name": "second label",
-      "value_type": "DOUBLE",
+      "valueType": "DOUBLE",
     },
   ],
 }
@@ -415,9 +415,9 @@ message MonitoredResourceDescriptor {
 name: My Monitored Resource
 labels:
 - name: label one
-  value_type: STRING
+  valueType: STRING
 - name: second label
-  value_type: DOUBLE
+  valueType: DOUBLE
 </pre>
       </td>
     </tr>
