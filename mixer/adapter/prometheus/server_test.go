@@ -22,10 +22,13 @@ import (
 	"istio.io/mixer/pkg/adapter/test"
 )
 
+func doesNothing(w http.ResponseWriter, r *http.Request) {}
+
 func TestServer(t *testing.T) {
 	testAddr := "127.0.0.1:9992"
 	s := newServer(testAddr)
-	if err := s.Start(test.NewEnv(t)); err != nil {
+
+	if err := s.Start(test.NewEnv(t), http.HandlerFunc(doesNothing)); err != nil {
 		t.Fatalf("Start() failed unexpectedly: %v", err)
 	}
 
@@ -43,11 +46,15 @@ func TestServer(t *testing.T) {
 	_ = resp.Body.Close()
 
 	s2 := newServer(testAddr)
-	if err := s2.Start(test.NewEnv(t)); err == nil {
+	if err := s2.Start(test.NewEnv(t), http.HandlerFunc(doesNothing)); err == nil {
 		t.Fatal("Start() succeeded, expecting a failure")
 	}
 
 	if err := s.Close(); err != nil {
+		t.Errorf("Failed to close server properly: %v", err)
+	}
+
+	if err := s2.Close(); err != nil {
 		t.Errorf("Failed to close server properly: %v", err)
 	}
 }

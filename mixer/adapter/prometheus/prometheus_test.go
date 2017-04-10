@@ -16,6 +16,7 @@ package prometheus
 
 import (
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 
@@ -33,7 +34,7 @@ type testServer struct {
 	errOnStart bool
 }
 
-func (t testServer) Start(adapter.Env) error {
+func (t testServer) Start(adapter.Env, http.Handler) error {
 	if t.errOnStart {
 		return errors.New("could not start server")
 	}
@@ -119,7 +120,7 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(v.metrics)); err != nil {
+			if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(v.metrics...)); err != nil {
 				t.Errorf("NewMetricsAspect() => unexpected error: %v", err)
 			}
 		})
@@ -128,12 +129,29 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 
 func TestFactory_NewMetricsAspectServerFail(t *testing.T) {
 	f := newFactory(&testServer{errOnStart: true})
-	if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap([]*adapter.MetricDefinition{})); err == nil {
+	if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap()); err == nil {
 		t.Error("NewMetricsAspect() => expected error on server startup")
 	}
 }
 
-func TestFactory_NewMetricsAspectMetricDefinitionErrors(t *testing.T) {
+func TestNewMetricsAspect_MetricDefinitionErrors(t *testing.T) {
+	f := newFactory(&testServer{})
+	tests := []struct {
+		name    string
+		metrics []*adapter.MetricDefinition
+	}{
+		{"Unknown MetricKind", []*adapter.MetricDefinition{unknown}},
+	}
+	for _, v := range tests {
+		t.Run(v.name, func(t *testing.T) {
+			if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(v.metrics...)); err == nil {
+				t.Errorf("Expected error for NewMetricsAspect(%#v)", v.metrics)
+			}
+		})
+	}
+}
+
+func TestFactory_NewMetricsAspect_MetricDefinitionConflicts(t *testing.T) {
 	f := newFactory(&testServer{})
 
 	gaugeWithLabels := &adapter.MetricDefinition{
@@ -159,14 +177,16 @@ func TestFactory_NewMetricsAspectMetricDefinitionErrors(t *testing.T) {
 		metrics []*adapter.MetricDefinition
 	}{
 		{"Gauge Definition Conflicts", []*adapter.MetricDefinition{gaugeNoLabels, gaugeWithLabels}},
-		{"Gauge Definition Conflicts", []*adapter.MetricDefinition{counter, altCounter}},
-		{"Unknown MetricKind", []*adapter.MetricDefinition{unknown}},
+		{"Counter Definition Conflicts", []*adapter.MetricDefinition{counter, altCounter}},
 	}
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			if _, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(v.metrics)); err == nil {
-				t.Error("NewMetricsAspect() => expected error during metrics registration")
+			for i, met := range v.metrics {
+				_, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(met))
+				if i > 0 && err == nil {
+					t.Error("NewMetricsAspect() => expected error during metrics registration")
+				}
 			}
 		})
 	}
@@ -174,7 +194,7 @@ func TestFactory_NewMetricsAspectMetricDefinitionErrors(t *testing.T) {
 
 func TestProm_Close(t *testing.T) {
 	f := newFactory(&testServer{})
-	prom, _ := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap([]*adapter.MetricDefinition{}))
+	prom, _ := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap())
 	if err := prom.Close(); err != nil {
 		t.Errorf("Close() should not have returned an error: %v", err)
 	}
@@ -199,7 +219,7 @@ func TestProm_Record(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			aspect, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(v.metrics))
+			aspect, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(v.metrics...))
 			if err != nil {
 				t.Errorf("NewMetricsAspect() => unexpected error: %v", err)
 			}
@@ -258,7 +278,7 @@ func TestProm_RecordFailures(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			aspect, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(v.metrics))
+			aspect, err := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, makeMetricMap(v.metrics...))
 			if err != nil {
 				t.Errorf("NewMetricsAspect() => unexpected error: %v", err)
 			}
@@ -299,7 +319,7 @@ func newCounterVal(val interface{}) adapter.Value {
 	}
 }
 
-func makeMetricMap(metrics []*adapter.MetricDefinition) map[string]*adapter.MetricDefinition {
+func makeMetricMap(metrics ...*adapter.MetricDefinition) map[string]*adapter.MetricDefinition {
 	m := make(map[string]*adapter.MetricDefinition, len(metrics))
 	for _, metric := range metrics {
 		m[metric.Name] = metric

@@ -26,6 +26,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"istio.io/mixer/adapter/prometheus/config"
 	"istio.io/mixer/pkg/adapter"
@@ -35,8 +36,9 @@ type (
 	factory struct {
 		adapter.DefaultBuilder
 
-		srv  server
-		once sync.Once
+		srv      server
+		registry *prometheus.Registry
+		once     sync.Once
 	}
 
 	prom struct {
@@ -58,7 +60,7 @@ func Register(r adapter.Registrar) {
 }
 
 func newFactory(srv server) *factory {
-	return &factory{adapter.NewDefaultBuilder(name, desc, conf), srv, sync.Once{}}
+	return &factory{adapter.NewDefaultBuilder(name, desc, conf), srv, prometheus.NewPedanticRegistry(), sync.Once{}}
 }
 
 func (f *factory) Close() error {
@@ -68,7 +70,9 @@ func (f *factory) Close() error {
 // NewMetricsAspect provides an implementation for adapter.MetricsBuilder.
 func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	var serverErr error
-	f.once.Do(func() { serverErr = f.srv.Start(env) })
+	f.once.Do(func() {
+		serverErr = f.srv.Start(env, promhttp.HandlerFor(f.registry, promhttp.HandlerOpts{}))
+	})
 	if serverErr != nil {
 		return nil, fmt.Errorf("could not start prometheus server: %v", serverErr)
 	}
@@ -79,14 +83,14 @@ func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics 
 	for _, m := range metrics {
 		switch m.Kind {
 		case adapter.Gauge:
-			c, err := registerOrGet(newGaugeVec(m.Name, m.Description, m.Labels))
+			c, err := registerOrGet(f.registry, newGaugeVec(m.Name, m.Description, m.Labels))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
 			}
 			metricsMap[m.Name] = c
 		case adapter.Counter:
-			c, err := registerOrGet(newCounterVec(m.Name, m.Description, m.Labels))
+			c, err := registerOrGet(f.registry, newCounterVec(m.Name, m.Description, m.Labels))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
@@ -175,8 +179,8 @@ func labelNames(m map[string]adapter.LabelType) []string {
 // borrowed from prometheus.RegisterOrGet. However, that method is
 // targeted for removal soon(tm). So, we duplicate that functionality here
 // to maintain it long-term, as we have a use case for the convenience.
-func registerOrGet(c prometheus.Collector) (prometheus.Collector, error) {
-	if err := prometheus.Register(c); err != nil {
+func registerOrGet(registry *prometheus.Registry, c prometheus.Collector) (prometheus.Collector, error) {
+	if err := registry.Register(c); err != nil {
 		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
 			return are.ExistingCollector, nil
 		}
