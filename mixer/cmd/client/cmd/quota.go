@@ -17,6 +17,7 @@ package cmd
 import (
 	"context"
 	"io"
+	"strconv"
 
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
@@ -27,7 +28,6 @@ import (
 
 func quotaCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Command {
 	name := ""
-	dedup := ""
 	amount := int64(1)
 	bestEffort := false
 
@@ -35,19 +35,18 @@ func quotaCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Command
 		Use:   "quota",
 		Short: "Invokes the mixer's Quota API.",
 		Run: func(cmd *cobra.Command, args []string) {
-			quota(rootArgs, printf, fatalf, name, dedup, amount, bestEffort)
+			quota(rootArgs, printf, fatalf, name, amount, bestEffort)
 		},
 	}
 
 	cmd.PersistentFlags().StringVarP(&name, "name", "", "", "The name of the quota to allocate")
 	cmd.PersistentFlags().Int64VarP(&amount, "amount", "", 1, "The amount of quota to request")
-	cmd.PersistentFlags().StringVarP(&dedup, "dedup", "", "<generated>", "The deduplication id to use")
 	cmd.PersistentFlags().BoolVarP(&bestEffort, "bestEffort", "", false, "Whether to use all-or-nothing or best effort semantics")
 
 	return cmd
 }
 
-func quota(rootArgs *rootArgs, printf, fatalf shared.FormatFn, name string, dedup string, amount int64, bestEffort bool) {
+func quota(rootArgs *rootArgs, printf, fatalf shared.FormatFn, name string, amount int64, bestEffort bool) {
 	var attrs *mixerpb.Attributes
 	var err error
 
@@ -70,6 +69,8 @@ func quota(rootArgs *rootArgs, printf, fatalf shared.FormatFn, name string, dedu
 	}
 
 	for i := 0; i < rootArgs.repeat; i++ {
+		dedup := strconv.Itoa(i)
+
 		// send the request
 		request := mixerpb.QuotaRequest{
 			RequestIndex:    int64(i),
