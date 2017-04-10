@@ -46,7 +46,7 @@ of the underlying platform. In addition, [traffic management rules](../reference
 (i.e. generic layer-4 rules and layer-7 HTTP/gRPC routing rules)
 can be programmed at runtime via the Istio Manager.
 
-<img src="../../img/arch.svg" alt="The overall architecture of an Istio-based service.">
+<img src="${{site.baseurl}}/img/arch.svg" alt="The overall architecture of an Istio-based service." />
 {% endcapture %}
 
 {% include templates/concept.md %}
