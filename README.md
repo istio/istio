@@ -57,7 +57,7 @@ project.
 contains platform-specific code to populate the
 [abstract service model](https://istio.io/docs/concepts/model.html), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
-[routing rules](https://istio.io/docs/concepts/rule-dsl.html) into proxy specific configuration.  The
+[routing rules](https://istio.io/docs/reference/rule-dsl.html) into proxy specific configuration.  The
 [_istioctl_](https://istio.io/docs/reference/istioctl.html) command line utility is also available in
 this repository.
 
