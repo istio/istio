@@ -211,9 +211,12 @@ def googleapis_repositories(protobuf_repo="@protobuf_git//", bind=True):
 #
 ################################################################################
 #
+
 licenses(["notice"])
 
 load("@protobuf_git//:protobuf.bzl", "cc_proto_library")
+
+exports_files(glob(["google/**"]))
 
 cc_proto_library(
     name = "servicecontrol",
