@@ -45,4 +45,4 @@ $( document ).ready(function() {
     are ready to send those changes to us, go to the index page for your fork and click <b>New Pull Request</b> to let us know about it.
 </p>
 
-<p><button class="btn btn-grpc waves-effect waves-light" href="https://github.com/istio/istio.github.io/">Browse this site's source code</button></p>
+<p><a class="btn btn-grpc waves-effect waves-light" href="https://github.com/istio/istio.github.io/">Browse this site's source code</a></p>
