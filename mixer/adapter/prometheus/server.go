@@ -15,31 +15,28 @@
 package prometheus
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
-
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"time"
 
 	"istio.io/mixer/pkg/adapter"
 )
-
-// TODO: rethink when we switch to go1.8. the graceful shutdown changes
-// coming to http.Server should help tremendously
 
 type (
 	server interface {
 		io.Closer
 
-		Start(adapter.Env) error
+		Start(adapter.Env, http.Handler) error
 	}
 
 	serverInst struct {
 		server
 
-		addr       string
-		connCloser io.Closer
+		addr string
+		srv  *http.Server
 	}
 )
 
@@ -52,29 +49,30 @@ func newServer(addr string) server {
 	return &serverInst{addr: addr}
 }
 
-func (s *serverInst) Start(env adapter.Env) error {
+func (s *serverInst) Start(env adapter.Env, metricsHandler http.Handler) error {
 	var listener net.Listener
-	srv := &http.Server{Addr: s.addr}
 	listener, err := net.Listen("tcp", s.addr)
 	if err != nil {
 		return fmt.Errorf("could not start prometheus metrics server: %v", err)
 	}
-
-	http.Handle(metricsPath, promhttp.Handler())
+	srvMux := http.NewServeMux()
+	srvMux.Handle(metricsPath, metricsHandler)
+	s.srv = &http.Server{Addr: s.addr, Handler: srvMux}
 	env.ScheduleDaemon(func() {
 		env.Logger().Infof("serving prometheus metrics on %s", s.addr)
-		if err := srv.Serve(listener.(*net.TCPListener)); err != nil {
+		if err := s.srv.Serve(listener.(*net.TCPListener)); err != nil {
 			_ = env.Logger().Errorf("prometheus HTTP server error: %v", err)
 		}
 	})
 
-	s.connCloser = listener
 	return nil
 }
 
 func (s *serverInst) Close() error {
-	if s.connCloser != nil {
-		return s.connCloser.Close()
+	if s.srv == nil {
+		return nil
 	}
-	return nil
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return s.srv.Shutdown(ctx)
 }
