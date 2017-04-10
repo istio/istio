@@ -15,7 +15,7 @@ This document describes how to write configuration that conforms to Istio's sche
 ## Translating to JSON
 The protobuf language guide defines [the canonical mapping between protobuf and JSON](https://developers.google.com/protocol-buffers/docs/proto3#json), refer to it as the source of truth. We provide a few specific examples that appear in the Mixer's configuration.
 
-### Proto `map`s and `message`s map to JSON objects:
+### Proto `map` and `message` translate to JSON objects:
 
 <table>
   <tbody>
@@ -51,7 +51,7 @@ message Metric {
 
 *Note that a map's keys are always converted to strings, no matter the data type declared in the proto file. They are converted back to the correct runtime type by the proto parsing libraries.*
 
-### A `repeated` Proto field maps to a JSON array:
+### Proto `repeated` fields translate to JSON arrays:
 
 <table>
   <tbody>
@@ -102,7 +102,7 @@ message MetricsParams {
 
 *Note that we never name the outer-most message (the `MetricsParams`), but we do need the outer set of braces marking our JSON as an object.*
 
-### A proto `enum` field uses the name of the value you want to specify:
+### Proto `enum` fields uses the name of the value:
 
 <table>
   <tbody>
@@ -141,7 +141,7 @@ message AttributeDescriptor {
 
 *Notice we don't provide a `description`: fields with no value can be omitted.*
 
-### `message` fields can contain other messages:
+### Proto `message` fields can contain other messages:
 <table>
   <tbody>
     <tr>
@@ -202,7 +202,7 @@ There is no canonical mapping between protobufs and YAML; instead protobuf defin
 - JSON objects map to a set of field names all at the same indentation level in YAML
 - YAML is whitespace sensitive and must use spaces; tabs are never allowed
 
-### `map`s and `message`s:
+### Proto `map` and `message` fields:
 <table>
   <tbody>
   <tr>
@@ -247,7 +247,7 @@ labels:
 
 *Note that when numeric literals are used as strings (like `value` above) they must be enclosed in quotes. Quotation marks (`"`) are optional for normal strings.*
 
-### `repeated` fields:
+### Proto `repeated` fields:
 <table>
   <tbody>
   <tr>
@@ -311,7 +311,7 @@ metrics:
 </tbody>
 </table>
 
-### `enum` fields:
+### Proto `enum` fields:
 <table>
   <tbody>
     <tr>
@@ -363,7 +363,7 @@ valueType: INT64
 
 *Note that YAML parsing will handle both `snake_case` and `camelCase` field names.*
 
-### Nested `message`s:
+### Proto with nested `message` fields:
 <table>
   <tbody>
     <tr>
