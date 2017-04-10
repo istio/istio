@@ -127,7 +127,7 @@ func (w *quotasExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma
 	var qr adapter.QuotaResult
 
 	if glog.V(2) {
-		glog.Info("Invoking adapter %s for quota %s with amount %d", w.adapter, qa.Definition.Name, qa.QuotaAmount)
+		glog.Infof("Invoking adapter %s for quota %s with amount %d, labels %v", w.adapter, qa.Definition.Name, qa.QuotaAmount, qa.Labels)
 	}
 
 	if qma.BestEffort {
@@ -148,7 +148,7 @@ func (w *quotasExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma
 	}
 
 	if glog.V(2) {
-		glog.Infof("Allocate %v units from quota %s", qa.QuotaAmount, qa.Definition.Name)
+		glog.Infof("Allocated %v units from quota %s", qa.QuotaAmount, qa.Definition.Name)
 	}
 
 	qmr := QuotaMethodResp(qr)
