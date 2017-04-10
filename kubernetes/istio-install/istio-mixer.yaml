@@ -25,14 +25,26 @@ data:
     attributes:
       - name: source.name
         value_type: 1 # STRING
+      - name: source.uid
+        value_type: 1 # STRING
       - name: target.name
+        value_type: 1 # STRING
+      - name: target.uid
         value_type: 1 # STRING
       - name: target.service
         value_type: 1 # STRING
       - name: response.code
         value_type: 2 # INT64
-      - name: response.latency
+      - name: response.duration
         value_type: 10 # DURATION
+
+      # DEPRECATED ATTRIBUTES, TO BE REMOVED:
+      - name: response.latency    # Use response.duration
+        value_type: 10 # DURATION
+      - name: response.http.code  # Use response.code
+        value_type: 2 # INT64
+      - name: source.service      # Use source.name
+        value_type: 1 # STRING
     metrics:
       - name: request_count
         kind: 2 # COUNTER
@@ -69,6 +81,8 @@ data:
       aspects:
       - kind: quotas
         params:
+          quotas:
+          - descriptor_name: RequestCount
       - kind: metrics
         adapter: prometheus
         params:
@@ -77,15 +91,15 @@ data:
             # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
             value: "1"
             labels:
-              source: source.name | "unknown"
+              source: source.name | source.service | "unknown"
               target: target.service | "unknown"
-              response_code: response.code | 200
+              response_code: response.code | response.http.code | 200
           - descriptor_name:  request_latency
-            value: response.latency | "0ms"
+            value: response.duration | response.latency | "0ms"
             labels:
-              source: source.name | "unknown"
+              source: source.name | source.service | "unknown"
               target: target.service | "unknown"
-              response_code: response.code | 200
+              response_code: response.code | response.http.code | 200
 ---
 # Mixer
 apiVersion: v1
