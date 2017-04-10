@@ -88,7 +88,7 @@ RequestContext::RequestContext(std::shared_ptr<ServiceContext> service_context,
   last_report_time_ = std::chrono::steady_clock::now();
   operation_id_ = GenerateUUID();
   const std::string &method = request_->GetRequestHTTPMethod();
-  const std::string &path = request_->GetRequestPath();
+  const std::string &path = request_->GetUnparsedRequestPath();
   std::string query_params = request_->GetQueryParameters();
 
   // In addition to matching the method, service_context_->GetMethodCallInfo()

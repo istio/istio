@@ -341,7 +341,7 @@ class CheckAuthTest : public ::testing::Test {
 
     EXPECT_CALL(*raw_request_, GetRequestHTTPMethod())
         .WillOnce(Return(std::string("GET")));
-    EXPECT_CALL(*raw_request_, GetRequestPath())
+    EXPECT_CALL(*raw_request_, GetUnparsedRequestPath())
         .WillOnce(Return(std::string("/ListShelves")));
     EXPECT_CALL(*raw_request_, FindQuery(_, _))
         .WillOnce(Invoke([](const std::string &, std::string *apikey) {

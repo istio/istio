@@ -33,11 +33,10 @@ class Request {
   // Returns the HTTP method used for this call.
   virtual std::string GetRequestHTTPMethod() = 0;
 
-  // Returns the REST path or RPC path for this call.
-  virtual std::string GetRequestPath() = 0;
   // Returns the query parameters
   virtual std::string GetQueryParameters() = 0;
-  // Returns the request path before parsed.
+  // Returns the REST path or RPC path for this call.
+  // It should be "Unparsed" original URL path.
   virtual std::string GetUnparsedRequestPath() = 0;
 
   // Gets Client IP
