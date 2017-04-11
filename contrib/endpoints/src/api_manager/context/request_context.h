@@ -115,6 +115,12 @@ class RequestContext {
     last_report_time_ = tp;
   }
 
+  // Get the HTTP method to be used for the request. This method understands the
+  // X-Http-Method-Override header and if present, returns the
+  // X-Http-Method-Override method. Otherwise, the actual HTTP method is
+  // returned.
+  std::string GetRequestHTTPMethodWithOverride();
+
  private:
   // Fill OperationInfo
   void FillOperationInfo(service_control::OperationInfo *info);

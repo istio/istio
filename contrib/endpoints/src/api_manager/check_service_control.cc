@@ -31,7 +31,7 @@ void CheckServiceControl(std::shared_ptr<context::RequestContext> context,
   // If the method is not configured from the service config.
   // or if not need to check service control, skip it.
   if (!context->method()) {
-    if (context->request()->GetRequestHTTPMethod() == "OPTIONS") {
+    if (context->GetRequestHTTPMethodWithOverride() == "OPTIONS") {
       TRACE(trace_span) << "OPTIONS request is rejected";
       continuation(Status(Code::PERMISSION_DENIED,
                           "The service does not allow CORS traffic.",

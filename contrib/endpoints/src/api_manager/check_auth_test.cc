@@ -348,6 +348,8 @@ class CheckAuthTest : public ::testing::Test {
           *apikey = "apikey";
           return true;
         }));
+    EXPECT_CALL(*raw_request_, FindHeader("X-HTTP-Method-Override", _))
+        .Times(1);
     EXPECT_CALL(*raw_request_, FindHeader("referer", _))
         .WillOnce(Invoke([](const std::string &, std::string *http_referer) {
           *http_referer = "";

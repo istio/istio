@@ -31,6 +31,9 @@ namespace {
 // Cloud Trace Context Header
 const char kCloudTraceContextHeader[] = "X-Cloud-Trace-Context";
 
+// HTTP Method Override Header
+const char kHttpMethodOverrideHeader[] = "X-HTTP-Method-Override";
+
 // Log message prefix for a success method.
 const char kMessage[] = "Method: ";
 // Log message prefix for an ignored method.
@@ -87,7 +90,7 @@ RequestContext::RequestContext(std::shared_ptr<ServiceContext> service_context,
   start_time_ = std::chrono::system_clock::now();
   last_report_time_ = std::chrono::steady_clock::now();
   operation_id_ = GenerateUUID();
-  const std::string &method = request_->GetRequestHTTPMethod();
+  const std::string &method = GetRequestHTTPMethodWithOverride();
   const std::string &path = request_->GetUnparsedRequestPath();
   std::string query_params = request_->GetQueryParameters();
 
@@ -100,6 +103,7 @@ RequestContext::RequestContext(std::shared_ptr<ServiceContext> service_context,
   // 2) Store all the pieces needed for extracting variable bindings (such as
   //    http template variables, url path parts) in MethodCallInfo and extract
   //    variables lazily when needed.
+
   method_call_ =
       service_context_->GetMethodCallInfo(method, path, query_params);
 
@@ -124,6 +128,19 @@ RequestContext::RequestContext(std::shared_ptr<ServiceContext> service_context,
         trace_context_header, method_name,
         &service_context_->cloud_trace_aggregator()->sampler()));
   }
+}
+
+std::string RequestContext::GetRequestHTTPMethodWithOverride() {
+  std::string method;
+
+  if (!request_->FindHeader(kHttpMethodOverrideHeader, &method)) {
+    method = request()->GetRequestHTTPMethod();
+  }
+
+  service_context()->env()->LogDebug(std::string("Request method SET TO: ") +
+                                     method);
+
+  return method;
 }
 
 void RequestContext::ExtractApiKey() {
@@ -260,7 +277,7 @@ void RequestContext::FillReportRequestInfo(
   FillComputePlatform(info);
 
   info->url = request_->GetUnparsedRequestPath();
-  info->method = request_->GetRequestHTTPMethod();
+  info->method = GetRequestHTTPMethodWithOverride();
 
   info->protocol = request_->GetRequestProtocol();
   info->check_response_info = check_response_info_;
