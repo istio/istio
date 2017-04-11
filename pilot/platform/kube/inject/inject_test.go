@@ -38,6 +38,10 @@ func TestImageName(t *testing.T) {
 // Tag name should be kept in sync with value in platform/kube/inject/refresh.sh
 const unitTestTag = "unittest"
 
+// This is the hub to expect in platform/kube/inject/testdata/frontend.yaml.injected
+// and the other .injected "want" YAMLs
+const unitTestHub = "docker.io/istio"
+
 func TestIntoResourceFile(t *testing.T) {
 	cases := []struct {
 		authConfigPath string
@@ -113,8 +117,8 @@ func TestIntoResourceFile(t *testing.T) {
 		}
 
 		params := Params{
-			InitImage:       InitImageName(DefaultHub, unitTestTag),
-			ProxyImage:      ProxyImageName(DefaultHub, unitTestTag),
+			InitImage:       InitImageName(unitTestHub, unitTestTag),
+			ProxyImage:      ProxyImageName(unitTestHub, unitTestTag),
 			Verbosity:       DefaultVerbosity,
 			SidecarProxyUID: DefaultSidecarProxyUID,
 			Version:         "12345678",

@@ -40,8 +40,6 @@ import (
 // Defaults values for injecting istio proxy into kubernetes
 // resources.
 const (
-	DefaultHub             = "docker.io/istio"
-	DefaultTag             = "2017-03-22-17.30.06"
 	DefaultSidecarProxyUID = int64(1337)
 	DefaultVerbosity       = 2
 )

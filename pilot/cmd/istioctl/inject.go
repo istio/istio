@@ -27,6 +27,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	// DefaultHubEnvVar is the environment variable that defaults the value of the --hub flag to istioctl kube-inject
+	DefaultHubEnvVar = "MANAGER_HUB"
+	// DefaultTagEnvVar is the environment variable that defaults the value of the --tag flag to istioctl kube-inject
+	DefaultTagEnvVar = "MANAGER_TAG"
+)
+
 var (
 	hub             string
 	tag             string
@@ -59,6 +66,12 @@ Example usage:
 		RunE: func(_ *cobra.Command, _ []string) (err error) {
 			if inFilename == "" {
 				return errors.New("filename not specified (see --filename or -f)")
+			}
+			if hub == "" {
+				return fmt.Errorf("specify --hub or define %v", DefaultHubEnvVar)
+			}
+			if tag == "" {
+				return fmt.Errorf("specify --tag or define %v", DefaultTagEnvVar)
 			}
 			var reader io.Reader
 			if inFilename == "-" {
@@ -108,9 +121,9 @@ Example usage:
 
 func init() {
 	injectCmd.PersistentFlags().StringVar(&hub, "hub",
-		inject.DefaultHub, "Docker hub")
+		os.Getenv(DefaultHubEnvVar), "Docker hub")
 	injectCmd.PersistentFlags().StringVar(&tag, "tag",
-		inject.DefaultTag, "Docker tag")
+		os.Getenv(DefaultTagEnvVar), "Docker tag")
 	injectCmd.PersistentFlags().StringVarP(&inFilename, "filename", "f",
 		"", "Input kubernetes resource filename")
 	injectCmd.PersistentFlags().StringVarP(&outFilename, "output", "o",
