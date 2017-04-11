@@ -803,7 +803,7 @@ void SetOperationCommonFields(const OperationInfo& info,
     op->set_consumer_id(std::string(kConsumerIdApiKey) +
                         std::string(info.api_key));
   }
-  *op->mutable_start_time() = CreateTimestamp(info.request_start_time);
+  *op->mutable_start_time() = current_time;
   *op->mutable_end_time() = current_time;
 }
 
