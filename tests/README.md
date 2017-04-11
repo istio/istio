@@ -13,12 +13,14 @@ it to test their changes before creating PRs.
 
 * `-m <hub>,<tag>` specify a manager image to use
 * `-x <hub>,<tag>` specify a mixer image to use
-* `-i <istioctl>` the location of a suitable `istioctl` binary
+* `-i <url>` specify an `istioctl` download URL
+* `-c <istioctl>` the location of an `istioctl` binary
 * `-n <namespace>` run the test in the specified namespace
 * `-s` don't shutdown and cleanup after running the test
 
 Default values for the `-m`, `-x`, and `-i` options are as specified in
 [istio.VERSION](../istio.VERSION).
+The `-c` option, if specified, overrides the `-i` value.
 
 ### Examples
 
@@ -40,7 +42,7 @@ Test an arbitrary explicit configuration:
 ./kubeTest.sh -s -n test-namespace \
   -m "gcr.io/istio-testing,alpha9a73dd7feb916a7af889b94558b579ccee261a26" \
   -x "gcr.io/istio-testing,2017-04-04-22.14.44" \
-  -i ~/go/src/istio.io/manager/istioctl-linux
+  -c ~/go/src/istio.io/manager/istioctl-linux
 ```
 
 ## updateVersion.sh
@@ -62,7 +64,7 @@ Default values for the `-m`, `-x`, and `-i` options are as specified in `istio.V
 ## Developer process 
 
 1. Run `kubeTest.sh -m "<manager hub>,<manager tag>"`, `kubeTest.sh -x "<mixer hub>,<mixer tag>"`,
-   or `kubeTest.sh -i "<istioctl binary>"` to test your changes to manager, mixer, 
+   or `kubeTest.sh -c "<istioctl binary>"` to test your changes to manager, mixer, 
    or istioctl, respectively. 
 2. Submit a PR with your changes to `istio/manager` or `istio/mixer`.
 3. Run `updateVersion.sh` to update the default Istio install configuration and then
