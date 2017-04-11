@@ -76,7 +76,7 @@ http://<grafana-svc-external-IP>:3000/dashboard/db/istio-dashboard
 
    ```bash
    source ./istio.VERSION # set ISTIOCTL env variable
-   wget -O /usr/local/bin/istioctl ${ISTIOCTL}/istioctl-osx
+   wget -O /usr/local/bin/istioctl ${ISTIOCTL_URL}/istioctl-osx
    chmod +x /usr/local/bin/istioctl
    ```
 
@@ -177,7 +177,7 @@ route requests to all available versions of a service in a random fashion.
    You can display the routes that are defined with the following command:
 
    ```bash
-   $ istioctl list route-rule
+   $ istioctl get route-rules -o yaml
    kind: route-rule
    name: ratings-default
    namespace: default
@@ -397,12 +397,17 @@ If you now refresh the `productpage` you'll see that while the load generator is
    $ ./cleanup.sh
    ```
 
-1. Optionally shut down the control plane services using the uninstall instructions [here](../../../kubernetes/README.md).
+1. Optionally shut down the control plane services
+
+   ```bash
+   $ kubectl delete -f ./kubernetes/istio-install
+   $ kubectl delete -f ./kubernetes/addons
+   ```
 
 1. Confirm shutdown
 
    ```bash
-   $ istioctl list route-rule   #-- there should be no more routing rules
+   $ istioctl get route-rules   #-- there should be no more routing rules
    $ kubectl get pods           #-- the bookinfo, and (optionally) control plane services, should be deleted
    No resources found.
    ```
