@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('testutils@stable-518be06')
+@Library('testutils@stable-33a0a2b')
 
 import org.istio.testutils.Utilities
 import org.istio.testutils.GitUtilities
@@ -42,9 +42,9 @@ def presubmit(gitUtils, bazel, utils) {
   goBuildNode(gitUtils, 'istio.io/manager') {
     bazel.updateBazelRc()
     utils.initTestingCluster()
+    sh('ln -s ~/.kube/config platform/kube/')
     stage('Bazel Build') {
       // Use Testing cluster
-      sh('ln -s ~/.kube/config platform/kube/')
       sh('bin/install-prereqs.sh')
       bazel.fetch('-k //...')
       bazel.build('//...')
@@ -95,6 +95,7 @@ def stablePresubmit(gitUtils, bazel, utils) {
 def stablePostsubmit(gitUtils, bazel, utils) {
   goBuildNode(gitUtils, 'istio.io/manager') {
     bazel.updateBazelRc()
+    sh('ln -s ~/.kube/config platform/kube/')
     stage('Docker Push') {
       def images = 'init,init_debug,app,app_debug,proxy,proxy_debug,manager,manager_debug'
       def tags = "${gitUtils.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
