@@ -33,7 +33,7 @@ RULES_DIR="${BOOKINFO_DIR}/rules"
 
 while getopts :i:sn:m:x: arg; do
   case ${arg} in
-    i) ISTIOCTL_URL="${OPTARG}";;
+    i) ISTIOCLI="${OPTARG}";;
     s) TEAR_DOWN=false;;
     n) NAMESPACE="${OPTARG}";;
     m) MANAGER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
