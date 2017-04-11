@@ -24,7 +24,7 @@ set -ex
 #
 
 PROJECT=istio-testing
-IMAGE_PREFIX="gcr.io/${PROJECT}/proxy"
+IMAGE_PREFIX="gcr.io/${PROJECT}/envoy"
 
 DATE_PART=$(date +"%Y%m%d")
 SHA_PART=$(git show -q HEAD --pretty=format:%h)
@@ -34,7 +34,7 @@ IMAGE_NAME="${IMAGE_PREFIX}:${DOCKER_TAG}"
 
 gcloud docker --authorize-only
 
-bazel run --config=release //src/envoy/mixer:proxy "${IMAGE_NAME}"
+bazel run --config=release //src/envoy/mixer:envoy_image "${IMAGE_NAME}"
 
 gcloud docker -- push "${IMAGE_NAME}"
 

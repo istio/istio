@@ -48,8 +48,8 @@ cc_library(
 
 cc_binary(
     name = "envoy",
-    linkstatic = 1,
     linkopts = ["-lrt"],
+    linkstatic = 1,
     visibility = [":__subpackages__"],
     deps = [
         ":filter_lib",
@@ -94,11 +94,11 @@ proxy_docker_build(
     ],
     images = [
         {
-            "name": "proxy",
+            "name": "envoy_image",
             "base": "@docker_ubuntu//:xenial",
         },
         {
-            "name": "proxy_debug",
+            "name": "envoy_image_debug",
             "base": "@ubuntu_xenial_debug//file",
         },
     ],
