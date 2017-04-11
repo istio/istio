@@ -544,13 +544,13 @@ operations {
         }
       }
       fields {
-        key: "request_size"
+        key: "request_size_in_bytes"
         value {
           number_value: 100
         }
       }
       fields {
-        key: "response_size"
+        key: "response_size_in_bytes"
         value {
           number_value: 1048576
         }
