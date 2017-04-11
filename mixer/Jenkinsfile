@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('testutils@33a0a2b')
+@Library('testutils@stable-96c1bdb')
 
 import org.istio.testutils.Utilities
 import org.istio.testutils.GitUtilities
@@ -54,7 +54,7 @@ def presubmit(gitUtils, bazel, utils) {
     }
     stage('Docker Test Push') {
       def images = 'mixer'
-      def tags = gitUtils.GIT_SHA
+      def tags = env.GIT_SHA
       utils.publishDockerImagesToContainerRegistry(images, tags)
     }
   }
@@ -80,7 +80,7 @@ def stablePresubmit(gitUtils, bazel, utils) {
     bazel.updateBazelRc()
     stage('Docker Push') {
       def images = 'mixer'
-      def tags = gitUtils.GIT_SHA
+      def tags = env.GIT_SHA
       utils.publishDockerImagesToContainerRegistry(images, tags)
     }
   }
@@ -91,7 +91,7 @@ def stablePostsubmit(gitUtils, bazel, utils) {
     bazel.updateBazelRc()
     stage('Docker Push') {
       def images = 'mixer,mixer_debug'
-      def tags = "${gitUtils.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
+      def tags = "${env.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
       utils.publishDockerImagesToDockerHub(images, tags)
       utils.publishDockerImagesToContainerRegistry(images, tags, '', 'gcr.io/istio-io')
     }
