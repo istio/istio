@@ -28,6 +28,10 @@ type Registrar interface {
 	// RegisterAccessLogsBuilder registers a new AccessLogger builder.
 	RegisterAccessLogsBuilder(AccessLogsBuilder)
 
+	// RegisterAttributesGeneratorBuilder registers a new builder for the
+	// AttributeGenerators aspect.
+	RegisterAttributesGeneratorBuilder(AttributesGeneratorBuilder)
+
 	// RegisterQuotasBuilder registers a new Quota builder.
 	RegisterQuotasBuilder(QuotasBuilder)
 

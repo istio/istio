@@ -8,6 +8,7 @@ go_library(
         "accessLogs.go",
         "adapter.go",
         "applicationLogs.go",
+        "attributes.go",
         "builder.go",
         "configError.go",
         "denials.go",

@@ -116,14 +116,14 @@ func TestValidateLabels(t *testing.T) {
 		{"type eval error", map[string]string{"stringlabel": "string |"}, descriptors, "error type checking label"},
 		{"type doesn't match desc", map[string]string{"stringlabel": "duration"}, descriptors, "expected type STRING"},
 	}
-	df := test.NewDescriptorFinder(map[string]interface{}{
+	dfind := test.NewDescriptorFinder(map[string]interface{}{
 		"duration": &dpb.AttributeDescriptor{Name: "duration", ValueType: dpb.DURATION},
 		"string":   &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
 		"int64":    &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
 	})
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			if err := validateLabels(tt.name, tt.labels, tt.descs, expr.NewCEXLEvaluator(), df); err != nil || tt.err != "" {
+			if err := validateLabels(tt.name, tt.labels, tt.descs, expr.NewCEXLEvaluator(), dfind); err != nil || tt.err != "" {
 				if tt.err == "" {
 					t.Fatalf("validateLabels() = '%s', wanted no err", err.Error())
 				} else if !strings.Contains(err.Error(), tt.err) {
@@ -135,7 +135,7 @@ func TestValidateLabels(t *testing.T) {
 }
 
 func TestValidateTemplateExpressions(t *testing.T) {
-	df := test.NewDescriptorFinder(map[string]interface{}{
+	dfind := test.NewDescriptorFinder(map[string]interface{}{
 		"duration": &dpb.AttributeDescriptor{Name: "duration", ValueType: dpb.DURATION},
 		"string":   &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
 		"int64":    &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
@@ -153,7 +153,7 @@ func TestValidateTemplateExpressions(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			if err := validateTemplateExpressions(tt.name, tt.exprs, expr.NewCEXLEvaluator(), df); err != nil || tt.err != "" {
+			if err := validateTemplateExpressions(tt.name, tt.exprs, expr.NewCEXLEvaluator(), dfind); err != nil || tt.err != "" {
 				if tt.err == "" {
 					t.Fatalf("validateTemplateExpressions() = '%s', wanted no err", err.Error())
 				} else if !strings.Contains(err.Error(), tt.err) {

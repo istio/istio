@@ -132,7 +132,7 @@ func TestRuntime(t *testing.T) {
 
 func TestRuntime_ResolveUnconditional(t *testing.T) {
 	table := []*ttable{
-		{nil, 0, true, 2, []string{AttributeGenerationKindName}},
+		{nil, 0, true, 2, []string{AttributesKindName}},
 		{nil, 0, true, 0, []string{}},
 	}
 
@@ -147,14 +147,14 @@ func TestRuntime_ResolveUnconditional(t *testing.T) {
 	}
 	ag := &pb.Adapter{
 		Name: "ag",
-		Kind: AttributeGenerationKindName,
+		Kind: AttributesKindName,
 	}
 
 	v := &Validated{
 		adapterByName: map[adapterKey]*pb.Adapter{
-			{ListsKind, "a1"}:               a1,
-			{ListsKind, "a2"}:               a2,
-			{AttributeGenerationKind, "ag"}: ag,
+			{ListsKind, "a1"}:      a1,
+			{ListsKind, "a2"}:      a2,
+			{AttributesKind, "ag"}: ag,
 		},
 		serviceConfig: &pb.ServiceConfig{
 			Rules: []*pb.AspectRule{
@@ -188,11 +188,11 @@ func TestRuntime_ResolveUnconditional(t *testing.T) {
 					Selector: "",
 					Aspects: []*pb.Aspect{
 						{
-							Kind: AttributeGenerationKindName,
+							Kind: AttributesKindName,
 						},
 						{
 							Adapter: "ag",
-							Kind:    AttributeGenerationKindName,
+							Kind:    AttributesKindName,
 						},
 					},
 				},
@@ -222,8 +222,8 @@ func TestRuntime_ResolveUnconditional(t *testing.T) {
 		}
 
 		for _, cfg := range al {
-			if cfg.Aspect.Kind != AttributeGenerationKindName {
-				t.Errorf("Got aspect kind: %v, want %v", cfg.Aspect.Kind, AttributeGenerationKindName)
+			if cfg.Aspect.Kind != AttributesKindName {
+				t.Errorf("Got aspect kind: %v, want %v", cfg.Aspect.Kind, AttributesKindName)
 			}
 		}
 	}

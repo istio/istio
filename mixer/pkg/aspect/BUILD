@@ -7,6 +7,7 @@ go_library(
     srcs = [
         "accessLogsManager.go",
         "applicationLogsManager.go",
+        "attrgenmgr.go",
         "common.go",
         "denialsManager.go",
         "descriptors.go",
@@ -44,6 +45,7 @@ go_test(
     srcs = [
         "accessLogsManager_test.go",
         "applicationLogsManager_test.go",
+        "attrgenmgr_test.go",
         "common_test.go",
         "denialsManager_test.go",
         "descriptors_test.go",

@@ -244,7 +244,7 @@ func (m *fakeBuilderReg) SupportedKinds(builder string) config.KindSet {
 func getReg(found bool) *fakeBuilderReg {
 	var ks config.KindSet
 	return &fakeBuilderReg{&fakeBuilder{name: "k1impl1"}, found,
-		ks.Set(config.AttributeGenerationKind).Set(config.DenialsKind).Set(config.AccessLogsKind).Set(config.QuotasKind),
+		ks.Set(config.AttributesKind).Set(config.DenialsKind).Set(config.AccessLogsKind).Set(config.QuotasKind),
 	}
 }
 
@@ -254,7 +254,7 @@ func newFakeMgrReg(pe *fakePreprocessExecutor, ce *fakeCheckExecutor, re *fakeRe
 	var f2 aspect.ReportManager
 	var f3 aspect.QuotaManager
 
-	f0 = &fakePreprocessMgr{kind: config.AttributeGenerationKind, pe: pe}
+	f0 = &fakePreprocessMgr{kind: config.AttributesKind, pe: pe}
 	f1 = &fakeCheckAspectMgr{kind: config.DenialsKind, ce: ce}
 	f2 = &fakeReportAspectMgr{kind: config.AccessLogsKind, re: re}
 	f3 = &fakeQuotaAspectMgr{kind: config.QuotasKind, qe: qe}
@@ -372,7 +372,7 @@ func TestManager_Preprocess(t *testing.T) {
 
 	cfg := []*cpb.Combined{
 		{
-			Aspect:  &cpb.Aspect{Kind: config.AttributeGenerationKindName},
+			Aspect:  &cpb.Aspect{Kind: config.AttributesKindName},
 			Builder: &cpb.Adapter{Name: "Foo"},
 		},
 	}
