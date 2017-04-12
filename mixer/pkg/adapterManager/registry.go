@@ -110,6 +110,11 @@ func (r *registry) RegisterMetricsBuilder(b adapter.MetricsBuilder) {
 	r.insert(config.MetricsKind, b)
 }
 
+// RegisterAttributesGeneratorBuilder registers a new AttributesGenerator builder.
+func (r *registry) RegisterAttributesGeneratorBuilder(b adapter.AttributesGeneratorBuilder) {
+	r.insert(config.AttributesKind, b)
+}
+
 func (r *registry) insert(k config.Kind, b adapter.Builder) {
 	bi := r.builders[b.Name()]
 	if bi == nil {

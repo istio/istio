@@ -32,7 +32,7 @@ import (
 )
 
 func TestListsManager(t *testing.T) {
-	df := test.NewDescriptorFinder(map[string]interface{}{
+	dfind := test.NewDescriptorFinder(map[string]interface{}{
 		"source.ip": &dpb.AttributeDescriptor{Name: "source.ip", ValueType: dpb.STRING},
 	})
 
@@ -40,16 +40,16 @@ func TestListsManager(t *testing.T) {
 	if lm.Kind() != config.ListsKind {
 		t.Errorf("m.Kind() = %s wanted %s", lm.Kind(), config.ListsKind)
 	}
-	if err := lm.ValidateConfig(lm.DefaultConfig(), expr.NewCEXLEvaluator(), df); err != nil {
+	if err := lm.ValidateConfig(lm.DefaultConfig(), expr.NewCEXLEvaluator(), dfind); err != nil {
 		t.Errorf("ValidateConfig(DefaultConfig()) produced an error: %v", err)
 	}
-	if err := lm.ValidateConfig(&aconfig.ListsParams{}, expr.NewCEXLEvaluator(), df); err == nil {
+	if err := lm.ValidateConfig(&aconfig.ListsParams{}, expr.NewCEXLEvaluator(), dfind); err == nil {
 		t.Error("ValidateConfig(ListsParams{}) should produce an error.")
 	}
 }
 
 func TestListsManager_ValidateConfig(t *testing.T) {
-	df := test.NewDescriptorFinder(map[string]interface{}{
+	dfind := test.NewDescriptorFinder(map[string]interface{}{
 		"string": &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
 		"int64":  &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
 	})
@@ -67,9 +67,9 @@ func TestListsManager_ValidateConfig(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			if errs := (&listsManager{}).ValidateConfig(tt.cfg, expr.NewCEXLEvaluator(), df); errs != nil || tt.err != "" {
+			if errs := (&listsManager{}).ValidateConfig(tt.cfg, expr.NewCEXLEvaluator(), dfind); errs != nil || tt.err != "" {
 				if tt.err == "" {
-					t.Fatalf("ValidateConfig(tt.cfg, tt.v, tt.df) = '%s', wanted no err", errs.Error())
+					t.Fatalf("ValidateConfig(tt.cfg, tt.v, tt.dfind) = '%s', wanted no err", errs.Error())
 				} else if !strings.Contains(errs.Error(), tt.err) {
 					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, errs.Error())
 				}

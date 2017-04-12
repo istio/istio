@@ -25,7 +25,9 @@ type ManagerInventory struct {
 // Inventory returns the authoritative set of aspect managers used by the mixer.
 func Inventory() ManagerInventory {
 	return ManagerInventory{
-		Preprocess: []PreprocessManager{},
+		Preprocess: []PreprocessManager{
+			newAttrGenMgr(),
+		},
 		Check: []CheckManager{
 			newDenialsManager(),
 			newListsManager(),

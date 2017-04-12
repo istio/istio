@@ -15,6 +15,8 @@
 package test
 
 import (
+	"errors"
+
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
@@ -38,6 +40,13 @@ func NewFakeEval(body EvalBody) expr.Evaluator {
 func NewIDEval() expr.Evaluator {
 	return NewFakeEval(func(e string, _ attribute.Bag) (interface{}, error) {
 		return e, nil
+	})
+}
+
+// NewErrEval constructs a new Evaluator that allows returns an error.
+func NewErrEval() expr.Evaluator {
+	return NewFakeEval(func(_ string, _ attribute.Bag) (interface{}, error) {
+		return nil, errors.New("eval error")
 	})
 }
 

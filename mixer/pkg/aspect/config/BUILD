@@ -16,6 +16,7 @@ gogoslick_proto_library(
     protos = [
         "accessLogs.proto",
         "applicationLogs.proto",
+        "attrgen.proto",
         "denials.proto",
         "lists.proto",
         "metrics.proto",
