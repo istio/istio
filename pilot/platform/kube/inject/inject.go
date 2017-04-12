@@ -24,10 +24,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"strconv"
 
 	"github.com/ghodss/yaml"
+	multierror "github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/pkg/api/v1"
 	batch "k8s.io/client-go/pkg/apis/batch/v1"
@@ -146,6 +149,14 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 		args = append(args, "--meshConfig", p.MeshConfigMapName)
 	}
 
+	ports, err := healthPorts(t)
+	if err != nil {
+		return err
+	}
+	for _, port := range ports {
+		args = append(args, "--passthrough", strconv.Itoa(port))
+	}
+
 	var volumeMounts []v1.VolumeMount
 	if p.Mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
 		volumeMounts = append(volumeMounts, v1.VolumeMount{
@@ -203,6 +214,53 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 	t.Spec.Containers = append(t.Spec.Containers, sidecar)
 
 	return nil
+}
+
+func resolvePort(c v1.Container, port intstr.IntOrString) (int, error) {
+	switch port.Type {
+	case intstr.Int:
+		return port.IntValue(), nil
+	case intstr.String:
+		for _, named := range c.Ports {
+			if named.Name == port.String() {
+				return int(named.ContainerPort), nil
+			}
+		}
+		return 0, fmt.Errorf("missing named port %q", port)
+	default:
+		return 0, fmt.Errorf("incorrect port type %q", port)
+	}
+}
+
+func healthPorts(t *v1.PodTemplateSpec) ([]int, error) {
+	set := make(map[int]bool)
+	var errs error
+	for _, container := range t.Spec.Containers {
+		if container.LivenessProbe != nil && container.LivenessProbe.HTTPGet != nil {
+			port, err := resolvePort(container, container.LivenessProbe.HTTPGet.Port)
+			if err != nil {
+				errs = multierror.Append(errs, err)
+			} else {
+				set[port] = true
+			}
+		}
+		if container.ReadinessProbe != nil && container.ReadinessProbe.HTTPGet != nil {
+			port, err := resolvePort(container, container.ReadinessProbe.HTTPGet.Port)
+			if err != nil {
+				errs = multierror.Append(errs, err)
+			} else {
+				set[port] = true
+			}
+		}
+	}
+
+	out := make([]int, 0)
+	for port := range set {
+		out = append(out, port)
+	}
+	sort.Ints(out)
+	return out, errs
+
 }
 
 // IntoResourceFile injects the istio proxy into the specified

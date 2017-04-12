@@ -56,6 +56,10 @@ func TestIntoResourceFile(t *testing.T) {
 			want: "testdata/hello.yaml.injected",
 		},
 		{
+			in:   "testdata/hello-probes.yaml",
+			want: "testdata/hello-probes.yaml.injected",
+		},
+		{
 			configMapName: "config-map-name",
 			in:            "testdata/hello.yaml",
 			want:          "testdata/hello-config-map-name.yaml.injected",

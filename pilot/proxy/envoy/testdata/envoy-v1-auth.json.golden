@@ -211,6 +211,29 @@
       "bind_to_port": false
     },
     {
+      "address": "tcp://10.1.1.1:3333",
+      "filters": [
+        {
+          "type": "read",
+          "name": "tcp_proxy",
+          "config": {
+            "stat_prefix": "tcp",
+            "route_config": {
+              "routes": [
+                {
+                  "cluster": "in.3333",
+                  "destination_ip_list": [
+                    "10.1.1.1/32"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "bind_to_port": false
+    },
+    {
       "address": "tcp://10.1.1.1:80",
       "filters": [
         {
@@ -344,6 +367,17 @@
         "hosts": [
           {
             "url": "tcp://127.0.0.1:1090"
+          }
+        ]
+      },
+      {
+        "name": "in.3333",
+        "connect_timeout_ms": 1000,
+        "type": "static",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://127.0.0.1:3333"
           }
         ]
       },

@@ -56,4 +56,10 @@ spec:
         - containerPort: {{.port2}}
         - containerPort: {{.port3}}
         - containerPort: {{.port4}}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 3333
+          initialDelaySeconds: 1
+          periodSeconds: 1
 ---
