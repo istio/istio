@@ -40,7 +40,19 @@ if [[ -z "${ISTIO_PROXY_PORT-}" ]] || [[ -z "${ISTIO_PROXY_UID-}" ]]; then
   exit 1
 fi
 
+# 1. External traffic is redirected to proxy port
 iptables -t nat -A PREROUTING -p tcp -j REDIRECT --to-port ${ISTIO_PROXY_PORT}
+
+# 2. Locally generated traffic sent on loopback interface (because traffic was
+# routed locally) and destination IP is not explicitly the loopback IP
+# (e.g. 172.17.0.2 and not 127.0.0.1) is redirected back to proxy port.
+# This include any proxy generated traffic which is necessary to make
+# (app => proxy => proxy => app) work when two apps are same pod.
+iptables -t nat -A OUTPUT -p tcp -o lo -j REDIRECT \
+  ! -d 127.0.0.1/32 --to-port ${ISTIO_PROXY_PORT}
+
+# 3. Locally generated traffic not sent explicitly from loopback IP
+# (i.e. proxy aware) or not from the proxy itself is redirected proxy port.
 iptables -t nat -A OUTPUT -p tcp -j REDIRECT ! -s 127.0.0.1/32 \
   --to-port ${ISTIO_PROXY_PORT} -m owner '!' --uid-owner ${ISTIO_PROXY_UID}
 
