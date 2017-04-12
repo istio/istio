@@ -8,7 +8,7 @@ type: markdown
 ---
 
 `istioctl` is a command line interface for managing an Istio service mesh.  This overview covers
-synax, describes command operations, and provides examples.
+syntax, describes command operations, and provides examples.
 
 # Syntax
 
