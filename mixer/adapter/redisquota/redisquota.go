@@ -48,7 +48,6 @@ var (
 )
 
 // Register records the builders exposed by this adapter.
-// TODO: need to be registered in inventory
 func Register(r adapter.Registrar) {
 	r.RegisterQuotasBuilder(newBuilder())
 }

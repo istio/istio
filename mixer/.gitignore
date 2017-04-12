@@ -52,6 +52,7 @@ bazel-*
 
 .idea/
 *.iml
+CMakeLists.txt
 
 # key file
 istio-testing.json

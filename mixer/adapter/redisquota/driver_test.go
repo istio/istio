@@ -18,7 +18,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/alicebob/miniredis"
+	"github.com/chowchow316/miniredis"
 )
 
 func TestPool(t *testing.T) {
