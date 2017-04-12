@@ -60,8 +60,8 @@ const (
 	IngressDefault
 )
 
-// ControllerConfig stores the configurable attributes of a Controller.
-type ControllerConfig struct {
+// ControllerOptions stores the configurable attributes of a Controller.
+type ControllerOptions struct {
 	Namespace       string
 	ResyncPeriod    time.Duration
 	IngressSyncMode IngressSyncMode
@@ -71,9 +71,9 @@ type ControllerConfig struct {
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	client *Client
-	config ControllerConfig
-	queue  Queue
+	client  *Client
+	options ControllerOptions
+	queue   Queue
 
 	kinds     map[string]cacheHandler
 	services  cacheHandler
@@ -89,56 +89,56 @@ type cacheHandler struct {
 }
 
 // NewController creates a new Kubernetes controller
-func NewController(client *Client, config ControllerConfig) *Controller {
+func NewController(client *Client, options ControllerOptions) *Controller {
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &Controller{
-		client: client,
-		config: config,
-		queue:  NewQueue(1 * time.Second),
-		kinds:  make(map[string]cacheHandler),
+		client:  client,
+		options: options,
+		queue:   NewQueue(1 * time.Second),
+		kinds:   make(map[string]cacheHandler),
 	}
 
-	out.services = out.createInformer(&v1.Service{}, config.ResyncPeriod,
+	out.services = out.createInformer(&v1.Service{}, options.ResyncPeriod,
 		func(opts meta_v1.ListOptions) (runtime.Object, error) {
-			return client.client.CoreV1().Services(config.Namespace).List(opts)
+			return client.client.CoreV1().Services(options.Namespace).List(opts)
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
-			return client.client.CoreV1().Services(config.Namespace).Watch(opts)
+			return client.client.CoreV1().Services(options.Namespace).Watch(opts)
 		})
 
-	out.endpoints = out.createInformer(&v1.Endpoints{}, config.ResyncPeriod,
+	out.endpoints = out.createInformer(&v1.Endpoints{}, options.ResyncPeriod,
 		func(opts meta_v1.ListOptions) (runtime.Object, error) {
-			return client.client.CoreV1().Endpoints(config.Namespace).List(opts)
+			return client.client.CoreV1().Endpoints(options.Namespace).List(opts)
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
-			return client.client.CoreV1().Endpoints(config.Namespace).Watch(opts)
+			return client.client.CoreV1().Endpoints(options.Namespace).Watch(opts)
 		})
 
-	out.pods = newPodCache(out.createInformer(&v1.Pod{}, config.ResyncPeriod,
+	out.pods = newPodCache(out.createInformer(&v1.Pod{}, options.ResyncPeriod,
 		func(opts meta_v1.ListOptions) (runtime.Object, error) {
-			return client.client.CoreV1().Pods(config.Namespace).List(opts)
+			return client.client.CoreV1().Pods(options.Namespace).List(opts)
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
-			return client.client.CoreV1().Pods(config.Namespace).Watch(opts)
+			return client.client.CoreV1().Pods(options.Namespace).Watch(opts)
 		}))
 
-	if config.IngressSyncMode != IngressOff {
-		out.ingresses = out.createInformer(&v1beta1.Ingress{}, config.ResyncPeriod,
+	if options.IngressSyncMode != IngressOff {
+		out.ingresses = out.createInformer(&v1beta1.Ingress{}, options.ResyncPeriod,
 			func(opts meta_v1.ListOptions) (runtime.Object, error) {
-				return client.client.ExtensionsV1beta1().Ingresses(config.Namespace).List(opts)
+				return client.client.ExtensionsV1beta1().Ingresses(options.Namespace).List(opts)
 			},
 			func(opts meta_v1.ListOptions) (watch.Interface, error) {
-				return client.client.ExtensionsV1beta1().Ingresses(config.Namespace).Watch(opts)
+				return client.client.ExtensionsV1beta1().Ingresses(options.Namespace).Watch(opts)
 			})
 	}
 
 	// add stores for TPR kinds
 	for _, kind := range []string{IstioKind} {
-		out.kinds[kind] = out.createInformer(&Config{}, config.ResyncPeriod,
+		out.kinds[kind] = out.createInformer(&Config{}, options.ResyncPeriod,
 			func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
 				result = &ConfigList{}
 				err = client.dyn.Get().
-					Namespace(config.Namespace).
+					Namespace(options.Namespace).
 					Resource(kind+"s").
 					VersionedParams(&opts, api.ParameterCodec).
 					Do().
@@ -148,7 +148,7 @@ func NewController(client *Client, config ControllerConfig) *Controller {
 			func(opts meta_v1.ListOptions) (watch.Interface, error) {
 				return client.dyn.Get().
 					Prefix("watch").
-					Namespace(config.Namespace).
+					Namespace(options.Namespace).
 					Resource(kind+"s").
 					VersionedParams(&opts, api.ParameterCodec).
 					Watch()
@@ -238,7 +238,7 @@ func (c *Controller) appendTPRConfigHandler(k string, f func(model.Key, proto.Me
 }
 
 func (c *Controller) appendIngressConfigHandler(k string, f func(model.Key, proto.Message, model.Event)) error {
-	if c.config.IngressSyncMode == IngressOff {
+	if c.options.IngressSyncMode == IngressOff {
 		return fmt.Errorf("cannot append ingress config handler: ingress resources synchronization is off")
 	}
 
@@ -269,7 +269,7 @@ func (c *Controller) HasSynced() bool {
 		return false
 	}
 
-	if c.config.IngressSyncMode != IngressOff && !c.ingresses.informer.HasSynced() {
+	if c.options.IngressSyncMode != IngressOff && !c.ingresses.informer.HasSynced() {
 		return false
 	}
 
@@ -289,7 +289,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	go c.endpoints.informer.Run(stop)
 	go c.pods.informer.Run(stop)
 
-	if c.config.IngressSyncMode != IngressOff {
+	if c.options.IngressSyncMode != IngressOff {
 		go c.ingresses.informer.Run(stop)
 	}
 
@@ -352,7 +352,7 @@ func (c *Controller) getTPR(key model.Key) (proto.Message, bool) {
 }
 
 func (c *Controller) getIngress(key model.Key) (proto.Message, bool) {
-	if c.config.IngressSyncMode == IngressOff {
+	if c.options.IngressSyncMode == IngressOff {
 		glog.Warningf("Cannot get ingress resource for key %v: ingress resources synchronization is off", key.String())
 		return nil, false
 	}
@@ -438,7 +438,7 @@ func (c *Controller) listTPRs(kind, namespace string) (map[model.Key]proto.Messa
 func (c *Controller) listIngresses(kind, namespace string) (map[model.Key]proto.Message, error) {
 	out := make(map[model.Key]proto.Message)
 
-	if c.config.IngressSyncMode == IngressOff {
+	if c.options.IngressSyncMode == IngressOff {
 		glog.Warningf("Cannot list ingress resources: ingress resources synchronization is off")
 		return out, nil
 	}
@@ -735,15 +735,15 @@ func (c *Controller) shouldProcessIngress(ingress *v1beta1.Ingress) bool {
 		class, exists = ingress.Annotations[ingressClassAnnotation]
 	}
 
-	switch c.config.IngressSyncMode {
+	switch c.options.IngressSyncMode {
 	case IngressOff:
 		return false
 	case IngressStrict:
-		return exists && class == c.config.IngressClass
+		return exists && class == c.options.IngressClass
 	case IngressDefault:
-		return !exists || class == c.config.IngressClass
+		return !exists || class == c.options.IngressClass
 	default:
-		glog.Warningf("Invalid ingress synchronization mode: %v", c.config.IngressSyncMode)
+		glog.Warningf("Invalid ingress synchronization mode: %v", c.options.IngressSyncMode)
 		return false
 	}
 }

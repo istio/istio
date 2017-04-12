@@ -25,6 +25,7 @@ import (
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
+	"istio.io/manager/proxy"
 	"istio.io/manager/test/mock"
 	"istio.io/manager/test/util"
 )
@@ -229,8 +230,9 @@ const (
 )
 
 func testConfig(r *model.IstioRegistry, mesh *proxyconfig.ProxyMeshConfig, instance, envoyConfig string, t *testing.T) {
-	config := Generate(&ProxyContext{
+	config := Generate(&proxy.Context{
 		Discovery:  mock.Discovery,
+		Accounts:   mock.Discovery,
 		Config:     r,
 		MeshConfig: mesh,
 		IPAddress:  instance,

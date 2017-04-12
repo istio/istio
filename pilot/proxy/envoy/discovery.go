@@ -27,17 +27,14 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
+	"istio.io/manager/proxy"
 )
 
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
-	services   model.ServiceDiscovery
-	controller model.Controller
-	config     *model.IstioRegistry
-	mesh       *proxyconfig.ProxyMeshConfig
-	server     *http.Server
+	*proxy.Context
+	server *http.Server
 
 	// TODO Profile and optimize cache eviction policy to avoid
 	// flushing the entire cache when any route, service, or endpoint
@@ -168,25 +165,19 @@ const (
 // DiscoveryServiceOptions contains options for create a new discovery
 // service instance.
 type DiscoveryServiceOptions struct {
-	Services        model.ServiceDiscovery
-	Controller      model.Controller
-	Config          *model.IstioRegistry
-	Mesh            *proxyconfig.ProxyMeshConfig
 	Port            int
 	EnableProfiling bool
 	EnableCaching   bool
 }
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
-func NewDiscoveryService(o DiscoveryServiceOptions) (*DiscoveryService, error) {
+func NewDiscoveryService(ctl model.Controller, context *proxy.Context,
+	o DiscoveryServiceOptions) (*DiscoveryService, error) {
 	out := &DiscoveryService{
-		services:   o.Services,
-		controller: o.Controller,
-		config:     o.Config,
-		mesh:       o.Mesh,
-		sdsCache:   newDiscoveryCache(o.EnableCaching),
-		cdsCache:   newDiscoveryCache(o.EnableCaching),
-		rdsCache:   newDiscoveryCache(o.EnableCaching),
+		Context:  context,
+		sdsCache: newDiscoveryCache(o.EnableCaching),
+		cdsCache: newDiscoveryCache(o.EnableCaching),
+		rdsCache: newDiscoveryCache(o.EnableCaching),
 	}
 	container := restful.NewContainer()
 	if o.EnableProfiling {
@@ -202,18 +193,18 @@ func NewDiscoveryService(o DiscoveryServiceOptions) (*DiscoveryService, error) {
 	// Flush cached discovery responses whenever services, service
 	// instances, or routing configuration changes.
 	serviceHandler := func(s *model.Service, e model.Event) { out.clearCache() }
-	if err := o.Controller.AppendServiceHandler(serviceHandler); err != nil {
+	if err := ctl.AppendServiceHandler(serviceHandler); err != nil {
 		return nil, err
 	}
 	instanceHandler := func(s *model.ServiceInstance, e model.Event) { out.clearCache() }
-	if err := o.Controller.AppendInstanceHandler(instanceHandler); err != nil {
+	if err := ctl.AppendInstanceHandler(instanceHandler); err != nil {
 		return nil, err
 	}
 	configHandler := func(k model.Key, m proto.Message, e model.Event) { out.clearCache() }
-	if err := o.Controller.AppendConfigHandler(model.RouteRule, configHandler); err != nil {
+	if err := ctl.AppendConfigHandler(model.RouteRule, configHandler); err != nil {
 		return nil, err
 	}
-	if err := o.Controller.AppendConfigHandler(model.DestinationPolicy, configHandler); err != nil {
+	if err := ctl.AppendConfigHandler(model.DestinationPolicy, configHandler); err != nil {
 		return nil, err
 	}
 
@@ -310,7 +301,7 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 		hostname, ports, tags := model.ParseServiceKey(request.PathParameter(ServiceKey))
 		// envoy expects an empty array if no hosts are available
 		hostArray := make([]*host, 0)
-		for _, ep := range ds.services.Instances(hostname, ports.GetNames(), tags) {
+		for _, ep := range ds.Discovery.Instances(hostname, ports.GetNames(), tags) {
 			hostArray = append(hostArray, &host{
 				Address: ep.Endpoint.Address,
 				Port:    ep.Endpoint.Port,
@@ -331,7 +322,7 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 	key := request.Request.URL.String()
 	out, cached := ds.cdsCache.cachedDiscoveryResponse(key)
 	if !cached {
-		if sc := request.PathParameter(ServiceCluster); sc != ds.mesh.IstioServiceCluster {
+		if sc := request.PathParameter(ServiceCluster); sc != ds.MeshConfig.IstioServiceCluster {
 			errorResponse(response, http.StatusNotFound,
 				fmt.Sprintf("Unexpected %s %q", ServiceCluster, sc))
 			return
@@ -343,21 +334,16 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 		// TODO: this implementation is inefficient as it is recomputing all the routes for all proxies
 		// There is a lot of potential to cache and reuse cluster definitions across proxies and also
 		// skip computing the actual HTTP routes
-		instances := ds.services.HostInstances(map[string]bool{ip: true})
-		services := ds.services.Services()
-		httpRouteConfigs := buildOutboundHTTPRoutes(instances, services, &ProxyContext{
-			Discovery:  ds.services,
-			Config:     ds.config,
-			MeshConfig: ds.mesh,
-			IPAddress:  ip,
-		})
+		instances := ds.Discovery.HostInstances(map[string]bool{ip: true})
+		services := ds.Discovery.Services()
+		httpRouteConfigs := buildOutboundHTTPRoutes(instances, services, ds.Accounts, ds.MeshConfig, ds.Config)
 
 		// de-duplicate and canonicalize clusters
 		clusters := httpRouteConfigs.clusters().normalize()
 
 		// apply custom policies for HTTP clusters
 		for _, cluster := range clusters {
-			insertDestinationPolicy(ds.config, cluster)
+			insertDestinationPolicy(ds.Config, cluster)
 		}
 
 		var err error
@@ -377,7 +363,7 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 	key := request.Request.URL.String()
 	out, cached := ds.rdsCache.cachedDiscoveryResponse(key)
 	if !cached {
-		if sc := request.PathParameter(ServiceCluster); sc != ds.mesh.IstioServiceCluster {
+		if sc := request.PathParameter(ServiceCluster); sc != ds.MeshConfig.IstioServiceCluster {
 			errorResponse(response, http.StatusNotFound,
 				fmt.Sprintf("Unexpected %s %q", ServiceCluster, sc))
 			return
@@ -394,14 +380,9 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 			return
 		}
 
-		instances := ds.services.HostInstances(map[string]bool{ip: true})
-		services := ds.services.Services()
-		httpRouteConfigs := buildOutboundHTTPRoutes(instances, services, &ProxyContext{
-			Discovery:  ds.services,
-			Config:     ds.config,
-			MeshConfig: ds.mesh,
-			IPAddress:  ip,
-		})
+		instances := ds.Discovery.HostInstances(map[string]bool{ip: true})
+		services := ds.Discovery.Services()
+		httpRouteConfigs := buildOutboundHTTPRoutes(instances, services, ds.Accounts, ds.MeshConfig, ds.Config)
 
 		routeConfig, ok := httpRouteConfigs[port]
 		if !ok {

@@ -42,7 +42,7 @@ func TestIngressController(t *testing.T) {
 	ns := makeNamespace(cl.client, t)
 	defer deleteNamespace(cl.client, ns)
 
-	ctl := NewController(cl, ControllerConfig{
+	ctl := NewController(cl, ControllerOptions{
 		Namespace:       ns,
 		ResyncPeriod:    resync,
 		IngressSyncMode: IngressDefault,
@@ -215,7 +215,7 @@ func TestIngressClass(t *testing.T) {
 			},
 		}
 
-		ctl := NewController(cl, ControllerConfig{
+		ctl := NewController(cl, ControllerOptions{
 			Namespace:       ns,
 			ResyncPeriod:    resync,
 			IngressSyncMode: c.ingressMode,
@@ -241,7 +241,7 @@ func TestController(t *testing.T) {
 	stop := make(chan struct{})
 	defer close(stop)
 
-	ctl := NewController(cl, ControllerConfig{Namespace: ns, ResyncPeriod: resync})
+	ctl := NewController(cl, ControllerOptions{Namespace: ns, ResyncPeriod: resync})
 	added, deleted := 0, 0
 	n := 5
 	err := ctl.AppendConfigHandler(mock.Kind, func(k model.Key, o proto.Message, ev model.Event) {
@@ -274,7 +274,7 @@ func TestControllerCacheFreshness(t *testing.T) {
 	ns := makeNamespace(cl.client, t)
 	defer deleteNamespace(cl.client, ns)
 	stop := make(chan struct{})
-	ctl := NewController(cl, ControllerConfig{Namespace: ns, ResyncPeriod: resync})
+	ctl := NewController(cl, ControllerOptions{Namespace: ns, ResyncPeriod: resync})
 
 	// test interface implementation
 	var _ model.Controller = ctl
@@ -344,7 +344,7 @@ func TestControllerClientSync(t *testing.T) {
 	}
 
 	// check in the controller cache
-	ctl := NewController(cl, ControllerConfig{Namespace: ns, ResyncPeriod: resync})
+	ctl := NewController(cl, ControllerOptions{Namespace: ns, ResyncPeriod: resync})
 	go ctl.Run(stop)
 	eventually(func() bool { return ctl.HasSynced() }, t)
 	os, _ := ctl.List(mock.Kind, ns)
@@ -416,7 +416,7 @@ func TestServices(t *testing.T) {
 	stop := make(chan struct{})
 	defer close(stop)
 
-	ctl := NewController(cl, ControllerConfig{Namespace: ns, ResyncPeriod: resync})
+	ctl := NewController(cl, ControllerOptions{Namespace: ns, ResyncPeriod: resync})
 	go ctl.Run(stop)
 
 	hostname := fmt.Sprintf("%s.%s.%s", testService, ns, ServiceSuffix)
@@ -467,7 +467,7 @@ func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
 
 func TestController_GetIstioServiceAccounts(t *testing.T) {
 	clientSet := fake.NewSimpleClientset()
-	controller := NewController(&Client{client: clientSet}, ControllerConfig{
+	controller := NewController(&Client{client: clientSet}, ControllerOptions{
 		Namespace:    "default",
 		ResyncPeriod: resync,
 	})

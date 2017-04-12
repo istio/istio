@@ -26,6 +26,7 @@ import (
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
+	"istio.io/manager/proxy"
 	"istio.io/manager/test/mock"
 	"istio.io/manager/test/util"
 )
@@ -46,14 +47,18 @@ func (mockController) AppendInstanceHandler(_ func(*model.ServiceInstance, model
 func (mockController) Run(_ <-chan struct{}) {}
 
 func makeDiscoveryService(t *testing.T, r *model.IstioRegistry) *DiscoveryService {
-	out, err := NewDiscoveryService(DiscoveryServiceOptions{
-		Services:        mock.Discovery,
-		Controller:      &mockController{},
-		Config:          r,
-		Mesh:            &DefaultMeshConfig,
-		EnableCaching:   true,
-		EnableProfiling: true, // increase code coverage stats
-	})
+	out, err := NewDiscoveryService(
+		&mockController{},
+		&proxy.Context{
+			Discovery:  mock.Discovery,
+			Accounts:   mock.Discovery,
+			Config:     r,
+			MeshConfig: &DefaultMeshConfig,
+		},
+		DiscoveryServiceOptions{
+			EnableCaching:   true,
+			EnableProfiling: true, // increase code coverage stats
+		})
 	if err != nil {
 		t.Fatalf("NewDiscoveryService failed: %v", err)
 	}
@@ -63,13 +68,17 @@ func makeDiscoveryService(t *testing.T, r *model.IstioRegistry) *DiscoveryServic
 func makeDiscoveryServiceWithSSLContext(t *testing.T, r *model.IstioRegistry) *DiscoveryService {
 	mesh := DefaultMeshConfig
 	mesh.AuthPolicy = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
-	out, err := NewDiscoveryService(DiscoveryServiceOptions{
-		Services:      mock.Discovery,
-		Controller:    &mockController{},
-		Config:        r,
-		Mesh:          &mesh,
-		EnableCaching: true,
-	})
+	out, err := NewDiscoveryService(
+		&mockController{},
+		&proxy.Context{
+			Discovery:  mock.Discovery,
+			Accounts:   mock.Discovery,
+			Config:     r,
+			MeshConfig: &mesh,
+		},
+		DiscoveryServiceOptions{
+			EnableCaching: true,
+		})
 	if err != nil {
 		t.Fatalf("NewDiscoveryService failed: %v", err)
 
@@ -126,7 +135,7 @@ func TestServiceDiscoveryEmpty(t *testing.T) {
 func TestClusterDiscovery(t *testing.T) {
 	registry := mock.MakeRegistry()
 	ds := makeDiscoveryService(t, registry)
-	url := fmt.Sprintf("/v1/clusters/%s/%s", ds.mesh.IstioServiceCluster, mock.HostInstanceV0)
+	url := fmt.Sprintf("/v1/clusters/%s/%s", ds.MeshConfig.IstioServiceCluster, mock.HostInstanceV0)
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds.json", t)
 }
@@ -135,7 +144,7 @@ func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	registry := mock.MakeRegistry()
 	addCircuitBreaker(registry, t)
 	ds := makeDiscoveryService(t, registry)
-	url := fmt.Sprintf("/v1/clusters/%s/%s", ds.mesh.IstioServiceCluster, mock.HostInstanceV0)
+	url := fmt.Sprintf("/v1/clusters/%s/%s", ds.MeshConfig.IstioServiceCluster, mock.HostInstanceV0)
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-circuit-breaker.json", t)
 }
@@ -143,17 +152,17 @@ func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 func TestClusterDiscoveryWithSSLContext(t *testing.T) {
 	registry := mock.MakeRegistry()
 	ds := makeDiscoveryServiceWithSSLContext(t, registry)
-	url := fmt.Sprintf("/v1/clusters/%s/%s", ds.mesh.IstioServiceCluster, mock.HostInstanceV0)
+	url := fmt.Sprintf("/v1/clusters/%s/%s", ds.MeshConfig.IstioServiceCluster, mock.HostInstanceV0)
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-ssl-context.json", t)
 }
 
 func TestRouteDiscovery(t *testing.T) {
 	ds := makeDiscoveryService(t, mock.MakeRegistry())
-	url := fmt.Sprintf("/v1/routes/80/%s/%s", ds.mesh.IstioServiceCluster, mock.HostInstanceV0)
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", ds.MeshConfig.IstioServiceCluster, mock.HostInstanceV0)
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-v0.json", t)
-	url = fmt.Sprintf("/v1/routes/80/%s/%s", ds.mesh.IstioServiceCluster, mock.HostInstanceV1)
+	url = fmt.Sprintf("/v1/routes/80/%s/%s", ds.MeshConfig.IstioServiceCluster, mock.HostInstanceV1)
 	response = makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-v1.json", t)
 }
@@ -162,7 +171,7 @@ func TestRouteDiscoveryTimeout(t *testing.T) {
 	registry := mock.MakeRegistry()
 	addTimeout(registry, t)
 	ds := makeDiscoveryService(t, registry)
-	url := fmt.Sprintf("/v1/routes/80/%s/%s", ds.mesh.IstioServiceCluster, mock.HostInstanceV0)
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", ds.MeshConfig.IstioServiceCluster, mock.HostInstanceV0)
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-timeout.json", t)
 }
@@ -171,7 +180,7 @@ func TestRouteDiscoveryWeighted(t *testing.T) {
 	registry := mock.MakeRegistry()
 	addWeightedRoute(registry, t)
 	ds := makeDiscoveryService(t, registry)
-	url := fmt.Sprintf("/v1/routes/80/%s/%s", ds.mesh.IstioServiceCluster, mock.HostInstanceV0)
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", ds.MeshConfig.IstioServiceCluster, mock.HostInstanceV0)
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-weighted.json", t)
 }
@@ -182,11 +191,11 @@ func TestRouteDiscoveryFault(t *testing.T) {
 	ds := makeDiscoveryService(t, registry)
 
 	// fault rule is source based: we check that the rule only affect v0 and not v1
-	url := fmt.Sprintf("/v1/routes/80/%s/%s", ds.mesh.IstioServiceCluster, mock.HostInstanceV0)
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", ds.MeshConfig.IstioServiceCluster, mock.HostInstanceV0)
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-fault.json", t)
 
-	url = fmt.Sprintf("/v1/routes/80/%s/%s", ds.mesh.IstioServiceCluster, mock.HostInstanceV1)
+	url = fmt.Sprintf("/v1/routes/80/%s/%s", ds.MeshConfig.IstioServiceCluster, mock.HostInstanceV1)
 	response = makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-v1.json", t)
 }
@@ -195,8 +204,8 @@ func TestDiscoveryCache(t *testing.T) {
 	ds := makeDiscoveryService(t, mock.MakeRegistry())
 
 	sds := "/v1/registration/" + mock.HelloService.Key(mock.HelloService.Ports[0], nil)
-	cds := fmt.Sprintf("/v1/clusters/%s/%s", ds.mesh.IstioServiceCluster, mock.HostInstanceV0)
-	rds := fmt.Sprintf("/v1/routes/80/%s/%s", ds.mesh.IstioServiceCluster, mock.HostInstanceV0)
+	cds := fmt.Sprintf("/v1/clusters/%s/%s", ds.MeshConfig.IstioServiceCluster, mock.HostInstanceV0)
+	rds := fmt.Sprintf("/v1/routes/80/%s/%s", ds.MeshConfig.IstioServiceCluster, mock.HostInstanceV0)
 	responseByPath := map[string]string{
 		sds: "testdata/sds.json",
 		cds: "testdata/cds.json",

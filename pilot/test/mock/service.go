@@ -23,9 +23,9 @@ import (
 
 // Mock values
 var (
-	HelloService                        = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
-	WorldService                        = MakeService("world.default.svc.cluster.local", "10.2.0.0")
-	Discovery    model.ServiceDiscovery = &ServiceDiscovery{
+	HelloService = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
+	WorldService = MakeService("world.default.svc.cluster.local", "10.2.0.0")
+	Discovery    = &ServiceDiscovery{
 		services: map[string]*model.Service{
 			HelloService.Hostname: HelloService,
 			WorldService.Hostname: WorldService,
@@ -43,15 +43,15 @@ func MakeService(hostname, address string) *model.Service {
 		Address:  address,
 		Ports: []*model.Port{{
 			Name:     "http",
-			Port:     80,
+			Port:     80, // target port 80
 			Protocol: model.ProtocolHTTP,
 		}, {
 			Name:     "http-status",
-			Port:     81,
+			Port:     81, // target port 1081
 			Protocol: model.ProtocolHTTP,
 		}, {
 			Name:     "custom",
-			Port:     90,
+			Port:     90, // target port 1090
 			Protocol: model.ProtocolTCP,
 		}},
 	}

@@ -10,6 +10,7 @@ go_library(
         "//cmd/version:go_default_library",
         "//model:go_default_library",
         "//platform/kube:go_default_library",
+        "//proxy:go_default_library",
         "//proxy/envoy:go_default_library",
         "@com_github_davecgh_go_spew//spew:go_default_library",
         "@com_github_golang_glog//:go_default_library",

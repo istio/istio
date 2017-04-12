@@ -23,9 +23,10 @@ import (
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
+	"istio.io/manager/proxy"
 )
 
-func insertMixerFilter(listeners []*Listener, instances []*model.ServiceInstance, context *ProxyContext) {
+func insertMixerFilter(listeners []*Listener, instances []*model.ServiceInstance, context *proxy.Context) {
 	if context.MeshConfig.MixerAddress == "" {
 		return
 	}

@@ -26,13 +26,12 @@ import (
 	"io"
 	"strconv"
 
+	"github.com/ghodss/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/pkg/api/v1"
 	batch "k8s.io/client-go/pkg/apis/batch/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
-
-	"github.com/ghodss/yaml"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 )
@@ -146,6 +145,7 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 	if p.MeshConfigMapName != "" {
 		args = append(args, "--meshConfig", p.MeshConfigMapName)
 	}
+
 	var volumeMounts []v1.VolumeMount
 	if p.Mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
 		volumeMounts = append(volumeMounts, v1.VolumeMount{

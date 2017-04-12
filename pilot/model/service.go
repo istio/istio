@@ -177,7 +177,10 @@ type ServiceDiscovery interface {
 
 	// HostInstances lists service instances for a given set of IPv4 addresses.
 	HostInstances(addrs map[string]bool) []*ServiceInstance
+}
 
+// ServiceAccounts exposes Istio service accounts
+type ServiceAccounts interface {
 	// Gets all the Istio service accounts mapped from service hostname, in istio identity format.
 	// For example,
 	// GetIstioServiceAccounts(catalog.myservice.com, 80) ->

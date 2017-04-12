@@ -376,8 +376,22 @@ type Listener struct {
 // Listeners is a collection of listeners
 type Listeners []*Listener
 
-func (listeners Listeners) normalize() {
-	sort.Slice(listeners, func(i, j int) bool { return listeners[i].Address < listeners[j].Address })
+// normalize sorts listeners by address
+func (listeners Listeners) normalize() Listeners {
+	out := make(Listeners, len(listeners))
+	copy(out, listeners)
+	sort.Slice(out, func(i, j int) bool { return out[i].Address < out[j].Address })
+	return out
+}
+
+// GetByAddress returns a listener by its address
+func (listeners Listeners) GetByAddress(addr string) *Listener {
+	for _, listener := range listeners {
+		if listener.Address == addr {
+			return listener
+		}
+	}
+	return nil
 }
 
 // SSLContext definition
@@ -452,7 +466,7 @@ type OutlierDetection struct {
 // Clusters is a collection of clusters
 type Clusters []*Cluster
 
-// normalize deduplicates and sorts clusters
+// normalize deduplicates and sorts clusters by name
 func (clusters Clusters) normalize() Clusters {
 	out := make(Clusters, 0)
 	set := make(map[string]bool)

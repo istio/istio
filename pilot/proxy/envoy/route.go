@@ -66,13 +66,13 @@ func buildDefaultRoute(cluster *Cluster) *HTTPRoute {
 	}
 }
 
-func buildInboundCluster(hostname string, port int, protocol model.Protocol) *Cluster {
+func buildInboundCluster(port int, protocol model.Protocol, timeout *duration.Duration) *Cluster {
 	cluster := &Cluster{
-		Name:     fmt.Sprintf("%s%d", InboundClusterPrefix, port),
-		Type:     "static",
-		LbType:   DefaultLbType,
-		Hosts:    []Host{{URL: fmt.Sprintf("tcp://%s:%d", "127.0.0.1", port)}},
-		hostname: hostname,
+		Name:             fmt.Sprintf("%s%d", InboundClusterPrefix, port),
+		Type:             "static",
+		ConnectTimeoutMs: int(convertDuration(timeout) / time.Millisecond),
+		LbType:           DefaultLbType,
+		Hosts:            []Host{{URL: fmt.Sprintf("tcp://%s:%d", "127.0.0.1", port)}},
 	}
 	if protocol == model.ProtocolGRPC || protocol == model.ProtocolHTTP2 {
 		cluster.Features = "http2"

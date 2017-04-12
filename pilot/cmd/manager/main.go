@@ -30,24 +30,23 @@ import (
 	"istio.io/manager/cmd/version"
 	"istio.io/manager/model"
 	"istio.io/manager/platform/kube"
+	"istio.io/manager/proxy"
 	"istio.io/manager/proxy/envoy"
 )
 
 type args struct {
-	kubeconfig   string
-	namespace    string
-	resyncPeriod time.Duration
-	config       string
+	kubeconfig string
+	meshConfig string
 
-	ipAddress                string
-	podName                  string
-	sdsPort                  int
-	apiserverPort            int
-	ingressSecret            string
-	ingressClass             string
+	ipAddress     string
+	podName       string
+	ingressSecret string
+	apiserverPort int
+
+	controllerOptions kube.ControllerOptions
+	discoveryOptions  envoy.DiscoveryServiceOptions
+
 	defaultIngressController bool
-	enableProfiling          bool
-	enableDiscoveryCaching   bool
 }
 
 var (
@@ -75,13 +74,13 @@ var (
 			if flags.podName == "" {
 				flags.podName = os.Getenv("POD_NAME")
 			}
-			if flags.namespace == "" {
-				flags.namespace = os.Getenv("POD_NAMESPACE")
+			if flags.controllerOptions.Namespace == "" {
+				flags.controllerOptions.Namespace = os.Getenv("POD_NAMESPACE")
 			}
 			glog.V(2).Infof("flags %s", spew.Sdump(flags))
 
 			// receive mesh configuration
-			mesh, err = cmd.GetMeshConfig(client.GetKubernetesClient(), flags.namespace, flags.config)
+			mesh, err = cmd.GetMeshConfig(client.GetKubernetesClient(), flags.controllerOptions.Namespace, flags.meshConfig)
 			if err != nil {
 				return multierror.Prefix(err, "failed to retrieve mesh configuration.")
 			}
@@ -95,23 +94,17 @@ var (
 		Use:   "discovery",
 		Short: "Start Istio Manager discovery service",
 		RunE: func(c *cobra.Command, args []string) (err error) {
-			controller := kube.NewController(client, kube.ControllerConfig{
-				Namespace:       flags.namespace,
-				ResyncPeriod:    flags.resyncPeriod,
-				IngressSyncMode: kube.IngressOff,
-			})
-			options := envoy.DiscoveryServiceOptions{
-				Services:   controller,
-				Controller: controller,
+			flags.controllerOptions.IngressSyncMode = kube.IngressOff
+			controller := kube.NewController(client, flags.controllerOptions)
+			context := &proxy.Context{
+				Discovery: controller,
+				Accounts:  controller,
 				Config: &model.IstioRegistry{
 					ConfigRegistry: controller,
 				},
-				Mesh:            mesh,
-				Port:            flags.sdsPort,
-				EnableProfiling: flags.enableProfiling,
-				EnableCaching:   flags.enableDiscoveryCaching,
+				MeshConfig: mesh,
 			}
-			sds, err := envoy.NewDiscoveryService(options)
+			discovery, err := envoy.NewDiscoveryService(controller, context, flags.discoveryOptions)
 			if err != nil {
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}
@@ -124,7 +117,7 @@ var (
 			})
 			stop := make(chan struct{})
 			go controller.Run(stop)
-			go sds.Run()
+			go discovery.Run()
 			go apiserver.Run()
 			cmd.WaitSignal(stop)
 			return
@@ -140,16 +133,16 @@ var (
 		Use:   "sidecar",
 		Short: "Istio Proxy sidecar agent",
 		RunE: func(c *cobra.Command, args []string) (err error) {
-			controller := kube.NewController(client, kube.ControllerConfig{
-				Namespace:       flags.namespace,
-				ResyncPeriod:    flags.resyncPeriod,
-				IngressSyncMode: kube.IngressOff,
-			})
-			w, err := envoy.NewWatcher(controller,
-				controller,
-				&model.IstioRegistry{ConfigRegistry: controller},
-				mesh,
-				flags.ipAddress)
+			flags.controllerOptions.IngressSyncMode = kube.IngressOff
+			controller := kube.NewController(client, flags.controllerOptions)
+			context := &proxy.Context{
+				Discovery:  controller,
+				Accounts:   controller,
+				Config:     &model.IstioRegistry{ConfigRegistry: controller},
+				MeshConfig: mesh,
+				IPAddress:  flags.ipAddress,
+			}
+			w, err := envoy.NewWatcher(controller, context)
 			if err != nil {
 				return
 			}
@@ -164,17 +157,12 @@ var (
 		Use:   "ingress",
 		Short: "Istio Proxy ingress controller",
 		RunE: func(c *cobra.Command, args []string) error {
-			controllerConfig := kube.ControllerConfig{
-				Namespace:       flags.namespace,
-				ResyncPeriod:    flags.resyncPeriod,
-				IngressSyncMode: kube.IngressStrict,
-				IngressClass:    flags.ingressClass,
-			}
-			controller := kube.NewController(client, controllerConfig)
+			flags.controllerOptions.IngressSyncMode = kube.IngressStrict
+			controller := kube.NewController(client, flags.controllerOptions)
 			config := &envoy.IngressConfig{
 				CertFile:  "/etc/tls.crt",
 				KeyFile:   "/etc/tls.key",
-				Namespace: flags.namespace,
+				Namespace: flags.controllerOptions.Namespace,
 				Secret:    flags.ingressSecret,
 				Secrets:   client,
 				Registry:  &model.IstioRegistry{ConfigRegistry: controller},
@@ -206,21 +194,22 @@ var (
 func init() {
 	rootCmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	rootCmd.PersistentFlags().StringVarP(&flags.namespace, "namespace", "n", "",
+	rootCmd.PersistentFlags().StringVarP(&flags.controllerOptions.Namespace, "namespace", "n", "",
 		"Select a namespace for the controller loop. If not set, uses ${POD_NAMESPACE} environment variable")
-	rootCmd.PersistentFlags().DurationVar(&flags.resyncPeriod, "resync", time.Second,
+	rootCmd.PersistentFlags().DurationVar(&flags.controllerOptions.ResyncPeriod, "resync", time.Second,
 		"Controller resync interval")
-	rootCmd.PersistentFlags().StringVar(&flags.config, "meshConfig", cmd.DefaultConfigMapName,
+	rootCmd.PersistentFlags().StringVar(&flags.meshConfig, "meshConfig", cmd.DefaultConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", cmd.ConfigMapKey))
 
-	discoveryCmd.PersistentFlags().IntVarP(&flags.sdsPort, "sdsPort", "p", 8080,
+	discoveryCmd.PersistentFlags().IntVar(&flags.discoveryOptions.Port, "port", 8080,
 		"Discovery service port")
+	discoveryCmd.PersistentFlags().BoolVar(&flags.discoveryOptions.EnableProfiling, "profile", true,
+		"Enable profiling via web interface host:port/debug/pprof")
+	discoveryCmd.PersistentFlags().BoolVar(&flags.discoveryOptions.EnableCaching, "discovery_cache", true,
+		"Enable caching discovery service responses")
+
 	discoveryCmd.PersistentFlags().IntVar(&flags.apiserverPort, "apiPort", 8081,
 		"API service port")
-	discoveryCmd.PersistentFlags().BoolVar(&flags.enableProfiling, "profile", true,
-		"Enable profiling via web interface host:port/debug/pprof")
-	discoveryCmd.PersistentFlags().BoolVar(&flags.enableDiscoveryCaching, "discovery_cache", true,
-		"Enable caching discovery service responses")
 
 	proxyCmd.PersistentFlags().StringVar(&flags.ipAddress, "ipAddress", "",
 		"IP address. If not provided uses ${POD_IP} environment variable.")
@@ -230,7 +219,7 @@ func init() {
 	// TODO: remove this once we write the logic to obtain secrets dynamically
 	ingressCmd.PersistentFlags().StringVar(&flags.ingressSecret, "secret", "",
 		"Kubernetes secret name for ingress SSL termination")
-	ingressCmd.PersistentFlags().StringVar(&flags.ingressClass, "ingress_class", "istio",
+	ingressCmd.PersistentFlags().StringVar(&flags.controllerOptions.IngressClass, "ingress_class", "istio",
 		"The class of ingress resources to be processed by this ingress controller")
 	ingressCmd.PersistentFlags().BoolVar(&flags.defaultIngressController, "default_ingress_controller", true,
 		"Specifies whether running as the cluster's default ingress controller, "+

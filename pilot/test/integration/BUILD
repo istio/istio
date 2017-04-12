@@ -24,8 +24,8 @@ go_library(
 go_binary(
     name = "integration",
     data = [
-        "ca.yaml.tmpl",
         "app.yaml.tmpl",
+        "ca.yaml.tmpl",
         "cert.crt",
         "cert.key",
         "config.yaml",
