@@ -16,7 +16,7 @@ syntax = "proto3";
 
 package istio.mixer.v1.config.descriptor;
 
-import "mixer/v1/config/descriptor/label_descriptor.proto";
+import "mixer/v1/config/descriptor/value_type.proto";
 
 // An object that describes the schema of a `MonitoredResource`. A
 // `MonitoredResource` is used to define a type of resources for
@@ -33,9 +33,9 @@ message MonitoredResourceDescriptor {
   // An optional detailed description of the monitored resource descriptor that might
   // be used in documentation.
   string description = 2;
-
+  
   // Labels represent the dimensions that uniquely identify this monitored resource.
   // At runtime expressions will be evaluated to provide values for each label. Label
-  // names are mapped to expressions in the service config.
-  repeated LabelDescriptor labels = 3;
+  // names are mapped to expressions as part of aspect configuration.
+  map<string, ValueType> labels = 3;
 }

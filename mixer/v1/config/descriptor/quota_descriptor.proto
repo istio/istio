@@ -17,7 +17,7 @@ syntax = "proto3";
 package istio.mixer.v1.config.descriptor;
 
 import "google/protobuf/duration.proto";
-import "mixer/v1/config/descriptor/label_descriptor.proto";
+import "mixer/v1/config/descriptor/value_type.proto";
 
 // Configuration state for a particular quota.
 //
@@ -41,7 +41,7 @@ message QuotaDescriptor {
 
   // The set of labels that are necessary to describe a specific value cell
   // for a quota of this type.
-  repeated LabelDescriptor labels = 4;
+  map<string, ValueType> labels = 4;
 
   // The default imposed maximum amount for values of this quota.
   int64 max_amount = 5;

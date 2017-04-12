@@ -16,7 +16,6 @@ syntax = "proto3";
 
 package istio.mixer.v1.config.descriptor;
 
-import "mixer/v1/config/descriptor/label_descriptor.proto";
 import "mixer/v1/config/descriptor/value_type.proto";
 
 // Defines a metric type and its schema.
@@ -39,7 +38,7 @@ import "mixer/v1/config/descriptor/value_type.proto";
 //        value_type: INT64
 //
 // To actually report metrics at run time a mapping from attributes to a metric's labels must be provided.
-// This is provided in the service's config; using our above descriptor we might describe the metric as:
+// This is provided in the aspect config; using our above descriptor we might describe the metric as:
 //
 //    metric:
 //      descriptor: "response_code" # must match metric_descriptor.name
@@ -82,5 +81,5 @@ message MetricDescriptor {
   // Labels that dimension the data recorded by this metric. The metric definition allows the user to
   // map attribute expressions to actual values for these labels at run time; the result of the evaluation
   // must be of the type described by the kind for each label.
-  repeated LabelDescriptor labels = 6;
+  map<string, ValueType> labels = 6;
 }

@@ -127,13 +127,25 @@ message GlobalConfig {
   string revision = 1;
   repeated Adapter adapters = 2;
 
+  repeated AttributeManifest manifests = 3;
+
   // TODO: remove these in https://github.com/istio/api/pull/45
-  repeated istio.mixer.v1.config.descriptor.AttributeDescriptor attributes = 3;
   repeated istio.mixer.v1.config.descriptor.LogEntryDescriptor logs = 4;
   repeated istio.mixer.v1.config.descriptor.MetricDescriptor metrics = 5;
   repeated istio.mixer.v1.config.descriptor.MonitoredResourceDescriptor monitored_resources = 6;
   repeated istio.mixer.v1.config.descriptor.PrincipalDescriptor principals = 7;
   repeated istio.mixer.v1.config.descriptor.QuotaDescriptor quotas = 8;
+}
+
+// AttributeManifest describes a set of Attributes produced by some component of an Istio deployment.
+message AttributeManifest {
+  string revision = 1;
+  // Name of the component producing these attributes. This can be the proxy (with the canonical name "istio-proxy") or
+  // the name of an attribute producing adapter in the mixer itself.
+  string name = 2;
+
+  // The set of attributes this Istio component will be responsible for producing at runtime.
+  repeated istio.mixer.v1.config.descriptor.AttributeDescriptor attributes = 3;
 }
 
 // ClientConfig defines configuration from a client perspective.

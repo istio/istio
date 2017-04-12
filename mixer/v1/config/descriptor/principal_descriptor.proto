@@ -16,7 +16,7 @@ syntax = "proto3";
 
 package istio.mixer.v1.config.descriptor;
 
-import "mixer/v1/config/descriptor/label_descriptor.proto";
+import "mixer/v1/config/descriptor/value_type.proto";
 
 // Defines a a security principal.
 //
@@ -27,6 +27,6 @@ message PrincipalDescriptor {
 
   // Labels represent the dimensions that uniquely identify this security principal.
   // At runtime expressions will be evaluated to provide values for each label. Label
-  // names are mapped to expressions in the service config.
-  repeated LabelDescriptor labels = 2;
+  // names are mapped to expressions as part of aspect configuration.
+  map<string, ValueType> labels = 2;
 }
