@@ -1,0 +1,1173 @@
+---
+title: Configuration
+headline: Configuring Istio
+sidenav: doc-side-concepts-nav.html
+bodyclass: docs
+layout: docs
+type: markdown
+---
+
+{% capture overview %}
+
+This page describes the Istio configuration model.
+ 
+{% endcapture %}
+
+{% capture body %}
+
+## Requirements
+
+For Istio to work effectively every service needs to configure each capability provided by Istio. Configure the following capabilities when the service is used as a server.
+
+Control Plane capabilities:
+
+* API surface description (Swagger, OpenAPI, grpc etc)
+
+* Metrics Collection (What is collected and where does it go)
+
+* Rate Limits
+
+* Quotas
+
+* Access Checks / Access Control 
+
+* Logging
+
+Other capabilities
+
+* Load Balancing
+
+    * Policy
+
+    * SSL certs etc
+
+* AutoScaling
+
+    * Triggers (cpu, request latency, …)
+
+We need to support configuring some of the above capabilities when the service is a client.
+
+We also need to support configuration overrides that pertain to interactions between a specific client and a specific server.
+
+In a typical deployment we expect the deployment administrator to configure defaults for most capabilities. The service will provide its API definition and potential overrides.
+
+This discussion requires notions of identity for the client and server in each interaction.
+
+The specific mechanisms of extracting identity are assumed to exist and thus out of scope here. 
+
+This discussion also requires us to assume existence of well known attributes (or facts). Request_size, response_size, request_user are all examples of well known attributes. The set of well known attributes may be used in policy evaluation or as parameters to aspects and adapters. Attributes are denoted in this document as **response.size.**
+
+## Proposal
+
+Users should be able to create and manage Istio configurations in an easy and natural way. The overall configuration workflow is this:
+
+* Isio configuration schemas will be defined as proto definitions.
+
+* Documentation will be generated from the proto definitions.
+
+* Users will write their configurations as json or yaml files following the documentation.
+
+* The configuration compiler will process the files and generated validated protos.
+
+The Istio configuration model has 3 key concepts:
+
+<table>
+  <tr>
+    <td>Concept</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Selector</td>
+    <td>Controls which service, traffic, or resources configurations apply to.
+
+Example:
+  // Apply configuration to an inventory service.
+  selector: target.service == "inventory.svc.cluster.local"</td>
+  </tr>
+  <tr>
+    <td>Aspect</td>
+    <td>Specifies logical functionality in an intent-based notion.
+
+Example:
+  // Specifies the aspect type.
+  aspect: istio.metrics
+  // Feed attribute "request.size" as parameter "value".
+  value: request.size
+  // Feed attributes as parameter "labels".
+  labels: response.code, source.user</td>
+  </tr>
+  <tr>
+    <td>Adapter</td>
+    <td>Configures which implementation is used for a particular aspect.
+
+Example:
+- name: statsd
+  implements: istio.metrics
+  impl: "istio.io/adapter/statsd"
+  args:
+    host: statsd-fast
+    port: 8125</td>
+  </tr>
+</table>
+
+
+## Selector
+
+A selector is a boolean expression that evaluates a set of attributes to produce a boolean result.
+
+    fn (attributes) → boolean 
+
+It may use any supported attributes, such as **request****.****size**, **source****.****user**. The authoritative list of attributes will be available in the Istio repo, [https://github.com/istio/api](https://github.com/istio).
+
+## Aspect
+
+An Istio configuration contains multiple aspects, such as authentication and logging. Each aspect describes logical functionality without fully specifying implementation details. For example, the OAuth aspect specifies that the OAuth protocol should be used to authenticate the users, but it may not specify which OAuth provider will be used.
+
+1. Istio specifies a set of aspects.  AccessLog, Metrics, AccessControl ...
+
+2. Every aspect specifies the configuration schema and expected behaviour. 
+
+Using AccessLog aspect as an example. 
+
+    1. Schema to configure the aspect  (<Aspect>Config) AccessLogConfig
+
+    2. Schema of the information needed by the aspect at runtime. (<Aspect>Input) AccessLogInput
+
+        1. AccessLogInputMap<string, string>  -- maps from attribute space to the AccessLogInput struct.
+
+    3. <Aspect>Output  - AccessLogOutput
+
+3. Every aspect specifies how is AspectOutput is processed.
+
+    4. If it produces more attributes
+
+    5. How the AspectOutput is sent back to the caller 
+
+## Adapter
+
+An adapter implements an aspect's functionality. It often needs additional configuration specific to the implementation. For example, the logging aspect specifies what data should be logged, logging adapters need to know where to store the logged data.
+
+## Putting it together
+
+Since all aspect configs are defined as protos, they are strongly typed. There is a requirement to express a configuration containing multiple protos as a single yaml file.
+
+There are several approaches to include generic protobufs in a single containing structure.  Even though google.**protobuf**.**Any **can be used to achieve polymorphism, the contained protobuf is pre serialized. This makes it difficult to edit the whole config as a single yaml document.
+
+The other approaches are 
+
+1. Use google.protobuf.Struct to achieve polymorphism. Even though it is weakly typed in the top level document, the underlying protos **are** strongly typed and one can be easily be converted to the other. 
+
+2. Use Oneof {} to enumerate the list of allowable protos. 
+
+In both those cases we can generate documentation and tools for the user so that option 1 and 2 are identical from a user’s perspective. 
+
+Now we introduce container structs to hold the aspect specific configuration information.
+
+( [Proto definition](https://gist.github.com/mandarjog/c223238b557ab08509c72325032e9e4b) )
+
+Aspect is defined as follows :-  
+
+message AspectConfig {
+
+  string kind = 1; // a known 'kind' like metrics, logging, ipwhitelist, accesscontrol etc
+
+  string adapter = 2; // optional, allows specifying a specific adapter implementing the kind
+
+  google.protobuf.Struct params = 3; // parameters define the behavior of the aspect. It is used during construction of the aspect
+
+  map<string, string> inputmap = 4; // maps available facts into the input space of the aspect. This is used while calling the aspect
+
+}
+
+Consider an access check scenario where we would like to check incoming requests against an IP whitelist.
+
+kind: whitelist
+
+params:
+
+    Whitelist: ["9.0.0.0/24", "9.1.0.0/24"]
+
+inputmap:
+
+     source: **source****.****ip**
+
+Params and inputs express the intent of the whitelist aspect. The whitelist is provided as a list of subnets in the params section. The shape of the Params struct is mandated by the whitelist aspect. It is **not **defined by the actual implementation of the whitelist. The ‘Inputs’ section maps available attributes to the input of the whitelist aspect. In the above case the whitelist aspect is expected to take one argument called "source", and we are passing "source.ip" as the source to use for the whitelist.
+
+Next we configure details about implementation(s) that provide the ‘whitelist’ aspect, using an Adapter Config: Adapter config defines how intent based aspects are realized. 
+
+message AdapterConfig {
+
+  string name = 1; // Optional, allows a specific adapter configuration to be named for
+
+                   // later use by aspects (e.g. if there is more than one adapter for a kind)
+
+  string kind = 2; // matches the 'kind' in the 'Aspect'
+
+  string impl = 3; // Name of the implementation of the adapter.
+
+  google.protobuf.Struct args = 4;  // args necessary to configure the impl.
+
+                                    // specified by the impl
+
+// Q? Should we add batching caching and other impl params here?
+
+}
+
+We enable "istio.io/adapters/whitelist" to serve as the implementation of the “whitelist” aspect. 
+
+Kind: whitelist
+
+Name: simplewhitelist
+
+Impl: "istio.io/mixer/adapters/whitelist"
+
+This particular adapter does not take any extra "args" during construction so “args” is left out. 
+
+The separation between Aspect.params and Adapter.args delineate intent based arguments from implementation specific arguments. 
+
+Whitelist aspect defines input struct as follows
+
+Whitelist_input_struct struct {
+
+  Source string
+
+}
+
+Note that Adapters are generally configured at the istio deployment  level, and Aspects configured per service or client.
+
+## Aspect specific configurations
+
+This document alludes to monitoring, ratelimiter and whitelist aspects and their configuration details. While the configurations used here are correct in spirit, they are not authoritatively defined here. The important parts are how any aspect specific configuration interacts with mappers and how different aspect are composed in the single configuration.
+
+This type of configuration enables us to add new aspects easily while every aspect defines its owns schema and semantics. 
+
+The authoritative schema for several aspects are in the mixer repo.
+
+### Metrics example
+
+Consider another example where we define metrics that should be collected for a particular service. The metrics params are defined by the metrics Aspect handler. 
+
+The aspect is defined as follows:
+
+    kind: metrics
+
+      params:
+
+        metrics:
+
+        - name: response_time     # What to call this metric outbound.
+
+          value: metric_response_time  # well defined
+
+          metric_kind: DELTA
+
+          labels:
+
+          - key: src_consumer_id
+
+          - key: target_response_status_code
+
+          - key: target_service_name
+
+        Inputs:
+
+           Attr.target_service_name: target_service_name || target_service_id 
+
+The Metrics aspect manager uses aspectConfig.params to ascertain the list of attributes that are needed while calling this aspect. If an attribute used in the params is not  well-known or predefined, it can be defined inline in the Inputs section. Note that the attributes are denoted by attr.{attribute_name} on the left hand side so as to disambiguate from mapping to the input struct. 
+
+The adapter that implements monitoring is defined as:
+
+Kind: metrics
+
+Name: metrics-statsd
+
+Impl: "istio.io/adapters/statsd"
+
+Args:
+
+    Host: statd.svc.cluster
+
+    Port: 8125
+
+The above example defines and configures istio.io/adapters/statsd to provide the metrics aspect. The implementation specific attributes are configured as "Args". The structure of “Args” is **not mandated **by the aspect; it is defined by the statsd adapter implementation.
+
+While defining an aspect in config, usually specifying ‘kind’ is enough and preferred. The system chooses an adapter of the specified kind. However, it is possible to specify a specific adapter name, like "metrics-statsd"  if needed.
+
+  kind: metrics
+
+  Adapter: metrics-statsd
+
+      params:
+
+        metrics:
+
+        - name: attr.response_time
+
+        … 
+
+### Access Log Example
+
+# TODO
+
+## Pseudo Code for calling an adapter
+
+It is instructive to look at how a configuration like this could be used to realize a call to an adapter. Consider the scenario where we would like to call the metrics-statsd aspect as described above.
+
+We have references to the following config objects.
+
+// for impl
+
+adapterConfig = { 
+
+Name: metrics-statsd
+
+Impl: "istio.io/adapters/statsd"
+
+Args:
+
+    Host: statd.svc.cluster
+
+    Port: 8125
+
+}
+
+// for intent
+
+aspectConfig = { 
+
+kind: metrics
+
+      params:
+
+        metrics:
+
+        - name: attr.response_time
+
+          metric_kind: DELTA
+
+          value_type: INT64
+
+          labels:
+
+          - key: attr.consumer_id
+
+          - key: attr.response_status_code
+
+          - key: attr.service_name
+
+      Inputs:
+
+           Attr.service_name: attr.service_id || attr.service_name
+
+}
+
+// MetricsAspect.Report API
+
+// MetricsAspect.report(* input_struct, map <string, ElementaryTypes> attributeMap)
+
+Adapter = MetricsRegistry[adapterConfig.Impl].New (adapterConfig.Args)
+
+Aspect = Adapter.New(aspectConfig.Params)
+
+// get a list of attributes from aspectConfig.Params and return
+
+// a map with attributes and values
+
+attributeMap = MetricsAspectMgr.extractAttributes(aspectConfig.Params)
+
+MetricsAspectMgr.augmentAttributeMap(attributeMap, aspectConfig.Inputs)
+
+Input_struct = (Metrics_InputStruct*) MetricsAspectMgr.MapInputStruct(aspectConfig.Inputs)
+
+Aspect.report (Input_struct, attributeMap)
+
+##  Service Config
+
+So far we have seen how to configure an individual aspect. Now we introduce AspectRule. Aspect rule is a tree structure of aspects that apply if the selector at that node evaluates to true.
+
+message AspectRule {
+
+  string selector = 1;  // expression based on attributes
+
+  repeated Aspect aspects = 2;
+
+  repeated AspectRule rules = 3;
+
+}
+
+// Configures a service.
+
+message ServiceConfig {
+
+  string subject = 1;
+
+  string version = 2;
+
+  repeated AspectRule rules = 3;
+
+}
+
+If selector evaluates to true, the nested rules are examined and the process repeats.
+
+Example [Rules: # nested rule selected if the containing selector is true](#bookmark=id.kmp0xenaytfr)
+
+Nested selectors are used to organize configuration in a meaningful way. Following configurations are equivalent. 
+
+<table>
+  <tr>
+    <td>Selector: svc.name=="SVC1"
+  .
+  .
+   Rules:
+Selector: src.name == 'CLNT1'
+Selector: src.name == 'CLNT2'</td>
+    <td>Selector: svc.name=="SVC1"
+  .
+  .
+
+Selector: src.name == 'CLNT1' && svc.name=="SVC1"
+Selector: src.name == 'CLNT2' && svc.name=="SVC1"</td>
+  </tr>
+</table>
+
+
+Following is a simple service config defining 1 aspect of kind "metrics".
+
+# ServiceConfig
+
+subject: "inventory.svc.cluster.local"
+
+version: "2022"
+
+Rules:
+
+* Selector: service.name == "inventory.svc.cluster.local"
+
+       Aspects: 
+
+           - kind: metrics
+
+             params:
+
+        metrics:
+
+        - name: attr.response_time
+
+          metric_kind: DELTA
+
+          value_type: INT64
+
+          labels:
+
+          - key: attr.consumer_id
+
+          - key: attr.response_status_code
+
+          - key: attr.service_name
+
+             Inputs:
+
+ Attr.service_name: attr.service_id || attr.service_name
+
+‘Selector’ expression may use any attributes with wildcards. What follows is an example of using wildcards.
+
+# ServiceConfig
+
+**subject****:**** ****"****namespace:ns1****"**
+
+version: "2022"
+
+Rules:
+
+* **Selector: service.name == "*****"**
+
+       Aspects: 
+
+           - kind: metrics
+
+            …
+
+This configuration defines the same metrics as above but for all services within the namespace. 
+
+## Cluster Config
+
+This config relies on a cluster config that defines an adapter of kind: metrics as shown above.
+
+message ClusterConfig {
+
+  string version = 1;
+
+  repeated Adapter adapters = 2;
+
+}
+
+Cluster config defines an array of adapter structs. 
+
+## Client Config
+
+Similar to Service config, a client can also define its configuration. Its structure is identical to Service config at present. 
+
+message ClientConfig {
+
+  string subject = 1;
+
+  string version = 2;
+
+  repeated AspectRule rules = 3;
+
+}
+
+## Meta Adapters:
+
+There are several adapters that are configured in the cluster config that do not pertain to any specific control plane or dataplane capability. These adapters configure the system itself.
+
+### FactProvider Adapters
+
+Istio looks at information it operates on in terms of facts/attributes. Facts are pieces of information that are ascertained from the request context or the environment. There is a default set of facts that the istio proxy sends to the Mixer. These are typically facts related to the request context. While running inside kubernetes, a K8sFactProvider adds facts such as K8sDeployment names and labels associated with those resources. Facts are named and typed that are used in configuration selectors, params and inputs. 
+
+Request_size, response_status, request_url  are all well known attributes. 
+
+### FactMapper Adapters
+
+FactMapper adapters produce new facts from existing facts. The default fact-mapper uses a simple expression language like
+
+Source:  source_name || source_ip
+
+This creates (or overwrites) a fact called "source" using the other 2 known facts.
+
+### InputMapper Adapters
+
+Inputmapper maps from the attribute space to the specific input struct that is defined by the Aspect. Default input mapper maps from attributes to the aspect defined input_struct using inputmap.
+
+## Overrides
+
+At present we use a simple override rule. Configs defined with more specific "subject" override less specific ones. So a config defined with a subject of exactly one service will override aspects of the same kind that were defined with a subject as namespace or cluster. 
+
+For example if an administrator wants to configure attr.response_time metric for all services, but define a different metric for a specific service, the following 2 configurations are needed.
+
+# ServiceConfig
+
+subject: "namespace:ns"
+
+version: "2022"
+
+Rules:
+
+* Selector: service.name == "*"
+
+       Aspects: 
+
+           - kind: metrics
+
+             params:
+
+        metrics:
+
+        - name: response_time_by_consumer
+
+          value: metric_response_time
+
+          metric_kind: DELTA
+
+          labels:
+
+          - key: target_consumer_id
+
+Service inventory would like to collect a different metric. We create another ServiceConfig with subject == inventory.svc.cluster.local.
+
+# ServiceConfig
+
+subject: "service:inventory.svc.cluster.local"
+
+version: "2022"
+
+Rules:
+
+* Selector: service.name == "inventory.svc.cluster.local"
+
+       Aspects: 
+
+           - kind: metrics
+
+             params:
+
+        metrics:
+
+        - name: response_time_by_statuscode
+
+   value: attr.response_time
+
+          metric_kind: DELTA
+
+          value_type: INT64
+
+          labels:
+
+         ** ****-**** key****:**** response_status_code**
+
+This replaces aspect of kind: metric for the specified config for the Inventory service.
+
+Client side override works in a similar way. The subject in that case is 
+
+subject: "client:service_account:aaaa"
+
+OR
+
+subject: "client:shipping.svc.cluter.local"
+
+### Expression Language
+
+Configuration uses an expression language in 2 places.
+
+1. Selector:   fn (attributes) → boolean 
+
+2. Inputmap:  fn(attributes) → elementary type
+
+### We will use an expression language that is a small subset of javascript.
+
+The subset includes
+
+1. Check variables for equality againsts constants
+
+2. Check string variables for wildcard matches
+
+3. Support  && and || and grouping
+
+4. String Concatenation
+
+5. Substring
+
+If may add support for other operations as needed.
+
+### Combining configs 
+
+This meta aspect describes how different documents are combined and which parts can  override others parts of the document. Documents owned by "admin" can always do everything including setting up this policy.
+
+For example cluster wide audit logging should not be overridden by individual services.
+
+## Example
+
+### Cluster Config
+
+# cluster config
+
+version: "2021"
+
+adapters:
+
+- kind: factProvider
+
+  name: defaultFactProvider
+
+  impl: "istio.io/adapter/defaultFactProvider"
+
+- kind: factProvider
+
+  name: k8sFactProvider
+
+  impl: "istio.io/adapter/k8sFactProvider"
+
+- kind: factMapper
+
+  name: defaultFactMapper
+
+  impl: "istio.io/adapter/defaultFactMapper"
+
+  args:
+
+    src_identity: src_podname || src_service_name   # Add a new global attribute
+
+- kind: accessCheck
+
+  name: block
+
+  impl: "istio.io/adapter/block"
+
+- kind: ipwhitelist
+
+  name: ipwhitelist-url
+
+  impl: "istio.io/adapter/ipwhitelist"
+
+  args:
+
+    provider_url: http://mywhitelist
+
+- kind: ipwhitelist
+
+  name: ipwhitelist-static
+
+  impl: "istio.io/adapter/ipwhitelist"
+
+  args:
+
+    whitelist: ["10.0.0.0/24", "9.0.0.0/24"]
+
+- kind: metrics
+
+  name: statsd-highperf
+
+  impl: "istio.io/adapter/statsd"
+
+  args:
+
+    host: statsd-fast
+
+    port: 8125
+
+- kind: metrics
+
+  name: statsd
+
+  impl: "istio.io/adapter/statsd"
+
+  args:
+
+    host: statsd-regular
+
+    port: 8125
+
+The preceding config defines adapters of several "kinds". The defaultFactMapper is used to define new attribute called src_identity. This attribute is available during rules evaluation and input mapping. 
+
+### Service Config
+
+# service config
+
+subject: "namespace:ns1"
+
+version: "1011"
+
+rules:
+
+- selector: target_name == "*"
+
+  aspects:
+
+  - kind: metrics
+
+    params:
+
+      metrics:   # defines metric collection across the board.
+
+      - name: response_time_by_status_code
+
+        value: metric.response_time     # certain attributes are metrics 
+
+        metric_kind: DELTA
+
+        labels:
+
+        - key: response.status_code
+
+  - kind: ratelimiter
+
+    params:
+
+      limits:  # imposes 2 limits, 100/s per source and destination
+
+      - limit: "100/s"
+
+        labels:
+
+          - key: src.user_id
+
+          - key: target.service_id
+
+       - limit: "1000/s"  # every destination service gets 1000/s
+
+        labels:
+
+          - key: target.service_id
+
+     # since target.service_id and src.service_id are
+
+     # well known attributes no input map is needed
+
+- selector: target_name == "Inventory.svc.cluster.local"
+
+  aspects:
+
+  - kind: ipwhitelist
+
+    adapter: ipwhitelist-url    # this is defined in the cluster config
+
+    inputmap:
+
+      source: src.ip_addr   # inputs are used to fill the input_struct of the adapter
+
+   rules:   # nested rule selected if the containing selector is true
+
+* Selector: source_name == "Shipping.svc.cluster.local"
+
+        Aspects:   
+
+        - kind: block      # block access from shipping to inventory service.
+
+Similar discussion applies for other aspects. Currently supported aspects are
+
+Api, metrics, ratelimiter, quotas, accessChecks, Logging, (Loadbalacing,  …)
+
+## Kubernetes deployment
+
+Istio on Kubernetes can use namespace as a way to access control configuration resources. A namespace admin can create any configuration affecting the namespace as a whole or individual services running within it. A cluster admin can create configs that affect the entire cluster. With this model service config overrides are also defined by the namespace admin. 
+
+## Using API surface for policy
+
+The API surface for a service can be described using a Swagger spec, a gRPC spec or another protocol indicator like "mysql", “redis” or “mongo”.  A spec enables us to extract the “operation”  (operationId in Swagger or fully qualified method name in gRPC),  resource(s) being operated on and arguments from the incoming request. It is upto the proxy to extract this information if we wish to apply policies on anything more granular than the service itself. If these attributes are extracted then they are available as target.operation, target.resources and target.params.
+
+For example a mysql protocol decoder at the proxy could extract, service=mysql.svc, operation=SELECT, resources="Table1,Table2”. At this point policy can be applied in a uniform way based on the above attributes.
+
+## Open Issues: Deferred ?
+
+1. Sophisticated overrides	
+
+    1. Addition and removal of specific aspect and adapters
+
+    2. Priority
+
+2. Access Control to configuration resources.
+
+3. Pre defined args and params
+
+    3. Fully define response_time_by_statuscode in one place, and use it as a reference in others
+
+## Routing Config
+
+A RoutingConfig is used to control traffic routing to and between services in Istio. A RoutingConfig is similar in structure to a ServiceConfig.
+
+message RoutingConfig {
+
+  string subject = 1;
+
+  string version = 2;
+
+  repeated RoutingRule rules = 3;
+
+}
+
+Like a ServiceConfig, a RoutingConfig includes a subject and version, but the rules in this case are RoutingRules instead of AspectRules in a ServiceConfig.
+
+The subject field of a RoutingConfig is, just like the subject of a ServiceConfig, a namespace or service name, but more precisely it represents the target service of the routing requests.
+
+Unlike ServiceConfig, which is used to configure Istio Mixer for a service, a RoutingConfig is used to configure all Istio Proxies that are clients of the specified subject (i.e., target service). For example, every Proxy that handles requests to ServiceA would be given, by Istio Manager, any RoutingConfig with subject == ServiceA. (Note that Istio Manager may be able to optimize the configs that it passes to Proxies running as service sidecars by removing rules with sources that are excluded by selector filters in the rule.)  
+
+Each RoutingRule of a RoutingConfig contains a selector, a single aspect whose kind MUST be "routing", and an optional list of nested RoutingRules that, like the AspectRules of a ServiceConfig, can be used to structure selectors in a more convenient way, i.e., nested selector expressions are ANDed (&&) with the parent selector(s) expression.
+
+message RoutingRule {
+
+  string selector = 1; // expression based on attributes
+
+  Aspect aspect = 2; // kind == "routing"
+
+  repeated AspectRule rules = 3;
+
+}
+
+### RoutingRule.selector
+
+There are three fundamental properties of a request that can be used to match and consequently activate a routing rule for a given request.
+
+1. the source (src)
+
+2. the destination (dst)
+
+3. one or more headers (hdrs), if it's an http request [TODO: gRPC possibilities]
+
+These are represented in the selector expression using well known attributes beginning with "src", "dst", and "hdrs", respectively.
+
+#### Source (src)
+
+The source ("src") of a request can be matched explicitly against the name of the service (attribute src.name) to which the pod belongs or just against a selection of labels (attribute src.labels) or both. For example, the following selector will match requests coming from ServiceA:
+
+selector: src.name == ServiceA && ...
+
+To restrict it further, to only calls from version v1 of ServiceA:
+
+selector: src.name == ServiceA && src.labels.version == v1 && ...
+
+#### Destination (dst)
+
+The destination ("dst") service can be identified using either a path ("attribute dst.path) or host header (attribute dst.host) for http requests, or with a port on localhost (attribute dst.port) for tcp requests.
+
+For example, consider a destination service named "serviceB". If calls to the service are identified by some request path URL component or pattern, the "dst.path" attribute would be used and might look something like this:
+
+selector: dst.proto == http && dst.path == /serviceB
+
+If the URL host is used to identify "ServiceB", the "dst.port" attribute would be used instead, for example:
+
+selector: dst.proto == http && dst.host == serviceB.com
+
+Finally, for tcp connections, where no http properties are available in the request, the service, "ServiceB", will be identified by a preconfigured port of the proxy/sidecar. For example, assuming requests for "ServiceB" have been assigned the port 1234, the selector might look like this:
+
+selector: dst.proto == tcp && dst.port == 1234
+
+Note that the "dst.port" attribute can also be used with "dst.path" or "dst.host" for http requests, if necessary. If it is not specified, it is assumed that the requests from the application would arrive at the default HTTP port configured in the proxy sidecar.
+
+#### Headers (hdrs)
+
+The headers (hdrs attribute) can be used to specify one or more key-value pairs where each property is an HTTP header name and the corresponding value is a regular expression that must match the header value. For example, the following selector would only activate a rule for a specific user’s requests, identified by a cookie:
+
+selector: hdrs.cookie == .*?user=tester1 && ...
+
+### RoutingRule.aspect
+
+Each routing rule contains a single aspect of the predefined kind "routing". The params of a routing aspect lists the upstream target(s) for the request along with an associated weight. For example, to send 10 percent of incoming requests to specific version ("v2") of a service ("serviceB"), the aspect would look something like this:
+
+aspect:
+
+  kind: routing
+
+  params:
+
+  - target:
+
+  	name: serviceB
+
+  	selector:
+
+  	- version=v2
+
+	weight: 10
+
+The upstream target pod(s) are identified using the name of the service to which the pod belongs or a selection of labels or both.
+
+A more complex routing rule:
+
+# RoutingRule
+
+selector: ...
+
+aspect:
+
+  kind: routing
+
+  params:
+
+  - target:
+
+      name: dst.name
+
+      selector:
+
+      - env=prod
+
+      - region=us-east-2
+
+      - version=v1.2
+
+      lbPolicy:
+
+        name: IpHash
+
+        readTimeout:
+
+        duration: 5
+
+      httpOverrideHeaderName: X-Read-Timeout
+
+    weight: 90
+
+  - target:
+
+      name: dst.name
+
+      selector:
+
+      - env=prod
+
+      - region=us-east-1
+
+      - version=v1.1
+
+      lbPolicy
+
+        name: LeastConn
+
+        retries: 2
+
+      circuitBreaker:
+
+        successThreshold: 5
+
+        failureThreshold: 3
+
+        resetTimeout: 7.5
+
+    weight: 10
+
+### Examples
+
+#### Example 1
+
+Route API calls for /serviceB/api/v1 from experimental serviceA running in staging to serviceB pods running in prod.
+
+# RoutingConfig
+
+subject: serviceB
+
+version: "1011"
+
+rules:
+
+- selector: src.name == "serviceA" && src.labels.env == "staging" &&
+
+            src.labels.experimental == "true" &&
+
+            dst.proto == "http" && dst.path == "/serviceB/api/v1"
+
+  aspect:
+
+  - kind: routing
+
+    params:
+
+    - target:
+
+        selector:
+
+        - env=prod
+
+        name: serviceB
+
+        lbPolicy: 
+
+          name: RoundRobin
+
+#### Example 2
+
+Send 1% of /serviceB/api/v1 traffic from serviceA in prod to serviceB v1.1 cluster while sending the rest to serviceB v1 cluster.
+
+# RoutingConfig
+
+subject: serviceB
+
+version: "1011"
+
+rules:
+
+- selector: src.name == "serviceA" && src.labels.env == "prod" &&
+
+            dst.proto == "http" && dst.path == "/serviceB/api/v1"
+
+  aspect:
+
+  - kind: routing
+
+    params:
+
+    - target:
+
+        name: serviceB
+
+        selector:
+
+        - env=prod
+
+        - v1.1
+
+        lbPolicy:
+
+          name: RoundRobin
+
+      weight: 1
+
+    - target:
+
+        name: serviceB
+
+        selector:
+
+        - env=prod
+
+        - v1
+
+        lbPolicy:
+
+          name: RoundRobin
+
+      weight: 99
+
+#### Example 3
+
+Route requests for serviceB (identified by host header) that contain a header matching a specific pattern (e.g., user cookie for a test user) to specific version of serviceB (v1.1).
+
+# RoutingConfig
+
+subject: serviceB
+
+version: "1011"
+
+rules:
+
+- selector: dst.proto == "http" && 
+
+            dst.host == "serviceB.cluster.local" &&
+
+            hdrs.cookie == ".*?user=tester1"
+
+  aspect:
+
+  - kind: routing
+
+    params:
+
+    - target:
+
+        name: serviceB
+
+        selector:
+
+        - v1.1
+
+        lbPolicy: 
+
+          name: RoundRobin
+
+#### Example 4
+
+Version-based routing for TCP services. Scenario : Upgrading a database slave’s version. Stand up a newer version of the database engine. Assuming that the data has already been replicated, run the new version in production for a while, sending it 1% of connections,  and see if there are any major issues.
+
+# RoutingConfig
+
+subject: ns:namespace
+
+version: "1011"
+
+rules:
+
+- selector: dst.proto == "tcp" && dst.port == 3306
+
+  aspect:
+
+  - kind: routing
+
+    params:
+
+    - target:
+
+        hosts: #an example where hosts can be explicitly specified
+
+        - tcp://trial.prod.slave.db.mydomain:5505
+
+      weight: 1
+
+    - target:
+
+        hosts: #an example where hosts can be explicitly specified
+
+        - tcp://1.prod.slave.db.mydomain:5505
+
+        - tcp://2.prod.slave.db.mydomain:5505
+
+        - tcp://3.prod.slave.db.mydomain:5505
+
+        lbPolicy: 
+
+          name: IpHash
+
+      weight: 99
+
+
+{% endcapture %}
+
+{% include templates/concept.md %}
