@@ -95,7 +95,7 @@ def stablePresubmit(gitUtils, bazel, utils) {
 def stablePostsubmit(gitUtils, bazel, utils) {
   goBuildNode(gitUtils, 'istio.io/manager') {
     bazel.updateBazelRc()
-    sh('ln -s ~/.kube/config platform/kube/')
+    sh('touch platform/kube/config')
     stage('Docker Push') {
       def images = 'init,init_debug,app,app_debug,proxy,proxy_debug,manager,manager_debug'
       def tags = "${env.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
