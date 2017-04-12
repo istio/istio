@@ -50,13 +50,15 @@ type Event int
 
 const (
 	// EventAdd is sent when an object is added
-	EventAdd Event = 1
+	EventAdd Event = iota
+
 	// EventUpdate is sent when an object is modified
 	// Captures the modified object
-	EventUpdate Event = 2
+	EventUpdate
+
 	// EventDelete is sent when an object is deleted
 	// Captures the object at the last known state
-	EventDelete Event = 3
+	EventDelete
 )
 
 func (event Event) String() string {
