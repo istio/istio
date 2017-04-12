@@ -1,6 +1,6 @@
 ---
-title: Writing Istio Configuration
-headline: Writing Istio Configuration
+title: Writing Configuration
+headline: Writing Configuration
 sidenav: doc-side-concepts-nav.html
 bodyclass: docs
 layout: docs
@@ -8,7 +8,7 @@ type: markdown
 ---
 
 {% capture overview %}
-This document describes how to write configuration that conforms to Istio's schemas. All configuration schemas in Istio are defined as protobuf messages. When in doubt, search for the protos.
+This document describes how to write configuration that conforms to Istio's schemas. All configuration schemas in Istio are defined as [protobuf messages](https://developers.google.com/protocol-buffers/docs/proto3). When in doubt, search for the protos.
 {% endcapture %}
 
 {% capture body %}
