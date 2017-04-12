@@ -159,11 +159,7 @@ cc_library(
 
 cc_library(
     name = "transcoding",
-    srcs = [
-        "transcoder_factory.cc",
-    ],
     hdrs = [
-        "transcoder_factory.h",
         "transcoder.h",
     ],
     visibility = ["//visibility:public"],
@@ -173,6 +169,18 @@ cc_library(
         ":response_to_json_translator",
         ":type_helper",
         "//external:protobuf",
+    ],
+)
+
+cc_library(
+    name = "transcoding_endpoints",
+    srcs = [
+        "transcoder_factory.cc",
+        "transcoder_factory.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":transcoding",
         "//contrib/endpoints/include:headers_only",
         "//external:service_config",
     ],
@@ -375,7 +383,7 @@ cc_test(
     deps = [
         ":bookstore_test_proto",
         ":test_common",
-        ":transcoding",
+        ":transcoding_endpoints",
         "//external:googletest_main",
     ],
 )
