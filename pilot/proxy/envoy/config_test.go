@@ -236,6 +236,7 @@ func testConfig(r *model.IstioRegistry, mesh *proxyconfig.ProxyMeshConfig, insta
 		Config:     r,
 		MeshConfig: mesh,
 		IPAddress:  instance,
+		UID:        fmt.Sprintf("uid://%s.my-namespace", instance),
 		// 1090 is deliberately already used by the instances, 3333 requires a new listener
 		PassthroughPorts: []int{1090, 3333},
 	})

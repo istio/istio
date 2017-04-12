@@ -147,6 +147,7 @@ var (
 				Config:           &model.IstioRegistry{ConfigRegistry: controller},
 				MeshConfig:       mesh,
 				IPAddress:        flags.ipAddress,
+				UID:              fmt.Sprintf("kubernetes://%s.%s", flags.podName, flags.controllerOptions.Namespace),
 				PassthroughPorts: flags.passthrough,
 			}
 			w, err := envoy.NewWatcher(controller, context)

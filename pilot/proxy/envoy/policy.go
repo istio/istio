@@ -53,12 +53,13 @@ func insertMixerFilter(listeners []*Listener, instances []*model.ServiceInstance
 					Config: &FilterMixerConfig{
 						MixerServer: context.MeshConfig.MixerAddress,
 						MixerAttributes: map[string]string{
-							"target.uid":     context.IPAddress,
+							"target.ip":      context.IPAddress,
+							"target.uid":     context.UID,
 							"target.service": service,
 						},
 						ForwardAttributes: map[string]string{
-							"source.uid":     context.IPAddress,
-							"source.service": service,
+							"source.ip":  context.IPAddress,
+							"source.uid": context.UID,
 						},
 					},
 				}}, http.Filters...)

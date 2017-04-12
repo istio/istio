@@ -34,8 +34,13 @@ type Context struct {
 	MeshConfig *proxyconfig.ProxyMeshConfig
 
 	// IPAddress is the IP address of the proxy used to identify it and its
-	// co-located service instances
+	// co-located service instances. Example: "10.60.1.6"
 	IPAddress string
+
+	// UID is the platform specific unique identifier of the proxy.
+	// UID should serve as a key to lookup additional information associated with the
+	// proxy. Example: "kubernetes://my-pod.my-namespace"
+	UID string
 
 	// PassthroughPorts is a list of ports on the proxy IP address that must be
 	// open and allowed through the proxy to the co-located service instances.

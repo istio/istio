@@ -21,12 +21,13 @@
                 "config": {
                   "mixer_server": "mixer:9091",
                   "mixer_attributes": {
+                    "target.ip": "10.1.1.0",
                     "target.service": "hello.default.svc.cluster.local",
-                    "target.uid": "10.1.1.0"
+                    "target.uid": "uid://10.1.1.0.my-namespace"
                   },
                   "forward_attributes": {
-                    "source.service": "hello.default.svc.cluster.local",
-                    "source.uid": "10.1.1.0"
+                    "source.ip": "10.1.1.0",
+                    "source.uid": "uid://10.1.1.0.my-namespace"
                   }
                 }
               },
@@ -67,12 +68,13 @@
                 "config": {
                   "mixer_server": "mixer:9091",
                   "mixer_attributes": {
+                    "target.ip": "10.1.1.0",
                     "target.service": "hello.default.svc.cluster.local",
-                    "target.uid": "10.1.1.0"
+                    "target.uid": "uid://10.1.1.0.my-namespace"
                   },
                   "forward_attributes": {
-                    "source.service": "hello.default.svc.cluster.local",
-                    "source.uid": "10.1.1.0"
+                    "source.ip": "10.1.1.0",
+                    "source.uid": "uid://10.1.1.0.my-namespace"
                   }
                 }
               },
@@ -157,12 +159,13 @@
                 "config": {
                   "mixer_server": "mixer:9091",
                   "mixer_attributes": {
+                    "target.ip": "10.1.1.0",
                     "target.service": "hello.default.svc.cluster.local",
-                    "target.uid": "10.1.1.0"
+                    "target.uid": "uid://10.1.1.0.my-namespace"
                   },
                   "forward_attributes": {
-                    "source.service": "hello.default.svc.cluster.local",
-                    "source.uid": "10.1.1.0"
+                    "source.ip": "10.1.1.0",
+                    "source.uid": "uid://10.1.1.0.my-namespace"
                   }
                 }
               },
@@ -282,12 +285,13 @@
                 "config": {
                   "mixer_server": "mixer:9091",
                   "mixer_attributes": {
+                    "target.ip": "10.1.1.0",
                     "target.service": "hello.default.svc.cluster.local",
-                    "target.uid": "10.1.1.0"
+                    "target.uid": "uid://10.1.1.0.my-namespace"
                   },
                   "forward_attributes": {
-                    "source.service": "hello.default.svc.cluster.local",
-                    "source.uid": "10.1.1.0"
+                    "source.ip": "10.1.1.0",
+                    "source.uid": "uid://10.1.1.0.my-namespace"
                   }
                 }
               },

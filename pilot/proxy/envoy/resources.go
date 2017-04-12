@@ -568,39 +568,3 @@ type ClusterManager struct {
 	SDS      *SDS     `json:"sds,omitempty"`
 	CDS      *CDS     `json:"cds,omitempty"`
 }
-
-// ByName implements sort
-type ByName []Cluster
-
-// Len length
-func (a ByName) Len() int {
-	return len(a)
-}
-
-// Swap elements
-func (a ByName) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-
-// Less compare
-func (a ByName) Less(i, j int) bool {
-	return a[i].Name < a[j].Name
-}
-
-//ByHost implement sort
-type ByHost []Host
-
-// Len length
-func (a ByHost) Len() int {
-	return len(a)
-}
-
-// Swap elements
-func (a ByHost) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-
-// Less compare
-func (a ByHost) Less(i, j int) bool {
-	return a[i].URL < a[j].URL
-}

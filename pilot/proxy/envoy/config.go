@@ -137,7 +137,7 @@ func buildListeners(context *proxy.Context) (Listeners, Clusters) {
 	listeners = listeners.normalize()
 	clusters = clusters.normalize()
 
-	// inject Mixer filter with proxy identities
+	// inject static Mixer filter with proxy identities for all HTTP filters
 	insertMixerFilter(listeners, instances, context)
 
 	return listeners, clusters
