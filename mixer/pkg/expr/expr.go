@@ -377,7 +377,9 @@ func Parse(src string) (ex *Expression, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse error: %s %s", src, err)
 	}
-	glog.V(2).Infof("%s : %s", src, a)
+	if glog.V(2) {
+		glog.Infof("Parsed expression '%s' into '%s'", src, a)
+	}
 	ex = &Expression{}
 	if err = process(a, ex); err != nil {
 		return nil, err

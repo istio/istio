@@ -14,6 +14,12 @@
 
 package config
 
+import (
+	"fmt"
+
+	"istio.io/mixer/pkg/pool"
+)
+
 // Kind of aspect
 type Kind uint
 
@@ -77,6 +83,27 @@ func (ks KindSet) IsSet(k Kind) bool {
 // Set returns a new KindSet with the given aspect kind enabled.
 func (ks KindSet) Set(k Kind) KindSet {
 	return ks | (1 << k)
+}
+
+func (ks KindSet) String() string {
+	buf := pool.GetBuffer()
+	defer pool.PutBuffer(buf) // fine to pay the defer overhead; this is out of request path
+
+	fmt.Fprint(buf, "[")
+	for k, v := range kindToString {
+		if ks.IsSet(k) {
+			fmt.Fprintf(buf, "%s, ", v)
+		}
+	}
+
+	// Make sure the empty KindSet is printed as "[]" rather than "".
+	if buf.Len() <= len("[") {
+		return "[]"
+	}
+	// Otherwise trim off the trailing ", " and close the bracket we opened.
+	buf.Truncate(buf.Len() - 2)
+	fmt.Fprint(buf, "]")
+	return buf.String()
 }
 
 func init() {
