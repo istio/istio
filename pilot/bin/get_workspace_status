@@ -2,11 +2,10 @@
 
 function get_branch() {
     local branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
-    local remote=''
     if [[ "${branch}" == 'HEAD' ]]; then
-      remote="$(git remote | head -n 1)"
-      branch="$(git show-ref | grep "${BUILD_GIT_REVISION}" \
-        | grep remotes | grep -v HEAD | sed -e "s/.*remotes.${remote}.//")"
+      branch="$(git show-ref | grep ${BUILD_GIT_REVISION}  \
+        | grep -oP "refs/remotes/.*/\K.*" | grep -v -i head)" \
+        || branch=''
     fi
     if [[ -n "${branch}" ]]; then
       echo "${branch}"
