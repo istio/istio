@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('testutils@stable-96c1bdb')
+@Library('testutils@stable-70699be')
 
 import org.istio.testutils.Utilities
 import org.istio.testutils.GitUtilities
@@ -49,6 +49,10 @@ def presubmit(gitUtils, bazel, utils) {
       bazel.fetch('-k //...')
       bazel.build('//...')
     }
+    stage('Build istioctl') {
+      def remotePath = gitUtils.artifactsPath('istioctl')
+      sh("bin/cross-compile-istioctl -p ${remotePath}")
+    }
     stage('Go Build') {
       sh('bin/init.sh')
     }
@@ -68,10 +72,6 @@ def presubmit(gitUtils, bazel, utils) {
         sh("bin/e2e.sh -tag ${env.GIT_SHA} -v 2")
       }
     }
-    stage('Build istioctl') {
-      def remotePath = gitUtils.artifactsPath('istioctl')
-      sh("bin/cross-compile-istioctl -p ${remotePath}")
-    }
   }
 }
 
@@ -80,14 +80,14 @@ def stablePresubmit(gitUtils, bazel, utils) {
     bazel.updateBazelRc()
     utils.initTestingCluster()
     sh('ln -s ~/.kube/config platform/kube/')
+    stage('Build istioctl') {
+      def remotePath = gitUtils.artifactsPath('istioctl')
+      sh("bin/cross-compile-istioctl -p ${remotePath}")
+    }
     stage('Integration Tests') {
       timeout(30) {
         sh("bin/e2e.sh -count 10 -debug -tag ${env.GIT_SHA} -v 2")
       }
-    }
-    stage('Build istioctl') {
-      def remotePath = gitUtils.artifactsPath('istioctl')
-      sh("bin/cross-compile-istioctl -p ${remotePath}")
     }
   }
 }
@@ -96,15 +96,15 @@ def stablePostsubmit(gitUtils, bazel, utils) {
   goBuildNode(gitUtils, 'istio.io/manager') {
     bazel.updateBazelRc()
     sh('touch platform/kube/config')
+    stage('Build istioctl') {
+      def remotePath = gitUtils.artifactsPath('istioctl')
+      sh("bin/cross-compile-istioctl -p ${remotePath}")
+    }
     stage('Docker Push') {
       def images = 'init,init_debug,app,app_debug,proxy,proxy_debug,manager,manager_debug'
       def tags = "${env.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
       utils.publishDockerImagesToDockerHub(images, tags)
       utils.publishDockerImagesToContainerRegistry(images, tags, '', 'gcr.io/istio-io')
-    }
-    stage('Build istioctl') {
-      def remotePath = gitUtils.artifactsPath('istioctl')
-      sh("bin/cross-compile-istioctl -p ${remotePath}")
     }
   }
 }

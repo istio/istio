@@ -1,17 +1,34 @@
 #!/bin/bash
 
+function get_branch() {
+    local branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+    local remote=''
+    if [[ "${branch}" == 'HEAD' ]]; then
+      remote="$(git remote | head -n 1)"
+      branch="$(git show-ref | grep "${BUILD_GIT_REVISION}" \
+        | grep remotes | grep -v HEAD | sed -e "s/.*remotes.${remote}.//")"
+    fi
+    if [[ -n "${branch}" ]]; then
+      echo "${branch}"
+    else
+      echo 'unknown'
+    fi
+}
+
 BUILD_GIT_REVISION=$(git rev-parse --short HEAD 2> /dev/null)
 if [[  $? == 0 ]]; then
+    BRANCH="$(get_branch)"
     git diff-index --quiet HEAD
     if [[  $? != 0 ]]; then
         BUILD_GIT_REVISION=${BUILD_GIT_REVISION}"-dirty"
     fi
 else
     BUILD_GIT_REVISION=unknown
+    BRANCH=unknown
 fi
 
-echo buildAppVersion    $(git describe 2> /dev/null || echo unknown)
+echo buildAppVersion    "$(git describe 2> /dev/null || echo unknown)"
 echo buildGitRevision   "${BUILD_GIT_REVISION}"
-echo buildGitBranch     $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)
-echo buildUser          $(whoami)
-echo buildHost          $(hostname -f)
+echo buildGitBranch     "${BRANCH}"
+echo buildUser          "$(whoami)"
+echo buildHost          "$(hostname -f)"
