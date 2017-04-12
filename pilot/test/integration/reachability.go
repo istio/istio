@@ -55,8 +55,11 @@ func (r *reachability) run() error {
 		return err
 	}
 
-	if err := r.verifyIngress(); err != nil {
-		return err
+	if !params.auth {
+		// Currently ingress cannot talk in Istio auth to cluster pods.
+		if err := r.verifyIngress(); err != nil {
+			return err
+		}
 	}
 
 	if glog.V(2) {
@@ -118,7 +121,11 @@ func (r *reachability) makeRequest(src, dst, port, domain string, done func() bo
 // makeRequests executes requests in pods and collects request ids per pod to check against access logs
 func (r *reachability) makeRequests() error {
 	g, ctx := errgroup.WithContext(context.Background())
-	testPods := []string{"a", "b", "t"}
+	testPods := []string{"a", "b"}
+	if !params.auth {
+		// t is not behind proxy, so it cannot talk in Istio auth.
+		testPods = append(testPods, "t")
+	}
 	for _, src := range testPods {
 		for _, dst := range testPods {
 			for _, port := range []string{"", ":80", ":8080"} {

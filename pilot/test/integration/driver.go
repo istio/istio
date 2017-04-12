@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
 
+	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 	"istio.io/manager/platform/kube"
 	"istio.io/manager/platform/kube/inject"
@@ -43,10 +44,14 @@ const (
 	mixer            = "mixer"
 	egressProxy      = "egress-proxy"
 	ingressProxy     = "ingress-proxy"
+	ca               = "ca"
 	app              = "app"
 
 	// budget is the maximum number of retries with 1s delays
 	budget = 90
+
+	// CA image tag is the short SHA *update manually*
+	caTag = "f063b41"
 
 	// Mixer image tag is the short SHA *update manually*
 	mixerTag = "6655a67"
@@ -57,10 +62,12 @@ const (
 type parameters struct {
 	hub        string
 	tag        string
+	caImage    string
 	mixerImage string
 	namespace  string
 	kubeconfig string
 	count      int
+	auth       bool
 	debug      bool
 	parallel   bool
 	logs       bool
@@ -79,11 +86,16 @@ var (
 
 	// indicates whether the namespace is auto-generated
 	nameSpaceCreated bool
+
+	// Enable/disable auth, or run both for the tests.
+	authmode string
 )
 
 func init() {
 	flag.StringVar(&params.hub, "hub", "gcr.io/istio-testing", "Docker hub")
 	flag.StringVar(&params.tag, "tag", "", "Docker tag")
+	flag.StringVar(&params.caImage, "ca", "gcr.io/istio-testing/istio-ca:"+caTag,
+		"CA Docker image")
 	flag.StringVar(&params.mixerImage, "mixer", "gcr.io/istio-testing/mixer:"+mixerTag,
 		"Mixer Docker image")
 	flag.StringVar(&params.namespace, "n", "",
@@ -91,6 +103,7 @@ func init() {
 	flag.StringVar(&params.kubeconfig, "kubeconfig", "platform/kube/config",
 		"kube config file (missing or empty file makes the test use in-cluster kube config instead)")
 	flag.IntVar(&params.count, "count", 1, "Number of times to run the tests after deploying")
+	flag.StringVar(&authmode, "auth", "both", "Enable / disable auth, or test both.")
 	flag.BoolVar(&params.debug, "debug", false, "Extra logging in the containers")
 	flag.BoolVar(&params.parallel, "parallel", true, "Run requests in parallel")
 	flag.BoolVar(&params.logs, "logs", true, "Validate pod logs (expensive in long-running tests)")
@@ -98,6 +111,26 @@ func init() {
 
 func main() {
 	flag.Parse()
+	switch authmode {
+	case "enable":
+		params.auth = true
+		runTests()
+	case "disable":
+		params.auth = false
+		runTests()
+	case "both":
+		params.auth = false
+		runTests()
+		params.auth = true
+		runTests()
+	default:
+		glog.Infof("Invald auth flag: %s. Please choose from: enable/disable/both.", params.auth)
+	}
+}
+
+func runTests() {
+	glog.Infof("\n--------------- Run tests with auth: %t ---------------", params.auth)
+
 	setup()
 
 	for i := 0; i < params.count; i++ {
@@ -107,7 +140,7 @@ func main() {
 	}
 
 	teardown()
-	glog.Infof("All tests passed %d time(s)!", params.count)
+	glog.Infof("\n--------------- All tests with auth: %t passed %d time(s)! ---------------\n", params.auth, params.count)
 }
 
 func setup() {
@@ -139,7 +172,12 @@ func setup() {
 
 	pods = make(map[string]string)
 
-	_, err = shell(fmt.Sprintf("kubectl -n %s apply -f test/integration/config.yaml", params.namespace))
+	if params.auth {
+		check(deploy("ca", "ca", ca, "", "", "", "", "unversioned", false))
+		_, err = shell(fmt.Sprintf("kubectl -n %s apply -f test/integration/config-auth.yaml", params.namespace))
+	} else {
+		_, err = shell(fmt.Sprintf("kubectl -n %s apply -f test/integration/config.yaml", params.namespace))
+	}
 	check(err)
 
 	// setup ingress resources
@@ -226,6 +264,9 @@ func deploy(name, svcName, dType, port1, port2, port3, port4, version string, in
 		mesh := envoy.DefaultMeshConfig
 		mesh.MixerAddress = "istio-mixer:9091"
 		mesh.DiscoveryAddress = "istio-manager:8080"
+		if params.auth {
+			mesh.AuthPolicy = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
+		}
 		p := &inject.Params{
 			InitImage:       inject.InitImageName(params.hub, params.tag),
 			ProxyImage:      inject.ProxyImageName(params.hub, params.tag),
@@ -322,6 +363,7 @@ func write(in string, data map[string]string, out io.Writer) error {
 	values := make(map[string]string)
 	values["hub"] = params.hub
 	values["tag"] = params.tag
+	values["caImage"] = params.caImage
 	values["mixerImage"] = params.mixerImage
 	values["namespace"] = params.namespace
 	values["verbosity"] = strconv.Itoa(params.verbosity)
