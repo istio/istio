@@ -40,8 +40,8 @@ var (
 	validAccessLogDesc = dpb.LogEntryDescriptor{
 		Name:        "common",
 		LogTemplate: "{{.foo}}",
-		Labels: []*dpb.LabelDescriptor{
-			{Name: "label", ValueType: dpb.STRING},
+		Labels: map[string]dpb.ValueType{
+			"label": dpb.STRING,
 		},
 	}
 
@@ -152,8 +152,8 @@ func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 	validDesc := dpb.LogEntryDescriptor{
 		Name:        "logentry",
 		LogTemplate: "{{.foo}}",
-		Labels: []*dpb.LabelDescriptor{
-			{Name: "label", ValueType: dpb.STRING},
+		Labels: map[string]dpb.ValueType{
+			"label": dpb.STRING,
 		},
 	}
 	invalidDesc := validDesc

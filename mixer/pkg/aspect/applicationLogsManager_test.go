@@ -51,8 +51,8 @@ var (
 		Name:          "logentry",
 		PayloadFormat: dpb.TEXT,
 		LogTemplate:   "{{.foo}}",
-		Labels: []*dpb.LabelDescriptor{
-			{Name: "label", ValueType: dpb.STRING},
+		Labels: map[string]dpb.ValueType{
+			"label": dpb.STRING,
 		},
 	}
 
@@ -208,8 +208,8 @@ func TestLoggerManager_ValidateConfig(t *testing.T) {
 		Name:          "logentry",
 		PayloadFormat: dpb.TEXT,
 		LogTemplate:   "{{.foo}}",
-		Labels: []*dpb.LabelDescriptor{
-			{Name: "label", ValueType: dpb.STRING},
+		Labels: map[string]dpb.ValueType{
+			"label": dpb.STRING,
 		},
 	}
 	invalidDesc := validDesc

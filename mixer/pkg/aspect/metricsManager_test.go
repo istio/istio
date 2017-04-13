@@ -72,12 +72,12 @@ var (
 		Kind:        dpb.COUNTER,
 		Value:       dpb.INT64,
 		Description: "request count by source, target, service, and code",
-		Labels: []*dpb.LabelDescriptor{
-			{Name: "source", ValueType: dpb.STRING},
-			{Name: "target", ValueType: dpb.STRING},
-			{Name: "service", ValueType: dpb.STRING},
-			{Name: "method", ValueType: dpb.STRING},
-			{Name: "response_code", ValueType: dpb.INT64},
+		Labels: map[string]dpb.ValueType{
+			"source":        dpb.STRING,
+			"target":        dpb.STRING,
+			"service":       dpb.STRING,
+			"method":        dpb.STRING,
+			"response_code": dpb.INT64,
 		},
 	}
 
@@ -86,12 +86,12 @@ var (
 		Kind:        dpb.COUNTER,
 		Value:       dpb.DURATION,
 		Description: "request latency by source, target, and service",
-		Labels: []*dpb.LabelDescriptor{
-			{Name: "source", ValueType: dpb.STRING},
-			{Name: "target", ValueType: dpb.STRING},
-			{Name: "service", ValueType: dpb.STRING},
-			{Name: "method", ValueType: dpb.STRING},
-			{Name: "response_code", ValueType: dpb.INT64},
+		Labels: map[string]dpb.ValueType{
+			"source":        dpb.STRING,
+			"target":        dpb.STRING,
+			"service":       dpb.STRING,
+			"method":        dpb.STRING,
+			"response_code": dpb.INT64,
 		},
 	}
 
@@ -143,7 +143,7 @@ func TestMetricsManager_Validation(t *testing.T) {
 			Name:   "invalid desc",
 			Kind:   dpb.METRIC_KIND_UNSPECIFIED,
 			Value:  dpb.INT64,
-			Labels: []*dpb.LabelDescriptor{},
+			Labels: map[string]dpb.ValueType{},
 		},
 		// our attributes
 		"duration": &dpb.AttributeDescriptor{Name: "duration", ValueType: dpb.DURATION},
@@ -396,7 +396,7 @@ func TestMetrics_DescToDef(t *testing.T) {
 		{
 			&dpb.MetricDescriptor{
 				Name:   "bad label",
-				Labels: []*dpb.LabelDescriptor{{ValueType: dpb.VALUE_TYPE_UNSPECIFIED}},
+				Labels: map[string]dpb.ValueType{"invalid": dpb.VALUE_TYPE_UNSPECIFIED},
 			},
 			nil,
 			"VALUE_TYPE_UNSPECIFIED",
@@ -405,7 +405,7 @@ func TestMetrics_DescToDef(t *testing.T) {
 			&dpb.MetricDescriptor{
 				Name:   "bad metric kind",
 				Kind:   dpb.METRIC_KIND_UNSPECIFIED,
-				Labels: []*dpb.LabelDescriptor{{Name: "string", ValueType: dpb.STRING}},
+				Labels: map[string]dpb.ValueType{"string": dpb.STRING},
 			},
 			nil,
 			"METRIC_KIND_UNSPECIFIED",
@@ -415,7 +415,7 @@ func TestMetrics_DescToDef(t *testing.T) {
 				Name:   "good",
 				Kind:   dpb.COUNTER,
 				Value:  dpb.STRING,
-				Labels: []*dpb.LabelDescriptor{{Name: "string", ValueType: dpb.STRING}},
+				Labels: map[string]dpb.ValueType{"string": dpb.STRING},
 			},
 			&adapter.MetricDefinition{
 				Name:   "good",

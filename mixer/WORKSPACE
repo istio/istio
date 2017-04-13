@@ -178,7 +178,7 @@ load("//:repositories.bzl", "new_git_or_local_repository")
 new_git_or_local_repository(
     name = "com_github_istio_api",
     build_file = "BUILD.api",
-    commit = "48fe05c75bcdb5c3413111d3c8d232368404b310",  # Mar 22, 2017 (no releases)
+    commit = "961bac244413edb2bfac754534a2cb621fa00af2",  # Apr 12, 2017 (no releases)
     path = "../api",
     remote = "https://github.com/istio/api.git",
     # Change this to True to use ../api directory

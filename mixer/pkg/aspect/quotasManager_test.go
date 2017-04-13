@@ -82,18 +82,18 @@ var (
 		Name:       "RequestCount",
 		MaxAmount:  5,
 		Expiration: &ptypes.Duration{Seconds: 1},
-		Labels:     []*dpb.LabelDescriptor{},
+		Labels:     map[string]dpb.ValueType{},
 	}
 
 	quotaWithLabels = &dpb.QuotaDescriptor{
 		Name:       "desc with labels",
 		Expiration: &ptypes.Duration{Seconds: 1},
-		Labels: []*dpb.LabelDescriptor{
-			{Name: "source", ValueType: dpb.STRING},
-			{Name: "target", ValueType: dpb.STRING},
-			{Name: "service", ValueType: dpb.STRING},
-			{Name: "method", ValueType: dpb.STRING},
-			{Name: "response_code", ValueType: dpb.INT64},
+		Labels: map[string]dpb.ValueType{
+			"source":        dpb.STRING,
+			"target":        dpb.STRING,
+			"service":       dpb.STRING,
+			"method":        dpb.STRING,
+			"response_code": dpb.INT64,
 		},
 	}
 )
@@ -165,7 +165,7 @@ func TestQuotasManager_ValidateConfig(t *testing.T) {
 		"invalid desc": &dpb.QuotaDescriptor{
 			Name:       "invalid desc",
 			Expiration: nil,
-			Labels:     []*dpb.LabelDescriptor{},
+			Labels:     map[string]dpb.ValueType{},
 		},
 		// our attributes
 		"duration": &dpb.AttributeDescriptor{Name: "duration", ValueType: dpb.DURATION},
@@ -387,7 +387,7 @@ func TestQuotas_DescToDef(t *testing.T) {
 		{
 			&dpb.QuotaDescriptor{
 				Name:   "bad label",
-				Labels: []*dpb.LabelDescriptor{{ValueType: dpb.VALUE_TYPE_UNSPECIFIED}},
+				Labels: map[string]dpb.ValueType{"invalid": dpb.VALUE_TYPE_UNSPECIFIED},
 			},
 			nil,
 			"VALUE_TYPE_UNSPECIFIED",
@@ -398,7 +398,7 @@ func TestQuotas_DescToDef(t *testing.T) {
 				DisplayName: "DISPLAYNAME",
 				Description: "DESCRIPTION",
 				MaxAmount:   123,
-				Labels:      []*dpb.LabelDescriptor{{Name: "string", ValueType: dpb.STRING}},
+				Labels:      map[string]dpb.ValueType{"string": dpb.STRING},
 				Expiration:  ptypes.DurationProto(time.Duration(42) * time.Second),
 			},
 			&adapter.QuotaDefinition{

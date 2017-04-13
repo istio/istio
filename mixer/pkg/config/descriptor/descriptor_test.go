@@ -41,7 +41,7 @@ var (
 		Name:          "log",
 		PayloadFormat: dpb.TEXT,
 		LogTemplate:   "{{}}",
-		Labels:        []*dpb.LabelDescriptor{},
+		Labels:        make(map[string]dpb.ValueType),
 	}
 
 	getLog = func(k string) getter {
@@ -52,7 +52,7 @@ var (
 
 	metricDesc = dpb.MetricDescriptor{
 		Name:   "metric",
-		Labels: []*dpb.LabelDescriptor{},
+		Labels: make(map[string]dpb.ValueType),
 	}
 
 	getMetric = func(k string) getter {
@@ -63,7 +63,7 @@ var (
 
 	monitoredResourceDesc = dpb.MonitoredResourceDescriptor{
 		Name:   "mr",
-		Labels: []*dpb.LabelDescriptor{},
+		Labels: make(map[string]dpb.ValueType),
 	}
 
 	getMR = func(k string) getter {
@@ -74,7 +74,7 @@ var (
 
 	principalDesc = dpb.PrincipalDescriptor{
 		Name:   "principal",
-		Labels: []*dpb.LabelDescriptor{},
+		Labels: make(map[string]dpb.ValueType),
 	}
 
 	getPrincipal = func(k string) getter {
@@ -85,7 +85,7 @@ var (
 
 	quotaDesc = dpb.QuotaDescriptor{
 		Name:   "quota",
-		Labels: []*dpb.LabelDescriptor{},
+		Labels: make(map[string]dpb.ValueType),
 	}
 
 	getQuota = func(k string) getter {
@@ -147,9 +147,13 @@ func TestGetQuota(t *testing.T) {
 }
 
 func TestGetAttribute(t *testing.T) {
+	mkcfg := func(descs ...*dpb.AttributeDescriptor) *pb.GlobalConfig {
+		return &pb.GlobalConfig{Manifests: []*pb.AttributeManifest{{Attributes: descs}}}
+	}
+
 	execute(t, cases{
-		{"empty", &pb.GlobalConfig{Attributes: []*dpb.AttributeDescriptor{&attributeDesc}}, getAttr("attr"), &attributeDesc},
-		{"missing", &pb.GlobalConfig{Attributes: []*dpb.AttributeDescriptor{&attributeDesc}}, getAttr("foo"), nil},
+		{"empty", mkcfg(&attributeDesc), getAttr("attr"), &attributeDesc},
+		{"missing", mkcfg(&attributeDesc), getAttr("foo"), nil},
 		{"no attributes", &pb.GlobalConfig{}, getAttr("attr"), nil},
 	})
 }

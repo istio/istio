@@ -39,25 +39,16 @@ func evalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evalu
 	return labels, result.ErrorOrNil()
 }
 
-func findLabel(name string, labels []*dpb.LabelDescriptor) *dpb.LabelDescriptor {
-	for _, l := range labels {
-		if l.Name == name {
-			return l
-		}
-	}
-	return nil
-}
-
-func validateLabels(ceField string, labels map[string]string, labelDescs []*dpb.LabelDescriptor, v expr.Validator, df expr.AttributeDescriptorFinder) (
+func validateLabels(ceField string, labels map[string]string, labelDescs map[string]dpb.ValueType, v expr.Validator, df expr.AttributeDescriptorFinder) (
 	ce *adapter.ConfigErrors) {
 
 	if len(labels) != len(labelDescs) {
 		ce = ce.Appendf(ceField, "wrong dimensions: descriptor expects %d labels, found %d labels", len(labelDescs), len(labels))
 	}
 	for name, exp := range labels {
-		if label := findLabel(name, labelDescs); label == nil {
+		if labelType, found := labelDescs[name]; !found {
 			ce = ce.Appendf(ceField, "wrong dimensions: extra label named %s", name)
-		} else if err := v.AssertType(exp, df, label.ValueType); err != nil {
+		} else if err := v.AssertType(exp, df, labelType); err != nil {
 			ce = ce.Appendf(ceField, "error type checking label '%s': %v", name, err)
 		}
 	}
