@@ -54,7 +54,8 @@ def presubmit(gitUtils, bazel, utils) {
       sh('bin/headers.sh')
     }
     stage('Code Coverage') {
-      sh('bin/coverage.sh')
+      sh('bin/coverage.sh > codecov.report')
+      sh('bazel-bin/bin/toolbox/presubmit/package_coverage_check')
       utils.publishCodeCoverage('AUTH_CODECOV_TOKEN')
     }
   }
