@@ -16,6 +16,7 @@
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION_FILE="${ROOT}/istio.VERSION"
+GIT_COMMIT=false
 
 set -o errexit
 set -o pipefail
@@ -30,17 +31,19 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -i ... URL to download istioctl binaries
     -m ... <hub>,<tag> for the manager docker images
     -x ... <hub>,<tag> for the mixer docker images
+    -c ... create a git commit for the changes
 EOF
   exit 2
 }
 
 source "$VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :i:m:x: arg; do
+while getopts :i:m:x:c arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     m) MANAGER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     x) MIXER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
+    c) GIT_COMMIT=true;;
     *) usage;;
   esac
 done
@@ -109,10 +112,14 @@ function update_istio_install() {
   popd
 }
 
-check_git_status \
-  || error_exit "You have modified files. Please commit or reset your workspace."
+if [[ ${GIT_COMMIT} == true ]]; then
+    check_git_status \
+      || error_exit "You have modified files. Please commit or reset your workspace."
+fi
 
 update_version_file
 update_istio_install
-create_commit
 
+if [[ ${GIT_COMMIT} == true ]]; then
+    create_commit
+fi
