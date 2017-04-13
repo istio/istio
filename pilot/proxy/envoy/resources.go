@@ -36,6 +36,9 @@ const (
 	// RDSName is the name of RDS cluster
 	RDSName = "rds"
 
+	// ClusterTypeStrictDNS name for clusters of type 'strict_dns'
+	ClusterTypeStrictDNS = "strict_dns"
+
 	// LbTypeRoundRobin is the name for roundrobin LB
 	LbTypeRoundRobin = "round_robin"
 
@@ -55,7 +58,8 @@ const (
 var (
 	// DefaultMeshConfig configuration
 	DefaultMeshConfig = proxyconfig.ProxyMeshConfig{
-		DiscoveryAddress: "manager:8080",
+		DiscoveryAddress:   "manager:8080",
+		EgressProxyAddress: "istio-egress:80",
 
 		ProxyListenPort:        15001,
 		ProxyAdminPort:         15000,
@@ -173,6 +177,8 @@ type HTTPRoute struct {
 	TimeoutMS    int               `json:"timeout_ms,omitempty"`
 	RetryPolicy  *RetryPolicy      `json:"retry_policy,omitempty"`
 	OpaqueConfig map[string]string `json:"opaque_config,omitempty"`
+
+	AutoHostRewrite bool `json:"auto_host_rewrite,omitempty"`
 
 	// clusters contains the set of referenced clusters in the route; the field is special
 	// and used only to aggregate cluster information after composing routes

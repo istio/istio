@@ -189,8 +189,20 @@ var (
 		Use:   "egress",
 		Short: "Istio Proxy external service agent",
 		RunE: func(c *cobra.Command, args []string) error {
-			// TODO: implement this method
+			flags.controllerOptions.IngressSyncMode = kube.IngressOff
+			controller := kube.NewController(client, flags.controllerOptions)
+			config := &envoy.EgressConfig{
+				Namespace: flags.controllerOptions.Namespace,
+				Mesh:      mesh,
+				Services:  controller,
+			}
+			w, err := envoy.NewEgressWatcher(controller, config)
+			if err != nil {
+				return err
+			}
+
 			stop := make(chan struct{})
+			go w.Run(stop)
 			cmd.WaitSignal(stop)
 			return nil
 		},

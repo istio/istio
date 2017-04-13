@@ -217,6 +217,7 @@ func buildOutboundListeners(instances []*model.ServiceInstance, services []*mode
 	context *proxy.Context) (Listeners, Clusters) {
 	httpOutbound := buildOutboundHTTPRoutes(instances, services, context.Accounts, context.MeshConfig, context.Config)
 	listeners, clusters := buildOutboundTCPListeners(context.MeshConfig, services)
+
 	for port, routeConfig := range httpOutbound {
 		listeners = append(listeners, buildHTTPListener(context.MeshConfig, routeConfig, WildcardAddress, port, true, false))
 	}
@@ -278,6 +279,22 @@ func buildOutboundHTTPRoutes(
 					routes = append(routes, buildDefaultRoute(cluster))
 				}
 
+				if service.ExternalName != "" {
+					for _, route := range routes {
+						route.HostRewrite = service.Hostname
+						for _, cluster := range route.clusters {
+							cluster.ServiceName = ""
+							cluster.Type = ClusterTypeStrictDNS
+							cluster.Hosts = []Host{
+								{
+									URL: fmt.Sprintf("tcp://%s", mesh.EgressProxyAddress),
+								},
+							}
+
+						}
+					}
+				}
+
 				host := buildVirtualHost(service, servicePort, suffix, routes)
 				http := httpConfigs.EnsurePort(servicePort.Port)
 				http.VirtualHosts = append(http.VirtualHosts, host)
@@ -327,6 +344,9 @@ func buildOutboundTCPListeners(mesh *proxyconfig.ProxyMeshConfig, services []*mo
 	tcpListeners := make(Listeners, 0)
 	tcpClusters := make(Clusters, 0)
 	for _, service := range services {
+		if service.ExternalName != "" {
+			continue // TODO TCP and HTTPS external services not currently supported
+		}
 		for _, servicePort := range service.Ports {
 			switch servicePort.Protocol {
 			case model.ProtocolTCP, model.ProtocolHTTPS:

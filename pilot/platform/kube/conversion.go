@@ -82,9 +82,13 @@ func convertPort(port v1.ServicePort) *model.Port {
 
 func convertService(svc v1.Service) *model.Service {
 	ports := make([]*model.Port, 0)
-	addr := ""
+	addr, external := "", ""
 	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
 		addr = svc.Spec.ClusterIP
+	}
+
+	if svc.Spec.Type == v1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
+		external = svc.Spec.ExternalName
 	}
 
 	for _, port := range svc.Spec.Ports {
@@ -92,9 +96,10 @@ func convertService(svc v1.Service) *model.Service {
 	}
 
 	return &model.Service{
-		Hostname: serviceHostname(svc.Name, svc.Namespace),
-		Ports:    ports,
-		Address:  addr,
+		Hostname:     serviceHostname(svc.Name, svc.Namespace),
+		Ports:        ports,
+		Address:      addr,
+		ExternalName: external,
 	}
 }
 

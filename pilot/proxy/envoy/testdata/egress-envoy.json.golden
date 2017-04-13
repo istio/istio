@@ -1,0 +1,66 @@
+{
+  "listeners": [
+    {
+      "address": "tcp://0.0.0.0:80",
+      "filters": [
+        {
+          "type": "read",
+          "name": "http_connection_manager",
+          "config": {
+            "codec_type": "auto",
+            "stat_prefix": "http",
+            "route_config": {
+              "virtual_hosts": [
+                {
+                  "name": "httpbin.org|80",
+                  "domains": [
+                    "httpbin.default.svc.cluster.local"
+                  ],
+                  "routes": [
+                    {
+                      "prefix": "/",
+                      "cluster": "httpbin.org|80",
+                      "auto_host_rewrite": true
+                    }
+                  ]
+                }
+              ]
+            },
+            "filters": [
+              {
+                "type": "decoder",
+                "name": "router",
+                "config": {}
+              }
+            ],
+            "access_log": [
+              {
+                "path": "/dev/stdout"
+              }
+            ]
+          }
+        }
+      ],
+      "bind_to_port": true
+    }
+  ],
+  "admin": {
+    "access_log_path": "/dev/stdout",
+    "address": "tcp://0.0.0.0:15000"
+  },
+  "cluster_manager": {
+    "clusters": [
+      {
+        "name": "httpbin.org|80",
+        "connect_timeout_ms": 1000,
+        "type": "strict_dns",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://httpbin.org:80"
+          }
+        ]
+      }
+    ]
+  }
+}

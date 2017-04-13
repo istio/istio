@@ -49,6 +49,9 @@ type Service struct {
 	// Ports is the set of network ports where the service is listening for
 	// connections
 	Ports PortList `json:"ports,omitempty"`
+
+	// External service
+	ExternalName string `json:"external"`
 }
 
 // Port represents a network port where a service is listening for

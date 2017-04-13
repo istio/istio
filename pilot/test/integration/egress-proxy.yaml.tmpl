@@ -3,11 +3,9 @@ apiVersion: v1
 kind: Service
 metadata:
   name: httpbin
-  annotations:
-    istio.io/external.dns: httpbin.org
 spec:
   type: ExternalName
-  externalName: istio-egress.{{.namespace}}.svc.cluster.local
+  externalName: httpbin.org
   ports:
   - port: 80
     name: http

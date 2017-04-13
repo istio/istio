@@ -60,6 +60,10 @@ func (r *reachability) run() error {
 		if err := r.verifyIngress(); err != nil {
 			return err
 		}
+
+		if err := r.verifyEgress(); err != nil {
+			return err
+		}
 	}
 
 	if glog.V(2) {
@@ -260,6 +264,73 @@ func (r *reachability) verifyTCPRouting() error {
 							return err
 						}
 					}
+				}
+			}
+		}
+	}
+	if params.parallel {
+		if err := g.Wait(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// makeEgressRequest creates a function to make egress requests; done should return true to quickly exit the
+// retry loop
+func (r *reachability) makeEgressRequest(src, dst string, done func() bool) func() error {
+	return func() error {
+		url := fmt.Sprintf("http://%s/headers", dst)
+
+		for n := 0; n < budget; n++ {
+			trace := fmt.Sprint(time.Now().UnixNano())
+			glog.Infof("Making a request %s from %s (attempt %d)...\n", url, src, n)
+			resp, err := shell(fmt.Sprintf("kubectl exec %s -n %s -c app -- client -url %s -insecure -key Trace-Id -val %q",
+				pods[src], params.namespace, url, trace))
+			if err != nil {
+				return err
+			}
+
+			if strings.Contains(resp, trace) && strings.Contains(resp, "StatusCode=200") {
+				return nil
+			}
+
+			glog.Errorf("Failed to find trace id in response from external service")
+
+			if done() {
+				return nil
+			}
+		}
+		return fmt.Errorf("failed to inject proxy from %s to %s (url %s)", src, dst, url)
+	}
+}
+
+func (r *reachability) verifyEgress() error {
+	g, ctx := errgroup.WithContext(context.Background())
+
+	extServices := []string{
+		"httpbin",
+		//"httpsbin",TODO
+	}
+
+	for _, src := range []string{"a", "b"} {
+		for _, extSrv := range extServices {
+			if params.parallel {
+				g.Go(r.makeEgressRequest(src, extSrv, func() bool {
+					select {
+					case <-time.After(time.Second):
+					// try again
+					case <-ctx.Done():
+						return true
+					}
+					return false
+
+				}))
+			} else {
+				if err := r.makeEgressRequest(src, extSrv, func() bool {
+					return false
+				})(); err != nil {
+					return err
 				}
 			}
 		}

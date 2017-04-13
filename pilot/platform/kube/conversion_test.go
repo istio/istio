@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"istio.io/manager/model"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/client-go/pkg/api/v1"
 )
@@ -111,4 +112,99 @@ func TestIsRegularExpression(t *testing.T) {
 			t.Errorf("isRegularExpression(%q) => %v, want %v", c.s, !c.isRegex, c.isRegex)
 		}
 	}
+}
+
+func TestServiceConversion(t *testing.T) {
+	serviceName := "service1"
+	namespace := "default"
+	ip := "10.0.0.1"
+
+	localSvc := v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: namespace,
+		},
+		Spec: v1.ServiceSpec{
+			ClusterIP: ip,
+			Ports: []v1.ServicePort{
+				{
+					Name:     "http",
+					Port:     8080,
+					Protocol: v1.ProtocolTCP,
+				},
+				{
+					Name:     "https",
+					Protocol: v1.ProtocolTCP,
+					Port:     443,
+				},
+			},
+		},
+	}
+
+	service := convertService(localSvc)
+
+	if len(service.Ports) != len(localSvc.Spec.Ports) {
+		t.Errorf("incorrect number of ports => %v, want %v",
+			len(service.Ports), len(localSvc.Spec.Ports))
+	}
+
+	if service.ExternalName != "" {
+		t.Error("service should not be external")
+	}
+
+	if service.Hostname != serviceHostname(serviceName, namespace) {
+		t.Errorf("service hostname incorrect => %q, want %q",
+			service.Hostname, serviceHostname(serviceName, namespace))
+	}
+
+	if service.Address != ip {
+		t.Errorf("service IP incorrect => %q, want %q", service.Address, ip)
+	}
+
+}
+
+func TestExternalServiceConversion(t *testing.T) {
+	serviceName := "service1"
+	namespace := "default"
+	ip := "10.0.0.1"
+
+	extSvc := v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: namespace,
+		},
+		Spec: v1.ServiceSpec{
+			ClusterIP: ip,
+			Ports: []v1.ServicePort{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: v1.ProtocolTCP,
+				},
+			},
+			Type:         v1.ServiceTypeExternalName,
+			ExternalName: "google.com",
+		},
+	}
+
+	service := convertService(extSvc)
+
+	if len(service.Ports) != len(extSvc.Spec.Ports) {
+		t.Errorf("incorrect number of ports => %v, want %v",
+			len(service.Ports), len(extSvc.Spec.Ports))
+	}
+
+	if service.ExternalName != extSvc.Spec.ExternalName {
+		t.Error("service should be external")
+	}
+
+	if service.Hostname != serviceHostname(serviceName, namespace) {
+		t.Errorf("service hostname incorrect => %q, want %q",
+			service.Hostname, extSvc.Spec.ExternalName)
+	}
+
+	if service.Address != ip {
+		t.Errorf("service address incorrect => %q, want %q", service.Address, ip)
+	}
+
 }
