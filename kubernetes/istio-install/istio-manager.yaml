@@ -5,6 +5,8 @@ metadata:
   name: istio
 data:
   mesh: |-
+    # Uncomment the following line to enable mutual TLS between proxies
+    # authPolicy: MUTUAL_TLS
     mixerAddress: istio-mixer:9091
     discoveryAddress: istio-manager:8080
 ---
