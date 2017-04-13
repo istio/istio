@@ -112,11 +112,14 @@ function update_istio_install() {
   popd
 }
 
-check_git_status \
-  || error_exit "You have modified files. Please commit or reset your workspace."
+if [[ ${GIT_COMMIT} == true ]]; then
+    check_git_status \
+      || error_exit "You have modified files. Please commit or reset your workspace."
+fi
 
 update_version_file
 update_istio_install
+
 if [[ ${GIT_COMMIT} == true ]]; then
     create_commit
 fi
