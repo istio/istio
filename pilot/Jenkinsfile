@@ -101,8 +101,9 @@ def stablePostsubmit(gitUtils, bazel, utils) {
       sh("bin/cross-compile-istioctl -p ${remotePath}")
     }
     stage('Docker Push') {
+      def date = new Date().format("YYYY-MM-dd-HH.mm.ss")
       def images = 'init,init_debug,app,app_debug,proxy,proxy_debug,manager,manager_debug'
-      def tags = "${env.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
+      def tags = "${env.GIT_SHORT_SHA},${date},latest"
       utils.publishDockerImagesToDockerHub(images, tags)
       utils.publishDockerImagesToContainerRegistry(images, tags, '', 'gcr.io/istio-io')
     }
