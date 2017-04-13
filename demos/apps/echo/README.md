@@ -1,7 +1,23 @@
 # Istio Kubernetes Demo with simple echo app
 
-**Prerequisite: existing Kubernetes cluster with Istio installated as per [../../../kubernetes/README.md](../../../kubernetes/README.md).
+**Prerequisite: Install Istio**
 
+Follow the instructions listed in
+[../../../kubernetes/README.md](../../../kubernetes/README.md) to install Isito
+on an existing Kubernetes cluster.
+
+***Optional: enable mutual TLS between proxies***
+
+Before you install Istio, you can uncomment the following line in
+`istio-manager.yaml` file to enable mutual TLS connections among proxies.
+```yaml
+data:
+  mesh: |-
+    # Uncomment the following line to enable mutual TLS between proxies
+    authPolicy: MUTUAL_TLS
+    mixerAddress: istio-mixer:9091
+    discoveryAddress: istio-manager:8080
+```
 
 **Deploy a simple echo app with manually injected proxy**
 
