@@ -60,7 +60,9 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca certmanager.CertificateAuthority, core corev1.CoreV1Interface) *SecretController {
+func NewSecretController(ca certmanager.CertificateAuthority, core corev1.CoreV1Interface,
+	namespace string) *SecretController {
+
 	c := &SecretController{
 		ca:   ca,
 		core: core,
@@ -68,10 +70,10 @@ func NewSecretController(ca certmanager.CertificateAuthority, core corev1.CoreV1
 
 	saLW := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			return core.ServiceAccounts(metav1.NamespaceAll).List(options)
+			return core.ServiceAccounts(namespace).List(options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			return core.ServiceAccounts(metav1.NamespaceAll).Watch(options)
+			return core.ServiceAccounts(namespace).Watch(options)
 		},
 	}
 	rehf := cache.ResourceEventHandlerFuncs{
@@ -85,11 +87,11 @@ func NewSecretController(ca certmanager.CertificateAuthority, core corev1.CoreV1
 	scrtLW := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.FieldSelector = istioSecretSelector
-			return core.Secrets(metav1.NamespaceAll).List(options)
+			return core.Secrets(namespace).List(options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			options.FieldSelector = istioSecretSelector
-			return core.Secrets(metav1.NamespaceAll).Watch(options)
+			return core.Secrets(namespace).Watch(options)
 		},
 	}
 	c.scrtStore, c.scrtController =
