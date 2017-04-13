@@ -37,6 +37,78 @@ import (
 	"istio.io/manager/test/mock"
 )
 
+func TestSecret(t *testing.T) {
+	cl := makeClient(t)
+	ns := makeNamespace(cl.client, t)
+	defer deleteNamespace(cl.client, ns)
+
+	ctl := NewController(cl, ControllerOptions{
+		Namespace:       ns,
+		ResyncPeriod:    resync,
+		IngressSyncMode: IngressDefault,
+		IngressClass:    "istio",
+	})
+
+	stop := make(chan struct{})
+	defer close(stop)
+	go ctl.Run(stop)
+
+	// append an ingress notification handler that just counts number of notifications
+	notificationCount := 0
+	_ = ctl.AppendConfigHandler(model.IngressRule, func(key model.Key, msg proto.Message, ev model.Event) {
+		notificationCount++
+	})
+
+	// create the secret
+	cert := "abcdef"
+	key := "ghijkl"
+	secret := "istio-secret"
+	_, err := cl.client.Core().Secrets(ns).Create(&v1.Secret{
+		ObjectMeta: meta_v1.ObjectMeta{Name: secret},
+		Data:       map[string][]byte{secretCert: []byte(cert), secretKey: []byte(key)},
+	})
+	if err != nil {
+		t.Error(err)
+	}
+
+	eventually(func() bool {
+		secret, err := cl.client.Core().Secrets(ns).Get(secret, meta_v1.GetOptions{})
+		return secret != nil && err == nil
+	}, t)
+
+	ingress := v1beta1.Ingress{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name:      "test-ingress",
+			Namespace: ns,
+		},
+		Spec: v1beta1.IngressSpec{
+			TLS: []v1beta1.IngressTLS{
+				{SecretName: secret},
+			},
+			Backend: &v1beta1.IngressBackend{
+				ServiceName: "world",
+				ServicePort: intstr.FromInt(80),
+			},
+			Rules: []v1beta1.IngressRule{},
+		},
+	}
+	createIngress(&ingress, cl.client, t)
+
+	eventually(func() bool {
+		return notificationCount == 1
+	}, t)
+
+	host := fmt.Sprintf("world.%v.svc.cluster.local", ns)
+	if tls, err := ctl.GetTLSSecret(host); err != nil {
+		t.Errorf("GetTLSSecret => got %q", err)
+	} else if tls == nil {
+		t.Errorf("GetTLSSecret => no secret")
+	} else if cert != string(tls.Certificate) || key != string(tls.PrivateKey) {
+		t.Errorf("GetTLSSecret => got %q and %q, want %q and %q",
+			string(tls.Certificate), string(tls.PrivateKey), cert, key)
+	}
+}
+
 func TestIngressController(t *testing.T) {
 	cl := makeClient(t)
 	ns := makeNamespace(cl.client, t)

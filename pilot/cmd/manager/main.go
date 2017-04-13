@@ -40,7 +40,6 @@ type args struct {
 
 	ipAddress     string
 	podName       string
-	ingressSecret string
 	passthrough   []int
 	apiserverPort int
 
@@ -171,8 +170,7 @@ var (
 				CertFile:  "/etc/tls.crt",
 				KeyFile:   "/etc/tls.key",
 				Namespace: flags.controllerOptions.Namespace,
-				Secret:    flags.ingressSecret,
-				Secrets:   client,
+				Secrets:   controller,
 				Registry:  &model.IstioRegistry{ConfigRegistry: controller},
 				Mesh:      mesh,
 			}
@@ -226,10 +224,6 @@ func init() {
 
 	sidecarCmd.PersistentFlags().IntSliceVar(&flags.passthrough, "passthrough", nil,
 		"Passthrough ports for health checks")
-
-	// TODO: remove this once we write the logic to obtain secrets dynamically
-	ingressCmd.PersistentFlags().StringVar(&flags.ingressSecret, "secret", "",
-		"Kubernetes secret name for ingress SSL termination")
 	ingressCmd.PersistentFlags().StringVar(&flags.controllerOptions.IngressClass, "ingress_class", "istio",
 		"The class of ingress resources to be processed by this ingress controller")
 	ingressCmd.PersistentFlags().BoolVar(&flags.defaultIngressController, "default_ingress_controller", true,

@@ -23,7 +23,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
-	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/api/proxy/v1/config"
@@ -86,99 +85,13 @@ type IngressConfig struct {
 	CertFile  string
 	KeyFile   string
 	Namespace string
-	Secret    string
 	Secrets   model.SecretRegistry
 	Registry  *model.IstioRegistry
 	Mesh      *config.ProxyMeshConfig
 }
 
 func generateIngress(conf *IngressConfig) *Config {
-	rules := conf.Registry.IngressRules(conf.Namespace)
-
-	// Phase 1: group rules by host
-	rulesByHost := make(map[string][]*config.RouteRule, len(rules))
-	for _, rule := range rules {
-		host := "*"
-		if rule.Match != nil {
-			if authority, ok := rule.Match.HttpHeaders["authority"]; ok {
-				switch match := authority.GetMatchType().(type) {
-				case *config.StringMatch_Exact:
-					host = match.Exact
-				default:
-					glog.Warningf("Unsupported match type for authority condition: %T", match)
-				}
-			}
-		}
-
-		rulesByHost[host] = append(rulesByHost[host], rule)
-	}
-
-	// Phase 2: create a VirtualHost for each host
-	vhosts := make([]*VirtualHost, 0, len(rulesByHost))
-	for host, hostRules := range rulesByHost {
-		routes := make([]*HTTPRoute, 0, len(hostRules))
-		for _, rule := range hostRules {
-			route, err := buildIngressRoute(rule)
-			if err != nil {
-				glog.Warningf("Error constructing Envoy route from ingress rule: %v", err)
-				continue
-			}
-			routes = append(routes, route)
-		}
-		sort.Sort(RoutesByPath(routes))
-		vhost := &VirtualHost{
-			Name:    host,
-			Domains: []string{host},
-			Routes:  routes,
-		}
-		vhosts = append(vhosts, vhost)
-	}
-	sort.Slice(vhosts, func(i, j int) bool { return vhosts[i].Name < vhosts[j].Name })
-
-	rConfig := &HTTPRouteConfig{VirtualHosts: vhosts}
-
-	listener := &Listener{
-		Address:    fmt.Sprintf("tcp://%s:80", WildcardAddress),
-		BindToPort: true,
-		Filters: []*NetworkFilter{
-			{
-				Type: "read",
-				Name: HTTPConnectionManager,
-				Config: HTTPFilterConfig{
-					CodecType:   "auto",
-					StatPrefix:  "http",
-					AccessLog:   []AccessLog{{Path: DefaultAccessLog}},
-					RouteConfig: rConfig,
-					Filters: []HTTPFilter{
-						{
-							Type:   "decoder",
-							Name:   "router",
-							Config: FilterRouterConfig{},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	// configure for HTTPS if provided with a secret name
-	if conf.Secret != "" {
-		// configure Envoy
-		listener.Address = fmt.Sprintf("tcp://%s:443", WildcardAddress)
-		listener.SSLContext = &SSLContext{
-			CertChainFile:  conf.CertFile,
-			PrivateKeyFile: conf.KeyFile,
-		}
-
-		if err := writeTLS(conf.CertFile, conf.KeyFile, conf.Namespace,
-			conf.Secret, conf.Secrets); err != nil {
-			glog.Warning("Failed to get and save secrets. Envoy will crash and trigger a retry...")
-		}
-	}
-
-	listeners := []*Listener{listener}
-	clusters := rConfig.clusters().normalize()
-	clusters.setTimeout(conf.Mesh.ConnectTimeout)
+	listeners, clusters := buildIngressListeners(conf)
 
 	return &Config{
 		Listeners: listeners,
@@ -196,34 +109,171 @@ func generateIngress(conf *IngressConfig) *Config {
 	}
 }
 
-func writeTLS(certFilename, keyFilename, namespace, secret string, secrets model.SecretRegistry) error {
-	var uri string
-	if namespace == "" {
-		uri = secret + ".default"
-	} else {
-		uri = fmt.Sprintf("%s.%s", secret, namespace)
+func buildIngressVhosts(conf *IngressConfig) ([]*VirtualHost, []*VirtualHost, *model.TLSSecret) {
+	rules := conf.Registry.IngressRules(conf.Namespace)
+
+	rulesByHost := make(map[string][]*config.RouteRule, len(rules))
+	for _, rule := range rules {
+		host := "*"
+		if rule.Match != nil {
+			if authority, ok := rule.Match.HttpHeaders["authority"]; ok {
+				switch match := authority.GetMatchType().(type) {
+				case *config.StringMatch_Exact:
+					host = match.Exact
+				default:
+					glog.Warningf("Unsupported match type for authority condition: %T", match)
+				}
+			}
+		}
+
+		rulesByHost[host] = append(rulesByHost[host], rule)
 	}
 
-	s, err := secrets.GetSecret(uri)
-	if err != nil {
-		return errwrap.Wrap(fmt.Errorf("could not get secret %q", uri), err)
+	// figure out which hosts are configured to terminate TLS
+	// ensure that only one TLS config is used
+	// TODO: extensive tests for the TLS logic
+	var tls *model.TLSSecret
+	tlsValid := true
+	tlsHosts := make(map[string]bool)
+	for host := range rulesByHost {
+		if t, err := conf.Secrets.GetTLSSecret(host); err != nil {
+			tlsValid = false
+			tlsHosts[host] = true // count this as a TLS host so that it is omitted from the config
+
+			glog.Warningf("Error retrieving TLS context for %q: %v", host, err)
+		} else if t != nil {
+			if tls == nil {
+				tls = t
+			} else if string(tls.PrivateKey) != string(t.PrivateKey) || string(tls.Certificate) != string(t.Certificate) {
+				glog.Warningf("Unsupported ingress configuration for host %q: multiple TLS configs", host)
+				tlsValid = false
+			}
+			tlsHosts[host] = true
+		}
 	}
 
-	cert, exists := s["tls.crt"]
-	if !exists {
-		return fmt.Errorf("could not find tls.crt in secret %q", uri)
+	// build vhosts
+	vhosts := make([]*VirtualHost, 0, len(rulesByHost))
+	vhostsTLS := make([]*VirtualHost, 0, len(rulesByHost))
+	for host, hostRules := range rulesByHost {
+		routes := make([]*HTTPRoute, 0, len(hostRules))
+		for _, rule := range hostRules {
+			route, err := buildIngressRoute(rule)
+			if err != nil {
+				glog.Warningf("Error constructing Envoy route from ingress rule: %v", err)
+				continue
+			}
+			routes = append(routes, route)
+		}
+		sort.Sort(RoutesByPath(routes))
+		vhost := &VirtualHost{
+			Name:    host,
+			Domains: []string{host},
+			Routes:  routes,
+		}
+
+		// sort into TLS and non-TLS
+		if tlsHosts[host] {
+			if tlsValid { // only add TLS vhosts when the TLS config is valid
+				vhostsTLS = append(vhostsTLS, vhost)
+			}
+		} else {
+			vhosts = append(vhosts, vhost)
+		}
 	}
 
-	key, exists := s["tls.key"]
-	if !exists {
-		return fmt.Errorf("could not find tls.key in secret %q", uri)
+	return vhosts, vhostsTLS, tls
+}
+
+func buildIngressListeners(conf *IngressConfig) (Listeners, Clusters) {
+	vhosts, vhostsTLS, tls := buildIngressVhosts(conf)
+
+	clusters := make(Clusters, 0)
+	listeners := make([]*Listener, 0)
+
+	if len(vhosts) > 0 {
+		sort.Slice(vhosts, func(i, j int) bool { return vhosts[i].Name < vhosts[j].Name })
+
+		rConfig := &HTTPRouteConfig{VirtualHosts: vhosts}
+		listener := &Listener{
+			Address:    fmt.Sprintf("tcp://%s:80", WildcardAddress),
+			BindToPort: true,
+			Filters: []*NetworkFilter{
+				{
+					Type: "read",
+					Name: HTTPConnectionManager,
+					Config: HTTPFilterConfig{
+						CodecType:   "auto",
+						StatPrefix:  "http",
+						AccessLog:   []AccessLog{{Path: DefaultAccessLog}},
+						RouteConfig: rConfig,
+						Filters: []HTTPFilter{
+							{
+								Type:   "decoder",
+								Name:   "router",
+								Config: FilterRouterConfig{},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		listeners = append(listeners, listener)
+		clusters = append(clusters, rConfig.clusters()...)
 	}
 
-	// write files
-	if err = ioutil.WriteFile(certFilename, cert, 0755); err != nil {
+	if len(vhostsTLS) > 0 {
+		if err := writeTLS(conf.CertFile, conf.KeyFile, tls); err != nil {
+			glog.Warning("Failed to get and save secrets. Envoy will crash and trigger a retry...")
+		}
+
+		sort.Slice(vhostsTLS, func(i, j int) bool { return vhostsTLS[i].Name < vhostsTLS[j].Name })
+
+		rConfig := &HTTPRouteConfig{VirtualHosts: vhostsTLS}
+		listener := &Listener{
+			Address: fmt.Sprintf("tcp://%s:443", WildcardAddress),
+			SSLContext: &SSLContext{
+				CertChainFile:  conf.CertFile,
+				PrivateKeyFile: conf.KeyFile,
+			},
+			BindToPort: true,
+			Filters: []*NetworkFilter{
+				{
+					Type: "read",
+					Name: HTTPConnectionManager,
+					Config: HTTPFilterConfig{
+						CodecType:   "auto",
+						StatPrefix:  "https",
+						AccessLog:   []AccessLog{{Path: DefaultAccessLog}},
+						RouteConfig: rConfig,
+						Filters: []HTTPFilter{
+							{
+								Type:   "decoder",
+								Name:   "router",
+								Config: FilterRouterConfig{},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		listeners = append(listeners, listener)
+		clusters = append(clusters, rConfig.clusters()...)
+	}
+
+	clusters = clusters.normalize()
+	clusters.setTimeout(conf.Mesh.ConnectTimeout)
+
+	return listeners, clusters
+}
+
+func writeTLS(certFile, keyFile string, tls *model.TLSSecret) error {
+	if err := ioutil.WriteFile(certFile, tls.Certificate, 0755); err != nil {
 		return err
 	}
-	if err = ioutil.WriteFile(keyFilename, key, 0755); err != nil {
+	if err := ioutil.WriteFile(keyFile, tls.PrivateKey, 0755); err != nil {
 		return err
 	}
 

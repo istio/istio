@@ -1,14 +1,14 @@
 {
   "listeners": [
     {
-      "address": "tcp://0.0.0.0:443",
+      "address": "tcp://0.0.0.0:80",
       "filters": [
         {
           "type": "read",
           "name": "http_connection_manager",
           "config": {
             "codec_type": "auto",
-            "stat_prefix": "https",
+            "stat_prefix": "http",
             "route_config": {
               "virtual_hosts": [
                 {
@@ -23,7 +23,37 @@
                       "cluster": "out.foo.default.svc.cluster.local|http"
                     }
                   ]
-                },
+                }
+              ]
+            },
+            "filters": [
+              {
+                "type": "decoder",
+                "name": "router",
+                "config": {}
+              }
+            ],
+            "access_log": [
+              {
+                "path": "/dev/stdout"
+              }
+            ]
+          }
+        }
+      ],
+      "bind_to_port": true
+    },
+    {
+      "address": "tcp://0.0.0.0:443",
+      "filters": [
+        {
+          "type": "read",
+          "name": "http_connection_manager",
+          "config": {
+            "codec_type": "auto",
+            "stat_prefix": "https",
+            "route_config": {
+              "virtual_hosts": [
                 {
                   "name": "world.default.svc.cluster.local",
                   "domains": [

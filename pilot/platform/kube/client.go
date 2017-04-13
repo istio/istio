@@ -354,21 +354,6 @@ func (cl *Client) List(kind, namespace string) (map[model.Key]proto.Message, err
 	return out, errs
 }
 
-// GetSecret implements secret registry operation: uri has the form "name.namespace"
-func (cl *Client) GetSecret(uri string) (map[string][]byte, error) {
-	dot := strings.Index(uri, ".")
-	if dot < 0 {
-		return nil, fmt.Errorf("Secret URI %q does not match 'name.namespace' pattern", uri)
-	}
-	name := uri[:dot]
-	namespace := uri[dot+1:]
-	secret, err := cl.client.Core().Secrets(namespace).Get(name, meta_v1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return secret.Data, nil
-}
-
 // configKey assigns k8s TPR name to Istio config
 func configKey(k *model.Key) string {
 	return k.Kind + "-" + k.Name

@@ -1,0 +1,13 @@
+destination: foo.default.svc.cluster.local
+match:
+  http_headers:
+    authority:
+      exact: "foo.default.svc.cluster.local"
+    uri:
+      prefix: "/bar"
+route:
+  - tags:
+       servicePort.name: http
+       servicePort.protocol: http
+       servicePort.port: "80"
+    weight: 100

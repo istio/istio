@@ -1,6 +1,6 @@
 destination: world.default.svc.cluster.local
 match:
-  httpHeaders:
+  http_headers:
     authority:
       exact: "world.default.svc.cluster.local"
     uri:

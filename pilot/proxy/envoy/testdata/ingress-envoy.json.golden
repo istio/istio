@@ -12,6 +12,19 @@
             "route_config": {
               "virtual_hosts": [
                 {
+                  "name": "foo.default.svc.cluster.local",
+                  "domains": [
+                    "foo.default.svc.cluster.local"
+                  ],
+                  "routes": [
+                    {
+                      "prefix": "/bar",
+                      "host_rewrite": "foo.default.svc.cluster.local:80",
+                      "cluster": "out.foo.default.svc.cluster.local|http"
+                    }
+                  ]
+                },
+                {
                   "name": "world.default.svc.cluster.local",
                   "domains": [
                     "world.default.svc.cluster.local"
@@ -50,6 +63,13 @@
   },
   "cluster_manager": {
     "clusters": [
+      {
+        "name": "out.foo.default.svc.cluster.local|http",
+        "service_name": "foo.default.svc.cluster.local|http",
+        "connect_timeout_ms": 1000,
+        "type": "sds",
+        "lb_type": "round_robin"
+      },
       {
         "name": "out.world.default.svc.cluster.local|http",
         "service_name": "world.default.svc.cluster.local|http",

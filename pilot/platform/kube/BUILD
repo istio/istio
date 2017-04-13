@@ -8,6 +8,7 @@ go_library(
         "controller.go",
         "conversion.go",
         "queue.go",
+        "secretstore.go",
     ],
     visibility = ["//visibility:public"],
     deps = [

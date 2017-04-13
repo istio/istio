@@ -80,7 +80,8 @@ type Controller struct {
 	endpoints cacheHandler
 	ingresses cacheHandler
 
-	pods *PodCache
+	pods    *PodCache
+	secrets *secretStore
 }
 
 type cacheHandler struct {
@@ -94,6 +95,7 @@ func NewController(client *Client, options ControllerOptions) *Controller {
 	out := &Controller{
 		client:  client,
 		options: options,
+		secrets: newSecretStore(client.GetKubernetesClient()),
 		queue:   NewQueue(1 * time.Second),
 		kinds:   make(map[string]cacheHandler),
 	}
@@ -247,6 +249,8 @@ func (c *Controller) appendIngressConfigHandler(k string, f func(model.Key, prot
 		if !c.shouldProcessIngress(ingress) {
 			return nil
 		}
+
+		c.mapIngressSecrets(ingress.Spec.TLS, ev)
 
 		// Convert the ingress into a map[Key]Message, and invoke handler for each
 		// TODO: This works well for Add and Delete events, but no so for Update:
@@ -616,6 +620,11 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 	return out
 }
 
+// GetTLSSecret implements secret registry operation.
+func (c *Controller) GetTLSSecret(uri string) (*model.TLSSecret, error) {
+	return c.secrets.GetTLSSecret(uri)
+}
+
 const (
 	// IstioServiceAccountPrefix is always the prefix for Istio service accounts.
 	IstioServiceAccountPrefix = "istio:"
@@ -745,5 +754,31 @@ func (c *Controller) shouldProcessIngress(ingress *v1beta1.Ingress) bool {
 	default:
 		glog.Warningf("Invalid ingress synchronization mode: %v", c.options.IngressSyncMode)
 		return false
+	}
+}
+
+func (c *Controller) mapIngressSecrets(tls []v1beta1.IngressTLS, ev model.Event) {
+	for _, t := range tls {
+		if t.SecretName == "" {
+			continue
+		}
+
+		if len(t.Hosts) == 0 {
+			switch ev {
+			case model.EventAdd, model.EventUpdate:
+				c.secrets.setWildcard(c.options.Namespace, t.SecretName)
+			case model.EventDelete:
+				c.secrets.setWildcard("", "")
+			}
+		} else {
+			for _, host := range t.Hosts {
+				switch ev {
+				case model.EventAdd, model.EventUpdate:
+					c.secrets.put(host, t.SecretName)
+				case model.EventDelete:
+					c.secrets.delete(host)
+				}
+			}
+		}
 	}
 }
