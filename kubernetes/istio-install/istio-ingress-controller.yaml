@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
       - name: istio-ingress-controller
-        image: gcr.io/istio-testing/proxy:alpha9a73dd7feb916a7af889b94558b579ccee261a26
+        image: docker.io/istio/proxy:2017-04-13-01.05.21
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: Always
         ports:
