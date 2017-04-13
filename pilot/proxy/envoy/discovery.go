@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/pprof"
+	"sort"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -154,6 +155,24 @@ type host struct {
 	Weight int `json:"load_balancing_weight,omitempty"`
 }
 
+type keyAndService struct {
+	Key   string  `json:"service-key"`
+	Hosts []*host `json:"hosts"`
+}
+
+type nodeAndCluster struct {
+	ServiceCluster string   `json:"service-cluster"`
+	ServiceNode    string   `json:"service-node"`
+	Clusters       Clusters `json:"clusters"`
+}
+
+type routeConfigAndMetadata struct {
+	RouteConfigName string         `json:"route-config-name"`
+	ServiceCluster  string         `json:"service-cluster"`
+	ServiceNode     string         `json:"service-node"`
+	VirtualHosts    []*VirtualHost `json:"virtual_hosts"`
+}
+
 // Request parameters for discovery services
 const (
 	ServiceKey      = "service-key"
@@ -216,6 +235,15 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 	ws := &restful.WebService{}
 	ws.Produces(restful.MIME_JSON)
 
+	// List all known services (informational, not invoked by Envoy)
+	ws.Route(ws.
+		GET("/v1/registration").
+		To(ds.ListAllEndpoints).
+		Doc("Services in SDS").
+		Produces(restful.MIME_JSON))
+
+	// This route makes discovery act as an Envoy Service discovery service (SDS).
+	// See https://lyft.github.io/envoy/docs/intro/arch_overview/service_discovery.html#arch-overview-service-discovery-sds
 	ws.Route(ws.
 		GET(fmt.Sprintf("/v1/registration/{%s}", ServiceKey)).
 		To(ds.ListEndpoints).
@@ -223,6 +251,15 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Param(ws.PathParameter(ServiceKey, "tuple of service name and tag name").DataType("string")).
 		Produces(restful.MIME_JSON))
 
+	// List all known clusters (informational, not invoked by Envoy)
+	ws.Route(ws.
+		GET("/v1/clusters").
+		To(ds.ListAllClusters).
+		Doc("Clusters in CDS").
+		Produces(restful.MIME_JSON))
+
+	// This route makes discovery act as an Envoy Cluster discovery service (CDS).
+	// See https://lyft.github.io/envoy/docs/configuration/cluster_manager/cds.html
 	ws.Route(ws.
 		GET(fmt.Sprintf("/v1/clusters/{%s}/{%s}", ServiceCluster, ServiceNode)).
 		To(ds.ListClusters).
@@ -231,6 +268,15 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")).
 		Produces(restful.MIME_JSON))
 
+	// List all known routes (informational, not invoked by Envoy)
+	ws.Route(ws.
+		GET("/v1/routes").
+		To(ds.ListAllRoutes).
+		Doc("Routes in CDS").
+		Produces(restful.MIME_JSON))
+
+	// This route makes discovery act as an Envoy Route discovery service (RDS).
+	// See https://lyft.github.io/envoy/docs/configuration/http_conn_man/rds.html
 	ws.Route(ws.
 		GET(fmt.Sprintf("/v1/routes/{%s}/{%s}/{%s}", RouteConfigName, ServiceCluster, ServiceNode)).
 		To(ds.ListRoutes).
@@ -293,6 +339,37 @@ func (ds *DiscoveryService) clearCache() {
 	ds.rdsCache.clear()
 }
 
+// ListAllEndpoints responds with all Services and is not restricted to a single service-key
+func (ds *DiscoveryService) ListAllEndpoints(request *restful.Request, response *restful.Response) {
+
+	var services []*keyAndService
+	for _, service := range ds.Discovery.Services() {
+		for _, port := range service.Ports {
+
+			var hosts []*host
+			for _, instance := range ds.Discovery.Instances(service.Hostname, []string{port.Name}, nil) {
+				hosts = append(hosts, &host{
+					Address: instance.Endpoint.Address,
+					Port:    instance.Endpoint.Port,
+				})
+			}
+
+			services = append(services, &keyAndService{
+				Key:   service.Key(port, nil),
+				Hosts: hosts,
+			})
+		}
+	}
+
+	// Sort servicesArray.  This is not strictly necessary, but discovery_test.go will
+	// be comparing against a golden example using test/util/diff.go which does a textual comparison
+	sort.Slice(services, func(i, j int) bool { return services[i].Key < services[j].Key })
+
+	if err := response.WriteEntity(services); err != nil {
+		glog.Warning(err)
+	}
+}
+
 // ListEndpoints responds to SDS requests
 func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *restful.Response) {
 	key := request.Request.URL.String()
@@ -315,6 +392,47 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 		ds.sdsCache.updateCachedDiscoveryResponse(key, out)
 	}
 	writeResponse(response, out)
+}
+
+// ListAllClusters responds to CDS requests that are not limited by a service-cluster and service-node
+func (ds *DiscoveryService) ListAllClusters(request *restful.Request, response *restful.Response) {
+
+	var allClusters []nodeAndCluster
+
+	endpoints := ds.allServiceNodes()
+
+	// This sort is not needed, but discovery_test excepts consistent output and sorting achieves it
+	sort.Strings(endpoints)
+
+	for _, ip := range endpoints {
+		// CDS computes clusters that are referenced by RDS routes for a particular proxy node
+		// TODO: this implementation is inefficient as it is recomputing all the routes for all proxies
+		// There is a lot of potential to cache and reuse cluster definitions across proxies and also
+		// skip computing the actual HTTP routes
+		instances := ds.Discovery.HostInstances(map[string]bool{ip: true})
+		services := ds.Discovery.Services()
+		httpRouteConfigs := buildOutboundHTTPRoutes(instances, services, ds.Accounts, ds.MeshConfig, ds.Config)
+
+		// de-duplicate and canonicalize clusters
+		clusters := httpRouteConfigs.clusters().normalize()
+
+		// apply custom policies for HTTP clusters
+		for _, cluster := range clusters {
+			insertDestinationPolicy(ds.Config, cluster)
+		}
+
+		allClusters = append(allClusters, nodeAndCluster{
+			ServiceCluster: ds.MeshConfig.IstioServiceCluster,
+			ServiceNode:    ip,
+			Clusters:       clusters,
+		})
+	}
+
+	sort.Slice(allClusters, func(i, j int) bool { return allClusters[i].ServiceNode < allClusters[j].ServiceNode })
+
+	if err := response.WriteEntity(allClusters); err != nil {
+		glog.Warning(err)
+	}
 }
 
 // ListClusters responds to CDS requests for all outbound clusters
@@ -354,6 +472,46 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 		ds.cdsCache.updateCachedDiscoveryResponse(key, out)
 	}
 	writeResponse(response, out)
+}
+
+// ListAllRoutes responds to RDS requests that are not limited by a route-config, service-cluster, nor service-node
+func (ds *DiscoveryService) ListAllRoutes(request *restful.Request, response *restful.Response) {
+
+	var allRoutes []routeConfigAndMetadata
+
+	endpoints := ds.allServiceNodes()
+
+	for _, ip := range endpoints {
+
+		instances := ds.Discovery.HostInstances(map[string]bool{ip: true})
+		services := ds.Discovery.Services()
+		httpRouteConfigs := buildOutboundHTTPRoutes(instances, services, ds.Accounts, ds.MeshConfig, ds.Config)
+
+		for port, httpRouteConfig := range httpRouteConfigs {
+
+			allRoutes = append(allRoutes, routeConfigAndMetadata{
+				RouteConfigName: strconv.Itoa(port),
+				ServiceCluster:  ds.MeshConfig.IstioServiceCluster,
+				ServiceNode:     ip,
+				VirtualHosts:    httpRouteConfig.VirtualHosts,
+			})
+		}
+	}
+
+	// This sort is not needed, but discovery_test excepts consistent output and sorting achieves it
+	// Primary sort key RouteConfigName, secondary ServiceNode, tertiary ServiceCluster
+	sort.Slice(allRoutes, func(i, j int) bool {
+		if allRoutes[i].RouteConfigName != allRoutes[j].RouteConfigName {
+			return allRoutes[i].RouteConfigName < allRoutes[j].RouteConfigName
+		} else if allRoutes[i].ServiceNode != allRoutes[j].ServiceNode {
+			return allRoutes[i].ServiceNode < allRoutes[j].ServiceNode
+		}
+		return allRoutes[i].ServiceCluster < allRoutes[j].ServiceCluster
+	})
+
+	if err := response.WriteEntity(allRoutes); err != nil {
+		glog.Warning(err)
+	}
 }
 
 // ListRoutes responds to RDS requests, used by HTTP routes
@@ -411,4 +569,27 @@ func writeResponse(r *restful.Response, data []byte) {
 	if _, err := r.Write(data); err != nil {
 		glog.Warning(err)
 	}
+}
+
+// Get a map where the keys are the service nodes (typically IPv4 addresses) and the values are all true
+func (ds *DiscoveryService) allServiceNodes() []string {
+
+	// Gather service nodes
+	endpoints := make(map[string]bool)
+	for _, service := range ds.Discovery.Services() {
+		// service has Hostname, Address, Ports
+		for _, port := range service.Ports {
+			// var instances []*model.ServiceInstance
+			for _, instance := range ds.Discovery.Instances(service.Hostname, []string{port.Name}, nil) {
+				endpoints[instance.Endpoint.Address] = true
+			}
+		}
+	}
+
+	serviceNodes := make([]string, 0, len(endpoints))
+	for ip := range endpoints {
+		serviceNodes = append(serviceNodes, ip)
+	}
+
+	return serviceNodes
 }

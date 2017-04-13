@@ -117,6 +117,15 @@ func TestServiceDiscovery(t *testing.T) {
 	compareResponse(response, "testdata/sds.json", t)
 }
 
+// Can we list Services?
+func TestServiceDiscoveryListAllServices(t *testing.T) {
+	ds := makeDiscoveryService(t, mock.MakeRegistry())
+
+	url := "/v1/registration/"
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/all-sds.json", t)
+}
+
 func TestServiceDiscoveryVersion(t *testing.T) {
 	ds := makeDiscoveryService(t, mock.MakeRegistry())
 	url := "/v1/registration/" + mock.HelloService.Key(mock.HelloService.Ports[0],
@@ -130,6 +139,14 @@ func TestServiceDiscoveryEmpty(t *testing.T) {
 	url := "/v1/registration/nonexistent"
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/sds-empty.json", t)
+}
+
+// Test listing all clusters
+func TestClusterDiscoveryAllClusters(t *testing.T) {
+	ds := makeDiscoveryService(t, mock.MakeRegistry())
+	url := "/v1/clusters/"
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/all-cds.json", t)
 }
 
 func TestClusterDiscovery(t *testing.T) {
@@ -155,6 +172,14 @@ func TestClusterDiscoveryWithSSLContext(t *testing.T) {
 	url := fmt.Sprintf("/v1/clusters/%s/%s", ds.MeshConfig.IstioServiceCluster, mock.HostInstanceV0)
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-ssl-context.json", t)
+}
+
+// Test listing all routes
+func TestRouteDiscoveryAllRoutes(t *testing.T) {
+	ds := makeDiscoveryService(t, mock.MakeRegistry())
+	url := "/v1/routes/"
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/all-rds.json", t)
 }
 
 func TestRouteDiscovery(t *testing.T) {
