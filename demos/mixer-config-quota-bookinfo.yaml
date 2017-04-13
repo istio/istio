@@ -22,52 +22,53 @@ data:
         params:
       - name: default
         impl: denyChecker
-    attributes:
-      - name: source.name
-        value_type: 1 # STRING
-      - name: source.uid
-        value_type: 1 # STRING
-      - name: target.name
-        value_type: 1 # STRING
-      - name: target.uid
-        value_type: 1 # STRING
-      - name: target.service
-        value_type: 1 # STRING
-      - name: response.code
-        value_type: 2 # INT64
-      - name: response.duration
-        value_type: 10 # DURATION
+    manifests:
+      - name: istio-proxy
+        revision: "1"
+        attributes:
+        - name: source.name
+          value_type: 1 # STRING
+        - name: source.uid
+          value_type: 1 # STRING
+        - name: source.ip
+          value_type: 6 # IP_ADDRESS
+        - name: target.name
+          value_type: 1 # STRING
+        - name: target.uid
+          value_type: 1 # STRING
+        - name: target.service
+          value_type: 1 # STRING
+        - name: target.ip
+          value_type: 6 # IP_ADDRESS
+        - name: response.code
+          value_type: 2 # INT64
+        - name: response.duration
+          value_type: 10 # DURATION
 
-      # DEPRECATED ATTRIBUTES, TO BE REMOVED:
-      - name: response.latency    # Use response.duration
-        value_type: 10 # DURATION
-      - name: response.http.code  # Use response.code
-        value_type: 2 # INT64
-      - name: source.service      # Use source.name
-        value_type: 1 # STRING
+        # DEPRECATED ATTRIBUTES, TO BE REMOVED:
+        - name: response.latency    # Use response.duration
+          value_type: 10 # DURATION
+        - name: response.http.code  # Use response.code
+          value_type: 2 # INT64
+        - name: source.service      # Use source.name
+          value_type: 1 # STRING
     metrics:
-      - name: request_count
-        kind: 2 # COUNTER
-        value: 2 # INT64
-        description: request count by source, target, service, and code
-        labels:
-        - name: source
-          value_type: 1 # STRING
-        - name: target
-          value_type: 1 # STRING
-        - name: response_code
-          value_type: 2 # INT64
-      - name: request_latency
-        kind: 2 # COUNTER
-        value: 10 # DURATION
-        description: request latency by source, target, and service
-        labels:
-        - name: source
-          value_type: 1 # STRING
-        - name: target
-          value_type: 1 # STRING
-        - name: response_code
-          value_type: 2 # INT64
+    - name: request_count
+      kind: 2 # COUNTER
+      value: 2 # INT64
+      description: request count by source, target, service, and code
+      labels:
+        source: 1 # STRING
+        target: 1 # STRING
+        response_code: 2 # INT64
+    - name: request_latency
+      kind: 2 # COUNTER
+      value: 10 # DURATION
+      description: request latency by source, target, and service
+      labels:
+        source: 1 # STRING
+        target: 1 # STRING
+        response_code: 2 # INT64
     quotas:
     - name: RequestCount
       max_amount: 5
