@@ -9,11 +9,13 @@ sidenav: doc-side-reference-nav.html
 
 ## Overview
 
-Istio provides a simple Domain-specific language (DSL) based on the proto3
-schema (documented
-[here](https://github.com/istio/api/blob/master/proxy/v1/config/cfg.md)) to
-control how API calls and layer-4 traffic flows across various
-microservices in the application deployment. The DSL allows the operator to
+Istio provides a simple Domain-specific language (DSL) to
+control how API calls and layer-4 traffic flow across various
+microservices in the application deployment. The DSL is a
+[YAML mapping](../concepts/writing-config.md) of a
+[protobuf](https://developers.google.com/protocol-buffers/docs/proto3)
+schema documented [here](https://github.com/istio/api/blob/master/proxy/v1/config/cfg.md).
+The DSL allows the operator to
 configure service level properties such as circuit breakers, timeouts,
 retries, as well as set up common continuous deployment tasks such as
 canary rollouts, A/B testing, staged rollouts with %-based traffic splits,
