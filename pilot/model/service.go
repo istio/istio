@@ -50,7 +50,9 @@ type Service struct {
 	// connections
 	Ports PortList `json:"ports,omitempty"`
 
-	// External service
+	// ExternalName is only set for external services and holds the external
+	// service DNS name.  External services are name-based solution to represent
+	// external service instances as a service inside the cluster.
 	ExternalName string `json:"external"`
 }
 
@@ -245,6 +247,11 @@ func (ports PortList) Get(name string) (*Port, bool) {
 		}
 	}
 	return nil, false
+}
+
+// External predicate checks whether the service is external
+func (s *Service) External() bool {
+	return s.ExternalName != ""
 }
 
 // Key generates a unique string referencing service instances for a given port and tags.

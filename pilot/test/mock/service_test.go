@@ -22,12 +22,18 @@ func TestMockServices(t *testing.T) {
 			t.Errorf("%v.Validate() => Got %v", svc, err)
 		}
 		instances := Discovery.Instances(svc.Hostname, svc.Ports.GetNames(), nil)
-		if len(instances) == 0 {
-			t.Errorf("Discovery.Instances => Got %d, want positive", len(instances))
-		}
-		for _, instance := range instances {
-			if err := instance.Validate(); err != nil {
-				t.Errorf("%v.Validate() => Got %v", instance, err)
+		if svc.External() {
+			if len(instances) > 0 {
+				t.Errorf("Discovery.Instances => Got %d, want 0 for external service", len(instances))
+			}
+		} else {
+			if len(instances) == 0 {
+				t.Errorf("Discovery.Instances => Got %d, want positive", len(instances))
+			}
+			for _, instance := range instances {
+				if err := instance.Validate(); err != nil {
+					t.Errorf("%v.Validate() => Got %v", instance, err)
+				}
 			}
 		}
 	}

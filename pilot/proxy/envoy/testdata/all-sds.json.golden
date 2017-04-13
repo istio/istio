@@ -39,24 +39,6 @@
    ]
   },
   {
-   "service-key": "httpbin.default.svc.cluster.local|http",
-   "hosts": [
-    {
-     "ip_address": "httpbin.org",
-     "port": 80
-    }
-   ]
-  },
-  {
-   "service-key": "httpsbin.default.svc.cluster.local|https",
-   "hosts": [
-    {
-     "ip_address": "httpbin.org",
-     "port": 1443
-    }
-   ]
-  },
-  {
    "service-key": "world.default.svc.cluster.local|custom",
    "hosts": [
     {

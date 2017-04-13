@@ -239,8 +239,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 	ws.Route(ws.
 		GET("/v1/registration").
 		To(ds.ListAllEndpoints).
-		Doc("Services in SDS").
-		Produces(restful.MIME_JSON))
+		Doc("Services in SDS"))
 
 	// This route makes discovery act as an Envoy Service discovery service (SDS).
 	// See https://lyft.github.io/envoy/docs/intro/arch_overview/service_discovery.html#arch-overview-service-discovery-sds
@@ -248,15 +247,13 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		GET(fmt.Sprintf("/v1/registration/{%s}", ServiceKey)).
 		To(ds.ListEndpoints).
 		Doc("SDS registration").
-		Param(ws.PathParameter(ServiceKey, "tuple of service name and tag name").DataType("string")).
-		Produces(restful.MIME_JSON))
+		Param(ws.PathParameter(ServiceKey, "tuple of service name and tag name").DataType("string")))
 
 	// List all known clusters (informational, not invoked by Envoy)
 	ws.Route(ws.
 		GET("/v1/clusters").
 		To(ds.ListAllClusters).
-		Doc("Clusters in CDS").
-		Produces(restful.MIME_JSON))
+		Doc("Clusters in CDS"))
 
 	// This route makes discovery act as an Envoy Cluster discovery service (CDS).
 	// See https://lyft.github.io/envoy/docs/configuration/cluster_manager/cds.html
@@ -265,15 +262,13 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		To(ds.ListClusters).
 		Doc("CDS registration").
 		Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
-		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")).
-		Produces(restful.MIME_JSON))
+		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
 
 	// List all known routes (informational, not invoked by Envoy)
 	ws.Route(ws.
 		GET("/v1/routes").
 		To(ds.ListAllRoutes).
-		Doc("Routes in CDS").
-		Produces(restful.MIME_JSON))
+		Doc("Routes in CDS"))
 
 	// This route makes discovery act as an Envoy Route discovery service (RDS).
 	// See https://lyft.github.io/envoy/docs/configuration/http_conn_man/rds.html
@@ -283,8 +278,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Doc("RDS registration").
 		Param(ws.PathParameter(RouteConfigName, "route configuration name").DataType("string")).
 		Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
-		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")).
-		Produces(restful.MIME_JSON))
+		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
 
 	ws.Route(ws.
 		GET("/cache_stats").
@@ -341,23 +335,22 @@ func (ds *DiscoveryService) clearCache() {
 
 // ListAllEndpoints responds with all Services and is not restricted to a single service-key
 func (ds *DiscoveryService) ListAllEndpoints(request *restful.Request, response *restful.Response) {
-
-	var services []*keyAndService
+	services := make([]*keyAndService, 0)
 	for _, service := range ds.Discovery.Services() {
-		for _, port := range service.Ports {
-
-			var hosts []*host
-			for _, instance := range ds.Discovery.Instances(service.Hostname, []string{port.Name}, nil) {
-				hosts = append(hosts, &host{
-					Address: instance.Endpoint.Address,
-					Port:    instance.Endpoint.Port,
+		if !service.External() {
+			for _, port := range service.Ports {
+				hosts := make([]*host, 0)
+				for _, instance := range ds.Discovery.Instances(service.Hostname, []string{port.Name}, nil) {
+					hosts = append(hosts, &host{
+						Address: instance.Endpoint.Address,
+						Port:    instance.Endpoint.Port,
+					})
+				}
+				services = append(services, &keyAndService{
+					Key:   service.Key(port, nil),
+					Hosts: hosts,
 				})
 			}
-
-			services = append(services, &keyAndService{
-				Key:   service.Key(port, nil),
-				Hosts: hosts,
-			})
 		}
 	}
 
@@ -396,8 +389,7 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 
 // ListAllClusters responds to CDS requests that are not limited by a service-cluster and service-node
 func (ds *DiscoveryService) ListAllClusters(request *restful.Request, response *restful.Response) {
-
-	var allClusters []nodeAndCluster
+	allClusters := make([]nodeAndCluster, 0)
 
 	endpoints := ds.allServiceNodes()
 
@@ -476,19 +468,15 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 
 // ListAllRoutes responds to RDS requests that are not limited by a route-config, service-cluster, nor service-node
 func (ds *DiscoveryService) ListAllRoutes(request *restful.Request, response *restful.Response) {
-
-	var allRoutes []routeConfigAndMetadata
-
+	allRoutes := make([]routeConfigAndMetadata, 0)
 	endpoints := ds.allServiceNodes()
 
 	for _, ip := range endpoints {
-
 		instances := ds.Discovery.HostInstances(map[string]bool{ip: true})
 		services := ds.Discovery.Services()
 		httpRouteConfigs := buildOutboundHTTPRoutes(instances, services, ds.Accounts, ds.MeshConfig, ds.Config)
 
 		for port, httpRouteConfig := range httpRouteConfigs {
-
 			allRoutes = append(allRoutes, routeConfigAndMetadata{
 				RouteConfigName: strconv.Itoa(port),
 				ServiceCluster:  ds.MeshConfig.IstioServiceCluster,
@@ -571,17 +559,17 @@ func writeResponse(r *restful.Response, data []byte) {
 	}
 }
 
-// Get a map where the keys are the service nodes (typically IPv4 addresses) and the values are all true
+// List all service nodes (typically proxy IPv4 addresses)
 func (ds *DiscoveryService) allServiceNodes() []string {
-
 	// Gather service nodes
 	endpoints := make(map[string]bool)
 	for _, service := range ds.Discovery.Services() {
-		// service has Hostname, Address, Ports
-		for _, port := range service.Ports {
-			// var instances []*model.ServiceInstance
-			for _, instance := range ds.Discovery.Instances(service.Hostname, []string{port.Name}, nil) {
-				endpoints[instance.Endpoint.Address] = true
+		if !service.External() {
+			// service has Hostname, Address, Ports
+			for _, port := range service.Ports {
+				for _, instance := range ds.Discovery.Instances(service.Hostname, []string{port.Name}, nil) {
+					endpoints[instance.Endpoint.Address] = true
+				}
 			}
 		}
 	}

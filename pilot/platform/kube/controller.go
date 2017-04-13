@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strconv"
 	"time"
 
 	"github.com/golang/glog"
@@ -519,33 +518,6 @@ func (c *Controller) Instances(hostname string, ports []string, tagsList model.T
 		if svcPort, exists := svc.Ports.Get(port); exists {
 			svcPorts[port] = svcPort
 		}
-	}
-
-	switch item.Spec.Type {
-	case v1.ServiceTypeClusterIP, v1.ServiceTypeNodePort:
-	case v1.ServiceTypeLoadBalancer:
-		// TODO: load balancer service will get traffic from external IPs
-	case v1.ServiceTypeExternalName:
-		// resolve to external name service, and update name and namespace
-		target, exists := c.GetService(item.Spec.ExternalName)
-		if !exists {
-			glog.V(2).Infof("Missing target service %q for %q", item.Spec.ExternalName, hostname)
-			return nil
-		}
-		name, namespace, err = parseHostname(target.Hostname)
-		if err != nil {
-			return nil
-		}
-
-		// rewrite service ports to use target service port names, which are just numbers
-		targetPorts := make(map[string]*model.Port)
-		for _, port := range svcPorts {
-			targetPorts[strconv.Itoa(port.Port)] = port
-		}
-		svcPorts = targetPorts
-	default:
-		glog.Warningf("Unexpected service type %q", item.Spec.Type)
-		return nil
 	}
 
 	// TODO: single port service missing name

@@ -1,6 +1,8 @@
 package envoy
 
 import (
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"fmt"
@@ -53,6 +55,20 @@ func addIngressRoutes(r *model.IstioRegistry, t *testing.T) {
 	}
 }
 
+func compareFile(filename string, golden []byte, t *testing.T) {
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("Error loading %s: %s", filename, err.Error())
+	}
+	if string(content) != string(golden) {
+		t.Errorf("Failed validating file %s, got %s", filename, string(content))
+	}
+	err = os.Remove(filename)
+	if err != nil {
+		t.Errorf("Failed cleaning up temporary file %s", filename)
+	}
+}
+
 func TestIngressRoutes(t *testing.T) {
 	r := mock.MakeRegistry()
 	s := &mock.SecretRegistry{}
@@ -77,8 +93,8 @@ func TestIngressRoutesSSL(t *testing.T) {
 		Registry:  r,
 		Mesh:      &DefaultMeshConfig,
 	}, ingressEnvoySSLConfig, t)
-	util.CompareFile(ingressCertFile, ingressCert, t)
-	util.CompareFile(ingressKeyFile, ingressKey, t)
+	compareFile(ingressCertFile, ingressCert, t)
+	compareFile(ingressKeyFile, ingressKey, t)
 }
 
 func TestIngressRoutesPartialSSL(t *testing.T) {
@@ -93,6 +109,6 @@ func TestIngressRoutesPartialSSL(t *testing.T) {
 		Registry:  r,
 		Mesh:      &DefaultMeshConfig,
 	}, ingressEnvoyPartialSSLConfig, t)
-	util.CompareFile(ingressCertFile, ingressCert, t)
-	util.CompareFile(ingressKeyFile, ingressKey, t)
+	compareFile(ingressCertFile, ingressCert, t)
+	compareFile(ingressKeyFile, ingressKey, t)
 }

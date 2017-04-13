@@ -74,17 +74,6 @@ func CompareYAML(filename string, t *testing.T) {
 	}
 }
 
-// CompareFile compares the file content against the golden value
-func CompareFile(filename string, golden []byte, t *testing.T) {
-	content, err := ioutil.ReadFile(filename)
-	if err != nil {
-		t.Fatalf("Error loading %s: %s", filename, err.Error())
-	}
-	if err = compare(content, golden); err != nil {
-		t.Fatalf("Failed validating file %s:\n%v", filename, err)
-	}
-}
-
 // CompareContent compares the content value against the golden file
 func CompareContent(content []byte, goldenFile string, t *testing.T) {
 	if Refresh() {

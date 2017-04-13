@@ -300,81 +300,6 @@
    ]
   },
   {
-   "route-config-name": "80",
-   "service-cluster": "istio-proxy",
-   "service-node": "httpbin.org",
-   "virtual_hosts": [
-    {
-     "name": "hello.default.svc.cluster.local|http",
-     "domains": [
-      "hello:80",
-      "hello",
-      "hello.default:80",
-      "hello.default",
-      "hello.default.svc:80",
-      "hello.default.svc",
-      "hello.default.svc.cluster:80",
-      "hello.default.svc.cluster",
-      "hello.default.svc.cluster.local:80",
-      "hello.default.svc.cluster.local",
-      "10.1.0.0:80",
-      "10.1.0.0"
-     ],
-     "routes": [
-      {
-       "prefix": "/",
-       "cluster": "out.hello.default.svc.cluster.local|http"
-      }
-     ]
-    },
-    {
-     "name": "httpbin.default.svc.cluster.local|http",
-     "domains": [
-      "httpbin:80",
-      "httpbin",
-      "httpbin.default:80",
-      "httpbin.default",
-      "httpbin.default.svc:80",
-      "httpbin.default.svc",
-      "httpbin.default.svc.cluster:80",
-      "httpbin.default.svc.cluster",
-      "httpbin.default.svc.cluster.local:80",
-      "httpbin.default.svc.cluster.local"
-     ],
-     "routes": [
-      {
-       "prefix": "/",
-       "host_rewrite": "httpbin.default.svc.cluster.local",
-       "cluster": "out.httpbin.default.svc.cluster.local|http"
-      }
-     ]
-    },
-    {
-     "name": "world.default.svc.cluster.local|http",
-     "domains": [
-      "world:80",
-      "world",
-      "world.default:80",
-      "world.default",
-      "world.default.svc:80",
-      "world.default.svc",
-      "world.default.svc.cluster:80",
-      "world.default.svc.cluster",
-      "world.default.svc.cluster.local:80",
-      "world.default.svc.cluster.local",
-      "10.2.0.0:80",
-      "10.2.0.0"
-     ],
-     "routes": [
-      {
-       "prefix": "/",
-       "cluster": "out.world.default.svc.cluster.local|http"
-      }
-     ]
-    }
-   ]
-  },
-  {
    "route-config-name": "81",
    "service-cluster": "istio-proxy",
    "service-node": "10.1.1.0",
@@ -501,47 +426,6 @@
    "route-config-name": "81",
    "service-cluster": "istio-proxy",
    "service-node": "10.2.1.1",
-   "virtual_hosts": [
-    {
-     "name": "hello.default.svc.cluster.local|http-status",
-     "domains": [
-      "hello:81",
-      "hello.default:81",
-      "hello.default.svc:81",
-      "hello.default.svc.cluster:81",
-      "hello.default.svc.cluster.local:81",
-      "10.1.0.0:81"
-     ],
-     "routes": [
-      {
-       "prefix": "/",
-       "cluster": "out.hello.default.svc.cluster.local|http-status"
-      }
-     ]
-    },
-    {
-     "name": "world.default.svc.cluster.local|http-status",
-     "domains": [
-      "world:81",
-      "world.default:81",
-      "world.default.svc:81",
-      "world.default.svc.cluster:81",
-      "world.default.svc.cluster.local:81",
-      "10.2.0.0:81"
-     ],
-     "routes": [
-      {
-       "prefix": "/",
-       "cluster": "out.world.default.svc.cluster.local|http-status"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "route-config-name": "81",
-   "service-cluster": "istio-proxy",
-   "service-node": "httpbin.org",
    "virtual_hosts": [
     {
      "name": "hello.default.svc.cluster.local|http-status",

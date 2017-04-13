@@ -95,6 +95,10 @@ func MakeExternalHTTPSService(hostname, external string, address string) *model.
 
 // MakeInstance creates a mock instance, version enumerates endpoints
 func MakeInstance(service *model.Service, port *model.Port, version int) *model.ServiceInstance {
+	if service.External() {
+		return nil
+	}
+
 	// we make port 80 same as endpoint port, otherwise, it's distinct
 	target := port.Port
 	if target != 80 {
@@ -114,10 +118,11 @@ func MakeInstance(service *model.Service, port *model.Port, version int) *model.
 
 // MakeIP creates a fake IP address for a service and instance version
 func MakeIP(service *model.Service, version int) string {
-	ip := net.ParseIP(service.Address).To4()
-	if ip == nil {
-		return service.ExternalName
+	// external services have no instances
+	if service.External() {
+		return ""
 	}
+	ip := net.ParseIP(service.Address).To4()
 	ip[2] = byte(1)
 	ip[3] = byte(version)
 	return ip.String()
@@ -151,17 +156,14 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string, tags mode
 		return nil
 	}
 	out := make([]*model.ServiceInstance, 0)
+	if service.External() {
+		return out
+	}
 	for _, name := range ports {
 		if port, ok := service.Ports.Get(name); ok {
-			if service.ExternalName != "" {
-				if tags.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", 0)}) {
-					out = append(out, MakeInstance(service, port, 0))
-				}
-			} else {
-				for v := 0; v < sd.versions; v++ {
-					if tags.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
-						out = append(out, MakeInstance(service, port, v))
-					}
+			for v := 0; v < sd.versions; v++ {
+				if tags.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
+					out = append(out, MakeInstance(service, port, v))
 				}
 			}
 		}
@@ -173,11 +175,7 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string, tags mode
 func (sd *ServiceDiscovery) HostInstances(addrs map[string]bool) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range sd.services {
-		if service.ExternalName != "" {
-			if addrs[MakeIP(service, 0)] {
-				out = append(out, MakeInstance(service, service.Ports[0], 0))
-			}
-		} else {
+		if !service.External() {
 			for v := 0; v < sd.versions; v++ {
 				if addrs[MakeIP(service, v)] {
 					for _, port := range service.Ports {
