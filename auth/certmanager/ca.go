@@ -23,12 +23,6 @@ import (
 )
 
 const (
-	// The time to live for issued certificate.
-	certTTL = time.Hour
-
-	// The time to live for self-signed root CA certificate.
-	rootCertTTL = 24 * time.Hour
-
 	// The size of a private key for a leaf certificate.
 	keySize = 1024
 
@@ -45,6 +39,7 @@ type CertificateAuthority interface {
 // IstioCAOptions holds the configurations for creating an Istio CA.
 type IstioCAOptions struct {
 	CertChainBytes   []byte
+	CertTTL          time.Duration
 	SigningCertBytes []byte
 	SigningKeyBytes  []byte
 	RootCertBytes    []byte
@@ -52,6 +47,7 @@ type IstioCAOptions struct {
 
 // IstioCA generates keys and certificates for Istio identities.
 type IstioCA struct {
+	certTTL     time.Duration
 	signingCert *x509.Certificate
 	signingKey  crypto.PrivateKey
 
@@ -60,11 +56,11 @@ type IstioCA struct {
 }
 
 // NewSelfSignedIstioCA returns a new IstioCA instance using self-signed certificate.
-func NewSelfSignedIstioCA() (*IstioCA, error) {
+func NewSelfSignedIstioCA(caCertTTL, certTTL time.Duration) (*IstioCA, error) {
 	now := time.Now()
 	options := CertOptions{
 		NotBefore:    now,
-		NotAfter:     now.Add(rootCertTTL),
+		NotAfter:     now.Add(caCertTTL),
 		Org:          "istio.io",
 		IsCA:         true,
 		IsSelfSigned: true,
@@ -73,6 +69,7 @@ func NewSelfSignedIstioCA() (*IstioCA, error) {
 	pemCert, pemKey := GenCert(options)
 
 	opts := &IstioCAOptions{
+		CertTTL:          certTTL,
 		SigningCertBytes: pemCert,
 		SigningKeyBytes:  pemKey,
 		RootCertBytes:    pemCert,
@@ -82,7 +79,7 @@ func NewSelfSignedIstioCA() (*IstioCA, error) {
 
 // NewIstioCA returns a new IstioCA instance.
 func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
-	ca := &IstioCA{}
+	ca := &IstioCA{certTTL: opts.CertTTL}
 
 	ca.certChainBytes = copyBytes(opts.CertChainBytes)
 	ca.rootCertBytes = copyBytes(opts.RootCertBytes)
@@ -107,7 +104,7 @@ func (ca IstioCA) Generate(name, namepsace string) (chain, key []byte) {
 	options := CertOptions{
 		Host:         id,
 		NotBefore:    now,
-		NotAfter:     now.Add(certTTL),
+		NotAfter:     now.Add(ca.certTTL),
 		SignerCert:   ca.signingCert,
 		SignerPriv:   ca.signingKey,
 		IsCA:         false,

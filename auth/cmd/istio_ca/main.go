@@ -18,6 +18,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"os"
+	"time"
 
 	"istio.io/auth/certmanager"
 	"istio.io/auth/controller"
@@ -46,6 +47,11 @@ var (
 	selfSignedCA = flag.Bool("self-signed-ca", false,
 		"Indicates whether to use auto-generated self-signed CA certificate. "+
 			"When set to true, the '-ca-cert' and '-ca-key' options are ignored.")
+
+	caCertTTL = flag.Duration("ca-cert-ttl", 240*time.Hour,
+		"The TTL of self-signed CA root certificate (default to 10 days)")
+
+	certTTL = flag.Duration("cert-ttl", time.Hour, "The TTL of issued certificates (default to 1 hour)")
 )
 
 func main() {
@@ -84,7 +90,7 @@ func createCA() certmanager.CertificateAuthority {
 	if *selfSignedCA {
 		glog.Info("Use self-signed certificate as the CA certificate")
 
-		ca, err := certmanager.NewSelfSignedIstioCA()
+		ca, err := certmanager.NewSelfSignedIstioCA(*caCertTTL, *certTTL)
 		if err != nil {
 			glog.Fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
 		}
@@ -93,6 +99,7 @@ func createCA() certmanager.CertificateAuthority {
 
 	opts := &certmanager.IstioCAOptions{
 		CertChainBytes:   readFile(certChainFile),
+		CertTTL:          *certTTL,
 		SigningCertBytes: readFile(signingCertFile),
 		SigningKeyBytes:  readFile(signingKeyFile),
 		RootCertBytes:    readFile(rootCertFile),

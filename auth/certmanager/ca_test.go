@@ -20,10 +20,13 @@ import (
 	"encoding/asn1"
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestSelfSignedIstioCA(t *testing.T) {
-	ca, err := NewSelfSignedIstioCA()
+	certTTL := 30 * time.Minute
+	caCertTTL := time.Hour
+	ca, err := NewSelfSignedIstioCA(caCertTTL, certTTL)
 	if err != nil {
 		t.Errorf("Failed to create a self-signed CA: %v", err)
 	}
@@ -32,13 +35,24 @@ func TestSelfSignedIstioCA(t *testing.T) {
 	namespace := "bar"
 
 	cb, _ := ca.Generate(name, namespace)
+	rcb := ca.GetRootCertificate()
+
 	certPool := x509.NewCertPool()
 	certPool.AppendCertsFromPEM(cb)
 
 	rootPool := x509.NewCertPool()
-	rootPool.AppendCertsFromPEM(ca.GetRootCertificate())
+	rootPool.AppendCertsFromPEM(rcb)
 
 	cert := ParsePemEncodedCertificate(cb)
+	if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != certTTL {
+		t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", certTTL, ttl)
+	}
+
+	rootCert := ParsePemEncodedCertificate(rcb)
+	if ttl := rootCert.NotAfter.Sub(rootCert.NotBefore); ttl != caCertTTL {
+		t.Errorf("Unexpected CA certificate TTL (expecting %v, actual %v)", caCertTTL, ttl)
+	}
+
 	chain, err := cert.Verify(x509.VerifyOptions{
 		Intermediates: certPool,
 		Roots:         rootPool,
