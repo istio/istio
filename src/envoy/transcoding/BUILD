@@ -38,3 +38,31 @@ cc_test(
         "@googletest_git//:googletest_main",
     ],
 )
+
+cc_library(
+    name = "filter_lib",
+    srcs = [
+        "config.cc",
+        "config.h",
+        "filter.cc",
+    ],
+    deps = [
+        ":envoy_input_stream",
+        "//contrib/endpoints/src/grpc/transcoding",
+        "@envoy//source/exe:envoy_common_lib",
+    ],
+    alwayslink = 1,
+)
+
+cc_binary(
+    name = "envoy",
+    linkstatic = 1,
+    visibility = [":__subpackages__"],
+    deps = [
+        ":filter_lib",
+        "@envoy//source/exe:envoy_main_lib",
+    ],
+    linkopts = [
+        "-lrt",
+    ],
+)
