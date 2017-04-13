@@ -17,6 +17,7 @@ package main
 import (
 	"flag"
 	"io/ioutil"
+	"os"
 
 	"istio.io/auth/certmanager"
 	"istio.io/auth/controller"
@@ -27,11 +28,17 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// The key for the environment variable that specifies the namespace.
+const namespaceKey = "NAMESPACE"
+
 var (
 	certChainFile   = flag.String("cert-chain", "", "Speicifies path to the certificate chain file")
 	signingCertFile = flag.String("signing-cert", "", "Specifies path to the CA signing certificate file")
 	signingKeyFile  = flag.String("signing-key", "", "Specifies path to the CA signing key file")
 	rootCertFile    = flag.String("root-cert", "", "Specifies path to the root certificate file")
+	namespace       = flag.String("namespace", "",
+		"Select a namespace for the CA to listen to. If unspecified, Istio CA tries to use the ${"+namespaceKey+"} "+
+			"environment variable. If neither is set, Istio CA listens to all namespaces.")
 
 	kubeConfigFile = flag.String("kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
@@ -44,11 +51,18 @@ var (
 func main() {
 	flag.Parse()
 
+	if *namespace == "" {
+		// When -namespace is not set, try to read the namespace from environment variable.
+		if value, exists := os.LookupEnv(namespaceKey); exists {
+			*namespace = value
+		}
+	}
+
 	verifyCommandLineOptions()
 
 	ca := createCA()
 	cs := createClientset()
-	sc := controller.NewSecretController(ca, cs.CoreV1())
+	sc := controller.NewSecretController(ca, cs.CoreV1(), *namespace)
 
 	stopCh := make(chan struct{})
 	sc.Run(stopCh)

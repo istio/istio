@@ -120,7 +120,7 @@ func TestSecretController(t *testing.T) {
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		controller := NewSecretController(fakeCa{}, client.CoreV1())
+		controller := NewSecretController(fakeCa{}, client.CoreV1(), metav1.NamespaceAll)
 
 		if tc.existingSecret != nil {
 			err := controller.scrtStore.Add(tc.existingSecret)
@@ -169,7 +169,7 @@ func TestUpdateExpiringSecret(t *testing.T) {
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		controller := NewSecretController(fakeCa{}, client.CoreV1())
+		controller := NewSecretController(fakeCa{}, client.CoreV1(), metav1.NamespaceAll)
 
 		scrt := createSecret("test", "istio.test", "test-ns")
 
