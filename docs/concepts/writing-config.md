@@ -22,7 +22,7 @@ There is no canonical mapping between protobufs and YAML; instead [protobuf defi
 - Proto `message`s map to JSON objects; in YAML objects are field names all at the same indentation level
 - YAML is whitespace sensitive and must use spaces; tabs are never allowed
 
-### Proto `map` and `message` fields:
+### `map` and `message` fields
 
 <table>
   <tbody>
@@ -55,7 +55,7 @@ labels:
 
 *Note that when numeric literals are used as strings (like `value` above) they must be enclosed in quotes. Quotation marks (`"`) are optional for normal strings.*
 
-### Proto `repeated` fields:
+### `repeated` fields
 
 <table>
   <tbody>
@@ -96,7 +96,7 @@ metrics:
 </tbody>
 </table>
 
-### Proto `enum` fields:
+### `enum` fields
 
 <table>
   <tbody>
@@ -140,7 +140,7 @@ valueType: INT64
 
 *Note that YAML parsing will handle both `snake_case` and `lowerCamelCase` field names. `lowerCamelCase` is the canonical version in YAML.*
 
-### Proto with nested `message` fields:
+### Nested `message` fields
 
 <table>
   <tbody>
