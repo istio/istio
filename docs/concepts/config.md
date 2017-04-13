@@ -1,6 +1,6 @@
 ---
-title: Configuration
-headline: Configuring Istio
+title: Mixer Configuration
+headline: Configuring the mixer
 sidenav: doc-side-concepts-nav.html
 bodyclass: docs
 layout: docs
@@ -9,117 +9,86 @@ type: markdown
 
 {% capture overview %}
 
-This page describes the Istio configuration model.
+This page describes the Istio mixer's configuration model.
  
 {% endcapture %}
 
 {% capture body %}
 
-## Requirements
+## Background
 
-For Istio to work effectively every service needs to configure each capability provided by Istio. Configure the following capabilities when the service is used as a server.
+Istio is a sophisticated system with hundreds of independent features. An Istio deployment can be a sprawling
+affair potentially involving dozens of microservices, with a swarm of Istio proxy and mixer instances to
+support them. In large deployments, many different operators, each with different scope and areas of responsibility,
+may be involved in managing the overall deployment.
 
-Control Plane capabilities:
+The Istio configuration model makes it possible to exploit all of Istio's capabilities and flexibility, while
+remaining relatively simple to use. The model's scoping and inheritance features enable large
+support organizations to collectively manage complex deployments with ease. Some of the model's key
+features include:
 
-* API surface description (Swagger, OpenAPI, grpc etc)
+- **Designed for Operators**. Service operators control all operational and policy
+aspects of an Istio deployment by manipulating configuration records.
 
-* Metrics Collection (What is collected and where does it go)
+- **Scoped**. Configuration is described hierarchically, enabling both coarse global control as well
+as fine-grained local control.
 
-* Rate Limits
+- **Flexible**. The configuration model is built around Istio's [attributes]({{site.baseurl}}/docs/concepts/attributes.html),
+enabling operators unprecedented control over the policies used and telemetry produced within a deployment.
 
-* Quotas
+- **Robust**. The configuration model is designed to provide maximum static correctness guarantees to help reduce
+the potential for bad configuration changes leading to service outages.
 
-* Access Checks / Access Control 
+- **Extensible**. The model is designed to support Istio's overall extensibility story. New or custom
+[adapters]({{site.baseurl}}/docs/concepts/mixer.html#adapters)
+can be added to Istio and be fully manipulated using the same general mechanisms as any other adapter.
 
-* Logging
+## Concepts
 
-Other capabilities
+Istio configuration is expressed using a YAML format. It is built on top of five core
+abstractions:
 
-* Load Balancing
+|Concept                     |Description
+|----------------------------|-----------
+|[Adapters](#adapters)       | Low-level operationally-oriented configuration state for individual mixer adapters.
+|[Aspects](#aspects)         | Higher-level intent-oriented configuration state describing what adapters do.
+|[Descriptors](#descriptors) | Type definitions which describe the shape of the policy objects used as input to configured aspects.
+|[Rules](#rules)             | Controls the creation of policy objects, based on ambient attributes.
+|[Selectors](#selectors)     | Mechanism to select which aspects, descriptors, and rules to use based on ambient attributes.
 
-    * Policy
+The following sections explain these concept in detail.
 
-    * SSL certs etc
+### Adapters
 
-* AutoScaling
+[Adapters]({{site.baseurl}}/docs/concepts/mixer.html#adapters) are the foundational work horses that the Istio mixer is built around. Adapters
+encapsulate the logic necessary to interface the mixer with specific external backend systems such as Prometheus or NewRelic. Individual adapters
+generally need to be provided some basic operational parameters in order to do their work. For example, a logging adapter may need
+to know the IP address and port where it's log data should be pumped.
 
-    * Triggers (cpu, request latency, …)
+Here's an example showing how to configure an adapter:
 
-We need to support configuring some of the above capabilities when the service is a client.
+```
+adapters:
+  - name: myChecker
+    kind: listChecker
+    impl: ipListChecker
+    params:
+      publisherUrl: https://mylistserver:912
+      refreshInterval:
+    
+```
 
-We also need to support configuration overrides that pertain to interactions between a specific client and a specific server.
+The `name` field gives a name to this chunk of adapter configuration so it can be referenced from elsewhere. The
+`kind` field indicates the aspect kind that this configuration applies to (kinds are discussed in the next section).
+The `impl` field gives the name of the adapter being configured. Finally, the `params` section is where the
+actual adapter-specific configuration parameters are specified. In this case, this is configuring the URL the 
+adapter should use in its queries and defines the interval at which it should refresh its local caches.
 
-In a typical deployment we expect the deployment administrator to configure defaults for most capabilities. The service will provide its API definition and potential overrides.
+For each available adapter, you can define any number of blocks of independent configuration state. This allows the same adapter
+to be used multiple times within a single deployment. Depending on the situation, such as which microservice is involved, one
+block of configuration will be used versus another.
 
-This discussion requires notions of identity for the client and server in each interaction.
-
-The specific mechanisms of extracting identity are assumed to exist and thus out of scope here. 
-
-This discussion also requires us to assume existence of well known attributes (or facts). Request_size, response_size, request_user are all examples of well known attributes. The set of well known attributes may be used in policy evaluation or as parameters to aspects and adapters. Attributes are denoted in this document as **response.size.**
-
-## Proposal
-
-Users should be able to create and manage Istio configurations in an easy and natural way. The overall configuration workflow is this:
-
-* Isio configuration schemas will be defined as proto definitions.
-
-* Documentation will be generated from the proto definitions.
-
-* Users will write their configurations as json or yaml files following the documentation.
-
-* The configuration compiler will process the files and generated validated protos.
-
-The Istio configuration model has 3 key concepts:
-
-<table>
-  <tr>
-    <td>Concept</td>
-    <td>Description</td>
-  </tr>
-  <tr>
-    <td>Selector</td>
-    <td>Controls which service, traffic, or resources configurations apply to.
-
-Example:
-  // Apply configuration to an inventory service.
-  selector: target.service == "inventory.svc.cluster.local"</td>
-  </tr>
-  <tr>
-    <td>Aspect</td>
-    <td>Specifies logical functionality in an intent-based notion.
-
-Example:
-  // Specifies the aspect type.
-  aspect: istio.metrics
-  // Feed attribute "request.size" as parameter "value".
-  value: request.size
-  // Feed attributes as parameter "labels".
-  labels: response.code, source.user</td>
-  </tr>
-  <tr>
-    <td>Adapter</td>
-    <td>Configures which implementation is used for a particular aspect.
-
-Example:
-- name: statsd
-  implements: istio.metrics
-  impl: "istio.io/adapter/statsd"
-  args:
-    host: statsd-fast
-    port: 8125</td>
-  </tr>
-</table>
-
-
-## Selector
-
-A selector is a boolean expression that evaluates a set of attributes to produce a boolean result.
-
-    fn (attributes) → boolean 
-
-It may use any supported attributes, such as **request****.****size**, **source****.****user**. The authoritative list of attributes will be available in the Istio repo, [https://github.com/istio/api](https://github.com/istio).
-
-## Aspect
+### Aspects
 
 An Istio configuration contains multiple aspects, such as authentication and logging. Each aspect describes logical functionality without fully specifying implementation details. For example, the OAuth aspect specifies that the OAuth protocol should be used to authenticate the users, but it may not specify which OAuth provider will be used.
 
@@ -142,10 +111,18 @@ Using AccessLog aspect as an example.
     4. If it produces more attributes
 
     5. How the AspectOutput is sent back to the caller 
+    
+### Descriptors
 
-## Adapter
+### Rules
 
-An adapter implements an aspect's functionality. It often needs additional configuration specific to the implementation. For example, the logging aspect specifies what data should be logged, logging adapters need to know where to store the logged data.
+### Selectors
+
+A selector is a boolean expression that evaluates a set of attributes to produce a boolean result.
+
+    fn (attributes) → boolean 
+
+It may use any supported attributes, such as **request****.****size**, **source****.****user**. The authoritative list of attributes will be available in the Istio repo, [https://github.com/istio/api](https://github.com/istio).
 
 ## Putting it together
 
