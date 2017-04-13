@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('testutils@stable-2d6eb00')
+@Library('testutils@stable-cd138c4')
 
 import org.istio.testutils.Utilities
 import org.istio.testutils.GitUtilities
@@ -28,10 +28,9 @@ mainFlow(utils) {
 
 def postsubmit(gitUtils, bazel, utils) {
   goBuildNode(gitUtils, 'istio.io/auth') {
-    bazel.updateBazelRc()
     stage('Docker Push') {
       def image = 'istio-ca'
-      def tags = "${gitUtils.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
+      def tags = "${env.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
       utils.publishDockerImages(image, tags)
     }
   }
@@ -39,7 +38,6 @@ def postsubmit(gitUtils, bazel, utils) {
 
 def presubmit(gitUtils, bazel, utils) {
   goBuildNode(gitUtils, 'istio.io/auth') {
-    bazel.updateBazelRc()
     stage('Bazel Build') {
       sh('bin/install-prereqs.sh')
       bazel.fetch('-k //...')
