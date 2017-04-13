@@ -74,42 +74,22 @@ func TestEvalAll(t *testing.T) {
 	}
 }
 
-func TestFindLabel(t *testing.T) {
-	tests := []struct {
-		in     string
-		out    *dpb.LabelDescriptor
-		labels []*dpb.LabelDescriptor
-	}{
-		{"empty", nil, []*dpb.LabelDescriptor{}},
-		{"missing", nil, []*dpb.LabelDescriptor{{Name: "label", ValueType: dpb.BOOL}}},
-		{"present", &dpb.LabelDescriptor{Name: "present", ValueType: dpb.INT64}, []*dpb.LabelDescriptor{{Name: "present", ValueType: dpb.INT64}}},
-	}
-
-	for idx, tt := range tests {
-		t.Run(fmt.Sprintf("[%d] %s", idx, tt.in), func(t *testing.T) {
-			if result := findLabel(tt.in, tt.labels); !reflect.DeepEqual(result, tt.out) {
-				t.Fatalf("findLabel(%s, %v) = %v, wanted %v", tt.in, tt.labels, result, tt.out)
-			}
-		})
-	}
-}
-
 func TestValidateLabels(t *testing.T) {
-	descriptors := []*dpb.LabelDescriptor{
-		{Name: "stringlabel", ValueType: dpb.STRING},
+	descriptors := map[string]dpb.ValueType{
+		"stringlabel": dpb.STRING,
 	}
 
 	tests := []struct {
 		name   string
 		labels map[string]string
-		descs  []*dpb.LabelDescriptor
+		descs  map[string]dpb.ValueType
 		err    string
 	}{
-		{"no labels", map[string]string{}, []*dpb.LabelDescriptor{}, ""},
+		{"no labels", map[string]string{}, map[string]dpb.ValueType{}, ""},
 		{"one label", map[string]string{"stringlabel": "string"}, descriptors, ""},
-		{"two labels", map[string]string{"stringlabel": "string", "durationlabel": "duration"}, []*dpb.LabelDescriptor{
-			{Name: "stringlabel", ValueType: dpb.STRING},
-			{Name: "durationlabel", ValueType: dpb.DURATION},
+		{"two labels", map[string]string{"stringlabel": "string", "durationlabel": "duration"}, map[string]dpb.ValueType{
+			"stringlabel":   dpb.STRING,
+			"durationlabel": dpb.DURATION,
 		}, ""},
 		{"missing label", map[string]string{"missing": "not a label"}, descriptors, "wrong dimensions"},
 		{"cardinality mismatch", map[string]string{"stringlabel": "string", "string2": "string"}, descriptors, "wrong dimensions"},

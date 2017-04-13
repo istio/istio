@@ -153,13 +153,13 @@ func (w *metricsExecutor) Close() error {
 
 func metricDefinitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefinition, error) {
 	labels := make(map[string]adapter.LabelType, len(desc.Labels))
-	for _, label := range desc.Labels {
-		l, err := valueTypeToLabelType(label.ValueType)
+	for name, labelType := range desc.Labels {
+		l, err := valueTypeToLabelType(labelType)
 		if err != nil {
 			return nil, fmt.Errorf("descriptor '%s' label '%s' failed to convert label type value '%v' from proto with err: %s",
-				desc.Name, label.Name, label.ValueType, err)
+				desc.Name, name, labelType, err)
 		}
-		labels[label.Name] = l
+		labels[name] = l
 	}
 	kind, err := metricKindFromProto(desc.Kind)
 	if err != nil {

@@ -1,8 +1,6 @@
 subject: namespace:ns
 revision: "2022"
 rules:
-        #- selector: service.name == “*”
-        #- selector: service.name == "myservice"
 - selector: true
   aspects:
   - kind: quotas
@@ -23,7 +21,7 @@ rules:
           method: api.method | "unknown"
           response_code: response.code | 200
       - descriptor_name:  request_latency
-        value: response.latency | "0ms"
+        value: response.duration | "0ms"
         labels:
           source: source.name | "unknown"
           target: target.name | "unknown"
