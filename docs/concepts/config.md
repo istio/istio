@@ -51,7 +51,7 @@ abstractions:
 |Concept                     |Description
 |----------------------------|-----------
 |[Adapters](#adapters)       | Low-level operationally-oriented configuration state for individual mixer adapters.
-|[Aspects](#aspects)         | Higher-level intent-oriented configuration state describing what adapters do.
+|[Aspects](#aspects)         | High-level intent-based configuration state describing what adapters do.
 |[Descriptors](#descriptors) | Type definitions which describe the shape of the policy objects used as input to configured aspects.
 |[Rules](#rules)             | Controls the creation of policy objects, based on ambient attributes.
 |[Selectors](#selectors)     | Mechanism to select which aspects, descriptors, and rules to use based on ambient attributes.
@@ -70,12 +70,12 @@ Here's an example showing how to configure an adapter:
 ```
 adapters:
   - name: myChecker
-    kind: listChecker
+    kind: lists
     impl: ipListChecker
     params:
       publisherUrl: https://mylistserver:912
       refreshInterval:
-    
+        seconds: 60    
 ```
 
 The `name` field gives a name to this chunk of adapter configuration so it can be referenced from elsewhere. The
@@ -88,29 +88,59 @@ For each available adapter, you can define any number of blocks of independent c
 to be used multiple times within a single deployment. Depending on the situation, such as which microservice is involved, one
 block of configuration will be used versus another.
 
+Each adapter defines its own particular format of configuration data. The exhaustive set of
+adapter configuration formats can be found in *TBD*.
+
 ### Aspects
 
-An Istio configuration contains multiple aspects, such as authentication and logging. Each aspect describes logical functionality without fully specifying implementation details. For example, the OAuth aspect specifies that the OAuth protocol should be used to authenticate the users, but it may not specify which OAuth provider will be used.
+Aspects define high-level configuration state (what is sometimes called intent-based configuration),
+independent of the particular implementation details of a specific adapter type. Whereas adapters focus
+on *how* to do something, aspects focus on *what* to do.
 
-1. Istio specifies a set of aspects.  AccessLog, Metrics, AccessControl ...
+Let's look at the definition of an example aspect:
 
-2. Every aspect specifies the configuration schema and expected behaviour. 
+```
+aspects:
+- kind: lists
+  adapter: myChecker
+  params:
+    blacklist: true
+    check_expression: source.ip
+```
 
-Using AccessLog aspect as an example. 
+The `kind` field distinguishes the behavior of the aspect being defined. The supported kinds
+of aspects are:
 
-    1. Schema to configure the aspect  (<Aspect>Config) AccessLogConfig
+|Kind             |Description
+|-----------------|-----------
+|access-logs      |Produces fixed-format access logs for every request.
+|application-logs |Produces flexible application logs for every request.
+|attributes       |Produces supplementary attributes for every request.
+|denials          |Systematically produces a predictable error code.
+|lists            |Verifies a symbol against a list.
+|metrics          |Produces a metric that measures some runtime property.
+|quotas           |Tracks a quota value.
 
-    2. Schema of the information needed by the aspect at runtime. (<Aspect>Input) AccessLogInput
+In this case, the aspect declaration specifies the `lists` kind which indicates
+we're configuring an aspect whose purpose is to enable the use of whitelists or
+blacklists as a simple form of access control.
 
-        1. AccessLogInputMap<string, string>  -- maps from attribute space to the AccessLogInput struct.
+The `adapter` field indicates the block of adapter configuration to associate with this
+aspect. Aspects are always associated with specific adapters in this way, since an
+adapter is responsible for actually carrying out the work represented by an aspect's
+configuration. In this particular case, the specific adapter chosen determines the
+list to use in order to perform the aspect's list checking function.
 
-    3. <Aspect>Output  - AccessLogOutput
+The `params` stanza is where you enter kind-specific configuration parameters. In
+the case of the lists kind, the configuration parameters specify whether the list
+is a blacklist (entries on the list lead to denials) as opposed to a whitelist
+(entries not on the list lead to denials). The check_expression field holds an
+*attribute expression* which determines which attribute is evaluated in order to
+produce the symbol that will be checked in the aspect's list. We'll discuss 
+attribute expressions below.
 
-3. Every aspect specifies how is AspectOutput is processed.
-
-    4. If it produces more attributes
-
-    5. How the AspectOutput is sent back to the caller 
+Each aspect kind defines its own particular format of configuration data. The exhaustive set of
+aspect configuration formats can be found in *TBD*.
     
 ### Descriptors
 
