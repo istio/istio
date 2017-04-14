@@ -88,6 +88,8 @@ type IngressConfig struct {
 	Secrets   model.SecretRegistry
 	Registry  *model.IstioRegistry
 	Mesh      *config.ProxyMeshConfig
+	Port      int
+	SSLPort   int
 }
 
 func generateIngress(conf *IngressConfig) *Config {
@@ -196,7 +198,7 @@ func buildIngressListeners(conf *IngressConfig) (Listeners, Clusters) {
 
 		rConfig := &HTTPRouteConfig{VirtualHosts: vhosts}
 		listener := &Listener{
-			Address:    fmt.Sprintf("tcp://%s:80", WildcardAddress),
+			Address:    fmt.Sprintf("tcp://%s:%d", WildcardAddress, conf.Port),
 			BindToPort: true,
 			Filters: []*NetworkFilter{
 				{
@@ -232,7 +234,7 @@ func buildIngressListeners(conf *IngressConfig) (Listeners, Clusters) {
 
 		rConfig := &HTTPRouteConfig{VirtualHosts: vhostsTLS}
 		listener := &Listener{
-			Address: fmt.Sprintf("tcp://%s:443", WildcardAddress),
+			Address: fmt.Sprintf("tcp://%s:%d", WildcardAddress, conf.SSLPort),
 			SSLContext: &SSLContext{
 				CertChainFile:  conf.CertFile,
 				PrivateKeyFile: conf.KeyFile,

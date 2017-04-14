@@ -29,5 +29,6 @@ func TestEgressRoutes(t *testing.T) {
 	testEgressConfig(&EgressConfig{
 		Services: r,
 		Mesh:     &DefaultMeshConfig,
+		Port:     8888,
 	}, egressEnvoyConfig, t)
 }

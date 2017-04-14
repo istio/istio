@@ -1,7 +1,7 @@
 {
   "listeners": [
     {
-      "address": "tcp://0.0.0.0:80",
+      "address": "tcp://0.0.0.0:8888",
       "filters": [
         {
           "type": "read",

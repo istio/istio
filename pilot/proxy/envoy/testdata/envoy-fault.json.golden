@@ -19,7 +19,7 @@
                 "type": "decoder",
                 "name": "mixer",
                 "config": {
-                  "mixer_server": "mixer:9091",
+                  "mixer_server": "localhost:9091",
                   "mixer_attributes": {
                     "target.ip": "10.1.1.0",
                     "target.service": "hello.default.svc.cluster.local",
@@ -98,7 +98,7 @@
                 "type": "decoder",
                 "name": "mixer",
                 "config": {
-                  "mixer_server": "mixer:9091",
+                  "mixer_server": "localhost:9091",
                   "mixer_attributes": {
                     "target.ip": "10.1.1.0",
                     "target.service": "hello.default.svc.cluster.local",
@@ -221,7 +221,7 @@
                 "type": "decoder",
                 "name": "mixer",
                 "config": {
-                  "mixer_server": "mixer:9091",
+                  "mixer_server": "localhost:9091",
                   "mixer_attributes": {
                     "target.ip": "10.1.1.0",
                     "target.service": "hello.default.svc.cluster.local",
@@ -342,7 +342,7 @@
                 "type": "decoder",
                 "name": "mixer",
                 "config": {
-                  "mixer_server": "mixer:9091",
+                  "mixer_server": "localhost:9091",
                   "mixer_attributes": {
                     "target.ip": "10.1.1.0",
                     "target.service": "hello.default.svc.cluster.local",
@@ -471,7 +471,7 @@
         "lb_type": "round_robin",
         "hosts": [
           {
-            "url": "tcp://manager:8080"
+            "url": "tcp://localhost:8080"
           }
         ]
       }
@@ -484,7 +484,7 @@
         "lb_type": "round_robin",
         "hosts": [
           {
-            "url": "tcp://manager:8080"
+            "url": "tcp://localhost:8080"
           }
         ]
       },
@@ -498,7 +498,7 @@
         "lb_type": "round_robin",
         "hosts": [
           {
-            "url": "tcp://manager:8080"
+            "url": "tcp://localhost:8080"
           }
         ]
       },

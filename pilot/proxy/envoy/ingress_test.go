@@ -30,6 +30,8 @@ var (
 )
 
 func testIngressConfig(c *IngressConfig, envoyConfig string, t *testing.T) {
+	c.Port = 8080
+	c.SSLPort = 8443
 	config := generateIngress(c)
 	if config == nil {
 		t.Fatal("Failed to generate config")
@@ -72,18 +74,20 @@ func compareFile(filename string, golden []byte, t *testing.T) {
 func TestIngressRoutes(t *testing.T) {
 	r := mock.MakeRegistry()
 	s := &mock.SecretRegistry{}
+	mesh := makeMeshConfig()
 	addIngressRoutes(r, t)
 	testIngressConfig(&IngressConfig{
 		Registry:  r,
 		Namespace: ingressNamespace,
 		Secrets:   s,
-		Mesh:      &DefaultMeshConfig,
+		Mesh:      &mesh,
 	}, ingressEnvoyConfig, t)
 }
 
 func TestIngressRoutesSSL(t *testing.T) {
 	r := mock.MakeRegistry()
 	s := &mock.SecretRegistry{"*": ingressTLSSecret}
+	mesh := makeMeshConfig()
 	addIngressRoutes(r, t)
 	testIngressConfig(&IngressConfig{
 		CertFile:  ingressCertFile,
@@ -91,7 +95,7 @@ func TestIngressRoutesSSL(t *testing.T) {
 		Namespace: ingressNamespace,
 		Secrets:   s,
 		Registry:  r,
-		Mesh:      &DefaultMeshConfig,
+		Mesh:      &mesh,
 	}, ingressEnvoySSLConfig, t)
 	compareFile(ingressCertFile, ingressCert, t)
 	compareFile(ingressKeyFile, ingressKey, t)
@@ -100,6 +104,7 @@ func TestIngressRoutesSSL(t *testing.T) {
 func TestIngressRoutesPartialSSL(t *testing.T) {
 	r := mock.MakeRegistry()
 	s := &mock.SecretRegistry{fmt.Sprintf("world.%v.svc.cluster.local", ingressNamespace): ingressTLSSecret}
+	mesh := makeMeshConfig()
 	addIngressRoutes(r, t)
 	testIngressConfig(&IngressConfig{
 		CertFile:  ingressCertFile,
@@ -107,7 +112,7 @@ func TestIngressRoutesPartialSSL(t *testing.T) {
 		Namespace: ingressNamespace,
 		Secrets:   s,
 		Registry:  r,
-		Mesh:      &DefaultMeshConfig,
+		Mesh:      &mesh,
 	}, ingressEnvoyPartialSSLConfig, t)
 	compareFile(ingressCertFile, ingressCert, t)
 	compareFile(ingressKeyFile, ingressKey, t)

@@ -1,7 +1,7 @@
 {
   "listeners": [
     {
-      "address": "tcp://0.0.0.0:443",
+      "address": "tcp://0.0.0.0:8443",
       "filters": [
         {
           "type": "read",
@@ -90,7 +90,7 @@
         "lb_type": "round_robin",
         "hosts": [
           {
-            "url": "tcp://manager:8080"
+            "url": "tcp://localhost:8080"
           }
         ]
       },

@@ -173,6 +173,8 @@ var (
 				Secrets:   controller,
 				Registry:  &model.IstioRegistry{ConfigRegistry: controller},
 				Mesh:      mesh,
+				Port:      80,
+				SSLPort:   443,
 			}
 			w, err := envoy.NewIngressWatcher(controller, config)
 			if err != nil {
@@ -195,6 +197,7 @@ var (
 				Namespace: flags.controllerOptions.Namespace,
 				Mesh:      mesh,
 				Services:  controller,
+				Port:      80,
 			}
 			w, err := envoy.NewEgressWatcher(controller, config)
 			if err != nil {

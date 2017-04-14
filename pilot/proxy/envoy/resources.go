@@ -58,7 +58,7 @@ const (
 var (
 	// DefaultMeshConfig configuration
 	DefaultMeshConfig = proxyconfig.ProxyMeshConfig{
-		DiscoveryAddress:   "manager:8080",
+		DiscoveryAddress:   "istio-manager:8080",
 		EgressProxyAddress: "istio-egress:80",
 
 		ProxyListenPort:        15001,

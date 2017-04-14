@@ -74,6 +74,7 @@ type EgressConfig struct {
 	Namespace string
 	Services  model.ServiceDiscovery
 	Mesh      *config.ProxyMeshConfig
+	Port      int
 }
 
 func generateEgress(conf *EgressConfig) *Config {
@@ -94,7 +95,7 @@ func generateEgress(conf *EgressConfig) *Config {
 
 	// External services are expected to have only one external port or they will get conflated
 	listener := &Listener{
-		Address:    fmt.Sprintf("tcp://%s:80", WildcardAddress),
+		Address:    fmt.Sprintf("tcp://%s:%d", WildcardAddress, conf.Port),
 		BindToPort: true,
 		Filters: []*NetworkFilter{
 			{
