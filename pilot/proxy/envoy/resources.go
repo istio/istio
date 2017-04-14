@@ -192,8 +192,9 @@ type HTTPRoute struct {
 // RetryPolicy definition
 // See: https://lyft.github.io/envoy/docs/configuration/http_conn_man/route_config/route.html#retry-policy
 type RetryPolicy struct {
-	Policy     string `json:"retry_on"` //if unset, set to 5xx,connect-failure,refused-stream
-	NumRetries int    `json:"num_retries,omitempty"`
+	Policy          string `json:"retry_on"` //if unset, set to 5xx,connect-failure,refused-stream
+	NumRetries      int    `json:"num_retries,omitempty"`
+	PerTryTimeoutMS int    `json:"per_try_timeout_ms,omitempty"`
 }
 
 // WeightedCluster definition

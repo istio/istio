@@ -124,6 +124,9 @@ func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port) (*HTTPRoute, 
 			// These are the safest retry policies as per envoy docs
 			Policy: "5xx,connect-failure,refused-stream",
 		}
+		if rule.HttpReqRetries.GetSimpleRetry().PerTryTimeoutSeconds > 0 {
+			route.RetryPolicy.PerTryTimeoutMS = int(rule.HttpReqRetries.GetSimpleRetry().PerTryTimeoutSeconds * 1000)
+		}
 	}
 
 	if rule.Match != nil {

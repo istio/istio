@@ -929,7 +929,7 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			Destination: "host.default.svc.cluster.local",
 			HttpReqRetries: &proxyconfig.HTTPRetry{
 				RetryPolicy: &proxyconfig.HTTPRetry_SimpleRetry{
-					SimpleRetry: &proxyconfig.HTTPRetry_SimpleRetryPolicy{Attempts: -1},
+					SimpleRetry: &proxyconfig.HTTPRetry_SimpleRetryPolicy{Attempts: -1, PerTryTimeoutSeconds: 0},
 				},
 			},
 		},

@@ -5,3 +5,4 @@ http_req_timeout:
 http_req_retries:
   simple_retry:
     attempts: 1
+    per_try_timeout_seconds: 5

@@ -68,7 +68,8 @@
       "timeout_ms": 30000,
       "retry_policy": {
        "retry_on": "5xx,connect-failure,refused-stream",
-       "num_retries": 1
+       "num_retries": 1,
+       "per_try_timeout_ms": 5000
       }
      }
     ]

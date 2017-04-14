@@ -322,6 +322,9 @@ func ValidateHTTPRetries(retry *proxyconfig.HTTPRetry) (errs error) {
 			errs = multierror.Append(errs, fmt.Errorf("attempts must be in range [0..]"))
 		}
 
+		if simple.PerTryTimeoutSeconds <= 0 {
+			errs = multierror.Append(errs, fmt.Errorf("per_try_timeout_seconds must be >0 seconds"))
+		}
 		// We ignore override_header_name
 	}
 
