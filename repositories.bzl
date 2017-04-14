@@ -117,6 +117,9 @@ cc_library(
     name = "googletest_main",
     srcs = ["googlemock/src/gmock_main.cc"],
     visibility = ["//visibility:public"],
+    linkopts = [
+        "-lpthread",
+    ],
     deps = [":googletest"],
 )
 

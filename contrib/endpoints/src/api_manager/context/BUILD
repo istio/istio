@@ -34,6 +34,7 @@ cc_library(
         ],
     }),
     deps = [
+        "//contrib/endpoints/src/api_manager:http_template",
         "//contrib/endpoints/src/api_manager:impl_headers",
         "//contrib/endpoints/src/api_manager:server_config_proto",
         "//contrib/endpoints/src/api_manager/auth",

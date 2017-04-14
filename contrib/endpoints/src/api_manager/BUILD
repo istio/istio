@@ -51,7 +51,6 @@ cc_library(
         "api_manager_impl.h",
         "config.h",
         "gce_metadata.h",
-        "http_template.h",
         "method_impl.h",
         "path_matcher.h",
         "path_matcher_node.h",
@@ -76,7 +75,6 @@ cc_library(
         "fetch_metadata.cc",
         "fetch_metadata.h",
         "gce_metadata.cc",
-        "http_template.cc",
         "http_template.h",
         "method_impl.cc",
         "path_matcher.cc",
@@ -97,6 +95,7 @@ cc_library(
     ],
     deps = [
         ":auth_headers",
+        ":http_template",
         ":impl_headers",
         ":server_config_proto",
         "//contrib/endpoints/src/api_manager/auth",
@@ -112,6 +111,19 @@ cc_library(
         "//external:service_config",
         "//external:servicecontrol",
         "//external:servicecontrol_client",
+    ],
+)
+
+cc_library(
+    name = "http_template",
+    srcs = [
+        "http_template.cc",
+    ],
+    hdrs = [
+        "http_template.h",
+    ],
+    visibility = [
+        "//visibility:public",
     ],
 )
 
@@ -164,7 +176,7 @@ cc_test(
     ],
     linkstatic = 1,
     deps = [
-        ":api_manager",
+        ":http_template",
         "//external:googletest_main",
     ],
 )
