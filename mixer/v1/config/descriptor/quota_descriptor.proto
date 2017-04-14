@@ -16,7 +16,6 @@ syntax = "proto3";
 
 package istio.mixer.v1.config.descriptor;
 
-import "google/protobuf/duration.proto";
 import "mixer/v1/config/descriptor/value_type.proto";
 
 // Configuration state for a particular quota.
@@ -43,11 +42,6 @@ message QuotaDescriptor {
   // for a quota of this type.
   map<string, ValueType> labels = 4;
 
-  // The default imposed maximum amount for values of this quota.
-  int64 max_amount = 5;
-
-  // The amount of time allocated quota remains valid before it is
-  // automatically released. If this is 0, then allocated quota is
-  // not automatically released.
-  google.protobuf.Duration expiration = 6;
+  // Indicates whether the quota represents a rate limit or represents a resource quota.
+  bool rate_limit = 5;
 }
