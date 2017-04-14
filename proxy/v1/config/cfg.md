@@ -172,6 +172,7 @@ Retry policy to use when a request fails.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | attempts | [int32](#int32) | optional | Number of retries for a given request. The interval between retries will be determined automatically (25ms+). Actual number of retries attempted depends on the http_timeout |
+| per_try_timeout_seconds | [double](#double) | optional | Timeout per retry attempt for a given request. Specified in seconds.nanoseconds format. |
 | override_header_name | [string](#string) | optional | Downstream Service could specify retry attempts via Http header to the proxy, if the proxy supports such a feature. |
 
 

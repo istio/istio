@@ -303,9 +303,12 @@ message HTTPRetry {
     /// will be determined automatically (25ms+). Actual number of retries
     /// attempted depends on the http_timeout
     int32 attempts = 1;
+    /// Timeout per retry attempt for a given request. 
+    /// Specified in seconds.nanoseconds format.
+    double per_try_timeout_seconds = 2;
     /// Downstream Service could specify retry attempts via Http header to
     /// the proxy, if the proxy supports such a feature.
-    string override_header_name = 2;
+    string override_header_name = 3;
   }
   oneof retry_policy {
     SimpleRetryPolicy simple_retry = 1;
