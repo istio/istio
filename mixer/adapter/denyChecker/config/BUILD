@@ -7,7 +7,7 @@ gogoslick_proto_library(
         "google/rpc/status.proto": "github.com/googleapis/googleapis/google/rpc",
     },
     imports = [
-        "../../../../external/com_github_gogo_protobuf",
+        "external/com_github_gogo_protobuf",
         "external/com_github_google_protobuf/src",
         "external/com_github_googleapis_googleapis/",
     ],

@@ -51,46 +51,46 @@ type finder struct {
 
 // NewFinder constructs a new Finder for the provided global config.
 func NewFinder(cfg *pb.GlobalConfig) Finder {
-	logs := make(map[string]*dpb.LogEntryDescriptor)
+	f := &finder{
+		logs:               make(map[string]*dpb.LogEntryDescriptor),
+		metrics:            make(map[string]*dpb.MetricDescriptor),
+		monitoredResources: make(map[string]*dpb.MonitoredResourceDescriptor),
+		principals:         make(map[string]*dpb.PrincipalDescriptor),
+		quotas:             make(map[string]*dpb.QuotaDescriptor),
+		attributes:         make(map[string]*dpb.AttributeDescriptor),
+	}
+
+	if cfg == nil {
+		return f
+	}
+
 	for _, desc := range cfg.Logs {
-		logs[desc.Name] = desc
+		f.logs[desc.Name] = desc
 	}
 
-	metrics := make(map[string]*dpb.MetricDescriptor)
 	for _, desc := range cfg.Metrics {
-		metrics[desc.Name] = desc
+		f.metrics[desc.Name] = desc
 	}
 
-	monitoredResources := make(map[string]*dpb.MonitoredResourceDescriptor)
 	for _, desc := range cfg.MonitoredResources {
-		monitoredResources[desc.Name] = desc
+		f.monitoredResources[desc.Name] = desc
 	}
 
-	principals := make(map[string]*dpb.PrincipalDescriptor)
 	for _, desc := range cfg.Principals {
-		principals[desc.Name] = desc
+		f.principals[desc.Name] = desc
 	}
 
-	quotas := make(map[string]*dpb.QuotaDescriptor)
 	for _, desc := range cfg.Quotas {
-		quotas[desc.Name] = desc
+		f.quotas[desc.Name] = desc
 	}
 
-	attributes := make(map[string]*dpb.AttributeDescriptor)
 	for _, manifest := range cfg.Manifests {
 		for _, desc := range manifest.Attributes {
-			attributes[desc.Name] = desc
+			f.attributes[desc.Name] = desc
 		}
 	}
 
-	return &finder{
-		logs:               logs,
-		metrics:            metrics,
-		monitoredResources: monitoredResources,
-		principals:         principals,
-		quotas:             quotas,
-		attributes:         attributes,
-	}
+	return f
 }
 
 func (d *finder) GetLog(name string) *dpb.LogEntryDescriptor {

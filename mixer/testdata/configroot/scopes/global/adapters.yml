@@ -1,0 +1,17 @@
+subject: namespace:ns
+revision: "2022"
+adapters:
+  - name: default
+    kind: quotas
+    impl: memQuota
+    params:
+  - name: default
+    impl: stdioLogger
+    params:
+      logStream: 0 # STDERR
+  - name: prometheus
+    kind: metrics
+    impl: prometheus
+    params:
+  - name: default
+    impl: denyChecker

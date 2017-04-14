@@ -8,7 +8,7 @@ gogoslick_proto_library(
         "gogoproto/gogo.proto": "github.com/gogo/protobuf/gogoproto",
     },
     imports = [
-        "../../../../external/com_github_gogo_protobuf",
+        "external/com_github_gogo_protobuf",
         "external/com_github_google_protobuf/src",
     ],
     inputs = [

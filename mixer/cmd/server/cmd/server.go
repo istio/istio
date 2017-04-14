@@ -43,20 +43,27 @@ import (
 )
 
 type serverArgs struct {
-	maxMessageSize         uint
-	maxConcurrentStreams   uint
-	apiWorkerPoolSize      int
-	adapterWorkerPoolSize  int
-	port                   uint16
-	singleThreaded         bool
-	compressedPayload      bool
-	enableTracing          bool
-	serverCertFile         string
-	serverKeyFile          string
-	clientCertFiles        string
-	serviceConfigFile      string
-	globalConfigFile       string
-	configFetchIntervalSec uint
+	maxMessageSize                uint
+	maxConcurrentStreams          uint
+	apiWorkerPoolSize             int
+	adapterWorkerPoolSize         int
+	port                          uint16
+	configAPIPort                 uint16
+	singleThreaded                bool
+	compressedPayload             bool
+	enableTracing                 bool
+	serverCertFile                string
+	serverKeyFile                 string
+	clientCertFiles               string
+	configStoreURL                string
+	configFetchIntervalSec        uint
+	configIdentityAttribute       string
+	configIdentityAttributeDomain string
+
+	// @deprecated
+	serviceConfigFile string
+	// @deprecated
+	globalConfigFile string
 }
 
 func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
@@ -80,6 +87,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		},
 	}
 	serverCmd.PersistentFlags().Uint16VarP(&sa.port, "port", "p", 9091, "TCP port to use for the mixer's gRPC API")
+	serverCmd.PersistentFlags().Uint16VarP(&sa.configAPIPort, "configAPIPort", "", 9094, "HTTP port to use for the mixer's Configuration API")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxMessageSize, "maxMessageSize", "", 1024*1024, "Maximum size of individual gRPC messages")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxConcurrentStreams, "maxConcurrentStreams", "", 32, "Maximum supported number of concurrent gRPC streams")
 	serverCmd.PersistentFlags().IntVarP(&sa.apiWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max # of goroutines in the API worker pool")
@@ -99,18 +107,54 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	// TODO: implement an option to specify how traces are reported (hardcoded to report to stdout right now).
 	serverCmd.PersistentFlags().BoolVarP(&sa.enableTracing, "trace", "", false, "Whether to trace rpc executions")
 
-	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "serviceConfig.yml", "Combined Service Config")
-	_ = serverCmd.MarkPersistentFlagFilename("serverConfigFile", "yaml", "yml")
+	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "",
+		"URL of the config store. May be fs:// for file system, or redis:// for redis url")
 
-	serverCmd.PersistentFlags().StringVarP(&sa.globalConfigFile, "globalConfigFile", "", "globalConfig.yml", "Global Config")
-	_ = serverCmd.MarkPersistentFlagFilename("globalConfigFile", "yaml", "yml")
+	// Hide configIdentityAttribute and configIdentityAttributeDomain until we have a need to expose it.
+	// These parameters ensure that rest of the mixer makes no assumptions about specific identity attribute.
+	// Rules selection is based on scopes.
+	serverCmd.PersistentFlags().StringVarP(&sa.configIdentityAttribute, "configIdentityAttribute", "", "target.service",
+		"Attribute that is used to identify applicable scopes.")
+	if err := serverCmd.PersistentFlags().MarkHidden("configIdentityAttribute"); err != nil {
+		fatalf("unable to hide: %s", err.Error())
+	}
+	serverCmd.PersistentFlags().StringVarP(&sa.configIdentityAttributeDomain, "configIdentityAttributeDomain", "", "svc.cluster.local",
+		"The domain to which all values of the configIdentityAttribute belong. For kubernetes services it is svc.cluster.local")
+	if err := serverCmd.PersistentFlags().MarkHidden("configIdentityAttributeDomain"); err != nil {
+		fatalf("unable to hide: %s", err.Error())
+	}
+
+	// serviceConfig and gobalConfig are for compatibility only
+	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "", "Combined Service Config")
+	serverCmd.PersistentFlags().StringVarP(&sa.globalConfigFile, "globalConfigFile", "", "", "Global Config")
 
 	serverCmd.PersistentFlags().UintVarP(&sa.configFetchIntervalSec, "configFetchInterval", "", 5, "Configuration fetch interval in seconds")
-
 	return &serverCmd
 }
 
+// configStore - given config this function returns a KeyValueStore
+// It provides a compatibility layer so one can continue using serviceConfigFile and globalConfigFile flags
+// until they are removed.
+func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf shared.FormatFn) (store config.KeyValueStore) {
+	var err error
+	if url != "" {
+		if store, err = config.NewStore(url); err != nil {
+			fatalf("Failed to get config store: %s", err.Error())
+		}
+		return store
+	}
+	if serviceConfigFile == "" || globalConfigFile == "" {
+		fatalf("Missing configStoreURL")
+	}
+	printf("*** serviceConfigFile and globalConfigFile are deprecated, use configStoreURL")
+	if store, err = config.NewCompatFSStore(globalConfigFile, serviceConfigFile); err != nil {
+		fatalf("Failed to get config store: %s", err.Error())
+	}
+	return store
+}
+
 func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
+	var err error
 	apiPoolSize := sa.apiWorkerPoolSize
 	adapterPoolSize := sa.adapterWorkerPoolSize
 
@@ -125,16 +169,23 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	// get aspect registry with proper aspect --> api mappings
 	eval := expr.NewCEXLEvaluator()
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
+	store := configStore(sa.configStoreURL, sa.serviceConfigFile, sa.globalConfigFile, printf, fatalf)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder,
 		adapterMgr.SupportedKinds,
-		sa.globalConfigFile, sa.serviceConfigFile, time.Second*time.Duration(sa.configFetchIntervalSec))
+		store, time.Second*time.Duration(sa.configFetchIntervalSec),
+		sa.configIdentityAttribute,
+		sa.configIdentityAttributeDomain)
+
+	configAPIServer := config.NewAPI("v1", sa.configAPIPort, eval,
+		adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder,
+		adapterMgr.SupportedKinds, store)
 
 	var serverCert *tls.Certificate
 	var clientCerts *x509.CertPool
 
 	if sa.serverCertFile != "" && sa.serverKeyFile != "" {
-		sc, err := tls.LoadX509KeyPair(sa.serverCertFile, sa.serverKeyFile)
-		if err != nil {
+		var sc tls.Certificate
+		if sc, err = tls.LoadX509KeyPair(sa.serverCertFile, sa.serverKeyFile); err != nil {
 			fatalf("Failed to load server certificate and server key: %v", err)
 		}
 		serverCert = &sc
@@ -143,17 +194,17 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	if sa.clientCertFiles != "" {
 		clientCerts = x509.NewCertPool()
 		for _, clientCertFile := range strings.Split(sa.clientCertFiles, ",") {
-			pem, err := ioutil.ReadFile(clientCertFile)
-			if err != nil {
+			var pem []byte
+			if pem, err = ioutil.ReadFile(clientCertFile); err != nil {
 				fatalf("Failed to load client certificate: %v", err)
 			}
 			clientCerts.AppendCertsFromPEM(pem)
 		}
 	}
 
+	var listener net.Listener
 	// get the network stuff setup
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", sa.port))
-	if err != nil {
+	if listener, err = net.Listen("tcp", fmt.Sprintf(":%d", sa.port)); err != nil {
 		fatalf("Unable to listen on socket: %v", err)
 	}
 
@@ -192,6 +243,9 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 
 	configManager.Register(adapterMgr)
 	configManager.Start()
+
+	printf("Starting Config API server on port %v", sa.configAPIPort)
+	go configAPIServer.Run()
 
 	// get everything wired up
 	gs := grpc.NewServer(grpcOptions...)

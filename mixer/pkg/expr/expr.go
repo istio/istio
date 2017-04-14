@@ -377,9 +377,10 @@ func Parse(src string) (ex *Expression, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse error: %s %s", src, err)
 	}
-	if glog.V(2) {
+	if glog.V(4) {
 		glog.Infof("Parsed expression '%s' into '%s'", src, a)
 	}
+
 	ex = &Expression{}
 	if err = process(a, ex); err != nil {
 		return nil, err
@@ -455,8 +456,9 @@ func (e *cexl) Validate(s string) (err error) {
 		return err
 	}
 	// TODO call ex.TypeCheck() when vocabulary is available
-
-	glog.V(2).Infof("%s --> %s", s, ex)
+	if glog.V(4) {
+		glog.Infof("%s --> %s", s, ex)
+	}
 	return nil
 }
 
