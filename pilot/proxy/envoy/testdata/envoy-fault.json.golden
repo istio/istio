@@ -12,7 +12,7 @@
             "rds": {
               "cluster": "rds",
               "route_config_name": "80",
-              "refresh_delay_ms": 1000
+              "refresh_delay_ms": 10
             },
             "filters": [
               {
@@ -91,7 +91,7 @@
             "rds": {
               "cluster": "rds",
               "route_config_name": "81",
-              "refresh_delay_ms": 1000
+              "refresh_delay_ms": 10
             },
             "filters": [
               {
@@ -488,7 +488,7 @@
           }
         ]
       },
-      "refresh_delay_ms": 1000
+      "refresh_delay_ms": 10
     },
     "cds": {
       "cluster": {
@@ -502,7 +502,7 @@
           }
         ]
       },
-      "refresh_delay_ms": 1000
+      "refresh_delay_ms": 10
     }
   }
 }

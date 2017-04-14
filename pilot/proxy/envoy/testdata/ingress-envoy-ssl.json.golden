@@ -94,7 +94,7 @@
           }
         ]
       },
-      "refresh_delay_ms": 1000
+      "refresh_delay_ms": 10
     }
   }
 }

@@ -20,8 +20,10 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
@@ -312,6 +314,7 @@ func makeMeshConfig() proxyconfig.ProxyMeshConfig {
 	mesh := DefaultMeshConfig
 	mesh.MixerAddress = "localhost:9091"
 	mesh.DiscoveryAddress = "localhost:8080"
+	mesh.DiscoveryRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
 	return mesh
 }
 

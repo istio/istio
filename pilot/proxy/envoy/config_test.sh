@@ -2,21 +2,17 @@
 # Check that envoy can parse golden configuration artifacts
 # In the future, we can run functional tests, but all configs require iptables rules to be effective.
 
+# Usage: config_test.sh <envoy-binary> <envoy.json> <base-id>
+
 set -o errexit
 set -o nounset
 set -o pipefail
 
-ENVOY="proxy/envoy/envoy -l trace --service-cluster istio-proxy --service-node 10.0.0.1"
-CONFIG_FILES="envoy-v0 envoy-fault ingress-envoy egress-envoy"
+ENVOY="$1 -l trace --service-cluster istio-proxy --service-node 10.0.0.1"
+CONFIG_FILE=$2
+BASE_ID=$3
 
-# TODO the test skips over SSL configuration files since referenced cert files are not in the right places
-
-for f in ${CONFIG_FILES}; do
-  echo "##############################"
-  echo "# Testing $f..."
-  echo "##############################"
-  ${ENVOY} -c proxy/envoy/testdata/$f.json.golden &
-  PID=$!
-  sleep 1
-  kill -KILL $PID
-done
+${ENVOY} --base-id ${BASE_ID} -c ${CONFIG_FILE} &
+PID=$!
+sleep 0.200
+kill -KILL $PID
