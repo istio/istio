@@ -153,11 +153,11 @@ func TestAllocAndRelease(t *testing.T) {
 
 		// To simulate time proceed for mock redis.
 		if i == 9 || i == 12 || i == 13 {
-			s.FastForward(1)
+			s.FastForward(time.Second)
 
 		}
 		if i == 10 || i == 11 {
-			s.FastForward(2)
+			s.FastForward(time.Second * 2)
 
 		}
 	}
