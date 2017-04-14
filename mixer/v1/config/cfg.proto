@@ -92,24 +92,19 @@ message AspectRule {
 //          - key: src_consumer_id
 //          - key: target_response_status_code
 //          - key: target_service_name
-//      Inputs:
-//           Attr.target_service_name: target_service_name || target_service_id
 message Aspect {
   string kind = 1;
   string adapter = 2; // optional, allows specifying an adapter
-  // maps from isio Attribute space to aspect.Input proto defined
-  // by the aspect
-  map<string, string> inputs = 3;
   // Struct representation of a proto defined by the aspect
   google.protobuf.Struct params = 4;
 }
 
 // Adapter config defines specifics of adapter implementations
 // We define an adapter that provides "metrics" aspect
-// Kind: istio/metrics
-// Name: metrics-statsd
-// Impl: “istio.io/adapters/statsd”
-// Args:
+// kind: istio/metrics
+// name: metrics-statsd
+// impl: “istio.io/adapters/statsd”
+// params:
 //    Host: statd.svc.cluster
 //    Port: 8125
 message Adapter {
@@ -146,15 +141,6 @@ message AttributeManifest {
 
   // The set of attributes this Istio component will be responsible for producing at runtime.
   repeated istio.mixer.v1.config.descriptor.AttributeDescriptor attributes = 3;
-}
-
-// ClientConfig defines configuration from a client perspective.
-// ServiceA can define rules about what happens when it is acting as client
-// to other services
-message ClientConfig {
-  string subject = 1;
-  string revision = 2;
-  repeated AspectRule rules = 3;
 }
 
 // Uri represents a properly formed URI.
