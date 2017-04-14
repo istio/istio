@@ -262,3 +262,9 @@ new_go_repository(
     commit = "1ce09fc76693fb3c1ca9b529c66f38920beb6fb8",  # Aug 17, 2016 (no releases)
     importpath = "github.com/bsm/redeo",
 )
+
+new_go_repository(
+    name = "com_github_emicklei_go_restful",
+    commit = "1d2cd46e1ac9ce6036f014a33a3706f989578de6",  # March 17, 2017 (no releases)
+    importpath = "github.com/emicklei/go-restful",
+)
