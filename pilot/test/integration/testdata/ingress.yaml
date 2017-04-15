@@ -18,7 +18,7 @@ spec:
         backend:
           serviceName: b
           servicePort: 80
-      - path: /hello
+      - path: /c
         backend:
           serviceName: hello
           servicePort: 8080

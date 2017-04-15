@@ -34,9 +34,9 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: {{.hub}}/proxy:{{.tag}}
+        image: {{.Hub}}/proxy:{{.Tag}}
         imagePullPolicy: Always
-        args: ["proxy", "egress", "-v", "{{.verbosity}}"]
+        args: ["proxy", "egress", "-v", "{{.Verbosity}}"]
         env:
         - name: POD_NAMESPACE
           valueFrom:

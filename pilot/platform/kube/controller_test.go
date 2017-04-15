@@ -35,12 +35,16 @@ import (
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 	"istio.io/manager/test/mock"
+	"istio.io/manager/test/util"
 )
 
 func TestSecret(t *testing.T) {
 	cl := makeClient(t)
-	ns := makeNamespace(cl.client, t)
-	defer deleteNamespace(cl.client, ns)
+	ns, err := util.CreateNamespace(cl.client)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer util.DeleteNamespace(cl.client, ns)
 
 	ctl := NewController(cl, ControllerOptions{
 		Namespace:       ns,
@@ -63,7 +67,7 @@ func TestSecret(t *testing.T) {
 	cert := "abcdef"
 	key := "ghijkl"
 	secret := "istio-secret"
-	_, err := cl.client.Core().Secrets(ns).Create(&v1.Secret{
+	_, err = cl.client.Core().Secrets(ns).Create(&v1.Secret{
 		ObjectMeta: meta_v1.ObjectMeta{Name: secret},
 		Data:       map[string][]byte{secretCert: []byte(cert), secretKey: []byte(key)},
 	})
@@ -111,8 +115,11 @@ func TestSecret(t *testing.T) {
 
 func TestIngressController(t *testing.T) {
 	cl := makeClient(t)
-	ns := makeNamespace(cl.client, t)
-	defer deleteNamespace(cl.client, ns)
+	ns, err := util.CreateNamespace(cl.client)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer util.DeleteNamespace(cl.client, ns)
 
 	ctl := NewController(cl, ControllerOptions{
 		Namespace:       ns,
@@ -256,8 +263,11 @@ func TestIngressController(t *testing.T) {
 
 func TestIngressClass(t *testing.T) {
 	cl := makeClient(t)
-	ns := makeNamespace(cl.client, t)
-	defer deleteNamespace(cl.client, ns)
+	ns, err := util.CreateNamespace(cl.client)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer util.DeleteNamespace(cl.client, ns)
 
 	cases := []struct {
 		ingressMode   IngressSyncMode
@@ -307,8 +317,11 @@ func TestIngressClass(t *testing.T) {
 
 func TestController(t *testing.T) {
 	cl := makeClient(t)
-	ns := makeNamespace(cl.client, t)
-	defer deleteNamespace(cl.client, ns)
+	ns, err := util.CreateNamespace(cl.client)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer util.DeleteNamespace(cl.client, ns)
 
 	stop := make(chan struct{})
 	defer close(stop)
@@ -316,7 +329,7 @@ func TestController(t *testing.T) {
 	ctl := NewController(cl, ControllerOptions{Namespace: ns, ResyncPeriod: resync})
 	added, deleted := 0, 0
 	n := 5
-	err := ctl.AppendConfigHandler(mock.Kind, func(k model.Key, o proto.Message, ev model.Event) {
+	err = ctl.AppendConfigHandler(mock.Kind, func(k model.Key, o proto.Message, ev model.Event) {
 		switch ev {
 		case model.EventAdd:
 			if deleted != 0 {
@@ -343,8 +356,11 @@ func TestController(t *testing.T) {
 
 func TestControllerCacheFreshness(t *testing.T) {
 	cl := makeClient(t)
-	ns := makeNamespace(cl.client, t)
-	defer deleteNamespace(cl.client, ns)
+	ns, err := util.CreateNamespace(cl.client)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer util.DeleteNamespace(cl.client, ns)
 	stop := make(chan struct{})
 	ctl := NewController(cl, ControllerOptions{Namespace: ns, ResyncPeriod: resync})
 
@@ -355,7 +371,7 @@ func TestControllerCacheFreshness(t *testing.T) {
 	done := false
 
 	// validate cache consistency
-	err := ctl.AppendConfigHandler(mock.Kind, func(k model.Key, v proto.Message, ev model.Event) {
+	err = ctl.AppendConfigHandler(mock.Kind, func(k model.Key, v proto.Message, ev model.Event) {
 		elts, _ := ctl.List(mock.Kind, ns)
 		switch ev {
 		case model.EventAdd:
@@ -363,7 +379,7 @@ func TestControllerCacheFreshness(t *testing.T) {
 				t.Errorf("Got %#v, expected %d element(s) on ADD event", elts, 1)
 			}
 			glog.Infof("Calling Delete(%#v)", k)
-			err := ctl.Delete(k)
+			err = ctl.Delete(k)
 			if err != nil {
 				t.Error(err)
 			}
@@ -400,9 +416,12 @@ func TestControllerCacheFreshness(t *testing.T) {
 
 func TestControllerClientSync(t *testing.T) {
 	cl := makeClient(t)
-	ns := makeNamespace(cl.client, t)
+	ns, err := util.CreateNamespace(cl.client)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 	n := 5
-	defer deleteNamespace(cl.client, ns)
+	defer util.DeleteNamespace(cl.client, ns)
 	stop := make(chan struct{})
 	defer close(stop)
 
@@ -482,8 +501,11 @@ const (
 
 func TestServices(t *testing.T) {
 	cl := makeClient(t)
-	ns := makeNamespace(cl.client, t)
-	defer deleteNamespace(cl.client, ns)
+	ns, err := util.CreateNamespace(cl.client)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer util.DeleteNamespace(cl.client, ns)
 
 	stop := make(chan struct{})
 	defer close(stop)
@@ -654,8 +676,11 @@ func createIngress(ingress *v1beta1.Ingress, client kubernetes.Interface, t *tes
 
 func TestIstioConfig(t *testing.T) {
 	cl := makeClient(t)
-	ns := makeNamespace(cl.client, t)
-	defer deleteNamespace(cl.client, ns)
+	ns, err := util.CreateNamespace(cl.client)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer util.DeleteNamespace(cl.client, ns)
 
 	rule := &proxyconfig.RouteRule{
 		Destination: "foo",

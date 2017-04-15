@@ -17,62 +17,39 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
-	"strconv"
-	"strings"
 	"text/template"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/golang/sync/errgroup"
+	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api/v1"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 	"istio.io/manager/platform/kube"
-	"istio.io/manager/platform/kube/inject"
-	"istio.io/manager/proxy/envoy"
+	"istio.io/manager/test/util"
 )
 
 const (
-	managerDiscovery = "manager-discovery"
-	mixer            = "mixer"
-	egressProxy      = "egress-proxy"
-	ingressProxy     = "ingress-proxy"
-	ca               = "ca"
-	app              = "app"
-
-	// budget is the maximum number of retries with 1s delays
-	budget = 90
-
 	// CA image tag is the short SHA *update manually*
 	caTag = "f063b41"
 
 	// Mixer image tag is the short SHA *update manually*
 	mixerTag = "6655a67"
-
-	ingressServiceName = "istio-ingress-controller"
 )
 
 type parameters struct {
-	hub        string
-	tag        string
-	caImage    string
-	mixerImage string
-	namespace  string
+	infra      infra
 	kubeconfig string
 	count      int
-	auth       bool
 	debug      bool
-	parallel   bool
 	logs       bool
-
-	verbosity int
 }
 
 var (
@@ -81,342 +58,205 @@ var (
 	client      kubernetes.Interface
 	istioClient *kube.Client
 
-	// pods is a mapping from app name to a pod name (write once, read only)
-	pods map[string]string
-
-	// indicates whether the namespace is auto-generated
-	nameSpaceCreated bool
-
 	// Enable/disable auth, or run both for the tests.
 	authmode string
+
+	budget = 90
 )
 
 func init() {
-	flag.StringVar(&params.hub, "hub", "gcr.io/istio-testing", "Docker hub")
-	flag.StringVar(&params.tag, "tag", "", "Docker tag")
-	flag.StringVar(&params.caImage, "ca", "gcr.io/istio-testing/istio-ca:"+caTag,
+	flag.StringVar(&params.infra.Hub, "hub", "gcr.io/istio-testing", "Docker hub")
+	flag.StringVar(&params.infra.Tag, "tag", "", "Docker tag")
+	flag.StringVar(&params.infra.CaImage, "ca", "gcr.io/istio-testing/istio-ca:"+caTag,
 		"CA Docker image")
-	flag.StringVar(&params.mixerImage, "mixer", "gcr.io/istio-testing/mixer:"+mixerTag,
+	flag.StringVar(&params.infra.MixerImage, "mixer", "gcr.io/istio-testing/mixer:"+mixerTag,
 		"Mixer Docker image")
-	flag.StringVar(&params.namespace, "n", "",
+	flag.StringVar(&params.infra.Namespace, "n", "",
 		"Namespace to use for testing (empty to create/delete temporary one)")
 	flag.StringVar(&params.kubeconfig, "kubeconfig", "platform/kube/config",
 		"kube config file (missing or empty file makes the test use in-cluster kube config instead)")
 	flag.IntVar(&params.count, "count", 1, "Number of times to run the tests after deploying")
 	flag.StringVar(&authmode, "auth", "both", "Enable / disable auth, or test both.")
 	flag.BoolVar(&params.debug, "debug", false, "Extra logging in the containers")
-	flag.BoolVar(&params.parallel, "parallel", true, "Run requests in parallel")
 	flag.BoolVar(&params.logs, "logs", true, "Validate pod logs (expensive in long-running tests)")
+}
+
+type test interface {
+	String() string
+	setup() error
+	run() error
+	teardown()
 }
 
 func main() {
 	flag.Parse()
-	switch authmode {
-	case "enable":
-		params.auth = true
-		runTests()
-	case "disable":
-		params.auth = false
-		runTests()
-	case "both":
-		params.auth = false
-		runTests()
-		params.auth = true
-		runTests()
-	default:
-		glog.Infof("Invald auth flag: %s. Please choose from: enable/disable/both.", params.auth)
-	}
-}
-
-func runTests() {
-	glog.Infof("\n--------------- Run tests with auth: %t ---------------", params.auth)
-
-	setup()
-
-	for i := 0; i < params.count; i++ {
-		glog.Infof("Test run: %d", i)
-		check((&reachability{}).run())
-		check(testRouting())
-	}
-
-	teardown()
-	glog.Infof("\n--------------- All tests with auth: %t passed %d time(s)! ---------------\n", params.auth, params.count)
-}
-
-func setup() {
-	if params.tag == "" {
+	if params.infra.Tag == "" {
 		glog.Fatal("No docker tag specified")
 	}
-	if params.mixerImage == "" {
-		glog.Fatal("No mixer image specified")
-	}
-	glog.Infof("params %#v", params)
 
 	if params.debug {
-		params.verbosity = 3
+		params.infra.Verbosity = 3
 	} else {
-		params.verbosity = 2
+		params.infra.Verbosity = 2
 	}
 
 	check(setupClient())
 
-	var err error
-	if params.namespace == "" {
-		if params.namespace, err = generateNamespace(client); err != nil {
-			check(err)
-		}
-	} else {
-		_, err = client.Core().Namespaces().Get(params.namespace, meta_v1.GetOptions{})
-		check(err)
+	params.infra.Mixer = true
+	switch authmode {
+	case "enable":
+		params.infra.Auth = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
+		params.infra.Ingress = false
+		params.infra.Egress = false
+		check(runTests())
+	case "disable":
+		params.infra.Auth = proxyconfig.ProxyMeshConfig_NONE
+		params.infra.Ingress = true
+		params.infra.Egress = true
+		check(runTests())
+	case "both":
+		params.infra.Auth = proxyconfig.ProxyMeshConfig_NONE
+		params.infra.Ingress = true
+		params.infra.Egress = true
+		check(runTests())
+		params.infra.Auth = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
+		params.infra.Ingress = false
+		params.infra.Egress = false
+		check(runTests())
+	default:
+		glog.Infof("Invald auth flag: %s. Please choose from: enable/disable/both.", authmode)
 	}
-
-	pods = make(map[string]string)
-
-	if params.auth {
-		check(deploy("ca", "ca", ca, "", "", "", "", "unversioned", false))
-		_, err = shell(fmt.Sprintf("kubectl -n %s apply -f test/integration/config-auth.yaml", params.namespace))
-	} else {
-		_, err = shell(fmt.Sprintf("kubectl -n %s apply -f test/integration/config.yaml", params.namespace))
-	}
-	check(err)
-
-	// setup ingress resources
-	_, _ = shell(fmt.Sprintf("kubectl -n %s create secret generic ingress "+
-		"--from-file=tls.key=test/integration/cert.key "+
-		"--from-file=tls.crt=test/integration/cert.crt",
-		params.namespace))
-
-	_, err = shell(fmt.Sprintf("kubectl -n %s apply -f test/integration/ingress.yaml", params.namespace))
-	check(err)
-
-	// deploy istio-infra
-	check(deploy("http-discovery", "http-discovery", managerDiscovery, "8080", "80", "9090", "90", "unversioned", false))
-	check(deploy("mixer", "mixer", mixer, "8080", "80", "9090", "90", "unversioned", false))
-	check(deploy("istio-egress", "istio-egress", egressProxy, "8080", "80", "9090", "90", "unversioned", false))
-	check(deploy("istio-ingress", "istio-ingress", ingressProxy, "8080", "80", "9090", "90", "unversioned", false))
-
-	// deploy a healthy mix of apps, with and without proxy
-	check(deploy("t", "t", app, "8080", "80", "9090", "90", "unversioned", false))
-	check(deploy("a", "a", app, "8080", "80", "9090", "90", "unversioned", true))
-	check(deploy("b", "b", app, "80", "8080", "90", "9090", "unversioned", true))
-	check(deploy("hello", "hello", app, "8080", "80", "9090", "90", "v1", true))
-	check(deploy("world-v1", "world", app, "80", "8000", "90", "9090", "v1", true))
-	check(deploy("world-v2", "world", app, "80", "8000", "90", "9090", "v2", true))
-	check(setPods())
 }
 
-// check function correctly cleans up on failure
 func check(err error) {
 	if err != nil {
 		glog.Info(err)
-		if glog.V(2) {
-			for _, pod := range pods {
-				glog.Info(podLogs(pod, "proxy"))
-			}
-		}
-		teardown()
 		os.Exit(1)
 	}
 }
 
-// teardown removes resources
-func teardown() {
-	glog.Info("Cleaning up ingress secret.")
-	if err := run("kubectl delete secret ingress -n " + params.namespace); err != nil {
-		glog.Warning(err)
-	}
-
-	if nameSpaceCreated {
-		deleteNamespace(client, params.namespace)
-		params.namespace = ""
-	}
+func log(header, s string) {
+	glog.Infof("\n\n"+
+		"=================== %s =====================\n"+
+		"%s\n\n", header, s)
 }
 
-func deploy(name, svcName, dType, port1, port2, port3, port4, version string, injectProxy bool) error {
-	// write template
-	configFile := name + "-" + dType + ".yaml"
+func runTests() error {
+	istio := params.infra
+	log("Deploying infrastructure", spew.Sdump(istio))
 
-	f, err := os.Create(configFile)
-	if err != nil {
+	if err := istio.setup(); err != nil {
 		return err
 	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			glog.Info("Error closing file " + configFile)
-		}
-	}()
-
-	w := &bytes.Buffer{}
-	if err := write("test/integration/"+dType+".yaml.tmpl", map[string]string{
-		"service": svcName,
-		"name":    name,
-		"port1":   port1,
-		"port2":   port2,
-		"port3":   port3,
-		"port4":   port4,
-		"version": version,
-	}, w); err != nil {
+	if err := istio.deployApps(); err != nil {
 		return err
 	}
+	var errs error
+	istio.apps, errs = util.GetAppPods(client, istio.Namespace)
 
-	writer := bufio.NewWriter(f)
-	if injectProxy {
-		mesh := envoy.DefaultMeshConfig
-		mesh.MixerAddress = "istio-mixer:9091"
-		mesh.DiscoveryAddress = "istio-manager:8080"
-		if params.auth {
-			mesh.AuthPolicy = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
+	tests := []test{
+		&reachability{infra: &istio},
+		&tcp{infra: &istio},
+		&ingress{infra: &istio},
+		&egress{infra: &istio},
+		&routing{infra: &istio},
+	}
+
+	for i := 0; i < params.count; i++ {
+		for _, test := range tests {
+			log("Setting up test", test.String())
+			if err := test.setup(); err != nil {
+				errs = multierror.Append(errs, multierror.Prefix(err, test.String()))
+			} else {
+				log("Running test", test.String())
+				if err := test.run(); err != nil {
+					errs = multierror.Append(errs, multierror.Prefix(err, test.String()))
+				} else {
+					log("Success!", test.String())
+				}
+			}
+			log("Tearing down test", test.String())
+			test.teardown()
 		}
-		p := &inject.Params{
-			InitImage:       inject.InitImageName(params.hub, params.tag),
-			ProxyImage:      inject.ProxyImageName(params.hub, params.tag),
-			Verbosity:       params.verbosity,
-			SidecarProxyUID: inject.DefaultSidecarProxyUID,
-			Version:         "manager-integration-test",
-			Mesh:            &mesh,
+	}
+
+	//  spill proxy logs on error
+	if errs != nil {
+		for _, pod := range util.GetPods(client, istio.Namespace) {
+			log("Proxy log", pod)
+			glog.Info(util.FetchLogs(client, pod, istio.Namespace, "proxy"))
 		}
-		if err := inject.IntoResourceFile(p, w, writer); err != nil {
-			return err
-		}
+	}
+
+	// always remove infra even if the tests fail
+	log("Tearing down infrastructure", spew.Sdump(istio))
+	istio.teardown()
+
+	if errs == nil {
+		log("Passed all tests!", fmt.Sprintf("tests: %v, count: %d", tests, params.count))
 	} else {
-		if _, err := io.Copy(writer, w); err != nil {
-			return err
-		}
+		log("Failed tests!", errs.Error())
 	}
-	if err := writer.Flush(); err != nil {
-		return err
-	}
-
-	return run("kubectl apply -f " + configFile + " -n " + params.namespace)
+	return errs
 }
 
-/*
-func waitForNewRestartEpoch(pod string, start int) error {
-	log.Println("Waiting for Envoy restart epoch to increment from ", start)
-	for n := 0; n < budget; n++ {
-		current, err := getRestartEpoch(pod)
-		if err != nil {
-			log.Printf("Could not obtain Envoy restart epoch for %s: %v", pod, err)
-		}
-
-		if current > start {
-			return nil
-		}
-		time.Sleep(1 * time.Second)
-	}
-
-	return fmt.Errorf("exceeded budget for waiting for envoy restart epoch to increment")
-}
-
-// getRestartEpoch gets the current restart epoch of a pod by calling the Envoy admin API.
-func getRestartEpoch(pod string) (int, error) {
-	url := "http://localhost:5000/server_info"
-	cmd := fmt.Sprintf("kubectl exec %s -n %s -c app client %s", pods[pod], params.namespace, url)
-	out, err := shell(cmd, true)
-	if err != nil {
-		return 0, err
-	}
-
-	// Response body is of the form: envoy 267724/RELEASE live 1571 1571 0
-	// The last value is the restart epoch.
-	match := regexp.MustCompile(`envoy .+/\w+ \w+ \d+ \d+ (\d+)`).FindStringSubmatch(out)
-	if len(match) > 1 {
-		epoch, err := strconv.ParseInt(match[1], 10, 32)
-		return int(epoch), err
-	}
-
-	return 0, fmt.Errorf("could not obtain envoy restart epoch")
-}
-*/
-
-func addConfig(config []byte, kind, name string, create bool) {
-	glog.Infof("Add config %s", string(config))
-	istioKind, ok := model.IstioConfig[kind]
-	if !ok {
-		check(fmt.Errorf("Invalid kind %s", kind))
-	}
-	v, err := istioKind.FromYAML(string(config))
-	check(err)
-	key := model.Key{
-		Kind:      kind,
-		Name:      name,
-		Namespace: params.namespace,
-	}
-	if create {
-		check(istioClient.Post(key, v))
-	} else {
-		check(istioClient.Put(key, v))
-	}
-}
-
-func deployDynamicConfig(in string, data map[string]string, kind, name, envoy string) {
-	config, err := writeString(in, data)
-	check(err)
-	_, exists := istioClient.Get(model.Key{Kind: kind, Name: name, Namespace: params.namespace})
-	addConfig(config, kind, name, !exists)
-	glog.Info("Sleeping for the config to propagate")
-	time.Sleep(3 * time.Second)
-}
-
-func write(in string, data map[string]string, out io.Writer) error {
-	// fallback to params values in data
-	values := make(map[string]string)
-	values["hub"] = params.hub
-	values["tag"] = params.tag
-	values["caImage"] = params.caImage
-	values["mixerImage"] = params.mixerImage
-	values["namespace"] = params.namespace
-	values["verbosity"] = strconv.Itoa(params.verbosity)
-
-	for k, v := range data {
-		values[k] = v
-	}
-	tmpl, err := template.ParseFiles(in)
-
-	if err != nil {
-		return err
-	}
-	if err := tmpl.Execute(out, values); err != nil {
-		return err
-	}
-	return nil
-}
-
-func writeString(in string, data map[string]string) ([]byte, error) {
+// fill a file based on a template
+func fill(inFile string, values interface{}) (string, error) {
 	var bytes bytes.Buffer
 	w := bufio.NewWriter(&bytes)
-	if err := write(in, data, w); err != nil {
-		return nil, err
+
+	tmpl, err := template.ParseFiles("test/integration/testdata/" + inFile)
+	if err != nil {
+		return "", err
+	}
+
+	if err := tmpl.Execute(w, values); err != nil {
+		return "", err
 	}
 
 	if err := w.Flush(); err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return bytes.Bytes(), nil
+	return bytes.String(), nil
 }
 
-func run(command string) error {
-	glog.Info(command)
-	parts := strings.Split(command, " ")
-	/* #nosec */
-	c := exec.Command(parts[0], parts[1:]...)
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-	return c.Run()
-}
+type status int
 
-func shell(command string) (string, error) {
-	glog.Info(command)
-	parts := strings.Split(command, " ")
-	/* #nosec */
-	c := exec.Command(parts[0], parts[1:]...)
-	bytes, err := c.CombinedOutput()
-	if err != nil {
-		glog.V(2).Info(string(bytes))
-		return "", fmt.Errorf("command failed: %q %v", string(bytes), err)
+const (
+	success status = iota
+	failure
+	again
+)
+
+// run in parallel with retries. all funcs must succeed for the function to succeed
+func parallel(fs map[string]func() status) error {
+	g, ctx := errgroup.WithContext(context.Background())
+	repeat := func(name string, f func() status) func() error {
+		return func() error {
+			for n := 0; n < budget; n++ {
+				glog.Infof("%s (attempt %d)", name, n)
+				switch f() {
+				case failure:
+					return fmt.Errorf("Failed %s at attempt %d", name, n)
+				case success:
+					return nil
+				case again:
+				}
+				select {
+				case <-time.After(time.Second):
+					// try again
+				case <-ctx.Done():
+					return nil
+				}
+			}
+			return fmt.Errorf("Failed all %d attempts for %s", budget, name)
+		}
 	}
-	return string(bytes), nil
+	for name, f := range fs {
+		g.Go(repeat(name, f))
+	}
+	return g.Wait()
 }
 
 // connect to K8S cluster and register TPRs
@@ -428,83 +268,4 @@ func setupClient() error {
 	}
 	client = istioClient.GetKubernetesClient()
 	return istioClient.RegisterResources()
-}
-
-func setPods() error {
-	var items []v1.Pod
-	for n := 0; ; n++ {
-		glog.Info("Checking all pods are running...")
-		list, err := client.CoreV1().Pods(params.namespace).List(meta_v1.ListOptions{})
-		if err != nil {
-			return err
-		}
-		items = list.Items
-		ready := true
-
-		for _, pod := range items {
-			if pod.Status.Phase != "Running" {
-				glog.Infof("Pod %s has status %s\n", pod.Name, pod.Status.Phase)
-				ready = false
-				break
-			}
-		}
-
-		if ready {
-			break
-		}
-
-		if n > budget {
-			for _, pod := range items {
-				glog.Infof(podLogs(pod.Name, "proxy"))
-			}
-			return fmt.Errorf("exceeded budget for checking pod status")
-		}
-
-		time.Sleep(time.Second)
-	}
-
-	for _, pod := range items {
-		if app, exists := pod.Labels["app"]; exists {
-			pods[app] = pod.Name
-		}
-	}
-
-	return nil
-}
-
-// podLogs gets pod logs by container
-func podLogs(name string, container string) string {
-	glog.Infof("Pod proxy logs %q", name)
-	raw, err := client.CoreV1().Pods(params.namespace).
-		GetLogs(name, &v1.PodLogOptions{Container: container}).
-		Do().Raw()
-	if err != nil {
-		glog.Info("Request error", err)
-		return ""
-	}
-
-	return string(raw)
-}
-
-func generateNamespace(cl kubernetes.Interface) (string, error) {
-	ns, err := cl.Core().Namespaces().Create(&v1.Namespace{
-		ObjectMeta: meta_v1.ObjectMeta{
-			GenerateName: "istio-integration-",
-		},
-	})
-	if err != nil {
-		return "", err
-	}
-	glog.Infof("Created namespace %s\n", ns.Name)
-	nameSpaceCreated = true
-	return ns.Name, nil
-}
-
-func deleteNamespace(cl kubernetes.Interface, ns string) {
-	if cl != nil && ns != "" && ns != "default" {
-		if err := cl.Core().Namespaces().Delete(ns, &meta_v1.DeleteOptions{}); err != nil {
-			glog.Infof("Error deleting namespace: %v\n", err)
-		}
-		glog.Infof("Deleted namespace %s\n", ns)
-	}
 }

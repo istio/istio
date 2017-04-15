@@ -55,6 +55,7 @@ go_test(
     deps = [
         "//model:go_default_library",
         "//test/mock:go_default_library",
+        "//test/util:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@io_istio_api//:go_default_library",

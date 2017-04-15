@@ -19,20 +19,18 @@ import (
 	"os/user"
 	"testing"
 
-	"github.com/golang/glog"
-
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api/v1"
-
 	"istio.io/manager/model"
 	"istio.io/manager/test/mock"
+	"istio.io/manager/test/util"
 )
 
 func TestThirdPartyResourcesClient(t *testing.T) {
 	cl := makeClient(t)
-	ns := makeNamespace(cl.client, t)
-	defer deleteNamespace(cl.client, ns)
+	ns, err := util.CreateNamespace(cl.client)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer util.DeleteNamespace(cl.client, ns)
 
 	mock.CheckMapInvariant(cl, t, ns, 5)
 
@@ -44,7 +42,7 @@ func TestThirdPartyResourcesClient(t *testing.T) {
 func makeClient(t *testing.T) *Client {
 	usr, err := user.Current()
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 
 	kubeconfig := usr.HomeDir + "/.kube/config"
@@ -72,26 +70,4 @@ func makeClient(t *testing.T) *Client {
 	}
 
 	return cl
-}
-
-func makeNamespace(cl kubernetes.Interface, t *testing.T) string {
-	ns, err := cl.Core().Namespaces().Create(&v1.Namespace{
-		ObjectMeta: meta_v1.ObjectMeta{
-			GenerateName: "istio-test-",
-		},
-	})
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	glog.Infof("Created namespace %s", ns.Name)
-	return ns.Name
-}
-
-func deleteNamespace(cl kubernetes.Interface, ns string) {
-	if ns != "" && ns != "default" {
-		if err := cl.Core().Namespaces().Delete(ns, &meta_v1.DeleteOptions{}); err != nil {
-			glog.Warningf("Error deleting namespace: %v", err)
-		}
-		glog.Infof("Deleted namespace %s", ns)
-	}
 }

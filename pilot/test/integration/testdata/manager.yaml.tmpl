@@ -1,40 +1,39 @@
+# Manager service for discovery
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-ingress-controller
+  name: istio-manager
   labels:
-    app: ingress
+    infra: manager
 spec:
   ports:
-  - name: https
-    port: 443
-  - name: http
-    port: 80
+  - port: 8080
+    name: http-discovery
   selector:
-    app: ingress
+    infra: manager
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: istio-ingress-controller
+  name: istio-manager
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: ingress
+        infra: manager
     spec:
       containers:
-      - name: proxy
-        image: {{.hub}}/proxy:{{.tag}}
-        args: ["proxy", "ingress", "-v", "{{.verbosity}}"]
+      - name: manager
+        image: {{.Hub}}/manager:{{.Tag}}
         imagePullPolicy: Always
+        args: ["discovery", "-v", "{{.Verbosity}}"]
         ports:
-        - containerPort: 443
-        - containerPort: 80
+        - containerPort: 8080
         env:
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+---

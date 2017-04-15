@@ -25,7 +25,7 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {{.name}}
+  name: {{.deployment}}
 spec:
   replicas: 1
   template:
@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
       - name: app
-        image: {{.hub}}/app:{{.tag}}
+        image: {{.Hub}}/app:{{.Tag}}
         imagePullPolicy: Always
         args:
           - --port

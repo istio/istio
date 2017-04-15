@@ -1,0 +1,12 @@
+destination: {{.destination}}.{{.Namespace}}.svc.cluster.local
+precedence: 2
+match:
+  source: {{.source}}.{{.Namespace}}.svc.cluster.local
+  sourceTags:
+    version: v1
+  httpHeaders:
+    version:
+      exact: v2
+route:
+  - tags:
+       version: v2

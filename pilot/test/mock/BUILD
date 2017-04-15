@@ -25,8 +25,9 @@ go_test(
     name = "go_default_test",
     srcs = [
         "config_test.go",
-        "service_test.go",
         "secret_test.go",
+        "service_test.go",
     ],
     library = ":go_default_library",
+    deps = ["//model:go_default_library"],
 )

@@ -1,0 +1,19 @@
+destination: {{.destination}}.{{.Namespace}}.svc.cluster.local
+precedence: 3
+match:
+  source: {{.source}}.{{.Namespace}}.svc.cluster.local
+  sourceTags:
+    version: v1
+  httpHeaders:
+    version:
+      exact: v2
+route:
+  - tags:
+       version: v2
+httpFault:
+  delay:
+    percent: 100
+    fixedDelaySeconds: 5
+  abort:
+    percent: 100
+    httpStatus: 503
