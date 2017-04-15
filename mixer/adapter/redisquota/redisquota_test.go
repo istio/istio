@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/chowchow316/miniredis"
+	"github.com/alicebob/miniredis"
 
 	"istio.io/mixer/adapter/redisquota/config"
 	"istio.io/mixer/pkg/adapter"

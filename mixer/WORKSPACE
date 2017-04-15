@@ -253,8 +253,8 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_mini_redis",
-    commit = "b5189e6dae1d2c88b49420ca33c1124b34fbb71e",  # Apr 12, 2017 (no releases)
-    importpath = "github.com/chowchow316/miniredis",
+    commit = "e9169f14d501184b6cc94e270e5a93e4bab203d7",  # release 2.0.0, 4/15/2017
+    importpath = "github.com/alicebob/miniredis",
 )
 
 new_go_repository(
