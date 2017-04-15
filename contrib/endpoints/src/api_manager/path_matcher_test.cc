@@ -71,7 +71,7 @@ namespace {
 
 class PathMatcherTest : public ::testing::Test {
  protected:
-  PathMatcherTest() : builder_(false) {}
+  PathMatcherTest() {}
   ~PathMatcherTest() { utils::STLDeleteElements(&stored_methods_); }
 
   MethodInfo* AddPathWithBodyFieldPath(std::string http_method,
@@ -80,7 +80,7 @@ class PathMatcherTest : public ::testing::Test {
     auto method = new ::testing::NiceMock<MockMethodInfo>();
     ON_CALL(*method, system_query_parameter_names())
         .WillByDefault(ReturnRef(empty_set_));
-    if (!builder_.Register("", http_method, http_template, body_field_path,
+    if (!builder_.Register(http_method, http_template, body_field_path,
                            method)) {
       delete method;
       return nullptr;
@@ -95,8 +95,7 @@ class PathMatcherTest : public ::testing::Test {
     auto method = new ::testing::NiceMock<MockMethodInfo>();
     ON_CALL(*method, system_query_parameter_names())
         .WillByDefault(ReturnRef(*system_params));
-    if (!builder_.Register("", http_method, http_template, std::string(),
-                           method)) {
+    if (!builder_.Register(http_method, http_template, std::string(), method)) {
       delete method;
       return nullptr;
     }
@@ -115,26 +114,26 @@ class PathMatcherTest : public ::testing::Test {
   MethodInfo* LookupWithBodyFieldPath(std::string method, std::string path,
                                       Bindings* bindings,
                                       std::string* body_field_path) {
-    return matcher_->Lookup("", method, path, "", bindings, body_field_path);
+    return matcher_->Lookup(method, path, "", bindings, body_field_path);
   }
 
   MethodInfo* Lookup(std::string method, std::string path, Bindings* bindings) {
     std::string body_field_path;
-    return matcher_->Lookup("", method, path, std::string(), bindings,
+    return matcher_->Lookup(method, path, std::string(), bindings,
                             &body_field_path);
   }
 
   MethodInfo* LookupWithParams(std::string method, std::string path,
                                std::string query_params, Bindings* bindings) {
     std::string body_field_path;
-    return matcher_->Lookup("", method, path, query_params, bindings,
+    return matcher_->Lookup(method, path, query_params, bindings,
                             &body_field_path);
   }
 
   MethodInfo* LookupNoBindings(std::string method, std::string path) {
     Bindings bindings;
     std::string body_field_path;
-    auto result = matcher_->Lookup("", method, path, std::string(), &bindings,
+    auto result = matcher_->Lookup(method, path, std::string(), &bindings,
                                    &body_field_path);
     EXPECT_EQ(0, bindings.size());
     return result;

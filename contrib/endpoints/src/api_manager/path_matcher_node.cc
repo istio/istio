@@ -144,11 +144,11 @@ void PathMatcherNode::LookupPath(const RequestPathParts::const_iterator current,
 }
 
 bool PathMatcherNode::InsertPath(const PathInfo& node_path_info,
-                                 string http_method, string service_name,
-                                 void* method_data, bool mark_duplicates) {
-  return this->InsertTemplate(node_path_info.path_info().begin(),
-                              node_path_info.path_info().end(), http_method,
-                              service_name, method_data, mark_duplicates);
+                                 std::string http_method, void* method_data,
+                                 bool mark_duplicates) {
+  return InsertTemplate(node_path_info.path_info().begin(),
+                        node_path_info.path_info().end(), http_method,
+                        method_data, mark_duplicates);
 }
 
 // This method locates a matching child for the |current| path part, inserting a
@@ -160,9 +160,9 @@ bool PathMatcherNode::InsertPath(const PathInfo& node_path_info,
 // This node matched the final part in the iterator of parts. This method
 // updates the node's WrapperGraph for the specified HTTP method.
 bool PathMatcherNode::InsertTemplate(
-    const vector<string>::const_iterator current,
-    const vector<string>::const_iterator end, HttpMethod http_method,
-    string service_name, void* method_data, bool mark_duplicates) {
+    const std::vector<std::string>::const_iterator current,
+    const std::vector<std::string>::const_iterator end, HttpMethod http_method,
+    void* method_data, bool mark_duplicates) {
   if (current == end) {
     PathMatcherLookupResult* const existing = utils::InsertOrReturnExisting(
         &result_map_, http_method, PathMatcherLookupResult(method_data, false));
@@ -172,8 +172,7 @@ bool PathMatcherNode::InsertTemplate(
 #if 0
         LOG(WARNING) << "The HTTP path '" << http_method << ":"
                      << ConvertHttpRuleToString(*wrapper_graph->http_rule())
-                     << "' has already been registered to the host '"
-                     << service_name << "'.";
+                     << "' has already been registered.";
 #endif
         existing->is_multiple = true;
       }
@@ -185,8 +184,8 @@ bool PathMatcherNode::InsertTemplate(
   if (*current == HttpTemplate::kWildCardPathKey) {
     child->set_wildcard(true);
   }
-  return child->InsertTemplate(current + 1, end, http_method, service_name,
-                               method_data, mark_duplicates);
+  return child->InsertTemplate(current + 1, end, http_method, method_data,
+                               mark_duplicates);
 }
 
 bool PathMatcherNode::LookupPathFromChild(

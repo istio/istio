@@ -236,18 +236,10 @@ void ExtractBindingsFromQueryParameters(
 
 }  // namespace
 
-PathMatcher::PathMatcher(PathMatcherBuilder& builder)
-    : default_root_ptr_(builder.default_root_ptr_->Clone()),
-      strict_service_matching_(builder.strict_service_matching_),
-      custom_verbs_(builder.custom_verbs_),
-      methods_(std::move(builder.methods_)) {
-  for (auto key_value : builder.root_ptr_map_) {
-    utils::InsertIfNotPresent(&root_ptr_map_, key_value.first,
-                              key_value.second->Clone());
-  }
-}
-
-PathMatcher::~PathMatcher() { utils::STLDeleteValues(&root_ptr_map_); }
+PathMatcher::PathMatcher(PathMatcherBuilder&& builder)
+    : root_ptr_(std::move(builder.root_ptr_)),
+      custom_verbs_(std::move(builder.custom_verbs_)),
+      methods_(std::move(builder.methods_)) {}
 
 // Lookup is a wrapper method for the recursive node Lookup. First, the wrapper
 // splits the request path into slash-separated path parts. Next, the method
@@ -257,33 +249,20 @@ PathMatcher::~PathMatcher() { utils::STLDeleteValues(&root_ptr_map_); }
 // values parsed from the path.
 // TODO: cache results by adding get/put methods here (if profiling reveals
 // benefit)
-MethodInfo* PathMatcher::Lookup(const string& service_name,
-                                const string& http_method, const string& url,
+MethodInfo* PathMatcher::Lookup(const string& http_method, const string& url,
                                 const string& query_params,
                                 std::vector<VariableBinding>* variable_bindings,
                                 std::string* body_field_path) const {
   const vector<string> parts = ExtractRequestParts(url);
 
-  PathMatcherNode* root_ptr = utils::FindPtrOrNull(root_ptr_map_, service_name);
-
   // If service_name has not been registered to ESP and strict_service_matching_
   // is set to false, tries to lookup the method in all registered services.
-  if (root_ptr == nullptr && !strict_service_matching_) {
-    root_ptr = default_root_ptr_.get();
-  }
-  if (root_ptr == nullptr) {
+  if (root_ptr_ == nullptr) {
     return nullptr;
   }
 
   PathMatcherLookupResult lookup_result =
-      LookupInPathMatcherNode(*root_ptr, parts, http_method);
-  // In non strict match case, if not found from the map with the exact service,
-  // needs to try the default one again.
-  if (lookup_result.data == nullptr && !strict_service_matching_ &&
-      root_ptr != default_root_ptr_.get()) {
-    root_ptr = default_root_ptr_.get();
-    lookup_result = LookupInPathMatcherNode(*root_ptr, parts, http_method);
-  }
+      LookupInPathMatcherNode(*root_ptr_, parts, http_method);
   // Return nullptr if nothing is found or the result is marked for duplication.
   if (lookup_result.data == nullptr || lookup_result.is_multiple) {
     return nullptr;
@@ -302,33 +281,24 @@ MethodInfo* PathMatcher::Lookup(const string& service_name,
   return method_data->method;
 }
 
-MethodInfo* PathMatcher::Lookup(const string& service_name,
-                                const string& http_method,
+MethodInfo* PathMatcher::Lookup(const string& http_method,
                                 const string& path) const {
-  return Lookup(service_name, http_method, path, string(), nullptr, nullptr);
+  return Lookup(http_method, path, string(), nullptr, nullptr);
 }
 
 // Initializes the builder with a root Path Segment
-PathMatcherBuilder::PathMatcherBuilder(bool strict_service_matching)
-    : default_root_ptr_(new PathMatcherNode()),
-      strict_service_matching_(strict_service_matching) {}
-
-PathMatcherBuilder::~PathMatcherBuilder() {
-  utils::STLDeleteValues(&root_ptr_map_);
-}
+PathMatcherBuilder::PathMatcherBuilder() : root_ptr_(new PathMatcherNode()) {}
 
 PathMatcherPtr PathMatcherBuilder::Build() {
-  return PathMatcherPtr(new PathMatcher(*this));
+  return PathMatcherPtr(new PathMatcher(std::move(*this)));
 }
 
 void PathMatcherBuilder::InsertPathToNode(const PathMatcherNode::PathInfo& path,
                                           void* method_data,
-                                          string service_name,
-                                          string http_method,
+                                          std::string http_method,
                                           bool mark_duplicates,
                                           PathMatcherNode* root_ptr) {
-  if (root_ptr->InsertPath(path, http_method, service_name, method_data,
-                           mark_duplicates)) {
+  if (root_ptr->InsertPath(path, http_method, method_data, mark_duplicates)) {
     //    VLOG(3) << "Registered WrapperGraph for " <<
     //    http_template.as_string();
   } else {
@@ -338,9 +308,8 @@ void PathMatcherBuilder::InsertPathToNode(const PathMatcherNode::PathInfo& path,
 
 // This wrapper converts the |http_rule| into a HttpTemplate. Then, inserts the
 // template into the trie.
-bool PathMatcherBuilder::Register(string service_name, string http_method,
-                                  string http_template, string body_field_path,
-                                  MethodInfo* method) {
+bool PathMatcherBuilder::Register(string http_method, string http_template,
+                                  string body_field_path, MethodInfo* method) {
   std::unique_ptr<HttpTemplate> ht(HttpTemplate::Parse(http_template));
   if (nullptr == ht) {
     return false;
@@ -355,15 +324,9 @@ bool PathMatcherBuilder::Register(string service_name, string http_method,
   method_data->method = method;
   method_data->variables = std::move(ht->Variables());
   method_data->body_field_path = std::move(body_field_path);
-  // Don't mark batch methods as duplicates, since we insert them into each
-  // service, and their graphs are all the same. We'll just use the first one
-  // as the default. This allows batch requests on any service name to work.
-  InsertPathToNode(path_info, method_data.get(), kDefaultServiceName,
-                   http_method, false, default_root_ptr_.get());
-  PathMatcherNode* root_ptr =
-      utils::LookupOrInsertNew(&root_ptr_map_, service_name);
-  InsertPathToNode(path_info, method_data.get(), service_name, http_method,
-                   true, root_ptr);
+
+  InsertPathToNode(path_info, method_data.get(), http_method, true,
+                   root_ptr_.get());
   // Add the method_data to the methods_ vector for cleanup
   methods_.emplace_back(std::move(method_data));
   return true;

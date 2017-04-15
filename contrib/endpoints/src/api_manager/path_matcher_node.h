@@ -137,8 +137,7 @@ class PathMatcherNode {
   // marked as having been registered for more than once and the lookup of the
   // template will yield a special error reporting WrapperGraph.
   bool InsertPath(const PathInfo& node_path_info, std::string http_method,
-                  std::string service_name, void* method_data,
-                  bool mark_duplicates);
+                  void* method_data, bool mark_duplicates);
 
   void set_wildcard(bool wildcard) { wildcard_ = wildcard; }
 
@@ -154,8 +153,8 @@ class PathMatcherNode {
   // template will yield a special error reporting WrapperGraph.
   bool InsertTemplate(const std::vector<std::string>::const_iterator current,
                       const std::vector<std::string>::const_iterator end,
-                      HttpMethod http_method, std::string service_name,
-                      void* method_data, bool mark_duplicates);
+                      HttpMethod http_method, void* method_data,
+                      bool mark_duplicates);
 
   // Helper method for LookupPath. If the given child key exists, search
   // continues on the child node pointed by the child key with the next part

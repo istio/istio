@@ -186,7 +186,7 @@ bool Config::LoadHttpMethods(ApiManagerEnvInterface *env,
 
     MethodInfoImpl *mi = GetOrCreateMethodInfoImpl(selector, "", "");
 
-    if (!pmb->Register(service_.name(), http_method, *url, rule.body(), mi)) {
+    if (!pmb->Register(http_method, *url, rule.body(), mi)) {
       string error("Invalid HTTP template: ");
       error += *url;
       env->LogError(error.c_str());
@@ -232,7 +232,7 @@ bool Config::AddOptionsMethodForAllUrls(ApiManagerEnvInterface *env,
   mi->set_allow_unregistered_calls(true);
 
   for (auto url : all_urls) {
-    if (!pmb->Register(service_.name(), http_options, url, std::string(), mi)) {
+    if (!pmb->Register(http_options, url, std::string(), mi)) {
       env->LogError(
           std::string("Failed to add http options template for url: " + url));
     }
@@ -261,8 +261,8 @@ bool Config::LoadRpcMethods(ApiManagerEnvInterface *env,
       mi->set_response_type_url(method.response_type_url());
       mi->set_response_streaming(method.response_streaming());
 
-      if (!pmb->Register(service_.name(), http_post, mi->rpc_method_full_name(),
-                         std::string(), mi)) {
+      if (!pmb->Register(http_post, mi->rpc_method_full_name(), std::string(),
+                         mi)) {
         string error("Invalid method: ");
         error += mi->selector();
         env->LogError(error.c_str());
@@ -439,7 +439,7 @@ std::unique_ptr<Config> Config::Create(ApiManagerEnvInterface *env,
     return nullptr;
   }
   config->LoadServerConfig(env, server_config);
-  PathMatcherBuilder pmb(false /* strict_service_matching */);
+  PathMatcherBuilder pmb;
   // Load apis before http rules to store API versions
   if (!config->LoadRpcMethods(env, &pmb)) {
     return nullptr;
@@ -468,9 +468,8 @@ std::unique_ptr<Config> Config::Create(ApiManagerEnvInterface *env,
 
 const MethodInfo *Config::GetMethodInfo(const string &http_method,
                                         const string &url) const {
-  return path_matcher_ == nullptr
-             ? nullptr
-             : path_matcher_->Lookup(service_.name(), http_method, url);
+  return path_matcher_ == nullptr ? nullptr
+                                  : path_matcher_->Lookup(http_method, url);
 }
 
 MethodCallInfo Config::GetMethodCallInfo(
@@ -481,8 +480,8 @@ MethodCallInfo Config::GetMethodCallInfo(
     call_info.method_info = nullptr;
   } else {
     call_info.method_info = path_matcher_->Lookup(
-        service_.name(), http_method, url, query_params,
-        &call_info.variable_bindings, &call_info.body_field_path);
+        http_method, url, query_params, &call_info.variable_bindings,
+        &call_info.body_field_path);
   }
   return call_info;
 }
