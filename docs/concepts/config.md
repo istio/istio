@@ -53,6 +53,7 @@ abstractions:
 |[Adapters](#adapters)       | Low-level operationally-oriented configuration state for individual mixer adapters.
 |[Aspects](#aspects)         | High-level intent-based configuration state describing what adapters do.
 |[Descriptors](#descriptors) | Type definitions which describe the shape of the policy objects used as input to configured aspects.
+|[Manifests](#manifests)     | Describes the attributes available in the deployment
 |[Rules](#rules)             | Controls the creation of policy objects, based on ambient attributes.
 |[Selectors](#selectors)     | Mechanism to select which aspects, descriptors, and rules to use based on ambient attributes.
 
@@ -143,6 +144,52 @@ Each aspect kind defines its own particular format of configuration data. The ex
 aspect configuration formats can be found in *TBD*.
     
 ### Descriptors
+
+Descriptors are closely related to aspects. They let you control the set of 
+parameters which will be given to an aspect when a request is processed by the mixer.
+There are different types of descriptors, each associated with particular aspect kinds:
+
+|Descriptor Type   |Aspect Kind     |Description
+|------------------|----------------|-----------
+|MetricDescriptor  |metrics         |Describes what an individual metric looks like. 
+|LogEntryDescriptor|application-logs|Describes what an individual log entry looks like.
+|QuotaDescriptor   |quotas          |Describes what an individual quota looks like.
+
+Descriptors are used to prepare Istio and downstream systems to accept chunks of data that
+look a particular way. For example, declaring a set of metric descriptors tells Istio
+the type of data different metrics will carry and the set of labels used to identity different
+instances of the metric.
+
+Here's an example metric descriptor:
+
+```
+metric_descriptor:
+- name: "response_code"
+  display_name: "Response Codes"
+  descrition: "Tracks API response codes over time"
+  kind: COUNTER
+  value: INT64
+  labels:
+    name: api_method
+    value_type: STRING
+  labels:
+    name: response_code
+    value_type: INT64
+```
+
+The above is declaring that the system can produce metrics called `response_code`.
+Such metrics will hold 64-bit integer values and be managed as absolute counters. Each
+metric reported will have two labels, one being the name of an API method and
+the other being the response code for that method. Given this descriptor, Istio
+can ensure that metrics are always properly formed, can arrange for efficient
+storage for these metrics, and can ensure backend systems are ready to accept
+these metrics. The `display_name` and `description` fields are optional and 
+are communicated to backend systems which can use the text to enhance their
+metric visualization interfaces.
+
+The different descriptor types are detailed in *TBD*
+
+### Manifests
 
 ### Rules
 
