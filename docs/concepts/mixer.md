@@ -176,7 +176,7 @@ configuration to apply for the request. See *TBD* for information on how resolut
 configuration determines the set of aspects and descriptors available to handle the request in the
 subsequent phases.
 
-- **Attribute Processing**. The third phase takes the set of incoming request attributes
+- **Attribute Processing**. The third phase takes the total set of attributes
 and produces a set of policy objects. Attribute processing is initially
 configured through a simple declarative form as described in *TBD*.
 
