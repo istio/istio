@@ -69,6 +69,7 @@ configured descriptors.
 
 An example can help clarify the concepts. Let's consider the `MetricDescriptor` type which is defined as follows:
 
+```proto
     message MetricDescriptor {
       string name = 1;
       string display_name = 2;
@@ -84,24 +85,27 @@ An example can help clarify the concepts. Let's consider the `MetricDescriptor` 
       ValueType value = 5;
       repeated LabelDescriptor labels = 6;
     }
+```
 
 Within a deployment configuration, you can declare a metric descriptor using a snippet of YAML:
 
-    name: request_count
-    kind: COUNTER
-    value: INT64
-    description: request count by source, target, service, and code
-    labels:
-    - name: source
-      valueType: STRING
-    - name: target
-      valueType: STRING
-    - name: service
-      valueType: STRING
-    - name: method
-      valueType: STRING
-    - name: response_code
-      valueType: INT64
+```yaml
+name: request_count
+kind: COUNTER
+value: INT64
+description: request count by source, target, service, and code
+labels:
+- name: source
+  valueType: STRING
+- name: target
+  valueType: STRING
+- name: service
+  valueType: STRING
+- name: method
+  valueType: STRING
+- name: response_code
+  valueType: INT64
+```
 
 This is declaring a descriptor called `request_count`. Because of the kind and value fields, policy objects associated with this
 descriptor represent 64-bit integer counters. Additionally, each associated policy object will be uniquely identified via the 5
@@ -116,14 +120,16 @@ listed labels. Producing a policy object for such a descriptor requires 6 pieces
 
 Here is an example snippet of Istio configuration which produces a policy object for the above descriptor:
 
-    descriptor_name: request_count
-    value: "1"
-    labels:
-      source: source.name | "unknown"
-      target: target.name | "unknown"
-      service: api.name | "unknown"
-      method: api.method | "unknown"
-      response_code: response.code | 200
+```yaml
+descriptor_name: request_count
+value: "1"
+labels:
+  source: source.name | "unknown"
+  target: target.name | "unknown"
+  service: api.name | "unknown"
+  method: api.method | "unknown"
+  response_code: response.code | 200
+```
 
 Many such policy objects are created as part of attribute processing and they ultimately serve as input to
 adapters.

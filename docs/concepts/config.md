@@ -1,6 +1,6 @@
 ---
 title: Mixer Configuration
-headline: Configuring the mixer
+headline: Mixer Configuration Model
 sidenav: doc-side-concepts-nav.html
 bodyclass: docs
 layout: docs
@@ -319,7 +319,22 @@ Refer to *TBD* for the full attribute expression syntax.
 
 ### Scopes and Selectors
 
-*TBD*
+Configuration scopes make it possible to organize various blocks of configuration state in a
+hierarchy. Blocks of configuration can only reference other configuration artifacts
+within its own scope or within parent scopes, but not in sibling or descendant scopes. 
+
+Scoping is designed to enable sharing of a single Istio deployment within the context of a broad
+organization. Orthogonal teams within the organization can operate in different scopes, preventing
+one team's configuration from impacting another team's. Because artifacts declared higher-up in the
+hierarchy are available to descendants in the hierarchy, it also enables centralized configuration
+where it makes sense within the organization.
+
+The exact composition and depth of the hierarchy is entirely determined by the configuration state. Let's
+look at some examples:
+
+```yaml
+
+```
 
 ## Configuration API
 
