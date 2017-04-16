@@ -19,9 +19,12 @@ type TestInfo struct {
 	LogsPath      string
 }
 
+type CommonConfig struct {
+	Info TestInfo
+	// Other common config here.
+}
+
 type Test interface {
-	TestId() string
-	SetTestInfo(*TestInfo)
 	SetUp() error
 	TearDown() error
 }
@@ -49,27 +52,27 @@ func NewTestInfo(testId string) *TestInfo {
 	}
 }
 
-func (t *TestInfo) Init() error {
+func (c *CommonConfig) Init() error {
 	// Create namespace
 	// Deploy Istio
 	glog.Info("SUT setup")
 	return nil
 }
 
-func (t *TestInfo) DeInit() error {
+func (c *CommonConfig) DeInit() error {
 	// Delete namespace
 	glog.Info("SUT teardown")
 	return nil
 }
 
-func (t *TestInfo) SaveLogs(r int) error {
-	if t.LogBucketPath == "" {
+func (c *CommonConfig) SaveLogs(r int) error {
+	if c.Info.LogBucketPath == "" {
 		return nil
 	}
 	// Delete namespace
 	glog.Info("SUT savelogs")
-	if err := t.createStatusFile(r); err == nil {
-		if err = t.uploadLogs(); err != nil {
+	if err := c.Info.createStatusFile(r); err == nil {
+		if err = c.Info.uploadLogs(); err != nil {
 			glog.Error("Could not save logs")
 			return err
 		}
@@ -133,10 +136,8 @@ func setupLogging(logPath string) {
 	glog.Info("Using log path ", logPath)
 }
 
-func E2eTestMain(m *testing.M, t Test) {
+func E2eTestMain(m *testing.M, t Test, c *CommonConfig) {
 	flag.Parse()
-	s := NewTestInfo(t.TestId())
-	setupLogging(s.LogsPath)
-	t.SetTestInfo(s)
-	os.Exit(RunTest(m, s, t))
+	setupLogging(c.Info.LogsPath)
+	os.Exit(RunTest(m, c, t))
 }

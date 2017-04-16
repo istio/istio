@@ -7,17 +7,13 @@ import (
 	"testing"
 )
 
+var (
+	c *testConfig
+)
+
 type testConfig struct {
-	*framework.TestInfo
+	*framework.CommonConfig
 	sampleValue string
-}
-
-func (c *testConfig) SetTestInfo(t *framework.TestInfo) {
-	c.TestInfo = t
-}
-
-func (c *testConfig) TestId() string {
-	return "sample_test"
 }
 
 func (c *testConfig) SetUp() error {
@@ -31,14 +27,20 @@ func (c *testConfig) TearDown() error {
 	return nil
 }
 
-var c = new(testConfig)
-
 func TestSample(t *testing.T) {
 	t.Log("Value is ", c.sampleValue)
 }
 
+func NewTestConfig() *testConfig{
+	return &testConfig{
+		CommonConfig: &framework.CommonConfig{
+			Info: *framework.NewTestInfo("sample_test"),
+		},
+	}
+}
+
 func TestMain(m *testing.M) {
 	flag.Parse()
-	*c = testConfig{}
-	framework.E2eTestMain(m, c)
+	c = NewTestConfig()
+	framework.E2eTestMain(m, c, c.CommonConfig)
 }

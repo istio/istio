@@ -57,14 +57,6 @@ func (c *test) Run() int {
 	return 0
 }
 
-func (c *test) SetTestInfo(t *TestInfo) {
-	return
-}
-
-func (c *test) TestId() string {
-	return "test_id"
-}
-
 func (c *test) SetUp() error {
 	if c.failSetup {
 		return errors.New("Failed")
