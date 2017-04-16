@@ -40,5 +40,5 @@ func TestSample(t *testing.T) {
 func TestMain(m *testing.M) {
 	flag.Parse()
 	*c = testConfig{}
-	framework.TestMain(m, c)
+	framework.E2eTestMain(m, c)
 }

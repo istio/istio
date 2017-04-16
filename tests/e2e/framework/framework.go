@@ -133,7 +133,7 @@ func setupLogging(logPath string) {
 	glog.Info("Using log path ", logPath)
 }
 
-func TestMain(m *testing.M, t Test) {
+func E2eTestMain(m *testing.M, t Test) {
 	flag.Parse()
 	s := NewTestInfo(t.TestId())
 	setupLogging(s.LogsPath)
