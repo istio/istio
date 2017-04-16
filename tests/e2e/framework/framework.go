@@ -27,9 +27,13 @@ type Test interface {
 }
 
 type Sut interface {
-	SetUp() error
-	TearDown() error
+	Init() error
+	DeInit() error
 	SaveLogs(int) error
+}
+
+type Runnable interface {
+	Run() int
 }
 
 func NewTestInfo(testId string) *TestInfo {
@@ -45,14 +49,14 @@ func NewTestInfo(testId string) *TestInfo {
 	}
 }
 
-func (t *TestInfo) SetUp() error {
+func (t *TestInfo) Init() error {
 	// Create namespace
 	// Deploy Istio
 	glog.Info("SUT setup")
 	return nil
 }
 
-func (t *TestInfo) TearDown() error {
+func (t *TestInfo) DeInit() error {
 	// Delete namespace
 	glog.Info("SUT teardown")
 	return nil
@@ -88,25 +92,31 @@ func (t *TestInfo) uploadLogs() error {
 	return nil
 }
 
-func RunTest(m *testing.M, s Sut, t Test) int {
+func RunTest(m Runnable, s Sut, t Test) int {
 	ret := 1
-	if err := s.SetUp(); err == nil {
+	runTearDown := true
+	if err := s.Init(); err == nil {
 		if err = t.SetUp(); err == nil {
 			ret = m.Run()
 		} else {
-			glog.Error("Failed to complete setup")
+			glog.Error("Failed to complete Setup")
 			ret = 1
 		}
 	} else {
-		glog.Error("Failed to complete setup")
+		glog.Error("Failed to complete Init")
+		runTearDown = false
 		ret = 1
 	}
-	s.SaveLogs(ret)
-	if err := t.TearDown(); err != nil {
-		glog.Error("Failed to complete teardown")
+	if err := s.SaveLogs(ret); err != nil {
+		glog.Warning("Failed to save logs")
 	}
-	if err := s.TearDown(); err != nil {
-		glog.Error("Failed to complete teardown")
+	if runTearDown {
+		if err := t.TearDown(); err != nil {
+			glog.Error("Failed to complete Teardown")
+		}
+	}
+	if err := s.DeInit(); err != nil {
+		glog.Error("Failed to complete DeInit")
 	}
 	return ret
 }
