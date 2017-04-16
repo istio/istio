@@ -8,7 +8,7 @@ adapters:
   - name: default
     impl: stdioLogger
     params:
-      logStream: 0 # STDERR
+      logStream: STDERR
   - name: prometheus
     kind: metrics
     impl: prometheus
@@ -20,36 +20,45 @@ manifests:
     revision: "1"
     attributes:
     - name: source.name
-      value_type: 1 # STRING
+      value_type: STRING
+    - name: source.labels
+      value_type: STRING_MAP
     - name: target.name
-      value_type: 1 # STRING
+      value_type: STRING
+    - name: target.service
+      value_type: STRING
     - name: origin.ip
-      value_type: 6 # IP_ADDRESS
+      value_type: IP_ADDRESS
     - name: origin.user
-      value_type: 1 # STRING
+      value_type: STRING
     - name: request.time
-      value_type: 5 # TIMESTAMP
+      value_type: TIMESTAMP
     - name: request.method
-      value_type: 1 # STRING
+      value_type: STRING
     - name: request.path
-      value_type: 1 # STRING
+      value_type: STRING
+    - name: request.headers
+      value_type: STRING_MAP
     - name: request.scheme
-      value_type: 1 # STRING
+      value_type: STRING
     - name: response.size
-      value_type: 2 # INT64
+      value_type: INT64
     - name: response.code
-      value_type: 2 # INT64
+      value_type: INT64
     - name: response.duration
-      value_type: 10 # DURATION
+      value_type: DURATION
     # TODO: we really need to remove these, they're not part of the attribute vocab.
     - name: api.name
-      value_type: 1 # STRING
+      value_type: STRING
     - name: api.method
-      value_type: 1 # STRING
+      value_type: STRING
+
+# Enums as struct fields can be symbolic names.
+# However enums inside maps *cannot* be symbolic names.
 metrics:
   - name: request_count
-    kind: 2 # COUNTER
-    value: 2 # INT64
+    kind: COUNTER
+    value: INT64
     description: request count by source, target, service, and code
     labels:
       source: 1 # STRING
@@ -58,8 +67,8 @@ metrics:
       method: 1 # STRING
       response_code: 2 # INT64
   - name: request_latency
-    kind: 2 # COUNTER
-    value: 10 # DURATION
+    kind: COUNTER
+    value: DURATION
     description: request latency by source, target, and service
     labels:
       source: 1 # STRING
@@ -70,8 +79,7 @@ metrics:
 quotas:
   - name: RequestCount
     max_amount: 5
-    expiration:
-      seconds: 1
+    expiration: 1s
 logs:
   - name: accesslog.common
     display_name: Apache Common Log Format
@@ -99,4 +107,3 @@ logs:
       responseSize: 2 # INT64
       referer: 1 # STRING
       userAgent: 1 # STRING
-

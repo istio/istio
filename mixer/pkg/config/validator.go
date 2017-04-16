@@ -199,13 +199,53 @@ func (a adapterKey) String() string {
 	return fmt.Sprintf("%s//%s", a.kind, a.name)
 }
 
+// FIXME post alpha
+// create new messages of type
+// message MetricList {
+//   repeated metrics = 1;
+// }
+// One for each type of descriptor
+// Those messages can be parsed directly using proto.jsonp.
+// At present globalConfig.Adapters contains `struct` that prevents us from using proto.jsonp
+
+// compatfilterConfig
+// given a yaml file, filter specific keys from it
+// globalConfig contains descriptors and adapters which will be split shortly.
+func compatfilterConfig(cfg string, shouldSelect func(string) bool) (data []byte, err error) {
+	var m = map[string]interface{}{}
+
+	if err = yaml.Unmarshal([]byte(cfg), &m); err != nil {
+		return
+	}
+	for k := range m {
+		if !shouldSelect(k) {
+			delete(m, k)
+		}
+	}
+	return json.Marshal(m)
+}
+
 // validateDescriptors
+//
+// Enums as struct fields can be symbolic names.
+// However enums inside maps *cannot* be symbolic names.
 // TODO add validation beyond proto parse
 func (p *validator) validateDescriptors(key string, cfg string) (ce *adapter.ConfigErrors) {
-	var m = &pb.GlobalConfig{}
-	if err := yaml.Unmarshal([]byte(cfg), m); err != nil {
-		return ce.Appendf("GlobalConfig", "failed to unmarshal config into proto with err: %v", err)
+	var err error
+	var data []byte
+
+	if data, err = compatfilterConfig(cfg, func(s string) bool {
+		return s != "adapters"
+	}); err != nil {
+		return ce.Appendf("DescriptorConfig", "failed to unmarshal config into proto with err: %v", err)
 	}
+	m := &pb.GlobalConfig{}
+	um := jsonpb.Unmarshaler{AllowUnknownFields: true}
+
+	if err = um.Unmarshal(bytes.NewReader(data), m); err != nil {
+		return ce.Appendf("DescriptorConfig", "failed to unmarshal <%s> config into proto with err: %v", string(data), err)
+	}
+
 	p.validated.descriptor[key] = m
 	return
 }
@@ -213,8 +253,17 @@ func (p *validator) validateDescriptors(key string, cfg string) (ce *adapter.Con
 // validateAdapters consumes a yml config string with adapter config.
 // It is validated in the presence of validators.
 func (p *validator) validateAdapters(key string, cfg string) (ce *adapter.ConfigErrors) {
+	var ferr error
+	var data []byte
+
+	if data, ferr = compatfilterConfig(cfg, func(s string) bool {
+		return s == "adapters"
+	}); ferr != nil {
+		return ce.Appendf("DescriptorConfig", "failed to unmarshal config into proto with err: %v", ferr)
+	}
+
 	var m = &pb.GlobalConfig{}
-	if err := yaml.Unmarshal([]byte(cfg), m); err != nil {
+	if err := yaml.Unmarshal(data, m); err != nil {
 		return ce.Appendf("GlobalConfig", "failed to unmarshal config into proto with err: %v", err)
 	}
 

@@ -164,7 +164,7 @@ func quotaDefinitionFromProto(desc *dpb.QuotaDescriptor) (*adapter.QuotaDefiniti
 	for name, labelType := range desc.Labels {
 		l, err := valueTypeToLabelType(labelType)
 		if err != nil {
-			return nil, fmt.Errorf("descriptor '%s' label '%s' failed to convert label type value '%v' from proto with err: %s",
+			return nil, fmt.Errorf("descriptor '%s' label '%v' failed to convert label type value '%v' from proto with err: %s",
 				desc.Name, name, labelType, err)
 		}
 		labels[name] = l

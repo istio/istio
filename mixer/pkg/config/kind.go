@@ -85,14 +85,17 @@ func (ks KindSet) Set(k Kind) KindSet {
 	return ks | (1 << k)
 }
 
+// make gas happy
+func ignoreErrors(args ...interface{}) {}
+
 func (ks KindSet) String() string {
 	buf := pool.GetBuffer()
 	defer pool.PutBuffer(buf) // fine to pay the defer overhead; this is out of request path
 
-	fmt.Fprint(buf, "[")
+	ignoreErrors(fmt.Fprint(buf, "["))
 	for k, v := range kindToString {
 		if ks.IsSet(k) {
-			fmt.Fprintf(buf, "%s, ", v)
+			ignoreErrors(fmt.Fprintf(buf, "%s, ", v))
 		}
 	}
 
@@ -102,7 +105,7 @@ func (ks KindSet) String() string {
 	}
 	// Otherwise trim off the trailing ", " and close the bracket we opened.
 	buf.Truncate(buf.Len() - 2)
-	fmt.Fprint(buf, "]")
+	ignoreErrors(fmt.Fprint(buf, "]"))
 	return buf.String()
 }
 
