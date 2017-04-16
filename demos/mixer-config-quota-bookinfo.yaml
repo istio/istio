@@ -72,8 +72,7 @@ data:
     quotas:
     - name: RequestCount
       max_amount: 5
-      expiration:
-        seconds: 1
+      expiration: 1s
   serviceconfig.yml: |-
     subject: namespace:ns
     revision: "2022"
