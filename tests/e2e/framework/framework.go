@@ -3,6 +3,7 @@ package framework
 import (
 	"flag"
 	"github.com/golang/glog"
+	"io/ioutil"
 	"os"
 	"testing"
 )
@@ -11,56 +12,85 @@ var (
 	logsBucketPath = flag.String("logs_bucket_path", "", "Cloud Storage Bucket path to use to store logs")
 )
 
-type TestConfig struct {
+type TestInfo struct {
 	RunId         string
 	TestId        string
 	LogBucketPath string
 	LogsPath      string
 }
 
-type EndToEndTest interface {
+type Test interface {
 	TestId() string
-	SetTestConfig(*TestConfig)
+	SetTestInfo(*TestInfo)
 	SetUp() error
 	TearDown() error
 }
 
-func NewTestConfig(testId string) *TestConfig {
-	return &TestConfig{
+type Sut interface {
+	SetUp() error
+	TearDown() error
+	SaveLogs(int) error
+}
+
+func NewTestInfo(testId string) *TestInfo {
+	tmpDir, err := ioutil.TempDir(os.TempDir(), "istio.e2e.")
+	if err != nil {
+		glog.Fatal("Could not create a Temporary dir")
+	}
+	return &TestInfo{
 		TestId:        testId,
 		RunId:         generateRunId(testId),
 		LogBucketPath: *logsBucketPath,
-		LogsPath:      os.TempDir(),
+		LogsPath:      tmpDir,
 	}
 }
 
-func (c *TestConfig) setUp() error {
+func (t *TestInfo) SetUp() error {
 	// Create namespace
 	// Deploy Istio
-	glog.Info("TestConfig setup")
+	glog.Info("SUT setup")
 	return nil
 }
 
-func (c *TestConfig) tearDown() error {
+func (t *TestInfo) TearDown() error {
 	// Delete namespace
-	glog.Info("TestConfig tear down")
+	glog.Info("SUT teardown")
 	return nil
 }
 
-func (c *TestConfig) createStatusFile(r int) error {
+func (t *TestInfo) SaveLogs(r int) error {
+	if t.LogBucketPath == "" {
+		return nil
+	}
+	// Delete namespace
+	glog.Info("SUT savelogs")
+	if err := t.createStatusFile(r); err == nil {
+		if err = t.uploadLogs(); err != nil {
+			glog.Error("Could not save logs")
+			return err
+		}
+
+	} else {
+		glog.Error("Could not create status file")
+		return err
+	}
+	return nil
+}
+
+func (t *TestInfo) createStatusFile(r int) error {
 	glog.Info("Creating status file")
 	return nil
 }
 
-func (c *TestConfig) uploadLogs() error {
+func (t *TestInfo) uploadLogs() error {
 	glog.Info("Uploading log remotely")
+	glog.Flush()
 	return nil
 }
 
-func (c *TestConfig) runTest(m *testing.M, t EndToEndTest) int {
+func RunTest(m *testing.M, s Sut, t Test) int {
 	ret := 1
-	defer c.uploadLogs()
-	if err := c.setUp(); err == nil {
+	if err := s.SetUp(); err == nil {
 		if err = t.SetUp(); err == nil {
 			ret = m.Run()
 		} else {
@@ -71,14 +101,12 @@ func (c *TestConfig) runTest(m *testing.M, t EndToEndTest) int {
 		glog.Error("Failed to complete setup")
 		ret = 1
 	}
+	s.SaveLogs(ret)
 	if err := t.TearDown(); err != nil {
 		glog.Error("Failed to complete teardown")
 	}
-	if err := c.tearDown(); err != nil {
+	if err := s.TearDown(); err != nil {
 		glog.Error("Failed to complete teardown")
-	}
-	if c.LogBucketPath != "" {
-		c.createStatusFile(ret)
 	}
 	return ret
 }
@@ -89,14 +117,16 @@ func generateRunId(t string) string {
 }
 
 func setupLogging(logPath string) {
+	// Hack to set the logging directory. No logging should be done before calling this.
 	f := flag.Lookup("log_dir")
 	f.Value.Set(logPath)
+	glog.Info("Using log path ", logPath)
 }
 
-func TestMain(m *testing.M, i EndToEndTest) {
+func TestMain(m *testing.M, t Test) {
 	flag.Parse()
-	t := NewTestConfig(i.TestId())
-	setupLogging(t.LogsPath)
-	i.SetTestConfig(t)
-	os.Exit(t.runTest(m, i))
+	s := NewTestInfo(t.TestId())
+	setupLogging(s.LogsPath)
+	t.SetTestInfo(s)
+	os.Exit(RunTest(m, s, t))
 }

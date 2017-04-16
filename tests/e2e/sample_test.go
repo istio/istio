@@ -8,12 +8,12 @@ import (
 )
 
 type testConfig struct {
-	*framework.TestConfig
+	*framework.TestInfo
 	sampleValue string
 }
 
-func (c *testConfig) SetTestConfig(t *framework.TestConfig) {
-	c.TestConfig = t
+func (c *testConfig) SetTestInfo(t *framework.TestInfo) {
+	c.TestInfo = t
 }
 
 func (c *testConfig) TestId() string {
