@@ -67,15 +67,14 @@ to know the IP address and port where it's log data should be pumped.
 
 Here's an example showing how to configure an adapter:
 
-```
+```yaml
 adapters:
   - name: myListChecker     # user-defined name for this block of config
     kind: lists             # kind of aspect this adapter can be used with
     impl: ipListChecker     # name of the particular adapter component to use
     params:
       publisher_url: https://mylistserver:912
-      refresh_interval:
-        seconds: 60
+      refresh_interval: 60s
 ```
 
 The `name` field gives a name to the chunk of adapter configuration so it can be referenced from elsewhere. The
@@ -89,19 +88,18 @@ to be used multiple times within a single deployment. Depending on the situation
 block of configuration will be used versus another. For example, here's another block of configuration that can coexist
 with the previous one:
 
-```
+```yaml
 adapters:
   - name: mySecondaryListChecker
     kind: lists
     impl: ipListChecker
     params:
       publisherUrl: https://mySecondarylistserver:912
-      refreshInterval:
-        seconds: 5    
+      refreshInterval: 5s
 ```
 Here's another example adapter block:
 
-```
+```yaml
 adapters:
   - name: myMetricsCollector
     kind: metrics
@@ -133,7 +131,7 @@ instances of the metric.
 
 Here's an example metric descriptor:
 
-```
+```yaml
 metrics:
   - name: request_count
     kind: COUNTER
@@ -174,7 +172,7 @@ and inserted into a deployment's configuration.
 
 Here's part of the manifest for the Istio proxy:
 
-```
+```yaml
 manifests:
   - name: istio-proxy
     revision: "1"
@@ -210,7 +208,7 @@ on *how* to do something, aspects focus on *what* to do.
 
 Let's look at the definition of an aspect:
 
-```
+```yaml
 aspects:
 - kind: lists               # the aspect's kind
   adapter: myListChecker    # the adapter to use to implement this aspect 
@@ -250,7 +248,7 @@ attribute that carries the symbol to check against the associated adapter's list
 
 Here's another metric aspect:
 
-```
+```yaml
   - kind: metrics
     adapter: myMetricsCollector
     params:
@@ -283,7 +281,7 @@ and produce values to compose policy objects.
 
 We've already seen a few simple attribute expressions in the samples above:
 
-```
+```yaml
   source: source.name
   target: target.name
   service: api.name
