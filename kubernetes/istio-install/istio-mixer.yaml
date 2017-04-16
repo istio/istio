@@ -69,10 +69,10 @@ data:
         source: 1 # STRING
         target: 1 # STRING
         response_code: 2 # INT64
-    quotas: []
-    #- name: RequestCount
-    #  max_amount: 5
-      # expiration: 1s
+    quotas:
+    - name: RequestCount
+      max_amount: 5
+      expiration: 1s
   serviceconfig.yml: |-
     subject: namespace:ns
     revision: "2022"
