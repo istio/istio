@@ -68,7 +68,7 @@ http://<grafana-svc-external-IP>:3000/dashboard/db/istio-dashboard
 
 2. Install the [istioctl](../reference/istioctl.md) CLI, which provides a
    convenient way to apply routing rules and policies for upstreams. The
-   [istio.VERSION](istio.VERSION) file includes the download location of 
+   [istio.VERSION](https://github.com/istio/istio/blob/master/istio.VERSION) file includes the download location of 
    three OS-specific binaries: `istioctl-osx`, `istioctl-win.exe`,
    `istioctl-linux` targeted at Mac, Windows and Linux users
    respectively. Download the tool appropriate to your platform. For
