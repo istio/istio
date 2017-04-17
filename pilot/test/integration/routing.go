@@ -135,7 +135,6 @@ func (t *routing) verifyRouting(src, dst, headerKey, headerVal string,
 	cmd := fmt.Sprintf("kubectl exec %s -n %s -c app -- client -url %s -count %d -key %s -val %s",
 		t.apps[src][0], t.Namespace, url, samples, headerKey, headerVal)
 	request, err := util.Shell(cmd)
-	glog.V(2).Info(request)
 	if err != nil {
 		return err
 	}
@@ -172,7 +171,6 @@ func (t *routing) verifyFaultInjection(src, dst, headerKey, headerVal string,
 
 	start := time.Now()
 	request, err := util.Shell(cmd)
-	glog.V(2).Info(request)
 	elapsed := time.Since(start)
 	if err != nil {
 		return err
@@ -204,7 +202,9 @@ func (t *routing) addConfig(config []byte, kind, name string, create bool) error
 		return fmt.Errorf("Invalid kind %s", kind)
 	}
 	v, err := istioKind.FromYAML(string(config))
-	check(err)
+	if err != nil {
+		return err
+	}
 	key := model.Key{
 		Kind:      kind,
 		Name:      name,

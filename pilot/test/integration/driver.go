@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"text/template"
 	"time"
 
@@ -36,49 +37,46 @@ import (
 	"istio.io/manager/test/util"
 )
 
+var (
+	params infra
+
+	// Enable/disable auth, or run both for the tests.
+	authmode string
+	verbose  bool
+	count    int
+
+	kubeconfig  string
+	client      kubernetes.Interface
+	istioClient *kube.Client
+)
+
 const (
 	// CA image tag is the short SHA *update manually*
 	caTag = "f063b41"
 
 	// Mixer image tag is the short SHA *update manually*
 	mixerTag = "6655a67"
-)
 
-type parameters struct {
-	infra      infra
-	kubeconfig string
-	count      int
-	debug      bool
-	logs       bool
-}
-
-var (
-	params parameters
-
-	client      kubernetes.Interface
-	istioClient *kube.Client
-
-	// Enable/disable auth, or run both for the tests.
-	authmode string
-
+	// retry budget
 	budget = 90
 )
 
 func init() {
-	flag.StringVar(&params.infra.Hub, "hub", "gcr.io/istio-testing", "Docker hub")
-	flag.StringVar(&params.infra.Tag, "tag", "", "Docker tag")
-	flag.StringVar(&params.infra.CaImage, "ca", "gcr.io/istio-testing/istio-ca:"+caTag,
+	flag.StringVar(&params.Hub, "hub", "gcr.io/istio-testing", "Docker hub")
+	flag.StringVar(&params.Tag, "tag", "", "Docker tag")
+	flag.StringVar(&params.CaImage, "ca", "gcr.io/istio-testing/istio-ca:"+caTag,
 		"CA Docker image")
-	flag.StringVar(&params.infra.MixerImage, "mixer", "gcr.io/istio-testing/mixer:"+mixerTag,
+	flag.StringVar(&params.MixerImage, "mixer", "gcr.io/istio-testing/mixer:"+mixerTag,
 		"Mixer Docker image")
-	flag.StringVar(&params.infra.Namespace, "n", "",
+	flag.StringVar(&params.Namespace, "n", "",
 		"Namespace to use for testing (empty to create/delete temporary one)")
-	flag.StringVar(&params.kubeconfig, "kubeconfig", "platform/kube/config",
+	flag.BoolVar(&verbose, "verbose", false, "Debug level noise from proxies")
+	flag.BoolVar(&params.checkLogs, "logs", true, "Validate pod logs (expensive in long-running tests)")
+
+	flag.StringVar(&kubeconfig, "kubeconfig", "platform/kube/config",
 		"kube config file (missing or empty file makes the test use in-cluster kube config instead)")
-	flag.IntVar(&params.count, "count", 1, "Number of times to run the tests after deploying")
+	flag.IntVar(&count, "count", 1, "Number of times to run the tests after deploying")
 	flag.StringVar(&authmode, "auth", "both", "Enable / disable auth, or test both.")
-	flag.BoolVar(&params.debug, "debug", false, "Extra logging in the containers")
-	flag.BoolVar(&params.logs, "logs", true, "Validate pod logs (expensive in long-running tests)")
 }
 
 type test interface {
@@ -90,114 +88,125 @@ type test interface {
 
 func main() {
 	flag.Parse()
-	if params.infra.Tag == "" {
+	if params.Tag == "" {
 		glog.Fatal("No docker tag specified")
 	}
 
-	if params.debug {
-		params.infra.Verbosity = 3
+	if verbose {
+		params.Verbosity = 3
 	} else {
-		params.infra.Verbosity = 2
+		params.Verbosity = 2
 	}
 
-	check(setupClient())
+	if err := setupClient(); err != nil {
+		glog.Fatal(err)
+	}
 
-	params.infra.Mixer = true
+	params.Auth = proxyconfig.ProxyMeshConfig_NONE
+	params.Mixer = true
+	params.Ingress = true
+	params.Egress = true
 	switch authmode {
 	case "enable":
-		params.infra.Auth = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
-		params.infra.Ingress = false
-		params.infra.Egress = false
-		check(runTests())
+		runTests(setAuth(params))
 	case "disable":
-		params.infra.Auth = proxyconfig.ProxyMeshConfig_NONE
-		params.infra.Ingress = true
-		params.infra.Egress = true
-		check(runTests())
+		runTests(params)
 	case "both":
-		params.infra.Auth = proxyconfig.ProxyMeshConfig_NONE
-		params.infra.Ingress = true
-		params.infra.Egress = true
-		check(runTests())
-		params.infra.Auth = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
-		params.infra.Ingress = false
-		params.infra.Egress = false
-		check(runTests())
+		runTests(params, setAuth(params))
 	default:
 		glog.Infof("Invald auth flag: %s. Please choose from: enable/disable/both.", authmode)
 	}
 }
 
-func check(err error) {
-	if err != nil {
-		glog.Info(err)
-		os.Exit(1)
-	}
+func setAuth(params infra) infra {
+	out := params
+	out.Auth = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
+	out.Ingress = false
+	out.Egress = false
+	return out
 }
 
 func log(header, s string) {
 	glog.Infof("\n\n"+
-		"=================== %s =====================\n"+
-		"%s\n\n", header, s)
+		"\033[1;34m=================== %s =====================\033[0m\n"+
+		"\033[1;34m%s\033[0m\n\n", header, s)
 }
 
-func runTests() error {
-	istio := params.infra
-	log("Deploying infrastructure", spew.Sdump(istio))
+func logError(header, s string) {
+	glog.Errorf("\n\n"+
+		"\033[1;31m=================== %s =====================\033[0m\n"+
+		"\033[1;31m%s\033[0m\n\n", header, s)
+}
 
-	if err := istio.setup(); err != nil {
-		return err
-	}
-	if err := istio.deployApps(); err != nil {
-		return err
-	}
-	var errs error
-	istio.apps, errs = util.GetAppPods(client, istio.Namespace)
+func runTests(envs ...infra) {
+	var result error
+	for _, istio := range envs {
+		var errs error
+		log("Deploying infrastructure", spew.Sdump(istio))
+		if err := istio.setup(); err != nil {
+			result = multierror.Append(result, err)
+			continue
+		}
+		if err := istio.deployApps(); err != nil {
+			result = multierror.Append(result, err)
+			continue
+		}
 
-	tests := []test{
-		&reachability{infra: &istio},
-		&tcp{infra: &istio},
-		&ingress{infra: &istio},
-		&egress{infra: &istio},
-		&routing{infra: &istio},
-	}
+		istio.apps, errs = util.GetAppPods(client, istio.Namespace)
 
-	for i := 0; i < params.count; i++ {
-		for _, test := range tests {
-			log("Setting up test", test.String())
-			if err := test.setup(); err != nil {
-				errs = multierror.Append(errs, multierror.Prefix(err, test.String()))
-			} else {
-				log("Running test", test.String())
-				if err := test.run(); err != nil {
-					errs = multierror.Append(errs, multierror.Prefix(err, test.String()))
+		tests := []test{
+			&reachability{infra: &istio},
+			&tcp{infra: &istio},
+			&ingress{infra: &istio},
+			&egress{infra: &istio},
+			&routing{infra: &istio},
+		}
+
+		for i := 0; i < count; i++ {
+			log("Test execution #"+strconv.Itoa(i+1), "")
+			for _, test := range tests {
+				log("Setting up test", test.String())
+				if err := test.setup(); err != nil {
+					errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%v (count %d)", test, i)))
 				} else {
-					log("Success!", test.String())
+					log("Running test", test.String())
+					if err := test.run(); err != nil {
+						errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%v (count %d)", test, i)))
+					} else {
+						log("Success!", test.String())
+					}
 				}
+				log("Tearing down test", test.String())
+				test.teardown()
 			}
-			log("Tearing down test", test.String())
-			test.teardown()
+		}
+
+		//  spill proxy logs on error
+		if errs != nil {
+			for _, pod := range util.GetPods(client, istio.Namespace) {
+				log("Proxy log", pod)
+				glog.Info(util.FetchLogs(client, pod, istio.Namespace, "proxy"))
+			}
+		}
+
+		// always remove infra even if the tests fail
+		log("Tearing down infrastructure", spew.Sdump(istio))
+		istio.teardown()
+
+		if errs == nil {
+			log("Passed all tests!", fmt.Sprintf("tests: %v, count: %d", tests, count))
+		} else {
+			logError("Failed tests!", errs.Error())
+			result = multierror.Append(result, multierror.Prefix(errs, spew.Sdump(istio)))
 		}
 	}
 
-	//  spill proxy logs on error
-	if errs != nil {
-		for _, pod := range util.GetPods(client, istio.Namespace) {
-			log("Proxy log", pod)
-			glog.Info(util.FetchLogs(client, pod, istio.Namespace, "proxy"))
-		}
-	}
-
-	// always remove infra even if the tests fail
-	log("Tearing down infrastructure", spew.Sdump(istio))
-	istio.teardown()
-
-	if errs == nil {
-		log("Passed all tests!", fmt.Sprintf("tests: %v, count: %d", tests, params.count))
+	if result == nil {
+		log("Passed infrastructure tests!", spew.Sdump(envs))
 	} else {
-		log("Failed tests!", errs.Error())
+		logError("Failed infrastructure tests!", result.Error())
+		os.Exit(1)
 	}
-	return errs
 }
 
 // fill a file based on a template
@@ -262,7 +271,7 @@ func parallel(fs map[string]func() status) error {
 // connect to K8S cluster and register TPRs
 func setupClient() error {
 	var err error
-	istioClient, err = kube.NewClient(params.kubeconfig, model.IstioConfig)
+	istioClient, err = kube.NewClient(kubeconfig, model.IstioConfig)
 	if err != nil {
 		return err
 	}

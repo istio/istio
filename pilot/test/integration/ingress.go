@@ -83,7 +83,6 @@ func (t *ingress) run() error {
 				match := regexp.MustCompile("X-Request-Id=(.*)").FindStringSubmatch(request)
 				if len(match) > 1 {
 					id := match[1]
-					glog.V(2).Infof("id=%s\n", id)
 					t.accessMu.Lock()
 					t.accessLogs[dst] = append(t.accessLogs[dst], id)
 					t.accessLogs["ingress"] = append(t.accessLogs["ingress"], id)
@@ -99,10 +98,8 @@ func (t *ingress) run() error {
 		return err
 	}
 
-	if params.logs {
-		if err := t.checkProxyAccessLogs(t.accessLogs); err != nil {
-			return err
-		}
+	if err := t.checkProxyAccessLogs(t.accessLogs); err != nil {
+		return err
 	}
 
 	return nil

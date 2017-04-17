@@ -86,7 +86,7 @@ def stablePresubmit(gitUtils, bazel, utils) {
     }
     stage('Integration Tests') {
       timeout(30) {
-        sh("bin/e2e.sh -count 10 -debug -tag ${env.GIT_SHA} -v 2")
+        sh("bin/e2e.sh -count 10 -logs=false -tag ${env.GIT_SHA}")
       }
     }
   }
@@ -141,7 +141,7 @@ def managerRegression(gitUtils, bazel, utils) {
     }
     stage('Integration Tests') {
       timeout(15) {
-        sh("bin/e2e.sh -tag ${env.GIT_SHA} -v 2")
+        sh("bin/e2e.sh -tag ${env.GIT_SHA}")
       }
     }
   }

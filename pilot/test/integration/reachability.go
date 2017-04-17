@@ -62,10 +62,10 @@ func (r *reachability) run() error {
 	if err := r.makeRequests(); err != nil {
 		return err
 	}
-	if params.logs {
-		if err := r.checkProxyAccessLogs(r.accessLogs); err != nil {
-			return err
-		}
+	if err := r.checkProxyAccessLogs(r.accessLogs); err != nil {
+		return err
+	}
+	if r.checkLogs {
 		if err := r.checkMixerLogs(); err != nil {
 			return err
 		}
@@ -105,18 +105,18 @@ func (r *reachability) makeRequests() error {
 								if dst != "t" {
 									r.accessLogs[dst] = append(r.accessLogs[dst], id)
 								}
-								r.accessMu.Unlock()
 
 								// TODO no logs when source and destination is same (e.g. from "a" pod to "a" pod)
 								// server side should have a proxy, so skip "t" destined requests
 								if src != dst && dst != "t" {
 									r.mixerLogs[id] = fmt.Sprintf("from %s to %s, port %s", src, dst, port)
 								}
+								r.accessMu.Unlock()
 
 								return success
 							}
 							if src == "t" && dst == "t" {
-								glog.V(2).Info("Expected no match for t->t")
+								// Expected no match for t->t
 								return success
 							}
 							return again

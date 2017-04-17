@@ -10,13 +10,11 @@
 args=""
 hub="gcr.io/istio-testing"
 tag=""
-debug_suffix=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -tag) tag="$2"; shift ;;
         -hub) hub="$2"; args=$args" -hub $hub"; shift ;;
-        -debug) debug_suffix="_debug" ; args=$args" -debug" ;;
         *) args=$args" $1" ;;
     esac
     shift
@@ -33,9 +31,10 @@ if [[ "$hub" =~ ^gcr\.io ]]; then
   gcloud docker --authorize-only
 fi
 
+# Always use debug images
 for image in app init proxy manager; do
-  bazel $BAZEL_ARGS run //docker:$image$debug_suffix
-  docker tag istio/docker:$image$debug_suffix $hub/$image:$tag
+  bazel $BAZEL_ARGS run //docker:${image}_debug
+  docker tag istio/docker:${image}_debug $hub/$image:$tag
   docker push $hub/$image:$tag
 done
 

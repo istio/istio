@@ -49,6 +49,9 @@ type infra struct {
 	Ingress bool
 	Egress  bool
 
+	// check proxy logs
+	checkLogs bool
+
 	namespaceCreated bool
 }
 
@@ -178,6 +181,10 @@ func (infra *infra) kubeApply(yaml string) error {
 }
 
 func (infra *infra) checkProxyAccessLogs(accessLogs map[string][]string) error {
+	if !infra.checkLogs {
+		glog.Info("Log checking is disabled")
+		return nil
+	}
 	glog.Info("Checking access logs of pods to correlate request IDs...")
 	funcs := make(map[string]func() status)
 	for app, ids := range accessLogs {
