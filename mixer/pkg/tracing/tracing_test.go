@@ -103,7 +103,7 @@ func TestPropagateSpan(t *testing.T) {
 
 	sCtx, err := tracer.Extract(ot.HTTPHeaders, metadataReaderWriter{md})
 	if err != nil {
-		t.Errorf("Failed to extract metadata with err: %s", err)
+		t.Errorf("Failed to extract metadata: %v", err)
 	}
 
 	mockSpan, _ := span.(*mocktracer.MockSpan)

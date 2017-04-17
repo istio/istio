@@ -73,7 +73,7 @@ func (m *metricsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder, e
 	b := a.(adapter.MetricsBuilder)
 	asp, err := b.NewMetricsAspect(env, c.Builder.Params.(adapter.Config), defs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to construct metrics aspect with config '%v' and err: %s", c, err)
+		return nil, fmt.Errorf("failed to construct metrics aspect with config '%v': %v", c, err)
 	}
 	return &metricsExecutor{b.Name(), asp, metadata}, nil
 }
@@ -97,7 +97,7 @@ func (*metricsManager) ValidateConfig(c config.AspectParams, v expr.Validator, d
 
 		// TODO: this doesn't feel like quite the right spot to do this check, but it's the best we have ¯\_(ツ)_/¯
 		if _, err := metricDefinitionFromProto(desc); err != nil {
-			ce = ce.Appendf(fmt.Sprintf("Descriptor[%s]", desc.Name), "failed to marshal descriptor into its adapter representation with err: %v", err)
+			ce = ce.Appendf(fmt.Sprintf("Descriptor[%s]", desc.Name), "failed to marshal descriptor into its adapter representation: %v", err)
 		}
 	}
 	return
@@ -110,12 +110,12 @@ func (w *metricsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rp
 	for name, md := range w.metadata {
 		metricValue, err := mapper.Eval(md.value, attrs)
 		if err != nil {
-			result = multierror.Append(result, fmt.Errorf("failed to eval metric value for metric '%s' with err: %s", name, err))
+			result = multierror.Append(result, fmt.Errorf("failed to eval metric value for metric '%s': %v", name, err))
 			continue
 		}
 		labels, err := evalAll(md.labels, attrs, mapper)
 		if err != nil {
-			result = multierror.Append(result, fmt.Errorf("failed to eval labels for metric '%s' with err: %s", name, err))
+			result = multierror.Append(result, fmt.Errorf("failed to eval labels for metric '%s': %v", name, err))
 			continue
 		}
 
@@ -132,7 +132,7 @@ func (w *metricsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rp
 	}
 
 	if err := w.aspect.Record(values); err != nil {
-		result = multierror.Append(result, fmt.Errorf("failed to record all values with err: %s", err))
+		result = multierror.Append(result, fmt.Errorf("failed to record all values: %v", err))
 	}
 
 	if glog.V(4) {
@@ -156,14 +156,14 @@ func metricDefinitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefin
 	for name, labelType := range desc.Labels {
 		l, err := valueTypeToLabelType(labelType)
 		if err != nil {
-			return nil, fmt.Errorf("descriptor '%s' label '%v' failed to convert label type value '%v' from proto with err: %s",
+			return nil, fmt.Errorf("descriptor '%s' label '%v' failed to convert label type value '%v' from proto: %v",
 				desc.Name, name, labelType, err)
 		}
 		labels[name] = l
 	}
 	kind, err := metricKindFromProto(desc.Kind)
 	if err != nil {
-		return nil, fmt.Errorf("descriptor '%s' failed to convert metric kind value '%v' from proto with err: %s",
+		return nil, fmt.Errorf("descriptor '%s' failed to convert metric kind value '%v' from proto: %v",
 			desc.Name, desc.Kind, err)
 	}
 	return &adapter.MetricDefinition{

@@ -90,7 +90,7 @@ func (f *fsStore) Get(key string) (value string, index int, found bool) {
 
 	if b, err = f.readfile(p); err != nil {
 		if !os.IsNotExist(err) {
-			glog.Warningf("Could not access %s: %s", p, err)
+			glog.Warningf("Could not access '%s': %v", p, err)
 		}
 		return "", indexNotSupported, false
 	}

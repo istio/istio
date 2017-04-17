@@ -84,7 +84,7 @@ func testStore(t *testing.T, kvMgrfn func() *KVMgr) {
 				kc := getContents(key)
 				_, err := s.Set(key, kc)
 				if err != nil {
-					t.Errorf("Unexpected error for %s: %s", key, err)
+					t.Errorf("Unexpected error for %s: %v", key, err)
 				}
 				val, _, found = s.Get(key)
 				if !found || kc != val {
@@ -100,7 +100,7 @@ func testStore(t *testing.T, kvMgrfn func() *KVMgr) {
 			}
 			err = s.Delete(k[1])
 			if err != nil {
-				t.Errorf("unexpected error: %s", err)
+				t.Errorf("unexpected error: %v", err)
 			}
 
 			_, _, found = s.Get(k[1])
@@ -238,7 +238,7 @@ func TestFSStore_Delete(t *testing.T) {
 			}
 			err := f.Delete("K1")
 			if tst.success && err != nil {
-				t.Errorf("unexpected error: %s", err)
+				t.Errorf("unexpected error: %v", err)
 			}
 
 		})

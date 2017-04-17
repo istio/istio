@@ -257,7 +257,7 @@ func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribu
 			if ctx.Err() == context.Canceled {
 				return status.WithCancelled(fmt.Sprintf("request cancelled: %v", ctx.Err()))
 			}
-			return status.WithDeadlineExceeded(fmt.Sprintf("deadline exceeded waiting for adapter results with err: %v", ctx.Err()))
+			return status.WithDeadlineExceeded(fmt.Sprintf("deadline exceeded waiting for adapter results: %v", ctx.Err()))
 		case res := <-resultChan:
 			results[i] = res
 		}

@@ -92,7 +92,7 @@ func (applicationLogsManager) NewReportExecutor(c *cpb.Combined, a adapter.Build
 
 	asp, err := a.(adapter.ApplicationLogsBuilder).NewApplicationLogsAspect(env, c.Builder.Params.(adapter.Config))
 	if err != nil {
-		return nil, fmt.Errorf("failed to construct application logs aspect with err: %v", err)
+		return nil, fmt.Errorf("failed to construct application logs aspect: %v", err)
 	}
 
 	return &applicationLogsExecutor{
@@ -122,10 +122,10 @@ func (applicationLogsManager) ValidateConfig(c config.AspectParams, v expr.Valid
 		}
 
 		if err := v.AssertType(log.Severity, df, dpb.STRING); err != nil {
-			ce = ce.Appendf(fmt.Sprintf("Logs[%s].Severity", log.DescriptorName), "failed type checking with err: %v", err)
+			ce = ce.Appendf(fmt.Sprintf("Logs[%s].Severity", log.DescriptorName), "failed type checking: %v", err)
 		}
 		if err := v.AssertType(log.Timestamp, df, dpb.TIMESTAMP); err != nil {
-			ce = ce.Appendf(fmt.Sprintf("Logs[%s].Timestamp", log.DescriptorName), "failed type checking with err: %v", err)
+			ce = ce.Appendf(fmt.Sprintf("Logs[%s].Timestamp", log.DescriptorName), "failed type checking: %v", err)
 		}
 		ce = ce.Extend(validateLabels(fmt.Sprintf("Logs[%s].Labels", log.DescriptorName), log.Labels, desc.Labels, v, df))
 		ce = ce.Extend(validateTemplateExpressions(fmt.Sprintf("LogDescriptor[%s].TemplateExpressions", desc.Name), log.TemplateExpressions, v, df))
@@ -134,7 +134,7 @@ func (applicationLogsManager) ValidateConfig(c config.AspectParams, v expr.Valid
 		// against the expressions: while the keys to the template may be correct, the values will be wrong which could result
 		// in non-nil error returns even when things would be valid at runtime.
 		if _, err := template.New(desc.Name).Parse(desc.LogTemplate); err != nil {
-			ce = ce.Appendf(fmt.Sprintf("LogDescriptor[%s].LogTemplate", desc.Name), "failed to parse template with err: %v", err)
+			ce = ce.Appendf(fmt.Sprintf("LogDescriptor[%s].LogTemplate", desc.Name), "failed to parse template: %v", err)
 		}
 	}
 	return
@@ -149,13 +149,13 @@ func (e *applicationLogsExecutor) Execute(attrs attribute.Bag, mapper expr.Evalu
 	for name, md := range e.metadata {
 		labels, err := evalAll(md.labels, attrs, mapper)
 		if err != nil {
-			result = multierror.Append(result, fmt.Errorf("failed to eval labels for log entry '%s' with err: %s", name, err))
+			result = multierror.Append(result, fmt.Errorf("failed to eval labels for log entry '%s': %v", name, err))
 			continue
 		}
 
 		templateVals, err := evalAll(md.tmplExprs, attrs, mapper)
 		if err != nil {
-			result = multierror.Append(result, fmt.Errorf("failed to eval template values for log entry '%s' with err: %s", name, err))
+			result = multierror.Append(result, fmt.Errorf("failed to eval template values for log entry '%s': %v", name, err))
 			continue
 		}
 
@@ -164,14 +164,14 @@ func (e *applicationLogsExecutor) Execute(attrs attribute.Bag, mapper expr.Evalu
 		if err != nil {
 			pool.PutBuffer(buf)
 			result = multierror.Append(result, fmt.Errorf(
-				"failed to construct payload string for log entry '%s' with template execution err: %s", name, err))
+				"failed to construct payload string for log entry '%s' with template execution error: %v", name, err))
 			continue
 		}
 
 		sevStr, err := mapper.EvalString(md.severity, attrs)
 		if err != nil {
 			result = multierror.Append(result,
-				fmt.Errorf("failed to eval severity for log entry '%s', continuing with DEFAULT severity. Eval err: %s", name, err))
+				fmt.Errorf("failed to eval severity for log entry '%s' (continuing with DEFAULT severity): %v", name, err))
 			sevStr = ""
 		}
 		// If we can't parse the string we'll get the default severity, so we don't care about the success return.
@@ -180,7 +180,7 @@ func (e *applicationLogsExecutor) Execute(attrs attribute.Bag, mapper expr.Evalu
 		et, err := mapper.Eval(md.timestamp, attrs)
 		if err != nil {
 			result = multierror.Append(result,
-				fmt.Errorf("failed to eval time for log entry '%s', continuing with time.Now(). Eval err: %s", name, err))
+				fmt.Errorf("failed to eval time for log entry '%s' (continuing with time.Now()): %v", name, err))
 			et = time.Now()
 		}
 		t, _ := et.(time.Time) // we don't check the cast because expression type checking ensures we get a time.
@@ -197,7 +197,7 @@ func (e *applicationLogsExecutor) Execute(attrs attribute.Bag, mapper expr.Evalu
 			entry.TextPayload = buf.String()
 		case JSON:
 			if err := json.Unmarshal(buf.Bytes(), &entry.StructPayload); err != nil {
-				result = multierror.Append(result, fmt.Errorf("failed to unmarshall json payload for log entry %s with err: %s", name, err))
+				result = multierror.Append(result, fmt.Errorf("failed to unmarshall json payload for log entry %s: %v", name, err))
 				continue
 			}
 		}
