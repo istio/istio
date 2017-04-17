@@ -187,6 +187,33 @@ func buildIngressVhosts(conf *IngressConfig) ([]*VirtualHost, []*VirtualHost, *m
 	return vhosts, vhostsTLS, tls
 }
 
+func buildIngressListener(address, statPrefix string, routeConfig *HTTPRouteConfig, ssl *SSLContext) *Listener {
+	return &Listener{
+		Address:    address,
+		SSLContext: ssl,
+		BindToPort: true,
+		Filters: []*NetworkFilter{
+			{
+				Type: "read",
+				Name: HTTPConnectionManager,
+				Config: HTTPFilterConfig{
+					CodecType:   "auto",
+					StatPrefix:  statPrefix,
+					AccessLog:   []AccessLog{{Path: DefaultAccessLog}},
+					RouteConfig: routeConfig,
+					Filters: []HTTPFilter{
+						{
+							Type:   "decoder",
+							Name:   "router",
+							Config: FilterRouterConfig{},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func buildIngressListeners(conf *IngressConfig) (Listeners, Clusters) {
 	vhosts, vhostsTLS, tls := buildIngressVhosts(conf)
 
@@ -197,72 +224,26 @@ func buildIngressListeners(conf *IngressConfig) (Listeners, Clusters) {
 		sort.Slice(vhosts, func(i, j int) bool { return vhosts[i].Name < vhosts[j].Name })
 
 		rConfig := &HTTPRouteConfig{VirtualHosts: vhosts}
-		listener := &Listener{
-			Address:    fmt.Sprintf("tcp://%s:%d", WildcardAddress, conf.Port),
-			BindToPort: true,
-			Filters: []*NetworkFilter{
-				{
-					Type: "read",
-					Name: HTTPConnectionManager,
-					Config: HTTPFilterConfig{
-						CodecType:   "auto",
-						StatPrefix:  "http",
-						AccessLog:   []AccessLog{{Path: DefaultAccessLog}},
-						RouteConfig: rConfig,
-						Filters: []HTTPFilter{
-							{
-								Type:   "decoder",
-								Name:   "router",
-								Config: FilterRouterConfig{},
-							},
-						},
-					},
-				},
-			},
-		}
-
-		listeners = append(listeners, listener)
+		address := fmt.Sprintf("tcp://%s:%d", WildcardAddress, conf.Port)
+		listeners = append(listeners, buildIngressListener(address, "http", rConfig, nil))
 		clusters = append(clusters, rConfig.clusters()...)
 	}
 
-	if len(vhostsTLS) > 0 {
+	if len(vhostsTLS) > 0 && tls != nil {
 		if err := writeTLS(conf.CertFile, conf.KeyFile, tls); err != nil {
-			glog.Warning("Failed to get and save secrets. Envoy will crash and trigger a retry...")
-		}
+			glog.Warning("Failed to write cert/key")
+		} else {
+			sort.Slice(vhostsTLS, func(i, j int) bool { return vhostsTLS[i].Name < vhostsTLS[j].Name })
 
-		sort.Slice(vhostsTLS, func(i, j int) bool { return vhostsTLS[i].Name < vhostsTLS[j].Name })
-
-		rConfig := &HTTPRouteConfig{VirtualHosts: vhostsTLS}
-		listener := &Listener{
-			Address: fmt.Sprintf("tcp://%s:%d", WildcardAddress, conf.SSLPort),
-			SSLContext: &SSLContext{
+			rConfig := &HTTPRouteConfig{VirtualHosts: vhostsTLS}
+			ssl := &SSLContext{
 				CertChainFile:  conf.CertFile,
 				PrivateKeyFile: conf.KeyFile,
-			},
-			BindToPort: true,
-			Filters: []*NetworkFilter{
-				{
-					Type: "read",
-					Name: HTTPConnectionManager,
-					Config: HTTPFilterConfig{
-						CodecType:   "auto",
-						StatPrefix:  "https",
-						AccessLog:   []AccessLog{{Path: DefaultAccessLog}},
-						RouteConfig: rConfig,
-						Filters: []HTTPFilter{
-							{
-								Type:   "decoder",
-								Name:   "router",
-								Config: FilterRouterConfig{},
-							},
-						},
-					},
-				},
-			},
+			}
+			address := fmt.Sprintf("tcp://%s:%d", WildcardAddress, conf.SSLPort)
+			listeners = append(listeners, buildIngressListener(address, "https", rConfig, ssl))
+			clusters = append(clusters, rConfig.clusters()...)
 		}
-
-		listeners = append(listeners, listener)
-		clusters = append(clusters, rConfig.clusters()...)
 	}
 
 	clusters = clusters.normalize()
