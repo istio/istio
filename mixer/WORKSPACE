@@ -268,3 +268,14 @@ new_go_repository(
     commit = "1d2cd46e1ac9ce6036f014a33a3706f989578de6",  # March 17, 2017 (no releases)
     importpath = "github.com/emicklei/go-restful",
 )
+
+
+##
+## Testing
+##
+
+git_repository(
+    name = "istio_test_infra",
+    commit = "983183f98b79f8b67fe380fef4cdd21481830fd7",  # Apr 13, 2017 (no releases)
+    remote = "https://github.com/istio/test-infra.git",
+)

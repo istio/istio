@@ -1,0 +1,5 @@
+Requirements of code coverage percentage for packages
+Use this format: "Package name \t Required percentage"
+istio.io/mixer/adapter/denyChecker	99
+istio.io/mixer/adapter/genericListChecker	99
+istio.io/mixer/adapter/ipListChecker	99
