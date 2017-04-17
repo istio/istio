@@ -18,6 +18,7 @@ import (
 	"context"
 	"io"
 	"strconv"
+	"time"
 
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
@@ -68,8 +69,9 @@ func quota(rootArgs *rootArgs, printf, fatalf shared.FormatFn, name string, amou
 		fatalf("Quota RPC failed: %v", err)
 	}
 
+	salt := time.Now().Nanosecond()
 	for i := 0; i < rootArgs.repeat; i++ {
-		dedup := strconv.Itoa(i)
+		dedup := strconv.Itoa(salt + i)
 
 		// send the request
 		request := mixerpb.QuotaRequest{

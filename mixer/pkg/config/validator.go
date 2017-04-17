@@ -264,7 +264,7 @@ func (p *validator) validateAdapters(key string, cfg string) (ce *adapter.Config
 
 	var m = &pb.GlobalConfig{}
 	if err := yaml.Unmarshal(data, m); err != nil {
-		return ce.Appendf("GlobalConfig", "failed to unmarshal config into proto with err: %v", err)
+		return ce.Appendf("GlobalConfig", "failed to unmarshal config into proto: %v", err)
 	}
 
 	var acfg adapter.Config
@@ -419,7 +419,7 @@ func (p *validator) validateServiceConfig(pk rulesKey, cfg string, validatePrese
 	m := &pb.ServiceConfig{}
 	var numAspects int
 	if err = yaml.Unmarshal([]byte(cfg), m); err != nil {
-		return ce.Appendf("ServiceConfig", "failed to unmarshal config into proto with err: %v", err)
+		return ce.Appendf("ServiceConfig", "failed to unmarshal config into proto: %v", err)
 	}
 
 	if numAspects, ce = p.validateAspectRules(m.GetRules(), "", validatePresence); ce != nil {
@@ -452,10 +452,10 @@ func convertAdapterParams(f BuilderValidatorFinder, name string, params interfac
 
 	ac = avl.DefaultConfig()
 	if err := decode(params, ac, strict); err != nil {
-		return nil, ce.Appendf(name, "failed to decode adapter params with err: %v", err)
+		return nil, ce.Appendf(name, "failed to decode adapter params: %v", err)
 	}
 	if err := avl.ValidateConfig(ac); err != nil {
-		return nil, ce.Appendf(name, "adapter validation failed with err: %v", err)
+		return nil, ce.Appendf(name, "adapter validation failed: %v", err)
 	}
 	return ac, nil
 }
@@ -477,10 +477,10 @@ func convertAspectParams(f AspectValidatorFinder, name string, params interface{
 
 	ap := avl.DefaultConfig()
 	if err := decode(params, ap, strict); err != nil {
-		return nil, ce.Appendf(name, "failed to decode aspect params with err: %v", err)
+		return nil, ce.Appendf(name, "failed to decode aspect params: %v", err)
 	}
 	if err := avl.ValidateConfig(ap, expr.NewCEXLEvaluator(), df); err != nil {
-		return nil, ce.Appendf(name, "aspect validation failed with err: %v", err)
+		return nil, ce.Appendf(name, "aspect validation failed: %v", err)
 	}
 	return ap, nil
 }
@@ -494,7 +494,7 @@ func decode(src interface{}, dst proto.Message, strict bool) error {
 	}
 	um := jsonpb.Unmarshaler{AllowUnknownFields: !strict}
 	if err := um.Unmarshal(bytes.NewReader(ba), dst); err != nil {
-		return fmt.Errorf("failed to unmarshal config into proto with err: %v", err)
+		return fmt.Errorf("failed to unmarshal config into proto: %v", err)
 	}
 	return nil
 }

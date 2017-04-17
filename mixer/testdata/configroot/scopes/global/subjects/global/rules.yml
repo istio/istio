@@ -33,6 +33,9 @@ rules:
   aspects:
   - kind: quotas
     params:
+      descriptor_name: RequestCount
+      max_amount: 5
+      expiration: 1s
   - kind: metrics
     adapter: prometheus
     params:

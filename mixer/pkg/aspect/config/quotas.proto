@@ -17,6 +17,7 @@ syntax = "proto3";
 package pkg.aspect.config;
 
 import "gogoproto/gogo.proto";
+import "google/protobuf/duration.proto";
 
 option go_package="config";
 option (gogoproto.goproto_getters_all) = false;
@@ -32,7 +33,15 @@ message QuotasParams {
         // Map of quota_descriptor label name to attribute expression. At run time each
         // expression will be evaluated to determine the value provided to the aspect. The
         // result of evaluating the expression must match the ValueType of the label in the quota_descriptor.
-        map<string, string> labels = 3;
+        map<string, string> labels = 2;
+
+        // The upper limit for this quota.
+        int64 max_amount = 3;
+
+        // The amount of time allocated quota remains valid before it is
+        // automatically released. This is only meaningful for quotas
+        // annotated as rate limits, otherwise the value must be zero.
+        google.protobuf.Duration expiration = 4 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
     }
 
     // The set of quotas that will be populated and handed to aspects at run time.
