@@ -185,6 +185,50 @@ labels:
   </tbody>
 </table>
 
+### `Timestamp`, `Duration`, and 64 bit integer fields
+
+The protobuf spec special cases the JSON/YAML representations of a few well-known protobuf messages. 64 bit integer types are also special due to the fact that JSON numbers are implicitly doubles, which cannot represent all valid 64 bit integer values.
+
+<table>
+  <tbody>
+    <tr>
+      <th>Proto</th>
+      <th>YAML</th>
+    </tr>
+    <tr>
+      <td>
+<pre>
+message Quota {
+    string descriptor_name = 1;
+    map<string, string> labels = 2;
+    int64 max_amount = 3;
+    google.protobuf.Duration expiration = 4;
+}
+</pre>
+      </td>
+      <td>
+<pre>
+descriptorName: RequestCount
+labels:
+  label one: STRING
+  second label: DOUBLE
+maxAmount: "7"
+expiration: 1.000340012s
+</pre>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+Specifically, the [protobuf spec declares](https://developers.google.com/protocol-buffers/docs/proto3#json):
+
+| Proto | JSON/YAML | Example | Notes |
+| --- | --- | --- | --- |
+| Timestamp | string | "1972-01-01T10:00:20.021Z" | Uses RFC 3339, where generated output will always be Z-normalized and uses 0, 3, 6 or 9 fractional digits. |
+| Duration | string | "1.000340012s", "1s" | Generated output always contains 0, 3, 6, or 9 fractional digits, depending on required precision. Accepted are any fractional digits (also none) as long as they fit into nano-seconds precision. |
+| int64, fixed64, uint64 | string | "1", "-10" | JSON value will be a decimal string. Either numbers or strings are accepted.|
+
+
 {% endcapture %}
 
 {% capture whatsnext %}
