@@ -15,10 +15,26 @@ adapters:
     params:
   - name: default
     impl: denyChecker
+  - name: default
+    kind: attributes
+    impl: kubernetes
+    params:
+      # when running from mixer root, use the following config after adding a
+      # symbolic link to a kubernetes config file via:
+      #
+      # $ ln -s ~/.kube/config adapter/kubernets/kubeconfig
+      #
+      # kubeconfig_path: "adapter/kubernetes/kubeconfig"
 manifests:
   - name: istio-proxy
     revision: "1"
     attributes:
+    - name: source.uid
+      value_type: STRING
+    - name: target.uid
+      value_type: STRING
+    - name: origin.uid
+      value_type: STRING
     - name: source.name
       value_type: STRING
     - name: source.labels
@@ -27,9 +43,21 @@ manifests:
       value_type: STRING
     - name: target.service
       value_type: STRING
+    - name: source.namespace
+      value_type: STRING
+    - name: target.namespace
+      value_type: STRING
+    - name: source.service
+      value_type: STRING
+    - name: target.service
+      value_type: STRING
+    - name: source.ip
+      value_type: IP_ADDRESS
     - name: origin.ip
       value_type: IP_ADDRESS
     - name: origin.user
+      value_type: STRING
+    - name: source.serviceAccount
       value_type: STRING
     - name: request.time
       value_type: TIMESTAMP
@@ -52,7 +80,6 @@ manifests:
       value_type: STRING
     - name: api.method
       value_type: STRING
-
 # Enums as struct fields can be symbolic names.
 # However enums inside maps *cannot* be symbolic names.
 metrics:
