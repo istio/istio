@@ -29,7 +29,7 @@ type fakeRegistrar struct {
 	accessLoggers []adapter.AccessLogsBuilder
 	quotas        []adapter.QuotasBuilder
 	metrics       []adapter.MetricsBuilder
-	attributeGens []adapter.AttributesGeneratorBuilder
+	attributesGen []adapter.AttributesGeneratorBuilder
 }
 
 func (r *fakeRegistrar) RegisterListsBuilder(b adapter.ListsBuilder) {
@@ -57,7 +57,7 @@ func (r *fakeRegistrar) RegisterMetricsBuilder(b adapter.MetricsBuilder) {
 }
 
 func (r *fakeRegistrar) RegisterAttributesGeneratorBuilder(b adapter.AttributesGeneratorBuilder) {
-	r.attributeGens = append(r.attributeGens, b)
+	r.attributesGen = append(r.attributesGen, b)
 }
 
 // AdapterInvariants ensures that adapters implement expected semantics.
@@ -92,6 +92,11 @@ func AdapterInvariants(r adapter.RegisterFn, t *gt.T) {
 
 	count += len(fr.accessLoggers)
 	for _, b := range fr.accessLoggers {
+		testBuilder(b, t)
+	}
+
+	count += len(fr.attributesGen)
+	for _, b := range fr.attributesGen {
 		testBuilder(b, t)
 	}
 

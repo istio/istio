@@ -1,8 +1,21 @@
 subject: namespace:ns
 revision: "2022"
 rules:
-- selector: true
+- selector: # must be empty for preprocessing adapters
   aspects:
+  - kind: attributes
+    params:
+      input_expressions:
+        sourceUID: source.uid | ""
+        targetUID: target.uid | ""
+        originUID: origin.uid | ""
+      attribute_bindings:
+        source.ip: sourcePodIp
+        source.service: sourceService
+        source.name: sourcePodName
+        source.namespace: sourceNamespace
+        source.labels: sourceLabels
+        source.serviceAccount: sourceServiceAccountName
   - kind: quotas
     params:
       quotas:

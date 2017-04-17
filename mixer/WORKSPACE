@@ -264,11 +264,172 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "io_k8s_client_go",
+    commit = "243d8a9cb66a51ad8676157f79e71033b4014a2a",  # Dec 11, 2016 (matches istio manager)
+    importpath = "k8s.io/client-go",
+)
+
+new_go_repository(
+    name = "com_github_ugorji_go",
+    commit = "708a42d246822952f38190a8d8c4e6b16a0e600c",  # Mar 12, 2017 (no releases)
+    importpath = "github.com/ugorji/go",
+)
+
+new_go_repository(
+    name = "in_gopkg_inf_v0",
+    commit = "3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4",  # Sep 11, 2015 (latest commit)
+    importpath = "gopkg.in/inf.v0",
+)
+
+new_go_repository(
+    name = "com_github_docker_distribution",
+    commit = "a25b9ef0c9fe242ac04bb20d3a028442b7d266b6",  # Apr 5, 2017 (v2.6.1)
+    importpath = "github.com/docker/distribution",
+)
+
+new_go_repository(
+    name = "com_github_davecgh_go_spew",
+    commit = "346938d642f2ec3594ed81d874461961cd0faa76",  # Oct 29, 2016 (v1.1.0)
+    importpath = "github.com/davecgh/go-spew",
+)
+
+new_go_repository(
+    name = "com_github_go_openapi_spec",
+    commit = "6aced65f8501fe1217321abf0749d354824ba2ff",  # Aug 8, 2016 (no releases)
+    importpath = "github.com/go-openapi/spec",
+)
+
+new_go_repository(
+    name = "com_github_google_gofuzz",
+    commit = "44d81051d367757e1c7c6a5a86423ece9afcf63c",  # Nov 22, 2016 (no releases)
+    importpath = "github.com/google/gofuzz",
+)
+
+new_go_repository(
     name = "com_github_emicklei_go_restful",
-    commit = "1d2cd46e1ac9ce6036f014a33a3706f989578de6",  # March 17, 2017 (no releases)
+    commit = "09691a3b6378b740595c1002f40c34dd5f218a22",  # Dec 12, 2016 (k8s deps)
     importpath = "github.com/emicklei/go-restful",
 )
 
+new_go_repository(
+    name = "com_github_go_openapi_jsonpointer",
+    commit = "46af16f9f7b149af66e5d1bd010e3574dc06de98",  # Jul 4, 2016 (no releases)
+    importpath = "github.com/go-openapi/jsonpointer",
+)
+
+new_go_repository(
+    name = "com_github_go_openapi_jsonreference",
+    commit = "13c6e3589ad90f49bd3e3bbe2c2cb3d7a4142272",  # Jul 4, 2016 (no releases)
+    importpath = "github.com/go-openapi/jsonreference",
+)
+
+new_go_repository(
+    name = "com_github_go_openapi_swag",
+    commit = "1d0bd113de87027671077d3c71eb3ac5d7dbba72",  # Jul 4, 2016 (no releases)
+    importpath = "github.com/go-openapi/swag",
+)
+
+new_go_repository(
+    name = "org_golang_x_oauth2",
+    commit = "3c3a985cb79f52a3190fbc056984415ca6763d01",  # Aug 26, 2016 (no releases)
+    importpath = "golang.org/x/oauth2",
+)
+
+new_go_repository(
+    name = "com_github_juju_ratelimit",
+    commit = "acf38b000a03e4ab89e40f20f1e548f4e6ac7f72",  # Mar 13, 2017 (no releases)
+    importpath = "github.com/juju/ratelimit",
+)
+
+new_go_repository(
+    name = "com_github_opencontainers_go_digest",
+    commit = "aa2ec055abd10d26d539eb630a92241b781ce4bc",  # Jan 31, 2017 (v1.0.0-rc0)
+    importpath = "github.com/opencontainers/go-digest",
+)
+
+new_go_repository(
+    name = "com_github_blang_semver",
+    commit = "b38d23b8782a487059e8fc8773e9a5b228a77cb6",  # Jan 30, 2017 (v3.5.0)
+    importpath = "github.com/blang/semver",
+)
+
+new_go_repository(
+    name = "com_github_coreos_go_oidc",
+    commit = "be73733bb8cc830d0205609b95d125215f8e9c70",  # Mar 7, 2017 (no releases)
+    importpath = "github.com/coreos/go-oidc",
+)
+
+new_go_repository(
+    name = "com_github_mailru_easyjson",
+    commit = "2af9a745a611440bab0528e5ac19b2805a1c50eb",  # Mar 28, 2017 (no releases)
+    importpath = "github.com/mailru/easyjson",
+)
+
+new_go_repository(
+    name = "com_github_PuerkitoBio_purell",
+    commit = "0bcb03f4b4d0a9428594752bd2a3b9aa0a9d4bd4",  # Nov 14, 2016 (v1.1.0)
+    importpath = "github.com/PuerkitoBio/purell",
+)
+
+new_go_repository(
+    name = "org_golang_x_text",
+    commit = "f4b4367115ec2de254587813edaa901bc1c723a8",  # Mar 31, 2017 (no releases)
+    importpath = "golang.org/x/text",
+)
+
+new_go_repository(
+    name = "com_github_PuerkitoBio_urlesc",
+    commit = "bbf7a2afc14f93e1e0a5c06df524fbd75e5031e5",  # Mar 24, 2017 (no releases)
+    importpath = "github.com/PuerkitoBio/urlesc",
+)
+
+new_go_repository(
+    name = "com_github_pborman_uuid",
+    commit = "a97ce2ca70fa5a848076093f05e639a89ca34d06",  # Feb 9, 2016 (v1.0)
+    importpath = "github.com/pborman/uuid",
+)
+
+new_go_repository(
+    name = "com_google_cloud_go",
+    commit = "2e6a95edb1071d750f6d7db777bf66cd2997af6c",  # Mar 9, 2017 (v0.7.0)
+    importpath = "cloud.google.com/go",
+)
+
+new_go_repository(
+    name = "com_github_coreos_pkg",
+    commit = "7f080b6c11ac2d2347c3cd7521e810207ea1a041",  # May 30, 2016 (v2)
+    importpath = "github.com/coreos/pkg",
+)
+
+new_go_repository(
+    name = "com_github_jonboulle_clockwork",
+    commit = "2eee05ed794112d45db504eb05aa693efd2b8b09",  # Jul 6, 2016 (v0.1.0)
+    importpath = "github.com/jonboulle/clockwork",
+)
+
+new_go_repository(
+    name = "com_github_imdario_mergo",
+    commit = "3e95a51e0639b4cf372f2ccf74c86749d747fbdc",  # Feb 16, 2016 (v0.2.2)
+    importpath = "github.com/imdario/mergo",
+)
+
+new_go_repository(
+    name = "com_github_howeyc_gopass",
+    commit = "bf9dde6d0d2c004a008c27aaee91170c786f6db8",  # Jan 9, 2017 (no releases)
+    importpath = "github.com/howeyc/gopass",
+)
+
+new_go_repository(
+    name = "org_golang_x_crypto",
+    commit = "cbc3d0884eac986df6e78a039b8792e869bff863",  # Apr 8, 2017 (no releases)
+    importpath = "golang.org/x/crypto",
+)
+
+new_go_repository(
+    name = "com_github_googleapis_gax_go",
+    commit = "9af46dd5a1713e8b5cd71106287eba3cefdde50b", # Mar 20, 2017 (no releases)
+    importpath = "github.com/googleapis/gax-go",
+)
 
 ##
 ## Testing
@@ -279,3 +440,4 @@ git_repository(
     commit = "983183f98b79f8b67fe380fef4cdd21481830fd7",  # Apr 13, 2017 (no releases)
     remote = "https://github.com/istio/test-infra.git",
 )
+

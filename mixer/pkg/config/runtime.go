@@ -90,6 +90,10 @@ func (r *runtime) Resolve(bag attribute.Bag, set KindSet) (dlist []*pb.Combined,
 // it only attempts to find aspects in rules that have an empty selector. This
 // method is primarily used for pre-process aspect configuration retrieval.
 func (r *runtime) ResolveUnconditional(bag attribute.Bag, set KindSet) (out []*pb.Combined, err error) {
+	if glog.V(2) {
+		glog.Infof("unconditionally resolving for kinds: %s", set)
+		defer func() { glog.Infof("unconditionally resolved configs (err=%v): %s", err, out) }()
+	}
 	return resolve(bag, set, r.rule, r.resolveRules, true, /* unconditional resolve */
 		r.identityAttribute, r.identityAttributeDomain)
 }
@@ -100,10 +104,6 @@ const resolveSize = 50
 func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceConfig, resolveRules resolveRulesFunc,
 	onlyEmptySelectors bool, identityAttribute string, identityAttributeDomain string) (dlist []*pb.Combined, err error) {
 	scopes := make([]string, 0, 10)
-	if glog.V(2) {
-		glog.Infof("unconditionally resolving for kinds: %s", kindSet)
-		defer func() { glog.Infof("unconditionally resolved configs (err=%v): %s", err, dlist) }()
-	}
 
 	attr, _ := bag.Get(identityAttribute)
 	if attr == nil {

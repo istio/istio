@@ -18,6 +18,7 @@ import (
 	"istio.io/mixer/adapter/denyChecker"
 	"istio.io/mixer/adapter/genericListChecker"
 	"istio.io/mixer/adapter/ipListChecker"
+	"istio.io/mixer/adapter/kubernetes"
 	"istio.io/mixer/adapter/memQuota"
 	"istio.io/mixer/adapter/prometheus"
 	"istio.io/mixer/adapter/redisquota"
@@ -37,5 +38,6 @@ func Inventory() []adapter.RegisterFn {
 		redisquota.Register,
 		statsd.Register,
 		stdioLogger.Register,
+		kubernetes.Register,
 	}
 }
