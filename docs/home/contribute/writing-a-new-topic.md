@@ -64,8 +64,9 @@ For example, the topic with title
 has filename `tbd.md`. You don't need to put
 "Istio" in the filename, because "Istio" is already in the
 URL for the topic, for example:
-
-       http://istio.io/docs/tasks/tbd.html
+```
+http://istio.io/docs/tasks/tbd.html
+```
 
 ## Updating the front matter
 

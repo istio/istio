@@ -72,7 +72,7 @@ To use ...
 </pre>
 {% endraw %}
 
-Here's an example of a published topic that uses the concept template: [TBD]({{site.baseurl}}/docs/concepts/TBD.html)
+[Here's]({{site.baseurl}}/docs/concepts/mixer.html) an example of a published topic that uses the concept template.
 
 ## Task template
 
@@ -218,7 +218,7 @@ Here's something interesting about the code you ran in the preceding steps.
 </pre>
 {% endraw %}
 
-Here's an example of a published topic that uses the tutorial template: [TBD]({{site.baseurl}}/docs/tutorials/TBD.html)
+[Here's]({{site.baseurl}}/docs/tutorials/TBD.html) an example of a published topic that uses the tutorial template.
 
 ## Sample template
 
