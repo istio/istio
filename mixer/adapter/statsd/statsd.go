@@ -79,7 +79,7 @@ func (b *builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	}
 	for metricName, s := range params.MetricNameTemplateStrings {
 		if _, err := template.New(metricName).Parse(s); err != nil {
-			ce = ce.Appendf("MetricNameTemplateStrings", "failed to parse template '%s' for metric '%s' with err: %s", s, metricName, err)
+			ce = ce.Appendf("MetricNameTemplateStrings", "failed to parse template '%s' for metric '%s': %v", s, metricName, err)
 		}
 	}
 	return
@@ -108,7 +108,7 @@ func (*builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics ma
 		t, _ := template.New(metricName).Parse(s)
 		if err := t.Execute(ioutil.Discard, def.Labels); err != nil {
 			env.Logger().Warningf(
-				"skipping custom statsd metric name for metric '%s', could not satisfy template '%s' with labels '%v' with err: %s",
+				"skipping custom statsd metric name for metric '%s', could not satisfy template '%s' with labels '%v': %v",
 				metricName, s, def.Labels, err)
 			continue
 		}
@@ -147,14 +147,14 @@ func (a *aspect) record(value adapter.Value) error {
 	case adapter.Gauge:
 		v, err := value.Int64()
 		if err != nil {
-			return fmt.Errorf("could not record gauge '%s' with err: %s", mname, err)
+			return fmt.Errorf("could not record gauge '%s': %v", mname, err)
 		}
 		result = a.client.Gauge(mname, v, a.rate)
 
 	case adapter.Counter:
 		v, err := value.Int64()
 		if err != nil {
-			return fmt.Errorf("could not record counter '%s' with err: %s", mname, err)
+			return fmt.Errorf("could not record counter '%s': %v", mname, err)
 		}
 		result = a.client.Inc(mname, v, a.rate)
 	}

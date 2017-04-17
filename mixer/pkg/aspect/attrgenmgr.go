@@ -54,7 +54,7 @@ func (attrGenMgr) ValidateConfig(c config.AspectParams, v expr.Validator, df des
 	params := c.(*apb.AttributesGeneratorParams)
 	for n, expr := range params.InputExpressions {
 		if _, err := v.TypeCheck(expr, df); err != nil {
-			cerrs = cerrs.Appendf("input_expressions", "failed to parse expression '%s' with err: %v", n, err)
+			cerrs = cerrs.Appendf("input_expressions", "failed to parse expression '%s': %v", n, err)
 		}
 	}
 

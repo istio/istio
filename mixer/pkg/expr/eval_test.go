@@ -215,13 +215,13 @@ func TestGoodEval(tt *testing.T) {
 			attrs := &bag{attrs: tst.tmap}
 			exp, err := Parse(tst.src)
 			if err != nil {
-				t.Errorf("[%d] unexpected error: %s", idx, err)
+				t.Errorf("[%d] unexpected error: %v", idx, err)
 				return
 			}
 			res, err := exp.Eval(attrs, FuncMap())
 			if err != nil {
 				if tst.err == "" {
-					t.Errorf("[%d] unexpected error: %s", idx, err)
+					t.Errorf("[%d] unexpected error: %v", idx, err)
 				} else if !strings.Contains(err.Error(), tst.err) {
 					t.Errorf("[%d] got %s\nwant %s", idx, err, tst.err)
 				}
@@ -255,7 +255,7 @@ func TestCEXLEval(tt *testing.T) {
 			map[string]interface{}{
 				"a": int64(2),
 			},
-			true, "parse error", anyType,
+			true, "unable to parse", anyType,
 		},
 		{
 			"a == 2",
@@ -349,7 +349,7 @@ func TestCexlValidate(tt *testing.T) {
 		err string
 	}{
 		{"a", success},
-		{"a=b", "parse error"},
+		{"a=b", "unable to parse"},
 	}
 
 	ev := NewCEXLEvaluator()

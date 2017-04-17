@@ -375,7 +375,7 @@ func processFunc(fn *Function, args []ast.Expr) (err error) {
 func Parse(src string) (ex *Expression, err error) {
 	a, err := parser.ParseExpr(src)
 	if err != nil {
-		return nil, fmt.Errorf("parse error: %s %s", src, err)
+		return nil, fmt.Errorf("unable to parse expression '%s': %v", src, err)
 	}
 	if glog.V(4) {
 		glog.Infof("Parsed expression '%s' into '%s'", src, a)
@@ -432,7 +432,7 @@ func (e *cexl) EvalPredicate(s string, attrs attribute.Bag) (ret bool, err error
 func (e *cexl) TypeCheck(expr string, attrFinder AttributeDescriptorFinder) (config.ValueType, error) {
 	v, err := Parse(expr)
 	if err != nil {
-		return config.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s' with err: %v", expr, err)
+		return config.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s': %v", expr, err)
 	}
 	return v.TypeCheck(attrFinder, e.fMap)
 }

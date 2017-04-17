@@ -116,12 +116,12 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	serverCmd.PersistentFlags().StringVarP(&sa.configIdentityAttribute, "configIdentityAttribute", "", "target.service",
 		"Attribute that is used to identify applicable scopes.")
 	if err := serverCmd.PersistentFlags().MarkHidden("configIdentityAttribute"); err != nil {
-		fatalf("unable to hide: %s", err.Error())
+		fatalf("unable to hide: %v", err)
 	}
 	serverCmd.PersistentFlags().StringVarP(&sa.configIdentityAttributeDomain, "configIdentityAttributeDomain", "", "svc.cluster.local",
 		"The domain to which all values of the configIdentityAttribute belong. For kubernetes services it is svc.cluster.local")
 	if err := serverCmd.PersistentFlags().MarkHidden("configIdentityAttributeDomain"); err != nil {
-		fatalf("unable to hide: %s", err.Error())
+		fatalf("unable to hide: %v", err)
 	}
 
 	// serviceConfig and gobalConfig are for compatibility only
@@ -139,7 +139,7 @@ func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf
 	var err error
 	if url != "" {
 		if store, err = config.NewStore(url); err != nil {
-			fatalf("Failed to get config store: %s", err.Error())
+			fatalf("Failed to get config store: %v", err)
 		}
 		return store
 	}
@@ -148,7 +148,7 @@ func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf
 	}
 	printf("*** serviceConfigFile and globalConfigFile are deprecated, use configStoreURL")
 	if store, err = config.NewCompatFSStore(globalConfigFile, serviceConfigFile); err != nil {
-		fatalf("Failed to get config store: %s", err.Error())
+		fatalf("Failed to get config store: %v", err)
 	}
 	return store
 }

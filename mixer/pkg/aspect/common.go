@@ -31,7 +31,7 @@ func evalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evalu
 	for label, texpr := range expressions {
 		val, err := eval.Eval(texpr, attrs)
 		if err != nil {
-			result = multierror.Append(result, fmt.Errorf("failed to construct value for label '%s' with err: %v", label, err))
+			result = multierror.Append(result, fmt.Errorf("failed to construct value for label '%s': %v", label, err))
 			continue
 		}
 		labels[label] = val
@@ -62,7 +62,7 @@ func validateTemplateExpressions(ceField string, expressions map[string]string, 
 	// make sure they're syntactically correct and we have the attributes they need available in the system.
 	for name, exp := range expressions {
 		if _, err := v.TypeCheck(exp, df); err != nil {
-			ce = ce.Appendf(ceField, "failed to parse expression '%s' with err: %v", name, err)
+			ce = ce.Appendf(ceField, "failed to parse expression '%s': %v", name, err)
 		}
 	}
 	return

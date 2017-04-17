@@ -91,8 +91,8 @@ func TestBadParse(t *testing.T) {
 		err string
 	}{
 		{`*a != b`, "unexpected expression"},
-		{"a = bc", `parse error`},
-		{`3 = 10`, "parse error"},
+		{"a = bc", `unable to parse`},
+		{`3 = 10`, "unable to parse"},
 		{`a.b.c() == 20`, "unexpected expression"},
 		{`a.b().c() == 20`, "unexpected expression"},
 		{`(a.c).d == 300`, `unexpected expression`},
@@ -100,7 +100,7 @@ func TestBadParse(t *testing.T) {
 		{`(*a == 20) && 12`, `unexpected expression`},
 		{`!*a`, `unexpected expression`},
 		{`request.headers[*a] == 200`, `unexpected expression`},
-		{`atr == 'aaa'`, "parse error"},
+		{`atr == 'aaa'`, "unable to parse"},
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {

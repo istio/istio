@@ -237,13 +237,13 @@ func (p *validator) validateDescriptors(key string, cfg string) (ce *adapter.Con
 	if data, err = compatfilterConfig(cfg, func(s string) bool {
 		return s != "adapters"
 	}); err != nil {
-		return ce.Appendf("DescriptorConfig", "failed to unmarshal config into proto with err: %v", err)
+		return ce.Appendf("DescriptorConfig", "failed to unmarshal config into proto: %v", err)
 	}
 	m := &pb.GlobalConfig{}
 	um := jsonpb.Unmarshaler{AllowUnknownFields: true}
 
 	if err = um.Unmarshal(bytes.NewReader(data), m); err != nil {
-		return ce.Appendf("DescriptorConfig", "failed to unmarshal <%s> config into proto with err: %v", string(data), err)
+		return ce.Appendf("DescriptorConfig", "failed to unmarshal <%s> config into proto: %v", string(data), err)
 	}
 
 	p.validated.descriptor[key] = m
@@ -273,7 +273,7 @@ func (p *validator) validateAdapters(key string, cfg string) (ce *adapter.Config
 	p.validated.adapterByName = make(map[adapterKey]*pb.Adapter)
 	for _, aa := range m.GetAdapters() {
 		if acfg, err = convertAdapterParams(p.adapterFinder, aa.Impl, aa.Params, p.strict); err != nil {
-			ce = ce.Appendf("Adapter: "+aa.Impl, "failed to convert aspect params to proto with err: %v", err)
+			ce = ce.Appendf("Adapter: "+aa.Impl, "failed to convert aspect params to proto: %v", err)
 			continue
 		}
 		aa.Params = acfg
@@ -311,7 +311,7 @@ func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 		path = path + "/" + rule.GetSelector()
 		for idx, aa := range rule.GetAspects() {
 			if acfg, err = convertAspectParams(p.managerFinder, aa.Kind, aa.GetParams(), p.strict, p.descriptorFinder); err != nil {
-				ce = ce.Appendf(fmt.Sprintf("%s:%s[%d]", path, aa.Kind, idx), "failed to parse params with err: %v", err)
+				ce = ce.Appendf(fmt.Sprintf("%s:%s[%d]", path, aa.Kind, idx), "failed to parse params: %v", err)
 				continue
 			}
 			aa.Params = acfg
@@ -490,7 +490,7 @@ func convertAspectParams(f AspectValidatorFinder, name string, params interface{
 func decode(src interface{}, dst proto.Message, strict bool) error {
 	ba, err := json.Marshal(src)
 	if err != nil {
-		return fmt.Errorf("failed to marshal config into json with err: %v", err)
+		return fmt.Errorf("failed to marshal config into json: %v", err)
 	}
 	um := jsonpb.Unmarshaler{AllowUnknownFields: !strict}
 	if err := um.Unmarshal(bytes.NewReader(ba), dst); err != nil {

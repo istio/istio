@@ -173,7 +173,7 @@ func TestCheck(t *testing.T) {
 				close(waitc)
 				return
 			} else if err != nil {
-				t.Errorf("Failed to receive a response : %v", err)
+				t.Errorf("Failed to receive a response: %v", err)
 				return
 			} else {
 				waitc <- response.RequestIndex
@@ -230,7 +230,7 @@ func TestReport(t *testing.T) {
 				close(waitc)
 				return
 			} else if err != nil {
-				t.Errorf("Failed to receive a response : %v", err)
+				t.Errorf("Failed to receive a response: %v", err)
 				return
 			} else {
 				waitc <- response.RequestIndex
@@ -287,7 +287,7 @@ func TestQuota(t *testing.T) {
 				close(waitc)
 				return
 			} else if err != nil {
-				t.Errorf("Failed to receive a response : %v", err)
+				t.Errorf("Failed to receive a response: %v", err)
 				return
 			} else {
 				waitc <- response
@@ -350,7 +350,7 @@ func TestOverload(t *testing.T) {
 				close(waitc)
 				return
 			} else if err != nil {
-				t.Errorf("Failed to receive a response : %v", err)
+				t.Errorf("Failed to receive a response: %v", err)
 				return
 			} else {
 				waitc <- response.RequestIndex
@@ -409,7 +409,7 @@ func TestBadAttr(t *testing.T) {
 	if err == io.EOF {
 		t.Error("Got EOF from stream")
 	} else if err != nil {
-		t.Errorf("Failed to receive a response : %v", err)
+		t.Errorf("Failed to receive a response: %v", err)
 	} else {
 		if response.Result.Code != int32(rpc.INVALID_ARGUMENT) {
 			t.Errorf("Got result %d, expecting %d", response.Result.Code, rpc.INVALID_ARGUMENT)
@@ -461,7 +461,7 @@ func TestRudeClose(t *testing.T) {
 	if err == io.EOF {
 		t.Error("Got EOF from stream")
 	} else if err != nil {
-		t.Errorf("Failed to receive a response : %v", err)
+		t.Errorf("Failed to receive a response: %v", err)
 	}
 }
 
@@ -552,7 +552,7 @@ func TestPreprocessFailure(t *testing.T) {
 				close(waitc)
 				return
 			} else if err != nil {
-				t.Errorf("Failed to receive a response : %v", err)
+				t.Errorf("Failed to receive a response: %v", err)
 				return
 			} else {
 				waitc <- response.Result

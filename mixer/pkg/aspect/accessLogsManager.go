@@ -62,7 +62,7 @@ func (m accessLogsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder,
 
 	asp, err := a.(adapter.AccessLogsBuilder).NewAccessLogsAspect(env, c.Builder.Params.(adapter.Config))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create aspect for log %s with err: %s", cfg.LogName, err)
+		return nil, fmt.Errorf("failed to create aspect for log %s: %v", cfg.LogName, err)
 	}
 
 	return &accessLogsExecutor{
@@ -102,7 +102,7 @@ func (accessLogsManager) ValidateConfig(c config.AspectParams, v expr.Validator,
 	// against the expressions: while the keys to the template may be correct, the values will be wrong which could result
 	// in non-nil error returns even when things would be valid at runtime.
 	if _, err := template.New(desc.Name).Parse(desc.LogTemplate); err != nil {
-		ce = ce.Appendf(fmt.Sprintf("LogDescriptor[%s].LogTemplate", desc.Name), "failed to parse template with err: %v", err)
+		ce = ce.Appendf(fmt.Sprintf("LogDescriptor[%s].LogTemplate", desc.Name), "failed to parse template: %v", err)
 	}
 	return
 }
@@ -118,7 +118,7 @@ func (e *accessLogsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator)
 	buf := pool.GetBuffer()
 	if err := e.template.Execute(buf, templateVals); err != nil {
 		pool.PutBuffer(buf)
-		return status.WithError(fmt.Errorf("failed to execute payload template for log %s with err: %s", e.name, err))
+		return status.WithError(fmt.Errorf("failed to execute payload template for log %s: %v", e.name, err))
 	}
 	payload := buf.String()
 	pool.PutBuffer(buf)
@@ -129,7 +129,7 @@ func (e *accessLogsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator)
 		TextPayload: payload,
 	}
 	if err := e.aspect.LogAccess([]adapter.LogEntry{entry}); err != nil {
-		return status.WithError(fmt.Errorf("failed to log to %s with err: %s", e.name, err))
+		return status.WithError(fmt.Errorf("failed to log to %s: %v", e.name, err))
 	}
 	return status.OK
 }

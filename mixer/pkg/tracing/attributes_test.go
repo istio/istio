@@ -37,7 +37,7 @@ var (
 func TestContext(t *testing.T) {
 	bag, err := attribute.NewManager().NewTracker().ApplyProto(attrs)
 	if err != nil {
-		t.Errorf("Failed to construct bag with err: %s", err)
+		t.Errorf("Failed to construct bag: %v", err)
 	}
 
 	if c := FromContext(context.Background()); c != nil {
@@ -56,7 +56,7 @@ func TestContext(t *testing.T) {
 func TestSet(t *testing.T) {
 	bag, err := attribute.NewManager().NewTracker().ApplyProto(attrs)
 	if err != nil {
-		t.Errorf("Failed to construct bag with err: %s", err)
+		t.Errorf("Failed to construct bag: %v", err)
 	}
 
 	cases := []struct {
@@ -79,7 +79,7 @@ func TestSet(t *testing.T) {
 func TestForeachKey(t *testing.T) {
 	bag, err := attribute.NewManager().NewTracker().ApplyProto(attrs)
 	if err != nil {
-		t.Errorf("Failed to construct bag with err: %s", err)
+		t.Errorf("Failed to construct bag: %v", err)
 	}
 
 	cases := []struct {
@@ -108,7 +108,7 @@ func TestForeachKey(t *testing.T) {
 func TestForeachKey_PropagatesErr(t *testing.T) {
 	bag, err := attribute.NewManager().NewTracker().ApplyProto(attrs)
 	if err != nil {
-		t.Errorf("Failed to construct bag with err: %s", err)
+		t.Errorf("Failed to construct bag: %v", err)
 	}
 
 	c := NewCarrier(bag)

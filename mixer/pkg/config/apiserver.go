@@ -139,7 +139,7 @@ func getRules(store KeyValueStore, path string) (statusCode int, msg string, dat
 
 	m := &pb.ServiceConfig{}
 	if err := yaml.Unmarshal([]byte(val), m); err != nil {
-		msg := fmt.Sprintf("unable to parse rules at %s: %s", path, err.Error())
+		msg := fmt.Sprintf("unable to parse rules at '%s': %v", path, err)
 		glog.Warning(msg)
 		return http.StatusInternalServerError, msg, nil
 	}

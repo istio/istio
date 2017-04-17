@@ -163,7 +163,7 @@ func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
 
 	vd, finder, cerr = c.validate(data)
 	if cerr != nil {
-		glog.Warningf("Validation failed: %s", cerr.String())
+		glog.Warningf("Validation failed: %v", cerr)
 		return nil, nil, cerr
 	}
 	c.lastFetchIndex = index
