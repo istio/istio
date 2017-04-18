@@ -4,6 +4,7 @@ import (
 	"flag"
 	"github.com/golang/glog"
 	"istio.io/istio/tests/e2e/framework"
+	"os"
 	"testing"
 )
 
@@ -31,16 +32,15 @@ func TestSample(t *testing.T) {
 	t.Log("Value is ", c.sampleValue)
 }
 
-func NewTestConfig() *testConfig{
+func NewTestConfig() *testConfig {
 	return &testConfig{
-		CommonConfig: &framework.CommonConfig{
-			Info: *framework.NewTestInfo("sample_test"),
-		},
+		CommonConfig: framework.NewCommonConfig("sample_test"),
 	}
 }
 
 func TestMain(m *testing.M) {
 	flag.Parse()
 	c = NewTestConfig()
-	framework.E2eTestMain(m, c, c.CommonConfig)
+	c.CommonConfig.Cleanup.RegisterCleanable(c)
+	os.Exit(c.RunTest(m))
 }

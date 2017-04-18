@@ -10,42 +10,52 @@ const (
 	SUT_INIT      = 1
 	TEST_SETUP    = 2
 	TEST_RUN      = 3
-	SAVE_LOGS     = 4
-	TEST_TEARDOWN = 5
-	SUT_DEINIT    = 6
+	TEST_TEARDOWN = 4
+	SUT_CLEANUP   = 5
 )
 
 type test struct {
-	queue        []int
-	failInit     bool
+	queue        *[]int
 	failSetup    bool
 	failRun      bool
-	failSaveLogs bool
 	failTearDown bool
-	failDeInit   bool
 }
 
-func (t *test) Init() error {
-	if t.failInit {
+type sut struct {
+	queue        *[]int
+	failSetup    bool
+	failTearDown bool
+}
+
+type testConfig struct {
+	q *[]int
+	s *sut
+	t *test
+}
+
+func NewTestConfig() *testConfig {
+	t := new(testConfig)
+	t.s = new(sut)
+	t.t = new(test)
+	t.q = new([]int)
+	t.s.queue = t.q
+	t.t.queue = t.q
+	return t
+}
+
+func (s *sut) SetUp() error {
+	if s.failSetup {
 		return errors.New("Failed")
 	}
-	t.queue = append(t.queue, SUT_INIT)
+	*s.queue = append(*s.queue, SUT_INIT)
 	return nil
 }
 
-func (t *test) DeInit() error {
-	if t.failDeInit {
+func (s *sut) TearDown() error {
+	if s.failTearDown {
 		return errors.New("Failed")
 	}
-	t.queue = append(t.queue, SUT_DEINIT)
-	return nil
-}
-
-func (t *test) SaveLogs(r int) error {
-	if t.failSaveLogs {
-		return errors.New("Failed")
-	}
-	t.queue = append(t.queue, SAVE_LOGS)
+	*s.queue = append(*s.queue, SUT_CLEANUP)
 	return nil
 }
 
@@ -53,7 +63,7 @@ func (c *test) Run() int {
 	if c.failRun {
 		return 1
 	}
-	c.queue = append(c.queue, TEST_RUN)
+	*c.queue = append(*c.queue, TEST_RUN)
 	return 0
 }
 
@@ -61,7 +71,7 @@ func (c *test) SetUp() error {
 	if c.failSetup {
 		return errors.New("Failed")
 	}
-	c.queue = append(c.queue, TEST_SETUP)
+	*c.queue = append(*c.queue, TEST_SETUP)
 	return nil
 }
 
@@ -69,75 +79,84 @@ func (c *test) TearDown() error {
 	if c.failTearDown {
 		return errors.New("Failed")
 	}
-	c.queue = append(c.queue, TEST_TEARDOWN)
+	*c.queue = append(*c.queue, TEST_TEARDOWN)
 	return nil
 }
 
 func TestSuccess(t *testing.T) {
-	a := new(test)
-	RunTest(a, a, a)
-	b := []int{1, 2, 3, 4, 5, 6}
-	if !reflect.DeepEqual(a.queue, b) {
-		t.Errorf("Order is not as expected %d %d", a.queue, b)
+	c := NewCommonConfig("test_success")
+	tc := NewTestConfig()
+	c.Cleanup.RegisterCleanable(tc.s)
+	c.Cleanup.RegisterCleanable(tc.t)
+	c.RunTest(tc.t)
+	b := []int{1, 2, 3, 4, 5}
+	if !reflect.DeepEqual(*tc.q, b) {
+		t.Errorf("Order is not as expected %d %d", *tc.q, b)
 	}
 }
 
 func TestFailure(t *testing.T) {
-	a := new(test)
-	a.failRun = true
-	RunTest(a, a, a)
-	b := []int{1, 2, 4, 5, 6}
-	if !reflect.DeepEqual(a.queue, b) {
-		t.Errorf("Order is not as expected %d %d", a.queue, b)
+	c := NewCommonConfig("test_failure")
+	tc := NewTestConfig()
+	c.Cleanup.RegisterCleanable(tc.s)
+	c.Cleanup.RegisterCleanable(tc.t)
+	tc.t.failRun = true
+	c.RunTest(tc.t)
+	b := []int{1, 2, 4, 5}
+	if !reflect.DeepEqual(*tc.q, b) {
+		t.Errorf("Order is not as expected %d %d", *tc.q, b)
 	}
 }
 
 func TestInitFailure(t *testing.T) {
-	a := new(test)
-	a.failInit = true
-	RunTest(a, a, a)
-	b := []int{4, 6}
-	if !reflect.DeepEqual(a.queue, b) {
-		t.Errorf("Order is not as expected %d %d", a.queue, b)
+	c := NewCommonConfig("test_init_failure")
+	tc := NewTestConfig()
+	tc.s.failSetup = true
+	c.Cleanup.RegisterCleanable(tc.s)
+	c.Cleanup.RegisterCleanable(tc.t)
+	tc.t.failRun = true
+	c.RunTest(tc.t)
+	b := []int{5}
+	if !reflect.DeepEqual(*tc.q, b) {
+		t.Errorf("Order is not as expected %d %d", *tc.q, b)
 	}
 }
 
 func TestSetupFailure(t *testing.T) {
-	a := new(test)
-	a.failSetup = true
-	RunTest(a, a, a)
-	b := []int{1, 4, 5, 6}
-	if !reflect.DeepEqual(a.queue, b) {
-		t.Errorf("Order is not as expected %d %d", a.queue, b)
-	}
-}
-
-func TestSaveLogsFailure(t *testing.T) {
-	a := new(test)
-	a.failSaveLogs = true
-	RunTest(a, a, a)
-	b := []int{1, 2, 3, 5, 6}
-	if !reflect.DeepEqual(a.queue, b) {
-		t.Errorf("Order is not as expected %d %d", a.queue, b)
+	c := NewCommonConfig("test_setup_failure")
+	tc := NewTestConfig()
+	c.Cleanup.RegisterCleanable(tc.s)
+	c.Cleanup.RegisterCleanable(tc.t)
+	tc.t.failSetup = true
+	c.RunTest(tc.t)
+	b := []int{1, 4, 5}
+	if !reflect.DeepEqual(*tc.q, b) {
+		t.Errorf("Order is not as expected %d %d", *tc.q, b)
 	}
 }
 
 func TestTearDownFailure(t *testing.T) {
-	a := new(test)
-	a.failTearDown = true
-	RunTest(a, a, a)
-	b := []int{1, 2, 3, 4, 6}
-	if !reflect.DeepEqual(a.queue, b) {
-		t.Errorf("Order is not as expected %d %d", a.queue, b)
+	c := NewCommonConfig("test_tear_down_failure")
+	tc := NewTestConfig()
+	c.Cleanup.RegisterCleanable(tc.s)
+	c.Cleanup.RegisterCleanable(tc.t)
+	tc.t.failTearDown = true
+	c.RunTest(tc.t)
+	b := []int{1, 2, 3, 5}
+	if !reflect.DeepEqual(*tc.q, b) {
+		t.Errorf("Order is not as expected %d %d", *tc.q, b)
 	}
 }
 
 func TestDeInitFailure(t *testing.T) {
-	a := new(test)
-	a.failDeInit = true
-	RunTest(a, a, a)
-	b := []int{1, 2, 3, 4, 5}
-	if !reflect.DeepEqual(a.queue, b) {
-		t.Errorf("Order is not as expected %d %d", a.queue, b)
+	c := NewCommonConfig("test_cleanup_failure")
+	tc := NewTestConfig()
+	c.Cleanup.RegisterCleanable(tc.s)
+	c.Cleanup.RegisterCleanable(tc.t)
+	tc.s.failTearDown = true
+	c.RunTest(tc.t)
+	b := []int{1, 2, 3, 4}
+	if !reflect.DeepEqual(*tc.q, b) {
+		t.Errorf("Order is not as expected %d %d", *tc.q, b)
 	}
 }
