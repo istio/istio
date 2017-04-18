@@ -76,26 +76,44 @@ func GetScopes(attr string, domain string, scopes []string) ([]string, error) {
 // It will only return config from the requested set of aspects.
 // For example the Check handler and Report handler will request
 // a disjoint set of aspects check: {iplistChecker, iam}, report: {Log, metrics}
-func (r *runtime) Resolve(bag attribute.Bag, set KindSet) (dlist []*pb.Combined, err error) {
+// If strict is true, resolution will fail if any selector evaluations fail; otherwise it will log errors and return
+// as much config as we were able to resolve.
+func (r *runtime) Resolve(bag attribute.Bag, set KindSet, strict bool) (dlist []*pb.Combined, err error) {
 	if glog.V(4) {
 		glog.Infof("resolving for kinds: %s", set)
 		defer func() { glog.Infof("resolved configs (err=%v): %s", err, dlist) }()
 	}
-	return resolve(bag, set, r.rule, r.resolveRules, false, /* conditional full resolve */
-		r.identityAttribute, r.identityAttributeDomain)
+	return resolve(
+		bag,
+		set,
+		r.rule,
+		r.resolveRules,
+		false, /* conditional full resolve */
+		r.identityAttribute,
+		r.identityAttributeDomain,
+		strict)
 }
 
 // ResolveUnconditional returns the list of CombinedConfigs for the supplied
 // attributes and kindset based on resolution of unconditional rules. That is,
 // it only attempts to find aspects in rules that have an empty selector. This
 // method is primarily used for pre-process aspect configuration retrieval.
-func (r *runtime) ResolveUnconditional(bag attribute.Bag, set KindSet) (out []*pb.Combined, err error) {
+// If strict is true, resolution will fail if any selector evaluations fail; otherwise it will log errors and return
+// as much config as we were able to resolve.
+func (r *runtime) ResolveUnconditional(bag attribute.Bag, set KindSet, strict bool) (out []*pb.Combined, err error) {
 	if glog.V(2) {
 		glog.Infof("unconditionally resolving for kinds: %s", set)
 		defer func() { glog.Infof("unconditionally resolved configs (err=%v): %s", err, out) }()
 	}
-	return resolve(bag, set, r.rule, r.resolveRules, true, /* unconditional resolve */
-		r.identityAttribute, r.identityAttributeDomain)
+	return resolve(
+		bag,
+		set,
+		r.rule,
+		r.resolveRules,
+		true, /* unconditional resolve */
+		r.identityAttribute,
+		r.identityAttributeDomain,
+		strict)
 }
 
 // Make this a reasonable number so that we don't reallocate slices often.
@@ -103,7 +121,7 @@ const resolveSize = 50
 
 // resolve - the main config resolution function.
 func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceConfig, resolveRules resolveRulesFunc,
-	onlyEmptySelectors bool, identityAttribute string, identityAttributeDomain string) (dlist []*pb.Combined, err error) {
+	onlyEmptySelectors bool, identityAttribute string, identityAttributeDomain string, strictSelectorEval bool) (dlist []*pb.Combined, err error) {
 	scopes := make([]string, 0, 10)
 
 	attr, _ := bag.Get(identityAttribute)
@@ -136,7 +154,7 @@ func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceC
 			}
 			// empty the slice, do not re allocate
 			dlist = dlist[:0]
-			if dlist, err = resolveRules(bag, kindSet, rule.GetRules(), "/", dlist, onlyEmptySelectors); err != nil {
+			if dlist, err = resolveRules(bag, kindSet, rule.GetRules(), "/", dlist, onlyEmptySelectors, strictSelectorEval); err != nil {
 				return dlist, err
 			}
 
@@ -169,11 +187,13 @@ func (r *runtime) evalPredicate(selector string, bag attribute.Bag) (bool, error
 }
 
 type resolveRulesFunc func(bag attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, path string,
-	dlist []*pb.Combined, onlyEmptySelectors bool) ([]*pb.Combined, error)
+	dlist []*pb.Combined, onlyEmptySelectors bool, strictSelectorEval bool) ([]*pb.Combined, error)
 
-// resolveRules recurses through the config struct and returns a list of combined aspects
+// resolveRules recurses through the config struct and returns a list of combined aspects. If `strictSelectorEval` is
+// true we will return an error when we fail the evaluate a selector; when it's false we'll return a nil error and as
+// many chunks of config as we were able to resolve.
 func (r *runtime) resolveRules(bag attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, path string,
-	dlist []*pb.Combined, onlyEmptySelectors bool) ([]*pb.Combined, error) {
+	dlist []*pb.Combined, onlyEmptySelectors bool, strictSelectorEval bool) ([]*pb.Combined, error) {
 	var selected bool
 	var lerr error
 	var err error
@@ -191,7 +211,12 @@ func (r *runtime) resolveRules(bag attribute.Bag, kindSet KindSet, rules []*pb.A
 			continue
 		}
 		if selected, lerr = r.evalPredicate(sel, bag); lerr != nil {
-			err = multierror.Append(err, lerr)
+			if glog.V(3) {
+				glog.Infof("Failed to eval selector '%s': %v", sel, lerr)
+			}
+			if strictSelectorEval {
+				err = multierror.Append(err, lerr)
+			}
 			continue
 		}
 		if !selected {
@@ -225,7 +250,7 @@ func (r *runtime) resolveRules(bag attribute.Bag, kindSet KindSet, rules []*pb.A
 		if len(rs) == 0 {
 			continue
 		}
-		if dlist, lerr = r.resolveRules(bag, kindSet, rs, path, dlist, onlyEmptySelectors); lerr != nil {
+		if dlist, lerr = r.resolveRules(bag, kindSet, rs, path, dlist, onlyEmptySelectors, strictSelectorEval); lerr != nil {
 			err = multierror.Append(err, lerr)
 		}
 	}

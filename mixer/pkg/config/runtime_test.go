@@ -117,7 +117,7 @@ func newFakeResolver(kinds []string, kind KindSet, re error) *fakeresolver {
 }
 
 func (fr *fakeresolver) rrf(bag attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, path string,
-	dlist []*pb.Combined, onlyEmptySelectors bool) ([]*pb.Combined, error) {
+	dlist []*pb.Combined, onlyEmptySelectors bool, strictSelectorEval bool) ([]*pb.Combined, error) {
 	if fr.resolveError != nil {
 		return nil, fr.resolveError
 	}
@@ -245,7 +245,7 @@ func TestResolve(t *testing.T) {
 			b := &bag{attrs}
 			var ks KindSet = 0xff
 			fr := newFakeResolver(tt.kinds, ks, tt.resolveError)
-			dl, err := resolve(b, ks, rules, fr.rrf, tt.onlyEmptySelectors, keyTargetService, keyServiceDomain)
+			dl, err := resolve(b, ks, rules, fr.rrf, tt.onlyEmptySelectors, keyTargetService, keyServiceDomain, true)
 			if err != nil {
 				if tt.err == nil {
 					t1.Fatal("Unexpected Error", err)
@@ -353,7 +353,7 @@ func TestRuntime(t *testing.T) {
 		}
 		rt := newRuntime(v, fe, keyTargetService, keyServiceDomain)
 
-		al, err := rt.Resolve(bag, kinds)
+		al, err := rt.Resolve(bag, kinds, true)
 
 		if tt.err != nil {
 			if err != tt.err {
@@ -459,7 +459,7 @@ func TestRuntime_ResolveUnconditional(t *testing.T) {
 		}
 		rt := newRuntime(v, fe, keyTargetService, keyServiceDomain)
 
-		al, err := rt.ResolveUnconditional(bag, kinds)
+		al, err := rt.ResolveUnconditional(bag, kinds, true)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
