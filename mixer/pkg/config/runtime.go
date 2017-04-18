@@ -101,16 +101,22 @@ func (r *runtime) ResolveUnconditional(bag attribute.Bag, set KindSet) (out []*p
 // Make this a reasonable number so that we don't reallocate slices often.
 const resolveSize = 50
 
+// resolve - the main config resolution function.
 func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceConfig, resolveRules resolveRulesFunc,
 	onlyEmptySelectors bool, identityAttribute string, identityAttributeDomain string) (dlist []*pb.Combined, err error) {
 	scopes := make([]string, 0, 10)
 
 	attr, _ := bag.Get(identityAttribute)
 	if attr == nil {
-		return nil, fmt.Errorf("%s attribute not found", identityAttribute)
-	}
-
-	if scopes, err = GetScopes(attr.(string), identityAttributeDomain, scopes); err != nil {
+		// it is ok for identity attributes to be absent
+		// during pre processing. since global scope always applies
+		// set it to that.
+		if onlyEmptySelectors {
+			scopes = []string{global}
+		} else {
+			return nil, fmt.Errorf("%s attribute not found", identityAttribute)
+		}
+	} else if scopes, err = GetScopes(attr.(string), identityAttributeDomain, scopes); err != nil {
 		return nil, err
 	}
 

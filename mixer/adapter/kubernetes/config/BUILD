@@ -7,7 +7,7 @@ gogoslick_proto_library(
         "google/protobuf/duration.proto": "github.com/gogo/protobuf/types",
     },
     imports = [
-        "../../../../external/com_github_gogo_protobuf",
+        "external/com_github_gogo_protobuf",
         "external/com_github_google_protobuf/src",
     ],
     inputs = [
