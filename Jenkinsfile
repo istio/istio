@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('testutils@stable-bb42730')
+@Library('testutils@stable-983183f')
 
 import org.istio.testutils.Utilities
 import org.istio.testutils.GitUtilities
@@ -14,6 +14,7 @@ def bazel = new Bazel()
 mainFlow(utils) {
   node {
     gitUtils.initialize()
+    bazel.setVars()
   }
   if (utils.runStage('PRESUBMIT')) {
     presubmit(gitUtils, bazel, utils)
@@ -24,6 +25,9 @@ def presubmit(gitUtils, bazel, utils) {
   defaultNode(gitUtils) {
     bazel.updateBazelRc()
     utils.initTestingCluster()
+    stage('Bazel Test') {
+      bazel.test('//...')
+    }
     stage('Demo Test') {
       def kubeTestArgs = ''
       if (utils.getParam('GITHUB_PR_HEAD_SHA') != '') {
