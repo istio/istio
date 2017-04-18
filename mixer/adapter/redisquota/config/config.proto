@@ -36,4 +36,9 @@ message Params {
 
     // Maximum number of idle connections to redis
     int64 connection_pool_size = 4;
+
+    // Algorithm for rate-limiting: either fixed-window or rolling-window.
+    // The fixed-window approach can allow 2x peak specified rate, whereas the rolling-window doesn't.
+    // The rolling-window algorithm's additional precision comes at the cost of increased redis resource usage.
+    string rate_limit_algorithm = 5;
 }
