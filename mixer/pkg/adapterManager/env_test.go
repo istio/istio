@@ -35,6 +35,12 @@ func TestEnv(t *testing.T) {
 		if err == nil {
 			t.Error("Expected an error but got nil")
 		}
+		if log.VerbosityLevel(999) {
+			t.Error("Expected false for verbosity level 999 check")
+		}
+		if !log.VerbosityLevel(0) {
+			t.Error("Expected true for verbosity level 0 check")
+		}
 
 		wg := sync.WaitGroup{}
 		wg.Add(1)
