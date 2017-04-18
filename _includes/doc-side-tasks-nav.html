@@ -2,4 +2,5 @@
     {% assign current = page.url | downcase | split: '/' %}
     <li><h5 class="doc-side-nav-title">Tasks</h5></li>
     <li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/tasks/getting-started.html" {% if current[3] == 'getting-started.html' %}class='current'{% endif %}>Getting Started</a></li>
+    <li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/tasks/timeout-injection.html" {% if current[3] == 'timeout-injection.html' %}class='current'{% endif %}>Timeout Injection</a></li>
 </ul>
