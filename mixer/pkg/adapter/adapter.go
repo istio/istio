@@ -100,6 +100,14 @@ type (
 	// augments it with desirable metadata and then routes it
 	// to the right place.
 	Logger interface {
+		// Used to determine if the supplied verbosity level is enabled.
+		// Example:
+		//
+		// if env.Logger().VerbosityLevel(4) {
+		//   env.Logger().Infof(...)
+		// }
+		VerbosityLevel(level VerbosityLevel) bool
+
 		// Infof logs optional information.
 		Infof(format string, args ...interface{})
 
@@ -111,4 +119,8 @@ type (
 		// an error instance for convenience.
 		Errorf(format string, args ...interface{}) error
 	}
+
+	// VerbosityLevel is used to control the level of detailed logging for
+	// adapters.
+	VerbosityLevel int32
 )

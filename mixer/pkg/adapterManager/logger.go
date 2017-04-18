@@ -19,6 +19,8 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
+
+	"istio.io/mixer/pkg/adapter"
 )
 
 type logger struct {
@@ -27,6 +29,11 @@ type logger struct {
 
 func newLogger(aspect string) logger {
 	return logger{aspect: aspect}
+}
+
+func (l logger) VerbosityLevel(level adapter.VerbosityLevel) bool {
+	v := glog.V(glog.Level(level))
+	return bool(v)
 }
 
 func (l logger) Infof(format string, args ...interface{}) {
