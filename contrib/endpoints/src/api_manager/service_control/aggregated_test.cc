@@ -321,8 +321,15 @@ TEST_F(QuotaAllocationTestWithRealClient, AllocateQuotaFailedTest) {
   info.metric_cost_vector = &metric_cost_vector_;
 
   FillOperationInfo(&info);
-  sc_lib_->Quota(info, nullptr, [](Status status) {
-    ASSERT_TRUE(status.code() == Code::RESOURCE_EXHAUSTED);
+
+  // Quota cache always allows the first call. The negative will take effect
+  // only after remote server call is replied. In this case, it will be the
+  // second call.
+  sc_lib_->Quota(info, nullptr, [info, this](Status status) {
+    EXPECT_EQ(status.code(), Code::OK);
+    sc_lib_->Quota(info, nullptr, [](Status status) {
+      EXPECT_EQ(status.code(), Code::RESOURCE_EXHAUSTED);
+    });
   });
 }
 
