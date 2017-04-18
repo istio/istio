@@ -373,6 +373,7 @@ new_go_repository(
 
 new_go_repository(
     name = "org_golang_x_text",
+    build_file_name = "BUILD.bazel",
     commit = "f4b4367115ec2de254587813edaa901bc1c723a8",  # Mar 31, 2017 (no releases)
     importpath = "golang.org/x/text",
 )
@@ -397,7 +398,7 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_coreos_pkg",
-    commit = "7f080b6c11ac2d2347c3cd7521e810207ea1a041",  # May 30, 2016 (v2)
+    commit = "1c941d73110817a80b9fa6e14d5d2b00d977ce2a",  # Feb 6, 2017 (fix for build dir bazel issue)
     importpath = "github.com/coreos/pkg",
 )
 
