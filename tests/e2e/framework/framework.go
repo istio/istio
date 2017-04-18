@@ -93,7 +93,7 @@ func (t *TestCleanup) getCleanupAction() func() error {
 	if len(t.CleanupActions) == 0 {
 		return nil
 	}
-	fn := t.CleanupActions[len(t.CleanupActions) - 1]
+	fn := t.CleanupActions[len(t.CleanupActions)-1]
 	t.CleanupActions = t.CleanupActions[:len(t.CleanupActions)-1]
 	return fn
 }
@@ -128,7 +128,7 @@ func (t *TestCleanup) Cleanup() {
 }
 
 func (c *CommonConfig) SaveLogs(r int) error {
-	if c.Info == nil{
+	if c.Info == nil {
 		glog.Warning("Skipping log saving as Info is not initialized")
 		return nil
 	}
