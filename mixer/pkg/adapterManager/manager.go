@@ -128,7 +128,7 @@ func newManager(r builderFinder, m [config.NumKinds]aspect.Manager, exp expr.Eva
 
 // Check dispatches to the set of aspects associated with the Check API method
 func (m *Manager) Check(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status {
-	configs, err := m.loadConfigs(requestBag, m.checkKindSet, false)
+	configs, err := m.loadConfigs(requestBag, m.checkKindSet, false, true /* fail if unable to eval all selectors */)
 	if err != nil {
 		glog.Error(err)
 		return status.WithError(err)
@@ -142,7 +142,7 @@ func (m *Manager) Check(ctx context.Context, requestBag, responseBag *attribute.
 
 // Report dispatches to the set of aspects associated with the Report API method
 func (m *Manager) Report(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status {
-	configs, err := m.loadConfigs(requestBag, m.reportKindSet, false)
+	configs, err := m.loadConfigs(requestBag, m.reportKindSet, false, false /* carry on if unable to eval all selectors */)
 	if err != nil {
 		glog.Error(err)
 		return status.WithError(err)
@@ -160,7 +160,7 @@ func (m *Manager) Quota(ctx context.Context, requestBag, responseBag *attribute.
 
 	var qmr *aspect.QuotaMethodResp
 
-	configs, err := m.loadConfigs(requestBag, m.quotaKindSet, false)
+	configs, err := m.loadConfigs(requestBag, m.quotaKindSet, false, true /* fail if unable to eval all selectors */)
 	if err != nil {
 		glog.Error(err)
 		return qmr, status.WithError(err)
@@ -177,16 +177,17 @@ func (m *Manager) Quota(ctx context.Context, requestBag, responseBag *attribute.
 	return qmr, o
 }
 
-func (m *Manager) loadConfigs(attrs attribute.Bag, ks config.KindSet, isPreprocess bool) ([]*cpb.Combined, error) {
+func (m *Manager) loadConfigs(attrs attribute.Bag, ks config.KindSet, isPreprocess bool, strict bool) ([]*cpb.Combined, error) {
 	cfg, _ := m.cfg.Load().(config.Resolver)
 	if cfg == nil {
 		return nil, errors.New("configuration is not yet available")
 	}
+
 	resolveFn := cfg.Resolve
 	if isPreprocess {
 		resolveFn = cfg.ResolveUnconditional
 	}
-	configs, err := resolveFn(attrs, ks)
+	configs, err := resolveFn(attrs, ks, strict)
 	if err != nil {
 		return nil, fmt.Errorf("unable to resolve config: %v", err)
 	}
@@ -199,7 +200,8 @@ func (m *Manager) loadConfigs(attrs attribute.Bag, ks config.KindSet, isPreproce
 // Preprocess dispatches to the set of aspects that must run before any other
 // configured aspects.
 func (m *Manager) Preprocess(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status {
-	configs, err := m.loadConfigs(requestBag, m.preprocessKindSet, true)
+	// We may be missing attributes used in selectors, so we must be non-strict during evaluation.
+	configs, err := m.loadConfigs(requestBag, m.preprocessKindSet, true, false)
 	if err != nil {
 		glog.Error(err)
 		return status.WithError(err)
