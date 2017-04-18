@@ -20,8 +20,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/golang/glog"
-
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
@@ -178,40 +176,4 @@ func (infra *infra) teardown() {
 
 func (infra *infra) kubeApply(yaml string) error {
 	return util.RunInput(fmt.Sprintf("kubectl apply -n %s -f -", infra.Namespace), yaml)
-}
-
-func (infra *infra) checkProxyAccessLogs(accessLogs map[string][]string) error {
-	if !infra.checkLogs {
-		glog.Info("Log checking is disabled")
-		return nil
-	}
-	glog.Info("Checking access logs of pods to correlate request IDs...")
-	funcs := make(map[string]func() status)
-	for app, ids := range accessLogs {
-		if len(ids) > 0 {
-			name := fmt.Sprintf("Checking access log of %s", app)
-			funcs[name] = (func(app string) func() status {
-				return func() status {
-					access := util.FetchLogs(client, infra.apps[app][0], infra.Namespace, "proxy")
-					if strings.Contains(access, "segmentation fault") {
-						glog.Errorf("segmentation fault in proxy %s", app)
-						return failure
-					}
-					if strings.Contains(access, "assert failure") {
-						glog.Errorf("assert failure in proxy %s", app)
-						return failure
-					}
-					ids := accessLogs[app]
-					for _, id := range ids {
-						if !strings.Contains(access, id) {
-							glog.Infof("Failed to find request id %s in log of %s\n", id, app)
-							return again
-						}
-					}
-					return success
-				}
-			})(app)
-		}
-	}
-	return parallel(funcs)
 }

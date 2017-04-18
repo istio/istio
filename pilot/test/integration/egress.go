@@ -38,6 +38,7 @@ func (t *egress) setup() error {
 
 func (t *egress) run() error {
 	if !t.Egress {
+		glog.Info("skipping test since egress is missing")
 		return nil
 	}
 	extServices := []string{

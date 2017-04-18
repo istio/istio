@@ -19,9 +19,6 @@ package main
 import (
 	"fmt"
 	"regexp"
-	"strings"
-	"sync"
-	"time"
 
 	"github.com/golang/glog"
 
@@ -31,14 +28,7 @@ import (
 
 type reachability struct {
 	*infra
-
-	accessMu sync.Mutex
-
-	// accessLogs is a mapping from app name to a list of request ids that should be present in it
-	accessLogs map[string][]string
-
-	// mixerLogs is a collection of request IDs that we expect to find in the mixer logs
-	mixerLogs map[string]string
+	logs *accessLogs
 }
 
 func (r *reachability) String() string {
@@ -46,11 +36,7 @@ func (r *reachability) String() string {
 }
 
 func (r *reachability) setup() error {
-	r.mixerLogs = make(map[string]string)
-	r.accessLogs = make(map[string][]string)
-	for app := range r.apps {
-		r.accessLogs[app] = make([]string, 0)
-	}
+	r.logs = makeAccessLogs()
 	return nil
 }
 
@@ -62,13 +48,8 @@ func (r *reachability) run() error {
 	if err := r.makeRequests(); err != nil {
 		return err
 	}
-	if err := r.checkProxyAccessLogs(r.accessLogs); err != nil {
+	if err := r.logs.check(r.infra); err != nil {
 		return err
-	}
-	if r.checkLogs {
-		if err := r.checkMixerLogs(); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -98,21 +79,16 @@ func (r *reachability) makeRequests() error {
 							match := regexp.MustCompile("X-Request-Id=(.*)").FindStringSubmatch(request)
 							if len(match) > 1 {
 								id := match[1]
-								r.accessMu.Lock()
 								if src != "t" {
-									r.accessLogs[src] = append(r.accessLogs[src], id)
+									r.logs.add(src, id, name)
 								}
 								if dst != "t" {
-									r.accessLogs[dst] = append(r.accessLogs[dst], id)
+									r.logs.add(dst, id, name)
 								}
-
-								// TODO no logs when source and destination is same (e.g. from "a" pod to "a" pod)
-								// server side should have a proxy, so skip "t" destined requests
-								if src != dst && dst != "t" {
-									r.mixerLogs[id] = fmt.Sprintf("from %s to %s, port %s", src, dst, port)
+								// mixer filter is invoked on the server side, that is when dst is not "t"
+								if dst != "t" {
+									r.logs.add("mixer", id, name)
 								}
-								r.accessMu.Unlock()
-
 								return success
 							}
 							if src == "t" && dst == "t" {
@@ -127,28 +103,4 @@ func (r *reachability) makeRequests() error {
 		}
 	}
 	return parallel(funcs)
-}
-
-func (r *reachability) checkMixerLogs() error {
-	glog.Info("Checking mixer logs for request IDs...")
-
-	for n := 0; n < budget; n++ {
-		found := true
-		access := util.FetchLogs(client, r.apps["mixer"][0], r.Namespace, "mixer")
-
-		for id, desc := range r.mixerLogs {
-			if !strings.Contains(access, id) {
-				glog.Infof("Failed to find request id %s for %s in mixer logs\n", id, desc)
-				found = false
-				break
-			}
-		}
-
-		if found {
-			return nil
-		}
-
-		time.Sleep(time.Second)
-	}
-	return fmt.Errorf("exceeded budget for checking mixer logs")
 }

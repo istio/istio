@@ -47,6 +47,7 @@ go_test(
         "//test/util:go_default_library",
         "@com_github_emicklei_go_restful//:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_golang_protobuf//ptypes:go_default_library",
         "@io_istio_api//:go_default_library",
     ],
 )

@@ -69,7 +69,7 @@ def presubmit(gitUtils, bazel, utils) {
     }
     stage('Integration Tests') {
       timeout(15) {
-        sh("bin/e2e.sh -tag ${env.GIT_SHA} -v 2")
+        sh("bin/e2e.sh -tag ${env.GIT_SHA}")
       }
     }
   }
@@ -85,7 +85,7 @@ def stablePresubmit(gitUtils, bazel, utils) {
       sh("bin/cross-compile-istioctl -p ${remotePath}")
     }
     stage('Integration Tests') {
-      timeout(30) {
+      timeout(60) {
         sh("bin/e2e.sh -count 10 -logs=false -tag ${env.GIT_SHA}")
       }
     }
