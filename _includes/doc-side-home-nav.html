@@ -1,10 +1,11 @@
 <ul class="doc-side-nav doc-side-nav-home">
 	{% assign current = page.url | downcase | split: '/' %}
 	<h5 class="doc-side-nav-title">Home</h5>
-	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/home/notes.html" {% if current[3] == 'notes.html' %}class='current'{% endif %}>Release Notes</a></li>
-	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/home/roadmap.html" {% if current[3] == 'roadmap.html' %}class='current'{% endif %}>Roadmap</a></li>
+	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/home/glossary.html" {% if current[3] == 'glossary.html' %}class='current'{% endif %}>Glossary</a></li>
+	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/home/release-notes.html" {% if current[3] == 'release-notes.html' %}class='current'{% endif %}>Release Notes</a></li>
+	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/home/release-roadmap.html" {% if current[3] == 'release-roadmap.html' %}class='current'{% endif %}>Roadmap</a></li>
 	<li class="submenu">
-		<h6 class="arrow-r">Contributing to the Docs</h6>
+		<h6 class="arrow-r  {% if current[4] == 'index.html' %}active{% endif %}"><a href="{{site.baseurl}}/docs/home/contribute/index.html">Contributing to the Docs</a></h6>
 		<div class="submenu-content">
 			<a class="submenu-link {% if current[4] == 'editing.html' %}active{% endif %}" href="{{ site.baseurl }}/docs/home/contribute/editing.html">Editing Docs</a>
 			<a class="submenu-link {% if current[4] == 'creating-a-pull-request.html' %}active{% endif %}" href="{{ site.baseurl }}/docs/home/contribute/creating-a-pull-request.html">Creating a Pull Request</a>
