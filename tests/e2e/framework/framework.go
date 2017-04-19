@@ -32,7 +32,7 @@ type Runnable interface {
 
 // Hack to set the logging directory.
 // Should be called right after flag.Parse().
-func InitLogging() error {
+func InitGlog() error {
 	tmpDir, err := ioutil.TempDir(os.TempDir(), TMP_PREFIX)
 	if err != nil {
 		return err

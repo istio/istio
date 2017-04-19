@@ -44,7 +44,7 @@ func NewTestConfig() (*testConfig, error) {
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	framework.InitLogging()
+	framework.InitGlog()
 	var err error
 	c, err = NewTestConfig()
 	if err != nil {
