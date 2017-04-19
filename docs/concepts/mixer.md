@@ -184,7 +184,7 @@ subsequent phases.
 
 - **Attribute Processing**. The third phase takes the total set of attributes
 and produces a set of *adapter parameters*. Attribute processing is initially
-configured through a simple declarative form as described [here]({{site.baseurl}}/docs/config.html).
+configured through a simple declarative form as described [here]({{site.baseurl}}/docs/mixer-config.html).
 
 - **Adapter Dispatching**. The Resolution phase establishes the set of available aspects and the Attribute
 Processing phase creates a set of adapter parameters. The Adapter Dispatching phase invokes the adapters

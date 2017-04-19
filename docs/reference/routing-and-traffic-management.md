@@ -12,7 +12,7 @@ sidenav: doc-side-reference-nav.html
 Istio provides a simple Domain-specific language (DSL) to
 control how API calls and layer-4 traffic flow across various
 microservices in the application deployment. The DSL is a
-[YAML mapping](../concepts/writing-config.md) of a
+[YAML mapping](../reference/writing-config.md) of a
 [protobuf](https://developers.google.com/protocol-buffers/docs/proto3)
 schema documented [here](https://github.com/istio/api/blob/master/proxy/v1/config/cfg.md).
 The DSL allows the operator to

@@ -11,5 +11,5 @@ type: markdown
 Samples include a variety of fully working 
 example uses for Istio that you can experiment with.
 
-- [BookInfo]({{site.baseurl}}/docs/samples/bookinfo.html). This sample deploys a simple app that displays information about a
+- [BookInfo](./bookinfo.html). This sample deploys a simple app that displays information about a
 book, similar to a single catalog entry of an online book store.
