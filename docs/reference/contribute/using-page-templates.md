@@ -1,7 +1,7 @@
 ---
 title: Doc Templates
 headline: Using Page Templates
-sidenav: doc-side-home-nav.html
+sidenav: doc-side-reference-nav.html
 bodyclass: docs
 layout: docs
 type: markdown
@@ -137,7 +137,7 @@ Here's an interesting thing to know about the steps you just did.
 </pre>
 {% endraw %}
 
-Here's an example of a published topic that uses the task template: [TBD]({{site.baseurl}}/docs/tasks/tbd.html)
+[Here's]({{site.baseurl}}/docs/tasks/tbd.html) an example of a published topic that uses the task template.
 
 ## Tutorial template
 
@@ -218,7 +218,7 @@ Here's something interesting about the code you ran in the preceding steps.
 </pre>
 {% endraw %}
 
-[Here's]({{site.baseurl}}/docs/tutorials/TBD.html) an example of a published topic that uses the tutorial template.
+[Here's]({{site.baseurl}}/docs/tutorials/tbd.html) an example of a published topic that uses the tutorial template.
 
 ## Sample template
 

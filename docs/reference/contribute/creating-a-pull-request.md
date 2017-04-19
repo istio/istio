@@ -1,7 +1,7 @@
 ---
 title: Doc Pull Requests
 headline: Creating a Doc Pull Request
-sidenav: doc-side-home-nav.html
+sidenav: doc-side-reference-nav.html
 bodyclass: docs
 layout: docs
 type: markdown

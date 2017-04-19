@@ -1,7 +1,7 @@
 ---
 title: New Doc Topic
 headline: Writing a New Topic
-sidenav: doc-side-home-nav.html
+sidenav: doc-side-reference-nav.html
 bodyclass: docs
 layout: docs
 type: markdown
@@ -59,8 +59,7 @@ Choose a title for your topic that has the keywords you want search engines to f
 Create a filename for your topic that uses the words in your title, separated by hyphens,
 all in lower case.
 
-For example, the topic with title
-[TBD]({{site.baseurl}}/docs/tasks/tbd.html)
+For example, the topic with title [TBD]({{site.baseurl}}/docs/tasks/tbd.html)
 has filename `tbd.md`. You don't need to put
 "Istio" in the filename, because "Istio" is already in the
 URL for the topic, for example:

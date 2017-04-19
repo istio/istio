@@ -1,7 +1,7 @@
 ---
 title: Writing Configuration
 headline: Writing Configuration
-sidenav: doc-side-concepts-nav.html
+sidenav: doc-side-reference-nav.html
 bodyclass: docs
 layout: docs
 type: markdown

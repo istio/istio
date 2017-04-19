@@ -76,7 +76,7 @@ http://<grafana-svc-external-IP>:3000/dashboard/db/istio-dashboard
 
    ```bash
    source ./istio.VERSION # set ISTIOCTL env variable
-   wget -O /usr/local/bin/istioctl ${ISTIOCTL_URL}/istioctl-osx
+   curl ${ISTIOCTL_URL}/istioctl-osx > /usr/local/bin/istioctl
    chmod +x /usr/local/bin/istioctl
    ```
 

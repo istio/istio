@@ -1,0 +1,38 @@
+// Glossary page
+.glossary-container {
+  padding-bottom: 15px;
+
+  .submenu-content p,li,ul{
+    font-size: 12px;
+    font-weight: 400;
+    list-style: none;
+  }
+
+  .lead,
+  .glossary-title {
+    color: $titleColor;
+  }
+
+  .lead {
+    margin: 50px 0 40px 0;
+  }
+
+  .glossary-title {
+    margin: 40px 0 40px 0;
+  }
+
+  h6 {
+    font-size: .95rem;
+    letter-spacing: 1px;
+  }
+
+  h6.arrow-d,
+  h6.arrow-r {
+    margin: 0px 0 5px 0;
+    color: $black;
+  }
+
+  h6.arrow-d {
+    color: $black;
+  }
+}
