@@ -33,7 +33,20 @@ type testConfig struct {
 	t *test
 }
 
-func NewTestConfig() *testConfig {
+func newCommonConfig(testId string) (*CommonConfig, error) {
+	t, err := NewTestInfo(testId)
+	if err != nil {
+		return nil, err
+	}
+	c := &CommonConfig{
+		Info:    t,
+		Cleanup: new(TestCleanup),
+	}
+	c.Cleanup.RegisterCleanable(c.Info)
+	return c, nil
+}
+
+func newTestConfig() *testConfig {
 	t := new(testConfig)
 	t.s = new(sut)
 	t.t = new(test)
@@ -43,7 +56,7 @@ func NewTestConfig() *testConfig {
 	return t
 }
 
-func (s *sut) SetUp() error {
+func (s *sut) Setup() error {
 	if s.failSetup {
 		return errors.New("Failed")
 	}
@@ -51,7 +64,7 @@ func (s *sut) SetUp() error {
 	return nil
 }
 
-func (s *sut) TearDown() error {
+func (s *sut) Teardown() error {
 	if s.failTearDown {
 		return errors.New("Failed")
 	}
@@ -67,7 +80,7 @@ func (c *test) Run() int {
 	return 0
 }
 
-func (c *test) SetUp() error {
+func (c *test) Setup() error {
 	if c.failSetup {
 		return errors.New("Failed")
 	}
@@ -75,7 +88,7 @@ func (c *test) SetUp() error {
 	return nil
 }
 
-func (c *test) TearDown() error {
+func (c *test) Teardown() error {
 	if c.failTearDown {
 		return errors.New("Failed")
 	}
@@ -84,8 +97,11 @@ func (c *test) TearDown() error {
 }
 
 func TestSuccess(t *testing.T) {
-	c := NewCommonConfig("test-success")
-	tc := NewTestConfig()
+	c, err := newCommonConfig("test_success")
+	if err != nil {
+		t.Errorf("Error creating CommonConfig $s", err)
+	}
+	tc := newTestConfig()
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
 	c.RunTest(tc.t)
@@ -96,8 +112,11 @@ func TestSuccess(t *testing.T) {
 }
 
 func TestFailure(t *testing.T) {
-	c := NewCommonConfig("test-failure")
-	tc := NewTestConfig()
+	c, err := newCommonConfig("test_failure")
+	if err != nil {
+		t.Errorf("Error creating CommonConfig $s", err)
+	}
+	tc := newTestConfig()
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
 	tc.t.failRun = true
@@ -109,8 +128,11 @@ func TestFailure(t *testing.T) {
 }
 
 func TestInitFailure(t *testing.T) {
-	c := NewCommonConfig("test-init-failure")
-	tc := NewTestConfig()
+	c, err := newCommonConfig("test_init_failure")
+	if err != nil {
+		t.Errorf("Error creating CommonConfig $s", err)
+	}
+	tc := newTestConfig()
 	tc.s.failSetup = true
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
@@ -123,8 +145,11 @@ func TestInitFailure(t *testing.T) {
 }
 
 func TestSetupFailure(t *testing.T) {
-	c := NewCommonConfig("test-setup-failure")
-	tc := NewTestConfig()
+	c, err := newCommonConfig("test_setup_failure")
+	if err != nil {
+		t.Errorf("Error creating CommonConfig $s", err)
+	}
+	tc := newTestConfig()
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
 	tc.t.failSetup = true
@@ -136,8 +161,11 @@ func TestSetupFailure(t *testing.T) {
 }
 
 func TestTearDownFailure(t *testing.T) {
-	c := NewCommonConfig("test-tear-down-failure")
-	tc := NewTestConfig()
+	c, err := newCommonConfig("test_tear_down_failure")
+	if err != nil {
+		t.Errorf("Error creating CommonConfig $s", err)
+	}
+	tc := newTestConfig()
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
 	tc.t.failTearDown = true
@@ -149,8 +177,11 @@ func TestTearDownFailure(t *testing.T) {
 }
 
 func TestDeInitFailure(t *testing.T) {
-	c := NewCommonConfig("test-cleanup-failure")
-	tc := NewTestConfig()
+	c, err := newCommonConfig("test_cleanup_failure")
+	if err != nil {
+		t.Errorf("Error creating CommonConfig $s", err)
+	}
+	tc := newTestConfig()
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
 	tc.s.failTearDown = true

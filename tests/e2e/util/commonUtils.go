@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	TEST_RUNFILES_DIR = "go_default_test.runfiles/__main__"
+	TEST_RUNFILES_DIR = "go_default_test.runfiles/com_github_istio_istio"
 )
 
 func Shell(command string) (string, error) {

@@ -8,9 +8,7 @@ import (
 	"os/user"
 	"regexp"
 	"strings"
-	"path"
 	"path/filepath"
-	"os/exec"
 
 	"github.com/golang/glog"
 	"istio.io/istio/tests/e2e/util"
@@ -86,7 +84,7 @@ func NewKubeInfo(tmpDir, runId string) *KubeInfo {
 	}
 }
 
-func (k *KubeInfo) SetUp() error {
+func (k *KubeInfo) Setup() error {
 	if err := util.CreateNamespace(k.Namespace); err != nil {
 		glog.Error("Failed to create namespace.")
 		return err
@@ -101,7 +99,7 @@ func (k *KubeInfo) SetUp() error {
 	return nil
 }
 
-func (k *KubeInfo) TearDown() error {
+func (k *KubeInfo) Teardown() error {
 	if k.NamespaceCreated {
 		if err := util.DeleteNamespace(k.Namespace); err != nil {
 			return err
@@ -199,16 +197,6 @@ func DeployApp(k *KubeInfo, deployment, svcName, port1, port2, port3, port4, ver
 
 // Parse default value from istio.VERSION, TODO: find a better way to do this
 func parseVersion() {
-	out, err := exec.Command("pwd").Output()
-	glog.Infof("PWD: %s", out)
-
-	ex, err := os.Executable()
-	if err != nil {
-			panic(err)
-	}
-	exPath := path.Dir(ex)
-	glog.Infof("Get path: %s", exPath)
-
 	file, err := os.Open(filepath.Join(util.GetTestRuntimePath(), VERSION_FILE))
 	if err != nil {
 		glog.Warningf("Cannot get version file %s : %s\n", VERSION_FILE, err)
