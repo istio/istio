@@ -6,6 +6,7 @@
 [![Build Status](https://testing.istio.io/buildStatus/icon?job=mixer/postsubmit)](https://testing.istio.io/job/mixer/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/mixer)](https://goreportcard.com/report/github.com/istio/mixer)
 [![codecov.io](https://codecov.io/github/istio/mixer/coverage.svg?branch=master)](https://codecov.io/github/istio/mixer?branch=master)
+[![GitHub license](https://img.shields.io/github/license/istio/mixer.svg)](LICENSE)
 
 The Istio mixer provides the foundation of the Istio service mesh
 design. It is responsible for insulating the Istio proxy and
