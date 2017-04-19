@@ -36,7 +36,9 @@ type TestInfo struct {
 }
 
 type TestStatus struct {
+	TestId string    `json:"test_id"`
 	Status int       `json:"status"`
+	RunId  string    `json:"run_id"`
 	Date   time.Time `json:"date"`
 }
 
@@ -91,6 +93,8 @@ func (t TestInfo) CreateStatusFile(r int) error {
 	ts := TestStatus{
 		Status: r,
 		Date:   time.Now(),
+		TestId: t.TestId,
+		RunId:  t.RunId,
 	}
 	fp := filepath.Join(t.LogsPath, fmt.Sprintf("%s.json", t.TestId))
 	f, err := os.Create(fp)
@@ -101,6 +105,7 @@ func (t TestInfo) CreateStatusFile(r int) error {
 	defer f.Close()
 	w := bufio.NewWriter(f)
 	e := json.NewEncoder(w)
+	e.SetIndent("", "  ")
 	err = e.Encode(ts)
 	w.Flush()
 	glog.Infof("Created Status file %s", fp)
