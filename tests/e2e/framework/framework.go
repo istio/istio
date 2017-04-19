@@ -2,9 +2,11 @@ package framework
 
 import (
 	"flag"
+	"fmt"
 	"github.com/golang/glog"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"sync"
 )
 
@@ -33,6 +35,7 @@ type TestCleanup struct {
 type CommonConfig struct {
 	Cleanup *TestCleanup
 	Info    *TestInfo
+	Kube    *KubeInfo
 	// Other common config here.
 }
 
@@ -50,17 +53,19 @@ func NewCommonConfig(testId string) *CommonConfig {
 	if err != nil {
 		glog.Fatal("Could not create a Temporary dir")
 	}
-
+	runId := generateRunId(testId)
 	c := &CommonConfig{
 		Info: &TestInfo{
 			TestId:        testId,
-			RunId:         generateRunId(testId),
+			RunId:         runId,
 			LogBucketPath: *logsBucketPath,
 			LogsPath:      tmpDir,
 		},
+		Kube:    NewKubeInfo(tmpDir, runId),
 		Cleanup: new(TestCleanup),
 	}
 	c.Cleanup.RegisterCleanable(c.Info)
+	c.Cleanup.RegisterCleanable(c.Kube)
 	return c
 }
 
@@ -140,7 +145,7 @@ func (c *CommonConfig) SaveLogs(r int) error {
 	if err := c.Info.createStatusFile(r); err == nil {
 
 	} else {
-		glog.Error("Could not create status file")
+		glog.Errorf("Could not create status file: %s", err)
 		return err
 	}
 	return nil
@@ -149,14 +154,14 @@ func (c *CommonConfig) SaveLogs(r int) error {
 func (c *CommonConfig) RunTest(m Runnable) int {
 	ret := 1
 	if err := c.Cleanup.Init(); err != nil {
-		glog.Error("Failed to complete Init")
+		glog.Errorf("Failed to complete Init: %s", err)
 		ret = 1
 	} else {
 		glog.Info("Running test")
 		ret = m.Run()
 	}
 	if err := c.SaveLogs(ret); err != nil {
-		glog.Warning("Failed to save logs")
+		glog.Warning("Failed to save logs: %s", err)
 	}
 	c.Cleanup.Cleanup()
 	return ret
@@ -180,7 +185,11 @@ func (t TestInfo) TearDown() error {
 }
 
 func generateRunId(t string) string {
-	return "generatedId"
+	out, err := exec.Command("uuidgen").Output()
+	if err != nil {
+		glog.Errorf("Failed to generate RunId: %s", err)
+	}
+	return fmt.Sprintf("istio-e2e-%s-%s", t, string(out[0:8]))
 
 }
 

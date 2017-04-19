@@ -17,7 +17,18 @@ type testConfig struct {
 	sampleValue string
 }
 
+
 func (c *testConfig) SetUp() error {
+	if err := framework.DeployApp(c.Kube, "t", "t", "8080", "80", "9090", "90", "unversioned", false); err != nil {
+		return err
+	}
+	if err := framework.DeployApp(c.Kube, "a", "a", "8080", "80", "9090", "90", "v1", true); err != nil {
+		return err
+	}
+	if err := framework.DeployApp(c.Kube, "b", "b", "80", "8080", "90", "9090", "unversioned", true); err != nil {
+		return err
+	}
+
 	glog.Info("Sample test Setup")
 	c.sampleValue = "sampleValue"
 	return nil
@@ -34,7 +45,7 @@ func TestSample(t *testing.T) {
 
 func NewTestConfig() *testConfig {
 	return &testConfig{
-		CommonConfig: framework.NewCommonConfig("sample_test"),
+		CommonConfig: framework.NewCommonConfig("sample-test"),
 	}
 }
 

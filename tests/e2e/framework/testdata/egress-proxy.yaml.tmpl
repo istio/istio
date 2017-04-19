@@ -1,0 +1,48 @@
+# Example external service for egress
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin
+  annotations:
+    istio.io/external.dns: httpbin.org
+spec:
+  type: ExternalName
+  externalName: istio-egress.{{.Namespace}}.svc.cluster.local
+  ports:
+  - port: 80
+    name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-egress
+spec:
+  ports:
+  - port: 80
+    name: "80"
+  selector:
+    app: istio-egress
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-egress
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: istio-egress
+    spec:
+      containers:
+      - name: proxy
+        image: {{.ProxyHub}}/proxy:{{.ProxyTag}}
+        imagePullPolicy: Always
+        args: ["proxy", "egress", "-v", "{{.Verbosity}}"]
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+---

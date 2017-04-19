@@ -84,7 +84,7 @@ func (c *test) TearDown() error {
 }
 
 func TestSuccess(t *testing.T) {
-	c := NewCommonConfig("test_success")
+	c := NewCommonConfig("test-success")
 	tc := NewTestConfig()
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
@@ -96,7 +96,7 @@ func TestSuccess(t *testing.T) {
 }
 
 func TestFailure(t *testing.T) {
-	c := NewCommonConfig("test_failure")
+	c := NewCommonConfig("test-failure")
 	tc := NewTestConfig()
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)

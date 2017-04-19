@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingress-controller
+  labels:
+    app: ingress
+spec:
+  ports:
+  - name: https
+    port: 443
+  - name: http
+    port: 80
+  selector:
+    app: ingress
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-ingress
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ingress
+    spec:
+      containers:
+      - name: proxy
+        image: {{.ProxyHub}}/proxy:{{.ProxyTag}}
+        args: ["proxy", "ingress", "-v", "{{.Verbosity}}", "--secret", "ingress"]
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 443
+        - containerPort: 80
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace

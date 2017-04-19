@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+data:
+  mesh: |-
+    discoveryAddress: istio-manager:8080
+{{if .Mixer}}
+    mixerAddress: istio-mixer:9091
+{{end}}
+    authPolicy: {{ .Auth }}
+    authCertsPath: /etc/certs

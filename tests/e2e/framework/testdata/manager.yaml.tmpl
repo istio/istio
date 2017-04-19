@@ -1,0 +1,50 @@
+# Manager service for discovery
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+data:
+  mesh: |-
+    mixerAddress: istio-mixer:9091
+    discoveryAddress: istio-manager:8080
+---
+# Manager
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-manager
+  labels:
+    istio: manager
+spec:
+  ports:
+  - port: 8080
+    name: http-discovery
+  selector:
+    istio: manager
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-manager
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
+      labels:
+        istio: manager
+    spec:
+      containers:
+      - name: manager
+        image: {{.ManagerImage}}
+        imagePullPolicy: Always
+        args: ["discovery", "-v", "2"]
+        ports:
+        - containerPort: 8080
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
