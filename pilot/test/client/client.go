@@ -18,24 +18,24 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
-	"crypto/tls"
-
 	"github.com/golang/sync/errgroup"
+	"google.golang.org/grpc"
+	pb "istio.io/manager/test/grpcecho"
 )
 
 var (
-	count    int
-	parallel bool
-	insecure bool
-	timeout  time.Duration
-	client   *http.Client
+	count   int
+	timeout time.Duration
 
 	url       string
 	headerKey string
@@ -44,83 +44,122 @@ var (
 
 func init() {
 	flag.IntVar(&count, "count", 1, "Number of times to make the request")
-	flag.BoolVar(&parallel, "parallel", true, "Run requests in parallel")
-	flag.BoolVar(&insecure, "insecure", false, "Insecure requests")
-	flag.DurationVar(&timeout, "timeout", 60*time.Second, "Request timeout")
+	flag.DurationVar(&timeout, "timeout", 15*time.Second, "Request timeout")
 	flag.StringVar(&url, "url", "", "Specify URL")
 	flag.StringVar(&headerKey, "key", "", "Header key")
 	flag.StringVar(&headerVal, "val", "", "Header value")
 }
 
-func makeRequest(i int) func() error {
-	return func() error {
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			return err
-		}
-
-		log.Printf("[%d] Url=%s\n", i, url)
-		if headerKey != "" {
-			req.Header.Add(headerKey, headerVal)
-			log.Printf("[%d] Header=%s:%s\n", i, headerKey, headerVal)
-		}
-
-		resp, err := client.Do(req)
-		if err != nil {
-			return err
-		}
-
-		log.Printf("[%d] StatusCode=%d\n", i, resp.StatusCode)
-
-		data, err := ioutil.ReadAll(resp.Body)
-		defer func() {
-			if err = resp.Body.Close(); err != nil {
-				log.Printf("[%d error] %s\n", i, err)
+func makeHTTPRequest(client *http.Client) func(int) func() error {
+	return func(i int) func() error {
+		return func() error {
+			req, err := http.NewRequest("GET", url, nil)
+			if err != nil {
+				return err
 			}
-		}()
 
-		if err != nil {
-			return err
-		}
-
-		for _, line := range strings.Split(string(data), "\n") {
-			if line != "" {
-				log.Printf("[%d body] %s\n", i, line)
+			log.Printf("[%d] Url=%s\n", i, url)
+			if headerKey != "" {
+				req.Header.Add(headerKey, headerVal)
+				log.Printf("[%d] Header=%s:%s\n", i, headerKey, headerVal)
 			}
-		}
 
-		return nil
+			resp, err := client.Do(req)
+			if err != nil {
+				return err
+			}
+
+			log.Printf("[%d] StatusCode=%d\n", i, resp.StatusCode)
+
+			data, err := ioutil.ReadAll(resp.Body)
+			defer func() {
+				if err = resp.Body.Close(); err != nil {
+					log.Printf("[%d error] %s\n", i, err)
+				}
+			}()
+
+			if err != nil {
+				return err
+			}
+
+			for _, line := range strings.Split(string(data), "\n") {
+				if line != "" {
+					log.Printf("[%d body] %s\n", i, line)
+				}
+			}
+
+			return nil
+		}
+	}
+}
+
+func makeGRPCRequest(client pb.EchoTestServiceClient) func(int) func() error {
+	return func(i int) func() error {
+		return func() error {
+			req := &pb.EchoRequest{Message: fmt.Sprintf("request #%d", i)}
+			log.Printf("[%d] grpcecho.Echo(%v)\n", i, req)
+			resp, err := client.Echo(context.Background(), req)
+			if err != nil {
+				return err
+			}
+
+			// when the underlying HTTP2 request returns status 404, GRPC
+			// request does not return an error in grpc-go.
+			// instead it just returns an empty response
+			for _, line := range strings.Split(resp.GetMessage(), "\n") {
+				if line != "" {
+					log.Printf("[%d body] %s\n", i, line)
+				}
+			}
+			return nil
+		}
 	}
 }
 
 func main() {
 	flag.Parse()
-	/* #nosec */
-	client = &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: insecure,
+	var f func(int) func() error
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+		/* #nosec */
+		client := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
 			},
-		},
-		Timeout: timeout,
+			Timeout: timeout,
+		}
+		f = makeHTTPRequest(client)
+	} else if strings.HasPrefix(url, "grpc://") {
+		address := url[len("grpc://"):]
+		conn, err := grpc.Dial(address,
+			grpc.WithInsecure(),
+			// grpc-go sets incorrect authority header
+			grpc.WithAuthority(address),
+			grpc.WithBlock(),
+			grpc.WithTimeout(timeout))
+		if err != nil {
+			log.Fatalf("did not connect: %v", err)
+		}
+		defer func() {
+			if err := conn.Close(); err != nil {
+				log.Println(err)
+			}
+		}()
+		client := pb.NewEchoTestServiceClient(conn)
+		f = makeGRPCRequest(client)
+	} else {
+		log.Fatalf("Unrecognized protocol %q", url)
 	}
+
 	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < count; i++ {
-		if parallel {
-			g.Go(makeRequest(i))
-		} else {
-			err := makeRequest(i)()
-			if err != nil {
-				log.Printf("[%d error] %s\n", i, err)
-			}
-		}
+		g.Go(f(i))
 	}
-	if parallel {
-		err := g.Wait()
-		if err != nil {
-			log.Printf("Error %s\n", err)
-		} else {
-			log.Println("All requests succeeded")
-		}
+	if err := g.Wait(); err != nil {
+		log.Printf("Error %s\n", err)
+		os.Exit(1)
 	}
+
+	log.Println("All requests succeeded")
 }

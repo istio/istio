@@ -4,7 +4,11 @@ go_library(
     name = "go_default_library",
     srcs = ["client.go"],
     visibility = ["//visibility:private"],
-    deps = ["@com_github_golang_sync//errgroup:go_default_library"],
+    deps = [
+        "//test/grpcecho:go_default_library",
+        "@com_github_golang_sync//errgroup:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
 )
 
 go_binary(

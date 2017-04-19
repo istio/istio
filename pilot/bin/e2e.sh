@@ -38,4 +38,4 @@ for image in app init proxy manager; do
   docker push $hub/$image:$tag
 done
 
-bazel $BAZEL_ARGS run //test/integration -- --logtostderr -v 2 $args
+bazel $BAZEL_ARGS run //test/integration -- --logtostderr $args

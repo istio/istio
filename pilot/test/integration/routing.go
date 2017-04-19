@@ -18,7 +18,6 @@ package main
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"time"
 
@@ -121,32 +120,23 @@ func (t *routing) teardown() {
 	}
 }
 
+func counts(elts []string) map[string]int {
+	out := make(map[string]int)
+	for _, elt := range elts {
+		out[elt] = out[elt] + 1
+	}
+	return out
+}
+
 // verifyRouting verifies if the traffic is split as specified across different deployments in a service
 func (t *routing) verifyRouting(src, dst, headerKey, headerVal string,
 	samples int, expectedCount map[string]int) error {
-	count := make(map[string]int)
-	for version := range expectedCount {
-		count[version] = 0
-	}
-
 	url := fmt.Sprintf("http://%s/%s", dst, src)
 	glog.Infof("Making %d requests (%s) from %s...\n", samples, url, src)
 
-	cmd := fmt.Sprintf("kubectl exec %s -n %s -c app -- client -url %s -count %d -key %s -val %s",
-		t.apps[src][0], t.Namespace, url, samples, headerKey, headerVal)
-	request, err := util.Shell(cmd)
-	if err != nil {
-		return err
-	}
-
-	matches := regexp.MustCompile("ServiceVersion=(.*)").FindAllStringSubmatch(request, -1)
-	for _, match := range matches {
-		if len(match) > 1 {
-			id := match[1]
-			count[id]++
-		}
-	}
-
+	resp := t.clientRequest(src, url, samples, fmt.Sprintf("-key %s -val %s", headerKey, headerVal))
+	count := counts(resp.version)
+	glog.Infof("request counts %v", count)
 	epsilon := 5
 
 	var errs error
@@ -163,33 +153,23 @@ func (t *routing) verifyRouting(src, dst, headerKey, headerVal string,
 // verifyFaultInjection verifies if the fault filter was setup properly
 func (t *routing) verifyFaultInjection(src, dst, headerKey, headerVal string,
 	respTime time.Duration, respCode int) error {
-
 	url := fmt.Sprintf("http://%s/%s", dst, src)
 	glog.Infof("Making 1 request (%s) from %s...\n", url, src)
-	cmd := fmt.Sprintf("kubectl exec %s -n %s -c app -- client -url %s -key %s -val %s",
-		t.apps[src][0], t.Namespace, url, headerKey, headerVal)
 
 	start := time.Now()
-	request, err := util.Shell(cmd)
+	resp := t.clientRequest(src, url, 1, fmt.Sprintf("-key %s -val %s", headerKey, headerVal))
 	elapsed := time.Since(start)
-	if err != nil {
-		return err
-	}
 
-	match := regexp.MustCompile("StatusCode=(.*)").FindStringSubmatch(request)
-	statusCode := 0
-	if len(match) > 1 {
-		statusCode, err = strconv.Atoi(match[1])
-		if err != nil {
-			statusCode = -1
-		}
+	statusCode := ""
+	if len(resp.code) > 0 {
+		statusCode = resp.code[0]
 	}
 
 	// +/- 1s variance
 	epsilon := time.Second * 2
-	if elapsed > respTime+epsilon || elapsed < respTime-epsilon || respCode != statusCode {
+	if elapsed > respTime+epsilon || elapsed < respTime-epsilon || strconv.Itoa(respCode) != statusCode {
 		return fmt.Errorf("fault injection verification failed: "+
-			"response time is %s with status code %d, "+
+			"response time is %s with status code %s, "+
 			"expected response time is %s +/- %s with status code %d", elapsed, statusCode, respTime, epsilon, respCode)
 	}
 	return nil

@@ -15,6 +15,9 @@ rm -rf vendor/k8s.io/apimachinery/vendor
 mkdir -p vendor/istio.io/api/proxy/v1/config
 ln -sf "$(pwd)/bazel-genfiles/external/io_istio_api/proxy/v1/config/cfg.pb.go" \
   vendor/istio.io/api/proxy/v1/config/cfg.pb.go
+mkdir -p vendor/istio.io/manager/test/grpcecho
+ln -sf "$(pwd)/bazel-genfiles/test/grpcecho/echo.pb.go" \
+  vendor/istio.io/manager/test/grpcecho/
 
 # Link mock gen files
 ln -sf "$(pwd)/bazel-genfiles/model/mock_config_gen_test.go" \

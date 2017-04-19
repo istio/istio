@@ -14,14 +14,7 @@
 
 package main
 
-import (
-	"fmt"
-	"regexp"
-
-	"github.com/golang/glog"
-
-	"istio.io/manager/test/util"
-)
+import "fmt"
 
 type tcp struct {
 	*infra
@@ -49,17 +42,11 @@ func (t *tcp) run() error {
 					funcs[name] = (func(src, dst, port, domain string) func() status {
 						url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
 						return func() status {
-							request, err := util.Shell(fmt.Sprintf("kubectl exec %s -n %s -c app -- client -url %s",
-								t.apps[src][0], t.Namespace, url))
-							if err != nil {
-								glog.Error(err)
-								return failure
+							resp := t.clientRequest(src, url, 1, "")
+							if len(resp.code) > 0 && resp.code[0] == "200" {
+								return nil
 							}
-							match := regexp.MustCompile("StatusCode=(.*)").FindStringSubmatch(request)
-							if len(match) > 1 && match[1] == "200" {
-								return success
-							}
-							return again
+							return errAgain
 						}
 					})(src, dst, port, domain)
 				}

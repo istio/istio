@@ -6,6 +6,7 @@ go_library(
         "access.go",
         "driver.go",
         "egress.go",
+        "grpc.go",
         "infra.go",
         "ingress.go",
         "reachability.go",

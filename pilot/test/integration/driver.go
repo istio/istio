@@ -18,10 +18,12 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"text/template"
 	"time"
 
@@ -102,6 +104,7 @@ func main() {
 		glog.Fatal(err)
 	}
 
+	params.Name = "(default infra)"
 	params.Auth = proxyconfig.ProxyMeshConfig_NONE
 	params.Mixer = true
 	params.Ingress = true
@@ -120,6 +123,7 @@ func main() {
 
 func setAuth(params infra) infra {
 	out := params
+	out.Name = "(auth infra)"
 	out.Auth = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
 	out.Ingress = false
 	out.Egress = false
@@ -156,22 +160,22 @@ func runTests(envs ...infra) {
 
 		tests := []test{
 			&reachability{infra: &istio},
+			&grpc{infra: &istio},
 			&tcp{infra: &istio},
 			&ingress{infra: &istio},
 			&egress{infra: &istio},
 			&routing{infra: &istio},
 		}
 
-		for i := 0; i < count; i++ {
-			log("Test execution #"+strconv.Itoa(i+1), "")
-			for _, test := range tests {
-				log("Setting up test", test.String())
+		for _, test := range tests {
+			for i := 0; i < count; i++ {
+				log("Test run", strconv.Itoa(i))
 				if err := test.setup(); err != nil {
-					errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%v (count %d)", test, i)))
+					errs = multierror.Append(errs, multierror.Prefix(err, test.String()))
 				} else {
 					log("Running test", test.String())
 					if err := test.run(); err != nil {
-						errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%v (count %d)", test, i)))
+						errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%v run %d", test, i)))
 					} else {
 						log("Success!", test.String())
 					}
@@ -181,11 +185,19 @@ func runTests(envs ...infra) {
 			}
 		}
 
-		//  spill proxy logs on error
+		// spill all logs on error
 		if errs != nil {
 			for _, pod := range util.GetPods(client, istio.Namespace) {
-				log("Proxy log", pod)
-				glog.Info(util.FetchLogs(client, pod, istio.Namespace, "proxy"))
+				if strings.HasPrefix(pod, "istio-manager") {
+					log("Manager log", pod)
+					glog.Info(util.FetchLogs(client, pod, istio.Namespace, "manager"))
+				} else if strings.HasPrefix(pod, "istio-mixer") {
+					log("Mixer log", pod)
+					glog.Info(util.FetchLogs(client, pod, istio.Namespace, "mixer"))
+				} else {
+					log("Proxy log", pod)
+					glog.Info(util.FetchLogs(client, pod, istio.Namespace, "proxy"))
+				}
 			}
 		}
 
@@ -197,7 +209,7 @@ func runTests(envs ...infra) {
 			log("Passed all tests!", fmt.Sprintf("tests: %v, count: %d", tests, count))
 		} else {
 			logError("Failed tests!", errs.Error())
-			result = multierror.Append(result, multierror.Prefix(errs, spew.Sdump(istio)))
+			result = multierror.Append(result, multierror.Prefix(errs, istio.Name))
 		}
 	}
 
@@ -230,12 +242,10 @@ func fill(inFile string, values interface{}) (string, error) {
 	return bytes.String(), nil
 }
 
-type status int
+type status error
 
-const (
-	success status = iota
-	failure
-	again
+var (
+	errAgain status = errors.New("try again")
 )
 
 // run in parallel with retries. all funcs must succeed for the function to succeed
@@ -245,12 +255,15 @@ func parallel(fs map[string]func() status) error {
 		return func() error {
 			for n := 0; n < budget; n++ {
 				glog.Infof("%s (attempt %d)", name, n)
-				switch f() {
-				case failure:
-					return fmt.Errorf("Failed %s at attempt %d", name, n)
-				case success:
+				err := f()
+				switch err {
+				case nil:
+					// success
 					return nil
-				case again:
+				case errAgain:
+					// do nothing
+				default:
+					return fmt.Errorf("failed %s at attempt %d: %v", name, n, err)
 				}
 				select {
 				case <-time.After(time.Second):
@@ -259,7 +272,7 @@ func parallel(fs map[string]func() status) error {
 					return nil
 				}
 			}
-			return fmt.Errorf("Failed all %d attempts for %s", budget, name)
+			return fmt.Errorf("failed all %d attempts for %s", budget, name)
 		}
 	}
 	for name, f := range fs {

@@ -19,6 +19,12 @@ spec:
   - port: 9090
     targetPort: {{.port4}}
     name: https
+  - port: 70
+    targetPort: {{.port5}}
+    name: http2-example
+  - port: 7070
+    targetPort: {{.port6}}
+    name: grpc
   selector:
     app: {{.service}}
 ---
@@ -47,6 +53,10 @@ spec:
           - "{{.port3}}"
           - --port
           - "{{.port4}}"
+          - --grpc
+          - "{{.port5}}"
+          - --grpc
+          - "{{.port6}}"
           - --port
           - "3333"
           - --version
@@ -60,6 +70,6 @@ spec:
           httpGet:
             path: /healthz
             port: 3333
-          initialDelaySeconds: 1
+          initialDelaySeconds: 10
           periodSeconds: 1
 ---

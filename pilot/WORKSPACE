@@ -2,7 +2,7 @@ workspace(name = "com_github_istio_manager")
 
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "87cdda3fc0fd65c63ef0316533be03ea4956f809",  # April 7 2017 (0.4.2)
+    commit = "78d030fc16e7c6e0a188714980db0b04086c4a5e",  # April 12 2017 (0.4.3)
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
@@ -108,12 +108,6 @@ new_go_repository(
     name = "com_github_golang_groupcache",
     commit = "02826c3e79038b59d737d3b1c0a1d937f71a4433",
     importpath = "github.com/golang/groupcache",
-)
-
-new_go_repository(
-    name = "com_github_golang_protobuf",
-    commit = "8616e8ee5e20a1704615e6c8d7afcdac06087a67",
-    importpath = "github.com/golang/protobuf",
 )
 
 new_go_repository(
@@ -330,9 +324,26 @@ http_file(
 ## Protobuf codegen rules
 ##
 
-load("@io_bazel_rules_go//proto:go_proto_library.bzl", "go_proto_repositories")
+# Note: do not use go_proto_repositories since it has old versions of protobuf and grpc-go
 
-go_proto_repositories()
+new_go_repository(
+    name = "com_github_golang_protobuf",
+    commit = "8ee79997227bf9b34611aee7946ae64735e6fd93",
+    importpath = "github.com/golang/protobuf",
+)
+
+http_archive(
+    name = "com_github_google_protobuf",
+    sha256 = "2a25c2b71c707c5552ec9afdfb22532a93a339e1ca5d38f163fe4107af08c54c",
+    strip_prefix = "protobuf-3.2.0",
+    url = "https://github.com/google/protobuf/archive/v3.2.0.tar.gz",
+)
+
+new_go_repository(
+    name = "org_golang_google_grpc",
+    commit = "8050b9cbc271307e5a716a9d782803d09b0d6f2d", # v1.2.1
+    importpath = "google.golang.org/grpc",
+)
 
 new_git_repository(
     name = "io_istio_api",

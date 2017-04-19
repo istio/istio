@@ -18,7 +18,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"regexp"
+	"strconv"
 	"strings"
+
+	"github.com/golang/glog"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -29,6 +33,8 @@ import (
 )
 
 type infra struct {
+	Name string
+
 	// docker tags
 	Hub, Tag   string
 	MixerImage string
@@ -105,34 +111,37 @@ func (infra *infra) setup() error {
 
 func (infra *infra) deployApps() error {
 	// deploy a healthy mix of apps, with and without proxy
-	if err := infra.deployApp("t", "t", "8080", "80", "9090", "90", "unversioned", false); err != nil {
+	if err := infra.deployApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false); err != nil {
 		return err
 	}
-	if err := infra.deployApp("a", "a", "8080", "80", "9090", "90", "v1", true); err != nil {
+	if err := infra.deployApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true); err != nil {
 		return err
 	}
-	if err := infra.deployApp("b", "b", "80", "8080", "90", "9090", "unversioned", true); err != nil {
+	if err := infra.deployApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true); err != nil {
 		return err
 	}
-	if err := infra.deployApp("c-v1", "c", "80", "8080", "90", "9090", "v1", true); err != nil {
+	if err := infra.deployApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true); err != nil {
 		return err
 	}
-	if err := infra.deployApp("c-v2", "c", "80", "8080", "90", "9090", "v2", true); err != nil {
+	if err := infra.deployApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (infra *infra) deployApp(deployment, svcName, port1, port2, port3, port4, version string, injectProxy bool) error {
+func (infra *infra) deployApp(deployment, svcName string, port1, port2, port3, port4, port5, port6 int,
+	version string, injectProxy bool) error {
 	w, err := fill("app.yaml.tmpl", map[string]string{
 		"Hub":        infra.Hub,
 		"Tag":        infra.Tag,
 		"service":    svcName,
 		"deployment": deployment,
-		"port1":      port1,
-		"port2":      port2,
-		"port3":      port3,
-		"port4":      port4,
+		"port1":      strconv.Itoa(port1),
+		"port2":      strconv.Itoa(port2),
+		"port3":      strconv.Itoa(port3),
+		"port4":      strconv.Itoa(port4),
+		"port5":      strconv.Itoa(port5),
+		"port6":      strconv.Itoa(port6),
 		"version":    version,
 	})
 	if err != nil {
@@ -176,4 +185,50 @@ func (infra *infra) teardown() {
 
 func (infra *infra) kubeApply(yaml string) error {
 	return util.RunInput(fmt.Sprintf("kubectl apply -n %s -f -", infra.Namespace), yaml)
+}
+
+type response struct {
+	id      []string
+	version []string
+	port    []string
+	code    []string
+}
+
+var (
+	idRex      = regexp.MustCompile("(?i)X-Request-Id=(.*)")
+	versionRex = regexp.MustCompile("ServiceVersion=(.*)")
+	portRex    = regexp.MustCompile("ServicePort=(.*)")
+	codeRex    = regexp.MustCompile("StatusCode=(.*)")
+)
+
+func (infra *infra) clientRequest(app, url string, count int, extra string) response {
+	request, err := util.Shell(fmt.Sprintf("kubectl exec %s -n %s -c app -- client -url %s -count %d %s",
+		infra.apps[app][0], infra.Namespace, url, count, extra))
+	out := response{}
+	if err != nil {
+		glog.Errorf("client request error %v for %s in %s", err, url, app)
+		return out
+	}
+
+	ids := idRex.FindAllStringSubmatch(request, -1)
+	for _, id := range ids {
+		out.id = append(out.id, id[1])
+	}
+
+	versions := versionRex.FindAllStringSubmatch(request, -1)
+	for _, version := range versions {
+		out.version = append(out.version, version[1])
+	}
+
+	ports := portRex.FindAllStringSubmatch(request, -1)
+	for _, port := range ports {
+		out.port = append(out.port, port[1])
+	}
+
+	codes := codeRex.FindAllStringSubmatch(request, -1)
+	for _, code := range codes {
+		out.code = append(out.code, code[1])
+	}
+
+	return out
 }

@@ -20,27 +20,41 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 
 	flag "github.com/spf13/pflag"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+	pb "istio.io/manager/test/grpcecho"
 )
 
 var (
-	ports   []string
-	version string
+	ports     []int
+	grpcPorts []int
+	version   string
 )
 
 func init() {
-	flag.StringArrayVar(&ports, "port", []string{"8080"}, "HTTP/1.1 ports")
+	flag.IntSliceVar(&ports, "port", []int{8080}, "HTTP/1.1 ports")
+	flag.IntSliceVar(&grpcPorts, "grpc", []int{7070}, "GRPC ports")
 	flag.StringVar(&version, "version", "", "Version string")
 }
 
-func httpHandler(w http.ResponseWriter, r *http.Request) {
+type handler struct {
+	port int
+}
+
+func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	body := bytes.Buffer{}
 	body.WriteString("ServiceVersion=" + version + "\n")
+	body.WriteString("ServicePort=" + strconv.Itoa(h.port) + "\n")
 	body.WriteString("Method=" + r.Method + "\n")
 	body.WriteString("URL=" + r.URL.String() + "\n")
 	body.WriteString("Proto=" + r.Proto + "\n")
@@ -51,7 +65,6 @@ func httpHandler(w http.ResponseWriter, r *http.Request) {
 			body.WriteString(fmt.Sprintf("%v=%v\n", name, h))
 		}
 	}
-
 	w.Header().Set("Content-Type", "application/text")
 	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write(body.Bytes()); err != nil {
@@ -59,18 +72,49 @@ func httpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func run(addr string) {
-	fmt.Printf("Listening HTTP1.1 on %v\n", addr)
-	if err := http.ListenAndServe(":"+addr, nil); err != nil {
+func (h handler) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoResponse, error) {
+	body := bytes.Buffer{}
+	md, ok := metadata.FromContext(ctx)
+	if ok {
+		for key, vals := range md {
+			body.WriteString(key + "=" + strings.Join(vals, " ") + "\n")
+		}
+	}
+	body.WriteString("ServiceVersion=" + version + "\n")
+	body.WriteString("ServicePort=" + strconv.Itoa(h.port) + "\n")
+	body.WriteString("Echo=" + req.GetMessage())
+	return &pb.EchoResponse{Message: body.String()}, nil
+}
+
+func runHTTP(port int) {
+	fmt.Printf("Listening HTTP1.1 on %v\n", port)
+	h := handler{port: port}
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), h); err != nil {
+		log.Println(err.Error())
+	}
+}
+
+func runGRPC(port int) {
+	fmt.Printf("Listening GRPC on %v\n", port)
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	h := handler{port: port}
+	grpcServer := grpc.NewServer()
+	pb.RegisterEchoTestServiceServer(grpcServer, &h)
+	if err = grpcServer.Serve(lis); err != nil {
 		log.Println(err.Error())
 	}
 }
 
 func main() {
 	flag.Parse()
-	http.HandleFunc("/", httpHandler)
 	for _, port := range ports {
-		go run(port)
+		go runHTTP(port)
+	}
+	for _, grpcPort := range grpcPorts {
+		go runGRPC(grpcPort)
 	}
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
