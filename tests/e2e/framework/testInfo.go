@@ -138,6 +138,7 @@ func (t TestInfo) uploadDir() error {
 	}
 
 	walkFn := func(path string, info os.FileInfo, err error) error {
+		// We are filtering all errors here as we want filepath.Walk to go over all the files.
 		if info.IsDir() {
 			return nil
 		}
