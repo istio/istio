@@ -1,7 +1,7 @@
 ---
 title: Release Notes
 headline: Release Notes
-sidenav: doc-side-home-nav.html
+sidenav: doc-side-reference-nav.html
 bodyclass: docs
 layout: docs
 type: markdown

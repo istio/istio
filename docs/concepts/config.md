@@ -331,6 +331,10 @@ The different descriptor types are detailed in *TBD*
 
 ### Scopes
 
+An Istio deployment can be responsible for managing a large number of services. Organizations
+often have dozens or hundreds of interacting services, and Istio's mission is to make it easy to
+manage them all.
+
 *TBD*
 
 ### Manifests
