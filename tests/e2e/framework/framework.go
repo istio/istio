@@ -8,21 +8,6 @@ import (
 	"sync"
 )
 
-var (
-	logsBucketPath = flag.String("logs_bucket_path", "", "Cloud Storage Bucket path to use to store logs")
-)
-
-const (
-	TMP_PREFIX = "istio.e2e."
-)
-
-type TestInfo struct {
-	RunId         string
-	TestId        string
-	LogBucketPath string
-	LogsPath      string
-}
-
 type TestCleanup struct {
 	Cleanables         []Cleanable
 	CleanablesLock     sync.Mutex
@@ -37,31 +22,40 @@ type CommonConfig struct {
 }
 
 type Cleanable interface {
-	SetUp() error
-	TearDown() error
+	Setup() error
+	Teardown() error
 }
 
 type Runnable interface {
 	Run() int
 }
 
-func NewCommonConfig(testId string) *CommonConfig {
+// Hack to set the logging directory.
+// Should be called right after flag.Parse().
+func InitLogging() error {
 	tmpDir, err := ioutil.TempDir(os.TempDir(), TMP_PREFIX)
 	if err != nil {
-		glog.Fatal("Could not create a Temporary dir")
+		return err
 	}
+	f := flag.Lookup("log_dir")
+	if err = f.Value.Set(tmpDir); err != nil {
+		return err
+	}
+	glog.Info("Logging initialized")
+	return nil
+}
 
+func NewCommonConfig(testId string) (*CommonConfig, error) {
+	t, err := NewTestInfo(testId)
+	if err != nil {
+		return nil, err
+	}
 	c := &CommonConfig{
-		Info: &TestInfo{
-			TestId:        testId,
-			RunId:         generateRunId(testId),
-			LogBucketPath: *logsBucketPath,
-			LogsPath:      tmpDir,
-		},
+		Info:    t,
 		Cleanup: new(TestCleanup),
 	}
 	c.Cleanup.RegisterCleanable(c.Info)
-	return c
+	return c, nil
 }
 
 func (t *TestCleanup) RegisterCleanable(c Cleanable) {
@@ -103,8 +97,8 @@ func (t *TestCleanup) Init() error {
 	glog.Info("Starting Initialization")
 	c := t.getCleanable()
 	for c != nil {
-		err := c.SetUp()
-		t.addCleanupAction(c.TearDown)
+		err := c.Setup()
+		t.addCleanupAction(c.Teardown)
 		if err != nil {
 			return err
 		}
@@ -135,9 +129,8 @@ func (c *CommonConfig) SaveLogs(r int) error {
 	if c.Info.LogBucketPath == "" {
 		return nil
 	}
-	// Delete namespace
 	glog.Info("Saving logs")
-	if err := c.Info.createStatusFile(r); err == nil {
+	if err := c.Info.CreateStatusFile(r); err == nil {
 
 	} else {
 		glog.Error("Could not create status file")
@@ -160,33 +153,4 @@ func (c *CommonConfig) RunTest(m Runnable) int {
 	}
 	c.Cleanup.Cleanup()
 	return ret
-}
-
-func (t TestInfo) SetUp() error {
-	glog.Info("Creating status file")
-	setupLogging(t.LogsPath)
-	return nil
-}
-
-func (t TestInfo) createStatusFile(r int) error {
-	glog.Info("Creating status file")
-	return nil
-}
-
-func (t TestInfo) TearDown() error {
-	glog.Info("Uploading log remotely")
-	glog.Flush()
-	return nil
-}
-
-func generateRunId(t string) string {
-	return "generatedId"
-
-}
-
-func setupLogging(logPath string) {
-	// Hack to set the logging directory. No logging should be done before calling this.
-	f := flag.Lookup("log_dir")
-	f.Value.Set(logPath)
-	glog.Info("Using log path ", logPath)
 }
