@@ -1,7 +1,7 @@
 ---
 title: New Doc Topic
 headline: Writing a New Topic
-sidenav: doc-side-home-nav.html
+sidenav: doc-side-reference-nav.html
 bodyclass: docs
 layout: docs
 type: markdown

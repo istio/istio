@@ -14,9 +14,9 @@
 		display: inline-block;
 
 		&.docs-tab a {
-      border-bottom: 2px solid $gray;
-      display: inline-block;
-      font-weight: 300;
+            border-bottom: 2px solid $gray;
+            display: inline-block;
+            font-weight: 300;
 
 			@media (min-width: $tablet) {
 				display: none;
@@ -24,28 +24,28 @@
 		}
 
 		a {
-      border-bottom: 2px solid transparent;
-      color: $gray;
-      display: none;
-      font-size: .85rem;
-      font-weight: 400;
-      letter-spacing: 0.5px;
-      margin-right: 16px;
+            border-bottom: 2px solid transparent;
+            color: $gray;
+            display: none;
+            font-size: .85rem;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            margin-right: 16px;
 
 			&:hover {
 				border-bottom: 2px solid $gray;
 			}
 
 			@media (min-width: $tablet) {
-        display: inline-block;
-        font-weight: 300;
+                display: inline-block;
+                font-weight: 300;
 			}
 		}
 
 		.current {
-      border-bottom: 2px solid $gray;
-      color: $gray;
-      display: inline-block;
+            border-bottom: 2px solid $gray;
+            color: $gray;
+            display: inline-block;
 
 			@media (min-width: $tablet) {
 				border-bottom: 2px solid $secondBrandColor !important;
@@ -57,12 +57,13 @@
 
 // Documentation Side Navigation
 .doc-side-nav {
-	background-color: $light-gray;
-	margin-bottom: 20px;
-	@media (min-width: $tablet) {
-    margin-bottom: 0;
-    padding: $spacing--xs 0 $spacing--xl;
-	}
+    background-color: $light-gray;
+    margin-bottom: 20px;
+
+    @media (min-width: $tablet) {
+        margin-bottom: 0;
+        padding: $spacing--xs 0 $spacing--xl;
+    }
 
 	// Add caret to current page
 	.current:before{
@@ -84,31 +85,27 @@
 			font-weight: 400;
 		}
 	}
-}
 
-// Different styling for doc side nav for doc home page with nested items
-.doc-side-nav-home {
-
-  h6 {
-    color: $dark-gray;
-    font-size: 13px;
-    font-weight: 400;
-    line-height: 22px;
-  }
-
-  .submenu {
-    padding: 2px 15px;
-  }
-
-  .submenu-link {
-    display: block;
-    font-size: 12px;
-    font-weight: 400;
-    line-height: 22px;
-    color: $gray;
-
-    &.active:before {
-      content: '> ';
+    h6 {
+        color: $dark-gray;
+        font-size: 13px;
+        font-weight: 400;
+        line-height: 22px;
     }
-  }
+
+    .submenu {
+        padding: 2px 15px;
+    }
+
+    .submenu-link {
+        display: block;
+        font-size: 12px;
+        font-weight: 400;
+        line-height: 22px;
+        color: $gray;
+
+        &.active:before {
+            content: '> ';
+        }
+    }
 }

@@ -4,7 +4,16 @@
 	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/concepts/what-is-istio.html" {% if current[3] == 'what-is-istio.html' %}class='current'{% endif %}>What is Istio?</a></li>
 	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/concepts/model.html" {% if current[3] == 'model.html' %}class='current'{% endif %}>Service Model</a></li>
 	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/concepts/attributes.html" {% if current[3] == 'attributes.html' %}class='current'{% endif %}>Attributes</a></li>
-	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/concepts/mixer.html" {% if current[3] == 'mixer.html' %}class='current'{% endif %}>Mixer</a></li>
-	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/concepts/config.html" {% if current[3] == 'config.html' %}class='current'{% endif %}>Mixer Configuration Model</a></li>
-  <li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/concepts/writing-config.html" {% if current[3] == 'writing-config.html' %}class='current'{% endif %}>Writing Configuration</a></li>
+
+	<li class="submenu">
+		<h6 class="arrow-r">Network and Auth</h6>
+	</li>
+
+	<li class="submenu">
+		<h6 class="arrow-r">Policies and Control</h6>
+		<div class="submenu-content">
+			<a class="submenu-link {% if current[4] == 'mixer.html' %}active{% endif %}" href="{{ site.baseurl }}/docs/concepts/mixer.html">Mixer</a>
+			<a class="submenu-link {% if current[4] == 'mixer-config.html' %}active{% endif %}" href="{{ site.baseurl }}/docs/concepts/mixer-config.html">Mixer Configuration</a>
+		</div>
+	</li>
  </ul>
