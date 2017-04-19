@@ -14,7 +14,7 @@ func Fill(outFile, inFile string, values interface{}) error {
 	var bytes bytes.Buffer
 	w := bufio.NewWriter(&bytes)
 
-	tmpl, err := template.ParseFiles("framework/testdata/" + inFile)
+	tmpl, err := template.ParseFiles(GetTestRuntimePath() + "/tests/e2e/framework/testdata/" + inFile)
 	if err != nil {
 		return err
 	}

@@ -7,8 +7,14 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"path"
+	"path/filepath"
 
 	"github.com/golang/glog"
+)
+
+const (
+	TEST_RUNFILES_DIR = "go_default_test.runfiles/__main__"
 )
 
 func Shell(command string) (string, error) {
@@ -41,4 +47,14 @@ func WebDownload(dst string, src string) error {
 	}
 	glog.Info("Download successfully!")
 	return nil
+}
+
+
+func GetTestRuntimePath() string {
+	ex, err := os.Executable()
+	if err != nil {
+			glog.Warning("Cannot get runtime path")
+	}
+
+	return filepath.Join(path.Dir(ex), TEST_RUNFILES_DIR)
 }

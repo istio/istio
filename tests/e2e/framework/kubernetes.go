@@ -8,6 +8,9 @@ import (
 	"os/user"
 	"regexp"
 	"strings"
+	"path"
+	"path/filepath"
+	"os/exec"
 
 	"github.com/golang/glog"
 	"istio.io/istio/tests/e2e/util"
@@ -196,7 +199,17 @@ func DeployApp(k *KubeInfo, deployment, svcName, port1, port2, port3, port4, ver
 
 // Parse default value from istio.VERSION, TODO: find a better way to do this
 func parseVersion() {
-	file, err := os.Open(VERSION_FILE)
+	out, err := exec.Command("pwd").Output()
+	glog.Infof("PWD: %s", out)
+
+	ex, err := os.Executable()
+	if err != nil {
+			panic(err)
+	}
+	exPath := path.Dir(ex)
+	glog.Infof("Get path: %s", exPath)
+
+	file, err := os.Open(filepath.Join(util.GetTestRuntimePath(), VERSION_FILE))
 	if err != nil {
 		glog.Warningf("Cannot get version file %s : %s\n", VERSION_FILE, err)
 		return

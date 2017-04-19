@@ -109,7 +109,7 @@ func TestFailure(t *testing.T) {
 }
 
 func TestInitFailure(t *testing.T) {
-	c := NewCommonConfig("test_init_failure")
+	c := NewCommonConfig("test-init-failure")
 	tc := NewTestConfig()
 	tc.s.failSetup = true
 	c.Cleanup.RegisterCleanable(tc.s)
@@ -123,7 +123,7 @@ func TestInitFailure(t *testing.T) {
 }
 
 func TestSetupFailure(t *testing.T) {
-	c := NewCommonConfig("test_setup_failure")
+	c := NewCommonConfig("test-setup-failure")
 	tc := NewTestConfig()
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
@@ -136,7 +136,7 @@ func TestSetupFailure(t *testing.T) {
 }
 
 func TestTearDownFailure(t *testing.T) {
-	c := NewCommonConfig("test_tear_down_failure")
+	c := NewCommonConfig("test-tear-down-failure")
 	tc := NewTestConfig()
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
@@ -149,7 +149,7 @@ func TestTearDownFailure(t *testing.T) {
 }
 
 func TestDeInitFailure(t *testing.T) {
-	c := NewCommonConfig("test_cleanup_failure")
+	c := NewCommonConfig("test-cleanup-failure")
 	tc := NewTestConfig()
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)

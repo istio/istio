@@ -6,9 +6,11 @@ go_library(
         "framework.go",
         "kubernetes.go",
     ],
-    visibility = ["//visibility:public"],
+
     deps = ["@com_github_golang_glog//:go_default_library",
             "//tests/e2e/util:go_default_library",],
+    data = glob(["testdata/*"]) + ["//:istio_version"],
+    visibility = ["//visibility:public"],
 )
 
 go_test(
@@ -16,4 +18,5 @@ go_test(
     srcs = ["framework_test.go"],
     library = ":go_default_library",
     data = glob(["testdata/*"]) + ["//:istio_version"],
+    visibility = ["//visibility:public"],
 )
