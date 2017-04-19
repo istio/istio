@@ -3,7 +3,7 @@ title: Glossary
 headline: Glossary
 sidenav: doc-side-home-nav.html
 bodyclass: docs
-layout: docs
+layout: default
 type: markdown
 
 ---

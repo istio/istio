@@ -183,14 +183,14 @@ configuration determines the set of aspects and descriptors available to handle 
 subsequent phases.
 
 - **Attribute Processing**. The third phase takes the total set of attributes
-and produces a set of policy objects. Attribute processing is initially
-configured through a simple declarative form as described in *TBD*.
+and produces a set of *adapter parameters*. Attribute processing is initially
+configured through a simple declarative form as described [here]({{site.baseurl}}/docs/config.html).
 
 - **Adapter Dispatching**. The Resolution phase establishes the set of available aspects and the Attribute
-Processing phase creates a set of policy objects. The Adapter Dispatching phase invokes the adapters
-associated with each aspect and passes them policy objects.
+Processing phase creates a set of adapter parameters. The Adapter Dispatching phase invokes the adapters
+associated with each aspect and passes them those parameters.
 
-<img style="display:block;width:40%;margin:auto;" src="./mixer/phases.svg" alt="Phases of mixer request processing" />
+<img style="display:block;width:50%;margin:auto;" src="./mixer/phases.svg" alt="Phases of mixer request processing" />
 <p style="text-align:center;">Request Phases</p>
 
 ## Scripting
@@ -198,12 +198,12 @@ associated with each aspect and passes them policy objects.
 > This section is preliminary and subject to change. We're still experimenting with the concept of scripting in the mixer.
 
 The mixer's attribute processing phase is implemented via a scripting language (exact language *TBD*). 
-The scripts are provided a set of attributes and are responsible for producing policy objects and dispatching
-control to individual configured aspects.
+The scripts are provided a set of attributes and are responsible for producing the adapter parameters and dispatching
+control to individual configured adapters.
 
-For common uses, the operator authors policy objects production rules via a relatively simple declarative format
+For common uses, the operator authors adapter parameter production rules via a relatively simple declarative format
 and expression syntax. The mixer ingests such rules and produces a script that performs the necessary runtime work
-of accessing the request's incoming attributes and producing the requisite policy objects.
+of accessing the request's incoming attributes and producing the requisite adapter parameters.
 
 For advanced uses, the operator can bypass the declarative format and author directly in the scripting
 language. This is more complex, but provides ultimate flexibility.
