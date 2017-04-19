@@ -23,7 +23,7 @@ support them. In large deployments, many different operators, each with differen
 may be involved in managing the overall deployment.
 
 The Istio configuration model makes it possible to exploit all of Istio's capabilities and flexibility, while
-remaining relatively simple to use. The model's scoping and inheritance features enable large
+remaining relatively simple to use. The model's scoping features enable large
 support organizations to collectively manage complex deployments with ease. Some of the model's key
 features include:
 
@@ -48,13 +48,13 @@ can be added to Istio and be fully manipulated using the same general mechanisms
 Istio configuration is expressed using a YAML format. It is built on top of five core
 abstractions:
 
-|Concept                                       |Description
-|----------------------------------------------|-----------
-|[Adapters](#adapters)                         | Low-level operationally-oriented configuration state for individual mixer adapters.
-|[Descriptors](#descriptors)                   | Type definitions which describe the shape of the policy objects used as input to configured aspects.
-|[Manifests](#manifests)                       | Describes the attributes available in the deployment
-|[Aspects](#aspects)                           | High-level intent-based configuration state describing what adapters do.
-|[Scopes and Selectors](#scopes-and-selectors) | Mechanism to select which aspects, descriptors, and rules to use based on ambient attributes.
+|Concept                     |Description
+|----------------------------|-----------
+|[Adapters](#adapters)       | Low-level operationally-oriented configuration state for individual mixer adapters.
+|[Descriptors](#descriptors) | Type definitions which describe the shape of the policy objects used as input to configured aspects.
+|[Manifests](#manifests)     | Describes the attributes available in the deployment
+|[Aspects](#aspects)         | High-level intent-based configuration state describing what adapters do.
+|[Scopes](#scopes)           | Mechanism to select which aspects and descriptors to use based on a request's attributes.
 
 The following sections explain these concepts in detail.
 
@@ -249,18 +249,19 @@ attribute that carries the symbol to check against the associated adapter's list
 Here's another metric aspect:
 
 ```yaml
-  - kind: metrics
-    adapter: myMetricsCollector
-    params:
-      metrics:
-      - descriptor_name: request_count
-        value: "1"
-        labels:
-          source: source.name
-          target: target.name
-          service: api.name
-          method: api.method
-          response_code: response.code
+aspects:
+- kind: metrics
+  adapter: myMetricsCollector
+  params:
+    metrics:
+    - descriptor_name: request_count
+      value: "1"
+      labels:
+        source: source.name
+        target: target.name
+        service: api.name
+        method: api.method
+        response_code: response.code
 ```
 
 This defines an aspect that produces metrics which are sent to the myMetricsCollector adapter,
@@ -317,20 +318,38 @@ Attribute expressions include the following features:
 
 Refer to *TBD* for the full attribute expression syntax.
 
-### Scopes and Selectors
+#### Selectors
 
-Configuration scopes make it possible to organize various blocks of configuration state in a
-hierarchy. Blocks of configuration can only reference other configuration artifacts
-within its own scope or within parent scopes, but not in sibling or descendant scopes. 
+Selectors are annotations applied to an aspect to determine whether the aspect applies for
+any given request. Selectors use attribute expressions which produce a boolean value. If the
+expression returns `true` then the associated aspect applies. Otherwise, it is ignored and
+has no effect.
 
-Scoping is designed to enable sharing of a single Istio deployment within the context of a broad
-organization. Orthogonal teams within the organization can operate in different scopes, preventing
-one team's configuration from impacting another team's. Because artifacts declared higher-up in the
-hierarchy are available to descendants in the hierarchy, it also enables centralized configuration
-where it makes sense within the organization.
+Let's add a selector to the previous aspect example:
 
-The exact composition and depth of the hierarchy is entirely determined by the configuration state. Let's
-look at some examples:
+```yaml
+aspects:
+- selector: target.service == "MyService"
+  kind: metrics
+  adapter: myMetricsCollector
+  params:
+    metrics:
+    - descriptor_name: request_count
+      value: "1"
+      labels:
+        source: source.name
+        target: target.name
+        service: api.name
+        method: api.method
+        response_code: response.code
+```
+
+The `selector` field above defines an expression that returns `true` if the
+`target.service` attributes equals "MyService". If the expression returns `true`, then
+the aspect definition takes effect for the given request, otherwise it's like the aspect
+was not defined.
+
+### Scopes
 
 ```yaml
 
