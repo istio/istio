@@ -27,14 +27,13 @@ namespace mixer_client {
 // of the window will not be counted.
 class TimeBasedCounter {
  public:
-  // Define a time type
-  typedef std::chrono::time_point<std::chrono::system_clock> Tick;
-
-  TimeBasedCounter(int window_size, std::chrono::nanoseconds duration, Tick t);
-
-  // Ideally, Now() timestamp should be inside the functions.
+  // Define a time stamp type.
+  // Ideally, Now() timestamp should be used inside the functions.
   // But for easy unit_test, pass the time in.
   // The input time should be always increasing.
+  typedef std::chrono::time_point<std::chrono::system_clock> Tick;
+
+  TimeBasedCounter(int window_size, std::chrono::milliseconds duration, Tick t);
 
   // Add n count to the counter.
   void Inc(int n, Tick t);
@@ -49,7 +48,7 @@ class TimeBasedCounter {
   void Roll(Tick t);
 
   std::vector<int> slots_;
-  std::chrono::nanoseconds slot_duration_;
+  std::chrono::milliseconds slot_duration_;
   int count_;
   int tail_;
   Tick last_time_;

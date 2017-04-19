@@ -17,11 +17,13 @@ licenses(["notice"])
 cc_library(
     name = "quota_prefetch_lib",
     srcs = [
+        "circular_queue.h",
+        "quota_prefetch.cc",
         "time_based_counter.cc",
+        "time_based_counter.h",
     ],
     hdrs = [
-        "circular_queue.h",
-        "time_based_counter.h",
+        "quota_prefetch.h",
     ],
     visibility = ["//visibility:public"],
 )
@@ -45,6 +47,21 @@ cc_test(
     name = "time_based_counter_test",
     size = "small",
     srcs = ["time_based_counter_test.cc"],
+    linkopts = [
+        "-lm",
+        "-lpthread",
+    ],
+    linkstatic = 1,
+    deps = [
+        ":quota_prefetch_lib",
+        "//external:googletest_main",
+    ],
+)
+
+cc_test(
+    name = "quota_prefetch_test",
+    size = "small",
+    srcs = ["quota_prefetch_test.cc"],
     linkopts = [
         "-lm",
         "-lpthread",

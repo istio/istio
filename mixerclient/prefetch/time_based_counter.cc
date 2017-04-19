@@ -15,11 +15,13 @@
 
 #include "time_based_counter.h"
 
+using namespace std::chrono;
+
 namespace istio {
 namespace mixer_client {
 
-TimeBasedCounter::TimeBasedCounter(int window_size,
-                                   std::chrono::nanoseconds duration, Tick t)
+TimeBasedCounter::TimeBasedCounter(int window_size, milliseconds duration,
+                                   Tick t)
     : slots_(window_size),
       slot_duration_(duration / window_size),
       count_(0),
@@ -35,8 +37,8 @@ void TimeBasedCounter::Clear(Tick t) {
 }
 
 void TimeBasedCounter::Roll(Tick t) {
-  std::chrono::nanoseconds d = t - last_time_;
-  uint32_t n = uint32_t(d / slot_duration_);
+  auto d = duration_cast<milliseconds>(t - last_time_);
+  uint32_t n = uint32_t(d.count() / slot_duration_.count());
   if (n >= slots_.size()) {
     Clear(t);
     return;

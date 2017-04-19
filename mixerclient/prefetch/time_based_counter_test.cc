@@ -22,11 +22,11 @@ namespace {
 
 std::chrono::time_point<std::chrono::system_clock> FakeTime(int t) {
   return std::chrono::time_point<std::chrono::system_clock>(
-      std::chrono::nanoseconds(t));
+      std::chrono::milliseconds(t));
 }
 
 TEST(TimeBasedCounterTest, Test1) {
-  TimeBasedCounter c(3, std::chrono::nanoseconds(3), FakeTime(0));
+  TimeBasedCounter c(3, std::chrono::milliseconds(3), FakeTime(0));
   c.Inc(1, FakeTime(4));
   c.Inc(1, FakeTime(5));
   c.Inc(1, FakeTime(7));

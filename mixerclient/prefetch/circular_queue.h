@@ -36,10 +36,10 @@ class CircularQueue {
   void Pop();
 
   // Allow modifying the head item.
-  T* Mutable_Head();
+  T* Head();
 
   // Calls the fn function for each element from head to tail.
-  void Iterate(std::function<bool(const T&)> fn) const;
+  void Iterate(std::function<bool(T&)> fn);
 
  private:
   std::vector<T> nodes_;
@@ -76,13 +76,13 @@ void CircularQueue<T>::Pop() {
 }
 
 template <class T>
-T* CircularQueue<T>::Mutable_Head() {
+T* CircularQueue<T>::Head() {
   if (count_ == 0) return nullptr;
   return &nodes_[head_];
 }
 
 template <class T>
-void CircularQueue<T>::Iterate(std::function<bool(const T&)> fn) const {
+void CircularQueue<T>::Iterate(std::function<bool(T&)> fn) {
   if (count_ == 0) return;
   int i = head_;
   while (i != tail_) {
