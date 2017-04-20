@@ -1,0 +1,45 @@
+# Example service with an injected proxy
+apiVersion: v1
+kind: Service
+metadata:
+  name: vanilla
+  labels:
+    app: vanilla
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    name: http
+  - port: 8080
+    targetPort: 8080
+    name: http-alternative
+  selector:
+    app: vanilla
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: vanilla
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: vanilla
+        version: unversioned
+    spec:
+      containers:
+      - name: app
+        image: docker.io/istio/app:2017-03-22-17.30.06
+        imagePullPolicy: Always
+        args:
+          - --port
+          - "80"
+          - --port
+          - "8080"
+          - --version
+          - "unversioned"
+        ports:
+        - containerPort: 80
+        - containerPort: 8080
+---

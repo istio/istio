@@ -1,0 +1,4 @@
+rootProject.name = 'reviews'
+
+include 'reviews-application'
+include 'reviews-wlpcfg'
