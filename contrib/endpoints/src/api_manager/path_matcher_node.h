@@ -21,8 +21,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "contrib/endpoints/src/api_manager/utils/stl_util.h"
-
 namespace google {
 namespace api_manager {
 
@@ -118,7 +116,7 @@ class PathMatcherNode {
   ~PathMatcherNode();
 
   // Creates a clone of this node and its subtrie
-  PathMatcherNode* Clone() const;
+  std::unique_ptr<PathMatcherNode> Clone() const;
 
   // Searches subtrie by finding a matching child for the current path part. If
   // a matching child exists, this function recurses on current + 1 with that
@@ -183,13 +181,7 @@ class PathMatcherNode {
   //
   // To ensure fast lookups when n grows large, it is prudent to consider an
   // alternative to binary search on a sorted vector.
-  //
-  // hash_map provides O(1) expected lookups for all n, but has undesirable
-  // memory overhead when n is small. To address this overhead, we use a
-  // small_map hybrid that provides O(1) expected lookups with a small memory
-  // footprint. The small_map scales up to a hash_map when the number of literal
-  // children grows large.
-  std::unordered_map<std::string, PathMatcherNode*> children_;
+  std::unordered_map<std::string, std::unique_ptr<PathMatcherNode>> children_;
 
   // True if this node represents a wildcard path '**'.
   bool wildcard_;

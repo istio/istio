@@ -131,41 +131,6 @@ void STLDeleteValues(T* v) {
   v->clear();
 }
 
-// Returns a reference to the pointer associated with key. If not found,
-// a pointee is constructed and added to the map. In that case, the new
-// pointee is value-initialized (aka "default-constructed").
-// Useful for containers of the form Map<Key, Ptr>, where Ptr is pointer-like.
-template <class Collection>
-typename Collection::value_type::second_type& LookupOrInsertNew(
-    Collection* const collection,
-    const typename Collection::value_type::first_type& key) {
-  typedef typename Collection::value_type::second_type Mapped;
-  typedef
-      typename util::gtl::map_util_internal::PointeeType<Mapped>::type Element;
-  std::pair<typename Collection::iterator, bool> ret =
-      collection->insert(typename Collection::value_type(key, Mapped()));
-  if (ret.second) {
-    ret.first->second = Mapped(new Element());
-  }
-  return ret.first->second;
-}
-
-// A variant that accepts and forwards a pointee constructor argument.
-template <class Collection, class Arg>
-typename Collection::value_type::second_type& LookupOrInsertNew(
-    Collection* const collection,
-    const typename Collection::value_type::first_type& key, const Arg& arg) {
-  typedef typename Collection::value_type::second_type Mapped;
-  typedef
-      typename util::gtl::map_util_internal::PointeeType<Mapped>::type Element;
-  std::pair<typename Collection::iterator, bool> ret =
-      collection->insert(typename Collection::value_type(key, Mapped()));
-  if (ret.second) {
-    ret.first->second = Mapped(new Element(arg));
-  }
-  return ret.first->second;
-}
-
 // Inserts the given key and value into the given collection if and only if the
 // given key did NOT already exist in the collection. If the key previously
 // existed in the collection, the value is not changed. Returns true if the
@@ -208,34 +173,6 @@ bool InsertOrUpdate(Collection* const collection,
                     const typename Collection::value_type::second_type& value) {
   return InsertOrUpdate(collection,
                         typename Collection::value_type(key, value));
-}
-
-// Tries to insert the given key-value pair into the collection. Returns nullptr
-// if the insert succeeds. Otherwise, returns a pointer to the existing value.
-//
-// This complements UpdateReturnCopy in that it allows to update only after
-// verifying the old value and still insert quickly without having to look up
-// twice. Unlike UpdateReturnCopy this also does not come with the issue of an
-// undefined previous* in case new data was inserted.
-template <class Collection>
-typename Collection::value_type::second_type* InsertOrReturnExisting(
-    Collection* const collection, const typename Collection::value_type& vt) {
-  std::pair<typename Collection::iterator, bool> ret = collection->insert(vt);
-  if (ret.second) {
-    return nullptr;  // Inserted, no existing previous value.
-  } else {
-    return &ret.first->second;  // Return address of already existing value.
-  }
-}
-
-// Same as above, except for explicit key and data.
-template <class Collection>
-typename Collection::value_type::second_type* InsertOrReturnExisting(
-    Collection* const collection,
-    const typename Collection::value_type::first_type& key,
-    const typename Collection::value_type::second_type& data) {
-  return InsertOrReturnExisting(collection,
-                                typename Collection::value_type(key, data));
 }
 
 // Returns a const reference to the value associated with the given key if it

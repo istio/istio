@@ -17,18 +17,59 @@
 #include "contrib/endpoints/src/api_manager/path_matcher_node.h"
 #include "contrib/endpoints/src/api_manager/http_template.h"
 
-#include <utility>
-#include <vector>
-
-using std::string;
-using std::vector;
-
 namespace google {
 namespace api_manager {
 
 const char HttpMethod_WILD_CARD[] = "*";
 
 namespace {
+
+// Tries to insert the given key-value pair into the collection. Returns nullptr
+// if the insert succeeds. Otherwise, returns a pointer to the existing value.
+//
+// This complements UpdateReturnCopy in that it allows to update only after
+// verifying the old value and still insert quickly without having to look up
+// twice. Unlike UpdateReturnCopy this also does not come with the issue of an
+// undefined previous* in case new data was inserted.
+template <class Collection>
+typename Collection::value_type::second_type* InsertOrReturnExisting(
+    Collection* const collection, const typename Collection::value_type& vt) {
+  std::pair<typename Collection::iterator, bool> ret = collection->insert(vt);
+  if (ret.second) {
+    return nullptr;  // Inserted, no existing previous value.
+  } else {
+    return &ret.first->second;  // Return address of already existing value.
+  }
+}
+
+// Same as above, except for explicit key and data.
+template <class Collection>
+typename Collection::value_type::second_type* InsertOrReturnExisting(
+    Collection* const collection,
+    const typename Collection::value_type::first_type& key,
+    const typename Collection::value_type::second_type& data) {
+  return InsertOrReturnExisting(collection,
+                                typename Collection::value_type(key, data));
+}
+
+// Returns a reference to the pointer associated with key. If not found,
+// a pointee is constructed and added to the map. In that case, the new
+// pointee is value-initialized (aka "default-constructed").
+// Useful for containers of the form Map<Key, Ptr>, where Ptr is pointer-like.
+template <class Collection>
+typename Collection::value_type::second_type& LookupOrInsertNew(
+    Collection* const collection,
+    const typename Collection::value_type::first_type& key) {
+  typedef typename Collection::value_type::second_type Mapped;
+  typedef typename Mapped::element_type Element;
+  std::pair<typename Collection::iterator, bool> ret =
+      collection->insert(typename Collection::value_type(key, Mapped()));
+  if (ret.second) {
+    ret.first->second = Mapped(new Element());
+  }
+  return ret.first->second;
+}
+
 // A convinent function to lookup a STL colllection with two keys.
 // Lookup key1 first, if not found, lookup key2, or return nullptr.
 template <class Collection>
@@ -48,7 +89,7 @@ const typename Collection::value_type::second_type* Find2KeysOrNull(
 }  // namespace
 
 PathMatcherNode::PathInfo::Builder&
-PathMatcherNode::PathInfo::Builder::AppendLiteralNode(string name) {
+PathMatcherNode::PathInfo::Builder::AppendLiteralNode(std::string name) {
   if (name == HttpTemplate::kSingleParameterKey) {
     //    status_.Update(util::Status(util::error::INVALID_ARGUMENT,
     //                          StrCat(name, " is a reserved node name.")));
@@ -67,22 +108,14 @@ PathMatcherNode::PathInfo PathMatcherNode::PathInfo::Builder::Build() const {
   return PathMatcherNode::PathInfo(*this);
 }
 
-// TODO: When possible, replace the children_ map's plain pointers with
-// smart pointers. (small_map and hash_map are not move-aware, so they cannot
-// hold unique_ptrs)
-PathMatcherNode::~PathMatcherNode() { utils::STLDeleteValues(&children_); }
+PathMatcherNode::~PathMatcherNode() {}
 
-// Performs a deep copy of the parameter |node|. NB: WrapperGraph::SharedPtr is
-// a shared_ptr, so wrapper_graph_map_ copies point to the same WrapperGraph.
-// TODO: Consider returning by value. Since copying is not allowed and it
-// would not be possible to heap-allocate a cloned node, would it still be
-// possible to store children in an associative container?
-PathMatcherNode* PathMatcherNode::Clone() const {
-  PathMatcherNode* clone = new PathMatcherNode();
+std::unique_ptr<PathMatcherNode> PathMatcherNode::Clone() const {
+  std::unique_ptr<PathMatcherNode> clone(new PathMatcherNode());
   clone->result_map_ = result_map_;
   // deep-copy literal children
   for (const auto& entry : children_) {
-    clone->children_[entry.first] = entry.second->Clone();
+    clone->children_.emplace(entry.first, entry.second->Clone());
   }
   clone->wildcard_ = wildcard_;
   return clone;
@@ -114,7 +147,7 @@ void PathMatcherNode::LookupPath(const RequestPathParts::const_iterator current,
       // the root with wildcard templates.
       auto pair = children_.find(HttpTemplate::kWildCardPathKey);
       if (pair != children_.end()) {
-        const PathMatcherNode* child = pair->second;
+        const auto& child = pair->second;
         child->GetResultForHttpMethod(http_method, result);
       }
     }
@@ -133,7 +166,7 @@ void PathMatcherNode::LookupPath(const RequestPathParts::const_iterator current,
     return;
   }
 
-  for (const string& child_key :
+  for (const std::string& child_key :
        {HttpTemplate::kSingleParameterKey, HttpTemplate::kWildCardPathPartKey,
         HttpTemplate::kWildCardPathKey}) {
     if (LookupPathFromChild(child_key, current, end, http_method, result)) {
@@ -164,7 +197,7 @@ bool PathMatcherNode::InsertTemplate(
     const std::vector<std::string>::const_iterator end, HttpMethod http_method,
     void* method_data, bool mark_duplicates) {
   if (current == end) {
-    PathMatcherLookupResult* const existing = utils::InsertOrReturnExisting(
+    PathMatcherLookupResult* const existing = InsertOrReturnExisting(
         &result_map_, http_method, PathMatcherLookupResult(method_data, false));
     if (existing != nullptr) {
       existing->data = method_data;
@@ -180,7 +213,8 @@ bool PathMatcherNode::InsertTemplate(
     }
     return true;
   }
-  PathMatcherNode* child = utils::LookupOrInsertNew(&children_, *current);
+  std::unique_ptr<PathMatcherNode>& child =
+      LookupOrInsertNew(&children_, *current);
   if (*current == HttpTemplate::kWildCardPathKey) {
     child->set_wildcard(true);
   }
@@ -189,7 +223,7 @@ bool PathMatcherNode::InsertTemplate(
 }
 
 bool PathMatcherNode::LookupPathFromChild(
-    const string child_key, const RequestPathParts::const_iterator current,
+    const std::string child_key, const RequestPathParts::const_iterator current,
     const RequestPathParts::const_iterator end, HttpMethod http_method,
     PathMatcherLookupResult* result) const {
   auto pair = children_.find(child_key);
