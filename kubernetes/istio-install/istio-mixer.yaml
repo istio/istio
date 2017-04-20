@@ -71,8 +71,7 @@ data:
         response_code: 2 # INT64
     quotas:
     - name: RequestCount
-      max_amount: 5
-      expiration: 1s
+      rate_limit: true
   serviceconfig.yml: |-
     subject: namespace:ns
     revision: "2022"
@@ -83,6 +82,8 @@ data:
         params:
           quotas:
           - descriptor_name: RequestCount
+            max_amount: 5
+            expiration: 1s
       - kind: metrics
         adapter: prometheus
         params:
@@ -132,10 +133,11 @@ spec:
     spec:
       containers:
       - name: mixer
-        image: docker.io/istio/mixer:2017-04-13-20.29.28
+        image: docker.io/istio/mixer:2017-04-19-00.29.49
         imagePullPolicy: Always
         ports:
         - containerPort: 9091
+        - containerPort: 9094
         - containerPort: 42422
         args:
           - --globalConfigFile=/etc/opt/mixer/globalconfig.yml

@@ -33,7 +33,6 @@ spec:
   - name: prometheus
     protocol: TCP
     port: 9090
-    nodePort: 30900
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
