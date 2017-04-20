@@ -27,6 +27,7 @@ install:
   - ./bazel-installer.sh  --user
 
 script:
+  - script/check-license-headers
   - script/check-style
   - bazel test :all
   - bazel test --config=asan :all

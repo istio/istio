@@ -27,6 +27,7 @@ mainFlow(utils) {
 def presubmit(gitUtils, bazel) {
   defaultNode(gitUtils) {
     stage('Code Check') {
+      sh('script/check-license-headers')
       sh('script/check-style')
     }
   }
