@@ -1,4 +1,4 @@
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2017 Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ def protobuf_repositories(bind=True):
 
 def googletest_repositories(bind=True):
     BUILD = """
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2017 Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -153,7 +153,7 @@ cc_library(
         
 def zlib_repositories(bind=True):
     BUILD = """
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2017 Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -226,7 +226,7 @@ cc_library(
 
 def nanopb_repositories(bind=True):
     BUILD = """
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2017 Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -332,7 +332,7 @@ def grpc_repositories(bind=True):
 
 def googleapis_repositories(protobuf_repo="@protobuf_git//", bind=True):
     BUILD = """
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2017 Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -458,7 +458,7 @@ cc_proto_library(
 
 def gogoproto_repositories(bind=True):
     BUILD = """
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2017 Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -517,7 +517,7 @@ def mixerapi_repositories(protobuf_repo="@protobuf_git//", bind=True):
     gogoproto_repositories(bind)
 
     BUILD = """
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2017 Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
