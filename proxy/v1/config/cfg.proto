@@ -98,13 +98,37 @@ message ProxyMeshConfig {
   // Connection timeout used by the Envoy clusters
   google.protobuf.Duration connect_timeout = 10;
 
+  // Class of ingress resources to be processed by Istio ingress controller.
+  // This corresponds to the value of "kubernetes.io/ingress.class" annotation.
+  string ingress_class = 20;
+
+  enum IngressControllerMode {
+    // Disables Ingress controller.
+    OFF = 0;
+
+    // Ingress resources are applied if annotated with the configured ingress class,
+    // or not annotated with an ingress class at all.
+    // This mode is suitable for a controller running as the cluster's default ingress controller, which is expected
+    // to also process ingress resources not annotated at all.
+    DEFAULT = 1;
+
+    // Ingress resources are applied only if annotated with the configured ingress class.
+    // This mode is suitable for a controller which is a running as a secondary ingress controller (e.g., in addition
+    // to a cloud-provided ingress controller).
+    STRICT = 2;
+  }
+
+  // Defines whether to use Istio ingress proxy for annotated or all ingress resources
+  IngressControllerMode ingress_controller_mode = 21;
+
   enum AuthPolicy {
     NONE = 0;
+    // Proxy to proxy traffic is wrapped into mutual TLS connections
     MUTUAL_TLS = 1;
   }
 
-  // Auth policy defines the global switch to control authentication for
-  // proxy-to-proxy communication
+  // Authentication policy defines the global switch to control authentication
+  // for proxy-to-proxy communication
   AuthPolicy auth_policy = 100;
 
   // Path to the secrets used by the authentication policy
