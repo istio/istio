@@ -25,6 +25,12 @@ def presubmit(gitUtils, bazel, utils) {
   defaultNode(gitUtils) {
     bazel.updateBazelRc()
     utils.initTestingCluster()
+    stage('Bazel Build') {
+      bazel.build('//...')
+    }
+    stage('Code Check') {
+      sh('bin/linters.sh')
+    }
     stage('Bazel Test') {
       bazel.test('//...')
     }
