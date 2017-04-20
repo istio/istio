@@ -1,39 +1,59 @@
+// Copyright 2017 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package framework
 
 import (
 	"flag"
-	"github.com/golang/glog"
 	"io/ioutil"
 	"os"
 	"sync"
+
+	"github.com/golang/glog"
 )
 
-type TestCleanup struct {
+type testCleanup struct {
 	Cleanables         []Cleanable
 	CleanablesLock     sync.Mutex
 	CleanupActions     []func() error
 	CleanupActionsLock sync.Mutex
 }
 
+// CommonConfig regroup all common test configuration.
 type CommonConfig struct {
-	Cleanup *TestCleanup
-	Info    *TestInfo
+	// Test Cleanup registration
+	Cleanup *testCleanup
+	// Test Information
+	Info *testInfo
 	// Other common config here.
 }
 
+// Cleanable interfaces that need to be registered to CommonConfig
 type Cleanable interface {
 	Setup() error
 	Teardown() error
 }
 
-type Runnable interface {
+// Runnable is used for Testing purposes.
+type runnable interface {
 	Run() int
 }
 
-// Hack to set the logging directory.
+// InitGlog sets the logging directory.
 // Should be called right after flag.Parse().
 func InitGlog() error {
-	tmpDir, err := ioutil.TempDir(os.TempDir(), TMP_PREFIX)
+	tmpDir, err := ioutil.TempDir(os.TempDir(), tmpPrefix)
 	if err != nil {
 		return err
 	}
@@ -45,26 +65,27 @@ func InitGlog() error {
 	return nil
 }
 
-func NewCommonConfig(testId string) (*CommonConfig, error) {
-	t, err := NewTestInfo(testId)
+// NewCommonConfig creates a full config will all supported configs.
+func NewCommonConfig(testID string) (*CommonConfig, error) {
+	t, err := newTestInfo(testID)
 	if err != nil {
 		return nil, err
 	}
 	c := &CommonConfig{
 		Info:    t,
-		Cleanup: new(TestCleanup),
+		Cleanup: new(testCleanup),
 	}
 	c.Cleanup.RegisterCleanable(c.Info)
 	return c, nil
 }
 
-func (t *TestCleanup) RegisterCleanable(c Cleanable) {
+func (t *testCleanup) RegisterCleanable(c Cleanable) {
 	t.CleanablesLock.Lock()
 	defer t.CleanablesLock.Unlock()
 	t.Cleanables = append(t.Cleanables, c)
 }
 
-func (t *TestCleanup) getCleanable() Cleanable {
+func (t *testCleanup) getCleanable() Cleanable {
 	t.CleanablesLock.Lock()
 	defer t.CleanablesLock.Unlock()
 	if len(t.Cleanables) == 0 {
@@ -75,13 +96,13 @@ func (t *TestCleanup) getCleanable() Cleanable {
 	return c
 }
 
-func (t *TestCleanup) addCleanupAction(fn func() error) {
+func (t *testCleanup) addCleanupAction(fn func() error) {
 	t.CleanupActionsLock.Lock()
 	defer t.CleanupActionsLock.Unlock()
 	t.CleanupActions = append(t.CleanupActions, fn)
 }
 
-func (t *TestCleanup) getCleanupAction() func() error {
+func (t *testCleanup) getCleanupAction() func() error {
 	t.CleanupActionsLock.Lock()
 	defer t.CleanupActionsLock.Unlock()
 	if len(t.CleanupActions) == 0 {
@@ -92,7 +113,7 @@ func (t *TestCleanup) getCleanupAction() func() error {
 	return fn
 }
 
-func (t *TestCleanup) Init() error {
+func (t *testCleanup) init() error {
 	// Run setup on all cleanable
 	glog.Info("Starting Initialization")
 	c := t.getCleanable()
@@ -108,7 +129,7 @@ func (t *TestCleanup) Init() error {
 	return nil
 }
 
-func (t *TestCleanup) Cleanup() {
+func (t *testCleanup) cleanup() {
 	// Run tear down on all cleanable
 	glog.Info("Starting Cleanup")
 	fn := t.getCleanupAction()
@@ -121,7 +142,7 @@ func (t *TestCleanup) Cleanup() {
 	glog.Info("Cleanup complete")
 }
 
-func (c *CommonConfig) SaveLogs(r int) error {
+func (c *CommonConfig) saveLogs(r int) error {
 	if c.Info == nil {
 		glog.Warning("Skipping log saving as Info is not initialized")
 		return nil
@@ -130,7 +151,7 @@ func (c *CommonConfig) SaveLogs(r int) error {
 		return nil
 	}
 	glog.Info("Saving logs")
-	if err := c.Info.CreateStatusFile(r); err == nil {
+	if err := c.Info.Update(r); err == nil {
 
 	} else {
 		glog.Errorf("Could not create status file. Error %s", err)
@@ -139,18 +160,21 @@ func (c *CommonConfig) SaveLogs(r int) error {
 	return nil
 }
 
-func (c *CommonConfig) RunTest(m Runnable) int {
-	ret := 1
-	if err := c.Cleanup.Init(); err != nil {
+// RunTest sets up all registered cleanables in FIFO order
+// Execute the runnable
+// and call teardown on all the cleanables in LIFO order.
+func (c *CommonConfig) RunTest(m runnable) int {
+	var ret int
+	if err := c.Cleanup.init(); err != nil {
 		glog.Errorf("Failed to complete Init. Error %s", err)
 		ret = 1
 	} else {
 		glog.Info("Running test")
 		ret = m.Run()
 	}
-	if err := c.SaveLogs(ret); err != nil {
+	if err := c.saveLogs(ret); err != nil {
 		glog.Warning("Failed to save logs")
 	}
-	c.Cleanup.Cleanup()
+	c.Cleanup.cleanup()
 	return ret
 }
