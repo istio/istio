@@ -71,8 +71,7 @@ data:
         response_code: 2 # INT64
     quotas:
     - name: RequestCount
-      max_amount: 5
-      expiration: 1s
+      rate_limit: true
   serviceconfig.yml: |-
     subject: namespace:ns
     revision: "2022"
@@ -83,6 +82,8 @@ data:
         params:
           quotas:
           - descriptor_name: RequestCount
+            max_amount: 5
+            expiration: 1s
     - selector: true
       aspects:
       - kind: metrics
