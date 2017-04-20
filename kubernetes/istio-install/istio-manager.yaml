@@ -41,7 +41,7 @@ spec:
       - name: manager
         image: docker.io/istio/manager:2017-04-13-01.05.21
         imagePullPolicy: Always
-        args: ["discovery", "-v", "3"]
+        args: ["discovery", "-v", "2"]
         ports:
         - containerPort: 8080
         env:
