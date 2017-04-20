@@ -25,7 +25,10 @@ go_library(
 go_test(
     name = "small_tests",
     size = "small",
-    srcs = ["kubernetes_test.go"],
+    srcs = [
+        "cache_test.go",
+        "kubernetes_test.go",
+    ],
     library = ":go_default_library",
     deps = ["//pkg/adapter/test:go_default_library"],
 )

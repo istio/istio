@@ -219,7 +219,7 @@ func TestResolve(t *testing.T) {
 			fP("global", "global", "metric0", "metric1")},
 			[]string{"metric0"},
 			true,
-			errors.New("interal error: scope"), nil,
+			errors.New("internal error: scope"), nil,
 			map[string]string{
 				"metric0": "global/global",
 			}, false,

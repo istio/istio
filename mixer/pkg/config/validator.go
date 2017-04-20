@@ -211,18 +211,23 @@ func (a adapterKey) String() string {
 // compatfilterConfig
 // given a yaml file, filter specific keys from it
 // globalConfig contains descriptors and adapters which will be split shortly.
-func compatfilterConfig(cfg string, shouldSelect func(string) bool) (data []byte, err error) {
-	var m = map[string]interface{}{}
+func compatfilterConfig(cfg string, shouldSelect func(string) bool) ([]byte, map[string]interface{}, error) {
+	//data []byte, m map[string]interface{}, err error
+	var m map[string]interface{}
+	var data []byte
+	var err error
 
 	if err = yaml.Unmarshal([]byte(cfg), &m); err != nil {
-		return
+		return data, nil, err
 	}
+
 	for k := range m {
 		if !shouldSelect(k) {
 			delete(m, k)
 		}
 	}
-	return json.Marshal(m)
+	data, err = json.Marshal(m)
+	return data, m, err
 }
 
 // validateDescriptors
@@ -231,23 +236,9 @@ func compatfilterConfig(cfg string, shouldSelect func(string) bool) (data []byte
 // However enums inside maps *cannot* be symbolic names.
 // TODO add validation beyond proto parse
 func (p *validator) validateDescriptors(key string, cfg string) (ce *adapter.ConfigErrors) {
-	var err error
-	var data []byte
-
-	if data, err = compatfilterConfig(cfg, func(s string) bool {
-		return s != "adapters"
-	}); err != nil {
-		return ce.Appendf("DescriptorConfig", "failed to unmarshal config into proto: %v", err)
-	}
-	m := &pb.GlobalConfig{}
-	um := jsonpb.Unmarshaler{AllowUnknownFields: true}
-
-	if err = um.Unmarshal(bytes.NewReader(data), m); err != nil {
-		return ce.Appendf("DescriptorConfig", "failed to unmarshal <%s> config into proto: %v", string(data), err)
-	}
-
+	m, ce := descriptor.Parse(cfg)
 	p.validated.descriptor[key] = m
-	return
+	return ce
 }
 
 // validateAdapters consumes a yml config string with adapter config.
@@ -256,15 +247,15 @@ func (p *validator) validateAdapters(key string, cfg string) (ce *adapter.Config
 	var ferr error
 	var data []byte
 
-	if data, ferr = compatfilterConfig(cfg, func(s string) bool {
+	if data, _, ferr = compatfilterConfig(cfg, func(s string) bool {
 		return s == "adapters"
 	}); ferr != nil {
-		return ce.Appendf("DescriptorConfig", "failed to unmarshal config into proto with err: %v", ferr)
+		return ce.Appendf("AdapterConfig", "failed to unmarshal config into proto with err: %v", ferr)
 	}
 
 	var m = &pb.GlobalConfig{}
 	if err := yaml.Unmarshal(data, m); err != nil {
-		return ce.Appendf("GlobalConfig", "failed to unmarshal config into proto: %v", err)
+		return ce.Appendf("AdapterConfig", "failed to unmarshal config into proto: %v", err)
 	}
 
 	var acfg adapter.Config
@@ -387,13 +378,13 @@ func (p *validator) validate(cfg map[string]string) (rt *Validated, ce *adapter.
 
 	for _, kk := range keymap[descriptors] {
 		if re := p.validateDescriptors(kk, cfg[kk]); re != nil {
-			return rt, ce.Appendf("GlobalConfig", "failed validation").Extend(re)
+			return rt, ce.Appendf("DescriptorConfig", "failed validation").Extend(re)
 		}
 	}
 
 	for _, kk := range keymap[adapters] {
 		if re := p.validateAdapters(kk, cfg[kk]); re != nil {
-			return rt, ce.Appendf("GlobalConfig", "failed validation").Extend(re)
+			return rt, ce.Appendf("AdapterConfig", "failed validation").Extend(re)
 		}
 	}
 
@@ -494,7 +485,8 @@ func decode(src interface{}, dst proto.Message, strict bool) error {
 	}
 	um := jsonpb.Unmarshaler{AllowUnknownFields: !strict}
 	if err := um.Unmarshal(bytes.NewReader(ba), dst); err != nil {
-		return fmt.Errorf("failed to unmarshal config into proto: %v", err)
+		b2, _ := json.Marshal(dst)
+		return fmt.Errorf("failed to unmarshal config <%s> into proto: %v %s", string(ba), err, string(b2))
 	}
 	return nil
 }

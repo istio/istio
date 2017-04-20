@@ -59,7 +59,7 @@ func newRuntime(v *Validated, evaluator expr.PredicateEvaluator, identityAttribu
 // ordering of scopes is from least specific to most specific.
 func GetScopes(attr string, domain string, scopes []string) ([]string, error) {
 	if !strings.HasSuffix(attr, domain) {
-		return scopes, fmt.Errorf("interal error: scope %s not in %s", attr, domain)
+		return scopes, fmt.Errorf("internal error: scope %s not in %s", attr, domain)
 	}
 	scopes = append(scopes, global)
 	for idx := len(attr) - (len(domain) + 2); idx >= 0; idx-- {
@@ -132,6 +132,7 @@ func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceC
 		if onlyEmptySelectors {
 			scopes = []string{global}
 		} else {
+			glog.Warningf("%s attribute not found in %p", identityAttribute, bag)
 			return nil, fmt.Errorf("%s attribute not found", identityAttribute)
 		}
 	} else if scopes, err = GetScopes(attr.(string), identityAttributeDomain, scopes); err != nil {
@@ -150,6 +151,7 @@ func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceC
 			key := rulesKey{scope, subject}
 			rule := rules[key]
 			if rule == nil {
+				glog.V(2).Infof("no rules for %s", key)
 				continue
 			}
 			// empty the slice, do not re allocate

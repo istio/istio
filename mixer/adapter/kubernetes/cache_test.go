@@ -18,6 +18,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/cache"
@@ -38,6 +39,12 @@ func TestEventType_String(t *testing.T) {
 	}
 }
 
+func newfakeInformer() *fakeInformer {
+	f := &fakeInformer{}
+	f.cond = sync.NewCond(f)
+	return f
+}
+
 type fakeInformer struct {
 	sync.Mutex
 	cache.SharedInformer
@@ -45,6 +52,7 @@ type fakeInformer struct {
 	store     cache.Store
 	synced    bool
 	runCalled bool
+	cond      *sync.Cond
 }
 
 func (f *fakeInformer) HasSynced() bool {
@@ -64,12 +72,26 @@ func (f *fakeInformer) GetStore() cache.Store { return f.store }
 func (f *fakeInformer) Run(<-chan struct{}) {
 	f.Lock()
 	defer f.Unlock()
+	f.cond.Broadcast()
 	f.runCalled = true
 }
 
-func (f *fakeInformer) RunCalled() bool {
+// timeout is to ensure that racetest does not fail before giving it some time.
+// ?   	istio.io/mixer/adapter/ipListChecker/config	[no test files]
+// --- FAIL: TestClusterInfoCache_RunLoggerStopInSelect (0.00s)
+func (f *fakeInformer) RunCalled(timeout time.Duration) bool {
 	f.Lock()
 	defer f.Unlock()
+	if !f.runCalled {
+		timer := time.NewTimer(timeout)
+		go func() {
+			<-timer.C
+			// ensure there is some timeout
+			f.cond.Broadcast()
+		}()
+		f.cond.Wait()
+		timer.Stop()
+	}
 	return f.runCalled
 }
 
@@ -139,46 +161,44 @@ func TestClusterInfoCache_GetPod(t *testing.T) {
 	}
 }
 
-func TestClusterInfoCache_Run(t *testing.T) {
-	informer := &fakeInformer{}
-	c := &controllerImpl{
-		env:           test.NewEnv(t),
-		pods:          informer,
-		mutationsChan: make(chan resourceMutation),
+func TestClusterInfoCache(t *testing.T) {
+
+	tests := []struct {
+		name string
+		do   func(impl *controllerImpl, fakeInformer *fakeInformer)
+	}{
+		{"RunLoggerStopInSelect", nil},
+		{"Run", func(c *controllerImpl, informer *fakeInformer) {
+			informer.SetSynced(true)
+			c.mutationsChan <- resourceMutation{kind: addition, obj: &v1.Pod{
+				ObjectMeta: v1.ObjectMeta{Name: "pod", Namespace: "ns"},
+			}}
+			c.mutationsChan <- resourceMutation{kind: update, obj: v1.Pod{}}
+		}},
 	}
+	timeout := 5 * time.Second
+	for _, v := range tests {
+		t.Run(v.name, func(t *testing.T) {
+			informer := newfakeInformer()
+			c := &controllerImpl{
+				env:           test.NewEnv(t),
+				pods:          informer,
+				mutationsChan: make(chan resourceMutation),
+			}
 
-	stop := make(chan struct{})
-	go c.Run(stop)
+			stop := make(chan struct{})
+			go c.Run(stop)
 
-	c.mutationsChan <- resourceMutation{kind: deletion, obj: v1.Pod{}}
+			c.mutationsChan <- resourceMutation{kind: deletion, obj: v1.Pod{}}
 
-	informer.SetSynced(true)
-	c.mutationsChan <- resourceMutation{kind: addition, obj: &v1.Pod{
-		ObjectMeta: v1.ObjectMeta{Name: "pod", Namespace: "ns"},
-	}}
-	c.mutationsChan <- resourceMutation{kind: update, obj: v1.Pod{}}
+			if v.do != nil {
+				v.do(c, informer)
+			}
+			close(stop)
 
-	close(stop)
-	if !informer.RunCalled() {
-		t.Error("Expected cache to have been started.")
-	}
-}
-
-func TestClusterInfoCache_RunLoggerStopInSelect(t *testing.T) {
-	informer := &fakeInformer{}
-	c := &controllerImpl{
-		env:           test.NewEnv(t),
-		pods:          informer,
-		mutationsChan: make(chan resourceMutation),
-	}
-
-	stop := make(chan struct{})
-	go c.Run(stop)
-
-	c.mutationsChan <- resourceMutation{kind: deletion, obj: v1.Pod{}}
-
-	close(stop)
-	if !informer.RunCalled() {
-		t.Error("Expected cache to have been started.")
+			if !informer.RunCalled(timeout) {
+				t.Errorf("Expected cache to have been started in %v.", timeout)
+			}
+		})
 	}
 }
