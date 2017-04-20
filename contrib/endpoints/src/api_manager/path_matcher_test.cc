@@ -21,10 +21,6 @@
 #include <string>
 #include <vector>
 
-#include "contrib/endpoints/include/api_manager/method.h"
-#include "contrib/endpoints/include/api_manager/method_call_info.h"
-#include "contrib/endpoints/src/api_manager/mock_method_info.h"
-#include "contrib/endpoints/src/api_manager/utils/stl_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -33,15 +29,32 @@ using ::testing::ReturnRef;
 namespace google {
 namespace api_manager {
 
-typedef VariableBinding Binding;
+namespace {
+
+// VariableBinding specifies a value for a single field in the request message.
+// When transcoding HTTP/REST/JSON to gRPC/proto the request message is
+// constructed using the HTTP body and the variable bindings (specified through
+// request url).
+struct Binding {
+  // The location of the field in the protobuf message, where the value
+  // needs to be inserted, e.g. "shelf.theme" would mean the "theme" field
+  // of the nested "shelf" message of the request protobuf message.
+  std::vector<std::string> field_path;
+  // The value to be inserted.
+  std::string value;
+};
+
 typedef std::vector<Binding> Bindings;
 typedef std::vector<std::string> FieldPath;
+class MethodInfo {
+ public:
+  MOCK_CONST_METHOD0(system_query_parameter_names,
+                     const std::set<std::string>&());
+};
 
 bool operator==(const Binding& b1, const Binding& b2) {
   return b1.field_path == b2.field_path && b1.value == b2.value;
 }
-
-namespace {
 
 std::string FieldPathToString(const FieldPath& fp) {
   std::string s;
@@ -72,12 +85,12 @@ namespace {
 class PathMatcherTest : public ::testing::Test {
  protected:
   PathMatcherTest() {}
-  ~PathMatcherTest() { utils::STLDeleteElements(&stored_methods_); }
+  ~PathMatcherTest() {}
 
   MethodInfo* AddPathWithBodyFieldPath(std::string http_method,
                                        std::string http_template,
                                        std::string body_field_path) {
-    auto method = new ::testing::NiceMock<MockMethodInfo>();
+    auto method = new MethodInfo();
     ON_CALL(*method, system_query_parameter_names())
         .WillByDefault(ReturnRef(empty_set_));
     if (!builder_.Register(http_method, http_template, body_field_path,
@@ -85,21 +98,21 @@ class PathMatcherTest : public ::testing::Test {
       delete method;
       return nullptr;
     }
-    stored_methods_.push_back(method);
+    stored_methods_.emplace_back(method);
     return method;
   }
 
   MethodInfo* AddPathWithSystemParams(
       std::string http_method, std::string http_template,
       const std::set<std::string>* system_params) {
-    auto method = new ::testing::NiceMock<MockMethodInfo>();
+    auto method = new MethodInfo();
     ON_CALL(*method, system_query_parameter_names())
         .WillByDefault(ReturnRef(*system_params));
     if (!builder_.Register(http_method, http_template, std::string(), method)) {
       delete method;
       return nullptr;
     }
-    stored_methods_.push_back(method);
+    stored_methods_.emplace_back(method);
     return method;
   }
 
@@ -142,7 +155,7 @@ class PathMatcherTest : public ::testing::Test {
  private:
   PathMatcherBuilder<MethodInfo*> builder_;
   PathMatcherPtr<MethodInfo*> matcher_;
-  std::vector<MethodInfo*> stored_methods_;
+  std::vector<std::unique_ptr<MethodInfo>> stored_methods_;
   std::set<std::string> empty_set_;
 };
 

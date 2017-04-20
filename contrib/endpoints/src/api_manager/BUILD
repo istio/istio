@@ -214,7 +214,7 @@ cc_test(
     ],
     linkstatic = 1,
     deps = [
-        ":api_manager",
+        ":path_matcher",
         "//external:googletest_main",
     ],
 )
