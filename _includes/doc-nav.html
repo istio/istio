@@ -1,15 +1,13 @@
 <div class="container">
 	<div class="row">
-		<div class="col-md-11 nofloat center-block">
-			<ul class="col-sm-10 doc-nav">
-				{% assign current = page.url | downcase | split: '/' %}
-				<li class="tab docs-tab"><a href="{{ site.baseurl }}/docs/">Docs</a></li>
-				<span class="doc-caret">></span>
-				<li class="tab"><a href="{{ site.baseurl }}/docs/" {% if page.path == 'docs/index.html' %}class='current'{% endif %}>Home</a></li>
-				<li class="tab"><a href="{{ site.baseurl }}/docs/concepts" {% if current[2] == 'concepts' %}class='current'{% endif %}>Concepts</a></li>
-				<li class="tab"><a href="{{ site.baseurl }}/docs/tasks" {% if current[2] == 'tasks' %}class='current'{% endif %}>Tasks</a></li>
-				<li class="tab"><a href="{{ site.baseurl }}/docs/samples" {% if current[2] == 'samples' %}class='current'{% endif %}>Samples</a></li>
-				<li class="tab"><a href="{{ site.baseurl }}/docs/reference" {% if current[2] == 'reference' %}class='current'{% endif %}>Reference</a></li>
+		<div class="col-md-11 nofloat center-block" style="margin-top: 3px;">
+			<ul class="col-sm-10 nav nav-tabs">
+				{% assign active = page.url | downcase | split: '/' %}
+				<li role="presentation" {% if page.url == '/docs/' %}class='active'{% endif %}><a href="{{ site.baseurl }}/docs/">Welcome</a></li>
+				<li role="presentation" {% if active[2] == 'concepts' %}class='active'{% endif %}><a href="{{ site.baseurl }}/docs/concepts">Concepts</a></li>
+				<li role="presentation" {% if active[2] == 'tasks' %}class='active'{% endif %}><a href="{{ site.baseurl }}/docs/tasks">Tasks</a></li>
+				<li role="presentation" {% if active[2] == 'samples' %}class='active'{% endif %}><a href="{{ site.baseurl }}/docs/samples">Samples</a></li>
+				<li role="presentation" {% if active[2] == 'reference' %}class='active'{% endif %}><a href="{{ site.baseurl }}/docs/reference">Reference</a></li>
 			 </ul>
 			 {% include contribute-links.html %}
 		</div>

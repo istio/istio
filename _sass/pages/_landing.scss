@@ -51,14 +51,26 @@
   }
   .landing-image {
     height: auto;
-    max-width: 300px;
+    max-width: 500px;
     object-fit: contain;
     object-position: top;
 
     @media (min-width: $tablet) {
-      max-width: initial;
+      //max-width: initial;
       padding-bottom: 50px;
     }
+  }
+
+  .landing-image-small {
+    height: auto;
+    max-width: 250px;
+    object-fit: contain;
+    object-position: top;
+
+    @media (min-width: $tablet) {
+      //max-width: initial;
+      padding-bottom: 50px;
+    }    
   }
 
   .btn-read-more {

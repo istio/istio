@@ -1,3 +1,12 @@
+// Bootstrap override - looks like this is missing?
+.nav-tabs>li.active>a {
+    margin-right: 2px;
+    line-height: 1.42857143;
+    border: 1px solid #ddd;
+	border-bottom-color: transparent;
+    border-radius: 4px 4px 0 0;
+}
+
 // Documentation Navigation Bar
 .doc-nav {
   display: block;
@@ -57,7 +66,7 @@
 
 // Documentation Side Navigation
 .doc-side-nav {
-    background-color: $light-gray;
+    //background-color: $light-gray;
     margin-bottom: 20px;
 
     @media (min-width: $tablet) {
@@ -67,11 +76,13 @@
 
 	// Add caret to current page
 	.current:before{
-		content: '> ';
+		//content: '> ';
+		background-color: $gray;
 	}
 
 	.doc-side-nav-title {
 		padding: $spacing--s;
+		font-weight: bold;
 	}
 
 	.doc-side-nav-list-item {
@@ -80,15 +91,16 @@
 		width: 100%;
 
 		a {
-			font-size: 13px;
-			color: $dark-gray;
+			//font-size: 13px;
+			//color: $dark-gray;
 			font-weight: 400;
 		}
+
 	}
 
     h6 {
-        color: $dark-gray;
-        font-size: 13px;
+        color: $mainBrandColor; //$dark-gray;
+        font-size: 100%; // hack
         font-weight: 400;
         line-height: 22px;
     }
@@ -99,13 +111,18 @@
 
     .submenu-link {
         display: block;
-        font-size: 12px;
+        font-size: 100%;
         font-weight: 400;
         line-height: 22px;
-        color: $gray;
+        color: $mainBrandColor; //$gray;
 
         &.active:before {
+			margin-left: -0.80em;
             content: '> ';
         }
+
+		&.active {
+			line-height: 30px;
+		}
     }
 }

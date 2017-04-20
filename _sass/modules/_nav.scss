@@ -82,12 +82,12 @@
 
 // Expandy nav items
 .arrow-r::before {
-  content: "+";
+  content: "-";
   margin-right: 8px;
 }
 
 .arrow-d::before {
-  content: "-";
+  content: "+";
   margin-right: 8px;
 }
 
@@ -199,11 +199,12 @@
 // Sticky Nav
 #sticky-nav{
     @extend #common-nav;
-    background: url('../img/hero-bg.png') no-repeat center/cover;
+    background: $mainBrandColor no-repeat center/cover;
     position: fixed;    
     width: 100%;
     z-index: 9000;
     top: -61px;
+    padding-bottom: 10px;
     transition: $transition--secondary;
     &.on-page {
       top: 0;
