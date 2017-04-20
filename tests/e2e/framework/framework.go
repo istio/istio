@@ -114,7 +114,7 @@ func (t *TestCleanup) Cleanup() {
 	fn := t.getCleanupAction()
 	for fn != nil {
 		if err := fn(); err != nil {
-			glog.Errorf("Failed to cleanup ", err)
+			glog.Errorf("Failed to cleanup. Error %s", err)
 		}
 		fn = t.getCleanupAction()
 	}
@@ -133,7 +133,7 @@ func (c *CommonConfig) SaveLogs(r int) error {
 	if err := c.Info.CreateStatusFile(r); err == nil {
 
 	} else {
-		glog.Error("Could not create status file")
+		glog.Errorf("Could not create status file. Error %s", err)
 		return err
 	}
 	return nil
@@ -142,7 +142,7 @@ func (c *CommonConfig) SaveLogs(r int) error {
 func (c *CommonConfig) RunTest(m Runnable) int {
 	ret := 1
 	if err := c.Cleanup.Init(); err != nil {
-		glog.Error("Failed to complete Init")
+		glog.Errorf("Failed to complete Init. Error %s", err)
 		ret = 1
 	} else {
 		glog.Info("Running test")

@@ -99,7 +99,7 @@ func (t TestInfo) CreateStatusFile(r int) error {
 	fp := filepath.Join(t.LogsPath, fmt.Sprintf("%s.json", t.TestId))
 	f, err := os.Create(fp)
 	if err != nil {
-		glog.Errorf("Could not create %s", fp)
+		glog.Errorf("Could not create %s. Error %s", fp, err)
 		return err
 	}
 	defer f.Close()
@@ -116,7 +116,7 @@ func (t TestInfo) uploadDir() error {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
-		glog.Error("Could not set Storage client")
+		glog.Errorf("Could not set Storage client. Error %s", err)
 		return err
 	}
 	bkt := client.Bucket(t.Bucket)
@@ -154,15 +154,18 @@ func (t TestInfo) uploadDir() error {
 }
 
 func (t TestInfo) Teardown() error {
-	glog.Info("Uploading logs remotely")
-	glog.Flush()
-	return t.uploadDir()
+	if t.Bucket != "" {
+		glog.Info("Uploading logs remotely")
+		glog.Flush()
+		return t.uploadDir()
+	}
+	return nil
 }
 
 func generateRunId(t string) (string, error) {
 	u := uuid.New().String()
-	strings.Replace(u, "-", "", -1)
-	strings.Replace(t, "_", "-", -1)
+	u = strings.Replace(u, "-", "", -1)
+	t = strings.Replace(t, "_", "-", -1)
 	// We want at least 6 characters of uuid padding
 	padding := ID_MAX_LENGTH - len(t)
 	if padding < 6 {
