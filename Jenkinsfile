@@ -29,6 +29,7 @@ mainFlow(utils) {
 def presubmit(gitUtils, bazel) {
   buildNode(gitUtils) {
     stage('Code Check') {
+      sh('script/check-license-headers')
       sh('script/check-style')
     }
     bazel.updateBazelRc()
