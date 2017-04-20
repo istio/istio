@@ -8,7 +8,7 @@ adapters:
   - name: default
     impl: stdioLogger
     params:
-      logStream: 0 # STDERR
+      logStream: STDERR
   - name: prometheus
     kind: metrics
     impl: prometheus

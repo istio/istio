@@ -15,10 +15,17 @@
 package descriptor
 
 import (
+	"bytes"
+	"flag"
 	"fmt"
 	"reflect"
+	"regexp"
+	"strconv"
+	"strings"
 	"testing"
 
+	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
@@ -171,4 +178,246 @@ func execute(t *testing.T, tests cases) {
 			}
 		})
 	}
+}
+
+func testParser(mutations map[string]interface{}, wantErr string, t *testing.T) {
+	m := map[string]interface{}{}
+	var ba []byte
+	var err error
+	if err := yaml.Unmarshal([]byte(allGoodConfig), &m); err != nil {
+		t.Fatalf("unable unmarshal %s", err)
+	}
+
+	for path, val := range mutations {
+		mutate(m, path, val)
+	}
+
+	if ba, err = yaml.Marshal(m); err != nil {
+		t.Fatalf("unable to marshal %s", err)
+	}
+
+	_, ce := Parse(string(ba))
+	gotErr := ""
+	if ce != nil {
+		gotErr = ce.Error()
+	}
+
+	if !strings.Contains(gotErr, wantErr) {
+		t.Errorf("got %s\nwant %s", gotErr, wantErr)
+	}
+
+}
+
+func checkError(got error, want string, t *testing.T) {
+	msg := "nothing"
+	if got != nil {
+		msg = got.Error()
+	}
+	if !strings.Contains(msg, want) {
+		t.Errorf("got %s\nwant %s", msg, want)
+	}
+}
+
+func TestParse_BadInput(t *testing.T) {
+	t.Run("Bad_Yaml", func(t *testing.T) {
+		_, err := Parse("<badyaml></badyaml>")
+		checkError(err, "DescriptorConfig: error unmarshaling JSON", t)
+	})
+
+	t.Run("NonJsonInput", func(t *testing.T) {
+		nonjson := make(chan int)
+		err := updateMsg("bad", nonjson, nil, nil, false)
+		checkError(err, "unsupported type", t)
+	})
+}
+
+func TestParseErrors(t *testing.T) {
+	for _, tt := range []struct {
+		m       map[string]interface{}
+		wantErr string
+	}{{map[string]interface{}{
+		"manifests[0].attributes[0].value_type": "WRONG_STRING"},
+		"manifests[0].attributes[0]: unknown value"},
+		{map[string]interface{}{
+			"quotas[0].unknown_attribute": "unknown_value"},
+			"quotas[0]: unknown field"},
+		{map[string]interface{}{
+			"manifests[0].unknown_attribute": "unknown_value"},
+			"manifests[0]: unknown field"},
+	} {
+		t.Run(tt.wantErr, func(tx *testing.T) {
+			testParser(tt.m, tt.wantErr, tx)
+		})
+	}
+}
+
+// ensure that Parse and jsonpb.Parse are equivalent
+func TestParseValid(t *testing.T) {
+	dcfg, ce := Parse(allGoodConfig)
+	if ce != nil {
+		t.Fatalf("Unexpected error %s", ce)
+	}
+
+	jsonConfig, err := yaml.YAMLToJSON([]byte(allGoodConfig))
+	if err != nil {
+		t.Fatalf("could not convert to json %s", err)
+	}
+
+	cfg := &pb.GlobalConfig{}
+	if err := jsonpb.Unmarshal(bytes.NewReader(jsonConfig), cfg); err != nil {
+		t.Fatalf("unable to parse %s", err)
+	}
+	m := jsonpb.Marshaler{
+		Indent: " ",
+	}
+	sCsg, _ := m.MarshalToString(cfg)
+	sDcfg, _ := m.MarshalToString(dcfg)
+	if sCsg != sDcfg {
+		t.Fatalf("%s != %s", sCsg, sDcfg)
+	}
+}
+
+var sepRegex = regexp.MustCompile(`\[|\]|\.`)
+
+// mutates the json at given path with val
+func mutate(m interface{}, path string, val interface{}) interface{} {
+	var idx int
+	var key string
+	var err error
+	var qa []interface{}
+	var qm map[string]interface{}
+
+	v := m
+
+	tokens := sepRegex.Split(path, -1)
+	for tidx, tok := range tokens {
+		if len(tok) == 0 {
+			continue
+		}
+		idx, err = strconv.Atoi(tok)
+		qa, qm = nil, nil
+		if err == nil { // array
+			qa, _ = v.([]interface{})
+			if qa == nil {
+				panic(fmt.Sprintf("%s is not an array", tokens[:tidx]))
+			}
+			v = qa[idx]
+		} else { // map
+			qm, _ = v.(map[string]interface{})
+			if qm == nil {
+				panic(fmt.Sprintf("%s is not a map", tokens[:tidx]))
+			}
+			v = qm[tok]
+			key = tok
+		}
+	}
+
+	if qm != nil {
+		qm[key] = val
+	} else {
+		qa[idx] = val
+	}
+	return m
+}
+
+const allGoodConfig = `
+revision: "2022"
+manifests:
+  - name: istio-proxy
+    revision: "1"
+    attributes:
+    - name: source.name
+      value_type: STRING
+    - name: source.labels
+      value_type: STRING_MAP
+    - name: target.name
+      value_type: STRING
+    - name: target.service
+      value_type: STRING
+    - name: origin.ip
+      value_type: IP_ADDRESS
+    - name: origin.user
+      value_type: STRING
+    - name: request.time
+      value_type: TIMESTAMP
+    - name: request.method
+      value_type: STRING
+    - name: request.path
+      value_type: STRING
+    - name: request.headers
+      value_type: STRING_MAP
+    - name: request.scheme
+      value_type: STRING
+    - name: response.size
+      value_type: INT64
+    - name: response.code
+      value_type: INT64
+    - name: response.duration
+      value_type: DURATION
+    # TODO: we really need to remove these, they're not part of the attribute vocab.
+    - name: api.name
+      value_type: STRING
+    - name: api.method
+      value_type: STRING
+
+# Enums as struct fields can be symbolic names.
+# However enums inside maps *cannot* be symbolic names.
+metrics:
+  - name: request_count
+    kind: COUNTER
+    value: INT64
+    description: request count by source, target, service, and code
+    labels:
+      source: 1 # STRING
+      target: 1 # STRING
+      service: 1 # STRING
+      method: 1 # STRING
+      response_code: 2 # INT64
+  - name: request_latency
+    kind: COUNTER
+    value: DURATION
+    description: request latency by source, target, and service
+    labels:
+      source: 1 # STRING
+      target: 1 # STRING
+      service: 1 # STRING
+      method: 1 # STRING
+      response_code: 2 # INT64
+
+quotas:
+- name: RequestCount
+  rate_limit: true
+
+logs:
+  - name: accesslog.common
+    display_name: Apache Common Log Format
+    log_template: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} '
+    labels:
+      originIp: 6 # IP_ADDRESS
+      sourceUser: 1 # STRING
+      timestamp: 5 # TIMESTAMP
+      method: 1 # STRING
+      url: 1 # STRING
+      protocol: 1 # STRING
+      responseCode: 2 # INT64
+      responseSize: 2 # INT64
+  - name: accesslog.combined
+    display_name: Apache Combined Log Format
+    log_template: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} '
+    labels:
+      originIp: 6 # IP_ADDRESS
+      sourceUser: 1 # STRING
+      timestamp: 5 # TIMESTAMP
+      method: 1 # STRING
+      url: 1 # STRING
+      protocol: 1 # STRING
+      responseCode: 2 # INT64
+      responseSize: 2 # INT64
+      referer: 1 # STRING
+      userAgent: 1 # STRING
+`
+
+func init() {
+	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
+	_ = flag.Lookup("v").Value.Set("99")
 }

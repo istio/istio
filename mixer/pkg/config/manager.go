@@ -148,6 +148,9 @@ func readdb(store KeyValueStore, prefix string) (map[string]string, map[string][
 func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
 
 	data, shas, index, err := readdb(c.store, "/")
+	if glog.V(9) {
+		glog.Info(data)
+	}
 	if err != nil {
 		return nil, nil, errors.New("Unable to read database: " + err.Error())
 	}
@@ -179,13 +182,13 @@ func (c *Manager) fetchAndNotify() {
 		c.Lock()
 		c.lastError = err
 		c.Unlock()
-		glog.Warningf("Error installing new config %s", err)
+		glog.Warningf("Error loading new config %v", err)
 	}
 	if rt == nil {
 		return
 	}
 
-	glog.Infof("Installing new config from %s ", c.store)
+	glog.Infof("Loaded new config %s", c.store)
 	for _, cl := range c.cl {
 		cl.ConfigChange(rt, df)
 	}

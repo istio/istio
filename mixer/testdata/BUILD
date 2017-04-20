@@ -5,12 +5,12 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 pkg_tar(
     name = "configs_tar",
     extension = "tar.gz",
-    files = [
-        "globalconfig.yml",
-        "serviceconfig.yml",
-    ],
+    files = glob([
+        "**/*.yml",
+    ]),
     mode = "0755",
     package_dir = "/etc/opt/mixer",
+    strip_prefix = "./",
     tags = ["manual"],
     visibility = ["//docker:__pkg__"],
 )
