@@ -93,15 +93,17 @@ class Config {
                         const std::string &server_config);
 
   // Create MethodInfo for HTTP methods, register them to PathMatcher.
-  bool LoadHttpMethods(ApiManagerEnvInterface *env, PathMatcherBuilder *pmb);
+  bool LoadHttpMethods(ApiManagerEnvInterface *env,
+                       PathMatcherBuilder<MethodInfo *> *pmb);
 
   // Add a special option method info for all URLs to support CORS.
   bool AddOptionsMethodForAllUrls(ApiManagerEnvInterface *env,
-                                  PathMatcherBuilder *pmb,
+                                  PathMatcherBuilder<MethodInfo *> *pmb,
                                   const std::set<std::string> &all_urls);
 
   // Create MethodInfo for RPC methods, register them to PathMatcher.
-  bool LoadRpcMethods(ApiManagerEnvInterface *env, PathMatcherBuilder *pmb);
+  bool LoadRpcMethods(ApiManagerEnvInterface *env,
+                      PathMatcherBuilder<MethodInfo *> *pmb);
 
   // Load Authentication info to MethodInfo.
   bool LoadAuthentication(ApiManagerEnvInterface *env);
@@ -124,7 +126,7 @@ class Config {
 
   ::google::api::Service service_;
   std::unique_ptr<proto::ServerConfig> server_config_;
-  PathMatcherPtr path_matcher_;
+  PathMatcherPtr<MethodInfo *> path_matcher_;
   std::map<std::string, MethodInfoImplPtr> method_map_;
   // Maps issuer to {jwksUri, openIdValid} pair.
   // jwksUri is populated either from service config, or by openId discovery.

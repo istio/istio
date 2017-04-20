@@ -140,8 +140,8 @@ class PathMatcherTest : public ::testing::Test {
   }
 
  private:
-  PathMatcherBuilder builder_;
-  PathMatcherPtr matcher_;
+  PathMatcherBuilder<MethodInfo*> builder_;
+  PathMatcherPtr<MethodInfo*> matcher_;
   std::vector<MethodInfo*> stored_methods_;
   std::set<std::string> empty_set_;
 };

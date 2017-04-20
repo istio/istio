@@ -131,7 +131,7 @@ bool Config::LoadQuotaRule(ApiManagerEnvInterface *env) {
 }
 
 bool Config::LoadHttpMethods(ApiManagerEnvInterface *env,
-                             PathMatcherBuilder *pmb) {
+                             PathMatcherBuilder<MethodInfo *> *pmb) {
   std::set<std::string> all_urls, urls_with_options;
   // By default, allow_cors is false. This means that the default behavior
   // of ESP is to reject all "OPTIONS" requests. If customers want to enable
@@ -210,7 +210,7 @@ bool Config::LoadHttpMethods(ApiManagerEnvInterface *env,
 }
 
 bool Config::AddOptionsMethodForAllUrls(ApiManagerEnvInterface *env,
-                                        PathMatcherBuilder *pmb,
+                                        PathMatcherBuilder<MethodInfo *> *pmb,
                                         const std::set<std::string> &all_urls) {
   // In order to support CORS. Http method OPTIONS needs to be added to
   // the path_matcher for all urls except the ones already with options.
@@ -242,7 +242,7 @@ bool Config::AddOptionsMethodForAllUrls(ApiManagerEnvInterface *env,
 }
 
 bool Config::LoadRpcMethods(ApiManagerEnvInterface *env,
-                            PathMatcherBuilder *pmb) {
+                            PathMatcherBuilder<MethodInfo *> *pmb) {
   for (const auto &api : service_.apis()) {
     if (api.name().empty()) {
       continue;
@@ -439,7 +439,7 @@ std::unique_ptr<Config> Config::Create(ApiManagerEnvInterface *env,
     return nullptr;
   }
   config->LoadServerConfig(env, server_config);
-  PathMatcherBuilder pmb;
+  PathMatcherBuilder<MethodInfo *> pmb;
   // Load apis before http rules to store API versions
   if (!config->LoadRpcMethods(env, &pmb)) {
     return nullptr;

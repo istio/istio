@@ -52,8 +52,6 @@ cc_library(
         "config.h",
         "gce_metadata.h",
         "method_impl.h",
-        "path_matcher.h",
-        "path_matcher_node.h",
         "request_handler.h",
     ],
     deps = [
@@ -77,8 +75,6 @@ cc_library(
         "gce_metadata.cc",
         "http_template.h",
         "method_impl.cc",
-        "path_matcher.cc",
-        "path_matcher_node.cc",
         "quota_control.cc",
         "quota_control.h",
         "request_handler.cc",
@@ -96,6 +92,7 @@ cc_library(
     deps = [
         ":auth_headers",
         ":http_template",
+        ":path_matcher",
         ":impl_headers",
         ":server_config_proto",
         "//contrib/endpoints/src/api_manager/auth",
@@ -111,6 +108,20 @@ cc_library(
         "//external:service_config",
         "//external:servicecontrol",
         "//external:servicecontrol_client",
+    ],
+)
+
+cc_library(
+    name = "path_matcher",
+    srcs = [
+        "path_matcher_node.cc",
+        "path_matcher_node.h",
+    ],
+    hdrs = [
+        "path_matcher.h",
+    ],
+    deps = [
+        ":http_template",
     ],
 )
 
