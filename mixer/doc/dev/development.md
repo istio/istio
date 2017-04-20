@@ -1,14 +1,14 @@
 # Development Guide
 
 This document is intended to be the canonical source of truth for things like
-supported toolchain versions for building the Istio mixer. If you find a
+supported toolchain versions for building Mixer. If you find a
 requirement that this doc does not capture, or if you find other docs with
 references to requirements that are not simply links to this doc, please
 [submit an issue](https://github.com/istio/mixer/issues/new).
 
 This document is intended to be relative to the branch in which it is found.
 It is guaranteed that requirements will change over time for the development
-branch, but release branches of the Istio mixer should not change.
+branch, but release branches of Mixer should not change.
 
 - [Prerequisites](#prerequisites)
   - [Setting up Go](#setting-up-go)
@@ -34,46 +34,46 @@ branch, but release branches of the Istio mixer should not change.
   - [Running race detection tests](#running-race-detection-tests)
   - [Adding dependencies](#adding-dependencies)
   - [About testing](#about-testing)
-- [Using the mixer](#using-the-mixer)
+- [Using Mixer](#using-mixer)
 
 Other docs you should look at:
 
 - [Project conventions](./conventions.md)
 - [Creating fast and lean code](./performance.md)
-- [Writing mixer adapters](./adapters.md)
+- [Writing Mixer adapters](./adapters.md)
 - [Go landmines](https://gist.github.com/lavalamp/4bd23295a9f32706a48f)
 - [Go style mistakes](https://github.com/golang/go/wiki/CodeReviewComments)
 
 ## Prerequisites
 
-The mixer code base has only a few external dependencies you
+The Mixer code base has only a few external dependencies you
 need to setup before being able to build and run the code.
 
 ### Setting up Go
 
-The Istio mixer is written in the [Go](http://golang.org) programming language.
-To build the mixer, you'll need a Go development environment. Builds for
-the mixer require Go version 1.8. If you haven't set up a Go development
+Mixer is written in the [Go](http://golang.org) programming language.
+To build Mixer, you'll need a Go development environment. Builds for
+Mixer require Go version 1.8. If you haven't set up a Go development
 environment, please follow [these instructions](http://golang.org/doc/code.html)
 to install the Go tools.
 
 Set up your GOPATH and add a path entry for Go binaries to your PATH. Typically
 added to your ~/.profile:
 
-```
+```shell
 export GOPATH=~/go
 export PATH=$PATH:$GOPATH/bin
 ```
 
 ### Setting up Bazel
 
-The Istio mixer is built using the bazel build system. See
+Mixer is built using the bazel build system. See
 [here](https://bazel.build/versions/master/docs/install.html) for the
 installation procedures.
 
 ### Setting up Docker
 
-To run some of the mixer examples and tests, you need to set up Docker server.
+To run some of the Mixer examples and tests, you need to set up Docker server.
 Please follow [these instructions](https://docs.docker.com/engine/installation/)
 for how to do this for your platform.
 
@@ -91,10 +91,10 @@ Other git workflows are also valid.
 
 The commands below require that you have $GOPATH set ([$GOPATH
 docs](https://golang.org/doc/code.html#GOPATH)). We highly recommend you put
-the mixer's code into your GOPATH. Note: the commands below will not work if
+Mixer's code into your GOPATH. Note: the commands below will not work if
 there is more than one directory in your `$GOPATH`.
 
-```
+```shell
 export ISTIO=~/go/src/istio.io
 mkdir -p $ISTIO/mixer
 cd $ISTIO
@@ -111,7 +111,7 @@ Mixer uses a local pre-commit hook to ensure that the code
 passes local test.
 
 Run
-```
+```shell
 user@host:~/GOHOME/src/istio.io/mixer$ bin/pre-commit
 Installing pre-commit hook
 ```
@@ -120,14 +120,14 @@ The commit is allowed to proceed only if the hook succeeds.
 
 ### Create a branch and make changes
 
-```
+```shell
 git checkout -b my-feature
 # Make your code changes
 ```
 
 ### Keeping your fork in sync
 
-```
+```shell
 git fetch upstream
 git rebase upstream/master
 ```
@@ -136,7 +136,7 @@ Note: If you have write access to the main repository at
 github.com/istio/mixer, you should modify your git configuration so
 that you can't accidentally push to upstream:
 
-```
+```shell
 git remote set-url --push upstream no_push
 ```
 
@@ -144,7 +144,7 @@ git remote set-url --push upstream no_push
 
 When you're happy with some changes, you can commit them and push them to your fork:
 
-```
+```shell
 git add .
 git commit
 git push -f origin my-feature
@@ -181,9 +181,9 @@ reviews much easier.
 
 ### Building the code
 
-To build the mixer, enter:
+To build Mixer, enter:
 
-```
+```shell
 cd $(ISTIO)/mixer
 bazel build ...
 ```
@@ -194,21 +194,21 @@ This figures out what it needs to do and does not need any input from you.
 
 You can delete any build artifacts with:
 
-```
+```shell
 bazel clean
 ```
 ### Running tests
 
 You can run all the available tests with:
 
-```
+```shell
 bazel test ...
 ```
 ### Getting coverage numbers
 
 You can get the current unit test coverage numbers on your local repo by going to the top of the repo and entering:
 
-```
+```shell
 make coverage
 ```
 
@@ -217,7 +217,7 @@ make coverage
 You can automatically format the source code and BUILD files to follow our conventions by going to the
 top of the repo and entering:
 
-```
+```shell
 make fmt
 ```
 
@@ -225,7 +225,7 @@ make fmt
 
 You can run all the linters we require on your local repo by going to the top of the repo and entering:
 
-```
+```shell
 make lint
 ```
 
@@ -233,7 +233,7 @@ make lint
 
 You can run the test suite using the Go race detection tools using:
 
-```
+```shell
 make racetest
 ```
 
@@ -256,7 +256,7 @@ known good recent commit is acceptable.
 
 Examples:
 
-```
+```shell
 new_go_repository(
     name = "org_golang_google_grpc",
     commit = "708a7f9f3283aa2d4f6132d287d78683babe55c8", # Dec 5, 2016 (v1.0.5)
@@ -264,7 +264,7 @@ new_go_repository(
 )
 ```
 
-```
+```shell
 git_repository(
     name = "org_pubref_rules_protobuf",
     commit = "b0acb9ecaba79716a36fdadc0bcc47dedf6b711a", # Nov 28 2016 (importmap support for gogo_proto_library)
@@ -286,11 +286,11 @@ passed both unit and integration tests. We only merges pull requests when
   [table driven testing](https://github.com/golang/go/wiki/TableDrivenTests)
 * Concurrent unit test runs must pass.
 
-## Using the mixer
+## Using Mixer
 
-Once you've built the source base, you can run the mixer in a basic mode using:
+Once you've built the source base, you can run Mixer in a basic mode using:
 
-```
+```shell
 bazel-bin/cmd/server/mixs server \
   --globalConfigFile testdata/globalconfig.yml \
   --serviceConfigFile testdata/serviceconfig.yml  --logtostderr
@@ -298,6 +298,6 @@ bazel-bin/cmd/server/mixs server \
 
 You can also run a simple client to interact with the server:
 
-```
+```shell
 bazel-bin/cmd/client/mixc check
 ```

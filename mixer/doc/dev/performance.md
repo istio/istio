@@ -1,6 +1,6 @@
 # Creating Fast and Lean Code
 
-The Istio mixer is a high-performance component. It's imperative to keep its
+Mixer is a high-performance component. It's imperative to keep its
 latency and memory consumption low.
 
 - [Memory usage](#memory-usage)
