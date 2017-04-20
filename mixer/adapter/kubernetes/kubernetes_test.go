@@ -99,14 +99,24 @@ func TestBuilder(t *testing.T) {
 }
 
 func TestBuilder_ValidateConfigErrors(t *testing.T) {
-	emptyConfig := &config.Params{}
-	b := newBuilder(fakePodCache)
-	err := b.ValidateConfig(emptyConfig)
-	if err == nil {
-		t.Fatalf("Expected config to fail validation: %#v", emptyConfig)
+	tests := []struct {
+		name     string
+		conf     *config.Params
+		errCount int
+	}{
+		{"empty config", &config.Params{}, 16},
+		{"bad cluster domain name", &config.Params{ClusterDomainName: "something.silly"}, 16},
 	}
-	if len(err.Multi.Errors) != 14 {
-		t.Fatalf("Got %d errors; wanted %d", len(err.Multi.Errors), 14)
+
+	b := newBuilder(fakePodCache)
+	for _, v := range tests {
+		err := b.ValidateConfig(v.conf)
+		if err == nil {
+			t.Fatalf("Expected config to fail validation: %#v", v.conf)
+		}
+		if len(err.Multi.Errors) != v.errCount {
+			t.Fatalf("Got %d errors; wanted %d", len(err.Multi.Errors), v.errCount)
+		}
 	}
 }
 
@@ -143,30 +153,11 @@ func TestKubegen_Close(t *testing.T) {
 }
 
 func TestKubegen_Generate(t *testing.T) {
-	inputs := map[string]interface{}{
-		"sourceUID": "kubernetes://testsvc.default",
-		"targetUID": "kubernetes://testsvc",
-		"originUID": "",
-	}
-
-	want := map[string]interface{}{
-		"sourceLabels": map[string]string{
-			"app":       "test",
-			"something": "",
-		},
-		"sourcePodIP":              "10.10.10.1",
-		"sourceHostIP":             "10.1.1.10",
-		"sourceNamespace":          "default",
-		"sourcePodName":            "test_pod",
-		"sourceService":            "test",
-		"sourceServiceAccountName": "test",
-	}
-
 	pods := map[string]*v1.Pod{
-		"default/testsvc": {
+		"testns/testsvc": {
 			ObjectMeta: v1.ObjectMeta{
 				Name:      "test_pod",
-				Namespace: "default",
+				Namespace: "testns",
 				Labels: map[string]string{
 					"app":       "test",
 					"something": "",
@@ -180,6 +171,15 @@ func TestKubegen_Generate(t *testing.T) {
 				ServiceAccountName: "test",
 			},
 		},
+		"testns/badapplabel": {
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "test_pod",
+				Namespace: "testns",
+				Labels: map[string]string{
+					"app": "",
+				},
+			},
+		},
 	}
 
 	kg := &kubegen{
@@ -187,11 +187,108 @@ func TestKubegen_Generate(t *testing.T) {
 		params: *conf,
 		pods:   fakeCache{pods: pods},
 	}
-	got, err := kg.Generate(inputs)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
+
+	sourceUIDIn := map[string]interface{}{
+		"sourceUID":     "kubernetes://testsvc.testns",
+		"targetUID":     "kubernetes://badsvcuid",
+		"originUID":     "kubernetes://badsvcuid",
+		"targetService": "hello:80",
 	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("Generate(): got %#v; want %#v", got, want)
+
+	sourceUIDOut := map[string]interface{}{
+		"sourceLabels": map[string]string{
+			"app":       "test",
+			"something": "",
+		},
+		"sourcePodIP":              "10.10.10.1",
+		"sourceHostIP":             "10.1.1.10",
+		"sourceNamespace":          "testns",
+		"sourcePodName":            "test_pod",
+		"sourceService":            "test.testns.svc.cluster.local",
+		"sourceServiceAccountName": "test",
+		"targetService":            "hello.default.svc.cluster.local",
 	}
+
+	namespacedTargetSvcIn := map[string]interface{}{
+		"targetService": "hello.world",
+	}
+
+	namespacedTargetSvcOut := map[string]interface{}{
+		"targetService": "hello.world.svc.cluster.local",
+	}
+
+	partialTargetSvcIn := map[string]interface{}{
+		"targetService": "hello.world.service:80",
+	}
+
+	partialTargetSvcOut := map[string]interface{}{
+		"targetService": "hello.world.service.cluster.local",
+	}
+
+	morePartialTargetSvcIn := map[string]interface{}{
+		"targetService": "hello.world.service.kluster:80",
+	}
+
+	morePartialTargetSvcOut := map[string]interface{}{
+		"targetService": "hello.world.service.kluster.local",
+	}
+
+	targetSvcIn := map[string]interface{}{
+		"targetService": "hello.world.service.kluster.remote:80",
+	}
+
+	targetSvcOut := map[string]interface{}{
+		"targetService": "hello.world.service.kluster.remote",
+	}
+
+	ipTargetSvcIn := map[string]interface{}{
+		"targetService": "10.1.100.10:80",
+	}
+
+	badTargetSvcOut := map[string]interface{}{}
+
+	badTargetSvcIn := map[string]interface{}{
+		"targetService": ":broken",
+	}
+
+	emptyTargetSvcIn := map[string]interface{}{
+		"targetUID":     "kubernetes://badapplabel.testns",
+		"targetService": "",
+	}
+
+	emptyTargetOut := map[string]interface{}{
+		"targetLabels": map[string]string{
+			"app": "",
+		},
+		"targetNamespace": "testns",
+		"targetPodName":   "test_pod",
+	}
+
+	tests := []struct {
+		name   string
+		inputs map[string]interface{}
+		want   map[string]interface{}
+	}{
+		{"source pod and target service", sourceUIDIn, sourceUIDOut},
+		{"namespaced target service", namespacedTargetSvcIn, namespacedTargetSvcOut},
+		{"target service with 3 parts", partialTargetSvcIn, partialTargetSvcOut},
+		{"target service with 4 parts", morePartialTargetSvcIn, morePartialTargetSvcOut},
+		{"fq target service", targetSvcIn, targetSvcOut},
+		{"ip addr service", ipTargetSvcIn, badTargetSvcOut},
+		{"bad target service", badTargetSvcIn, badTargetSvcOut},
+		{"empty target service", emptyTargetSvcIn, emptyTargetOut},
+	}
+
+	for _, v := range tests {
+		t.Run(v.name, func(t *testing.T) {
+			got, err := kg.Generate(v.inputs)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(got, v.want) {
+				t.Fatalf("Generate(): got %#v; want %#v", got, v.want)
+			}
+		})
+	}
+
 }

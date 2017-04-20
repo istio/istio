@@ -22,7 +22,7 @@ adapters:
       # when running from mixer root, use the following config after adding a
       # symbolic link to a kubernetes config file via:
       #
-      # $ ln -s ~/.kube/config adapter/kubernets/kubeconfig
+      # $ ln -s ~/.kube/config adapter/kubernetes/kubeconfig
       #
       # kubeconfig_path: "adapter/kubernetes/kubeconfig"
 manifests:
@@ -64,6 +64,8 @@ manifests:
     - name: request.method
       value_type: STRING
     - name: request.path
+      value_type: STRING
+    - name: request.host
       value_type: STRING
     - name: request.headers
       value_type: STRING_MAP

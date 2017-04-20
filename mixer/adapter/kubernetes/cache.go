@@ -71,6 +71,8 @@ const mutationBufferSize = 100
 // TODO: make this configurable
 const errorDelay = 1 * time.Second
 
+const debugVerbosityLevel = 4
+
 // Responsible for setting up the cacheController, based on the supplied client.
 // It configures the index informer to list/watch pods and send update events
 // to a mutations channel for processing (in this case, logging).
@@ -95,26 +97,27 @@ func newCacheController(clientset *kubernetes.Clientset, namespace string, refre
 		cache.Indexers{},
 	)
 
-	// log all events
-	// TODO: add verbosity-level information to env
-	eventErr := c.pods.AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				c.mutationsChan <- resourceMutation{addition, obj}
+	// debug logging for pod update events
+	if env.Logger().VerbosityLevel(debugVerbosityLevel) {
+		eventErr := c.pods.AddEventHandler(
+			cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {
+					c.mutationsChan <- resourceMutation{addition, obj}
+				},
+				DeleteFunc: func(obj interface{}) {
+					c.mutationsChan <- resourceMutation{deletion, obj}
+				},
+				UpdateFunc: func(old, cur interface{}) {
+					if !reflect.DeepEqual(old, cur) {
+						c.mutationsChan <- resourceMutation{update, cur}
+					}
+				},
 			},
-			DeleteFunc: func(obj interface{}) {
-				c.mutationsChan <- resourceMutation{deletion, obj}
-			},
-			UpdateFunc: func(old, cur interface{}) {
-				if !reflect.DeepEqual(old, cur) {
-					c.mutationsChan <- resourceMutation{update, cur}
-				}
-			},
-		},
-	)
+		)
 
-	if eventErr != nil {
-		c.env.Logger().Warningf("could not add logging event handlers: %v", eventErr)
+		if eventErr != nil {
+			c.env.Logger().Warningf("could not add logging event handlers: %v", eventErr)
+		}
 	}
 
 	return c
@@ -122,11 +125,11 @@ func newCacheController(clientset *kubernetes.Clientset, namespace string, refre
 
 // Run starts the logger and the controller for the pod cache.
 func (c *controllerImpl) Run(stop <-chan struct{}) {
-	//if glog.V(4) {
-	c.env.ScheduleDaemon(func() {
-		c.runLogger(stop)
-	})
-	//}
+	if c.env.Logger().VerbosityLevel(debugVerbosityLevel) {
+		c.env.ScheduleDaemon(func() {
+			c.runLogger(stop)
+		})
+	}
 	c.env.ScheduleDaemon(func() {
 		c.pods.Run(stop)
 		c.env.Logger().Infof("cluster cache started")
@@ -144,7 +147,18 @@ func (c *controllerImpl) runLogger(stop <-chan struct{}) {
 			err := c.log(mutation.obj, mutation.kind)
 			if err != nil {
 				c.env.Logger().Infof("event logging failed, will retry: %v", err)
-				time.Sleep(errorDelay)
+				select {
+				case <-stop:
+					c.env.Logger().Infof("cluster cache logging worker terminated")
+					return
+				case <-time.After(errorDelay):
+					// used to wait out errors
+					// time.After is OK for usage as there
+					// is no real concern here over the
+					// slight delay in GC that may occur
+					// if a stop message is received before
+					// this timer fires.
+				}
 			}
 		case <-stop:
 			c.env.Logger().Infof("cluster cache logging worker terminated")

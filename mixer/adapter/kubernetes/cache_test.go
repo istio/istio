@@ -163,3 +163,22 @@ func TestClusterInfoCache_Run(t *testing.T) {
 		t.Error("Expected cache to have been started.")
 	}
 }
+
+func TestClusterInfoCache_RunLoggerStopInSelect(t *testing.T) {
+	informer := &fakeInformer{}
+	c := &controllerImpl{
+		env:           test.NewEnv(t),
+		pods:          informer,
+		mutationsChan: make(chan resourceMutation),
+	}
+
+	stop := make(chan struct{})
+	go c.Run(stop)
+
+	c.mutationsChan <- resourceMutation{kind: deletion, obj: v1.Pod{}}
+
+	close(stop)
+	if !informer.RunCalled() {
+		t.Error("Expected cache to have been started.")
+	}
+}

@@ -40,6 +40,7 @@ option (gogoproto.gostring_all) = false;
 // sourceUID and the output value of pod ip, this adapter will output a map
 // that includes a key of "sourcePodIP" (assuming parameter defaults).
 message Params {
+    // next field id: 19
 
     // File path to discover kubeconfig. For in-cluster configuration,
     // this should be left unset. For local configuration, this should
@@ -73,6 +74,19 @@ message Params {
     //
     // Default: originUID
     string origin_uid_input_name = 5;
+
+    // Configures how the identifier for the target service is populated in
+    // the input map (if at all). When supplied, this value will be used (after
+    // successful normalization) in place of the value derived from the pod
+    // cache for the target pod in the generated map of output values.
+    //
+    // Default: targetService
+    string target_service_input_name = 17;
+
+    // Configures the cluster domain name to use for service name normalization.
+    //
+    // Default: svc.cluster.local
+    string cluster_domain_name = 18;
 
     // In order to extract the service associated with a source, target, or
     // origin, this adapter relies on pod labels. In particular, it looks for

@@ -20,7 +20,9 @@
 package kubernetes
 
 import (
+	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -60,7 +62,8 @@ const (
 	desc = "Provides platform specific functionality for the kubernetes environment"
 
 	// parsing
-	kubePrefix = "kubernetes://"
+	kubePrefix       = "kubernetes://"
+	defaultNamespace = "default"
 
 	// input/output naming
 	sourceUID         = "sourceUID"
@@ -78,6 +81,8 @@ const (
 	serviceVal        = "Service"
 
 	// value extraction
+	targetService   = "targetService"
+	clusterDomain   = "svc.cluster.local"
 	podServiceLabel = "app"
 
 	// cache invaliation
@@ -92,6 +97,8 @@ var (
 		SourceUidInputName:      sourceUID,
 		TargetUidInputName:      targetUID,
 		OriginUidInputName:      originUID,
+		TargetServiceInputName:  targetService,
+		ClusterDomainName:       clusterDomain,
 		PodLabelForService:      podServiceLabel,
 		SourcePrefix:            sourcePrefix,
 		TargetPrefix:            targetPrefix,
@@ -165,6 +172,14 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	if len(params.PodLabelForService) == 0 {
 		ce = ce.Appendf("pod_label_name", "field must be populated")
 	}
+	if len(params.TargetServiceInputName) == 0 {
+		ce = ce.Appendf("target_service_input_name", "field must be populated")
+	}
+	if len(params.ClusterDomainName) == 0 {
+		ce = ce.Appendf("cluster_domain_name", "field must be populated")
+	} else if len(strings.Split(params.ClusterDomainName, ".")) != 3 {
+		ce = ce.Appendf("cluster_domain_name", "must have three segments, separated by '.' ('svc.cluster.local', for example)")
+	}
 	return
 }
 
@@ -201,7 +216,7 @@ func newCacheFromConfig(kubeconfigPath string, refreshDuration time.Duration, en
 	if err != nil || config == nil {
 		return nil, fmt.Errorf("could not retrieve kubeconfig: %v", err)
 	}
-	env.Logger().Infof("getting k8s client with %#v", config)
+	env.Logger().Infof("getting k8s client from config")
 	clientset, err := k8s.NewForConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("could not create clientset for k8s: %v", err)
@@ -220,15 +235,32 @@ func (k *kubegen) Generate(inputs map[string]interface{}) (map[string]interface{
 	values := make(map[string]interface{})
 	if uid, found := inputs[k.params.SourceUidInputName]; found {
 		uidstr := uid.(string)
-		k.addValues(values, uidstr, k.params.SourcePrefix)
+		if len(uidstr) > 0 {
+			k.addValues(values, uidstr, k.params.SourcePrefix)
+		}
 	}
 	if uid, found := inputs[k.params.TargetUidInputName]; found {
 		uidstr := uid.(string)
-		k.addValues(values, uidstr, k.params.TargetPrefix)
+		if len(uidstr) > 0 {
+			k.addValues(values, uidstr, k.params.TargetPrefix)
+		}
 	}
 	if uid, found := inputs[k.params.OriginUidInputName]; found {
 		uidstr := uid.(string)
-		k.addValues(values, uidstr, k.params.OriginPrefix)
+		if len(uidstr) > 0 {
+			k.addValues(values, uidstr, k.params.OriginPrefix)
+		}
+	}
+	if targetSvc, found := inputs[k.params.TargetServiceInputName]; found {
+		svc := targetSvc.(string)
+		if len(svc) > 0 {
+			n, err := canonicalName(svc, defaultNamespace, k.params.ClusterDomainName)
+			if err != nil {
+				k.log.Warningf("could not canonicalize target service: %v", err)
+			} else {
+				values[valueName(k.params.TargetPrefix, k.params.ServiceValueName)] = n
+			}
+		}
 	}
 	return values, nil
 }
@@ -243,9 +275,6 @@ func (k *kubegen) addValues(vals map[string]interface{}, uid, valPrefix string) 
 }
 
 func keyFromUID(uid string) string {
-	if len(uid) == 0 {
-		return ""
-	}
 	fullname := strings.TrimPrefix(uid, kubePrefix)
 	if strings.Contains(fullname, ".") {
 		parts := strings.Split(fullname, ".")
@@ -260,17 +289,78 @@ func addPodValues(m map[string]interface{}, prefix string, params config.Params,
 	if p == nil {
 		return
 	}
-	m[valueName(prefix, params.LabelsValueName)] = p.Labels
-	m[valueName(prefix, params.PodNameValueName)] = p.Name
-	m[valueName(prefix, params.NamespaceValueName)] = p.Namespace
-	m[valueName(prefix, params.ServiceAccountValueName)] = p.Spec.ServiceAccountName
-	m[valueName(prefix, params.PodIpValueName)] = p.Status.PodIP
-	m[valueName(prefix, params.HostIpValueName)] = p.Status.HostIP
+	if len(p.Labels) > 0 {
+		m[valueName(prefix, params.LabelsValueName)] = p.Labels
+	}
+	if len(p.Name) > 0 {
+		m[valueName(prefix, params.PodNameValueName)] = p.Name
+	}
+	if len(p.Namespace) > 0 {
+		m[valueName(prefix, params.NamespaceValueName)] = p.Namespace
+	}
+	if len(p.Spec.ServiceAccountName) > 0 {
+		m[valueName(prefix, params.ServiceAccountValueName)] = p.Spec.ServiceAccountName
+	}
+	if len(p.Status.PodIP) > 0 {
+		m[valueName(prefix, params.PodIpValueName)] = p.Status.PodIP
+	}
+	if len(p.Status.HostIP) > 0 {
+		m[valueName(prefix, params.HostIpValueName)] = p.Status.HostIP
+	}
 	if app, found := p.Labels[params.PodLabelForService]; found {
-		m[valueName(prefix, params.ServiceValueName)] = app
+		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
+		if err == nil {
+			m[valueName(prefix, params.ServiceValueName)] = n
+		}
 	}
 }
 
 func valueName(prefix, value string) string {
 	return fmt.Sprintf("%s%s", prefix, value)
+}
+
+// name format examples that can be currently canonicalized:
+//
+// "hello:80",
+// "hello",
+// "hello.default:80",
+// "hello.default",
+// "hello.default.svc:80",
+// "hello.default.svc",
+// "hello.default.svc.cluster:80",
+// "hello.default.svc.cluster",
+// "hello.default.svc.cluster.local:80",
+// "hello.default.svc.cluster.local",
+func canonicalName(service, namespace, clusterDomain string) (string, error) {
+	if len(service) == 0 {
+		return "", errors.New("invalid service name: cannot be empty")
+	}
+	// remove any port suffixes (ex: ":80")
+	splits := strings.SplitN(service, ":", 2)
+	s := splits[0]
+	if len(s) == 0 {
+		return "", fmt.Errorf("invalid service name '%s': starts with ':'", service)
+	}
+	// error on ip addresses for now
+	if ip := net.ParseIP(s); ip != nil {
+		return "", errors.New("invalid service name: cannot canonicalize ip addresses at this time")
+	}
+	parts := strings.SplitN(s, ".", 3)
+	if len(parts) == 1 {
+		return fmt.Sprintf("%s.%s.%s", parts[0], namespace, clusterDomain), nil
+	}
+	if len(parts) == 2 {
+		return fmt.Sprintf("%s.%s", s, clusterDomain), nil
+	}
+
+	domParts := strings.Split(clusterDomain, ".")
+	nameParts := strings.Split(parts[2], ".")
+
+	if len(nameParts) >= len(domParts) {
+		return s, nil
+	}
+	for i := len(nameParts); i < len(domParts); i++ {
+		s = fmt.Sprintf("%s.%s", s, domParts[i])
+	}
+	return s, nil
 }
