@@ -1,21 +1,36 @@
+// Copyright 2017 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package framework
 
 import (
 	"bufio"
-	"cloud.google.com/go/storage"
 	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/golang/glog"
-	"github.com/google/uuid"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
+
+	"cloud.google.com/go/storage"
+	"github.com/golang/glog"
+	"github.com/google/uuid"
 )
 
 var (
@@ -23,26 +38,29 @@ var (
 )
 
 const (
-	TMP_PREFIX    = "istio.e2e."
-	ID_MAX_LENGTH = 36
+	tmpPrefix   = "istio.e2e."
+	idMaxLength = 36
 )
 
-type TestInfo struct {
-	RunId         string
-	TestId        string
+// TestInfo gathers Test Information
+type testInfo struct {
+	RunID         string
+	TestID        string
 	Bucket        string
 	LogBucketPath string
 	LogsPath      string
 }
 
-type TestStatus struct {
-	TestId string    `json:"test_id"`
+// Test information
+type testStatus struct {
+	TestID string    `json:"test_id"`
 	Status int       `json:"status"`
-	RunId  string    `json:"run_id"`
+	RunID  string    `json:"run_id"`
 	Date   time.Time `json:"date"`
 }
 
-func NewTestInfo(testId string) (*TestInfo, error) {
+// NewTestInfo creates a TestInfo given a test id.
+func newTestInfo(testID string) (*testInfo, error) {
 	bucket := ""
 	logsPath := ""
 	f := flag.Lookup("log_dir")
@@ -50,14 +68,14 @@ func NewTestInfo(testId string) (*TestInfo, error) {
 	if tmpDir == "" {
 		var err error
 
-		tmpDir, err = ioutil.TempDir(os.TempDir(), TMP_PREFIX)
+		tmpDir, err = ioutil.TempDir(os.TempDir(), tmpPrefix)
 		if err != nil {
 			return nil, err
 		}
 
 	}
 	glog.Infof("Using log dir %s", tmpDir)
-	id, err := generateRunId(testId)
+	id, err := generateRunID(testID)
 	if err != nil {
 		return nil, err
 	}
@@ -68,60 +86,68 @@ func NewTestInfo(testId string) (*TestInfo, error) {
 			bucket = m[1]
 			logsPath = m[2]
 		} else {
-			return nil, errors.New("Cannot parse logBucketPath flag")
+			return nil, errors.New("cannot parse logBucketPath flag")
 		}
 	}
 	if err != nil {
-		return nil, errors.New("Could not create a Temporary dir")
+		return nil, errors.New("could not create a temporary dir")
 	}
 	// Need to setup logging here
-	return &TestInfo{
-		TestId:        testId,
-		RunId:         id,
+	return &testInfo{
+		TestID:        testID,
+		RunID:         id,
 		Bucket:        bucket,
 		LogBucketPath: filepath.Join(logsPath, id),
 		LogsPath:      tmpDir,
 	}, nil
 }
 
-func (t TestInfo) Setup() error {
+func (t testInfo) Setup() error {
 	return nil
 }
 
-func (t TestInfo) CreateStatusFile(r int) error {
+// Update sets the test status.
+func (t testInfo) Update(r int) error {
+	return t.createStatusFile(r)
+}
+
+func (t testInfo) createStatusFile(r int) error {
 	glog.Info("Creating status file")
-	ts := TestStatus{
+	ts := testStatus{
 		Status: r,
 		Date:   time.Now(),
-		TestId: t.TestId,
-		RunId:  t.RunId,
+		TestID: t.TestID,
+		RunID:  t.RunID,
 	}
-	fp := filepath.Join(t.LogsPath, fmt.Sprintf("%s.json", t.TestId))
+	fp := filepath.Join(t.LogsPath, fmt.Sprintf("%s.json", t.TestID))
 	f, err := os.Create(fp)
 	if err != nil {
-		glog.Errorf("Could not create %s", fp)
+		glog.Errorf("Could not create %s. Error %s", fp, err)
 		return err
 	}
-	defer f.Close()
 	w := bufio.NewWriter(f)
 	e := json.NewEncoder(w)
 	e.SetIndent("", "  ")
-	err = e.Encode(ts)
-	w.Flush()
-	glog.Infof("Created Status file %s", fp)
+	if err = e.Encode(ts); err == nil {
+		if err = w.Flush(); err == nil {
+			if err = f.Close(); err == nil {
+				glog.Infof("Created Status file %s", fp)
+			}
+		}
+	}
 	return err
 }
 
-func (t TestInfo) uploadDir() error {
+func (t testInfo) uploadDir() error {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
-		glog.Error("Could not set Storage client")
+		glog.Errorf("Could not set Storage client. Error %s", err)
 		return err
 	}
 	bkt := client.Bucket(t.Bucket)
 
-	uploadFile := func(p string) error {
+	uploadFileFn := func(p string) error {
 		// Relative Path
 		rp, err := filepath.Rel(t.LogsPath, p)
 		if err != nil {
@@ -131,9 +157,14 @@ func (t TestInfo) uploadDir() error {
 		glog.Infof("Uploading %s to gs://%s/%s", p, rp, t.Bucket)
 		o := bkt.Object(rp)
 		w := o.NewWriter(ctx)
-		defer w.Close()
-		b, err := ioutil.ReadFile(p)
-		_, err = w.Write(b)
+		var b []byte
+		if b, err = ioutil.ReadFile(p); err == nil {
+			if _, err = w.Write(b); err == nil {
+				if err = w.Close(); err == nil {
+					glog.Infof("Uploaded %s to gs://%s/%s", p, rp, t.Bucket)
+				}
+			}
+		}
 		return err
 	}
 
@@ -144,8 +175,8 @@ func (t TestInfo) uploadDir() error {
 			return filepath.SkipDir
 		}
 		if !info.IsDir() {
-			if uploadFile(path) != nil {
-				glog.Warningf("An error occured when upload %s %s", path, err)
+			if uploadFileFn(path) != nil {
+				glog.Warningf("An error occurred when upload %s %s", path, err)
 			}
 		}
 		return nil
@@ -153,21 +184,23 @@ func (t TestInfo) uploadDir() error {
 	return filepath.Walk(t.LogsPath, walkFn)
 }
 
-func (t TestInfo) Teardown() error {
-	glog.Info("Uploading logs remotely")
-	glog.Flush()
-	return t.uploadDir()
+func (t testInfo) Teardown() error {
+	if t.Bucket != "" {
+		glog.Info("Uploading logs remotely")
+		glog.Flush()
+		return t.uploadDir()
+	}
+	return nil
 }
 
-func generateRunId(t string) (string, error) {
+func generateRunID(t string) (string, error) {
 	u := uuid.New().String()
-	strings.Replace(u, "-", "", -1)
-	strings.Replace(t, "_", "-", -1)
+	u = strings.Replace(u, "-", "", -1)
+	t = strings.Replace(t, "_", "-", -1)
 	// We want at least 6 characters of uuid padding
-	padding := ID_MAX_LENGTH - len(t)
+	padding := idMaxLength - len(t)
 	if padding < 6 {
-		return "", errors.New(
-			fmt.Sprintf("Test Name should be less that %d characters", ID_MAX_LENGTH-6))
+		return "", fmt.Errorf("test name should be less that %d characters", idMaxLength-6)
 	}
 	return fmt.Sprintf("%s-%s", t, u[0:padding]), nil
 }

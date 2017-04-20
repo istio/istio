@@ -22,9 +22,15 @@ mainFlow(utils) {
 }
 
 def presubmit(gitUtils, bazel, utils) {
-  defaultNode(gitUtils) {
+  goBuildNode(gitUtils, 'istio.io/istio') {
     bazel.updateBazelRc()
     utils.initTestingCluster()
+    stage('Bazel Build') {
+      bazel.build('//...')
+    }
+    stage('Code Check') {
+      sh('bin/linters.sh')
+    }
     stage('Bazel Test') {
       bazel.test('//...')
     }
