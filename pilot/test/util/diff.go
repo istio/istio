@@ -31,7 +31,9 @@ func Refresh() bool {
 	return exists && v == "true"
 }
 
-func compare(content, golden []byte) error {
+// Compare compares two byte slices. It returns an error with a
+// contextual diff if they are not equal.
+func Compare(content, golden []byte) error {
 	data := strings.TrimSpace(string(content))
 	expected := strings.TrimSpace(string(golden))
 
@@ -69,7 +71,7 @@ func CompareYAML(filename string, t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	if err = compare(content, golden); err != nil {
+	if err = Compare(content, golden); err != nil {
 		t.Errorf("Failed validating artifact %s:\n%v", filename, err)
 	}
 }
@@ -87,7 +89,7 @@ func CompareContent(content []byte, goldenFile string, t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	if err = compare(content, golden); err != nil {
+	if err = Compare(content, golden); err != nil {
 		t.Fatalf("Failed validating golden file %s:\n%v", goldenFile, err)
 	}
 }

@@ -7,6 +7,8 @@ fi
 
 gazelle -go_prefix "istio.io/manager" -mode fix
 
-# rewrite istio.io/api dependencies due to a custom BUILD file in it
-find . -type f -name BUILD -print0 | xargs -0 \
-  sed -i 's/proxy\/v1\/config:go_default_library/:go_default_library/g'
+# rewrite auto-generated protobuf dependencies due to custom BUILD files in WORKSPACE.
+find . -type f -name BUILD -print0 | \
+    xargs -0 sed -i \
+	  -e 's|proxy/v1/config:go_default_library|:go_default_library|g' \
+	  -e 's|google/rpc:go_default_library|:go_default_library|g'
