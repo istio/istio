@@ -58,6 +58,8 @@ func metricKindFromProto(pbk dpb.MetricDescriptor_MetricKind) (adapter.MetricKin
 		return adapter.Gauge, nil
 	case dpb.COUNTER:
 		return adapter.Counter, nil
+	case dpb.DISTRIBUTION:
+		return adapter.Distribution, nil
 	default:
 		return 0, fmt.Errorf("invalid proto MetricKind %v", pbk)
 	}
