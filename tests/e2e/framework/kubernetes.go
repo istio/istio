@@ -42,6 +42,8 @@ type KubeInfo struct {
 
 	TmpDir  string
 	YamlDir string
+
+	Ingress string
 }
 
 func init() {
@@ -92,7 +94,11 @@ func (k *KubeInfo) Setup() error {
 		return err
 	}
 
-	util.GetGateway(k.Namespace)
+  if i, err := util.GetIngress(k.Namespace); err == nil {
+		k.Ingress = i
+	} else {
+		return err
+	}
 
 	glog.Info("Kubernetes setup finished.")
 	return nil
@@ -100,9 +106,9 @@ func (k *KubeInfo) Setup() error {
 
 func (k *KubeInfo) Teardown() error {
 	if k.NamespaceCreated {
-	//	if err := util.DeleteNamespace(k.Namespace); err != nil {
-	//		return err
-	//	}
+		if err := util.DeleteNamespace(k.Namespace); err != nil {
+			return err
+		}
 		k.NamespaceCreated = false
 		glog.Infof("Namespace %s deleted", k.Namespace)
 	}

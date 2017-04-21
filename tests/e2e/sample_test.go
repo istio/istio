@@ -4,8 +4,11 @@ import (
 	"flag"
 	"github.com/golang/glog"
 	"istio.io/istio/tests/e2e/framework"
+	"istio.io/istio/tests/e2e/util"
 	"os"
 	"testing"
+	"time"
+	"fmt"
 
 )
 
@@ -39,7 +42,6 @@ func (c *testConfig) Setup() error {
 		return err
 	}
 
-
 	glog.Info("Sample test Setup")
 	c.sampleValue = "sampleValue"
 	return nil
@@ -53,8 +55,33 @@ func (c *testConfig) Teardown() error {
 }
 
 func TestSample(t *testing.T) {
-	glog.Info("This is a sample test")
 	t.Logf("Value is %s", c.sampleValue)
+}
+
+func TestDefaultRoute(t *testing.T) {
+	glog.Info("Start default route test.")
+	gateway := "http://" + c.Kube.Ingress
+	standby := 0
+	for i := 0; i <= 5; i++ {
+		time.Sleep(time.Duration(standby) * time.Second)
+		resp, err := util.Shell(fmt.Sprintf("curl --write-out %%{http_code} --silent --output /dev/null %s/productpage", gateway))
+		if err != nil {
+			t.Logf("Error when curl productpage: %s", err)
+		} else {
+			glog.Infof("Get from page: %s", resp)
+			if resp == "200" {
+				t.Log("Get response from product page!")
+				break;
+			}
+		}
+		if i == 5 {
+			t.Error("Default route Failed")
+			return
+		}
+		standby += 5
+		glog.Info("Couldn't get to the bookinfo product page, trying again in %d second", standby)
+	}
+	glog.Info("Default route succeed!")
 }
 
 func NewTestConfig() (*testConfig, error) {

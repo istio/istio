@@ -57,7 +57,7 @@ func KubeApply(n, yaml string) error {
 	return err
 }
 
-func GetGateway(n string) (string, error) {
+func GetIngress(n string) (string, error) {
 	standby := 0
 	for i := 1; i <= 10; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)
@@ -65,6 +65,7 @@ func GetGateway(n string) (string, error) {
 		if err == nil {
 			out = strings.Trim(out, "'")
 			if match, _ := regexp.MatchString("^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$", out); match {
+				glog.Infof("Istio ingress: %s\n", out)
 				return out, nil
 			}
 		} else {

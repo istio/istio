@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"path"
 	"path/filepath"
 
 	"github.com/golang/glog"
@@ -75,11 +74,13 @@ func CopyFile(src, dst string) error {
 //Give "path from WORKSPACE", return absolute path at runtime
 func GetTestRuntimePath(p string) string {
 	//Using this part in local bazel run
+	/*
 	ex, err := os.Executable()
 	if err != nil {
 			glog.Warning("Cannot get runtime path")
 	}
 	return filepath.Join(path.Dir(ex), filepath.Join("go_default_test.runfiles/com_github_istio_istio", p))
-
-	//return filepath.Join(os.Getenv(TEST_SRCDIR), filepath.Join(COM_GITHUB_ISTIO_ISTIO,  p))
+	*/
+	
+	return filepath.Join(os.Getenv(TEST_SRCDIR), filepath.Join(COM_GITHUB_ISTIO_ISTIO, p))
 }
