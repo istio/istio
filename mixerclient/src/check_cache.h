@@ -118,7 +118,7 @@ class CheckCache {
   CheckOptions options_;
 
   // The cache keys.
-  CacheKeySet cache_keys_;
+  std::unique_ptr<CacheKeySet> cache_keys_;
 
   // Mutex guarding the access of cache_;
   std::mutex cache_mutex_;

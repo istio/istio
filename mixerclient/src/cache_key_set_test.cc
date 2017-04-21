@@ -21,31 +21,31 @@ namespace mixer_client {
 namespace {
 
 TEST(CacheKeySetTest, TestNonSubkey) {
-  CacheKeySet s({"key1", "key2"});
-  EXPECT_TRUE(s.Find("key1") != nullptr);
-  EXPECT_TRUE(s.Find("key2") != nullptr);
-  EXPECT_TRUE(s.Find("xyz") == nullptr);
+  auto s = CacheKeySet::CreateInclusive({"key1", "key2"});
+  EXPECT_TRUE(s->Find("key1") != nullptr);
+  EXPECT_TRUE(s->Find("key2") != nullptr);
+  EXPECT_TRUE(s->Find("xyz") == nullptr);
 }
 
 TEST(CacheKeySetTest, TestSubkeyLater) {
   // Whole key comes first, then sub key comes.
-  CacheKeySet s({"key1", "key2", "key2/sub"});
-  EXPECT_TRUE(s.Find("key2")->Found("sub"));
-  EXPECT_TRUE(s.Find("key2")->Found("xyz"));
+  auto s = CacheKeySet::CreateInclusive({"key1", "key2", "key2/sub"});
+  EXPECT_TRUE(s->Find("key2")->Found("sub"));
+  EXPECT_TRUE(s->Find("key2")->Found("xyz"));
 }
 
 TEST(CacheKeySetTest, TestSubkeyFirst) {
   // The sub key comes first, then the whole key comes
-  CacheKeySet s({"key1", "key2/sub", "key2"});
-  EXPECT_TRUE(s.Find("key2")->Found("sub"));
-  EXPECT_TRUE(s.Find("key2")->Found("xyz"));
+  auto s = CacheKeySet::CreateInclusive({"key1", "key2/sub", "key2"});
+  EXPECT_TRUE(s->Find("key2")->Found("sub"));
+  EXPECT_TRUE(s->Find("key2")->Found("xyz"));
 }
 
 TEST(CacheKeySetTest, TestSubkey) {
-  CacheKeySet s({"key1", "key2/sub1", "key2/sub2"});
-  EXPECT_TRUE(s.Find("key2")->Found("sub1"));
-  EXPECT_TRUE(s.Find("key2")->Found("sub2"));
-  EXPECT_FALSE(s.Find("key2")->Found("xyz"));
+  auto s = CacheKeySet::CreateInclusive({"key1", "key2/sub1", "key2/sub2"});
+  EXPECT_TRUE(s->Find("key2")->Found("sub1"));
+  EXPECT_TRUE(s->Find("key2")->Found("sub2"));
+  EXPECT_FALSE(s->Find("key2")->Found("xyz"));
 }
 
 }  // namespace
