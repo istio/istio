@@ -41,17 +41,17 @@ func (t *egress) run() error {
 		glog.Info("skipping test since egress is missing")
 		return nil
 	}
-	extServices := []string{
-		"httpbin",
-		//"httpsbin",TODO
+	extServices := map[string]string{
+		"httpbin":         "/headers",
+		"httpsgoogle:443": "",
 	}
 
 	funcs := make(map[string]func() status)
 	for _, src := range []string{"a", "b"} {
-		for _, dst := range extServices {
+		for dst, path := range extServices {
 			name := fmt.Sprintf("External request from %s to %s", src, dst)
 			funcs[name] = (func(src, dst string) func() status {
-				url := fmt.Sprintf("http://%s/headers", dst)
+				url := fmt.Sprintf("http://%s%s", dst, path)
 				trace := fmt.Sprint(time.Now().UnixNano())
 				return func() status {
 					resp, err := util.Shell(fmt.Sprintf(

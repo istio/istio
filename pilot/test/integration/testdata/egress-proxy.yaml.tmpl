@@ -13,6 +13,17 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  name: httpsgoogle
+spec:
+  type: ExternalName
+  externalName: www.google.com
+  ports:
+  - port: 443
+    name: https
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: istio-egress
 spec:
   ports:

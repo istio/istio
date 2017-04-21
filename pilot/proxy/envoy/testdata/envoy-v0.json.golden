@@ -1,6 +1,53 @@
 {
   "listeners": [
     {
+      "address": "tcp://0.0.0.0:443",
+      "filters": [
+        {
+          "type": "read",
+          "name": "http_connection_manager",
+          "config": {
+            "codec_type": "auto",
+            "stat_prefix": "http",
+            "rds": {
+              "cluster": "rds",
+              "route_config_name": "443",
+              "refresh_delay_ms": 10
+            },
+            "filters": [
+              {
+                "type": "decoder",
+                "name": "mixer",
+                "config": {
+                  "mixer_server": "localhost:9091",
+                  "mixer_attributes": {
+                    "target.ip": "10.1.1.0",
+                    "target.service": "hello.default.svc.cluster.local",
+                    "target.uid": "uid://10.1.1.0.my-namespace"
+                  },
+                  "forward_attributes": {
+                    "source.ip": "10.1.1.0",
+                    "source.uid": "uid://10.1.1.0.my-namespace"
+                  }
+                }
+              },
+              {
+                "type": "decoder",
+                "name": "router",
+                "config": {}
+              }
+            ],
+            "access_log": [
+              {
+                "path": "/dev/stdout"
+              }
+            ]
+          }
+        }
+      ],
+      "bind_to_port": false
+    },
+    {
       "address": "tcp://0.0.0.0:80",
       "filters": [
         {

@@ -29,6 +29,17 @@
      ]
     },
     {
+     "name": "out.httpsbin.default.svc.cluster.local|https",
+     "connect_timeout_ms": 1000,
+     "type": "strict_dns",
+     "lb_type": "round_robin",
+     "hosts": [
+      {
+       "url": "tcp://istio-egress:80"
+      }
+     ]
+    },
+    {
      "name": "out.world.default.svc.cluster.local|http",
      "service_name": "world.default.svc.cluster.local|http",
      "connect_timeout_ms": 1000,
@@ -64,6 +75,17 @@
     },
     {
      "name": "out.httpbin.default.svc.cluster.local|http",
+     "connect_timeout_ms": 1000,
+     "type": "strict_dns",
+     "lb_type": "round_robin",
+     "hosts": [
+      {
+       "url": "tcp://istio-egress:80"
+      }
+     ]
+    },
+    {
+     "name": "out.httpsbin.default.svc.cluster.local|https",
      "connect_timeout_ms": 1000,
      "type": "strict_dns",
      "lb_type": "round_robin",
@@ -119,6 +141,17 @@
      ]
     },
     {
+     "name": "out.httpsbin.default.svc.cluster.local|https",
+     "connect_timeout_ms": 1000,
+     "type": "strict_dns",
+     "lb_type": "round_robin",
+     "hosts": [
+      {
+       "url": "tcp://istio-egress:80"
+      }
+     ]
+    },
+    {
      "name": "out.world.default.svc.cluster.local|http",
      "service_name": "world.default.svc.cluster.local|http",
      "connect_timeout_ms": 1000,
@@ -154,6 +187,17 @@
     },
     {
      "name": "out.httpbin.default.svc.cluster.local|http",
+     "connect_timeout_ms": 1000,
+     "type": "strict_dns",
+     "lb_type": "round_robin",
+     "hosts": [
+      {
+       "url": "tcp://istio-egress:80"
+      }
+     ]
+    },
+    {
+     "name": "out.httpsbin.default.svc.cluster.local|https",
      "connect_timeout_ms": 1000,
      "type": "strict_dns",
      "lb_type": "round_robin",

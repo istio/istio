@@ -1,5 +1,101 @@
 [
   {
+   "route-config-name": "443",
+   "service-cluster": "istio-proxy",
+   "service-node": "10.1.1.0",
+   "virtual_hosts": [
+    {
+     "name": "httpsbin.default.svc.cluster.local|https",
+     "domains": [
+      "httpsbin:443",
+      "httpsbin.default:443",
+      "httpsbin.default.svc:443",
+      "httpsbin.default.svc.cluster:443",
+      "httpsbin.default.svc.cluster.local:443"
+     ],
+     "routes": [
+      {
+       "prefix": "/",
+       "host_rewrite": "httpsbin.default.svc.cluster.local",
+       "cluster": "out.httpsbin.default.svc.cluster.local|https"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "route-config-name": "443",
+   "service-cluster": "istio-proxy",
+   "service-node": "10.1.1.1",
+   "virtual_hosts": [
+    {
+     "name": "httpsbin.default.svc.cluster.local|https",
+     "domains": [
+      "httpsbin:443",
+      "httpsbin.default:443",
+      "httpsbin.default.svc:443",
+      "httpsbin.default.svc.cluster:443",
+      "httpsbin.default.svc.cluster.local:443"
+     ],
+     "routes": [
+      {
+       "prefix": "/",
+       "host_rewrite": "httpsbin.default.svc.cluster.local",
+       "cluster": "out.httpsbin.default.svc.cluster.local|https"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "route-config-name": "443",
+   "service-cluster": "istio-proxy",
+   "service-node": "10.2.1.0",
+   "virtual_hosts": [
+    {
+     "name": "httpsbin.default.svc.cluster.local|https",
+     "domains": [
+      "httpsbin:443",
+      "httpsbin.default:443",
+      "httpsbin.default.svc:443",
+      "httpsbin.default.svc.cluster:443",
+      "httpsbin.default.svc.cluster.local:443"
+     ],
+     "routes": [
+      {
+       "prefix": "/",
+       "host_rewrite": "httpsbin.default.svc.cluster.local",
+       "cluster": "out.httpsbin.default.svc.cluster.local|https"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "route-config-name": "443",
+   "service-cluster": "istio-proxy",
+   "service-node": "10.2.1.1",
+   "virtual_hosts": [
+    {
+     "name": "httpsbin.default.svc.cluster.local|https",
+     "domains": [
+      "httpsbin:443",
+      "httpsbin.default:443",
+      "httpsbin.default.svc:443",
+      "httpsbin.default.svc.cluster:443",
+      "httpsbin.default.svc.cluster.local:443"
+     ],
+     "routes": [
+      {
+       "prefix": "/",
+       "host_rewrite": "httpsbin.default.svc.cluster.local",
+       "cluster": "out.httpsbin.default.svc.cluster.local|https"
+      }
+     ]
+    }
+   ]
+  },
+  {
    "route-config-name": "80",
    "service-cluster": "istio-proxy",
    "service-node": "10.1.1.0",

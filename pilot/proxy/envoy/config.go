@@ -279,18 +279,11 @@ func buildOutboundHTTPRoutes(
 					routes = append(routes, buildDefaultRoute(cluster))
 				}
 
-				if service.ExternalName != "" {
+				if service.External() {
 					for _, route := range routes {
 						route.HostRewrite = service.Hostname
 						for _, cluster := range route.clusters {
-							cluster.ServiceName = ""
-							cluster.Type = ClusterTypeStrictDNS
-							cluster.Hosts = []Host{
-								{
-									URL: fmt.Sprintf("tcp://%s", mesh.EgressProxyAddress),
-								},
-							}
-
+							useEgressCluster(mesh, cluster)
 						}
 					}
 				}
@@ -300,7 +293,25 @@ func buildOutboundHTTPRoutes(
 				http.VirtualHosts = append(http.VirtualHosts, host)
 				clusters = append(clusters, host.clusters()...)
 
-			case model.ProtocolTCP, model.ProtocolHTTPS:
+			case model.ProtocolHTTPS:
+				if service.External() {
+					routes := make([]*HTTPRoute, 0)
+
+					cluster := buildOutboundCluster(service.Hostname, servicePort, nil)
+					useEgressCluster(mesh, cluster)
+
+					route := buildDefaultRoute(cluster)
+					route.HostRewrite = service.Hostname
+
+					routes = append(routes, route)
+
+					host := buildVirtualHost(service, servicePort, suffix, routes)
+					http := httpConfigs.EnsurePort(servicePort.Port)
+					http.VirtualHosts = append(http.VirtualHosts, host)
+					clusters = append(clusters, host.clusters()...)
+				}
+
+			case model.ProtocolTCP:
 				// handled by buildOutboundTCPListeners
 
 			default:
@@ -328,6 +339,16 @@ func buildOutboundHTTPRoutes(
 	return httpConfigs
 }
 
+func useEgressCluster(mesh *proxyconfig.ProxyMeshConfig, cluster *Cluster) {
+	cluster.ServiceName = ""
+	cluster.Type = ClusterTypeStrictDNS
+	cluster.Hosts = []Host{
+		{
+			URL: fmt.Sprintf("tcp://%s", mesh.EgressProxyAddress),
+		},
+	}
+}
+
 // buildOutboundTCPListeners lists listeners and referenced clusters for TCP
 // protocols (including HTTPS)
 //
@@ -344,8 +365,8 @@ func buildOutboundTCPListeners(mesh *proxyconfig.ProxyMeshConfig, services []*mo
 	tcpListeners := make(Listeners, 0)
 	tcpClusters := make(Clusters, 0)
 	for _, service := range services {
-		if service.ExternalName != "" {
-			continue // TODO TCP and HTTPS external services not currently supported
+		if service.External() {
+			continue // TODO TCP external services not currently supported
 		}
 		for _, servicePort := range service.Ports {
 			switch servicePort.Protocol {

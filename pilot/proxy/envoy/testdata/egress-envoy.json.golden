@@ -12,6 +12,19 @@
             "route_config": {
               "virtual_hosts": [
                 {
+                  "name": "httpbin.org|443",
+                  "domains": [
+                    "httpsbin.default.svc.cluster.local"
+                  ],
+                  "routes": [
+                    {
+                      "prefix": "/",
+                      "cluster": "httpbin.org|443",
+                      "auto_host_rewrite": true
+                    }
+                  ]
+                },
+                {
                   "name": "httpbin.org|80",
                   "domains": [
                     "httpbin.default.svc.cluster.local"
@@ -50,6 +63,18 @@
   },
   "cluster_manager": {
     "clusters": [
+      {
+        "name": "httpbin.org|443",
+        "connect_timeout_ms": 1000,
+        "type": "strict_dns",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://httpbin.org:443"
+          }
+        ],
+        "ssl_context": {}
+      },
       {
         "name": "httpbin.org|80",
         "connect_timeout_ms": 1000,

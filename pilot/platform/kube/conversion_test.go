@@ -148,7 +148,7 @@ func TestServiceConversion(t *testing.T) {
 			len(service.Ports), len(localSvc.Spec.Ports))
 	}
 
-	if service.ExternalName != "" {
+	if service.External() {
 		t.Error("service should not be external")
 	}
 
@@ -194,7 +194,7 @@ func TestExternalServiceConversion(t *testing.T) {
 			len(service.Ports), len(extSvc.Spec.Ports))
 	}
 
-	if service.ExternalName != extSvc.Spec.ExternalName {
+	if service.ExternalName != extSvc.Spec.ExternalName || !service.External() {
 		t.Error("service should be external")
 	}
 
