@@ -39,6 +39,6 @@ type Registrar interface {
 	RegisterMetricsBuilder(MetricsBuilder)
 }
 
-// RegisterFn is a function the mixer invokes to trigger adapters to register
+// RegisterFn is a function Mixer invokes to trigger adapters to register
 // their aspect builders. It must succeed or panic().
 type RegisterFn func(Registrar)

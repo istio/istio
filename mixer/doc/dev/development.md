@@ -46,7 +46,7 @@ Other docs you should look at:
 
 ## Prerequisites
 
-The Mixer code base has only a few external dependencies you
+Mixer's code base has only a few external dependencies you
 need to setup before being able to build and run the code.
 
 ### Setting up Go
@@ -73,7 +73,7 @@ installation procedures.
 
 ### Setting up Docker
 
-To run some of the Mixer examples and tests, you need to set up Docker server.
+To run some of Mixer's examples and tests, you need to set up Docker server.
 Please follow [these instructions](https://docs.docker.com/engine/installation/)
 for how to do this for your platform.
 
@@ -239,8 +239,8 @@ make racetest
 
 ### Adding dependencies
 
-It will occasionally be necessary to add a new dependency to the Istio Mixer, 
-either in support of a new adapter or to provide additional core functionality. 
+It will occasionally be necessary to add a new dependency to Mixer, either in support of a new adapter or to provide
+additional core functionality.
 
 Mixer dependencies are maintained in the [WORKSPACE](https://github.com/istio/mixer/blob/master/WORKSPACE)
 file. To add a new dependency, please append to the bottom on the file. A dependency

@@ -31,7 +31,7 @@ import (
 func adapterCmd(printf shared.FormatFn) *cobra.Command {
 	adapterCmd := cobra.Command{
 		Use:   "inventory",
-		Short: "Inventory of available adapters and aspects in the mixer",
+		Short: "Inventory of available adapters and aspects in Mixer",
 	}
 
 	adapterCmd.AddCommand(&cobra.Command{

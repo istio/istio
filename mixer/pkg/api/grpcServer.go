@@ -93,7 +93,7 @@ func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, tracer trac
 	}
 }
 
-// dispatch does all the nitty-gritty details of handling the mixer's low-level API
+// dispatch does all the nitty-gritty details of handling Mixer's low-level API
 // protocol and dispatching to the right API dispatchWrapperFn.
 func (s *grpcServer) dispatch(stream grpc.Stream, methodName string, getState stateGetterFn, worker dispatchFn) error {
 

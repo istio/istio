@@ -40,7 +40,8 @@ type Change struct {
 }
 
 // KeyValueStore defines the key value store back end interface used by mixer
-// and the mixer config API server
+// and Mixer config API server.
+//
 // It should support back ends like redis, etcd and NFS
 // All commands should return a change log index number which can be used
 // to Read changes. If a KeyValueStore does not support it,

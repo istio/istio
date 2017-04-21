@@ -17,7 +17,7 @@
 //
 // - Obviously, the data set must be able to fit in memory.
 //
-// - When the mixer crashes/restarts, all quota values are erased.
+// - When Mixer crashes/restarts, all quota values are erased.
 // This means this isn't good for allocation quotas although
 // it works well enough for rate limits quotas.
 //

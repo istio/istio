@@ -17,7 +17,7 @@ package adapter
 import "time"
 
 type (
-	// QuotasAspect handles quotas and rate limits within the mixer.
+	// QuotasAspect handles quotas and rate limits within Mixer.
 	QuotasAspect interface {
 		Aspect
 

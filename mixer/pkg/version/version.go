@@ -24,7 +24,7 @@ var (
 	buildStatus  = "unknown"
 )
 
-// BuildInfo holds build-related information for the mixer.
+// BuildInfo holds build-related information for Mixer.
 type BuildInfo struct {
 	// Version is the tagged build version taken from SCM information.
 	// Typically, this is from a `git describe` command.

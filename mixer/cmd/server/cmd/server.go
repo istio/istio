@@ -70,7 +70,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	sa := &serverArgs{}
 	serverCmd := cobra.Command{
 		Use:   "server",
-		Short: "Starts the mixer as a server",
+		Short: "Starts Mixer as a server",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if sa.apiWorkerPoolSize <= 0 {
 				return fmt.Errorf("api worker pool size must be >= 0 and <= 2^31-1, got pool size %d", sa.apiWorkerPoolSize)
@@ -86,13 +86,13 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 			runServer(sa, printf, fatalf)
 		},
 	}
-	serverCmd.PersistentFlags().Uint16VarP(&sa.port, "port", "p", 9091, "TCP port to use for the mixer's gRPC API")
-	serverCmd.PersistentFlags().Uint16VarP(&sa.configAPIPort, "configAPIPort", "", 9094, "HTTP port to use for the mixer's Configuration API")
+	serverCmd.PersistentFlags().Uint16VarP(&sa.port, "port", "p", 9091, "TCP port to use for Mixer's gRPC API")
+	serverCmd.PersistentFlags().Uint16VarP(&sa.configAPIPort, "configAPIPort", "", 9094, "HTTP port to use for Mixer's Configuration API")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxMessageSize, "maxMessageSize", "", 1024*1024, "Maximum size of individual gRPC messages")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxConcurrentStreams, "maxConcurrentStreams", "", 32, "Maximum supported number of concurrent gRPC streams")
 	serverCmd.PersistentFlags().IntVarP(&sa.apiWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max # of goroutines in the API worker pool")
 	serverCmd.PersistentFlags().IntVarP(&sa.adapterWorkerPoolSize, "adapterWorkerPoolSize", "", 1024, "Max # of goroutines in the adapter worker pool")
-	serverCmd.PersistentFlags().BoolVarP(&sa.singleThreaded, "singleThreaded", "", false, "Whether to run the mixer in single-threaded mode (useful "+
+	serverCmd.PersistentFlags().BoolVarP(&sa.singleThreaded, "singleThreaded", "", false, "Whether to run Mixer in single-threaded mode (useful "+
 		"for debugging)")
 	serverCmd.PersistentFlags().BoolVarP(&sa.compressedPayload, "compressedPayload", "", false, "Whether to compress gRPC messages")
 
@@ -111,7 +111,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		"URL of the config store. May be fs:// for file system, or redis:// for redis url")
 
 	// Hide configIdentityAttribute and configIdentityAttributeDomain until we have a need to expose it.
-	// These parameters ensure that rest of the mixer makes no assumptions about specific identity attribute.
+	// These parameters ensure that rest of Mixer makes no assumptions about specific identity attribute.
 	// Rules selection is based on scopes.
 	serverCmd.PersistentFlags().StringVarP(&sa.configIdentityAttribute, "configIdentityAttribute", "", "target.service",
 		"Attribute that is used to identify applicable scopes.")

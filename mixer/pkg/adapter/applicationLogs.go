@@ -21,7 +21,7 @@ import (
 )
 
 type (
-	// ApplicationLogsAspect handles log data within the mixer.
+	// ApplicationLogsAspect handles log data within Mixer.
 	ApplicationLogsAspect interface {
 		Aspect
 

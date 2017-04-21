@@ -15,7 +15,7 @@
 package adapter
 
 type (
-	// AccessLogsAspect handles access log data within the mixer.
+	// AccessLogsAspect handles access log data within Mixer.
 	AccessLogsAspect interface {
 		Aspect
 

@@ -22,7 +22,7 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 )
 
-// Tracker is responsible for implementing the mixer's attribute protocol.
+// Tracker is responsible for implementing Mixer's attribute protocol.
 //
 // This tracks a set of attributes over time. The tracker keeps a current set of
 // attributes which can be mutated in one of two ways. The first way is by
@@ -121,7 +121,7 @@ func (at *tracker) ApplyProto(attrs *mixerpb.Attributes) (*MutableBag, error) {
 func (at *tracker) ApplyBag(bag *MutableBag, context int32, output *mixerpb.Attributes) error {
 	// TODO: this code has not been optimized for speed. For the moment, we just need
 	//       something that works reasonably well so we can evaluate usability and
-	//       general perf profile of the mixer API. Depending on what we find during
+	//       general perf profile of Mixer's API. Depending on what we find during
 	//       this evaluation, we might either simplify the attribute protocol, at which
 	//       point this code will need to be rewritten, or we'll keep the protocol at
 	//       which point we'll come back and optimize this code to avoid allocs.

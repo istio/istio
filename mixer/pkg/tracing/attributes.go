@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This file contains an implementation of an opentracing carrier built on top of the mixer's attribute bag. This allows
-// clients to inject their span metadata into the set of attributes its reporting to the mixer, and lets the mixer extract
-// span information propagated as attributes in a standard call to the mixer.
+// This file contains an implementation of an opentracing carrier built on top of Mixer's attribute bag. This allows
+// clients to inject their span metadata into the set of attributes its reporting to Mixer, and lets Mixer extract
+// span information propagated as attributes in a standard call to Mixer.
 
 package tracing
 

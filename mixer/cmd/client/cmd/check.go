@@ -28,7 +28,7 @@ import (
 func checkCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "check",
-		Short: "Invokes the mixer's Check API.",
+		Short: "Invokes Mixer's Check API.",
 		Run: func(cmd *cobra.Command, args []string) {
 			check(rootArgs, printf, fatalf)
 		}}

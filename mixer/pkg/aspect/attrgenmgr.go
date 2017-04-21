@@ -62,7 +62,7 @@ func (attrGenMgr) ValidateConfig(c config.AspectParams, v expr.Validator, df des
 		if a := df.GetAttribute(attrName); a == nil {
 			cerrs = cerrs.Appendf(
 				"attribute_bindings",
-				"Attribute '%s' is not configured for use within the mixer. It cannot be used as a target for generated values.",
+				"Attribute '%s' is not configured for use within Mixer. It cannot be used as a target for generated values.",
 				attrName)
 		}
 	}
