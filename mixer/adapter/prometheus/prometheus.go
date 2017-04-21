@@ -96,6 +96,13 @@ func (f *factory) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics 
 				continue
 			}
 			metricsMap[m.Name] = c
+		case adapter.Distribution:
+			c, err := registerOrGet(f.registry, newHistogramVec(m.Name, m.Description, m.Labels, m.Buckets))
+			if err != nil {
+				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
+				continue
+			}
+			metricsMap[m.Name] = c
 		default:
 			metricErr = multierror.Append(metricErr, fmt.Errorf("unknown metric kind (%d); could not register metric", m.Kind))
 		}
@@ -130,6 +137,14 @@ func (p *prom) Record(vals []adapter.Value) error {
 				continue
 			}
 			vec.With(promLabels(val.Labels)).Add(amt)
+		case adapter.Distribution:
+			vec := collector.(*prometheus.HistogramVec)
+			amt, err := promValue(val)
+			if err != nil {
+				result = multierror.Append(result, fmt.Errorf("could not get value for metric %s: %v", val.Definition.Name, err))
+				continue
+			}
+			vec.With(promLabels(val.Labels)).Observe(amt)
 		}
 	}
 
@@ -164,6 +179,37 @@ func newGaugeVec(name, desc string, labels map[string]adapter.LabelType) *promet
 		labelNames(labels),
 	)
 	return c
+}
+
+func newHistogramVec(name, desc string, labels map[string]adapter.LabelType, bucketDef adapter.BucketDefinition) *prometheus.HistogramVec {
+	if desc == "" {
+		desc = name
+	}
+	c := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    safeName(name),
+			Help:    desc,
+			Buckets: buckets(bucketDef),
+		},
+		labelNames(labels),
+	)
+	return c
+}
+
+func buckets(def adapter.BucketDefinition) []float64 {
+	switch def.(type) {
+	case *adapter.ExplicitBuckets:
+		b := def.(*adapter.ExplicitBuckets)
+		return b.Bounds
+	case *adapter.LinearBuckets:
+		lb := def.(*adapter.LinearBuckets)
+		return prometheus.LinearBuckets(lb.Offset, lb.Width, int(lb.Count+1))
+	case *adapter.ExponentialBuckets:
+		eb := def.(*adapter.ExponentialBuckets)
+		return prometheus.ExponentialBuckets(eb.Scale, eb.GrowthFactor, int(eb.Count+1))
+	default:
+		return prometheus.DefBuckets
+	}
 }
 
 func labelNames(m map[string]adapter.LabelType) []string {
@@ -202,8 +248,8 @@ func promValue(val adapter.Value) (float64, error) {
 		return float64(i), nil
 	case time.Duration:
 		// TODO: what is the right thing here?
-		// convert to millis for now
-		return i.Seconds() * 1e3, nil
+		// use seconds for now, as we get fractional values...
+		return i.Seconds(), nil
 	case string:
 		f, err := strconv.ParseFloat(i, 64)
 		if err != nil {

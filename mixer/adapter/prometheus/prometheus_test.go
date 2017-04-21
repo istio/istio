@@ -49,6 +49,14 @@ var (
 		Labels:      map[string]adapter.LabelType{},
 	}
 
+	histogramNoLabels = &adapter.MetricDefinition{
+		Name:        "happy_histogram",
+		Description: "fun with buckets",
+		Kind:        adapter.Distribution,
+		Labels:      map[string]adapter.LabelType{},
+		Buckets:     &adapter.ExplicitBuckets{Bounds: []float64{0.5434}},
+	}
+
 	counterNoLabels = &adapter.MetricDefinition{
 		Name:        "the.counter",
 		Description: "count all the tests",
@@ -68,10 +76,29 @@ var (
 		Labels: map[string]adapter.LabelType{},
 	}
 
+	histogramNoLabelsNoDesc = &adapter.MetricDefinition{
+		Name:    "happy_histogram_the_elder",
+		Kind:    adapter.Distribution,
+		Labels:  map[string]adapter.LabelType{},
+		Buckets: &adapter.LinearBuckets{Count: 5, Offset: 45, Width: 12},
+	}
+
 	counter = &adapter.MetricDefinition{
 		Name:        "special_counter",
 		Description: "count all the special tests",
 		Kind:        adapter.Counter,
+		Labels: map[string]adapter.LabelType{
+			"bool":   adapter.Bool,
+			"string": adapter.String,
+			"email":  adapter.EmailAddress,
+		},
+	}
+
+	histogram = &adapter.MetricDefinition{
+		Name:        "happy_histogram_the_younger",
+		Description: "fun with buckets",
+		Kind:        adapter.Distribution,
+		Buckets:     &adapter.ExponentialBuckets{Scale: .14, GrowthFactor: 2, Count: 198},
 		Labels: map[string]adapter.LabelType{
 			"bool":   adapter.Bool,
 			"string": adapter.String,
@@ -96,6 +123,16 @@ var (
 		MetricValue: float64(45),
 	}
 
+	histogramVal = adapter.Value{
+		Definition: histogram,
+		Labels: map[string]interface{}{
+			"bool":   true,
+			"string": "testing",
+			"email":  "test@istio.io",
+		},
+		MetricValue: float64(234.23),
+	}
+
 	gaugeVal = newGaugeVal(int64(993))
 )
 
@@ -113,9 +150,10 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 		{"No Metrics", []*adapter.MetricDefinition{}},
 		{"One Gauge", []*adapter.MetricDefinition{gaugeNoLabels}},
 		{"One Counter", []*adapter.MetricDefinition{counterNoLabels}},
-		{"Multiple Metrics", []*adapter.MetricDefinition{counterNoLabels, gaugeNoLabels}},
-		{"With Labels", []*adapter.MetricDefinition{counter}},
-		{"No Descriptions", []*adapter.MetricDefinition{counterNoLabelsNoDesc, gaugeNoLabelsNoDesc}},
+		{"Distribution", []*adapter.MetricDefinition{histogramNoLabels}},
+		{"Multiple Metrics", []*adapter.MetricDefinition{counterNoLabels, gaugeNoLabels, histogramNoLabels}},
+		{"With Labels", []*adapter.MetricDefinition{counter, histogram}},
+		{"No Descriptions", []*adapter.MetricDefinition{counterNoLabelsNoDesc, gaugeNoLabelsNoDesc, histogramNoLabelsNoDesc}},
 	}
 
 	for _, v := range tests {
@@ -172,12 +210,22 @@ func TestFactory_NewMetricsAspect_MetricDefinitionConflicts(t *testing.T) {
 		},
 	}
 
+	altHistogram := &adapter.MetricDefinition{
+		Name:        "happy_histogram",
+		Description: "fun with buckets",
+		Kind:        adapter.Distribution,
+		Labels: map[string]adapter.LabelType{
+			"test": adapter.String,
+		},
+	}
+
 	tests := []struct {
 		name    string
 		metrics []*adapter.MetricDefinition
 	}{
 		{"Gauge Definition Conflicts", []*adapter.MetricDefinition{gaugeNoLabels, gaugeWithLabels}},
 		{"Counter Definition Conflicts", []*adapter.MetricDefinition{counter, altCounter}},
+		{"Histogram Definition Conflicts", []*adapter.MetricDefinition{histogramNoLabels, altHistogram}},
 	}
 
 	for _, v := range tests {
@@ -210,6 +258,7 @@ func TestProm_Record(t *testing.T) {
 		values  []adapter.Value
 	}{
 		{"Increment Counter", []*adapter.MetricDefinition{counter}, []adapter.Value{counterVal}},
+		{"Histogram Observation", []*adapter.MetricDefinition{histogram}, []adapter.Value{histogramVal}},
 		{"Change Gauge", []*adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{gaugeVal}},
 		{"Counter and Gauge", []*adapter.MetricDefinition{counterNoLabels, gaugeNoLabels}, []adapter.Value{gaugeVal, newCounterVal(float64(16))}},
 		{"Int64", []*adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(int64(8))}},
@@ -248,6 +297,11 @@ func TestProm_Record(t *testing.T) {
 						t.Errorf("Error writing metric value to proto: %v", err)
 						continue
 					}
+				case *prometheus.HistogramVec:
+					if err := c.(*prometheus.HistogramVec).With(promLabels(adapterVal.Labels)).Write(m); err != nil {
+						t.Errorf("Error writing metric value to proto: %v", err)
+						continue
+					}
 				}
 
 				got := metricValue(m)
@@ -274,6 +328,7 @@ func TestProm_RecordFailures(t *testing.T) {
 		{"Bool", []*adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal(true)}},
 		{"Text String (Gauge)", []*adapter.MetricDefinition{gaugeNoLabels}, []adapter.Value{newGaugeVal("not a value")}},
 		{"Text String (Counter)", []*adapter.MetricDefinition{counterNoLabels}, []adapter.Value{newCounterVal("not a value")}},
+		{"Text String (Histogram)", []*adapter.MetricDefinition{histogramNoLabels}, []adapter.Value{newHistogramVal("not a value")}},
 	}
 
 	for _, v := range tests {
@@ -297,6 +352,9 @@ func metricValue(m *dto.Metric) float64 {
 	if c := m.GetGauge(); c != nil {
 		return *c.Value
 	}
+	if c := m.GetHistogram(); c != nil {
+		return *c.SampleSum
+	}
 	if c := m.GetUntyped(); c != nil {
 		return *c.Value
 	}
@@ -314,6 +372,14 @@ func newGaugeVal(val interface{}) adapter.Value {
 func newCounterVal(val interface{}) adapter.Value {
 	return adapter.Value{
 		Definition:  counterNoLabels,
+		Labels:      map[string]interface{}{},
+		MetricValue: val,
+	}
+}
+
+func newHistogramVal(val interface{}) adapter.Value {
+	return adapter.Value{
+		Definition:  histogramNoLabels,
 		Labels:      map[string]interface{}{},
 		MetricValue: val,
 	}

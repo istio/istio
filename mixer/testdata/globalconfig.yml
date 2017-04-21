@@ -96,9 +96,21 @@ metrics:
       method: 1 # STRING
       response_code: 2 # INT64
   - name: request_latency
-    kind: COUNTER
+    kind: DISTRIBUTION
     value: DURATION
     description: request latency by source, target, and service
+    buckets:
+      explicit_buckets:
+        bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+# Examples of other possible bucket configurations:
+#      linear_buckets:
+#         num_finite_buckets: 10
+#         offset: 0.001
+#         width: 0.1
+#      exponential_buckets:
+#        num_finite_buckets: 15
+#        scale: 0.001
+#        growth_factor: 4
     labels:
       source: 1 # STRING
       target: 1 # STRING
