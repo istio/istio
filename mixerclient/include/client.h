@@ -35,18 +35,13 @@ struct MixerClientOptions {
 
   // Constructor with specified option values.
   MixerClientOptions(const CheckOptions& check_options,
-                     const ReportOptions& report_options,
                      const QuotaOptions& quota_options)
       : check_options(check_options),
-        report_options(report_options),
         quota_options(quota_options),
         transport(nullptr) {}
 
   // Check options.
   CheckOptions check_options;
-
-  // Report options.
-  ReportOptions report_options;
 
   // Quota options.
   QuotaOptions quota_options;

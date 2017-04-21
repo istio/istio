@@ -39,6 +39,8 @@ cc_library(
         "src/transport.h",
         "utils/md5.cc",
         "utils/md5.h",
+        "utils/protobuf.cc",
+        "utils/protobuf.h",
         "utils/status_test_util.h",
     ],
     hdrs = [

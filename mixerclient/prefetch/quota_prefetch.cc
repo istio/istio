@@ -244,6 +244,13 @@ void QuotaPrefetchImpl::OnResponse(SlotId slot_id, int req_amount,
          << ", expire: " << expiration.count() << ", id: " << slot_id
          << std::endl;
 
+  // resp_amount of -1 indicates any network failures.
+  // Use fail open policy to handle any netowrk failures.
+  if (resp_amount == -1) {
+    resp_amount = req_amount;
+    expiration = milliseconds(kMaxExpirationInMs);
+  }
+
   Slot* slot = nullptr;
   if (slot_id != 0) {
     // The prefetched amount was added to the available queue

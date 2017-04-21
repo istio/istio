@@ -13,34 +13,13 @@
  * limitations under the License.
  */
 #include "src/attribute_context.h"
-#include "google/protobuf/timestamp.pb.h"
+#include "utils/protobuf.h"
 
-using ::google::protobuf::Duration;
 using ::google::protobuf::Map;
-using ::google::protobuf::Timestamp;
 
 namespace istio {
 namespace mixer_client {
 namespace {
-
-// Convert timestamp from time_point to Timestamp
-Timestamp CreateTimestamp(std::chrono::system_clock::time_point tp) {
-  Timestamp time_stamp;
-  long long nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                        tp.time_since_epoch())
-                        .count();
-
-  time_stamp.set_seconds(nanos / 1000000000);
-  time_stamp.set_nanos(nanos % 1000000000);
-  return time_stamp;
-}
-
-Duration CreateDuration(std::chrono::nanoseconds value) {
-  Duration duration;
-  duration.set_seconds(value.count() / 1000000000);
-  duration.set_nanos(value.count() % 1000000000);
-  return duration;
-}
 
 // Compare two string maps to check
 // 1) any removed keys: ones in the old, but not in the new.

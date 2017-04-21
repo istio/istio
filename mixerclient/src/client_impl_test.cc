@@ -59,9 +59,7 @@ class MixerClientImplTest : public ::testing::Test, public TransportInterface {
     MixerClientOptions options(
         CheckOptions(1 /*entries */, 500 /* refresh_interval_ms */,
                      1000 /* expiration_ms */),
-        ReportOptions(1 /* entries */, 500 /*flush_interval_ms*/),
-        QuotaOptions(1 /* entries */, 500 /*flush_interval_ms*/,
-                     1000 /* expiration_ms */));
+        QuotaOptions(1 /* entries */, 600000 /* expiration_ms */));
     options.transport = this;
     client_ = CreateMixerClient(options);
   }

@@ -51,12 +51,11 @@ class QuotaPrefetch {
 
   // Define the transport.
   // The callback function after quota allocation is done from the server.
+  // Set amount = -1 If there are any network failures.
   typedef std::function<void(int amount, std::chrono::milliseconds expiration,
                              Tick t)>
       DoneFunc;
   // The transport function to send quota allocation to server.
-  // Rate limiting usually follows fail-open policy. If there are any network
-  // failures, the caller should grant the full request amount.
   typedef std::function<void(int amount, DoneFunc fn, Tick t)> TransportFunc;
 
   // virtual destructor.

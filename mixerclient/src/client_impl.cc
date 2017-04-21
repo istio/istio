@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 #include "src/client_impl.h"
-#include <sstream>
+#include "utils/protobuf.h"
 
 using ::istio::mixer::v1::CheckResponse;
 using ::istio::mixer::v1::ReportResponse;
@@ -23,11 +23,6 @@ using ::google::protobuf::util::error::Code;
 
 namespace istio {
 namespace mixer_client {
-namespace {
-Status ConvertRpcStatus(const ::google::rpc::Status &status) {
-  return Status(static_cast<Code>(status.code()), status.message());
-}
-}  // namespace
 
 MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
     : options_(options) {
