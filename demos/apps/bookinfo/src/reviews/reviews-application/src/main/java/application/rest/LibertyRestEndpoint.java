@@ -68,25 +68,25 @@ public class LibertyRestEndpoint extends Application {
       WebTarget ratingsTarget = client.target(ratings_service);
       Invocation.Builder builder = ratingsTarget.request(MediaType.APPLICATION_JSON);
       if(xreq!=null) {
-        builder.header("X-Request-ID",xreq);
+        builder.header("x-request-id",xreq);
       }
       if(xtraceid!=null) {
-        builder.header("X-B3-TraceId",xtraceid);
+        builder.header("x-b3-traceid",xtraceid);
       }
       if(xspanid!=null) {
-        builder.header("X-B3-SpanId",xspanid);
+        builder.header("x-b3-spanid",xspanid);
       }
       if(xparentspanid!=null) {
-        builder.header("X-B3-ParentSpanId",xparentspanid);
+        builder.header("x-b3-parentspanid",xparentspanid);
       }
       if(xsampled!=null) {
-        builder.header("X-B3-Sampled",xsampled);
+        builder.header("x-b3-sampled",xsampled);
       }
       if(xflags!=null) {
-        builder.header("X-B3-Flags",xflags);
+        builder.header("x-b3-flags",xflags);
       }
       if(xotspan!=null) {
-        builder.header("X-Ot-Span-Context",xotspan);
+        builder.header("x-ot-span-context",xotspan);
       }
       if(user!=null) {
         builder.cookie(user);
@@ -130,15 +130,16 @@ public class LibertyRestEndpoint extends Application {
     @GET
     @Path("/reviews")
     public Response bookReviews(@CookieParam("user") Cookie user,
-                                @HeaderParam("X-Request-ID") String xreq,
-                                @HeaderParam("X-B3-TraceId") String xtraceid,
-                                @HeaderParam("X-B3-SpanId") String xspanid,
-                                @HeaderParam("X-B3-ParentSpanId") String xparentspanid,
-                                @HeaderParam("X-B3-Sampled") String xsampled,
-                                @HeaderParam("X-B3-Flags") String xflags,
-                                @HeaderParam("X-Ot-Span-Context") String xotspan) {
+                                @HeaderParam("x-request-id") String xreq,
+                                @HeaderParam("x-b3-traceid") String xtraceid,
+                                @HeaderParam("x-b3-spanid") String xspanid,
+                                @HeaderParam("x-b3-parentspanid") String xparentspanid,
+                                @HeaderParam("x-b3-sampled") String xsampled,
+                                @HeaderParam("x-b3-flags") String xflags,
+                                @HeaderParam("x-ot-span-context") String xotspan) {
       String r1 = "";
       String r2 = "";
+
       if(ratings_enabled){
         JsonObject ratings = getRatings(user, xreq, xtraceid, xspanid, xparentspanid, xsampled, xflags, xotspan);
 
