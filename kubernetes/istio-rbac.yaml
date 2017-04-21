@@ -23,6 +23,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
 ---
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -177,6 +178,7 @@ spec:
           configMap:
             name: mixer-config
 ---
+
 # Permissions and roles for istio
 ---
 apiVersion: v1
@@ -196,6 +198,7 @@ roleRef:
   kind: ClusterRole
   name: cluster-admin
   apiGroup: rbac.authorization.k8s.io
+---
 
 # Manager service for discovery
 apiVersion: v1
@@ -249,6 +252,7 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+---
 
 ---
 apiVersion: v1
@@ -405,3 +409,4 @@ spec:
           configMap:
             name: mixer-config
 ---
+
