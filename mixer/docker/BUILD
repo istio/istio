@@ -15,12 +15,14 @@ pkg_tar(
 )
 
 mixer_docker_build(
-    entrypoint = [
-        "/usr/local/bin/mixs",
-        "server",
+    cmd = [
         "--configStoreURL=fs:///etc/opt/mixer/configroot",
         "--logtostderr",
         "--v=2",
+    ],
+    entrypoint = [
+        "/usr/local/bin/mixs",
+        "server",
     ],
     images = [
         {

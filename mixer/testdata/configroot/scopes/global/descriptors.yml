@@ -4,6 +4,12 @@ manifests:
   - name: istio-proxy
     revision: "1"
     attributes:
+    - name: source.uid
+      value_type: STRING
+    - name: target.uid
+      value_type: STRING
+    - name: origin.uid
+      value_type: STRING
     - name: source.name
       value_type: STRING
     - name: source.labels
@@ -12,15 +18,29 @@ manifests:
       value_type: STRING
     - name: target.service
       value_type: STRING
+    - name: source.namespace
+      value_type: STRING
+    - name: target.namespace
+      value_type: STRING
+    - name: source.service
+      value_type: STRING
+    - name: target.service
+      value_type: STRING
+    - name: source.ip
+      value_type: IP_ADDRESS
     - name: origin.ip
       value_type: IP_ADDRESS
     - name: origin.user
+      value_type: STRING
+    - name: source.serviceAccount
       value_type: STRING
     - name: request.time
       value_type: TIMESTAMP
     - name: request.method
       value_type: STRING
     - name: request.path
+      value_type: STRING
+    - name: request.host
       value_type: STRING
     - name: request.headers
       value_type: STRING_MAP
@@ -37,7 +57,6 @@ manifests:
       value_type: STRING
     - name: api.method
       value_type: STRING
-
 # Enums as struct fields can be symbolic names.
 # However enums inside maps *cannot* be symbolic names.
 metrics:
@@ -61,11 +80,9 @@ metrics:
       service: 1 # STRING
       method: 1 # STRING
       response_code: 2 # INT64
-
 quotas:
-- name: RequestCount
-  rate_limit: true
-
+  - name: RequestCount
+    rate_limit: true
 logs:
   - name: accesslog.common
     display_name: Apache Common Log Format
