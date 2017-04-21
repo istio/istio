@@ -1,36 +1,40 @@
+################################
+# Istio ingress controller
+################################
 apiVersion: v1
 kind: Service
 metadata:
   name: istio-ingress-controller
   labels:
-    app: ingress
+    infra: istio-ingress-controller
 spec:
+  type: LoadBalancer
   ports:
-  - name: https
-    port: 443
-  - name: http
-    port: 80
+  - port: 80
+#   nodePort: 32000
+    name: http
   selector:
-    app: ingress
+    infra: istio-ingress-controller
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: istio-ingress
+  name: istio-ingress-controller
 spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
       labels:
-        app: ingress
+        infra: istio-ingress-controller
     spec:
       containers:
-      - name: proxy
+      - name: istio-ingress-controller
         image: {{.ProxyHub}}/proxy:{{.ProxyTag}}
-        args: ["proxy", "ingress", "-v", "{{.Verbosity}}", "--secret", "ingress"]
+        args: ["proxy", "ingress", "-v", "{{.Verbosity}}"]
         imagePullPolicy: Always
         ports:
-        - containerPort: 443
         - containerPort: 80
         env:
         - name: POD_NAMESPACE

@@ -14,7 +14,9 @@ go_library(
         "@com_google_cloud_go//storage:go_default_library",
         "//tests/e2e/util:go_default_library",
     ],
-    data = glob(["testdata/*"]) + ["//:istio_version"],
+    data = glob(["testdata/*"])
+           + ["//:istio_version",
+              "//demos/apps/bookinfo:bookinfo",],
 
 )
 

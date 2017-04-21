@@ -6,6 +6,7 @@ import (
 	"istio.io/istio/tests/e2e/framework"
 	"os"
 	"testing"
+
 )
 
 var (
@@ -17,21 +18,34 @@ type testConfig struct {
 	sampleValue string
 }
 
+func (c *testConfig) deployApps() error {
+	// Option1 : deploy app directly from yaml
+	if err := c.Kube.DeployAppFromYaml("demos/apps/bookinfo/bookinfo.yaml", true); err != nil {
+		return err
+	}
+
+	// Option2 : deploy app from template
+	/*
+	if err := c.Kube.DeployAppFromTmpl("t", "t", "8080", "80", "9090", "90", "unversioned", true); err != nil {
+		return err
+	}
+*/
+	return nil
+}
+
+
 func (c *testConfig) Setup() error {
-	if err := framework.DeployApp(c.Kube, "t", "t", "8080", "80", "9090", "90", "unversioned", false); err != nil {
+	if err := c.deployApps(); err != nil {
 		return err
 	}
-	if err := framework.DeployApp(c.Kube, "a", "a", "8080", "80", "9090", "90", "v1", true); err != nil {
-		return err
-	}
-	if err := framework.DeployApp(c.Kube, "b", "b", "80", "8080", "90", "9090", "unversioned", true); err != nil {
-		return err
-	}
+
 
 	glog.Info("Sample test Setup")
 	c.sampleValue = "sampleValue"
 	return nil
 }
+
+
 
 func (c *testConfig) Teardown() error {
 	glog.Info("Sample test Tear Down")
@@ -39,6 +53,7 @@ func (c *testConfig) Teardown() error {
 }
 
 func TestSample(t *testing.T) {
+	glog.Info("This is a sample test")
 	t.Logf("Value is %s", c.sampleValue)
 }
 

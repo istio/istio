@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "commonUtils.go",
         "kubeUtils.go",
+        "istioUtils.go"
     ],
     deps = ["@com_github_golang_glog//:go_default_library",],
     visibility = ["//visibility:public"],

@@ -161,10 +161,8 @@ func (t TestInfo) Teardown() error {
 
 func generateRunId(t string) (string, error) {
 	u := uuid.New().String()
-	glog.Infof("Before: %s|%s", t, u)
 	u = strings.Replace(u, "-", "", -1)
 	t = strings.Replace(t, "_", "-", -1)
-	glog.Infof("Before: %s|%s", t, u)
 	// We want at least 6 characters of uuid padding
 	padding := ID_MAX_LENGTH - len(t)
 	if padding < 6 {
