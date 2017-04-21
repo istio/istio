@@ -1,88 +1,93 @@
 package framework
 
 import (
-	"bufio"
 	"flag"
 	"os"
-	"regexp"
-	"strings"
 	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/golang/glog"
 	"istio.io/istio/tests/e2e/util"
 )
 
 const (
-	VERSION_FILE = "istio.VERSION"
-	YAML_SUFFIX = ".yaml"
+	version_file      = "istio.VERSION"
+	yaml_suffix       = ".yaml"
+	mixerHubDefault   = "MIXER_HUB"
+	mixerTagDefault   = "MIXER_TAG"
+	managerHubDefault = "MANAGER_HUB"
+	managerTagDefault = "MANAGER_TAG"
 )
 
 var (
-	kube KubeInfo
-	istioctlUrlDefault string
-	mixerHubDefault    string
-	mixerTagDefault    string
-	managerHubDefault  string
-	managerTagDefault  string
+	// hub and tag is for app template if applicable TODO Find a better way to set default of these two
+	appHubDefault = "gcr.io/istio-testing"
+	appTagDefault = "b121a1e169365865e01a9e6eea066a34a29d9fd1"
+
+	appHub       = flag.String("app_hub", appHubDefault, "app hub")
+	appTag       = flag.String("app_tag", appTagDefault, "app tag")
+	namespace    = flag.String("n", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerImage   = flag.String("mixer", os.Getenv(mixerHubDefault)+"/mixer:"+os.Getenv(mixerTagDefault), "Mixer image")
+	managerImage = flag.String("manager", os.Getenv(managerHubDefault)+"/manager:"+os.Getenv(managerTagDefault), "Manager image")
+	caImage      = flag.String("ca", "", "Ca image")
+	proxyHub     = flag.String("proxy_hub", os.Getenv(managerHubDefault), "proxy hub")
+	proxyTag     = flag.String("proxy_tag", os.Getenv(managerTagDefault), "proxy tag")
+	verbose      = flag.Bool("verbose", false, "Debug level noise from proxies")
 )
 
+// KubeInfo gathers information for kubectl
 type KubeInfo struct {
 	Namespace        string
 	NamespaceCreated bool
-	Hub              string
-	Tag              string
+	AppHub           string
+	AppTag           string
 	MixerImage       string
 	ManagerImage     string
 	CaImage          string
 	ProxyHub         string
 	ProxyTag         string
-	IstioctlUrl      string
-	Istioctl         string
 	Verbosity        int
 
 	TmpDir  string
 	YamlDir string
 
 	Ingress string
+
+	Istioctl *util.Istioctl
 }
 
-func init() {
-	parseVersion()
+// newKubeInfo create a new KubeInfo by given temp dir and runID
+func newKubeInfo(tmpDir, runID string) *KubeInfo {
+	if *namespace == "" {
+		*namespace = runID
+	}
 
-	hubDefault := "gcr.io/istio-testing"
-	tagDefault := "b121a1e169365865e01a9e6eea066a34a29d9fd1"
-	var verbose bool
-
-	flag.StringVar(&kube.Hub, "hub", hubDefault, "Docker hub")
-	flag.StringVar(&kube.Tag, "tag", tagDefault, "Docker tag")
-	flag.StringVar(&kube.Namespace, "n", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	flag.StringVar(&kube.MixerImage, "mixer", mixerHubDefault+"/mixer:"+mixerTagDefault, "Mixer image")
-	flag.StringVar(&kube.ManagerImage, "manager", managerHubDefault+"/manager:"+managerTagDefault, "Manager image")
-	flag.StringVar(&kube.CaImage, "ca", "", "Ca image")
-	flag.StringVar(&kube.ProxyHub, "proxy_hub", managerHubDefault, "proxy hub")
-	flag.StringVar(&kube.ProxyTag, "proxy_tag", managerTagDefault, "proxy tag")
-	flag.StringVar(&kube.IstioctlUrl, "istioctl_url", istioctlUrlDefault, "URL to download istioctl")
-	flag.BoolVar(&verbose, "verbose", false, "Debug level noise from proxies")
-
-	if verbose {
-		kube.Verbosity = 3
+	var verbosity int
+	if *verbose {
+		verbosity = 3
 	} else {
-		kube.Verbosity = 2
+		verbosity = 2
+	}
+
+	return &KubeInfo{
+		Namespace:        *namespace,
+		NamespaceCreated: false,
+		AppHub:           *appHub,
+		AppTag:           *appTag,
+		MixerImage:       *mixerImage,
+		ManagerImage:     *managerImage,
+		CaImage:          *caImage,
+		ProxyHub:         *proxyHub,
+		ProxyTag:         *proxyTag,
+		Verbosity:        verbosity,
+		TmpDir:           tmpDir,
+		YamlDir:          filepath.Join(tmpDir, "yaml"),
+		Istioctl:         util.NewIstioctl(tmpDir, *namespace),
 	}
 }
 
-func NewKubeInfo(tmpDir, runId string) *KubeInfo {
-	if kube.Namespace == "" {
-		kube.Namespace = runId
-	}
-
-	kube.NamespaceCreated = false
-	kube.TmpDir = tmpDir
-	kube.YamlDir = tmpDir + "/yaml/"
-
-	return &kube
-}
-
+// Setup set up Kubernetes prerequest for tests
 func (k *KubeInfo) Setup() error {
 	if err := util.CreateNamespace(k.Namespace); err != nil {
 		glog.Error("Failed to create namespace.")
@@ -94,7 +99,7 @@ func (k *KubeInfo) Setup() error {
 		return err
 	}
 
-  if i, err := util.GetIngress(k.Namespace); err == nil {
+	if i, err := util.GetIngress(k.Namespace); err == nil {
 		k.Ingress = i
 	} else {
 		return err
@@ -104,6 +109,7 @@ func (k *KubeInfo) Setup() error {
 	return nil
 }
 
+// Teardown clean up everything created by setup
 func (k *KubeInfo) Teardown() error {
 	if k.NamespaceCreated {
 		if err := util.DeleteNamespace(k.Namespace); err != nil {
@@ -112,7 +118,7 @@ func (k *KubeInfo) Teardown() error {
 		k.NamespaceCreated = false
 		glog.Infof("Namespace %s deleted", k.Namespace)
 	}
-	glog.Info("Uploading log remotely")
+
 	glog.Flush()
 	return nil
 }
@@ -123,30 +129,29 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
-	if istioctl, err := util.DownloadIstioctl(k.TmpDir, k.IstioctlUrl); err != nil {
+	if err := k.Istioctl.DownloadIstioctl(); err != nil {
 		return err
-	} else {
-		k.Istioctl = istioctl
 	}
 
-	if err := k.deployIstioCore("manager.yaml"); err != nil {
+	if err := k.deployIstioCore("istio-manager.yaml"); err != nil {
 		return err
 	}
-	if err := k.deployIstioCore("mixer.yaml"); err != nil {
+	if err := k.deployIstioCore("istio-mixer.yaml"); err != nil {
 		return err
 	}
-	if err := k.deployIstioCore("ingress-proxy.yaml"); err != nil {
+
+	err := k.deployIstioCore("istio-ingress-controller.yaml")
+	return err
+
+	//Not using engress right now
+	/*
+		err := k.deployCore("egress-proxy.yaml")
 		return err
-	}
-	/* Not using engress right now
-	if err := k.deployCore("egress-proxy.yaml"); err != nil {
-		return err
-	}
 	*/
-	return nil
+
 }
 
-// Deploy istio module from yaml files
+// DeployIstioCore deploy istio module from yaml files
 func (k *KubeInfo) deployIstioCore(name string) error {
 	yamlFile := k.TmpDir + "/yaml/" + name
 	if err := util.Fill(yamlFile, name+".tmpl", *k); err != nil {
@@ -161,12 +166,12 @@ func (k *KubeInfo) deployIstioCore(name string) error {
 	return nil
 }
 
-// Deploy testing app from tmpl
+// DeployAppFromTmpl deploy testing app from tmpl
 func (k *KubeInfo) DeployAppFromTmpl(deployment, svcName, port1, port2, port3, port4, version string, injectProxy bool) error {
-	yamlFile := k.YamlDir + svcName + "-app.yaml"
+	yamlFile := filepath.Join(k.YamlDir, svcName+"-app.yaml")
 	if err := util.Fill(yamlFile, "app.yaml.tmpl", map[string]string{
-		"Hub":        k.Hub,
-		"Tag":        k.Tag,
+		"Hub":        k.AppHub,
+		"Tag":        k.AppTag,
 		"service":    svcName,
 		"deployment": deployment,
 		"port1":      port1,
@@ -185,14 +190,14 @@ func (k *KubeInfo) DeployAppFromTmpl(deployment, svcName, port1, port2, port3, p
 	return nil
 }
 
-// Deploy testing app directly from yaml
+// DeployAppFromYaml deploy testing app directly from yaml
 func (k *KubeInfo) DeployAppFromYaml(src string, injectProxy bool) error {
-	yamlFile := k.YamlDir + path.Base(src)
+	yamlFile := filepath.Join(k.YamlDir, path.Base(src))
 	if err := util.CopyFile(util.GetTestRuntimePath(src), yamlFile); err != nil {
 		return err
 	}
 
-	if err := k.deployApp(yamlFile, strings.TrimSuffix(path.Base(src), YAML_SUFFIX), injectProxy); err != nil {
+	if err := k.deployApp(yamlFile, strings.TrimSuffix(path.Base(src), yaml_suffix), injectProxy); err != nil {
 		return err
 	}
 	return nil
@@ -201,7 +206,7 @@ func (k *KubeInfo) DeployAppFromYaml(src string, injectProxy bool) error {
 func (k *KubeInfo) deployApp(yamlFile, svcName string, injectProxy bool) error {
 	if injectProxy {
 		var err error
-		if yamlFile, err = util.KubeInject(yamlFile, svcName, k.YamlDir, k.Istioctl, k.ProxyHub, k.ProxyTag, k.Namespace); err != nil {
+		if yamlFile, err = k.Istioctl.KubeInject(yamlFile, svcName, k.YamlDir, k.ProxyHub, k.ProxyTag); err != nil {
 			return err
 		}
 	}
@@ -211,38 +216,4 @@ func (k *KubeInfo) deployApp(yamlFile, svcName string, injectProxy bool) error {
 		return err
 	}
 	return nil
-}
-
-// Parse default value from istio.VERSION, TODO: find a better way to do this
-func parseVersion() {
-	file, err := os.Open(util.GetTestRuntimePath(VERSION_FILE))
-	if err != nil {
-		glog.Warningf("Cannot get version file %s : %s\n", VERSION_FILE, err)
-		return
-	}
-	defer file.Close()
-
-	r := regexp.MustCompile("^export (..*)=(..*)")
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if s := r.FindStringSubmatch(line); len(s) == 3 {
-			switch s[1] {
-			case "MIXER_HUB":
-				mixerHubDefault = strings.Trim(s[2], "\"")
-			case "MIXER_TAG":
-				mixerTagDefault = strings.Trim(s[2], "\"")
-			case "MANAGER_HUB":
-				managerHubDefault = strings.Trim(s[2], "\"")
-			case "MANAGER_TAG":
-				managerTagDefault = strings.Trim(s[2], "\"")
-			case "ISTIOCTL_URL":
-				istioctlUrlDefault = strings.Trim(s[2], "\"")
-			}
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		glog.Warningf("Scanning version file %s failed : %s\n", VERSION_FILE, err)
-	}
 }

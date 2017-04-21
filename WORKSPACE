@@ -69,3 +69,9 @@ new_go_repository(
     commit = "2bba0603135d7d7f5cb73b2125beeda19c09f4ef",
     importpath = "github.com/golang/protobuf",
 )
+
+new_go_repository(
+    name = "com_github_pmezard_go_difflib",
+    commit = "d8ed2627bdf02c080bf22230dbb337003b7aba2d",
+    importpath = "github.com/pmezard/go-difflib",
+)

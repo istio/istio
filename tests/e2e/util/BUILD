@@ -5,8 +5,12 @@ go_library(
     srcs = [
         "commonUtils.go",
         "kubeUtils.go",
-        "istioUtils.go"
+        "istioUtils.go",
+        "compareUtils.go",
     ],
-    deps = ["@com_github_golang_glog//:go_default_library",],
+    deps = [
+            "@com_github_golang_glog//:go_default_library",
+            "@com_github_pmezard_go_difflib//difflib:go_default_library",
+            ],
     visibility = ["//visibility:public"],
 )

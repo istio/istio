@@ -1,0 +1,153 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mixer-config
+data:
+  globalconfig.yml: |-
+    subject: "namespace:ns"
+    revision: "2022"
+    adapters:
+      - name: default
+        kind: quotas
+        impl: memQuota
+        params:
+      - name: default
+        impl: stdioLogger
+        params:
+          logStream: 0 # STDERR
+      - name: prometheus
+        kind: metrics
+        impl: prometheus
+        params:
+      - name: default
+        impl: denyChecker
+    manifests:
+      - name: istio-proxy
+        revision: "1"
+        attributes:
+        - name: source.name
+          value_type: 1 # STRING
+        - name: source.uid
+          value_type: 1 # STRING
+        - name: source.ip
+          value_type: 6 # IP_ADDRESS
+        - name: target.name
+          value_type: 1 # STRING
+        - name: target.uid
+          value_type: 1 # STRING
+        - name: target.service
+          value_type: 1 # STRING
+        - name: target.ip
+          value_type: 6 # IP_ADDRESS
+        - name: response.code
+          value_type: 2 # INT64
+        - name: response.duration
+          value_type: 10 # DURATION
+
+        # DEPRECATED ATTRIBUTES, TO BE REMOVED:
+        - name: response.latency    # Use response.duration
+          value_type: 10 # DURATION
+        - name: response.http.code  # Use response.code
+          value_type: 2 # INT64
+        - name: source.service      # Use source.name
+          value_type: 1 # STRING
+    metrics:
+    - name: request_count
+      kind: 2 # COUNTER
+      value: 2 # INT64
+      description: request count by source, target, service, and code
+      labels:
+        source: 1 # STRING
+        target: 1 # STRING
+        response_code: 2 # INT64
+    - name: request_latency
+      kind: 2 # COUNTER
+      value: 10 # DURATION
+      description: request latency by source, target, and service
+      labels:
+        source: 1 # STRING
+        target: 1 # STRING
+        response_code: 2 # INT64
+    quotas:
+    - name: RequestCount
+      max_amount: 5
+      expiration: 1s
+  serviceconfig.yml: |-
+    subject: namespace:ns
+    revision: "2022"
+    rules:
+    - selector: true
+      aspects:
+      - kind: quotas
+        params:
+          quotas:
+          - descriptor_name: RequestCount
+      - kind: metrics
+        adapter: prometheus
+        params:
+          metrics:
+          - descriptor_name: request_count
+            # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
+            value: "1"
+            labels:
+              source: source.name | source.service | "unknown"
+              target: target.service | "unknown"
+              response_code: response.code | response.http.code | 200
+          - descriptor_name:  request_latency
+            value: response.duration | response.latency | "0ms"
+            labels:
+              source: source.name | source.service | "unknown"
+              target: target.service | "unknown"
+              response_code: response.code | response.http.code | 200
+---
+# Mixer
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-mixer
+  labels:
+    istio: mixer
+spec:
+  ports:
+  - name: tcp
+    port: 9091
+  - name: prometheus
+    port: 42422
+  selector:
+    istio: mixer
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-mixer
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
+      labels:
+        istio: mixer
+    spec:
+      containers:
+      - name: mixer
+        image: {{.MixerImage}}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9091
+        - containerPort: 42422
+        args:
+          - --globalConfigFile=/etc/opt/mixer/globalconfig.yml
+          - --serviceConfigFile=/etc/opt/mixer/serviceconfig.yml
+          - --logtostderr
+          - -v
+          - "3"
+        volumeMounts:
+          - mountPath: /etc/opt/mixer
+            name: config
+      volumes:
+        - name: config
+          configMap:
+            name: mixer-config
+---

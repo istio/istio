@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
       - name: app
-        image: {{.Hub}}/app:{{.Tag}}
+        image: {{.AppHub}}/app:{{.AppTag}}
         imagePullPolicy: Always
         args:
           - --port

@@ -2,6 +2,8 @@ filegroup(
     name = "bookinfo",
     srcs = [
         "bookinfo.yaml",
+        "route-rule-all-v1.yaml",
+        "route-rule-reviews-test-v2.yaml"
     ],
     visibility = ["//visibility:public"],
 )
