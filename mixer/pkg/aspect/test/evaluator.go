@@ -43,7 +43,7 @@ func NewIDEval() expr.Evaluator {
 	})
 }
 
-// NewErrEval constructs a new Evaluator that allows returns an error.
+// NewErrEval constructs a new Evaluator that always returns an error.
 func NewErrEval() expr.Evaluator {
 	return NewFakeEval(func(_ string, _ attribute.Bag) (interface{}, error) {
 		return nil, errors.New("eval error")
@@ -56,5 +56,8 @@ func (f *fakeEval) Eval(expression string, attrs attribute.Bag) (interface{}, er
 
 func (f *fakeEval) EvalString(expression string, attrs attribute.Bag) (string, error) {
 	r, err := f.body(expression, attrs)
+	if err != nil {
+		return "", err
+	}
 	return r.(string), err
 }
