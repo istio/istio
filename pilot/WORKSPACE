@@ -410,7 +410,8 @@ new_go_repository(
 ##
 
 git_repository(
-    name = "istio_toolbox",
-    commit = "55ee1cfbb22863051a45f084404fdf9a77046fc4",
-    remote = "https://github.com/istio/toolbox.git",
+    name = "istio_test_infra",
+    commit = "983183f98b79f8b67fe380fef4cdd21481830fd7",
+    remote = "https://github.com/istio/test-infra.git",
 )
+
