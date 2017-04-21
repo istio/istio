@@ -23,7 +23,24 @@ from json2html import *
 import logging
 import requests
 
+# These two lines enable debugging at httplib level (requests->urllib3->http.client)
+# You will see the REQUEST, including HEADERS and DATA, and RESPONSE with HEADERS but without DATA.
+# The only thing missing will be the response.body which is not logged.
+try:
+    import http.client as http_client
+except ImportError:
+    # Python 2
+    import httplib as http_client
+http_client.HTTPConnection.debuglevel = 1
+
 app = Flask(__name__)
+logging.basicConfig(filename='microservice.log',filemode='w',level=logging.DEBUG)
+requests_log = logging.getLogger("requests.packages.urllib3")
+requests_log.setLevel(logging.DEBUG)
+requests_log.propagate = True
+app.logger.addHandler(logging.StreamHandler(sys.stdout))
+app.logger.setLevel(logging.DEBUG)
+
 from flask_bootstrap import Bootstrap
 Bootstrap(app)
 
@@ -64,19 +81,20 @@ def getForwardHeaders(request):
     if user_cookie:
         headers['Cookie'] = 'user=' + user_cookie
 
-    incoming_headers = [ 'X-Request-ID',
-                         'X-B3-TraceId',
-                         'X-B3-SpanId',
-                         'X-B3-ParentSpanId',
-                         'X-B3-Sampled',
-                         'X-B3-Flags',
-                         'X-Ot-Span-Context'
+    incoming_headers = [ 'x-request-id',
+                         'x-b3-traceid',
+                         'x-b3-spanid',
+                         'x-b3-parentspanid',
+                         'x-b3-sampled',
+                         'x-b3-flags',
+                         'x-ot-span-context'
     ]
 
     for ihdr in incoming_headers:
         val = request.headers.get(ihdr)
         if val is not None:
             headers[ihdr] = val
+            #print "incoming: "+ihdr+":"+val
 
     return headers
 
@@ -159,6 +177,5 @@ if __name__ == '__main__':
     p = int(sys.argv[1])
     sys.stderr = Writer('stderr.log')
     sys.stdout = Writer('stdout.log')
-    logging.basicConfig(filename='microservice.log',filemode='w',level=logging.DEBUG)
     app.run(host='0.0.0.0', port=p, debug = True, threaded=True)
 
