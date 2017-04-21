@@ -124,12 +124,16 @@ struct TestData {
 
 struct TestResult {
   // margin is abs(actual_rate - expected_rate) / expected_rate.
-  // margin1 is for the test with traffic as rate - delta
+  // margin1 is for traffic = rate - delta
   float margin1;
-  // margin1 is for the test with traffic as rate
+  // margin1 is for traffic = rate
   float margin2;
-  // margin1 is for the test with traffic as rate + delta
+  // margin1 is for traffic = rate + delta
   float margin3;
+  // margin1 is for traffic = rate /2
+  float margin4;
+  // margin1 is for traffic = 10 * rate
+  float margin5;
 };
 
 // The response delay.
@@ -198,7 +202,9 @@ class QuotaPrefetchTest : public ::testing::Test {
   }
 
   void RunSingleTest(QuotaPrefetch& client, const TestData& data, int traffic,
-                     int expected, float result, Tick t) {
+                     float result, Tick t) {
+    int expected = data.rate * kTestDuration;
+    if (expected > traffic) expected = traffic;
     int passed =
         RunSingleClient(client, traffic, data.window * kTestDuration, t);
     float margin = float(std::abs(passed - expected)) / expected;
@@ -225,27 +231,36 @@ class QuotaPrefetchTest : public ::testing::Test {
 
     // Send below the limit traffic: rate - delta
     int traffic = (data.rate - data.delta) * kTestDuration;
-    int expected = traffic;
-    RunSingleTest(*client, data, traffic, expected, result.margin1, t);
+    RunSingleTest(*client, data, traffic, result.margin1, t);
 
     t += data.window * kTestDuration;
     // The traffic is the same as the limit: rate
     traffic = data.rate * kTestDuration;
-    expected = traffic;
-    RunSingleTest(*client, data, traffic, expected, result.margin2, t);
+    RunSingleTest(*client, data, traffic, result.margin2, t);
 
     t += data.window * kTestDuration;
     // Send higher than the limit traffic: rate + delta
     traffic = (data.rate + data.delta) * kTestDuration;
-    expected = data.rate * kTestDuration;
-    RunSingleTest(*client, data, traffic, expected, result.margin3, t);
+    RunSingleTest(*client, data, traffic, result.margin3, t);
+
+    t += data.window * kTestDuration;
+    // Send higher than the limit traffic: rate / 2
+    traffic = (data.rate / 2) * kTestDuration;
+    RunSingleTest(*client, data, traffic, result.margin4, t);
+
+    t += data.window * kTestDuration;
+    // Send higher than the limit traffic: rate * 10
+    traffic = (data.rate * 10) * kTestDuration;
+    RunSingleTest(*client, data, traffic, result.margin5, t);
   }
 
   void RunTwoClientTest(QuotaPrefetch& client1, QuotaPrefetch& client2,
-                        const TestData& data, int traffic, int expected,
-                        float result, Tick t) {
-    // one client is 2/3 and the other is 1/3
-    int passed = RunTwoClients(client1, client2, traffic * 2 / 3, traffic / 3,
+                        const TestData& data, int traffic, float result,
+                        Tick t) {
+    int expected = data.rate * kTestDuration;
+    if (expected > traffic) expected = traffic;
+    // one client is 3/4 and the other is 1/4
+    int passed = RunTwoClients(client1, client2, traffic * 3 / 4, traffic / 4,
                                data.window * kTestDuration, t);
     float margin = float(std::abs(passed - expected)) / expected;
     std::cerr << "===RunTest margin: " << margin << ", expected: " << expected
@@ -272,23 +287,27 @@ class QuotaPrefetchTest : public ::testing::Test {
 
     // Send below the limit traffic: rate - delta
     int traffic = (data.rate - data.delta) * kTestDuration;
-    int expected = traffic;
-    RunTwoClientTest(*client1, *client2, data, traffic, expected,
-                     result.margin1, t);
+    RunTwoClientTest(*client1, *client2, data, traffic, result.margin1, t);
 
     t += data.window * kTestDuration;
     // The traffic is the same as the limit: rate
     traffic = data.rate * kTestDuration;
-    expected = traffic;
-    RunTwoClientTest(*client1, *client2, data, traffic, expected,
-                     result.margin2, t);
+    RunTwoClientTest(*client1, *client2, data, traffic, result.margin2, t);
 
     t += data.window * kTestDuration;
     // Send higher than the limit traffic: rate + delta
     traffic = (data.rate + data.delta) * kTestDuration;
-    expected = data.rate * kTestDuration;
-    RunTwoClientTest(*client1, *client2, data, traffic, expected,
-                     result.margin3, t);
+    RunTwoClientTest(*client1, *client2, data, traffic, result.margin3, t);
+
+    t += data.window * kTestDuration;
+    // Send higher than the limit traffic: rate / 2
+    traffic = (data.rate / 2) * kTestDuration;
+    RunTwoClientTest(*client1, *client2, data, traffic, result.margin4, t);
+
+    t += data.window * kTestDuration;
+    // Send higher than the limit traffic: rate * 10
+    traffic = (data.rate * 10) * kTestDuration;
+    RunTwoClientTest(*client1, *client2, data, traffic, result.margin5, t);
   }
 
   std::unique_ptr<RateServer> rate_server_;
@@ -297,50 +316,74 @@ class QuotaPrefetchTest : public ::testing::Test {
 
 TEST_F(QuotaPrefetchTest, TestBigRollingWindow) {
   TestSingleClient(true,  // use rolling window,
-                   kPerMinuteWindow,
-                   {.margin1 = 0.0, .margin2 = 0.006, .margin3 = 0.0015});
+                   kPerMinuteWindow, {.margin1 = 0.0,
+                                      .margin2 = 0.006,
+                                      .margin3 = 0.0015,
+                                      .margin4 = 0.0,
+                                      .margin5 = 0.06});
 }
 
 TEST_F(QuotaPrefetchTest, TestSmallRollingWindow) {
   TestSingleClient(true,  // use rolling window,
-                   kPerSecondWindow,
-                   {.margin1 = 0.26, .margin2 = 0.23, .margin3 = 0.25});
+                   kPerSecondWindow, {.margin1 = 0.26,
+                                      .margin2 = 0.23,
+                                      .margin3 = 0.25,
+                                      .margin4 = 0.04,
+                                      .margin5 = 0.23});
 }
 
 TEST_F(QuotaPrefetchTest, TestBigTimeBased) {
   TestSingleClient(false,  // use time based.
-                   kPerMinuteWindow,
-                   {.margin1 = 0.0, .margin2 = 0.0, .margin3 = 0.08});
+                   kPerMinuteWindow, {.margin1 = 0.0,
+                                      .margin2 = 0.0,
+                                      .margin3 = 0.08,
+                                      .margin4 = 0.0,
+                                      .margin5 = 0.1});
 }
 
 TEST_F(QuotaPrefetchTest, TestSmallTimeBased) {
   TestSingleClient(false,  // use time based
-                   kPerSecondWindow,
-                   {.margin1 = 0.0, .margin2 = 0.0, .margin3 = 0.035});
+                   kPerSecondWindow, {.margin1 = 0.0,
+                                      .margin2 = 0.0,
+                                      .margin3 = 0.035,
+                                      .margin4 = 0.03,
+                                      .margin5 = 0.23});
 }
 
 TEST_F(QuotaPrefetchTest, TestTwoClientBigRollingWindow) {
   TestTwoClients(true,  // use rolling window,
-                 kPerMinuteWindow,
-                 {.margin1 = 0.0001, .margin2 = 0.007, .margin3 = 0.0036});
+                 kPerMinuteWindow, {.margin1 = 0.0,
+                                    .margin2 = 0.006,
+                                    .margin3 = 0.0015,
+                                    .margin4 = 0.001,
+                                    .margin5 = 0.057});
 }
 
 TEST_F(QuotaPrefetchTest, TestTwoClientSmallRollingWindow) {
   TestTwoClients(true,  // use rolling window,
-                 kPerSecondWindow,
-                 {.margin1 = 0.28, .margin2 = 0.35, .margin3 = 0.22});
+                 kPerSecondWindow, {.margin1 = 0.33,
+                                    .margin2 = 0.30,
+                                    .margin3 = 0.30,
+                                    .margin4 = 0.14,
+                                    .margin5 = 0.22});
 }
 
 TEST_F(QuotaPrefetchTest, TestTwoClientBigTimeBased) {
   TestTwoClients(false,  // use time based
-                 kPerMinuteWindow,
-                 {.margin1 = 0.0001, .margin2 = 0.0, .margin3 = 0.035});
+                 kPerMinuteWindow, {.margin1 = 0.0,
+                                    .margin2 = 0.0,
+                                    .margin3 = 0.055,
+                                    .margin4 = 0.0,
+                                    .margin5 = 0.0005});
 }
 
 TEST_F(QuotaPrefetchTest, TestTwoClientSmallTimeBased) {
   TestTwoClients(false,  // use time based
-                 kPerSecondWindow,
-                 {.margin1 = 0.05, .margin2 = 0.03, .margin3 = 0.07});
+                 kPerSecondWindow, {.margin1 = 0.062,
+                                    .margin2 = 0.14,
+                                    .margin3 = 0.15,
+                                    .margin4 = 0.05,
+                                    .margin5 = 0.17});
 }
 
 TEST_F(QuotaPrefetchTest, TestNotEnoughAmount) {
