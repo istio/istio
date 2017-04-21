@@ -29,7 +29,7 @@ spec:
       labels:
         infra: istio-ingress-controller
     spec:
-      serviceAccountName: istio-manager-service-account
+      # RBAC: serviceAccountName: istio-manager-service-account
       containers:
       - name: istio-ingress-controller
         image: docker.io/istio/proxy:2017-04-13-01.05.21

@@ -36,7 +36,7 @@ spec:
       labels:
         istio: manager
     spec:
-      serviceAccountName: istio-manager-service-account
+      # RBAC: serviceAccountName: istio-manager-service-account
       containers:
       - name: manager
         image: docker.io/istio/manager:2017-04-13-01.05.21
@@ -50,24 +50,4 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
----
-    
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-manager-service-account
-
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: istio-manager-admin-role-binding
-subjects:
-- kind: ServiceAccount
-  name: istio-manager-service-account
-  namespace: default
-roleRef:
-  kind: ClusterRole
-  name: cluster-admin
-  apiGroup: rbac.authorization.k8s.io
 
