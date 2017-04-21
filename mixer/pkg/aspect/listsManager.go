@@ -34,7 +34,6 @@ type (
 	listsManager struct{}
 
 	listsExecutor struct {
-		inputs map[string]string
 		aspect adapter.ListsAspect
 		params *aconfig.ListsParams
 	}
@@ -55,7 +54,6 @@ func (listsManager) NewCheckExecutor(cfg *cpb.Combined, ga adapter.Builder, env 
 		return nil, err
 	}
 	return &listsExecutor{
-		inputs: cfg.Aspect.Inputs,
 		aspect: asp,
 		params: cfg.Aspect.Params.(*aconfig.ListsParams),
 	}, nil
@@ -86,14 +84,7 @@ func (a *listsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.
 	var err error
 
 	var symbol string
-	var symbolExpr string
-
-	// CheckExpression should be processed and sent to input
-	if symbolExpr, found = a.inputs[a.params.CheckExpression]; !found {
-		return status.WithError(fmt.Errorf("mapping for %s not found", a.params.CheckExpression))
-	}
-
-	if symbol, err = mapper.EvalString(symbolExpr, attrs); err != nil {
+	if symbol, err = mapper.EvalString(a.params.CheckExpression, attrs); err != nil {
 		return status.WithError(err)
 	}
 

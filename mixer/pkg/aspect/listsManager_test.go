@@ -140,17 +140,16 @@ func (l *testList) CheckList(symbol string) (bool, error) {
 func TestListsExecutor_Execute(t *testing.T) {
 	cases := []struct {
 		name   string
-		inputs map[string]string
 		aspect adapter.ListsAspect
 		params *aconfig.ListsParams
 	}{
-		{"not blacklisted", map[string]string{"ipAddr": "source.ip"}, &testList{}, &aconfig.ListsParams{CheckExpression: "ipAddr", Blacklist: true}},
-		{"whitelisted", map[string]string{"ipAddr": "source.ip"}, &testList{inList: true}, &aconfig.ListsParams{CheckExpression: "ipAddr", Blacklist: false}},
+		{"not blacklisted", &testList{}, &aconfig.ListsParams{CheckExpression: "source.ip", Blacklist: true}},
+		{"whitelisted", &testList{inList: true}, &aconfig.ListsParams{CheckExpression: "source.ip", Blacklist: false}},
 	}
 
 	for _, v := range cases {
 		t.Run(v.name, func(t *testing.T) {
-			e := &listsExecutor{v.inputs, v.aspect, v.params}
+			e := &listsExecutor{v.aspect, v.params}
 			got := e.Execute(test.NewBag(), test.NewIDEval())
 			if got.Code != int32(rpc.OK) {
 				t.Errorf("Execute() => %v, wanted status with code: %v", got, int32(rpc.OK))
@@ -161,28 +160,27 @@ func TestListsExecutor_Execute(t *testing.T) {
 
 func TestListsExecutor_ExecuteErrors(t *testing.T) {
 
-	attrParam := &aconfig.ListsParams{CheckExpression: "ipAddr"}
-	blacklistParam := &aconfig.ListsParams{CheckExpression: "ipAddr", Blacklist: true}
+	attrParam := &aconfig.ListsParams{CheckExpression: "source.ip"}
+	blacklistParam := &aconfig.ListsParams{CheckExpression: "source.ip", Blacklist: true}
 	internal := int32(rpc.INTERNAL)
 	permDenied := int32(rpc.PERMISSION_DENIED)
-	inputMap := map[string]string{"ipAddr": "source.ip"}
 
 	cases := []struct {
 		name     string
-		inputs   map[string]string
 		aspect   adapter.ListsAspect
 		params   *aconfig.ListsParams
+		eval     expr.Evaluator
 		wantCode int32
 	}{
-		{"no inputs", map[string]string{}, &testList{}, attrParam, internal},
-		{"checklist error", inputMap, &testList{returnErr: true}, attrParam, internal},
-		{"blacklisted", inputMap, &testList{inList: true}, blacklistParam, permDenied},
+		{"eval error", &testList{returnErr: true}, attrParam, test.NewErrEval(), internal},
+		{"checklist error", &testList{returnErr: true}, attrParam, test.NewIDEval(), internal},
+		{"blacklisted", &testList{inList: true}, blacklistParam, test.NewIDEval(), permDenied},
 	}
 
 	for _, v := range cases {
 		t.Run(v.name, func(t *testing.T) {
-			e := &listsExecutor{v.inputs, v.aspect, v.params}
-			got := e.Execute(test.NewBag(), test.NewIDEval())
+			e := &listsExecutor{v.aspect, v.params}
+			got := e.Execute(test.NewBag(), v.eval)
 			if got.Code != v.wantCode {
 				t.Errorf("Execute() => %v, wanted status with code: %v", got, v.wantCode)
 			}
