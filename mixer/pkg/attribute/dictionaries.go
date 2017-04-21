@@ -20,7 +20,7 @@ package attribute
 //
 // This is all fine and dandy, since this code ends up being seldom used. Typically, this
 // is called only when a gRPC stream is initiated, which is a pretty rare situation.
-// And typically, there will be 1 dictionary for all of the mixer.
+// And typically, there will be 1 dictionary for all of Mixer.
 
 import (
 	"sync"
@@ -37,9 +37,9 @@ type refCountedDictionary struct {
 }
 
 // dictionaries provides a thread safe interning solution for
-// attribute dictionaries. This allows identical
-// dictionaries to be shared within the mixer, which reduces
-// memory consumption and improves processor cache efficiency.
+// attribute dictionaries. This allows identical dictionaries
+// to be shared within Mixer, which reduces memory consumption
+// and improves processor cache efficiency.
 type dictionaries struct {
 	sync.Mutex
 	entries []refCountedDictionary

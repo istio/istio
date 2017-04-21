@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package stdioLogger provides an implementation of the mixer logger aspect
-// that writes logs (serialized as JSON) to a standard stream (stdout | stderr).
+// Package stdioLogger provides an implementation of Mixer's logger aspect that
+// writes logs (serialized as JSON) to a standard stream (stdout | stderr).
 package stdioLogger
 
 import (

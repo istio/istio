@@ -28,7 +28,7 @@ import (
 func reportCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "report",
-		Short: "Invokes the mixer's Report API.",
+		Short: "Invokes Mixer's Report API.",
 		Run: func(cmd *cobra.Command, args []string) {
 			report(rootArgs, printf, fatalf)
 		}}

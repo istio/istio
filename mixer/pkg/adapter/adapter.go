@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package adapter defines the types consumed by adapter implementations to
-// interface with the mixer.
+// interface with Mixer.
 package adapter
 
 import (
@@ -24,13 +24,13 @@ import (
 
 type (
 	// Aspect represents a type of end-user functionality with particular semantics. Adapters
-	// expose functionality to the mixer by implementing one or more aspects.
+	// expose functionality to Mixer by implementing one or more aspects.
 	Aspect interface {
 		io.Closer
 	}
 
-	// Builder represents a factory of aspects. Adapters register builders with the mixer
-	// in order to allow the mixer to instantiate aspects on demand.
+	// Builder represents a factory of aspects. Adapters register builders with Mixer
+	// in order to allow Mixer to instantiate aspects on demand.
 	Builder interface {
 		io.Closer
 		ConfigValidator
@@ -70,8 +70,8 @@ type (
 		// ScheduleWork records a function for execution.
 		//
 		// Under normal circumstances, this method executes the
-		// function on a separate goroutine. But when the mixer
-		// is running in single-threaded mode, then the function
+		// function on a separate goroutine. But when Mixer is
+		// running in single-threaded mode, then the function
 		// will be invoked synchronously on the same goroutine.
 		//
 		// Adapters should not spawn 'naked' goroutines, they should
@@ -89,16 +89,15 @@ type (
 		ScheduleDaemon(fn DaemonFunc)
 
 		// Possible other features for Env:
-		// Return how much time remains until the mixer considers the aspect call having timed out and kills it
+		// Return how much time remains until Mixer considers the aspect call having timed out and kills it
 		// Return true/false to indicate this is a 'recovery mode' execution following a prior crash of the aspect
 		// ?
 	}
 
 	// Logger defines where aspects should output their log state to.
 	//
-	// This log information is funneled to the mixer which
-	// augments it with desirable metadata and then routes it
-	// to the right place.
+	// This log information is funneled to Mixer which augments it with
+	// desirable metadata and then routes it to the right place.
 	Logger interface {
 		// Used to determine if the supplied verbosity level is enabled.
 		// Example:

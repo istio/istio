@@ -17,7 +17,7 @@ package adapter
 type (
 	// AttributesGenerator provides the interface for the Attributes aspect.
 	// Implementors generate attribute values for consumption by other
-	// aspects within the mixer.
+	// aspects within Mixer.
 	AttributesGenerator interface {
 		Aspect
 
@@ -25,7 +25,7 @@ type (
 		// output map of named values. The input values will be
 		// populated via configured attribute expressions. The output
 		// map will be used to create new attribute values for use by
-		// the rest of the mixer, as controlled by aspect config.
+		// the rest of Mixer, as controlled by aspect config.
 		Generate(map[string]interface{}) (map[string]interface{}, error)
 	}
 

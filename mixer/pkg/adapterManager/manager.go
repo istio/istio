@@ -42,7 +42,7 @@ import (
 type AspectDispatcher interface {
 
 	// Preprocess dispatches to the set of aspects that will run before any
-	// other aspects in the mixer (aka: the Check, Report, Quota aspects).
+	// other aspects in Mixer (aka: the Check, Report, Quota aspects).
 	Preprocess(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status
 
 	// Check dispatches to the set of aspects associated with the Check API method

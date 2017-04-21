@@ -34,7 +34,7 @@ func quotaCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Command
 
 	cmd := &cobra.Command{
 		Use:   "quota",
-		Short: "Invokes the mixer's Quota API.",
+		Short: "Invokes Mixer's Quota API.",
 		Run: func(cmd *cobra.Command, args []string) {
 			quota(rootArgs, printf, fatalf, name, amount, bestEffort)
 		},

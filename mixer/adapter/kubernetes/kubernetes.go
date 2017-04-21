@@ -14,8 +14,8 @@
 
 // Package kubernetes provides functionality to adapt mixer behavior to the
 // kubernetes environment. Primarily, it is used to generate values as part
-// of the attribute generation preprocessing phase of the mixer. These values
-// will be transformed into attributes that can be used for subsequent config
+// of Mixer's attribute generation preprocessing phase. These values will be
+// transformed into attributes that can be used for subsequent config
 // resolution and adapter dispatch and execution.
 package kubernetes
 

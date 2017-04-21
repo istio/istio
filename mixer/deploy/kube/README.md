@@ -1,8 +1,8 @@
 # Istio Mixer K8s Configuration
 
-These configurations stand up an instance of the mixer, a Prometheus instance that scrapes metrics the mixer exposes, and
+These configurations stand up an instance of Mixer, a Prometheus instance that scrapes metrics Mixer exposes, and
 a Grafana instance to render those metrics. These are intended for development and local testing, not a real production
-deployment. The easiest way to stand up these deployments is to run (from the Istio mixer root directory):
+deployment. The easiest way to stand up these deployments is to run (from the Mixer root directory):
 ```shell
 $ kubectl create configmap prometheus-config --from-file=testdata/prometheus.yaml
 $ kubectl create configmap mixer-config --from-file=testdata/globalconfig.yml --from-file=testdata/serviceconfig.yml
@@ -18,14 +18,14 @@ $ bazel run //cmd/client:mixc -- report "something happened" -m $MIXS -a source.
 ```
 
 <aside class="notice">
-Note: due to [Issue #272](https://github.com/istio/mixer/issues/272) a `Check` or `Report` call must be made to the mixer
+Note: due to [Issue #272](https://github.com/istio/mixer/issues/272) a `Check` or `Report` call must be made to Mixer
 before Prometheus will be able to scrape metrics.
 </aside>
 
 ## mixer.yaml
-`mixer.yaml` describes a deployment and service for the mixer server binary. Two pieces of configuration are required to
-run the mixer: a global configuration and a service configuration. Example configurations can be found in the `//testdata`
-directory (`//` indicates the [root of the Istio Mixer project directory](https://github.com/istio/mixer)). These
+`mixer.yaml` describes a deployment and service for the Mixer server binary. Two pieces of configuration are required to
+run Mixer: a global configuration and a service configuration. Example configurations can be found in the `//testdata`
+directory (`//` indicates the [root of the Mixer project directory](https://github.com/istio/mixer)). These
 configurations are expected to be mounted in two files at `/etc/opt/mixer/`. We use a configmap named `mixer-config` to
 provide these configurations. Usually this configmap is created from the `//testdata/` directory by:
 
@@ -72,8 +72,8 @@ $ kubectl create configmap prometheus-config --from-file=prometheus.yaml
 The Prometheus configuration at `conf/prometheus.yaml` looks for a Kubernetes service named `mixer` with a port
 named `prometheus` to scrape. The Kubernetes service defined in `mixer.yaml` satisfies these requirements.
 
-#### Configuring the mixer to produce Prometheus metrics
-The mixer configuration in the `//testdata` directory is set up to run the prometheus adapter already. To insert it
+#### Configuring Mixer to produce Prometheus metrics
+Mixer configuration in the `//testdata` directory is set up to run the prometheus adapter already. To insert it
 into your own mixer deployment the adapter needs to be registered in the global config:
 
 ```yaml
@@ -112,7 +112,7 @@ aspects:
 
 ## OPTIONAL: Running a local registry for development
 `localregistry.yaml` is a copy of Kubernete's local registry addon, and is included to make it easier to test
-the mixer server by allowing a developer to push docker images locally rather than to some remote registry. Run the
+Mixer by allowing a developer to push docker images locally rather than to some remote registry. Run the
 registry (`kubectl apply -f ./deploy/kube/localregistry.yaml`), and update `mixer.yaml` to use the image
 `localhost:5000/mixer`. After the registry server is running, expose it locally by executing:
 
@@ -128,7 +128,7 @@ $ POD=$(kubectl get pods --namespace kube-system -l k8s-app=kube-registry \
   | grep Running | head -1 | cut -f1 -d' ')
 ```
 
-Then you can build the mixer, create a docker image, and push it to the local registry, by running:
+Then you can build Mixer, create a docker image, and push it to the local registry, by running:
 ```shell
 $ bazel build ...:all
 $ bazel run //docker:mixer localhost:5000/mixer

@@ -14,22 +14,20 @@
 
 // Package attribute provides the low-level mechanisms to manipulate mixer attributes.
 //
-// Attributes are name/value pairs providing metadata about an operation.
-// In the Istio system, the proxy supplies a potentially large number of
-// attributes to the mixer for every request and the mixer sends a
-// modest number of attributes back to the proxy with its responses.
+// Attributes are name/value pairs providing metadata about an operation. In the Istio
+// system, Envoy supplies a potentially large number of attributes to Mixer for every
+// request and Mixer sends a modest number of attributes back to the proxy with its responses.
 //
-// There is an 'attribute protocol' between the proxy and the mixer which
-// this package implements.
+// There is an 'attribute protocol' between Envoy and Mixer which this package implements.
 //
 // The general use of this package is that there is a single Manager instance
-// created for the mixer as a whole. Each incoming gRPC stream uses the manager
+// created for Mixer as a whole. Each incoming gRPC stream uses the manager
 // to create a pair of Trackers which are each responsible for implementing
 // 1/2 of the aforementioned attribute protocol (one for the input side, one
 // for the output side)
 package attribute
 
-// Manager provides support for attributes in the mixer.
+// Manager provides support for attributes in Mixer.
 type Manager struct {
 	dictionaries dictionaries
 }

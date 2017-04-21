@@ -26,7 +26,7 @@ option (gogoproto.gostring_all) = false;
 // Configures an AttributesGenerator aspect.
 //
 // The following config specifies two adapters (mixer_info and k8s_pod_info)
-// that will be used to generate attributes for use within in the mixer:
+// that will be used to generate attributes for use within in Mixer:
 //
 // aspects:
 // - kind: attributes

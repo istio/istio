@@ -22,7 +22,7 @@ type ManagerInventory struct {
 	Quota      []QuotaManager
 }
 
-// Inventory returns the authoritative set of aspect managers used by the mixer.
+// Inventory returns the authoritative set of aspect managers used by Mixer.
 func Inventory() ManagerInventory {
 	return ManagerInventory{
 		Preprocess: []PreprocessManager{
