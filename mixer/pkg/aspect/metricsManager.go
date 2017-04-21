@@ -15,6 +15,7 @@
 package aspect
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -166,11 +167,57 @@ func metricDefinitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefin
 		return nil, fmt.Errorf("descriptor '%s' failed to convert metric kind value '%v' from proto: %v",
 			desc.Name, desc.Kind, err)
 	}
-	return &adapter.MetricDefinition{
+
+	if kind == adapter.Distribution && desc.Buckets == nil {
+		return nil, fmt.Errorf(
+			"invalid descriptor '%s': metrics with metric kind of distribution must define buckets",
+			desc.Name,
+		)
+	}
+
+	def := &adapter.MetricDefinition{
 		Name:        desc.Name,
 		DisplayName: desc.DisplayName,
 		Description: desc.Description,
 		Kind:        kind,
 		Labels:      labels,
-	}, nil
+	}
+
+	if desc.Buckets != nil {
+		b, err := bucketDefinitionFromProto(desc.Buckets)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"invalid descriptor '%s': could not extract bucket definitions: %v",
+				desc.Name,
+				err,
+			)
+		}
+		def.Buckets = b
+	}
+	return def, nil
+}
+
+func bucketDefinitionFromProto(buckets *dpb.MetricDescriptor_BucketsDefinition) (adapter.BucketDefinition, error) {
+	switch buckets.Definition.(type) {
+	case *dpb.MetricDescriptor_BucketsDefinition_LinearBuckets:
+		lb := buckets.Definition.(*dpb.MetricDescriptor_BucketsDefinition_LinearBuckets)
+		return &adapter.LinearBuckets{
+			Count:  lb.LinearBuckets.NumFiniteBuckets,
+			Width:  lb.LinearBuckets.Width,
+			Offset: lb.LinearBuckets.Offset,
+		}, nil
+	case *dpb.MetricDescriptor_BucketsDefinition_ExponentialBuckets:
+		eb := buckets.Definition.(*dpb.MetricDescriptor_BucketsDefinition_ExponentialBuckets)
+		return &adapter.ExponentialBuckets{
+			Count:        eb.ExponentialBuckets.NumFiniteBuckets,
+			GrowthFactor: eb.ExponentialBuckets.GrowthFactor,
+			Scale:        eb.ExponentialBuckets.Scale,
+		}, nil
+	case *dpb.MetricDescriptor_BucketsDefinition_ExplicitBuckets:
+		ex := buckets.Definition.(*dpb.MetricDescriptor_BucketsDefinition_ExplicitBuckets)
+		return &adapter.ExplicitBuckets{
+			Bounds: ex.ExplicitBuckets.Bounds,
+		}, nil
+	}
+	return nil, errors.New("could not build bucket definitions from proto")
 }

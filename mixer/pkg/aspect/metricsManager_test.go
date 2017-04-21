@@ -412,6 +412,99 @@ func TestMetrics_DescToDef(t *testing.T) {
 		},
 		{
 			&dpb.MetricDescriptor{
+				Name:   "without buckets",
+				Kind:   dpb.DISTRIBUTION,
+				Labels: map[string]dpb.ValueType{"string": dpb.STRING},
+			},
+			nil,
+			"distribution",
+		},
+		{
+			&dpb.MetricDescriptor{
+				Name:    "bad buckets",
+				Kind:    dpb.DISTRIBUTION,
+				Labels:  map[string]dpb.ValueType{"string": dpb.STRING},
+				Buckets: &dpb.MetricDescriptor_BucketsDefinition{},
+			},
+			nil,
+			"definitions",
+		},
+		{
+			in: &dpb.MetricDescriptor{
+				Name:   "explicit buckets",
+				Kind:   dpb.DISTRIBUTION,
+				Labels: map[string]dpb.ValueType{"string": dpb.STRING},
+				Buckets: &dpb.MetricDescriptor_BucketsDefinition{
+					Definition: &dpb.MetricDescriptor_BucketsDefinition_ExplicitBuckets{
+						ExplicitBuckets: &dpb.MetricDescriptor_BucketsDefinition_Explicit{
+							Bounds: []float64{3, 5, 9, 234},
+						},
+					},
+				},
+			},
+			out: &adapter.MetricDefinition{
+				Name:   "explicit buckets",
+				Kind:   adapter.Distribution,
+				Labels: map[string]adapter.LabelType{"string": adapter.String},
+				Buckets: &adapter.ExplicitBuckets{
+					Bounds: []float64{3, 5, 9, 234},
+				},
+			},
+		},
+		{
+			in: &dpb.MetricDescriptor{
+				Name:   "exponential buckets",
+				Kind:   dpb.DISTRIBUTION,
+				Labels: map[string]dpb.ValueType{"string": dpb.STRING},
+				Buckets: &dpb.MetricDescriptor_BucketsDefinition{
+					Definition: &dpb.MetricDescriptor_BucketsDefinition_ExponentialBuckets{
+						ExponentialBuckets: &dpb.MetricDescriptor_BucketsDefinition_Exponential{
+							NumFiniteBuckets: 3,
+							GrowthFactor:     10,
+							Scale:            0.1,
+						},
+					},
+				},
+			},
+			out: &adapter.MetricDefinition{
+				Name:   "exponential buckets",
+				Kind:   adapter.Distribution,
+				Labels: map[string]adapter.LabelType{"string": adapter.String},
+				Buckets: &adapter.ExponentialBuckets{
+					Count:        3,
+					GrowthFactor: 10,
+					Scale:        0.1,
+				},
+			},
+		},
+		{
+			in: &dpb.MetricDescriptor{
+				Name:   "linear buckets",
+				Kind:   dpb.DISTRIBUTION,
+				Labels: map[string]dpb.ValueType{"string": dpb.STRING},
+				Buckets: &dpb.MetricDescriptor_BucketsDefinition{
+					Definition: &dpb.MetricDescriptor_BucketsDefinition_LinearBuckets{
+						LinearBuckets: &dpb.MetricDescriptor_BucketsDefinition_Linear{
+							NumFiniteBuckets: 3,
+							Width:            40,
+							Offset:           0.0001,
+						},
+					},
+				},
+			},
+			out: &adapter.MetricDefinition{
+				Name:   "linear buckets",
+				Kind:   adapter.Distribution,
+				Labels: map[string]adapter.LabelType{"string": adapter.String},
+				Buckets: &adapter.LinearBuckets{
+					Count:  3,
+					Width:  40,
+					Offset: 0.0001,
+				},
+			},
+		},
+		{
+			&dpb.MetricDescriptor{
 				Name:   "good",
 				Kind:   dpb.COUNTER,
 				Value:  dpb.STRING,
