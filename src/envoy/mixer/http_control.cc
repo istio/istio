@@ -39,15 +39,22 @@ const std::string kOriginUser = "origin.user";
 
 const std::string kRequestHeaders = "request.headers";
 const std::string kRequestHost = "request.host";
+const std::string kRequestMethod = "request.method";
 const std::string kRequestPath = "request.path";
+const std::string kRequestReferer = "request.referer";
+const std::string kRequestScheme = "request.scheme";
 const std::string kRequestSize = "request.size";
 const std::string kRequestTime = "request.time";
+const std::string kRequestUserAgent = "request.user-agent";
 
-const std::string kResponseHeaders = "response.headers";
 const std::string kResponseCode = "response.code";
 const std::string kResponseDuration = "response.duration";
+const std::string kResponseHeaders = "response.headers";
 const std::string kResponseSize = "response.size";
 const std::string kResponseTime = "response.time";
+
+// Keys to well-known headers
+const LowerCaseString kRefererHeaderKey("referer");
 
 // Check cache size: 10000 cache entries.
 const int kCheckCacheEntries = 10000;
@@ -92,6 +99,29 @@ void FillRequestHeaderAttributes(const HeaderMap& header_map,
                                  Attributes* attr) {
   SetStringAttribute(kRequestPath, header_map.Path()->value().c_str(), attr);
   SetStringAttribute(kRequestHost, header_map.Host()->value().c_str(), attr);
+
+  // Since we're in an HTTP filter, if the scheme header doesn't exist we can
+  // fill it in with a reasonable value.
+  SetStringAttribute(
+      kRequestScheme,
+      header_map.Scheme() ? header_map.Scheme()->value().c_str() : "http",
+      attr);
+
+  if (header_map.UserAgent()) {
+    SetStringAttribute(kRequestUserAgent,
+                       header_map.UserAgent()->value().c_str(), attr);
+  }
+  if (header_map.Method()) {
+    SetStringAttribute(kRequestMethod, header_map.Method()->value().c_str(),
+                       attr);
+  }
+
+  const HeaderEntry* referer = header_map.get(kRefererHeaderKey);
+  if (referer) {
+    std::string val(referer->value().c_str(), referer->value().size());
+    SetStringAttribute(kRequestReferer, val, attr);
+  }
+
   attr->attributes[kRequestTime] =
       Attributes::TimeValue(std::chrono::system_clock::now());
   attr->attributes[kRequestHeaders] =

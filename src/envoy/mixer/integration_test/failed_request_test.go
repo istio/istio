@@ -31,6 +31,9 @@ const checkAttributesMixerFail = `
   "request.host": "localhost:27070",
   "request.path": "/echo",
   "request.time": "*",
+  "request.user-agent": "Go-http-client/1.1",
+  "request.method": "GET",
+  "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
   "target.uid": "POD222",
@@ -52,6 +55,9 @@ const reportAttributesMixerFail = `
   "request.host": "localhost:27070",
   "request.path": "/echo",
   "request.time": "*",
+  "request.user-agent": "Go-http-client/1.1",
+  "request.method": "GET",
+  "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
   "target.uid": "POD222",
@@ -85,6 +91,9 @@ const reportAttributesBackendFail = `
   "request.host": "localhost:27070",
   "request.path": "/echo",
   "request.time": "*",
+  "request.user-agent": "Go-http-client/1.1",
+  "request.method": "GET",
+  "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
   "target.uid": "POD222",
@@ -133,10 +142,10 @@ func TestFailedRequest(t *testing.T) {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	if code != 401 {
-		t.Errorf("Status code 401 is expected.")
+		t.Errorf("Status code 401 is expected, got %d.", code)
 	}
 	if resp_body != "UNAUTHENTICATED:"+mixerAuthFailMessage {
-		t.Errorf("Error response body is not expected.")
+		t.Errorf("Error response body is not expected, got: '%s'.", resp_body)
 	}
 	s.VerifyCheck(tag, checkAttributesMixerFail)
 	s.VerifyReport(tag, reportAttributesMixerFail)
@@ -150,10 +159,10 @@ func TestFailedRequest(t *testing.T) {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	if code != 400 {
-		t.Errorf("Status code 400 is expected.")
+		t.Errorf("Status code 400 is expected, got %d.", code)
 	}
 	if resp_body != FailBody {
-		t.Errorf("Error response body is not expected.")
+		t.Errorf("Error response body is not expected, got '%s'.", resp_body)
 	}
 	// Same Check attributes as the first one.
 	s.VerifyCheck(tag, checkAttributesMixerFail)
