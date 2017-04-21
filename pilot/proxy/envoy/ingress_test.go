@@ -1,26 +1,22 @@
 package envoy
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
 
-	"fmt"
-
 	"istio.io/manager/model"
-	"istio.io/manager/test/mock"
 	"istio.io/manager/test/util"
 )
 
 const (
-	ingressEnvoyConfig           = "testdata/ingress-envoy.json"
-	ingressEnvoySSLConfig        = "testdata/ingress-envoy-ssl.json"
-	ingressEnvoyPartialSSLConfig = "testdata/ingress-envoy-partial-ssl.json"
-	ingressRouteRule1            = "testdata/ingress-route-world.yaml.golden"
-	ingressRouteRule2            = "testdata/ingress-route-foo.yaml.golden"
-	ingressCertFile              = "testdata/tls.crt"
-	ingressKeyFile               = "testdata/tls.key"
-	ingressNamespace             = "default"
+	ingressEnvoyConfig = "testdata/envoy-ingress.json"
+	ingressRouteRule1  = "testdata/ingress-route-world.yaml.golden"
+	ingressRouteRule2  = "testdata/ingress-route-foo.yaml.golden"
+	ingressCertFile    = "testdata/tls.crt"
+	ingressKeyFile     = "testdata/tls.key"
+	ingressNamespace   = "default"
 )
 
 var (
@@ -29,28 +25,13 @@ var (
 	ingressTLSSecret = &model.TLSSecret{Certificate: ingressCert, PrivateKey: ingressKey}
 )
 
-func testIngressConfig(c *IngressConfig, envoyConfig string, t *testing.T) {
-	c.Port = 8080
-	c.SSLPort = 8443
-	config := generateIngress(c)
-	if config == nil {
-		t.Fatal("Failed to generate config")
-	}
-
-	if err := config.WriteFile(envoyConfig); err != nil {
-		t.Fatal(err)
-	}
-
-	util.CompareYAML(envoyConfig, t)
-}
-
 func addIngressRoutes(r *model.IstioRegistry, t *testing.T) {
 	for i, file := range []string{ingressRouteRule1, ingressRouteRule2} {
 		msg, err := configObjectFromYAML(model.IngressRule, file)
 		if err != nil {
 			t.Fatal(err)
 		}
-		key := model.Key{Kind: model.IngressRule, Name: fmt.Sprintf("route_%d", i), Namespace: ingressNamespace}
+		key := model.Key{Kind: model.IngressRule, Name: fmt.Sprintf("route-%d", i), Namespace: ingressNamespace}
 		if err = r.Post(key, msg); err != nil {
 			t.Fatal(err)
 		}
@@ -71,49 +52,18 @@ func compareFile(filename string, golden []byte, t *testing.T) {
 	}
 }
 
-func TestIngressRoutes(t *testing.T) {
-	r := mock.MakeRegistry()
-	s := &mock.SecretRegistry{}
-	mesh := makeMeshConfig()
-	addIngressRoutes(r, t)
-	testIngressConfig(&IngressConfig{
-		Registry:  r,
-		Namespace: ingressNamespace,
-		Secrets:   s,
-		Mesh:      &mesh,
-	}, ingressEnvoyConfig, t)
-}
-
 func TestIngressRoutesSSL(t *testing.T) {
-	r := mock.MakeRegistry()
-	s := &mock.SecretRegistry{"*": ingressTLSSecret}
 	mesh := makeMeshConfig()
-	addIngressRoutes(r, t)
-	testIngressConfig(&IngressConfig{
-		CertFile:  ingressCertFile,
-		KeyFile:   ingressKeyFile,
-		Namespace: ingressNamespace,
-		Secrets:   s,
-		Registry:  r,
-		Mesh:      &mesh,
-	}, ingressEnvoySSLConfig, t)
-	compareFile(ingressCertFile, ingressCert, t)
-	compareFile(ingressKeyFile, ingressKey, t)
-}
+	config := generateIngress(&mesh, ingressTLSSecret, ingressCertFile, ingressKeyFile)
+	if config == nil {
+		t.Fatal("Failed to generate config")
+	}
 
-func TestIngressRoutesPartialSSL(t *testing.T) {
-	r := mock.MakeRegistry()
-	s := &mock.SecretRegistry{fmt.Sprintf("world.%v.svc.cluster.local", ingressNamespace): ingressTLSSecret}
-	mesh := makeMeshConfig()
-	addIngressRoutes(r, t)
-	testIngressConfig(&IngressConfig{
-		CertFile:  ingressCertFile,
-		KeyFile:   ingressKeyFile,
-		Namespace: ingressNamespace,
-		Secrets:   s,
-		Registry:  r,
-		Mesh:      &mesh,
-	}, ingressEnvoyPartialSSLConfig, t)
+	if err := config.WriteFile(ingressEnvoyConfig); err != nil {
+		t.Fatal(err)
+	}
+
+	util.CompareYAML(ingressEnvoyConfig, t)
 	compareFile(ingressCertFile, ingressCert, t)
 	compareFile(ingressKeyFile, ingressKey, t)
 }

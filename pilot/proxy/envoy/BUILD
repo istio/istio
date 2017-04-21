@@ -76,22 +76,6 @@ sh_test(
 )
 
 sh_test(
-    name = "envoy_config_ingress_test",
-    size = "small",
-    srcs = ["config_test.sh"],
-    args = [
-        "$(location envoy)",
-        "$(location testdata/ingress-envoy.json.golden)",
-        "1",
-    ],
-    data = [
-        "envoy",
-        "testdata/ingress-envoy.json.golden",
-    ],
-    tags = ["exclusive"],
-)
-
-sh_test(
     name = "envoy_config_egress_test",
     size = "small",
     srcs = ["config_test.sh"],

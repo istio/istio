@@ -15,6 +15,9 @@
 package proxy
 
 import (
+	"time"
+
+	"github.com/golang/protobuf/ptypes"
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 )
@@ -54,4 +57,26 @@ type Context struct {
 	// upgrade (such as utilizng TLS for proxy-to-proxy traffic) will be applied
 	// to the passthrough port.
 	PassthroughPorts []int
+}
+
+// DefaultMeshConfig configuration
+func DefaultMeshConfig() proxyconfig.ProxyMeshConfig {
+	return proxyconfig.ProxyMeshConfig{
+		DiscoveryAddress:   "istio-manager:8080",
+		EgressProxyAddress: "istio-egress:80",
+
+		ProxyListenPort:        15001,
+		ProxyAdminPort:         15000,
+		DrainDuration:          ptypes.DurationProto(2 * time.Second),
+		ParentShutdownDuration: ptypes.DurationProto(3 * time.Second),
+		DiscoveryRefreshDelay:  ptypes.DurationProto(1 * time.Second),
+		ConnectTimeout:         ptypes.DurationProto(1 * time.Second),
+		IstioServiceCluster:    "istio-proxy",
+
+		IngressClass:          "istio",
+		IngressControllerMode: proxyconfig.ProxyMeshConfig_DEFAULT,
+
+		AuthPolicy:    proxyconfig.ProxyMeshConfig_NONE,
+		AuthCertsPath: "/etc/certs",
+	}
 }

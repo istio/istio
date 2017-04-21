@@ -22,7 +22,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 )
 
@@ -55,25 +54,6 @@ const (
 	WildcardAddress = "0.0.0.0"
 )
 
-var (
-	// DefaultMeshConfig configuration
-	DefaultMeshConfig = proxyconfig.ProxyMeshConfig{
-		DiscoveryAddress:   "istio-manager:8080",
-		EgressProxyAddress: "istio-egress:80",
-
-		ProxyListenPort:        15001,
-		ProxyAdminPort:         15000,
-		DrainDuration:          ptypes.DurationProto(2 * time.Second),
-		ParentShutdownDuration: ptypes.DurationProto(3 * time.Second),
-		DiscoveryRefreshDelay:  ptypes.DurationProto(1 * time.Second),
-		ConnectTimeout:         ptypes.DurationProto(1 * time.Second),
-		IstioServiceCluster:    "istio-proxy",
-
-		AuthPolicy:    proxyconfig.ProxyMeshConfig_NONE,
-		AuthCertsPath: "/etc/certs",
-	}
-)
-
 // convertDuration converts to golang duration and logs errors
 func convertDuration(d *duration.Duration) time.Duration {
 	dur, err := ptypes.Duration(d)
@@ -89,6 +69,8 @@ type Config struct {
 	Listeners      Listeners      `json:"listeners"`
 	Admin          Admin          `json:"admin"`
 	ClusterManager ClusterManager `json:"cluster_manager"`
+	// Special value used to hash all referenced values (e.g. TLS secrets)
+	Hash []byte `json:"-"`
 }
 
 // RootRuntime definition.
@@ -254,8 +236,7 @@ func (routes HTTPRouteConfigs) clusters() Clusters {
 func (routes HTTPRouteConfigs) normalize() {
 	// sort HTTP routes by virtual hosts, rest should be deterministic
 	for _, routeConfig := range routes {
-		hosts := routeConfig.VirtualHosts
-		sort.Slice(hosts, func(i, j int) bool { return hosts[i].Name < hosts[j].Name })
+		routeConfig.normalize()
 	}
 }
 
@@ -276,6 +257,11 @@ func (rc *HTTPRouteConfig) clusters() Clusters {
 		out = append(out, host.clusters()...)
 	}
 	return out
+}
+
+func (rc *HTTPRouteConfig) normalize() {
+	hosts := rc.VirtualHosts
+	sort.Slice(hosts, func(i, j int) bool { return hosts[i].Name < hosts[j].Name })
 }
 
 // AccessLog definition.

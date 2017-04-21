@@ -341,7 +341,7 @@ http_archive(
 
 new_go_repository(
     name = "org_golang_google_grpc",
-    commit = "8050b9cbc271307e5a716a9d782803d09b0d6f2d", # v1.2.1
+    commit = "8050b9cbc271307e5a716a9d782803d09b0d6f2d",  # v1.2.1
     importpath = "google.golang.org/grpc",
 )
 
@@ -362,7 +362,7 @@ go_proto_library(
     ],
 )
     """,
-    commit = "14751404111d4dbcb196a9faf8cb96594ed7ba28",  # Apr 14 2017
+    commit = "c6c48baa88b3116fa2930b8b468fdd2493dc683a",  # Apr 19 2017
     remote = "https://github.com/istio/api.git",
 )
 

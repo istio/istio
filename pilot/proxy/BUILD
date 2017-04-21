@@ -10,6 +10,7 @@ go_library(
     deps = [
         "//model:go_default_library",
         "@com_github_golang_glog//:go_default_library",
+        "@com_github_golang_protobuf//ptypes:go_default_library",
         "@io_istio_api//:go_default_library",
         "@io_k8s_client_go//util/flowcontrol:go_default_library",
     ],

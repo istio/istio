@@ -177,13 +177,20 @@ func convertIngress(ingress v1beta1.Ingress, getService serviceGetter) map[model
 		}
 	}
 
+	tls := ""
+	if len(ingress.Spec.TLS) > 0 {
+		// due to lack of listener SNI in the proxy, we only support a single secret and ignore secret hosts
+		secret := ingress.Spec.TLS[0]
+		tls = fmt.Sprintf("%s.%s", secret.SecretName, ingress.Namespace)
+	}
+
 	if ingress.Spec.Backend != nil {
-		messages[keyOf(0, 0)] = createIngressRule("", "", ingress.Namespace, *ingress.Spec.Backend, getService)
+		messages[keyOf(0, 0)] = createIngressRule("", "", ingress.Namespace, *ingress.Spec.Backend, tls, getService)
 	}
 
 	for i, rule := range ingress.Spec.Rules {
 		for j, path := range rule.HTTP.Paths {
-			messages[keyOf(i+1, j+1)] = createIngressRule(rule.Host, path.Path, ingress.Namespace, path.Backend, getService)
+			messages[keyOf(i+1, j+1)] = createIngressRule(rule.Host, path.Path, ingress.Namespace, path.Backend, tls, getService)
 		}
 	}
 
@@ -191,7 +198,7 @@ func convertIngress(ingress v1beta1.Ingress, getService serviceGetter) map[model
 }
 
 func createIngressRule(host string, path string, namespace string,
-	backend v1beta1.IngressBackend, getService serviceGetter) proto.Message {
+	backend v1beta1.IngressBackend, tlsSecret string, getService serviceGetter) proto.Message {
 	destination := serviceHostname(backend.ServiceName, namespace)
 	port := convertPort(resolveServicePort(namespace, backend, getService))
 
@@ -209,10 +216,12 @@ func createIngressRule(host string, path string, namespace string,
 				// to the proxy configuration generator. This can be improved by using
 				// a dedicated model object for IngressRule (instead of reusing RouteRule),
 				// which exposes the necessary target port field within the "Route" field.
+				// This also carries TLS secret name.
 				Tags: map[string]string{
 					"servicePort.port":     strconv.Itoa(port.Port),
 					"servicePort.name":     port.Name,
 					"servicePort.protocol": string(port.Protocol),
+					"tlsSecret":            tlsSecret,
 				},
 			},
 		},

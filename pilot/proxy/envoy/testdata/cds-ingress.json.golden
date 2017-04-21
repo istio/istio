@@ -1,0 +1,18 @@
+{
+  "clusters": [
+   {
+    "name": "out.foo.default.svc.cluster.local|http-status",
+    "service_name": "foo.default.svc.cluster.local|http-status",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.world.default.svc.cluster.local|http",
+    "service_name": "world.default.svc.cluster.local|http",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   }
+  ]
+ }

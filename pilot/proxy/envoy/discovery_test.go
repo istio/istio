@@ -47,13 +47,14 @@ func (mockController) AppendInstanceHandler(_ func(*model.ServiceInstance, model
 func (mockController) Run(_ <-chan struct{}) {}
 
 func makeDiscoveryService(t *testing.T, r *model.IstioRegistry) *DiscoveryService {
+	mesh := proxy.DefaultMeshConfig()
 	out, err := NewDiscoveryService(
 		&mockController{},
 		&proxy.Context{
 			Discovery:  mock.Discovery,
 			Accounts:   mock.Discovery,
 			Config:     r,
-			MeshConfig: &DefaultMeshConfig,
+			MeshConfig: &mesh,
 		},
 		DiscoveryServiceOptions{
 			EnableCaching:   true,
@@ -66,7 +67,7 @@ func makeDiscoveryService(t *testing.T, r *model.IstioRegistry) *DiscoveryServic
 }
 
 func makeDiscoveryServiceWithSSLContext(t *testing.T, r *model.IstioRegistry) *DiscoveryService {
-	mesh := DefaultMeshConfig
+	mesh := proxy.DefaultMeshConfig()
 	mesh.AuthPolicy = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
 	out, err := NewDiscoveryService(
 		&mockController{},
@@ -174,6 +175,15 @@ func TestClusterDiscoveryWithSSLContext(t *testing.T) {
 	compareResponse(response, "testdata/cds-ssl-context.json", t)
 }
 
+func TestClusterDiscoveryIngress(t *testing.T) {
+	registry := mock.MakeRegistry()
+	addIngressRoutes(registry, t)
+	ds := makeDiscoveryService(t, registry)
+	url := fmt.Sprintf("/v1/clusters/%s/%s", ds.MeshConfig.IstioServiceCluster, ingressNode)
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-ingress.json", t)
+}
+
 // Test listing all routes
 func TestRouteDiscoveryAllRoutes(t *testing.T) {
 	ds := makeDiscoveryService(t, mock.MakeRegistry())
@@ -223,6 +233,32 @@ func TestRouteDiscoveryFault(t *testing.T) {
 	url = fmt.Sprintf("/v1/routes/80/%s/%s", ds.MeshConfig.IstioServiceCluster, mock.HostInstanceV1)
 	response = makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-v1.json", t)
+}
+
+func TestRouteDiscoveryIngress(t *testing.T) {
+	registry := mock.MakeRegistry()
+	addIngressRoutes(registry, t)
+	ds := makeDiscoveryService(t, registry)
+
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", ds.MeshConfig.IstioServiceCluster, ingressNode)
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-ingress.json", t)
+
+	url = fmt.Sprintf("/v1/routes/443/%s/%s", ds.MeshConfig.IstioServiceCluster, ingressNode)
+	response = makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-ingress-ssl.json", t)
+}
+
+func TestSecretDiscovery(t *testing.T) {
+	registry := mock.MakeRegistry()
+	addIngressRoutes(registry, t)
+	ds := makeDiscoveryService(t, registry)
+	url := fmt.Sprintf("/v1alpha/secret/%s/%s", ds.MeshConfig.IstioServiceCluster, ingressNode)
+	got := makeDiscoveryRequest(ds, "GET", url, t)
+	want := "my-secret.default"
+	if string(got) != want {
+		t.Errorf("ListSecret() => Got %q, expected %q", got, want)
+	}
 }
 
 func TestDiscoveryCache(t *testing.T) {

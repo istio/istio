@@ -23,7 +23,7 @@ go_test(
     data = glob(["testdata/*.yaml*"]),
     library = ":go_default_library",
     deps = [
-        "//proxy/envoy:go_default_library",
+        "//proxy:go_default_library",
         "//test/util:go_default_library",
         "@io_istio_api//:go_default_library",
     ],

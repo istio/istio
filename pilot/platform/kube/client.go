@@ -372,3 +372,33 @@ func (cl *Client) convertConfig(item *Config) (name, namespace, kind string, dat
 	}
 	return
 }
+
+const (
+	secretCert = "tls.crt"
+	secretKey  = "tls.key"
+)
+
+// GetTLSSecret retrieves a TLS secret by implementation specific URI
+// uri is "name"."namespace" for the secret
+func (cl *Client) GetTLSSecret(uri string) (*model.TLSSecret, error) {
+	parts := strings.Split(uri, ".")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("URI %q does not match <name>.<namespace>", uri)
+	}
+
+	secret, err := cl.client.CoreV1().Secrets(parts[1]).Get(parts[0], meta_v1.GetOptions{})
+	if err != nil {
+		return nil, multierror.Prefix(err, "failed to retrieve secret "+uri)
+	}
+
+	cert := secret.Data[secretCert]
+	key := secret.Data[secretKey]
+	if len(cert) == 0 || len(key) == 0 {
+		return nil, fmt.Errorf("Secret keys %q and/or %q are missing", secretCert, secretKey)
+	}
+
+	return &model.TLSSecret{
+		Certificate: cert,
+		PrivateKey:  key,
+	}, nil
+}

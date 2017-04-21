@@ -3,6 +3,7 @@ package envoy
 import (
 	"testing"
 
+	"istio.io/manager/proxy"
 	"istio.io/manager/test/mock"
 	"istio.io/manager/test/util"
 )
@@ -26,9 +27,10 @@ func testEgressConfig(c *EgressConfig, envoyConfig string, t *testing.T) {
 
 func TestEgressRoutes(t *testing.T) {
 	r := mock.Discovery
+	mesh := proxy.DefaultMeshConfig()
 	testEgressConfig(&EgressConfig{
 		Services: r,
-		Mesh:     &DefaultMeshConfig,
+		Mesh:     &mesh,
 		Port:     8888,
 	}, egressEnvoyConfig, t)
 }

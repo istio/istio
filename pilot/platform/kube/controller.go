@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
+	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 )
 
@@ -39,48 +40,25 @@ const (
 	ingressClassAnnotation = "kubernetes.io/ingress.class"
 )
 
-// IngressSyncMode configures which ingress resources are synchronized by the controller.
-type IngressSyncMode int
-
-const (
-	// IngressOff mode - no ingress resources are synchronized.
-	// This mode is suitable for a Controller which does not run as an ingress controller.
-	IngressOff IngressSyncMode = iota
-
-	// IngressStrict mode - ingress resources are synchronized only if annotated with the configured ingress class.
-	// This mode is suitable for a Controller which is a running as a secondary ingress controller (e.g., in addition
-	// to a cloud-provided ingress controller).
-	IngressStrict
-
-	// IngressDefault mode - ingress resources are synchronized only if annotated with the configured ingress class,
-	// or not annotated with an ingress class at all.
-	// This mode is suitable for a Controller running as the cluster's default ingress controller, which is expected
-	// to also process ingress resources not annotated at all.
-	IngressDefault
-)
-
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
-	Namespace       string
-	ResyncPeriod    time.Duration
-	IngressSyncMode IngressSyncMode
-	IngressClass    string
+	Namespace    string
+	ResyncPeriod time.Duration
 }
 
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	client  *Client
-	options ControllerOptions
-	queue   Queue
+	client *Client
+	queue  Queue
+	mesh   *proxyconfig.ProxyMeshConfig
 
 	kinds     map[string]cacheHandler
 	services  cacheHandler
 	endpoints cacheHandler
 	ingresses cacheHandler
 
-	pods    *PodCache
-	secrets *secretStore
+	pods *PodCache
 }
 
 type cacheHandler struct {
@@ -89,14 +67,13 @@ type cacheHandler struct {
 }
 
 // NewController creates a new Kubernetes controller
-func NewController(client *Client, options ControllerOptions) *Controller {
+func NewController(client *Client, mesh *proxyconfig.ProxyMeshConfig, options ControllerOptions) *Controller {
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &Controller{
-		client:  client,
-		options: options,
-		secrets: newSecretStore(client.GetKubernetesClient()),
-		queue:   NewQueue(1 * time.Second),
-		kinds:   make(map[string]cacheHandler),
+		client: client,
+		mesh:   mesh,
+		queue:  NewQueue(1 * time.Second),
+		kinds:  make(map[string]cacheHandler),
 	}
 
 	out.services = out.createInformer(&v1.Service{}, options.ResyncPeriod,
@@ -123,7 +100,7 @@ func NewController(client *Client, options ControllerOptions) *Controller {
 			return client.client.CoreV1().Pods(options.Namespace).Watch(opts)
 		}))
 
-	if options.IngressSyncMode != IngressOff {
+	if mesh.IngressControllerMode != proxyconfig.ProxyMeshConfig_OFF {
 		out.ingresses = out.createInformer(&v1beta1.Ingress{}, options.ResyncPeriod,
 			func(opts meta_v1.ListOptions) (runtime.Object, error) {
 				return client.client.ExtensionsV1beta1().Ingresses(options.Namespace).List(opts)
@@ -239,7 +216,7 @@ func (c *Controller) appendTPRConfigHandler(k string, f func(model.Key, proto.Me
 }
 
 func (c *Controller) appendIngressConfigHandler(k string, f func(model.Key, proto.Message, model.Event)) error {
-	if c.options.IngressSyncMode == IngressOff {
+	if c.mesh.IngressControllerMode == proxyconfig.ProxyMeshConfig_OFF {
 		return fmt.Errorf("cannot append ingress config handler: ingress resources synchronization is off")
 	}
 
@@ -248,8 +225,6 @@ func (c *Controller) appendIngressConfigHandler(k string, f func(model.Key, prot
 		if !c.shouldProcessIngress(ingress) {
 			return nil
 		}
-
-		c.mapIngressSecrets(ingress.Spec.TLS, ev)
 
 		// Convert the ingress into a map[Key]Message, and invoke handler for each
 		// TODO: This works well for Add and Delete events, but no so for Update:
@@ -272,7 +247,7 @@ func (c *Controller) HasSynced() bool {
 		return false
 	}
 
-	if c.options.IngressSyncMode != IngressOff && !c.ingresses.informer.HasSynced() {
+	if c.mesh.IngressControllerMode != proxyconfig.ProxyMeshConfig_OFF && !c.ingresses.informer.HasSynced() {
 		return false
 	}
 
@@ -292,7 +267,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	go c.endpoints.informer.Run(stop)
 	go c.pods.informer.Run(stop)
 
-	if c.options.IngressSyncMode != IngressOff {
+	if c.mesh.IngressControllerMode != proxyconfig.ProxyMeshConfig_OFF {
 		go c.ingresses.informer.Run(stop)
 	}
 
@@ -355,7 +330,7 @@ func (c *Controller) getTPR(key model.Key) (proto.Message, bool) {
 }
 
 func (c *Controller) getIngress(key model.Key) (proto.Message, bool) {
-	if c.options.IngressSyncMode == IngressOff {
+	if c.mesh.IngressControllerMode == proxyconfig.ProxyMeshConfig_OFF {
 		glog.Warningf("Cannot get ingress resource for key %v: ingress resources synchronization is off", key.String())
 		return nil, false
 	}
@@ -441,7 +416,7 @@ func (c *Controller) listTPRs(kind, namespace string) (map[model.Key]proto.Messa
 func (c *Controller) listIngresses(kind, namespace string) (map[model.Key]proto.Message, error) {
 	out := make(map[model.Key]proto.Message)
 
-	if c.options.IngressSyncMode == IngressOff {
+	if c.mesh.IngressControllerMode == proxyconfig.ProxyMeshConfig_OFF {
 		glog.Warningf("Cannot list ingress resources: ingress resources synchronization is off")
 		return out, nil
 	}
@@ -592,11 +567,6 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 	return out
 }
 
-// GetTLSSecret implements secret registry operation.
-func (c *Controller) GetTLSSecret(uri string) (*model.TLSSecret, error) {
-	return c.secrets.GetTLSSecret(uri)
-}
-
 const (
 	// IstioServiceAccountPrefix is always the prefix for Istio service accounts.
 	IstioServiceAccountPrefix = "istio:"
@@ -716,41 +686,15 @@ func (c *Controller) shouldProcessIngress(ingress *v1beta1.Ingress) bool {
 		class, exists = ingress.Annotations[ingressClassAnnotation]
 	}
 
-	switch c.options.IngressSyncMode {
-	case IngressOff:
+	switch c.mesh.IngressControllerMode {
+	case proxyconfig.ProxyMeshConfig_OFF:
 		return false
-	case IngressStrict:
-		return exists && class == c.options.IngressClass
-	case IngressDefault:
-		return !exists || class == c.options.IngressClass
+	case proxyconfig.ProxyMeshConfig_STRICT:
+		return exists && class == c.mesh.IngressClass
+	case proxyconfig.ProxyMeshConfig_DEFAULT:
+		return !exists || class == c.mesh.IngressClass
 	default:
-		glog.Warningf("Invalid ingress synchronization mode: %v", c.options.IngressSyncMode)
+		glog.Warningf("Invalid ingress synchronization mode: %v", c.mesh.IngressControllerMode)
 		return false
-	}
-}
-
-func (c *Controller) mapIngressSecrets(tls []v1beta1.IngressTLS, ev model.Event) {
-	for _, t := range tls {
-		if t.SecretName == "" {
-			continue
-		}
-
-		if len(t.Hosts) == 0 {
-			switch ev {
-			case model.EventAdd, model.EventUpdate:
-				c.secrets.setWildcard(c.options.Namespace, t.SecretName)
-			case model.EventDelete:
-				c.secrets.setWildcard("", "")
-			}
-		} else {
-			for _, host := range t.Hosts {
-				switch ev {
-				case model.EventAdd, model.EventUpdate:
-					c.secrets.put(host, t.SecretName)
-				case model.EventDelete:
-					c.secrets.delete(host)
-				}
-			}
-		}
 	}
 }

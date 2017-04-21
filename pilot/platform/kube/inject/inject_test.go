@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/manager/proxy/envoy"
+	"istio.io/manager/proxy"
 	"istio.io/manager/test/util"
 )
 
@@ -114,7 +114,7 @@ func TestIntoResourceFile(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		mesh := envoy.DefaultMeshConfig
+		mesh := proxy.DefaultMeshConfig()
 		if c.enableAuth {
 			mesh.AuthPolicy = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
 			mesh.AuthCertsPath = c.authConfigPath

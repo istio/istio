@@ -17,7 +17,6 @@ package model
 // SecretRegistry defines a read-only interface for secret key material
 // The implementation should not cache or persist the secrets and pass
 // the data immediately to the client of this interface.
-// TODO: add controller hooks for notification about changes to the secret
 type SecretRegistry interface {
 	// GetTLSSecret retrieves a TLS secret by implementation specific URI
 	GetTLSSecret(uri string) (*TLSSecret, error)

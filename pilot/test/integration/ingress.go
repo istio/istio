@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"regexp"
 
 	"github.com/golang/glog"
 
@@ -63,28 +62,38 @@ func (t *ingress) run() error {
 		glog.Info("skipping test since ingress is missing")
 		return nil
 	}
-	src := "t"
+
 	funcs := make(map[string]func() status)
-	for _, dst := range []string{"a", "b"} {
-		name := fmt.Sprintf("TLS Ingress request to /%s", dst)
-		funcs[name] = (func(dst string) func() status {
-			url := fmt.Sprintf("https://%s:443/%s", ingressServiceName, dst)
+	cases := []struct {
+		dst  string
+		path string
+		tls  bool
+	}{
+		{"a", "/", true},
+		{"b", "/pasta", true},
+		{"a", "/lucky", false},
+		{"b", "/lol", false},
+	}
+	for _, req := range cases {
+		name := fmt.Sprintf("Ingress request to %+v", req)
+		funcs[name] = (func(dst, path string, tls bool) func() status {
+			var url string
+			if tls {
+				url = fmt.Sprintf("https://%s:443%s", ingressServiceName, path)
+			} else {
+				url = fmt.Sprintf("http://%s%s", ingressServiceName, path)
+			}
 			return func() status {
-				request, err := util.Shell(fmt.Sprintf("kubectl exec %s -n %s -c app -- client -url %s",
-					t.apps[src][0], t.Namespace, url))
-				if err != nil {
-					return err
-				}
-				match := regexp.MustCompile("X-Request-Id=(.*)").FindStringSubmatch(request)
-				if len(match) > 1 {
-					id := match[1]
+				resp := t.clientRequest("t", url, 1, "")
+				if len(resp.id) > 0 {
+					id := resp.id[0]
 					t.logs.add(dst, id, name)
 					t.logs.add("ingress", id, name)
 					return nil
 				}
 				return errAgain
 			}
-		})(dst)
+		})(req.dst, req.path, req.tls)
 	}
 
 	if err := parallel(funcs); err != nil {
@@ -103,5 +112,7 @@ func (t *ingress) teardown() {
 	if err := util.Run("kubectl delete secret ingress -n " + t.Namespace); err != nil {
 		glog.Warning(err)
 	}
-
+	if err := util.Run("kubectl delete ingress --all -n " + t.Namespace); err != nil {
+		glog.Warning(err)
+	}
 }

@@ -1,0 +1,17 @@
+{
+  "virtual_hosts": [
+   {
+    "name": "world.com",
+    "domains": [
+     "world.com"
+    ],
+    "routes": [
+     {
+      "path": "/hello",
+      "host_rewrite": "world.default.svc.cluster.local:80",
+      "cluster": "out.world.default.svc.cluster.local|http"
+     }
+    ]
+   }
+  ]
+ }

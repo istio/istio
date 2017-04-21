@@ -1,24 +1,38 @@
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: ingress
+  name: secured-ingress
   annotations:
-    kubernetes.io/ingress.class: "istio"
+    kubernetes.io/ingress.class: istio
 spec:
   tls:
     - secretName: ingress
   rules:
   - http:
       paths:
-      - path: /a
+      - path: /
         backend:
           serviceName: a
           servicePort: 80
-      - path: /b
+      - path: /pasta
+        backend:
+          serviceName: b
+          servicePort: 8080
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: regular-ingress
+  # annotation not necessary for default controller mode
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /lucky
+        backend:
+          serviceName: a
+          servicePort: 8080
+      - path: /lo.*
         backend:
           serviceName: b
           servicePort: 80
-      - path: /c
-        backend:
-          serviceName: c
-          servicePort: 8080

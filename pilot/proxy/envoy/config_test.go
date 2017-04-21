@@ -311,7 +311,7 @@ func addFaultRoute(r *model.IstioRegistry, t *testing.T) {
 }
 
 func makeMeshConfig() proxyconfig.ProxyMeshConfig {
-	mesh := DefaultMeshConfig
+	mesh := proxy.DefaultMeshConfig()
 	mesh.MixerAddress = "localhost:9091"
 	mesh.DiscoveryAddress = "localhost:8080"
 	mesh.DiscoveryRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)

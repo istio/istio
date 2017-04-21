@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
-
 	multierror "github.com/hashicorp/go-multierror"
 
 	proxyconfig "istio.io/api/proxy/v1/config"

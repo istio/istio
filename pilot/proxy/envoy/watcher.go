@@ -115,7 +115,7 @@ func configFile(config string, epoch int) string {
 	return fmt.Sprintf(EpochFileTemplate, config, epoch)
 }
 
-func runEnvoy(mesh *proxyconfig.ProxyMeshConfig, ip string) func(interface{}, int) error {
+func runEnvoy(mesh *proxyconfig.ProxyMeshConfig, node string) func(interface{}, int) error {
 	return func(config interface{}, epoch int) error {
 		envoyConfig, ok := config.(*Config)
 		if !ok {
@@ -134,7 +134,7 @@ func runEnvoy(mesh *proxyconfig.ProxyMeshConfig, ip string) func(interface{}, in
 			"--drain-time-s", fmt.Sprint(int(convertDuration(mesh.DrainDuration) / time.Second)),
 			"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(mesh.ParentShutdownDuration) / time.Second)),
 			"--service-cluster", mesh.IstioServiceCluster,
-			"--service-node", ip,
+			"--service-node", node,
 		}
 
 		// inject tracing flag for higher levels
