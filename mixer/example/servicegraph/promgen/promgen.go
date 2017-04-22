@@ -28,7 +28,7 @@ import (
 	"istio.io/mixer/example/servicegraph"
 )
 
-const reqsFmt = "sum(rate(request_count[%s])) by (source, target, service)"
+const reqsFmt = "sum(rate(request_count[%s])) by (source, target)"
 
 type genOpts struct {
 	timeHorizon string
@@ -95,9 +95,8 @@ func (p *promHandler) generate(opts genOpts) (*servicegraph.Dynamic, error) {
 			metric := sample.Metric
 			src := metric["source"]
 			tgt := metric["target"]
-			svc := metric["service"]
 			value := sample.Value
-			d.AddEdge(string(src), string(tgt), servicegraph.Attributes{"service": string(svc), "qps": strconv.FormatFloat(float64(value), 'f', 6, 64)})
+			d.AddEdge(string(src), string(tgt), servicegraph.Attributes{"qps": strconv.FormatFloat(float64(value), 'f', 6, 64)})
 		}
 		return &d, nil
 	default:
