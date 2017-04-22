@@ -50,6 +50,8 @@ var htmlTmpl = `<!DOCTYPE html>
   </body>
 </html>`
 
+var charReplacer = strings.NewReplacer("/", "_", ".", "_", " ", "_")
+
 // GenerateRaw writes out a dot graph in text form.
 func GenerateRaw(w io.Writer, g *servicegraph.Dynamic) error {
 	return generateDot(w, g)
@@ -93,7 +95,7 @@ func generateDot(w io.Writer, g *servicegraph.Dynamic) error {
 }
 
 func idStr(s string) string {
-	return strings.Replace(s, " ", "_", -1)
+	return charReplacer.Replace(s)
 }
 
 func labelStr(m map[string]string) string {
