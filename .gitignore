@@ -7,4 +7,6 @@
 # Bazel
 /bazel-*
 vendor
+# Generated pb files
+*.pb.go
 
