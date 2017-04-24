@@ -708,12 +708,19 @@ grpc_jwt_verifier_status JwtValidatorImpl::FillUserInfoAndSetExp(
 
   // Optional field.
   const grpc_json *grpc_json = grpc_jwt_claims_json(claims_);
+
+  char *json_str =
+      grpc_json_dump_to_string(const_cast<::grpc_json *>(grpc_json), 0);
+  if (json_str != nullptr) {
+    user_info->claims = json_str;
+    gpr_free(json_str);
+  }
+
   const char *email = GetStringValue(grpc_json, "email");
   user_info->email = email == nullptr ? "" : email;
   const char *authorized_party = GetStringValue(grpc_json, "azp");
   user_info->authorized_party =
       authorized_party == nullptr ? "" : authorized_party;
-
   exp_ = system_clock::from_time_t(grpc_jwt_claims_expires_at(claims_).tv_sec);
 
   return GRPC_JWT_VERIFIER_OK;

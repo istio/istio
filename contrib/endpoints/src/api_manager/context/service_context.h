@@ -65,6 +65,11 @@ class ServiceContext {
     return !is_auth_force_disabled_ && config_->HasAuth();
   }
 
+  bool IsRulesCheckEnabled() const {
+    return RequireAuth() && service().apis_size() > 0 &&
+           !config_->GetFirebaseServer().empty();
+  }
+
   auth::Certs &certs() { return certs_; }
   auth::JwtCache &jwt_cache() { return jwt_cache_; }
 

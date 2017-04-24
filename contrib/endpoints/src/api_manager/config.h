@@ -65,7 +65,6 @@ class Config {
   // TODO: Remove in favor of service().
   const std::string &service_name() const { return service_.name(); }
 
-  // TODO: Remove in favor of service().
   bool HasAuth() const { return service_.has_authentication(); }
 
   // Returns true if the caller should try openId discovery to fetch jwksUri.
@@ -78,6 +77,9 @@ class Config {
   // Set jwskUri and openIdValid for a given issuer.
   void SetJwksUri(const std::string &issuer, const std::string &jwks_uri,
                   bool openid_valid);
+
+  // Get the Firebase server from Server config
+  std::string GetFirebaseServer();
 
  private:
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(Config);

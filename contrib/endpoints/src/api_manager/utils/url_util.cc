@@ -19,15 +19,17 @@
 namespace google {
 namespace api_manager {
 namespace utils {
+namespace {
+const std::string kHttpPrefix = "http://";
+const std::string kHttpsPrefix = "https://";
+}
 
 std::string GetUrlContent(const std::string &url) {
-  static const std::string https_prefix = "https://";
-  static const std::string http_prefix = "http://";
   std::string result;
-  if (url.compare(0, https_prefix.size(), https_prefix) == 0) {
-    result = url.substr(https_prefix.size());
-  } else if (url.compare(0, http_prefix.size(), http_prefix) == 0) {
-    result = url.substr(http_prefix.size());
+  if (url.compare(0, kHttpsPrefix.size(), kHttpsPrefix) == 0) {
+    result = url.substr(kHttpsPrefix.size());
+  } else if (url.compare(0, kHttpPrefix.size(), kHttpPrefix) == 0) {
+    result = url.substr(kHttpPrefix.size());
   } else {
     result = url;
   }
@@ -35,6 +37,11 @@ std::string GetUrlContent(const std::string &url) {
     result.pop_back();
   }
   return result;
+}
+
+bool IsHttpRequest(const std::string &url) {
+  return url.compare(0, kHttpPrefix.size(), kHttpPrefix) == 0 ||
+         url.compare(0, kHttpsPrefix.size(), kHttpsPrefix) == 0;
 }
 
 }  // namespace utils

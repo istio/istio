@@ -40,6 +40,8 @@ struct UserInfo {
   // Authorized party of the incoming JWT.
   // See http://openid.net/specs/openid-connect-core-1_0.html#IDToken
   std::string authorized_party;
+  // String of claims
+  std::string claims;
 
   // Returns audiences as a comma separated strings.
   std::string AudiencesAsString() const {

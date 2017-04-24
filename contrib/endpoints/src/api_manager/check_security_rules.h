@@ -1,4 +1,4 @@
-/* Copyright 2016 Google Inc. All Rights Reserved.
+/* Copyright 2017 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,23 +12,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef API_MANAGER_UTILS_URL_UTIL_H_
-#define API_MANAGER_UTILS_URL_UTIL_H_
+#ifndef API_MANAGER_CHECK_SECURITY_RULES_H_
+#define API_MANAGER_CHECK_SECURITY_RULES_H_
 
-#include <string>
+#include "contrib/endpoints/include/api_manager/utils/status.h"
+#include "contrib/endpoints/src/api_manager/context/request_context.h"
 
 namespace google {
 namespace api_manager {
-namespace utils {
 
-// Strips off https or http prefix and trailing '/' from a URL, and returns the
-// processed string.
-std::string GetUrlContent(const std::string &url);
+// This function checks security rules for a given request.
+// It is called by CheckWorkflow class when processing a request.
+void CheckSecurityRules(std::shared_ptr<context::RequestContext> context,
+                        std::function<void(utils::Status status)> continuation);
 
-bool IsHttpRequest(const std::string &url);
-
-}  // namespace utils
 }  // namespace api_manager
 }  // namespace google
 
-#endif  // API_MANAGER_UTILS_URL_UTIL_H_
+#endif  // API_MANAGER_CHECK_SECURITY_RULES_H_

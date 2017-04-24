@@ -64,6 +64,10 @@ class ServiceAccountToken {
   enum JWT_TOKEN_TYPE {
     JWT_TOKEN_FOR_SERVICE_CONTROL = 0,
     JWT_TOKEN_FOR_CLOUD_TRACING,
+    JWT_TOKEN_FOR_FIREBASE,
+
+    // JWT token for accessing the http endpoints defined in Firebase Rules.
+    JWT_TOKEN_FOR_AUTHORIZATION_SERVICE,
     JWT_TOKEN_FOR_QUOTA_CONTROL,
     JWT_TOKEN_TYPE_MAX,
   };
@@ -74,6 +78,13 @@ class ServiceAccountToken {
   // If client auth secret is specified, use it to calcualte JWT token.
   // Otherwise, use the access token fetched from metadata server.
   const std::string& GetAuthToken(JWT_TOKEN_TYPE type);
+
+  // Gets the auth token to access Google services. This method accepts an
+  // audience parameter to set when generating JWT token.
+  // If client auth secret is specified, use it to calcualte JWT token.
+  // Otherwise, use the access token fetched from metadata server.
+  const std::string& GetAuthToken(JWT_TOKEN_TYPE type,
+                                  const std::string& audience);
 
  private:
   // Stores base token info. Used for both OAuth and JWT tokens.

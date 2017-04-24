@@ -501,35 +501,34 @@ TEST(Config, LoadBackends) {
 TEST(Config, RpcMethodsWithHttpRules) {
   MockApiManagerEnvironmentWithLog env;
 
-  const char config_text[] =
-      R"(
-      name : "BookstoreApi"
-      apis {
-        name: "Bookstore"
-        methods {
-          name: "ListShelves"
-          request_type_url: "types.googleapis.com/google.protobuf.Empty"
-          response_type_url: "types.googleapis.com/Bookstore.ListShelvesResponse"
-        }
-        methods {
-          name: "CreateShelves"
-          request_streaming: true
-          request_type_url: "types.googleapis.com/Bookstore.Shelf"
-          response_streaming: true
-          response_type_url: "types.googleapis.com/Bookstore.Shelf"
-        }
+  const char config_text[] = R"(
+    name : "BookstoreApi"
+    apis {
+      name: "Bookstore"
+      methods {
+        name: "ListShelves"
+        request_type_url: "types.googleapis.com/google.protobuf.Empty"
+        response_type_url: "types.googleapis.com/Bookstore.ListShelvesResponse"
       }
-      http {
-        rules {
-          selector: "Bookstore.ListShelves"
-          get: "/shelves"
-        }
-        rules {
-          selector: "Bookstore.CreateShelves"
-          post: "/shelves"
-        }
+      methods {
+        name: "CreateShelves"
+        request_streaming: true
+        request_type_url: "types.googleapis.com/Bookstore.Shelf"
+        response_streaming: true
+        response_type_url: "types.googleapis.com/Bookstore.Shelf"
       }
-    )";
+    }
+    http {
+      rules {
+        selector: "Bookstore.ListShelves"
+        get: "/shelves"
+      }
+      rules {
+        selector: "Bookstore.CreateShelves"
+        post: "/shelves"
+      }
+    }
+  )";
 
   std::unique_ptr<Config> config = Config::Create(&env, config_text, "");
   ASSERT_TRUE(config);
@@ -764,8 +763,8 @@ TEST(Config, TestHttpOptions) {
    rules {
      selector: "CorsShelves"
      custom: {
-        kind: "OPTIONS"
-        path: "/shelves"
+       kind: "OPTIONS"
+       path: "/shelves"
      }
    }
    rules {
@@ -868,6 +867,79 @@ TEST(Config, TestCorsDisabled) {
 
   auto method1 = config->GetMethodInfo("OPTIONS", "/shelves");
   ASSERT_EQ(nullptr, method1);
+}
+
+static const char kServiceConfigWithoutAuthz[] = R"(
+  name: "Service.Name"
+)";
+
+static const char kServiceConfigWithAuthz[] = R"(
+  name: "Service.Name"
+  experimental {
+    authorization {
+      provider: "authz@firebase.com"
+    }
+  }
+)";
+
+static const char kServerConfigWithoutAuthz[] = R"(
+  service_control_config {
+    check_aggregator_config {
+      cache_entries: 1000
+      flush_interval_ms: 10
+      response_expiration_ms: 20
+    }
+    report_aggregator_config {
+      cache_entries: 1020
+      flush_interval_ms: 15
+    }
+  }
+)";
+
+static const char kServerConfigWithAuthz[] = R"(
+  api_check_security_rules_config {
+    firebase_server: "https://myfirebaseserver.com/"
+  }
+)";
+
+TEST(Config, TestFirebaseServerCheckWithServiceAuthzWithoutServerAuthz) {
+  MockApiManagerEnvironmentWithLog env;
+
+  std::unique_ptr<Config> config =
+      Config::Create(&env, kServiceConfigWithAuthz, kServerConfigWithoutAuthz);
+  ASSERT_TRUE(config);
+
+  ASSERT_EQ(config->GetFirebaseServer(), "authz@firebase.com");
+}
+
+TEST(Config, TestFirebaseServerCheckWithServiceAuthzWithServerAuthz) {
+  MockApiManagerEnvironmentWithLog env;
+
+  std::unique_ptr<Config> config =
+      Config::Create(&env, kServiceConfigWithAuthz, kServerConfigWithAuthz);
+  ASSERT_TRUE(config);
+
+  ASSERT_EQ(config->GetFirebaseServer(), "https://myfirebaseserver.com/");
+}
+
+TEST(Config, TestFirebaseServerCheckWithoutServiceAuthzWithoutServerAuthz) {
+  MockApiManagerEnvironmentWithLog env;
+
+  std::unique_ptr<Config> config = Config::Create(
+      &env, kServiceConfigWithoutAuthz, kServerConfigWithoutAuthz);
+  ASSERT_TRUE(config);
+
+  ASSERT_EQ(config->GetFirebaseServer(), "");
+}
+
+TEST(Config, TestFirebaseServerCheckWithoutServiceConfigWithServerConfig) {
+  MockApiManagerEnvironmentWithLog env;
+
+  std::unique_ptr<Config> config =
+      Config::Create(&env, kServiceConfigWithoutAuthz, kServerConfigWithAuthz);
+  ASSERT_TRUE(config);
+
+  ASSERT_EQ(config->GetFirebaseServer(), "https://myfirebaseserver.com/");
 }
 
 TEST(Config, TestInvalidMetricRules) {
