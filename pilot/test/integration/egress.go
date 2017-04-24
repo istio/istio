@@ -20,8 +20,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-
-	"istio.io/manager/test/util"
 )
 
 type egress struct {
@@ -54,13 +52,8 @@ func (t *egress) run() error {
 				url := fmt.Sprintf("http://%s%s", dst, path)
 				trace := fmt.Sprint(time.Now().UnixNano())
 				return func() status {
-					resp, err := util.Shell(fmt.Sprintf(
-						"kubectl exec %s -n %s -c app -- client -url %s -key Trace-Id -val %q",
-						t.apps[src][0], t.Namespace, url, trace))
-					if err != nil {
-						return err
-					}
-					if strings.Contains(resp, trace) && strings.Contains(resp, "StatusCode=200") {
+					resp := t.clientRequest(src, url, 1, fmt.Sprintf("-key Trace-Id -val %q", trace))
+					if len(resp.code) > 0 && resp.code[0] == "200" && strings.Contains(resp.body, trace) {
 						return nil
 					}
 					return errAgain

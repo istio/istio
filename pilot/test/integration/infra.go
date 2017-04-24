@@ -189,6 +189,7 @@ func (infra *infra) kubeApply(yaml string) error {
 }
 
 type response struct {
+	body    string
 	id      []string
 	version []string
 	port    []string
@@ -203,13 +204,22 @@ var (
 )
 
 func (infra *infra) clientRequest(app, url string, count int, extra string) response {
-	request, err := util.Shell(fmt.Sprintf("kubectl exec %s -n %s -c app -- client -url %s -count %d %s",
-		infra.apps[app][0], infra.Namespace, url, count, extra))
 	out := response{}
+	if len(infra.apps[app]) == 0 {
+		glog.Errorf("missing pod names for app %q", app)
+		return out
+	}
+
+	pod := infra.apps[app][0]
+	request, err := util.Shell(fmt.Sprintf("kubectl exec %s -n %s -c app -- client -url %s -count %d %s",
+		pod, infra.Namespace, url, count, extra))
+
 	if err != nil {
 		glog.Errorf("client request error %v for %s in %s", err, url, app)
 		return out
 	}
+
+	out.body = request
 
 	ids := idRex.FindAllStringSubmatch(request, -1)
 	for _, id := range ids {
