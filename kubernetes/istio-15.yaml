@@ -1,6 +1,5 @@
 # GENERATED FILE. Use for Kubernetes 1.5 or earlier.
 # TO UPDATE, modify files in istio-install and run updateVersion.sh
----
 apiVersion: v1
 kind: ConfigMap
 metadata:

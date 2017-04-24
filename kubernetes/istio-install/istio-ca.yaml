@@ -1,4 +1,3 @@
----
 kind: Deployment
 apiVersion: extensions/v1beta1
 metadata:

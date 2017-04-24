@@ -109,15 +109,6 @@ function merge_files() {
   cat $SRC/istio-mixer.yaml >> $OUT
   cat $SRC/../istio-rbac/istio-rbac.yaml >> $OUT
   cat $SRC/istio-ingress-controller.yaml >> $OUT
-
-  OUT=$ROOT/kubernetes/istio-auth.yaml
-  echo "# GENERATED FILE. MUTUAL_TLS, RBAC and auth enabled - requires 1.6" > $OUT
-  echo "# TO UPDATE, modify files in istio-install and run updateVersion.sh" >> $OUT
-  cat $SRC/istio-ca.yaml >> $OUT
-  cat $SRC/istio-mixer.yaml >> $OUT
-  cat $SRC/../istio-rbac/istio-rbac.yaml >> $OUT
-  sed 's/# authPolicy/authPolicy/' $SRC/istio-manager.yaml >> $OUT
-  cat $SRC/istio-ingress-controller.yaml >> $OUT
 }
 
 function update_version_file() {
