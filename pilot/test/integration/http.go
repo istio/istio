@@ -22,24 +22,24 @@ import (
 	proxyconfig "istio.io/api/proxy/v1/config"
 )
 
-type reachability struct {
+type http struct {
 	*infra
 	logs *accessLogs
 }
 
-func (r *reachability) String() string {
+func (r *http) String() string {
 	return "HTTP reachability"
 }
 
-func (r *reachability) setup() error {
+func (r *http) setup() error {
 	r.logs = makeAccessLogs()
 	return nil
 }
 
-func (r *reachability) teardown() {
+func (r *http) teardown() {
 }
 
-func (r *reachability) run() error {
+func (r *http) run() error {
 	if err := r.makeRequests(); err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func (r *reachability) run() error {
 }
 
 // makeRequests executes requests in pods and collects request ids per pod to check against access logs
-func (r *reachability) makeRequests() error {
+func (r *http) makeRequests() error {
 	testPods := []string{"a", "b"}
 	if r.Auth == proxyconfig.ProxyMeshConfig_NONE {
 		// t is not behind proxy, so it cannot talk in Istio auth.

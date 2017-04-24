@@ -159,7 +159,7 @@ func runTests(envs ...infra) {
 		istio.apps, errs = util.GetAppPods(client, istio.Namespace)
 
 		tests := []test{
-			&reachability{infra: &istio},
+			&http{infra: &istio},
 			&grpc{infra: &istio},
 			&tcp{infra: &istio},
 			&ingress{infra: &istio},

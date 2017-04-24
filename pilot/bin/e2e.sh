@@ -31,12 +31,13 @@ if [[ "$hub" =~ ^gcr\.io ]]; then
   gcloud docker --authorize-only
 fi
 
-# Always use debug images
 for image in app init manager; do
   bazel $BAZEL_ARGS run //docker:${image}
   docker tag istio/docker:${image} $hub/$image:$tag
   docker push $hub/$image:$tag
 done
+
+# Always use debug images
 bazel $BAZEL_ARGS run //docker:proxy_debug
 docker tag istio/docker:proxy_debug $hub/proxy:$tag
 docker push $hub/proxy:$tag

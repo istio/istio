@@ -73,6 +73,9 @@ func (t *ingress) run() error {
 		{"b", "/pasta", true},
 		{"a", "/lucky", false},
 		{"b", "/lol", false},
+		// empty destination makes it expect 404
+		{"", "/notfound", true},
+		{"", "/notfound", false},
 	}
 	for _, req := range cases {
 		name := fmt.Sprintf("Ingress request to %+v", req)
@@ -85,7 +88,11 @@ func (t *ingress) run() error {
 			}
 			return func() status {
 				resp := t.clientRequest("t", url, 1, "")
-				if len(resp.id) > 0 {
+				if dst == "" {
+					if len(resp.code) > 0 && resp.code[0] == "404" {
+						return nil
+					}
+				} else if len(resp.id) > 0 {
 					id := resp.id[0]
 					t.logs.add(dst, id, name)
 					t.logs.add("ingress", id, name)

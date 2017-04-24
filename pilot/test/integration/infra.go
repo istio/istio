@@ -161,6 +161,7 @@ func (infra *infra) deployApp(deployment, svcName string, port1, port2, port3, p
 			ProxyImage:      inject.ProxyImageName(infra.Hub, infra.Tag),
 			Verbosity:       infra.Verbosity,
 			SidecarProxyUID: inject.DefaultSidecarProxyUID,
+			EnableCoreDump:  true,
 			Version:         "manager-integration-test",
 			Mesh:            mesh,
 		}
