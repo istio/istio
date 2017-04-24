@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package noop is an empty adapter implementing every aspect.
-// WARNING: Not intended for actual use. This is a stand-in adapter used in benchmarking the Mixer framework.
+// WARNING: Not intended for actual use. This is a stand-in adapter used in benchmarking Mixer's adapter framework.
 package noop
 
 import (

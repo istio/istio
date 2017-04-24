@@ -2,7 +2,7 @@
 
 These configurations stand up an instance of Mixer, a Prometheus instance that scrapes metrics Mixer exposes, and
 a Grafana instance to render those metrics. These are intended for development and local testing, not a real production
-deployment. The easiest way to stand up these deployments is to run (from the Mixer root directory):
+deployment. The easiest way to stand up these deployments is to run (from Mixer's root directory):
 ```shell
 $ kubectl create configmap prometheus-config --from-file=testdata/prometheus.yaml
 $ kubectl create configmap mixer-config --from-file=testdata/globalconfig.yml --from-file=testdata/serviceconfig.yml
@@ -23,9 +23,9 @@ before Prometheus will be able to scrape metrics.
 </aside>
 
 ## mixer.yaml
-`mixer.yaml` describes a deployment and service for the Mixer server binary. Two pieces of configuration are required to
+`mixer.yaml` describes a deployment and service for Mixer's server binary. Two pieces of configuration are required to
 run Mixer: a global configuration and a service configuration. Example configurations can be found in the `//testdata`
-directory (`//` indicates the [root of the Mixer project directory](https://github.com/istio/mixer)). These
+directory (`//` indicates the [root of Mixer's project directory](https://github.com/istio/mixer)). These
 configurations are expected to be mounted in two files at `/etc/opt/mixer/`. We use a configmap named `mixer-config` to
 provide these configurations. Usually this configmap is created from the `//testdata/` directory by:
 

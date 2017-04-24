@@ -54,7 +54,7 @@ type rootArgs struct {
 	// mixerAddress is the full address (including port) of a mixer instance to call.
 	mixerAddress string
 
-	// enableTracing controls whether client-side traces are generated for calls to the mixer.
+	// enableTracing controls whether client-side traces are generated for calls to Mixer.
 	enableTracing bool
 
 	// # times to repeat the operation
@@ -65,7 +65,7 @@ type rootArgs struct {
 func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "mixc",
-		Short: "Invoke the API of a running instance of the Istio mixer",
+		Short: "Invoke the API of a running Mixer instance",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				return fmt.Errorf("'%s' is an invalid argument", args[0])
@@ -86,7 +86,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootArgs := &rootArgs{}
 
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.mixerAddress, "mixer", "m", "localhost:9091",
-		"Address and port of running instance of the mixer")
+		"Address and port of a running Mixer instance")
 	rootCmd.PersistentFlags().IntVarP(&rootArgs.repeat, "repeat", "r", 1,
 		"Sends the specified number of requests in quick succession")
 
