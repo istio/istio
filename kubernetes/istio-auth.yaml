@@ -1,5 +1,28 @@
-# GENERATED FILE. Use for 1.6+ clusters.
+# GENERATED FILE. MUTUAL_TLS, RBAC and auth enabled - requires 1.6
 # TO UPDATE, modify files in istio-install and run updateVersion.sh
+---
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: istio-ca
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: istio-ca
+    spec:
+      containers:
+      - name: istio-ca
+        image: docker.io/istio/istio-ca:2017-04-13-17.43.08
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+---
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -160,16 +183,7 @@ spec:
 # To debug: start the cluster with -vmodule=rbac,3 to enable verbose logging on RBAC DENY
 # Also helps to enable logging on apiserver 'wrap' to see the URLs.
 # Each RBAC deny needs to be mapped into a rule for the role.
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-manager-service-account
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-ingress-service-account
+# If using minikube, start with '--extra-config=apiserver.Authorization.Mode=RBAC'
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -224,7 +238,7 @@ metadata:
 data:
   mesh: |-
     # Uncomment the following line to enable mutual TLS between proxies
-    # authPolicy: MUTUAL_TLS
+    authPolicy: MUTUAL_TLS
     mixerAddress: istio-mixer:9091
     discoveryAddress: istio-manager:8080
 ---
@@ -240,6 +254,11 @@ spec:
     name: http-discovery
   selector:
     istio: manager
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-manager-service-account
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -287,6 +306,11 @@ spec:
     name: http
   selector:
     infra: istio-ingress-controller
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingress-service-account
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment

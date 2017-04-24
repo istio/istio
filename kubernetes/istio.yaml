@@ -1,4 +1,4 @@
-# GENERATED FILE
+# GENERATED FILE. If RBAC is enabled you also need to add istio-rbac.yaml.
 # TO UPDATE, modify files in istio-install and run updateVersion.sh
 ---
 apiVersion: v1
@@ -181,6 +181,11 @@ spec:
   selector:
     istio: manager
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-manager-service-account
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -194,7 +199,7 @@ spec:
       labels:
         istio: manager
     spec:
-      # RBAC: serviceAccountName: istio-manager-service-account
+      serviceAccountName: istio-manager-service-account
       containers:
       - name: manager
         image: docker.io/istio/manager:2017-04-13-01.05.21
@@ -228,6 +233,11 @@ spec:
   selector:
     infra: istio-ingress-controller
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingress-service-account
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -241,7 +251,7 @@ spec:
       labels:
         infra: istio-ingress-controller
     spec:
-      # RBAC: serviceAccountName: istio-ingress-service-account
+      serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress-controller
         image: docker.io/istio/proxy:2017-04-13-01.05.21

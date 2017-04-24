@@ -96,29 +96,20 @@ function check_git_status() {
 function merge_files() {
   SRC=$ROOT/kubernetes/istio-install
 
-  OUT=$ROOT/kubernetes/istio-1.6.yaml
-  echo "# GENERATED FILE. Use for 1.6+ clusters." > $OUT
+  OUT=$ROOT/kubernetes/istio.yaml
+  echo "# GENERATED FILE. If RBAC is enabled you also need to add istio-rbac.yaml." > $OUT
   echo "# TO UPDATE, modify files in istio-install and run updateVersion.sh" >> $OUT
   cat $SRC/istio-mixer.yaml >> $OUT
-  cat $SRC/../istio-rbac/istio-rbac.yaml >> $OUT
-  sed 's/# RBAC: //' $SRC/istio-manager.yaml >> $OUT
-  sed 's/# RBAC: //' $SRC/istio-ingress-controller.yaml >> $OUT
+  cat $SRC/istio-manager.yaml >> $OUT
+  cat $SRC/istio-ingress-controller.yaml >> $OUT
 
-  OUT=$ROOT/kubernetes/istio-1.6-auth.yaml
-  echo "# GENERATED FILE. Used for 1.6+ clusters, will enable authentication." > $OUT
+  OUT=$ROOT/kubernetes/istio-auth.yaml
+  echo "# GENERATED FILE. MUTUAL_TLS, RBAC and auth enabled - requires 1.6" > $OUT
   echo "# TO UPDATE, modify files in istio-install and run updateVersion.sh" >> $OUT
   cat $SRC/istio-ca.yaml >> $OUT
   cat $SRC/istio-mixer.yaml >> $OUT
   cat $SRC/../istio-rbac/istio-rbac.yaml >> $OUT
-  # Service account and authPolicy:MUTUAL_TLS
-  sed 's/# RBAC: //' $SRC/istio-manager.yaml | sed 's/# authPolicy/authPolicy/' >> $OUT
-  sed 's/# RBAC: //' $SRC/istio-ingress-controller.yaml >> $OUT
-
-  OUT=$ROOT/kubernetes/istio-1.5.yaml
-  echo "# GENERATED FILE" > $OUT
-  echo "# TO UPDATE, modify files in istio-install and run updateVersion.sh" >> $OUT
-  cat $SRC/istio-mixer.yaml >> $OUT
-  cat $SRC/istio-manager.yaml >> $OUT
+  sed 's/# authPolicy/authPolicy/' $SRC/istio-manager.yaml >> $OUT
   cat $SRC/istio-ingress-controller.yaml >> $OUT
 }
 
