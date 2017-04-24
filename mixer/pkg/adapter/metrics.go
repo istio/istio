@@ -192,3 +192,11 @@ func (v Value) Float64() (float64, error) {
 	}
 	return 0, errors.New("metric value is not a float64")
 }
+
+// Duration returns the float64-valued metric value for a metrics.Value.
+func (v Value) Duration() (time.Duration, error) {
+	if v, ok := v.MetricValue.(time.Duration); ok {
+		return v, nil
+	}
+	return 0, errors.New("metric value is not a time.Duration")
+}

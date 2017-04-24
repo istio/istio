@@ -174,6 +174,11 @@ func TestRecord(t *testing.T) {
 		Kind: adapter.Gauge,
 	}
 
+	hist := &adapter.MetricDefinition{
+		Name: "request_duration",
+		Kind: adapter.Distribution,
+	}
+
 	validGauge := adapter.Value{
 		Definition:  d,
 		Labels:      make(map[string]interface{}),
@@ -199,6 +204,19 @@ func TestRecord(t *testing.T) {
 	invalidCounter := validCounter
 	invalidCounter.MetricValue = 1.0
 
+	requestDuration := adapter.Value{
+		Definition:  hist,
+		MetricValue: 146 * time.Millisecond,
+	}
+	invalidDistribution := adapter.Value{
+		Definition:  hist,
+		MetricValue: "not good",
+	}
+	int64Distribution := adapter.Value{
+		Definition:  hist,
+		MetricValue: int64(3459),
+	}
+
 	methodCodeMetric := validCounter
 	methodCodeMetric.Definition = &metrics[0] // this needs to match the name in conf.MetricNameTemplateStrings
 	methodCodeMetric.Labels["apiMethod"] = "methodName"
@@ -213,10 +231,13 @@ func TestRecord(t *testing.T) {
 		{[]adapter.Value{validGauge}, ""},
 		{[]adapter.Value{validCounter}, ""},
 		{[]adapter.Value{methodCodeMetric}, ""},
+		{[]adapter.Value{requestDuration}, ""},
+		{[]adapter.Value{int64Distribution}, ""},
 		{[]adapter.Value{validCounter, validGauge}, ""},
 		{[]adapter.Value{validCounter, validGauge, methodCodeMetric}, ""},
 		{[]adapter.Value{invalidCounter}, "could not record"},
 		{[]adapter.Value{invalidGauge}, "could not record"},
+		{[]adapter.Value{invalidDistribution}, "could not record"},
 		{[]adapter.Value{validGauge, invalidGauge}, "could not record"},
 		{[]adapter.Value{methodCodeMetric, invalidCounter}, "could not record"},
 	}
