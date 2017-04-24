@@ -16,6 +16,7 @@ package adapter
 
 import (
 	"testing"
+	"time"
 )
 
 func TestString(t *testing.T) {
@@ -79,5 +80,21 @@ func TestFloat64(t *testing.T) {
 	}
 	if s != mv {
 		t.Errorf("val.Float64() = %f; wanted '%v'", s, mv)
+	}
+}
+
+func TestDuration(t *testing.T) {
+	val := Value{MetricValue: 345}
+	if _, err := val.Duration(); err == nil {
+		t.Error("val.Duration() = _, nil; wanted err")
+	}
+	mv := 45254 * time.Microsecond
+	val.MetricValue = mv
+	s, err := val.Duration()
+	if err != nil {
+		t.Errorf("val.Duration() = _, %v; wanted no err", err)
+	}
+	if s != mv {
+		t.Errorf("val.Duration() = %v; wanted '%v'", s, mv)
 	}
 }
