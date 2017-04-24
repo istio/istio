@@ -38,3 +38,13 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+{{if eq .Auth 1}}
+        volumeMounts:
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+{{end}}

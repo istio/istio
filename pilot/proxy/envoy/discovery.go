@@ -28,6 +28,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
+	"istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 	"istio.io/manager/proxy"
 )
@@ -473,6 +474,19 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 		// apply custom policies for HTTP clusters
 		for _, cluster := range clusters {
 			insertDestinationPolicy(ds.Config, cluster)
+		}
+
+		switch auth := ds.MeshConfig.AuthPolicy; auth {
+		case config.ProxyMeshConfig_NONE:
+		case config.ProxyMeshConfig_MUTUAL_TLS:
+			// apply SSL context to enable mutual TLS between Envoy proxies
+			for _, cluster := range clusters {
+				ports := model.PortList{cluster.port}.GetNames()
+				serviceAccounts := ds.Accounts.GetIstioServiceAccounts(cluster.hostname, ports)
+				cluster.SSLContext = buildClusterSSLContext(ds.MeshConfig.AuthCertsPath, serviceAccounts)
+			}
+		default:
+			glog.Warningf("Unknown auth policy: %v", auth)
 		}
 
 		var err error
