@@ -1,4 +1,4 @@
-# GENERATED FILE. If RBAC is enabled you also need to add istio-rbac.yaml.
+# GENERATED FILE. Use for Kubernetes 1.5 or earlier.
 # TO UPDATE, modify files in istio-install and run updateVersion.sh
 ---
 apiVersion: v1

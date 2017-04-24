@@ -96,11 +96,18 @@ function check_git_status() {
 function merge_files() {
   SRC=$ROOT/kubernetes/istio-install
 
-  OUT=$ROOT/kubernetes/istio.yaml
-  echo "# GENERATED FILE. If RBAC is enabled you also need to add istio-rbac.yaml." > $OUT
+  OUT=$ROOT/kubernetes/istio-15.yaml
+  echo "# GENERATED FILE. Use for Kubernetes 1.5 or earlier." > $OUT
   echo "# TO UPDATE, modify files in istio-install and run updateVersion.sh" >> $OUT
   cat $SRC/istio-mixer.yaml >> $OUT
   cat $SRC/istio-manager.yaml >> $OUT
+  cat $SRC/istio-ingress-controller.yaml >> $OUT
+
+  OUT=$ROOT/kubernetes/istio-16.yaml
+  echo "# GENERATED FILE. Use with Kubernetes 1.6+" > $OUT
+  echo "# TO UPDATE, modify files in istio-install and run updateVersion.sh" >> $OUT
+  cat $SRC/istio-mixer.yaml >> $OUT
+  cat $SRC/../istio-rbac/istio-rbac.yaml >> $OUT
   cat $SRC/istio-ingress-controller.yaml >> $OUT
 
   OUT=$ROOT/kubernetes/istio-auth.yaml
