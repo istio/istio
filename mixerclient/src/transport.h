@@ -32,8 +32,9 @@ class Transport : public AttributeConverter<RequestType> {
       : stream_(transport, this), last_stream_id_(0) {}
 
   // Send the attributes
-  void Send(const Attributes& attributes, ResponseType* response,
-            DoneFunc on_done) {
+  // Make it virtual so it can be mocked.
+  virtual void Send(const Attributes& attributes, ResponseType* response,
+                    DoneFunc on_done) {
     std::lock_guard<std::mutex> lock(mutex_);
     stream_.Call(attributes, response, on_done);
   }

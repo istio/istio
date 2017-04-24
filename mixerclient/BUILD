@@ -33,6 +33,8 @@ cc_library(
         "src/context_update.h",
         "src/grpc_transport.cc",
         "src/grpc_transport.h",
+        "src/quota_cache.cc",
+        "src/quota_cache.h",
         "src/signature.cc",
         "src/signature.h",
         "src/stream_transport.h",
@@ -55,6 +57,7 @@ cc_library(
         "//external:boringssl_crypto",
         "//external:grpc++",
         "//external:mixer_api_cc_proto",
+        "//prefetch:quota_prefetch_lib",
     ],
 )
 
@@ -153,6 +156,17 @@ cc_test(
     name = "check_cache_test",
     size = "small",
     srcs = ["src/check_cache_test.cc"],
+    linkstatic = 1,
+    deps = [
+        ":mixer_client_lib",
+        "//external:googletest_main",
+    ],
+)
+
+cc_test(
+    name = "quota_cache_test",
+    size = "small",
+    srcs = ["src/quota_cache_test.cc"],
     linkstatic = 1,
     deps = [
         ":mixer_client_lib",

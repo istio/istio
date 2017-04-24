@@ -19,6 +19,7 @@
 #include "include/client.h"
 #include "src/check_cache.h"
 #include "src/grpc_transport.h"
+#include "src/quota_cache.h"
 #include "src/transport.h"
 
 namespace istio {
@@ -44,6 +45,7 @@ class MixerClientImpl : public MixerClient {
   std::unique_ptr<GrpcTransport> grpc_transport_;
 
   std::shared_ptr<CheckCache> check_cache_;
+  std::shared_ptr<QuotaCache> quota_cache_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MixerClientImpl);
 };
