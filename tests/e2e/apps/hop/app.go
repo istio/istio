@@ -21,13 +21,13 @@ import (
 	"crypto/tls"
 	"errors"
 	"flag"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -49,7 +49,7 @@ func newHopMessage(u *[]string) *config.HopMessage {
 			r.RemoteDests = append(r.RemoteDests, dest)
 		}
 	}
-	glog.Infof("Created HOP with id %s", r.GetId())
+	glog.Infof("Created Request\n%s", proto.MarshalTextString(r))
 	return r
 }
 
@@ -79,20 +79,20 @@ type App struct {
 	clientTimeout time.Duration
 }
 
-func (a App) makeHTTPRequest(m *config.HopMessage, url string) (*config.HopMessage, error) {
+func (a App) makeHTTPRequest(req *config.HopMessage, url string) (*config.HopMessage, error) {
 	glog.Infof("Making HTTP Request to %s", url)
-	jsonStr, err := a.marshaller.MarshalToString(m)
+	jsonStr, err := a.marshaller.MarshalToString(req)
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(jsonStr)))
+	hreq, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(jsonStr)))
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("X-Custom-Header", "myvalue")
-	req.Header.Set("Content-Type", "application/json")
+	hreq.Header.Set("X-Custom-Header", "myvalue")
+	hreq.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := client.Do(hreq)
 	defer func() {
 		if e := resp.Body.Close(); e != nil {
 			glog.Error(err)
@@ -120,7 +120,7 @@ func (a App) makeGRPCRequest(req *config.HopMessage, address string) (*config.Ho
 		return nil, err
 	}
 	defer func() {
-		if e := conn.Close(); err != nil {
+		if e := conn.Close(); e != nil {
 			glog.Error(e)
 		}
 	}()
@@ -144,12 +144,6 @@ func (a App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p := req.GetPosition()
 	glog.Infof("HTTP Serving message %s at position %d", req.GetId(), p)
 	resp := a.forwardMessage(req)
-	if resp.GetError() != "" {
-		err = fmt.Errorf(resp.GetError())
-		glog.Error(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	jsonStr, err := a.marshaller.MarshalToString(resp)
 	if err != nil {
 		glog.Error(err)
@@ -168,13 +162,10 @@ func (a App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Hop start a gRPC server for Hop App
 func (a App) Hop(ctx context.Context, req *config.HopMessage) (*config.HopMessage, error) {
-	var err error
-	glog.Infof("GRPC Serving message %s", req.GetId())
+	p := req.GetPosition()
+	glog.Infof("GRPC Serving message %s at position %d", req.GetId(), p)
 	resp := a.forwardMessage(req)
-	if resp.GetError() != "" {
-		err = fmt.Errorf(resp.GetError())
-		return resp, err
-	}
+	glog.Infof("Successfully served message %s at position %d", req.GetId(), p)
 	return resp, nil
 }
 
@@ -191,23 +182,21 @@ func (a App) makeRequest(m *config.HopMessage, d string) (*config.HopMessage, er
 }
 
 func (a App) setNextPosition(m *config.HopMessage) {
-	if m.GetError() != "" {
-		// Error along the way no need to continue
-		m.Position = -1
+	p := m.GetPosition()
+	if p < 0 {
 		return
 	}
-	if m.GetPosition() < 0 {
+	if m.GetRemoteDests()[p].GetError() != "" {
+		// Error along the way no need to continue
+		m.Position = -1
 		return
 	}
 	nextPos := m.GetPosition() + 1
 	if nextPos < int64(len(m.GetRemoteDests())) {
 		m.Position = nextPos
-		d := m.GetRemoteDests()[nextPos].GetDestination()
-		glog.Infof("Message %s next destination is %s", m.GetId(), d)
-	} else {
-		m.Position = -1
+		return
 	}
-
+	m.Position = -1
 }
 
 // MakeRequest will create a config.HopMessage proto and
@@ -216,45 +205,49 @@ func (a App) setNextPosition(m *config.HopMessage) {
 func (a App) MakeRequest(remotes *[]string) (*config.HopMessage, error) {
 	req := newHopMessage(remotes)
 	resp := a.forwardMessage(req)
-	if resp.GetError() == "" {
-		return resp, nil
+	var err error
+	for _, r := range resp.GetRemoteDests() {
+		if r.GetError() != "" {
+			err = errors.New(r.GetError())
+		}
 	}
-	return resp, errors.New(resp.GetError())
+	return resp, err
 }
 
 func (a App) forwardMessage(m *config.HopMessage) *config.HopMessage {
 	p := m.GetPosition()
 	glog.Infof("Message %s current position is %d", m.GetId(), p)
-	a.setNextPosition(m)
 	if p >= 0 {
+		a.setNextPosition(m)
 		d := m.GetRemoteDests()[p].GetDestination()
 		glog.Infof("Forwarding message %s to %s", m.GetId(), d)
 		startTime := time.Now()
 		resp, err := a.makeRequest(m, d)
 		rtt := time.Since(startTime)
 		if resp != nil {
-			a.updateMessage(resp, p, rtt, err)
-			return resp
+			a.updateMessageFromResponse(m, resp, p+1)
 		}
 		a.updateMessage(m, p, rtt, err)
+		return m
 	}
 	return m
 }
 
 func (a App) updateMessage(m *config.HopMessage, index int64, rtt time.Duration, err error) {
-	if index >= int64(len(m.RemoteDests)) {
-		m.Error = "no index found for this destination"
-		return
-	}
-	if err != nil {
-		m.Error = err.Error()
-		return
-	}
-	if m.RemoteDests[index].Done {
-		m.Error = "already went over this destination"
-		return
-	}
 	glog.Infof("Updating message %s at index %d", m.GetId(), index)
 	m.RemoteDests[index].Done = true
 	m.RemoteDests[index].Rtt = rtt
+	if err != nil {
+		m.RemoteDests[index].Error = err.Error()
+	}
+}
+
+func (a App) updateMessageFromResponse(m *config.HopMessage, resp *config.HopMessage, index int64) {
+	for i := index; i < int64(len(m.GetRemoteDests())); i++ {
+		if !resp.GetRemoteDests()[i].GetDone() {
+			break
+		}
+		glog.Infof("Updating message from response %s at index %d", m.GetId(), i)
+		*m.RemoteDests[i] = *resp.RemoteDests[i]
+	}
 }

@@ -25,13 +25,13 @@ service HopTestService {
 
 message Remote {
   string destination = 1;
-  bool done = 2;
-  google.protobuf.Duration rtt = 3 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+  string error = 2;
+  bool done = 3;
+  google.protobuf.Duration rtt = 4 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 }
 
 message HopMessage {
   string id = 1;
-  string error = 2;
   int64 position = 3;
   repeated Remote remoteDests = 4;
 }

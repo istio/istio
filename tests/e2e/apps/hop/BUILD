@@ -8,6 +8,7 @@ go_library(
         "//tests/e2e/apps/hop/config:go_default_library",
         "@com_github_gogo_protobuf//jsonpb:go_default_library",
         "@com_github_golang_glog//:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_google_uuid//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_x_net//context:go_default_library",
@@ -23,5 +24,6 @@ go_test(
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_x_net//context:go_default_library",
     ],
 )
