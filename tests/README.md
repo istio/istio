@@ -15,6 +15,7 @@ it to test their changes before creating PRs.
 * `-x <hub>,<tag>` specify a mixer image to use
 * `-i <url>` specify an `istioctl` download URL
 * `-c <istioctl>` the location of an `istioctl` binary
+* `-g <gke_enable>` get ingress if running in gke
 * `-n <namespace>` run the test in the specified namespace
 * `-s` don't shutdown and cleanup after running the test
 
