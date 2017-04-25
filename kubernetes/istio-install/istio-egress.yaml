@@ -1,0 +1,36 @@
+################################
+# Istio egress envoy
+################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-egress
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: istio-egress
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-egress
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: istio-egress
+    spec:
+      containers:
+      - name: proxy
+        image: docker.io/istio/proxy:2017-04-24-23.54.11
+        imagePullPolicy: Always
+        args: ["proxy", "egress", "-v", "2"]
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+---
