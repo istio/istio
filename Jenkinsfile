@@ -31,7 +31,7 @@ def presubmit(gitUtils, bazel, utils) {
     bazel.updateBazelRc()
     utils.initTestingCluster()
     stage('Demo Test') {
-      sh('tests/kubeTest.sh')
+      sh('tests/kubeTest.sh -g')
     }
   }
 }

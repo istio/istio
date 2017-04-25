@@ -30,8 +30,9 @@ RULES_DIR="${BOOKINFO_DIR}/rules"
 
 . $ROOT/istio.VERSION || error_exit "Could not source versions"
 
-while getopts :i:sn:m:x: arg; do
+while getopts :gi:sn:m:x: arg; do
   case ${arg} in
+    g) GKE_ENABLE=true;;
     i) ISTIOCLI="${OPTARG}";;
     s) TEAR_DOWN=false;;
     n) NAMESPACE="${OPTARG}";;
