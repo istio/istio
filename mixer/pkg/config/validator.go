@@ -237,6 +237,26 @@ func compatfilterConfig(cfg string, shouldSelect func(string) bool) ([]byte, map
 // TODO add validation beyond proto parse
 func (p *validator) validateDescriptors(key string, cfg string) (ce *adapter.ConfigErrors) {
 	m, ce := descriptor.Parse(cfg)
+	if m == nil || ce != nil {
+		return
+	}
+
+	for _, desc := range m.Metrics {
+		ce = ce.Extend(descriptor.ValidateMetric(desc))
+	}
+	for _, desc := range m.Logs {
+		ce = ce.Extend(descriptor.ValidateLogEntry(desc))
+	}
+	for _, desc := range m.Quotas {
+		ce = ce.Extend(descriptor.ValidateQuota(desc))
+	}
+	for _, desc := range m.MonitoredResources {
+		ce = ce.Extend(descriptor.ValidateMonitoredResource(desc))
+	}
+	for _, desc := range m.Principals {
+		ce = ce.Extend(descriptor.ValidatePrincipal(desc))
+	}
+
 	p.validated.descriptor[key] = m
 	return ce
 }

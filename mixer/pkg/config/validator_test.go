@@ -517,3 +517,67 @@ func TestConvertAdapterParamsErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateDescriptors(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string // string repr of config
+		err  string
+	}{
+		{"empty", "", ""},
+		{"valid", `
+metrics:
+  - name: request_count
+    kind: COUNTER
+    value: INT64
+    description: request count by source, target, service, and code
+    labels:
+      source: 1 # STRING
+      target: 1 # STRING
+      service: 1 # STRING
+      method: 1 # STRING
+      response_code: 2 # INT64
+quotas:
+  - name: RequestCount
+    rate_limit: true
+logs:
+  - name: accesslog.common
+    display_name: Apache Common Log Format
+    payload_format: TEXT
+    log_template: '{{.originIP}}'
+    labels:
+      originIp: 6 # IP_ADDRESS
+      sourceUser: 1 # STRING
+      timestamp: 5 # TIMESTAMP
+      method: 1 # STRING
+      url: 1 # STRING
+      protocol: 1 # STRING
+      responseCode: 2 # INT64
+      responseSize: 2 # INT64
+monitored_resources:
+  - name: pod
+    labels:
+      podName: 1
+principals:
+  - name: Bob
+    labels:
+      originIp: 6`, ""},
+		{"invalid name", `
+quotas:
+  - name:
+    rate_limit: true`, "name"},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			v := &validator{validated: &Validated{descriptor: make(map[string]*pb.GlobalConfig)}}
+			if err := v.validateDescriptors(tt.name, tt.in); err != nil || tt.err != "" {
+				if tt.err == "" {
+					t.Fatalf("validateDescriptors = '%s', wanted no err", err.Error())
+				} else if !strings.Contains(err.Error(), tt.err) {
+					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, err.Error())
+				}
+			}
+		})
+	}
+}
