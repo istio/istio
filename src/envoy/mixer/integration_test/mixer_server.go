@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"time"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
 	"google.golang.org/grpc"
@@ -82,7 +83,12 @@ func (ts *MixerServer) Quota(ctx context.Context, bag *attribute.MutableBag,
 	response.RequestIndex = request.RequestIndex
 	ts.quota_request = request
 	response.Result = ts.quota.run(bag)
-	response.Amount = 0
+	if response.Result.Code != 0 {
+		response.Amount = 0
+	} else {
+		response.Amount = request.Amount
+		response.Expiration = time.Minute
+	}
 }
 
 func NewMixerServer(port uint16) (*MixerServer, error) {

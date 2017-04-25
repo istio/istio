@@ -73,6 +73,7 @@ This filter will intercept all HTTP requests and call Mixer. Here is its config:
          },
          "quota_name": "RequestCount",
          "quota_amount": "1",
+         "quota_cache": "on",
          "check_cache_expiration_in_seconds": "600",
          "check_cache_keys": [
               "request.host",
@@ -114,6 +115,16 @@ Quota (rate limiting) is enforced by the mixer. Mixer needs to be configured wit
 "quota name", its limit within a window.  If "Quota" is added but param is missing, the default config is: quota name is "RequestCount", the limit is 10 with 1 second window. Essentially, it is imposing 10 qps rate limiting.
 
 Mixer client can be configured to make Quota call for all requests.  If "quota_name" is specified in the mixer filter config, mixer client will call Quota with the specified quota name.  If "quota_amount" is specified, it will call with that amount, otherwise the used amount is 1.
+
+The [quota prefetch](http://https://github.com/istio/mixerclient/blob/master/prefetch/README.md) is deployed in the mixer client. By default, it is off. It can be enabled by adding "quota_cache" as "on" in the mixer filter config.
+
+Following config will enable rate limiting with cache:
+
+```
+         "quota_name": "RequestCount",
+         "quota_cache": "on",
+
+```
 
 
 ## How to pass some attributes from client proxy to mixer.

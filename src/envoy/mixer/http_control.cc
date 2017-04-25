@@ -27,7 +27,6 @@ using ::istio::mixer_client::CheckOptions;
 using ::istio::mixer_client::Attributes;
 using ::istio::mixer_client::DoneFunc;
 using ::istio::mixer_client::MixerClientOptions;
-using ::istio::mixer_client::ReportOptions;
 using ::istio::mixer_client::QuotaOptions;
 
 namespace Http {
@@ -74,6 +73,16 @@ CheckOptions GetCheckOptions(const MixerConfig& config) {
   options.cache_keys = config.check_cache_keys;
 
   return options;
+}
+
+QuotaOptions GetQuotaOptions(const MixerConfig& config) {
+  if (config.quota_cache == "on") {
+    return QuotaOptions();
+  } else {
+    // Use num_entries=0 to disable cache.
+    // the 2nd parameter is not used in the disable case.
+    return QuotaOptions(0, 1000);
+  }
 }
 
 void SetStringAttribute(const std::string& name, const std::string& value,
@@ -163,8 +172,8 @@ void FillRequestInfoAttributes(const AccessLog::RequestInfo& info,
 
 HttpControl::HttpControl(const MixerConfig& mixer_config)
     : mixer_config_(mixer_config) {
-  MixerClientOptions options(GetCheckOptions(mixer_config), ReportOptions(),
-                             QuotaOptions());
+  MixerClientOptions options(GetCheckOptions(mixer_config),
+                             GetQuotaOptions(mixer_config));
   options.mixer_server = mixer_config_.mixer_server;
   mixer_client_ = ::istio::mixer_client::CreateMixerClient(options);
 

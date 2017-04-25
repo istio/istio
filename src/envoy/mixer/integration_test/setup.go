@@ -91,3 +91,21 @@ func (s *TestSetup) VerifyQuota(tag string, name string, amount int64) {
 			tag, s.mixer.quota_request.Amount, amount)
 	}
 }
+
+func (s *TestSetup) DrainMixerAllChannels() {
+	go func() {
+		for true {
+			_ = <-s.mixer.check.ch
+		}
+	}()
+	go func() {
+		for true {
+			_ = <-s.mixer.report.ch
+		}
+	}()
+	go func() {
+		for true {
+			_ = <-s.mixer.quota.ch
+		}
+	}()
+}

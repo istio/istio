@@ -38,6 +38,7 @@ struct MixerConfig {
   // Quota attributes.
   std::string quota_name;
   std::string quota_amount;
+  std::string quota_cache;
 
   // The attribute names for check cache.
   std::vector<std::string> check_cache_keys;
