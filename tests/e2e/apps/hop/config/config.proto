@@ -30,7 +30,8 @@ message Remote {
 }
 
 message HopMessage {
-  string message = 1;
+  string id = 1;
   string error = 2;
-  repeated Remote remoteDests = 3;
+  int64 position = 3;
+  repeated Remote remoteDests = 4;
 }
