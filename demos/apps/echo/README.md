@@ -19,6 +19,11 @@ data:
     discoveryAddress: istio-manager:8080
 ```
 
+Deploy Istio CA for the namespace:
+```bash
+kubectl apply -f ./kubernetes/istio-auth/istio-namespace-ca.yaml
+```
+
 **Deploy a simple echo app with manually injected proxy**
 
     kubectl apply -f <(istioctl kube-inject -f echo-app.yaml)

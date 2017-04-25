@@ -1,3 +1,5 @@
+# This CA issues certs/keys for the entire cluster.
+# Please make sure only one CA is deployed per cluster.
 kind: Deployment
 apiVersion: extensions/v1beta1
 metadata:
@@ -13,10 +15,3 @@ spec:
       - name: istio-ca
         image: docker.io/istio/istio-ca:2017-04-13-17.43.08
         imagePullPolicy: IfNotPresent
-        env:
-        - name: NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
----

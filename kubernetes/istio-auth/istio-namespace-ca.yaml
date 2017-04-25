@@ -1,0 +1,25 @@
+# This CA only issues certs/keys for the namespace it runs in.
+# This CA is only used for demo "Istio Kubernetes Demo with simple echo app".
+# Please use istio-cluster-ca.yaml for real-world use cases.
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: istio-ca
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: istio-ca
+    spec:
+      containers:
+      - name: istio-ca
+        image: docker.io/istio/istio-ca:2017-04-13-17.43.08
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+---
