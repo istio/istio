@@ -17,24 +17,84 @@
 package redisquota
 
 import (
+	"errors"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/alicebob/miniredis"
+	"github.com/bsm/redeo"
 
 	"istio.io/mixer/adapter/redisquota/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
 )
 
+type testServer struct {
+	*miniredis.Miniredis
+
+	// fake server to cover the error handlings
+	*redeo.Server
+
+	// flag to indicate various kind of errors
+	errOnStart bool
+
+	errOnIntRet bool
+}
+
+func (t *testServer) Start() (*miniredis.Miniredis, *redeo.Server, error) {
+	if t.errOnStart {
+		return nil, nil, errors.New("could not start server")
+	} else if t.errOnIntRet {
+		t.Server = redeo.NewServer(&redeo.Config{Addr: "localhost:9736"})
+
+		t.Server.HandleFunc("INCRBY", func(out *redeo.Responder, _ *redeo.Request) error {
+			out.WriteInlineString("Invalid Response")
+			return nil
+		})
+
+		t.Server.HandleFunc("EXPIRE", func(out *redeo.Responder, _ *redeo.Request) error {
+			out.WriteInlineString("Invalid Response")
+			return nil
+		})
+
+		t.Server.HandleFunc("DECRBY", func(out *redeo.Responder, _ *redeo.Request) error {
+			out.WriteInlineString("Invalid Response")
+			return nil
+		})
+
+		go func() {
+			err := t.Server.ListenAndServe()
+			if err != nil {
+				fmt.Printf("Could not start fake server!")
+			}
+
+		}()
+		return nil, t.Server, nil
+	} else {
+		t.Miniredis = miniredis.NewMiniRedis()
+		return t.Miniredis, nil, t.Miniredis.Start()
+	}
+}
+
+func (t *testServer) Close() {
+	if t.Miniredis != nil {
+		t.Miniredis.Close()
+	}
+	if t.Server != nil {
+		err := t.Server.Close()
+		if err != nil {
+			fmt.Printf("Could not close fake server!")
+		}
+	}
+}
+
 // TODO: add more unit tests here and try to reuse the tests with memQuota adapter
 func TestAllocAndReleaseFixedWindow(t *testing.T) {
-	s, err := miniredis.Run()
-	if err != nil {
-		t.Errorf("Unable to start mini redis: %v", err)
-	}
-	defer s.Close()
+	mockredis := testServer{}
+	s, _, _ := mockredis.Start()
+	defer mockredis.Close()
 
 	definitions := make(map[string]*adapter.QuotaDefinition)
 	definitions["Q1"] = &adapter.QuotaDefinition{
@@ -172,11 +232,9 @@ func TestAllocAndReleaseFixedWindow(t *testing.T) {
 }
 
 func TestAllocAndReleaseRollingWindow(t *testing.T) {
-	s, err := miniredis.Run()
-	if err != nil {
-		t.Errorf("Unable to start mini redis: %v", err)
-	}
-	defer s.Close()
+	mockredis := testServer{}
+	s, _, _ := mockredis.Start()
+	defer mockredis.Close()
 
 	definitions := make(map[string]*adapter.QuotaDefinition)
 
@@ -328,11 +386,9 @@ func TestBadConnection(t *testing.T) {
 }
 
 func TestBadAmount(t *testing.T) {
-	s, err := miniredis.Run()
-	if err != nil {
-		t.Errorf("Unable to start mini redis: %v", err)
-	}
-	defer s.Close()
+	mockredis := testServer{}
+	s, _, _ := mockredis.Start()
+	defer mockredis.Close()
 
 	definitions := make(map[string]*adapter.QuotaDefinition)
 	definitions["Q1"] = &adapter.QuotaDefinition{
@@ -390,11 +446,9 @@ func TestBadAmount(t *testing.T) {
 }
 
 func TestBadConfig(t *testing.T) {
-	s, err := miniredis.Run()
-	if err != nil {
-		t.Errorf("Unable to start mini redis: %v", err)
-	}
-	defer s.Close()
+	mockredis := testServer{}
+	s, _, _ := mockredis.Start()
+	defer mockredis.Close()
 
 	b := newBuilder()
 	c := b.DefaultConfig().(*config.Params)
@@ -420,4 +474,98 @@ func TestBadConfig(t *testing.T) {
 		t.Error("Expecting failure, got success")
 	}
 
+}
+
+func TestErrorResponse(t *testing.T) {
+	mockredis := testServer{errOnStart: false, errOnIntRet: true}
+	_, f, _ := mockredis.Start()
+	defer mockredis.Close()
+
+	definitions := make(map[string]*adapter.QuotaDefinition)
+	definitions["Q1"] = &adapter.QuotaDefinition{
+		MaxAmount:  10,
+		Expiration: 0,
+	}
+
+	b := newBuilder()
+	c := b.DefaultConfig().(*config.Params)
+	c.RedisServerUrl = f.Addr()
+	c.RateLimitAlgorithm = "fixed-window"
+	c.ConnectionPoolSize = 1
+	c.MinDeduplicationDuration = time.Duration(3600) * time.Second
+
+	a, _ := b.NewQuotasAspect(test.NewEnv(t), c, definitions)
+
+	qa := adapter.QuotaArgs{Definition: definitions["Q1"], QuotaAmount: 10}
+	qr, _ := a.Alloc(qa)
+
+	if qr.Amount != 0 {
+		t.Error("Expecting error, got success")
+	}
+}
+
+func TestReaperTicker(t *testing.T) {
+	mockredis := testServer{}
+	s, _, _ := mockredis.Start()
+	defer mockredis.Close()
+
+	definitions := make(map[string]*adapter.QuotaDefinition)
+	definitions["Q1"] = &adapter.QuotaDefinition{
+		MaxAmount:  10,
+		Expiration: 0,
+	}
+
+	testChan := make(chan time.Time)
+	testTicker := &time.Ticker{C: testChan}
+
+	b := newBuilder()
+	c := b.DefaultConfig().(*config.Params)
+	c.RedisServerUrl = s.Addr()
+	c.RateLimitAlgorithm = "fixed-window"
+
+	a, err := newAspectWithDedup(test.NewEnv(t), testTicker, c)
+	if err != nil {
+		t.Errorf("Unable to create aspect: %v", err)
+	}
+
+	qa := adapter.QuotaArgs{
+		Definition:      definitions["Q1"],
+		QuotaAmount:     10,
+		DeduplicationID: "0",
+	}
+
+	qr, _ := a.Alloc(qa)
+	if qr.Amount != 10 {
+		t.Errorf("Alloc(): expecting 10, got %d", qr.Amount)
+	}
+
+	qr, _ = a.Alloc(qa)
+	if qr.Amount != 10 {
+		t.Errorf("Alloc(): expecting 10, got %d", qr.Amount)
+	}
+
+	// Advance 3 ticks, ensuring clearing of the de-dup cache
+	testChan <- time.Now()
+	testChan <- time.Now()
+	testChan <- time.Now()
+
+	qa.DeduplicationID = "1"
+	qr, _ = a.Alloc(qa)
+	if qr.Amount != 0 {
+		t.Errorf("Alloc(): expecting 0, got %d", qr.Amount)
+	}
+
+	qa.DeduplicationID = "0"
+	qr, _ = a.Alloc(qa)
+	if qr.Amount != 0 {
+		t.Errorf("Alloc(): expecting 0, got %d", qr.Amount)
+	}
+
+	if err := a.Close(); err != nil {
+		t.Errorf("Unable to close aspect: %v", err)
+	}
+}
+
+func TestInvariants(t *testing.T) {
+	test.AdapterInvariants(Register, t)
 }
