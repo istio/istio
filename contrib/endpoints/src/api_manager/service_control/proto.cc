@@ -945,7 +945,7 @@ utils::Status Proto::FillAllocateQuotaRequest(
   // allocate_operation.quota_mode
   operation->set_quota_mode(
       ::google::api::servicecontrol::v1::QuotaOperation_QuotaMode::
-          QuotaOperation_QuotaMode_NORMAL);
+          QuotaOperation_QuotaMode_BEST_EFFORT);
 
   // allocate_operation.labels
   auto* labels = operation->mutable_labels();
