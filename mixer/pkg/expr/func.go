@@ -231,7 +231,7 @@ func newIndex() Func {
 	return &indexFunc{
 		baseFunc: &baseFunc{
 			name:     "INDEX",
-			retType:  config.VALUE_TYPE_UNSPECIFIED,
+			retType:  config.STRING,
 			argTypes: []config.ValueType{config.STRING_MAP, config.STRING},
 		},
 	}
