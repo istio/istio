@@ -44,6 +44,9 @@ struct MixerConfig {
   std::vector<std::string> check_cache_keys;
   std::string check_cache_expiration;
 
+  // valid values are: [open|close]
+  std::string network_fail_policy;
+
   // Load the config from envoy config.
   void Load(const Json::Object& json);
 

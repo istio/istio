@@ -40,6 +40,8 @@ const std::string kQuotaCache("quota_cache");
 const std::string kCheckCacheKeys("check_cache_keys");
 const std::string kCheckCacheExpiration("check_cache_expiration_in_seconds");
 
+const std::string kNetworkFailPolicy("network_fail_policy");
+
 void ReadString(const Json::Object& json, const std::string& name,
                 std::string* value) {
   if (json.hasObject(name)) {
@@ -77,6 +79,8 @@ void MixerConfig::Load(const Json::Object& json) {
   ReadString(json, kQuotaName, &quota_name);
   ReadString(json, kQuotaAmount, &quota_amount);
   ReadString(json, kQuotaCache, &quota_cache);
+
+  ReadString(json, kNetworkFailPolicy, &network_fail_policy);
 
   ReadStringVector(json, kCheckCacheKeys, &check_cache_keys);
   ReadString(json, kCheckCacheExpiration, &check_cache_expiration);

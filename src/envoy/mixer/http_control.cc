@@ -72,6 +72,10 @@ CheckOptions GetCheckOptions(const MixerConfig& config) {
 
   options.cache_keys = config.check_cache_keys;
 
+  if (config.network_fail_policy == "close") {
+    options.network_fail_open = false;
+  }
+
   return options;
 }
 
