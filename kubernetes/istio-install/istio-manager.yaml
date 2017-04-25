@@ -9,6 +9,7 @@ data:
     # authPolicy: MUTUAL_TLS
     mixerAddress: istio-mixer:9091
     discoveryAddress: istio-manager:8080
+    apiserverAddress: istio-manager:8081
 ---
 apiVersion: v1
 kind: Service
@@ -43,12 +44,24 @@ spec:
     spec:
       serviceAccountName: istio-manager-service-account
       containers:
-      - name: manager
+      - name: discovery
         image: docker.io/istio/manager:2017-04-24-23.54.11
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:
         - containerPort: 8080
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+      - name: apiserver
+        image: docker.io/istio/manager:2017-04-24-23.54.11
+        imagePullPolicy: Always
+        args: ["apiserver", "-v", "2"]
+        ports:
+        - containerPort: 8081
         env:
         - name: POD_NAMESPACE
           valueFrom:
