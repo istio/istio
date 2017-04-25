@@ -107,9 +107,7 @@ TEST_F(QuotaCacheTest, TestDisabledCache) {
         on_done(Status(Code::INTERNAL, ""));
       }));
 
-  cache_->Quota(request_, [](const Status& status) {
-    EXPECT_ERROR_CODE(Code::INTERNAL, status);
-  });
+  cache_->Quota(request_, [](const Status& status) { EXPECT_OK(status); });
 }
 
 TEST_F(QuotaCacheTest, TestCacheKeyWithDifferentNames) {

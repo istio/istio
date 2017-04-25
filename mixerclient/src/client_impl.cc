@@ -50,14 +50,19 @@ void MixerClientImpl::Check(const Attributes &attributes, DoneFunc on_done) {
   Status status = check_cache_->Check(attributes, response, &signature);
   if (status.error_code() == Code::NOT_FOUND) {
     std::shared_ptr<CheckCache> check_cache_copy = check_cache_;
+    bool fail_open = options_.check_options.network_fail_open;
     check_transport_->Send(
-        attributes, response,
-        [check_cache_copy, signature, response, on_done](const Status &status) {
+        attributes, response, [check_cache_copy, signature, response, on_done,
+                               fail_open](const Status &status) {
           if (status.ok()) {
             check_cache_copy->CacheResponse(signature, *response);
             on_done(ConvertRpcStatus(response->result()));
           } else {
-            on_done(status);
+            if (fail_open) {
+              on_done(Status::OK);
+            } else {
+              on_done(status);
+            }
           }
           delete response;
         });

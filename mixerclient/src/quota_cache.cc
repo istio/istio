@@ -111,7 +111,8 @@ void QuotaCache::Quota(const Attributes& request, DoneFunc on_done) {
                        if (status.ok()) {
                          on_done(ConvertRpcStatus(response->result()));
                        } else {
-                         on_done(status);
+                         // Always use network fail open policy.
+                         on_done(Status::OK);
                        }
                        delete response;
                      });

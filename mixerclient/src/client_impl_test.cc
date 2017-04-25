@@ -61,6 +61,7 @@ class MixerClientImplTest : public ::testing::Test, public TransportInterface {
                      1000 /* expiration_ms */),
         QuotaOptions(1 /* entries */, 600000 /* expiration_ms */));
     options.transport = this;
+    options.check_options.network_fail_open = false;
     client_ = CreateMixerClient(options);
   }
 

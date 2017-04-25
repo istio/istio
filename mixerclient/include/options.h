@@ -61,6 +61,9 @@ struct CheckOptions {
   // Only the attributes in this set are used to caclculate cache key.
   // If empty, check cache is disabled.
   std::vector<std::string> cache_keys;
+
+  // If true, Check is passed for any network failures.
+  bool network_fail_open = true;
 };
 
 // Options controlling quota behavior.
