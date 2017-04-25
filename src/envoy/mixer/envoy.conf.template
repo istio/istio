@@ -42,7 +42,7 @@
                   "mixer_server": "${MIXER_SERVER}",
                   "mixer_attributes": {
                       "target.uid": "POD222",
-                      "target.namespace": "XYZ222"
+                      "target.service": "foo.svc.cluster.local"
                   },
                   "quota_name": "RequestCount",
                   "quota_amount": "1",
