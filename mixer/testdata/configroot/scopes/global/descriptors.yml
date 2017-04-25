@@ -14,6 +14,8 @@ manifests:
       value_type: STRING
     - name: source.labels
       value_type: STRING_MAP
+    - name: target.labels
+      value_type: STRING_MAP
     - name: target.name
       value_type: STRING
     - name: target.service
@@ -28,11 +30,15 @@ manifests:
       value_type: STRING
     - name: source.ip
       value_type: IP_ADDRESS
+    - name: target.ip
+      value_type: IP_ADDRESS
     - name: origin.ip
       value_type: IP_ADDRESS
     - name: origin.user
       value_type: STRING
     - name: source.serviceAccount
+      value_type: STRING
+    - name: target.serviceAccount
       value_type: STRING
     - name: request.time
       value_type: TIMESTAMP
@@ -52,6 +58,8 @@ manifests:
       value_type: INT64
     - name: response.duration
       value_type: DURATION
+    - name: response.latency
+      value_type: DURATION
     # TODO: we really need to remove these, they're not part of the attribute vocab.
     - name: api.name
       value_type: STRING
@@ -70,10 +78,22 @@ metrics:
       service: 1 # STRING
       method: 1 # STRING
       response_code: 2 # INT64
-  - name: request_latency
-    kind: COUNTER
+  - name: request_duration
+    kind: DISTRIBUTION
     value: DURATION
-    description: request latency by source, target, and service
+    description: request duration by source, target, and service
+    buckets:
+      explicit_buckets:
+        bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+    # Examples of other possible bucket configurations:
+    #      linear_buckets:
+    #         num_finite_buckets: 10
+    #         offset: 0.001
+    #         width: 0.1
+    #      exponential_buckets:
+    #        num_finite_buckets: 15
+    #        scale: 0.001
+    #        growth_factor: 4
     labels:
       source: 1 # STRING
       target: 1 # STRING

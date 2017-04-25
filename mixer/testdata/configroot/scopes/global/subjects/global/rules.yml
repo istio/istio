@@ -21,6 +21,12 @@ rules:
         source.labels: sourceLabels
         source.serviceAccount: sourceServiceAccountName
         target.service: targetService
+        target.labels: targetLabels
+        target.ip: targetPodIp
+        target.service: targetService
+        target.name: targetPodName
+        target.namespace: targetNamespace
+        target.serviceAccount: targetServiceAccountName
   - kind: quotas
     params:
       quotas:
@@ -35,18 +41,18 @@ rules:
         # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
         value: "1"
         labels:
-          source: source.name | "unknown"
-          target: target.name | "unknown"
-          service: api.name | "unknown"
-          method: api.method | "unknown"
+          source: source.service | "unknown"
+          target: target.service | "unknown"
+          service: api.name | target.labels["app"] | "unknown"
+          method: api.method | request.path | "unknown"
           response_code: response.code | 200
-      - descriptor_name:  request_latency
-        value: response.duration | "0ms"
+      - descriptor_name:  request_duration
+        value: response.latency | response.duration | "0ms"
         labels:
-          source: source.name | "unknown"
-          target: target.name | "unknown"
-          service: api.name | "unknown"
-          method: api.method | "unknown"
+          source: source.service | "unknown"
+          target: target.service | "unknown"
+          service: api.name | target.labels["app"] | "unknown"
+          method: api.method | request.path | "unknown"
           response_code: response.code | 200
   - kind: access-logs
     params:

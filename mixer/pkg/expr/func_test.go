@@ -25,7 +25,7 @@ import (
 func TestIndexFunc(tt *testing.T) {
 	fn := newIndex()
 
-	check(tt, "ReturnType", fn.ReturnType(), config.VALUE_TYPE_UNSPECIFIED)
+	check(tt, "ReturnType", fn.ReturnType(), config.STRING)
 	check(tt, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.STRING_MAP, config.STRING})
 }
 
