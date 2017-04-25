@@ -44,7 +44,7 @@ spec:
       serviceAccountName: istio-manager-service-account
       containers:
       - name: manager
-        image: docker.io/istio/manager:2017-04-13-01.05.21
+        image: docker.io/istio/manager:2017-04-24-23.54.11
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:
