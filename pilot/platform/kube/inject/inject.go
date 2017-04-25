@@ -90,7 +90,7 @@ var enableCoreDumpContainer = map[string]interface{}{
 	"command": []string{"/bin/sh"},
 	"args": []string{
 		"-c",
-		"sysctl -w kernel.core_pattern=/tmp/core.%e.%p.%t",
+		"sysctl -w kernel.core_pattern=/tmp/core.%e.%p.%t && ulimit -c unlimited",
 	},
 	"imagePullPolicy": "Always",
 	"securityContext": map[string]interface{}{
