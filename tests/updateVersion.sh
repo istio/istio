@@ -107,6 +107,7 @@ function merge_files() {
   echo "# GENERATED FILE. Use with Kubernetes 1.6+" > $OUT
   echo "# TO UPDATE, modify files in istio-install and run updateVersion.sh" >> $OUT
   cat $SRC/istio-mixer.yaml >> $OUT
+  cat $SRC/istio-manager.yaml >> $OUT
   cat $SRC/../istio-rbac/istio-rbac.yaml >> $OUT
   cat $SRC/istio-ingress-controller.yaml >> $OUT
 }
