@@ -210,3 +210,5 @@ then
 else
     echo "TESTS HAVE PASSED"
 fi
+
+cleanup_istioctl
