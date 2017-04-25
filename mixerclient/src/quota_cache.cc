@@ -75,6 +75,10 @@ QuotaCache::QuotaCache(const QuotaOptions& options, QuotaTransport* transport)
 
     // Excluse quota_amount in the key calculation.
     cache_keys_ = CacheKeySet::CreateExclusive({Attributes::kQuotaAmount});
+
+    if (transport_ != nullptr) {
+      transport_->set_best_effort(true);
+    }
   }
 }
 

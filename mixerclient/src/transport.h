@@ -80,7 +80,11 @@ typedef Transport<::istio::mixer::v1::QuotaRequest,
 class QuotaTransport : public QuotaBaseTransport {
  public:
   QuotaTransport(TransportInterface* transport)
-      : QuotaBaseTransport(transport), deduplication_id_(0) {}
+      : QuotaBaseTransport(transport),
+        best_effort_(false),
+        deduplication_id_(0) {}
+
+  void set_best_effort(bool v) { best_effort_ = v; }
 
  private:
   void FillProto(StreamID stream_id, const Attributes& attributes,
@@ -98,11 +102,12 @@ class QuotaTransport : public QuotaBaseTransport {
       }
     }
     request->set_deduplication_id(std::to_string(deduplication_id_++));
-    request->set_best_effort(false);
+    request->set_best_effort(best_effort_);
 
     QuotaBaseTransport::FillProto(stream_id, filtered_attributes, request);
   }
 
+  bool best_effort_;
   int64_t deduplication_id_;
 };
 
