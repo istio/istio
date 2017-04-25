@@ -47,7 +47,7 @@ function find_istio_endpoints() {
     local endpoints=($(${K8CLI} get endpoints -n ${NAMESPACE} \
       -o jsonpath='{.items[*].subsets[*].addresses[*].ip}'))
     echo ${endpoints[@]}
-    [[ ${#endpoints[@]} -eq 3 ]] && return 0
+    [[ ${#endpoints[@]} -eq 4 ]] && return 0
     return 1
 }
 
