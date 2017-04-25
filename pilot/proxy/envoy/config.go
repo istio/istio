@@ -196,10 +196,7 @@ func applyInboundAuth(listener *Listener, mesh *proxyconfig.ProxyMeshConfig) *Li
 	case proxyconfig.ProxyMeshConfig_NONE:
 	case proxyconfig.ProxyMeshConfig_MUTUAL_TLS:
 		listener.SSLContext = buildListenerSSLContext(mesh.AuthCertsPath)
-	default:
-		glog.Warningf("Unknown auth policy: %v", mesh.AuthPolicy)
 	}
-
 	return listener
 }
 

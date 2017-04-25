@@ -59,6 +59,10 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*proxycon
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
+	if err = model.ValidateProxyMeshConfig(&mesh); err != nil {
+		return nil, err
+	}
+
 	return &mesh, nil
 }
 

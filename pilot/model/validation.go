@@ -15,12 +15,15 @@
 package model
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
@@ -44,17 +47,24 @@ func IsDNS1123Label(value string) bool {
 	return len(value) <= dns1123LabelMaxLength && dns1123LabelRex.MatchString(value)
 }
 
+func validatePort(port int) error {
+	if 1 <= port && port <= 65535 {
+		return nil
+	}
+	return fmt.Errorf("port number %d must be in the range 1..65535", port)
+}
+
 // Validate confirms that the names in the configuration key are appropriate
 func (k *Key) Validate() error {
 	var errs error
 	if !IsDNS1123Label(k.Kind) {
-		errs = multierror.Append(errs, fmt.Errorf("Invalid kind: %q", k.Kind))
+		errs = multierror.Append(errs, fmt.Errorf("invalid kind: %q", k.Kind))
 	}
 	if !IsDNS1123Label(k.Name) {
-		errs = multierror.Append(errs, fmt.Errorf("Invalid name: %q", k.Name))
+		errs = multierror.Append(errs, fmt.Errorf("invalid name: %q", k.Name))
 	}
 	if !IsDNS1123Label(k.Namespace) {
-		errs = multierror.Append(errs, fmt.Errorf("Invalid namespace: %q", k.Namespace))
+		errs = multierror.Append(errs, fmt.Errorf("invalid namespace: %q", k.Namespace))
 	}
 	return errs
 }
@@ -64,10 +74,10 @@ func (km KindMap) Validate() error {
 	var errs error
 	for k, v := range km {
 		if !IsDNS1123Label(k) {
-			errs = multierror.Append(errs, fmt.Errorf("Invalid kind: %q", k))
+			errs = multierror.Append(errs, fmt.Errorf("invalid kind: %q", k))
 		}
 		if proto.MessageType(v.MessageName) == nil {
-			errs = multierror.Append(errs, fmt.Errorf("Cannot find proto message type: %q", v.MessageName))
+			errs = multierror.Append(errs, fmt.Errorf("cannot find proto message type: %q", v.MessageName))
 		}
 	}
 	return errs
@@ -79,7 +89,7 @@ func (km KindMap) ValidateKey(k *Key) error {
 		return err
 	}
 	if _, ok := km[k.Kind]; !ok {
-		return fmt.Errorf("Kind %q is not defined", k.Kind)
+		return fmt.Errorf("kind %q is not defined", k.Kind)
 	}
 	return nil
 }
@@ -87,7 +97,7 @@ func (km KindMap) ValidateKey(k *Key) error {
 // ValidateConfig ensures that the config object is well-defined
 func (km KindMap) ValidateConfig(k *Key, obj interface{}) error {
 	if k == nil || obj == nil {
-		return fmt.Errorf("Invalid nil configuration object")
+		return fmt.Errorf("invalid nil configuration object")
 	}
 
 	if err := k.Validate(); err != nil {
@@ -95,15 +105,15 @@ func (km KindMap) ValidateConfig(k *Key, obj interface{}) error {
 	}
 	t, ok := km[k.Kind]
 	if !ok {
-		return fmt.Errorf("Undeclared kind: %q", k.Kind)
+		return fmt.Errorf("undeclared kind: %q", k.Kind)
 	}
 
 	v, ok := obj.(proto.Message)
 	if !ok {
-		return fmt.Errorf("Cannot cast to a proto message")
+		return fmt.Errorf("cannot cast to a proto message")
 	}
 	if proto.MessageName(v) != t.MessageName {
-		return fmt.Errorf("Mismatched message type %q and kind %q",
+		return fmt.Errorf("mismatched message type %q and kind %q",
 			proto.MessageName(v), t.MessageName)
 	}
 	if err := t.Validate(v); err != nil {
@@ -117,18 +127,18 @@ func (km KindMap) ValidateConfig(k *Key, obj interface{}) error {
 func (s *Service) Validate() error {
 	var errs error
 	if len(s.Hostname) == 0 {
-		errs = multierror.Append(errs, fmt.Errorf("Invalid empty hostname"))
+		errs = multierror.Append(errs, fmt.Errorf("invalid empty hostname"))
 	}
 	parts := strings.Split(s.Hostname, ".")
 	for _, part := range parts {
 		if !IsDNS1123Label(part) {
-			errs = multierror.Append(errs, fmt.Errorf("Invalid hostname part: %q", part))
+			errs = multierror.Append(errs, fmt.Errorf("invalid hostname part: %q", part))
 		}
 	}
 
 	// Require at least one port
 	if len(s.Ports) == 0 {
-		errs = multierror.Append(errs, fmt.Errorf("Service must have at least one declared port"))
+		errs = multierror.Append(errs, fmt.Errorf("service must have at least one declared port"))
 	}
 
 	// Port names can be empty if there exists only one port
@@ -136,13 +146,14 @@ func (s *Service) Validate() error {
 		if port.Name == "" {
 			if len(s.Ports) > 1 {
 				errs = multierror.Append(errs,
-					fmt.Errorf("Empty port names are not allowed for services with multiple ports"))
+					fmt.Errorf("empty port names are not allowed for services with multiple ports"))
 			}
 		} else if !IsDNS1123Label(port.Name) {
-			errs = multierror.Append(errs, fmt.Errorf("Invalid name: %q", port.Name))
+			errs = multierror.Append(errs, fmt.Errorf("invalid name: %q", port.Name))
 		}
-		if port.Port < 0 {
-			errs = multierror.Append(errs, fmt.Errorf("Invalid service port value %d for %q", port.Port, port.Name))
+		if err := validatePort(port.Port); err != nil {
+			errs = multierror.Append(errs,
+				fmt.Errorf("invalid service port value %d for %q: %v", port.Port, port.Name, err))
 		}
 	}
 	return errs
@@ -152,7 +163,7 @@ func (s *Service) Validate() error {
 func (instance *ServiceInstance) Validate() error {
 	var errs error
 	if instance.Service == nil {
-		errs = multierror.Append(errs, fmt.Errorf("Missing service in the instance"))
+		errs = multierror.Append(errs, fmt.Errorf("missing service in the instance"))
 	} else if err := instance.Service.Validate(); err != nil {
 		errs = multierror.Append(errs, err)
 	}
@@ -161,25 +172,25 @@ func (instance *ServiceInstance) Validate() error {
 		errs = multierror.Append(errs, err)
 	}
 
-	if instance.Endpoint.Port < 0 {
-		errs = multierror.Append(errs, fmt.Errorf("Negative port value: %d", instance.Endpoint.Port))
+	if err := validatePort(instance.Endpoint.Port); err != nil {
+		errs = multierror.Append(errs, err)
 	}
 
 	port := instance.Endpoint.ServicePort
 	if port == nil {
-		errs = multierror.Append(errs, fmt.Errorf("Missing service port"))
+		errs = multierror.Append(errs, fmt.Errorf("missing service port"))
 	} else if instance.Service != nil {
 		expected, ok := instance.Service.Ports.Get(port.Name)
 		if !ok {
-			errs = multierror.Append(errs, fmt.Errorf("Missing service port %q", port.Name))
+			errs = multierror.Append(errs, fmt.Errorf("missing service port %q", port.Name))
 		} else {
 			if expected.Port != port.Port {
 				errs = multierror.Append(errs,
-					fmt.Errorf("Unexpected service port value %d, expected %d", port.Port, expected.Port))
+					fmt.Errorf("unexpected service port value %d, expected %d", port.Port, expected.Port))
 			}
 			if expected.Protocol != port.Protocol {
 				errs = multierror.Append(errs,
-					fmt.Errorf("Unexpected service protocol %s, expected %s", port.Protocol, expected.Protocol))
+					fmt.Errorf("unexpected service protocol %s, expected %s", port.Protocol, expected.Protocol))
 			}
 		}
 	}
@@ -192,10 +203,10 @@ func (t Tags) Validate() error {
 	var errs error
 	for k, v := range t {
 		if !tagRegexp.MatchString(k) {
-			errs = multierror.Append(errs, fmt.Errorf("Invalid tag key: %q", k))
+			errs = multierror.Append(errs, fmt.Errorf("invalid tag key: %q", k))
 		}
 		if !tagRegexp.MatchString(v) {
-			errs = multierror.Append(errs, fmt.Errorf("Invalid tag value: %q", v))
+			errs = multierror.Append(errs, fmt.Errorf("invalid tag value: %q", v))
 		}
 	}
 	return errs
@@ -220,7 +231,6 @@ func validateFQDN(fqdn string) error {
 
 // ValidateMatchCondition validates a Match Condition
 func ValidateMatchCondition(mc *proxyconfig.MatchCondition) (errs error) {
-
 	if mc.Source != "" {
 		if err := validateFQDN(mc.Source); err != nil {
 			errs = multierror.Append(errs, err)
@@ -251,7 +261,6 @@ func ValidateMatchCondition(mc *proxyconfig.MatchCondition) (errs error) {
 
 // ValidateL4MatchAttributes validates L4 Match Attributes
 func ValidateL4MatchAttributes(ma *proxyconfig.L4MatchAttributes) (errs error) {
-
 	for _, subnet := range ma.SourceSubnet {
 		if err := validateSubnet(subnet); err != nil {
 			errs = multierror.Append(errs, err)
@@ -283,7 +292,6 @@ func validateFloatPercent(err error, val float32, label string) error {
 
 // ValidateDestinationWeight validates DestinationWeight
 func ValidateDestinationWeight(dw *proxyconfig.DestinationWeight) (errs error) {
-
 	if dw.Destination != "" {
 		if err := validateFQDN(dw.Destination); err != nil {
 			errs = multierror.Append(errs, err)
@@ -301,7 +309,6 @@ func ValidateDestinationWeight(dw *proxyconfig.DestinationWeight) (errs error) {
 
 // ValidateHTTPTimeout validates HTTP Timeout
 func ValidateHTTPTimeout(timeout *proxyconfig.HTTPTimeout) error {
-
 	if simple := timeout.GetSimpleTimeout(); simple != nil {
 		if simple.TimeoutSeconds < 0 {
 			return fmt.Errorf("timeout_seconds must be in range [0..]")
@@ -315,7 +322,6 @@ func ValidateHTTPTimeout(timeout *proxyconfig.HTTPTimeout) error {
 
 // ValidateHTTPRetries validates HTTP Retries
 func ValidateHTTPRetries(retry *proxyconfig.HTTPRetry) (errs error) {
-
 	if simple := retry.GetSimpleRetry(); simple != nil {
 		if simple.Attempts < 0 {
 			errs = multierror.Append(errs, fmt.Errorf("attempts must be in range [0..]"))
@@ -332,7 +338,6 @@ func ValidateHTTPRetries(retry *proxyconfig.HTTPRetry) (errs error) {
 
 // ValidateHTTPFault validates HTTP Fault
 func ValidateHTTPFault(fault *proxyconfig.HTTPFaultInjection) (errs error) {
-
 	if fault.GetDelay() != nil {
 		if err := validateDelay(fault.GetDelay()); err != nil {
 			errs = multierror.Append(errs, err)
@@ -350,7 +355,6 @@ func ValidateHTTPFault(fault *proxyconfig.HTTPFaultInjection) (errs error) {
 
 // ValidateL4Fault validates L4 Fault
 func ValidateL4Fault(fault *proxyconfig.L4FaultInjection) (errs error) {
-
 	if fault.GetTerminate() != nil {
 		if err := validateTerminate(fault.GetTerminate()); err != nil {
 			errs = multierror.Append(errs, err)
@@ -374,7 +378,6 @@ func validateSubnet(subnet string) error {
 
 // validateIPv4Subnet validates that a string in "CIDR notation" or "Dot-decimal notation"
 func validateIPv4Subnet(subnet string) error {
-
 	// We expect a string in "CIDR notation" or "Dot-decimal notation"
 	// E.g., a.b.c.d/xx form or just a.b.c.d
 	parts := strings.Split(subnet, "/")
@@ -423,7 +426,6 @@ func validateIPv4Address(addr string) error {
 }
 
 func validateDelay(delay *proxyconfig.HTTPFaultInjection_Delay) (errs error) {
-
 	errs = validateFloatPercent(errs, delay.Percent, "delay")
 
 	if delay.GetFixedDelaySeconds() < 0 {
@@ -441,7 +443,6 @@ func validateDelay(delay *proxyconfig.HTTPFaultInjection_Delay) (errs error) {
 }
 
 func validateAbortHTTPStatus(httpStatus *proxyconfig.HTTPFaultInjection_Abort_HttpStatus) (errs error) {
-
 	if httpStatus.HttpStatus < 0 || httpStatus.HttpStatus > 600 {
 		errs = multierror.Append(errs, fmt.Errorf("invalid abort http status %v", httpStatus.HttpStatus))
 	}
@@ -450,7 +451,6 @@ func validateAbortHTTPStatus(httpStatus *proxyconfig.HTTPFaultInjection_Abort_Ht
 }
 
 func validateAbort(abort *proxyconfig.HTTPFaultInjection_Abort) (errs error) {
-
 	errs = validateFloatPercent(errs, abort.Percent, "abort")
 
 	switch abort.ErrorType.(type) {
@@ -471,14 +471,11 @@ func validateAbort(abort *proxyconfig.HTTPFaultInjection_Abort) (errs error) {
 }
 
 func validateTerminate(terminate *proxyconfig.L4FaultInjection_Terminate) (errs error) {
-
 	errs = validateFloatPercent(errs, terminate.Percent, "terminate")
-
 	return
 }
 
 func validateThrottle(throttle *proxyconfig.L4FaultInjection_Throttle) (errs error) {
-
 	errs = validateFloatPercent(errs, throttle.Percent, "throttle")
 
 	if throttle.DownstreamLimitBps < 0 {
@@ -504,15 +501,12 @@ func validateThrottle(throttle *proxyconfig.L4FaultInjection_Throttle) (errs err
 
 // ValidateLoadBalancing validates Load Balancing
 func ValidateLoadBalancing(lb *proxyconfig.LoadBalancing) (errs error) {
-
 	// Currently the policy is just a name, and we don't validate it
-
 	return
 }
 
 // ValidateCircuitBreaker validates Circuit Breaker
 func ValidateCircuitBreaker(cb *proxyconfig.CircuitBreaker) (errs error) {
-
 	if simple := cb.GetSimpleCb(); simple != nil {
 		if simple.MaxConnections < 0 {
 			errs = multierror.Append(errs, fmt.Errorf("circuit_breaker max_connections must be in range [0..]"))
@@ -544,7 +538,6 @@ func ValidateCircuitBreaker(cb *proxyconfig.CircuitBreaker) (errs error) {
 }
 
 func validateWeights(routes []*proxyconfig.DestinationWeight, defaultDestination string) (errs error) {
-
 	// Sum weights
 	sum := 0
 	for _, destWeight := range routes {
@@ -566,7 +559,6 @@ func validateWeights(routes []*proxyconfig.DestinationWeight, defaultDestination
 
 // ValidateRouteRule checks routing rules
 func ValidateRouteRule(msg proto.Message) error {
-
 	value, ok := msg.(*proxyconfig.RouteRule)
 	if !ok {
 		return fmt.Errorf("cannot cast to routing rule")
@@ -637,7 +629,7 @@ func ValidateIngressRule(msg proto.Message) error {
 func ValidateDestinationPolicy(msg proto.Message) error {
 	value, ok := msg.(*proxyconfig.DestinationPolicy)
 	if !ok {
-		return fmt.Errorf("Cannot cast to destination policy")
+		return fmt.Errorf("cannot cast to destination policy")
 	}
 
 	var errs error
@@ -668,4 +660,102 @@ func ValidateDestinationPolicy(msg proto.Message) error {
 	}
 
 	return errs
+}
+
+func validateProxyAddress(hostAddr string) error {
+	colon := strings.Index(hostAddr, ":")
+	if colon < 0 {
+		return fmt.Errorf("':' separator not found in %q, host address must be of the form <DNS name>:<port> or <IP>:<port>",
+			hostAddr)
+	}
+	port, err := strconv.Atoi(hostAddr[colon+1:])
+	if err != nil {
+		return err
+	}
+	if err = validatePort(port); err != nil {
+		return err
+	}
+	host := hostAddr[:colon]
+	if err = validateFQDN(host); err != nil {
+		if err = validateIPv4Address(host); err != nil {
+			return fmt.Errorf("%q is not a valid hostname or an IPv4 address", host)
+		}
+	}
+
+	return nil
+}
+
+func validateDuration(pd *duration.Duration) error {
+	dur, err := ptypes.Duration(pd)
+	if err != nil {
+		return err
+	}
+	if dur <= 0 {
+		return errors.New("duration must be positive")
+	}
+	return nil
+}
+
+// ValidateProxyMeshConfig ...
+func ValidateProxyMeshConfig(mesh *proxyconfig.ProxyMeshConfig) (errs error) {
+	if mesh.EgressProxyAddress != "" {
+		if err := validateProxyAddress(mesh.EgressProxyAddress); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid egress proxy address:"))
+		}
+	}
+
+	// discovery address is mandatory since mutual TLS relies on CDS.
+	// strictly speaking, proxies can operate without RDS/CDS and with hot restarts
+	// but that requires additional test validation
+	if mesh.DiscoveryAddress == "" {
+		errs = multierror.Append(errs, errors.New("discovery address must be set to the proxy discovery service"))
+	} else if err := validateProxyAddress(mesh.DiscoveryAddress); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid discovery address:"))
+	}
+
+	if mesh.MixerAddress != "" {
+		if err := validateProxyAddress(mesh.MixerAddress); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid Mixer address:"))
+		}
+	}
+
+	if err := validatePort(int(mesh.ProxyListenPort)); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy listen port:"))
+	}
+
+	if err := validatePort(int(mesh.ProxyAdminPort)); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy admin port:"))
+	}
+
+	if mesh.IstioServiceCluster == "" {
+		errs = multierror.Append(errs, errors.New("Istio service cluster must be set"))
+	}
+
+	if err := validateDuration(mesh.DrainDuration); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid drain duration:"))
+	}
+
+	if err := validateDuration(mesh.ParentShutdownDuration); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid parent shutdown duration:"))
+	}
+
+	if err := validateDuration(mesh.DiscoveryRefreshDelay); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid refresh delay:"))
+	}
+
+	if err := validateDuration(mesh.ConnectTimeout); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid connect timeout:"))
+	}
+
+	if mesh.AuthCertsPath == "" {
+		errs = multierror.Append(errs, errors.New("invalid auth certificates path"))
+	}
+
+	switch mesh.AuthPolicy {
+	case proxyconfig.ProxyMeshConfig_NONE, proxyconfig.ProxyMeshConfig_MUTUAL_TLS:
+	default:
+		errs = multierror.Append(errs, fmt.Errorf("unrecognized auth policy %q", mesh.AuthPolicy))
+	}
+
+	return
 }

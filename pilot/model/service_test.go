@@ -23,30 +23,30 @@ var validServiceKeys = map[string]struct {
 	"example-service1.default|grpc,http|a=b,c=d;e=f": {
 		service: Service{
 			Hostname: "example-service1.default",
-			Ports:    []*Port{{Name: "http"}, {Name: "grpc"}}},
+			Ports:    []*Port{{Name: "http", Port: 80}, {Name: "grpc", Port: 90}}},
 		tags: TagsList{{"e": "f"}, {"c": "d", "a": "b"}}},
 	"my-service": {
 		service: Service{
 			Hostname: "my-service",
-			Ports:    []*Port{{Name: ""}}}},
+			Ports:    []*Port{{Name: "", Port: 80}}}},
 	"svc.ns": {
 		service: Service{
 			Hostname: "svc.ns",
-			Ports:    []*Port{{Name: ""}}}},
+			Ports:    []*Port{{Name: "", Port: 80}}}},
 	"svc||istio.io/my_tag-v1.test=my_value-v2.value": {
 		service: Service{
 			Hostname: "svc",
-			Ports:    []*Port{{Name: ""}}},
+			Ports:    []*Port{{Name: "", Port: 80}}},
 		tags: TagsList{{"istio.io/my_tag-v1.test": "my_value-v2.value"}}},
 	"svc|test|prod": {
 		service: Service{
 			Hostname: "svc",
-			Ports:    []*Port{{Name: "test"}}},
+			Ports:    []*Port{{Name: "test", Port: 80}}},
 		tags: TagsList{{"prod": ""}}},
 	"svc.default.svc.cluster.local|http-test": {
 		service: Service{
 			Hostname: "svc.default.svc.cluster.local",
-			Ports:    []*Port{{Name: "http-test"}}}},
+			Ports:    []*Port{{Name: "http-test", Port: 80}}}},
 }
 
 func TestServiceString(t *testing.T) {

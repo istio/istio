@@ -485,8 +485,6 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 				serviceAccounts := ds.Accounts.GetIstioServiceAccounts(cluster.hostname, ports)
 				cluster.SSLContext = buildClusterSSLContext(ds.MeshConfig.AuthCertsPath, serviceAccounts)
 			}
-		default:
-			glog.Warningf("Unknown auth policy: %v", auth)
 		}
 
 		var err error
