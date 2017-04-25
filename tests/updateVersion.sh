@@ -102,6 +102,7 @@ function merge_files() {
   cat $SRC/istio-mixer.yaml >> $OUT
   cat $SRC/istio-manager.yaml >> $OUT
   cat $SRC/istio-ingress-controller.yaml >> $OUT
+  cat $SRC/istio-egress.yaml >> $OUT
 
   OUT=$ROOT/kubernetes/istio-16.yaml
   echo "# GENERATED FILE. Use with Kubernetes 1.6+" > $OUT
@@ -110,6 +111,7 @@ function merge_files() {
   cat $SRC/istio-manager.yaml >> $OUT
   cat $SRC/../istio-rbac/istio-rbac.yaml >> $OUT
   cat $SRC/istio-ingress-controller.yaml >> $OUT
+  cat $SRC/istio-egress.yaml >> $OUT
 }
 
 function update_version_file() {
@@ -128,6 +130,7 @@ function update_istio_install() {
   pushd $ROOT/kubernetes/istio-install
   sed -i "s|image: .*/\(.*\):.*|image: $MANAGER_HUB/\1:$MANAGER_TAG|" istio-manager.yaml
   sed -i "s|image: .*/\(.*\):.*|image: $MANAGER_HUB/\1:$MANAGER_TAG|" istio-ingress-controller.yaml
+  sed -i "s|image: .*/\(.*\):.*|image: $MANAGER_HUB/\1:$MANAGER_TAG|" istio-egress.yaml
   sed -i "s|image: .*/\(.*\):.*|image: $MIXER_HUB/\1:$MIXER_TAG|" istio-mixer.yaml
   popd
 }
