@@ -9,7 +9,6 @@ data:
     # authPolicy: MUTUAL_TLS
     mixerAddress: istio-mixer:9091
     discoveryAddress: istio-manager:8080
-    apiserverAddress: istio-manager:8081
 ---
 apiVersion: v1
 kind: Service
