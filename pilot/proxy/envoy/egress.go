@@ -15,8 +15,10 @@
 package envoy
 
 import (
+	"errors"
 	"fmt"
-	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -26,113 +28,60 @@ import (
 	"istio.io/manager/proxy"
 )
 
+const (
+	egressNode = "egress"
+)
+
 type egressWatcher struct {
-	agent   proxy.Agent
-	ctl     model.Controller
-	context *EgressConfig
+	agent proxy.Agent
+	mesh  *config.ProxyMeshConfig
 }
 
 // NewEgressWatcher creates a new egress watcher instance with an agent
-func NewEgressWatcher(ctl model.Controller, context *EgressConfig) (Watcher, error) {
-	agent := proxy.NewAgent(runEnvoy(context.Mesh, "egress"), cleanupEnvoy(context.Mesh), 10, 100*time.Millisecond)
-
-	out := &egressWatcher{
-		agent:   agent,
-		ctl:     ctl,
-		context: context,
+func NewEgressWatcher(mesh *config.ProxyMeshConfig) (Watcher, error) {
+	if mesh.EgressProxyAddress == "" {
+		return nil, errors.New("egress proxy requires address configuration")
 	}
-
-	// egress depends on the external services declaration being up to date
-	if err := ctl.AppendServiceHandler(func(*model.Service, model.Event) {
-		out.reload()
-	}); err != nil {
-		return nil, err
-	}
-
-	return out, nil
-}
-
-func (w *egressWatcher) reload() {
-	w.agent.ScheduleConfigUpdate(generateEgress(w.context))
+	agent := proxy.NewAgent(runEnvoy(mesh, egressNode), cleanupEnvoy(mesh), 10, 100*time.Millisecond)
+	return &egressWatcher{
+		agent: agent,
+		mesh:  mesh,
+	}, nil
 }
 
 func (w *egressWatcher) Run(stop <-chan struct{}) {
 	go w.agent.Run(stop)
-
-	// Initialize envoy according to the current model state,
-	// instead of waiting for the first event to arrive.
-	// Note that this is currently done synchronously (blocking),
-	// to avoid racing with controller events lurking around the corner.
-	// This can be improved once we switch to a mechanism where reloads
-	// are linearized (e.g., by a single goroutine reloader).
-	w.reload()
-	w.ctl.Run(stop)
+	w.agent.ScheduleConfigUpdate(generateEgress(w.mesh))
+	<-stop
 }
 
-// EgressConfig defines information for engress
-type EgressConfig struct {
-	Namespace string
-	Services  model.ServiceDiscovery
-	Mesh      *config.ProxyMeshConfig
-	Port      int
+func getEgressProxyPort(mesh *config.ProxyMeshConfig) int {
+	addr := mesh.EgressProxyAddress
+	port, _ := strconv.Atoi(addr[strings.Index(addr, ":")+1:])
+	return port
 }
 
-func generateEgress(conf *EgressConfig) *Config {
+func generateEgress(mesh *config.ProxyMeshConfig) *Config {
+	port := getEgressProxyPort(mesh)
+	listener := buildHTTPListener(mesh, nil, WildcardAddress, port, true)
+	listener = applyInboundAuth(listener, mesh)
+	return buildConfig([]*Listener{listener}, nil, mesh)
+}
+
+func buildEgressRoutes(services model.ServiceDiscovery, mesh *config.ProxyMeshConfig) HTTPRouteConfigs {
 	// Create a VirtualHost for each external service
 	vhosts := make([]*VirtualHost, 0)
-	services := conf.Services.Services()
-	for _, service := range services {
+	for _, service := range services.Services() {
 		if service.External() {
 			if host := buildEgressHTTPRoute(service); host != nil {
 				vhosts = append(vhosts, host)
 			}
 		}
 	}
-
-	sort.Slice(vhosts, func(i, j int) bool { return vhosts[i].Name < vhosts[j].Name })
-
-	rConfig := &HTTPRouteConfig{VirtualHosts: vhosts}
-
-	// External services are expected to have only one external port or they will get conflated
-	listener := &Listener{
-		Address:    fmt.Sprintf("tcp://%s:%d", WildcardAddress, conf.Port),
-		BindToPort: true,
-		Filters: []*NetworkFilter{
-			{
-				Type: "read",
-				Name: HTTPConnectionManager,
-				Config: HTTPFilterConfig{
-					CodecType:   "auto",
-					StatPrefix:  "http",
-					AccessLog:   []AccessLog{{Path: DefaultAccessLog}},
-					RouteConfig: rConfig,
-					Filters: []HTTPFilter{
-						{
-							Type:   "decoder",
-							Name:   "router",
-							Config: FilterRouterConfig{},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	listeners := []*Listener{listener}
-	clusters := rConfig.clusters().normalize()
-
-	clusters.setTimeout(conf.Mesh.ConnectTimeout)
-
-	return &Config{
-		Listeners: listeners,
-		Admin: Admin{
-			AccessLogPath: DefaultAccessLog,
-			Address:       fmt.Sprintf("tcp://%s:%d", WildcardAddress, conf.Mesh.ProxyAdminPort),
-		},
-		ClusterManager: ClusterManager{
-			Clusters: clusters,
-		},
-	}
+	port := getEgressProxyPort(mesh)
+	configs := HTTPRouteConfigs{port: &HTTPRouteConfig{VirtualHosts: vhosts}}
+	configs.normalize()
+	return configs
 }
 
 // buildEgressRoute translates an egress rule to an Envoy route
@@ -143,31 +92,28 @@ func buildEgressHTTPRoute(svc *model.Service) *VirtualHost {
 		protocol := servicePort.Protocol
 		switch protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolHTTPS:
-			route := &HTTPRoute{
-				Prefix:          "/",
-				Cluster:         buildEgressClusterName(svc.ExternalName, servicePort.Port),
-				AutoHostRewrite: true,
-			}
 			cluster := buildOutboundCluster(svc.Hostname, servicePort, nil)
 
-			// configure cluster for strict_dns
-			cluster.Name = buildEgressClusterName(svc.ExternalName, servicePort.Port)
-			cluster.ServiceName = ""
+			// overwrite cluster hosts and types
 			cluster.Type = ClusterTypeStrictDNS
-			cluster.Hosts = []Host{
-				{
-					URL: fmt.Sprintf("tcp://%s:%d", svc.ExternalName, servicePort.Port),
-				},
-			}
+			cluster.Hosts = []Host{{
+				URL: fmt.Sprintf("tcp://%s:%d", svc.ExternalName, servicePort.Port),
+			}}
 
 			if protocol == model.ProtocolHTTPS {
+				// TODO add root CA for public TLS
 				cluster.SSLContext = &SSLContextExternal{}
 			}
 
-			route.clusters = append(route.clusters, cluster)
+			route := &HTTPRoute{
+				Prefix:          "/",
+				Cluster:         cluster.Name,
+				AutoHostRewrite: true,
+				clusters:        []*Cluster{cluster},
+			}
 
 			host = &VirtualHost{
-				Name:    cluster.Name,
+				Name:    svc.Hostname,
 				Domains: []string{svc.Hostname},
 				Routes:  []*HTTPRoute{route},
 			}
@@ -178,8 +124,4 @@ func buildEgressHTTPRoute(svc *model.Service) *VirtualHost {
 	}
 
 	return host
-}
-
-func buildEgressClusterName(address string, port int) string {
-	return fmt.Sprintf("%v|%d", address, port)
 }

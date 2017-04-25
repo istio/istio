@@ -457,9 +457,12 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 		// There is a lot of potential to cache and reuse cluster definitions across proxies and also
 		// skip computing the actual HTTP routes
 		var httpRouteConfigs HTTPRouteConfigs
-		if node == ingressNode {
+		switch node {
+		case ingressNode:
 			httpRouteConfigs, _ = buildIngressRoutes(ds.Config.IngressRules(""))
-		} else {
+		case egressNode:
+			httpRouteConfigs = buildEgressRoutes(ds.Discovery, ds.MeshConfig)
+		default:
 			instances := ds.Discovery.HostInstances(map[string]bool{node: true})
 			services := ds.Discovery.Services()
 			httpRouteConfigs = buildOutboundHTTPRoutes(instances, services, ds.Accounts, ds.MeshConfig, ds.Config)
@@ -471,19 +474,23 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 		// set connect timeout
 		clusters.setTimeout(ds.MeshConfig.ConnectTimeout)
 
-		// apply custom policies for HTTP clusters
-		for _, cluster := range clusters {
-			insertDestinationPolicy(ds.Config, cluster)
-		}
-
-		switch auth := ds.MeshConfig.AuthPolicy; auth {
-		case config.ProxyMeshConfig_NONE:
-		case config.ProxyMeshConfig_MUTUAL_TLS:
-			// apply SSL context to enable mutual TLS between Envoy proxies
+		// egress proxy clusters reference external destinations
+		if node != egressNode {
+			// apply custom policies for HTTP clusters
 			for _, cluster := range clusters {
-				ports := model.PortList{cluster.port}.GetNames()
-				serviceAccounts := ds.Accounts.GetIstioServiceAccounts(cluster.hostname, ports)
-				cluster.SSLContext = buildClusterSSLContext(ds.MeshConfig.AuthCertsPath, serviceAccounts)
+				insertDestinationPolicy(ds.Config, cluster)
+			}
+
+			// apply auth policies
+			switch ds.MeshConfig.AuthPolicy {
+			case config.ProxyMeshConfig_NONE:
+			case config.ProxyMeshConfig_MUTUAL_TLS:
+				// apply SSL context to enable mutual TLS between Envoy proxies
+				for _, cluster := range clusters {
+					ports := model.PortList{cluster.port}.GetNames()
+					serviceAccounts := ds.Accounts.GetIstioServiceAccounts(cluster.hostname, ports)
+					cluster.SSLContext = buildClusterSSLContext(ds.MeshConfig.AuthCertsPath, serviceAccounts)
+				}
 			}
 		}
 
@@ -545,6 +552,7 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 				fmt.Sprintf("Unexpected %s %q", ServiceCluster, sc))
 			return
 		}
+
 		// service-node holds the IP address
 		node := request.PathParameter(ServiceNode)
 
@@ -558,9 +566,12 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 		}
 
 		var httpRouteConfigs HTTPRouteConfigs
-		if node == ingressNode {
+		switch node {
+		case ingressNode:
 			httpRouteConfigs, _ = buildIngressRoutes(ds.Config.IngressRules(""))
-		} else {
+		case egressNode:
+			httpRouteConfigs = buildEgressRoutes(ds.Discovery, ds.MeshConfig)
+		default:
 			instances := ds.Discovery.HostInstances(map[string]bool{node: true})
 			services := ds.Discovery.Services()
 			httpRouteConfigs = buildOutboundHTTPRoutes(instances, services, ds.Accounts, ds.MeshConfig, ds.Config)

@@ -28,7 +28,7 @@ type ingress struct {
 }
 
 const (
-	ingressServiceName = "istio-ingress-controller"
+	ingressServiceName = "istio-ingress"
 )
 
 func (t *ingress) String() string {

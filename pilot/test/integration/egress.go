@@ -20,6 +20,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/manager/test/util"
 )
 
 type egress struct {
@@ -31,6 +34,13 @@ func (t *egress) String() string {
 }
 
 func (t *egress) setup() error {
+	if !t.Egress {
+		return nil
+	}
+	if err := util.Run(fmt.Sprintf(
+		"kubectl -n %s apply -f test/integration/testdata/external-service.yaml", t.Namespace)); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -65,4 +75,13 @@ func (t *egress) run() error {
 }
 
 func (t *egress) teardown() {
+	if !t.Egress {
+		return
+	}
+	if err := client.CoreV1().Services(t.Namespace).Delete("httpbin", &meta_v1.DeleteOptions{}); err != nil {
+		glog.Warning(err)
+	}
+	if err := client.CoreV1().Services(t.Namespace).Delete("httpsgoogle", &meta_v1.DeleteOptions{}); err != nil {
+		glog.Warning(err)
+	}
 }

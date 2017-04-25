@@ -3,34 +3,37 @@ package envoy
 import (
 	"testing"
 
-	"istio.io/manager/proxy"
-	"istio.io/manager/test/mock"
+	proxyconfig "istio.io/api/proxy/v1/config"
+
 	"istio.io/manager/test/util"
 )
 
 const (
-	egressEnvoyConfig = "testdata/egress-envoy.json"
+	egressEnvoyConfig    = "testdata/egress-envoy.json"
+	egressEnvoySSLConfig = "testdata/egress-envoy-auth.json"
 )
 
-func testEgressConfig(c *EgressConfig, envoyConfig string, t *testing.T) {
-	config := generateEgress(c)
+func TestEgress(t *testing.T) {
+	mesh := makeMeshConfig()
+	config := generateEgress(&mesh)
 	if config == nil {
 		t.Fatal("Failed to generate config")
 	}
-
-	if err := config.WriteFile(envoyConfig); err != nil {
-		t.Fatalf(err.Error())
+	if err := config.WriteFile(egressEnvoyConfig); err != nil {
+		t.Fatal(err)
 	}
-
-	util.CompareYAML(envoyConfig, t)
+	util.CompareYAML(egressEnvoyConfig, t)
 }
 
-func TestEgressRoutes(t *testing.T) {
-	r := mock.Discovery
-	mesh := proxy.DefaultMeshConfig()
-	testEgressConfig(&EgressConfig{
-		Services: r,
-		Mesh:     &mesh,
-		Port:     8888,
-	}, egressEnvoyConfig, t)
+func TestEgressSSL(t *testing.T) {
+	mesh := makeMeshConfig()
+	mesh.AuthPolicy = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
+	config := generateEgress(&mesh)
+	if config == nil {
+		t.Fatal("Failed to generate config")
+	}
+	if err := config.WriteFile(egressEnvoySSLConfig); err != nil {
+		t.Fatal(err)
+	}
+	util.CompareYAML(egressEnvoySSLConfig, t)
 }

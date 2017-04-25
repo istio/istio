@@ -1,25 +1,3 @@
-# Example external service for egress
-apiVersion: v1
-kind: Service
-metadata:
-  name: httpbin
-spec:
-  type: ExternalName
-  externalName: httpbin.org
-  ports:
-  - port: 80
-    name: http
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: httpsgoogle
-spec:
-  type: ExternalName
-  externalName: www.google.com
-  ports:
-  - port: 443
-    name: https
 ---
 apiVersion: v1
 kind: Service
@@ -27,8 +5,8 @@ metadata:
   name: istio-egress
 spec:
   ports:
-  - port: 80
-    name: "80"
+  - name: http
+    port: 80
   selector:
     app: istio-egress
 ---
@@ -47,6 +25,8 @@ spec:
       - name: proxy
         image: {{.Hub}}/proxy:{{.Tag}}
         imagePullPolicy: Always
+        ports:
+        - containerPort: 80
         args: ["proxy", "egress", "-v", "{{.Verbosity}}"]
         env:
         - name: POD_NAMESPACE
@@ -54,4 +34,14 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+{{if eq .Auth 1}}
+        volumeMounts:
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+{{end}}
 ---

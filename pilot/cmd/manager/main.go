@@ -56,7 +56,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "manager",
 		Short: "Istio Manager",
-		Long:  "Istio Manager provides management plane functionality to the Istio proxy mesh and Istio Mixer.",
+		Long:  "Istio Manager provides management plane functionality to the Istio service mesh and Istio Mixer.",
 		PersistentPreRunE: func(*cobra.Command, []string) (err error) {
 			client, err = kube.NewClient(flags.kubeconfig, model.IstioConfig)
 			if err != nil {
@@ -130,12 +130,12 @@ var (
 
 	proxyCmd = &cobra.Command{
 		Use:   "proxy",
-		Short: "Istio Proxy agent",
+		Short: "Envoy agent",
 	}
 
 	sidecarCmd = &cobra.Command{
 		Use:   "sidecar",
-		Short: "Istio Proxy sidecar agent",
+		Short: "Envoy sidecar agent",
 		RunE: func(c *cobra.Command, args []string) (err error) {
 			controller := kube.NewController(client, mesh, flags.controllerOptions)
 			context := &proxy.Context{
@@ -160,7 +160,7 @@ var (
 
 	ingressCmd = &cobra.Command{
 		Use:   "ingress",
-		Short: "Istio Proxy ingress controller",
+		Short: "Envoy ingress agent",
 		RunE: func(c *cobra.Command, args []string) error {
 			w, err := envoy.NewIngressWatcher(mesh, client)
 			if err != nil {
@@ -175,20 +175,12 @@ var (
 
 	egressCmd = &cobra.Command{
 		Use:   "egress",
-		Short: "Istio Proxy external service agent",
+		Short: "Envoy external service agent",
 		RunE: func(c *cobra.Command, args []string) error {
-			controller := kube.NewController(client, mesh, flags.controllerOptions)
-			config := &envoy.EgressConfig{
-				Namespace: flags.controllerOptions.Namespace,
-				Mesh:      mesh,
-				Services:  controller,
-				Port:      80,
-			}
-			w, err := envoy.NewEgressWatcher(controller, config)
+			w, err := envoy.NewEgressWatcher(mesh)
 			if err != nil {
 				return err
 			}
-
 			stop := make(chan struct{})
 			go w.Run(stop)
 			cmd.WaitSignal(stop)

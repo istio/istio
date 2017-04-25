@@ -1,0 +1,30 @@
+{
+  "virtual_hosts": [
+   {
+    "name": "httpbin.default.svc.cluster.local",
+    "domains": [
+     "httpbin.default.svc.cluster.local"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.httpbin.default.svc.cluster.local|http",
+      "auto_host_rewrite": true
+     }
+    ]
+   },
+   {
+    "name": "httpsbin.default.svc.cluster.local",
+    "domains": [
+     "httpsbin.default.svc.cluster.local"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.httpsbin.default.svc.cluster.local|https",
+      "auto_host_rewrite": true
+     }
+    ]
+   }
+  ]
+ }

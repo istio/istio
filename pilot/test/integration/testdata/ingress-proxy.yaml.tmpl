@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-ingress-controller
+  name: istio-ingress
   labels:
     app: ingress
 spec:
@@ -16,7 +16,7 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: istio-ingress-controller
+  name: istio-ingress
 spec:
   replicas: 1
   template:
