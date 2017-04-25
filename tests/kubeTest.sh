@@ -75,6 +75,7 @@ trap tear_down EXIT
 create_namespace
 generate_istio_yaml "${ISTIO_INSTALL_DIR}"
 deploy_istio "${ISTIO_INSTALL_DIR}"
+setup_istioctl
 generate_bookinfo_yaml "${BOOKINFO_DIR}"
 generate_rules_yaml "${RULES_DIR}"
 deploy_bookinfo "${BOOKINFO_DIR}"; URL=$GATEWAY_URL
