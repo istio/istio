@@ -30,7 +30,7 @@ func Compare(out, model []byte) error {
 	return nil
 }
 
-// CompareFile compares the content of two files
+// CompareFiles compares the content of two files
 func CompareFiles(outFile, modelFile string) error {
 	var out, model []byte
 	var err error

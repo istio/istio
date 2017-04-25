@@ -12,8 +12,7 @@ import (
 )
 
 const (
-	version_file      = "istio.VERSION"
-	yaml_suffix       = ".yaml"
+	yamlSuffix        = ".yaml"
 	mixerHubDefault   = "MIXER_HUB"
 	mixerTagDefault   = "MIXER_TAG"
 	managerHubDefault = "MANAGER_HUB"
@@ -197,7 +196,7 @@ func (k *KubeInfo) DeployAppFromYaml(src string, injectProxy bool) error {
 		return err
 	}
 
-	if err := k.deployApp(yamlFile, strings.TrimSuffix(path.Base(src), yaml_suffix), injectProxy); err != nil {
+	if err := k.deployApp(yamlFile, strings.TrimSuffix(path.Base(src), yamlSuffix), injectProxy); err != nil {
 		return err
 	}
 	return nil

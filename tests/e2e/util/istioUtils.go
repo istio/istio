@@ -11,11 +11,11 @@ import (
 )
 
 const (
-	istioctl_url = "ISTIOCTL_URL"
+	istioctlURL = "ISTIOCTL_URL"
 )
 
 var (
-	remotePath = flag.String("istioctl_url", os.Getenv(istioctl_url), "URL to download istioctl")
+	remotePath = flag.String("istioctl_url", os.Getenv(istioctlURL), "URL to download istioctl")
 )
 
 // Istioctl gathers istioctl information
@@ -71,6 +71,6 @@ func (i *Istioctl) CreateRule(rule string) error {
 
 // ReplaceRule replace rule(s)
 func (i *Istioctl) ReplaceRule(rule string) error {
-	_, err := Shell(fmt.Sprintf("%s -n %s replace -f %s", i.binaryPath, i.namespace, GetTestRuntimePath(rule)))
+	_, err := Shell(fmt.Sprintf("%s -n %s replace -f %s", i.binaryPath, i.namespace, rule))
 	return err
 }

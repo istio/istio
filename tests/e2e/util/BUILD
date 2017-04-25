@@ -4,13 +4,13 @@ go_library(
     name = "go_default_library",
     srcs = [
         "commonUtils.go",
-        "kubeUtils.go",
-        "istioUtils.go",
         "compareUtils.go",
+        "istioUtils.go",
+        "kubeUtils.go",
     ],
-    deps = [
-            "@com_github_golang_glog//:go_default_library",
-            "@com_github_pmezard_go_difflib//difflib:go_default_library",
-            ],
     visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_pmezard_go_difflib//difflib:go_default_library",
+    ],
 )

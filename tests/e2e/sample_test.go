@@ -108,23 +108,25 @@ func testDefaultRouting(t *testing.T, gateway string) {
 }
 
 func checkRoutingOutput(user, version, gateway string) error {
+	var resp string
+	var err error
 	outputFile := fmt.Sprintf("productpage-%s-%s.html", user, version)
 	output := filepath.Join(c.Kube.TmpDir, outputFile)
-	resp, err := util.Shell(fmt.Sprintf("curl -s -b 'foo=bar;user=%s;' %s/productpage",
-		user, gateway))
+	resp, err = util.Shell(fmt.Sprintf("curl -s -b 'foo=bar;user=%s;' %s/productpage", user, gateway))
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(output, []byte(resp), 0600); err != nil {
+	err = ioutil.WriteFile(output, []byte(resp), 0600)
+	if err != nil {
 		return err
 	}
-	if err := util.CompareFiles(output, util.GetTestRuntimePath(filepath.Join("tests/apps/bookinfo/output", outputFile))); err != nil {
+	err = util.CompareFiles(output, util.GetTestRuntimePath(filepath.Join("tests/apps/bookinfo/output", outputFile)))
+	if err != nil {
 		glog.Errorf("Failed! User %s in version %s didn't get expected respose", user, version)
-		return err
 	} else {
 		glog.Infof("Succeed! User %s in version %s get expected respose!", user, version)
-		return nil
 	}
+	return err
 }
 
 func prepareRule(src, user string) (string, error) {
@@ -155,20 +157,13 @@ func testVersionRouting(t *testing.T, gateway string) {
 	check(err, "Failed to prepare rule-all-v1")
 	r2, err = prepareRule(util.GetTestRuntimePath("demos/apps/bookinfo/route-rule-reviews-test-v2.yaml"), u2)
 	check(err, "Failed to prepare rule-test-v2")
-	c.Kube.Istioctl.CreateRule(r1)
-	c.Kube.Istioctl.CreateRule(r2)
+	check(c.Kube.Istioctl.CreateRule(r1), "Failed to create rule1")
+	check(c.Kube.Istioctl.CreateRule(r2), "Failed to create rule2")
 	glog.Info("Waiting for rules to propagate...")
 	time.Sleep(time.Duration(30) * time.Second)
 
-	if err := checkRoutingOutput(u1, "v1", gateway); err != nil {
-		glog.Errorf("Unmatch part: %s", err)
-		t.Error(err)
-	}
-
-	if err := checkRoutingOutput(u2, "v2", gateway); err != nil {
-		glog.Errorf("Unmatch part: %s", err)
-		t.Error(err)
-	}
+	check(checkRoutingOutput(u1, "v1", gateway), fmt.Sprintf("Response not match with expect! %s in v1", u1))
+	check(checkRoutingOutput(u2, "v2", gateway), fmt.Sprintf("Response not match with expect! %s in v2", u2))
 }
 
 func newTestConfig() (*testConfig, error) {

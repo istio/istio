@@ -15,9 +15,8 @@ import (
 )
 
 const (
-	test_src_dir           = "TEST_SRCDIR"
-	com_github_istio_istio = "com_github_istio_istio"
-	version_file           = "istio.VERSION"
+	testSrcDir = "TEST_SRCDIR"
+	pathPrefix = "com_github_istio_istio"
 )
 
 var (
@@ -40,8 +39,10 @@ func Shell(command string) (string, error) {
 // HTTPDownload download from src(url) and store into dst(local file)
 func HTTPDownload(dst string, src string) error {
 	glog.Infof("Start downloading from %s to %s ...\n", src, dst)
-
-	out, err := os.Create(dst)
+	var err error
+	var out *os.File
+	var resp *http.Response
+	out, err = os.Create(dst)
 	if err != nil {
 		return err
 	}
@@ -52,20 +53,19 @@ func HTTPDownload(dst string, src string) error {
 		}
 	}()
 
-	if resp, err := http.Get(src); err != nil {
-		return err
-	} else {
-		defer func() {
-			if cerr := resp.Body.Close(); err == nil && cerr != nil {
-				err = cerr
-			}
-		}()
-		if _, err := io.Copy(out, resp.Body); err != nil {
+	resp, err = http.Get(src)
+	defer func() {
+		if cerr := resp.Body.Close(); err == nil && cerr != nil {
+			err = cerr
+		}
+	}()
+	if err == nil {
+		if _, err = io.Copy(out, resp.Body); err != nil {
 			return err
 		}
 		glog.Info("Download successfully!")
 	}
-	return nil
+	return err
 }
 
 // CopyFile create a new file to src based on dst
@@ -99,17 +99,20 @@ func CopyFile(src, dst string) error {
 
 // GetTestRuntimePath give "path from WORKSPACE", return absolute path at runtime
 func GetTestRuntimePath(p string) string {
+	var res string
 	if *manualRun {
 		ex, err := os.Executable()
 		if err != nil {
 			glog.Warning("Cannot get runtime path")
 		}
-		return filepath.Join(path.Dir(ex), filepath.Join("go_default_test.runfiles/com_github_istio_istio", p))
+		res = filepath.Join(path.Dir(ex), filepath.Join(filepath.Join("go_default_test.runfiles", pathPrefix), p))
 	} else {
-		return filepath.Join(os.Getenv(test_src_dir), filepath.Join(com_github_istio_istio, p))
+		res = filepath.Join(os.Getenv(testSrcDir), filepath.Join(pathPrefix, p))
 	}
+	return res
 }
 
+// PrintBlock print log in a clearer way
 func PrintBlock(m string) {
 	glog.Infof("\n\n=========================================\n%s\n=========================================\n\n", m)
 }

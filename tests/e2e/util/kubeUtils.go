@@ -3,7 +3,6 @@ package util
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"regexp"
@@ -18,7 +17,6 @@ import (
 func Fill(outFile, inFile string, values interface{}) error {
 	var bytes bytes.Buffer
 	w := bufio.NewWriter(&bytes)
-
 	tmpl, err := template.ParseFiles(GetTestRuntimePath("tests/e2e/framework/testdata/" + inFile))
 	if err != nil {
 		return err
@@ -63,7 +61,7 @@ func KubeApply(n, yaml string) error {
 // GetIngress get istio ingress ip
 func GetIngress(n string) (string, error) {
 	standby := 0
-	r := regexp.MustCompile("^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$")
+	r := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 	for i := 1; i <= 10; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)
 		out, err := Shell(fmt.Sprintf("kubectl get svc istio-ingress-controller -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n))
@@ -79,5 +77,5 @@ func GetIngress(n string) (string, error) {
 		glog.Infof("Tried %d times to get ingress...", i)
 		standby += 5
 	}
-	return "", errors.New("Cannot get ingress.")
+	return "", fmt.Errorf("Cannot get ingress.")
 }
