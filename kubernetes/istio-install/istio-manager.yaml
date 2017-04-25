@@ -5,6 +5,8 @@ metadata:
   name: istio
 data:
   mesh: |-
+    # Uncomment the following line to enable mutual TLS between proxies
+    # authPolicy: MUTUAL_TLS
     mixerAddress: istio-mixer:9091
     discoveryAddress: istio-manager:8080
 ---
@@ -21,6 +23,11 @@ spec:
   selector:
     istio: manager
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-manager-service-account
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -34,9 +41,10 @@ spec:
       labels:
         istio: manager
     spec:
+      serviceAccountName: istio-manager-service-account
       containers:
       - name: manager
-        image: gcr.io/istio-testing/manager:alpha9a73dd7feb916a7af889b94558b579ccee261a26
+        image: docker.io/istio/manager:2017-04-24-23.54.11
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:
@@ -48,3 +56,4 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
 ---
+

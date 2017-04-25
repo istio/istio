@@ -25,15 +25,17 @@ BOOKINFO_DIR="${TEST_DIR}/bookinfo"
 RULES_DIR="${BOOKINFO_DIR}/rules"
 
 # Import relevant utils
-. $SCRIPT_DIR/kubeUtils.sh || error_exit 'Could not load k8s utilities'
-. $SCRIPT_DIR/istioUtils.sh || error_exit 'Could not load istio utilities'
+. ${SCRIPT_DIR}/kubeUtils.sh || \
+  { echo 'could not load k8s utilities'; exit 1; }
+. ${SCRIPT_DIR}/istioUtils.sh || error_exit 'Could not load istio utilities'
 
-. $ROOT/istio.VERSION || error_exit "Could not source versions"
+. ${ROOT}/istio.VERSION || error_exit "Could not source versions"
 
-while getopts :gi:sn:m:x: arg; do
+while getopts :c:i:gsn:m:x: arg; do
   case ${arg} in
+    c) ISTIOCLI="${OPTARG}";;
+    i) ISTIOCTL_URL="${OPTARG}";;
     g) GKE_ENABLE=true;;
-    i) ISTIOCLI="${OPTARG}";;
     s) TEAR_DOWN=false;;
     n) NAMESPACE="${OPTARG}";;
     m) MANAGER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
@@ -45,7 +47,7 @@ done
 [[ -z ${NAMESPACE} ]] && NAMESPACE="$(generate_namespace)"
 
 if [[ -z ${ISTIOCLI} ]]; then
-    wget -O "${TEST_DIR}/istioctl" "${ISTIOCTL}/istioctl-linux" || error_exit "Could not download istioctl"
+    wget -q -O "${TEST_DIR}/istioctl" "${ISTIOCTL_URL}/istioctl-linux" || error_exit "Could not download istioctl"
     chmod +x "${TEST_DIR}/istioctl"
     ISTIOCLI="${TEST_DIR}/istioctl -c ${HOME}/.kube/config"
 fi
@@ -56,7 +58,8 @@ if [[ -n ${MANAGER_HUB_TAG} ]]; then
 fi
 
 if [[ -n ${MIXER_HUB_TAG} ]]; then
-    MIXER="$(echo ${MIXER_HUB_TAG}|cut -f1 -d,)/mixer:$(echo ${MIXER_HUB_TAG}|cut -f2 -d,)"
+    MIXER_HUB="$(echo ${MIXER_HUB_TAG}|cut -f1 -d,)"
+    MIXER_TAG="$(echo ${MIXER_HUB_TAG}|cut -f2 -d,)"
 fi
 
 function tear_down {

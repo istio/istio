@@ -34,17 +34,11 @@ Istio is composed of three main components:
 * **Manager** - A component responsible for configuring the
   proxies and the mixer at runtime.
 
-     
-A high-level overview of Istio's components is available
-[here](https://istio.io/docs/guides/index.html). Istio currently only supports the Kubernetes
+Istio currently only supports the Kubernetes
 platform, although we plan support for additional platforms such as
-CloudFoundry, and Mesos in the near future. See the
-[getting started](doc/getting-started.md) tutorial for more information on
-using Istio in your Kubernetes deployments.
+CloudFoundry, and Mesos in the near future.
 
-## Installation
-
-Please refer to [INSTALL.md](INSTALL.md) for detailed steps.
+You can learn all about Istio by visiting [istio.io](https://istio.io).     
 
 ## Repositories
 
@@ -54,18 +48,17 @@ repository contains information about how to build and test it.
 - [istio/api](https://github.com/istio/api). This repository defines
 component-level APIs and common configuration formats for the Istio platform.
 
-- [istio/istio](README.md). This is the main Istio repo (the one you are
-currently looking at). It hosts the high-level documentation for the
-project, along with [tutorials](doc/getting-started.md) and two demo
-applications: a [basic echo app](demos/apps/simple_echo_app) and a slightly
-more advanced [polyglot application](demos/apps/bookinfo).
+- [istio/istio](README.md). This is the repo you are
+currently looking at. It hosts the various Istio sample programs
+along with the various documents that govern the Istio open source 
+project.
 
 - [istio/manager](https://github.com/istio/manager). This repository
 contains platform-specific code to populate the
-[abstract service model](doc/model.md), dynamically reconfigure the proxies
+[abstract service model](https://istio.io/docs/concepts/model.html), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
-[routing rules](doc/rule-dsl.md) into proxy specific configuration.  The
-[_istioctl_](doc/istioctl.md) command line utility is also available in
+[routing rules](https://istio.io/docs/reference/rule-dsl.html) into proxy specific configuration.  The
+[_istioctl_](https://istio.io/docs/reference/istioctl.html) command line utility is also available in
 this repository.
 
 - [istio/mixer](https://github.com/istio/mixer). This repository 
@@ -89,14 +82,5 @@ participate in the Istio project by submitting pull requests or issues.
 
 ## Community and support
 
-There are several communication channels available:
-
-- [Mailing List](https://groups.google.com/forum/#!forum/istio-dev)
-- [Slack](https://istio-dev.slack.com)
-
-and of course use GitHub issues to report bugs or problems to the team:
- 
-- [Overall Istio Issues](https://github.com/istio/istio/issues)
-- [Manager Issues](https://github.com/istio/manager/issues)
-- [Mixer Issues](https://github.com/istio/mixer/issues)
-- [Proxy Issues](https://github.com/istio/proxy/issues)
+There are several [communication channels](https://istio.io/community) available to get
+support for Istio or to participate in its evolution.

@@ -13,13 +13,7 @@ def bazel = new Bazel()
 
 mainFlow(utils) {
   node {
-    gitUtils.initialize() {
-      // For automated qualification, update all the files to
-      // use the version built from other module PRs.
-      if (utils.getParam('SUBMODULES_UPDATE') != '') {
-        sh('scripts/update_version.sh -Q')
-      }
-    }
+    gitUtils.initialize()
   }
   if (utils.runStage('PRESUBMIT')) {
     presubmit(gitUtils, bazel, utils)
@@ -31,7 +25,24 @@ def presubmit(gitUtils, bazel, utils) {
     bazel.updateBazelRc()
     utils.initTestingCluster()
     stage('Demo Test') {
-      sh('tests/kubeTest.sh -g')
+      def kubeTestArgs = ''
+      if (utils.getParam('GITHUB_PR_HEAD_SHA') != '') {
+        def prSha = utils.failIfNullOrEmpty(env.GITHUB_PR_HEAD_SHA)
+        def prUrl = utils.failIfNullOrEmpty(env.GITHUB_PR_URL)
+        def repo = prUrl.split('/')[4]
+        switch (repo) {
+          case 'manager':
+            kubeTestArgs = "-m gcr.io/istio-testing,${prSha} " +
+                "-i https://storage.googleapis.com/istio-artifacts/${prSha}/artifacts/istioctl"
+            break
+          case 'mixer':
+            kubeTestArgs = "-x gcr.io/istio-testing,${prSha}"
+            break
+          default:
+            break
+        }
+      }
+      sh("tests/kubeTest.sh ${kubeTestArgs} -g")
     }
   }
 }
