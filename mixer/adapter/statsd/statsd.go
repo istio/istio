@@ -158,17 +158,16 @@ func (a *aspect) record(value adapter.Value) error {
 		}
 		result = a.client.Inc(mname, v, a.rate)
 	case adapter.Distribution:
-		var err error
 		// TODO: figure out how to program histograms via config.*
 		// updates
-		if v, err := value.Duration(); err == nil {
-			result = a.client.TimingDuration(mname, v, a.rate)
-			return result
+		v, err := value.Duration()
+		if err == nil {
+			return a.client.TimingDuration(mname, v, a.rate)
 		}
 		// TODO: figure out support for non-duration distributions.
-		if v, err := value.Int64(); err == nil {
-			result = a.client.Inc(mname, v, a.rate)
-			return result
+		vint, err := value.Int64()
+		if err == nil {
+			return a.client.Inc(mname, vint, a.rate)
 		}
 		return fmt.Errorf("could not record distribution '%s': %v", mname, err)
 	}
