@@ -51,6 +51,12 @@ function find_istio_endpoints() {
     return 1
 }
 
+# Port forward manager, then point istioctl at it
+function setup_istioctl(){
+    ${K8CLI} port-forward $(${K8CLI} get pod -l istio=manager -o jsonpath='{.items[0].metadata.name}') 8081:8081
+    export ISTIO_MANAGER_ADDRESS=http://localhost:8081
+}
+
 # Deploy the bookinfo microservices
 function deploy_bookinfo() {
     local bookinfo_dir="${1}"
