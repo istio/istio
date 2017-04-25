@@ -48,9 +48,17 @@ pkg_tar(
     tags = ["manual"],
 )
 
-docker_build(
-    name = "init",
-    base = "@docker_ubuntu//:xenial",
+manager_docker_build(
+    images = [
+        {
+            "name": "init",
+            "base": "@docker_ubuntu//:xenial",
+        },
+        {
+            "name": "init_debug",
+            "base": "@ubuntu_xenial_debug//file",
+        },
+    ],
     debs = [
         "@deb_iptables//file",
         "@deb_libnfnetlink//file",
@@ -97,11 +105,21 @@ docker_build(
     tars = [":manager_tar"],
 )
 
-docker_build(
-    name = "app",
-    base = "@docker_ubuntu//:xenial",
+manager_docker_build(
     entrypoint = ["/bin/server"],
+    images = [
+        {
+            "name": "app",
+            "base": "@docker_ubuntu//:xenial",
+        },
+        {
+            "name": "app_debug",
+            "base": "@ubuntu_xenial_debug//file",
+        },
+    ],
     repository = "istio",
     tags = ["manual"],
-    tars = [":app_tar"],
+    tars = [
+        ":app_tar",
+    ],
 )
