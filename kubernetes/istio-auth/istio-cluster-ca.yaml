@@ -1,9 +1,16 @@
-# This CA issues certs/keys for the entire cluster.
-# Please make sure only one CA is deployed per cluster.
+# istio-system namespace for Istio CA.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system
+---
+# Istio CA in istio-system namespace.
+apiVersion: v1
 kind: Deployment
 apiVersion: extensions/v1beta1
 metadata:
   name: istio-ca
+  namespace: istio-system
 spec:
   replicas: 1
   template:
@@ -15,3 +22,4 @@ spec:
       - name: istio-ca
         image: docker.io/istio/istio-ca:2017-04-13-17.43.08
         imagePullPolicy: IfNotPresent
+---
