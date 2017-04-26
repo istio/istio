@@ -1,4 +1,4 @@
-from istio_toolbox.pkgCheck import pkg_cc_check
+from istio_test_infra.toolbox.pkgCheck import pkg_cc_check
 import argparse
 import sys
 
