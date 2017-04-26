@@ -163,7 +163,7 @@ metadata:
 data:
   mesh: |-
     # Uncomment the following line to enable mutual TLS between proxies
-    # authPolicy: MUTUAL_TLS
+    authPolicy: MUTUAL_TLS
     mixerAddress: istio-mixer:9091
     discoveryAddress: istio-manager:8080
 ---
@@ -246,6 +246,18 @@ rules:
   resources: ["configmaps", "endpoints", "pods", "services"]
   verbs: ["get", "watch", "list"]
 ---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-ca
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "watch", "list"]
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["watch", "list"]
+---
 # Permissions for the sidecar proxy.
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -274,6 +286,20 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: istio-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to the Manager/discovery.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-ca-role-binding
+subjects:
+- kind: ServiceAccount
+  name: istio-ca-service-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: istio-ca
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Ingress controller.
@@ -307,7 +333,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ---
 ################################
-# Istio ingress controller
+# Istio ingress controller with Istio auth
 ################################
 apiVersion: v1
 kind: Service
@@ -356,10 +382,18 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        volumeMounts:
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
 ---
 
 ################################
-# Istio egress envoy
+# Istio egress envoy with Istio auth
 ################################
 apiVersion: v1
 kind: Service
@@ -393,21 +427,30 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        volumeMounts:
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
 ---
 
-# istio-system namespace for Istio CA.
+# This CA only issues certs/keys for the namespace it runs in.
+# For demo only. Please use istio-cluster-ca.yaml for real-world use cases.
+# Service account CA runs in.
 apiVersion: v1
-kind: Namespace
+kind: ServiceAccount
 metadata:
-  name: istio-system
+  name: istio-ca-service-account
 ---
-# Istio CA in istio-system namespace.
+# Istio CA
 apiVersion: v1
 kind: Deployment
 apiVersion: extensions/v1beta1
 metadata:
   name: istio-ca
-  namespace: istio-system
 spec:
   replicas: 1
   template:
@@ -415,8 +458,16 @@ spec:
       labels:
         istio: istio-ca
     spec:
+      serviceAccountName: istio-ca-service-account
       containers:
       - name: istio-ca
         image: docker.io/istio/istio-ca:2017-04-13-17.43.08
         imagePullPolicy: IfNotPresent
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
 ---
+
