@@ -4,6 +4,12 @@ kind: Namespace
 metadata:
   name: istio-system
 ---
+# Service account CA runs in.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ca-service-account
+---
 # Istio CA in istio-system namespace.
 apiVersion: v1
 kind: Deployment
@@ -18,8 +24,10 @@ spec:
       labels:
         istio: istio-ca
     spec:
+      serviceAccountName: istio-ca-service-account
       containers:
       - name: istio-ca
         image: docker.io/istio/istio-ca:2017-04-13-17.43.08
         imagePullPolicy: IfNotPresent
 ---
+
