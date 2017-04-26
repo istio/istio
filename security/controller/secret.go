@@ -97,6 +97,7 @@ func NewSecretController(ca certmanager.CertificateAuthority, core corev1.CoreV1
 	}
 	c.scrtStore, c.scrtController =
 		cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, cache.ResourceEventHandlerFuncs{
+			DeleteFunc: c.scrtDeleted,
 			UpdateFunc: c.scrtUpdated,
 		})
 
@@ -193,6 +194,19 @@ func (sc *SecretController) deleteSecret(saName, saNamespace string) {
 
 	glog.Errorf("Failed to delete Istio secret for service account \"%s\" in namespace \"%s\" (error: %s)",
 		saName, saNamespace, err)
+}
+
+func (sc *SecretController) scrtDeleted(obj interface{}) {
+	scrt, ok := obj.(*v1.Secret)
+	if !ok {
+		glog.Warning("Failed to convert to secret object: %v", obj)
+		return
+	}
+
+	glog.Infof("Re-create deleted Istio secret")
+
+	saName := scrt.Annotations[serviceAccountNameAnnotationKey]
+	sc.upsertSecret(saName, scrt.GetNamespace())
 }
 
 func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
