@@ -29,6 +29,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
+	"github.com/hashicorp/go-multierror"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
@@ -55,20 +56,20 @@ func newHopMessage(u *[]string) *config.HopMessage {
 
 // NewApp creates a new Hop App with default settings
 func NewApp() *App {
-	a := new(App)
-	a.clientTimeout = *timeout
-	a.marshaller = jsonpb.Marshaler{}
-	a.unmarshaller = jsonpb.Unmarshaler{}
-	/* #nosec */
-	a.httpClient = http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
+	return &App{
+		clientTimeout: *timeout,
+		marshaller:    jsonpb.Marshaler{},
+		unmarshaller:  jsonpb.Unmarshaler{},
+		/* #nosec */
+		httpClient: http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
 			},
+			Timeout: *timeout,
 		},
-		Timeout: a.clientTimeout,
 	}
-	return a
 }
 
 // App contains both server and client for Hop App
@@ -80,36 +81,35 @@ type App struct {
 }
 
 func (a App) makeHTTPRequest(req *config.HopMessage, url string) (*config.HopMessage, error) {
-	glog.Infof("Making HTTP Request to %s", url)
+	glog.V(2).Infof("Making HTTP Request to %s", url)
 	jsonStr, err := a.marshaller.MarshalToString(req)
 	if err != nil {
 		return nil, err
 	}
-	hreq, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(jsonStr)))
+	hReq, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer([]byte(jsonStr)))
 	if err != nil {
 		return nil, err
 	}
-	hreq.Header.Set("X-Custom-Header", "myvalue")
-	hreq.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(hreq)
+	hReq.Header.Set("X-Custom-Header", "myvalue")
+	hReq.Header.Set("Content-Type", "application/json")
+	resp, err := a.httpClient.Do(hReq)
+	if err != nil {
+		return nil, err
+	}
 	defer func() {
 		if e := resp.Body.Close(); e != nil {
 			glog.Error(err)
 		}
 	}()
-	if err != nil {
+	var pb config.HopMessage
+	if err = a.unmarshaller.Unmarshal(resp.Body, &pb); err != nil {
 		return nil, err
 	}
-	pb := new(config.HopMessage)
-	if err = a.unmarshaller.Unmarshal(resp.Body, pb); err != nil {
-		return nil, err
-	}
-	return pb, err
+	return &pb, err
 }
 
 func (a App) makeGRPCRequest(req *config.HopMessage, address string) (*config.HopMessage, error) {
-	glog.Infof("Making GRPC Request to %s", address)
+	glog.V(2).Infof("Making GRPC Request to %s", address)
 	conn, err := grpc.Dial(address,
 		grpc.WithInsecure(),
 		// grpc-go sets incorrect authority header
@@ -125,11 +125,7 @@ func (a App) makeGRPCRequest(req *config.HopMessage, address string) (*config.Ho
 		}
 	}()
 	client := config.NewHopTestServiceClient(conn)
-	resp, err := client.Hop(context.Background(), req)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
+	return client.Hop(context.Background(), req)
 }
 
 // ServerHTTP starts a HTTP Server for Hop App
@@ -142,7 +138,7 @@ func (a App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := req.GetPosition()
-	glog.Infof("HTTP Serving message %s at position %d", req.GetId(), p)
+	glog.V(2).Infof("HTTP Serving message %s at position %d", req.GetId(), p)
 	resp := a.forwardMessage(req)
 	jsonStr, err := a.marshaller.MarshalToString(resp)
 	if err != nil {
@@ -151,34 +147,33 @@ func (a App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	_, err = w.Write([]byte(jsonStr))
-	if err != nil {
+	if _, err = w.Write([]byte(jsonStr)); err != nil {
 		glog.Error(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	glog.Infof("Successfully served message %s at position %d", req.GetId(), p)
+	glog.V(2).Infof("Successfully served message %s at position %d", req.GetId(), p)
 }
 
 // Hop start a gRPC server for Hop App
 func (a App) Hop(ctx context.Context, req *config.HopMessage) (*config.HopMessage, error) {
 	p := req.GetPosition()
-	glog.Infof("GRPC Serving message %s at position %d", req.GetId(), p)
+	glog.V(2).Infof("GRPC Serving message %s at position %d", req.GetId(), p)
 	resp := a.forwardMessage(req)
-	glog.Infof("Successfully served message %s at position %d", req.GetId(), p)
+	glog.V(2).Infof("Successfully served message %s at position %d", req.GetId(), p)
 	return resp, nil
 }
 
 func (a App) makeRequest(m *config.HopMessage, d string) (*config.HopMessage, error) {
 	// Check destination and send using grpc or http handler
-	if strings.HasPrefix(d, "http://") {
+	switch {
+	case strings.HasPrefix(d, "http://"):
 		return a.makeHTTPRequest(m, d)
-
-	} else if strings.HasPrefix(d, "grpc://") {
-		address := d[len("grpc://"):]
-		return a.makeGRPCRequest(m, address)
+	case strings.HasPrefix(d, "grpc://"):
+		return a.makeGRPCRequest(m, strings.TrimPrefix(d, "grpc://"))
+	default:
+		return nil, errors.New("protocol not supported")
 	}
-	return nil, errors.New("protocol not supported")
 }
 
 func (a App) setNextPosition(m *config.HopMessage) {
@@ -208,7 +203,7 @@ func (a App) MakeRequest(remotes *[]string) (*config.HopMessage, error) {
 	var err error
 	for _, r := range resp.GetRemoteDests() {
 		if r.GetError() != "" {
-			err = errors.New(r.GetError())
+			err = multierror.Append(errors.New(r.GetError()))
 		}
 	}
 	return resp, err
@@ -216,7 +211,7 @@ func (a App) MakeRequest(remotes *[]string) (*config.HopMessage, error) {
 
 func (a App) forwardMessage(m *config.HopMessage) *config.HopMessage {
 	p := m.GetPosition()
-	glog.Infof("Message %s current position is %d", m.GetId(), p)
+	glog.V(2).Infof("Message %s current position is %d", m.GetId(), p)
 	if p >= 0 {
 		a.setNextPosition(m)
 		d := m.GetRemoteDests()[p].GetDestination()
@@ -234,7 +229,7 @@ func (a App) forwardMessage(m *config.HopMessage) *config.HopMessage {
 }
 
 func (a App) updateMessage(m *config.HopMessage, index int64, rtt time.Duration, err error) {
-	glog.Infof("Updating message %s at index %d", m.GetId(), index)
+	glog.V(2).Infof("Updating message %s at index %d", m.GetId(), index)
 	m.RemoteDests[index].Done = true
 	m.RemoteDests[index].Rtt = rtt
 	if err != nil {
@@ -247,7 +242,7 @@ func (a App) updateMessageFromResponse(m *config.HopMessage, resp *config.HopMes
 		if !resp.GetRemoteDests()[i].GetDone() {
 			break
 		}
-		glog.Infof("Updating message from response %s at index %d", m.GetId(), i)
+		glog.V(2).Infof("Updating message from response %s at index %d", m.GetId(), i)
 		*m.RemoteDests[i] = *resp.RemoteDests[i]
 	}
 }
