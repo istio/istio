@@ -19,6 +19,11 @@ traffic, without or with little change to the application code.
 - Expose the authenticated identities for authorization, rate limiting,
   logging, monitoring, etc.
 
+Please see [istio.io](https://istio.io)
+to learn about the overall Istio project and how to get in touch with us. To learn how you can
+contribute to any of the Istio components, including the auth module, please 
+see the Istio [contribution guidelines](https://github.com/istio/istio/blob/master/CONTRIBUTING.md).
+
 ## Develop
 
 [Bazel](https://bazel.build/) is used for build and dependency management. The
