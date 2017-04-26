@@ -162,12 +162,14 @@ var (
 		Use:   "ingress",
 		Short: "Envoy ingress agent",
 		RunE: func(c *cobra.Command, args []string) error {
+			s := kube.NewIngressStatusSyncer(mesh, client, flags.controllerOptions)
 			w, err := envoy.NewIngressWatcher(mesh, client)
 			if err != nil {
 				return err
 			}
 			stop := make(chan struct{})
 			go w.Run(stop)
+			go s.Run(stop)
 			cmd.WaitSignal(stop)
 			return nil
 		},
