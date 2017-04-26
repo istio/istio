@@ -146,6 +146,23 @@ func TestSecretController(t *testing.T) {
 	}
 }
 
+func TestRecoverFromDeletedIstioSecret(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	controller := NewSecretController(fakeCa{}, client.CoreV1(), metav1.NamespaceAll)
+	scrt := createSecret("test", "istio.test", "test-ns")
+	controller.scrtDeleted(scrt)
+
+	gvr := schema.GroupVersionResource{
+		Resource: "secrets",
+		Version:  "v1",
+	}
+	expectedActions := []ktesting.Action{ktesting.NewCreateAction(gvr, "test-ns", scrt)}
+	actions := client.Actions()
+	if !reflect.DeepEqual(actions, expectedActions) {
+		t.Errorf("expect actions to be \n\t%v\n but actual actions are \n\t%v", expectedActions, actions)
+	}
+}
+
 func TestUpdateSecret(t *testing.T) {
 	gvr := schema.GroupVersionResource{
 		Resource: "secrets",
