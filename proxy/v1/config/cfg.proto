@@ -102,6 +102,9 @@ message ProxyMeshConfig {
   // This corresponds to the value of "kubernetes.io/ingress.class" annotation.
   string ingress_class = 20;
 
+  // Service fronting the ingress controllers
+  string ingress_service = 21;
+
   enum IngressControllerMode {
     // Disables Ingress controller.
     OFF = 0;
@@ -119,7 +122,7 @@ message ProxyMeshConfig {
   }
 
   // Defines whether to use Istio ingress proxy for annotated or all ingress resources
-  IngressControllerMode ingress_controller_mode = 21;
+  IngressControllerMode ingress_controller_mode = 22;
 
   enum AuthPolicy {
     NONE = 0;
