@@ -30,6 +30,14 @@ import (
 	"istio.io/istio/tests/e2e/util"
 )
 
+const (
+	u1       = "normal-user"
+	u2       = "test-user"
+	modelDir = "tests/apps/bookinfo/output"
+	ruleDir  = "demos/apps/bookinfo"
+	create   = "create"
+)
+
 var (
 	c *testConfig
 )
@@ -57,6 +65,15 @@ func check(err error, msg string) {
 	}
 }
 
+func inspect(err error, fMsg, sMsg string, t *testing.T) {
+	if err != nil {
+		glog.Errorf("%s. Error %s", fMsg, err)
+		t.Error(err)
+	} else {
+		glog.Info(sMsg)
+	}
+}
+
 func (c *testConfig) Setup() error {
 	if err := c.deployApps(); err != nil {
 		return err
@@ -79,7 +96,7 @@ func TestSample(t *testing.T) {
 
 	testVersionRouting(t, gateway)
 
-	t.Logf("Value is %s", c.sampleValue)
+	testFaultDelay(t, gateway)
 }
 
 func testDefaultRouting(t *testing.T, gateway string) {
@@ -104,37 +121,33 @@ func testDefaultRouting(t *testing.T, gateway string) {
 		standby += 5
 		glog.Infof("Couldn't get to the bookinfo product page, trying again in %d second", standby)
 	}
-	glog.Info("Default route succeed!")
+	glog.Info("\nSucceed! Default route get expected response")
 }
 
-func checkRoutingOutput(user, version, gateway string) error {
-	var resp string
+func checkRoutingResponse(user, version, gateway, modelFile string) (int, error) {
 	var err error
 	outputFile := fmt.Sprintf("productpage-%s-%s.html", user, version)
 	output := filepath.Join(c.Kube.TmpDir, outputFile)
-	resp, err = util.Shell(fmt.Sprintf("curl -s -b 'foo=bar;user=%s;' %s/productpage", user, gateway))
-	if err != nil {
-		return err
+
+	startT := time.Now()
+	if err = util.Record(fmt.Sprintf("curl -s -b 'foo=bar;user=%s;' %s/productpage", user, gateway), output); err != nil {
+		return -1, err
 	}
-	err = ioutil.WriteFile(output, []byte(resp), 0600)
-	if err != nil {
-		return err
+	duration := int(time.Since(startT) / (time.Second / time.Nanosecond))
+
+	if err = util.CompareFiles(output, util.GetTestRuntimePath(modelFile)); err != nil {
+		glog.Errorf("Error: User %s in version %s didn't get expected respose", user, version)
+		duration = -1
 	}
-	err = util.CompareFiles(output, util.GetTestRuntimePath(filepath.Join("tests/apps/bookinfo/output", outputFile)))
-	if err != nil {
-		glog.Errorf("Failed! User %s in version %s didn't get expected respose", user, version)
-	} else {
-		glog.Infof("Succeed! User %s in version %s get expected respose!", user, version)
-	}
-	return err
+	return duration, err
 }
 
-func prepareRule(src, user string) (string, error) {
-	dst := filepath.Join(filepath.Join(c.Kube.TmpDir, "yaml"), path.Base(src))
+func applyRule(src, user, operation string) error {
+	dst := filepath.Join(c.Kube.TmpDir, "yaml", path.Base(src))
 	ori, err := ioutil.ReadFile(src)
 	if err != nil {
 		glog.Errorf("Cannot read original rule file %s", src)
-		return "", err
+		return err
 	}
 	content := string(ori)
 	content = strings.Replace(content, "default", c.Kube.Namespace, -1)
@@ -142,28 +155,59 @@ func prepareRule(src, user string) (string, error) {
 	err = ioutil.WriteFile(dst, []byte(content), 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into new rule file %s", dst)
-		return "", err
+		return err
 	}
-	return dst, nil
+
+	switch operation {
+	case "create":
+		err = c.Kube.Istioctl.CreateRule(dst)
+	case "replace":
+		err = c.Kube.Istioctl.ReplaceRule(dst)
+	}
+	return err
 }
 
 func testVersionRouting(t *testing.T, gateway string) {
-	var r1, r2 string
 	var err error
-	u1 := "normal-user"
-	u2 := "test-user"
 	util.PrintBlock("Start version routing test...")
-	r1, err = prepareRule(util.GetTestRuntimePath("demos/apps/bookinfo/route-rule-all-v1.yaml"), u1)
-	check(err, "Failed to prepare rule-all-v1")
-	r2, err = prepareRule(util.GetTestRuntimePath("demos/apps/bookinfo/route-rule-reviews-test-v2.yaml"), u2)
-	check(err, "Failed to prepare rule-test-v2")
-	check(c.Kube.Istioctl.CreateRule(r1), "Failed to create rule1")
-	check(c.Kube.Istioctl.CreateRule(r2), "Failed to create rule2")
+	inspect(applyRule(util.GetTestRuntimePath(filepath.Join(ruleDir, "route-rule-all-v1.yaml")), u1, create), "Failed to apply rule-all-v1", "", t)
+	inspect(applyRule(util.GetTestRuntimePath(filepath.Join(ruleDir, "route-rule-reviews-test-v2.yaml")), u2, create), "Failed to apply rule-test-v2", "", t)
+
 	glog.Info("Waiting for rules to propagate...")
 	time.Sleep(time.Duration(30) * time.Second)
 
-	check(checkRoutingOutput(u1, "v1", gateway), fmt.Sprintf("Response not match with expect! %s in v1", u1))
-	check(checkRoutingOutput(u2, "v2", gateway), fmt.Sprintf("Response not match with expect! %s in v2", u2))
+	_, err = checkRoutingResponse(u1, "v1", gateway, filepath.Join(modelDir, "productpage-normal-user-v1.html"))
+	inspect(err, fmt.Sprintf("Failed version routing! %s in v1", u1), fmt.Sprintf("\nSucceed! Response matches with expect! %s in v1", u1), t)
+	_, err = checkRoutingResponse(u2, "v2", gateway, filepath.Join(modelDir, "productpage-test-user-v2.html"))
+	inspect(err, fmt.Sprintf("Failed version routing! %s in v2", u2), fmt.Sprintf("\nSucceed! Response matches with expect! %s in v2", u2), t)
+}
+
+func testFaultDelay(t *testing.T, gateway string) {
+	util.PrintBlock("Start fault delay test...")
+	inspect(applyRule(util.GetTestRuntimePath(filepath.Join(ruleDir, "route-rule-delay.yaml")), "", create), "Failed to apply rule-delay", "", t)
+	minDuration := 5
+	maxDuration := 8
+	standby := 10
+	for i := 1; i <= 5; i++ {
+		duration, err := checkRoutingResponse(u2, "v1-timeout", gateway, filepath.Join(modelDir, "productpage-test-user-v1-review-timeout.html"))
+		glog.Infof("Get response in %d second", duration)
+		if err == nil && duration >= minDuration && duration <= maxDuration {
+			glog.Info("\nSucceed! Fault delay as expecetd")
+			break
+		}
+
+		if i == 5 {
+			t.Errorf("Fault delay failed! Delay in %ds while expected between %ds and %ds, %s", duration, minDuration, maxDuration, err)
+			break
+		}
+
+		glog.Infof("Unexpected response, retry in %ds", standby)
+		time.Sleep(time.Duration(standby) * time.Second)
+	}
+
+	inspect(c.Kube.Istioctl.DeleteRule(filepath.Join(c.Kube.TmpDir, "yaml", "route-rule-delay.yaml")), "Error when deleting delay rule", "", t)
+	glog.Info("Waiting for delay rule to be cleaned...")
+	time.Sleep(time.Duration(45) * time.Second)
 }
 
 func newTestConfig() (*testConfig, error) {

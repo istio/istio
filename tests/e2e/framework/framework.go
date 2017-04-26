@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	debug = flag.Bool("debug", false, "Debug model, not do clean up")
+	skipCleanup = flag.Bool("skip_cleanup", false, "Debug, skip clean up")
 )
 
 type testCleanup struct {
@@ -32,6 +32,7 @@ type testCleanup struct {
 	CleanablesLock     sync.Mutex
 	CleanupActions     []func() error
 	CleanupActionsLock sync.Mutex
+	skipCleanup        bool
 }
 
 // CommonConfig regroup all common test configuration.
@@ -80,13 +81,13 @@ func NewCommonConfig(testID string) (*CommonConfig, error) {
 	}
 
 	k := newKubeInfo(t.LogsPath, t.RunID)
-	if err != nil {
-		return nil, err
-	}
+	cl := new(testCleanup)
+	cl.skipCleanup = *skipCleanup
+
 	c := &CommonConfig{
 		Info:    t,
 		Kube:    k,
-		Cleanup: new(testCleanup),
+		Cleanup: cl,
 	}
 	c.Cleanup.RegisterCleanable(c.Info)
 	c.Cleanup.RegisterCleanable(c.Kube)
@@ -144,7 +145,7 @@ func (t *testCleanup) init() error {
 }
 
 func (t *testCleanup) cleanup() {
-	if *debug {
+	if t.skipCleanup {
 		glog.Info("Debug model, skip cleanup")
 		return
 	}

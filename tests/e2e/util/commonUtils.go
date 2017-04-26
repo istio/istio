@@ -1,9 +1,24 @@
+// Copyright 2017 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package util
 
 import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -27,13 +42,23 @@ var (
 func Shell(command string) (string, error) {
 	glog.Info(command)
 	parts := strings.Split(command, " ")
-	c := exec.Command(parts[0], parts[1:]...)
+	c := exec.Command(parts[0], parts[1:]...) // #nosec
 	bytes, err := c.CombinedOutput()
 	if err != nil {
 		glog.V(2).Info(string(bytes))
 		return "", fmt.Errorf("command failed: %q %v", string(bytes), err)
 	}
 	return string(bytes), nil
+}
+
+// Record run command and record output into a file
+func Record(command, record string) error {
+	resp, err := Shell(command)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(record, []byte(resp), 0600)
+	return err
 }
 
 // HTTPDownload download from src(url) and store into dst(local file)
@@ -48,15 +73,15 @@ func HTTPDownload(dst string, src string) error {
 	}
 
 	defer func() {
-		if cerr := out.Close(); err == nil && cerr != nil {
-			err = cerr
+		if err = out.Close(); err != nil {
+			glog.Errorf("Error: close file %s, %s", dst, err)
 		}
 	}()
 
 	resp, err = http.Get(src)
 	defer func() {
-		if cerr := resp.Body.Close(); err == nil && cerr != nil {
-			err = cerr
+		if err = resp.Body.Close(); err != nil {
+			glog.Errorf("Error: close downloaded file from %s, %s", src, err)
 		}
 	}()
 	if err == nil {
@@ -77,8 +102,8 @@ func CopyFile(src, dst string) error {
 		return err
 	}
 	defer func() {
-		if cerr := in.Close(); err == nil && cerr != nil {
-			err = cerr
+		if err = in.Close(); err != nil {
+			glog.Errorf("Error: close file from %s, %s", src, err)
 		}
 	}()
 	out, err = os.Create(dst)
@@ -86,8 +111,8 @@ func CopyFile(src, dst string) error {
 		return err
 	}
 	defer func() {
-		if cerr := out.Close(); err == nil && cerr != nil {
-			err = cerr
+		if err = out.Close(); err != nil {
+			glog.Errorf("Error: close file from %s, %s", dst, err)
 		}
 	}()
 	if _, err = io.Copy(out, in); err != nil {

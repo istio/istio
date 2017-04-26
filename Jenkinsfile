@@ -32,7 +32,6 @@ def presubmit(gitUtils, bazel, utils) {
       sh('bin/linters.sh')
     }
     stage('Bazel Test') {
-      sh('source istio.VERSION')
       bazel.test('//...')
     }
     stage('Demo Test') {

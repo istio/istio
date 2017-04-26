@@ -12,5 +12,5 @@ spec:
     spec:
       containers:
       - name: istio-ca-container
-        image: {{.CaImage}}
+        image: {{.CaHub}}/ca:{{.CaTag}}
         imagePullPolicy: Always

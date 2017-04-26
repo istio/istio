@@ -4,7 +4,7 @@ go_test(
     name = "go_default_test",
     srcs = ["sample_test.go"],
     data = ["//tests/apps/bookinfo/output:bookinfo_out"],
-    #tags = ["manual"],
+    tags = ["manual"],
     deps = [
         "//tests/e2e/framework:go_default_library",
         "//tests/e2e/util:go_default_library",

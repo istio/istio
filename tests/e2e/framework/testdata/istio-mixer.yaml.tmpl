@@ -132,7 +132,7 @@ spec:
     spec:
       containers:
       - name: mixer
-        image: {{.MixerImage}}
+        image: {{.MixerHub}}/mixer:{{.MixerTag}}
         imagePullPolicy: Always
         ports:
         - containerPort: 9091

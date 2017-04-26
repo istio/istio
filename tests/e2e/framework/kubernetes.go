@@ -1,3 +1,17 @@
+// Copyright 2017 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package framework
 
 import (
@@ -24,15 +38,16 @@ var (
 	appHubDefault = "gcr.io/istio-testing"
 	appTagDefault = "b121a1e169365865e01a9e6eea066a34a29d9fd1"
 
-	appHub       = flag.String("app_hub", appHubDefault, "app hub")
-	appTag       = flag.String("app_tag", appTagDefault, "app tag")
-	namespace    = flag.String("n", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerImage   = flag.String("mixer", os.Getenv(mixerHubDefault)+"/mixer:"+os.Getenv(mixerTagDefault), "Mixer image")
-	managerImage = flag.String("manager", os.Getenv(managerHubDefault)+"/manager:"+os.Getenv(managerTagDefault), "Manager image")
-	caImage      = flag.String("ca", "", "Ca image")
-	proxyHub     = flag.String("proxy_hub", os.Getenv(managerHubDefault), "proxy hub")
-	proxyTag     = flag.String("proxy_tag", os.Getenv(managerTagDefault), "proxy tag")
-	verbose      = flag.Bool("verbose", false, "Debug level noise from proxies")
+	appHub     = flag.String("app_hub", appHubDefault, "app hub")
+	appTag     = flag.String("app_tag", appTagDefault, "app tag")
+	namespace  = flag.String("n", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub   = flag.String("mixer_hub", os.Getenv(mixerHubDefault), "Mixer hub")
+	mixerTag   = flag.String("mixer_tag", os.Getenv(mixerTagDefault), "Mixer tag")
+	managerHub = flag.String("manager_hub", os.Getenv(managerHubDefault), "Manager hub")
+	managerTag = flag.String("manager_tag", os.Getenv(managerTagDefault), "Manager tag")
+	caHub      = flag.String("ca_hub", "", "Ca hub")
+	caTag      = flag.String("ca_tag", "", "Ca tag")
+	verbose    = flag.Bool("verbose", false, "Debug level noise from proxies")
 )
 
 // KubeInfo gathers information for kubectl
@@ -41,9 +56,12 @@ type KubeInfo struct {
 	NamespaceCreated bool
 	AppHub           string
 	AppTag           string
-	MixerImage       string
-	ManagerImage     string
-	CaImage          string
+	MixerHub         string
+	MixerTag         string
+	ManagerHub       string
+	ManagerTag       string
+	CaHub            string
+	CaTag            string
 	ProxyHub         string
 	ProxyTag         string
 	Verbosity        int
@@ -74,11 +92,14 @@ func newKubeInfo(tmpDir, runID string) *KubeInfo {
 		NamespaceCreated: false,
 		AppHub:           *appHub,
 		AppTag:           *appTag,
-		MixerImage:       *mixerImage,
-		ManagerImage:     *managerImage,
-		CaImage:          *caImage,
-		ProxyHub:         *proxyHub,
-		ProxyTag:         *proxyTag,
+		MixerHub:         *mixerHub,
+		MixerTag:         *mixerTag,
+		ManagerHub:       *managerHub,
+		ManagerTag:       *managerTag,
+		CaHub:            *caHub,
+		CaTag:            *caTag,
+		ProxyHub:         *managerHub,
+		ProxyTag:         *managerTag,
 		Verbosity:        verbosity,
 		TmpDir:           tmpDir,
 		YamlDir:          filepath.Join(tmpDir, "yaml"),
