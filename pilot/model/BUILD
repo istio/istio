@@ -50,6 +50,9 @@ go_test(
         "@com_github_davecgh_go_spew//spew:go_default_library",
         "@com_github_golang_mock//gomock:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_golang_protobuf//ptypes:go_default_library",
+        "@com_github_golang_protobuf//ptypes/duration:go_default_library",
+        "@com_github_hashicorp_go_multierror//:go_default_library",
         "@io_istio_api//:go_default_library",
     ],
 )

@@ -32,6 +32,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	// import GKE cluster authentication plugin
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	// import OIDC cluster authentication plugin, e.g. for Tectonic
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
