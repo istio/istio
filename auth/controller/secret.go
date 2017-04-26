@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"bytes"
 	"reflect"
 	"time"
 
@@ -204,19 +205,29 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	certBytes := scrt.Data[certChainID]
 	cert := certmanager.ParsePemEncodedCertificate(certBytes)
 	ttl := time.Until(cert.NotAfter)
-	if ttl.Seconds() < secretResyncPeriod.Seconds() {
-		glog.Infof("Certificate %s is about to expire, refreshing it", scrt.GetName())
+	rootCertificate := sc.ca.GetRootCertificate()
+
+	// Refresh the secret if 1) the certificate contained in the secret is about
+	// to expire, or 2) the root certificate in the secret is different than the
+	// one held by the certmanager (this may happen when the CA is restarted and
+	// a new self-signed CA cert is generated).
+	if ttl.Seconds() < secretResyncPeriod.Seconds() || !bytes.Equal(rootCertificate, scrt.Data[rootCertID]) {
+		namespace := scrt.GetNamespace()
+		name := scrt.GetName()
+
+		glog.Infof("Refreshing secret %s/%s, either the leaf certificate is about to expire "+
+			"or the root certificate is outdated", namespace, name)
 
 		saName := scrt.Annotations[serviceAccountNameAnnotationKey]
-		saNamespace := scrt.GetNamespace()
+		chain, key := sc.ca.Generate(saName, namespace)
 
-		chain, key := sc.ca.Generate(saName, saNamespace)
 		scrt.Data[certChainID] = chain
 		scrt.Data[privateKeyID] = key
+		scrt.Data[rootCertID] = rootCertificate
 
-		_, err := sc.core.Secrets(saNamespace).Update(scrt)
+		_, err := sc.core.Secrets(namespace).Update(scrt)
 		if err != nil {
-			glog.Errorf("Failed to update secret %s/%s (error: %s)", saNamespace, saName, err)
+			glog.Errorf("Failed to update secret %s/%s (error: %s)", namespace, name, err)
 		}
 	}
 }

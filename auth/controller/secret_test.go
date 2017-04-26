@@ -146,7 +146,7 @@ func TestSecretController(t *testing.T) {
 	}
 }
 
-func TestUpdateExpiringSecret(t *testing.T) {
+func TestUpdateSecret(t *testing.T) {
 	gvr := schema.GroupVersionResource{
 		Resource: "secrets",
 		Version:  "v1",
@@ -154,6 +154,7 @@ func TestUpdateExpiringSecret(t *testing.T) {
 	testCases := map[string]struct {
 		expectedActions []ktesting.Action
 		notAfter        time.Time
+		rootCert        []byte
 	}{
 		"Does not update non-expiring secret": {
 			expectedActions: []ktesting.Action{},
@@ -165,6 +166,13 @@ func TestUpdateExpiringSecret(t *testing.T) {
 			},
 			notAfter: time.Now().Add(-time.Second),
 		},
+		"Update secret with different root cert": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
+			},
+			notAfter: time.Now().Add(time.Hour),
+			rootCert: []byte("Outdated root cert"),
+		},
 	}
 
 	for k, tc := range testCases {
@@ -172,6 +180,9 @@ func TestUpdateExpiringSecret(t *testing.T) {
 		controller := NewSecretController(fakeCa{}, client.CoreV1(), metav1.NamespaceAll)
 
 		scrt := createSecret("test", "istio.test", "test-ns")
+		if rc := tc.rootCert; rc != nil {
+			scrt.Data[rootCertID] = rc
+		}
 
 		opts := certmanager.CertOptions{
 			IsSelfSigned: true,
