@@ -246,6 +246,18 @@ rules:
   resources: ["configmaps", "endpoints", "pods", "services"]
   verbs: ["get", "watch", "list"]
 ---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-ca
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "watch", "list"]
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["watch", "list"]
+---
 # Permissions for the sidecar proxy.
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -274,6 +286,20 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: istio-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to the Manager/discovery.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-ca-role-binding
+subjects:
+- kind: ServiceAccount
+  name: istio-ca-service-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: istio-ca
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Ingress controller.
