@@ -56,6 +56,8 @@ def postsubmit(gitUtils, bazel, utils) {
     stage('Push Binary') {
       sh 'script/release-binary'
     }
+    // TODO(sebastienvas): Fix Jenkins to build without cleaning
+    sh('bazel clean')
     stage('Docker Push') {
       def images = 'envoy,envoy_debug'
       def tags = "${gitUtils.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
