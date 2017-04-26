@@ -15,8 +15,6 @@
 
 #pragma once
 
-#include "precompiled/precompiled.h"
-
 #include "common/buffer/buffer_impl.h"
 #include "contrib/endpoints/src/grpc/transcoding/transcoder_input_stream.h"
 

@@ -12,8 +12,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "precompiled/precompiled.h"
-
 #include "common/buffer/buffer_impl.h"
 #include "common/http/headers.h"
 #include "contrib/endpoints/src/grpc/transcoding/json_request_translator.h"

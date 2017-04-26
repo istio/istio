@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('testutils@stable-3e4d089')
+@Library('testutils@stable-0ee5fd9')
 
 import org.istio.testutils.Utilities
 import org.istio.testutils.GitUtilities
@@ -33,6 +33,8 @@ def presubmit(gitUtils, bazel) {
       sh('script/check-style')
     }
     bazel.updateBazelRc()
+    // TODO(sebastienvas): Fix Jenkins to build without cleaning
+    sh('bazel clean')
     stage('Bazel Fetch') {
       bazel.fetch('-k //...')
     }

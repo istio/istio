@@ -17,7 +17,7 @@
 def boringssl_repositories(bind=True):
     native.git_repository(
         name = "boringssl",
-        commit = "12c35d69008ae6b8486e435447445240509f7662",  # 2016-10-24
+        commit = "16efcb2dba4690b9940d9b95ef703f1bbd07494d",  # 2017-03-20
         remote = "https://boringssl.googlesource.com/boringssl",
     )
 

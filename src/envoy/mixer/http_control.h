@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include "precompiled/precompiled.h"
+#include <memory>
 
 #include "common/common/logger.h"
 #include "common/http/headers.h"

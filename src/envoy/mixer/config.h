@@ -15,7 +15,9 @@
 
 #pragma once
 
-#include "precompiled/precompiled.h"
+#include <map>
+#include <string>
+#include <vector>
 
 #include "envoy/json/json_object.h"
 #include "include/attribute.h"

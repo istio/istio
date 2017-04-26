@@ -15,7 +15,8 @@
 
 #pragma once
 
-#include "precompiled/precompiled.h"
+#include <map>
+#include <string>
 
 #include "common/http/headers.h"
 #include "envoy/json/json_object.h"

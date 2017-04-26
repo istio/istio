@@ -15,8 +15,6 @@
 
 #pragma once
 
-#include "precompiled/precompiled.h"
-
 #include "common/common/logger.h"
 #include "contrib/endpoints/src/grpc/transcoding/request_message_translator.h"
 #include "contrib/endpoints/src/grpc/transcoding/transcoder.h"

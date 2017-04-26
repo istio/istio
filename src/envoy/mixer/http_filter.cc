@@ -13,8 +13,6 @@
  * limitations under the License.
  */
 
-#include "precompiled/precompiled.h"
-
 #include "common/common/base64.h"
 #include "common/common/logger.h"
 #include "common/http/headers.h"

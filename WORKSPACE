@@ -45,30 +45,32 @@ load(
 
 mixer_client_repositories()
 
-# Workaround for Bazel > 0.4.0 since it needs newer protobuf.bzl from:
-# https://github.com/google/protobuf/pull/2246
-# Do not use this git_repository for anything else than protobuf.bzl
-new_git_repository(
-    name = "protobuf_bzl",
-    # Injecting an empty BUILD file to prevent using any build target
-    build_file_content = "",
-    commit = "05090726144b6e632c50f47720ff51049bfcbef6",
-    remote = "https://github.com/google/protobuf.git",
-)
-
 load(
     "@mixerclient_git//:repositories.bzl",
     "mixerapi_repositories",
 )
 
-mixerapi_repositories(protobuf_repo="@protobuf_bzl//")
+mixerapi_repositories()
 
-load(
-    "//src/envoy:repositories.bzl",
-    "envoy_repositories",
+load("//src/envoy:repositories.bzl", "lightstep_repositories")
+
+lightstep_repositories()
+
+# Bind BoringSSL for Envoy
+bind(
+    name = "ssl",
+    actual = "@boringssl//:ssl",
 )
 
-envoy_repositories()
+git_repository(
+    name = "envoy",
+    remote = "https://github.com/lyft/envoy.git",
+    commit = "060cb67f0772a425a8ceaf30d28421967d69c0c6",
+)
+
+load("@envoy//bazel:repositories.bzl", "envoy_dependencies")
+
+envoy_dependencies(skip_targets=["googletest", "protobuf", "protoc", "lightstep", "ssl"])
 
 new_http_archive(
     name = "docker_ubuntu",

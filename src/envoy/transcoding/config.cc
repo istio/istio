@@ -14,6 +14,8 @@
  */
 #include "src/envoy/transcoding/config.h"
 
+#include <fstream>
+
 #include "contrib/endpoints/src/grpc/transcoding/json_request_translator.h"
 #include "contrib/endpoints/src/grpc/transcoding/response_to_json_translator.h"
 #include "envoy/common/exception.h"

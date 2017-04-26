@@ -9,6 +9,7 @@ addons:
     packages:
     - gcc-4.9
     - g++-4.9
+    - realpath
     - wget
 
 branches:
