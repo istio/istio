@@ -68,21 +68,21 @@
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
-          "span": 12,
+          "span": 4,
           "stack": false,
           "steppedLine": false,
           "targets": [
             {
               "expr": "rate(request_count{response_code=\"200\",source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])",
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} -> {{ target }} : 200",
+              "legendFormat": "{{ source }} -> {{ service }} : 200",
               "refId": "A",
               "step": 2
             },
             {
               "expr": "sum(rate(request_count{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) without (response_code)",
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} -> {{ target }} : ALL",
+              "legendFormat": "{{ source }} -> {{ service }} : ALL",
               "refId": "B",
               "step": 2
             }
@@ -123,25 +123,13 @@
               "show": false
             }
           ]
-        }
-      ],
-      "repeat": null,
-      "repeatIteration": null,
-      "repeatRowId": null,
-      "showTitle": false,
-      "title": "Dashboard Row",
-      "titleSize": "h6"
-    },
-    {
-      "collapse": false,
-      "height": 250,
-      "panels": [
+        },
         {
           "aliasColors": {},
           "bars": false,
           "datasource": "${DS_PROMETHEUS}",
-          "fill": 0,
-          "id": 2,
+          "fill": 1,
+          "id": 7,
           "legend": {
             "avg": false,
             "current": false,
@@ -154,20 +142,20 @@
           "lines": true,
           "linewidth": 1,
           "links": [],
-          "nullPointMode": "null as zero",
+          "nullPointMode": "null",
           "percentage": false,
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
-          "span": 12,
+          "span": 4,
           "stack": false,
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(request_count{response_code!=\"200\",source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])",
+              "expr": "rate(request_count{service=~\"$service\",target=~\"$target\",source=~\"$source\",response_code!~\"5.*\"}[30s]) / rate(request_count{service=~\"$service\",target=~\"$target\",source=~\"$source\"}[30s])",
               "intervalFactor": 2,
-              "legendFormat": "{{source}} -> {{target}} : {{response_code}}",
+              "legendFormat": "{{ source }} -> {{ service }}",
               "refId": "A",
               "step": 2
             }
@@ -175,7 +163,7 @@
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Errors (30s)",
+          "title": "Success Rate (non-5xx responses)",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -190,7 +178,78 @@
           },
           "yaxes": [
             {
-              "format": "ops",
+              "format": "percentunit",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "${DS_PROMETHEUS}",
+          "fill": 1,
+          "id": 8,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": false,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "span": 4,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "rate(request_count{service=~\"$service\",target=~\"$target\",source=~\"$source\",response_code=~\"4.*\"}[30s]) / rate(request_count{service=~\"$service\",target=~\"$target\",source=~\"$source\"}[30s])",
+              "intervalFactor": 2,
+              "legendFormat": "{{ source }} -> {{ service }}",
+              "refId": "A",
+              "step": 2
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "4xx %",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "percentunit",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -230,7 +289,7 @@
             "current": false,
             "max": false,
             "min": false,
-            "show": false,
+            "show": true,
             "total": false,
             "values": false
           },
@@ -243,15 +302,15 @@
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
-          "span": 12,
+          "span": 3,
           "stack": false,
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(increase(request_latency{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) / (sum(increase(request_count{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) + 1)",
+              "expr": "histogram_quantile(0.5, sum(rate(request_latency_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) by (source, target, service, le))",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "",
+              "legendFormat": "{{ source }} -> {{ service }}",
               "refId": "A",
               "step": 2
             }
@@ -259,7 +318,7 @@
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Average Request Latency (30s)",
+          "title": "P50 Response Time",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -274,11 +333,11 @@
           },
           "yaxes": [
             {
-              "format": "ms",
+              "format": "s",
               "label": null,
               "logBase": 1,
               "max": null,
-              "min": "0",
+              "min": null,
               "show": true
             },
             {
@@ -287,7 +346,223 @@
               "logBase": 1,
               "max": null,
               "min": null,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "${DS_PROMETHEUS}",
+          "fill": 1,
+          "id": 6,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "span": 3,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.9, sum(rate(request_latency_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) by (source, target, service, le))",
+              "hide": false,
+              "intervalFactor": 2,
+              "legendFormat": "{{ source }} -> {{ service }}",
+              "refId": "A",
+              "step": 2
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "P90 Response Time",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
               "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "${DS_PROMETHEUS}",
+          "fill": 1,
+          "id": 4,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "span": 3,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(request_latency_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) by (source, target, service, le))",
+              "hide": false,
+              "intervalFactor": 2,
+              "legendFormat": "{{ source }} -> {{ service }}",
+              "refId": "A",
+              "step": 2
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "P95 Response Time",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "${DS_PROMETHEUS}",
+          "fill": 1,
+          "id": 5,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "span": 3,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(request_latency_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) by (source, target, service, le))",
+              "hide": false,
+              "intervalFactor": 2,
+              "legendFormat": "{{ source }} -> {{ service }}",
+              "refId": "A",
+              "step": 2
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "P99 Response Time",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
             }
           ]
         }
@@ -398,5 +673,5 @@
   },
   "timezone": "browser",
   "title": "Istio Dashboard",
-  "version": 3
+  "version": 11
 }
