@@ -40,7 +40,7 @@ var (
 
 // Shell run command on shell and get back output and error if get one
 func Shell(command string) (string, error) {
-	glog.Info(command)
+	//glog.Info(command)
 	parts := strings.Split(command, " ")
 	c := exec.Command(parts[0], parts[1:]...) // #nosec
 	bytes, err := c.CombinedOutput()
