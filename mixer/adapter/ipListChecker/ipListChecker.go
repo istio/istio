@@ -81,19 +81,19 @@ func (builder) ValidateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 
 	u, err := url.Parse(c.ProviderUrl)
 	if err != nil {
-		ce = ce.Append("ProviderUrl", err)
+		ce = ce.Append("providerUrl", err)
 	} else {
 		if u.Scheme == "" || u.Host == "" {
-			ce = ce.Appendf("ProviderUrl", "URL scheme and host cannot be empty")
+			ce = ce.Appendf("providerUrl", "URL scheme and host cannot be empty")
 		}
 	}
 
 	if c.RefreshInterval <= 0 {
-		ce = ce.Appendf("RefreshInterval", "refresh interval must be at least 1 second, it is %v", c.RefreshInterval)
+		ce = ce.Appendf("refreshInterval", "refresh interval must be at least 1 second, it is %v", c.RefreshInterval)
 	}
 
 	if c.Ttl < c.RefreshInterval {
-		ce = ce.Appendf("Ttl", "Ttl must be > RefreshInterval, Ttl is %v and RefreshInterval is %v", c.Ttl, c.RefreshInterval)
+		ce = ce.Appendf("ttl", "Ttl must be > RefreshInterval, Ttl is %v and RefreshInterval is %v", c.Ttl, c.RefreshInterval)
 	}
 
 	return

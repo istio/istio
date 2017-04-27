@@ -131,54 +131,54 @@ func (b *builder) Close() error {
 func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	params := c.(*config.Params)
 	if len(params.SourceUidInputName) == 0 {
-		ce = ce.Appendf("source_uid_input_name", "field must be populated")
+		ce = ce.Appendf("sourceUidInputName", "field must be populated")
 	}
 	if len(params.TargetUidInputName) == 0 {
-		ce = ce.Appendf("target_uid_input_name", "field must be populated")
+		ce = ce.Appendf("targetUidInputName", "field must be populated")
 	}
 	if len(params.OriginUidInputName) == 0 {
-		ce = ce.Appendf("origin_uid_input_name", "field must be populated")
+		ce = ce.Appendf("originUidInputName", "field must be populated")
 	}
 	if len(params.SourcePrefix) == 0 {
-		ce = ce.Appendf("source_prefix", "field must be populated")
+		ce = ce.Appendf("sourcePrefix", "field must be populated")
 	}
 	if len(params.TargetPrefix) == 0 {
-		ce = ce.Appendf("target_prefix", "field must be populated")
+		ce = ce.Appendf("targetPrefix", "field must be populated")
 	}
 	if len(params.OriginPrefix) == 0 {
-		ce = ce.Appendf("origin_prefix", "field must be populated")
+		ce = ce.Appendf("originPrefix", "field must be populated")
 	}
 	if len(params.LabelsValueName) == 0 {
-		ce = ce.Appendf("labels_value_name", "field must be populated")
+		ce = ce.Appendf("labelsValueName", "field must be populated")
 	}
 	if len(params.PodIpValueName) == 0 {
-		ce = ce.Appendf("pod_ip_value_name", "field must be populated")
+		ce = ce.Appendf("podIpValueName", "field must be populated")
 	}
 	if len(params.PodNameValueName) == 0 {
-		ce = ce.Appendf("pod_name_value_name", "field must be populated")
+		ce = ce.Appendf("podNameValueName", "field must be populated")
 	}
 	if len(params.HostIpValueName) == 0 {
-		ce = ce.Appendf("host_ip_value_name", "field must be populated")
+		ce = ce.Appendf("hostIpValueName", "field must be populated")
 	}
 	if len(params.NamespaceValueName) == 0 {
-		ce = ce.Appendf("namespace_value_name", "field must be populated")
+		ce = ce.Appendf("namespaceValueName", "field must be populated")
 	}
 	if len(params.ServiceAccountValueName) == 0 {
-		ce = ce.Appendf("service_account_value_name", "field must be populated")
+		ce = ce.Appendf("serviceAccountValueName", "field must be populated")
 	}
 	if len(params.ServiceValueName) == 0 {
-		ce = ce.Appendf("service_value_name", "field must be populated")
+		ce = ce.Appendf("serviceValueName", "field must be populated")
 	}
 	if len(params.PodLabelForService) == 0 {
-		ce = ce.Appendf("pod_label_name", "field must be populated")
+		ce = ce.Appendf("podLabelName", "field must be populated")
 	}
 	if len(params.TargetServiceInputName) == 0 {
-		ce = ce.Appendf("target_service_input_name", "field must be populated")
+		ce = ce.Appendf("targetServiceInputName", "field must be populated")
 	}
 	if len(params.ClusterDomainName) == 0 {
-		ce = ce.Appendf("cluster_domain_name", "field must be populated")
+		ce = ce.Appendf("clusterDomainName", "field must be populated")
 	} else if len(strings.Split(params.ClusterDomainName, ".")) != 3 {
-		ce = ce.Appendf("cluster_domain_name", "must have three segments, separated by '.' ('svc.cluster.local', for example)")
+		ce = ce.Appendf("clusterDomainName", "must have three segments, separated by '.' ('svc.cluster.local', for example)")
 	}
 	return
 }

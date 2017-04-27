@@ -46,10 +46,10 @@ func TestValidateConfig(t *testing.T) {
 	}{
 		{&config.Params{}, ""},
 		{&config.Params{MetricNameTemplateStrings: map[string]string{"a": `{{.apiMethod}}-{{.responseCode}}`}}, ""},
-		{&config.Params{MetricNameTemplateStrings: map[string]string{"badtemplate": `{{if 1}}`}}, "MetricNameTemplateStrings"},
-		{&config.Params{FlushDuration: time.Duration(-1)}, "FlushDuration"},
-		{&config.Params{SamplingRate: -1}, "SamplingRate"},
-		{&config.Params{FlushBytes: -1}, "FlushBytes"},
+		{&config.Params{MetricNameTemplateStrings: map[string]string{"badtemplate": `{{if 1}}`}}, "metricNameTemplateStrings"},
+		{&config.Params{FlushDuration: time.Duration(-1)}, "flushDuration"},
+		{&config.Params{SamplingRate: -1}, "samplingRate"},
+		{&config.Params{FlushBytes: -1}, "flushBytes"},
 	}
 	for idx, c := range cases {
 		b := &builder{}

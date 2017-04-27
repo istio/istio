@@ -221,7 +221,7 @@ func checkError(got error, want string, t *testing.T) {
 func TestParse_BadInput(t *testing.T) {
 	t.Run("Bad_Yaml", func(t *testing.T) {
 		_, err := Parse("<badyaml></badyaml>")
-		checkError(err, "DescriptorConfig: error unmarshaling JSON", t)
+		checkError(err, "descriptorConfig: error unmarshaling JSON", t)
 	})
 
 	t.Run("NonJsonInput", func(t *testing.T) {

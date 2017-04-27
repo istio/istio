@@ -27,10 +27,10 @@ import (
 //   func (a *adapterState) ValidateConfig(cfg adapter.AspectConfig) (ce *adapter.ConfigErrors) {
 //       c := cfg.(*Config)
 //       if c.Url == nil {
-//           ce = ce.Appendf("Url", "Must have a valid URL")
+//           ce = ce.Appendf("url", "Must have a valid URL")
 //       }
 //       if c.RetryCount < 0 {
-//           ce = ce.Appendf("RetryCount", "Expecting >= 0, got %d", cfg.RetryCount)
+//           ce = ce.Appendf("retryCount", "Expecting >= 0, got %d", cfg.RetryCount)
 //       }
 //       return
 //    }

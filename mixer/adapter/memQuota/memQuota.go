@@ -68,7 +68,7 @@ func (builder) ValidateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 	c := cfg.(*config.Params)
 
 	if c.MinDeduplicationDuration <= 0 {
-		ce = ce.Appendf("MinDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", c.MinDeduplicationDuration)
+		ce = ce.Appendf("minDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", c.MinDeduplicationDuration)
 	}
 	return
 }

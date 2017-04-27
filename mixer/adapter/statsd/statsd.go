@@ -69,17 +69,17 @@ func newBuilder() *builder {
 func (b *builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	params := c.(*config.Params)
 	if params.FlushDuration < time.Duration(0) {
-		ce = ce.Appendf("FlushDuration", "flush duration must be >= 0")
+		ce = ce.Appendf("flushDuration", "flush duration must be >= 0")
 	}
 	if params.FlushBytes < 0 {
-		ce = ce.Appendf("FlushBytes", "flush bytes must be >= 0")
+		ce = ce.Appendf("flushBytes", "flush bytes must be >= 0")
 	}
 	if params.SamplingRate < 0 {
-		ce = ce.Appendf("SamplingRate", "sampling rate must be >= 0")
+		ce = ce.Appendf("samplingRate", "sampling rate must be >= 0")
 	}
 	for metricName, s := range params.MetricNameTemplateStrings {
 		if _, err := template.New(metricName).Parse(s); err != nil {
-			ce = ce.Appendf("MetricNameTemplateStrings", "failed to parse template '%s' for metric '%s': %v", s, metricName, err)
+			ce = ce.Appendf("metricNameTemplateStrings", "failed to parse template '%s' for metric '%s': %v", s, metricName, err)
 		}
 	}
 	return

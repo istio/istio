@@ -195,12 +195,12 @@ func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 		err  string
 	}{
 		{"valid", wrap("valid", validLog), df, ""},
-		{"empty config", &aconfig.AccessLogsParams{}, df, "LogName"},
-		{"no log name", wrap("", validLog), df, "LogName"}, // name is ""
+		{"empty config", &aconfig.AccessLogsParams{}, df, "logName"},
+		{"no log name", wrap("", validLog), df, "logName"}, // name is ""
 		{"missing desc", wrap("missing desc", missingDesc), df, "could not find a descriptor"},
-		{"invalid labels", wrap("labels", invalidLabels), df, "Labels"},
-		{"invalid logtemplate", wrap("tmpl", invalidDescLog), df, "LogDescriptor"},
-		{"template expr attr missing", wrap("missing attr", missingTmplExprs), df, "TemplateExpressions"},
+		{"invalid labels", wrap("labels", invalidLabels), df, "labels"},
+		{"invalid logtemplate", wrap("tmpl", invalidDescLog), df, "logDescriptor"},
+		{"template expr attr missing", wrap("missing attr", missingTmplExprs), df, "templateExpressions"},
 	}
 
 	for idx, tt := range tests {

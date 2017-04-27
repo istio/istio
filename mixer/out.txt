@@ -1,0 +1,25 @@
+//adapter/denyChecker:small_tests                               (cached) PASSED in 0.1s
+//adapter/genericListChecker:small_tests                        (cached) PASSED in 0.1s
+//adapter/ipListChecker:small_tests                             (cached) PASSED in 0.2s
+//adapter/kubernetes:small_tests                                (cached) PASSED in 1.6s
+//adapter/memQuota:small_tests                                  (cached) PASSED in 0.1s
+//adapter/prometheus:small_tests                                (cached) PASSED in 0.2s
+//adapter/redisquota:small_tests                                (cached) PASSED in 0.2s
+//adapter/statsd:small_tests                                    (cached) PASSED in 0.1s
+//adapter/stdioLogger:small_tests                               (cached) PASSED in 0.1s
+//cmd/client/cmd:util_test                                      (cached) PASSED in 0.3s
+//pkg/adapter:small_tests                                       (cached) PASSED in 0.1s
+//pkg/attribute:small_tests                                     (cached) PASSED in 0.2s
+//pkg/config/descriptor:small_tests                             (cached) PASSED in 0.1s
+//pkg/config:small_tests                                        (cached) PASSED in 0.5s
+//pkg/expr:small_tests                                          (cached) PASSED in 0.2s
+//pkg/pool:small_tests                                          (cached) PASSED in 0.1s
+//pkg/status:small_tests                                        (cached) PASSED in 0.2s
+//pkg/tracing:small_tests                                       (cached) PASSED in 0.2s
+//pkg/version:small_tests                                       (cached) PASSED in 0.1s
+//adapter/noop:small_tests                                               PASSED in 0.1s
+//pkg/adapterManager:small_tests                                         PASSED in 0.6s
+//pkg/api:small_tests                                                    PASSED in 0.9s
+//pkg/aspect:small_tests                                                 PASSED in 0.2s
+
+Executed 4 out of 23 tests: 23 tests pass.

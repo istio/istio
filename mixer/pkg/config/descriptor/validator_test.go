@@ -41,13 +41,13 @@ func TestValidateLogEntry(t *testing.T) {
 			PayloadFormat: dpb.PAYLOAD_FORMAT_UNSPECIFIED,
 			LogTemplate:   "{{.foo}}",
 			Labels:        map[string]dpb.ValueType{},
-		}, "payload_format"},
+		}, "payloadFormat"},
 		{"invalid template", &dpb.LogEntryDescriptor{
 			Name:          "invalid_template",
 			PayloadFormat: dpb.JSON,
 			LogTemplate:   "",
 			Labels:        map[string]dpb.ValueType{},
-		}, "log_template"},
+		}, "logTemplate"},
 		{"invalid labels", &dpb.LogEntryDescriptor{
 			Name:          "invalid_labels",
 			PayloadFormat: dpb.TEXT,
@@ -176,7 +176,7 @@ func TestValidateBucket(t *testing.T) {
 					Offset:           0,
 				},
 			},
-		}, "linear_buckets.num_finite_buckets"},
+		}, "linearBuckets.numFiniteBuckets"},
 		{"invalid linear - width", &dpb.MetricDescriptor_BucketsDefinition{
 			Definition: &dpb.MetricDescriptor_BucketsDefinition_LinearBuckets{
 				LinearBuckets: &dpb.MetricDescriptor_BucketsDefinition_Linear{
@@ -185,7 +185,7 @@ func TestValidateBucket(t *testing.T) {
 					Offset:           0,
 				},
 			},
-		}, "linear_buckets.width"},
+		}, "linearBuckets.width"},
 		{"valid exponential", &dpb.MetricDescriptor_BucketsDefinition{
 			Definition: &dpb.MetricDescriptor_BucketsDefinition_ExponentialBuckets{
 				ExponentialBuckets: &dpb.MetricDescriptor_BucketsDefinition_Exponential{
@@ -203,7 +203,7 @@ func TestValidateBucket(t *testing.T) {
 					Scale:            1,
 				},
 			},
-		}, "exponential_buckets.num_finite_buckets"},
+		}, "exponentialBuckets.numFiniteBuckets"},
 		{"invalid exponential - growth", &dpb.MetricDescriptor_BucketsDefinition{
 			Definition: &dpb.MetricDescriptor_BucketsDefinition_ExponentialBuckets{
 				ExponentialBuckets: &dpb.MetricDescriptor_BucketsDefinition_Exponential{
@@ -212,7 +212,7 @@ func TestValidateBucket(t *testing.T) {
 					Scale:            1,
 				},
 			},
-		}, "exponential_buckets.growth_factor"},
+		}, "exponentialBuckets.growthFactor"},
 		{"invalid exponential - scale", &dpb.MetricDescriptor_BucketsDefinition{
 			Definition: &dpb.MetricDescriptor_BucketsDefinition_ExponentialBuckets{
 				ExponentialBuckets: &dpb.MetricDescriptor_BucketsDefinition_Exponential{
@@ -221,7 +221,7 @@ func TestValidateBucket(t *testing.T) {
 					Scale:            -1,
 				},
 			},
-		}, "exponential_buckets.scale"},
+		}, "exponentialBuckets.scale"},
 		{"valid explicit", &dpb.MetricDescriptor_BucketsDefinition{
 			Definition: &dpb.MetricDescriptor_BucketsDefinition_ExplicitBuckets{
 				ExplicitBuckets: &dpb.MetricDescriptor_BucketsDefinition_Explicit{
@@ -235,21 +235,21 @@ func TestValidateBucket(t *testing.T) {
 					Bounds: []float64{4, 3, 2, 1, 0},
 				},
 			},
-		}, "explicit_buckets.bounds"},
+		}, "explicitBuckets.bounds"},
 		{"invalid explicit", &dpb.MetricDescriptor_BucketsDefinition{
 			Definition: &dpb.MetricDescriptor_BucketsDefinition_ExplicitBuckets{
 				ExplicitBuckets: &dpb.MetricDescriptor_BucketsDefinition_Explicit{
 					Bounds: []float64{0, 1, 1, 2},
 				},
 			},
-		}, "explicit_buckets.bounds"},
+		}, "explicitBuckets.bounds"},
 		{"invalid explicit", &dpb.MetricDescriptor_BucketsDefinition{
 			Definition: &dpb.MetricDescriptor_BucketsDefinition_ExplicitBuckets{
 				ExplicitBuckets: &dpb.MetricDescriptor_BucketsDefinition_Explicit{
 					Bounds: []float64{-1, -2, -3},
 				},
 			},
-		}, "explicit_buckets.bounds"},
+		}, "explicitBuckets.bounds"},
 	}
 
 	for idx, tt := range tests {

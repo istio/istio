@@ -25,10 +25,10 @@ import (
 // ValidateLogEntry validates a log entry descriptor.
 func ValidateLogEntry(desc *dpb.LogEntryDescriptor) (ce *adapter.ConfigErrors) {
 	if desc.PayloadFormat == dpb.PAYLOAD_FORMAT_UNSPECIFIED {
-		ce = ce.Appendf("payload_format", "a payload format must be provided, we got PAYLOAD_FORMAT_UNSPECIFIED")
+		ce = ce.Appendf("payloadFormat", "a payload format must be provided, we got PAYLOAD_FORMAT_UNSPECIFIED")
 	}
 	if desc.LogTemplate == "" {
-		ce = ce.Appendf("log_template", "a log template must be provided")
+		ce = ce.Appendf("logTemplate", "a log template must be provided")
 	}
 	ce = ce.Extend(validateLabels(desc.Labels))
 	ce = ce.Extend(validateDescriptorName(desc.Name))
@@ -66,10 +66,10 @@ func validateBucket(desc *dpb.MetricDescriptor_BucketsDefinition) (ce *adapter.C
 
 func validateLinearBuckets(linear *dpb.MetricDescriptor_BucketsDefinition_Linear) (ce *adapter.ConfigErrors) {
 	if linear.NumFiniteBuckets <= 0 {
-		ce = ce.Appendf("buckets.linear_buckets.num_finite_buckets", "must be greater than 0, got %d", linear.NumFiniteBuckets)
+		ce = ce.Appendf("buckets.linearBuckets.numFiniteBuckets", "must be greater than 0, got %d", linear.NumFiniteBuckets)
 	}
 	if linear.Width <= 0 {
-		ce = ce.Appendf("buckets.linear_buckets.width", "must be greater than 0, got %d", linear.Width)
+		ce = ce.Appendf("buckets.linearBuckets.width", "must be greater than 0, got %d", linear.Width)
 	}
 	return
 }
@@ -78,7 +78,7 @@ func validateExplicitBuckets(explicit *dpb.MetricDescriptor_BucketsDefinition_Ex
 	prevBound := -math.MaxFloat64
 	for idx, bound := range explicit.Bounds {
 		if math.Max(prevBound, bound) == prevBound || almostEq(prevBound, bound, 5) {
-			ce = ce.Appendf("buckets.explicit_buckets.bounds",
+			ce = ce.Appendf("buckets.explicitBuckets.bounds",
 				"bounds must be strictly increasing, buckets %d and %d have values %f and %f respectively", idx-1, idx, prevBound, bound)
 		} else {
 			prevBound = bound
@@ -89,13 +89,13 @@ func validateExplicitBuckets(explicit *dpb.MetricDescriptor_BucketsDefinition_Ex
 
 func validateExponentialBuckets(exponential *dpb.MetricDescriptor_BucketsDefinition_Exponential) (ce *adapter.ConfigErrors) {
 	if exponential.NumFiniteBuckets <= 0 {
-		ce = ce.Appendf("buckets.exponential_buckets.num_finite_buckets", "must be greater than 0, got %d", exponential.NumFiniteBuckets)
+		ce = ce.Appendf("buckets.exponentialBuckets.numFiniteBuckets", "must be greater than 0, got %d", exponential.NumFiniteBuckets)
 	}
 	if exponential.GrowthFactor <= 1 {
-		ce = ce.Appendf("buckets.exponential_buckets.growth_factor", "must be greater than 1, got %d", exponential.GrowthFactor)
+		ce = ce.Appendf("buckets.exponentialBuckets.growthFactor", "must be greater than 1, got %d", exponential.GrowthFactor)
 	}
 	if exponential.Scale <= 0 {
-		ce = ce.Appendf("buckets.exponential_buckets.scale", "must be greater than 0, got %d", exponential.Scale)
+		ce = ce.Appendf("buckets.exponentialBuckets.scale", "must be greater than 0, got %d", exponential.Scale)
 	}
 	return
 }

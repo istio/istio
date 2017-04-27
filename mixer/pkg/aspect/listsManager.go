@@ -72,9 +72,9 @@ func (listsManager) DefaultConfig() config.AspectParams {
 func (listsManager) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.ListsParams)
 	if cfg.CheckExpression == "" {
-		ce = ce.Appendf("CheckExpression", "no expression provided")
+		ce = ce.Appendf("checkExpression", "no expression provided")
 	} else if err := v.AssertType(cfg.CheckExpression, df, apipb.STRING); err != nil {
-		ce = ce.Appendf("CheckExpression", "error type checking expression: %v", err)
+		ce = ce.Appendf("checkExpression", "error type checking expression: %v", err)
 	}
 	return
 }

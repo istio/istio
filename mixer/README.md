@@ -1,7 +1,6 @@
 # Mixer
 ![Mixer](doc/logo.png)
 
-
 [![GoDoc](https://godoc.org/github.com/istio/mixer?status.svg)](http://godoc.org/github.com/istio/mixer)
 [![Build Status](https://testing.istio.io/buildStatus/icon?job=mixer/postsubmit)](https://testing.istio.io/job/mixer/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/mixer)](https://goreportcard.com/report/github.com/istio/mixer)
@@ -18,11 +17,11 @@ Mixer provides three distinct features:
 - **Precondition Checking**. Enables callers to verify a number of preconditions before responding to an incoming request from a service consumer. 
 Preconditions can include whether the service consumer is properly authenticated, is on the service's whitelist, passes ACL checks, and more.
 
-- **Telemetry Reporting**. Enables services to produce logging, monitoring, tracing and billing streams intended for the service producer itself as well as 
-for its consumers.
-
 - **Quota Management**. Enables services to allocate and free quota on a number of dimensions, Quotas are used as a relatively simple resource management 
 tool to provide some fairness between service consumers when contending for limited resources.
+
+- **Telemetry Reporting**. Enables services to produce logging, monitoring, tracing and billing streams intended for the service producer itself as well as 
+for its consumers.
 
 Learn more about Mixer [here](https://istio.io/concepts/mixer.html).
 

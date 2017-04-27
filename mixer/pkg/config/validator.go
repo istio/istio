@@ -270,12 +270,12 @@ func (p *validator) validateAdapters(key string, cfg string) (ce *adapter.Config
 	if data, _, ferr = compatfilterConfig(cfg, func(s string) bool {
 		return s == "adapters"
 	}); ferr != nil {
-		return ce.Appendf("AdapterConfig", "failed to unmarshal config into proto with err: %v", ferr)
+		return ce.Appendf("adapterConfig", "failed to unmarshal config into proto with err: %v", ferr)
 	}
 
 	var m = &pb.GlobalConfig{}
 	if err := yaml.Unmarshal(data, m); err != nil {
-		return ce.Appendf("AdapterConfig", "failed to unmarshal config into proto: %v", err)
+		return ce.Appendf("adapterConfig", "failed to unmarshal config into proto: %v", err)
 	}
 
 	var acfg adapter.Config
@@ -334,11 +334,11 @@ func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 				// ensure that aa.Kind has a registered adapter
 				k, ok := ParseKind(aa.Kind)
 				if !ok {
-					ce = ce.Appendf("Kind", "%s is not a valid kind", aa.Kind)
+					ce = ce.Appendf("kind", "%s is not a valid kind", aa.Kind)
 				} else {
 					ak := adapterKey{k, aa.Adapter}
 					if p.validated.adapterByName[ak] == nil {
-						ce = ce.Appendf("NamedAdapter", "%s not available", ak)
+						ce = ce.Appendf("namedAdapter", "%s not available", ak)
 					}
 				}
 			}
@@ -398,13 +398,13 @@ func (p *validator) validate(cfg map[string]string) (rt *Validated, ce *adapter.
 
 	for _, kk := range keymap[descriptors] {
 		if re := p.validateDescriptors(kk, cfg[kk]); re != nil {
-			return rt, ce.Appendf("DescriptorConfig", "failed validation").Extend(re)
+			return rt, ce.Appendf("descriptorConfig", "failed validation").Extend(re)
 		}
 	}
 
 	for _, kk := range keymap[adapters] {
 		if re := p.validateAdapters(kk, cfg[kk]); re != nil {
-			return rt, ce.Appendf("AdapterConfig", "failed validation").Extend(re)
+			return rt, ce.Appendf("adapterConfig", "failed validation").Extend(re)
 		}
 	}
 
@@ -416,7 +416,7 @@ func (p *validator) validate(cfg map[string]string) (rt *Validated, ce *adapter.
 			continue
 		}
 		if re := p.validateServiceConfig(*ck, cfg[kk], true); re != nil {
-			return rt, ce.Appendf("ServiceConfig", "failed validation").Extend(re)
+			return rt, ce.Appendf("serviceConfig", "failed validation").Extend(re)
 		}
 	}
 	return p.validated, nil
@@ -430,7 +430,7 @@ func (p *validator) validateServiceConfig(pk rulesKey, cfg string, validatePrese
 	m := &pb.ServiceConfig{}
 	var numAspects int
 	if err = yaml.Unmarshal([]byte(cfg), m); err != nil {
-		return ce.Appendf("ServiceConfig", "failed to unmarshal config into proto: %v", err)
+		return ce.Appendf("serviceConfig", "failed to unmarshal config into proto: %v", err)
 	}
 
 	if numAspects, ce = p.validateAspectRules(m.GetRules(), "", validatePresence); ce != nil {

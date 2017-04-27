@@ -92,29 +92,29 @@ func (*quotasManager) ValidateConfig(c config.AspectParams, v expr.Validator, df
 	for _, quota := range cfg.Quotas {
 		desc := df.GetQuota(quota.DescriptorName)
 		if desc == nil {
-			ce = ce.Appendf("Quotas", "could not find a descriptor for the quota '%s'", quota.DescriptorName)
+			ce = ce.Appendf("quotas", "could not find a descriptor for the quota '%s'", quota.DescriptorName)
 			continue // we can't do any other validation without the descriptor
 		}
-		ce = ce.Extend(validateLabels(fmt.Sprintf("Quotas[%s].Labels", desc.Name), quota.Labels, desc.Labels, v, df))
+		ce = ce.Extend(validateLabels(fmt.Sprintf("quotas[%s].labels", desc.Name), quota.Labels, desc.Labels, v, df))
 
 		if _, err := quotaDefinitionFromProto(desc); err != nil {
-			ce = ce.Appendf(fmt.Sprintf("Descriptor[%s]", desc.Name), "failed to marshal descriptor into its adapter representation: %v", err)
+			ce = ce.Appendf(fmt.Sprintf("descriptor[%s]", desc.Name), "failed to marshal descriptor into its adapter representation: %v", err)
 		}
 
 		if quota.MaxAmount < 0 {
-			ce = ce.Appendf("MaxAmount", "must be >= 0")
+			ce = ce.Appendf("maxAmount", "must be >= 0")
 		}
 
 		if quota.Expiration < 0 {
-			ce = ce.Appendf("Expiration", "cannot be less than 0")
+			ce = ce.Appendf("expiration", "cannot be less than 0")
 		}
 
 		if desc.RateLimit {
 			if quota.Expiration == 0 {
-				ce = ce.Appendf("Expiration", "must be > 0 for rate limit quotas")
+				ce = ce.Appendf("expiration", "must be > 0 for rate limit quotas")
 			}
 		} else if quota.Expiration != 0 {
-			ce = ce.Appendf("Expiration", "must be 0 for allocation quotas")
+			ce = ce.Appendf("expiration", "must be 0 for allocation quotas")
 		}
 	}
 	return
