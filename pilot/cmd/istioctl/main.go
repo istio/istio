@@ -52,9 +52,10 @@ var (
 	schema model.ProtoSchema
 
 	rootCmd = &cobra.Command{
-		Use:          "istioctl",
-		Short:        "Istio control interface",
-		SilenceUsage: true,
+		Use:               "istioctl",
+		Short:             "Istio control interface",
+		SilenceUsage:      true,
+		DisableAutoGenTag: true,
 		Long: fmt.Sprintf("Istio configuration command line utility. Available configuration types: %v",
 			model.IstioConfig.Kinds()),
 		PersistentPreRunE: func(*cobra.Command, []string) (err error) {

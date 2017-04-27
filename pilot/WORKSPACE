@@ -265,6 +265,24 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_cpuguy83_go_md2man",
+    commit = "648eed146d3f3beacb64063cd0daae908015eebd",  # Mar 19, 2017 (no releases)
+    importpath = "github.com/cpuguy83/go-md2man",
+)
+
+new_go_repository(
+    name = "com_github_russross_blackfriday",
+    commit = "35eb537633d9950afc8ae7bdf0edb6134584e9fc",  # Mar 19, 2017 (no releases)
+    importpath = "github.com/russross/blackfriday",
+)
+
+new_go_repository(
+    name = "com_github_shurcooL_sanitized_anchor_name",
+    commit = "10ef21a441db47d8b13ebcc5fd2310f636973c77",  # Mar 19, 2017 (no releases)
+    importpath = "github.com/shurcooL/sanitized_anchor_name",
+)
+
+new_go_repository(
     name = "com_github_golang_sync",
     commit = "450f422ab23cf9881c94e2db30cac0eb1b7cf80c",
     importpath = "github.com/golang/sync",
@@ -426,4 +444,3 @@ git_repository(
     commit = "983183f98b79f8b67fe380fef4cdd21481830fd7",
     remote = "https://github.com/istio/test-infra.git",
 )
-
