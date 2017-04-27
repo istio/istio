@@ -1,5 +1,5 @@
 ################################
-# Istio egress envoy
+# Istio egress envoy with Istio auth
 ################################
 apiVersion: v1
 kind: Service
@@ -33,5 +33,13 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        volumeMounts:
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
 ---
 
