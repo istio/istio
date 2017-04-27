@@ -20,14 +20,15 @@ import "mixer/v1/config/descriptor/value_type.proto";
 
 // Defines the format of a single log entry.
 message LogEntryDescriptor {
-  // The name of this descriptor.
+  // Required. The name of this descriptor.
   string name = 1;
 
-  // An optional concise name for the log entry type, which can be displayed in user interfaces.
-  // Use sentence case without an ending period, for example "Request count".
+  // Optional. A concise name for the log entry type, which can be displayed in
+  // user interfaces. Use sentence case without an ending period, for example
+  // "Request count".
   string display_name = 2;
 
-  // An optional description of the log entry type, which can be used in documentation.
+  // Optional. A description of the log entry type, which can be used in documentation.
   string description = 3;
 
   // PayloadFormat details the currently supported logging payload formats.
@@ -42,18 +43,19 @@ message LogEntryDescriptor {
       // Indicates that the payload is a serialized JSON object.
       JSON = 2;
   }
-  // Format of the value of the payload attribute.
+  // Required. Format of the value of the payload attribute.
   PayloadFormat payload_format = 4;
 
-  // The template that will be populated with labels at runtime to generate a log message; the labels describe the
-  // parameters for this template.
+  // Required. The template that will be populated with labels at runtime to
+  // generate a log message; the labels describe the parameters for this template.
   //
   // The template strings must conform to go's text/template syntax.
   // TODO: unify templates to use our expression language when its finalized
   string log_template = 5;
 
-  // Labels describe the parameters of this log's template string. The log definition allows the user to
-  // map attribute expressions to actual values for these labels at run time; the result of the evaluation
-  // must be of the type described by the kind for each label.
+  // Labels describe the parameters of this log's template string. The log
+  // definition allows the user to map attribute expressions to actual values
+  // for these labels at run time; the result of the evaluation must be of the
+  // type described by the kind for each label.
   map<string, ValueType> labels = 6;
 }

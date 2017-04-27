@@ -22,11 +22,12 @@ import "mixer/v1/config/descriptor/value_type.proto";
 //
 // A principal is described by a set of attributes.
 message PrincipalDescriptor {
-  // The name of this descriptor.
+  // Required. The name of this descriptor.
   string name = 1;
 
-  // Labels represent the dimensions that uniquely identify this security principal.
-  // At runtime expressions will be evaluated to provide values for each label. Label
-  // names are mapped to expressions as part of aspect configuration.
+  // Labels represent the dimensions that uniquely identify this security
+  // principal. At runtime expressions will be evaluated to provide values for
+  // each label. Label names are mapped to expressions as part of aspect
+  // configuration.
   map<string, ValueType> labels = 2;
 }

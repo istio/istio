@@ -26,102 +26,137 @@ import "mixer/v1/config/descriptor/quota_descriptor.proto";
 
 package istio.mixer.v1.config;
 
-// Configures a set of services
-// following example configures metrics collection and ratelimit for
-// all services
-//# service config
-//subject: "namespace:ns1"
-//revision: "1011"
-//rules:
-//- selector: target_name == "*"
-//  aspects:
-//  - kind: metrics
-//    params:
-//      metrics:   # defines metric collection across the board.
-//      - name: response_time_by_status_code
-//        value: metric.response_time     # certain attributes are metrics
-//        metric_kind: DELTA
-//        labels:
-//        - key: response.status_code
-//  - kind: ratelimiter
-//    params:
-//      limits:  # imposes 2 limits, 100/s per source and destination
-//      - limit: "100/s"
-//        labels:
-//          - key: src.service_id
-//          - key: target.service_id
-//       - limit: "1000/s"  # every destination service gets 1000/s
-//        labels:
-//          - key: target.service_id
+// Configures a set of services.
+//
+// The following example configures a metric that will be recorded for all services:
+//
+// ```yaml
+// subject: "namespace:ns1"
+// revision: "1011"
+// rules:
+// - selector: target.service == "*"
+//   aspects:
+//   - kind: metrics
+//     params:
+//       metrics: # defines metric collection across the board.
+//       - descriptorName: response_time_by_status_code
+//         value: response.time
+//         labels:
+//           statusCode: response.code
+// ```
+//
+// (== deprecation_description ServiceConfig is deprecated, see the Config API's
+// swagger spec. ==)
 message ServiceConfig {
-  // subject is unique for a config type
+  option deprecated = true;
+
+  // Optional. Subject is unique for a config type.
   // 2 config with the same subject will overwrite each other
   string subject = 1;
-  // revision of this config. This is assigned by the server
+  // Optional. revision of this config. This is assigned by the server
   string revision = 2;
   repeated AspectRule rules = 3;
 }
 
-// AspectRules are intent based
+// An AspectRule is a selector and a set of intentions to be executed when the
+// selector is `true`. The selectors of the this rule's child AspectRules are only
+// evaluated if this rule's selector is true.
 message AspectRule {
-  // selector is an attributes based predicate.
-  // attr1 == "20" && attr2 == "30"
+  // Required. Selector is an attribute based predicate. When Mixer receives a
+  // request it evaluates all selectors in scope and executes the rules for all
+  // selectors that evaluated to true.
+  //
+  // A few example selectors:
+  //
+  // * an empty selector evaluates to `true`
+  // * `true`, a boolean literal; a rule with this selector will always be executed
+  // * `target.service == ratings*` selects any request targeting a service whose
+  // name starts with "ratings"
+  // * `attr1 == "20" && attr2 == "30"` logical AND, OR, and NOT are also available
   string selector = 1;
-  // The following aspects apply when the selector predicate evaluates to True
+  // The aspects that apply when selector evaluates to `true`.
   repeated Aspect aspects = 2;
-  // Nested aspect Rule is evaluated if selector predicate evaluates to True
+  // Nested aspect rules; their selectors are evaluated if this selector
+  // predicate evaluates to `true`.
   repeated AspectRule rules = 3;
 }
 
-
-// Aspect is intent based. It specifies the intent "kind"
-// following example specifies that the user would like to collect
-// response_time with 3 labels (src_consumer_id, target_response_status_code,
-// target_service_name)
+// Aspect describes how an adapter is intended to operate in the context of the
+// rule it's embedded in. The value for `params` depends on the `kind` of this
+// aspect: each kind of aspect defines its own `params` proto.
 //
-// The Input section tells if target_service_name is not available it can be
-// computed using the given expression
+// The following example instructs Mixer to populate a metric named "response_time"
+// that was declared to have three labels: src_consumer_id, target_response_status_code,
+// and target_service_name. For each label and the metric's `value` we provide
+// an expression over Istio's attributes. Mixer evaluates these expressions for
+// each request.
 //
-//      kind: istio/metrics
-//      params:
-//        metrics:
-//        - name: response_time     # What to call this metric outbound.
-//          value: metric_response_time  # from wellknown vocabulary
-//          metric_kind: DELTA
-//          labels:
-//          - key: src_consumer_id
-//          - key: target_response_status_code
-//          - key: target_service_name
+// ```yaml
+// kind: metrics
+// params:
+//   metrics:
+//   - descriptorName: response_time # tie this metric to a descriptor of the same name
+//     value: response.time  # from the set of canonical attributes
+//     labels:
+//       src_consumer_id: source.user | source.uid
+//       target_response_status_code: response.code
+//       target_service_name: target.service
+// ```
 message Aspect {
+  // Required. The kind of aspect this intent is targeting.
   string kind = 1;
-  string adapter = 2; // optional, allows specifying an adapter
-  // Struct representation of a proto defined by the aspect
+  // Optional. The name of the adapter this Aspect targets. If no name is provided,
+  // Mixer will use the adapter of the target kind named "default".
+  string adapter = 2;
+  // Required. Struct representation of a proto defined by each aspect kind.
   google.protobuf.Struct params = 4;
 }
 
-// Adapter config defines specifics of adapter implementations
-// We define an adapter that provides "metrics" aspect
-// kind: istio/metrics
-// name: metrics-statsd
-// impl: “istio.io/adapters/statsd”
+// Adapter allows the operator to configure a specific adapter implementation.
+// Each adapter implementation defines its own `params` proto. Note that unlike
+// [Aspect][istio.mixer.v1.config.Aspect], the type of `params` varies with `impl`
+// and not with `kind`.
+//
+// In the following example we define a `metrics` adapter using the Mixer's prepackaged
+// prometheus adapter. This adapter doesn't require any parameters.
+// 
+// ```yaml
+// kind: metrics
+// name: prometheus-adapter
+// impl: prometheus
 // params:
-//    Host: statd.svc.cluster
-//    Port: 8125
+// ```
 message Adapter {
-  string name = 1;  // statsd-slow
-  string kind = 2;  // metrics
-  string impl = 3;  // istio.statsd
-  // Struct representation of a proto defined by the implementation
-  google.protobuf.Struct params = 4;    // based on impl {}
+  // Required, must be unique per `kind`. Used by [Aspect][istio.mixer.v1.config.Aspect]
+  // to refer to this adapter. The name "default" is special: when an Aspect does not
+  // specify a name, the Adapter named "default" of the same `kind` is used to execute
+  // the intention described by the [AspectRule][istio.mixer.v1.config.AspectRule]s.
+  string name = 1;
+  // Required. The aspect this implementation with these params will implement;
+  // a single adapter implementation may implement many aspects, but an `Adapter`
+  // entry is required per kind.
+  string kind = 2;
+  // Required. The name of a specific adapter implementation. An adapter's
+  // implementation name is typically a constant in its code.
+  string impl = 3;
+  // Optional, depends on adapter implementation. Struct representation of a
+  // proto defined by the implementation; this varies depending on `impl`.
+  google.protobuf.Struct params = 4;
 }
 
-// GlobalConfig defines configuration elements that are available
-// for the rest of the config
-// It is used to configure adapters and make them available in AspectRules
+// GlobalConfig defines configuration elements that are available for the rest
+// of the config. It is used to configure adapters and make them available in
+// AspectRules.
+//
+// (== deprecation_description GlobalConfig is deprecated, see the Config API's
+// swagger spec. ==)
 message GlobalConfig {
-  string revision = 1;
-  repeated Adapter adapters = 2;
+  option deprecated = true;
 
+  // Optional.
+  string revision = 1;
+
+  repeated Adapter adapters = 2;
   repeated AttributeManifest manifests = 3;
 
   // TODO: remove these in https://github.com/istio/api/pull/45
@@ -132,14 +167,18 @@ message GlobalConfig {
   repeated istio.mixer.v1.config.descriptor.QuotaDescriptor quotas = 8;
 }
 
-// AttributeManifest describes a set of Attributes produced by some component of an Istio deployment.
+// AttributeManifest describes a set of Attributes produced by some component
+// of an Istio deployment.
 message AttributeManifest {
+  // Optional. The revision of this document. Assigned by server.
   string revision = 1;
-  // Name of the component producing these attributes. This can be the proxy (with the canonical name "istio-proxy") or
-  // the name of an attribute producing adapter in the mixer itself.
+  // Required. Name of the component producing these attributes. This can be
+  // the proxy (with the canonical name "istio-proxy") or the name of an
+  // `attributes` kind adapter in Mixer.
   string name = 2;
 
-  // The set of attributes this Istio component will be responsible for producing at runtime.
+  // The set of attributes this Istio component will be responsible for
+  // producing at runtime.
   repeated istio.mixer.v1.config.descriptor.AttributeDescriptor attributes = 3;
 }
 

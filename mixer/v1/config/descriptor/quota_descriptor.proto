@@ -29,19 +29,21 @@ import "mixer/v1/config/descriptor/value_type.proto";
 // the different dimensions to associate with the quota. A given quota holds a
 // unique value for potentially any combination of these attributes.
 message QuotaDescriptor {
-  // The name of this descriptor.
+  // Required. The name of this descriptor.
   string name = 1;
 
-  // An optional concise name for the quota which can be displayed in user interfaces.
+  // Optional. A concise name for the quota which can be displayed in user
+  // interfaces.
   string display_name = 2;
 
-  // An optional description of the quota which can be used in documentation.
+  // Optional. A description of the quota which can be used in documentation.
   string description = 3;
 
   // The set of labels that are necessary to describe a specific value cell
   // for a quota of this type.
   map<string, ValueType> labels = 4;
 
-  // Indicates whether the quota represents a rate limit or represents a resource quota.
+  // Indicates whether the quota represents a rate limit or represents a
+  // resource quota.
   bool rate_limit = 5;
 }

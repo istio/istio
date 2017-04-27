@@ -24,7 +24,7 @@ import "mixer/v1/config/descriptor/value_type.proto";
 //
 // Istio uses `attributes` to describe runtime activities of Istio services.
 // An Istio attribute carries a specific piece of information about an activity,
-// such as the error code of an API request, the latency of an API request, the
+// such as the error code of an API request, the latency of an API request, or the
 // original IP address of a TCP connection. The attributes are often generated
 // and consumed by different services. For example, a frontend service can
 // generate an authenticated user attribute and pass it to a backend service for
@@ -41,8 +41,8 @@ import "mixer/v1/config/descriptor/value_type.proto";
 // ## Design
 //
 // Each Istio attribute must conform to an Istio attribute type. The
-// `AttributeDescriptor` is used to define attribute types. Each type has a
-// globally unique type name, the type of the value, and a detailed description
+// `AttributeDescriptor` is used to define attribute types. Each attribute has
+// a globally unique type name, the type of the value, and a detailed description
 // that explains the semantics of the attribute type.
 //
 // The runtime presentation of an attribute is intentionally left out of this
@@ -58,8 +58,8 @@ import "mixer/v1/config/descriptor/value_type.proto";
 // attribute name and value becomes the HTTP header name and value. The actual
 // encoding scheme will be decided later.
 message AttributeDescriptor {
-  // The name of this descriptor, referenced from individual attribute instances and other
-  // descriptors.
+  // Required. The name of this descriptor, referenced from individual attribute
+  // instances and other descriptors.
   //
   // The format of this name is:
   //
@@ -67,14 +67,15 @@ message AttributeDescriptor {
   //
   // Where `IDENT` must match the regular expression `[a-z][a-z0-9]+`.
   //
-  // Attribute descriptor names must be unique within a single Istio deployment. There is a well-
-  // known set of attributes which have succinct names. Attributes not on this list should be
-  // named with a component-specific suffix such as request.count-my.component
+  // Attribute descriptor names must be unique within a single Istio deployment.
+  // Istio defines a canonical set of attributes which have succinct names.
+  // Attributes not in the canonical set should be named with a component-specific
+  // suffix such as request.count-my.component
   string name = 1;
 
-  // An optional human-readable description of the attribute's purpose.
+  // Optional. A human-readable description of the attribute's purpose.
   string description = 2;
 
-  // The type of data carried by attributes
+  // Required. The type of data carried by attributes
   ValueType value_type = 3;
 }

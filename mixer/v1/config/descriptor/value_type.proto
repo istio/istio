@@ -16,9 +16,10 @@ syntax = "proto3";
 
 package istio.mixer.v1.config.descriptor;
 
-// ValueType describes the types that values in the Istio system can take. These are used to describe the type of
-// Attributes at run time, describe the type of the result of evaluating an expression, and to describe the runtime
-// type of fields of other descriptors.
+// ValueType describes the types that values in the Istio system can take. These
+// are used to describe the type of Attributes at run time, describe the type of
+// the result of evaluating an expression, and to describe the runtime type of
+// fields of other descriptors.
 enum ValueType {
     // Invalid, default value.
     VALUE_TYPE_UNSPECIFIED = 0;
