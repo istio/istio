@@ -23,6 +23,11 @@ spec:
   selector:
     istio: manager
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-manager-service-account
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -36,9 +41,10 @@ spec:
       labels:
         istio: manager
     spec:
+      serviceAccountName: istio-manager-service-account
       containers:
-      - name: manager
-        image: docker.io/istio/manager:2017-04-13-01.05.21
+      - name: discovery
+        image: docker.io/istio/manager:2017-04-24-23.54.11
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:
@@ -49,4 +55,17 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+      - name: apiserver
+        image: docker.io/istio/manager:2017-04-24-23.54.11
+        imagePullPolicy: Always
+        args: ["apiserver", "-v", "2"]
+        ports:
+        - containerPort: 8081
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
 ---
+

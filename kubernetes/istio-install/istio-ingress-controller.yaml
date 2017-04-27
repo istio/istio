@@ -16,6 +16,11 @@ spec:
   selector:
     infra: istio-ingress-controller
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingress-service-account
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -29,9 +34,10 @@ spec:
       labels:
         infra: istio-ingress-controller
     spec:
+      serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress-controller
-        image: docker.io/istio/proxy:2017-04-13-01.05.21
+        image: docker.io/istio/proxy:2017-04-24-23.54.11
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: Always
         ports:
@@ -42,3 +48,5 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+---
+
