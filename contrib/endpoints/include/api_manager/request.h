@@ -60,7 +60,8 @@ class Request {
   virtual bool FindHeader(const std::string &name, std::string *header) = 0;
 
   // Returns the protocol used for this call.
-  virtual ::google::api_manager::protocol::Protocol GetRequestProtocol() = 0;
+  virtual ::google::api_manager::protocol::Protocol GetFrontendProtocol() = 0;
+  virtual ::google::api_manager::protocol::Protocol GetBackendProtocol() = 0;
 
   // Sets auth token to the request object. Caller of RequestHandler::Check
   // need to use it compose error message if authentication fails.

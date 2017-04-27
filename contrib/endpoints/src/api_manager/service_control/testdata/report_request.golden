@@ -40,6 +40,10 @@ operations {
     value: "us-central"
   }
   labels {
+    key: "servicecontrol.googleapis.com/backend_protocol"
+    value: "grpc"
+  }
+  labels {
     key: "servicecontrol.googleapis.com/platform"
     value: "GKE"
   }

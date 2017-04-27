@@ -432,6 +432,8 @@ const char kServiceControlAndroidCertFingerprint[] =
     "servicecontrol.googleapis.com/android_cert_fingerprint";
 const char kServiceControlIosBundleId[] =
     "servicecontrol.googleapis.com/ios_bundle_id";
+const char kServiceControlBackendProtocol[] =
+    "servicecontrol.googleapis.com/backend_protocol";
 
 // User agent label value
 // The value for kUserAgent should be configured at service control server.
@@ -500,7 +502,19 @@ Status set_error_type(const SupportedLabel& l, const ReportRequestInfo& info,
 // /protocol
 Status set_protocol(const SupportedLabel& l, const ReportRequestInfo& info,
                     Map<std::string, std::string>* labels) {
-  (*labels)[l.name] = protocol::ToString(info.protocol);
+  (*labels)[l.name] = protocol::ToString(info.frontend_protocol);
+  return Status::OK;
+}
+
+// /servicecontrol.googleapis.com/backend_protocol
+Status set_backend_protocol(const SupportedLabel& l,
+                            const ReportRequestInfo& info,
+                            Map<std::string, std::string>* labels) {
+  // backend_protocol is either GRPC or UNKNOWN.
+  if (info.backend_protocol == protocol::GRPC &&
+      info.frontend_protocol != info.backend_protocol) {
+    (*labels)[l.name] = protocol::ToString(info.backend_protocol);
+  }
   return Status::OK;
 }
 
@@ -722,6 +736,11 @@ const SupportedLabel supported_labels[] = {
         kServiceControlPlatform,
         ::google::api::LabelDescriptor_ValueType_STRING, SupportedLabel::SYSTEM,
         set_platform,
+    },
+    {
+        kServiceControlBackendProtocol,
+        ::google::api::LabelDescriptor_ValueType_STRING, SupportedLabel::SYSTEM,
+        set_backend_protocol,
     },
 };
 

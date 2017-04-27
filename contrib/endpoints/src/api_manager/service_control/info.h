@@ -136,7 +136,8 @@ struct ReportRequestInfo : public OperationInfo {
   std::string auth_audience;
 
   // Protocol used to issue the request.
-  protocol::Protocol protocol;
+  protocol::Protocol frontend_protocol;
+  protocol::Protocol backend_protocol;
 
   // HTTP method. all-caps string such as "GET", "POST" etc.
   std::string method;
@@ -173,7 +174,8 @@ struct ReportRequestInfo : public OperationInfo {
         status(utils::Status::OK),
         request_size(-1),
         response_size(-1),
-        protocol(protocol::UNKNOWN),
+        frontend_protocol(protocol::UNKNOWN),
+        backend_protocol(protocol::UNKNOWN),
         compute_platform(compute_platform::UNKNOWN),
         request_bytes(0),
         response_bytes(0),

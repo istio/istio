@@ -95,7 +95,7 @@ void FillReportRequestInfo(ReportRequestInfo* request) {
   request->latency.request_time_ms = 123;
   request->latency.backend_time_ms = 101;
   request->latency.overhead_time_ms = 22;
-  request->protocol = protocol::HTTP;
+  request->frontend_protocol = protocol::HTTP;
   request->compute_platform = compute_platform::GKE;
   request->auth_issuer = "auth-issuer";
   request->auth_audience = "auth-audience";
@@ -266,6 +266,7 @@ TEST_F(ProtoTest, FillGoodReportRequestTest) {
   ReportRequestInfo info;
   FillOperationInfo(&info);
   FillReportRequestInfo(&info);
+  info.backend_protocol = protocol::GRPC;
 
   gasv1::ReportRequest request;
   ASSERT_TRUE(scp_.FillReportRequest(info, &request).ok());

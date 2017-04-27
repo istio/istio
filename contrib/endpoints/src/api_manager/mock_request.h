@@ -30,7 +30,9 @@ class MockRequest : public Request {
   MOCK_METHOD1(SetAuthToken, void(const std::string &));
   MOCK_METHOD0(GetRequestHTTPMethod, std::string());
   MOCK_METHOD0(GetQueryParameters, std::string());
-  MOCK_METHOD0(GetRequestProtocol, ::google::api_manager::protocol::Protocol());
+  MOCK_METHOD0(GetFrontendProtocol,
+               ::google::api_manager::protocol::Protocol());
+  MOCK_METHOD0(GetBackendProtocol, ::google::api_manager::protocol::Protocol());
   MOCK_METHOD0(GetUnparsedRequestPath, std::string());
   MOCK_METHOD0(GetInsecureCallerID, std::string());
   MOCK_METHOD0(GetClientIP, std::string());
