@@ -20,6 +20,8 @@ import (
 	"github.com/golang/glog"
 
 	"istio.io/manager/test/util"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type ingress struct {
@@ -64,6 +66,7 @@ func (t *ingress) run() error {
 	}
 
 	funcs := make(map[string]func() status)
+	funcs["Ingress status IP"] = t.checkIngressStatus
 	cases := []struct {
 		dst  string
 		path string
@@ -108,6 +111,29 @@ func (t *ingress) run() error {
 	}
 	if err := t.logs.check(t.infra); err != nil {
 		return err
+	}
+	return nil
+}
+
+// ensure that IPs/hostnames are in the ingress statuses
+func (t *ingress) checkIngressStatus() status {
+	ings, err := client.Extensions().Ingresses(t.Namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	if len(ings.Items) == 0 {
+		return fmt.Errorf("ingress status failure: no ingress")
+	}
+	for _, ing := range ings.Items {
+		if len(ing.Status.LoadBalancer.Ingress) == 0 {
+			return errAgain
+		}
+
+		for _, status := range ing.Status.LoadBalancer.Ingress {
+			if status.IP == "" && status.Hostname == "" {
+				return errAgain
+			}
+		}
 	}
 	return nil
 }
