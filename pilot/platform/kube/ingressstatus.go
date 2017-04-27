@@ -15,6 +15,8 @@
 package kube
 
 import (
+	"fmt"
+
 	"istio.io/api/proxy/v1/config"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -57,11 +59,16 @@ func NewIngressStatusSyncer(mesh *config.ProxyMeshConfig, client *Client,
 		&v1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{},
 	)
 
+	var publishService string
+	if mesh.IngressService != "" {
+		publishService = fmt.Sprintf("%v/%v", options.Namespace, mesh.IngressService)
+	}
 	ingressClass, defaultIngressClass := convertIngressControllerMode(mesh.IngressControllerMode, mesh.IngressClass)
 	sync := status.NewStatusSyncer(status.Config{
 		Client:              client.GetKubernetesClient(),
 		IngressLister:       store.IngressLister{Store: informer.GetStore()},
 		ElectionID:          "ingress-controller-leader", // TODO: configurable?
+		PublishService:      publishService,
 		DefaultIngressClass: defaultIngressClass,
 		IngressClass:        ingressClass,
 	})
