@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"testing"
 
+	"fmt"
+
 	"istio.io/manager/apiserver"
 	"istio.io/manager/model"
 )
@@ -15,10 +17,15 @@ import (
 type FakeHandler struct {
 	wantResponse   string
 	wantHeaders    http.Header
+	sentHeaders    http.Header
 	wantStatusCode int
 }
 
 func (f *FakeHandler) HandlerFunc(w http.ResponseWriter, r *http.Request) {
+	if reflect.DeepEqual(r.Header, f.sentHeaders) {
+		_, _ = w.Write([]byte(fmt.Sprintf("Received unexpected headers, wanted: %v got %v",
+			f.sentHeaders, r.Header)))
+	}
 	w.WriteHeader(f.wantStatusCode)
 	for k, v := range f.wantHeaders {
 		w.Header().Set(k, v[0])
@@ -83,6 +90,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		config          *apiserver.Config
 		wantConfig      *apiserver.Config
 		wantConfigSlice []apiserver.Config
+		sentHeaders     http.Header
 		wantHeaders     http.Header
 		wantStatus      int
 		wantError       bool
@@ -125,6 +133,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			config:      &apiserver.Config{Type: "type", Name: "name", Spec: "spec"},
 			wantHeaders: http.Header{"Content-Type": []string{"application/json"}},
+			sentHeaders: http.Header{"Content-Type": []string{"application/json"}},
 			wantStatus:  http.StatusCreated,
 		},
 		{
@@ -134,6 +143,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 			config:      &apiserver.Config{Type: "type", Name: "name", Spec: "spec"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
+			sentHeaders: http.Header{"Content-Type": []string{"application/json"}},
 			wantStatus:  http.StatusConflict,
 		},
 		{
@@ -143,6 +153,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 			config:      &apiserver.Config{Type: "NOTATYPE", Name: "name", Spec: "spec"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
+			sentHeaders: http.Header{"Content-Type": []string{"application/json"}},
 			wantStatus:  http.StatusBadRequest,
 		},
 		{
@@ -152,6 +163,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 			config:      &apiserver.Config{Type: "type", Name: "name", Spec: "NOTASPEC"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
+			sentHeaders: http.Header{"Content-Type": []string{"application/json"}},
 			wantStatus:  http.StatusBadRequest,
 		},
 		{
@@ -160,6 +172,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			config:      &apiserver.Config{Type: "type", Name: "name", Spec: "spec"},
 			wantHeaders: http.Header{"Content-Type": []string{"application/json"}},
+			sentHeaders: http.Header{"Content-Type": []string{"application/json"}},
 			wantStatus:  http.StatusOK,
 		},
 		{
@@ -169,6 +182,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 			config:      &apiserver.Config{Type: "type", Name: "name", Spec: "spec"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
+			sentHeaders: http.Header{"Content-Type": []string{"application/json"}},
 			wantStatus:  http.StatusNotFound,
 		},
 		{
@@ -178,6 +192,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 			config:      &apiserver.Config{Type: "NOTATYPE", Name: "name", Spec: "spec"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
+			sentHeaders: http.Header{"Content-Type": []string{"application/json"}},
 			wantStatus:  http.StatusBadRequest,
 		},
 		{
@@ -187,6 +202,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 			config:      &apiserver.Config{Type: "type", Name: "name", Spec: "NOTASPEC"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
+			sentHeaders: http.Header{"Content-Type": []string{"application/json"}},
 			wantStatus:  http.StatusBadRequest,
 		},
 		{
@@ -261,6 +277,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 			wantResponse:   want,
 			wantHeaders:    c.wantHeaders,
 			wantStatusCode: c.wantStatus,
+			sentHeaders:    c.sentHeaders,
 		}
 		ts := httptest.NewServer(http.HandlerFunc(fh.HandlerFunc))
 		defer ts.Close()

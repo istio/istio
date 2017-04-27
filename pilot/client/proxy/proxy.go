@@ -21,6 +21,15 @@ type ManagerClient struct {
 	client           *http.Client
 }
 
+// Client defines the interface for the proxy specific functionality of the manager client
+type Client interface {
+	GetConfig(model.Key) (*apiserver.Config, error)
+	AddConfig(model.Key, apiserver.Config) error
+	UpdateConfig(model.Key, apiserver.Config) error
+	DeleteConfig(model.Key) error
+	ListConfig(string, string) ([]apiserver.Config, error)
+}
+
 // NewManagerClient creates a new ManagerClient instance. It trims the apiVersion of leading and trailing slashes
 // and the base path of trailing slashes to ensure consistency
 func NewManagerClient(base url.URL, apiVersion string, client *http.Client) *ManagerClient {
@@ -39,12 +48,22 @@ func (m *ManagerClient) do(request *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("unable to parse URL: %v", err)
 	}
 	request.URL = fullURL
+	if request.Method == "POST" || request.Method == "PUT" {
+		request.Header.Set("Content-Type", "application/json")
+	}
 	response, err := m.client.Do(request)
 	if err != nil {
 		return nil, err
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, fmt.Errorf("received non-success status code %v", response.StatusCode)
+		defer func() { _ = response.Body.Close() }() // #nosec
+		body, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return nil, err
+		} else if len(body) == 0 {
+			return nil, fmt.Errorf("received non-success status code %v", response.StatusCode)
+		}
+		return nil, fmt.Errorf("received non-success status code %v with message %v", response.StatusCode, string(body))
 	}
 	return response, nil
 }
