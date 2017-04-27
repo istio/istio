@@ -210,11 +210,19 @@ void HttpControl::Check(HttpRequestDataPtr request_data, HeaderMap& headers,
   SetStringAttribute(kOriginUser, origin_user, &request_data->attributes);
   log().debug("Send Check: {}", request_data->attributes.DebugString());
 
-  auto check_on_done = [this, on_done](const Status& status) {
+  auto check_on_done = [this, on_done, request_data](const Status& status) {
     if (status.ok()) {
       if (!quota_attributes_.attributes.empty()) {
-        log().debug("Send Quota: {}", quota_attributes_.DebugString());
-        mixer_client_->Quota(quota_attributes_, on_done);
+        for (const auto& attribute : quota_attributes_.attributes) {
+          request_data->attributes.attributes[attribute.first] =
+              attribute.second;
+        }
+        // quota() needs all the attributes that check() needs
+        // operator may apply conditional quota using attributes in selectors.
+        // mixerClient::GenerateSignature should be updated
+        // to exclude non identifying attributes
+        log().debug("Send Quota: {}", request_data->attributes.DebugString());
+        mixer_client_->Quota(request_data->attributes, on_done);
         return;  // Not to call on_done again.
       }
     }

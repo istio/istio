@@ -29,7 +29,11 @@ const (
 	rejectRequestNum = 30
 )
 
-func TestQuotaCache(t *testing.T) {
+// testQuotaCache has been disabled
+// Quota call also needs all the attributes
+// that Check needs. Therefore a key formed by using all
+// attributes is very unlikely to hit the cache.
+func testQuotaCache(t *testing.T) {
 	s, err := SetUp(t, basicConfig+","+quotaCacheConfig)
 	if err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
