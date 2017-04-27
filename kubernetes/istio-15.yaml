@@ -1,3 +1,5 @@
+# GENERATED FILE. Use for Kubernetes 1.5 or earlier.
+# TO UPDATE, modify files in istio-install and run updateVersion.sh
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -153,3 +155,162 @@ spec:
             name: mixer-config
 ---
 
+# Manager service for discovery
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+data:
+  mesh: |-
+    # Uncomment the following line to enable mutual TLS between proxies
+    # authPolicy: MUTUAL_TLS
+    mixerAddress: istio-mixer:9091
+    discoveryAddress: istio-manager:8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-manager
+  labels:
+    istio: manager
+spec:
+  ports:
+  - port: 8080
+    name: http-discovery
+  selector:
+    istio: manager
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-manager-service-account
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-manager
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
+      labels:
+        istio: manager
+    spec:
+      serviceAccountName: istio-manager-service-account
+      containers:
+      - name: discovery
+        image: docker.io/istio/manager:2017-04-24-23.54.11
+        imagePullPolicy: Always
+        args: ["discovery", "-v", "2"]
+        ports:
+        - containerPort: 8080
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+      - name: apiserver
+        image: docker.io/istio/manager:2017-04-24-23.54.11
+        imagePullPolicy: Always
+        args: ["apiserver", "-v", "2"]
+        ports:
+        - containerPort: 8081
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+---
+
+################################
+# Istio ingress controller
+################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingress-controller
+  labels:
+    infra: istio-ingress-controller
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+#   nodePort: 32000
+    name: http
+  selector:
+    infra: istio-ingress-controller
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingress-service-account
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-ingress-controller
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
+      labels:
+        infra: istio-ingress-controller
+    spec:
+      serviceAccountName: istio-ingress-service-account
+      containers:
+      - name: istio-ingress-controller
+        image: docker.io/istio/proxy:2017-04-24-23.54.11
+        args: ["proxy", "ingress", "-v", "2"]
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+---
+
+################################
+# Istio egress envoy
+################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-egress
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: istio-egress
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-egress
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: istio-egress
+    spec:
+      containers:
+      - name: proxy
+        image: docker.io/istio/proxy:2017-04-24-23.54.11
+        imagePullPolicy: Always
+        args: ["proxy", "egress", "-v", "2"]
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+---
