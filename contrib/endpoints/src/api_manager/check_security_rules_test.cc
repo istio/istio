@@ -198,47 +198,6 @@ MATCHER_P3(HTTPRequestMatches, url, method, body, "") {
   return MessageDifferencer::Equals(actual, expected);
 }
 
-FunctionCall BuildCall(const std::string &name, const std::string &url,
-                       const std::string &method, const std::string &body,
-                       const std::string &audience) {
-  FunctionCall func_call;
-  func_call.set_function(name);
-
-  if (!url.empty()) {
-    *(func_call.add_args()) = ToValue(url);
-  }
-
-  if (!method.empty()) {
-    *(func_call.add_args()) = ToValue(method);
-  }
-
-  if (!body.empty()) {
-    *(func_call.add_args()) = ToValue(body);
-  }
-
-  if (!audience.empty()) {
-    *(func_call.add_args()) = ToValue(audience);
-  }
-
-  return func_call;
-}
-
-// Get a server configuration that has auth disabled. This should disable
-// security rules check by default.
-std::pair<std::string, std::string> GetConfigWithAuthForceDisabled() {
-  std::string service_config =
-      std::string(kServiceName) + kApis + kAuthentication + kHttp;
-  const char server_config[] = R"(
-api_authentication_config {
-  force_disable:  true
-}
-api_check_security_rules_config {
-  firebase_server: "https://myfirebaseserver.com"
-}
-)";
-  return std::make_pair(service_config, server_config);
-}
-
 // Get service configuration with no authentication member field. This will
 // disable auth and will also disable security rules check.
 std::pair<std::string, std::string> GetConfigWithNoAuth() {
@@ -260,13 +219,6 @@ std::pair<std::string, std::string> GetConfigWithoutServer() {
   std::string service_config =
       std::string(kServiceName) + kApis + kAuthentication + kHttp;
   return std::make_pair(service_config, "");
-}
-
-// Get a valid configuration. This will enable security check rules.
-std::pair<std::string, std::string> GetValidConfig() {
-  std::string service_config =
-      std::string(kServiceName) + kApis + kAuthentication + kHttp;
-  return std::make_pair(service_config, kServerConfig);
 }
 
 // This test class is parameterized and creates Config object based on the
