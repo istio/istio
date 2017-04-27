@@ -163,7 +163,7 @@ metadata:
 data:
   mesh: |-
     # Uncomment the following line to enable mutual TLS between proxies
-    # authPolicy: MUTUAL_TLS
+    authPolicy: MUTUAL_TLS
     mixerAddress: istio-mixer:9091
     discoveryAddress: istio-manager:8080
 ---
@@ -333,7 +333,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ---
 ################################
-# Istio ingress controller
+# Istio ingress controller with Istio auth
 ################################
 apiVersion: v1
 kind: Service
@@ -382,10 +382,18 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        volumeMounts:
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
 ---
 
 ################################
-# Istio egress envoy
+# Istio egress envoy with Istio auth
 ################################
 apiVersion: v1
 kind: Service
@@ -415,6 +423,48 @@ spec:
         args: ["proxy", "egress", "-v", "2"]
         env:
         - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+---
+
+# This CA only issues certs/keys for the namespace it runs in.
+# For demo only. Please use istio-cluster-ca.yaml for real-world use cases.
+# Service account CA runs in.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ca-service-account
+---
+# Istio CA
+apiVersion: v1
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: istio-ca
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: istio-ca
+    spec:
+      serviceAccountName: istio-ca-service-account
+      containers:
+      - name: istio-ca
+        image: docker.io/istio/istio-ca:2017-04-13-17.43.08
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NAMESPACE
           valueFrom:
             fieldRef:
               apiVersion: v1
