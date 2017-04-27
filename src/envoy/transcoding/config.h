@@ -16,6 +16,7 @@
 #pragma once
 
 #include "common/common/logger.h"
+#include "contrib/endpoints/src/api_manager/path_matcher.h"
 #include "contrib/endpoints/src/grpc/transcoding/request_message_translator.h"
 #include "contrib/endpoints/src/grpc/transcoding/transcoder.h"
 #include "envoy/json/json_object.h"
@@ -30,6 +31,19 @@ namespace Transcoding {
 
 class Instance;
 
+class MethodInfo {
+ public:
+  MethodInfo(const google::protobuf::MethodDescriptor* method)
+      : method_(method) {}
+  const std::set<std::string> system_query_parameter_names() const {
+    return std::set<std::string>();
+  }
+  const google::protobuf::MethodDescriptor* method() const { return method_; }
+
+ private:
+  const google::protobuf::MethodDescriptor* method_;
+};
+
 class Config : public Logger::Loggable<Logger::Id::config> {
  public:
   Config(const Json::Object& config, Server::Instance& server);
@@ -38,20 +52,19 @@ class Config : public Logger::Loggable<Logger::Id::config> {
       const Http::HeaderMap& headers,
       google::protobuf::io::ZeroCopyInputStream* request_input,
       google::api_manager::transcoding::TranscoderInputStream* response_input,
-      std::unique_ptr<google::api_manager::transcoding::Transcoder>*
-          transcoder);
+      std::unique_ptr<google::api_manager::transcoding::Transcoder>& transcoder,
+      const google::protobuf::MethodDescriptor*& method_descriptor);
 
   google::protobuf::util::Status MethodToRequestInfo(
       const google::protobuf::MethodDescriptor* method,
       google::api_manager::transcoding::RequestInfo* info);
 
-  const google::protobuf::MethodDescriptor* ResolveMethod(
-      const std::string& method, const std::string& path);
-
  private:
   google::protobuf::DescriptorPool descriptor_pool_;
   std::unique_ptr<google::protobuf::util::TypeResolver> resolver_;
   std::unique_ptr<google::protobuf::util::converter::TypeInfo> info_;
+  google::api_manager::PathMatcherPtr<MethodInfo*> path_matcher_;
+  std::vector<std::unique_ptr<MethodInfo>> methods_;
 
   friend class Instance;
 };

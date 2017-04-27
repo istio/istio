@@ -137,6 +137,9 @@ cc_library(
     hdrs = [
         "path_matcher.h",
     ],
+    visibility = [
+        "//visibility:public",
+    ],
     deps = [
         ":http_template",
     ],

@@ -20,6 +20,8 @@
 #include "contrib/endpoints/src/grpc/transcoding/response_to_json_translator.h"
 #include "envoy/common/exception.h"
 #include "envoy/http/filter.h"
+#include "google/api/annotations.pb.h"
+#include "google/api/http.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/util/type_resolver.h"
@@ -82,49 +84,107 @@ Config::Config(const Json::Object& config, Server::Instance& server) {
   if (!descriptor_set.ParseFromIstream(&input)) {
     throw EnvoyException("Unable to parse proto descriptor");
   }
-  log().debug("transcoding filter loaded");
+
   for (const auto& file : descriptor_set.file()) {
     if (descriptor_pool_.BuildFile(file) == nullptr) {
       throw EnvoyException("Unable to parse proto descriptor");
     }
   }
+
+  google::api_manager::PathMatcherBuilder<MethodInfo*> pmb;
+
+  for (const auto& service_name : config.getStringArray("services")) {
+    auto service = descriptor_pool_.FindServiceByName(service_name);
+    if (service == nullptr) {
+      throw EnvoyException("Could not find '" + service_name +
+                           "' in the proto descriptor");
+    }
+    for (int i = 0; i < service->method_count(); ++i) {
+      auto method = service->method(i);
+
+      auto method_info = new MethodInfo(method);
+      methods_.emplace_back(method_info);
+      auto http_rule = method->options().GetExtension(google::api::http);
+
+      log().debug("/" + service->full_name() + "/" + method->name());
+      log().debug(http_rule.DebugString());
+
+      switch (http_rule.pattern_case()) {
+        case ::google::api::HttpRule::kGet:
+          pmb.Register("GET", http_rule.get(), http_rule.body(), method_info);
+          break;
+        case ::google::api::HttpRule::kPut:
+          pmb.Register("PUT", http_rule.put(), http_rule.body(), method_info);
+          break;
+        case ::google::api::HttpRule::kPost:
+          pmb.Register("POST", http_rule.post(), http_rule.body(), method_info);
+          break;
+        case ::google::api::HttpRule::kDelete:
+          pmb.Register("DELETE", http_rule.delete_(), http_rule.body(),
+                       method_info);
+          break;
+        case ::google::api::HttpRule::kPatch:
+          pmb.Register("PATCH", http_rule.patch(), http_rule.body(),
+                       method_info);
+          break;
+        case ::google::api::HttpRule::kCustom:
+          pmb.Register(http_rule.custom().kind(), http_rule.custom().path(),
+                       http_rule.body(), method_info);
+          break;
+        default:
+          break;
+      }
+
+      pmb.Register("POST", "/" + service->full_name() + "/" + method->name(),
+                   "", method_info);
+    }
+  }
+
+  path_matcher_ = pmb.Build();
+
   resolver_.reset(google::protobuf::util::NewTypeResolverForDescriptorPool(
       kTypeUrlPrefix, &descriptor_pool_));
   info_.reset(google::protobuf::util::converter::TypeInfo::NewTypeInfo(
       resolver_.get()));
+
+  log().debug("transcoding filter loaded");
 }
 
-Status Config::CreateTranscoder(const Http::HeaderMap& headers,
-                                ZeroCopyInputStream* request_input,
-                                TranscoderInputStream* response_input,
-                                std::unique_ptr<Transcoder>* transcoder) {
+Status Config::CreateTranscoder(
+    const Http::HeaderMap& headers, ZeroCopyInputStream* request_input,
+    TranscoderInputStream* response_input,
+    std::unique_ptr<Transcoder>& transcoder,
+    const google::protobuf::MethodDescriptor*& method_descriptor) {
+  std::string method = headers.Method()->value().c_str();
   std::string path = headers.Path()->value().c_str();
 
-  auto method = ResolveMethod(headers.Method()->value().c_str(),
-                              headers.Path()->value().c_str());
-  if (!method) {
+  auto method_info = path_matcher_->Lookup(method, path);
+  if (!method_info) {
     return Status(Code::NOT_FOUND,
                   "Could not resolve " + path + " to a method");
   }
 
+  method_descriptor = method_info->method();
+
   RequestInfo request_info;
-  auto status = MethodToRequestInfo(method, &request_info);
+  auto status = MethodToRequestInfo(method_descriptor, &request_info);
   if (!status.ok()) {
     return status;
   }
 
   std::unique_ptr<JsonRequestTranslator> request_translator{
       new JsonRequestTranslator(resolver_.get(), request_input, request_info,
-                                method->client_streaming(), true)};
+                                method_descriptor->client_streaming(), true)};
 
   auto response_type_url =
-      kTypeUrlPrefix + "/" + method->output_type()->full_name();
+      kTypeUrlPrefix + "/" + method_descriptor->output_type()->full_name();
   std::unique_ptr<ResponseToJsonTranslator> response_translator{
       new ResponseToJsonTranslator(resolver_.get(), response_type_url,
-                                   method->server_streaming(), response_input)};
+                                   method_descriptor->server_streaming(),
+                                   response_input)};
 
-  transcoder->reset(new TranscoderImpl(std::move(request_translator),
-                                       std::move(response_translator)));
+  transcoder.reset(new TranscoderImpl(std::move(request_translator),
+                                      std::move(response_translator)));
   return Status::OK;
 }
 
@@ -144,25 +204,6 @@ Status Config::MethodToRequestInfo(
   }
 
   return Status::OK;
-}
-
-const google::protobuf::MethodDescriptor* Config::ResolveMethod(
-    const std::string& method, const std::string& path) {
-  auto sep = path.find('/', 1);
-  if (sep == std::string::npos) {
-    log().debug("No separator");
-    return nullptr;
-  }
-
-  // TODO: support path bindings
-  std::string service_name = path.substr(1, sep - 1);
-  auto service = descriptor_pool_.FindServiceByName(service_name);
-  if (service == nullptr) {
-    return nullptr;
-  }
-
-  std::string method_name = path.substr(sep + 1);
-  return service->FindMethodByName(method_name);
 }
 
 }  // namespace Transcoding

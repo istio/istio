@@ -219,6 +219,21 @@ load("@protobuf_git//:protobuf.bzl", "cc_proto_library")
 exports_files(glob(["google/**"]))
 
 cc_proto_library(
+    name = "annotations",
+    srcs = [
+        "google/api/annotations.proto",
+        "google/api/http.proto",
+    ],
+    include = ".",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//external:cc_wkt_protos",
+    ],
+    protoc = "//external:protoc",
+    default_runtime = "//external:protobuf",
+)
+
+cc_proto_library(
     name = "servicecontrol",
     srcs = [
         "google/api/servicecontrol/v1/check_error.proto",
@@ -245,7 +260,6 @@ cc_proto_library(
 cc_proto_library(
     name = "service_config",
     srcs = [
-        "google/api/annotations.proto",
         "google/api/auth.proto",
         "google/api/backend.proto",
         "google/api/billing.proto",
@@ -254,7 +268,6 @@ cc_proto_library(
         "google/api/control.proto",
         "google/api/documentation.proto",
         "google/api/endpoint.proto",
-        "google/api/http.proto",
         "google/api/label.proto",
         "google/api/log.proto",
         "google/api/logging.proto",
@@ -272,6 +285,7 @@ cc_proto_library(
     include = ".",
     visibility = ["//visibility:public"],
     deps = [
+        ":annotations",
         "//external:cc_wkt_protos",
     ],
     protoc = "//external:protoc",
