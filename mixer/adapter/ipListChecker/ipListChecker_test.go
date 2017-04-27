@@ -186,52 +186,52 @@ func TestValidateConfig(t *testing.T) {
 	cases := []testCase{
 		{
 			cfg:   config.Params{ProviderUrl: "Foo", RefreshInterval: toDuration(1), Ttl: toDuration(2)},
-			field: "ProviderUrl",
+			field: "providerUrl",
 		},
 
 		{
 			cfg:   config.Params{ProviderUrl: ":", RefreshInterval: toDuration(1), Ttl: toDuration(2)},
-			field: "ProviderUrl",
+			field: "providerUrl",
 		},
 
 		{
 			cfg:   config.Params{ProviderUrl: "http:", RefreshInterval: toDuration(1), Ttl: toDuration(2)},
-			field: "ProviderUrl",
+			field: "providerUrl",
 		},
 
 		{
 			cfg:   config.Params{ProviderUrl: "http://", RefreshInterval: toDuration(1), Ttl: toDuration(2)},
-			field: "ProviderUrl",
+			field: "providerUrl",
 		},
 
 		{
 			cfg:   config.Params{ProviderUrl: "http:///FOO", RefreshInterval: toDuration(1), Ttl: toDuration(2)},
-			field: "ProviderUrl",
+			field: "providerUrl",
 		},
 
 		{
 			cfg:   config.Params{ProviderUrl: "http://foo.com", RefreshInterval: toDuration(0), Ttl: toDuration(2)},
-			field: "RefreshInterval",
+			field: "refreshInterval",
 		},
 
 		{
 			cfg:   config.Params{ProviderUrl: "http://foo.com", RefreshInterval: toDuration(-1), Ttl: toDuration(2)},
-			field: "RefreshInterval",
+			field: "refreshInterval",
 		},
 
 		{
 			cfg:   config.Params{ProviderUrl: "http://foo.com", RefreshInterval: toDuration(0x7fffffffffffffff), Ttl: toDuration(2)},
-			field: "RefreshInterval",
+			field: "refreshInterval",
 		},
 
 		{
 			cfg:   config.Params{ProviderUrl: "http://foo.com", RefreshInterval: toDuration(1), Ttl: toDuration(0x7fffffffffffffff)},
-			field: "Ttl",
+			field: "ttl",
 		},
 
 		{
 			cfg:   config.Params{ProviderUrl: "http://foo.com", RefreshInterval: toDuration(1), Ttl: toDuration(0)},
-			field: "Ttl",
+			field: "ttl",
 		},
 	}
 

@@ -263,14 +263,14 @@ func TestLoggerManager_ValidateConfig(t *testing.T) {
 		err  string
 	}{
 		{"valid", wrap("valid", &validLog), df, ""},
-		{"empty config", &aconfig.ApplicationLogsParams{}, df, "LogName"},
-		{"no log name", noLogName, df, "LogName"},
+		{"empty config", &aconfig.ApplicationLogsParams{}, df, "logName"},
+		{"no log name", noLogName, df, "logName"},
 		{"missing desc", wrap("missing desc", &missingDesc), df, "could not find a descriptor"},
-		{"invalid severity", wrap("sev", &invalidSeverity), df, "Severity"},
-		{"invalid timestamp", wrap("ts", &invalidTimestamp), df, "Timestamp"},
-		{"invalid labels", wrap("labels", &invalidLabels), df, "Labels"},
-		{"invalid logtemplate", wrap("tmpl", &invalidDescLog), df, "LogDescriptor"},
-		{"template expr attr missing", wrap("missing attr", &missingTmplExprs), df, "TemplateExpressions"},
+		{"invalid severity", wrap("sev", &invalidSeverity), df, "severity"},
+		{"invalid timestamp", wrap("ts", &invalidTimestamp), df, "timestamp"},
+		{"invalid labels", wrap("labels", &invalidLabels), df, "labels"},
+		{"invalid logtemplate", wrap("tmpl", &invalidDescLog), df, "logDescriptor"},
+		{"template expr attr missing", wrap("missing attr", &missingTmplExprs), df, "templateExpressions"},
 	}
 
 	for idx, tt := range tests {

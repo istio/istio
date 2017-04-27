@@ -125,7 +125,7 @@ func Parse(cfg string) (dcfg *pb.GlobalConfig, ce *adapter.ConfigErrors) {
 	m := map[string]interface{}{}
 	var err error
 	if err = yaml.Unmarshal([]byte(cfg), &m); err != nil {
-		return nil, ce.Append("DescriptorConfig", err)
+		return nil, ce.Append("descriptorConfig", err)
 	}
 	var cerr *adapter.ConfigErrors
 	var oarr reflect.Value
@@ -140,7 +140,7 @@ func Parse(cfg string) (dcfg *pb.GlobalConfig, ce *adapter.ConfigErrors) {
 
 	dcfg = &pb.GlobalConfig{}
 
-	ce = ce.Extend(updateMsg("DescriptorConfig", basemsg, dcfg, nil, true))
+	ce = ce.Extend(updateMsg("descriptorConfig", basemsg, dcfg, nil, true))
 
 	//flatten manifest
 	var k dname = manifests

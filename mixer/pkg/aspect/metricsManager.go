@@ -87,18 +87,18 @@ func (*metricsManager) ValidateConfig(c config.AspectParams, v expr.Validator, d
 	for _, metric := range cfg.Metrics {
 		desc := df.GetMetric(metric.DescriptorName)
 		if desc == nil {
-			ce = ce.Appendf("Metrics", "could not find a descriptor for the metric '%s'", metric.DescriptorName)
+			ce = ce.Appendf("metrics", "could not find a descriptor for the metric '%s'", metric.DescriptorName)
 			continue // we can't do any other validation without the descriptor
 		}
 
 		if err := v.AssertType(metric.Value, df, desc.Value); err != nil {
-			ce = ce.Appendf(fmt.Sprintf("Metric[%s].Value", metric.DescriptorName), "error type checking label %s: %v", err)
+			ce = ce.Appendf(fmt.Sprintf("metrics[%s].value", metric.DescriptorName), "error type checking label %s: %v", err)
 		}
-		ce = ce.Extend(validateLabels(fmt.Sprintf("Metrics[%s].Labels", desc.Name), metric.Labels, desc.Labels, v, df))
+		ce = ce.Extend(validateLabels(fmt.Sprintf("metrics[%s].labels", desc.Name), metric.Labels, desc.Labels, v, df))
 
 		// TODO: this doesn't feel like quite the right spot to do this check, but it's the best we have ¯\_(ツ)_/¯
 		if _, err := metricDefinitionFromProto(desc); err != nil {
-			ce = ce.Appendf(fmt.Sprintf("Descriptor[%s]", desc.Name), "failed to marshal descriptor into its adapter representation: %v", err)
+			ce = ce.Appendf(fmt.Sprintf("descriptor[%s]", desc.Name), "failed to marshal descriptor into its adapter representation: %v", err)
 		}
 	}
 	return

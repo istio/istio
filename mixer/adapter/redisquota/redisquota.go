@@ -65,16 +65,16 @@ func (builder) ValidateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 	c := cfg.(*config.Params)
 
 	if c.MinDeduplicationDuration <= 0 {
-		ce = ce.Appendf("MinDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", c.MinDeduplicationDuration)
+		ce = ce.Appendf("minDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", c.MinDeduplicationDuration)
 	}
 
 	if c.ConnectionPoolSize < 0 {
-		ce = ce.Appendf("ConnectionPoolSize", "redis connection pool size of %v is invalid, must be > 0", c.ConnectionPoolSize)
+		ce = ce.Appendf("connectionPoolSize", "redis connection pool size of %v is invalid, must be > 0", c.ConnectionPoolSize)
 
 	}
 
 	if c.RateLimitAlgorithm != "rolling-window" && c.RateLimitAlgorithm != "fixed-window" {
-		ce = ce.Appendf("RateLimitAlgorithm", "rate limit algorithm of %v is invalid, only fixed-window and rolling-window are supported", c.RateLimitAlgorithm)
+		ce = ce.Appendf("rateLimitAlgorithm", "rate limit algorithm of %v is invalid, only fixed-window and rolling-window are supported", c.RateLimitAlgorithm)
 	}
 
 	return

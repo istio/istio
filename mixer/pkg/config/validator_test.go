@@ -99,7 +99,7 @@ func newVfinder(ada map[string]adapter.ConfigValidator, asp map[Kind]AspectValid
 func TestConfigValidatorError(t *testing.T) {
 	var ct *adapter.ConfigErrors
 	evaluator := newFakeExpr()
-	cerr := ct.Appendf("Url", "Must have a valid URL")
+	cerr := ct.Appendf("url", "Must have a valid URL")
 
 	tests := []*configTable{
 		{nil,
@@ -198,7 +198,7 @@ func TestFullConfigValidator(tt *testing.T) {
 				ListsKind:   &ac{},
 			},
 			"", false, sSvcConfig2, nil},
-		{&adapter.ConfigError{Field: "NamedAdapter", Underlying: errors.New("lists//denychecker.2 not available")},
+		{&adapter.ConfigError{Field: "namedAdapter", Underlying: errors.New("lists//denychecker.2 not available")},
 			map[string]adapter.ConfigValidator{
 				"denyChecker": &lc{},
 				"metrics":     &lc{},
