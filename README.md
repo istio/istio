@@ -16,7 +16,7 @@ Mesos, etc.
 
 Istio is composed of three main components:
 
-* **Proxy** - Sidecars per microservice to handle ingress/egress traffic
+* **Envoy** - Sidecar proxies per microservice to handle ingress/egress traffic
    between services in the cluster and from a service to external
    services. The proxies form a _secure microservice mesh_ providing a rich
    set of functions like discovery, rich layer-7 routing, circuit breakers,
@@ -32,7 +32,7 @@ Istio is composed of three main components:
    tracing and telemetry collection.
 
 * **Manager** - A component responsible for configuring the
-  proxies and the mixer at runtime.
+  Envoy and Mixer at runtime.
 
 Istio currently only supports the Kubernetes
 platform, although we plan support for additional platforms such as
