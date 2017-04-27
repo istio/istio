@@ -10,6 +10,19 @@ load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "new_go_repository")
 
 go_repositories()
 
+git_repository(
+    name = "org_pubref_rules_protobuf",
+    commit = "9ede1dbc38f0b89ae6cd8e206a22dd93cc1d5637",  # Mar 31 2017 (gogo* support)
+    remote = "https://github.com/pubref/rules_protobuf",
+)
+
+load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_repositories")
+load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cpp_proto_repositories")
+
+cpp_proto_repositories()
+
+gogo_proto_repositories()
+
 new_go_repository(
     name = "com_github_golang_glog",
     commit = "23def4e6c14b4da8ac2ed8007337bc5eb5007998",  # Jan 26, 2016 (no releases)
@@ -74,4 +87,16 @@ new_go_repository(
     name = "com_github_pmezard_go_difflib",
     commit = "d8ed2627bdf02c080bf22230dbb337003b7aba2d",
     importpath = "github.com/pmezard/go-difflib",
+)
+
+new_go_repository(
+    name = "com_github_hashicorp_errwrap",
+    commit = "7554cd9344cec97297fa6649b055a8c98c2a1e55",
+    importpath = "github.com/hashicorp/errwrap",
+)
+
+new_go_repository(
+    name = "com_github_hashicorp_go_multierror",
+    commit = "8484912a3b9987857bac52e0c5fec2b95f419628",
+    importpath = "github.com/hashicorp/go-multierror",
 )
