@@ -14,6 +14,10 @@ RUN apt-get update && \
 	    netcat \
 	    tcpdump \
 	    net-tools \
+	    libc6-dbg gdb valgrind \
+	    vim \
+	    nano \
+	    emacs \
 	    wrk
 
 ADD proxy-redirection-clear /usr/local/bin/proxy-redirection-clear
