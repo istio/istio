@@ -18,6 +18,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
+    size = "small",
     srcs = ["agent_test.go"],
     library = ":go_default_library",
 )

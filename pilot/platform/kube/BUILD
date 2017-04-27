@@ -49,7 +49,6 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
-        "client_test.go",
         "controller_test.go",
         "conversion_test.go",
         "ingressstatus_test.go",

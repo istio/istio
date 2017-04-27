@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	egressEnvoyConfig    = "testdata/egress-envoy.json"
-	egressEnvoySSLConfig = "testdata/egress-envoy-auth.json"
+	egressEnvoyConfig    = "testdata/envoy-egress.json"
+	egressEnvoySSLConfig = "testdata/envoy-egress-auth.json"
 )
 
 func TestEgress(t *testing.T) {

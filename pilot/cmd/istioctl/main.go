@@ -78,7 +78,7 @@ var (
 				return err
 			}
 			// Setup manager client
-			apiClient = proxy.NewManagerClient(*managerURL, "v1alpha1", &http.Client{})
+			apiClient = proxy.NewManagerClient(*managerURL, kube.IstioResourceVersion, &http.Client{})
 
 			// Kube-inject, can be removed when inject.go is removed
 			if kubeconfig == "" {

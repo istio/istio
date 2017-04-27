@@ -107,7 +107,7 @@
                       "value": "doo"
                     }
                   ],
-                  "upstream_cluster": "out.world.default.svc.cluster.local|http|version=v1"
+                  "upstream_cluster": "out.66fcc955b8875b19844f9eaf6cfda47c778c609e"
                 }
               },
               {
@@ -186,7 +186,7 @@
                       "value": "doo"
                     }
                   ],
-                  "upstream_cluster": "out.world.default.svc.cluster.local|http-status|version=v1"
+                  "upstream_cluster": "out.b9de37be5d0723747a2d3b5cc02f264049e666d6"
                 }
               },
               {
@@ -216,7 +216,7 @@
             "route_config": {
               "routes": [
                 {
-                  "cluster": "out.hello.default.svc.cluster.local|custom",
+                  "cluster": "out.de6d66d4dd5f542e5f61882eb466189eb68ebe88",
                   "destination_ip_list": [
                     "10.1.0.0/32"
                   ]
@@ -428,7 +428,7 @@
             "route_config": {
               "routes": [
                 {
-                  "cluster": "out.world.default.svc.cluster.local|custom",
+                  "cluster": "out.5898aa4379cc19c8f1bb3b7915ee8e0e32ddc6a6",
                   "destination_ip_list": [
                     "10.2.0.0/32"
                   ]
@@ -498,15 +498,15 @@
         ]
       },
       {
-        "name": "out.hello.default.svc.cluster.local|custom",
-        "service_name": "hello.default.svc.cluster.local|custom",
+        "name": "out.5898aa4379cc19c8f1bb3b7915ee8e0e32ddc6a6",
+        "service_name": "world.default.svc.cluster.local|custom",
         "connect_timeout_ms": 1000,
         "type": "sds",
         "lb_type": "round_robin"
       },
       {
-        "name": "out.world.default.svc.cluster.local|custom",
-        "service_name": "world.default.svc.cluster.local|custom",
+        "name": "out.de6d66d4dd5f542e5f61882eb466189eb68ebe88",
+        "service_name": "hello.default.svc.cluster.local|custom",
         "connect_timeout_ms": 1000,
         "type": "sds",
         "lb_type": "round_robin"

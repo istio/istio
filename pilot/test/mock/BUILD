@@ -23,6 +23,7 @@ filegroup(
 
 go_test(
     name = "go_default_test",
+    size = "small",
     srcs = [
         "config_test.go",
         "secret_test.go",

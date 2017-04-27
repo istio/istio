@@ -76,17 +76,36 @@ sh_test(
 )
 
 sh_test(
+    name = "envoy_config_ingress_test",
+    size = "small",
+    srcs = ["config_test.sh"],
+    args = [
+        "$(location envoy)",
+        "$(location testdata/envoy-ingress.json.golden)",
+        "1",
+    ],
+    data = [
+        "envoy",
+        "testdata/envoy-ingress.json.golden",
+    ],
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+)
+
+sh_test(
     name = "envoy_config_egress_test",
     size = "small",
     srcs = ["config_test.sh"],
     args = [
         "$(location envoy)",
-        "$(location testdata/egress-envoy.json.golden)",
+        "$(location testdata/envoy-egress.json.golden)",
         "2",
     ],
     data = [
         "envoy",
-        "testdata/egress-envoy.json.golden",
+        "testdata/envoy-egress.json.golden",
     ],
     tags = ["exclusive"],
 )
@@ -105,4 +124,23 @@ sh_test(
         "testdata/envoy-fault.json.golden",
     ],
     tags = ["exclusive"],
+)
+
+sh_test(
+    name = "envoy_config_v0_auth_test",
+    size = "small",
+    srcs = ["config_test.sh"],
+    args = [
+        "$(location envoy)",
+        "$(location testdata/envoy-v0-auth.json.golden)",
+        "4",
+    ],
+    data = [
+        "envoy",
+        "testdata/envoy-v0-auth.json.golden",
+    ],
+    tags = [
+        "exclusive",
+        "manual",
+    ],
 )

@@ -118,7 +118,7 @@ var (
 		Run: func(*cobra.Command, []string) {
 			controller := kube.NewController(client, mesh, flags.controllerOptions)
 			apiserver := apiserver.NewAPI(apiserver.APIServiceOptions{
-				Version:  "v1alpha1",
+				Version:  kube.IstioResourceVersion,
 				Port:     flags.apiserverPort,
 				Registry: &model.IstioRegistry{ConfigRegistry: controller},
 			})

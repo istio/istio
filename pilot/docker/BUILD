@@ -49,6 +49,12 @@ pkg_tar(
 )
 
 manager_docker_build(
+    debs = [
+        "@deb_iptables//file",
+        "@deb_libnfnetlink//file",
+        "@deb_libxtables//file",
+    ],
+    entrypoint = ["/usr/local/bin/prepare_proxy.sh"],
     images = [
         {
             "name": "init",
@@ -59,12 +65,6 @@ manager_docker_build(
             "base": "@ubuntu_xenial_debug//file",
         },
     ],
-    debs = [
-        "@deb_iptables//file",
-        "@deb_libnfnetlink//file",
-        "@deb_libxtables//file",
-    ],
-    entrypoint = ["/usr/local/bin/prepare_proxy.sh"],
     repository = "istio",
     tags = ["manual"],
     tars = [":prepare_proxy_tar"],

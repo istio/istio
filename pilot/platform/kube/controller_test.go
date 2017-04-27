@@ -16,6 +16,8 @@ package kube
 
 import (
 	"fmt"
+	"os"
+	"os/user"
 	"reflect"
 	"sort"
 	"sync"
@@ -38,6 +40,54 @@ import (
 	"istio.io/manager/test/mock"
 	"istio.io/manager/test/util"
 )
+
+func TestThirdPartyResourcesClient(t *testing.T) {
+	cl := makeClient(t)
+	ns, err := util.CreateNamespace(cl.client)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer util.DeleteNamespace(cl.client, ns)
+
+	mock.CheckMapInvariant(cl, t, ns, 5)
+
+	// TODO(kuat) initial watch always fails, takes time to register TPR, keep
+	// around as a work-around
+	// kr.DeregisterResources()
+}
+
+func makeClient(t *testing.T) *Client {
+	usr, err := user.Current()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	kubeconfig := usr.HomeDir + "/.kube/config"
+
+	// For Bazel sandbox we search a different location:
+	if _, err = os.Stat(kubeconfig); err != nil {
+		kubeconfig, _ = os.Getwd()
+		kubeconfig = kubeconfig + "/config"
+	}
+
+	km := model.KindMap{}
+	for k, v := range model.IstioConfig {
+		km[k] = v
+	}
+	km[mock.Kind] = mock.Mapping[mock.Kind]
+
+	cl, err := NewClient(kubeconfig, km)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	err = cl.RegisterResources()
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	return cl
+}
 
 func TestSecret(t *testing.T) {
 	cl := makeClient(t)

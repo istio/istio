@@ -1,15 +1,15 @@
 {
   "clusters": [
    {
-    "name": "out.foo.default.svc.cluster.local|http-status",
-    "service_name": "foo.default.svc.cluster.local|http-status",
+    "name": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74",
+    "service_name": "world.default.svc.cluster.local|http",
     "connect_timeout_ms": 1000,
     "type": "sds",
     "lb_type": "round_robin"
    },
    {
-    "name": "out.world.default.svc.cluster.local|http",
-    "service_name": "world.default.svc.cluster.local|http",
+    "name": "out.ce697a7c2c3c535648c2bf2c3f7b9fe599e8f5f4",
+    "service_name": "foo.default.svc.cluster.local|http-status",
     "connect_timeout_ms": 1000,
     "type": "sds",
     "lb_type": "round_robin"

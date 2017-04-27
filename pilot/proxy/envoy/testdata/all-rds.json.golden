@@ -17,7 +17,7 @@
       {
        "prefix": "/",
        "host_rewrite": "httpsbin.default.svc.cluster.local",
-       "cluster": "out.httpsbin.default.svc.cluster.local|https"
+       "cluster": "out.242bc3028e0f3fe0682e6d972e167ab415b2321d"
       }
      ]
     }
@@ -41,7 +41,7 @@
       {
        "prefix": "/",
        "host_rewrite": "httpsbin.default.svc.cluster.local",
-       "cluster": "out.httpsbin.default.svc.cluster.local|https"
+       "cluster": "out.242bc3028e0f3fe0682e6d972e167ab415b2321d"
       }
      ]
     }
@@ -65,7 +65,7 @@
       {
        "prefix": "/",
        "host_rewrite": "httpsbin.default.svc.cluster.local",
-       "cluster": "out.httpsbin.default.svc.cluster.local|https"
+       "cluster": "out.242bc3028e0f3fe0682e6d972e167ab415b2321d"
       }
      ]
     }
@@ -89,7 +89,7 @@
       {
        "prefix": "/",
        "host_rewrite": "httpsbin.default.svc.cluster.local",
-       "cluster": "out.httpsbin.default.svc.cluster.local|https"
+       "cluster": "out.242bc3028e0f3fe0682e6d972e167ab415b2321d"
       }
      ]
     }
@@ -119,7 +119,7 @@
      "routes": [
       {
        "prefix": "/",
-       "cluster": "out.hello.default.svc.cluster.local|http"
+       "cluster": "out.e5c9564b7c4dbb0355a4f740e9d29277ccca97cd"
       }
      ]
     },
@@ -141,7 +141,7 @@
       {
        "prefix": "/",
        "host_rewrite": "httpbin.default.svc.cluster.local",
-       "cluster": "out.httpbin.default.svc.cluster.local|http"
+       "cluster": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e"
       }
      ]
     },
@@ -164,7 +164,7 @@
      "routes": [
       {
        "prefix": "/",
-       "cluster": "out.world.default.svc.cluster.local|http"
+       "cluster": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74"
       }
      ]
     }
@@ -194,7 +194,7 @@
      "routes": [
       {
        "prefix": "/",
-       "cluster": "out.hello.default.svc.cluster.local|http"
+       "cluster": "out.e5c9564b7c4dbb0355a4f740e9d29277ccca97cd"
       }
      ]
     },
@@ -216,7 +216,7 @@
       {
        "prefix": "/",
        "host_rewrite": "httpbin.default.svc.cluster.local",
-       "cluster": "out.httpbin.default.svc.cluster.local|http"
+       "cluster": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e"
       }
      ]
     },
@@ -239,7 +239,7 @@
      "routes": [
       {
        "prefix": "/",
-       "cluster": "out.world.default.svc.cluster.local|http"
+       "cluster": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74"
       }
      ]
     }
@@ -269,7 +269,7 @@
      "routes": [
       {
        "prefix": "/",
-       "cluster": "out.hello.default.svc.cluster.local|http"
+       "cluster": "out.e5c9564b7c4dbb0355a4f740e9d29277ccca97cd"
       }
      ]
     },
@@ -291,7 +291,7 @@
       {
        "prefix": "/",
        "host_rewrite": "httpbin.default.svc.cluster.local",
-       "cluster": "out.httpbin.default.svc.cluster.local|http"
+       "cluster": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e"
       }
      ]
     },
@@ -314,7 +314,7 @@
      "routes": [
       {
        "prefix": "/",
-       "cluster": "out.world.default.svc.cluster.local|http"
+       "cluster": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74"
       }
      ]
     }
@@ -344,7 +344,7 @@
      "routes": [
       {
        "prefix": "/",
-       "cluster": "out.hello.default.svc.cluster.local|http"
+       "cluster": "out.e5c9564b7c4dbb0355a4f740e9d29277ccca97cd"
       }
      ]
     },
@@ -366,7 +366,7 @@
       {
        "prefix": "/",
        "host_rewrite": "httpbin.default.svc.cluster.local",
-       "cluster": "out.httpbin.default.svc.cluster.local|http"
+       "cluster": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e"
       }
      ]
     },
@@ -389,7 +389,7 @@
      "routes": [
       {
        "prefix": "/",
-       "cluster": "out.world.default.svc.cluster.local|http"
+       "cluster": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74"
       }
      ]
     }
@@ -413,7 +413,7 @@
      "routes": [
       {
        "prefix": "/",
-       "cluster": "out.hello.default.svc.cluster.local|http-status"
+       "cluster": "out.81c187d71467b1608736c57bb0734f9ef9b68f7d"
       }
      ]
     },
@@ -430,7 +430,7 @@
      "routes": [
       {
        "prefix": "/",
-       "cluster": "out.world.default.svc.cluster.local|http-status"
+       "cluster": "out.bde94496eb59ec2ed5b81392a1d32377960660b8"
       }
      ]
     }
@@ -454,7 +454,7 @@
      "routes": [
       {
        "prefix": "/",
-       "cluster": "out.hello.default.svc.cluster.local|http-status"
+       "cluster": "out.81c187d71467b1608736c57bb0734f9ef9b68f7d"
       }
      ]
     },
@@ -471,7 +471,7 @@
      "routes": [
       {
        "prefix": "/",
-       "cluster": "out.world.default.svc.cluster.local|http-status"
+       "cluster": "out.bde94496eb59ec2ed5b81392a1d32377960660b8"
       }
      ]
     }
@@ -495,7 +495,7 @@
      "routes": [
       {
        "prefix": "/",
-       "cluster": "out.hello.default.svc.cluster.local|http-status"
+       "cluster": "out.81c187d71467b1608736c57bb0734f9ef9b68f7d"
       }
      ]
     },
@@ -512,7 +512,7 @@
      "routes": [
       {
        "prefix": "/",
-       "cluster": "out.world.default.svc.cluster.local|http-status"
+       "cluster": "out.bde94496eb59ec2ed5b81392a1d32377960660b8"
       }
      ]
     }
@@ -536,7 +536,7 @@
      "routes": [
       {
        "prefix": "/",
-       "cluster": "out.hello.default.svc.cluster.local|http-status"
+       "cluster": "out.81c187d71467b1608736c57bb0734f9ef9b68f7d"
       }
      ]
     },
@@ -553,7 +553,7 @@
      "routes": [
       {
        "prefix": "/",
-       "cluster": "out.world.default.svc.cluster.local|http-status"
+       "cluster": "out.bde94496eb59ec2ed5b81392a1d32377960660b8"
       }
      ]
     }

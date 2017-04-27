@@ -9,7 +9,7 @@
      {
       "path": "/hello",
       "host_rewrite": "world.default.svc.cluster.local:80",
-      "cluster": "out.world.default.svc.cluster.local|http"
+      "cluster": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74"
      }
     ]
    }
