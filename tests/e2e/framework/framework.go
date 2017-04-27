@@ -23,11 +23,16 @@ import (
 	"github.com/golang/glog"
 )
 
+var (
+	skipCleanup = flag.Bool("skip_cleanup", false, "Debug, skip clean up")
+)
+
 type testCleanup struct {
 	Cleanables         []Cleanable
 	CleanablesLock     sync.Mutex
 	CleanupActions     []func() error
 	CleanupActionsLock sync.Mutex
+	skipCleanup        bool
 }
 
 // CommonConfig regroup all common test configuration.
@@ -36,7 +41,10 @@ type CommonConfig struct {
 	Cleanup *testCleanup
 	// Test Information
 	Info *testInfo
+	// Kubernetes and istio installation information
+	Kube *KubeInfo
 	// Other common config here.
+
 }
 
 // Cleanable interfaces that need to be registered to CommonConfig
@@ -71,11 +79,18 @@ func NewCommonConfig(testID string) (*CommonConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	k := newKubeInfo(t.LogsPath, t.RunID)
+	cl := new(testCleanup)
+	cl.skipCleanup = *skipCleanup
+
 	c := &CommonConfig{
 		Info:    t,
-		Cleanup: new(testCleanup),
+		Kube:    k,
+		Cleanup: cl,
 	}
 	c.Cleanup.RegisterCleanable(c.Info)
+	c.Cleanup.RegisterCleanable(c.Kube)
 	return c, nil
 }
 
@@ -130,6 +145,10 @@ func (t *testCleanup) init() error {
 }
 
 func (t *testCleanup) cleanup() {
+	if t.skipCleanup {
+		glog.Info("Debug model, skip cleanup")
+		return
+	}
 	// Run tear down on all cleanable
 	glog.Info("Starting Cleanup")
 	fn := t.getCleanupAction()
@@ -172,6 +191,7 @@ func (c *CommonConfig) RunTest(m runnable) int {
 		glog.Info("Running test")
 		ret = m.Run()
 	}
+
 	if err := c.saveLogs(ret); err != nil {
 		glog.Warning("Failed to save logs")
 	}
