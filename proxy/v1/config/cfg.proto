@@ -150,21 +150,26 @@ message DestinationPolicy {
   /// e.g. "my-service.default.svc.cluster.local".
   string destination = 1;
 
-  /// Service version destination identifier for the destination service.
+  /// A collection of policies for service versions
+  repeated DestinationVersionPolicy policy = 2;
+}
+
+message DestinationVersionPolicy {
+  /// Optional service version destination identifier for the destination service.
   /// The identifier is qualified by the destination service name, e.g. version
   /// "env=prod" in "my-service.default.svc.cluster.local".
   // N.B. The map is used instead of pstruct due to lack of serialization support
   // in golang protobuf library (see https://github.com/golang/protobuf/pull/208)
-  map<string, string> tags = 2;
+  map<string, string> tags = 1;
 
   /// Load balancing policy
-  LoadBalancing load_balancing = 3;
+  LoadBalancing load_balancing = 2;
 
   /// Circuit breaker policy
-  CircuitBreaker circuit_breaker = 4;
+  CircuitBreaker circuit_breaker = 3;
 
   /// Other custom policy implementations
-  google.protobuf.Any custom = 5;
+  google.protobuf.Any custom = 100;
 }
 
 /// Route rule provides a custom routing policy based on the source and
