@@ -87,6 +87,7 @@ new_go_repository(
     name = "com_github_pmezard_go_difflib",
     commit = "d8ed2627bdf02c080bf22230dbb337003b7aba2d",
     importpath = "github.com/pmezard/go-difflib",
+)
 
 new_go_repository(
     name = "com_github_hashicorp_errwrap",

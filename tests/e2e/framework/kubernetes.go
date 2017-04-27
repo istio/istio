@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
+
 	"istio.io/istio/tests/e2e/util"
 )
 
