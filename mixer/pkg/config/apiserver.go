@@ -72,6 +72,22 @@ func (a *API) register(c *restful.Container) {
 	ws.Produces(restful.MIME_JSON)
 	ws.Path(a.rootPath)
 
+	// List the scopes
+	ws.Route(ws.
+		GET("/scopes").
+		To(a.getScopes).
+		Doc("Gets scopes associated with Mixer").
+		Writes(APIResponse{}))
+
+	// Create a policy
+	ws.Route(ws.
+		POST("/scopes/{scope}/subjects/{subject}").
+		To(a.createPolicy).
+		Doc("Create a policy").
+		// TODO Reads(...).
+		Writes(APIResponse{}))
+
+	// List the rules for a scope and subject
 	ws.Route(ws.
 		GET("/scopes/{scope}/subjects/{subject}/rules").
 		To(a.getRules).
@@ -88,6 +104,60 @@ func (a *API) register(c *restful.Container) {
 		Param(ws.PathParameter("subject", "subject").DataType("string")).
 		Reads(&pb.ServiceConfig{}).
 		Writes(APIResponse{}))
+
+	// Delete a rule
+	ws.Route(ws.
+		DELETE("/scopes/{scope}/subjects/{subject}/rules/{ruleid}").
+		To(a.deleteRule).
+		Doc("Replaces rules associated with the given scope and subject").
+		Param(ws.PathParameter("scope", "scope").DataType("string")).
+		Param(ws.PathParameter("subject", "subject").DataType("string")).
+		Param(ws.PathParameter("ruleid", "rule id").DataType("string")))
+
+	// Creates or replaces a rule's list of aspects
+	ws.Route(ws.
+		PUT("/scopes/{scope}/subjects/{subject}/rules/{ruleid}/aspects/{aspect}").
+		To(a.putAspect).
+		Doc("Creates or replaces a rule’s list of aspects.").
+		Param(ws.PathParameter("scope", "scope").DataType("string")).
+		Param(ws.PathParameter("subject", "subject").DataType("string")).
+		Param(ws.PathParameter("ruleid", "rule id").DataType("string")).
+		Param(ws.PathParameter("aspect", "aspect").DataType("string")).
+		Reads(&pb.Aspect{}).
+		Writes(APIResponse{}))
+
+	// Creates or replaces a named adapter configuration
+	ws.Route(ws.
+		PUT("/scopes/{scope}/adapters/{adapter_name}/{config_name}").
+		To(a.putAdapter).
+		Doc("Creates or replaces a named adapter configuration.").
+		Param(ws.PathParameter("scope", "scope").DataType("string")).
+		Param(ws.PathParameter("adapter_name", "adapter name").DataType("string")).
+		Param(ws.PathParameter("config_name", "config name").DataType("string")).
+		Reads(&pb.Adapter{}).
+		Writes(APIResponse{}))
+
+	// Gets a descriptor
+	ws.Route(ws.
+		GET("/scopes/{scope}/descriptors/{descriptor_type}/{descriptor_name}").
+		To(a.getDescriptor).
+		Doc("Gets a descriptor.").
+		Param(ws.PathParameter("scope", "scope").DataType("string")).
+		Param(ws.PathParameter("descriptor_type", "descriptor type").DataType("string")).
+		Param(ws.PathParameter("descriptor_name", "descriptor name").DataType("string")).
+		Writes(APIResponse{}))
+
+	// Creates or replaces a descriptor
+	ws.Route(ws.
+		PUT("/scopes/{scope}/descriptors/{descriptor_type}/{descriptor_name}").
+		To(a.putDescriptor).
+		Doc("Creates or replaces a descriptor.").
+		Param(ws.PathParameter("scope", "scope").DataType("string")).
+		Param(ws.PathParameter("descriptor_type", "descriptor type").DataType("string")).
+		Param(ws.PathParameter("descriptor_name", "descriptor name").DataType("string")).
+		// TODO Reads(&pb.Descriptor{}).
+		Writes(APIResponse{}))
+
 	c.Add(ws)
 }
 
@@ -119,6 +189,12 @@ func NewAPI(version string, port uint16, eval expr.Validator, aspectFinder Aspec
 // Run calls listen and serve on the API server
 func (a *API) Run() {
 	glog.Warning(a.server.ListenAndServe())
+}
+
+// getScopes returns the scopes
+// "/scopes"
+func (a *API) getScopes(req *restful.Request, resp *restful.Response) {
+	writeErrorResponse(http.StatusNotImplemented, "Listing scopes not implemented", resp)
 }
 
 // getRules returns the rules document for the scope and the subject.
@@ -185,6 +261,42 @@ func (a *API) putRules(req *restful.Request, resp *restful.Response) {
 	// TODO send index back to the client
 	writeResponse(http.StatusOK, fmt.Sprintf("Created %s", key),
 		vd.rule[*parseRulesKey(key)], resp)
+}
+
+// createPolicy creates a policy
+// "/scopes/{scope}/subjects/{subject}"
+func (a *API) createPolicy(req *restful.Request, resp *restful.Response) {
+	writeErrorResponse(http.StatusNotImplemented, "create policy not implemented", resp) // TODO
+}
+
+// putAspect creates or replaces a rule’s list of aspects.
+// "/scopes/{scope}/subjects/{subject}/rules/{ruleid}/aspects/{aspect}"
+func (a *API) putAspect(req *restful.Request, resp *restful.Response) {
+	writeErrorResponse(http.StatusNotImplemented, "put aspect not implemented", resp) // TODO
+}
+
+// deleteRule deletes a rule
+// "/scopes/{scope}/subjects/{subject}/rules/{ruleid}"
+func (a *API) deleteRule(req *restful.Request, resp *restful.Response) {
+	writeErrorResponse(http.StatusNotImplemented, "delete rule not implemented", resp) // TODO
+}
+
+// putAdapter creates or replaces an adapter configuration
+// "/scopes/{scope}/adapters/{adapter_name}/{config_name}"
+func (a *API) putAdapter(req *restful.Request, resp *restful.Response) {
+	writeErrorResponse(http.StatusNotImplemented, "put adapter not implemented", resp) // TODO
+}
+
+// getDescriptor returns a descriptor
+// "/scopes/{scope}/descriptors/{descriptor_type}/{descriptor_name}"
+func (a *API) getDescriptor(req *restful.Request, resp *restful.Response) {
+	writeErrorResponse(http.StatusNotImplemented, "get descriptor not implemented", resp) // TODO
+}
+
+// putDescriptor creates or replaces a descriptor
+// "/scopes/{scope}/descriptors/{descriptor_type}/{descriptor_name}"
+func (a *API) putDescriptor(req *restful.Request, resp *restful.Response) {
+	writeErrorResponse(http.StatusNotImplemented, "put descriptor not implemented", resp) // TODO
 }
 
 // a subset of restful.Response

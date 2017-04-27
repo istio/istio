@@ -118,6 +118,210 @@ func TestAPI_getRules(t *testing.T) {
 
 }
 
+func TestAPI_getScopes(t *testing.T) {
+
+	for _, ctx := range []struct {
+		key    string
+		val    string
+		status int
+	}{
+		{"/scopes", "", http.StatusNotImplemented}, // TODO expect http.StatusOK
+	} {
+		t.Run(ctx.key, func(t *testing.T) {
+			store := &fakeMemStore{
+				data: map[string]string{
+					ctx.key: ctx.val,
+				},
+			}
+			api := NewAPI("v1", 0, nil, nil,
+				nil, nil, store)
+
+			sc, _ := makeAPIRequest(api.handler, "GET", api.rootPath+ctx.key, []byte{}, t)
+			if sc != ctx.status {
+				t.Errorf("http status got %d, want %d", sc, ctx.status)
+			}
+			// TODO validate the returned body
+		})
+	}
+}
+
+func TestAPI_createPolicy(t *testing.T) {
+
+	for _, ctx := range []struct {
+		key    string
+		body   []byte
+		status int
+	}{
+		{"/scopes/global/subjects/newTestSubject",
+			[]byte(`{"scope":"global","subject":"subject001","revision":"some-uuid","rules":[]}`),
+			http.StatusNotImplemented}, // TODO expect http.StatusCreated
+	} {
+		t.Run(ctx.key, func(t *testing.T) {
+			store := &fakeMemStore{
+				data: map[string]string{},
+			}
+			api := NewAPI("v1", 0, nil, nil,
+				nil, nil, store)
+
+			sc, _ := makeAPIRequest(api.handler, "POST", api.rootPath+ctx.key, ctx.body, t)
+			if sc != ctx.status {
+				t.Errorf("http status got %d, want %d", sc, ctx.status)
+			} else if sc <= http.StatusAccepted {
+				// TODO verify the expected data is present in store rather than just non-empty
+				if len(store.data) == 0 {
+					t.Errorf("%v did not create %v", ctx.key, string(ctx.body))
+				}
+			}
+		})
+	}
+}
+
+func TestAPI_putAspect(t *testing.T) {
+
+	for _, ctx := range []struct {
+		key    string
+		body   []byte
+		status int
+	}{
+		{"/scopes/global/subjects/subject001/rules/rule001/aspects/aspect001",
+			[]byte(`{"scope":"global","subject":"subject001","ruleid":"rule001","aspect":"aspect001","revision":"some-uuid","aspects":[]}`),
+			http.StatusNotImplemented}, // TODO expect http.StatusCreated
+	} {
+		t.Run(ctx.key, func(t *testing.T) {
+			store := &fakeMemStore{
+				data: map[string]string{},
+			}
+			api := NewAPI("v1", 0, nil, nil,
+				nil, nil, store)
+
+			sc, _ := makeAPIRequest(api.handler, "PUT", api.rootPath+ctx.key, ctx.body, t)
+			if sc != ctx.status {
+				t.Errorf("http status got %d, want %d", sc, ctx.status)
+			} else if sc <= http.StatusAccepted {
+				// TODO verify the expected data is present in store rather than just non-empty
+				if len(store.data) == 0 {
+					t.Errorf("%v did not create %v", ctx.key, string(ctx.body))
+				}
+			}
+		})
+	}
+}
+
+func TestAPI_deleteRule(t *testing.T) {
+
+	for _, ctx := range []struct {
+		key    string
+		val    string
+		status int
+	}{
+		{"/scopes/global/subjects/testSubject/rules/rule001", "", http.StatusNotImplemented}, // TODO expect http.StatusNoContent
+	} {
+		t.Run(ctx.key, func(t *testing.T) {
+			store := &fakeMemStore{
+				data: map[string]string{
+					ctx.key: ctx.val,
+				},
+			}
+			api := NewAPI("v1", 0, nil, nil,
+				nil, nil, store)
+
+			sc, _ := makeAPIRequest(api.handler, "DELETE", api.rootPath+ctx.key, []byte{}, t)
+			if sc != ctx.status {
+				t.Errorf("http status got %d, want %d", sc, ctx.status)
+			}
+		})
+	}
+}
+
+func TestAPI_putAdapter(t *testing.T) {
+
+	for _, ctx := range []struct {
+		key    string
+		body   []byte
+		status int
+	}{
+		{"/scopes/global/adapters/adapter001/config001",
+			[]byte(`{"params":{}}`),
+			http.StatusNotImplemented}, // TODO expect http.StatusCreated
+	} {
+		t.Run(ctx.key, func(t *testing.T) {
+			store := &fakeMemStore{
+				data: map[string]string{},
+			}
+			api := NewAPI("v1", 0, nil, nil,
+				nil, nil, store)
+
+			sc, _ := makeAPIRequest(api.handler, "PUT", api.rootPath+ctx.key, ctx.body, t)
+			if sc != ctx.status {
+				t.Errorf("http status got %d, want %d", sc, ctx.status)
+			} else if sc <= http.StatusAccepted {
+				// TODO verify the expected data is present in store rather than just non-empty
+				if len(store.data) == 0 {
+					t.Errorf("%v did not create %v", ctx.key, string(ctx.body))
+				}
+			}
+		})
+	}
+}
+
+func TestAPI_getDescriptor(t *testing.T) {
+
+	for _, ctx := range []struct {
+		key    string
+		val    string
+		status int
+	}{
+		{"/scopes/global/descriptors/type001/descriptor001", "", http.StatusNotImplemented}, // TODO expect http.StatusOK
+	} {
+		t.Run(ctx.key, func(t *testing.T) {
+			store := &fakeMemStore{
+				data: map[string]string{
+					ctx.key: ctx.val,
+				},
+			}
+			api := NewAPI("v1", 0, nil, nil,
+				nil, nil, store)
+
+			sc, _ := makeAPIRequest(api.handler, "GET", api.rootPath+ctx.key, []byte{}, t)
+			if sc != ctx.status {
+				t.Errorf("http status got %d, want %d", sc, ctx.status)
+			}
+			// TODO validate the returned body
+		})
+	}
+}
+
+func TestAPI_putDescriptor(t *testing.T) {
+
+	for _, ctx := range []struct {
+		key    string
+		body   []byte
+		status int
+	}{
+		{"/scopes/global/descriptors/type001/descriptor001",
+			[]byte(`{}`),
+			http.StatusNotImplemented}, // TODO expect http.StatusCreated
+	} {
+		t.Run(ctx.key, func(t *testing.T) {
+			store := &fakeMemStore{
+				data: map[string]string{},
+			}
+			api := NewAPI("v1", 0, nil, nil,
+				nil, nil, store)
+
+			sc, _ := makeAPIRequest(api.handler, "PUT", api.rootPath+ctx.key, ctx.body, t)
+			if sc != ctx.status {
+				t.Errorf("http status got %d, want %d", sc, ctx.status)
+			} else if sc <= http.StatusAccepted {
+				// TODO verify the expected data is present in store rather than just non-empty
+				if len(store.data) == 0 {
+					t.Errorf("%v did not create %v", ctx.key, string(ctx.body))
+				}
+			}
+		})
+	}
+}
+
 func readBody(err string) readBodyFunc {
 	return func(r io.Reader) (b []byte, e error) {
 		if err != "" {
