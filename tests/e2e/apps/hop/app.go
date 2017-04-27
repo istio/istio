@@ -40,11 +40,11 @@ var (
 	timeout = flag.Duration("timeout", 15*time.Second, "Request timeout")
 )
 
-func newHopMessage(u *[]string) *config.HopMessage {
+func newHopMessage(u []string) *config.HopMessage {
 	r := new(config.HopMessage)
 	r.Id = uuid.New().String()
 	if u != nil {
-		for _, d := range *u {
+		for _, d := range u {
 			dest := new(config.Remote)
 			dest.Destination = d
 			r.RemoteDests = append(r.RemoteDests, dest)
@@ -197,13 +197,13 @@ func (a App) setNextPosition(m *config.HopMessage) {
 // MakeRequest will create a config.HopMessage proto and
 // send requests to defined remotes hosts in a chain.
 // Each Server is a client and will forward the call to the next hop.
-func (a App) MakeRequest(remotes *[]string) (*config.HopMessage, error) {
+func (a App) MakeRequest(remotes []string) (*config.HopMessage, error) {
 	req := newHopMessage(remotes)
 	resp := a.forwardMessage(req)
 	var err error
 	for _, r := range resp.GetRemoteDests() {
 		if r.GetError() != "" {
-			err = multierror.Append(errors.New(r.GetError()))
+			err = multierror.Append(err, errors.New(r.GetError()))
 		}
 	}
 	return resp, err

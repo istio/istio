@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/tests/e2e/apps/hop/config"
 )
 
-var seed int64 = 1823543
+const seed int64 = 1823543
 
 type testServers struct {
 	gs      []*grpc.Server
@@ -42,17 +42,17 @@ type testServers struct {
 type errorServer struct{}
 
 type handler interface {
-	ServeHTTP(w http.ResponseWriter, _ *http.Request)
+	ServeHTTP(w http.ResponseWriter, r *http.Request)
 	Hop(ctx context.Context, req *config.HopMessage) (*config.HopMessage, error)
 }
 
 // ServerHTTP implements the Hop HTTP server.
-func (a errorServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (a errorServer) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	http.Error(w, "random error", http.StatusInternalServerError)
 }
 
 // Hop implements the Hop gRPC server.
-func (a errorServer) Hop(ctx context.Context, req *config.HopMessage) (*config.HopMessage, error) {
+func (a errorServer) Hop(_ context.Context, _ *config.HopMessage) (*config.HopMessage, error) {
 	return nil, errors.New("random error")
 }
 
@@ -102,13 +102,13 @@ func (ts *testServers) shutdown() {
 	}
 }
 
-func (ts *testServers) shuffledRemotes() *[]string {
+func (ts *testServers) shuffledRemotes() []string {
 	rand.Seed(seed)
 	dest := make([]string, len(ts.remotes))
 	for i, v := range rand.Perm(len(ts.remotes)) {
 		dest[i] = (ts.remotes)[v]
 	}
-	return &dest
+	return dest
 }
 
 func TestMultipleHTTPSuccess(t *testing.T) {
@@ -191,8 +191,8 @@ func TestHTTPRandomFailure(t *testing.T) {
 		t.Error(err)
 	}
 	defer tsErr.shutdown()
-	remotes := append(*ts.shuffledRemotes(), tsErr.remotes...)
-	resp, err := a.MakeRequest(&remotes)
+	remotes := append(ts.shuffledRemotes(), tsErr.remotes...)
+	resp, err := a.MakeRequest(remotes)
 	if err == nil {
 		t.Errorf("should have failed")
 	}
@@ -221,8 +221,8 @@ func TestGRPCRandomFailure(t *testing.T) {
 		t.Error(err)
 	}
 	defer tsErr.shutdown()
-	remotes := append(*ts.shuffledRemotes(), tsErr.remotes...)
-	resp, err := a.MakeRequest(&remotes)
+	remotes := append(ts.shuffledRemotes(), tsErr.remotes...)
+	resp, err := a.MakeRequest(remotes)
 	if err == nil {
 		t.Errorf("should have failed")
 	}
@@ -251,8 +251,8 @@ func TestRandomFailure(t *testing.T) {
 		t.Error(err)
 	}
 	defer tsErr.shutdown()
-	remotes := append(*ts.shuffledRemotes(), *tsErr.shuffledRemotes()...)
-	resp, err := a.MakeRequest(&remotes)
+	remotes := append(ts.shuffledRemotes(), tsErr.shuffledRemotes()...)
+	resp, err := a.MakeRequest(remotes)
 	if err == nil {
 		t.Errorf("should have failed")
 	}
