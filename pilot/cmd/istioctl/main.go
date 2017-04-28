@@ -59,8 +59,18 @@ var (
 		Short:             "Istio control interface",
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
-		Long: fmt.Sprintf("Istio configuration command line utility. Available configuration types: %v",
-			model.IstioConfig.Kinds()),
+		Long: fmt.Sprintf(`
+Istio configuration command line utility.
+
+Create, list, modify, and delete configuration resources in the Istio system.
+
+Available routing and traffic management configuration types: %v. See
+https://istio.io/docs/reference/routing-and-traffic-management.html
+for an overview of the routing and traffic DSL.
+
+More information on the mixer API configuration can be found under the
+istioctl mixer command documentation.
+`, model.IstioConfig.Kinds()),
 		PersistentPreRunE: func(*cobra.Command, []string) (err error) {
 			// Get manager address
 			if managerAddr == "" {
@@ -109,6 +119,11 @@ var (
 	postCmd = &cobra.Command{
 		Use:   "create",
 		Short: "Create policies and rules",
+		Long: `
+Example usage:
+	# Create a rule using the definition in example-routing.yaml.
+	$ istioctl create -f example-routing.yaml
+`,
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				c.Println(c.UsageString())
@@ -138,7 +153,12 @@ var (
 
 	putCmd = &cobra.Command{
 		Use:   "replace",
-		Short: "Replace policies and rules",
+		Short: "Replace existing policies and rules",
+		Long: `
+Example usage:
+	# Create a rule using the definition in example-routing.yaml.
+	$ istioctl replace -f example-routing.yaml
+`,
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				c.Println(c.UsageString())
@@ -167,8 +187,19 @@ var (
 	}
 
 	getCmd = &cobra.Command{
-		Use:   "get <type> <name>",
-		Short: "Retrieve a policy or rule",
+		Use:   "get",
+		Short: "Retrieve policies and rules",
+		Long: `
+Example usage:
+	# List all route rules
+	istioctl get route-rules
+
+	# List all destination policies
+	istioctl get destination-policies
+
+	# Get a specific rule named productpage-default
+	istioctl get route-rule productpage-default
+`,
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return fmt.Errorf("specify the type of resource to get. Types are %v",
@@ -223,8 +254,16 @@ var (
 	}
 
 	deleteCmd = &cobra.Command{
-		Use:   "delete <type> <name> [<name2> ... <nameN>]",
+		Use:   "delete",
 		Short: "Delete policies or rules",
+		Long: `
+Example usage:
+	# Delete a rule using the definition in example-routing.yaml.
+	$ istioctl delete -f example-routing.yaml
+
+	# Delete the rule productpage-default
+	$ istioctl delete route-rule productpage-default
+`,
 		RunE: func(c *cobra.Command, args []string) error {
 			// If we did not receive a file option, get names of resources to delete from command line
 			if file == "" {
