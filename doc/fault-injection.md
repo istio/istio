@@ -85,7 +85,7 @@ as the exposed NodePort port on that node.
 
 ```
 # Get the IP address of the Kubernetes node
-IP=$(kubectl get po -l infra=istio-ingress-controller -o jsonpath={.items[0].status.hostIP})
+IP=$(kubectl get po -l istio=ingress -o jsonpath={.items[0].status.hostIP})
 NGINX_NODEPORT=$(kubectl get service nginx --output jsonpath='{.spec.ports[0].nodePort}')
 curl -i $IP:$NGINX_NODEPORT
 ```
@@ -107,7 +107,7 @@ spec:
   http_fault:
     delay:
       percent: 100
-      fixed_delay_seconds: 5
+      fixed_delay: 5s
 EOF
 
 # Give the file to istioctl

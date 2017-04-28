@@ -83,7 +83,7 @@ data:
         params:
           quotas:
           - descriptor_name: RequestCount
-            max_amount: 5
+            max_amount: 5000
             expiration: 1s
       - kind: metrics
         adapter: prometheus
@@ -200,12 +200,24 @@ spec:
     spec:
       serviceAccountName: istio-manager-service-account
       containers:
-      - name: manager
-        image: docker.io/istio/manager:2017-04-13-01.05.21
+      - name: discovery
+        image: gihanson/manager:dev_20170428_154545
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:
         - containerPort: 8080
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+      - name: apiserver
+        image: gihanson/manager:dev_20170428_154545
+        imagePullPolicy: Always
+        args: ["apiserver", "-v", "2"]
+        ports:
+        - containerPort: 8081
         env:
         - name: POD_NAMESPACE
           valueFrom:
@@ -220,9 +232,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-ingress-controller
+  name: istio-ingress
   labels:
-    infra: istio-ingress-controller
+    istio: ingress
 spec:
   type: LoadBalancer
   ports:
@@ -230,7 +242,12 @@ spec:
 #   nodePort: 32000
     name: http
   selector:
-    infra: istio-ingress-controller
+    istio: ingress
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingress-service-account
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -240,7 +257,7 @@ metadata:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: istio-ingress-controller
+  name: istio-ingress
 spec:
   replicas: 1
   template:
@@ -248,16 +265,53 @@ spec:
       annotations:
         alpha.istio.io/sidecar: ignore
       labels:
-        infra: istio-ingress-controller
+        istio: ingress
     spec:
       serviceAccountName: istio-ingress-service-account
       containers:
-      - name: istio-ingress-controller
-        image: docker.io/istio/proxy:2017-04-13-01.05.21
+      - name: istio-ingress
+        image: gihanson/proxy:dev_20170428_154545
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: Always
         ports:
         - containerPort: 80
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+---
+
+################################
+# Istio egress envoy
+################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-egress
+spec:
+  ports:
+  - port: 80
+  selector:
+    istio: egress
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-egress
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: egress
+    spec:
+      containers:
+      - name: proxy
+        image: gihanson/proxy:dev_20170428_154545
+        imagePullPolicy: Always
+        args: ["proxy", "egress", "-v", "2"]
         env:
         - name: POD_NAMESPACE
           valueFrom:

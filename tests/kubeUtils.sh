@@ -47,8 +47,23 @@ function find_istio_endpoints() {
     local endpoints=($(${K8CLI} get endpoints -n ${NAMESPACE} \
       -o jsonpath='{.items[*].subsets[*].addresses[*].ip}'))
     echo ${endpoints[@]}
-    [[ ${#endpoints[@]} -eq 3 ]] && return 0
+    [[ ${#endpoints[@]} -eq 4 ]] && return 0
     return 1
+}
+
+# Port forward manager, then point istioctl at it
+function setup_istioctl(){
+    print_block_echo "Setting up istioctl"
+    ${K8CLI} -n ${NAMESPACE} port-forward $(${K8CLI} -n ${NAMESPACE} get pod -l istio=manager \
+     -o jsonpath='{.items[0].metadata.name}') 8081:8081 &
+    pfPID=$!
+    export ISTIO_MANAGER_ADDRESS=http://localhost:8081
+}
+
+# Kill the port forwarding process
+function cleanup_istioctl(){
+    print_block_echo "Cleaning up istioctl"
+    kill ${pfPID}
 }
 
 # Deploy the bookinfo microservices
@@ -62,14 +77,14 @@ function deploy_bookinfo() {
 }
 
 function find_ingress_controller() {
-    #local gateway="$(${K8CLI} get svc istio-ingress-controller -n ${NAMESPACE} \
+    #local gateway="$(${K8CLI} get svc istio-ingress -n ${NAMESPACE} \
     #  -o jsonpath='{.status.loadBalancer.ingress[*].ip}')"
     #if [[ ${gateway} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
     #    GATEWAY_URL="http://${gateway}"
     #    return 0
     #fi
-    local gateway="$(${K8CLI} get po -l infra=istio-ingress-controller -n ${NAMESPACE} \
-      -o jsonpath='{.items[0].status.hostIP}'):$(${K8CLI} get svc istio-ingress-controller -n ${NAMESPACE} \
+    local gateway="$(${K8CLI} get po -l istio=ingress -n ${NAMESPACE} \
+      -o jsonpath='{.items[0].status.hostIP}'):$(${K8CLI} get svc istio-ingress -n ${NAMESPACE} \
       -o jsonpath={.spec.ports[0].nodePort})"
     if [[ ${gateway} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\:3[0-2][0-9][0-9][0-9]$ ]]; then
         GATEWAY_URL="http://${gateway}"

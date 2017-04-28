@@ -2,6 +2,6 @@
 # tests/updateVersion.sh (see tests/README.md)
 export MIXER_HUB="docker.io/istio"
 export MIXER_TAG="2017-04-19-00.29.49"
-export ISTIOCTL_URL="https://storage.googleapis.com/istio-artifacts/stable-43fd3ef/artifacts/istioctl"
-export MANAGER_HUB="docker.io/istio"
-export MANAGER_TAG="2017-04-13-01.05.21"
+export ISTIOCTL_URL="https://storage.googleapis.com/istio-artifacts/3903ef69e6261c1c2c8728df2d782c5ddf6dff66/artifacts/istioctl"
+export MANAGER_HUB="gihanson"
+export MANAGER_TAG="dev_20170428_154545"
