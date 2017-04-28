@@ -64,6 +64,7 @@ func insertMixerFilter(listeners []*Listener, instances []*model.ServiceInstance
 							"source.ip":  context.IPAddress,
 							"source.uid": context.UID,
 						},
+						QuotaName: "RequestCount",
 					},
 				}}, http.Filters...)
 			}

@@ -28,7 +28,8 @@
                   "forward_attributes": {
                     "source.ip": "10.1.1.1",
                     "source.uid": "uid://10.1.1.1.my-namespace"
-                  }
+                  },
+                  "quota_name": "RequestCount"
                 }
               },
               {
@@ -75,7 +76,8 @@
                   "forward_attributes": {
                     "source.ip": "10.1.1.1",
                     "source.uid": "uid://10.1.1.1.my-namespace"
-                  }
+                  },
+                  "quota_name": "RequestCount"
                 }
               },
               {
@@ -122,7 +124,8 @@
                   "forward_attributes": {
                     "source.ip": "10.1.1.1",
                     "source.uid": "uid://10.1.1.1.my-namespace"
-                  }
+                  },
+                  "quota_name": "RequestCount"
                 }
               },
               {
@@ -213,7 +216,8 @@
                   "forward_attributes": {
                     "source.ip": "10.1.1.1",
                     "source.uid": "uid://10.1.1.1.my-namespace"
-                  }
+                  },
+                  "quota_name": "RequestCount"
                 }
               },
               {
@@ -334,7 +338,8 @@
                   "forward_attributes": {
                     "source.ip": "10.1.1.1",
                     "source.uid": "uid://10.1.1.1.my-namespace"
-                  }
+                  },
+                  "quota_name": "RequestCount"
                 }
               },
               {
