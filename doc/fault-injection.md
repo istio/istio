@@ -85,7 +85,7 @@ as the exposed NodePort port on that node.
 
 ```
 # Get the IP address of the Kubernetes node
-IP=$(kubectl get po -l infra=istio-ingress -o jsonpath={.items[0].status.hostIP})
+IP=$(kubectl get po -l istio=ingress -o jsonpath={.items[0].status.hostIP})
 NGINX_NODEPORT=$(kubectl get service nginx --output jsonpath='{.spec.ports[0].nodePort}')
 curl -i $IP:$NGINX_NODEPORT
 ```
