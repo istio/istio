@@ -338,9 +338,9 @@ roleRef:
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-ingress-controller
+  name: istio-ingress
   labels:
-    infra: istio-ingress-controller
+    istio: ingress
 spec:
   type: LoadBalancer
   ports:
@@ -348,7 +348,7 @@ spec:
 #   nodePort: 32000
     name: http
   selector:
-    infra: istio-ingress-controller
+    istio: ingress
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -358,7 +358,7 @@ metadata:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: istio-ingress-controller
+  name: istio-ingress
 spec:
   replicas: 1
   template:
@@ -366,11 +366,11 @@ spec:
       annotations:
         alpha.istio.io/sidecar: ignore
       labels:
-        infra: istio-ingress-controller
+        istio: ingress
     spec:
       serviceAccountName: istio-ingress-service-account
       containers:
-      - name: istio-ingress-controller
+      - name: istio-ingress
         image: docker.io/istio/proxy:2017-04-24-23.54.11
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: Always
@@ -403,7 +403,7 @@ spec:
   ports:
   - port: 80
   selector:
-    app: istio-egress
+    istio: egress
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -414,7 +414,7 @@ spec:
   template:
     metadata:
       labels:
-        app: istio-egress
+        istio: egress
     spec:
       containers:
       - name: proxy
