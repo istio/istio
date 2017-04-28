@@ -17,15 +17,15 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/spf13/pflag"
+	"github.com/golang/glog"
 	"google.golang.org/grpc"
 
 	"istio.io/istio/tests/e2e/apps/hop"
@@ -33,43 +33,40 @@ import (
 )
 
 var (
-	ports     []int
-	grpcPorts []int
+	httpPort = flag.Int("http_port", -1, "Http Port")
+	grpcPort = flag.Int("grpc_port", -1, "gRPC port")
 )
 
-func init() {
-	pflag.IntSliceVar(&ports, "port", []int{}, "HTTP/1.1 ports")
-	pflag.IntSliceVar(&grpcPorts, "grpc", []int{}, "GRPC ports")
-}
-
 func runHTTP(port int) {
-	fmt.Printf("Listening HTTP1.1 on %v\n", port)
+	if port < 0 {
+		return
+	}
+	glog.Infof("Listening HTTP1.1 on %v\n", port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), hop.NewApp()); err != nil {
-		log.Println(err.Error())
+		glog.Error(fmt.Errorf("failed start http server at port %d", port))
 	}
 }
 
 func runGRPC(port int) {
-	fmt.Printf("Listening GRPC on %v\n", port)
+	if port < 0 {
+		return
+	}
+	glog.Infof("Listening GRPC on %v\n", port)
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		glog.Fatalf("failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
 	config.RegisterHopTestServiceServer(grpcServer, hop.NewApp())
 	if err = grpcServer.Serve(lis); err != nil {
-		log.Println(err.Error())
+		glog.Error(fmt.Errorf("failed start grpc server at port %d", port))
 	}
 }
 
 func main() {
-	pflag.Parse()
-	for _, port := range ports {
-		go runHTTP(port)
-	}
-	for _, grpcPort := range grpcPorts {
-		go runGRPC(grpcPort)
-	}
+	flag.Parse()
+	go runHTTP(*httpPort)
+	go runGRPC(*grpcPort)
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
