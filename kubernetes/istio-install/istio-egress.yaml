@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: docker.io/istio/proxy:2017-04-24-23.54.11
+        image: gihanson/proxy:dev_20170428_154545
         imagePullPolicy: Always
         args: ["proxy", "egress", "-v", "2"]
         env:
