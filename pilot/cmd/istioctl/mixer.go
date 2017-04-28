@@ -57,6 +57,7 @@ See https://istio.io/docs/concepts/policy-and-control/mixer-config.html
 for a description of Mixer configuration's scope, subject, and rules.
 
 Example usage:
+
 	# The Mixer config server can be accessed from outside the
     # Kubernetes cluster using port forwarding.
     CONFIG_PORT=$(kubectl get pod -l istio=mixer \
@@ -88,6 +89,7 @@ Create and list Mixer rules in the configuration server.
 		Short: "Create Istio Mixer rules",
 		Long: `
 Example usage:
+
     # Create a new Mixer rule for the given scope and subject.
     istioctl mixer rule create global myservice.ns.svc.cluster.local -f mixer-rule.yml
 `,
@@ -106,8 +108,10 @@ Example usage:
 		Use:   "get",
 		Short: "Get Istio Mixer rules",
 		Long: `
-Get a Mixer rule for a given scope and subject. The output
+Get a Mixer rule for a given scope and subject.
+
 Example usage:
+
 	# Get the Mixer rule with scope='global' and subject='myservice.ns.svc.cluster.local'
     istioctl mixer rule get global myservice.ns.svc.cluster.local
 `,

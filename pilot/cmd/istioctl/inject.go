@@ -77,7 +77,8 @@ The Istio project is continually evolving so the Istio sidecar
 configuration may change unannounced. When in doubt re-run istioctl
 kube-inject on deployments to get the most up-to-date changes.
 
-Example usages:
+Example usage:
+
 	# Update resources on the fly before applying.
 	kubectl apply -f <(istioctl kube-inject -f <resource.yaml>)
 
@@ -88,6 +89,7 @@ Example usages:
 
 	# Update an existing deployment.
 	kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
+
 `,
 		RunE: func(_ *cobra.Command, _ []string) (err error) {
 			if inFilename == "" {

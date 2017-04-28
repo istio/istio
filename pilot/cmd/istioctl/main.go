@@ -121,6 +121,7 @@ istioctl mixer command documentation.
 		Short: "Create policies and rules",
 		Long: `
 Example usage:
+
 	# Create a rule using the definition in example-routing.yaml.
 	$ istioctl create -f example-routing.yaml
 `,
@@ -156,6 +157,7 @@ Example usage:
 		Short: "Replace existing policies and rules",
 		Long: `
 Example usage:
+
 	# Create a rule using the definition in example-routing.yaml.
 	$ istioctl replace -f example-routing.yaml
 `,
@@ -191,6 +193,7 @@ Example usage:
 		Short: "Retrieve policies and rules",
 		Long: `
 Example usage:
+
 	# List all route rules
 	istioctl get route-rules
 
@@ -258,6 +261,7 @@ Example usage:
 		Short: "Delete policies or rules",
 		Long: `
 Example usage:
+
 	# Delete a rule using the definition in example-routing.yaml.
 	$ istioctl delete -f example-routing.yaml
 

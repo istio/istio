@@ -39,7 +39,7 @@ var (
 		Short: "Generate bash completion for Istioctl",
 		Long: `
 Output shell completion code for the bash shell. The shell output must
-be evaluated for to provide interactive completion of istioctl
+be evaluated to provide interactive completion of istioctl
 commands.
 
 Examples:
