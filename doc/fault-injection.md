@@ -107,7 +107,7 @@ spec:
   http_fault:
     delay:
       percent: 100
-      fixed_delay_seconds: 5
+      fixed_delay: 5s
 EOF
 
 # Give the file to istioctl
