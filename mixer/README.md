@@ -1,7 +1,7 @@
 # Mixer
 ![Mixer](doc/logo.png)
 
-[![GoDoc](https://godoc.org/github.com/istio/mixer?status.svg)](http://godoc.org/github.com/istio/mixer)
+[![GoDoc](https://godoc.org/github.com/istio/mixer?status.svg)](https://godoc.org/github.com/istio/mixer)
 [![Build Status](https://testing.istio.io/buildStatus/icon?job=mixer/postsubmit)](https://testing.istio.io/job/mixer/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/mixer)](https://goreportcard.com/report/github.com/istio/mixer)
 [![codecov.io](https://codecov.io/github/istio/mixer/coverage.svg?branch=master)](https://codecov.io/github/istio/mixer?branch=master)
@@ -23,7 +23,7 @@ tool to provide some fairness between service consumers when contending for limi
 - **Telemetry Reporting**. Enables services to produce logging, monitoring, tracing and billing streams intended for the service producer itself as well as 
 for its consumers.
 
-Learn more about Mixer [here](https://istio.io/concepts/mixer.html).
+Learn more about Mixer [here](https://istio.io/concepts/policy-and-control/mixer.html).
 
 Please see [istio.io](https://istio.io)
 to learn about the overall Istio project and how to get in touch with us. To learn how you can
