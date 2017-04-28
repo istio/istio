@@ -27,11 +27,11 @@ import (
 )
 
 const (
-	yamlSuffix        = ".yaml"
-	mixerHubDefault   = "MIXER_HUB"
-	mixerTagDefault   = "MIXER_TAG"
-	managerHubDefault = "MANAGER_HUB"
-	managerTagDefault = "MANAGER_TAG"
+	yamlSuffix       = ".yaml"
+	mixerHubEnvVar   = "MIXER_HUB"
+	mixerTagEnvVar   = "MIXER_TAG"
+	managerHubEnvVar = "MANAGER_HUB"
+	managerTagEnvVar = "MANAGER_TAG"
 )
 
 var (
@@ -42,10 +42,10 @@ var (
 	appHub     = flag.String("app_hub", appHubDefault, "app hub")
 	appTag     = flag.String("app_tag", appTagDefault, "app tag")
 	namespace  = flag.String("n", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub   = flag.String("mixer_hub", os.Getenv(mixerHubDefault), "Mixer hub")
-	mixerTag   = flag.String("mixer_tag", os.Getenv(mixerTagDefault), "Mixer tag")
-	managerHub = flag.String("manager_hub", os.Getenv(managerHubDefault), "Manager hub")
-	managerTag = flag.String("manager_tag", os.Getenv(managerTagDefault), "Manager tag")
+	mixerHub   = flag.String("mixer_hub", os.Getenv(mixerHubEnvVar), "Mixer hub")
+	mixerTag   = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
+	managerHub = flag.String("manager_hub", os.Getenv(managerHubEnvVar), "Manager hub")
+	managerTag = flag.String("manager_tag", os.Getenv(managerTagEnvVar), "Manager tag")
 	caHub      = flag.String("ca_hub", "", "Ca hub")
 	caTag      = flag.String("ca_tag", "", "Ca tag")
 	verbose    = flag.Bool("verbose", false, "Debug level noise from proxies")
