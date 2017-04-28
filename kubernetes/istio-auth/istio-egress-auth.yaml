@@ -9,7 +9,7 @@ spec:
   ports:
   - port: 80
   selector:
-    app: istio-egress
+    istio: egress
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -20,7 +20,7 @@ spec:
   template:
     metadata:
       labels:
-        app: istio-egress
+        istio: egress
     spec:
       containers:
       - name: proxy

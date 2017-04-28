@@ -6,7 +6,7 @@ kind: Service
 metadata:
   name: istio-ingress
   labels:
-    infra: istio-ingress
+    istio: ingress
 spec:
   type: LoadBalancer
   ports:
@@ -14,7 +14,7 @@ spec:
 #   nodePort: 32000
     name: http
   selector:
-    infra: istio-ingress
+    istio: ingress
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -32,7 +32,7 @@ spec:
       annotations:
         alpha.istio.io/sidecar: ignore
       labels:
-        infra: istio-ingress
+        istio: ingress
     spec:
       serviceAccountName: istio-ingress-service-account
       containers:
