@@ -234,7 +234,7 @@ kind: Service
 metadata:
   name: istio-ingress
   labels:
-    infra: istio-ingress
+    istio: ingress
 spec:
   type: LoadBalancer
   ports:
@@ -242,7 +242,7 @@ spec:
 #   nodePort: 32000
     name: http
   selector:
-    infra: istio-ingress
+    istio: ingress
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -260,7 +260,7 @@ spec:
       annotations:
         alpha.istio.io/sidecar: ignore
       labels:
-        infra: istio-ingress
+        istio: ingress
     spec:
       serviceAccountName: istio-ingress-service-account
       containers:
@@ -289,7 +289,7 @@ spec:
   ports:
   - port: 80
   selector:
-    app: istio-egress
+    istio: egress
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -300,7 +300,7 @@ spec:
   template:
     metadata:
       labels:
-        app: istio-egress
+        istio: egress
     spec:
       containers:
       - name: proxy
