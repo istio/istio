@@ -31,10 +31,11 @@ RULES_DIR="${BOOKINFO_DIR}/rules"
 
 . ${ROOT}/istio.VERSION || error_exit "Could not source versions"
 
-while getopts :c:i:sn:m:x: arg; do
+while getopts :c:i:gsn:m:x: arg; do
   case ${arg} in
     c) ISTIOCLI="${OPTARG}";;
     i) ISTIOCTL_URL="${OPTARG}";;
+    g) GKE_ENABLE=true;;
     s) TEAR_DOWN=false;;
     n) NAMESPACE="${OPTARG}";;
     m) MANAGER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"

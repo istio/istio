@@ -42,7 +42,7 @@ def presubmit(gitUtils, bazel, utils) {
             break
         }
       }
-      sh("tests/kubeTest.sh ${kubeTestArgs}")
+      sh("tests/kubeTest.sh ${kubeTestArgs} -g")
     }
   }
 }
