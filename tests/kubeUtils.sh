@@ -77,14 +77,14 @@ function deploy_bookinfo() {
 }
 
 function find_ingress_controller() {
-    #local gateway="$(${K8CLI} get svc istio-ingress-controller -n ${NAMESPACE} \
+    #local gateway="$(${K8CLI} get svc istio-ingress -n ${NAMESPACE} \
     #  -o jsonpath='{.status.loadBalancer.ingress[*].ip}')"
     #if [[ ${gateway} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
     #    GATEWAY_URL="http://${gateway}"
     #    return 0
     #fi
-    local gateway="$(${K8CLI} get po -l infra=istio-ingress-controller -n ${NAMESPACE} \
-      -o jsonpath='{.items[0].status.hostIP}'):$(${K8CLI} get svc istio-ingress-controller -n ${NAMESPACE} \
+    local gateway="$(${K8CLI} get po -l infra=istio-ingress -n ${NAMESPACE} \
+      -o jsonpath='{.items[0].status.hostIP}'):$(${K8CLI} get svc istio-ingress -n ${NAMESPACE} \
       -o jsonpath={.spec.ports[0].nodePort})"
     if [[ ${gateway} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\:3[0-2][0-9][0-9][0-9]$ ]]; then
         GATEWAY_URL="http://${gateway}"
