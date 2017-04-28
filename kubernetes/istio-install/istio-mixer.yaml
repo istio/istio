@@ -81,7 +81,7 @@ data:
         params:
           quotas:
           - descriptor_name: RequestCount
-            max_amount: 5
+            max_amount: 5000
             expiration: 1s
       - kind: metrics
         adapter: prometheus
