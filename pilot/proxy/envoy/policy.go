@@ -21,6 +21,9 @@ import (
 	"sort"
 	"strings"
 
+	"time"
+
+	"github.com/golang/protobuf/ptypes/duration"
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 	"istio.io/manager/proxy"
@@ -105,18 +108,28 @@ func insertDestinationPolicy(config *model.IstioRegistry, cluster *Cluster) {
 			cluster.OutlierDetection = &OutlierDetection{}
 
 			cluster.OutlierDetection.MaxEjectionPercent = 10
-			if cbconfig.SleepWindowSeconds > 0 {
-				cluster.OutlierDetection.BaseEjectionTimeMS = int(cbconfig.SleepWindowSeconds * 1000)
+			if cbconfig.SleepWindow.Seconds > 0 {
+				cluster.OutlierDetection.BaseEjectionTimeMS = protoDurationToMS(cbconfig.SleepWindow)
 			}
 			if cbconfig.HttpConsecutiveErrors > 0 {
 				cluster.OutlierDetection.ConsecutiveErrors = int(cbconfig.HttpConsecutiveErrors)
 			}
-			if cbconfig.HttpDetectionIntervalSeconds > 0 {
-				cluster.OutlierDetection.IntervalMS = int(cbconfig.HttpDetectionIntervalSeconds * 1000)
+			if cbconfig.HttpDetectionInterval.Seconds > 0 {
+				cluster.OutlierDetection.IntervalMS = protoDurationToMS(cbconfig.HttpDetectionInterval)
 			}
 			if cbconfig.HttpMaxEjectionPercent > 0 {
 				cluster.OutlierDetection.MaxEjectionPercent = int(cbconfig.HttpMaxEjectionPercent)
 			}
 		}
 	}
+}
+
+func protoDurationToMS(dur *duration.Duration) int {
+	if dur == nil {
+		return 0
+	}
+
+	d := convertDuration(dur)
+
+	return int(d / time.Millisecond)
 }

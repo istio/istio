@@ -26,6 +26,8 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
 
+	"time"
+
 	proxyconfig "istio.io/api/proxy/v1/config"
 )
 
@@ -308,16 +310,16 @@ func ValidateDestinationWeight(dw *proxyconfig.DestinationWeight) (errs error) {
 }
 
 // ValidateHTTPTimeout validates HTTP Timeout
-func ValidateHTTPTimeout(timeout *proxyconfig.HTTPTimeout) error {
+func ValidateHTTPTimeout(timeout *proxyconfig.HTTPTimeout) (errs error) {
 	if simple := timeout.GetSimpleTimeout(); simple != nil {
-		if simple.TimeoutSeconds < 0 {
-			return fmt.Errorf("timeout_seconds must be in range [0..]")
+		if err := validateDuration(simple.Timeout); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "httpTimeout invalid: "))
 		}
 
 		// TODO validate override_header_name?
 	}
 
-	return nil
+	return
 }
 
 // ValidateHTTPRetries validates HTTP Retries
@@ -327,8 +329,8 @@ func ValidateHTTPRetries(retry *proxyconfig.HTTPRetry) (errs error) {
 			errs = multierror.Append(errs, fmt.Errorf("attempts must be in range [0..]"))
 		}
 
-		if simple.PerTryTimeoutSeconds <= 0 {
-			errs = multierror.Append(errs, fmt.Errorf("per_try_timeout_seconds must be >0 seconds"))
+		if err := validateDuration(simple.PerTryTimeout); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "perTryTimeout invalid: "))
 		}
 		// We ignore override_header_name
 	}
@@ -427,16 +429,15 @@ func validateIPv4Address(addr string) error {
 
 func validateDelay(delay *proxyconfig.HTTPFaultInjection_Delay) (errs error) {
 	errs = validateFloatPercent(errs, delay.Percent, "delay")
-
-	if delay.GetFixedDelaySeconds() < 0 {
-		errs = multierror.Append(errs, fmt.Errorf("delay fixed_seconds invalid"))
+	if err := validateDuration(delay.GetFixedDelay()); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "fixedDelay invalid:"))
 	}
 
-	if delay.GetExponentialDelaySeconds() != 0 {
-		if delay.GetExponentialDelaySeconds() < 0 {
-			errs = multierror.Append(errs, fmt.Errorf("delay exponential_seconds invalid"))
+	if delay.GetExponentialDelay() != nil {
+		if err := validateDuration(delay.GetExponentialDelay()); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "exponentialDelay invalid: "))
 		}
-		errs = multierror.Append(errs, fmt.Errorf("Istio does not support exponential_seconds yet"))
+		errs = multierror.Append(errs, fmt.Errorf("Istio does not support exponentialDelay yet"))
 	}
 
 	return
@@ -479,19 +480,20 @@ func validateThrottle(throttle *proxyconfig.L4FaultInjection_Throttle) (errs err
 	errs = validateFloatPercent(errs, throttle.Percent, "throttle")
 
 	if throttle.DownstreamLimitBps < 0 {
-		errs = multierror.Append(errs, fmt.Errorf("downstream_limit_bps invalid"))
+		errs = multierror.Append(errs, fmt.Errorf("downstreamLimitBps invalid"))
 	}
 
 	if throttle.UpstreamLimitBps < 0 {
-		errs = multierror.Append(errs, fmt.Errorf("upstream_limit_bps invalid"))
+		errs = multierror.Append(errs, fmt.Errorf("upstreamLimitBps invalid"))
 	}
 
-	if throttle.GetThrottleAfterSeconds() < 0 {
-		errs = multierror.Append(errs, fmt.Errorf("throttle_after_seconds invalid"))
+	err := validateDuration(throttle.GetThrottleAfterPeriod())
+	if err != nil {
+		errs = multierror.Append(errs, fmt.Errorf("throttleAfterPeriod invalid"))
 	}
 
 	if throttle.GetThrottleAfterBytes() < 0 {
-		errs = multierror.Append(errs, fmt.Errorf("throttle_after_bytes invalid"))
+		errs = multierror.Append(errs, fmt.Errorf("throttleAfterBytes invalid"))
 	}
 
 	// TODO Check DoubleValue throttle.GetThrottleForSeconds()
@@ -509,29 +511,40 @@ func ValidateLoadBalancing(lb *proxyconfig.LoadBalancing) (errs error) {
 func ValidateCircuitBreaker(cb *proxyconfig.CircuitBreaker) (errs error) {
 	if simple := cb.GetSimpleCb(); simple != nil {
 		if simple.MaxConnections < 0 {
-			errs = multierror.Append(errs, fmt.Errorf("circuit_breaker max_connections must be in range [0..]"))
+			errs = multierror.Append(errs,
+				fmt.Errorf("circuitBreak maxConnections must be in range [0..]"))
 		}
 		if simple.HttpMaxPendingRequests < 0 {
-			errs = multierror.Append(errs, fmt.Errorf("circuit_breaker max_pending_requests must be in range [0..]"))
+			errs = multierror.Append(errs,
+				fmt.Errorf("circuitBreaker maxPendingRequests must be in range [0..]"))
 		}
 		if simple.HttpMaxRequests < 0 {
-			errs = multierror.Append(errs, fmt.Errorf("circuit_breaker max_requests must be in range [0..]"))
-		}
-		if simple.SleepWindowSeconds < 0 {
-			errs = multierror.Append(errs, fmt.Errorf("circuit_breaker sleep_window_seconds must be in range [0..]"))
-		}
-		if simple.HttpConsecutiveErrors < 0 {
-			errs = multierror.Append(errs, fmt.Errorf("circuit_breaker http_consecutive_errors must be in range [0..]"))
-		}
-		if simple.HttpDetectionIntervalSeconds < 0 {
 			errs = multierror.Append(errs,
-				fmt.Errorf("circuit_breaker http_detection_interval_seconds must be in range [0..]"))
+				fmt.Errorf("circuitBreaker maxRequests must be in range [0..]"))
 		}
+
+		err := validateDuration(simple.SleepWindow)
+		if err != nil {
+			errs = multierror.Append(errs,
+				fmt.Errorf("circuitBreaker sleepWindow must be in range [0..]"))
+		}
+
+		if simple.HttpConsecutiveErrors < 0 {
+			errs = multierror.Append(errs,
+				fmt.Errorf("circuitBreaker httpConsecutiveErrors must be in range [0..]"))
+		}
+
+		err = validateDuration(simple.HttpDetectionInterval)
+		if err != nil {
+			errs = multierror.Append(errs,
+				fmt.Errorf("circuitBreaker httpDetectionInterval must be in range [0..]"))
+		}
+
 		if simple.HttpMaxRequestsPerConnection < 0 {
 			errs = multierror.Append(errs,
-				fmt.Errorf("circuit_breaker http_max_requests_per_connection must be in range [0..]"))
+				fmt.Errorf("circuitBreaker httpMaxRequestsPerConnection must be in range [0..]"))
 		}
-		errs = validatePercent(errs, simple.HttpMaxEjectionPercent, "circuit_breaker http_max_ejection_percent")
+		errs = validatePercent(errs, simple.HttpMaxEjectionPercent, "circuitBreaker httpMaxEjectionPercent")
 	}
 
 	return
@@ -690,10 +703,44 @@ func validateDuration(pd *duration.Duration) error {
 	if err != nil {
 		return err
 	}
-	if dur <= 0 {
-		return errors.New("duration must be positive")
+	if dur < (1 * time.Millisecond) {
+		return errors.New("duration must be greater than 1ms")
+	}
+	if dur%time.Millisecond != 0 {
+		return errors.New("Istio only supports durations to ms precision")
 	}
 	return nil
+}
+
+func validateParentAndDrain(drainTime, parentShutdown *duration.Duration) (errs error) {
+	if err := validateDuration(drainTime); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid drain duration:"))
+	}
+	if err := validateDuration(parentShutdown); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid parent shutdown duration:"))
+	}
+	if errs != nil {
+		return
+	}
+
+	drainDuration, _ := ptypes.Duration(drainTime)
+	parentShutdownDuration, _ := ptypes.Duration(parentShutdown)
+
+	if drainDuration%time.Second != 0 {
+		errs = multierror.Append(errs,
+			errors.New("Istio drain time only supports durations to seconds precision"))
+	}
+	if parentShutdownDuration%time.Second != 0 {
+		errs = multierror.Append(errs,
+			errors.New("Istio parent shutdown time only supports durations to seconds precision"))
+	}
+	if parentShutdownDuration <= drainDuration {
+		errs = multierror.Append(errs,
+			fmt.Errorf("Istio parent shutdown time %v must be greater than drain time %v",
+				parentShutdownDuration.Seconds(), drainDuration.Seconds()))
+	}
+
+	return
 }
 
 // ValidateProxyMeshConfig ...
@@ -731,12 +778,8 @@ func ValidateProxyMeshConfig(mesh *proxyconfig.ProxyMeshConfig) (errs error) {
 		errs = multierror.Append(errs, errors.New("Istio service cluster must be set"))
 	}
 
-	if err := validateDuration(mesh.DrainDuration); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid drain duration:"))
-	}
-
-	if err := validateDuration(mesh.ParentShutdownDuration); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid parent shutdown duration:"))
+	if err := validateParentAndDrain(mesh.DrainDuration, mesh.ParentShutdownDuration); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid parent and drain time combination"))
 	}
 
 	if err := validateDuration(mesh.DiscoveryRefreshDelay); err != nil {

@@ -18,6 +18,7 @@
 package envoy
 
 import (
+	"github.com/golang/protobuf/ptypes"
 	proxyconfig "istio.io/api/proxy/v1/config"
 )
 
@@ -63,13 +64,14 @@ func buildAbortConfig(abortRule *proxyconfig.HTTPFaultInjection_Abort) *AbortFil
 
 // buildDelayConfig builds the envoy config related to delay spec in a fault filter
 func buildDelayConfig(delayRule *proxyconfig.HTTPFaultInjection_Delay) *DelayFilter {
-	if delayRule == nil || delayRule.GetFixedDelaySeconds() == 0.0 || delayRule.Percent == 0.0 {
+	dur, err := ptypes.Duration(delayRule.GetFixedDelay())
+	if delayRule == nil || (err != nil && dur.Seconds() == 0 && dur.Nanoseconds() == 0) || delayRule.Percent == 0.0 {
 		return nil
 	}
 
 	return &DelayFilter{
 		Type:     "fixed",
 		Percent:  int(delayRule.Percent),
-		Duration: int(delayRule.GetFixedDelaySeconds() * 1000),
+		Duration: protoDurationToMS(delayRule.GetFixedDelay()),
 	}
 }

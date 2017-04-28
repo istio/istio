@@ -16,7 +16,7 @@ route:
 http_fault:
   delay:
     percent: 100
-    fixed_delay_seconds: 5
+    fixed_delay: 5s
   abort:
     percent: 100
     http_status: 503

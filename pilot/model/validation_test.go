@@ -423,7 +423,8 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			Destination: "host.default.svc.cluster.local",
 			HttpReqTimeout: &proxyconfig.HTTPTimeout{
 				TimeoutPolicy: &proxyconfig.HTTPTimeout_SimpleTimeout{
-					SimpleTimeout: &proxyconfig.HTTPTimeout_SimpleTimeoutPolicy{TimeoutSeconds: -1},
+					SimpleTimeout: &proxyconfig.HTTPTimeout_SimpleTimeoutPolicy{
+						Timeout: &duration.Duration{Seconds: -1}},
 				},
 			},
 		},
@@ -432,7 +433,8 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			Destination: "host.default.svc.cluster.local",
 			HttpReqRetries: &proxyconfig.HTTPRetry{
 				RetryPolicy: &proxyconfig.HTTPRetry_SimpleRetry{
-					SimpleRetry: &proxyconfig.HTTPRetry_SimpleRetryPolicy{Attempts: -1, PerTryTimeoutSeconds: 0},
+					SimpleRetry: &proxyconfig.HTTPRetry_SimpleRetryPolicy{
+						Attempts: -1, PerTryTimeout: &duration.Duration{Seconds: 0}},
 				},
 			},
 		},
@@ -441,8 +443,9 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			Destination: "host.default.svc.cluster.local",
 			HttpFault: &proxyconfig.HTTPFaultInjection{
 				Delay: &proxyconfig.HTTPFaultInjection_Delay{
-					Percent:       -1,
-					HttpDelayType: &proxyconfig.HTTPFaultInjection_Delay_FixedDelaySeconds{FixedDelaySeconds: 3},
+					Percent: -1,
+					HttpDelayType: &proxyconfig.HTTPFaultInjection_Delay_FixedDelay{
+						FixedDelay: &duration.Duration{Seconds: 3}},
 				},
 			},
 		},
@@ -451,8 +454,9 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			Destination: "host.default.svc.cluster.local",
 			HttpFault: &proxyconfig.HTTPFaultInjection{
 				Delay: &proxyconfig.HTTPFaultInjection_Delay{
-					Percent:       100,
-					HttpDelayType: &proxyconfig.HTTPFaultInjection_Delay_FixedDelaySeconds{FixedDelaySeconds: -1},
+					Percent: 100,
+					HttpDelayType: &proxyconfig.HTTPFaultInjection_Delay_FixedDelay{
+						FixedDelay: &duration.Duration{Seconds: -1}},
 				},
 			},
 		},
@@ -481,8 +485,9 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			Destination: "host.default.svc.cluster.local",
 			HttpFault: &proxyconfig.HTTPFaultInjection{
 				Delay: &proxyconfig.HTTPFaultInjection_Delay{
-					Percent:       101,
-					HttpDelayType: &proxyconfig.HTTPFaultInjection_Delay_ExponentialDelaySeconds{ExponentialDelaySeconds: -1},
+					Percent: 101,
+					HttpDelayType: &proxyconfig.HTTPFaultInjection_Delay_ExponentialDelay{
+						ExponentialDelay: &duration.Duration{Seconds: -1}},
 				},
 			},
 		},
@@ -494,11 +499,12 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 					Percent:            101,
 					DownstreamLimitBps: -1,
 					UpstreamLimitBps:   -1,
-					ThrottleAfter:      &proxyconfig.L4FaultInjection_Throttle_ThrottleAfterSeconds{ThrottleAfterSeconds: -1},
+					ThrottleAfter: &proxyconfig.L4FaultInjection_Throttle_ThrottleAfterPeriod{
+						ThrottleAfterPeriod: &duration.Duration{Seconds: -1}},
 				},
 				Terminate: &proxyconfig.L4FaultInjection_Terminate{
-					Percent:               101,
-					TerminateAfterSeconds: -1,
+					Percent:              101,
+					TerminateAfterPeriod: &duration.Duration{Seconds: -1},
 				},
 			},
 		},
@@ -510,7 +516,8 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 					Percent:            101,
 					DownstreamLimitBps: -1,
 					UpstreamLimitBps:   -1,
-					ThrottleAfter:      &proxyconfig.L4FaultInjection_Throttle_ThrottleAfterBytes{ThrottleAfterBytes: -1},
+					ThrottleAfter: &proxyconfig.L4FaultInjection_Throttle_ThrottleAfterBytes{
+						ThrottleAfterBytes: -1},
 				},
 			},
 		},
@@ -552,10 +559,12 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 	}
 	for _, c := range cases {
 		if got := ValidateRouteRule(c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateRouteRule failed on %v: got valid=%v but wanted valid=%v: %v", c.name, got == nil, c.valid, got)
+			t.Errorf("ValidateRouteRule failed on %v: got valid=%v but wanted valid=%v: %v",
+				c.name, got == nil, c.valid, got)
 		}
 		if got := ValidateIngressRule(c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateIngressRule failed on %v: got valid=%v but wanted valid=%v: %v", c.name, got == nil, c.valid, got)
+			t.Errorf("ValidateIngressRule failed on %v: got valid=%v but wanted valid=%v: %v",
+				c.name, got == nil, c.valid, got)
 		}
 	}
 }
@@ -576,9 +585,9 @@ func TestValidateDestinationPolicy(t *testing.T) {
 						MaxConnections:               -1,
 						HttpMaxPendingRequests:       -1,
 						HttpMaxRequests:              -1,
-						SleepWindowSeconds:           -1,
+						SleepWindow:                  &duration.Duration{Seconds: -1},
 						HttpConsecutiveErrors:        -1,
-						HttpDetectionIntervalSeconds: -1,
+						HttpDetectionInterval:        &duration.Duration{Seconds: -1},
 						HttpMaxRequestsPerConnection: -1,
 						HttpMaxEjectionPercent:       -1,
 					},
@@ -657,10 +666,64 @@ func TestValidateDuration(t *testing.T) {
 		{Seconds: 1}:              true,
 		{Seconds: 1, Nanos: -1}:   false,
 		{Seconds: -11, Nanos: -1}: false,
+		{Nanos: 1}:                false,
+		{Seconds: 1, Nanos: 1}:    false,
 	}
 	for duration, valid := range durations {
 		if got := validateDuration(&duration); (got == nil) != valid {
 			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, valid, got, duration)
+		}
+	}
+}
+
+func TestValidateParentAndDrain(t *testing.T) {
+	type ParentDrainTime struct {
+		Parent duration.Duration
+		Drain  duration.Duration
+		Valid  bool
+	}
+
+	combinations := []ParentDrainTime{
+		{
+			Parent: duration.Duration{Seconds: 2},
+			Drain:  duration.Duration{Seconds: 1},
+			Valid:  true,
+		},
+		{
+			Parent: duration.Duration{Seconds: 1},
+			Drain:  duration.Duration{Seconds: 1},
+			Valid:  false,
+		},
+		{
+			Parent: duration.Duration{Seconds: 1},
+			Drain:  duration.Duration{Seconds: 2},
+			Valid:  false,
+		},
+		{
+			Parent: duration.Duration{Seconds: 2},
+			Drain:  duration.Duration{Seconds: 1, Nanos: 1},
+			Valid:  false,
+		},
+		{
+			Parent: duration.Duration{Seconds: 2, Nanos: 1},
+			Drain:  duration.Duration{Seconds: 1},
+			Valid:  false,
+		},
+		{
+			Parent: duration.Duration{Seconds: -2},
+			Drain:  duration.Duration{Seconds: 1},
+			Valid:  false,
+		},
+		{
+			Parent: duration.Duration{Seconds: 2},
+			Drain:  duration.Duration{Seconds: -1},
+			Valid:  false,
+		},
+	}
+	for _, combo := range combinations {
+		if got := validateParentAndDrain(&combo.Drain, &combo.Parent); (got == nil) != combo.Valid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for Parent:%v Drain:%v",
+				got == nil, combo.Valid, got, combo.Parent, combo.Drain)
 		}
 	}
 }
