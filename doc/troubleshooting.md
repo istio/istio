@@ -12,8 +12,8 @@ bring up the Istio control plane
 
 ```bash
 $ kubectl apply -f demos/istio
-service "istio-ingress-controller" created
-deployment "istio-ingress-controller" created
+service "istio-ingress" created
+deployment "istio-ingress" created
 service "istio-manager" created
 deployment "istio-manager" created
 configmap "mixer-config" created

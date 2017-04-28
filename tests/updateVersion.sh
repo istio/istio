@@ -104,11 +104,11 @@ function merge_files() {
   cat $SRC/istio-mixer.yaml >> $ISTIO_15
   cat $SRC/istio-manager.yaml >> $ISTIO_15
   cp $ISTIO_15 $ISTIO_AUTH_15
-  cat $SRC/istio-ingress-controller.yaml >> $ISTIO_15
+  cat $SRC/istio-ingress.yaml >> $ISTIO_15
   cat $SRC/istio-egress.yaml >> $ISTIO_15
 
   sed -i "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH_15
-  cat $AUTH_SRC/istio-ingress-controller-auth.yaml >> $ISTIO_AUTH_15
+  cat $AUTH_SRC/istio-ingress-auth.yaml >> $ISTIO_AUTH_15
   cat $AUTH_SRC/istio-egress-auth.yaml >> $ISTIO_AUTH_15
   cat $AUTH_SRC/istio-namespace-ca.yaml >> $ISTIO_AUTH_15
 
@@ -120,11 +120,11 @@ function merge_files() {
   cat $SRC/istio-manager.yaml >> $ISTIO_16
   cat $SRC/../istio-rbac/istio-rbac.yaml >> $ISTIO_16
   cp $ISTIO_16 $ISTIO_AUTH_16
-  cat $SRC/istio-ingress-controller.yaml >> $ISTIO_16
+  cat $SRC/istio-ingress.yaml >> $ISTIO_16
   cat $SRC/istio-egress.yaml >> $ISTIO_16
 
   sed -i "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH_16
-  cat $AUTH_SRC/istio-ingress-controller-auth.yaml >> $ISTIO_AUTH_16
+  cat $AUTH_SRC/istio-ingress-auth.yaml >> $ISTIO_AUTH_16
   cat $AUTH_SRC/istio-egress-auth.yaml >> $ISTIO_AUTH_16
   cat $AUTH_SRC/istio-namespace-ca.yaml >> $ISTIO_AUTH_16
 
@@ -147,7 +147,7 @@ EOF
 function update_istio_install() {
   pushd $ROOT/kubernetes/istio-install
   sed -i "s|image: .*/\(.*\):.*|image: $MANAGER_HUB/\1:$MANAGER_TAG|" istio-manager.yaml
-  sed -i "s|image: .*/\(.*\):.*|image: $MANAGER_HUB/\1:$MANAGER_TAG|" istio-ingress-controller.yaml
+  sed -i "s|image: .*/\(.*\):.*|image: $MANAGER_HUB/\1:$MANAGER_TAG|" istio-ingress.yaml
   sed -i "s|image: .*/\(.*\):.*|image: $MANAGER_HUB/\1:$MANAGER_TAG|" istio-egress.yaml
   sed -i "s|image: .*/\(.*\):.*|image: $MIXER_HUB/\1:$MIXER_TAG|" istio-mixer.yaml
   popd
