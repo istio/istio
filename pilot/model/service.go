@@ -79,14 +79,22 @@ type PortList []*Port
 // Protocol defines network protocols for ports
 type Protocol string
 
-// Protocols used by the services
 const (
-	ProtocolGRPC  Protocol = "GRPC"
+	// ProtocolGRPC declares that the port carries gRPC traffic
+	ProtocolGRPC Protocol = "GRPC"
+	// ProtocolHTTPS declares that the port carries HTTPS traffic
 	ProtocolHTTPS Protocol = "HTTPS"
+	// ProtocolHTTP2 declares that the port carries HTTP/2 traffic
 	ProtocolHTTP2 Protocol = "HTTP2"
-	ProtocolHTTP  Protocol = "HTTP"
-	ProtocolTCP   Protocol = "TCP"
-	ProtocolUDP   Protocol = "UDP"
+	// ProtocolHTTP declares that the port carries HTTP/1.1 traffic.
+	// Note that HTTP/1.0 or earlier may not be supported by the proxy.
+	ProtocolHTTP Protocol = "HTTP"
+	// ProtocolTCP declares the the port uses TCP.
+	// This is the default protocol for a service port.
+	ProtocolTCP Protocol = "TCP"
+	// ProtocolUDP declares that the port uses UDP.
+	// Note that UDP protocol is not currently supported by the proxy.
+	ProtocolUDP Protocol = "UDP"
 )
 
 // NetworkEndpoint defines a network address (IP:port) associated with an instance of the
