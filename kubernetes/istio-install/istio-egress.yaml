@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: gihanson/proxy:dev_20170428_154545
+        image: gcr.io/istio-testing/proxy:dc738396fd21ab9779853635dd22693d9dd3f78a
         imagePullPolicy: Always
         args: ["proxy", "egress", "-v", "2"]
         env:

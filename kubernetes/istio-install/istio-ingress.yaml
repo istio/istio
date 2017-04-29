@@ -37,7 +37,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gihanson/proxy:dev_20170428_154545
+        image: gcr.io/istio-testing/proxy:dc738396fd21ab9779853635dd22693d9dd3f78a
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: Always
         ports:

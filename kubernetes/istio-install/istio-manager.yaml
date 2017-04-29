@@ -44,7 +44,7 @@ spec:
       serviceAccountName: istio-manager-service-account
       containers:
       - name: discovery
-        image: gihanson/manager:dev_20170428_154545
+        image: gcr.io/istio-testing/manager:dc738396fd21ab9779853635dd22693d9dd3f78a
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:
@@ -56,7 +56,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
       - name: apiserver
-        image: gihanson/manager:dev_20170428_154545
+        image: gcr.io/istio-testing/manager:dc738396fd21ab9779853635dd22693d9dd3f78a
         imagePullPolicy: Always
         args: ["apiserver", "-v", "2"]
         ports:
