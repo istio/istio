@@ -2,9 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_test")
 
 go_test(
     name = "go_default_test",
-    srcs = ["sample_test.go"],
-    data = ["//tests/apps/bookinfo/output:bookinfo_out"],
-    tags = ["manual"],
+    srcs = ["demo_test.go"],
     deps = [
         "//tests/e2e/framework:go_default_library",
         "//tests/e2e/util:go_default_library",

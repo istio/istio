@@ -32,24 +32,30 @@ var (
 	remotePath = flag.String("istioctl_url", os.Getenv(istioctlURL), "URL to download istioctl")
 )
 
-// Istioctl gathers istioctl information
+// Istioctl gathers istioctl information.
 type Istioctl struct {
 	remotePath string
 	binaryPath string
 	namespace  string
+	proxyHub   string
+	proxyTag   string
+	yamlDir    string
 }
 
-// NewIstioctl create a new istioctl by given temp dir
-func NewIstioctl(tmpDir, namespace string) *Istioctl {
+// NewIstioctl create a new istioctl by given temp dir.
+func NewIstioctl(tmpDir, namespace, proxyHub, proxyTag string) *Istioctl {
 	return &Istioctl{
 		remotePath: *remotePath,
 		binaryPath: filepath.Join(tmpDir, "/istioctl"),
 		namespace:  namespace,
+		proxyHub:   proxyHub,
+		proxyTag:   proxyTag,
+		yamlDir:    filepath.Join(tmpDir, "/istioctl"),
 	}
 }
 
-// DownloadIstioctl download Istioctl binary
-func (i *Istioctl) DownloadIstioctl() error {
+// Setup downloads Istioctl binary.
+func (i *Istioctl) Install() error {
 	var usr, err = user.Current()
 	if err != nil {
 		return err
@@ -67,31 +73,32 @@ func (i *Istioctl) DownloadIstioctl() error {
 	return nil
 }
 
-// KubeInject use istio kube-inject to create new yaml with a proxy as sidecar
-func (i *Istioctl) KubeInject(yamlFile, svcName, yamlDir, proxyHub, proxyTag string) (string, error) {
-	injectedYamlFile := filepath.Join(yamlDir, "injected-"+svcName+"-app.yaml")
-	if _, err := Shell(fmt.Sprintf("%s kube-inject -f %s -o %s --hub %s --tag %s -n %s",
-		i.binaryPath, yamlFile, injectedYamlFile, proxyHub, proxyTag, i.namespace)); err != nil {
-		glog.Errorf("Kube-inject failed for service %s", svcName)
-		return "", err
+func (i *Istioctl) run(args string) error {
+	if _, err := Shell(fmt.Sprintf("%s %s", i.binaryPath, args)); err != nil {
+		glog.Errorf("istioctl %s failed", args)
+		return err
 	}
-	return injectedYamlFile, nil
+	return nil
+}
+
+// KubeInject use istio kube-inject to create new yaml with a proxy as sidecar.
+func (i *Istioctl) KubeInject(src, dest string) error {
+	args := fmt.Sprintf("kube-inject -f %s -o %s --hub %s --tag %s -n %s",
+		src, dest, i.proxyHub, i.proxyTag, i.namespace)
+	return i.run(args)
 }
 
 // CreateRule create new rule(s)
 func (i *Istioctl) CreateRule(rule string) error {
-	_, err := Shell(fmt.Sprintf("%s -n %s create -f %s", i.binaryPath, i.namespace, rule))
-	return err
+	return i.run(fmt.Sprintf("-n %s create -f %s", i.namespace, rule))
 }
 
 // ReplaceRule replace rule(s)
 func (i *Istioctl) ReplaceRule(rule string) error {
-	_, err := Shell(fmt.Sprintf("%s -n %s replace -f %s", i.binaryPath, i.namespace, rule))
-	return err
+	return i.run(fmt.Sprintf("-n %s replace -f %s", i.namespace, rule))
 }
 
 // DeleteRule Delete rule(s)
 func (i *Istioctl) DeleteRule(rule string) error {
-	_, err := Shell(fmt.Sprintf("%s -n %s delete -f %s", i.binaryPath, i.namespace, rule))
-	return err
+	return i.run(fmt.Sprintf("-n %s delete -f %s", i.namespace, rule))
 }

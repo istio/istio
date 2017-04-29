@@ -2,60 +2,47 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{.service}}
+  name: {{.Service}}
   labels:
-    app: {{.service}}
+    app: {{.Service}}
 spec:
   ports:
-  - port: 80
-    targetPort: {{.port1}}
-    name: http
   - port: 8080
-    targetPort: {{.port2}}
+    targetPort: {{.HTTPPort}}
     name: http-two
-  - port: 90
-    targetPort: {{.port3}}
+  - port: 7070
+    targetPort: {{.GRPCPort}}
     name: tcp
-  - port: 9090
-    targetPort: {{.port4}}
-    name: https
   selector:
-    app: {{.service}}
+    app: {{.Service}}
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {{.deployment}}
+  name: {{.Deployment}}
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: {{.service}}
-        version: {{.version}}
+        app: {{.Service}}
+        version: {{.Version}}
     spec:
       containers:
       - name: app
-        image: {{.AppHub}}/app:{{.AppTag}}
+        image: {{.AppImage}}
         imagePullPolicy: Always
         args:
-          - --port
-          - "{{.port1}}"
-          - --port
-          - "{{.port2}}"
-          - --port
-          - "{{.port3}}"
-          - --port
-          - "{{.port4}}"
-          - --port
-          - "3333"
+          - --http_ports
+          - "{{.HTTPPort}},3333"
+          - --grpd_ports
+          - "{{.GRPCPort}}"
           - --version
-          - "{{.version}}"
+          - "{{.Version}}"
+          - --alsologtostderr
         ports:
-        - containerPort: {{.port1}}
-        - containerPort: {{.port2}}
-        - containerPort: {{.port3}}
-        - containerPort: {{.port4}}
+        - containerPort: {{.HTTPPort}}
+        - containerPort: {{.GRPCPort}}
         livenessProbe:
           httpGet:
             path: /healthz

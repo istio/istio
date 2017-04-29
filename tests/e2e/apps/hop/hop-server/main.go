@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/golang/glog"
@@ -33,8 +35,8 @@ import (
 )
 
 var (
-	httpPort = flag.Int("http_port", -1, "Http Port")
-	grpcPort = flag.Int("grpc_port", -1, "gRPC port")
+	httpPorts = flag.String("http_ports", "", "Http Port")
+	grpcPorts = flag.String("grpc_ports", "", "gRPC port")
 )
 
 func runHTTP(port int) {
@@ -65,8 +67,17 @@ func runGRPC(port int) {
 
 func main() {
 	flag.Parse()
-	go runHTTP(*httpPort)
-	go runGRPC(*grpcPort)
+	for _, port := range strings.Split(*httpPorts, ",") {
+		if p, err := strconv.Atoi(port); err == nil {
+			go runHTTP(p)
+		}
+
+	}
+	for _, port := range strings.Split(*grpcPorts, ",") {
+		if p, err := strconv.Atoi(port); err == nil {
+			go runGRPC(p)
+		}
+	}
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs

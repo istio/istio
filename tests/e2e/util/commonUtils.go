@@ -15,6 +15,7 @@
 package util
 
 import (
+	"cmd/pprof/internal/tempfile"
 	"flag"
 	"fmt"
 	"io"
@@ -37,6 +38,18 @@ const (
 var (
 	manualRun = flag.Bool("manual_run", false, "If runned by bazel run")
 )
+
+// CreateTempfile creates a tempfile string.
+func CreateTempfile(tmpDir, prefix, suffix string) (string, error) {
+	f, err := tempfile.New(tmpDir, prefix, suffix)
+	if err != nil {
+		return "", err
+	}
+	if err = f.Close(); err != nil {
+		return "", err
+	}
+	return f.Name(), nil
+}
 
 // Shell run command on shell and get back output and error if get one
 func Shell(command string) (string, error) {

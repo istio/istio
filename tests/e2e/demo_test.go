@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"net/http"
 	"path"
 	"path/filepath"
 	"strings"
@@ -34,31 +35,47 @@ import (
 const (
 	u1          = "normal-user"
 	u2          = "test-user"
-	modelDir    = "tests/apps/bookinfo/output"
-	bookinfoDir = "demos/apps/bookinfo"
 	create      = "create"
 	replace     = "replace"
-)
+	bookinfoYaml = "demos/apps/bookinfo/bookinfo.yaml"
+	bookinfoDir = "demos/apps/bookinfo/bookinfo.yaml"
+	modelDir    = "tests/apps/bookinfo/output"
+
 
 var (
 	c *testConfig
 )
 
+
+func record(url, record string, ) error {
+	return recordCookie(url, record, nil)
+}
+
+func recordCookie(url, record string, cookies []http.Cookie) error {
+	// Declare http client
+	client := &http.Client{}
+
+	// Declare HTTP Method and Url
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	if cookies != nil {
+		for _, c := range cookies {
+			// Set cookie
+			req.AddCookie(c)
+		}
+	}
+	resp, err := client.Do(req)
+	// Read response
+	defer resp.Body.Close()
+	return ioutil.WriteFile(record, resp.Body, 0600)
+}
+
+
 type testConfig struct {
 	*framework.CommonConfig
 	sampleValue string
-}
-
-func (c *testConfig) deployApps() error {
-	// Option1 : deploy app directly from yaml
-	err := c.Kube.DeployAppFromYaml(filepath.Join(bookinfoDir, "bookinfo.yaml"), true)
-	return err
-
-	// Option2 : deploy app from template
-	/*
-		err = c.Kube.DeployAppFromTmpl("t", "t", "8080", "80", "9090", "90", "unversioned", true)
-		return err
-	*/
 }
 
 func check(err error, msg string) {
@@ -72,24 +89,8 @@ func inspect(err error, fMsg, sMsg string, t *testing.T) {
 		glog.Errorf("%s. Error %s", fMsg, err)
 		t.Error(err)
 	} else if sMsg != "" {
-		glog.Info(len(sMsg))
 		glog.Info(sMsg)
 	}
-}
-
-func (c *testConfig) Setup() error {
-	if err := c.deployApps(); err != nil {
-		return err
-	}
-
-	glog.Info("Sample test Setup")
-	c.sampleValue = "sampleValue"
-	return nil
-}
-
-func (c *testConfig) Teardown() error {
-	glog.Info("Sample test Tear Down")
-	return nil
 }
 
 func TestSample(t *testing.T) {
@@ -109,12 +110,12 @@ func testDefaultRouting(t *testing.T, gateway string) {
 	standby := 0
 	for i := 0; i <= 5; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)
-		resp, err := util.Shell(fmt.Sprintf("curl --write-out %%{http_code} --silent --output /dev/null %s/productpage", gateway))
+		resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
 		if err != nil {
 			t.Logf("Error when curl productpage: %s", err)
 		} else {
 			glog.Infof("Get from page: %s", resp)
-			if resp == "200" {
+			if resp.StatusCode == http.StatusOK {
 				t.Log("Get response from product page!")
 				break
 			}
@@ -124,9 +125,9 @@ func testDefaultRouting(t *testing.T, gateway string) {
 			return
 		}
 		standby += 5
-		glog.Infof("\nFailed Couldn't get to the bookinfo product page, trying again in %d second", standby)
+		glog.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
 	}
-	glog.Info("\nSucceed! Default route get expected response")
+	glog.Info("Succeed! Default route get expected response")
 }
 
 func checkRoutingResponse(user, version, gateway, modelFile string) (int, error) {
@@ -135,7 +136,18 @@ func checkRoutingResponse(user, version, gateway, modelFile string) (int, error)
 	output := filepath.Join(c.Kube.TmpDir, outputFile)
 
 	startT := time.Now()
-	if err = util.Record(fmt.Sprintf("curl -s -b 'foo=bar;user=%s;' %s/productpage", user, gateway), output); err != nil {
+	cookies := []http.Cookie{
+		{
+			Name: "foo",
+			Value: "bar",
+		},
+		{
+			Name: "user",
+			Value: user,
+		},
+	}
+
+	if err = recordCookie(fmt.Sprintf("%s/productpage", gateway), output, cookies); err != nil {
 		return -1, err
 	}
 	duration := int(time.Since(startT) / (time.Second / time.Nanosecond))
@@ -175,26 +187,39 @@ func applyRule(src, user, operation string) error {
 func testVersionRouting(t *testing.T, gateway string) {
 	var err error
 	util.PrintBlock("Start version routing test")
-	inspect(applyRule(util.GetTestRuntimePath(filepath.Join(bookinfoDir, "route-rule-all-v1.yaml")), u1, create), "Failed to apply rule-all-v1", "", t)
-	inspect(applyRule(util.GetTestRuntimePath(filepath.Join(bookinfoDir, "route-rule-reviews-test-v2.yaml")), u2, create), "Failed to apply rule-test-v2", "", t)
+	for _, r := range []string{"route-rule-all-v1.yaml", "route-rule-reviews-test-v2.yaml"} {
+		rulePath := util.GetTestRuntimePath(filepath.Join(bookinfoDir, r))
+		inspect(
+			applyRule(rulePath, u1, create), fmt.Sprintf("Failed to apply %s", r), "", t)
+	}
 
 	glog.Info("Waiting for rules to propagate...")
 	time.Sleep(time.Duration(30) * time.Second)
 
-	_, err = checkRoutingResponse(u1, "v1", gateway, filepath.Join(modelDir, "productpage-normal-user-v1.html"))
-	inspect(err, fmt.Sprintf("Failed version routing! %s in v1", u1), fmt.Sprintf("\nSucceed! Response matches with expect! %s in v1", u1), t)
-	_, err = checkRoutingResponse(u2, "v2", gateway, filepath.Join(modelDir, "productpage-test-user-v2.html"))
-	inspect(err, fmt.Sprintf("Failed version routing! %s in v2", u2), fmt.Sprintf("\nSucceed! Response matches with expect! %s in v2", u2), t)
+	_, err = checkRoutingResponse(
+		u1, "v1", gateway, filepath.Join(modelDir, "productpage-normal-user-v1.html"))
+	inspect(
+		err, fmt.Sprintf("Failed version routing! %s in v1", u1),
+		fmt.Sprintf("\nSucceed! Response matches with expect! %s in v1", u1), t)
+	_, err = checkRoutingResponse(
+		u2, "v2", gateway, filepath.Join(modelDir, "productpage-test-user-v2.html"))
+	inspect(
+		err, fmt.Sprintf("Failed version routing! %s in v2", u2),
+		fmt.Sprintf("\nSucceed! Response matches with expect! %s in v2", u2), t)
 }
 
 func testFaultDelay(t *testing.T, gateway string) {
 	util.PrintBlock("Start fault delay test")
-	inspect(applyRule(util.GetTestRuntimePath(filepath.Join(bookinfoDir, "route-rule-delay.yaml")), "", create), "Failed to apply rule-delay", "", t)
+	rulePath :=util.GetTestRuntimePath(filepath.Join(bookinfoDir, "route-rule-delay.yaml"))
+	inspect(applyRule(rulePath, "", create), "Failed to apply rule-delay", "", t)
+
 	minDuration := 5
 	maxDuration := 8
 	standby := 10
 	for i := 0; i < 5; i++ {
-		duration, err := checkRoutingResponse(u2, "v1-timeout", gateway, filepath.Join(modelDir, "productpage-test-user-v1-review-timeout.html"))
+		duration, err := checkRoutingResponse(
+			u2, "v1-timeout", gateway,
+			filepath.Join(modelDir, "productpage-test-user-v1-review-timeout.html"))
 		glog.Infof("Get response in %d second", duration)
 		if err == nil && duration >= minDuration && duration <= maxDuration {
 			glog.Info("\nSucceed! Fault delay as expecetd")
@@ -202,7 +227,8 @@ func testFaultDelay(t *testing.T, gateway string) {
 		}
 
 		if i == 4 {
-			t.Errorf("Fault delay failed! Delay in %ds while expected between %ds and %ds, %s", duration, minDuration, maxDuration, err)
+			t.Errorf("Fault delay failed! Delay in %ds while expected between %ds and %ds, %s",
+				duration, minDuration, maxDuration, err)
 			break
 		}
 
@@ -210,14 +236,20 @@ func testFaultDelay(t *testing.T, gateway string) {
 		time.Sleep(time.Duration(standby) * time.Second)
 	}
 
-	inspect(c.Kube.Istioctl.DeleteRule(filepath.Join(c.Kube.TmpDir, "yaml", "route-rule-delay.yaml")), "Error when deleting delay rule", "", t)
+	inspect(
+		c.Kube.Istioctl.DeleteRule(
+			filepath.Join(c.Kube.TmpDir, "yaml", "route-rule-delay.yaml")),
+		"Error when deleting delay rule", "", t)
 	glog.Info("Waiting for delay rule to be cleaned...")
 	time.Sleep(time.Duration(30) * time.Second)
 }
 
 func testVersionMigration(t *testing.T, gateway string) {
 	util.PrintBlock("Start version migration test")
-	inspect(applyRule(util.GetTestRuntimePath(filepath.Join(bookinfoDir, "route-rule-reviews-50-v3.yaml")), "normal-user", replace),
+	inspect(
+		applyRule(util.GetTestRuntimePath(
+			filepath.Join(bookinfoDir, "route-rule-reviews-50-v3.yaml")),
+			"normal-user", replace),
 		"Failed to apply 50 rule", "", t)
 	glog.Info("Waiting for rules to propagate...")
 	time.Sleep(time.Duration(30) * time.Second)
@@ -227,13 +259,18 @@ func testVersionMigration(t *testing.T, gateway string) {
 	tolerance := 0.05
 	totalShot := 100
 	output := filepath.Join(c.Kube.TmpDir, "version-migration.html")
+	modelV1 := util.GetTestRuntimePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
+	modelV3 := util.GetTestRuntimePath(filepath.Join(modelDir, "productpage-normal-user-v3.html"))
 	for i := 0; i < 5; i++ {
 		c1, c3 := 0, 0
 		for c := 0; c < totalShot; c++ {
-			inspect(util.Record(fmt.Sprintf("curl -s -b 'foo=bar;user=normal-user;' %s/productpage", gateway), output), "Failed to record", "", t)
-			if err := util.CompareFiles(output, util.GetTestRuntimePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))); err == nil {
+			inspect(
+				record(fmt.Sprintf("%s/productpage", gateway), output),
+				"Failed to record", "", t)
+
+			if err := util.CompareFiles(output, modelV1); err == nil {
 				c1++
-			} else if err := util.CompareFiles(output, util.GetTestRuntimePath(filepath.Join(modelDir, "productpage-normal-user-v3.html"))); err == nil {
+			} else if err := util.CompareFiles(output, modelV3); err == nil {
 				c3++
 			}
 		}
@@ -247,16 +284,21 @@ func testVersionMigration(t *testing.T, gateway string) {
 			t.Errorf("Failed version migration test, old version hit %d, new version hit %d", c1, c3)
 		}
 	}
-
 }
 
 func newTestConfig() (*testConfig, error) {
-	cc, err := framework.NewCommonConfig("sample_test")
+	cc, err := framework.NewCommonConfig("sample_test"))
 	if err != nil {
 		return nil, err
 	}
 	t := new(testConfig)
 	t.CommonConfig = cc
+	t.Kube.Apps = []framework.App{
+		{
+			AppYaml: bookinfoYaml,
+			KubeInject: true,
+		},
+	}
 	return t, nil
 }
 

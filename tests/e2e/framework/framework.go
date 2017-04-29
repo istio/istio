@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
+	"cmd/pprof/internal/tempfile"
 )
 
 var (
@@ -145,6 +146,7 @@ func (t *testCleanup) init() error {
 }
 
 func (t *testCleanup) cleanup() {
+	defer tempfile.Cleanup()
 	if t.skipCleanup {
 		glog.Info("Debug model, skip cleanup")
 		return

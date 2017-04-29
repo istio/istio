@@ -29,7 +29,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
