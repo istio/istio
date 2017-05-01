@@ -79,25 +79,24 @@ func HTTPDownload(dst string, src string) error {
 	if err != nil {
 		return err
 	}
-
 	defer func() {
 		if err = out.Close(); err != nil {
 			glog.Errorf("Error: close file %s, %s", dst, err)
 		}
 	}()
-
 	resp, err = http.Get(src)
+	if err != nil {
+		return err
+	}
 	defer func() {
 		if err = resp.Body.Close(); err != nil {
 			glog.Errorf("Error: close downloaded file from %s, %s", src, err)
 		}
 	}()
-	if err == nil {
-		if _, err = io.Copy(out, resp.Body); err != nil {
-			return err
-		}
-		glog.Info("Download successfully!")
+	if _, err = io.Copy(out, resp.Body); err != nil {
+		return err
 	}
+	glog.Info("Download successfully!")
 	return err
 }
 
