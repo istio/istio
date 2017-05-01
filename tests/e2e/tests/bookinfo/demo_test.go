@@ -37,7 +37,7 @@ const (
 	create       = "create"
 	bookinfoYaml = "demos/apps/bookinfo/bookinfo.yaml"
 	modelDir     = "tests/apps/bookinfo/output"
-	rulesTmplDir = "tests/e2e/testdata/bookinfo/"
+	rulesTmplDir = "tests/e2e/tests/bookinfo/testdata"
 	allRule      = "route-rule-all-v1.yaml"
 	delayRule    = "route-rule-delay.yaml"
 	fiftyRule    = "route-rule-reviews-50-v3.yaml"
@@ -231,7 +231,8 @@ func TestFaultDelay(t *testing.T) {
 	minDuration := 5
 	maxDuration := 8
 	standby := 10
-	testModel := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v1-review-timeout.html"))
+	testModel := util.GetResourcePath(
+		filepath.Join(modelDir, "productpage-test-user-v1-review-timeout.html"))
 	for i := 0; i < 5; i++ {
 		duration, err := checkRoutingResponse(
 			u2, "v1-timeout", tc.gateway,
@@ -315,30 +316,29 @@ func TestVersionMigration(t *testing.T) {
 	}
 }
 
-func newTestConfig() (*testConfig, error) {
+func setTestConfig() error {
 	cc, err := framework.NewCommonConfig("demo_test")
 	if err != nil {
-		return nil, err
+		return err
 	}
-	t := new(testConfig)
-	t.CommonConfig = cc
-	t.rulesDir, err = ioutil.TempDir(os.TempDir(), "demo_test")
+	tc = new(testConfig)
+	tc.CommonConfig = cc
+	tc.rulesDir, err = ioutil.TempDir(os.TempDir(), "demo_test")
 	if err != nil {
-		return nil, err
+		return err
 	}
 	demoApp := &framework.App{
 		AppYaml:    util.GetResourcePath(bookinfoYaml),
 		KubeInject: true,
 	}
-	t.Kube.AddApp(demoApp)
-	return t, nil
+	tc.Kube.AddApp(demoApp)
+	return nil
 }
 
 func TestMain(m *testing.M) {
 	flag.Parse()
 	check(framework.InitGlog(), "cannot setup glog")
-	tc, err := newTestConfig()
-	check(err, "could not create TestConfig")
+	check(setTestConfig(), "could not create TestConfig")
 	tc.Cleanup.RegisterCleanable(tc)
 	os.Exit(tc.RunTest(m))
 }
