@@ -55,7 +55,7 @@ fi
 if [[ -z ${WRK} ]]; then
     wget -q -O "${TEST_DIR}/wrk" "${WRK_URL}" || error_exit "Could not download wrk"
     chmod +x "${TEST_DIR}/wrk"
-    ISTIOCLI="${TEST_DIR}/wrk"
+    WRK="${TEST_DIR}/wrk"
 fi
 
 if [[ -n ${MANAGER_HUB_TAG} ]]; then
