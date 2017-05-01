@@ -239,7 +239,7 @@ func TestFaultDelay(t *testing.T) {
 			testModel)
 		glog.Infof("Get response in %d second", duration)
 		if err == nil && duration >= minDuration && duration <= maxDuration {
-			glog.Info("\nSucceed! Fault delay as expecetd")
+			glog.Info("Success! Fault delay as expected")
 			break
 		}
 
@@ -304,7 +304,7 @@ func TestVersionMigration(t *testing.T) {
 		c3Percent := int((migrationRate - tolerance) * float64(totalShot))
 		if (c1 <= c1Percent) && (c3 >= c3Percent) {
 			glog.Infof(
-				"Succeed! Version migration acts as expected, "+
+				"Success! Version migration acts as expected, "+
 					"old version hit %d, new version hit %d", c1, c3)
 			break
 		}
