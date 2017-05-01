@@ -23,6 +23,7 @@ TEST_DIR="$(mktemp -d /tmp/kubetest.XXXXX)"
 ISTIO_INSTALL_DIR="${TEST_DIR}/istio"
 BOOKINFO_DIR="${TEST_DIR}/bookinfo"
 RULES_DIR="${BOOKINFO_DIR}/rules"
+WRK_URL="https://storage.googleapis.com/istio-build-deps/wrk-linux"
 
 # Import relevant utils
 . ${SCRIPT_DIR}/kubeUtils.sh || \
@@ -49,6 +50,12 @@ if [[ -z ${ISTIOCLI} ]]; then
     wget -q -O "${TEST_DIR}/istioctl" "${ISTIOCTL_URL}/istioctl-linux" || error_exit "Could not download istioctl"
     chmod +x "${TEST_DIR}/istioctl"
     ISTIOCLI="${TEST_DIR}/istioctl -c ${HOME}/.kube/config"
+fi
+
+if [[ -z ${WRK} ]]; then
+    wget -q -O "${TEST_DIR}/wrk" "${WRK_URL}" || error_exit "Could not download wrk"
+    chmod +x "${TEST_DIR}/wrk"
+    ISTIOCLI="${TEST_DIR}/wrk"
 fi
 
 if [[ -n ${MANAGER_HUB_TAG} ]]; then
@@ -202,6 +209,13 @@ then
     ((FAILURE_COUNT++))
     dump_debug
 fi
+
+# mixer tests
+curl istio-mixer.${NAMESPACE}:42422/metrics
+${WRK} -t1 -c1 -d10s --latency -s ${SCRIPT_DIR}/wrk.lua
+curl istio-mixer.${NAMESPACE}:42422/metrics
+${WRK} -t2 -c2 -d10s --latency -s ${SCRIPT_DIR}/wrk.lua
+curl istio-mixer.${NAMESPACE}:42422/metrics
 
 if [ ${FAILURE_COUNT} -gt 0 ]
 then

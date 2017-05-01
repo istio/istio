@@ -112,6 +112,8 @@ spec:
   ports:
   - name: tcp
     port: 9091
+  - name: configapi
+    port: 9094
   - name: prometheus
     port: 42422
   selector:
