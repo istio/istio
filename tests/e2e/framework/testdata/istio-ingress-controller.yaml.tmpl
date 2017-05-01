@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
       - name: istio-ingress-controller
-        image: {{.ProxyHub}}/proxy:{{.ProxyTag}}
+        image: {{.ProxyImage}}
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: Always
         ports:

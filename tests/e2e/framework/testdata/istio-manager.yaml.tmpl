@@ -38,7 +38,7 @@ spec:
     spec:
       containers:
       - name: manager
-        image: {{.ManagerHub}}/manager:{{.ManagerTag}}
+        image: {{.ManagerImage}}
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:

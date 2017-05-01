@@ -16,10 +16,9 @@ package framework
 
 import (
 	"flag"
+	"fmt"
 	"os"
-	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/golang/glog"
 
@@ -27,25 +26,20 @@ import (
 )
 
 const (
-	yamlSuffix        = ".yaml"
-	mixerHubDefault   = "MIXER_HUB"
-	mixerTagDefault   = "MIXER_TAG"
-	managerHubDefault = "MANAGER_HUB"
-	managerTagDefault = "MANAGER_TAG"
+	yamlSuffix       = ".yaml"
+	yamlTmplDir      = "tests/e2e/framework/testdata/"
+	mixerHubEnvVar   = "MIXER_HUB"
+	mixerTagEnvVar   = "MIXER_TAG"
+	managerHubEnvVar = "MANAGER_HUB"
+	managerTagEnvVar = "MANAGER_TAG"
 )
 
 var (
-	// hub and tag is for app template if applicable TODO Find a better way to set default of these two
-	appHubDefault = "gcr.io/istio-testing"
-	appTagDefault = "b121a1e169365865e01a9e6eea066a34a29d9fd1"
-
-	appHub     = flag.String("app_hub", appHubDefault, "app hub")
-	appTag     = flag.String("app_tag", appTagDefault, "app tag")
-	namespace  = flag.String("n", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub   = flag.String("mixer_hub", os.Getenv(mixerHubDefault), "Mixer hub")
-	mixerTag   = flag.String("mixer_tag", os.Getenv(mixerTagDefault), "Mixer tag")
-	managerHub = flag.String("manager_hub", os.Getenv(managerHubDefault), "Manager hub")
-	managerTag = flag.String("manager_tag", os.Getenv(managerTagDefault), "Manager tag")
+	namespace  = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub   = flag.String("mixer_hub", os.Getenv(mixerHubEnvVar), "Mixer hub")
+	mixerTag   = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
+	managerHub = flag.String("manager_hub", os.Getenv(managerHubEnvVar), "Manager hub")
+	managerTag = flag.String("manager_tag", os.Getenv(managerTagEnvVar), "Manager tag")
 	caHub      = flag.String("ca_hub", "", "Ca hub")
 	caTag      = flag.String("ca_tag", "", "Ca tag")
 	verbose    = flag.Bool("verbose", false, "Debug level noise from proxies")
@@ -54,25 +48,21 @@ var (
 // KubeInfo gathers information for kubectl
 type KubeInfo struct {
 	Namespace        string
-	NamespaceCreated bool
-	AppHub           string
-	AppTag           string
-	MixerHub         string
-	MixerTag         string
-	ManagerHub       string
-	ManagerTag       string
-	CaHub            string
-	CaTag            string
-	ProxyHub         string
-	ProxyTag         string
+	namespaceCreated bool
+	MixerImage       string
+	ManagerImage     string
+	CaImage          string
+	ProxyImage       string
 	Verbosity        int
 
 	TmpDir  string
-	YamlDir string
+	yamlDir string
 
 	Ingress string
 
 	Istioctl *util.Istioctl
+
+	Apps []AppInterface
 }
 
 // newKubeInfo create a new KubeInfo by given temp dir and runID
@@ -90,33 +80,39 @@ func newKubeInfo(tmpDir, runID string) *KubeInfo {
 
 	return &KubeInfo{
 		Namespace:        *namespace,
-		NamespaceCreated: false,
-		AppHub:           *appHub,
-		AppTag:           *appTag,
-		MixerHub:         *mixerHub,
-		MixerTag:         *mixerTag,
-		ManagerHub:       *managerHub,
-		ManagerTag:       *managerTag,
-		CaHub:            *caHub,
-		CaTag:            *caTag,
-		ProxyHub:         *managerHub,
-		ProxyTag:         *managerTag,
-		Verbosity:        verbosity,
-		TmpDir:           tmpDir,
-		YamlDir:          filepath.Join(tmpDir, "yaml"),
-		Istioctl:         util.NewIstioctl(tmpDir, *namespace),
+		namespaceCreated: false,
+		MixerImage:       fmt.Sprintf("%s/mixer:%s", *mixerHub, *mixerTag),
+		ManagerImage:     fmt.Sprintf("%s/manager:%s", *managerHub, *managerTag),
+		CaImage:          fmt.Sprintf("%s/ca:%s", *caHub, *caTag),
+		// Proxy and Manager are released together and share the same hub and tag.
+		ProxyImage: fmt.Sprintf("%s/proxy:%s", *managerHub, *managerTag),
+		Verbosity:  verbosity,
+		TmpDir:     tmpDir,
+		yamlDir:    filepath.Join(tmpDir, "yaml"),
+		Istioctl:   util.NewIstioctl(tmpDir, *namespace, *managerHub, *managerTag),
 	}
 }
 
 // Setup set up Kubernetes prerequest for tests
 func (k *KubeInfo) Setup() error {
+	if err := os.Mkdir(k.yamlDir, os.ModeDir|os.ModePerm); err != nil {
+		return err
+	}
+	if err := k.Istioctl.Install(); err != nil {
+		return err
+	}
 	if err := util.CreateNamespace(k.Namespace); err != nil {
 		glog.Error("Failed to create namespace.")
 		return err
 	}
-	k.NamespaceCreated = true
+	k.namespaceCreated = true
 	if err := k.deployIstio(); err != nil {
 		glog.Error("Failed to deployIstio.")
+		return err
+	}
+
+	if err := k.deployApps(); err != nil {
+		glog.Error("Failed to deploy apps")
 		return err
 	}
 
@@ -132,27 +128,18 @@ func (k *KubeInfo) Setup() error {
 
 // Teardown clean up everything created by setup
 func (k *KubeInfo) Teardown() error {
-	if k.NamespaceCreated {
+	if k.namespaceCreated {
 		if err := util.DeleteNamespace(k.Namespace); err != nil {
 			return err
 		}
-		k.NamespaceCreated = false
+		k.namespaceCreated = false
 		glog.Infof("Namespace %s deleted", k.Namespace)
 	}
-
-	glog.Flush()
 	return nil
 }
 
-// Deploy istio modules
+// deployIstio modules
 func (k *KubeInfo) deployIstio() error {
-	if err := os.Mkdir(k.YamlDir, os.ModeDir|os.ModePerm); err != nil {
-		return err
-	}
-
-	if err := k.Istioctl.DownloadIstioctl(); err != nil {
-		return err
-	}
 
 	if err := k.deployIstioCore("istio-manager.yaml"); err != nil {
 		return err
@@ -160,22 +147,17 @@ func (k *KubeInfo) deployIstio() error {
 	if err := k.deployIstioCore("istio-mixer.yaml"); err != nil {
 		return err
 	}
-
-	err := k.deployIstioCore("istio-ingress-controller.yaml")
-	return err
-
-	//Not using engress right now
-	/*
-		err := k.deployCore("egress-proxy.yaml")
-		return err
-	*/
-
+	return k.deployIstioCore("istio-ingress-controller.yaml")
 }
 
-// DeployIstioCore deploy istio module from yaml files
+// deployIstioCore deploy istio module from yaml files
 func (k *KubeInfo) deployIstioCore(name string) error {
-	yamlFile := k.TmpDir + "/yaml/" + name
-	if err := util.Fill(yamlFile, name+".tmpl", *k); err != nil {
+	yamlFile, err := util.CreateTempfile(k.yamlDir, name, yamlSuffix)
+	tmpl := util.GetResourcePath(filepath.Join(yamlTmplDir, fmt.Sprintf("%s.tmpl", name)))
+	if err != nil {
+		return err
+	}
+	if err := util.Fill(yamlFile, tmpl, *k); err != nil {
 		glog.Errorf("Failed to fill %s", yamlFile)
 		return err
 	}
@@ -183,58 +165,20 @@ func (k *KubeInfo) deployIstioCore(name string) error {
 		glog.Errorf("Kubectl apply %s failed", yamlFile)
 		return err
 	}
-
 	return nil
 }
 
-// DeployAppFromTmpl deploy testing app from tmpl
-func (k *KubeInfo) DeployAppFromTmpl(deployment, svcName, port1, port2, port3, port4, version string, injectProxy bool) error {
-	yamlFile := filepath.Join(k.YamlDir, svcName+"-app.yaml")
-	if err := util.Fill(yamlFile, "app.yaml.tmpl", map[string]string{
-		"Hub":        k.AppHub,
-		"Tag":        k.AppTag,
-		"service":    svcName,
-		"deployment": deployment,
-		"port1":      port1,
-		"port2":      port2,
-		"port3":      port3,
-		"port4":      port4,
-		"version":    version,
-	}); err != nil {
-		glog.Errorf("Failed to generate yaml for service %s in deployment %s", svcName, deployment)
-		return err
-	}
-
-	if err := k.deployApp(yamlFile, svcName, injectProxy); err != nil {
-		return err
-	}
-	return nil
-}
-
-// DeployAppFromYaml deploy testing app directly from yaml
-func (k *KubeInfo) DeployAppFromYaml(src string, injectProxy bool) error {
-	yamlFile := filepath.Join(k.YamlDir, path.Base(src))
-	if err := util.CopyFile(util.GetTestRuntimePath(src), yamlFile); err != nil {
-		return err
-	}
-
-	if err := k.deployApp(yamlFile, strings.TrimSuffix(path.Base(src), yamlSuffix), injectProxy); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (k *KubeInfo) deployApp(yamlFile, svcName string, injectProxy bool) error {
-	if injectProxy {
-		var err error
-		if yamlFile, err = k.Istioctl.KubeInject(yamlFile, svcName, k.YamlDir, k.ProxyHub, k.ProxyTag); err != nil {
+// deploysApps deploys all the apps registered
+func (k *KubeInfo) deployApps() error {
+	for _, a := range k.Apps {
+		if err := a.Deploy(k.yamlDir, k.Namespace, k.Istioctl); err != nil {
 			return err
 		}
 	}
-
-	if err := util.KubeApply(k.Namespace, yamlFile); err != nil {
-		glog.Errorf("Kubectl apply %s failed", yamlFile)
-		return err
-	}
 	return nil
+}
+
+// AddApp for automated deployment. Must be done before Setup Call.
+func (k *KubeInfo) AddApp(a AppInterface) {
+	k.Apps = append(k.Apps, a)
 }

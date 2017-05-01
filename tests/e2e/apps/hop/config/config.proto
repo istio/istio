@@ -26,8 +26,9 @@ service HopTestService {
 message Remote {
   string destination = 1;
   string error = 2;
-  bool done = 3;
-  google.protobuf.Duration rtt = 4 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+  string version = 3;
+  bool done = 4;
+  google.protobuf.Duration rtt = 5 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 }
 
 message HopMessage {

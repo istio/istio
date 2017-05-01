@@ -3,13 +3,13 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "apps.go",
         "framework.go",
         "kubernetes.go",
         "testInfo.go",
     ],
     data = glob(["testdata/*"]) + [
         "//:istio_version",
-        "//demos/apps/bookinfo:bookinfo",
     ],
     visibility = ["//visibility:public"],
     deps = [

@@ -15,14 +15,13 @@
 package util
 
 import (
-	"flag"
+	"cmd/pprof/internal/tempfile"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -30,13 +29,22 @@ import (
 )
 
 const (
-	testSrcDir = "TEST_SRCDIR"
-	pathPrefix = "com_github_istio_istio"
+	testSrcDir     = "TEST_SRCDIR"
+	pathPrefix     = "com_github_istio_istio"
+	runfilesSuffix = ".runfiles"
 )
 
-var (
-	manualRun = flag.Bool("manual_run", false, "If runned by bazel run")
-)
+// CreateTempfile creates a tempfile string.
+func CreateTempfile(tmpDir, prefix, suffix string) (string, error) {
+	f, err := tempfile.New(tmpDir, prefix, suffix)
+	if err != nil {
+		return "", err
+	}
+	if err = f.Close(); err != nil {
+		return "", err
+	}
+	return f.Name(), nil
+}
 
 // Shell run command on shell and get back output and error if get one
 func Shell(command string) (string, error) {
@@ -71,25 +79,24 @@ func HTTPDownload(dst string, src string) error {
 	if err != nil {
 		return err
 	}
-
 	defer func() {
 		if err = out.Close(); err != nil {
 			glog.Errorf("Error: close file %s, %s", dst, err)
 		}
 	}()
-
 	resp, err = http.Get(src)
+	if err != nil {
+		return err
+	}
 	defer func() {
 		if err = resp.Body.Close(); err != nil {
 			glog.Errorf("Error: close downloaded file from %s, %s", src, err)
 		}
 	}()
-	if err == nil {
-		if _, err = io.Copy(out, resp.Body); err != nil {
-			return err
-		}
-		glog.Info("Download successfully!")
+	if _, err = io.Copy(out, resp.Body); err != nil {
+		return err
 	}
+	glog.Info("Download successfully!")
 	return err
 }
 
@@ -122,22 +129,15 @@ func CopyFile(src, dst string) error {
 	return err
 }
 
-// GetTestRuntimePath give "path from WORKSPACE", return absolute path at runtime
-func GetTestRuntimePath(p string) string {
-	var res string
-	if *manualRun {
-		ex, err := os.Executable()
-		if err != nil {
-			glog.Warning("Cannot get runtime path")
-		}
-		res = filepath.Join(path.Dir(ex), filepath.Join(filepath.Join("go_default_test.runfiles", pathPrefix), p))
-	} else {
-		res = filepath.Join(os.Getenv(testSrcDir), filepath.Join(pathPrefix, p))
+// GetResourcePath give "path from WORKSPACE", return absolute path at runtime
+func GetResourcePath(p string) string {
+	if dir, exists := os.LookupEnv(testSrcDir); exists {
+		return filepath.Join(dir, "workspace", p)
 	}
-	return res
-}
-
-// PrintBlock print log in a clearer way
-func PrintBlock(m string) {
-	glog.Infof("\n\n=========================================\n%s\n=========================================\n\n", m)
+	binPath, err := os.Executable()
+	if err != nil {
+		glog.Warning("Cannot find excutable path")
+		return p
+	}
+	return filepath.Join(binPath+runfilesSuffix, pathPrefix, p)
 }

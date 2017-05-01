@@ -63,7 +63,8 @@ func newTestServers(grpcCount, httpCount, grpcErrorCount, httpErrorCount int) (*
 		remotes: []string{},
 	}
 	for i := 0; i < grpcCount; i++ {
-		s, address, err := startGRPCServer(NewApp(), fmt.Sprintf("h%d", i))
+		v := fmt.Sprintf("g%d", i)
+		s, address, err := startGRPCServer(newApp(v), v)
 		if err != nil {
 			ts.shutdown()
 			return nil, err
@@ -72,7 +73,7 @@ func newTestServers(grpcCount, httpCount, grpcErrorCount, httpErrorCount int) (*
 		ts.remotes = append(ts.remotes, fmt.Sprintf("grpc://%s", address))
 	}
 	for i := 0; i < grpcErrorCount; i++ {
-		s, address, err := startGRPCServer(&errorServer{}, fmt.Sprintf("h%d", i))
+		s, address, err := startGRPCServer(&errorServer{}, fmt.Sprintf("eg%d", i))
 		if err != nil {
 			ts.shutdown()
 			return nil, err
@@ -81,12 +82,13 @@ func newTestServers(grpcCount, httpCount, grpcErrorCount, httpErrorCount int) (*
 		ts.remotes = append(ts.remotes, fmt.Sprintf("grpc://%s", address))
 	}
 	for i := 0; i < httpCount; i++ {
-		s := startHTTPServer(NewApp(), fmt.Sprintf("h%d", i))
+		v := fmt.Sprintf("h%d", i)
+		s := startHTTPServer(newApp(v), v)
 		ts.hs = append(ts.hs, s)
 		ts.remotes = append(ts.remotes, s.URL)
 	}
 	for i := 0; i < httpErrorCount; i++ {
-		s := startHTTPServer(&errorServer{}, fmt.Sprintf("h%d", i))
+		s := startHTTPServer(&errorServer{}, fmt.Sprintf("eh%d", i))
 		ts.hs = append(ts.hs, s)
 		ts.remotes = append(ts.remotes, s.URL)
 	}
