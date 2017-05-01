@@ -120,7 +120,9 @@ func (qu *QuotaUtil) ReapDedup() {
 	qu.OldDedup = qu.RecentDedup
 	qu.RecentDedup = t
 
-	qu.Logger.Infof("Running repear to reclaim %d old deduplication entries", len(t))
+	if qu.Logger.VerbosityLevel(4) {
+		qu.Logger.Infof("Running repear to reclaim %d old deduplication entries", len(t))
+	}
 
 	// TODO: why isn't there a O(1) way to clear a map to the empty state?!
 	for k := range t {
