@@ -41,3 +41,21 @@ go_test(
         "@com_github_istio_api//:mixer/v1/config/descriptor",
     ],
 )
+
+go_test(
+    name = "dispatch_benchmark_test",
+    size = "small",
+    srcs = [
+        "managerDispatchBenchmark_test.go",
+    ],
+    library = ":go_default_library",
+    deps = [
+        "//adapter:go_default_library",
+        "//adapter/noop:go_default_library",
+        "//pkg/config/descriptor:go_default_library",
+        "@com_github_gogo_protobuf//types:go_default_library",
+        "@com_github_googleapis_googleapis//:google/rpc",
+        "@com_github_istio_api//:mixer/v1/config",
+        "@com_github_istio_api//:mixer/v1/config/descriptor",
+    ],
+)
