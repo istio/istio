@@ -64,7 +64,19 @@ function setup_istioctl(){
 function cleanup_istioctl(){
     print_block_echo "Cleaning up istioctl"
     kill ${pfPID}
+    kill ${pfPID2}
 }
+
+# Port forward mixer
+function setup_mixerforward(){
+    print_block_echo "Setting up mixer"
+    ${K8CLI} -n ${NAMESPACE} port-forward $(${K8CLI} -n ${NAMESPACE} get pod -l istio=mixer \
+     -o jsonpath='{.items[0].metadata.name}') 9091 9094 42422 &
+    pfPID2=$!
+    export ISTIO_MIXER_METRICS=http://localhost:42422
+    export ISTIO_MIXER_CONFIGAPI=http://localhost:9094
+}
+
 
 # Deploy the bookinfo microservices
 function deploy_bookinfo() {

@@ -83,6 +83,7 @@ create_namespace
 generate_istio_yaml "${ISTIO_INSTALL_DIR}"
 deploy_istio "${ISTIO_INSTALL_DIR}"
 setup_istioctl
+setup_mixerforward
 generate_bookinfo_yaml "${BOOKINFO_DIR}"
 generate_rules_yaml "${RULES_DIR}"
 deploy_bookinfo "${BOOKINFO_DIR}"; URL=$GATEWAY_URL
@@ -211,9 +212,7 @@ then
 fi
 set +x
 # mixer tests
-kubectl --namespace ${NAMESPACE} get svc -l istio=mixer --no-headers
-MIXER=$(kubectl --namespace ${NAMESPACE} get svc -l istio=mixer --no-headers | awk '{print $2}')
-METRICS_URL=${MIXER}:42422/metrics
+METRICS_URL=${ISTIO_MIXER_METRICS}/metrics
 curl --connect-timeout 5 ${METRICS_URL}
 ${WRK} -t1 -c1 -d10s --latency -s ${SCRIPT_DIR}/wrk.lua ${URL}/productpage
 curl --connect-timeout 5 ${METRICS_URL}
