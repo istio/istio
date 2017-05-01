@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: gcr.io/istio-testing/proxy:dc738396fd21ab9779853635dd22693d9dd3f78a
+        image: docker.io/istio/proxy:2017-05-01-19.24.52
         imagePullPolicy: Always
         args: ["proxy", "egress", "-v", "2"]
         env:
