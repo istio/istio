@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
       - name: app
-        image: {{.AppImage}}
+        image: gcr.io/istio-testing/hop:seb
         imagePullPolicy: Always
         args:
           - --http_ports

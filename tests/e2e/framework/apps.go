@@ -15,7 +15,6 @@
 package framework
 
 import (
-	"flag"
 	"path/filepath"
 
 	"github.com/golang/glog"
@@ -24,12 +23,8 @@ import (
 )
 
 const (
-	hopImageDefault  = "gcr.io/istio-testing/hop:seb"
 	kubeInjectPrefix = "KubeInject"
-)
-
-var (
-	hopImage = flag.String("hop_image", hopImageDefault, "app hub")
+	hopYamlTmpl      = "tests/e2e/framework/testdata/hop.yam.tmpl"
 )
 
 // AppInterface for automated deployments.
@@ -58,7 +53,9 @@ type Hop struct {
 // NewHop instantiate a Hop App based on the hopImage flag.
 func NewHop(d, s, v string, h, g int) *Hop {
 	return &Hop{
-		AppImage:   *hopImage,
+		App: &App{
+			AppYamlTemplate: util.GetResourcePath(hopYamlTmpl),
+		},
 		Deployment: d,
 		Service:    d,
 		Version:    v,
