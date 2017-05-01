@@ -209,13 +209,17 @@ then
     ((FAILURE_COUNT++))
     dump_debug
 fi
-
+set +x
 # mixer tests
-curl istio-mixer.${NAMESPACE}:42422/metrics
+MIXER=$(kubectl --namespace ${NAMESPACE} get svc -l istio=mixer --no-headers | awk '{print $2}')
+METRICS_URL=${MIXER}:42422/metrics
+curl ${METRICS_URL}
 ${WRK} -t1 -c1 -d10s --latency -s ${SCRIPT_DIR}/wrk.lua
-curl istio-mixer.${NAMESPACE}:42422/metrics
+curl ${METRICS_URL}
 ${WRK} -t2 -c2 -d10s --latency -s ${SCRIPT_DIR}/wrk.lua
-curl istio-mixer.${NAMESPACE}:42422/metrics
+curl ${METRICS_URL}
+
+set -x
 
 if [ ${FAILURE_COUNT} -gt 0 ]
 then
