@@ -126,6 +126,14 @@ func newManager(r builderFinder, m [config.NumKinds]aspect.Manager, exp expr.Eva
 	return mg
 }
 
+func (m *Manager) dispatchCheck(ctx context.Context, configs []*cpb.Combined, requestBag, responseBag *attribute.MutableBag) rpc.Status {
+	return m.dispatch(ctx, requestBag, responseBag, configs,
+		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
+			cw := executor.(aspect.CheckExecutor)
+			return cw.Execute(requestBag, evaluator)
+		})
+}
+
 // Check dispatches to the set of aspects associated with the Check API method
 func (m *Manager) Check(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 	configs, err := m.loadConfigs(requestBag, m.checkKindSet, false, true /* fail if unable to eval all selectors */)
@@ -133,10 +141,14 @@ func (m *Manager) Check(ctx context.Context, requestBag, responseBag *attribute.
 		glog.Error(err)
 		return status.WithError(err)
 	}
+	return m.dispatchCheck(ctx, configs, requestBag, responseBag)
+}
+
+func (m *Manager) dispatchReport(ctx context.Context, configs []*cpb.Combined, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 	return m.dispatch(ctx, requestBag, responseBag, configs,
 		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
-			cw := executor.(aspect.CheckExecutor)
-			return cw.Execute(requestBag, evaluator)
+			rw := executor.(aspect.ReportExecutor)
+			return rw.Execute(requestBag, evaluator)
 		})
 }
 
@@ -147,11 +159,7 @@ func (m *Manager) Report(ctx context.Context, requestBag, responseBag *attribute
 		glog.Error(err)
 		return status.WithError(err)
 	}
-	return m.dispatch(ctx, requestBag, responseBag, configs,
-		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
-			rw := executor.(aspect.ReportExecutor)
-			return rw.Execute(requestBag, evaluator)
-		})
+	return m.dispatchReport(ctx, configs, requestBag, responseBag)
 }
 
 // Quota dispatches to the set of aspects associated with the Quota API method
