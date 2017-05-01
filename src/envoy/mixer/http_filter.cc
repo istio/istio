@@ -122,7 +122,8 @@ class Config : public Logger::Loggable<Logger::Id::http> {
 typedef std::shared_ptr<Config> ConfigPtr;
 
 class Instance : public Http::StreamDecoderFilter,
-                 public Http::AccessLog::Instance {
+                 public Http::AccessLog::Instance,
+                 public std::enable_shared_from_this<Instance> {
  private:
   std::shared_ptr<HttpControl> http_control_;
   ConfigPtr config_;
@@ -178,6 +179,9 @@ class Instance : public Http::StreamDecoderFilter,
     Log().debug("Called Mixer::Instance : {}", __func__);
   }
 
+  // Returns a shared pointer of this object.
+  std::shared_ptr<Instance> GetPtr() { return shared_from_this(); }
+
   // Jump thread; on_done will be called at the dispatcher thread.
   DoneFunc wrapper(DoneFunc on_done) {
     auto& dispatcher = decoder_callbacks_->dispatcher();
@@ -211,9 +215,11 @@ class Instance : public Http::StreamDecoderFilter,
       origin_user = ssl->uriSanPeerCertificate();
     }
 
-    http_control_->Check(
-        request_data_, headers, origin_user,
-        wrapper([this](const Status& status) { completeCheck(status); }));
+    auto instance = GetPtr();
+    http_control_->Check(request_data_, headers, origin_user,
+                         wrapper([instance](const Status& status) {
+                           instance->completeCheck(status);
+                         }));
     initiating_call_ = false;
 
     if (state_ == Complete) {
@@ -260,6 +266,10 @@ class Instance : public Http::StreamDecoderFilter,
   void completeCheck(const Status& status) {
     Log().debug("Called Mixer::Instance : check complete {}",
                 status.ToString());
+    // This stream has been reset, abort the callback.
+    if (state_ == Responded) {
+      return;
+    }
     if (!status.ok() && state_ != Responded) {
       state_ = Responded;
       check_status_code_ = HttpCode(status.error_code());
@@ -316,8 +326,8 @@ class MixerConfig : public HttpFilterConfigFactory {
         new Http::Mixer::Config(config, server));
     return
         [mixer_config](Http::FilterChainFactoryCallbacks& callbacks) -> void {
-          std::shared_ptr<Http::Mixer::Instance> instance(
-              new Http::Mixer::Instance(mixer_config));
+          std::shared_ptr<Http::Mixer::Instance> instance =
+              std::make_shared<Http::Mixer::Instance>(mixer_config);
           callbacks.addStreamDecoderFilter(
               Http::StreamDecoderFilterSharedPtr(instance));
           callbacks.addAccessLogHandler(
