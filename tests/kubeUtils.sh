@@ -48,6 +48,7 @@ function find_istio_endpoints() {
       -o jsonpath='{.items[*].subsets[*].addresses[*].ip}'))
     echo ${endpoints[@]}
     [[ ${#endpoints[@]} -eq 4 ]] && return 0
+    ${K8CLI} get endpoints -n ${NAMESPACE}
     return 1
 }
 
@@ -89,6 +90,9 @@ function deploy_bookinfo() {
 }
 
 function find_ingress_controller() {
+    if [[ ! -z ${GATEWAY_URL} ]];then
+      return 0
+    fi
     #local gateway="$(${K8CLI} get svc istio-ingress -n ${NAMESPACE} \
     #  -o jsonpath='{.status.loadBalancer.ingress[*].ip}')"
     #if [[ ${gateway} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
@@ -118,7 +122,7 @@ function cleanup() {
 # Debug dump for failures
 function dump_debug() {
     echo ""
-    $K8CLI -n $NAMESPACE get pods
+    $K8CLI -n $NAMESPACE get pods,deployments,svc,endpoints
     $K8CLI -n $NAMESPACE get thirdpartyresources
     $K8CLI -n $NAMESPACE get thirdpartyresources -o json
     GATEWAY_PODNAME=$($K8CLI -n $NAMESPACE get pods | grep istio-ingress | awk '{print $1}')
