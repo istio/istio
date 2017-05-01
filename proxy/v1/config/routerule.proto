@@ -16,12 +16,10 @@ syntax = "proto3";
 
 import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
+import "proxy/v1/config/httpfault.proto";
+import "proxy/v1/config/l4fault.proto";
 
-package istio.proxy.v1alpha.config;
-option go_package = "config";
-
-import "httpfault.proto";
-import "l4fault.proto";
+package istio.proxy.v1.config;
 
 // Glossary & concepts
 //

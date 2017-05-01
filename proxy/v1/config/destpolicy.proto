@@ -16,8 +16,7 @@ syntax = "proto3";
 import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 
-package istio.proxy.v1alpha.config;
-option go_package = "config";
+package istio.proxy.v1.config;
 
 // DestinationPolicy defines client/caller-side policies that determine how
 // to handle traffic bound to a particular destination service. The policy

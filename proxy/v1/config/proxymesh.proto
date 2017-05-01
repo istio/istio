@@ -16,8 +16,7 @@ syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 
-package istio.proxy.v1alpha.config;
-option go_package = "config";
+package istio.proxy.v1.config;
 
 // ProxyMeshConfig defines variables shared by all Envoy instances in the
 // Istio service mesh.
