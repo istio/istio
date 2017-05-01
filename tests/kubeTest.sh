@@ -214,11 +214,11 @@ set +x
 kubectl --namespace ${NAMESPACE} get svc -l istio=mixer --no-headers
 MIXER=$(kubectl --namespace ${NAMESPACE} get svc -l istio=mixer --no-headers | awk '{print $2}')
 METRICS_URL=${MIXER}:42422/metrics
-curl ${METRICS_URL}
+curl --connect-timeout 5 ${METRICS_URL}
 ${WRK} -t1 -c1 -d10s --latency -s ${SCRIPT_DIR}/wrk.lua ${URL}/productpage
-curl ${METRICS_URL}
+curl --connect-timeout 5 ${METRICS_URL}
 ${WRK} -t2 -c2 -d10s --latency -s ${SCRIPT_DIR}/wrk.lua ${URL}/productpage
-curl ${METRICS_URL}
+curl --connect-timeout 5 ${METRICS_URL}
 
 set -x
 
