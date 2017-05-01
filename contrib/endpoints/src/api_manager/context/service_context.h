@@ -16,12 +16,8 @@
 #define API_MANAGER_CONTEXT_SERVICE_CONTEXT_H_
 
 #include "contrib/endpoints/include/api_manager/method.h"
-#include "contrib/endpoints/src/api_manager/auth/certs.h"
-#include "contrib/endpoints/src/api_manager/auth/jwt_cache.h"
-#include "contrib/endpoints/src/api_manager/auth/service_account_token.h"
-#include "contrib/endpoints/src/api_manager/cloud_trace/cloud_trace.h"
 #include "contrib/endpoints/src/api_manager/config.h"
-#include "contrib/endpoints/src/api_manager/gce_metadata.h"
+#include "contrib/endpoints/src/api_manager/context/global_context.h"
 #include "contrib/endpoints/src/api_manager/service_control/interface.h"
 
 namespace google {
@@ -33,7 +29,11 @@ namespace context {
 // Each RequestContext will hold a refcount to this object.
 class ServiceContext {
  public:
+  ServiceContext(std::shared_ptr<GlobalContext> global_context,
+                 std::unique_ptr<Config> config);
+  // For unit-test only.  It will create a global context
   ServiceContext(std::unique_ptr<ApiManagerEnvInterface> env,
+                 const std::string &server_config,
                  std::unique_ptr<Config> config);
 
   bool Enabled() const { return RequireAuth() || service_control_; }
@@ -42,16 +42,18 @@ class ServiceContext {
 
   const ::google::api::Service &service() const { return config_->service(); }
 
+  Config *config() { return config_.get(); }
+
+  // Following methods will be delegated to global context.
   void SetMetadataServer(const std::string &server) {
-    metadata_server_ = server;
+    global_context_->SetMetadataServer(server);
   }
 
   auth::ServiceAccountToken *service_account_token() {
-    return &service_account_token_;
+    return global_context_->service_account_token();
   }
 
-  ApiManagerEnvInterface *env() { return env_.get(); }
-  Config *config() { return config_.get(); }
+  ApiManagerEnvInterface *env() { return global_context_->env(); }
 
   MethodCallInfo GetMethodCallInfo(const std::string &http_method,
                                    const std::string &url,
@@ -62,7 +64,7 @@ class ServiceContext {
   }
 
   bool RequireAuth() const {
-    return !is_auth_force_disabled_ && config_->HasAuth();
+    return !global_context_->is_auth_force_disabled() && config_->HasAuth();
   }
 
   bool IsRulesCheckEnabled() const {
@@ -82,11 +84,13 @@ class ServiceContext {
     config_->SetJwksUri(issuer, jwks_uri, openid_valid);
   }
 
-  const std::string &metadata_server() const { return metadata_server_; }
-  GceMetadata *gce_metadata() { return &gce_metadata_; }
+  const std::string &metadata_server() const {
+    return global_context_->metadata_server();
+  }
+  GceMetadata *gce_metadata() { return global_context_->gce_metadata(); }
   const std::string &project_id() const;
   cloud_trace::Aggregator *cloud_trace_aggregator() const {
-    return cloud_trace_aggregator_.get();
+    return global_context_->cloud_trace_aggregator();
   }
 
   bool DisableLogStatus() {
@@ -99,40 +103,23 @@ class ServiceContext {
   }
 
   int64_t intermediate_report_interval() const {
-    return intermediate_report_interval_;
+    return global_context_->intermediate_report_interval();
   }
 
  private:
+  // Create service control.
   std::unique_ptr<service_control::Interface> CreateInterface();
 
-  std::unique_ptr<cloud_trace::Aggregator> CreateCloudTraceAggregator();
-
-  std::unique_ptr<ApiManagerEnvInterface> env_;
+  // The shared global context object.
+  std::shared_ptr<GlobalContext> global_context_;
+  // The service config object.
   std::unique_ptr<Config> config_;
 
   auth::Certs certs_;
   auth::JwtCache jwt_cache_;
 
-  // service account tokens
-  auth::ServiceAccountToken service_account_token_;
-
   // The service control object.
   std::unique_ptr<service_control::Interface> service_control_;
-
-  // The service control object. When trace is force disabled, this will be a
-  // nullptr.
-  std::unique_ptr<cloud_trace::Aggregator> cloud_trace_aggregator_;
-
-  // meta data server.
-  std::string metadata_server_;
-  // GCE metadata
-  GceMetadata gce_metadata_;
-
-  // Is auth force-disabled
-  bool is_auth_force_disabled_;
-
-  // The time interval for grpc intermediate report.
-  int64_t intermediate_report_interval_;
 };
 
 }  // namespace context

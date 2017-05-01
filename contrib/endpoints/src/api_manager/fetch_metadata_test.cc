@@ -52,12 +52,11 @@ class FetchMetadataTest : public ::testing::Test {
     // save the raw pointer of env before calling std::move(env).
     raw_env_ = env.get();
 
-    std::unique_ptr<Config> config =
-        Config::Create(raw_env_, kServiceConfig, "");
+    std::unique_ptr<Config> config = Config::Create(raw_env_, kServiceConfig);
     ASSERT_NE(config.get(), nullptr);
 
     service_context_ = std::make_shared<context::ServiceContext>(
-        std::move(env), std::move(config));
+        std::move(env), "", std::move(config));
     ASSERT_NE(service_context_.get(), nullptr);
 
     service_context_->SetMetadataServer(kMetadataServer);

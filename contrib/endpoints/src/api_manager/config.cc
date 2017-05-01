@@ -420,25 +420,36 @@ bool Config::LoadService(ApiManagerEnvInterface *env,
   return false;
 }
 
-void Config::LoadServerConfig(ApiManagerEnvInterface *env,
-                              const std::string &server_config) {
+std::shared_ptr<proto::ServerConfig> Config::LoadServerConfig(
+    ApiManagerEnvInterface *env, const std::string &server_config) {
+  std::shared_ptr<proto::ServerConfig> config;
   if (!server_config.empty()) {
-    server_config_.reset(new proto::ServerConfig);
-    if (!ReadConfigFromString(server_config, server_config_.get())) {
+    config = std::make_shared<proto::ServerConfig>();
+    if (!ReadConfigFromString(server_config, config.get())) {
       env->LogError("Cannot load server configuration protocol buffer.");
-      server_config_.reset();
+      config.reset();
     }
   }
+  return config;
 }
 
+// This is only used for unit-test.
 std::unique_ptr<Config> Config::Create(ApiManagerEnvInterface *env,
                                        const std::string &service_config,
                                        const std::string &server_config) {
+  std::unique_ptr<Config> config = Create(env, service_config);
+  if (config) {
+    config->set_server_config(LoadServerConfig(env, server_config));
+  }
+  return config;
+}
+
+std::unique_ptr<Config> Config::Create(ApiManagerEnvInterface *env,
+                                       const std::string &service_config) {
   std::unique_ptr<Config> config(new Config);
   if (!config->LoadService(env, service_config)) {
     return nullptr;
   }
-  config->LoadServerConfig(env, server_config);
   PathMatcherBuilder<MethodInfo *> pmb;
   // Load apis before http rules to store API versions
   if (!config->LoadRpcMethods(env, &pmb)) {

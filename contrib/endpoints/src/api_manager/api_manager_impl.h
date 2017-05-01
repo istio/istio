@@ -16,6 +16,7 @@
 #define API_MANAGER_API_MANAGER_IMPL_H_
 
 #include "contrib/endpoints/include/api_manager/api_manager.h"
+#include "contrib/endpoints/src/api_manager/context/global_context.h"
 #include "contrib/endpoints/src/api_manager/context/service_context.h"
 #include "contrib/endpoints/src/api_manager/service_control/interface.h"
 
@@ -28,7 +29,7 @@ class CheckWorkflow;
 class ApiManagerImpl : public ApiManager {
  public:
   ApiManagerImpl(std::unique_ptr<ApiManagerEnvInterface> env,
-                 std::unique_ptr<Config> config);
+                 const std::string &server_config);
 
   virtual bool Enabled() const { return service_context_->Enabled(); }
 
@@ -87,6 +88,9 @@ class ApiManagerImpl : public ApiManager {
     return service_context_->DisableLogStatus();
   };
 
+  // Add a new config.
+  void AddConfig(std::unique_ptr<Config> config);
+
  private:
   service_control::Interface *service_control() const {
     return service_context_->service_control();
@@ -95,7 +99,13 @@ class ApiManagerImpl : public ApiManager {
   // The check work flow.
   std::shared_ptr<CheckWorkflow> check_workflow_;
 
+  // Global context across multiple services.
+  std::shared_ptr<context::GlobalContext> global_context_;
   // Service context
+  // TODO: will be a map<config_id, ServiceContext>
+  // All ServiceContext objects are referring to the same service
+  // but different versions. One ESP instance needs to load
+  // multiple versions in order to support service rollout automation.
   std::shared_ptr<context::ServiceContext> service_context_;
 };
 

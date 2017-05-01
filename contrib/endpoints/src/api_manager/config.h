@@ -40,9 +40,19 @@ class Config {
   // any of protobuf format json, binary or text. It can be nullptr if there is
   // not server_config.
   static std::unique_ptr<Config> Create(ApiManagerEnvInterface *env,
+                                        const std::string &service_config);
+  // For unit test only
+  static std::unique_ptr<Config> Create(ApiManagerEnvInterface *env,
                                         const std::string &service_config,
                                         const std::string &server_config);
 
+  // Loads the server config into protobuf.
+  static std::shared_ptr<proto::ServerConfig> LoadServerConfig(
+      ApiManagerEnvInterface *env, const std::string &server_config);
+
+  void set_server_config(std::shared_ptr<proto::ServerConfig> server_config) {
+    server_config_ = server_config;
+  }
   // Returns server_config.  nullptr if no server_config.
   const proto::ServerConfig *server_config() const {
     return server_config_.get();
@@ -90,10 +100,6 @@ class Config {
   bool LoadService(ApiManagerEnvInterface *env,
                    const std::string &service_config);
 
-  // Loads the server config into protobuf.
-  void LoadServerConfig(ApiManagerEnvInterface *env,
-                        const std::string &server_config);
-
   // Create MethodInfo for HTTP methods, register them to PathMatcher.
   bool LoadHttpMethods(ApiManagerEnvInterface *env,
                        PathMatcherBuilder<MethodInfo *> *pmb);
@@ -127,7 +133,7 @@ class Config {
   bool LoadBackends(ApiManagerEnvInterface *env);
 
   ::google::api::Service service_;
-  std::unique_ptr<proto::ServerConfig> server_config_;
+  std::shared_ptr<proto::ServerConfig> server_config_;
   PathMatcherPtr<MethodInfo *> path_matcher_;
   std::map<std::string, MethodInfoImplPtr> method_map_;
   // Maps issuer to {jwksUri, openIdValid} pair.

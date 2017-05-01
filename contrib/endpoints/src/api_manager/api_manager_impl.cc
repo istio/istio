@@ -24,23 +24,17 @@ using ::google::api_manager::proto::ServerConfig;
 namespace google {
 namespace api_manager {
 
-namespace {
-
-std::shared_ptr<ApiManager> CreateApiManager(
-    std::unique_ptr<ApiManagerEnvInterface> env,
-    std::unique_ptr<Config> config) {
-  return std::shared_ptr<ApiManager>(
-      new ApiManagerImpl(std::move(env), std::move(config)));
-}
-
-}  // namespace
-
 ApiManagerImpl::ApiManagerImpl(std::unique_ptr<ApiManagerEnvInterface> env,
-                               std::unique_ptr<Config> config)
-    : service_context_(
-          new context::ServiceContext(std::move(env), std::move(config))) {
+                               const std::string& server_config)
+    : global_context_(
+          new context::GlobalContext(std::move(env), server_config)) {
   check_workflow_ = std::unique_ptr<CheckWorkflow>(new CheckWorkflow);
   check_workflow_->RegisterAll();
+}
+
+void ApiManagerImpl::AddConfig(std::unique_ptr<Config> config) {
+  service_context_ = std::make_shared<context::ServiceContext>(
+      global_context_, std::move(config));
 }
 
 std::unique_ptr<RequestHandlerInterface> ApiManagerImpl::CreateRequestHandler(
@@ -52,8 +46,7 @@ std::unique_ptr<RequestHandlerInterface> ApiManagerImpl::CreateRequestHandler(
 std::shared_ptr<ApiManager> ApiManagerFactory::GetOrCreateApiManager(
     std::unique_ptr<ApiManagerEnvInterface> env,
     const std::string& service_config, const std::string& server_config) {
-  std::unique_ptr<Config> config =
-      Config::Create(env.get(), service_config, server_config);
+  std::unique_ptr<Config> config = Config::Create(env.get(), service_config);
   if (config == nullptr) {
     return nullptr;
   }
@@ -66,7 +59,9 @@ std::shared_ptr<ApiManager> ApiManagerFactory::GetOrCreateApiManager(
   if (!result) {
     // TODO: Handle the case where the caller gives us a different
     // config with the same service name.
-    result = CreateApiManager(std::move(env), std::move(config));
+    auto api_impl = new ApiManagerImpl(std::move(env), server_config);
+    api_impl->AddConfig(std::move(config));
+    result = std::shared_ptr<ApiManager>(api_impl);
     it->second = result;
   }
 

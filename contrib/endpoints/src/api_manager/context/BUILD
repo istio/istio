@@ -19,10 +19,12 @@ package(default_visibility = ["//contrib/endpoints/src/api_manager:__subpackages
 cc_library(
     name = "context",
     srcs = [
+        "global_context.cc",
         "request_context.cc",
         "service_context.cc",
     ],
     hdrs = [
+        "global_context.h",
         "request_context.h",
         "service_context.h",
     ],
@@ -35,8 +37,8 @@ cc_library(
     }),
     deps = [
         "//contrib/endpoints/src/api_manager:http_template",
-        "//contrib/endpoints/src/api_manager:path_matcher",
         "//contrib/endpoints/src/api_manager:impl_headers",
+        "//contrib/endpoints/src/api_manager:path_matcher",
         "//contrib/endpoints/src/api_manager:server_config_proto",
         "//contrib/endpoints/src/api_manager/auth",
         "//contrib/endpoints/src/api_manager/auth:service_account_token",

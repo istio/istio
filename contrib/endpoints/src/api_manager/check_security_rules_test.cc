@@ -235,13 +235,12 @@ class CheckDisableSecurityRulesTest
     std::string server_config;
 
     std::tie(service_config, server_config) = GetParam();
-    std::unique_ptr<Config> config =
-        Config::Create(raw_env, service_config, server_config);
+    std::unique_ptr<Config> config = Config::Create(raw_env, service_config);
 
     ASSERT_TRUE(config != nullptr);
 
     service_context_ = std::make_shared<context::ServiceContext>(
-        std::move(env), std::move(config));
+        std::move(env), server_config, std::move(config));
 
     ASSERT_TRUE(service_context_.get() != nullptr);
 
@@ -279,12 +278,11 @@ class CheckSecurityRulesTest : public ::testing::Test {
         new ::testing::NiceMock<MockApiManagerEnvironment>());
     raw_env_ = env.get();
 
-    std::unique_ptr<Config> config =
-        Config::Create(raw_env_, service_config, server_config);
+    std::unique_ptr<Config> config = Config::Create(raw_env_, service_config);
     ASSERT_TRUE(config != nullptr);
 
     service_context_ = std::make_shared<context::ServiceContext>(
-        std::move(env), std::move(config));
+        std::move(env), server_config, std::move(config));
 
     ASSERT_TRUE(service_context_.get() != nullptr);
 
