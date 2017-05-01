@@ -85,11 +85,11 @@ func newKubeInfo(tmpDir, runID string) *KubeInfo {
 		ManagerImage:     fmt.Sprintf("%s/manager:%s", *managerHub, *managerTag),
 		CaImage:          fmt.Sprintf("%s/ca:%s", *caHub, *caTag),
 		// Proxy and Manager are released together and share the same hub and tag.
-		ProxyImage:       fmt.Sprintf("%s/proxy:%s", *managerHub, *managerTag),
-		Verbosity:        verbosity,
-		TmpDir:           tmpDir,
-		yamlDir:          filepath.Join(tmpDir, "yaml"),
-		Istioctl:         util.NewIstioctl(tmpDir, *namespace, *managerHub, *managerTag),
+		ProxyImage: fmt.Sprintf("%s/proxy:%s", *managerHub, *managerTag),
+		Verbosity:  verbosity,
+		TmpDir:     tmpDir,
+		yamlDir:    filepath.Join(tmpDir, "yaml"),
+		Istioctl:   util.NewIstioctl(tmpDir, *namespace, *managerHub, *managerTag),
 	}
 }
 
