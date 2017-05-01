@@ -54,7 +54,7 @@ func NewIstioctl(tmpDir, namespace, proxyHub, proxyTag string) *Istioctl {
 	}
 }
 
-// Setup downloads Istioctl binary.
+// Install downloads Istioctl binary.
 func (i *Istioctl) Install() error {
 	var usr, err = user.Current()
 	if err != nil {

@@ -16,14 +16,12 @@ package util
 
 import (
 	"cmd/pprof/internal/tempfile"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -31,12 +29,9 @@ import (
 )
 
 const (
-	testSrcDir = "TEST_SRCDIR"
-	pathPrefix = "com_github_istio_istio"
-)
-
-var (
-	manualRun = flag.Bool("manual_run", false, "If runned by bazel run")
+	testSrcDir     = "TEST_SRCDIR"
+	pathPrefix     = "com_github_istio_istio"
+	runfilesSuffix = ".runfiles"
 )
 
 // CreateTempfile creates a tempfile string.
@@ -135,22 +130,15 @@ func CopyFile(src, dst string) error {
 	return err
 }
 
-// GetTestRuntimePath give "path from WORKSPACE", return absolute path at runtime
-func GetTestRuntimePath(p string) string {
-	var res string
-	if *manualRun {
-		ex, err := os.Executable()
-		if err != nil {
-			glog.Warning("Cannot get runtime path")
-		}
-		res = filepath.Join(path.Dir(ex), filepath.Join(filepath.Join("go_default_test.runfiles", pathPrefix), p))
-	} else {
-		res = filepath.Join(os.Getenv(testSrcDir), filepath.Join(pathPrefix, p))
+// GetResourcePath give "path from WORKSPACE", return absolute path at runtime
+func GetResourcePath(p string) string {
+	if dir, exists := os.LookupEnv(testSrcDir); exists {
+		return filepath.Join(dir, filepath.Join("workspace", p))
 	}
-	return res
-}
-
-// PrintBlock print log in a clearer way
-func PrintBlock(m string) {
-	glog.Infof("\n\n=========================================\n%s\n=========================================\n\n", m)
+	binPath, err := os.Executable()
+	if err != nil {
+		glog.Warning("Cannot find excutable path")
+		return p
+	}
+	return filepath.Join(binPath+runfilesSuffix, pathPrefix, p)
 }

@@ -36,23 +36,33 @@ def presubmit(gitUtils, bazel, utils) {
     }
     stage('Demo Test') {
       def kubeTestArgs = ''
+      def e2eArgs = "-b ${gitUtils.logsPath()} "
       if (utils.getParam('GITHUB_PR_HEAD_SHA') != '') {
         def prSha = utils.failIfNullOrEmpty(env.GITHUB_PR_HEAD_SHA)
         def prUrl = utils.failIfNullOrEmpty(env.GITHUB_PR_URL)
         def repo = prUrl.split('/')[4]
+        def hub = 'gcr.io/istio-testing'
         switch (repo) {
           case 'manager':
-            kubeTestArgs = "-m gcr.io/istio-testing,${prSha} " +
-                "-i https://storage.googleapis.com/istio-artifacts/${prSha}/artifacts/istioctl"
+            def istioctlUrl = "https://storage.googleapis.com/istio-artifacts/${prSha}/artifacts/istioctl"
+            kubeTestArgs = "-m ${hub},${prSha} " +
+                "-i ${istioctlUrl}"
+            e2eArgs += "--manager_hub=${hub}  " +
+                "--manager_tag=${prSha} " +
+                "--istioctl_url=${istioctlUrl}"
             break
           case 'mixer':
-            kubeTestArgs = "-x gcr.io/istio-testing,${prSha}"
+            kubeTestArgs = "-x ${hub},${prSha}"
+            e2eArgs += "--mixer_hub=${hub}  " +
+                "--mixer_tag=${prSha}"
             break
           default:
             break
         }
       }
       sh("tests/kubeTest.sh ${kubeTestArgs}")
+      sh("tests/kubeTest.sh ${e2eArgs}")
+
     }
   }
 }

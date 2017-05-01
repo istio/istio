@@ -27,6 +27,7 @@ import (
 
 const (
 	yamlSuffix       = ".yaml"
+	yamlTmplDir      = "tests/e2e/framework/testdata/"
 	mixerHubEnvVar   = "MIXER_HUB"
 	mixerTagEnvVar   = "MIXER_TAG"
 	managerHubEnvVar = "MANAGER_HUB"
@@ -54,14 +55,14 @@ type KubeInfo struct {
 	ProxyImage       string
 	Verbosity        int
 
-	TmpDir           string
-	yamlDir          string
+	TmpDir  string
+	yamlDir string
 
-	Ingress          string
+	Ingress string
 
-	Istioctl         *util.Istioctl
+	Istioctl *util.Istioctl
 
-	Apps             []AppInterface
+	Apps []AppInterface
 }
 
 // newKubeInfo create a new KubeInfo by given temp dir and runID
@@ -151,10 +152,11 @@ func (k *KubeInfo) deployIstio() error {
 // deployIstioCore deploy istio module from yaml files
 func (k *KubeInfo) deployIstioCore(name string) error {
 	yamlFile, err := util.CreateTempfile(k.yamlDir, name, yamlSuffix)
+	tmpl := util.GetResourcePath(filepath.Join(yamlTmplDir, fmt.Sprintf("%s.tmpl", name)))
 	if err != nil {
 		return err
 	}
-	if err := util.Fill(yamlFile, name+".tmpl", *k); err != nil {
+	if err := util.Fill(yamlFile, tmpl, *k); err != nil {
 		glog.Errorf("Failed to fill %s", yamlFile)
 		return err
 	}
@@ -173,4 +175,9 @@ func (k *KubeInfo) deployApps() error {
 		}
 	}
 	return nil
+}
+
+// AddApp for automated deployment. Must be done before Setup Call.
+func (k *KubeInfo) AddApp(a AppInterface) {
+	k.Apps = append(k.Apps, a)
 }

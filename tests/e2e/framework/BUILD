@@ -10,7 +10,6 @@ go_library(
     ],
     data = glob(["testdata/*"]) + [
         "//:istio_version",
-        "//demos/apps/bookinfo:bookinfo",
     ],
     visibility = ["//visibility:public"],
     deps = [

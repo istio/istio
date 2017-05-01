@@ -15,13 +15,13 @@
 package framework
 
 import (
+	"cmd/pprof/internal/tempfile"
 	"flag"
 	"io/ioutil"
 	"os"
 	"sync"
 
 	"github.com/golang/glog"
-	"cmd/pprof/internal/tempfile"
 )
 
 var (

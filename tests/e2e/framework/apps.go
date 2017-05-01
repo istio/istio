@@ -29,9 +29,10 @@ const (
 )
 
 var (
-	hopImageHub = flag.String("hop_image", hopImageDefault, "app hub")
+	hopImage = flag.String("hop_image", hopImageDefault, "app hub")
 )
 
+// AppInterface for automated deployments.
 type AppInterface interface {
 	Deploy(string, string, *util.Istioctl) error
 }
@@ -54,6 +55,18 @@ type Hop struct {
 	Version    string
 }
 
+// NewHop instantiate a Hop App based on the hopImage flag.
+func NewHop(d, s, v string, h, g int) *Hop {
+	return &Hop{
+		AppImage:   *hopImage,
+		Deployment: d,
+		Service:    d,
+		Version:    v,
+		HTTPPort:   h,
+		GRPCPort:   g,
+	}
+}
+
 // DeployAppFromTmpl deploy testing app from tmpl
 func (a *App) generateAppYaml(tmpDir string) error {
 	if a.AppYamlTemplate == "" {
@@ -71,6 +84,7 @@ func (a *App) generateAppYaml(tmpDir string) error {
 	return nil
 }
 
+// Deploy is called by KubeInfo.
 func (a *App) Deploy(tmpDir, namespace string, istioCtl *util.Istioctl) error {
 	if err := a.generateAppYaml(tmpDir); err != nil {
 		return err

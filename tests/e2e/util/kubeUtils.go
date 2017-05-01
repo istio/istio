@@ -31,7 +31,7 @@ import (
 func Fill(outFile, inFile string, values interface{}) error {
 	var bytes bytes.Buffer
 	w := bufio.NewWriter(&bytes)
-	tmpl, err := template.ParseFiles(GetTestRuntimePath("tests/e2e/framework/testdata/" + inFile))
+	tmpl, err := template.ParseFiles(inFile)
 	if err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func Fill(outFile, inFile string, values interface{}) error {
 	if err := ioutil.WriteFile(outFile, bytes.Bytes(), 0644); err != nil {
 		return err
 	}
-
+	glog.Infof("Created %s from template %s", outFile, inFile)
 	return nil
 }
 
