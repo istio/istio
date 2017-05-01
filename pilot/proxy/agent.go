@@ -73,24 +73,22 @@ var (
 
 	// DefaultRetry configuration for proxies
 	DefaultRetry = Retry{
-		defaultDelay:    1 * time.Hour,
-		maxRetries:      10,
-		initialInterval: 200 * time.Millisecond,
+		DefaultDelay:    1 * time.Hour,
+		MaxRetries:      10,
+		InitialInterval: 200 * time.Millisecond,
 	}
 )
 
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
 func NewAgent(proxy Proxy, retry Retry) Agent {
-	retry.delay = retry.defaultDelay
-	retry.budget = retry.maxRetries
-
+	retry.reset()
 	return &agent{
 		proxy:    &proxy,
 		retry:    &retry,
 		epochs:   make(map[int]interface{}),
 		configCh: make(chan interface{}),
 		statusCh: make(chan exitStatus),
-		abortCh:  make(chan error),
+		abortCh:  make(map[int]chan error),
 	}
 }
 
@@ -99,28 +97,37 @@ type Retry struct {
 	// delay between reconciliation adjusted by retries
 	delay time.Duration
 
-	// default delay is a long duration - reconciliation is a no-op in the regular case.
-	// For permanent errors, reconciliation is still attempted once after the default delay.
-	defaultDelay time.Duration
-
 	// number of times to attempts left to retry applying the latest desired configuration
 	budget int
 
-	// maximum number of retries
-	maxRetries int
+	// DefaultDelay is a default long duration for regular reconciliation (a no-op if the config is unchanged)
+	DefaultDelay time.Duration
 
-	// delay between the first restart, from then on it is multiplied by a factor of 2
-	// for each subsequent retry
-	initialInterval time.Duration
+	// MaxRetries is the maximum number of retries
+	MaxRetries int
+
+	// InitialInterval is the delay between the first restart, from then on it is
+	// multiplied by a factor of 2 for each subsequent retry
+	InitialInterval time.Duration
+}
+
+// reset retry budget
+func (r *Retry) reset() {
+	r.delay = r.DefaultDelay
+	r.budget = r.MaxRetries
 }
 
 // Proxy defines command interface for a proxy
 type Proxy struct {
-	// Run command for a config, epoch and abort channel
+	// Run command for a config, epoch, and abort channel
 	Run func(interface{}, int, <-chan error) error
 
-	// Cleanup command
+	// Cleanup command for an epoch
 	Cleanup func(int)
+
+	// Panic command is invoked with the desired config when all retries to
+	// start the proxy fail just before the agent terminating
+	Panic func(interface{})
 }
 
 type agent struct {
@@ -146,7 +153,7 @@ type agent struct {
 	statusCh chan exitStatus
 
 	// channel for aborting running instances
-	abortCh chan error
+	abortCh map[int]chan error
 }
 
 type exitStatus struct {
@@ -174,9 +181,7 @@ func (a *agent) Run(stop <-chan struct{}) {
 				a.desiredConfig = config
 
 				// reset retry budget if and only if the desired config changes
-				a.retry.budget = a.retry.maxRetries
-				a.retry.delay = a.retry.defaultDelay
-
+				a.retry.reset()
 				a.reconcile()
 			}
 
@@ -189,8 +194,7 @@ func (a *agent) Run(stop <-chan struct{}) {
 				// NOTE: due to Envoy hot restart race conditions, an error from the
 				// process requires aggressive non-graceful restarts by killing all
 				// existing proxy instances
-				glog.Warningf("Aborting all epochs")
-				a.abortCh <- errAbort
+				a.abortAll()
 			} else {
 				glog.V(2).Infof("Epoch %d exited normally", status.epoch)
 			}
@@ -200,18 +204,20 @@ func (a *agent) Run(stop <-chan struct{}) {
 
 			// delete epoch record and update current config
 			delete(a.epochs, status.epoch)
+			delete(a.abortCh, status.epoch)
 			a.currentConfig = a.epochs[a.latestEpoch()]
 
 			// schedule a retry for a transient error
 			if status.err != nil && !reflect.DeepEqual(a.desiredConfig, a.currentConfig) {
 				if a.retry.budget > 0 {
-					a.retry.delay = a.retry.initialInterval * (1 << uint(a.retry.maxRetries-a.retry.budget))
+					a.retry.delay = a.retry.InitialInterval * (1 << uint(a.retry.MaxRetries-a.retry.budget))
 					a.retry.budget = a.retry.budget - 1
 				} else {
-					a.retry.delay = a.retry.defaultDelay
-
-					// NOTE: crash the agent since all attempts to start the config have failed
-					// glog.Fatal("Permanent error: budget exhausted trying to fulfill the desired configuration")
+					glog.Error("Permanent error: budget exhausted trying to fulfill the desired configuration")
+					if a.proxy.Panic != nil {
+						a.proxy.Panic(a.desiredConfig)
+					}
+					return
 				}
 			}
 
@@ -221,8 +227,8 @@ func (a *agent) Run(stop <-chan struct{}) {
 
 		case _, more := <-stop:
 			if !more {
-				a.abortCh <- errAbort
 				glog.V(2).Info("Agent terminating")
+				a.abortAll()
 				return
 			}
 		}
@@ -233,20 +239,24 @@ func (a *agent) reconcile() {
 	// check that the config is current
 	if reflect.DeepEqual(a.desiredConfig, a.currentConfig) {
 		glog.V(2).Info("Desired configuration is already applied, resetting delay")
-		a.retry.delay = a.retry.defaultDelay
+		a.retry.delay = a.retry.DefaultDelay
 		return
 	}
 
 	// discover and increment the latest running epoch
 	epoch := a.latestEpoch() + 1
+	// buffer a single abort to prevent blocking on failing proxy
+	abortCh := make(chan error, 1)
 	a.epochs[epoch] = a.desiredConfig
+	a.abortCh[epoch] = abortCh
 	a.currentConfig = a.desiredConfig
-	go a.waitForExit(a.desiredConfig, epoch)
+	go a.waitForExit(a.desiredConfig, epoch, abortCh)
 }
 
-// waitForExit runs the start-up command and waits for it to finish
-func (a *agent) waitForExit(config interface{}, epoch int) {
-	err := a.proxy.Run(config, epoch, a.abortCh)
+// waitForExit runs the start-up command as a go routine and waits for it to finish
+func (a *agent) waitForExit(config interface{}, epoch int, abortCh <-chan error) {
+	glog.V(2).Infof("Epoch %d starting", epoch)
+	err := a.proxy.Run(config, epoch, abortCh)
 	a.statusCh <- exitStatus{epoch: epoch, err: err}
 }
 
@@ -259,4 +269,12 @@ func (a *agent) latestEpoch() int {
 		}
 	}
 	return epoch
+}
+
+// abortAll sends abort error to all proxies
+func (a *agent) abortAll() {
+	for epoch, abortCh := range a.abortCh {
+		glog.Warningf("Aborting epoch %d...", epoch)
+		abortCh <- errAbort
+	}
 }

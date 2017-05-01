@@ -22,9 +22,9 @@ import (
 
 var (
 	testRetry = Retry{
-		defaultDelay:    1 * time.Second,
-		initialInterval: time.Millisecond,
-		maxRetries:      10,
+		DefaultDelay:    10 * time.Second,
+		InitialInterval: time.Millisecond,
+		MaxRetries:      10,
 	}
 )
 
@@ -55,7 +55,7 @@ func TestStartStop(t *testing.T) {
 		}
 		close(stop)
 	}
-	a := NewAgent(Proxy{start, cleanup}, testRetry)
+	a := NewAgent(Proxy{start, cleanup, nil}, testRetry)
 	go a.Run(stop)
 	a.ScheduleConfigUpdate(desired)
 	<-stop
@@ -73,7 +73,7 @@ func TestApplyTwice(t *testing.T) {
 		return nil
 	}
 	cleanup := func(epoch int) {}
-	a := NewAgent(Proxy{start, cleanup}, testRetry)
+	a := NewAgent(Proxy{start, cleanup, nil}, testRetry)
 	go a.Run(stop)
 	a.ScheduleConfigUpdate(desired)
 	a.ScheduleConfigUpdate(desired)
@@ -110,8 +110,8 @@ func TestApplyThrice(t *testing.T) {
 		}
 	}
 	retry := testRetry
-	retry.maxRetries = 0
-	a = NewAgent(Proxy{start, cleanup}, retry)
+	retry.MaxRetries = 0
+	a = NewAgent(Proxy{start, cleanup, nil}, retry)
 	go a.Run(stop)
 	a.ScheduleConfigUpdate(good)
 	a.ScheduleConfigUpdate(bad)
@@ -121,31 +121,47 @@ func TestApplyThrice(t *testing.T) {
 // TestAbort checks that successfully started proxies are aborted on error in the child
 func TestAbort(t *testing.T) {
 	stop := make(chan struct{})
+	good1 := "good1"
+	aborted1 := false
+	good2 := "good2"
+	aborted2 := false
 	bad := "bad"
-	aborted := false
+	active := 3
 	start := func(config interface{}, epoch int, abort <-chan error) error {
 		if config == bad {
 			return errors.New(bad)
 		}
 		select {
-		case <-abort:
-			aborted = true
+		case err := <-abort:
+			if config == good1 {
+				aborted1 = true
+			} else if config == good2 {
+				aborted2 = true
+			}
+			return err
 		case <-stop:
 		}
 		return nil
 	}
 	cleanup := func(epoch int) {
-		// first 1 with an error, then 0 with abort
-		if epoch == 0 {
-			if !aborted {
-				t.Error("expected abort to be called on successful proxy")
+		// first 2 with an error, then 0 and 1 with abort
+		active = active - 1
+		if active == 0 {
+			if !aborted1 {
+				t.Error("Expected first epoch to be aborted")
+			}
+			if !aborted2 {
+				t.Error("Expected second epoch to be aborted")
 			}
 			close(stop)
 		}
 	}
-	a := NewAgent(Proxy{start, cleanup}, testRetry)
+	retry := testRetry
+	retry.InitialInterval = 10 * time.Second
+	a := NewAgent(Proxy{start, cleanup, nil}, retry)
 	go a.Run(stop)
-	a.ScheduleConfigUpdate("")
+	a.ScheduleConfigUpdate(good1)
+	a.ScheduleConfigUpdate(good2)
 	a.ScheduleConfigUpdate(bad)
 	<-stop
 }
@@ -171,7 +187,7 @@ func TestStartFail(t *testing.T) {
 		return nil
 	}
 	cleanup := func(epoch int) {}
-	a := NewAgent(Proxy{start, cleanup}, testRetry)
+	a := NewAgent(Proxy{start, cleanup, nil}, testRetry)
 	go a.Run(stop)
 	a.ScheduleConfigUpdate("test")
 	<-stop
@@ -195,21 +211,15 @@ func TestExceedBudget(t *testing.T) {
 		return nil
 	}
 	cleanup := func(epoch int) {
-		if epoch == 0 && (retry == 0 || retry == 1) {
-		} else if epoch == 0 && retry == 2 {
-			// make sure no more tries are attempted
-			go func() {
-				<-time.After(15 * time.Millisecond)
-				close(stop)
-			}()
+		if epoch == 0 && (retry == 0 || retry == 1 || retry == 2) {
 		} else {
 			t.Errorf("Unexpected epoch %d and retry %d", epoch, retry)
 			close(stop)
 		}
 	}
 	retryDelay := testRetry
-	retryDelay.maxRetries = 1
-	a := NewAgent(Proxy{start, cleanup}, retryDelay)
+	retryDelay.MaxRetries = 1
+	a := NewAgent(Proxy{start, cleanup, func(_ interface{}) { close(stop) }}, retryDelay)
 	go a.Run(stop)
 	a.ScheduleConfigUpdate("test")
 	<-stop
@@ -262,7 +272,7 @@ func TestStartTwiceStop(t *testing.T) {
 			close(stop)
 		}
 	}
-	a := NewAgent(Proxy{start, cleanup}, testRetry)
+	a := NewAgent(Proxy{start, cleanup, nil}, testRetry)
 	go a.Run(stop)
 	a.ScheduleConfigUpdate(desired0)
 	a.ScheduleConfigUpdate(desired1)
@@ -286,7 +296,7 @@ func TestRecovery(t *testing.T) {
 		<-stop
 		return nil
 	}
-	a := NewAgent(Proxy{start, func(_ int) {}}, testRetry)
+	a := NewAgent(Proxy{start, func(_ int) {}, nil}, testRetry)
 	go a.Run(stop)
 	a.ScheduleConfigUpdate(desired)
 

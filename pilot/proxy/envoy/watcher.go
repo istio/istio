@@ -162,7 +162,7 @@ func runEnvoy(mesh *proxyconfig.ProxyMeshConfig, node string) proxy.Proxy {
 			select {
 			case err := <-abort:
 				glog.Warningf("Aborting epoch %d", epoch)
-				if errKill := cmd.Process.Kill(); err != nil {
+				if errKill := cmd.Process.Kill(); errKill != nil {
 					glog.Warningf("killing epoch %d caused an error %v", epoch, errKill)
 				}
 				return err
@@ -175,6 +175,9 @@ func runEnvoy(mesh *proxyconfig.ProxyMeshConfig, node string) proxy.Proxy {
 			if err := os.Remove(path); err != nil {
 				glog.Warningf("Failed to delete config file %s for %d, %v", path, epoch, err)
 			}
+		},
+		Panic: func(_ interface{}) {
+			glog.Fatal("cannot start the proxy with the desired configuration")
 		},
 	}
 }
