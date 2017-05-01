@@ -36,7 +36,7 @@ def presubmit(gitUtils, bazel, utils) {
     }
     stage('Demo Test') {
       def kubeTestArgs = ''
-      def e2eArgs = "-b ${gitUtils.logsPath()} "
+      def e2eArgs = "--logs_bucket_path ${gitUtils.logsPath()} "
       if (utils.getParam('GITHUB_PR_HEAD_SHA') != '') {
         def prSha = utils.failIfNullOrEmpty(env.GITHUB_PR_HEAD_SHA)
         def prUrl = utils.failIfNullOrEmpty(env.GITHUB_PR_URL)
@@ -61,7 +61,7 @@ def presubmit(gitUtils, bazel, utils) {
         }
       }
       sh("tests/kubeTest.sh ${kubeTestArgs}")
-      sh("tests/kubeTest.sh ${e2eArgs}")
+      sh("tests/e2e.sh ${e2eArgs}")
 
     }
   }
