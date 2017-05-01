@@ -28,7 +28,12 @@ import (
 func checkCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "check",
-		Short: "Invokes Mixer's Check API.",
+		Short: "Invokes Mixer's Check API to perform precondition checks.",
+		Long: "The Check method is used to perform precondition checks. Mixer\n" +
+			"expects a set of attributes as input, which it uses, along with\n" +
+			"its configuration, to determine which adapters to invoke and with\n" +
+			"which parameters in order to perform the precondition check.",
+
 		Run: func(cmd *cobra.Command, args []string) {
 			check(rootArgs, printf, fatalf)
 		}}

@@ -65,7 +65,11 @@ type rootArgs struct {
 func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "mixc",
-		Short: "Invoke the API of a running Mixer instance",
+		Short: "Utility to trigger direct calls to Mixer's API",
+		Long: "This command lets you interact with a running instance of\n" +
+			"Mixer. Note that you need a pretty good understanding of Mixer's\n" +
+			"API in order to use this command.",
+
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				return fmt.Errorf("'%s' is an invalid argument", args[0])
