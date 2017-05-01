@@ -20,12 +20,20 @@ import (
 	"time"
 )
 
+var (
+	testRetry = Retry{
+		defaultDelay:    1 * time.Second,
+		initialInterval: time.Millisecond,
+		maxRetries:      10,
+	}
+)
+
 // TestStartStop tests basic start, cleanup sequence
 func TestStartStop(t *testing.T) {
 	current := -1
 	stop := make(chan struct{})
 	desired := "config"
-	start := func(config interface{}, epoch int) error {
+	start := func(config interface{}, epoch int, _ <-chan error) error {
 		if current != -1 {
 			t.Error("Expected epoch not to be set")
 		}
@@ -47,7 +55,7 @@ func TestStartStop(t *testing.T) {
 		}
 		close(stop)
 	}
-	a := NewAgent(start, cleanup, 10, time.Millisecond)
+	a := NewAgent(Proxy{start, cleanup}, testRetry)
 	go a.Run(stop)
 	a.ScheduleConfigUpdate(desired)
 	<-stop
@@ -57,7 +65,7 @@ func TestStartStop(t *testing.T) {
 func TestApplyTwice(t *testing.T) {
 	stop := make(chan struct{})
 	desired := "config"
-	start := func(config interface{}, epoch int) error {
+	start := func(config interface{}, epoch int, _ <-chan error) error {
 		if epoch == 1 {
 			t.Error("Should start only once for same config")
 		}
@@ -65,23 +73,23 @@ func TestApplyTwice(t *testing.T) {
 		return nil
 	}
 	cleanup := func(epoch int) {}
-	a := NewAgent(start, cleanup, 10, time.Millisecond)
+	a := NewAgent(Proxy{start, cleanup}, testRetry)
 	go a.Run(stop)
 	a.ScheduleConfigUpdate(desired)
 	a.ScheduleConfigUpdate(desired)
 	close(stop)
 }
 
-// TestApplyThrice applies same config twice but if a bad config between them
+// TestApplyThrice applies same config twice but with a bad config between them
 func TestApplyThrice(t *testing.T) {
 	stop := make(chan struct{})
 	good := "good"
 	bad := "bad"
 	applied := false
 	var a Agent
-	start := func(config interface{}, epoch int) error {
+	start := func(config interface{}, epoch int, _ <-chan error) error {
 		if config == bad {
-			return errors.New(bad)
+			return nil
 		}
 		if config == good && applied {
 			t.Errorf("Config has already been applied")
@@ -101,9 +109,43 @@ func TestApplyThrice(t *testing.T) {
 			t.Errorf("Unexpected epoch %d", epoch)
 		}
 	}
-	a = NewAgent(start, cleanup, 0, time.Millisecond)
+	retry := testRetry
+	retry.maxRetries = 0
+	a = NewAgent(Proxy{start, cleanup}, retry)
 	go a.Run(stop)
 	a.ScheduleConfigUpdate(good)
+	a.ScheduleConfigUpdate(bad)
+	<-stop
+}
+
+// TestAbort checks that successfully started proxies are aborted on error in the child
+func TestAbort(t *testing.T) {
+	stop := make(chan struct{})
+	bad := "bad"
+	aborted := false
+	start := func(config interface{}, epoch int, abort <-chan error) error {
+		if config == bad {
+			return errors.New(bad)
+		}
+		select {
+		case <-abort:
+			aborted = true
+		case <-stop:
+		}
+		return nil
+	}
+	cleanup := func(epoch int) {
+		// first 1 with an error, then 0 with abort
+		if epoch == 0 {
+			if !aborted {
+				t.Error("expected abort to be called on successful proxy")
+			}
+			close(stop)
+		}
+	}
+	a := NewAgent(Proxy{start, cleanup}, testRetry)
+	go a.Run(stop)
+	a.ScheduleConfigUpdate("")
 	a.ScheduleConfigUpdate(bad)
 	<-stop
 }
@@ -112,13 +154,13 @@ func TestApplyThrice(t *testing.T) {
 func TestStartFail(t *testing.T) {
 	stop := make(chan struct{})
 	retry := 0
-	start := func(config interface{}, epoch int) error {
+	start := func(config interface{}, epoch int, _ <-chan error) error {
 		if epoch == 0 && retry == 0 {
 			retry++
-			return errors.New("Injected error on first try")
+			return errAbort
 		} else if epoch == 0 && retry == 1 {
 			retry++
-			return errors.New("Injected error on second try")
+			return errAbort
 		} else if epoch == 0 && retry == 2 {
 			retry++
 			close(stop)
@@ -129,7 +171,7 @@ func TestStartFail(t *testing.T) {
 		return nil
 	}
 	cleanup := func(epoch int) {}
-	a := NewAgent(start, cleanup, 10, time.Millisecond)
+	a := NewAgent(Proxy{start, cleanup}, testRetry)
 	go a.Run(stop)
 	a.ScheduleConfigUpdate("test")
 	<-stop
@@ -139,13 +181,13 @@ func TestStartFail(t *testing.T) {
 func TestExceedBudget(t *testing.T) {
 	stop := make(chan struct{})
 	retry := 0
-	start := func(config interface{}, epoch int) error {
+	start := func(config interface{}, epoch int, _ <-chan error) error {
 		if epoch == 0 && retry == 0 {
 			retry++
-			return errors.New("Injected error on first try")
+			return errAbort
 		} else if epoch == 0 && retry == 1 {
 			retry++
-			return errors.New("Injected error on second try")
+			return errAbort
 		} else {
 			t.Errorf("Unexpected epoch %d and retry %d", epoch, retry)
 			close(stop)
@@ -165,7 +207,9 @@ func TestExceedBudget(t *testing.T) {
 			close(stop)
 		}
 	}
-	a := NewAgent(start, cleanup, 1, time.Millisecond)
+	retryDelay := testRetry
+	retryDelay.maxRetries = 1
+	a := NewAgent(Proxy{start, cleanup}, retryDelay)
 	go a.Run(stop)
 	a.ScheduleConfigUpdate("test")
 	<-stop
@@ -179,7 +223,7 @@ func TestStartTwiceStop(t *testing.T) {
 	desired0 := "config0"
 	desired1 := "config1"
 	desired2 := "config2"
-	start := func(config interface{}, epoch int) error {
+	start := func(config interface{}, epoch int, _ <-chan error) error {
 		if config == desired0 && epoch == 0 {
 			<-stop0
 		} else if config == desired1 && epoch == 1 {
@@ -218,7 +262,7 @@ func TestStartTwiceStop(t *testing.T) {
 			close(stop)
 		}
 	}
-	a := NewAgent(start, cleanup, 10, time.Millisecond)
+	a := NewAgent(Proxy{start, cleanup}, testRetry)
 	go a.Run(stop)
 	a.ScheduleConfigUpdate(desired0)
 	a.ScheduleConfigUpdate(desired1)
@@ -231,10 +275,10 @@ func TestRecovery(t *testing.T) {
 	stop := make(chan struct{})
 	desired := "config"
 	failed := false
-	start := func(config interface{}, epoch int) error {
+	start := func(config interface{}, epoch int, _ <-chan error) error {
 		if epoch == 0 && !failed {
 			failed = true
-			return errors.New("Cause retry")
+			return nil
 		}
 		if epoch > 0 {
 			t.Errorf("Should not reconcile after success")
@@ -242,7 +286,7 @@ func TestRecovery(t *testing.T) {
 		<-stop
 		return nil
 	}
-	a := NewAgent(start, func(_ int) {}, 10, time.Millisecond)
+	a := NewAgent(Proxy{start, func(_ int) {}}, testRetry)
 	go a.Run(stop)
 	a.ScheduleConfigUpdate(desired)
 

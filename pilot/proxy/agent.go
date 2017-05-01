@@ -15,6 +15,7 @@
 package proxy
 
 import (
+	"errors"
 	"reflect"
 	"time"
 
@@ -67,30 +68,34 @@ type Agent interface {
 	Run(stop <-chan struct{})
 }
 
-const (
-	defaultDelay = 1 * time.Hour
+var (
+	errAbort = errors.New("epoch aborted")
+
+	// DefaultRetry configuration for proxies
+	DefaultRetry = Retry{
+		defaultDelay:    1 * time.Hour,
+		maxRetries:      10,
+		initialInterval: 200 * time.Millisecond,
+	}
 )
 
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
-func NewAgent(run func(interface{}, int) error, cleanup func(int),
-	maxRetries int, initialInterval time.Duration) Agent {
+func NewAgent(proxy Proxy, retry Retry) Agent {
+	retry.delay = retry.defaultDelay
+	retry.budget = retry.maxRetries
+
 	return &agent{
-		run:      run,
-		cleanup:  cleanup,
+		proxy:    &proxy,
+		retry:    &retry,
 		epochs:   make(map[int]interface{}),
 		configCh: make(chan interface{}),
 		statusCh: make(chan exitStatus),
-		retry: &retry{
-			delay:           defaultDelay,
-			defaultDelay:    defaultDelay,
-			budget:          maxRetries,
-			maxRetries:      maxRetries,
-			initialInterval: initialInterval,
-		},
+		abortCh:  make(chan error),
 	}
 }
 
-type retry struct {
+// Retry configuration for the proxy
+type Retry struct {
 	// delay between reconciliation adjusted by retries
 	delay time.Duration
 
@@ -109,15 +114,21 @@ type retry struct {
 	initialInterval time.Duration
 }
 
-type agent struct {
-	// proxy start-up command
-	run func(interface{}, int) error
+// Proxy defines command interface for a proxy
+type Proxy struct {
+	// Run command for a config, epoch and abort channel
+	Run func(interface{}, int, <-chan error) error
 
-	// proxy cleanup command
-	cleanup func(int)
+	// Cleanup command
+	Cleanup func(int)
+}
+
+type agent struct {
+	// proxy commands
+	proxy *Proxy
 
 	// retry configuration
-	retry *retry
+	retry *Retry
 
 	// desired configuration state
 	desiredConfig interface{}
@@ -133,6 +144,9 @@ type agent struct {
 
 	// channel for proxy exit notifications
 	statusCh chan exitStatus
+
+	// channel for aborting running instances
+	abortCh chan error
 }
 
 type exitStatus struct {
@@ -167,14 +181,22 @@ func (a *agent) Run(stop <-chan struct{}) {
 			}
 
 		case status := <-a.statusCh:
-			if status.err != nil {
-				glog.V(2).Infof("Epoch %d terminated with an error: %v", status.epoch, status.err)
+			if status.err == errAbort {
+				glog.V(2).Infof("Epoch %d aborted", status.epoch)
+			} else if status.err != nil {
+				glog.Warningf("Epoch %d terminated with an error: %v", status.epoch, status.err)
+
+				// NOTE: due to Envoy hot restart race conditions, an error from the
+				// process requires aggressive non-graceful restarts by killing all
+				// existing proxy instances
+				glog.Warningf("Aborting all epochs")
+				a.abortCh <- errAbort
 			} else {
 				glog.V(2).Infof("Epoch %d exited normally", status.epoch)
 			}
 
 			// cleanup for the epoch
-			a.cleanup(status.epoch)
+			a.proxy.Cleanup(status.epoch)
 
 			// delete epoch record and update current config
 			delete(a.epochs, status.epoch)
@@ -186,9 +208,10 @@ func (a *agent) Run(stop <-chan struct{}) {
 					a.retry.delay = a.retry.initialInterval * (1 << uint(a.retry.maxRetries-a.retry.budget))
 					a.retry.budget = a.retry.budget - 1
 				} else {
-					glog.Warningf("Permanent error: budget exhausted trying to fulfill the desired configuration")
-					// TODO: update proxy agent monitoring status about this error
 					a.retry.delay = a.retry.defaultDelay
+
+					// NOTE: crash the agent since all attempts to start the config have failed
+					// glog.Fatal("Permanent error: budget exhausted trying to fulfill the desired configuration")
 				}
 			}
 
@@ -198,7 +221,7 @@ func (a *agent) Run(stop <-chan struct{}) {
 
 		case _, more := <-stop:
 			if !more {
-				// TODO: Proxy instances continue running, should be SIGed
+				a.abortCh <- errAbort
 				glog.V(2).Info("Agent terminating")
 				return
 			}
@@ -223,7 +246,7 @@ func (a *agent) reconcile() {
 
 // waitForExit runs the start-up command and waits for it to finish
 func (a *agent) waitForExit(config interface{}, epoch int) {
-	err := a.run(config, epoch)
+	err := a.proxy.Run(config, epoch, a.abortCh)
 	a.statusCh <- exitStatus{epoch: epoch, err: err}
 }
 

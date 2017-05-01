@@ -46,7 +46,7 @@ type ingressWatcher struct {
 
 // NewIngressWatcher creates a new ingress watcher instance with an agent
 func NewIngressWatcher(mesh *proxyconfig.ProxyMeshConfig, secrets model.SecretRegistry) (Watcher, error) {
-	agent := proxy.NewAgent(runEnvoy(mesh, ingressNode), cleanupEnvoy(mesh), 10, 100*time.Millisecond)
+	agent := proxy.NewAgent(runEnvoy(mesh, ingressNode), proxy.DefaultRetry)
 	out := &ingressWatcher{
 		agent:   agent,
 		secrets: secrets,

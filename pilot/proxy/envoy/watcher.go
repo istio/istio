@@ -45,8 +45,7 @@ func NewWatcher(ctl model.Controller, context *proxy.Context) (Watcher, error) {
 
 	// Use proxy node IP as the node name
 	// This parameter is used as the value for "service-node"
-	agent := proxy.NewAgent(runEnvoy(context.MeshConfig, context.IPAddress),
-		cleanupEnvoy(context.MeshConfig), 10, 100*time.Millisecond)
+	agent := proxy.NewAgent(runEnvoy(context.MeshConfig, context.IPAddress), proxy.DefaultRetry)
 
 	out := &watcher{
 		agent:   agent,
@@ -115,51 +114,67 @@ func configFile(config string, epoch int) string {
 	return fmt.Sprintf(EpochFileTemplate, config, epoch)
 }
 
-func runEnvoy(mesh *proxyconfig.ProxyMeshConfig, node string) func(interface{}, int) error {
-	return func(config interface{}, epoch int) error {
-		envoyConfig, ok := config.(*Config)
-		if !ok {
-			return fmt.Errorf("Unexpected config type: %#v", config)
-		}
+func runEnvoy(mesh *proxyconfig.ProxyMeshConfig, node string) proxy.Proxy {
+	return proxy.Proxy{
+		Run: func(config interface{}, epoch int, abort <-chan error) error {
+			envoyConfig, ok := config.(*Config)
+			if !ok {
+				return fmt.Errorf("Unexpected config type: %#v", config)
+			}
 
-		// attempt to write file
-		fname := configFile(ConfigPath, epoch)
-		if err := envoyConfig.WriteFile(fname); err != nil {
-			return err
-		}
+			// attempt to write file
+			fname := configFile(ConfigPath, epoch)
+			if err := envoyConfig.WriteFile(fname); err != nil {
+				return err
+			}
 
-		// spin up a new Envoy process
-		args := []string{"-c", fname,
-			"--restart-epoch", fmt.Sprint(epoch),
-			"--drain-time-s", fmt.Sprint(int(convertDuration(mesh.DrainDuration) / time.Second)),
-			"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(mesh.ParentShutdownDuration) / time.Second)),
-			"--service-cluster", mesh.IstioServiceCluster,
-			"--service-node", node,
-		}
+			// spin up a new Envoy process
+			args := []string{"-c", fname,
+				"--restart-epoch", fmt.Sprint(epoch),
+				"--drain-time-s", fmt.Sprint(int(convertDuration(mesh.DrainDuration) / time.Second)),
+				"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(mesh.ParentShutdownDuration) / time.Second)),
+				"--service-cluster", mesh.IstioServiceCluster,
+				"--service-node", node,
+			}
 
-		// inject tracing flag for higher levels
-		if glog.V(4) {
-			args = append(args, "-l", "trace")
-		} else if glog.V(3) {
-			args = append(args, "-l", "debug")
-		}
+			// inject tracing flag for higher levels
+			if glog.V(4) {
+				args = append(args, "-l", "trace")
+			} else if glog.V(3) {
+				args = append(args, "-l", "debug")
+			}
 
-		glog.V(2).Infof("Envoy command: %v", args)
+			glog.V(2).Infof("Envoy command: %v", args)
 
-		/* #nosec */
-		cmd := exec.Command(BinaryPath, args...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+			/* #nosec */
+			cmd := exec.Command(BinaryPath, args...)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Start(); err != nil {
+				return err
+			}
 
-		return cmd.Run()
-	}
-}
+			done := make(chan error, 1)
+			go func() {
+				done <- cmd.Wait()
+			}()
 
-func cleanupEnvoy(mesh *proxyconfig.ProxyMeshConfig) func(int) {
-	return func(epoch int) {
-		path := configFile(ConfigPath, epoch)
-		if err := os.Remove(path); err != nil {
-			glog.Warningf("Failed to delete config file %s for %d, %v", path, epoch, err)
-		}
+			select {
+			case err := <-abort:
+				glog.Warningf("Aborting epoch %d", epoch)
+				if errKill := cmd.Process.Kill(); err != nil {
+					glog.Warningf("killing epoch %d caused an error %v", epoch, errKill)
+				}
+				return err
+			case err := <-done:
+				return err
+			}
+		},
+		Cleanup: func(epoch int) {
+			path := configFile(ConfigPath, epoch)
+			if err := os.Remove(path); err != nil {
+				glog.Warningf("Failed to delete config file %s for %d, %v", path, epoch, err)
+			}
+		},
 	}
 }

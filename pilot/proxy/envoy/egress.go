@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/golang/glog"
 
@@ -42,7 +41,7 @@ func NewEgressWatcher(mesh *config.ProxyMeshConfig) (Watcher, error) {
 	if mesh.EgressProxyAddress == "" {
 		return nil, errors.New("egress proxy requires address configuration")
 	}
-	agent := proxy.NewAgent(runEnvoy(mesh, egressNode), cleanupEnvoy(mesh), 10, 100*time.Millisecond)
+	agent := proxy.NewAgent(runEnvoy(mesh, egressNode), proxy.DefaultRetry)
 	return &egressWatcher{
 		agent: agent,
 		mesh:  mesh,
