@@ -337,8 +337,7 @@ func newTestConfig() (*testConfig, error) {
 func TestMain(m *testing.M) {
 	flag.Parse()
 	check(framework.InitGlog(), "cannot setup glog")
-	var err error
-	tc, err = newTestConfig()
+	tc, err := newTestConfig()
 	check(err, "could not create TestConfig")
 	tc.Cleanup.RegisterCleanable(tc)
 	os.Exit(tc.RunTest(m))

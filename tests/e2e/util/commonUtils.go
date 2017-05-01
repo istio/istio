@@ -133,7 +133,7 @@ func CopyFile(src, dst string) error {
 // GetResourcePath give "path from WORKSPACE", return absolute path at runtime
 func GetResourcePath(p string) string {
 	if dir, exists := os.LookupEnv(testSrcDir); exists {
-		return filepath.Join(dir, filepath.Join("workspace", p))
+		return filepath.Join(dir, "workspace", p)
 	}
 	binPath, err := os.Executable()
 	if err != nil {

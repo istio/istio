@@ -84,6 +84,7 @@ func newKubeInfo(tmpDir, runID string) *KubeInfo {
 		MixerImage:       fmt.Sprintf("%s/mixer:%s", *mixerHub, *mixerTag),
 		ManagerImage:     fmt.Sprintf("%s/manager:%s", *managerHub, *managerTag),
 		CaImage:          fmt.Sprintf("%s/ca:%s", *caHub, *caTag),
+		// Proxy and Manager are released together and share the same hub and tag.
 		ProxyImage:       fmt.Sprintf("%s/proxy:%s", *managerHub, *managerTag),
 		Verbosity:        verbosity,
 		TmpDir:           tmpDir,
