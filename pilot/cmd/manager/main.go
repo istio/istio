@@ -137,6 +137,7 @@ var (
 		Use:   "sidecar",
 		Short: "Envoy sidecar agent",
 		RunE: func(c *cobra.Command, args []string) (err error) {
+			mesh.IngressControllerMode = proxyconfig.ProxyMeshConfig_OFF
 			controller := kube.NewController(client, mesh, flags.controllerOptions)
 			context := &proxy.Context{
 				Discovery:        controller,
