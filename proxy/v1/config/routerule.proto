@@ -1,0 +1,283 @@
+// Copyright 2017 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
+syntax = "proto3";
+
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+
+package istio.proxy.v1alpha.config;
+option go_package = "config";
+
+import "httpfault.proto";
+import "l4fault.proto";
+
+// Glossary & concepts
+//
+// Service is a unit of an application with a unique name that other services
+// use to refer to the functionality being called. Service instances are
+// pods/VMs/containers that implement the service.
+//
+// Service versions - In a continuous deployment scenario, for a given service,
+// there can be multiple sets of instances running potentially different
+// variants of the application binary. These variants are not necessarily
+// different API versions. They could be iterative changes to the same service,
+// deployed in different environments (prod, staging, dev, etc.). Common
+// scenarios where this occurs include A/B testing, canary rollouts, etc. The
+// choice of a particular version can be decided based on various criterion
+// (headers, url, etc.) and/or by weights assigned to each version.  Each
+// service has a default version consisting of all its instances.
+//
+// Source - downstream client (browser or another service) calling the
+// Envoy proxy/sidecar (typically to reach another service).
+//
+// Destination - The remote upstream service to which the Envoy proxy/sidecar is
+// talking to, on behalf of the source service. There can be one or more
+// service versions for a given service (see the discussion on versions above).
+// Envoy would choose the version based on various routing rules.
+//
+// Applications address only the destination service without knowledge of
+// individual service versions. The actual choice of the version is determined
+// by Envoy, enabling the application code to decouple itself from the
+// evolution of dependent services.
+//
+// Most fields in this configuration are optional and fallback to sensible
+// defaults. Mandatory fields contain the word REQUIRED in the
+// description.
+//
+// Route rule provides a custom routing policy based on the source and
+// destination service versions and connection/request metadata.  The rule
+// must provide a set of conditions for each protocol (TCP, UDP, HTTP) that
+// the destination service exposes on its ports.
+//
+// The rule applies only to the ports on the destination service for which
+// it provides protocol-specific match condition, e.g. if the rule does not
+// specify TCP condition, the rule does not apply to TCP traffic towards
+// the destination service.
+//
+// For example, a simple rule to send 100% of incoming traffic for a
+// "reviews" service to version "v1" can be specified as follows:
+//
+//     destination: reviews.default.svc.cluster.local
+//     route:
+//     - tags:
+//         version: v1
+//       weight: 100
+//
+message RouteRule {
+  // REQUIRED: Destination uniquely identifies the destination associated
+  // with this routing rule.  This field is applicable for hostname-based
+  // resolution for HTTP traffic as well as IP-based resolution for
+  // TCP/UDP traffic. The value MUST BE a fully-qualified domain name,
+  // e.g. "my-service.default.svc.cluster.local".
+  string destination = 1;
+
+  // RECOMMENDED. Precedence is used to disambiguate the order of
+  // application of rules for the same destination service. A higher number
+  // takes priority. If not specified, the value is assumed to be 0.  The
+  // order of application for rules with the same precedence is
+  // unspecified.
+  int32 precedence = 2;
+
+  // Match condtions to be satisfied for the route rule to be
+  // activated. If match is omitted, the route rule applies only to HTTP
+  // traffic.
+  MatchCondition match = 3;
+
+  // REQUIRED. Each routing rule is associated with one or more service
+  // version destinations (see glossary in beginning of document). Weights
+  // associated with the service version determine the proportion of
+  // traffic it receives.
+  repeated DestinationWeight route = 4;
+
+  // Timeout policy for HTTP requests.
+  HTTPTimeout http_req_timeout = 5;
+
+  // Retry policy for HTTP requests.
+  HTTPRetry http_req_retries = 6;
+
+  //Fault injection policy to apply on HTTP traffic
+  HTTPFaultInjection http_fault = 7;
+
+  //(-- L4 fault injection policy applies to Tcp/Udp (not HTTP) traffic --)
+  L4FaultInjection l4_fault = 8 ;
+}
+
+// Match condition specifies a set of criterion to be met in order for the
+// route rule to be applied to the connection or HTTP request.  The
+// condition provides distinct set of conditions for each protocol with the
+// intention that conditions apply only to the service ports that match the
+// protocol. For example, the following route rule restricts the rule to
+// match only requests originating from "reviews:v2", accessing ratings
+// service where the URL path starts with /ratings/v2/ and the request
+// contains a "cookie" with value "user=jason",
+//
+//     destination: ratings.default.svc.cluster.local
+//     match:
+//       source: reviews.default.svc.cluster.local
+//       sourceTags:
+//         version: v2
+//       httpHeaders:
+//         cookie:
+//           regex: "^(.*?;)?(user=jason)(;.*)?$"
+//         uri:
+//           prefix: "/ratings/v2/"
+//
+// MatchCondition CANNOT BE empty. Atleast one of source, source_tags or
+// http_headers must be specified.
+message MatchCondition {
+  // Identifies the service initiating a connection or a request by its
+  // name. If specified, name MUST BE a fully qualified domain name such
+  // as foo.bar.com
+  string source = 1;
+
+  // One or more tags that uniquely identify the source service version. In
+  // Kubernetes, tags correspond to the labels associated with pods.
+  map<string, string> source_tags = 2;
+
+  // (-- Set of layer 4 match conditions based on the IP ranges --)
+  L4MatchAttributes tcp = 3 ;
+
+  // (-- Set of layer 4 match conditions based on the IP ranges --)
+  L4MatchAttributes udp = 4 ;
+
+  // Set of HTTP match conditions based on HTTP/1.1, HTTP/2, GRPC request
+  // metadata, such as "uri", "scheme", "authority".  The header keys are
+  // case-insensitive. *Note:* The key 'uri' carries a special meaning. It
+  // can be used to perform URL matches. For URL matches ('uri' header),
+  // only prefix and exact matches are supported. For other HTTP headers,
+  // exact, prefix and ECMA style regular expression matches are supported.
+  map<string, StringMatch> http_headers = 5;
+}
+
+// Each routing rule is associated with one or more service versions (see
+// glossary in beginning of document). Weights associated with the version
+// determine the proportion of traffic it receives. For example, the
+// following rule will route 25% of traffic for the "reviews" service to
+// instances with the "v2" tag and the remaining traffic (i.e., 75%) to
+// "v1".
+//
+//     destination: reviews.default.svc.cluster.local
+//     route:
+//     - tags:
+//         version: v2
+//       weight: 25
+//     - tags:
+//         version: v1
+//       weight: 75
+//
+message DestinationWeight {
+  // Destination uniquely identifies the destination service. If not
+  // specified, the value is inherited from the parent route rule. Value
+  // must be in fully qualified domain name format (e.g.,
+  // "my-service.default.svc.cluster.local").
+  string destination = 1;
+
+  // Service version identifier for the destination service.
+  // (-- N.B. The map is used instead of pstruct due to lack of serialization support
+  // in golang protobuf library (see https://github.com/golang/protobuf/pull/208) --)
+  map<string, string> tags = 2;
+
+  // REQUIRED. The proportion of traffic to be forwarded to the service
+  // version. (0-100). Sum of weights across destinations SHOULD BE ==
+  // 100. If there is only destination in a rule, the weight value is
+  // assumed to be 100.
+  int32 weight = 3;
+}
+
+// (-- L4 connection match attributes. Note that L4 connection matching
+// support is incomplete. --)
+message L4MatchAttributes {
+  // IPv4 or IPv6 ip address with optional subnet. E.g., a.b.c.d/xx form or
+  // just a.b.c.d
+  repeated string source_subnet = 1;
+
+  // IPv4 or IPv6 ip address of destination with optional subnet.
+  // E.g., a.b.c.d/xx form or just a.b.c.d. This is only valid when the destination
+  // service has several IPs and the application explicitly specifies a particular IP.
+  repeated string destination_subnet = 2;
+}
+
+// Describes how to match a given string in HTTP headers. Match is case-sensitive.
+message StringMatch {
+  oneof match_type {
+    // exact string match
+    string exact = 1;
+    // prefix-based match
+    string prefix = 2;
+    // ECMAscript style regex-based match
+    string regex = 3;
+  }
+}
+
+// Describes HTTP request timeout. For example, the following rule sets a
+// 10 second timeout for calls to the ratings:v1 service
+//
+//     destination: ratings.default.svc.cluster.local
+//     route:
+//     - tags:
+//         version: v1
+//       httpReqTimeout:
+//         simpleTimeout:
+//           timeout: 10s
+//
+message HTTPTimeout {
+  message SimpleTimeoutPolicy {
+    // REQUIRED. Timeout for a HTTP request. Includes retries as well.  Default
+    // 15s. format: 1h/1m/1s/1ms. MUST BE >=1ms. It is possible to control
+    // timeout per request by supplying the timeout value via
+    // x-envoy-upstream-rq-timeout-ms HTTP header.
+    google.protobuf.Duration timeout = 1;
+    // (-- Downstream service could specify timeout via Http header to 
+    // Envoy, if Envoy supports such a feature. --)
+    string override_header_name = 2 ;
+  }
+  oneof timeout_policy {
+    SimpleTimeoutPolicy simple_timeout = 1;
+    //(-- For proxies that support custom timeout policies --)
+    google.protobuf.Any custom = 2 ;
+  }
+}
+
+// Describes the retry policy to use when a HTTP request fails. For
+// example, the following rule sets the maximum number of retries to 3 when
+// calling ratings:v1 service, with a 2s timeout per retry attempt.
+//
+//     destination: ratings.default.svc.cluster.local
+//     route:
+//     - tags:
+//         version: v1
+//       httpReqRetries:
+//         simpleRetry:
+//           attempts: 3
+//           perTryTimeout: 2s
+//
+message HTTPRetry {
+  message SimpleRetryPolicy {
+    // REQUIRED. Number of retries for a given request. The interval
+    // between retries will be determined automatically (25ms+). Actual
+    // number of retries attempted depends on the httpReqTimeout.
+    int32 attempts = 1;
+    // Timeout per retry attempt for a given request. format: 1h/1m/1s/1ms. MUST BE >=1ms.
+    google.protobuf.Duration per_try_timeout = 2;
+    // (-- Downstream Service could specify retry attempts via Http header to
+    // Envoy, if Envoy supports such a feature. --)
+    string override_header_name = 3 ;
+  }
+  oneof retry_policy {
+    SimpleRetryPolicy simple_retry = 1;
+    // (-- For proxies that support custom retry policies --)
+    google.protobuf.Any custom = 2 ;
+  }
+}

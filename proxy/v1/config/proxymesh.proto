@@ -1,0 +1,110 @@
+// Copyright 2017 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
+syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+
+package istio.proxy.v1alpha.config;
+option go_package = "config";
+
+// ProxyMeshConfig defines variables shared by all Envoy instances in the
+// Istio service mesh.
+message ProxyMeshConfig {
+  // Address of the egress envoy service (e.g. _istio-egress:80_).
+  string egress_proxy_address = 1;
+
+  // Address of the discovery service exposing SDS, CDS, RDS (e.g. _istio-manager:8080_).
+  string discovery_address = 2;
+
+  // Address of the mixer service (e.g. _istio-mixer:9090_).
+  string mixer_address = 3;
+
+  // Port on which egress envoy should listen for incoming connections from
+  // other services.
+  int32 proxy_listen_port = 4;
+
+  // Port on which egress envoy should listen for administrative commands.
+  int32 proxy_admin_port = 5;
+
+  // The time in seconds that Envoy will drain connections during a hot
+  // restart. MUST be >=1s (e.g., _1s/1m/1h_)
+  google.protobuf.Duration drain_duration = 6;
+
+  // The time in seconds that Envoy will wait before shutting down the
+  // parent process during a hot restart. MUST be >=1s (e.g., _1s/1m/1h_).
+  // MUST BE greater than _drain_duration_ parameter.
+  google.protobuf.Duration parent_shutdown_duration = 7;
+
+  // IstioServiceCluster defines the name for the service_cluster that is
+  // shared by all Envoy instances. Since Istio does not assign a local
+  // service/service version to each Envoy instance, the name is same for all
+  // of them. This setting corresponds to _--service-cluster_ flag in Envoy.
+  // The value for _--service-node_  is used by Envoy to identify its set
+  // of local instances to RDS for source-based routing. For example, if Envoy
+  // sends its IP address, the RDS can compute routes that are relative to the
+  // service instances located at that IP address.
+  string istio_service_cluster = 8;
+
+  // Polling interval for service discovery. (MUST BE >=1ms)
+  google.protobuf.Duration discovery_refresh_delay = 9;
+
+  // Connection timeout used by Envoy. (MUST BE >=1ms)
+  google.protobuf.Duration connect_timeout = 10;
+
+  // Class of ingress resources to be processed by Istio ingress
+  // controller.  This corresponds to the value of
+  // "kubernetes.io/ingress.class" annotation.
+  string ingress_class = 20;
+
+  // Name of the kubernetes service used for the istio ingress controller.
+  string ingress_service = 21;
+
+  enum IngressControllerMode {
+    // Disables Istio ingress controller.
+    OFF = 0;
+
+    // Istio ingress controller will act on ingress resources that do not
+    // contain any annotation or whose annotations match the value
+    // specified in the ingress_class parameter described earlier. Use this
+    // mode if Istio ingress controller will be the default ingress
+    // controller for the entire kubernetes cluster.
+    DEFAULT = 1;
+
+    // Istio ingress controller will only act on ingress resources whose
+    // annotations match the value specified in the ingress_class parameter
+    // described earlier. Use this mode if Istio ingress controller will be
+    // a secondary ingress controller (e.g., in addition to a
+    // cloud-provided ingress controller).
+    STRICT = 2;
+  }
+
+  // Defines whether to use Istio ingress controller for annotated or all ingress resources.
+  IngressControllerMode ingress_controller_mode = 22;
+
+  enum AuthPolicy {
+    // Do not encrypt Envoy to Envoy traffic.
+    NONE = 0;
+
+    // Envoy to Envoy traffic is wrapped into mutual TLS connections.
+    MUTUAL_TLS = 1;
+  }
+
+  // Authentication policy defines the global switch to control authentication
+  // for Envoy-to-Envoy communication.
+  AuthPolicy auth_policy = 100;
+
+  // Path to the secrets used by the authentication policy.
+  string auth_certs_path = 101;
+}

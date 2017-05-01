@@ -1,0 +1,194 @@
+// Copyright 2017 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+syntax = "proto3";
+
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+
+package istio.proxy.v1alpha.config;
+option go_package = "config";
+
+// DestinationPolicy defines client/caller-side policies that determine how
+// to handle traffic bound to a particular destination service. The policy
+// specifies configuration for load balancing and circuit breakers.  For
+// example, a simple load balancing policy for the reviews service would
+// look as follows:
+//
+//     destination: reviews.default.svc.cluster.local
+//     policy:
+//     - loadBalancing: RANDOM
+//       simpleCb:
+//         maxConnections: 1000
+//
+// Policies are applicable per individual service versions. ONLY
+// ONE policy can be defined per service version. Policy CANNOT be empty.
+message DestinationPolicy {
+  // REQUIRED. Service name for which the service version is defined. The
+  // value MUST BE a fully-qualified domain name,
+  // e.g. _my-service.default.svc.cluster.local_.
+  string destination = 1;
+
+  // REQUIRED. List of policies, one per service version.
+  repeated DestinationVersionPolicy policy = 2;
+}
+
+// A destination policy can be restricted to a particular version of a
+// service or applied to all versions. The tags field in the
+// DestinationVersionPolicy allow restricting the scope of a
+// DestinationPolicy. For example, the following load balancing policy
+// applies to version v1 of the reviews service running in the prod
+// environment:
+//
+//     destination: reviews.default.svc.cluster.local
+//     policy:
+//     - tags:
+//         env: prod
+//         version: v1
+//       loadBalancing: RANDOM
+//
+// If tags are omitted, the policy applies for all versions of the
+// service. Policy CANNOT BE empty.
+// *Note:* Destination policies will be applied only if the corresponding
+// tagged instances are explicity routed to. In other words, for every
+// destination policy defined, atleast one route rule must refer to the
+// service version indicated in the destination policy.
+message DestinationVersionPolicy {
+  // Optional set of tags that identify a particular version of the
+  // destination service. If omitted, the policy will apply to all versions
+  // of the service. (-- N.B. The map is used instead of
+  // pstruct due to lack of serialization support in golang protobuf
+  // library (see https://github.com/golang/protobuf/pull/208) --)
+  map<string, string> tags = 1;
+
+  // Load balancing policy.
+  LoadBalancing load_balancing = 2;
+
+  // Circuit breaker policy.
+  CircuitBreaker circuit_breaker = 3;
+
+  //(-- Other custom policy implementations --)
+  google.protobuf.Any custom = 100 ;
+}
+
+// Load balancing policy to use when forwarding traffic. These policies
+// directly correlate to [load balancer
+// types](https://lyft.github.io/envoy/docs/intro/arch_overview/load_balancing.html)
+// supported by Envoy. Example,
+//
+//     destination: reviews.default.svc.cluster.local
+//     policy:
+//     - loadBalancing: RANDOM
+//
+message LoadBalancing {
+  // Load balancing algorithms supported by Envoy proxy.
+  enum SimpleLBPolicy {
+
+    // Simple round robin policy.
+    ROUND_ROBIN = 0;
+
+    // The least request load balancer uses an O(1) algorithm which selects
+    // two random healthy hosts and picks the host which has fewer active
+    // requests.
+    LEAST_CONN = 1;
+
+    // The random load balancer selects a random healthy host. The random
+    // load balancer generally performs better than round robin if no health
+    // checking policy is configured.
+    RANDOM = 2;
+  }
+  oneof lb_policy {
+    // Load balancing policy name (as defined in SimpleLBPolicy below)
+    SimpleLBPolicy name = 1;
+    //(-- Custom LB policy implementations --)
+    google.protobuf.Any custom = 2 ;
+  }
+}
+
+// Circuit breaker configuration for Envoy. The circuit breaker
+// implementation is fine-grained in that it tracks the success/failure
+// rates of individual hosts in the load balancing pool. Hosts that
+// continually return errors for API calls are ejected from the pool for a
+// pre-defined period of time. See Envoy's [outlier
+// detection](https://lyft.github.io/envoy/docs/intro/arch_overview/outlier.html)
+// for more details.
+message CircuitBreaker {
+  // Parameters to tune Envoy's circuit breaker configuration. A simple
+  // circuit breaker can be set based on a number of criteria such as
+  // connection and request limits. For example, the following destination
+  // policy sets a limit of 100 connections to "reviews" service version
+  // "v1" backends. 
+  //
+  //     destination: reviews.default.svc.cluster.local
+  //     policy:
+  //     - tags:
+  //         version: v1
+  //       circuitBreaker:
+  //         simpleCb:
+  //           maxConnections: 100
+  //
+  // The following destination policy sets a limit of 100 connections and
+  // 1000 concurrent requests, with no more than 10 req/connection to
+  // "reviews" service version "v1" backends. In addition, it configures
+  // hosts to be scanned every 5 mins, such that any host that fails 7
+  // consecutive times with 5XX error code will be ejected for 15 minutes.
+  //
+  //     destination: reviews.default.svc.cluster.local
+  //     policy:
+  //     - tags:
+  //         version: v1
+  //       circuitBreaker:
+  //         simpleCb:
+  //           maxConnections: 100
+  //           httpMaxRequests: 1000
+  //           httpMaxRequestsPerConnection: 10
+  //           httpConsecutiveErrors: 7
+  //           sleepWindow: 15m
+  //           httpDetectionInterval: 5m
+  //           
+  message SimpleCircuitBreakerPolicy {
+    // Maximum number of connections to a backend.
+    int32 max_connections = 1;
+
+    // Maximum number of pending requests to a backend. Default 1024
+    int32 http_max_pending_requests = 2;
+
+    // Maximum number of requests to a backend. Default 1024
+    int32 http_max_requests = 3;
+
+    // Minimum time the circuit will be closed. format: 1h/1m/1s/1ms. MUST
+    // BE >=1ms. Default is 30s.
+    google.protobuf.Duration sleep_window = 4;
+
+    // Number of 5XX errors before circuit is opened. Defaults to 5.
+    int32 http_consecutive_errors = 5;
+
+    // Time interval between ejection sweep analysis. format:
+    // 1h/1m/1s/1ms. MUST BE >=1ms. Default is 10s.
+    google.protobuf.Duration http_detection_interval = 6;
+
+    // Maximum number of requests per connection to a backend. Setting this
+    // parameter to 1 disables keep alive.
+    int32 http_max_requests_per_connection = 7;
+
+    // Maximum % of hosts in the load balancing pool for the destination
+    // service that can be ejected by the circuit breaker. Defaults to
+    // 10%.
+    int32 http_max_ejection_percent = 8;
+  }
+  oneof cb_policy {
+    SimpleCircuitBreakerPolicy simple_cb = 1;
+    //(-- For proxies that support custom circuit breaker policies. --)
+    google.protobuf.Any custom = 2 ;
+  }
+}
