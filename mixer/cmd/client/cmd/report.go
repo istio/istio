@@ -28,7 +28,12 @@ import (
 func reportCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "report",
-		Short: "Invokes Mixer's Report API.",
+		Short: "Invokes Mixer's Report API to generate telemetry.",
+		Long: "The Report method is used to produce telemetry. Mixer\n" +
+			"expects a set of attributes as input, which it uses, along with\n" +
+			"its configuration, to determine which adapters to invoke and with\n" +
+			"which parameters in order to output the telemetry.",
+
 		Run: func(cmd *cobra.Command, args []string) {
 			report(rootArgs, printf, fatalf)
 		}}
