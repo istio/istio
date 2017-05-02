@@ -80,13 +80,6 @@ function setup_mixer(){
     pfPID2=$!
     export ISTIO_MIXER_METRICS=http://localhost:9095
     export ISTIO_MIXER_CONFIGAPI=http://localhost:9094
-
-    #${K8CLI} -n ${NAMESPACE} patch svc istio-mixer -p '{"spec":{"type":"LoadBalancer"}}'
-    #MIXER_HOST=$(${K8CLI} -n ${NAMESPACE} get pods -l istio=mixer -o jsonpath='{.items[0].status.hostIP}')
-    #METRICS_PORT=$(${K8CLI} -n ${NAMESPACE} get svc istio-mixer -o jsonpath='{.spec.ports[2].nodePort}')
-    #CONFIG_PORT=$(${K8CLI} -n ${NAMESPACE} get svc istio-mixer -o jsonpath='{.spec.ports[1].nodePort}')
-    #export ISTIO_MIXER_METRICS=http://${MIXER_HOST}:${METRICS_PORT}
-    #export ISTIO_MIXER_CONFIGAPI=http://${MIXER_HOST}:${CONFIG_PORT}
 }
 
 
@@ -145,31 +138,4 @@ function dump_debug() {
     $K8CLI -n $NAMESPACE get cm/mixer-config -o yaml
     MIXER_PODNAME=$($K8CLI -n $NAMESPACE get pods | grep istio-mixer | awk '{print $1}')
     $K8CLI -n $NAMESPACE logs $MIXER_PODNAME
-}
-
-function init_kubeapi() {
-  SECRET_ID=$(kubectl get secrets --no-headers | grep default | grep token | cut -f1 -d ' ')
-  export TOKEN=$(kubectl get secrets ${SECRET_ID} -o jsonpath='{.data.token}')
-  #export APISERVER="http:$(kubectl cluster-info | head -1 | cut -d ':' -f 2)"
-  export APISERVER=$(kubectl cluster-info | head -1 | awk '{print $NF}')
-  _call_kubeapi "/api"
-}
-
-function call_kubeapi() {
-  uri=$1
-  shift
-  service_name=$1
-  shift
-  service_port=${1:-80}
-
-  _call_kubeapi "api/v1/namespaces/${NAMESPACE}/services/${service_name}:${service_port}/${uri}"
-}
-
-function _call_kubeapi() {
-  URI=$1
-  shift
-  which curl
-  curl --version
-  set -x
-  curl -g ${APISERVER}/${URI} --header "Authorization: Bearer ${TOKEN}" --insecure
 }

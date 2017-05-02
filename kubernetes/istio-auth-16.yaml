@@ -8,7 +8,6 @@ metadata:
   labels:
     istio: mixer
 spec:
-  type: NodePort
   ports:
   - name: tcp
     port: 9091
