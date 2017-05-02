@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 Istio Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,10 @@ package framework
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/golang/glog"
 
@@ -26,12 +28,12 @@ import (
 )
 
 const (
-	yamlSuffix       = ".yaml"
-	yamlTmplDir      = "tests/e2e/framework/testdata/"
-	mixerHubEnvVar   = "MIXER_HUB"
-	mixerTagEnvVar   = "MIXER_TAG"
-	managerHubEnvVar = "MANAGER_HUB"
-	managerTagEnvVar = "MANAGER_TAG"
+	yamlSuffix         = ".yaml"
+	mixerHubEnvVar     = "MIXER_HUB"
+	mixerTagEnvVar     = "MIXER_TAG"
+	managerHubEnvVar   = "MANAGER_HUB"
+	managerTagEnvVar   = "MANAGER_TAG"
+	istioInstallFolder = "kubernetes/istio-install"
 )
 
 var (
@@ -43,6 +45,12 @@ var (
 	caHub      = flag.String("ca_hub", "", "Ca hub")
 	caTag      = flag.String("ca_tag", "", "Ca tag")
 	verbose    = flag.Bool("verbose", false, "Debug level noise from proxies")
+
+	modules = []string{
+		"manager",
+		"mixer",
+		"ingress",
+	}
 )
 
 // KubeInfo gathers information for kubectl
@@ -111,14 +119,18 @@ func (k *KubeInfo) Setup() error {
 		return err
 	}
 
-	if err := k.deployApps(); err != nil {
-		glog.Error("Failed to deploy apps")
+	if in, err := util.GetIngress(k.Namespace); err == nil {
+		k.Ingress = in
+	} else {
 		return err
 	}
 
-	if i, err := util.GetIngress(k.Namespace); err == nil {
-		k.Ingress = i
-	} else {
+	if err := util.SetupIstioctl(k.Namespace); err != nil {
+		return err
+	}
+
+	if err := k.deployApps(); err != nil {
+		glog.Error("Failed to deploy apps")
 		return err
 	}
 
@@ -130,42 +142,66 @@ func (k *KubeInfo) Setup() error {
 func (k *KubeInfo) Teardown() error {
 	if k.namespaceCreated {
 		if err := util.DeleteNamespace(k.Namespace); err != nil {
+			glog.Error("Failed to delete namespace")
 			return err
 		}
 		k.namespaceCreated = false
 		glog.Infof("Namespace %s deleted", k.Namespace)
 	}
+	err := util.CleanupIstioctl()
+	if err != nil {
+		glog.Error("Failed to kill pfPID")
+	}
+	return err
+}
+
+func (k *KubeInfo) deployIstio() error {
+	for _, module := range modules {
+		if err := k.deployIstioCore(module); err != nil {
+			glog.Infof("Failed to deploy %s", module)
+			return err
+		}
+	}
 	return nil
 }
 
-// deployIstio modules
-func (k *KubeInfo) deployIstio() error {
-
-	if err := k.deployIstioCore("istio-manager.yaml"); err != nil {
-		return err
-	}
-	if err := k.deployIstioCore("istio-mixer.yaml"); err != nil {
-		return err
-	}
-	return k.deployIstioCore("istio-ingress-controller.yaml")
-}
-
-// deployIstioCore deploy istio module from yaml files
-func (k *KubeInfo) deployIstioCore(name string) error {
-	yamlFile, err := util.CreateTempfile(k.yamlDir, name, yamlSuffix)
-	tmpl := util.GetResourcePath(filepath.Join(yamlTmplDir, fmt.Sprintf("%s.tmpl", name)))
-	if err != nil {
-		return err
-	}
-	if err := util.Fill(yamlFile, tmpl, *k); err != nil {
-		glog.Errorf("Failed to fill %s", yamlFile)
+// DeployIstioCore deploy istio module from yaml files
+func (k *KubeInfo) deployIstioCore(module string) error {
+	yamlFile := filepath.Join(k.TmpDir, "yaml", fmt.Sprintf("istio-%s.yaml", module))
+	if err := k.generateIstioCore(yamlFile, module); err != nil {
 		return err
 	}
 	if err := util.KubeApply(k.Namespace, yamlFile); err != nil {
 		glog.Errorf("Kubectl apply %s failed", yamlFile)
 		return err
 	}
+
 	return nil
+}
+
+func (k *KubeInfo) generateIstioCore(dst, module string) error {
+	src := util.GetResourcePath(filepath.Join(istioInstallFolder, fmt.Sprintf("istio-%s.yaml", module)))
+	ori, err := ioutil.ReadFile(src)
+	if err != nil {
+		glog.Errorf("Cannot read original yaml file %s", src)
+		return err
+	}
+	var image []byte
+	switch module {
+	case "manager":
+		image = []byte(fmt.Sprintf("image: %s", k.ManagerImage))
+	case "mixer":
+		image = []byte(fmt.Sprintf("image: %s", k.MixerImage))
+	case "ingress":
+		image = []byte(fmt.Sprintf("image: %s", k.ProxyImage))
+	}
+	r := regexp.MustCompile("image: .*(\\/.*):.*")
+	content := r.ReplaceAllLiteral(ori, image)
+	err = ioutil.WriteFile(dst, content, 0600)
+	if err != nil {
+		glog.Errorf("Cannot write into generated yaml file %s", dst)
+	}
+	return err
 }
 
 // deploysApps deploys all the apps registered

@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 Istio Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/golang/glog"
@@ -57,6 +58,18 @@ func Shell(command string) (string, error) {
 		return "", fmt.Errorf("command failed: %q %v", string(bytes), err)
 	}
 	return string(bytes), nil
+}
+
+// RunBackground starts a background process and return the pid if succeed
+func RunBackground(command string) (string, error) {
+	parts := strings.Split(command, " ")
+	c := exec.Command(parts[0], parts[1:]...) // #nosec
+	err := c.Start()
+	if err != nil {
+		glog.Error("command failed")
+		return "", err
+	}
+	return strconv.Itoa(c.Process.Pid), nil
 }
 
 // Record run command and record output into a file
