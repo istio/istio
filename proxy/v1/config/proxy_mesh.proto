@@ -46,14 +46,20 @@ message ProxyMeshConfig {
   // MUST BE greater than _drain_duration_ parameter.
   google.protobuf.Duration parent_shutdown_duration = 7;
 
-  // IstioServiceCluster defines the name for the service_cluster that is
-  // shared by all Envoy instances. Since Istio does not assign a local
-  // service/service version to each Envoy instance, the name is same for all
-  // of them. This setting corresponds to _--service-cluster_ flag in Envoy.
-  // The value for _--service-node_  is used by Envoy to identify its set
-  // of local instances to RDS for source-based routing. For example, if Envoy
-  // sends its IP address, the RDS can compute routes that are relative to the
-  // service instances located at that IP address.
+  // istio_service_cluster defines the name for the service_cluster that is
+  // shared by all Envoy instances. This setting corresponds to
+  // _--service-cluster_ flag in Envoy.  In a typical Envoy deployment, the
+  // _service-cluster_ flag is used to identify the caller, for
+  // source-based routing scenarios.
+  //
+  //
+  // Since Istio does not assign a local service/service version to each
+  // Envoy instance, the name is same for all of them.  However, the
+  // source/caller's identity (e.g., IP address) is encoded in the
+  // _--service-node_ flag when launching Envoy.  When the RDS service
+  // receives API calls from Envoy, it uses the value of the _service-node_
+  // flag to compute routes that are relative to the service instances
+  // located at that IP address.
   string istio_service_cluster = 8;
 
   // Polling interval for service discovery. (MUST BE >=1ms)
