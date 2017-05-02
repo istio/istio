@@ -36,7 +36,7 @@ Istio is composed of three main components:
 
 Istio currently only supports the Kubernetes
 platform, although we plan support for additional platforms such as
-CloudFoundry, and Mesos in the near future.
+Cloud Foundry, and Mesos in the near future.
 
 You can learn all about Istio by visiting [istio.io](https://istio.io).     
 
@@ -55,9 +55,9 @@ project.
 
 - [istio/manager](https://github.com/istio/manager). This repository
 contains platform-specific code to populate the
-[abstract service model](https://istio.io/docs/concepts/model.html), dynamically reconfigure the proxies
+[abstract service model](https://istio.io/docs/concepts/traffic-management/service-model.html), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
-[routing rules](https://istio.io/docs/reference/rule-dsl.html) into proxy specific configuration.  The
+[routing rules](https://istio.io/docs/reference/routing-and-traffic-management.html) into proxy specific configuration.  The
 [_istioctl_](https://istio.io/docs/reference/istioctl.html) command line utility is also available in
 this repository.
 

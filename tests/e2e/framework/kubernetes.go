@@ -17,10 +17,10 @@ package framework
 import (
 	"flag"
 	"fmt"
-	"regexp"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/golang/glog"
 
@@ -28,12 +28,11 @@ import (
 )
 
 const (
-	yamlSuffix       = ".yaml"
-	yamlTmplDir      = "tests/e2e/framework/testdata/"
-	mixerHubEnvVar   = "MIXER_HUB"
-	mixerTagEnvVar   = "MIXER_TAG"
-	managerHubEnvVar = "MANAGER_HUB"
-	managerTagEnvVar = "MANAGER_TAG"
+	yamlSuffix         = ".yaml"
+	mixerHubEnvVar     = "MIXER_HUB"
+	mixerTagEnvVar     = "MIXER_TAG"
+	managerHubEnvVar   = "MANAGER_HUB"
+	managerTagEnvVar   = "MANAGER_TAG"
 	istioInstallFolder = "kubernetes/istio-install"
 )
 
@@ -120,14 +119,18 @@ func (k *KubeInfo) Setup() error {
 		return err
 	}
 
-	if err := k.deployApps(); err != nil {
-		glog.Error("Failed to deploy apps")
-		return err
-	}
-
 	if in, err := util.GetIngress(k.Namespace); err == nil {
 		k.Ingress = in
 	} else {
+		return err
+	}
+
+	if err := util.SetupIstioctl(k.Namespace); err != nil {
+		return err
+	}
+
+	if err := k.deployApps(); err != nil {
+		glog.Error("Failed to deploy apps")
 		return err
 	}
 
@@ -139,12 +142,17 @@ func (k *KubeInfo) Setup() error {
 func (k *KubeInfo) Teardown() error {
 	if k.namespaceCreated {
 		if err := util.DeleteNamespace(k.Namespace); err != nil {
+			glog.Error("Failed to delete namespace")
 			return err
 		}
 		k.namespaceCreated = false
 		glog.Infof("Namespace %s deleted", k.Namespace)
 	}
-	return nil
+	err := util.CleanupIstioctl()
+	if err != nil {
+		glog.Error("Failed to kill pfPID")
+	}
+	return err
 }
 
 // Deploy istio modules
@@ -196,7 +204,6 @@ func (k *KubeInfo) generateIstioCore(dst, module string) error {
 	}
 	return err
 }
-
 
 // deploysApps deploys all the apps registered
 func (k *KubeInfo) deployApps() error {

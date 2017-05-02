@@ -24,7 +24,13 @@ import (
 	"text/template"
 	"time"
 
+	"os"
+
 	"github.com/golang/glog"
+)
+
+var (
+	pfPID string
 )
 
 // Fill complete a template with given values and generate a new output file
@@ -78,7 +84,7 @@ func GetIngress(n string) (string, error) {
 	r := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 	for i := 1; i <= 10; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)
-		out, err := Shell(fmt.Sprintf("kubectl get svc istio-ingress-controller -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n))
+		out, err := Shell(fmt.Sprintf("kubectl get svc istio-ingress -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n))
 		if err == nil {
 			out = strings.Trim(out, "'")
 			if match := r.FindString(out); match != "" {
@@ -93,4 +99,32 @@ func GetIngress(n string) (string, error) {
 	}
 	err := fmt.Errorf("cannot get ingress")
 	return "", err
+}
+
+// SetupIstioctl set up istioctl manager address
+func SetupIstioctl(n string) error {
+	var pod string
+	var err error
+	glog.Info("Setting up istioctl")
+
+	pod, err = Shell(fmt.Sprintf("kubectl -n %s get pod -l istio=manager -o jsonpath='{.items[0].metadata.name}'", n))
+	if err != nil {
+		return err
+	}
+
+	if pfPID, err = RunBackground(fmt.Sprintf("kubectl port-forward %s 8081:8081 -n %s", strings.Trim(pod, "'"), n)); err != nil {
+		glog.Errorf("err! : %s", err)
+		return err
+	}
+	glog.Infof("pfPID = %s", pfPID)
+
+	err = os.Setenv("ISTIO_MANAGER_ADDRESS", "http://localhost:8081")
+	return err
+}
+
+// CleanupIstioctl clean up pfPID
+func CleanupIstioctl() error {
+	glog.Info("Cleaning up istioctl")
+	_, err := Shell(fmt.Sprintf("kill %s", pfPID))
+	return err
 }
