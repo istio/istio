@@ -28,12 +28,12 @@ import (
 )
 
 const (
-	yamlSuffix         = ".yaml"
-	mixerHubEnvVar     = "MIXER_HUB"
-	mixerTagEnvVar     = "MIXER_TAG"
-	managerHubEnvVar   = "MANAGER_HUB"
-	managerTagEnvVar   = "MANAGER_TAG"
-	istioInstallDir = "kubernetes/istio-install"
+	yamlSuffix       = ".yaml"
+	mixerHubEnvVar   = "MIXER_HUB"
+	mixerTagEnvVar   = "MIXER_TAG"
+	managerHubEnvVar = "MANAGER_HUB"
+	managerTagEnvVar = "MANAGER_TAG"
+	istioInstallDir  = "kubernetes/istio-install"
 )
 
 var (
