@@ -19,12 +19,17 @@ data:
     discoveryAddress: istio-manager:8080
 ```
 
+Deploy Istio CA for the namespace:
+```bash
+kubectl apply -f ./kubernetes/istio-auth/istio-namespace-ca.yaml
+```
+
 **Deploy a simple echo app with manually injected proxy**
 
     kubectl apply -f <(istioctl kube-inject -f echo-app.yaml)
     kubectl apply -f <(istioctl kube-inject -f logic-app.yaml)
 
-This will deploy two pods, each running a simple echo server and client, and will create two kubernetes services called "echo" and "logic".
+This will deploy two pods, each running a simple echo server and client, and will create two Kubernetes services called "echo" and "logic".
 
 **Send some traffic**
 
