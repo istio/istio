@@ -76,9 +76,9 @@ function cleanup_istioctl(){
 function setup_mixerforward(){
     print_block_echo "Setting up mixer"
     ${K8CLI} -n ${NAMESPACE} port-forward $(${K8CLI} -n ${NAMESPACE} get pod -l istio=mixer \
-     -o jsonpath='{.items[0].metadata.name}') 9091 9094 42422 &
+     -o jsonpath='{.items[0].metadata.name}') 9091 9094 9095:42422 &
     pfPID2=$!
-    export ISTIO_MIXER_METRICS=http://localhost:42422
+    export ISTIO_MIXER_METRICS=http://localhost:9095
     export ISTIO_MIXER_CONFIGAPI=http://localhost:9094
 }
 
@@ -142,5 +142,24 @@ function dump_debug() {
 
 function init_kubeapi() {
   SECRET_ID=$(kubectl get secrets --no-headers | grep default | grep token | cut -f1 -d ' ')
-  TOKEN=$(kubectl get secrets ${SECRET_ID} -o jsonpath='{.data.token}')
+  export TOKEN=$(kubectl get secrets ${SECRET_ID} -o jsonpath='{.data.token}')
+  export APISERVER="http:$(kubectl cluster-info | head -1 | cut -d ':' -f 2)"
+  _call_kubeapi "/api"
+}
+
+function call_kubeapi() {
+  uri=$1
+  shift
+  service_name=$1
+  shift
+  service_port=${1:-80}
+
+  _call_kubeapi "api/v1/namespaces/${NAMESPACE}/services/${service_name}:${service_port}/${uri}"
+}
+
+function _call_kubeapi() {
+  URI=$1
+  shift
+
+  curl -g ${APISERVER}/${URI} --header "Authorization: Bearer ${TOKEN}" --insecure
 }
