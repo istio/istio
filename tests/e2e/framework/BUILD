@@ -10,6 +10,7 @@ go_library(
     ],
     data = glob(["testdata/*"]) + [
         "//:istio_version",
+        "//kubernetes/istio-install:istio-install",
     ],
     visibility = ["//visibility:public"],
     deps = [
