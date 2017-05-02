@@ -76,7 +76,7 @@ data:
     subject: namespace:ns
     revision: "2022"
     rules:
-    - selector: target.service == "ratings.*"
+    - selector: target.service == "ratings*"
       aspects:
       - kind: quotas
         params:
