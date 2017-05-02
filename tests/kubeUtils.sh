@@ -64,23 +64,22 @@ function setup_istioctl(){
 # Kill the port forwarding process
 function cleanup_istioctl(){
     print_block_echo "Cleaning up istioctl"
-    kill ${pfPID}
-    kill ${pfPID2}
+    if [[ ! -z ${pfPID} ]];then
+      kill ${pfPID}
+    fi
+    if [[ ! -z ${pfPID2} ]];then
+      kill ${pfPID2}
+    fi
 }
 
 # Port forward mixer
 function setup_mixerforward(){
-    if [[ ! -z ${OUT_OF_CLUSTER} ]]; then
-      print_block_echo "Setting up mixer"
-      ${K8CLI} -n ${NAMESPACE} port-forward $(${K8CLI} -n ${NAMESPACE} get pod -l istio=mixer \
-       -o jsonpath='{.items[0].metadata.name}') 9091 9094 42422 &
-      pfPID2=$!
-      export ISTIO_MIXER_METRICS=http://localhost:42422
-      export ISTIO_MIXER_CONFIGAPI=http://localhost:9094
-    else
-      export ISTIO_MIXER_METRICS=http://istio-mixer.${NAMESPACE}.svc.cluster.local:42422
-      export ISTIO_MIXER_CONFIGAPI=http://istio-mixer.${NAMESPACE}.svc.cluster.local:9094
-    fi
+    print_block_echo "Setting up mixer"
+    ${K8CLI} -n ${NAMESPACE} port-forward $(${K8CLI} -n ${NAMESPACE} get pod -l istio=mixer \
+     -o jsonpath='{.items[0].metadata.name}') 9091 9094 42422 &
+    pfPID2=$!
+    export ISTIO_MIXER_METRICS=http://localhost:42422
+    export ISTIO_MIXER_CONFIGAPI=http://localhost:9094
 }
 
 
