@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 Istio Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"runtime"
 
 	"github.com/golang/glog"
 )
@@ -62,7 +63,15 @@ func (i *Istioctl) Install() error {
 	}
 	homeDir := usr.HomeDir
 
-	if err = HTTPDownload(i.binaryPath, i.remotePath+"/istioctl-linux"); err != nil {
+	var istioctlSuffix string
+	switch runtime.GOOS {
+	case "linux":
+		istioctlSuffix = "linux"
+	case "darwin":
+		istioctlSuffix = "osx"
+	}
+
+	if err = HTTPDownload(i.binaryPath, i.remotePath+"/istioctl-"+istioctlSuffix); err != nil {
 		return err
 	}
 	err = os.Chmod(i.binaryPath, 0755) // #nosec
