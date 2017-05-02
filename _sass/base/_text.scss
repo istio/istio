@@ -1,0 +1,46 @@
+h1 {
+  font-size: $font-size--xxl;
+  color: white;
+  margin: $spacing--xl 0;
+}
+
+h2 {
+  font-size: $font-size--xl;
+  font-weight: 300;
+  color: $black;
+}
+
+h3 {
+  font-size: $font-size--l;
+  letter-spacing: 1px;
+  font-weight: 500;
+  color: $black;
+}
+
+h4 {
+  font-size: $font-size--l;
+  margin: $spacing--m 0;
+}
+
+h5 {
+  font-size: $font-size--s;
+  font-weight: 300;
+  color: $black;
+}
+
+h6 {
+  font-size: .9rem;
+  font-weight: 500;
+  color: $black;
+}
+
+p {
+  font-size: $font-size--xs;
+    font-weight: 300;
+    line-height: 1rem;
+}
+
+p.lead {
+  font-size: 17px;
+  font-weight: 400;
+}

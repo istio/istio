@@ -1,3 +1,5 @@
+_site
+
 # Eclipse artifacts
 .project
 .pydevproject

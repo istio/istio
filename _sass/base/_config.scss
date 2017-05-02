@@ -1,0 +1,59 @@
+// Font
+$font-size--primary         : 16px;
+$font-size--xxs             : .8rem;
+$font-size--xs              : 1rem;
+$font-size--s               : 1.15rem;
+$font-size--m               : 1.65rem;
+$font-size--l               : 1.85rem;
+$font-size--xl              : 2rem;
+$font-size--xxl             : 2.5rem;
+
+// General dimensions and spacing
+$spacing--xxxxs             : 4px;
+$spacing--xxxs              : 6px;
+$spacing--xxs               : 8px;
+$spacing--xs                : 10px;
+$spacing--s                 : 15px;
+$spacing--m                 : 20px;
+$spacing--l                 : 25px;
+$spacing--xl                : 30px;
+$spacing--xxl               : 40px;
+$spacing--xxxl              : 50px;
+$max-width                  : 975px;
+$nav-menu-height            : 90px;
+
+// Transitions
+$transition--primary        : all .3s ease;
+$transition--secondary      : all .6s cubic-bezier(0.3, 0.9, 0.2, 1);
+$transition--tertiary       : all .3s cubic-bezier(0.93,0.7,0.4,0.57);
+$transition-fast            : all .2s ease;
+$transition-slow            : all 1s ease;
+
+// Responsive
+$phone-small                : 320px;
+$phone-medium               : 480px;
+$phone-large                : 512px;
+$phone-xlarge               : 640px;
+$tablet                     : 768px;
+$desktop-small              : 1024px;
+$desktop-medium             : 1280px;
+$desktop-large              : 1440px;
+$mobile                     : $desktop-small;
+
+@media(min-width: $desktop-large){
+  .container {
+    width: 1410px;
+  }
+}
+
+// Z-index
+$z-below-bottom             : -1;
+$z-bottom                   : 0;
+$z-middle-bottom            : 5;
+$z-middle                   : 10;
+$z-middle-top               : 15;
+$z-top                      : 900;
+$z-above-top                : 1000;
+
+// Helper vars
+$vpad: 20px;

@@ -1,0 +1,47 @@
+.subscribe-container {
+	margin: 50px 15px;
+	background-color: $light-gray;
+	padding: 10px 15px 20px;
+
+	@media (min-width: $tablet) {
+    	margin: 50px auto;
+    	max-width: initial;
+  	}
+
+	.subscribe-title {
+		margin: 15px auto;
+	}
+
+	.email {
+		font-size: 14px;
+		width: 100%;
+		padding: 8px;
+		margin: 0 auto;
+	}
+
+	.response {
+		font-size: 12px;
+		line-height: 1.25;
+		font-weight: 300;
+		margin: 10px auto;
+	}
+
+	.btn {
+		margin: 10px auto 0;
+		box-sizing: border-box;
+		width: 100%;
+	}
+
+	.waves-button-input {
+		letter-spacing: 1px;
+		line-height: 34px;
+	}
+
+	// overrides for subscription errors
+	div.mce_inline_error {
+		font-size: 14px;
+		color: $errorColor;
+		font-weight: 300;
+		margin: 20px 0 0;
+	}
+}

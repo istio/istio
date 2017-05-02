@@ -1,0 +1,20 @@
+---
+title : "Sitemap"
+sitemap_exclude: y
+---
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    {% for post in site.posts %}
+    <url>
+        <loc>{{site.baseurl}}{{ post.url | remove: 'index.html' }}</loc>
+    </url>
+    {% endfor %}
+
+    {% for page in site.pages %}
+    {% if page.sitemap_exclude != 'y' %}
+    <url>
+        <loc>{{site.baseurl}}{{ page.url | remove: 'index.html' }}</loc>
+    </url>
+    {% endif %}
+    {% endfor %}
+</urlset>

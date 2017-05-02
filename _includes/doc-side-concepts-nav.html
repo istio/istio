@@ -1,0 +1,20 @@
+<ul class="doc-side-nav doc-side-nav-concepts">
+	{% assign current = page.url | downcase | split: '/' %}
+	<li><h5 class="doc-side-nav-title">Concepts</h5></li>
+	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/concepts/what-is-istio.html" {% if current[3] == 'what-is-istio.html' %}class='current'{% endif %}>What is Istio?</a></li>
+	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/concepts/service-model.html" {% if current[3] == 'service-model.html' %}class='current'{% endif %}>Service Model</a></li>
+	<li class="doc-side-nav-list-item"><a href="{{ site.baseurl }}/docs/concepts/attributes.html" {% if current[3] == 'attributes.html' %}class='current'{% endif %}>Attributes</a></li>
+
+	<li class="submenu">
+		<h6 class="arrow-r">Network and Auth</h6>
+	</li>
+
+
+	<li class="submenu">
+		<h6 class="arrow-r">Policies and Control</h6>
+		<div class="submenu-content">
+			<a class="submenu-link {% if current[3] == 'mixer.html' %}active{% endif %}" href="{{ site.baseurl }}/docs/concepts/mixer.html">Mixer</a>
+			<a class="submenu-link {% if current[3] == 'mixer-config.html' %}active{% endif %}" href="{{ site.baseurl }}/docs/concepts/mixer-config.html">Mixer Configuration</a>
+		</div>
+	</li>
+ </ul>

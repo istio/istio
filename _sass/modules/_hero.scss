@@ -1,0 +1,30 @@
+// Background for nav and hero
+.nav-hero-container {
+  background: $mainBrandColor no-repeat center/cover; 
+  z-index: 9010;
+  position: relative;
+}
+
+// Landing page hero
+.hero {
+  padding-bottom: 60px;
+  position: relative;
+  text-align: center;
+
+  @media (min-width: $tablet) {
+    padding-bottom: 75px;
+  }
+
+  .logo {
+    margin-bottom: $spacing--l;
+  }
+
+  .hero-lead {
+    color: $white;
+    display: block;
+    font-size: 18px;
+    margin-top: 0;
+    margin-bottom: $spacing--l;
+    font-weight: 200;
+  }
+}
