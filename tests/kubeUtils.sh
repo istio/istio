@@ -70,12 +70,17 @@ function cleanup_istioctl(){
 
 # Port forward mixer
 function setup_mixerforward(){
-    print_block_echo "Setting up mixer"
-    ${K8CLI} -n ${NAMESPACE} port-forward $(${K8CLI} -n ${NAMESPACE} get pod -l istio=mixer \
-     -o jsonpath='{.items[0].metadata.name}') 9091 9094 42422 &
-    pfPID2=$!
-    export ISTIO_MIXER_METRICS=http://localhost:42422
-    export ISTIO_MIXER_CONFIGAPI=http://localhost:9094
+    if [[ ! -z ${OUT_OF_CLUSTER} ]]; then
+      print_block_echo "Setting up mixer"
+      ${K8CLI} -n ${NAMESPACE} port-forward $(${K8CLI} -n ${NAMESPACE} get pod -l istio=mixer \
+       -o jsonpath='{.items[0].metadata.name}') 9091 9094 42422 &
+      pfPID2=$!
+      export ISTIO_MIXER_METRICS=http://localhost:42422
+      export ISTIO_MIXER_CONFIGAPI=http://localhost:9094
+    else
+      export ISTIO_MIXER_METRICS=http://istio-mixer.${NAMESPACE}.svc.cluster.local:42422
+      export ISTIO_MIXER_CONFIGAPI=http://istio-mixer.${NAMESPACE}.svc.cluster.local:9094
+    fi
 }
 
 
@@ -90,21 +95,21 @@ function deploy_bookinfo() {
 }
 
 function find_ingress_controller() {
-    if [[ ! -z ${GATEWAY_URL} ]];then
-      return 0
-    fi
-    #local gateway="$(${K8CLI} get svc istio-ingress -n ${NAMESPACE} \
-    #  -o jsonpath='{.status.loadBalancer.ingress[*].ip}')"
-    #if [[ ${gateway} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-    #    GATEWAY_URL="http://${gateway}"
-    #    return 0
-    #fi
-    local gateway="$(${K8CLI} get po -l istio=ingress -n ${NAMESPACE} \
-      -o jsonpath='{.items[0].status.hostIP}'):$(${K8CLI} get svc istio-ingress -n ${NAMESPACE} \
-      -o jsonpath={.spec.ports[0].nodePort})"
-    if [[ ${gateway} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\:3[0-2][0-9][0-9][0-9]$ ]]; then
-        GATEWAY_URL="http://${gateway}"
-        return 0
+    if [[ ! -z ${OUT_OF_CLUSTER} ]]; then
+      local gateway="$(${K8CLI} get svc istio-ingress -n ${NAMESPACE} \
+        -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
+      if [[ ${gateway} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+          GATEWAY_URL="http://${gateway}"
+          return 0
+      fi
+    else
+      local gateway="$(${K8CLI} get po -l istio=ingress -n ${NAMESPACE} \
+        -o jsonpath='{.items[0].status.hostIP}'):$(${K8CLI} get svc istio-ingress -n ${NAMESPACE} \
+        -o jsonpath={.spec.ports[0].nodePort})"
+      if [[ ${gateway} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\:3[0-2][0-9][0-9][0-9]$ ]]; then
+          GATEWAY_URL="http://${gateway}"
+          return 0
+      fi
     fi
     return 1
 }
@@ -134,4 +139,9 @@ function dump_debug() {
     $K8CLI -n $NAMESPACE get cm/mixer-config -o yaml
     MIXER_PODNAME=$($K8CLI -n $NAMESPACE get pods | grep istio-mixer | awk '{print $1}')
     $K8CLI -n $NAMESPACE logs $MIXER_PODNAME
+}
+
+function init_kubeapi() {
+  SECRET_ID=$(kubectl get secrets --no-headers | grep default | grep token | cut -f1 -d ' ')
+  TOKEN=$(kubectl get secrets ${SECRET_ID} -o jsonpath='{.data.token}')
 }
