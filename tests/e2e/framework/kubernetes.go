@@ -195,7 +195,7 @@ func (k *KubeInfo) generateIstioCore(dst, module string) error {
 	case "ingress":
 		image = []byte(fmt.Sprintf("image: %s", k.ProxyImage))
 	}
-	r := regexp.MustCompile("image: .*(\\/.*):.*")
+	r := regexp.MustCompile(`image: .*(\/.*):.*`)
 	content := r.ReplaceAllLiteral(ori, image)
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
