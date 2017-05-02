@@ -39,7 +39,7 @@ spec:
         - containerPort: 9094
         - containerPort: 42422
         args:
-          - --configStoreURL=fs:///etc/opt/mixer
+          - --configStoreURL=fs:///etc/opt/mixer/configroot
           - --logtostderr
           - -v
           - "3"

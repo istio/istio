@@ -84,7 +84,7 @@ create_namespace
 generate_istio_yaml "${ISTIO_INSTALL_DIR}"
 deploy_istio "${ISTIO_INSTALL_DIR}"
 setup_istioctl
-setup_mixerforward
+setup_mixer
 call_kubeapi /metrics istio-mixer 42422
 generate_bookinfo_yaml "${BOOKINFO_DIR}"
 generate_rules_yaml "${RULES_DIR}"
@@ -212,7 +212,6 @@ then
     ((FAILURE_COUNT++))
     dump_debug
 fi
-set +x
 # mixer tests
 METRICS_URL=${ISTIO_MIXER_METRICS}/metrics
 curl --connect-timeout 5 ${METRICS_URL}
@@ -221,7 +220,6 @@ curl --connect-timeout 5 ${METRICS_URL}
 ${WRK} -t2 -c2 -d10s --latency -s ${SCRIPT_DIR}/wrk.lua ${URL}/productpage
 curl --connect-timeout 5 ${METRICS_URL}
 
-set -x
 
 if [ ${FAILURE_COUNT} -gt 0 ]
 then

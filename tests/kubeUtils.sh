@@ -73,13 +73,20 @@ function cleanup_istioctl(){
 }
 
 # Port forward mixer
-function setup_mixerforward(){
+function setup_mixer(){
     print_block_echo "Setting up mixer"
-    MIXER_HOST=$(${K8CLI} -n ${NAMESPACE} get pods -l istio=mixer -o jsonpath='{.items[0].status.hostIP}')
-    METRICS_PORT=$(${K8CLI} -n ${NAMESPACE} get svc istio-mixer -o jsonpath='{.spec.ports[2].nodePort}')
-    CONFIG_PORT=$(${K8CLI} -n ${NAMESPACE} get svc istio-mixer -o jsonpath='{.spec.ports[1].nodePort}')
-    export ISTIO_MIXER_METRICS=http://${MIXER_HOST}:${METRICS_PORT}
-    export ISTIO_MIXER_CONFIGAPI=http://${MIXER_HOST}:${CONFIG_PORT}
+    ${K8CLI} -n ${NAMESPACE} port-forward $(${K8CLI} -n ${NAMESPACE} get pod -l istio=mixer \
+    -o jsonpath='{.items[0].metadata.name}') 9091 9094 9095:42422 &
+    pfPID2=$!
+    export ISTIO_MIXER_METRICS=http://localhost:9095
+    export ISTIO_MIXER_CONFIGAPI=http://localhost:9094
+
+    #${K8CLI} -n ${NAMESPACE} patch svc istio-mixer -p '{"spec":{"type":"LoadBalancer"}}'
+    #MIXER_HOST=$(${K8CLI} -n ${NAMESPACE} get pods -l istio=mixer -o jsonpath='{.items[0].status.hostIP}')
+    #METRICS_PORT=$(${K8CLI} -n ${NAMESPACE} get svc istio-mixer -o jsonpath='{.spec.ports[2].nodePort}')
+    #CONFIG_PORT=$(${K8CLI} -n ${NAMESPACE} get svc istio-mixer -o jsonpath='{.spec.ports[1].nodePort}')
+    #export ISTIO_MIXER_METRICS=http://${MIXER_HOST}:${METRICS_PORT}
+    #export ISTIO_MIXER_CONFIGAPI=http://${MIXER_HOST}:${CONFIG_PORT}
 }
 
 
