@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,7 +38,7 @@ const (
 	create       = "create"
 	bookinfoYaml = "demos/apps/bookinfo/bookinfo.yaml"
 	modelDir     = "tests/apps/bookinfo/output"
-	rulesTmplDir = "tests/e2e/tests/bookinfo/testdata"
+	rulesDir     = "demos/apps/bookinfo"
 	allRule      = "route-rule-all-v1.yaml"
 	delayRule    = "route-rule-delay.yaml"
 	fiftyRule    = "route-rule-reviews-50-v3.yaml"
@@ -80,12 +81,24 @@ func closeResponseBody(r *http.Response) {
 
 func (t *testConfig) Setup() error {
 	t.gateway = "http://" + tc.Kube.Ingress
+	//generate rule yaml files, replace with actual namespace and user
 	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule} {
-		tmpl := util.GetResourcePath(filepath.Join(rulesTmplDir, fmt.Sprintf("%s.tmpl", rule)))
+		src := util.GetResourcePath(filepath.Join(rulesDir, fmt.Sprintf("%s", rule)))
 		dest := filepath.Join(t.rulesDir, rule)
-		if err := util.Fill(dest, tmpl, map[string]string{"namespace": t.Kube.Namespace}); err != nil {
+		ori, err := ioutil.ReadFile(src)
+		if err != nil {
+			glog.Errorf("Failed to read original rule file %s", src)
 			return err
 		}
+		content := string(ori)
+		content = strings.Replace(content, "default", t.Kube.Namespace, -1)
+		content = strings.Replace(content, "jason", u2, -1)
+		err = ioutil.WriteFile(dest, []byte(content), 0600)
+		if err != nil {
+			glog.Errorf("Failed to write into new rule file %s", dest)
+			return err
+		}
+
 	}
 	return nil
 }

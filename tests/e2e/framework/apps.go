@@ -29,7 +29,7 @@ const (
 
 // AppInterface for automated deployments.
 type AppInterface interface {
-	Deploy(string, string, *util.Istioctl) error
+	Deploy(string, string, *Istioctl) error
 }
 
 // App gathers information for Hop app
@@ -82,7 +82,7 @@ func (a *App) generateAppYaml(tmpDir string) error {
 }
 
 // Deploy is called by KubeInfo.
-func (a *App) Deploy(tmpDir, namespace string, istioCtl *util.Istioctl) error {
+func (a *App) Deploy(tmpDir, namespace string, istioCtl *Istioctl) error {
 	if err := a.generateAppYaml(tmpDir); err != nil {
 		return err
 	}

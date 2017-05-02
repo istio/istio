@@ -92,6 +92,7 @@ func NewCommonConfig(testID string) (*CommonConfig, error) {
 	}
 	c.Cleanup.RegisterCleanable(c.Info)
 	c.Cleanup.RegisterCleanable(c.Kube)
+	c.Cleanup.RegisterCleanable(c.Kube.Istioctl)
 	return c, nil
 }
 

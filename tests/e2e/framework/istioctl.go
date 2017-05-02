@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package framework
 
 import (
 	"flag"
@@ -21,8 +21,11 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/golang/glog"
+
+	"istio.io/istio/tests/e2e/util"
 )
 
 const (
@@ -31,6 +34,7 @@ const (
 
 var (
 	remotePath = flag.String("istioctl_url", os.Getenv(istioctlURL), "URL to download istioctl")
+	pfPID      int
 )
 
 // Istioctl gathers istioctl information.
@@ -55,6 +59,36 @@ func NewIstioctl(tmpDir, namespace, proxyHub, proxyTag string) *Istioctl {
 	}
 }
 
+// Setup set up istioctl prerequest for tests
+func (i *Istioctl) Setup() error {
+	var pod string
+	var err error
+	glog.Info("Setting up istioctl")
+
+	pod, err = util.Shell(fmt.Sprintf("kubectl -n %s get pod -l istio=manager -o jsonpath='{.items[0].metadata.name}'", i.namespace))
+	if err != nil {
+		return err
+	}
+
+	if pfPID, err = util.RunBackground(fmt.Sprintf("kubectl port-forward %s 8081:8081 -n %s", strings.Trim(pod, "'"), i.namespace)); err != nil {
+		glog.Errorf("Failed to port forward: %s", err)
+		return err
+	}
+	glog.Infof("pfPID = %d", pfPID)
+
+	return err
+}
+
+// Teardown clean up everything created by setup
+func (i *Istioctl) Teardown() error {
+	glog.Info("Cleaning up istioctl")
+	err := util.Kill(pfPID)
+	if err != nil {
+		glog.Error("Failed to kill pfPID")
+	}
+	return err
+}
+
 // Install downloads Istioctl binary.
 func (i *Istioctl) Install() error {
 	var usr, err = user.Current()
@@ -69,9 +103,11 @@ func (i *Istioctl) Install() error {
 		istioctlSuffix = "linux"
 	case "darwin":
 		istioctlSuffix = "osx"
+	default:
+		return fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
 	}
 
-	if err = HTTPDownload(i.binaryPath, i.remotePath+"/istioctl-"+istioctlSuffix); err != nil {
+	if err = util.HTTPDownload(i.binaryPath, i.remotePath+"/istioctl-"+istioctlSuffix); err != nil {
 		return err
 	}
 	err = os.Chmod(i.binaryPath, 0755) // #nosec
@@ -83,7 +119,7 @@ func (i *Istioctl) Install() error {
 }
 
 func (i *Istioctl) run(args string) error {
-	if _, err := Shell(fmt.Sprintf("%s %s", i.binaryPath, args)); err != nil {
+	if _, err := util.Shell(fmt.Sprintf("%s %s", i.binaryPath, args)); err != nil {
 		glog.Errorf("istioctl %s failed", args)
 		return err
 	}

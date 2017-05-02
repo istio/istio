@@ -33,7 +33,7 @@ const (
 	mixerTagEnvVar     = "MIXER_TAG"
 	managerHubEnvVar   = "MANAGER_HUB"
 	managerTagEnvVar   = "MANAGER_TAG"
-	istioInstallFolder = "kubernetes/istio-install"
+	istioInstallDir = "kubernetes/istio-install"
 )
 
 var (
@@ -68,7 +68,7 @@ type KubeInfo struct {
 
 	Ingress string
 
-	Istioctl *util.Istioctl
+	Istioctl *Istioctl
 
 	Apps []AppInterface
 }
@@ -97,39 +97,43 @@ func newKubeInfo(tmpDir, runID string) *KubeInfo {
 		Verbosity:  verbosity,
 		TmpDir:     tmpDir,
 		yamlDir:    filepath.Join(tmpDir, "yaml"),
-		Istioctl:   util.NewIstioctl(tmpDir, *namespace, *managerHub, *managerTag),
+		Istioctl:   NewIstioctl(tmpDir, *namespace, *managerHub, *managerTag),
 	}
 }
 
 // Setup set up Kubernetes prerequest for tests
 func (k *KubeInfo) Setup() error {
-	if err := os.Mkdir(k.yamlDir, os.ModeDir|os.ModePerm); err != nil {
+	var err error
+	if err = os.Mkdir(k.yamlDir, os.ModeDir|os.ModePerm); err != nil {
 		return err
 	}
-	if err := k.Istioctl.Install(); err != nil {
+
+	if err = k.Istioctl.Install(); err != nil {
 		return err
 	}
-	if err := util.CreateNamespace(k.Namespace); err != nil {
+
+	if err = util.CreateNamespace(k.Namespace); err != nil {
 		glog.Error("Failed to create namespace.")
 		return err
 	}
 	k.namespaceCreated = true
-	if err := k.deployIstio(); err != nil {
+
+	if err = k.deployIstio(); err != nil {
 		glog.Error("Failed to deployIstio.")
 		return err
 	}
 
-	if in, err := util.GetIngress(k.Namespace); err == nil {
-		k.Ingress = in
-	} else {
+	var in string
+	if in, err = util.GetIngress(k.Namespace); err != nil {
+		return err
+	}
+	k.Ingress = in
+
+	if err = os.Setenv("ISTIO_MANAGER_ADDRESS", "http://localhost:8081"); err != nil {
 		return err
 	}
 
-	if err := util.SetupIstioctl(k.Namespace); err != nil {
-		return err
-	}
-
-	if err := k.deployApps(); err != nil {
+	if err = k.deployApps(); err != nil {
 		glog.Error("Failed to deploy apps")
 		return err
 	}
@@ -140,17 +144,14 @@ func (k *KubeInfo) Setup() error {
 
 // Teardown clean up everything created by setup
 func (k *KubeInfo) Teardown() error {
+	var err error
 	if k.namespaceCreated {
-		if err := util.DeleteNamespace(k.Namespace); err != nil {
+		if err = util.DeleteNamespace(k.Namespace); err != nil {
 			glog.Error("Failed to delete namespace")
 			return err
 		}
 		k.namespaceCreated = false
 		glog.Infof("Namespace %s deleted", k.Namespace)
-	}
-	err := util.CleanupIstioctl()
-	if err != nil {
-		glog.Error("Failed to kill pfPID")
 	}
 	return err
 }
@@ -180,7 +181,7 @@ func (k *KubeInfo) deployIstioCore(module string) error {
 }
 
 func (k *KubeInfo) generateIstioCore(dst, module string) error {
-	src := util.GetResourcePath(filepath.Join(istioInstallFolder, fmt.Sprintf("istio-%s.yaml", module)))
+	src := util.GetResourcePath(filepath.Join(istioInstallDir, fmt.Sprintf("istio-%s.yaml", module)))
 	ori, err := ioutil.ReadFile(src)
 	if err != nil {
 		glog.Errorf("Cannot read original yaml file %s", src)

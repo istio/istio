@@ -5,12 +5,13 @@ go_library(
     srcs = [
         "apps.go",
         "framework.go",
+        "istioctl.go",
         "kubernetes.go",
         "testInfo.go",
     ],
-    data = glob(["testdata/*"]) + [
+    data = [
         "//:istio_version",
-        "//kubernetes/istio-install:istio-install",
+        "//kubernetes/istio-install",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -24,7 +25,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = ["framework_test.go"],
-    data = glob(["testdata/*"]) + ["//:istio_version"],
+    data = ["//:istio_version"],
     library = ":go_default_library",
     visibility = ["//visibility:public"],
 )

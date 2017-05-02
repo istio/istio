@@ -23,7 +23,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/golang/glog"
@@ -61,15 +60,15 @@ func Shell(command string) (string, error) {
 }
 
 // RunBackground starts a background process and return the pid if succeed
-func RunBackground(command string) (string, error) {
+func RunBackground(command string) (int, error) {
 	parts := strings.Split(command, " ")
 	c := exec.Command(parts[0], parts[1:]...) // #nosec
 	err := c.Start()
 	if err != nil {
-		glog.Error("command failed")
-		return "", err
+		glog.Errorf("%s, command failed!", command)
+		return -1, err
 	}
-	return strconv.Itoa(c.Process.Pid), nil
+	return c.Process.Pid, nil
 }
 
 // Record run command and record output into a file
@@ -153,4 +152,14 @@ func GetResourcePath(p string) string {
 		return p
 	}
 	return filepath.Join(binPath+runfilesSuffix, pathPrefix, p)
+}
+
+// Kill end a running process
+func Kill(pid int) error {
+	p, err := os.FindProcess(pid)
+	if err != nil {
+		glog.Errorf("Can't find running process %d", pid)
+		return err
+	}
+	return p.Kill()
 }
