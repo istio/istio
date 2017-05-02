@@ -1,5 +1,10 @@
 # Eclipse artifacts
 .project
 .pydevproject
+# Intellij
 *.iml
 .idea/
+# Bazel
+/bazel-*
+vendor
+
