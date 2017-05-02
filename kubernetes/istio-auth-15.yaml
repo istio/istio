@@ -8,6 +8,7 @@ metadata:
   labels:
     istio: mixer
 spec:
+  type: NodePort
   ports:
   - name: tcp
     port: 9091
@@ -33,14 +34,14 @@ spec:
     spec:
       containers:
       - name: mixer
-        image: docker.io/istio/mixer:2017-05-01-22.25.53
+        image: docker.io/istio/mixer:2017-05-02-07.29.33
         imagePullPolicy: Always
         ports:
         - containerPort: 9091
         - containerPort: 9094
         - containerPort: 42422
         args:
-          - --configStoreURL=fs:///etc/opt/mixer
+          - --configStoreURL=fs:///etc/opt/mixer/configroot
           - --logtostderr
           - -v
           - "3"
