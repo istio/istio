@@ -1,108 +1,5 @@
 # GENERATED FILE. Use with Kubernetes 1.6+
 # TO UPDATE, modify files in istio-install and run updateVersion.sh
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: mixer-config
-data:
-  globalconfig.yml: |-
-    subject: "namespace:ns"
-    revision: "2022"
-    adapters:
-      - name: default
-        kind: quotas
-        impl: memQuota
-        params:
-      - name: default
-        impl: stdioLogger
-        params:
-          logStream: 0 # STDERR
-      - name: prometheus
-        kind: metrics
-        impl: prometheus
-        params:
-      - name: default
-        impl: denyChecker
-    manifests:
-      - name: istio-proxy
-        revision: "1"
-        attributes:
-        - name: source.name
-          value_type: 1 # STRING
-        - name: source.uid
-          value_type: 1 # STRING
-        - name: source.ip
-          value_type: 6 # IP_ADDRESS
-        - name: target.name
-          value_type: 1 # STRING
-        - name: target.uid
-          value_type: 1 # STRING
-        - name: target.service
-          value_type: 1 # STRING
-        - name: target.ip
-          value_type: 6 # IP_ADDRESS
-        - name: response.code
-          value_type: 2 # INT64
-        - name: response.duration
-          value_type: 10 # DURATION
-
-        # DEPRECATED ATTRIBUTES, TO BE REMOVED:
-        - name: response.latency    # Use response.duration
-          value_type: 10 # DURATION
-        - name: response.http.code  # Use response.code
-          value_type: 2 # INT64
-        - name: source.service      # Use source.name
-          value_type: 1 # STRING
-    metrics:
-    - name: request_count
-      kind: 2 # COUNTER
-      value: 2 # INT64
-      description: request count by source, target, service, and code
-      labels:
-        source: 1 # STRING
-        target: 1 # STRING
-        response_code: 2 # INT64
-    - name: request_latency
-      kind: 2 # COUNTER
-      value: 10 # DURATION
-      description: request latency by source, target, and service
-      labels:
-        source: 1 # STRING
-        target: 1 # STRING
-        response_code: 2 # INT64
-    quotas:
-    - name: RequestCount
-      rate_limit: true
-  serviceconfig.yml: |-
-    subject: namespace:ns
-    revision: "2022"
-    rules:
-    - selector: true
-      aspects:
-      - kind: quotas
-        params:
-          quotas:
-          - descriptor_name: RequestCount
-            max_amount: 5000
-            expiration: 1s
-      - kind: metrics
-        adapter: prometheus
-        params:
-          metrics:
-          - descriptor_name: request_count
-            # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
-            value: "1"
-            labels:
-              source: source.name | source.service | "unknown"
-              target: target.service | "unknown"
-              response_code: response.code | response.http.code | 200
-          - descriptor_name:  request_latency
-            value: response.duration | response.latency | "0ms"
-            labels:
-              source: source.name | source.service | "unknown"
-              target: target.service | "unknown"
-              response_code: response.code | response.http.code | 200
----
 # Mixer
 apiVersion: v1
 kind: Service
@@ -114,6 +11,8 @@ spec:
   ports:
   - name: tcp
     port: 9091
+  - name: configapi
+    port: 9094
   - name: prometheus
     port: 42422
   selector:
@@ -134,27 +33,18 @@ spec:
     spec:
       containers:
       - name: mixer
-        image: docker.io/istio/mixer:2017-04-19-00.29.49
+        image: docker.io/istio/mixer:2017-05-02-07.29.33
         imagePullPolicy: Always
         ports:
         - containerPort: 9091
         - containerPort: 9094
         - containerPort: 42422
         args:
-          - --globalConfigFile=/etc/opt/mixer/globalconfig.yml
-          - --serviceConfigFile=/etc/opt/mixer/serviceconfig.yml
+          - --configStoreURL=fs:///etc/opt/mixer/configroot
           - --logtostderr
           - -v
           - "3"
-        volumeMounts:
-          - mountPath: /etc/opt/mixer
-            name: config
-      volumes:
-        - name: config
-          configMap:
-            name: mixer-config
 ---
-
 # Manager service for discovery
 apiVersion: v1
 kind: ConfigMap
@@ -201,7 +91,7 @@ spec:
       serviceAccountName: istio-manager-service-account
       containers:
       - name: discovery
-        image: gihanson/manager:dev_20170428_154545
+        image: docker.io/istio/manager:2017-05-01-19.24.52
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:
@@ -213,7 +103,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
       - name: apiserver
-        image: gihanson/manager:dev_20170428_154545
+        image: docker.io/istio/manager:2017-05-01-19.24.52
         imagePullPolicy: Always
         args: ["apiserver", "-v", "2"]
         ports:
@@ -371,7 +261,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gihanson/proxy:dev_20170428_154545
+        image: docker.io/istio/proxy:2017-05-01-19.24.52
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: Always
         ports:
@@ -410,7 +300,7 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: gihanson/proxy:dev_20170428_154545
+        image: docker.io/istio/proxy:2017-05-01-19.24.52
         imagePullPolicy: Always
         args: ["proxy", "egress", "-v", "2"]
         env:
