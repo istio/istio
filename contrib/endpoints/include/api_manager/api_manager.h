@@ -46,15 +46,9 @@ class ApiManager {
   // Gets the service name.
   virtual const std::string &service_name() const = 0;
 
-  // Gets the service config
-  virtual const ::google::api::Service &service() const = 0;
-
-  // Set the metadata server for GCP platforms.
-  virtual void SetMetadataServer(const std::string &server) = 0;
-
-  // Sets the client auth secret and uses it to generate auth token.
-  // If it fails to generate an auth token, return failure.
-  virtual utils::Status SetClientAuthSecret(const std::string &secret) = 0;
+  // Gets the service config by config_id.
+  virtual const ::google::api::Service &service(
+      const std::string &config_id) const = 0;
 
   // Initializes the API Manager. It should be called:
   // 1) Before first CreateRequestHandler().
@@ -103,22 +97,12 @@ class ApiManager {
 class ApiManagerFactory {
  public:
   ApiManagerFactory() {}
-  ~ApiManagerFactory() {}
+  virtual ~ApiManagerFactory() {}
 
-  // Gets or creates an ApiManager instance. Service configurations with the
-  // same service names will resolve to the same live ApiManager instance.
-  // The environment is used iff the instance needs to be created;
-  // otherwise, it's deleted. This means that the returned ApiManager may
-  // use a different environment than the one provided.
-  std::shared_ptr<ApiManager> GetOrCreateApiManager(
+  // Create an ApiManager object.
+  std::shared_ptr<ApiManager> CreateApiManager(
       std::unique_ptr<ApiManagerEnvInterface> env,
       const std::string &service_config, const std::string &server_config);
-
- private:
-  typedef std::map<std::string, std::weak_ptr<ApiManager>> ApiManagerMap;
-  ApiManagerMap api_manager_map_;
-
-  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(ApiManagerFactory);
 };
 
 }  // namespace api_manager

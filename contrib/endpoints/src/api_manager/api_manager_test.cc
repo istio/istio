@@ -36,13 +36,7 @@ class ApiManagerTest : public ::testing::Test {
 
 std::shared_ptr<ApiManager> ApiManagerTest::MakeApiManager(
     std::unique_ptr<ApiManagerEnvInterface> env, const char *service_config) {
-  return factory_.GetOrCreateApiManager(std::move(env), service_config, "");
-}
-
-TEST_F(ApiManagerTest, EmptyConfig) {
-  MockApiManagerEnvironment *raw_env = new MockApiManagerEnvironment();
-  std::unique_ptr<ApiManagerEnvInterface> env(raw_env);
-  ASSERT_FALSE(MakeApiManager(std::move(env), ""));
+  return factory_.CreateApiManager(std::move(env), service_config, "");
 }
 
 TEST_F(ApiManagerTest, EnvironmentLogging) {
@@ -59,25 +53,6 @@ TEST_F(ApiManagerTest, EnvironmentLogging) {
   env.LogInfo("info log");
   env.LogWarning("warning log");
   env.LogError("error log");
-}
-
-const char service_one[] = "name: \"service-one\"\n";
-const char service_two[] = "name: \"service-two\"\n";
-
-TEST_F(ApiManagerTest, SameServiceNameYieldsSameApiManager) {
-  std::unique_ptr<ApiManagerEnvInterface> env_one(
-      new ::testing::NiceMock<MockApiManagerEnvironment>());
-  std::unique_ptr<ApiManagerEnvInterface> env_two(
-      new ::testing::NiceMock<MockApiManagerEnvironment>());
-
-  std::shared_ptr<ApiManager> esp1(
-      MakeApiManager(std::move(env_one), service_one));
-  std::shared_ptr<ApiManager> esp2(
-      MakeApiManager(std::move(env_two), service_one));
-
-  EXPECT_TRUE(esp1);
-  EXPECT_TRUE(esp2);
-  ASSERT_EQ(esp1.get(), esp2.get());
 }
 
 const char kServiceForStatistics[] =
@@ -106,41 +81,6 @@ TEST_F(ApiManagerTest, CorrectStatistics) {
   EXPECT_EQ(0, service_control_stat.send_reports_by_flush);
   EXPECT_EQ(0, service_control_stat.send_reports_in_flight);
   EXPECT_EQ(0, service_control_stat.send_report_operations);
-}
-
-TEST_F(ApiManagerTest, DifferentServiceNameYieldsDifferentApiManager) {
-  std::unique_ptr<ApiManagerEnvInterface> env_one(
-      new ::testing::NiceMock<MockApiManagerEnvironment>());
-  std::unique_ptr<ApiManagerEnvInterface> env_two(
-      new ::testing::NiceMock<MockApiManagerEnvironment>());
-
-  std::shared_ptr<ApiManager> esp1(
-      MakeApiManager(std::move(env_one), service_one));
-  std::shared_ptr<ApiManager> esp2(
-      MakeApiManager(std::move(env_two), service_two));
-
-  EXPECT_TRUE(esp1);
-  EXPECT_TRUE(esp2);
-  ASSERT_NE(esp1.get(), esp2.get());
-}
-
-TEST_F(ApiManagerTest, CreateAfterExpirationWorks) {
-  std::unique_ptr<ApiManagerEnvInterface> env_one(
-      new ::testing::NiceMock<MockApiManagerEnvironment>());
-  std::unique_ptr<ApiManagerEnvInterface> env_two(
-      new ::testing::NiceMock<MockApiManagerEnvironment>());
-
-  std::shared_ptr<ApiManager> esp1(
-      MakeApiManager(std::move(env_one), service_one));
-  EXPECT_TRUE(esp1);
-  std::weak_ptr<ApiManager> esp1_weak(esp1);
-  ASSERT_FALSE(esp1_weak.expired());
-  esp1.reset();
-  ASSERT_TRUE(esp1_weak.expired());
-
-  std::shared_ptr<ApiManager> esp2(
-      MakeApiManager(std::move(env_two), service_one));
-  ASSERT_TRUE(esp2);
 }
 
 }  // namespace

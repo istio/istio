@@ -47,10 +47,6 @@ class GlobalContext {
     return &service_account_token_;
   }
 
-  // metadata server
-  void SetMetadataServer(const std::string &server) {
-    metadata_server_ = server;
-  }
   const std::string &metadata_server() const { return metadata_server_; }
 
   // fetched metadata.

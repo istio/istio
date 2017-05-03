@@ -40,6 +40,8 @@ class RequestHandler : public RequestHandlerInterface {
   virtual void Report(std::unique_ptr<Response> response,
                       std::function<void(void)> continuation);
 
+  virtual std::string GetServiceConfigId() const;
+
   virtual void AttemptIntermediateReport();
 
   virtual std::string GetBackendAddress() const;

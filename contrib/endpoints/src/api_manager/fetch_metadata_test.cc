@@ -16,6 +16,7 @@
 //
 #include "contrib/endpoints/src/api_manager/fetch_metadata.h"
 
+#include "contrib/endpoints/src/api_manager/context/global_context.h"
 #include "contrib/endpoints/src/api_manager/context/service_context.h"
 #include "contrib/endpoints/src/api_manager/mock_api_manager_environment.h"
 #include "contrib/endpoints/src/api_manager/mock_request.h"
@@ -41,8 +42,15 @@ const char kServiceConfig[] = R"(
   }
 })";
 
+const char kServerConfig[] = R"(
+{
+  "metadata_server_config": {
+     "enabled": true,
+     "url": "http://127.0.0.1:8090"
+   }
+})";
+
 const char kEmptyBody[] = R"({})";
-const char kMetadataServer[] = "http://127.0.0.1:8090";
 
 class FetchMetadataTest : public ::testing::Test {
  public:
@@ -54,12 +62,11 @@ class FetchMetadataTest : public ::testing::Test {
 
     std::unique_ptr<Config> config = Config::Create(raw_env_, kServiceConfig);
     ASSERT_NE(config.get(), nullptr);
-
+    auto global_context =
+        std::make_shared<context::GlobalContext>(std::move(env), kServerConfig);
     service_context_ = std::make_shared<context::ServiceContext>(
-        std::move(env), "", std::move(config));
+        global_context, std::move(config));
     ASSERT_NE(service_context_.get(), nullptr);
-
-    service_context_->SetMetadataServer(kMetadataServer);
 
     std::unique_ptr<MockRequest> request(
         new ::testing::NiceMock<MockRequest>());

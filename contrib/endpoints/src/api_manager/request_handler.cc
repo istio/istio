@@ -115,6 +115,10 @@ void RequestHandler::Report(std::unique_ptr<Response> response,
   continuation();
 }
 
+std::string RequestHandler::GetServiceConfigId() const {
+  return context_->service_context()->service().id();
+}
+
 std::string RequestHandler::GetBackendAddress() const {
   if (context_->method()) {
     return context_->method()->backend_address();

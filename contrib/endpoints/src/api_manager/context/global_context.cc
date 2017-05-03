@@ -47,23 +47,33 @@ GlobalContext::GlobalContext(std::unique_ptr<ApiManagerEnvInterface> env,
                              const std::string& server_config)
     : env_(std::move(env)),
       service_account_token_(env_.get()),
-      is_auth_force_disabled_(false) {
+      is_auth_force_disabled_(false),
+      intermediate_report_interval_(kIntermediateReportInterval) {
   // Need to load server config first.
   server_config_ = Config::LoadServerConfig(env_.get(), server_config);
 
   cloud_trace_aggregator_ = CreateCloudTraceAggregator();
 
-  is_auth_force_disabled_ =
-      server_config_ && server_config_->has_api_authentication_config() &&
-      server_config_->api_authentication_config().force_disable();
+  if (server_config_) {
+    if (server_config_->has_metadata_server_config() &&
+        server_config_->metadata_server_config().enabled()) {
+      metadata_server_ = server_config_->metadata_server_config().url();
+    }
 
-  // Check server_config override.
-  intermediate_report_interval_ = kIntermediateReportInterval;
-  if (server_config_ && server_config_->has_service_control_config() &&
-      server_config_->service_control_config()
-          .intermediate_report_min_interval()) {
-    intermediate_report_interval_ = server_config_->service_control_config()
-                                        .intermediate_report_min_interval();
+    service_account_token_.SetClientAuthSecret(
+        server_config_->google_authentication_secret());
+
+    is_auth_force_disabled_ =
+        server_config_->has_api_authentication_config() &&
+        server_config_->api_authentication_config().force_disable();
+
+    // Check server_config override.
+    if (server_config_->has_service_control_config() &&
+        server_config_->service_control_config()
+            .intermediate_report_min_interval()) {
+      intermediate_report_interval_ = server_config_->service_control_config()
+                                          .intermediate_report_min_interval();
+    }
   }
 }
 

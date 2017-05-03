@@ -44,11 +44,6 @@ class ServiceContext {
 
   Config *config() { return config_.get(); }
 
-  // Following methods will be delegated to global context.
-  void SetMetadataServer(const std::string &server) {
-    global_context_->SetMetadataServer(server);
-  }
-
   auth::ServiceAccountToken *service_account_token() {
     return global_context_->service_account_token();
   }

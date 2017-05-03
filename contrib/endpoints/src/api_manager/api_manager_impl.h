@@ -29,6 +29,7 @@ class CheckWorkflow;
 class ApiManagerImpl : public ApiManager {
  public:
   ApiManagerImpl(std::unique_ptr<ApiManagerEnvInterface> env,
+                 const std::string &service_config,
                  const std::string &server_config);
 
   virtual bool Enabled() const { return service_context_->Enabled(); }
@@ -37,17 +38,10 @@ class ApiManagerImpl : public ApiManager {
     return service_context_->service_name();
   }
 
-  virtual const ::google::api::Service &service() const {
+  virtual const ::google::api::Service &service(
+      const std::string &config_id) const {
+    // TODO: use config_id.
     return service_context_->service();
-  }
-
-  virtual void SetMetadataServer(const std::string &server) {
-    service_context_->SetMetadataServer(server);
-  }
-
-  virtual utils::Status SetClientAuthSecret(const std::string &secret) {
-    return service_context_->service_account_token()->SetClientAuthSecret(
-        secret);
   }
 
   virtual utils::Status Init() {
@@ -88,8 +82,8 @@ class ApiManagerImpl : public ApiManager {
     return service_context_->DisableLogStatus();
   };
 
-  // Add a new config.
-  void AddConfig(std::unique_ptr<Config> config);
+  // Add a new service config.
+  void AddConfig(const std::string &service_config);
 
  private:
   service_control::Interface *service_control() const {

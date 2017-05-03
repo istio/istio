@@ -44,6 +44,9 @@ class RequestHandlerInterface {
   // Attempt to send intermediate report in streaming calls.
   virtual void AttemptIntermediateReport() = 0;
 
+  // Get the service config_id this request is using.
+  virtual std::string GetServiceConfigId() const = 0;
+
   // Get the backend address.
   virtual std::string GetBackendAddress() const = 0;
 
