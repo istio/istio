@@ -30,21 +30,24 @@ message ProxyMeshConfig {
   // Address of the mixer service (e.g. _istio-mixer:9090_).
   string mixer_address = 3;
 
+  // Address of the Zipkin service (e.g. _zipkin:9411_).
+  string zipkin_address = 4;
+
   // Port on which egress envoy should listen for incoming connections from
   // other services.
-  int32 proxy_listen_port = 4;
+  int32 proxy_listen_port = 5;
 
   // Port on which egress envoy should listen for administrative commands.
-  int32 proxy_admin_port = 5;
+  int32 proxy_admin_port = 6;
 
   // The time in seconds that Envoy will drain connections during a hot
   // restart. MUST be >=1s (e.g., _1s/1m/1h_)
-  google.protobuf.Duration drain_duration = 6;
+  google.protobuf.Duration drain_duration = 7;
 
   // The time in seconds that Envoy will wait before shutting down the
   // parent process during a hot restart. MUST be >=1s (e.g., _1s/1m/1h_).
   // MUST BE greater than _drain_duration_ parameter.
-  google.protobuf.Duration parent_shutdown_duration = 7;
+  google.protobuf.Duration parent_shutdown_duration = 8;
 
   // istio_service_cluster defines the name for the service_cluster that is
   // shared by all Envoy instances. This setting corresponds to
@@ -60,13 +63,13 @@ message ProxyMeshConfig {
   // receives API calls from Envoy, it uses the value of the _service-node_
   // flag to compute routes that are relative to the service instances
   // located at that IP address.
-  string istio_service_cluster = 8;
+  string istio_service_cluster = 9;
 
   // Polling interval for service discovery. (MUST BE >=1ms)
-  google.protobuf.Duration discovery_refresh_delay = 9;
+  google.protobuf.Duration discovery_refresh_delay = 10;
 
   // Connection timeout used by Envoy. (MUST BE >=1ms)
-  google.protobuf.Duration connect_timeout = 10;
+  google.protobuf.Duration connect_timeout = 11;
 
   // Class of ingress resources to be processed by Istio ingress
   // controller.  This corresponds to the value of
