@@ -156,7 +156,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: docker.io/istio/proxy:2017-04-24-23.54.11
+        image: docker.io/istio/proxy:2017-05-01-19.24.52
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: Always
         ports:
@@ -203,7 +203,7 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: docker.io/istio/proxy:2017-04-24-23.54.11
+        image: docker.io/istio/proxy:2017-05-01-19.24.52
         imagePullPolicy: Always
         args: ["proxy", "egress", "-v", "2"]
         env:
