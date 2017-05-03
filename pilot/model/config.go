@@ -109,7 +109,7 @@ const (
 	// RouteRule defines the kind for the route rule configuration
 	RouteRule = "route-rule"
 	// RouteRuleProto message name
-	RouteRuleProto = "istio.proxy.v1alpha.config.RouteRule"
+	RouteRuleProto = "istio.proxy.v1.config.RouteRule"
 
 	// IngressRule kind
 	IngressRule = "ingress-rule"
@@ -119,7 +119,7 @@ const (
 	// DestinationPolicy defines the kind for the destination policy configuration
 	DestinationPolicy = "destination-policy"
 	// DestinationPolicyProto message name
-	DestinationPolicyProto = "istio.proxy.v1alpha.config.DestinationPolicy"
+	DestinationPolicyProto = "istio.proxy.v1.config.DestinationPolicy"
 )
 
 var (
@@ -234,15 +234,16 @@ func (i *IstioRegistry) PoliciesByNamespace(namespace string) []*proxyconfig.Des
 	return out
 }
 
-// DestinationPolicies lists all policies for a service version.
-// Policies are not inherited by tags inclusion. The policy tags must match the tags precisely.
-func (i *IstioRegistry) DestinationPolicies(destination string, tags Tags) []*proxyconfig.DestinationPolicy {
-	out := make([]*proxyconfig.DestinationPolicy, 0)
+// DestinationPolicy returns a policy for a service version.
+func (i *IstioRegistry) DestinationPolicy(destination string, tags Tags) *proxyconfig.DestinationVersionPolicy {
 	for _, value := range i.PoliciesByNamespace("") {
-		if value.Destination == destination && tags.Equals(value.Tags) {
-			out = append(out, value)
+		if value.Destination == destination {
+			for _, policy := range value.Policy {
+				if tags.Equals(policy.Tags) {
+					return policy
+				}
+			}
 		}
 	}
-	// TODO: sort destination policies
-	return out
+	return nil
 }

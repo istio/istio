@@ -149,18 +149,18 @@ var (
 
 	dstPolicy1 = &proxyconfig.DestinationPolicy{
 		Destination: "foo",
-		Tags:        dstTags0,
+		Policy:      []*proxyconfig.DestinationVersionPolicy{{Tags: dstTags0}},
 	}
 	dstPolicy2 = &proxyconfig.DestinationPolicy{
 		Destination: "foo",
 	}
 	dstPolicy3 = &proxyconfig.DestinationPolicy{
 		Destination: "bar",
-		Tags:        dstTags1,
+		Policy:      []*proxyconfig.DestinationVersionPolicy{{Tags: dstTags1}},
 	}
 	dstPolicy4 = &proxyconfig.DestinationPolicy{
 		Destination: "baz",
-		Tags:        dstTags2,
+		Policy:      []*proxyconfig.DestinationVersionPolicy{{Tags: dstTags2}},
 	}
 )
 
@@ -288,10 +288,10 @@ func TestIstioRegistryDestinationPolicies(t *testing.T) {
 		{Name: "bar"}:  dstPolicy3,
 		{Name: "baz"}:  dstPolicy4,
 	}
-	want := []*proxyconfig.DestinationPolicy{dstPolicy1}
 
 	r.mock.EXPECT().List(DestinationPolicy, "").Return(mockObjs, nil)
-	if got := r.registry.DestinationPolicies(dstPolicy1.Destination, dstPolicy1.Tags); !reflect.DeepEqual(got, want) {
+	want := dstPolicy1.Policy[0]
+	if got := r.registry.DestinationPolicy(dstPolicy1.Destination, want.Tags); !reflect.DeepEqual(got, want) {
 		t.Errorf("Failed: \ngot %+vwant %+v", spew.Sdump(got), spew.Sdump(want))
 	}
 }

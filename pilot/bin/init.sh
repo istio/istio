@@ -14,10 +14,10 @@ rm -rf vendor/k8s.io/ingress/vendor
 
 # Link proto gen files
 mkdir -p vendor/istio.io/api/proxy/v1/config
-ln -sf "$(pwd)/bazel-genfiles/external/io_istio_api/proxy/v1/config/cfg.pb.go" \
-  vendor/istio.io/api/proxy/v1/config/cfg.pb.go
+ln -sf $(pwd)/bazel-genfiles/external/io_istio_api/proxy/v1/config/*.pb.go \
+  vendor/istio.io/api/proxy/v1/config/
 mkdir -p vendor/istio.io/manager/test/grpcecho
-ln -sf "$(pwd)/bazel-genfiles/test/grpcecho/echo.pb.go" \
+ln -sf $(pwd)/bazel-genfiles/test/grpcecho/*.pb.go \
    vendor/istio.io/manager/test/grpcecho/
 mkdir -p vendor/github.com/googleapis/googleapis/google/rpc
 ln -sf $(pwd)/bazel-genfiles/external/com_github_googleapis_googleapis/google/rpc/*.pb.go \

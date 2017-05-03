@@ -656,19 +656,21 @@ func ValidateDestinationPolicy(msg proto.Message) error {
 		}
 	}
 
-	if err := Tags(value.Tags).Validate(); err != nil {
-		errs = multierror.Append(errs, err)
-	}
-
-	if value.GetLoadBalancing() != nil {
-		if err := ValidateLoadBalancing(value.GetLoadBalancing()); err != nil {
+	for _, policy := range value.Policy {
+		if err := Tags(policy.Tags).Validate(); err != nil {
 			errs = multierror.Append(errs, err)
 		}
-	}
 
-	if value.GetCircuitBreaker() != nil {
-		if err := ValidateCircuitBreaker(value.GetCircuitBreaker()); err != nil {
-			errs = multierror.Append(errs, err)
+		if policy.GetLoadBalancing() != nil {
+			if err := ValidateLoadBalancing(policy.GetLoadBalancing()); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		}
+
+		if policy.GetCircuitBreaker() != nil {
+			if err := ValidateCircuitBreaker(policy.GetCircuitBreaker()); err != nil {
+				errs = multierror.Append(errs, err)
+			}
 		}
 	}
 

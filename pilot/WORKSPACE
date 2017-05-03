@@ -384,7 +384,7 @@ package(default_visibility = ["//visibility:public"])
 go_prefix("istio.io/api/proxy/v1/config")
 go_proto_library(
     name = "go_default_library",
-    srcs = ["proxy/v1/config/cfg.proto"],
+    srcs = glob(["proxy/v1/config/*.proto"]),
     deps = [
         "@com_github_golang_protobuf//ptypes/any:go_default_library",
         "@com_github_golang_protobuf//ptypes/duration:go_default_library",
@@ -392,7 +392,7 @@ go_proto_library(
     ],
 )
     """,
-    commit = "6339e49e78b7b04aa5141e2594f5c4120f93c710",  # Apr 27 2017
+    commit = "fa955258e02c167a2905d36e7b1ce277a8052df8",  # May 1 2017
     remote = "https://github.com/istio/api.git",
 )
 

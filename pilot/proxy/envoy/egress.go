@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/glog"
 
-	"istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 	"istio.io/manager/proxy"
 )
@@ -33,11 +33,11 @@ const (
 
 type egressWatcher struct {
 	agent proxy.Agent
-	mesh  *config.ProxyMeshConfig
+	mesh  *proxyconfig.ProxyMeshConfig
 }
 
 // NewEgressWatcher creates a new egress watcher instance with an agent
-func NewEgressWatcher(mesh *config.ProxyMeshConfig) (Watcher, error) {
+func NewEgressWatcher(mesh *proxyconfig.ProxyMeshConfig) (Watcher, error) {
 	if mesh.EgressProxyAddress == "" {
 		return nil, errors.New("egress proxy requires address configuration")
 	}
@@ -54,20 +54,20 @@ func (w *egressWatcher) Run(stop <-chan struct{}) {
 	<-stop
 }
 
-func getEgressProxyPort(mesh *config.ProxyMeshConfig) int {
+func getEgressProxyPort(mesh *proxyconfig.ProxyMeshConfig) int {
 	addr := mesh.EgressProxyAddress
 	port, _ := strconv.Atoi(addr[strings.Index(addr, ":")+1:])
 	return port
 }
 
-func generateEgress(mesh *config.ProxyMeshConfig) *Config {
+func generateEgress(mesh *proxyconfig.ProxyMeshConfig) *Config {
 	port := getEgressProxyPort(mesh)
 	listener := buildHTTPListener(mesh, nil, WildcardAddress, port, true)
 	listener = applyInboundAuth(listener, mesh)
 	return buildConfig([]*Listener{listener}, nil, mesh)
 }
 
-func buildEgressRoutes(services model.ServiceDiscovery, mesh *config.ProxyMeshConfig) HTTPRouteConfigs {
+func buildEgressRoutes(services model.ServiceDiscovery, mesh *proxyconfig.ProxyMeshConfig) HTTPRouteConfigs {
 	// Create a VirtualHost for each external service
 	vhosts := make([]*VirtualHost, 0)
 	for _, service := range services.Services() {

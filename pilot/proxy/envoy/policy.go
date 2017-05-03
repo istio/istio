@@ -20,10 +20,10 @@ package envoy
 import (
 	"sort"
 	"strings"
-
 	"time"
 
 	"github.com/golang/protobuf/ptypes/duration"
+
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 	"istio.io/manager/proxy"
@@ -74,53 +74,56 @@ func insertMixerFilter(listeners []*Listener, instances []*model.ServiceInstance
 
 // insertDestinationPolicy assumes an outbound cluster and inserts custom configuration for the cluster
 func insertDestinationPolicy(config *model.IstioRegistry, cluster *Cluster) {
-	// TODO: this has to be a singleton. Cannot have multiple dst policies
-	for _, policy := range config.DestinationPolicies(cluster.hostname, cluster.tags) {
-		if policy.LoadBalancing != nil {
-			switch policy.LoadBalancing.GetName() {
-			case proxyconfig.LoadBalancing_ROUND_ROBIN:
-				cluster.LbType = LbTypeRoundRobin
-			case proxyconfig.LoadBalancing_LEAST_CONN:
-				cluster.LbType = "least_request"
-			case proxyconfig.LoadBalancing_RANDOM:
-				cluster.LbType = "random"
-			}
+	policy := config.DestinationPolicy(cluster.hostname, cluster.tags)
+
+	if policy == nil {
+		return
+	}
+
+	if policy.LoadBalancing != nil {
+		switch policy.LoadBalancing.GetName() {
+		case proxyconfig.LoadBalancing_ROUND_ROBIN:
+			cluster.LbType = LbTypeRoundRobin
+		case proxyconfig.LoadBalancing_LEAST_CONN:
+			cluster.LbType = "least_request"
+		case proxyconfig.LoadBalancing_RANDOM:
+			cluster.LbType = "random"
 		}
+	}
 
-		// Set up circuit breakers and outlier detection
-		if policy.CircuitBreaker != nil && policy.CircuitBreaker.GetSimpleCb() != nil {
-			cbconfig := policy.CircuitBreaker.GetSimpleCb()
-			cluster.MaxRequestsPerConnection = int(cbconfig.HttpMaxRequestsPerConnection)
+	// Set up circuit breakers and outlier detection
+	if policy.CircuitBreaker != nil && policy.CircuitBreaker.GetSimpleCb() != nil {
+		cbconfig := policy.CircuitBreaker.GetSimpleCb()
+		cluster.MaxRequestsPerConnection = int(cbconfig.HttpMaxRequestsPerConnection)
 
-			// Envoy's circuit breaker is a combination of its circuit breaker (which is actually a bulk head)
-			// outlier detection (which is per pod circuit breaker)
-			cluster.CircuitBreaker = &CircuitBreaker{}
-			if cbconfig.MaxConnections > 0 {
-				cluster.CircuitBreaker.Default.MaxConnections = int(cbconfig.MaxConnections)
-			}
-			if cbconfig.HttpMaxRequests > 0 {
-				cluster.CircuitBreaker.Default.MaxRequests = int(cbconfig.HttpMaxRequests)
-			}
-			if cbconfig.HttpMaxPendingRequests > 0 {
-				cluster.CircuitBreaker.Default.MaxPendingRequests = int(cbconfig.HttpMaxPendingRequests)
-			}
-			//TODO: need to add max_retries as well. Currently it defaults to 3
+		// Envoy's circuit breaker is a combination of its circuit breaker (which is actually a bulk head)
+		// outlier detection (which is per pod circuit breaker)
+		cluster.CircuitBreaker = &CircuitBreaker{}
+		if cbconfig.MaxConnections > 0 {
+			cluster.CircuitBreaker.Default.MaxConnections = int(cbconfig.MaxConnections)
+		}
+		if cbconfig.HttpMaxRequests > 0 {
+			cluster.CircuitBreaker.Default.MaxRequests = int(cbconfig.HttpMaxRequests)
+		}
+		if cbconfig.HttpMaxPendingRequests > 0 {
+			cluster.CircuitBreaker.Default.MaxPendingRequests = int(cbconfig.HttpMaxPendingRequests)
+		}
+		//TODO: need to add max_retries as well. Currently it defaults to 3
 
-			cluster.OutlierDetection = &OutlierDetection{}
+		cluster.OutlierDetection = &OutlierDetection{}
 
-			cluster.OutlierDetection.MaxEjectionPercent = 10
-			if cbconfig.SleepWindow.Seconds > 0 {
-				cluster.OutlierDetection.BaseEjectionTimeMS = protoDurationToMS(cbconfig.SleepWindow)
-			}
-			if cbconfig.HttpConsecutiveErrors > 0 {
-				cluster.OutlierDetection.ConsecutiveErrors = int(cbconfig.HttpConsecutiveErrors)
-			}
-			if cbconfig.HttpDetectionInterval.Seconds > 0 {
-				cluster.OutlierDetection.IntervalMS = protoDurationToMS(cbconfig.HttpDetectionInterval)
-			}
-			if cbconfig.HttpMaxEjectionPercent > 0 {
-				cluster.OutlierDetection.MaxEjectionPercent = int(cbconfig.HttpMaxEjectionPercent)
-			}
+		cluster.OutlierDetection.MaxEjectionPercent = 10
+		if cbconfig.SleepWindow.Seconds > 0 {
+			cluster.OutlierDetection.BaseEjectionTimeMS = protoDurationToMS(cbconfig.SleepWindow)
+		}
+		if cbconfig.HttpConsecutiveErrors > 0 {
+			cluster.OutlierDetection.ConsecutiveErrors = int(cbconfig.HttpConsecutiveErrors)
+		}
+		if cbconfig.HttpDetectionInterval.Seconds > 0 {
+			cluster.OutlierDetection.IntervalMS = protoDurationToMS(cbconfig.HttpDetectionInterval)
+		}
+		if cbconfig.HttpMaxEjectionPercent > 0 {
+			cluster.OutlierDetection.MaxEjectionPercent = int(cbconfig.HttpMaxEjectionPercent)
 		}
 	}
 }

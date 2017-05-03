@@ -23,14 +23,14 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
-	"github.com/hashicorp/go-multierror"
 
+	multierror "github.com/hashicorp/go-multierror"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 
-	"istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 )
 
@@ -202,12 +202,12 @@ func createIngressRule(host string, path string, namespace string,
 	destination := serviceHostname(backend.ServiceName, namespace)
 	port := convertPort(resolveServicePort(namespace, backend, getService))
 
-	rule := &config.RouteRule{
+	rule := &proxyconfig.RouteRule{
 		Destination: destination,
-		Match: &config.MatchCondition{
-			HttpHeaders: make(map[string]*config.StringMatch, 2),
+		Match: &proxyconfig.MatchCondition{
+			HttpHeaders: make(map[string]*proxyconfig.StringMatch, 2),
 		},
-		Route: []*config.DestinationWeight{
+		Route: []*proxyconfig.DestinationWeight{
 			{
 				Destination: destination,
 				Weight:      100,
@@ -228,25 +228,25 @@ func createIngressRule(host string, path string, namespace string,
 	}
 
 	if host != "" {
-		rule.Match.HttpHeaders["authority"] = &config.StringMatch{
-			MatchType: &config.StringMatch_Exact{Exact: host},
+		rule.Match.HttpHeaders["authority"] = &proxyconfig.StringMatch{
+			MatchType: &proxyconfig.StringMatch_Exact{Exact: host},
 		}
 	}
 
 	if path != "" {
 		if isRegularExpression(path) {
 			if strings.HasSuffix(path, ".*") && !isRegularExpression(strings.TrimSuffix(path, ".*")) {
-				rule.Match.HttpHeaders["uri"] = &config.StringMatch{
-					MatchType: &config.StringMatch_Prefix{Prefix: strings.TrimSuffix(path, ".*")},
+				rule.Match.HttpHeaders["uri"] = &proxyconfig.StringMatch{
+					MatchType: &proxyconfig.StringMatch_Prefix{Prefix: strings.TrimSuffix(path, ".*")},
 				}
 			} else {
-				rule.Match.HttpHeaders["uri"] = &config.StringMatch{
-					MatchType: &config.StringMatch_Regex{Regex: path},
+				rule.Match.HttpHeaders["uri"] = &proxyconfig.StringMatch{
+					MatchType: &proxyconfig.StringMatch_Regex{Regex: path},
 				}
 			}
 		} else {
-			rule.Match.HttpHeaders["uri"] = &config.StringMatch{
-				MatchType: &config.StringMatch_Exact{Exact: path},
+			rule.Match.HttpHeaders["uri"] = &proxyconfig.StringMatch{
+				MatchType: &proxyconfig.StringMatch_Exact{Exact: path},
 			}
 		}
 	}

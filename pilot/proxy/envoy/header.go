@@ -22,13 +22,13 @@ import (
 
 	"github.com/golang/glog"
 
-	"istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/proxy/v1/config"
 )
 
 // TODO: test sorting, translation
 
 // buildHeaders skips over URI as it has special meaning
-func buildHeaders(matches map[string]*config.StringMatch) []Header {
+func buildHeaders(matches map[string]*proxyconfig.StringMatch) []Header {
 	headers := make([]Header, 0, len(matches))
 	for name, match := range matches {
 		if name != HeaderURI {
@@ -39,18 +39,18 @@ func buildHeaders(matches map[string]*config.StringMatch) []Header {
 	return headers
 }
 
-func buildHeader(name string, match *config.StringMatch) Header {
+func buildHeader(name string, match *proxyconfig.StringMatch) Header {
 	value := ""
 	regex := false
 
 	switch m := match.MatchType.(type) {
-	case *config.StringMatch_Exact:
+	case *proxyconfig.StringMatch_Exact:
 		value = m.Exact
-	case *config.StringMatch_Prefix:
+	case *proxyconfig.StringMatch_Prefix:
 		// TODO(rshriram): escape prefix string into regex, define regex standard
 		value = fmt.Sprintf("^%v.*", m.Prefix)
 		regex = true
-	case *config.StringMatch_Regex:
+	case *proxyconfig.StringMatch_Regex:
 		value = m.Regex
 		regex = true
 	default:

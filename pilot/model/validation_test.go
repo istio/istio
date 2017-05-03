@@ -579,45 +579,50 @@ func TestValidateDestinationPolicy(t *testing.T) {
 		{in: &proxyconfig.DestinationPolicy{Destination: "foobar"}, valid: true},
 		{in: &proxyconfig.DestinationPolicy{
 			Destination: "ratings!.default.svc.cluster.local",
-			CircuitBreaker: &proxyconfig.CircuitBreaker{
-				CbPolicy: &proxyconfig.CircuitBreaker_SimpleCb{
-					SimpleCb: &proxyconfig.CircuitBreaker_SimpleCircuitBreakerPolicy{
-						MaxConnections:               -1,
-						HttpMaxPendingRequests:       -1,
-						HttpMaxRequests:              -1,
-						SleepWindow:                  &duration.Duration{Seconds: -1},
-						HttpConsecutiveErrors:        -1,
-						HttpDetectionInterval:        &duration.Duration{Seconds: -1},
-						HttpMaxRequestsPerConnection: -1,
-						HttpMaxEjectionPercent:       -1,
+			Policy: []*proxyconfig.DestinationVersionPolicy{{
+				CircuitBreaker: &proxyconfig.CircuitBreaker{
+					CbPolicy: &proxyconfig.CircuitBreaker_SimpleCb{
+						SimpleCb: &proxyconfig.CircuitBreaker_SimpleCircuitBreakerPolicy{
+							MaxConnections:               -1,
+							HttpMaxPendingRequests:       -1,
+							HttpMaxRequests:              -1,
+							SleepWindow:                  &duration.Duration{Seconds: -1},
+							HttpConsecutiveErrors:        -1,
+							HttpDetectionInterval:        &duration.Duration{Seconds: -1},
+							HttpMaxRequestsPerConnection: -1,
+							HttpMaxEjectionPercent:       -1,
+						},
 					},
-				},
-			},
+				}}},
 		},
 			valid: false},
 		{in: &proxyconfig.DestinationPolicy{
 			Destination: "ratings!.default.svc.cluster.local",
-			CircuitBreaker: &proxyconfig.CircuitBreaker{
-				CbPolicy: &proxyconfig.CircuitBreaker_SimpleCb{
-					SimpleCb: &proxyconfig.CircuitBreaker_SimpleCircuitBreakerPolicy{
-						HttpMaxEjectionPercent: 101,
+			Policy: []*proxyconfig.DestinationVersionPolicy{{
+				CircuitBreaker: &proxyconfig.CircuitBreaker{
+					CbPolicy: &proxyconfig.CircuitBreaker_SimpleCb{
+						SimpleCb: &proxyconfig.CircuitBreaker_SimpleCircuitBreakerPolicy{
+							HttpMaxEjectionPercent: 101,
+						},
 					},
-				},
-			},
+				}}},
 		},
 			valid: false},
 		{in: &proxyconfig.DestinationPolicy{
 			Destination: "foobar",
-			LoadBalancing: &proxyconfig.LoadBalancing{
-				LbPolicy: &proxyconfig.LoadBalancing_Name{
-					Name: 0,
-				},
-			},
+			Policy: []*proxyconfig.DestinationVersionPolicy{{
+				LoadBalancing: &proxyconfig.LoadBalancing{
+					LbPolicy: &proxyconfig.LoadBalancing_Name{
+						Name: 0,
+					},
+				}}},
 		},
 			valid: true},
 		{in: &proxyconfig.DestinationPolicy{
 			Destination: "foobar",
-			Tags:        map[string]string{"@": "~"},
+			Policy: []*proxyconfig.DestinationVersionPolicy{{
+				Tags: map[string]string{"@": "~"},
+			}},
 		},
 			valid: false},
 	}
