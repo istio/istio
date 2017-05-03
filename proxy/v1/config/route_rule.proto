@@ -91,23 +91,33 @@ message RouteRule {
   // traffic.
   MatchCondition match = 3;
 
-  // REQUIRED. Each routing rule is associated with one or more service
-  // version destinations (see glossary in beginning of document). Weights
+  // REQUIRED (route|redirect). A routing rule can either redirect traffic or
+  // forward traffic. The forwarding target can be one of several versions
+  // of a service (see glossary in beginning of document). Weights
   // associated with the service version determine the proportion of
   // traffic it receives.
   repeated DestinationWeight route = 4;
 
+  // REQUIRED (route|redirect). A routing rule can either redirect traffic or
+  // forward traffic. The redirect primitive can be used to send a HTTP 302
+  // redirect to a different URI or Authority.
+  HTTPRedirect redirect = 5;
+
+  // Rewrite HTTP URIs and Authority headers. Rewrite cannot be used with
+  // Redirect primitive. Rewrite will be performed before forwarding.
+  HTTPRewrite rewrite = 6;
+
   // Timeout policy for HTTP requests.
-  HTTPTimeout http_req_timeout = 5;
+  HTTPTimeout http_req_timeout = 7;
 
   // Retry policy for HTTP requests.
-  HTTPRetry http_req_retries = 6;
+  HTTPRetry http_req_retries = 8;
 
   //Fault injection policy to apply on HTTP traffic
-  HTTPFaultInjection http_fault = 7;
+  HTTPFaultInjection http_fault = 9;
 
   //(-- L4 fault injection policy applies to Tcp/Udp (not HTTP) traffic --)
-  L4FaultInjection l4_fault = 8 ;
+  L4FaultInjection l4_fault = 10;
 }
 
 // Match condition specifies a set of criterion to be met in order for the
@@ -149,11 +159,17 @@ message MatchCondition {
   L4MatchAttributes udp = 4 ;
 
   // Set of HTTP match conditions based on HTTP/1.1, HTTP/2, GRPC request
-  // metadata, such as "uri", "scheme", "authority".  The header keys are
-  // case-insensitive. *Note:* The key 'uri' carries a special meaning. It
-  // can be used to perform URL matches. For URL matches ('uri' header),
-  // only prefix and exact matches are supported. For other HTTP headers,
-  // exact, prefix and ECMA style regular expression matches are supported.
+  // metadata, such as _uri_, _scheme_, _authority_.  The header keys are
+  // case-insensitive.
+  //
+  // *Note 1:* The keys _uri_, _scheme_, _method_, and _authority_ correspond
+  // to URI, protocol scheme (e.g., HTTP, HTTPS), HTTP method
+  // (e.g., GET, POST), and the HTTP Host header respectively.
+  //
+  // *Note 2:* _uri_ can be used to perform URL matches. For URL matches
+  // (_uri_), only prefix and exact (see StringMatch) matches are
+  // supported. For other HTTP headers, exact, prefix and ECMA style
+  // regular expression matches are supported.
   map<string, StringMatch> http_headers = 5;
 }
 
@@ -203,6 +219,59 @@ message L4MatchAttributes {
   // E.g., a.b.c.d/xx form or just a.b.c.d. This is only valid when the destination
   // service has several IPs and the application explicitly specifies a particular IP.
   repeated string destination_subnet = 2;
+}
+
+// HTTPRedirect can be used to send a 302 redirect response to the caller,
+// where the Authority/Host and the URI in the response can be swapped with
+// the specified values. For example, the following route rule redirects
+// requests for /v1/getProductRatings API on the ratings service to
+// /v1/bookRatings provided by the bookratings service.
+//
+//     destination: ratings.default.svc.cluster.local
+//     match:
+//       httpHeaders:
+//         uri:
+//          exact: /v1/getProductRatings
+//     redirect:
+//       uri: /v1/bookRatings
+//       authority: bookratings.default.svc.cluster.local
+//
+message HTTPRedirect {
+  // On a redirect, overwrite the Path portion of the URL with this
+  // value. Note that the entire path will be replaced, irrespective of the
+  // request URI being matched as an exact path or prefix.
+  string uri = 1;
+   
+  // On a redirect, overwrite the Authority/Host portion of the URL with
+  // this value
+  string authority = 2;
+}
+ 
+// HTTPRewrite can be used to rewrite specific parts of a HTTP request
+// before forwarding the request to the destination. Rewrite primitive can
+// be used only with the DestinationWeights. The following example
+// demonstrates how to rewrite the URL prefix for api call (/ratings) to
+// ratings service before making the actual API call.
+//
+//     destination: ratings.default.svc.cluster.local
+//     match:
+//       httpHeaders:
+//         uri:
+//          prefix: /ratings
+//     rewrite:
+//       uri: /v1/bookRatings
+//     route:
+//       - tags:
+//           version: v1
+//
+message HTTPRewrite {
+  // rewrite the Path (or the prefix) portion of the URI with this
+  // value. If the original URI was matched based on prefix, the value
+  // provided in this field will replace the corresponding matched prefix.
+  string uri = 1;
+
+  // rewrite the Authority/Host header with this value.
+  string authority = 2;
 }
 
 // Describes how to match a given string in HTTP headers. Match is case-sensitive.
