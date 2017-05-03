@@ -34,7 +34,6 @@ const (
 
 var (
 	remotePath = flag.String("istioctl_url", os.Getenv(istioctlURL), "URL to download istioctl")
-	pfPID      int
 )
 
 // Istioctl gathers istioctl information.
@@ -45,6 +44,7 @@ type Istioctl struct {
 	proxyHub   string
 	proxyTag   string
 	yamlDir    string
+	pfProcess  *os.Process
 }
 
 // NewIstioctl create a new istioctl by given temp dir.
@@ -59,32 +59,38 @@ func NewIstioctl(tmpDir, namespace, proxyHub, proxyTag string) *Istioctl {
 	}
 }
 
-// Setup set up istioctl prerequest for tests
+// Setup set up istioctl prerequest for tests, port forward for manager
 func (i *Istioctl) Setup() error {
 	var pod string
 	var err error
 	glog.Info("Setting up istioctl")
+
+	if err = i.Install(); err != nil {
+		glog.Error("Failed to download istioclt")
+		return err
+	}
 
 	pod, err = util.Shell(fmt.Sprintf("kubectl -n %s get pod -l istio=manager -o jsonpath='{.items[0].metadata.name}'", i.namespace))
 	if err != nil {
 		return err
 	}
 
-	if pfPID, err = util.RunBackground(fmt.Sprintf("kubectl port-forward %s 8081:8081 -n %s", strings.Trim(pod, "'"), i.namespace)); err != nil {
+	if i.pfProcess, err = util.RunBackground(fmt.Sprintf("kubectl port-forward %s 8081:8081 -n %s", strings.Trim(pod, "'"), i.namespace)); err != nil {
 		glog.Errorf("Failed to port forward: %s", err)
 		return err
 	}
-	glog.Infof("pfPID = %d", pfPID)
+	glog.Infof("pfProcess running background, pid = %d", i.pfProcess.Pid)
 
+	err = os.Setenv("ISTIO_MANAGER_ADDRESS", "http://localhost:8081")
 	return err
 }
 
 // Teardown clean up everything created by setup
 func (i *Istioctl) Teardown() error {
 	glog.Info("Cleaning up istioctl")
-	err := util.Kill(pfPID)
+	err := i.pfProcess.Kill()
 	if err != nil {
-		glog.Error("Failed to kill pfPID")
+		glog.Error("Failed to kill pfProcess, pid: %s", i.pfProcess.Pid)
 	}
 	return err
 }

@@ -70,7 +70,7 @@ type KubeInfo struct {
 
 	Istioctl *Istioctl
 
-	Apps []AppInterface
+	AppManager *AppManager
 }
 
 // newKubeInfo create a new KubeInfo by given temp dir and runID
@@ -86,6 +86,9 @@ func newKubeInfo(tmpDir, runID string) *KubeInfo {
 		verbosity = 2
 	}
 
+	istioctl := NewIstioctl(tmpDir, *namespace, *managerHub, *managerTag)
+	appManager := NewAppManager(tmpDir, *namespace, istioctl)
+
 	return &KubeInfo{
 		Namespace:        *namespace,
 		namespaceCreated: false,
@@ -97,18 +100,16 @@ func newKubeInfo(tmpDir, runID string) *KubeInfo {
 		Verbosity:  verbosity,
 		TmpDir:     tmpDir,
 		yamlDir:    filepath.Join(tmpDir, "yaml"),
-		Istioctl:   NewIstioctl(tmpDir, *namespace, *managerHub, *managerTag),
+		Istioctl:   istioctl,
+		AppManager: appManager,
 	}
 }
 
 // Setup set up Kubernetes prerequest for tests
 func (k *KubeInfo) Setup() error {
+	glog.Info("Setting up kubeInfo")
 	var err error
 	if err = os.Mkdir(k.yamlDir, os.ModeDir|os.ModePerm); err != nil {
-		return err
-	}
-
-	if err = k.Istioctl.Install(); err != nil {
 		return err
 	}
 
@@ -129,21 +130,12 @@ func (k *KubeInfo) Setup() error {
 	}
 	k.Ingress = in
 
-	if err = os.Setenv("ISTIO_MANAGER_ADDRESS", "http://localhost:8081"); err != nil {
-		return err
-	}
-
-	if err = k.deployApps(); err != nil {
-		glog.Error("Failed to deploy apps")
-		return err
-	}
-
-	glog.Info("Kubernetes setup finished.")
 	return nil
 }
 
 // Teardown clean up everything created by setup
 func (k *KubeInfo) Teardown() error {
+	glog.Info("Cleaning up kubeInfo")
 	var err error
 	if k.namespaceCreated {
 		if err = util.DeleteNamespace(k.Namespace); err != nil {
@@ -203,19 +195,4 @@ func (k *KubeInfo) generateIstioCore(dst, module string) error {
 		glog.Errorf("Cannot write into generated yaml file %s", dst)
 	}
 	return err
-}
-
-// deploysApps deploys all the apps registered
-func (k *KubeInfo) deployApps() error {
-	for _, a := range k.Apps {
-		if err := a.Deploy(k.yamlDir, k.Namespace, k.Istioctl); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// AddApp for automated deployment. Must be done before Setup Call.
-func (k *KubeInfo) AddApp(a AppInterface) {
-	k.Apps = append(k.Apps, a)
 }

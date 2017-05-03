@@ -59,16 +59,16 @@ func Shell(command string) (string, error) {
 	return string(bytes), nil
 }
 
-// RunBackground starts a background process and return the pid if succeed
-func RunBackground(command string) (int, error) {
+// RunBackground starts a background process and return the Process if succeed
+func RunBackground(command string) (*os.Process, error) {
 	parts := strings.Split(command, " ")
 	c := exec.Command(parts[0], parts[1:]...) // #nosec
 	err := c.Start()
 	if err != nil {
 		glog.Errorf("%s, command failed!", command)
-		return -1, err
+		return nil, err
 	}
-	return c.Process.Pid, nil
+	return c.Process, nil
 }
 
 // Record run command and record output into a file
@@ -152,14 +152,4 @@ func GetResourcePath(p string) string {
 		return p
 	}
 	return filepath.Join(binPath+runfilesSuffix, pathPrefix, p)
-}
-
-// Kill end a running process
-func Kill(pid int) error {
-	p, err := os.FindProcess(pid)
-	if err != nil {
-		glog.Errorf("Can't find running process %d", pid)
-		return err
-	}
-	return p.Kill()
 }

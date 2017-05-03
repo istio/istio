@@ -344,7 +344,7 @@ func setTestConfig() error {
 		AppYaml:    util.GetResourcePath(bookinfoYaml),
 		KubeInject: true,
 	}
-	tc.Kube.AddApp(demoApp)
+	tc.Kube.AppManager.AddApp(demoApp)
 	return nil
 }
 
