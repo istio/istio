@@ -338,6 +338,13 @@ grpc_jwt_verifier_status JwtValidatorImpl::ParseImpl() {
   // Takes ownershp of claims_json and claims_buffer.
   claims_ = grpc_jwt_claims_from_json(&exec_ctx_, claims_json, claims_buffer);
 
+  if (claims_ == nullptr) {
+    gpr_log(GPR_ERROR,
+            "JWT claims could not be created."
+            " Incompatible value types for some claim(s)");
+    return GRPC_JWT_VERIFIER_BAD_FORMAT;
+  }
+
   // issuer is mandatory. grpc_jwt_claims_issuer checks if claims_ is nullptr.
   if (grpc_jwt_claims_issuer(claims_) == nullptr) {
     return GRPC_JWT_VERIFIER_BAD_FORMAT;
