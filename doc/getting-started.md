@@ -31,10 +31,10 @@ The communicating microservices are examples from Kubernetes'
 
 First we will start the microservices using the Istio pattern of a
 proxy within frontend's pod. The `istioctl kube-inject` command
-injects the istio runtime proxy into kubernetes resource files. It is
-documented [here](istioctl.md#kube-inject).
+injects the istio runtime proxy into Kubernetes resource files. It is
+documented [here](https://istio.io/docs/reference/istioctl.html#kube-inject).
 
-```
+```bash
 
 # Backend "hello" service with an instance of container gcr.io/istio-testing/runtime:demo
 kubectl create -f <(istioctl kube-inject -f doc/hello-and-proxy.yaml)
@@ -57,7 +57,7 @@ kubectl describe services frontend-no-istio
 
 At this point we have two microservices.  Let us test by looking up the public port
 
-```
+```bash
 # Get the IP address.  (Alternate: gcloud compute instances list)
 minikube ip
 export IP=`minikube ip`
@@ -68,7 +68,7 @@ export NODEPORT=...
 
 Test the service by doing `curl -i http://$IP:$NODEPORT`  For example, if the IP is 192.168.99.101 and NodePort is 31178/TCP, execute
 
-```
+```bash
 $ curl 192.168.99.101:31778
 {"message":"Hello"}
 ```
@@ -90,7 +90,7 @@ spec:
   http_fault:
     delay:
       percent: 100
-      fixed_delay_seconds: 5
+      fixed_delay: 5s
 EOF
 
 # Give the file to istioctl

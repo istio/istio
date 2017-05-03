@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 Istio Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ func GetIngress(n string) (string, error) {
 	r := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 	for i := 1; i <= 10; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)
-		out, err := Shell(fmt.Sprintf("kubectl get svc istio-ingress-controller -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n))
+		out, err := Shell(fmt.Sprintf("kubectl get svc istio-ingress -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n))
 		if err == nil {
 			out = strings.Trim(out, "'")
 			if match := r.FindString(out); match != "" {

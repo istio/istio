@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 Istio Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package framework
 
 import (
 	"flag"
@@ -20,8 +20,12 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"runtime"
+	"strings"
 
 	"github.com/golang/glog"
+
+	"istio.io/istio/tests/e2e/util"
 )
 
 const (
@@ -40,6 +44,7 @@ type Istioctl struct {
 	proxyHub   string
 	proxyTag   string
 	yamlDir    string
+	pfProcess  *os.Process
 }
 
 // NewIstioctl create a new istioctl by given temp dir.
@@ -54,6 +59,42 @@ func NewIstioctl(tmpDir, namespace, proxyHub, proxyTag string) *Istioctl {
 	}
 }
 
+// Setup set up istioctl prerequest for tests, port forward for manager
+func (i *Istioctl) Setup() error {
+	var pod string
+	var err error
+	glog.Info("Setting up istioctl")
+
+	if err = i.Install(); err != nil {
+		glog.Error("Failed to download istioclt")
+		return err
+	}
+
+	pod, err = util.Shell(fmt.Sprintf("kubectl -n %s get pod -l istio=manager -o jsonpath='{.items[0].metadata.name}'", i.namespace))
+	if err != nil {
+		return err
+	}
+
+	if i.pfProcess, err = util.RunBackground(fmt.Sprintf("kubectl port-forward %s 8081:8081 -n %s", strings.Trim(pod, "'"), i.namespace)); err != nil {
+		glog.Errorf("Failed to port forward: %s", err)
+		return err
+	}
+	glog.Infof("pfProcess running background, pid = %d", i.pfProcess.Pid)
+
+	err = os.Setenv("ISTIO_MANAGER_ADDRESS", "http://localhost:8081")
+	return err
+}
+
+// Teardown clean up everything created by setup
+func (i *Istioctl) Teardown() error {
+	glog.Info("Cleaning up istioctl")
+	err := i.pfProcess.Kill()
+	if err != nil {
+		glog.Error("Failed to kill pfProcess, pid: %s", i.pfProcess.Pid)
+	}
+	return err
+}
+
 // Install downloads Istioctl binary.
 func (i *Istioctl) Install() error {
 	var usr, err = user.Current()
@@ -62,7 +103,17 @@ func (i *Istioctl) Install() error {
 	}
 	homeDir := usr.HomeDir
 
-	if err = HTTPDownload(i.binaryPath, i.remotePath+"/istioctl-linux"); err != nil {
+	var istioctlSuffix string
+	switch runtime.GOOS {
+	case "linux":
+		istioctlSuffix = "linux"
+	case "darwin":
+		istioctlSuffix = "osx"
+	default:
+		return fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
+	}
+
+	if err = util.HTTPDownload(i.binaryPath, i.remotePath+"/istioctl-"+istioctlSuffix); err != nil {
 		return err
 	}
 	err = os.Chmod(i.binaryPath, 0755) // #nosec
@@ -74,7 +125,7 @@ func (i *Istioctl) Install() error {
 }
 
 func (i *Istioctl) run(args string) error {
-	if _, err := Shell(fmt.Sprintf("%s %s", i.binaryPath, args)); err != nil {
+	if _, err := util.Shell(fmt.Sprintf("%s %s", i.binaryPath, args)); err != nil {
 		glog.Errorf("istioctl %s failed", args)
 		return err
 	}

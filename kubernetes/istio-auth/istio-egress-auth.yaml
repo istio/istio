@@ -1,5 +1,5 @@
 ################################
-# Istio egress envoy
+# Istio egress envoy with Istio auth
 ################################
 apiVersion: v1
 kind: Service
@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: gihanson/proxy:dev_20170428_154545
+        image: docker.io/istio/proxy:2017-04-24-23.54.11
         imagePullPolicy: Always
         args: ["proxy", "egress", "-v", "2"]
         env:
@@ -33,5 +33,13 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        volumeMounts:
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
 ---
 

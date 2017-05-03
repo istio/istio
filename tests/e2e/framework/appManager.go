@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 Istio Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,16 +27,19 @@ const (
 	hopYamlTmpl      = "tests/e2e/framework/testdata/hop.yam.tmpl"
 )
 
-// AppInterface for automated deployments.
-type AppInterface interface {
-	Deploy(string, string, *util.Istioctl) error
-}
-
 // App gathers information for Hop app
 type App struct {
 	AppYamlTemplate string
 	AppYaml         string
 	KubeInject      bool
+}
+
+// AppManager organize and deploy apps
+type AppManager struct {
+	Apps      []*App
+	tmpDir    string
+	namespace string
+	istioctl  *Istioctl
 }
 
 // Hop gathers information for Hop app
@@ -64,13 +67,22 @@ func NewHop(d, s, v string, h, g int) *Hop {
 	}
 }
 
-// DeployAppFromTmpl deploy testing app from tmpl
-func (a *App) generateAppYaml(tmpDir string) error {
+// NewAppManager create a new AppManager
+func NewAppManager(tmpDir, namespace string, istioctl *Istioctl) *AppManager {
+	return &AppManager{
+		namespace: namespace,
+		tmpDir:    tmpDir,
+		istioctl:  istioctl,
+	}
+}
+
+// generateAppYaml deploy testing app from tmpl
+func (am *AppManager) generateAppYaml(a *App) error {
 	if a.AppYamlTemplate == "" {
 		return nil
 	}
 	var err error
-	a.AppYaml, err = util.CreateTempfile(tmpDir, filepath.Base(a.AppYamlTemplate), yamlSuffix)
+	a.AppYaml, err = util.CreateTempfile(am.tmpDir, filepath.Base(a.AppYamlTemplate), yamlSuffix)
 	if err != nil {
 		return err
 	}
@@ -81,25 +93,45 @@ func (a *App) generateAppYaml(tmpDir string) error {
 	return nil
 }
 
-// Deploy is called by KubeInfo.
-func (a *App) Deploy(tmpDir, namespace string, istioCtl *util.Istioctl) error {
-	if err := a.generateAppYaml(tmpDir); err != nil {
+func (am *AppManager) deploy(a *App) error {
+	if err := am.generateAppYaml(a); err != nil {
 		return err
 	}
 	finalYaml := a.AppYaml
 	if a.KubeInject {
 		var err error
-		finalYaml, err = util.CreateTempfile(tmpDir, kubeInjectPrefix, yamlSuffix)
+		finalYaml, err = util.CreateTempfile(am.tmpDir, kubeInjectPrefix, yamlSuffix)
 		if err != nil {
 			return err
 		}
-		if err = istioCtl.KubeInject(a.AppYaml, finalYaml); err != nil {
+		if err = am.istioctl.KubeInject(a.AppYaml, finalYaml); err != nil {
 			return err
 		}
 	}
-	if err := util.KubeApply(namespace, finalYaml); err != nil {
+	if err := util.KubeApply(am.namespace, finalYaml); err != nil {
 		glog.Errorf("Kubectl apply %s failed", finalYaml)
 		return err
 	}
 	return nil
+}
+
+// Setup deploy apps
+func (am *AppManager) Setup() error {
+	glog.Info("Setting up apps")
+	for _, a := range am.Apps {
+		if err := am.deploy(a); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Teardown currently does nothing, only to satisfied cleanable{}
+func (am *AppManager) Teardown() error {
+	return nil
+}
+
+// AddApp for automated deployment. Must be done before Setup Call.
+func (am *AppManager) AddApp(a *App) {
+	am.Apps = append(am.Apps, a)
 }

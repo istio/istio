@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "commonUtils.go",
         "compareUtils.go",
-        "istioUtils.go",
         "kubeUtils.go",
     ],
     visibility = ["//visibility:public"],

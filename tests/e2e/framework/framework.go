@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2017 Istio Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -92,6 +92,8 @@ func NewCommonConfig(testID string) (*CommonConfig, error) {
 	}
 	c.Cleanup.RegisterCleanable(c.Info)
 	c.Cleanup.RegisterCleanable(c.Kube)
+	c.Cleanup.RegisterCleanable(c.Kube.Istioctl)
+	c.Cleanup.RegisterCleanable(c.Kube.AppManager)
 	return c, nil
 }
 
