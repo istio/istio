@@ -38,6 +38,17 @@ message ServerConfig {
   // Server config used for API authorization via Firebase Rules.
   ApiCheckSecurityRulesConfig api_check_security_rules_config = 7;
 
+  // The service name.
+  string service_name = 8;
+
+  // The service config id to use at the start of ESP.
+  string config_id = 9;
+
+  // The service config rollout strategy, [fixed|managed]
+  // fixed:  never change service config dynamically.
+  // managed: follow service management service config rollout.
+  string rollout_strategy = 10;
+
   // Experimental flags
   Experimental experimental = 999;
 }
