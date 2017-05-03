@@ -1,72 +1,80 @@
 subject: namespace:ns
 revision: "2022"
 manifests:
+  - name: kubernetes
+    revision: "1"
+    attributes:
+      source.ip:
+        valueType: IP_ADDRESS
+      source.labels:
+        valueType: STRING_MAP
+      source.name:
+        valueType: STRING
+      source.namespace:
+        valueType: STRING
+      source.service:
+        valueType: STRING
+      source.serviceAccount:
+        valueType: STRING
+      target.ip:
+        valueType: IP_ADDRESS
+      target.labels:
+        valueType: STRING_MAP
+      target.name:
+        valueType: STRING
+      target.namespace:
+        valueType: STRING
+      target.service:
+        valueType: STRING
+      target.serviceAccount:
+        valueType: STRING
   - name: istio-proxy
     revision: "1"
     attributes:
-    - name: source.uid
-      value_type: STRING
-    - name: target.uid
-      value_type: STRING
-    - name: origin.uid
-      value_type: STRING
-    - name: source.name
-      value_type: STRING
-    - name: source.labels
-      value_type: STRING_MAP
-    - name: target.labels
-      value_type: STRING_MAP
-    - name: target.name
-      value_type: STRING
-    - name: target.service
-      value_type: STRING
-    - name: source.namespace
-      value_type: STRING
-    - name: target.namespace
-      value_type: STRING
-    - name: source.service
-      value_type: STRING
-    - name: target.service
-      value_type: STRING
-    - name: source.ip
-      value_type: IP_ADDRESS
-    - name: target.ip
-      value_type: IP_ADDRESS
-    - name: origin.ip
-      value_type: IP_ADDRESS
-    - name: origin.user
-      value_type: STRING
-    - name: source.serviceAccount
-      value_type: STRING
-    - name: target.serviceAccount
-      value_type: STRING
-    - name: request.time
-      value_type: TIMESTAMP
-    - name: request.method
-      value_type: STRING
-    - name: request.path
-      value_type: STRING
-    - name: request.host
-      value_type: STRING
-    - name: request.headers
-      value_type: STRING_MAP
-    - name: request.scheme
-      value_type: STRING
-    - name: request.size
-      value_type: INT64
-    - name: response.size
-      value_type: INT64
-    - name: response.code
-      value_type: INT64
-    - name: response.duration
-      value_type: DURATION
-    - name: response.latency
-      value_type: DURATION
-    # TODO: we really need to remove these, they're not part of the attribute vocab.
-    - name: api.name
-      value_type: STRING
-    - name: api.method
-      value_type: STRING
+      origin.ip:
+        valueType: IP_ADDRESS
+      origin.uid:
+        valueType: STRING
+      origin.user:
+        valueType: STRING
+      request.headers:
+        valueType: STRING_MAP
+      request.id:
+        valueType: STRING
+      request.host:
+        valueType: STRING
+      request.method:
+        valueType: STRING
+      request.path:
+        valueType: STRING
+      request.reason:
+        valueType: STRING
+      request.referer:
+        valueType: STRING
+      request.scheme:
+        valueType: STRING
+      request.size:
+        valueType: INT64
+      request.time:
+        valueType: TIMESTAMP
+      request.user-agent:
+        valueType: STRING
+      response.code:
+        valueType: INT64
+      response.duration:
+        valueType: DURATION
+      response.headers:
+        valueType: STRING_MAP
+      response.latency:
+        valueType: DURATION
+      response.size:
+        valueType: INT64
+      response.time:
+        valueType: TIMESTAMP
+      source.uid:
+        valueType: STRING
+      target.uid:
+        valueType: STRING
 # Enums as struct fields can be symbolic names.
 # However enums inside maps *cannot* be symbolic names.
 metrics:

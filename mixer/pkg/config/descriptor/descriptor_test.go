@@ -39,7 +39,7 @@ type (
 		name string
 		cfg  *pb.GlobalConfig
 		get  getter
-		out  proto.Message
+		out  interface{}
 	}
 )
 
@@ -101,9 +101,8 @@ var (
 		}
 	}
 
-	attributeDesc = dpb.AttributeDescriptor{
-		Name:      "attr",
-		ValueType: dpb.BOOL,
+	attributeDesc = map[string]*pb.AttributeManifest_AttributeInfo{
+		"attr": {ValueType: dpb.BOOL},
 	}
 
 	getAttr = func(k string) getter {
@@ -154,13 +153,13 @@ func TestGetQuota(t *testing.T) {
 }
 
 func TestGetAttribute(t *testing.T) {
-	mkcfg := func(descs ...*dpb.AttributeDescriptor) *pb.GlobalConfig {
+	mkcfg := func(descs map[string]*pb.AttributeManifest_AttributeInfo) *pb.GlobalConfig {
 		return &pb.GlobalConfig{Manifests: []*pb.AttributeManifest{{Attributes: descs}}}
 	}
 
 	execute(t, cases{
-		{"empty", mkcfg(&attributeDesc), getAttr("attr"), &attributeDesc},
-		{"missing", mkcfg(&attributeDesc), getAttr("foo"), nil},
+		{"empty", mkcfg(attributeDesc), getAttr("attr"), attributeDesc["attr"]},
+		{"missing", mkcfg(attributeDesc), getAttr("foo"), nil},
 		{"no attributes", &pb.GlobalConfig{}, getAttr("attr"), nil},
 	})
 }
@@ -185,7 +184,7 @@ func testParser(mutations map[string]interface{}, wantErr string, t *testing.T) 
 	var ba []byte
 	var err error
 	if err := yaml.Unmarshal([]byte(allGoodConfig), &m); err != nil {
-		t.Fatalf("unable unmarshal %s", err)
+		t.Fatalf("unable unmarshal %v with: %v", allGoodConfig, err)
 	}
 
 	for path, val := range mutations {
@@ -193,7 +192,7 @@ func testParser(mutations map[string]interface{}, wantErr string, t *testing.T) 
 	}
 
 	if ba, err = yaml.Marshal(m); err != nil {
-		t.Fatalf("unable to marshal %s", err)
+		t.Fatalf("unable to marshal %v with: %v", m, err)
 	}
 
 	_, ce := Parse(string(ba))
@@ -235,9 +234,10 @@ func TestParseErrors(t *testing.T) {
 	for _, tt := range []struct {
 		m       map[string]interface{}
 		wantErr string
-	}{{map[string]interface{}{
-		"manifests[0].attributes[0].value_type": "WRONG_STRING"},
-		"manifests[0].attributes[0]: unknown value"},
+	}{
+		{map[string]interface{}{
+			"manifests[0].attributes[source].value_type": "WRONG_STRING"},
+			"manifests[0].attributes[source]: unknown value"},
 		{map[string]interface{}{
 			"quotas[0].unknown_attribute": "unknown_value"},
 			"quotas[0]: unknown field"},
@@ -299,7 +299,7 @@ func mutate(m interface{}, path string, val interface{}) interface{} {
 		if err == nil { // array
 			qa, _ = v.([]interface{})
 			if qa == nil {
-				panic(fmt.Sprintf("%s is not an array", tokens[:tidx]))
+				panic(fmt.Sprintf("%s is not an array; all tokens: %s", tokens[:tidx], tokens))
 			}
 			v = qa[idx]
 		} else { // map
@@ -326,39 +326,8 @@ manifests:
   - name: istio-proxy
     revision: "1"
     attributes:
-    - name: source.name
-      value_type: STRING
-    - name: source.labels
-      value_type: STRING_MAP
-    - name: target.name
-      value_type: STRING
-    - name: target.service
-      value_type: STRING
-    - name: origin.ip
-      value_type: IP_ADDRESS
-    - name: origin.user
-      value_type: STRING
-    - name: request.time
-      value_type: TIMESTAMP
-    - name: request.method
-      value_type: STRING
-    - name: request.path
-      value_type: STRING
-    - name: request.headers
-      value_type: STRING_MAP
-    - name: request.scheme
-      value_type: STRING
-    - name: response.size
-      value_type: INT64
-    - name: response.code
-      value_type: INT64
-    - name: response.duration
-      value_type: DURATION
-    # TODO: we really need to remove these, they're not part of the attribute vocab.
-    - name: api.name
-      value_type: STRING
-    - name: api.method
-      value_type: STRING
+      source:
+        value_type: STRING
 
 # Enums as struct fields can be symbolic names.
 # However enums inside maps *cannot* be symbolic names.

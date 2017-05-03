@@ -31,7 +31,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/descriptor"
-	cpb "istio.io/mixer/pkg/config/proto"
+	cfgpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
@@ -103,9 +103,9 @@ func TestNewQuotasManager(t *testing.T) {
 	}
 }
 
-func newQuotaConfig(desc string, labels map[string]string) *cpb.Combined {
-	return &cpb.Combined{
-		Aspect: &cpb.Aspect{
+func newQuotaConfig(desc string, labels map[string]string) *cfgpb.Combined {
+	return &cfgpb.Combined{
+		Aspect: &cfgpb.Aspect{
 			Params: &aconfig.QuotasParams{
 				Quotas: []*aconfig.QuotasParams_Quota{
 					{
@@ -119,7 +119,7 @@ func newQuotaConfig(desc string, labels map[string]string) *cpb.Combined {
 		},
 
 		// the params we use here don't matter because we're faking the aspect
-		Builder: &cpb.Adapter{Params: &aconfig.QuotasParams{}},
+		Builder: &cfgpb.Adapter{Params: &aconfig.QuotasParams{}},
 	}
 }
 
@@ -136,10 +136,10 @@ func TestQuotasManager_NewAspect(t *testing.T) {
 }
 
 func TestQuotasManager_NewAspect_PropagatesError(t *testing.T) {
-	conf := &cpb.Combined{
-		Aspect: &cpb.Aspect{Params: &aconfig.QuotasParams{}},
+	conf := &cfgpb.Combined{
+		Aspect: &cfgpb.Aspect{Params: &aconfig.QuotasParams{}},
 		// the params we use here don't matter because we're faking the aspect
-		Builder: &cpb.Adapter{Params: &aconfig.QuotasParams{}},
+		Builder: &cfgpb.Adapter{Params: &aconfig.QuotasParams{}},
 	}
 	errString := "expected"
 	builder := &fakeQuotaBuilder{
@@ -164,9 +164,9 @@ func TestQuotasManager_ValidateConfig(t *testing.T) {
 			Labels: map[string]dpb.ValueType{},
 		},
 		// our attributes
-		"duration": &dpb.AttributeDescriptor{Name: "duration", ValueType: dpb.DURATION},
-		"string":   &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
-		"int64":    &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
+		"duration": &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.DURATION},
+		"string":   &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.STRING},
+		"int64":    &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.INT64},
 	})
 	v := expr.NewCEXLEvaluator()
 

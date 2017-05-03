@@ -72,7 +72,7 @@ type finder struct {
 	monitoredResources map[string]*dpb.MonitoredResourceDescriptor
 	principals         map[string]*dpb.PrincipalDescriptor
 	quotas             map[string]*dpb.QuotaDescriptor
-	attributes         map[string]*dpb.AttributeDescriptor
+	attributes         map[string]*pb.AttributeManifest_AttributeInfo
 }
 
 // typeMap maps descriptor types to example messages of those types.
@@ -110,10 +110,17 @@ var typeMap = map[dname]proto.Message{
 		},
 		RateLimit: true,
 	},
-	manifests: &dpb.AttributeDescriptor{
-		Name:        "target.service",
+	attributes: &pb.AttributeManifest_AttributeInfo{
 		ValueType:   dpb.STRING,
 		Description: "Intended destination of a request",
+	},
+	manifests: &pb.AttributeManifest{
+		Attributes: map[string]*pb.AttributeManifest_AttributeInfo{
+			"target.service": {
+				ValueType:   dpb.STRING,
+				Description: "Intended destination of a request",
+			},
+		},
 	},
 }
 
@@ -150,17 +157,17 @@ func Parse(cfg string) (dcfg *pb.GlobalConfig, ce *adapter.ConfigErrors) {
 		for midx, msft := range val.([]interface{}) {
 			mname := fmt.Sprintf("%s[%d]", k, midx)
 			manifest := msft.(map[string]interface{})
-			attr := manifest[attributes].([]interface{})
+			attr := manifest[attributes].(map[string]interface{})
 			delete(manifest, attributes)
 			ma := &pb.AttributeManifest{}
 			if cerr = updateMsg(mname, manifest, ma, typeMap[k], false); cerr != nil {
 				ce = ce.Extend(cerr)
 			}
-			if oarr, cerr = processArray(mname+"."+attributes, attr, typeMap[k]); cerr != nil {
+			if oarr, cerr = processMap(mname+"."+attributes, attr, typeMap[attributes]); cerr != nil {
 				ce = ce.Extend(cerr)
 				continue
 			}
-			ma.Attributes = oarr.Interface().([]*dpb.AttributeDescriptor)
+			ma.Attributes = oarr.Interface().(map[string]*pb.AttributeManifest_AttributeInfo)
 			mani = append(mani, ma)
 		}
 		dcfg.Manifests = mani
@@ -204,7 +211,7 @@ func updateMsg(ctx string, obj interface{}, dm proto.Message, example proto.Mess
 	}
 	um := &jsonpb.Unmarshaler{AllowUnknownFields: allowUnknownFields}
 	if err = um.Unmarshal(bytes.NewReader(enc), dm); err != nil {
-		msg := fmt.Sprintf("%v: [%s]", err, string(enc))
+		msg := fmt.Sprintf("%v: %s", err, string(enc))
 		if example != nil {
 			um := &jsonpb.Marshaler{}
 			exampleStr, _ := um.MarshalToString(example)
@@ -220,13 +227,12 @@ func updateMsg(ctx string, obj interface{}, dm proto.Message, example proto.Mess
 func processArray(name string, arr []interface{}, nm proto.Message) (reflect.Value, *adapter.ConfigErrors) {
 	var ce *adapter.ConfigErrors
 	ptrType := reflect.TypeOf(nm)
-	valType := (reflect.Indirect(reflect.ValueOf(nm))).Type()
+	valType := reflect.Indirect(reflect.ValueOf(nm)).Type()
 	outarr := reflect.MakeSlice(reflect.SliceOf(ptrType), 0, len(arr))
 	for idx, attr := range arr {
-		dm := reflect.New(valType).Elem().Addr().Interface().(proto.Message)
+		dm := reflect.New(valType).Interface().(proto.Message)
 
-		if cerr := updateMsg(fmt.Sprintf("%s[%d]", name, idx),
-			attr, dm, nm, false); cerr != nil {
+		if cerr := updateMsg(fmt.Sprintf("%s[%d]", name, idx), attr, dm, nm, false); cerr != nil {
 			ce = ce.Extend(cerr)
 			continue
 		}
@@ -234,6 +240,23 @@ func processArray(name string, arr []interface{}, nm proto.Message) (reflect.Val
 		outarr = reflect.Append(outarr, reflect.ValueOf(dm))
 	}
 	return outarr, ce
+}
+
+// processMap and return a typed map.
+func processMap(name string, arr map[string]interface{}, value proto.Message) (reflect.Value, *adapter.ConfigErrors) {
+	var ce *adapter.ConfigErrors
+	ptrType := reflect.TypeOf(value)
+	valueType := reflect.Indirect(reflect.ValueOf(value)).Type()
+	outmap := reflect.MakeMap(reflect.MapOf(reflect.ValueOf("").Type(), ptrType))
+	for vname, val := range arr {
+		dm := reflect.New(valueType).Interface().(proto.Message)
+		if cerr := updateMsg(fmt.Sprintf("%s[%s]", name, vname), val, dm, value, false); cerr != nil {
+			ce = ce.Extend(cerr)
+			continue
+		}
+		outmap.SetMapIndex(reflect.ValueOf(vname), reflect.ValueOf(dm))
+	}
+	return outmap, ce
 }
 
 // NewFinder constructs a new Finder for the provided global config.
@@ -244,7 +267,7 @@ func NewFinder(cfg *pb.GlobalConfig) Finder {
 		monitoredResources: make(map[string]*dpb.MonitoredResourceDescriptor),
 		principals:         make(map[string]*dpb.PrincipalDescriptor),
 		quotas:             make(map[string]*dpb.QuotaDescriptor),
-		attributes:         make(map[string]*dpb.AttributeDescriptor),
+		attributes:         make(map[string]*pb.AttributeManifest_AttributeInfo),
 	}
 
 	if cfg == nil {
@@ -272,8 +295,8 @@ func NewFinder(cfg *pb.GlobalConfig) Finder {
 	}
 
 	for _, manifest := range cfg.Manifests {
-		for _, desc := range manifest.Attributes {
-			f.attributes[desc.Name] = desc
+		for name, info := range manifest.Attributes {
+			f.attributes[name] = info
 		}
 	}
 
@@ -300,6 +323,6 @@ func (d *finder) GetQuota(name string) *dpb.QuotaDescriptor {
 	return d.quotas[name]
 }
 
-func (d *finder) GetAttribute(name string) *dpb.AttributeDescriptor {
+func (d *finder) GetAttribute(name string) *pb.AttributeManifest_AttributeInfo {
 	return d.attributes[name]
 }

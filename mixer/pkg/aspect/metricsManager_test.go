@@ -31,7 +31,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/descriptor"
-	cpb "istio.io/mixer/pkg/config/proto"
+	cfgpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -112,8 +112,8 @@ func TestNewMetricsManager(t *testing.T) {
 }
 
 func TestMetricsManager_NewAspect(t *testing.T) {
-	conf := &cpb.Combined{
-		Aspect: &cpb.Aspect{
+	conf := &cfgpb.Combined{
+		Aspect: &cfgpb.Aspect{
 			Params: &aconfig.MetricsParams{
 				Metrics: []*aconfig.MetricsParams_Metric{
 					{
@@ -125,7 +125,7 @@ func TestMetricsManager_NewAspect(t *testing.T) {
 			},
 		},
 		// the params we use here don't matter because we're faking the aspect
-		Builder: &cpb.Adapter{Params: &aconfig.MetricsParams{}},
+		Builder: &cfgpb.Adapter{Params: &aconfig.MetricsParams{}},
 	}
 	builder := &fakeBuilder{name: "test", body: func() (adapter.MetricsAspect, error) {
 		return &fakeaspect{body: func([]adapter.Value) error { return nil }}, nil
@@ -146,9 +146,9 @@ func TestMetricsManager_Validation(t *testing.T) {
 			Labels: map[string]dpb.ValueType{},
 		},
 		// our attributes
-		"duration": &dpb.AttributeDescriptor{Name: "duration", ValueType: dpb.DURATION},
-		"string":   &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
-		"int64":    &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
+		"duration": &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.DURATION},
+		"string":   &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.STRING},
+		"int64":    &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.INT64},
 	}
 	f := test.NewDescriptorFinder(descs)
 	v := expr.NewCEXLEvaluator()
@@ -241,10 +241,10 @@ func TestMetricsManager_Validation(t *testing.T) {
 }
 
 func TestMetricsManager_NewAspect_PropagatesError(t *testing.T) {
-	conf := &cpb.Combined{
-		Aspect: &cpb.Aspect{Params: &aconfig.MetricsParams{}},
+	conf := &cfgpb.Combined{
+		Aspect: &cfgpb.Aspect{Params: &aconfig.MetricsParams{}},
 		// the params we use here don't matter because we're faking the aspect
-		Builder: &cpb.Adapter{Params: &aconfig.MetricsParams{}},
+		Builder: &cfgpb.Adapter{Params: &aconfig.MetricsParams{}},
 	}
 	errString := "expected"
 	builder := &fakeBuilder{

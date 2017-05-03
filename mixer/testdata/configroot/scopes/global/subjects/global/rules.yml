@@ -15,17 +15,16 @@ rules:
         targetService: request.headers["authority"] | request.host | ""
       attribute_bindings:
         source.ip: sourcePodIp
-        source.service: sourceService
+        source.labels: sourceLabels
         source.name: sourcePodName
         source.namespace: sourceNamespace
-        source.labels: sourceLabels
+        source.service: sourceService
         source.serviceAccount: sourceServiceAccountName
-        target.service: targetService
-        target.labels: targetLabels
         target.ip: targetPodIp
-        target.service: targetService
+        target.labels: targetLabels
         target.name: targetPodName
         target.namespace: targetNamespace
+        target.service: targetService
         target.serviceAccount: targetServiceAccountName
   - kind: quotas
     params:
@@ -43,16 +42,16 @@ rules:
         labels:
           source: source.service | "unknown"
           target: target.service | "unknown"
-          service: api.name | target.labels["app"] | "unknown"
-          method: api.method | request.path | "unknown"
+          service: target.labels["app"] | "unknown"
+          method: request.path | "unknown"
           response_code: response.code | 200
       - descriptor_name:  request_duration
         value: response.latency | response.duration | "0ms"
         labels:
           source: source.service | "unknown"
           target: target.service | "unknown"
-          service: api.name | target.labels["app"] | "unknown"
-          method: api.method | request.path | "unknown"
+          service: target.labels["app"] | "unknown"
+          method: request.path | "unknown"
           response_code: response.code | 200
   - kind: access-logs
     params:

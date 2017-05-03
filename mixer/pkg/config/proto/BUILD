@@ -9,6 +9,9 @@ go_library(
         "combined.go",
     ],
     deps = [
+        "@com_github_gogo_protobuf//proto:go_default_library",
+        "@com_github_gogo_protobuf//sortkeys:go_default_library",
+        "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_istio_api//:mixer/v1/config/descriptor",
     ],

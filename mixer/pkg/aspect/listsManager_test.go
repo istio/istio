@@ -27,13 +27,13 @@ import (
 	aconfig "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/config"
-	cpb "istio.io/mixer/pkg/config/proto"
+	cfgpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
 
 func TestListsManager(t *testing.T) {
 	dfind := test.NewDescriptorFinder(map[string]interface{}{
-		"source.ip": &dpb.AttributeDescriptor{Name: "source.ip", ValueType: dpb.STRING},
+		"source.ip": &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.STRING},
 	})
 
 	lm := newListsManager()
@@ -50,8 +50,8 @@ func TestListsManager(t *testing.T) {
 
 func TestListsManager_ValidateConfig(t *testing.T) {
 	dfind := test.NewDescriptorFinder(map[string]interface{}{
-		"string": &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
-		"int64":  &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
+		"string": &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.STRING},
+		"int64":  &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.INT64},
 	})
 
 	tests := []struct {
@@ -95,9 +95,9 @@ func (t testListsBuilder) NewListsAspect(env adapter.Env, c adapter.Config) (ada
 }
 
 func TestListsManager_NewCheckExecutor(t *testing.T) {
-	defaultCfg := &cpb.Combined{
-		Builder: &cpb.Adapter{Params: &aconfig.ListsParams{}},
-		Aspect:  &cpb.Aspect{Params: &aconfig.ListsParams{}, Inputs: map[string]string{}},
+	defaultCfg := &cfgpb.Combined{
+		Builder: &cfgpb.Adapter{Params: &aconfig.ListsParams{}},
+		Aspect:  &cfgpb.Aspect{Params: &aconfig.ListsParams{}},
 	}
 
 	lm := newListsManager()
@@ -107,9 +107,9 @@ func TestListsManager_NewCheckExecutor(t *testing.T) {
 }
 
 func TestListsManager_NewCheckExecutorErrors(t *testing.T) {
-	defaultCfg := &cpb.Combined{
-		Builder: &cpb.Adapter{Params: &aconfig.ListsParams{}},
-		Aspect:  &cpb.Aspect{Params: &aconfig.ListsParams{}, Inputs: map[string]string{}},
+	defaultCfg := &cfgpb.Combined{
+		Builder: &cfgpb.Adapter{Params: &aconfig.ListsParams{}},
+		Aspect:  &cfgpb.Aspect{Params: &aconfig.ListsParams{}},
 	}
 
 	lm := newListsManager()
