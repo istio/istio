@@ -79,7 +79,7 @@ istioctl mixer command documentation.
 					managerAddr = a
 				} else {
 					return errors.New("manager address environment variable is not set, " +
-						"please set ISTIO_MANAGER_ADDRESS to the location and port of you Istio manager")
+						"please set ISTIO_MANAGER_ADDRESS to the location and port of your Istio manager")
 				}
 
 			}
