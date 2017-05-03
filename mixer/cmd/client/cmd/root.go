@@ -65,7 +65,7 @@ type rootArgs struct {
 func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "mixc",
-		Short: "Utility to trigger direct calls to Mixer's API",
+		Short: "Utility to trigger direct calls to Mixer's API.",
 		Long: "This command lets you interact with a running instance of\n" +
 			"Mixer. Note that you need a pretty good understanding of Mixer's\n" +
 			"API in order to use this command.",

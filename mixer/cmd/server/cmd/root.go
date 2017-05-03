@@ -28,7 +28,9 @@ import (
 func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "mixs",
-		Short: "Mixer provides control plane functionality to the Istio proxy and services",
+		Short: "Mixer is Istio's abstraction on top of infrastructure backends.",
+		Long: "Mixer is Istio's point of integration with infrastructure backends and is the\n" +
+			"nexus for policy evaluation and telemetry reporting.",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				return fmt.Errorf("'%s' is an invalid argument", args[0])
