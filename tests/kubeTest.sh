@@ -23,6 +23,7 @@ TEST_DIR="$(mktemp -d /tmp/kubetest.XXXXX)"
 ISTIO_INSTALL_DIR="${TEST_DIR}/istio"
 BOOKINFO_DIR="${TEST_DIR}/bookinfo"
 RULES_DIR="${BOOKINFO_DIR}/rules"
+WRK_URL="https://storage.googleapis.com/istio-build-deps/wrk-linux"
 
 # Import relevant utils
 . ${SCRIPT_DIR}/kubeUtils.sh || \
@@ -51,6 +52,12 @@ if [[ -z ${ISTIOCLI} ]]; then
     ISTIOCLI="${TEST_DIR}/istioctl -c ${HOME}/.kube/config"
 fi
 
+if [[ -z ${WRK} ]]; then
+    wget -q -O "${TEST_DIR}/wrk" "${WRK_URL}" || error_exit "Could not download wrk"
+    chmod +x "${TEST_DIR}/wrk"
+    WRK="${TEST_DIR}/wrk"
+fi
+
 if [[ -n ${MANAGER_HUB_TAG} ]]; then
     MANAGER_HUB="$(echo ${MANAGER_HUB_TAG}|cut -f1 -d,)"
     MANAGER_TAG="$(echo ${MANAGER_HUB_TAG}|cut -f2 -d,)"
@@ -76,6 +83,7 @@ create_namespace
 generate_istio_yaml "${ISTIO_INSTALL_DIR}"
 deploy_istio "${ISTIO_INSTALL_DIR}"
 setup_istioctl
+setup_mixer
 generate_bookinfo_yaml "${BOOKINFO_DIR}"
 generate_rules_yaml "${RULES_DIR}"
 deploy_bookinfo "${BOOKINFO_DIR}"; URL=$GATEWAY_URL
@@ -202,6 +210,14 @@ then
     ((FAILURE_COUNT++))
     dump_debug
 fi
+# mixer tests
+METRICS_URL=${ISTIO_MIXER_METRICS}/metrics
+curl --connect-timeout 5 ${METRICS_URL}
+${WRK} -t1 -c1 -d10s --latency -s ${SCRIPT_DIR}/wrk.lua ${URL}/productpage
+curl --connect-timeout 5 ${METRICS_URL}
+${WRK} -t2 -c2 -d10s --latency -s ${SCRIPT_DIR}/wrk.lua ${URL}/productpage
+curl --connect-timeout 5 ${METRICS_URL}
+
 
 if [ ${FAILURE_COUNT} -gt 0 ]
 then
