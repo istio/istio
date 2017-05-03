@@ -25,7 +25,7 @@ import (
 	atest "istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
-	cpb "istio.io/mixer/pkg/config/proto"
+	cfgpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
@@ -46,9 +46,9 @@ func TestAttributeGeneratorManager(t *testing.T) {
 func TestAttrGenMgr_ValidateConfig(t *testing.T) {
 
 	dfind := atest.NewDescriptorFinder(map[string]interface{}{
-		"int64":     &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
-		"duration":  &dpb.AttributeDescriptor{Name: "duration", ValueType: dpb.DURATION},
-		"source_ip": &dpb.AttributeDescriptor{Name: "source_ip"},
+		"int64":     &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.INT64},
+		"duration":  &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.DURATION},
+		"source_ip": &cfgpb.AttributeManifest_AttributeInfo{},
 	})
 
 	validExpr := &apb.AttributesGeneratorParams{
@@ -133,9 +133,9 @@ func TestAttributeGeneratorManager_NewPreprocessExecutor(t *testing.T) {
 	}
 
 	m := newAttrGenMgr()
-	c := &cpb.Combined{
-		Builder: &cpb.Adapter{Params: &apb.AttributesGeneratorParams{}},
-		Aspect: &cpb.Aspect{Params: &apb.AttributesGeneratorParams{
+	c := &cfgpb.Combined{
+		Builder: &cfgpb.Adapter{Params: &apb.AttributesGeneratorParams{}},
+		Aspect: &cfgpb.Aspect{Params: &apb.AttributesGeneratorParams{
 			AttributeBindings: map[string]string{"service_found": "found", "source_service": "srcSvc"},
 		}},
 	}

@@ -23,6 +23,7 @@ import (
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
+	cfgpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -97,9 +98,9 @@ func TestValidateLabels(t *testing.T) {
 		{"type doesn't match desc", map[string]string{"stringlabel": "duration"}, descriptors, "expected type STRING"},
 	}
 	dfind := test.NewDescriptorFinder(map[string]interface{}{
-		"duration": &dpb.AttributeDescriptor{Name: "duration", ValueType: dpb.DURATION},
-		"string":   &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
-		"int64":    &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
+		"duration": &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.DURATION},
+		"string":   &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.STRING},
+		"int64":    &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.INT64},
 	})
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
@@ -116,9 +117,9 @@ func TestValidateLabels(t *testing.T) {
 
 func TestValidateTemplateExpressions(t *testing.T) {
 	dfind := test.NewDescriptorFinder(map[string]interface{}{
-		"duration": &dpb.AttributeDescriptor{Name: "duration", ValueType: dpb.DURATION},
-		"string":   &dpb.AttributeDescriptor{Name: "string", ValueType: dpb.STRING},
-		"int64":    &dpb.AttributeDescriptor{Name: "int64", ValueType: dpb.INT64},
+		"duration": &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.DURATION},
+		"string":   &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.STRING},
+		"int64":    &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.INT64},
 	})
 
 	tests := []struct {

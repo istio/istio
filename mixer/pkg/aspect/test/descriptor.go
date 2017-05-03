@@ -14,7 +14,10 @@
 
 package test
 
-import dpb "istio.io/api/mixer/v1/config/descriptor"
+import (
+	dpb "istio.io/api/mixer/v1/config/descriptor"
+	cfgpb "istio.io/mixer/pkg/config/proto"
+)
 
 // DescriptorFinder implements the descriptor.Finder interface more simply than the real object
 // (namely in that it doesn't require synthesizing a config, and will panic when used incorrectly).
@@ -73,10 +76,10 @@ func (d *DescriptorFinder) GetQuota(name string) *dpb.QuotaDescriptor {
 }
 
 // GetAttribute returns the AttributeDescriptor named 'name' or nil if it does not exist in the map.
-func (d *DescriptorFinder) GetAttribute(name string) *dpb.AttributeDescriptor {
+func (d *DescriptorFinder) GetAttribute(name string) *cfgpb.AttributeManifest_AttributeInfo {
 	v, f := d.m[name]
 	if !f {
 		return nil
 	}
-	return v.(*dpb.AttributeDescriptor)
+	return v.(*cfgpb.AttributeManifest_AttributeInfo)
 }

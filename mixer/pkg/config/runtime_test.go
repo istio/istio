@@ -17,7 +17,7 @@ package config
 import (
 	"errors"
 	"flag"
-	"fmt"
+	//"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -83,21 +83,18 @@ func TestGetScopes(t *testing.T) {
 
 }
 
-func buildServiceConfig(key string, kinds []string) *pb.ServiceConfig {
+func buildServiceConfig(kinds []string) *pb.ServiceConfig {
 	aspects := make([]*pb.Aspect, len(kinds))
 	for idx, kind := range kinds {
 		aspects[idx] = &pb.Aspect{
 			Kind: kind,
-			Inputs: map[string]string{
-				key: "true",
-			},
+			// Used as a marker by tests
+			Params: true,
 		}
 	}
 	return &pb.ServiceConfig{
 		Rules: []*pb.AspectRule{
-			{
-				Aspects: aspects,
-			},
+			{Aspects: aspects},
 		},
 	}
 }
@@ -136,7 +133,7 @@ func buildRule(rule []*fakeRule) map[rulesKey]*pb.ServiceConfig {
 
 	for _, p := range rule {
 		pk := rulesKey{p.scope, p.subject}
-		rules[pk] = buildServiceConfig(fmt.Sprintf("%s", pk), p.kinds)
+		rules[pk] = buildServiceConfig(p.kinds)
 	}
 	return rules
 }
@@ -267,7 +264,7 @@ func TestResolve(t *testing.T) {
 			for k, v := range tt.assertions {
 				found := false
 				for _, kl := range byKind[k] {
-					if kl.Aspect.Inputs[v] != "" {
+					if val, ok := kl.Aspect.Params.(bool); ok && val {
 						found = true
 						break
 					}
