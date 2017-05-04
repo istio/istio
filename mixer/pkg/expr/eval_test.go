@@ -308,7 +308,10 @@ func TestCEXLEval(tt *testing.T) {
 			true, "unresolved attribute", stringType,
 		},
 	}
-	ev := NewCEXLEvaluator()
+	ev, er := NewCEXLEvaluator(DefaultCacheSize)
+	if er != nil {
+		tt.Errorf("Failed to create expression evaluator: %v", er)
+	}
 	var ret interface{}
 	var err error
 	for idx, tst := range tests {
@@ -340,33 +343,6 @@ func TestCEXLEval(tt *testing.T) {
 		})
 	}
 
-}
-
-func TestCexlValidate(tt *testing.T) {
-	success := "_SUCCESS_"
-	tests := []struct {
-		s   string
-		err string
-	}{
-		{"a", success},
-		{"a=b", "unable to parse"},
-	}
-
-	ev := NewCEXLEvaluator()
-
-	for idx, tst := range tests {
-		tt.Run(fmt.Sprintf("[%d] %s", idx, tst.s), func(t *testing.T) {
-			err := ev.Validate(tst.s)
-			if (err == nil) != (tst.err == success) {
-				t.Errorf("[%d] got %s, want %s", idx, err, tst.err)
-				return
-			}
-			// check if error is of the correct type
-			if err != nil && !strings.Contains(err.Error(), tst.err) {
-				t.Errorf("[%d] got %s, want %s", idx, err, tst.err)
-			}
-		})
-	}
 }
 
 // fake bag

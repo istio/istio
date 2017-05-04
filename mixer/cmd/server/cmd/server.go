@@ -47,6 +47,7 @@ type serverArgs struct {
 	maxConcurrentStreams          uint
 	apiWorkerPoolSize             int
 	adapterWorkerPoolSize         int
+	expressionEvalCacheSize       int
 	port                          uint16
 	configAPIPort                 uint16
 	singleThreaded                bool
@@ -92,6 +93,9 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	serverCmd.PersistentFlags().UintVarP(&sa.maxConcurrentStreams, "maxConcurrentStreams", "", 32, "Maximum supported number of concurrent gRPC streams")
 	serverCmd.PersistentFlags().IntVarP(&sa.apiWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max # of goroutines in the API worker pool")
 	serverCmd.PersistentFlags().IntVarP(&sa.adapterWorkerPoolSize, "adapterWorkerPoolSize", "", 1024, "Max # of goroutines in the adapter worker pool")
+	// TODO: what is the right default value for expressionEvalCacheSize.
+	serverCmd.PersistentFlags().IntVarP(&sa.expressionEvalCacheSize, "expressionEvalCacheSize", "", expr.DefaultCacheSize, "Number of entries in"+
+		" the expression cache")
 	serverCmd.PersistentFlags().BoolVarP(&sa.singleThreaded, "singleThreaded", "", false, "Whether to run Mixer in single-threaded mode (useful "+
 		"for debugging)")
 	serverCmd.PersistentFlags().BoolVarP(&sa.compressedPayload, "compressedPayload", "", false, "Whether to compress gRPC messages")
@@ -157,6 +161,7 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	var err error
 	apiPoolSize := sa.apiWorkerPoolSize
 	adapterPoolSize := sa.adapterWorkerPoolSize
+	expressionEvalCacheSize := sa.expressionEvalCacheSize
 
 	gp := pool.NewGoroutinePool(apiPoolSize, sa.singleThreaded)
 	gp.AddWorkers(apiPoolSize)
@@ -167,7 +172,10 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	defer adapterGP.Close()
 
 	// get aspect registry with proper aspect --> api mappings
-	eval := expr.NewCEXLEvaluator()
+	eval, err := expr.NewCEXLEvaluator(expressionEvalCacheSize)
+	if err != nil {
+		fatalf("Failed to create expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
+	}
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
 	store := configStore(sa.configStoreURL, sa.serviceConfigFile, sa.globalConfigFile, printf, fatalf)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder,

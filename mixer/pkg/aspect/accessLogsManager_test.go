@@ -205,7 +205,8 @@ func TestAccessLoggerManager_ValidateConfig(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			if err := (&accessLogsManager{}).ValidateConfig(tt.cfg, expr.NewCEXLEvaluator(), tt.df); err != nil || tt.err != "" {
+			eval, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
+			if err := (&accessLogsManager{}).ValidateConfig(tt.cfg, eval, tt.df); err != nil || tt.err != "" {
 				if tt.err == "" {
 					t.Fatalf("Foo = '%s', wanted no err", err.Error())
 				} else if !strings.Contains(err.Error(), tt.err) {

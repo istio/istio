@@ -205,7 +205,7 @@ func newTestManager(name string, throwOnNewAspect bool, body func() rpc.Status) 
 }
 func (testManager) Close() error                       { return nil }
 func (testManager) DefaultConfig() config.AspectParams { return nil }
-func (testManager) ValidateConfig(config.AspectParams, expr.Validator, descriptor.Finder) *adapter.ConfigErrors {
+func (testManager) ValidateConfig(config.AspectParams, expr.TypeChecker, descriptor.Finder) *adapter.ConfigErrors {
 	return nil
 }
 func (testManager) Kind() config.Kind   { return config.DenialsKind }

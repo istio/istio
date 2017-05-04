@@ -84,7 +84,7 @@ func (accessLogsManager) DefaultConfig() config.AspectParams {
 	}
 }
 
-func (accessLogsManager) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (ce *adapter.ConfigErrors) {
+func (accessLogsManager) ValidateConfig(c config.AspectParams, tc expr.TypeChecker, df descriptor.Finder) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.AccessLogsParams)
 	if cfg.LogName == "" {
 		ce = ce.Appendf("logName", "no log name provided")
@@ -95,8 +95,8 @@ func (accessLogsManager) ValidateConfig(c config.AspectParams, v expr.Validator,
 		// nor can we do more validation without a descriptor
 		return ce.Appendf("accessLogs", "could not find a descriptor for the access log '%s'", cfg.Log.DescriptorName)
 	}
-	ce = ce.Extend(validateLabels(fmt.Sprintf("accessLogs[%s].labels", cfg.Log.DescriptorName), cfg.Log.Labels, desc.Labels, v, df))
-	ce = ce.Extend(validateTemplateExpressions(fmt.Sprintf("logDescriptor[%s].templateExpressions", desc.Name), cfg.Log.TemplateExpressions, v, df))
+	ce = ce.Extend(validateLabels(fmt.Sprintf("accessLogs[%s].labels", cfg.Log.DescriptorName), cfg.Log.Labels, desc.Labels, tc, df))
+	ce = ce.Extend(validateTemplateExpressions(fmt.Sprintf("logDescriptor[%s].templateExpressions", desc.Name), cfg.Log.TemplateExpressions, tc, df))
 
 	// TODO: how do we validate the log.TemplateExpressions against desc.LogTemplate? We can't just `Execute` the template
 	// against the expressions: while the keys to the template may be correct, the values will be wrong which could result

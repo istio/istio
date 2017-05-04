@@ -74,7 +74,7 @@ func (*ac) DefaultConfig() AspectParams {
 }
 
 // ValidateConfig determines whether the given configuration meets all correctness requirements.
-func (a *ac) ValidateConfig(AspectParams, expr.Validator, descriptor.Finder) *adapter.ConfigErrors {
+func (a *ac) ValidateConfig(AspectParams, expr.TypeChecker, descriptor.Finder) *adapter.ConfigErrors {
 	return a.ce
 }
 
@@ -404,8 +404,7 @@ func (e *fakeExpr) EvalPredicate(mapExpression string, attrs attribute.Bag) (boo
 	return false, UnboundVariable(mapExpression)
 }
 
-func (e *fakeExpr) Validate(expression string) error { return e.err }
-func (e *fakeExpr) TypeCheck(string, expr.AttributeDescriptorFinder) (dpb.ValueType, error) {
+func (e *fakeExpr) EvalType(string, expr.AttributeDescriptorFinder) (dpb.ValueType, error) {
 	return dpb.VALUE_TYPE_UNSPECIFIED, e.err
 }
 func (e *fakeExpr) AssertType(string, expr.AttributeDescriptorFinder, dpb.ValueType) error {

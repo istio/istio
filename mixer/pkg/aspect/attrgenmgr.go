@@ -50,10 +50,10 @@ func (attrGenMgr) DefaultConfig() (c config.AspectParams) {
 	return &apb.AttributesGeneratorParams{}
 }
 
-func (attrGenMgr) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (cerrs *adapter.ConfigErrors) {
+func (attrGenMgr) ValidateConfig(c config.AspectParams, tc expr.TypeChecker, df descriptor.Finder) (cerrs *adapter.ConfigErrors) {
 	params := c.(*apb.AttributesGeneratorParams)
 	for n, expr := range params.InputExpressions {
-		if _, err := v.TypeCheck(expr, df); err != nil {
+		if _, err := tc.EvalType(expr, df); err != nil {
 			cerrs = cerrs.Appendf("inputExpressions", "failed to parse expression '%s': %v", n, err)
 		}
 	}
