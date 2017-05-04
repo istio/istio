@@ -12,6 +12,8 @@ import (
 
 	"istio.io/manager/apiserver"
 	"istio.io/manager/model"
+
+	"github.com/golang/glog"
 )
 
 // ManagerClient is a client wrapper that contains the base URL and API version
@@ -39,6 +41,23 @@ func NewManagerClient(base url.URL, apiVersion string, client *http.Client) *Man
 		versionedAPIPath: strings.TrimPrefix(strings.TrimSuffix(apiVersion, "/"), "/"),
 		client:           client,
 	}
+}
+
+func (m *ManagerClient) toCurl(request *http.Request, body string) string {
+
+	var headers string
+	for key, values := range request.Header {
+		for _, value := range values {
+			headers += fmt.Sprintf(` -H %q`, fmt.Sprintf("%s: %s", key, value))
+		}
+	}
+
+	var bodyOption string
+	if body != "" {
+		bodyOption = fmt.Sprintf("--data '%s'", strings.Replace(body, "'", "\\'", -1))
+	}
+
+	return fmt.Sprintf("curl -X %v %v %q %s", request.Method, headers, request.URL, bodyOption)
 }
 
 func (m *ManagerClient) do(request *http.Request) (*http.Response, error) {
@@ -80,6 +99,8 @@ func (m *ManagerClient) GetConfig(key model.Key) (config *apiserver.Config, err 
 	if err != nil {
 		return nil, err
 	}
+
+	glog.V(2).Infof("Response Body:  %v", string(body))
 
 	config = &apiserver.Config{}
 	if err = json.Unmarshal(body, config); err != nil {
@@ -144,6 +165,8 @@ func (m *ManagerClient) ListConfig(kind, namespace string) (config []apiserver.C
 		return nil, err
 	}
 
+	glog.V(2).Infof("Response Body:  %v", string(body))
+
 	config = []apiserver.Config{}
 	if err = json.Unmarshal(body, &config); err != nil {
 		return nil, err
@@ -161,5 +184,8 @@ func (m *ManagerClient) doConfigCRUD(key model.Key, method string, inBody []byte
 	if err != nil {
 		return nil, err
 	}
+
+	// Log after the call to m.do() so that the full hostname is present
+	defer glog.V(2).Infof("%s", m.toCurl(request, string(inBody)))
 	return m.do(request)
 }
