@@ -39,6 +39,7 @@ type ConfParam struct {
 	Backend      string
 	ClientConfig string
 	ServerConfig string
+	AccessLog    string
 }
 
 // A basic config
@@ -113,7 +114,7 @@ const envoyConfTempl = `
             },
             "access_log": [
               {
-                "path": "/dev/stdout"
+                "path": "{{.AccessLog}}"
               }
             ],
             "filters": [
@@ -162,7 +163,7 @@ const envoyConfTempl = `
             },
             "access_log": [
               {
-                "path": "/dev/stdout"
+                "path": "{{.AccessLog}}"
               }
             ],
             "filters": [
@@ -240,11 +241,15 @@ func getConf() ConfParam {
 		MixerServer:  fmt.Sprintf("localhost:%d", MixerPort),
 		Backend:      fmt.Sprintf("localhost:%d", BackendPort),
 		ClientConfig: defaultClientMixerConfig,
+		AccessLog:    "/dev/stdout",
 	}
 }
 
-func CreateEnvoyConf(path string, conf string) error {
+func CreateEnvoyConf(path string, conf string, stress bool) error {
 	c := getConf()
 	c.ServerConfig = conf
+	if stress {
+		c.AccessLog = "/dev/null"
+	}
 	return c.write(path)
 }

@@ -16,11 +16,20 @@ package test
 
 import (
 	"fmt"
+	"log"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
-func TestCheckCache(t *testing.T) {
-	s, err := SetUp(t, basicConfig+","+checkCacheConfig, false)
+const (
+	concurrent         = 10
+	duration_in_second = 30
+)
+
+func TestStressEnvoy(t *testing.T) {
+	// Not cache cache, enable quota
+	s, err := SetUp(t, basicConfig+","+quotaConfig, true)
 	if err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -28,13 +37,19 @@ func TestCheckCache(t *testing.T) {
 
 	url := fmt.Sprintf("http://localhost:%d/echo", ClientProxyPort)
 
-	// Issues a GET echo request with 0 size body
-	tag := "OKGet"
-	for i := 0; i < 10; i++ {
-		if _, _, err := HTTPGet(url); err != nil {
-			t.Errorf("Failed in request %s: %v", tag, err)
-		}
-		// Only the first check is called.
-		s.VerifyCheckCount(tag, 1)
+	var count uint64 = 0
+	for k := 0; k < concurrent; k++ {
+		go func() {
+			for true {
+				if err := HTTPFastGet(url); err != nil {
+					t.Errorf("Failed in request: %v", err)
+				}
+				atomic.AddUint64(&count, 1)
+			}
+		}()
 	}
+	time.Sleep(time.Second * time.Duration(duration_in_second))
+	countFinal := atomic.LoadUint64(&count)
+	log.Printf("Total: %v, concurrent: %v, duration: %v seconds, qps: %v\n",
+		countFinal, concurrent, duration_in_second, countFinal/duration_in_second)
 }

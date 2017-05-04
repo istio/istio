@@ -26,7 +26,7 @@ const (
 )
 
 func TestQuotaCall(t *testing.T) {
-	s, err := SetUp(t, basicConfig+","+quotaConfig)
+	s, err := SetUp(t, basicConfig+","+quotaConfig, false)
 	if err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}

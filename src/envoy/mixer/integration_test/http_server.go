@@ -35,12 +35,6 @@ type HttpServer struct {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("%v %v %v %v\n", r.Method, r.URL, r.Proto, r.RemoteAddr)
-	for name, headers := range r.Header {
-		for _, h := range headers {
-			log.Printf("%v: %v\n", name, h)
-		}
-	}
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -26,16 +26,16 @@ type TestSetup struct {
 	t       *testing.T
 }
 
-func SetUp(t *testing.T, conf string) (s TestSetup, err error) {
+func SetUp(t *testing.T, conf string, stress bool) (s TestSetup, err error) {
 	s.t = t
-	s.envoy, err = NewEnvoy(conf)
+	s.envoy, err = NewEnvoy(conf, stress)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 	} else {
 		s.envoy.Start()
 	}
 
-	s.mixer, err = NewMixerServer(MixerPort)
+	s.mixer, err = NewMixerServer(MixerPort, stress)
 	if err != nil {
 		log.Printf("unable to create mixer server %v", err)
 	} else {

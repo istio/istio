@@ -61,5 +61,6 @@ go_test_suite(
         "failed_request_test.go",
         "quota_cache_test.go",
         "quota_test.go",
+        "stress_test.go",
     ],
 )

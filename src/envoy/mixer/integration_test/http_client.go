@@ -20,11 +20,25 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
+
+// HTTP client time out in second.
+const HttpTimeOut = 5
+
+// Issue fast request, only care about network error.
+// Don't care about server response.
+func HTTPFastGet(url string) (err error) {
+	client := &http.Client{}
+	client.Timeout = time.Duration(HttpTimeOut * time.Second)
+	_, err = client.Get(url)
+	return err
+}
 
 func HTTPGet(url string) (code int, resp_body string, err error) {
 	log.Println("HTTP GET", url)
 	client := &http.Client{}
+	client.Timeout = time.Duration(HttpTimeOut * time.Second)
 	resp, err := client.Get(url)
 	if err != nil {
 		log.Println(err)
@@ -41,6 +55,7 @@ func HTTPGet(url string) (code int, resp_body string, err error) {
 func HTTPPost(url string, content_type string, req_body string) (code int, resp_body string, err error) {
 	log.Println("HTTP POST", url)
 	client := &http.Client{}
+	client.Timeout = time.Duration(HttpTimeOut * time.Second)
 	resp, err := client.Post(url, content_type, strings.NewReader(req_body))
 	if err != nil {
 		log.Println(err)
@@ -57,6 +72,7 @@ func HTTPPost(url string, content_type string, req_body string) (code int, resp_
 func HTTPGetWithHeaders(l string, headers map[string]string) (code int, resp_body string, err error) {
 	log.Println("HTTP GET with headers: ", l)
 	client := &http.Client{}
+	client.Timeout = time.Duration(HttpTimeOut * time.Second)
 	req := http.Request{}
 
 	req.Header = map[string][]string{}

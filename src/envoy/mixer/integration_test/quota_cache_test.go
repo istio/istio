@@ -34,7 +34,7 @@ const (
 // that Check needs. Therefore a key formed by using all
 // attributes is very unlikely to hit the cache.
 func testQuotaCache(t *testing.T) {
-	s, err := SetUp(t, basicConfig+","+quotaCacheConfig)
+	s, err := SetUp(t, basicConfig+","+quotaCacheConfig, false)
 	if err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}

@@ -58,17 +58,22 @@ func Run(name string, args ...string) (s string, err error) {
 	return
 }
 
-func NewEnvoy(conf string) (*Envoy, error) {
+func NewEnvoy(conf string, stress bool) (*Envoy, error) {
 	bin_path := getTestBinRootPath() + "/src/envoy/mixer/envoy"
 	log.Printf("Envoy binary: %v\n", bin_path)
 
 	conf_path := "/tmp/envoy.conf"
 	log.Printf("Envoy config: in %v\n%v\n", conf_path, conf)
-	if err := CreateEnvoyConf(conf_path, conf); err != nil {
+	if err := CreateEnvoyConf(conf_path, conf, stress); err != nil {
 		return nil, err
 	}
 
-	cmd := exec.Command(bin_path, "-c", conf_path, "-l", "debug")
+	var cmd *exec.Cmd
+	if stress {
+		cmd = exec.Command(bin_path, "-c", conf_path, "--concurrency", "10")
+	} else {
+		cmd = exec.Command(bin_path, "-c", conf_path, "-l", "debug")
+	}
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	return &Envoy{

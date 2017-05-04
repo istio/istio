@@ -140,7 +140,7 @@ const reportAttributesOkPost = `
 `
 
 func TestCheckReportAttributes(t *testing.T) {
-	s, err := SetUp(t, basicConfig)
+	s, err := SetUp(t, basicConfig, false)
 	if err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}

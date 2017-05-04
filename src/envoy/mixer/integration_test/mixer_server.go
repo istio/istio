@@ -32,24 +32,31 @@ import (
 )
 
 type Handler struct {
+	stress   bool
 	bag      *attribute.MutableBag
 	ch       chan int
 	count    int
 	r_status rpc.Status
 }
 
-func newHandler() *Handler {
-	return &Handler{
+func newHandler(stress bool) *Handler {
+	h := &Handler{
+		stress:   stress,
 		bag:      nil,
-		ch:       make(chan int, 10), // Allow maximum 10 requests
 		count:    0,
 		r_status: rpc.Status{},
 	}
+	if !stress {
+		h.ch = make(chan int, 10) // Allow maximum 10 requests
+	}
+	return h
 }
 
 func (h *Handler) run(bag *attribute.MutableBag) rpc.Status {
-	h.bag = attribute.CopyBag(bag)
-	h.ch <- 1
+	if !h.stress {
+		h.bag = attribute.CopyBag(bag)
+		h.ch <- 1
+	}
 	h.count++
 	return h.r_status
 }
@@ -91,12 +98,12 @@ func (ts *MixerServer) Quota(ctx context.Context, bag *attribute.MutableBag,
 	}
 }
 
-func NewMixerServer(port uint16) (*MixerServer, error) {
+func NewMixerServer(port uint16, stress bool) (*MixerServer, error) {
 	log.Printf("Mixer server listening on port %v\n", port)
 	s := &MixerServer{
-		check:  newHandler(),
-		report: newHandler(),
-		quota:  newHandler(),
+		check:  newHandler(stress),
+		report: newHandler(stress),
+		quota:  newHandler(stress),
 	}
 
 	var err error
