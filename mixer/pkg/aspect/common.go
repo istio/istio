@@ -39,7 +39,7 @@ func evalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evalu
 	return labels, result.ErrorOrNil()
 }
 
-func validateLabels(ceField string, labels map[string]string, labelDescs map[string]dpb.ValueType, v expr.Validator, df expr.AttributeDescriptorFinder) (
+func validateLabels(ceField string, labels map[string]string, labelDescs map[string]dpb.ValueType, v expr.TypeChecker, df expr.AttributeDescriptorFinder) (
 	ce *adapter.ConfigErrors) {
 
 	if len(labels) != len(labelDescs) {
@@ -55,13 +55,13 @@ func validateLabels(ceField string, labels map[string]string, labelDescs map[str
 	return
 }
 
-func validateTemplateExpressions(ceField string, expressions map[string]string, v expr.Validator, df expr.AttributeDescriptorFinder) (
+func validateTemplateExpressions(ceField string, expressions map[string]string, tc expr.TypeChecker, df expr.AttributeDescriptorFinder) (
 	ce *adapter.ConfigErrors) {
 
 	// We can't do type assertions since we don't know what each template param needs to resolve to, but we can
 	// make sure they're syntactically correct and we have the attributes they need available in the system.
 	for name, exp := range expressions {
-		if _, err := v.TypeCheck(exp, df); err != nil {
+		if _, err := tc.EvalType(exp, df); err != nil {
 			ce = ce.Appendf(ceField, "failed to parse expression '%s': %v", name, err)
 		}
 	}

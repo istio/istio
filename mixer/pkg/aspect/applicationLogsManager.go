@@ -108,7 +108,7 @@ func (applicationLogsManager) DefaultConfig() config.AspectParams {
 }
 
 // TODO: validation of timestamp format
-func (applicationLogsManager) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (ce *adapter.ConfigErrors) {
+func (applicationLogsManager) ValidateConfig(c config.AspectParams, tc expr.TypeChecker, df descriptor.Finder) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.ApplicationLogsParams)
 	if cfg.LogName == "" {
 		ce = ce.Appendf("logName", "no log name provided")
@@ -121,14 +121,14 @@ func (applicationLogsManager) ValidateConfig(c config.AspectParams, v expr.Valid
 			continue // we can't do any other validation without the descriptor
 		}
 
-		if err := v.AssertType(log.Severity, df, dpb.STRING); err != nil {
+		if err := tc.AssertType(log.Severity, df, dpb.STRING); err != nil {
 			ce = ce.Appendf(fmt.Sprintf("logs[%s].severity", log.DescriptorName), "failed type checking: %v", err)
 		}
-		if err := v.AssertType(log.Timestamp, df, dpb.TIMESTAMP); err != nil {
+		if err := tc.AssertType(log.Timestamp, df, dpb.TIMESTAMP); err != nil {
 			ce = ce.Appendf(fmt.Sprintf("logs[%s].timestamp", log.DescriptorName), "failed type checking: %v", err)
 		}
-		ce = ce.Extend(validateLabels(fmt.Sprintf("logs[%s].labels", log.DescriptorName), log.Labels, desc.Labels, v, df))
-		ce = ce.Extend(validateTemplateExpressions(fmt.Sprintf("logDescriptor[%s].templateExpressions", desc.Name), log.TemplateExpressions, v, df))
+		ce = ce.Extend(validateLabels(fmt.Sprintf("logs[%s].labels", log.DescriptorName), log.Labels, desc.Labels, tc, df))
+		ce = ce.Extend(validateTemplateExpressions(fmt.Sprintf("logDescriptor[%s].templateExpressions", desc.Name), log.TemplateExpressions, tc, df))
 
 		// TODO: how do we validate the log.TemplateExpressions against desc.LogTemplate? We can't just `Execute` the template
 		// against the expressions: while the keys to the template may be correct, the values will be wrong which could result

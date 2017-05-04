@@ -82,7 +82,7 @@ func (m *metricsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder, e
 func (*metricsManager) Kind() config.Kind                  { return config.MetricsKind }
 func (*metricsManager) DefaultConfig() config.AspectParams { return &aconfig.MetricsParams{} }
 
-func (*metricsManager) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (ce *adapter.ConfigErrors) {
+func (*metricsManager) ValidateConfig(c config.AspectParams, tc expr.TypeChecker, df descriptor.Finder) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.MetricsParams)
 	for _, metric := range cfg.Metrics {
 		desc := df.GetMetric(metric.DescriptorName)
@@ -91,10 +91,10 @@ func (*metricsManager) ValidateConfig(c config.AspectParams, v expr.Validator, d
 			continue // we can't do any other validation without the descriptor
 		}
 
-		if err := v.AssertType(metric.Value, df, desc.Value); err != nil {
+		if err := tc.AssertType(metric.Value, df, desc.Value); err != nil {
 			ce = ce.Appendf(fmt.Sprintf("metrics[%s].value", metric.DescriptorName), "error type checking label %s: %v", err)
 		}
-		ce = ce.Extend(validateLabels(fmt.Sprintf("metrics[%s].labels", desc.Name), metric.Labels, desc.Labels, v, df))
+		ce = ce.Extend(validateLabels(fmt.Sprintf("metrics[%s].labels", desc.Name), metric.Labels, desc.Labels, tc, df))
 
 		// TODO: this doesn't feel like quite the right spot to do this check, but it's the best we have ¯\_(ツ)_/¯
 		if _, err := metricDefinitionFromProto(desc); err != nil {

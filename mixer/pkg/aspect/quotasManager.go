@@ -87,7 +87,7 @@ func (m *quotasManager) NewQuotaExecutor(c *cpb.Combined, a adapter.Builder, env
 func (*quotasManager) Kind() config.Kind                  { return config.QuotasKind }
 func (*quotasManager) DefaultConfig() config.AspectParams { return &aconfig.QuotasParams{} }
 
-func (*quotasManager) ValidateConfig(c config.AspectParams, v expr.Validator, df descriptor.Finder) (ce *adapter.ConfigErrors) {
+func (*quotasManager) ValidateConfig(c config.AspectParams, tc expr.TypeChecker, df descriptor.Finder) (ce *adapter.ConfigErrors) {
 	cfg := c.(*aconfig.QuotasParams)
 	for _, quota := range cfg.Quotas {
 		desc := df.GetQuota(quota.DescriptorName)
@@ -95,7 +95,7 @@ func (*quotasManager) ValidateConfig(c config.AspectParams, v expr.Validator, df
 			ce = ce.Appendf("quotas", "could not find a descriptor for the quota '%s'", quota.DescriptorName)
 			continue // we can't do any other validation without the descriptor
 		}
-		ce = ce.Extend(validateLabels(fmt.Sprintf("quotas[%s].labels", desc.Name), quota.Labels, desc.Labels, v, df))
+		ce = ce.Extend(validateLabels(fmt.Sprintf("quotas[%s].labels", desc.Name), quota.Labels, desc.Labels, tc, df))
 
 		if _, err := quotaDefinitionFromProto(desc); err != nil {
 			ce = ce.Appendf(fmt.Sprintf("descriptor[%s]", desc.Name), "failed to marshal descriptor into its adapter representation: %v", err)

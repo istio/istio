@@ -151,7 +151,7 @@ func TestMetricsManager_Validation(t *testing.T) {
 		"int64":    &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.INT64},
 	}
 	f := test.NewDescriptorFinder(descs)
-	v := expr.NewCEXLEvaluator()
+	v, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 
 	// matches request count desc
 	validParam := aconfig.MetricsParams_Metric{
@@ -211,7 +211,7 @@ func TestMetricsManager_Validation(t *testing.T) {
 	tests := []struct {
 		name string
 		cfg  *aconfig.MetricsParams
-		v    expr.Validator
+		tc   expr.TypeChecker
 		df   descriptor.Finder
 		err  string
 	}{
@@ -228,7 +228,7 @@ func TestMetricsManager_Validation(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			errs := (&metricsManager{}).ValidateConfig(tt.cfg, tt.v, tt.df)
+			errs := (&metricsManager{}).ValidateConfig(tt.cfg, tt.tc, tt.df)
 			if errs != nil || tt.err != "" {
 				if tt.err == "" {
 					t.Fatalf("ValidateConfig(tt.cfg, tt.v, tt.df) = '%s', wanted no err", errs.Error())

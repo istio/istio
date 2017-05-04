@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	lru "github.com/hashicorp/golang-lru"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/attribute"
@@ -92,8 +93,8 @@ type AttributeDescriptorFinder interface {
 	GetAttribute(name string) *cfgpb.AttributeManifest_AttributeInfo
 }
 
-// TypeCheck an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
-func (e *Expression) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType dpb.ValueType, err error) {
+// EvalType Function an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
+func (e *Expression) EvalType(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType dpb.ValueType, err error) {
 	if e.Const != nil {
 		return e.Const.Type, nil
 	}
@@ -104,7 +105,7 @@ func (e *Expression) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]
 		}
 		return ad.ValueType, nil
 	}
-	return e.Fn.TypeCheck(attrs, fMap)
+	return e.Fn.EvalType(attrs, fMap)
 }
 
 // Eval returns value of the contained variable or error
@@ -221,8 +222,8 @@ func (f *Function) String() string {
 	return s
 }
 
-// TypeCheck Function using fMap and attribute vocabulary. Return static or computed return type if all args have correct type.
-func (f *Function) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType dpb.ValueType, err error) {
+// EvalType Function using fMap and attribute vocabulary. Return static or computed return type if all args have correct type.
+func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType dpb.ValueType, err error) {
 	fn := fMap[f.Name]
 	if fn == nil {
 		return valueType, fmt.Errorf("unknown function: %s", f.Name)
@@ -239,7 +240,7 @@ func (f *Function) TypeCheck(attrs AttributeDescriptorFinder, fMap map[string]Fu
 	tmplType := dpb.VALUE_TYPE_UNSPECIFIED
 	// check arg types with fn args
 	for idx = 0; idx < len(f.Args) && idx < len(argTypes); idx++ {
-		argType, err = f.Args[idx].TypeCheck(attrs, fMap)
+		argType, err = f.Args[idx].EvalType(attrs, fMap)
 		if err != nil {
 			return valueType, err
 		}
@@ -389,17 +390,43 @@ func Parse(src string) (ex *Expression, err error) {
 	return ex, nil
 }
 
+// DefaultCacheSize is the default size for the expression cache.
+const DefaultCacheSize = 1024
+
 // Evaluator for a c-like expression language.
 type cexl struct {
-	//TODO add ast cache
+	cache *lru.Cache
 	// function Map
 	fMap map[string]FuncBase
 }
 
+func (e *cexl) cacheGetExpression(exprStr string) (ex *Expression, err error) {
+
+	// TODO: add normalization for exprStr string, so that 'a | b' is same as 'a|b', and  'a == b' is same as 'b == a'
+
+	if v, found := e.cache.Get(exprStr); found {
+		return v.(*Expression), nil
+	}
+
+	if glog.V(4) {
+		glog.Infof("expression cache miss for '%s'", exprStr)
+	}
+
+	ex, err = Parse(exprStr)
+	if err != nil {
+		return nil, err
+	}
+	if glog.V(4) {
+		glog.Infof("caching expression for '%s''", exprStr)
+	}
+
+	_ = e.cache.Add(exprStr, ex)
+	return ex, nil
+}
+
 func (e *cexl) Eval(s string, attrs attribute.Bag) (ret interface{}, err error) {
 	var ex *Expression
-	// TODO check ast cache
-	if ex, err = Parse(s); err != nil {
+	if ex, err = e.cacheGetExpression(s); err != nil {
 		return
 	}
 	return ex.Eval(attrs, e.fMap)
@@ -430,16 +457,16 @@ func (e *cexl) EvalPredicate(s string, attrs attribute.Bag) (ret bool, err error
 	return false, fmt.Errorf("typeError: got %s, expected bool", reflect.TypeOf(uret).String())
 }
 
-func (e *cexl) TypeCheck(expr string, attrFinder AttributeDescriptorFinder) (dpb.ValueType, error) {
-	v, err := Parse(expr)
+func (e *cexl) EvalType(expr string, attrFinder AttributeDescriptorFinder) (dpb.ValueType, error) {
+	v, err := e.cacheGetExpression(expr)
 	if err != nil {
 		return dpb.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s': %v", expr, err)
 	}
-	return v.TypeCheck(attrFinder, e.fMap)
+	return v.EvalType(attrFinder, e.fMap)
 }
 
 func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expectedType dpb.ValueType) error {
-	if t, err := e.TypeCheck(expr, finder); err != nil {
+	if t, err := e.EvalType(expr, finder); err != nil {
 		return err
 	} else if t != expectedType {
 		return fmt.Errorf("expression '%s' evaluated to type %v, expected type %v", expr, t, expectedType)
@@ -447,25 +474,13 @@ func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expecte
 	return nil
 }
 
-// Validate validates expression for syntactic correctness.
-// TODO check if all functions and attributes in the expression are defined.
-// at present this violates the contract with Func.Call that ensures
-// arity and arg types. It is upto the policy author to write correct policies.
-func (e *cexl) Validate(s string) (err error) {
-	var ex *Expression
-	if ex, err = Parse(s); err != nil {
-		return err
-	}
-	// TODO call ex.TypeCheck() when vocabulary is available
-	if glog.V(4) {
-		glog.Infof("%s --> %s", s, ex)
-	}
-	return nil
-}
-
 // NewCEXLEvaluator returns a new Evaluator of this type.
-func NewCEXLEvaluator() Evaluator {
-	return &cexl{
-		fMap: FuncMap(),
+func NewCEXLEvaluator(cacheSize int) (Evaluator, error) {
+	cache, err := lru.New(cacheSize)
+	if err != nil {
+		return nil, err
 	}
+	return &cexl{
+		fMap: FuncMap(), cache: cache,
+	}, nil
 }

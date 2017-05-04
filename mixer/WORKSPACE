@@ -432,6 +432,12 @@ new_go_repository(
     importpath = "github.com/googleapis/gax-go",
 )
 
+new_go_repository(
+    name = "com_github_hashicorp_golang_lru",
+    commit = "0a025b7e63adc15a622f29b0b2c4c3848243bbf6", # Aug 13, 2016 (no releases)
+    importpath = "github.com/hashicorp/golang-lru",
+)
+
 ##
 ## Testing
 ##
