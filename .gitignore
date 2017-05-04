@@ -1,5 +1,12 @@
 # Eclipse artifacts
 .project
 .pydevproject
+# Intellij
 *.iml
 .idea/
+# Bazel
+/bazel-*
+vendor
+# Generated pb files
+*.pb.go
+
