@@ -123,6 +123,7 @@ var (
 				Registry: &model.IstioRegistry{ConfigRegistry: controller},
 			})
 			stop := make(chan struct{})
+			go controller.Run(stop)
 			go apiserver.Run()
 			cmd.WaitSignal(stop)
 		},

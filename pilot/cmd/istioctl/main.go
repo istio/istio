@@ -226,7 +226,7 @@ Example usage:
 				if err != nil {
 					return err
 				}
-				fmt.Print(out)
+				fmt.Print(string(out))
 			} else {
 				if err := setup(args[0], ""); err != nil {
 					c.Println(c.UsageString())
