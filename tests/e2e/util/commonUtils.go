@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Inc.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,10 +50,11 @@ func CreateTempfile(tmpDir, prefix, suffix string) (string, error) {
 func Shell(command string) (string, error) {
 	//glog.Info(command)
 	parts := strings.Split(command, " ")
+	glog.V(2).Infof("Running command %s", command)
 	c := exec.Command(parts[0], parts[1:]...) // #nosec
 	bytes, err := c.CombinedOutput()
+	glog.V(3).Infof("Command output: \n%s", string(bytes[:]))
 	if err != nil {
-		glog.V(2).Info(string(bytes))
 		return "", fmt.Errorf("command failed: %q %v", string(bytes), err)
 	}
 	return string(bytes), nil

@@ -16,7 +16,7 @@
 
 # Local vars
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
-ARGS=(--alsologtostderr --test.v --v2)
+ARGS=(-alsologtostderr -test.v -v 2)
 
 function error_exit() {
     # ${BASH_SOURCE[1]} is the file name of the caller.
@@ -37,7 +37,7 @@ for T in ${TESTS_TARGETS[@]}; do
   echo '****************************************************'
   echo "Running ${T}"
   echo '****************************************************'
-  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS} ${@}
+  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${@}
   RET=${?}
   echo '****************************************************'
   if [[ ${RET} -eq 0 ]]; then
