@@ -39,7 +39,7 @@ func buildFaultFilters(routeConfig *HTTPRouteConfig) []HTTPFilter {
 // buildFaultFilter builds a single fault filter for envoy cluster
 func buildHTTPFaultFilter(cluster string, faultRule *proxyconfig.HTTPFaultInjection, headers Headers) *HTTPFilter {
 	return &HTTPFilter{
-		Type: "decoder",
+		Type: decoder,
 		Name: "fault",
 		Config: FilterFaultConfig{
 			UpstreamCluster: cluster,

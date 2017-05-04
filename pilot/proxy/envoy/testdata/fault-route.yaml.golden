@@ -7,7 +7,7 @@ match:
     scooby:
       exact: doo
     animal:
-      prefix: dog
+      prefix: dog.cat
     name:
       regex: "sco+do+"
 route:

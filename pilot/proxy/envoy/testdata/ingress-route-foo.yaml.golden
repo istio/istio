@@ -1,12 +1,10 @@
-destination: foo.default.svc.cluster.local
+destination: hello.default.svc.cluster.local
 match:
   http_headers:
     uri:
       prefix: "/bar"
 route:
   - tags:
-       servicePort.name: http-status
-       servicePort.protocol: http
-       servicePort.port: "80"
+       servicePortNum: "81"
        tlsSecret: my-secret.default
     weight: 100

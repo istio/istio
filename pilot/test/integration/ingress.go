@@ -19,6 +19,7 @@ import (
 
 	"github.com/golang/glog"
 
+	"istio.io/manager/model"
 	"istio.io/manager/test/util"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,6 +57,13 @@ func (t *ingress) setup() error {
 		return err
 	}
 
+	if err := t.applyConfig("rule-default-route.yaml.tmpl", map[string]string{
+		"destination": "c",
+		"Namespace":   t.Namespace,
+	}, model.RouteRule, defaultRoute); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -67,6 +75,8 @@ func (t *ingress) run() error {
 
 	funcs := make(map[string]func() status)
 	funcs["Ingress status IP"] = t.checkIngressStatus
+	funcs["Route rule for /c"] = t.checkRouteRule
+
 	cases := []struct {
 		dst  string
 		path string
@@ -115,6 +125,18 @@ func (t *ingress) run() error {
 	return nil
 }
 
+// checkRouteRule verifies that version splitting is applied to ingress paths
+func (t *ingress) checkRouteRule() status {
+	url := fmt.Sprintf("http://%s/c", ingressServiceName)
+	resp := t.clientRequest("t", url, 100, "")
+	count := counts(resp.version)
+	glog.V(2).Infof("counts: %v", count)
+	if count["v1"] >= 95 {
+		return nil
+	}
+	return errAgain
+}
+
 // ensure that IPs/hostnames are in the ingress statuses
 func (t *ingress) checkIngressStatus() status {
 	ings, err := client.Extensions().Ingresses(t.Namespace).List(metav1.ListOptions{})
@@ -146,6 +168,9 @@ func (t *ingress) teardown() {
 		glog.Warning(err)
 	}
 	if err := util.Run("kubectl delete ingress --all -n " + t.Namespace); err != nil {
+		glog.Warning(err)
+	}
+	if err := util.Run("kubectl delete istioconfigs --all -n " + t.Namespace); err != nil {
 		glog.Warning(err)
 	}
 }

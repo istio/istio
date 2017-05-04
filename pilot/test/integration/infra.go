@@ -21,6 +21,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -28,6 +29,7 @@ import (
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/cmd"
+	"istio.io/manager/model"
 	"istio.io/manager/platform/kube/inject"
 	"istio.io/manager/test/util"
 )
@@ -242,4 +244,40 @@ func (infra *infra) clientRequest(app, url string, count int, extra string) resp
 	}
 
 	return out
+}
+
+func (infra *infra) addConfig(config []byte, kind, name string, create bool) error {
+	glog.Infof("Add config %s", string(config))
+	istioKind, ok := model.IstioConfig[kind]
+	if !ok {
+		return fmt.Errorf("Invalid kind %s", kind)
+	}
+	v, err := istioKind.FromYAML(string(config))
+	if err != nil {
+		return err
+	}
+	key := model.Key{
+		Kind:      kind,
+		Name:      name,
+		Namespace: infra.Namespace,
+	}
+	if create {
+		return istioClient.Post(key, v)
+	}
+
+	return istioClient.Put(key, v)
+}
+
+func (infra *infra) applyConfig(inFile string, data map[string]string, kind, name string) error {
+	config, err := fill(inFile, data)
+	if err != nil {
+		return err
+	}
+	_, exists := istioClient.Get(model.Key{Kind: kind, Name: name, Namespace: infra.Namespace})
+	if err := infra.addConfig([]byte(config), kind, name, !exists); err != nil {
+		return err
+	}
+	glog.Info("Sleeping for the config to propagate")
+	time.Sleep(3 * time.Second)
+	return nil
 }

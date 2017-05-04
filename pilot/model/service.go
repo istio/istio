@@ -257,6 +257,16 @@ func (ports PortList) Get(name string) (*Port, bool) {
 	return nil, false
 }
 
+// GetByPort retrieves a port declaration by port value
+func (ports PortList) GetByPort(num int) (*Port, bool) {
+	for _, port := range ports {
+		if port.Port == num {
+			return port, true
+		}
+	}
+	return nil, false
+}
+
 // External predicate checks whether the service is external
 func (s *Service) External() bool {
 	return s.ExternalName != ""

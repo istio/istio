@@ -52,7 +52,7 @@ func (t *routing) run() error {
 	if err := t.applyConfig("rule-default-route.yaml.tmpl", map[string]string{
 		"destination": "c",
 		"Namespace":   t.Namespace,
-	}, model.RouteRule, defaultRoute, "a"); err != nil {
+	}, model.RouteRule, defaultRoute); err != nil {
 		return err
 	}
 	if err := t.verifyRouting("a", "c", "", "",
@@ -68,7 +68,7 @@ func (t *routing) run() error {
 	if err := t.applyConfig("rule-weighted-route.yaml.tmpl", map[string]string{
 		"destination": "c",
 		"Namespace":   t.Namespace,
-	}, model.RouteRule, defaultRoute, "a"); err != nil {
+	}, model.RouteRule, defaultRoute); err != nil {
 		return err
 	}
 	if err := t.verifyRouting("a", "c", "", "",
@@ -85,7 +85,7 @@ func (t *routing) run() error {
 		"source":      "a",
 		"destination": "c",
 		"Namespace":   t.Namespace,
-	}, model.RouteRule, contentRoute, "a"); err != nil {
+	}, model.RouteRule, contentRoute); err != nil {
 		return err
 	}
 	if err := t.verifyRouting("a", "c", "version", "v2",
@@ -102,7 +102,7 @@ func (t *routing) run() error {
 		"source":      "a",
 		"destination": "c",
 		"Namespace":   t.Namespace,
-	}, model.RouteRule, faultRoute, "a"); err != nil {
+	}, model.RouteRule, faultRoute); err != nil {
 		return err
 	}
 	if err := t.verifyFaultInjection("a", "c", "version", "v2", time.Second*5, 503); err != nil {
@@ -172,41 +172,5 @@ func (t *routing) verifyFaultInjection(src, dst, headerKey, headerVal string,
 			"response time is %s with status code %s, "+
 			"expected response time is %s +/- %s with status code %d", elapsed, statusCode, respTime, epsilon, respCode)
 	}
-	return nil
-}
-
-func (t *routing) addConfig(config []byte, kind, name string, create bool) error {
-	glog.Infof("Add config %s", string(config))
-	istioKind, ok := model.IstioConfig[kind]
-	if !ok {
-		return fmt.Errorf("Invalid kind %s", kind)
-	}
-	v, err := istioKind.FromYAML(string(config))
-	if err != nil {
-		return err
-	}
-	key := model.Key{
-		Kind:      kind,
-		Name:      name,
-		Namespace: t.Namespace,
-	}
-	if create {
-		return istioClient.Post(key, v)
-	}
-
-	return istioClient.Put(key, v)
-}
-
-func (t *routing) applyConfig(inFile string, data map[string]string, kind, name, envoy string) error {
-	config, err := fill(inFile, data)
-	if err != nil {
-		return err
-	}
-	_, exists := istioClient.Get(model.Key{Kind: kind, Name: name, Namespace: t.Namespace})
-	if err := t.addConfig([]byte(config), kind, name, !exists); err != nil {
-		return err
-	}
-	glog.Info("Sleeping for the config to propagate")
-	time.Sleep(3 * time.Second)
 	return nil
 }

@@ -45,6 +45,7 @@ go_test(
         "//proxy:go_default_library",
         "//test/mock:go_default_library",
         "//test/util:go_default_library",
+        "@com_github_davecgh_go_spew//spew:go_default_library",
         "@com_github_emicklei_go_restful//:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",

@@ -7,7 +7,5 @@ match:
       exact: "/hello"
 route:
   - tags:
-       servicePort.name: http
-       servicePort.protocol: http
-       servicePort.port: "80"
+       servicePortName: http
     weight: 100

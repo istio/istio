@@ -535,7 +535,7 @@ func (ds *DiscoveryService) ListSecret(request *restful.Request, response *restf
 		return
 	}
 
-	_, secret := buildIngressRoutes(ds.Config.IngressRules(""))
+	_, secret := buildIngressRoutes(ds.Config.IngressRules(""), ds.Discovery, ds.Config)
 	writeResponse(response, []byte(secret))
 }
 
@@ -584,7 +584,7 @@ func (ds *DiscoveryService) getClusters(node string) Clusters {
 	var httpRouteConfigs HTTPRouteConfigs
 	switch node {
 	case ingressNode:
-		httpRouteConfigs, _ = buildIngressRoutes(ds.Config.IngressRules(""))
+		httpRouteConfigs, _ = buildIngressRoutes(ds.Config.IngressRules(""), ds.Discovery, ds.Config)
 	case egressNode:
 		httpRouteConfigs = buildEgressRoutes(ds.Discovery, ds.MeshConfig)
 	default:
@@ -626,7 +626,7 @@ func (ds *DiscoveryService) getRouteConfigs(node string) (httpRouteConfigs HTTPR
 
 	switch node {
 	case ingressNode:
-		httpRouteConfigs, _ = buildIngressRoutes(ds.Config.IngressRules(""))
+		httpRouteConfigs, _ = buildIngressRoutes(ds.Config.IngressRules(""), ds.Discovery, ds.Config)
 	case egressNode:
 		httpRouteConfigs = buildEgressRoutes(ds.Discovery, ds.MeshConfig)
 	default:

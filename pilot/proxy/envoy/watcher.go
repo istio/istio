@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"time"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
@@ -131,8 +130,8 @@ func runEnvoy(mesh *proxyconfig.ProxyMeshConfig, node string) proxy.Proxy {
 			// spin up a new Envoy process
 			args := []string{"-c", fname,
 				"--restart-epoch", fmt.Sprint(epoch),
-				"--drain-time-s", fmt.Sprint(int(convertDuration(mesh.DrainDuration) / time.Second)),
-				"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(mesh.ParentShutdownDuration) / time.Second)),
+				"--drain-time-s", fmt.Sprint(protoDurationToMS(mesh.DrainDuration)),
+				"--parent-shutdown-time-s", fmt.Sprint(protoDurationToMS(mesh.ParentShutdownDuration)),
 				"--service-cluster", mesh.IstioServiceCluster,
 				"--service-node", node,
 			}

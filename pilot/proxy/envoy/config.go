@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
 
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
@@ -74,7 +73,7 @@ func Generate(context *proxy.Context) *Config {
 	mesh := context.MeshConfig
 	listeners, clusters := buildListeners(context)
 
-	// set bind to port values to values for port redirection
+	// set bind to port values for port redirection
 	for _, listener := range listeners {
 		listener.BindToPort = false
 	}
@@ -101,13 +100,13 @@ func buildConfig(listeners Listeners, clusters Clusters, mesh *proxyconfig.Proxy
 		ClusterManager: ClusterManager{
 			Clusters: append(clusters,
 				buildDiscoveryCluster(mesh.DiscoveryAddress, RDSName, mesh.ConnectTimeout)),
-			SDS: &SDS{
-				Cluster:        buildDiscoveryCluster(mesh.DiscoveryAddress, "sds", mesh.ConnectTimeout),
-				RefreshDelayMs: int(convertDuration(mesh.DiscoveryRefreshDelay) / time.Millisecond),
+			SDS: &DiscoveryCluster{
+				Cluster:        buildDiscoveryCluster(mesh.DiscoveryAddress, SDSName, mesh.ConnectTimeout),
+				RefreshDelayMs: protoDurationToMS(mesh.DiscoveryRefreshDelay),
 			},
-			CDS: &CDS{
-				Cluster:        buildDiscoveryCluster(mesh.DiscoveryAddress, "cds", mesh.ConnectTimeout),
-				RefreshDelayMs: int(convertDuration(mesh.DiscoveryRefreshDelay) / time.Millisecond),
+			CDS: &DiscoveryCluster{
+				Cluster:        buildDiscoveryCluster(mesh.DiscoveryAddress, CDSName, mesh.ConnectTimeout),
+				RefreshDelayMs: protoDurationToMS(mesh.DiscoveryRefreshDelay),
 			},
 		},
 	}
@@ -156,13 +155,13 @@ func buildHTTPListener(mesh *proxyconfig.ProxyMeshConfig, routeConfig *HTTPRoute
 	filters := buildFaultFilters(routeConfig)
 
 	filters = append(filters, HTTPFilter{
-		Type:   "decoder",
-		Name:   "router",
+		Type:   decoder,
+		Name:   router,
 		Config: FilterRouterConfig{},
 	})
 
 	config := &HTTPFilterConfig{
-		CodecType:  "auto",
+		CodecType:  auto,
 		StatPrefix: "http",
 		AccessLog: []AccessLog{{
 			Path: DefaultAccessLog,
@@ -174,7 +173,7 @@ func buildHTTPListener(mesh *proxyconfig.ProxyMeshConfig, routeConfig *HTTPRoute
 		config.RDS = &RDS{
 			Cluster:         RDSName,
 			RouteConfigName: fmt.Sprintf("%d", port),
-			RefreshDelayMs:  (int)(convertDuration(mesh.DiscoveryRefreshDelay) / time.Millisecond),
+			RefreshDelayMs:  protoDurationToMS(mesh.DiscoveryRefreshDelay),
 		}
 	} else {
 		config.RouteConfig = routeConfig
@@ -227,6 +226,61 @@ func buildOutboundListeners(instances []*model.ServiceInstance, services []*mode
 	return listeners, clusters
 }
 
+// buildDestinationHTTPRoutes creates HTTP route for a service and a port from rules
+func buildDestinationHTTPRoutes(service *model.Service,
+	servicePort *model.Port,
+	rules []*proxyconfig.RouteRule) []*HTTPRoute {
+	protocol := servicePort.Protocol
+	switch protocol {
+	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
+		routes := make([]*HTTPRoute, 0)
+
+		// collect route rules
+		useDefaultRoute := true
+		for _, rule := range rules {
+			if rule.Destination == service.Hostname {
+				httpRoute := buildHTTPRoute(rule, servicePort)
+				routes = append(routes, httpRoute)
+
+				// User can provide timeout/retry policies without any match condition,
+				// or specific route. User could also provide a single default route, in
+				// which case, we should not be generating another default route.
+				// For every HTTPRoute we build, the return value also provides a boolean
+				// "catchAll" flag indicating if the route that was built was a catch all route.
+				// When such a route is encountered, we stop building further routes for the
+				// destination and we will not add the default route after the for loop.
+				if httpRoute.CatchAll() {
+					useDefaultRoute = false
+					break
+				}
+			}
+		}
+
+		if useDefaultRoute {
+			// default route for the destination is always the lowest priority route
+			cluster := buildOutboundCluster(service.Hostname, servicePort, nil)
+			routes = append(routes, buildDefaultRoute(cluster))
+		}
+
+		return routes
+
+	case model.ProtocolHTTPS:
+		// as an exception, external name HTTPS port is sent in plain-text HTTP/1.1
+		if service.External() {
+			cluster := buildOutboundCluster(service.Hostname, servicePort, nil)
+			return []*HTTPRoute{buildDefaultRoute(cluster)}
+		}
+
+	case model.ProtocolTCP:
+		// handled by buildOutboundTCPListeners
+
+	default:
+		glog.Warningf("Unsupported outbound protocol %v for port %#v", protocol, servicePort)
+	}
+
+	return nil
+}
+
 // buildOutboundHTTPRoutes creates HTTP route configs indexed by ports for the
 // traffic outbound from the proxy instance
 func buildOutboundHTTPRoutes(
@@ -246,47 +300,23 @@ func buildOutboundHTTPRoutes(
 	// outbound connections/requests are directed to service ports; we create a
 	// map for each service port to define filters
 	for _, service := range services {
-		// clusters aggregate clusters across ports
-		clusters := make(Clusters, 0)
 		for _, servicePort := range service.Ports {
-			protocol := servicePort.Protocol
-			switch protocol {
-			case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
-				routes := make([]*HTTPRoute, 0)
+			// skip external services if the egress proxy is undefined
+			if service.External() && mesh.EgressProxyAddress == "" {
+				continue
+			}
 
-				// User can provide timeout/retry policies without any match condition,
-				// or specific route. User could also provide a single default route, in
-				// which case, we should not be generating another default route.
-				// For every HTTPRoute we build, the return value also provides a boolean
-				// "catchAll" flag indicating if the route that was built was a catch all route.
-				// When such a route is encountered, we stop building further routes for the
-				// destination and we will not add the default route after of the for loop.
+			routes := buildDestinationHTTPRoutes(service, servicePort, rules)
 
-				catchAll := false
-				var httpRoute *HTTPRoute
-
-				// collect route rules
-				for _, rule := range rules {
-					if rule.Destination == service.Hostname {
-						httpRoute, catchAll = buildHTTPRoute(rule, servicePort)
-						routes = append(routes, httpRoute)
-						if catchAll {
-							break
-						}
-					}
-				}
-
-				if !catchAll {
-					// default route for the destination
-					cluster := buildOutboundCluster(service.Hostname, servicePort, nil)
-					routes = append(routes, buildDefaultRoute(cluster))
-				}
-
+			if len(routes) > 0 {
+				// must use egress proxy to route external name services
 				if service.External() {
 					for _, route := range routes {
 						route.HostRewrite = service.Hostname
 						for _, cluster := range route.clusters {
-							useEgressCluster(mesh, cluster)
+							cluster.ServiceName = ""
+							cluster.Type = ClusterTypeStrictDNS
+							cluster.Hosts = []Host{{URL: fmt.Sprintf("tcp://%s", mesh.EgressProxyAddress)}}
 						}
 					}
 				}
@@ -294,49 +324,12 @@ func buildOutboundHTTPRoutes(
 				host := buildVirtualHost(service, servicePort, suffix, routes)
 				http := httpConfigs.EnsurePort(servicePort.Port)
 				http.VirtualHosts = append(http.VirtualHosts, host)
-				clusters = append(clusters, host.clusters()...)
-
-			case model.ProtocolHTTPS:
-				if service.External() {
-					routes := make([]*HTTPRoute, 0)
-
-					cluster := buildOutboundCluster(service.Hostname, servicePort, nil)
-					useEgressCluster(mesh, cluster)
-
-					route := buildDefaultRoute(cluster)
-					route.HostRewrite = service.Hostname
-
-					routes = append(routes, route)
-
-					host := buildVirtualHost(service, servicePort, suffix, routes)
-					http := httpConfigs.EnsurePort(servicePort.Port)
-					http.VirtualHosts = append(http.VirtualHosts, host)
-					clusters = append(clusters, host.clusters()...)
-				}
-
-			case model.ProtocolTCP:
-				// handled by buildOutboundTCPListeners
-
-			default:
-				glog.Warningf("Unsupported outbound protocol %v for port %#v", protocol, servicePort)
 			}
 		}
-
-		clusters.setTimeout(mesh.ConnectTimeout)
 	}
 
 	httpConfigs.normalize()
 	return httpConfigs
-}
-
-func useEgressCluster(mesh *proxyconfig.ProxyMeshConfig, cluster *Cluster) {
-	cluster.ServiceName = ""
-	cluster.Type = ClusterTypeStrictDNS
-	cluster.Hosts = []Host{
-		{
-			URL: fmt.Sprintf("tcp://%s", mesh.EgressProxyAddress),
-		},
-	}
 }
 
 // buildOutboundTCPListeners lists listeners and referenced clusters for TCP

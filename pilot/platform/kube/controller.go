@@ -229,7 +229,7 @@ func (c *Controller) appendIngressConfigHandler(k string, f func(model.Key, prot
 		// Convert the ingress into a map[Key]Message, and invoke handler for each
 		// TODO: This works well for Add and Delete events, but no so for Update:
 		// A updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
-		messages := convertIngress(*ingress, c.serviceByKey)
+		messages := convertIngress(*ingress)
 		for key, message := range messages {
 			f(key, message, ev)
 		}
@@ -356,7 +356,7 @@ func (c *Controller) getIngress(key model.Key) (proto.Message, bool) {
 		return nil, false
 	}
 
-	messages := convertIngress(*ingress, c.serviceByKey)
+	messages := convertIngress(*ingress)
 	message, exists := messages[key]
 	return message, exists
 }
@@ -425,7 +425,7 @@ func (c *Controller) listIngresses(kind, namespace string) (map[model.Key]proto.
 		ingress := obj.(*v1beta1.Ingress)
 		if c.shouldProcessIngress(ingress) &&
 			(namespace == "" || ingress.GetObjectMeta().GetNamespace() == namespace) {
-			ingressRules := convertIngress(*ingress, c.serviceByKey)
+			ingressRules := convertIngress(*ingress)
 			for key, message := range ingressRules {
 				out[key] = message
 			}

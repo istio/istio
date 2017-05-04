@@ -20,9 +20,6 @@ package envoy
 import (
 	"sort"
 	"strings"
-	"time"
-
-	"github.com/golang/protobuf/ptypes/duration"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
@@ -51,7 +48,7 @@ func insertMixerFilter(listeners []*Listener, instances []*model.ServiceInstance
 			if f.Name == HTTPConnectionManager {
 				http := (f.Config).(*HTTPFilterConfig)
 				http.Filters = append([]HTTPFilter{{
-					Type: "decoder",
+					Type: decoder,
 					Name: "mixer",
 					Config: &FilterMixerConfig{
 						MixerServer: context.MeshConfig.MixerAddress,
@@ -126,14 +123,4 @@ func insertDestinationPolicy(config *model.IstioRegistry, cluster *Cluster) {
 			cluster.OutlierDetection.MaxEjectionPercent = int(cbconfig.HttpMaxEjectionPercent)
 		}
 	}
-}
-
-func protoDurationToMS(dur *duration.Duration) int {
-	if dur == nil {
-		return 0
-	}
-
-	d := convertDuration(dur)
-
-	return int(d / time.Millisecond)
 }

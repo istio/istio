@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	multierror "github.com/hashicorp/go-multierror"
@@ -39,9 +38,6 @@ const (
 	// TODO: make DNS suffix configurable
 	ServiceSuffix = "svc.cluster.local"
 )
-
-// serviceGetter is a function that retrieves a service by name and namespace
-type serviceGetter func(name, namespace string) (*v1.Service, bool)
 
 // camelCaseToKabobCase converts "MyName" to "my-name"
 func camelCaseToKabobCase(s string) string {
@@ -166,7 +162,7 @@ func modelToKube(km model.KindMap, k *model.Key, v proto.Message) (*Config, erro
 	return out, nil
 }
 
-func convertIngress(ingress v1beta1.Ingress, getService serviceGetter) map[model.Key]proto.Message {
+func convertIngress(ingress v1beta1.Ingress) map[model.Key]proto.Message {
 	messages := make(map[model.Key]proto.Message)
 
 	keyOf := func(ruleNum, pathNum int) model.Key {
@@ -185,50 +181,38 @@ func convertIngress(ingress v1beta1.Ingress, getService serviceGetter) map[model
 	}
 
 	if ingress.Spec.Backend != nil {
-		messages[keyOf(0, 0)] = createIngressRule("", "", ingress.Namespace, *ingress.Spec.Backend, tls, getService)
+		messages[keyOf(0, 0)] = createIngressRule("", "", ingress.Namespace, *ingress.Spec.Backend, tls)
 	}
 
 	for i, rule := range ingress.Spec.Rules {
 		for j, path := range rule.HTTP.Paths {
-			messages[keyOf(i+1, j+1)] = createIngressRule(rule.Host, path.Path, ingress.Namespace, path.Backend, tls, getService)
+			messages[keyOf(i+1, j+1)] = createIngressRule(rule.Host, path.Path, ingress.Namespace, path.Backend, tls)
 		}
 	}
 
 	return messages
 }
 
-func createIngressRule(host string, path string, namespace string,
-	backend v1beta1.IngressBackend, tlsSecret string, getService serviceGetter) proto.Message {
+func createIngressRule(host, path, namespace string, backend v1beta1.IngressBackend, tlsSecret string) proto.Message {
 	destination := serviceHostname(backend.ServiceName, namespace)
-	port := convertPort(resolveServicePort(namespace, backend, getService))
-
+	tags := make(map[string]string)
+	switch backend.ServicePort.Type {
+	case intstr.Int:
+		tags[model.IngressPortNum] = strconv.Itoa(backend.ServicePort.IntValue())
+	case intstr.String:
+		tags[model.IngressPortName] = backend.ServicePort.String()
+	}
+	tags[model.IngressTLSSecret] = tlsSecret
 	rule := &proxyconfig.RouteRule{
 		Destination: destination,
 		Match: &proxyconfig.MatchCondition{
 			HttpHeaders: make(map[string]*proxyconfig.StringMatch, 2),
 		},
-		Route: []*proxyconfig.DestinationWeight{
-			{
-				Destination: destination,
-				Weight:      100,
-
-				// A temporary measure to communicate the destination service's port
-				// to the proxy configuration generator. This can be improved by using
-				// a dedicated model object for IngressRule (instead of reusing RouteRule),
-				// which exposes the necessary target port field within the "Route" field.
-				// This also carries TLS secret name.
-				Tags: map[string]string{
-					"servicePort.port":     strconv.Itoa(port.Port),
-					"servicePort.name":     port.Name,
-					"servicePort.protocol": string(port.Protocol),
-					"tlsSecret":            tlsSecret,
-				},
-			},
-		},
+		Route: []*proxyconfig.DestinationWeight{{Tags: tags}},
 	}
 
 	if host != "" {
-		rule.Match.HttpHeaders["authority"] = &proxyconfig.StringMatch{
+		rule.Match.HttpHeaders[model.HeaderAuthority] = &proxyconfig.StringMatch{
 			MatchType: &proxyconfig.StringMatch_Exact{Exact: host},
 		}
 	}
@@ -236,53 +220,22 @@ func createIngressRule(host string, path string, namespace string,
 	if path != "" {
 		if isRegularExpression(path) {
 			if strings.HasSuffix(path, ".*") && !isRegularExpression(strings.TrimSuffix(path, ".*")) {
-				rule.Match.HttpHeaders["uri"] = &proxyconfig.StringMatch{
+				rule.Match.HttpHeaders[model.HeaderURI] = &proxyconfig.StringMatch{
 					MatchType: &proxyconfig.StringMatch_Prefix{Prefix: strings.TrimSuffix(path, ".*")},
 				}
 			} else {
-				rule.Match.HttpHeaders["uri"] = &proxyconfig.StringMatch{
+				rule.Match.HttpHeaders[model.HeaderURI] = &proxyconfig.StringMatch{
 					MatchType: &proxyconfig.StringMatch_Regex{Regex: path},
 				}
 			}
 		} else {
-			rule.Match.HttpHeaders["uri"] = &proxyconfig.StringMatch{
+			rule.Match.HttpHeaders[model.HeaderURI] = &proxyconfig.StringMatch{
 				MatchType: &proxyconfig.StringMatch_Exact{Exact: path},
 			}
 		}
 	}
 
 	return rule
-}
-
-// resolveServicePort returns the service port referenced in the given ingress backend
-func resolveServicePort(namespace string, backend v1beta1.IngressBackend, getService serviceGetter) v1.ServicePort {
-	portNum := int32(backend.ServicePort.IntValue())
-	portName := backend.ServicePort.String()
-	fallbackPort := v1.ServicePort{
-		Port:     portNum,
-		Name:     "",
-		Protocol: v1.ProtocolTCP,
-	}
-
-	service, ok := getService(backend.ServiceName, namespace)
-	if !ok {
-		glog.Warningf("Failed to resolve service port %s of service %s.%s: service does not exist",
-			backend.ServicePort.String(), backend.ServiceName, namespace)
-		return fallbackPort
-	}
-
-	for _, servicePort := range service.Spec.Ports {
-		if backend.ServicePort.Type == intstr.Int && portNum == servicePort.Port {
-			return servicePort
-		}
-		if backend.ServicePort.Type == intstr.String && portName == servicePort.Name {
-			return servicePort
-		}
-	}
-
-	glog.Warningf("Failed to resolve service port %s of service %s.%s: port does not exist",
-		backend.ServicePort.String(), backend.ServiceName, namespace)
-	return fallbackPort
 }
 
 // encodeIngressRuleName encodes an ingress rule name for a given ingress resource name,

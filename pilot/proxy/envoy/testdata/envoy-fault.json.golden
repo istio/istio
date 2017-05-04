@@ -96,7 +96,7 @@
                   "headers": [
                     {
                       "name": "animal",
-                      "value": "^dog.*",
+                      "value": "^dog\\.cat.*",
                       "regex": true
                     },
                     {
@@ -176,7 +176,7 @@
                   "headers": [
                     {
                       "name": "animal",
-                      "value": "^dog.*",
+                      "value": "^dog\\.cat.*",
                       "regex": true
                     },
                     {

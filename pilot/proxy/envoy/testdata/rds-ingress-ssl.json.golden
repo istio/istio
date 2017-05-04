@@ -8,8 +8,8 @@
     "routes": [
      {
       "prefix": "/bar",
-      "host_rewrite": "foo.default.svc.cluster.local:80",
-      "cluster": "out.ce697a7c2c3c535648c2bf2c3f7b9fe599e8f5f4"
+      "host_rewrite": "hello.default.svc.cluster.local:81",
+      "cluster": "out.81c187d71467b1608736c57bb0734f9ef9b68f7d"
      }
     ]
    }
