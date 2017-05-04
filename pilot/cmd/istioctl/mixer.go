@@ -194,7 +194,7 @@ func mixerRuleGet(host, scope, subject string) (string, error) {
 func init() {
 	mixerRuleCreateCmd.PersistentFlags().StringVarP(&mixerFile, "file", "f", "",
 		"Input file with contents of the Mixer rule")
-	mixerCmd.PersistentFlags().StringVarP(&mixerAPIServerAddr, "mixer", "m", os.Getenv("ISTIO_MIXER_API_SERVER"),
+	mixerCmd.PersistentFlags().StringVar(&mixerAPIServerAddr, "mixer", os.Getenv("ISTIO_MIXER_API_SERVER"),
 		"Address of the Mixer configuration server as <host>:<port>")
 
 	mixerRuleCmd.AddCommand(mixerRuleCreateCmd)
