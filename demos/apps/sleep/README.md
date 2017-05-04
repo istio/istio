@@ -20,12 +20,11 @@ To use it:
 3. Start some other services, for example, the [Bookinfo sample](https://istio.io/docs/samples/bookinfo.html).
 
 Now you can `kubectl exec` into the sleep service to experiment with Istio.
-For example, the following commands can be used curl to call the Bookinfo `ratings` service:
+For example, the following commands can be used to call the Bookinfo `ratings` service:
 
-```bash
+```
 $ export SLEEP_POD=$(kubectl describe pod sleep- | awk '$1 == "Name:"{print $2}')
-$ kubectl exec -it $SLEEP_POD -c sleep bash
-root@sleep-342146846-kbj55:/# curl http://ratings.default.svc.cluster.local:9080/ratings
+$ kubectl exec -it $SLEEP_POD -c sleep curl http://ratings.default.svc.cluster.local:9080/ratings
 {"Reviewer1":5,"Reviewer2":4}
-root@sleep-342146846-kbj55:/#
+$
 ```
