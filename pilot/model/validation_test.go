@@ -556,6 +556,85 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			},
 		},
 			valid: false},
+		{name: "route rule match invalid redirect", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Redirect: &proxyconfig.HTTPRedirect{
+				Uri:       "",
+				Authority: "",
+			},
+		},
+			valid: false},
+		{name: "route rule match valid host redirect", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Redirect: &proxyconfig.HTTPRedirect{
+				Authority: "foo.bar.com",
+			},
+		},
+			valid: true},
+		{name: "route rule match valid path redirect", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Match:       &proxyconfig.MatchCondition{Source: "somehost.default.svc.cluster.local"},
+			Redirect: &proxyconfig.HTTPRedirect{
+				Uri: "/new/path",
+			},
+		},
+			valid: true},
+		{name: "route rule match valid redirect", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Redirect: &proxyconfig.HTTPRedirect{
+				Uri:       "/new/path",
+				Authority: "foo.bar.com",
+			},
+		},
+			valid: true},
+		{name: "route rule match valid redirect", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Redirect: &proxyconfig.HTTPRedirect{
+				Uri:       "/new/path",
+				Authority: "foo.bar.com",
+			},
+			HttpFault: &proxyconfig.HTTPFaultInjection{},
+		},
+			valid: false},
+		{name: "route rule match invalid redirect", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Redirect: &proxyconfig.HTTPRedirect{
+				Uri: "/new/path",
+			},
+			Route: []*proxyconfig.DestinationWeight{
+				{Destination: "host.default.svc.cluster.local", Weight: 75, Tags: map[string]string{"version": "v1"}},
+				{Destination: "host.default.svc.cluster.local", Weight: 25, Tags: map[string]string{"version": "v3"}},
+			},
+		},
+			valid: false},
+		{name: "route rule match invalid rewrite", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Rewrite:     &proxyconfig.HTTPRewrite{},
+		},
+			valid: false},
+		{name: "route rule match valid host rewrite", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Rewrite: &proxyconfig.HTTPRewrite{
+				Authority: "foo.bar.com",
+			},
+		},
+			valid: true},
+		{name: "route rule match valid prefix rewrite", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Match:       &proxyconfig.MatchCondition{Source: "somehost.default.svc.cluster.local"},
+			Rewrite: &proxyconfig.HTTPRewrite{
+				Uri: "/new/path",
+			},
+		},
+			valid: true},
+		{name: "route rule match valid rewrite", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Rewrite: &proxyconfig.HTTPRewrite{
+				Authority: "foo.bar.com",
+				Uri:       "/new/path",
+			},
+		},
+			valid: true},
 	}
 	for _, c := range cases {
 		if got := ValidateRouteRule(c.in); (got == nil) != c.valid {

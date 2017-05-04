@@ -1,0 +1,9 @@
+destination: world.default.svc.cluster.local
+match:
+  httpHeaders:
+    uri:
+      prefix: /old/path
+rewrite:
+  uri: "/new/path"
+  authority: "foo.bar.com"
+

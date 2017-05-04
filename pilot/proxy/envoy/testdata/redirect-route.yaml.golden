@@ -1,0 +1,13 @@
+destination: world.default.svc.cluster.local
+match:
+  httpHeaders:
+    scooby:
+      exact: doo
+    animal:
+      prefix: dog
+    name:
+      regex: "sco+do+"
+redirect:
+  uri: "/new/path"
+  authority: "foo.bar.com"
+

@@ -243,6 +243,28 @@ func TestRouteDiscoveryFault(t *testing.T) {
 	compareResponse(response, "testdata/rds-v1.json", t)
 }
 
+func TestRouteDiscoveryRedirect(t *testing.T) {
+	registry := mock.MakeRegistry()
+	addRedirect(registry, t)
+	ds := makeDiscoveryService(t, registry)
+
+	// fault rule is source based: we check that the rule only affect v0 and not v1
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", ds.MeshConfig.IstioServiceCluster, mock.HostInstanceV0)
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-redirect.json", t)
+}
+
+func TestRouteDiscoveryRewrite(t *testing.T) {
+	registry := mock.MakeRegistry()
+	addRewrite(registry, t)
+	ds := makeDiscoveryService(t, registry)
+
+	// fault rule is source based: we check that the rule only affect v0 and not v1
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", ds.MeshConfig.IstioServiceCluster, mock.HostInstanceV0)
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-rewrite.json", t)
+}
+
 func TestRouteDiscoveryIngress(t *testing.T) {
 	registry := mock.MakeRegistry()
 	addIngressRoutes(registry, t)
