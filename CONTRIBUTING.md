@@ -58,9 +58,8 @@ If you would like to also work on the implementation of the feature then
 it should include a discussion of the proposed design and technical details
 of how it will be implemented.
 
-> Before checking in a new feature, you are expected to contribute full
-documentation for this feature within the main Istio repo (http://github
-.com/istio/istio).
+Before checking in a new feature, you are expected to contribute full
+documentation for this feature within the main Istio repo (https://github.com/istio/istio).
 
 Once the idea has be discussed and there is a general agreement on the
 technical direction, a PR can then be submitted.
