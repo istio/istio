@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Inc.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,8 +44,6 @@ type CommonConfig struct {
 	Info *testInfo
 	// Kubernetes and istio installation information
 	Kube *KubeInfo
-	// Other common config here.
-
 }
 
 // Cleanable interfaces that need to be registered to CommonConfig
@@ -80,8 +78,10 @@ func NewCommonConfig(testID string) (*CommonConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	k := newKubeInfo(t.LogsPath, t.RunID)
+	k, err := newKubeInfo(t.LogsPath, t.RunID)
+	if err != nil {
+		return nil, err
+	}
 	cl := new(testCleanup)
 	cl.skipCleanup = *skipCleanup
 

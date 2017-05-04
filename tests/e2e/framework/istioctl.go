@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Inc.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package framework
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -48,15 +49,20 @@ type Istioctl struct {
 }
 
 // NewIstioctl create a new istioctl by given temp dir.
-func NewIstioctl(tmpDir, namespace, proxyHub, proxyTag string) *Istioctl {
+func NewIstioctl(yamlDir, namespace, proxyHub, proxyTag string) (*Istioctl, error) {
+	tmpDir, err := ioutil.TempDir(os.TempDir(), tmpPrefix)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Istioctl{
 		remotePath: *remotePath,
-		binaryPath: filepath.Join(tmpDir, "/istioctl"),
+		binaryPath: filepath.Join(tmpDir, "istioctl"),
 		namespace:  namespace,
 		proxyHub:   proxyHub,
 		proxyTag:   proxyTag,
-		yamlDir:    filepath.Join(tmpDir, "/istioctl"),
-	}
+		yamlDir:    filepath.Join(yamlDir, "istioctl"),
+	}, nil
 }
 
 // Setup set up istioctl prerequest for tests, port forward for manager
@@ -88,6 +94,9 @@ func (i *Istioctl) Setup() error {
 // Teardown clean up everything created by setup
 func (i *Istioctl) Teardown() error {
 	glog.Info("Cleaning up istioctl")
+	if i.pfProcess == nil {
+		return nil
+	}
 	err := i.pfProcess.Kill()
 	if err != nil {
 		glog.Error("Failed to kill pfProcess, pid: %s", i.pfProcess.Pid)
