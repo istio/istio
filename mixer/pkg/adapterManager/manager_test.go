@@ -554,7 +554,7 @@ func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecu
 	}
 	m.cfg.Store(&fakeResolver{cfg, nil})
 
-	out := m.Check(context.Background(), nil, nil)
+	out := m.Check(context.Background(), attribute.GetMutableBag(nil), attribute.GetMutableBag(nil))
 	if status.IsOK(out) {
 		t.Error("Aspect panicked, but got no error from manager.Execute")
 	}
@@ -598,8 +598,8 @@ func TestExecute(t *testing.T) {
 		}
 		m.cfg.Store(&fakeResolver{cfg, nil})
 
-		o := m.dispatch(context.Background(), nil, nil, cfg,
-			func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
+		o := m.dispatch(context.Background(), attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), cfg,
+			func(executor aspect.Executor, evaluator expr.Evaluator, _, _ *attribute.MutableBag) rpc.Status {
 				return status.OK
 			})
 		if c.inErr != nil && status.IsOK(o) {
@@ -616,7 +616,7 @@ func TestExecute(t *testing.T) {
 
 func TestExecute_Cancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-
+	cancel()
 	gp := pool.NewGoroutinePool(128, true)
 	gp.AddWorkers(32)
 
@@ -624,7 +624,6 @@ func TestExecute_Cancellation(t *testing.T) {
 	agp.AddWorkers(32)
 
 	m := &Manager{gp: gp, adapterGP: agp}
-	cancel()
 
 	cfg := []*cpb.Combined{
 		{&cpb.Adapter{Name: ""}, &cpb.Aspect{Kind: ""}},

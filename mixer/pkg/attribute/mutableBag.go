@@ -37,6 +37,9 @@ type MutableBag struct {
 	parent Bag
 	values map[string]interface{}
 	id     int64 // strictly for use in diagnostic messages
+	// number of children of this bag. It will not be recycled unless children count == 0
+	children int
+	sync.Mutex
 }
 
 var id int64
@@ -57,10 +60,14 @@ var mutableBags = sync.Pool{
 // When you are done using the mutable bag, call the Done method to recycle it.
 func GetMutableBag(parent Bag) *MutableBag {
 	mb := mutableBags.Get().(*MutableBag)
+	mb.parent = empty
 
-	mb.parent = parent
-	if parent == nil {
-		mb.parent = empty
+	pp, _ := parent.(*MutableBag)
+	if pp != nil {
+		pp.Lock()
+		pp.children++
+		mb.parent = pp
+		pp.Unlock()
 	}
 
 	return mb
@@ -96,10 +103,39 @@ func copyValue(v interface{}) interface{} {
 	return v
 }
 
+// Child allocates a derived mutable bag.
+func (mb *MutableBag) Child() *MutableBag {
+	// if code tries to create a child after Done
+	if mb.parent == nil {
+		panic(fmt.Errorf("bag used after scheduled destruction %#v", mb))
+	}
+	return GetMutableBag(mb)
+}
+
 // Done indicates the bag can be reclaimed.
 func (mb *MutableBag) Done() {
+	mb.Lock()
+	if mb.children == 0 {
+		mb.done()
+	} else {
+		glog.Warningf("attempting to free bag with active children %#v", mb)
+	}
+	mb.Unlock()
+}
+
+// done reclaims the bag. always called under a lock to the bag
+func (mb *MutableBag) done() {
 	mb.Reset()
+	mbparent, _ := mb.parent.(*MutableBag)
+	if mbparent != nil {
+		mbparent.Lock()
+		mbparent.children--
+		mbparent.Unlock()
+	}
 	mb.parent = nil
+	if glog.V(4) {
+		glog.Infof("freed bag: %#v", mb)
+	}
 	mutableBags.Put(mb)
 }
 
@@ -168,13 +204,6 @@ func (mb *MutableBag) Merge(bags ...*MutableBag) error {
 	}
 
 	return nil
-}
-
-// Child allocates a derived mutable bag.
-//
-// Mutating a child doesn't affect the parent's state, all mutations are deltas.
-func (mb *MutableBag) Child() *MutableBag {
-	return GetMutableBag(mb)
 }
 
 // Ensure that all dictionary indices are valid and that all values
