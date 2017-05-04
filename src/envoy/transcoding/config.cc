@@ -142,10 +142,9 @@ Config::Config(const Json::Object& config, Server::Instance& server) {
 
   path_matcher_ = pmb.Build();
 
-  resolver_.reset(google::protobuf::util::NewTypeResolverForDescriptorPool(
-      kTypeUrlPrefix, &descriptor_pool_));
-  info_.reset(google::protobuf::util::converter::TypeInfo::NewTypeInfo(
-      resolver_.get()));
+  type_helper_.reset(new google::api_manager::transcoding::TypeHelper(
+      google::protobuf::util::NewTypeResolverForDescriptorPool(
+          kTypeUrlPrefix, &descriptor_pool_)));
 
   log().debug("transcoding filter loaded");
 }
@@ -157,29 +156,55 @@ Status Config::CreateTranscoder(
     const google::protobuf::MethodDescriptor*& method_descriptor) {
   std::string method = headers.Method()->value().c_str();
   std::string path = headers.Path()->value().c_str();
+  std::string args;
 
-  auto method_info = path_matcher_->Lookup(method, path);
+  size_t pos = path.find('?');
+  if (pos != std::string::npos) {
+    args = path.substr(pos + 1);
+    path = path.substr(0, pos);
+  }
+
+  RequestInfo request_info;
+  std::vector<VariableBinding> variable_bidings;
+  auto method_info = path_matcher_->Lookup(
+      method, path, args, &variable_bidings, &request_info.body_field_path);
   if (!method_info) {
     return Status(Code::NOT_FOUND,
                   "Could not resolve " + path + " to a method");
   }
 
   method_descriptor = method_info->method();
-
-  RequestInfo request_info;
   auto status = MethodToRequestInfo(method_descriptor, &request_info);
   if (!status.ok()) {
     return status;
   }
 
+  for (const auto& binding : variable_bidings) {
+    google::api_manager::transcoding::RequestWeaver::BindingInfo
+        resolved_binding;
+    auto status = type_helper_->ResolveFieldPath(*request_info.message_type,
+                                                 binding.field_path,
+                                                 &resolved_binding.field_path);
+    if (!status.ok()) {
+      return status;
+    }
+
+    resolved_binding.value = binding.value;
+
+    log().debug("VALUE: " + resolved_binding.value);
+
+    request_info.variable_bindings.emplace_back(std::move(resolved_binding));
+  }
+
   std::unique_ptr<JsonRequestTranslator> request_translator{
-      new JsonRequestTranslator(resolver_.get(), request_input, request_info,
+      new JsonRequestTranslator(type_helper_->Resolver(), request_input,
+                                request_info,
                                 method_descriptor->client_streaming(), true)};
 
   auto response_type_url =
       kTypeUrlPrefix + "/" + method_descriptor->output_type()->full_name();
   std::unique_ptr<ResponseToJsonTranslator> response_translator{
-      new ResponseToJsonTranslator(resolver_.get(), response_type_url,
+      new ResponseToJsonTranslator(type_helper_->Resolver(), response_type_url,
                                    method_descriptor->server_streaming(),
                                    response_input)};
 
@@ -195,7 +220,7 @@ Status Config::MethodToRequestInfo(
 
   auto request_type_url =
       kTypeUrlPrefix + "/" + method->input_type()->full_name();
-  info->message_type = info_->GetTypeByTypeUrl(request_type_url);
+  info->message_type = type_helper_->Info()->GetTypeByTypeUrl(request_type_url);
   if (info->message_type == nullptr) {
     log().debug("Cannot resolve input-type: {}",
                 method->input_type()->full_name());

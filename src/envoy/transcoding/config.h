@@ -19,6 +19,7 @@
 #include "contrib/endpoints/src/api_manager/path_matcher.h"
 #include "contrib/endpoints/src/grpc/transcoding/request_message_translator.h"
 #include "contrib/endpoints/src/grpc/transcoding/transcoder.h"
+#include "contrib/endpoints/src/grpc/transcoding/type_helper.h"
 #include "envoy/json/json_object.h"
 #include "envoy/server/instance.h"
 #include "google/protobuf/descriptor.h"
@@ -44,6 +45,19 @@ class MethodInfo {
   const google::protobuf::MethodDescriptor* method_;
 };
 
+// VariableBinding specifies a value for a single field in the request message.
+// When transcoding HTTP/REST/JSON to gRPC/proto the request message is
+// constructed using the HTTP body and the variable bindings (specified through
+// request url).
+struct VariableBinding {
+  // The location of the field in the protobuf message, where the value
+  // needs to be inserted, e.g. "shelf.theme" would mean the "theme" field
+  // of the nested "shelf" message of the request protobuf message.
+  std::vector<std::string> field_path;
+  // The value to be inserted.
+  std::string value;
+};
+
 class Config : public Logger::Loggable<Logger::Id::config> {
  public:
   Config(const Json::Object& config, Server::Instance& server);
@@ -61,10 +75,9 @@ class Config : public Logger::Loggable<Logger::Id::config> {
 
  private:
   google::protobuf::DescriptorPool descriptor_pool_;
-  std::unique_ptr<google::protobuf::util::TypeResolver> resolver_;
-  std::unique_ptr<google::protobuf::util::converter::TypeInfo> info_;
   google::api_manager::PathMatcherPtr<MethodInfo*> path_matcher_;
   std::vector<std::unique_ptr<MethodInfo>> methods_;
+  std::unique_ptr<google::api_manager::transcoding::TypeHelper> type_helper_;
 
   friend class Instance;
 };

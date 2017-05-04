@@ -47,6 +47,8 @@ class Instance : public Http::StreamFilter,
 
   Http::FilterHeadersStatus decodeHeaders(Http::HeaderMap& headers,
                                           bool end_stream) override {
+    log().debug("Transcoding::Instance::decodeHeaders");
+
     const google::protobuf::MethodDescriptor* method;
     auto status = config_->CreateTranscoder(headers, &request_in_,
                                             &response_in_, transcoder_, method);
@@ -58,6 +60,18 @@ class Instance : public Http::StreamFilter,
       headers.insertMethod().value(std::string("POST"));
 
       headers.addStatic(kTeHeader, kTeTrailers);
+
+      if (end_stream) {
+        log().debug("header only request");
+
+        auto& data = decoder_callbacks_->decodingBuffer();
+        ASSERT(!data);
+        data.reset(new Buffer::OwnedImpl(""));
+
+        request_in_.Finish();
+
+        ReadToBuffer(transcoder_->RequestOutput(), *data);
+      }
     } else {
       log().debug("No transcoding" + status.ToString());
     }
@@ -67,18 +81,11 @@ class Instance : public Http::StreamFilter,
 
   Http::FilterDataStatus decodeData(Buffer::Instance& data,
                                     bool end_stream) override {
+    log().debug("Transcoding::Instance::decodeData");
     if (transcoder_) {
       request_in_.Move(data);
 
-      const void* out;
-      int size;
-      while (transcoder_->RequestOutput()->Next(&out, &size)) {
-        data.add(out, size);
-
-        if (size == 0) {
-          break;
-        }
-      }
+      ReadToBuffer(transcoder_->RequestOutput(), data);
 
       // TODO: Check RequesStatus
     }
@@ -114,15 +121,8 @@ class Instance : public Http::StreamFilter,
         response_in_.Finish();
       }
 
-      const void* out;
-      int size;
-      while (transcoder_->ResponseOutput()->Next(&out, &size)) {
-        data.add(out, size);
+      ReadToBuffer(transcoder_->ResponseOutput(), data);
 
-        if (size == 0) {
-          break;
-        }
-      }
       // TODO: Check ResponseStatus
     }
 
@@ -140,6 +140,20 @@ class Instance : public Http::StreamFilter,
   }
 
  private:
+  bool ReadToBuffer(google::protobuf::io::ZeroCopyInputStream* stream,
+                    Buffer::Instance& data) {
+    const void* out;
+    int size;
+    while (stream->Next(&out, &size)) {
+      data.add(out, size);
+
+      if (size == 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   ConfigSharedPtr config_;
   std::unique_ptr<google::api_manager::transcoding::Transcoder> transcoder_;
   EnvoyInputStream request_in_;

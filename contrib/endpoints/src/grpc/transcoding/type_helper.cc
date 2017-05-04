@@ -107,6 +107,10 @@ class SimpleTypeResolver : public pbutil::TypeResolver {
   SimpleTypeResolver& operator=(const SimpleTypeResolver&) = delete;
 };
 
+TypeHelper::TypeHelper(pbutil::TypeResolver* type_resolver)
+    : type_resolver_(type_resolver),
+      type_info_(pbconv::TypeInfo::NewTypeInfo(type_resolver)) {}
+
 TypeHelper::~TypeHelper() {
   type_info_.reset();
   delete type_resolver_;
@@ -121,9 +125,13 @@ void TypeHelper::Initialize() {
   type_info_.reset(pbconv::TypeInfo::NewTypeInfo(type_resolver_));
 }
 
-void TypeHelper::AddType(const pb::Type& t) { type_resolver_->AddType(t); }
+void TypeHelper::AddType(const pb::Type& t) {
+  reinterpret_cast<SimpleTypeResolver*>(type_resolver_)->AddType(t);
+}
 
-void TypeHelper::AddEnum(const pb::Enum& e) { type_resolver_->AddEnum(e); }
+void TypeHelper::AddEnum(const pb::Enum& e) {
+  reinterpret_cast<SimpleTypeResolver*>(type_resolver_)->AddEnum(e);
+}
 
 pbutil::Status TypeHelper::ResolveFieldPath(
     const pb::Type& type, const std::string& field_path_str,

@@ -54,7 +54,6 @@ cc_library(
     ],
     deps = [
         "//external:protobuf",
-        "//contrib/endpoints/include:headers_only",
     ],
 )
 

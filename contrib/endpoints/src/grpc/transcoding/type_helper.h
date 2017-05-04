@@ -36,6 +36,9 @@ class TypeHelper {
  public:
   template <typename Types, typename Enums>
   TypeHelper(const Types& types, const Enums& enums);
+
+  TypeHelper(::google::protobuf::util::TypeResolver* type_resolver);
+
   ~TypeHelper();
 
   ::google::protobuf::util::TypeResolver* Resolver() const;
@@ -77,7 +80,7 @@ class TypeHelper {
   // unique_ptr requires the type to be defined when the unique_ptr destructor
   // is called. In our case it's called from the template constructor below
   // (most likely as a part of stack unwinding when an exception occurs).
-  SimpleTypeResolver* type_resolver_;
+  ::google::protobuf::util::TypeResolver* type_resolver_;
   std::unique_ptr<::google::protobuf::util::converter::TypeInfo> type_info_;
 
   TypeHelper() = delete;
