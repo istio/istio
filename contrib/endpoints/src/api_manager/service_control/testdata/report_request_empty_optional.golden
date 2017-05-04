@@ -55,6 +55,12 @@ operations {
       int64_value: 1
     }
   }
+  metric_value_sets {
+    metric_name: "serviceruntime.googleapis.com/api/producer/by_consumer/request_count"
+    metric_values {
+      int64_value: 1
+    }
+  }
   log_entries {
     struct_payload {
       fields {
