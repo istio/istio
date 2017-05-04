@@ -37,14 +37,14 @@ const (
 )
 
 var (
-	namespace  = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub   = flag.String("mixer_hub", os.Getenv(mixerHubEnvVar), "Mixer hub")
-	mixerTag   = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
-	managerHub = flag.String("manager_hub", os.Getenv(managerHubEnvVar), "Manager hub")
-	managerTag = flag.String("manager_tag", os.Getenv(managerTagEnvVar), "Manager tag")
-	caHub      = flag.String("ca_hub", "", "Ca hub")
-	caTag      = flag.String("ca_tag", "", "Ca tag")
-	verbose    = flag.Bool("verbose", false, "Debug level noise from proxies")
+	namespace    = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub     = flag.String("mixer_hub", os.Getenv(mixerHubEnvVar), "Mixer hub")
+	mixerTag     = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
+	managerHub   = flag.String("manager_hub", os.Getenv(managerHubEnvVar), "Manager hub")
+	managerTag   = flag.String("manager_tag", os.Getenv(managerTagEnvVar), "Manager tag")
+	caHub        = flag.String("ca_hub", "", "Ca hub")
+	caTag        = flag.String("ca_tag", "", "Ca tag")
+	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
 
 	modules = []string{
 		"manager",
@@ -55,39 +55,38 @@ var (
 
 // KubeInfo gathers information for kubectl
 type KubeInfo struct {
-	Namespace        string
-	namespaceCreated bool
-	MixerImage       string
-	ManagerImage     string
-	CaImage          string
-	ProxyImage       string
-	Verbosity        int
+	Namespace string
+
+	MixerImage   string
+	ManagerImage string
+	CaImage      string
+	ProxyImage   string
 
 	TmpDir  string
 	yamlDir string
 
 	Ingress string
 
-	Istioctl *Istioctl
+	localCluster     bool
+	namespaceCreated bool
 
+	// Istioctl installation
+	Istioctl *Istioctl
+	// App Manager
 	AppManager *AppManager
 }
 
 // newKubeInfo create a new KubeInfo by given temp dir and runID
-func newKubeInfo(tmpDir, runID string) *KubeInfo {
+func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
 	if *namespace == "" {
 		*namespace = runID
 	}
-
-	var verbosity int
-	if *verbose {
-		verbosity = 3
-	} else {
-		verbosity = 2
+	yamlDir := filepath.Join(tmpDir, "yaml")
+	i, err := NewIstioctl(yamlDir, *namespace, *managerHub, *managerTag)
+	if err != nil {
+		return nil, err
 	}
-
-	istioctl := NewIstioctl(tmpDir, *namespace, *managerHub, *managerTag)
-	appManager := NewAppManager(tmpDir, *namespace, istioctl)
+	a := NewAppManager(tmpDir, *namespace, i)
 
 	return &KubeInfo{
 		Namespace:        *namespace,
@@ -96,13 +95,13 @@ func newKubeInfo(tmpDir, runID string) *KubeInfo {
 		ManagerImage:     fmt.Sprintf("%s/manager:%s", *managerHub, *managerTag),
 		CaImage:          fmt.Sprintf("%s/ca:%s", *caHub, *caTag),
 		// Proxy and Manager are released together and share the same hub and tag.
-		ProxyImage: fmt.Sprintf("%s/proxy:%s", *managerHub, *managerTag),
-		Verbosity:  verbosity,
-		TmpDir:     tmpDir,
-		yamlDir:    filepath.Join(tmpDir, "yaml"),
-		Istioctl:   istioctl,
-		AppManager: appManager,
-	}
+		ProxyImage:   fmt.Sprintf("%s/proxy:%s", *managerHub, *managerTag),
+		TmpDir:       tmpDir,
+		yamlDir:      yamlDir,
+		localCluster: *localCluster,
+		Istioctl:     i,
+		AppManager:   a,
+	}, nil
 }
 
 // Setup set up Kubernetes prerequest for tests
@@ -125,11 +124,15 @@ func (k *KubeInfo) Setup() error {
 	}
 
 	var in string
-	if in, err = util.GetIngress(k.Namespace); err != nil {
+	if k.localCluster {
+		in, err = util.GetIngressPod(k.Namespace)
+	} else {
+		in, err = util.GetIngress(k.Namespace)
+	}
+	if err != nil {
 		return err
 	}
 	k.Ingress = in
-
 	return nil
 }
 

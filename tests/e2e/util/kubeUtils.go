@@ -17,6 +17,7 @@ package util
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"regexp"
@@ -74,23 +75,70 @@ func KubeApply(n, yaml string) error {
 
 // GetIngress get istio ingress ip
 func GetIngress(n string) (string, error) {
-	standby := 0
-	r := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
-	for i := 1; i <= 10; i++ {
-		time.Sleep(time.Duration(standby) * time.Second)
-		out, err := Shell(fmt.Sprintf("kubectl get svc istio-ingress -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n))
-		if err == nil {
-			out = strings.Trim(out, "'")
-			if match := r.FindString(out); match != "" {
-				glog.Infof("Istio ingress: %s\n", out)
-				return out, nil
-			}
-		} else {
-			glog.Warningf("Failed to get ingress: %s", err)
-		}
-		glog.Infof("Tried %d times to get ingress...", i)
-		standby += 5
+	retry := Retrier{
+		BaseDelay: 5 * time.Second,
+		MaxDelay:  30 * time.Second,
+		Retries:   10,
 	}
-	err := fmt.Errorf("cannot get ingress")
-	return "", err
+	r := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
+	var ingress string
+	retryFn := func(i int) error {
+		out, err := Shell(fmt.Sprintf("kubectl get svc istio-ingress -n %s "+
+			"-o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n))
+		if err != nil {
+			return err
+		}
+		out = strings.Trim(out, "'")
+		if r.FindString(out) == "" {
+			err = fmt.Errorf("unable to find ingress")
+			glog.Warning(err)
+			return err
+		}
+		ingress = out
+		glog.Infof("Istio ingress: %s\n", ingress)
+		return nil
+	}
+	_, err := retry.Retry(retryFn)
+	return ingress, err
+}
+
+// GetIngressPod get istio ingress ip
+func GetIngressPod(n string) (string, error) {
+	retry := Retrier{
+		BaseDelay: 5 * time.Second,
+		MaxDelay:  30 * time.Minute,
+		Retries:   10,
+	}
+	ipRegex := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
+	portRegex := regexp.MustCompile(`^[0-9]+$`)
+	var ingress string
+	retryFn := func(i int) error {
+		podIP, err := Shell(fmt.Sprintf("kubectl get pod -l istio=ingress "+
+			"-n %s -o jsonpath='{.items[0].status.hostIP}'", n))
+		if err != nil {
+			return err
+		}
+		podPort, err := Shell(fmt.Sprintf("kubectl get svc istio-ingress "+
+			"-n %s -o jsonpath='{{.spec.ports[0].nodePort}'", n))
+		if err != nil {
+			return err
+		}
+		podIP = strings.Trim(podIP, "'")
+		podPort = strings.Trim(podPort, "'")
+		if ipRegex.FindString(podIP) == "" {
+			err = errors.New("unable to find ingress pod ip")
+			glog.Warning(err)
+			return err
+		}
+		if portRegex.FindString(podPort) == "" {
+			err = errors.New("unable to find ingress pod port")
+			glog.Warning(err)
+			return err
+		}
+		ingress = fmt.Sprintf("%s:%s", podIP, podPort)
+		glog.Infof("Istio ingress: %s\n", ingress)
+		return nil
+	}
+	_, err := retry.Retry(retryFn)
+	return ingress, err
 }
