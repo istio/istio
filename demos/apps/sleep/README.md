@@ -24,7 +24,7 @@ For example, the following commands can be used to call the Bookinfo `ratings` s
 
 ```
 $ export SLEEP_POD=$(kubectl get pod -l app=sleep -o jsonpath={.items..metadata.name})
-kubectl exec -it $SLEEP_POD -c sleep curl http://ratings.default.svc.cluster.local:9080/ratings
+$ kubectl exec -it $SLEEP_POD -c sleep curl http://ratings.default.svc.cluster.local:9080/ratings
 {"Reviewer1":5,"Reviewer2":4}
 $
 ```
