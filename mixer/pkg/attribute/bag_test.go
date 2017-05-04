@@ -243,3 +243,43 @@ func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
 	_ = flag.Lookup("v").Value.Set("99")
 }
+
+func TestMutableBag_Child(t *testing.T) {
+	mb := GetMutableBag(nil)
+	c1 := mb.Child()
+	c2 := mb.Child()
+	c3 := mb.Child()
+	c31 := c3.Child()
+	mb.Done()
+
+	if mb.parent == nil {
+		t.Errorf("Unexpectedly freed bag with children %#v", mb)
+	}
+
+	if c1.parent != mb {
+		t.Errorf("not the correct parent. got %#v\nwant %#v", c1.parent, mb)
+	}
+	c1.Done()
+	if c1.parent != nil {
+		t.Errorf("did not free bag c1 %#v", c1)
+	}
+	c2.Done()
+	c3.Done()
+	c31.Done()
+
+	mb.parent = nil
+	err := withPanic(func() { mb.Child() })
+
+	if err == nil {
+		t.Errorf("want panic, got %#v", err)
+	}
+}
+
+func withPanic(f func()) (ret interface{}) {
+	defer func() {
+		ret = recover()
+	}()
+
+	f()
+	return ret
+}

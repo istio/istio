@@ -128,7 +128,7 @@ func newManager(r builderFinder, m [config.NumKinds]aspect.Manager, exp expr.Eva
 
 func (m *Manager) dispatchCheck(ctx context.Context, configs []*cpb.Combined, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 	return m.dispatch(ctx, requestBag, responseBag, configs,
-		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
+		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 			cw := executor.(aspect.CheckExecutor)
 			return cw.Execute(requestBag, evaluator)
 		})
@@ -146,7 +146,7 @@ func (m *Manager) Check(ctx context.Context, requestBag, responseBag *attribute.
 
 func (m *Manager) dispatchReport(ctx context.Context, configs []*cpb.Combined, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 	return m.dispatch(ctx, requestBag, responseBag, configs,
-		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
+		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 			rw := executor.(aspect.ReportExecutor)
 			return rw.Execute(requestBag, evaluator)
 		})
@@ -175,7 +175,7 @@ func (m *Manager) Quota(ctx context.Context, requestBag, responseBag *attribute.
 	}
 
 	o := m.dispatch(ctx, requestBag, responseBag, configs,
-		func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status {
+		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 			qw := executor.(aspect.QuotaExecutor)
 			var o rpc.Status
 			o, qmr = qw.Execute(requestBag, evaluator, qma)
@@ -215,7 +215,7 @@ func (m *Manager) Preprocess(ctx context.Context, requestBag, responseBag *attri
 		return status.WithError(err)
 	}
 	return m.dispatch(ctx, requestBag, responseBag, configs,
-		func(executor aspect.Executor, eval expr.Evaluator) rpc.Status {
+		func(executor aspect.Executor, eval expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status {
 			ppw := executor.(aspect.PreprocessExecutor)
 			result, rpcStatus := ppw.Execute(requestBag, eval)
 			if status.IsOK(rpcStatus) {
@@ -228,14 +228,24 @@ func (m *Manager) Preprocess(ctx context.Context, requestBag, responseBag *attri
 		})
 }
 
-type invokeExecutorFunc func(executor aspect.Executor, evaluator expr.Evaluator) rpc.Status
+type invokeExecutorFunc func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status
+
+// runAsync runs a given invokeFunc thru scheduler.
+func (m *Manager) runAsync(ctx context.Context, requestBag, responseBag *attribute.MutableBag,
+	cfg *cpb.Combined, invokeFunc invokeExecutorFunc, resultChan chan result) {
+	df, _ := m.df.Load().(descriptor.Finder)
+	m.gp.ScheduleWork(func() {
+		out := m.execute(ctx, cfg, requestBag, responseBag, df, invokeFunc)
+		// free request bag before returning results
+		// resultChan is drained to ensure that all child bags are
+		// accounted for.
+		requestBag.Done()
+		resultChan <- result{cfg, out, responseBag}
+	})
+}
 
 // dispatch resolves config and invokes the specific set of aspects necessary to service the current request
 func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribute.MutableBag, cfgs []*cpb.Combined, invokeFunc invokeExecutorFunc) rpc.Status {
-	// get a new context with the attribute bag attached
-	ctx = attribute.NewContext(ctx, requestBag)
-
-	df, _ := m.df.Load().(descriptor.Finder)
 	numCfgs := len(cfgs)
 
 	// TODO: consider implementing a fast path when there is only a single config.
@@ -247,45 +257,39 @@ func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribu
 	resultChan := make(chan result, numCfgs)
 
 	// schedule all the work that needs to happen
-	for _, cfg := range cfgs {
-		c := cfg // ensure proper capture in the worker func below
-		m.gp.ScheduleWork(func() {
-			childRequestBag := requestBag.Child()
-			childResponseBag := responseBag.Child()
-
-			out := m.execute(ctx, c, childRequestBag, childResponseBag, df, invokeFunc)
-			resultChan <- result{c, out, childResponseBag}
-
-			childRequestBag.Done()
-		})
+	for idx := range cfgs {
+		// When switching goroutines, *do not* pass bags directly
+		// pass Child(). Child is a way to refcount the parent
+		m.runAsync(ctx, requestBag.Child(), responseBag.Child(), cfgs[idx], invokeFunc, resultChan)
 	}
 
-	// wait for all the work to be done or the context to be cancelled
-	for i := 0; i < numCfgs; i++ {
-		select {
-		case <-ctx.Done():
-			if ctx.Err() == context.Canceled {
-				return status.WithCancelled(fmt.Sprintf("request cancelled: %v", ctx.Err()))
-			}
-			return status.WithDeadlineExceeded(fmt.Sprintf("deadline exceeded waiting for adapter results: %v", ctx.Err()))
-		case res := <-resultChan:
-			results[i] = res
-		}
-	}
-
+	requestBag = nil
 	// TODO: look into having a pool of these to avoid frequent allocs
 	bags := make([]*attribute.MutableBag, numCfgs)
-	for i, r := range results {
-		bags[i] = r.responseBag
+
+	// wait for all the work to be done
+	for i := 0; i < numCfgs; i++ {
+		results[i] = <-resultChan
+		bags[i] = results[i].responseBag
+	}
+	// always cleanup bags regardless of how we exit
+	defer func() {
+		for _, b := range bags {
+			b.Done()
+		}
+	}()
+
+	// check context and return cancellation errors.
+	if err := ctx.Err(); err != nil {
+		if err == context.Canceled {
+			return status.WithCancelled(fmt.Sprintf("request cancelled: %v", ctx.Err()))
+		}
+		return status.WithDeadlineExceeded(fmt.Sprintf("deadline exceeded waiting for adapter results: %v", ctx.Err()))
 	}
 
 	if err := responseBag.Merge(bags...); err != nil {
 		glog.Errorf("Unable to merge response attributes: %v", err)
 		return status.WithError(err)
-	}
-
-	for _, b := range bags {
-		b.Done()
 	}
 
 	return combineResults(results)
@@ -361,7 +365,7 @@ func (m *Manager) execute(ctx context.Context, cfg *cpb.Combined, requestBag, re
 	// TODO: plumb ctx through asp.Execute
 	_ = ctx
 
-	return invokeFunc(executor, m.mapper)
+	return invokeFunc(executor, m.mapper, requestBag, responseBag)
 }
 
 // cacheKey is used to cache fully constructed aspects
