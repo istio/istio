@@ -307,7 +307,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.5, sum(rate(request_latency_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) by (source, target, service, le))",
+              "expr": "histogram_quantile(0.5, sum(rate(request_duration_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) by (source, target, service, le))",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "{{ source }} -> {{ service }}",
@@ -379,7 +379,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.9, sum(rate(request_latency_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) by (source, target, service, le))",
+              "expr": "histogram_quantile(0.9, sum(rate(request_duration_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) by (source, target, service, le))",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "{{ source }} -> {{ service }}",
@@ -451,7 +451,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.95, sum(rate(request_latency_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) by (source, target, service, le))",
+              "expr": "histogram_quantile(0.95, sum(rate(request_duration_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) by (source, target, service, le))",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "{{ source }} -> {{ service }}",
@@ -523,7 +523,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.99, sum(rate(request_latency_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) by (source, target, service, le))",
+              "expr": "histogram_quantile(0.99, sum(rate(request_duration_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) by (source, target, service, le))",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "{{ source }} -> {{ service }}",
@@ -550,6 +550,306 @@
           "yaxes": [
             {
               "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
+            }
+          ]
+        }
+      ],
+      "repeat": null,
+      "repeatIteration": null,
+      "repeatRowId": null,
+      "showTitle": false,
+      "title": "Dashboard Row",
+      "titleSize": "h6"
+    },
+    {
+      "collapse": false,
+      "height": 250,
+      "panels": [
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "${DS_PROMETHEUS}",
+          "fill": 1,
+          "id": 9,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "span": 3,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.5, sum(rate(response_size_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) by (source, target, service, le))",
+              "intervalFactor": 2,
+              "legendFormat": "{{ source }} -> {{ service }}",
+              "metric": "",
+              "refId": "B",
+              "step": 2
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "P50 Response Size",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "decbytes",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "${DS_PROMETHEUS}",
+          "fill": 1,
+          "id": 10,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "span": 3,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.9, sum(rate(response_size_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) by (source, target, service, le))",
+              "intervalFactor": 2,
+              "legendFormat": "{{ source }} -> {{ service }}",
+              "metric": "",
+              "refId": "B",
+              "step": 2
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "P90 Response Size",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "decbytes",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "${DS_PROMETHEUS}",
+          "fill": 1,
+          "id": 11,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "span": 3,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(response_size_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) by (source, target, service, le))",
+              "intervalFactor": 2,
+              "legendFormat": "{{ source }} -> {{ service }}",
+              "metric": "",
+              "refId": "B",
+              "step": 2
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "P95 Response Size",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "decbytes",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "${DS_PROMETHEUS}",
+          "fill": 1,
+          "id": 12,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "span": 3,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(response_size_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[30s])) by (source, target, service, le))",
+              "intervalFactor": 2,
+              "legendFormat": "{{ source }} -> {{ service }}",
+              "metric": "",
+              "refId": "B",
+              "step": 2
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "P99 Response Size",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "decbytes",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -673,5 +973,5 @@
   },
   "timezone": "browser",
   "title": "Istio Dashboard",
-  "version": 11
+  "version": 8
 }
