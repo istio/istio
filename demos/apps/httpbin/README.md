@@ -1,13 +1,14 @@
 # Httpbin service
 
 This sample runs [httpbin](https://httpbin.org) as an Istio service. 
-Httpbin is a powerful service that can be used for testing all kinds of HTTP features.
+Httpbin is a well known HTTP testing service that can be used for experimenting
+with all kinds of Istio features.
 
 To use it:
 
 1. Install Istio by following the [istio install instructions](https://istio.io/docs/tasks/installing-istio.html).
 
-2. Start the httpbin service and have it join the Istio service mesh:
+2. Start the httpbin service inside the Istio service mesh:
 
    ```bash
    kubectl apply -f <(istioctl kube-inject -f httpbin.yaml)
