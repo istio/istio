@@ -196,6 +196,38 @@ func buildDiscoveryCluster(address, name string, timeout *duration.Duration) *Cl
 	}
 }
 
+func buildZipkinCluster(mesh *proxyconfig.ProxyMeshConfig) *Cluster {
+	if mesh.ZipkinAddress == "" {
+		return nil
+	}
+
+	return &Cluster{
+		Name:             ZipkinCollectorCluster,
+		Type:             ClusterTypeStrictDNS,
+		ConnectTimeoutMs: protoDurationToMS(mesh.ConnectTimeout),
+		LbType:           DefaultLbType,
+		Hosts:            []Host{{URL: fmt.Sprintf("tcp://%v", mesh.ZipkinAddress)}},
+	}
+}
+
+func buildZipkinTracing(mesh *proxyconfig.ProxyMeshConfig) *Tracing {
+	if mesh.ZipkinAddress == "" {
+		return nil
+	}
+
+	return &Tracing{
+		HTTPTracer: HTTPTracer{
+			HTTPTraceDriver: HTTPTraceDriver{
+				HTTPTraceDriverType: ZipkinTraceDriverType,
+				HTTPTraceDriverConfig: HTTPTraceDriverConfig{
+					CollectorCluster:  ZipkinCollectorCluster,
+					CollectorEndpoint: ZipkinCollectorEndpoint,
+				},
+			},
+		},
+	}
+}
+
 // buildVirtualHost constructs an entry for VirtualHost for a destination service.
 // The unique name for a virtual host is a combination of the destination service and the port, e.g.
 // "svc.ns.svc.cluster.local:http".

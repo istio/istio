@@ -91,6 +91,9 @@ func Generate(context *proxy.Context) *Config {
 
 // buildConfig creates a proxy config with discovery services and admin port
 func buildConfig(listeners Listeners, clusters Clusters, mesh *proxyconfig.ProxyMeshConfig) *Config {
+	if cluster := buildZipkinCluster(mesh); cluster != nil {
+		clusters = append(clusters, cluster)
+	}
 	return &Config{
 		Listeners: listeners,
 		Admin: Admin{
@@ -109,6 +112,7 @@ func buildConfig(listeners Listeners, clusters Clusters, mesh *proxyconfig.Proxy
 				RefreshDelayMs: protoDurationToMS(mesh.DiscoveryRefreshDelay),
 			},
 		},
+		Tracing: buildZipkinTracing(mesh),
 	}
 }
 
@@ -167,6 +171,13 @@ func buildHTTPListener(mesh *proxyconfig.ProxyMeshConfig, routeConfig *HTTPRoute
 			Path: DefaultAccessLog,
 		}},
 		Filters: filters,
+	}
+
+	if mesh.ZipkinAddress != "" {
+		config.GenerateRequestID = true
+		config.Tracing = &HTTPFilterTraceConfig{
+			OperationName: IngressTraceOperation,
+		}
 	}
 
 	if rds {

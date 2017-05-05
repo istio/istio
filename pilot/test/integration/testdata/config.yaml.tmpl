@@ -10,3 +10,6 @@ data:
 {{end}}
     authPolicy: {{ .Auth }}
     authCertsPath: /etc/certs
+{{if .Zipkin}}
+    zipkinAddress: zipkin:9411
+{{end}}

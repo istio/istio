@@ -54,6 +54,7 @@ type infra struct {
 	Mixer   bool
 	Ingress bool
 	Egress  bool
+	Zipkin  bool
 
 	// check proxy logs
 	checkLogs bool
@@ -104,6 +105,11 @@ func (infra *infra) setup() error {
 	}
 	if infra.Egress {
 		if err := deploy("egress-proxy.yaml.tmpl"); err != nil {
+			return err
+		}
+	}
+	if infra.Zipkin {
+		if err := deploy("zipkin.yaml"); err != nil {
 			return err
 		}
 	}
@@ -197,6 +203,8 @@ type response struct {
 	port    []string
 	code    []string
 }
+
+const httpOk = "200"
 
 var (
 	idRex      = regexp.MustCompile("(?i)X-Request-Id=(.*)")

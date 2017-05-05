@@ -43,7 +43,7 @@ func (t *tcp) run() error {
 						url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
 						return func() status {
 							resp := t.clientRequest(src, url, 1, "")
-							if len(resp.code) > 0 && resp.code[0] == "200" {
+							if len(resp.code) > 0 && resp.code[0] == httpOk {
 								return nil
 							}
 							return errAgain

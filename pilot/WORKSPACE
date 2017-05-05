@@ -247,6 +247,12 @@ new_go_repository(
 ##
 
 new_go_repository(
+    name = "com_github_satori_go_uuid",
+    commit = "5bf94b69c6b68ee1b541973bb8e1144db23a194b",
+    importpath = "github.com/satori/go.uuid",
+)
+
+new_go_repository(
     name = "com_github_hashicorp_errwrap",
     commit = "7554cd9344cec97297fa6649b055a8c98c2a1e55",
     importpath = "github.com/hashicorp/errwrap",
@@ -392,7 +398,7 @@ go_proto_library(
     ],
 )
     """,
-    commit = "f3545065f60ad6ccd78b3bdbda6db99c8fbc7406",  # May 3 2017
+    commit = "6e481630954efcad10c0ab43244e8991a5a36bfc",  # May 5 2017
     remote = "https://github.com/istio/api.git",
 )
 

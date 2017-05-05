@@ -109,6 +109,7 @@ func main() {
 	params.Mixer = true
 	params.Ingress = true
 	params.Egress = true
+	params.Zipkin = false // TODO: enable after Zipkin Envoy support is merged
 	switch authmode {
 	case "enable":
 		runTests(setAuth(params))
@@ -163,6 +164,7 @@ func runTests(envs ...infra) {
 			&ingress{infra: &istio},
 			&egress{infra: &istio},
 			&routing{infra: &istio},
+			&zipkin{infra: &istio},
 		}
 
 		for _, test := range tests {

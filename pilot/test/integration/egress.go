@@ -63,7 +63,7 @@ func (t *egress) run() error {
 				trace := fmt.Sprint(time.Now().UnixNano())
 				return func() status {
 					resp := t.clientRequest(src, url, 1, fmt.Sprintf("-key Trace-Id -val %q", trace))
-					if len(resp.code) > 0 && resp.code[0] == "200" && strings.Contains(resp.body, trace) {
+					if len(resp.code) > 0 && resp.code[0] == httpOk && strings.Contains(resp.body, trace) {
 						return nil
 					}
 					return errAgain
