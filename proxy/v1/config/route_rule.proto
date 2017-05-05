@@ -159,8 +159,8 @@ message MatchCondition {
   L4MatchAttributes udp = 4 ;
 
   // Set of HTTP match conditions based on HTTP/1.1, HTTP/2, GRPC request
-  // metadata, such as _uri_, _scheme_, _authority_.  The header keys are
-  // case-insensitive.
+  // metadata, such as _uri_, _scheme_, _authority_.  The header keys must be
+  // lowercase and use hyphen as the separator, e.g. _x-request-id_.
   //
   // *Note 1:* The keys _uri_, _scheme_, _method_, and _authority_ correspond
   // to URI, protocol scheme (e.g., HTTP, HTTPS), HTTP method
