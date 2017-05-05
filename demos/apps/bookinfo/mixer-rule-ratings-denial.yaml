@@ -1,0 +1,3 @@
+rules:
+- aspects:
+  - kind: denials

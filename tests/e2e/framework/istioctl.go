@@ -131,6 +131,11 @@ func (i *Istioctl) CreateRule(rule string) error {
 		i.namespace, i.istioNamespace, rule))
 }
 
+// CreateMixerRule create new rule(s)
+func (i *Istioctl) CreateMixerRule(scope, subject, rule string) error {
+	return i.run(fmt.Sprintf("-n %s mixer rule create %s %s -f %s", i.namespace, scope, subject, rule))
+}
+
 // ReplaceRule replace rule(s)
 func (i *Istioctl) ReplaceRule(rule string) error {
 	return i.run(fmt.Sprintf("-n %s --istioNamespace %s replace -f %s",
