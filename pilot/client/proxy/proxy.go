@@ -158,6 +158,8 @@ func (m *ManagerClient) ListConfig(kind, namespace string) (config []apiserver.C
 	if err != nil {
 		return nil, err
 	}
+	// Log after the call to m.do() so that the full hostname is present
+	defer glog.V(2).Infof("%s", m.toCurl(request, ""))
 
 	defer func() { _ = response.Body.Close() }() // #nosec
 	body, err := ioutil.ReadAll(response.Body)
