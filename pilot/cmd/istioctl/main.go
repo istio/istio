@@ -214,6 +214,7 @@ Example usage:
 					c.Println(c.UsageString())
 					return err
 				}
+				glog.V(2).Infof("Getting single config with key: %+v", key)
 				config, err := apiClient.GetConfig(key)
 				if err != nil {
 					return err
@@ -232,7 +233,7 @@ Example usage:
 					c.Println(c.UsageString())
 					return err
 				}
-
+				glog.V(2).Infof("Getting multiple configs of kind %v in namespace %v", key.Kind, key.Namespace)
 				configList, err := apiClient.ListConfig(key.Kind, key.Namespace)
 				if err != nil {
 					return err

@@ -45,6 +45,7 @@ func (api *API) GetConfig(request *restful.Request, response *restful.Response) 
 		Type: params["kind"],
 		Spec: retJSON,
 	}
+	glog.V(2).Infof("Retrieved config %+v", config)
 	if err = response.WriteHeaderAndEntity(http.StatusOK, config); err != nil {
 		api.writeError(http.StatusInternalServerError, err.Error(), response)
 	}
@@ -85,6 +86,7 @@ func (api *API) AddConfig(request *restful.Request, response *restful.Response) 
 		}
 		return
 	}
+	glog.V(2).Infof("Added config %+v", config)
 	if err = response.WriteHeaderAndEntity(http.StatusCreated, config); err != nil {
 		api.writeError(http.StatusInternalServerError, err.Error(), response)
 	}
@@ -123,6 +125,7 @@ func (api *API) UpdateConfig(request *restful.Request, response *restful.Respons
 		}
 		return
 	}
+	glog.V(2).Infof("Updated config to %+v", config)
 	if err = response.WriteHeaderAndEntity(http.StatusOK, config); err != nil {
 		api.writeError(http.StatusInternalServerError, err.Error(), response)
 	}
@@ -164,7 +167,6 @@ func (api *API) ListConfigs(request *restful.Request, response *restful.Response
 			fmt.Sprintf("unknown configuration type %s; use one of %v", kind, model.IstioConfig.Kinds()), response)
 		return
 	}
-
 	glog.V(2).Infof("Getting configs of kind %s in namespace %s", kind, namespace)
 	result, err := api.registry.List(kind, namespace)
 	if err != nil {
@@ -191,6 +193,7 @@ func (api *API) ListConfigs(request *restful.Request, response *restful.Response
 			Type: k.Kind,
 			Spec: retJSON,
 		}
+		glog.V(2).Infof("Retrieved config %+v", config)
 		out = append(out, config)
 	}
 	if err = response.WriteHeaderAndEntity(http.StatusOK, out); err != nil {
