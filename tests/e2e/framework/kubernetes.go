@@ -33,7 +33,7 @@ const (
 	mixerTagEnvVar   = "MIXER_TAG"
 	managerHubEnvVar = "MANAGER_HUB"
 	managerTagEnvVar = "MANAGER_TAG"
-	istioInstallDir  = "kubernetes/istio-install"
+	istioInstallDir  = "install/kubernetes/templates"
 )
 
 var (

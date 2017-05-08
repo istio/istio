@@ -47,9 +47,9 @@ Test an arbitrary explicit configuration:
 
 ## updateVersion.sh
 
-The [updateVersion.sh](updateVersion.sh) script is used to update 
+The [updateVersion.sh](../updateVersion.sh) script is used to update 
 the images specified in [istio.VERSION](../istio.VERSION) and the default Istio
-installation in [../kubernetes/istio-install](../kubernetes/istio-install).
+installation in [../install/kubernetes/](../install/kubernetes/).
    
 ### Options
 

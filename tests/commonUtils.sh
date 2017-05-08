@@ -81,7 +81,7 @@ function apply_patch_in_dir() {
 
 function generate_istio_yaml() {
     print_block_echo "Generating istio yaml in ${1}"
-    local src_dir="${ROOT}/kubernetes/istio-install"
+    local src_dir="${ROOT}/install/kubernetes/templates"
     local dest_dir="${1}"
 
     mkdir -p ${dest_dir}
