@@ -1,5 +1,5 @@
 # GENERATED FILE. Use with Kubernetes 1.5+
-# TO UPDATE, modify files in istio-install and run updateVersion.sh
+# TO UPDATE, modify files in install/kubernetes/templates and run updateVersion.sh
 # Mixer
 apiVersion: v1
 kind: Service
