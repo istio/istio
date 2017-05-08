@@ -7,16 +7,7 @@
 This tutorial assumes you have a working Kubernetes of at least version 1.5.2.  Do `kubectl version` to verify
 that you have a _kubectl_ command line and connectivity to a version 1.5.2 Kubernetes server.
 
-Bring up the *Istio control plane* from the directory you cloned [https://github.com/istio/istio](https://github.com/istio/istio) into:
-
-```bash
-$ kubectl apply -f kubernetes/istio-install
-service "istio-manager" created
-deployment "istio-manager" created
-configmap "mixer-config" created
-service "istio-mixer" created
-deployment "istio-mixer" created
-```
+Install Istio by following the instructions from [istio.io](https://istio.io/docs/tasks/installing-istio.html).
 
 ## Connecting microservices with Istio
 

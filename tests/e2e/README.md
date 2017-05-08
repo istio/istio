@@ -23,7 +23,7 @@ Tests could be built and drove manually as a single test or automatically detect
 Default values for the `mixer_hub/tag`, `manager_hub/tag`, and `istioctl_url` are as specified in
 [istio.VERSION](../../istio.VERSION), which are latest tested stable version pairs.
 
-istio.VERSION can be updated by [updateVersion.sh](../updateVersion.sh).
+istio.VERSION can be updated by [updateVersion.sh](../../updateVersion.sh).
 Look at [Integration Test](https://github.com/istio/istio/tree/master/tests#updateversionsh) for more information.
 
 If not specify `namespace`, a randomly namespace would be generated for each test.
@@ -82,7 +82,7 @@ Testing code or writing tests don't require knowledge of framework, it should be
 `Cleanable` is a interface defined with setup() and teardown(). While initialization, framework calls setup() from all registered cleanable structures and calls teardown() while framework cleanup. The cleanable register works like a stack, first setup, last teardown.
 
 ### kubernetes.go
-`KubeInfo` handles interactions between tests and kubectl, installs istioctl and apply istio module. Module yaml files are in store at [kubernetes/istio-install](../../kubernetes/istio-install) and will finally use all-in-one yaml at [kubernetes](../../kubernetes)
+`KubeInfo` handles interactions between tests and kubectl, installs istioctl and apply istio module. Module yaml files are in store at [install/kubernetes/templates](../../install/kubernetes/templates) and will finally use all-in-one yaml [istio.yaml](../../install/kubernetes/istio.yaml)
 
 ### appManager.go
 `appManager` gather apps required for test into a array and deploy them while setup()

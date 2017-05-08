@@ -1,5 +1,5 @@
 filegroup(
-    name = "istio-install",
+    name = "templates",
     srcs = [
         "istio-egress.yaml",
         "istio-ingress.yaml",
