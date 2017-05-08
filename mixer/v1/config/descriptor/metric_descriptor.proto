@@ -51,7 +51,8 @@ import "mixer/v1/config/descriptor/value_type.proto";
 //     apiMethod: api.method | "unknown"
 //     # either the attribute named 'response.code' or the literal int64 500; must eval to an int64
 //     responseCode: response.code | 500
-//```
+// ```
+//
 message MetricDescriptor {
   // Required. The name of this descriptor. This is used to refer to this
   // descriptor in other contexts.
