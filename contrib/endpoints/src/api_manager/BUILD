@@ -93,6 +93,8 @@ cc_library(
         "quota_control.cc",
         "quota_control.h",
         "request_handler.cc",
+        "weighted_selector.cc",
+        "weighted_selector.h",
     ],
     linkopts = select({
         "//:darwin": [],
@@ -107,16 +109,16 @@ cc_library(
     deps = [
         ":auth_headers",
         ":http_template",
-        ":path_matcher",
         ":impl_headers",
-        ":server_config_proto",
+        ":path_matcher",
         ":security_rules_proto",
+        ":server_config_proto",
         "//contrib/endpoints/src/api_manager/auth",
         "//contrib/endpoints/src/api_manager/cloud_trace",
         "//contrib/endpoints/src/api_manager/context",
+        "//contrib/endpoints/src/api_manager/firebase_rules",
         "//contrib/endpoints/src/api_manager/service_control",
         "//contrib/endpoints/src/api_manager/utils",
-        "//contrib/endpoints/src/api_manager/firebase_rules",
         "//external:cc_wkt_protos",
         "//external:cloud_trace",
         "//external:googletest_prod",
@@ -249,6 +251,19 @@ cc_test(
         "//external:googletest_main",
         "//external:service_config",
         "//external:servicecontrol",
+    ],
+)
+
+cc_test(
+    name = "weighted_selector_test",
+    size = "small",
+    srcs = [
+        "weighted_selector_test.cc",
+    ],
+    linkstatic = 1,
+    deps = [
+        ":api_manager",
+        "//external:googletest_main",
     ],
 )
 
