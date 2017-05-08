@@ -44,7 +44,7 @@ const std::string kRequestReferer = "request.referer";
 const std::string kRequestScheme = "request.scheme";
 const std::string kRequestSize = "request.size";
 const std::string kRequestTime = "request.time";
-const std::string kRequestUserAgent = "request.user-agent";
+const std::string kRequestUserAgent = "request.useragent";
 
 const std::string kResponseCode = "response.code";
 const std::string kResponseDuration = "response.duration";
