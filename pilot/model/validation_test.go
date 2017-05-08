@@ -722,7 +722,7 @@ func TestValidatePort(t *testing.T) {
 		65535: true,
 	}
 	for port, valid := range ports {
-		if got := validatePort(port); (got == nil) != valid {
+		if got := ValidatePort(port); (got == nil) != valid {
 			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %d", got == nil, valid, got, port)
 		}
 	}
@@ -739,7 +739,7 @@ func TestValidateProxyAddress(t *testing.T) {
 		"istio-manager:100000": false,
 	}
 	for addr, valid := range addresses {
-		if got := validateProxyAddress(addr); (got == nil) != valid {
+		if got := ValidateProxyAddress(addr); (got == nil) != valid {
 			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %s", got == nil, valid, got, addr)
 		}
 	}
@@ -754,7 +754,7 @@ func TestValidateDuration(t *testing.T) {
 		{Seconds: 1, Nanos: 1}:    false,
 	}
 	for duration, valid := range durations {
-		if got := validateDuration(&duration); (got == nil) != valid {
+		if got := ValidateDuration(&duration); (got == nil) != valid {
 			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, valid, got, duration)
 		}
 	}
@@ -805,7 +805,7 @@ func TestValidateParentAndDrain(t *testing.T) {
 		},
 	}
 	for _, combo := range combinations {
-		if got := validateParentAndDrain(&combo.Drain, &combo.Parent); (got == nil) != combo.Valid {
+		if got := ValidateParentAndDrain(&combo.Drain, &combo.Parent); (got == nil) != combo.Valid {
 			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for Parent:%v Drain:%v",
 				got == nil, combo.Valid, got, combo.Parent, combo.Drain)
 		}

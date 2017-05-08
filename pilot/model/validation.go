@@ -20,13 +20,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
-
-	"time"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 )
@@ -34,6 +33,7 @@ import (
 const (
 	dns1123LabelMaxLength int    = 63
 	dns1123LabelFmt       string = "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
+
 	// TODO: there is a stricter regex for the labels from validation.go in k8s
 	qualifiedNameFmt string = "[-A-Za-z0-9_./]*"
 )
@@ -49,7 +49,8 @@ func IsDNS1123Label(value string) bool {
 	return len(value) <= dns1123LabelMaxLength && dns1123LabelRex.MatchString(value)
 }
 
-func validatePort(port int) error {
+// ValidatePort checks that the network port is in range
+func ValidatePort(port int) error {
 	if 1 <= port && port <= 65535 {
 		return nil
 	}
@@ -153,7 +154,7 @@ func (s *Service) Validate() error {
 		} else if !IsDNS1123Label(port.Name) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid name: %q", port.Name))
 		}
-		if err := validatePort(port.Port); err != nil {
+		if err := ValidatePort(port.Port); err != nil {
 			errs = multierror.Append(errs,
 				fmt.Errorf("invalid service port value %d for %q: %v", port.Port, port.Name, err))
 		}
@@ -174,7 +175,7 @@ func (instance *ServiceInstance) Validate() error {
 		errs = multierror.Append(errs, err)
 	}
 
-	if err := validatePort(instance.Endpoint.Port); err != nil {
+	if err := ValidatePort(instance.Endpoint.Port); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
@@ -214,7 +215,8 @@ func (t Tags) Validate() error {
 	return errs
 }
 
-func validateFQDN(fqdn string) error {
+// ValidateFQDN checks a fully-qualified domain name
+func ValidateFQDN(fqdn string) error {
 	if len(fqdn) > 255 {
 		return fmt.Errorf("domain name %q too long (max 255)", fqdn)
 	}
@@ -231,10 +233,10 @@ func validateFQDN(fqdn string) error {
 	return nil
 }
 
-// ValidateMatchCondition validates a Match Condition
+// ValidateMatchCondition validates a match condition
 func ValidateMatchCondition(mc *proxyconfig.MatchCondition) (errs error) {
 	if mc.Source != "" {
-		if err := validateFQDN(mc.Source); err != nil {
+		if err := ValidateFQDN(mc.Source); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -256,21 +258,67 @@ func ValidateMatchCondition(mc *proxyconfig.MatchCondition) (errs error) {
 		errs = multierror.Append(errs, fmt.Errorf("Istio does not support UDP protocol yet"))
 	}
 
-	// TODO We do not (yet) validate http_headers.
+	for name, value := range mc.GetHttpHeaders() {
+		if err := ValidateHTTPHeaderName(name); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("header name %q invalid: ", name)))
+		}
+		if err := ValidateStringMatch(value); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("header %q value invalid: ", name)))
+		}
+
+		// validate special `uri` header:
+		// absolute path must be non-empty (https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html#sec5.1.2)
+		if name == HeaderURI {
+			switch m := value.MatchType.(type) {
+			case *proxyconfig.StringMatch_Exact:
+				if m.Exact == "" {
+					errs = multierror.Append(errs, fmt.Errorf("exact header value for %q must be non-empty", HeaderURI))
+				}
+			case *proxyconfig.StringMatch_Prefix:
+				if m.Prefix == "" {
+					errs = multierror.Append(errs, fmt.Errorf("prefix header value for %q must be non-empty", HeaderURI))
+				}
+			case *proxyconfig.StringMatch_Regex:
+				if m.Regex == "" {
+					errs = multierror.Append(errs, fmt.Errorf("regex header value for %q must be non-empty", HeaderURI))
+				}
+			}
+		}
+
+		// TODO authority special header
+	}
 
 	return
+}
+
+// ValidateHTTPHeaderName checks that the name is lower-case
+func ValidateHTTPHeaderName(name string) error {
+	if strings.ToLower(name) != name {
+		return fmt.Errorf("must be in lower case")
+	}
+	return nil
+}
+
+// ValidateStringMatch checks that the match types are correct
+func ValidateStringMatch(match *proxyconfig.StringMatch) error {
+	switch match.MatchType.(type) {
+	case *proxyconfig.StringMatch_Exact, *proxyconfig.StringMatch_Prefix, *proxyconfig.StringMatch_Regex:
+	default:
+		return fmt.Errorf("unrecognized string match %q", match)
+	}
+	return nil
 }
 
 // ValidateL4MatchAttributes validates L4 Match Attributes
 func ValidateL4MatchAttributes(ma *proxyconfig.L4MatchAttributes) (errs error) {
 	for _, subnet := range ma.SourceSubnet {
-		if err := validateSubnet(subnet); err != nil {
+		if err := ValidateSubnet(subnet); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
 
 	for _, subnet := range ma.DestinationSubnet {
-		if err := validateSubnet(subnet); err != nil {
+		if err := ValidateSubnet(subnet); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -278,24 +326,26 @@ func ValidateL4MatchAttributes(ma *proxyconfig.L4MatchAttributes) (errs error) {
 	return
 }
 
-func validatePercent(err error, val int32, label string) error {
+// ValidatePercent checks that percent is in range
+func ValidatePercent(val int32) error {
 	if val < 0 || val > 100 {
-		err = multierror.Append(err, fmt.Errorf("%v must be in range 0..100", label))
+		return fmt.Errorf("must be in range 0..100")
 	}
-	return err
+	return nil
 }
 
-func validateFloatPercent(err error, val float32, label string) error {
+// ValidateFloatPercent checks that percent is in range
+func ValidateFloatPercent(val float32) error {
 	if val < 0.0 || val > 100.0 {
-		err = multierror.Append(err, fmt.Errorf("%v must be in range 0..100", label))
+		return fmt.Errorf("must be in range 0..100")
 	}
-	return err
+	return nil
 }
 
 // ValidateDestinationWeight validates DestinationWeight
 func ValidateDestinationWeight(dw *proxyconfig.DestinationWeight) (errs error) {
 	if dw.Destination != "" {
-		if err := validateFQDN(dw.Destination); err != nil {
+		if err := ValidateFQDN(dw.Destination); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -304,7 +354,9 @@ func ValidateDestinationWeight(dw *proxyconfig.DestinationWeight) (errs error) {
 		errs = multierror.Append(errs, err)
 	}
 
-	errs = validatePercent(errs, dw.Weight, "weight")
+	if err := ValidatePercent(dw.Weight); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "weight invalid: "))
+	}
 
 	return
 }
@@ -312,7 +364,7 @@ func ValidateDestinationWeight(dw *proxyconfig.DestinationWeight) (errs error) {
 // ValidateHTTPTimeout validates HTTP Timeout
 func ValidateHTTPTimeout(timeout *proxyconfig.HTTPTimeout) (errs error) {
 	if simple := timeout.GetSimpleTimeout(); simple != nil {
-		if err := validateDuration(simple.Timeout); err != nil {
+		if err := ValidateDuration(simple.Timeout); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, "httpTimeout invalid: "))
 		}
 
@@ -329,7 +381,7 @@ func ValidateHTTPRetries(retry *proxyconfig.HTTPRetry) (errs error) {
 			errs = multierror.Append(errs, fmt.Errorf("attempts must be in range [0..]"))
 		}
 
-		if err := validateDuration(simple.PerTryTimeout); err != nil {
+		if err := ValidateDuration(simple.PerTryTimeout); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, "perTryTimeout invalid: "))
 		}
 		// We ignore override_header_name
@@ -341,13 +393,13 @@ func ValidateHTTPRetries(retry *proxyconfig.HTTPRetry) (errs error) {
 // ValidateHTTPFault validates HTTP Fault
 func ValidateHTTPFault(fault *proxyconfig.HTTPFaultInjection) (errs error) {
 	if fault.GetDelay() != nil {
-		if err := validateDelay(fault.GetDelay()); err != nil {
+		if err := ValidateDelay(fault.GetDelay()); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
 
 	if fault.GetAbort() != nil {
-		if err := validateAbort(fault.GetAbort()); err != nil {
+		if err := ValidateAbort(fault.GetAbort()); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -358,14 +410,14 @@ func ValidateHTTPFault(fault *proxyconfig.HTTPFaultInjection) (errs error) {
 // ValidateL4Fault validates L4 Fault
 func ValidateL4Fault(fault *proxyconfig.L4FaultInjection) (errs error) {
 	if fault.GetTerminate() != nil {
-		if err := validateTerminate(fault.GetTerminate()); err != nil {
+		if err := ValidateTerminate(fault.GetTerminate()); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 		errs = multierror.Append(errs, fmt.Errorf("Istio does not support the terminate fault yet"))
 	}
 
 	if fault.GetThrottle() != nil {
-		if err := validateThrottle(fault.GetThrottle()); err != nil {
+		if err := ValidateThrottle(fault.GetThrottle()); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -373,13 +425,14 @@ func ValidateL4Fault(fault *proxyconfig.L4FaultInjection) (errs error) {
 	return
 }
 
-func validateSubnet(subnet string) error {
+// ValidateSubnet checks that IPv4 subnet form
+func ValidateSubnet(subnet string) error {
 	// The current implementation only supports IP v4 addresses
-	return validateIPv4Subnet(subnet)
+	return ValidateIPv4Subnet(subnet)
 }
 
-// validateIPv4Subnet validates that a string in "CIDR notation" or "Dot-decimal notation"
-func validateIPv4Subnet(subnet string) error {
+// ValidateIPv4Subnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
+func ValidateIPv4Subnet(subnet string) error {
 	// We expect a string in "CIDR notation" or "Dot-decimal notation"
 	// E.g., a.b.c.d/xx form or just a.b.c.d
 	parts := strings.Split(subnet, "/")
@@ -390,20 +443,20 @@ func validateIPv4Subnet(subnet string) error {
 	var errs error
 
 	if len(parts) == 2 {
-		if err := validateCIDRBlock(parts[1]); err != nil {
+		if err := ValidateCIDRBlock(parts[1]); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
 
-	if err := validateIPv4Address(parts[0]); err != nil {
+	if err := ValidateIPv4Address(parts[0]); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
 	return errs
 }
 
-// validateCIDRBlock validates that a string in "CIDR notation" or "Dot-decimal notation"
-func validateCIDRBlock(cidr string) error {
+// ValidateCIDRBlock validates that a string in "CIDR notation" or "Dot-decimal notation"
+func ValidateCIDRBlock(cidr string) error {
 	if bits, err := strconv.Atoi(cidr); err != nil || bits <= 0 || bits > 32 {
 		return fmt.Errorf("/%v is not a valid CIDR block", cidr)
 	}
@@ -411,8 +464,8 @@ func validateCIDRBlock(cidr string) error {
 	return nil
 }
 
-// validateIPv4Address validates that a string in "CIDR notation" or "Dot-decimal notation"
-func validateIPv4Address(addr string) error {
+// ValidateIPv4Address validates that a string in "CIDR notation" or "Dot-decimal notation"
+func ValidateIPv4Address(addr string) error {
 	octets := strings.Split(addr, ".")
 	if len(octets) != 4 {
 		return fmt.Errorf("%q is not a valid IP address", addr)
@@ -427,14 +480,17 @@ func validateIPv4Address(addr string) error {
 	return nil
 }
 
-func validateDelay(delay *proxyconfig.HTTPFaultInjection_Delay) (errs error) {
-	errs = validateFloatPercent(errs, delay.Percent, "delay")
-	if err := validateDuration(delay.GetFixedDelay()); err != nil {
+// ValidateDelay checks that fault injection delay is well-formed
+func ValidateDelay(delay *proxyconfig.HTTPFaultInjection_Delay) (errs error) {
+	if err := ValidateFloatPercent(delay.Percent); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "percent invalid: "))
+	}
+	if err := ValidateDuration(delay.GetFixedDelay()); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "fixedDelay invalid:"))
 	}
 
 	if delay.GetExponentialDelay() != nil {
-		if err := validateDuration(delay.GetExponentialDelay()); err != nil {
+		if err := ValidateDuration(delay.GetExponentialDelay()); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, "exponentialDelay invalid: "))
 		}
 		errs = multierror.Append(errs, fmt.Errorf("Istio does not support exponentialDelay yet"))
@@ -443,7 +499,8 @@ func validateDelay(delay *proxyconfig.HTTPFaultInjection_Delay) (errs error) {
 	return
 }
 
-func validateAbortHTTPStatus(httpStatus *proxyconfig.HTTPFaultInjection_Abort_HttpStatus) (errs error) {
+// ValidateAbortHTTPStatus checks that fault injection abort HTTP status is valid
+func ValidateAbortHTTPStatus(httpStatus *proxyconfig.HTTPFaultInjection_Abort_HttpStatus) (errs error) {
 	if httpStatus.HttpStatus < 0 || httpStatus.HttpStatus > 600 {
 		errs = multierror.Append(errs, fmt.Errorf("invalid abort http status %v", httpStatus.HttpStatus))
 	}
@@ -451,8 +508,11 @@ func validateAbortHTTPStatus(httpStatus *proxyconfig.HTTPFaultInjection_Abort_Ht
 	return
 }
 
-func validateAbort(abort *proxyconfig.HTTPFaultInjection_Abort) (errs error) {
-	errs = validateFloatPercent(errs, abort.Percent, "abort")
+// ValidateAbort checks that fault injection abort is well-formed
+func ValidateAbort(abort *proxyconfig.HTTPFaultInjection_Abort) (errs error) {
+	if err := ValidateFloatPercent(abort.Percent); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "percent invalid: "))
+	}
 
 	switch abort.ErrorType.(type) {
 	case *proxyconfig.HTTPFaultInjection_Abort_GrpcStatus:
@@ -461,7 +521,7 @@ func validateAbort(abort *proxyconfig.HTTPFaultInjection_Abort) (errs error) {
 	case *proxyconfig.HTTPFaultInjection_Abort_Http2Error:
 		// TODO No validation yet for grpc_status / http2_error / http_status
 	case *proxyconfig.HTTPFaultInjection_Abort_HttpStatus:
-		if err := validateAbortHTTPStatus(abort.ErrorType.(*proxyconfig.HTTPFaultInjection_Abort_HttpStatus)); err != nil {
+		if err := ValidateAbortHTTPStatus(abort.ErrorType.(*proxyconfig.HTTPFaultInjection_Abort_HttpStatus)); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -471,13 +531,19 @@ func validateAbort(abort *proxyconfig.HTTPFaultInjection_Abort) (errs error) {
 	return
 }
 
-func validateTerminate(terminate *proxyconfig.L4FaultInjection_Terminate) (errs error) {
-	errs = validateFloatPercent(errs, terminate.Percent, "terminate")
+// ValidateTerminate checks that fault injection terminate is well-formed
+func ValidateTerminate(terminate *proxyconfig.L4FaultInjection_Terminate) (errs error) {
+	if err := ValidateFloatPercent(terminate.Percent); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "terminate percent invalid: "))
+	}
 	return
 }
 
-func validateThrottle(throttle *proxyconfig.L4FaultInjection_Throttle) (errs error) {
-	errs = validateFloatPercent(errs, throttle.Percent, "throttle")
+// ValidateThrottle checks that fault injections throttle is well-formed
+func ValidateThrottle(throttle *proxyconfig.L4FaultInjection_Throttle) (errs error) {
+	if err := ValidateFloatPercent(throttle.Percent); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "throttle percent invalid: "))
+	}
 
 	if throttle.DownstreamLimitBps < 0 {
 		errs = multierror.Append(errs, fmt.Errorf("downstreamLimitBps invalid"))
@@ -487,7 +553,7 @@ func validateThrottle(throttle *proxyconfig.L4FaultInjection_Throttle) (errs err
 		errs = multierror.Append(errs, fmt.Errorf("upstreamLimitBps invalid"))
 	}
 
-	err := validateDuration(throttle.GetThrottleAfterPeriod())
+	err := ValidateDuration(throttle.GetThrottleAfterPeriod())
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("throttleAfterPeriod invalid"))
 	}
@@ -523,7 +589,7 @@ func ValidateCircuitBreaker(cb *proxyconfig.CircuitBreaker) (errs error) {
 				fmt.Errorf("circuitBreaker maxRequests must be in range [0..]"))
 		}
 
-		err := validateDuration(simple.SleepWindow)
+		err := ValidateDuration(simple.SleepWindow)
 		if err != nil {
 			errs = multierror.Append(errs,
 				fmt.Errorf("circuitBreaker sleepWindow must be in range [0..]"))
@@ -534,7 +600,7 @@ func ValidateCircuitBreaker(cb *proxyconfig.CircuitBreaker) (errs error) {
 				fmt.Errorf("circuitBreaker httpConsecutiveErrors must be in range [0..]"))
 		}
 
-		err = validateDuration(simple.HttpDetectionInterval)
+		err = ValidateDuration(simple.HttpDetectionInterval)
 		if err != nil {
 			errs = multierror.Append(errs,
 				fmt.Errorf("circuitBreaker httpDetectionInterval must be in range [0..]"))
@@ -544,13 +610,16 @@ func ValidateCircuitBreaker(cb *proxyconfig.CircuitBreaker) (errs error) {
 			errs = multierror.Append(errs,
 				fmt.Errorf("circuitBreaker httpMaxRequestsPerConnection must be in range [0..]"))
 		}
-		errs = validatePercent(errs, simple.HttpMaxEjectionPercent, "circuitBreaker httpMaxEjectionPercent")
+		if err := ValidatePercent(simple.HttpMaxEjectionPercent); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "circuitBreaker httpMaxEjectionPercent invalid: "))
+		}
 	}
 
 	return
 }
 
-func validateWeights(routes []*proxyconfig.DestinationWeight, defaultDestination string) (errs error) {
+// ValidateWeights checks that destination weights sum to 100
+func ValidateWeights(routes []*proxyconfig.DestinationWeight, defaultDestination string) (errs error) {
 	// Sum weights
 	sum := 0
 	for _, destWeight := range routes {
@@ -581,7 +650,7 @@ func ValidateRouteRule(msg proto.Message) error {
 	if value.Destination == "" {
 		errs = multierror.Append(errs, fmt.Errorf("route rule must have a destination service"))
 	}
-	if err := validateFQDN(value.Destination); err != nil {
+	if err := ValidateFQDN(value.Destination); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
@@ -623,7 +692,7 @@ func ValidateRouteRule(msg proto.Message) error {
 				errs = multierror.Append(errs, err)
 			}
 		}
-		if err := validateWeights(value.Route, value.Destination); err != nil {
+		if err := ValidateWeights(value.Route, value.Destination); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -675,7 +744,7 @@ func ValidateDestinationPolicy(msg proto.Message) error {
 		errs = multierror.Append(errs,
 			fmt.Errorf("destination policy should have a valid service name in its destination field"))
 	} else {
-		if err := validateFQDN(value.Destination); err != nil {
+		if err := ValidateFQDN(value.Destination); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -701,7 +770,8 @@ func ValidateDestinationPolicy(msg proto.Message) error {
 	return errs
 }
 
-func validateProxyAddress(hostAddr string) error {
+// ValidateProxyAddress checks that a network address is well-formed
+func ValidateProxyAddress(hostAddr string) error {
 	colon := strings.Index(hostAddr, ":")
 	if colon < 0 {
 		return fmt.Errorf("':' separator not found in %q, host address must be of the form <DNS name>:<port> or <IP>:<port>",
@@ -711,12 +781,12 @@ func validateProxyAddress(hostAddr string) error {
 	if err != nil {
 		return err
 	}
-	if err = validatePort(port); err != nil {
+	if err = ValidatePort(port); err != nil {
 		return err
 	}
 	host := hostAddr[:colon]
-	if err = validateFQDN(host); err != nil {
-		if err = validateIPv4Address(host); err != nil {
+	if err = ValidateFQDN(host); err != nil {
+		if err = ValidateIPv4Address(host); err != nil {
 			return fmt.Errorf("%q is not a valid hostname or an IPv4 address", host)
 		}
 	}
@@ -724,7 +794,8 @@ func validateProxyAddress(hostAddr string) error {
 	return nil
 }
 
-func validateDuration(pd *duration.Duration) error {
+// ValidateDuration checks that a proto duration is well-formed
+func ValidateDuration(pd *duration.Duration) error {
 	dur, err := ptypes.Duration(pd)
 	if err != nil {
 		return err
@@ -738,11 +809,12 @@ func validateDuration(pd *duration.Duration) error {
 	return nil
 }
 
-func validateParentAndDrain(drainTime, parentShutdown *duration.Duration) (errs error) {
-	if err := validateDuration(drainTime); err != nil {
+// ValidateParentAndDrain checks that parent and drain durations are valid
+func ValidateParentAndDrain(drainTime, parentShutdown *duration.Duration) (errs error) {
+	if err := ValidateDuration(drainTime); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid drain duration:"))
 	}
-	if err := validateDuration(parentShutdown); err != nil {
+	if err := ValidateDuration(parentShutdown); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid parent shutdown duration:"))
 	}
 	if errs != nil {
@@ -769,10 +841,10 @@ func validateParentAndDrain(drainTime, parentShutdown *duration.Duration) (errs 
 	return
 }
 
-// ValidateProxyMeshConfig ...
+// ValidateProxyMeshConfig checks that the mesh config is well-formed
 func ValidateProxyMeshConfig(mesh *proxyconfig.ProxyMeshConfig) (errs error) {
 	if mesh.EgressProxyAddress != "" {
-		if err := validateProxyAddress(mesh.EgressProxyAddress); err != nil {
+		if err := ValidateProxyAddress(mesh.EgressProxyAddress); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, "invalid egress proxy address:"))
 		}
 	}
@@ -782,21 +854,21 @@ func ValidateProxyMeshConfig(mesh *proxyconfig.ProxyMeshConfig) (errs error) {
 	// but that requires additional test validation
 	if mesh.DiscoveryAddress == "" {
 		errs = multierror.Append(errs, errors.New("discovery address must be set to the proxy discovery service"))
-	} else if err := validateProxyAddress(mesh.DiscoveryAddress); err != nil {
+	} else if err := ValidateProxyAddress(mesh.DiscoveryAddress); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid discovery address:"))
 	}
 
 	if mesh.MixerAddress != "" {
-		if err := validateProxyAddress(mesh.MixerAddress); err != nil {
+		if err := ValidateProxyAddress(mesh.MixerAddress); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, "invalid Mixer address:"))
 		}
 	}
 
-	if err := validatePort(int(mesh.ProxyListenPort)); err != nil {
+	if err := ValidatePort(int(mesh.ProxyListenPort)); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy listen port:"))
 	}
 
-	if err := validatePort(int(mesh.ProxyAdminPort)); err != nil {
+	if err := ValidatePort(int(mesh.ProxyAdminPort)); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy admin port:"))
 	}
 
@@ -804,15 +876,15 @@ func ValidateProxyMeshConfig(mesh *proxyconfig.ProxyMeshConfig) (errs error) {
 		errs = multierror.Append(errs, errors.New("Istio service cluster must be set"))
 	}
 
-	if err := validateParentAndDrain(mesh.DrainDuration, mesh.ParentShutdownDuration); err != nil {
+	if err := ValidateParentAndDrain(mesh.DrainDuration, mesh.ParentShutdownDuration); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid parent and drain time combination"))
 	}
 
-	if err := validateDuration(mesh.DiscoveryRefreshDelay); err != nil {
+	if err := ValidateDuration(mesh.DiscoveryRefreshDelay); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid refresh delay:"))
 	}
 
-	if err := validateDuration(mesh.ConnectTimeout); err != nil {
+	if err := ValidateDuration(mesh.ConnectTimeout); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid connect timeout:"))
 	}
 

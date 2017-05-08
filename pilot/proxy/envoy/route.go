@@ -102,9 +102,7 @@ func buildOutboundCluster(hostname string, port *model.Port, tags model.Tags) *C
 
 // buildHTTPRoute translates a route rule to an Envoy route
 func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port) *HTTPRoute {
-	route := &HTTPRoute{}
-	route.Headers = buildHeaders(rule.Match)
-	route.Path, route.Prefix = buildURIPathPrefix(rule.Match)
+	route := buildHTTPRouteMatch(rule.Match)
 
 	// setup timeouts for the route
 	if rule.HttpReqTimeout != nil &&

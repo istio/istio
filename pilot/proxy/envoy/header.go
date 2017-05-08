@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Functions related to header configuration in envoy: match conditions
-
 package envoy
 
 import (
@@ -21,48 +19,39 @@ import (
 	"regexp"
 	"sort"
 
-	"github.com/golang/glog"
-
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 )
 
-func buildURIPathPrefix(matches *proxyconfig.MatchCondition) (path string, prefix string) {
-	path = ""
-	prefix = "/"
+func buildHTTPRouteMatch(matches *proxyconfig.MatchCondition) *HTTPRoute {
+	path := ""
+	prefix := "/"
+	var headers Headers
 	if matches != nil {
-		if uri, ok := matches.HttpHeaders[model.HeaderURI]; ok {
-			switch m := uri.MatchType.(type) {
-			case *proxyconfig.StringMatch_Exact:
-				path = m.Exact
-				prefix = ""
-			case *proxyconfig.StringMatch_Prefix:
-				path = ""
-				prefix = m.Prefix
-			case *proxyconfig.StringMatch_Regex:
-				glog.Warningf("Unsupported uri match condition: regex")
+		for name, match := range matches.HttpHeaders {
+			if name == model.HeaderURI {
+				// assumes `uri` condition is non-empty
+				switch m := match.MatchType.(type) {
+				case *proxyconfig.StringMatch_Exact:
+					path = m.Exact
+					prefix = ""
+				case *proxyconfig.StringMatch_Prefix:
+					path = ""
+					prefix = m.Prefix
+				case *proxyconfig.StringMatch_Regex:
+					headers = append(headers, buildHeader(name, match))
+				}
+			} else {
+				headers = append(headers, buildHeader(name, match))
 			}
 		}
+		sort.Sort(headers)
 	}
-	return
-}
-
-// TODO: test sorting, translation
-
-// buildHeaders skips over URI as it has special meaning
-func buildHeaders(matches *proxyconfig.MatchCondition) []Header {
-	if matches == nil {
-		return nil
+	return &HTTPRoute{
+		Path:    path,
+		Prefix:  prefix,
+		Headers: headers,
 	}
-
-	headers := make([]Header, 0, len(matches.HttpHeaders))
-	for name, match := range matches.HttpHeaders {
-		if name != model.HeaderURI {
-			headers = append(headers, buildHeader(name, match))
-		}
-	}
-	sort.Sort(Headers(headers))
-	return headers
 }
 
 func buildHeader(name string, match *proxyconfig.StringMatch) Header {
