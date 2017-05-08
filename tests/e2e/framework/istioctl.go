@@ -22,7 +22,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"github.com/golang/glog"
 
@@ -39,69 +38,47 @@ var (
 
 // Istioctl gathers istioctl information.
 type Istioctl struct {
-	remotePath string
-	binaryPath string
-	namespace  string
-	proxyHub   string
-	proxyTag   string
-	yamlDir    string
-	pfProcess  *os.Process
+	remotePath     string
+	binaryPath     string
+	namespace      string
+	istioNamespace string
+	proxyHub       string
+	proxyTag       string
+	yamlDir        string
 }
 
 // NewIstioctl create a new istioctl by given temp dir.
-func NewIstioctl(yamlDir, namespace, proxyHub, proxyTag string) (*Istioctl, error) {
+func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string) (*Istioctl, error) {
 	tmpDir, err := ioutil.TempDir(os.TempDir(), tmpPrefix)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Istioctl{
-		remotePath: *remotePath,
-		binaryPath: filepath.Join(tmpDir, "istioctl"),
-		namespace:  namespace,
-		proxyHub:   proxyHub,
-		proxyTag:   proxyTag,
-		yamlDir:    filepath.Join(yamlDir, "istioctl"),
+		remotePath:     *remotePath,
+		binaryPath:     filepath.Join(tmpDir, "istioctl"),
+		namespace:      namespace,
+		istioNamespace: istioNamespace,
+		proxyHub:       proxyHub,
+		proxyTag:       proxyTag,
+		yamlDir:        filepath.Join(yamlDir, "istioctl"),
 	}, nil
 }
 
 // Setup set up istioctl prerequest for tests, port forward for manager
 func (i *Istioctl) Setup() error {
-	var pod string
-	var err error
 	glog.Info("Setting up istioctl")
-
-	if err = i.Install(); err != nil {
+	if err := i.Install(); err != nil {
 		glog.Error("Failed to download istioclt")
 		return err
 	}
-
-	pod, err = util.Shell(fmt.Sprintf("kubectl -n %s get pod -l istio=manager -o jsonpath='{.items[0].metadata.name}'", i.namespace))
-	if err != nil {
-		return err
-	}
-
-	if i.pfProcess, err = util.RunBackground(fmt.Sprintf("kubectl port-forward %s 8081:8081 -n %s", strings.Trim(pod, "'"), i.namespace)); err != nil {
-		glog.Errorf("Failed to port forward: %s", err)
-		return err
-	}
-	glog.Infof("pfProcess running background, pid = %d", i.pfProcess.Pid)
-
-	err = os.Setenv("ISTIO_MANAGER_ADDRESS", "http://localhost:8081")
-	return err
+	return nil
 }
 
 // Teardown clean up everything created by setup
 func (i *Istioctl) Teardown() error {
 	glog.Info("Cleaning up istioctl")
-	if i.pfProcess == nil {
-		return nil
-	}
-	err := i.pfProcess.Kill()
-	if err != nil {
-		glog.Error("Failed to kill pfProcess, pid: %s", i.pfProcess.Pid)
-	}
-	return err
+	return nil
 }
 
 // Install downloads Istioctl binary.
@@ -143,22 +120,25 @@ func (i *Istioctl) run(args string) error {
 
 // KubeInject use istio kube-inject to create new yaml with a proxy as sidecar.
 func (i *Istioctl) KubeInject(src, dest string) error {
-	args := fmt.Sprintf("kube-inject -f %s -o %s --hub %s --tag %s -n %s",
-		src, dest, i.proxyHub, i.proxyTag, i.namespace)
+	args := fmt.Sprintf("kube-inject -f %s -o %s --hub %s --tag %s -n %s --istioNamespace %s",
+		src, dest, i.proxyHub, i.proxyTag, i.namespace, i.istioNamespace)
 	return i.run(args)
 }
 
 // CreateRule create new rule(s)
 func (i *Istioctl) CreateRule(rule string) error {
-	return i.run(fmt.Sprintf("-n %s create -f %s", i.namespace, rule))
+	return i.run(fmt.Sprintf("-n %s --istioNamespace %s create -f %s",
+		i.namespace, i.istioNamespace, rule))
 }
 
 // ReplaceRule replace rule(s)
 func (i *Istioctl) ReplaceRule(rule string) error {
-	return i.run(fmt.Sprintf("-n %s replace -f %s", i.namespace, rule))
+	return i.run(fmt.Sprintf("-n %s --istioNamespace %s replace -f %s",
+		i.namespace, i.istioNamespace, rule))
 }
 
 // DeleteRule Delete rule(s)
 func (i *Istioctl) DeleteRule(rule string) error {
-	return i.run(fmt.Sprintf("-n %s delete -f %s", i.namespace, rule))
+	return i.run(fmt.Sprintf("-n %s --istioNamespace %s delete -f %s",
+		i.namespace, i.istioNamespace, rule))
 }

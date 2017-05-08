@@ -5,7 +5,7 @@ spec:
   precedence: 2
   match:
     httpHeaders:
-      Cookie:
+      cookie:
         regex: "^(.*?;)?(user=jason)(;.*)?$"
   route:
   - tags:
