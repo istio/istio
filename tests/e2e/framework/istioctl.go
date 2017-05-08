@@ -86,8 +86,6 @@ func (i *Istioctl) Setup() error {
 		return err
 	}
 	glog.Infof("pfProcess running background, pid = %d", i.pfProcess.Pid)
-
-	err = os.Setenv("ISTIO_MANAGER_ADDRESS", "http://localhost:8081")
 	return err
 }
 
