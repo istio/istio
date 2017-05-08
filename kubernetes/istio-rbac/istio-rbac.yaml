@@ -97,7 +97,22 @@ metadata:
   name: istio-sidecar-role-binding
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: details-service-account
+  namespace: default
+- kind: ServiceAccount
+  name: productpage-v1-service-account
+  namespace: default
+- kind: ServiceAccount
+  name: ratings-v1-service-account
+  namespace: default
+- kind: ServiceAccount
+  name: reviews-v1-service-account
+  namespace: default
+- kind: ServiceAccount
+  name: reviews-v2-service-account
+  namespace: default
+- kind: ServiceAccount
+  name: reviews-v3-service-account
   namespace: default
 roleRef:
   kind: ClusterRole

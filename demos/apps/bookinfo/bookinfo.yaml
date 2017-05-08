@@ -28,6 +28,11 @@ spec:
   selector:
     app: details
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: details-service-account
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -40,6 +45,7 @@ spec:
         app: details
         version: v1
     spec:
+      serviceAccountName: details-service-account
       containers:
       - name: details
         image: istio/examples-bookinfo-details-v1
@@ -63,6 +69,11 @@ spec:
   selector:
     app: ratings
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ratings-v1-service-account
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -75,6 +86,7 @@ spec:
         app: ratings
         version: v1
     spec:
+      serviceAccountName: ratings-v1-service-account
       containers:
       - name: ratings
         image: istio/examples-bookinfo-ratings-v1
@@ -98,6 +110,11 @@ spec:
   selector:
     app: reviews
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: reviews-v1-service-account
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -110,12 +127,18 @@ spec:
         app: reviews
         version: v1
     spec:
+      serviceAccountName: reviews-v1-service-account
       containers:
       - name: reviews
         image: istio/examples-bookinfo-reviews-v1
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: reviews-v2-service-account
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -129,12 +152,18 @@ spec:
         app: reviews
         version: v2
     spec:
+      serviceAccountName: reviews-v2-service-account
       containers:
       - name: reviews
         image: istio/examples-bookinfo-reviews-v2
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: reviews-v3-service-account
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -148,6 +177,7 @@ spec:
         app: reviews
         version: v3
     spec:
+      serviceAccountName: reviews-v3-service-account
       containers:
       - name: reviews
         image: istio/examples-bookinfo-reviews-v3
@@ -171,6 +201,11 @@ spec:
   selector:
     app: productpage
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: productpage-v1-service-account
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -183,6 +218,7 @@ spec:
         app: productpage
         version: v1
     spec:
+      serviceAccountName: productpage-v1-service-account
       containers:
       - name: productpage
         image: istio/examples-bookinfo-productpage-v1
