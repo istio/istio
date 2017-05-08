@@ -57,7 +57,7 @@ manifests:
         valueType: INT64
       request.time:
         valueType: TIMESTAMP
-      request.user-agent:
+      request.useragent:
         valueType: STRING
       response.code:
         valueType: INT64
@@ -74,6 +74,9 @@ manifests:
       source.uid:
         valueType: STRING
       target.uid:
+        valueType: STRING
+      # DEPRECATED, to be removed. Use request.useragent instead.
+      request.user-agent:
         valueType: STRING
 # Enums as struct fields can be symbolic names.
 # However enums inside maps *cannot* be symbolic names.
