@@ -43,6 +43,7 @@ type ingressWatcher struct {
 	agent   proxy.Agent
 	secrets model.SecretRegistry
 	mesh    *proxyconfig.ProxyMeshConfig
+	tls     *model.TLSSecret
 }
 
 // NewIngressWatcher creates a new ingress watcher instance with an agent
@@ -71,11 +72,20 @@ func (w *ingressWatcher) Run(stop <-chan struct{}) {
 
 	config := generateIngress(w.mesh, nil, certFile, keyFile)
 	w.agent.ScheduleConfigUpdate(config)
+
+	if w.mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
+		go watchCerts(w.mesh.AuthCertsPath, stop, func() {
+			c := generateIngress(w.mesh, w.tls, certFile, keyFile)
+			w.agent.ScheduleConfigUpdate(c)
+		})
+	}
+
 	for {
 		tls, err := fetchSecret(ctx, client, url, w.secrets)
 		if err != nil {
 			glog.Warning(err)
 		} else {
+			w.tls = tls
 			config = generateIngress(w.mesh, tls, certFile, keyFile)
 			w.agent.ScheduleConfigUpdate(config)
 		}
@@ -137,14 +147,27 @@ func generateIngress(mesh *proxyconfig.ProxyMeshConfig, tls *model.TLSSecret, ce
 	}
 
 	config := buildConfig(listeners, nil, mesh)
+
+	h := sha256.New()
+	hashed := false
 	if tls != nil {
-		h := sha256.New()
+		hashed = true
 		if _, err := h.Write(tls.Certificate); err != nil {
 			glog.Warning(err)
 		}
 		if _, err := h.Write(tls.PrivateKey); err != nil {
 			glog.Warning(err)
 		}
+	}
+
+	if mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
+		hashed = true
+		if _, err := h.Write(generateCertHash(mesh.AuthCertsPath)); err != nil {
+			glog.Warning(err)
+		}
+	}
+
+	if hashed {
 		config.Hash = h.Sum(nil)
 	}
 

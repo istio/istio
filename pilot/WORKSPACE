@@ -117,6 +117,12 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_howeyc_fsnotify",
+    commit = "f0c08ee9c60704c1879025f2ae0ff3e000082c13",
+    importpath = "github.com/howeyc/fsnotify",
+)
+
+new_go_repository(
     name = "com_github_howeyc_gopass",
     commit = "3ca23474a7c7203e0a0a070fd33508f6efdb9b3d",
     importpath = "github.com/howeyc/gopass",

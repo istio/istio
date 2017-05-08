@@ -88,6 +88,9 @@ func NewWatcher(ctl model.Controller, context *proxy.Context) (Watcher, error) {
 func (w *watcher) Run(stop <-chan struct{}) {
 	// must start consumer before producer
 	go w.agent.Run(stop)
+	if mesh := w.context.MeshConfig; mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
+		go watchCerts(mesh.AuthCertsPath, stop, w.reload)
+	}
 	w.ctl.Run(stop)
 }
 
@@ -96,6 +99,9 @@ func (w *watcher) reload() {
 	// even though the function is called on every modification event,
 	// the actual config is generated from the latest cache view
 	config := Generate(w.context)
+	if mesh := w.context.MeshConfig; mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
+		config.Hash = generateCertHash(mesh.AuthCertsPath)
+	}
 	w.agent.ScheduleConfigUpdate(config)
 }
 

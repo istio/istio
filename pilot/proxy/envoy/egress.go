@@ -51,6 +51,11 @@ func NewEgressWatcher(mesh *proxyconfig.ProxyMeshConfig) (Watcher, error) {
 func (w *egressWatcher) Run(stop <-chan struct{}) {
 	go w.agent.Run(stop)
 	w.agent.ScheduleConfigUpdate(generateEgress(w.mesh))
+	if w.mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
+		go watchCerts(w.mesh.AuthCertsPath, stop, func() {
+			w.agent.ScheduleConfigUpdate(generateEgress(w.mesh))
+		})
+	}
 	<-stop
 }
 
@@ -64,7 +69,11 @@ func generateEgress(mesh *proxyconfig.ProxyMeshConfig) *Config {
 	port := getEgressProxyPort(mesh)
 	listener := buildHTTPListener(mesh, nil, WildcardAddress, port, true)
 	listener = applyInboundAuth(listener, mesh)
-	return buildConfig([]*Listener{listener}, nil, mesh)
+	config := buildConfig([]*Listener{listener}, nil, mesh)
+	if mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
+		config.Hash = generateCertHash(mesh.AuthCertsPath)
+	}
+	return config
 }
 
 func buildEgressRoutes(services model.ServiceDiscovery, mesh *proxyconfig.ProxyMeshConfig) HTTPRouteConfigs {
