@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"reflect"
 	"testing"
+	"time"
 
 	"fmt"
 
@@ -31,53 +31,6 @@ func (f *FakeHandler) HandlerFunc(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(k, v[0])
 	}
 	_, _ = w.Write([]byte(f.wantResponse))
-}
-
-func TestNewManagerClient(t *testing.T) {
-	cases := []struct {
-		name           string
-		baseURL        string
-		wantBaseURL    string
-		apiVersion     string
-		wantAPIVersion string
-	}{
-		{
-			name:        "TestBaseURL",
-			baseURL:     "http://host:port",
-			wantBaseURL: "http://host:port",
-		},
-		{
-			name:        "TestBaseURLTrailingSlash",
-			baseURL:     "http://host:port/",
-			wantBaseURL: "http://host:port",
-		},
-		{
-			name:           "TestAPIVersion",
-			apiVersion:     "test",
-			wantAPIVersion: "test",
-		},
-		{
-			name:           "TestAPIVersionTrailingSlash",
-			apiVersion:     "test/",
-			wantAPIVersion: "test",
-		},
-		{
-			name:           "TestAPIVersionLeadingSlash",
-			apiVersion:     "/test",
-			wantAPIVersion: "test",
-		},
-	}
-
-	for _, c := range cases {
-		url, _ := url.Parse(c.baseURL)
-		client := NewManagerClient(*url, c.apiVersion, nil)
-		if c.baseURL != "" && client.base.String() != c.wantBaseURL {
-			t.Errorf("%s: got baseURL %v, want %v", c.name, client.base.String(), c.wantBaseURL)
-		}
-		if c.apiVersion != "" && client.versionedAPIPath != c.wantAPIVersion {
-			t.Errorf("%s: got apiVersion %v, want %v", c.name, client.versionedAPIPath, c.wantAPIVersion)
-		}
-	}
 }
 
 func TestGetAddUpdateDeleteListConfig(t *testing.T) {
@@ -281,13 +234,15 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		}
 		ts := httptest.NewServer(http.HandlerFunc(fh.HandlerFunc))
 		defer ts.Close()
-		tsURL, _ := url.Parse(ts.URL)
 
 		// Setup Client
 		var config *apiserver.Config
 		var configSlice []apiserver.Config
 		var err error
-		client := NewManagerClient(*tsURL, "test", &http.Client{})
+		client := NewManagerClient(&BasicHTTPRequester{
+			BaseURL: ts.URL,
+			Client:  &http.Client{Timeout: 1 * time.Second},
+		})
 		switch c.function {
 		case "get":
 			config, err = client.GetConfig(c.key)

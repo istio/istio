@@ -15,19 +15,19 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
+	"istio.io/manager/client/proxy"
+	"istio.io/manager/platform/kube"
 
 	"github.com/ghodss/yaml"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 	"github.com/spf13/cobra"
 )
 
@@ -43,8 +43,10 @@ const (
 )
 
 var (
-	mixerFile          string
-	mixerAPIServerAddr string
+	mixerFile            string
+	mixerAPIServerAddr   string // deprecated
+	istioMixerAPIService string
+	mixerRESTRequester   proxy.RESTRequester
 
 	mixerCmd = &cobra.Command{
 		Use:   "mixer",
@@ -55,21 +57,33 @@ Mixer.
 
 See https://istio.io/docs/concepts/policy-and-control/mixer-config.html
 for a description of Mixer configuration's scope, subject, and rules.
-
-Example usage:
-
-	# The Mixer config server can be accessed from outside the
-    # Kubernetes cluster using port forwarding.
-    CONFIG_PORT=$(kubectl get pod -l istio=mixer \
-		-o jsonpath='{.items[0].spec.containers[0].ports[1].containerPort}')
-    export ISTIO_MIXER_API_SERVER=localhost:${CONFIG_PORT}
-    kubectl port-forward $(kubectl get pod -l istio=mixer \
-		-o jsonpath='{.items[0].metadata.name}') ${CONFIG_PORT}:${CONFIG_PORT} &
 `,
 		SilenceUsage: true,
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
-			if mixerAPIServerAddr == "" {
-				return errors.New("no Mixer configuration server specified (use --mixer)")
+			var err error
+			client, err = kubeClientFromConfig(kubeconfig)
+			if err != nil {
+				return err
+			}
+
+			if useKubeRequester {
+				// TODO temporarily use namespace instead of
+				// istioNamespace until istio/istio e2e tests are
+				// updated.
+				if istioNamespace == "" {
+					istioNamespace = namespace
+				}
+				mixerRESTRequester = &k8sRESTRequester{
+					client:    client,
+					namespace: istioNamespace,
+					service:   istioMixerAPIService,
+				}
+			} else {
+				mixerRESTRequester = &proxy.BasicHTTPRequester{
+					BaseURL: istioMixerAPIService,
+					Client:  &http.Client{Timeout: requestTimeout},
+					Version: kube.IstioResourceVersion,
+				}
 			}
 			return nil
 		},
@@ -101,7 +115,7 @@ Example usage:
 			if err != nil {
 				return fmt.Errorf("failed opening %s: %v", mixerFile, err)
 			}
-			return mixerRuleCreate(mixerAPIServerAddr, args[0], args[1], rule)
+			return mixerRuleCreate(args[0], args[1], rule)
 		},
 	}
 	mixerRuleGetCmd = &cobra.Command{
@@ -119,7 +133,7 @@ Example usage:
 			if len(args) != 2 {
 				return errors.New(c.UsageString())
 			}
-			out, err := mixerRuleGet(mixerAPIServerAddr, args[0], args[1])
+			out, err := mixerRuleGet(args[0], args[1])
 			if err != nil {
 				return err
 			}
@@ -129,57 +143,37 @@ Example usage:
 	}
 )
 
-func mixerRulePath(host, scope, subject string) string {
-	if !strings.HasPrefix(host, "http://") {
-		host = "http://" + host
-	}
-	return fmt.Sprintf("%s/api/v1/scopes/%s/subjects/%s/rules", host, scope, subject)
+func mixerRulePath(scope, subject string) string {
+	return fmt.Sprintf("api/v1/scopes/%s/subjects/%s/rules", scope, subject)
 }
 
-func mixerRuleCreate(host, scope, subject string, rule []byte) error {
-	request, err := http.NewRequest(http.MethodPut, mixerRulePath(host, scope, subject), bytes.NewReader(rule))
+func mixerRuleCreate(scope, subject string, rule []byte) error {
+	path := mixerRulePath(scope, subject)
+	status, body, err := mixerRESTRequester.Request(http.MethodPut, path, rule)
 	if err != nil {
-		return fmt.Errorf("failed creating request: %v", err)
+		return err
 	}
-	request.Header.Set("Content-Type", "application/yaml")
-
-	client := http.Client{Timeout: requestTimeout}
-	resp, err := client.Do(request)
-	if err != nil {
-		return fmt.Errorf("failed sending request: %v", err)
-	}
-	defer resp.Body.Close() // nolint: errcheck
-
-	if resp.StatusCode != http.StatusOK {
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("failed processing response: %v", err)
-		}
+	if status != http.StatusOK {
 		var response mixerAPIResponse
 		message := "unknown"
-		if err := json.Unmarshal(body, &response); err == nil {
+		if err = json.Unmarshal(body, &response); err == nil {
 			message = response.Status.Message
 		}
-		return fmt.Errorf("failed rule creation with status %q: %q", resp.StatusCode, message)
+		return fmt.Errorf("failed rule creation with status %q: %q", status, message)
 	}
-	return nil
+	return err
 }
 
-func mixerRuleGet(host, scope, subject string) (string, error) {
-	client := http.Client{Timeout: requestTimeout}
-	resp, err := client.Get(mixerRulePath(host, scope, subject))
+func mixerRuleGet(scope, subject string) (string, error) {
+	path := mixerRulePath(scope, subject)
+	status, body, err := mixerRESTRequester.Request(http.MethodGet, path, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed sending request: %v", err)
+		return "", err
 	}
-	defer resp.Body.Close() // nolint: errcheck
+	if status != http.StatusOK {
+		return "", errors.New(http.StatusText(status))
+	}
 
-	if resp.StatusCode != http.StatusOK {
-		return "", errors.New(http.StatusText(resp.StatusCode))
-	}
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed reading response: %v", err)
-	}
 	var response mixerAPIResponse
 	if err = json.Unmarshal(body, &response); err != nil {
 		return "", fmt.Errorf("failed processing response: %v", err)
@@ -194,8 +188,13 @@ func mixerRuleGet(host, scope, subject string) (string, error) {
 func init() {
 	mixerRuleCreateCmd.PersistentFlags().StringVarP(&mixerFile, "file", "f", "",
 		"Input file with contents of the Mixer rule")
+	mixerCmd.PersistentFlags().StringVar(&istioMixerAPIService,
+		"mixerAPIService", "istio-mixer:9094",
+		"Name of istio-mixer service. When --kube=false this sets the address of the mixer service")
+	// TODO remove this flag once istio/istio integration tests are
+	// updated to use mixer service
 	mixerCmd.PersistentFlags().StringVar(&mixerAPIServerAddr, "mixer", os.Getenv("ISTIO_MIXER_API_SERVER"),
-		"Address of the Mixer configuration server as <host>:<port>")
+		"(deprecated) Address of the Mixer configuration server as <host>:<port>")
 
 	mixerRuleCmd.AddCommand(mixerRuleCreateCmd)
 	mixerRuleCmd.AddCommand(mixerRuleGetCmd)

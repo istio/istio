@@ -20,7 +20,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"istio.io/manager/client/proxy"
+	"istio.io/manager/platform/kube"
 	"istio.io/manager/test/util"
 
 	"github.com/ghodss/yaml"
@@ -44,6 +47,12 @@ func TestMixerRuleCreate(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
+
+	mixerRESTRequester = &proxy.BasicHTTPRequester{
+		BaseURL: ts.URL,
+		Client:  &http.Client{Timeout: 1 * time.Second},
+		Version: kube.IstioResourceVersion,
+	}
 
 	cases := []struct {
 		name    string
@@ -72,14 +81,6 @@ func TestMixerRuleCreate(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name:      "bad url",
-			url:       ts.URL + ":80",
-			scope:     "good",
-			subject:   "good",
-			rule:      "- good",
-			wantError: true,
-		},
-		{
 			name:      "bad request",
 			url:       ts.URL,
 			scope:     "bad",
@@ -90,7 +91,7 @@ func TestMixerRuleCreate(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		err := mixerRuleCreate(c.url, c.scope, c.subject, []byte(c.rule))
+		err := mixerRuleCreate(c.scope, c.subject, []byte(c.rule))
 		if c.wantError && err == nil {
 			t.Errorf("%s: expected error but got success", c.name)
 		}
@@ -132,6 +133,12 @@ func TestMixerRuleGet(t *testing.T) {
 	}))
 	defer ts.Close()
 
+	mixerRESTRequester = &proxy.BasicHTTPRequester{
+		BaseURL: ts.URL,
+		Client:  &http.Client{Timeout: 1 * time.Second},
+		Version: kube.IstioResourceVersion,
+	}
+
 	cases := []struct {
 		name      string
 		url       string
@@ -158,7 +165,7 @@ func TestMixerRuleGet(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		gotRule, err := mixerRuleGet(c.url, c.scope, c.subject)
+		gotRule, err := mixerRuleGet(c.scope, c.subject)
 		if c.wantError && err == nil {
 			t.Errorf("%s: expected error but got success", c.name)
 		}

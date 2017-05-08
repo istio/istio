@@ -406,3 +406,20 @@ func (cl *Client) GetTLSSecret(uri string) (*model.TLSSecret, error) {
 		PrivateKey:  key,
 	}, nil
 }
+
+// Request sends requests through the Kubernetes apiserver proxy to
+// the a Kubernetes service.
+// (see https://kubernetes.io/docs/concepts/cluster-administration/access-cluster/#discovering-builtin-services)
+func (cl *Client) Request(namespace, service, method, path string, inBody []byte) (int, []byte, error) {
+	absPath := fmt.Sprintf("api/v1/namespaces/%s/services/%s/proxy/%s/%s",
+		namespace, service, IstioResourceVersion, path)
+	var status int
+	outBody, err := cl.dyn.Verb(method).
+		AbsPath(absPath).
+		SetHeader("Content-Type", "application/json").
+		Body(inBody).
+		Do().
+		StatusCode(&status).
+		Raw()
+	return status, outBody, err
+}
