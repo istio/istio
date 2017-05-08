@@ -18,13 +18,15 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TESTS_DIR="${ROOT}/tests"
 . ${TESTS_DIR}/commonUtils.sh || { echo "Cannot load common utilities"; exit 1; }
 
+LOGLEVEL=10
+
 function create_rule() {
-    ${ISTIOCLI} -n ${NAMESPACE} create -f ${1} \
+    ${ISTIOCLI} -v=${LOGLEVEL} -n ${NAMESPACE} create -f ${1} \
       || error_exit 'Could not create rule'
 }
 
 function replace_rule() {
-    ${ISTIOCLI} -n ${NAMESPACE} replace -f ${1} \
+    ${ISTIOCLI} -v=${LOGLEVEL} -n ${NAMESPACE} replace -f ${1} \
       || error_exit 'Could not replace rule'
 }
 
@@ -33,11 +35,11 @@ function cleanup_all_rules() {
     local rules=($(${ISTIOCLI} -n ${NAMESPACE} get route-rule \
       | grep "name:" | awk '{print $2}'))
     for r in ${rules[@]}; do
-      ${ISTIOCLI} -n ${NAMESPACE} delete route-rule "${r}"
+      ${ISTIOCLI} -v=${LOGLEVEL} -n ${NAMESPACE} delete route-rule "${r}"
     done
 }
 
 function delete_rule() {
-    ${ISTIOCLI} -n ${NAMESPACE} delete -f ${1}
+    ${ISTIOCLI} -v=${LOGLEVEL} -n ${NAMESPACE} delete -f ${1}
     return $?
 }
