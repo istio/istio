@@ -1,4 +1,4 @@
-# GENERATED FILE. Use with Kubernetes 1.6+
+# GENERATED FILE. Use with Kubernetes 1.5+
 # TO UPDATE, modify files in istio-install and run updateVersion.sh
 # Mixer
 apiVersion: v1
