@@ -47,10 +47,10 @@ Test an arbitrary explicit configuration:
 
 ## updateVersion.sh
 
-The [updateVersion.sh](updateVersion.sh) script is used to update 
-the images specified in [istio.VERSION](../istio.VERSION) and the default Istio
-installation in [../kubernetes/istio-install](../kubernetes/istio-install).
-   
+The [updateVersion.sh](../updateVersion.sh) script is used to generate istio yaml installation files based on 
+the templates from [../install/kubernetes/templatest](../install/kubernetes/templates) and the image tags specified
+in [istio.VERSION](../istio.VERSION).
+
 ### Options
 
 * `-m <hub>,<tag>` new manager image
