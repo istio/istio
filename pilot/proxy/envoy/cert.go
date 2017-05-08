@@ -23,6 +23,12 @@ import (
 	"github.com/howeyc/fsnotify"
 )
 
+const (
+	certChainFilename = "cert-chain.pem"
+	keyFilename       = "key.pem"
+	rootCertFilename  = "root-cert.pem"
+)
+
 // watchCerts watches a certificate directory and calls the provided
 // `updateFunc` method when changes are detected. This method is blocking
 // so should be run as a goroutine.
@@ -59,7 +65,7 @@ func watchCerts(certsDir string, stop <-chan struct{}, updateFunc func()) {
 func generateCertHash(certsDir string) []byte {
 	h := sha256.New()
 
-	for _, file := range []string{"cert-chain.pem", "key.pem", "root-cert.pem"} {
+	for _, file := range []string{certChainFilename, keyFilename, rootCertFilename} {
 		filename := fmt.Sprintf("%s/%s", certsDir, file)
 		bs, err := ioutil.ReadFile(filename)
 		if err != nil {

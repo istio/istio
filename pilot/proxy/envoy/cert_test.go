@@ -71,7 +71,7 @@ func TestGenerateCertHash(t *testing.T) {
 
 	h := sha256.New()
 
-	for _, file := range []string{"cert-chain.pem", "key.pem", "root-cert.pem"} {
+	for _, file := range []string{certChainFilename, keyFilename, rootCertFilename} {
 		content := []byte(file)
 		if err := ioutil.WriteFile(name+"/"+file, content, 0644); err != nil {
 			t.Errorf("failed to write file %s (error %v)", file, err)
