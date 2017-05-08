@@ -67,7 +67,6 @@ function setup_mixer(){
     -o jsonpath='{.items[0].metadata.name}') 9091 9095:42422 &
     pfPID2=$!
     export ISTIO_MIXER_METRICS=http://localhost:9095
-    export ISTIO_MIXER_CONFIGAPI=http://localhost:9094
 }
 
 
