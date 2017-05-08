@@ -52,21 +52,9 @@ function find_istio_endpoints() {
     return 1
 }
 
-# Port forward manager, then point istioctl at it
-function setup_istioctl(){
-    print_block_echo "Setting up istioctl"
-    ${K8CLI} -n ${NAMESPACE} port-forward $(${K8CLI} -n ${NAMESPACE} get pod -l istio=manager \
-     -o jsonpath='{.items[0].metadata.name}') 8081:8081 &
-    pfPID=$!
-    export ISTIO_MANAGER_ADDRESS=http://localhost:8081
-}
-
 # Kill the port forwarding process
 function cleanup_istioctl(){
     print_block_echo "Cleaning up istioctl"
-    if [[ ! -z ${pfPID} ]];then
-      kill ${pfPID}
-    fi
     if [[ ! -z ${pfPID2} ]];then
       kill ${pfPID2}
     fi
@@ -76,10 +64,9 @@ function cleanup_istioctl(){
 function setup_mixer(){
     print_block_echo "Setting up mixer"
     ${K8CLI} -n ${NAMESPACE} port-forward $(${K8CLI} -n ${NAMESPACE} get pod -l istio=mixer \
-    -o jsonpath='{.items[0].metadata.name}') 9091 9094 9095:42422 &
+    -o jsonpath='{.items[0].metadata.name}') 9091 9095:42422 &
     pfPID2=$!
     export ISTIO_MIXER_METRICS=http://localhost:9095
-    export ISTIO_MIXER_CONFIGAPI=http://localhost:9094
 }
 
 
