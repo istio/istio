@@ -58,7 +58,13 @@ function apply_patch() {
 function kube_inject() {
     local before=${1}
     local after=${2}
-    ${ISTIOCLI} kube-inject -f ${before} -o ${after} --hub ${MANAGER_HUB} --tag ${MANAGER_TAG} -n ${NAMESPACE}
+    ${ISTIOCLI} kube-inject \
+		-f ${before} \
+		-o ${after} \
+		--hub ${MANAGER_HUB} \
+		--tag ${MANAGER_TAG} \
+		-n ${NAMESPACE} \
+		--istioNamespace ${NAMESPACE}
 }
 
 function apply_patch_in_dir() {
