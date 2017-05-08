@@ -99,14 +99,14 @@ function check_git_status() {
   return 1
 }
 
-# Generated merge yaml files for easy installation, and adjust for 1.6 RBAC
+# Generated merge yaml files for easy installation
 function merge_files() {
-  SRC=$ROOT/kubernetes/istio-install
-  AUTH_SRC=$ROOT/kubernetes/istio-auth
+  SRC=$ROOT/install/kubernetes/templates
+  AUTH_SRC=$SRC/istio-auth
+  ISTIO=$ROOT/install/kubernetes/istio.yaml
+  ISTIO_AUTH=$ROOT/install/kubernetes/istio-auth.yaml
 
-  ISTIO=$ROOT/kubernetes/istio.yaml
-  ISTIO_AUTH=$ROOT/kubernetes/istio-auth.yaml
-  echo "# GENERATED FILE. Use with Kubernetes 1.6+" > $ISTIO
+  echo "# GENERATED FILE. Use with Kubernetes 1.5+" > $ISTIO
   echo "# TO UPDATE, modify files in istio-install and run updateVersion.sh" >> $ISTIO
   cat $SRC/istio-mixer.yaml >> $ISTIO
   cat $SRC/istio-manager.yaml >> $ISTIO
@@ -135,7 +135,7 @@ EOF
 }
 
 function update_istio_install() {
-  pushd $ROOT/kubernetes/istio-install
+  pushd $ROOT/install/kubernetes/templates
   sed -i "s|image: .*/\(.*\):.*|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-manager.yaml
   sed -i "s|image: .*/\(.*\):.*|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-ingress.yaml
   sed -i "s|image: .*/\(.*\):.*|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-egress.yaml
@@ -144,7 +144,7 @@ function update_istio_install() {
 }
 
 function update_istio_auth() {
-  pushd $ROOT/kubernetes/istio-auth
+  pushd $ROOT/install/kubernetes/templates/istio-auth
   sed -i "s|image: .*/\(.*\):.*|image: ${CA_HUB}/\1:${CA_TAG}|" istio-cluster-ca.yaml
   sed -i "s|image: .*/\(.*\):.*|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-egress-auth.yaml
   sed -i "s|image: .*/\(.*\):.*|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-ingress-auth.yaml
