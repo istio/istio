@@ -17,6 +17,7 @@
 package mixer
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -26,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -38,12 +40,14 @@ import (
 )
 
 const (
-	bookinfoYaml = "demos/apps/bookinfo/bookinfo.yaml"
-	//rulesDir            = "demos/apps/bookinfo"
-	//rateLimitRule       = "mixer-rule-ratings-ratelimit.yaml"
-	//denialRule          = "mixer-rule-ratings-denial.yaml"
-	newTelemetryRule = "mixer-rule-additional-telemetry.yaml"
-	emptyRule        = "mixer-rule-empty-rule.yaml"
+	bookinfoYaml             = "demos/apps/bookinfo/bookinfo.yaml"
+	rulesDir                 = "demos/apps/bookinfo"
+	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
+	denialRule               = "mixer-rule-ratings-denial.yaml"
+	newTelemetryRule         = "mixer-rule-additional-telemetry.yaml"
+	routeAllRule             = "route-rule-all-v1.yaml"
+	routeReviewsVersionsRule = "route-rule-reviews-v2-v3.yaml"
+	emptyRule                = "mixer-rule-empty-rule.yaml"
 
 	mixerAPIPort        = 9094
 	mixerPrometheusPort = 42422
@@ -60,10 +64,28 @@ type testConfig struct {
 	rulesDir string
 }
 
-var tc *testConfig
+var (
+	tc    *testConfig
+	rules = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule, routeReviewsVersionsRule, emptyRule}
+)
 
 func (t *testConfig) Setup() error {
 	t.gateway = "http://" + tc.Kube.Ingress
+	for _, rule := range rules {
+		src := util.GetResourcePath(filepath.Join(rulesDir, fmt.Sprintf("%s", rule)))
+		dest := filepath.Join(t.rulesDir, rule)
+		ori, err := ioutil.ReadFile(src)
+		if err != nil {
+			glog.Errorf("Failed to read original rule file %s", src)
+			return err
+		}
+		content := string(ori)
+		err = ioutil.WriteFile(dest, []byte(content), 0600)
+		if err != nil {
+			glog.Errorf("Failed to write into new rule file %s", dest)
+			return err
+		}
+	}
 	return nil
 }
 func (t *testConfig) Teardown() error { return nil }
@@ -141,10 +163,7 @@ func TestGlobalCheckAndReport(t *testing.T) {
 
 	glog.Info("Successfully request to /productpage; checking Mixer status...")
 
-	// sleep for a small amount of time to allow for Report() processing to finish
-	time.Sleep(5 * time.Second)
-
-	resp, err := http.Get("http://localhost:42422/metrics")
+	resp, err := getMixerMetrics()
 	defer resp.Body.Close()
 	if err != nil {
 		t.Errorf("Could not get /metrics from mixer: %v", err)
@@ -152,32 +171,35 @@ func TestGlobalCheckAndReport(t *testing.T) {
 	}
 	glog.Info("Successfully retrieved /metrics from mixer.")
 
-	requests := metricValueGetter{
+	requests := &metricValueGetter{
 		metricFamilyName: "request_count",
-		labels:           map[string]string{targetLabel: fqdn("reviews"), responseCodeLabel: "200"},
+		labels:           map[string]string{targetLabel: fqdn("productpage"), responseCodeLabel: "200"},
 		valueFn:          counterValue,
 	}
 
-	got, err := metricValue(resp, requests)
-	if err != nil {
-		t.Errorf("Error getting request count: %v", err)
+	if err := metricValues(resp, requests); err != nil {
+		t.Errorf("Error getting metrics: %got", err)
 		return
 	}
-	if got != 1 {
-		t.Errorf("Bad request count: got %d, want 1", got)
+	if requests.value != 1 {
+		t.Errorf("Bad metric value: got %f, want 1", requests.value)
 	}
 }
 
-func TestMetricsTask(t *testing.T) {
-	reviews := fqdn("reviews")
-	if err := createMixerRule(global, reviews, newTelemetryRule); err != nil {
+func TestNewMetrics(t *testing.T) {
+	productpage := fqdn("productpage")
+	if err := createMixerRule(global, productpage, newTelemetryRule); err != nil {
 		t.Fatalf("could not create required mixer rule: %v", err)
 	}
 	defer func() {
-		if err := createMixerRule(global, reviews, emptyRule); err != nil {
+		if err := createMixerRule(global, productpage, emptyRule); err != nil {
 			t.Logf("could not clear rule: %v", err)
 		}
 	}()
+
+	// allow time for configuration to go and be active.
+	// TODO: figure out a better way to confirm rule active
+	time.Sleep(5 * time.Second)
 
 	if err := visitProductPage(5); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
@@ -185,37 +207,197 @@ func TestMetricsTask(t *testing.T) {
 
 	glog.Info("Successfully request to /productpage; checking Mixer status...")
 
-	// sleep for a small amount of time to allow for Report() processing to finish
-	time.Sleep(5 * time.Second)
-
-	resp, err := http.Get("http://localhost:42422/metrics")
+	resp, err := getMixerMetrics()
 	defer resp.Body.Close()
 	if err != nil {
 		t.Errorf("Could not get /metrics from mixer: %v", err)
 		return
 	}
 	glog.Info("Successfully retrieved /metrics from mixer.")
-
-	responses := metricValueGetter{
+	responses := &metricValueGetter{
 		metricFamilyName: "response_size",
-		labels:           map[string]string{targetLabel: fqdn("reviews"), responseCodeLabel: "200"},
+		labels:           map[string]string{targetLabel: fqdn("productpage"), responseCodeLabel: "200"},
 		valueFn:          histogramCountValue,
 	}
 
-	got, err := metricValue(resp, responses)
-	if err != nil {
-		t.Errorf("Error getting response_size: %v", err)
+	if err := metricValues(resp, responses); err != nil {
+		t.Errorf("Error getting metrics: %got", err)
 		return
 	}
-	if got != 1 {
-		t.Errorf("Bad response_size_count: got %d, want 1", got)
+	if responses.value != 1 {
+		t.Errorf("Bad metric value: got %f, want 1", responses.value)
 	}
+}
+
+func TestDenials(t *testing.T) {
+	applyReviewsRoutingRules(t)
+	defer func() {
+		deleteReviewsRoutingRules(t)
+	}()
+
+	ratings := fqdn("ratings")
+	if err := createMixerRule(global, ratings, denialRule); err != nil {
+		t.Fatalf("Could not create required mixer rule: %v", err)
+	}
+	defer func() {
+		if err := createMixerRule(global, ratings, emptyRule); err != nil {
+			t.Logf("could not clear rule: %v", err)
+		}
+	}()
+
+	// allow time for configuration to go and be active.
+	// TODO: figure out a better way to confirm rule active
+	time.Sleep(5 * time.Second)
+
+	// generate several calls to the product page
+	for i := 0; i < 6; i++ {
+		if err := visitProductPage(5); err != nil {
+			t.Fatalf("Test app setup failure: %v", err)
+		}
+	}
+
+	glog.Info("Successfully request to /productpage; checking Mixer status...")
+
+	resp, err := getMixerMetrics()
+	defer resp.Body.Close()
+	if err != nil {
+		t.Errorf("Could not get /metrics from mixer: %v", err)
+		return
+	}
+	glog.Info("Successfully retrieved /metrics from mixer.")
+	requests := &metricValueGetter{
+		metricFamilyName: "request_count",
+		labels: map[string]string{
+			targetLabel:       fqdn("ratings"),
+			responseCodeLabel: "400",
+		},
+		valueFn: counterValue,
+	}
+
+	if err := metricValues(resp, requests); err != nil {
+		t.Errorf("Error getting metrics: %got", err)
+		return
+	}
+	// be liberal in search for denial
+	if requests.value < 1 {
+		t.Errorf("Bad metric value: got %f, want at least 1", requests.value)
+	}
+}
+
+func TestRateLimit(t *testing.T) {
+	applyReviewsRoutingRules(t)
+	defer func() {
+		deleteReviewsRoutingRules(t)
+	}()
+
+	ratings := fqdn("ratings")
+	if err := createMixerRule(global, ratings, rateLimitRule); err != nil {
+		t.Fatalf("Could not create required mixer rule: %got", err)
+	}
+	defer func() {
+		if err := createMixerRule(global, ratings, emptyRule); err != nil {
+			t.Logf("could not clear rule: %got", err)
+		}
+	}()
+
+	// allow time for configuration to go and be active.
+	// TODO: figure out a better way to confirm rule active
+	time.Sleep(1 * time.Minute)
+
+	wg := sync.WaitGroup{}
+
+	// try to send ~10qps for a minute
+	rate := time.Second / 10
+	throttle := time.Tick(rate)
+	for i := 0; i < 600; i++ {
+		<-throttle // rate limit our Service.Method RPCs
+		go func() {
+			wg.Add(1)
+			visitProductPage(0)
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+
+	glog.Info("Successfully request to /productpage; checking Mixer status...")
+
+	resp, err := getMixerMetrics()
+	defer resp.Body.Close()
+	if err != nil {
+		t.Errorf("Could not get /metrics from mixer: %got", err)
+		return
+	}
+	glog.Info("Successfully retrieved /metrics from mixer.")
+	rateLimitedReqs := &metricValueGetter{
+		metricFamilyName: "request_count",
+		labels: map[string]string{
+			targetLabel:       fqdn("ratings"),
+			responseCodeLabel: "429",
+		},
+		valueFn: counterValue,
+	}
+
+	okReqs := &metricValueGetter{
+		metricFamilyName: "request_count",
+		labels: map[string]string{
+			targetLabel:       fqdn("ratings"),
+			responseCodeLabel: "200",
+		},
+		valueFn: counterValue,
+	}
+
+	if err := metricValues(resp, rateLimitedReqs, okReqs); err != nil {
+		t.Errorf("Error getting metrics: %got", err)
+		return
+	}
+	// rate-limit set to 5 qps, sending a request every 1/10th of a second,
+	// modulo gorouting scheduling, etc.
+	// there should be ~150 "too many rateLimitedReqs" observed. check for
+	// greater than 100 to allow for differences in routing, etc.
+	if rateLimitedReqs.value < 100 {
+		t.Errorf("Bad metric value: got %f, want at least 100", rateLimitedReqs.value)
+	}
+
+	// check to make sure that some requests were accepted and processed
+	// successfully. there should be ~250 "OK" requests observed.
+	if okReqs.value < 200 {
+		t.Errorf("Bad metric value: got %f, want at least 200", okReqs.value)
+	}
+}
+
+func applyReviewsRoutingRules(t *testing.T) {
+	if err := createRouteRule(routeAllRule); err != nil {
+		t.Fatalf("Could not create initial route-all rule: %v", err)
+	}
+	// hope for stability
+	time.Sleep(30 * time.Second)
+	if err := replaceRouteRule(routeReviewsVersionsRule); err != nil {
+		t.Fatalf("Could not create replace reviews routing rule: %v", err)
+	}
+	// hope for stability
+	time.Sleep(30 * time.Second)
+}
+
+func deleteReviewsRoutingRules(t *testing.T) {
+	if err := deleteRouteRule(routeAllRule); err != nil {
+		t.Fatalf("Could not delete initial route-all rule: %v", err)
+	}
+	// hope for stability
+	time.Sleep(30 * time.Second)
+}
+
+func getMixerMetrics() (*http.Response, error) {
+	// sleep for a small amount of time to allow for Report() processing to finish
+	time.Sleep(1 * time.Minute)
+	return http.Get("http://localhost:42422/metrics")
 }
 
 func visitProductPage(retries int) error {
 	standby := 0
 	for i := 0; i <= retries; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)
+		http.DefaultClient.Timeout = 15 * time.Second
 		resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
 		if err != nil {
 			glog.Infof("Error talking to productpage: %s", err)
@@ -233,11 +415,29 @@ func visitProductPage(retries int) error {
 		standby += 5
 		glog.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
 	}
+	if standby != 0 {
+		time.Sleep(time.Minute)
+	}
 	return nil
 }
 
 func fqdn(service string) string {
 	return fmt.Sprintf("%s.%s.svc.cluster.local", service, tc.Kube.Namespace)
+}
+
+func createRouteRule(ruleName string) error {
+	rule := filepath.Join(tc.rulesDir, ruleName)
+	return tc.Kube.Istioctl.CreateRule(rule)
+}
+
+func replaceRouteRule(ruleName string) error {
+	rule := filepath.Join(tc.rulesDir, ruleName)
+	return tc.Kube.Istioctl.ReplaceRule(rule)
+}
+
+func deleteRouteRule(ruleName string) error {
+	rule := filepath.Join(tc.rulesDir, ruleName)
+	return tc.Kube.Istioctl.DeleteRule(rule)
 }
 
 func createMixerRule(scope, subject, ruleName string) error {
@@ -249,7 +449,8 @@ func counterValue(mf *dto.MetricFamily, name string, labels map[string]string) (
 	if len(mf.Metric) == 0 {
 		return 0, fmt.Errorf("no metrics in family %s: %#v", name, mf.Metric)
 	}
-	counterMetric, err := metric(mf.Metric, labels)
+
+	counterMetric, err := metric(mf, labels)
 	if err != nil {
 		return 0, err
 	}
@@ -265,7 +466,7 @@ func histogramCountValue(mf *dto.MetricFamily, name string, labels map[string]st
 	if len(mf.Metric) == 0 {
 		return 0, fmt.Errorf("no metrics in family %s: %#v", name, mf.Metric)
 	}
-	hMetric, err := metric(mf.Metric, labels)
+	hMetric, err := metric(mf, labels)
 	if err != nil {
 		return 0, err
 	}
@@ -277,36 +478,45 @@ func histogramCountValue(mf *dto.MetricFamily, name string, labels map[string]st
 	return float64(histogram.GetSampleCount()), nil
 }
 
-func metricValue(resp *http.Response, getter metricValueGetter) (float64, error) {
-	decoder := expfmt.NewDecoder(resp.Body, expfmt.ResponseFormat(resp.Header))
+func metricValues(resp *http.Response, getters ...*metricValueGetter) error {
+	var buf bytes.Buffer
+	tee := io.TeeReader(resp.Body, &buf)
+	defer func() {
+		glog.Infof("/metrics: \n%s", buf)
+	}()
+
+	decoder := expfmt.NewDecoder(tee, expfmt.ResponseFormat(resp.Header))
 
 	// loop through metrics, looking to validate recorded request count
 	for {
 		mf := &dto.MetricFamily{}
 		err := decoder.Decode(mf)
 		if err == io.EOF {
-			return 0, errors.New("Expected to find request_count valueFn")
+			return nil
 		}
 		if err != nil {
-			return 0, fmt.Errorf("Could not get decode valueFn: %v", err)
+			return fmt.Errorf("Could not get decode valueFn: %v", err)
 		}
-		if getter.applies(mf.GetName()) {
-			return getter.getMetricValue(mf)
+		for _, g := range getters {
+			if g.applies(mf.GetName()) {
+				if val, err := g.getMetricValue(mf); err == nil {
+					g.value = val
+				}
+			}
 		}
 	}
 }
 
-func metric(metrics []*dto.Metric, labels map[string]string) (*dto.Metric, error) {
+func metric(mf *dto.MetricFamily, labels map[string]string) (*dto.Metric, error) {
 	// range operations seem to cause hangs with metrics stuff
 	// using indexed loops instead
-	for i := 0; i < len(metrics); i++ {
-		m := metrics[i]
+	for i := 0; i < len(mf.GetMetric()); i++ {
+		m := mf.Metric[i]
 		nameCount := len(labels)
 		for j := 0; j < len(m.Label); j++ {
 			l := m.Label[j]
 			name := l.GetName()
 			val := l.GetValue()
-			glog.Infof("metric label: %s = %s", name, val)
 			if v, ok := labels[name]; ok && v == val {
 				nameCount--
 			}
@@ -355,6 +565,7 @@ type metricValueGetter struct {
 	metricFamilyName string
 	labels           map[string]string
 	valueFn          metricValueFn
+	value            float64
 }
 
 func (v metricValueGetter) applies(name string) bool {

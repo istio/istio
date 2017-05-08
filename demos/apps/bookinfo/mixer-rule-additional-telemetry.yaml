@@ -13,8 +13,7 @@ rules:
           service: target.labels["app"] | "unknown"
           method: request.path | "unknown"
           response_code: response.code | 200
-  - adapter: stdioLogger
-    kind: access-logs
+  - kind: access-logs
     params:
       logName: combined_log
       log:
