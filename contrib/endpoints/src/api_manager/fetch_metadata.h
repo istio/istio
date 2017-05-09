@@ -16,10 +16,19 @@
 #define API_MANAGER_FETCH_METADATA_H_
 
 #include "contrib/endpoints/include/api_manager/utils/status.h"
+#include "contrib/endpoints/src/api_manager/context/global_context.h"
 #include "contrib/endpoints/src/api_manager/context/request_context.h"
 
 namespace google {
 namespace api_manager {
+
+// Fetchs GCE metadata from metadata server.
+void GlobalFetchGceMetadata(std::shared_ptr<context::GlobalContext>,
+                            std::function<void(utils::Status)>);
+
+// Fetchs service account token from metadata server.
+void GlobalFetchServiceAccountToken(std::shared_ptr<context::GlobalContext>,
+                                    std::function<void(utils::Status)>);
 
 // Fetchs GCE metadata from metadata server.
 void FetchGceMetadata(std::shared_ptr<context::RequestContext>,

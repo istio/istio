@@ -49,30 +49,30 @@ const char kTokenRefetchWindow = 60;
 
 // Issues a HTTP request to fetch the metadata.
 void FetchMetadata(
-    context::RequestContext *context, const char *path,
+    context::GlobalContext *context, const char *path,
     std::function<void(Status, std::map<std::string, std::string> &&,
                        std::string &&)>
         continuation) {
   std::unique_ptr<HTTPRequest> request(new HTTPRequest(continuation));
   request->set_method("GET")
-      .set_url(context->service_context()->metadata_server() + path)
+      .set_url(context->metadata_server() + path)
       .set_header("Metadata-Flavor", "Google")
       .set_timeout_ms(kMetadataFetchTimeout)
       .set_max_retries(kMetadataFetchRetries);
-  context->service_context()->env()->RunHTTPRequest(std::move(request));
+  context->env()->RunHTTPRequest(std::move(request));
 }
 }  // namespace
 
-void FetchGceMetadata(std::shared_ptr<context::RequestContext> context,
-                      std::function<void(Status)> continuation) {
-  if (context->service_context()->metadata_server().empty()) {
+void GlobalFetchGceMetadata(std::shared_ptr<context::GlobalContext> context,
+                            std::function<void(Status)> continuation) {
+  if (context->metadata_server().empty()) {
     // No need to fetching metadata, metadata server address is not set.
     continuation(Status::OK);
     return;
   }
 
-  auto env = context->service_context()->env();
-  switch (context->service_context()->gce_metadata()->state()) {
+  auto env = context->env();
+  switch (context->gce_metadata()->state()) {
     case GceMetadata::FETCHED:
       // Already have metadata.
       env->LogDebug("Metadata already available. Fetch skipped.");
@@ -92,36 +92,35 @@ void FetchGceMetadata(std::shared_ptr<context::RequestContext> context,
       env->LogDebug("Fetching metadata.");
   }
 
-  context->service_context()->gce_metadata()->set_state(GceMetadata::FETCHING);
+  context->gce_metadata()->set_state(GceMetadata::FETCHING);
   FetchMetadata(
       context.get(), kComputeMetadata,
       [context, continuation](Status status, std::map<std::string, std::string>,
                               std::string &&body) {
         // translate status to external status
         if (status.ok()) {
-          status =
-              context->service_context()->gce_metadata()->ParseFromJson(&body);
+          status = context->gce_metadata()->ParseFromJson(&body);
         } else {
           status = Status(Code::INTERNAL, kFailedMetadataFetch);
         }
 
         // update fetching state
-        context->service_context()->gce_metadata()->set_state(
-            status.ok() ? GceMetadata::FETCHED : GceMetadata::FAILED);
+        context->gce_metadata()->set_state(status.ok() ? GceMetadata::FETCHED
+                                                       : GceMetadata::FAILED);
 
         continuation(status);
       });
 }
 
-void FetchServiceAccountToken(std::shared_ptr<context::RequestContext> context,
-                              std::function<void(Status status)> continuation) {
-  const auto env = context->service_context()->env();
-  const auto token = context->service_context()->service_account_token();
+void GlobalFetchServiceAccountToken(
+    std::shared_ptr<context::GlobalContext> context,
+    std::function<void(Status status)> continuation) {
+  const auto env = context->env();
+  const auto token = context->service_account_token();
 
   // If metadata server is not configured, skip it
   // If client auth secret is available, skip fetching
-  if (context->service_context()->metadata_server().empty() ||
-      token->has_client_secret()) {
+  if (context->metadata_server().empty() || token->has_client_secret()) {
     continuation(Status::OK);
     return;
   }
@@ -197,5 +196,21 @@ void FetchServiceAccountToken(std::shared_ptr<context::RequestContext> context,
                   continuation(Status::OK);
                 });
 }
+
+// Fetchs GCE metadata from metadata server.
+void FetchGceMetadata(std::shared_ptr<context::RequestContext> request_context,
+                      std::function<void(utils::Status)> on_done) {
+  GlobalFetchGceMetadata(request_context->service_context()->global_context(),
+                         on_done);
+}
+
+// Fetchs service account token from metadata server.
+void FetchServiceAccountToken(
+    std::shared_ptr<context::RequestContext> request_context,
+    std::function<void(utils::Status)> on_done) {
+  GlobalFetchServiceAccountToken(
+      request_context->service_context()->global_context(), on_done);
+}
+
 }  // namespace api_manager
 }  // namespace google

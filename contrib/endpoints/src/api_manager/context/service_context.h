@@ -92,6 +92,8 @@ class ServiceContext {
     return global_context_->intermediate_report_interval();
   }
 
+  std::shared_ptr<GlobalContext> global_context() { return global_context_; }
+
  private:
   // Create service control.
   std::unique_ptr<service_control::Interface> CreateInterface();
