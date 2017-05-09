@@ -48,7 +48,9 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//apiserver:go_default_library",
+        "//client/proxy:go_default_library",
         "//model:go_default_library",
+        "//platform/kube:go_default_library",
         "//test/util:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_googleapis_googleapis//:go_default_library",

@@ -53,20 +53,11 @@ func NewWatcher(ctl model.Controller, context *proxy.Context) (Watcher, error) {
 		ctl:     ctl,
 	}
 
-	// Initialize envoy according to the current model state,
-	// instead of waiting for the first event to arrive.
-	// Note that this is currently done synchronously (blocking),
-	// to avoid racing with controller events lurking around the corner.
-	// This can be improved once we switch to a mechanism where reloads
-	// are linearized (e.g., by a single goroutine reloader).
-	// TODO: this blocks
-	//	out.reload()
-
 	if err := ctl.AppendServiceHandler(func(*model.Service, model.Event) { out.reload() }); err != nil {
 		return nil, err
 	}
 
-	// TODO: restrict the notification callback to co-located instances (e.g. with the same IP)
+	// TODO: notification granularity: restrict the notification callback to co-located instances (e.g. with the same IP)
 	// TODO: editing pod tags directly does not trigger instance handlers, we need to listen on pod resources.
 	if err := ctl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { out.reload() }); err != nil {
 		return nil, err
@@ -86,18 +77,24 @@ func NewWatcher(ctl model.Controller, context *proxy.Context) (Watcher, error) {
 }
 
 func (w *watcher) Run(stop <-chan struct{}) {
-	// must start consumer before producer
+	// agent consumes notifications from the controllerr
 	go w.agent.Run(stop)
+
+	// initiate controller to fetch the latest state
+	go w.ctl.Run(stop)
+
+	// kickstart the proxy with partial state (in case there are no notifications coming)
+	w.reload()
+
+	// monitor certificates
 	if mesh := w.context.MeshConfig; mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
 		go watchCerts(mesh.AuthCertsPath, stop, w.reload)
 	}
-	w.ctl.Run(stop)
+
+	<-stop
 }
 
 func (w *watcher) reload() {
-	// TODO
-	// even though the function is called on every modification event,
-	// the actual config is generated from the latest cache view
 	config := Generate(w.context)
 	if mesh := w.context.MeshConfig; mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
 		config.Hash = generateCertHash(mesh.AuthCertsPath)
@@ -120,6 +117,16 @@ func configFile(config string, epoch int) string {
 	return fmt.Sprintf(EpochFileTemplate, config, epoch)
 }
 
+func envoyArgs(fname string, epoch int, mesh *proxyconfig.ProxyMeshConfig, node string) []string {
+	return []string{"-c", fname,
+		"--restart-epoch", fmt.Sprint(epoch),
+		"--drain-time-s", fmt.Sprint(int(convertDuration(mesh.DrainDuration) / time.Second)),
+		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(mesh.ParentShutdownDuration) / time.Second)),
+		"--service-cluster", mesh.IstioServiceCluster,
+		"--service-node", node,
+	}
+}
+
 func runEnvoy(mesh *proxyconfig.ProxyMeshConfig, node string) proxy.Proxy {
 	return proxy.Proxy{
 		Run: func(config interface{}, epoch int, abort <-chan error) error {
@@ -135,13 +142,7 @@ func runEnvoy(mesh *proxyconfig.ProxyMeshConfig, node string) proxy.Proxy {
 			}
 
 			// spin up a new Envoy process
-			args := []string{"-c", fname,
-				"--restart-epoch", fmt.Sprint(epoch),
-				"--drain-time-s", fmt.Sprint(int(convertDuration(mesh.DrainDuration) / 1 * time.Second)),
-				"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(mesh.ParentShutdownDuration) / 1 * time.Second)),
-				"--service-cluster", mesh.IstioServiceCluster,
-				"--service-node", node,
-			}
+			args := envoyArgs(fname, epoch, mesh, node)
 
 			// inject tracing flag for higher levels
 			if glog.V(4) {

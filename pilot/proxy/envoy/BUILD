@@ -41,6 +41,7 @@ go_test(
         "header_test.go",
         "ingress_test.go",
         "route_test.go",
+        "watcher_test.go",
     ],
     data = glob(["testdata/*.golden"]),
     library = ":go_default_library",
