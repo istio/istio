@@ -11,7 +11,6 @@ go_library(
     ],
     data = [
         "//:istio_version",
-        "//install/kubernetes/templates",
     ],
     visibility = ["//visibility:public"],
     deps = [
