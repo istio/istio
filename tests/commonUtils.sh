@@ -93,7 +93,7 @@ function generate_istio_yaml() {
     mkdir -p ${dest_dir}
     cp ${src_dir}/istio.yaml ${dest_dir}
     sed -i "s|image: .*/mixer:.*|image: ${MIXER_HUB}/mixer:${MIXER_TAG}|" ${dest_dir}/istio.yaml
-    sed -i "s|image: .*/manager:.*|image: ${MANAGER_HUB}/manager:${MANAGER_TAG}|" i${dest_dir}/stio.yaml
+    sed -i "s|image: .*/manager:.*|image: ${MANAGER_HUB}/manager:${MANAGER_TAG}|" ${dest_dir}/istio.yaml
     sed -i "s|image: .*/proxy:.*|image: ${MANAGER_HUB}/proxy:${MANAGER_TAG}|" ${dest_dir}/istio.yaml
 }
 
