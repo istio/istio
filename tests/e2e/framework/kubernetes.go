@@ -45,12 +45,6 @@ var (
 	caHub        = flag.String("ca_hub", "", "Ca hub")
 	caTag        = flag.String("ca_tag", "", "Ca tag")
 	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
-
-	modules = []string{
-		"manager",
-		"mixer",
-		"ingress",
-	}
 )
 
 // KubeInfo gathers information for kubectl
@@ -170,12 +164,12 @@ func (k *KubeInfo) generateIstioCore(dst string) error {
 		glog.Errorf("Cannot read original yaml file %s", src)
 		return err
 	}
-	r_manager := regexp.MustCompile(`image: .*\/manager:.*`)
-	content = r_manager.ReplaceAllLiteral(content, []byte(k.ManagerImage))
-	r_mixer := regexp.MustCompile(`image: .*\/mixer:.*`)
-	content = r_mixer.ReplaceAllLiteral(content, []byte(k.MixerImage))
-	r_proxy := regexp.MustCompile(`image: .*\/proxy:.*`)
-	content = r_proxy.ReplaceAllLiteral(content, []byte(k.ProxyImage))
+	r := regexp.MustCompile(`image: .*\/manager:.*`)
+	content = r.ReplaceAllLiteral(content, []byte(k.ManagerImage))
+	r = regexp.MustCompile(`image: .*\/mixer:.*`)
+	content = r.ReplaceAllLiteral(content, []byte(k.MixerImage))
+	r = regexp.MustCompile(`image: .*\/proxy:.*`)
+	content = r.ReplaceAllLiteral(content, []byte(k.ProxyImage))
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into generated yaml file %s", dst)
