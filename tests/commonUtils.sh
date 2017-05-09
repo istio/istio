@@ -87,14 +87,14 @@ function apply_patch_in_dir() {
 
 function generate_istio_yaml() {
     print_block_echo "Generating istio yaml in ${1}"
-    local src_dir="${ROOT}/install/kubernetes/templates"
+    local src_dir="${ROOT}/install/kubernetes"
     local dest_dir="${1}"
 
     mkdir -p ${dest_dir}
-    cp ${src_dir}/* ${dest_dir}
-    sed -i "s|image: .*/\(.*\):.*|image: $MANAGER_HUB/\1:$MANAGER_TAG|" ${dest_dir}/istio-manager.yaml
-    sed -i "s|image: .*/\(.*\):.*|image: $MANAGER_HUB/\1:$MANAGER_TAG|" ${dest_dir}/istio-ingress.yaml
-    sed -i "s|image: .*/\(.*\):.*|image: $MIXER_HUB/\1:$MIXER_TAG|" ${dest_dir}/istio-mixer.yaml
+    cp ${src_dir}/istio.yaml ${dest_dir}
+    sed -i "s|image: .*/mixer:.*|image: ${MIXER_HUB}/mixer:${MIXER_TAG}|" ${dest_dir}/istio.yaml
+    sed -i "s|image: .*/manager:.*|image: ${MANAGER_HUB}/manager:${MANAGER_TAG}|" i${dest_dir}/stio.yaml
+    sed -i "s|image: .*/proxy:.*|image: ${MANAGER_HUB}/proxy:${MANAGER_TAG}|" ${dest_dir}/istio.yaml
 }
 
 function generate_bookinfo_yaml() {
