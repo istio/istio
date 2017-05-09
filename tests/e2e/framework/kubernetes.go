@@ -163,7 +163,7 @@ func (k *KubeInfo) deployIstio() error {
 	return nil
 }
 
-func (k *KubeInfo) generateIstioCore(dst) error {
+func (k *KubeInfo) generateIstioCore(dst string) error {
 	src := util.GetResourcePath(filepath.Join(istioInstallDir, "istio.yaml"))
 	content, err := ioutil.ReadFile(src)
 	if err != nil {
