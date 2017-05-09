@@ -165,11 +165,11 @@ func (k *KubeInfo) generateIstioCore(dst string) error {
 		return err
 	}
 	r := regexp.MustCompile(`image: .*\/manager:.*`)
-	content = r.ReplaceAllLiteral(content, []byte(k.ManagerImage))
+	content = r.ReplaceAllLiteral(content, []byte(fmt.Sprintf("image: %s", k.ManagerImage)))
 	r = regexp.MustCompile(`image: .*\/mixer:.*`)
-	content = r.ReplaceAllLiteral(content, []byte(k.MixerImage))
+	content = r.ReplaceAllLiteral(content, []byte(fmt.Sprintf("image: %s", k.MixerImage)))
 	r = regexp.MustCompile(`image: .*\/proxy:.*`)
-	content = r.ReplaceAllLiteral(content, []byte(k.ProxyImage))
+	content = r.ReplaceAllLiteral(content, []byte(fmt.Sprintf("image: %s", k.ProxyImage)))
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into generated yaml file %s", dst)
