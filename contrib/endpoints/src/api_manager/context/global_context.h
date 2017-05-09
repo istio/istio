@@ -61,6 +61,14 @@ class GlobalContext {
     return server_config_;
   }
 
+  bool DisableLogStatus() {
+    if (server_config() && server_config()->has_experimental()) {
+      const auto &experimental = server_config()->experimental();
+      return experimental.disable_log_status();
+    }
+    return false;
+  }
+
   // report interval can be override by server_config.
   int64_t intermediate_report_interval() const {
     return intermediate_report_interval_;
@@ -71,6 +79,9 @@ class GlobalContext {
 
   // get producer project id from fetched metadata
   const std::string &project_id() const;
+
+  const std::string &service_name() const { return service_name_; }
+  void set_service_name(const std::string &name) { service_name_ = name; }
 
  private:
   // create cloud trace.
@@ -87,6 +98,8 @@ class GlobalContext {
   // nullptr.
   std::unique_ptr<cloud_trace::Aggregator> cloud_trace_aggregator_;
 
+  // service name;
+  std::string service_name_;
   // meta data server.
   std::string metadata_server_;
   // GCE metadata

@@ -19,6 +19,7 @@
 #include "contrib/endpoints/src/api_manager/context/global_context.h"
 #include "contrib/endpoints/src/api_manager/context/service_context.h"
 #include "contrib/endpoints/src/api_manager/service_control/interface.h"
+#include "contrib/endpoints/src/api_manager/weighted_selector.h"
 
 namespace google {
 namespace api_manager {
@@ -32,75 +33,46 @@ class ApiManagerImpl : public ApiManager {
                  const std::string &service_config,
                  const std::string &server_config);
 
-  virtual bool Enabled() const { return service_context_->Enabled(); }
+  bool Enabled() const override;
 
-  virtual const std::string &service_name() const {
-    return service_context_->service_name();
-  }
+  const std::string &service_name() const override;
+  const ::google::api::Service &service(
+      const std::string &config_id) const override;
 
-  virtual const ::google::api::Service &service(
-      const std::string &config_id) const {
-    // TODO: use config_id.
-    return service_context_->service();
-  }
+  utils::Status Init() override;
+  utils::Status Close() override;
 
-  virtual utils::Status Init() {
-    if (service_context_->cloud_trace_aggregator()) {
-      service_context_->cloud_trace_aggregator()->Init();
-    }
-    if (service_control()) {
-      return service_control()->Init();
-    } else {
-      return utils::Status::OK;
-    }
-  }
+  std::unique_ptr<RequestHandlerInterface> CreateRequestHandler(
+      std::unique_ptr<Request> request) override;
 
-  virtual utils::Status Close() {
-    if (service_context_->cloud_trace_aggregator()) {
-      service_context_->cloud_trace_aggregator()->SendAndClearTraces();
-    }
-    if (service_control()) {
-      return service_control()->Close();
-    } else {
-      return utils::Status::OK;
-    }
-  }
-
-  virtual std::unique_ptr<RequestHandlerInterface> CreateRequestHandler(
-      std::unique_ptr<Request> request);
-
-  virtual utils::Status GetStatistics(ApiManagerStatistics *statistics) const {
-    if (service_control()) {
-      return service_control()->GetStatistics(
-          &statistics->service_control_statistics);
-    } else {
-      return utils::Status::OK;
-    }
-  }
-
-  virtual bool get_logging_status_disabled() {
-    return service_context_->DisableLogStatus();
+  bool get_logging_status_disabled() override {
+    return global_context_->DisableLogStatus();
   };
 
+  utils::Status GetStatistics(ApiManagerStatistics *statistics) const override;
+
   // Add a new service config.
-  void AddConfig(const std::string &service_config);
+  void AddConfig(const std::string &service_config, bool deploy_it);
+
+  // Use these configs according to the traffic percentage.
+  void DeployConfigs(std::vector<std::pair<std::string, int>> &&list);
 
  private:
-  service_control::Interface *service_control() const {
-    return service_context_->service_control();
-  }
-
   // The check work flow.
   std::shared_ptr<CheckWorkflow> check_workflow_;
 
   // Global context across multiple services.
   std::shared_ptr<context::GlobalContext> global_context_;
-  // Service context
-  // TODO: will be a map<config_id, ServiceContext>
+
+  // Service context map
   // All ServiceContext objects are referring to the same service
   // but different versions. One ESP instance needs to load
   // multiple versions in order to support service rollout automation.
-  std::shared_ptr<context::ServiceContext> service_context_;
+  std::map<std::string, std::shared_ptr<context::ServiceContext>>
+      service_context_map_;
+
+  // A weighted service selector.
+  std::unique_ptr<WeightedSelector> service_selector_;
 };
 
 }  // namespace api_manager

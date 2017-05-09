@@ -60,6 +60,8 @@ GlobalContext::GlobalContext(std::unique_ptr<ApiManagerEnvInterface> env,
       metadata_server_ = server_config_->metadata_server_config().url();
     }
 
+    service_name_ = server_config_->service_name();
+
     service_account_token_.SetClientAuthSecret(
         server_config_->google_authentication_secret());
 

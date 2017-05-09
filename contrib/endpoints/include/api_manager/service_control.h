@@ -45,6 +45,19 @@ struct Statistics {
 
   // Maximum report request size send to server.
   uint64_t max_report_size;
+
+  // Merge two statistics.
+  void Merge(const Statistics& v) {
+    total_called_checks += v.total_called_checks;
+    send_checks_by_flush += v.send_checks_by_flush;
+    send_checks_in_flight += v.send_checks_in_flight;
+    total_called_reports += v.total_called_reports;
+    send_reports_by_flush += v.send_reports_by_flush;
+    send_report_operations += v.send_report_operations;
+    if (v.max_report_size > max_report_size) {
+      max_report_size = v.max_report_size;
+    }
+  }
 };
 
 // Per request latency statistics.
