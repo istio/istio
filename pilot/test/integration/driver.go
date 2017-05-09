@@ -47,6 +47,9 @@ var (
 	verbose  bool
 	count    int
 
+	// The particular test to run, e.g. "HTTP reachability" or "routing rules"
+	testType string
+
 	kubeconfig  string
 	client      kubernetes.Interface
 	istioClient *kube.Client
@@ -79,6 +82,9 @@ func init() {
 		"kube config file (missing or empty file makes the test use in-cluster kube config instead)")
 	flag.IntVar(&count, "count", 1, "Number of times to run the tests after deploying")
 	flag.StringVar(&authmode, "auth", "both", "Enable / disable auth, or test both.")
+
+	// If specified, only run one test
+	flag.StringVar(&testType, "testtype", "", "Select test to run (default is all tests)")
 }
 
 type test interface {
@@ -159,6 +165,7 @@ func runTests(envs ...infra) {
 
 		tests := []test{
 			&http{infra: &istio},
+			&apiServerTest{infra: &istio},
 			&grpc{infra: &istio},
 			&tcp{infra: &istio},
 			&ingress{infra: &istio},
@@ -168,6 +175,11 @@ func runTests(envs ...infra) {
 		}
 
 		for _, test := range tests {
+			// If the user has specified a test, skip all other tests
+			if len(testType) > 0 && testType != test.String() {
+				continue
+			}
+
 			for i := 0; i < count; i++ {
 				log("Test run", strconv.Itoa(i))
 				if err := test.setup(); err != nil {
