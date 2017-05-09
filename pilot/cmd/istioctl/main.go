@@ -463,7 +463,7 @@ func printYamlOutput(configList []apiserver.Config) error {
 		if err != nil {
 			retVal = multierror.Append(retVal, err)
 		} else {
-			fmt.Printf("kind: %s\n", c.Type)
+			fmt.Printf("type: %s\n", c.Type)
 			fmt.Printf("name: %s\n", c.Name)
 			fmt.Printf("namespace: %s\n", namespace)
 			fmt.Println("spec:")
