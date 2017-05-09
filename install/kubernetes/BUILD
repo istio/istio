@@ -1,5 +1,5 @@
 filegroup(
-    name = "templates",
+    name = "yaml_source",
     srcs = [
         "istio.yaml",
     ],
