@@ -144,7 +144,7 @@ func TestGlobalCheckAndReport(t *testing.T) {
 	glog.Info("Successfully request to /productpage; checking Mixer status...")
 
 	resp, err := getMixerMetrics()
-	defer resp.Body.Close()
+	defer func() { glog.Infof("closed response: %v", resp.Body.Close()) }()
 	if err != nil {
 		t.Errorf("Could not get /metrics from mixer: %v", err)
 		return
@@ -188,7 +188,7 @@ func TestNewMetrics(t *testing.T) {
 	glog.Info("Successfully request to /productpage; checking Mixer status...")
 
 	resp, err := getMixerMetrics()
-	defer resp.Body.Close()
+	defer func() { glog.Infof("closed response: %v", resp.Body.Close()) }()
 	if err != nil {
 		t.Errorf("Could not get /metrics from mixer: %v", err)
 		return
@@ -239,7 +239,7 @@ func TestDenials(t *testing.T) {
 	glog.Info("Successfully request to /productpage; checking Mixer status...")
 
 	resp, err := getMixerMetrics()
-	defer resp.Body.Close()
+	defer func() { glog.Infof("closed response: %v", resp.Body.Close()) }()
 	if err != nil {
 		t.Errorf("Could not get /metrics from mixer: %v", err)
 		return
@@ -291,9 +291,11 @@ func TestRateLimit(t *testing.T) {
 	throttle := time.Tick(rate)
 	for i := 0; i < 600; i++ {
 		<-throttle // rate limit our Service.Method RPCs
+		wg.Add(1)
 		go func() {
-			wg.Add(1)
-			visitProductPage(0)
+			if err := visitProductPage(0); err != nil {
+				glog.Infof("could get productpage: %v", err)
+			}
 			wg.Done()
 		}()
 	}
@@ -303,7 +305,7 @@ func TestRateLimit(t *testing.T) {
 	glog.Info("Successfully request to /productpage; checking Mixer status...")
 
 	resp, err := getMixerMetrics()
-	defer resp.Body.Close()
+	defer func() { glog.Infof("closed response: %v", resp.Body.Close()) }()
 	if err != nil {
 		t.Errorf("Could not get /metrics from mixer: %got", err)
 		return
