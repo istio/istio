@@ -14,7 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 VERSION_FILE="${ROOT}/istio.VERSION"
 GIT_COMMIT=false
 
