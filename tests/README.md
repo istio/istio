@@ -1,7 +1,6 @@
 # Integration Testing
 
-This directory contains scripts for running a full Istio end-to-end integration test (bookinfo)
-and for updating the default Istio installation configuration.
+This directory contains scripts for running a full Istio end-to-end integration test (bookinfo).
  
 ## kubeTest.sh
 
@@ -45,29 +44,13 @@ Test an arbitrary explicit configuration:
   -c ~/go/src/istio.io/manager/istioctl-linux
 ```
 
-## updateVersion.sh
-
-The [updateVersion.sh](../updateVersion.sh) script is used to generate istio yaml installation files based on 
-the templates from [../install/kubernetes/templatest](../install/kubernetes/templates) and the image tags specified
-in [istio.VERSION](../istio.VERSION).
-
-### Options
-
-* `-m <hub>,<tag>` new manager image
-* `-x <hub>,<tag>` new mixer image
-* `-i <url>` new `istioctl` download URL
-* `-c` create a `git commit` titled "Updating istio version" for the changes
-
-Default values for the `-m`, `-x`, and `-i` options are as specified in `istio.VERSION`
-(i.e., they are left unchanged).
-
 ## Developer process 
 
 1. Run `kubeTest.sh -m "<manager hub>,<manager tag>"`, `kubeTest.sh -x "<mixer hub>,<mixer tag>"`,
    or `kubeTest.sh -c "<istioctl binary>"` to test your changes to manager, mixer, 
    or istioctl, respectively. 
 2. Submit a PR with your changes to `istio/manager` or `istio/mixer`.
-3. Run `updateVersion.sh` to update the default Istio install configuration and then
+3. Run `../install/updateVersion.sh` to update the default Istio install configuration and then
    submit a PR  to `istio/istio` for the version change.
    
    >>> Note: in the future step 3 will be done by the Jenkins build automatically

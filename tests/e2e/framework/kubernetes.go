@@ -33,7 +33,7 @@ const (
 	mixerTagEnvVar   = "MIXER_TAG"
 	managerHubEnvVar = "MANAGER_HUB"
 	managerTagEnvVar = "MANAGER_TAG"
-	istioInstallDir  = "install/kubernetes/templates"
+	istioInstallDir  = "install/kubernetes"
 )
 
 var (
@@ -45,12 +45,6 @@ var (
 	caHub        = flag.String("ca_hub", "", "Ca hub")
 	caTag        = flag.String("ca_tag", "", "Ca tag")
 	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
-
-	modules = []string{
-		"manager",
-		"mixer",
-		"ingress",
-	}
 )
 
 // KubeInfo gathers information for kubectl
@@ -152,47 +146,30 @@ func (k *KubeInfo) Teardown() error {
 }
 
 func (k *KubeInfo) deployIstio() error {
-	for _, module := range modules {
-		if err := k.deployIstioCore(module); err != nil {
-			glog.Infof("Failed to deploy %s", module)
-			return err
-		}
-	}
-	return nil
-}
-
-// DeployIstioCore deploy istio module from yaml files
-func (k *KubeInfo) deployIstioCore(module string) error {
-	yamlFile := filepath.Join(k.TmpDir, "yaml", fmt.Sprintf("istio-%s.yaml", module))
-	if err := k.generateIstioCore(yamlFile, module); err != nil {
+	yamlFile := filepath.Join(k.TmpDir, "yaml", "istio.yaml")
+	if err := k.generateIstioCore(yamlFile); err != nil {
 		return err
 	}
 	if err := util.KubeApply(k.Namespace, yamlFile); err != nil {
 		glog.Errorf("Kubectl apply %s failed", yamlFile)
 		return err
 	}
-
 	return nil
 }
 
-func (k *KubeInfo) generateIstioCore(dst, module string) error {
-	src := util.GetResourcePath(filepath.Join(istioInstallDir, fmt.Sprintf("istio-%s.yaml", module)))
-	ori, err := ioutil.ReadFile(src)
+func (k *KubeInfo) generateIstioCore(dst string) error {
+	src := util.GetResourcePath(filepath.Join(istioInstallDir, "istio.yaml"))
+	content, err := ioutil.ReadFile(src)
 	if err != nil {
 		glog.Errorf("Cannot read original yaml file %s", src)
 		return err
 	}
-	var image []byte
-	switch module {
-	case "manager":
-		image = []byte(fmt.Sprintf("image: %s", k.ManagerImage))
-	case "mixer":
-		image = []byte(fmt.Sprintf("image: %s", k.MixerImage))
-	case "ingress":
-		image = []byte(fmt.Sprintf("image: %s", k.ProxyImage))
-	}
-	r := regexp.MustCompile(`image: .*(\/.*):.*`)
-	content := r.ReplaceAllLiteral(ori, image)
+	r := regexp.MustCompile(`image: .*\/manager:.*`)
+	content = r.ReplaceAllLiteral(content, []byte(fmt.Sprintf("image: %s", k.ManagerImage)))
+	r = regexp.MustCompile(`image: .*\/mixer:.*`)
+	content = r.ReplaceAllLiteral(content, []byte(fmt.Sprintf("image: %s", k.MixerImage)))
+	r = regexp.MustCompile(`image: .*\/proxy:.*`)
+	content = r.ReplaceAllLiteral(content, []byte(fmt.Sprintf("image: %s", k.ProxyImage)))
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into generated yaml file %s", dst)

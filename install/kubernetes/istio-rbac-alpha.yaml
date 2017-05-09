@@ -3,6 +3,7 @@
 # Also helps to enable logging on apiserver 'wrap' to see the URLs.
 # Each RBAC deny needs to be mapped into a rule for the role.
 # If using minikube, start with '--extra-config=apiserver.Authorization.Mode=RBAC'
+
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1alpha1
 metadata:
