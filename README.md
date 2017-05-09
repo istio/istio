@@ -1,5 +1,5 @@
 # Istio
-A service mesh for polyglot microservices.
+An open platform to connect, manage, and secure microservices.
 
 - [Introduction](#introduction)
 - [Repositories](#repositories)
@@ -39,6 +39,11 @@ platform, although we plan support for additional platforms such as
 Cloud Foundry, and Mesos in the near future.
 
 You can learn all about Istio by visiting [istio.io](https://istio.io).     
+
+## Istio Authors
+
+Istio is an open source project with an active development community. The project was started 
+by teams from Google and IBM, in partnership with the Envoy team at Lyft.
 
 ## Repositories
 
