@@ -76,20 +76,18 @@ added as necessary.
 The Istio project is continually evolving so the Istio sidecar
 configuration may change unannounced. When in doubt re-run istioctl
 kube-inject on deployments to get the most up-to-date changes.
+`,
+		Example: `
+# Update resources on the fly before applying.
+kubectl apply -f <(istioctl kube-inject -f <resource.yaml>)
 
-Example usage:
+# Create a persistent version of the deployment with Envoy sidecar
+# injected. This is particularly useful to understand what is
+# being injected before committing to Kubernetes API server.
+istioctl kube-inject -f deployment.yaml -o deployment-with-istio.yaml
 
-	# Update resources on the fly before applying.
-	kubectl apply -f <(istioctl kube-inject -f <resource.yaml>)
-
-	# Create a persistent version of the deployment with Envoy sidecar
-	# injected. This is particularly useful to understand what is
-	# being injected before committing to Kubernetes API server.
-	istioctl kube-inject -f deployment.yaml -o deployment-with-istio.yaml
-
-	# Update an existing deployment.
-	kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
-
+# Update an existing deployment.
+kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 `,
 		RunE: func(_ *cobra.Command, _ []string) (err error) {
 			if inFilename == "" {

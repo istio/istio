@@ -101,11 +101,9 @@ Create and list Mixer rules in the configuration server.
 	mixerRuleCreateCmd = &cobra.Command{
 		Use:   "create",
 		Short: "Create Istio Mixer rules",
-		Long: `
-Example usage:
-
-    # Create a new Mixer rule for the given scope and subject.
-    istioctl mixer rule create global myservice.ns.svc.cluster.local -f mixer-rule.yml
+		Example: `
+# Create a new Mixer rule for the given scope and subject.
+istioctl mixer rule create global myservice.ns.svc.cluster.local -f mixer-rule.yml
 `,
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 2 || mixerFile == "" {
@@ -123,11 +121,10 @@ Example usage:
 		Short: "Get Istio Mixer rules",
 		Long: `
 Get a Mixer rule for a given scope and subject.
-
-Example usage:
-
-	# Get the Mixer rule with scope='global' and subject='myservice.ns.svc.cluster.local'
-    istioctl mixer rule get global myservice.ns.svc.cluster.local
+`,
+		Example: `
+# Get the Mixer rule with scope='global' and subject='myservice.ns.svc.cluster.local'
+istioctl mixer rule get global myservice.ns.svc.cluster.local
 `,
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 2 {

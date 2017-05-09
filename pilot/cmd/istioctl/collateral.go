@@ -40,16 +40,14 @@ var (
 		Long: `
 Output shell completion code for the bash shell. The shell output must
 be evaluated to provide interactive completion of istioctl
-commands.
+commands.`,
+		Example: `
+# Add the following to .bash_profile.
+source <(istioctl completion)
 
-Examples:
-
-    # Add the following to .bash_profile.
-    source <(istioctl completion)
-
-    # Create a separate completion file and source that from .bash_profile
-    istioctl completion > ~/.istioctl-complete.bash
-    echo "source ~/.istioctl-complete.bash" >> ~/.bash_profile
+# Create a separate completion file and source that from .bash_profile
+istioctl completion > ~/.istioctl-complete.bash
+echo "source ~/.istioctl-complete.bash" >> ~/.bash_profile
 `,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return rootCmd.GenBashCompletion(os.Stdout)
