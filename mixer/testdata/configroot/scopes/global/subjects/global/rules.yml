@@ -40,7 +40,7 @@ rules:
         # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
         value: "1"
         labels:
-          source: source.service | "unknown"
+          source: source.labels["app"] | "unknown"
           target: target.service | "unknown"
           service: target.labels["app"] | "unknown"
           method: request.path | "unknown"
@@ -48,7 +48,7 @@ rules:
       - descriptor_name:  request_duration
         value: response.latency | response.duration | "0ms"
         labels:
-          source: source.service | "unknown"
+          source: source.labels["app"] | "unknown"
           target: target.service | "unknown"
           service: target.labels["app"] | "unknown"
           method: request.path | "unknown"
