@@ -74,7 +74,22 @@ func (t *testConfig) Setup() error {
 		src := util.GetResourcePath(filepath.Join(rulesDir, fmt.Sprintf("%s", rule)))
 		dest := filepath.Join(t.rulesDir, rule)
 		if err := os.Link(src, dest); err != nil {
-			glog.Errorf("Could not link rules file '%s': %v", src, err)
+			srcFile, err := os.Open(src)
+			if err != nil {
+				glog.Errorf("Could not open rules file '%s': %v", src, err)
+				return err
+			}
+			defer func() { glog.Infof("Closing source rules file: %v", srcFile.Close()) }()
+			destFile, err := os.Create(dest)
+			if err != nil {
+				glog.Errorf("Could not open rules file '%s': %v", src, err)
+				return err
+			}
+			defer func() { glog.Infof("Closing destination rules file: %v", destFile.Close()) }()
+			if _, err := io.Copy(destFile, srcFile); err != nil {
+				glog.Errorf("Could not copy rules file '%s': %v", src, err)
+			}
+			return destFile.Sync()
 		}
 	}
 	return nil
