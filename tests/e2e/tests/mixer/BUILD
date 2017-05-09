@@ -17,6 +17,9 @@ go_test(
     name = "large_tests",
     size = "large",
     srcs = ["mixer_test.go"],
+    data = [
+        "//demos/apps/bookinfo",
+    ],
     tags = ["manual"],
     deps = [
         "//tests/e2e/framework:go_default_library",
