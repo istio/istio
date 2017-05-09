@@ -94,6 +94,9 @@ def stablePostsubmit(gitUtils, bazel, utils) {
       def date = new Date().format("YYYY-MM-dd-HH.mm.ss")
       def images = 'mixer,mixer_debug'
       def tags = "${env.GIT_SHORT_SHA},${date},latest"
+      if (env.GIT_TAG != '') {
+        tags += ",${env.GIT_TAG}"
+      }
       utils.publishDockerImagesToDockerHub(images, tags)
       utils.publishDockerImagesToContainerRegistry(images, tags, '', 'gcr.io/istio-io')
     }
