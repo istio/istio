@@ -1,5 +1,6 @@
-# GENERATED FILE. Use with Kubernetes 1.5+
-# TO UPDATE, modify files in install/kubernetes/templates and run updateVersion.sh
+# Use with Kubernetes 1.5+
+# DO NOT UPDATE images in this file manually, run ../updateVersion.sh instead.
+
 # Mixer
 apiVersion: v1
 kind: Service
