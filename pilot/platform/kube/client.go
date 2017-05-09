@@ -411,8 +411,22 @@ func (cl *Client) GetTLSSecret(uri string) (*model.TLSSecret, error) {
 // the a Kubernetes service.
 // (see https://kubernetes.io/docs/concepts/cluster-administration/access-cluster/#discovering-builtin-services)
 func (cl *Client) Request(namespace, service, method, path string, inBody []byte) (int, []byte, error) {
-	absPath := fmt.Sprintf("api/v1/namespaces/%s/services/%s/proxy/%s/%s",
-		namespace, service, IstioResourceVersion, path)
+	// Kubernetes apiserver proxy prefix for the specified namespace and service.
+	absPath := fmt.Sprintf("api/v1/namespaces/%s/services/%s/proxy", namespace, service)
+
+	// TODO(https://github.com/istio/api/issues/94) - Manager and
+	// mixer API server paths are not consistent. Manager path is
+	// prefixed with Istio resource version (i.e. v1alpha1) and mixer
+	// path is not. Short term workaround is to special case this
+	// behavior. Long term solution is to unify API scheme and server
+	// implementations.
+	if strings.HasPrefix(path, "config") {
+		absPath += "/" + IstioResourceVersion // manager api server patha
+	}
+
+	// API server resource path.
+	absPath += "/" + path
+
 	var status int
 	outBody, err := cl.dyn.Verb(method).
 		AbsPath(absPath).
