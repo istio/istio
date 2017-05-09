@@ -95,12 +95,13 @@ Mixer's code into your GOPATH. Note: the commands below will not work if
 there is more than one directory in your `$GOPATH`.
 
 ```shell
-export ISTIO=~/go/src/istio.io
-mkdir -p $ISTIO/mixer
+export ISTIO=$GOPATH/src/istio.io # eg. ~/go/src/istio.io
+mkdir -p $ISTIO
 cd $ISTIO
 
-# Replace "$YOUR_GITHUB_USERNAME" below with your github username
-git clone https://github.com/$YOUR_GITHUB_USERNAME/mixer.git
+# Replace "$GITHUB_USER" below with your github username
+export GITHUB_USER=$USER # replace with actual if different
+git clone https://github.com/$GITHUB_USER/mixer.git
 cd mixer
 git remote add upstream 'https://github.com/istio/mixer.git'
 git config --global --add http.followRedirects 1
@@ -112,7 +113,7 @@ passes local test.
 
 Run
 ```shell
-user@host:~/GOHOME/src/istio.io/mixer$ bin/pre-commit
+user@host:~/GOHOME/src/istio.io/mixer$ ./bin/pre-commit
 Installing pre-commit hook
 ```
 This hook is invoked every time you commit changes locally.
@@ -152,7 +153,7 @@ git push -f origin my-feature
 
 ### Creating a pull request
 
-1. Visit https://github.com/$YOUR_GITHUB_USERNAME/mixer
+1. Visit https://github.com/$GITHUB_USER/mixer
 2. Click the "Compare & pull request" button next to your "my-feature" branch.
 
 ### Getting a code review
@@ -189,6 +190,17 @@ bazel build ...
 ```
 
 This figures out what it needs to do and does not need any input from you.
+
+### Setup bazel and go links
+
+Symlinks bazel artifacts into the standard go structure so standard go
+tooling functions correctly
+
+```shell
+./bin/bazel_to_go.py
+```
+(You can safely ignore some errors like
+`com_github_opencontainers_go_digest Does not exist`)
 
 ### Cleaning outputs
 
@@ -288,16 +300,22 @@ passed both unit and integration tests. We only merges pull requests when
 
 ## Using Mixer
 
-Once you've built the source base, you can run Mixer in a basic mode using:
+You will need to edit
+[`testdata/configroot/scopes/global/adapters.yml`](../../testdata/configroot/scopes/global/adapters.yml)
+to setup kubeconfig per the instructions at the end of the file
+
+Then and once you've built the source tree, you can run Mixer in a basic mode using:
 
 ```shell
-bazel-bin/cmd/server/mixs server \
-  --globalConfigFile testdata/globalconfig.yml \
-  --serviceConfigFile testdata/serviceconfig.yml  --logtostderr
+./bazel-bin/cmd/server/mixs server \
+  --configStoreURL=fs://$(pwd)/testdata/configroot \
+  --alsologtostderr
 ```
 
 You can also run a simple client to interact with the server:
 
 ```shell
-bazel-bin/cmd/client/mixc check
+./bazel-bin/cmd/client/mixc check -a target.service=f.default.svc.cluster.local \
+  --string_attributes source.uid=kubernetes://xyz.default
+Check RPC returned OK
 ```
