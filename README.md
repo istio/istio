@@ -2,6 +2,7 @@
 An open platform to connect, manage, and secure microservices.
 
 - [Introduction](#introduction)
+- [Istio Authors](#istio-authors)
 - [Repositories](#repositories)
 - [Contributing to the project](#contributing-to-the-project)
 - [Community and support](#community-and-support)
@@ -13,6 +14,8 @@ microservices, manage traffic flow across microservices, enforce policies
 and aggregate telemetry data. Istio's control plane provides an abstraction
 layer over the underlying cluster management platform, such as Kubernetes,
 Mesos, etc.
+
+Visit [istio.io](https://istio.io) for in-depth information about using Istio.     
 
 Istio is composed of three main components:
 
@@ -37,8 +40,6 @@ Istio is composed of three main components:
 Istio currently only supports the Kubernetes
 platform, although we plan support for additional platforms such as
 Cloud Foundry, and Mesos in the near future.
-
-You can learn all about Istio by visiting [istio.io](https://istio.io).     
 
 ## Istio Authors
 
