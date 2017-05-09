@@ -1,0 +1,9 @@
+destination: {{.destination}}.{{.Namespace}}.svc.cluster.local
+precedence: 3
+match:
+  httpHeaders:
+    testredirect:
+      exact: enabled
+redirect:
+  uri: {{.path}}
+  authority: {{.hostRedirect}}

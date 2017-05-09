@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -32,9 +33,10 @@ type routing struct {
 }
 
 const (
-	defaultRoute = "default-route"
-	contentRoute = "content-route"
-	faultRoute   = "fault-route"
+	defaultRoute  = "default-route"
+	contentRoute  = "content-route"
+	faultRoute    = "fault-route"
+	redirectRoute = "redirect-route"
 )
 
 func (t *routing) String() string {
@@ -110,6 +112,23 @@ func (t *routing) run() error {
 	}
 	glog.Info("Success!")
 
+	glog.Info("Testing redirect..")
+	redirectHost := "b"
+	redirectPath := "/new/path"
+	if err := t.applyConfig("rule-redirect-injection.yaml.tmpl", map[string]string{
+		"source":       "a",
+		"destination":  "c",
+		"hostRedirect": redirectHost,
+		"path":         redirectPath,
+		"Namespace":    t.Namespace,
+	}, model.RouteRule, redirectRoute); err != nil {
+		return err
+	}
+	if err := t.verifyRedirect("a", "c", redirectHost, redirectPath, "testredirect", "enabled", 200); err != nil {
+		return err
+	}
+	glog.Info("Success!")
+
 	return nil
 }
 
@@ -172,5 +191,42 @@ func (t *routing) verifyFaultInjection(src, dst, headerKey, headerVal string,
 			"response time is %s with status code %s, "+
 			"expected response time is %s +/- %s with status code %d", elapsed, statusCode, respTime, epsilon, respCode)
 	}
+	return nil
+}
+
+// verifyRedirect verifies if the http redirect was setup properly
+func (t *routing) verifyRedirect(src, dst, targetHost, targetPath, headerKey, headerVal string, respCode int) error {
+	url := fmt.Sprintf("http://%s/%s", dst, src)
+	glog.Infof("Making 1 request (%s) from %s...\n", url, src)
+
+	resp := t.clientRequest(src, url, 1, fmt.Sprintf("-key %s -val %s", headerKey, headerVal))
+	if len(resp.code) == 0 || resp.code[0] != fmt.Sprint(respCode) {
+		return fmt.Errorf("redirect verification failed: "+
+			"response status code: %v, expected %v",
+			resp.code, respCode)
+	}
+
+	var host string
+	if matches := regexp.MustCompile("(?i)Host=(.*)").FindStringSubmatch(resp.body); len(matches) >= 2 {
+		host = matches[1]
+	}
+	if host != targetHost {
+		return fmt.Errorf("redirect verification failed: "+
+			"response body contains Host=%v, expected Host=%v",
+			host, targetHost)
+	}
+
+	exp := regexp.MustCompile("(?i)URL=(.*)")
+	paths := exp.FindAllStringSubmatch(resp.body, -1)
+	var path string
+	if len(paths) > 1 {
+		path = paths[1][1]
+	}
+	if path != targetPath {
+		return fmt.Errorf("redirect verification failed: "+
+			"response body contains URL=%v, expected URL=%v",
+			path, targetPath)
+	}
+
 	return nil
 }
