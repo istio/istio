@@ -33,7 +33,7 @@ const (
 	mixerTagEnvVar   = "MIXER_TAG"
 	managerHubEnvVar = "MANAGER_HUB"
 	managerTagEnvVar = "MANAGER_TAG"
-	istioInstallDir  = "kubernetes/istio-install"
+	istioInstallDir  = "install/kubernetes/templates"
 )
 
 var (
@@ -82,7 +82,7 @@ func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
 		*namespace = runID
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *managerHub, *managerTag)
+	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *managerHub, *managerTag)
 	if err != nil {
 		return nil, err
 	}

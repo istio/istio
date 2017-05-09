@@ -1,5 +1,5 @@
-# GENERATED FILE. Use for Kubernetes 1.5 or earlier.
-# TO UPDATE, modify files in istio-install and run updateVersion.sh
+# GENERATED FILE. Use with Kubernetes 1.5+
+# TO UPDATE, modify files in install/kubernetes/templates and run updateVersion.sh
 # Mixer
 apiVersion: v1
 kind: Service
@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
       - name: mixer
-        image: docker.io/istio/mixer:2017-05-04-23.05.56
+        image: docker.io/istio/mixer:2017-05-09-02.32.46
         imagePullPolicy: Always
         ports:
         - containerPort: 9091
@@ -53,7 +53,7 @@ metadata:
 data:
   mesh: |-
     # Uncomment the following line to enable mutual TLS between proxies
-    authPolicy: MUTUAL_TLS
+    # authPolicy: MUTUAL_TLS
     mixerAddress: istio-mixer:9091
     discoveryAddress: istio-manager:8080
     ingressService: istio-ingress
@@ -68,6 +68,8 @@ spec:
   ports:
   - port: 8080
     name: http-discovery
+  - port: 8081
+    name: http-apiserver
   selector:
     istio: manager
 ---
@@ -92,7 +94,7 @@ spec:
       serviceAccountName: istio-manager-service-account
       containers:
       - name: discovery
-        image: docker.io/istio/manager:2017-05-04-01.28.54
+        image: docker.io/istio/manager:2017-05-09-06.14.22
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:
@@ -104,7 +106,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
       - name: apiserver
-        image: docker.io/istio/manager:2017-05-04-01.28.54
+        image: docker.io/istio/manager:2017-05-09-06.14.22
         imagePullPolicy: Always
         args: ["apiserver", "-v", "2"]
         ports:
@@ -116,9 +118,8 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
 ---
-
 ################################
-# Istio ingress controller with Istio auth
+# Istio ingress controller
 ################################
 apiVersion: v1
 kind: Service
@@ -134,6 +135,11 @@ spec:
     name: http
   selector:
     istio: ingress
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingress-service-account
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -156,7 +162,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: docker.io/istio/proxy:2017-05-04-01.28.54
+        image: docker.io/istio/proxy:2017-05-09-06.14.22
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: Always
         ports:
@@ -167,18 +173,10 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        volumeMounts:
-        - mountPath: /etc/certs
-          name: istio-certs
-          readOnly: true
-      volumes:
-      - name: istio-certs
-        secret:
-          secretName: istio.default
 ---
 
 ################################
-# Istio egress envoy with Istio auth
+# Istio egress envoy
 ################################
 apiVersion: v1
 kind: Service
@@ -203,53 +201,11 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: docker.io/istio/proxy:2017-05-04-01.28.54
+        image: docker.io/istio/proxy:2017-05-09-06.14.22
         imagePullPolicy: Always
         args: ["proxy", "egress", "-v", "2"]
         env:
         - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        volumeMounts:
-        - mountPath: /etc/certs
-          name: istio-certs
-          readOnly: true
-      volumes:
-      - name: istio-certs
-        secret:
-          secretName: istio.default
----
-
-# This CA only issues certs/keys for the namespace it runs in.
-# For demo only. Please use istio-cluster-ca.yaml for real-world use cases.
-# Service account CA runs in.
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-ca-service-account
----
-# Istio CA
-apiVersion: v1
-kind: Deployment
-apiVersion: extensions/v1beta1
-metadata:
-  name: istio-ca
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        istio: istio-ca
-    spec:
-      serviceAccountName: istio-ca-service-account
-      containers:
-      - name: istio-ca
-        image: docker.io/istio/istio-ca:2017-04-13-17.43.08
-        imagePullPolicy: IfNotPresent
-        env:
-        - name: NAMESPACE
           valueFrom:
             fieldRef:
               apiVersion: v1
