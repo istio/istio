@@ -288,7 +288,7 @@ git_repository(
 ### About testing
 
 Before sending pull requests you should at least make sure your changes have
-passed both unit and integration tests. We only merges pull requests when
+passed both unit and integration tests. We only merge pull requests when
 **all** tests are passing.
 
 * Unit tests should be fully hermetic
