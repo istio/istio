@@ -209,26 +209,24 @@ void HttpControl::Check(HttpRequestDataPtr request_data, HeaderMap& headers,
   FillCheckAttributes(headers, &request_data->attributes);
   SetStringAttribute(kOriginUser, origin_user, &request_data->attributes);
   log().debug("Send Check: {}", request_data->attributes.DebugString());
+  mixer_client_->Check(request_data->attributes, on_done);
+}
 
-  auto check_on_done = [this, on_done, request_data](const Status& status) {
-    if (status.ok()) {
-      if (!quota_attributes_.attributes.empty()) {
-        for (const auto& attribute : quota_attributes_.attributes) {
-          request_data->attributes.attributes[attribute.first] =
-              attribute.second;
-        }
-        // quota() needs all the attributes that check() needs
-        // operator may apply conditional quota using attributes in selectors.
-        // mixerClient::GenerateSignature should be updated
-        // to exclude non identifying attributes
-        log().debug("Send Quota: {}", request_data->attributes.DebugString());
-        mixer_client_->Quota(request_data->attributes, on_done);
-        return;  // Not to call on_done again.
-      }
-    }
-    on_done(status);
-  };
-  mixer_client_->Check(request_data->attributes, check_on_done);
+void HttpControl::Quota(HttpRequestDataPtr request_data, DoneFunc on_done) {
+  if (quota_attributes_.attributes.empty()) {
+    on_done(Status::OK);
+    return;
+  }
+
+  for (const auto& attribute : quota_attributes_.attributes) {
+    request_data->attributes.attributes[attribute.first] = attribute.second;
+  }
+  // quota() needs all the attributes that check() needs
+  // operator may apply conditional quota using attributes in selectors.
+  // mixerClient::GenerateSignature should be updated
+  // to exclude non identifying attributes
+  log().debug("Send Quota: {}", request_data->attributes.DebugString());
+  mixer_client_->Quota(request_data->attributes, on_done);
 }
 
 void HttpControl::Report(HttpRequestDataPtr request_data,

@@ -183,7 +183,7 @@ class Instance : public Http::StreamDecoderFilter,
   std::shared_ptr<Instance> GetPtr() { return shared_from_this(); }
 
   // Jump thread; on_done will be called at the dispatcher thread.
-  DoneFunc wrapper(DoneFunc on_done) {
+  DoneFunc GetThreadJumpFunc(DoneFunc on_done) {
     auto& dispatcher = decoder_callbacks_->dispatcher();
     return [&dispatcher, on_done](const Status& status) {
       dispatcher.post([status, on_done]() { on_done(status); });
@@ -217,8 +217,8 @@ class Instance : public Http::StreamDecoderFilter,
 
     auto instance = GetPtr();
     http_control_->Check(request_data_, headers, origin_user,
-                         wrapper([instance](const Status& status) {
-                           instance->completeCheck(status);
+                         GetThreadJumpFunc([instance](const Status& status) {
+                           instance->callQuota(status);
                          }));
     initiating_call_ = false;
 
@@ -261,6 +261,18 @@ class Instance : public Http::StreamDecoderFilter,
     decoder_callbacks_ = &callbacks;
     decoder_callbacks_->addResetStreamCallback(
         [this]() { state_ = Responded; });
+  }
+
+  void callQuota(const Status& status) {
+    if (!status.ok()) {
+      completeCheck(status);
+      return;
+    }
+    auto instance = GetPtr();
+    http_control_->Quota(request_data_,
+                         GetThreadJumpFunc([instance](const Status& status) {
+                           instance->completeCheck(status);
+                         }));
   }
 
   void completeCheck(const Status& status) {
