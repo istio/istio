@@ -1,7 +1,8 @@
-type: mixer-rule
-name: ratings-ratelimit
-spec:
-  selector: target.service == "ratings.default.svc.cluster.local"
-  aspects:
+rules:
+- aspects:
   - kind: quotas
     params:
+      quotas:
+      - descriptorName: RequestCount
+        maxAmount: 5
+        expiration: 1s

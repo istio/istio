@@ -138,3 +138,21 @@ http_file(
     sha256 = "9a4140b0b599612af1006efeee1c6b98771b0bc8dcdcd0510218ef69d6652c7f",
     url = "http://mirrors.kernel.org/ubuntu/pool/main/i/iptables/libxtables11_1.6.0-2ubuntu3_amd64.deb",
 )
+
+new_go_repository(
+    name = "com_github_prometheus_common",
+    commit = "13ba4ddd0caa9c28ca7b7bffe1dfa9ed8d5ef207",
+    importpath = "github.com/prometheus/common",
+)
+
+new_go_repository(
+    name = "com_github_prometheus_client_model",
+    commit = "fa8ad6fec33561be4280a8f0514318c79d7f6cb6",  # Feb 12, 2015 (only release too old)
+    importpath = "github.com/prometheus/client_model",
+)
+
+new_go_repository(
+    name = "com_github_matttproud_golang_protobuf_extensions",
+    commit = "c12348ce28de40eed0136aa2b644d0ee0650e56c",  # Apr 24, 2016 (v1.0.0)
+    importpath = "github.com/matttproud/golang_protobuf_extensions",
+)
