@@ -360,7 +360,7 @@ func (mb *MutableBag) update(dictionary dictionary, attrs *mixerpb.Attributes) e
 	for k, v := range attrs.StringMapAttributes {
 		m, ok := mb.values[dictionary[k]].(map[string]string)
 		if !ok {
-			m = make(map[string]string)
+			m = make(map[string]string, len(v.Map))
 			mb.values[dictionary[k]] = m
 		}
 

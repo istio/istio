@@ -19,6 +19,7 @@ import (
 	"math/rand"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -323,8 +324,11 @@ func TestConcurrencyWithCache(t *testing.T) {
 	}
 
 	exprs := []string{"a.b", "c | d", "p.q | 0", "x | 0"}
-	done := make(chan bool)
+
 	loopCount := 100
+	var wg sync.WaitGroup
+	wg.Add(loopCount)
+
 	for i := 0; i < loopCount; i++ {
 		go func() {
 			exprStr := exprs[rand.Intn(len(exprs))]
@@ -332,13 +336,10 @@ func TestConcurrencyWithCache(t *testing.T) {
 			if err != nil {
 				t.Errorf("Parsing of expression '%s' failed with error '%v'", exprStr, err)
 			}
-			done <- true
+			wg.Done()
 		}()
 	}
-
-	for i := 0; i < loopCount; i++ {
-		<-done
-	}
+	wg.Wait()
 
 	if cexl.cache.Len() != len(exprs) {
 		t.Errorf("Invalid cache after %d calls to expressions %v: Got cache size %d with content %v; Expected cache size %d with entries for %v",
