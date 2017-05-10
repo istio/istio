@@ -74,16 +74,8 @@ func (t *testConfig) Setup() error {
 	for _, rule := range rules {
 		src := util.GetResourcePath(filepath.Join(rulesDir, fmt.Sprintf("%s", rule)))
 		dest := filepath.Join(t.rulesDir, rule)
-		ori, err := ioutil.ReadFile(src)
-		if err != nil {
-			glog.Errorf("Failed to read original rule file %s", src)
-			return err
-		}
-		content := string(ori)
-		err = ioutil.WriteFile(dest, []byte(content), 0600)
-		if err != nil {
-			glog.Errorf("Failed to write into new rule file %s", dest)
-			return err
+		if err := os.Link(src, dest); err != nil {
+			glog.Errorf("Could not link rules file '%s': %v", src, err)
 		}
 	}
 	return nil
