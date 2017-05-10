@@ -47,7 +47,7 @@ spec:
       serviceAccountName: istio-manager-service-account
       containers:
       - name: discovery
-        image: docker.io/istio/manager:0.1.0
+        image: {MANAGER_HUB}/manager:{MANAGER_TAG}
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:
@@ -59,7 +59,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
       - name: apiserver
-        image: docker.io/istio/manager:0.1.0
+        image: {MANAGER_HUB}/manager:{MANAGER_TAG}
         imagePullPolicy: Always
         args: ["apiserver", "-v", "2"]
         ports:

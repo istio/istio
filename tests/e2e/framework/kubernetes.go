@@ -91,11 +91,6 @@ func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
 	return &KubeInfo{
 		Namespace:        *namespace,
 		namespaceCreated: false,
-		MixerImage:       fmt.Sprintf("%s/mixer:%s", *mixerHub, *mixerTag),
-		ManagerImage:     fmt.Sprintf("%s/manager:%s", *managerHub, *managerTag),
-		CaImage:          fmt.Sprintf("%s/ca:%s", *caHub, *caTag),
-		// Proxy and Manager are released together and share the same hub and tag.
-		ProxyImage:   fmt.Sprintf("%s/proxy_debug:%s", *managerHub, *managerTag),
 		TmpDir:       tmpDir,
 		yamlDir:      yamlDir,
 		localCluster: *localCluster,
@@ -177,22 +172,27 @@ func (k *KubeInfo) deployIstioCore(module string) error {
 
 func (k *KubeInfo) generateIstioCore(dst, module string) error {
 	src := util.GetResourcePath(filepath.Join(istioInstallDir, fmt.Sprintf("istio-%s.yaml", module)))
-	ori, err := ioutil.ReadFile(src)
+	content, err := ioutil.ReadFile(src)
 	if err != nil {
 		glog.Errorf("Cannot read original yaml file %s", src)
 		return err
 	}
-	var image []byte
+	var hub_macro, tag_macro string
 	switch module {
 	case "manager":
-		image = []byte(fmt.Sprintf("image: %s", k.ManagerImage))
+		hub_macro, tag_macro = `{MANAGER_HUB}`, `{MANAGER_TAG}`
+		hub_value, tag_value = *managerHub, *managerTag
 	case "mixer":
-		image = []byte(fmt.Sprintf("image: %s", k.MixerImage))
+		hub_macro, tag_macro = `{MIXER_HUB}`, `{MIXER_TAG}`
+		hub_value, tag_value = *mixerHub, *mixerTag
 	case "ingress":
-		image = []byte(fmt.Sprintf("image: %s", k.ProxyImage))
+		hub_macro, tag_macro = `{PROXY_HUB}`, `{PROXY_TAG}`
+		hub_value, tag_value = *managerHub, *managerTag
 	}
-	r := regexp.MustCompile(`image: .*(\/.*):.*`)
-	content := r.ReplaceAllLiteral(ori, image)
+	r := regexp.MustCompile(hub_macro)
+	content = r.ReplaceAllLiteral(content, hub_value)
+	r = regexp.MustCompile(tag_macro)
+	content = r.ReplaceAllLiteral(content, tag_value)
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into generated yaml file %s", dst)
