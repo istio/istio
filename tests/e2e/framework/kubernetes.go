@@ -178,16 +178,17 @@ func (k *KubeInfo) generateIstioCore(dst, module string) error {
 		return err
 	}
 	var hub_macro, tag_macro string
+	var hub_value, tag_value []byte
 	switch module {
 	case "manager":
 		hub_macro, tag_macro = `{MANAGER_HUB}`, `{MANAGER_TAG}`
-		hub_value, tag_value = *managerHub, *managerTag
+		hub_value, tag_value = []byte(*managerHub), []byte(*managerTag)
 	case "mixer":
 		hub_macro, tag_macro = `{MIXER_HUB}`, `{MIXER_TAG}`
-		hub_value, tag_value = *mixerHub, *mixerTag
+		hub_value, tag_value = []byte(*mixerHub), []byte(*mixerTag)
 	case "ingress":
 		hub_macro, tag_macro = `{PROXY_HUB}`, `{PROXY_TAG}`
-		hub_value, tag_value = *managerHub, *managerTag
+		hub_value, tag_value = []byte(*managerHub), []byte(*managerTag)
 	}
 	r := regexp.MustCompile(hub_macro)
 	content = r.ReplaceAllLiteral(content, hub_value)
