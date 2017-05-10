@@ -16,7 +16,7 @@ rules:
   verbs: ["*"]
 - apiGroups: [""]
   resources: ["configmaps", "endpoints", "pods", "services"]
-  verbs: ["get", "watch", "list"]
+  verbs: ["*"]
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
