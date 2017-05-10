@@ -39,7 +39,7 @@ done
 
 # Always use debug images
 bazel $BAZEL_ARGS run //docker:proxy_debug
-docker tag istio/docker:proxy_debug $hub/proxy:$tag
-docker push $hub/proxy:$tag
+docker tag istio/docker:proxy_debug $hub/proxy_debug:$tag
+docker push $hub/proxy_debug:$tag
 
 bazel $BAZEL_ARGS run //test/integration -- --logtostderr $args

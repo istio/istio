@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: {{.Hub}}/proxy:{{.Tag}}
+        image: {{.Hub}}/proxy_debug:{{.Tag}}
         args: ["proxy", "ingress", "-v", "{{.Verbosity}}"]
         imagePullPolicy: Always
         ports:

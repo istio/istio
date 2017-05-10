@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: {{.Hub}}/proxy:{{.Tag}}
+        image: {{.Hub}}/proxy_debug:{{.Tag}}
         imagePullPolicy: Always
         ports:
         - containerPort: 80

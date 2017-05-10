@@ -29,7 +29,7 @@ func TestImageName(t *testing.T) {
 	if got := InitImageName("docker.io/istio", "latest"); got != want {
 		t.Errorf("InitImageName() failed: got %q want %q", got, want)
 	}
-	want = "docker.io/istio/proxy:latest"
+	want = "docker.io/istio/proxy_debug:latest"
 	if got := ProxyImageName("docker.io/istio", "latest"); got != want {
 		t.Errorf("ProxyImageName() failed: got %q want %q", got, want)
 	}
