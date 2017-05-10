@@ -39,7 +39,7 @@ EOF
 
 source "$VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :c:i:m:x:C: arg; do
+while getopts :ci:m:x:C: arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     m) MANAGER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
