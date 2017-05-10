@@ -177,23 +177,23 @@ func (k *KubeInfo) generateIstioCore(dst, module string) error {
 		glog.Errorf("Cannot read original yaml file %s", src)
 		return err
 	}
-	var hub_macro, tag_macro string
-	var hub_value, tag_value []byte
+	var hubMacro, tagMacro string
+	var hubValue, tagValue []byte
 	switch module {
 	case "manager":
-		hub_macro, tag_macro = `{MANAGER_HUB}`, `{MANAGER_TAG}`
-		hub_value, tag_value = []byte(*managerHub), []byte(*managerTag)
+		hubMacro, tagMacro = `{MANAGER_HUB}`, `{MANAGER_TAG}`
+		hubValue, tagValue = []byte(*managerHub), []byte(*managerTag)
 	case "mixer":
-		hub_macro, tag_macro = `{MIXER_HUB}`, `{MIXER_TAG}`
-		hub_value, tag_value = []byte(*mixerHub), []byte(*mixerTag)
+		hubMacro, tagMacro = `{MIXER_HUB}`, `{MIXER_TAG}`
+		hubValue, tagValue = []byte(*mixerHub), []byte(*mixerTag)
 	case "ingress":
-		hub_macro, tag_macro = `{PROXY_HUB}`, `{PROXY_TAG}`
-		hub_value, tag_value = []byte(*managerHub), []byte(*managerTag)
+		hubMacro, tagMacro = `{PROXY_HUB}`, `{PROXY_TAG}`
+		hubValue, tagValue = []byte(*managerHub), []byte(*managerTag)
 	}
-	r := regexp.MustCompile(hub_macro)
-	content = r.ReplaceAllLiteral(content, hub_value)
-	r = regexp.MustCompile(tag_macro)
-	content = r.ReplaceAllLiteral(content, tag_value)
+	r := regexp.MustCompile(hubMacro)
+	content = r.ReplaceAllLiteral(content, hubValue)
+	r = regexp.MustCompile(tagMacro)
+	content = r.ReplaceAllLiteral(content, tagValue)
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into generated yaml file %s", dst)
