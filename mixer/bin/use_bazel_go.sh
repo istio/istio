@@ -2,7 +2,14 @@
 # it ensures that bazel's version of go is used
 
 SP=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
-BDIR=$(dirname $(dirname $(readlink $SP/../bazel-mixer )))
+
+TARGETBIN=$SP/../bazel-mixer
+if [[ ! -e $TARGETBIN ]]; then
+  echo "*** $TARGETBIN does not exist - did you forget to bazel build ... ?"
+  exit 1
+fi
+
+BDIR=$(dirname $(dirname $(readlink $TARGETBIN)))
 
 export GOROOT=$(ls -1d $BDIR/external/golang_*)
 export PATH=$GOROOT/bin:$PATH
