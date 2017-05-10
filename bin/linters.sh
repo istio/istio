@@ -17,6 +17,11 @@ while getopts :c: arg; do
   esac
 done
 
+bazel_build() {
+    bazel ${BAZEL_STARTUP_ARGS} build ${BAZEL_RUN_ARGS} \
+      //... $(bazel query 'tests(//...)')
+}
+
 prep_linters() {
     if ! which codecoroner > /dev/null; then
         echo "Preparing linters"
