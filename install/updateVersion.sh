@@ -14,7 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 VERSION_FILE="${ROOT}/istio.VERSION"
 GEN_DIR="/tmp"
 GIT_COMMIT=false
@@ -102,7 +102,7 @@ function check_git_status() {
 
 # Generated merge yaml files for easy installation
 function merge_files() {
-  SRC=$ROOT/install/kubernetes/templates/gen
+  SRC=$TEMP_DIR/templates
   AUTH_SRC=$SRC/istio-auth
   ISTIO=$ROOT/install/kubernetes/istio.yaml
   ISTIO_AUTH=$ROOT/install/kubernetes/istio-auth.yaml
@@ -158,7 +158,7 @@ if [[ ${GIT_COMMIT} == true ]]; then
       || error_exit "You have modified files. Please commit or reset your workspace."
 fi
 
-cp -R $ROOT/install/kubernetes/templates $TEMP_DIR
+cp -R $ROOT/install/kubernetes/templates $TEMP_DIR/templates
 update_version_file
 update_istio_install
 update_istio_auth
