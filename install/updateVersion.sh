@@ -16,7 +16,7 @@
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 VERSION_FILE="${ROOT}/istio.VERSION"
-GEN_DIR="/tmp"
+TEMP_DIR="/tmp"
 GIT_COMMIT=false
 
 set -o errexit
