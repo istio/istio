@@ -13,6 +13,8 @@ spec:
   - port: 80
 #   nodePort: 32000
     name: http
+  - port: 443
+    name: https
   selector:
     istio: ingress
 ---
@@ -42,11 +44,12 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: docker.io/istio/proxy:2017-05-09-06.14.22
+        image: docker.io/istio/proxy_debug:0.1.0
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: Always
         ports:
         - containerPort: 80
+        - containerPort: 443
         env:
         - name: POD_NAMESPACE
           valueFrom:
