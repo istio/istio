@@ -42,8 +42,8 @@ var (
 	mixerTag     = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
 	managerHub   = flag.String("manager_hub", os.Getenv(managerHubEnvVar), "Manager hub")
 	managerTag   = flag.String("manager_tag", os.Getenv(managerTagEnvVar), "Manager tag")
-	caHub        = flag.String("ca_hub", "", "Ca hub")
-	caTag        = flag.String("ca_tag", "", "Ca tag")
+	//caHub        = flag.String("ca_hub", "", "Ca hub")
+	//caTag        = flag.String("ca_tag", "", "Ca tag")
 	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
 
 	modules = []string{
@@ -56,11 +56,6 @@ var (
 // KubeInfo gathers information for kubectl
 type KubeInfo struct {
 	Namespace string
-
-	MixerImage   string
-	ManagerImage string
-	CaImage      string
-	ProxyImage   string
 
 	TmpDir  string
 	yamlDir string
