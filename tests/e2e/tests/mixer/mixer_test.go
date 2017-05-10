@@ -106,28 +106,17 @@ func (m *mixerProxy) Setup() error {
 	var pod string
 	var err error
 	glog.Info("Setting up mixer proxy")
-
 	getName := fmt.Sprintf("kubectl -n %s get pod -l istio=mixer -o jsonpath='{.items[0].metadata.name}'", m.namespace)
 	pod, err = util.Shell(getName)
 	if err != nil {
 		return err
 	}
-
 	metricsPortFwd := fmt.Sprintf("kubectl port-forward %s %d:%d -n %s", strings.Trim(pod, "'"), mixerPrometheusPort, mixerPrometheusPort, m.namespace)
 	if m.metricsPortFwdProcess, err = util.RunBackground(metricsPortFwd); err != nil {
 		glog.Errorf("Failed to port forward: %s", err)
 		return err
 	}
 	glog.Infof("mixer metrics port-forward running background, pid = %d", m.metricsPortFwdProcess.Pid)
-
-	apiPortFwd := fmt.Sprintf("kubectl port-forward %s %d:%d -n %s", strings.Trim(pod, "'"), mixerAPIPort, mixerAPIPort, m.namespace)
-	if m.apiPortFwdProcess, err = util.RunBackground(apiPortFwd); err != nil {
-		glog.Errorf("Failed to port forward: %s", err)
-		return err
-	}
-	glog.Infof("mixer config API port-forward running background, pid = %d", m.apiPortFwdProcess.Pid)
-
-	err = os.Setenv("ISTIO_MIXER_API_SERVER", fmt.Sprintf("http://localhost:%d", mixerAPIPort))
 	return err
 }
 
@@ -397,7 +386,7 @@ func visitProductPage(retries int) error {
 	standby := 0
 	for i := 0; i <= retries; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)
-		http.DefaultClient.Timeout = 15 * time.Second
+		http.DefaultClient.Timeout = 1 * time.Minute
 		resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
 		if err != nil {
 			glog.Infof("Error talking to productpage: %s", err)
