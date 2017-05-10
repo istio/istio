@@ -73,23 +73,15 @@ func (t *testConfig) Setup() error {
 	for _, rule := range rules {
 		src := util.GetResourcePath(filepath.Join(rulesDir, fmt.Sprintf("%s", rule)))
 		dest := filepath.Join(t.rulesDir, rule)
-		if err := os.Link(src, dest); err != nil {
-			srcFile, err := os.Open(src)
-			if err != nil {
-				glog.Errorf("Could not open rules file '%s': %v", src, err)
-				return err
-			}
-			defer func() { glog.Infof("Closing source rules file: %v", srcFile.Close()) }()
-			destFile, err := os.Create(dest)
-			if err != nil {
-				glog.Errorf("Could not open rules file '%s': %v", src, err)
-				return err
-			}
-			defer func() { glog.Infof("Closing destination rules file: %v", destFile.Close()) }()
-			if _, err := io.Copy(destFile, srcFile); err != nil {
-				glog.Errorf("Could not copy rules file '%s': %v", src, err)
-			}
-			return destFile.Sync()
+		srcBytes, err := ioutil.ReadFile(src)
+		if err != nil {
+			glog.Errorf("Failed to read original rule file %s", src)
+			return err
+		}
+		err = ioutil.WriteFile(dest, srcBytes, 0600)
+		if err != nil {
+			glog.Errorf("Failed to write into new rule file %s", dest)
+			return err
 		}
 	}
 	return nil
