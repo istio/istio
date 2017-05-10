@@ -240,7 +240,7 @@ func (tags TagsList) HasSubsetOf(that Tags) bool {
 
 // GetNames returns port names
 func (ports PortList) GetNames() []string {
-	names := make([]string, 0)
+	names := make([]string, 0, len(ports))
 	for _, port := range ports {
 		names = append(names, port.Name)
 	}
@@ -356,7 +356,7 @@ func ParseServiceKey(s string) (hostname string, ports PortList, tags TagsList) 
 }
 
 func (t Tags) String() string {
-	labels := make([]string, 0)
+	labels := make([]string, 0, len(t))
 	for k, v := range t {
 		if len(v) > 0 {
 			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
@@ -381,8 +381,10 @@ func (t Tags) String() string {
 
 // ParseTagString extracts tags from a string
 func ParseTagString(s string) Tags {
-	tag := make(map[string]string)
-	for _, pair := range strings.Split(s, ",") {
+	pairs := strings.Split(s, ",")
+	tag := make(map[string]string, len(pairs))
+
+	for _, pair := range pairs {
 		kv := strings.Split(pair, "=")
 		if len(kv) > 1 {
 			tag[kv[0]] = kv[1]

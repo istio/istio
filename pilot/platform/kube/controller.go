@@ -437,8 +437,10 @@ func (c *Controller) listIngresses(kind, namespace string) (map[model.Key]proto.
 
 // Services implements a service catalog operation
 func (c *Controller) Services() []*model.Service {
-	var out []*model.Service
-	for _, item := range c.services.informer.GetStore().List() {
+	list := c.services.informer.GetStore().List()
+	out := make([]*model.Service, 0, len(list))
+
+	for _, item := range list {
 		out = append(out, convertService(*item.(*v1.Service)))
 	}
 	return out
@@ -597,7 +599,7 @@ func (c *Controller) GetIstioServiceAccounts(hostname string, ports []string) []
 		saSet[sa] = true
 	}
 
-	saArray := make([]string, 0)
+	saArray := make([]string, 0, len(saSet))
 	for sa := range saSet {
 		saArray = append(saArray, sa)
 	}

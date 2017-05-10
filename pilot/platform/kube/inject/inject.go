@@ -262,7 +262,7 @@ func healthPorts(t *v1.PodTemplateSpec) ([]int, error) {
 		}
 	}
 
-	out := make([]int, 0)
+	out := make([]int, 0, len(set))
 	for port := range set {
 		out = append(out, port)
 	}

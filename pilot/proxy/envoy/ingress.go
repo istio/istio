@@ -328,7 +328,7 @@ func extractPortAndTags(svc *model.Service,
 		}
 	}
 	tls := dst.Tags[model.IngressTLSSecret]
-	tags := make(model.Tags)
+	tags := make(model.Tags, len(dst.Tags))
 	for k, v := range dst.Tags {
 		tags[k] = v
 	}

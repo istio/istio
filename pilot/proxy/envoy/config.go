@@ -387,8 +387,8 @@ func buildInboundListeners(instances []*model.ServiceInstance,
 	mesh *proxyconfig.ProxyMeshConfig) (Listeners, Clusters) {
 	// used for shortcut domain names for hostnames
 	suffix := sharedInstanceHost(instances)
-	listeners := make(Listeners, 0)
-	clusters := make(Clusters, 0)
+	listeners := make(Listeners, 0, len(instances))
+	clusters := make(Clusters, 0, len(instances))
 
 	// inbound connections/requests are redirected to the endpoint address but appear to be sent
 	// to the service address

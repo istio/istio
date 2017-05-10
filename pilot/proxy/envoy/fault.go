@@ -28,8 +28,10 @@ func buildFaultFilters(routeConfig *HTTPRouteConfig) []HTTPFilter {
 		return nil
 	}
 
-	faults := make([]HTTPFilter, 0)
-	for _, f := range routeConfig.faults() {
+	rcFaults := routeConfig.faults()
+	faults := make([]HTTPFilter, 0, len(rcFaults))
+
+	for _, f := range rcFaults {
 		faults = append(faults, *f)
 	}
 

@@ -132,9 +132,10 @@ func (c *discoveryCache) resetStats() {
 }
 
 func (c *discoveryCache) stats() map[string]*discoveryCacheStatEntry {
-	stats := make(map[string]*discoveryCacheStatEntry)
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
+	stats := make(map[string]*discoveryCacheStatEntry, len(c.cache))
 	for k, v := range c.cache {
 		stats[k] = &discoveryCacheStatEntry{
 			Hit:  atomic.LoadUint64(&v.hit),
@@ -406,7 +407,7 @@ func (ds *DiscoveryService) ListAllClusters(request *restful.Request, response *
 	// This sort is not needed, but discovery_test excepts consistent output and sorting achieves it
 	sort.Strings(endpoints)
 
-	allClusters := make([]nodeAndCluster, 0)
+	allClusters := make([]nodeAndCluster, 0, len(endpoints))
 	for _, ip := range endpoints {
 		allClusters = append(allClusters, nodeAndCluster{
 			ServiceCluster: ds.MeshConfig.IstioServiceCluster,

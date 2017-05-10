@@ -61,7 +61,7 @@ func kindToAPIName(s string) string {
 }
 
 func convertTags(obj meta_v1.ObjectMeta) model.Tags {
-	out := make(model.Tags)
+	out := make(model.Tags, len(obj.Labels))
 	for k, v := range obj.Labels {
 		out[k] = v
 	}
@@ -77,7 +77,6 @@ func convertPort(port v1.ServicePort) *model.Port {
 }
 
 func convertService(svc v1.Service) *model.Service {
-	ports := make([]*model.Port, 0)
 	addr, external := "", ""
 	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
 		addr = svc.Spec.ClusterIP
@@ -87,6 +86,7 @@ func convertService(svc v1.Service) *model.Service {
 		external = svc.Spec.ExternalName
 	}
 
+	ports := make([]*model.Port, 0, len(svc.Spec.Ports))
 	for _, port := range svc.Spec.Ports {
 		ports = append(ports, convertPort(port))
 	}
@@ -195,7 +195,7 @@ func convertIngress(ingress v1beta1.Ingress) map[model.Key]proto.Message {
 
 func createIngressRule(host, path, namespace string, backend v1beta1.IngressBackend, tlsSecret string) proto.Message {
 	destination := serviceHostname(backend.ServiceName, namespace)
-	tags := make(map[string]string)
+	tags := make(map[string]string, 2)
 	switch backend.ServicePort.Type {
 	case intstr.Int:
 		tags[model.IngressPortNum] = strconv.Itoa(backend.ServicePort.IntValue())

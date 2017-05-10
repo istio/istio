@@ -171,7 +171,7 @@ func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port) *HTTPRoute {
 
 	// Add the fault filters, one per cluster defined in weighted cluster or cluster
 	if rule.HttpFault != nil {
-		route.faults = make([]*HTTPFilter, 0)
+		route.faults = make([]*HTTPFilter, 0, len(route.clusters))
 		for _, c := range route.clusters {
 			route.faults = append(route.faults, buildHTTPFaultFilter(c.Name, rule.HttpFault, route.Headers))
 		}

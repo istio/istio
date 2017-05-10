@@ -136,7 +136,7 @@ type ServiceDiscovery struct {
 
 // Services implements discovery interface
 func (sd *ServiceDiscovery) Services() []*model.Service {
-	out := make([]*model.Service, 0)
+	out := make([]*model.Service, 0, len(sd.services))
 	for _, service := range sd.services {
 		out = append(out, service)
 	}

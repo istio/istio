@@ -32,11 +32,11 @@ func insertMixerFilter(listeners []*Listener, instances []*model.ServiceInstance
 	}
 
 	// join service names with a comma
-	serviceSet := make(map[string]bool)
+	serviceSet := make(map[string]bool, len(instances))
 	for _, instance := range instances {
 		serviceSet[instance.Service.Hostname] = true
 	}
-	services := make([]string, 0)
+	services := make([]string, 0, len(serviceSet))
 	for service := range serviceSet {
 		services = append(services, service)
 	}

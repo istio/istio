@@ -97,7 +97,7 @@ type ProtoSchema struct {
 
 // Kinds lists all kinds in the kind schemas
 func (km KindMap) Kinds() []string {
-	kinds := make([]string, 0)
+	kinds := make([]string, 0, len(km))
 	for kind := range km {
 		kinds = append(kinds, kind)
 	}
