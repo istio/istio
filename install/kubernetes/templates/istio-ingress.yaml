@@ -23,6 +23,11 @@ kind: ServiceAccount
 metadata:
   name: istio-ingress-service-account
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingress-service-account
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
