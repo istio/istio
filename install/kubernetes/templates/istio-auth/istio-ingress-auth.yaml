@@ -13,6 +13,8 @@ spec:
   - port: 80
 #   nodePort: 32000
     name: http
+  - port: 443
+    name: https
   selector:
     istio: ingress
 ---
@@ -42,6 +44,7 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 80
+        - containerPort: 443
         env:
         - name: POD_NAMESPACE
           valueFrom:
