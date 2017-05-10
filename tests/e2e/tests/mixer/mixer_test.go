@@ -49,7 +49,6 @@ const (
 	routeReviewsVersionsRule = "route-rule-reviews-v2-v3.yaml"
 	emptyRule                = "mixer-rule-empty-rule.yaml"
 
-	mixerAPIPort        = 9094
 	mixerPrometheusPort = 42422
 
 	targetLabel       = "target"
@@ -391,7 +390,7 @@ func visitProductPage(retries int) error {
 			closeResponseBody(resp)
 		}
 		if i == retries {
-			return errors.New("Could not retrieve product page: default route Failed")
+			return errors.New("could not retrieve product page: default route Failed")
 		}
 		standby += 5
 		glog.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
@@ -437,7 +436,7 @@ func counterValue(mf *dto.MetricFamily, name string, labels map[string]string) (
 	}
 	counter := counterMetric.Counter
 	if counter == nil {
-		return 0, fmt.Errorf("Expected non-nil counter for metric: %s", mf.GetName())
+		return 0, fmt.Errorf("expected non-nil counter for metric: %s", mf.GetName())
 	}
 	glog.Infof("%s: %#v", name, counter)
 	return counter.GetValue(), nil
@@ -453,7 +452,7 @@ func histogramCountValue(mf *dto.MetricFamily, name string, labels map[string]st
 	}
 	histogram := hMetric.Histogram
 	if histogram == nil {
-		return 0, fmt.Errorf("Expected non-nil histogram for metric: %s", mf.GetName())
+		return 0, fmt.Errorf("expected non-nil histogram for metric: %s", mf.GetName())
 	}
 	glog.Infof("%s: %#v", name, histogram)
 	return float64(histogram.GetSampleCount()), nil
@@ -476,7 +475,7 @@ func metricValues(resp *http.Response, getters ...*metricValueGetter) error {
 			return nil
 		}
 		if err != nil {
-			return fmt.Errorf("Could not get decode valueFn: %v", err)
+			return fmt.Errorf("could not get decode valueFn: %v", err)
 		}
 		for _, g := range getters {
 			if g.applies(mf.GetName()) {
