@@ -40,4 +40,17 @@ spec:
         backend:
           serviceName: c
           servicePort: http
-
+  - host: foo.bar.com
+    http:
+      paths:
+      - path: /foo
+        backend:
+          serviceName: a
+          servicePort: 8080
+  - host: "*.baz.com"
+    http:
+      paths:
+      - path: /bar
+        backend:
+          serviceName: a
+          servicePort: 8080

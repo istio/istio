@@ -40,7 +40,7 @@ const (
 )
 
 func (t *routing) String() string {
-	return "routing rules"
+	return "routing-rules"
 }
 
 func (t *routing) setup() error {

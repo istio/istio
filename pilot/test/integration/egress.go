@@ -30,7 +30,7 @@ type egress struct {
 }
 
 func (t *egress) String() string {
-	return "egress proxy"
+	return "egress"
 }
 
 func (t *egress) setup() error {

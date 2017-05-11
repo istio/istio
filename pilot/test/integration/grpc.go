@@ -26,7 +26,7 @@ type grpc struct {
 }
 
 func (t *grpc) String() string {
-	return "HTTP/2 reachability"
+	return "http2-reachability"
 }
 
 func (t *grpc) setup() error {

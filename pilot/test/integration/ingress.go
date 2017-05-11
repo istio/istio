@@ -35,7 +35,7 @@ const (
 )
 
 func (t *ingress) String() string {
-	return "ingress controller"
+	return "ingress"
 }
 
 func (t *ingress) setup() error {
@@ -81,26 +81,34 @@ func (t *ingress) run() error {
 		dst  string
 		path string
 		tls  bool
+		host string
 	}{
-		{"a", "/", true},
-		{"b", "/pasta", true},
-		{"a", "/lucky", false},
-		{"b", "/lol", false},
+		{"a", "/", true, ""},
+		{"b", "/pasta", true, ""},
+		{"a", "/lucky", false, ""},
+		{"b", "/lol", false, ""},
+		{"a", "/foo", false, "foo.bar.com"},
+		{"a", "/bar", false, "foo.baz.com"},
 		// empty destination makes it expect 404
-		{"", "/notfound", true},
-		{"", "/notfound", false},
+		{"", "/notfound", true, ""},
+		{"", "/notfound", false, ""},
+		{"", "/foo", false, ""},
 	}
 	for _, req := range cases {
 		name := fmt.Sprintf("Ingress request to %+v", req)
-		funcs[name] = (func(dst, path string, tls bool) func() status {
+		funcs[name] = (func(dst, path string, tls bool, host string) func() status {
 			var url string
 			if tls {
 				url = fmt.Sprintf("https://%s:443%s", ingressServiceName, path)
 			} else {
 				url = fmt.Sprintf("http://%s%s", ingressServiceName, path)
 			}
+			extra := ""
+			if host != "" {
+				extra = "-key Host -val " + host
+			}
 			return func() status {
-				resp := t.clientRequest("t", url, 1, "")
+				resp := t.clientRequest("t", url, 1, extra)
 				if dst == "" {
 					if len(resp.code) > 0 && resp.code[0] == "404" {
 						return nil
@@ -113,7 +121,7 @@ func (t *ingress) run() error {
 				}
 				return errAgain
 			}
-		})(req.dst, req.path, req.tls)
+		})(req.dst, req.path, req.tls, req.host)
 	}
 
 	if err := parallel(funcs); err != nil {

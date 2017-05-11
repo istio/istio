@@ -59,7 +59,10 @@ func makeHTTPRequest(client *http.Client) func(int) func() error {
 			}
 
 			log.Printf("[%d] Url=%s\n", i, url)
-			if headerKey != "" {
+			if headerKey == "Host" {
+				req.Host = headerVal
+				log.Printf("[%d] Host=%s\n", i, headerVal)
+			} else if headerKey != "" {
 				req.Header.Add(headerKey, headerVal)
 				log.Printf("[%d] Header=%s:%s\n", i, headerKey, headerVal)
 			}

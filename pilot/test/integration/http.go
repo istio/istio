@@ -28,7 +28,7 @@ type http struct {
 }
 
 func (r *http) String() string {
-	return "HTTP reachability"
+	return "http-reachability"
 }
 
 func (r *http) setup() error {

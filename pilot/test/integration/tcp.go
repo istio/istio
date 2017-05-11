@@ -21,7 +21,7 @@ type tcp struct {
 }
 
 func (t *tcp) String() string {
-	return "TCP reachability"
+	return "tcp-reachability"
 }
 
 func (t *tcp) setup() error {
