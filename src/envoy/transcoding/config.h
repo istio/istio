@@ -60,7 +60,7 @@ struct VariableBinding {
 
 class Config : public Logger::Loggable<Logger::Id::config> {
  public:
-  Config(const Json::Object& config, Server::Instance& server);
+  Config(const Json::Object& config);
 
   google::protobuf::util::Status CreateTranscoder(
       const Http::HeaderMap& headers,
@@ -78,8 +78,6 @@ class Config : public Logger::Loggable<Logger::Id::config> {
   google::api_manager::PathMatcherPtr<MethodInfo*> path_matcher_;
   std::vector<std::unique_ptr<MethodInfo>> methods_;
   std::unique_ptr<google::api_manager::transcoding::TypeHelper> type_helper_;
-
-  friend class Instance;
 };
 
 typedef std::shared_ptr<Config> ConfigSharedPtr;

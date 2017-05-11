@@ -16,6 +16,7 @@
 
 #include <fstream>
 
+#include "common/filesystem/filesystem_impl.h"
 #include "contrib/endpoints/src/grpc/transcoding/json_request_translator.h"
 #include "contrib/endpoints/src/grpc/transcoding/response_to_json_translator.h"
 #include "envoy/common/exception.h"
@@ -26,7 +27,6 @@
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/util/type_resolver.h"
 #include "google/protobuf/util/type_resolver_util.h"
-#include "server/config/network/http_connection_manager.h"
 
 using google::api_manager::transcoding::JsonRequestTranslator;
 using google::api_manager::transcoding::RequestInfo;
@@ -77,11 +77,11 @@ class TranscoderImpl : public Transcoder {
 };
 }
 
-Config::Config(const Json::Object& config, Server::Instance& server) {
+Config::Config(const Json::Object& config) {
   std::string proto_descriptor_file = config.getString("proto_descriptor");
-  std::fstream input(proto_descriptor_file, std::ios::in | std::ios::binary);
   FileDescriptorSet descriptor_set;
-  if (!descriptor_set.ParseFromIstream(&input)) {
+  if (!descriptor_set.ParseFromString(
+          Filesystem::fileReadToEnd(proto_descriptor_file))) {
     throw EnvoyException("Unable to parse proto descriptor");
   }
 
@@ -134,9 +134,6 @@ Config::Config(const Json::Object& config, Server::Instance& server) {
         default:
           break;
       }
-
-      pmb.Register("POST", "/" + service->full_name() + "/" + method->name(),
-                   "", method_info);
     }
   }
 
