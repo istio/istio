@@ -16,6 +16,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"time"
@@ -29,8 +30,13 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// The key for the environment variable that specifies the namespace.
-const namespaceKey = "NAMESPACE"
+const (
+	// The default issuer organization for self-signed CA certificate.
+	selfSignedCAOrgDefault = "k8s.cluster.local"
+
+	// The key for the environment variable that specifies the namespace.
+	namespaceKey = "NAMESPACE"
+)
 
 var (
 	certChainFile   = flag.String("cert-chain", "", "Speicifies path to the certificate chain file")
@@ -47,6 +53,10 @@ var (
 	selfSignedCA = flag.Bool("self-signed-ca", false,
 		"Indicates whether to use auto-generated self-signed CA certificate. "+
 			"When set to true, the '-ca-cert' and '-ca-key' options are ignored.")
+
+	selfSignedCAOrg = flag.String("self-signed-ca-org", "k8s.cluster.local",
+		fmt.Sprintf("The issuer organization used in self-signed CA certificate (default to %s)",
+			selfSignedCAOrgDefault))
 
 	caCertTTL = flag.Duration("ca-cert-ttl", 240*time.Hour,
 		"The TTL of self-signed CA root certificate (default to 10 days)")
@@ -90,7 +100,7 @@ func createCA() certmanager.CertificateAuthority {
 	if *selfSignedCA {
 		glog.Info("Use self-signed certificate as the CA certificate")
 
-		ca, err := certmanager.NewSelfSignedIstioCA(*caCertTTL, *certTTL)
+		ca, err := certmanager.NewSelfSignedIstioCA(*caCertTTL, *certTTL, *selfSignedCAOrg)
 		if err != nil {
 			glog.Fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
 		}
