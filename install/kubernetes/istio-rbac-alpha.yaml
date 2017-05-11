@@ -1,6 +1,6 @@
 # Permissions and roles for istio
 apiVersion: rbac.authorization.k8s.io/v1alpha1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   name: istio-binding
 roleRef:
@@ -10,7 +10,5 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: istio-manager-service-account
-  namespace: default
 - kind: ServiceAccount
   name: istio-ingress-service-account
-  namespace: default
