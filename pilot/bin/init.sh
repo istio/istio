@@ -4,8 +4,11 @@ set -ex
 # Building with Bazel
 bazel build //...
 
+# Clean up vendor dir
+rm -rf $(pwd)/vendor
+
 # Vendorize bazel dependencies
-bin/bazel_to_go.py > /dev/null
+bin/bazel_to_go.py
 
 # Remove doubly-vendorized k8s dependencies
 rm -rf vendor/k8s.io/client-go/vendor
@@ -14,8 +17,10 @@ rm -rf vendor/k8s.io/ingress/vendor
 
 # Link proto gen files
 mkdir -p vendor/istio.io/api/proxy/v1/config
-ln -sf $(pwd)/bazel-genfiles/external/io_istio_api/proxy/v1/config/*.pb.go \
-  vendor/istio.io/api/proxy/v1/config/
+for f in dest_policy.pb.go  http_fault.pb.go  l4_fault.pb.go  proxy_mesh.pb.go  route_rule.pb.go; do
+  ln -sf $(pwd)/bazel-genfiles/external/io_istio_api/proxy/v1/config/$f \
+    vendor/istio.io/api/proxy/v1/config/
+done
 mkdir -p vendor/istio.io/manager/test/grpcecho
 ln -sf $(pwd)/bazel-genfiles/test/grpcecho/*.pb.go \
    vendor/istio.io/manager/test/grpcecho/
