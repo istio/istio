@@ -311,6 +311,12 @@ func IntoResourceFile(p *Params, in io.Reader, out io.Writer) error {
 					return injectIntoPodTemplateSpec(p, &((typ.(*v1beta1.Deployment)).Spec.Template))
 				},
 			},
+			"ReplicationController": {
+				typ: &v1.ReplicationController{},
+				inject: func(typ interface{}) error {
+					return injectIntoPodTemplateSpec(p, ((typ.(*v1.ReplicationController)).Spec.Template))
+				},
+			},
 		}
 		var updated []byte
 		var meta metav1.TypeMeta
