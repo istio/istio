@@ -105,12 +105,14 @@ function merge_files() {
   AUTH_SRC=$SRC/istio-auth
   ISTIO=$ROOT/install/kubernetes/istio.yaml
   ISTIO_AUTH=$ROOT/install/kubernetes/istio-auth.yaml
+  ISTIO_AUTH_PER_CLUSTER_CA=$ROOT/install/kubernetes/templates/istio-auth/isio-auth-per-cluster-ca.yaml
 
   echo "# GENERATED FILE. Use with Kubernetes 1.5+" > $ISTIO
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run updateVersion.sh" >> $ISTIO
   cat $SRC/istio-mixer.yaml >> $ISTIO
   cat $SRC/istio-manager.yaml >> $ISTIO
   cp $ISTIO $ISTIO_AUTH
+  cp $ISTIO $ISTIO_AUTH_PER_CLUSTER_CA
   cat $SRC/istio-ingress.yaml >> $ISTIO
   cat $SRC/istio-egress.yaml >> $ISTIO
 
@@ -118,6 +120,10 @@ function merge_files() {
   cat $AUTH_SRC/istio-ingress-auth.yaml >> $ISTIO_AUTH
   cat $AUTH_SRC/istio-egress-auth.yaml >> $ISTIO_AUTH
   cat $AUTH_SRC/istio-namespace-ca.yaml >> $ISTIO_AUTH
+
+  sed -i "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH_PER_CLUSTER_CA
+  cat $AUTH_SRC/istio-ingress-auth.yaml >> $ISTIO_AUTH_PER_CLUSTER_CA
+  cat $AUTH_SRC/istio-egress-auth.yaml >> $ISTIO_AUTH_PER_CLUSTER_CA
 }
 
 function update_version_file() {
