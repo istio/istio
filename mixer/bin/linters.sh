@@ -38,7 +38,7 @@ go_metalinter() {
         fi
     elif [[ ! -z ${GITHUB_PR_TARGET_BRANCH} ]]; then
         parent_branch='parent'
-        git fetch origin-pull "refs/heads/${GITHUB_PR_TARGET_BRANCH}:${parent_branch}"
+        git fetch origin "refs/heads/${GITHUB_PR_TARGET_BRANCH}:${parent_branch}"
     fi
 
     if [[ -z ${LAST_GOOD_GITSHA} ]] && [[ -n "${parent_branch}" ]]; then
