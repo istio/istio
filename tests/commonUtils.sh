@@ -99,7 +99,7 @@ function generate_istio_yaml() {
 
 function generate_bookinfo_yaml() {
     print_block_echo "Generating bookinfo yaml in ${1}"
-    local src_dir="${ROOT}/demos/apps/bookinfo"
+    local src_dir="${ROOT}/samples/apps/bookinfo"
     local dest_dir="${1}"
 
     mkdir -p ${dest_dir}
@@ -108,7 +108,7 @@ function generate_bookinfo_yaml() {
 
 function generate_rules_yaml() {
     print_block_echo "Generating istio rules in ${1}"
-    local src_dir="${ROOT}/demos/apps/bookinfo"
+    local src_dir="${ROOT}/samples/apps/bookinfo"
     local diff_dir="${ROOT}/tests/apps/bookinfo/rules"
     local dest_dir="${1}"
 
