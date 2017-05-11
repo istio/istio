@@ -40,8 +40,8 @@ import (
 )
 
 const (
-	bookinfoYaml             = "demos/apps/bookinfo/bookinfo.yaml"
-	rulesDir                 = "demos/apps/bookinfo"
+	bookinfoYaml             = "samples/apps/bookinfo/bookinfo.yaml"
+	rulesDir                 = "samples/apps/bookinfo"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
 	denialRule               = "mixer-rule-ratings-denial.yaml"
 	newTelemetryRule         = "mixer-rule-additional-telemetry.yaml"
