@@ -112,18 +112,14 @@ function merge_files() {
   cat $SRC/istio-mixer.yaml >> $ISTIO
   cat $SRC/istio-manager.yaml >> $ISTIO
   cp $ISTIO $ISTIO_AUTH
-  cp $ISTIO $ISTIO_AUTH_PER_CLUSTER_CA
   cat $SRC/istio-ingress.yaml >> $ISTIO
   cat $SRC/istio-egress.yaml >> $ISTIO
 
   sed -i "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
   cat $AUTH_SRC/istio-ingress-auth.yaml >> $ISTIO_AUTH
   cat $AUTH_SRC/istio-egress-auth.yaml >> $ISTIO_AUTH
+  cp $ISTIO_AUTH $ISTIO_AUTH_PER_CLUSTER_CA
   cat $AUTH_SRC/istio-namespace-ca.yaml >> $ISTIO_AUTH
-
-  sed -i "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH_PER_CLUSTER_CA
-  cat $AUTH_SRC/istio-ingress-auth.yaml >> $ISTIO_AUTH_PER_CLUSTER_CA
-  cat $AUTH_SRC/istio-egress-auth.yaml >> $ISTIO_AUTH_PER_CLUSTER_CA
 }
 
 function update_version_file() {
