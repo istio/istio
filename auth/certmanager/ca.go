@@ -56,12 +56,12 @@ type IstioCA struct {
 }
 
 // NewSelfSignedIstioCA returns a new IstioCA instance using self-signed certificate.
-func NewSelfSignedIstioCA(caCertTTL, certTTL time.Duration) (*IstioCA, error) {
+func NewSelfSignedIstioCA(caCertTTL, certTTL time.Duration, org string) (*IstioCA, error) {
 	now := time.Now()
 	options := CertOptions{
 		NotBefore:    now,
 		NotAfter:     now.Add(caCertTTL),
-		Org:          "istio.io",
+		Org:          org,
 		IsCA:         true,
 		IsSelfSigned: true,
 		RSAKeySize:   caKeySize,

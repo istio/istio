@@ -26,7 +26,8 @@ import (
 func TestSelfSignedIstioCA(t *testing.T) {
 	certTTL := 30 * time.Minute
 	caCertTTL := time.Hour
-	ca, err := NewSelfSignedIstioCA(caCertTTL, certTTL)
+	org := "test.ca.org"
+	ca, err := NewSelfSignedIstioCA(caCertTTL, certTTL, org)
 	if err != nil {
 		t.Errorf("Failed to create a self-signed CA: %v", err)
 	}
@@ -51,6 +52,9 @@ func TestSelfSignedIstioCA(t *testing.T) {
 	rootCert := ParsePemEncodedCertificate(rcb)
 	if ttl := rootCert.NotAfter.Sub(rootCert.NotBefore); ttl != caCertTTL {
 		t.Errorf("Unexpected CA certificate TTL (expecting %v, actual %v)", caCertTTL, ttl)
+	}
+	if certOrg := rootCert.Issuer.Organization[0]; certOrg != org {
+		t.Errorf("Unexpected CA certificate organization (expecting %v, actual %v)", org, certOrg)
 	}
 
 	chain, err := cert.Verify(x509.VerifyOptions{
