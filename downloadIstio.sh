@@ -7,4 +7,4 @@
 ## Automate me.
 ISTIO_VERSION=0.1.1
 
-curl https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio.tar.gz | tar xz
+curl -L https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio.tar.gz | tar xz
