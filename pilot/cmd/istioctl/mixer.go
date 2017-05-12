@@ -145,19 +145,25 @@ func mixerRulePath(scope, subject string) string {
 }
 
 func mixerRuleCreate(scope, subject string, rule []byte) error {
+
 	path := mixerRulePath(scope, subject)
 	status, body, err := mixerRESTRequester.Request(http.MethodPut, path, rule)
-	if err != nil {
-		return err
-	}
-	if status != http.StatusOK {
+
+	// If we got output, let's look at it, even if we got an error.  The output might include the reason for the error.
+	if body != nil {
 		var response mixerAPIResponse
 		message := "unknown"
-		if err = json.Unmarshal(body, &response); err == nil {
+		if errJSON := json.Unmarshal(body, &response); errJSON == nil {
 			message = response.Status.Message
 		}
-		return fmt.Errorf("failed rule creation with status %q: %q", status, message)
+
+		if status != http.StatusOK {
+			return fmt.Errorf("failed rule creation with status %v: %s", status, message)
+		}
+
+		fmt.Printf("%s\n", message)
 	}
+
 	return err
 }
 
