@@ -139,7 +139,7 @@ func waitForMixerRuleType(scope, subject, kind string, retries int, durBetweenAt
 			"", "", false); err != nil {
 			return err
 		}
-		if strings.Index(output, kind) >= 0 {
+		if strings.Contains(output, kind) {
 			return nil
 		}
 	}
