@@ -1,0 +1,16 @@
+type: route-rule
+name: test-100-delay
+spec:
+  destination: ratings.default.svc.cluster.local
+  precedence: 2
+  match:
+    httpHeaders:
+      cookie:
+        regex: "^(.*?;)?(user=test-user)(;.*)?$"
+  route:
+  - tags:
+      version: v1
+  httpFault:
+    delay:
+      percent: 101
+      fixedDelay: 7s
