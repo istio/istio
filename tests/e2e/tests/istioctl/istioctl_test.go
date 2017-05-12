@@ -171,7 +171,6 @@ func TestInvalidRuleDetected(t *testing.T) {
 			t.Errorf("create file %v did not match %v.  Output: %v", invalidRule.ruleFile, invalidRule.response, output)
 		}
 	}
-	t.Fatal("@@@ ecs this test always fails -- I am trying to verify build")
 }
 
 // TestCRUD tests Create, Read, Update, Delete operations for a rule by performing them and scraping the output.
