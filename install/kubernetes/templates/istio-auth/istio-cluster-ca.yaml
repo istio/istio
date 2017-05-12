@@ -9,6 +9,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-ca-service-account
+  namespace: istio-system
 ---
 # Istio CA in istio-system namespace.
 apiVersion: v1
