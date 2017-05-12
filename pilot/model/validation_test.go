@@ -812,6 +812,32 @@ func TestValidateParentAndDrain(t *testing.T) {
 	}
 }
 
+func TestValidateRefreshDelay(t *testing.T) {
+	durations := map[duration.Duration]bool{
+		{Seconds: 1}:     true,
+		{Seconds: 36001}: false,
+		{Nanos: 1}:       false,
+	}
+	for duration, valid := range durations {
+		if got := ValidateRefreshDelay(&duration); (got == nil) != valid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, valid, got, duration)
+		}
+	}
+}
+
+func TestValidateConnectTimeout(t *testing.T) {
+	durations := map[duration.Duration]bool{
+		{Seconds: 1}:   true,
+		{Seconds: 31}:  false,
+		{Nanos: 99999}: false,
+	}
+	for duration, valid := range durations {
+		if got := ValidateConnectTimeout(&duration); (got == nil) != valid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, valid, got, duration)
+		}
+	}
+}
+
 func TestValidateProxyMeshConfig(t *testing.T) {
 	invalid := proxyconfig.ProxyMeshConfig{
 		EgressProxyAddress:     "10.0.0.100",
