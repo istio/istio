@@ -15,7 +15,7 @@ else
   # TODO we should check more/complain if not likely to work, etc...
   OSEXT="linux"
 fi
-URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${OSEXT}.tar.gz"
+URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
 echo "Downloading $NAME from $URL ..."
 curl -L "$URL" | tar xz
 # TODO: change this so the version is in the tgz/directory name (users trying multiple versions)
