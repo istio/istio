@@ -16,16 +16,16 @@
 #pragma once
 
 #include "common/common/logger.h"
-#include "contrib/endpoints/src/api_manager/path_matcher.h"
-#include "contrib/endpoints/src/grpc/transcoding/request_message_translator.h"
-#include "contrib/endpoints/src/grpc/transcoding/transcoder.h"
-#include "contrib/endpoints/src/grpc/transcoding/type_helper.h"
 #include "envoy/json/json_object.h"
 #include "envoy/server/instance.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/util/internal/type_info.h"
 #include "google/protobuf/util/type_resolver.h"
+#include "src/path_matcher.h"
+#include "src/request_message_translator.h"
+#include "src/transcoder.h"
+#include "src/type_helper.h"
 
 namespace Grpc {
 namespace Transcoding {
@@ -65,19 +65,19 @@ class Config : public Logger::Loggable<Logger::Id::config> {
   google::protobuf::util::Status CreateTranscoder(
       const Http::HeaderMap& headers,
       google::protobuf::io::ZeroCopyInputStream* request_input,
-      google::api_manager::transcoding::TranscoderInputStream* response_input,
-      std::unique_ptr<google::api_manager::transcoding::Transcoder>& transcoder,
+      google::grpc::transcoding::TranscoderInputStream* response_input,
+      std::unique_ptr<google::grpc::transcoding::Transcoder>& transcoder,
       const google::protobuf::MethodDescriptor*& method_descriptor);
 
   google::protobuf::util::Status MethodToRequestInfo(
       const google::protobuf::MethodDescriptor* method,
-      google::api_manager::transcoding::RequestInfo* info);
+      google::grpc::transcoding::RequestInfo* info);
 
  private:
   google::protobuf::DescriptorPool descriptor_pool_;
-  google::api_manager::PathMatcherPtr<MethodInfo*> path_matcher_;
+  google::grpc::transcoding::PathMatcherPtr<MethodInfo*> path_matcher_;
   std::vector<std::unique_ptr<MethodInfo>> methods_;
-  std::unique_ptr<google::api_manager::transcoding::TypeHelper> type_helper_;
+  std::unique_ptr<google::grpc::transcoding::TypeHelper> type_helper_;
 };
 
 typedef std::shared_ptr<Config> ConfigSharedPtr;

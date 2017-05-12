@@ -21,14 +21,14 @@
 #include <vector>
 
 #include "contrib/endpoints/include/api_manager/method_call_info.h"
-#include "contrib/endpoints/src/grpc/transcoding/json_request_translator.h"
-#include "contrib/endpoints/src/grpc/transcoding/message_stream.h"
-#include "contrib/endpoints/src/grpc/transcoding/response_to_json_translator.h"
-#include "contrib/endpoints/src/grpc/transcoding/type_helper.h"
 #include "google/api/service.pb.h"
 #include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/stubs/common.h"
 #include "google/protobuf/stubs/status.h"
+#include "src/json_request_translator.h"
+#include "src/message_stream.h"
+#include "src/response_to_json_translator.h"
+#include "src/type_helper.h"
 
 namespace google {
 namespace api_manager {
@@ -39,6 +39,14 @@ namespace pb = ::google::protobuf;
 namespace pbio = ::google::protobuf::io;
 namespace pbutil = ::google::protobuf::util;
 namespace pberr = ::google::protobuf::util::error;
+
+using ::google::grpc::transcoding::JsonRequestTranslator;
+using ::google::grpc::transcoding::RequestInfo;
+using ::google::grpc::transcoding::RequestWeaver;
+using ::google::grpc::transcoding::ResponseToJsonTranslator;
+using ::google::grpc::transcoding::Transcoder;
+using ::google::grpc::transcoding::TranscoderInputStream;
+using ::google::grpc::transcoding::TypeHelper;
 
 // Transcoder implementation based on JsonRequestTranslator &
 // ResponseToJsonTranslator

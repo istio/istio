@@ -56,7 +56,7 @@ class Instance : public Http::StreamFilter,
                     Buffer::Instance& data);
 
   Config& config_;
-  std::unique_ptr<google::api_manager::transcoding::Transcoder> transcoder_;
+  std::unique_ptr<google::grpc::transcoding::Transcoder> transcoder_;
   EnvoyInputStream request_in_;
   EnvoyInputStream response_in_;
   Http::StreamDecoderFilterCallbacks* decoder_callbacks_{nullptr};

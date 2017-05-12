@@ -23,7 +23,7 @@ cc_library(
         "envoy_input_stream.h",
     ],
     deps = [
-        "//contrib/endpoints/src/grpc/transcoding:transcoder_input_stream",
+        "//external:transcoding",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )
@@ -49,9 +49,8 @@ cc_library(
     ],
     deps = [
         ":envoy_input_stream",
-        # TODO: Move path_matcher out
-        "//contrib/endpoints/src/api_manager:path_matcher",
-        "//contrib/endpoints/src/grpc/transcoding",
+        "//external:path_matcher",
+        "//external:transcoding",
         "@googleapis_git//:annotations",
         "@envoy//source/exe:envoy_common_lib",
     ],

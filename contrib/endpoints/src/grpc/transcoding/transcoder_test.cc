@@ -21,15 +21,15 @@
 
 #include "contrib/endpoints/include/api_manager/method.h"
 #include "contrib/endpoints/include/api_manager/method_call_info.h"
-#include "contrib/endpoints/src/grpc/transcoding/bookstore.pb.h"
-#include "contrib/endpoints/src/grpc/transcoding/message_reader.h"
-#include "contrib/endpoints/src/grpc/transcoding/test_common.h"
-#include "contrib/endpoints/src/grpc/transcoding/transcoder.h"
 #include "contrib/endpoints/src/grpc/transcoding/transcoder_factory.h"
 #include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/stubs/strutil.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gtest/gtest.h"
+#include "src/bookstore.pb.h"
+#include "src/message_reader.h"
+#include "src/test_common.h"
+#include "src/transcoder.h"
 
 namespace google {
 namespace api_manager {
@@ -41,6 +41,16 @@ namespace pb = google::protobuf;
 namespace pbio = google::protobuf::io;
 namespace pbutil = google::protobuf::util;
 namespace pberr = google::protobuf::util::error;
+
+using ::google::grpc::transcoding::CreateBookRequest;
+using ::google::grpc::transcoding::MessageReader;
+using ::google::grpc::transcoding::Shelf;
+using ::google::grpc::transcoding::Transcoder;
+using ::google::grpc::transcoding::TranscoderInputStream;
+using ::google::grpc::transcoding::testing::ExpectJsonObjectEq;
+using ::google::grpc::transcoding::testing::GenerateGrpcMessage;
+using ::google::grpc::transcoding::testing::JsonArrayTester;
+using ::google::grpc::transcoding::testing::TestZeroCopyInputStream;
 
 // MethodInfo implementation for testing. Only implements the methods that
 // the TranscoderFactory needs.
@@ -116,8 +126,9 @@ class TranscoderTest : public ::testing::Test {
   // Load the service config to be used for testing. This must be the first call
   // in a test.
   bool LoadService(const std::string &config_pb_txt_file) {
-    if (!::google::api_manager::transcoding::testing::LoadService(
-            config_pb_txt_file, &service_)) {
+    if (!::google::grpc::transcoding::testing::LoadService(
+            config_pb_txt_file, "external/httpjson_transcoding/src/testdata/",
+            &service_)) {
       return false;
     }
     transcoder_factory_.reset(new TranscoderFactory(service_));

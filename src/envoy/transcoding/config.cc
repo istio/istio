@@ -17,8 +17,6 @@
 #include <fstream>
 
 #include "common/filesystem/filesystem_impl.h"
-#include "contrib/endpoints/src/grpc/transcoding/json_request_translator.h"
-#include "contrib/endpoints/src/grpc/transcoding/response_to_json_translator.h"
 #include "envoy/common/exception.h"
 #include "envoy/http/filter.h"
 #include "google/api/annotations.pb.h"
@@ -27,12 +25,14 @@
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/util/type_resolver.h"
 #include "google/protobuf/util/type_resolver_util.h"
+#include "src/json_request_translator.h"
+#include "src/response_to_json_translator.h"
 
-using google::api_manager::transcoding::JsonRequestTranslator;
-using google::api_manager::transcoding::RequestInfo;
-using google::api_manager::transcoding::ResponseToJsonTranslator;
-using google::api_manager::transcoding::Transcoder;
-using google::api_manager::transcoding::TranscoderInputStream;
+using google::grpc::transcoding::JsonRequestTranslator;
+using google::grpc::transcoding::RequestInfo;
+using google::grpc::transcoding::ResponseToJsonTranslator;
+using google::grpc::transcoding::Transcoder;
+using google::grpc::transcoding::TranscoderInputStream;
 using google::protobuf::DescriptorPool;
 using google::protobuf::FileDescriptor;
 using google::protobuf::FileDescriptorSet;
@@ -91,7 +91,7 @@ Config::Config(const Json::Object& config) {
     }
   }
 
-  google::api_manager::PathMatcherBuilder<MethodInfo*> pmb;
+  google::grpc::transcoding::PathMatcherBuilder<MethodInfo*> pmb;
 
   for (const auto& service_name : config.getStringArray("services")) {
     auto service = descriptor_pool_.FindServiceByName(service_name);
@@ -139,7 +139,7 @@ Config::Config(const Json::Object& config) {
 
   path_matcher_ = pmb.Build();
 
-  type_helper_.reset(new google::api_manager::transcoding::TypeHelper(
+  type_helper_.reset(new google::grpc::transcoding::TypeHelper(
       google::protobuf::util::NewTypeResolverForDescriptorPool(
           kTypeUrlPrefix, &descriptor_pool_)));
 
@@ -177,8 +177,7 @@ Status Config::CreateTranscoder(
   }
 
   for (const auto& binding : variable_bidings) {
-    google::api_manager::transcoding::RequestWeaver::BindingInfo
-        resolved_binding;
+    google::grpc::transcoding::RequestWeaver::BindingInfo resolved_binding;
     auto status = type_helper_->ResolveFieldPath(*request_info.message_type,
                                                  binding.field_path,
                                                  &resolved_binding.field_path);
@@ -212,7 +211,7 @@ Status Config::CreateTranscoder(
 
 Status Config::MethodToRequestInfo(
     const google::protobuf::MethodDescriptor* method,
-    google::api_manager::transcoding::RequestInfo* info) {
+    google::grpc::transcoding::RequestInfo* info) {
   // TODO: support variable bindings
 
   auto request_type_url =

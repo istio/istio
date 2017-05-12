@@ -16,12 +16,12 @@
 #pragma once
 
 #include "common/buffer/buffer_impl.h"
-#include "contrib/endpoints/src/grpc/transcoding/transcoder_input_stream.h"
+#include "src/transcoder_input_stream.h"
 
 namespace Grpc {
 
 class EnvoyInputStream
-    : public google::api_manager::transcoding::TranscoderInputStream {
+    : public google::grpc::transcoding::TranscoderInputStream {
  public:
   // Add a buffer to input stream, will consume all buffer from parameter
   // if the stream is not finished

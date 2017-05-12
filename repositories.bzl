@@ -156,3 +156,21 @@ cc_library(
             name = "googletest_prod",
             actual = "@googletest_git//:googletest_prod",
         )
+
+def transcoding_repositories(bind=True):
+    native.git_repository(
+        name = "httpjson_transcoding",
+        commit = "d91a0fae8f9248c6b317abfa55b773fd62873818",
+        remote = "https://github.com/grpc-ecosystem/grpc-httpjson-transcoding.git",
+    )
+
+    if bind:
+        native.bind(
+            name = "transcoding",
+            actual = "@httpjson_transcoding//src:transcoding",
+        )
+
+        native.bind(
+            name = "path_matcher",
+            actual = "@httpjson_transcoding//src:path_matcher",
+        )

@@ -20,6 +20,7 @@ load(
     "boringssl_repositories",
     "protobuf_repositories",
     "googletest_repositories",
+    "transcoding_repositories",
 )
 
 boringssl_repositories()
@@ -27,6 +28,8 @@ boringssl_repositories()
 protobuf_repositories()
 
 googletest_repositories()
+
+transcoding_repositories()
 
 load(
     "//contrib/endpoints:repositories.bzl",

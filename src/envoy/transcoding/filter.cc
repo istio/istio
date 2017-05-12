@@ -14,8 +14,6 @@
  */
 #include "src/envoy/transcoding/filter.h"
 
-#include "contrib/endpoints/src/grpc/transcoding/json_request_translator.h"
-#include "contrib/endpoints/src/grpc/transcoding/response_to_json_translator.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/message.h"
