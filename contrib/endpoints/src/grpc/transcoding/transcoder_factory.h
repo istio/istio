@@ -72,11 +72,11 @@ class TranscoderFactory {
   ::google::protobuf::util::Status Create(
       const MethodCallInfo& call_info,
       ::google::protobuf::io::ZeroCopyInputStream* request_input,
-      grpc::transcoding::TranscoderInputStream* response_input,
-      std::unique_ptr<grpc::transcoding::Transcoder>* transcoder);
+      ::google::grpc::transcoding::TranscoderInputStream* response_input,
+      std::unique_ptr<::google::grpc::transcoding::Transcoder>* transcoder);
 
  private:
-  grpc::transcoding::TypeHelper type_helper_;
+  ::google::grpc::transcoding::TypeHelper type_helper_;
 };
 
 }  // namespace transcoding
