@@ -88,6 +88,11 @@ func (api *API) Register(container *restful.Container) {
 		Doc("List all configs for kind in across all namespaces").
 		Writes([]Config{}))
 
+	ws.Route(ws.
+		GET("/health").
+		To(api.Status).
+		Doc("Returns 200 when the container is up"))
+
 	container.Add(ws)
 }
 

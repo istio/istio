@@ -73,6 +73,13 @@ func TestNewAPIThenRun(t *testing.T) {
 	go apiserver.Run()
 }
 
+func TestHealthcheckt(t *testing.T) {
+	api := makeAPIServer(nil)
+	url := "/test/health"
+	status, _ := makeAPIRequest(api, "GET", url, nil, t)
+	compareStatus(status, http.StatusOK, t)
+}
+
 func TestAddUpdateGetDeleteConfig(t *testing.T) {
 	mockReg := mock.MakeRegistry()
 	api := makeAPIServer(mockReg)

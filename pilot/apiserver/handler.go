@@ -11,6 +11,12 @@ import (
 	"github.com/golang/glog"
 )
 
+// Status returns 200 to indicate healthy
+// Could be expanded later to identify the health of downstream dependencies such as kube, etc.
+func (api *API) Status(request *restful.Request, response *restful.Response) {
+	response.WriteHeader(http.StatusOK)
+}
+
 // GetConfig retrieves the config object from the configuration registry
 func (api *API) GetConfig(request *restful.Request, response *restful.Response) {
 
