@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('testutils@stable-cd138c4')
+@Library('testutils@stable-41b0bf6')
 
 import org.istio.testutils.Utilities
 import org.istio.testutils.GitUtilities
@@ -103,7 +103,7 @@ def stablePostsubmit(gitUtils, bazel, utils) {
     stage('Docker Push') {
       def date = new Date().format("YYYY-MM-dd-HH.mm.ss")
       def images = 'init,app,proxy,proxy_debug,manager'
-      def tags = "${env.GIT_SHORT_SHA},${date},latest"
+      def tags = "${env.GIT_SHORT_SHA}-${date},latest"
       if (env.GIT_TAG != '') {
         tags += ",${env.GIT_TAG}"
       }
