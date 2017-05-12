@@ -99,7 +99,7 @@ Create and list Mixer rules in the configuration server.
 	}
 
 	mixerRuleCreateCmd = &cobra.Command{
-		Use:   "create",
+		Use:   "create <scope> <subject>",
 		Short: "Create Istio Mixer rules",
 		Example: `
 # Create a new Mixer rule for the given scope and subject.
@@ -117,7 +117,7 @@ istioctl mixer rule create global myservice.ns.svc.cluster.local -f mixer-rule.y
 		},
 	}
 	mixerRuleGetCmd = &cobra.Command{
-		Use:   "get",
+		Use:   "get <scope> <subject>",
 		Short: "Get Istio Mixer rules",
 		Long: `
 Get a Mixer rule for a given scope and subject.

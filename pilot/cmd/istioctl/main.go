@@ -215,7 +215,7 @@ istioctl replace -f example-routing.yaml
 	}
 
 	getCmd = &cobra.Command{
-		Use:   "get",
+		Use:   "get <type> [<name>]",
 		Short: "Retrieve policies and rules",
 		Example: `
 # List all route rules
@@ -229,6 +229,7 @@ istioctl get route-rule productpage-default
 `,
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 1 {
+				c.Println(c.UsageString())
 				return fmt.Errorf("specify the type of resource to get. Types are %v",
 					strings.Join(model.IstioConfig.Kinds(), ", "))
 			}
@@ -282,7 +283,7 @@ istioctl get route-rule productpage-default
 	}
 
 	deleteCmd = &cobra.Command{
-		Use:   "delete",
+		Use:   "delete <type> <name> [<name2> ... <nameN>]",
 		Short: "Delete policies or rules",
 		Example: `
 # Delete a rule using the definition in example-routing.yaml.
