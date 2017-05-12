@@ -74,7 +74,7 @@ func DefaultMeshConfig() proxyconfig.ProxyMeshConfig {
 		IstioServiceCluster:    "istio-proxy",
 
 		IngressClass:          "istio",
-		IngressControllerMode: proxyconfig.ProxyMeshConfig_DEFAULT,
+		IngressControllerMode: proxyconfig.ProxyMeshConfig_STRICT,
 
 		AuthPolicy:    proxyconfig.ProxyMeshConfig_NONE,
 		AuthCertsPath: "/etc/certs",

@@ -173,7 +173,7 @@ func TestIngressController(t *testing.T) {
 			Name:      "nginx-ingress",
 			Namespace: ns,
 			Annotations: map[string]string{
-				"kubernetes.io/ingress.class": "nginx",
+				ingressClassAnnotation: "nginx",
 			},
 		},
 		Spec: v1beta1.IngressSpec{
@@ -191,6 +191,9 @@ func TestIngressController(t *testing.T) {
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      "test-ingress",
 			Namespace: ns,
+			Annotations: map[string]string{
+				ingressClassAnnotation: mesh.IngressClass,
+			},
 		},
 		Spec: v1beta1.IngressSpec{
 			Backend: &v1beta1.IngressBackend{
