@@ -4,6 +4,9 @@ set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_PATH="${ROOT}/bin"
 
+bazel ${BAZEL_STARTUP_ARGS} build ${BAZEL_RUN_ARGS} \
+  //... $(bazel query 'tests(//...)')
+
 source ${BIN_PATH}/use_bazel_go.sh
 
 cd ${ROOT}
