@@ -1,0 +1,228 @@
+# GENERATED FILE. Use with Kubernetes 1.5+
+# TO UPDATE, modify files in install/kubernetes/templates and run updateVersion.sh
+# Mixer
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-mixer
+  labels:
+    istio: mixer
+spec:
+  ports:
+  - name: tcp
+    port: 9091
+  - name: configapi
+    port: 9094
+  - name: prometheus
+    port: 42422
+  selector:
+    istio: mixer
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-mixer
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
+      labels:
+        istio: mixer
+    spec:
+      containers:
+      - name: mixer
+        image: docker.io/istio/mixer:0.1.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9091
+        - containerPort: 9094
+        - containerPort: 42422
+        args:
+          - --configStoreURL=fs:///etc/opt/mixer/configroot
+          - --logtostderr
+          - -v
+          - "3"
+---
+# Manager service for discovery
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+data:
+  mesh: |-
+    # Uncomment the following line to enable mutual TLS between proxies
+    authPolicy: MUTUAL_TLS
+    mixerAddress: istio-mixer:9091
+    discoveryAddress: istio-manager:8080
+    ingressService: istio-ingress
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-manager
+  labels:
+    istio: manager
+spec:
+  ports:
+  - port: 8080
+    name: http-discovery
+  - port: 8081
+    name: http-apiserver
+  selector:
+    istio: manager
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-manager-service-account
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-manager
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
+      labels:
+        istio: manager
+    spec:
+      serviceAccountName: istio-manager-service-account
+      containers:
+      - name: discovery
+        image: docker.io/istio/manager:2017-05-10-07.01.02
+        imagePullPolicy: Always
+        args: ["discovery", "-v", "2"]
+        ports:
+        - containerPort: 8080
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+      - name: apiserver
+        image: docker.io/istio/manager:2017-05-10-07.01.02
+        imagePullPolicy: Always
+        args: ["apiserver", "-v", "2"]
+        ports:
+        - containerPort: 8081
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+---
+################################
+# Istio ingress controller with Istio auth
+################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingress
+  labels:
+    istio: ingress
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+#   nodePort: 32000
+    name: http
+  - port: 443
+    name: https
+  selector:
+    istio: ingress
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingress-service-account
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-ingress
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
+      labels:
+        istio: ingress
+    spec:
+      serviceAccountName: istio-ingress-service-account
+      containers:
+      - name: istio-ingress
+        image: docker.io/istio/proxy_debug:2017-05-10-07.01.02
+        args: ["proxy", "ingress", "-v", "2"]
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+---
+
+################################
+# Istio egress envoy with Istio auth
+################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-egress
+spec:
+  ports:
+  - port: 80
+  selector:
+    istio: egress
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-egress
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: egress
+    spec:
+      containers:
+      - name: proxy
+        image: docker.io/istio/proxy_debug:2017-05-10-07.01.02
+        imagePullPolicy: Always
+        args: ["proxy", "egress", "-v", "2"]
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+---
+
