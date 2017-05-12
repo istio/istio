@@ -22,6 +22,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/golang/glog"
 
@@ -116,6 +117,24 @@ func (i *Istioctl) run(args string) error {
 		return err
 	}
 	return nil
+}
+
+func (i *Istioctl) RunWithOutput(args []string, ns string, istioNs string, expectFailure bool) (output string, err error) {
+	if ns == "" {
+		ns = i.namespace
+	}
+	if istioNs == "" {
+		istioNs = i.istioNamespace
+	}
+
+	if output, err = util.Shell(fmt.Sprintf("%s --namespace %s --istioNamespace %s %s",
+		i.binaryPath, ns, istioNs, strings.Join(args, " "))); err != nil {
+		if !expectFailure {
+			glog.Errorf("istioctl %s failed", args)
+		}
+	}
+
+	return
 }
 
 // KubeInject use istio kube-inject to create new yaml with a proxy as sidecar.
