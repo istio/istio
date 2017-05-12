@@ -17,14 +17,17 @@ package cmd
 import (
 	"crypto/tls"
 	"crypto/x509"
+	_ "expvar" // For /debug/vars registration. Note: temporary, NOT for general use
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	bt "github.com/opentracing/basictracer-go"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -40,6 +43,11 @@ import (
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/tracing"
 	"istio.io/mixer/pkg/version"
+)
+
+const (
+	metricsPath = "/metrics"
+	versionPath = "/version"
 )
 
 type serverArgs struct {
@@ -60,6 +68,7 @@ type serverArgs struct {
 	configFetchIntervalSec        uint
 	configIdentityAttribute       string
 	configIdentityAttributeDomain string
+	monitoringPort                uint16
 
 	// @deprecated
 	serviceConfigFile string
@@ -88,6 +97,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		},
 	}
 	serverCmd.PersistentFlags().Uint16VarP(&sa.port, "port", "p", 9091, "TCP port to use for Mixer's gRPC API")
+	serverCmd.PersistentFlags().Uint16Var(&sa.monitoringPort, "monitoringPort", 9093, "HTTP port to use for the exposing mixer self-monitoring information")
 	serverCmd.PersistentFlags().Uint16VarP(&sa.configAPIPort, "configAPIPort", "", 9094, "HTTP port to use for Mixer's Configuration API")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxMessageSize, "maxMessageSize", "", 1024*1024, "Maximum size of individual gRPC messages")
 	serverCmd.PersistentFlags().UintVarP(&sa.maxConcurrentStreams, "maxConcurrentStreams", "", 32, "Maximum supported number of concurrent gRPC streams")
@@ -254,6 +264,30 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 
 	printf("Starting Config API server on port %v", sa.configAPIPort)
 	go configAPIServer.Run()
+
+	var monitoringListener net.Listener
+	// get the network stuff setup
+	if monitoringListener, err = net.Listen("tcp", fmt.Sprintf(":%d", sa.monitoringPort)); err != nil {
+		fatalf("Unable to listen on socket: %v", err)
+	}
+
+	// NOTE: this is a temporary solution for provide bare-bones debug functionality
+	// for mixer. a full design / implementation of self-monitoring and reporting
+	// is coming. that design will include proper coverage of statusz/healthz type
+	// functionality, in addition to how mixer reports its own metrics.
+	http.Handle(metricsPath, promhttp.Handler())
+	http.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
+		if _, verErr := out.Write([]byte(version.Info.String())); verErr != nil {
+			printf("error printing version info: %v", verErr)
+		}
+	})
+	monitoring := &http.Server{Addr: fmt.Sprintf(":%d", sa.monitoringPort)}
+	printf("Starting self-monitoring on port %d", sa.monitoringPort)
+	go func() {
+		if monErr := monitoring.Serve(monitoringListener.(*net.TCPListener)); monErr != nil {
+			printf("monitoring server error: %v", monErr)
+		}
+	}()
 
 	// get everything wired up
 	gs := grpc.NewServer(grpcOptions...)
