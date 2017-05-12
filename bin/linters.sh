@@ -4,7 +4,8 @@ set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_PATH="${ROOT}/bin"
 
-bazel_build
+bazel ${BAZEL_STARTUP_ARGS} build ${BAZEL_RUN_ARGS} \
+  //... $(bazel query 'tests(//...)')
 
 source ${BIN_PATH}/use_bazel_go.sh
 
@@ -18,11 +19,6 @@ while getopts :c: arg; do
     *) error_exit "Unrecognized argument ${OPTARG}";;
   esac
 done
-
-bazel_build() {
-    bazel ${BAZEL_STARTUP_ARGS} build ${BAZEL_RUN_ARGS} \
-      //... $(bazel query 'tests(//...)')
-}
 
 prep_linters() {
     if ! which codecoroner > /dev/null; then
