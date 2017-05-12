@@ -102,12 +102,12 @@ func waitForRule(ruleKey string, retries int, durBetweenAttempts time.Duration) 
 			"", "", false); err != nil {
 			return err
 		}
-		if strings.Index(output, ruleKey) >= 0 {
+		if strings.Contains(output, ruleKey) {
 			return nil
 		}
 	}
 
-	return fmt.Errorf("Created rule did not exist after %v", time.Duration(retries)*durBetweenAttempts)
+	return fmt.Errorf("created rule did not exist after %v", time.Duration(retries)*durBetweenAttempts)
 }
 
 func waitForRuleRemoval(ruleKey string, retries int, durBetweenAttempts time.Duration) error {
@@ -120,12 +120,12 @@ func waitForRuleRemoval(ruleKey string, retries int, durBetweenAttempts time.Dur
 			"", "", false); err != nil {
 			return err
 		}
-		if strings.Index(output, ruleKey) < 0 {
+		if !strings.Contains(output, ruleKey) {
 			return nil
 		}
 	}
 
-	return fmt.Errorf("Created rule did not exist after %v", time.Duration(retries)*durBetweenAttempts)
+	return fmt.Errorf("created rule still exists after %v", time.Duration(retries)*durBetweenAttempts)
 }
 
 // Mixer rules don't have names so we just wait for a rule of the appropriate "kind" (e.g. "quota")
@@ -144,7 +144,7 @@ func waitForMixerRuleType(scope, subject, kind string, retries int, durBetweenAt
 		}
 	}
 
-	return fmt.Errorf("Created mixer rule kind did not exist after %v", time.Duration(retries)*durBetweenAttempts)
+	return fmt.Errorf("created mixer rule kind did not exist after %v", time.Duration(retries)*durBetweenAttempts)
 }
 
 func rulePath(ruleFile string) string {
@@ -189,7 +189,7 @@ func TestCRUD(t *testing.T) {
 		t.Fatalf(fmt.Sprintf("Unexpected create output %s", output))
 	}
 
-	if err := waitForRule(ruleName, maxRetries, time.Second); err != nil {
+	if err = waitForRule(ruleName, maxRetries, time.Second); err != nil {
 		t.Fatal(err)
 	}
 
@@ -221,7 +221,7 @@ func TestCRUD(t *testing.T) {
 	// TODO check that the replace above is visible with get/list within maxRetries of time.Second
 
 	// Test that the rule is still there
-	if err := waitForRule(ruleName, maxRetries, time.Second); err != nil {
+	if err = waitForRule(ruleName, maxRetries, time.Second); err != nil {
 		t.Fatal(err)
 	}
 
@@ -236,14 +236,16 @@ func TestCRUD(t *testing.T) {
 	}
 	// TODO check that the change never shows up?
 
-	output, err = tc.Kube.Istioctl.RunWithOutput([]string{"delete", "--file", rulePath("route-rule-100-delay-7s.yaml")},
-		"", "", false)
+	if output, err = tc.Kube.Istioctl.RunWithOutput([]string{"delete", "--file", rulePath("route-rule-100-delay-7s.yaml")},
+		"", "", false); err != nil {
+		t.Fatal(err)
+	}
 	if !regexp.MustCompile("Deleted config: route-rule test-100-delay").Match([]byte(output)) {
 		t.Fatalf(fmt.Sprintf("Unexpected delete output %s", output))
 	}
 
 	// Wait for the rule to go away
-	if err := waitForRuleRemoval(ruleName, maxRetries, time.Second); err != nil {
+	if err = waitForRuleRemoval(ruleName, maxRetries, time.Second); err != nil {
 		t.Fatal(err)
 	}
 
@@ -292,7 +294,10 @@ func TestInvalidMixerRuleDetected(t *testing.T) {
 	}
 
 	for _, invalidRule := range invalidRules {
-		output, err := tc.Kube.Istioctl.RunWithOutput([]string{"mixer", "rule", "create", "global", "myservice.ns.svc.cluster.local", "--file", rulePath(invalidRule.ruleFile)},
+		output, err := tc.Kube.Istioctl.RunWithOutput([]string{
+			"mixer", "rule", "create",
+			"global", "myservice.ns.svc.cluster.local",
+			"--file", rulePath(invalidRule.ruleFile)},
 			"", "", true)
 		if err == nil {
 			glog.Error(fmt.Sprintf("Expected failure but got success %v", output))
@@ -335,17 +340,7 @@ func setTestConfig() error {
 	tc = new(testConfig)
 	tc.CommonConfig = cc
 	tc.rulesDir, err = ioutil.TempDir(os.TempDir(), "istioctl_test")
-	if err != nil {
-		return err
-	}
-	/*
-		demoApp := &framework.App{
-			AppYaml:    util.GetResourcePath(bookinfoYaml),
-			KubeInject: true,
-		}
-		tc.Kube.AppManager.AddApp(demoApp)
-	*/
-	return nil
+	return err
 }
 
 func TestMain(m *testing.M) {
