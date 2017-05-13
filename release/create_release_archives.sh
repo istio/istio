@@ -69,7 +69,7 @@ function create_windows_archive() {
   wget -O "${istioctl_path}" "${url}" \
     || error_exit "Could not download ${istioctl_path}"
 
-  zip -r "${ARCHIVES_DIR}/istio_${ISTIO_VERSION}-win.zip" . \
+  zip -r "${ARCHIVES_DIR}/istio_${ISTIO_VERSION}_win.zip" . \
     || error_exit 'Could not create linux archive'
   rm -rf "${istioctl_path}"
 }
