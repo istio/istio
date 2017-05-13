@@ -1,0 +1,2 @@
+# Increment this each time a release is created and tagged.
+export ISTIO_VERSION=0.1.2
