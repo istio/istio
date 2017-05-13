@@ -25,7 +25,7 @@ function error_exit() {
 }
 
 source ${ROOT}/istio.VERSION || error_exit 'Could not source istio.VERSION'
-source ${ROOT}/istio.RELEASE || error_exit 'Could not source istio.RELEASE'
+ISTIO_VERSION="$(cat ${ROOT}/istio.RELEASE)"
 [[ -z "${ISTIO_VERSION}" ]] && error_exit 'ISTIO_VERSION is not set'
 [[ -z "${ISTIOCTL_URL}" ]] && error_exit 'ISTIOCTL_URL is not set'
 
@@ -42,7 +42,7 @@ function create_linux_archive() {
     || error_exit "Could not download ${istioctl_path}"
   chmod 755 "${istioctl_path}"
 
-  tar --owner releng --group releng -czvf  \
+  tar --owner releng --group releng -czvf \
     "${ARCHIVES_DIR}/istio-${ISTIO_VERSION}-linux.tar.gz" . \
     || error_exit 'Could not create linux archive'
   rm -rf "${istioctl_path}"
@@ -56,7 +56,7 @@ function create_osx_archive() {
     || error_exit "Could not download ${istioctl_path}"
   chmod 755 "${istioctl_path}"
 
-  tar --owner releng --group releng -czvf  \
+  tar --owner releng --group releng -czvf \
     "${ARCHIVES_DIR}/istio-${ISTIO_VERSION}-osx.tar.gz" . \
     || error_exit 'Could not create linux archive'
   rm -rf "${istioctl_path}"
