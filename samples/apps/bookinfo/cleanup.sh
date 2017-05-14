@@ -16,14 +16,26 @@
 
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-for rule in $(istioctl get route-rules); do
-  istioctl delete route-rule $rule;
+# only ask if in interactive mode
+if [[ -t 0 ]];then
+  echo -n "namespace ? [default] "
+  read NAMESPACE
+fi
+
+if [[ -z ${NAMESPACE} ]];then
+  NAMESPACE=default
+fi
+
+echo "using NAMESPACE=${NAMESPACE}"
+
+for rule in $(istioctl get -n ${NAMESPACE}  route-rules); do
+  istioctl delete -n ${NAMESPACE} route-rule $rule;
 done
 #istioctl delete mixer-rule ratings-ratelimit
 
 export OUTPUT=$(mktemp)
 echo "Application cleanup may take up to one minute"
-kubectl delete -f $SCRIPTDIR/bookinfo.yaml > ${OUTPUT} 2>&1
+kubectl delete -n ${NAMESPACE} -f $SCRIPTDIR/bookinfo.yaml > ${OUTPUT} 2>&1
 ret=$?
 function cleanup() {
   rm -f ${OUTPUT}
