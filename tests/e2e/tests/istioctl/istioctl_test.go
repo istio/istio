@@ -294,7 +294,7 @@ func TestInvalidMixerRuleDetected(t *testing.T) {
 			ruleFile: "mixer-rule-ratings-ratelimit-invalid.yaml",
 			// TODO Currently CLI outputs "Error: the server responded with the
 			// status code 412 but did not return more information"
-			response: regexp.MustCompile("the server responded with"),
+			response: regexp.MustCompile("maxAmount: must be >= 0"),
 		},
 	}
 
