@@ -16,12 +16,42 @@
 
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-istioctl delete route-rule productpage-default
-istioctl delete route-rule reviews-default
-istioctl delete route-rule ratings-default
-istioctl delete route-rule details-default
-istioctl delete route-rule reviews-test-v2
-istioctl delete route-rule ratings-test-delay
+# only ask if in interactive mode
+if [[ -t 0 ]];then
+  echo -n "namespace ? [default] "
+  read NAMESPACE
+fi
+
+if [[ -z ${NAMESPACE} ]];then
+  NAMESPACE=default
+fi
+
+echo "using NAMESPACE=${NAMESPACE}"
+
+for rule in $(istioctl get -n ${NAMESPACE}  route-rules); do
+  istioctl delete -n ${NAMESPACE} route-rule $rule;
+done
 #istioctl delete mixer-rule ratings-ratelimit
 
-kubectl delete -f $SCRIPTDIR/bookinfo.yaml
+export OUTPUT=$(mktemp)
+echo "Application cleanup may take up to one minute"
+kubectl delete -n ${NAMESPACE} -f $SCRIPTDIR/bookinfo.yaml > ${OUTPUT} 2>&1
+ret=$?
+function cleanup() {
+  rm -f ${OUTPUT}
+}
+
+trap cleanup EXIT
+
+if [[ ${ret} -eq 0 ]];then
+  cat ${OUTPUT}
+else
+  # ignore NotFound errors
+  OUT2=$(grep -v NotFound ${OUTPUT})
+  if [[ ! -z ${OUT2} ]];then
+    cat ${OUTPUT}
+    exit ${ret}
+  fi
+fi
+
+echo "Application cleanup successful"
