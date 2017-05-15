@@ -2,7 +2,19 @@
 
 This directory contains scripts for running a full Istio end-to-end integration test (bookinfo)
 and for updating the default Istio installation configuration.
- 
+
+## e2e.sh
+
+The [e2e.sh](e2e.sh) script `source`s the version inforation in
+[istio.VERSION](../istio.VERSION) then
+uses [Bazel](https://bazel.build/) to execute
+Go tests defined in the _BUILD_ files.
+
+### Environment variables
+
+* BAZEL_STARTUP_ARGS
+* BAZEL_RUN_ARGS
+
 ## kubeTest.sh
 
 The [kubeTest.sh](kubeTest.sh) script allows a user to run the integration test using

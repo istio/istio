@@ -120,9 +120,8 @@ func (i *Istioctl) run(args string) error {
 }
 
 // RunWithOutput runs istioctl with the named args, optionally overriding the namespace with `ns` and the
-// istio namespace with `istioNs`.  `expectFailure` suppresses logging of failure when the command is
-// expected/desired to fail by the test.
-func (i *Istioctl) RunWithOutput(args []string, ns string, istioNs string, expectFailure bool) (output string, err error) {
+// istio namespace with `istioNs`.
+func (i *Istioctl) RunWithOutput(args []string, ns string, istioNs string) (output string, err error) {
 	if ns == "" {
 		ns = i.namespace
 	}
@@ -130,12 +129,8 @@ func (i *Istioctl) RunWithOutput(args []string, ns string, istioNs string, expec
 		istioNs = i.istioNamespace
 	}
 
-	if output, err = util.Shell(fmt.Sprintf("%s --namespace %s --istioNamespace %s %s",
-		i.binaryPath, ns, istioNs, strings.Join(args, " "))); err != nil {
-		if !expectFailure {
-			glog.Errorf("istioctl %s failed", args)
-		}
-	}
+	output, err = util.Shell(fmt.Sprintf("%s --namespace %s --istioNamespace %s %s",
+		i.binaryPath, ns, istioNs, strings.Join(args, " ")))
 
 	return
 }
