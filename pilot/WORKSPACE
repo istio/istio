@@ -40,7 +40,7 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_coreos_pkg",
-    commit = "fa29b1d70f0beaddd4c7021607cc3c3be8ce94b8",
+    commit = "1c941d73110817a80b9fa6e14d5d2b00d977ce2a",  # darwin build: delete shell file called build
     importpath = "github.com/coreos/pkg",
 )
 
@@ -202,6 +202,7 @@ new_go_repository(
 
 new_go_repository(
     name = "org_golang_x_text",
+    build_file_name = "BUILD.bazel",  # darwin build: case insensitive file system problem
     commit = "2910a502d2bf9e43193af9d68ca516529614eed3",
     importpath = "golang.org/x/text",
 )
