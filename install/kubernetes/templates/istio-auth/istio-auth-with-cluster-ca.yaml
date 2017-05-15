@@ -57,6 +57,7 @@ data:
     mixerAddress: istio-mixer:9091
     discoveryAddress: istio-manager:8080
     ingressService: istio-ingress
+    zipkinAddress: zipkin:9411
 ---
 apiVersion: v1
 kind: Service
