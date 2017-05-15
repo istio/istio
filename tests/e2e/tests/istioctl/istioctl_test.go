@@ -34,7 +34,8 @@ import (
 const (
 	rulesDir = "tests/apps/istioctl/input"
 
-	// How many retries when waiting for CRUD operation to succeed (database not instantly consistent)
+	// How many retries when waiting for CRUD operation to succeed (database
+	// not instantly consistent)
 	maxRetries = 5
 )
 
@@ -66,7 +67,8 @@ type ruleFileAndCreateResponse struct {
 func (t *testConfig) Setup() error {
 	t.gateway = "http://" + tc.Kube.Ingress
 
-	// Customize rule yaml files, replace with actual namespace, and copy to /tmp/<id>
+	// Customize rule yaml files, replace with actual namespace,
+	// and copy to /tmp/<id>
 	for _, rule := range ruleFiles {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
 		dest := filepath.Join(t.rulesDir, rule)
@@ -98,7 +100,7 @@ func waitForRule(ruleKey string, retries int, durBetweenAttempts time.Duration) 
 		var output string
 		var err error
 		if output, err = tc.Kube.Istioctl.RunWithOutput([]string{"get", "route-rules"},
-			"", "", false); err != nil {
+			"", ""); err != nil {
 			return err
 		}
 		if strings.Contains(output, ruleKey) {
@@ -106,7 +108,8 @@ func waitForRule(ruleKey string, retries int, durBetweenAttempts time.Duration) 
 		}
 	}
 
-	return fmt.Errorf("created rule did not exist after %v", time.Duration(retries)*durBetweenAttempts)
+	return fmt.Errorf("created rule did not exist after %v",
+		time.Duration(retries)*durBetweenAttempts)
 }
 
 func waitForRuleRemoval(ruleKey string, retries int, durBetweenAttempts time.Duration) error {
@@ -115,8 +118,8 @@ func waitForRuleRemoval(ruleKey string, retries int, durBetweenAttempts time.Dur
 		time.Sleep(durBetweenAttempts)
 		var output string
 		var err error
-		if output, err = tc.Kube.Istioctl.RunWithOutput([]string{"get", "route-rules"},
-			"", "", false); err != nil {
+		if output, err = tc.Kube.Istioctl.RunWithOutput(
+			[]string{"get", "route-rules"}, "", ""); err != nil {
 			return err
 		}
 		if !strings.Contains(output, ruleKey) {
@@ -124,18 +127,20 @@ func waitForRuleRemoval(ruleKey string, retries int, durBetweenAttempts time.Dur
 		}
 	}
 
-	return fmt.Errorf("created rule still exists after %v", time.Duration(retries)*durBetweenAttempts)
+	return fmt.Errorf("created rule still exists after %v",
+		time.Duration(retries)*durBetweenAttempts)
 }
 
-// Mixer rules don't have names so we just wait for a rule of the appropriate "kind" (e.g. "quota")
+// Mixer rules don't have names so we just wait for a rule of the appropriate
+// "kind" (e.g. "quota")
 func waitForMixerRuleType(scope, subject, kind string, retries int, durBetweenAttempts time.Duration) error {
 
 	for retry := 0; retry < retries; retry++ {
 		time.Sleep(durBetweenAttempts)
 		var output string
 		var err error
-		if output, err = tc.Kube.Istioctl.RunWithOutput([]string{"mixer", "rule", "get", scope, subject},
-			"", "", false); err != nil {
+		if output, err = tc.Kube.Istioctl.RunWithOutput(
+			[]string{"mixer", "rule", "get", scope, subject}, "", ""); err != nil {
 			return err
 		}
 		if strings.Contains(output, kind) {
@@ -143,14 +148,50 @@ func waitForMixerRuleType(scope, subject, kind string, retries int, durBetweenAt
 		}
 	}
 
-	return fmt.Errorf("created mixer rule kind did not exist after %v", time.Duration(retries)*durBetweenAttempts)
+	return fmt.Errorf("created mixer rule kind did not exist after %v",
+		time.Duration(retries)*durBetweenAttempts)
 }
 
 func rulePath(ruleFile string) string {
 	return filepath.Join(tc.rulesDir, ruleFile)
 }
 
-// TestInvalidRuleDetected verifies attempting to create invalid rule fails and generates an error message explaining the problem
+// Run `istioctl` and match output against a pattern
+func istioctlSucceedAndMatchString(args []string, pattern string, t *testing.T) {
+
+	if output, err := tc.Kube.Istioctl.RunWithOutput(args, "", ""); err != nil {
+		t.Fatal(err)
+	} else {
+
+		if !regexp.MustCompile(pattern).Match([]byte(output)) {
+			t.Fatalf(fmt.Sprintf("Unexpected 'istioctl %s' output %s",
+				strings.Join(args, " "), output))
+		}
+	}
+}
+
+// Run `istioctl` (INSISTING ON FAILURE) and match output against a pattern
+func istioctlFailAndMatchString(args []string, pattern string, t *testing.T) {
+	istioctlFailAndMatch(args, regexp.MustCompile(pattern), t)
+}
+
+// Run `istioctl` (INSISTING ON FAILURE) and match output against a pattern
+func istioctlFailAndMatch(args []string, pattern *regexp.Regexp, t *testing.T) {
+
+	if output, err := tc.Kube.Istioctl.RunWithOutput(args, "", ""); err == nil {
+		t.Errorf(fmt.Sprintf("'istioctl %s' is required to fail but it succeeded",
+			strings.Join(args, " ")))
+	} else {
+
+		if !pattern.Match([]byte(output)) {
+			t.Fatalf(fmt.Sprintf("Unexpected 'istioctl %s' output %s",
+				strings.Join(args, " "), output))
+		}
+	}
+}
+
+// TestInvalidRuleDetected verifies attempting to create invalid rule fails and
+// generates an error message explaining the problem
 func TestInvalidRuleDetected(t *testing.T) {
 	invalidRules := []ruleFileAndCreateResponse{
 		{
@@ -160,173 +201,134 @@ func TestInvalidRuleDetected(t *testing.T) {
 	}
 
 	for _, invalidRule := range invalidRules {
-		output, err := tc.Kube.Istioctl.RunWithOutput([]string{"create", "--file", rulePath(invalidRule.ruleFile)},
-			"", "", true)
-		if err == nil {
-			glog.Error(fmt.Sprintf("Expected failure but got success %v", output))
-			t.Fatal(fmt.Sprintf("Expected failure but got success %v", output))
-		}
-		if !invalidRule.response.Match([]byte(output)) {
-			t.Errorf("create file %v did not match %v.  Output: %v", invalidRule.ruleFile, invalidRule.response, output)
-		}
+		istioctlFailAndMatch(
+			[]string{"create", "--file", rulePath(invalidRule.ruleFile)},
+			invalidRule.response, t)
 	}
 }
 
-// TestCRUD tests Create, Read, Update, Delete operations for a rule by performing them and scraping the output.
-// Note: If you are improving the output of istioctl, you will have to modify the regexps here used to detect expected output.
+// TestCRUD tests Create, Read, Update, Delete operations for a rule by
+// performing them and scraping the output.
+// Note: If you are improving the output of istioctl, you will have to modify
+// the regexps here used to detect expected output.
 func TestCRUD(t *testing.T) {
 
 	const ruleName = "test-100-delay"
 
-	var output string
-	var err error
-	if output, err = tc.Kube.Istioctl.RunWithOutput([]string{"create", "--file", rulePath("route-rule-100-delay-7s.yaml")},
-		"", "", false); err != nil {
-		t.Fatal(err)
-	}
-	if !regexp.MustCompile("Created config: route-rule test-100-delay").Match([]byte(output)) {
-		t.Fatalf(fmt.Sprintf("Unexpected create output %s", output))
-	}
+	// Verify apiserver accepts our create and istioctl reports it
+	istioctlSucceedAndMatchString(
+		[]string{"create", "--file", rulePath("route-rule-100-delay-7s.yaml")},
+		"Created config: route-rule test-100-delay", t)
 
-	if err = waitForRule(ruleName, maxRetries, time.Second); err != nil {
+	// Verify the rule was really added to apiserver
+	if err := waitForRule(ruleName, maxRetries, time.Second); err != nil {
 		t.Fatal(err)
 	}
 
-	if output, err = tc.Kube.Istioctl.RunWithOutput([]string{"get", "route-rules"},
-		"", "", false); err != nil {
-		t.Fatal(err)
-	}
-	if !regexp.MustCompile(ruleName).Match([]byte(output)) {
-		t.Fatalf(fmt.Sprintf("Unexpected list output %s", output))
-	}
+	// Verify the list of route-rules displayed includes the new rule
+	istioctlSucceedAndMatchString(
+		[]string{"get", "route-rules"},
+		ruleName, t)
 
-	if output, err = tc.Kube.Istioctl.RunWithOutput([]string{"get", "route-rule", ruleName},
-		"", "", false); err != nil {
-		t.Error(err)
-	}
-	// The output of a get is YAML, this test only looks for a fragment of it, to verify something was returned from the original
-	if !regexp.MustCompile("precedence: 2").Match([]byte(output)) {
-		t.Errorf(fmt.Sprintf("Unexpected get output %s", output))
-	}
+	// Verify we can get YAML for the rule we created
+	istioctlSucceedAndMatchString(
+		[]string{"get", "route-rule", ruleName},
+		"precedence: 2", t) // Match just against a fragment of YAML
 
-	if output, err = tc.Kube.Istioctl.RunWithOutput([]string{"replace", "--file", rulePath("route-rule-100-delay-700s.yaml")},
-		"", "", false); err != nil {
-		t.Fatal(err)
-	}
-	if !regexp.MustCompile("Updated config: route-rule test-100-delay").Match([]byte(output)) {
-		t.Fatalf(fmt.Sprintf("Unexpected replace output %s", output))
-	}
-
-	// TODO check that the replace above is visible with get/list within maxRetries of time.Second
+	// Verify we can update a rule
+	istioctlSucceedAndMatchString(
+		[]string{"replace", "--file", rulePath("route-rule-100-delay-700s.yaml")},
+		"Updated config: route-rule test-100-delay", t)
 
 	// Test that the rule is still there
-	if err = waitForRule(ruleName, maxRetries, time.Second); err != nil {
+	if err := waitForRule(ruleName, maxRetries, time.Second); err != nil {
 		t.Fatal(err)
 	}
 
 	// Attempt to replace with an invalid rule
-	if output, err = tc.Kube.Istioctl.RunWithOutput([]string{"replace", "--file", rulePath("route-rule-100-delay-invalid.yaml")},
-		"", "", false); err == nil {
-		glog.Error(fmt.Sprintf("Expected failure but got success %v", output))
-		t.Fatal(fmt.Sprintf("Expected failure but got success %v", output))
-	}
-	if !regexp.MustCompile("percent invalid:  must be in range 0..100").Match([]byte(output)) {
-		t.Fatalf(fmt.Sprintf("Unexpected invalid replace output %s", output))
-	}
-	// TODO check that the change never shows up?
+	istioctlFailAndMatchString(
+		[]string{"replace", "--file", rulePath("route-rule-100-delay-invalid.yaml")},
+		"percent invalid:  must be in range 0..100", t)
 
-	if output, err = tc.Kube.Istioctl.RunWithOutput([]string{"delete", "--file", rulePath("route-rule-100-delay-7s.yaml")},
-		"", "", false); err != nil {
-		t.Fatal(err)
-	}
-	if !regexp.MustCompile("Deleted config: route-rule test-100-delay").Match([]byte(output)) {
-		t.Fatalf(fmt.Sprintf("Unexpected delete output %s", output))
-	}
+	// apiserver must accept the delete and istioctl must report that
+	istioctlSucceedAndMatchString(
+		[]string{"delete", "--file", rulePath("route-rule-100-delay-7s.yaml")},
+		"Deleted config: route-rule test-100-delay", t)
 
 	// Wait for the rule to go away
-	if err = waitForRuleRemoval(ruleName, maxRetries, time.Second); err != nil {
+	if err := waitForRuleRemoval(ruleName, maxRetries, time.Second); err != nil {
 		t.Fatal(err)
 	}
 
 	// Attempt to delete non-existent rule
-	if output, err = tc.Kube.Istioctl.RunWithOutput([]string{"delete", "--file", rulePath("route-rule-100-delay-invalid.yaml")},
-		"", "", false); err == nil {
-		glog.Error(fmt.Sprintf("Expected failure but got success re-deleting %v", output))
-		t.Fatal(fmt.Sprintf("Expected failure but got success re-deleting %v", output))
-	}
-	if !regexp.MustCompile("not found").Match([]byte(output)) {
-		t.Fatalf(fmt.Sprintf("Unexpected invalid delete output %s", output))
-	}
+	istioctlFailAndMatchString(
+		[]string{"delete", "route-rule", "test-100-delay"},
+		"not found", t)
 }
 
 // TestVersionSubcommand verifies the `istioctl version` subcommand
 func TestVersionSubcommand(t *testing.T) {
-	output, err := tc.Kube.Istioctl.RunWithOutput([]string{"version"},
-		"", "", true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// We don't care what the GitRevision (or other fields) are, just that the command doesn't panic
-	if !regexp.MustCompile("GitRevision").Match([]byte(output)) {
-		t.Errorf("istioctl version unexpected output: %v", output)
-	}
+
+	// We don't care what the GitRevision (or other fields) are, just that the
+	// command doesn't panic
+	istioctlSucceedAndMatchString(
+		[]string{"version"},
+		"GitRevision", t)
 }
 
 // TestCompletionSubcommand verifies the `istioctl completion` subcommand
 func TestCompletionSubcommand(t *testing.T) {
-	_, err := tc.Kube.Istioctl.RunWithOutput([]string{"completion"},
-		"", "", true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// We don't scrape the output, which comes from Cobra.  It is sufficient that the command succeeds.
+
+	// We don't scrape the output, which comes from Cobra.  It is sufficient
+	// that the command succeeds.
+	istioctlSucceedAndMatchString(
+		[]string{"completion"},
+		"", t)
 }
 
-// TestInvalidMixerRuleDetected verifies attempting to create invalid mixer rule fails and generates an error message explaining the problem
+// TestInvalidMixerRuleDetected verifies attempting to create invalid mixer
+// rule fails and generates an error message explaining the problem
 func TestInvalidMixerRuleDetected(t *testing.T) {
 	invalidRules := []ruleFileAndCreateResponse{
 		{
 			ruleFile: "mixer-rule-ratings-ratelimit-invalid.yaml",
-			// TODO Currently CLI outputs "Error: the server responded with the status code 412 but did not return more information"
+			// TODO Currently CLI outputs "Error: the server responded with the
+			// status code 412 but did not return more information"
 			response: regexp.MustCompile("the server responded with"),
 		},
 	}
 
 	for _, invalidRule := range invalidRules {
-		output, err := tc.Kube.Istioctl.RunWithOutput([]string{
-			"mixer", "rule", "create",
-			"global", "myservice.ns.svc.cluster.local",
-			"--file", rulePath(invalidRule.ruleFile)},
-			"", "", true)
-		if err == nil {
-			glog.Error(fmt.Sprintf("Expected failure but got success %v", output))
-			t.Fatal(fmt.Sprintf("Expected failure but got success %v", output))
-		}
-		if invalidRule.response != nil && !invalidRule.response.Match([]byte(output)) {
-			t.Errorf("mixer rule create file %v did not match %v.  Output: %v", invalidRule.ruleFile, invalidRule.response, output)
-		}
+		istioctlFailAndMatch(
+			[]string{"mixer", "rule", "create",
+				"global", "myservice.ns.svc.cluster.local",
+				"--file", rulePath(invalidRule.ruleFile)},
+			invalidRule.response, t)
 	}
 }
 
-// TestMixerCR__ tests Create, Read (but not Update, Delete) operations for a mixer rule by performing them and scraping the output.
-// Note: If you are improving the output of istioctl, you will have to modify the regexps here used to detect expected output.
+// TestMixerCR__ tests Create, Read (but not Update, Delete) operations for a
+// mixer rule by performing them and scraping the output.
+// Note: If you are improving the output of istioctl, you will have to modify
+// the regexps here used to detect expected output.
 func TestMixerCR__(t *testing.T) {
 
 	scope := "global"
 	subject := "myservice.ns.svc.cluster.local"
 
-	var err error
-	if _, err = tc.Kube.Istioctl.RunWithOutput([]string{"mixer", "rule", "create", scope, subject, "--file", rulePath("mixer-rule-ratings-ratelimit-5per_s.yaml")},
-		"", "", false); err != nil {
-		t.Fatal(err)
-	}
-	// `istioctl mixer rule create` currently has no output on success!  (So we can't scrape it)
+	// `istioctl mixer rule create` currently has no output on success!
+	// (So we can't scrape it)
+	istioctlSucceedAndMatchString(
+		[]string{"mixer", "rule", "create", scope, subject,
+			"--file", rulePath("mixer-rule-ratings-ratelimit-5per_s.yaml")},
+		"", t)
 
 	if err := waitForMixerRuleType(scope, subject, "quota", maxRetries, time.Second); err != nil {
 		t.Fatal(err)
 	}
 
-	// The mixer does support "update" but it is by recreation (mixer rules aren't named!)  So we don't test.
+	// The mixer does support "update" but it is by recreation (mixer
+	// rules aren't named!)  So we don't test.
 
 	// The mixer CLI doesn't support delete (!!!) so we can't test it.
 }
