@@ -56,13 +56,14 @@ Http::FilterHeadersStatus Instance::decodeHeaders(Http::HeaderMap& headers,
     if (end_stream) {
       log().debug("header only request");
 
-      auto& data = decoder_callbacks_->decodingBuffer();
-      ASSERT(!data);
-      data.reset(new Buffer::OwnedImpl(""));
-
       request_in_.Finish();
 
-      ReadToBuffer(transcoder_->RequestOutput(), *data);
+      Buffer::OwnedImpl data;
+      ReadToBuffer(transcoder_->RequestOutput(), data);
+
+      if (data.length()) {
+        decoder_callbacks_->addDecodedData(data);
+      }
     }
   } else {
     log().debug("No transcoding" + status.ToString());
@@ -86,6 +87,18 @@ Http::FilterDataStatus Instance::decodeData(Buffer::Instance& data,
 }
 
 Http::FilterTrailersStatus Instance::decodeTrailers(Http::HeaderMap& trailers) {
+  log().debug("Transcoding::Instance::decodeTrailers");
+  if (transcoder_) {
+    request_in_.Finish();
+
+    Buffer::OwnedImpl data;
+    ReadToBuffer(transcoder_->RequestOutput(), data);
+
+    if (data.length()) {
+      decoder_callbacks_->addDecodedData(data);
+    }
+  }
+
   return Http::FilterTrailersStatus::Continue;
 }
 
@@ -96,6 +109,7 @@ void Instance::setDecoderFilterCallbacks(
 
 Http::FilterHeadersStatus Instance::encodeHeaders(Http::HeaderMap& headers,
                                                   bool end_stream) {
+  log().debug("Transcoding::Instance::encodeHeaders");
   if (transcoder_) {
     headers.insertContentType().value(kJsonContentType);
   }
@@ -104,6 +118,7 @@ Http::FilterHeadersStatus Instance::encodeHeaders(Http::HeaderMap& headers,
 
 Http::FilterDataStatus Instance::encodeData(Buffer::Instance& data,
                                             bool end_stream) {
+  log().debug("Transcoding::Instance::encodeData");
   if (transcoder_) {
     response_in_.Move(data);
 
@@ -120,6 +135,17 @@ Http::FilterDataStatus Instance::encodeData(Buffer::Instance& data,
 }
 
 Http::FilterTrailersStatus Instance::encodeTrailers(Http::HeaderMap& trailers) {
+  log().debug("Transcoding::Instance::encodeTrailers");
+  if (transcoder_) {
+    response_in_.Finish();
+
+    Buffer::OwnedImpl data;
+    ReadToBuffer(transcoder_->ResponseOutput(), data);
+
+    if (data.length()) {
+      encoder_callbacks_->addEncodedData(data);
+    }
+  }
   return Http::FilterTrailersStatus::Continue;
 }
 
