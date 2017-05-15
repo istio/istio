@@ -441,7 +441,9 @@ func (c *Controller) Services() []*model.Service {
 	out := make([]*model.Service, 0, len(list))
 
 	for _, item := range list {
-		out = append(out, convertService(*item.(*v1.Service)))
+		if svc := convertService(*item.(*v1.Service)); svc != nil {
+			out = append(out, svc)
+		}
 	}
 	return out
 }
@@ -458,7 +460,8 @@ func (c *Controller) GetService(hostname string) (*model.Service, bool) {
 		return nil, false
 	}
 
-	return convertService(*item), true
+	svc := convertService(*item)
+	return svc, svc != nil
 }
 
 // serviceByKey retrieves a service by name and namespace
@@ -490,6 +493,9 @@ func (c *Controller) Instances(hostname string, ports []string, tagsList model.T
 
 	// Locate all ports in the actual service
 	svc := convertService(*item)
+	if svc == nil {
+		return nil
+	}
 	svcPorts := make(map[string]*model.Port)
 	for _, port := range ports {
 		if svcPort, exists := svc.Ports.Get(port); exists {
@@ -546,6 +552,9 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 						continue
 					}
 					svc := convertService(*item)
+					if svc == nil {
+						continue
+					}
 					for _, port := range ss.Ports {
 						svcPort, exists := svc.Ports.Get(port.Name)
 						if !exists {
@@ -614,7 +623,9 @@ func makeIstioServiceAccount(sa string, ns string, domain string) string {
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	c.services.handler.append(func(obj interface{}, event model.Event) error {
-		f(convertService(*obj.(*v1.Service)), event)
+		if svc := convertService(*obj.(*v1.Service)); svc != nil {
+			f(svc, event)
+		}
 		return nil
 	})
 	return nil
@@ -625,10 +636,11 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	c.endpoints.handler.append(func(obj interface{}, event model.Event) error {
 		ep := *obj.(*v1.Endpoints)
 		if item, exists := c.serviceByKey(ep.Name, ep.Namespace); exists {
-			svc := convertService(*item)
-			// TODO: we're passing an incomplete instance to the
-			// handler since endpoints is an aggregate structure
-			f(&model.ServiceInstance{Service: svc}, event)
+			if svc := convertService(*item); svc != nil {
+				// TODO: we're passing an incomplete instance to the
+				// handler since endpoints is an aggregate structure
+				f(&model.ServiceInstance{Service: svc}, event)
+			}
 		}
 		return nil
 	})

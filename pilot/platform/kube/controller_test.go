@@ -676,9 +676,10 @@ func createService(controller *Controller, name, namespace string, ports []int32
 	service := &v1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{Name: name, Namespace: namespace},
 		Spec: v1.ServiceSpec{
-			Ports:    svcPorts,
-			Selector: selector,
-			Type:     v1.ServiceTypeClusterIP,
+			ClusterIP: "10.0.0.1", // FIXME: generate?
+			Ports:     svcPorts,
+			Selector:  selector,
+			Type:      v1.ServiceTypeClusterIP,
 		},
 	}
 	if err := controller.services.informer.GetStore().Add(service); err != nil {

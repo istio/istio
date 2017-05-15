@@ -142,6 +142,9 @@ func TestServiceConversion(t *testing.T) {
 	}
 
 	service := convertService(localSvc)
+	if service == nil {
+		t.Errorf("could not convert service")
+	}
 
 	if len(service.Ports) != len(localSvc.Spec.Ports) {
 		t.Errorf("incorrect number of ports => %v, want %v",
@@ -160,13 +163,11 @@ func TestServiceConversion(t *testing.T) {
 	if service.Address != ip {
 		t.Errorf("service IP incorrect => %q, want %q", service.Address, ip)
 	}
-
 }
 
 func TestExternalServiceConversion(t *testing.T) {
 	serviceName := "service1"
 	namespace := "default"
-	ip := "10.0.0.1"
 
 	extSvc := v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -174,7 +175,6 @@ func TestExternalServiceConversion(t *testing.T) {
 			Namespace: namespace,
 		},
 		Spec: v1.ServiceSpec{
-			ClusterIP: ip,
 			Ports: []v1.ServicePort{
 				{
 					Name:     "http",
@@ -188,6 +188,9 @@ func TestExternalServiceConversion(t *testing.T) {
 	}
 
 	service := convertService(extSvc)
+	if service == nil {
+		t.Errorf("could not convert external service")
+	}
 
 	if len(service.Ports) != len(extSvc.Spec.Ports) {
 		t.Errorf("incorrect number of ports => %v, want %v",
@@ -202,9 +205,60 @@ func TestExternalServiceConversion(t *testing.T) {
 		t.Errorf("service hostname incorrect => %q, want %q",
 			service.Hostname, extSvc.Spec.ExternalName)
 	}
+}
 
-	if service.Address != ip {
-		t.Errorf("service address incorrect => %q, want %q", service.Address, ip)
+func TestInvalidServiceConversion(t *testing.T) {
+	serviceName := "service1"
+	namespace := "default"
+
+	localSvc := v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{
+					Name:     "http",
+					Port:     8080,
+					Protocol: v1.ProtocolTCP,
+				},
+				{
+					Name:     "https",
+					Protocol: v1.ProtocolTCP,
+					Port:     443,
+				},
+			},
+		},
 	}
 
+	if svc := convertService(localSvc); svc != nil {
+		t.Errorf("converted a service without a cluster IP")
+	}
+}
+
+func TestInvalidExternalServiceConversion(t *testing.T) {
+	serviceName := "service1"
+	namespace := "default"
+
+	extSvc := v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: v1.ProtocolTCP,
+				},
+			},
+			Type: v1.ServiceTypeExternalName,
+		},
+	}
+
+	if svc := convertService(extSvc); svc != nil {
+		t.Errorf("converted a service without an external name")
+	}
 }
