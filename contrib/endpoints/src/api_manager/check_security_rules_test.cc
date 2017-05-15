@@ -296,6 +296,9 @@ class CheckSecurityRulesTest : public ::testing::Test {
     ON_CALL(*raw_request_, GetUnparsedRequestPath())
         .WillByDefault(Return(std::string("/ListShelves")));
 
+    ON_CALL(*raw_request_, GetRequestPath())
+        .WillByDefault(Return(std::string("/ListShelves")));
+
     request_context_ = std::make_shared<context::RequestContext>(
         service_context_, std::move(request));
     release_url_ =

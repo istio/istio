@@ -187,7 +187,7 @@ Status FirebaseRequest::UpdateRulesetRequestBody(
   auto *variables = test_case->mutable_request()->mutable_struct_value();
   auto *fields = variables->mutable_fields();
 
-  path.set_string_value(context_->request()->GetUnparsedRequestPath());
+  path.set_string_value(context_->request()->GetRequestPath());
   (*fields)[kPath] = path;
 
   method.set_string_value(

@@ -99,7 +99,7 @@ void AuthzChecker::Check(
 
   if (!context->service_context()->IsRulesCheckEnabled() ||
       context->method() == nullptr || !context->method()->auth()) {
-    env_->LogDebug("Skipping Firebase Rules checks since it is disabled.");
+    env_->LogInfo("Skipping Firebase Rules checks since it is disabled.");
     final_continuation(Status::OK);
     return;
   }
