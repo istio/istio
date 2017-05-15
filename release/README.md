@@ -1,6 +1,6 @@
 # Istio Release
 
-# Overview
+## Overview
 
 The release is started from the [istio/istio](https://github.com/istio/istio) module.
 
@@ -10,10 +10,11 @@ Istio release is currently composed of artifacts for the following repos:
 * [manager](https://github.com/istio/manager)
 * [mixer](https://github.com/istio/mixer)
 
-The release consists in retagging the docker images and creating new annotated
-tags.
+The release consists in retagging the artifacts and creating new annotated tags.
 
-# Creating tags
+Note that only Admins can create a release.
+
+## Creating tags
 
 From [istio/istio](https://github.com/istio/istio), the ```istio.VERSION``` file should look like this
 
@@ -36,12 +37,11 @@ The next release version is stored in ```istio.RELEASE```:
         RELEASE_TAG="$(cat istio.RELEASE)"
 
 The next step is to create an annotated tag for each of the repo.
+Fortunately each tag contains the short SHA at which it was built.
 
         MANAGER_SHA=6dbd19d
         MIXER_SHA=6bfa390
         AUTH_SHA=d773c15
-
-Note that only Admins should have access to push tags.
 
         $ git clone https://github.com/istio/manager
         $ cd manager
@@ -58,7 +58,7 @@ Note that only Admins should have access to push tags.
         $ git tag -a ${RELEASE_TAG} -m "Istio Release ${RELEASE_TAG}" ${AUTH_TAG}
         $ git push --tags origin
 
-# Rebuild Artifacts to include the tags
+## Rebuild Artifacts to include the tags
 
 Go to Mixer [stable artifacts](https://testing.istio.io/view/All%20Jobs/job/mixer/job/stable-artifacts/)
 job and click on ```Build with Parameters```.
@@ -72,7 +72,7 @@ Go to Auth [stable artifacts](https://testing.istio.io/view/All%20Jobs/job/auth/
 job and click on ```Build with Parameters```.
 Replace ```BRANCH_SPEC``` with the value of ```${RELEASE_TAG}```
 
-# Updating ```istio.VERSION```
+## Updating ```istio.VERSION```
 
 Now we need update the tags ```istio.VERSION``` to point to the release tag.
 
@@ -87,7 +87,7 @@ Once tests are completed, merge the PR, and create an annotated tags
         $ git tag -a ${RELEASE_TAG} -m "Istio Release ${RELEASE_TAG}" ${MANAGER_TAG}
         $ git push --tags origin
 
-# Creating Archives
+## Creating Archives
 
 Sync your workspace at ${RELEASE_TAG}:
 
@@ -105,7 +105,7 @@ Open the [GitHub Release page](https://github.com/istio/istio/releases),
 and edit the release that points to ```${RELEASE_TAG}```. Uploads the artifacts created by the previous script.
 
 
-# Finalizing the release
+## Finalizing the release
 
 Create a PR, where you increment ```istio.RELEASE``` for the next
 release and you update ```istio/downloadIstio.sh``` to point to ```${RELEASE_TAG}```
