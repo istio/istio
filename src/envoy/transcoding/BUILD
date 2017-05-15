@@ -88,3 +88,24 @@ cc_test(
         "//src/envoy/transcoding/test:bookstore_descriptor",
     ],
 )
+
+cc_test(
+    name = "integration_test",
+    srcs = [
+        "integration_test.cc",
+    ],
+    deps = [
+        "filter_lib",
+        "//src/envoy/transcoding/test:bookstore_proto",
+        "@envoy//source/common/grpc:codec_lib",
+        "@envoy//test/integration:integration_lib",
+        "@envoy//test/mocks/http:http_mocks",
+        "@envoy//test/mocks/upstream:upstream_mocks",
+        "@envoy//test/test_common:utility_lib",
+        "@envoy//test:main",
+    ],
+    data = [
+        "//src/envoy/transcoding/test:bookstore_descriptor",
+        "//src/envoy/transcoding/test:integration.json",
+    ],
+)

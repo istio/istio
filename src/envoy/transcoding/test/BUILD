@@ -16,6 +16,8 @@
 #
 load("@protobuf_git//:protobuf.bzl", "cc_proto_library")
 
+exports_files(["integration.json"])
+
 cc_proto_library(
     name = "bookstore_proto",
     srcs = ["bookstore.proto"],
