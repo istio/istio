@@ -1,9 +1,26 @@
 #!/bin/bash
 
+# Copyright 2017 Istio Authors
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+
+#       http://www.apache.org/licenses/LICENSE-2.0
+
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 # This must be kept in sync with //pkg/version/version.go
 
 # Setup build ID based on date and short SHA of latest commit.
-echo "buildID $(date +%F)-$(git rev-parse --short HEAD)"
+SHORT_SHA="$(git rev-parse --short HEAD)"
+echo "buildID $(date +%F)-${SHORT_SHA}"
 
 # Check for local changes
 git diff-index --quiet HEAD --
@@ -16,8 +33,8 @@ fi
 echo "buildStatus ${tree_status}"
 
 # Check for version information
-VERSION=$(git describe)
+VERSION=$(cat "${ROOT}/istio.RELEASE")
 if [[ $? == 0 ]];
 then
-    echo "buildVersion ${VERSION}"
+    echo "buildVersion ${VERSION}-${SHORT_SHA}"
 fi
