@@ -10,6 +10,7 @@ data:
     mixerAddress: istio-mixer:9091
     discoveryAddress: istio-manager:8080
     ingressService: istio-ingress
+    zipkinAddress: zipkin:9411
 ---
 apiVersion: v1
 kind: Service
@@ -47,7 +48,7 @@ spec:
       serviceAccountName: istio-manager-service-account
       containers:
       - name: discovery
-        image: docker.io/istio/manager:0.1.1
+        image: docker.io/istio/manager:0.1.2
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:
@@ -59,7 +60,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
       - name: apiserver
-        image: docker.io/istio/manager:0.1.1
+        image: docker.io/istio/manager:0.1.2
         imagePullPolicy: Always
         args: ["apiserver", "-v", "2"]
         ports:

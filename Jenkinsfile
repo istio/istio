@@ -28,10 +28,7 @@ def presubmit(gitUtils, bazel, utils) {
   goBuildNode(gitUtils, 'istio.io/istio') {
     bazel.updateBazelRc()
     utils.initTestingCluster()
-    stage('Bazel Build') {
-      bazel.build('//...')
-    }
-    stage('Code Check') {
+    stage('Build and Checks') {
       sh('bin/linters.sh')
     }
     stage('Bazel Test') {
