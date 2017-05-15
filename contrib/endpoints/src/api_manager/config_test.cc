@@ -898,7 +898,7 @@ static const char kServerConfigWithoutAuthz[] = R"(
 
 static const char kServerConfigWithAuthz[] = R"(
   api_check_security_rules_config {
-    firebase_server: "https://myfirebaseserver.com/"
+    firebase_server: "https://myfirebaseserver.com"
   }
 )";
 
@@ -919,7 +919,7 @@ TEST(Config, TestFirebaseServerCheckWithServiceAuthzWithServerAuthz) {
       Config::Create(&env, kServiceConfigWithAuthz, kServerConfigWithAuthz);
   ASSERT_TRUE(config);
 
-  ASSERT_EQ(config->GetFirebaseServer(), "https://myfirebaseserver.com/");
+  ASSERT_EQ(config->GetFirebaseServer(), "https://myfirebaseserver.com");
 }
 
 TEST(Config, TestFirebaseServerCheckWithoutServiceAuthzWithoutServerAuthz) {
@@ -939,7 +939,18 @@ TEST(Config, TestFirebaseServerCheckWithoutServiceConfigWithServerConfig) {
       Config::Create(&env, kServiceConfigWithoutAuthz, kServerConfigWithAuthz);
   ASSERT_TRUE(config);
 
-  ASSERT_EQ(config->GetFirebaseServer(), "https://myfirebaseserver.com/");
+  ASSERT_EQ(config->GetFirebaseServer(), "https://myfirebaseserver.com");
+}
+
+TEST(Config, TestFirebaseServerAudience) {
+  MockApiManagerEnvironmentWithLog env;
+  std::unique_ptr<Config> config =
+      Config::Create(&env, kServiceConfigWithAuthz, kServerConfigWithAuthz);
+  ASSERT_TRUE(config);
+
+  ASSERT_EQ(config->GetFirebaseAudience(),
+            "https://myfirebaseserver.com"
+            "/google.firebase.rules.v1.FirebaseRulesService");
 }
 
 TEST(Config, TestInvalidMetricRules) {

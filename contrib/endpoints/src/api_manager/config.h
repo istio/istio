@@ -91,6 +91,9 @@ class Config {
   // Get the Firebase server from Server config
   std::string GetFirebaseServer();
 
+  // Get the audience for the firebase server
+  std::string GetFirebaseAudience();
+
  private:
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(Config);
 

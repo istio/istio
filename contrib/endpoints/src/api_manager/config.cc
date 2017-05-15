@@ -48,6 +48,8 @@ const char http_options[] = "OPTIONS";
 const string https_prefix = "https://";
 const string http_prefix = "http://";
 const string openid_config_path = ".well-known/openid-configuration";
+const string kFirebaseAudience =
+    "/google.firebase.rules.v1.FirebaseRulesService";
 
 class NoOpErrorCollector : public ::google::protobuf::io::ErrorCollector {
   void AddError(int line, int column, const string &message) {}
@@ -559,6 +561,10 @@ std::string Config::GetFirebaseServer() {
     return service_.experimental().authorization().provider();
   }
   return "";
+}
+
+std::string Config::GetFirebaseAudience() {
+  return GetFirebaseServer() + kFirebaseAudience;
 }
 
 }  // namespace api_manager

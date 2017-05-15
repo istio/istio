@@ -49,9 +49,6 @@ const std::string kFirebaseDeleteMethod = "delete";
 const std::string kFirebaseUpdateMethod = "update";
 const std::string kV1 = "/v1";
 const std::string kTestQuery = ":test?alt=json";
-const char kFirebaseAudience[] =
-    "https://staging-firebaserules.sandbox.googleapis.com/"
-    "google.firebase.rules.v1.FirebaseRulesService";
 
 void SetProtoValue(const std::string &key,
                    const ::google::protobuf::Value &value,
@@ -97,7 +94,8 @@ FirebaseRequest::FirebaseRequest(
   firebase_http_request_.method = kHttpPostMethod;
   firebase_http_request_.token_type =
       auth::ServiceAccountToken::JWT_TOKEN_FOR_FIREBASE;
-  firebase_http_request_.audience = kFirebaseAudience;
+  firebase_http_request_.audience =
+      context->service_context()->config()->GetFirebaseAudience();
 
   external_http_request_.token_type =
       auth::ServiceAccountToken::JWT_TOKEN_FOR_AUTHORIZATION_SERVICE;

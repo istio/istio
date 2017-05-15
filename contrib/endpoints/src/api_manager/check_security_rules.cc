@@ -23,9 +23,6 @@
 using ::google::api_manager::auth::GetStringValue;
 using ::google::api_manager::firebase_rules::FirebaseRequest;
 using ::google::api_manager::utils::Status;
-const char kFirebaseAudience[] =
-    "https://staging-firebaserules.sandbox.googleapis.com/"
-    "google.firebase.rules.v1.FirebaseRulesService";
 
 namespace google {
 namespace api_manager {
@@ -111,8 +108,9 @@ void AuthzChecker::Check(
   auto checker = GetPtr();
   HttpFetch(GetReleaseUrl(*context), kHttpGetMethod, "",
             auth::ServiceAccountToken::JWT_TOKEN_FOR_FIREBASE,
-            kFirebaseAudience, [context, final_continuation, checker](
-                                   Status status, std::string &&body) {
+            context->service_context()->config()->GetFirebaseAudience(),
+            [context, final_continuation, checker](Status status,
+                                                   std::string &&body) {
               std::string ruleset_id;
               if (status.ok()) {
                 checker->env_->LogDebug(
