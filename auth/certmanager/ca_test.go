@@ -69,7 +69,7 @@ func TestSelfSignedIstioCA(t *testing.T) {
 	for _, ee := range cert.Extensions {
 		if ee.Id.Equal(oidSubjectAltName) {
 			foundSAN = true
-			id := fmt.Sprintf("spiffe:cluster.local:%s.%s", name, namespace)
+			id := fmt.Sprintf("istio:%s.%s.cluster.local", name, namespace)
 			rv := asn1.RawValue{Tag: tagURI, Class: asn1.ClassContextSpecific, Bytes: []byte(id)}
 			bs, err := asn1.Marshal([]asn1.RawValue{rv})
 			if err != nil {
