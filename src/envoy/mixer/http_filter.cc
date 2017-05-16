@@ -264,6 +264,10 @@ class Instance : public Http::StreamDecoderFilter,
   }
 
   void callQuota(const Status& status) {
+    // This stream has been reset, abort the callback.
+    if (state_ == Responded) {
+      return;
+    }
     if (!status.ok()) {
       completeCheck(status);
       return;
