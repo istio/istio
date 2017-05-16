@@ -6,4 +6,5 @@ spec:
   route:
   - tags:
       version: v1
+    weight: 100
 ---
