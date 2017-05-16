@@ -32,9 +32,14 @@ else
 fi
 echo "buildStatus ${tree_status}"
 
-# Check for version information
-VERSION=$(cat "${ROOT}/istio.RELEASE")
-if [[ $? == 0 ]];
-then
-    echo "buildVersion ${VERSION}-${SHORT_SHA}"
+# Check for version informatioqn
+RELEASE_TAG=$(git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --exact-match 2> /dev/null || echo "")
+if [[ -n "${RELEASE_TAG}" ]]; then
+  VERSION="${RELEASE_TAG}"
+elif [[ -n ${ISTIO_VERSION} ]]; then
+  VERSION="${ISTIO_VERSION}-${SHORT_SHA}"
+fi
+
+if [[ -n ${VERSION} ]]; then
+    echo "buildVersion ${VERSION}"
 fi
