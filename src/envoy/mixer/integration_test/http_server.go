@@ -77,9 +77,9 @@ func (s *HttpServer) Start() {
 		http.Serve(s.lis, nil)
 	}()
 
-	addr := fmt.Sprintf("http://localhost:%s", s.port)
+	addr := fmt.Sprintf("http://localhost:%v", s.port)
 
-	const maxAttempts = 10
+	const maxAttempts = 30
 	for i := 0; i < maxAttempts; i++ {
 		time.Sleep(time.Second)
 		client := http.Client{}
