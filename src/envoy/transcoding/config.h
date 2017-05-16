@@ -27,6 +27,7 @@
 #include "src/transcoder.h"
 #include "src/type_helper.h"
 
+namespace Envoy {
 namespace Grpc {
 namespace Transcoding {
 
@@ -84,3 +85,4 @@ typedef std::shared_ptr<Config> ConfigSharedPtr;
 
 }  // namespace Transcoding
 }  // namespace Grpc
+}  // namespace Envoy

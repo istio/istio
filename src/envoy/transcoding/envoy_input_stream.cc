@@ -15,6 +15,7 @@
 
 #include "src/envoy/transcoding/envoy_input_stream.h"
 
+namespace Envoy {
 namespace Grpc {
 
 void EnvoyInputStream::Move(Buffer::Instance &instance) {
@@ -61,3 +62,4 @@ int64_t EnvoyInputStream::BytesAvailable() const {
 }
 
 }  // namespace Grpc
+}  // namespace Envoy

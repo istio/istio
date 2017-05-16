@@ -22,6 +22,7 @@
 #include "envoy/json/json_object.h"
 #include "include/attribute.h"
 
+namespace Envoy {
 namespace Http {
 namespace Mixer {
 
@@ -58,3 +59,4 @@ struct MixerConfig {
 
 }  // namespace Mixer
 }  // namespace Http
+}  // namespace Envoy

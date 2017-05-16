@@ -28,6 +28,7 @@ using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
 using ::istio::mixer_client::DoneFunc;
 
+namespace Envoy {
 namespace Http {
 namespace Mixer {
 namespace {
@@ -259,8 +260,6 @@ class Instance : public Http::StreamDecoderFilter,
       StreamDecoderFilterCallbacks& callbacks) override {
     Log().debug("Called Mixer::Instance : {}", __func__);
     decoder_callbacks_ = &callbacks;
-    decoder_callbacks_->addResetStreamCallback(
-        [this]() { state_ = Responded; });
   }
 
   void callQuota(const Status& status) {
@@ -299,6 +298,8 @@ class Instance : public Http::StreamDecoderFilter,
       decoder_callbacks_->continueDecoding();
     }
   }
+
+  void onDestroy() override { state_ = Responded; }
 
   virtual void log(const HeaderMap* request_headers,
                    const HeaderMap* response_headers,
@@ -356,3 +357,4 @@ static RegisterHttpFilterConfigFactory<MixerConfig> register_;
 
 }  // namespace Configuration
 }  // namespace Server
+}  // namespace Envoy

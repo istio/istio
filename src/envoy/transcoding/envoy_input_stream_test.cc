@@ -17,6 +17,7 @@
 
 #include "gtest/gtest.h"
 
+namespace Envoy {
 namespace Grpc {
 namespace {
 
@@ -93,5 +94,7 @@ TEST_F(EnvoyInputStreamTest, Finish) {
 
   EXPECT_EQ(4, buffer.length());
 }
-}
-}
+
+}  // namespace
+}  // namespace Grpc
+}  // namespace Envoy

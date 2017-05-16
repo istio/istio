@@ -17,6 +17,7 @@
 
 using ::istio::mixer_client::Attributes;
 
+namespace Envoy {
 namespace Http {
 namespace Mixer {
 namespace {
@@ -101,3 +102,4 @@ void MixerConfig::ExtractQuotaAttributes(Attributes* attr) const {
 
 }  // namespace Mixer
 }  // namespace Http
+}  // namespace Envoy

@@ -21,6 +21,7 @@
 #include "common/http/headers.h"
 #include "envoy/json/json_object.h"
 
+namespace Envoy {
 namespace Http {
 namespace Utils {
 
@@ -35,3 +36,4 @@ std::string SerializeStringMap(const StringMap& map);
 
 }  // namespace Utils
 }  // namespace Http
+}  // namespace Envoy

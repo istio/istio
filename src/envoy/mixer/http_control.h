@@ -23,6 +23,7 @@
 #include "include/client.h"
 #include "src/envoy/mixer/config.h"
 
+namespace Envoy {
 namespace Http {
 namespace Mixer {
 
@@ -67,3 +68,4 @@ class HttpControl final : public Logger::Loggable<Logger::Id::http> {
 
 }  // namespace Mixer
 }  // namespace Http
+}  // namespace Envoy

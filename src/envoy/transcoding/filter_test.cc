@@ -40,6 +40,7 @@ using google::protobuf::util::MessageDifferencer;
 using google::protobuf::util::Status;
 using google::protobuf::util::error::Code;
 
+namespace Envoy {
 namespace Grpc {
 namespace Transcoding {
 
@@ -143,5 +144,7 @@ TEST_F(GrpcHttpJsonTranscodingFilterTest, TranscodingUnaryPost) {
   EXPECT_EQ(Http::FilterTrailersStatus::Continue,
             filter_.decodeTrailers(response_trailers));
 }
-}
-}
+
+}  // namespace Transcoding
+}  // namespace Grpc
+}  // namespace Envoy

@@ -25,6 +25,7 @@ using google::protobuf::FileDescriptor;
 using google::protobuf::FileDescriptorSet;
 using google::protobuf::DescriptorPool;
 
+namespace Envoy {
 namespace Grpc {
 namespace Transcoding {
 
@@ -198,3 +199,4 @@ static RegisterHttpFilterConfigFactory<TranscodingConfig> register_;
 
 }  // namespace Configuration
 }  // namespace Server
+}  // namespace Envoy

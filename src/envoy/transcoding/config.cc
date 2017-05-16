@@ -40,6 +40,7 @@ using google::protobuf::io::ZeroCopyInputStream;
 using google::protobuf::util::error::Code;
 using google::protobuf::util::Status;
 
+namespace Envoy {
 namespace Grpc {
 namespace Transcoding {
 
@@ -229,3 +230,4 @@ Status Config::MethodToRequestInfo(
 
 }  // namespace Transcoding
 }  // namespace Grpc
+}  // namespace Envoy

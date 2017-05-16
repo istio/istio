@@ -16,6 +16,7 @@
 #include "src/envoy/mixer/utils.h"
 #include "src/envoy/mixer/string_map.pb.h"
 
+namespace Envoy {
 namespace Http {
 namespace Utils {
 
@@ -34,3 +35,4 @@ std::string SerializeStringMap(const StringMap& string_map) {
 
 }  // namespace Utils
 }  // namespace Http
+}  // namespace Envoy

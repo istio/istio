@@ -20,6 +20,9 @@
 
 #include "gtest/gtest.h"
 
+namespace Envoy {
+namespace {
+
 class TranscodingIntegrationTest : public BaseIntegrationTest,
                                    public testing::Test {
  public:
@@ -100,3 +103,6 @@ TEST_F(TranscodingIntegrationTest, BasicUnary) {
   fake_upstream_connection->close();
   fake_upstream_connection->waitForDisconnect();
 }
+
+}  // namespace
+}  // namespace Envoy

@@ -29,6 +29,7 @@ using ::istio::mixer_client::DoneFunc;
 using ::istio::mixer_client::MixerClientOptions;
 using ::istio::mixer_client::QuotaOptions;
 
+namespace Envoy {
 namespace Http {
 namespace Mixer {
 namespace {
@@ -245,3 +246,4 @@ void HttpControl::Report(HttpRequestDataPtr request_data,
 
 }  // namespace Mixer
 }  // namespace Http
+}  // namespace Envoy

@@ -18,6 +18,7 @@
 #include "common/buffer/buffer_impl.h"
 #include "src/transcoder_input_stream.h"
 
+namespace Envoy {
 namespace Grpc {
 
 class EnvoyInputStream
@@ -47,3 +48,4 @@ class EnvoyInputStream
 };
 
 }  // namespace Grpc
+}  // namespace Envoy
