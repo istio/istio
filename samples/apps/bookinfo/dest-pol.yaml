@@ -1,0 +1,7 @@
+type: destination-policy
+name: reviews-round-robin
+spec:
+  destination: reviews.default.svc.cluster.local
+  policy:
+  - loadBalancing: 
+      name: RANDOM
