@@ -60,7 +60,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: istio-manager-service-account
-  namespace: istio
+  namespace: default
 roleRef:
   kind: ClusterRole
   name: istio-manager
@@ -74,7 +74,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: istio-ca-service-account
-  namespace: istio
+  namespace: default
 roleRef:
   kind: ClusterRole
   name: istio-ca
@@ -88,7 +88,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: istio-ingress-service-account
-  namespace: istio
+  namespace: default
 roleRef:
   kind: ClusterRole
   name: istio-manager
@@ -104,7 +104,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: default
-  namespace: istio
+  namespace: default
 roleRef:
   kind: ClusterRole
   name: istio-sidecar
