@@ -18,8 +18,11 @@ rules:
   resources: ["thirdpartyresources", "thirdpartyresources.extensions", "ingresses"]
   verbs: ["*"]
 - apiGroups: [""]
-  resources: ["configmaps", "endpoints", "pods", "services", "namespaces"]
+  resources: ["configmaps", "endpoints", "pods", "services"]
   verbs: ["*"]
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list"]
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1alpha1
@@ -28,7 +31,7 @@ metadata:
 rules:
 - apiGroups: [""]
   resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list"]
+  verbs: ["create", "get", "watch", "list", "update"]
 - apiGroups: [""]
   resources: ["serviceaccounts"]
   verbs: ["watch", "list"]
@@ -57,7 +60,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: istio-manager-service-account
-  namespace: default
+  namespace: istio
 roleRef:
   kind: ClusterRole
   name: istio-manager
@@ -71,7 +74,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: istio-ca-service-account
-  namespace: default
+  namespace: istio
 roleRef:
   kind: ClusterRole
   name: istio-ca
@@ -85,7 +88,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: istio-ingress-service-account
-  namespace: default
+  namespace: istio
 roleRef:
   kind: ClusterRole
   name: istio-manager
@@ -101,7 +104,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: default
-  namespace: default
+  namespace: istio
 roleRef:
   kind: ClusterRole
   name: istio-sidecar
