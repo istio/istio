@@ -11,11 +11,15 @@ def gitUtils = new GitUtilities()
 def utils = new Utilities()
 def bazel = new Bazel()
 
+// This should be updated for a release branch.
+ISTIO_VERSION_URL = 'https://raw.githubusercontent.com/istio/istio/master/istio.RELEASE'
+
+
 mainFlow(utils) {
   node {
+    env.ISTIO_VERSION = sh(returnStdout: true, script: "curl ${ISTIO_VERSION_URL}").trim()
     gitUtils.initialize()
     bazel.setVars()
-    env.ISTIO_VERSION = readFile('istio.RELEASE').trim()
   }
   // PR on master branch
   if (utils.runStage('PRESUBMIT')) {
