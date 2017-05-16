@@ -42,9 +42,16 @@ else
     BRANCH=unknown
 fi
 
-ISTIO_VERSION="$(cat "${ROOT}/istio.RELEASE")"
+RELEASE_TAG=$(git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --exact-match 2> /dev/null || echo "")
 
-echo buildAppVersion    "${ISTIO_VERSION}-${BUILD_GIT_REVISION}"
+VERSION='unknown'
+if [[ -n "${RELEASE_TAG}" ]]; then
+  VERSION="${RELEASE_TAG}"
+elif [[ -n ${ISTIO_VERSION} ]]; then
+  VERSION="${ISTIO_VERSION}-${BUILD_GIT_REVISION}"
+fi
+
+echo buildAppVersion    "${VERSION}"
 echo buildGitRevision   "${BUILD_GIT_REVISION}"
 echo buildGitBranch     "${BRANCH}"
 echo buildUser          "$(whoami)"
