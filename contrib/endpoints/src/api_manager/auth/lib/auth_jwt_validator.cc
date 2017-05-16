@@ -135,16 +135,16 @@ class JwtValidatorImpl : public JwtValidator {
 
   JoseHeader *header_;
   grpc_json *header_json_;
-  gpr_slice header_buffer_;
+  grpc_slice header_buffer_;
   grpc_jwt_claims *claims_;
-  gpr_slice sig_buffer_;
-  gpr_slice signed_buffer_;
+  grpc_slice sig_buffer_;
+  grpc_slice signed_buffer_;
 
   std::set<std::string> audiences_;
   system_clock::time_point exp_;
 
   grpc_json *pkey_json_;
-  gpr_slice pkey_buffer_;
+  grpc_slice pkey_buffer_;
   BIO *bio_;
   X509 *x509_;
   RSA *rsa_;
@@ -162,7 +162,7 @@ size_t HashSizeFromAlg(const char *alg);
 
 // Parses str into grpc_json object. Does not own buffer.
 grpc_json *DecodeBase64AndParseJson(grpc_exec_ctx *exec_ctx, const char *str,
-                                    size_t len, gpr_slice *buffer);
+                                    size_t len, grpc_slice *buffer);
 
 // Gets BIGNUM from b64 string, used for extracting pkey from jwk.
 // Result owned by rsa_.
@@ -189,10 +189,10 @@ JwtValidatorImpl::JwtValidatorImpl(const char *jwt, size_t jwt_len)
       pkey_(nullptr),
       md_ctx_(nullptr),
       exec_ctx_(GRPC_EXEC_CTX_INIT) {
-  header_buffer_ = gpr_empty_slice();
-  signed_buffer_ = gpr_empty_slice();
-  sig_buffer_ = gpr_empty_slice();
-  pkey_buffer_ = gpr_empty_slice();
+  header_buffer_ = grpc_empty_slice();
+  signed_buffer_ = grpc_empty_slice();
+  sig_buffer_ = grpc_empty_slice();
+  pkey_buffer_ = grpc_empty_slice();
 }
 
 // Makes sure all data are cleaned up, both success and failure case.
@@ -209,17 +209,17 @@ JwtValidatorImpl::~JwtValidatorImpl() {
   if (claims_ != nullptr) {
     grpc_jwt_claims_destroy(&exec_ctx_, claims_);
   }
-  if (!GPR_SLICE_IS_EMPTY(header_buffer_)) {
-    gpr_slice_unref(header_buffer_);
+  if (!GRPC_SLICE_IS_EMPTY(header_buffer_)) {
+    grpc_slice_unref(header_buffer_);
   }
-  if (!GPR_SLICE_IS_EMPTY(signed_buffer_)) {
-    gpr_slice_unref(signed_buffer_);
+  if (!GRPC_SLICE_IS_EMPTY(signed_buffer_)) {
+    grpc_slice_unref(signed_buffer_);
   }
-  if (!GPR_SLICE_IS_EMPTY(sig_buffer_)) {
-    gpr_slice_unref(sig_buffer_);
+  if (!GRPC_SLICE_IS_EMPTY(sig_buffer_)) {
+    grpc_slice_unref(sig_buffer_);
   }
-  if (!GPR_SLICE_IS_EMPTY(pkey_buffer_)) {
-    gpr_slice_unref(pkey_buffer_);
+  if (!GRPC_SLICE_IS_EMPTY(pkey_buffer_)) {
+    grpc_slice_unref(pkey_buffer_);
   }
   if (bio_ != nullptr) {
     BIO_free(bio_);
@@ -325,12 +325,12 @@ grpc_jwt_verifier_status JwtValidatorImpl::ParseImpl() {
 
   // claim_buffer is the only exception that requires deallocation for failure
   // case, and it is owned by claims_ for successful case.
-  gpr_slice claims_buffer = gpr_empty_slice();
+  grpc_slice claims_buffer = grpc_empty_slice();
   grpc_json *claims_json =
       DecodeBase64AndParseJson(&exec_ctx_, cur, dot - cur, &claims_buffer);
   if (claims_json == nullptr) {
-    if (!GPR_SLICE_IS_EMPTY(claims_buffer)) {
-      gpr_slice_unref(claims_buffer);
+    if (!GRPC_SLICE_IS_EMPTY(claims_buffer)) {
+      grpc_slice_unref(claims_buffer);
     }
     return GRPC_JWT_VERIFIER_BAD_FORMAT;
   }
@@ -363,14 +363,14 @@ grpc_jwt_verifier_status JwtValidatorImpl::ParseImpl() {
   // Creates Buffer for signature check
   // =============================
   size_t signed_jwt_len = (size_t)(dot - jwt);
-  signed_buffer_ = gpr_slice_from_copied_buffer(jwt, signed_jwt_len);
-  if (GPR_SLICE_IS_EMPTY(signed_buffer_)) {
+  signed_buffer_ = grpc_slice_from_copied_buffer(jwt, signed_jwt_len);
+  if (GRPC_SLICE_IS_EMPTY(signed_buffer_)) {
     return GRPC_JWT_VERIFIER_BAD_FORMAT;
   }
   cur = dot + 1;
   sig_buffer_ = grpc_base64_decode_with_len(&exec_ctx_, cur,
                                             jwt_len - signed_jwt_len - 1, 1);
-  if (GPR_SLICE_IS_EMPTY(sig_buffer_)) {
+  if (GRPC_SLICE_IS_EMPTY(sig_buffer_)) {
     return GRPC_JWT_VERIFIER_BAD_FORMAT;
   }
 
@@ -395,7 +395,7 @@ grpc_jwt_verifier_status JwtValidatorImpl::VerifySignatureImpl(
   if (jwt == nullptr || jwt_len <= 0) {
     return GRPC_JWT_VERIFIER_BAD_FORMAT;
   }
-  if (GPR_SLICE_IS_EMPTY(signed_buffer_) || GPR_SLICE_IS_EMPTY(sig_buffer_)) {
+  if (GRPC_SLICE_IS_EMPTY(signed_buffer_) || GRPC_SLICE_IS_EMPTY(sig_buffer_)) {
     return GRPC_JWT_VERIFIER_BAD_FORMAT;
   }
   if (strncmp(header_->alg, "RS", 2) == 0) {  // Asymmetric keys.
@@ -614,13 +614,13 @@ bool JwtValidatorImpl::ExtractPubkeyFromJwk(const grpc_json *jkey) {
 
 grpc_jwt_verifier_status JwtValidatorImpl::VerifyRsSignature(const char *pkey,
                                                              size_t pkey_len) {
-  pkey_buffer_ = gpr_slice_from_copied_buffer(pkey, pkey_len);
-  if (GPR_SLICE_IS_EMPTY(pkey_buffer_)) {
+  pkey_buffer_ = grpc_slice_from_copied_buffer(pkey, pkey_len);
+  if (GRPC_SLICE_IS_EMPTY(pkey_buffer_)) {
     return GRPC_JWT_VERIFIER_KEY_RETRIEVAL_ERROR;
   }
   pkey_json_ = grpc_json_parse_string_with_len(
-      reinterpret_cast<char *>(GPR_SLICE_START_PTR(pkey_buffer_)),
-      GPR_SLICE_LENGTH(pkey_buffer_));
+      reinterpret_cast<char *>(GRPC_SLICE_START_PTR(pkey_buffer_)),
+      GRPC_SLICE_LENGTH(pkey_buffer_));
   if (pkey_json_ == nullptr) {
     return GRPC_JWT_VERIFIER_KEY_RETRIEVAL_ERROR;
   }
@@ -649,13 +649,13 @@ grpc_jwt_verifier_status JwtValidatorImpl::VerifyPubkey() {
     gpr_log(GPR_ERROR, "EVP_DigestVerifyInit failed.");
     return GRPC_JWT_VERIFIER_BAD_SIGNATURE;
   }
-  if (EVP_DigestVerifyUpdate(md_ctx_, GPR_SLICE_START_PTR(signed_buffer_),
-                             GPR_SLICE_LENGTH(signed_buffer_)) != 1) {
+  if (EVP_DigestVerifyUpdate(md_ctx_, GRPC_SLICE_START_PTR(signed_buffer_),
+                             GRPC_SLICE_LENGTH(signed_buffer_)) != 1) {
     gpr_log(GPR_ERROR, "EVP_DigestVerifyUpdate failed.");
     return GRPC_JWT_VERIFIER_BAD_SIGNATURE;
   }
-  if (EVP_DigestVerifyFinal(md_ctx_, GPR_SLICE_START_PTR(sig_buffer_),
-                            GPR_SLICE_LENGTH(sig_buffer_)) != 1) {
+  if (EVP_DigestVerifyFinal(md_ctx_, GRPC_SLICE_START_PTR(sig_buffer_),
+                            GRPC_SLICE_LENGTH(sig_buffer_)) != 1) {
     gpr_log(GPR_ERROR, "JWT signature verification failed.");
     return GRPC_JWT_VERIFIER_BAD_SIGNATURE;
   }
@@ -668,23 +668,23 @@ grpc_jwt_verifier_status JwtValidatorImpl::VerifyHsSignature(const char *pkey,
   GPR_ASSERT(md != nullptr);  // Checked before.
 
   pkey_buffer_ = grpc_base64_decode_with_len(&exec_ctx_, pkey, pkey_len, 1);
-  if (GPR_SLICE_IS_EMPTY(pkey_buffer_)) {
+  if (GRPC_SLICE_IS_EMPTY(pkey_buffer_)) {
     gpr_log(GPR_ERROR, "Unable to decode base64 of secret");
     return GRPC_JWT_VERIFIER_KEY_RETRIEVAL_ERROR;
   }
 
   unsigned char res[HashSizeFromAlg(header_->alg)];
   unsigned int res_len = 0;
-  HMAC(md, GPR_SLICE_START_PTR(pkey_buffer_), GPR_SLICE_LENGTH(pkey_buffer_),
-       GPR_SLICE_START_PTR(signed_buffer_), GPR_SLICE_LENGTH(signed_buffer_),
+  HMAC(md, GRPC_SLICE_START_PTR(pkey_buffer_), GRPC_SLICE_LENGTH(pkey_buffer_),
+       GRPC_SLICE_START_PTR(signed_buffer_), GRPC_SLICE_LENGTH(signed_buffer_),
        res, &res_len);
   if (res_len == 0) {
     gpr_log(GPR_ERROR, "Cannot compute HMAC from secret.");
     return GRPC_JWT_VERIFIER_BAD_SIGNATURE;
   }
 
-  if (res_len != GPR_SLICE_LENGTH(sig_buffer_) ||
-      CRYPTO_memcmp(reinterpret_cast<void *>(GPR_SLICE_START_PTR(sig_buffer_)),
+  if (res_len != GRPC_SLICE_LENGTH(sig_buffer_) ||
+      CRYPTO_memcmp(reinterpret_cast<void *>(GRPC_SLICE_START_PTR(sig_buffer_)),
                     reinterpret_cast<void *>(res), res_len) != 0) {
     gpr_log(GPR_ERROR, "JWT signature verification failed.");
     return GRPC_JWT_VERIFIER_BAD_SIGNATURE;
@@ -759,17 +759,17 @@ size_t HashSizeFromAlg(const char *alg) {
 }
 
 grpc_json *DecodeBase64AndParseJson(grpc_exec_ctx *exec_ctx, const char *str,
-                                    size_t len, gpr_slice *buffer) {
+                                    size_t len, grpc_slice *buffer) {
   grpc_json *json;
 
   *buffer = grpc_base64_decode_with_len(exec_ctx, str, len, 1);
-  if (GPR_SLICE_IS_EMPTY(*buffer)) {
+  if (GRPC_SLICE_IS_EMPTY(*buffer)) {
     gpr_log(GPR_ERROR, "Invalid base64.");
     return nullptr;
   }
   json = grpc_json_parse_string_with_len(
-      reinterpret_cast<char *>(GPR_SLICE_START_PTR(*buffer)),
-      GPR_SLICE_LENGTH(*buffer));
+      reinterpret_cast<char *>(GRPC_SLICE_START_PTR(*buffer)),
+      GRPC_SLICE_LENGTH(*buffer));
   if (json == nullptr) {
     gpr_log(GPR_ERROR, "JSON parsing error.");
   }
@@ -778,16 +778,17 @@ grpc_json *DecodeBase64AndParseJson(grpc_exec_ctx *exec_ctx, const char *str,
 
 BIGNUM *BigNumFromBase64String(grpc_exec_ctx *exec_ctx, const char *b64) {
   BIGNUM *result = nullptr;
-  gpr_slice bin;
+  grpc_slice bin;
 
   if (b64 == nullptr) return nullptr;
   bin = grpc_base64_decode(exec_ctx, b64, 1);
-  if (GPR_SLICE_IS_EMPTY(bin)) {
+  if (GRPC_SLICE_IS_EMPTY(bin)) {
     gpr_log(GPR_ERROR, "Invalid base64 for big num.");
     return nullptr;
   }
-  result = BN_bin2bn(GPR_SLICE_START_PTR(bin), GPR_SLICE_LENGTH(bin), nullptr);
-  gpr_slice_unref(bin);
+  result =
+      BN_bin2bn(GRPC_SLICE_START_PTR(bin), GRPC_SLICE_LENGTH(bin), nullptr);
+  grpc_slice_unref(bin);
   return result;
 }
 

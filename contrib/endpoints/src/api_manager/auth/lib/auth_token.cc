@@ -201,19 +201,19 @@ char *GenerateJwtClaim(const char *issuer, const char *subject,
 
 char *GenerateSignatueHs256(const char *data, const char *key) {
   grpc_exec_ctx exec_ctx = GRPC_EXEC_CTX_INIT;
-  gpr_slice key_buffer = grpc_base64_decode(&exec_ctx, key, 1);
-  if (GPR_SLICE_IS_EMPTY(key_buffer)) {
+  grpc_slice key_buffer = grpc_base64_decode(&exec_ctx, key, 1);
+  if (GRPC_SLICE_IS_EMPTY(key_buffer)) {
     gpr_log(GPR_ERROR, "Unable to decode base64 of secret");
     return nullptr;
   }
 
   unsigned char res[256 / 8];
   unsigned int res_len = 0;
-  HMAC(EVP_sha256(), GPR_SLICE_START_PTR(key_buffer),
-       GPR_SLICE_LENGTH(key_buffer),
+  HMAC(EVP_sha256(), GRPC_SLICE_START_PTR(key_buffer),
+       GRPC_SLICE_LENGTH(key_buffer),
        reinterpret_cast<const unsigned char *>(data), strlen(data), res,
        &res_len);
-  gpr_slice_unref(key_buffer);
+  grpc_slice_unref(key_buffer);
   if (res_len == 0) {
     gpr_log(GPR_ERROR, "Cannot compute HMAC from secret.");
     return nullptr;
