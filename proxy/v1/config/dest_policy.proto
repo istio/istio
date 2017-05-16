@@ -26,7 +26,8 @@ package istio.proxy.v1.config;
 //
 //     destination: reviews.default.svc.cluster.local
 //     policy:
-//     - loadBalancing: RANDOM
+//     - loadBalancing: 
+//         name: RANDOM
 //       simpleCb:
 //         maxConnections: 1000
 //
@@ -54,7 +55,8 @@ message DestinationPolicy {
 //     - tags:
 //         env: prod
 //         version: v1
-//       loadBalancing: RANDOM
+//       loadBalancing: 
+//         name: RANDOM
 //
 // If tags are omitted, the policy applies for all versions of the
 // service. Policy CANNOT BE empty.
@@ -87,7 +89,8 @@ message DestinationVersionPolicy {
 //
 //     destination: reviews.default.svc.cluster.local
 //     policy:
-//     - loadBalancing: RANDOM
+//     - loadBalancing: 
+//         name: RANDOM
 //
 message LoadBalancing {
   // Load balancing algorithms supported by Envoy proxy.
