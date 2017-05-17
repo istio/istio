@@ -1,5 +1,6 @@
 rules:
-- aspects:
+- selector: source.labels["app"]=="reviews" && source.labels["version"] == "v3"
+  aspects:
   - kind: quotas
     params:
       quotas:
