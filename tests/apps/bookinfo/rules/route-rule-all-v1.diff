@@ -1,3 +1,11 @@
+2c2
+< name: productpage-_CHANGEME_
+---
+> name: productpage-default
+4c4
+<   destination: productpage._CHANGEME_.svc.cluster.local
+---
+>   destination: productpage.default.svc.cluster.local
 11c11
 < name: reviews-_CHANGEME_
 ---
@@ -6,3 +14,19 @@
 <   destination: reviews._CHANGEME_.svc.cluster.local
 ---
 >   destination: reviews.default.svc.cluster.local
+20c20
+< name: ratings-_CHANGEME_
+---
+> name: ratings-default
+22c22
+<   destination: ratings._CHANGEME_.svc.cluster.local
+---
+>   destination: ratings.default.svc.cluster.local
+29c29
+< name: details-_CHANGEME_
+---
+> name: details-default
+31c31
+<   destination: details._CHANGEME_.svc.cluster.local
+---
+>   destination: details.default.svc.cluster.local
