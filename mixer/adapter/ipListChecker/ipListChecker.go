@@ -58,8 +58,8 @@ var (
 	desc = "Checks whether an IP address is present in an IP address list."
 	conf = &config.Params{
 		ProviderUrl:     "http://localhost",
-		RefreshInterval: time.Duration(60) * time.Second,
-		Ttl:             time.Duration(300) * time.Second,
+		RefreshInterval: 60 * time.Second,
+		Ttl:             300 * time.Second,
 	}
 )
 

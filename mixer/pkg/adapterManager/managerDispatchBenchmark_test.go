@@ -161,7 +161,7 @@ func benchmarkAdapterManagerDispatch(b *testing.B, declarativeSrvcCnfgFilePath s
 	adapterPoolSize := 1024
 	identityAttribute := "target.service"
 	identityDomainAttribute := "svc.cluster.local"
-	loopDelay := time.Second * time.Duration(5)
+	loopDelay := time.Second * 5
 	singleThreadedGoRoutinePool := false
 
 	gp := pool.NewGoroutinePool(apiPoolSize, singleThreadedGoRoutinePool)

@@ -65,7 +65,7 @@ func (t *Bag) Bool(name string) (bool, bool) {
 
 // Duration returns the named attribute if it exists.
 func (t *Bag) Duration(name string) (time.Duration, bool) {
-	return time.Duration(0), false
+	return 0, false
 }
 
 // Bytes returns the named attribute if it exists.

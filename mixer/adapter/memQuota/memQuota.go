@@ -51,7 +51,7 @@ var (
 	name = "memQuota"
 	desc = "Simple volatile memory-based quotas."
 	conf = &config.Params{
-		MinDeduplicationDuration: time.Duration(1) * time.Second,
+		MinDeduplicationDuration: 1 * time.Second,
 	}
 )
 

@@ -44,7 +44,7 @@ var (
 	name = "redisQuota"
 	desc = "Redis-based quotas."
 	conf = &config.Params{
-		MinDeduplicationDuration: time.Duration(1) * time.Second,
+		MinDeduplicationDuration: 1 * time.Second,
 		RedisServerUrl:           "localhost:6379",
 		SocketType:               "tcp",
 		ConnectionPoolSize:       10,

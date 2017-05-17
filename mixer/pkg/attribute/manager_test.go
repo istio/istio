@@ -102,7 +102,7 @@ func TestAttributeManager(t *testing.T) {
 				DoubleAttributes:    map[int32]float64{3: 3.0},
 				BoolAttributes:      map[int32]bool{4: true},
 				TimestampAttributes: map[int32]time.Time{5: time.Date(1970, time.January, 1, 0, 0, 5, 5, time.UTC)},
-				DurationAttributes:  map[int32]time.Duration{7: time.Duration(42) * time.Second},
+				DurationAttributes:  map[int32]time.Duration{7: 42 * time.Second},
 				BytesAttributes:     map[int32][]uint8{6: {6}},
 				StringMapAttributes: map[int32]mixerpb.StringMap{8: sm},
 				ResetContext:        false,
@@ -142,8 +142,8 @@ func TestAttributeManager(t *testing.T) {
 
 			getDuration: []getDurationCase{
 				{"name7", time.Second * 42, true},
-				{"xname1", time.Duration(0), false},
-				{"xname42", time.Duration(0), false},
+				{"xname1", 0, false},
+				{"xname42", 0, false},
 			},
 
 			getBytes: []getBytesCase{
@@ -197,8 +197,8 @@ func TestAttributeManager(t *testing.T) {
 
 			getDuration: []getDurationCase{
 				{"name7", time.Second * 42, true},
-				{"xname1", time.Duration(0), false},
-				{"xname42", time.Duration(0), false},
+				{"xname1", 0, false},
+				{"xname42", 0, false},
 			},
 
 			getBytes: []getBytesCase{
@@ -225,7 +225,7 @@ func TestAttributeManager(t *testing.T) {
 			getFloat64:   []getFloat64Case{{"name3", 0.0, false}},
 			getBool:      []getBoolCase{{"name4", false, false}},
 			getTime:      []getTimeCase{{"name5", time.Time{}, false}},
-			getDuration:  []getDurationCase{{"name7", time.Duration(0), false}},
+			getDuration:  []getDurationCase{{"name7", 0, false}},
 			getBytes:     []getBytesCase{{"name6", []byte{}, false}},
 			getStringMap: []getStringMapCase{{"name8", map[string]string{}, false}},
 		},
@@ -239,7 +239,7 @@ func TestAttributeManager(t *testing.T) {
 				DoubleAttributes:    map[int32]float64{3: 3.0},
 				BoolAttributes:      map[int32]bool{4: true},
 				TimestampAttributes: map[int32]time.Time{5: time.Date(0, 0, 0, 0, 0, 5, 5, time.UTC)},
-				DurationAttributes:  map[int32]time.Duration{7: time.Duration(42) * time.Second},
+				DurationAttributes:  map[int32]time.Duration{7: 42 * time.Second},
 				BytesAttributes:     map[int32][]uint8{6: {6}},
 				StringMapAttributes: map[int32]mixerpb.StringMap{8: sm},
 				ResetContext:        false,
@@ -260,7 +260,7 @@ func TestAttributeManager(t *testing.T) {
 			getFloat64:   []getFloat64Case{{"name3", 0.0, false}},
 			getBool:      []getBoolCase{{"name4", false, false}},
 			getTime:      []getTimeCase{{"name5", time.Time{}, false}},
-			getDuration:  []getDurationCase{{"name7", time.Duration(0), false}},
+			getDuration:  []getDurationCase{{"name7", 0, false}},
 			getBytes:     []getBytesCase{{"name6", []byte{}, false}},
 			getStringMap: []getStringMapCase{{"name8", map[string]string{}, false}},
 		},
@@ -305,7 +305,7 @@ func TestAttributeManager(t *testing.T) {
 
 		// 12: try out bad dictionary index for duration
 		{
-			attrs:  mixerpb.Attributes{DurationAttributes: map[int32]time.Duration{42: time.Duration(0)}},
+			attrs:  mixerpb.Attributes{DurationAttributes: map[int32]time.Duration{42: 0}},
 			result: false,
 		},
 
