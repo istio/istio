@@ -107,7 +107,7 @@ the set of instances into disjoint subsets.  E.g., grouping pods by tags
 "gitCommit=aeiou234,region=us-east", will give all instances of v1 of
 service catalog.mystore.com
 
-In the absence of a multiple versions, each service has a service has a
+In the absence of a multiple versions, each service has a
 default version that consists of all its instances. For e.g., if pods
 under catalog.mystore.com did not have any tags associated with them,
 Istio would consider catalog.mystore.com as a service with just one
@@ -119,7 +119,7 @@ Applications have no knowledge of different versions of the
 service. They can continue to access the services using the hostname/IP
 address of the service, while Istio will take care of routing the
 connection/request to the appropriate version based on the routing rules
-set up by the admin. This model enables the enables the application code
+set up by the admin. This model enables the application code
 to decouple itself from the evolution of its dependent services, while
 providing other benefits as well (see mixer).
 
