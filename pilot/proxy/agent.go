@@ -73,7 +73,6 @@ var (
 
 	// DefaultRetry configuration for proxies
 	DefaultRetry = Retry{
-		DefaultDelay:    1 * time.Hour,
 		MaxRetries:      10,
 		InitialInterval: 200 * time.Millisecond,
 	}
@@ -81,7 +80,6 @@ var (
 
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
 func NewAgent(proxy Proxy, retry Retry) Agent {
-	retry.reset()
 	return &agent{
 		proxy:    &proxy,
 		retry:    &retry,
@@ -94,14 +92,11 @@ func NewAgent(proxy Proxy, retry Retry) Agent {
 
 // Retry configuration for the proxy
 type Retry struct {
-	// delay between reconciliation adjusted by retries
-	delay time.Duration
+	// restart is the timestamp of the next scheduled restart attempt
+	restart *time.Time
 
 	// number of times to attempts left to retry applying the latest desired configuration
 	budget int
-
-	// DefaultDelay is a default long duration for regular reconciliation (a no-op if the config is unchanged)
-	DefaultDelay time.Duration
 
 	// MaxRetries is the maximum number of retries
 	MaxRetries int
@@ -109,12 +104,6 @@ type Retry struct {
 	// InitialInterval is the delay between the first restart, from then on it is
 	// multiplied by a factor of 2 for each subsequent retry
 	InitialInterval time.Duration
-}
-
-// reset retry budget
-func (r *Retry) reset() {
-	r.delay = r.DefaultDelay
-	r.budget = r.MaxRetries
 }
 
 // Proxy defines command interface for a proxy
@@ -175,13 +164,20 @@ func (a *agent) Run(stop <-chan struct{}) {
 	for {
 		rateLimiter.Accept()
 
+		// maximum duration or duration till next restart
+		var delay time.Duration = 1<<63 - 1
+		if a.retry.restart != nil {
+			delay = time.Until(*a.retry.restart)
+		}
+
 		select {
 		case config := <-a.configCh:
 			if !reflect.DeepEqual(a.desiredConfig, config) {
+				glog.V(2).Infof("Received new config, resetting budget")
 				a.desiredConfig = config
 
 				// reset retry budget if and only if the desired config changes
-				a.retry.reset()
+				a.retry.budget = a.retry.MaxRetries
 				a.reconcile()
 			}
 
@@ -207,11 +203,14 @@ func (a *agent) Run(stop <-chan struct{}) {
 			delete(a.abortCh, status.epoch)
 			a.currentConfig = a.epochs[a.latestEpoch()]
 
-			// schedule a retry for a transient error
-			if status.err != nil && !reflect.DeepEqual(a.desiredConfig, a.currentConfig) {
+			// schedule a retry for a transient error and skip aborts
+			if status.err != nil && status.err != errAbort && !reflect.DeepEqual(a.desiredConfig, a.currentConfig) {
 				if a.retry.budget > 0 {
-					a.retry.delay = a.retry.InitialInterval * (1 << uint(a.retry.MaxRetries-a.retry.budget))
+					delayDuration := a.retry.InitialInterval * (1 << uint(a.retry.MaxRetries-a.retry.budget))
+					restart := time.Now().Add(delayDuration)
+					a.retry.restart = &restart
 					a.retry.budget = a.retry.budget - 1
+					glog.V(2).Infof("Updated retry delay to %v, budget to %d", delayDuration, a.retry.budget)
 				} else {
 					glog.Error("Permanent error: budget exhausted trying to fulfill the desired configuration")
 					if a.proxy.Panic != nil {
@@ -221,8 +220,7 @@ func (a *agent) Run(stop <-chan struct{}) {
 				}
 			}
 
-		case <-time.After(a.retry.delay):
-			glog.V(2).Infof("Reconciling after delay %v (budget %d)", a.retry.delay, a.retry.budget)
+		case <-time.After(delay):
 			a.reconcile()
 
 		case _, more := <-stop:
@@ -236,10 +234,14 @@ func (a *agent) Run(stop <-chan struct{}) {
 }
 
 func (a *agent) reconcile() {
+	// cancel any scheduled restart
+	a.retry.restart = nil
+
+	glog.V(2).Infof("Reconciling configuration (budget %d)", a.retry.budget)
+
 	// check that the config is current
 	if reflect.DeepEqual(a.desiredConfig, a.currentConfig) {
 		glog.V(2).Info("Desired configuration is already applied, resetting delay")
-		a.retry.delay = a.retry.DefaultDelay
 		return
 	}
 
@@ -277,4 +279,5 @@ func (a *agent) abortAll() {
 		glog.Warningf("Aborting epoch %d...", epoch)
 		abortCh <- errAbort
 	}
+	glog.Warningf("Aborted all epochs")
 }

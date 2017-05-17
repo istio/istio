@@ -16,13 +16,13 @@ package proxy
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 )
 
 var (
 	testRetry = Retry{
-		DefaultDelay:    10 * time.Second,
 		InitialInterval: time.Millisecond,
 		MaxRetries:      10,
 	}
@@ -173,10 +173,10 @@ func TestStartFail(t *testing.T) {
 	start := func(config interface{}, epoch int, _ <-chan error) error {
 		if epoch == 0 && retry == 0 {
 			retry++
-			return errAbort
+			return fmt.Errorf("error on try %d", retry)
 		} else if epoch == 0 && retry == 1 {
 			retry++
-			return errAbort
+			return fmt.Errorf("error on try %d", retry)
 		} else if epoch == 0 && retry == 2 {
 			retry++
 			close(stop)
@@ -200,10 +200,10 @@ func TestExceedBudget(t *testing.T) {
 	start := func(config interface{}, epoch int, _ <-chan error) error {
 		if epoch == 0 && retry == 0 {
 			retry++
-			return errAbort
+			return fmt.Errorf("error on try %d", retry)
 		} else if epoch == 0 && retry == 1 {
 			retry++
-			return errAbort
+			return fmt.Errorf("error on try %d", retry)
 		} else {
 			t.Errorf("Unexpected epoch %d and retry %d", epoch, retry)
 			close(stop)
