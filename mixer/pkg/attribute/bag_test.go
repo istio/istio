@@ -30,8 +30,8 @@ var (
 	t10 = time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
 	t42 = time.Date(2001, 1, 1, 1, 1, 1, 42, time.UTC)
 
-	d1 = time.Duration(42) * time.Second
-	d2 = time.Duration(34) * time.Second
+	d1 = 42 * time.Second
+	d2 = 34 * time.Second
 )
 
 func TestBag(t *testing.T) {

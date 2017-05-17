@@ -69,7 +69,7 @@ func TestAttributeHandling(t *testing.T) {
 		{"m", false},
 		{"nnn", true},
 		{"o", time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)},
-		{"p", time.Duration(42) * time.Second},
+		{"p", 42 * time.Second},
 		{"q", []byte{1}},
 		{"r", []byte{0x34, 0x56}},
 		{"s", map[string]string{"k1": "v1", "k2": "v2"}},
@@ -78,7 +78,7 @@ func TestAttributeHandling(t *testing.T) {
 		{"v", 3.0},
 		{"w", true},
 		{"x", time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)},
-		{"y", time.Duration(42) * time.Second},
+		{"y", 42 * time.Second},
 		{"z", []byte{0x98, 0x76}},
 		{"zz", map[string]string{"k3": "v3"}},
 	}

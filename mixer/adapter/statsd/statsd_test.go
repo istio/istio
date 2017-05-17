@@ -47,7 +47,7 @@ func TestValidateConfig(t *testing.T) {
 		{&config.Params{}, ""},
 		{&config.Params{MetricNameTemplateStrings: map[string]string{"a": `{{.apiMethod}}-{{.responseCode}}`}}, ""},
 		{&config.Params{MetricNameTemplateStrings: map[string]string{"badtemplate": `{{if 1}}`}}, "metricNameTemplateStrings"},
-		{&config.Params{FlushDuration: time.Duration(-1)}, "flushDuration"},
+		{&config.Params{FlushDuration: -1}, "flushDuration"},
 		{&config.Params{SamplingRate: -1}, "samplingRate"},
 		{&config.Params{FlushBytes: -1}, "flushBytes"},
 	}
@@ -67,7 +67,7 @@ func TestNewMetricsAspect(t *testing.T) {
 	conf := &config.Params{
 		Address:                   "localhost:8125",
 		Prefix:                    "",
-		FlushDuration:             time.Duration(300) * time.Millisecond,
+		FlushDuration:             300 * time.Millisecond,
 		FlushBytes:                -1,
 		SamplingRate:              1.0,
 		MetricNameTemplateStrings: map[string]string{"a": `{{(.apiMethod) "-" (.responseCode)}}`},
@@ -95,7 +95,7 @@ func TestNewMetricsAspect_InvalidTemplate(t *testing.T) {
 	conf := &config.Params{
 		Address:       "localhost:8125",
 		Prefix:        "",
-		FlushDuration: time.Duration(300) * time.Millisecond,
+		FlushDuration: 300 * time.Millisecond,
 		FlushBytes:    512,
 		SamplingRate:  1.0,
 		MetricNameTemplateStrings: map[string]string{
@@ -131,7 +131,7 @@ func TestNewMetricsAspect_BadTemplate(t *testing.T) {
 	conf := &config.Params{
 		Address:                   "localhost:8125",
 		Prefix:                    "",
-		FlushDuration:             time.Duration(300) * time.Millisecond,
+		FlushDuration:             300 * time.Millisecond,
 		FlushBytes:                512,
 		SamplingRate:              1.0,
 		MetricNameTemplateStrings: map[string]string{"badtemplate": `{{if 1}}`},

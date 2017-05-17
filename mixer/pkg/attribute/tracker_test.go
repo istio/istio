@@ -25,7 +25,7 @@ func BenchmarkTracker(b *testing.B) {
 	t9 := time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
 	t10 := time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
 
-	d := time.Duration(42) * time.Second
+	d := 42 * time.Second
 
 	sm := mixerpb.StringMap{Map: map[int32]string{14: "14"}}
 
@@ -76,7 +76,7 @@ func BenchmarkTracker(b *testing.B) {
 func TestTracker_ApplyRequestAttributes(t *testing.T) {
 	t9 := time.Date(2001, 1, 1, 1, 1, 1, 9, time.UTC)
 	t10 := time.Date(2001, 1, 1, 1, 1, 1, 10, time.UTC)
-	d := time.Duration(42) * time.Second
+	d := 42 * time.Second
 	sm := mixerpb.StringMap{Map: map[int32]string{14: "14"}}
 
 	attr1 := mixerpb.Attributes{

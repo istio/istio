@@ -112,7 +112,7 @@ func newQuotaConfig(desc string, labels map[string]string) *cfgpb.Combined {
 						DescriptorName: desc,
 						Labels:         labels,
 						MaxAmount:      5,
-						Expiration:     time.Duration(1) * time.Second,
+						Expiration:     1 * time.Second,
 					},
 				},
 			},
@@ -317,7 +317,7 @@ func TestQuotaExecutor_Execute(t *testing.T) {
 			executor := &quotasExecutor{
 				aspect: &fakeQuotaAspect{body: func(qa adapter.QuotaArgs) (adapter.QuotaResult, error) {
 					receivedArgs = qa
-					return adapter.QuotaResult{Amount: c.allocAmount, Expiration: time.Duration(0)}, c.allocErr
+					return adapter.QuotaResult{Amount: c.allocAmount, Expiration: 0}, c.allocErr
 				}},
 				metadata: c.mdin,
 			}

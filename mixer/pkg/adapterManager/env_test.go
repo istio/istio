@@ -64,7 +64,7 @@ func TestEnv(t *testing.T) {
 		wg.Wait()
 
 		// hack to give time for the panic to 'take hold' if it doesn't get recovered properly
-		time.Sleep(time.Duration(200) * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 
 		gp.Close()
 	}

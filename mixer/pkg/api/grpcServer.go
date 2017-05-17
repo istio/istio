@@ -215,7 +215,7 @@ func (s *grpcServer) handleCheck(ctx context.Context, args dispatchArgs) {
 	// TODO: this value needs to initially come from config, and be modulated by the kind of attribute
 	//       that was used in the check and the in-used aspects (for example, maybe an auth check has a
 	//       30s TTL but a whitelist check has got a 120s TTL)
-	resp.Expiration = time.Duration(5) * time.Second
+	resp.Expiration = 5 * time.Second
 
 	if glog.V(2) {
 		glog.Infof("Check [%x] <-- %s", args.requestIndex, args.response)

@@ -110,7 +110,7 @@ func TestAllocAndReleaseFixedWindow(t *testing.T) {
 	b := newBuilder()
 	c := b.DefaultConfig().(*config.Params)
 	c.RedisServerUrl = s.Addr()
-	c.MinDeduplicationDuration = time.Duration(3600) * time.Second
+	c.MinDeduplicationDuration = 3600 * time.Second
 
 	a, err := b.NewQuotasAspect(test.NewEnv(t), c, definitions)
 	if err != nil {
@@ -246,7 +246,7 @@ func TestAllocAndReleaseRollingWindow(t *testing.T) {
 	b := newBuilder()
 	c := b.DefaultConfig().(*config.Params)
 	c.RedisServerUrl = s.Addr()
-	c.MinDeduplicationDuration = time.Duration(3600) * time.Second
+	c.MinDeduplicationDuration = 3600 * time.Second
 	c.RateLimitAlgorithm = "rolling-window"
 
 	a, err := b.NewQuotasAspect(test.NewEnv(t), c, definitions)
@@ -399,7 +399,7 @@ func TestBadAmount(t *testing.T) {
 	b := newBuilder()
 	c := b.DefaultConfig().(*config.Params)
 	c.RedisServerUrl = s.Addr()
-	c.MinDeduplicationDuration = time.Duration(3600) * time.Second
+	c.MinDeduplicationDuration = 3600 * time.Second
 
 	a, err := b.NewQuotasAspect(test.NewEnv(t), c, definitions)
 	if err != nil {
@@ -460,7 +460,7 @@ func TestBadConfig(t *testing.T) {
 		t.Error("Expecting failure, got success")
 	}
 
-	c.MinDeduplicationDuration = time.Duration(-1)
+	c.MinDeduplicationDuration = -1
 	if err := b.ValidateConfig(c); err == nil {
 		t.Error("Expecting failure, got success")
 	}
@@ -493,7 +493,7 @@ func TestErrorResponse(t *testing.T) {
 	c.RedisServerUrl = f.Addr()
 	c.RateLimitAlgorithm = "fixed-window"
 	c.ConnectionPoolSize = 1
-	c.MinDeduplicationDuration = time.Duration(3600) * time.Second
+	c.MinDeduplicationDuration = 3600 * time.Second
 
 	a, _ := b.NewQuotasAspect(test.NewEnv(t), c, definitions)
 
