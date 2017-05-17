@@ -56,3 +56,8 @@ echo buildGitRevision   "${BUILD_GIT_REVISION}"
 echo buildGitBranch     "${BRANCH}"
 echo buildUser          "$(whoami)"
 echo buildHost          "$(hostname -f)"
+
+# Add kube-inject hub and tag key-values if present
+if [ -a ${ROOT}/kube-inject-versions ]; then
+    source ${ROOT}/kube-inject-versions
+fi

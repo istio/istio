@@ -1,0 +1,7 @@
+# Output image version for kube-inject in the form of key-value pairs
+# for consumption by bazel's linkstamp. See
+# github.com/bazelbuild/bazel/blob/master/tools/buildstamp/ for
+# details on the expected format and usage.
+
+echo KubeInjectHub docker.io/istio
+echo KubeInjectTag 0.1.3

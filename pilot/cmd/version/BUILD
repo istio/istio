@@ -4,5 +4,10 @@ go_library(
     name = "go_default_library",
     srcs = ["version.go"],
     visibility = ["//visibility:public"],
-    deps = ["@com_github_spf13_cobra//:go_default_library"],
+    deps = [
+        "@com_github_spf13_cobra//:go_default_library",
+    ],
+    data = [
+        "//:kube-inject-versions",
+    ]
 )

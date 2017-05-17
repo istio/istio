@@ -99,6 +99,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 			if tag == "" {
 				return fmt.Errorf("specify --tag or define %v", DefaultTagEnvVar)
 			}
+
 			var reader io.Reader
 			if inFilename == "-" {
 				reader = os.Stdin
@@ -149,13 +150,22 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 )
 
 func init() {
-
 	rootCmd.AddCommand(injectCmd)
 
-	injectCmd.PersistentFlags().StringVar(&hub, "hub",
-		os.Getenv(DefaultHubEnvVar), "Docker hub")
-	injectCmd.PersistentFlags().StringVar(&tag, "tag",
-		os.Getenv(DefaultTagEnvVar), "Docker tag")
+	// Order of precedence for setting docker hub/tag is flags,
+	// envvars, and then compiled in defaults.
+	defaultHub := version.KubeInjectHub
+	if v := os.Getenv(DefaultHubEnvVar); v != "" {
+		defaultHub = v
+	}
+	injectCmd.PersistentFlags().StringVar(&hub, "hub", defaultHub, "Docker hub")
+
+	defaultTag := version.KubeInjectTag
+	if v := os.Getenv(DefaultTagEnvVar); v != "" {
+		defaultTag = v
+	}
+	injectCmd.PersistentFlags().StringVar(&tag, "tag", defaultTag, "Docker tag")
+
 	injectCmd.PersistentFlags().StringVarP(&inFilename, "filename", "f",
 		"", "Input Kubernetes resource filename")
 	injectCmd.PersistentFlags().StringVarP(&outFilename, "output", "o",
