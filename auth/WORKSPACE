@@ -147,8 +147,14 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_spf13_cobra",
+    commit = "4cdb38c072b86bf795d2c81de50784d9fdd6eb77",
+    importpath = "github.com/spf13/cobra",
+)
+
+new_go_repository(
     name = "com_github_spf13_pflag",
-    commit = "9ff6c6923cfffbcd502984b8e0c80539a94968b7",
+    commit = "e57e3eeb33f795204c1ca35f56c44f83227c6e66",
     importpath = "github.com/spf13/pflag",
 )
 

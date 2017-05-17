@@ -15,7 +15,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,6 +24,7 @@ import (
 	"istio.io/auth/controller"
 
 	"github.com/golang/glog"
+	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -38,39 +38,71 @@ const (
 	namespaceKey = "NAMESPACE"
 )
 
+type cliOptions struct {
+	certChainFile   string
+	signingCertFile string
+	signingKeyFile  string
+	rootCertFile    string
+
+	namespace      string
+	kubeConfigFile string
+
+	selfSignedCA    bool
+	selfSignedCAOrg string
+
+	caCertTTL time.Duration
+	certTTL   time.Duration
+}
+
 var (
-	certChainFile   = flag.String("cert-chain", "", "Speicifies path to the certificate chain file")
-	signingCertFile = flag.String("signing-cert", "", "Specifies path to the CA signing certificate file")
-	signingKeyFile  = flag.String("signing-key", "", "Specifies path to the CA signing key file")
-	rootCertFile    = flag.String("root-cert", "", "Specifies path to the root certificate file")
-	namespace       = flag.String("namespace", "",
+	opts cliOptions
+
+	rootCmd = &cobra.Command{
+		Run: func(cmd *cobra.Command, args []string) {
+			runCA()
+		},
+	}
+)
+
+func init() {
+	flags := rootCmd.Flags()
+
+	flags.StringVar(&opts.certChainFile, "cert-chain", "", "Speicifies path to the certificate chain file")
+	flags.StringVar(&opts.signingCertFile, "signing-cert", "", "Specifies path to the CA signing certificate file")
+	flags.StringVar(&opts.signingKeyFile, "signing-key", "", "Specifies path to the CA signing key file")
+	flags.StringVar(&opts.rootCertFile, "root-cert", "", "Specifies path to the root certificate file")
+
+	flags.StringVar(&opts.namespace, "namespace", "",
 		"Select a namespace for the CA to listen to. If unspecified, Istio CA tries to use the ${"+namespaceKey+"} "+
 			"environment variable. If neither is set, Istio CA listens to all namespaces.")
-
-	kubeConfigFile = flag.String("kube-config", "",
+	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
 
-	selfSignedCA = flag.Bool("self-signed-ca", false,
+	flags.BoolVar(&opts.selfSignedCA, "self-signed-ca", false,
 		"Indicates whether to use auto-generated self-signed CA certificate. "+
 			"When set to true, the '-ca-cert' and '-ca-key' options are ignored.")
-
-	selfSignedCAOrg = flag.String("self-signed-ca-org", "k8s.cluster.local",
+	flags.StringVar(&opts.selfSignedCAOrg, "self-signed-ca-org", "k8s.cluster.local",
 		fmt.Sprintf("The issuer organization used in self-signed CA certificate (default to %s)",
 			selfSignedCAOrgDefault))
 
-	caCertTTL = flag.Duration("ca-cert-ttl", 240*time.Hour,
+	flags.DurationVar(&opts.caCertTTL, "ca-cert-ttl", 240*time.Hour,
 		"The TTL of self-signed CA root certificate (default to 10 days)")
+	flags.DurationVar(&opts.certTTL, "cert-ttl", time.Hour, "The TTL of issued certificates (default to 1 hour)")
 
-	certTTL = flag.Duration("cert-ttl", time.Hour, "The TTL of issued certificates (default to 1 hour)")
-)
+}
 
 func main() {
-	flag.Parse()
+	if err := rootCmd.Execute(); err != nil {
+		glog.Error(err)
+		os.Exit(-1)
+	}
+}
 
-	if *namespace == "" {
+func runCA() {
+	if opts.namespace == "" {
 		// When -namespace is not set, try to read the namespace from environment variable.
 		if value, exists := os.LookupEnv(namespaceKey); exists {
-			*namespace = value
+			opts.namespace = value
 		}
 	}
 
@@ -78,7 +110,7 @@ func main() {
 
 	ca := createCA()
 	cs := createClientset()
-	sc := controller.NewSecretController(ca, cs.CoreV1(), *namespace)
+	sc := controller.NewSecretController(ca, cs.CoreV1(), opts.namespace)
 
 	stopCh := make(chan struct{})
 	sc.Run(stopCh)
@@ -97,24 +129,24 @@ func createClientset() *kubernetes.Clientset {
 }
 
 func createCA() certmanager.CertificateAuthority {
-	if *selfSignedCA {
+	if opts.selfSignedCA {
 		glog.Info("Use self-signed certificate as the CA certificate")
 
-		ca, err := certmanager.NewSelfSignedIstioCA(*caCertTTL, *certTTL, *selfSignedCAOrg)
+		ca, err := certmanager.NewSelfSignedIstioCA(opts.caCertTTL, opts.certTTL, opts.selfSignedCAOrg)
 		if err != nil {
 			glog.Fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
 		}
 		return ca
 	}
 
-	opts := &certmanager.IstioCAOptions{
-		CertChainBytes:   readFile(certChainFile),
-		CertTTL:          *certTTL,
-		SigningCertBytes: readFile(signingCertFile),
-		SigningKeyBytes:  readFile(signingKeyFile),
-		RootCertBytes:    readFile(rootCertFile),
+	caOpts := &certmanager.IstioCAOptions{
+		CertChainBytes:   readFile(opts.certChainFile),
+		CertTTL:          opts.certTTL,
+		SigningCertBytes: readFile(opts.signingCertFile),
+		SigningKeyBytes:  readFile(opts.signingKeyFile),
+		RootCertBytes:    readFile(opts.rootCertFile),
 	}
-	ca, err := certmanager.NewIstioCA(opts)
+	ca, err := certmanager.NewIstioCA(caOpts)
 	if err != nil {
 		glog.Errorf("Failed to create an Istio CA (error %v)", err)
 	}
@@ -122,10 +154,10 @@ func createCA() certmanager.CertificateAuthority {
 }
 
 func generateConfig() *rest.Config {
-	if *kubeConfigFile != "" {
-		c, err := clientcmd.BuildConfigFromFlags("", *kubeConfigFile)
+	if opts.kubeConfigFile != "" {
+		c, err := clientcmd.BuildConfigFromFlags("", opts.kubeConfigFile)
 		if err != nil {
-			glog.Fatalf("Failed to create a config object from file %s, (error %v)", *kubeConfigFile, err)
+			glog.Fatalf("Failed to create a config object from file %s, (error %v)", opts.kubeConfigFile, err)
 		}
 		return c
 	}
@@ -138,38 +170,38 @@ func generateConfig() *rest.Config {
 	return c
 }
 
-func readFile(filename *string) []byte {
-	bs, err := ioutil.ReadFile(*filename)
+func readFile(filename string) []byte {
+	bs, err := ioutil.ReadFile(filename)
 	if err != nil {
-		glog.Fatalf("Failed to read file %s (error: %v)", *filename, err)
+		glog.Fatalf("Failed to read file %s (error: %v)", filename, err)
 	}
 	return bs
 }
 
 func verifyCommandLineOptions() {
-	if *selfSignedCA {
+	if opts.selfSignedCA {
 		return
 	}
 
-	if *certChainFile == "" {
+	if opts.certChainFile == "" {
 		glog.Fatalf(
 			"No certificate chain has been specified. Either specify a cert chain file via '-cert-chain' option " +
 				"or use '-self-signed-ca'")
 	}
 
-	if *signingCertFile == "" {
+	if opts.signingCertFile == "" {
 		glog.Fatalf(
 			"No signing cert has been specified. Either specify a cert file via '-signing-cert' option " +
 				"or use '-self-signed-ca'")
 	}
 
-	if *signingKeyFile == "" {
+	if opts.signingKeyFile == "" {
 		glog.Fatalf(
 			"No signing key has been specified. Either specify a key file via '-signing-key' option " +
 				"or use '-self-signed-ca'")
 	}
 
-	if *rootCertFile == "" {
+	if opts.rootCertFile == "" {
 		glog.Fatalf(
 			"No root cert has been specified. Either specify a root cert file via '-root-cert' option " +
 				"or use '-self-signed-ca'")
