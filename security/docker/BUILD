@@ -16,7 +16,7 @@ docker_build(
     base = "@docker_ubuntu//:xenial",
     entrypoint = [
         "/usr/local/bin/istio_ca",
-        "-self-signed-ca",
+        "--self-signed-ca",
     ],
     name = "istio-ca",
     tars = [ "istio_ca_tar" ],
