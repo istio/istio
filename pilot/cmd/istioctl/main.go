@@ -299,16 +299,21 @@ istioctl delete route-rule productpage-default
 					c.Println(c.UsageString())
 					return fmt.Errorf("provide configuration type and name or -f option")
 				}
+				var errs error
 				for i := 1; i < len(args); i++ {
 					if err := setup(args[0], args[i]); err != nil {
+						// If the user specified an invalid rule kind on the CLI,
+						// don't keep processing -- it's probably a typo.
 						return err
 					}
 					if err := apiClient.DeleteConfig(key); err != nil {
-						return err
+						errs = multierror.Append(errs,
+							fmt.Errorf("cannot delete %s: %v", args[i], err))
+					} else {
+						fmt.Printf("Deleted config: %v %v\n", args[0], args[i])
 					}
-					fmt.Printf("Deleted config: %v %v\n", args[0], args[i])
 				}
-				return nil
+				return errs
 			}
 
 			// As we did get a file option, make sure the command line did not include any resources to delete
@@ -323,18 +328,20 @@ istioctl delete route-rule productpage-default
 			if len(varr) == 0 {
 				return errors.New("nothing to delete")
 			}
+			var errs error
 			for _, v := range varr {
 				if err = setup(v.Type, v.Name); err != nil {
-					return err
+					errs = multierror.Append(errs, err)
+				} else {
+					if err = apiClient.DeleteConfig(key); err != nil {
+						errs = multierror.Append(errs, fmt.Errorf("cannot delete %s: %v", v.Name, err))
+					} else {
+						fmt.Printf("Deleted config: %v %v\n", v.Type, v.Name)
+					}
 				}
-				err = apiClient.DeleteConfig(key)
-				if err != nil {
-					return err
-				}
-				fmt.Printf("Deleted config: %v %v\n", v.Type, v.Name)
 			}
 
-			return nil
+			return errs
 		},
 	}
 )
