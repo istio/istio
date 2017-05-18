@@ -149,7 +149,7 @@ func TestGenCert(t *testing.T) {
 		{
 			// client cert with service account as SAN
 			certOptions: CertOptions{
-				Host:         "istio:foo.serviceaccount.com",
+				Host:         "spiffe://domain/ns/bar/sa/foo",
 				NotBefore:    now,
 				NotAfter:     now.Add(time.Hour * 100),
 				SignerCert:   caCert,
@@ -173,7 +173,7 @@ func TestGenCert(t *testing.T) {
 		{
 			// server cert with service account as SAN
 			certOptions: CertOptions{
-				Host:         "istio:bar.serviceaccount.com",
+				Host:         "spiffe://domain/ns/bar/sa/foo",
 				NotBefore:    now,
 				NotAfter:     now.Add(time.Hour * 50),
 				SignerCert:   caCert,
@@ -197,7 +197,7 @@ func TestGenCert(t *testing.T) {
 		{
 			// a cert that can only be used as client-side cert
 			certOptions: CertOptions{
-				Host:         "istio:bar.serviceaccount.com",
+				Host:         "spiffe://domain/ns/bar/sa/foo",
 				NotBefore:    now,
 				NotAfter:     now.Add(time.Hour * 50),
 				SignerCert:   caCert,

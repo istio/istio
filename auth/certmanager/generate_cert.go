@@ -77,7 +77,7 @@ const (
 	tarIP      = 7
 
 	// The URI scheme for Istio identities.
-	uriScheme = "istio"
+	uriScheme = "spiffe"
 )
 
 // See http://www.alvestrand.no/objectid/2.5.29.17.html.
