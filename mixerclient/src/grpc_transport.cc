@@ -44,6 +44,7 @@ class GrpcStream final : public WriteInterface<RequestType> {
   void Write(const RequestType& request) override {
     std::lock_guard<std::mutex> lock(write_mutex_);
     if (!stream_->Write(request)) {
+      GOOGLE_LOG(INFO) << "Stream Write failed: half close";
       write_closed_ = true;
     }
   }
@@ -64,6 +65,8 @@ class GrpcStream final : public WriteInterface<RequestType> {
       reader_->OnRead(response);
     }
     ::grpc::Status status = stream_->Finish();
+    GOOGLE_LOG(INFO) << "Stream Finished with status: "
+                     << status.error_message();
     // Convert grpc status to protobuf status.
     ::google::protobuf::util::Status pb_status(
         ::google::protobuf::util::error::Code(status.error_code()),
