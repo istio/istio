@@ -1166,55 +1166,34 @@ Status Proto::ConvertAllocateQuotaResponse(
     case ::google::api::servicecontrol::v1::QuotaError::RESOURCE_EXHAUSTED:
       // Quota allocation failed.
       // Same as [google.rpc.Code.RESOURCE_EXHAUSTED][].
-      return Status(Code::RESOURCE_EXHAUSTED, "Quota allocation failed.");
+      return Status(Code::RESOURCE_EXHAUSTED, error.description());
 
     case ::google::api::servicecontrol::v1::QuotaError::PROJECT_SUSPENDED:
-      // Consumer project has been suspended.
-      return Status(Code::PERMISSION_DENIED, "Project suspended.");
-
+    // Consumer project has been suspended.
     case ::google::api::servicecontrol::v1::QuotaError::SERVICE_NOT_ENABLED:
-      // Consumer has not enabled the service.
-      return Status(Code::PERMISSION_DENIED,
-                    std::string("API ") + service_name +
-                        " is not enabled for the project.");
-
+    // Consumer has not enabled the service.
     case ::google::api::servicecontrol::v1::QuotaError::BILLING_NOT_ACTIVE:
-      // Consumer cannot access the service because billing is disabled.
-      return Status(Code::PERMISSION_DENIED,
-                    std::string("API ") + service_name +
-                        " has billing disabled. Please enable it.");
+    // Consumer cannot access the service because billing is disabled.
+    case ::google::api::servicecontrol::v1::QuotaError::IP_ADDRESS_BLOCKED:
+    // IP address of the consumer is invalid for the specific consumer
+    // project.
+    case ::google::api::servicecontrol::v1::QuotaError::REFERER_BLOCKED:
+    // Referer address of the consumer request is invalid for the specific
+    // consumer project.
+    case ::google::api::servicecontrol::v1::QuotaError::CLIENT_APP_BLOCKED:
+      // Client application of the consumer request is invalid for the
+      // specific consumer project.
+      return Status(Code::PERMISSION_DENIED, error.description());
 
     case ::google::api::servicecontrol::v1::QuotaError::PROJECT_DELETED:
     // Consumer's project has been marked as deleted (soft deletion).
     case ::google::api::servicecontrol::v1::QuotaError::PROJECT_INVALID:
-      // Consumer's project number or ID does not represent a valid project.
-      return Status(Code::INVALID_ARGUMENT,
-                    "Client project not valid. Please pass a valid project.");
-
-    case ::google::api::servicecontrol::v1::QuotaError::IP_ADDRESS_BLOCKED:
-      // IP address of the consumer is invalid for the specific consumer
-      // project.
-      return Status(Code::PERMISSION_DENIED, "IP address blocked.");
-
-    case ::google::api::servicecontrol::v1::QuotaError::REFERER_BLOCKED:
-      // Referer address of the consumer request is invalid for the specific
-      // consumer project.
-      return Status(Code::PERMISSION_DENIED, "Referer blocked.");
-
-    case ::google::api::servicecontrol::v1::QuotaError::CLIENT_APP_BLOCKED:
-      // Client application of the consumer request is invalid for the
-      // specific consumer project.
-      return Status(Code::PERMISSION_DENIED, "Client app blocked.");
-
+    // Consumer's project number or ID does not represent a valid project.
     case ::google::api::servicecontrol::v1::QuotaError::API_KEY_INVALID:
-      // Specified API key is invalid.
-      return Status(Code::INVALID_ARGUMENT,
-                    "API key not valid. Please pass a valid API key.");
-
+    // Specified API key is invalid.
     case ::google::api::servicecontrol::v1::QuotaError::API_KEY_EXPIRED:
       // Specified API Key has expired.
-      return Status(Code::INVALID_ARGUMENT,
-                    "API key expired. Please renew the API key.");
+      return Status(Code::INVALID_ARGUMENT, error.description());
 
     case ::google::api::servicecontrol::v1::QuotaError::
         PROJECT_STATUS_UNVAILABLE:
@@ -1232,10 +1211,7 @@ Status Proto::ConvertAllocateQuotaResponse(
       return Status::OK;
 
     default:
-      return Status(
-          Code::INTERNAL,
-          std::string("Request blocked due to unsupported error code: ") +
-              std::to_string(error.code()));
+      return Status(Code::INTERNAL, error.description());
   }
 
   return Status::OK;

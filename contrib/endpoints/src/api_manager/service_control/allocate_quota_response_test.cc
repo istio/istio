@@ -94,7 +94,7 @@ TEST(AllocateQuotaResponseTest,
       "API api_xxxx has billing disabled. Please enable it..", "api_xxxx");
   EXPECT_EQ(Code::PERMISSION_DENIED, result.code());
   EXPECT_EQ(result.message(),
-            "API api_xxxx has billing disabled. Please enable it.");
+            "API api_xxxx has billing disabled. Please enable it..");
 }
 
 TEST(AllocateQuotaResponseTest,
