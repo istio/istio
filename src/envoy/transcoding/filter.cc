@@ -14,6 +14,7 @@
  */
 #include "src/envoy/transcoding/filter.h"
 
+#include "common/http/utility.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/message.h"
@@ -59,6 +60,17 @@ Http::FilterHeadersStatus Instance::decodeHeaders(Http::HeaderMap& headers,
 
       request_in_.Finish();
 
+      const auto& request_status = transcoder_->RequestStatus();
+      if (!request_status.ok()) {
+        log().debug("Transcoding request error " + request_status.ToString());
+        error_ = true;
+        Http::Utility::sendLocalReply(
+            *decoder_callbacks_, Http::Code::BadRequest,
+            request_status.error_message().ToString());
+
+        return Http::FilterHeadersStatus::StopIteration;
+      }
+
       Buffer::OwnedImpl data;
       ReadToBuffer(transcoder_->RequestOutput(), data);
 
@@ -67,7 +79,7 @@ Http::FilterHeadersStatus Instance::decodeHeaders(Http::HeaderMap& headers,
       }
     }
   } else {
-    log().debug("No transcoding" + status.ToString());
+    log().debug("No transcoding: " + status.ToString());
   }
 
   return Http::FilterHeadersStatus::Continue;
@@ -76,12 +88,30 @@ Http::FilterHeadersStatus Instance::decodeHeaders(Http::HeaderMap& headers,
 Http::FilterDataStatus Instance::decodeData(Buffer::Instance& data,
                                             bool end_stream) {
   log().debug("Transcoding::Instance::decodeData");
+
+  if (error_) {
+    return Http::FilterDataStatus::StopIterationNoBuffer;
+  }
+
   if (transcoder_) {
     request_in_.Move(data);
 
+    if (end_stream) {
+      request_in_.Finish();
+    }
+
     ReadToBuffer(transcoder_->RequestOutput(), data);
 
-    // TODO: Check RequesStatus
+    const auto& request_status = transcoder_->RequestStatus();
+
+    if (!request_status.ok()) {
+      log().debug("Transcoding request error " + request_status.ToString());
+      error_ = true;
+      Http::Utility::sendLocalReply(*decoder_callbacks_, Http::Code::BadRequest,
+                                    request_status.error_message().ToString());
+
+      return Http::FilterDataStatus::StopIterationNoBuffer;
+    }
   }
 
   return Http::FilterDataStatus::Continue;
@@ -111,6 +141,10 @@ void Instance::setDecoderFilterCallbacks(
 Http::FilterHeadersStatus Instance::encodeHeaders(Http::HeaderMap& headers,
                                                   bool end_stream) {
   log().debug("Transcoding::Instance::encodeHeaders");
+  if (error_) {
+    return Http::FilterHeadersStatus::Continue;
+  }
+
   if (transcoder_) {
     headers.insertContentType().value(kJsonContentType);
   }
@@ -120,6 +154,10 @@ Http::FilterHeadersStatus Instance::encodeHeaders(Http::HeaderMap& headers,
 Http::FilterDataStatus Instance::encodeData(Buffer::Instance& data,
                                             bool end_stream) {
   log().debug("Transcoding::Instance::encodeData");
+  if (error_) {
+    return Http::FilterDataStatus::Continue;
+  }
+
   if (transcoder_) {
     response_in_.Move(data);
 

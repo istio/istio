@@ -64,6 +64,8 @@ class Instance : public Http::StreamFilter,
   EnvoyInputStream response_in_;
   Http::StreamDecoderFilterCallbacks* decoder_callbacks_{nullptr};
   Http::StreamEncoderFilterCallbacks* encoder_callbacks_{nullptr};
+
+  bool error_{false};
 };
 
 }  // namespace Transcoding

@@ -31,6 +31,7 @@
 #include "gtest/gtest.h"
 
 using testing::_;
+using testing::Invoke;
 using testing::NiceMock;
 using testing::Return;
 using testing::ReturnPointee;
@@ -143,6 +144,30 @@ TEST_F(GrpcHttpJsonTranscodingFilterTest, TranscodingUnaryPost) {
 
   EXPECT_EQ(Http::FilterTrailersStatus::Continue,
             filter_.decodeTrailers(response_trailers));
+}
+
+TEST_F(GrpcHttpJsonTranscodingFilterTest, TranscodingUnaryError) {
+  Http::TestHeaderMapImpl request_headers{{"content-type", "application/json"},
+                                          {":method", "POST"},
+                                          {":path", "/shelf"}};
+
+  EXPECT_EQ(Http::FilterHeadersStatus::Continue,
+            filter_.decodeHeaders(request_headers, false));
+  EXPECT_EQ("application/grpc", request_headers.get_("content-type"));
+  EXPECT_EQ("/bookstore.Bookstore/CreateShelf", request_headers.get_(":path"));
+  EXPECT_EQ("trailers", request_headers.get_("te"));
+
+  Buffer::OwnedImpl request_data{"{\"theme\": \"Children\""};
+
+  EXPECT_CALL(decoder_callbacks_, encodeHeaders_(_, false))
+      .WillOnce(Invoke([](Http::HeaderMap& headers, bool end_stream) {
+        EXPECT_STREQ("400", headers.Status()->value().c_str());
+      }));
+  EXPECT_CALL(decoder_callbacks_, encodeData(_, true));
+
+  EXPECT_EQ(Http::FilterDataStatus::StopIterationNoBuffer,
+            filter_.decodeData(request_data, true));
+  EXPECT_EQ(0, request_data.length());
 }
 
 }  // namespace Transcoding
