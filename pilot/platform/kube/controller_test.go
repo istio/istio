@@ -34,11 +34,20 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 
+	"io/ioutil"
+
+	"bytes"
+
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/manager/model"
 	"istio.io/manager/proxy"
 	"istio.io/manager/test/mock"
 	"istio.io/manager/test/util"
+)
+
+const (
+	controllerCertFile = "testdata/cert.crt"
+	controllerKeyFile  = "testdata/cert.key"
 )
 
 func TestThirdPartyResourcesClient(t *testing.T) {
@@ -93,7 +102,7 @@ func TestSecret(t *testing.T) {
 	cl := makeClient(t)
 	ns, err := util.CreateNamespace(cl.client)
 	if err != nil {
-		t.Fatal(err.Error())
+		t.Fatal(err)
 	}
 	defer util.DeleteNamespace(cl.client, ns)
 
@@ -114,15 +123,22 @@ func TestSecret(t *testing.T) {
 	})
 
 	// create the secret
-	cert := "abcdef"
-	key := "ghijkl"
+	cert, err := ioutil.ReadFile(controllerCertFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := ioutil.ReadFile(controllerKeyFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	secret := "istio-secret"
 	_, err = cl.client.Core().Secrets(ns).Create(&v1.Secret{
 		ObjectMeta: meta_v1.ObjectMeta{Name: secret},
-		Data:       map[string][]byte{secretCert: []byte(cert), secretKey: []byte(key)},
+		Data:       map[string][]byte{secretCert: cert, secretKey: key},
 	})
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	eventually(func() bool {
@@ -132,12 +148,12 @@ func TestSecret(t *testing.T) {
 
 	uri := fmt.Sprintf("%s.%s", secret, ns)
 	if tls, err := ctl.client.GetTLSSecret(uri); err != nil {
-		t.Errorf("GetTLSSecret => got %q", err)
+		t.Error(err)
 	} else if tls == nil {
 		t.Errorf("GetTLSSecret => no secret")
-	} else if cert != string(tls.Certificate) || key != string(tls.PrivateKey) {
+	} else if !bytes.Equal(cert, tls.Certificate) || !bytes.Equal(key, tls.PrivateKey) {
 		t.Errorf("GetTLSSecret => got %q and %q, want %q and %q",
-			string(tls.Certificate), string(tls.PrivateKey), cert, key)
+			string(tls.Certificate), string(tls.PrivateKey), string(cert), string(key))
 	}
 }
 

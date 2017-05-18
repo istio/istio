@@ -117,7 +117,7 @@ func fetchSecret(ctx context.Context, client *http.Client, url string,
 	}
 	secret := string(uri)
 	if secret == "" {
-		glog.Info("no secret needed")
+		glog.V(4).Info("no secret needed")
 		return nil, nil
 	}
 	out, err := secrets.GetTLSSecret(secret)

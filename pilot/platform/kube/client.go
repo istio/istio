@@ -39,6 +39,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"crypto/tls"
+
 	"istio.io/manager/model"
 )
 
@@ -399,6 +401,10 @@ func (cl *Client) GetTLSSecret(uri string) (*model.TLSSecret, error) {
 	key := secret.Data[secretKey]
 	if len(cert) == 0 || len(key) == 0 {
 		return nil, fmt.Errorf("Secret keys %q and/or %q are missing", secretCert, secretKey)
+	}
+
+	if _, err = tls.X509KeyPair(cert, key); err != nil {
+		return nil, err
 	}
 
 	return &model.TLSSecret{

@@ -54,7 +54,7 @@ go_test(
         "ingressstatus_test.go",
         "queue_test.go",
     ],
-    data = [":kubeconfig"],
+    data = [":kubeconfig"] + glob(["testdata/*"]),
     library = ":go_default_library",
     deps = [
         "//model:go_default_library",
