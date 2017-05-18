@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"istio.io/auth/certmanager"
+	"istio.io/auth/cmd/istio_ca/version"
 	"istio.io/auth/controller"
 
 	"github.com/golang/glog"
@@ -89,6 +90,7 @@ func init() {
 		"The TTL of self-signed CA root certificate (default to 10 days)")
 	flags.DurationVar(&opts.certTTL, "cert-ttl", time.Hour, "The TTL of issued certificates (default to 1 hour)")
 
+	rootCmd.AddCommand(version.Command)
 }
 
 func main() {
