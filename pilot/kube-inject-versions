@@ -4,4 +4,4 @@
 # details on the expected format and usage.
 
 echo KubeInjectHub docker.io/istio
-echo KubeInjectTag 0.1.3
+echo KubeInjectTag 0.1

@@ -14,9 +14,18 @@ def bazel = new Bazel()
 // This should be updated for a release branch.
 ISTIO_VERSION_URL = 'https://raw.githubusercontent.com/istio/istio/master/istio.RELEASE'
 
+
+def setVersions() {
+  def version = sh(returnStdout: true, script: "curl ${ISTIO_VERSION_URL}").trim()
+  def v = version.tokenize('.')
+  env.ISTIO_VERSION = version
+  env.ISTIO_MINOR_VERSION = "${v[0]}.${v[1]}"
+}
+
+
 mainFlow(utils) {
   node {
-    env.ISTIO_VERSION = sh(returnStdout: true, script: "curl ${ISTIO_VERSION_URL}").trim()
+    setVersions()
     gitUtils.initialize()
     bazel.setVars()
   }
@@ -106,11 +115,11 @@ def stablePostsubmit(gitUtils, bazel, utils) {
     }
     stage('Docker Push') {
       def images = 'init,app,proxy,proxy_debug,manager'
-      def tags = "${env.GIT_SHORT_SHA},${env.ISTIO_VERSION}-${env.GIT_SHORT_SHA},latest"
+      def tags = "${env.GIT_SHORT_SHA},${env.ISTIO_VERSION}-${env.GIT_SHORT_SHA}"
       if (env.GIT_TAG != '') {
         if (env.GIT_TAG == env.ISTIO_VERSION) {
           // Retagging
-          tags = env.ISTIO_VERSION
+          tags = "${env.ISTIO_VERSION},${env.ISTIO_MINOR_VERSION}"
         } else {
           tags += ",${env.GIT_TAG}"
         }
