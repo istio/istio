@@ -81,7 +81,7 @@ func init() {
 
 	flags.BoolVar(&opts.selfSignedCA, "self-signed-ca", false,
 		"Indicates whether to use auto-generated self-signed CA certificate. "+
-			"When set to true, the '-ca-cert' and '-ca-key' options are ignored.")
+			"When set to true, the '--signing-cert' and '--signing-key' options are ignored.")
 	flags.StringVar(&opts.selfSignedCAOrg, "self-signed-ca-org", "k8s.cluster.local",
 		fmt.Sprintf("The issuer organization used in self-signed CA certificate (default to %s)",
 			selfSignedCAOrgDefault))
