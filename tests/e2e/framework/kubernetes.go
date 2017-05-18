@@ -33,7 +33,7 @@ const (
 	mixerTagEnvVar   = "MIXER_TAG"
 	managerHubEnvVar = "MANAGER_HUB"
 	managerTagEnvVar = "MANAGER_TAG"
-	istioInstallDir  = "kubernetes/istio-install"
+	istioInstallDir  = "install/kubernetes/templates"
 )
 
 var (
@@ -82,7 +82,7 @@ func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
 		*namespace = runID
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *managerHub, *managerTag)
+	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *managerHub, *managerTag)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
 		ManagerImage:     fmt.Sprintf("%s/manager:%s", *managerHub, *managerTag),
 		CaImage:          fmt.Sprintf("%s/ca:%s", *caHub, *caTag),
 		// Proxy and Manager are released together and share the same hub and tag.
-		ProxyImage:   fmt.Sprintf("%s/proxy:%s", *managerHub, *managerTag),
+		ProxyImage:   fmt.Sprintf("%s/proxy_debug:%s", *managerHub, *managerTag),
 		TmpDir:       tmpDir,
 		yamlDir:      yamlDir,
 		localCluster: *localCluster,

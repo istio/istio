@@ -58,7 +58,13 @@ function apply_patch() {
 function kube_inject() {
     local before=${1}
     local after=${2}
-    ${ISTIOCLI} kube-inject -f ${before} -o ${after} --hub ${MANAGER_HUB} --tag ${MANAGER_TAG} -n ${NAMESPACE}
+    ${ISTIOCLI} kube-inject \
+		-f ${before} \
+		-o ${after} \
+		--hub ${MANAGER_HUB} \
+		--tag ${MANAGER_TAG} \
+		-n ${NAMESPACE} \
+		--istioNamespace ${NAMESPACE}
 }
 
 function apply_patch_in_dir() {
@@ -81,7 +87,7 @@ function apply_patch_in_dir() {
 
 function generate_istio_yaml() {
     print_block_echo "Generating istio yaml in ${1}"
-    local src_dir="${ROOT}/kubernetes/istio-install"
+    local src_dir="${ROOT}/install/kubernetes/templates"
     local dest_dir="${1}"
 
     mkdir -p ${dest_dir}
@@ -93,7 +99,7 @@ function generate_istio_yaml() {
 
 function generate_bookinfo_yaml() {
     print_block_echo "Generating bookinfo yaml in ${1}"
-    local src_dir="${ROOT}/demos/apps/bookinfo"
+    local src_dir="${ROOT}/samples/apps/bookinfo"
     local dest_dir="${1}"
 
     mkdir -p ${dest_dir}
@@ -102,7 +108,7 @@ function generate_bookinfo_yaml() {
 
 function generate_rules_yaml() {
     print_block_echo "Generating istio rules in ${1}"
-    local src_dir="${ROOT}/demos/apps/bookinfo"
+    local src_dir="${ROOT}/samples/apps/bookinfo"
     local diff_dir="${ROOT}/tests/apps/bookinfo/rules"
     local dest_dir="${1}"
 

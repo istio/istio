@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('testutils@stable-5f5673a')
+@Library('testutils@stable-41b0bf6')
 
 import org.istio.testutils.Utilities
 import org.istio.testutils.GitUtilities
@@ -28,10 +28,7 @@ def presubmit(gitUtils, bazel, utils) {
   goBuildNode(gitUtils, 'istio.io/istio') {
     bazel.updateBazelRc()
     utils.initTestingCluster()
-    stage('Bazel Build') {
-      bazel.build('//...')
-    }
-    stage('Code Check') {
+    stage('Build and Checks') {
       sh('bin/linters.sh')
     }
     stage('Bazel Test') {
@@ -59,7 +56,7 @@ def smokeTest(gitUtils, bazel, utils) {
       def hub = 'gcr.io/istio-testing'
       switch (repo) {
         case 'manager':
-          def istioctlUrl = "https://storage.googleapis.com/istio-artifacts/${prSha}/artifacts/istioctl"
+          def istioctlUrl = "https://storage.googleapis.com/istio-artifacts/${repo}/${prSha}/artifacts/istioctl"
           kubeTestArgs = "-m ${hub},${prSha} " +
               "-i ${istioctlUrl}"
           e2eArgs += "--manager_hub=${hub}  " +

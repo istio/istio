@@ -1,0 +1,40 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: zipkin
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
+      labels:
+        app: zipkin
+    spec:
+      containers:
+      - name: zipkin
+        image: docker.io/openzipkin/zipkin:latest
+        ports:
+        - containerPort: 9411
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zipkin
+spec:
+  #type: NodePort
+  type: LoadBalancer
+  ports:
+  - name: http
+    port: 9411
+    #nodePort: 30411
+  selector:
+    app: zipkin
+---

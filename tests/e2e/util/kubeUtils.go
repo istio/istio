@@ -119,7 +119,7 @@ func GetIngressPod(n string) (string, error) {
 			return err
 		}
 		podPort, err := Shell(fmt.Sprintf("kubectl get svc istio-ingress "+
-			"-n %s -o jsonpath='{{.spec.ports[0].nodePort}'", n))
+			"-n %s -o jsonpath='{.spec.ports[0].nodePort}'", n))
 		if err != nil {
 			return err
 		}
