@@ -72,7 +72,7 @@ func NewEnvoy(conf string, stress bool) (*Envoy, error) {
 	if stress {
 		cmd = exec.Command(bin_path, "-c", conf_path, "--concurrency", "10")
 	} else {
-		cmd = exec.Command(bin_path, "-c", conf_path, "-l", "debug")
+		cmd = exec.Command(bin_path, "-c", conf_path, "-l", "debug", "--concurrency", "1")
 	}
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout

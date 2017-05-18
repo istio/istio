@@ -24,6 +24,10 @@
 #include "src/envoy/mixer/http_control.h"
 #include "src/envoy/mixer/utils.h"
 
+#include <map>
+#include <mutex>
+#include <thread>
+
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
 using ::istio::mixer_client::DoneFunc;
@@ -87,10 +91,11 @@ int HttpCode(int code) {
 
 class Config : public Logger::Loggable<Logger::Id::http> {
  private:
-  std::shared_ptr<HttpControl> http_control_;
   Upstream::ClusterManager& cm_;
   std::string forward_attributes_;
   MixerConfig mixer_config_;
+  std::mutex map_mutex_;
+  std::map<std::thread::id, std::shared_ptr<HttpControl>> http_control_map_;
 
  public:
   Config(const Json::Object& config, Server::Instance& server)
@@ -112,11 +117,19 @@ class Config : public Logger::Loggable<Logger::Id::http> {
           Base64::encode(serialized_str.c_str(), serialized_str.size());
       log().debug("Mixer forward attributes set: ", serialized_str);
     }
-
-    http_control_ = std::make_shared<HttpControl>(mixer_config_);
   }
 
-  std::shared_ptr<HttpControl>& http_control() { return http_control_; }
+  std::shared_ptr<HttpControl> http_control() {
+    std::thread::id id = std::this_thread::get_id();
+    std::lock_guard<std::mutex> lock(map_mutex_);
+    auto it = http_control_map_.find(id);
+    if (it != http_control_map_.end()) {
+      return it->second;
+    }
+    auto http_control = std::make_shared<HttpControl>(mixer_config_);
+    http_control_map_[id] = http_control;
+    return http_control;
+  }
   const std::string& forward_attributes() const { return forward_attributes_; }
 };
 
