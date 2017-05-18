@@ -96,10 +96,10 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 
 // Generate returns a certificate chain and a key for the Istio identity defined by
 // the name and the namespace.
-func (ca IstioCA) Generate(name, namepsace string) (chain, key []byte) {
+func (ca IstioCA) Generate(name, namespace string) (chain, key []byte) {
 	// Currently the domain is always set to "cluster.local" since we only
 	// support in-cluster identities.
-	id := fmt.Sprintf("%s:%s.%s.cluster.local", uriScheme, name, namepsace)
+	id := fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", uriScheme, namespace, name)
 	now := time.Now()
 	options := CertOptions{
 		Host:         id,
