@@ -18,26 +18,28 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TESTS_DIR="${ROOT}/tests"
 . ${TESTS_DIR}/commonUtils.sh || { echo "Cannot load common utilities"; exit 1; }
 
+LOGLEVEL=10
+
 function create_rule() {
-    ${ISTIOCLI} -n ${NAMESPACE} --istioNamespace ${NAMESPACE} create -f ${1} \
+    ${ISTIOCLI} -v=${LOGLEVEL} -n ${NAMESPACE} --istioNamespace ${NAMESPACE} create -f ${1} \
       || error_exit 'Could not create rule'
 }
 
 function replace_rule() {
-    ${ISTIOCLI} -n ${NAMESPACE} --istioNamespace ${NAMESPACE} replace -f ${1} \
+    ${ISTIOCLI} -v=${LOGLEVEL} -n ${NAMESPACE} --istioNamespace ${NAMESPACE} replace -f ${1} \
       || error_exit 'Could not replace rule'
 }
 
 function cleanup_all_rules() {
     print_block_echo "Cleaning up rules"
-    local rules=($(${ISTIOCLI} -n ${NAMESPACE} --istioNamespace ${NAMESPACE} get route-rule \
+    local rules=($(${ISTIOCLI} -v=${LOGLEVEL} -n ${NAMESPACE} --istioNamespace ${NAMESPACE} get route-rule \
       | grep "name:" | awk '{print $2}'))
     for r in ${rules[@]}; do
-      ${ISTIOCLI} -n ${NAMESPACE} --istioNamespace ${NAMESPACE} delete route-rule "${r}"
+      ${ISTIOCLI} -v=${LOGLEVEL} -n ${NAMESPACE} --istioNamespace ${NAMESPACE} delete route-rule "${r}"
     done
 }
 
 function delete_rule() {
-    ${ISTIOCLI} -n ${NAMESPACE} --istioNamespace ${NAMESPACE} delete -f ${1}
+    ${ISTIOCLI} -v=${LOGLEVEL} -n ${NAMESPACE} --istioNamespace ${NAMESPACE} delete -f ${1}
     return $?
 }
