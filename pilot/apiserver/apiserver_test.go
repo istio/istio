@@ -1,3 +1,17 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package apiserver
 
 import (
@@ -101,6 +115,7 @@ func TestAddUpdateGetDeleteConfig(t *testing.T) {
 	status, body = makeAPIRequest(api, "GET", url, nil, t)
 	compareStatus(status, http.StatusOK, t)
 	test_util.CompareContent(body, "testdata/route-rule-v2.json.golden", t)
+	makeAPIRequestWriteFails(api, "GET", url, nil, t)
 
 	// Delete the route-rule
 	status, _ = makeAPIRequest(api, "DELETE", url, nil, t)
@@ -121,6 +136,7 @@ func TestListConfig(t *testing.T) {
 	status, body := makeAPIRequest(api, "GET", "/test/config/route-rule/namespace", nil, t)
 	compareStatus(status, http.StatusOK, t)
 	compareListCount(body, 2, t)
+	makeAPIRequestWriteFails(api, "GET", "/test/config/route-rule/namespace", nil, t)
 
 	// Add in third
 	_, _ = makeAPIRequest(api, "POST", "/test/config/route-rule/differentnamespace/v3", validDiffNamespaceRouteRuleJSON, t)
@@ -129,7 +145,7 @@ func TestListConfig(t *testing.T) {
 	status, body = makeAPIRequest(api, "GET", "/test/config/route-rule", nil, t)
 	compareStatus(status, http.StatusOK, t)
 	compareListCount(body, 3, t)
-
+	makeAPIRequestWriteFails(api, "GET", "/test/config/route-rule", nil, t)
 }
 
 func TestConfigErrors(t *testing.T) {
@@ -262,6 +278,60 @@ func TestConfigErrors(t *testing.T) {
 		}
 		if string(gotBody) != c.wantBody {
 			t.Errorf("%s: got body %q, want %q", c.name, string(gotBody), c.wantBody)
+		}
+	}
+}
+
+// TestVersion verifies that the server responds to /version
+func TestVersion(t *testing.T) {
+	api := makeAPIServer(nil)
+
+	status, body := makeAPIRequest(api, "GET", "/test/version", nil, t)
+	compareStatus(status, http.StatusOK, t)
+	compareObjectHasKeys(body, []string{
+		"version", "revision", "branch", "golang_version"}, t)
+
+	// Test write failure (boost code coverage)
+	makeAPIRequestWriteFails(api, "GET", "/test/version", nil, t)
+}
+
+// An http.ResponseWriter that always fails.
+// (For testing handler method write failure handling.)
+type grouchyWriter struct{}
+
+func (gr grouchyWriter) Header() http.Header {
+	return http.Header(make(map[string][]string))
+}
+
+func (gr grouchyWriter) Write([]byte) (int, error) {
+	return 0, fmt.Errorf("Write() failed")
+}
+
+func (gr grouchyWriter) WriteHeader(int) {
+}
+
+// makeAPIRequestWriteFails invokes a handler, but any writes the handler does fail.
+func makeAPIRequestWriteFails(api *API, method, url string, data []byte, t *testing.T) {
+	httpRequest, err := http.NewRequest(method, url, bytes.NewBuffer(data))
+	httpRequest.Header.Set("Content-Type", "application/json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	httpWriter := grouchyWriter{}
+	container := restful.NewContainer()
+	api.Register(container)
+	container.ServeHTTP(httpWriter, httpRequest)
+}
+
+func compareObjectHasKeys(body []byte, expectedKeys []string, t *testing.T) {
+	version := make(map[string]interface{})
+	if err := json.Unmarshal(body, &version); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for _, expectedKey := range expectedKeys {
+		if _, ok := version[expectedKey]; !ok {
+			t.Errorf("/version did not include %q: %v", expectedKey, string(body))
 		}
 	}
 }

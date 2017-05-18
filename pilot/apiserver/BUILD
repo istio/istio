@@ -9,6 +9,7 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//cmd/version:go_default_library",
         "//model:go_default_library",
         "@com_github_emicklei_go_restful//:go_default_library",
         "@com_github_golang_glog//:go_default_library",

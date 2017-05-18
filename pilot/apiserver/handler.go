@@ -1,3 +1,17 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package apiserver
 
 import (
@@ -5,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"istio.io/manager/cmd/version"
 	"istio.io/manager/model"
 
 	restful "github.com/emicklei/go-restful"
@@ -203,6 +218,14 @@ func (api *API) ListConfigs(request *restful.Request, response *restful.Response
 		out = append(out, config)
 	}
 	if err = response.WriteHeaderAndEntity(http.StatusOK, out); err != nil {
+		api.writeError(http.StatusInternalServerError, err.Error(), response)
+	}
+}
+
+// Version returns the version information of apiserver
+func (api *API) Version(request *restful.Request, response *restful.Response) {
+	glog.V(2).Infof("Returning version information")
+	if err := response.WriteHeaderAndEntity(http.StatusOK, version.Info); err != nil {
 		api.writeError(http.StatusInternalServerError, err.Error(), response)
 	}
 }
