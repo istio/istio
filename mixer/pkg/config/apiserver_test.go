@@ -207,6 +207,36 @@ func TestAPI_putAspect(t *testing.T) {
 	}
 }
 
+func TestAPI_deleteRules(t *testing.T) {
+
+	for _, ctx := range []struct {
+		key    string
+		val    string
+		err    error
+		status int
+	}{
+		{"/scopes/global/subjects/testSubject/rules", "", nil, http.StatusOK},
+		// cannot use http.StatusNoContent, because our response always contains json
+		{"/scopes/global/subjects/testSubject/rules", "", errors.New("could not delete key"), http.StatusInternalServerError},
+	} {
+		t.Run(fmt.Sprintf("%s_%s", ctx.key, ctx.err), func(t *testing.T) {
+			store := &fakeMemStore{
+				data: map[string]string{
+					ctx.key: ctx.val,
+				},
+				err: ctx.err,
+			}
+			api := NewAPI("v1", 0, nil, nil,
+				nil, nil, store)
+
+			sc, _ := makeAPIRequest(api.handler, "DELETE", api.rootPath+ctx.key, []byte{}, t)
+			if sc != ctx.status {
+				t.Errorf("http status got %d, want %d", sc, ctx.status)
+			}
+		})
+	}
+}
+
 func TestAPI_deleteRule(t *testing.T) {
 
 	for _, ctx := range []struct {
