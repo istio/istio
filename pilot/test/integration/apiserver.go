@@ -114,9 +114,7 @@ func (r *apiServerTest) String() string {
 }
 
 func (r *apiServerTest) setup() error {
-
 	// Start apiserver outside the cluster.
-
 	var err error
 	// receive mesh configuration
 	mesh, err := cmd.GetMeshConfig(istioClient.GetKubernetesClient(), r.Namespace, "istio")
@@ -124,7 +122,7 @@ func (r *apiServerTest) setup() error {
 		return multierror.Append(err, fmt.Errorf("failed to retrieve mesh configuration"))
 	}
 
-	controllerOptions := kube.ControllerOptions{}
+	controllerOptions := kube.ControllerOptions{Namespace: r.infra.Namespace, DomainSuffix: "cluster.local"}
 	controller := kube.NewController(istioClient, mesh, controllerOptions)
 	r.server = apiserver.NewAPI(apiserver.APIServiceOptions{
 		Version:  kube.IstioResourceVersion,
@@ -137,7 +135,7 @@ func (r *apiServerTest) setup() error {
 
 	// Wait until apiserver is ready.  (As far as I can see there is no ready channel)
 	for i := 0; i < 10; i++ {
-		_, err := net_http.Get("http://localhost:8081/")
+		_, err := net_http.Get("http://localhost:8081/health")
 		if err == nil {
 			break
 		}
@@ -185,7 +183,6 @@ func (r *apiServerTest) routeRuleInvalidDetected() error {
 
 // routeRuleCRUD attempts to talk to the apiserver to Create, Retrieve, Update, and Delete a rule
 func (r *apiServerTest) routeRuleCRUD() error {
-
 	// Run through the lifecycle of updating a rule, with errors, to verify the sequence works as expected.
 	httpSequence := []httpRequest{
 		// Step 0 Can't get before created
@@ -277,9 +274,7 @@ func (r *apiServerTest) routeRuleCRUD() error {
 
 // Verify a sequence of HTTP requests produce the expected responses
 func verifySequence(name string, httpSequence []httpRequest) error {
-
 	for rulenum, hreq := range httpSequence {
-
 		var err error
 		var bytesToSend []byte
 		if hreq.data != nil {

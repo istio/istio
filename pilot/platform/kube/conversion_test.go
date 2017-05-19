@@ -24,6 +24,8 @@ import (
 )
 
 var (
+	domainSuffix = "company.com"
+
 	camelKabobs = []struct{ in, out string }{
 		{"ExampleNameX", "example-name-x"},
 		{"example1", "example1"},
@@ -141,7 +143,7 @@ func TestServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := convertService(localSvc)
+	service := convertService(localSvc, domainSuffix)
 	if service == nil {
 		t.Errorf("could not convert service")
 	}
@@ -155,9 +157,9 @@ func TestServiceConversion(t *testing.T) {
 		t.Error("service should not be external")
 	}
 
-	if service.Hostname != serviceHostname(serviceName, namespace) {
+	if service.Hostname != serviceHostname(serviceName, namespace, domainSuffix) {
 		t.Errorf("service hostname incorrect => %q, want %q",
-			service.Hostname, serviceHostname(serviceName, namespace))
+			service.Hostname, serviceHostname(serviceName, namespace, domainSuffix))
 	}
 
 	if service.Address != ip {
@@ -187,7 +189,7 @@ func TestExternalServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := convertService(extSvc)
+	service := convertService(extSvc, domainSuffix)
 	if service == nil {
 		t.Errorf("could not convert external service")
 	}
@@ -201,7 +203,7 @@ func TestExternalServiceConversion(t *testing.T) {
 		t.Error("service should be external")
 	}
 
-	if service.Hostname != serviceHostname(serviceName, namespace) {
+	if service.Hostname != serviceHostname(serviceName, namespace, domainSuffix) {
 		t.Errorf("service hostname incorrect => %q, want %q",
 			service.Hostname, extSvc.Spec.ExternalName)
 	}
@@ -232,7 +234,7 @@ func TestInvalidServiceConversion(t *testing.T) {
 		},
 	}
 
-	if svc := convertService(localSvc); svc != nil {
+	if svc := convertService(localSvc, domainSuffix); svc != nil {
 		t.Errorf("converted a service without a cluster IP")
 	}
 }
@@ -258,7 +260,7 @@ func TestInvalidExternalServiceConversion(t *testing.T) {
 		},
 	}
 
-	if svc := convertService(extSvc); svc != nil {
+	if svc := convertService(extSvc, domainSuffix); svc != nil {
 		t.Errorf("converted a service without an external name")
 	}
 }

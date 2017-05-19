@@ -33,12 +33,6 @@ import (
 	"istio.io/manager/model"
 )
 
-const (
-	// ServiceSuffix is the hostname suffix used by a Kubernetes service
-	// TODO: make DNS suffix configurable
-	ServiceSuffix = "svc.cluster.local"
-)
-
 // camelCaseToKabobCase converts "MyName" to "my-name"
 func camelCaseToKabobCase(s string) string {
 	var out bytes.Buffer
@@ -76,7 +70,7 @@ func convertPort(port v1.ServicePort) *model.Port {
 	}
 }
 
-func convertService(svc v1.Service) *model.Service {
+func convertService(svc v1.Service, domainSuffix string) *model.Service {
 	addr, external := "", ""
 	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
 		addr = svc.Spec.ClusterIP
@@ -97,28 +91,28 @@ func convertService(svc v1.Service) *model.Service {
 	}
 
 	return &model.Service{
-		Hostname:     serviceHostname(svc.Name, svc.Namespace),
+		Hostname:     serviceHostname(svc.Name, svc.Namespace, domainSuffix),
 		Ports:        ports,
 		Address:      addr,
 		ExternalName: external,
 	}
 }
 
-func serviceHostname(serviceName string, namespace string) string {
-	return fmt.Sprintf("%s.%s.%s", serviceName, namespace, ServiceSuffix)
+// serviceHostname produces FQDN for a k8s service
+func serviceHostname(name, namespace, domainSuffix string) string {
+	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix)
 }
 
-// parseHostname is the inverse of hostname pattern from serviceHostname
-func parseHostname(hostname string) (string, string, error) {
-	prefix := strings.TrimSuffix(hostname, "."+ServiceSuffix)
-	if len(prefix) >= len(hostname) {
-		return "", "", fmt.Errorf("Missing hostname suffix: %q", hostname)
+// parseHostname extracts service name and namespace from the service hostnamei
+func parseHostname(hostname string) (name string, namespace string, err error) {
+	parts := strings.Split(hostname, ".")
+	if len(parts) < 2 {
+		err = fmt.Errorf("missing service name and namespace from the service hostname %q", hostname)
+		return
 	}
-	parts := strings.Split(prefix, ".")
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("Incorrect number of hostname labels, expect 2, got %d, %q", len(parts), prefix)
-	}
-	return parts[0], parts[1], nil
+	name = parts[0]
+	namespace = parts[1]
+	return
 }
 
 func convertProtocol(name string, proto v1.Protocol) model.Protocol {
@@ -167,7 +161,7 @@ func modelToKube(km model.KindMap, k *model.Key, v proto.Message) (*Config, erro
 	return out, nil
 }
 
-func convertIngress(ingress v1beta1.Ingress) map[model.Key]proto.Message {
+func convertIngress(ingress v1beta1.Ingress, domainSuffix string) map[model.Key]proto.Message {
 	messages := make(map[model.Key]proto.Message)
 
 	keyOf := func(ruleNum, pathNum int) model.Key {
@@ -186,20 +180,22 @@ func convertIngress(ingress v1beta1.Ingress) map[model.Key]proto.Message {
 	}
 
 	if ingress.Spec.Backend != nil {
-		messages[keyOf(0, 0)] = createIngressRule("", "", ingress.Namespace, *ingress.Spec.Backend, tls)
+		messages[keyOf(0, 0)] = createIngressRule("", "", ingress.Namespace, domainSuffix, *ingress.Spec.Backend, tls)
 	}
 
 	for i, rule := range ingress.Spec.Rules {
 		for j, path := range rule.HTTP.Paths {
-			messages[keyOf(i+1, j+1)] = createIngressRule(rule.Host, path.Path, ingress.Namespace, path.Backend, tls)
+			messages[keyOf(i+1, j+1)] = createIngressRule(rule.Host, path.Path, ingress.Namespace,
+				domainSuffix, path.Backend, tls)
 		}
 	}
 
 	return messages
 }
 
-func createIngressRule(host, path, namespace string, backend v1beta1.IngressBackend, tlsSecret string) proto.Message {
-	destination := serviceHostname(backend.ServiceName, namespace)
+func createIngressRule(host, path, namespace, domainSuffix string,
+	backend v1beta1.IngressBackend, tlsSecret string) proto.Message {
+	destination := serviceHostname(backend.ServiceName, namespace, domainSuffix)
 	tags := make(map[string]string, 2)
 	switch backend.ServicePort.Type {
 	case intstr.Int:

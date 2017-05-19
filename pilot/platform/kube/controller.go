@@ -44,15 +44,17 @@ const (
 type ControllerOptions struct {
 	Namespace    string
 	ResyncPeriod time.Duration
+	DomainSuffix string
 }
 
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	client *Client
-	queue  Queue
-	mesh   *proxyconfig.ProxyMeshConfig
+	mesh         *proxyconfig.ProxyMeshConfig
+	domainSuffix string
 
+	client    *Client
+	queue     Queue
 	kinds     map[string]cacheHandler
 	services  cacheHandler
 	endpoints cacheHandler
@@ -70,10 +72,11 @@ type cacheHandler struct {
 func NewController(client *Client, mesh *proxyconfig.ProxyMeshConfig, options ControllerOptions) *Controller {
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &Controller{
-		client: client,
-		mesh:   mesh,
-		queue:  NewQueue(1 * time.Second),
-		kinds:  make(map[string]cacheHandler),
+		mesh:         mesh,
+		domainSuffix: options.DomainSuffix,
+		client:       client,
+		queue:        NewQueue(1 * time.Second),
+		kinds:        make(map[string]cacheHandler),
 	}
 
 	out.services = out.createInformer(&v1.Service{}, options.ResyncPeriod,
@@ -229,7 +232,7 @@ func (c *Controller) appendIngressConfigHandler(k string, f func(model.Key, prot
 		// Convert the ingress into a map[Key]Message, and invoke handler for each
 		// TODO: This works well for Add and Delete events, but no so for Update:
 		// A updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
-		messages := convertIngress(*ingress)
+		messages := convertIngress(*ingress, c.domainSuffix)
 		for key, message := range messages {
 			f(key, message, ev)
 		}
@@ -356,7 +359,7 @@ func (c *Controller) getIngress(key model.Key) (proto.Message, bool) {
 		return nil, false
 	}
 
-	messages := convertIngress(*ingress)
+	messages := convertIngress(*ingress, c.domainSuffix)
 	message, exists := messages[key]
 	return message, exists
 }
@@ -425,7 +428,7 @@ func (c *Controller) listIngresses(kind, namespace string) (map[model.Key]proto.
 		ingress := obj.(*v1beta1.Ingress)
 		if c.shouldProcessIngress(ingress) &&
 			(namespace == "" || ingress.GetObjectMeta().GetNamespace() == namespace) {
-			ingressRules := convertIngress(*ingress)
+			ingressRules := convertIngress(*ingress, c.domainSuffix)
 			for key, message := range ingressRules {
 				out[key] = message
 			}
@@ -441,7 +444,7 @@ func (c *Controller) Services() []*model.Service {
 	out := make([]*model.Service, 0, len(list))
 
 	for _, item := range list {
-		if svc := convertService(*item.(*v1.Service)); svc != nil {
+		if svc := convertService(*item.(*v1.Service), c.domainSuffix); svc != nil {
 			out = append(out, svc)
 		}
 	}
@@ -460,7 +463,7 @@ func (c *Controller) GetService(hostname string) (*model.Service, bool) {
 		return nil, false
 	}
 
-	svc := convertService(*item)
+	svc := convertService(*item, c.domainSuffix)
 	return svc, svc != nil
 }
 
@@ -492,7 +495,7 @@ func (c *Controller) Instances(hostname string, ports []string, tagsList model.T
 	}
 
 	// Locate all ports in the actual service
-	svc := convertService(*item)
+	svc := convertService(*item, c.domainSuffix)
 	if svc == nil {
 		return nil
 	}
@@ -551,7 +554,7 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 					if !exists {
 						continue
 					}
-					svc := convertService(*item)
+					svc := convertService(*item, c.domainSuffix)
 					if svc == nil {
 						continue
 					}
@@ -581,8 +584,6 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 const (
 	// the URI scheme used to encode a Kubernetes service account
 	uriScheme = "spiffe"
-	// the domain name Istio service account uses for internal traffic
-	localDomain = "cluster.local"
 )
 
 // GetIstioServiceAccounts returns the Istio service accounts running a serivce
@@ -606,7 +607,7 @@ func (c *Controller) GetIstioServiceAccounts(hostname string, ports []string) []
 		}
 
 		pod, _ := item.(*v1.Pod)
-		sa := generateServiceAccountID(pod.Spec.ServiceAccountName, pod.GetNamespace(), localDomain)
+		sa := generateServiceAccountID(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
 		saSet[sa] = true
 	}
 
@@ -625,7 +626,7 @@ func generateServiceAccountID(sa string, ns string, domain string) string {
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	c.services.handler.append(func(obj interface{}, event model.Event) error {
-		if svc := convertService(*obj.(*v1.Service)); svc != nil {
+		if svc := convertService(*obj.(*v1.Service), c.domainSuffix); svc != nil {
 			f(svc, event)
 		}
 		return nil
@@ -638,7 +639,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	c.endpoints.handler.append(func(obj interface{}, event model.Event) error {
 		ep := *obj.(*v1.Endpoints)
 		if item, exists := c.serviceByKey(ep.Name, ep.Namespace); exists {
-			if svc := convertService(*item); svc != nil {
+			if svc := convertService(*item, c.domainSuffix); svc != nil {
 				// TODO: we're passing an incomplete instance to the
 				// handler since endpoints is an aggregate structure
 				f(&model.ServiceInstance{Service: svc}, event)

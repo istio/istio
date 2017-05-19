@@ -207,6 +207,8 @@ func init() {
 		"Select a namespace for the controller loop. If not set, uses ${POD_NAMESPACE} environment variable")
 	rootCmd.PersistentFlags().DurationVar(&flags.controllerOptions.ResyncPeriod, "resync", time.Second,
 		"Controller resync interval")
+	rootCmd.PersistentFlags().StringVar(&flags.controllerOptions.DomainSuffix, "domainSuffix", "cluster.local",
+		"Kubernetes DNS domain suffix")
 	rootCmd.PersistentFlags().StringVar(&flags.meshConfig, "meshConfig", cmd.DefaultConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, config key should be %q", cmd.ConfigMapKey))
 
