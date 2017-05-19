@@ -363,7 +363,7 @@ func TestAPI_putRules(t *testing.T) {
 		{"store write error", errStoreWrite, http.StatusInternalServerError},
 		{"store read error", errStoreRead, http.StatusInternalServerError},
 		{"request read error", errReadyBody, http.StatusInternalServerError},
-		{"config validation error", errValidate, http.StatusPreconditionFailed},
+		{"config validation error", errValidate, http.StatusBadRequest},
 	} {
 		t.Run(tst.msg, func(t *testing.T) {
 

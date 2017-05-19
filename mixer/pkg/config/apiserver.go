@@ -250,7 +250,7 @@ func (a *API) putRules(req *restful.Request, resp *restful.Response) {
 	var cerr *adapter.ConfigErrors
 	if vd, _, cerr = a.validate(data); cerr != nil {
 		glog.Warningf("Validation failed with %s\n %s", cerr.Error(), val)
-		writeErrorResponse(http.StatusPreconditionFailed, cerr.Error(), resp)
+		writeErrorResponse(http.StatusBadRequest, cerr.Error(), resp)
 		return
 	}
 
@@ -339,4 +339,5 @@ var httpStatusToRPCMap = map[int]rpc.Code{
 	http.StatusForbidden:          rpc.PERMISSION_DENIED,
 	http.StatusUnauthorized:       rpc.UNAUTHENTICATED,
 	http.StatusPreconditionFailed: rpc.FAILED_PRECONDITION,
+	http.StatusBadRequest:         rpc.INVALID_ARGUMENT,
 }
