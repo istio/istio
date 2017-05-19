@@ -11,6 +11,7 @@ import (
 	"github.com/golang/glog"
 
 	"istio.io/manager/apiserver"
+	"istio.io/manager/cmd/version"
 	"istio.io/manager/model"
 )
 
@@ -85,6 +86,7 @@ type Client interface {
 	UpdateConfig(model.Key, apiserver.Config) error
 	DeleteConfig(model.Key) error
 	ListConfig(string, string) ([]apiserver.Config, error)
+	Version() (*version.BuildInfo, error)
 }
 
 // NewManagerClient creates a new ManagerClient instance. It trims the apiVersion of leading and trailing slashes
@@ -173,4 +175,24 @@ func (m *ManagerClient) ListConfig(kind, namespace string) ([]apiserver.Config, 
 	}
 	glog.V(2).Infof("Response Body:  %v", string(body))
 	return config, nil
+}
+
+// Version returns the apiserver version.
+func (m *ManagerClient) Version() (*version.BuildInfo, error) {
+	status, body, err := m.rr.Request(http.MethodGet, "version", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	glog.V(2).Infof("/version Response %d Body:  %v", status, string(body))
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("/version status %d", status)
+	}
+
+	var ver version.BuildInfo
+	if err := json.Unmarshal(body, &ver); err != nil {
+		return nil, err
+	}
+	glog.V(2).Infof("/version Response Body:  %v", string(body))
+	return &ver, nil
 }

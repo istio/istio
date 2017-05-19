@@ -348,6 +348,25 @@ istioctl delete route-rule productpage-default
 			return errs
 		},
 	}
+
+	apiVersionCmd = &cobra.Command{
+		Use:   "version",
+		Short: "Display version information",
+		RunE: func(c *cobra.Command, args []string) error {
+			fmt.Printf("istioctl version:\n\n")
+			printInfo(version.Info, true)
+			fmt.Printf("\n\n")
+
+			fmt.Printf("apiserver version:\n\n")
+			apiserverVersion, err := apiClient.Version()
+			if err != nil {
+				return err
+			}
+			printInfo(*apiserverVersion, false)
+
+			return nil
+		},
+	}
 )
 
 func init() {
@@ -382,7 +401,7 @@ func init() {
 	rootCmd.AddCommand(putCmd)
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(deleteCmd)
-	rootCmd.AddCommand(version.VersionCmd)
+	rootCmd.AddCommand(apiVersionCmd)
 }
 
 func main() {
@@ -495,4 +514,17 @@ func printYamlOutput(configList []apiserver.Config) error {
 	}
 
 	return retVal
+}
+
+func printInfo(info version.BuildInfo, showKubeInjectInfo bool) {
+	fmt.Printf("Version: %v\n", info.Version)
+	fmt.Printf("GitRevision: %v\n", info.GitRevision)
+	fmt.Printf("GitBranch: %v\n", info.GitBranch)
+	fmt.Printf("User: %v@%v\n", info.User, info.Host)
+	fmt.Printf("GolangVersion: %v\n", info.GolangVersion)
+
+	if showKubeInjectInfo {
+		fmt.Printf("KubeInjectHub: %v\n", version.KubeInjectHub)
+		fmt.Printf("KubeInjectTag: %v\n", version.KubeInjectTag)
+	}
 }

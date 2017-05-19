@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"istio.io/manager/apiserver"
+	"istio.io/manager/cmd/version"
 	"istio.io/manager/model"
 )
 
@@ -84,6 +85,17 @@ func (st *StubClient) ListConfig(string, string) ([]apiserver.Config, error) {
 		res = append(res, config)
 	}
 	return res, nil
+}
+
+func (st *StubClient) Version() (*version.BuildInfo, error) {
+	return &version.BuildInfo{
+		Version:       "StubClient version",
+		GitRevision:   "StubClient git revision",
+		GitBranch:     "StubClient branch",
+		User:          "StubClient-user",
+		Host:          "StubClient-host",
+		GolangVersion: "StubClient golang version",
+	}, nil
 }
 
 func (st *StubClient) setupTwoRouteRuleMap() {
@@ -363,5 +375,13 @@ func TestCreateUpdateDeleteGet(t *testing.T) {
 		} else if err == nil && c.wantError {
 			t.Fatalf("%v: expected an error", c.name)
 		}
+	}
+}
+
+// TestVersions invokes the 'istioctl version' subcommand
+func TestVersions(t *testing.T) {
+
+	if err := apiVersionCmd.RunE(apiVersionCmd, []string{}); err != nil {
+		t.Errorf("istioctl version failed: %v", err)
 	}
 }
