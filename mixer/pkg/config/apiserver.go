@@ -96,6 +96,15 @@ func (a *API) register(c *restful.Container) {
 		Param(ws.PathParameter("subject", "subject").DataType("string")).
 		Writes(APIResponse{}))
 
+	// Delete the list of rules for a scope and subject
+	ws.Route(ws.
+		DELETE("/scopes/{scope}/subjects/{subject}/rules").
+		To(a.deleteRules).
+		Doc("Deletes rules associated with the given scope and subject").
+		Param(ws.PathParameter("scope", "scope").DataType("string")).
+		Param(ws.PathParameter("subject", "subject").DataType("string")).
+		Writes(APIResponse{}))
+
 	ws.Route(ws.
 		PUT("/scopes/{scope}/subjects/{subject}/rules").
 		To(a.putRules).
@@ -203,6 +212,20 @@ func (a *API) getRules(req *restful.Request, resp *restful.Response) {
 	funcPath := req.Request.URL.Path[len(a.rootPath):]
 	st, msg, data := getRules(a.store, funcPath)
 	writeResponse(st, msg, data, resp)
+}
+
+// deleteRules deletes the rules document for the scope and the subject.
+// "/scopes/{scope}/subjects/{subject}/rules"
+func (a *API) deleteRules(req *restful.Request, resp *restful.Response) {
+	funcPath := req.Request.URL.Path[len(a.rootPath):]
+	if err := a.store.Delete(funcPath); err != nil {
+		// This should only happen if user asks to delete
+		// rules that the store *could not* delete
+		writeErrorResponse(http.StatusInternalServerError, err.Error(), resp)
+		return
+	}
+
+	writeResponse(http.StatusOK, fmt.Sprintf("Deleted %s", funcPath), nil, resp)
 }
 
 func getRules(store KeyValueStore, path string) (statusCode int, msg string, data *pb.ServiceConfig) {
