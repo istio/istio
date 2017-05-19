@@ -19,6 +19,7 @@ import (
 	"crypto/sha256"
 	"io/ioutil"
 	"os"
+	"path"
 	"testing"
 	"time"
 )
@@ -73,7 +74,7 @@ func TestGenerateCertHash(t *testing.T) {
 
 	for _, file := range []string{certChainFilename, keyFilename, rootCertFilename} {
 		content := []byte(file)
-		if err := ioutil.WriteFile(name+"/"+file, content, 0644); err != nil {
+		if err := ioutil.WriteFile(path.Join(name, file), content, 0644); err != nil {
 			t.Errorf("failed to write file %s (error %v)", file, err)
 		}
 		if _, err := h.Write(content); err != nil {

@@ -16,8 +16,8 @@ package envoy
 
 import (
 	"crypto/sha256"
-	"fmt"
 	"io/ioutil"
+	"path"
 
 	"github.com/golang/glog"
 	"github.com/howeyc/fsnotify"
@@ -66,7 +66,7 @@ func generateCertHash(certsDir string) []byte {
 	h := sha256.New()
 
 	for _, file := range []string{certChainFilename, keyFilename, rootCertFilename} {
-		filename := fmt.Sprintf("%s/%s", certsDir, file)
+		filename := path.Join(certsDir, file)
 		bs, err := ioutil.ReadFile(filename)
 		if err != nil {
 			glog.Warningf("failed to read file %q", filename)

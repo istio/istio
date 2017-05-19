@@ -263,6 +263,10 @@ istioctl get route-rule productpage-default
 				if err != nil {
 					return err
 				}
+				if len(configList) == 0 {
+					fmt.Fprintf(os.Stderr, "No resources found.\n")
+					return nil
+				}
 
 				var outputters = map[string](func([]apiserver.Config) error){
 					"yaml":  printYamlOutput,
