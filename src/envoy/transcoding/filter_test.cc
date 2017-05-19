@@ -53,7 +53,7 @@ class GrpcHttpJsonTranscodingFilterTest : public testing::Test {
     filter_.setEncoderFilterCallbacks(encoder_callbacks_);
   }
 
-  const Json::ObjectPtr bookstoreJson() {
+  const Json::ObjectSharedPtr bookstoreJson() {
     std::string descriptor_path = TestEnvironment::runfilesPath(
         "src/envoy/transcoding/test/bookstore.descriptor");
     std::string json_string = "{\"proto_descriptor\": \"" + descriptor_path +

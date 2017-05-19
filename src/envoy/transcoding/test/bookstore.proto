@@ -27,6 +27,9 @@ import "google/protobuf/empty.proto";
 service Bookstore {
   // Returns a list of all shelves in the bookstore.
   rpc ListShelves(google.protobuf.Empty) returns (ListShelvesResponse) {
+    option (google.api.http) = {
+      get: "/shelves"
+    };
   }
   // Creates a new shelf in the bookstore.
   rpc CreateShelf(CreateShelfRequest) returns (Shelf) {
@@ -37,6 +40,10 @@ service Bookstore {
   }
   // Creates multiple shelves with one streaming call
   rpc BulkCreateShelf(stream CreateShelfRequest) returns (stream Shelf) {
+    option (google.api.http) = {
+      post: "/bulk/shelves"
+      body: "shelf"
+    };
   }
   // Returns a specific bookstore shelf.
   rpc GetShelf(GetShelfRequest) returns (Shelf) {
@@ -46,15 +53,25 @@ service Bookstore {
   }
   // Returns a list of books on a shelf.
   rpc ListBooks(ListBooksRequest) returns (stream Book) {
+    option (google.api.http) = {
+      get: "/shelves/{shelf}/books"
+    };
   }
   // Creates a new book.
   rpc CreateBook(CreateBookRequest) returns (Book) {
+    option (google.api.http) = {
+      post: "/shelves/{shelf}/books"
+      body: "book"
+    };
   }
   // Returns a specific book.
   rpc GetBook(GetBookRequest) returns (Book) {
   }
   // Deletes a book from a shelf.
-  rpc DeleteBook(stream DeleteBookRequest) returns (google.protobuf.Empty) {
+  rpc DeleteBook(DeleteBookRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/shelves/{shelf}/books/{book}"
+    };
   }
 }
 
