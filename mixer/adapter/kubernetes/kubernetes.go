@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -40,11 +41,12 @@ import (
 type (
 	builder struct {
 		adapter.DefaultBuilder
+		sync.Mutex
 
 		stopChan             chan struct{}
 		pods                 cacheController
-		once                 sync.Once
 		newCacheControllerFn controllerFactoryFn
+		needsCacheInit       bool
 	}
 	kubegen struct {
 		log    adapter.Logger
@@ -120,7 +122,14 @@ func Register(r adapter.Registrar) {
 
 func newBuilder(cacheFactory controllerFactoryFn) *builder {
 	stopChan := make(chan struct{})
-	return &builder{adapter.NewDefaultBuilder(name, desc, conf), stopChan, nil, sync.Once{}, cacheFactory}
+	return &builder{
+		adapter.NewDefaultBuilder(name, desc, conf),
+		sync.Mutex{},
+		stopChan,
+		nil,
+		cacheFactory,
+		true,
+	}
 }
 
 func (b *builder) Close() error {
@@ -184,23 +193,30 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 }
 
 func (b *builder) BuildAttributesGenerator(env adapter.Env, c adapter.Config) (adapter.AttributesGenerator, error) {
-	var clientErr error
 	paramsProto := c.(*config.Params)
-	b.once.Do(func() {
+	b.Lock()
+	defer b.Unlock()
+	if b.needsCacheInit {
 		refresh := paramsProto.CacheRefreshDuration
-		controller, err := b.newCacheControllerFn(paramsProto.KubeconfigPath, refresh, env)
+		path, exists := os.LookupEnv("KUBECONFIG")
+		if !exists {
+			path = paramsProto.KubeconfigPath
+		}
+		controller, err := b.newCacheControllerFn(path, refresh, env)
 		if err != nil {
-			clientErr = err
-			return
+			return nil, err
 		}
 		b.pods = controller
 		env.ScheduleDaemon(func() { b.pods.Run(b.stopChan) })
 		// ensure that any request is only handled after
 		// a sync has occurred
-		cache.WaitForCacheSync(b.stopChan, b.pods.HasSynced)
-	})
-	if clientErr != nil {
-		return nil, clientErr
+		env.Logger().Infof("Waiting for kubernetes cache sync...")
+		if success := cache.WaitForCacheSync(b.stopChan, b.pods.HasSynced); !success {
+			b.stopChan <- struct{}{}
+			return nil, errors.New("cache sync failure")
+		}
+		env.Logger().Infof("Cache sync successful.")
+		b.needsCacheInit = false
 	}
 	kg := &kubegen{
 		log:    env.Logger(),

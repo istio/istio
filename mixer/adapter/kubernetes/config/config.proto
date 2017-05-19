@@ -47,6 +47,10 @@ message Params {
     // be set to the path of a kubeconfig file that can be used to
     // reach a kubernetes API server.
     //
+    // NOTE: The kubernetes adapter will use the value of the env var
+    // KUBECONFIG in the case where it is set (overriding any value configured
+    // through this proto).
+    //
     // Default: "" (unset)
     string kubeconfig_path = 1;
 

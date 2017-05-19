@@ -16,6 +16,7 @@ package kubernetes
 
 import (
 	"errors"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -32,6 +33,7 @@ type fakeCache struct {
 
 	getPodErr bool
 	pods      map[string]*v1.Pod
+	path      string
 }
 
 func (fakeCache) HasSynced() bool {
@@ -57,8 +59,8 @@ func errorStartingPodCache(ignored string, empty time.Duration, e adapter.Env) (
 	return nil, errors.New("cache build error")
 }
 
-func fakePodCache(ignored string, empty time.Duration, e adapter.Env) (cacheController, error) {
-	return &fakeCache{}, nil
+func fakePodCache(path string, empty time.Duration, e adapter.Env) (cacheController, error) {
+	return &fakeCache{path: path}, nil
 }
 
 // note: not using TestAdapterInvariants here because of kubernetes dependency.
@@ -140,6 +142,43 @@ func TestBuilder_BuildAttributesGenerator(t *testing.T) {
 			}
 			if err != nil && !v.wantErr {
 				t.Fatalf("Got error, wanted none: %v", err)
+			}
+		})
+	}
+}
+
+func TestBuilder_BuildAttributesGeneratorWithEnvVar(t *testing.T) {
+
+	testConf := conf
+	testConf.KubeconfigPath = "please/override"
+
+	tests := []struct {
+		name    string
+		testFn  controllerFactoryFn
+		conf    adapter.Config
+		wantErr bool
+	}{
+		{"success", fakePodCache, testConf, false},
+	}
+
+	wantPath := "/want/kubeconfig"
+	if err := os.Setenv("KUBECONFIG", wantPath); err != nil {
+		t.Fatalf("Could not set KUBECONFIG environment var")
+	}
+
+	for _, v := range tests {
+		t.Run(v.name, func(t *testing.T) {
+			b := newBuilder(v.testFn)
+			_, err := b.BuildAttributesGenerator(test.NewEnv(t), v.conf)
+			if err == nil && v.wantErr {
+				t.Fatal("Expected error building adapter")
+			}
+			if err != nil && !v.wantErr {
+				t.Fatalf("Got error, wanted none: %v", err)
+			}
+			got := b.pods.(*fakeCache).path
+			if got != wantPath {
+				t.Errorf("Bad kubeconfig path; got %s, want %s", got, wantPath)
 			}
 		})
 	}
