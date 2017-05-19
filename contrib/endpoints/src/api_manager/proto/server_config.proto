@@ -38,6 +38,9 @@ message ServerConfig {
   // Server config used for API authorization via Firebase Rules.
   ApiCheckSecurityRulesConfig api_check_security_rules_config = 7;
 
+  // Service Management API configuration
+  ServiceManagementConfig service_management_config = 11;
+
   // The service name.
   string service_name = 8;
 
@@ -175,6 +178,16 @@ message ApiAuthenticationConfig {
 message ApiCheckSecurityRulesConfig {
   // Firebase server to use.
   string firebase_server = 1;
+}
+
+message ServiceManagementConfig {
+  // ServiceManagement service url, if not specified defaults
+  // to "https://servicemanagement.googleapis.com"
+  string url = 1;
+
+  // The maximum milliseconds before config manager check updated rollouts,
+  // if not specified defaults to 60000
+  int32 refresh_interval_ms = 2;
 }
 
 message Experimental {

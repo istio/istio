@@ -344,8 +344,12 @@ cc_proto_library(
         "google/api/servicecontrol/v1/metric_value.proto",
         "google/api/servicecontrol/v1/operation.proto",
         "google/api/servicecontrol/v1/service_controller.proto",
+        "google/api/servicemanagement/v1/servicemanager.proto",
+        "google/api/servicemanagement/v1/resources.proto",
         "google/logging/type/http_request.proto",
         "google/logging/type/log_severity.proto",
+        "google/api/config_change.proto",
+        "google/longrunning/operations.proto",
         "google/rpc/error_details.proto",
         "google/rpc/status.proto",
         "google/type/money.proto",
@@ -412,7 +416,7 @@ cc_proto_library(
 
     native.new_git_repository(
         name = "googleapis_git",
-        commit = "2fe0050bd2a6d4c6ba798c0311f0b149b8997314",
+        commit = "a25bc13463f6fde03d78665a9a7042c103b7e65b",
         remote = "https://github.com/googleapis/googleapis.git",
         build_file_content = BUILD,
     )
