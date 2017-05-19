@@ -260,6 +260,10 @@ func (f *fakeMemStore) Delete(key string) error {
 	return nil
 }
 
+// Close
+func (f *fakeMemStore) Close() {
+}
+
 func (f *fakeMemStore) RegisterStoreChangeListener(s StoreListener) {
 	f.cl = s
 }

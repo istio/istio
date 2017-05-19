@@ -16,7 +16,7 @@ package config
 
 import (
 	"fmt"
-	"strings"
+	"net/url"
 )
 
 // ChangeType denotes the type of a change
@@ -59,6 +59,9 @@ type KeyValueStore interface {
 	// Delete a key.
 	Delete(key string) error
 
+	// Close the storage.
+	Close()
+
 	fmt.Stringer
 }
 
@@ -93,18 +96,18 @@ const (
 
 // NewStore create a new store based on the config URL.
 func NewStore(configURL string) (KeyValueStore, error) {
-	urlParts := strings.Split(configURL, "://")
+	u, err := url.Parse(configURL)
 
-	if len(urlParts) < 2 {
-		return nil, fmt.Errorf("invalid config URL %s %s", configURL, urlParts)
+	if err != nil {
+		return nil, fmt.Errorf("invalid config URL %s %v", configURL, err)
 	}
 
-	switch urlParts[0] {
+	switch u.Scheme {
 	case FSUrl:
-		return newFSStore(urlParts[1]), nil
+		return newFSStore(u.Path), nil
 	case RedisURL:
-		return nil, fmt.Errorf("config URL %s not implemented", urlParts[0])
+		return newRedisStore(u)
 	}
 
-	return nil, fmt.Errorf("unknown config URL %s %s", configURL, urlParts)
+	return nil, fmt.Errorf("unknown config URL %s %v", configURL, u)
 }
