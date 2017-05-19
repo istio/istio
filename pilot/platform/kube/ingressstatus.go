@@ -28,6 +28,8 @@ import (
 	proxyconfig "istio.io/api/proxy/v1/config"
 )
 
+const ingressElectionID = "istio-ingress-controller-leader"
+
 // IngressStatusSyncer keeps the status IP in each Ingress resource updated
 type IngressStatusSyncer struct {
 	sync     status.Sync
@@ -68,7 +70,7 @@ func NewIngressStatusSyncer(mesh *proxyconfig.ProxyMeshConfig, client *Client,
 	sync := status.NewStatusSyncer(status.Config{
 		Client:              client.GetKubernetesClient(),
 		IngressLister:       store.IngressLister{Store: informer.GetStore()},
-		ElectionID:          "ingress-controller-leader", // TODO: configurable?
+		ElectionID:          ingressElectionID, // TODO: configurable?
 		PublishService:      publishService,
 		DefaultIngressClass: defaultIngressClass,
 		IngressClass:        ingressClass,
