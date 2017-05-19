@@ -455,6 +455,21 @@ TEST_F(CheckSecurityRulesTest, CheckAuthzFailWithTestResultFailure) {
   });
 }
 
+TEST_F(CheckSecurityRulesTest, CheckAuthzFailWithEmptyTestRulesetResponse) {
+  std::string service_config = std::string(kServiceName) + kProducerProjectId +
+                               kApis + kAuthentication + kHttp;
+  std::string server_config = kServerConfig;
+  SetUp(service_config, server_config);
+
+  request_context_->set_auth_claims(kJwtEmailPayload);
+  ExpectCall(release_url_, "GET", "", kRelease);
+
+  ExpectCall(ruleset_test_url_, "POST", kFirstRequest, "{}");
+  CheckSecurityRules(request_context_, [](Status status) {
+    ASSERT_TRUE(status.CanonicalCode() == Code::INTERNAL);
+  });
+}
+
 // Check for success case.
 // 1. Ensure GetRelease is invoked properly and in this case mock responds with
 // the ruelset Id.

@@ -148,8 +148,8 @@ void AuthzChecker::CallNextRequest(
             http_request.token_type, http_request.audience,
             [continuation, checker](Status status, std::string &&body) {
 
-              checker->env_->LogError(std::string("Response Body = ") + body);
-              if (status.ok() && !body.empty()) {
+              checker->env_->LogInfo(std::string("Response Body = ") + body);
+              if (status.ok() && !body.empty() && body != "{}") {
                 checker->request_handler_->UpdateResponse(body);
                 checker->CallNextRequest(continuation);
               } else {
