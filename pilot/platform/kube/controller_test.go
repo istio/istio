@@ -640,7 +640,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	hostname := serviceHostname("svc1", "nsA")
 	sa := controller.GetIstioServiceAccounts(hostname, []string{"test-port"})
 	sort.Sort(sort.StringSlice(sa))
-	expected := []string{"istio:acct1.nsA.cluster.local", "istio:acct2.nsA.cluster.local"}
+	expected := []string{"spiffe://cluster.local/ns/nsA/sa/acct1", "spiffe://cluster.local/ns/nsA/sa/acct2"}
 	if !reflect.DeepEqual(sa, expected) {
 		t.Errorf("Unexpected service accounts %v (expecting %v)", sa, expected)
 	}

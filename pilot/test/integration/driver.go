@@ -57,7 +57,7 @@ var (
 
 const (
 	// CA image tag is the short SHA *update manually*
-	caTag = "0107c0c"
+	caTag = "689b447"
 
 	// Mixer image tag is the short SHA *update manually*
 	mixerTag = "6655a67"

@@ -194,12 +194,8 @@ type ServiceDiscovery interface {
 
 // ServiceAccounts exposes Istio service accounts
 type ServiceAccounts interface {
-	// Gets all the Istio service accounts mapped from service hostname, in istio identity format.
-	// For example,
-	// GetIstioServiceAccounts(catalog.myservice.com, 80) ->
-	//      --> [istio:serviceaccount1.ns1.cluster.local, istio:serviceaccount2.ns2.cluster.local]
-	// GetIstioServiceAccounts(backend.myservice.com, 8080) ->
-	//      --> [istio:serviceaccount3.ns3.cluster.local]
+	// GetIstioServiceAccounts returns a list of service accounts looked up from
+	// the specified service hostname and ports.
 	GetIstioServiceAccounts(hostname string, ports []string) []string
 }
 

@@ -192,8 +192,8 @@ func (sd *ServiceDiscovery) HostInstances(addrs map[string]bool) []*model.Servic
 func (sd *ServiceDiscovery) GetIstioServiceAccounts(hostname string, ports []string) []string {
 	if hostname == "world.default.svc.cluster.local" {
 		return []string{
-			"istio:serviceaccount1",
-			"istio:serviceaccount2",
+			"spiffe://cluster.local/ns/default/sa/serviceaccount1",
+			"spiffe://cluster.local/ns/default/sa/serviceaccount2",
 		}
 	}
 	return make([]string, 0)
