@@ -10,6 +10,7 @@ go_library(
         "fsstore.go",
         "kind.go",
         "manager.go",
+        "redisstore.go",
         "runtime.go",
         "store.go",
         "validator.go",
@@ -30,6 +31,8 @@ go_library(
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_hashicorp_go_multierror//:go_default_library",
         "@com_github_istio_api//:mixer/v1/config/descriptor",
+        "@com_github_redis_client//pool:go_default_library",
+        "@com_github_redis_client//redis:go_default_library",
     ],
 )
 
@@ -41,7 +44,10 @@ go_test(
         "fsstore_test.go",
         "kind_test.go",
         "manager_test.go",
+        "redisstore_test.go",
         "runtime_test.go",
+        "store_test.go",
+        "storetestutil.go",
         "validator_test.go",
     ],
     library = ":go_default_library",
@@ -51,5 +57,6 @@ go_test(
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_istio_api//:mixer/v1",
         "@com_github_istio_api//:mixer/v1/config/descriptor",
+        "@com_github_mini_redis//:go_default_library",
     ],
 )

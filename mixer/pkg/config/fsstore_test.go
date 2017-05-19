@@ -18,124 +18,19 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"reflect"
 	"strings"
 	"testing"
 )
 
-func getContents(key string) string {
-	return key
-}
-
 func TestFSStore(t *testing.T) {
-	testStore(t, func() *KVMgr {
+	testStore(t, func() *kvMgr {
 		fsroot, _ := ioutil.TempDir("/tmp/", "fsStore")
 		f := newFSStore(fsroot)
 		_ = os.MkdirAll(fsroot, os.ModeDir|os.ModePerm)
-		return &KVMgr{f, func() {
+		return &kvMgr{f, func() {
 			_ = os.RemoveAll(fsroot)
 		}}
 	})
-}
-
-type KVMgr struct {
-	store   KeyValueStore
-	cleanup func()
-}
-
-func (k *KVMgr) Get() KeyValueStore { return k.store }
-func (k *KVMgr) Cleanup()           { k.cleanup() }
-
-func testStore(t *testing.T, kvMgrfn func() *KVMgr) {
-	GOODKEYS := []string{
-		"/scopes/global/adapters",
-		"/scopes/global/descriptors",
-		"/scopes/global/subjects/global/rules",
-		"/scopes/global/subjects/svc1.ns.cluster.local/rules",
-	}
-
-	table := []struct {
-		desc       string
-		keys       []string
-		listPrefix string
-		listKeys   []string
-	}{
-		{"goodkeys", GOODKEYS, "/scopes/global/subjects",
-			[]string{"/scopes/global/subjects/global/rules",
-				"/scopes/global/subjects/svc1.ns.cluster.local/rules"},
-		},
-		{"goodkeys", GOODKEYS, "/scopes/", GOODKEYS},
-	}
-
-	for _, tt := range table {
-		km := kvMgrfn()
-		s := km.Get()
-		t.Run(tt.desc, func(t1 *testing.T) {
-			var found bool
-			badkey := "a/b"
-			_, _, found = s.Get(badkey)
-			if found {
-				t.Errorf("Unexpectedly found %s", badkey)
-			}
-
-			var val string
-			// create keys
-			for _, key := range tt.keys {
-				kc := getContents(key)
-				_, err := s.Set(key, kc)
-				if err != nil {
-					t.Errorf("Unexpected error for %s: %v", key, err)
-				}
-				val, _, found = s.Get(key)
-				if !found || kc != val {
-					t.Errorf("got %s\nwant %s", val, kc)
-				}
-			}
-			k, _, err := s.List(tt.listPrefix, true)
-			if err != nil {
-				t.Error("Unexpected error", err)
-			}
-			if !reflect.DeepEqual(k, tt.listKeys) {
-				t.Errorf("Got %s\nWant %s\n", k, tt.listKeys)
-			}
-			err = s.Delete(k[1])
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-
-			_, _, found = s.Get(k[1])
-			if found {
-				t.Errorf("Unexpectedly found %s", k[1])
-			}
-
-		})
-		km.Cleanup()
-	}
-}
-
-func TestNewStore(t *testing.T) {
-	for _, tt := range []struct {
-		url string
-		err error
-	}{
-		{"fs:///tmp/testdata/configroot", nil},
-		{"redis://:password@hostname:port/db_number", errors.New("not implemented")},
-		{"etcd:///tmp/testdata/configroot", errors.New("unknown")},
-		{"/tmp/testdata/configroot", errors.New("invalid")},
-	} {
-		t.Run(tt.url, func(t *testing.T) {
-			_, err := NewStore(tt.url)
-			if err == tt.err {
-				return
-			}
-
-			if err != nil {
-				if tt.err == nil || !strings.Contains(err.Error(), tt.err.Error()) {
-					t.Errorf("got %s\nwant %s", err, tt.err)
-				}
-			}
-		})
-	}
 }
 
 func TestFSStore_Get(t *testing.T) {

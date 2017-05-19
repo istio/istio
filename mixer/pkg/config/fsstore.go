@@ -76,6 +76,10 @@ func (f *fsStore) String() string {
 	return fmt.Sprintf("fsStore: %s", f.root)
 }
 
+func (f *fsStore) Close() {
+	// Do nothing.
+}
+
 func (f *fsStore) getPath(key string) string {
 	return path.Join(f.root, key)
 }
