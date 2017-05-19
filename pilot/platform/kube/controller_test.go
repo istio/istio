@@ -52,6 +52,7 @@ const (
 
 func TestThirdPartyResourcesClient(t *testing.T) {
 	cl := makeClient(t)
+	t.Parallel()
 	ns, err := util.CreateNamespace(cl.client)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -100,6 +101,7 @@ func makeClient(t *testing.T) *Client {
 
 func TestSecret(t *testing.T) {
 	cl := makeClient(t)
+	t.Parallel()
 	ns, err := util.CreateNamespace(cl.client)
 	if err != nil {
 		t.Fatal(err)
@@ -159,6 +161,7 @@ func TestSecret(t *testing.T) {
 
 func TestIngressController(t *testing.T) {
 	cl := makeClient(t)
+	t.Parallel()
 	ns, err := util.CreateNamespace(cl.client)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -309,6 +312,7 @@ func TestIngressController(t *testing.T) {
 
 func TestIngressClass(t *testing.T) {
 	cl := makeClient(t)
+	t.Parallel()
 	ns, err := util.CreateNamespace(cl.client)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -363,6 +367,7 @@ func TestIngressClass(t *testing.T) {
 
 func TestController(t *testing.T) {
 	cl := makeClient(t)
+	t.Parallel()
 	ns, err := util.CreateNamespace(cl.client)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -403,6 +408,7 @@ func TestController(t *testing.T) {
 
 func TestControllerCacheFreshness(t *testing.T) {
 	cl := makeClient(t)
+	t.Parallel()
 	ns, err := util.CreateNamespace(cl.client)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -464,6 +470,7 @@ func TestControllerCacheFreshness(t *testing.T) {
 
 func TestControllerClientSync(t *testing.T) {
 	cl := makeClient(t)
+	t.Parallel()
 	ns, err := util.CreateNamespace(cl.client)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -550,6 +557,7 @@ const (
 
 func TestServices(t *testing.T) {
 	cl := makeClient(t)
+	t.Parallel()
 	ns, err := util.CreateNamespace(cl.client)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -728,6 +736,7 @@ func createIngress(ingress *v1beta1.Ingress, client kubernetes.Interface, t *tes
 
 func TestIstioConfig(t *testing.T) {
 	cl := makeClient(t)
+	t.Parallel()
 	ns, err := util.CreateNamespace(cl.client)
 	if err != nil {
 		t.Fatal(err.Error())
