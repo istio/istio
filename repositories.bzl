@@ -254,7 +254,7 @@ def grpc_repositories(bind=True, envoy_deps=False):
 
     native.git_repository(
         name = "grpc_git",
-        commit = "c80d3321d0f77bef8cfff8b32490a07c1e90a5ad", # v1.3.2
+        commit = "8df769fd3a89fc6b59da7b775cb3293553ab0d22", # v1.3.4
         remote = "https://github.com/grpc/grpc.git",
     )
 
