@@ -7,6 +7,7 @@ go_library(
         "compareUtils.go",
         "kubeUtils.go",
         "retry.go",
+        "wrk.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
