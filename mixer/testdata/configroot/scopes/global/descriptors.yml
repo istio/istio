@@ -90,6 +90,7 @@ metrics:
       target: 1 # STRING
       service: 1 # STRING
       method: 1 # STRING
+      version: 1 # STRING
       response_code: 2 # INT64
   - name: request_duration
     kind: DISTRIBUTION
@@ -112,6 +113,7 @@ metrics:
       target: 1 # STRING
       service: 1 # STRING
       method: 1 # STRING
+      version: 1 # STRING
       response_code: 2 # INT64
   - name: request_size
     kind: DISTRIBUTION
@@ -134,6 +136,7 @@ metrics:
       target: 1 # STRING
       service: 1 # STRING
       method: 1 # STRING
+      version: 1 # STRING
       response_code: 2 # INT64
   - name: response_size
     kind: DISTRIBUTION
@@ -156,6 +159,7 @@ metrics:
       target: 1 # STRING
       service: 1 # STRING
       method: 1 # STRING
+      version: 1 # STRING
       response_code: 2 # INT64
 quotas:
   - name: RequestCount
