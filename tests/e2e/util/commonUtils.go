@@ -55,7 +55,7 @@ func Shell(command string) (string, error) {
 	bytes, err := c.CombinedOutput()
 	glog.V(3).Infof("Command output: \n%s", string(bytes[:]))
 	if err != nil {
-		return "", fmt.Errorf("command failed: %q %v", string(bytes), err)
+		return string(bytes), fmt.Errorf("command failed: %q %v", string(bytes), err)
 	}
 	return string(bytes), nil
 }
