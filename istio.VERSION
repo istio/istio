@@ -2,8 +2,8 @@
 # tests/updateVersion.sh (see tests/README.md)
 export CA_HUB="docker.io/istio"
 export CA_TAG="0.1.3"
-export MIXER_HUB="docker.io/istio"
-export MIXER_TAG="0.1.3"
+export MIXER_HUB="gcr.io/istio-testing"
+export MIXER_TAG="a2c9dc22b4de441c745f5df0aac52a63c66b2e2a"
 export ISTIOCTL_URL="https://storage.googleapis.com/istio-artifacts/manager/stable-c5aab85/artifacts/istioctl"
 export MANAGER_HUB="docker.io/istio"
 export MANAGER_TAG="0.1.4-c5aab85"
