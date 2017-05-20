@@ -134,10 +134,6 @@ func newMixerProxy(namespace string) *mixerProxy {
 func (m *mixerProxy) Setup() error {
 	var pod string
 	var err error
-	if err = tc.wrk.Install(); err != nil {
-		glog.Errorf("Failed to install wrk, %v", err)
-		return err
-	}
 	glog.Info("Setting up mixer proxy")
 	getName := fmt.Sprintf("kubectl -n %s get pod -l istio=mixer -o jsonpath='{.items[0].metadata.name}'", m.namespace)
 	pod, err = util.Shell(getName)
