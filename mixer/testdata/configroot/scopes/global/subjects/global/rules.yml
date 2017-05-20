@@ -44,6 +44,7 @@ rules:
           target: target.service | "unknown"
           service: target.labels["app"] | "unknown"
           method: request.path | "unknown"
+          version: target.labels["version"] | "unknown"
           response_code: response.code | 200
       - descriptor_name:  request_duration
         value: response.latency | response.duration | "0ms"
@@ -52,6 +53,7 @@ rules:
           target: target.service | "unknown"
           service: target.labels["app"] | "unknown"
           method: request.path | "unknown"
+          version: target.labels["version"] | "unknown"
           response_code: response.code | 200
   - kind: access-logs
     params:
