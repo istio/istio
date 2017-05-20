@@ -61,7 +61,7 @@ type testConfig struct {
 	*framework.CommonConfig
 	gateway  string
 	rulesDir string
-	wrk      util.Wrk
+	wrk      *util.Wrk
 }
 
 // Template for ../test/testdata/sample.lua.template
@@ -134,6 +134,10 @@ func newMixerProxy(namespace string) *mixerProxy {
 func (m *mixerProxy) Setup() error {
 	var pod string
 	var err error
+	if err = tc.wrk.Install(); err != nil {
+		glog.Errorf("Failed to install wrk, %v", err)
+		return err
+	}
 	glog.Info("Setting up mixer proxy")
 	getName := fmt.Sprintf("kubectl -n %s get pod -l istio=mixer -o jsonpath='{.items[0].metadata.name}'", m.namespace)
 	pod, err = util.Shell(getName)
@@ -327,8 +331,8 @@ func TestRateLimit(t *testing.T) {
 	duration := "2m"
 	errorFile := filepath.Join(tc.Kube.TmpDir, "TestRateLimit.err")
 	JSONFile := filepath.Join(tc.Kube.TmpDir, "TestRateLimit.Json")
+	url := fmt.Sprintf("%s/productpage", tc.gateway)
 
-	// TODO: Use the JSON file to do more detailed Checking
 	luaScript := &util.LuaTemplate{
 		TemplatePath: util.GetResourcePath(luaTemplate),
 		Template: &luaScriptTemplate{
@@ -337,16 +341,18 @@ func TestRateLimit(t *testing.T) {
 		},
 	}
 	if err := luaScript.Generate(); err != nil {
-		t.Errorf("Failed to genearate lua script. %v", err)
+		t.Errorf("Failed to generate lua script. %v", err)
 		return
 	}
 
-	if err := tc.wrk.Run("-t %d --timeout %s -c %d -d %s -s %s", threads, timeout, connections, duration, luaScript.Script); err != nil {
+	if err := tc.wrk.Run(
+		"-t %d --timeout %s -c %d -d %s -s %s %s",
+		threads, timeout, connections, duration, luaScript.Script, url); err != nil {
 		t.Errorf("Failed to run wrk %v", err)
 		return
 	}
 
-	// TODO: Use the JSON file to do more detailed Checking
+	// TODO: Use the JSON file to do more detailed checking
 	r := &luaScriptResponseJSON{}
 	if err := util.ReadJSON(JSONFile, r); err != nil {
 		t.Errorf("Could not parse json. %v", err)
@@ -568,9 +574,13 @@ func setTestConfig() error {
 	}
 	tc = new(testConfig)
 	tc.CommonConfig = cc
-	tc.rulesDir, err = ioutil.TempDir(os.TempDir(), "mixer_test")
+	tmpDir, err := ioutil.TempDir(os.TempDir(), "mixer_test")
 	if err != nil {
 		return err
+	}
+	tc.rulesDir = tmpDir
+	tc.wrk = &util.Wrk{
+		TmpDir: tmpDir,
 	}
 	demoApp := &framework.App{
 		AppYaml:    util.GetResourcePath(bookinfoYaml),

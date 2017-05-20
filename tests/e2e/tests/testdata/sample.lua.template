@@ -7,7 +7,7 @@
 done = function(summary, latency, requests)
   print("=== wrk done")
 
-  local f = io.open("{{.JsonFile}}", 'w')
+  local f = io.open("{{.JSONFile}}", 'w')
   f:write("{")
 
   errors = summary.errors
@@ -40,7 +40,7 @@ end
 
 init = function(args)
   print(string.format("=== wrk thread init %d", id))
-  local filename = string.format("${{.ErrorFile}}_%d", id)
+  local filename = string.format("{{.ErrorFile}}_%d", id)
   error_file = io.open(filename, "w")
 end
 

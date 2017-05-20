@@ -38,8 +38,8 @@ var (
 
 // Wrk is a wrapper around wrk.
 type Wrk struct {
-	binaryPath string
-	tmpDir     string
+	BinaryPath string
+	TmpDir     string
 }
 
 // LuaTemplate defines a Lua template or script.
@@ -51,7 +51,7 @@ type LuaTemplate struct {
 
 // Generate creates the lua scripts in the .Script destination from the .Template.
 func (l *LuaTemplate) Generate() error {
-	if l.Script != "" {
+	if l.Script == "" {
 		var err error
 		l.Script, err = CreateTempfile(os.TempDir(), tmpPrefix, ".lua")
 		if err != nil {
@@ -73,30 +73,34 @@ func ReadJSON(jsonPath string, i interface{}) error {
 // Install installs wrk based on the URL provided if the binary is not already installed.
 func (w *Wrk) Install() error {
 	if _, err := os.Stat(*wrkBinaryPath); os.IsNotExist(err) {
-		if w.tmpDir != "" {
-			w.binaryPath, err = CreateTempfile(os.TempDir(), tmpPrefix, ".bin")
+		if w.TmpDir == "" {
+			w.BinaryPath, err = CreateTempfile(os.TempDir(), tmpPrefix, ".bin")
 			if err != nil {
 				return err
 			}
 		} else {
-			w.binaryPath = filepath.Join(w.tmpDir, "wrk")
+			w.BinaryPath = filepath.Join(w.TmpDir, "wrk")
 		}
-		err = HTTPDownload(w.binaryPath, *wrkURL)
+		err = HTTPDownload(w.BinaryPath, *wrkURL)
+		if err != nil {
+			return err
+		}
+		err = os.Chmod(w.BinaryPath, 0755) // #nosec
 		if err != nil {
 			return err
 		}
 	} else if err != nil {
 		return err
 	} else {
-		w.binaryPath = *wrkBinaryPath
+		w.BinaryPath = *wrkBinaryPath
 	}
 	return nil
 }
 
 // Run runs a wrk command.
 func (w *Wrk) Run(format string, a ...interface{}) error {
-	args := fmt.Sprintf(format, a)
-	if _, err := Shell(fmt.Sprintf("%s %s", w.binaryPath, args)); err != nil {
+	args := fmt.Sprintf(format, a...)
+	if _, err := Shell(fmt.Sprintf("%s %s", w.BinaryPath, args)); err != nil {
 		glog.Errorf("wrk %s failed", args)
 		return err
 	}
