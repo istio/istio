@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: docker.io/istio/proxy_debug:0.1.4-cea695b
+        image: docker.io/istio/proxy_debug:0.1.4-e88aceb
         imagePullPolicy: Always
         args: ["proxy", "egress", "-v", "2"]
         env:
