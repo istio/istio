@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
       - name: mixer
-        image: gcr.io/istio-testing/mixer:a2c9dc22b4de441c745f5df0aac52a63c66b2e2a
+        image: docker.io/istio/mixer:0.1.4-43b7626
         imagePullPolicy: Always
         ports:
         - containerPort: 9091
@@ -95,7 +95,7 @@ spec:
       serviceAccountName: istio-manager-service-account
       containers:
       - name: discovery
-        image: docker.io/istio/manager:0.1.4-c5aab85
+        image: docker.io/istio/manager:0.1.4-cea695b
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:
@@ -107,7 +107,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
       - name: apiserver
-        image: docker.io/istio/manager:0.1.4-c5aab85
+        image: docker.io/istio/manager:0.1.4-cea695b
         imagePullPolicy: Always
         args: ["apiserver", "-v", "2"]
         ports:
@@ -160,7 +160,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: docker.io/istio/proxy_debug:0.1.4-c5aab85
+        image: docker.io/istio/proxy_debug:0.1.4-cea695b
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: Always
         ports:
@@ -208,7 +208,7 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: docker.io/istio/proxy_debug:0.1.4-c5aab85
+        image: docker.io/istio/proxy_debug:0.1.4-cea695b
         imagePullPolicy: Always
         args: ["proxy", "egress", "-v", "2"]
         env:
