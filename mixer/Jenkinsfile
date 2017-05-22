@@ -70,7 +70,10 @@ def presubmit(gitUtils, bazel, utils) {
     stage('Docker Test Push') {
       def images = 'mixer'
       def tags = env.GIT_SHA
+      // Docker images built with bazel
       utils.publishDockerImagesToContainerRegistry(images, tags)
+      // Docker images built with docker
+      sh("bin/publish-docker-images.sh -t ${tags} -h gcr.io/istio-testing")
     }
   }
 }
@@ -96,7 +99,10 @@ def stablePresubmit(gitUtils, bazel, utils) {
     stage('Docker Push') {
       def images = 'mixer'
       def tags = env.GIT_SHA
+      // Docker images built with bazel
       utils.publishDockerImagesToContainerRegistry(images, tags)
+      // Docker images built with docker
+      sh("bin/publish-docker-images.sh -t ${tags} -h gcr.io/istio-testing")
     }
   }
 }
@@ -115,8 +121,14 @@ def stablePostsubmit(gitUtils, bazel, utils) {
             tags += ",${env.GIT_TAG}"
         }
       }
+      // Docker images built with bazel
       utils.publishDockerImagesToDockerHub(images, tags)
       utils.publishDockerImagesToContainerRegistry(images, tags, '', 'gcr.io/istio-io')
+      // Docker images built with docker
+      sh("bin/publish-docker-images.sh -t ${tags} -h gcr.io/istio-io")
+      withDockerRegistry([credentialsId: env.ISTIO_TESTING_DOCKERHUB]) {
+        sh("bin/publish-docker-images.sh -t ${tags} -h docker.io/istio")
+      }
     }
   }
 }
