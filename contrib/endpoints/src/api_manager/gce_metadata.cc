@@ -54,6 +54,11 @@ Status GceMetadata::ParseFromJson(std::string *json_str) {
       SafeAssign(GetStringValue(attributes, "gae_server_software"));
   kube_env_ = SafeAssign(GetStringValue(attributes, "kube-env"));
 
+  endpoints_service_name_ =
+      SafeAssign(GetStringValue(attributes, "endpoints-service-name"));
+  endpoints_service_config_id_ =
+      SafeAssign(GetStringValue(attributes, "endpoints-service-config-id"));
+
   grpc_json_destroy(json);
 
   // Only keep last portion of zone

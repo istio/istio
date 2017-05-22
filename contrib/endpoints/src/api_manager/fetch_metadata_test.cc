@@ -50,6 +50,17 @@ const char kServerConfig[] = R"(
    }
 })";
 
+const char kMetaData[] = R"(
+{
+    "instance": {
+        "attributes": {
+            "endpoints-service-config-id": "2017-05-01r0",
+            "endpoints-service-name": "service_name_from_meta_data"
+        }
+    }
+}
+)";
+
 const char kEmptyBody[] = R"({})";
 
 class FetchMetadataTest : public ::testing::Test {
@@ -62,10 +73,12 @@ class FetchMetadataTest : public ::testing::Test {
 
     std::unique_ptr<Config> config = Config::Create(raw_env_, kServiceConfig);
     ASSERT_NE(config.get(), nullptr);
-    auto global_context =
+
+    global_context_ =
         std::make_shared<context::GlobalContext>(std::move(env), kServerConfig);
     service_context_ = std::make_shared<context::ServiceContext>(
-        global_context, std::move(config));
+        global_context_, std::move(config));
+
     ASSERT_NE(service_context_.get(), nullptr);
 
     std::unique_ptr<MockRequest> request(
@@ -76,6 +89,7 @@ class FetchMetadataTest : public ::testing::Test {
   }
 
   MockApiManagerEnvironment *raw_env_;
+  std::shared_ptr<context::GlobalContext> global_context_;
   std::shared_ptr<context::ServiceContext> service_context_;
   std::shared_ptr<context::RequestContext> context_;
 };
@@ -85,11 +99,26 @@ TEST_F(FetchMetadataTest, FetchGceMetadataWithStatusOK) {
   EXPECT_CALL(*raw_env_, DoRunHTTPRequest(_))
       .WillOnce(Invoke([](HTTPRequest *req) {
         std::map<std::string, std::string> empty;
-        std::string body(kEmptyBody);
+        std::string body(kMetaData);
         req->OnComplete(Status::OK, std::move(empty), std::move(body));
       }));
 
-  FetchGceMetadata(context_, [](Status status) { ASSERT_TRUE(status.ok()); });
+  FetchGceMetadata(context_, [this](Status status) {
+    ASSERT_TRUE(status.ok());
+    ASSERT_EQ(context_->service_context()
+                  ->global_context()
+                  ->gce_metadata()
+                  ->endpoints_service_name(),
+              "service_name_from_meta_data");
+
+    ASSERT_EQ(context_->service_context()
+                  ->global_context()
+                  ->gce_metadata()
+                  ->endpoints_service_config_id(),
+              "2017-05-01r0");
+
+    ASSERT_TRUE(status.ok());
+  });
 }
 
 TEST_F(FetchMetadataTest, FetchGceMetadataWithStatusINTERNAL) {

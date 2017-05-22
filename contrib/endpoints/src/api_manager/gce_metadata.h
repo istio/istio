@@ -47,6 +47,12 @@ class GceMetadata {
     return gae_server_software_;
   }
   const std::string& kube_env() const { return kube_env_; }
+  const std::string& endpoints_service_name() const {
+    return endpoints_service_name_;
+  }
+  const std::string& endpoints_service_config_id() const {
+    return endpoints_service_config_id_;
+  }
 
  private:
   FetchState state_;
@@ -54,6 +60,8 @@ class GceMetadata {
   std::string zone_;
   std::string gae_server_software_;
   std::string kube_env_;
+  std::string endpoints_service_name_;
+  std::string endpoints_service_config_id_;
 };
 
 }  // namespace api_manager
