@@ -75,8 +75,8 @@ function create_windows_archive() {
 }
 
 pushd ${ROOT}
-cp istio.VERSION "${COMMON_FILES_DIR}"/
-find samples install -type f -name "*.yaml" \
+cp istio.VERSION LICENSE "${COMMON_FILES_DIR}"/
+find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "README.md" \) \
   -exec cp --parents {} "${COMMON_FILES_DIR}" \;
 popd
 
