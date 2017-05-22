@@ -101,6 +101,52 @@ func TestMixerRuleCreate(t *testing.T) {
 	}
 }
 
+func TestMixerRuleDelete(t *testing.T) {
+	goodpath := "/" + mixerRulePath("global", "global")
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "DELETE" {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if r.URL.Path == goodpath {
+			w.WriteHeader(http.StatusOK)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}))
+	defer ts.Close()
+	mixerRESTRequester = &proxy.BasicHTTPRequester{
+		BaseURL: ts.URL,
+		Client:  &http.Client{Timeout: 1 * time.Second},
+		Version: kube.IstioResourceVersion,
+	}
+
+	cases := []struct {
+		subject   string
+		errorCode int
+	}{
+		{"global", http.StatusOK},
+		{"badsubject", http.StatusInternalServerError},
+	}
+
+	for _, c := range cases {
+		t.Run(c.subject, func(t *testing.T) {
+			err := mixerRuleDelete("global", c.subject)
+			wantErr := c.errorCode != http.StatusOK
+			if wantErr {
+				if err == nil {
+					t.Errorf("%v expected error", c.errorCode)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("%v unexpected error", err.Error())
+				}
+			}
+		})
+	}
+}
+
 func TestMixerRuleGet(t *testing.T) {
 	wantRule := map[string]interface{}{
 		"subject":  "namespace:ns",

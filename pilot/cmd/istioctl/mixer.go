@@ -120,7 +120,7 @@ istioctl mixer rule create global myservice.ns.svc.cluster.local -f mixer-rule.y
 		Use:   "get <scope> <subject>",
 		Short: "Get Istio Mixer rules",
 		Long: `
-Get a Mixer rule for a given scope and subject.
+Get Mixer rules for a given scope and subject.
 `,
 		Example: `
 # Get the Mixer rule with scope='global' and subject='myservice.ns.svc.cluster.local'
@@ -136,6 +136,23 @@ istioctl mixer rule get global myservice.ns.svc.cluster.local
 			}
 			fmt.Println(out)
 			return nil
+		},
+	}
+	mixerRuleDeleteCmd = &cobra.Command{
+		Use:   "delete <scope> <subject>",
+		Short: "Delete Istio Mixer rules",
+		Long: `
+Delete Mixer rules for a given scope and subject.
+`,
+		Example: `
+# Delete Mixer rules with scope='global' and subject='myservice.ns.svc.cluster.local'
+istioctl mixer rule delete global myservice.ns.svc.cluster.local
+`,
+		RunE: func(c *cobra.Command, args []string) error {
+			if len(args) != 2 {
+				return errors.New(c.UsageString())
+			}
+			return mixerRuleDelete(args[0], args[1])
 		},
 	}
 )
@@ -188,6 +205,25 @@ func mixerRuleGet(scope, subject string) (string, error) {
 	return string(data), nil
 }
 
+func mixerRuleDelete(scope, subject string) error {
+
+	path := mixerRulePath(scope, subject)
+	status, body, err := mixerRESTRequester.Request(http.MethodDelete, path, nil)
+	if body != nil {
+		var response mixerAPIResponse
+		message := "unknown"
+		if errJSON := json.Unmarshal(body, &response); errJSON == nil {
+			message = response.Status.Message
+		}
+
+		if status != http.StatusOK {
+			return fmt.Errorf("failed rule deletion with status %v: %s", status, message)
+		}
+		fmt.Printf("%s\n", message)
+	}
+	return err
+}
+
 func init() {
 	mixerRuleCreateCmd.PersistentFlags().StringVarP(&mixerFile, "file", "f", "",
 		"Input file with contents of the Mixer rule")
@@ -201,6 +237,7 @@ func init() {
 
 	mixerRuleCmd.AddCommand(mixerRuleCreateCmd)
 	mixerRuleCmd.AddCommand(mixerRuleGetCmd)
+	mixerRuleCmd.AddCommand(mixerRuleDeleteCmd)
 	mixerCmd.AddCommand(mixerRuleCmd)
 	rootCmd.AddCommand(mixerCmd)
 }
