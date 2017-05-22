@@ -86,8 +86,8 @@ class TranscodingIntegrationTest : public BaseIntegrationTest,
 
     fake_upstream_connection =
         fake_upstreams_[0]->waitForHttpConnection(*dispatcher_);
+    request_stream = fake_upstream_connection->waitForNewStream();
     if (!grpc_request_messages.empty()) {
-      request_stream = fake_upstream_connection->waitForNewStream();
       request_stream->waitForEndStream(*dispatcher_);
 
       Grpc::Decoder grpc_decoder;
@@ -109,9 +109,7 @@ class TranscodingIntegrationTest : public BaseIntegrationTest,
         EXPECT_TRUE(
             MessageDifferencer::Equivalent(expected_message, actual_message));
       }
-    }
 
-    if (request_stream) {
       Http::TestHeaderMapImpl response_headers;
       response_headers.insertStatus().value(200);
       response_headers.insertContentType().value(
@@ -136,6 +134,8 @@ class TranscodingIntegrationTest : public BaseIntegrationTest,
         request_stream->encodeTrailers(response_trailers);
       }
       EXPECT_TRUE(request_stream->complete());
+    } else {
+      request_stream->waitForReset();
     }
 
     response->waitForEndStream();
