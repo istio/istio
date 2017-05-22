@@ -145,6 +145,12 @@ function update_istio_install() {
   popd
 }
 
+function update_istio_addons() {
+  pushd $ROOT/install/kubernetes/addons
+  sed -i "s|image: .*/\(.*\):.*|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml
+  popd
+}
+
 function update_istio_auth() {
   pushd $ROOT/install/kubernetes/templates/istio-auth
   sed -i "s|image: .*/\(.*\):.*|image: ${CA_HUB}/\1:${CA_TAG}|" istio-cluster-ca.yaml
@@ -161,6 +167,7 @@ fi
 
 update_version_file
 update_istio_install
+update_istio_addons
 update_istio_auth
 merge_files
 
