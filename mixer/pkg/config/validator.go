@@ -357,11 +357,10 @@ func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 	return numAspects, ce
 }
 
-//  classify keys into rules, adapter and descriptors
-
-func classifyKeys(keys []string) map[string][]string {
+// classifyKeys classifies keys of cfg into rules, adapters, and descriptors.
+func classifyKeys(cfg map[string]string) map[string][]string {
 	keymap := map[string][]string{}
-	for _, key := range keys {
+	for key := range cfg {
 		kk := strings.Split(key, "/")
 		var k string
 		switch kk[len(kk)-1] {
@@ -373,7 +372,7 @@ func classifyKeys(keys []string) map[string][]string {
 			k = descriptors
 		default:
 			if glog.V(4) {
-				glog.Infoln("unknown key", keys)
+				glog.Infoln("unknown key", key)
 			}
 			continue
 		}
@@ -390,12 +389,7 @@ func descriptorKey(scope string) string {
 // validate validates a single serviceConfig and globalConfig together.
 // It returns a fully validated Config if no errors are found.
 func (p *validator) validate(cfg map[string]string) (rt *Validated, ce *adapter.ConfigErrors) {
-
-	cfgkey := make([]string, len(cfg))
-	for k := range cfg {
-		cfgkey = append(cfgkey, k)
-	}
-	keymap := classifyKeys(cfgkey)
+	keymap := classifyKeys(cfg)
 
 	for _, kk := range keymap[descriptors] {
 		if re := p.validateDescriptors(kk, cfg[kk]); re != nil {
