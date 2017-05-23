@@ -341,11 +341,11 @@ func TestRateLimit(t *testing.T) {
 		return
 	}
 	// rate-limit set to 5 qps, sending a request every 1/10th of a second,
-	// modulo gorouting scheduling, etc.
-	// there should be ~150 "too many rateLimitedReqs" observed. check for
-	// greater than 100 to allow for differences in routing, etc.
-	if rateLimitedReqs.value < 100 {
-		t.Errorf("Bad metric value: got %f, want at least 100", rateLimitedReqs.value)
+	// modulo gorouting scheduling, etc., with slightly less than 7 qps going 
+	// to the rate-limited service. there should be ~100 429s observed.
+	// check for greater than 60 to allow for differences in traffic generation, etc.
+	if rateLimitedReqs.value < 60 {
+		t.Errorf("Bad metric value: got %f, want at least 60", rateLimitedReqs.value)
 	}
 
 	// check to make sure that some requests were accepted and processed
