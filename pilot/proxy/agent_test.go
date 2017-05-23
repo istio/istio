@@ -304,3 +304,39 @@ func TestRecovery(t *testing.T) {
 	<-time.After(100 * time.Millisecond)
 	close(stop)
 }
+
+// TestCascadingAbort plays a scenario that may trigger self-abort deadlock:
+//  * start three epochs 0, 1, 2
+//  * epoch 2 crashes, triggers abort of 0, 1
+//  * epoch 1 crashes before receiving abort, triggers abort of 0
+//  * epoch 0 aborts, recovery to config 2 follows
+func TestCascadingAbort(t *testing.T) {
+	stop := make(chan struct{})
+	crash1 := make(chan struct{})
+	start := func(config interface{}, epoch int, abort <-chan error) error {
+		if config == 2 {
+			close(crash1)
+			return errors.New("planned crash for 2")
+		} else if config == 1 {
+			<-crash1
+			// ignore abort, crash by itself
+			<-time.After(100 * time.Millisecond)
+			return errors.New("planned crash for 1")
+		} else if config == 0 {
+			// abort, a bit later
+			<-time.After(300 * time.Millisecond)
+			err := <-abort
+			close(stop)
+			return err
+		}
+		return nil
+	}
+	retry := testRetry
+	retry.InitialInterval = 1 * time.Second
+	a := NewAgent(Proxy{start, func(_ int) {}, nil}, retry)
+	go a.Run(stop)
+	a.ScheduleConfigUpdate(0)
+	a.ScheduleConfigUpdate(1)
+	a.ScheduleConfigUpdate(2)
+	<-stop
+}

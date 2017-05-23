@@ -78,6 +78,12 @@ var (
 	}
 )
 
+const (
+	// MaxAborts is the maximum number of cascading abort messages to buffer.
+	// This should be the upper bound on the number of proxies available at any point in time.
+	MaxAborts = 10
+)
+
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
 func NewAgent(proxy Proxy, retry Retry) Agent {
 	return &agent{
@@ -182,6 +188,12 @@ func (a *agent) Run(stop <-chan struct{}) {
 			}
 
 		case status := <-a.statusCh:
+			// delete epoch record and update current config
+			// avoid self-aborting on non-abort error
+			delete(a.epochs, status.epoch)
+			delete(a.abortCh, status.epoch)
+			a.currentConfig = a.epochs[a.latestEpoch()]
+
 			if status.err == errAbort {
 				glog.V(2).Infof("Epoch %d aborted", status.epoch)
 			} else if status.err != nil {
@@ -197,11 +209,6 @@ func (a *agent) Run(stop <-chan struct{}) {
 
 			// cleanup for the epoch
 			a.proxy.Cleanup(status.epoch)
-
-			// delete epoch record and update current config
-			delete(a.epochs, status.epoch)
-			delete(a.abortCh, status.epoch)
-			a.currentConfig = a.epochs[a.latestEpoch()]
 
 			// schedule a retry for a transient error and skip aborts
 			if status.err != nil && status.err != errAbort && !reflect.DeepEqual(a.desiredConfig, a.currentConfig) {
@@ -247,8 +254,8 @@ func (a *agent) reconcile() {
 
 	// discover and increment the latest running epoch
 	epoch := a.latestEpoch() + 1
-	// buffer a single abort to prevent blocking on failing proxy
-	abortCh := make(chan error, 1)
+	// buffer aborts to prevent blocking on failing proxy
+	abortCh := make(chan error, MaxAborts)
 	a.epochs[epoch] = a.desiredConfig
 	a.abortCh[epoch] = abortCh
 	a.currentConfig = a.desiredConfig
