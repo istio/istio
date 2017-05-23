@@ -39,8 +39,8 @@ Service-to-service communication is tunneled through the client side [Envoy](htt
 
 ### Key Management
 Istio Auth provides a per-cluster CA (Certificate Authority) to automate key & cert management. It mainly performs 4 key operations:
-- Generate a key/cert pair for each service account.
-- Distribute key/cert to each pod according to the service account.
+- Generate a [SPIFFE](spiffe.github.io/docs/svid) key/cert pair for each service account.
+- Distribute the key/cert to each pod according to the service account.
 - Rotate key/cert periodically. 
 - Revoke a specific key/cert pair when necessary.
 
@@ -48,7 +48,7 @@ Istio Auth provides a per-cluster CA (Certificate Authority) to automate key & c
 Istio Auth workflow consists of two phases, deployment and runtime. We briefly cover each phase in this section and a more detailed version can be found [here](https://docs.google.com/document/d/1spoQ9MIb7ABFDdFzlFITczCbH_AHO3RXSgLLeXAYIJU/edit).
 
 ### Deployment Phase
-1. Istio CA watches K8s API Server, creates a cert/key pair for each of the existing and new service accounts, and sends them to API Server. 
+1. Istio CA watches K8s API Server, creates a [SPIFFE](spiffe.github.io/docs/svid) cert/key pair for each of the existing and new service accounts, and sends them to API Server. 
 2. When a pod is created, API Server mounts the cert/key according to the service account using [Kubernetes secrets](https://kubernetes.io/docs/concepts/configuration/secret/).
 3. [Istio Manager](https://github.com/istio/manager/blob/master/doc/design.md) generates the config with proper cert/key and secure naming information, which defines what service account(s) can run a certain service, and passes it to Envoy. 
 
