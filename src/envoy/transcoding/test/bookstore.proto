@@ -47,6 +47,9 @@ service Bookstore {
   }
   // Returns a specific bookstore shelf.
   rpc GetShelf(GetShelfRequest) returns (Shelf) {
+    option (google.api.http) = {
+      get: "/shelves/{shelf}"
+    };
   }
   // Deletes a shelf, including all books that are stored on the shelf.
   rpc DeleteShelf(DeleteShelfRequest) returns (google.protobuf.Empty) {

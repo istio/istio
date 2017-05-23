@@ -119,7 +119,7 @@ TEST_F(GrpcHttpJsonTranscodingFilterTest, TranscodingUnaryPost) {
   Http::TestHeaderMapImpl response_headers{{"content-type", "application/grpc"},
                                            {":status", "200"}};
 
-  EXPECT_EQ(Http::FilterHeadersStatus::Continue,
+  EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
             filter_.encodeHeaders(response_headers, false));
   EXPECT_EQ("application/json", response_headers.get_("content-type"));
 
@@ -129,7 +129,7 @@ TEST_F(GrpcHttpJsonTranscodingFilterTest, TranscodingUnaryPost) {
 
   auto response_data = Common::serializeBody(response);
 
-  EXPECT_EQ(Http::FilterDataStatus::Continue,
+  EXPECT_EQ(Http::FilterDataStatus::StopIterationAndBuffer,
             filter_.encodeData(*response_data, false));
 
   std::string response_json(

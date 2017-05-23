@@ -14,6 +14,8 @@
  */
 #include "src/envoy/transcoding/filter.h"
 
+#include "common/common/enum_to_int.h"
+#include "common/http/headers.h"
 #include "common/http/utility.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor.pb.h"
@@ -43,15 +45,15 @@ Http::FilterHeadersStatus Instance::decodeHeaders(Http::HeaderMap& headers,
                                                   bool end_stream) {
   log().debug("Transcoding::Instance::decodeHeaders");
 
-  const google::protobuf::MethodDescriptor* method;
   auto status = config_.CreateTranscoder(headers, &request_in_, &response_in_,
-                                         transcoder_, method);
+                                         transcoder_, method_);
   if (status.ok()) {
     headers.removeContentLength();
     headers.insertContentType().value(kGrpcContentType);
-    headers.insertPath().value("/" + method->service()->full_name() + "/" +
-                               method->name());
-    headers.insertMethod().value(std::string("POST"));
+    headers.insertPath().value("/" + method_->service()->full_name() + "/" +
+                               method_->name());
+
+    headers.insertMethod().value(Http::Headers::get().MethodValues.Post);
 
     headers.addStatic(kTeHeader, kTeTrailers);
 
@@ -140,13 +142,17 @@ void Instance::setDecoderFilterCallbacks(
 
 Http::FilterHeadersStatus Instance::encodeHeaders(Http::HeaderMap& headers,
                                                   bool end_stream) {
-  log().debug("Transcoding::Instance::encodeHeaders");
+  log().debug("Transcoding::Instance::encodeHeaders {}", end_stream);
   if (error_) {
     return Http::FilterHeadersStatus::Continue;
   }
 
   if (transcoder_) {
+    response_headers_ = &headers;
     headers.insertContentType().value(kJsonContentType);
+    if (!method_->server_streaming() && !end_stream) {
+      return Http::FilterHeadersStatus::StopIteration;
+    }
   }
   return Http::FilterHeadersStatus::Continue;
 }
@@ -167,6 +173,9 @@ Http::FilterDataStatus Instance::encodeData(Buffer::Instance& data,
 
     ReadToBuffer(transcoder_->ResponseOutput(), data);
 
+    if (!method_->server_streaming()) {
+      return Http::FilterDataStatus::StopIterationAndBuffer;
+    }
     // TODO: Check ResponseStatus
   }
 
@@ -183,6 +192,29 @@ Http::FilterTrailersStatus Instance::encodeTrailers(Http::HeaderMap& trailers) {
 
     if (data.length()) {
       encoder_callbacks_->addEncodedData(data);
+    }
+
+    if (!method_->server_streaming()) {
+      const Http::HeaderEntry* grpc_status_header = trailers.GrpcStatus();
+      if (grpc_status_header) {
+        uint64_t grpc_status_code;
+        if (!StringUtil::atoul(grpc_status_header->value().c_str(),
+                               grpc_status_code)) {
+          response_headers_->Status()->value(
+              enumToInt(Http::Code::ServiceUnavailable));
+        }
+        response_headers_->insertGrpcStatus().value(*grpc_status_header);
+      }
+
+      const Http::HeaderEntry* grpc_message_header = trailers.GrpcMessage();
+      if (grpc_message_header) {
+        response_headers_->insertGrpcMessage().value(*grpc_message_header);
+      }
+
+      response_headers_->insertContentLength().value(
+          encoder_callbacks_->encodingBuffer()
+              ? encoder_callbacks_->encodingBuffer()->length()
+              : 0);
     }
   }
   return Http::FilterTrailersStatus::Continue;

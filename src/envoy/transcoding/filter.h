@@ -64,6 +64,8 @@ class Instance : public Http::StreamFilter,
   EnvoyInputStream response_in_;
   Http::StreamDecoderFilterCallbacks* decoder_callbacks_{nullptr};
   Http::StreamEncoderFilterCallbacks* encoder_callbacks_{nullptr};
+  const google::protobuf::MethodDescriptor* method_{nullptr};
+  Http::HeaderMap* response_headers_{nullptr};
 
   bool error_{false};
 };

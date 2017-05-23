@@ -28,6 +28,7 @@
 
 using google::protobuf::util::MessageDifferencer;
 using google::protobuf::util::Status;
+using google::protobuf::util::error::Code;
 using google::protobuf::Empty;
 using google::protobuf::Message;
 using google::protobuf::TextFormat;
@@ -168,7 +169,9 @@ TEST_F(TranscodingIntegrationTest, UnaryPost) {
       R"({"theme": "Children"})", {R"(shelf { theme: "Children" })"},
       {R"(id: 20 theme: "Children" )"}, Status::OK,
       Http::TestHeaderMapImpl{{":status", "200"},
-                              {"content-type", "application/json"}},
+                              {"content-type", "application/json"},
+                              {"content-length", "30"},
+                              {"grpc-status", "0"}},
       R"({"id":"20","theme":"Children"})");
 }
 
@@ -179,8 +182,22 @@ TEST_F(TranscodingIntegrationTest, UnaryGet) {
       "", {""}, {R"(shelves { id: 20 theme: "Children" }
           shelves { id: 1 theme: "Foo" } )"},
       Status::OK, Http::TestHeaderMapImpl{{":status", "200"},
-                                          {"content-type", "application/json"}},
+                                          {"content-type", "application/json"},
+                                          {"content-length", "69"},
+                                          {"grpc-status", "0"}},
       R"({"shelves":[{"id":"20","theme":"Children"},{"id":"1","theme":"Foo"}]})");
+}
+
+TEST_F(TranscodingIntegrationTest, UnaryGetError) {
+  testTranscoding<bookstore::GetShelfRequest, bookstore::Shelf>(
+      Http::TestHeaderMapImpl{{":method", "GET"},
+                              {":path", "/shelves/100"},
+                              {":authority", "host"}},
+      "", {"shelf: 100"}, {}, Status(Code::NOT_FOUND, "Shelf 100 Not Found"),
+      Http::TestHeaderMapImpl{{":status", "200"},
+                              {"grpc-status", "5"},
+                              {"grpc-message", "Shelf 100 Not Found"}},
+      "");
 }
 
 TEST_F(TranscodingIntegrationTest, UnaryDelete) {
@@ -190,7 +207,9 @@ TEST_F(TranscodingIntegrationTest, UnaryDelete) {
                               {":authority", "host"}},
       "", {"shelf: 456 book: 123"}, {""}, Status::OK,
       Http::TestHeaderMapImpl{{":status", "200"},
-                              {"content-type", "application/json"}},
+                              {"content-type", "application/json"},
+                              {"content-length", "2"},
+                              {"grpc-status", "0"}},
       "{}");
 }
 
@@ -249,7 +268,8 @@ TEST_F(TranscodingIntegrationTest, StreamingPost) {
        R"(id: 7 theme: "Documentary")",
        R"(id: 8 theme: "Mystery")"},
       Status::OK, Http::TestHeaderMapImpl{{":status", "200"},
-                                          {"content-type", "application/json"}},
+                                          {"content-type", "application/json"},
+                                          {"transfer-encoding", "chunked"}},
       R"([{"id":"3","theme":"Classics"})"
       R"(,{"id":"4","theme":"Satire"})"
       R"(,{"id":"5","theme":"Russian"})"
