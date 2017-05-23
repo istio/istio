@@ -28,7 +28,7 @@ spec:
       serviceAccountName: istio-ca-service-account
       containers:
       - name: istio-ca
-        image: docker.io/istio/istio-ca:0.1.4-2cab70a
+        image: docker.io/istio/istio-ca:0.1.4
         imagePullPolicy: IfNotPresent
 ---
 
