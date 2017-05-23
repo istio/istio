@@ -341,7 +341,7 @@ func TestRateLimit(t *testing.T) {
 		return
 	}
 	// rate-limit set to 5 qps, sending a request every 1/10th of a second,
-	// modulo gorouting scheduling, etc., with slightly less than 7 qps going 
+	// modulo goroutine scheduling, etc., with slightly less than 7 qps going
 	// to the rate-limited service. there should be ~100 429s observed.
 	// check for greater than 60 to allow for differences in traffic generation, etc.
 	if rateLimitedReqs.value < 60 {
