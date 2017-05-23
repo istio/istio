@@ -426,8 +426,8 @@ func (cl *Client) Request(namespace, service, method, path string, inBody []byte
 	// path is not. Short term workaround is to special case this
 	// behavior. Long term solution is to unify API scheme and server
 	// implementations.
-	if strings.HasPrefix(path, "config") {
-		absPath += "/" + IstioResourceVersion // manager api server patha
+	if strings.HasPrefix(path, "config") || strings.HasPrefix(path, "version") {
+		absPath += "/" + IstioResourceVersion // manager api server path
 	}
 
 	// API server resource path.
