@@ -781,33 +781,17 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "round(sum(irate(request_count{service=~\"$service\"}[1m])) by (source), 0.001)",
+              "expr": "round(sum(irate(request_count{service=~\"$service\",version=~\"$version\"}[1m])) by (source, version, response_code), 0.001)",
               "intervalFactor": 2,
-              "legendFormat": "{{ source }}: All",
+              "legendFormat": "{{ source }} -> {{version}} : {{ response_code }}",
               "refId": "B",
-              "step": 2
-            },
-            {
-              "expr": "round(sum(irate(request_count{service=~\"$service\",response_code=\"200\"}[1m])) by (source), 0.001)",
-              "hide": false,
-              "intervalFactor": 2,
-              "legendFormat": "{{ source }}: 200s",
-              "refId": "A",
-              "step": 2
-            },
-            {
-              "expr": "round(sum(irate(request_count{service=~\"$service\",response_code=~\"4.*\"}[1m])) by (source), 0.001)",
-              "hide": false,
-              "intervalFactor": 2,
-              "legendFormat": "{{ source }}: 400s",
-              "refId": "C",
               "step": 2
             }
           ],
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Requests by Source and Response Code",
+          "title": "Requests by Source, Version, and Response Code",
           "tooltip": {
             "shared": false,
             "sort": 0,
@@ -870,10 +854,10 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(irate(request_count{service=~\"$service\",target=~\"$target\",source=~\"$source\",response_code!~\"5.*\"}[1m])) by (source) / sum(irate(request_count{service=~\"$service\",target=~\"$target\",source=~\"$source\"}[1m])) by (source)",
+              "expr": "sum(irate(request_count{service=~\"$service\",target=~\"$target\",source=~\"$source\",version=~\"$version\",response_code!~\"5.*\"}[1m])) by (source, version) / sum(irate(request_count{service=~\"$service\",target=~\"$target\",source=~\"$source\"}[1m])) by (source, version)",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ source }}",
+              "legendFormat": "{{ source }} -> {{ version }}",
               "refId": "A",
               "step": 2
             }
@@ -881,7 +865,7 @@
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Success Rate by Source (non-5xx responses)",
+          "title": "Success Rate by Source and Version (non-5xx responses)",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -944,34 +928,34 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.50, sum(irate(request_duration_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[1m])) by (source, le))",
+              "expr": "histogram_quantile(0.50, sum(irate(request_duration_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\",version=~\"$version\"}[1m])) by (source, version, le))",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} (p50)",
+              "legendFormat": "{{ source }} -> {{ version }} (p50)",
               "refId": "D",
               "step": 2
             },
             {
-              "expr": "histogram_quantile(0.90, sum(irate(request_duration_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[1m])) by (source, le))",
+              "expr": "histogram_quantile(0.90, sum(irate(request_duration_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\",version=~\"$version\"}[1m])) by (source, version, le))",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} (p90)",
+              "legendFormat": "{{ source }} -> {{ version }} (p90)",
               "refId": "B",
               "step": 2
             },
             {
-              "expr": "histogram_quantile(0.95, sum(irate(request_duration_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[1m])) by (source, le))",
+              "expr": "histogram_quantile(0.95, sum(irate(request_duration_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\",version=~\"$version\"}[1m])) by (source, version, le))",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} (p95)",
+              "legendFormat": "{{ source }} -> {{ version }} (p95)",
               "refId": "C",
               "step": 2
             },
             {
-              "expr": "histogram_quantile(0.99, sum(irate(request_duration_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[1m])) by (source, le))",
+              "expr": "histogram_quantile(0.99, sum(irate(request_duration_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\",version=~\"$version\"}[1m])) by (source, version, le))",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} (p99)",
+              "legendFormat": "{{ source }} -> {{version }} (p99)",
               "refId": "A",
               "step": 2
             }
@@ -979,7 +963,7 @@
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Response Time by Source",
+          "title": "Response Time by Source and Version",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1042,34 +1026,34 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.50, sum(irate(response_size_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[1m])) by (source, le))",
+              "expr": "histogram_quantile(0.50, sum(irate(response_size_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\", version=~\"$version\"}[1m])) by (source, version, le))",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} (p50)",
+              "legendFormat": "{{ source }} -> {{ version }} (p50)",
               "refId": "D",
               "step": 2
             },
             {
-              "expr": "histogram_quantile(0.90, sum(irate(response_size_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[1m])) by (source, le))",
+              "expr": "histogram_quantile(0.90, sum(irate(response_size_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\", version=~\"$version\"}[1m])) by (source, version, le))",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} (p90)",
+              "legendFormat": "{{ source }} -> {{ version }} (p90)",
               "refId": "B",
               "step": 2
             },
             {
-              "expr": "histogram_quantile(0.95, sum(irate(response_size_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[1m])) by (source, le))",
+              "expr": "histogram_quantile(0.95, sum(irate(response_size_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\", version=~\"$version\"}[1m])) by (source, version, le))",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} (p95)",
+              "legendFormat": "{{ source }} -> {{ version }} (p95)",
               "refId": "C",
               "step": 2
             },
             {
-              "expr": "histogram_quantile(0.99, sum(irate(response_size_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\"}[1m])) by (source, le))",
+              "expr": "histogram_quantile(0.99, sum(irate(response_size_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\", version=~\"$version\"}[1m])) by (source, version, le))",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} (p99)",
+              "legendFormat": "{{ source }} -> {{ version }} (p99)",
               "refId": "A",
               "step": 2
             }
@@ -1077,7 +1061,7 @@
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Response Size by Source",
+          "title": "Response Size by Source and Version",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1182,6 +1166,26 @@
         "tagsQuery": "",
         "type": "query",
         "useTags": false
+      },
+      {
+        "allValue": null,
+        "current": {},
+        "datasource": "${DS_PROMETHEUS}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Version",
+        "multi": true,
+        "name": "version",
+        "options": [],
+        "query": "label_values(request_count, version)",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
       }
     ]
   },
@@ -1216,5 +1220,5 @@
   },
   "timezone": "browser",
   "title": "Istio Dashboard",
-  "version": 33
+  "version": 35
 }
