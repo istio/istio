@@ -380,6 +380,81 @@ const (
 	errValidate
 )
 
+func TestAPI_getAdaptersOrDescriptors(t *testing.T) {
+	key := "/scopes/%s/adapters"
+	val := "{}"
+
+	for _, tst := range []struct {
+		msg    string
+		scope  string
+		status int
+	}{
+		{"ok", "global", http.StatusOK},
+	} {
+		t.Run(tst.msg, func(t *testing.T) {
+			k := fmt.Sprintf(key, tst.scope)
+			store := &fakeMemStore{
+				data: map[string]string{
+					k: val,
+				},
+			}
+			api := NewAPI("v1", 0, nil, nil,
+				nil, nil, store)
+			sc, bbody := makeAPIRequest(api.handler, "GET", "/api/v1"+k, []byte{}, t)
+			if sc != tst.status {
+				t.Fatalf("http status got %d\nwant %d \nmsg: %s", sc, tst.status, string(bbody))
+			}
+			apiResp := &APIResponse{}
+			if err := json.Unmarshal(bbody, apiResp); err != nil {
+				t.Fatalf("Unable to unmarshal json %s", err.Error())
+			}
+
+			if !strings.Contains(apiResp.Status.Message, tst.msg) {
+				t.Errorf("got %v\nwant %s", apiResp.Status, tst.msg)
+			}
+		})
+	}
+
+}
+
+func TestAPI_putAdaptersOrDescriptors(t *testing.T) {
+	key := "/scopes/%s/adapters"
+	val := "Value"
+
+	for _, tst := range []struct {
+		msg    string
+		scope  string
+		status int
+	}{
+		{"Created", "global", http.StatusOK},
+		{"only supports global", "local", http.StatusBadRequest},
+	} {
+		t.Run(tst.msg, func(t *testing.T) {
+			k := fmt.Sprintf(key, tst.scope)
+			store := &fakeMemStore{
+				data: map[string]string{
+					k: val,
+				},
+			}
+			api := NewAPI("v1", 0, nil, nil,
+				nil, nil, store)
+			sc, bbody := makeAPIRequest(api.handler, "PUT", "/api/v1"+k, []byte{}, t)
+			if sc != tst.status {
+				t.Fatalf("http status got %d\nwant %d", sc, tst.status)
+			}
+			apiResp := &APIResponse{}
+			if err := json.Unmarshal(bbody, apiResp); err != nil {
+				t.Fatalf("Unable to unmarshal json %s", err.Error())
+			}
+
+			if !strings.Contains(apiResp.Status.Message, tst.msg) {
+				t.Errorf("got %v\nwant %s", apiResp.Status, tst.msg)
+			}
+		})
+	}
+
+}
+
 func TestAPI_putRules(t *testing.T) {
 	key := "/scopes/scope/subjects/subject/rules"
 	val := "Value"
