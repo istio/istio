@@ -79,7 +79,7 @@ In this setup, Istio CA is able to provide key/cert management for all namespace
 - End-user to service authentication using JWT/OAuth2/OpenID_Connect
 - Support GCP service account and AWS service account
 - None-http traffic (MySql, Redis, etc.) support
-- Auth info propagation from Envoy to the service (issue)
+- Auth info propagation from Envoy to the service
 - Unix domain socket for local communication between service and Envoy
 - Middle proxy support
 - Pluggable key management component
