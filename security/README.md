@@ -74,10 +74,9 @@ In this setup, Istio CA is able to provide key/cert management for all namespace
 
 ## Future Work
 - Fine-grained authorization and auditing
-- Key/cert rotation and revocation
 - Secure Istio components (mixer, discovery service, etc.)
 - Inter-cluster service-to-service authentication
-- End-user to service authentication
+- End-user to service authentication using JWT/OAuth2/OpenID_Connect
 - Support GCP service account and AWS service account
 - None-http traffic (MySql, Redis, etc.) support
 - Auth info propagation from Envoy to the service (issue)
