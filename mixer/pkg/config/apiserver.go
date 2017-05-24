@@ -114,6 +114,52 @@ func (a *API) register(c *restful.Container) {
 		Reads(&pb.ServiceConfig{}).
 		Writes(APIResponse{}))
 
+	// Adapters
+	ws.Route(ws.
+		GET("/scopes/{scope}/adapters").
+		To(a.getAdaptersOrDescriptors).
+		Doc("Gets named adapter configurations.").
+		Param(ws.PathParameter("scope", "scope").DataType("string")).
+		Writes(APIResponse{}))
+
+	ws.Route(ws.
+		PUT("/scopes/{scope}/adapters").
+		To(a.putAdaptersOrDescriptors).
+		Doc("Creates or replaces named adapter configurations.").
+		Param(ws.PathParameter("scope", "scope").DataType("string")).
+		Reads(&pb.GlobalConfig{}).
+		Writes(APIResponse{}))
+
+	ws.Route(ws.
+		DELETE("/scopes/{scope}/adapters").
+		To(a.deleteAdaptersOrDescriptors).
+		Doc("Deletes named adapter configurations.").
+		Param(ws.PathParameter("scope", "scope").DataType("string")).
+		Writes(APIResponse{}))
+
+	// Descriptors
+	ws.Route(ws.
+		GET("/scopes/{scope}/descriptors").
+		To(a.getAdaptersOrDescriptors).
+		Doc("Gets descriptors.").
+		Param(ws.PathParameter("scope", "scope").DataType("string")).
+		Writes(APIResponse{}))
+	ws.Route(ws.
+		PUT("/scopes/{scope}/descriptors").
+		To(a.putAdaptersOrDescriptors).
+		Doc("Creates or replaces descriptors.").
+		Param(ws.PathParameter("scope", "scope").DataType("string")).
+		Reads(&pb.GlobalConfig{}).
+		Writes(APIResponse{}))
+	ws.Route(ws.
+		DELETE("/scopes/{scope}/descriptors").
+		To(a.deleteAdaptersOrDescriptors).
+		Doc("Deletes descriptors.").
+		Param(ws.PathParameter("scope", "scope").DataType("string")).
+		Reads(&pb.GlobalConfig{}).
+		Writes(APIResponse{}))
+
+	// The functions below are the remaining functions defined in the API spec
 	// Delete a rule
 	ws.Route(ws.
 		DELETE("/scopes/{scope}/subjects/{subject}/rules/{ruleid}").
@@ -209,9 +255,7 @@ func (a *API) getScopes(req *restful.Request, resp *restful.Response) {
 // getRules returns the rules document for the scope and the subject.
 // "/scopes/{scope}/subjects/{subject}/rules"
 func (a *API) getRules(req *restful.Request, resp *restful.Response) {
-	funcPath := req.Request.URL.Path[len(a.rootPath):]
-	st, msg, data := getRules(a.store, funcPath)
-	writeResponse(st, msg, data, resp)
+	a.getConfig(req, resp, &pb.ServiceConfig{})
 }
 
 // deleteRules deletes the rules document for the scope and the subject.
@@ -228,27 +272,30 @@ func (a *API) deleteRules(req *restful.Request, resp *restful.Response) {
 	writeResponse(http.StatusOK, fmt.Sprintf("Deleted %s", funcPath), nil, resp)
 }
 
-func getRules(store KeyValueStore, path string) (statusCode int, msg string, data *pb.ServiceConfig) {
+func (a *API) getConfig(req *restful.Request, resp *restful.Response, m interface{}) {
+	path := req.Request.URL.Path[len(a.rootPath):]
 	var val string
 	var found bool
 
-	if val, _, found = store.Get(path); !found {
-		return http.StatusNotFound, fmt.Sprintf("no rules for %s", path), nil
+	if val, _, found = a.store.Get(path); !found {
+		writeErrorResponse(http.StatusNotFound, fmt.Sprintf("no config for %s", path), resp)
+		return
 	}
 
-	m := &pb.ServiceConfig{}
 	if err := yaml.Unmarshal([]byte(val), m); err != nil {
-		msg := fmt.Sprintf("unable to parse rules at '%s': %v", path, err)
+		msg := fmt.Sprintf("unable to parse config at '%s': %v", path, err)
 		glog.Warning(msg)
-		return http.StatusInternalServerError, msg, nil
+		writeErrorResponse(http.StatusInternalServerError, msg, resp)
+		return
 	}
-	return http.StatusOK, msgOk, m
+
+	writeResponse(http.StatusOK, msgOk, m, resp)
 }
 
-// putRules replaces the entire rules document for the scope and subject
-// "/scopes/{scope}/subjects/{subject}/rules"
-func (a *API) putRules(req *restful.Request, resp *restful.Response) {
+// getReply extracts the newly created config from a Validated struct.
+type getReply func(vd *Validated) interface{}
 
+func (a *API) storeConfigIfValid(req *restful.Request, resp *restful.Response, getreply getReply) {
 	key := req.Request.URL.Path[len(a.rootPath):]
 	var data map[string]string
 	var err error
@@ -266,9 +313,6 @@ func (a *API) putRules(req *restful.Request, resp *restful.Response) {
 	}
 	val := string(bval)
 	data[key] = val
-	/*
-		rt *Validated, desc descriptor.Finder, ce *adapter.ConfigErrors
-	*/
 	var vd *Validated
 	var cerr *adapter.ConfigErrors
 	if vd, _, cerr = a.validate(data); cerr != nil {
@@ -278,14 +322,55 @@ func (a *API) putRules(req *restful.Request, resp *restful.Response) {
 	}
 
 	if _, err = a.store.Set(key, val); err != nil {
+		glog.Warningf("Failed to save %s\n %s", key, cerr.Error())
 		writeErrorResponse(http.StatusInternalServerError, err.Error(), resp)
 		return
 	}
 	// TODO send index back to the client
-	writeResponse(http.StatusOK, fmt.Sprintf("Created %s", key),
-		vd.rule[*parseRulesKey(key)], resp)
+	writeResponse(http.StatusOK, fmt.Sprintf("Created %s", key), getreply(vd), resp)
 }
 
+// putRules replaces the entire rules document for the scope and subject
+// "/scopes/{scope}/subjects/{subject}/rules"
+func (a *API) putRules(req *restful.Request, resp *restful.Response) {
+	a.storeConfigIfValid(req, resp, func(vd *Validated) interface{} {
+		return vd.rule[rulesKey{
+			Scope:   req.PathParameter("scope"),
+			Subject: req.PathParameter("subject")}]
+	})
+}
+
+// putAdaptersOrDescriptors creates or replaces specified configurations.
+// "/scopes/{scope}/adapters"
+// "/scopes/{scope}/descriptors"
+func (a *API) putAdaptersOrDescriptors(req *restful.Request, resp *restful.Response) {
+	scope := req.PathParameter("scope")
+	if scope != "global" {
+		writeErrorResponse(http.StatusBadRequest, "put only supports global scope", resp)
+		return
+	}
+
+	a.storeConfigIfValid(req, resp, func(vd *Validated) interface{} {
+		return vd.adapter[scope]
+	})
+}
+
+// getAdaptersOrDescriptors gets specified configurations.
+// "/scopes/{scope}/adapters"
+// "/scopes/{scope}/descriptors"
+func (a *API) getAdaptersOrDescriptors(req *restful.Request, resp *restful.Response) {
+	var ret map[string]interface{}
+	a.getConfig(req, resp, &ret)
+}
+
+// deleteAdaptersOrDescriptors deletes specified configurations.
+// "/scopes/{scope}/adapters"
+// "/scopes/{scope}/descriptors
+func (a *API) deleteAdaptersOrDescriptors(req *restful.Request, resp *restful.Response) {
+	writeErrorResponse(http.StatusNotImplemented, "delete not implemented", resp) // TODO
+}
+
+// from api spec
 // createPolicy creates a policy
 // "/scopes/{scope}/subjects/{subject}"
 func (a *API) createPolicy(req *restful.Request, resp *restful.Response) {
