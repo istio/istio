@@ -19,9 +19,7 @@ load(
     "//:repositories.bzl",
     "boringssl_repositories",
     "protobuf_repositories",
-    "googleapis_repositories",
     "googletest_repositories",
-    "grpc_repositories",
     "transcoding_repositories",
 )
 
@@ -29,18 +27,17 @@ boringssl_repositories()
 
 protobuf_repositories()
 
-googleapis_repositories()
-
 googletest_repositories()
-
-grpc_repositories(envoy_deps=True)
 
 transcoding_repositories()
 
 load(
     "//contrib/endpoints:repositories.bzl",
+    "grpc_repositories",
     "servicecontrol_client_repositories",
 )
+
+grpc_repositories()
 
 servicecontrol_client_repositories()
 
