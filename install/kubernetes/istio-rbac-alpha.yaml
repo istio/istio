@@ -15,7 +15,7 @@ rules:
   resources: ["istioconfigs", "istioconfigs.istio.io"]
   verbs: ["*"]
 - apiGroups: ["extensions"]
-  resources: ["thirdpartyresources", "thirdpartyresources.extensions", "ingresses"]
+  resources: ["thirdpartyresources", "thirdpartyresources.extensions", "ingresses", "ingresses/status"]
   verbs: ["*"]
 - apiGroups: [""]
   resources: ["configmaps", "endpoints", "pods", "services"]
