@@ -16,7 +16,7 @@ rules:
   verbs: ["*"]
 - apiGroups: [""]
   resources: ["configmaps", "endpoints", "pods", "services"]
-  verbs: ["get", "watch", "list"]
+  verbs: ["*"]
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -40,49 +40,46 @@ rules:
   resources: ["istioconfigs"]
   verbs: ["get", "watch", "list"]
 - apiGroups: ["extensions"]
-  resources: ["thirdpartyresources"]
-  verbs: ["get", "watch", "list"]
+  resources: ["thirdpartyresources", "ingresses"]
+  verbs: ["get", "watch", "list", "update"]
 - apiGroups: [""]
   resources: ["configmaps", "pods", "endpoints", "services"]
   verbs: ["get", "watch", "list"]
 ---
 # Grant permissions to the Manager/discovery.
-kind: ClusterRoleBinding
+kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
   name: istio-manager-admin-role-binding
 subjects:
 - kind: ServiceAccount
   name: istio-manager-service-account
-  namespace: default
 roleRef:
   kind: ClusterRole
   name: istio-manager
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Manager/discovery.
-kind: ClusterRoleBinding
+kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
   name: istio-ca-role-binding
 subjects:
 - kind: ServiceAccount
   name: istio-ca-service-account
-  namespace: default
 roleRef:
   kind: ClusterRole
   name: istio-ca
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Ingress controller.
-kind: ClusterRoleBinding
+kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
   name: istio-ingress-admin-role-binding
 subjects:
 - kind: ServiceAccount
   name: istio-ingress-service-account
-  namespace: default
 roleRef:
   kind: ClusterRole
   name: istio-manager
@@ -91,14 +88,13 @@ roleRef:
 # Grant permissions to the sidecar.
 # TEMPORARY: the istioctl should generate a separate service account for the proxy, and permission
 # granted only to that account !
-kind: ClusterRoleBinding
+kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
   name: istio-sidecar-role-binding
 subjects:
 - kind: ServiceAccount
   name: default
-  namespace: default
 roleRef:
   kind: ClusterRole
   name: istio-sidecar

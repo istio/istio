@@ -4,6 +4,9 @@ set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_PATH="${ROOT}/bin"
 
+bazel ${BAZEL_STARTUP_ARGS} build ${BAZEL_RUN_ARGS} \
+  //... $(bazel query 'tests(//...)')
+
 source ${BIN_PATH}/use_bazel_go.sh
 
 cd ${ROOT}
@@ -36,13 +39,8 @@ go_metalinter() {
             LAST_GOOD_GITSHA=${TRAVIS_COMMIT_RANGE}
         fi
     elif [[ ! -z ${GITHUB_PR_TARGET_BRANCH} ]]; then
-        local remotes=''
-        remotes=($(git remote)) || remotes=''
-        if [[ -n ${remotes} ]]; then
-          parent_branch='parent'
-          remote=${remotes[1]}
-          git fetch ${remote} "refs/heads/${GITHUB_PR_TARGET_BRANCH}:${parent_branch}"
-        fi
+        parent_branch='parent'
+        git fetch origin "refs/heads/${GITHUB_PR_TARGET_BRANCH}:${parent_branch}"
     fi
 
     if [[ -z ${LAST_GOOD_GITSHA} ]] && [[ -n "${parent_branch}" ]]; then

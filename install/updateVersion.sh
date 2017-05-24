@@ -106,6 +106,7 @@ function merge_files() {
   AUTH_SRC=$SRC/istio-auth
   ISTIO=$ROOT/install/kubernetes/istio.yaml
   ISTIO_AUTH=$ROOT/install/kubernetes/istio-auth.yaml
+  ISTIO_AUTH_WITH_CLUSTER_CA=$ROOT/install/kubernetes/templates/istio-auth/istio-auth-with-cluster-ca.yaml
 
   echo "# GENERATED FILE. Use with Kubernetes 1.5+" > $ISTIO
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
@@ -118,6 +119,7 @@ function merge_files() {
   sed -i "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
   cat $AUTH_SRC/istio-ingress-auth.yaml >> $ISTIO_AUTH
   cat $AUTH_SRC/istio-egress-auth.yaml >> $ISTIO_AUTH
+  cp $ISTIO_AUTH $ISTIO_AUTH_WITH_CLUSTER_CA
   cat $AUTH_SRC/istio-namespace-ca.yaml >> $ISTIO_AUTH
 }
 
@@ -144,6 +146,12 @@ function update_istio_install() {
   popd
 }
 
+function update_istio_addons() {
+  pushd $ROOT/install/kubernetes/addons
+  sed -i "s|image: .*/\(.*\):.*|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml
+  popd
+}
+
 function update_istio_auth() {
   pushd $TEMP_DIR/templates/istio-auth
   sed -i "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: $CA_HUB/\1:$CA_TAG|" istio-cluster-ca.yaml
@@ -161,6 +169,7 @@ fi
 cp -R $ROOT/install/kubernetes/templates $TEMP_DIR/templates
 update_version_file
 update_istio_install
+update_istio_addons
 update_istio_auth
 merge_files
 rm -R $TEMP_DIR/templates
