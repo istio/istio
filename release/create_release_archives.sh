@@ -41,7 +41,7 @@ if [[ -z "${CP}" ]] ; then
   CP=cp
 fi
 if [[ -z "${TAR}" ]] ; then
-  TAR=gtar
+  TAR=tar
 fi
 
 function create_linux_archive() {
