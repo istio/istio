@@ -92,7 +92,7 @@ cover each phase in this section and a more detailed version can be found
 2. When a pod is created, API Server mounts the cert/key according to the
    service account using [Kubernetes
    secrets](https://kubernetes.io/docs/concepts/configuration/secret/).
-3. [Istio Manager](https://github.com/istio/manager/blob/master/doc/design.md)
+3. [Istio-Manager](https://github.com/istio/manager/blob/master/doc/design.md)
    generates the config with proper cert/key and secure naming information,
    which defines what service account(s) can run a certain service, and passes it
    to Envoy.
@@ -152,7 +152,7 @@ running by other teams.
 ## Future Work
 
 - Fine-grained authorization and auditing
-- Secure Istio components (mixer, discovery service, etc.)
+- Secure Istio components (Mixer, Istio-Manager, etc.)
 - Inter-cluster service-to-service authentication
 - End-user to service authentication using JWT/OAuth2/OpenID_Connect
 - Support GCP service account and AWS service account
