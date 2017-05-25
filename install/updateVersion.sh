@@ -139,10 +139,10 @@ EOF
 
 function update_istio_install() {
   pushd $TEMP_DIR/templates
-  sed -i "s|image: {MANAGER_HUB}/\(.*\):{MANAGER_TAG}|image: $MANAGER_HUB/\1:$MANAGER_TAG|" istio-manager.yaml
-  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: $MANAGER_HUB/\1:$MANAGER_TAG|" istio-ingress.yaml
-  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: $MANAGER_HUB/\1:$MANAGER_TAG|" istio-egress.yaml
-  sed -i "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: $MIXER_HUB/\1:$MIXER_TAG|" istio-mixer.yaml
+  sed -i "s|image: {MANAGER_HUB}/\(.*\):{MANAGER_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-manager.yaml
+  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-ingress.yaml
+  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-egress.yaml
+  sed -i "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml
   popd
 }
 
@@ -154,10 +154,10 @@ function update_istio_addons() {
 
 function update_istio_auth() {
   pushd $TEMP_DIR/templates/istio-auth
-  sed -i "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: $CA_HUB/\1:$CA_TAG|" istio-cluster-ca.yaml
-  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: $MANAGER_HUB/\1:$MANAGER_TAG|" istio-egress-auth.yaml
-  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: $MANAGER_HUB/\1:$MANAGER_TAG|" istio-ingress-auth.yaml
-  sed -i "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: $CA_HUB/\1:$CA_TAG|" istio-namespace-ca.yaml
+  sed -i "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-cluster-ca.yaml
+  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-egress-auth.yaml
+  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-ingress-auth.yaml
+  sed -i "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-namespace-ca.yaml
   popd
 }
 
