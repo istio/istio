@@ -1,10 +1,13 @@
-#!/bin/bash
-# Temporary place holder that gets the job done.
-# We can do arbitrary things in this script over time.
+#! /bin/sh
+#
+# Early version of a downloader/installer for Istio
+#
 # This file will be fetched as: curl -L https://git.io/getIstio | sh -
+# so it should be pure bourne shell, not bash
+#
 # The script fetches the latest Istio release and untars it.
 
-# TODO: Automate me.
+# TODO: Automate updating me.
 ISTIO_VERSION="0.1.5"
 
 NAME="istio-$ISTIO_VERSION"
