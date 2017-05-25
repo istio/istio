@@ -9,7 +9,7 @@ ISTIO_VERSION="0.1.5"
 
 NAME="istio-$ISTIO_VERSION"
 OS="$(uname)"
-if [[ "$OS" == "Darwin" ]] ; then
+if [ "x${OS}" = "xDarwin" ] ; then
   OSEXT="osx"
 else
   # TODO we should check more/complain if not likely to work, etc...
