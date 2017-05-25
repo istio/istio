@@ -37,11 +37,11 @@ const (
 )
 
 var (
-	namespace    = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub     = flag.String("mixer_hub", os.Getenv(mixerHubEnvVar), "Mixer hub")
-	mixerTag     = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
-	managerHub   = flag.String("manager_hub", os.Getenv(managerHubEnvVar), "Manager hub")
-	managerTag   = flag.String("manager_tag", os.Getenv(managerTagEnvVar), "Manager tag")
+	namespace  = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub   = flag.String("mixer_hub", os.Getenv(mixerHubEnvVar), "Mixer hub")
+	mixerTag   = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
+	managerHub = flag.String("manager_hub", os.Getenv(managerHubEnvVar), "Manager hub")
+	managerTag = flag.String("manager_tag", os.Getenv(managerTagEnvVar), "Manager tag")
 	//caHub        = flag.String("ca_hub", "", "Ca hub")
 	//caTag        = flag.String("ca_tag", "", "Ca tag")
 	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
@@ -86,11 +86,11 @@ func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
 	return &KubeInfo{
 		Namespace:        *namespace,
 		namespaceCreated: false,
-		TmpDir:       tmpDir,
-		yamlDir:      yamlDir,
-		localCluster: *localCluster,
-		Istioctl:     i,
-		AppManager:   a,
+		TmpDir:           tmpDir,
+		yamlDir:          yamlDir,
+		localCluster:     *localCluster,
+		Istioctl:         i,
+		AppManager:       a,
 	}, nil
 }
 
