@@ -23,7 +23,7 @@ tool to provide some fairness between service consumers when contending for limi
 - **Telemetry Reporting**. Enables services to produce logging, monitoring, tracing and billing streams intended for the service producer itself as well as 
 for its consumers.
 
-Learn more about Mixer [here](https://istio.io/concepts/policy-and-control/mixer.html).
+Learn more about Mixer [here](https://istio.io/docs/concepts/policy-and-control/mixer.html).
 
 Please see [istio.io](https://istio.io)
 to learn about the overall Istio project and how to get in touch with us. To learn how you can
