@@ -106,7 +106,7 @@ function merge_files() {
   AUTH_SRC=$SRC/istio-auth
   ISTIO=$ROOT/install/kubernetes/istio.yaml
   ISTIO_AUTH=$ROOT/install/kubernetes/istio-auth.yaml
-  ISTIO_AUTH_WITH_CLUSTER_CA=$ROOT/install/kubernetes/templates/istio-auth/istio-auth-with-cluster-ca.yaml
+  ISTIO_AUTH_WITH_CLUSTER_CA=$ROOT/install/kubernetes/istio-auth-with-cluster-ca.yaml
 
   echo "# GENERATED FILE. Use with Kubernetes 1.5+" > $ISTIO
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
