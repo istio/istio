@@ -1,0 +1,17 @@
+#! /bin/bash
+# update and rebuild from source
+set -x
+cd istio
+git pull
+cd ../mixer
+git pull
+cd ../proxy
+git pull
+cd ../wrk
+git pull
+make
+cd ../proxy
+bazel build src/envoy/mixer:envoy
+cd ../mixer
+bazel build ...
+echo "All done... source setup_run   now"
