@@ -1,4 +1,4 @@
-cd github
+# very basic local run
 ulimit -n 16384
 cd mixer; source bin/use_bazel_go.sh ; cd ..
 ( cd proxy/test/backend/echo; go run echo.go > /tmp/echo.log ) &
@@ -7,4 +7,4 @@ cd mixer; source bin/use_bazel_go.sh ; cd ..
 echo "starting everything..."
 sleep 5
 curl -v http://localhost:9090/echo
-export PATH=$PATH:~/github/wrk
+export PATH=$PATH:$(pwd)/wrk
