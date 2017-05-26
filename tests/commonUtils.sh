@@ -92,9 +92,10 @@ function generate_istio_yaml() {
 
     mkdir -p ${dest_dir}
     cp ${src_dir}/* ${dest_dir}
-    sed -i "s|image: {MANAGER_HUB}/\(.*\):{MANAGER_TAG}|image: $MANAGER_HUB/\1:$MANAGER_TAG|" ${dest_dir}/istio-manager.yaml
-    sed -i "s|image: {MANAGER_HUB}/\(.*\):{MANAGER_TAG}|image: $MANAGER_HUB/\1:$MANAGER_TAG|" ${dest_dir}/istio-ingress.yaml
-    sed -i "s|image: {MIXER_HUB}/\(.*\):{MIXER_HUB}|image: $MIXER_HUB/\1:$MIXER_HUB|" ${dest_dir}/istio-mixer.yaml
+    sed -i "s|image: {MANAGER_HUB}/\(.*\):{MANAGER_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" ${dest_dir}/istio-manager.yaml
+    sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" ${dest_dir}/istio-ingress.yaml
+    sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" ${dest_dir}/istio-egress.yaml
+    sed -i "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" ${dest_dir}/istio-mixer.yaml
 }
 
 function generate_bookinfo_yaml() {
