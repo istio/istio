@@ -37,11 +37,12 @@ const (
 )
 
 var (
-	namespace = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub  = flag.String("mixer_hub", os.Getenv(mixerHubEnvVar), "Mixer hub")
-	mixerTag  = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
-	pilotHub  = flag.String("pilot_hub", os.Getenv(pilotHubEnvVar), "Manager hub")
-	pilotTag  = flag.String("pilot_tag", os.Getenv(pilotTagEnvVar), "Manager tag")
+	namespace     = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub      = flag.String("mixer_hub", os.Getenv(mixerHubEnvVar), "Mixer hub")
+	mixerTag      = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
+	pilotHub      = flag.String("pilot_hub", os.Getenv(pilotHubEnvVar), "Manager hub")
+	pilotTag      = flag.String("pilot_tag", os.Getenv(pilotTagEnvVar), "Manager tag")
+	configBackend = flag.String("config_backend", "", "The config backend type for mixer")
 	//caHub        = flag.String("ca_hub", "", "Ca hub")
 	//caTag        = flag.String("ca_tag", "", "Ca tag")
 	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
@@ -61,6 +62,8 @@ type KubeInfo struct {
 	yamlDir string
 
 	Ingress string
+
+	ConfigStoreURL string
 
 	localCluster     bool
 	namespaceCreated bool
@@ -142,6 +145,10 @@ func (k *KubeInfo) Teardown() error {
 }
 
 func (k *KubeInfo) deployIstio() error {
+	if err := k.deployConfigBackend(); err != nil {
+		return err
+	}
+
 	for _, module := range modules {
 		if err := k.deployIstioCore(module); err != nil {
 			glog.Infof("Failed to deploy %s", module)
@@ -189,9 +196,25 @@ func (k *KubeInfo) generateIstioCore(dst, module string) error {
 	content = r.ReplaceAllLiteral(content, hubValue)
 	r = regexp.MustCompile(tagMacro)
 	content = r.ReplaceAllLiteral(content, tagValue)
+	if module == "mixer" && len(k.ConfigStoreURL) > 0 {
+		content = regexp.MustCompile(`(--configStoreURL=).*`).ReplaceAll(content, []byte("${1}"+k.ConfigStoreURL))
+	}
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into generated yaml file %s", dst)
 	}
 	return err
+}
+
+func (k *KubeInfo) deployConfigBackend() error {
+	if *configBackend == "" {
+		return nil
+	}
+	if *configBackend != "redis" {
+		return fmt.Errorf("unsupported config backend %s", *configBackend)
+	}
+
+	k.ConfigStoreURL = "redis://redis-master:6379/"
+	yamlFile := util.GetResourcePath(filepath.Join(istioInstallDir, "redis.yaml"))
+	return util.KubeApply(k.Namespace, yamlFile)
 }

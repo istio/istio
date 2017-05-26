@@ -49,6 +49,10 @@ const (
 	emptyRule                = "mixer-rule-empty-rule.yaml"
 	luaTemplate              = "tests/e2e/tests/testdata/sample.lua.template"
 
+	adaptersFile    = "tests/e2e/tests/testdata/adapters.yml"
+	descriptorsFile = "tests/e2e/tests/testdata/descriptors.yml"
+	globalRulesFile = "tests/e2e/tests/testdata/global-rules.yml"
+
 	mixerPrometheusPort = 42422
 
 	targetLabel       = "target"
@@ -99,6 +103,23 @@ func (t *testConfig) Setup() error {
 	if err := t.wrk.Install(); err != nil {
 		glog.Error("Failed to install wrk")
 		return err
+	}
+	if t.Kube.ConfigStoreURL != "" {
+		glog.Info("Initializing the config backend")
+		if err := t.Kube.Istioctl.CreateAdapters(global, util.GetResourcePath(adaptersFile)); err != nil {
+			glog.Error("Failed to install adapters")
+			return err
+		}
+		if err := t.Kube.Istioctl.CreateDescriptors(global, util.GetResourcePath(descriptorsFile)); err != nil {
+			glog.Error("Failed to install descriptors")
+			return err
+		}
+		if err := t.Kube.Istioctl.CreateMixerRule(global, global, util.GetResourcePath(globalRulesFile)); err != nil {
+			glog.Error("Failed to install global rules")
+			return err
+		}
+		glog.Info("Waiting for mixer to reload the config")
+		time.Sleep(time.Second * 5)
 	}
 	t.gateway = "http://" + tc.Kube.Ingress
 	for _, rule := range rules {
