@@ -1,0 +1,10 @@
+##
+
+service:
+  type: LoadBalancer
+  port: 8088
+
+image:
+  repository: gcr.io/istio-testing/servicegraph
+  tag: latest
+  pullPolicy: Always

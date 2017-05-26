@@ -1,0 +1,42 @@
+{{- if .Values.global.addOns.prometheus.enabled }}
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
+      name: prometheus
+      labels:
+        app: prometheus
+    spec:
+      containers:
+      - name: prometheus
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+          - '-storage.local.retention=6h'
+          - '-storage.local.memory-chunks=500000'
+          - '-config.file=/etc/prometheus/prometheus.yml'
+        ports:
+        - name: web
+          containerPort: 9090
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/prometheus
+      volumes:
+      - name: config-volume
+        configMap:
+          name: prometheus
+{{- end }}

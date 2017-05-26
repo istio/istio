@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "fullname" . }}-mixer
+  labels:
+    istio: {{ template "fullname" . }}-mixer
+    app: {{ template "fullname" . }}-mixer
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  ports:
+  - name: tcp
+    port: 9091
+  - name: configapi
+    port: 9094
+  - name: prometheus
+    port: 42422
+  selector:
+    istio: {{ template "fullname" . }}-mixer

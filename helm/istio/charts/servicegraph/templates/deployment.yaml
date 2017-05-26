@@ -1,0 +1,28 @@
+{{- if .Values.global.addOns.servicegraph.enabled }}
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: servicegraph
+  labels:
+    app: servicegraph
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
+      labels:
+        app: servicegraph
+    spec:
+      containers:
+      - name: servicegraph
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+          - containerPort: 8088
+        args:
+        - --prometheusAddr=http://prometheus:9090
+{{- end }}

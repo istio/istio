@@ -1,0 +1,21 @@
+{{- if .Values.global.addOns.prometheus.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+  annotations:
+    prometheus.io/scrape: 'true'
+spec:
+  selector:
+    app: prometheus
+  type: {{ .Values.service.type }}
+  ports:
+  - name: prometheus
+    protocol: TCP
+    port: {{ .Values.service.port }}
+{{- end }}

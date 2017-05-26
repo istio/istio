@@ -1,0 +1,9 @@
+##
+service:
+  type: LoadBalancer
+  port: 3000
+
+image:
+  repository: docker.io/istio/grafana
+  tag: 0.1.5
+  pullPolicy: IfNotPresent

@@ -1,0 +1,37 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}-egress
+  labels:
+    app: {{ template "fullname" . }}-egress
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  replicas: {{ .Values.engress.replicaCount }}
+  template:
+    metadata:
+      labels:
+        istio: {{ template "fullname" . }}-egress
+    spec:
+      containers:
+      - name: proxy
+        image: "{{ .Values.engress.image.repository }}:{{ .Values.engress.image.tag }}"
+        imagePullPolicy: {{ .Values.engress.image.pullPolicy }}
+        args: ["proxy", "egress", "-v", "2"]
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+{{- if .Values.auth.enabled }}
+        volumeMounts:
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+{{- end }}

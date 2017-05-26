@@ -1,0 +1,30 @@
+{{- if .Values.auth.enabled }}
+apiVersion: v1
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: {{ template "fullname" . }}-ca
+  labels:
+    app: {{ template "fullname" . }}-ca
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  replicas: {{ .Values.auth.replicaCount }}
+  template:
+    metadata:
+      labels:
+        istio: {{ template "fullname" . }}-ca
+    spec:
+      serviceAccountName: {{ template "fullname" . }}-ca-service-account
+      containers:
+      - name: istio-ca
+        image: "{{ .Values.auth.image.repository }}:{{ .Values.auth.image.tag }}"
+        imagePullPolicy: {{ .Values.auth.image.pullPolicy }}
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+{{- end }}

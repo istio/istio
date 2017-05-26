@@ -1,0 +1,31 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}-mixer
+  labels:
+    app: {{ template "fullname" . }}-mixer
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  replicas: {{ .Values.mixer.replicaCount }}
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
+      labels:
+        istio: {{ template "fullname" . }}-mixer
+    spec:
+      containers:
+      - name: mixer
+        image: "{{ .Values.mixer.image.repository }}:{{ .Values.mixer.image.tag }}"
+        imagePullPolicy: {{ .Values.mixer.image.pullPolicy }}
+        ports:
+        - containerPort: 9091
+        - containerPort: 9094
+        - containerPort: 42422
+        args:
+          - --configStoreURL=fs:///etc/opt/mixer/configroot
+          - --logtostderr
+          - -v
+          - "3"

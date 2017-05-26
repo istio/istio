@@ -1,0 +1,70 @@
+# Default values for Istio.
+
+##
+manager:
+  replicaCount: 1
+  image:
+    repository: docker.io/istio/manager
+    tag: 0.1.5
+    pullPolicy: IfNotPresent
+
+##
+mixer:
+  replicaCount: 1
+  image:
+    repository: docker.io/istio/mixer
+    tag: 0.1.5
+    pullPolicy: IfNotPresent
+
+##
+ingress:
+  replicaCount: 1
+  image:
+    repository: docker.io/istio/proxy_debug
+    tag: 0.1.5
+    pullPolicy: IfNotPresent
+
+##
+engress:
+  replicaCount: 1
+  image:
+    repository: docker.io/istio/proxy_debug
+    tag: 0.1.5
+    pullPolicy: IfNotPresent
+
+##
+auth:
+  enabled: enabled
+  replicaCount: 1
+  image:
+    repository: docker.io/istio/istio-ca
+    tag: 0.1.5
+    pullPolicy: IfNotPresent
+
+##
+rbac:
+  enabled: false
+  ## type can be alpha or beta
+  type: beta
+
+##
+global:
+  ## Main chart name
+  ## to pass the main chart name for now is only possible hardcoding it as a global value
+  mainChart: istio
+
+  ## Enable/disable addOns
+  ## addons images, services can be changed in the addon chart values file
+  addOns:
+
+    grafana:
+      enabled: true
+
+    prometheus:
+      enabled: true
+
+    servicegraph:
+      enabled: true
+
+    zipkin:
+      enabled: true

@@ -1,0 +1,10 @@
+##
+
+service:
+  type: LoadBalancer
+  port: 9090
+
+image:
+  repository: quay.io/coreos/prometheus
+  tag: v1.1.1
+  pullPolicy: IfNotPresent
