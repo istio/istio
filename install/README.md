@@ -5,7 +5,7 @@ the script for updating it.
  
 ## updateVersion.sh
 
-The [updateVersion.sh](../updateVersion.sh) script is used to update image versions in
+The [updateVersion.sh](updateVersion.sh) script is used to update image versions in
 [../istio.VERSION](../istio.VERSION) and the istio installation yaml files.
 
 ### Options
