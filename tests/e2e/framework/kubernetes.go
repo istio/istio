@@ -37,13 +37,13 @@ const (
 )
 
 var (
-	namespace    = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub     = flag.String("mixer_hub", os.Getenv(mixerHubEnvVar), "Mixer hub")
-	mixerTag     = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
-	managerHub   = flag.String("manager_hub", os.Getenv(managerHubEnvVar), "Manager hub")
-	managerTag   = flag.String("manager_tag", os.Getenv(managerTagEnvVar), "Manager tag")
-	caHub        = flag.String("ca_hub", "", "Ca hub")
-	caTag        = flag.String("ca_tag", "", "Ca tag")
+	namespace  = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub   = flag.String("mixer_hub", os.Getenv(mixerHubEnvVar), "Mixer hub")
+	mixerTag   = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
+	managerHub = flag.String("manager_hub", os.Getenv(managerHubEnvVar), "Manager hub")
+	managerTag = flag.String("manager_tag", os.Getenv(managerTagEnvVar), "Manager tag")
+	//caHub        = flag.String("ca_hub", "", "Ca hub")
+	//caTag        = flag.String("ca_tag", "", "Ca tag")
 	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
 
 	modules = []string{
@@ -56,11 +56,6 @@ var (
 // KubeInfo gathers information for kubectl
 type KubeInfo struct {
 	Namespace string
-
-	MixerImage   string
-	ManagerImage string
-	CaImage      string
-	ProxyImage   string
 
 	TmpDir  string
 	yamlDir string
@@ -91,16 +86,11 @@ func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
 	return &KubeInfo{
 		Namespace:        *namespace,
 		namespaceCreated: false,
-		MixerImage:       fmt.Sprintf("%s/mixer:%s", *mixerHub, *mixerTag),
-		ManagerImage:     fmt.Sprintf("%s/manager:%s", *managerHub, *managerTag),
-		CaImage:          fmt.Sprintf("%s/ca:%s", *caHub, *caTag),
-		// Proxy and Manager are released together and share the same hub and tag.
-		ProxyImage:   fmt.Sprintf("%s/proxy_debug:%s", *managerHub, *managerTag),
-		TmpDir:       tmpDir,
-		yamlDir:      yamlDir,
-		localCluster: *localCluster,
-		Istioctl:     i,
-		AppManager:   a,
+		TmpDir:           tmpDir,
+		yamlDir:          yamlDir,
+		localCluster:     *localCluster,
+		Istioctl:         i,
+		AppManager:       a,
 	}, nil
 }
 
@@ -177,22 +167,28 @@ func (k *KubeInfo) deployIstioCore(module string) error {
 
 func (k *KubeInfo) generateIstioCore(dst, module string) error {
 	src := util.GetResourcePath(filepath.Join(istioInstallDir, fmt.Sprintf("istio-%s.yaml", module)))
-	ori, err := ioutil.ReadFile(src)
+	content, err := ioutil.ReadFile(src)
 	if err != nil {
 		glog.Errorf("Cannot read original yaml file %s", src)
 		return err
 	}
-	var image []byte
+	var hubMacro, tagMacro string
+	var hubValue, tagValue []byte
 	switch module {
 	case "manager":
-		image = []byte(fmt.Sprintf("image: %s", k.ManagerImage))
+		hubMacro, tagMacro = `{MANAGER_HUB}`, `{MANAGER_TAG}`
+		hubValue, tagValue = []byte(*managerHub), []byte(*managerTag)
 	case "mixer":
-		image = []byte(fmt.Sprintf("image: %s", k.MixerImage))
+		hubMacro, tagMacro = `{MIXER_HUB}`, `{MIXER_TAG}`
+		hubValue, tagValue = []byte(*mixerHub), []byte(*mixerTag)
 	case "ingress":
-		image = []byte(fmt.Sprintf("image: %s", k.ProxyImage))
+		hubMacro, tagMacro = `{PROXY_HUB}`, `{PROXY_TAG}`
+		hubValue, tagValue = []byte(*managerHub), []byte(*managerTag)
 	}
-	r := regexp.MustCompile(`image: .*(\/.*):.*`)
-	content := r.ReplaceAllLiteral(ori, image)
+	r := regexp.MustCompile(hubMacro)
+	content = r.ReplaceAllLiteral(content, hubValue)
+	r = regexp.MustCompile(tagMacro)
+	content = r.ReplaceAllLiteral(content, tagValue)
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into generated yaml file %s", dst)
