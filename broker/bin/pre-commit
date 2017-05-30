@@ -30,6 +30,6 @@ BRANCH_NAME=$(git branch | grep '*' | sed 's/* //')
 if [ $BRANCH_NAME != '(no branch)' ]; then
   cd $ROOT
 
-  echo "formatting..."
-  bin/fmt.sh
+#  echo "formatting..."
+#  bin/fmt.sh
 fi

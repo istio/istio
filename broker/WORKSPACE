@@ -12,7 +12,7 @@ go_repositories()
 
 git_repository(
     name = "org_pubref_rules_protobuf",
-    commit = "08330f50aa0ecf8c228702c039e04b4de1e9e29e",  # May 1 2017 (gogo* support)
+    commit = "9ede1dbc38f0b89ae6cd8e206a22dd93cc1d5637",  # Mar 31 2017 (gogo* support)
     remote = "https://github.com/geeknoid/rules_protobuf",
 )
 
