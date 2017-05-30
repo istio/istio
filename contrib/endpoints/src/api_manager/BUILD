@@ -85,6 +85,8 @@ cc_library(
         "check_workflow.cc",
         "check_workflow.h",
         "config.cc",
+        "config_manager.cc",
+        "config_manager.h",
         "fetch_metadata.cc",
         "fetch_metadata.h",
         "gce_metadata.cc",
@@ -93,6 +95,8 @@ cc_library(
         "quota_control.cc",
         "quota_control.h",
         "request_handler.cc",
+        "service_management_fetch.cc",
+        "service_management_fetch.h",
         "weighted_selector.cc",
         "weighted_selector.h",
     ],
@@ -192,6 +196,36 @@ cc_test(
     size = "small",
     srcs = [
         "api_manager_test.cc",
+    ],
+    linkstatic = 1,
+    deps = [
+        ":api_manager",
+        ":mock_api_manager_environment",
+        "//external:googletest_main",
+    ],
+)
+
+cc_test(
+    name = "config_manager_test",
+    size = "small",
+    srcs = [
+        "config_manager_test.cc",
+        "mock_request.h",
+    ],
+    linkstatic = 1,
+    deps = [
+        ":api_manager",
+        ":mock_api_manager_environment",
+        "//external:googletest_main",
+    ],
+)
+
+cc_test(
+    name = "service_management_fetch_test",
+    size = "small",
+    srcs = [
+        "mock_request.h",
+        "service_management_fetch_test.cc",
     ],
     linkstatic = 1,
     deps = [

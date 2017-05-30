@@ -69,6 +69,7 @@ class ServiceAccountToken {
     // JWT token for accessing the http endpoints defined in Firebase Rules.
     JWT_TOKEN_FOR_AUTHORIZATION_SERVICE,
     JWT_TOKEN_FOR_QUOTA_CONTROL,
+    JWT_TOKEN_FOR_SERVICEMANAGEMENT_SERVICES,
     JWT_TOKEN_TYPE_MAX,
   };
   // Set audience.  Only calcualtes JWT token with specified audience.
