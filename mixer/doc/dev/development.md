@@ -14,10 +14,12 @@ branch, but release branches of Mixer should not change.
   - [Setting up Go](#setting-up-go)
   - [Setting up Bazel](#setting-up-bazel)
   - [Setting up Docker](#setting-up-docker)
+  - [Setting up personal access token](#setting-up-personal-access-token)
 - [Git workflow](#git-workflow)
   - [Fork the main repository](#fork-the-main-repository)
   - [Clone your fork](#clone-your-fork)
   - [Enable pre commit hook](#enable-pre-commit-hook)
+  - [Enable pre push hook](#enable-pre-push-hook)
   - [Create a branch and make changes](#create-a-branch-and-make-changes)
   - [Keeping your fork in sync](#keeping-your-fork-in-sync)
   - [Committing changes to your fork](#committing-changes-to-your-fork)
@@ -77,6 +79,13 @@ To run some of Mixer's examples and tests, you need to set up Docker server.
 Please follow [these instructions](https://docs.docker.com/engine/installation/)
 for how to do this for your platform.
 
+### Setting up personal access token
+
+Since Istio requires two-factor authentication, you must setup a personal access
+token to enable push via HTTPS. Please follow [these
+instructions](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/)
+for how to create a token.
+
 ## Git workflow
 
 Below, we outline one of the more common git workflows that core developers use.
@@ -119,6 +128,19 @@ Installing pre-commit hook
 This hook is invoked every time you commit changes locally.
 The commit is allowed to proceed only if the hook succeeds.
 
+### Enable pre-push hook
+
+Broker uses a local pre-push hook to ensure that the code
+passes local test.
+
+Run
+```shell
+user@host:~/GOHOME/src/istio.io/broker$ ./bin/pre-push
+Installing pre-push hook
+```
+This hook is invoked every time you push changes locally.
+The push is allowed to proceed only if the hook succeeds.
+
 ### Create a branch and make changes
 
 ```shell
@@ -143,11 +165,19 @@ git remote set-url --push upstream no_push
 
 ### Committing changes to your fork
 
-When you're happy with some changes, you can commit them and push them to your fork:
+When you're happy with some changes, you can commit them to your repo:
 
 ```shell
 git add .
 git commit
+```
+Then push the change to the fork. When prompted for authentication, using your
+github username as usual but the personal access token as your password. Please
+follow [these
+instructions](https://help.github.com/articles/caching-your-github-password-in-git/#platform-linux)
+if you want to cache the token.
+
+```shell
 git push -f origin my-feature
 ```
 
