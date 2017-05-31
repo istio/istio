@@ -6,6 +6,7 @@ go_test(
     srcs = ["mixer_test.go"],
     data = [
         "//samples/apps/bookinfo",
+        "//tests/e2e/tests:testdata",
     ],
     tags = ["manual"],
     deps = [

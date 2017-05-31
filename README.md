@@ -61,10 +61,10 @@ project.
 
 - [istio/manager](https://github.com/istio/manager). This repository
 contains platform-specific code to populate the
-[abstract service model](https://istio.io/docs/concepts/traffic-management/service-model.html), dynamically reconfigure the proxies
+[abstract service model](https://istio.io/docs/concepts/traffic-management/overview.html), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
-[routing rules](https://istio.io/docs/reference/routing-and-traffic-management.html) into proxy specific configuration.  The
-[_istioctl_](https://istio.io/docs/reference/istioctl.html) command line utility is also available in
+[routing rules](https://istio.io/docs/reference/config/traffic-rules/routing-rules.html) into proxy specific configuration.  The
+[_istioctl_](https://istio.io/docs/reference/commands/istioctl.html) command line utility is also available in
 this repository.
 
 - [istio/mixer](https://github.com/istio/mixer). This repository 
@@ -88,5 +88,5 @@ participate in the Istio project by submitting pull requests or issues.
 
 ## Community and support
 
-There are several [communication channels](https://istio.io/community) available to get
+There are several [communication channels](https://istio.io/community/) available to get
 support for Istio or to participate in its evolution.

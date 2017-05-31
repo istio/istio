@@ -27,7 +27,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -48,6 +47,7 @@ const (
 	routeAllRule             = "route-rule-all-v1.yaml"
 	routeReviewsVersionsRule = "route-rule-reviews-v2-v3.yaml"
 	emptyRule                = "mixer-rule-empty-rule.yaml"
+	luaTemplate              = "tests/e2e/tests/testdata/sample.lua.template"
 
 	mixerPrometheusPort = 42422
 
@@ -61,6 +61,33 @@ type testConfig struct {
 	*framework.CommonConfig
 	gateway  string
 	rulesDir string
+	wrk      *util.Wrk
+}
+
+// Template for ../test/testdata/sample.lua.template
+type luaScriptTemplate struct {
+	JSONFile  string
+	ErrorFile string
+}
+
+// SampleResponseJSON for ../test/testdata/sample.lua.template
+type luaScriptResponseJSON struct {
+	CompletedRequests int64   `json:"completedRequests"`
+	FailedRequests    int64   `json:"failedRequests"`
+	TimeoutRequests   int64   `json:"timeoutRequests"`
+	Non2xxResponses   int64   `json:"non2xxResponses"`
+	KiloBytesPerSec   float64 `json:"KiloBytesPerSec"`
+	MaxLatencyMs      float64 `json:"maxLatencyMs"`
+	MeanLatencyMs     float64 `json:"meanLatencyMs"`
+	P50LatencyMs      float64 `json:"p50LatencyMs"`
+	P66LatencyMs      float64 `json:"p66LatencyMs"`
+	P75LatencyMs      float64 `json:"p75LatencyMs"`
+	P80LatencyMs      float64 `json:"p80LatencyMs"`
+	P90LatencyMs      float64 `json:"p90LatencyMs"`
+	P95LatencyMs      float64 `json:"p95LatencyMs"`
+	P98LatencyMs      float64 `json:"p98LatencyMs"`
+	P99LatencyMs      float64 `json:"p99LatencyMs"`
+	RequestsPerSecond float64 `json:"requestsPerSecond"`
 }
 
 var (
@@ -69,6 +96,10 @@ var (
 )
 
 func (t *testConfig) Setup() error {
+	if err := t.wrk.Install(); err != nil {
+		glog.Error("Failed to install wrk")
+		return err
+	}
 	t.gateway = "http://" + tc.Kube.Ingress
 	for _, rule := range rules {
 		src := util.GetResourcePath(filepath.Join(rulesDir, fmt.Sprintf("%s", rule)))
@@ -290,24 +321,39 @@ func TestRateLimit(t *testing.T) {
 	// allow time for configuration to go and be active.
 	// TODO: figure out a better way to confirm rule active
 	time.Sleep(1 * time.Minute)
+	threads := 5
+	timeout := "2m"
+	connections := 5
+	duration := "2m"
+	errorFile := filepath.Join(tc.Kube.TmpDir, "TestRateLimit.err")
+	JSONFile := filepath.Join(tc.Kube.TmpDir, "TestRateLimit.Json")
+	url := fmt.Sprintf("%s/productpage", tc.gateway)
 
-	wg := sync.WaitGroup{}
-
-	// try to send ~10qps for a minute
-	rate := time.Second / 10
-	throttle := time.Tick(rate)
-	for i := 0; i < 600; i++ {
-		<-throttle // rate limit our Service.Method RPCs
-		wg.Add(1)
-		go func() {
-			if err := visitProductPage(0); err != nil {
-				glog.Infof("could get productpage: %v", err)
-			}
-			wg.Done()
-		}()
+	luaScript := &util.LuaTemplate{
+		TemplatePath: util.GetResourcePath(luaTemplate),
+		Template: &luaScriptTemplate{
+			ErrorFile: errorFile,
+			JSONFile:  JSONFile,
+		},
+	}
+	if err := luaScript.Generate(); err != nil {
+		t.Errorf("Failed to generate lua script. %v", err)
+		return
 	}
 
-	wg.Wait()
+	if err := tc.wrk.Run(
+		"-t %d --timeout %s -c %d -d %s -s %s %s",
+		threads, timeout, connections, duration, luaScript.Script, url); err != nil {
+		t.Errorf("Failed to run wrk %v", err)
+		return
+	}
+
+	// TODO: Use the JSON file to do more detailed checking
+	r := &luaScriptResponseJSON{}
+	if err := util.ReadJSON(JSONFile, r); err != nil {
+		t.Errorf("Could not parse json. %v", err)
+		return
+	}
 
 	glog.Info("Successfully request to /productpage; checking Mixer status...")
 
@@ -341,11 +387,11 @@ func TestRateLimit(t *testing.T) {
 		return
 	}
 	// rate-limit set to 5 qps, sending a request every 1/10th of a second,
-	// modulo gorouting scheduling, etc.
-	// there should be ~150 "too many rateLimitedReqs" observed. check for
-	// greater than 100 to allow for differences in routing, etc.
-	if rateLimitedReqs.value < 100 {
-		t.Errorf("Bad metric value: got %f, want at least 100", rateLimitedReqs.value)
+	// modulo goroutine scheduling, etc., with slightly less than 7 qps going
+	// to the rate-limited service. there should be ~100 429s observed.
+	// check for greater than 60 to allow for differences in traffic generation, etc.
+	if rateLimitedReqs.value < 60 {
+		t.Errorf("Bad metric value: got %f, want at least 60", rateLimitedReqs.value)
 	}
 
 	// check to make sure that some requests were accepted and processed
@@ -524,9 +570,13 @@ func setTestConfig() error {
 	}
 	tc = new(testConfig)
 	tc.CommonConfig = cc
-	tc.rulesDir, err = ioutil.TempDir(os.TempDir(), "mixer_test")
+	tmpDir, err := ioutil.TempDir(os.TempDir(), "mixer_test")
 	if err != nil {
 		return err
+	}
+	tc.rulesDir = tmpDir
+	tc.wrk = &util.Wrk{
+		TmpDir: tmpDir,
 	}
 	demoApp := &framework.App{
 		AppYaml:    util.GetResourcePath(bookinfoYaml),

@@ -34,6 +34,16 @@ COMMON_FILES_DIR="${TMP_DIR}/istio/istio-${ISTIO_VERSION}"
 ARCHIVES_DIR="${TMP_DIR}/archives"
 mkdir -p "${COMMON_FILES_DIR}/bin" "${ARCHIVES_DIR}"
 
+# On mac, brew install gnu-tar gnu-cp
+# and set CP=gcp TAR=gtar
+
+if [[ -z "${CP}" ]] ; then
+  CP=cp
+fi
+if [[ -z "${TAR}" ]] ; then
+  TAR=tar
+fi
+
 function create_linux_archive() {
   local url="${ISTIOCTL_URL}/istioctl-linux"
   local istioctl_path="${COMMON_FILES_DIR}/bin/istioctl"
@@ -42,7 +52,7 @@ function create_linux_archive() {
     || error_exit "Could not download ${istioctl_path}"
   chmod 755 "${istioctl_path}"
 
-  tar --owner releng --group releng -czvf \
+  ${TAR} --owner releng --group releng -czvf \
     "${ARCHIVES_DIR}/istio-${ISTIO_VERSION}-linux.tar.gz" . \
     || error_exit 'Could not create linux archive'
   rm -rf "${istioctl_path}"
@@ -56,7 +66,7 @@ function create_osx_archive() {
     || error_exit "Could not download ${istioctl_path}"
   chmod 755 "${istioctl_path}"
 
-  tar --owner releng --group releng -czvf \
+  ${TAR} --owner releng --group releng -czvf \
     "${ARCHIVES_DIR}/istio-${ISTIO_VERSION}-osx.tar.gz" . \
     || error_exit 'Could not create linux archive'
   rm -rf "${istioctl_path}"
@@ -75,9 +85,9 @@ function create_windows_archive() {
 }
 
 pushd ${ROOT}
-cp istio.VERSION "${COMMON_FILES_DIR}"/
-find samples install -type f -name "*.yaml" \
-  -exec cp --parents {} "${COMMON_FILES_DIR}" \;
+${CP} istio.VERSION LICENSE "${COMMON_FILES_DIR}"/
+find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "README.md" \) \
+  -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 popd
 
 # Changinf dir such that tar and zip files are
