@@ -5,6 +5,7 @@ cp istio/devel/rules.yml  mixer/testdata/configroot/scopes/global/subjects/globa
 cd mixer; set +x; source bin/use_bazel_go.sh ; set -x; cd ..
 ( cd proxy/test/backend/echo; go run echo.go > /tmp/echo.log ) &
 ( cd proxy/src/envoy/mixer; ./start_envoy > /tmp/envoy.log ) &
+# add -v=5 for verbose/debug
 ./mixer/bazel-bin/cmd/server/mixs server --configStoreURL=fs://$(pwd)/mixer/testdata/configroot --logtostderr 2> /tmp/mixs.2.log &
 echo "starting everything..."
 sleep 3
