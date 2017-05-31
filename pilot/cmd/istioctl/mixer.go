@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -40,10 +41,12 @@ type mixerAPIResponse struct {
 
 const (
 	requestTimeout = 60 * time.Second
+	scopesPath     = "api/v1/scopes/"
 )
 
 var (
 	mixerFile            string
+	mixerFileContent     []byte
 	mixerAPIServerAddr   string // deprecated
 	istioMixerAPIService string
 	mixerRESTRequester   proxy.RESTRequester
@@ -85,6 +88,18 @@ for a description of Mixer configuration's scope, subject, and rules.
 					Version: kube.IstioResourceVersion,
 				}
 			}
+
+			if c.Name() == "create" {
+				if mixerFile == "" {
+					return errors.New(c.UsageString())
+				}
+				data, err := ioutil.ReadFile(mixerFile)
+				if err != nil {
+					return fmt.Errorf("failed opening %s: %v", mixerFile, err)
+				}
+				mixerFileContent = data
+			}
+
 			return nil
 		},
 	}
@@ -106,14 +121,10 @@ Create and list Mixer rules in the configuration server.
 istioctl mixer rule create global myservice.ns.svc.cluster.local -f mixer-rule.yml
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) != 2 || mixerFile == "" {
+			if len(args) != 2 {
 				return errors.New(c.UsageString())
 			}
-			rule, err := ioutil.ReadFile(mixerFile)
-			if err != nil {
-				return fmt.Errorf("failed opening %s: %v", mixerFile, err)
-			}
-			return mixerRuleCreate(args[0], args[1], rule)
+			return mixerRuleCreate(args[0], args[1], mixerFileContent)
 		},
 	}
 	mixerRuleGetCmd = &cobra.Command{
@@ -155,37 +166,63 @@ istioctl mixer rule delete global myservice.ns.svc.cluster.local
 			return mixerRuleDelete(args[0], args[1])
 		},
 	}
-)
 
-func mixerRulePath(scope, subject string) string {
-	return fmt.Sprintf("api/v1/scopes/%s/subjects/%s/rules", scope, subject)
-}
-
-func mixerRuleCreate(scope, subject string, rule []byte) error {
-
-	path := mixerRulePath(scope, subject)
-	status, body, err := mixerRESTRequester.Request(http.MethodPut, path, rule)
-
-	// If we got output, let's look at it, even if we got an error.  The output might include the reason for the error.
-	if body != nil {
-		var response mixerAPIResponse
-		message := "unknown"
-		if errJSON := json.Unmarshal(body, &response); errJSON == nil {
-			message = response.Status.Message
-		}
-
-		if status != http.StatusOK {
-			return fmt.Errorf("failed rule creation with status %v: %s", status, message)
-		}
-
-		fmt.Printf("%s\n", message)
+	mixerAdapterCmd = &cobra.Command{
+		Use:          "adapter",
+		Short:        "Istio Mixer Adapter configuration",
+		Long:         "Create and list Mixer adapters in the configuration server.",
+		SilenceUsage: true,
 	}
 
-	return err
-}
+	mixerAdapterCreateCmd = &cobra.Command{
+		Use:   "create <scope>",
+		Short: "Create Istio Mixer adapters",
+		Example: `
+# Create new Mixer adapter configs for the given scope.
+istioctl mixer adapter create global -f adapters.yml
+`,
+		RunE: mixerAdapterOrDescriptorCreateRunE,
+	}
 
-func mixerRuleGet(scope, subject string) (string, error) {
-	path := mixerRulePath(scope, subject)
+	mixerAdapterGetCmd = &cobra.Command{
+		Use:   "get <scope>",
+		Short: "Get Istio Mixer adapters",
+		Example: `
+# Get the Mixer adapter configs for the given scope.
+istioctl mixer adapter get global
+`,
+		RunE: mixerAdapterOrDescriptorGetRunE,
+	}
+
+	mixerDescriptorCmd = &cobra.Command{
+		Use:          "descriptor",
+		Short:        "Istio Mixer Descriptor configuration",
+		Long:         "Create and list Mixer descriptors in the configuration server.",
+		SilenceUsage: true,
+	}
+
+	mixerDescriptorCreateCmd = &cobra.Command{
+		Use:   "create <scope>",
+		Short: "Create Istio Mixer descriptors",
+		Example: `
+# Create new Mixer descriptor configs for the given scope.
+istioctl mixer descriptor create global -f adapters.yml
+`,
+		RunE: mixerAdapterOrDescriptorCreateRunE,
+	}
+
+	mixerDescriptorGetCmd = &cobra.Command{
+		Use:   "get <scope>",
+		Short: "Get Istio Mixer descriptors",
+		Example: `
+# Get the Mixer descriptor configs for the given scope.
+istioctl mixer descriptor get global
+`,
+		RunE: mixerAdapterOrDescriptorGetRunE,
+	}
+)
+
+func mixerGet(path string) (string, error) {
 	status, body, err := mixerRESTRequester.Request(http.MethodGet, path, nil)
 	if err != nil {
 		return "", err
@@ -205,28 +242,83 @@ func mixerRuleGet(scope, subject string) (string, error) {
 	return string(data), nil
 }
 
-func mixerRuleDelete(scope, subject string) error {
+func mixerRequest(method, path string, reqBody []byte) error {
+	status, respBody, err := mixerRESTRequester.Request(method, path, reqBody)
 
-	path := mixerRulePath(scope, subject)
-	status, body, err := mixerRESTRequester.Request(http.MethodDelete, path, nil)
-	if body != nil {
+	// If we got output, let's look at it, even if we got an error.  The output might include the reason for the error.
+	if respBody != nil {
 		var response mixerAPIResponse
 		message := "unknown"
-		if errJSON := json.Unmarshal(body, &response); errJSON == nil {
+		if errJSON := json.Unmarshal(respBody, &response); errJSON == nil {
 			message = response.Status.Message
 		}
 
 		if status != http.StatusOK {
-			return fmt.Errorf("failed rule deletion with status %v: %s", status, message)
+			return fmt.Errorf("failed to %s %s with status %v: %s", method, path, status, message)
 		}
+
 		fmt.Printf("%s\n", message)
 	}
+
 	return err
+}
+
+func mixerRulePath(scope, subject string) string {
+	return scopesPath + fmt.Sprintf("%s/subjects/%s/rules", url.PathEscape(scope), url.PathEscape(subject))
+}
+
+func mixerRuleCreate(scope, subject string, rule []byte) error {
+	return mixerRequest(http.MethodPut, mixerRulePath(scope, subject), rule)
+}
+
+func mixerRuleGet(scope, subject string) (string, error) {
+	return mixerGet(mixerRulePath(scope, subject))
+}
+
+func mixerRuleDelete(scope, subject string) error {
+	return mixerRequest(http.MethodDelete, mixerRulePath(scope, subject), nil)
+}
+
+func mixerAdapterOrDescriptorPath(scope, name string) string {
+	return scopesPath + fmt.Sprintf("%s/%s", url.PathEscape(scope), url.PathEscape(name))
+}
+
+func mixerAdapterOrDescriptorCreate(scope, name string, config []byte) error {
+	path := mixerAdapterOrDescriptorPath(scope, name)
+	return mixerRequest(http.MethodPut, path, config)
+}
+
+func mixerAdapterOrDescriptorGet(scope, name string) (string, error) {
+	path := mixerAdapterOrDescriptorPath(scope, name)
+	return mixerGet(path)
+}
+
+func mixerAdapterOrDescriptorCreateRunE(c *cobra.Command, args []string) error {
+	if len(args) != 1 {
+		return errors.New(c.UsageString())
+	}
+	return mixerAdapterOrDescriptorCreate(args[0], c.Parent().Name()+"s", mixerFileContent)
+}
+
+func mixerAdapterOrDescriptorGetRunE(c *cobra.Command, args []string) error {
+	if len(args) != 1 {
+		return errors.New(c.UsageString())
+	}
+	out, err := mixerAdapterOrDescriptorGet(args[0], c.Parent().Name()+"s")
+	if err != nil {
+		return err
+	}
+	fmt.Println(out)
+	return nil
 }
 
 func init() {
 	mixerRuleCreateCmd.PersistentFlags().StringVarP(&mixerFile, "file", "f", "",
 		"Input file with contents of the Mixer rule")
+	mixerAdapterCreateCmd.PersistentFlags().StringVarP(&mixerFile, "file", "f", "",
+		"Input file with contents of the adapters config")
+	mixerDescriptorCmd.PersistentFlags().StringVarP(&mixerFile, "file", "f", "",
+		"Input file with contents of the descriptors config")
 	mixerCmd.PersistentFlags().StringVar(&istioMixerAPIService,
 		"mixerAPIService", "istio-mixer:9094",
 		"Name of istio-mixer service. When --kube=false this sets the address of the mixer service")
@@ -239,5 +331,11 @@ func init() {
 	mixerRuleCmd.AddCommand(mixerRuleGetCmd)
 	mixerRuleCmd.AddCommand(mixerRuleDeleteCmd)
 	mixerCmd.AddCommand(mixerRuleCmd)
+	mixerAdapterCmd.AddCommand(mixerAdapterCreateCmd)
+	mixerAdapterCmd.AddCommand(mixerAdapterGetCmd)
+	mixerCmd.AddCommand(mixerAdapterCmd)
+	mixerDescriptorCmd.AddCommand(mixerDescriptorCreateCmd)
+	mixerDescriptorCmd.AddCommand(mixerDescriptorGetCmd)
+	mixerCmd.AddCommand(mixerDescriptorCmd)
 	rootCmd.AddCommand(mixerCmd)
 }

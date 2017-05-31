@@ -88,6 +88,14 @@ func TestMixerRuleCreate(t *testing.T) {
 			rule:      "- bad",
 			wantError: true,
 		},
+		{
+			name:      "illformed",
+			url:       ts.URL,
+			scope:     "good/subjects/good/rules?with=query",
+			subject:   "bad",
+			rule:      "- bad",
+			wantError: true,
+		},
 	}
 
 	for _, c := range cases {
@@ -220,6 +228,210 @@ func TestMixerRuleGet(t *testing.T) {
 		}
 		if err := util.Compare([]byte(gotRule), []byte(c.wantRule)); err != nil {
 			t.Errorf("%s: bad rule: %v", c.name, err)
+		}
+	}
+}
+
+func TestMixerAdapterOrDescriptorCreate(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/scopes/good/adapters" {
+			w.WriteHeader(http.StatusOK)
+		} else if r.URL.Path == "/api/v1/scopes/good/descriptors" {
+			w.WriteHeader(http.StatusOK)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			response := mixerAPIResponse{Status: rpc.Status{Message: "bad message"}}
+			data, err := json.Marshal(response)
+			if err != nil {
+				t.Fatalf("Error generating bad test response: %v", err)
+			}
+			if _, err := w.Write(data); err != nil {
+				t.Fatalf("Error writing bad test response: %v", err)
+			}
+		}
+	}))
+	defer ts.Close()
+
+	mixerRESTRequester = &proxy.BasicHTTPRequester{
+		BaseURL: ts.URL,
+		Client:  &http.Client{Timeout: 1 * time.Second},
+		Version: kube.IstioResourceVersion,
+	}
+
+	cases := []struct {
+		name  string
+		scope string
+		// rule is validated on server so contents don't matter for
+		// testing.
+		rule      string
+		wantError bool
+	}{
+		{
+			name:      "good request with http prefix",
+			scope:     "good",
+			rule:      "- good",
+			wantError: false,
+		},
+		{
+			name:      "bad request",
+			scope:     "bad",
+			rule:      "- bad",
+			wantError: true,
+		},
+		{
+			name:      "illformed",
+			scope:     "good/adapters?with=query",
+			rule:      "- bad",
+			wantError: true,
+		},
+	}
+
+	for _, n := range []string{"adapters", "descriptors"} {
+		for _, c := range cases {
+			err := mixerAdapterOrDescriptorCreate(c.scope, n, []byte(c.rule))
+			if c.wantError && err == nil {
+				t.Errorf("%s %s: expected error but got success", n, c.name)
+			}
+			if !c.wantError && err != nil {
+				t.Errorf("%s %s: expected success but got error: %v", n, c.name, err)
+			}
+		}
+	}
+}
+
+func TestMixerAdapterOrDescriptorsGet(t *testing.T) {
+	wantAdapters := map[string]interface{}{
+		"subject": "global",
+		"adapters": []map[string]interface{}{
+			{
+				"name":   "default",
+				"kind":   "quotas",
+				"impl":   "memQuota",
+				"params": nil,
+			},
+			{
+				"name":   "default",
+				"impl":   "stdioLogger",
+				"params": map[string]string{"logStream": "STDERR"},
+			},
+		},
+	}
+
+	wantDescriptors := map[string]interface{}{
+		"subject":  "namespace:ns",
+		"revision": "2022",
+		"manifests": []map[string]interface{}{
+			{"name": "kubernetes", "revision": "1", "attributes": nil},
+		},
+		"metrics": []map[string]interface{}{
+			{
+				"name":  "request_count",
+				"kind":  "COUNTER",
+				"value": "INT64",
+			},
+		},
+		"quotas": []map[string]interface{}{
+			{"name": "RequestCount", "rate_limit": true},
+		},
+	}
+
+	wantAdaptersYAML, err := yaml.Marshal(wantAdapters)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal test data: %v", err)
+	}
+
+	wantDescriptorsYAML, err := yaml.Marshal(wantDescriptors)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal test data: %v", err)
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/v1/scopes/good/") {
+			var data interface{}
+			n := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
+			if n == "adapters" {
+				data = wantAdapters
+			} else if n == "descriptors" {
+				data = wantDescriptors
+			} else {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			response := mixerAPIResponse{Data: data}
+			marshalled, err := json.Marshal(response)
+			if err != nil {
+				t.Fatalf("Error generating good test response: %v", err)
+			}
+			if _, err := w.Write(marshalled); err != nil {
+				t.Fatalf("Error writing good test response: %v", err)
+			}
+		} else {
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	mixerRESTRequester = &proxy.BasicHTTPRequester{
+		BaseURL: ts.URL,
+		Client:  &http.Client{Timeout: 1 * time.Second},
+		Version: kube.IstioResourceVersion,
+	}
+
+	cases := []struct {
+		name      string
+		scope     string
+		confType  string
+		wantData  []byte
+		wantError bool
+	}{
+		{
+			name:      "good adapter",
+			scope:     "good",
+			confType:  "adapters",
+			wantData:  wantAdaptersYAML,
+			wantError: false,
+		},
+		{
+			name:      "bad adapter",
+			scope:     "bad",
+			confType:  "adapters",
+			wantData:  []byte{},
+			wantError: true,
+		},
+		{
+			name:      "good descriptor",
+			scope:     "good",
+			confType:  "descriptors",
+			wantData:  wantDescriptorsYAML,
+			wantError: false,
+		},
+		{
+			name:      "bad descriptor",
+			scope:     "bad",
+			confType:  "descriptors",
+			wantData:  []byte{},
+			wantError: true,
+		},
+		{
+			name:      "bad type",
+			scope:     "good",
+			confType:  "no-such-thing",
+			wantData:  []byte{},
+			wantError: true,
+		},
+	}
+
+	for _, c := range cases {
+		gotData, err := mixerAdapterOrDescriptorGet(c.scope, c.confType)
+		if c.wantError && err == nil {
+			t.Errorf("%s: expected error but got success", c.name)
+		}
+		if !c.wantError && err != nil {
+			t.Errorf("%s: expected success but got error: %v", c.name, err)
+		}
+		if err := util.Compare([]byte(gotData), []byte(c.wantData)); err != nil {
+			t.Errorf("%s: bad response data: %v", c.name, err)
 		}
 	}
 }
