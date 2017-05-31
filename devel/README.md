@@ -36,7 +36,7 @@ Assuming you did (once):
    wrk http://localhost:9090/echo
    
    ```
-   Note that this is done for you by [steup_run](setup_run) but to use the correct go environment:
+   Note that this is done for you by [setup_run](setup_run) but to use the correct go environment:
    ```bash
    cd mixer/
    source bin/use_bazel_go.sh 
