@@ -1,9 +1,9 @@
-# Developing on Istio
+# Developing for Istio
 
 See also the [broker](https://github.com/istio/broker/blob/master/doc/dev/development.md) and [mixer](https://github.com/istio/mixer/blob/master/doc/dev/development.md)
 development setup and guidelines
 
-## Collection of scripts and notes for developing on Istio
+## Collection of scripts and notes for developing for Istio
 
 For local development (building from source and running the major components) on Ubuntu/raw VM:
 

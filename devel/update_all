@@ -14,6 +14,6 @@ make
 cd ../proxy
 bazel build src/envoy/mixer:envoy
 cd ../mixer
-bazel build ...
+bazel build cmd/server:mixs
 set +x
 echo "### All done... source istio/devel/setup_run   now"

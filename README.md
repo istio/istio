@@ -86,7 +86,7 @@ decisions to the mixer.
 See the [contribution guidelines](CONTRIBUTING.md) for information on how to
 participate in the Istio project by submitting pull requests or issues. 
 
-You can then check out how to be [setup for development](devel/README.md).
+You can then check out how to [setup for development](devel/README.md).
 
 ## Community and support
 
