@@ -16,7 +16,7 @@ branch, but release branches should not change.
   - [Setting up Go](#setting-up-go)
   - [Setting up Bazel](#setting-up-bazel)
   - [Setting up Docker](#setting-up-docker)
-  - [Setting up personal access token](#setting-up-personal-access-token)
+  - [Setting up personal access token](#setting-up-a-personal-access-token)
 - [Git workflow](#git-workflow)
   - [Fork the main repository](#fork-the-main-repository)
   - [Clone your fork](#clone-your-fork)
@@ -43,18 +43,20 @@ branch, but release branches should not change.
 
 Other docs you should look at:
 
+- [Project conventions](./conventions.md)
+- [Creating fast and lean code](./performance.md)
 - Each components additional development docs like [Mixer](https://github.com/istio/mixer/tree/master/doc/dev/development.md)'s
 - [Go landmines](https://gist.github.com/lavalamp/4bd23295a9f32706a48f)
 - [Go style mistakes](https://github.com/golang/go/wiki/CodeReviewComments)
 
 ## Prerequisites
 
-Istio components code bases has only few external dependencies you
+Istio components only have few external dependencies you
 need to setup before being able to build and run the code.
 
 ### Setting up Go
 
-Mixer for instance is written in the [Go](http://golang.org) programming language.
+Many Istio components are written in the [Go](http://golang.org) programming language.
 To build Mixer, you'll need a Go development environment. Builds for
 Mixer require Go version 1.8. If you haven't set up a Go development
 environment, please follow [these instructions](http://golang.org/doc/code.html)
@@ -70,7 +72,7 @@ export PATH=$PATH:$GOPATH/bin
 
 ### Setting up Bazel
 
-Istio components are built using the bazel build system. See
+Istio components are built using the Bazel build system. See
 [here](https://bazel.build/versions/master/docs/install.html) for the
 installation procedures.
 
@@ -80,10 +82,11 @@ To run some of Istio's examples and tests, you need to set up Docker server.
 Please follow [these instructions](https://docs.docker.com/engine/installation/)
 for how to do this for your platform.
 
-### Setting up personal access token
+### Setting up a personal access token
 
 This is only necessary for core contributors / to push changes to the main repos. 
-You can make Pull Requests without it but the additional security is recommended for everyone.
+You can make pull requests without two-factor authentication
+but the additional security is recommended for everyone.
 
 To be part of the Istio organization, we require two-factor authentication, and
 you must setup a personal access token to enable push via HTTPS. Please follow [these
