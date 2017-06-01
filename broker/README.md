@@ -13,5 +13,5 @@ to learn about the overall Istio project and how to get in touch with us. To lea
 contribute to any of the Istio components, including Broker, please
 see the Istio [contribution guidelines](https://github.com/istio/istio/blob/master/CONTRIBUTING.md).
 
-Broker's [developer's guide](doc/dev/development.md) presents everything
-you need to know to create, build, and test code for Broker.
+Istio's [development guide](https://github.com/istio/istio/blob/master/devel/README.md)
+presents everything you need to know to create, build, and test code for Broker.

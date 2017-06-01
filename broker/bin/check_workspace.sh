@@ -19,7 +19,7 @@ ret=$?
 if [[ $ret -eq 0 ]];then
 	cat $TMPFILE
 	echo "Missing comment on dependency"
-	echo "https://github.com/istio/broker/blob/master/doc/devel/development.md#adding-dependencies"
+	echo "https://github.com/istio/istio/blob/master/devel/README.md#adding-dependencies"
 	exit 1
 fi
 
