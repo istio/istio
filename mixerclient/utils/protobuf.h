@@ -19,6 +19,7 @@
 #include "google/protobuf/duration.pb.h"
 #include "google/protobuf/stubs/status.h"
 #include "google/protobuf/timestamp.pb.h"
+#include "mixer/v1/service.pb.h"
 
 #include <chrono>
 
@@ -35,6 +36,10 @@ namespace mixer_client {
 // Convert from prtoobuf duration to chrono duration.
 std::chrono::milliseconds ToMilliseonds(
     const ::google::protobuf::Duration& duration);
+
+// Convert from grpc status to protobuf status.
+::google::protobuf::util::Status ConvertRpcStatus(
+    const ::google::rpc::Status& status);
 
 }  // namespace mixer_client
 }  // namespace istio

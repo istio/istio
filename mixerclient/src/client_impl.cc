@@ -26,11 +26,6 @@ using ::google::protobuf::util::error::Code;
 
 namespace istio {
 namespace mixer_client {
-namespace {
-bool IsNetworkError(Status status) {
-  return status.error_code() == Code::UNAVAILABLE;
-}
-}  // namespace
 
 MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
     : options_(options), converter_({}) {
@@ -55,17 +50,18 @@ void MixerClientImpl::Check(const Attributes &attributes, DoneFunc on_done) {
   auto response = new CheckResponse;
   options_.check_transport(request, response, [this, signature, response,
                                                on_done](const Status &status) {
-    delete response;
-    if (IsNetworkError(status)) {
+    if (!status.ok()) {
       if (options_.check_options.network_fail_open) {
         on_done(Status::OK);
       } else {
         on_done(status);
       }
     } else {
-      check_cache_->CacheResponse(signature, status);
-      on_done(status);
+      Status resp_status = ConvertRpcStatus(response->status());
+      check_cache_->CacheResponse(signature, resp_status);
+      on_done(resp_status);
     }
+    delete response;
   });
 }
 
