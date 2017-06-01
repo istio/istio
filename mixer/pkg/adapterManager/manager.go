@@ -390,6 +390,7 @@ func newCacheKey(kind config.Kind, cfg *cpb.Combined) (*cacheKey, error) {
 
 	if cfg.Builder.Params != nil {
 		if err := enc.Encode(cfg.Builder.Params); err != nil {
+			pool.PutBuffer(b)
 			return nil, err
 		}
 		ret.builderParamsSHA = sha1.Sum(b.Bytes())
@@ -397,6 +398,7 @@ func newCacheKey(kind config.Kind, cfg *cpb.Combined) (*cacheKey, error) {
 	b.Reset()
 	if cfg.Aspect.Params != nil {
 		if err := enc.Encode(cfg.Aspect.Params); err != nil {
+			pool.PutBuffer(b)
 			return nil, err
 		}
 

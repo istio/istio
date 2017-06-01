@@ -16,10 +16,10 @@ package cmd
 
 import (
 	"context"
-	"io"
 	"strconv"
 	"time"
 
+	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
 
@@ -66,49 +66,27 @@ func quota(rootArgs *rootArgs, printf, fatalf shared.FormatFn, name string, amou
 	}
 	defer deleteAPIClient(cs)
 
-	span, ctx := cs.tracer.StartRootSpan(context.Background(), "mixc Quota", ext.SpanKindRPCClient)
-	_, ctx = cs.tracer.PropagateSpan(ctx, span)
-
-	var stream mixerpb.Mixer_QuotaClient
-	if stream, err = cs.client.Quota(ctx); err != nil {
-		fatalf("Quota RPC failed: %v", err)
-	}
-
+	span, ctx := ot.StartSpanFromContext(context.Background(), "mixc Quota", ext.SpanKindRPCClient)
 	salt := time.Now().Nanosecond()
+
 	for i := 0; i < rootArgs.repeat; i++ {
 		dedup := strconv.Itoa(salt + i)
 
 		// send the request
 		request := mixerpb.QuotaRequest{
-			RequestIndex:    int64(i),
-			AttributeUpdate: *attrs,
+			Attributes:      *attrs,
 			Quota:           name,
 			Amount:          amount,
 			DeduplicationId: dedup,
 			BestEffort:      bestEffort,
 		}
 
-		if err = stream.Send(&request); err != nil {
-			fatalf("Failed to send Quota RPC: %v", err)
-		}
-
-		var response *mixerpb.QuotaResponse
-		response, err = stream.Recv()
-		if err == io.EOF {
-			fatalf("Got no response from Quota RPC")
-		} else if err != nil {
-			fatalf("Failed to receive a response from Quota RPC: %v", err)
-		}
+		response, err := cs.client.Quota(ctx, &request)
 
 		printf("Quota RPC returned %s, amount %v, expiration %v",
-			decodeStatus(response.Result),
+			decodeError(err),
 			response.Amount,
 			response.Expiration)
-		dumpAttributes(printf, fatalf, response.AttributeUpdate)
-	}
-
-	if err = stream.CloseSend(); err != nil {
-		fatalf("Failed to close gRPC stream: %v", err)
 	}
 
 	span.Finish()

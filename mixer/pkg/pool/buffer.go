@@ -21,7 +21,7 @@ import (
 	"sync"
 )
 
-var bufferPool = sync.Pool{New: func() interface{} { return &bytes.Buffer{} }}
+var bufferPool = sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 
 // GetBuffer returns a buffer from the buffer pool.
 func GetBuffer() *bytes.Buffer {

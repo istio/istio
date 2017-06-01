@@ -25,7 +25,9 @@ import (
 	"time"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
+	otgrpc "github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	bt "github.com/opentracing/basictracer-go"
+	ot "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -37,7 +39,6 @@ import (
 type clientState struct {
 	client     mixerpb.MixerClient
 	connection *grpc.ClientConn
-	tracer     tracing.Tracer
 }
 
 func createAPIClient(port string, enableTracing bool) (*clientState, error) {
@@ -46,8 +47,9 @@ func createAPIClient(port string, enableTracing bool) (*clientState, error) {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
 	if enableTracing {
-		tracer := tracing.NewTracer(bt.New(tracing.IORecorder(os.Stdout)))
-		cs.tracer = tracer
+		tracer := bt.New(tracing.IORecorder(os.Stdout))
+		ot.InitGlobalTracer(tracer)
+		opts = append(opts, grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(tracer)))
 	}
 
 	var err error
@@ -209,11 +211,20 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 	}
 
 	var attrs mixerpb.Attributes
-	if err := attribute.NewManager().NewTracker().ApplyBag(b, 0, &attrs); err != nil {
-		return nil, err
-	}
+	b.ToProto(&attrs, nil)
 
 	return &attrs, nil
+}
+
+func decodeError(err error) string {
+	result := grpc.Code(err).String()
+
+	msg := grpc.ErrorDesc(err)
+	if msg != "" {
+		result = result + " (" + msg + ")"
+	}
+
+	return result
 }
 
 func decodeStatus(status rpc.Status) string {
@@ -234,7 +245,7 @@ func dumpAttributes(printf, fatalf shared.FormatFn, attrs *mixerpb.Attributes) {
 		return
 	}
 
-	b, err := attribute.NewManager().NewTracker().ApplyProto(attrs)
+	b, err := attribute.GetBagFromProto(attrs, nil)
 	if err != nil {
 		fatalf(fmt.Sprintf("  Unable to decode returned attributes: %v", err))
 	}

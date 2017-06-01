@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"sync"
-	"sync/atomic"
+	"time"
 
 	"github.com/golang/glog"
 	me "github.com/hashicorp/go-multierror"
@@ -36,18 +36,15 @@ import (
 type MutableBag struct {
 	parent Bag
 	values map[string]interface{}
-	id     int64 // strictly for use in diagnostic messages
 	// number of children of this bag. It will not be recycled unless children count == 0
 	children int
 	sync.Mutex
 }
 
-var id int64
 var mutableBags = sync.Pool{
 	New: func() interface{} {
 		return &MutableBag{
 			values: make(map[string]interface{}),
-			id:     atomic.AddInt64(&id, 1),
 		}
 	},
 }
@@ -206,198 +203,209 @@ func (mb *MutableBag) Merge(bags ...*MutableBag) error {
 	return nil
 }
 
-// Ensure that all dictionary indices are valid and that all values
-// are in range.
-//
-// Note that since we don't have the attribute schema, this doesn't validate
-// that a given attribute is being treated as the right type. That is, an
-// attribute called 'source.ip' which is of type IP_ADDRESS could be listed as
-// a string or an int, and we wouldn't catch it here.
-func checkPreconditions(dictionary dictionary, attrs *mixerpb.Attributes) error {
-	var e *me.Error
-
-	for k := range attrs.StringAttributes {
-		if _, present := dictionary[k]; !present {
-			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
-		}
-	}
-
-	for k := range attrs.Int64Attributes {
-		if _, present := dictionary[k]; !present {
-			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
-		}
-	}
-
-	for k := range attrs.DoubleAttributes {
-		if _, present := dictionary[k]; !present {
-			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
-		}
-	}
-
-	for k := range attrs.BoolAttributes {
-		if _, present := dictionary[k]; !present {
-			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
-		}
-	}
-
-	for k := range attrs.TimestampAttributes {
-		if _, present := dictionary[k]; !present {
-			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
-		}
-	}
-
-	for k := range attrs.DurationAttributes {
-		if _, present := dictionary[k]; !present {
-			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
-		}
-	}
-
-	for k := range attrs.BytesAttributes {
-		if _, present := dictionary[k]; !present {
-			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
-		}
-	}
-
-	for k, v := range attrs.StringMapAttributes {
-		if _, present := dictionary[k]; !present {
-			e = me.Append(e, fmt.Errorf("attribute index %d is not defined in the current dictionary", k))
-		}
-
-		for k2 := range v.Map {
-			if _, present := dictionary[k2]; !present {
-				e = me.Append(e, fmt.Errorf("string map index %d is not defined in the current dictionary", k2))
-			}
-		}
-	}
-
-	// TODO: we should catch the case where the same attribute is being repeated in different types
-	//       (that is, an attribute called FOO which is both an int and a string for example)
-
-	return e.ErrorOrNil()
+type dictState struct {
+	globalDict  map[string]int32
+	messageDict map[string]int32
 }
 
-// Update the state of the bag based on the content of an Attributes struct
-func (mb *MutableBag) update(dictionary dictionary, attrs *mixerpb.Attributes) error {
-	// check preconditions up front and bail if there are any
-	// errors without mutating the bag.
-	if err := checkPreconditions(dictionary, attrs); err != nil {
-		return err
+// ToProto fills-in an Attributes proto based on the content of the bag.
+func (mb *MutableBag) ToProto(output *mixerpb.Attributes, globalDict map[string]int32) {
+	ds := &dictState{globalDict, nil}
+	for k, v := range mb.values {
+		index := getIndex(k, ds)
+
+		switch t := v.(type) {
+		case string:
+			if output.Strings == nil {
+				output.Strings = make(map[int32]int32)
+			}
+			output.Strings[index] = getIndex(t, ds)
+
+		case int64:
+			if output.Int64S == nil {
+				output.Int64S = make(map[int32]int64)
+			}
+			output.Int64S[index] = t
+
+		case float64:
+			if output.Doubles == nil {
+				output.Doubles = make(map[int32]float64)
+			}
+			output.Doubles[index] = t
+
+		case bool:
+			if output.Bools == nil {
+				output.Bools = make(map[int32]bool)
+			}
+			output.Bools[index] = t
+
+		case time.Time:
+			if output.Timestamps == nil {
+				output.Timestamps = make(map[int32]time.Time)
+			}
+			output.Timestamps[index] = t
+
+		case time.Duration:
+			if output.Durations == nil {
+				output.Durations = make(map[int32]time.Duration)
+			}
+			output.Durations[index] = t
+
+		case []byte:
+			if output.Bytes == nil {
+				output.Bytes = make(map[int32][]byte)
+			}
+			output.Bytes[index] = t
+
+		case map[string]string:
+			sm := make(map[int32]int32, len(t))
+			for smk, smv := range t {
+				sm[getIndex(smk, ds)] = getIndex(smv, ds)
+			}
+
+			if output.StringMaps == nil {
+				output.StringMaps = make(map[int32]mixerpb.StringMap)
+			}
+			output.StringMaps[index] = mixerpb.StringMap{Entries: sm}
+		}
 	}
 
-	var log *bytes.Buffer
+	if len(ds.messageDict) > 0 {
+		output.Words = make([]string, len(ds.messageDict))
+		for k, v := range ds.messageDict {
+			output.Words[-v-1] = k
+		}
+	}
+}
+
+func getIndex(word string, ds *dictState) int32 {
+	if index, ok := ds.globalDict[word]; ok {
+		return index
+	}
+
+	if ds.messageDict == nil {
+		ds.messageDict = make(map[string]int32)
+	} else if index, ok := ds.messageDict[word]; ok {
+		return index
+	}
+
+	index := -int32(len(ds.messageDict)) - 1
+	ds.messageDict[word] = index
+	return index
+}
+
+// GetBagFromProto returns an initialized bag from an Attribute proto.
+func GetBagFromProto(attrs *mixerpb.Attributes, globalDict []string) (*MutableBag, error) {
+	mb := GetMutableBag(nil)
+	messageDict := attrs.Words
+	var e error
+	var name string
+	var value string
+
+	// TODO: fail if the proto carries multiple attributes by the same name (but different types)
+
+	var buf *bytes.Buffer
 	if glog.V(2) {
-		log = pool.GetBuffer()
+		buf = pool.GetBuffer()
+		log(buf, "Creating bag from wire attributes:\n")
 	}
 
-	if attrs.ResetContext {
-		if log != nil {
-			log.WriteString(" resetting bag to empty state\n")
-		}
-		mb.Reset()
+	log(buf, "  setting string attributes:\n")
+	for k, v := range attrs.Strings {
+		name, e = lookup(k, e, globalDict, messageDict)
+		value, e = lookup(v, e, globalDict, messageDict)
+		log(buf, "    %s -> '%s'\n", name, value)
+		mb.values[name] = value
 	}
 
-	// delete requested attributes
-	for _, d := range attrs.DeletedAttributes {
-		if name, present := dictionary[d]; present {
-			if log != nil {
-				log.WriteString(fmt.Sprintf("  attempting to delete attribute %s\n", name))
-			}
-
-			delete(mb.values, name)
-		}
+	log(buf, "  setting int64 attributes:\n")
+	for k, v := range attrs.Int64S {
+		name, e = lookup(k, e, globalDict, messageDict)
+		log(buf, "    %s -> '%d'\n", name, v)
+		mb.values[name] = v
 	}
 
-	// apply all attributes
-	for k, v := range attrs.StringAttributes {
-		if log != nil {
-			log.WriteString(fmt.Sprintf("  updating string attribute %s from '%v' to '%v'\n", dictionary[k], mb.values[dictionary[k]], v))
-		}
-		mb.values[dictionary[k]] = v
+	log(buf, "  setting double attributes:\n")
+	for k, v := range attrs.Doubles {
+		name, e = lookup(k, e, globalDict, messageDict)
+		log(buf, "    %s -> '%f'\n", name, v)
+		mb.values[name] = v
 	}
 
-	for k, v := range attrs.Int64Attributes {
-		if log != nil {
-			log.WriteString(fmt.Sprintf("  updating int64 attribute %s from '%v' to '%v'\n", dictionary[k], mb.values[dictionary[k]], v))
-		}
-		mb.values[dictionary[k]] = v
+	log(buf, "  setting bool attributes:\n")
+	for k, v := range attrs.Bools {
+		name, e = lookup(k, e, globalDict, messageDict)
+		log(buf, "    %s -> '%t'\n", name, v)
+		mb.values[name] = v
 	}
 
-	for k, v := range attrs.DoubleAttributes {
-		if log != nil {
-			log.WriteString(fmt.Sprintf("  updating double attribute %s from '%v' to '%v'\n", dictionary[k], mb.values[dictionary[k]], v))
-		}
-		mb.values[dictionary[k]] = v
+	log(buf, "  setting timestamp attributes:\n")
+	for k, v := range attrs.Timestamps {
+		name, e = lookup(k, e, globalDict, messageDict)
+		log(buf, "    %s -> '%v'\n", name, v)
+		mb.values[name] = v
 	}
 
-	for k, v := range attrs.BoolAttributes {
-		if log != nil {
-			log.WriteString(fmt.Sprintf("  updating bool attribute %s from '%v' to '%v'\n", dictionary[k], mb.values[dictionary[k]], v))
-		}
-		mb.values[dictionary[k]] = v
+	log(buf, "  setting duration attributes:\n")
+	for k, v := range attrs.Durations {
+		name, e = lookup(k, e, globalDict, messageDict)
+		log(buf, "    %s -> '%v'\n", name, v)
+		mb.values[name] = v
 	}
 
-	for k, v := range attrs.TimestampAttributes {
-		if log != nil {
-			log.WriteString(fmt.Sprintf("  updating time attribute %s from '%v' to '%v'\n", dictionary[k], mb.values[dictionary[k]], v))
-		}
-		mb.values[dictionary[k]] = v
+	log(buf, "  setting bytes attributes:\n")
+	for k, v := range attrs.Bytes {
+		name, e = lookup(k, e, globalDict, messageDict)
+		log(buf, "    %s -> '%s'\n", name, v)
+		mb.values[name] = v
 	}
 
-	for k, v := range attrs.DurationAttributes {
-		if log != nil {
-			log.WriteString(fmt.Sprintf("  updating duration attribute %s from '%v' to '%v'\n", dictionary[k], mb.values[dictionary[k]], v))
+	log(buf, "  setting string map attributes:\n")
+	for k, v := range attrs.StringMaps {
+		name, e = lookup(k, e, globalDict, messageDict)
+		log(buf, "  %s\n", name)
+
+		sm := make(map[string]string, len(v.Entries))
+		for k2, v2 := range v.Entries {
+			var name2 string
+			var value2 string
+			name2, e = lookup(k2, e, globalDict, messageDict)
+			value2, e = lookup(v2, e, globalDict, messageDict)
+			log(buf, "    %s -> '%v'\n", name2, value2)
+			sm[name2] = value2
 		}
-		mb.values[dictionary[k]] = v
+		mb.values[name] = sm
 	}
 
-	for k, v := range attrs.BytesAttributes {
-		if log != nil {
-			log.WriteString(fmt.Sprintf("  updating bytes attribute %s from '%v' to '%v'\n", dictionary[k], mb.values[dictionary[k]], v))
-		}
-		mb.values[dictionary[k]] = v
+	if buf != nil {
+		glog.Info(buf.String())
+		pool.PutBuffer(buf)
 	}
 
-	for k, v := range attrs.StringMapAttributes {
-		m, ok := mb.values[dictionary[k]].(map[string]string)
-		if !ok {
-			m = make(map[string]string, len(v.Map))
-			mb.values[dictionary[k]] = m
-		}
-
-		if log != nil {
-			log.WriteString(fmt.Sprintf("  updating stringmap attribute %s from\n", dictionary[k]))
-
-			if len(m) > 0 {
-				for k2, v2 := range m {
-					log.WriteString(fmt.Sprintf("    %s:%s\n", k2, v2))
-				}
-			} else {
-				log.WriteString("    <empty>\n")
-			}
-
-			log.WriteString("  to\n")
-		}
-
-		for k2, v2 := range v.Map {
-			m[dictionary[k2]] = v2
-		}
-
-		if log != nil {
-			if len(m) > 0 {
-				for k2, v2 := range m {
-					log.WriteString(fmt.Sprintf("    %s:%s\n", k2, v2))
-				}
-			} else {
-				log.WriteString("    <empty>\n")
-			}
-		}
+	if e != nil {
+		return nil, e
 	}
 
-	if log != nil {
-		if log.Len() > 0 {
-			glog.Infof("Updating attribute bag %d:\n%s", mb.id, log.String())
+	return mb, nil
+}
+
+func lookup(index int32, err error, globalDict []string, messageDict []string) (string, error) {
+	if index < 0 {
+		if -index-1 >= int32(len(messageDict)) {
+			return "", me.Append(err, fmt.Errorf("attribute index %d is not defined in the available dictionaries", index))
 		}
+		return messageDict[-index-1], err
 	}
 
-	return nil
+	if index >= int32(len(globalDict)) {
+		return "", me.Append(err, fmt.Errorf("attribute index %d is not defined in the available dictionaries", index))
+	}
+
+	return globalDict[index], err
+}
+
+func log(buf *bytes.Buffer, format string, args ...interface{}) {
+	if buf != nil {
+		buf.WriteString(fmt.Sprintf(format, args...))
+	}
 }

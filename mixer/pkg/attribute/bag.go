@@ -14,10 +14,6 @@
 
 package attribute
 
-import (
-	"context"
-)
-
 // Bag is a generic mechanism to access a set of attributes.
 type Bag interface {
 	// Get returns an attribute value.
@@ -28,21 +24,4 @@ type Bag interface {
 
 	// Done indicates the bag can be reclaimed.
 	Done()
-}
-
-// The key type is unexported to prevent collisions with context keys defined in
-// other packages.
-type key int
-
-const bagKey key = 0
-
-// NewContext returns a new Context carrying the supplied bag.
-func NewContext(ctx context.Context, bag *MutableBag) context.Context {
-	return context.WithValue(ctx, bagKey, bag)
-}
-
-// FromContext extracts the bag from ctx, if present.
-func FromContext(ctx context.Context) (*MutableBag, bool) {
-	bag, ok := ctx.Value(bagKey).(*MutableBag)
-	return bag, ok
 }
