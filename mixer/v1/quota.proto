@@ -18,7 +18,6 @@ package istio.mixer.v1;
 
 import "gogoproto/gogo.proto";
 import "google/protobuf/duration.proto";
-import "google/rpc/status.proto";
 import "mixer/v1/attributes.proto";
 
 option (gogoproto.goproto_getters_all) = false;
@@ -26,42 +25,30 @@ option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
 message QuotaRequest {
-  // Index within the stream for this request, used to match to responses
-  int64 request_index = 1;
-
   // The attributes to use for this request
-  Attributes attribute_update = 2 [(gogoproto.nullable) = false];
+  Attributes attributes = 1 [(gogoproto.nullable) = false];
 
   // Used for deduplicating quota allocation/free calls in the case of
   // failed RPCs and retries. This should be a UUID per call, where the same
   // UUID is used for retries of the same quota allocation call.
-  string deduplication_id = 3;
+  string deduplication_id = 2;
 
   // The quota to allocate from.
-  string quota = 4;
+  string quota = 3;
 
   // The amount of quota to allocate.
-  int64 amount = 5;
+  int64 amount = 4;
 
   // If true, allows a response to return less quota than requested. When
   // false, the exact requested amount is returned or 0 if not enough quota
   // was available.
-  bool best_effort = 6;
+  bool best_effort = 5;
 }
 
 message QuotaResponse {
-  // Index of the request this response is associated with.
-  int64 request_index = 1;
-
-  // The attributes to use for this response
-  Attributes attribute_update = 2;
-
-  // Indicates whether the quota request was successfully processed.
-  google.rpc.Status result = 3 [(gogoproto.nullable) = false];
-
-  // The amount of time the returned quota can be considered valid, this is 0 for non-expiring quotas.
-  google.protobuf.Duration expiration = 4 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+  // The amount of time the returned quota can be considered valid, this is null or 0 for non-expiring quotas.
+  google.protobuf.Duration expiration = 1 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 
   // The total amount of quota returned, may be less than requested.
-  int64 amount = 5;
+  int64 amount = 2;
 }

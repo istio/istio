@@ -24,102 +24,62 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
-// An instance of this message is delivered to the mixer with every
-// API call.
+// Attributes represents a set of typed name/value pairs. Many of Mixer's
+// API either consume and/or return attributes.
 //
-// The general idea is to leverage the stateful gRPC streams from the
-// proxy to the mixer to keep to a minimum the 'attribute chatter'.
-// Only delta attributes are sent over, multiple concurrent attribute
-// contexts can be used to avoid thrashing, and attribute indices are used to
-// keep the wire protocol maximally efficient.
+// Istio uses attributes to control the runtime behavior of services running in the service mesh.
+// Attributes are named and typed pieces of metadata describing ingress and egress traffic and the
+// environment this traffic occurs in. An Istio attribute carries a specific piece
+// of information such as the error code of an API request, the latency of an API request, or the
+// original IP address of a TCP connection. For example:
 //
-// Producing this message is the responsibility of the mixer's client
-// library which is linked into different proxy implementations.
+// ```
+// request.path: xyz/abc
+// request.size: 234
+// request.time: 12:34:56.789 04/17/2017
+// source.ip: 192.168.0.1
+// target.service: example
+// ```
 //
-// The processing order for this state in the mixer is:
+// A given Istio deployment has a fixed vocabulary of attributes that it understands.
+// The specific vocabulary is determined by the set of attribute producers being used
+// in the deployment. The primary attribute producer in Istio is Envoy, although
+// specialized Mixer adapters and services can also generate attributes.
 //
-//   * Any new dictionary is applied
+// The common baseline set of attributes available in most Istio deployments is defined
+// [here](https://istio.io/docs/reference/config/mixer/attribute-vocabulary.html).
 //
-//   * The requested attribute context is looked up. If no such context has been defined, a
-//     new context is automatically created and initialized to the empty state. When a gRPC
-//     stream is first created, there are no attribute contexts for the stream.
+// Attributes are strongly typed. The supported attribute types are defined by
+// [ValueType](https://github.com/istio/api/blob/master/mixer/v1/config/descriptor/value_type.proto).
+// Each type of value is encoded into one of the so-called transport types present
+// in this message.
 //
-//   * If reset_context is true, then the attribute context is reset to the
-//     empty state.
-//
-//   * All attributes to deleted are removed from the attribute context.
-//
-//   * All attribute changes are applied to the attribute context.
-//
+// Within this message, strings are referenced using integer indices into
+// one of two string dictionaries. Positive integers index into the global
+// deployment-wide dictionary, whereas negative integers index into the message-level
+// dictionary instead. The message-level dictionary is carried by the
+// `words` field of this message, the deployment-wide dictionary is determined via
+// configuration.
 message Attributes {
-  // A dictionary that provides a mapping of shorthand index values to
-  // attribute names.
-  //
-  // This is intended to leverage the stateful gRPC stream from the
-  // proxy to the mixer. This dictionary is sent over only when a
-  // stream to the mixer is first established and when the proxy's
-  // configuration changes and different attributes may be produced.
-  //
-  // Once a dictionary has been sent over, it stays in effect until
-  // a new dictionary is sent to replace it. The first request sent on a
-  // stream must include a dictionary, otherwise the mixer can't process
-  // any attribute updates.
-  //
-  // Dictionaries are independent of the attribute context and are thus global
-  // to each gRPC stream.
-  map<int32, string> dictionary = 1;
+  // The message-level dictionary.
+  repeated string words = 1;
 
-  // The attribute context against which to operate.
-  //
-  // The mixer keeps different contexts live for any proxy gRPC stream. This
-  // allows the proxy to maintain multiple concurrent 'bags of attributes'
-  // within the mixer.
-  //
-  // If the proxy doesn't want to leverage multiple contexts, it just passes
-  // 0 here for every request.
-  //
-  // The proxy is configured to use a maximum number of attribute contexts in order
-  // to prevent an explosion of contexts in the mixer's memory space.
-  //
-  // TODO: Consider removing support for this feature. The proxy can achieve
-  // the same effect using multiple gRPC streams. The benefit of using streams
-  // would be that the mixer would be in control of the maximum number of streams
-  // it allows, whereas with the current model the proxy could overwhelm the
-  // mixer by creating too many contexts.
-  int32 attribute_context = 2;
-
-  // When true, resets the current attribute context to the empty state before
-  // applying any incoming attributes.
-  //
-  // Resetting contexts is useful to constrain the amount of resources used by
-  // the mixer. The proxy needs to intelligently manage a pool of contexts.
-  // It may be useful to reset a context when certain big events happen, such
-  // as when an HTTP2 connection into the proxy terminates.
-  bool reset_context = 3;
-
-  // Attributes being updated within the specified attribute context. These maps
-  // add and/or overwrite the context's current set of attributes.
-  map<int32, string> string_attributes = 4;
-  map<int32, int64> int64_attributes = 5;
-  map<int32, double> double_attributes = 6;
-  map<int32, bool> bool_attributes = 7;
-  map<int32, google.protobuf.Timestamp> timestamp_attributes = 8 [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
-  map<int32, google.protobuf.Duration> duration_attributes = 9 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
-  map<int32, bytes> bytes_attributes = 10;
-  map<int32, StringMap> stringMap_attributes = 11 [(gogoproto.nullable) = false];
-
-  // Attributes that should be removed from the specified attribute context. Deleting
-  // attributes which aren't currently in the attribute context is not considered an error.
-  repeated int32 deleted_attributes = 12;
-
-  // TODO: temporary workaround for gogoprotobuf code gen error (https://github.com/gogo/protobuf/issues/273). Remove
-  // when issue is fixed.
-  map<int32, google.protobuf.Timestamp> timestamp_attributes_HACK = 13 [(gogoproto.nullable) = false, (gogoproto.stdtime) = false];
-  map<int32, google.protobuf.Duration> duration_attributes_HACK = 14 [(gogoproto.nullable) = false, (gogoproto.stdduration) = false];
+  // Attribute payload. All `sint32` values represent indices into
+  // one of the word dictionaries. Positive values are indices into the
+  // global deployment-wide dictionary, negative values are indices into
+  // the message-level dictionary.
+  map<sint32, sint32> strings = 2;
+  map<sint32, int64> int64s = 3;
+  map<sint32, double> doubles = 4;
+  map<sint32, bool> bools = 5;
+  map<sint32, google.protobuf.Timestamp> timestamps = 6 [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
+  map<sint32, google.protobuf.Duration> durations = 7 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+  map<sint32, bytes> bytes = 8;
+  map<sint32, StringMap> string_maps = 9 [(gogoproto.nullable) = false];
 }
 
-// A map of string to string. The keys in these maps are from the current
-// dictionary.
+// A map of string to string. The keys and values in this map are dictionary
+// indices (see the [Attributes][istio.mixer.v1.Attributes] message for an explanation)
 message StringMap {
-  map<int32, string> map = 1;
+  map<sint32, sint32> entries = 1;
 }

@@ -14,6 +14,8 @@
 
 syntax = "proto3";
 
+option cc_generic_services = true;
+
 package istio.mixer.v1;
 
 import "mixer/v1/check.proto";
@@ -27,25 +29,25 @@ import "mixer/v1/quota.proto";
 // Preconditions can include whether the service consumer is properly
 // authenticated, is on the service’s whitelist, passes ACL checks, and more.
 //
-// - *Telemetry Reporting*. Enables services to report logging and monitoring.
-// In the future, it will also enable tracing and billing streams intended for
-// both the service operator as well as for service consumers.
-//
 // - *Quota Management*. Enables services to allocate and free quota on a number
 // of dimensions, Quotas are used as a relatively simple resource management tool
 // to provide some fairness between service consumers when contending for limited
 // resources. Rate limits are examples of quotas.
+//
+// - *Telemetry Reporting*. Enables services to report logging and monitoring.
+// In the future, it will also enable tracing and billing streams intended for
+// both the service operator as well as for service consumers.
 service Mixer {
   // Checks preconditions before performing an operation.
   // The preconditions enforced depend on the set of supplied attributes and
   // the active configuration.
-  rpc Check(stream CheckRequest) returns (stream CheckResponse) {}
+  rpc Check(CheckRequest) returns (CheckResponse) {}
 
   // Reports telemetry, such as logs and metrics.
   // The reported information depends on the set of supplied attributes and the
   // active configuration.
-  rpc Report(stream ReportRequest) returns (stream ReportResponse) {}
+  rpc Report(ReportRequest) returns (ReportResponse) {}
 
   // Quota allocates and releases quota.
-  rpc Quota(stream QuotaRequest) returns (stream QuotaResponse) {}
+  rpc Quota(QuotaRequest) returns (QuotaResponse) {}
 }
