@@ -140,8 +140,11 @@ const reportAttributesOkPost = `
 `
 
 func TestCheckReportAttributes(t *testing.T) {
-	s, err := SetUp(t, basicConfig, false)
-	if err != nil {
+	s := &TestSetup{
+		t:    t,
+		conf: basicConfig,
+	}
+	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 	defer s.TearDown()

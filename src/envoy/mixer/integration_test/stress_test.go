@@ -29,8 +29,12 @@ const (
 
 func TestStressEnvoy(t *testing.T) {
 	// Not cache cache, enable quota
-	s, err := SetUp(t, basicConfig+","+quotaConfig, true)
-	if err != nil {
+	s := &TestSetup{
+		t:      t,
+		conf:   basicConfig + "," + quotaConfig,
+		stress: true,
+	}
+	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 	defer s.TearDown()

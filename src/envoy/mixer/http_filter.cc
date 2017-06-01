@@ -21,6 +21,7 @@
 #include "envoy/ssl/connection.h"
 #include "server/config/network/http_connection_manager.h"
 #include "src/envoy/mixer/config.h"
+#include "src/envoy/mixer/grpc_transport.h"
 #include "src/envoy/mixer/http_control.h"
 #include "src/envoy/mixer/utils.h"
 
@@ -30,7 +31,6 @@
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
-using ::istio::mixer_client::DoneFunc;
 
 namespace Envoy {
 namespace Http {
@@ -94,22 +94,12 @@ class Config : public Logger::Loggable<Logger::Id::http> {
   Upstream::ClusterManager& cm_;
   std::string forward_attributes_;
   MixerConfig mixer_config_;
-  std::mutex map_mutex_;
-  std::map<std::thread::id, std::shared_ptr<HttpControl>> http_control_map_;
+  std::shared_ptr<HttpControl> http_control_;
 
  public:
   Config(const Json::Object& config, Server::Instance& server)
       : cm_(server.clusterManager()) {
     mixer_config_.Load(config);
-    if (mixer_config_.mixer_server.empty()) {
-      log().error(
-          "mixer_server is required but not specified in the config: {}",
-          __func__);
-    } else {
-      log().debug("Called Mixer::Config constructor with mixer_server: ",
-                  mixer_config_.mixer_server);
-    }
-
     if (!mixer_config_.forward_attributes.empty()) {
       std::string serialized_str =
           Utils::SerializeStringMap(mixer_config_.forward_attributes);
@@ -117,19 +107,11 @@ class Config : public Logger::Loggable<Logger::Id::http> {
           Base64::encode(serialized_str.c_str(), serialized_str.size());
       log().debug("Mixer forward attributes set: ", serialized_str);
     }
+
+    http_control_ = std::make_shared<HttpControl>(mixer_config_, cm_);
   }
 
-  std::shared_ptr<HttpControl> http_control() {
-    std::thread::id id = std::this_thread::get_id();
-    std::lock_guard<std::mutex> lock(map_mutex_);
-    auto it = http_control_map_.find(id);
-    if (it != http_control_map_.end()) {
-      return it->second;
-    }
-    auto http_control = std::make_shared<HttpControl>(mixer_config_);
-    http_control_map_[id] = http_control;
-    return http_control;
-  }
+  std::shared_ptr<HttpControl> http_control() { return http_control_; }
   const std::string& forward_attributes() const { return forward_attributes_; }
 };
 
@@ -196,14 +178,6 @@ class Instance : public Http::StreamDecoderFilter,
   // Returns a shared pointer of this object.
   std::shared_ptr<Instance> GetPtr() { return shared_from_this(); }
 
-  // Jump thread; on_done will be called at the dispatcher thread.
-  DoneFunc GetThreadJumpFunc(DoneFunc on_done) {
-    auto& dispatcher = decoder_callbacks_->dispatcher();
-    return [&dispatcher, on_done](const Status& status) {
-      dispatcher.post([status, on_done]() { on_done(status); });
-    };
-  }
-
   FilterHeadersStatus decodeHeaders(HeaderMap& headers,
                                     bool end_stream) override {
     Log().debug("Called Mixer::Instance : {}", __func__);
@@ -230,10 +204,9 @@ class Instance : public Http::StreamDecoderFilter,
     }
 
     auto instance = GetPtr();
-    http_control_->Check(request_data_, headers, origin_user,
-                         GetThreadJumpFunc([instance](const Status& status) {
-                           instance->callQuota(status);
-                         }));
+    http_control_->Check(
+        request_data_, headers, origin_user,
+        [instance](const Status& status) { instance->callQuota(status); });
     initiating_call_ = false;
 
     if (state_ == Complete) {
@@ -273,6 +246,7 @@ class Instance : public Http::StreamDecoderFilter,
       StreamDecoderFilterCallbacks& callbacks) override {
     Log().debug("Called Mixer::Instance : {}", __func__);
     decoder_callbacks_ = &callbacks;
+    GrpcTransport::SetDispatcher(decoder_callbacks_->dispatcher());
   }
 
   void callQuota(const Status& status) {
@@ -285,10 +259,9 @@ class Instance : public Http::StreamDecoderFilter,
       return;
     }
     auto instance = GetPtr();
-    http_control_->Quota(request_data_,
-                         GetThreadJumpFunc([instance](const Status& status) {
-                           instance->completeCheck(status);
-                         }));
+    http_control_->Quota(request_data_, [instance](const Status& status) {
+      instance->completeCheck(status);
+    });
   }
 
   void completeCheck(const Status& status) {

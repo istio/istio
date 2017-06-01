@@ -22,9 +22,6 @@ namespace Http {
 namespace Mixer {
 namespace {
 
-// The Json object name for mixer-server.
-const std::string kMixerServer("mixer_server");
-
 // The Json object name for static attributes.
 const std::string kMixerAttributes("mixer_attributes");
 
@@ -72,8 +69,6 @@ void ReadStringVector(const Json::Object& json, const std::string& name,
 }  // namespace
 
 void MixerConfig::Load(const Json::Object& json) {
-  ReadString(json, kMixerServer, &mixer_server);
-
   ReadStringMap(json, kMixerAttributes, &mixer_attributes);
   ReadStringMap(json, kForwardAttributes, &forward_attributes);
 

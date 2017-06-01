@@ -52,6 +52,35 @@ This Proxy will use Envoy and talk to Mixer server.
   curl http://localhost:7070/echo -d "hello world"
 ```
 
+n## How to configurate Mixer server
+
+In Envoy config, Mixer server has to be one of "clusters" under "cluster_manager".
+For examples:
+```
+ "cluster_manager": {
+    "clusters": [
+     ...,
+     {
+        "name": "mixer_server",
+        "connect_timeout_ms": 5000,
+        "type": "strict_dns",
+        "circuit_breakers": {
+           "default": {
+              "max_pending_requests": 10000,
+              "max_requests": 10000
+            }
+        },
+        "lb_type": "round_robin",
+        "features": "http2",
+        "hosts": [
+          {
+            "url": "tcp://${MIXER_SERVER}"
+          }
+        ]
+     }
+```
+Its name has to be "mixer_server".
+
 ## How to configurate HTTP Mixer filters
 
 This filter will intercept all HTTP requests and call Mixer. Here is its config:
@@ -61,7 +90,6 @@ This filter will intercept all HTTP requests and call Mixer. Here is its config:
       "type": "decoder",
       "name": "mixer",
       "config": {
-         "mixer_server": "${MIXER_SERVER}",
          "mixer_attributes" : {
             "attribute_name1": "attribute_value1",
             "attribute_name2": "attribute_value2"
@@ -83,7 +111,6 @@ This filter will intercept all HTTP requests and call Mixer. Here is its config:
 ```
 
 Notes:
-* mixer_server is required
 * mixer_attributes: these attributes will be sent to the mixer in both Check and Report calls.
 * forward_attributes: these attributes will be forwarded to the upstream istio/proxy. It will send them to mixer in Check and Report calls.
 * quota_name, quota_amount are used for making quota call. quota_amount defaults to 1.

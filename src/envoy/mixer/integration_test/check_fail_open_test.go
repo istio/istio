@@ -19,10 +19,11 @@ import (
 	"testing"
 )
 
-func TestCheckCache(t *testing.T) {
+func TestFailOpen(t *testing.T) {
 	s := &TestSetup{
 		t:    t,
-		conf: basicConfig + "," + checkCacheConfig,
+		conf: basicConfig,
+		no_mixer: true,
 	}
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
@@ -31,13 +32,13 @@ func TestCheckCache(t *testing.T) {
 
 	url := fmt.Sprintf("http://localhost:%d/echo", ClientProxyPort)
 
-	// Issues a GET echo request with 0 size body
-	tag := "OKGet"
-	for i := 0; i < 10; i++ {
-		if _, _, err := HTTPGet(url); err != nil {
-			t.Errorf("Failed in request %s: %v", tag, err)
-		}
-		// Only the first check is called.
-		s.VerifyCheckCount(tag, 1)
+	tag := "Fail-Open"
+	// Default is fail open policy.
+	code, _, err := HTTPGet(url)
+	if err != nil {
+		t.Errorf("Failed in request %s: %v", tag, err)
+	}
+	if code != 200 {
+		t.Errorf("Status code 200 is expected, got %d.", code)
 	}
 }

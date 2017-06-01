@@ -32,6 +32,8 @@ cc_library(
     srcs = [
         "config.cc",
         "config.h",
+        "grpc_transport.cc",
+        "grpc_transport.h",
         "http_control.cc",
         "http_control.h",
         "http_filter.cc",

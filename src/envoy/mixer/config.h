@@ -28,9 +28,6 @@ namespace Mixer {
 
 // A config for mixer filter
 struct MixerConfig {
-  // the mixer server address
-  std::string mixer_server;
-
   // These static attributes will be send to mixer in both
   // Check and Report.
   std::map<std::string, std::string> mixer_attributes;

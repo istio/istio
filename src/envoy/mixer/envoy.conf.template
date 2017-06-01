@@ -39,18 +39,12 @@
                 "type": "decoder",
                 "name": "mixer",
                 "config": {
-                  "mixer_server": "${MIXER_SERVER}",
                   "mixer_attributes": {
                       "target.uid": "POD222",
                       "target.service": "foo.svc.cluster.local"
                   },
                   "quota_name": "RequestCount",
-                  "quota_amount": "1",
-                  "check_cache_keys": [
-                      "request.host",
-                      "request.path",
-                      "origin.user"
-                  ]
+                  "quota_amount": "1"
                 }
               },
               {
@@ -98,7 +92,6 @@
                 "type": "decoder",
                 "name": "mixer",
                 "config": {
-                   "mixer_server": "${MIXER_SERVER}",
                    "forward_attributes": {
                       "source.uid": "POD11",
                       "source.namespace": "XYZ11"
@@ -141,6 +134,24 @@
         "hosts": [
           {
             "url": "tcp://localhost:9090"
+          }
+        ]
+      },
+      {
+        "name": "mixer_server",
+        "connect_timeout_ms": 5000,
+        "type": "strict_dns",
+	"circuit_breakers": {
+           "default": {
+	      "max_pending_requests": 10000,
+	      "max_requests": 10000
+            }
+	},
+        "lb_type": "round_robin",
+        "features": "http2",
+        "hosts": [
+          {
+            "url": "tcp://${MIXER_SERVER}"
           }
         ]
       }

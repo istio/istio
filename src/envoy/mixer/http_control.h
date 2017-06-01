@@ -20,6 +20,7 @@
 #include "common/common/logger.h"
 #include "common/http/headers.h"
 #include "envoy/http/access_log.h"
+#include "envoy/upstream/cluster_manager.h"
 #include "include/client.h"
 #include "src/envoy/mixer/config.h"
 
@@ -39,7 +40,7 @@ typedef std::shared_ptr<HttpRequestData> HttpRequestDataPtr;
 class HttpControl final : public Logger::Loggable<Logger::Id::http> {
  public:
   // The constructor.
-  HttpControl(const MixerConfig& mixer_config);
+  HttpControl(const MixerConfig& mixer_config, Upstream::ClusterManager& cm);
 
   // Make mixer check call.
   void Check(HttpRequestDataPtr request_data, HeaderMap& headers,
