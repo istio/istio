@@ -137,8 +137,6 @@ func (a *aspect) record(value adapter.Value) error {
 		// with the metric's labels in NewMetricsAspect, this should never fail.
 		_ = t.Execute(buf, value.Labels)
 		mname = buf.String()
-
-		buf.Reset()
 		pool.PutBuffer(buf)
 	}
 

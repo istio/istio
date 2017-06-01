@@ -146,7 +146,10 @@ func (e *applicationLogsExecutor) Execute(attrs attribute.Bag, mapper expr.Evalu
 	result := &multierror.Error{}
 	var entries []adapter.LogEntry
 
+	buf := pool.GetBuffer()
 	for name, md := range e.metadata {
+		buf.Reset()
+
 		labels, err := evalAll(md.labels, attrs, mapper)
 		if err != nil {
 			result = multierror.Append(result, fmt.Errorf("failed to eval labels for log entry '%s': %v", name, err))
@@ -159,10 +162,8 @@ func (e *applicationLogsExecutor) Execute(attrs attribute.Bag, mapper expr.Evalu
 			continue
 		}
 
-		buf := pool.GetBuffer()
 		err = md.tmpl.Execute(buf, templateVals)
 		if err != nil {
-			pool.PutBuffer(buf)
 			result = multierror.Append(result, fmt.Errorf(
 				"failed to construct payload string for log entry '%s' with template execution error: %v", name, err))
 			continue
@@ -201,10 +202,10 @@ func (e *applicationLogsExecutor) Execute(attrs attribute.Bag, mapper expr.Evalu
 				continue
 			}
 		}
-		pool.PutBuffer(buf)
-
 		entries = append(entries, entry)
 	}
+	pool.PutBuffer(buf)
+
 	if len(entries) > 0 {
 		if err := e.aspect.Log(entries); err != nil {
 			return status.WithError(err)

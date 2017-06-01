@@ -185,8 +185,8 @@ func MakeKey(name string, labels map[string]interface{}) string {
 	}
 
 	result := buf.String()
-
 	pool.PutBuffer(buf)
+
 	ws.keys = keys[:0]
 	keyWorkspacePool.Put(ws)
 

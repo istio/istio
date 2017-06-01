@@ -16,15 +16,12 @@ package api
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"net"
-	"sync"
+	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 	"google.golang.org/grpc"
 
@@ -34,12 +31,6 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/status"
-	"istio.io/mixer/pkg/tracing"
-)
-
-const (
-	testRequestID0 = 1234
-	testRequestID1 = 5678
 )
 
 type testState struct {
@@ -71,7 +62,8 @@ func (ts *testState) createGRPCServer() (string, error) {
 	ts.gp = pool.NewGoroutinePool(128, false)
 	ts.gp.AddWorkers(32)
 
-	ts.s = NewGRPCServer(ts, tracing.DisabledTracer(), ts.gp).(*grpcServer)
+	ms := NewGRPCServer(ts, ts.gp)
+	ts.s = ms.(*grpcServer)
 	mixerpb.RegisterMixerServer(ts.gs, ts.s)
 
 	go func() {
@@ -160,54 +152,16 @@ func TestCheck(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	stream, err := ts.client.Check(context.Background())
+	request := mixerpb.CheckRequest{}
+	response, err := ts.client.Check(context.Background(), &request)
+
 	if err != nil {
-		t.Fatalf("Check failed %v", err)
+		t.Errorf("Got %v, expected success", err)
+	} else if status.IsOK(response.Status) {
+		t.Error("Got success, expected error")
+	} else if !strings.Contains(response.Status.Message, "Not Implemented") {
+		t.Errorf("'%s' doesn't contain 'Not Implemented'", response.Status.Message)
 	}
-
-	waitc := make(chan int64)
-	go func() {
-		for {
-			response, err := stream.Recv()
-			if err == io.EOF {
-				close(waitc)
-				return
-			} else if err != nil {
-				t.Errorf("Failed to receive a response: %v", err)
-				return
-			} else {
-				waitc <- response.RequestIndex
-			}
-		}
-	}()
-
-	// send the first request
-	request := mixerpb.CheckRequest{RequestIndex: testRequestID0}
-	if err := stream.Send(&request); err != nil {
-		t.Errorf("Failed to send first request: %v", err)
-	}
-
-	// send the second request
-	request = mixerpb.CheckRequest{RequestIndex: testRequestID1}
-	if err := stream.Send(&request); err != nil {
-		t.Errorf("Failed to send second request: %v", err)
-	}
-
-	r0 := <-waitc
-	r1 := <-waitc
-
-	if err := stream.CloseSend(); err != nil {
-		t.Errorf("Failed to close gRPC stream: %v", err)
-	}
-
-	if (r0 == testRequestID0 && r1 == testRequestID1) || (r0 == testRequestID1 && r1 == testRequestID0) {
-		t.Log("Worked")
-	} else {
-		t.Errorf("Did not receive the two expected responses: r0=%v, r1=%v", r0, r1)
-	}
-
-	// wait for the goroutine to be done
-	<-waitc
 }
 
 func TestReport(t *testing.T) {
@@ -217,54 +171,11 @@ func TestReport(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	stream, err := ts.client.Report(context.Background())
+	request := mixerpb.ReportRequest{}
+	_, err = ts.client.Report(context.Background(), &request)
 	if err != nil {
-		t.Fatalf("Report failed %v", err)
+		t.Errorf("Expected success, got error: %v", err)
 	}
-
-	waitc := make(chan int64)
-	go func() {
-		for {
-			response, err := stream.Recv()
-			if err == io.EOF {
-				close(waitc)
-				return
-			} else if err != nil {
-				t.Errorf("Failed to receive a response: %v", err)
-				return
-			} else {
-				waitc <- response.RequestIndex
-			}
-		}
-	}()
-
-	// send the first request
-	request := mixerpb.ReportRequest{RequestIndex: testRequestID0}
-	if err := stream.Send(&request); err != nil {
-		t.Errorf("Failed to send first request: %v", err)
-	}
-
-	// send the second request
-	request = mixerpb.ReportRequest{RequestIndex: testRequestID1}
-	if err := stream.Send(&request); err != nil {
-		t.Errorf("Failed to send second request: %v", err)
-	}
-
-	r0 := <-waitc
-	r1 := <-waitc
-
-	if err := stream.CloseSend(); err != nil {
-		t.Errorf("Failed to close gRPC stream: %v", err)
-	}
-
-	if (r0 == testRequestID0 && r1 == testRequestID1) || (r0 == testRequestID1 && r1 == testRequestID0) {
-		t.Log("Worked")
-	} else {
-		t.Errorf("Did not receive the two expected responses: r0=%v, r1=%v", r0, r1)
-	}
-
-	// wait for the goroutine to be done
-	<-waitc
 }
 
 func TestQuota(t *testing.T) {
@@ -274,61 +185,15 @@ func TestQuota(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	stream, err := ts.client.Quota(context.Background())
+	request := mixerpb.QuotaRequest{}
+	_, err = ts.client.Quota(context.Background(), &request)
+
 	if err != nil {
-		t.Fatalf("Quota failed %v", err)
+		t.Errorf("Expected success, got error: %v", err)
 	}
-
-	waitc := make(chan *mixerpb.QuotaResponse)
-	go func() {
-		for {
-			response, err := stream.Recv()
-			if err == io.EOF {
-				close(waitc)
-				return
-			} else if err != nil {
-				t.Errorf("Failed to receive a response: %v", err)
-				return
-			} else {
-				waitc <- response
-			}
-		}
-	}()
-
-	// send the first request
-	request := mixerpb.QuotaRequest{RequestIndex: testRequestID0}
-	if err := stream.Send(&request); err != nil {
-		t.Errorf("Failed to send first request: %v", err)
-	}
-
-	// send the second request
-	request = mixerpb.QuotaRequest{RequestIndex: testRequestID1}
-	if err := stream.Send(&request); err != nil {
-		t.Errorf("Failed to send second request: %v", err)
-	}
-
-	r0 := <-waitc
-	r1 := <-waitc
-
-	if err := stream.CloseSend(); err != nil {
-		t.Errorf("Failed to close gRPC stream: %v", err)
-	}
-
-	if (r0.RequestIndex == testRequestID0 && r1.RequestIndex == testRequestID1) ||
-		(r0.RequestIndex == testRequestID1 && r1.RequestIndex == testRequestID0) {
-		t.Log("Worked")
-	} else {
-		t.Errorf("Did not receive the two expected responses: r0=%v, r1=%v", r0.RequestIndex, r1.RequestIndex)
-	}
-
-	if r0.Amount != 42 || r1.Amount != 42 {
-		t.Errorf("Got quota amount %d and %d, expected 42 for both", r0.Amount, r1.Amount)
-	}
-
-	// wait for the goroutine to be done
-	<-waitc
 }
 
+/*
 func TestOverload(t *testing.T) {
 	ts, err := prepTestState()
 	if err != nil {
@@ -384,119 +249,6 @@ func TestOverload(t *testing.T) {
 	<-waitc
 }
 
-func TestBadAttr(t *testing.T) {
-	ts, err := prepTestState()
-	if err != nil {
-		t.Fatalf("Unable to prep test state: %v", err)
-	}
-	defer ts.cleanupTestState()
-
-	stream, err := ts.client.Report(context.Background())
-	if err != nil {
-		t.Fatalf("Report failed %v", err)
-	}
-
-	attrs := mixerpb.Attributes{
-		StringAttributes: map[int32]string{1: "1", 2: "2"},
-	}
-
-	request := mixerpb.ReportRequest{AttributeUpdate: attrs}
-	if err = stream.Send(&request); err != nil {
-		t.Errorf("Failed to send request: %v", err)
-	}
-
-	response, err := stream.Recv()
-	if err == io.EOF {
-		t.Error("Got EOF from stream")
-	} else if err != nil {
-		t.Errorf("Failed to receive a response: %v", err)
-	} else {
-		if response.Result.Code != int32(rpc.INVALID_ARGUMENT) {
-			t.Errorf("Got result %d, expecting %d", response.Result.Code, rpc.INVALID_ARGUMENT)
-		}
-		if response.Result.Details == nil {
-			t.Errorf("No details supplied in response: %v", response.Result)
-		}
-	}
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-
-	// install a failing SendMsg to exercise the failure path
-	ts.s.sendMsg = func(stream grpc.Stream, m proto.Message) error {
-		err := errors.New("nothing good")
-		wg.Done()
-		return err
-	}
-
-	if err := stream.Send(&request); err != nil {
-		t.Errorf("Failed to send request: %v", err)
-	}
-
-	wg.Wait()
-
-	if err := stream.CloseSend(); err != nil {
-		t.Errorf("Failed to close gRPC stream: %v", err)
-	}
-}
-
-func TestRudeClose(t *testing.T) {
-	ts, err := prepTestState()
-	if err != nil {
-		t.Fatalf("Unable to prep test state: %v", err)
-	}
-	defer ts.cleanupTestState()
-
-	stream, err := ts.client.Report(context.Background())
-	if err != nil {
-		t.Fatalf("Report failed %v", err)
-	}
-
-	request := mixerpb.ReportRequest{}
-	if err = stream.Send(&request); err != nil {
-		t.Errorf("Failed to send request: %v", err)
-	}
-
-	_, err = stream.Recv()
-	if err == io.EOF {
-		t.Error("Got EOF from stream")
-	} else if err != nil {
-		t.Errorf("Failed to receive a response: %v", err)
-	}
-}
-
-func TestBrokenStream(t *testing.T) {
-	ts, err := prepTestState()
-	if err != nil {
-		t.Fatalf("Unable to prep test state: %v", err)
-	}
-	defer ts.cleanupTestState()
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-
-	// install a failing SendMsg to exercise the failure path
-	ts.s.sendMsg = func(stream grpc.Stream, m proto.Message) error {
-		err = errors.New("nothing good")
-		wg.Done()
-		return err
-	}
-
-	stream, err := ts.client.Report(context.Background())
-	if err != nil {
-		t.Fatalf("Report failed %v", err)
-	}
-
-	request := mixerpb.ReportRequest{}
-	if err := stream.Send(&request); err != nil {
-		t.Errorf("Failed to send request: %v", err)
-	}
-
-	// we never hear back from the server (since the send failed). Just wait
-	// for the goroutine to signal it's done
-	wg.Wait()
-}
-
 func TestBadBag(t *testing.T) {
 	ts, err := prepTestState()
 	if err != nil {
@@ -530,55 +282,7 @@ func TestBadBag(t *testing.T) {
 	// for the goroutine to signal it's done
 	wg.Wait()
 }
-
-func TestPreprocessFailure(t *testing.T) {
-	ts, err := prepTestState()
-	if err != nil {
-		t.Fatalf("unable to prep test dispatchState %v", err)
-	}
-	ts.failPreprocess = true
-	defer ts.cleanupTestState()
-
-	stream, err := ts.client.Report(context.Background())
-	if err != nil {
-		t.Fatalf("Report failed %v", err)
-	}
-
-	waitc := make(chan rpc.Status)
-	go func() {
-		for {
-			response, err := stream.Recv()
-			if err == io.EOF {
-				close(waitc)
-				return
-			} else if err != nil {
-				t.Errorf("Failed to receive a response: %v", err)
-				return
-			} else {
-				waitc <- response.Result
-			}
-		}
-	}()
-
-	// send the first request
-	request := mixerpb.ReportRequest{RequestIndex: testRequestID0}
-	if err := stream.Send(&request); err != nil {
-		t.Errorf("Failed to send first request: %v", err)
-	}
-
-	result := <-waitc
-
-	if err := stream.CloseSend(); err != nil {
-		t.Errorf("Failed to close gRPC stream: %v", err)
-	}
-
-	if status.IsOK(result) {
-		t.Error("Got OK; wanted failure.")
-	}
-
-	// wait for the goroutine to be done
-	<-waitc
-}
+*/
 
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.

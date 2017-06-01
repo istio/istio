@@ -16,8 +16,8 @@ package cmd
 
 import (
 	"context"
-	"io"
 
+	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
 
@@ -53,36 +53,13 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 	}
 	defer deleteAPIClient(cs)
 
-	span, ctx := cs.tracer.StartRootSpan(context.Background(), "mixc Check", ext.SpanKindRPCClient)
-	_, ctx = cs.tracer.PropagateSpan(ctx, span)
-
-	var stream mixerpb.Mixer_CheckClient
-	if stream, err = cs.client.Check(ctx); err != nil {
-		fatalf("Check RPC failed: %v", err)
-	}
-
+	span, ctx := ot.StartSpanFromContext(context.Background(), "mixc Check", ext.SpanKindRPCClient)
 	for i := 0; i < rootArgs.repeat; i++ {
-		// send the request
-		request := mixerpb.CheckRequest{RequestIndex: int64(i), AttributeUpdate: *attrs}
+		request := mixerpb.CheckRequest{Attributes: *attrs}
+		response, err := cs.client.Check(ctx, &request)
 
-		if err = stream.Send(&request); err != nil {
-			fatalf("Failed to send Check RPC: %v", err)
-		}
-
-		var response *mixerpb.CheckResponse
-		response, err = stream.Recv()
-		if err == io.EOF {
-			fatalf("Got no response from Check RPC")
-		} else if err != nil {
-			fatalf("Failed to receive a response from Check RPC: %v", err)
-		}
-
-		printf("Check RPC returned %s", decodeStatus(response.Result))
-		dumpAttributes(printf, fatalf, response.AttributeUpdate)
-	}
-
-	if err = stream.CloseSend(); err != nil {
-		fatalf("Failed to close gRPC stream: %v", err)
+		printf("Check RPC returned %s, %s", decodeError(err), decodeStatus(response.Status))
+		dumpAttributes(printf, fatalf, &response.Attributes)
 	}
 
 	span.Finish()

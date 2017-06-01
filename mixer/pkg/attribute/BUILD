@@ -6,11 +6,8 @@ go_library(
     name = "go_default_library",
     srcs = [
         "bag.go",
-        "dictionaries.go",
         "emptyBag.go",
-        "manager.go",
         "mutableBag.go",
-        "tracker.go",
     ],
     deps = [
         "//pkg/pool:go_default_library",
@@ -26,9 +23,6 @@ go_test(
     size = "small",
     srcs = [
         "bag_test.go",
-        "dictionaries_test.go",
-        "manager_test.go",
-        "tracker_test.go",
     ],
     library = ":go_default_library",
     deps = [
