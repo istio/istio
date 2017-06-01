@@ -43,11 +43,11 @@ service Mixer {
   // the active configuration.
   rpc Check(CheckRequest) returns (CheckResponse) {}
 
+  // Quota allocates and releases quota.
+  rpc Quota(QuotaRequest) returns (QuotaResponse) {}
+
   // Reports telemetry, such as logs and metrics.
   // The reported information depends on the set of supplied attributes and the
   // active configuration.
   rpc Report(ReportRequest) returns (ReportResponse) {}
-
-  // Quota allocates and releases quota.
-  rpc Quota(QuotaRequest) returns (QuotaResponse) {}
 }

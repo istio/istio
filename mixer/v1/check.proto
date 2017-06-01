@@ -29,9 +29,8 @@ option (gogoproto.gostring_all) = false;
 message CheckRequest {
   // The attributes to use for this request.
   //
-  // Mixer's configuration
-  // determines how these attributes are used to determine the result
-  // returned in the response.
+  // Mixer's configuration determines how these attributes are used to
+  // determine the result returned in the response.
   Attributes attributes = 1 [(gogoproto.nullable) = false];
 }
 
