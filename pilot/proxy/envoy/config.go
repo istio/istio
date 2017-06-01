@@ -91,10 +91,7 @@ func Generate(context *proxy.Context) *Config {
 
 // buildConfig creates a proxy config with discovery services and admin port
 func buildConfig(listeners Listeners, clusters Clusters, mesh *proxyconfig.ProxyMeshConfig) *Config {
-	if cluster := buildZipkinCluster(mesh); cluster != nil {
-		clusters = append(clusters, cluster)
-	}
-	return &Config{
+	out := &Config{
 		Listeners: listeners,
 		Admin: Admin{
 			AccessLogPath: DefaultAccessLog,
@@ -102,18 +99,25 @@ func buildConfig(listeners Listeners, clusters Clusters, mesh *proxyconfig.Proxy
 		},
 		ClusterManager: ClusterManager{
 			Clusters: append(clusters,
-				buildDiscoveryCluster(mesh.DiscoveryAddress, RDSName, mesh.ConnectTimeout)),
+				buildCluster(mesh.DiscoveryAddress, RDSName, mesh.ConnectTimeout)),
 			SDS: &DiscoveryCluster{
-				Cluster:        buildDiscoveryCluster(mesh.DiscoveryAddress, SDSName, mesh.ConnectTimeout),
+				Cluster:        buildCluster(mesh.DiscoveryAddress, SDSName, mesh.ConnectTimeout),
 				RefreshDelayMs: protoDurationToMS(mesh.DiscoveryRefreshDelay),
 			},
 			CDS: &DiscoveryCluster{
-				Cluster:        buildDiscoveryCluster(mesh.DiscoveryAddress, CDSName, mesh.ConnectTimeout),
+				Cluster:        buildCluster(mesh.DiscoveryAddress, CDSName, mesh.ConnectTimeout),
 				RefreshDelayMs: protoDurationToMS(mesh.DiscoveryRefreshDelay),
 			},
 		},
-		Tracing: buildZipkinTracing(mesh),
 	}
+
+	if mesh.ZipkinAddress != "" {
+		out.ClusterManager.Clusters = append(out.ClusterManager.Clusters,
+			buildCluster(mesh.ZipkinAddress, ZipkinCollectorCluster, mesh.ConnectTimeout))
+		out.Tracing = buildZipkinTracing(mesh)
+	}
+
+	return out
 }
 
 // buildListeners produces a list of listeners and referenced clusters
@@ -142,11 +146,23 @@ func buildListeners(context *proxy.Context) (Listeners, Clusters) {
 		}
 	}
 
+	// inject static Mixer filter with proxy identities for all HTTP filters
+	if context.MeshConfig.MixerAddress != "" {
+		mixerCluster := buildCluster(context.MeshConfig.MixerAddress, MixerCluster, context.MeshConfig.ConnectTimeout)
+		mixerCluster.CircuitBreaker = &CircuitBreaker{
+			Default: DefaultCBPriority{
+				MaxPendingRequests: 10000,
+				MaxRequests:        10000,
+			},
+		}
+		mixerCluster.Features = ClusterFeatureHTTP2
+
+		clusters = append(clusters, mixerCluster)
+		insertMixerFilter(listeners, instances, context)
+	}
+
 	listeners = listeners.normalize()
 	clusters = clusters.normalize()
-
-	// inject static Mixer filter with proxy identities for all HTTP filters
-	insertMixerFilter(listeners, instances, context)
 
 	return listeners, clusters
 }
@@ -165,8 +181,9 @@ func buildHTTPListener(mesh *proxyconfig.ProxyMeshConfig, routeConfig *HTTPRoute
 	})
 
 	config := &HTTPFilterConfig{
-		CodecType:  auto,
-		StatPrefix: "http",
+		CodecType:         auto,
+		GenerateRequestID: true,
+		StatPrefix:        "http",
 		AccessLog: []AccessLog{{
 			Path: DefaultAccessLog,
 		}},
@@ -174,7 +191,6 @@ func buildHTTPListener(mesh *proxyconfig.ProxyMeshConfig, routeConfig *HTTPRoute
 	}
 
 	if mesh.ZipkinAddress != "" {
-		config.GenerateRequestID = true
 		config.Tracing = &HTTPFilterTraceConfig{
 			OperationName: IngressTraceOperation,
 		}

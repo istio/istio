@@ -60,7 +60,7 @@ const (
 	caTag = "689b447"
 
 	// Mixer image tag is the short SHA *update manually*
-	mixerTag = "6655a67"
+	mixerTag = "unary-server"
 
 	// retry budget
 	budget = 90

@@ -68,13 +68,13 @@ func buildDefaultRoute(cluster *Cluster) *HTTPRoute {
 func buildInboundCluster(port int, protocol model.Protocol, timeout *duration.Duration) *Cluster {
 	cluster := &Cluster{
 		Name:             fmt.Sprintf("%s%d", InboundClusterPrefix, port),
-		Type:             "static",
+		Type:             ClusterTypeStatic,
 		ConnectTimeoutMs: protoDurationToMS(timeout),
 		LbType:           DefaultLbType,
 		Hosts:            []Host{{URL: fmt.Sprintf("tcp://%s:%d", "127.0.0.1", port)}},
 	}
 	if protocol == model.ProtocolGRPC || protocol == model.ProtocolHTTP2 {
-		cluster.Features = "http2"
+		cluster.Features = ClusterFeatureHTTP2
 	}
 	return cluster
 }
@@ -95,7 +95,7 @@ func buildOutboundCluster(hostname string, port *model.Port, tags model.Tags) *C
 	}
 
 	if port.Protocol == model.ProtocolGRPC || port.Protocol == model.ProtocolHTTP2 {
-		cluster.Features = "http2"
+		cluster.Features = ClusterFeatureHTTP2
 	}
 	return cluster
 }
@@ -180,7 +180,7 @@ func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port) *HTTPRoute {
 	return route
 }
 
-func buildDiscoveryCluster(address, name string, timeout *duration.Duration) *Cluster {
+func buildCluster(address, name string, timeout *duration.Duration) *Cluster {
 	return &Cluster{
 		Name:             name,
 		Type:             ClusterTypeStrictDNS,
@@ -194,25 +194,7 @@ func buildDiscoveryCluster(address, name string, timeout *duration.Duration) *Cl
 	}
 }
 
-func buildZipkinCluster(mesh *proxyconfig.ProxyMeshConfig) *Cluster {
-	if mesh.ZipkinAddress == "" {
-		return nil
-	}
-
-	return &Cluster{
-		Name:             ZipkinCollectorCluster,
-		Type:             ClusterTypeStrictDNS,
-		ConnectTimeoutMs: protoDurationToMS(mesh.ConnectTimeout),
-		LbType:           DefaultLbType,
-		Hosts:            []Host{{URL: fmt.Sprintf("tcp://%v", mesh.ZipkinAddress)}},
-	}
-}
-
 func buildZipkinTracing(mesh *proxyconfig.ProxyMeshConfig) *Tracing {
-	if mesh.ZipkinAddress == "" {
-		return nil
-	}
-
 	return &Tracing{
 		HTTPTracer: HTTPTracer{
 			HTTPTraceDriver: HTTPTraceDriver{

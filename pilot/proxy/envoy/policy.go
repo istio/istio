@@ -27,10 +27,6 @@ import (
 )
 
 func insertMixerFilter(listeners []*Listener, instances []*model.ServiceInstance, context *proxy.Context) {
-	if context.MeshConfig.MixerAddress == "" {
-		return
-	}
-
 	// join service names with a comma
 	serviceSet := make(map[string]bool, len(instances))
 	for _, instance := range instances {
@@ -51,7 +47,6 @@ func insertMixerFilter(listeners []*Listener, instances []*model.ServiceInstance
 					Type: decoder,
 					Name: "mixer",
 					Config: &FilterMixerConfig{
-						MixerServer: context.MeshConfig.MixerAddress,
 						MixerAttributes: map[string]string{
 							"target.ip":      context.IPAddress,
 							"target.uid":     context.UID,

@@ -1,20 +1,3 @@
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: mixer-config
-data:
-  globalconfig.yml: |-
-    subject: "namespace:ns"
-    revision: "2022"
-    adapters:
-  serviceconfig.yml: |-
-    subject: namespace:ns
-    revision: "2022"
-    rules:
-    - selector: true
-      aspects:
----
 # Mixer
 apiVersion: v1
 kind: Service
@@ -24,10 +7,8 @@ metadata:
     app: mixer
 spec:
   ports:
-  - name: tcp
+  - name: grpc
     port: 9091
-  - name: prometheus
-    port: 42422
   selector:
     app: mixer
 ---
@@ -48,18 +29,8 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 9091
-        - containerPort: 42422
         args:
-          - --globalConfigFile=/etc/opt/mixer/globalconfig.yml
-          - --serviceConfigFile=/etc/opt/mixer/serviceconfig.yml
+          - --configStoreURL=fs:///etc/opt/mixer/configroot
           - --logtostderr
-          - -v
-          - "3"
-        volumeMounts:
-          - mountPath: /etc/opt/mixer
-            name: config
-      volumes:
-        - name: config
-          configMap:
-            name: mixer-config
+          - --v=4
 ---

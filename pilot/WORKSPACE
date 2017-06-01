@@ -305,7 +305,7 @@ new_go_repository(
 ## Proxy build rules
 ##
 
-PROXY = "f9bf1d98295a17b67f7af5f78aa2f99f6f4a02d8"  # May 20, 2017
+PROXY = "35b64109abe5c2242d5548507edb4c5912c43198"  # Jun 1, 2017
 
 http_file(
     name = "istio_proxy",

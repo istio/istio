@@ -45,8 +45,14 @@ const (
 	// ClusterTypeStrictDNS name for clusters of type 'strict_dns'
 	ClusterTypeStrictDNS = "strict_dns"
 
+	// ClusterTypeStatic name for clusters of type 'static'
+	ClusterTypeStatic = "static"
+
 	// LbTypeRoundRobin is the name for roundrobin LB
 	LbTypeRoundRobin = "round_robin"
+
+	// ClusterFeatureHTTP2 is the feature to use HTTP/2 for a cluster
+	ClusterFeatureHTTP2 = "http2"
 
 	// HTTPConnectionManager is the name of HTTP filter.
 	HTTPConnectionManager = "http_connection_manager"
@@ -68,6 +74,9 @@ const (
 
 	// ZipkinCollectorEndpoint denotes the REST endpoint where Envoy posts Zipkin spans
 	ZipkinCollectorEndpoint = "/api/v1/spans"
+
+	// MixerCluster is the name of the mixer cluster
+	MixerCluster = "mixer_server"
 
 	router  = "router"
 	auto    = "auto"
@@ -150,9 +159,6 @@ type Header struct {
 
 // FilterMixerConfig definition
 type FilterMixerConfig struct {
-	// MixerServer specifies the address of the mixer server (e.g. "mixer:9090")
-	MixerServer string `json:"mixer_server"`
-
 	// MixerAttributes specifies the static list of attributes that are sent with
 	// each request to Mixer.
 	MixerAttributes map[string]string `json:"mixer_attributes,omitempty"`
