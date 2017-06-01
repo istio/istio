@@ -15,79 +15,69 @@
 #include "src/client_impl.h"
 #include "utils/protobuf.h"
 
+using ::istio::mixer::v1::CheckRequest;
 using ::istio::mixer::v1::CheckResponse;
+using ::istio::mixer::v1::ReportRequest;
 using ::istio::mixer::v1::ReportResponse;
+using ::istio::mixer::v1::QuotaRequest;
 using ::istio::mixer::v1::QuotaResponse;
 using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;
 
 namespace istio {
 namespace mixer_client {
+namespace {
+bool IsNetworkError(Status status) {
+  return status.error_code() == Code::UNAVAILABLE;
+}
+}  // namespace
 
 MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
-    : options_(options) {
-  TransportInterface *transport = options_.transport;
-  if (transport == nullptr) {
-    GOOGLE_CHECK(!options_.mixer_server.empty());
-    grpc_transport_.reset(new GrpcTransport(options_.mixer_server));
-    transport = grpc_transport_.get();
-  }
-  check_transport_.reset(new CheckTransport(transport));
-  report_transport_.reset(new ReportTransport(transport));
-  quota_transport_.reset(new QuotaTransport(transport));
-
+    : options_(options), converter_({}) {
   check_cache_ =
       std::unique_ptr<CheckCache>(new CheckCache(options.check_options));
-  quota_cache_ = std::unique_ptr<QuotaCache>(
-      new QuotaCache(options.quota_options, quota_transport_.get()));
+  quota_cache_ = std::unique_ptr<QuotaCache>(new QuotaCache(
+      options.quota_options, options_.quota_transport, converter_));
 }
 
-MixerClientImpl::~MixerClientImpl() { check_cache_->FlushAll(); }
+MixerClientImpl::~MixerClientImpl() {}
 
 void MixerClientImpl::Check(const Attributes &attributes, DoneFunc on_done) {
-  auto response = new CheckResponse;
   std::string signature;
-  Status status = check_cache_->Check(attributes, response, &signature);
-  if (status.error_code() == Code::NOT_FOUND) {
-    std::shared_ptr<CheckCache> check_cache_copy = check_cache_;
-    bool fail_open = options_.check_options.network_fail_open;
-    check_transport_->Send(
-        attributes, response, [check_cache_copy, signature, response, on_done,
-                               fail_open](const Status &status) {
-          if (status.ok()) {
-            check_cache_copy->CacheResponse(signature, *response);
-            on_done(ConvertRpcStatus(response->result()));
-          } else {
-            if (fail_open) {
-              on_done(Status::OK);
-            } else {
-              on_done(status);
-            }
-          }
-          delete response;
-        });
+  Status status = check_cache_->Check(attributes, &signature);
+  if (status.error_code() != Code::NOT_FOUND) {
+    on_done(status);
     return;
   }
 
-  if (status.ok()) {
-    on_done(ConvertRpcStatus(response->result()));
-  } else {
-    on_done(status);
-  }
-  delete response;
+  CheckRequest request;
+  converter_.Convert(attributes, request.mutable_attributes());
+  auto response = new CheckResponse;
+  options_.check_transport(request, response, [this, signature, response,
+                                               on_done](const Status &status) {
+    delete response;
+    if (IsNetworkError(status)) {
+      if (options_.check_options.network_fail_open) {
+        on_done(Status::OK);
+      } else {
+        on_done(status);
+      }
+    } else {
+      check_cache_->CacheResponse(signature, status);
+      on_done(status);
+    }
+  });
 }
 
 void MixerClientImpl::Report(const Attributes &attributes, DoneFunc on_done) {
   auto response = new ReportResponse;
-  report_transport_->Send(attributes, response,
-                          [response, on_done](const Status &status) {
-                            if (status.ok()) {
-                              on_done(ConvertRpcStatus(response->result()));
-                            } else {
+  ReportRequest request;
+  converter_.Convert(attributes, request.add_attributes());
+  options_.report_transport(request, response,
+                            [response, on_done](const Status &status) {
                               on_done(status);
-                            }
-                            delete response;
-                          });
+                              delete response;
+                            });
 }
 
 void MixerClientImpl::Quota(const Attributes &attributes, DoneFunc on_done) {

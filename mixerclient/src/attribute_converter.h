@@ -16,29 +16,24 @@
 #ifndef MIXERCLIENT_ATTRIBUTE_CONVERTER_H
 #define MIXERCLIENT_ATTRIBUTE_CONVERTER_H
 
-#include "include/client.h"
+#include <unordered_map>
+
+#include "include/attribute.h"
+#include "mixer/v1/service.pb.h"
 
 namespace istio {
 namespace mixer_client {
 
-// Underlying stream ID.
-typedef int64_t StreamID;
-
-// An interface to convert from struct to protobuf.
-// It is called by StreamTransport after picking a stream to use.
-// It will be implemented by Transport with correct attribute
-// context.
-template <class RequestType>
+// Convert attributes from struct to protobuf
 class AttributeConverter {
  public:
-  // virtual destructor
-  virtual ~AttributeConverter() {}
+  AttributeConverter(const std::vector<std::string>& global_words);
 
-  // Convert attributes from struct to protobuf
-  // It requires an attribute context. A different stream_id
-  // requires a new attribute context.
-  virtual void FillProto(StreamID stream_id, const Attributes& attributes,
-                         RequestType* request) = 0;
+  void Convert(const Attributes& attributes,
+               ::istio::mixer::v1::Attributes* attributes_pb) const;
+
+ private:
+  std::unordered_map<std::string, int> global_dict_;
 };
 
 }  // namespace mixer_client

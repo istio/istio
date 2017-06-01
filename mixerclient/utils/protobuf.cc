@@ -48,9 +48,5 @@ milliseconds ToMilliseonds(const Duration& duration) {
          duration_cast<milliseconds>(nanoseconds(duration.nanos()));
 }
 
-Status ConvertRpcStatus(const ::google::rpc::Status& status) {
-  return Status(static_cast<Code>(status.code()), status.message());
-}
-
 }  // namespace mixer_client
 }  // namespace istio

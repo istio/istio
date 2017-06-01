@@ -16,18 +16,12 @@
 #include "src/check_cache.h"
 
 #include "gmock/gmock.h"
-#include "google/protobuf/text_format.h"
-#include "google/protobuf/util/message_differencer.h"
 #include "gtest/gtest.h"
 #include "utils/status_test_util.h"
 
 #include <unistd.h>
 
 using std::string;
-using ::istio::mixer::v1::CheckRequest;
-using ::istio::mixer::v1::CheckResponse;
-using ::google::protobuf::TextFormat;
-using ::google::protobuf::util::MessageDifferencer;
 using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;
 
@@ -37,21 +31,11 @@ namespace {
 
 const int kFlushIntervalMs = 100;
 const int kExpirationMs = 200;
-
-const char kSuccessResponse1[] = R"(
-request_index: 1
-result: {
- code: 0
- message: "success response"
-}
-)";
 }
 
 class CheckCacheTest : public ::testing::Test {
  public:
   void SetUp() {
-    ASSERT_TRUE(
-        TextFormat::ParseFromString(kSuccessResponse1, &pass_response1_));
     CheckOptions options(1 /*entries*/, kFlushIntervalMs, kExpirationMs);
     options.cache_keys = {"string-key"};
 
@@ -63,7 +47,6 @@ class CheckCacheTest : public ::testing::Test {
   }
 
   Attributes attributes1_;
-  CheckResponse pass_response1_;
 
   std::unique_ptr<CheckCache> cache_;
 };
@@ -75,10 +58,8 @@ TEST_F(CheckCacheTest, TestDisableCache1) {
   cache_ = std::unique_ptr<CheckCache>(new CheckCache(options));
 
   ASSERT_TRUE((bool)(cache_));
-  CheckResponse response;
 
-  EXPECT_ERROR_CODE(Code::NOT_FOUND,
-                    cache_->Check(attributes1_, &response, nullptr));
+  EXPECT_ERROR_CODE(Code::NOT_FOUND, cache_->Check(attributes1_, nullptr));
 }
 
 TEST_F(CheckCacheTest, TestDisableCache2) {
@@ -87,63 +68,50 @@ TEST_F(CheckCacheTest, TestDisableCache2) {
   cache_ = std::unique_ptr<CheckCache>(new CheckCache(options));
 
   ASSERT_TRUE((bool)(cache_));
-  CheckResponse response;
 
-  EXPECT_ERROR_CODE(Code::NOT_FOUND,
-                    cache_->Check(attributes1_, &response, nullptr));
+  EXPECT_ERROR_CODE(Code::NOT_FOUND, cache_->Check(attributes1_, nullptr));
 }
 
 TEST_F(CheckCacheTest, TestCachePassResponses) {
-  CheckResponse response;
   std::string signature;
-  EXPECT_ERROR_CODE(Code::NOT_FOUND,
-                    cache_->Check(attributes1_, &response, &signature));
+  EXPECT_ERROR_CODE(Code::NOT_FOUND, cache_->Check(attributes1_, &signature));
 
-  EXPECT_OK(cache_->CacheResponse(signature, pass_response1_));
-  EXPECT_OK(cache_->Check(attributes1_, &response, &signature));
+  EXPECT_OK(cache_->CacheResponse(signature, Status::OK));
+  EXPECT_OK(cache_->Check(attributes1_, &signature));
 }
 
 TEST_F(CheckCacheTest, TestRefresh) {
-  CheckResponse response;
   std::string signature;
-  EXPECT_ERROR_CODE(Code::NOT_FOUND,
-                    cache_->Check(attributes1_, &response, &signature));
+  EXPECT_ERROR_CODE(Code::NOT_FOUND, cache_->Check(attributes1_, &signature));
 
-  EXPECT_OK(cache_->CacheResponse(signature, pass_response1_));
-  EXPECT_OK(cache_->Check(attributes1_, &response, &signature));
+  EXPECT_OK(cache_->CacheResponse(signature, Status::OK));
+  EXPECT_OK(cache_->Check(attributes1_, &signature));
   // sleep 0.12 second.
   usleep(120000);
 
   // First one should be NOT_FOUND for refresh
-  EXPECT_ERROR_CODE(Code::NOT_FOUND,
-                    cache_->Check(attributes1_, &response, &signature));
+  EXPECT_ERROR_CODE(Code::NOT_FOUND, cache_->Check(attributes1_, &signature));
   // Second one use cached response.
-  EXPECT_OK(cache_->CacheResponse(signature, pass_response1_));
-  EXPECT_OK(cache_->Check(attributes1_, &response, &signature));
-  EXPECT_TRUE(MessageDifferencer::Equals(response, pass_response1_));
+  EXPECT_OK(cache_->CacheResponse(signature, Status::OK));
+  EXPECT_OK(cache_->Check(attributes1_, &signature));
 
   EXPECT_OK(cache_->FlushAll());
-  EXPECT_ERROR_CODE(Code::NOT_FOUND,
-                    cache_->Check(attributes1_, &response, &signature));
+  EXPECT_ERROR_CODE(Code::NOT_FOUND, cache_->Check(attributes1_, &signature));
 }
 
 TEST_F(CheckCacheTest, TestCacheExpired) {
-  CheckResponse response;
   std::string signature;
-  EXPECT_ERROR_CODE(Code::NOT_FOUND,
-                    cache_->Check(attributes1_, &response, &signature));
+  EXPECT_ERROR_CODE(Code::NOT_FOUND, cache_->Check(attributes1_, &signature));
 
-  EXPECT_OK(cache_->CacheResponse(signature, pass_response1_));
-  EXPECT_OK(cache_->Check(attributes1_, &response, &signature));
-  EXPECT_TRUE(MessageDifferencer::Equals(response, pass_response1_));
+  EXPECT_OK(cache_->CacheResponse(signature, Status::OK));
+  EXPECT_OK(cache_->Check(attributes1_, &signature));
 
   // sleep 0.22 second to cause cache expired.
   usleep(220000);
   EXPECT_OK(cache_->Flush());
 
   // First one should be NOT_FOUND for refresh
-  EXPECT_ERROR_CODE(Code::NOT_FOUND,
-                    cache_->Check(attributes1_, &response, &signature));
+  EXPECT_ERROR_CODE(Code::NOT_FOUND, cache_->Check(attributes1_, &signature));
 }
 
 }  // namespace mixer_client

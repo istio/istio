@@ -26,7 +26,6 @@
 #include "google/protobuf/stubs/status.h"
 #include "include/client.h"
 #include "include/options.h"
-#include "mixer/v1/service.pb.h"
 #include "src/cache_key_set.h"
 #include "utils/simple_lru_cache.h"
 #include "utils/simple_lru_cache_inl.h"
@@ -45,14 +44,12 @@ class CheckCache {
   // If the check could not be handled by the cache, returns NOT_FOUND,
   // caller has to send the request to mixer.
   // Otherwise, returns OK and cached response.
-  virtual ::google::protobuf::util::Status Check(
-      const Attributes& request, ::istio::mixer::v1::CheckResponse* response,
-      std::string* signature);
+  virtual ::google::protobuf::util::Status Check(const Attributes& request,
+                                                 std::string* signature);
 
   // Caches a response from a remote mixer call.
   virtual ::google::protobuf::util::Status CacheResponse(
-      const std::string& signature,
-      const ::istio::mixer::v1::CheckResponse& response);
+      const std::string& signature, ::google::protobuf::util::Status status);
 
   // Invalidates expired check responses.
   // Called at time specified by GetNextFlushInterval().
@@ -65,19 +62,15 @@ class CheckCache {
  private:
   class CacheElem {
    public:
-    CacheElem(const ::istio::mixer::v1::CheckResponse& response,
-              const int64_t time)
-        : check_response_(response), last_check_time_(time) {}
+    CacheElem(::google::protobuf::util::Status status, const int64_t time)
+        : status_(status), last_check_time_(time) {}
 
-    // Setter for check response.
-    inline void set_check_response(
-        const ::istio::mixer::v1::CheckResponse& check_response) {
-      check_response_ = check_response;
+    // Setter for check status.
+    inline void set_status(::google::protobuf::util::Status status) {
+      status_ = status;
     }
     // Getter for check response.
-    inline const ::istio::mixer::v1::CheckResponse& check_response() const {
-      return check_response_;
-    }
+    inline ::google::protobuf::util::Status status() const { return status_; }
 
     // Setter for last check time.
     inline void set_last_check_time(const int64_t last_check_time) {
@@ -87,8 +80,8 @@ class CheckCache {
     inline const int64_t last_check_time() const { return last_check_time_; }
 
    private:
-    // The check response for the last check request.
-    ::istio::mixer::v1::CheckResponse check_response_;
+    // The check status for the last check request.
+    ::google::protobuf::util::Status status_;
     // In general, this is the last time a check response is updated.
     //
     // During flush, we set it to be the request start time to prevent a next

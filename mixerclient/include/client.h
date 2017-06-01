@@ -18,27 +18,41 @@
 
 #include "attribute.h"
 #include "google/protobuf/stubs/status.h"
+#include "mixer/v1/service.pb.h"
 #include "options.h"
-#include "transport.h"
 
 namespace istio {
 namespace mixer_client {
 
 // Defines a function prototype used when an asynchronous transport call
 // is completed.
+// Uses UNAVAILABLE status code to indicate network failure.
 using DoneFunc = std::function<void(const ::google::protobuf::util::Status&)>;
+
+// Defines a function prototype to make an asynchronous Check call
+using TransportCheckFunc = std::function<void(
+    const ::istio::mixer::v1::CheckRequest& request,
+    ::istio::mixer::v1::CheckResponse* response, DoneFunc on_done)>;
+
+// Defines a function prototype to make an asynchronous Report call
+using TransportReportFunc = std::function<void(
+    const ::istio::mixer::v1::ReportRequest& request,
+    ::istio::mixer::v1::ReportResponse* response, DoneFunc on_done)>;
+
+// Defines a function prototype to make an asynchronous Quota call
+using TransportQuotaFunc = std::function<void(
+    const ::istio::mixer::v1::QuotaRequest& request,
+    ::istio::mixer::v1::QuotaResponse* response, DoneFunc on_done)>;
 
 // Defines the options to create an instance of MixerClient interface.
 struct MixerClientOptions {
   // Default constructor with default values.
-  MixerClientOptions() : transport(nullptr) {}
+  MixerClientOptions() {}
 
   // Constructor with specified option values.
   MixerClientOptions(const CheckOptions& check_options,
                      const QuotaOptions& quota_options)
-      : check_options(check_options),
-        quota_options(quota_options),
-        transport(nullptr) {}
+      : check_options(check_options), quota_options(quota_options) {}
 
   // Check options.
   CheckOptions check_options;
@@ -46,11 +60,10 @@ struct MixerClientOptions {
   // Quota options.
   QuotaOptions quota_options;
 
-  // gRPC mixer server address.
-  std::string mixer_server;
-
-  // A custom transport object.
-  TransportInterface* transport;
+  // Transport functions.
+  TransportCheckFunc check_transport;
+  TransportReportFunc report_transport;
+  TransportQuotaFunc quota_transport;
 };
 
 class MixerClient {

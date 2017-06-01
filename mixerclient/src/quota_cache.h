@@ -23,8 +23,8 @@
 
 #include "include/client.h"
 #include "prefetch/quota_prefetch.h"
+#include "src/attribute_converter.h"
 #include "src/cache_key_set.h"
-#include "src/transport.h"
 #include "utils/simple_lru_cache.h"
 #include "utils/simple_lru_cache_inl.h"
 
@@ -35,7 +35,8 @@ namespace mixer_client {
 // This interface is thread safe.
 class QuotaCache {
  public:
-  QuotaCache(const QuotaOptions& options, QuotaTransport* transport);
+  QuotaCache(const QuotaOptions& options, TransportQuotaFunc transport,
+             const AttributeConverter& converter);
 
   virtual ~QuotaCache();
 
@@ -54,24 +55,23 @@ class QuotaCache {
   // The cache element for each quota metric.
   class CacheElem {
    public:
-    CacheElem(const Attributes& request, QuotaTransport* transport);
+    CacheElem(const ::istio::mixer::v1::QuotaRequest& request,
+              TransportQuotaFunc transport);
 
     // Use the prefetch object to check the quota.
     bool Quota(const Attributes& request);
 
     // The quota name.
-    const std::string& quota_name() const { return quota_name_; }
+    const std::string& quota_name() const { return request_.quota(); }
 
    private:
     // The quota allocation call.
     void Alloc(int amount, QuotaPrefetch::DoneFunc fn);
 
     // The original quota request.
-    Attributes request_;
-    // the quota name.
-    std::string quota_name_;
-    // quota transport.
-    QuotaTransport* transport_;
+    ::istio::mixer::v1::QuotaRequest request_;
+    // The quota transport.
+    TransportQuotaFunc transport_;
     // The prefetch object.
     std::unique_ptr<QuotaPrefetch> prefetch_;
   };
@@ -82,6 +82,10 @@ class QuotaCache {
   using QuotaLRUCache =
       SimpleLRUCacheWithDeleter<std::string, CacheElem, CacheDeleter>;
 
+  // Convert attributes to protobuf.
+  void Convert(const Attributes& attributes, bool best_effort,
+               ::istio::mixer::v1::QuotaRequest* request);
+
   // Flushes the internal operation in the elem and delete the elem. The
   // response from the server is NOT cached.
   // Takes ownership of the elem.
@@ -91,7 +95,10 @@ class QuotaCache {
   QuotaOptions options_;
 
   // The quota transport
-  QuotaTransport* transport_;
+  TransportQuotaFunc transport_;
+
+  // Attribute converter.
+  const AttributeConverter& converter_;
 
   // The cache keys.
   std::unique_ptr<CacheKeySet> cache_keys_;
@@ -101,6 +108,9 @@ class QuotaCache {
 
   // The cache that maps from key to prefetch object
   std::unique_ptr<QuotaLRUCache> cache_;
+
+  // For quota deduplication
+  int64_t deduplication_id_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(QuotaCache);
 };

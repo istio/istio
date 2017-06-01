@@ -20,25 +20,18 @@ cc_library(
     name = "mixer_client_lib",
     srcs = [
         "src/attribute.cc",
-        "src/attribute_context.cc",
-        "src/attribute_context.h",
+        "src/attribute_converter.cc",
         "src/attribute_converter.h",
-        "src/cache_key_set.cc",
-        "src/cache_key_set.h",
         "src/check_cache.cc",
         "src/check_cache.h",
+        "src/cache_key_set.cc",
+        "src/cache_key_set.h",
         "src/client_impl.cc",
         "src/client_impl.h",
-        "src/context_update.cc",
-        "src/context_update.h",
-        "src/grpc_transport.cc",
-        "src/grpc_transport.h",
-        "src/quota_cache.cc",
-        "src/quota_cache.h",
         "src/signature.cc",
         "src/signature.h",
-        "src/stream_transport.h",
-        "src/transport.h",
+        "src/quota_cache.cc",
+        "src/quota_cache.h",
         "utils/md5.cc",
         "utils/md5.h",
         "utils/protobuf.cc",
@@ -49,15 +42,13 @@ cc_library(
         "include/attribute.h",
         "include/client.h",
         "include/options.h",
-        "include/transport.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
         ":simple_lru_cache",
+	"//prefetch:quota_prefetch_lib",
         "//external:boringssl_crypto",
-        "//external:grpc++",
         "//external:mixer_api_cc_proto",
-        "//prefetch:quota_prefetch_lib",
     ],
 )
 
@@ -98,31 +89,9 @@ cc_test(
 )
 
 cc_test(
-    name = "attribute_context_test",
+    name = "attribute_converter_test",
     size = "small",
-    srcs = ["src/attribute_context_test.cc"],
-    linkstatic = 1,
-    deps = [
-        ":mixer_client_lib",
-        "//external:googletest_main",
-    ],
-)
-
-cc_test(
-    name = "context_update_test",
-    size = "small",
-    srcs = ["src/context_update_test.cc"],
-    linkstatic = 1,
-    deps = [
-        ":mixer_client_lib",
-        "//external:googletest_main",
-    ],
-)
-
-cc_test(
-    name = "md5_test",
-    size = "small",
-    srcs = ["utils/md5_test.cc"],
+    srcs = ["src/attribute_converter_test.cc"],
     linkstatic = 1,
     deps = [
         ":mixer_client_lib",
@@ -134,17 +103,6 @@ cc_test(
     name = "cache_key_set_test",
     size = "small",
     srcs = ["src/cache_key_set_test.cc"],
-    linkstatic = 1,
-    deps = [
-        ":mixer_client_lib",
-        "//external:googletest_main",
-    ],
-)
-
-cc_test(
-    name = "signature_test",
-    size = "small",
-    srcs = ["src/signature_test.cc"],
     linkstatic = 1,
     deps = [
         ":mixer_client_lib",
@@ -175,14 +133,9 @@ cc_test(
 )
 
 cc_test(
-    name = "grpc_transport_test",
+    name = "md5_test",
     size = "small",
-    srcs = ["src/grpc_transport_test.cc"],
-    linkopts = [
-        "-lm",
-        "-lpthread",
-        "-lrt",
-    ],
+    srcs = ["utils/md5_test.cc"],
     linkstatic = 1,
     deps = [
         ":mixer_client_lib",
@@ -191,14 +144,9 @@ cc_test(
 )
 
 cc_test(
-    name = "stream_transport_test",
+    name = "signature_test",
     size = "small",
-    srcs = ["src/stream_transport_test.cc"],
-    linkopts = [
-        "-lm",
-        "-lpthread",
-        "-lrt",
-    ],
+    srcs = ["src/signature_test.cc"],
     linkstatic = 1,
     deps = [
         ":mixer_client_lib",

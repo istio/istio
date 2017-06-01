@@ -13,19 +13,82 @@
  * limitations under the License.
  */
 
-#include "src/signature.h"
-#include "utils/md5.h"
+#include "src/attribute_converter.h"
 
 #include <time.h>
+#include "google/protobuf/text_format.h"
+#include "google/protobuf/util/message_differencer.h"
 #include "gtest/gtest.h"
 
 using std::string;
+using ::google::protobuf::TextFormat;
+using ::google::protobuf::util::MessageDifferencer;
 
 namespace istio {
 namespace mixer_client {
 namespace {
 
-class SignatureUtilTest : public ::testing::Test {
+const char kAttributes[] = R"(
+words: "bool-key"
+words: "bytes-key"
+words: "double-key"
+words: "duration-key"
+words: "int-key"
+words: "string-key"
+words: "this is a string value"
+words: "string-map-key"
+words: "key1"
+words: "value1"
+words: "key2"
+words: "value2"
+words: "time-key"
+strings {
+  key: -6
+  value: -7
+}
+int64s {
+  key: -5
+  value: 35
+}
+doubles {
+  key: -3
+  value: 99.9
+}
+bools {
+  key: -1
+  value: true
+}
+timestamps {
+  key: -13
+  value {
+  }
+}
+durations {
+  key: -4
+  value {
+    seconds: 5
+  }
+}
+bytes {
+  key: -2
+  value: "this is a bytes value"
+}
+string_maps {
+  key: -8
+  value {
+    entries {
+      key: -11
+      value: -12
+    }
+    entries {
+      key: -9
+      value: -10
+    }
+  }
+}
+)";
+
+class AttributeConverterTest : public ::testing::Test {
  protected:
   void AddString(const string& key, const string& value) {
     attributes_.attributes[key] = Attributes::StringValue(value);
@@ -65,45 +128,38 @@ class SignatureUtilTest : public ::testing::Test {
   Attributes attributes_;
 };
 
-TEST_F(SignatureUtilTest, Attributes) {
-  auto key_set = CacheKeySet::CreateAll();
+TEST_F(AttributeConverterTest, ConvertTest) {
   AddString("string-key", "this is a string value");
-  EXPECT_EQ("26f8f724383c46e7f5803380ab9c17ba",
-            MD5::DebugString(GenerateSignature(attributes_, *key_set)));
-
   AddBytes("bytes-key", "this is a bytes value");
-  EXPECT_EQ("1f409524b79b9b5760032dab7ecaf960",
-            MD5::DebugString(GenerateSignature(attributes_, *key_set)));
-
   AddDoublePair("double-key", 99.9);
-  EXPECT_EQ("6183342ff222018f6300de51cdcd4501",
-            MD5::DebugString(GenerateSignature(attributes_, *key_set)));
-
   AddInt64Pair("int-key", 35);
-  EXPECT_EQ("d681b9c72d648f9c831d95b4748fe1c2",
-            MD5::DebugString(GenerateSignature(attributes_, *key_set)));
-
   AddBoolPair("bool-key", true);
-  EXPECT_EQ("958930b41f0d8b43f5c61c31b0b092e2",
-            MD5::DebugString(GenerateSignature(attributes_, *key_set)));
 
   // default to Clock's epoch.
   std::chrono::time_point<std::chrono::system_clock> time_point;
   AddTime("time-key", time_point);
-  EXPECT_EQ("f7dd61e1a5881e2492d93ad023ab49a2",
-            MD5::DebugString(GenerateSignature(attributes_, *key_set)));
 
   std::chrono::seconds secs(5);
   AddDuration("duration-key",
               std::chrono::duration_cast<std::chrono::nanoseconds>(secs));
-  EXPECT_EQ("13ae11ea2bea216da46688cd9698645e",
-            MD5::DebugString(GenerateSignature(attributes_, *key_set)));
 
   std::map<std::string, std::string> string_map = {{"key1", "value1"},
                                                    {"key2", "value2"}};
   AddStringMap("string-map-key", std::move(string_map));
-  EXPECT_EQ("c861f02e251c896513eb0f7c97aa2ce7",
-            MD5::DebugString(GenerateSignature(attributes_, *key_set)));
+
+  AttributeConverter converter({});
+  ::istio::mixer::v1::Attributes attributes_pb;
+  converter.Convert(attributes_, &attributes_pb);
+
+  std::string out_str;
+  TextFormat::PrintToString(attributes_pb, &out_str);
+  GOOGLE_LOG(INFO) << "===" << out_str << "===";
+
+  ::istio::mixer::v1::Attributes expected_attributes_pb;
+  ASSERT_TRUE(
+      TextFormat::ParseFromString(kAttributes, &expected_attributes_pb));
+  EXPECT_TRUE(
+      MessageDifferencer::Equals(attributes_pb, expected_attributes_pb));
 }
 
 }  // namespace

@@ -14,7 +14,7 @@
  */
 
 #include "include/client.h"
-
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 using ::istio::mixer::v1::CheckRequest;
@@ -25,91 +25,49 @@ using ::istio::mixer::v1::QuotaRequest;
 using ::istio::mixer::v1::QuotaResponse;
 using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;
+using ::testing::Invoke;
+using ::testing::_;
 
 namespace istio {
 namespace mixer_client {
 
-// A simple writer to send response right away.
-template <class RequestType, class ResponseType>
-class WriterImpl : public WriteInterface<RequestType> {
+// A mocking class to mock CheckTransport interface.
+class MockCheckTransport {
  public:
-  void Write(const RequestType& request) {
-    if (done_status.ok()) {
-      ResponseType response;
-      response.set_request_index(request.request_index());
-      *response.mutable_result() = rpc_status;
-      reader->OnRead(response);
-    }
-    reader->OnClose(done_status);
+  MOCK_METHOD3(Check, void(const CheckRequest&, CheckResponse*, DoneFunc));
+  TransportCheckFunc GetFunc() {
+    return
+        [this](const CheckRequest& request, CheckResponse* response,
+               DoneFunc on_done) { this->Check(request, response, on_done); };
   }
-  void WritesDone() {}
-  bool is_write_closed() const { return true; }
-
-  ReadInterface<ResponseType>* reader;
-  Status done_status;
-  ::google::rpc::Status rpc_status;
 };
 
-class MixerClientImplTest : public ::testing::Test, public TransportInterface {
+class MixerClientImplTest : public ::testing::Test {
  public:
-  MixerClientImplTest()
-      : check_writer_(new WriterImpl<CheckRequest, CheckResponse>),
-        report_writer_(new WriterImpl<ReportRequest, ReportResponse>),
-        quota_writer_(new WriterImpl<QuotaRequest, QuotaResponse>) {
+  MixerClientImplTest() {
     MixerClientOptions options(
         CheckOptions(1 /*entries */, 500 /* refresh_interval_ms */,
                      1000 /* expiration_ms */),
         QuotaOptions(1 /* entries */, 600000 /* expiration_ms */));
-    options.transport = this;
     options.check_options.network_fail_open = false;
+    options.check_transport = mock_check_transport_.GetFunc();
     client_ = CreateMixerClient(options);
   }
 
-  CheckWriterPtr NewStream(CheckReaderRawPtr reader) {
-    check_writer_->reader = reader;
-    return CheckWriterPtr(check_writer_.release());
-  }
-  ReportWriterPtr NewStream(ReportReaderRawPtr reader) {
-    report_writer_->reader = reader;
-    return ReportWriterPtr(report_writer_.release());
-  }
-  QuotaWriterPtr NewStream(QuotaReaderRawPtr reader) {
-    quota_writer_->reader = reader;
-    return QuotaWriterPtr(quota_writer_.release());
-  }
-
   std::unique_ptr<MixerClient> client_;
-  std::unique_ptr<WriterImpl<CheckRequest, CheckResponse>> check_writer_;
-  std::unique_ptr<WriterImpl<ReportRequest, ReportResponse>> report_writer_;
-  std::unique_ptr<WriterImpl<QuotaRequest, QuotaResponse>> quota_writer_;
+  MockCheckTransport mock_check_transport_;
 };
 
 TEST_F(MixerClientImplTest, TestSuccessCheck) {
+  EXPECT_CALL(mock_check_transport_, Check(_, _, _))
+      .WillOnce(Invoke([](const CheckRequest& request, CheckResponse* response,
+                          DoneFunc on_done) { on_done(Status::OK); }));
+
   Attributes attributes;
   Status done_status = Status::UNKNOWN;
   client_->Check(attributes,
                  [&done_status](Status status) { done_status = status; });
   EXPECT_TRUE(done_status.ok());
-}
-
-TEST_F(MixerClientImplTest, TestCanceledCheck) {
-  check_writer_->done_status = Status::CANCELLED;
-  Attributes attributes;
-  Status done_status = Status::UNKNOWN;
-  client_->Check(attributes,
-                 [&done_status](Status status) { done_status = status; });
-  EXPECT_EQ(done_status, Status::CANCELLED);
-}
-
-TEST_F(MixerClientImplTest, TestFailedCheck) {
-  check_writer_->rpc_status.set_code(Code::OUT_OF_RANGE);
-  check_writer_->rpc_status.set_message("out of range");
-  Attributes attributes;
-  Status done_status = Status::UNKNOWN;
-  client_->Check(attributes,
-                 [&done_status](Status status) { done_status = status; });
-  EXPECT_EQ(done_status.error_code(), Code::OUT_OF_RANGE);
-  EXPECT_EQ(done_status.error_message(), "out of range");
 }
 
 }  // namespace mixer_client

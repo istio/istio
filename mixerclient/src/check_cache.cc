@@ -51,8 +51,7 @@ bool CheckCache::ShouldFlush(const CacheElem& elem) {
   return age >= flush_interval_in_cycle_;
 }
 
-Status CheckCache::Check(const Attributes& attributes, CheckResponse* response,
-                         std::string* signature) {
+Status CheckCache::Check(const Attributes& attributes, std::string* signature) {
   if (!cache_) {
     // By returning NOT_FOUND, caller will send request to server.
     return Status(Code::NOT_FOUND, "");
@@ -80,13 +79,11 @@ Status CheckCache::Check(const Attributes& attributes, CheckResponse* response,
     return Status(Code::NOT_FOUND, "");
   }
 
-  *response = elem->check_response();
-
-  return Status::OK;
+  return elem->status();
 }
 
 Status CheckCache::CacheResponse(const std::string& request_signature,
-                                 const CheckResponse& response) {
+                                 ::google::protobuf::util::Status status) {
   if (cache_) {
     std::lock_guard<std::mutex> lock(cache_mutex_);
     CheckLRUCache::ScopedLookup lookup(cache_.get(), request_signature);
@@ -95,9 +92,9 @@ Status CheckCache::CacheResponse(const std::string& request_signature,
 
     if (lookup.Found()) {
       lookup.value()->set_last_check_time(now);
-      lookup.value()->set_check_response(response);
+      lookup.value()->set_status(status);
     } else {
-      CacheElem* cache_elem = new CacheElem(response, now);
+      CacheElem* cache_elem = new CacheElem(status, now);
       cache_->Insert(request_signature, cache_elem, 1);
     }
   }

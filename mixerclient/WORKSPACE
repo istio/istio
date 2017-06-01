@@ -20,7 +20,6 @@ load(
     "protobuf_repositories",
     "googletest_repositories",
     "googleapis_repositories",
-    "grpc_repositories",
     "mixerapi_repositories",
 )
 
@@ -28,6 +27,5 @@ boringssl_repositories()
 protobuf_repositories()
 googletest_repositories()
 googleapis_repositories()
-grpc_repositories()
 mixerapi_repositories()
 

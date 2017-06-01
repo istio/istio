@@ -17,10 +17,9 @@
 #define MIXERCLIENT_CLIENT_IMPL_H
 
 #include "include/client.h"
+#include "src/attribute_converter.h"
 #include "src/check_cache.h"
-#include "src/grpc_transport.h"
 #include "src/quota_cache.h"
-#include "src/transport.h"
 
 namespace istio {
 namespace mixer_client {
@@ -38,14 +37,16 @@ class MixerClientImpl : public MixerClient {
   virtual void Quota(const Attributes& attributes, DoneFunc on_done);
 
  private:
+  // Store the options
   MixerClientOptions options_;
-  std::unique_ptr<CheckTransport> check_transport_;
-  std::unique_ptr<ReportTransport> report_transport_;
-  std::unique_ptr<QuotaTransport> quota_transport_;
-  std::unique_ptr<GrpcTransport> grpc_transport_;
 
-  std::shared_ptr<CheckCache> check_cache_;
-  std::shared_ptr<QuotaCache> quota_cache_;
+  // To convert attributes into protobuf
+  AttributeConverter converter_;
+
+  // Cache for Check call.
+  std::unique_ptr<CheckCache> check_cache_;
+  // Cache for Quota call.
+  std::unique_ptr<QuotaCache> quota_cache_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MixerClientImpl);
 };
