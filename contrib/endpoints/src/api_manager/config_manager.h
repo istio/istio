@@ -63,13 +63,12 @@ struct ConfigsFetchInfo {
 // Manages configuration downloading
 class ConfigManager {
  public:
-  ConfigManager(std::shared_ptr<context::GlobalContext> global_context,
-                RolloutApplyFunction config_rollout_callback);
+  ConfigManager(std::shared_ptr<context::GlobalContext> global_context);
   virtual ~ConfigManager(){};
 
  public:
   // Initialize the instance
-  void Init();
+  void Init(RolloutApplyFunction config_rollout_callback);
 
  private:
   // Fetch ServiceConfig details from the latest successful rollouts

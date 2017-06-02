@@ -27,12 +27,11 @@ static std::vector<std::pair<std::string, int>> kEmptyConfigs;
 }  // namespace anonymous
 
 ConfigManager::ConfigManager(
-    std::shared_ptr<context::GlobalContext> global_context,
-    RolloutApplyFunction rollout_apply_function)
+    std::shared_ptr<context::GlobalContext> global_context)
     : global_context_(global_context),
-      rollout_apply_function_(rollout_apply_function),
       refresh_interval_ms_(kCheckNewRolloutInterval) {
-  if (global_context_->server_config()->has_service_management_config()) {
+  if (global_context_->server_config() &&
+      global_context_->server_config()->has_service_management_config()) {
     // update refresh interval in ms
     if (global_context_->server_config()
             ->service_management_config()
@@ -46,7 +45,9 @@ ConfigManager::ConfigManager(
   service_management_fetch_.reset(new ServiceManagementFetch(global_context));
 }
 
-void ConfigManager::Init() {
+void ConfigManager::Init(RolloutApplyFunction rollout_apply_function) {
+  rollout_apply_function_ = rollout_apply_function;
+
   if (global_context_->service_name().empty() ||
       global_context_->config_id().empty()) {
     GlobalFetchGceMetadata(global_context_, [this](utils::Status status) {

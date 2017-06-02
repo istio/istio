@@ -21,47 +21,68 @@
 namespace google {
 namespace api_manager {
 
+namespace {
+
+const std::string kConfigRolloutManaged("managed");
+
+}  // namespace unknown
+
 ApiManagerImpl::ApiManagerImpl(std::unique_ptr<ApiManagerEnvInterface> env,
                                const std::string &service_config,
                                const std::string &server_config)
     : global_context_(
-          new context::GlobalContext(std::move(env), server_config)) {
+          new context::GlobalContext(std::move(env), server_config)),
+      config_loading_status_(
+          utils::Status(Code::UNAVAILABLE, "Not initialized yet")) {
   if (!service_config.empty()) {
-    AddConfig(service_config, true);
+    std::string config_id;
+    if (AddConfig(service_config, false, &config_id).ok()) {
+      DeployConfigs({{config_id, 100}});
+      config_loading_status_ = utils::Status::OK;
+    } else {
+      config_loading_status_ =
+          utils::Status(Code::ABORTED, "Invalid service config");
+    }
   }
 
   check_workflow_ = std::unique_ptr<CheckWorkflow>(new CheckWorkflow);
   check_workflow_->RegisterAll();
 }
 
-void ApiManagerImpl::AddConfig(const std::string &service_config,
-                               bool deploy_it) {
+utils::Status ApiManagerImpl::AddConfig(const std::string &service_config,
+                                        bool initialize,
+                                        std::string *config_id) {
   std::unique_ptr<Config> config =
       Config::Create(global_context_->env(), service_config);
-  if (config != nullptr) {
-    std::string service_name = config->service().name();
-    if (global_context_->service_name().empty()) {
-      global_context_->set_service_name(service_name);
-    } else {
-      if (service_name != global_context_->service_name()) {
-        auto err_msg = std::string("Mismatched service name; existing: ") +
-                       global_context_->service_name() + ", new: " +
-                       service_name;
-        global_context_->env()->LogError(err_msg);
-        return;
-      }
-    }
-    std::string config_id = config->service().id();
-    service_context_map_[config_id] = std::make_shared<context::ServiceContext>(
-        global_context_, std::move(config));
-    // TODO: if this function is called at worker process, need to call
-    // service_context->service_control()->Init().
-    // ApiManagerImpl constructor is called at master process, not at worker
-    // process.
-    if (deploy_it) {
-      DeployConfigs({{config_id, 0}});
+  if (config == nullptr) {
+    std::string err_msg =
+        std::string("Invalid service config: ") + service_config;
+    global_context_->env()->LogError(err_msg);
+    return utils::Status(Code::INVALID_ARGUMENT, err_msg);
+  }
+
+  std::string service_name = config->service().name();
+  if (global_context_->service_name().empty()) {
+    global_context_->set_service_name(service_name);
+  } else {
+    if (service_name != global_context_->service_name()) {
+      auto err_msg = std::string("Mismatched service name; existing: ") +
+                     global_context_->service_name() + ", new: " + service_name;
+      global_context_->env()->LogError(err_msg);
+      return utils::Status(Code::INVALID_ARGUMENT, err_msg);
     }
   }
+
+  *config_id = config->service().id();
+
+  auto context_service = std::make_shared<context::ServiceContext>(
+      global_context_, std::move(config));
+  if (initialize == true && context_service->service_control()) {
+    context_service->service_control()->Init();
+  }
+  service_context_map_[*config_id] = context_service;
+
+  return utils::Status::OK;
 }
 
 // Deploy these configs according to the traffic percentage.
@@ -75,11 +96,43 @@ utils::Status ApiManagerImpl::Init() {
     global_context_->cloud_trace_aggregator()->Init();
   }
 
-  for (auto it : service_context_map_) {
-    if (it.second->service_control()) {
-      it.second->service_control()->Init();
+  if (!service_context_map_.empty()) {
+    for (auto it : service_context_map_) {
+      if (it.second->service_control()) {
+        it.second->service_control()->Init();
+      }
+    }
+
+    if (global_context_->rollout_strategy() != kConfigRolloutManaged) {
+      return config_loading_status_;
     }
   }
+
+  config_manager_.reset(new ConfigManager(global_context_));
+  config_manager_->Init(
+      [this](const utils::Status &status,
+             const std::vector<std::pair<std::string, int>> &configs) {
+        if (status.ok()) {
+          std::vector<std::pair<std::string, int>> rollouts;
+
+          for (auto item : configs) {
+            std::string config_id;
+            if (AddConfig(item.first, true, &config_id).ok()) {
+              rollouts.push_back({config_id, item.second});
+            }
+          }
+
+          if (rollouts.size() == 0) {
+            config_loading_status_ =
+                utils::Status(Code::ABORTED, "Invalid service config");
+            return;
+          }
+
+          DeployConfigs(std::move(rollouts));
+        }
+        config_loading_status_ = status;
+      });
+
   return utils::Status::OK;
 }
 

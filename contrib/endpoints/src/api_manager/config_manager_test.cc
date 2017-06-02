@@ -379,8 +379,10 @@ TEST_F(ConfigManagerServiceNameConfigIdTest,
   ASSERT_EQ("service_name_from_server_config", global_context_->service_name());
   ASSERT_EQ("2017-05-01r1", global_context_->config_id());
 
-  std::shared_ptr<ConfigManager> config_manager(new ConfigManager(
-      global_context_,
+  std::shared_ptr<ConfigManager> config_manager(
+      new ConfigManager(global_context_));
+
+  config_manager->Init(
       [this](const utils::Status& status,
              const std::vector<std::pair<std::string, int>>& list) {
 
@@ -393,9 +395,7 @@ TEST_F(ConfigManagerServiceNameConfigIdTest,
             "https://servicemanagement.googleapis.com/v1/services/"
             "service_name_from_server_config/configs/2017-05-01r1",
             history_[0]);
-      }));
-
-  config_manager->Init();
+      });
 }
 
 TEST_F(ConfigManagerServiceNameConfigIdTest,
@@ -419,8 +419,10 @@ TEST_F(ConfigManagerServiceNameConfigIdTest,
   ASSERT_EQ("service_name_from_server_config", global_context_->service_name());
   ASSERT_EQ("2017-05-01r1", global_context_->config_id());
 
-  std::shared_ptr<ConfigManager> config_manager(new ConfigManager(
-      global_context_,
+  std::shared_ptr<ConfigManager> config_manager(
+      new ConfigManager(global_context_));
+
+  config_manager->Init(
       [this](const utils::Status& status,
              const std::vector<std::pair<std::string, int>>& list) {
         ASSERT_EQ("ABORTED: Failed to download the service config",
@@ -431,9 +433,7 @@ TEST_F(ConfigManagerServiceNameConfigIdTest,
             "https://servicemanagement.googleapis.com/v1/services/"
             "service_name_from_server_config/configs/2017-05-01r1",
             history_[0]);
-      }));
-
-  config_manager->Init();
+      });
 }
 
 // service_name in server config, but no config_id
@@ -482,8 +482,10 @@ TEST_F(ConfigManagerServiceNameTest,
   ASSERT_EQ("service_name_from_server_config", global_context_->service_name());
   ASSERT_EQ("", global_context_->config_id());
 
-  std::shared_ptr<ConfigManager> config_manager(new ConfigManager(
-      global_context_,
+  std::shared_ptr<ConfigManager> config_manager(
+      new ConfigManager(global_context_));
+
+  config_manager->Init(
       [this](const utils::Status& status,
              const std::vector<std::pair<std::string, int>>& list) {
 
@@ -501,9 +503,7 @@ TEST_F(ConfigManagerServiceNameTest,
             "https://servicemanagement.googleapis.com/v1/services/"
             "service_name_from_server_config/configs/2017-05-01r1",
             history_[1]);
-      }));
-
-  config_manager->Init();
+      });
 }
 
 TEST_F(ConfigManagerServiceNameTest,
@@ -526,8 +526,10 @@ TEST_F(ConfigManagerServiceNameTest,
   ASSERT_EQ("service_name_from_server_config", global_context_->service_name());
   ASSERT_EQ("", global_context_->config_id());
 
-  std::shared_ptr<ConfigManager> config_manager(new ConfigManager(
-      global_context_,
+  std::shared_ptr<ConfigManager> config_manager(
+      new ConfigManager(global_context_));
+
+  config_manager->Init(
       [this](const utils::Status& status,
              const std::vector<std::pair<std::string, int>>& list) {
         ASSERT_EQ("ABORTED: API config_id is not specified", status.ToString());
@@ -537,9 +539,7 @@ TEST_F(ConfigManagerServiceNameTest,
         ASSERT_EQ(1, history_.size());
         ASSERT_EQ("http://localhost/computeMetadata/v1/?recursive=true",
                   history_[0]);
-      }));
-
-  config_manager->Init();
+      });
 }
 
 // no service_name and config_id in server config
@@ -584,8 +584,10 @@ TEST_F(ConfigManagerNoServiceNameNoConfigIdTest,
   ASSERT_EQ("", global_context_->service_name());
   ASSERT_EQ("", global_context_->config_id());
 
-  std::shared_ptr<ConfigManager> config_manager(new ConfigManager(
-      global_context_,
+  std::shared_ptr<ConfigManager> config_manager(
+      new ConfigManager(global_context_));
+
+  config_manager->Init(
       [this](const utils::Status& status,
              const std::vector<std::pair<std::string, int>>& list) {
         ASSERT_EQ("OK", status.ToString());
@@ -600,9 +602,7 @@ TEST_F(ConfigManagerNoServiceNameNoConfigIdTest,
             "https://servicemanagement.googleapis.com/v1/services/"
             "service_name_from_meta_data/configs/2017-05-01r0",
             history_[1]);
-      }));
-
-  config_manager->Init();
+      });
 }
 
 TEST_F(ConfigManagerNoServiceNameNoConfigIdTest,
@@ -625,8 +625,10 @@ TEST_F(ConfigManagerNoServiceNameNoConfigIdTest,
   ASSERT_EQ("", global_context_->service_name());
   ASSERT_EQ("", global_context_->config_id());
 
-  std::shared_ptr<ConfigManager> config_manager(new ConfigManager(
-      global_context_,
+  std::shared_ptr<ConfigManager> config_manager(
+      new ConfigManager(global_context_));
+
+  config_manager->Init(
       [this](const utils::Status& status,
              const std::vector<std::pair<std::string, int>>& list) {
         ASSERT_EQ("ABORTED: API config_id is not specified", status.ToString());
@@ -634,9 +636,7 @@ TEST_F(ConfigManagerNoServiceNameNoConfigIdTest,
         ASSERT_EQ(1, history_.size());
         ASSERT_EQ("http://localhost/computeMetadata/v1/?recursive=true",
                   history_[0]);
-      }));
-
-  config_manager->Init();
+      });
 }
 
 TEST_F(ConfigManagerNoServiceNameNoConfigIdTest,
@@ -653,15 +653,14 @@ TEST_F(ConfigManagerNoServiceNameNoConfigIdTest,
   ASSERT_EQ("", global_context_->service_name());
   ASSERT_EQ("", global_context_->config_id());
 
-  std::shared_ptr<ConfigManager> config_manager(new ConfigManager(
-      global_context_,
-      [](const utils::Status& status,
-         const std::vector<std::pair<std::string, int>>& list) {
-        ASSERT_EQ("ABORTED: API service name is not specified",
-                  status.ToString());
-      }));
+  std::shared_ptr<ConfigManager> config_manager(
+      new ConfigManager(global_context_));
 
-  config_manager->Init();
+  config_manager->Init([](
+      const utils::Status& status,
+      const std::vector<std::pair<std::string, int>>& list) {
+    ASSERT_EQ("ABORTED: API service name is not specified", status.ToString());
+  });
 }
 
 TEST_F(ConfigManagerNoServiceNameNoConfigIdTest,
@@ -685,8 +684,10 @@ TEST_F(ConfigManagerNoServiceNameNoConfigIdTest,
   ASSERT_EQ("", global_context_->service_name());
   ASSERT_EQ("", global_context_->config_id());
 
-  std::shared_ptr<ConfigManager> config_manager(new ConfigManager(
-      global_context_,
+  std::shared_ptr<ConfigManager> config_manager(
+      new ConfigManager(global_context_));
+
+  config_manager->Init(
       [this](const utils::Status& status,
              const std::vector<std::pair<std::string, int>>& list) {
         ASSERT_EQ("ABORTED: Failed to download the service config",
@@ -699,9 +700,7 @@ TEST_F(ConfigManagerNoServiceNameNoConfigIdTest,
             "https://servicemanagement.googleapis.com/v1/services/"
             "service_name_from_metadata/configs/invalid",
             history_[1]);
-      }));
-
-  config_manager->Init();
+      });
 }
 
 // no service_name and config_id in server config
@@ -747,17 +746,16 @@ TEST_F(ConfigManagerNoServiceNameNoConfigIdMetadataDisabledTest,
   ASSERT_EQ("", global_context_->service_name());
   ASSERT_EQ("", global_context_->config_id());
 
-  std::shared_ptr<ConfigManager> config_manager(new ConfigManager(
-      global_context_,
-      [this](const utils::Status& status,
-             const std::vector<std::pair<std::string, int>>& list) {
-        ASSERT_EQ("ABORTED: API service name is not specified",
-                  status.ToString());
+  std::shared_ptr<ConfigManager> config_manager(
+      new ConfigManager(global_context_));
 
-        ASSERT_EQ(0, history_.size());
-      }));
+  config_manager->Init([this](
+      const utils::Status& status,
+      const std::vector<std::pair<std::string, int>>& list) {
+    ASSERT_EQ("ABORTED: API service name is not specified", status.ToString());
 
-  config_manager->Init();
+    ASSERT_EQ(0, history_.size());
+  });
 }
 
 // service_name, config_id were defined in the user defined service management
@@ -803,8 +801,10 @@ TEST_F(ConfigManagerNoServiceNameNoConfigIdUserDefinedMetadataTest,
   ASSERT_EQ("", global_context_->service_name());
   ASSERT_EQ("", global_context_->config_id());
 
-  std::shared_ptr<ConfigManager> config_manager(new ConfigManager(
-      global_context_,
+  std::shared_ptr<ConfigManager> config_manager(
+      new ConfigManager(global_context_));
+
+  config_manager->Init(
       [this](const utils::Status& status,
              const std::vector<std::pair<std::string, int>>& list) {
         ASSERT_EQ("OK", status.ToString());
@@ -819,9 +819,7 @@ TEST_F(ConfigManagerNoServiceNameNoConfigIdUserDefinedMetadataTest,
             "http://servicemanagement.user.com/v1/services/"
             "service_name_from_meta_data/configs/2017-05-01r0",
             history_[1]);
-      }));
-
-  config_manager->Init();
+      });
 }
 
 }  // namespace
