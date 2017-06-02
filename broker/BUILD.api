@@ -1,4 +1,5 @@
 # build protos from istio.io/api repo
+# TODO This file needs update.
 
 package(default_visibility = ["//visibility:public"])
 

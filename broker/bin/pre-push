@@ -28,6 +28,6 @@ if ! [[ -f WORKSPACE ]]; then
   exit 1
 fi
 
-# bazel test //...
-# bin/racetest.sh
-# bin/linters.sh
+bazel test //...
+bin/racetest.sh
+bin/linters.sh

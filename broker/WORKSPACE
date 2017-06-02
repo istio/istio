@@ -34,6 +34,12 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_gorilla_mux",
+    commit = "bcd8bc72b08df0f70df986b97f95590779502d31",  # May 20, 2017 (1.4.0)
+    importpath = "github.com/gorilla/mux",
+)
+
+new_go_repository(
     name = "com_github_ghodss_yaml",
     commit = "04f313413ffd65ce25f2541bfd2b2ceec5c0908c",  # Dec 6, 2016 (no releases)
     importpath = "github.com/ghodss/yaml",
