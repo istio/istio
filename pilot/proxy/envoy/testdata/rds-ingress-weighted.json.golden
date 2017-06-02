@@ -8,7 +8,6 @@
     "routes": [
      {
       "path": "/hello",
-      "host_rewrite": "world.default.svc.cluster.local:80",
       "weighted_clusters": {
        "clusters": [
         {

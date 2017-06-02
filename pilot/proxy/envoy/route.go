@@ -242,10 +242,10 @@ func buildVirtualHost(svc *model.Service, port *model.Port, suffix []string, rou
 	for _, host := range hosts {
 		domains = append(domains, fmt.Sprintf("%s:%d", host, port.Port))
 
-		// default port 80 does not need to be specified
-		if port.Port == 80 {
-			domains = append(domains, host)
-		}
+		// since the port on the TCP listener address matches the service port,
+		// the colon suffix is optional and is inferred.
+		// (see https://tools.ietf.org/html/rfc7230#section-5.5)
+		domains = append(domains, host)
 	}
 
 	return &VirtualHost{

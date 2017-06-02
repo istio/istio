@@ -350,6 +350,13 @@ func buildOutboundHTTPRoutes(
 
 				host := buildVirtualHost(service, servicePort, suffix, routes)
 				http := httpConfigs.EnsurePort(servicePort.Port)
+
+				// there should be at most one occurrence of the service for the same
+				// port since service port values are distinct; that means the virtual
+				// host domains, which include the sole domain name for the service, do
+				// not overlap for the same route config.
+				// for example, a service "a" with two ports 80 and 8080, would have virtual
+				// hosts on 80 and 8080 listeners that contain domain "a".
 				http.VirtualHosts = append(http.VirtualHosts, host)
 			}
 		}
@@ -401,16 +408,14 @@ func buildOutboundTCPListeners(mesh *proxyconfig.ProxyMeshConfig, services []*mo
 // configuration and do not utilize CDS.
 func buildInboundListeners(instances []*model.ServiceInstance,
 	mesh *proxyconfig.ProxyMeshConfig) (Listeners, Clusters) {
-	// used for shortcut domain names for hostnames
-	suffix := sharedInstanceHost(instances)
 	listeners := make(Listeners, 0, len(instances))
 	clusters := make(Clusters, 0, len(instances))
 
 	// inbound connections/requests are redirected to the endpoint address but appear to be sent
 	// to the service address
 	// assumes that endpoint addresses/ports are unique in the instance set
+	// TODO: validate that duplicated endpoints for services can be handled (e.g. above assumption)
 	for _, instance := range instances {
-		service := instance.Service
 		endpoint := instance.Endpoint
 		servicePort := endpoint.ServicePort
 		protocol := servicePort.Protocol
@@ -436,12 +441,10 @@ func buildInboundListeners(instances []*model.ServiceInstance,
 				}
 			}
 
-			host := buildVirtualHost(service, servicePort, suffix, []*HTTPRoute{route})
-
-			// insert explicit instance (pod) ip:port as a hostname field
-			host.Domains = append(host.Domains, fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port))
-			if endpoint.Port == 80 {
-				host.Domains = append(host.Domains, endpoint.Address)
+			host := &VirtualHost{
+				Name:    fmt.Sprintf("inbound|%d", endpoint.Port),
+				Domains: []string{"*"},
+				Routes:  []*HTTPRoute{route},
 			}
 
 			config := &HTTPRouteConfig{VirtualHosts: []*VirtualHost{host}}

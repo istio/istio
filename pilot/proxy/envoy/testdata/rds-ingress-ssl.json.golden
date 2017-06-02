@@ -8,7 +8,6 @@
     "routes": [
      {
       "prefix": "/bar",
-      "host_rewrite": "hello.default.svc.cluster.local:81",
       "cluster": "out.81c187d71467b1608736c57bb0734f9ef9b68f7d"
      }
     ]
