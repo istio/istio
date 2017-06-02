@@ -49,19 +49,27 @@ type (
 		wordMap map[string]int32
 	}
 
-	// dispatchState holds the set of information used for dispatch and
+	// dispatchState holds the information used for dispatch and
 	// request handling.
 	dispatchState struct {
 		inAttrs, outAttrs *mixerpb.Attributes
 		result            *rpc.Status
+		requestBag        *attribute.MutableBag // optional
 	}
 
 	dispatchFn func(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status
 )
 
+var (
+	// TODO: need full list
+	globalWordList = []string{
+		"request.size",
+	}
+)
+
 // NewGRPCServer creates a gRPC serving stack.
 func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
-	words := []string{"request.size"} // TODO: need full list
+	words := globalWordList
 	wordMap := make(map[string]int32, len(words))
 	for i := 0; i < len(words); i++ {
 		wordMap[words[i]] = int32(i)
@@ -75,10 +83,11 @@ func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, gp *pool.Go
 	}
 }
 
-// dispatch implements all the nitty-gritty details of handling  Mixer's low-level API
+// dispatch implements all the nitty-gritty details of handling Mixer's low-level API
 // protocol and dispatching to an appropriate API worker.
 func (s *grpcServer) dispatch(ctx context.Context, dState *dispatchState, worker dispatchFn) error {
-	requestBag, err := attribute.GetBagFromProto(dState.inAttrs, s.words)
+	requestBag := dState.requestBag
+	err := requestBag.UpdateBagFromProto(dState.inAttrs, s.words)
 	if err != nil {
 		msg := "Request could not be processed due to invalid 'attributes'."
 		glog.Error(msg, "\n", err)
@@ -87,33 +96,36 @@ func (s *grpcServer) dispatch(ctx context.Context, dState *dispatchState, worker
 		return makeGRPCError(out)
 	}
 
-	responseBag := attribute.GetMutableBag(nil)
+	// the preproc atttributes will be in a child bag
+	preprocResponseBag := attribute.GetMutableBag(requestBag)
 
-	out := s.aspectDispatcher.Preprocess(ctx, requestBag, responseBag)
+	out := s.aspectDispatcher.Preprocess(ctx, requestBag, preprocResponseBag)
 	if status.IsOK(out) {
+		responseBag := attribute.GetMutableBag(nil)
 
-		if err := requestBag.Merge(responseBag); err != nil {
-			// TODO: better error messages that push internal details into debuginfo messages
-			glog.Errorf("Could not merge mutable bags for request: %v", err)
-			out = status.WithInternal("The results from the request preprocessing could not be merged.")
-		} else {
-			// do the actual work for the message
-			out = worker(ctx, requestBag, responseBag)
-
-			if dState.result != nil {
-				*dState.result = out
-				out = status.OK
+		if glog.V(2) {
+			glog.Info("Dispatching to main adapters after running processors")
+			for _, name := range preprocResponseBag.Names() {
+				v, _ := preprocResponseBag.Get(name)
+				glog.Infof("  %s: %v", name, v)
 			}
 		}
+
+		// do the actual work for the message
+		out = worker(ctx, preprocResponseBag, responseBag)
+
+		if dState.result != nil {
+			*dState.result = out
+			out = status.OK
+		}
+
+		if dState.outAttrs != nil {
+			responseBag.ToProto(dState.outAttrs, s.wordMap)
+		}
+		responseBag.Done()
 	}
 
-	if dState.outAttrs != nil {
-		responseBag.ToProto(dState.outAttrs, s.wordMap)
-	}
-
-	requestBag.Done()
-	responseBag.Done()
-
+	preprocResponseBag.Done()
 	return makeGRPCError(out)
 }
 
@@ -126,9 +138,10 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	resp := &mixerpb.CheckResponse{}
 
 	dState := dispatchState{
-		inAttrs:  &req.Attributes,
-		outAttrs: &resp.Attributes,
-		result:   &resp.Status,
+		inAttrs:    &req.Attributes,
+		outAttrs:   &resp.Attributes,
+		result:     &resp.Status,
+		requestBag: attribute.GetMutableBag(nil),
 	}
 
 	err := s.dispatch(legacyCtx, &dState, func(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
@@ -145,6 +158,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 		return out
 	})
 
+	dState.requestBag.Done()
 	return resp, err
 }
 
@@ -152,18 +166,17 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.ReportRequest) (*mixerpb.ReportResponse, error) {
 	resp := &mixerpb.ReportResponse{}
 
+	requestBag := attribute.GetMutableBag(nil)
 	for i := 0; i < len(req.Attributes); i++ {
 		if len(req.Attributes[i].Words) == 0 {
 			req.Attributes[i].Words = req.DefaultWords
 		}
 
-		// TODO: need to implement delta compression between elements in the
-		//       attribute array.
-
 		dState := dispatchState{
-			inAttrs:  &req.Attributes[i],
-			outAttrs: nil,
-			result:   nil,
+			inAttrs:    &req.Attributes[i],
+			outAttrs:   nil,
+			result:     nil,
+			requestBag: requestBag,
 		}
 
 		err := s.dispatch(legacyCtx, &dState, func(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
@@ -174,10 +187,12 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 		})
 
 		if err != nil {
+			requestBag.Done()
 			return resp, err
 		}
 	}
 
+	requestBag.Done()
 	return resp, nil
 }
 
@@ -186,9 +201,10 @@ func (s *grpcServer) Quota(legacyCtx legacyContext.Context, req *mixerpb.QuotaRe
 	resp := &mixerpb.QuotaResponse{}
 
 	dState := dispatchState{
-		inAttrs:  &req.Attributes,
-		outAttrs: nil,
-		result:   nil,
+		inAttrs:    &req.Attributes,
+		outAttrs:   nil,
+		result:     nil,
+		requestBag: attribute.GetMutableBag(nil),
 	}
 
 	err := s.dispatch(legacyCtx, &dState, func(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
@@ -211,6 +227,7 @@ func (s *grpcServer) Quota(legacyCtx legacyContext.Context, req *mixerpb.QuotaRe
 		return out
 	})
 
+	dState.requestBag.Done()
 	return resp, err
 }
 

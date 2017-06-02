@@ -33,16 +33,23 @@ import (
 	"istio.io/mixer/pkg/status"
 )
 
+type callback func(requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status
+type quotaCallback func(requestBag *attribute.MutableBag, responseBag *attribute.MutableBag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp,
+	rpc.Status)
+
 type testState struct {
 	adapterManager.AspectDispatcher
 
-	client         mixerpb.MixerClient
-	connection     *grpc.ClientConn
-	gs             *grpc.Server
-	gp             *pool.GoroutinePool
-	s              *grpcServer
-	reportBadAttr  bool
-	failPreprocess bool
+	client     mixerpb.MixerClient
+	connection *grpc.ClientConn
+	gs         *grpc.Server
+	gp         *pool.GoroutinePool
+	s          *grpcServer
+
+	check   callback
+	report  callback
+	quota   quotaCallback
+	preproc callback
 }
 
 func (ts *testState) createGRPCServer() (string, error) {
@@ -109,6 +116,10 @@ func prepTestState() (*testState, error) {
 		return nil, err
 	}
 
+	ts.preproc = func(requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
+		return status.OK
+	}
+
 	return ts, nil
 }
 
@@ -118,31 +129,21 @@ func (ts *testState) cleanupTestState() {
 }
 
 func (ts *testState) Check(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag) rpc.Status {
-	return status.WithPermissionDenied("Not Implemented")
+	return ts.check(bag, output)
 }
 
 func (ts *testState) Report(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag) rpc.Status {
-	if ts.reportBadAttr {
-		// we inject an attribute with an unsupported type to trigger an error path
-		output.Set("BADATTR", 0)
-	}
-
-	return status.WithPermissionDenied("Not Implemented")
+	return ts.report(bag, output)
 }
 
-func (ts *testState) Quota(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+func (ts *testState) Quota(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag,
 	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
 
-	qmr := &aspect.QuotaMethodResp{Amount: 42}
-	return qmr, status.OK
+	return ts.quota(bag, output, qma)
 }
 
 func (ts *testState) Preprocess(ctx context.Context, bag, output *attribute.MutableBag) rpc.Status {
-	output.Set("preprocess_attribute", "true")
-	if ts.failPreprocess {
-		return status.WithInternal("failed process")
-	}
-	return status.OK
+	return ts.preproc(bag, output)
 }
 
 func TestCheck(t *testing.T) {
@@ -151,6 +152,10 @@ func TestCheck(t *testing.T) {
 		t.Fatalf("Unable to prep test state: %v", err)
 	}
 	defer ts.cleanupTestState()
+
+	ts.check = func(requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
+		return status.WithPermissionDenied("Not Implemented")
+	}
 
 	request := mixerpb.CheckRequest{}
 	response, err := ts.client.Check(context.Background(), &request)
@@ -171,10 +176,64 @@ func TestReport(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	request := mixerpb.ReportRequest{}
+	ts.report = func(requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
+		return status.OK
+	}
+
+	request := mixerpb.ReportRequest{Attributes: []mixerpb.Attributes{{}}}
 	_, err = ts.client.Report(context.Background(), &request)
 	if err != nil {
 		t.Errorf("Expected success, got error: %v", err)
+	}
+
+	// test out delta encoding of attributes
+	attr0 := mixerpb.Attributes{
+		Words: []string{"A1", "A2", "A3"},
+		Int64S: map[int32]int64{
+			-1: 25,
+			-2: 26,
+			-3: 27,
+		},
+	}
+
+	attr1 := mixerpb.Attributes{
+		Words: []string{"A1", "A2", "A3"},
+		Int64S: map[int32]int64{
+			-2: 42,
+		},
+	}
+
+	callCount := 0
+	ts.report = func(requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
+		v1, _ := requestBag.Get("A1")
+		v2, _ := requestBag.Get("A2")
+		v3, _ := requestBag.Get("A3")
+
+		i1 := v1.(int64)
+		i2 := v2.(int64)
+		i3 := v3.(int64)
+
+		if callCount == 0 {
+			if i1 != 25 || i2 != 26 || i3 != 27 {
+				t.Errorf("Got %d %d %d, expected 25 26 27", i1, i2, i3)
+			}
+		} else if callCount == 1 {
+			if i1 != 25 || i2 != 42 || i3 != 27 {
+				t.Errorf("Got %d %d %d, expected 25 42 27", i1, i2, i3)
+			}
+
+		} else {
+			t.Errorf("Dispatched to Report method more than twice")
+		}
+		callCount++
+		return status.OK
+	}
+
+	request = mixerpb.ReportRequest{Attributes: []mixerpb.Attributes{attr0, attr1}}
+	_, _ = ts.client.Report(context.Background(), &request)
+
+	if callCount == 0 {
+		t.Errorf("Got %d, expected call count of 2", callCount)
 	}
 }
 
@@ -185,6 +244,11 @@ func TestQuota(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
+	ts.quota = func(requestBag *attribute.MutableBag, responseBag *attribute.MutableBag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
+		qmr := &aspect.QuotaMethodResp{Amount: 42}
+		return qmr, status.OK
+	}
+
 	request := mixerpb.QuotaRequest{}
 	_, err = ts.client.Quota(context.Background(), &request)
 
@@ -193,96 +257,65 @@ func TestQuota(t *testing.T) {
 	}
 }
 
-/*
-func TestOverload(t *testing.T) {
+func TestBadAttr(t *testing.T) {
+	attrs := mixerpb.Attributes{
+		Words:   []string{"Hello"},
+		Strings: map[int32]int32{-24: 25},
+	}
+
 	ts, err := prepTestState()
 	if err != nil {
 		t.Fatalf("Unable to prep test state: %v", err)
 	}
 	defer ts.cleanupTestState()
 
-	stream, err := ts.client.Report(context.Background())
-	if err != nil {
-		t.Fatalf("Report failed %v", err)
-	}
-
-	const numMessages = 16384
-	waitc := make(chan int64, numMessages)
-	go func() {
-		for {
-			response, err := stream.Recv()
-			if err == io.EOF {
-				close(waitc)
-				return
-			} else if err != nil {
-				t.Errorf("Failed to receive a response: %v", err)
-				return
-			} else {
-				waitc <- response.RequestIndex
-			}
-		}
-	}()
-
-	for i := 0; i < numMessages; i++ {
-		request := mixerpb.ReportRequest{RequestIndex: int64(i)}
-		if err := stream.Send(&request); err != nil {
-			t.Errorf("Failed to send request %d: %v", i, err)
+	{
+		request := mixerpb.CheckRequest{Attributes: attrs}
+		_, err = ts.client.Check(context.Background(), &request)
+		if err == nil {
+			t.Error("Got success, expected failure")
 		}
 	}
 
-	results := make(map[int64]bool, numMessages)
-	for i := 0; i < numMessages; i++ {
-		results[<-waitc] = true
-	}
-
-	for i := 0; i < numMessages; i++ {
-		if !results[int64(i)] {
-			t.Errorf("Didn't get response for message %d", i)
+	{
+		request := mixerpb.QuotaRequest{Attributes: attrs}
+		_, err = ts.client.Quota(context.Background(), &request)
+		if err == nil {
+			t.Error("Got success, expected failure")
 		}
 	}
 
-	if err := stream.CloseSend(); err != nil {
-		t.Errorf("Failed to close gRPC stream: %v", err)
+	{
+		request := mixerpb.ReportRequest{Attributes: []mixerpb.Attributes{attrs}}
+		_, err = ts.client.Report(context.Background(), &request)
+		if err == nil {
+			t.Error("Got success, expected failure")
+		}
 	}
-
-	// wait for the goroutine to be done
-	<-waitc
 }
 
-func TestBadBag(t *testing.T) {
+func TestUnknownStatus(t *testing.T) {
 	ts, err := prepTestState()
 	if err != nil {
 		t.Fatalf("Unable to prep test state: %v", err)
 	}
 	defer ts.cleanupTestState()
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-
-	// install a failing SendMsg to exercise the failure path
-	ts.s.sendMsg = func(stream grpc.Stream, m proto.Message) error {
-		err = errors.New("nothing good")
-		wg.Done()
-		return err
+	ts.check = func(requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
+		return rpc.Status{
+			Code:    12345678,
+			Message: "DEADBEEF!",
+		}
 	}
 
-	ts.reportBadAttr = true
-
-	stream, err := ts.client.Report(context.Background())
+	request := mixerpb.CheckRequest{}
+	resp, err := ts.client.Check(context.Background(), &request)
 	if err != nil {
-		t.Fatalf("Report failed %v", err)
+		t.Error("Got failure, expected success")
+	} else if !strings.Contains(resp.Status.Message, "DEADBEEF!") {
+		t.Errorf("Got '%s', expected DEADBEEF!", resp.Status.Message)
 	}
-
-	request := mixerpb.ReportRequest{}
-	if err := stream.Send(&request); err != nil {
-		t.Errorf("Failed to send request: %v", err)
-	}
-
-	// we never hear back from the server (since the send failed). Just wait
-	// for the goroutine to signal it's done
-	wg.Wait()
 }
-*/
 
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.

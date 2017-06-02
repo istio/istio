@@ -297,6 +297,20 @@ func getIndex(word string, ds *dictState) int32 {
 // GetBagFromProto returns an initialized bag from an Attribute proto.
 func GetBagFromProto(attrs *mixerpb.Attributes, globalDict []string) (*MutableBag, error) {
 	mb := GetMutableBag(nil)
+	err := mb.UpdateBagFromProto(attrs, globalDict)
+	if err != nil {
+		mb.Done()
+		return nil, err
+	}
+
+	return mb, nil
+}
+
+// UpdateBagFromProto refreshes the bag based on the content of the attribute proto.
+//
+// Note that in the case of semantic errors in the supplied proto which leads to
+// an error return, it's likely that the bag will have been partially updated.
+func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.Attributes, globalDict []string) error {
 	messageDict := attrs.Words
 	var e error
 	var name string
@@ -305,65 +319,72 @@ func GetBagFromProto(attrs *mixerpb.Attributes, globalDict []string) (*MutableBa
 	// TODO: fail if the proto carries multiple attributes by the same name (but different types)
 
 	var buf *bytes.Buffer
+	log := func(format string, args ...interface{}) {}
+
 	if glog.V(2) {
 		buf = pool.GetBuffer()
-		log(buf, "Creating bag from wire attributes:\n")
+		log = func(format string, args ...interface{}) {
+			fmt.Fprintf(buf, format, args...)
+			buf.WriteString("\n")
+		}
 	}
 
-	log(buf, "  setting string attributes:\n")
+	log("Updating bag from wire attributes:")
+
+	log("  setting string attributes:")
 	for k, v := range attrs.Strings {
 		name, e = lookup(k, e, globalDict, messageDict)
 		value, e = lookup(v, e, globalDict, messageDict)
-		log(buf, "    %s -> '%s'\n", name, value)
+		log("    %s -> '%s'", name, value)
 		mb.values[name] = value
 	}
 
-	log(buf, "  setting int64 attributes:\n")
+	log("  setting int64 attributes:")
 	for k, v := range attrs.Int64S {
 		name, e = lookup(k, e, globalDict, messageDict)
-		log(buf, "    %s -> '%d'\n", name, v)
+		log("    %s -> '%d'", name, v)
 		mb.values[name] = v
 	}
 
-	log(buf, "  setting double attributes:\n")
+	log("  setting double attributes:")
 	for k, v := range attrs.Doubles {
 		name, e = lookup(k, e, globalDict, messageDict)
-		log(buf, "    %s -> '%f'\n", name, v)
+		log("    %s -> '%f'", name, v)
 		mb.values[name] = v
 	}
 
-	log(buf, "  setting bool attributes:\n")
+	log("  setting bool attributes:")
 	for k, v := range attrs.Bools {
 		name, e = lookup(k, e, globalDict, messageDict)
-		log(buf, "    %s -> '%t'\n", name, v)
+		log("    %s -> '%t'", name, v)
 		mb.values[name] = v
 	}
 
-	log(buf, "  setting timestamp attributes:\n")
+	log("  setting timestamp attributes:")
 	for k, v := range attrs.Timestamps {
 		name, e = lookup(k, e, globalDict, messageDict)
-		log(buf, "    %s -> '%v'\n", name, v)
+		log("    %s -> '%v'", name, v)
 		mb.values[name] = v
 	}
 
-	log(buf, "  setting duration attributes:\n")
+	log("  setting duration attributes:")
 	for k, v := range attrs.Durations {
 		name, e = lookup(k, e, globalDict, messageDict)
-		log(buf, "    %s -> '%v'\n", name, v)
+		log("    %s -> '%v'", name, v)
 		mb.values[name] = v
 	}
 
-	log(buf, "  setting bytes attributes:\n")
+	log("  setting bytes attributes:")
 	for k, v := range attrs.Bytes {
 		name, e = lookup(k, e, globalDict, messageDict)
-		log(buf, "    %s -> '%s'\n", name, v)
+		log("    %s -> '%s'", name, v)
 		mb.values[name] = v
 	}
 
-	log(buf, "  setting string map attributes:\n")
+	log("  setting string map attributes:")
 	for k, v := range attrs.StringMaps {
 		name, e = lookup(k, e, globalDict, messageDict)
-		log(buf, "  %s\n", name)
+		log("  %s", name)
 
 		sm := make(map[string]string, len(v.Entries))
 		for k2, v2 := range v.Entries {
@@ -371,7 +392,7 @@ func GetBagFromProto(attrs *mixerpb.Attributes, globalDict []string) (*MutableBa
 			var value2 string
 			name2, e = lookup(k2, e, globalDict, messageDict)
 			value2, e = lookup(v2, e, globalDict, messageDict)
-			log(buf, "    %s -> '%v'\n", name2, value2)
+			log("    %s -> '%v'", name2, value2)
 			sm[name2] = value2
 		}
 		mb.values[name] = sm
@@ -382,11 +403,7 @@ func GetBagFromProto(attrs *mixerpb.Attributes, globalDict []string) (*MutableBa
 		pool.PutBuffer(buf)
 	}
 
-	if e != nil {
-		return nil, e
-	}
-
-	return mb, nil
+	return e
 }
 
 func lookup(index int32, err error, globalDict []string, messageDict []string) (string, error) {
@@ -402,10 +419,4 @@ func lookup(index int32, err error, globalDict []string, messageDict []string) (
 	}
 
 	return globalDict[index], err
-}
-
-func log(buf *bytes.Buffer, format string, args ...interface{}) {
-	if buf != nil {
-		buf.WriteString(fmt.Sprintf(format, args...))
-	}
 }
