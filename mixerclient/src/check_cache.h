@@ -18,6 +18,7 @@
 #ifndef MIXERCLIENT_CHECK_CACHE_H
 #define MIXERCLIENT_CHECK_CACHE_H
 
+#include <chrono>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -33,27 +34,26 @@
 namespace istio {
 namespace mixer_client {
 
-// Cache Mixer Check Attributes.
+// Cache Mixer Check call result.
 // This interface is thread safe.
 class CheckCache {
  public:
+  using Tick = std::chrono::time_point<std::chrono::system_clock>;
+
   CheckCache(const CheckOptions& options);
 
   virtual ~CheckCache();
 
   // If the check could not be handled by the cache, returns NOT_FOUND,
   // caller has to send the request to mixer.
-  // Otherwise, returns OK and cached response.
-  virtual ::google::protobuf::util::Status Check(const Attributes& request,
-                                                 std::string* signature);
+  ::google::protobuf::util::Status Check(const Attributes& request,
+                                         Tick time_now, std::string* signature);
 
   // Caches a response from a remote mixer call.
-  virtual ::google::protobuf::util::Status CacheResponse(
-      const std::string& signature, ::google::protobuf::util::Status status);
-
-  // Invalidates expired check responses.
-  // Called at time specified by GetNextFlushInterval().
-  virtual ::google::protobuf::util::Status Flush();
+  // Return the converted status from response.
+  ::google::protobuf::util::Status CacheResponse(
+      const std::string& signature,
+      const ::istio::mixer::v1::CheckResponse& response, Tick time_now);
 
   // Flushes out all cached check responses; clears all cache items.
   // Usually called at destructor.
@@ -62,50 +62,35 @@ class CheckCache {
  private:
   class CacheElem {
    public:
-    CacheElem(::google::protobuf::util::Status status, const int64_t time)
-        : status_(status), last_check_time_(time) {}
-
-    // Setter for check status.
-    inline void set_status(::google::protobuf::util::Status status) {
-      status_ = status;
+    CacheElem(const ::istio::mixer::v1::CheckResponse& response, Tick time) {
+      SetResponse(response, time);
     }
-    // Getter for check response.
-    inline ::google::protobuf::util::Status status() const { return status_; }
 
-    // Setter for last check time.
-    inline void set_last_check_time(const int64_t last_check_time) {
-      last_check_time_ = last_check_time;
-    }
-    // Getter for last check time.
-    inline const int64_t last_check_time() const { return last_check_time_; }
+    // Set the response
+    void SetResponse(const ::istio::mixer::v1::CheckResponse& response,
+                     Tick time_now);
+
+    // Check if the item is expired.
+    bool IsExpired(Tick time_now);
+
+    // getter for converted status from response.
+    ::google::protobuf::util::Status status() const { return status_; }
 
    private:
     // The check status for the last check request.
     ::google::protobuf::util::Status status_;
-    // In general, this is the last time a check response is updated.
-    //
-    // During flush, we set it to be the request start time to prevent a next
-    // check request from triggering another flush. Note that this prevention
-    // works only during the flush interval, which means for long RPC, there
-    // could be up to RPC_time/flush_interval ongoing check requests.
-    int64_t last_check_time_;
+    // Cache item should not be used after it is expired.
+    std::chrono::time_point<std::chrono::system_clock> expire_time_;
+    // if -1, not to check use_count.
+    // if 0, cache item should not be used.
+    // use_cound is decreased by 1 for each request,
+    int use_count_;
   };
 
-  using CacheDeleter = std::function<void(CacheElem*)>;
   // Key is the signature of the Attributes. Value is the CacheElem.
-  // It is a LRU cache with MaxIdelTime as response_expiration_time.
-  using CheckLRUCache =
-      SimpleLRUCacheWithDeleter<std::string, CacheElem, CacheDeleter>;
-
-  // Returns whether we should flush a cache entry.
-  // If the aggregated check request is less than flush interval, no need to
-  // flush.
-  bool ShouldFlush(const CacheElem& elem);
-
-  // Flushes the internal operation in the elem and delete the elem. The
-  // response from the server is NOT cached.
-  // Takes ownership of the elem.
-  void OnCacheEntryDelete(CacheElem* elem);
+  // It is a LRU cache with maximum size.
+  // When the maximum size is reached, oldest idle items will be removed.
+  using CheckLRUCache = SimpleLRUCache<std::string, CacheElem>;
 
   // The check options.
   CheckOptions options_;
@@ -121,9 +106,6 @@ class CheckCache {
   // entry 1 cost unit.
   // Guarded by mutex_, except when compare against NULL.
   std::unique_ptr<CheckLRUCache> cache_;
-
-  // flush interval in cycles.
-  int64_t flush_interval_in_cycle_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(CheckCache);
 };

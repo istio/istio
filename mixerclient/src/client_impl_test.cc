@@ -46,8 +46,7 @@ class MixerClientImplTest : public ::testing::Test {
  public:
   MixerClientImplTest() {
     MixerClientOptions options(
-        CheckOptions(1 /*entries */, 500 /* refresh_interval_ms */,
-                     1000 /* expiration_ms */),
+        CheckOptions(1 /*entries */),
         QuotaOptions(1 /* entries */, 600000 /* expiration_ms */));
     options.check_options.network_fail_open = false;
     options.check_transport = mock_check_transport_.GetFunc();

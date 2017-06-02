@@ -15,6 +15,7 @@
 #include "src/client_impl.h"
 #include "utils/protobuf.h"
 
+using namespace std::chrono;
 using ::istio::mixer::v1::CheckRequest;
 using ::istio::mixer::v1::CheckResponse;
 using ::istio::mixer::v1::ReportRequest;
@@ -39,7 +40,8 @@ MixerClientImpl::~MixerClientImpl() {}
 
 void MixerClientImpl::Check(const Attributes &attributes, DoneFunc on_done) {
   std::string signature;
-  Status status = check_cache_->Check(attributes, &signature);
+  Status status =
+      check_cache_->Check(attributes, system_clock::now(), &signature);
   if (status.error_code() != Code::NOT_FOUND) {
     on_done(status);
     return;
@@ -57,9 +59,8 @@ void MixerClientImpl::Check(const Attributes &attributes, DoneFunc on_done) {
         on_done(status);
       }
     } else {
-      Status resp_status = ConvertRpcStatus(response->status());
-      check_cache_->CacheResponse(signature, resp_status);
-      on_done(resp_status);
+      on_done(check_cache_->CacheResponse(signature, *response,
+                                          system_clock::now()));
     }
     delete response;
   });

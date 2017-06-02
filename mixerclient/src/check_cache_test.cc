@@ -14,14 +14,13 @@
  */
 
 #include "src/check_cache.h"
-
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "utils/protobuf.h"
 #include "utils/status_test_util.h"
 
-#include <unistd.h>
-
-using std::string;
+using namespace std::chrono;
+using ::istio::mixer::v1::CheckResponse;
 using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;
 
@@ -29,90 +28,114 @@ namespace istio {
 namespace mixer_client {
 namespace {
 
-const int kFlushIntervalMs = 100;
-const int kExpirationMs = 200;
+time_point<system_clock> FakeTime(int t) {
+  return time_point<system_clock>(milliseconds(t));
 }
 
 class CheckCacheTest : public ::testing::Test {
  public:
   void SetUp() {
-    CheckOptions options(1 /*entries*/, kFlushIntervalMs, kExpirationMs);
+    CheckOptions options(1 /*entries*/);
     options.cache_keys = {"string-key"};
 
     cache_ = std::unique_ptr<CheckCache>(new CheckCache(options));
     ASSERT_TRUE((bool)(cache_));
 
-    attributes1_.attributes["string-key"] =
+    attributes_.attributes["string-key"] =
         Attributes::StringValue("this-is-a-string-value");
   }
 
-  Attributes attributes1_;
+  void VerifyDisabledCache() {
+    std::string signature;
+    CheckResponse ok_response;
+    // Just to calculate signature
+    EXPECT_ERROR_CODE(Code::NOT_FOUND,
+                      cache_->Check(attributes_, FakeTime(0), &signature));
+    // set to the cache
+    EXPECT_OK(cache_->CacheResponse(signature, ok_response, FakeTime(0)));
 
+    // Still not_found, so cache is disabled.
+    EXPECT_ERROR_CODE(Code::NOT_FOUND,
+                      cache_->Check(attributes_, FakeTime(0), &signature));
+  }
+
+  Attributes attributes_;
   std::unique_ptr<CheckCache> cache_;
 };
 
-TEST_F(CheckCacheTest, TestDisableCache1) {
+TEST_F(CheckCacheTest, TestDisableCacheFromZeroCacheSize) {
   // 0 cache entries. cache is disabled
-  CheckOptions options(0 /*entries*/, 1000, 2000);
+  CheckOptions options(0);
   options.cache_keys = {"string-key"};
   cache_ = std::unique_ptr<CheckCache>(new CheckCache(options));
 
   ASSERT_TRUE((bool)(cache_));
-
-  EXPECT_ERROR_CODE(Code::NOT_FOUND, cache_->Check(attributes1_, nullptr));
+  VerifyDisabledCache();
 }
 
-TEST_F(CheckCacheTest, TestDisableCache2) {
+TEST_F(CheckCacheTest, TestDisableCacheFromEmptyCacheKeys) {
   // empty cache keys. cache is disabled
-  CheckOptions options(1000 /*entries*/, 1000, 2000);
+  CheckOptions options(1000 /*entries*/);
   cache_ = std::unique_ptr<CheckCache>(new CheckCache(options));
 
   ASSERT_TRUE((bool)(cache_));
-
-  EXPECT_ERROR_CODE(Code::NOT_FOUND, cache_->Check(attributes1_, nullptr));
+  VerifyDisabledCache();
 }
 
-TEST_F(CheckCacheTest, TestCachePassResponses) {
+TEST_F(CheckCacheTest, TestNeverExpired) {
   std::string signature;
-  EXPECT_ERROR_CODE(Code::NOT_FOUND, cache_->Check(attributes1_, &signature));
+  EXPECT_ERROR_CODE(Code::NOT_FOUND,
+                    cache_->Check(attributes_, FakeTime(0), &signature));
 
-  EXPECT_OK(cache_->CacheResponse(signature, Status::OK));
-  EXPECT_OK(cache_->Check(attributes1_, &signature));
+  // A ok response without cachability:
+  CheckResponse ok_response;
+  EXPECT_OK(cache_->CacheResponse(signature, ok_response, FakeTime(0)));
+  for (int i = 0; i < 1000; ++i) {
+    EXPECT_OK(cache_->Check(attributes_, FakeTime(i * 1000000), &signature));
+  }
 }
 
-TEST_F(CheckCacheTest, TestRefresh) {
+TEST_F(CheckCacheTest, TestExpiredByUseCount) {
   std::string signature;
-  EXPECT_ERROR_CODE(Code::NOT_FOUND, cache_->Check(attributes1_, &signature));
+  EXPECT_ERROR_CODE(Code::NOT_FOUND,
+                    cache_->Check(attributes_, FakeTime(0), &signature));
 
-  EXPECT_OK(cache_->CacheResponse(signature, Status::OK));
-  EXPECT_OK(cache_->Check(attributes1_, &signature));
-  // sleep 0.12 second.
-  usleep(120000);
+  CheckResponse ok_response;
+  // use_count = 3
+  ok_response.mutable_cachability()->set_use_count(3);
+  EXPECT_OK(cache_->CacheResponse(signature, ok_response, FakeTime(0)));
 
-  // First one should be NOT_FOUND for refresh
-  EXPECT_ERROR_CODE(Code::NOT_FOUND, cache_->Check(attributes1_, &signature));
-  // Second one use cached response.
-  EXPECT_OK(cache_->CacheResponse(signature, Status::OK));
-  EXPECT_OK(cache_->Check(attributes1_, &signature));
+  // 3 requests are OK
+  EXPECT_OK(cache_->Check(attributes_, FakeTime(1 * 1000000), &signature));
+  EXPECT_OK(cache_->Check(attributes_, FakeTime(2 * 1000000), &signature));
+  EXPECT_OK(cache_->Check(attributes_, FakeTime(3 * 1000000), &signature));
 
-  EXPECT_OK(cache_->FlushAll());
-  EXPECT_ERROR_CODE(Code::NOT_FOUND, cache_->Check(attributes1_, &signature));
+  // The 4th one should fail.
+  EXPECT_ERROR_CODE(
+      Code::NOT_FOUND,
+      cache_->Check(attributes_, FakeTime(4 * 1000000), &signature));
 }
 
-TEST_F(CheckCacheTest, TestCacheExpired) {
+TEST_F(CheckCacheTest, TestExpiredByDuration) {
   std::string signature;
-  EXPECT_ERROR_CODE(Code::NOT_FOUND, cache_->Check(attributes1_, &signature));
+  EXPECT_ERROR_CODE(Code::NOT_FOUND,
+                    cache_->Check(attributes_, FakeTime(0), &signature));
 
-  EXPECT_OK(cache_->CacheResponse(signature, Status::OK));
-  EXPECT_OK(cache_->Check(attributes1_, &signature));
+  CheckResponse ok_response;
+  ok_response.mutable_cachability()->set_use_count(1000);
+  // expired in 10 milliseconds.
+  *ok_response.mutable_cachability()->mutable_duration() =
+      CreateDuration(duration_cast<nanoseconds>(milliseconds(10)));
+  EXPECT_OK(cache_->CacheResponse(signature, ok_response, FakeTime(0)));
 
-  // sleep 0.22 second to cause cache expired.
-  usleep(220000);
-  EXPECT_OK(cache_->Flush());
+  // OK, In 1 milliseconds.
+  EXPECT_OK(cache_->Check(attributes_, FakeTime(1), &signature));
 
-  // First one should be NOT_FOUND for refresh
-  EXPECT_ERROR_CODE(Code::NOT_FOUND, cache_->Check(attributes1_, &signature));
+  // Not found in 11 milliseconds.
+  EXPECT_ERROR_CODE(Code::NOT_FOUND,
+                    cache_->Check(attributes_, FakeTime(11), &signature));
 }
 
+}  // namespace
 }  // namespace mixer_client
 }  // namespace istio

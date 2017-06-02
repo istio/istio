@@ -15,11 +15,9 @@
 
 #include "src/check_cache.h"
 #include "src/signature.h"
+#include "utils/protobuf.h"
 
-#include "google/protobuf/stubs/logging.h"
-
-using std::string;
-using ::istio::mixer::v1::CheckRequest;
+using namespace std::chrono;
 using ::istio::mixer::v1::CheckResponse;
 using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;
@@ -27,16 +25,39 @@ using ::google::protobuf::util::error::Code;
 namespace istio {
 namespace mixer_client {
 
-CheckCache::CheckCache(const CheckOptions& options) : options_(options) {
-  // Converts flush_interval_ms to Cycle used by SimpleCycleTimer.
-  flush_interval_in_cycle_ =
-      options_.flush_interval_ms * SimpleCycleTimer::Frequency() / 1000;
+void CheckCache::CacheElem::CacheElem::SetResponse(
+    const CheckResponse& response, Tick time_now) {
+  status_ = ConvertRpcStatus(response.status());
+  if (response.has_cachability()) {
+    if (response.cachability().has_duration()) {
+      expire_time_ =
+          time_now + ToMilliseonds(response.cachability().duration());
+    } else {
+      // never expired.
+      expire_time_ = time_point<system_clock>::max();
+    }
+    use_count_ = response.cachability().use_count();
+  } else {
+    // if no cachability specified, use it forever.
+    use_count_ = -1;  // -1 for not checking use_count
+    expire_time_ = time_point<system_clock>::max();
+  }
+}
 
+// check if the item is expired.
+bool CheckCache::CacheElem::CacheElem::IsExpired(Tick time_now) {
+  if (time_now > expire_time_ || use_count_ == 0) {
+    return true;
+  }
+  if (use_count_ > 0) {
+    --use_count_;
+  }
+  return false;
+}
+
+CheckCache::CheckCache(const CheckOptions& options) : options_(options) {
   if (options.num_entries > 0 && !options_.cache_keys.empty()) {
-    cache_.reset(new CheckLRUCache(
-        options.num_entries, std::bind(&CheckCache::OnCacheEntryDelete, this,
-                                       std::placeholders::_1)));
-    cache_->SetMaxIdleSeconds(options.expiration_ms / 1000.0);
+    cache_.reset(new CheckLRUCache(options.num_entries));
     cache_keys_ = CacheKeySet::CreateInclusive(options_.cache_keys);
   }
 }
@@ -46,24 +67,20 @@ CheckCache::~CheckCache() {
   FlushAll();
 }
 
-bool CheckCache::ShouldFlush(const CacheElem& elem) {
-  int64_t age = SimpleCycleTimer::Now() - elem.last_check_time();
-  return age >= flush_interval_in_cycle_;
-}
-
-Status CheckCache::Check(const Attributes& attributes, std::string* signature) {
+Status CheckCache::Check(const Attributes& attributes, Tick time_now,
+                         std::string* ret_signature) {
   if (!cache_) {
     // By returning NOT_FOUND, caller will send request to server.
     return Status(Code::NOT_FOUND, "");
   }
 
-  std::string request_signature = GenerateSignature(attributes, *cache_keys_);
-  if (signature) {
-    *signature = request_signature;
+  std::string signature = GenerateSignature(attributes, *cache_keys_);
+  if (ret_signature) {
+    *ret_signature = signature;
   }
 
   std::lock_guard<std::mutex> lock(cache_mutex_);
-  CheckLRUCache::ScopedLookup lookup(cache_.get(), request_signature);
+  CheckLRUCache::ScopedLookup lookup(cache_.get(), signature);
 
   if (!lookup.Found()) {
     // By returning NO_FOUND, caller will send request to server.
@@ -71,56 +88,37 @@ Status CheckCache::Check(const Attributes& attributes, std::string* signature) {
   }
 
   CacheElem* elem = lookup.value();
-
-  if (ShouldFlush(*elem)) {
-    // Setting last check to now to block more check requests to Mixer.
-    elem->set_last_check_time(SimpleCycleTimer::Now());
+  if (elem->IsExpired(time_now)) {
     // By returning NO_FOUND, caller will send request to server.
+    cache_->Remove(signature);
     return Status(Code::NOT_FOUND, "");
   }
-
   return elem->status();
 }
 
-Status CheckCache::CacheResponse(const std::string& request_signature,
-                                 ::google::protobuf::util::Status status) {
-  if (cache_) {
-    std::lock_guard<std::mutex> lock(cache_mutex_);
-    CheckLRUCache::ScopedLookup lookup(cache_.get(), request_signature);
-
-    int64_t now = SimpleCycleTimer::Now();
-
-    if (lookup.Found()) {
-      lookup.value()->set_last_check_time(now);
-      lookup.value()->set_status(status);
-    } else {
-      CacheElem* cache_elem = new CacheElem(status, now);
-      cache_->Insert(request_signature, cache_elem, 1);
-    }
+Status CheckCache::CacheResponse(const std::string& signature,
+                                 const CheckResponse& response, Tick time_now) {
+  if (!cache_) {
+    return ConvertRpcStatus(response.status());
   }
 
-  return Status::OK;
-}
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+  CheckLRUCache::ScopedLookup lookup(cache_.get(), signature);
 
-// TODO: need to hook up a timer to call Flush.
-// Flush aggregated requests whom are longer than flush_interval.
-// Called at time specified by GetNextFlushInterval().
-Status CheckCache::Flush() {
-  if (cache_) {
-    std::lock_guard<std::mutex> lock(cache_mutex_);
-    cache_->RemoveExpiredEntries();
+  if (lookup.Found()) {
+    lookup.value()->SetResponse(response, time_now);
+    return lookup.value()->status();
   }
 
-  return Status::OK;
+  CacheElem* cache_elem = new CacheElem(response, time_now);
+  cache_->Insert(signature, cache_elem, 1);
+  return cache_elem->status();
 }
-
-void CheckCache::OnCacheEntryDelete(CacheElem* elem) { delete elem; }
 
 // Flush out aggregated check requests, clear all cache items.
 // Usually called at destructor.
 Status CheckCache::FlushAll() {
   if (cache_) {
-    GOOGLE_LOG(INFO) << "Remove all entries of check cache.";
     std::lock_guard<std::mutex> lock(cache_mutex_);
     cache_->RemoveAll();
   }
