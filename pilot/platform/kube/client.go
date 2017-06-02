@@ -41,7 +41,7 @@ import (
 
 	"crypto/tls"
 
-	"istio.io/manager/model"
+	"istio.io/pilot/model"
 )
 
 const (
@@ -56,7 +56,7 @@ const (
 	IstioKind = "IstioConfig"
 )
 
-// Client provides state-less Kubernetes bindings for the manager:
+// Client provides state-less Kubernetes bindings:
 // - configuration objects are stored as third-party resources
 // - dynamic REST client is configured to use third-party resources
 // - static client exposes Kubernetes API
@@ -420,14 +420,14 @@ func (cl *Client) Request(namespace, service, method, path string, inBody []byte
 	// Kubernetes apiserver proxy prefix for the specified namespace and service.
 	absPath := fmt.Sprintf("api/v1/namespaces/%s/services/%s/proxy", namespace, service)
 
-	// TODO(https://github.com/istio/api/issues/94) - Manager and
-	// mixer API server paths are not consistent. Manager path is
+	// TODO(https://github.com/istio/api/issues/94) - pilot and
+	// mixer API server paths are not consistent. Pilot path is
 	// prefixed with Istio resource version (i.e. v1alpha1) and mixer
 	// path is not. Short term workaround is to special case this
 	// behavior. Long term solution is to unify API scheme and server
 	// implementations.
 	if strings.HasPrefix(path, "config") || strings.HasPrefix(path, "version") {
-		absPath += "/" + IstioResourceVersion // manager api server path
+		absPath += "/" + IstioResourceVersion // pilot api server path
 	}
 
 	// API server resource path.

@@ -25,13 +25,13 @@ import (
 	"github.com/spf13/cobra"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/manager/apiserver"
-	"istio.io/manager/cmd"
-	"istio.io/manager/cmd/version"
-	"istio.io/manager/model"
-	"istio.io/manager/platform/kube"
-	"istio.io/manager/proxy"
-	"istio.io/manager/proxy/envoy"
+	"istio.io/pilot/apiserver"
+	"istio.io/pilot/cmd"
+	"istio.io/pilot/cmd/version"
+	"istio.io/pilot/model"
+	"istio.io/pilot/platform/kube"
+	"istio.io/pilot/proxy"
+	"istio.io/pilot/proxy/envoy"
 )
 
 type args struct {
@@ -54,9 +54,9 @@ var (
 	mesh   *proxyconfig.ProxyMeshConfig
 
 	rootCmd = &cobra.Command{
-		Use:   "manager",
-		Short: "Istio Manager",
-		Long:  "Istio Manager provides management plane functionality to the Istio service mesh and Istio Mixer.",
+		Use:   "pilot",
+		Short: "Istio Pilot",
+		Long:  "Istio Pilot provides management plane functionality to the Istio service mesh and Istio Mixer.",
 		PersistentPreRunE: func(*cobra.Command, []string) (err error) {
 			if flags.kubeconfig == "" {
 				if v := os.Getenv("KUBECONFIG"); v != "" {
@@ -98,7 +98,7 @@ var (
 
 	discoveryCmd = &cobra.Command{
 		Use:   "discovery",
-		Short: "Start Istio Manager discovery service",
+		Short: "Start Istio proxy discovery service",
 		RunE: func(c *cobra.Command, args []string) (err error) {
 			controller := kube.NewController(client, mesh, flags.controllerOptions)
 			context := &proxy.Context{
@@ -121,7 +121,7 @@ var (
 
 	apiserverCmd = &cobra.Command{
 		Use:   "apiserver",
-		Short: "Start Istio Manager config API service",
+		Short: "Start Istio config API service",
 		Run: func(*cobra.Command, []string) {
 			controller := kube.NewController(client, mesh, flags.controllerOptions)
 			apiserver := apiserver.NewAPI(apiserver.APIServiceOptions{

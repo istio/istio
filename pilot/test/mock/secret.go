@@ -1,7 +1,7 @@
 package mock
 
 import (
-	"istio.io/manager/model"
+	"istio.io/pilot/model"
 )
 
 // SecretRegistry is a mock of the secret registry

@@ -19,8 +19,8 @@ import (
 
 	"github.com/golang/glog"
 
-	"istio.io/manager/model"
-	"istio.io/manager/test/util"
+	"istio.io/pilot/model"
+	"istio.io/pilot/test/util"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

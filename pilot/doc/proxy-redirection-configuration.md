@@ -11,7 +11,7 @@ This document describes the current method and alternatives considered for redir
  
 An attacker impact is minimized if envoy is compromised with non-elevated privileges. If we add any privileges to envoy container, it would raise lots of eyebrows. With privilege escalation, feature additions to envoy come under a lot of scrutiny (e.g. regex support in URLs). Elevated privileges should be limited to one-time initialization (via init-container) and kept out of the proxy container.
 
- * Special treatment for kube-system namespace (e.g. fluentd, ingress controllers, manager) 
+ * Special treatment for kube-system namespace (e.g. fluentd, ingress controllers)
  TODO
  
 ## Configuration for redirection inbound and outbound traffic to proxy

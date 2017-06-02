@@ -1,11 +1,11 @@
-# Istio Manager testing infrastructure
+# Istio Pilot testing infrastructure
 
-All contributions to Istio Manager should supply tests that cover new features and/or bug fixes.
+All contributions to Istio Pilot should supply tests that cover new features and/or bug fixes.
 We strive to improve and maintain quality of the code with up-to-date samples, good coverage of the code, and static analyzers to detect problems early.
 
 ## Getting started
 
-Manager tests require access to a Kubernetes cluster (version 1.5.2 or higher). Please
+Pilot tests require access to a Kubernetes cluster (version 1.5.2 or higher). Please
 configure your `kubectl` to point to a development cluster (e.g. minikube)
 before building or invoking the tests and add a symbolic link to your
 repository pointing to Kubernetes cluster credentials:
@@ -36,7 +36,7 @@ _Note3_: The optional `-h` flag should point to a Docker registry that you have 
 
 ## Code linters
 
-We require that Istio Manager code contributions pass all linters defined by [the check script](../bin/check.sh):
+We require that Istio Pilot code contributions pass all linters defined by [the check script](../bin/check.sh):
 
     bin/check.sh
     
@@ -51,11 +51,11 @@ Each test creates a temporary namespace and deletes it on completion.
 
 For tests that require systems integration, such as invoking the proxy with a special configuration, we capture the desired output as golden artifacts and save the artifacts in the repository. Validation tests compare generated output against the desired output. For example, [Envoy configuration test data](../proxy/envoy/testdata) contains auto-generated proxy configuration. If you make changes to the config generation, you also need to create or update the golden artifact in the same pull request. The test library can automatically refresh all golden artifacts if you pass a special environment variable:
 
-    env REFRESH_GOLDEN=true go test -v istio.io/manager/...
+    env REFRESH_GOLDEN=true go test -v istio.io/pilot/...
 
 ## Integration tests
 
-Istio Manager runs end-to-end tests as part of the presubmit check. The test driver is a [Golang program](../test/integration) that creates a temporary namespace, deploys Istio components, send requests from apps in the cluster, and checks that traffic obeys the desired routing policies. The end-to-end test is entirely hermetic: test applications and Istio Manager docker images are generated on each run. This means you need to have a docker registry to host your images, which then needs to be passed with `-hub` flag. The test driver is invoked using [the e2e script](../bin/e2e.sh).
+Istio Pilot runs end-to-end tests as part of the presubmit check. The test driver is a [Golang program](../test/integration) that creates a temporary namespace, deploys Istio components, send requests from apps in the cluster, and checks that traffic obeys the desired routing policies. The end-to-end test is entirely hermetic: test applications and Istio Pilot docker images are generated on each run. This means you need to have a docker registry to host your images, which then needs to be passed with `-hub` flag. The test driver is invoked using [the e2e script](../bin/e2e.sh).
 
 ## Docker images
 
@@ -63,7 +63,7 @@ The following Bazel command generates Docker images for the proxy agent and prox
 
     bazel run //docker:runtime
 
-Istio Manager also produces debug images in addition to the default bare images. These images have suffix `_debug` and include additional tools such as `curl` in the base image as well as debug-enabled Envoy builds. You might need to grant security privileges to the container spec for root access:
+Istio Pilot also produces debug images in addition to the default bare images. These images have suffix `_debug` and include additional tools such as `curl` in the base image as well as debug-enabled Envoy builds. You might need to grant security privileges to the container spec for root access:
 
     securityContext:
       privileged: true
@@ -76,5 +76,5 @@ and `proxy-redirection-restore` to restore them.
 
 ## Test logging
 
-Istio Manager uses [glog](https://godoc.org/github.com/golang/glog) library for all its logging. We encourage extensive logging at the appropriate log levels. As a hint to the log level selection, level 10 is the most verbose (Kubernetes will show all its HTTP requests), level 2 is used by default in the integration tests, level 4 turns on extensive logging in the proxy.
+Istio Pilot uses [glog](https://godoc.org/github.com/golang/glog) library for all its logging. We encourage extensive logging at the appropriate log levels. As a hint to the log level selection, level 10 is the most verbose (Kubernetes will show all its HTTP requests), level 2 is used by default in the integration tests, level 4 turns on extensive logging in the proxy.
 

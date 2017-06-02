@@ -5,7 +5,7 @@
 # Please add new flags to the Go test driver directly instead of extending this file.
 # The additional steps that the script performs are:
 # - set default docker tag based on a timestamp and user name
-# - build and push docker images, including manager pieces and proxy.
+# - build and push docker images, including this repo pieces and proxy.
 
 args=""
 hub="gcr.io/istio-testing"
@@ -31,7 +31,7 @@ if [[ "$hub" =~ ^gcr\.io ]]; then
   gcloud docker --authorize-only
 fi
 
-for image in app init manager; do
+for image in app init pilot; do
   bazel $BAZEL_ARGS run //docker:${image}
   docker tag istio/docker:${image} $hub/$image:$tag
   docker push $hub/$image:$tag

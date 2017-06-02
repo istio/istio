@@ -28,10 +28,10 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/manager/cmd"
-	"istio.io/manager/model"
-	"istio.io/manager/platform/kube/inject"
-	"istio.io/manager/test/util"
+	"istio.io/pilot/cmd"
+	"istio.io/pilot/model"
+	"istio.io/pilot/platform/kube/inject"
+	"istio.io/pilot/test/util"
 )
 
 type infra struct {
@@ -87,7 +87,7 @@ func (infra *infra) setup() error {
 	if err := deploy("config.yaml.tmpl"); err != nil {
 		return err
 	}
-	if err := deploy("manager.yaml.tmpl"); err != nil {
+	if err := deploy("pilot.yaml.tmpl"); err != nil {
 		return err
 	}
 	if err := deploy("mixer.yaml.tmpl"); err != nil {
@@ -170,7 +170,7 @@ func (infra *infra) deployApp(deployment, svcName string, port1, port2, port3, p
 			Verbosity:       infra.Verbosity,
 			SidecarProxyUID: inject.DefaultSidecarProxyUID,
 			EnableCoreDump:  true,
-			Version:         "manager-integration-test",
+			Version:         "integration-test",
 			Mesh:            mesh,
 		}
 		if err := inject.IntoResourceFile(p, strings.NewReader(w), writer); err != nil {

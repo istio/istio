@@ -28,8 +28,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/manager/model"
-	"istio.io/manager/proxy"
+	"istio.io/pilot/model"
+	"istio.io/pilot/proxy"
 )
 
 const (

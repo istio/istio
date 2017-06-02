@@ -20,11 +20,11 @@ import (
 	"io"
 	"os"
 
-	"istio.io/manager/cmd"
-	"istio.io/manager/cmd/version"
-	"istio.io/manager/model"
-	"istio.io/manager/platform/kube"
-	"istio.io/manager/platform/kube/inject"
+	"istio.io/pilot/cmd"
+	"istio.io/pilot/cmd/version"
+	"istio.io/pilot/model"
+	"istio.io/pilot/platform/kube"
+	"istio.io/pilot/platform/kube/inject"
 
 	"github.com/spf13/cobra"
 )

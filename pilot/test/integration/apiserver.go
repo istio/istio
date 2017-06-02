@@ -29,10 +29,10 @@ import (
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/manager/apiserver"
-	"istio.io/manager/cmd"
-	"istio.io/manager/model"
-	"istio.io/manager/platform/kube"
+	"istio.io/pilot/apiserver"
+	"istio.io/pilot/cmd"
+	"istio.io/pilot/model"
+	"istio.io/pilot/platform/kube"
 )
 
 type apiServerTest struct {

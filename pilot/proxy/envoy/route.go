@@ -26,7 +26,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/manager/model"
+	"istio.io/pilot/model"
 )
 
 const (

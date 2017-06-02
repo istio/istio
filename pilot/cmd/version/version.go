@@ -48,7 +48,7 @@ var (
 	// Info exports the build version information.
 	Info BuildInfo
 
-	// VersionCmd provides a command to query the version of Istio Manager
+	// VersionCmd provides a command to query the version of Istio Pilot
 	VersionCmd = &cobra.Command{
 		Use:   "version",
 		Short: "Display version information and exit",

@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"net"
 
-	"istio.io/manager/model"
+	"istio.io/pilot/model"
 )
 
 // Mock values

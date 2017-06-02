@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/manager/model"
+	"istio.io/pilot/model"
 )
 
 // camelCaseToKabobCase converts "MyName" to "my-name"

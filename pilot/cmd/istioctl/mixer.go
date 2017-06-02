@@ -24,8 +24,8 @@ import (
 	"os"
 	"time"
 
-	"istio.io/manager/client/proxy"
-	"istio.io/manager/platform/kube"
+	"istio.io/pilot/client/proxy"
+	"istio.io/pilot/platform/kube"
 
 	"github.com/ghodss/yaml"
 	rpc "github.com/googleapis/googleapis/google/rpc"

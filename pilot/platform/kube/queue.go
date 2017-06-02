@@ -21,7 +21,7 @@ import (
 	"github.com/golang/glog"
 	"k8s.io/client-go/util/flowcontrol"
 
-	"istio.io/manager/model"
+	"istio.io/pilot/model"
 )
 
 // Queue of work tickets processed using a rate-limiting loop

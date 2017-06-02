@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"istio.io/manager/model"
+	"istio.io/pilot/model"
 )
 
 // Mock values

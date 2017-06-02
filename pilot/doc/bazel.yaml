@@ -32,7 +32,7 @@ spec:
     imagePullPolicy: IfNotPresent
     command: ["sleep", "infinity"]
     volumeMounts:
-    - mountPath: /manager
+    - mountPath: /pilot
       name: host-mount
     - mountPath: /home/jenkins/.cache
       name: bazel-cache
@@ -46,7 +46,7 @@ spec:
   volumes:
   - name: host-mount
     hostPath:
-      path: /manager
+      path: /pilot
   - name: bazel-cache
     persistentVolumeClaim:
       claimName: bazel-cache

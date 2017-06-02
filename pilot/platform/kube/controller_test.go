@@ -39,10 +39,10 @@ import (
 	"bytes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/manager/model"
-	"istio.io/manager/proxy"
-	"istio.io/manager/test/mock"
-	"istio.io/manager/test/util"
+	"istio.io/pilot/model"
+	"istio.io/pilot/proxy"
+	"istio.io/pilot/test/mock"
+	"istio.io/pilot/test/util"
 )
 
 const (

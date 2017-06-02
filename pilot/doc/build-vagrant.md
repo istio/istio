@@ -14,7 +14,7 @@ _Note:_ This section applies to Mac and Windows users only. You can develop nati
 
 ## 1. Start Minikube
 
-Istio Manager needs a recent kubernetes version (see [testing doc](testing.md)).
+Istio Pilot needs a recent kubernetes version (see [testing doc](testing.md)).
 
     minikube config set kubernetes-version v1.x.y
     minikube start
@@ -38,19 +38,19 @@ For subsequent startups of the VM,
 
     vagrant up
 
-Your local clone of the istio/manager repository will be mounted in the
-Vagrant VM under `/home/ubuntu/go/src/istio.io/manager`.
+Your local clone of the istio/pilot repository will be mounted in the
+Vagrant VM under `/home/ubuntu/go/src/istio.io/pilot`.
 
 One time setup in the VM: copy the config file from platform/kube/config
 into /home/ubuntu/config
 
     vagrant ssh
-    cp go/src/istio.io/manager/platform/kube/config .kube/config
+    cp go/src/istio.io/pilot/platform/kube/config .kube/config
     sudo chown -R ubuntu:ubuntu .kube
 
 ## 3. Build once in the VM
 
-At this point, you should be able to jump to the [build](./build.md) instructions to run builds of `istio/manager`. Make sure you run the [bin/install-prereqs.sh](../bin/install-prereqs.sh) before you get started.
+At this point, you should be able to jump to the [build](./build.md) instructions to run builds of `istio/pilot`. Make sure you run the [bin/install-prereqs.sh](../bin/install-prereqs.sh) before you get started.
     
 First, install the pre-requisites:
 
@@ -77,7 +77,7 @@ Run a end to end test to make sure the VM can talk to minikube
 
 ## 4. Use your favorite IDE on the host
 
-You should now have vendor directories in the manager folder on the
+You should now have vendor directories in the pilot folder on the
 host. You can use your favorite IDE on the host to develop, while using
 standard `go` tools. In order to compile project in the vagrant VM, run the
 commands described in the the build instructions section below.

@@ -50,12 +50,12 @@ mainFlow(utils) {
   }
   // Regression test to run for modules managed depends on
   if (utils.runStage('REGRESSION')) {
-    managerRegression(gitUtils, bazel, utils)
+    regression(gitUtils, bazel, utils)
   }
 }
 
 def presubmit(gitUtils, bazel, utils) {
-  goBuildNode(gitUtils, 'istio.io/manager') {
+  goBuildNode(gitUtils, 'istio.io/pilot') {
     bazel.updateBazelRc()
     utils.initTestingCluster()
     sh('ln -s ~/.kube/config platform/kube/')
@@ -92,7 +92,7 @@ def presubmit(gitUtils, bazel, utils) {
 }
 
 def stablePresubmit(gitUtils, bazel, utils) {
-  goBuildNode(gitUtils, 'istio.io/manager') {
+  goBuildNode(gitUtils, 'istio.io/pilot') {
     bazel.updateBazelRc()
     utils.initTestingCluster()
     sh('ln -s ~/.kube/config platform/kube/')
@@ -109,7 +109,7 @@ def stablePresubmit(gitUtils, bazel, utils) {
 }
 
 def stablePostsubmit(gitUtils, bazel, utils) {
-  goBuildNode(gitUtils, 'istio.io/manager') {
+  goBuildNode(gitUtils, 'istio.io/pilot') {
     bazel.updateBazelRc()
     sh('touch platform/kube/config')
     stage('Build istioctl') {
@@ -117,7 +117,7 @@ def stablePostsubmit(gitUtils, bazel, utils) {
       sh("bin/cross-compile-istioctl -p ${remotePath}")
     }
     stage('Docker Push') {
-      def images = 'init,app,proxy,proxy_debug,manager'
+      def images = 'init,app,proxy,proxy_debug,pilot'
       def tags = "${env.GIT_SHORT_SHA},${env.ISTIO_VERSION}-${env.GIT_SHORT_SHA}"
       if (env.GIT_TAG != '') {
         if (env.GIT_TAG == env.ISTIO_VERSION) {
@@ -134,7 +134,7 @@ def stablePostsubmit(gitUtils, bazel, utils) {
 }
 
 def postsubmit(gitUtils, bazel, utils) {
-  goBuildNode(gitUtils, 'istio.io/manager') {
+  goBuildNode(gitUtils, 'istio.io/pilot') {
     bazel.updateBazelRc()
     utils.initTestingCluster()
     sh('ln -s ~/.kube/config platform/kube/')
@@ -145,12 +145,12 @@ def postsubmit(gitUtils, bazel, utils) {
       sh('bin/codecov.sh')
       utils.publishCodeCoverage('MANAGER_CODECOV_TOKEN')
     }
-    utils.fastForwardStable('manager')
+    utils.fastForwardStable('pilot')
   }
 }
 
-def managerRegression(gitUtils, bazel, utils) {
-  goBuildNode(gitUtils, 'istio.io/manager') {
+def regression(gitUtils, bazel, utils) {
+  goBuildNode(gitUtils, 'istio.io/pilot') {
     bazel.updateBazelRc()
     utils.initTestingCluster()
     stage('Bazel Build') {

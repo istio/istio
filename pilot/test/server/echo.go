@@ -41,7 +41,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	pb "istio.io/manager/test/grpcecho"
+	pb "istio.io/pilot/test/grpcecho"
 )
 
 var (

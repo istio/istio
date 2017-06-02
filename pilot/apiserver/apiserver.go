@@ -20,8 +20,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"istio.io/manager/cmd/version"
-	"istio.io/manager/model"
+	"istio.io/pilot/cmd/version"
+	"istio.io/pilot/model"
 
 	restful "github.com/emicklei/go-restful"
 	"github.com/golang/glog"
@@ -41,7 +41,7 @@ type APIServiceOptions struct {
 	Registry *model.IstioRegistry
 }
 
-// API is the server wrapper that listens for incoming requests to the manager and processes them
+// API is the server wrapper that listens for incoming requests to the config and processes them
 type API struct {
 	server   *http.Server
 	version  string

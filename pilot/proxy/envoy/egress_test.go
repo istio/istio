@@ -5,7 +5,7 @@ import (
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 
-	"istio.io/manager/test/util"
+	"istio.io/pilot/test/util"
 )
 
 const (

@@ -26,9 +26,9 @@ import (
 
 	restful "github.com/emicklei/go-restful"
 
-	"istio.io/manager/model"
-	"istio.io/manager/test/mock"
-	test_util "istio.io/manager/test/util"
+	"istio.io/pilot/model"
+	"istio.io/pilot/test/mock"
+	test_util "istio.io/pilot/test/util"
 )
 
 var (

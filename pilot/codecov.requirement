@@ -1,4 +1,4 @@
-istio.io/manager/cmd/istioctl	60
-istio.io/manager/model	90
-istio.io/manager/platform/kube	50
-istio.io/manager/proxy/envoy	50
+istio.io/pilot/cmd/istioctl	60
+istio.io/pilot/model	90
+istio.io/pilot/platform/kube	50
+istio.io/pilot/proxy/envoy	50

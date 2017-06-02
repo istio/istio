@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/manager/client/proxy"
-	"istio.io/manager/platform/kube"
-	"istio.io/manager/test/util"
+	"istio.io/pilot/client/proxy"
+	"istio.io/pilot/platform/kube"
+	"istio.io/pilot/test/util"
 
 	"github.com/ghodss/yaml"
 	rpc "github.com/googleapis/googleapis/google/rpc"

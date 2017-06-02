@@ -10,8 +10,8 @@ import (
 
 	"fmt"
 
-	"istio.io/manager/apiserver"
-	"istio.io/manager/model"
+	"istio.io/pilot/apiserver"
+	"istio.io/pilot/model"
 )
 
 type FakeHandler struct {
@@ -239,7 +239,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		var config *apiserver.Config
 		var configSlice []apiserver.Config
 		var err error
-		client := NewManagerClient(&BasicHTTPRequester{
+		client := NewConfigClient(&BasicHTTPRequester{
 			BaseURL: ts.URL,
 			Client:  &http.Client{Timeout: 1 * time.Second},
 		})

@@ -5,7 +5,7 @@ import (
 
 	"fmt"
 
-	"istio.io/manager/model"
+	"istio.io/pilot/model"
 )
 
 func TestSecret(t *testing.T) {

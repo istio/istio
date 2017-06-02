@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"istio.io/manager/cmd/version"
-	"istio.io/manager/model"
+	"istio.io/pilot/cmd/version"
+	"istio.io/pilot/model"
 
 	restful "github.com/emicklei/go-restful"
 	"github.com/golang/glog"

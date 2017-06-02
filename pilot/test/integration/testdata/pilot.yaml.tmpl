@@ -1,10 +1,10 @@
-# Manager service for discovery
+# pilot service for discovery
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-manager
+  name: istio-pilot
   labels:
-    infra: manager
+    infra: pilot
 spec:
   ports:
   - port: 8080
@@ -12,22 +12,22 @@ spec:
   - port: 8081
     name: http-apiserver
   selector:
-    infra: manager
+    infra: pilot
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: istio-manager
+  name: istio-pilot
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        infra: manager
+        infra: pilot
     spec:
       containers:
-      - name: manager
-        image: {{.Hub}}/manager:{{.Tag}}
+      - name: discovery
+        image: {{.Hub}}/pilot:{{.Tag}}
         imagePullPolicy: Always
         args: ["discovery", "-v", "{{.Verbosity}}"]
         ports:
@@ -39,7 +39,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
       - name: apiserver
-        image: {{.Hub}}/manager:{{.Tag}}
+        image: {{.Hub}}/pilot:{{.Tag}}
         imagePullPolicy: Always
         args: ["apiserver", "-v", "{{.Verbosity}}"]
         ports:

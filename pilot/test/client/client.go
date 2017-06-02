@@ -30,7 +30,7 @@ import (
 
 	"github.com/golang/sync/errgroup"
 	"google.golang.org/grpc"
-	pb "istio.io/manager/test/grpcecho"
+	pb "istio.io/pilot/test/grpcecho"
 )
 
 var (

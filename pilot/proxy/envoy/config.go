@@ -24,8 +24,8 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/manager/model"
-	"istio.io/manager/proxy"
+	"istio.io/pilot/model"
+	"istio.io/pilot/proxy"
 )
 
 // Config generation main functions.
@@ -362,7 +362,7 @@ func buildOutboundHTTPRoutes(
 // buildOutboundTCPListeners lists listeners and referenced clusters for TCP
 // protocols (including HTTPS)
 //
-// TODO(github.com/istio/manager/issues/237)
+// TODO(github.com/istio/pilot/issues/237)
 //
 // Sharing tcp_proxy and http_connection_manager filters on the same port for
 // different destination services doesn't work with Envoy (yet). When the

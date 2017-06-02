@@ -21,8 +21,8 @@ go_library(
 )
 
 go_binary(
-    name = "manager",
+    name = "pilot",
     library = ":go_default_library",
-    linkstamp = "istio.io/manager/cmd/version",
+    linkstamp = "istio.io/pilot/cmd/version",
     visibility = ["//visibility:public"],
 )

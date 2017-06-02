@@ -14,7 +14,7 @@ has been created to add such a feature
 (see [Proposal: Extensible Admission Control](https://github.com/kubernetes/community/pull/132/)).
 
 Long term istio automatic proxy injection is being tracked
-by [Kubernetes Admission Controller for proxy injection](https://github.com/istio/manager/issues/57).
+by [Kubernetes Admission Controller for proxy injection](https://github.com/istio/pilot/issues/57).
 
 ## Manual injection
 
@@ -55,7 +55,7 @@ Usage:
    inject [flags]
 
 Flags:
-      --discoveryPort int     Manager discovery port (default 8080)
+      --discoveryPort int     Pilot discovery port (default 8080)
   -f, --filename string       Unmodified input kubernetes resource filename
       --initImage string      Istio init image (default "docker.io/istio/init:latest")
       --mixerPort int         Mixer port (default 9091)

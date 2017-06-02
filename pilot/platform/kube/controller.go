@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/manager/model"
+	"istio.io/pilot/model"
 )
 
 const (

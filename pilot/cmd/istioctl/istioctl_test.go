@@ -21,9 +21,9 @@ import (
 
 	"strings"
 
-	"istio.io/manager/apiserver"
-	"istio.io/manager/cmd/version"
-	"istio.io/manager/model"
+	"istio.io/pilot/apiserver"
+	"istio.io/pilot/cmd/version"
+	"istio.io/pilot/model"
 )
 
 type StubClient struct {

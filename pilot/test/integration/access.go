@@ -20,7 +20,7 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
-	"istio.io/manager/test/util"
+	"istio.io/pilot/test/util"
 )
 
 // envoy access log testing utilities

@@ -24,7 +24,7 @@ manifests in inability to pull images.
 1. Mount repository root to minikube host folder:
 
        # In the repository root directory; the daemon must stay alive for the duration of the build/test
-       minikube mount .:/manager
+       minikube mount .:/pilot
 
 2. Start the build pod:
 
@@ -33,7 +33,7 @@ manifests in inability to pull images.
 3. Run bazel build and test
 
        kubectl exec bazel -it bash
-       cd /manager
+       cd /pilot
 
        # make sure platform/kube/config exists; touch an empty file to use the minikube cluster for testing
        # sudo touch platform/kube/config

@@ -18,8 +18,8 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/manager/proxy"
-	"istio.io/manager/test/mock"
+	"istio.io/pilot/proxy"
+	"istio.io/pilot/test/mock"
 )
 
 func TestHandlers(t *testing.T) {

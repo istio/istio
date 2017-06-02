@@ -34,9 +34,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/manager/model"
-	"istio.io/manager/platform/kube"
-	"istio.io/manager/test/util"
+	"istio.io/pilot/model"
+	"istio.io/pilot/platform/kube"
+	"istio.io/pilot/test/util"
 )
 
 var (
@@ -200,9 +200,9 @@ func runTests(envs ...infra) {
 		// spill all logs on error
 		if errs != nil {
 			for _, pod := range util.GetPods(client, istio.Namespace) {
-				if strings.HasPrefix(pod, "istio-manager") {
-					log("Manager log", pod)
-					glog.Info(util.FetchLogs(client, pod, istio.Namespace, "manager"))
+				if strings.HasPrefix(pod, "istio-pilot") {
+					log("Discovery log", pod)
+					glog.Info(util.FetchLogs(client, pod, istio.Namespace, "discovery"))
 				} else if strings.HasPrefix(pod, "istio-mixer") {
 					log("Mixer log", pod)
 					glog.Info(util.FetchLogs(client, pod, istio.Namespace, "mixer"))

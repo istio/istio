@@ -23,7 +23,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
-	"istio.io/manager/model"
+	"istio.io/pilot/model"
 )
 
 const (

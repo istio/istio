@@ -6,8 +6,8 @@ echo "" > coverage.txt
 for d in $(go list ./... | grep -v vendor); do
     options="-coverprofile=profile.out -covermode=atomic"
     case $d in
-        istio.io/manager/platform/kube)
-            echo "Skipping race detection on $d (see https://github.com/istio/manager/issues/173)"
+        istio.io/pilot/platform/kube)
+            echo "Skipping race detection on $d (see https://github.com/istio/pilot/issues/173)"
             ;;
         *)
             options=$options" -race"

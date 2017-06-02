@@ -1,14 +1,14 @@
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 load("@bazel_tools//tools/build_defs/docker:docker.bzl", "docker_build")
-load("//docker:manager_docker.bzl", "manager_docker_build")
+load("//docker:debug_docker.bzl", "debug_docker_build")
 
 # Use "manual" target tag to skip rules in the wildcard expansion
 
 pkg_tar(
-    name = "manager_tar",
+    name = "pilot_tar",
     extension = "tar.gz",
     files = [
-        "//cmd/manager",
+        "//cmd/pilot",
     ],
     mode = "0755",
     package_dir = "/usr/local/bin/",
@@ -48,7 +48,7 @@ pkg_tar(
     tags = ["manual"],
 )
 
-manager_docker_build(
+debug_docker_build(
     debs = [
         "@deb_iptables//file",
         "@deb_libnfnetlink//file",
@@ -70,8 +70,8 @@ manager_docker_build(
     tars = [":prepare_proxy_tar"],
 )
 
-manager_docker_build(
-    entrypoint = ["/usr/local/bin/manager"],
+debug_docker_build(
+    entrypoint = ["/usr/local/bin/pilot"],
     images = [
         {
             "name": "proxy",
@@ -91,21 +91,21 @@ manager_docker_build(
     repository = "istio",
     tags = ["manual"],
     tars = [
-        ":manager_tar",
+        ":pilot_tar",
         ":config_tar",
     ],
 )
 
 docker_build(
-    name = "manager",
+    name = "pilot",
     base = "@docker_ubuntu//:xenial",
-    entrypoint = ["/usr/local/bin/manager"],
+    entrypoint = ["/usr/local/bin/pilot"],
     repository = "istio",
     tags = ["manual"],
-    tars = [":manager_tar"],
+    tars = [":pilot_tar"],
 )
 
-manager_docker_build(
+debug_docker_build(
     entrypoint = ["/bin/server"],
     images = [
         {

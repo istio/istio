@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/manager/proxy"
-	"istio.io/manager/test/util"
+	"istio.io/pilot/proxy"
+	"istio.io/pilot/test/util"
 )
 
 func TestImageName(t *testing.T) {

@@ -1,8 +1,8 @@
-# Configuration flow in Istio Manager
+# Configuration flow in Istio Pilot
 
 Istio configuration consists of configuration objects. Each object has kind
 (for example, a routing rule), name and namespace uniquely identifying the
-object.  Istio Manager provides a REST-based interface for manipulating objects
+object.  Istio Pilot provides a REST-based interface for manipulating objects
 by their keys. Objects can be listed by their kind and/or namespace, retrieved
 by the object keys, deleted, created (using "POST" operation), and updated
 (using "PUT" operation).
@@ -19,7 +19,7 @@ the remote proxy component (3).
 
 ## 1. User input
 
-Istio Manager provides a command line interface called `istioctl` that exposes
+Istio Pilot provides a command line interface called `istioctl` that exposes
 the REST-based configuration store interface.  The tool validates that its YAML
 input satisfies the schema for the registered Istio configuration kind, and
 stores the validated input in the store.
@@ -27,7 +27,7 @@ stores the validated input in the store.
 ## 2. Configuration storage
 
 Istio configuration storage is platform-specific. Below, we focus on Kubernetes,
-since Istio Manager model is close to Kubernetes model of Third-Party
+since Istio Pilot model is close to Kubernetes model of Third-Party
 Resources. In fact, `kubectl` could be used instead of `istioctl` if validation
 and patching semantics of Third-Party Resources was supported.
 
@@ -46,7 +46,7 @@ the proxy agent controller about the update to the store.  Proxy agent reacts
 by creating new proxy configuration localized to the pod in which the agent
 runs.  If the configuration is unchanged, the notification is successfully
 handled. Otherwise, the agent triggers proxy reconfiguration. One of the future
-goals in Istio Manager, is to provide a feedback loop, to report back to the
+goals in Istio Pilot, is to provide a feedback loop, to report back to the
 store if the proxy fails to configure, or if the proxy fails for some other
 reason.
 

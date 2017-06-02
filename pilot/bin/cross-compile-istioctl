@@ -36,15 +36,15 @@ cp -f "${ROOT}/bazel-bin/cmd/istioctl/istioctl" "${BIN_DIR}/istioctl-linux"
 LDFLAGS=""
 while read line; do
   read SYMBOL VALUE < <(echo $line)
-  LDFLAGS=${LDFLAGS}" -X istio.io/manager/cmd/version.${SYMBOL}=${VALUE}"
+  LDFLAGS=${LDFLAGS}" -X istio.io/pilot/cmd/version.${SYMBOL}=${VALUE}"
 done < <(./bin/get_workspace_status)
 
-GOOS=darwin GOARCH=amd64 go build -ldflags "${LDFLAGS}" istio.io/manager/cmd/istioctl
+GOOS=darwin GOARCH=amd64 go build -ldflags "${LDFLAGS}" istio.io/pilot/cmd/istioctl
 mv istioctl "${BIN_DIR}/istioctl-osx"
 
 # install missing spf13/cobra dependency (windows only)
 go get github.com/inconshreveable/mousetrap
-GOOS=windows GOARCH=amd64 go build -ldflags "${LDFLAGS}" istio.io/manager/cmd/istioctl
+GOOS=windows GOARCH=amd64 go build -ldflags "${LDFLAGS}" istio.io/pilot/cmd/istioctl
 mv istioctl.exe "${BIN_DIR}/istioctl-win.exe"
 
 if [[ -n "${BUCKET_PATH}" ]]; then

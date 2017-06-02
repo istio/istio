@@ -22,7 +22,7 @@ import (
 	"github.com/golang/glog"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/manager/test/util"
+	"istio.io/pilot/test/util"
 )
 
 type egress struct {

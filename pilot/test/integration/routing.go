@@ -24,8 +24,8 @@ import (
 
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
-	"istio.io/manager/model"
-	"istio.io/manager/test/util"
+	"istio.io/pilot/model"
+	"istio.io/pilot/test/util"
 )
 
 type routing struct {

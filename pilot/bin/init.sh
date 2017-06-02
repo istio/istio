@@ -21,9 +21,9 @@ for f in dest_policy.pb.go  http_fault.pb.go  l4_fault.pb.go  proxy_mesh.pb.go  
   ln -sf $(pwd)/bazel-genfiles/external/io_istio_api/proxy/v1/config/$f \
     vendor/istio.io/api/proxy/v1/config/
 done
-mkdir -p vendor/istio.io/manager/test/grpcecho
+mkdir -p vendor/istio.io/pilot/test/grpcecho
 ln -sf $(pwd)/bazel-genfiles/test/grpcecho/*.pb.go \
-   vendor/istio.io/manager/test/grpcecho/
+   vendor/istio.io/pilot/test/grpcecho/
 mkdir -p vendor/github.com/googleapis/googleapis/google/rpc
 ln -sf $(pwd)/bazel-genfiles/external/com_github_googleapis_googleapis/google/rpc/*.pb.go \
    vendor/github.com/googleapis/googleapis/google/rpc/

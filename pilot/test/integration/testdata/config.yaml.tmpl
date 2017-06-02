@@ -4,7 +4,7 @@ metadata:
   name: istio
 data:
   mesh: |-
-    discoveryAddress: istio-manager:8080
+    discoveryAddress: istio-pilot:8080
 {{if .Mixer}}
     mixerAddress: istio-mixer:9091
 {{end}}

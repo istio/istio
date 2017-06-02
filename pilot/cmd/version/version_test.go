@@ -18,7 +18,7 @@ import (
 	"testing"
 )
 
-// TestVersion invokes the 'version' subcommand (used by manager, no longer by istioctl)
+// TestVersion invokes the 'version' subcommand
 func TestVersion(t *testing.T) {
 
 	// The basic version subcommand does not return an error, but we invoke it

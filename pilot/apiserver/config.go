@@ -21,7 +21,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
-	"istio.io/manager/model"
+	"istio.io/pilot/model"
 )
 
 // Config is the complete configuration including a parsed spec

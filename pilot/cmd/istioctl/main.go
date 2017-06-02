@@ -31,12 +31,12 @@ import (
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/pkg/api"
 
-	"istio.io/manager/apiserver"
-	"istio.io/manager/client/proxy"
-	"istio.io/manager/cmd"
-	"istio.io/manager/cmd/version"
-	"istio.io/manager/model"
-	"istio.io/manager/platform/kube"
+	"istio.io/pilot/apiserver"
+	"istio.io/pilot/client/proxy"
+	"istio.io/pilot/cmd"
+	"istio.io/pilot/cmd/version"
+	"istio.io/pilot/model"
+	"istio.io/pilot/platform/kube"
 )
 
 const (
@@ -79,11 +79,11 @@ func kubeClientFromConfig(kubeconfig string) (*kube.Client, error) {
 }
 
 var (
-	namespace              string
-	istioNamespace         string
-	apiClient              proxy.Client
-	istioManagerAPIService string
-	useKubeRequester       bool
+	namespace             string
+	istioNamespace        string
+	apiClient             proxy.Client
+	istioConfigAPIService string
+	useKubeRequester      bool
 
 	// input file name
 	file string
@@ -129,14 +129,14 @@ istioctl mixer command documentation.
 				if istioNamespace == "" {
 					istioNamespace = namespace
 				}
-				apiClient = proxy.NewManagerClient(&k8sRESTRequester{
+				apiClient = proxy.NewConfigClient(&k8sRESTRequester{
 					client:    client,
 					namespace: istioNamespace,
-					service:   istioManagerAPIService,
+					service:   istioConfigAPIService,
 				})
 			} else {
-				apiClient = proxy.NewManagerClient(&proxy.BasicHTTPRequester{
-					BaseURL: istioManagerAPIService,
+				apiClient = proxy.NewConfigClient(&proxy.BasicHTTPRequester{
+					BaseURL: istioConfigAPIService,
 					Client:  &http.Client{Timeout: 60 * time.Second},
 					Version: kube.IstioResourceVersion,
 				})
@@ -381,11 +381,11 @@ func init() {
 	// separate namespace from that which it manages.
 	rootCmd.PersistentFlags().MarkHidden("istioNamespace") // nolint: errcheck
 
-	rootCmd.PersistentFlags().StringVar(&istioManagerAPIService,
-		"managerAPIService", "istio-manager:8081",
-		"Name of istio-manager service. When --kube=false this sets the address of the manager service")
+	rootCmd.PersistentFlags().StringVar(&istioConfigAPIService,
+		"configAPIService", "istio-pilot:8081",
+		"Name of Istio config service. When --kube=false this sets the address of the config service")
 	rootCmd.PersistentFlags().BoolVar(&useKubeRequester, "kube", true,
-		"Use Kubernetes client to send API requests to manager service")
+		"Use Kubernetes client to send API requests to the config service")
 
 	postCmd.PersistentFlags().StringVarP(&file, "file", "f", "",
 		"Input file with the content of the configuration objects (if not set, command reads from the standard input)")
