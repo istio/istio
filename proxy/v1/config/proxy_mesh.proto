@@ -32,6 +32,9 @@ message ProxyMeshConfig {
 
   // Address of the Zipkin service (e.g. _zipkin:9411_).
   string zipkin_address = 4;
+  
+  // IP Address and Port of a statsd UDP listener (e.g. _10.75.241.127:9125_).
+  string statsd_udp_address = 12;
 
   // Port on which egress envoy should listen for incoming connections from
   // other services.
