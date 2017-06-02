@@ -178,7 +178,7 @@ load("//:repositories.bzl", "new_git_or_local_repository")
 new_git_or_local_repository(
     name = "com_github_istio_api",
     build_file = "BUILD.api",
-    commit = "8edd0f7d57cd336ed8acd7ada91ffd4ef5f2a1c4",  # May 1, 2017 (no releases)
+    commit = "8edd0f7d57cd336ed8acd7ada91ffd4ef5f2a1c4",  # June 1, 2017 (no releases)
     path = "../api",
     remote = "https://github.com/istio/api.git",
     # Change this to True to use ../api directory
@@ -428,19 +428,19 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_googleapis_gax_go",
-    commit = "9af46dd5a1713e8b5cd71106287eba3cefdde50b", # Mar 20, 2017 (no releases)
+    commit = "9af46dd5a1713e8b5cd71106287eba3cefdde50b",  # Mar 20, 2017 (no releases)
     importpath = "github.com/googleapis/gax-go",
 )
 
 new_go_repository(
     name = "com_github_hashicorp_golang_lru",
-    commit = "0a025b7e63adc15a622f29b0b2c4c3848243bbf6", # Aug 13, 2016 (no releases)
+    commit = "0a025b7e63adc15a622f29b0b2c4c3848243bbf6",  # Aug 13, 2016 (no releases)
     importpath = "github.com/hashicorp/golang-lru",
 )
 
 new_go_repository(
     name = "com_github_grpcecosystem_opentracing",
-    commit = "c94552f01d20ad74ec45a8cd967833a9d0b106cf", #
+    commit = "c94552f01d20ad74ec45a8cd967833a9d0b106cf",  #
     importpath = "github.com/grpc-ecosystem/grpc-opentracing",
 )
 
@@ -453,4 +453,3 @@ git_repository(
     commit = "983183f98b79f8b67fe380fef4cdd21481830fd7",  # Apr 13, 2017 (no releases)
     remote = "https://github.com/istio/test-infra.git",
 )
-

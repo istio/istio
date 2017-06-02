@@ -363,7 +363,7 @@ func (m *Manager) execute(ctx context.Context, cfg *cpb.Combined, requestBag, re
 	}
 
 	// TODO: plumb ctx through asp.Execute
-	_ = ctx
+	_ = ctx.Err()
 
 	return invokeFunc(executor, m.mapper, requestBag, responseBag)
 }

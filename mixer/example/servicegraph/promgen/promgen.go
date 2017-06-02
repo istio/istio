@@ -25,6 +25,7 @@ import (
 
 	"github.com/prometheus/client_golang/api/prometheus"
 	"github.com/prometheus/common/model"
+
 	"istio.io/mixer/example/servicegraph"
 )
 

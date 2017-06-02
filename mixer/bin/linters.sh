@@ -20,11 +20,7 @@ done
 
 prep_linters() {
     if ! which codecoroner > /dev/null; then
-        echo "Preparing linters"
-        go get -u github.com/alecthomas/gometalinter
-        go get -u github.com/bazelbuild/buildifier/buildifier
-        go get -u github.com/3rf/codecoroner
-        gometalinter --install --vendored-linters >/dev/null
+        bin/install_linters.sh
     fi
     bin/bazel_to_go.py
 }
@@ -48,7 +44,7 @@ go_metalinter() {
 
     # default: lint everything. This runs on the main build
     if [[ -z ${PKGS} ]];then
-		PKGS="./pkg/... ./cmd/... ./adapter/... ./example/..."
+		PKGS="./adapter/... ./cmd/... ./example/... ./pkg/..."
 
 		# convert LAST_GOOD_GITSHA to list of packages.
 		if [[ ! -z ${LAST_GOOD_GITSHA} ]];then
@@ -82,31 +78,23 @@ go_metalinter() {
         --enable=staticcheck\
         --enable=structcheck\
         --enable=unconvert\
+        --enable=unparam\
         --enable=unused\
         --enable=varcheck\
         --enable=vet\
         --enable=vetshadow\
         $PKGS
-
-    # TODO: These generate warnings which we should fix, and then should enable the linters
-    # --enable=dupl\
-    # --enable=gocyclo\
-    #
-    # This doesn't work with our source tree for some reason, it can't find vendored imports
-    # --enable=gotype\
 }
 
 run_linters() {
     echo Running linters
     buildifier -showlog -mode=check $(find . -name BUILD -type f)
+    buildifier -showlog -mode=check ./BUILD.api
+    buildifier -showlog -mode=check ./BUILD.ubuntu
+    buildifier -showlog -mode=check ./WORKSPACE
     go_metalinter
     $SCRIPTPATH/check_license.sh
     $SCRIPTPATH/check_workspace.sh
-
-    # TODO: Enable this once more of mixer is connected and we don't
-    # have dead code on purpose
-    # codecoroner funcs ./...
-    # codecoroner idents ./...
 }
 
 set -e
@@ -116,7 +104,6 @@ ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
 prep_linters
-
 run_linters
 
 echo Done running linters
