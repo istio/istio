@@ -88,7 +88,7 @@ func TestConfigManager(t *testing.T) {
 			}
 			ma := NewManager(evaluator, vf.FindAspectValidator, vf.FindAdapterValidator, vf.AdapterToAspectMapperFunc,
 				store, loopDelay, keyTargetService, keyServiceDomain)
-			testConfigManager(t, ma, mt, loopDelay, idx)
+			testConfigManager(t, ma, mt, loopDelay)
 		})
 	}
 }
@@ -105,7 +105,7 @@ func TestManager_FetchError(t *testing.T) {
 		return nil, nil, ce
 	}
 
-	testConfigManager(t, mgr, mtest{errStr: errStr}, loopDelay, 0)
+	testConfigManager(t, mgr, mtest{errStr: errStr}, loopDelay)
 
 }
 
@@ -133,7 +133,7 @@ func TestManager_readdb(t *testing.T) {
 	}
 }
 
-func testConfigManager(t *testing.T, mgr *Manager, mt mtest, loopDelay time.Duration, idx int) {
+func testConfigManager(t *testing.T, mgr *Manager, mt mtest, loopDelay time.Duration) {
 	fl := &fakelistener{}
 	mgr.Register(fl)
 

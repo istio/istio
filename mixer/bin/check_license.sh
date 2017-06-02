@@ -4,7 +4,7 @@ ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
 ret=0
-for fn in $(find cmd pkg adapter -name '*.go'); do
+for fn in $(find adapter cmd example pkg -name '*.go'); do
 	if [[ $fn == *.pb.go ]];then
 		continue
 	fi
