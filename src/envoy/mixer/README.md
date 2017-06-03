@@ -100,8 +100,6 @@ This filter will intercept all HTTP requests and call Mixer. Here is its config:
          },
          "quota_name": "RequestCount",
          "quota_amount": "1",
-         "quota_cache": "on",
-         "check_cache_expiration_in_seconds": "600",
          "check_cache_keys": [
               "request.host",
               "request.path",
@@ -142,13 +140,10 @@ Quota (rate limiting) is enforced by the mixer. Mixer needs to be configured wit
 
 Mixer client can be configured to make Quota call for all requests.  If "quota_name" is specified in the mixer filter config, mixer client will call Quota with the specified quota name.  If "quota_amount" is specified, it will call with that amount, otherwise the used amount is 1.
 
-The [quota prefetch](http://https://github.com/istio/mixerclient/blob/master/prefetch/README.md) is deployed in the mixer client. By default, it is off. It can be enabled by adding "quota_cache" as "on" in the mixer filter config.
-
 Following config will enable rate limiting with cache:
 
 ```
          "quota_name": "RequestCount",
-         "quota_cache": "on",
 
 ```
 
@@ -160,12 +155,10 @@ Usually client proxy is not configured to call mixer (it can be enabled in the r
 
 ## How to enable cache for Check calls
 
-Check calls can be cached. By default, it is not enabled. It can be enabled by supplying non-empty "check_cache_keys" string list in the mixer filter config. Only these attributes in the Check request, their keys and values, are used to calculate the key for the cache lookup. If it is a cache hit, the cached response will be used.
-The cached response will be expired in 5 minutes by default. It can be overrided by supplying "check_cache_expiration_in_seconds" in the mixer filter config. The Check response from the mixer has an expiration field. If it is filled, it will be used. By design, the mixer will control the cache expiration time.
+Check calls can be cached. By default, it is not enabled. It can be enabled by supplying non-empty "check_cache_keys" string list in the mixer filter config. Only these attributes in the Check request, their keys and values, are used to calculate the key for the cache lookup. If it is a cache hit, the cached response will be used. The mixer will control the cache expiration.
 
 Following is a sample mixer filter config to enable the Check call cache:
 ```
-         "check_cache_expiration_in_seconds": "600",
          "check_cache_keys": [
               "request.host",
               "request.path",

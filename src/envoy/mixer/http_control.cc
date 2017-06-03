@@ -60,19 +60,9 @@ const LowerCaseString kRefererHeaderKey("referer");
 
 // Check cache size: 10000 cache entries.
 const int kCheckCacheEntries = 10000;
-// Default check cache expired in 5 minutes.
-const int kCheckCacheExpirationInSeconds = 300;
 
 CheckOptions GetCheckOptions(const MixerConfig& config) {
-  int expiration = kCheckCacheExpirationInSeconds;
-  if (!config.check_cache_expiration.empty()) {
-    expiration = std::stoi(config.check_cache_expiration);
-  }
-
-  // Remove expired items from cache 1 second later.
-  CheckOptions options(kCheckCacheEntries, expiration * 1000,
-                       (expiration + 1) * 1000);
-
+  CheckOptions options(kCheckCacheEntries);
   options.cache_keys = config.check_cache_keys;
 
   if (config.network_fail_policy == "close") {
@@ -83,13 +73,9 @@ CheckOptions GetCheckOptions(const MixerConfig& config) {
 }
 
 QuotaOptions GetQuotaOptions(const MixerConfig& config) {
-  if (config.quota_cache == "on") {
-    return QuotaOptions();
-  } else {
-    // Use num_entries=0 to disable cache.
-    // the 2nd parameter is not used in the disable case.
-    return QuotaOptions(0, 1000);
-  }
+  // Use num_entries=0 to disable cache.
+  // the 2nd parameter is not used in the disable case.
+  return QuotaOptions(0, 1000);
 }
 
 void SetStringAttribute(const std::string& name, const std::string& value,
