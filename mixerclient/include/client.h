@@ -20,6 +20,7 @@
 #include "google/protobuf/stubs/status.h"
 #include "mixer/v1/service.pb.h"
 #include "options.h"
+#include "timer.h"
 
 namespace istio {
 namespace mixer_client {
@@ -64,6 +65,9 @@ struct MixerClientOptions {
   TransportCheckFunc check_transport;
   TransportReportFunc report_transport;
   TransportQuotaFunc quota_transport;
+
+  // Timer create function.
+  TimerCreateFunc timer_create_func;
 };
 
 class MixerClient {

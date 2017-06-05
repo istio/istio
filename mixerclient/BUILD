@@ -42,6 +42,7 @@ cc_library(
         "include/attribute.h",
         "include/client.h",
         "include/options.h",
+        "include/timer.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
