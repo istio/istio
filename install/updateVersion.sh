@@ -30,7 +30,7 @@ function usage() {
 usage: ${BASH_SOURCE[0]} [options ...]"
   options:
     -i ... URL to download istioctl binaries
-    -m ... <hub>,<tag> for the manager docker images
+    -m ... <hub>,<tag> for the pilot docker images
     -x ... <hub>,<tag> for the mixer docker images
     -C ... <hub>,<tag> for the istio-ca docker images
     -c ... create a git commit for the changes
@@ -111,7 +111,7 @@ function merge_files() {
   echo "# GENERATED FILE. Use with Kubernetes 1.5+" > $ISTIO
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
   cat $SRC/istio-mixer.yaml >> $ISTIO
-  cat $SRC/istio-manager.yaml >> $ISTIO
+  cat $SRC/istio-pilot.yaml >> $ISTIO
   cp $ISTIO $ISTIO_AUTH
   cat $SRC/istio-ingress.yaml >> $ISTIO
   cat $SRC/istio-egress.yaml >> $ISTIO
@@ -139,7 +139,7 @@ EOF
 
 function update_istio_install() {
   pushd $TEMP_DIR/templates
-  sed -i "s|image: {MANAGER_HUB}/\(.*\):{MANAGER_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-manager.yaml
+  sed -i "s|image: {MANAGER_HUB}/\(.*\):{MANAGER_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-pilot.yaml
   sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-ingress.yaml
   sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-egress.yaml
   sed -i "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml

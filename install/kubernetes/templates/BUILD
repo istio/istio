@@ -3,7 +3,7 @@ filegroup(
     srcs = [
         "istio-egress.yaml",
         "istio-ingress.yaml",
-        "istio-manager.yaml",
+        "istio-pilot.yaml",
         "istio-mixer.yaml",
     ],
     visibility = ["//visibility:public"],

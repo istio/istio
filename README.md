@@ -59,7 +59,7 @@ currently looking at. It hosts the various Istio sample programs
 along with the various documents that govern the Istio open source 
 project.
 
-- [istio/manager](https://github.com/istio/manager). This repository
+- [istio/pilot](https://github.com/istio/pilot). This repository
 contains platform-specific code to populate the
 [abstract service model](https://istio.io/docs/concepts/traffic-management/overview.html), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
