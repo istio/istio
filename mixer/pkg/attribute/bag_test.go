@@ -115,51 +115,6 @@ func TestBag(t *testing.T) {
 	}
 }
 
-/*
-func TestStringMapEdgeCase(t *testing.T) {
-	// ensure coverage for some obscure logging paths
-
-	d := dictionary{1: "N1", 2: "N2"}
-	rb := GetMutableBag(nil)
-	attrs := &mixerpb.Attributes{}
-
-	// empty to non-empty
-	sm1 := mixerpb.StringMap{Map: map[int32]string{2: "Two"}}
-	attrs.StringMapAttributes = map[int32]mixerpb.StringMap{1: sm1}
-	_ = rb.update(d, attrs)
-
-	// non-empty to non-empty
-	sm1 = mixerpb.StringMap{Map: map[int32]string{}}
-	attrs.StringMapAttributes = map[int32]mixerpb.StringMap{1: sm1, 2: sm1}
-	_ = rb.update(d, attrs)
-
-	// non-empty to empty
-	attrs.DeletedAttributes = []int32{1}
-	attrs.StringMapAttributes = map[int32]mixerpb.StringMap{}
-	_ = rb.update(d, attrs)
-}
-
-func TestBadStringMapKey(t *testing.T) {
-	// ensure we handle bogus on-the-wire string map key indices
-
-	sm1 := mixerpb.StringMap{Map: map[int32]string{16: "Sixteen"}}
-
-	attr := mixerpb.Attributes{
-		Dictionary:          dictionary{1: "N1"},
-		StringMapAttributes: map[int32]mixerpb.StringMap{1: sm1},
-	}
-
-	am := NewManager()
-	at := am.NewTracker()
-	defer at.Done()
-
-	_, err := at.ApplyProto(&attr)
-	if err == nil {
-		t.Error("Successfully updated attributes, expected an error")
-	}
-}
-*/
-
 func TestMerge(t *testing.T) {
 	mb := GetMutableBag(empty)
 
@@ -169,7 +124,7 @@ func TestMerge(t *testing.T) {
 	c1.Set("STRING1", "A")
 	c2.Set("STRING2", "B")
 
-	if err := mb.Merge(c1, c2); err != nil {
+	if err := mb.Merge(c1, nil, c2); err != nil {
 		t.Errorf("Got %v, expecting success", err)
 	}
 
@@ -309,6 +264,115 @@ func TestProtoBag(t *testing.T) {
 	}
 }
 
+func TestMessageDict(t *testing.T) {
+	globalDict := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"}
+
+	revGlobalDict := make(map[string]int32)
+	for k, v := range globalDict {
+		revGlobalDict[v] = int32(k)
+	}
+
+	b := GetMutableBag(nil)
+	b.Set("M1", int64(1))
+	b.Set("M2", int64(2))
+	b.Set("M3", "M2")
+
+	var attrs mixerpb.Attributes
+	b.ToProto(&attrs, revGlobalDict)
+	b2, _ := GetBagFromProto(&attrs, globalDict)
+
+	if !compareBags(b, b2) {
+		t.Errorf("Got non-matching bags")
+	}
+}
+
+func TestUpdateFromProto(t *testing.T) {
+	globalDict := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"}
+	messageDict := []string{"M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10"}
+
+	revGlobalDict := make(map[string]int32)
+	for k, v := range globalDict {
+		revGlobalDict[v] = int32(k)
+	}
+
+	sm := mixerpb.StringMap{Entries: map[int32]int32{-6: -7}}
+
+	attrs := mixerpb.Attributes{
+		Words:      messageDict,
+		Strings:    map[int32]int32{4: 5},
+		Int64S:     map[int32]int64{6: 42},
+		Doubles:    map[int32]float64{7: 42.0},
+		Bools:      map[int32]bool{-1: true},
+		Timestamps: map[int32]time.Time{-2: t9},
+		Durations:  map[int32]time.Duration{-3: d1},
+		Bytes:      map[int32][]uint8{-4: {11}},
+		StringMaps: map[int32]mixerpb.StringMap{-5: sm},
+	}
+
+	b := GetMutableBag(nil)
+
+	if err := b.UpdateBagFromProto(&attrs, globalDict); err != nil {
+		t.Errorf("Got %v, expected success", err)
+	}
+
+	if err := b.UpdateBagFromProto(&attrs, globalDict); err != nil {
+		t.Errorf("Got %v, expected success", err)
+	}
+
+	sm = mixerpb.StringMap{Entries: map[int32]int32{-7: -6}}
+	attrs = mixerpb.Attributes{
+		Words:      messageDict,
+		Int64S:     map[int32]int64{6: 142},
+		Doubles:    map[int32]float64{7: 142.0},
+		StringMaps: map[int32]mixerpb.StringMap{-5: sm},
+	}
+
+	if err := b.UpdateBagFromProto(&attrs, globalDict); err != nil {
+		t.Errorf("Got %v, expected success", err)
+	}
+
+	attrs = mixerpb.Attributes{
+		Words:      messageDict,
+		StringMaps: map[int32]mixerpb.StringMap{-1: sm},
+	}
+
+	if err := b.UpdateBagFromProto(&attrs, globalDict); err != nil {
+		t.Errorf("Got %v, expected success", err)
+	}
+
+	refBag := GetMutableBag(nil)
+	refBag.Set("M1", map[string]string{"M7": "M6"})
+	refBag.Set("M2", t9)
+	refBag.Set("M3", d1)
+	refBag.Set("M4", []byte{11})
+	refBag.Set("M5", map[string]string{"M7": "M6"})
+	refBag.Set("G4", "G5")
+	refBag.Set("G6", int64(142))
+	refBag.Set("G7", 142.0)
+
+	if !compareBags(b, refBag) {
+		t.Error("Bags don't match")
+	}
+}
+
+func TestCopyBag(t *testing.T) {
+	refBag := GetMutableBag(nil)
+	refBag.Set("M1", map[string]string{"M7": "M6"})
+	refBag.Set("M2", t9)
+	refBag.Set("M3", d1)
+	refBag.Set("M4", []byte{11})
+	refBag.Set("M5", map[string]string{"M7": "M6"})
+	refBag.Set("G4", "G5")
+	refBag.Set("G6", int64(142))
+	refBag.Set("G7", 142.0)
+
+	copy := CopyBag(refBag)
+
+	if !compareBags(copy, refBag) {
+		t.Error("Bags don't match")
+	}
+}
+
 func TestProtoBag_Errors(t *testing.T) {
 	globalDict := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"}
 	messageDict := []string{"M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9"}
@@ -326,11 +390,6 @@ func TestProtoBag_Errors(t *testing.T) {
 	if pb != nil {
 		t.Error("GetBagFromProto returned valid bag, expected nil")
 	}
-}
-
-func init() {
-	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
-	_ = flag.Lookup("v").Value.Set("99")
 }
 
 func TestMutableBag_Child(t *testing.T) {
@@ -371,6 +430,27 @@ func withPanic(f func()) (ret interface{}) {
 
 	f()
 	return ret
+}
+
+func compareBags(b1 Bag, b2 Bag) bool {
+	b1Names := b1.Names()
+	b2Names := b2.Names()
+
+	if len(b1Names) != len(b2Names) {
+		return false
+	}
+
+	for _, name := range b1Names {
+		v1, _ := b1.Get(name)
+		v2, _ := b2.Get(name)
+
+		match, _ := compareAttributeValues(v1, v2)
+		if !match {
+			return false
+		}
+	}
+
+	return true
 }
 
 func compareAttributeValues(v1, v2 interface{}) (bool, error) {
@@ -422,4 +502,9 @@ func compareAttributeValues(v1, v2 interface{}) (bool, error) {
 	}
 
 	return result, nil
+}
+
+func init() {
+	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
+	_ = flag.Lookup("v").Value.Set("99")
 }
