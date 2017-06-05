@@ -45,7 +45,7 @@ spec:
           - -v
           - "3"
 ---
-# Manager service for discovery
+# Pilot service for discovery
 apiVersion: v1
 kind: ConfigMap
 metadata:

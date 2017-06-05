@@ -64,7 +64,7 @@ Go to Mixer [stable artifacts](https://testing.istio.io/view/All%20Jobs/job/mixe
 job and click on ```Build with Parameters```.
 Replace ```BRANCH_SPEC``` with the value of ```${RELEASE_TAG}```
 
-Go to Manager [stable artifacts](https://testing.istio.io/view/All%20Jobs/job/manager/job/stable-artifacts/)
+Go to Pilot [stable artifacts](https://testing.istio.io/view/All%20Jobs/job/manager/job/stable-artifacts/)
 job and click on ```Build with Parameters```.
 Replace ```BRANCH_SPEC``` with the value of ```${RELEASE_TAG}```
 

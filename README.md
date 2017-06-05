@@ -34,7 +34,7 @@ Istio is composed of three main components:
    to enforce policies such as ACLs, rate limits, quotas, authentication, request
    tracing and telemetry collection.
 
-* **Manager** - A component responsible for configuring the
+* **Pilot** - A component responsible for configuring the
   Envoy and Mixer at runtime.
 
 Istio currently only supports the Kubernetes
