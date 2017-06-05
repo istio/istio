@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "src/envoy/mixer/grpc_transport.h"
+#include "src/envoy/mixer/thread_dispatcher.h"
 
 #include "common/grpc/rpc_channel_impl.h"
 
@@ -30,21 +31,7 @@ const std::chrono::milliseconds kGrpcRequestTimeoutMs(5000);
 // The name for the mixer server cluster.
 const char* kMixerServerClusterName = "mixer_server";
 
-// A thread local dispatcher.
-thread_local Event::Dispatcher* thread_dispatcher = nullptr;
-
-void thread_dispatcher_post(std::function<void()> fn) {
-  ASSERT(thread_dispatcher);
-  thread_dispatcher->post(fn);
-}
-
 }  // namespace
-
-void GrpcTransport::SetDispatcher(Event::Dispatcher& dispatcher) {
-  if (!thread_dispatcher) {
-    thread_dispatcher = &dispatcher;
-  }
-}
 
 GrpcTransport::GrpcTransport(Upstream::ClusterManager& cm)
     : channel_(NewChannel(cm)), stub_(channel_.get()) {}
@@ -55,7 +42,7 @@ void GrpcTransport::onSuccess() {
   // RpcChannelImpl object expects its OnComplete() is called before
   // deleted.  OnCompleted() is called after onSuccess()
   // Use the dispatch post to delay the deletion.
-  thread_dispatcher_post([this]() { delete this; });
+  GetThreadDispatcher().post([this]() { delete this; });
 }
 
 void GrpcTransport::onFailure(const Optional<uint64_t>& grpc_status,
@@ -72,7 +59,7 @@ void GrpcTransport::onFailure(const Optional<uint64_t>& grpc_status,
   log().debug("grpc failure: return {}, error {}", code, message);
   on_done_(Status(static_cast<StatusCode>(code),
                   ::google::protobuf::StringPiece(message)));
-  thread_dispatcher_post([this]() { delete this; });
+  GetThreadDispatcher().post([this]() { delete this; });
 }
 
 Grpc::RpcChannelPtr GrpcTransport::NewChannel(Upstream::ClusterManager& cm) {

@@ -41,8 +41,6 @@ class GrpcTransport : public Grpc::RpcChannelCallbacks,
   void onFailure(const Optional<uint64_t>& grpc_status,
                  const std::string& message) override;
 
-  static void SetDispatcher(Event::Dispatcher& dispatcher);
-
   // Check if mixer server cluster configured in cluster_manager.
   static bool IsMixerServerConfigured(Upstream::ClusterManager& cm);
 

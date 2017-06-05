@@ -37,6 +37,8 @@ cc_library(
         "http_control.cc",
         "http_control.h",
         "http_filter.cc",
+        "thread_dispatcher.cc",
+        "thread_dispatcher.h",
         "utils.cc",
         "utils.h",
     ],

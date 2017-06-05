@@ -23,6 +23,7 @@
 #include "src/envoy/mixer/config.h"
 #include "src/envoy/mixer/grpc_transport.h"
 #include "src/envoy/mixer/http_control.h"
+#include "src/envoy/mixer/thread_dispatcher.h"
 #include "src/envoy/mixer/utils.h"
 
 #include <map>
@@ -246,7 +247,7 @@ class Instance : public Http::StreamDecoderFilter,
       StreamDecoderFilterCallbacks& callbacks) override {
     Log().debug("Called Mixer::Instance : {}", __func__);
     decoder_callbacks_ = &callbacks;
-    GrpcTransport::SetDispatcher(decoder_callbacks_->dispatcher());
+    SetThreadDispatcher(decoder_callbacks_->dispatcher());
   }
 
   void callQuota(const Status& status) {
