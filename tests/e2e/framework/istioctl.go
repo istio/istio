@@ -65,7 +65,7 @@ func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string) 
 	}, nil
 }
 
-// Setup set up istioctl prerequest for tests, port forward for manager
+// Setup set up istioctl prerequest for tests, port forwarding
 func (i *Istioctl) Setup() error {
 	glog.Info("Setting up istioctl")
 	if err := i.Install(); err != nil {
