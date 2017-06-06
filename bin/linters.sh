@@ -101,7 +101,7 @@ run_linters() {
     buildifier -showlog -mode=check $(find . -name BUILD -type f)
     go_metalinter
     ${BIN_PATH}/check_license.sh
-    buildifier -showlog -mode=check $(find . -type f \( -name 'BUILD' -or \
+    buildifier -showlog -mode=check $(find -not -wholename './.git*' -type f \( -name 'BUILD' -or \
       -name 'WORKSPACE' -or \
       -wholename '.*bazel' -or \
       -wholename '.*bzl' \) -print )

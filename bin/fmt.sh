@@ -24,6 +24,6 @@ fi
 done
 gofmt -s -w ${GO_FILES}
 goimports -w -local istio.io ${GO_FILES}
-buildifier -showlog -mode=fix $(find . -type f \( -name 'BUILD' -or \
+buildifier -showlog -mode=fix $(find -not -wholename './.git*' -type f \( -name 'BUILD' -or \
   -name 'WORKSPACE' -or \
   -wholename '.*bazel' -or -wholename '.*bzl' \) -print )
