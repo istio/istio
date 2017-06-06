@@ -67,7 +67,7 @@ func getEgressProxyPort(mesh *proxyconfig.ProxyMeshConfig) int {
 
 func generateEgress(mesh *proxyconfig.ProxyMeshConfig) *Config {
 	port := getEgressProxyPort(mesh)
-	listener := buildHTTPListener(mesh, nil, WildcardAddress, port, true)
+	listener := buildHTTPListener(mesh, nil, WildcardAddress, port, true, false)
 	listener = applyInboundAuth(listener, mesh)
 	config := buildConfig([]*Listener{listener}, nil, mesh)
 	if mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {

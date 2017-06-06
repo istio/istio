@@ -371,6 +371,7 @@ type HTTPFilterConfig struct {
 	CodecType         string                 `json:"codec_type"`
 	StatPrefix        string                 `json:"stat_prefix"`
 	GenerateRequestID bool                   `json:"generate_request_id,omitempty"`
+	UseRemoteAddress  bool                   `json:"use_remote_address,omitempty"`
 	Tracing           *HTTPFilterTraceConfig `json:"tracing,omitempty"`
 	RouteConfig       *HTTPRouteConfig       `json:"route_config,omitempty"`
 	RDS               *RDS                   `json:"rds,omitempty"`

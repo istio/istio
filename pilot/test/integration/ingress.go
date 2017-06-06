@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/golang/glog"
 
@@ -114,6 +115,11 @@ func (t *ingress) run() error {
 						return nil
 					}
 				} else if len(resp.id) > 0 {
+					if !strings.Contains(resp.body, "X-Forwarded-For") {
+						glog.Warning("Missing X-Forwarded-For")
+						return errAgain
+					}
+
 					id := resp.id[0]
 					t.logs.add(dst, id, name)
 					t.logs.add("ingress", id, name)
