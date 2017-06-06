@@ -29,24 +29,24 @@ function usage() {
   cat <<EOF
 usage: ${BASH_SOURCE[0]} [options ...]"
   options:
-    -i ... URL to download istioctl binaries
-    -p ... <hub>,<tag> for the pilot docker images
-    -x ... <hub>,<tag> for the mixer docker images
-    -C ... <hub>,<tag> for the istio-ca docker images
-    -c ... create a git commit for the changes
+    -i ... URL to download istioctl binary
+    -p ... <hub>,<tag> for the pilot docker image
+    -x ... <hub>,<tag> for the mixer docker image
+    -c ... <hub>,<tag> for the istio-ca docker image
+    -g ... create a git commit for the changes
 EOF
   exit 2
 }
 
 source "$VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :ci:p:x:C: arg; do
+while getopts :gi:p:x:c: arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     p) PILOT_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     x) MIXER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
-    C) CA_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
-    c) GIT_COMMIT=true;;
+    c) CA_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
+    g) GIT_COMMIT=true;;
     *) usage;;
   esac
 done
