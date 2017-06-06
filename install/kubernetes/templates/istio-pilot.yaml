@@ -10,6 +10,7 @@ data:
     mixerAddress: istio-mixer:9091
     discoveryAddress: istio-pilot:8080
     ingressService: istio-ingress
+    statsdUdpAddress: istio-mixer:9125
     zipkinAddress: zipkin:9411
 ---
 apiVersion: v1
