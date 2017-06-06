@@ -104,7 +104,7 @@ func NewStore(configURL string) (KeyValueStore, error) {
 
 	switch u.Scheme {
 	case FSUrl:
-		return newFSStore(u.Path), nil
+		return newFSStore(u.Path)
 	case RedisURL:
 		return newRedisStore(u)
 	}

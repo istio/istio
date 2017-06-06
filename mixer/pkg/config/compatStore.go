@@ -37,7 +37,11 @@ func NewCompatFSStore(globalConfigFile string, serviceConfigFile string) (KeyVal
 	if dir, err = ioutil.TempDir(os.TempDir(), "fsStore"); err != nil {
 		return nil, err
 	}
-	fs := newFSStore(dir).(*fsStore)
+	kvs, err := newFSStore(dir)
+	if err != nil {
+		return nil, err
+	}
+	fs := kvs.(*fsStore)
 
 	for k, v := range dm {
 		if data, err = fs.readfile(v); err != nil {
