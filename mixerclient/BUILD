@@ -28,6 +28,8 @@ cc_library(
         "src/cache_key_set.h",
         "src/client_impl.cc",
         "src/client_impl.h",
+        "src/delta_update.cc",
+        "src/delta_update.h",
         "src/signature.cc",
         "src/signature.h",
         "src/quota_cache.cc",
@@ -115,6 +117,17 @@ cc_test(
     name = "check_cache_test",
     size = "small",
     srcs = ["src/check_cache_test.cc"],
+    linkstatic = 1,
+    deps = [
+        ":mixer_client_lib",
+        "//external:googletest_main",
+    ],
+)
+
+cc_test(
+    name = "delta_update_test",
+    size = "small",
+    srcs = ["src/delta_update_test.cc"],
     linkstatic = 1,
     deps = [
         ":mixer_client_lib",
