@@ -24,7 +24,7 @@ func TestNewStore(t *testing.T) {
 		url string
 		err error
 	}{
-		{"fs:///tmp/testdata/configroot", nil},
+		{"fs:///tmp", nil},
 		{"redis://:passwd@localhost:6379/1", errors.New("getsockopt")}, // connection error to the server
 		{"etcd:///tmp/testdata/configroot", errors.New("unknown")},
 		{"/tmp/testdata/configroot", errors.New("unknown")},
