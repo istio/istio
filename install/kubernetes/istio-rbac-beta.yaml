@@ -6,7 +6,7 @@
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-manager
+  name: istio-pilot
 rules:
 - apiGroups: ["istio.io"]
   resources: ["istioconfigs", "istioconfigs.istio.io"]
@@ -46,20 +46,20 @@ rules:
   resources: ["configmaps", "pods", "endpoints", "services"]
   verbs: ["get", "watch", "list"]
 ---
-# Grant permissions to the Manager/discovery.
+# Grant permissions to the Pilot/discovery.
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-manager-admin-role-binding
+  name: istio-pilot-admin-role-binding
 subjects:
 - kind: ServiceAccount
-  name: istio-manager-service-account
+  name: istio-pilot-service-account
 roleRef:
   kind: ClusterRole
-  name: istio-manager
+  name: istio-pilot
   apiGroup: rbac.authorization.k8s.io
 ---
-# Grant permissions to the Manager/discovery.
+# Grant permissions to the Pilot/discovery.
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
@@ -82,7 +82,7 @@ subjects:
   name: istio-ingress-service-account
 roleRef:
   kind: ClusterRole
-  name: istio-manager
+  name: istio-pilot
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the sidecar.

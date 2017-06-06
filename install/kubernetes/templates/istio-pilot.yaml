@@ -1,4 +1,4 @@
-# Manager service for discovery
+# Pilot service for discovery
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -8,16 +8,16 @@ data:
     # Uncomment the following line to enable mutual TLS between proxies
     # authPolicy: MUTUAL_TLS
     mixerAddress: istio-mixer:9091
-    discoveryAddress: istio-manager:8080
+    discoveryAddress: istio-pilot:8080
     ingressService: istio-ingress
     zipkinAddress: zipkin:9411
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-manager
+  name: istio-pilot
   labels:
-    istio: manager
+    istio: pilot
 spec:
   ports:
   - port: 8080
@@ -25,17 +25,17 @@ spec:
   - port: 8081
     name: http-apiserver
   selector:
-    istio: manager
+    istio: pilot
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-manager-service-account
+  name: istio-pilot-service-account
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: istio-manager
+  name: istio-pilot
 spec:
   replicas: 1
   template:
@@ -43,12 +43,12 @@ spec:
       annotations:
         alpha.istio.io/sidecar: ignore
       labels:
-        istio: manager
+        istio: pilot
     spec:
-      serviceAccountName: istio-manager-service-account
+      serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: {MANAGER_HUB}/manager:{MANAGER_TAG}
+        image: {PILOT_HUB}/pilot:{PILOT_TAG}
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:
@@ -60,7 +60,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
       - name: apiserver
-        image: {MANAGER_HUB}/manager:{MANAGER_TAG}
+        image: {PILOT_HUB}/pilot:{PILOT_TAG}
         imagePullPolicy: Always
         args: ["apiserver", "-v", "2"]
         ports:
