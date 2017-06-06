@@ -10,7 +10,7 @@ it to test their changes before creating PRs.
 
 ### Options
 
-* `-m <hub>,<tag>` specify a pilot image to use
+* `-p <hub>,<tag>` specify a pilot image to use
 * `-x <hub>,<tag>` specify a mixer image to use
 * `-i <url>` specify an `istioctl` download URL
 * `-c <istioctl>` the location of an `istioctl` binary

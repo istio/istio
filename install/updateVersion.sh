@@ -40,7 +40,7 @@ EOF
 
 source "$VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :ci:m:x:C: arg; do
+while getopts :ci:p:x:C: arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     p) PILOT_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"

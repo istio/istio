@@ -28,20 +28,20 @@ import (
 )
 
 const (
-	yamlSuffix       = ".yaml"
-	mixerHubEnvVar   = "MIXER_HUB"
-	mixerTagEnvVar   = "MIXER_TAG"
-	pilotHubEnvVar = "PILOT_HUB"
-	pilotTagEnvVar = "PILOT_TAG"
-	istioInstallDir  = "install/kubernetes/templates"
+	yamlSuffix      = ".yaml"
+	mixerHubEnvVar  = "MIXER_HUB"
+	mixerTagEnvVar  = "MIXER_TAG"
+	pilotHubEnvVar  = "PILOT_HUB"
+	pilotTagEnvVar  = "PILOT_TAG"
+	istioInstallDir = "install/kubernetes/templates"
 )
 
 var (
-	namespace  = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub   = flag.String("mixer_hub", os.Getenv(mixerHubEnvVar), "Mixer hub")
-	mixerTag   = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
-	pilotHub = flag.String("pilot_hub", os.Getenv(pilotHubEnvVar), "Manager hub")
-	pilotTag = flag.String("pilot_tag", os.Getenv(pilotTagEnvVar), "Manager tag")
+	namespace = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub  = flag.String("mixer_hub", os.Getenv(mixerHubEnvVar), "Mixer hub")
+	mixerTag  = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
+	pilotHub  = flag.String("pilot_hub", os.Getenv(pilotHubEnvVar), "Manager hub")
+	pilotTag  = flag.String("pilot_tag", os.Getenv(pilotTagEnvVar), "Manager tag")
 	//caHub        = flag.String("ca_hub", "", "Ca hub")
 	//caTag        = flag.String("ca_tag", "", "Ca tag")
 	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
