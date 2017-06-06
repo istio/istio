@@ -28,20 +28,20 @@ import (
 )
 
 const (
-	yamlSuffix       = ".yaml"
-	mixerHubEnvVar   = "MIXER_HUB"
-	mixerTagEnvVar   = "MIXER_TAG"
-	managerHubEnvVar = "MANAGER_HUB"
-	managerTagEnvVar = "MANAGER_TAG"
-	istioInstallDir  = "install/kubernetes/templates"
+	yamlSuffix      = ".yaml"
+	mixerHubEnvVar  = "MIXER_HUB"
+	mixerTagEnvVar  = "MIXER_TAG"
+	pilotHubEnvVar  = "PILOT_HUB"
+	pilotTagEnvVar  = "PILOT_TAG"
+	istioInstallDir = "install/kubernetes/templates"
 )
 
 var (
-	namespace  = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub   = flag.String("mixer_hub", os.Getenv(mixerHubEnvVar), "Mixer hub")
-	mixerTag   = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
-	managerHub = flag.String("manager_hub", os.Getenv(managerHubEnvVar), "Manager hub")
-	managerTag = flag.String("manager_tag", os.Getenv(managerTagEnvVar), "Manager tag")
+	namespace = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub  = flag.String("mixer_hub", os.Getenv(mixerHubEnvVar), "Mixer hub")
+	mixerTag  = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
+	pilotHub  = flag.String("pilot_hub", os.Getenv(pilotHubEnvVar), "Manager hub")
+	pilotTag  = flag.String("pilot_tag", os.Getenv(pilotTagEnvVar), "Manager tag")
 	//caHub        = flag.String("ca_hub", "", "Ca hub")
 	//caTag        = flag.String("ca_tag", "", "Ca tag")
 	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
@@ -77,7 +77,7 @@ func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
 		*namespace = runID
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *managerHub, *managerTag)
+	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *pilotHub, *pilotTag)
 	if err != nil {
 		return nil, err
 	}
@@ -176,14 +176,14 @@ func (k *KubeInfo) generateIstioCore(dst, module string) error {
 	var hubValue, tagValue []byte
 	switch module {
 	case "manager":
-		hubMacro, tagMacro = `{MANAGER_HUB}`, `{MANAGER_TAG}`
-		hubValue, tagValue = []byte(*managerHub), []byte(*managerTag)
+		hubMacro, tagMacro = `{PILOT_HUB}`, `{PILOT_TAG}`
+		hubValue, tagValue = []byte(*pilotHub), []byte(*pilotTag)
 	case "mixer":
 		hubMacro, tagMacro = `{MIXER_HUB}`, `{MIXER_TAG}`
 		hubValue, tagValue = []byte(*mixerHub), []byte(*mixerTag)
 	case "ingress":
 		hubMacro, tagMacro = `{PROXY_HUB}`, `{PROXY_TAG}`
-		hubValue, tagValue = []byte(*managerHub), []byte(*managerTag)
+		hubValue, tagValue = []byte(*pilotHub), []byte(*pilotTag)
 	}
 	r := regexp.MustCompile(hubMacro)
 	content = r.ReplaceAllLiteral(content, hubValue)

@@ -38,7 +38,7 @@ while getopts :c:i:sn:m:x: arg; do
     i) ISTIOCTL_URL="${OPTARG}";;
     s) TEAR_DOWN=false;;
     n) NAMESPACE="${OPTARG}";;
-    m) MANAGER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
+    m) PILOT_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     x) MIXER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     *) error_exit "Unrecognized argument -${OPTARG}";;
   esac
@@ -58,9 +58,9 @@ if [[ -z ${WRK} ]]; then
     WRK="${TEST_DIR}/wrk"
 fi
 
-if [[ -n ${MANAGER_HUB_TAG} ]]; then
-    MANAGER_HUB="$(echo ${MANAGER_HUB_TAG}|cut -f1 -d,)"
-    MANAGER_TAG="$(echo ${MANAGER_HUB_TAG}|cut -f2 -d,)"
+if [[ -n ${PILOT_HUB_TAG} ]]; then
+    PILOT_HUB="$(echo ${PILOT_HUB_TAG}|cut -f1 -d,)"
+    PILOT_TAG="$(echo ${PILOT_HUB_TAG}|cut -f2 -d,)"
 fi
 
 if [[ -n ${MIXER_HUB_TAG} ]]; then
