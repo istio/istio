@@ -47,7 +47,7 @@ var (
 	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
 
 	modules = []string{
-		"manager",
+		"pilot",
 		"mixer",
 		"ingress",
 	}
@@ -175,7 +175,7 @@ func (k *KubeInfo) generateIstioCore(dst, module string) error {
 	var hubMacro, tagMacro string
 	var hubValue, tagValue []byte
 	switch module {
-	case "manager":
+	case "pilot":
 		hubMacro, tagMacro = `{PILOT_HUB}`, `{PILOT_TAG}`
 		hubValue, tagValue = []byte(*pilotHub), []byte(*pilotTag)
 	case "mixer":
