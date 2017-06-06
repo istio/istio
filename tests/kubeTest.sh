@@ -48,7 +48,7 @@ done
 
 if [[ -z ${ISTIOCLI} ]]; then
     echo "Downloading istioctl from ${ISTIOCTL_URL}/istioctl-linux"
-    wget -q -O "${TEST_DIR}/istioctl" "${ISTIOCTL_URL}/istioctl-linux" || error_exit "Could not download istioctl"
+    wget -O "${TEST_DIR}/istioctl" "${ISTIOCTL_URL}/istioctl-linux" || error_exit "Could not download istioctl"
     chmod +x "${TEST_DIR}/istioctl"
     ISTIOCLI="${TEST_DIR}/istioctl -c ${HOME}/.kube/config"
 fi
