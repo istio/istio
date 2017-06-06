@@ -27,10 +27,10 @@ From [istio/istio](https://github.com/istio/istio), the ```istio.VERSION``` file
         export MIXER_HUB="docker.io/istio"
         export MIXER_TAG="0.1.2-6bfa390"
         export ISTIOCTL_URL="https://storage.googleapis.com/istio-artifacts/pilot/stable-6dbd19d/artifacts/istioctl"
-        export MANAGER_HUB="docker.io/istio"
-        export MANAGER_TAG="0.1.2-6dbd19d"
+        export PILOT_HUB="docker.io/istio"
+        export PILOT_TAG="0.1.2-6dbd19d"
 
-Please make sure that ISTIOCTL_URL and MANAGER_TAG points to the same SHA.
+Please make sure that ISTIOCTL_URL and PILOT_TAG points to the same SHA.
 
 The next release version is stored in ```istio.RELEASE```:
 
@@ -39,13 +39,13 @@ The next release version is stored in ```istio.RELEASE```:
 The next step is to create an annotated tag for each of the repo.
 Fortunately each tag contains the short SHA at which it was built.
 
-        MANAGER_SHA=6dbd19d
+        PILOT_SHA=6dbd19d
         MIXER_SHA=6bfa390
         AUTH_SHA=d773c15
 
         $ git clone https://github.com/istio/pilot
         $ cd pilot
-        $ git tag -a ${RELEASE_TAG} -m "Istio Release ${RELEASE_TAG}" ${MANAGER_TAG}
+        $ git tag -a ${RELEASE_TAG} -m "Istio Release ${RELEASE_TAG}" ${PILOT_TAG}
         $ git push --tags origin
 
         $ git clone https://github.com/istio/mixer
@@ -84,7 +84,7 @@ Create a commit with name "Istio Release ${RELEASE_TAG}", and a PR.
 Once tests are completed, merge the PR, and create an annotated tags
 
         $ git pull origin master
-        $ git tag -a ${RELEASE_TAG} -m "Istio Release ${RELEASE_TAG}" ${MANAGER_TAG}
+        $ git tag -a ${RELEASE_TAG} -m "Istio Release ${RELEASE_TAG}" ${PILOT_TAG}
         $ git push --tags origin
 
 ## Creating Archives

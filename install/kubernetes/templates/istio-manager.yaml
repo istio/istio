@@ -48,7 +48,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: {MANAGER_HUB}/pilot:{MANAGER_TAG}
+        image: {PILOT_HUB}/pilot:{PILOT_TAG}
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:
@@ -60,7 +60,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
       - name: apiserver
-        image: {MANAGER_HUB}/pilot:{MANAGER_TAG}
+        image: {PILOT_HUB}/pilot:{PILOT_TAG}
         imagePullPolicy: Always
         args: ["apiserver", "-v", "2"]
         ports:

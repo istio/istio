@@ -31,8 +31,8 @@ const (
 	yamlSuffix       = ".yaml"
 	mixerHubEnvVar   = "MIXER_HUB"
 	mixerTagEnvVar   = "MIXER_TAG"
-	managerHubEnvVar = "MANAGER_HUB"
-	managerTagEnvVar = "MANAGER_TAG"
+	managerHubEnvVar = "PILOT_HUB"
+	managerTagEnvVar = "PILOT_TAG"
 	istioInstallDir  = "install/kubernetes/templates"
 )
 
@@ -176,7 +176,7 @@ func (k *KubeInfo) generateIstioCore(dst, module string) error {
 	var hubValue, tagValue []byte
 	switch module {
 	case "manager":
-		hubMacro, tagMacro = `{MANAGER_HUB}`, `{MANAGER_TAG}`
+		hubMacro, tagMacro = `{PILOT_HUB}`, `{PILOT_TAG}`
 		hubValue, tagValue = []byte(*managerHub), []byte(*managerTag)
 	case "mixer":
 		hubMacro, tagMacro = `{MIXER_HUB}`, `{MIXER_TAG}`

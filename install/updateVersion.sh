@@ -43,7 +43,7 @@ source "$VERSION_FILE" || error_exit "Could not source versions"
 while getopts :ci:m:x:C: arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
-    m) MANAGER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
+    m) PILOT_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     x) MIXER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     C) CA_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     c) GIT_COMMIT=true;;
@@ -51,9 +51,9 @@ while getopts :ci:m:x:C: arg; do
   esac
 done
 
-if [[ -n ${MANAGER_HUB_TAG} ]]; then
-    MANAGER_HUB="$(echo ${MANAGER_HUB_TAG}|cut -f1 -d,)"
-    MANAGER_TAG="$(echo ${MANAGER_HUB_TAG}|cut -f2 -d,)"
+if [[ -n ${PILOT_HUB_TAG} ]]; then
+    PILOT_HUB="$(echo ${PILOT_HUB_TAG}|cut -f1 -d,)"
+    PILOT_TAG="$(echo ${PILOT_HUB_TAG}|cut -f2 -d,)"
 fi
 
 if [[ -n ${MIXER_HUB_TAG} ]]; then
@@ -132,16 +132,16 @@ export CA_TAG="${CA_TAG}"
 export MIXER_HUB="${MIXER_HUB}"
 export MIXER_TAG="${MIXER_TAG}"
 export ISTIOCTL_URL="${ISTIOCTL_URL}"
-export MANAGER_HUB="${MANAGER_HUB}"
-export MANAGER_TAG="${MANAGER_TAG}"
+export PILOT_HUB="${PILOT_HUB}"
+export PILOT_TAG="${PILOT_TAG}"
 EOF
 }
 
 function update_istio_install() {
   pushd $TEMP_DIR/templates
-  sed -i "s|image: {MANAGER_HUB}/\(.*\):{MANAGER_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-pilot.yaml
-  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-ingress.yaml
-  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-egress.yaml
+  sed -i "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml
+  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress.yaml
+  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-egress.yaml
   sed -i "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml
   popd
 }
@@ -155,8 +155,8 @@ function update_istio_addons() {
 function update_istio_auth() {
   pushd $TEMP_DIR/templates/istio-auth
   sed -i "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-cluster-ca.yaml
-  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-egress-auth.yaml
-  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${MANAGER_HUB}/\1:${MANAGER_TAG}|" istio-ingress-auth.yaml
+  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-egress-auth.yaml
+  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress-auth.yaml
   sed -i "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-namespace-ca.yaml
   popd
 }
