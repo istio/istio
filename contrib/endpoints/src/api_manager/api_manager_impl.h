@@ -64,7 +64,22 @@ class ApiManagerImpl : public ApiManager {
   // Return the initialization status
   inline utils::Status ConfigLoadingStatus() { return config_loading_status_; }
 
+  // Return ServiceContext for selected by WeightedSelector
+  std::shared_ptr<context::ServiceContext> SelectService();
+
+  // Append Check or Report callback
+  void AddPendingRequestCallback(std::function<void(utils::Status)> callback);
+
+  // Return true if config loading is still in progress
+  bool IsConfigLoadingInProgress();
+
+  // Return true if config loading was succeeded
+  bool IsConfigLoadingSucceeded();
+
  private:
+  // Notify pending requests
+  void NotifyPendingRequests(utils::Status status);
+
   // The check work flow.
   std::shared_ptr<CheckWorkflow> check_workflow_;
 
@@ -88,6 +103,9 @@ class ApiManagerImpl : public ApiManager {
   //  - Code::OK          Successfully initialized
   //  - Code::ABORTED     Initialization was failed
   utils::Status config_loading_status_;
+
+  // List of pending Check and Report callback
+  std::vector<std::function<void(utils::Status)>> pending_request_callbacks_;
 };
 
 }  // namespace api_manager
