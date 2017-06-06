@@ -101,10 +101,7 @@ run_linters() {
     buildifier -showlog -mode=check $(find . -name BUILD -type f)
     go_metalinter
     ${BIN_PATH}/check_license.sh
-    buildifier -showlog -mode=check $(find -not -wholename './.git*' -type f \( -name 'BUILD' -or \
-      -name 'WORKSPACE' -or \
-      -wholename '.*bazel' -or \
-      -wholename '.*bzl' \) -print )
+    buildifier -showlog -mode=check $(git ls-files | grep -e 'BUILD' -e 'WORKSPACE' -e '.*\.bazel' -e '.*\.bzl')
 
     # TODO: Enable this once more of mixer is connected and we don't
     # have dead code on purpose
