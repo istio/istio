@@ -14,6 +14,7 @@
  */
 
 #include "attribute_converter.h"
+#include "delta_update.h"
 #include "utils/protobuf.h"
 
 namespace istio {
@@ -70,24 +71,21 @@ class MessageDictionary {
   return map_msg;
 }
 
-}  // namespace
-
-AttributeConverter::AttributeConverter(
-    const std::vector<std::string>& global_words) {
-  for (unsigned int i = 0; i < global_words.size(); i++) {
-    global_dict_[global_words[i]] = i;
-  }
-}
-
-void AttributeConverter::Convert(const Attributes& attributes,
-                                 ::istio::mixer::v1::Attributes* pb) const {
-  MessageDictionary dict(global_dict_);
+bool ConvertToPb(const Attributes& attributes, MessageDictionary& dict,
+                 DeltaUpdate& delta_update,
+                 ::istio::mixer::v1::Attributes* pb) {
+  delta_update.Start();
 
   // Fill attributes.
   for (const auto& it : attributes.attributes) {
     const std::string& name = it.first;
 
     int index = dict.GetIndex(name);
+
+    // Check delta update. If same, skip it.
+    if (delta_update.Check(index, it.second)) {
+      continue;
+    }
 
     // Fill the attribute to proper map.
     switch (it.second.type) {
@@ -120,9 +118,64 @@ void AttributeConverter::Convert(const Attributes& attributes,
     }
   }
 
+  return delta_update.Finish();
+}
+
+class BatchConverterImpl : public BatchConverter {
+ public:
+  BatchConverterImpl(const std::unordered_map<std::string, int>& global_dict)
+      : dict_(global_dict),
+        delta_update_(DeltaUpdate::Create()),
+        report_(new ::istio::mixer::v1::ReportRequest) {}
+
+  bool Add(const Attributes& attributes) override {
+    ::istio::mixer::v1::Attributes pb;
+    if (!ConvertToPb(attributes, dict_, *delta_update_, &pb)) {
+      return false;
+    }
+    pb.GetReflection()->Swap(report_->add_attributes(), &pb);
+    return true;
+  }
+
+  int size() const override { return report_->attributes_size(); }
+
+  std::unique_ptr<::istio::mixer::v1::ReportRequest> Finish() override {
+    for (const std::string& word : dict_.GetWords()) {
+      report_->add_default_words(word);
+    }
+    return std::move(report_);
+  }
+
+ private:
+  MessageDictionary dict_;
+  std::unique_ptr<DeltaUpdate> delta_update_;
+  std::unique_ptr<::istio::mixer::v1::ReportRequest> report_;
+};
+
+}  // namespace
+
+AttributeConverter::AttributeConverter(
+    const std::vector<std::string>& global_words) {
+  for (unsigned int i = 0; i < global_words.size(); i++) {
+    global_dict_[global_words[i]] = i;
+  }
+}
+
+void AttributeConverter::Convert(const Attributes& attributes,
+                                 ::istio::mixer::v1::Attributes* pb) const {
+  MessageDictionary dict(global_dict_);
+  std::unique_ptr<DeltaUpdate> delta_update = DeltaUpdate::CreateNoOp();
+
+  ConvertToPb(attributes, dict, *delta_update, pb);
+
   for (const std::string& word : dict.GetWords()) {
     pb->add_words(word);
   }
+}
+
+std::unique_ptr<BatchConverter> AttributeConverter::CreateBatchConverter()
+    const {
+  return std::unique_ptr<BatchConverter>(new BatchConverterImpl(global_dict_));
 }
 
 }  // namespace mixer_client

@@ -24,6 +24,22 @@
 namespace istio {
 namespace mixer_client {
 
+// A attribute batch converter for report.
+class BatchConverter {
+ public:
+  virtual ~BatchConverter() {}
+
+  // Add an attribute set to the batch.
+  // Return false if it could not be added for delta update.
+  virtual bool Add(const Attributes& attributes) = 0;
+
+  // Get the batched size.
+  virtual int size() const = 0;
+
+  // Finish the batch and create the batched report request.
+  virtual std::unique_ptr<::istio::mixer::v1::ReportRequest> Finish() = 0;
+};
+
 // Convert attributes from struct to protobuf
 class AttributeConverter {
  public:
@@ -31,6 +47,9 @@ class AttributeConverter {
 
   void Convert(const Attributes& attributes,
                ::istio::mixer::v1::Attributes* attributes_pb) const;
+
+  // Create a batch converter.
+  std::unique_ptr<BatchConverter> CreateBatchConverter() const;
 
  private:
   std::unordered_map<std::string, int> global_dict_;
