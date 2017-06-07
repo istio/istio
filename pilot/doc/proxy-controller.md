@@ -27,7 +27,7 @@ There are three types of discovery services exposed by Istio Pilot:
 
 ## Routing rules
 
-Routing rules are defined by Istio API [proto schema](https://github.com/istio/api/blob/master/proxy/v1/config/cfg.md). Examples are available in the [integration tests](../test/integration).
+Routing rules are defined by Istio API [proto schema](https://github.com/istio/api/blob/master/proxy/v1/config/route_rule.proto). Examples are available in the [integration tests](../test/integration).
 
 ## Ingress and egress
 
