@@ -97,7 +97,7 @@ func (w *Wrk) Install() error {
 }
 
 // Run runs a wrk command.
-func (w *Wrk) Run(format string, a ...interface{}) error {
+func (w *Wrk) Run(format string, args ...interface{}) error {
 	format = w.BinaryPath + " " + format
 	if _, err := Shell(format, args...); err != nil {
 		glog.Errorf("wrk %s failed", args)
