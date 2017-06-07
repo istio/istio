@@ -17,7 +17,6 @@ package util
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -99,8 +98,8 @@ func (w *Wrk) Install() error {
 
 // Run runs a wrk command.
 func (w *Wrk) Run(format string, a ...interface{}) error {
-	args := fmt.Sprintf(format, a...)
-	if _, err := Shell(fmt.Sprintf("%s %s", w.BinaryPath, args)); err != nil {
+	format = w.BinaryPath + " " + format
+	if _, err := Shell(format, args...); err != nil {
 		glog.Errorf("wrk %s failed", args)
 		return err
 	}
