@@ -27,6 +27,7 @@ import (
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
+	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
 )
 
@@ -54,7 +55,7 @@ type Manager struct {
 	builderFinder BuilderValidatorFinder
 	findAspects   AdapterToAspectMapper
 	loopDelay     time.Duration
-	store         KeyValueStore
+	store         store.KeyValueStore
 	validate      validateFunc
 
 	// attribute around which scopes and subjects are organized.
@@ -83,7 +84,7 @@ type Manager struct {
 // GlobalConfig specifies the location of Global Config.
 // ServiceConfig specifies the location of Service config.
 func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builderFinder BuilderValidatorFinder,
-	findAspects AdapterToAspectMapper, store KeyValueStore, loopDelay time.Duration, identityAttribute string,
+	findAspects AdapterToAspectMapper, store store.KeyValueStore, loopDelay time.Duration, identityAttribute string,
 	identityAttributeDomain string) *Manager {
 	m := &Manager{
 		eval:                    eval,
@@ -115,7 +116,7 @@ func (c *Manager) Register(cc ChangeListener) {
 	c.cl = append(c.cl, cc)
 }
 
-func readdb(store KeyValueStore, prefix string) (map[string]string, map[string][sha1.Size]byte, int, error) {
+func readdb(store store.KeyValueStore, prefix string) (map[string]string, map[string][sha1.Size]byte, int, error) {
 	keys, index, err := store.List(prefix, true)
 	if err != nil {
 		return nil, nil, index, err

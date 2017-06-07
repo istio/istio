@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package config
+package store
 
 import (
 	"errors"
@@ -25,7 +25,7 @@ func TestNewStore(t *testing.T) {
 		err error
 	}{
 		{"fs:///tmp", nil},
-		{"redis://:passwd@localhost:6379/1", errors.New("getsockopt")}, // connection error to the server
+		{"redis://:passwd@localhost:6379/1", errors.New("unknown")}, // redis module is not loaded
 		{"etcd:///tmp/testdata/configroot", errors.New("unknown")},
 		{"/tmp/testdata/configroot", errors.New("unknown")},
 	} {

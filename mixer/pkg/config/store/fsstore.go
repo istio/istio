@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package store
 
 import (
 	"fmt"
@@ -91,8 +91,6 @@ func (f *fsStore) getPath(key string) string {
 	return path.Join(f.root, key)
 }
 
-const indexNotSupported = -1
-
 // Get value at a key, false if not found.
 func (f *fsStore) Get(key string) (value string, index int, found bool) {
 	p := f.getPath(key) + f.suffix
@@ -103,35 +101,35 @@ func (f *fsStore) Get(key string) (value string, index int, found bool) {
 		if !os.IsNotExist(err) {
 			glog.Warningf("Could not access '%s': %v", p, err)
 		}
-		return "", indexNotSupported, false
+		return "", IndexNotSupported, false
 	}
-	return string(b), indexNotSupported, true
+	return string(b), IndexNotSupported, true
 }
 
 // Set a value
 func (f *fsStore) Set(key string, value string) (index int, err error) {
 	p := f.getPath(key) + f.suffix
 	if err = f.mkdirAll(filepath.Dir(p), os.ModeDir|os.ModePerm); err != nil {
-		return indexNotSupported, err
+		return IndexNotSupported, err
 	}
 
 	var tf writeCloser
 	if tf, err = f.tempFile(); err != nil {
-		return indexNotSupported, err
+		return IndexNotSupported, err
 	}
 
 	_, err = tf.Write([]byte(value))
 	// always close the file and return the 1st failure.
 	errClose := tf.Close()
 	if err != nil {
-		return indexNotSupported, err
+		return IndexNotSupported, err
 	}
 	if errClose != nil {
-		return indexNotSupported, errClose
+		return IndexNotSupported, errClose
 	}
 	// file has been written and closed.
 	// atomically rename
-	return indexNotSupported, os.Rename(tf.Name(), p)
+	return IndexNotSupported, os.Rename(tf.Name(), p)
 }
 
 // List keys with the prefix
@@ -145,7 +143,7 @@ func (f *fsStore) List(key string, recurse bool) (keys []string, index int, err 
 		}
 		return nil
 	})
-	return keys, indexNotSupported, err
+	return keys, IndexNotSupported, err
 }
 
 // Delete removes a key from the fs store.

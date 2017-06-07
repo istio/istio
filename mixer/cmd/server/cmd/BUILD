@@ -20,6 +20,7 @@ go_library(
         "//pkg/attribute:go_default_library",
         "//pkg/config:go_default_library",
         "//pkg/config/proto:go_default_library",
+        "//pkg/config/store:go_default_library",
         "//pkg/expr:go_default_library",
         "//pkg/pool:go_default_library",
         "//pkg/tracing:go_default_library",

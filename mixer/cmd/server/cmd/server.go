@@ -41,6 +41,7 @@ import (
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/tracing"
@@ -154,22 +155,22 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 // configStore - given config this function returns a KeyValueStore
 // It provides a compatibility layer so one can continue using serviceConfigFile and globalConfigFile flags
 // until they are removed.
-func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf shared.FormatFn) (store config.KeyValueStore) {
+func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf shared.FormatFn) (s store.KeyValueStore) {
 	var err error
 	if url != "" {
-		if store, err = config.NewStore(url); err != nil {
+		if s, err = store.NewStore(url); err != nil {
 			fatalf("Failed to get config store: %v", err)
 		}
-		return store
+		return s
 	}
 	if serviceConfigFile == "" || globalConfigFile == "" {
 		fatalf("Missing configStoreURL")
 	}
 	printf("*** serviceConfigFile and globalConfigFile are deprecated, use configStoreURL")
-	if store, err = config.NewCompatFSStore(globalConfigFile, serviceConfigFile); err != nil {
+	if s, err = config.NewCompatFSStore(globalConfigFile, serviceConfigFile); err != nil {
 		fatalf("Failed to get config store: %v", err)
 	}
-	return store
+	return s
 }
 
 func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
