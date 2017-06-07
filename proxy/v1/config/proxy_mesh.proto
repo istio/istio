@@ -21,7 +21,7 @@ package istio.proxy.v1.config;
 // ProxyMeshConfig defines variables shared by all Envoy instances in the
 // Istio service mesh.
 message ProxyMeshConfig {
-  // Address of the egress envoy service (e.g. _istio-egress:80_).
+  // Address of the egress Envoy service (e.g. _istio-egress:80_).
   string egress_proxy_address = 1;
 
   // Address of the discovery service exposing SDS, CDS, RDS (e.g. _istio-manager:8080_).
@@ -36,11 +36,11 @@ message ProxyMeshConfig {
   // IP Address and Port of a statsd UDP listener (e.g. _10.75.241.127:9125_).
   string statsd_udp_address = 12;
 
-  // Port on which egress envoy should listen for incoming connections from
+  // Port on which Envoy should listen for incoming connections from
   // other services.
   int32 proxy_listen_port = 5;
 
-  // Port on which egress envoy should listen for administrative commands.
+  // Port on which Envoy should listen for administrative commands.
   int32 proxy_admin_port = 6;
 
   // The time in seconds that Envoy will drain connections during a hot
