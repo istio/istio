@@ -132,16 +132,15 @@ func newMixerProxy(namespace string) *mixerProxy {
 }
 
 func (m *mixerProxy) Setup() error {
-	var pod string
-	var err error
 	glog.Info("Setting up mixer proxy")
-	getName := fmt.Sprintf("kubectl -n %s get pod -l istio=mixer -o jsonpath='{.items[0].metadata.name}'", m.namespace)
-	pod, err = util.Shell(getName)
+	pod, err := util.Shell("kubectl -n %s get pod -l istio=mixer -o jsonpath='{.items[0].metadata.name}'", m.namespace)
 	if err != nil {
 		return err
 	}
-	metricsPortFwd := fmt.Sprintf("kubectl port-forward %s %d:%d -n %s", strings.Trim(pod, "'"), mixerPrometheusPort, mixerPrometheusPort, m.namespace)
-	if m.metricsPortFwdProcess, err = util.RunBackground(metricsPortFwd); err != nil {
+
+	m.metricsPortFwdProcess, err = util.RunBackground("kubectl port-forward %s %d:%d -n %s",
+		strings.Trim(pod, "'"), mixerPrometheusPort, mixerPrometheusPort, m.namespace)
+	if err != nil {
 		glog.Errorf("Failed to port forward: %s", err)
 		return err
 	}

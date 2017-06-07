@@ -54,7 +54,7 @@ func Fill(outFile, inFile string, values interface{}) error {
 
 // CreateNamespace create a kubernetes namespace
 func CreateNamespace(n string) error {
-	if _, err := Shell(fmt.Sprintf("kubectl create namespace %s", n)); err != nil {
+	if _, err := Shell("kubectl create namespace %s", n); err != nil {
 		return err
 	}
 	glog.Infof("namespace %s created\n", n)
@@ -63,13 +63,13 @@ func CreateNamespace(n string) error {
 
 // DeleteNamespace delete a kubernetes namespace
 func DeleteNamespace(n string) error {
-	_, err := Shell(fmt.Sprintf("kubectl delete namespace %s", n))
+	_, err := Shell("kubectl delete namespace %s", n)
 	return err
 }
 
 // KubeApply kubectl apply
 func KubeApply(n, yaml string) error {
-	_, err := Shell(fmt.Sprintf("kubectl apply -n %s -f %s", n, yaml))
+	_, err := Shell("kubectl apply -n %s -f %s", n, yaml)
 	return err
 }
 
@@ -83,8 +83,8 @@ func GetIngress(n string) (string, error) {
 	r := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 	var ingress string
 	retryFn := func(i int) error {
-		out, err := Shell(fmt.Sprintf("kubectl get svc istio-ingress -n %s "+
-			"-o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n))
+		out, err := Shell("kubectl get svc istio-ingress -n %s "+
+			"-o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n)
 		if err != nil {
 			return err
 		}
@@ -113,13 +113,13 @@ func GetIngressPod(n string) (string, error) {
 	portRegex := regexp.MustCompile(`^[0-9]+$`)
 	var ingress string
 	retryFn := func(i int) error {
-		podIP, err := Shell(fmt.Sprintf("kubectl get pod -l istio=ingress "+
-			"-n %s -o jsonpath='{.items[0].status.hostIP}'", n))
+		podIP, err := Shell("kubectl get pod -l istio=ingress "+
+			"-n %s -o jsonpath='{.items[0].status.hostIP}'", n)
 		if err != nil {
 			return err
 		}
-		podPort, err := Shell(fmt.Sprintf("kubectl get svc istio-ingress "+
-			"-n %s -o jsonpath='{.spec.ports[0].nodePort}'", n))
+		podPort, err := Shell("kubectl get svc istio-ingress "+
+			"-n %s -o jsonpath='{.spec.ports[0].nodePort}'", n)
 		if err != nil {
 			return err
 		}
