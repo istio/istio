@@ -69,6 +69,7 @@ go_test_suite(
         "check_fail_open_test.go",
         "check_fail_close_test.go",
         "failed_request_test.go",
+        "report_batch_test.go",
         "quota_cache_test.go",
         "quota_test.go",
         "stress_test.go",

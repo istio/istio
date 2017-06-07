@@ -73,18 +73,18 @@ func (s *TestSetup) VerifyCheckCount(tag string, expected int) {
 }
 
 func (s *TestSetup) VerifyCheck(tag string, result string) {
-	_ = <-s.mixer.check.ch
-	if err := Verify(s.mixer.check.bag, result); err != nil {
+	bag := <-s.mixer.check.ch
+	if err := Verify(bag, result); err != nil {
 		s.t.Fatalf("Failed to verify %s check: %v\n, Attributes: %+v",
-			tag, err, s.mixer.check.bag)
+			tag, err, bag)
 	}
 }
 
 func (s *TestSetup) VerifyReport(tag string, result string) {
-	_ = <-s.mixer.report.ch
-	if err := Verify(s.mixer.report.bag, result); err != nil {
+	bag := <-s.mixer.report.ch
+	if err := Verify(bag, result); err != nil {
 		s.t.Fatalf("Failed to verify %s report: %v\n, Attributes: %+v",
-			tag, err, s.mixer.report.bag)
+			tag, err, bag)
 	}
 }
 

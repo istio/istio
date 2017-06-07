@@ -34,8 +34,7 @@ import (
 
 type Handler struct {
 	stress   bool
-	bag      *attribute.MutableBag
-	ch       chan int
+	ch       chan *attribute.MutableBag
 	count    int
 	r_status rpc.Status
 }
@@ -43,20 +42,18 @@ type Handler struct {
 func newHandler(stress bool) *Handler {
 	h := &Handler{
 		stress:   stress,
-		bag:      nil,
 		count:    0,
 		r_status: rpc.Status{},
 	}
 	if !stress {
-		h.ch = make(chan int, 10) // Allow maximum 10 requests
+		h.ch = make(chan *attribute.MutableBag, 10) // Allow maximum 10 requests
 	}
 	return h
 }
 
 func (h *Handler) run(bag *attribute.MutableBag) rpc.Status {
 	if !h.stress {
-		h.bag = attribute.CopyBag(bag)
-		h.ch <- 1
+		h.ch <- attribute.CopyBag(bag)
 	}
 	h.count++
 	return h.r_status
