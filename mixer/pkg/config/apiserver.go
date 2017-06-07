@@ -29,6 +29,7 @@ import (
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
+	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 )
@@ -39,13 +40,13 @@ type readBodyFunc func(r io.Reader) ([]byte, error)
 
 // API defines and implements the configuration API.
 // The server constructs and uses a validator for validations
-// The server uses KeyValueStore to persist keys.
+// The server uses store.KeyValueStore to persist keys.
 type API struct {
 	version  string
 	rootPath string
 
 	// used at the back end for validation and storage
-	store    KeyValueStore
+	store    store.KeyValueStore
 	validate validateFunc
 
 	// house keeping
@@ -218,7 +219,7 @@ func (a *API) register(c *restful.Container) {
 
 // NewAPI creates a new API server
 func NewAPI(version string, port uint16, tc expr.TypeChecker, aspectFinder AspectValidatorFinder,
-	builderFinder BuilderValidatorFinder, findAspects AdapterToAspectMapper, store KeyValueStore) *API {
+	builderFinder BuilderValidatorFinder, findAspects AdapterToAspectMapper, store store.KeyValueStore) *API {
 	c := restful.NewContainer()
 	a := &API{
 		version:  version,

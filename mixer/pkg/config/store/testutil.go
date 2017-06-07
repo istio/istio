@@ -12,26 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package store
 
 import (
 	"reflect"
 	"testing"
 )
 
-// nolint: deadcode
-type kvMgr struct {
-	Store   KeyValueStore
-	cleanup func()
+// TestManager manages the data to run test cases.
+type TestManager struct {
+	store       KeyValueStore
+	cleanupFunc func()
 }
 
-func (k *kvMgr) Cleanup() {
-	k.Store.Close()
-	k.cleanup()
+func (k *TestManager) cleanup() {
+	k.store.Close()
+	if k.cleanupFunc != nil {
+		k.cleanupFunc()
+	}
 }
 
-// nolint: deadcode
-func testStore(t *testing.T, kvMgrfn func() *kvMgr) {
+// NewTestManager creates a new StoreTestManager.
+func NewTestManager(s KeyValueStore, cleanup func()) *TestManager {
+	return &TestManager{s, cleanup}
+}
+
+// RunStoreTest runs the test cases for a KeyValueStore implementation.
+func RunStoreTest(t *testing.T, newManagerFn func() *TestManager) {
 	GOODKEYS := []string{
 		"/scopes/global/adapters",
 		"/scopes/global/descriptors",
@@ -53,8 +60,8 @@ func testStore(t *testing.T, kvMgrfn func() *kvMgr) {
 	}
 
 	for _, tt := range table {
-		km := kvMgrfn()
-		s := km.Store
+		km := newManagerFn()
+		s := km.store
 		t.Run(tt.desc, func(t1 *testing.T) {
 			var found bool
 			badkey := "a/b"
@@ -105,6 +112,6 @@ func testStore(t *testing.T, kvMgrfn func() *kvMgr) {
 
 		})
 		s.Close()
-		km.Cleanup()
+		km.cleanup()
 	}
 }

@@ -17,6 +17,8 @@ package config
 import (
 	"io/ioutil"
 	"os"
+
+	"istio.io/mixer/pkg/config/store"
 )
 
 // compatStore.go implements compatibility between file based and api based
@@ -24,7 +26,7 @@ import (
 
 // NewCompatFSStore creates and returns an fsStore using old style
 // This should be removed once we migrate all configs to new style configs.
-func NewCompatFSStore(globalConfigFile string, serviceConfigFile string) (KeyValueStore, error) {
+func NewCompatFSStore(globalConfigFile string, serviceConfigFile string) (store.KeyValueStore, error) {
 	// no configURL, but serviceConfig and globalConfig are specified.
 	// provides compatibility
 	var err error
@@ -37,14 +39,13 @@ func NewCompatFSStore(globalConfigFile string, serviceConfigFile string) (KeyVal
 	if dir, err = ioutil.TempDir(os.TempDir(), "fsStore"); err != nil {
 		return nil, err
 	}
-	kvs, err := newFSStore(dir)
+	s, err := store.NewStore("fs://" + dir)
 	if err != nil {
 		return nil, err
 	}
-	fs := kvs.(*fsStore)
 
 	for k, v := range dm {
-		if data, err = fs.readfile(v); err != nil {
+		if data, err = ioutil.ReadFile(v); err != nil {
 			return nil, err
 		}
 		dm[k] = string(data)
@@ -52,9 +53,9 @@ func NewCompatFSStore(globalConfigFile string, serviceConfigFile string) (KeyVal
 	dm[keyAdapters] = dm[keyDescriptors]
 
 	for k, v := range dm {
-		if _, err = fs.Set(k, v); err != nil {
+		if _, err = s.Set(k, v); err != nil {
 			return nil, err
 		}
 	}
-	return fs, nil
+	return s, nil
 }

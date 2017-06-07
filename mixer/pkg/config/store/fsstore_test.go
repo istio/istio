@@ -11,25 +11,24 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package config
+package store
 
 import (
 	"errors"
 	"io/ioutil"
 	"os"
-	"path"
 	"strings"
 	"testing"
 )
 
 func TestFSStore(t *testing.T) {
-	testStore(t, func() *kvMgr {
+	RunStoreTest(t, func() *TestManager {
 		fsroot, _ := ioutil.TempDir("/tmp/", "fsStore")
 		f, _ := newFSStore(fsroot)
 		_ = os.MkdirAll(fsroot, os.ModeDir|os.ModePerm)
-		return &kvMgr{f, func() {
+		return NewTestManager(f, func() {
 			_ = os.RemoveAll(fsroot)
-		}}
+		})
 	})
 }
 
@@ -162,34 +161,4 @@ func TestFSStore_Delete(t *testing.T) {
 
 		})
 	}
-}
-
-func writeFile(t *testing.T, filename, contents string) {
-	if err := ioutil.WriteFile(filename, []byte(contents), os.ModePerm); err != nil {
-		t.Fatalf("unable to create file %s", filename)
-	}
-}
-
-func assertKey(t *testing.T, store KeyValueStore, key, want string) {
-	if s, _, _ := store.Get(key); s != want {
-		t.Fatalf("got %s want %s", s, want)
-	}
-}
-
-func TestNewCompatFSStore(t *testing.T) {
-	dir, _ := ioutil.TempDir("", "FTEST")
-	defer func(name string) { _ = os.RemoveAll(name) }(dir)
-
-	gc := "Global"
-	sc := "Service"
-	writeFile(t, path.Join(dir, gc), gc)
-	writeFile(t, path.Join(dir, sc), sc)
-
-	store, err := NewCompatFSStore(path.Join(dir, gc), path.Join(dir, sc))
-	if err != nil {
-		t.Fatalf("unexpected error %s", err.Error())
-	}
-
-	assertKey(t, store, keyGlobalServiceConfig, sc)
-	assertKey(t, store, keyDescriptors, gc)
 }
