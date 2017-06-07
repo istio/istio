@@ -20,6 +20,7 @@
 #include "src/attribute_converter.h"
 #include "src/check_cache.h"
 #include "src/quota_cache.h"
+#include "src/report_batch.h"
 
 namespace istio {
 namespace mixer_client {
@@ -33,7 +34,7 @@ class MixerClientImpl : public MixerClient {
   virtual ~MixerClientImpl();
 
   virtual void Check(const Attributes& attributes, DoneFunc on_done);
-  virtual void Report(const Attributes& attributes, DoneFunc on_done);
+  virtual void Report(const Attributes& attributes);
   virtual void Quota(const Attributes& attributes, DoneFunc on_done);
 
  private:
@@ -45,6 +46,8 @@ class MixerClientImpl : public MixerClient {
 
   // Cache for Check call.
   std::unique_ptr<CheckCache> check_cache_;
+  // Report batch.
+  std::unique_ptr<ReportBatch> report_batch_;
   // Cache for Quota call.
   std::unique_ptr<QuotaCache> quota_cache_;
 

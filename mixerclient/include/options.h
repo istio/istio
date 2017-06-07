@@ -46,6 +46,24 @@ struct CheckOptions {
   bool network_fail_open = true;
 };
 
+// Options controlling report batch.
+struct ReportOptions {
+  // Default constructor.
+  // Default to batch up to 1000 reports or 1 seconds.
+  ReportOptions() : max_batch_entries(1000), max_batch_time_ms(1000) {}
+
+  // Constructor.
+  ReportOptions(int max_batch_entries, int max_batch_time_ms)
+      : max_batch_entries(max_batch_entries),
+        max_batch_time_ms(max_batch_time_ms) {}
+
+  // Maximum number of reports to be batched.
+  const int max_batch_entries;
+
+  // Maximum milliseconds a report item stayed in the buffer for batching.
+  const int max_batch_time_ms;
+};
+
 // Options controlling quota behavior.
 struct QuotaOptions {
   // Default constructor.

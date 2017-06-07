@@ -118,4 +118,4 @@ class QuotaCache {
 }  // namespace mixer_client
 }  // namespace istio
 
-#endif  // MIXERCLIENT_CHECK_CACHE_H
+#endif  // MIXERCLIENT_QUOTA_CACHE_H

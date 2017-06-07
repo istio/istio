@@ -52,12 +52,16 @@ struct MixerClientOptions {
 
   // Constructor with specified option values.
   MixerClientOptions(const CheckOptions& check_options,
+                     const ReportOptions& report_options,
                      const QuotaOptions& quota_options)
-      : check_options(check_options), quota_options(quota_options) {}
+      : check_options(check_options),
+        report_options(report_options),
+        quota_options(quota_options) {}
 
   // Check options.
   CheckOptions check_options;
-
+  // Report options.
+  ReportOptions report_options;
   // Quota options.
   QuotaOptions quota_options;
 
@@ -67,6 +71,9 @@ struct MixerClientOptions {
   TransportQuotaFunc quota_transport;
 
   // Timer create function.
+  // Usually there are some restrictions on timer_create_func.
+  // Don't call it at program start, or init time, it is not ready.
+  // It is safe to call during Check() or Report() calls.
   TimerCreateFunc timer_create_func;
 };
 
@@ -87,7 +94,7 @@ class MixerClient {
   virtual void Check(const Attributes& attributes, DoneFunc on_done) = 0;
 
   // A report call.
-  virtual void Report(const Attributes& attributes, DoneFunc on_done) = 0;
+  virtual void Report(const Attributes& attributes) = 0;
 
   // A quota call.
   virtual void Quota(const Attributes& attributes, DoneFunc on_done) = 0;

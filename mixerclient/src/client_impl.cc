@@ -32,6 +32,9 @@ MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
     : options_(options), converter_({}) {
   check_cache_ =
       std::unique_ptr<CheckCache>(new CheckCache(options.check_options));
+  report_batch_ = std::unique_ptr<ReportBatch>(
+      new ReportBatch(options.report_options, options_.report_transport,
+                      options.timer_create_func, converter_));
   quota_cache_ = std::unique_ptr<QuotaCache>(new QuotaCache(
       options.quota_options, options_.quota_transport, converter_));
 }
@@ -66,15 +69,8 @@ void MixerClientImpl::Check(const Attributes &attributes, DoneFunc on_done) {
   });
 }
 
-void MixerClientImpl::Report(const Attributes &attributes, DoneFunc on_done) {
-  auto response = new ReportResponse;
-  ReportRequest request;
-  converter_.Convert(attributes, request.add_attributes());
-  options_.report_transport(request, response,
-                            [response, on_done](const Status &status) {
-                              on_done(status);
-                              delete response;
-                            });
+void MixerClientImpl::Report(const Attributes &attributes) {
+  report_batch_->Report(attributes);
 }
 
 void MixerClientImpl::Quota(const Attributes &attributes, DoneFunc on_done) {
