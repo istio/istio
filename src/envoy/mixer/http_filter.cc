@@ -296,12 +296,8 @@ class Instance : public Http::StreamDecoderFilter,
     if (!request_data_) return;
     // Make sure not to use any class members at the callback.
     // The class may be gone when it is called.
-    // Log() is a static function so it is OK.
     http_control_->Report(request_data_, response_headers, request_info,
-                          check_status_code_, [](const Status& status) {
-                            Log().debug("Report returns status: {}",
-                                        status.ToString());
-                          });
+                          check_status_code_);
   }
 
   static spdlog::logger& Log() {

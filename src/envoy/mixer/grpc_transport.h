@@ -84,7 +84,13 @@ class CheckGrpcTransport : public GrpcTransport {
   void Call(const ::istio::mixer::v1::CheckRequest& request,
             ::istio::mixer::v1::CheckResponse* response,
             ::istio::mixer_client::DoneFunc on_done) {
-    on_done_ = on_done;
+    on_done_ = [this, response,
+                on_done](const ::google::protobuf::util::Status& status) {
+      if (status.ok()) {
+        log().debug("Check response: {}", response->DebugString());
+      }
+      on_done(status);
+    };
     log().debug("Call grpc check: {}", request.DebugString());
     stub_.Check(nullptr, &request, response, nullptr);
   }
@@ -128,7 +134,13 @@ class QuotaGrpcTransport : public GrpcTransport {
   void Call(const ::istio::mixer::v1::QuotaRequest& request,
             ::istio::mixer::v1::QuotaResponse* response,
             ::istio::mixer_client::DoneFunc on_done) {
-    on_done_ = on_done;
+    on_done_ = [this, response,
+                on_done](const ::google::protobuf::util::Status& status) {
+      if (status.ok()) {
+        log().debug("Quota response: {}", response->DebugString());
+      }
+      on_done(status);
+    };
     log().debug("Call grpc quota: {}", request.DebugString());
     stub_.Quota(nullptr, &request, response, nullptr);
   }

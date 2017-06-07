@@ -52,8 +52,8 @@ class HttpControl final : public Logger::Loggable<Logger::Id::http> {
   // Make mixer report call.
   void Report(HttpRequestDataPtr request_data,
               const HeaderMap* response_headers,
-              const AccessLog::RequestInfo& request_info, int check_status_code,
-              ::istio::mixer_client::DoneFunc on_done);
+              const AccessLog::RequestInfo& request_info,
+              int check_status_code);
 
  private:
   void FillCheckAttributes(HeaderMap& header_map,

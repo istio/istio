@@ -30,6 +30,7 @@ using ::istio::mixer_client::Attributes;
 using ::istio::mixer_client::CheckOptions;
 using ::istio::mixer_client::DoneFunc;
 using ::istio::mixer_client::MixerClientOptions;
+using ::istio::mixer_client::ReportOptions;
 using ::istio::mixer_client::QuotaOptions;
 
 namespace Envoy {
@@ -182,7 +183,7 @@ HttpControl::HttpControl(const MixerConfig& mixer_config,
                          Upstream::ClusterManager& cm)
     : mixer_config_(mixer_config) {
   if (GrpcTransport::IsMixerServerConfigured(cm)) {
-    MixerClientOptions options(GetCheckOptions(mixer_config),
+    MixerClientOptions options(GetCheckOptions(mixer_config), ReportOptions(),
                                GetQuotaOptions(mixer_config));
     auto cms = std::make_shared<ClusterManagerStore>(cm);
     options.check_transport = CheckGrpcTransport::GetFunc(cms);
@@ -262,10 +263,8 @@ void HttpControl::Quota(HttpRequestDataPtr request_data, DoneFunc on_done) {
 void HttpControl::Report(HttpRequestDataPtr request_data,
                          const HeaderMap* response_headers,
                          const AccessLog::RequestInfo& request_info,
-                         int check_status, DoneFunc on_done) {
+                         int check_status) {
   if (!mixer_client_) {
-    on_done(
-        Status(StatusCode::INVALID_ARGUMENT, "Missing mixer_server cluster"));
     return;
   }
 
@@ -276,7 +275,7 @@ void HttpControl::Report(HttpRequestDataPtr request_data,
   FillRequestInfoAttributes(request_info, check_status,
                             &request_data->attributes);
   log().debug("Send Report: {}", request_data->attributes.DebugString());
-  mixer_client_->Report(request_data->attributes, on_done);
+  mixer_client_->Report(request_data->attributes);
 }
 
 }  // namespace Mixer
