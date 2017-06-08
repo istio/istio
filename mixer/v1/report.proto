@@ -50,6 +50,10 @@ message ReportRequest {
   // This makes it possible to share the same dictionary for all attributes in this
   // request, which can substantially reduce the overall request size.
   repeated string default_words = 2;
+
+  // The number of words in the global dictionary.
+  // To detect global dictionary out of sync between client and server.
+  int global_word_count = 3;
 }
 
 message ReportResponse {

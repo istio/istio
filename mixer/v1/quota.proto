@@ -43,6 +43,10 @@ message QuotaRequest {
   // false, the exact requested amount is returned or 0 if not enough quota
   // was available.
   bool best_effort = 5;
+
+  // The number of words in the global dictionary.
+  // To detect global dictionary out of sync between client and server.
+  int global_word_count = 6;
 }
 
 message QuotaResponse {

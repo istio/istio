@@ -32,6 +32,10 @@ message CheckRequest {
   // Mixer's configuration determines how these attributes are used to
   // determine the result returned in the response.
   Attributes attributes = 1 [(gogoproto.nullable) = false];
+
+  // The number of words in the global dictionary.
+  // To detect global dictionary out of sync between client and server.
+  int global_word_count = 2;
 }
 
 message CheckResponse {
