@@ -206,20 +206,6 @@ cc_test(
 )
 
 cc_test(
-    name = "request_handler_test",
-    size = "small",
-    srcs = [
-        "request_handler_test.cc",
-    ],
-    linkstatic = 1,
-    deps = [
-        ":api_manager",
-        ":mock_api_manager_environment",
-        "//external:googletest_main",
-    ],
-)
-
-cc_test(
     name = "config_manager_test",
     size = "small",
     srcs = [

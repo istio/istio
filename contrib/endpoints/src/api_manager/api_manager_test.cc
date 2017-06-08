@@ -213,13 +213,7 @@ TEST_F(ApiManagerTest, InitializedByConfigManager) {
   EXPECT_EQ("bookstore.test.appspot.com", api_manager->service_name());
   EXPECT_EQ("", api_manager->service("2017-05-01r0").id());
 
-  EXPECT_TRUE(api_manager->IsConfigLoadingInProgress());
-  EXPECT_FALSE(api_manager->IsConfigLoadingSucceeded());
-
   api_manager->Init();
-
-  EXPECT_FALSE(api_manager->IsConfigLoadingInProgress());
-  EXPECT_TRUE(api_manager->IsConfigLoadingSucceeded());
 
   EXPECT_EQ("OK", api_manager->ConfigLoadingStatus().ToString());
   EXPECT_TRUE(api_manager->Enabled());
@@ -250,73 +244,18 @@ TEST_F(ApiManagerTest, ConfigManagerInitializationFailed) {
           std::move(env), "", kServerConfigWithServiceNameConfigId)));
 
   EXPECT_TRUE(api_manager);
-  EXPECT_TRUE(api_manager->IsConfigLoadingInProgress());
-  EXPECT_FALSE(api_manager->IsConfigLoadingSucceeded());
-
   EXPECT_EQ("UNAVAILABLE: Not initialized yet",
             api_manager->ConfigLoadingStatus().ToString());
   EXPECT_EQ("bookstore.test.appspot.com", api_manager->service_name());
   EXPECT_EQ("", api_manager->service("2017-05-01r0").id());
 
   api_manager->Init();
-
-  EXPECT_FALSE(api_manager->IsConfigLoadingInProgress());
-  EXPECT_FALSE(api_manager->IsConfigLoadingSucceeded());
 
   EXPECT_EQ("ABORTED: Failed to download the service config",
             api_manager->ConfigLoadingStatus().ToString());
 
   auto service = api_manager->SelectService();
   EXPECT_FALSE(service);
-}
-
-TEST_F(ApiManagerTest, AddPendingCallbackThenInitializationSucceeded) {
-  std::unique_ptr<MockApiManagerEnvironment> env(
-      new ::testing::NiceMock<MockApiManagerEnvironment>());
-
-  EXPECT_CALL(*(env.get()), DoRunHTTPRequest(_))
-      .WillOnce(Invoke([this](HTTPRequest *req) {
-        EXPECT_EQ(
-            "https://servicemanagement.googleapis.com/v1/services/"
-            "bookstore.test.appspot.com/configs/2017-05-01r0",
-            req->url());
-        req->OnComplete(Status::OK, {}, std::move(kServiceConfig1));
-      }));
-
-  std::shared_ptr<ApiManagerImpl> api_manager(
-      std::dynamic_pointer_cast<ApiManagerImpl>(MakeApiManager(
-          std::move(env), "", kServerConfigWithServiceNameConfigId)));
-
-  EXPECT_TRUE(api_manager);
-  EXPECT_EQ("UNAVAILABLE: Not initialized yet",
-            api_manager->ConfigLoadingStatus().ToString());
-  EXPECT_EQ("bookstore.test.appspot.com", api_manager->service_name());
-  EXPECT_EQ("", api_manager->service("2017-05-01r0").id());
-
-  EXPECT_TRUE(api_manager->IsConfigLoadingInProgress());
-  EXPECT_FALSE(api_manager->IsConfigLoadingSucceeded());
-
-  api_manager->AddPendingRequestCallback([this](utils::Status status) {
-    callback_run_count_++;
-    EXPECT_OK(status);
-  });
-  EXPECT_EQ(0, callback_run_count_);
-
-  api_manager->Init();
-
-  EXPECT_EQ(1, callback_run_count_);
-
-  EXPECT_FALSE(api_manager->IsConfigLoadingInProgress());
-  EXPECT_TRUE(api_manager->IsConfigLoadingSucceeded());
-
-  EXPECT_OK(api_manager->ConfigLoadingStatus());
-  EXPECT_TRUE(api_manager->Enabled());
-  EXPECT_EQ("2017-05-01r0", api_manager->service("2017-05-01r0").id());
-
-  auto service = api_manager->SelectService();
-  EXPECT_TRUE(service);
-  EXPECT_EQ("bookstore.test.appspot.com", service->service_name());
-  EXPECT_EQ("2017-05-01r0", service->service().id());
 }
 
 TEST_F(ApiManagerTest,

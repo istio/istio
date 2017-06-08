@@ -30,36 +30,7 @@ namespace google {
 namespace api_manager {
 
 void RequestHandler::Check(std::function<void(Status status)> continuation) {
-  if (api_manager_->IsConfigLoadingInProgress()) {
-    api_manager_->AddPendingRequestCallback(
-        [continuation, this](utils::Status status) {
-          if (status.ok()) {
-            InternalCheck(continuation);
-          } else {
-            // Let esp pass through the client request.
-            continuation(utils::Status::OK);
-          }
-        });
-  } else if (api_manager_->IsConfigLoadingSucceeded()) {
-    InternalCheck(continuation);
-  } else {
-    // Let esp pass through the client request.
-    continuation(utils::Status::OK);
-  }
-}
-
-void RequestHandler::InternalCheck(
-    std::function<void(utils::Status status)> continuation) {
-  if (!context_) {
-    if (!CreateRequestContext()) {
-      context_->service_context()->env()->LogError(
-          "Failed to create a request context");
-      continuation(utils::Status::OK);
-      return;
-    }
-  }
-
-  auto interception = [continuation, this](utils::Status status) {
+  auto interception = [continuation, this](Status status) {
     if (status.ok() && context_->cloud_trace()) {
       context_->StartBackendSpanAndSetTraceContext();
     }
@@ -108,34 +79,6 @@ void RequestHandler::AttemptIntermediateReport() {
 // Sends a report.
 void RequestHandler::Report(std::unique_ptr<Response> response,
                             std::function<void(void)> continuation) {
-  if (api_manager_->IsConfigLoadingInProgress()) {
-    Response* response_ptr = response.release();
-    api_manager_->AddPendingRequestCallback([response_ptr, continuation,
-                                             this](utils::Status status) {
-      if (status.ok()) {
-        InternalReport(std::unique_ptr<Response>(response_ptr), continuation);
-      } else {
-        continuation();
-      }
-    });
-  } else if (api_manager_->IsConfigLoadingSucceeded()) {
-    InternalReport(std::move(response), continuation);
-  } else {
-    continuation();
-  }
-}
-
-void RequestHandler::InternalReport(std::unique_ptr<Response> response,
-                                    std::function<void(void)> continuation) {
-  if (!context_) {
-    if (!CreateRequestContext()) {
-      context_->service_context()->env()->LogError(
-          "Failed to create a request context");
-      continuation();
-      return;
-    }
-  }
-
   // Close backend trace span.
   context_->EndBackendSpan();
 
@@ -173,7 +116,7 @@ void RequestHandler::InternalReport(std::unique_ptr<Response> response,
 }
 
 std::string RequestHandler::GetServiceConfigId() const {
-  return context_ ? context_->service_context()->service().id() : "";
+  return context_->service_context()->service().id();
 }
 
 std::string RequestHandler::GetBackendAddress() const {
@@ -191,16 +134,6 @@ std::string RequestHandler::GetRpcMethodFullName() const {
   } else {
     return std::string();
   }
-}
-
-bool RequestHandler::CreateRequestContext() {
-  auto service_context = api_manager_->SelectService();
-  if (service_context) {
-    context_ = std::make_shared<context::RequestContext>(
-        service_context, std::move(request_data_));
-  }
-
-  return context_ != nullptr;
 }
 
 }  // namespace api_manager

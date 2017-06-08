@@ -58,27 +58,17 @@ class ApiManagerImpl : public ApiManager {
   utils::Status AddConfig(const std::string &service_config, bool initialize,
                           std::string *config_id);
 
-  // Use these configs according to the traffic percentage.
-  void DeployConfigs(std::vector<std::pair<std::string, int>> &&list);
-
-  // Return the initialization status
-  inline utils::Status ConfigLoadingStatus() { return config_loading_status_; }
-
   // Return ServiceContext for selected by WeightedSelector
   std::shared_ptr<context::ServiceContext> SelectService();
 
-  // Append Check or Report callback
-  void AddPendingRequestCallback(std::function<void(utils::Status)> callback);
-
-  // Return true if config loading is still in progress
-  bool IsConfigLoadingInProgress();
-
-  // Return true if config loading was succeeded
-  bool IsConfigLoadingSucceeded();
+  // Return the initialization status
+  inline utils::Status ConfigLoadingStatus() const override {
+    return config_loading_status_;
+  }
 
  private:
-  // Notify pending requests
-  void NotifyPendingRequests(utils::Status status);
+  // Use these configs according to the traffic percentage.
+  void DeployConfigs(std::vector<std::pair<std::string, int>> &&list);
 
   // The check work flow.
   std::shared_ptr<CheckWorkflow> check_workflow_;
@@ -103,9 +93,6 @@ class ApiManagerImpl : public ApiManager {
   //  - Code::OK          Successfully initialized
   //  - Code::ABORTED     Initialization was failed
   utils::Status config_loading_status_;
-
-  // List of pending Check and Report callback
-  std::vector<std::function<void(utils::Status)>> pending_request_callbacks_;
 };
 
 }  // namespace api_manager

@@ -26,12 +26,12 @@ namespace api_manager {
 // Implements RequestHandlerInterface.
 class RequestHandler : public RequestHandlerInterface {
  public:
-  RequestHandler(ApiManagerImpl* api_manager,
-                 std::shared_ptr<CheckWorkflow> check_workflow,
+  RequestHandler(std::shared_ptr<CheckWorkflow> check_workflow,
+                 std::shared_ptr<context::ServiceContext> service_context,
                  std::unique_ptr<Request> request_data)
-      : api_manager_(api_manager),
-        check_workflow_(check_workflow),
-        request_data_(std::move(request_data)) {}
+      : context_(new context::RequestContext(service_context,
+                                             std::move(request_data))),
+        check_workflow_(check_workflow) {}
 
   virtual ~RequestHandler(){};
 
@@ -49,23 +49,12 @@ class RequestHandler : public RequestHandlerInterface {
   virtual std::string GetRpcMethodFullName() const;
 
   // Get the method info.
-  const MethodInfo* method() const { return context_->method(); }
+  const MethodInfo *method() const { return context_->method(); }
 
   // Get the method info.
-  const MethodCallInfo* method_call() const { return context_->method_call(); }
+  const MethodCallInfo *method_call() const { return context_->method_call(); }
 
  private:
-  // Create a context_ from ApiManager. Return true if the RequestContext was
-  // successfully created
-  bool CreateRequestContext();
-  // Internal Check
-  void InternalCheck(std::function<void(utils::Status status)> continuation);
-  // Internal Report
-  void InternalReport(std::unique_ptr<Response> response,
-                      std::function<void(void)> continuation);
-  // ApiManager instance
-  ApiManagerImpl* api_manager_;
-
   // The context object needs to pass to the continuation function the check
   // handler as a lambda capture so it can be passed to the next check handler.
   // In order to control the life time of context object, a shared_ptr is used.
@@ -73,8 +62,6 @@ class RequestHandler : public RequestHandlerInterface {
   std::shared_ptr<context::RequestContext> context_;
 
   std::shared_ptr<CheckWorkflow> check_workflow_;
-  // Unique copy of the request data to initialize context_ later
-  std::unique_ptr<Request> request_data_;
 };
 
 }  // namespace api_manager

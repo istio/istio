@@ -125,28 +125,15 @@ utils::Status ApiManagerImpl::Init() {
           if (rollouts.size() == 0) {
             config_loading_status_ =
                 utils::Status(Code::ABORTED, "Invalid service config");
-
-            // Abort pending Call and Report callbacks
-            NotifyPendingRequests(config_loading_status_);
             return;
           }
 
           DeployConfigs(std::move(rollouts));
         }
         config_loading_status_ = status;
-
-        // Execute pending Call and Report callbacks
-        NotifyPendingRequests(config_loading_status_);
       });
 
   return utils::Status::OK;
-}
-
-void ApiManagerImpl::NotifyPendingRequests(utils::Status status) {
-  for (auto const &pending_callback : pending_request_callbacks_) {
-    pending_callback(status);
-  }
-  pending_request_callbacks_.clear();
 }
 
 utils::Status ApiManagerImpl::Close() {
@@ -196,14 +183,6 @@ std::shared_ptr<context::ServiceContext> ApiManagerImpl::SelectService() {
   return nullptr;
 }
 
-bool ApiManagerImpl::IsConfigLoadingInProgress() {
-  return config_loading_status_.code() == Code::UNAVAILABLE;
-}
-
-bool ApiManagerImpl::IsConfigLoadingSucceeded() {
-  return config_loading_status_.ok();
-}
-
 utils::Status ApiManagerImpl::GetStatistics(
     ApiManagerStatistics *statistics) const {
   memset(&statistics->service_control_statistics, 0,
@@ -220,15 +199,10 @@ utils::Status ApiManagerImpl::GetStatistics(
   return utils::Status::OK;
 }
 
-void ApiManagerImpl::AddPendingRequestCallback(
-    std::function<void(utils::Status)> callback) {
-  pending_request_callbacks_.push_back(callback);
-}
-
 std::unique_ptr<RequestHandlerInterface> ApiManagerImpl::CreateRequestHandler(
     std::unique_ptr<Request> request_data) {
-  return std::unique_ptr<RequestHandlerInterface>(
-      new RequestHandler(this, check_workflow_, std::move(request_data)));
+  return std::unique_ptr<RequestHandlerInterface>(new RequestHandler(
+      check_workflow_, SelectService(), std::move(request_data)));
 }
 
 std::shared_ptr<ApiManager> ApiManagerFactory::CreateApiManager(
