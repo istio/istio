@@ -1,0 +1,19 @@
+{{- if .Values.global.addOns.grafana.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  labels:
+    app: grafana
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - port: {{ .Values.service.port }}
+    protocol: TCP
+    name: grafana
+  selector:
+    app: grafana
+{{- end }}

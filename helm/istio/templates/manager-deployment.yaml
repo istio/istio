@@ -1,0 +1,44 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}-manager
+  labels:
+    app: {{ template "fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  replicas: {{ .Values.manager.replicaCount }}
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
+      labels:
+        istio: {{ template "fullname" . }}-manager
+    spec:
+      serviceAccountName: {{ template "fullname" . }}-manager-service-account
+      containers:
+      - name: discovery
+        image: "{{ .Values.manager.image.repository }}:{{ .Values.manager.image.tag }}"
+        imagePullPolicy: {{ .Values.manager.image.pullPolicy }}
+        args: ["discovery", "-v", "2"]
+        ports:
+        - containerPort: 8080
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+      - name: apiserver
+        image: "{{ .Values.manager.image.repository }}:{{ .Values.manager.image.tag }}"
+        imagePullPolicy: {{ .Values.manager.image.pullPolicy }}
+        args: ["apiserver", "-v", "2"]
+        ports:
+        - containerPort: 8081
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace

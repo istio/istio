@@ -1,0 +1,10 @@
+apiVersion: v1
+description: Istio Helm chart for Kubernetes
+name: istio
+version: 0.1.0
+home: https://istio.io/
+sources:
+  - https://github.com/istio/istio
+maintainers:
+  - name: Rimas Mocevicius
+    email: rimas@stackpointcloud.com

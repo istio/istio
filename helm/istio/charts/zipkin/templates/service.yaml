@@ -1,0 +1,19 @@
+{{- if .Values.global.addOns.zipkin.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: zipkin
+  labels:
+    app: zipkin
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - name: http
+    port: {{ .Values.service.port }}
+    #nodePort: 30411
+  selector:
+    app: zipkin
+{{- end }}

@@ -1,0 +1,10 @@
+##
+
+service:
+  type: LoadBalancer
+  port: 9411
+
+image:
+  repository: docker.io/openzipkin/zipkin
+  tag: latest
+  pullPolicy: Always

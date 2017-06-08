@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+  labels:
+    app: {{ template "fullname" . }}-manager
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+data:
+  mesh: |-
+{{- if .Values.auth.enabled }}
+    # the following line enables mutual TLS between proxies
+    authPolicy: MUTUAL_TLS
+{{- end }}
+    mixerAddress: {{ template "fullname" . }}-mixer:9091
+    discoveryAddress: {{ template "fullname" . }}-manager:8080
+    ingressService: {{ template "fullname" . }}-ingress
+    zipkinAddress: zipkin:9411

@@ -1,0 +1,44 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}-ingress
+  labels:
+    app: {{ template "fullname" . }}-ingress
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  replicas: {{ .Values.ingress.replicaCount }}
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
+      labels:
+        istio: {{ template "fullname" . }}-ingress
+    spec:
+      serviceAccountName: {{ template "fullname" . }}-ingress-service-account
+      containers:
+      - name: istio-ingress
+        image: "{{ .Values.ingress.image.repository }}:{{ .Values.ingress.image.tag }}"
+        imagePullPolicy: {{ .Values.ingress.image.pullPolicy }}
+        args: ["proxy", "ingress", "-v", "2"]
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+{{- if .Values.auth.enabled }}
+        volumeMounts:
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+{{- end }}

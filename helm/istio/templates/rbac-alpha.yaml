@@ -1,0 +1,114 @@
+{{- if and .Values.rbac.enabled (eq .Values.rbac.type "alpha") }}
+# Permissions and roles for istio
+# To debug: start the cluster with -vmodule=rbac,3 to enable verbose logging on RBAC DENY
+# Also helps to enable logging on apiserver 'wrap' to see the URLs.
+# Each RBAC deny needs to be mapped into a rule for the role.
+# If using minikube, start with '--extra-config=apiserver.Authorization.Mode=RBAC'
+#
+# NOTE: If deploying istio to a namespace other than 'default' then change the
+# ClusterRoleBinding namspace target appropriately.
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1alpha1
+metadata:
+  name: {{ template "fullname" . }}-manager
+rules:
+- apiGroups: ["istio.io"]
+  resources: ["istioconfigs", "istioconfigs.istio.io"]
+  verbs: ["*"]
+- apiGroups: ["extensions"]
+  resources: ["thirdpartyresources", "thirdpartyresources.extensions", "ingresses", "ingresses/status"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["configmaps", "endpoints", "pods", "services"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list"]
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1alpha1
+metadata:
+  name: {{ template "fullname" . }}-ca
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "watch", "list", "update"]
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["watch", "list"]
+---
+# Permissions for the sidecar proxy.
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1alpha1
+metadata:
+  name: {{ template "fullname" . }}-sidecar
+rules:
+- apiGroups: ["istio.io"]
+  resources: ["istioconfigs"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["extensions"]
+  resources: ["thirdpartyresources", "ingresses"]
+  verbs: ["get", "watch", "list", "update"]
+- apiGroups: [""]
+  resources: ["configmaps", "pods", "endpoints", "services"]
+  verbs: ["get", "watch", "list"]
+---
+# Grant permissions to the Manager/discovery.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1alpha1
+metadata:
+  name: {{ template "fullname" . }}-manager-admin-role-binding
+subjects:
+- kind: ServiceAccount
+  name: {{ template "fullname" . }}-manager-service-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: {{ template "fullname" . }}-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to the Manager/discovery.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1alpha1
+metadata:
+  name: {{ template "fullname" . }}-ca-role-binding
+subjects:
+- kind: ServiceAccount
+  name: {{ template "fullname" . }}-ca-service-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: {{ template "fullname" . }}-ca
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to the Ingress controller.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1alpha1
+metadata:
+  name: {{ template "fullname" . }}-ingress-admin-role-binding
+subjects:
+- kind: ServiceAccount
+  name: {{ template "fullname" . }}-ingress-service-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: {{ template "fullname" . }}-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to the sidecar.
+# TEMPORARY: the istioctl should generate a separate service account for the proxy, and permission
+# granted only to that account !
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1alpha1
+metadata:
+  name: {{ template "fullname" . }}-sidecar-role-binding
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: {{ template "fullname" . }}-sidecar
+  apiGroup: rbac.authorization.k8s.io
+---
+{{- end }}

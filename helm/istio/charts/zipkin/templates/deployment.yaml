@@ -1,0 +1,32 @@
+{{- if .Values.global.addOns.zipkin.enabled }}
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: zipkin
+  labels:
+    app: zipkin
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
+      labels:
+        app: zipkin
+    spec:
+      containers:
+      - name: zipkin
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 9411
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+{{- end }}
