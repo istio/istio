@@ -92,7 +92,9 @@ Config::Config(const Json::Object& config) {
     }
   }
 
-  google::grpc::transcoding::PathMatcherBuilder<MethodInfo*> pmb;
+  google::grpc::transcoding::PathMatcherBuilder<
+      const google::protobuf::MethodDescriptor*>
+      pmb;
 
   for (const auto& service_name : config.getStringArray("services")) {
     auto service = descriptor_pool_.FindServiceByName(service_name);
@@ -103,8 +105,6 @@ Config::Config(const Json::Object& config) {
     for (int i = 0; i < service->method_count(); ++i) {
       auto method = service->method(i);
 
-      auto method_info = new MethodInfo(method);
-      methods_.emplace_back(method_info);
       auto http_rule = method->options().GetExtension(google::api::http);
 
       log().debug("/" + service->full_name() + "/" + method->name());
@@ -112,25 +112,23 @@ Config::Config(const Json::Object& config) {
 
       switch (http_rule.pattern_case()) {
         case ::google::api::HttpRule::kGet:
-          pmb.Register("GET", http_rule.get(), http_rule.body(), method_info);
+          pmb.Register("GET", http_rule.get(), http_rule.body(), method);
           break;
         case ::google::api::HttpRule::kPut:
-          pmb.Register("PUT", http_rule.put(), http_rule.body(), method_info);
+          pmb.Register("PUT", http_rule.put(), http_rule.body(), method);
           break;
         case ::google::api::HttpRule::kPost:
-          pmb.Register("POST", http_rule.post(), http_rule.body(), method_info);
+          pmb.Register("POST", http_rule.post(), http_rule.body(), method);
           break;
         case ::google::api::HttpRule::kDelete:
-          pmb.Register("DELETE", http_rule.delete_(), http_rule.body(),
-                       method_info);
+          pmb.Register("DELETE", http_rule.delete_(), http_rule.body(), method);
           break;
         case ::google::api::HttpRule::kPatch:
-          pmb.Register("PATCH", http_rule.patch(), http_rule.body(),
-                       method_info);
+          pmb.Register("PATCH", http_rule.patch(), http_rule.body(), method);
           break;
         case ::google::api::HttpRule::kCustom:
           pmb.Register(http_rule.custom().kind(), http_rule.custom().path(),
-                       http_rule.body(), method_info);
+                       http_rule.body(), method);
           break;
         default:
           break;
@@ -164,14 +162,13 @@ Status Config::CreateTranscoder(
 
   RequestInfo request_info;
   std::vector<VariableBinding> variable_bidings;
-  auto method_info = path_matcher_->Lookup(
+  method_descriptor = path_matcher_->Lookup(
       method, path, args, &variable_bidings, &request_info.body_field_path);
-  if (!method_info) {
+  if (!method_descriptor) {
     return Status(Code::NOT_FOUND,
                   "Could not resolve " + path + " to a method");
   }
 
-  method_descriptor = method_info->method();
   auto status = MethodToRequestInfo(method_descriptor, &request_info);
   if (!status.ok()) {
     return status;

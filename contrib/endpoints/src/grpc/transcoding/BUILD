@@ -39,12 +39,12 @@ cc_test(
         "transcoder_test.cc",
     ],
     data = [
-        "@httpjson_transcoding//src:testdata/bookstore_service.pb.txt",
+        "@httpjson_transcoding//test:testdata/bookstore_service.pb.txt",
     ],
     deps = [
         ":transcoding_endpoints",
-        "@httpjson_transcoding//src:bookstore_test_proto",
-        "@httpjson_transcoding//src:test_common",
+        "@httpjson_transcoding//test:bookstore_test_proto",
+        "@httpjson_transcoding//test:test_common",
         "//external:googletest_main",
     ],
 )

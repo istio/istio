@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "bookstore.pb.h"
 #include "contrib/endpoints/include/api_manager/method.h"
 #include "contrib/endpoints/include/api_manager/method_call_info.h"
 #include "contrib/endpoints/src/grpc/transcoding/transcoder_factory.h"
@@ -26,10 +27,9 @@
 #include "google/protobuf/stubs/strutil.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gtest/gtest.h"
-#include "src/bookstore.pb.h"
 #include "src/message_reader.h"
-#include "src/test_common.h"
 #include "src/transcoder.h"
+#include "test/test_common.h"
 
 namespace google {
 namespace api_manager {
@@ -127,7 +127,7 @@ class TranscoderTest : public ::testing::Test {
   // in a test.
   bool LoadService(const std::string &config_pb_txt_file) {
     if (!::google::grpc::transcoding::testing::LoadService(
-            config_pb_txt_file, "external/httpjson_transcoding/src/testdata/",
+            config_pb_txt_file, "external/httpjson_transcoding/test/testdata/",
             &service_)) {
       return false;
     }

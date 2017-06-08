@@ -33,19 +33,6 @@ namespace Transcoding {
 
 class Instance;
 
-class MethodInfo {
- public:
-  MethodInfo(const google::protobuf::MethodDescriptor* method)
-      : method_(method) {}
-  const std::set<std::string> system_query_parameter_names() const {
-    return std::set<std::string>();
-  }
-  const google::protobuf::MethodDescriptor* method() const { return method_; }
-
- private:
-  const google::protobuf::MethodDescriptor* method_;
-};
-
 // VariableBinding specifies a value for a single field in the request message.
 // When transcoding HTTP/REST/JSON to gRPC/proto the request message is
 // constructed using the HTTP body and the variable bindings (specified through
@@ -76,8 +63,9 @@ class Config : public Logger::Loggable<Logger::Id::config> {
 
  private:
   google::protobuf::DescriptorPool descriptor_pool_;
-  google::grpc::transcoding::PathMatcherPtr<MethodInfo*> path_matcher_;
-  std::vector<std::unique_ptr<MethodInfo>> methods_;
+  google::grpc::transcoding::PathMatcherPtr<
+      const google::protobuf::MethodDescriptor*>
+      path_matcher_;
   std::unique_ptr<google::grpc::transcoding::TypeHelper> type_helper_;
 };
 
