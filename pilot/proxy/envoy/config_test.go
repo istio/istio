@@ -344,6 +344,7 @@ func makeMeshConfig() proxyconfig.ProxyMeshConfig {
 	mesh.DiscoveryAddress = "localhost:8080"
 	mesh.DiscoveryRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
 	mesh.EgressProxyAddress = "localhost:8888"
+	mesh.StatsdUdpAddress = "10.1.1.10:9125"
 	return mesh
 }
 

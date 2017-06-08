@@ -41,6 +41,14 @@ func NewEgressWatcher(mesh *proxyconfig.ProxyMeshConfig) (Watcher, error) {
 	if mesh.EgressProxyAddress == "" {
 		return nil, errors.New("egress proxy requires address configuration")
 	}
+	if mesh.StatsdUdpAddress != "" {
+		if addr, err := resolveStatsdAddr(mesh.StatsdUdpAddress); err == nil {
+			mesh.StatsdUdpAddress = addr
+		} else {
+			glog.Warningf("Error resolving statsd address; clearing to prevent bad config: %v", err)
+			mesh.StatsdUdpAddress = ""
+		}
+	}
 	agent := proxy.NewAgent(runEnvoy(mesh, egressNode), proxy.DefaultRetry)
 	return &egressWatcher{
 		agent: agent,

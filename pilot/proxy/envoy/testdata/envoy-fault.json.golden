@@ -555,5 +555,6 @@
       },
       "refresh_delay_ms": 10
     }
-  }
+  },
+  "statsd_udp_ip_address": "10.1.1.10:9125"
 }

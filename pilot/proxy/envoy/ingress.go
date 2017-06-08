@@ -48,6 +48,14 @@ type ingressWatcher struct {
 
 // NewIngressWatcher creates a new ingress watcher instance with an agent
 func NewIngressWatcher(mesh *proxyconfig.ProxyMeshConfig, secrets model.SecretRegistry) (Watcher, error) {
+	if mesh.StatsdUdpAddress != "" {
+		if addr, err := resolveStatsdAddr(mesh.StatsdUdpAddress); err == nil {
+			mesh.StatsdUdpAddress = addr
+		} else {
+			glog.Warningf("Error resolving statsd address; clearing to prevent bad config: %v", err)
+			mesh.StatsdUdpAddress = ""
+		}
+	}
 	agent := proxy.NewAgent(runEnvoy(mesh, ingressNode), proxy.DefaultRetry)
 	out := &ingressWatcher{
 		agent:   agent,

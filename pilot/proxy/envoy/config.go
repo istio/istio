@@ -109,6 +109,7 @@ func buildConfig(listeners Listeners, clusters Clusters, mesh *proxyconfig.Proxy
 				RefreshDelayMs: protoDurationToMS(mesh.DiscoveryRefreshDelay),
 			},
 		},
+		StatsdUDPIPAddress: mesh.StatsdUdpAddress,
 	}
 
 	if mesh.ZipkinAddress != "" {

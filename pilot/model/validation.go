@@ -918,6 +918,12 @@ func ValidateProxyMeshConfig(mesh *proxyconfig.ProxyMeshConfig) (errs error) {
 		}
 	}
 
+	if mesh.StatsdUdpAddress != "" {
+		if err := ValidateProxyAddress(mesh.StatsdUdpAddress); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid statsd udp address:"))
+		}
+	}
+
 	if err := ValidatePort(int(mesh.ProxyListenPort)); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy listen port:"))
 	}

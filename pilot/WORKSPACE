@@ -305,7 +305,7 @@ new_go_repository(
 ## Proxy build rules
 ##
 
-PROXY = "35b64109abe5c2242d5548507edb4c5912c43198"  # Jun 1, 2017
+PROXY = "466a7346f3c2c2f3cbcb0f1a74d2cd9ac6a565fe"  # Jun 2, 2017
 
 http_file(
     name = "istio_proxy",
@@ -405,7 +405,7 @@ go_proto_library(
     ],
 )
     """,
-    commit = "6e481630954efcad10c0ab43244e8991a5a36bfc",  # May 5 2017
+    commit = "94aa4ce91ada31c401f407324fec6cf1a6b52b02",  # June 2, 2017
     remote = "https://github.com/istio/api.git",
 )
 

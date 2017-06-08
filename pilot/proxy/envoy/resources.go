@@ -98,11 +98,12 @@ func protoDurationToMS(dur *duration.Duration) int64 {
 
 // Config defines the schema for Envoy JSON configuration format
 type Config struct {
-	RootRuntime    *RootRuntime   `json:"runtime,omitempty"`
-	Listeners      Listeners      `json:"listeners"`
-	Admin          Admin          `json:"admin"`
-	ClusterManager ClusterManager `json:"cluster_manager"`
-	Tracing        *Tracing       `json:"tracing,omitempty"`
+	RootRuntime        *RootRuntime   `json:"runtime,omitempty"`
+	Listeners          Listeners      `json:"listeners"`
+	Admin              Admin          `json:"admin"`
+	ClusterManager     ClusterManager `json:"cluster_manager"`
+	StatsdUDPIPAddress string         `json:"statsd_udp_ip_address,omitempty"`
+	Tracing            *Tracing       `json:"tracing,omitempty"`
 	// Special value used to hash all referenced values (e.g. TLS secrets)
 	Hash []byte `json:"-"`
 }

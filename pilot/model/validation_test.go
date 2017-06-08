@@ -852,6 +852,7 @@ func TestValidateProxyMeshConfig(t *testing.T) {
 		IstioServiceCluster:    "",
 		AuthPolicy:             -1,
 		AuthCertsPath:          "",
+		StatsdUdpAddress:       "10.0.0.100",
 	}
 
 	err := ValidateProxyMeshConfig(&invalid)
@@ -861,7 +862,7 @@ func TestValidateProxyMeshConfig(t *testing.T) {
 		switch err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) < 12 {
+			if len(err.(*multierror.Error).Errors) < 13 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:

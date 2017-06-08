@@ -40,16 +40,25 @@ type watcher struct {
 }
 
 // NewWatcher creates a new watcher instance with an agent
-func NewWatcher(ctl model.Controller, context *proxy.Context) (Watcher, error) {
-	glog.V(2).Infof("Local instance address: %s", context.IPAddress)
+func NewWatcher(ctl model.Controller, proxyCtx *proxy.Context) (Watcher, error) {
+	glog.V(2).Infof("Local instance address: %s", proxyCtx.IPAddress)
+
+	if proxyCtx.MeshConfig.StatsdUdpAddress != "" {
+		if addr, err := resolveStatsdAddr(proxyCtx.MeshConfig.StatsdUdpAddress); err == nil {
+			proxyCtx.MeshConfig.StatsdUdpAddress = addr
+		} else {
+			glog.Warningf("Error resolving statsd address; clearing to prevent bad config: %v", err)
+			proxyCtx.MeshConfig.StatsdUdpAddress = ""
+		}
+	}
 
 	// Use proxy node IP as the node name
 	// This parameter is used as the value for "service-node"
-	agent := proxy.NewAgent(runEnvoy(context.MeshConfig, context.IPAddress), proxy.DefaultRetry)
+	agent := proxy.NewAgent(runEnvoy(proxyCtx.MeshConfig, proxyCtx.IPAddress), proxy.DefaultRetry)
 
 	out := &watcher{
 		agent:   agent,
-		context: context,
+		context: proxyCtx,
 		ctl:     ctl,
 	}
 

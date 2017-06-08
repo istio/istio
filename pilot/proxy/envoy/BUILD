@@ -11,6 +11,7 @@ go_library(
         "header.go",
         "ingress.go",
         "policy.go",
+        "resolve.go",
         "resources.go",
         "route.go",
         "watcher.go",
