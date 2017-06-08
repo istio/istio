@@ -58,8 +58,12 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 		request := mixerpb.CheckRequest{Attributes: *attrs}
 		response, err := cs.client.Check(ctx, &request)
 
-		printf("Check RPC returned %s, %s", decodeError(err), decodeStatus(response.Status))
-		dumpAttributes(printf, fatalf, &response.Attributes)
+		if err == nil {
+			printf("Check RPC completed successfully. Check status was %s", decodeStatus(response.Status))
+			dumpAttributes(printf, fatalf, &response.Attributes)
+		} else {
+			printf("Check RPC failed with: %s", decodeError(err))
+		}
 	}
 
 	span.Finish()
