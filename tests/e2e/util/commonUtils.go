@@ -47,8 +47,8 @@ func CreateTempfile(tmpDir, prefix, suffix string) (string, error) {
 }
 
 // Shell run command on shell and get back output and error if get one
-func Shell(command string) (string, error) {
-	//glog.Info(command)
+func Shell(format string, args ...interface{}) (string, error) {
+	command := fmt.Sprintf(format, args...)
 	parts := strings.Split(command, " ")
 	glog.V(2).Infof("Running command %s", command)
 	c := exec.Command(parts[0], parts[1:]...) // #nosec
@@ -61,7 +61,8 @@ func Shell(command string) (string, error) {
 }
 
 // RunBackground starts a background process and return the Process if succeed
-func RunBackground(command string) (*os.Process, error) {
+func RunBackground(format string, args ...interface{}) (*os.Process, error) {
+	command := fmt.Sprintf(format, args...)
 	parts := strings.Split(command, " ")
 	c := exec.Command(parts[0], parts[1:]...) // #nosec
 	err := c.Start()

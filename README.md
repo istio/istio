@@ -34,7 +34,7 @@ Istio is composed of three main components:
    to enforce policies such as ACLs, rate limits, quotas, authentication, request
    tracing and telemetry collection.
 
-* **Manager** - A component responsible for configuring the
+* **Pilot** - A component responsible for configuring the
   Envoy and Mixer at runtime.
 
 Istio currently only supports the Kubernetes
@@ -59,12 +59,12 @@ currently looking at. It hosts the various Istio sample programs
 along with the various documents that govern the Istio open source 
 project.
 
-- [istio/manager](https://github.com/istio/manager). This repository
+- [istio/pilot](https://github.com/istio/pilot). This repository
 contains platform-specific code to populate the
-[abstract service model](https://istio.io/docs/concepts/traffic-management/service-model.html), dynamically reconfigure the proxies
+[abstract service model](https://istio.io/docs/concepts/traffic-management/overview.html), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
-[routing rules](https://istio.io/docs/reference/routing-and-traffic-management.html) into proxy specific configuration.  The
-[_istioctl_](https://istio.io/docs/reference/istioctl.html) command line utility is also available in
+[routing rules](https://istio.io/docs/reference/config/traffic-rules/routing-rules.html) into proxy specific configuration.  The
+[_istioctl_](https://istio.io/docs/reference/commands/istioctl.html) command line utility is also available in
 this repository.
 
 - [istio/mixer](https://github.com/istio/mixer). This repository 
@@ -86,7 +86,9 @@ decisions to the mixer.
 See the [contribution guidelines](CONTRIBUTING.md) for information on how to
 participate in the Istio project by submitting pull requests or issues. 
 
+You can then check out how to [setup for development](devel/README.md).
+
 ## Community and support
 
-There are several [communication channels](https://istio.io/community) available to get
+There are several [communication channels](https://istio.io/community/) available to get
 support for Istio or to participate in its evolution.

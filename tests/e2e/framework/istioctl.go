@@ -65,7 +65,7 @@ func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string) 
 	}, nil
 }
 
-// Setup set up istioctl prerequest for tests, port forward for manager
+// Setup set up istioctl prerequest for tests, port forwarding
 func (i *Istioctl) Setup() error {
 	glog.Info("Setting up istioctl")
 	if err := i.Install(); err != nil {
@@ -110,8 +110,9 @@ func (i *Istioctl) Install() error {
 	return nil
 }
 
-func (i *Istioctl) run(args string) error {
-	if _, err := util.Shell(fmt.Sprintf("%s %s", i.binaryPath, args)); err != nil {
+func (i *Istioctl) run(format string, args ...interface{}) error {
+	format = i.binaryPath + " " + format
+	if _, err := util.Shell(format, args...); err != nil {
 		glog.Errorf("istioctl %s failed", args)
 		return err
 	}
@@ -120,31 +121,27 @@ func (i *Istioctl) run(args string) error {
 
 // KubeInject use istio kube-inject to create new yaml with a proxy as sidecar.
 func (i *Istioctl) KubeInject(src, dest string) error {
-	args := fmt.Sprintf("kube-inject -f %s -o %s --hub %s --tag %s -n %s --istioNamespace %s",
+	return i.run("kube-inject -f %s -o %s --hub %s --tag %s -n %s --istioNamespace %s",
 		src, dest, i.proxyHub, i.proxyTag, i.namespace, i.istioNamespace)
-	return i.run(args)
 }
 
 // CreateRule create new rule(s)
 func (i *Istioctl) CreateRule(rule string) error {
-	return i.run(fmt.Sprintf("-n %s --istioNamespace %s create -f %s",
-		i.namespace, i.istioNamespace, rule))
+	return i.run("-n %s --istioNamespace %s create -f %s", i.namespace, i.istioNamespace, rule)
 }
 
 // CreateMixerRule create new rule(s)
 func (i *Istioctl) CreateMixerRule(scope, subject, rule string) error {
-	createCmdTmpl := "-n %s --istioNamespace %s mixer rule create %s %s -f %s"
-	return i.run(fmt.Sprintf(createCmdTmpl, i.namespace, i.istioNamespace, scope, subject, rule))
+	return i.run("-n %s --istioNamespace %s mixer rule create %s %s -f %s",
+		i.namespace, i.istioNamespace, scope, subject, rule)
 }
 
 // ReplaceRule replace rule(s)
 func (i *Istioctl) ReplaceRule(rule string) error {
-	return i.run(fmt.Sprintf("-n %s --istioNamespace %s replace -f %s",
-		i.namespace, i.istioNamespace, rule))
+	return i.run("-n %s --istioNamespace %s replace -f %s", i.namespace, i.istioNamespace, rule)
 }
 
 // DeleteRule Delete rule(s)
 func (i *Istioctl) DeleteRule(rule string) error {
-	return i.run(fmt.Sprintf("-n %s --istioNamespace %s delete -f %s",
-		i.namespace, i.istioNamespace, rule))
+	return i.run("-n %s --istioNamespace %s delete -f %s", i.namespace, i.istioNamespace, rule)
 }

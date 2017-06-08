@@ -12,15 +12,15 @@ Tests could be built and drove manually as a single test or automatically detect
 * `--namespace` specify a namespace for test
 * `--mixer_hub` mixer iamge hub
 * `--mixer_tag` mixer iamge tag
-* `--manager_hub` manager iamge hub
-* `--manager_tag` manager iamge tag
+* `--pilot_hub` pilot iamge hub
+* `--pilot_tag` pilot iamge tag
 * `--ca_hub` app image hub
 * `--ca_tag` app image tag
 * `--verbose` debug level noise from proxies
 * `--istioctl_url` the location of an `istioctl` binary
 * `--skip_cleanup` if skip cleanup steps
 
-Default values for the `mixer_hub/tag`, `manager_hub/tag`, and `istioctl_url` are as specified in
+Default values for the `mixer_hub/tag`, `pilot_hub/tag`, and `istioctl_url` are as specified in
 [istio.VERSION](../../istio.VERSION), which are latest tested stable version pairs.
 
 istio.VERSION can be updated by [updateVersion.sh](../../updateVersion.sh).
@@ -33,7 +33,7 @@ From the repo checkout root directory
 
 * `tests/e2e.sh`: run tests with the latest stable version of istio according to istio.VERSION.
 
-* `tests/e2e.sh --manager_hub=gcr.io/istio-testing --manager_tag=dc738396fd21ab9779853635dd22693d9dd3f78a --istioctl_url=https://storage.googleapis.com/istio-artifacts/dc738396fd21ab9779853635dd22693d9dd3f78a/artifacts/istioctl`: test commit in manager repo, SHA:"dc738396fd21ab9779853635dd22693d9dd3f78a".
+* `tests/e2e.sh --pilot_hub=gcr.io/istio-testing --pilot_tag=dc738396fd21ab9779853635dd22693d9dd3f78a --istioctl_url=https://storage.googleapis.com/istio-artifacts/dc738396fd21ab9779853635dd22693d9dd3f78a/artifacts/istioctl`: test commit in pilot repo, SHA:"dc738396fd21ab9779853635dd22693d9dd3f78a".
 
 
 ## Access to logs and temp files from Jenkins
@@ -51,9 +51,9 @@ You can build and run this or any single test manually with the same options as 
 ## Developer process
 
 ### Testing code change
-1. Run `e2e.sh --manager_hub <manager hub> --manager_tag <manager tag> --istioctl_url <istioctl url>` or
-   `e2e.sh --mixer_hub <mixer hub> --mixer_tag <mixer tag>` to test your changes to manager, mixer, respectively.
-2. Submit a PR with your changes to `istio/manager` or `istio/mixer`.
+1. Run `e2e.sh --pilot_hub <pilot hub> --pilot_tag <pilot tag> --istioctl_url <istioctl url>` or
+   `e2e.sh --mixer_hub <mixer hub> --mixer_tag <mixer tag>` to test your changes to pilot, mixer, respectively.
+2. Submit a PR with your changes to `istio/pilot` or `istio/mixer`.
 3. Run `updateVersion.sh` to update the default Istio install configuration and then
    submit a PR  to `istio/istio` for the version change. (Only admin)
 
