@@ -9,4 +9,6 @@
 vendor
 # Generated pb files
 *.pb.go
+# vi backups
+*.bak
 

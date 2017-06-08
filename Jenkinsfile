@@ -55,12 +55,12 @@ def smokeTest(gitUtils, bazel, utils) {
       def repo = prUrl.split('/')[4]
       def hub = 'gcr.io/istio-testing'
       switch (repo) {
-        case 'manager':
+        case 'pilot':
           def istioctlUrl = "https://storage.googleapis.com/istio-artifacts/${repo}/${prSha}/artifacts/istioctl"
           kubeTestArgs = "-m ${hub},${prSha} " +
               "-i ${istioctlUrl}"
-          e2eArgs += "--manager_hub=${hub}  " +
-              "--manager_tag=${prSha} " +
+          e2eArgs += "--pilot_hub=${hub}  " +
+              "--pilot_tag=${prSha} " +
               "--istioctl_url=${istioctlUrl}"
           break
         case 'mixer':

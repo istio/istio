@@ -78,6 +78,7 @@ interest in working on it. This helps other people know that the issue is
 active, and hopefully prevents duplicated efforts.
 
 To submit a proposed change:
+- Setup your [development environment](devel/README.md).
 - Fork the repository.
 - Create a new branch for your changes.
 - Develop the code/fix.
