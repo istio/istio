@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
       - name: mixer
-        image: docker.io/istio/mixer:0.1.5
+        image: docker.io/istio/mixer:0.1.6
         imagePullPolicy: Always
         ports:
         - containerPort: 9091
@@ -95,7 +95,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: docker.io/istio/pilot:0.1.6-dab2033
+        image: docker.io/istio/pilot:0.1.6
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:
@@ -107,7 +107,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
       - name: apiserver
-        image: docker.io/istio/pilot:0.1.6-dab2033
+        image: docker.io/istio/pilot:0.1.6
         imagePullPolicy: Always
         args: ["apiserver", "-v", "2"]
         ports:
@@ -160,7 +160,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: docker.io/istio/proxy_debug:0.1.6-dab2033
+        image: docker.io/istio/proxy_debug:0.1.6
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: Always
         ports:
@@ -208,7 +208,7 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: docker.io/istio/proxy_debug:0.1.6-dab2033
+        image: docker.io/istio/proxy_debug:0.1.6
         imagePullPolicy: Always
         args: ["proxy", "egress", "-v", "2"]
         env:
@@ -251,7 +251,7 @@ spec:
       serviceAccountName: istio-ca-service-account
       containers:
       - name: istio-ca
-        image: docker.io/istio/istio-ca:0.1.5
+        image: docker.io/istio/istio-ca:0.1.6
         imagePullPolicy: IfNotPresent
         env:
         - name: NAMESPACE
