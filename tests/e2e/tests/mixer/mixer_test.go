@@ -349,6 +349,10 @@ func TestRateLimit(t *testing.T) {
 		return
 	}
 
+	glog.Infof("WRK stats: %#v", r)
+	// Allow full processing of metrics, etc.
+	time.Sleep(1 * time.Minute)
+
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
 	// must sleep to allow for prometheus scraping, etc.
 	time.Sleep(15 * time.Second)
@@ -381,7 +385,7 @@ func TestRateLimit(t *testing.T) {
 	// allow some leeway
 	want = float64(r.CompletedRequests) * 2 / 3 * 0.75
 	if got < want {
-		t.Errorf("Bad metric value for successulf requests (200s): got %f, want at least %f", got, want)
+		t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 }
 
