@@ -395,7 +395,7 @@ func promAPI() (v1.API, error) {
 
 func vectorValue(val model.Value, labels map[string]string) (float64, error) {
 	if val.Type() != model.ValVector {
-		return 0, fmt.Errorf("Value not a model.Vector; was %s", val.Type().String())
+		return 0, fmt.Errorf("value not a model.Vector; was %s", val.Type().String())
 	}
 
 	value := val.(model.Vector)
@@ -411,7 +411,7 @@ func vectorValue(val model.Value, labels map[string]string) (float64, error) {
 			return float64(sample.Value), nil
 		}
 	}
-	return 0, fmt.Errorf("Value not found for %v", labels)
+	return 0, fmt.Errorf("value not found for %#v", labels)
 }
 
 func applyReviewsRoutingRules(t *testing.T) {
