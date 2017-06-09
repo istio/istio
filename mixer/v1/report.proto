@@ -53,7 +53,7 @@ message ReportRequest {
 
   // The number of words in the global dictionary.
   // To detect global dictionary out of sync between client and server.
-  int global_word_count = 3;
+  uint32 global_word_count = 3;
 }
 
 message ReportResponse {

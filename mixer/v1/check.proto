@@ -35,7 +35,7 @@ message CheckRequest {
 
   // The number of words in the global dictionary.
   // To detect global dictionary out of sync between client and server.
-  int global_word_count = 2;
+  uint32 global_word_count = 2;
 }
 
 message CheckResponse {
