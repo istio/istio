@@ -15,6 +15,7 @@
 package mock
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -25,174 +26,166 @@ import (
 	"istio.io/pilot/model"
 )
 
-// Mock values
+// Mock config type
 const (
-	Kind      = "mock-config"
-	Name      = "my-qualified-name"
-	Namespace = "test"
+	Type = "mock-config"
 )
 
-// Mock values
+// Mock config descriptor
 var (
-	Key = model.Key{
-		Kind:      Kind,
-		Name:      Name,
-		Namespace: Namespace,
-	}
-	ConfigObject = &MockConfig{
-		Pairs: []*ConfigPair{
-			{Key: "key", Value: "value"},
-		},
-	}
-	Mapping = model.KindMap{
-		Kind: model.ProtoSchema{
+	Types = model.ConfigDescriptor{
+		model.ProtoSchema{
+			Type:        Type,
 			MessageName: "mock.MockConfig",
-			Validate:    func(proto.Message) error { return nil },
+			Validate: func(config proto.Message) error {
+				if config.(*MockConfig).Key == "" {
+					return errors.New("empty key")
+				}
+				return nil
+			},
+			Key: func(config proto.Message) string {
+				return config.(*MockConfig).Key
+			},
 		},
 	}
 )
 
-// MakeRegistry creates a mock config registry
-func MakeRegistry() *model.IstioRegistry {
-	return &model.IstioRegistry{
-		ConfigRegistry: &ConfigRegistry{
-			data: make(map[model.Key]proto.Message),
-		}}
-}
-
-// ConfigRegistry is a mock config registry
-type ConfigRegistry struct {
-	data map[model.Key]proto.Message
-}
-
-// Get implements config registry method
-func (cr *ConfigRegistry) Get(key model.Key) (proto.Message, bool) {
-	val, ok := cr.data[key]
-	return val, ok
-}
-
-// Delete implements config registry method
-func (cr *ConfigRegistry) Delete(key model.Key) error {
-	if _, ok := cr.data[key]; ok {
-		delete(cr.data, key)
-		return nil
-	}
-	return &model.ItemNotFoundError{Key: key}
-}
-
-// Post implements config registry method
-func (cr *ConfigRegistry) Post(key model.Key, v proto.Message) error {
-	_, ok := cr.data[key]
-	if !ok {
-		cr.data[key] = v
-		return nil
-	}
-	return &model.ItemAlreadyExistsError{Key: key}
-}
-
-// Put implements config registry method
-func (cr *ConfigRegistry) Put(key model.Key, v proto.Message) error {
-	_, ok := cr.data[key]
-	if !ok {
-		return &model.ItemNotFoundError{Key: key}
-	}
-	cr.data[key] = v
-	return nil
-}
-
-// List implements config registry method
-func (cr *ConfigRegistry) List(kind string, namespace string) (map[model.Key]proto.Message, error) {
-	out := make(map[model.Key]proto.Message)
-	for k, v := range cr.data {
-		if k.Kind == kind && (namespace == "" || k.Namespace == namespace) {
-			out[k] = v
-		}
-	}
-	return out, nil
-}
-
-// Make creates a fake config
+// Make creates a mock config indexed by a number
 func Make(i int) *MockConfig {
 	return &MockConfig{
+		Key: fmt.Sprintf("%s%d", "mock-config", i),
 		Pairs: []*ConfigPair{
 			{Key: "key", Value: strconv.Itoa(i)},
 		},
 	}
 }
 
-// CheckMapInvariant validates operational invariants of a config registry
-func CheckMapInvariant(r model.ConfigRegistry, t *testing.T, namespace string, n int) {
+// CheckMapInvariant validates operational invariants of an empty config registry
+func CheckMapInvariant(r model.ConfigStore, t *testing.T, n int) {
+	// check that the config descriptor is the mock config descriptor
+	_, contains := r.ConfigDescriptor().GetByType(Type)
+	if !contains {
+		t.Error("expected config mock types")
+	}
+
 	// create configuration objects
-	keys := make(map[int]model.Key)
 	elts := make(map[int]*MockConfig)
 	for i := 0; i < n; i++ {
-		keys[i] = model.Key{
-			Kind:      Kind,
-			Name:      fmt.Sprintf("%s%d", Name, i),
-			Namespace: namespace,
-		}
 		elts[i] = Make(i)
 	}
 
 	// post all elements
-	for i, elt := range elts {
-		if err := r.Post(keys[i], elt); err != nil {
+	for _, elt := range elts {
+		if _, err := r.Post(elt); err != nil {
 			t.Error(err)
 		}
 	}
 
+	revs := make(map[int]string)
+
 	// check that elements are stored
 	for i, elt := range elts {
-		if v1, ok := r.Get(keys[i]); !ok || !reflect.DeepEqual(v1, elt) {
-			t.Errorf("Wanted %v, got %v", elt, v1)
+		if v1, ok, rev := r.Get(Type, elts[i].Key); !ok || !reflect.DeepEqual(v1, elt) {
+			t.Errorf("wanted %v, got %v", elt, v1)
+		} else {
+			revs[i] = rev
 		}
 	}
 
+	if _, err := r.Post(elts[0]); err == nil {
+		t.Error("expected error posting twice")
+	}
+
+	if _, err := r.Post(nil); err == nil {
+		t.Error("expected error posting invalid object")
+	}
+
+	if _, err := r.Post(&MockConfig{}); err == nil {
+		t.Error("expected error posting invalid object")
+	}
+
+	if _, err := r.Put(nil, revs[0]); err == nil {
+		t.Error("expected error putting invalid object")
+	}
+
+	if _, err := r.Put(&MockConfig{}, revs[0]); err == nil {
+		t.Error("expected error putting invalid object")
+	}
+
+	if _, err := r.Put(&MockConfig{Key: "missing"}, revs[0]); err == nil {
+		t.Error("expected error putting missing object with a missing key")
+	}
+
+	if _, err := r.Put(elts[0], ""); err == nil {
+		t.Error("expected error putting object without revision")
+	}
+
+	if _, err := r.Put(elts[0], "missing"); err == nil {
+		t.Error("expected error putting object with a bad revision")
+	}
+
+	// check for missing type
+	if l, _ := r.List("missing"); len(l) > 0 {
+		t.Errorf("unexpected objects for missing type")
+	}
+
 	// check for missing element
-	if _, ok := r.Get(model.Key{
-		Kind:      Kind,
-		Name:      Name,
-		Namespace: namespace,
-	}); ok {
-		t.Error("Unexpected configuration object found")
+	if _, ok, _ := r.Get(Type, "missing"); ok {
+		t.Error("unexpected configuration object found")
+	}
+
+	// check for missing element
+	if _, ok, _ := r.Get("missing", "missing"); ok {
+		t.Error("unexpected configuration object found")
+	}
+
+	// delete missing elements
+	if err := r.Delete("missing", "missing"); err == nil {
+		t.Error("expected error on deletion of missing type")
+	}
+
+	// delete missing elements
+	if err := r.Delete(Type, "missing"); err == nil {
+		t.Error("expected error on deletion of missing element")
 	}
 
 	// list elements
-	l, err := r.List(Kind, namespace)
+	l, err := r.List(Type)
 	if err != nil {
 		t.Errorf("List error %#v, %v", l, err)
 	}
 	if len(l) != n {
-		t.Errorf("Wanted %d element(s), got %d in %v", n, len(l), l)
+		t.Errorf("wanted %d element(s), got %d in %v", n, len(l), l)
 	}
 
 	// update all elements
 	for i := 0; i < n; i++ {
+		elts[i] = Make(i)
 		elts[i].Pairs[0].Value += "(updated)"
-		if err = r.Put(keys[i], elts[i]); err != nil {
+		if _, err = r.Put(elts[i], revs[i]); err != nil {
 			t.Error(err)
 		}
 	}
 
 	// check that elements are stored
 	for i, elt := range elts {
-		if v1, ok := r.Get(keys[i]); !ok || !reflect.DeepEqual(v1, elt) {
-			t.Errorf("Wanted %v, got %v", elt, v1)
+		if v1, ok, _ := r.Get(Type, elts[i].Key); !ok || !reflect.DeepEqual(v1, elt) {
+			t.Errorf("wanted %v, got %v", elt, v1)
 		}
 	}
 
 	// delete all elements
 	for i := range elts {
-		if err = r.Delete(keys[i]); err != nil {
+		if err = r.Delete(Type, elts[i].Key); err != nil {
 			t.Error(err)
 		}
 	}
 
-	l, err = r.List(Kind, namespace)
+	l, err = r.List(Type)
 	if err != nil {
 		t.Error(err)
 	}
 	if len(l) != 0 {
-		t.Errorf("Wanted 0 element(s), got %d in %v", len(l), l)
+		t.Errorf("wanted 0 element(s), got %d in %v", len(l), l)
 	}
 }

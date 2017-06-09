@@ -11,7 +11,6 @@ import (
 	"fmt"
 
 	"istio.io/pilot/apiserver"
-	"istio.io/pilot/model"
 )
 
 type FakeHandler struct {
@@ -37,7 +36,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 	cases := []struct {
 		name            string
 		function        string
-		key             model.Key
+		key             Key
 		kind            string
 		namespace       string
 		config          *apiserver.Config
@@ -51,7 +50,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		{
 			name:        "TestConfigGet",
 			function:    "get",
-			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
+			key:         Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			wantConfig:  &apiserver.Config{Type: "type", Name: "name", Spec: "spec"},
 			wantHeaders: http.Header{"Content-Type": []string{"application/json"}},
 			wantStatus:  http.StatusOK,
@@ -59,7 +58,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		{
 			name:        "TestConfigGetNotFound",
 			function:    "get",
-			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
+			key:         Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
 			wantStatus:  http.StatusNotFound,
@@ -67,7 +66,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		{
 			name:        "TestConfigGetInvalidConfigType",
 			function:    "get",
-			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
+			key:         Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
 			wantStatus:  http.StatusBadRequest,
@@ -75,7 +74,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		{
 			name:        "TestConfigGetInvalidRespBody",
 			function:    "get",
-			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
+			key:         Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
 			wantStatus:  http.StatusBadRequest,
@@ -83,7 +82,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		{
 			name:        "TestConfigAdd",
 			function:    "add",
-			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
+			key:         Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			config:      &apiserver.Config{Type: "type", Name: "name", Spec: "spec"},
 			wantHeaders: http.Header{"Content-Type": []string{"application/json"}},
 			sentHeaders: http.Header{"Content-Type": []string{"application/json"}},
@@ -92,7 +91,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		{
 			name:        "TestAddConfigConflict",
 			function:    "add",
-			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
+			key:         Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			config:      &apiserver.Config{Type: "type", Name: "name", Spec: "spec"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
@@ -102,7 +101,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		{
 			name:        "TestConfigAddInvalidConfigType",
 			function:    "add",
-			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
+			key:         Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			config:      &apiserver.Config{Type: "NOTATYPE", Name: "name", Spec: "spec"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
@@ -112,7 +111,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		{
 			name:        "TestAddConfigInvalidSpec",
 			function:    "add",
-			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
+			key:         Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			config:      &apiserver.Config{Type: "type", Name: "name", Spec: "NOTASPEC"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
@@ -122,7 +121,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		{
 			name:        "TestConfigUpdate",
 			function:    "update",
-			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
+			key:         Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			config:      &apiserver.Config{Type: "type", Name: "name", Spec: "spec"},
 			wantHeaders: http.Header{"Content-Type": []string{"application/json"}},
 			sentHeaders: http.Header{"Content-Type": []string{"application/json"}},
@@ -131,7 +130,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		{
 			name:        "TestConfigUpdateNotFound",
 			function:    "update",
-			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
+			key:         Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			config:      &apiserver.Config{Type: "type", Name: "name", Spec: "spec"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
@@ -141,7 +140,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		{
 			name:        "TestConfigUpdateInvalidConfigType",
 			function:    "update",
-			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
+			key:         Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			config:      &apiserver.Config{Type: "NOTATYPE", Name: "name", Spec: "spec"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
@@ -151,7 +150,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		{
 			name:        "TestUpdateConfigInvalidSpec",
 			function:    "update",
-			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
+			key:         Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			config:      &apiserver.Config{Type: "type", Name: "name", Spec: "NOTASPEC"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
@@ -161,14 +160,14 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		{
 			name:        "TestConfigDelete",
 			function:    "delete",
-			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
+			key:         Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			wantHeaders: http.Header{"Content-Type": []string{"application/json"}},
 			wantStatus:  http.StatusOK,
 		},
 		{
 			name:        "TestConfigDeleteNotFound",
 			function:    "delete",
-			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
+			key:         Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
 			wantStatus:  http.StatusNotFound,
@@ -176,7 +175,7 @@ func TestGetAddUpdateDeleteListConfig(t *testing.T) {
 		{
 			name:        "TestConfigDeleteInvalidConfigType",
 			function:    "delete",
-			key:         model.Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
+			key:         Key{Name: "name", Namespace: "namespace", Kind: "route-rule"},
 			wantError:   true,
 			wantHeaders: http.Header{"Content-Type": []string{"text/plain"}},
 			wantStatus:  http.StatusBadRequest,

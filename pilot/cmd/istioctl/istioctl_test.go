@@ -22,18 +22,18 @@ import (
 	"strings"
 
 	"istio.io/pilot/apiserver"
+	"istio.io/pilot/client/proxy"
 	"istio.io/pilot/cmd/version"
-	"istio.io/pilot/model"
 )
 
 type StubClient struct {
 	AddConfigCalled bool
-	KeyConfigMap    map[model.Key]apiserver.Config
-	WantKeys        map[model.Key]struct{}
+	KeyConfigMap    map[proxy.Key]apiserver.Config
+	WantKeys        map[proxy.Key]struct{}
 	Error           error
 }
 
-func (st *StubClient) GetConfig(model.Key) (*apiserver.Config, error) {
+func (st *StubClient) GetConfig(proxy.Key) (*apiserver.Config, error) {
 	if st.Error != nil {
 		return nil, st.Error
 	}
@@ -47,7 +47,7 @@ func (st *StubClient) GetConfig(model.Key) (*apiserver.Config, error) {
 	return &config, nil
 }
 
-func (st *StubClient) AddConfig(key model.Key, config apiserver.Config) error {
+func (st *StubClient) AddConfig(key proxy.Key, config apiserver.Config) error {
 	st.AddConfigCalled = true
 	if st.Error != nil {
 		return st.Error
@@ -55,14 +55,14 @@ func (st *StubClient) AddConfig(key model.Key, config apiserver.Config) error {
 	return st.verifyKeyConfig(key, config)
 }
 
-func (st *StubClient) UpdateConfig(key model.Key, config apiserver.Config) error {
+func (st *StubClient) UpdateConfig(key proxy.Key, config apiserver.Config) error {
 	if st.Error != nil {
 		return st.Error
 	}
 	return st.verifyKeyConfig(key, config)
 }
 
-func (st *StubClient) DeleteConfig(key model.Key) error {
+func (st *StubClient) DeleteConfig(key proxy.Key) error {
 	if st.Error != nil {
 		return st.Error
 	}
@@ -99,13 +99,13 @@ func (st *StubClient) Version() (*version.BuildInfo, error) {
 }
 
 func (st *StubClient) setupTwoRouteRuleMap() {
-	st.KeyConfigMap = make(map[model.Key]apiserver.Config)
-	key1 := model.Key{
+	st.KeyConfigMap = make(map[proxy.Key]apiserver.Config)
+	key1 := proxy.Key{
 		Name:      "test-v1",
 		Namespace: namespace,
 		Kind:      "route-rule",
 	}
-	key2 := model.Key{
+	key2 := proxy.Key{
 		Name:      "test-v2",
 		Namespace: namespace,
 		Kind:      "route-rule",
@@ -121,12 +121,12 @@ func (st *StubClient) setupTwoRouteRuleMap() {
 }
 
 func (st *StubClient) setupDeleteKeys() {
-	st.WantKeys = make(map[model.Key]struct{})
-	st.WantKeys[model.Key{Name: "test-v1", Namespace: "default", Kind: "route-rule"}] = struct{}{}
-	st.WantKeys[model.Key{Name: "test-v2", Namespace: "default", Kind: "route-rule"}] = struct{}{}
+	st.WantKeys = make(map[proxy.Key]struct{})
+	st.WantKeys[proxy.Key{Name: "test-v1", Namespace: "default", Kind: "route-rule"}] = struct{}{}
+	st.WantKeys[proxy.Key{Name: "test-v2", Namespace: "default", Kind: "route-rule"}] = struct{}{}
 }
 
-func (st *StubClient) verifyKeyConfig(key model.Key, config apiserver.Config) error {
+func (st *StubClient) verifyKeyConfig(key proxy.Key, config apiserver.Config) error {
 	wantConfig, ok := st.KeyConfigMap[key]
 	if !ok {
 		return fmt.Errorf("received unexpected key/config pair\n key: %+v\nconfig: %+v", key, config)

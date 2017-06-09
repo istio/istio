@@ -65,7 +65,7 @@ func insertMixerFilter(listeners []*Listener, instances []*model.ServiceInstance
 }
 
 // insertDestinationPolicy assumes an outbound cluster and inserts custom configuration for the cluster
-func insertDestinationPolicy(config *model.IstioRegistry, cluster *Cluster) {
+func insertDestinationPolicy(config model.IstioConfigStore, cluster *Cluster) {
 	policy := config.DestinationPolicy(cluster.hostname, cluster.tags)
 
 	if policy == nil {

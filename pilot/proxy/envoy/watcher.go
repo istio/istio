@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/model"
@@ -40,7 +39,7 @@ type watcher struct {
 }
 
 // NewWatcher creates a new watcher instance with an agent
-func NewWatcher(ctl model.Controller, proxyCtx *proxy.Context) (Watcher, error) {
+func NewWatcher(ctl model.Controller, configCache model.ConfigStoreCache, proxyCtx *proxy.Context) (Watcher, error) {
 	glog.V(2).Infof("Local instance address: %s", proxyCtx.IPAddress)
 
 	if proxyCtx.MeshConfig.StatsdUdpAddress != "" {
@@ -72,14 +71,10 @@ func NewWatcher(ctl model.Controller, proxyCtx *proxy.Context) (Watcher, error) 
 		return nil, err
 	}
 
-	handler := func(model.Key, proto.Message, model.Event) { out.reload() }
-
-	if err := ctl.AppendConfigHandler(model.RouteRule, handler); err != nil {
-		return nil, err
-	}
-
-	if err := ctl.AppendConfigHandler(model.DestinationPolicy, handler); err != nil {
-		return nil, err
+	if configCache != nil {
+		handler := func(model.Config, model.Event) { out.reload() }
+		configCache.RegisterEventHandler(model.RouteRule, handler)
+		configCache.RegisterEventHandler(model.DestinationPolicy, handler)
 	}
 
 	return out, nil

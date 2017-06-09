@@ -66,11 +66,11 @@ func kubeClientFromConfig(kubeconfig string) (*kube.Client, error) {
 		}
 	}
 
-	c, err := kube.NewClient(kubeconfig, model.IstioConfig)
+	c, err := kube.NewClient(kubeconfig, model.IstioConfigTypes, istioNamespace)
 	if err != nil && kubeconfig == "" {
 		// If no configuration was specified, and the platform
 		// client failed, try again using ~/.kube/config
-		c, err = kube.NewClient(os.Getenv("HOME")+"/.kube/config", model.IstioConfig)
+		c, err = kube.NewClient(os.Getenv("HOME")+"/.kube/config", model.IstioConfigTypes, istioNamespace)
 	}
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed to connect to Kubernetes API.")
@@ -91,7 +91,7 @@ var (
 	// output format (yaml or short)
 	outputFormat string
 
-	key    model.Key
+	key    proxy.Key
 	schema model.ProtoSchema
 
 	rootCmd = &cobra.Command{
@@ -114,7 +114,7 @@ and destination policies.
 
 More information on the mixer API configuration can be found under the
 istioctl mixer command documentation.
-`, model.IstioConfig.Kinds()),
+`, model.IstioConfigTypes.Types()),
 		PersistentPreRunE: func(*cobra.Command, []string) error {
 			var err error
 			client, err = kubeClientFromConfig(kubeconfig)
@@ -231,7 +231,7 @@ istioctl get route-rule productpage-default
 			if len(args) < 1 {
 				c.Println(c.UsageString())
 				return fmt.Errorf("specify the type of resource to get. Types are %v",
-					strings.Join(model.IstioConfig.Kinds(), ", "))
+					strings.Join(model.IstioConfigTypes.Types(), ", "))
 			}
 
 			if len(args) > 1 {
@@ -424,14 +424,14 @@ func setup(kind, name string) error {
 
 	// set proto schema
 	var ok bool
-	schema, ok = model.IstioConfig[kind]
+	schema, ok = model.IstioConfigTypes.GetByType(kind)
 	if !ok {
 		return fmt.Errorf("Istio doesn't have configuration type %s, the types are %v",
-			kind, strings.Join(model.IstioConfig.Kinds(), ", "))
+			kind, strings.Join(model.IstioConfigTypes.Types(), ", "))
 	}
 
 	// set the config key
-	key = model.Key{
+	key = proxy.Key{
 		Kind:      kind,
 		Name:      name,
 		Namespace: namespace,

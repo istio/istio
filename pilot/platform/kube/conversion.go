@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
-
 	multierror "github.com/hashicorp/go-multierror"
+
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/pkg/api/v1"
@@ -141,9 +141,8 @@ func convertProtocol(name string, proto v1.Protocol) model.Protocol {
 }
 
 // modelToKube translates Istio config to k8s config JSON
-func modelToKube(km model.KindMap, k *model.Key, v proto.Message) (*Config, error) {
-	kind := km[k.Kind]
-	spec, err := kind.ToJSONMap(v)
+func modelToKube(schema model.ProtoSchema, namespace string, config proto.Message) (*Config, error) {
+	spec, err := schema.ToJSONMap(config)
 	if err != nil {
 		return nil, err
 	}
@@ -152,8 +151,8 @@ func modelToKube(km model.KindMap, k *model.Key, v proto.Message) (*Config, erro
 			Kind: IstioKind,
 		},
 		Metadata: meta_v1.ObjectMeta{
-			Name:      k.Kind + "-" + k.Name,
-			Namespace: k.Namespace,
+			Name:      configKey(schema.Type, schema.Key(config)),
+			Namespace: namespace,
 		},
 		Spec: spec,
 	}
@@ -161,15 +160,12 @@ func modelToKube(km model.KindMap, k *model.Key, v proto.Message) (*Config, erro
 	return out, nil
 }
 
-func convertIngress(ingress v1beta1.Ingress, domainSuffix string) map[model.Key]proto.Message {
-	messages := make(map[model.Key]proto.Message)
+func convertIngress(ingress v1beta1.Ingress, domainSuffix string) map[string]proto.Message {
+	messages := make(map[string]proto.Message)
 
-	keyOf := func(ruleNum, pathNum int) model.Key {
-		return model.Key{
-			Kind:      model.IngressRule,
-			Name:      encodeIngressRuleName(ingress.Name, ruleNum, pathNum),
-			Namespace: ingress.Namespace,
-		}
+	keyOf := func(ruleNum, pathNum int) string {
+		// TODO: namespace
+		return encodeIngressRuleName(ingress.Name, ingress.Namespace, ruleNum, pathNum)
 	}
 
 	tls := ""
@@ -180,12 +176,14 @@ func convertIngress(ingress v1beta1.Ingress, domainSuffix string) map[model.Key]
 	}
 
 	if ingress.Spec.Backend != nil {
-		messages[keyOf(0, 0)] = createIngressRule("", "", ingress.Namespace, domainSuffix, *ingress.Spec.Backend, tls)
+		key := keyOf(0, 0)
+		messages[key] = createIngressRule(key, "", "", ingress.Namespace, domainSuffix, *ingress.Spec.Backend, tls)
 	}
 
 	for i, rule := range ingress.Spec.Rules {
 		for j, path := range rule.HTTP.Paths {
-			messages[keyOf(i+1, j+1)] = createIngressRule(rule.Host, path.Path, ingress.Namespace,
+			key := keyOf(i+1, j+1)
+			messages[key] = createIngressRule(key, rule.Host, path.Path, ingress.Namespace,
 				domainSuffix, path.Backend, tls)
 		}
 	}
@@ -193,23 +191,25 @@ func convertIngress(ingress v1beta1.Ingress, domainSuffix string) map[model.Key]
 	return messages
 }
 
-func createIngressRule(host, path, namespace, domainSuffix string,
-	backend v1beta1.IngressBackend, tlsSecret string) proto.Message {
-	destination := serviceHostname(backend.ServiceName, namespace, domainSuffix)
-	tags := make(map[string]string, 2)
-	switch backend.ServicePort.Type {
-	case intstr.Int:
-		tags[model.IngressPortNum] = strconv.Itoa(backend.ServicePort.IntValue())
-	case intstr.String:
-		tags[model.IngressPortName] = backend.ServicePort.String()
-	}
-	tags[model.IngressTLSSecret] = tlsSecret
-	rule := &proxyconfig.RouteRule{
-		Destination: destination,
+func createIngressRule(name, host, path, namespace, domainSuffix string,
+	backend v1beta1.IngressBackend, tlsSecret string) *proxyconfig.IngressRule {
+	rule := &proxyconfig.IngressRule{
+		Name:        name,
+		Destination: serviceHostname(backend.ServiceName, namespace, domainSuffix),
+		TlsSecret:   tlsSecret,
 		Match: &proxyconfig.MatchCondition{
 			HttpHeaders: make(map[string]*proxyconfig.StringMatch, 2),
 		},
-		Route: []*proxyconfig.DestinationWeight{{Tags: tags}},
+	}
+	switch backend.ServicePort.Type {
+	case intstr.Int:
+		rule.DestinationServicePort = &proxyconfig.IngressRule_DestinationPort{
+			DestinationPort: int32(backend.ServicePort.IntValue()),
+		}
+	case intstr.String:
+		rule.DestinationServicePort = &proxyconfig.IngressRule_DestinationPortName{
+			DestinationPortName: backend.ServicePort.String(),
+		}
 	}
 
 	if host != "" {
@@ -242,20 +242,22 @@ func createIngressRule(host, path, namespace, domainSuffix string,
 // encodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
 // as well as the position of the rule and path specified within it, counting from 1.
 // ruleNum == pathNum == 0 indicates the default backend specified for an ingress.
-func encodeIngressRuleName(ingressName string, ruleNum, pathNum int) string {
-	return fmt.Sprintf("%s-%d-%d", ingressName, ruleNum, pathNum)
+func encodeIngressRuleName(ingressName, ingressNamespace string, ruleNum, pathNum int) string {
+	return fmt.Sprintf("%s/%s/%d/%d", ingressNamespace, ingressName, ruleNum, pathNum)
 }
 
 // decodeIngressRuleName decodes an ingress rule name previously encoded with encodeIngressRuleName.
-func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum int, err error) {
-	parts := strings.Split(name, "-")
-	if len(parts) < 3 {
+func decodeIngressRuleName(name string) (ingressName, ingressNamespace string, ruleNum, pathNum int, err error) {
+	parts := strings.Split(name, "/")
+	if len(parts) != 4 {
 		err = fmt.Errorf("could not decode string into ingress rule name: %s", name)
 		return
 	}
 
-	pathNum, pathErr := strconv.Atoi(parts[len(parts)-1])
-	ruleNum, ruleErr := strconv.Atoi(parts[len(parts)-2])
+	ingressNamespace = parts[0]
+	ingressName = parts[1]
+	ruleNum, ruleErr := strconv.Atoi(parts[2])
+	pathNum, pathErr := strconv.Atoi(parts[3])
 
 	if pathErr != nil || ruleErr != nil {
 		err = multierror.Append(
@@ -264,7 +266,6 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 		return
 	}
 
-	ingressName = strings.Join(parts[0:len(parts)-2], "-")
 	return
 }
 

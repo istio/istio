@@ -26,7 +26,6 @@ import (
 
 	restful "github.com/emicklei/go-restful"
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/model"
@@ -192,7 +191,7 @@ type DiscoveryServiceOptions struct {
 }
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
-func NewDiscoveryService(ctl model.Controller, context *proxy.Context,
+func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCache, context *proxy.Context,
 	o DiscoveryServiceOptions) (*DiscoveryService, error) {
 	out := &DiscoveryService{
 		Context:  context,
@@ -221,15 +220,12 @@ func NewDiscoveryService(ctl model.Controller, context *proxy.Context,
 	if err := ctl.AppendInstanceHandler(instanceHandler); err != nil {
 		return nil, err
 	}
-	configHandler := func(k model.Key, m proto.Message, e model.Event) { out.clearCache() }
-	if err := ctl.AppendConfigHandler(model.RouteRule, configHandler); err != nil {
-		return nil, err
-	}
-	if err := ctl.AppendConfigHandler(model.IngressRule, configHandler); err != nil {
-		return nil, err
-	}
-	if err := ctl.AppendConfigHandler(model.DestinationPolicy, configHandler); err != nil {
-		return nil, err
+
+	if configCache != nil {
+		configHandler := func(model.Config, model.Event) { out.clearCache() }
+		configCache.RegisterEventHandler(model.RouteRule, configHandler)
+		configCache.RegisterEventHandler(model.IngressRule, configHandler)
+		configCache.RegisterEventHandler(model.DestinationPolicy, configHandler)
 	}
 
 	return out, nil
@@ -536,7 +532,7 @@ func (ds *DiscoveryService) ListSecret(request *restful.Request, response *restf
 		return
 	}
 
-	_, secret := buildIngressRoutes(ds.Config.IngressRules(""), ds.Discovery, ds.Config)
+	_, secret := buildIngressRoutes(ds.Config.IngressRules(), ds.Discovery, ds.Config)
 	writeResponse(response, []byte(secret))
 }
 
@@ -585,7 +581,7 @@ func (ds *DiscoveryService) getClusters(node string) Clusters {
 	var httpRouteConfigs HTTPRouteConfigs
 	switch node {
 	case ingressNode:
-		httpRouteConfigs, _ = buildIngressRoutes(ds.Config.IngressRules(""), ds.Discovery, ds.Config)
+		httpRouteConfigs, _ = buildIngressRoutes(ds.Config.IngressRules(), ds.Discovery, ds.Config)
 	case egressNode:
 		httpRouteConfigs = buildEgressRoutes(ds.Discovery, ds.MeshConfig)
 	default:
@@ -627,7 +623,7 @@ func (ds *DiscoveryService) getRouteConfigs(node string) (httpRouteConfigs HTTPR
 
 	switch node {
 	case ingressNode:
-		httpRouteConfigs, _ = buildIngressRoutes(ds.Config.IngressRules(""), ds.Discovery, ds.Config)
+		httpRouteConfigs, _ = buildIngressRoutes(ds.Config.IngressRules(), ds.Discovery, ds.Config)
 	case egressNode:
 		httpRouteConfigs = buildEgressRoutes(ds.Discovery, ds.MeshConfig)
 	default:

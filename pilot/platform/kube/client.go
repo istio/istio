@@ -61,9 +61,10 @@ const (
 // - dynamic REST client is configured to use third-party resources
 // - static client exposes Kubernetes API
 type Client struct {
-	mapping model.KindMap
-	client  kubernetes.Interface
-	dyn     *rest.RESTClient
+	mapping      model.ConfigDescriptor
+	client       kubernetes.Interface
+	dyn          *rest.RESTClient
+	dynNamespace string
 }
 
 // CreateRESTConfig for cluster API server, pass empty config file for in-cluster
@@ -115,7 +116,8 @@ func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 // NewClient creates a client to Kubernetes API using a kubeconfig file.
 // Use an empty value for `kubeconfig` to use the in-cluster config.
 // If the kubeconfig file is empty, defaults to in-cluster config as well.
-func NewClient(kubeconfig string, km model.KindMap) (*Client, error) {
+// namespace is used to store TPRs
+func NewClient(kubeconfig string, km model.ConfigDescriptor, namespace string) (*Client, error) {
 	if kubeconfig != "" {
 		info, exists := os.Stat(kubeconfig)
 		if exists != nil {
@@ -144,9 +146,10 @@ func NewClient(kubeconfig string, km model.KindMap) (*Client, error) {
 	}
 
 	out := &Client{
-		mapping: km,
-		client:  cl,
-		dyn:     dyn,
+		mapping:      km,
+		client:       cl,
+		dyn:          dyn,
+		dynNamespace: namespace,
 	}
 
 	return out, nil
@@ -235,125 +238,130 @@ func (cl *Client) DeregisterResources() error {
 	return out
 }
 
+// ConfigDescriptor ...
+func (cl *Client) ConfigDescriptor() model.ConfigDescriptor {
+	return cl.mapping
+}
+
 // Get implements registry operation
-func (cl *Client) Get(key model.Key) (proto.Message, bool) {
-	if err := cl.mapping.ValidateKey(&key); err != nil {
-		glog.Warning(err)
-		return nil, false
+func (cl *Client) Get(typ, key string) (proto.Message, bool, string) {
+	// TODO validate
+
+	schema, exists := cl.mapping.GetByType(typ)
+	if !exists {
+		return nil, false, ""
 	}
 
 	config := &Config{}
 	err := cl.dyn.Get().
-		Namespace(key.Namespace).
+		Namespace(cl.dynNamespace).
 		Resource(IstioKind + "s").
-		Name(configKey(&key)).
+		Name(configKey(typ, key)).
 		Do().Into(config)
 
 	if err != nil {
 		glog.Warning(err)
-		return nil, false
+		return nil, false, ""
 	}
 
-	kind := cl.mapping[key.Kind]
-	out, err := kind.FromJSONMap(config.Spec)
+	out, err := schema.FromJSONMap(config.Spec)
 	if err != nil {
 		glog.Warning(err)
-		return nil, false
+		return nil, false, ""
 	}
-	return out, true
+	return out, true, config.Metadata.ResourceVersion
 }
 
 // Post implements registry operation
-func (cl *Client) Post(key model.Key, v proto.Message) error {
-	if err := cl.mapping.ValidateConfig(&key, v); err != nil {
-		return err
+func (cl *Client) Post(v proto.Message) (string, error) {
+	// TODO: validate
+	schema, exists := cl.mapping.GetByMessageName(proto.MessageName(v))
+	if !exists {
+		return "", fmt.Errorf("unrecognized message name")
 	}
 
-	if cl.mapping[key.Kind].Internal {
-		return fmt.Errorf("unsupported operation: cannot post a derived config element of type %q", key.Kind)
-	}
-
-	out, err := modelToKube(cl.mapping, &key, v)
+	out, err := modelToKube(schema, cl.dynNamespace, v)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	// Check to make sure the namespace exists
-	if _, err := cl.GetKubernetesClient().CoreV1().Namespaces().Get(key.Namespace, meta_v1.GetOptions{}); err != nil {
-		return fmt.Errorf("namespace %q not present", key.Namespace)
-	}
-
-	return cl.dyn.Post().
-		Namespace(key.Namespace).
+	config := &Config{}
+	err = cl.dyn.Post().
+		Namespace(out.Metadata.Namespace).
 		Resource(IstioKind + "s").
 		Body(out).
-		Do().Error()
+		Do().Into(config)
+	if err != nil {
+		return "", err
+	}
+
+	return config.Metadata.ResourceVersion, nil
 }
 
 // Put implements registry operation
-func (cl *Client) Put(key model.Key, v proto.Message) error {
-	if err := cl.mapping.ValidateConfig(&key, v); err != nil {
-		return err
+func (cl *Client) Put(v proto.Message, revision string) (string, error) {
+	// TODO: validate
+	schema, exists := cl.mapping.GetByMessageName(proto.MessageName(v))
+	if !exists {
+		return "", fmt.Errorf("unrecognized message name")
+	}
+	if revision == "" {
+		return "", fmt.Errorf("revision is required")
 	}
 
-	if cl.mapping[key.Kind].Internal {
-		return fmt.Errorf("unsupported operation: cannot put a derived config element of type %q", key.Kind)
-	}
-
-	out, err := modelToKube(cl.mapping, &key, v)
+	out, err := modelToKube(schema, cl.dynNamespace, v)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return cl.dyn.Put().
-		Namespace(key.Namespace).
+	out.Metadata.ResourceVersion = revision
+
+	config := &Config{}
+	err = cl.dyn.Put().
+		Namespace(out.Metadata.Namespace).
 		Resource(IstioKind + "s").
-		Name(configKey(&key)).
+		Name(out.Metadata.Name).
 		Body(out).
-		Do().Error()
+		Do().Into(config)
+	if err != nil {
+		return "", err
+	}
+
+	return config.Metadata.ResourceVersion, nil
 }
 
 // Delete implements registry operation
-func (cl *Client) Delete(key model.Key) error {
-	if err := cl.mapping.ValidateKey(&key); err != nil {
-		return err
-	}
-
-	if cl.mapping[key.Kind].Internal {
-		return fmt.Errorf("unsupported operation: cannot delete a derived config element of type %q", key.Kind)
-	}
+func (cl *Client) Delete(typ, key string) error {
+	// TODO: validate
 
 	return cl.dyn.Delete().
-		Namespace(key.Namespace).
+		Namespace(cl.dynNamespace).
 		Resource(IstioKind + "s").
-		Name(configKey(&key)).
+		Name(configKey(typ, key)).
 		Do().Error()
 }
 
 // List implements registry operation
-func (cl *Client) List(kind, namespace string) (map[model.Key]proto.Message, error) {
-	if _, ok := cl.mapping[kind]; !ok {
-		return nil, fmt.Errorf("Missing kind %q", kind)
+func (cl *Client) List(typ string) ([]model.Config, error) {
+	_, exists := cl.mapping.GetByType(typ)
+	if !exists {
+		return nil, fmt.Errorf("missing type %q", typ)
 	}
 
 	list := &ConfigList{}
 	errs := cl.dyn.Get().
-		Namespace(namespace).
+		Namespace(cl.dynNamespace).
 		Resource(IstioKind + "s").
 		Do().Into(list)
 
-	out := make(map[model.Key]proto.Message)
+	out := make([]model.Config, 0)
 	for _, item := range list.Items {
-		name, ns, istioKind, data, err := cl.convertConfig(&item)
-		if kind == istioKind {
+		config, err := cl.convertConfig(&item)
+		if typ == config.Type {
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			} else {
-				out[model.Key{
-					Name:      name,
-					Namespace: ns,
-					Kind:      kind,
-				}] = data
+				out = append(out, config)
 			}
 		}
 	}
@@ -361,22 +369,27 @@ func (cl *Client) List(kind, namespace string) (map[model.Key]proto.Message, err
 }
 
 // configKey assigns k8s TPR name to Istio config
-func configKey(k *model.Key) string {
-	return k.Kind + "-" + k.Name
+func configKey(typ, key string) string {
+	return typ + "-" + key
 }
 
-// convertConfig extracts Istio config data from k8s TPRs and leaves kind empty if no kind matches
-func (cl *Client) convertConfig(item *Config) (name, namespace, kind string, data proto.Message, err error) {
-	for k, v := range cl.mapping {
-		if strings.HasPrefix(item.Metadata.Name, k) {
-			kind = k
-			name = strings.TrimPrefix(item.Metadata.Name, kind+"-")
-			namespace = item.Metadata.Namespace
-			data, err = v.FromJSONMap(item.Spec)
-			return
+// convertConfig extracts Istio config data from k8s TPRs
+func (cl *Client) convertConfig(item *Config) (model.Config, error) {
+	for _, schema := range cl.mapping {
+		if strings.HasPrefix(item.Metadata.Name, schema.Type) {
+			data, err := schema.FromJSONMap(item.Spec)
+			if err != nil {
+				return model.Config{}, err
+			}
+			return model.Config{
+				Type:     schema.Type,
+				Key:      strings.TrimPrefix(item.Metadata.Name, schema.Type+"-"),
+				Revision: item.Metadata.ResourceVersion,
+				Content:  data,
+			}, nil
 		}
 	}
-	return
+	return model.Config{}, fmt.Errorf("missing schema")
 }
 
 const (

@@ -117,17 +117,21 @@ func (r *apiServerTest) setup() error {
 	// Start apiserver outside the cluster.
 	var err error
 	// receive mesh configuration
-	mesh, err := cmd.GetMeshConfig(istioClient.GetKubernetesClient(), r.Namespace, "istio")
+	mesh, err := cmd.GetMeshConfig(client, r.Namespace, "istio")
 	if err != nil {
 		return multierror.Append(err, fmt.Errorf("failed to retrieve mesh configuration"))
 	}
 
+	istioClient, err := kube.NewClient(kubeconfig, model.IstioConfigTypes, r.infra.Namespace)
+	if err != nil {
+		return err
+	}
 	controllerOptions := kube.ControllerOptions{Namespace: r.infra.Namespace, DomainSuffix: "cluster.local"}
 	controller := kube.NewController(istioClient, mesh, controllerOptions)
 	r.server = apiserver.NewAPI(apiserver.APIServiceOptions{
 		Version:  kube.IstioResourceVersion,
 		Port:     8081,
-		Registry: &model.IstioRegistry{ConfigRegistry: controller},
+		Registry: controller,
 	})
 	r.stopChannel = make(chan struct{})
 	go controller.Run(r.stopChannel)

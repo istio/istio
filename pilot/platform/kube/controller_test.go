@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -59,7 +58,8 @@ func TestThirdPartyResourcesClient(t *testing.T) {
 	}
 	defer util.DeleteNamespace(cl.client, ns)
 
-	mock.CheckMapInvariant(cl, t, ns, 5)
+	cl.dynNamespace = ns
+	mock.CheckMapInvariant(cl, t, 5)
 
 	// TODO(kuat) initial watch always fails, takes time to register TPR, keep
 	// around as a work-around
@@ -80,20 +80,15 @@ func makeClient(t *testing.T) *Client {
 		kubeconfig = kubeconfig + "/config"
 	}
 
-	km := model.KindMap{}
-	for k, v := range model.IstioConfig {
-		km[k] = v
-	}
-	km[mock.Kind] = mock.Mapping[mock.Kind]
-
-	cl, err := NewClient(kubeconfig, km)
+	desc := append(model.IstioConfigTypes, mock.Types...)
+	cl, err := NewClient(kubeconfig, desc, "istio-test")
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	err = cl.RegisterResources()
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	return cl
@@ -107,6 +102,7 @@ func TestSecret(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer util.DeleteNamespace(cl.client, ns)
+	cl.dynNamespace = ns
 
 	mesh := proxy.DefaultMeshConfig()
 	ctl := NewController(cl, &mesh, ControllerOptions{
@@ -120,7 +116,7 @@ func TestSecret(t *testing.T) {
 
 	// append an ingress notification handler that just counts number of notifications
 	notificationCount := 0
-	_ = ctl.AppendConfigHandler(model.IngressRule, func(key model.Key, msg proto.Message, ev model.Event) {
+	ctl.RegisterEventHandler(model.IngressRule, func(model.Config, model.Event) {
 		notificationCount++
 	})
 
@@ -167,6 +163,7 @@ func TestIngressController(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer util.DeleteNamespace(cl.client, ns)
+	cl.dynNamespace = ns
 
 	mesh := proxy.DefaultMeshConfig()
 	ctl := NewController(cl, &mesh, ControllerOptions{
@@ -180,7 +177,7 @@ func TestIngressController(t *testing.T) {
 
 	// Append an ingress notification handler that just counts number of notifications
 	notificationCount := 0
-	_ = ctl.AppendConfigHandler(model.IngressRule, func(key model.Key, msg proto.Message, ev model.Event) {
+	ctl.RegisterEventHandler(model.IngressRule, func(model.Config, model.Event) {
 		notificationCount++
 	})
 
@@ -279,10 +276,10 @@ func TestIngressController(t *testing.T) {
 	}
 
 	eventually(func() bool {
-		rules, _ := ctl.List(model.IngressRule, ns)
+		rules, _ := ctl.List(model.IngressRule)
 		return len(rules) == expectedRuleCount
 	}, t)
-	rules, err := ctl.List(model.IngressRule, ns)
+	rules, err := ctl.List(model.IngressRule)
 	if err != nil {
 		t.Errorf("ctl.List(model.IngressRule, %s) => error: %v", ns, err)
 	}
@@ -290,13 +287,13 @@ func TestIngressController(t *testing.T) {
 		t.Errorf("expected %d IngressRule objects to be created, found %d", expectedRuleCount, len(rules))
 	}
 
-	for key, listMsg := range rules {
-		getMsg, exists := ctl.Get(key)
+	for _, listMsg := range rules {
+		getMsg, exists, _ := ctl.Get(model.IngressRule, listMsg.Key)
 		if !exists {
-			t.Errorf("expected IngressRule with key %v to exist", key)
+			t.Errorf("expected IngressRule with key %v to exist", listMsg.Key)
 
-			listRule := listMsg.(*proxyconfig.RouteRule)
-			getRule := getMsg.(*proxyconfig.RouteRule)
+			listRule := listMsg.Content.(*proxyconfig.IngressRule)
+			getRule := getMsg.(*proxyconfig.IngressRule)
 
 			// TODO:  Compare listRule and getRule objects
 			if listRule == nil {
@@ -318,6 +315,7 @@ func TestIngressClass(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer util.DeleteNamespace(cl.client, ns)
+	cl.dynNamespace = ns
 
 	cases := []struct {
 		ingressMode   proxyconfig.ProxyMeshConfig_IngressControllerMode
@@ -373,6 +371,7 @@ func TestController(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer util.DeleteNamespace(cl.client, ns)
+	cl.dynNamespace = ns
 
 	stop := make(chan struct{})
 	defer close(stop)
@@ -381,7 +380,7 @@ func TestController(t *testing.T) {
 	ctl := NewController(cl, &mesh, ControllerOptions{Namespace: ns, ResyncPeriod: resync})
 	added, deleted := 0, 0
 	n := 5
-	err = ctl.AppendConfigHandler(mock.Kind, func(k model.Key, o proto.Message, ev model.Event) {
+	ctl.RegisterEventHandler(mock.Type, func(c model.Config, ev model.Event) {
 		switch ev {
 		case model.EventAdd:
 			if deleted != 0 {
@@ -396,12 +395,9 @@ func TestController(t *testing.T) {
 		}
 		glog.Infof("Added %d, deleted %d", added, deleted)
 	})
-	if err != nil {
-		t.Error(err)
-	}
 	go ctl.Run(stop)
 
-	mock.CheckMapInvariant(cl, t, ns, n)
+	mock.CheckMapInvariant(cl, t, n)
 	glog.Infof("Waiting till all events are received")
 	eventually(func() bool { return added == n && deleted == n }, t)
 }
@@ -414,6 +410,7 @@ func TestControllerCacheFreshness(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer util.DeleteNamespace(cl.client, ns)
+	cl.dynNamespace = ns
 	stop := make(chan struct{})
 	mesh := proxy.DefaultMeshConfig()
 	ctl := NewController(cl, &mesh, ControllerOptions{Namespace: ns, ResyncPeriod: resync})
@@ -425,15 +422,15 @@ func TestControllerCacheFreshness(t *testing.T) {
 	done := false
 
 	// validate cache consistency
-	err = ctl.AppendConfigHandler(mock.Kind, func(k model.Key, v proto.Message, ev model.Event) {
-		elts, _ := ctl.List(mock.Kind, ns)
+	ctl.RegisterEventHandler(mock.Type, func(config model.Config, ev model.Event) {
+		elts, _ := ctl.List(mock.Type)
 		switch ev {
 		case model.EventAdd:
 			if len(elts) != 1 {
 				t.Errorf("Got %#v, expected %d element(s) on ADD event", elts, 1)
 			}
-			glog.Infof("Calling Delete(%#v)", k)
-			err = ctl.Delete(k)
+			glog.Infof("Calling Delete(%#v)", config.Key)
+			err = ctl.Delete(mock.Type, config.Key)
 			if err != nil {
 				t.Error(err)
 			}
@@ -441,24 +438,20 @@ func TestControllerCacheFreshness(t *testing.T) {
 			if len(elts) != 0 {
 				t.Errorf("Got %#v, expected zero elements on DELETE event", elts)
 			}
-			glog.Infof("Stopping channel for (%#v)", k)
+			glog.Infof("Stopping channel for (%#v)", config.Key)
 			close(stop)
 			doneMu.Lock()
 			done = true
 			doneMu.Unlock()
 		}
 	})
-	if err != nil {
-		t.Error(err)
-	}
 
 	go ctl.Run(stop)
-	k := model.Key{Kind: mock.Kind, Name: "test", Namespace: ns}
 	o := mock.Make(0)
 
 	// add and remove
-	glog.Infof("Calling Post(%#v)", k)
-	if err := ctl.Post(k, o); err != nil {
+	glog.Infof("Calling Post(%#v)", o)
+	if _, err := ctl.Post(o); err != nil {
 		t.Error(err)
 	}
 	eventually(func() bool {
@@ -477,14 +470,15 @@ func TestControllerClientSync(t *testing.T) {
 	}
 	n := 5
 	defer util.DeleteNamespace(cl.client, ns)
+	cl.dynNamespace = ns
 	stop := make(chan struct{})
 	defer close(stop)
 
-	keys := make(map[int]model.Key)
+	keys := make(map[int]*mock.MockConfig)
 	// add elements directly through client
 	for i := 0; i < n; i++ {
-		keys[i] = model.Key{Name: fmt.Sprintf("test%d", i), Namespace: ns, Kind: mock.Kind}
-		if err := cl.Post(keys[i], mock.Make(i)); err != nil {
+		keys[i] = mock.Make(i)
+		if _, err := cl.Post(keys[i]); err != nil {
 			t.Error(err)
 		}
 	}
@@ -494,36 +488,36 @@ func TestControllerClientSync(t *testing.T) {
 	ctl := NewController(cl, &mesh, ControllerOptions{Namespace: ns, ResyncPeriod: resync})
 	go ctl.Run(stop)
 	eventually(func() bool { return ctl.HasSynced() }, t)
-	os, _ := ctl.List(mock.Kind, ns)
+	os, _ := ctl.List(mock.Type)
 	if len(os) != n {
 		t.Errorf("ctl.List => Got %d, expected %d", len(os), n)
 	}
 
 	// remove elements directly through client
 	for i := 0; i < n; i++ {
-		if err := cl.Delete(keys[i]); err != nil {
+		if err := cl.Delete(mock.Type, keys[i].Key); err != nil {
 			t.Error(err)
 		}
 	}
 
 	// check again in the controller cache
 	eventually(func() bool {
-		os, _ = ctl.List(mock.Kind, ns)
+		os, _ = ctl.List(mock.Type)
 		glog.Infof("ctl.List => Got %d, expected %d", len(os), 0)
 		return len(os) == 0
 	}, t)
 
 	// now add through the controller
 	for i := 0; i < n; i++ {
-		if err := ctl.Post(keys[i], mock.Make(i)); err != nil {
+		if _, err := ctl.Post(mock.Make(i)); err != nil {
 			t.Error(err)
 		}
 	}
 
 	// check directly through the client
 	eventually(func() bool {
-		cs, _ := ctl.List(mock.Kind, ns)
-		os, _ := cl.List(mock.Kind, ns)
+		cs, _ := ctl.List(mock.Type)
+		os, _ := cl.List(mock.Type)
 		glog.Infof("ctl.List => Got %d, expected %d", len(cs), n)
 		glog.Infof("cl.List => Got %d, expected %d", len(os), n)
 		return len(os) == n && len(cs) == n
@@ -531,7 +525,7 @@ func TestControllerClientSync(t *testing.T) {
 
 	// remove elements directly through the client
 	for i := 0; i < n; i++ {
-		if err := cl.Delete(keys[i]); err != nil {
+		if err := cl.Delete(mock.Type, keys[i].Key); err != nil {
 			t.Error(err)
 		}
 	}
@@ -563,6 +557,7 @@ func TestServices(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer util.DeleteNamespace(cl.client, ns)
+	cl.dynNamespace = ns
 
 	stop := make(chan struct{})
 	defer close(stop)
@@ -750,9 +745,11 @@ func TestIstioConfig(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer util.DeleteNamespace(cl.client, ns)
+	cl.dynNamespace = ns
 
 	rule := &proxyconfig.RouteRule{
 		Destination: "foo",
+		Name:        "test",
 		Match: &proxyconfig.MatchCondition{
 			HttpHeaders: map[string]*proxyconfig.StringMatch{
 				"uri": {
@@ -764,30 +761,28 @@ func TestIstioConfig(t *testing.T) {
 		},
 	}
 
-	key := model.Key{Kind: model.RouteRule, Name: "test", Namespace: ns}
-
-	if err := cl.Post(key, rule); err != nil {
+	if _, err := cl.Post(rule); err != nil {
 		t.Errorf("cl.Post() => error %v, want no error", err)
 	}
 
-	out, exists := cl.Get(key)
+	out, exists, _ := cl.Get(model.RouteRule, rule.Name)
 	if !exists {
 		t.Errorf("cl.Get() => missing")
 		return
 	}
 
 	if !reflect.DeepEqual(rule, out) {
-		t.Errorf("cl.Get(%v) => %v, want %v", key, out, rule)
+		t.Errorf("cl.Get(%v) => %v, want %v", rule.Name, out, rule)
 	}
 
-	registry := model.IstioRegistry{ConfigRegistry: cl}
+	registry := model.MakeIstioStore(cl)
 
-	rules := registry.RouteRules(ns)
-	if len(rules) != 1 || !reflect.DeepEqual(rules[key], rule) {
+	rules := registry.RouteRules()
+	if len(rules) != 1 || !reflect.DeepEqual(rules[rule.Name], rule) {
 		t.Errorf("RouteRules() => %v, want %v", rules, rule)
 	}
 
-	destinations := registry.PoliciesByNamespace(ns)
+	destinations := registry.DestinationPolicies()
 	if len(destinations) > 0 {
 		t.Errorf("DestinationPolicies() => %v, want empty", destinations)
 	}

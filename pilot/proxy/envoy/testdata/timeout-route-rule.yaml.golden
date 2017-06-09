@@ -1,4 +1,5 @@
 destination: world.default.svc.cluster.local
+name: timeout
 http_req_timeout:
   simple_timeout:
     timeout: 30s

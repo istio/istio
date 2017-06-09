@@ -5,7 +5,7 @@ import "fmt"
 // ItemAlreadyExistsError is a typed error that should be used to identify when an item already is
 // present in the configuration registry. To overwrite the default error message set the Msg field.
 type ItemAlreadyExistsError struct {
-	Key Key
+	Key string
 	Msg string
 }
 
@@ -21,7 +21,7 @@ func (e *ItemAlreadyExistsError) Error() string {
 // ItemNotFoundError is a typed error that should be used to identify when an item cant be found
 // in the configuration registry. To overwrite the default error message set the Msg field.
 type ItemNotFoundError struct {
-	Key Key
+	Key string
 	Msg string
 }
 

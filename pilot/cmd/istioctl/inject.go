@@ -51,7 +51,7 @@ var (
 
 	kubeconfig string
 	client     *kube.Client
-	config     model.ConfigRegistry
+	config     model.ConfigStore
 )
 
 var (

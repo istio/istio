@@ -69,27 +69,15 @@ func ValidatePort(port int) error {
 	return fmt.Errorf("port number %d must be in the range 1..65535", port)
 }
 
-// Validate confirms that the names in the configuration key are appropriate
-func (k *Key) Validate() error {
-	var errs error
-	if !IsDNS1123Label(k.Kind) {
-		errs = multierror.Append(errs, fmt.Errorf("invalid kind: %q", k.Kind))
-	}
-	if !IsDNS1123Label(k.Name) {
-		errs = multierror.Append(errs, fmt.Errorf("invalid name: %q", k.Name))
-	}
-	if !IsDNS1123Label(k.Namespace) {
-		errs = multierror.Append(errs, fmt.Errorf("invalid namespace: %q", k.Namespace))
-	}
-	return errs
-}
-
 // Validate checks that each name conforms to the spec and has a ProtoMessage
-func (km KindMap) Validate() error {
+func (descriptor ConfigDescriptor) Validate() error {
 	var errs error
-	for k, v := range km {
-		if !IsDNS1123Label(k) {
-			errs = multierror.Append(errs, fmt.Errorf("invalid kind: %q", k))
+	for _, v := range descriptor {
+		if v.Key == nil {
+			errs = multierror.Append(errs, fmt.Errorf("missing key function for type: %q", v.Type))
+		}
+		if !IsDNS1123Label(v.Type) {
+			errs = multierror.Append(errs, fmt.Errorf("invalid type: %q", v.Type))
 		}
 		if proto.MessageType(v.MessageName) == nil {
 			errs = multierror.Append(errs, fmt.Errorf("cannot find proto message type: %q", v.MessageName))
@@ -98,39 +86,27 @@ func (km KindMap) Validate() error {
 	return errs
 }
 
-// ValidateKey ensures that the key is well-defined and kind is well-defined
-func (km KindMap) ValidateKey(k *Key) error {
-	if err := k.Validate(); err != nil {
-		return err
-	}
-	if _, ok := km[k.Kind]; !ok {
-		return fmt.Errorf("kind %q is not defined", k.Kind)
-	}
-	return nil
-}
-
 // ValidateConfig ensures that the config object is well-defined
-func (km KindMap) ValidateConfig(k *Key, obj interface{}) error {
-	if k == nil || obj == nil {
+func (descriptor ConfigDescriptor) ValidateConfig(typ string, obj interface{}) error {
+	if obj == nil {
 		return fmt.Errorf("invalid nil configuration object")
 	}
 
-	if err := k.Validate(); err != nil {
-		return err
-	}
-	t, ok := km[k.Kind]
+	t, ok := descriptor.GetByType(typ)
 	if !ok {
-		return fmt.Errorf("undeclared kind: %q", k.Kind)
+		return fmt.Errorf("undeclared type: %q", typ)
 	}
 
 	v, ok := obj.(proto.Message)
 	if !ok {
 		return fmt.Errorf("cannot cast to a proto message")
 	}
+
 	if proto.MessageName(v) != t.MessageName {
-		return fmt.Errorf("mismatched message type %q and kind %q",
+		return fmt.Errorf("mismatched message type %q and type %q",
 			proto.MessageName(v), t.MessageName)
 	}
+
 	if err := t.Validate(v); err != nil {
 		return err
 	}
@@ -659,6 +635,9 @@ func ValidateRouteRule(msg proto.Message) error {
 	}
 
 	var errs error
+	if value.Name == "" {
+		errs = multierror.Append(errs, fmt.Errorf("route rule must have a name"))
+	}
 	if value.Destination == "" {
 		errs = multierror.Append(errs, fmt.Errorf("route rule must have a destination service"))
 	}
@@ -739,8 +718,24 @@ func ValidateRouteRule(msg proto.Message) error {
 
 // ValidateIngressRule checks ingress rules
 func ValidateIngressRule(msg proto.Message) error {
-	// TODO: Add ingress-only validation checks, if any?
-	return ValidateRouteRule(msg)
+	value, ok := msg.(*proxyconfig.IngressRule)
+	if !ok {
+		return fmt.Errorf("cannot cast to ingress rule")
+	}
+
+	var errs error
+	if value.Name == "" {
+		errs = multierror.Append(errs, fmt.Errorf("ingress rule must have a name"))
+	}
+	if value.Destination == "" {
+		errs = multierror.Append(errs, fmt.Errorf("ingress rule must have a destination service"))
+	}
+	if err := ValidateFQDN(value.Destination); err != nil {
+		errs = multierror.Append(errs, err)
+	}
+
+	// TODO: complete validation for ingress
+	return errs
 }
 
 // ValidateDestinationPolicy checks proxy policies

@@ -30,6 +30,7 @@ import (
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/cmd"
 	"istio.io/pilot/model"
+	"istio.io/pilot/platform/kube"
 	"istio.io/pilot/platform/kube/inject"
 	"istio.io/pilot/test/util"
 )
@@ -254,37 +255,36 @@ func (infra *infra) clientRequest(app, url string, count int, extra string) resp
 	return out
 }
 
-func (infra *infra) addConfig(config []byte, kind, name string, create bool) error {
-	glog.Infof("Add config %s", string(config))
-	istioKind, ok := model.IstioConfig[kind]
-	if !ok {
-		return fmt.Errorf("Invalid kind %s", kind)
-	}
-	v, err := istioKind.FromYAML(string(config))
-	if err != nil {
-		return err
-	}
-	key := model.Key{
-		Kind:      kind,
-		Name:      name,
-		Namespace: infra.Namespace,
-	}
-	if create {
-		return istioClient.Post(key, v)
-	}
-
-	return istioClient.Put(key, v)
-}
-
-func (infra *infra) applyConfig(inFile string, data map[string]string, kind, name string) error {
+func (infra *infra) applyConfig(inFile string, data map[string]string, typ string) error {
 	config, err := fill(inFile, data)
 	if err != nil {
 		return err
 	}
-	_, exists := istioClient.Get(model.Key{Kind: kind, Name: name, Namespace: infra.Namespace})
-	if err := infra.addConfig([]byte(config), kind, name, !exists); err != nil {
+
+	schema, ok := model.IstioConfigTypes.GetByType(typ)
+	if !ok {
+		return fmt.Errorf("Invalid type %s", typ)
+	}
+	v, err := schema.FromYAML(config)
+	if err != nil {
 		return err
 	}
+
+	istioClient, err := kube.NewClient(kubeconfig, model.IstioConfigTypes, infra.Namespace)
+	if err != nil {
+		return err
+	}
+
+	_, exists, rev := istioClient.Get(typ, schema.Key(v))
+	if exists {
+		_, err = istioClient.Put(v, rev)
+	} else {
+		_, err = istioClient.Post(v)
+	}
+	if err != nil {
+		return err
+	}
+
 	glog.Info("Sleeping for the config to propagate")
 	time.Sleep(3 * time.Second)
 	return nil

@@ -1,4 +1,5 @@
 destination: world.default.svc.cluster.local
+name: rewrite-route
 match:
   httpHeaders:
     uri:

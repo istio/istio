@@ -38,14 +38,14 @@ const (
 type APIServiceOptions struct {
 	Version  string
 	Port     int
-	Registry *model.IstioRegistry
+	Registry model.ConfigStore
 }
 
 // API is the server wrapper that listens for incoming requests to the config and processes them
 type API struct {
 	server   *http.Server
 	version  string
-	registry *model.IstioRegistry
+	registry model.ConfigStore
 }
 
 // NewAPI creates a new instance of the API using the options passed to it

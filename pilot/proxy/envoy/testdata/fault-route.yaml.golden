@@ -1,4 +1,5 @@
 destination: world.default.svc.cluster.local
+name: fault-route
 match:
   source: hello.default.svc.cluster.local
   source_tags:

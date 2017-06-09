@@ -1,4 +1,5 @@
 destination: world.default.svc.cluster.local
+name: redirect-route
 match:
   httpHeaders:
     scooby:

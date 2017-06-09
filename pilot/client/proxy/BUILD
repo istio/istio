@@ -7,7 +7,6 @@ go_library(
     deps = [
         "//apiserver:go_default_library",
         "//cmd/version:go_default_library",
-        "//model:go_default_library",
         "@com_github_golang_glog//:go_default_library",
     ],
 )
@@ -17,8 +16,5 @@ go_test(
     size = "small",
     srcs = ["proxy_test.go"],
     library = ":go_default_library",
-    deps = [
-        "//apiserver:go_default_library",
-        "//model:go_default_library",
-    ],
+    deps = ["//apiserver:go_default_library"],
 )

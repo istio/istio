@@ -43,7 +43,7 @@ func (c *Config) ParseSpec() error {
 	if err != nil {
 		return fmt.Errorf("could not encode Spec: %v", err)
 	}
-	schema, ok := model.IstioConfig[c.Type]
+	schema, ok := model.IstioConfigTypes.GetByType(c.Type)
 	if !ok {
 		return fmt.Errorf("unknown spec type %s", c.Type)
 	}

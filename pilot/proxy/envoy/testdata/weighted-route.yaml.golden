@@ -1,4 +1,5 @@
 destination: world.default.svc.cluster.local
+name: weighted-route
 route:
   - tags:
        version: v0

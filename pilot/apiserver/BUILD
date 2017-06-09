@@ -24,8 +24,8 @@ go_test(
     data = glob(["testdata/*.golden"]),
     library = ":go_default_library",
     deps = [
+        "//adapter/config/memory:go_default_library",
         "//model:go_default_library",
-        "//test/mock:go_default_library",
         "//test/util:go_default_library",
         "@com_github_emicklei_go_restful//:go_default_library",
     ],

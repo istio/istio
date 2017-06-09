@@ -32,13 +32,6 @@ type routing struct {
 	*infra
 }
 
-const (
-	defaultRoute  = "default-route"
-	contentRoute  = "content-route"
-	faultRoute    = "fault-route"
-	redirectRoute = "redirect-route"
-)
-
 func (t *routing) String() string {
 	return "routing-rules"
 }
@@ -54,7 +47,7 @@ func (t *routing) run() error {
 	if err := t.applyConfig("rule-default-route.yaml.tmpl", map[string]string{
 		"Destination": "c",
 		"Namespace":   t.Namespace,
-	}, model.RouteRule, defaultRoute); err != nil {
+	}, model.RouteRule); err != nil {
 		return err
 	}
 	if err := t.verifyRouting("a", "c", "", "",
@@ -70,7 +63,7 @@ func (t *routing) run() error {
 	if err := t.applyConfig("rule-weighted-route.yaml.tmpl", map[string]string{
 		"Destination": "c",
 		"Namespace":   t.Namespace,
-	}, model.RouteRule, defaultRoute); err != nil {
+	}, model.RouteRule); err != nil {
 		return err
 	}
 	if err := t.verifyRouting("a", "c", "", "",
@@ -87,7 +80,7 @@ func (t *routing) run() error {
 		"Source":      "a",
 		"Destination": "c",
 		"Namespace":   t.Namespace,
-	}, model.RouteRule, contentRoute); err != nil {
+	}, model.RouteRule); err != nil {
 		return err
 	}
 	if err := t.verifyRouting("a", "c", "version", "v2",
@@ -104,7 +97,7 @@ func (t *routing) run() error {
 		"Source":      "a",
 		"Destination": "c",
 		"Namespace":   t.Namespace,
-	}, model.RouteRule, contentRoute); err != nil {
+	}, model.RouteRule); err != nil {
 		return err
 	}
 	if err := t.verifyRouting("a", "c", "foo", "bar",
@@ -121,7 +114,7 @@ func (t *routing) run() error {
 		"Source":      "a",
 		"Destination": "c",
 		"Namespace":   t.Namespace,
-	}, model.RouteRule, faultRoute); err != nil {
+	}, model.RouteRule); err != nil {
 		return err
 	}
 	if err := t.verifyFaultInjection("a", "c", "version", "v2", time.Second*5, 503); err != nil {
@@ -138,7 +131,7 @@ func (t *routing) run() error {
 		"HostRedirect": redirectHost,
 		"Path":         redirectPath,
 		"Namespace":    t.Namespace,
-	}, model.RouteRule, redirectRoute); err != nil {
+	}, model.RouteRule); err != nil {
 		return err
 	}
 	if err := t.verifyRedirect("a", "c", redirectHost, redirectPath, "testredirect", "enabled", 200); err != nil {

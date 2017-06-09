@@ -1,11 +1,9 @@
 destination: world.default.svc.cluster.local
+destinationPortName: http
+name: bar
 match:
   http_headers:
     authority:
       exact: world.com
     uri:
       exact: "/hello"
-route:
-  - tags:
-       servicePortName: http
-    weight: 100

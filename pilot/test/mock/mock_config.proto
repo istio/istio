@@ -20,14 +20,11 @@ syntax = "proto3";
 package mock;
 
 message MockConfig {
-  repeated ConfigPair pairs = 1;
+  string key = 1;
+  repeated ConfigPair pairs = 2;
 }
 
 message ConfigPair {
   string key = 1;
   string value = 2;
-}
-
-message MockConfigStatus {
-  string status = 1;
 }

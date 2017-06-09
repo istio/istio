@@ -14,8 +14,6 @@
 
 package model
 
-import "github.com/golang/protobuf/proto"
-
 // Controller defines an event controller loop.  Proxy agent registers itself
 // with the controller loop and receives notifications on changes to the
 // service topology or changes to the configuration artifacts.
@@ -31,9 +29,6 @@ import "github.com/golang/protobuf/proto"
 // Handlers receive the notification event and the associated object.  Note
 // that all handlers must be appended before starting the controller.
 type Controller interface {
-	// AppendConfigHandler appends a handler for a config resource.
-	AppendConfigHandler(kind string, f func(Key, proto.Message, Event)) error
-
 	// AppendServiceHandler notifies about changes to the service catalog.
 	AppendServiceHandler(f func(*Service, Event)) error
 

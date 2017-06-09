@@ -12,11 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mock
+package memory
 
-import "testing"
+import (
+	"testing"
 
-func TestMockRegistry(t *testing.T) {
-	r := MakeRegistry()
-	CheckMapInvariant(r, t, "default", 5)
+	"istio.io/pilot/test/mock"
+)
+
+func TestStoreInvariant(t *testing.T) {
+	store := Make(mock.Types)
+	mock.CheckMapInvariant(store, t, 10)
 }

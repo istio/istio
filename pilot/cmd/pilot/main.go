@@ -65,7 +65,7 @@ var (
 				}
 			}
 
-			client, err = kube.NewClient(flags.kubeconfig, model.IstioConfig)
+			client, err = kube.NewClient(flags.kubeconfig, model.IstioConfigTypes, flags.controllerOptions.Namespace)
 			if err != nil {
 				return multierror.Prefix(err, "failed to connect to Kubernetes API.")
 			}
@@ -104,10 +104,10 @@ var (
 			context := &proxy.Context{
 				Discovery:  controller,
 				Accounts:   controller,
-				Config:     &model.IstioRegistry{ConfigRegistry: controller},
+				Config:     model.MakeIstioStore(controller),
 				MeshConfig: mesh,
 			}
-			discovery, err := envoy.NewDiscoveryService(controller, context, flags.discoveryOptions)
+			discovery, err := envoy.NewDiscoveryService(controller, controller, context, flags.discoveryOptions)
 			if err != nil {
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}
@@ -127,7 +127,7 @@ var (
 			apiserver := apiserver.NewAPI(apiserver.APIServiceOptions{
 				Version:  kube.IstioResourceVersion,
 				Port:     flags.apiserverPort,
-				Registry: &model.IstioRegistry{ConfigRegistry: controller},
+				Registry: controller,
 			})
 			stop := make(chan struct{})
 			go controller.Run(stop)
@@ -150,13 +150,13 @@ var (
 			context := &proxy.Context{
 				Discovery:        controller,
 				Accounts:         controller,
-				Config:           &model.IstioRegistry{ConfigRegistry: controller},
+				Config:           model.MakeIstioStore(controller),
 				MeshConfig:       mesh,
 				IPAddress:        flags.ipAddress,
 				UID:              fmt.Sprintf("kubernetes://%s.%s", flags.podName, flags.controllerOptions.Namespace),
 				PassthroughPorts: flags.passthrough,
 			}
-			w, err := envoy.NewWatcher(controller, context)
+			w, err := envoy.NewWatcher(controller, controller, context)
 			if err != nil {
 				return
 			}

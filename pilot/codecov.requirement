@@ -1,4 +1,4 @@
 istio.io/pilot/cmd/istioctl	60
-istio.io/pilot/model	90
+istio.io/pilot/model	80
 istio.io/pilot/platform/kube	50
 istio.io/pilot/proxy/envoy	50

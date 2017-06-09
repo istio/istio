@@ -185,42 +185,38 @@ func (c *Controller) createInformer(
 	return cacheHandler{informer: informer, handler: handler}
 }
 
-// AppendConfigHandler adds a notification handler.
-func (c *Controller) AppendConfigHandler(k string, f func(model.Key, proto.Message, model.Event)) error {
-	switch k {
+// RegisterEventHandler adds a notification handler.
+func (c *Controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
+	switch typ {
 	case model.IngressRule:
-		return c.appendIngressConfigHandler(k, f)
+		c.appendIngressConfigHandler(typ, f)
 	default:
-		return c.appendTPRConfigHandler(k, f)
+		c.appendTPRConfigHandler(typ, f)
 	}
 }
 
-func (c *Controller) appendTPRConfigHandler(k string, f func(model.Key, proto.Message, model.Event)) error {
+func (c *Controller) appendTPRConfigHandler(typ string, f func(model.Config, model.Event)) {
 	c.kinds[IstioKind].handler.append(func(obj interface{}, ev model.Event) error {
-		config, ok := obj.(*Config)
+		tpr, ok := obj.(*Config)
 		if ok {
-			name, namespace, kind, data, err := c.client.convertConfig(config)
-			if kind == k {
+			config, err := c.client.convertConfig(tpr)
+			if config.Type == typ {
 				if err == nil {
-					f(model.Key{
-						Name:      name,
-						Namespace: namespace,
-						Kind:      kind,
-					}, data, ev)
+					f(config, ev)
 				} else {
 					// Do not trigger re-application of handlers
-					glog.Warningf("Cannot convert kind %s to a config object", kind)
+					glog.Warningf("Cannot convert kind %s to a config object", typ)
 				}
 			}
 		}
 		return nil
 	})
-	return nil
 }
 
-func (c *Controller) appendIngressConfigHandler(k string, f func(model.Key, proto.Message, model.Event)) error {
+func (c *Controller) appendIngressConfigHandler(k string, f func(model.Config, model.Event)) {
 	if c.mesh.IngressControllerMode == proxyconfig.ProxyMeshConfig_OFF {
-		return fmt.Errorf("cannot append ingress config handler: ingress resources synchronization is off")
+		glog.Warning("cannot append ingress config handler: ingress resources synchronization is off")
+		return
 	}
 
 	c.ingresses.handler.append(func(obj interface{}, ev model.Event) error {
@@ -234,12 +230,15 @@ func (c *Controller) appendIngressConfigHandler(k string, f func(model.Key, prot
 		// A updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
 		messages := convertIngress(*ingress, c.domainSuffix)
 		for key, message := range messages {
-			f(key, message, ev)
+			f(model.Config{
+				Type:    model.IngressRule,
+				Key:     key,
+				Content: message,
+			}, ev)
 		}
 
 		return nil
 	})
-	return nil
 }
 
 // HasSynced returns true after the initial state synchronization
@@ -291,124 +290,125 @@ func keyFunc(name, namespace string) string {
 	return namespace + "/" + name
 }
 
+// ConfigDescriptor ...
+func (c *Controller) ConfigDescriptor() model.ConfigDescriptor {
+	return c.client.ConfigDescriptor()
+}
+
 // Get implements a registry operation
-func (c *Controller) Get(key model.Key) (proto.Message, bool) {
-	switch key.Kind {
+func (c *Controller) Get(typ, key string) (proto.Message, bool, string) {
+	switch typ {
 	case model.IngressRule:
 		return c.getIngress(key)
 	default:
-		return c.getTPR(key)
+		return c.getTPR(typ, key)
 	}
 }
 
-func (c *Controller) getTPR(key model.Key) (proto.Message, bool) {
-	if err := c.client.mapping.ValidateKey(&key); err != nil {
-		glog.Warning(err)
-		return nil, false
+func (c *Controller) getTPR(typ, key string) (proto.Message, bool, string) {
+	// TODO: validate
+	schema, exists := c.client.mapping.GetByType(typ)
+	if !exists {
+		return nil, false, ""
 	}
 
 	store := c.kinds[IstioKind].informer.GetStore()
-	data, exists, err := store.GetByKey(key.Namespace + "/" + configKey(&key))
+	data, exists, err := store.GetByKey(keyFunc(configKey(typ, key), c.client.dynNamespace))
 	if !exists {
-		return nil, false
+		return nil, false, ""
 	}
 	if err != nil {
 		glog.Warning(err)
-		return nil, false
+		return nil, false, ""
 	}
 
 	config, ok := data.(*Config)
 	if !ok {
 		glog.Warning("Cannot convert to config from store")
-		return nil, false
+		return nil, false, ""
 	}
 
-	kind := c.client.mapping[key.Kind]
-	out, err := kind.FromJSONMap(config.Spec)
+	out, err := schema.FromJSONMap(config.Spec)
 	if err != nil {
 		glog.Warning(err)
-		return nil, false
+		return nil, false, ""
 	}
-	return out, true
+	return out, true, config.Metadata.ResourceVersion
 }
 
-func (c *Controller) getIngress(key model.Key) (proto.Message, bool) {
+func (c *Controller) getIngress(key string) (proto.Message, bool, string) {
 	if c.mesh.IngressControllerMode == proxyconfig.ProxyMeshConfig_OFF {
-		glog.Warningf("Cannot get ingress resource for key %v: ingress resources synchronization is off", key.String())
-		return nil, false
+		glog.Warningf("Cannot get ingress resource for key %v: ingress resources synchronization is off", key)
+		return nil, false, ""
 	}
 
-	ingressName, _, _, err := decodeIngressRuleName(key.Name)
+	ingressName, ingressNamespace, _, _, err := decodeIngressRuleName(key)
 	if err != nil {
-		glog.V(2).Infof("getIngress(%s) => error %v", key.String(), err)
-		return nil, false
+		glog.V(2).Infof("getIngress(%s) => error %v", key, err)
+		return nil, false, ""
 	}
-	storeKey := keyFunc(ingressName, key.Namespace)
+	storeKey := keyFunc(ingressName, ingressNamespace)
 
 	obj, exists, err := c.ingresses.informer.GetStore().GetByKey(storeKey)
 	if err != nil {
-		glog.V(2).Infof("getIngress(%s) => error %v", key.String(), err)
-		return nil, false
+		glog.V(2).Infof("getIngress(%s) => error %v", key, err)
+		return nil, false, ""
 	}
 	if !exists {
-		return nil, false
+		return nil, false, ""
 	}
 
 	ingress := obj.(*v1beta1.Ingress)
 	if !c.shouldProcessIngress(ingress) {
-		return nil, false
+		return nil, false, ""
 	}
 
 	messages := convertIngress(*ingress, c.domainSuffix)
 	message, exists := messages[key]
-	return message, exists
+	return message, exists, ingress.GetResourceVersion()
 }
 
 // Post implements a registry operation
-func (c *Controller) Post(key model.Key, val proto.Message) error {
-	return c.client.Post(key, val)
+func (c *Controller) Post(val proto.Message) (string, error) {
+	return c.client.Post(val)
 }
 
 // Put implements a registry operation
-func (c *Controller) Put(key model.Key, val proto.Message) error {
-	return c.client.Put(key, val)
+func (c *Controller) Put(val proto.Message, revision string) (string, error) {
+	return c.client.Put(val, revision)
 }
 
 // Delete implements a registry operation
-func (c *Controller) Delete(key model.Key) error {
-	return c.client.Delete(key)
+func (c *Controller) Delete(typ, key string) error {
+	return c.client.Delete(typ, key)
 }
 
 // List implements a registry operation
-func (c *Controller) List(kind, namespace string) (map[model.Key]proto.Message, error) {
-	switch kind {
+func (c *Controller) List(typ string) ([]model.Config, error) {
+	switch typ {
 	case model.IngressRule:
-		return c.listIngresses(kind, namespace)
+		return c.listIngresses()
 	default:
-		return c.listTPRs(kind, namespace)
+		return c.listTPRs(typ)
 	}
 }
 
-func (c *Controller) listTPRs(kind, namespace string) (map[model.Key]proto.Message, error) {
-	if _, ok := c.client.mapping[kind]; !ok {
-		return nil, fmt.Errorf("Missing kind %q", kind)
+func (c *Controller) listTPRs(typ string) ([]model.Config, error) {
+	if _, ok := c.client.mapping.GetByType(typ); !ok {
+		return nil, fmt.Errorf("missing type %q", typ)
 	}
 
 	var errs error
-	out := make(map[model.Key]proto.Message)
+	out := make([]model.Config, 0)
 	for _, data := range c.kinds[IstioKind].informer.GetStore().List() {
 		item, ok := data.(*Config)
-		if ok && (namespace == "" || item.Metadata.Namespace == namespace) {
-			name, ns, istioKind, data, err := c.client.convertConfig(item)
-			if kind == istioKind {
+		if ok {
+			config, err := c.client.convertConfig(item)
+			if config.Type == typ {
 				if err != nil {
 					errs = multierror.Append(errs, err)
 				} else {
-					out[model.Key{
-						Name:      name,
-						Namespace: ns,
-						Kind:      kind,
-					}] = data
+					out = append(out, config)
 				}
 			}
 		}
@@ -416,8 +416,8 @@ func (c *Controller) listTPRs(kind, namespace string) (map[model.Key]proto.Messa
 	return out, errs
 }
 
-func (c *Controller) listIngresses(kind, namespace string) (map[model.Key]proto.Message, error) {
-	out := make(map[model.Key]proto.Message)
+func (c *Controller) listIngresses() ([]model.Config, error) {
+	out := make([]model.Config, 0)
 
 	if c.mesh.IngressControllerMode == proxyconfig.ProxyMeshConfig_OFF {
 		glog.Warningf("Cannot list ingress resources: ingress resources synchronization is off")
@@ -426,11 +426,15 @@ func (c *Controller) listIngresses(kind, namespace string) (map[model.Key]proto.
 
 	for _, obj := range c.ingresses.informer.GetStore().List() {
 		ingress := obj.(*v1beta1.Ingress)
-		if c.shouldProcessIngress(ingress) &&
-			(namespace == "" || ingress.GetObjectMeta().GetNamespace() == namespace) {
+		if c.shouldProcessIngress(ingress) {
 			ingressRules := convertIngress(*ingress, c.domainSuffix)
 			for key, message := range ingressRules {
-				out[key] = message
+				out = append(out, model.Config{
+					Type:     model.IngressRule,
+					Key:      key,
+					Revision: ingress.GetResourceVersion(),
+					Content:  message,
+				})
 			}
 		}
 	}

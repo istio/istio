@@ -12,7 +12,6 @@ import (
 
 	"istio.io/pilot/apiserver"
 	"istio.io/pilot/cmd/version"
-	"istio.io/pilot/model"
 )
 
 // RESTRequester is yet another client wrapper for making REST
@@ -79,12 +78,20 @@ type ConfigClient struct {
 	rr RESTRequester
 }
 
+// Key is the deprecated config key
+// TODO: remove this
+type Key struct {
+	Kind      string
+	Name      string
+	Namespace string
+}
+
 // Client defines the interface for the proxy specific functionality of the config client
 type Client interface {
-	GetConfig(model.Key) (*apiserver.Config, error)
-	AddConfig(model.Key, apiserver.Config) error
-	UpdateConfig(model.Key, apiserver.Config) error
-	DeleteConfig(model.Key) error
+	GetConfig(Key) (*apiserver.Config, error)
+	AddConfig(Key, apiserver.Config) error
+	UpdateConfig(Key, apiserver.Config) error
+	DeleteConfig(Key) error
 	ListConfig(string, string) ([]apiserver.Config, error)
 	Version() (*version.BuildInfo, error)
 }
@@ -95,7 +102,7 @@ func NewConfigClient(rr RESTRequester) *ConfigClient {
 	return &ConfigClient{rr: rr}
 }
 
-func (m *ConfigClient) doConfigCRUD(key model.Key, method string, inBody []byte) ([]byte, error) {
+func (m *ConfigClient) doConfigCRUD(key Key, method string, inBody []byte) ([]byte, error) {
 	uriSuffix := fmt.Sprintf("config/%v/%v/%v", key.Kind, key.Namespace, key.Name)
 	status, body, err := m.rr.Request(method, uriSuffix, inBody)
 	if err != nil {
@@ -111,7 +118,7 @@ func (m *ConfigClient) doConfigCRUD(key model.Key, method string, inBody []byte)
 }
 
 // GetConfig retrieves the configuration resource for the passed key
-func (m *ConfigClient) GetConfig(key model.Key) (*apiserver.Config, error) {
+func (m *ConfigClient) GetConfig(key Key) (*apiserver.Config, error) {
 	body, err := m.doConfigCRUD(key, http.MethodGet, nil)
 	if err != nil {
 		return nil, err
@@ -125,7 +132,7 @@ func (m *ConfigClient) GetConfig(key model.Key) (*apiserver.Config, error) {
 
 // AddConfig creates a configuration resources for the passed key using the passed configuration
 // It is idempotent
-func (m *ConfigClient) AddConfig(key model.Key, config apiserver.Config) error {
+func (m *ConfigClient) AddConfig(key Key, config apiserver.Config) error {
 	bodyIn, err := json.Marshal(config)
 	if err != nil {
 		return err
@@ -138,7 +145,7 @@ func (m *ConfigClient) AddConfig(key model.Key, config apiserver.Config) error {
 
 // UpdateConfig updates the configuration resource for the passed key using the passed configuration
 // It is idempotent
-func (m *ConfigClient) UpdateConfig(key model.Key, config apiserver.Config) error {
+func (m *ConfigClient) UpdateConfig(key Key, config apiserver.Config) error {
 	bodyIn, err := json.Marshal(config)
 	if err != nil {
 		return err
@@ -150,7 +157,7 @@ func (m *ConfigClient) UpdateConfig(key model.Key, config apiserver.Config) erro
 }
 
 // DeleteConfig deletes the configuration resource for the passed key
-func (m *ConfigClient) DeleteConfig(key model.Key) error {
+func (m *ConfigClient) DeleteConfig(key Key) error {
 	_, err := m.doConfigCRUD(key, http.MethodDelete, nil)
 	return err
 }

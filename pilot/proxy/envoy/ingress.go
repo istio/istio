@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sort"
-	"strconv"
 	"time"
 
 	"github.com/golang/glog"
@@ -193,16 +192,16 @@ func writeTLS(certFile, keyFile string, tls *model.TLSSecret) error {
 	return nil
 }
 
-func buildIngressRoutes(ingressRules map[model.Key]*proxyconfig.RouteRule,
+func buildIngressRoutes(ingressRules map[string]*proxyconfig.IngressRule,
 	discovery model.ServiceDiscovery,
-	config *model.IstioRegistry) (HTTPRouteConfigs, string) {
+	config model.IstioConfigStore) (HTTPRouteConfigs, string) {
 	// build vhosts
 	vhosts := make(map[string][]*HTTPRoute)
 	vhostsTLS := make(map[string][]*HTTPRoute)
 	tlsAll := ""
 
 	// skip over source-matched route rules
-	rules := config.RouteRulesBySource("", nil)
+	rules := config.RouteRulesBySource(nil)
 
 	for _, rule := range ingressRules {
 		routes, tls, err := buildIngressRoute(rule, discovery, rules)
@@ -265,19 +264,15 @@ func buildIngressRoutes(ingressRules map[model.Key]*proxyconfig.RouteRule,
 }
 
 // buildIngressRoute translates an ingress rule to an Envoy route
-func buildIngressRoute(ingress *proxyconfig.RouteRule,
+func buildIngressRoute(ingress *proxyconfig.IngressRule,
 	discovery model.ServiceDiscovery,
 	rules []*proxyconfig.RouteRule) ([]*HTTPRoute, string, error) {
-	// TODO: we would need to rebalance weights with more than one destination weight
-	// as another temporary resolution, we assume there is only one route in the ingress rule.
-	if len(ingress.Route) != 1 {
-		return nil, "", errors.New("expect exactly one route in the ingress rule")
-	}
 	service, exists := discovery.GetService(ingress.Destination)
 	if !exists {
 		return nil, "", fmt.Errorf("cannot find service %q", ingress.Destination)
 	}
-	servicePort, _, tls, err := extractPortAndTags(service, ingress.Route[0])
+	tls := ingress.TlsSecret
+	servicePort, err := extractPort(service, ingress)
 	if err != nil {
 		return nil, "", err
 	}
@@ -305,44 +300,23 @@ func buildIngressRoute(ingress *proxyconfig.RouteRule,
 	return out, tls, nil
 }
 
-// extractPortAndTags extracts the destination service port from the given destination,
-// as well as its tags (after clearing meta-tags describing the port).
-// Note that this is a temporary measure to communicate the destination service's port
-// to the proxy configuration generator. This can be improved by using
-// a dedicated model object for IngressRule (instead of reusing RouteRule),
-// which exposes the necessary target port field within the "Route" field.
-// Note that tags are currently ignored since we need to combine them with the other route
-// destination tags which may be incompatible.
-func extractPortAndTags(svc *model.Service,
-	dst *proxyconfig.DestinationWeight) (*model.Port, model.Tags, string, error) {
-	portNum, exists := dst.Tags[model.IngressPortNum]
-	var port *model.Port
-	if exists {
-		num, err := strconv.Atoi(portNum)
-		if err != nil {
-			return nil, nil, "", multierror.Prefix(err, fmt.Sprintf("cannot find port %s in %q: ", portNum, svc.Hostname))
-		}
-		port, exists = svc.Ports.GetByPort(num)
+// extractPort extracts the destination service port from the given destination,
+func extractPort(svc *model.Service, ingress *proxyconfig.IngressRule) (*model.Port, error) {
+	switch p := ingress.GetDestinationServicePort().(type) {
+	case *proxyconfig.IngressRule_DestinationPort:
+		num := p.DestinationPort
+		port, exists := svc.Ports.GetByPort(int(num))
 		if !exists {
-			return nil, nil, "", fmt.Errorf("cannot find port %d in %q", num, svc.Hostname)
+			return nil, fmt.Errorf("cannot find port %d in %q", num, svc.Hostname)
 		}
-	} else {
-		portName := dst.Tags[model.IngressPortName]
-		port, exists = svc.Ports.Get(portName)
+		return port, nil
+	case *proxyconfig.IngressRule_DestinationPortName:
+		name := p.DestinationPortName
+		port, exists := svc.Ports.Get(name)
 		if !exists {
-			return nil, nil, "", fmt.Errorf("cannot find port %q in %q", portName, svc.Hostname)
+			return nil, fmt.Errorf("cannot find port %q in %q", name, svc.Hostname)
 		}
+		return port, nil
 	}
-	tls := dst.Tags[model.IngressTLSSecret]
-	tags := make(model.Tags, len(dst.Tags))
-	for k, v := range dst.Tags {
-		tags[k] = v
-	}
-	delete(tags, model.IngressPortName)
-	delete(tags, model.IngressPortNum)
-	delete(tags, model.IngressTLSSecret)
-	if len(tags) == 0 {
-		tags = nil
-	}
-	return port, tags, tls, nil
+	return nil, errors.New("unrecognized destination port")
 }

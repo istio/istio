@@ -1,7 +1,6 @@
 package envoy
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -19,7 +18,6 @@ const (
 	ingressRouteRule2  = "testdata/ingress-route-foo.yaml.golden"
 	ingressCertFile    = "testdata/tls.crt"
 	ingressKeyFile     = "testdata/tls.key"
-	ingressNamespace   = "default"
 )
 
 var (
@@ -28,14 +26,13 @@ var (
 	ingressTLSSecret = &model.TLSSecret{Certificate: ingressCert, PrivateKey: ingressKey}
 )
 
-func addIngressRoutes(r *model.IstioRegistry, t *testing.T) {
-	for i, file := range []string{ingressRouteRule1, ingressRouteRule2} {
+func addIngressRoutes(r model.ConfigStore, t *testing.T) {
+	for _, file := range []string{ingressRouteRule1, ingressRouteRule2} {
 		msg, err := configObjectFromYAML(model.IngressRule, file)
 		if err != nil {
 			t.Fatal(err)
 		}
-		key := model.Key{Kind: model.IngressRule, Name: fmt.Sprintf("route-%d", i), Namespace: ingressNamespace}
-		if err = r.Post(key, msg); err != nil {
+		if _, err = r.Post(msg); err != nil {
 			t.Fatal(err)
 		}
 	}

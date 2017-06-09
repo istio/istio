@@ -26,6 +26,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
+	"istio.io/pilot/adapter/config/memory"
 	"istio.io/pilot/model"
 	"istio.io/pilot/proxy"
 	"istio.io/pilot/test/mock"
@@ -233,11 +234,11 @@ const (
 	rewriteRouteRule  = "testdata/rewrite-route.yaml.golden"
 )
 
-func testConfig(r *model.IstioRegistry, mesh *proxyconfig.ProxyMeshConfig, instance, envoyConfig string, t *testing.T) {
+func testConfig(r model.ConfigStore, mesh *proxyconfig.ProxyMeshConfig, instance, envoyConfig string, t *testing.T) {
 	config := Generate(&proxy.Context{
 		Discovery:  mock.Discovery,
 		Accounts:   mock.Discovery,
-		Config:     r,
+		Config:     model.MakeIstioStore(r),
 		MeshConfig: mesh,
 		IPAddress:  instance,
 		UID:        fmt.Sprintf("uid://%s.my-namespace", instance),
@@ -258,7 +259,7 @@ func testConfig(r *model.IstioRegistry, mesh *proxyconfig.ProxyMeshConfig, insta
 }
 
 func configObjectFromYAML(kind, file string) (proto.Message, error) {
-	schema, ok := model.IstioConfig[kind]
+	schema, ok := model.IstioConfigTypes.GetByType(kind)
 	if !ok {
 		return nil, fmt.Errorf("Missing kind %q", kind)
 	}
@@ -269,71 +270,62 @@ func configObjectFromYAML(kind, file string) (proto.Message, error) {
 	return schema.FromYAML(string(content))
 }
 
-func addCircuitBreaker(r *model.IstioRegistry, t *testing.T) {
+func addCircuitBreaker(r model.ConfigStore, t *testing.T) {
 	msg, err := configObjectFromYAML(model.DestinationPolicy, cbPolicy)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = r.Post(model.Key{
-		Kind: model.DestinationPolicy,
-		Name: "circuit-breaker"},
-		msg); err != nil {
+	if _, err = r.Post(msg); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func addRewrite(r *model.IstioRegistry, t *testing.T) {
+func addRewrite(r model.ConfigStore, t *testing.T) {
 	msg, err := configObjectFromYAML(model.RouteRule, rewriteRouteRule)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = r.Post(model.Key{
-		Kind: model.RouteRule,
-		Name: "http-rewrite"},
-		msg); err != nil {
+	if _, err = r.Post(msg); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func addRedirect(r *model.IstioRegistry, t *testing.T) {
+func addRedirect(r model.ConfigStore, t *testing.T) {
 	msg, err := configObjectFromYAML(model.RouteRule, redirectRouteRule)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = r.Post(model.Key{
-		Kind: model.RouteRule,
-		Name: "http-redirect"},
-		msg); err != nil {
+	if _, err = r.Post(msg); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func addTimeout(r *model.IstioRegistry, t *testing.T) {
+func addTimeout(r model.ConfigStore, t *testing.T) {
 	msg, err := configObjectFromYAML(model.RouteRule, timeoutRouteRule)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = r.Post(model.Key{Kind: model.RouteRule, Name: "timeouts"}, msg); err != nil {
+	if _, err = r.Post(msg); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func addWeightedRoute(r *model.IstioRegistry, t *testing.T) {
+func addWeightedRoute(r model.ConfigStore, t *testing.T) {
 	msg, err := configObjectFromYAML(model.RouteRule, weightedRouteRule)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = r.Post(model.Key{Kind: model.RouteRule, Name: "weighted-route"}, msg); err != nil {
+	if _, err = r.Post(msg); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func addFaultRoute(r *model.IstioRegistry, t *testing.T) {
+func addFaultRoute(r model.ConfigStore, t *testing.T) {
 	msg, err := configObjectFromYAML(model.RouteRule, faultRouteRule)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = r.Post(model.Key{Kind: model.RouteRule, Name: "fault-route"}, msg); err != nil {
+	if _, err = r.Post(msg); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -349,14 +341,14 @@ func makeMeshConfig() proxyconfig.ProxyMeshConfig {
 }
 
 func TestMockConfig(t *testing.T) {
-	r := mock.MakeRegistry()
+	r := memory.Make(model.IstioConfigTypes)
 	mesh := makeMeshConfig()
 	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0Config, t)
 	testConfig(r, &mesh, mock.HostInstanceV1, envoyV1Config, t)
 }
 
 func TestMockConfigWithAuth(t *testing.T) {
-	r := mock.MakeRegistry()
+	r := memory.Make(model.IstioConfigTypes)
 	mesh := makeMeshConfig()
 	mesh.AuthPolicy = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
 	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0ConfigAuth, t)
@@ -364,7 +356,7 @@ func TestMockConfigWithAuth(t *testing.T) {
 }
 
 func TestMockConfigTimeout(t *testing.T) {
-	r := mock.MakeRegistry()
+	r := memory.Make(model.IstioConfigTypes)
 	mesh := makeMeshConfig()
 	addTimeout(r, t)
 	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0Config, t)
@@ -372,7 +364,7 @@ func TestMockConfigTimeout(t *testing.T) {
 }
 
 func TestMockConfigCircuitBreaker(t *testing.T) {
-	r := mock.MakeRegistry()
+	r := memory.Make(model.IstioConfigTypes)
 	mesh := makeMeshConfig()
 	addCircuitBreaker(r, t)
 	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0Config, t)
@@ -380,7 +372,7 @@ func TestMockConfigCircuitBreaker(t *testing.T) {
 }
 
 func TestHTTPRedirect(t *testing.T) {
-	r := mock.MakeRegistry()
+	r := memory.Make(model.IstioConfigTypes)
 	mesh := makeMeshConfig()
 	addRedirect(r, t)
 	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0Config, t)
@@ -388,7 +380,7 @@ func TestHTTPRedirect(t *testing.T) {
 }
 
 func TestHTTPRewrite(t *testing.T) {
-	r := mock.MakeRegistry()
+	r := memory.Make(model.IstioConfigTypes)
 	mesh := makeMeshConfig()
 	addRewrite(r, t)
 	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0Config, t)
@@ -396,7 +388,7 @@ func TestHTTPRewrite(t *testing.T) {
 }
 
 func TestMockConfigWeighted(t *testing.T) {
-	r := mock.MakeRegistry()
+	r := memory.Make(model.IstioConfigTypes)
 	mesh := makeMeshConfig()
 	addWeightedRoute(r, t)
 	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0Config, t)
@@ -404,7 +396,7 @@ func TestMockConfigWeighted(t *testing.T) {
 }
 
 func TestMockConfigFault(t *testing.T) {
-	r := mock.MakeRegistry()
+	r := memory.Make(model.IstioConfigTypes)
 	mesh := makeMeshConfig()
 	addFaultRoute(r, t)
 	// Fault rule uses source condition, hence the different golden artifacts
