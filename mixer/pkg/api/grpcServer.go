@@ -60,13 +60,6 @@ type (
 	dispatchFn func(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status
 )
 
-var (
-	// TODO: need full list
-	globalWordList = []string{
-		"request.size",
-	}
-)
-
 // NewGRPCServer creates a gRPC serving stack.
 func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
 	words := globalWordList
