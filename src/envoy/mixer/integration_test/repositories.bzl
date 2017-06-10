@@ -139,7 +139,7 @@ gogoslick_proto_library(
       native.new_git_repository(
           name = "com_github_istio_api",
           build_file_content = ISTIO_API_BUILD_FILE,
-          commit = "8edd0f7d57cd336ed8acd7ada91ffd4ef5f2a1c4",
+          commit = "da77a025c7fcf9b3d21eac8928451091ec0b31f8",
           remote = "https://github.com/istio/api.git",
       )
 
@@ -211,6 +211,6 @@ def go_mixer_repositories(use_local_api=False):
 
     go_repository(
         name = "com_github_istio_mixer",
-        commit = "c685be4eb9578cb8edb3d8164b9b56f70b813c77",
+        commit = "1eb238c30420a3f5f144e9895ab8e3c9d6afb75b",
         importpath = "github.com/istio/mixer",
     )
