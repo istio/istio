@@ -145,3 +145,15 @@ func (i *Istioctl) ReplaceRule(rule string) error {
 func (i *Istioctl) DeleteRule(rule string) error {
 	return i.run("-n %s --istioNamespace %s delete -f %s", i.namespace, i.istioNamespace, rule)
 }
+
+// CreateAdapters creates adapters config.
+func (i *Istioctl) CreateAdapters(scope, adaptersFile string) error {
+	return i.run(fmt.Sprintf("-n %s --istioNamespace %s mixer adapter create %s -f %s",
+		i.namespace, i.istioNamespace, scope, adaptersFile))
+}
+
+// CreateDescriptors creates descriptors config.
+func (i *Istioctl) CreateDescriptors(scope, descriptorsFile string) error {
+	return i.run(fmt.Sprintf("-n %s --istioNamespace %s mixer descriptor create %s -f %s",
+		i.namespace, i.istioNamespace, scope, descriptorsFile))
+}
