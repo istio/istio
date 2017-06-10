@@ -38,11 +38,14 @@ namespace istio {
 namespace mixer_client {
 namespace {
 
-// Automatically generated global dictionary from
-// https://github.com/istio/api/blob/master/mixer/v1/global_dictionary.yaml
-// by run:
-//    ./create_global_dictionary.py global_dictionary.yaml \
-//       > src/global_dictionary.cc
+/*
+ * Automatically generated global dictionary from
+ * https://github.com/istio/api/blob/master/mixer/v1/global_dictionary.yaml
+ * by run:
+ *  ./create_global_dictionary.py \
+ *    bazel-mixerclient/external/mixerapi_git/mixer/v1/global_dictionary.yaml \
+ *      > src/global_dictionary.cc
+ */
 
 const std::vector<std::string> kGlobalWords{
 """
