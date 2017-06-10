@@ -20,7 +20,7 @@ The Istio community has a number of different communication channels. It can be 
 where's the right place to ask a question or propose a design. It can be complicated on the receiving end too,
 trying to keep track of all the incoming input. So we'd like to encourage the following:
 
-- Initial design discussions should happen on the [istio-dev](istio-dev@googlegroups.com) mailing list. This is a great
+- Initial design discussions should happen on the [istio-dev](https://groups.google.com/forum/#!forum/istio-dev) mailing list. This is a great
 place to float ideas and get thoughtful feedback. It's archived for everybody to consume into the future.
 
 - If a design is substantial enough, it deserves a design document. Design documents are written with Google Docs and
