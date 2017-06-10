@@ -158,6 +158,7 @@ void QuotaCache::Convert(const Attributes& attributes, bool best_effort,
   request->set_deduplication_id(std::to_string(deduplication_id_++));
   request->set_best_effort(best_effort);
   converter_.Convert(filtered_attributes, request->mutable_attributes());
+  request->set_global_word_count(converter_.global_word_count());
 }
 
 // TODO: hookup with a timer object to call Flush() periodically.

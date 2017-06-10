@@ -43,13 +43,15 @@ class BatchConverter {
 // Convert attributes from struct to protobuf
 class AttributeConverter {
  public:
-  AttributeConverter(const std::vector<std::string>& global_words);
+  AttributeConverter();
 
   void Convert(const Attributes& attributes,
                ::istio::mixer::v1::Attributes* attributes_pb) const;
 
   // Create a batch converter.
   std::unique_ptr<BatchConverter> CreateBatchConverter() const;
+
+  int global_word_count() const { return global_dict_.size(); }
 
  private:
   std::unordered_map<std::string, int> global_dict_;

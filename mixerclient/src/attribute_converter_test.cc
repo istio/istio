@@ -34,6 +34,7 @@ words: "bytes-key"
 words: "double-key"
 words: "duration-key"
 words: "int-key"
+words: "source user"
 words: "string-key"
 words: "this is a string value"
 words: "string-map-key"
@@ -43,12 +44,20 @@ words: "key2"
 words: "value2"
 words: "time-key"
 strings {
-  key: -6
-  value: -7
+  key: -7
+  value: -8
+}
+strings {
+  key: 6
+  value: -6
 }
 int64s {
   key: -5
   value: 35
+}
+int64s {
+  key: 8
+  value: 8080
 }
 doubles {
   key: -3
@@ -59,7 +68,7 @@ bools {
   value: true
 }
 timestamps {
-  key: -13
+  key: -14
   value {
   }
 }
@@ -74,15 +83,15 @@ bytes {
   value: "this is a bytes value"
 }
 string_maps {
-  key: -8
+  key: -9
   value {
     entries {
-      key: -11
-      value: -12
+      key: -12
+      value: -13
     }
     entries {
-      key: -9
-      value: -10
+      key: -10
+      value: -11
     }
   }
 }
@@ -91,12 +100,20 @@ string_maps {
 const char kReportAttributes[] = R"(
 attributes {
   strings {
-    key: -6
-    value: -7
+    key: -7
+    value: -8
+  }
+  strings {
+    key: 6
+    value: -6
   }
   int64s {
     key: -5
     value: 35
+  }
+  int64s {
+    key: 8
+    value: 8080
   }
   doubles {
     key: -3
@@ -107,7 +124,7 @@ attributes {
     value: true
   }
   timestamps {
-    key: -13
+    key: -14
     value {
     }
   }
@@ -122,22 +139,22 @@ attributes {
     value: "this is a bytes value"
   }
   string_maps {
-    key: -8
+    key: -9
     value {
       entries {
-        key: -11
-        value: -12
+        key: -12
+        value: -13
       }
       entries {
-        key: -9
-        value: -10
+        key: -10
+        value: -11
       }
     }
   }
 }
 attributes {
   int64s {
-    key: -14
+    key: -15
     value: 111
   }
   int64s {
@@ -153,11 +170,15 @@ attributes {
     value: false
   }
   string_maps {
-    key: -8
+    key: -9
     value {
       entries {
-        key: -15
-        value: -16
+        key: -16
+        value: -17
+      }
+      entries {
+        key: 32
+        value: 90
       }
     }
   }
@@ -167,6 +188,7 @@ default_words: "bytes-key"
 default_words: "double-key"
 default_words: "duration-key"
 default_words: "int-key"
+default_words: "source user"
 default_words: "string-key"
 default_words: "this is a string value"
 default_words: "string-map-key"
@@ -178,6 +200,7 @@ default_words: "time-key"
 default_words: "int-key2"
 default_words: "key"
 default_words: "value"
+global_word_count: 111
 )";
 
 class AttributeConverterTest : public ::testing::Test {
@@ -223,6 +246,10 @@ class AttributeConverterTest : public ::testing::Test {
     AddDoublePair("double-key", 99.9);
     AddInt64Pair("int-key", 35);
     AddBoolPair("bool-key", true);
+
+    // add some global words
+    AddString("source.user", "source user");
+    AddInt64Pair("target.port", 8080);
 
     // default to Clock's epoch.
     std::chrono::time_point<std::chrono::system_clock> time_point;
@@ -270,7 +297,7 @@ TEST_F(AttributeConverterTest, BatchConvertTest) {
   AddInt64Pair("int-key2", 111);
   AddBoolPair("bool-key", false);
 
-  AddStringMap("string-map-key", {{"key", "value"}});
+  AddStringMap("string-map-key", {{"key", "value"}, {":method", "GET"}});
 
   // Since there is no deletion, batch is good
   EXPECT_TRUE(batch_converter->Add(attributes_));

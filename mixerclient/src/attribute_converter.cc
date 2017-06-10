@@ -15,6 +15,7 @@
 
 #include "attribute_converter.h"
 #include "delta_update.h"
+#include "global_dictionary.h"
 #include "utils/protobuf.h"
 
 namespace istio {
@@ -126,7 +127,9 @@ class BatchConverterImpl : public BatchConverter {
   BatchConverterImpl(const std::unordered_map<std::string, int>& global_dict)
       : dict_(global_dict),
         delta_update_(DeltaUpdate::Create()),
-        report_(new ::istio::mixer::v1::ReportRequest) {}
+        report_(new ::istio::mixer::v1::ReportRequest) {
+    report_->set_global_word_count(global_dict.size());
+  }
 
   bool Add(const Attributes& attributes) override {
     ::istio::mixer::v1::Attributes pb;
@@ -154,8 +157,8 @@ class BatchConverterImpl : public BatchConverter {
 
 }  // namespace
 
-AttributeConverter::AttributeConverter(
-    const std::vector<std::string>& global_words) {
+AttributeConverter::AttributeConverter() {
+  const std::vector<std::string>& global_words = GetGlobalWords();
   for (unsigned int i = 0; i < global_words.size(); i++) {
     global_dict_[global_words[i]] = i;
   }

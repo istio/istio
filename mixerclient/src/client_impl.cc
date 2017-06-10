@@ -29,7 +29,7 @@ namespace istio {
 namespace mixer_client {
 
 MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
-    : options_(options), converter_({}) {
+    : options_(options) {
   check_cache_ =
       std::unique_ptr<CheckCache>(new CheckCache(options.check_options));
   report_batch_ = std::unique_ptr<ReportBatch>(
@@ -52,6 +52,7 @@ void MixerClientImpl::Check(const Attributes &attributes, DoneFunc on_done) {
 
   CheckRequest request;
   converter_.Convert(attributes, request.mutable_attributes());
+  request.set_global_word_count(converter_.global_word_count());
   auto response = new CheckResponse;
   options_.check_transport(request, response, [this, signature, response,
                                                on_done](const Status &status) {
