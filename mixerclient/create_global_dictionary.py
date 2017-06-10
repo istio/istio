@@ -40,20 +40,21 @@ namespace {
 
 // Automatically generated global dictionary from
 // https://github.com/istio/api/blob/master/mixer/v1/global_dictionary.yaml
-const std::vector<std::string> kGlobalWords {
+// by run:
+//    ./create_global_dictionary.py global_dictionary.yaml \
+//       > src/global_dictionary.cc
+
+const std::vector<std::string> kGlobalWords{
 """
 
 BOTTOM = r"""};
 
 }  // namespace
 
-const std::vector<std::string>& GetGlobalWords() {
-   return kGlobalWords;
-}
+const std::vector<std::string>& GetGlobalWords() { return kGlobalWords; }
 
 }  // namespace mixer_client
-}  // namespace istio
-"""
+}  // namespace istio"""
 
 all_words = ''
 for word in yaml.load(open(sys.argv[1])):
