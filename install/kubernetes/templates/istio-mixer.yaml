@@ -1,11 +1,10 @@
 # Mixer
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-mixer
 data:
-  mapping.conf:
+  mapping.conf: |-
 ---
 apiVersion: v1
 kind: Service

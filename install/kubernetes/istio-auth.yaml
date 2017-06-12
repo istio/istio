@@ -8,6 +8,7 @@ metadata:
   name: istio-mixer
 data:
   mapping.conf:
+
 ---
 apiVersion: v1
 kind: Service
