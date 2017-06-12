@@ -28,7 +28,7 @@ metadata:
 spec:
   selector:
     app: prometheus
-  type: LoadBalancer
+#  type: LoadBalancer
   ports:
   - name: prometheus
     protocol: TCP
