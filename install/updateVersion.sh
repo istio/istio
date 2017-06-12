@@ -29,24 +29,24 @@ function usage() {
   cat <<EOF
 usage: ${BASH_SOURCE[0]} [options ...]"
   options:
-    -i ... URL to download istioctl binaries
-    -p ... <hub>,<tag> for the pilot docker images
-    -x ... <hub>,<tag> for the mixer docker images
-    -C ... <hub>,<tag> for the istio-ca docker images
-    -c ... create a git commit for the changes
+    -i ... URL to download istioctl binary
+    -p ... <hub>,<tag> for the pilot docker image
+    -x ... <hub>,<tag> for the mixer docker image
+    -c ... <hub>,<tag> for the istio-ca docker image
+    -g ... create a git commit for the changes
 EOF
   exit 2
 }
 
 source "$VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :ci:p:x:C: arg; do
+while getopts :gi:p:x:c: arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     p) PILOT_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     x) MIXER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
-    C) CA_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
-    c) GIT_COMMIT=true;;
+    c) CA_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
+    g) GIT_COMMIT=true;;
     *) usage;;
   esac
 done
@@ -116,7 +116,7 @@ function merge_files() {
   cat $SRC/istio-ingress.yaml >> $ISTIO
   cat $SRC/istio-egress.yaml >> $ISTIO
 
-  sed -i "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
+  sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
   cat $AUTH_SRC/istio-ingress-auth.yaml >> $ISTIO_AUTH
   cat $AUTH_SRC/istio-egress-auth.yaml >> $ISTIO_AUTH
   cp $ISTIO_AUTH $ISTIO_AUTH_WITH_CLUSTER_CA
@@ -139,25 +139,25 @@ EOF
 
 function update_istio_install() {
   pushd $TEMP_DIR/templates
-  sed -i "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml
-  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress.yaml
-  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-egress.yaml
-  sed -i "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml
+  sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml
+  sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress.yaml
+  sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-egress.yaml
+  sed -i=.bak "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml
   popd
 }
 
 function update_istio_addons() {
   pushd $ROOT/install/kubernetes/addons
-  sed -i "s|image: .*/\(.*\):.*|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml
+  sed -i=.bak "s|image: .*/\(.*\):.*|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml
   popd
 }
 
 function update_istio_auth() {
   pushd $TEMP_DIR/templates/istio-auth
-  sed -i "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-cluster-ca.yaml
-  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-egress-auth.yaml
-  sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress-auth.yaml
-  sed -i "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-namespace-ca.yaml
+  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-cluster-ca.yaml
+  sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-egress-auth.yaml
+  sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress-auth.yaml
+  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-namespace-ca.yaml
   popd
 }
 
