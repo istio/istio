@@ -2,7 +2,7 @@ workspace(name = "com_github_istio_mixer")
 
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "87cdda3fc0fd65c63ef0316533be03ea4956f809",  # April 7 2017 (0.4.2)
+    commit = "4c9a52aba0b59511c5646af88d2f93a9c0193647",  # May 5, 2017 (0.4.4)
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
@@ -12,7 +12,7 @@ go_repositories()
 
 git_repository(
     name = "org_pubref_rules_protobuf",
-    commit = "9ede1dbc38f0b89ae6cd8e206a22dd93cc1d5637",  # Mar 31 2017 (gogo* support)
+    commit = "9ede1dbc38f0b89ae6cd8e206a22dd93cc1d5637",  # Mar 31, 2017 (gogo* support)
     remote = "https://github.com/pubref/rules_protobuf",
 )
 
