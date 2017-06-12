@@ -162,23 +162,23 @@ func metricDefinitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefin
 		}
 		labels[name] = l
 	}
-	kind, err := metricKindFromProto(desc.Kind)
+	value, err := valueTypeToLabelType(desc.Value)
 	if err != nil {
-		return nil, fmt.Errorf("descriptor '%s' failed to convert metric kind value '%v' from proto: %v",
-			desc.Name, desc.Kind, err)
+		return nil, fmt.Errorf("descriptor '%s' failed to convert metric value '%v' from proto: %v", desc.Name, desc.Value, err)
 	}
 
-	if kind == adapter.Distribution && desc.Buckets == nil {
-		return nil, fmt.Errorf(
-			"invalid descriptor '%s': metrics with metric kind of distribution must define buckets",
-			desc.Name,
-		)
+	kind, err := metricKindFromProto(desc.Kind)
+	if err != nil {
+		return nil, fmt.Errorf("descriptor '%s' failed to convert metric kind value '%v' from proto: %v", desc.Name, desc.Kind, err)
+	} else if kind == adapter.Distribution && desc.Buckets == nil {
+		return nil, fmt.Errorf("invalid descriptor '%s': metrics with metric kind of distribution must define buckets", desc.Name)
 	}
 
 	def := &adapter.MetricDefinition{
 		Name:        desc.Name,
 		DisplayName: desc.DisplayName,
 		Description: desc.Description,
+		Value:       value,
 		Kind:        kind,
 		Labels:      labels,
 	}
@@ -186,11 +186,7 @@ func metricDefinitionFromProto(desc *dpb.MetricDescriptor) (*adapter.MetricDefin
 	if desc.Buckets != nil {
 		b, err := bucketDefinitionFromProto(desc.Buckets)
 		if err != nil {
-			return nil, fmt.Errorf(
-				"invalid descriptor '%s': could not extract bucket definitions: %v",
-				desc.Name,
-				err,
-			)
+			return nil, fmt.Errorf("invalid descriptor '%s': could not extract bucket definitions: %v", desc.Name, err)
 		}
 		def.Buckets = b
 	}

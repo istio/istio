@@ -80,6 +80,8 @@ type (
 		Description string
 		// Kind provides type information about the metric.
 		Kind MetricKind
+		// Provides type information about the value (payload) of the metric.
+		Value LabelType
 		// Labels are the names of keys for dimensional data that will
 		// be generated at runtime and passed along with metric values.
 		Labels map[string]LabelType
