@@ -248,7 +248,7 @@ func (a *agent) reconcile() {
 
 	// check that the config is current
 	if reflect.DeepEqual(a.desiredConfig, a.currentConfig) {
-		glog.V(2).Info("Desired configuration is already applied, resetting delay")
+		glog.V(2).Info("Desired configuration is already applied")
 		return
 	}
 

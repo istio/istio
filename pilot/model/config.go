@@ -130,6 +130,9 @@ type ConfigStoreCache interface {
 
 	// Run until a signal is received
 	Run(stop <-chan struct{})
+
+	// HasSynced returns true after initial cache synchronization is complete
+	HasSynced() bool
 }
 
 // ConfigDescriptor defines the bijection between the short type name and its

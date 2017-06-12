@@ -84,9 +84,6 @@ func (w *watcher) Run(stop <-chan struct{}) {
 	// agent consumes notifications from the controllerr
 	go w.agent.Run(stop)
 
-	// initiate controller to fetch the latest state
-	go w.ctl.Run(stop)
-
 	// kickstart the proxy with partial state (in case there are no notifications coming)
 	w.reload()
 

@@ -32,7 +32,7 @@ func makeAnnotatedIngress(annotation string) *extensions.Ingress {
 	return &extensions.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				ingressClassAnnotation: annotation,
+				IngressClassAnnotation: annotation,
 			},
 		},
 	}

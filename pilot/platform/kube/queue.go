@@ -42,6 +42,11 @@ type Task struct {
 	event   model.Event
 }
 
+// NewTask creates a task from a work item
+func NewTask(handler Handler, obj interface{}, event model.Event) Task {
+	return Task{handler: handler, obj: obj, event: event}
+}
+
 type queueImpl struct {
 	delay   time.Duration
 	queue   []Task
@@ -104,12 +109,13 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 	}
 }
 
-// chainHandler applies handlers in a sequence
-type chainHandler struct {
+// ChainHandler applies handlers in a sequence
+type ChainHandler struct {
 	funcs []Handler
 }
 
-func (ch *chainHandler) apply(obj interface{}, event model.Event) error {
+// Apply is the handler function
+func (ch *ChainHandler) Apply(obj interface{}, event model.Event) error {
 	for _, f := range ch.funcs {
 		if err := f(obj, event); err != nil {
 			return err
@@ -118,6 +124,7 @@ func (ch *chainHandler) apply(obj interface{}, event model.Event) error {
 	return nil
 }
 
-func (ch *chainHandler) append(h Handler) {
+// Append a handler as the last handler in the chain
+func (ch *ChainHandler) Append(h Handler) {
 	ch.funcs = append(ch.funcs, h)
 }

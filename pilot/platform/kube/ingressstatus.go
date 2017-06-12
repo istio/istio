@@ -20,6 +20,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/ingress/core/pkg/ingress/status"
@@ -47,16 +48,16 @@ func (s *IngressStatusSyncer) Run(stopCh <-chan struct{}) {
 }
 
 // NewIngressStatusSyncer creates a new instance
-func NewIngressStatusSyncer(mesh *proxyconfig.ProxyMeshConfig, client *Client,
+func NewIngressStatusSyncer(mesh *proxyconfig.ProxyMeshConfig, client kubernetes.Interface,
 	options ControllerOptions) *IngressStatusSyncer {
 
 	informer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {
-				return client.client.ExtensionsV1beta1().Ingresses(options.Namespace).List(opts)
+				return client.ExtensionsV1beta1().Ingresses(options.Namespace).List(opts)
 			},
 			WatchFunc: func(opts meta_v1.ListOptions) (watch.Interface, error) {
-				return client.client.ExtensionsV1beta1().Ingresses(options.Namespace).Watch(opts)
+				return client.ExtensionsV1beta1().Ingresses(options.Namespace).Watch(opts)
 			},
 		},
 		&v1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{},
@@ -68,7 +69,7 @@ func NewIngressStatusSyncer(mesh *proxyconfig.ProxyMeshConfig, client *Client,
 	}
 	ingressClass, defaultIngressClass := convertIngressControllerMode(mesh.IngressControllerMode, mesh.IngressClass)
 	sync := status.NewStatusSyncer(status.Config{
-		Client:              client.GetKubernetesClient(),
+		Client:              client,
 		IngressLister:       store.IngressLister{Store: informer.GetStore()},
 		ElectionID:          ingressElectionID, // TODO: configurable?
 		PublishService:      publishService,

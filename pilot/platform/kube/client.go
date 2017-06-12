@@ -12,384 +12,64 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package kube implements the shared and reusable library for Kubernetes
 package kube
 
 import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	"k8s.io/client-go/tools/clientcmd"
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"crypto/tls"
 
 	"istio.io/pilot/model"
 )
 
-const (
-	// IstioAPIGroup defines Kubernetes API group for TPR
-	IstioAPIGroup = "istio.io"
-
-	// IstioResourceVersion defines Kubernetes API group version
-	IstioResourceVersion = "v1alpha1"
-
-	// IstioKind defines the shared TPR kind to avoid boilerplate
-	// code for each custom kind
-	IstioKind = "IstioConfig"
-)
-
-// Client provides state-less Kubernetes bindings:
-// - configuration objects are stored as third-party resources
-// - dynamic REST client is configured to use third-party resources
-// - static client exposes Kubernetes API
-type Client struct {
-	mapping      model.ConfigDescriptor
-	client       kubernetes.Interface
-	dyn          *rest.RESTClient
-	dynNamespace string
-}
-
-// CreateRESTConfig for cluster API server, pass empty config file for in-cluster
-func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
-	if kubeconfig == "" {
-		config, err = rest.InClusterConfig()
-	} else {
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-	}
-
-	if err != nil {
-		return
-	}
-
-	version := schema.GroupVersion{
-		Group:   IstioAPIGroup,
-		Version: IstioResourceVersion,
-	}
-
-	config.GroupVersion = &version
-	config.APIPath = "/apis"
-	config.ContentType = runtime.ContentTypeJSON
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: api.Codecs}
-
-	schemeBuilder := runtime.NewSchemeBuilder(
-		func(scheme *runtime.Scheme) error {
-			scheme.AddKnownTypes(
-				version,
-			)
-			scheme.AddKnownTypeWithName(schema.GroupVersionKind{
-				Group:   IstioAPIGroup,
-				Version: IstioResourceVersion,
-				Kind:    IstioKind,
-			}, &Config{})
-			scheme.AddKnownTypeWithName(schema.GroupVersionKind{
-				Group:   IstioAPIGroup,
-				Version: IstioResourceVersion,
-				Kind:    IstioKind + "List",
-			}, &ConfigList{})
-
-			return nil
-		})
-	meta_v1.AddToGroupVersion(api.Scheme, version)
-	err = schemeBuilder.AddToScheme(api.Scheme)
-
-	return
-}
-
-// NewClient creates a client to Kubernetes API using a kubeconfig file.
-// Use an empty value for `kubeconfig` to use the in-cluster config.
-// If the kubeconfig file is empty, defaults to in-cluster config as well.
-// namespace is used to store TPRs
-func NewClient(kubeconfig string, km model.ConfigDescriptor, namespace string) (*Client, error) {
+// ResolveConfig checks whether to use the in-cluster or out-of-cluster config
+func ResolveConfig(kubeconfig string) (string, error) {
 	if kubeconfig != "" {
-		info, exists := os.Stat(kubeconfig)
-		if exists != nil {
-			return nil, fmt.Errorf("kubernetes configuration file %q does not exist", kubeconfig)
+		info, err := os.Stat(kubeconfig)
+		if err != nil {
+			if os.IsNotExist(err) {
+				err = fmt.Errorf("kubernetes configuration file %q does not exist", kubeconfig)
+			} else {
+				err = multierror.Append(err, fmt.Errorf("kubernetes configuration file %q", kubeconfig))
+			}
+			return "", err
 		}
 
 		// if it's an empty file, switch to in-cluster config
 		if info.Size() == 0 {
-			glog.Info("Using in-cluster configuration")
-			kubeconfig = ""
+			glog.Info("using in-cluster configuration")
+			return "", nil
 		}
 	}
+	return kubeconfig, nil
+}
 
-	config, err := CreateRESTConfig(kubeconfig)
+// CreateInterface is a helper function to create Kubernetes interface
+func CreateInterface(kubeconfig string) (kubernetes.Interface, error) {
+	kube, err := ResolveConfig(kubeconfig)
 	if err != nil {
 		return nil, err
 	}
-	cl, err := kubernetes.NewForConfig(config)
+	config, err := clientcmd.BuildConfigFromFlags("", kube)
 	if err != nil {
 		return nil, err
 	}
-
-	dyn, err := rest.RESTClientFor(config)
-	if err != nil {
-		return nil, err
-	}
-
-	out := &Client{
-		mapping:      km,
-		client:       cl,
-		dyn:          dyn,
-		dynNamespace: namespace,
-	}
-
-	return out, nil
-}
-
-// GetKubernetesClient retrieves core set kubernetes client
-func (cl *Client) GetKubernetesClient() kubernetes.Interface {
-	return cl.client
-}
-
-// RegisterResources creates third party resources
-func (cl *Client) RegisterResources() error {
-	var out error
-	kinds := []string{IstioKind}
-	for _, kind := range kinds {
-		apiName := kindToAPIName(kind)
-		res, err := cl.client.
-			Extensions().
-			ThirdPartyResources().
-			Get(apiName, meta_v1.GetOptions{})
-		if err == nil {
-			glog.V(2).Infof("Resource already exists: %q", res.Name)
-		} else if errors.IsNotFound(err) {
-			glog.V(1).Infof("Creating resource: %q", kind)
-			tpr := &v1beta1.ThirdPartyResource{
-				ObjectMeta:  meta_v1.ObjectMeta{Name: apiName},
-				Versions:    []v1beta1.APIVersion{{Name: IstioResourceVersion}},
-				Description: "Istio configuration",
-			}
-			res, err = cl.client.
-				Extensions().
-				ThirdPartyResources().
-				Create(tpr)
-			if err != nil {
-				out = multierror.Append(out, err)
-			} else {
-				glog.V(2).Infof("Created resource: %q", res.Name)
-			}
-		} else {
-			out = multierror.Append(out, err)
-		}
-	}
-
-	// validate that the resources exist or fail with an error after 30s
-	ready := true
-	glog.V(2).Infof("Checking for TPR resources")
-	for i := 0; i < 30; i++ {
-		ready = true
-		for _, kind := range kinds {
-			list := &ConfigList{}
-			err := cl.dyn.Get().
-				Namespace(api.NamespaceAll).
-				Resource(IstioKind + "s").
-				Do().Into(list)
-			if err != nil {
-				glog.V(2).Infof("TPR %q is not ready (%v). Waiting...", kind, err)
-				ready = false
-				break
-			}
-		}
-		if ready {
-			break
-		}
-		time.Sleep(1 * time.Second)
-	}
-
-	if !ready {
-		out = multierror.Append(out, fmt.Errorf("Failed to create all TPRs"))
-	}
-
-	return out
-}
-
-// DeregisterResources removes third party resources
-func (cl *Client) DeregisterResources() error {
-	var out error
-	kinds := []string{IstioKind}
-	for _, kind := range kinds {
-		apiName := kindToAPIName(kind)
-		err := cl.client.Extensions().ThirdPartyResources().
-			Delete(apiName, &meta_v1.DeleteOptions{})
-		if err != nil {
-			out = multierror.Append(out, err)
-		}
-	}
-	return out
-}
-
-// ConfigDescriptor ...
-func (cl *Client) ConfigDescriptor() model.ConfigDescriptor {
-	return cl.mapping
-}
-
-// Get implements registry operation
-func (cl *Client) Get(typ, key string) (proto.Message, bool, string) {
-	// TODO validate
-
-	schema, exists := cl.mapping.GetByType(typ)
-	if !exists {
-		return nil, false, ""
-	}
-
-	config := &Config{}
-	err := cl.dyn.Get().
-		Namespace(cl.dynNamespace).
-		Resource(IstioKind + "s").
-		Name(configKey(typ, key)).
-		Do().Into(config)
-
-	if err != nil {
-		glog.Warning(err)
-		return nil, false, ""
-	}
-
-	out, err := schema.FromJSONMap(config.Spec)
-	if err != nil {
-		glog.Warning(err)
-		return nil, false, ""
-	}
-	return out, true, config.Metadata.ResourceVersion
-}
-
-// Post implements registry operation
-func (cl *Client) Post(v proto.Message) (string, error) {
-	// TODO: validate
-	schema, exists := cl.mapping.GetByMessageName(proto.MessageName(v))
-	if !exists {
-		return "", fmt.Errorf("unrecognized message name")
-	}
-
-	out, err := modelToKube(schema, cl.dynNamespace, v)
-	if err != nil {
-		return "", err
-	}
-
-	config := &Config{}
-	err = cl.dyn.Post().
-		Namespace(out.Metadata.Namespace).
-		Resource(IstioKind + "s").
-		Body(out).
-		Do().Into(config)
-	if err != nil {
-		return "", err
-	}
-
-	return config.Metadata.ResourceVersion, nil
-}
-
-// Put implements registry operation
-func (cl *Client) Put(v proto.Message, revision string) (string, error) {
-	// TODO: validate
-	schema, exists := cl.mapping.GetByMessageName(proto.MessageName(v))
-	if !exists {
-		return "", fmt.Errorf("unrecognized message name")
-	}
-	if revision == "" {
-		return "", fmt.Errorf("revision is required")
-	}
-
-	out, err := modelToKube(schema, cl.dynNamespace, v)
-	if err != nil {
-		return "", err
-	}
-
-	out.Metadata.ResourceVersion = revision
-
-	config := &Config{}
-	err = cl.dyn.Put().
-		Namespace(out.Metadata.Namespace).
-		Resource(IstioKind + "s").
-		Name(out.Metadata.Name).
-		Body(out).
-		Do().Into(config)
-	if err != nil {
-		return "", err
-	}
-
-	return config.Metadata.ResourceVersion, nil
-}
-
-// Delete implements registry operation
-func (cl *Client) Delete(typ, key string) error {
-	// TODO: validate
-
-	return cl.dyn.Delete().
-		Namespace(cl.dynNamespace).
-		Resource(IstioKind + "s").
-		Name(configKey(typ, key)).
-		Do().Error()
-}
-
-// List implements registry operation
-func (cl *Client) List(typ string) ([]model.Config, error) {
-	_, exists := cl.mapping.GetByType(typ)
-	if !exists {
-		return nil, fmt.Errorf("missing type %q", typ)
-	}
-
-	list := &ConfigList{}
-	errs := cl.dyn.Get().
-		Namespace(cl.dynNamespace).
-		Resource(IstioKind + "s").
-		Do().Into(list)
-
-	out := make([]model.Config, 0)
-	for _, item := range list.Items {
-		config, err := cl.convertConfig(&item)
-		if typ == config.Type {
-			if err != nil {
-				errs = multierror.Append(errs, err)
-			} else {
-				out = append(out, config)
-			}
-		}
-	}
-	return out, errs
-}
-
-// configKey assigns k8s TPR name to Istio config
-func configKey(typ, key string) string {
-	return typ + "-" + key
-}
-
-// convertConfig extracts Istio config data from k8s TPRs
-func (cl *Client) convertConfig(item *Config) (model.Config, error) {
-	for _, schema := range cl.mapping {
-		if strings.HasPrefix(item.Metadata.Name, schema.Type) {
-			data, err := schema.FromJSONMap(item.Spec)
-			if err != nil {
-				return model.Config{}, err
-			}
-			return model.Config{
-				Type:     schema.Type,
-				Key:      strings.TrimPrefix(item.Metadata.Name, schema.Type+"-"),
-				Revision: item.Metadata.ResourceVersion,
-				Content:  data,
-			}, nil
-		}
-	}
-	return model.Config{}, fmt.Errorf("missing schema")
+	client, err := kubernetes.NewForConfig(config)
+	return client, err
 }
 
 const (
@@ -397,15 +77,24 @@ const (
 	secretKey  = "tls.key"
 )
 
-// GetTLSSecret retrieves a TLS secret by implementation specific URI
-// uri is "name"."namespace" for the secret
-func (cl *Client) GetTLSSecret(uri string) (*model.TLSSecret, error) {
+type kubeSecretRegistry struct {
+	client kubernetes.Interface
+}
+
+// MakeSecretRegistry creates an adaptor for secrets on Kubernetes.
+// The adaptor uses the following path for secrets: _name.namespace_ where
+// name and namespace correpond to the secret name and namespace.
+func MakeSecretRegistry(client kubernetes.Interface) model.SecretRegistry {
+	return &kubeSecretRegistry{client: client}
+}
+
+func (sr *kubeSecretRegistry) GetTLSSecret(uri string) (*model.TLSSecret, error) {
 	parts := strings.Split(uri, ".")
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("URI %q does not match <name>.<namespace>", uri)
 	}
 
-	secret, err := cl.client.CoreV1().Secrets(parts[1]).Get(parts[0], meta_v1.GetOptions{})
+	secret, err := sr.client.CoreV1().Secrets(parts[1]).Get(parts[0], meta_v1.GetOptions{})
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed to retrieve secret "+uri)
 	}
@@ -424,35 +113,4 @@ func (cl *Client) GetTLSSecret(uri string) (*model.TLSSecret, error) {
 		Certificate: cert,
 		PrivateKey:  key,
 	}, nil
-}
-
-// Request sends requests through the Kubernetes apiserver proxy to
-// the a Kubernetes service.
-// (see https://kubernetes.io/docs/concepts/cluster-administration/access-cluster/#discovering-builtin-services)
-func (cl *Client) Request(namespace, service, method, path string, inBody []byte) (int, []byte, error) {
-	// Kubernetes apiserver proxy prefix for the specified namespace and service.
-	absPath := fmt.Sprintf("api/v1/namespaces/%s/services/%s/proxy", namespace, service)
-
-	// TODO(https://github.com/istio/api/issues/94) - pilot and
-	// mixer API server paths are not consistent. Pilot path is
-	// prefixed with Istio resource version (i.e. v1alpha1) and mixer
-	// path is not. Short term workaround is to special case this
-	// behavior. Long term solution is to unify API scheme and server
-	// implementations.
-	if strings.HasPrefix(path, "config") || strings.HasPrefix(path, "version") {
-		absPath += "/" + IstioResourceVersion // pilot api server path
-	}
-
-	// API server resource path.
-	absPath += "/" + path
-
-	var status int
-	outBody, err := cl.dyn.Verb(method).
-		AbsPath(absPath).
-		SetHeader("Content-Type", "application/json").
-		Body(inBody).
-		Do().
-		StatusCode(&status).
-		Raw()
-	return status, outBody, err
 }

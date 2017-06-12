@@ -20,10 +20,10 @@ import (
 	"io"
 	"os"
 
+	"istio.io/pilot/adapter/config/tpr"
 	"istio.io/pilot/cmd"
 	"istio.io/pilot/cmd/version"
 	"istio.io/pilot/model"
-	"istio.io/pilot/platform/kube"
 	"istio.io/pilot/platform/kube/inject"
 
 	"github.com/spf13/cobra"
@@ -50,7 +50,7 @@ var (
 	outFilename string
 
 	kubeconfig string
-	client     *kube.Client
+	client     *tpr.Client
 	config     model.ConfigStore
 )
 
@@ -125,7 +125,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				versionStr = version.Line()
 			}
 
-			mesh, err := cmd.GetMeshConfig(client.GetKubernetesClient(), namespace, meshConfig)
+			mesh, err := cmd.GetMeshConfig(client.GetKubernetesInterface(), namespace, meshConfig)
 			if err != nil {
 				return fmt.Errorf("Istio configuration not found. Verify istio configmap is "+
 					"installed in namespace %q with `kubectl get -n %s configmap istio`",

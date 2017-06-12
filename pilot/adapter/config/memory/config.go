@@ -48,7 +48,6 @@ func (cr *store) ConfigDescriptor() model.ConfigDescriptor {
 	return cr.descriptor
 }
 
-// Get implements config registry method
 func (cr *store) Get(typ, key string) (proto.Message, bool, string) {
 	_, ok := cr.data[typ]
 	if !ok {
@@ -58,7 +57,6 @@ func (cr *store) Get(typ, key string) (proto.Message, bool, string) {
 	return val, exists, cr.revs[typ][key]
 }
 
-// List implements config registry method
 func (cr *store) List(typ string) ([]model.Config, error) {
 	_, ok := cr.data[typ]
 	if !ok {
@@ -76,7 +74,6 @@ func (cr *store) List(typ string) ([]model.Config, error) {
 	return out, nil
 }
 
-// Delete implements config registry method
 func (cr *store) Delete(typ, key string) error {
 	_, ok := cr.data[typ]
 	if !ok {
@@ -90,7 +87,6 @@ func (cr *store) Delete(typ, key string) error {
 	return &model.ItemNotFoundError{Key: key}
 }
 
-// Post implements config registry method
 func (cr *store) Post(config proto.Message) (string, error) {
 	schema, ok := cr.descriptor.GetByMessageName(proto.MessageName(config))
 	if !ok {
@@ -111,7 +107,6 @@ func (cr *store) Post(config proto.Message) (string, error) {
 	return "", &model.ItemAlreadyExistsError{Key: key}
 }
 
-// Put implements config registry method
 func (cr *store) Put(config proto.Message, oldRevision string) (string, error) {
 	schema, ok := cr.descriptor.GetByMessageName(proto.MessageName(config))
 	if !ok {

@@ -24,8 +24,8 @@ import (
 	"os"
 	"time"
 
+	"istio.io/pilot/adapter/config/tpr"
 	"istio.io/pilot/client/proxy"
-	"istio.io/pilot/platform/kube"
 
 	"github.com/ghodss/yaml"
 	rpc "github.com/googleapis/googleapis/google/rpc"
@@ -85,7 +85,7 @@ for a description of Mixer configuration's scope, subject, and rules.
 				mixerRESTRequester = &proxy.BasicHTTPRequester{
 					BaseURL: istioMixerAPIService,
 					Client:  &http.Client{Timeout: requestTimeout},
-					Version: kube.IstioResourceVersion,
+					Version: tpr.IstioResourceVersion,
 				}
 			}
 

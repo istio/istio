@@ -59,12 +59,12 @@ func TestChainedHandler(t *testing.T) {
 			return nil
 		}
 	}
-	handler := chainHandler{
+	handler := ChainHandler{
 		funcs: []Handler{f(1), f(2)},
 	}
 	go q.Run(stop)
 
-	q.Push(Task{handler: handler.apply, obj: 0})
+	q.Push(Task{handler: handler.Apply, obj: 0})
 	q.Push(Task{handler: func(obj interface{}, event model.Event) error {
 		if out != 3 {
 			t.Errorf("ChainedHandler => %d, want %d", out, 3)

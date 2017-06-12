@@ -29,6 +29,7 @@ import (
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 
+	"istio.io/pilot/adapter/config/tpr"
 	"istio.io/pilot/apiserver"
 	"istio.io/pilot/cmd"
 	"istio.io/pilot/model"
@@ -122,14 +123,14 @@ func (r *apiServerTest) setup() error {
 		return multierror.Append(err, fmt.Errorf("failed to retrieve mesh configuration"))
 	}
 
-	istioClient, err := kube.NewClient(kubeconfig, model.IstioConfigTypes, r.infra.Namespace)
+	istioClient, err := tpr.NewClient(kubeconfig, model.IstioConfigTypes, r.infra.Namespace)
 	if err != nil {
 		return err
 	}
 	controllerOptions := kube.ControllerOptions{Namespace: r.infra.Namespace, DomainSuffix: "cluster.local"}
-	controller := kube.NewController(istioClient, mesh, controllerOptions)
+	controller := tpr.NewController(istioClient, mesh, controllerOptions)
 	r.server = apiserver.NewAPI(apiserver.APIServiceOptions{
-		Version:  kube.IstioResourceVersion,
+		Version:  tpr.IstioResourceVersion,
 		Port:     8081,
 		Registry: controller,
 	})

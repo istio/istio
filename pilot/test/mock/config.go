@@ -19,11 +19,14 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"sync"
 	"testing"
 
+	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	"istio.io/pilot/model"
+	"istio.io/pilot/test/util"
 )
 
 // Mock config type
@@ -187,5 +190,140 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, n int) {
 	}
 	if len(l) != 0 {
 		t.Errorf("wanted 0 element(s), got %d in %v", len(l), l)
+	}
+}
+
+// CheckCacheEvents validates operational invariants of a cache
+func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, n int, t *testing.T) {
+	stop := make(chan struct{})
+	defer close(stop)
+
+	added, deleted := 0, 0
+	cache.RegisterEventHandler(Type, func(c model.Config, ev model.Event) {
+		switch ev {
+		case model.EventAdd:
+			if deleted != 0 {
+				t.Errorf("Events are not serialized (add)")
+			}
+			added++
+		case model.EventDelete:
+			if added != n {
+				t.Errorf("Events are not serialized (delete)")
+			}
+			deleted++
+		}
+		glog.Infof("Added %d, deleted %d", added, deleted)
+	})
+	go cache.Run(stop)
+
+	// run map invariant sequence
+	CheckMapInvariant(store, t, n)
+
+	glog.Infof("Waiting till all events are received")
+	util.Eventually(func() bool { return added == n && deleted == n }, t)
+}
+
+// CheckCacheFreshness validates operational invariants of a cache
+func CheckCacheFreshness(cache model.ConfigStoreCache, t *testing.T) {
+	stop := make(chan struct{})
+	var doneMu sync.Mutex
+	done := false
+
+	// validate cache consistency
+	cache.RegisterEventHandler(Type, func(config model.Config, ev model.Event) {
+		elts, _ := cache.List(Type)
+		switch ev {
+		case model.EventAdd:
+			if len(elts) != 1 {
+				t.Errorf("Got %#v, expected %d element(s) on ADD event", elts, 1)
+			}
+			glog.Infof("Calling Delete(%#v)", config.Key)
+			if err := cache.Delete(Type, config.Key); err != nil {
+				t.Error(err)
+			}
+		case model.EventDelete:
+			if len(elts) != 0 {
+				t.Errorf("Got %#v, expected zero elements on DELETE event", elts)
+			}
+			glog.Infof("Stopping channel for (%#v)", config.Key)
+			close(stop)
+			doneMu.Lock()
+			done = true
+			doneMu.Unlock()
+		}
+	})
+
+	go cache.Run(stop)
+	o := Make(0)
+
+	// add and remove
+	glog.Infof("Calling Post(%#v)", o)
+	if _, err := cache.Post(o); err != nil {
+		t.Error(err)
+	}
+
+	util.Eventually(func() bool {
+		doneMu.Lock()
+		defer doneMu.Unlock()
+		return done
+	}, t)
+}
+
+// CheckCacheSync validates operational invariants of a cache
+func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, n int, t *testing.T) {
+	keys := make(map[int]*MockConfig)
+	// add elements directly through client
+	for i := 0; i < n; i++ {
+		keys[i] = Make(i)
+		if _, err := store.Post(keys[i]); err != nil {
+			t.Error(err)
+		}
+	}
+
+	// check in the controller cache
+	stop := make(chan struct{})
+	defer close(stop)
+	go cache.Run(stop)
+	util.Eventually(func() bool { return cache.HasSynced() }, t)
+	os, _ := cache.List(Type)
+	if len(os) != n {
+		t.Errorf("cache.List => Got %d, expected %d", len(os), n)
+	}
+
+	// remove elements directly through client
+	for i := 0; i < n; i++ {
+		if err := store.Delete(Type, keys[i].Key); err != nil {
+			t.Error(err)
+		}
+	}
+
+	// check again in the controller cache
+	util.Eventually(func() bool {
+		os, _ = cache.List(Type)
+		glog.Infof("cache.List => Got %d, expected %d", len(os), 0)
+		return len(os) == 0
+	}, t)
+
+	// now add through the controller
+	for i := 0; i < n; i++ {
+		if _, err := cache.Post(Make(i)); err != nil {
+			t.Error(err)
+		}
+	}
+
+	// check directly through the client
+	util.Eventually(func() bool {
+		cs, _ := cache.List(Type)
+		os, _ := store.List(Type)
+		glog.Infof("cache.List => Got %d, expected %d", len(cs), n)
+		glog.Infof("store.List => Got %d, expected %d", len(os), n)
+		return len(os) == n && len(cs) == n
+	}, t)
+
+	// remove elements directly through the client
+	for i := 0; i < n; i++ {
+		if err := store.Delete(Type, keys[i].Key); err != nil {
+			t.Error(err)
+		}
 	}
 }

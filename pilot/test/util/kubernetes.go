@@ -16,6 +16,7 @@ package util
 
 import (
 	"fmt"
+	"testing"
 	"time"
 
 	"github.com/golang/glog"
@@ -121,4 +122,18 @@ func FetchLogs(cl kubernetes.Interface, name, namespace string, container string
 		return ""
 	}
 	return string(raw)
+}
+
+// Eventually does retrees to check a predicate
+func Eventually(f func() bool, t *testing.T) {
+	interval := 64 * time.Millisecond
+	for i := 0; i < 10; i++ {
+		if f() {
+			return
+		}
+		glog.Infof("Sleeping %v", interval)
+		time.Sleep(interval)
+		interval = 2 * interval
+	}
+	t.Errorf("Failed to satisfy function")
 }

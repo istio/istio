@@ -34,8 +34,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
+	"istio.io/pilot/adapter/config/tpr"
 	"istio.io/pilot/model"
-	"istio.io/pilot/platform/kube"
 	"istio.io/pilot/test/util"
 )
 
@@ -297,10 +297,10 @@ func parallel(fs map[string]func() status) error {
 
 // connect to K8S cluster and register TPRs
 func setupClient() error {
-	istioClient, err := kube.NewClient(kubeconfig, model.IstioConfigTypes, "istio-test")
+	istioClient, err := tpr.NewClient(kubeconfig, model.IstioConfigTypes, "istio-test")
 	if err != nil {
 		return err
 	}
-	client = istioClient.GetKubernetesClient()
+	client = istioClient.GetKubernetesInterface()
 	return istioClient.RegisterResources()
 }
