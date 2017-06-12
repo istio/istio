@@ -316,8 +316,8 @@ func TestRateLimit(t *testing.T) {
 	// TODO: figure out a better way to confirm rule active
 	time.Sleep(1 * time.Minute)
 	threads := 5
-	timeout := "2m"
-	connections := 5
+	timeout := "10s"
+	connections := 15
 	duration := "2m"
 	errorFile := filepath.Join(tc.Kube.TmpDir, "TestRateLimit.err")
 	JSONFile := filepath.Join(tc.Kube.TmpDir, "TestRateLimit.Json")
@@ -350,6 +350,9 @@ func TestRateLimit(t *testing.T) {
 	}
 
 	glog.Infof("WRK stats: %#v", r)
+	// consider only successful full requests
+	perSvc := float64(r.CompletedRequests-r.FailedRequests-r.Non2xxResponses) / 3
+
 	// Allow full processing of metrics, etc.
 	time.Sleep(1 * time.Minute)
 
@@ -369,12 +372,15 @@ func TestRateLimit(t *testing.T) {
 	glog.Infof("promvalue := %s", value.String())
 
 	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429"})
+	//rateLimited := got
 	if err != nil {
 		t.Errorf("Could not find rate limit value: %v", err)
 	}
+
+	// establish some baseline for rejections
+	want := perSvc / 2
 	// allow some leeway for rejections
-	want := float64(r.CompletedRequests) / 3 * 0.75
-	if got < want {
+	if got <= (want * .9) {
 		t.Errorf("Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
 	}
 
@@ -382,9 +388,14 @@ func TestRateLimit(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not find successes value: %v", err)
 	}
+
+	// bare minimum of OKs, assuming 5qps for 2m
+	want = 600.0
+	if perSvc < 600 {
+		want = perSvc
+	}
 	// allow some leeway
-	want = float64(r.CompletedRequests) * 2 / 3 * 0.75
-	if got < want {
+	if got < (want * .9) {
 		t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 }
