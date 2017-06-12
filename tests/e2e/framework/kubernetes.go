@@ -34,6 +34,7 @@ const (
 	pilotHubEnvVar  = "PILOT_HUB"
 	pilotTagEnvVar  = "PILOT_TAG"
 	istioInstallDir = "install/kubernetes/templates"
+	istioAddonsDir  = "install/kubernetes/addons"
 )
 
 var (
@@ -50,6 +51,10 @@ var (
 		"pilot",
 		"mixer",
 		"ingress",
+	}
+
+	addons = []string{
+		"prometheus",
 	}
 )
 
@@ -113,6 +118,11 @@ func (k *KubeInfo) Setup() error {
 		return err
 	}
 
+	if err = k.deployAddons(); err != nil {
+		glog.Error("Failed to deploy istio addons")
+		return err
+	}
+
 	var in string
 	if k.localCluster {
 		in, err = util.GetIngressPod(k.Namespace)
@@ -145,6 +155,17 @@ func (k *KubeInfo) deployIstio() error {
 	for _, module := range modules {
 		if err := k.deployIstioCore(module); err != nil {
 			glog.Infof("Failed to deploy %s", module)
+			return err
+		}
+	}
+	return nil
+}
+
+func (k *KubeInfo) deployAddons() error {
+	for _, addon := range addons {
+		yamlFile := util.GetResourcePath(filepath.Join(istioAddonsDir, fmt.Sprintf("%s.yaml", addon)))
+		if err := util.KubeApply(k.Namespace, yamlFile); err != nil {
+			glog.Errorf("Kubectl apply %s failed", yamlFile)
 			return err
 		}
 	}
