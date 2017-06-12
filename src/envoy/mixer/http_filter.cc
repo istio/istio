@@ -95,7 +95,8 @@ class Config : public Logger::Loggable<Logger::Id::http> {
   Upstream::ClusterManager& cm_;
   std::string forward_attributes_;
   MixerConfig mixer_config_;
-  std::shared_ptr<HttpControl> http_control_;
+  std::mutex map_mutex_;
+  std::map<std::thread::id, std::shared_ptr<HttpControl>> http_control_map_;
 
  public:
   Config(const Json::Object& config, Server::Instance& server)
@@ -108,11 +109,20 @@ class Config : public Logger::Loggable<Logger::Id::http> {
           Base64::encode(serialized_str.c_str(), serialized_str.size());
       log().debug("Mixer forward attributes set: ", serialized_str);
     }
-
-    http_control_ = std::make_shared<HttpControl>(mixer_config_, cm_);
   }
 
-  std::shared_ptr<HttpControl> http_control() { return http_control_; }
+  std::shared_ptr<HttpControl> http_control() {
+    std::thread::id id = std::this_thread::get_id();
+    std::lock_guard<std::mutex> lock(map_mutex_);
+    auto it = http_control_map_.find(id);
+    if (it != http_control_map_.end()) {
+      return it->second;
+    }
+    auto http_control = std::make_shared<HttpControl>(mixer_config_, cm_);
+    http_control_map_[id] = http_control;
+    return http_control;
+  }
+
   const std::string& forward_attributes() const { return forward_attributes_; }
 };
 
