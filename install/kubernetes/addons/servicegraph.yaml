@@ -25,7 +25,7 @@ kind: Service
 metadata:
   name: servicegraph
 spec:
-  type: LoadBalancer
+#  type: LoadBalancer
   ports:
   - name: http
     port: 8088

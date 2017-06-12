@@ -1,14 +1,12 @@
 # GENERATED FILE. Use with Kubernetes 1.5+
 # TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh
 # Mixer
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-mixer
 data:
-  mapping.conf:
-
+  mapping.conf: |-
 ---
 apiVersion: v1
 kind: Service
