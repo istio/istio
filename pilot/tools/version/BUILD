@@ -7,7 +7,6 @@ go_library(
         "//:kube-inject-versions",
     ],
     visibility = ["//visibility:public"],
-    deps = ["@com_github_spf13_cobra//:go_default_library"],
 )
 
 go_test(
@@ -15,4 +14,5 @@ go_test(
     size = "small",
     srcs = ["version_test.go"],
     library = ":go_default_library",
+    deps = [":go_default_library"],
 )

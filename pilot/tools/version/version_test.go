@@ -16,12 +16,12 @@ package version
 
 import (
 	"testing"
+
+	"istio.io/pilot/tools/version"
 )
 
-// TestVersion invokes the 'version' subcommand
 func TestVersion(t *testing.T) {
-
-	// The basic version subcommand does not return an error, but we invoke it
-	// anyway, to make sure it doesn't panic.
-	VersionCmd.Run(VersionCmd, []string{})
+	// dumb test that just invokes the two version commands
+	_ = version.Line()
+	_ = version.Version()
 }

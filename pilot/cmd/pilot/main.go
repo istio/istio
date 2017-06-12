@@ -27,21 +27,20 @@ import (
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/adapter/config/tpr"
 	"istio.io/pilot/cmd"
-	"istio.io/pilot/cmd/version"
 	"istio.io/pilot/model"
 	"istio.io/pilot/platform/kube"
 	"istio.io/pilot/proxy"
 	"istio.io/pilot/proxy/envoy"
+	"istio.io/pilot/tools/version"
 )
 
 type args struct {
 	kubeconfig string
 	meshConfig string
 
-	ipAddress     string
-	podName       string
-	passthrough   []int
-	apiserverPort int
+	ipAddress   string
+	podName     string
+	passthrough []int
 
 	// ingress sync mode is set to off by default
 	controllerOptions kube.ControllerOptions
@@ -83,6 +82,7 @@ var (
 			if flags.controllerOptions.Namespace == "" {
 				flags.controllerOptions.Namespace = os.Getenv("POD_NAMESPACE")
 			}
+			glog.V(2).Infof("version %s", version.Line())
 			glog.V(2).Infof("flags %s", spew.Sdump(flags))
 
 			// receive mesh configuration
@@ -189,6 +189,14 @@ var (
 			return nil
 		},
 	}
+
+	versionCmd = &cobra.Command{
+		Use:   "version",
+		Short: "Display version information and exit",
+		Run: func(*cobra.Command, []string) {
+			fmt.Print(version.Version())
+		},
+	}
 )
 
 func init() {
@@ -226,7 +234,7 @@ func init() {
 
 	rootCmd.AddCommand(discoveryCmd)
 	rootCmd.AddCommand(proxyCmd)
-	rootCmd.AddCommand(version.VersionCmd)
+	rootCmd.AddCommand(versionCmd)
 }
 
 func main() {
