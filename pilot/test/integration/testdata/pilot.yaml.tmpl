@@ -9,8 +9,6 @@ spec:
   ports:
   - port: 8080
     name: http-discovery
-  - port: 8081
-    name: http-apiserver
   selector:
     infra: pilot
 ---
@@ -32,18 +30,6 @@ spec:
         args: ["discovery", "-v", "{{.Verbosity}}"]
         ports:
         - containerPort: 8080
-        env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-      - name: apiserver
-        image: {{.Hub}}/pilot:{{.Tag}}
-        imagePullPolicy: Always
-        args: ["apiserver", "-v", "{{.Verbosity}}"]
-        ports:
-        - containerPort: 8081
         env:
         - name: POD_NAMESPACE
           valueFrom:

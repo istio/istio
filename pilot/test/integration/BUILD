@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "access.go",
-        "apiserver.go",
         "driver.go",
         "egress.go",
         "grpc.go",
@@ -17,7 +16,6 @@ go_library(
     ],
     deps = [
         "//adapter/config/tpr:go_default_library",
-        "//apiserver:go_default_library",
         "//cmd:go_default_library",
         "//model:go_default_library",
         "//platform/kube:go_default_library",

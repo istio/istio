@@ -26,7 +26,6 @@ import (
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/adapter/config/tpr"
-	"istio.io/pilot/apiserver"
 	"istio.io/pilot/cmd"
 	"istio.io/pilot/cmd/version"
 	"istio.io/pilot/model"
@@ -122,23 +121,6 @@ var (
 		},
 	}
 
-	apiserverCmd = &cobra.Command{
-		Use:   "apiserver",
-		Short: "Start Istio config API service",
-		Run: func(*cobra.Command, []string) {
-			controller := tpr.NewController(client, mesh, flags.controllerOptions)
-			apiserver := apiserver.NewAPI(apiserver.APIServiceOptions{
-				Version:  tpr.IstioResourceVersion,
-				Port:     flags.apiserverPort,
-				Registry: controller,
-			})
-			stop := make(chan struct{})
-			go controller.Run(stop)
-			go apiserver.Run()
-			cmd.WaitSignal(stop)
-		},
-	}
-
 	proxyCmd = &cobra.Command{
 		Use:   "proxy",
 		Short: "Envoy agent",
@@ -228,9 +210,6 @@ func init() {
 	discoveryCmd.PersistentFlags().BoolVar(&flags.discoveryOptions.EnableCaching, "discovery_cache", true,
 		"Enable caching discovery service responses")
 
-	apiserverCmd.PersistentFlags().IntVar(&flags.apiserverPort, "port", 8081,
-		"Config API service port")
-
 	proxyCmd.PersistentFlags().StringVar(&flags.ipAddress, "ipAddress", "",
 		"IP address. If not provided uses ${POD_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&flags.podName, "podName", "",
@@ -246,7 +225,6 @@ func init() {
 	cmd.AddFlags(rootCmd)
 
 	rootCmd.AddCommand(discoveryCmd)
-	rootCmd.AddCommand(apiserverCmd)
 	rootCmd.AddCommand(proxyCmd)
 	rootCmd.AddCommand(version.VersionCmd)
 }

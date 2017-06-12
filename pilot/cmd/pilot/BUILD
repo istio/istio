@@ -6,7 +6,6 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//adapter/config/tpr:go_default_library",
-        "//apiserver:go_default_library",
         "//cmd:go_default_library",
         "//cmd/version:go_default_library",
         "//model:go_default_library",

@@ -162,12 +162,8 @@ func runTests(envs ...infra) {
 
 		istio.apps, errs = util.GetAppPods(client, istio.Namespace)
 
-		// skipped:
-		_ = &apiServerTest{infra: &istio}
 		tests := []test{
 			&http{infra: &istio},
-			// TODO: temporarily disable istioctl backend test
-			//&apiServerTest{infra: &istio},
 			&grpc{infra: &istio},
 			&tcp{infra: &istio},
 			&ingress{infra: &istio},
