@@ -1,5 +1,12 @@
 # Mixer
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-mixer
+data:
+  mapping.conf: |-
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: istio-mixer
@@ -9,8 +16,15 @@ spec:
   ports:
   - name: tcp
     port: 9091
+  - name: http-health
+    port: 9093
   - name: configapi
     port: 9094
+  - name: statsd-prom
+    port: 9102
+  - name: statsd-udp
+    port: 9125
+    protocol: UDP
   - name: prometheus
     port: 42422
   selector:
@@ -30,6 +44,18 @@ spec:
         istio: mixer
     spec:
       containers:
+      - name: statsd-to-prometheus
+        image: prom/statsd-exporter
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9102
+        - containerPort: 9125
+          protocol: UDP
+        args:
+        - '-statsd.mapping-config=/etc/statsd/mapping.conf'
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/statsd
       - name: mixer
         image: {MIXER_HUB}/mixer:{MIXER_TAG}
         imagePullPolicy: Always
@@ -42,4 +68,8 @@ spec:
           - --logtostderr
           - -v
           - "3"
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio-mixer
 ---
