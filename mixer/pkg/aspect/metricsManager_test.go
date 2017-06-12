@@ -392,10 +392,11 @@ func TestMetrics_DescToDef(t *testing.T) {
 		out       *adapter.MetricDefinition
 		errString string
 	}{
-		{&dpb.MetricDescriptor{}, nil, "METRIC_KIND_UNSPECIFIED"},
+		{&dpb.MetricDescriptor{}, nil, "VALUE_TYPE_UNSPECIFIED"},
 		{
 			&dpb.MetricDescriptor{
 				Name:   "bad label",
+				Value:  dpb.STRING,
 				Labels: map[string]dpb.ValueType{"invalid": dpb.VALUE_TYPE_UNSPECIFIED},
 			},
 			nil,
@@ -405,6 +406,7 @@ func TestMetrics_DescToDef(t *testing.T) {
 			&dpb.MetricDescriptor{
 				Name:   "bad metric kind",
 				Kind:   dpb.METRIC_KIND_UNSPECIFIED,
+				Value:  dpb.INT64,
 				Labels: map[string]dpb.ValueType{"string": dpb.STRING},
 			},
 			nil,
@@ -414,6 +416,7 @@ func TestMetrics_DescToDef(t *testing.T) {
 			&dpb.MetricDescriptor{
 				Name:   "without buckets",
 				Kind:   dpb.DISTRIBUTION,
+				Value:  dpb.DNS_NAME,
 				Labels: map[string]dpb.ValueType{"string": dpb.STRING},
 			},
 			nil,
@@ -423,6 +426,7 @@ func TestMetrics_DescToDef(t *testing.T) {
 			&dpb.MetricDescriptor{
 				Name:    "bad buckets",
 				Kind:    dpb.DISTRIBUTION,
+				Value:   dpb.URI,
 				Labels:  map[string]dpb.ValueType{"string": dpb.STRING},
 				Buckets: &dpb.MetricDescriptor_BucketsDefinition{},
 			},
@@ -433,6 +437,7 @@ func TestMetrics_DescToDef(t *testing.T) {
 			in: &dpb.MetricDescriptor{
 				Name:   "explicit buckets",
 				Kind:   dpb.DISTRIBUTION,
+				Value:  dpb.INT64,
 				Labels: map[string]dpb.ValueType{"string": dpb.STRING},
 				Buckets: &dpb.MetricDescriptor_BucketsDefinition{
 					Definition: &dpb.MetricDescriptor_BucketsDefinition_ExplicitBuckets{
@@ -445,6 +450,7 @@ func TestMetrics_DescToDef(t *testing.T) {
 			out: &adapter.MetricDefinition{
 				Name:   "explicit buckets",
 				Kind:   adapter.Distribution,
+				Value:  adapter.Int64,
 				Labels: map[string]adapter.LabelType{"string": adapter.String},
 				Buckets: &adapter.ExplicitBuckets{
 					Bounds: []float64{3, 5, 9, 234},
@@ -455,6 +461,7 @@ func TestMetrics_DescToDef(t *testing.T) {
 			in: &dpb.MetricDescriptor{
 				Name:   "exponential buckets",
 				Kind:   dpb.DISTRIBUTION,
+				Value:  dpb.BOOL,
 				Labels: map[string]dpb.ValueType{"string": dpb.STRING},
 				Buckets: &dpb.MetricDescriptor_BucketsDefinition{
 					Definition: &dpb.MetricDescriptor_BucketsDefinition_ExponentialBuckets{
@@ -469,6 +476,7 @@ func TestMetrics_DescToDef(t *testing.T) {
 			out: &adapter.MetricDefinition{
 				Name:   "exponential buckets",
 				Kind:   adapter.Distribution,
+				Value:  adapter.Bool,
 				Labels: map[string]adapter.LabelType{"string": adapter.String},
 				Buckets: &adapter.ExponentialBuckets{
 					Count:        3,
@@ -481,6 +489,7 @@ func TestMetrics_DescToDef(t *testing.T) {
 			in: &dpb.MetricDescriptor{
 				Name:   "linear buckets",
 				Kind:   dpb.DISTRIBUTION,
+				Value:  dpb.STRING,
 				Labels: map[string]dpb.ValueType{"string": dpb.STRING},
 				Buckets: &dpb.MetricDescriptor_BucketsDefinition{
 					Definition: &dpb.MetricDescriptor_BucketsDefinition_LinearBuckets{
@@ -495,6 +504,7 @@ func TestMetrics_DescToDef(t *testing.T) {
 			out: &adapter.MetricDefinition{
 				Name:   "linear buckets",
 				Kind:   adapter.Distribution,
+				Value:  adapter.String,
 				Labels: map[string]adapter.LabelType{"string": adapter.String},
 				Buckets: &adapter.LinearBuckets{
 					Count:  3,
@@ -507,12 +517,13 @@ func TestMetrics_DescToDef(t *testing.T) {
 			&dpb.MetricDescriptor{
 				Name:   "good",
 				Kind:   dpb.COUNTER,
-				Value:  dpb.STRING,
+				Value:  dpb.EMAIL_ADDRESS,
 				Labels: map[string]dpb.ValueType{"string": dpb.STRING},
 			},
 			&adapter.MetricDefinition{
 				Name:   "good",
 				Kind:   adapter.Counter,
+				Value:  adapter.EmailAddress,
 				Labels: map[string]adapter.LabelType{"string": adapter.String},
 			},
 			""},
