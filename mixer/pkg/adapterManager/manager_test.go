@@ -305,8 +305,8 @@ func TestManager(t *testing.T) {
 		{true, false, "could not find registered adapter", nil, []*cpb.Combined{goodcfg}},
 		{true, true, "", &fakeCheckExecutor{}, []*cpb.Combined{goodcfg, goodcfg2}},
 		{true, true, "", nil, []*cpb.Combined{goodcfg}},
-		{true, true, "can't handle type", nil, []*cpb.Combined{badcfg1}},
-		{true, true, "can't handle type", nil, []*cpb.Combined{badcfg2}},
+		{true, true, "non-proto cfg.Builder.Params", nil, []*cpb.Combined{badcfg1}},
+		{true, true, "non-proto cfg.Aspect.Params", nil, []*cpb.Combined{badcfg2}},
 	}
 
 	for idx, tt := range ttt {
@@ -488,8 +488,8 @@ func TestManager_BulkExecute(t *testing.T) {
 		{"", []*cpb.Combined{}},
 		{"", []*cpb.Combined{goodcfg}},
 		{"", []*cpb.Combined{goodcfg, goodcfg}},
-		{"can't handle type", []*cpb.Combined{badcfg1, goodcfg}},
-		{"can't handle type", []*cpb.Combined{goodcfg, badcfg2}},
+		{"non-proto cfg.Builder.Params", []*cpb.Combined{badcfg1, goodcfg}},
+		{"non-proto cfg.Aspect.Params", []*cpb.Combined{goodcfg, badcfg2}},
 	}
 
 	requestBag := attribute.GetMutableBag(nil)
