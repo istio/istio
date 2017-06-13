@@ -60,9 +60,7 @@ const char kServerConfigWithServiceNameConfigId[] = R"(
       "cache_entries": 300000,
       "refresh_interval_ms": 1000
     }
-  },
-  "service_name": "service_name_from_server_config",
-  "config_id": "2017-05-01r1"
+  }
 }
 )";
 
@@ -78,6 +76,8 @@ class ServiceManagementFetchTest : public ::testing::Test {
     std::string server_config(kServerConfigWithServiceNameConfigId);
     global_context_ = std::make_shared<context::GlobalContext>(std::move(env_),
                                                                server_config);
+
+    global_context_->set_service_name("service_name_from_server_config");
 
     std::unique_ptr<Config> config = Config::Create(raw_env_, server_config);
 

@@ -83,9 +83,6 @@ class GlobalContext {
   const std::string &service_name() const { return service_name_; }
   void set_service_name(const std::string &name) { service_name_ = name; }
 
-  const std::string &config_id() const { return config_id_; }
-  void config_id(const std::string &config_id) { config_id_ = config_id; }
-
   const std::string &rollout_strategy() const { return rollout_strategy_; }
   void rollout_strategy(const std::string &rollout_strategy) {
     rollout_strategy_ = rollout_strategy;
@@ -108,8 +105,6 @@ class GlobalContext {
 
   // service name;
   std::string service_name_;
-  // config id;
-  std::string config_id_;
   // rollout strategy;
   std::string rollout_strategy_;
 

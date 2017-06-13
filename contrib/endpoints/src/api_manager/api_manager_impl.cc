@@ -43,6 +43,9 @@ ApiManagerImpl::ApiManagerImpl(std::unique_ptr<ApiManagerEnvInterface> env,
       config_loading_status_ =
           utils::Status(Code::ABORTED, "Invalid service config");
     }
+  } else {
+    config_loading_status_ =
+        utils::Status(Code::ABORTED, "Invalid service config");
   }
 
   check_workflow_ = std::unique_ptr<CheckWorkflow>(new CheckWorkflow);
@@ -96,42 +99,16 @@ utils::Status ApiManagerImpl::Init() {
     global_context_->cloud_trace_aggregator()->Init();
   }
 
-  if (!service_context_map_.empty()) {
-    for (auto it : service_context_map_) {
-      if (it.second->service_control()) {
-        it.second->service_control()->Init();
-      }
-    }
-
-    if (global_context_->rollout_strategy() != kConfigRolloutManaged) {
-      return config_loading_status_;
-    }
+  if (!config_loading_status_.ok() || service_context_map_.empty()) {
+    return utils::Status(Code::UNAVAILABLE,
+                         "Service config loading was failed");
   }
 
-  config_manager_.reset(new ConfigManager(global_context_));
-  config_manager_->Init(
-      [this](const utils::Status &status,
-             const std::vector<std::pair<std::string, int>> &configs) {
-        if (status.ok()) {
-          std::vector<std::pair<std::string, int>> rollouts;
-
-          for (auto item : configs) {
-            std::string config_id;
-            if (AddConfig(item.first, true, &config_id).ok()) {
-              rollouts.push_back({config_id, item.second});
-            }
-          }
-
-          if (rollouts.size() == 0) {
-            config_loading_status_ =
-                utils::Status(Code::ABORTED, "Invalid service config");
-            return;
-          }
-
-          DeployConfigs(std::move(rollouts));
-        }
-        config_loading_status_ = status;
-      });
+  for (auto it : service_context_map_) {
+    if (it.second->service_control()) {
+      it.second->service_control()->Init();
+    }
+  }
 
   return utils::Status::OK;
 }
@@ -150,6 +127,10 @@ utils::Status ApiManagerImpl::Close() {
 }
 
 bool ApiManagerImpl::Enabled() const {
+  if (!config_loading_status_.ok() || service_context_map_.empty()) {
+    return false;
+  }
+
   for (const auto &it : service_context_map_) {
     if (it.second->Enabled()) {
       return true;
