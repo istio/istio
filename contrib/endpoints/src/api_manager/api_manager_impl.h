@@ -60,11 +60,6 @@ class ApiManagerImpl : public ApiManager {
   // Return ServiceContext for selected by WeightedSelector
   std::shared_ptr<context::ServiceContext> SelectService();
 
-  // Return the initialization status
-  inline utils::Status ConfigLoadingStatus() const override {
-    return config_loading_status_;
-  }
-
  private:
   // Use these configs according to the traffic percentage.
   void DeployConfigs(std::vector<std::pair<std::string, int>> &&list);

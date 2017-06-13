@@ -195,6 +195,7 @@ cc_test(
     srcs = [
         "api_manager_test.cc",
     ],
+    data = glob(["testdata/*.json"]),
     linkstatic = 1,
     deps = [
         ":api_manager",

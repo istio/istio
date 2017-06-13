@@ -1,0 +1,24 @@
+{
+  "name": "bookstore.test.appspot.com",
+  "title": "Bookstore",
+  "http": {
+    "rules": [
+      {
+        "selector": "EchoGetMessage",
+        "get": "/echo"
+      }
+    ]
+  },
+  "usage": {
+    "rules": [
+      {
+        "selector": "EchoGetMessage",
+        "allowUnregisteredCalls": true
+      }
+    ]
+  },
+  "control": {
+    "environment": "servicecontrol.googleapis.com"
+  },
+  "id": "2017-05-01r0"
+}
