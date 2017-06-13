@@ -133,10 +133,7 @@ class ApiManagerTest : public ::testing::Test {
  protected:
   ApiManagerTest() : callback_run_count_(0) {}
   std::shared_ptr<ApiManager> MakeApiManager(
-      std::unique_ptr<ApiManagerEnvInterface> env, const char *service_config);
-  std::shared_ptr<ApiManager> MakeApiManager(
-      std::unique_ptr<ApiManagerEnvInterface> env, const char *service_config,
-      const char *server_config);
+      std::unique_ptr<ApiManagerEnvInterface> env, const char *server_config);
 
   void SetUp() {
     callback_run_count_ = 0;
@@ -152,15 +149,8 @@ class ApiManagerTest : public ::testing::Test {
 };
 
 std::shared_ptr<ApiManager> ApiManagerTest::MakeApiManager(
-    std::unique_ptr<ApiManagerEnvInterface> env, const char *service_config) {
-  return factory_.CreateApiManager(std::move(env), service_config, "");
-}
-
-std::shared_ptr<ApiManager> ApiManagerTest::MakeApiManager(
-    std::unique_ptr<ApiManagerEnvInterface> env, const char *service_config,
-    const char *server_config) {
-  return factory_.CreateApiManager(std::move(env), service_config,
-                                   server_config);
+    std::unique_ptr<ApiManagerEnvInterface> env, const char *server_config) {
+  return factory_.CreateApiManager(std::move(env), server_config);
 }
 
 TEST_F(ApiManagerTest, EnvironmentLogging) {
@@ -179,13 +169,26 @@ TEST_F(ApiManagerTest, EnvironmentLogging) {
   env.LogError("error log");
 }
 
-TEST_F(ApiManagerTest, CorrectStatistics) {
+TEST_F(ApiManagerTest, InvalidServerConfig) {
   std::unique_ptr<ApiManagerEnvInterface> env(
       new ::testing::NiceMock<MockApiManagerEnvironment>());
 
   std::shared_ptr<ApiManagerImpl> api_manager(
       std::dynamic_pointer_cast<ApiManagerImpl>(
           MakeApiManager(std::move(env), kServiceForStatistics)));
+  EXPECT_TRUE(api_manager);
+  EXPECT_FALSE(api_manager->Enabled());
+  api_manager->Init();
+  EXPECT_FALSE(api_manager->Enabled());
+}
+
+TEST_F(ApiManagerTest, CorrectStatistics) {
+  std::unique_ptr<ApiManagerEnvInterface> env(
+      new ::testing::NiceMock<MockApiManagerEnvironment>());
+
+  std::shared_ptr<ApiManagerImpl> api_manager(
+      std::dynamic_pointer_cast<ApiManagerImpl>(MakeApiManager(
+          std::move(env), kServerConfigWithSingleServiceConfig)));
   EXPECT_TRUE(api_manager);
   EXPECT_TRUE(api_manager->Enabled());
   api_manager->Init();
@@ -209,9 +212,8 @@ TEST_F(ApiManagerTest, InitializedOnApiManagerInstanceCreation) {
   EXPECT_CALL(*(env.get()), DoRunHTTPRequest(_)).Times(0);
 
   std::shared_ptr<ApiManagerImpl> api_manager(
-      std::dynamic_pointer_cast<ApiManagerImpl>(
-          MakeApiManager(std::move(env), kServiceConfig1,
-                         kServerConfigWithSingleServiceConfig)));
+      std::dynamic_pointer_cast<ApiManagerImpl>(MakeApiManager(
+          std::move(env), kServerConfigWithSingleServiceConfig)));
 
   EXPECT_TRUE(api_manager);
   EXPECT_TRUE(api_manager->Enabled());
@@ -238,7 +240,7 @@ TEST_F(ApiManagerTest, InitializedByConfigManager) {
 
   std::shared_ptr<ApiManagerImpl> api_manager(
       std::dynamic_pointer_cast<ApiManagerImpl>(MakeApiManager(
-          std::move(env), "", kServerConfigWithSingleServiceConfig)));
+          std::move(env), kServerConfigWithSingleServiceConfig)));
 
   EXPECT_TRUE(api_manager);
   EXPECT_TRUE(api_manager->Enabled());
@@ -262,7 +264,7 @@ TEST_F(ApiManagerTest, kServerConfigWithPartialServiceConfig) {
 
   std::shared_ptr<ApiManagerImpl> api_manager(
       std::dynamic_pointer_cast<ApiManagerImpl>(MakeApiManager(
-          std::move(env), "", kServerConfigWithPartialServiceConfig)));
+          std::move(env), kServerConfigWithPartialServiceConfig)));
 
   EXPECT_TRUE(api_manager);
   EXPECT_TRUE(api_manager->Enabled());
@@ -294,7 +296,7 @@ TEST_F(ApiManagerTest, kServerConfigWithInvaludServiceConfig) {
 
   std::shared_ptr<ApiManagerImpl> api_manager(
       std::dynamic_pointer_cast<ApiManagerImpl>(MakeApiManager(
-          std::move(env), "", kServerConfigWithPartialServiceConfigFailed)));
+          std::move(env), kServerConfigWithPartialServiceConfigFailed)));
 
   EXPECT_TRUE(api_manager);
   EXPECT_FALSE(api_manager->Enabled());
@@ -309,8 +311,8 @@ TEST_F(ApiManagerTest, kServerConfigServiceConfigNotSpecifed) {
       new ::testing::NiceMock<MockApiManagerEnvironment>());
 
   std::shared_ptr<ApiManagerImpl> api_manager(
-      std::dynamic_pointer_cast<ApiManagerImpl>(MakeApiManager(
-          std::move(env), "", kServerConfigWithNoServiceConfig)));
+      std::dynamic_pointer_cast<ApiManagerImpl>(
+          MakeApiManager(std::move(env), kServerConfigWithNoServiceConfig)));
 
   EXPECT_TRUE(api_manager);
   EXPECT_FALSE(api_manager->Enabled());

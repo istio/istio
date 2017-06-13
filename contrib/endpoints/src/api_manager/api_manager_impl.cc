@@ -31,23 +31,19 @@ const std::string kConfigRolloutManaged("managed");
 }  // namespace anonymous
 
 ApiManagerImpl::ApiManagerImpl(std::unique_ptr<ApiManagerEnvInterface> env,
-                               const std::string &service_config,
                                const std::string &server_config)
     : global_context_(
           new context::GlobalContext(std::move(env), server_config)),
       config_loading_status_(
           utils::Status(Code::UNAVAILABLE, "Not initialized yet")) {
-  if (!service_config.empty()) {
-    std::string config_id;
-    if (AddConfig(service_config, false, &config_id).ok()) {
-      DeployConfigs({{config_id, 100}});
-      config_loading_status_ = utils::Status::OK;
-    } else {
-      config_loading_status_ =
-          utils::Status(Code::ABORTED, "Invalid service config");
-    }
-  } else if (global_context_->server_config()->init_service_configs_size() >
-             0) {
+  if (!global_context_->server_config()) {
+    std::string err_msg = "Invalid server config";
+    global_context_->env()->LogError(err_msg);
+    config_loading_status_ = utils::Status(Code::ABORTED, err_msg);
+    return;
+  }
+
+  if (global_context_->server_config()->init_service_configs_size() > 0) {
     std::vector<std::pair<std::string, int>> list;
     for (auto item : global_context_->server_config()->init_service_configs()) {
       std::ifstream config_file(item.service_config_file_full_path());
@@ -235,9 +231,9 @@ std::unique_ptr<RequestHandlerInterface> ApiManagerImpl::CreateRequestHandler(
 
 std::shared_ptr<ApiManager> ApiManagerFactory::CreateApiManager(
     std::unique_ptr<ApiManagerEnvInterface> env,
-    const std::string &service_config, const std::string &server_config) {
+    const std::string &server_config) {
   return std::shared_ptr<ApiManager>(
-      new ApiManagerImpl(std::move(env), service_config, server_config));
+      new ApiManagerImpl(std::move(env), server_config));
 }
 
 }  // namespace api_manager

@@ -102,7 +102,7 @@ class ApiManagerFactory {
   // Create an ApiManager object.
   std::shared_ptr<ApiManager> CreateApiManager(
       std::unique_ptr<ApiManagerEnvInterface> env,
-      const std::string &service_config, const std::string &server_config);
+      const std::string &server_config);
 };
 
 }  // namespace api_manager
