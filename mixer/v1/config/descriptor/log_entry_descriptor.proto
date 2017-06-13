@@ -25,7 +25,7 @@ message LogEntryDescriptor {
 
   // Optional. A concise name for the log entry type, which can be displayed in
   // user interfaces. Use sentence case without an ending period, for example
-  // "Request count".
+  // "access log".
   string display_name = 2;
 
   // Optional. A description of the log entry type, which can be used in documentation.

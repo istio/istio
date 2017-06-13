@@ -30,7 +30,7 @@ import "mixer/v1/config/descriptor/value_type.proto";
 //
 // ```yaml
 // metrics:
-//   name: "response_code"
+//   name: "response_count"
 //   kind: COUNTER
 //   value: INT64
 //   labels:
@@ -44,7 +44,7 @@ import "mixer/v1/config/descriptor/value_type.proto";
 //
 // ```yaml
 // metric:
-//   descriptor: "response_code" # must match metric_descriptor.name
+//   descriptor: "response_count" # must match metric_descriptor.name
 //   value: request.count # expression syntax for the attribute named "request.count"
 //   labels:
 //     # either the attribute named 'api.method' or the literal string 'unknown'; must eval to a string
