@@ -29,7 +29,6 @@ kind: Service
 metadata:
   name: zipkin
 spec:
-  # type: LoadBalancer
   ports:
   - name: http
     port: 9411
