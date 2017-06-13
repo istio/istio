@@ -12,8 +12,8 @@ cd ../wrk
 git pull
 make
 cd ../proxy
-bazel build src/envoy/mixer:envoy
+bazel build -c opt src/envoy/mixer:envoy
 cd ../mixer
-bazel build cmd/server:mixs
+bazel build -c opt cmd/server:mixs
 set +x
 echo "### All done... source istio/devel/setup_run   now"
