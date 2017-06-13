@@ -29,12 +29,9 @@ kind: Service
 metadata:
   name: zipkin
 spec:
-  #type: NodePort
-  type: LoadBalancer
   ports:
   - name: http
     port: 9411
-    #nodePort: 30411
   selector:
     app: zipkin
 ---
