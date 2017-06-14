@@ -15,6 +15,7 @@ go_test(
     srcs = ["config_test.go"],
     deps = [
         ":go_default_library",
+        "//adapter/config/memory:go_default_library",
         "//model:go_default_library",
         "//test/mock:go_default_library",
     ],

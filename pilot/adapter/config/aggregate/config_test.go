@@ -12,22 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memory_test
+package aggregate_test
 
 import (
 	"testing"
 
+	"istio.io/pilot/adapter/config/aggregate"
 	"istio.io/pilot/adapter/config/memory"
 	"istio.io/pilot/model"
 	"istio.io/pilot/test/mock"
 )
 
 func TestStoreInvariant(t *testing.T) {
-	store := memory.Make(mock.Types)
+	mockStore := memory.Make(mock.Types)
+	istioStore := memory.Make(model.IstioConfigTypes)
+	store, err := aggregate.Make([]model.ConfigStore{mockStore, istioStore})
+	if err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
 	mock.CheckMapInvariant(store, t, 10)
 }
 
-func TestIstioConfig(t *testing.T) {
-	store := memory.Make(model.IstioConfigTypes)
-	mock.CheckIstioConfigTypes(store, t)
+func TestStoreValidation(t *testing.T) {
+	mockStore := memory.Make(mock.Types)
+	if _, err := aggregate.Make([]model.ConfigStore{mockStore, mockStore}); err == nil {
+		t.Error("expected error in duplicate types in the config store")
+	}
 }
