@@ -81,7 +81,7 @@ def presubmit(gitUtils, bazel, utils) {
     stage('Code Coverage') {
       sh('bin/codecov.sh > codecov.report')
       sh('bazel-bin/bin/toolbox/presubmit/package_coverage_check')
-      utils.publishCodeCoverage('MANAGER_CODECOV_TOKEN')
+      utils.publishCodeCoverage('PILOT_CODECOV_TOKEN')
     }
     stage('Integration Tests') {
       timeout(15) {
@@ -143,7 +143,7 @@ def postsubmit(gitUtils, bazel, utils) {
       bazel.test('//...')
       sh('bin/init.sh')
       sh('bin/codecov.sh')
-      utils.publishCodeCoverage('MANAGER_CODECOV_TOKEN')
+      utils.publishCodeCoverage('PILOT_CODECOV_TOKEN')
     }
     utils.fastForwardStable('pilot')
   }
