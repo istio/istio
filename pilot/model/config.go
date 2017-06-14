@@ -234,34 +234,43 @@ const (
 )
 
 var (
+	// RouteRuleDescriptor describes route rules
+	RouteRuleDescriptor = ProtoSchema{
+		Type:        RouteRule,
+		MessageName: RouteRuleProto,
+		Validate:    ValidateRouteRule,
+		Key: func(config proto.Message) string {
+			rule := config.(*proxyconfig.RouteRule)
+			return fmt.Sprintf("%s", rule.Name)
+		},
+	}
+
+	// IngressRuleDescriptor describes ingress rules
+	IngressRuleDescriptor = ProtoSchema{
+		Type:        IngressRule,
+		MessageName: IngressRuleProto,
+		Validate:    ValidateIngressRule,
+		Key: func(config proto.Message) string {
+			rule := config.(*proxyconfig.IngressRule)
+			return fmt.Sprintf("%s", rule.Name)
+		},
+	}
+
+	// DestinationPolicyDescriptor describes destination rules
+	DestinationPolicyDescriptor = ProtoSchema{
+		Type:        DestinationPolicy,
+		MessageName: DestinationPolicyProto,
+		Validate:    ValidateDestinationPolicy,
+		Key: func(config proto.Message) string {
+			return config.(*proxyconfig.DestinationPolicy).Destination
+		},
+	}
+
 	// IstioConfigTypes lists all Istio config types with schemas and validation
 	IstioConfigTypes = ConfigDescriptor{
-		ProtoSchema{
-			Type:        RouteRule,
-			MessageName: RouteRuleProto,
-			Validate:    ValidateRouteRule,
-			Key: func(config proto.Message) string {
-				rule := config.(*proxyconfig.RouteRule)
-				return fmt.Sprintf("%s", rule.Name)
-			},
-		},
-		ProtoSchema{
-			Type:        IngressRule,
-			MessageName: IngressRuleProto,
-			Validate:    ValidateIngressRule,
-			Key: func(config proto.Message) string {
-				rule := config.(*proxyconfig.IngressRule)
-				return fmt.Sprintf("%s", rule.Name)
-			},
-		},
-		ProtoSchema{
-			Type:        DestinationPolicy,
-			MessageName: DestinationPolicyProto,
-			Validate:    ValidateDestinationPolicy,
-			Key: func(config proto.Message) string {
-				return config.(*proxyconfig.DestinationPolicy).Destination
-			},
-		},
+		RouteRuleDescriptor,
+		IngressRuleDescriptor,
+		DestinationPolicyDescriptor,
 	}
 )
 
@@ -358,13 +367,11 @@ func (i *istioConfigStore) DestinationPolicies() []*proxyconfig.DestinationPolic
 }
 
 func (i *istioConfigStore) DestinationPolicy(destination string, tags Tags) *proxyconfig.DestinationVersionPolicy {
-	// TODO: optimize destination policy retrieval
-	for _, value := range i.DestinationPolicies() {
-		if value.Destination == destination {
-			for _, policy := range value.Policy {
-				if tags.Equals(policy.Tags) {
-					return policy
-				}
+	value, exists, _ := i.Get(DestinationPolicy, destination)
+	if exists {
+		for _, policy := range value.(*proxyconfig.DestinationPolicy).Policy {
+			if tags.Equals(policy.Tags) {
+				return policy
 			}
 		}
 	}

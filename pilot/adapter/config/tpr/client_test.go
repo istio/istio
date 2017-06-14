@@ -54,10 +54,15 @@ func makeClient(namespace string, t *testing.T) *Client {
 		t.Fatal(err)
 	}
 
+	// TODO(kuat) initial watch always fails, takes time to register TPR, keep
+	// around as a work-around
+	// kr.DeregisterResources()
+
 	return cl
 }
 
-func TestThirdPartyResourcesClient(t *testing.T) {
+// makeTempClient allocates a namespace and cleans it up on test completion
+func makeTempClient(t *testing.T) (*Client, func()) {
 	client, err := kube.CreateInterface(kubeconfig(t))
 	if err != nil {
 		t.Fatal(err)
@@ -66,13 +71,21 @@ func TestThirdPartyResourcesClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer util.DeleteNamespace(client, ns)
 	cl := makeClient(ns, t)
+
+	// the rest of the test can run in parallel
 	t.Parallel()
+	return cl, func() { util.DeleteNamespace(client, ns) }
+}
 
-	mock.CheckMapInvariant(cl, t, 5)
+func TestStoreInvariant(t *testing.T) {
+	client, cleanup := makeTempClient(t)
+	defer cleanup()
+	mock.CheckMapInvariant(client, t, 5)
+}
 
-	// TODO(kuat) initial watch always fails, takes time to register TPR, keep
-	// around as a work-around
-	// kr.DeregisterResources()
+func TestIstioConfig(t *testing.T) {
+	client, cleanup := makeTempClient(t)
+	defer cleanup()
+	mock.CheckIstioConfigTypes(client, t)
 }

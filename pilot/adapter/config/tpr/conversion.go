@@ -33,7 +33,16 @@ import (
 
 // configKey assigns k8s TPR name to Istio config
 func configKey(typ, key string) string {
-	return typ + "-" + key
+	switch typ {
+	case model.RouteRule, model.IngressRule:
+		return typ + "-" + key
+	case model.DestinationPolicy:
+		// TODO: special key encoding for long hostnames-based keys
+		parts := strings.Split(key, ".")
+		return typ + "-" + strings.Replace(parts[0], "-", "--", -1) +
+			"-" + strings.Replace(parts[1], "-", "--", -1)
+	}
+	return key
 }
 
 // modelToKube translates Istio config to k8s config JSON
@@ -66,7 +75,7 @@ func (cl *Client) convertConfig(item *Config) (model.Config, error) {
 			}
 			return model.Config{
 				Type:     schema.Type,
-				Key:      strings.TrimPrefix(item.Metadata.Name, schema.Type+"-"),
+				Key:      schema.Key(data),
 				Revision: item.Metadata.ResourceVersion,
 				Content:  data,
 			}, nil
@@ -100,7 +109,6 @@ func convertIngress(ingress v1beta1.Ingress, domainSuffix string) map[string]pro
 	messages := make(map[string]proto.Message)
 
 	keyOf := func(ruleNum, pathNum int) string {
-		// TODO: namespace
 		return encodeIngressRuleName(ingress.Name, ingress.Namespace, ruleNum, pathNum)
 	}
 

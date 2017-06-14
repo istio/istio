@@ -15,7 +15,6 @@
 package tpr
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
@@ -33,21 +32,12 @@ import (
 )
 
 func TestIngressController(t *testing.T) {
-	client, err := kube.CreateInterface(kubeconfig(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	ns, err := util.CreateNamespace(client)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	defer util.DeleteNamespace(client, ns)
-	cl := makeClient(ns, t)
-	t.Parallel()
+	cl, cleanup := makeTempClient(t)
+	defer cleanup()
 
 	mesh := proxy.DefaultMeshConfig()
 	ctl := NewController(cl, &mesh, kube.ControllerOptions{
-		Namespace:    ns,
+		Namespace:    cl.namespace,
 		ResyncPeriod: resync,
 	})
 
@@ -67,7 +57,7 @@ func TestIngressController(t *testing.T) {
 	nginxIngress := v1beta1.Ingress{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      "nginx-ingress",
-			Namespace: ns,
+			Namespace: cl.namespace,
 			Annotations: map[string]string{
 				kube.IngressClassAnnotation: "nginx",
 			},
@@ -86,7 +76,7 @@ func TestIngressController(t *testing.T) {
 	ingress := v1beta1.Ingress{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      "test-ingress",
-			Namespace: ns,
+			Namespace: cl.namespace,
 			Annotations: map[string]string{
 				kube.IngressClassAnnotation: mesh.IngressClass,
 			},
@@ -161,7 +151,7 @@ func TestIngressController(t *testing.T) {
 	}, t)
 	rules, err := ctl.List(model.IngressRule)
 	if err != nil {
-		t.Errorf("ctl.List(model.IngressRule, %s) => error: %v", ns, err)
+		t.Errorf("ctl.List(model.IngressRule, %s) => error: %v", cl.namespace, err)
 	}
 	if len(rules) != expectedRuleCount {
 		t.Errorf("expected %d IngressRule objects to be created, found %d", expectedRuleCount, len(rules))
@@ -188,17 +178,8 @@ func TestIngressController(t *testing.T) {
 }
 
 func TestIngressClass(t *testing.T) {
-	client, err := kube.CreateInterface(kubeconfig(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	ns, err := util.CreateNamespace(client)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	defer util.DeleteNamespace(client, ns)
-	cl := makeClient(ns, t)
-	t.Parallel()
+	cl, cleanup := makeTempClient(t)
+	defer cleanup()
 
 	cases := []struct {
 		ingressMode   proxyconfig.ProxyMeshConfig_IngressControllerMode
@@ -231,7 +212,7 @@ func TestIngressClass(t *testing.T) {
 		mesh := proxy.DefaultMeshConfig()
 		mesh.IngressControllerMode = c.ingressMode
 		ctl := NewController(cl, &mesh, kube.ControllerOptions{
-			Namespace:    ns,
+			Namespace:    cl.namespace,
 			ResyncPeriod: resync,
 		})
 
@@ -247,59 +228,26 @@ func TestIngressClass(t *testing.T) {
 }
 
 func TestController(t *testing.T) {
-	client, err := kube.CreateInterface(kubeconfig(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	ns, err := util.CreateNamespace(client)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	defer util.DeleteNamespace(client, ns)
-	cl := makeClient(ns, t)
-	t.Parallel()
-
+	cl, cleanup := makeTempClient(t)
+	defer cleanup()
 	mesh := proxy.DefaultMeshConfig()
-	ctl := NewController(cl, &mesh, kube.ControllerOptions{Namespace: ns, ResyncPeriod: resync})
-
+	ctl := NewController(cl, &mesh, kube.ControllerOptions{Namespace: cl.namespace, ResyncPeriod: resync})
 	mock.CheckCacheEvents(cl, ctl, 5, t)
 }
 
 func TestControllerCacheFreshness(t *testing.T) {
-	client, err := kube.CreateInterface(kubeconfig(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	ns, err := util.CreateNamespace(client)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	defer util.DeleteNamespace(client, ns)
-	cl := makeClient(ns, t)
-	t.Parallel()
-
+	cl, cleanup := makeTempClient(t)
+	defer cleanup()
 	mesh := proxy.DefaultMeshConfig()
-	ctl := NewController(cl, &mesh, kube.ControllerOptions{Namespace: ns, ResyncPeriod: resync})
-
+	ctl := NewController(cl, &mesh, kube.ControllerOptions{Namespace: cl.namespace, ResyncPeriod: resync})
 	mock.CheckCacheFreshness(ctl, t)
 }
 
 func TestControllerClientSync(t *testing.T) {
-	client, err := kube.CreateInterface(kubeconfig(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	ns, err := util.CreateNamespace(client)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	defer util.DeleteNamespace(client, ns)
-	cl := makeClient(ns, t)
-	t.Parallel()
-
+	cl, cleanup := makeTempClient(t)
+	defer cleanup()
 	mesh := proxy.DefaultMeshConfig()
-	ctl := NewController(cl, &mesh, kube.ControllerOptions{Namespace: ns, ResyncPeriod: resync})
-
+	ctl := NewController(cl, &mesh, kube.ControllerOptions{Namespace: cl.namespace, ResyncPeriod: resync})
 	mock.CheckCacheSync(cl, ctl, 5, t)
 }
 
@@ -310,59 +258,5 @@ const (
 func createIngress(ingress *v1beta1.Ingress, client kubernetes.Interface, t *testing.T) {
 	if _, err := client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Create(ingress); err != nil {
 		t.Errorf("Cannot create ingress in namespace %s (error: %v)", ingress.Namespace, err)
-	}
-}
-
-func TestIstioConfig(t *testing.T) {
-	client, err := kube.CreateInterface(kubeconfig(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	ns, err := util.CreateNamespace(client)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	defer util.DeleteNamespace(client, ns)
-	cl := makeClient(ns, t)
-	t.Parallel()
-
-	rule := &proxyconfig.RouteRule{
-		Destination: "foo",
-		Name:        "test",
-		Match: &proxyconfig.MatchCondition{
-			HttpHeaders: map[string]*proxyconfig.StringMatch{
-				"uri": {
-					MatchType: &proxyconfig.StringMatch_Exact{
-						Exact: "test",
-					},
-				},
-			},
-		},
-	}
-
-	if _, err := cl.Post(rule); err != nil {
-		t.Errorf("cl.Post() => error %v, want no error", err)
-	}
-
-	out, exists, _ := cl.Get(model.RouteRule, rule.Name)
-	if !exists {
-		t.Errorf("cl.Get() => missing")
-		return
-	}
-
-	if !reflect.DeepEqual(rule, out) {
-		t.Errorf("cl.Get(%v) => %v, want %v", rule.Name, out, rule)
-	}
-
-	registry := model.MakeIstioStore(cl)
-
-	rules := registry.RouteRules()
-	if len(rules) != 1 || !reflect.DeepEqual(rules[rule.Name], rule) {
-		t.Errorf("RouteRules() => %v, want %v", rules, rule)
-	}
-
-	destinations := registry.DestinationPolicies()
-	if len(destinations) > 0 {
-		t.Errorf("DestinationPolicies() => %v, want empty", destinations)
 	}
 }

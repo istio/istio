@@ -27,7 +27,7 @@ import (
 	proxyconfig "istio.io/api/proxy/v1/config"
 )
 
-func TestKindMapValidate(t *testing.T) {
+func TestConfigDescriptorValidate(t *testing.T) {
 	badLabel := strings.Repeat("a", dns1123LabelMaxLength+1)
 	goodLabel := strings.Repeat("a", dns1123LabelMaxLength-1)
 
@@ -40,12 +40,31 @@ func TestKindMapValidate(t *testing.T) {
 		descriptor: IstioConfigTypes,
 		wantErr:    false,
 	}, {
-		name:       "Invalid DNS11234Label in ConfigDescriptor",
-		descriptor: ConfigDescriptor{ProtoSchema{Type: badLabel}},
-		wantErr:    true,
+		name: "Invalid DNS11234Label in ConfigDescriptor",
+		descriptor: ConfigDescriptor{ProtoSchema{
+			Type:        badLabel,
+			MessageName: RouteRuleDescriptor.MessageName,
+			Key:         func(config proto.Message) string { return "key" },
+		}},
+		wantErr: true,
 	}, {
-		name:       "Bad MessageName in ProtoMessage",
-		descriptor: ConfigDescriptor{ProtoSchema{Type: goodLabel}},
+		name: "Bad MessageName in ProtoMessage",
+		descriptor: ConfigDescriptor{ProtoSchema{
+			Type:        goodLabel,
+			MessageName: "nonexistent",
+			Key:         func(config proto.Message) string { return "key" },
+		}},
+		wantErr: true,
+	}, {
+		name: "Missing key function",
+		descriptor: ConfigDescriptor{ProtoSchema{
+			Type:        RouteRuleDescriptor.Type,
+			MessageName: RouteRuleDescriptor.MessageName,
+		}},
+		wantErr: true,
+	}, {
+		name:       "Duplicate type and message",
+		descriptor: ConfigDescriptor{RouteRuleDescriptor, RouteRuleDescriptor},
 		wantErr:    true,
 	}}
 

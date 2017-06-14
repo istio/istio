@@ -72,16 +72,27 @@ func ValidatePort(port int) error {
 // Validate checks that each name conforms to the spec and has a ProtoMessage
 func (descriptor ConfigDescriptor) Validate() error {
 	var errs error
+	types := make(map[string]bool)
+	messages := make(map[string]bool)
+
 	for _, v := range descriptor {
 		if v.Key == nil {
-			errs = multierror.Append(errs, fmt.Errorf("missing key function for type: %q", v.Type))
+			errs = multierror.Append(errs, fmt.Errorf("missing the required key function for type: %q", v.Type))
 		}
 		if !IsDNS1123Label(v.Type) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid type: %q", v.Type))
 		}
 		if proto.MessageType(v.MessageName) == nil {
-			errs = multierror.Append(errs, fmt.Errorf("cannot find proto message type: %q", v.MessageName))
+			errs = multierror.Append(errs, fmt.Errorf("cannot discover proto message type: %q", v.MessageName))
 		}
+		if _, exists := types[v.Type]; exists {
+			errs = multierror.Append(errs, fmt.Errorf("duplicate type: %q", v.Type))
+		}
+		types[v.Type] = true
+		if _, exists := messages[v.MessageName]; exists {
+			errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
+		}
+		messages[v.MessageName] = true
 	}
 	return errs
 }
@@ -638,6 +649,9 @@ func ValidateRouteRule(msg proto.Message) error {
 	if value.Name == "" {
 		errs = multierror.Append(errs, fmt.Errorf("route rule must have a name"))
 	}
+	if !IsDNS1123Label(value.Name) {
+		errs = multierror.Append(errs, fmt.Errorf("route rule name must be a host name label"))
+	}
 	if value.Destination == "" {
 		errs = multierror.Append(errs, fmt.Errorf("route rule must have a destination service"))
 	}
@@ -726,6 +740,9 @@ func ValidateIngressRule(msg proto.Message) error {
 	var errs error
 	if value.Name == "" {
 		errs = multierror.Append(errs, fmt.Errorf("ingress rule must have a name"))
+	}
+	if !IsDNS1123Label(value.Name) {
+		errs = multierror.Append(errs, fmt.Errorf("ingress rule name must be a host name label"))
 	}
 	if value.Destination == "" {
 		errs = multierror.Append(errs, fmt.Errorf("ingress rule must have a destination service"))

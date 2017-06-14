@@ -17,10 +17,16 @@ package memory
 import (
 	"testing"
 
+	"istio.io/pilot/model"
 	"istio.io/pilot/test/mock"
 )
 
 func TestStoreInvariant(t *testing.T) {
 	store := Make(mock.Types)
 	mock.CheckMapInvariant(store, t, 10)
+}
+
+func TestIstioConfig(t *testing.T) {
+	store := Make(model.IstioConfigTypes)
+	mock.CheckIstioConfigTypes(store, t)
 }

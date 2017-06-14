@@ -25,30 +25,60 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
+	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/model"
 	"istio.io/pilot/test/util"
 )
 
-// Mock config type
 const (
+	// Type is the mock config type
 	Type = "mock-config"
 )
 
-// Mock config descriptor
 var (
-	Types = model.ConfigDescriptor{
-		model.ProtoSchema{
-			Type:        Type,
-			MessageName: "mock.MockConfig",
-			Validate: func(config proto.Message) error {
-				if config.(*MockConfig).Key == "" {
-					return errors.New("empty key")
-				}
-				return nil
-			},
-			Key: func(config proto.Message) string {
-				return config.(*MockConfig).Key
-			},
+	// Descriptor for the mock config
+	Descriptor = model.ProtoSchema{
+		Type:        Type,
+		MessageName: "mock.MockConfig",
+		Validate: func(config proto.Message) error {
+			if config.(*MockConfig).Key == "" {
+				return errors.New("empty key")
+			}
+			return nil
+		},
+		Key: func(config proto.Message) string {
+			return config.(*MockConfig).Key
+		},
+	}
+
+	// Types defines the mock config descriptor
+	Types = model.ConfigDescriptor{Descriptor}
+
+	// ExampleRouteRule is an example route rule
+	ExampleRouteRule = &proxyconfig.RouteRule{
+		Name:        "sample-rule",
+		Destination: WorldService.Hostname,
+		Route: []*proxyconfig.DestinationWeight{
+			{Weight: 80, Tags: map[string]string{"version": "v1"}},
+			{Weight: 20, Tags: map[string]string{"version": "v2"}},
+		},
+	}
+
+	// ExampleIngressRule is an example ingress rule
+	ExampleIngressRule = &proxyconfig.IngressRule{
+		Name:                   "sample-ingress",
+		Port:                   80,
+		Destination:            WorldService.Hostname,
+		DestinationServicePort: &proxyconfig.IngressRule_DestinationPort{DestinationPort: 80},
+	}
+
+	// ExampleDestinationPolicy is an example destination policy
+	ExampleDestinationPolicy = &proxyconfig.DestinationPolicy{
+		Destination: WorldService.Hostname,
+		Policy: []*proxyconfig.DestinationVersionPolicy{
+			{LoadBalancing: &proxyconfig.LoadBalancing{
+				LbPolicy: &proxyconfig.LoadBalancing_Name{Name: proxyconfig.LoadBalancing_RANDOM},
+			}},
 		},
 	}
 )
@@ -190,6 +220,25 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, n int) {
 	}
 	if len(l) != 0 {
 		t.Errorf("wanted 0 element(s), got %d in %v", len(l), l)
+	}
+}
+
+// CheckIstioConfigTypes validates that an empty store can ingest Istio config objects
+func CheckIstioConfigTypes(store model.ConfigStore, t *testing.T) {
+	if _, err := store.Post(ExampleRouteRule); err != nil {
+		t.Errorf("Post(RouteRule) => got %v", err)
+	}
+	if _, err := store.Post(ExampleIngressRule); err != nil {
+		t.Errorf("Post(IngressRule) => got %v", err)
+	}
+	if _, err := store.Post(ExampleDestinationPolicy); err != nil {
+		t.Errorf("Post(DestinationPolicy) => got %v", err)
+	}
+
+	registry := model.MakeIstioStore(store)
+	rules := registry.RouteRules()
+	if len(rules) != 1 || !reflect.DeepEqual(rules[ExampleRouteRule.Name], ExampleRouteRule) {
+		t.Errorf("RouteRules() => %v, want %v", rules, ExampleRouteRule)
 	}
 }
 
