@@ -65,8 +65,9 @@ ApiManagerImpl::ApiManagerImpl(std::unique_ptr<ApiManagerEnvInterface> env,
           break;
         }
       } else {
-        global_context_->env()->LogError("Unable to open service config: " +
-                                         item.service_config_file_full_path());
+        global_context_->env()->LogError(
+            "Failed to open an api service configuration file: " +
+            item.service_config_file_full_path());
         config_loading_status_ =
             utils::Status(Code::ABORTED, "Invalid service config");
         break;
