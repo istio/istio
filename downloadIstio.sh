@@ -8,7 +8,8 @@
 # The script fetches the latest Istio release and untars it.
 
 # TODO: Automate updating me.
-ISTIO_VERSION="0.1.6"
+LATEST_RELEASE_URL="https://api.github.com/repos/istio/istio/releases/latest"
+ISTIO_VERSION="$(curl -sX GET ${LATEST_RELEASE_URL} | sed -En 's/\s+\"tag_name\": \"([^\"]+)\",$/\1/p')"
 
 NAME="istio-$ISTIO_VERSION"
 OS="$(uname)"
