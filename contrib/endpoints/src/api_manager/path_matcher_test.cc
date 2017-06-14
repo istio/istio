@@ -201,6 +201,22 @@ TEST_F(PathMatcherTest, WildCardMatches) {
   EXPECT_EQ(LookupNoBindings("GET", "/c/f/d/e"), cfde);
 }
 
+TEST_F(PathMatcherTest, WildCardMethodMatches) {
+  MethodInfo* a__ = AddPath("*", "/a/**");
+  MethodInfo* b_ = AddPath("*", "/b/*");
+  Build();
+
+  EXPECT_NE(nullptr, a__);
+  EXPECT_NE(nullptr, b_);
+
+  std::vector<std::string> all_methods{"GET", "POST", "DELETE", "PATCH", "PUT"};
+  for (const auto& method : all_methods) {
+    EXPECT_EQ(LookupNoBindings(method, "/a/b"), a__);
+    EXPECT_EQ(LookupNoBindings(method, "/a/b/c"), a__);
+    EXPECT_EQ(LookupNoBindings(method, "/b/c"), b_);
+  }
+}
+
 TEST_F(PathMatcherTest, VariableBindings) {
   MethodInfo* a_cde = AddGetPath("/a/{x}/c/d/e");
   MethodInfo* a_b_c = AddGetPath("/{x=a/*}/b/{y=*}/c");
