@@ -14,14 +14,10 @@
 
 package version
 
-import (
-	"testing"
-
-	"istio.io/pilot/tools/version"
-)
+import "testing"
 
 func TestVersion(t *testing.T) {
 	// dumb test that just invokes the two version commands
-	_ = version.Line()
-	_ = version.Version()
+	_ = Line()
+	_ = Version()
 }
