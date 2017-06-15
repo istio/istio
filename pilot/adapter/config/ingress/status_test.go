@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kube
+package ingress
 
 import (
 	"testing"
@@ -22,6 +22,7 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/annotations/class"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
+	"istio.io/pilot/platform/kube"
 )
 
 func makeAnnotatedIngress(annotation string) *extensions.Ingress {
@@ -32,7 +33,7 @@ func makeAnnotatedIngress(annotation string) *extensions.Ingress {
 	return &extensions.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				IngressClassAnnotation: annotation,
+				kube.IngressClassAnnotation: annotation,
 			},
 		},
 	}

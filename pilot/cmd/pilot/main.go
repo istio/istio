@@ -19,12 +19,16 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
+	"istio.io/pilot/adapter/config/aggregate"
+	"istio.io/pilot/adapter/config/ingress"
 	"istio.io/pilot/adapter/config/tpr"
 	"istio.io/pilot/cmd"
 	"istio.io/pilot/model"
@@ -49,7 +53,7 @@ type args struct {
 
 var (
 	flags  args
-	client *tpr.Client
+	client kubernetes.Interface
 	mesh   *proxyconfig.ProxyMeshConfig
 
 	rootCmd = &cobra.Command{
@@ -64,12 +68,9 @@ var (
 				}
 			}
 
-			client, err = tpr.NewClient(flags.kubeconfig, model.IstioConfigTypes, flags.controllerOptions.Namespace)
+			client, err = kube.CreateInterface(flags.kubeconfig)
 			if err != nil {
 				return multierror.Prefix(err, "failed to connect to Kubernetes API.")
-			}
-			if err = client.RegisterResources(); err != nil {
-				return multierror.Prefix(err, "failed to register Third-Party Resources.")
 			}
 
 			// set values from environment variables
@@ -86,7 +87,7 @@ var (
 			glog.V(2).Infof("flags %s", spew.Sdump(flags))
 
 			// receive mesh configuration
-			mesh, err = cmd.GetMeshConfig(client.GetKubernetesInterface(), flags.controllerOptions.Namespace, flags.meshConfig)
+			mesh, err = cmd.GetMeshConfig(client, flags.controllerOptions.Namespace, flags.meshConfig)
 			if err != nil {
 				return multierror.Prefix(err, "failed to retrieve mesh configuration.")
 			}
@@ -99,9 +100,28 @@ var (
 	discoveryCmd = &cobra.Command{
 		Use:   "discovery",
 		Short: "Start Istio proxy discovery service",
-		RunE: func(c *cobra.Command, args []string) (err error) {
-			serviceController := kube.NewController(client.GetKubernetesInterface(), mesh, flags.controllerOptions)
-			configController := tpr.NewController(client, mesh, flags.controllerOptions)
+		RunE: func(c *cobra.Command, args []string) error {
+			tprClient, err := tpr.NewClient(flags.kubeconfig, model.ConfigDescriptor{
+				model.RouteRuleDescriptor,
+				model.DestinationPolicyDescriptor,
+			}, flags.controllerOptions.Namespace)
+			if err != nil {
+				return multierror.Prefix(err, "failed to open a TPR client")
+			}
+
+			if err = tprClient.RegisterResources(); err != nil {
+				return multierror.Prefix(err, "failed to register Third-Party Resources.")
+			}
+
+			serviceController := kube.NewController(client, mesh, flags.controllerOptions)
+			configController, err := aggregate.MakeCache([]model.ConfigStoreCache{
+				tpr.NewController(tprClient, flags.controllerOptions.ResyncPeriod),
+				ingress.NewController(client, mesh, flags.controllerOptions),
+			})
+			if err != nil {
+				return err
+			}
+
 			context := &proxy.Context{
 				Discovery:  serviceController,
 				Accounts:   serviceController,
@@ -112,12 +132,17 @@ var (
 			if err != nil {
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}
+
+			ingressSyncer := ingress.NewStatusSyncer(mesh, client, flags.controllerOptions)
+
 			stop := make(chan struct{})
 			go serviceController.Run(stop)
 			go configController.Run(stop)
 			go discovery.Run()
+			go ingressSyncer.Run(stop)
 			cmd.WaitSignal(stop)
-			return
+
+			return nil
 		},
 	}
 
@@ -131,8 +156,16 @@ var (
 		Short: "Envoy sidecar agent",
 		RunE: func(c *cobra.Command, args []string) (err error) {
 			mesh.IngressControllerMode = proxyconfig.ProxyMeshConfig_OFF
-			serviceController := kube.NewController(client.GetKubernetesInterface(), mesh, flags.controllerOptions)
-			configController := tpr.NewController(client, mesh, flags.controllerOptions)
+			serviceController := kube.NewController(client, mesh, flags.controllerOptions)
+			tprClient, err := tpr.NewClient(flags.kubeconfig, model.ConfigDescriptor{
+				model.RouteRuleDescriptor,
+				model.DestinationPolicyDescriptor,
+			}, flags.controllerOptions.Namespace)
+			if err != nil {
+				return
+			}
+
+			configController := tpr.NewController(tprClient, flags.controllerOptions.ResyncPeriod)
 			context := &proxy.Context{
 				Discovery:        serviceController,
 				Accounts:         serviceController,
@@ -142,18 +175,19 @@ var (
 				UID:              fmt.Sprintf("kubernetes://%s.%s", flags.podName, flags.controllerOptions.Namespace),
 				PassthroughPorts: flags.passthrough,
 			}
-			w, err := envoy.NewWatcher(serviceController, configController, context)
+
+			watcher, err := envoy.NewWatcher(serviceController, configController, context)
 			if err != nil {
 				return
 			}
-			stop := make(chan struct{})
 
 			// must start watcher after starting dependent controllers
+			stop := make(chan struct{})
 			go serviceController.Run(stop)
 			go configController.Run(stop)
-			go w.Run(stop)
-
+			go watcher.Run(stop)
 			cmd.WaitSignal(stop)
+
 			return
 		},
 	}
@@ -162,15 +196,15 @@ var (
 		Use:   "ingress",
 		Short: "Envoy ingress agent",
 		RunE: func(c *cobra.Command, args []string) error {
-			s := kube.NewIngressStatusSyncer(mesh, client.GetKubernetesInterface(), flags.controllerOptions)
-			w, err := envoy.NewIngressWatcher(mesh, kube.MakeSecretRegistry(client.GetKubernetesInterface()))
+			watcher, err := envoy.NewIngressWatcher(mesh, kube.MakeSecretRegistry(client))
 			if err != nil {
 				return err
 			}
+
 			stop := make(chan struct{})
-			go w.Run(stop)
-			go s.Run(stop)
+			go watcher.Run(stop)
 			cmd.WaitSignal(stop)
+
 			return nil
 		},
 	}
@@ -179,12 +213,12 @@ var (
 		Use:   "egress",
 		Short: "Envoy external service agent",
 		RunE: func(c *cobra.Command, args []string) error {
-			w, err := envoy.NewEgressWatcher(mesh)
+			watcher, err := envoy.NewEgressWatcher(mesh)
 			if err != nil {
 				return err
 			}
 			stop := make(chan struct{})
-			go w.Run(stop)
+			go watcher.Run(stop)
 			cmd.WaitSignal(stop)
 			return nil
 		},

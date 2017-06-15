@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kube
+package ingress
 
 import (
 	"fmt"
@@ -27,18 +27,19 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/store"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
+	"istio.io/pilot/platform/kube"
 )
 
 const ingressElectionID = "istio-ingress-controller-leader"
 
-// IngressStatusSyncer keeps the status IP in each Ingress resource updated
-type IngressStatusSyncer struct {
+// StatusSyncer keeps the status IP in each Ingress resource updated
+type StatusSyncer struct {
 	sync     status.Sync
 	informer cache.SharedIndexInformer
 }
 
 // Run the syncer until stopCh is closed
-func (s *IngressStatusSyncer) Run(stopCh <-chan struct{}) {
+func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 	go func() {
 		s.sync.Run(stopCh)
 		s.sync.Shutdown()
@@ -47,9 +48,9 @@ func (s *IngressStatusSyncer) Run(stopCh <-chan struct{}) {
 	<-stopCh
 }
 
-// NewIngressStatusSyncer creates a new instance
-func NewIngressStatusSyncer(mesh *proxyconfig.ProxyMeshConfig, client kubernetes.Interface,
-	options ControllerOptions) *IngressStatusSyncer {
+// NewStatusSyncer creates a new instance
+func NewStatusSyncer(mesh *proxyconfig.ProxyMeshConfig, client kubernetes.Interface,
+	options kube.ControllerOptions) *StatusSyncer {
 
 	informer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
@@ -77,7 +78,7 @@ func NewIngressStatusSyncer(mesh *proxyconfig.ProxyMeshConfig, client kubernetes
 		IngressClass:        ingressClass,
 	})
 
-	return &IngressStatusSyncer{
+	return &StatusSyncer{
 		sync:     sync,
 		informer: informer,
 	}

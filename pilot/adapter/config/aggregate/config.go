@@ -51,7 +51,7 @@ func Make(stores []model.ConfigStore) (model.ConfigStore, error) {
 // MakeCache creates an aggregate config store cache from several config store
 // caches.
 func MakeCache(caches []model.ConfigStoreCache) (model.ConfigStoreCache, error) {
-	stores := make([]model.ConfigStore, len(caches))
+	stores := make([]model.ConfigStore, 0, len(caches))
 	for _, cache := range caches {
 		stores = append(stores, cache)
 	}

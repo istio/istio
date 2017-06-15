@@ -60,8 +60,12 @@ const (
 type Client struct {
 	descriptor model.ConfigDescriptor
 	client     kubernetes.Interface
-	dynamic    *rest.RESTClient
-	namespace  string
+
+	// dynamic REST client for accessing config TPRs
+	dynamic *rest.RESTClient
+
+	// namespace is the namespace for storing TPRs
+	namespace string
 }
 
 // createRESTConfig for cluster API server, pass empty config file for in-cluster

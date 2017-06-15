@@ -79,6 +79,15 @@ func serviceHostname(name, namespace, domainSuffix string) string {
 	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix)
 }
 
+// KeyFunc is the internal API key function that returns "namespace"/"name" or
+// "name" if "namespace" is empty
+func KeyFunc(name, namespace string) string {
+	if len(namespace) == 0 {
+		return name
+	}
+	return namespace + "/" + name
+}
+
 // parseHostname extracts service name and namespace from the service hostnamei
 func parseHostname(hostname string) (name string, namespace string, err error) {
 	parts := strings.Split(hostname, ".")

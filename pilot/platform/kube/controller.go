@@ -35,6 +35,7 @@ import (
 
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
+	// Namespace to restrict controller to (empty to disable restriction)
 	Namespace    string
 	ResyncPeriod time.Duration
 	DomainSuffix string
@@ -165,15 +166,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	glog.V(2).Info("Controller terminated")
 }
 
-// keyFunc is the internal key function that returns "namespace"/"name" or
-// "name" if "namespace" is empty
-func keyFunc(name, namespace string) string {
-	if len(namespace) == 0 {
-		return name
-	}
-	return namespace + "/" + name
-}
-
 // Services implements a service catalog operation
 func (c *Controller) Services() []*model.Service {
 	list := c.services.informer.GetStore().List()
@@ -205,7 +197,7 @@ func (c *Controller) GetService(hostname string) (*model.Service, bool) {
 
 // serviceByKey retrieves a service by name and namespace
 func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
-	item, exists, err := c.services.informer.GetStore().GetByKey(keyFunc(name, namespace))
+	item, exists, err := c.services.informer.GetStore().GetByKey(KeyFunc(name, namespace))
 	if err != nil {
 		glog.V(2).Infof("serviceByKey(%s, %s) => error %v", name, namespace, err)
 		return nil, false
@@ -407,7 +399,7 @@ func newPodCache(ch cacheHandler) *PodCache {
 		if len(ip) > 0 {
 			switch ev {
 			case model.EventAdd, model.EventUpdate:
-				out.keys[ip] = keyFunc(pod.Name, pod.Namespace)
+				out.keys[ip] = KeyFunc(pod.Name, pod.Namespace)
 			case model.EventDelete:
 				delete(out.keys, ip)
 			}

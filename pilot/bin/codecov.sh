@@ -9,6 +9,9 @@ for d in $(go list ./... | grep -v vendor); do
         istio.io/pilot/adapter/config/tpr)
             echo "Skipping race detection on $d (see https://github.com/istio/pilot/issues/173)"
             ;;
+        istio.io/pilot/adapter/config/ingress)
+            echo "Skipping race detection on $d (see https://github.com/istio/pilot/issues/173)"
+            ;;
         *)
             options=$options" -race"
             ;;
