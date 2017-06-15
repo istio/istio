@@ -74,6 +74,7 @@ class TestMethodInfo : public MethodInfo {
   const std::string &selector() const { return empty_; }
   bool auth() const { return false; }
   bool allow_unregistered_calls() const { return false; }
+  bool skip_service_control() const { return false; }
   bool isIssuerAllowed(const std::string &issuer) const { return false; }
   bool isAudienceAllowed(const std::string &issuer,
                          const std::set<std::string> &jwt_audiences) const {

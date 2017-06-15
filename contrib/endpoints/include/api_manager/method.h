@@ -45,6 +45,9 @@ class MethodInfo {
   // Return if this method allows unregistered calls.
   virtual bool allow_unregistered_calls() const = 0;
 
+  // Return if this method should skip service control.
+  virtual bool skip_service_control() const = 0;
+
   // Check an issuer is allowed.
   virtual bool isIssuerAllowed(const std::string &issuer) const = 0;
 

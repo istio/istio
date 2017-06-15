@@ -314,7 +314,7 @@ cc_proto_library(
 
     native.new_git_repository(
         name = "googleapis_git",
-        commit = "2fe0050bd2a6d4c6ba798c0311f0b149b8997314",
+        commit = "cbf6dc5d95d497b621a5c0e35696355deff336af",  # June 14, 2017
         remote = "https://github.com/googleapis/googleapis.git",
         build_file_content = BUILD,
     )

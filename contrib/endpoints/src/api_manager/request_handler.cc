@@ -30,6 +30,10 @@ namespace google {
 namespace api_manager {
 
 void RequestHandler::Check(std::function<void(Status status)> continuation) {
+  if (context_->method() && context_->method()->skip_service_control()) {
+    continuation(Status::OK);
+    return;
+  }
   auto interception = [continuation, this](Status status) {
     if (status.ok() && context_->cloud_trace()) {
       context_->StartBackendSpanAndSetTraceContext();
@@ -79,6 +83,10 @@ void RequestHandler::AttemptIntermediateReport() {
 // Sends a report.
 void RequestHandler::Report(std::unique_ptr<Response> response,
                             std::function<void(void)> continuation) {
+  if (context_->method() && context_->method()->skip_service_control()) {
+    continuation();
+    return;
+  }
   // Close backend trace span.
   context_->EndBackendSpan();
 

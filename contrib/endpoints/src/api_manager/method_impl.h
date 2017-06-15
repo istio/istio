@@ -38,6 +38,7 @@ class MethodInfoImpl : public MethodInfo {
   const std::string &selector() const { return selector_; }
   bool auth() const { return auth_; }
   bool allow_unregistered_calls() const { return allow_unregistered_calls_; }
+  bool skip_service_control() const { return skip_service_control_; }
 
   bool isIssuerAllowed(const std::string &issuer) const;
 
@@ -85,6 +86,7 @@ class MethodInfoImpl : public MethodInfo {
                              const std::string &audiences_list);
   void set_auth(bool v) { auth_ = v; }
   void set_allow_unregistered_calls(bool v) { allow_unregistered_calls_ = v; }
+  void set_skip_service_control(bool v) { skip_service_control_ = v; }
 
   void add_http_header_parameter(const std::string &name,
                                  const std::string &http_header) {
@@ -147,6 +149,8 @@ class MethodInfoImpl : public MethodInfo {
   // Does the method allow unregistered callers (callers without client identity
   // such as API Key)?
   bool allow_unregistered_calls_;
+  // Should the method skip service control.
+  bool skip_service_control_;
   // Issuers to allowed audiences map.
   std::map<std::string, std::set<std::string>> issuer_audiences_map_;
 

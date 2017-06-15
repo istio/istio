@@ -336,6 +336,7 @@ bool Config::LoadUsage(ApiManagerEnvInterface *env) {
     auto method = utils::FindOrNull(method_map_, rule.selector());
     if (method) {
       (*method)->set_allow_unregistered_calls(rule.allow_unregistered_calls());
+      (*method)->set_skip_service_control(rule.skip_service_control());
     } else {
       std::string error = "Not HTTP rule defined for: " + rule.selector();
       env->LogError(error.c_str());

@@ -227,10 +227,12 @@ static const char usage_config[] =
     "  rules {\n"
     "    selector: \"Xyz.Method1\"\n"
     "    allow_unregistered_calls: true\n"
+    "    skip_service_control: true\n"
     "  }\n"
     "  rules {\n"
     "    selector: \"Xyz.Method2\"\n"
     "    allow_unregistered_calls: false\n"
+    "    skip_service_control: false\n"
     "  }\n"
     "}\n"
     "http {\n"
@@ -253,10 +255,12 @@ TEST(Config, TestLoadUsage) {
   const MethodInfo *method1 = config->GetMethodInfo("GET", "/xyz/method1/abc");
   ASSERT_EQ("Xyz.Method1", method1->name());
   ASSERT_TRUE(method1->allow_unregistered_calls());
+  ASSERT_TRUE(method1->skip_service_control());
 
   const MethodInfo *method2 = config->GetMethodInfo("GET", "/xyz/method2/abc");
   ASSERT_EQ("Xyz.Method2", method2->name());
   ASSERT_FALSE(method2->allow_unregistered_calls());
+  ASSERT_FALSE(method2->skip_service_control());
 }
 
 static const char custom_method_config[] =
