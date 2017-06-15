@@ -123,5 +123,5 @@ function dump_debug() {
     $K8CLI -n $NAMESPACE logs $PRODUCTPAGE_PODNAME -c proxy
     $K8CLI -n $NAMESPACE get istioconfig -o yaml
     MIXER_PODNAME=$($K8CLI -n $NAMESPACE get pods | grep istio-mixer | awk '{print $1}')
-    $K8CLI -n $NAMESPACE logs $MIXER_PODNAME
+    $K8CLI -n $NAMESPACE logs $MIXER_PODNAME -c mixer
 }
