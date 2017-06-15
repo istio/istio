@@ -59,7 +59,7 @@ func NewHop(d, s, v string, h, g int) *framework.App {
 		AppYamlTemplate: util.GetResourcePath(hopYamlTmpl),
 		Template: &hopTemplate{
 			Deployment: d,
-			Service:    d,
+			Service:    s,
 			Version:    v,
 			HTTPPort:   h,
 			GRPCPort:   g,
