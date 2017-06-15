@@ -440,8 +440,20 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_grpcecosystem_opentracing",
-    commit = "c94552f01d20ad74ec45a8cd967833a9d0b106cf",  #
+    commit = "c94552f01d20ad74ec45a8cd967833a9d0b106cf",  # Feb 24, 2017 (no releases)
     importpath = "github.com/grpc-ecosystem/grpc-opentracing",
+)
+
+new_go_repository(
+    name = "com_github_grpcecosystem_middleware",
+    commit = "f63a7dfb64c138bd93d5c5b896d8b33c4b08e000",  # Jun 11, 2017 (no releases)
+    importpath = "github.com/grpc-ecosystem/go-grpc-middleware",
+)
+
+new_go_repository(
+    name = "com_github_grpcecosystem_prometheus",
+    commit = "2500245aa6110c562d17020fb31a2c133d737799",  # Mar 30, 2017 (only 1 release)
+    importpath = "github.com/grpc-ecosystem/go-grpc-prometheus",
 )
 
 ##
