@@ -159,6 +159,6 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_prometheus_client_golang",
-    commit = "de4d4ffe63b9eff7f27484fdef6e421597e6abb4", # June 6, 2017
+    commit = "de4d4ffe63b9eff7f27484fdef6e421597e6abb4",  # June 6, 2017
     importpath = "github.com/prometheus/client_golang",
 )
