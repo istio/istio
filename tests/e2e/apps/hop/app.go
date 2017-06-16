@@ -53,7 +53,7 @@ type hopTemplate struct {
 	Version    string
 }
 
-// NewHop instantiate a framework.App to be used by framework.AppManager.
+// NewHop instantiates a framework.App to be used by framework.AppManager.
 func NewHop(d, s, v string, h, g int) *framework.App {
 	return &framework.App{
 		AppYamlTemplate: util.GetResourcePath(hopYamlTmpl),
