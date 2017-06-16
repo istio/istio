@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+import "mixer/tools/codegen/pkg/template_extension/TemplateExtensions.proto";
+
+option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
+option (istio.mixer.v1.config.template.template_name) = "Quota";
+
+
+message Constructor{
+    // The set of dimensions that are necessary to describe a specific value cell
+    // for a quota of this type.
+    map<string, istio.mixer.v1.config.template.Expr> dimensions = 2;
+}

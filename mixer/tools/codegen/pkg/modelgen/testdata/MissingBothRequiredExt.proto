@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package foo.bar;
+
+import "mixer/tools/codegen/pkg/template_extension/TemplateExtensions.proto";
+
+message Type {}
+message Constructor {}
