@@ -9,4 +9,5 @@ cd $ROOTDIR
 
 
 echo "Race test"
-go test -race ./...
+# TODO remove the exclusion of codegen once the codegen tests start working via bazel
+go test -race `go list ./... | grep -v codegen`

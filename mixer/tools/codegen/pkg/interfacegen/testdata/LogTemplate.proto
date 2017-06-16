@@ -1,0 +1,56 @@
+// COPY OF https://github.com/istio/api/blob/master/mixer/v1/config/descriptor/log_entry_descriptor.proto
+
+syntax = "proto3";
+
+package istio.mixer.adapter.log;
+
+import "mixer/v1/config/descriptor/value_type.proto";
+import "mixer/tools/codegen/pkg/template_extension/TemplateExtensions.proto";
+
+option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
+option (istio.mixer.v1.config.template.template_name) = "Log";
+
+// Defines the format of a single log entry.
+message Type {
+    // Optional. A concise name for the log entry type, which can be displayed in
+    // user interfaces. Use sentence case without an ending period, for example
+    // "Request count".
+    string display_name = 2;
+
+    // Optional. A description of the log entry type, which can be used in documentation.
+    string description = 3;
+
+    // PayloadFormat details the currently supported logging payload formats.
+    // TEXT is the default payload format.
+    enum PayloadFormat {
+        // Invalid, default value.
+        PAYLOAD_FORMAT_UNSPECIFIED = 0;
+
+        // Indicates a payload format of raw text.
+        TEXT = 1;
+
+        // Indicates that the payload is a serialized JSON object.
+        JSON = 2;
+    }
+    // Required. Format of the value of the payload attribute.
+    PayloadFormat payload_format = 4;
+
+    // Required. The template that will be populated with labels at runtime to
+    // generate a log message; the labels describe the parameters for this template.
+    //
+    // The template strings must conform to go's text/template syntax.
+    // TODO: unify templates to use our expression language when its finalized
+    string log_template = 5;
+
+    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 6;
+}
+
+message Constructor {
+
+
+    // Dimensions describe the parameters of this log's template string. The log
+    // definition allows the user to map attribute expressions to actual values
+    // for these labels at run time; the result of the evaluation must be of the
+    // type described by the kind for each label.
+    map<string, istio.mixer.v1.config.template.Expr> dimensions = 1;
+}

@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package foo.bar.mylistchecker;
+
+import "mixer/tools/codegen/pkg/template_extension/TemplateExtensions.proto";
+
+option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_CHECK;
+option (istio.mixer.v1.config.template.template_name) = "List";
+
+
+message Type {
+    // EMPTY, since nothing type needs to specify for the
+}
+
+message Constructor {
+    bool blacklist = 1;
+    istio.mixer.v1.config.template.Expr check_expression = 2;
+}

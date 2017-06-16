@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package istio.mixer.adapter.metric;
+
+import "mixer/v1/config/descriptor/value_type.proto";
+import "mixer/tools/codegen/pkg/template_extension/TemplateExtensions.proto";
+
+option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
+option (istio.mixer.v1.config.template.template_name) = "Metric";
+
+message Type {
+    istio.mixer.v1.config.descriptor.ValueType value = 2;
+    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 3;
+
+    string description = 4;
+    Kind kind = 5;
+    BucketsDefinition buckets = 6;
+}
+
+message Constructor {
+    istio.mixer.v1.config.template.Expr value = 2;
+    map<string, istio.mixer.v1.config.template.Expr> dimensions = 3;
+
+    // message inside the Constructor
+    OtherMessage om = 4;
+
+    // message from other file inside a constructor
+    istio.mixer.v1.config.descriptor.ValueType vt = 5;
+}
+
+enum ValueType {
+    VALUE_TYPE_UNSPECIFIED = 0;
+    STRING = 1;
+    INT64 = 2;
+    DOUBLE = 3;
+    BOOL = 4;
+    TIMESTAMP = 5;
+    IP_ADDRESS = 6;
+    EMAIL_ADDRESS = 7;
+    URI = 8;
+    DNS_NAME = 9;
+    DURATION = 10;
+    STRING_MAP = 11;
+}
+
+enum Kind {
+    METRIC_KIND_UNSPECIFIED = 0;
+    GAUGE = 1;
+    COUNTER = 2;
+    DISTRIBUTION = 3;
+}
+
+message LinearBuckets {
+    int32 num_finite_buckets = 1;
+    double width = 2;
+    double offset = 3;
+}
+
+message ExponentialBuckets {
+    int32 num_finite_buckets = 1;
+    double growth_factor = 2;
+    double scale = 3;
+}
+
+message ExplicitBuckets {
+    repeated double bounds = 1;
+}
+
+message BucketsDefinition {
+    oneof definition {
+        LinearBuckets linear_buckets = 1;
+        ExponentialBuckets exponential_buckets = 2;
+        ExplicitBuckets explicit_buckets = 3;
+    }
+}
+
+message OtherMessage {
+    int64 t = 1;
+}
