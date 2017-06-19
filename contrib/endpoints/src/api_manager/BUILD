@@ -85,6 +85,8 @@ cc_library(
         "check_workflow.cc",
         "check_workflow.h",
         "config.cc",
+        "config_manager.cc",
+        "config_manager.h",
         "fetch_metadata.cc",
         "fetch_metadata.h",
         "gce_metadata.cc",
@@ -296,6 +298,20 @@ cc_test(
     ],
     deps = [
         ":server_config_proto",
+        "//external:googletest_main",
+    ],
+)
+
+cc_test(
+    name = "config_manager_test",
+    size = "small",
+    srcs = [
+        "config_manager.h",
+        "config_manager_test.cc",
+    ],
+    deps = [
+        ":api_manager",
+        ":mock_api_manager_environment",
         "//external:googletest_main",
     ],
 )

@@ -27,10 +27,10 @@ namespace {
 // ConfigManager calls the callback after the service config download
 //
 // status
-//  - Code::OK        Config manager was successfully initialized
-//  - Code::ABORTED   Fatal error
-//  - Code::UNKNOWN   Config manager was not initialized yet
-// configs - pairs of ServiceConfig in text and rollout percentages
+//  - Code::UNAVAILABLE Not initialized yet. The default value.
+//  - Code::OK          Successfully initialized
+//  - Code::ABORTED     Initialization was failed
+// configs - pairs of ServiceConfig in text and rollout percentage
 typedef std::function<void(
     const utils::Status& status,
     const std::vector<std::pair<std::string, int>>& configs)>
@@ -47,6 +47,8 @@ struct ConfigsFetchInfo {
   std::vector<std::pair<std::string, int>> rollouts;
   // fetched ServiceConfig and rollouts percentages
   std::vector<std::pair<std::string, int>> configs;
+  // rollout id
+  std::string rollout_id;
   // Finished fetching
   inline bool IsCompleted() { return ((size_t)finished == rollouts.size()); }
   // Check fetched rollout is empty
@@ -63,21 +65,27 @@ struct ConfigsFetchInfo {
 // Manages configuration downloading
 class ConfigManager {
  public:
-  ConfigManager(std::shared_ptr<context::GlobalContext> global_context);
-  virtual ~ConfigManager(){};
+  // the periodic timer task initialize by Init() invokes the
+  // rollout_apply_function when it successfully downloads the latest successful
+  // rollout
+  ConfigManager(std::shared_ptr<context::GlobalContext> global_context,
+                RolloutApplyFunction rollout_apply_function);
+  virtual ~ConfigManager();
 
  public:
-  // Initialize the instance
-  void Init(RolloutApplyFunction config_rollout_callback);
+  // Initialize the periodic timer task
+  void Init();
 
  private:
+  // Fetch the latest rollouts
+  void FetchRollouts();
   // Fetch ServiceConfig details from the latest successful rollouts
   // https://goo.gl/I2nD4M
   void FetchConfigs(std::shared_ptr<ConfigsFetchInfo> config_fetch_info);
-  // Handle metadata fetch done
-  void OnFetchMetadataDone(utils::Status status);
-  // Handle auth token fetch done
-  void OnFetchAuthTokenDone(utils::Status status);
+  // Period timer task
+  void OnRolloutsRefreshTimer();
+  // Rollout response handler
+  void OnRolloutResponse(const utils::Status& status, std::string&& rollouts);
 
   // Global context provided by ApiManager
   std::shared_ptr<context::GlobalContext> global_context_;
@@ -87,6 +95,10 @@ class ConfigManager {
   int refresh_interval_ms_;
   // ServiceManagement service client instance
   std::unique_ptr<ServiceManagementFetch> service_management_fetch_;
+  // Periodic timer task to refresh rollouts
+  std::unique_ptr<PeriodicTimer> rollouts_refresh_timer_;
+  // Previous rollouts id
+  std::string current_rollout_id_;
 };
 
 }  // namespace api_manager

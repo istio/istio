@@ -28,7 +28,7 @@ const char kServiceManagementHost[] =
     "https://servicemanagement.googleapis.com";
 const char kServiceManagementPath[] =
     "/google.api.servicemanagement.v1.ServiceManager";
-}
+}  // namespace anonymous
 
 ServiceManagementFetch::ServiceManagementFetch(
     std::shared_ptr<context::GlobalContext> global_context)
@@ -60,6 +60,13 @@ void ServiceManagementFetch::GetConfig(const std::string& config_id,
   Call(url, on_done);
 }
 
+void ServiceManagementFetch::GetRollouts(HttpCallbackFunction on_done) {
+  const std::string url = host_ + "/v1/services/" +
+                          global_context_->service_name() +
+                          "/rollouts?filter=status=SUCCESS";
+  Call(url, on_done);
+}
+
 void ServiceManagementFetch::Call(const std::string& url,
                                   HttpCallbackFunction on_done) {
   std::unique_ptr<HTTPRequest> http_request(new HTTPRequest([this, url,
@@ -77,10 +84,10 @@ void ServiceManagementFetch::Call(const std::string& url,
         status = utils::Status(Code::UNAVAILABLE,
                                "Failed to connect to the service management");
       } else {
-        status = utils::Status(
-            Code::UNAVAILABLE,
-            "Service management request was failed with HTTP response code " +
-                std::to_string(status.code()));
+        status = utils::Status(Code::UNAVAILABLE,
+                               "Service management request was failed with "
+                               "HTTP response code " +
+                                   std::to_string(status.code()));
       }
     }
 

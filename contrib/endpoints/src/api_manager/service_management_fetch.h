@@ -40,6 +40,9 @@ class ServiceManagementFetch {
       std::shared_ptr<context::GlobalContext> global_context);
   virtual ~ServiceManagementFetch(){};
 
+  // Fetches Service Rollouts
+  void GetRollouts(HttpCallbackFunction on_done);
+
   // Fetches ServiceConfig from the ServiceManagement service
   void GetConfig(const std::string& config_id, HttpCallbackFunction callback);
 
