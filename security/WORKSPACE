@@ -147,6 +147,12 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_pborman_uuid",
+    commit = "1b00554d822231195d1babd97ff4a781231955c9",
+    importpath = "github.com/pborman/uuid",
+)
+
+new_go_repository(
     name = "com_github_spf13_cobra",
     commit = "4cdb38c072b86bf795d2c81de50784d9fdd6eb77",
     importpath = "github.com/spf13/cobra",
