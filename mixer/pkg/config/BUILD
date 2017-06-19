@@ -7,6 +7,7 @@ go_library(
     srcs = [
         "apiserver.go",
         "compatStore.go",
+        "inventory.go",
         "kind.go",
         "manager.go",
         "runtime.go",

@@ -48,7 +48,8 @@ func TestNewStore(t *testing.T) {
 		t.Fatalf("failed to start mini redis: %v", err)
 	}
 	defer s.Close()
-	_, err = store.NewStore("redis://" + s.Addr() + "/1")
+	r := store.NewRegistry(Register)
+	_, err = r.NewStore("redis://" + s.Addr() + "/1")
 	if err != nil {
 		t.Errorf("unexpected error %v", err)
 	}

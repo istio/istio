@@ -15,11 +15,19 @@ package store
 
 import (
 	"errors"
+	"net/url"
 	"strings"
 	"testing"
 )
 
+func testingRegister(m map[string]Builder) {
+	m["test"] = func(u *url.URL) (KeyValueStore, error) {
+		return nil, nil
+	}
+}
+
 func TestNewStore(t *testing.T) {
+	r := NewRegistry(testingRegister)
 	for _, tt := range []struct {
 		url string
 		err error
@@ -28,9 +36,10 @@ func TestNewStore(t *testing.T) {
 		{"redis://:passwd@localhost:6379/1", errors.New("unknown")}, // redis module is not loaded
 		{"etcd:///tmp/testdata/configroot", errors.New("unknown")},
 		{"/tmp/testdata/configroot", errors.New("unknown")},
+		{"test:///test/url", nil},
 	} {
 		t.Run(tt.url, func(t *testing.T) {
-			_, err := NewStore(tt.url)
+			_, err := r.NewStore(tt.url)
 			if err == tt.err {
 				return
 			}
