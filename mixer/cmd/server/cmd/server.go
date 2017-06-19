@@ -160,7 +160,8 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf shared.FormatFn) (s store.KeyValueStore) {
 	var err error
 	if url != "" {
-		if s, err = store.NewStore(url); err != nil {
+		registry := store.NewRegistry(config.StoreInventory()...)
+		if s, err = registry.NewStore(url); err != nil {
 			fatalf("Failed to get config store: %v", err)
 		}
 		return s

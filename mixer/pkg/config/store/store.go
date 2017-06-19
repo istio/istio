@@ -25,9 +25,11 @@ import (
 // the KeyValueStore implementation does not support index.
 const IndexNotSupported = -1
 
-type builder func(u *url.URL) (KeyValueStore, error)
+// Builder is the type of function to build a KeyValueStore.
+type Builder func(u *url.URL) (KeyValueStore, error)
 
-var builders = map[string]builder{}
+// RegisterFunc is the type to register a builder for URL scheme.
+type RegisterFunc func(map[string]Builder)
 
 // ChangeType denotes the type of a change
 type ChangeType int
@@ -96,20 +98,29 @@ type Listener interface {
 	NotifyStoreChanged(index int)
 }
 
+// Registry keeps the relationship between the URL scheme and the storage
+// implementation.
+type Registry struct {
+	builders map[string]Builder
+}
+
+// NewRegistry creates a new Registry instance for the inventory.
+func NewRegistry(inventory ...RegisterFunc) *Registry {
+	b := map[string]Builder{}
+	for _, rf := range inventory {
+		rf(b)
+	}
+	return &Registry{builders: b}
+}
+
 // URL types supported by the config store
 const (
 	// example fs:///tmp/testdata/configroot
 	FSUrl = "fs"
 )
 
-// RegisterBuilder registers a new builder. The registered builder can be used
-// by NewStore with the given scheme.
-func RegisterBuilder(scheme string, builder func(u *url.URL) (KeyValueStore, error)) {
-	builders[scheme] = builder
-}
-
 // NewStore create a new store based on the config URL.
-func NewStore(configURL string) (KeyValueStore, error) {
+func (r *Registry) NewStore(configURL string) (KeyValueStore, error) {
 	u, err := url.Parse(configURL)
 
 	if err != nil {
@@ -119,7 +130,7 @@ func NewStore(configURL string) (KeyValueStore, error) {
 	if u.Scheme == FSUrl {
 		return newFSStore(u.Path)
 	}
-	if builder, ok := builders[u.Scheme]; ok {
+	if builder, ok := r.builders[u.Scheme]; ok {
 		return builder(u)
 	}
 

@@ -39,7 +39,7 @@ func NewCompatFSStore(globalConfigFile string, serviceConfigFile string) (store.
 	if dir, err = ioutil.TempDir(os.TempDir(), "fsStore"); err != nil {
 		return nil, err
 	}
-	s, err := store.NewStore("fs://" + dir)
+	s, err := store.NewRegistry().NewStore("fs://" + dir)
 	if err != nil {
 		return nil, err
 	}
