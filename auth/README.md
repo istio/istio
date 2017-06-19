@@ -1,6 +1,6 @@
 # Istio Authentication
 
-[![Build Status](https://travis-ci.org/istio/auth.svg?branch=master)](https://travis-ci.org/istio/auth)
+[![Build Status](https://testing.istio.io/buildStatus/icon?job=auth/postsubmit)](https://testing.istio.io/job/auth/)
 [![codecov](https://codecov.io/gh/istio/auth/branch/master/graph/badge.svg)](https://codecov.io/gh/istio/auth)
 
 ## Overview
