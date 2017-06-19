@@ -34,12 +34,38 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/istio/tests/e2e/apps/hop/config"
+	"istio.io/istio/tests/e2e/framework"
+	"istio.io/istio/tests/e2e/util"
 )
 
 var (
-	timeout = flag.Duration("timeout", 15*time.Second, "Request timeout")
-	version = flag.String("version", "", "Server version")
+	timeout     = flag.Duration("timeout", 15*time.Second, "Request timeout")
+	version     = flag.String("version", "", "Server version")
+	hopYamlTmpl = "tests/e2e/framework/testdata/hop.yam.tmpl"
 )
+
+// hopTemplate gathers template variable for hopYamlTmpl.
+type hopTemplate struct {
+	Deployment string
+	Service    string
+	HTTPPort   int
+	GRPCPort   int
+	Version    string
+}
+
+// NewHop instantiates a framework.App to be used by framework.AppManager.
+func NewHop(d, s, v string, h, g int) *framework.App {
+	return &framework.App{
+		AppYamlTemplate: util.GetResourcePath(hopYamlTmpl),
+		Template: &hopTemplate{
+			Deployment: d,
+			Service:    s,
+			Version:    v,
+			HTTPPort:   h,
+			GRPCPort:   g,
+		},
+	}
+}
 
 func newHopMessage(u []string) *config.HopMessage {
 	r := new(config.HopMessage)

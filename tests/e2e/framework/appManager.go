@@ -24,7 +24,6 @@ import (
 
 const (
 	kubeInjectPrefix = "KubeInject"
-	hopYamlTmpl      = "tests/e2e/framework/testdata/hop.yam.tmpl"
 )
 
 // App gathers information for Hop app
@@ -32,6 +31,7 @@ type App struct {
 	AppYamlTemplate string
 	AppYaml         string
 	KubeInject      bool
+	Template        interface{}
 }
 
 // AppManager organize and deploy apps
@@ -40,31 +40,6 @@ type AppManager struct {
 	tmpDir    string
 	namespace string
 	istioctl  *Istioctl
-}
-
-// Hop gathers information for Hop app
-type Hop struct {
-	*App
-	AppImage   string
-	Deployment string
-	Service    string
-	HTTPPort   int
-	GRPCPort   int
-	Version    string
-}
-
-// NewHop instantiate a Hop App based on the hopImage flag.
-func NewHop(d, s, v string, h, g int) *Hop {
-	return &Hop{
-		App: &App{
-			AppYamlTemplate: util.GetResourcePath(hopYamlTmpl),
-		},
-		Deployment: d,
-		Service:    d,
-		Version:    v,
-		HTTPPort:   h,
-		GRPCPort:   g,
-	}
 }
 
 // NewAppManager create a new AppManager
@@ -86,7 +61,7 @@ func (am *AppManager) generateAppYaml(a *App) error {
 	if err != nil {
 		return err
 	}
-	if err := util.Fill(a.AppYaml, a.AppYamlTemplate, a); err != nil {
+	if err := util.Fill(a.AppYaml, a.AppYamlTemplate, a.Template); err != nil {
 		glog.Errorf("Failed to generate yaml for template %s", a.AppYamlTemplate)
 		return err
 	}

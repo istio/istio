@@ -11,8 +11,8 @@ go_library(
     ],
     data = [
         "//:istio_version",
+        "//install/kubernetes/addons",
         "//install/kubernetes/templates",
-        "//install/kubernetes/addons"
     ],
     visibility = ["//visibility:public"],
     deps = [
