@@ -50,6 +50,8 @@ mainFlow(utils) {
 
 def presubmit(gitUtils, bazel, utils) {
   goBuildNode(gitUtils, 'istio.io/auth') {
+    bazel.updateBazelRc()
+    utils.initTestingCluster()
     stage('Bazel Build') {
       sh('bin/install-prereqs.sh')
       bazel.fetch('-k //...')
@@ -69,6 +71,11 @@ def presubmit(gitUtils, bazel, utils) {
       sh('bin/coverage.sh > codecov.report')
       sh('bazel-bin/bin/toolbox/presubmit/package_coverage_check')
       utils.publishCodeCoverage('AUTH_CODECOV_TOKEN')
+    }
+    stage('Integration Test') {
+      timeout(15) {
+        sh('bin/e2e.sh')
+      }
     }
   }
 }
