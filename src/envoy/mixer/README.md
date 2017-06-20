@@ -23,12 +23,13 @@ This Proxy will use Envoy and talk to Mixer server.
 * Start mixer server. In mixer folder run:
 
 ```
-  bazel-bin/cmd/server/mixs server
-    --globalConfigFile testdata/globalconfig.yml
-    --serviceConfigFile testdata/serviceconfig.yml  --logtostderr
+  bazel-bin/cmd/server/mixs server \
+    --configStoreURL=fs://$(pwd)/testdata/configroot \
+    --alsologtostderr
 ```
   
-  The server will run at port 9091
+  The server will run at port 9091.
+  In order to run Mixer locally, you also need to edit `testdata/configroot/scopes/global/subjects/global/rules.yml` as described in its comments.
 
 * Start backend Echo server.
 
@@ -52,7 +53,7 @@ This Proxy will use Envoy and talk to Mixer server.
   curl http://localhost:7070/echo -d "hello world"
 ```
 
-n## How to configurate Mixer server
+## How to configurate Mixer server
 
 In Envoy config, Mixer server has to be one of "clusters" under "cluster_manager".
 For examples:
