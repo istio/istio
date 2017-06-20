@@ -22,6 +22,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -32,16 +33,15 @@ import (
 	"time"
 )
 
-// Check checks for non nil error and dies upon error
-func Check(err error, msg string) {
+// Check checks for non nil error and dies upon error.
+func checkOrDie(err error, msg string) {
 	if err != nil {
 		log.Fatal(msg, err)
 	}
 }
 
-// getToken gets auth token from the env
-func getToken() string {
-	// fmt.Println("in GetToken")
+// tokenFromEnv gets auth token from the env.
+func tokenFromEnv() string {
 	token := os.Getenv("GITHUB_TOKEN")
 	if token == "" {
 		log.Fatal("Need to have GITHUB_TOKEN set in the env")
@@ -49,51 +49,60 @@ func getToken() string {
 	return token
 }
 
-var gAuthToken = getToken() // Any other way to get a static ?
+var gAuthToken = tokenFromEnv() // Any other way to get a static ?
 
-// GitHubAPIURL returns the full v3 rest api for a given path
+// GitHubAPIURL returns the full v3 rest api for a given path.
 func GitHubAPIURL(path string) string {
 	return "https://api.github.com/" + path
 }
 
-// NewGhRequest makes a GitHub request (with Accept and Authorization headers)
+// NewGhRequest makes a GitHub request (with Accept and Authorization headers).
 func NewGhRequest(url string) *http.Request {
-	// fmt.Println("in GhRequest")
 	req, err := http.NewRequest("GET", url, nil)
-	Check(err, "Unable to make request")
+	checkOrDie(err, "Unable to make request")
 	req.Header.Add("Accept", "application/vnd.github.v3+json")
 	req.Header.Add("Authorization", "token "+gAuthToken)
 	req.Header.Add("User-Agent", "githubContribExtractor")
 	return req
 }
 
-// GetBodyForURL gets the body or dies/abort on any error
+// GetBodyForURL gets the body or dies/abort on any error.
 func GetBodyForURL(url string) []byte {
 	req := NewGhRequest(url)
 	client := &http.Client{}
 	resp, err := client.Do(req)
-	Check(err, "Unable to send request")
+	checkOrDie(err, "Unable to send request")
 	body, err := ioutil.ReadAll(resp.Body)
-	Check(err, "Unable to read response")
+	checkOrDie(err, "Unable to read response")
 	succ := resp.StatusCode
 	log.Printf("Got %d : %s for %s", succ, resp.Status, url)
 	if succ != http.StatusOK {
 		os.Exit(1)
 	}
+	if *debugJSON {
+		PrettyPrintJSON(body)
+	}
 	return body
+}
+
+// ExtractResult gets the body as json, parses it or dies/abort on any error.
+func ExtractResult(url string, result interface{}) {
+	body := GetBodyForURL(url)
+	err := json.Unmarshal(body, &result)
+	checkOrDie(err, "Unable to parse json")
 }
 
 // PrettyPrintJSON outputs indented version of the Json body (debug only)
 func PrettyPrintJSON(body []byte) {
 	var out bytes.Buffer
 	err := json.Indent(&out, body, "", "  ")
-	Check(err, "Unable to Indent json")
-	_, err = os.Stdout.Write(out.Bytes())
-	Check(err, "Unable to output json")
+	checkOrDie(err, "Unable to Indent json")
+	_, err = out.WriteTo(os.Stdout)
+	checkOrDie(err, "Unable to Write json")
 }
 
-// Repo is what we use from github rest api v3 listing repositories per org
-type Repo struct {
+// repo is what we use from github rest api v3 listing repositories per org.
+type repo struct {
 	ID              int64  `json:"id"`
 	Name            string `json:"name"`
 	FullName        string `json:"full_name"`
@@ -101,15 +110,15 @@ type Repo struct {
 	IsFork          bool   `json:"fork"`
 }
 
-// UserC is what we care about from what we get from the ContributorsURL
-type UserC struct {
+// userC is what we care about from what we get from the ContributorsURL.
+type userC struct {
 	Login         string `json:"login"`
 	ID            int64  `json:"id"`
 	Contributions int64  `json:"contributions"`
 }
 
-// UserData is for the json we get from the /users/:username API call
-type UserData struct {
+// userData is for the json we get from the /users/:username API call.
+type userData struct {
 	Name    string `json:"name"` // full name
 	Company string `json:"company"`
 	Email   string `json:"email"`
@@ -117,62 +126,44 @@ type UserData struct {
 
 var fromEmailCount = 0 // global variable ftl (or ftw)
 
-// RemoveFromEnd returns a string without the suffix if found
-func RemoveFromEnd(s string, what string) string {
-	if !strings.HasSuffix(s, what) {
-		return s
-	}
-	return s[:len(s)-len(what)]
-}
-
-// GetCompany returns its best guess of the company for a given GitHub user login
-func GetCompany(login string, contribCount int64) string {
-	url := GitHubAPIURL("users/" + login)
-	body := GetBodyForURL(url)
-	var userData UserData
-	err := json.Unmarshal(body, &userData)
-	Check(err, "Unable to parse json")
+// Company returns its best guess of the company for a given GitHub user login
+func Company(login string, contribCount int64) string {
+	var user userData
+	ExtractResult(GitHubAPIURL("users/"+login), &user)
 	var company string
-	if userData.Company != "" {
-		company = strings.Replace(userData.Company, " ", "", -1)
-	} else if userData.Email != "" {
+	if user.Company != "" {
+		company = strings.Replace(user.Company, " ", "", -1)
+	} else if user.Email != "" {
 		fromEmailCount++
-		company = strings.Split(userData.Email, "@")[1]
+		company = strings.Split(user.Email, "@")[1]
 	}
 	// Many people have an @ and/or trailing spaces:
 	company = strings.ToLower(strings.TrimLeft(strings.TrimSpace(company), "@"))
-	company = RemoveFromEnd(company, ".com")
-	company = RemoveFromEnd(company, ".")
-	company = RemoveFromEnd(company, "inc")
-	company = RemoveFromEnd(company, ",")
-	company = RemoveFromEnd(company, ".")
+	company = strings.TrimSuffix(company, ".com")
+	company = strings.TrimSuffix(company, ".")
+	company = strings.TrimSuffix(company, "inc")
+	company = strings.TrimSuffix(company, ",")
+	company = strings.TrimSuffix(company, ".")
 	// also treat gmail as unknown
 	if company != "" && company != "gmail" {
 		return strings.ToUpper(company[:1]) + company[1:]
 	}
-	log.Printf("%s (%s) has %d contributions but no company nor email", login, userData.Name, contribCount)
+	log.Printf("%s (%s) has %d contributions but no company nor email", login, user.Name, contribCount)
 	return "Unknown"
 }
 
 // --- Main --
 
-const minContributions = 3
-const debugJSON = false
+var minContributions = flag.Int64("min-contributions", 3, "Contributions threshold")
+var debugJSON = flag.Bool("debug", false, "Turn on debug output")
 
 func main() {
-	// fmt.Println("in main")
-
+	flag.Parse()
 	// Get the repos for the org:
 	const org = "istio"
-	url := GitHubAPIURL("orgs/" + org + "/repos")
-	body := GetBodyForURL(url)
-	var repos []Repo
-	err := json.Unmarshal(body, &repos)
-	Check(err, "Unable to parse json")
+	var repos []repo
+	ExtractResult(GitHubAPIURL("orgs/"+org+"/repos"), &repos)
 	log.Printf("%s has %d repos", org, len(repos))
-	if debugJSON {
-		PrettyPrintJSON(body)
-	}
 	// For each repo, get populate the user/contrib counts:
 	userMap := make(map[string]int64)
 	forksCount := 0
@@ -182,11 +173,8 @@ func main() {
 			forksCount++
 			continue
 		}
-		body := GetBodyForURL(r.ContributorsURL)
-		//PrettyPrintJSON(body)
-		var users []UserC
-		err = json.Unmarshal(body, &users)
-		Check(err, "Unable to parse json")
+		var users []userC
+		ExtractResult(r.ContributorsURL, &users)
 		for _, u := range users {
 			userMap[u.Login] += u.Contributions
 		}
@@ -195,16 +183,16 @@ func main() {
 	skippedUsers := 0
 	contributors := 0
 	// Contributor and contributions count by company
-	type CoCounts struct {
+	type coCounts struct {
 		contributors  int
 		contributions int64
 	}
-	companiesMap := make(map[string]CoCounts)
+	companiesMap := make(map[string]coCounts)
 	for u, c := range userMap {
-		if c >= minContributions {
+		if c >= *minContributions {
 			contributors++
 			fmt.Printf("user %d %s\n", c, u)
-			company := GetCompany(u, c)
+			company := Company(u, c)
 			// yuck! why is that tmp needed... because https://github.com/golang/go/issues/3117
 			var tmp = companiesMap[company]
 			tmp.contributors++
@@ -224,30 +212,30 @@ func main() {
 	// Update the file whose content is shown in FAQ entry:
 	const contributionsFileName = "Contributions.txt"
 	log.Printf("Updating %s (to be committed/git pushed)", contributionsFileName)
-	var sortedCos []string
+	sortedCos := make([]string, 0, len(companiesMap))
 	for co := range companiesMap {
 		sortedCos = append(sortedCos, co)
 	}
 	sort.Strings(sortedCos)
 
 	out, err := os.Create(contributionsFileName)
-	Check(err, "unable to create/open "+contributionsFileName)
+	checkOrDie(err, "unable to create/open "+contributionsFileName)
 	t := time.Now()
 	y, mon, _ := t.Date()
 	_, err = fmt.Fprintf(out, "Here is the current (as of %s %d) alphabetical list of companies and the number of contributors:\n", mon.String(), y)
-	Check(err, contributionsFileName)
+	checkOrDie(err, contributionsFileName)
 	first := true
 	for _, co := range sortedCos {
 		if !first {
 			_, err = fmt.Fprint(out, ", ")
-			Check(err, contributionsFileName)
+			checkOrDie(err, contributionsFileName)
 		} else {
 			first = false
 		}
 		_, err = fmt.Fprintf(out, "%s (%d)", co, companiesMap[co].contributors)
-		Check(err, contributionsFileName)
+		checkOrDie(err, contributionsFileName)
 	}
 	_, err = fmt.Fprintf(out, "\n")
-	Check(err, contributionsFileName)
+	checkOrDie(err, contributionsFileName)
 	log.Printf("All done ! Double check %s\n", contributionsFileName)
 }
