@@ -237,18 +237,30 @@ func main() {
 	if err != nil {
 		log.Fatal("unable to create/open", contributionsFileName, err)
 	}
+	t := time.Now()
+	y, mon, _ := t.Date()
+	_, err = fmt.Fprintf(out, "Here is the current (as of %s %d) alphabetical list of companies and the number of contributors:\n", mon.String(), y)
+	if err != nil {
+		log.Fatal("unable to write header to", contributionsFileName, err)
+	}
 	first := true
 	for _, co := range sortedCos {
 		if !first {
-			fmt.Fprint(out, ", ")
+			_, err = fmt.Fprint(out, ", ")
+			if err != nil {
+				log.Fatal("unable to write coma to", contributionsFileName, err)
+			}
 		} else {
-			t := time.Now()
-			y, mon, _ := t.Date()
-			fmt.Fprintf(out, "Here is the current (as of %s %d) alphabetical list of companies and the number of contributors:\n", mon.String(), y)
 			first = false
 		}
-		fmt.Fprintf(out, "%s (%d)", co, companiesMap[co].contributors)
+		_, err = fmt.Fprintf(out, "%s (%d)", co, companiesMap[co].contributors)
+		if err != nil {
+			log.Fatal("unable to write data to", contributionsFileName, err)
+		}
 	}
-	fmt.Fprintf(out, "\n")
+	_, err = fmt.Fprintf(out, "\n")
+	if err != nil {
+		log.Fatal("unable to write newline to", contributionsFileName, err)
+	}
 	log.Printf("All done ! Double check %s\n", contributionsFileName)
 }
