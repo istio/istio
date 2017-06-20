@@ -25,24 +25,64 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
-// Used to verify preconditions before performing an action.
+// Used to get a thumbs-up/thumbs-down before performing an action.
 message CheckRequest {
+  // parameters for a quota allocation
+  message QuotaParams {
+    // Amount of quota to allocate
+    int64 amount = 1;
+
+    // When true, supports returning less quota than what was requested.
+    bool best_effort = 2;
+  }
+
   // The attributes to use for this request.
   //
   // Mixer's configuration determines how these attributes are used to
-  // determine the result returned in the response.
+  // establish the result returned in the response.
   Attributes attributes = 1 [(gogoproto.nullable) = false];
 
-  // The number of words in the global dictionary.
-  // To detect global dictionary out of sync between client and server.
+  // The number of words in the global dictionary, used with to populate the attributes.
+  // This value is used as a quick way to determine whether the client is using a dictionary that
+  // the server understands.
   uint32 global_word_count = 2;
+
+  // Used for deduplicating `Check` calls in the case of failed RPCs and retries. This should be a UUID
+  // per call, where the same UUID is used for retries of the same call.
+  string deduplication_id = 3;
+
+  // whether Check should validate preconditions
+  bool preconditions = 4;
+
+  // The individual quotas to allocate
+  map<string, QuotaParams> quotas = 5;
 }
 
 message CheckResponse {
-  // The thumbs-up/thumbs-down decision for the precondition check.
+  message PreconditionResult {
+    // Indicates whether the precondition check passed or failed
+    bool pass = 1;
+
+    // The amount of time for which this result can be considered valid.
+    google.protobuf.Duration valid_duration = 2 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+
+    // The number of uses for which this result can be considered valid.
+    int32 valid_use_count = 3;
+  }
+
+  message QuotaResult {
+    // The amount of time for which this result can be considered valid.
+    google.protobuf.Duration valid_duration = 1 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+
+    // The amount of granted quota. When `QuotaParams.best_effort` is true, this will be a value between 0 and `QuotaParams.amount`.
+    // If `QuotaParams.best_effort` is false, this will be either 0 or a value >= `QuotaParams.amount`.
+    int64 granted_amount = 3;
+  }
+
+  // The thumbs-up/thumbs-down decision for the overall condition check.
   //
-  // A status code of OK indicates all preconditions were satisfied. Any other code indicates not
-  // all preconditions were satisfied.
+  // A status code of OK indicates all conditions were satisfied. Any other code indicates not
+  // all conditions were satisfied.
   google.rpc.Status status = 1 [(gogoproto.nullable) = false];
 
   // The attributes returned by Mixer.
@@ -53,31 +93,9 @@ message CheckResponse {
   // attributes and its configuration.
   Attributes attributes = 2 [(gogoproto.nullable) = false];
 
-  // Provides information to control how this response can and should be cached
-  // by the caller.
-  //
-  // Caching of results is based on the set of supplied attributes.
-  // Given the exact same set of attributes, the result of a previous
-  // `Check` call can be reused within the parameters allowed by this
-  // cachability information.
-  //
-  // A more sophisticated caching approach is to only consider the set of
-  // attributes which can impact the `Check` result. Only changes in those attributes
-  // can lead to changes in the result of `Check`. Determining this precise subset
-  // of attributes is handled by the Istio configuration system, and made available
-  // out-of-band to clients.
-  //
-  // Caching should only take place when the `Check` method itself returns success,
-  // indicating a successful end-to-end RPC. Both positive responses (when `CheckResponse.status.Code` is OK)
-  // and negative responses (when `CheckResponse.status.Code is not OK) can be cached.
-  CachabilityInfo cachability = 3 [(gogoproto.nullable) = false];
-}
+  // The precondition check results, when precondition checking was requested.
+  PreconditionResult precondition = 3;
 
-// Provides information describing how to cache `Check` responses.
-message CachabilityInfo {
-  // The amount of time for which a `Check` response can be considered valid.
-  google.protobuf.Duration duration = 3 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
-
-  // The number of uses for which a `Check` response can be considered valid.
-  int32 use_count = 4;
+  // The resulting quota, one entry per requested quota.
+  map<string, QuotaResult> quotas = 4;
 }
