@@ -276,6 +276,9 @@ func buildIngressRoute(ingress *proxyconfig.IngressRule,
 	if err != nil {
 		return nil, "", err
 	}
+	if servicePort.Protocol != model.ProtocolHTTP {
+		return nil, "", fmt.Errorf("unsupported protocol %q for %q", servicePort.Protocol, service.Hostname)
+	}
 
 	// unfold the rules for the destination port
 	routes := buildDestinationHTTPRoutes(service, servicePort, rules)

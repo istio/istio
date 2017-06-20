@@ -10,13 +10,13 @@ import (
 	"github.com/golang/glog"
 )
 
-func resolveStatsdAddr(statsdAdrr string) (string, error) {
-	if statsdAdrr == "" {
+func resolveStatsdAddr(statsdAddr string) (string, error) {
+	if statsdAddr == "" {
 		return "", nil
 	}
-	colon := strings.Index(statsdAdrr, ":")
-	host := statsdAdrr[:colon]
-	port := statsdAdrr[colon:]
+	colon := strings.Index(statsdAddr, ":")
+	host := statsdAddr[:colon]
+	port := statsdAddr[colon:]
 	glog.Infof("Attempting to lookup statsd address: %s", host)
 	defer glog.Infof("Finished lookup of statsd address: %s", host)
 	// lookup the statsd udp address with a timeout of 15 seconds.
