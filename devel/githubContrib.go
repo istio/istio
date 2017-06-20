@@ -14,6 +14,9 @@
 
 // go run githubContrib.go to update Contributions.txt
 
+// This script goes from org -> repos (skipping forks) -> contributors -> user
+// -> guess/normalize the company and count contribs
+
 package main
 
 import (
@@ -28,6 +31,13 @@ import (
 	"strings"
 	"time"
 )
+
+// Check checks for non nil error and dies upon error
+func Check(err error, msg string) {
+	if err != nil {
+		log.Fatal(msg, err)
+	}
+}
 
 // getToken gets auth token from the env
 func getToken() string {
@@ -46,18 +56,25 @@ func GitHubAPIURL(path string) string {
 	return "https://api.github.com/" + path
 }
 
+// NewGhRequest makes a GitHub request (with Accept and Authorization headers)
+func NewGhRequest(url string) *http.Request {
+	// fmt.Println("in GhRequest")
+	req, err := http.NewRequest("GET", url, nil)
+	Check(err, "Unable to make request")
+	req.Header.Add("Accept", "application/vnd.github.v3+json")
+	req.Header.Add("Authorization", "token "+gAuthToken)
+	req.Header.Add("User-Agent", "githubContribExtractor")
+	return req
+}
+
 // GetBodyForURL gets the body or dies/abort on any error
 func GetBodyForURL(url string) []byte {
 	req := NewGhRequest(url)
 	client := &http.Client{}
 	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatal("Unable to send request", err)
-	}
+	Check(err, "Unable to send request")
 	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal("Unable to read response", err)
-	}
+	Check(err, "Unable to read response")
 	succ := resp.StatusCode
 	log.Printf("Got %d : %s for %s", succ, resp.Status, url)
 	if succ != http.StatusOK {
@@ -66,30 +83,13 @@ func GetBodyForURL(url string) []byte {
 	return body
 }
 
-// NewGhRequest makes a GitHub request (with Accept and Authorization headers)
-func NewGhRequest(url string) *http.Request {
-	// fmt.Println("in GhRequest")
-	req, err := http.NewRequest("GET", url, nil)
-	req.Header.Add("Accept", "application/vnd.github.v3+json")
-	req.Header.Add("Authorization", "token "+gAuthToken)
-	req.Header.Add("User-Agent", "githubContribExtractor")
-	if err != nil {
-		log.Fatal("Unable to make request", err)
-	}
-	return req
-}
-
-// PrettyPrintJSON outputs indented version of the Json body
+// PrettyPrintJSON outputs indented version of the Json body (debug only)
 func PrettyPrintJSON(body []byte) {
 	var out bytes.Buffer
 	err := json.Indent(&out, body, "", "  ")
-	if err != nil {
-		log.Fatal("Unable to Indent json", err)
-	}
+	Check(err, "Unable to Indent json")
 	_, err = os.Stdout.Write(out.Bytes())
-	if err != nil {
-		log.Fatal("Unable to output json", err)
-	}
+	Check(err, "Unable to output json")
 }
 
 // Repo is what we use from github rest api v3 listing repositories per org
@@ -117,7 +117,7 @@ type UserData struct {
 
 var fromEmailCount = 0 // global variable ftl (or ftw)
 
-// RemoveFromEnd returns a string with the suffix
+// RemoveFromEnd returns a string without the suffix if found
 func RemoveFromEnd(s string, what string) string {
 	if !strings.HasSuffix(s, what) {
 		return s
@@ -125,15 +125,13 @@ func RemoveFromEnd(s string, what string) string {
 	return s[:len(s)-len(what)]
 }
 
-// GetCompany returns it's best guess of the company for a given GitHub user login
+// GetCompany returns its best guess of the company for a given GitHub user login
 func GetCompany(login string, contribCount int64) string {
 	url := GitHubAPIURL("users/" + login)
 	body := GetBodyForURL(url)
 	var userData UserData
 	err := json.Unmarshal(body, &userData)
-	if err != nil {
-		log.Fatal("Unable to parse json", err)
-	}
+	Check(err, "Unable to parse json")
 	var company string
 	if userData.Company != "" {
 		company = strings.Replace(userData.Company, " ", "", -1)
@@ -163,14 +161,14 @@ const debugJSON = false
 
 func main() {
 	// fmt.Println("in main")
+
+	// Get the repos for the org:
 	const org = "istio"
 	url := GitHubAPIURL("orgs/" + org + "/repos")
 	body := GetBodyForURL(url)
 	var repos []Repo
 	err := json.Unmarshal(body, &repos)
-	if err != nil {
-		log.Fatal("Unable to parse json", err)
-	}
+	Check(err, "Unable to parse json")
 	log.Printf("%s has %d repos", org, len(repos))
 	if debugJSON {
 		PrettyPrintJSON(body)
@@ -188,9 +186,7 @@ func main() {
 		//PrettyPrintJSON(body)
 		var users []UserC
 		err = json.Unmarshal(body, &users)
-		if err != nil {
-			log.Fatal("Unable to parse json", err)
-		}
+		Check(err, "Unable to parse json")
 		for _, u := range users {
 			userMap[u.Login] += u.Contributions
 		}
@@ -198,12 +194,11 @@ func main() {
 	log.Printf("%s has %d forks", org, forksCount)
 	skippedUsers := 0
 	contributors := 0
-	// contributor count by company
+	// Contributor and contributions count by company
 	type CoCounts struct {
 		contributors  int
 		contributions int64
 	}
-	// tried a struct as value and single map and failed...
 	companiesMap := make(map[string]CoCounts)
 	for u, c := range userMap {
 		if c >= minContributions {
@@ -222,9 +217,11 @@ func main() {
 	log.Printf("%d contributors + %d users skipped because they have less than %d contributions",
 		contributors, skippedUsers, minContributions)
 	log.Printf("%d companies found, %d guessed from email", len(companiesMap), fromEmailCount)
+	// stdout full data:
 	for co, counts := range companiesMap {
 		fmt.Printf("company %s %d contributors totaling %d contributions\n", co, counts.contributors, counts.contributions)
 	}
+	// Update the file whose content is shown in FAQ entry:
 	const contributionsFileName = "Contributions.txt"
 	log.Printf("Updating %s (to be committed/git pushed)", contributionsFileName)
 	var sortedCos []string
@@ -234,33 +231,23 @@ func main() {
 	sort.Strings(sortedCos)
 
 	out, err := os.Create(contributionsFileName)
-	if err != nil {
-		log.Fatal("unable to create/open", contributionsFileName, err)
-	}
+	Check(err, "unable to create/open "+contributionsFileName)
 	t := time.Now()
 	y, mon, _ := t.Date()
 	_, err = fmt.Fprintf(out, "Here is the current (as of %s %d) alphabetical list of companies and the number of contributors:\n", mon.String(), y)
-	if err != nil {
-		log.Fatal("unable to write header to", contributionsFileName, err)
-	}
+	Check(err, contributionsFileName)
 	first := true
 	for _, co := range sortedCos {
 		if !first {
 			_, err = fmt.Fprint(out, ", ")
-			if err != nil {
-				log.Fatal("unable to write coma to", contributionsFileName, err)
-			}
+			Check(err, contributionsFileName)
 		} else {
 			first = false
 		}
 		_, err = fmt.Fprintf(out, "%s (%d)", co, companiesMap[co].contributors)
-		if err != nil {
-			log.Fatal("unable to write data to", contributionsFileName, err)
-		}
+		Check(err, contributionsFileName)
 	}
 	_, err = fmt.Fprintf(out, "\n")
-	if err != nil {
-		log.Fatal("unable to write newline to", contributionsFileName, err)
-	}
+	Check(err, contributionsFileName)
 	log.Printf("All done ! Double check %s\n", contributionsFileName)
 }
