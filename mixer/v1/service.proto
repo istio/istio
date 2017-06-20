@@ -20,6 +20,7 @@ package istio.mixer.v1;
 
 import "mixer/v1/check.proto";
 import "mixer/v1/report.proto";
+import "mixer/v1/quota.proto";
 
 // Mixer provides three core features:
 // 
@@ -37,10 +38,13 @@ import "mixer/v1/report.proto";
 // In the future, it will also enable tracing and billing streams intended for
 // both the service operator as well as for service consumers.
 service Mixer {
-  // Checks preconditions and allocate quota before performing an operation.
+  // Checks preconditions before performing an operation.
   // The preconditions enforced depend on the set of supplied attributes and
   // the active configuration.
   rpc Check(CheckRequest) returns (CheckResponse) {}
+
+  // Quota allocates and releases quota.
+  rpc Quota(QuotaRequest) returns (QuotaResponse) {}
 
   // Reports telemetry, such as logs and metrics.
   // The reported information depends on the set of supplied attributes and the

@@ -1,0 +1,58 @@
+// Copyright 2016 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.mixer.v1;
+
+import "gogoproto/gogo.proto";
+import "google/protobuf/duration.proto";
+import "mixer/v1/attributes.proto";
+
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
+message QuotaRequest {
+  // The attributes to use for this request
+  Attributes attributes = 1 [(gogoproto.nullable) = false];
+
+  // Used for deduplicating quota allocation/free calls in the case of
+  // failed RPCs and retries. This should be a UUID per call, where the same
+  // UUID is used for retries of the same quota allocation call.
+  string deduplication_id = 2;
+
+  // The quota to allocate from.
+  string quota = 3;
+
+  // The amount of quota to allocate.
+  int64 amount = 4;
+
+  // If true, allows a response to return less quota than requested. When
+  // false, the exact requested amount is returned or 0 if not enough quota
+  // was available.
+  bool best_effort = 5;
+
+  // The number of words in the global dictionary.
+  // To detect global dictionary out of sync between client and server.
+  uint32 global_word_count = 6;
+}
+
+message QuotaResponse {
+  // The amount of time the returned quota can be considered valid, this is null or 0 for non-expiring quotas.
+  google.protobuf.Duration expiration = 1 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+
+  // The total amount of quota returned, may be less than requested.
+  int64 amount = 2;
+}
