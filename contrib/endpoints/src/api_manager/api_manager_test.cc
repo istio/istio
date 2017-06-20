@@ -37,12 +37,11 @@ const char kServerConfigWithSingleServiceConfig[] = R"(
     "enabled": true,
     "url": "http://localhost"
   },
-  "init_service_configs": [
-    {
-      "service_config_file_full_path": "contrib/endpoints/src/api_manager/testdata/bookstore_service_config_1.json",
-      "traffic_percentage": 100
+  "service_config_rollout": {
+    traffic_percentages: {
+      "contrib/endpoints/src/api_manager/testdata/bookstore_service_config_1.json": 100
     }
-  ]
+  }
 }
 )";
 
@@ -53,16 +52,12 @@ const char kServerConfigWithPartialServiceConfig[] = R"(
     "enabled": true,
     "url": "http://localhost"
   },
-  "init_service_configs": [
-    {
-      "service_config_file_full_path": "contrib/endpoints/src/api_manager/testdata/bookstore_service_config_1.json",
-      "traffic_percentage": 80
-    },
-    {
-      "service_config_file_full_path": "contrib/endpoints/src/api_manager/testdata/bookstore_service_config_2.json",
-      "traffic_percentage": 20
+  "service_config_rollout": {
+    traffic_percentages: {
+      "contrib/endpoints/src/api_manager/testdata/bookstore_service_config_1.json": 80,
+      "contrib/endpoints/src/api_manager/testdata/bookstore_service_config_2.json": 20,
     }
-  ]
+  }
 }
 )";
 
@@ -73,16 +68,12 @@ const char kServerConfigWithPartialServiceConfigFailed[] = R"(
     "enabled": true,
     "url": "http://localhost"
   },
-  "init_service_configs": [
-    {
-      "service_config_file_full_path": "contrib/endpoints/src/api_manager/testdata/bookstore_service_config_1.json",
-      "traffic_percentage": 80
-    },
-    {
-      "service_config_file_full_path": "not_found.json",
-      "traffic_percentage": 20
+  "service_config_rollout": {
+    traffic_percentages: {
+      "contrib/endpoints/src/api_manager/testdata/bookstore_service_config_1.json": 80,
+      "not_found.json": 20,
     }
-  ]
+  }
 }
 )";
 
@@ -258,7 +249,7 @@ TEST_F(ApiManagerTest, InitializedByConfigManager) {
   EXPECT_EQ("2017-05-01r0", service->service().id());
 }
 
-TEST_F(ApiManagerTest, kServerConfigWithPartialServiceConfig) {
+TEST_F(ApiManagerTest, ServerConfigWithPartialServiceConfig) {
   std::unique_ptr<MockApiManagerEnvironment> env(
       new ::testing::NiceMock<MockApiManagerEnvironment>());
 
@@ -290,7 +281,7 @@ TEST_F(ApiManagerTest, kServerConfigWithPartialServiceConfig) {
   EXPECT_EQ(20, counter["2017-05-01r1"]);
 }
 
-TEST_F(ApiManagerTest, kServerConfigWithInvaludServiceConfig) {
+TEST_F(ApiManagerTest, ServerConfigWithInvalidServiceConfig) {
   std::unique_ptr<MockApiManagerEnvironment> env(
       new ::testing::NiceMock<MockApiManagerEnvironment>());
 
@@ -306,7 +297,7 @@ TEST_F(ApiManagerTest, kServerConfigWithInvaludServiceConfig) {
   EXPECT_FALSE(api_manager->Enabled());
 }
 
-TEST_F(ApiManagerTest, kServerConfigServiceConfigNotSpecifed) {
+TEST_F(ApiManagerTest, ServerConfigServiceConfigNotSpecifed) {
   std::unique_ptr<MockApiManagerEnvironment> env(
       new ::testing::NiceMock<MockApiManagerEnvironment>());
 

@@ -42,7 +42,7 @@ message ServerConfig {
   ServiceManagementConfig service_management_config = 11;
 
   // Init Service Configs.
-  repeated ServiceConfigTrafficPercentage init_service_configs = 12;
+  ServiceConfigRollout service_config_rollout = 12;
 
   // The service config rollout strategy, [fixed|managed]
   // fixed:  never change service config dynamically.
@@ -193,6 +193,16 @@ message ServiceConfigTrafficPercentage {
   string service_config_file_full_path = 1;
   // The traffic percentage
   double traffic_percentage = 2;
+}
+
+message ServiceConfigRollout {
+  // Maps service configuration file path to their corresponding traffic
+  // percentage. Key is the full path of the service configuration file,
+  // Value is the traffic percentage
+  map<string, double> traffic_percentages = 1;
+
+  // Latest rollout id.
+  string rollout_id = 2;
 }
 
 message Experimental {

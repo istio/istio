@@ -76,6 +76,12 @@ class ConfigManager {
   // Initialize the periodic timer task
   void Init();
 
+  // Getter and setter of current_rollout_id_
+  const std::string current_rollout_id() { return current_rollout_id_; }
+  void set_current_rollout_id(const std::string rollout_id) {
+    current_rollout_id_ = rollout_id;
+  }
+
  private:
   // Fetch the latest rollouts
   void FetchRollouts();
