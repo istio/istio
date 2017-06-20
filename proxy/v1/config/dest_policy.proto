@@ -28,8 +28,6 @@ package istio.proxy.v1.config;
 //     policy:
 //     - loadBalancing: 
 //         name: RANDOM
-//       simpleCb:
-//         maxConnections: 1000
 //
 // Policies are applicable per individual service versions. ONLY
 // ONE policy can be defined per service version. Policy CANNOT be empty.
@@ -121,12 +119,13 @@ message LoadBalancing {
 // implementation is fine-grained in that it tracks the success/failure
 // rates of individual hosts in the load balancing pool. Hosts that
 // continually return errors for API calls are ejected from the pool for a
-// pre-defined period of time. See Envoy's [outlier
-// detection](https://lyft.github.io/envoy/docs/intro/arch_overview/outlier.html)
+// pre-defined period of time.
+// See Envoy's
+// [circuit breaker](https://lyft.github.io/envoy/docs/intro/arch_overview/circuit_breaking.html)
+// and [outlier detection](https://lyft.github.io/envoy/docs/intro/arch_overview/outlier.html)
 // for more details.
 message CircuitBreaker {
-  // Parameters to tune Envoy's circuit breaker configuration. A simple
-  // circuit breaker can be set based on a number of criteria such as
+  // A simple circuit breaker can be set based on a number of criteria such as
   // connection and request limits. For example, the following destination
   // policy sets a limit of 100 connections to "reviews" service version
   // "v1" backends. 

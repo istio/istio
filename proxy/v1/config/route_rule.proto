@@ -270,8 +270,8 @@ message HTTPRedirect {
 //     rewrite:
 //       uri: /v1/bookRatings
 //     route:
-//       - tags:
-//           version: v1
+//     - tags:
+//         version: v1
 //
 message HTTPRewrite {
   // rewrite the Path (or the prefix) portion of the URI with this
@@ -303,9 +303,9 @@ message StringMatch {
 //     route:
 //     - tags:
 //         version: v1
-//       httpReqTimeout:
-//         simpleTimeout:
-//           timeout: 10s
+//     httpReqTimeout:
+//       simpleTimeout:
+//         timeout: 10s
 //
 message HTTPTimeout {
   message SimpleTimeoutPolicy {
@@ -334,10 +334,10 @@ message HTTPTimeout {
 //     route:
 //     - tags:
 //         version: v1
-//       httpReqRetries:
-//         simpleRetry:
-//           attempts: 3
-//           perTryTimeout: 2s
+//     httpReqRetries:
+//       simpleRetry:
+//         attempts: 3
+//         perTryTimeout: 2s
 //
 message HTTPRetry {
   message SimpleRetryPolicy {
