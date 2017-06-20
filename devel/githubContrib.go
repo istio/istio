@@ -26,6 +26,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 )
 
 // getToken gets auth token from the env
@@ -85,7 +86,10 @@ func PrettyPrintJSON(body []byte) {
 	if err != nil {
 		log.Fatal("Unable to Indent json", err)
 	}
-	os.Stdout.Write(out.Bytes())
+	_, err = os.Stdout.Write(out.Bytes())
+	if err != nil {
+		log.Fatal("Unable to output json", err)
+	}
 }
 
 // Repo is what we use from github rest api v3 listing repositories per org
@@ -144,7 +148,7 @@ func GetCompany(login string, contribCount int64) string {
 	company = RemoveFromEnd(company, "inc")
 	company = RemoveFromEnd(company, ",")
 	company = RemoveFromEnd(company, ".")
-	// also treat gmail as unkown
+	// also treat gmail as unknown
 	if company != "" && company != "gmail" {
 		return strings.ToUpper(company[:1]) + company[1:]
 	}
@@ -155,6 +159,7 @@ func GetCompany(login string, contribCount int64) string {
 // --- Main --
 
 const minContributions = 3
+const debugJSON = false
 
 func main() {
 	// fmt.Println("in main")
@@ -167,7 +172,9 @@ func main() {
 		log.Fatal("Unable to parse json", err)
 	}
 	log.Printf("%s has %d repos", org, len(repos))
-	//PrettyPrintJSON(body)
+	if debugJSON {
+		PrettyPrintJSON(body)
+	}
 	// For each repo, get populate the user/contrib counts:
 	userMap := make(map[string]int64)
 	forksCount := 0
@@ -235,6 +242,9 @@ func main() {
 		if !first {
 			fmt.Fprint(out, ", ")
 		} else {
+			t := time.Now()
+			y, mon, _ := t.Date()
+			fmt.Fprintf(out, "Here is the current (as of %s %d) alphabetical list of companies and the number of contributors:\n", mon.String(), y)
 			first = false
 		}
 		fmt.Fprintf(out, "%s (%d)", co, companiesMap[co].contributors)
