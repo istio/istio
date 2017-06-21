@@ -33,15 +33,19 @@ const std::string kConfigRolloutManaged("managed");
 ApiManagerImpl::ApiManagerImpl(std::unique_ptr<ApiManagerEnvInterface> env,
                                const std::string &server_config)
     : global_context_(
-          new context::GlobalContext(std::move(env), server_config)),
-      config_loading_status_(
-          utils::Status(Code::UNAVAILABLE, "Not initialized yet")) {
+          new context::GlobalContext(std::move(env), server_config)) {
+  check_workflow_ = std::unique_ptr<CheckWorkflow>(new CheckWorkflow);
+  check_workflow_->RegisterAll();
+}
+
+utils::Status ApiManagerImpl::LoadServiceRollouts() {
   if (!global_context_->server_config()) {
     std::string err_msg = "Invalid server config";
     global_context_->env()->LogError(err_msg);
-    config_loading_status_ = utils::Status(Code::ABORTED, err_msg);
-    return;
+    return utils::Status(Code::ABORTED, err_msg);
   }
+
+  utils::Status config_loading_status(Code::UNAVAILABLE, "");
 
   if (global_context_->server_config()->has_service_config_rollout() &&
       global_context_->server_config()
@@ -59,29 +63,29 @@ ApiManagerImpl::ApiManagerImpl(std::unique_ptr<ApiManagerEnvInterface> env,
 
         list.push_back({content.str(), round(item.second)});
       } else {
-        global_context_->env()->LogError(
-            "Failed to open an api service configuration file: " + item.first);
-        config_loading_status_ =
-            utils::Status(Code::ABORTED, "Invalid service config");
+        std::string err_msg =
+            std::string("Failed to open an api service configuration file: ") +
+            item.first;
+        global_context_->env()->LogError(err_msg);
+        config_loading_status = utils::Status(Code::NOT_FOUND, err_msg);
         break;
       }
     }
 
-    if (config_loading_status_.code() == Code::UNAVAILABLE && list.size() > 0) {
-      config_loading_status_ = AddAndDeployConfigs(std::move(list), false);
+    if (config_loading_status.code() == Code::UNAVAILABLE && list.size() > 0) {
+      config_loading_status = AddAndDeployConfigs(std::move(list), false);
     } else {
       service_context_map_.clear();
-      config_loading_status_ =
+      config_loading_status =
           utils::Status(Code::ABORTED, "Invalid service config");
     }
   } else {
     std::string err_msg = "Service config was not specified";
     global_context_->env()->LogError(err_msg);
-    config_loading_status_ = utils::Status(Code::ABORTED, err_msg);
+    config_loading_status = utils::Status(Code::ABORTED, err_msg);
   }
 
-  check_workflow_ = std::unique_ptr<CheckWorkflow>(new CheckWorkflow);
-  check_workflow_->RegisterAll();
+  return config_loading_status;
 }
 
 utils::Status ApiManagerImpl::AddAndDeployConfigs(
@@ -92,9 +96,7 @@ utils::Status ApiManagerImpl::AddAndDeployConfigs(
     if (AddConfig(item.first, initialize, &config_id).ok()) {
       list.push_back({config_id, round(item.second)});
     } else {
-      std::string msg = "Invalid service config";
-      global_context_->env()->LogError(msg);
-      return utils::Status(Code::ABORTED, msg);
+      return utils::Status(Code::ABORTED, "Invalid service config");
     }
   }
 
@@ -117,10 +119,7 @@ utils::Status ApiManagerImpl::AddConfig(const std::string &service_config,
   std::unique_ptr<Config> config =
       Config::Create(global_context_->env(), service_config);
   if (config == nullptr) {
-    std::string err_msg =
-        std::string("Invalid service config: ") + service_config;
-    global_context_->env()->LogError(err_msg);
-    return utils::Status(Code::INVALID_ARGUMENT, err_msg);
+    return utils::Status(Code::INVALID_ARGUMENT, "Invalid service config");
   }
 
   std::string service_name = config->service().name();
@@ -158,7 +157,7 @@ utils::Status ApiManagerImpl::Init() {
     global_context_->cloud_trace_aggregator()->Init();
   }
 
-  if (!config_loading_status_.ok() || service_context_map_.empty()) {
+  if (service_context_map_.empty()) {
     return utils::Status(Code::UNAVAILABLE,
                          "Service config loading was failed");
   }
@@ -196,10 +195,6 @@ utils::Status ApiManagerImpl::Close() {
     global_context_->cloud_trace_aggregator()->SendAndClearTraces();
   }
 
-  if (!config_loading_status_.ok() || service_context_map_.empty()) {
-    return utils::Status::OK;
-  }
-
   for (auto it : service_context_map_) {
     if (it.second->service_control()) {
       it.second->service_control()->Close();
@@ -209,10 +204,6 @@ utils::Status ApiManagerImpl::Close() {
 }
 
 bool ApiManagerImpl::Enabled() const {
-  if (!config_loading_status_.ok() || service_context_map_.empty()) {
-    return false;
-  }
-
   for (const auto &it : service_context_map_) {
     if (it.second->Enabled()) {
       return true;

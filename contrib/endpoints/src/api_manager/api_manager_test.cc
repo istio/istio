@@ -281,6 +281,8 @@ TEST_F(ApiManagerTest, CorrectStatistics) {
   std::shared_ptr<ApiManagerImpl> api_manager(
       std::dynamic_pointer_cast<ApiManagerImpl>(MakeApiManager(
           std::move(env), kServerConfigWithSingleServiceConfig)));
+  EXPECT_OK(api_manager->LoadServiceRollouts());
+
   EXPECT_TRUE(api_manager);
   EXPECT_TRUE(api_manager->Enabled());
   api_manager->Init();
@@ -306,6 +308,7 @@ TEST_F(ApiManagerTest, InitializedOnApiManagerInstanceCreation) {
   std::shared_ptr<ApiManagerImpl> api_manager(
       std::dynamic_pointer_cast<ApiManagerImpl>(MakeApiManager(
           std::move(env), kServerConfigWithSingleServiceConfig)));
+  EXPECT_OK(api_manager->LoadServiceRollouts());
 
   EXPECT_TRUE(api_manager);
   EXPECT_TRUE(api_manager->Enabled());
@@ -333,6 +336,7 @@ TEST_F(ApiManagerTest, InitializedByConfigManager) {
   std::shared_ptr<ApiManagerImpl> api_manager(
       std::dynamic_pointer_cast<ApiManagerImpl>(MakeApiManager(
           std::move(env), kServerConfigWithSingleServiceConfig)));
+  EXPECT_OK(api_manager->LoadServiceRollouts());
 
   EXPECT_TRUE(api_manager);
   EXPECT_TRUE(api_manager->Enabled());
@@ -373,6 +377,7 @@ TEST_F(ApiManagerTest, ManagedRolloutStrategy) {
   std::shared_ptr<ApiManagerImpl> api_manager(
       std::dynamic_pointer_cast<ApiManagerImpl>(MakeApiManager(
           std::move(env), kServerConfigWithManagedRolloutStrategy)));
+  EXPECT_OK(api_manager->LoadServiceRollouts());
 
   EXPECT_TRUE(api_manager);
   EXPECT_TRUE(api_manager->Enabled());
@@ -398,6 +403,7 @@ TEST_F(ApiManagerTest, ServerConfigWithPartialServiceConfig) {
   std::shared_ptr<ApiManagerImpl> api_manager(
       std::dynamic_pointer_cast<ApiManagerImpl>(MakeApiManager(
           std::move(env), kServerConfigWithPartialServiceConfig)));
+  EXPECT_OK(api_manager->LoadServiceRollouts());
 
   EXPECT_TRUE(api_manager);
   EXPECT_TRUE(api_manager->Enabled());
@@ -430,6 +436,7 @@ TEST_F(ApiManagerTest, ServerConfigWithInvalidServiceConfig) {
   std::shared_ptr<ApiManagerImpl> api_manager(
       std::dynamic_pointer_cast<ApiManagerImpl>(MakeApiManager(
           std::move(env), kServerConfigWithPartialServiceConfigFailed)));
+  EXPECT_FALSE(api_manager->LoadServiceRollouts().ok());
 
   EXPECT_TRUE(api_manager);
   EXPECT_FALSE(api_manager->Enabled());
@@ -446,6 +453,7 @@ TEST_F(ApiManagerTest, ServerConfigServiceConfigNotSpecifed) {
   std::shared_ptr<ApiManagerImpl> api_manager(
       std::dynamic_pointer_cast<ApiManagerImpl>(
           MakeApiManager(std::move(env), kServerConfigWithNoServiceConfig)));
+  EXPECT_FALSE(api_manager->LoadServiceRollouts().ok());
 
   EXPECT_TRUE(api_manager);
   EXPECT_FALSE(api_manager->Enabled());

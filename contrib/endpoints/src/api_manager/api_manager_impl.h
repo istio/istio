@@ -60,6 +60,10 @@ class ApiManagerImpl : public ApiManager {
   // Return ServiceContext for selected by WeightedSelector
   std::shared_ptr<context::ServiceContext> SelectService();
 
+  // Load service rollouts. This can be called only once, the data is from
+  // server_config.
+  utils::Status LoadServiceRollouts() override;
+
  private:
   // Use these configs according to the traffic percentage.
   void DeployConfigs(std::vector<std::pair<std::string, int>> &&list);
@@ -88,11 +92,6 @@ class ApiManagerImpl : public ApiManager {
   // A config manager will be initialized when server_config.rollout_strategy is
   // set to "managed"
   std::unique_ptr<ConfigManager> config_manager_;
-
-  //  - Code::UNAVAILABLE Not initialized yet. The default value.
-  //  - Code::OK          Successfully initialized
-  //  - Code::ABORTED     Initialization was failed
-  utils::Status config_loading_status_;
 };
 
 }  // namespace api_manager
