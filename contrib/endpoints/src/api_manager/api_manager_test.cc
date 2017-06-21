@@ -77,6 +77,22 @@ const char kServerConfigWithPartialServiceConfigFailed[] = R"(
 }
 )";
 
+const char kServerConfigWithManagedRolloutStrategy[] = R"(
+{
+  "google_authentication_secret": "{}",
+  "metadata_server_config": {
+    "enabled": true,
+    "url": "http://localhost"
+  },
+  "service_config_rollout": {
+    traffic_percentages: {
+      "contrib/endpoints/src/api_manager/testdata/bookstore_service_config_1.json": 100
+    }
+  },
+  "rollout_strategy": "managed"
+}
+)";
+
 const char kServerConfigWithNoServiceConfig[] = R"(
 {
   "google_authentication_secret": "{}",
@@ -114,11 +130,96 @@ const char kServiceConfig1[] = R"(
 }
 )";
 
+const char kServiceConfig2[] = R"(
+{
+  "name": "bookstore.test.appspot.com",
+  "title": "Bookstore",
+  "http": {
+    "rules": [
+      {
+        "selector": "EchoGetMessage",
+        "get": "/echo"
+      }
+    ]
+  },
+  "usage": {
+    "rules": [
+      {
+        "selector": "EchoGetMessage",
+        "allowUnregisteredCalls": true
+      }
+    ]
+  },
+  "control": {
+    "environment": "servicecontrol.googleapis.com"
+  },
+  "id": "2017-05-01r1"
+}
+)";
+
+const char kRolloutsResponse1[] = R"(
+{
+  "rollouts": [
+    {
+      "rolloutId": "2017-05-01r0",
+      "createTime": "2017-05-01T22:40:09.884Z",
+      "createdBy": "test_user@google.com",
+      "status": "SUCCESS",
+      "trafficPercentStrategy": {
+        "percentages": {
+          "2017-05-01r1": 100
+        }
+      },
+      "serviceName": "service_name_from_server_config"
+    }
+  ]
+}
+)";
+
 const char kServiceForStatistics[] =
     "name: \"service-name\"\n"
     "control: {\n"
     "  environment: \"http://127.0.0.1:8081\"\n"
     "}\n";
+
+// Simulate periodic timer event on creation
+class MockPeriodicTimer : public PeriodicTimer {
+ public:
+  MockPeriodicTimer() {}
+  MockPeriodicTimer(std::function<void()> continuation)
+      : continuation_(continuation) {
+    continuation_();
+  }
+
+  virtual ~MockPeriodicTimer() {}
+  void Stop(){};
+
+ private:
+  std::function<void()> continuation_;
+};
+
+class MockTimerApiManagerEnvironment : public MockApiManagerEnvironment {
+ public:
+  MOCK_METHOD2(Log, void(LogLevel, const char *));
+  MOCK_METHOD1(MakeTag, void *(std::function<void(bool)>));
+
+  virtual std::unique_ptr<PeriodicTimer> StartPeriodicTimer(
+      std::chrono::milliseconds interval, std::function<void()> continuation) {
+    return std::unique_ptr<PeriodicTimer>(new MockPeriodicTimer(continuation));
+  }
+
+  MOCK_METHOD1(DoRunHTTPRequest, void(HTTPRequest *));
+  MOCK_METHOD1(DoRunGRPCRequest, void(GRPCRequest *));
+  virtual void RunHTTPRequest(std::unique_ptr<HTTPRequest> req) {
+    DoRunHTTPRequest(req.get());
+  }
+  virtual void RunGRPCRequest(std::unique_ptr<GRPCRequest> req) {
+    DoRunGRPCRequest(req.get());
+  }
+
+ private:
+  std::unique_ptr<PeriodicTimer> periodic_timer_;
+};
 
 class ApiManagerTest : public ::testing::Test {
  protected:
@@ -247,6 +348,47 @@ TEST_F(ApiManagerTest, InitializedByConfigManager) {
   EXPECT_TRUE(service);
   EXPECT_EQ("bookstore.test.appspot.com", service->service_name());
   EXPECT_EQ("2017-05-01r0", service->service().id());
+}
+
+TEST_F(ApiManagerTest, ManagedRolloutStrategy) {
+  std::unique_ptr<MockTimerApiManagerEnvironment> env(
+      new ::testing::NiceMock<MockTimerApiManagerEnvironment>());
+
+  EXPECT_CALL(*env.get(), DoRunHTTPRequest(_))
+      .WillOnce(Invoke([this](HTTPRequest *req) {
+        ASSERT_EQ(
+            "https://servicemanagement.googleapis.com/v1/services/"
+            "bookstore.test.appspot.com/rollouts?filter=status=SUCCESS",
+            req->url());
+        req->OnComplete(Status::OK, {}, kRolloutsResponse1);
+      }))
+      .WillOnce(Invoke([this](HTTPRequest *req) {
+        ASSERT_EQ(
+            "https://servicemanagement.googleapis.com/v1/services/"
+            "bookstore.test.appspot.com/configs/2017-05-01r1",
+            req->url());
+        req->OnComplete(Status::OK, {}, kServiceConfig2);
+      }));
+
+  std::shared_ptr<ApiManagerImpl> api_manager(
+      std::dynamic_pointer_cast<ApiManagerImpl>(MakeApiManager(
+          std::move(env), kServerConfigWithManagedRolloutStrategy)));
+
+  EXPECT_TRUE(api_manager);
+  EXPECT_TRUE(api_manager->Enabled());
+  EXPECT_EQ("bookstore.test.appspot.com", api_manager->service_name());
+  EXPECT_EQ("2017-05-01r0", api_manager->service("2017-05-01r0").id());
+
+  api_manager->Init();
+
+  EXPECT_TRUE(api_manager->Enabled());
+  EXPECT_EQ("2017-05-01r0", api_manager->service("2017-05-01r0").id());
+
+  auto service = api_manager->SelectService();
+
+  EXPECT_TRUE(service);
+  EXPECT_EQ("bookstore.test.appspot.com", service->service_name());
+  EXPECT_EQ("2017-05-01r1", service->service().id());
 }
 
 TEST_F(ApiManagerTest, ServerConfigWithPartialServiceConfig) {

@@ -57,17 +57,7 @@ ApiManagerImpl::ApiManagerImpl(std::unique_ptr<ApiManagerEnvInterface> env,
         content << config_file.rdbuf();
         config_file.close();
 
-        std::string config_id;
-        if (AddConfig(content.str(), false, &config_id).ok()) {
-          list.push_back({config_id, round(item.second)});
-        } else {
-          global_context_->env()->LogError("Unable to handle service config: " +
-                                           item.first);
-
-          config_loading_status_ =
-              utils::Status(Code::ABORTED, "Invalid service config");
-          break;
-        }
+        list.push_back({content.str(), round(item.second)});
       } else {
         global_context_->env()->LogError(
             "Failed to open an api service configuration file: " + item.first);
@@ -78,8 +68,7 @@ ApiManagerImpl::ApiManagerImpl(std::unique_ptr<ApiManagerEnvInterface> env,
     }
 
     if (config_loading_status_.code() == Code::UNAVAILABLE && list.size() > 0) {
-      DeployConfigs(std::move(list));
-      config_loading_status_ = utils::Status::OK;
+      config_loading_status_ = AddAndDeployConfigs(std::move(list), false);
     } else {
       service_context_map_.clear();
       config_loading_status_ =
@@ -93,6 +82,33 @@ ApiManagerImpl::ApiManagerImpl(std::unique_ptr<ApiManagerEnvInterface> env,
 
   check_workflow_ = std::unique_ptr<CheckWorkflow>(new CheckWorkflow);
   check_workflow_->RegisterAll();
+}
+
+utils::Status ApiManagerImpl::AddAndDeployConfigs(
+    std::vector<std::pair<std::string, int>> &&configs, bool initialize) {
+  std::vector<std::pair<std::string, int>> list;
+  for (auto item : configs) {
+    std::string config_id;
+    if (AddConfig(item.first, initialize, &config_id).ok()) {
+      list.push_back({config_id, round(item.second)});
+    } else {
+      std::string msg = "Invalid service config";
+      global_context_->env()->LogError(msg);
+      return utils::Status(Code::ABORTED, msg);
+    }
+  }
+
+  if (list.size() == 0) {
+    std::string msg = "Invalid service config";
+    global_context_->env()->LogError(msg);
+    return utils::Status(Code::ABORTED, msg);
+  }
+
+  DeployConfigs(std::move(list));
+
+  global_context_->env()->LogInfo("New rollout was deployed");
+
+  return utils::Status::OK;
 }
 
 utils::Status ApiManagerImpl::AddConfig(const std::string &service_config,
@@ -151,6 +167,25 @@ utils::Status ApiManagerImpl::Init() {
     if (it.second->service_control()) {
       it.second->service_control()->Init();
     }
+  }
+
+  if (global_context_->rollout_strategy() == kConfigRolloutManaged) {
+    config_manager_.reset(new ConfigManager(
+        global_context_,
+        [this](const utils::Status &status,
+               std::vector<std::pair<std::string, int>> &&configs) {
+          if (status.ok()) {
+            AddAndDeployConfigs(std::move(configs), true);
+          }
+        }));
+
+    if (global_context_->server_config()->has_service_config_rollout()) {
+      config_manager_->set_current_rollout_id(global_context_->server_config()
+                                                  ->service_config_rollout()
+                                                  .rollout_id());
+    }
+
+    config_manager_->Init();
   }
 
   return utils::Status::OK;

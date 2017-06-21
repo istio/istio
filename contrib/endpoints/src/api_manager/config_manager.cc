@@ -161,7 +161,8 @@ void ConfigManager::FetchConfigs(
         }
 
         // Update ApiManager
-        rollout_apply_function_(utils::Status::OK, config_fetch_info->configs);
+        rollout_apply_function_(utils::Status::OK,
+                                std::move(config_fetch_info->configs));
         current_rollout_id_ = config_fetch_info->rollout_id;
       }
     });

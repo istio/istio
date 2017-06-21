@@ -16,6 +16,7 @@
 #define API_MANAGER_API_MANAGER_IMPL_H_
 
 #include "contrib/endpoints/include/api_manager/api_manager.h"
+#include "contrib/endpoints/src/api_manager/config_manager.h"
 #include "contrib/endpoints/src/api_manager/context/global_context.h"
 #include "contrib/endpoints/src/api_manager/context/service_context.h"
 #include "contrib/endpoints/src/api_manager/service_control/interface.h"
@@ -63,6 +64,11 @@ class ApiManagerImpl : public ApiManager {
   // Use these configs according to the traffic percentage.
   void DeployConfigs(std::vector<std::pair<std::string, int>> &&list);
 
+  // Add and deploy service configs. Return utils::Status::OK when everything
+  // is ok.
+  utils::Status AddAndDeployConfigs(
+      std::vector<std::pair<std::string, int>> &&configs, bool initialize);
+
   // The check work flow.
   std::shared_ptr<CheckWorkflow> check_workflow_;
 
@@ -78,6 +84,10 @@ class ApiManagerImpl : public ApiManager {
 
   // A weighted service selector.
   std::unique_ptr<WeightedSelector> service_selector_;
+
+  // A config manager will be initialized when server_config.rollout_strategy is
+  // set to "managed"
+  std::unique_ptr<ConfigManager> config_manager_;
 
   //  - Code::UNAVAILABLE Not initialized yet. The default value.
   //  - Code::OK          Successfully initialized

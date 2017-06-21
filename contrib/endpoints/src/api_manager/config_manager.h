@@ -31,9 +31,8 @@ namespace {
 //  - Code::OK          Successfully initialized
 //  - Code::ABORTED     Initialization was failed
 // configs - pairs of ServiceConfig in text and rollout percentage
-typedef std::function<void(
-    const utils::Status& status,
-    const std::vector<std::pair<std::string, int>>& configs)>
+typedef std::function<void(const utils::Status& status,
+                           std::vector<std::pair<std::string, int>>&& configs)>
     RolloutApplyFunction;
 
 // Data structure to fetch configs from rollouts
