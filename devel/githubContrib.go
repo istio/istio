@@ -154,13 +154,15 @@ func Company(login string, contribCount int64) string {
 
 // --- Main --
 
-var minContributions = flag.Int64("min-contributions", 3, "Contributions threshold")
 var debugJSON = flag.Bool("debug", false, "Turn on debug output")
 
 func main() {
+	var minContributions = flag.Int64("min-contributions", 3, "Contributions threshold")
+	var orgFlag = flag.String("org", "istio", "Organization to query for repositories")
+	var contribFNameFlag = flag.String("output", "Contributions.txt", "Output file name")
 	flag.Parse()
 	// Get the repos for the org:
-	const org = "istio"
+	org := *orgFlag
 	var repos []repo
 	ExtractResult(GitHubAPIURL("orgs/"+org+"/repos"), &repos)
 	log.Printf("%s has %d repos", org, len(repos))
@@ -210,7 +212,7 @@ func main() {
 		fmt.Printf("company %s %d contributors totaling %d contributions\n", co, counts.contributors, counts.contributions)
 	}
 	// Update the file whose content is shown in FAQ entry:
-	const contributionsFileName = "Contributions.txt"
+	contributionsFileName := *contribFNameFlag
 	log.Printf("Updating %s (to be committed/git pushed)", contributionsFileName)
 	sortedCos := make([]string, 0, len(companiesMap))
 	for co := range companiesMap {
