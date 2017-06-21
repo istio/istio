@@ -325,6 +325,72 @@ TEST_F(ConfigManagerServiceNameConfigIdTest, RolloutMultipleServiceConfig) {
   ASSERT_EQ(1, sequence);
 }
 
+TEST_F(ConfigManagerServiceNameConfigIdTest,
+       RolloutMultipleServiceConfigPartiallyFailedThenSucceededNextTimerEvent) {
+  EXPECT_CALL(*raw_env_, DoRunHTTPRequest(_))
+      .WillOnce(Invoke([this](HTTPRequest* req) {
+        ASSERT_EQ(
+            "https://servicemanagement.googleapis.com/v1/services/"
+            "service_name_from_metadata/rollouts?filter=status=SUCCESS",
+            req->url());
+        req->OnComplete(Status::OK, {}, kRolloutsResponseMultipleServiceConfig);
+      }))
+      .WillOnce(Invoke([this](HTTPRequest* req) {
+        ASSERT_EQ(
+            "https://servicemanagement.googleapis.com/v1/services/"
+            "service_name_from_metadata/configs/2017-05-01r0",
+            req->url());
+        req->OnComplete(Status::OK, {}, kServiceConfig1);
+      }))
+      .WillOnce(Invoke([this](HTTPRequest* req) {
+        ASSERT_EQ(
+            "https://servicemanagement.googleapis.com/v1/services/"
+            "service_name_from_metadata/configs/2017-05-01r1",
+            req->url());
+        req->OnComplete(utils::Status(Code::NOT_FOUND, "Not Found"), {}, "");
+      }))
+      .WillOnce(Invoke([this](HTTPRequest* req) {
+        ASSERT_EQ(
+            "https://servicemanagement.googleapis.com/v1/services/"
+            "service_name_from_metadata/rollouts?filter=status=SUCCESS",
+            req->url());
+        req->OnComplete(Status::OK, {}, kRolloutsResponseMultipleServiceConfig);
+      }))
+      .WillOnce(Invoke([this](HTTPRequest* req) {
+        ASSERT_EQ(
+            "https://servicemanagement.googleapis.com/v1/services/"
+            "service_name_from_metadata/configs/2017-05-01r0",
+            req->url());
+        req->OnComplete(Status::OK, {}, kServiceConfig1);
+      }))
+      .WillOnce(Invoke([this](HTTPRequest* req) {
+        ASSERT_EQ(
+            "https://servicemanagement.googleapis.com/v1/services/"
+            "service_name_from_metadata/configs/2017-05-01r1",
+            req->url());
+        req->OnComplete(Status::OK, {}, kServiceConfig2);
+      }));
+
+  int sequence = 0;
+
+  std::shared_ptr<ConfigManager> config_manager(new ConfigManager(
+      global_context_,
+      [this, &sequence](const utils::Status& status,
+                        const std::vector<std::pair<std::string, int>>& list) {
+        sequence++;
+      }));
+
+  config_manager->Init();
+  ASSERT_EQ(0, sequence);
+  raw_env_->RunTimer();
+  // One of ServiceConfig download was failed. The callback should not be
+  // invoked
+  ASSERT_EQ(0, sequence);
+  // Succeeded on the next timer event. Invoke the callback function
+  raw_env_->RunTimer();
+  ASSERT_EQ(1, sequence);
+}
+
 TEST_F(ConfigManagerServiceNameConfigIdTest, RolloutSingleServiceConfigUpdate) {
   EXPECT_CALL(*raw_env_, DoRunHTTPRequest(_))
       .WillOnce(Invoke([this](HTTPRequest* req) {

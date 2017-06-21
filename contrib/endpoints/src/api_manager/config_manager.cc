@@ -154,7 +154,9 @@ void ConfigManager::FetchConfigs(
 
       if (config_fetch_info->IsCompleted()) {
         if (config_fetch_info->IsRolloutsEmpty() ||
-            config_fetch_info->IsConfigsEmpty()) {
+            config_fetch_info->IsConfigsEmpty() ||
+            config_fetch_info->rollouts.size() !=
+                config_fetch_info->configs.size()) {
           global_context_->env()->LogError(
               "Failed to download the service config");
           return;
