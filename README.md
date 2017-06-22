@@ -2,8 +2,9 @@
 An open platform to connect, manage, and secure microservices.
 
 - [Introduction](#introduction)
-- [Istio Authors](#istio-authors)
+- [Istio authors](#istio-authors)
 - [Repositories](#repositories)
+- [Issue management](#issue-management)
 - [Contributing to the project](#contributing-to-the-project)
 - [Community and support](#community-and-support)
 
@@ -36,12 +37,16 @@ Istio is composed of three main components:
 
 * **Pilot** - A component responsible for configuring the
   Envoy and Mixer at runtime.
+  
+* **Galley** - A component responsible for storing and distributing Istio configuration state.
+
+* **Broker** - A component implementng the open service broker API for Istio-based services.
 
 Istio currently only supports the Kubernetes
 platform, although we plan support for additional platforms such as
 Cloud Foundry, and Mesos in the near future.
 
-## Istio Authors
+## Istio authors
 
 Istio is an open source project with an active development community. The project was started 
 by teams from Google and IBM, in partnership with the Envoy team at Lyft.
@@ -76,10 +81,33 @@ management services, and monitoring services.
 - [istio/mixerclient](https://github.com/istio/mixerclient). Client libraries
 for the mixer API.
 
+- [istio/galley](https://github.com/istio/galley). This repository 
+contains code for Istio configuration management and distribution system.
+
+- [istio/broker](https://github.com/istio/broker). This repository 
+contains code for Istio's implementation of the Open Service Broker API.
+
 - [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
 extensions to the [Envoy proxy](https://github.com/lyft/envoy) (in the form of
 Envoy filters), that allow the proxy to delegate policy enforcement
 decisions to the mixer.
+
+## Issue management
+
+We use GitHub combined with ZenHub to track all of our bugs and feature requests. Each issue we track has a variety of metadata:
+
+- **Epic**. An epic represents a feature area for Istio as a whole. Epics are fairly broad in scope and are basically product-level things.
+Each issue is ultimately part of an epic.
+
+- **Milestone**. Each issue is assigned a milestone. This is 0.1, 0.2, 0.3, or 'Nebulous Future'. The milestone indicates when we 
+think the issue should get addressed.
+
+- **Priority/Pipeline**. Each issue has a priority which is represented by the Pipeline field within GitHub. Priority can be one of
+P0, P1, P2, or >P2. The priority indicates how important it is to address the issue within the milestone. P0 says that the
+milestone cannot be considered achieved if the issue isn't resolved.
+
+We don't annotate issues with Releases; Milestones are used instead. We don't use GitHub projects at all, that
+support is disabled for our organization.
 
 ## Contributing to the project
 
