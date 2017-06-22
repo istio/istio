@@ -28,6 +28,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -49,8 +50,6 @@ func tokenFromEnv() string {
 	return token
 }
 
-var gAuthToken = tokenFromEnv() // Any other way to get a static ?
-
 // GitHubAPIURL returns the full v3 rest api for a given path.
 func GitHubAPIURL(path string) string {
 	return "https://api.github.com/" + path
@@ -61,7 +60,7 @@ func NewGhRequest(url string) *http.Request {
 	req, err := http.NewRequest("GET", url, nil)
 	checkOrDie(err, "Unable to make request")
 	req.Header.Add("Accept", "application/vnd.github.v3+json")
-	req.Header.Add("Authorization", "token "+gAuthToken)
+	req.Header.Add("Authorization", "token "+tokenFromEnv())
 	req.Header.Add("User-Agent", "githubContribExtractor")
 	return req
 }
@@ -79,7 +78,7 @@ func GetBodyForURL(url string) []byte {
 	if succ != http.StatusOK {
 		os.Exit(1)
 	}
-	if *debugJSON {
+	if *debugFlag {
 		PrettyPrintJSON(body)
 	}
 	return body
@@ -92,7 +91,7 @@ func ExtractResult(url string, result interface{}) {
 	checkOrDie(err, "Unable to parse json")
 }
 
-// PrettyPrintJSON outputs indented version of the Json body (debug only)
+// PrettyPrintJSON outputs indented version of the Json body (debug only).
 func PrettyPrintJSON(body []byte) {
 	var out bytes.Buffer
 	err := json.Indent(&out, body, "", "  ")
@@ -119,6 +118,7 @@ type userC struct {
 
 // userData is for the json we get from the /users/:username API call.
 type userData struct {
+	Login   string `json:"login"`
 	Name    string `json:"name"` // full name
 	Company string `json:"company"`
 	Email   string `json:"email"`
@@ -126,35 +126,30 @@ type userData struct {
 
 var fromEmailCount = 0 // global variable ftl (or ftw)
 
-// Company returns its best guess of the company for a given GitHub user login
-func Company(login string, contribCount int64) string {
-	var user userData
-	ExtractResult(GitHubAPIURL("users/"+login), &user)
+// Company returns its best guess of the company for a given GitHub user login.
+func Company(login string, contribCount int64, user *userData) string {
+	ExtractResult(GitHubAPIURL("users/"+login), user)
+	return companyFromUser(*user, contribCount)
+}
+func companyFromUser(user userData, contribCount int64) string {
 	var company string
-	if user.Company != "" {
-		company = strings.Replace(user.Company, " ", "", -1)
-	} else if user.Email != "" {
-		fromEmailCount++
-		company = strings.Split(user.Email, "@")[1]
+	// Strip trailing inc and .com or leading @:
+	r := regexp.MustCompile("[., ]+(com|inc)[ ,.]*$| |^@")
+	company = r.ReplaceAllString(strings.ToLower(user.Company), "")
+	if company == "" && user.Email != "" {
+		company = r.ReplaceAllString(strings.ToLower(strings.Split(user.Email, "@")[1]), "")
 	}
-	// Many people have an @ and/or trailing spaces:
-	company = strings.ToLower(strings.TrimLeft(strings.TrimSpace(company), "@"))
-	company = strings.TrimSuffix(company, ".com")
-	company = strings.TrimSuffix(company, ".")
-	company = strings.TrimSuffix(company, "inc")
-	company = strings.TrimSuffix(company, ",")
-	company = strings.TrimSuffix(company, ".")
 	// also treat gmail as unknown
 	if company != "" && company != "gmail" {
 		return strings.ToUpper(company[:1]) + company[1:]
 	}
-	log.Printf("%s (%s) has %d contributions but no company nor email", login, user.Name, contribCount)
+	log.Printf("%s (%s) <%s> has %d contributions but no company nor (useful) email", user.Login, user.Name, user.Email, contribCount)
 	return "Unknown"
 }
 
 // --- Main --
 
-var debugJSON = flag.Bool("debug", false, "Turn on debug output")
+var debugFlag = flag.Bool("debug", false, "Turn verbose Json debug output")
 
 func main() {
 	var minContributions = flag.Int64("min-contributions", 3, "Contributions threshold")
@@ -190,11 +185,12 @@ func main() {
 		contributions int64
 	}
 	companiesMap := make(map[string]coCounts)
-	for u, c := range userMap {
+	for login, c := range userMap {
 		if c >= *minContributions {
 			contributors++
-			fmt.Printf("user %d %s\n", c, u)
-			company := Company(u, c)
+			var user userData
+			company := Company(login, c, &user)
+			fmt.Printf("user %d %+v %s\n", c, user, company)
 			// yuck! why is that tmp needed... because https://github.com/golang/go/issues/3117
 			var tmp = companiesMap[company]
 			tmp.contributors++
