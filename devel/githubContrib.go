@@ -137,8 +137,7 @@ func company(login string, contribCount int64, user *userData) string {
 var companyRegex = regexp.MustCompile(`(\(.*\))|([., ]+(com|inc)[ ,.]*$)|( )|(^@)|([&@].*)$`)
 
 func companyFromUser(user userData, contribCount int64) string {
-	var company string
-	company = companyRegex.ReplaceAllString(strings.ToLower(user.Company), "")
+	company := companyRegex.ReplaceAllString(strings.ToLower(user.Company), "")
 	if company == "" && user.Email != "" {
 		company = companyRegex.ReplaceAllString(strings.ToLower(strings.Split(user.Email, "@")[1]), "")
 	}
