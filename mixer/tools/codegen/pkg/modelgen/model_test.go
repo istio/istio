@@ -40,7 +40,8 @@ func TestErrorInTemplate(t *testing.T) {
 		{"testdata/MissingBothRequiredExt.proto", "one proto file that has both extensions"},
 		{"testdata/MissingTypeMessage.proto", "message 'Type' not defined"},
 		{"testdata/MissingConstructorMessage.proto", "message 'Constructor' not defined"},
-		{"testdata/ReservedFieldInConstructor.proto", "Constructor message must not contain the reserved filed name 'Name'"},
+		{"testdata/ReservedFieldInConstructor.proto", "proto:15: Constructor message must not contain the reserved filed name 'Name'"},
+		{"testdata/Proto2BadSyntax.proto", "Proto2BadSyntax.proto:3: Only proto3 template files are allowed."},
 	}
 
 	for idx, tt := range tests {
@@ -159,6 +160,7 @@ func generteFDSFileHacky(protoFile string, outputFDSFile string) error {
 		"-I=.",
 		"-I=api",
 		"--include_imports",
+		"--include_source_info",
 	}
 	cmd := exec.Command("protoc", protocCmd...)
 	dir := path.Join(os.Getenv("GOPATH"), "src/istio.io")

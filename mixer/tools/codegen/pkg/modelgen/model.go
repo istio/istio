@@ -71,6 +71,7 @@ func Create(parser *FileDescriptorSetParser) (*Model, error) {
 	parser.packageName = goPackageName(templateProto.GetPackage())
 
 	model := &Model{diags: make([]diag, 0)}
+
 	model.fillModel(templateProto, parser)
 	if len(model.diags) > 0 {
 		return nil, createError(model.diags)
@@ -96,7 +97,7 @@ func (m *Model) fillModel(templateProto *FileDescriptor, parser *FileDescriptorS
 	if cnstrDesc, ok := getRequiredMsg(templateProto, "Constructor"); !ok {
 		m.addError(templateProto.GetName(), unknownLine, "message 'Constructor' not defined")
 	} else {
-		m.addInstanceFieldFromConstructor(parser, cnstrDesc)
+		m.addInstanceFieldFromConstructor(parser, templateProto, cnstrDesc)
 		m.addImports(parser, templateProto, cnstrDesc)
 	}
 }
@@ -145,7 +146,7 @@ func getTmplFileDesc(fds []*FileDescriptor) (*FileDescriptor, []diag) {
 // Add all the file level fields to the model.
 func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 	if !fd.proto3 {
-		m.addError(fd.GetName(), unknownLine, "Only proto3 template files are allowed")
+		m.addError(fd.GetName(), fd.getLineNumber(syntaxPath), "Only proto3 template files are allowed")
 	}
 
 	if fd.Package != nil {
@@ -177,17 +178,18 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 }
 
 // Build field information about the Constructor message.
-func (m *Model) addInstanceFieldFromConstructor(parser *FileDescriptorSetParser, cnstrDesc *Descriptor) {
+func (m *Model) addInstanceFieldFromConstructor(parser *FileDescriptorSetParser, templateProto *FileDescriptor, cnstrDesc *Descriptor) {
 	m.ConstructorFields = make([]fieldInfo, 0)
-	for _, fieldDesc := range cnstrDesc.Field {
+	for i, fieldDesc := range cnstrDesc.Field {
 		fieldName := camelCase(fieldDesc.GetName())
 		// Name field is a reserved field that will be injected in the Instance object. The user defined
 		// Constructor should not have a Name field, else there will be a name clash.
 		// 'Name' within the Instance object would represent the name of the Constructor:instance_name
 		// specified in the operator Yaml file.
 		if fieldName == "Name" {
-			// TODO add line number for the field.
-			m.addError(cnstrDesc.file.GetName(), unknownLine, "Constructor message must not contain the reserved filed name '%s'", fieldDesc.GetName())
+			m.addError(cnstrDesc.file.GetName(),
+				templateProto.getLineNumber(getPathForField(cnstrDesc, i)),
+				"Constructor message must not contain the reserved filed name '%s'", fieldDesc.GetName())
 			continue
 		}
 		typename := parser.GoType(cnstrDesc.DescriptorProto, fieldDesc)
