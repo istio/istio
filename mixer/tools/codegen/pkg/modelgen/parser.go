@@ -34,6 +34,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -65,6 +66,9 @@ type FileDescriptor struct {
 	desc []*Descriptor     // All the messages defined in this file.
 	enum []*EnumDescriptor // All the enums defined in this file.
 
+	// lineNumbers stored as a map of path (comma-separated integers) to string.
+	lineNumbers map[string]string
+
 	proto3 bool // whether to generate proto3 code for this file
 }
 
@@ -76,6 +80,7 @@ type Descriptor struct {
 	nested   []*Descriptor     // Inner messages, if any.
 	enums    []*EnumDescriptor // Inner enums, if any.
 	typename []string          // Cached typename vector.
+	path     string            // The SourceCodeInfo path as comma-separated integers.
 	group    bool
 }
 
@@ -85,13 +90,15 @@ type EnumDescriptor struct {
 	*descriptor.EnumDescriptorProto
 	parent   *Descriptor // The containing message, if any.
 	typename []string    // Cached typename vector.
+	path     string      // The SourceCodeInfo path as comma-separated integers.
 }
 
-// Object is a shared interface implemented by FileDescriptor, EnumDescriptor and Descriptor
+// Object is a shared interface implemented by EnumDescriptor and Descriptor
 type Object interface {
 	PackageName() string // The name we use in our output (a_b_c), possibly renamed for uniqueness.
 	TypeName() []string
 	File() *descriptor.FileDescriptorProto
+	Path() string
 }
 
 // CreateFileDescriptorSetParser builds a FileDescriptorSetParser instance.
@@ -125,7 +132,7 @@ func (g *FileDescriptorSetParser) wrapFileDescriptor(f *descriptor.FileDescripto
 			enum:                enums,
 			proto3:              fileIsProto3(f),
 		}
-
+		extractLineNumbers(fd)
 		g.allFiles = append(g.allFiles, fd)
 		g.allFilesByName[f.GetName()] = fd
 	}
@@ -133,17 +140,17 @@ func (g *FileDescriptorSetParser) wrapFileDescriptor(f *descriptor.FileDescripto
 
 func wrapDescriptors(file *descriptor.FileDescriptorProto) []*Descriptor {
 	sl := make([]*Descriptor, 0, len(file.MessageType)+10)
-	for _, desc := range file.MessageType {
-		sl = wrapThisDescriptor(sl, desc, nil, file)
+	for i, desc := range file.MessageType {
+		sl = wrapThisDescriptor(sl, desc, nil, file, i)
 	}
 	return sl
 }
 
-func wrapThisDescriptor(sl []*Descriptor, desc *descriptor.DescriptorProto, parent *Descriptor, file *descriptor.FileDescriptorProto) []*Descriptor {
-	sl = append(sl, newDescriptor(desc, parent, file))
+func wrapThisDescriptor(sl []*Descriptor, desc *descriptor.DescriptorProto, parent *Descriptor, file *descriptor.FileDescriptorProto, index int) []*Descriptor {
+	sl = append(sl, newDescriptor(desc, parent, file, index))
 	me := sl[len(sl)-1]
-	for _, nested := range desc.NestedType {
-		sl = wrapThisDescriptor(sl, nested, me, file)
+	for i, nested := range desc.NestedType {
+		sl = wrapThisDescriptor(sl, nested, me, file, i)
 	}
 	return sl
 }
@@ -151,13 +158,13 @@ func wrapThisDescriptor(sl []*Descriptor, desc *descriptor.DescriptorProto, pare
 func wrapEnumDescriptors(file *descriptor.FileDescriptorProto, descs []*Descriptor) []*EnumDescriptor {
 	sl := make([]*EnumDescriptor, 0, len(file.EnumType)+10)
 	// Top-level enums.
-	for _, enum := range file.EnumType {
-		sl = append(sl, newEnumDescriptor(enum, nil, file))
+	for i, enum := range file.EnumType {
+		sl = append(sl, newEnumDescriptor(enum, nil, file, i))
 	}
 	// Enums within messages. Enums within embedded messages appear in the outer-most message.
 	for _, nested := range descs {
-		for _, enum := range nested.EnumType {
-			sl = append(sl, newEnumDescriptor(enum, nested, file))
+		for i, enum := range nested.EnumType {
+			sl = append(sl, newEnumDescriptor(enum, nested, file, i))
 		}
 	}
 	return sl
@@ -165,11 +172,17 @@ func wrapEnumDescriptors(file *descriptor.FileDescriptorProto, descs []*Descript
 
 // Descriptor methods ..
 
-func newDescriptor(desc *descriptor.DescriptorProto, parent *Descriptor, file *descriptor.FileDescriptorProto) *Descriptor {
+func newDescriptor(desc *descriptor.DescriptorProto, parent *Descriptor, file *descriptor.FileDescriptorProto, index int) *Descriptor {
 	d := &Descriptor{
 		common:          common{file},
 		DescriptorProto: desc,
 		parent:          parent,
+	}
+
+	if parent == nil {
+		d.path = fmt.Sprintf("%s,%d", messagePath, index)
+	} else {
+		d.path = fmt.Sprintf("%s,%s,%d", parent.path, messageMessagePath, index)
 	}
 
 	// The only way to distinguish a group from a message is whether
@@ -224,13 +237,23 @@ func (d *Descriptor) TypeName() []string {
 	return s
 }
 
+// Path returns the path string associated with this Descriptor object.
+func (d *Descriptor) Path() string {
+	return d.path
+}
+
 // Enum methods ..
 
-func newEnumDescriptor(desc *descriptor.EnumDescriptorProto, parent *Descriptor, file *descriptor.FileDescriptorProto) *EnumDescriptor {
+func newEnumDescriptor(desc *descriptor.EnumDescriptorProto, parent *Descriptor, file *descriptor.FileDescriptorProto, index int) *EnumDescriptor {
 	ed := &EnumDescriptor{
 		common:              common{file},
 		EnumDescriptorProto: desc,
 		parent:              parent,
+	}
+	if parent == nil {
+		ed.path = fmt.Sprintf("%s,%d", enumPath, index)
+	} else {
+		ed.path = fmt.Sprintf("%s,%s,%d", parent.path, messageEnumPath, index)
 	}
 	return ed
 }
@@ -266,6 +289,11 @@ func (e *EnumDescriptor) TypeName() (s []string) {
 	s[len(s)-1] = name
 	e.typename = s
 	return s
+}
+
+// Path returns the path string associated with this EnumDescriptor object.
+func (e *EnumDescriptor) Path() string {
+	return e.path
 }
 
 // File level methods
@@ -459,6 +487,29 @@ func (g *FileDescriptorSetParser) ObjectNamed(typeName string) Object {
 	return o
 }
 
+func extractLineNumbers(file *FileDescriptor) {
+	file.lineNumbers = make(map[string]string)
+	for _, loc := range file.GetSourceCodeInfo().GetLocation() {
+		var p []string
+		for _, n := range loc.Path {
+			p = append(p, strconv.Itoa(int(n)))
+		}
+		file.lineNumbers[strings.Join(p, ",")] = strconv.Itoa(int(loc.Span[0]) + 1)
+	}
+}
+
+func (d *FileDescriptor) getLineNumber(path string) string {
+	if l, ok := d.lineNumbers[path]; ok {
+		return l
+	}
+
+	return ""
+}
+
+func getPathForField(desc *Descriptor, index int) string {
+	return fmt.Sprintf("%s,%s,%d", desc.path, messageFieldPath, index)
+}
+
 // BuildTypeNameMap creates a map of type name to the wrapper Object associated with it.
 func (g *FileDescriptorSetParser) BuildTypeNameMap() {
 	g.typeNameToObject = make(map[string]Object)
@@ -588,3 +639,12 @@ func badToUnderscore(r rune) rune {
 func goPackageName(pkg string) string {
 	return strings.Map(badToUnderscore, pkg)
 }
+
+const (
+	syntaxPath         = "12" // syntax
+	messagePath        = "4"  // message_type
+	enumPath           = "5"  // enum_type
+	messageFieldPath   = "2"  // field
+	messageMessagePath = "3"  // nested_type
+	messageEnumPath    = "4"  // enum_type
+)

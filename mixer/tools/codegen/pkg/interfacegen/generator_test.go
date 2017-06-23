@@ -113,6 +113,7 @@ func generteFDSFileHacky(protoFile string, outputFDSFile string) error {
 		"-I=.",
 		"-I=api",
 		"--include_imports",
+		"--include_source_info",
 	}
 	cmd := exec.Command("protoc", protocCmd...)
 	dir := path.Join(os.Getenv("GOPATH"), "src/istio.io")
