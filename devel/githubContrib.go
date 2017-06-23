@@ -50,13 +50,13 @@ func tokenFromEnv() string {
 	return token
 }
 
-// GitHubAPIURL returns the full v3 rest api for a given path.
-func GitHubAPIURL(path string) string {
+// gitHubAPIURL returns the full v3 rest api for a given path.
+func gitHubAPIURL(path string) string {
 	return "https://api.github.com/" + path
 }
 
-// NewGhRequest makes a GitHub request (with Accept and Authorization headers).
-func NewGhRequest(url string) *http.Request {
+// newGhRequest makes a GitHub request (with Accept and Authorization headers).
+func newGhRequest(url string) *http.Request {
 	req, err := http.NewRequest("GET", url, nil)
 	checkOrDie(err, "Unable to make request")
 	req.Header.Add("Accept", "application/vnd.github.v3+json")
@@ -65,9 +65,9 @@ func NewGhRequest(url string) *http.Request {
 	return req
 }
 
-// GetBodyForURL gets the body or dies/abort on any error.
-func GetBodyForURL(url string) []byte {
-	req := NewGhRequest(url)
+// getBodyForURL gets the body or dies/abort on any error.
+func getBodyForURL(url string) []byte {
+	req := newGhRequest(url)
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	checkOrDie(err, "Unable to send request")
@@ -79,20 +79,20 @@ func GetBodyForURL(url string) []byte {
 		os.Exit(1)
 	}
 	if *debugFlag {
-		PrettyPrintJSON(body)
+		prettyPrintJSON(body)
 	}
 	return body
 }
 
-// ExtractResult gets the body as json, parses it or dies/abort on any error.
-func ExtractResult(url string, result interface{}) {
-	body := GetBodyForURL(url)
+// extractResult gets the body as json, parses it or dies/abort on any error.
+func extractResult(url string, result interface{}) {
+	body := getBodyForURL(url)
 	err := json.Unmarshal(body, &result)
 	checkOrDie(err, "Unable to parse json")
 }
 
-// PrettyPrintJSON outputs indented version of the Json body (debug only).
-func PrettyPrintJSON(body []byte) {
+// prettyPrintJSON outputs indented version of the Json body (debug only).
+func prettyPrintJSON(body []byte) {
 	var out bytes.Buffer
 	err := json.Indent(&out, body, "", "  ")
 	checkOrDie(err, "Unable to Indent json")
@@ -126,18 +126,21 @@ type userData struct {
 
 var fromEmailCount = 0 // global variable ftl (or ftw)
 
-// Company returns its best guess of the company for a given GitHub user login.
-func Company(login string, contribCount int64, user *userData) string {
-	ExtractResult(GitHubAPIURL("users/"+login), user)
+// company returns its best guess of the company for a given GitHub user login.
+func company(login string, contribCount int64, user *userData) string {
+	extractResult(gitHubAPIURL("users/"+login), user)
 	return companyFromUser(*user, contribCount)
 }
+
+// Strip stuff in parenthesis, trailing inc and .com or leading @ or stuff after & or second @:
+// http://s2.quickmeme.com/img/28/28267ccca83716ccddc3a2e194e8b0052cae3a204de3f37928a20e8ff4f0ee65.jpg
+var companyRegex = regexp.MustCompile(`(\(.*\))|([., ]+(com|inc)[ ,.]*$)|( )|(^@)|([&@].*)$`)
+
 func companyFromUser(user userData, contribCount int64) string {
 	var company string
-	// Strip trailing inc and .com or leading @:
-	r := regexp.MustCompile("[., ]+(com|inc)[ ,.]*$| |^@")
-	company = r.ReplaceAllString(strings.ToLower(user.Company), "")
+	company = companyRegex.ReplaceAllString(strings.ToLower(user.Company), "")
 	if company == "" && user.Email != "" {
-		company = r.ReplaceAllString(strings.ToLower(strings.Split(user.Email, "@")[1]), "")
+		company = companyRegex.ReplaceAllString(strings.ToLower(strings.Split(user.Email, "@")[1]), "")
 	}
 	// also treat gmail as unknown
 	if company != "" && company != "gmail" {
@@ -159,7 +162,7 @@ func main() {
 	// Get the repos for the org:
 	org := *orgFlag
 	var repos []repo
-	ExtractResult(GitHubAPIURL("orgs/"+org+"/repos"), &repos)
+	extractResult(gitHubAPIURL("orgs/"+org+"/repos"), &repos)
 	log.Printf("%s has %d repos", org, len(repos))
 	// For each repo, get populate the user/contrib counts:
 	userMap := make(map[string]int64)
@@ -171,7 +174,7 @@ func main() {
 			continue
 		}
 		var users []userC
-		ExtractResult(r.ContributorsURL, &users)
+		extractResult(r.ContributorsURL, &users)
 		for _, u := range users {
 			userMap[u.Login] += u.Contributions
 		}
@@ -189,7 +192,7 @@ func main() {
 		if c >= *minContributions {
 			contributors++
 			var user userData
-			company := Company(login, c, &user)
+			company := company(login, c, &user)
 			fmt.Printf("user %d %+v %s\n", c, user, company)
 			// yuck! why is that tmp needed... because https://github.com/golang/go/issues/3117
 			var tmp = companiesMap[company]
@@ -201,7 +204,7 @@ func main() {
 		}
 	}
 	log.Printf("%d contributors + %d users skipped because they have less than %d contributions",
-		contributors, skippedUsers, minContributions)
+		contributors, skippedUsers, *minContributions)
 	log.Printf("%d companies found, %d guessed from email", len(companiesMap), fromEmailCount)
 	// stdout full data:
 	for co, counts := range companiesMap {
