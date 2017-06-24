@@ -59,7 +59,7 @@ need to setup before being able to build and run the code.
 Many Istio components are written in the [Go](http://golang.org) programming language.
 To build, you'll need a Go development environment. Builds for
 Mixer require Go version 1.8. If you haven't set up a Go development
-environment, please follow [these instructions](http://golang.org/doc/code.html)
+environment, please follow [these instructions](https://golang.org/doc/install)
 to install the Go tools.
 
 Set up your GOPATH and add a path entry for Go binaries to your PATH. Typically

@@ -20,11 +20,12 @@ The Istio community has a number of different communication channels. It can be 
 where's the right place to ask a question or propose a design. It can be complicated on the receiving end too,
 trying to keep track of all the incoming input. So we'd like to encourage the following:
 
-- Initial design discussions should happen on the [istio-dev](istio-dev@googlegroups.com) mailing list. This is a great
+- Initial design discussions should happen on the [istio-dev](https://groups.google.com/forum/#!forum/istio-dev) mailing list. This is a great
 place to float ideas and get thoughtful feedback. It's archived for everybody to consume into the future.
 
 - If a design is substantial enough, it deserves a design document. Design documents are written with Google Docs and
-should be shared with the community by sending a note to istio-dev to let people know the doc is there.
+should be shared with the community by adding the doc to our [Team Drive](https://drive.google.com/corp/drive/u/0/folders/0AIS5p3eW9BCtUk9PVA)
+and sending a note to istio-dev to let people know the doc is there.
 
 - Slack is great for quick interactions that demand immediate attention. Slack is for Istio developers
 helping other Istio developers on somewhat urgent technical issues. Slack is not really appropriate for
@@ -32,13 +33,17 @@ protracted design discussions which usually benefit from the more deliberate and
 possible in email.
 
 Keep in mind that Slack can be highly disruptive to the large number of users monitoring the channels. As such,
-please keep funny threads, jokes, memes, etc, out of the main channels and into the #random channel. Try to quickly
+please keep funny threads, jokes, memes, etc, out of the main channels and into the #random channel instead. Try to quickly
 move discussions into private chats when appropriate. And move any real design discussions to the mailing lists,
 to design docs, or to GitHub issues.
 
-Note that the content of our Slack channels is not archived. As such, any design decision made on Slack will
+The content of our Slack channels is not archived. As such, any design decision made on Slack will
 not be tracked over time and we therefore won't have the history supporting these decisions. The mailing list
 on the other hand remembers it all.
+
+Our [Team Drive](https://drive.google.com/corp/drive/u/0/folders/0AIS5p3eW9BCtUk9PVA) holds a bunch of design
+docs. Just follow the link to easily get read access to the drive. To get write access to the drive, you'll need
+to be an official contributor to the Istio project per GitHub.
 
 ## Code of conduct
 

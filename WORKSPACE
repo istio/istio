@@ -156,3 +156,9 @@ new_go_repository(
     commit = "c12348ce28de40eed0136aa2b644d0ee0650e56c",  # Apr 24, 2016 (v1.0.0)
     importpath = "github.com/matttproud/golang_protobuf_extensions",
 )
+
+new_go_repository(
+    name = "com_github_prometheus_client_golang",
+    commit = "de4d4ffe63b9eff7f27484fdef6e421597e6abb4",  # June 6, 2017
+    importpath = "github.com/prometheus/client_golang",
+)

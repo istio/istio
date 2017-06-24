@@ -2,6 +2,13 @@
 # TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh
 # Mixer
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-mixer
+data:
+  mapping.conf: |-
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: istio-mixer
@@ -11,8 +18,15 @@ spec:
   ports:
   - name: tcp
     port: 9091
+  - name: http-health
+    port: 9093
   - name: configapi
     port: 9094
+  - name: statsd-prom
+    port: 9102
+  - name: statsd-udp
+    port: 9125
+    protocol: UDP
   - name: prometheus
     port: 42422
   selector:
@@ -32,6 +46,18 @@ spec:
         istio: mixer
     spec:
       containers:
+      - name: statsd-to-prometheus
+        image: prom/statsd-exporter
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9102
+        - containerPort: 9125
+          protocol: UDP
+        args:
+        - '-statsd.mapping-config=/etc/statsd/mapping.conf'
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/statsd
       - name: mixer
         image: docker.io/istio/mixer:0.2.0-82070e1
         imagePullPolicy: Always
@@ -44,6 +70,10 @@ spec:
           - --logtostderr
           - -v
           - "3"
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio-mixer
 ---
 # Pilot service for discovery
 apiVersion: v1
@@ -57,6 +87,7 @@ data:
     mixerAddress: istio-mixer:9091
     discoveryAddress: istio-pilot:8080
     ingressService: istio-ingress
+    statsdUdpAddress: istio-mixer:9125
     zipkinAddress: zipkin:9411
 ---
 apiVersion: v1
@@ -95,7 +126,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: gcr.io/istio-testing/pilot:8a9b2576ce82b84d38a6fd5c2dd8105ff3779f95
+        image: gcr.io/istio-testing/pilot:ac94a44769c563970b9938b7110e4e6cbcf9e13d
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:
@@ -107,7 +138,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
       - name: apiserver
-        image: gcr.io/istio-testing/pilot:8a9b2576ce82b84d38a6fd5c2dd8105ff3779f95
+        image: gcr.io/istio-testing/pilot:ac94a44769c563970b9938b7110e4e6cbcf9e13d
         imagePullPolicy: Always
         args: ["apiserver", "-v", "2"]
         ports:
@@ -160,7 +191,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gcr.io/istio-testing/proxy_debug:8a9b2576ce82b84d38a6fd5c2dd8105ff3779f95
+        image: gcr.io/istio-testing/proxy_debug:ac94a44769c563970b9938b7110e4e6cbcf9e13d
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: Always
         ports:
@@ -200,7 +231,7 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: gcr.io/istio-testing/proxy_debug:8a9b2576ce82b84d38a6fd5c2dd8105ff3779f95
+        image: gcr.io/istio-testing/proxy_debug:ac94a44769c563970b9938b7110e4e6cbcf9e13d
         imagePullPolicy: Always
         args: ["proxy", "egress", "-v", "2"]
         env:
