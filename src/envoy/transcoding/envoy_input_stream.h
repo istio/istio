@@ -16,7 +16,7 @@
 #pragma once
 
 #include "common/buffer/buffer_impl.h"
-#include "src/transcoder_input_stream.h"
+#include "grpc_transcoding/transcoder_input_stream.h"
 
 namespace Envoy {
 namespace Grpc {

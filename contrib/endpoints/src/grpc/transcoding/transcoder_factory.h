@@ -21,9 +21,9 @@
 #include "google/api/service.pb.h"
 #include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/stubs/status.h"
-#include "src/transcoder.h"
-#include "src/transcoder_input_stream.h"
-#include "src/type_helper.h"
+#include "grpc_transcoding/transcoder.h"
+#include "grpc_transcoding/transcoder_input_stream.h"
+#include "grpc_transcoding/type_helper.h"
 
 namespace google {
 namespace api_manager {

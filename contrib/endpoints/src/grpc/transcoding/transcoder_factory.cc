@@ -25,10 +25,10 @@
 #include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/stubs/common.h"
 #include "google/protobuf/stubs/status.h"
-#include "src/json_request_translator.h"
-#include "src/message_stream.h"
-#include "src/response_to_json_translator.h"
-#include "src/type_helper.h"
+#include "grpc_transcoding/json_request_translator.h"
+#include "grpc_transcoding/message_stream.h"
+#include "grpc_transcoding/response_to_json_translator.h"
+#include "grpc_transcoding/type_helper.h"
 
 namespace google {
 namespace api_manager {

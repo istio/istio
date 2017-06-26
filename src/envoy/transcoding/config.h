@@ -22,10 +22,10 @@
 #include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/util/internal/type_info.h"
 #include "google/protobuf/util/type_resolver.h"
-#include "src/path_matcher.h"
-#include "src/request_message_translator.h"
-#include "src/transcoder.h"
-#include "src/type_helper.h"
+#include "grpc_transcoding/path_matcher.h"
+#include "grpc_transcoding/request_message_translator.h"
+#include "grpc_transcoding/transcoder.h"
+#include "grpc_transcoding/type_helper.h"
 
 namespace Envoy {
 namespace Grpc {

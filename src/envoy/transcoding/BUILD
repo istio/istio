@@ -63,7 +63,7 @@ cc_binary(
     visibility = [":__subpackages__"],
     deps = [
         ":filter_lib",
-        "@envoy//source/exe:envoy_main_lib",
+        "@envoy//source/exe:envoy_main_entry_lib",
     ],
     linkopts = [
         "-lrt",

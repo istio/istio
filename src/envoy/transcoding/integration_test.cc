@@ -39,12 +39,14 @@ namespace {
 class TranscodingIntegrationTest : public BaseIntegrationTest,
                                    public testing::Test {
  public:
+  TranscodingIntegrationTest()
+      : BaseIntegrationTest(Network::Address::IpVersion::v4) {}
   /**
    * Global initializer for all integration tests.
    */
   void SetUp() override {
     fake_upstreams_.emplace_back(
-        new FakeUpstream(0, FakeHttpConnection::Type::HTTP2));
+        new FakeUpstream(0, FakeHttpConnection::Type::HTTP2, version_));
     registerPort("upstream_0",
                  fake_upstreams_.back()->localAddress()->ip()->port());
     createTestServer("src/envoy/transcoding/test/integration.json", {"http"});

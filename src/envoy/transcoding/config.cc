@@ -25,8 +25,8 @@
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/util/type_resolver.h"
 #include "google/protobuf/util/type_resolver_util.h"
-#include "src/json_request_translator.h"
-#include "src/response_to_json_translator.h"
+#include "grpc_transcoding/json_request_translator.h"
+#include "grpc_transcoding/response_to_json_translator.h"
 
 using google::grpc::transcoding::JsonRequestTranslator;
 using google::grpc::transcoding::RequestInfo;
