@@ -15,6 +15,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"time"
 
@@ -56,9 +57,17 @@ func init() {
 	flags.StringVar(&opts.containerImage, "image", "", "Name of Istio CA image")
 	flags.StringVar(&opts.containerTag, "tag", "", "Tag for Istio CA image")
 	flags.StringVarP(&opts.kubeconfig, "kube-config", "k", "~/.kube/config", "path to kubeconfig file")
+
+	AddFlags(rootCmd)
 }
 
 func main() {
+	// HACKHACK: let `flag.Parsed()` return true to prevent glog from emitting errors
+	flag.CommandLine = flag.NewFlagSet("", flag.ContinueOnError)
+	if err := flag.CommandLine.Parse([]string{}); err != nil {
+		glog.Fatal(err)
+	}
+
 	if err := rootCmd.Execute(); err != nil {
 		glog.Fatal(err)
 	}
@@ -202,4 +211,20 @@ func waitForSecretExist(secretName string, timeToWait time.Duration) (*v1.Secret
 			return nil, fmt.Errorf("secret %v/%v did not become existent within %v", opts.namespace, secretName, timeToWait)
 		}
 	}
+}
+
+// AddFlags carries over glog flags with new defaults
+func AddFlags(rootCmd *cobra.Command) {
+	flag.CommandLine.VisitAll(func(gf *flag.Flag) {
+		switch gf.Name {
+		case "logtostderr":
+			if err := gf.Value.Set("true"); err != nil {
+				fmt.Printf("missing logtostderr flag: %v", err)
+			}
+		case "log_dir", "stderrthreshold":
+			// always use stderr for logging
+		default:
+			rootCmd.PersistentFlags().AddGoFlag(gf)
+		}
+	})
 }
