@@ -1,4 +1,5 @@
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@io_bazel_rules_docker//docker:docker.bzl", "docker_build")
 load("//docker:mixer_docker.bzl", "mixer_docker_build")
 
 # Use "manual" target tag to skip rules in the wildcard expansion
@@ -36,6 +37,7 @@ mixer_docker_build(
     ],
     ports = [
         "9091",
+        "9093",
         "9094",
         "42422",
     ],
