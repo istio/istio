@@ -43,6 +43,7 @@ var (
 	mixerTag  = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
 	pilotHub  = flag.String("pilot_hub", os.Getenv(pilotHubEnvVar), "Manager hub")
 	pilotTag  = flag.String("pilot_tag", os.Getenv(pilotTagEnvVar), "Manager tag")
+	projectId = flag.String("project_id", "istio-testing", "Project ID")
 	//caHub        = flag.String("ca_hub", "", "Ca hub")
 	//caTag        = flag.String("ca_tag", "", "Ca tag")
 	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
