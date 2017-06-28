@@ -28,9 +28,12 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/logging"
+	"cloud.google.com/go/logging/logadmin"
 	"cloud.google.com/go/storage"
 	"github.com/golang/glog"
 	"github.com/google/uuid"
+	"google.golang.org/api/iterator"
 )
 
 var (
@@ -109,6 +112,70 @@ func (t testInfo) Setup() error {
 // Update sets the test status.
 func (t testInfo) Update(r int) error {
 	return t.createStatusFile(r)
+}
+
+func (t testInfo) FetchAndSaveClusterLogs() error {
+	ctx := context.Background()
+	glog.Info("Fetching cluster logs")
+	var PROJECT_ID string = *projectId
+	client, err := logadmin.NewClient(ctx, PROJECT_ID)
+	if err != nil {
+	    return err
+	}
+
+	fetchAndWrite := func(logId string) error {
+		glog.Info(fmt.Sprintf("Fetching logs on %s\n", logId))
+		// fetch logs from pods created for this run only
+		filter := fmt.Sprintf(`logName = "projects/%s/logs/%s" AND resource.labels.namespace_id = "%s"`, PROJECT_ID, logId, *namespace)
+		it := client.Entries(ctx, logadmin.Filter(filter))
+		// create log file in append mode
+		path := filepath.Join(t.LogsPath, fmt.Sprintf("%s.log", logId))
+		f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0755)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		// fetch log entries with pagination 
+		var entries []*logging.Entry
+		const PAGE_SIZE = 50
+		pager := iterator.NewPager(it, PAGE_SIZE, "")
+		for page := 0; ; page++ {
+			pageToken, err := pager.NextPage(&entries)
+			if err != nil {
+				glog.Errorf("Iterator paging failed: %v", err)
+				return err
+			}
+			// append logs to file
+			for _, logEntry := range entries {
+				_, err = f.WriteString(fmt.Sprintf("%v\n", logEntry.Payload))
+				if err != nil {
+					return err
+				}
+			}
+			if pageToken == "" {
+				break
+			}
+		}
+		return nil
+	}
+
+	// This list of log identifiers is cherry-picked based on Dev team's interest
+	// To access the comprehensive list, try in your shell
+	// 		$ gcloud beta logging logs list
+	LOG_IDS := []string{
+		"apiserver",
+		"discovery",
+		"istio-ingress",
+		"mixer",
+		"prometheus",
+		"statesd-to-prometheus",
+	}
+	for _, logId := range LOG_IDS {
+		if err := fetchAndWrite(logId); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (t testInfo) createStatusFile(r int) error {
