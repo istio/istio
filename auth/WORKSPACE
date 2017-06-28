@@ -230,6 +230,18 @@ new_go_repository(
     importpath = "golang.org/x/text",
 )
 
+new_go_repository(
+    name = "org_golang_google_api",
+    commit = "48e49d1645e228d1c50c3d54fb476b2224477303",
+    importpath = "google.golang.org/api",
+)
+
+new_go_repository(
+    name = "org_golang_google_genproto",
+    commit = "411e09b969b1170a9f0c467558eb4c4c110d9c77",
+    importpath = "google.golang.org/genproto",
+)
+
 new_http_archive(
     name = "docker_ubuntu",
     build_file = "BUILD.ubuntu",
@@ -244,7 +256,7 @@ new_http_archive(
 ##
 
 git_repository(
-    name = "istio_test_infra",
-    commit = "983183f98b79f8b67fe380fef4cdd21481830fd7",
+    name = "com_github_istio_test_infra",
+    commit = "9a3ac467ba862432c75e42cecff7aa5c2980e3b8",   # Jun 18, 2017
     remote = "https://github.com/istio/test-infra.git",
 )
