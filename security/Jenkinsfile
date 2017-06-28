@@ -68,8 +68,8 @@ def presubmit(gitUtils, bazel, utils) {
       sh('bin/headers.sh')
     }
     stage('Code Coverage') {
-      sh('bin/coverage.sh > codecov.report')
-      sh('bazel-bin/bin/toolbox/presubmit/package_coverage_check')
+      sh('bin/codecov.sh | tee codecov.report')
+      sh('bin/toolbox/presubmit/pkg_coverage.sh')
       utils.publishCodeCoverage('AUTH_CODECOV_TOKEN')
     }
     stage('Integration Test') {
@@ -88,8 +88,8 @@ def postsubmit(gitUtils, bazel, utils) {
       bazel.build('//...')
       sh('bin/setup.sh')
       bazel.test('//...')
-      sh('bin/coverage.sh > codecov.report')
-      sh('bin/coverage.sh')
+      sh('bin/codecov.sh | tee codecov.report')
+      sh('bin/toolbox/presubmit/pkg_coverage.sh')
       utils.publishCodeCoverage('AUTH_CODECOV_TOKEN')
     }
     utils.fastForwardStable('auth')
