@@ -19,7 +19,10 @@ go_library(
         "//tests/e2e/util:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_google_uuid//:go_default_library",
+        "@com_google_cloud_go//logging:go_default_library",
+        "@com_google_cloud_go//logging/logadmin:go_default_library",
         "@com_google_cloud_go//storage:go_default_library",
+        "@org_golang_google_api//iterator:go_default_library",
     ],
 )
 
