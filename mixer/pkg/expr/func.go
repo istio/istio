@@ -213,7 +213,9 @@ func newOR() Func {
 func (f *orFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
 	for _, arg := range args {
 		ret, _ := arg.Eval(attrs, fMap)
-		if ret != nil {
+		// treating empty strings as nil, since
+		// go strings cannot be nil
+		if ret != nil && ret != "" {
 			return ret, nil
 		}
 	}
