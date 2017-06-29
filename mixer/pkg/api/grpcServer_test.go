@@ -193,7 +193,7 @@ func TestCheck(t *testing.T) {
 		return nil, status.WithPermissionDenied("Not Implemented")
 	}
 
-	response, err = ts.client.Check(context.Background(), &request)
+	_, err = ts.client.Check(context.Background(), &request)
 
 	if err != nil {
 		t.Errorf("Got %v, expected success", err)
@@ -357,7 +357,7 @@ func TestFailingPreproc(t *testing.T) {
 	}
 
 	{
-		request := mixerpb.ReportRequest{Attributes: []mixerpb.Attributes{mixerpb.Attributes{}}}
+		request := mixerpb.ReportRequest{Attributes: []mixerpb.Attributes{{}}}
 		resp, err := ts.client.Report(context.Background(), &request)
 		if resp != nil {
 			t.Error("Expecting no response, got one")
