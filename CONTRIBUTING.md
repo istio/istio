@@ -17,7 +17,7 @@ same process and are given the same level of review.
 
 ## Working Groups
 
-The Istio community is organized into a set of [working groups](wgs.md).
+The Istio community is organized into a set of [working groups](GROUPS.md).
 Any contribution to Istio should be started by first engaging with the appropriate working group.
 
 ## Design Documents
@@ -61,11 +61,11 @@ feature requests.
 ## Contributing a feature
 
 In order to contribute a feature to Istio you'll need to go through the following steps:
-- Discuss your idea with the appropriate [working groups](wgs.md).
+- Discuss your idea with the appropriate [working groups](GROUPS.md).
 - Once there is general agreement that the feature is useful, create a GitHub issue to track the discussion. The issue should include information about the requirements and use cases that it is trying to address.
 - Include a discussion of the proposed design and technical details of the implementation in the issue.
-- Contribute documentation of the feature to the main Istio repo (https://github.com/istio/istio).
 - Once there is general agreement on the technical direction, submit a PR.
+- Contribute documentation of the feature to the [istio.io](https://istio.io) repo (https://github.com/istio/istio.github.io).
 
 If you would like to skip the process of submitting an issue and
 instead would prefer to just submit a pull request with your desired

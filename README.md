@@ -111,7 +111,7 @@ support is disabled for our organization.
 
 ## Contributing to the project
 
-See the [working groups](wgs.md) for a list of working groups to participate in.
+See the [working groups](GROUPS.md) for a list of working groups to participate in.
 
 See the [contribution guidelines](CONTRIBUTING.md) for information on how to
 participate in the Istio project by submitting pull requests or issues. 
