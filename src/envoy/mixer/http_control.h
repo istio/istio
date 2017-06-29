@@ -46,9 +46,6 @@ class HttpControl final : public Logger::Loggable<Logger::Id::http> {
   void Check(HttpRequestDataPtr request_data, HeaderMap& headers,
              std::string origin_user, ::istio::mixer_client::DoneFunc on_done);
 
-  void Quota(HttpRequestDataPtr request_data,
-             ::istio::mixer_client::DoneFunc on_done);
-
   // Make mixer report call.
   void Report(HttpRequestDataPtr request_data,
               const HeaderMap* response_headers,

@@ -74,12 +74,6 @@ CheckOptions GetCheckOptions(const MixerConfig& config) {
   return options;
 }
 
-QuotaOptions GetQuotaOptions(const MixerConfig& config) {
-  // Use num_entries=0 to disable cache.
-  // the 2nd parameter is not used in the disable case.
-  return QuotaOptions(0, 1000);
-}
-
 void SetStringAttribute(const std::string& name, const std::string& value,
                         Attributes* attr) {
   if (!value.empty()) {
@@ -184,11 +178,10 @@ HttpControl::HttpControl(const MixerConfig& mixer_config,
     : mixer_config_(mixer_config) {
   if (GrpcTransport::IsMixerServerConfigured(cm)) {
     MixerClientOptions options(GetCheckOptions(mixer_config), ReportOptions(),
-                               GetQuotaOptions(mixer_config));
+                               QuotaOptions());
     auto cms = std::make_shared<ClusterManagerStore>(cm);
     options.check_transport = CheckGrpcTransport::GetFunc(cms);
     options.report_transport = ReportGrpcTransport::GetFunc(cms);
-    options.quota_transport = QuotaGrpcTransport::GetFunc(cms);
 
     options.timer_create_func = [](std::function<void()> timer_cb)
         -> std::unique_ptr<::istio::mixer_client::Timer> {
@@ -233,31 +226,13 @@ void HttpControl::Check(HttpRequestDataPtr request_data, HeaderMap& headers,
   }
   FillCheckAttributes(headers, &request_data->attributes);
   SetStringAttribute(kOriginUser, origin_user, &request_data->attributes);
-  log().debug("Send Check: {}", request_data->attributes.DebugString());
-  mixer_client_->Check(request_data->attributes, on_done);
-}
-
-void HttpControl::Quota(HttpRequestDataPtr request_data, DoneFunc on_done) {
-  if (!mixer_client_) {
-    on_done(
-        Status(StatusCode::INVALID_ARGUMENT, "Missing mixer_server cluster"));
-    return;
-  }
-
-  if (quota_attributes_.attributes.empty()) {
-    on_done(Status::OK);
-    return;
-  }
 
   for (const auto& attribute : quota_attributes_.attributes) {
     request_data->attributes.attributes[attribute.first] = attribute.second;
   }
-  // quota() needs all the attributes that check() needs
-  // operator may apply conditional quota using attributes in selectors.
-  // mixerClient::GenerateSignature should be updated
-  // to exclude non identifying attributes
-  log().debug("Send Quota: {}", request_data->attributes.DebugString());
-  mixer_client_->Quota(request_data->attributes, on_done);
+
+  log().debug("Send Check: {}", request_data->attributes.DebugString());
+  mixer_client_->Check(request_data->attributes, on_done);
 }
 
 void HttpControl::Report(HttpRequestDataPtr request_data,

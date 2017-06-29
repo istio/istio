@@ -53,7 +53,6 @@ gogoslick_proto_library(
     protos = [
         "mixer/v1/attributes.proto",
         "mixer/v1/check.proto",
-        "mixer/v1/quota.proto",
         "mixer/v1/report.proto",
         "mixer/v1/service.proto",
     ],
@@ -128,6 +127,12 @@ gogoslick_proto_library(
         "@com_github_gogo_protobuf//types:go_default_library",
     ],
 )
+
+filegroup(
+    name = "mixer/v1/config/descriptor_protos",
+    srcs = DESCRIPTOR_FILE_GROUP,
+    visibility = ["//visibility:public"],
+)
 """
     if use_local:
         native.new_local_repository(
@@ -139,7 +144,7 @@ gogoslick_proto_library(
       native.new_git_repository(
           name = "com_github_istio_api",
           build_file_content = ISTIO_API_BUILD_FILE,
-          commit = "da77a025c7fcf9b3d21eac8928451091ec0b31f8",
+          commit = "ee9769f5b3304d9e01cd7ed6fb1dbb9b08e96210",
           remote = "https://github.com/istio/api.git",
       )
 
@@ -211,6 +216,6 @@ def go_mixer_repositories(use_local_api=False):
 
     go_repository(
         name = "com_github_istio_mixer",
-        commit = "1eb238c30420a3f5f144e9895ab8e3c9d6afb75b",
+        commit = "a671ce8d3c98aa4b92ee7ddce714e435be3c789f",
         importpath = "github.com/istio/mixer",
     )

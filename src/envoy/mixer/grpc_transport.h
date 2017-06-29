@@ -118,34 +118,6 @@ class ReportGrpcTransport : public GrpcTransport {
   }
 };
 
-class QuotaGrpcTransport : public GrpcTransport {
- public:
-  QuotaGrpcTransport(Upstream::ClusterManager& cm) : GrpcTransport(cm) {}
-
-  static ::istio::mixer_client::TransportQuotaFunc GetFunc(
-      std::shared_ptr<ClusterManagerStore> cms) {
-    return [cms](const ::istio::mixer::v1::QuotaRequest& request,
-                 ::istio::mixer::v1::QuotaResponse* response,
-                 ::istio::mixer_client::DoneFunc on_done) {
-      QuotaGrpcTransport* transport = new QuotaGrpcTransport(cms->cm());
-      transport->Call(request, response, on_done);
-    };
-  }
-  void Call(const ::istio::mixer::v1::QuotaRequest& request,
-            ::istio::mixer::v1::QuotaResponse* response,
-            ::istio::mixer_client::DoneFunc on_done) {
-    on_done_ = [this, response,
-                on_done](const ::google::protobuf::util::Status& status) {
-      if (status.ok()) {
-        log().debug("Quota response: {}", response->DebugString());
-      }
-      on_done(status);
-    };
-    log().debug("Call grpc quota: {}", request.DebugString());
-    stub_.Quota(nullptr, &request, response, nullptr);
-  }
-};
-
 }  // namespace Mixer
 }  // namespace Http
 }  // namespace Envoy

@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	mixerQuotaFailMessage = "Not enough quota by mixer."
+	mixerQuotaFailMessage = "Quota is exhausted for: RequestCount"
 )
 
 func TestQuotaCall(t *testing.T) {

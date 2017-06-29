@@ -217,7 +217,7 @@ class Instance : public Http::StreamDecoderFilter,
     auto instance = GetPtr();
     http_control_->Check(
         request_data_, headers, origin_user,
-        [instance](const Status& status) { instance->callQuota(status); });
+        [instance](const Status& status) { instance->completeCheck(status); });
     initiating_call_ = false;
 
     if (state_ == Complete) {
@@ -258,21 +258,6 @@ class Instance : public Http::StreamDecoderFilter,
     Log().debug("Called Mixer::Instance : {}", __func__);
     decoder_callbacks_ = &callbacks;
     SetThreadDispatcher(decoder_callbacks_->dispatcher());
-  }
-
-  void callQuota(const Status& status) {
-    // This stream has been reset, abort the callback.
-    if (state_ == Responded) {
-      return;
-    }
-    if (!status.ok()) {
-      completeCheck(status);
-      return;
-    }
-    auto instance = GetPtr();
-    http_control_->Quota(request_data_, [instance](const Status& status) {
-      instance->completeCheck(status);
-    });
   }
 
   void completeCheck(const Status& status) {

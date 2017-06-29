@@ -82,17 +82,13 @@ func (ts *MixerServer) Check(ctx context.Context, bag *attribute.MutableBag,
 	return ts.check.run(bag)
 }
 
-func (ts *MixerServer) Report(ctx context.Context, bag *attribute.MutableBag,
-	output *attribute.MutableBag) rpc.Status {
+func (ts *MixerServer) Report(ctx context.Context, bag *attribute.MutableBag) rpc.Status {
 	return ts.report.run(bag)
 }
 
 func (ts *MixerServer) Quota(ctx context.Context, bag *attribute.MutableBag,
-	responseBag *attribute.MutableBag,
 	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
-	if !ts.quota.stress {
-		*ts.qma = *qma
-	}
+	*ts.qma = *qma
 	status := ts.quota.run(bag)
 	qmr := &aspect.QuotaMethodResp{}
 	if status.Code == 0 {

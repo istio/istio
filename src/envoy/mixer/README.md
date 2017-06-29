@@ -173,6 +173,10 @@ For the string map attributes in the above example:
 1) "request.headers" attribute is a string map, "request.headers/:method" cache key means only its ":method" key and value are used for cache key.
 2) "source.labels" attribute is a string map, "source.labels" cache key means all key value pairs for the string map will be used.
 
+## How to enable cache for Quota calls
+
+Quota cache is tied to Check cache. It is enabled automatically if Check cache is enabled (it is using quota name as cache key).
+
 ## How to change network failure policy
 
 When there is any network problems between the proxy and the mixer server, what should the proxy do for its Check calls?  There are two policy: fail open or fail close.  By default, it is using fail open policy.  It can be changed by adding this mixer filter config "network_fail_policy". Its value can be "open" or "close".  For example, following config will change the policy to fail close.

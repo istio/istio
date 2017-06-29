@@ -58,8 +58,7 @@ const quotaConfig = `
 
 // A quota config with cache
 const quotaCacheConfig = `
-                  "quota_name": "RequestCount",
-                  "quota_cache": "on"
+                  "quota_name": "RequestCount"
 `
 
 // A config with check cache keys
