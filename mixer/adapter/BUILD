@@ -6,6 +6,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "inventory.go",
+        "inventory2.gen.go",
     ],
     deps = [
         "//adapter/denyChecker:go_default_library",
@@ -14,6 +15,7 @@ go_library(
         "//adapter/kubernetes:go_default_library",
         "//adapter/memQuota:go_default_library",
         "//adapter/noop:go_default_library",
+        "//adapter/noop2:go_default_library",
         "//adapter/prometheus:go_default_library",
         "//adapter/redisquota:go_default_library",
         "//adapter/statsd:go_default_library",

@@ -104,3 +104,9 @@ gogoslick_proto_library(
         "@com_github_gogo_protobuf//types:go_default_library",
     ],
 )
+
+filegroup(
+    name = "mixer/v1/config/descriptor_protos",
+    srcs = DESCRIPTOR_FILE_GROUP,
+    visibility = ["//visibility:public"],
+)

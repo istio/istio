@@ -15,6 +15,7 @@ go_library(
     ],
     deps = [
         "//pkg/adapter:go_default_library",
+        "//pkg/adapter/config:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/config/descriptor:go_default_library",
         "//pkg/config/proto:go_default_library",
