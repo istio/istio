@@ -204,7 +204,7 @@ func benchmarkAdapterManagerDispatch(b *testing.B, declarativeSrvcCnfgFilePath s
 	b.ResetTimer()
 	var r google_rpc.Status
 	for n := 0; n < b.N; n++ {
-		r = adapterMgr.dispatchReport(context.Background(), configs, requestBag, attribute.GetMutableBag(nil))
+		r = adapterMgr.dispatchReport(context.Background(), configs, requestBag)
 	}
 	rpcStatus = r
 	if rpcStatus.Code != 0 {

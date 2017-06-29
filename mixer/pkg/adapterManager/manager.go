@@ -87,10 +87,10 @@ type AspectDispatcher interface {
 	Check(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status
 
 	// Report dispatches to the set of aspects associated with the Report API method
-	Report(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status
+	Report(ctx context.Context, requestBag *attribute.MutableBag) rpc.Status
 
 	// Quota dispatches to the set of aspects associated with the Quota API method
-	Quota(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+	Quota(ctx context.Context, requestBag *attribute.MutableBag,
 		qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status)
 }
 
@@ -182,38 +182,39 @@ func (m *Manager) Check(ctx context.Context, requestBag, responseBag *attribute.
 	return m.dispatchCheck(ctx, configs, requestBag, responseBag)
 }
 
-func (m *Manager) dispatchReport(ctx context.Context, configs []*cpb.Combined, requestBag, responseBag *attribute.MutableBag) rpc.Status {
-	return m.dispatch(ctx, requestBag, responseBag, configs,
-		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status {
+func (m *Manager) dispatchReport(ctx context.Context, configs []*cpb.Combined, requestBag *attribute.MutableBag) rpc.Status {
+	return m.dispatch(ctx, requestBag, nil, configs,
+		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, _ *attribute.MutableBag) rpc.Status {
 			rw := executor.(aspect.ReportExecutor)
 			return rw.Execute(requestBag, evaluator)
 		})
 }
 
 // Report dispatches to the set of aspects associated with the Report API method
-func (m *Manager) Report(ctx context.Context, requestBag, responseBag *attribute.MutableBag) rpc.Status {
+func (m *Manager) Report(ctx context.Context, requestBag *attribute.MutableBag) rpc.Status {
 	configs, err := m.loadConfigs(requestBag, m.reportKindSet, false, false /* carry on if unable to eval all selectors */)
 	if err != nil {
 		glog.Error(err)
 		return status.WithError(err)
 	}
-	return m.dispatchReport(ctx, configs, requestBag, responseBag)
+
+	return m.dispatchReport(ctx, configs, requestBag)
 }
 
 // Quota dispatches to the set of aspects associated with the Quota API method
-func (m *Manager) Quota(ctx context.Context, requestBag, responseBag *attribute.MutableBag,
+func (m *Manager) Quota(ctx context.Context, requestBag *attribute.MutableBag,
 	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
-
-	var qmr *aspect.QuotaMethodResp
 
 	configs, err := m.loadConfigs(requestBag, m.quotaKindSet, false, true /* fail if unable to eval all selectors */)
 	if err != nil {
 		glog.Error(err)
-		return qmr, status.WithError(err)
+		return nil, status.WithError(err)
 	}
 
-	o := m.dispatch(ctx, requestBag, responseBag, configs,
-		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, responseBag *attribute.MutableBag) rpc.Status {
+	var qmr *aspect.QuotaMethodResp
+
+	o := m.dispatch(ctx, requestBag, nil, configs,
+		func(executor aspect.Executor, evaluator expr.Evaluator, requestBag, _ *attribute.MutableBag) rpc.Status {
 			qw := executor.(aspect.QuotaExecutor)
 			var o rpc.Status
 			o, qmr = qw.Execute(requestBag, evaluator, qma)
@@ -324,7 +325,13 @@ func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribu
 	for idx := range cfgs {
 		// When switching goroutines, *do not* pass bags directly
 		// pass Child(). Child is a way to refcount the parent
-		m.runAsync(ctx, requestBag.Child(), responseBag.Child(), cfgs[idx], invokeFunc, resultChan)
+
+		var child *attribute.MutableBag
+		if responseBag != nil {
+			child = responseBag.Child()
+		}
+
+		m.runAsync(ctx, requestBag.Child(), child, cfgs[idx], invokeFunc, resultChan)
 	}
 
 	requestBag = nil
@@ -339,7 +346,9 @@ func (m *Manager) dispatch(ctx context.Context, requestBag, responseBag *attribu
 	// always cleanup bags regardless of how we exit
 	defer func() {
 		for _, b := range bags {
-			b.Done()
+			if b != nil {
+				b.Done()
+			}
 		}
 	}()
 

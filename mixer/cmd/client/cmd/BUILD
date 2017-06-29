@@ -6,7 +6,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "check.go",
-        "quota.go",
         "report.go",
         "root.go",
         "util.go",

@@ -396,7 +396,6 @@ func TestManager_Preprocess(t *testing.T) {
 func TestReport(t *testing.T) {
 	r := getReg(true)
 	requestBag := attribute.GetMutableBag(nil)
-	responseBag := attribute.GetMutableBag(nil)
 	gp := pool.NewGoroutinePool(1, true)
 	agp := pool.NewGoroutinePool(1, true)
 	mapper := &fakeEvaluator{}
@@ -413,7 +412,7 @@ func TestReport(t *testing.T) {
 	}
 	m.cfg.Store(&fakeResolver{cfg, nil})
 
-	out := m.Report(context.Background(), requestBag, responseBag)
+	out := m.Report(context.Background(), requestBag)
 
 	if !status.IsOK(out) {
 		t.Errorf("Report failed with %v", out)
@@ -430,7 +429,6 @@ func TestReport(t *testing.T) {
 func TestQuota(t *testing.T) {
 	r := getReg(true)
 	requestBag := attribute.GetMutableBag(nil)
-	responseBag := attribute.GetMutableBag(nil)
 	gp := pool.NewGoroutinePool(1, true)
 	agp := pool.NewGoroutinePool(1, true)
 	mapper := &fakeEvaluator{}
@@ -447,7 +445,7 @@ func TestQuota(t *testing.T) {
 	}
 	m.cfg.Store(&fakeResolver{cfg, nil})
 
-	qmr, out := m.Quota(context.Background(), requestBag, responseBag, nil)
+	qmr, out := m.Quota(context.Background(), requestBag, nil)
 
 	if !status.IsOK(out) {
 		t.Errorf("Quota failed with %v", out)
