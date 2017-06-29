@@ -517,7 +517,7 @@ func TestAPI_httpStatusToRPC(t *testing.T) {
 		{http.StatusOK, rpc.OK},
 		{http.StatusTeapot, rpc.UNKNOWN},
 	} {
-		t.Run(fmt.Sprintf("%s", tst.code), func(t *testing.T) {
+		t.Run(tst.code.String(), func(t *testing.T) {
 			c := httpStatusToRPC(tst.http)
 			if c != tst.code {
 				t.Errorf("got %s\nwant %s", c, tst.code)
@@ -554,7 +554,7 @@ func TestAPI_writeErrorResponse(t *testing.T) {
 		{http.StatusOK, rpc.OK, "OK"},
 		{http.StatusNotFound, rpc.NOT_FOUND, "Not Found"},
 	} {
-		t.Run(fmt.Sprintf("%s", tst.code), func(t *testing.T) {
+		t.Run(tst.code.String(), func(t *testing.T) {
 			resp := &fakeresp{err: err}
 			writeErrorResponse(tst.http, tst.message, resp)
 			apiResp, ok := resp.value.(*APIResponse)
