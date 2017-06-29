@@ -18,17 +18,15 @@
 #include "utils/protobuf.h"
 
 using namespace std::chrono;
-using ::istio::mixer::v1::QuotaRequest;
-using ::istio::mixer::v1::QuotaResponse;
+using ::istio::mixer::v1::CheckRequest;
+using ::istio::mixer::v1::CheckResponse;
 using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;
 
 namespace istio {
 namespace mixer_client {
 
-QuotaCache::CacheElem::CacheElem(const QuotaRequest& request,
-                                 TransportQuotaFunc transport)
-    : request_(request), transport_(transport) {
+QuotaCache::CacheElem::CacheElem(const std::string& name) : name_(name) {
   prefetch_ = QuotaPrefetch::Create(
       [this](int amount, QuotaPrefetch::DoneFunc fn, QuotaPrefetch::Tick t) {
         Alloc(amount, fn);
@@ -37,40 +35,102 @@ QuotaCache::CacheElem::CacheElem(const QuotaRequest& request,
 }
 
 void QuotaCache::CacheElem::Alloc(int amount, QuotaPrefetch::DoneFunc fn) {
-  auto response = new QuotaResponse;
-  request_.set_amount(amount);
-  transport_(request_, response, [response, fn](const Status& status) {
+  quota_->amount = amount;
+  quota_->best_effort = true;
+  quota_->response_func =
+      [fn](const CheckResponse::QuotaResult* result) -> bool {
     int amount = -1;
     milliseconds expire;
-    if (status.ok()) {
-      amount = response->amount();
-      expire = ToMilliseonds(response->expiration());
+    if (result != nullptr) {
+      amount = result->granted_amount();
+      expire = ToMilliseonds(result->valid_duration());
     }
-    delete response;
     fn(amount, expire, system_clock::now());
-  });
+    return true;
+  };
 }
 
-bool QuotaCache::CacheElem::Quota(const Attributes& request) {
-  int amount = 1;
-  const auto& it = request.attributes.find(Attributes::kQuotaAmount);
-  if (it != request.attributes.end()) {
-    amount = it->second.value.int64_v;
+bool QuotaCache::CacheElem::Quota(int amount, CheckResult::Quota* quota) {
+  quota_ = quota;
+  bool ret = prefetch_->Check(amount, system_clock::now());
+  // A hack that requires prefetch code to call transport Alloc() function
+  // within Check() call.
+  quota_ = nullptr;
+  return ret;
+}
+
+QuotaCache::CheckResult::CheckResult() : status_(Code::UNAVAILABLE, "") {}
+
+bool QuotaCache::CheckResult::IsCacheHit() const {
+  return status_.error_code() != Code::UNAVAILABLE;
+}
+
+bool QuotaCache::CheckResult::BuildRequest(CheckRequest* request) {
+  int pending_count = 0;
+  std::string rejected_quota_names;
+  for (const auto& quota : quotas_) {
+    // TODO: return used quota amount to passed quotas.
+    if (quota.result == Quota::Rejected) {
+      if (!rejected_quota_names.empty()) {
+        rejected_quota_names += ",";
+      }
+      rejected_quota_names += quota.name;
+    } else if (quota.result == Quota::Pending) {
+      ++pending_count;
+    }
+    if (quota.response_func) {
+      CheckRequest::QuotaParams param;
+      param.set_amount(quota.amount);
+      param.set_best_effort(quota.best_effort);
+      (*request->mutable_quotas())[quota.name] = param;
+    }
   }
-  return prefetch_->Check(amount, system_clock::now());
+  if (!rejected_quota_names.empty()) {
+    status_ =
+        Status(Code::RESOURCE_EXHAUSTED,
+               std::string("Quota is exhausted for: ") + rejected_quota_names);
+  } else if (pending_count == 0) {
+    status_ = Status::OK;
+  }
+  return request->quotas().size() > 0;
 }
 
-QuotaCache::QuotaCache(const QuotaOptions& options,
-                       TransportQuotaFunc transport,
-                       const AttributeConverter& converter)
-    : options_(options),
-      transport_(transport),
-      converter_(converter),
-      deduplication_id_(0) {
+void QuotaCache::CheckResult::SetResponse(const Status& status,
+                                          const CheckResponse& response) {
+  std::string rejected_quota_names;
+  for (const auto& quota : quotas_) {
+    if (quota.response_func) {
+      const CheckResponse::QuotaResult* result = nullptr;
+      if (status.ok()) {
+        const auto& quotas = response.quotas();
+        const auto& it = quotas.find(quota.name);
+        if (it != quotas.end()) {
+          result = &it->second;
+        } else {
+          GOOGLE_LOG(ERROR) << "Quota response did not have quota for: "
+                            << quota.name;
+        }
+      }
+      if (!quota.response_func(result)) {
+        if (!rejected_quota_names.empty()) {
+          rejected_quota_names += ",";
+        }
+        rejected_quota_names += quota.name;
+      }
+    }
+  }
+  if (!rejected_quota_names.empty()) {
+    status_ =
+        Status(Code::RESOURCE_EXHAUSTED,
+               std::string("Quota is exhausted for: ") + rejected_quota_names);
+  } else {
+    status_ = Status::OK;
+  }
+}
+
+QuotaCache::QuotaCache(const QuotaOptions& options) : options_(options) {
   if (options.num_entries > 0) {
-    cache_.reset(new QuotaLRUCache(
-        options.num_entries, std::bind(&QuotaCache::OnCacheEntryDelete, this,
-                                       std::placeholders::_1)));
+    cache_.reset(new QuotaLRUCache(options.num_entries));
     cache_->SetMaxIdleSeconds(options.expiration_ms / 1000.0);
 
     // Excluse quota_amount in the key calculation.
@@ -83,85 +143,76 @@ QuotaCache::~QuotaCache() {
   FlushAll();
 }
 
-void QuotaCache::Quota(const Attributes& request, DoneFunc on_done) {
-  // Makes sure quota_name is provided and with correct type.
-  const auto& it = request.attributes.find(Attributes::kQuotaName);
-  if (it == request.attributes.end() ||
-      it->second.type != Attributes::Value::STRING) {
-    on_done(Status(Code::INVALID_ARGUMENT,
-                   std::string("A required attribute is missing: ") +
-                       Attributes::kQuotaName));
+void QuotaCache::CheckCache(const Attributes& request, bool use_cache,
+                            CheckResult::Quota* quota) {
+  if (!cache_ || !use_cache) {
+    quota->best_effort = false;
+    quota->result = CheckResult::Quota::Pending;
+    quota->response_func =
+        [](const CheckResponse::QuotaResult* result) -> bool {
+      // nullptr means connection error, for quota, it is fail open for
+      // connection error.
+      return result == nullptr || result->granted_amount() > 0;
+    };
     return;
   }
 
-  if (!cache_) {
-    QuotaRequest pb_request;
-    Convert(request, false, &pb_request);
-    auto response = new QuotaResponse;
-    transport_(pb_request, response, [response, on_done](const Status& status) {
-      delete response;
-      // If code is UNAVAILABLE, it is network error.
-      // fail open for network error.
-      if (status.error_code() == Code::UNAVAILABLE) {
-        on_done(Status::OK);
-      } else {
-        on_done(status);
-      }
-    });
-    return;
-  }
-
-  std::string signature = GenerateSignature(request, *cache_keys_);
+  // TODO: add quota name into signature calculation.
+  // For now, the cache key is the quota name.
+  //  std::string signature = GenerateSignature(request, *cache_keys_);
+  std::string signature = quota->name;
 
   std::lock_guard<std::mutex> lock(cache_mutex_);
   QuotaLRUCache::ScopedLookup lookup(cache_.get(), signature);
-
   CacheElem* cache_elem;
   if (!lookup.Found()) {
-    QuotaRequest pb_request;
-    Convert(request, true, &pb_request);
-    cache_elem = new CacheElem(pb_request, transport_);
+    cache_elem = new CacheElem(quota->name);
     cache_->Insert(signature, cache_elem, 1);
   } else {
     cache_elem = lookup.value();
   }
 
-  if (cache_elem->Quota(request)) {
-    on_done(Status::OK);
+  if (cache_elem->Quota(quota->amount, quota)) {
+    quota->result = CheckResult::Quota::Passed;
   } else {
-    on_done(Status(
-        Code::RESOURCE_EXHAUSTED,
-        std::string("Quota is exhausted for: ") + cache_elem->quota_name()));
+    // TODO: for multiple quota metrics in a request,
+    // if a metric is rejected, other metrics should not use any tokens.
+    // One way is for prefetch to implement TryQuota, we call TryQuota
+    // for all metrics first, only all passed, then deduce the tokens.
+    quota->result = CheckResult::Quota::Rejected;
   }
 }
 
-void QuotaCache::Convert(const Attributes& attributes, bool best_effort,
-                         QuotaRequest* request) {
-  Attributes filtered_attributes;
-  bool amount_set = false;
-  for (const auto& it : attributes.attributes) {
-    if (it.first == Attributes::kQuotaName &&
-        it.second.type == Attributes::Value::STRING) {
-      request->set_quota(it.second.str_v);
-    } else if (it.first == Attributes::kQuotaAmount &&
-               it.second.type == Attributes::Value::INT64) {
-      request->set_amount(it.second.value.int64_v);
-      amount_set = true;
-    } else {
-      filtered_attributes.attributes[it.first] = it.second;
+void QuotaCache::Check(const Attributes& request, bool use_cache,
+                       CheckResult* result) {
+  // Now, there is only one quota metric for a request.
+  // But it should be very easy to support multiple quota metrics.
+  static const std::vector<std::pair<std::string, std::string>>
+      kQuotaAttributes{{Attributes::kQuotaName, Attributes::kQuotaAmount}};
+  for (const auto& pair : kQuotaAttributes) {
+    const std::string& name_attr = pair.first;
+    const std::string& amount_attr = pair.second;
+    const auto& name_it = request.attributes.find(name_attr);
+    if (name_it == request.attributes.end() ||
+        name_it->second.type != Attributes::Value::STRING) {
+      continue;
     }
+    CheckResult::Quota quota;
+    quota.name = name_it->second.str_v;
+    quota.amount = 1;
+    const auto& amount_it = request.attributes.find(amount_attr);
+    if (amount_it != request.attributes.end() &&
+        amount_it->second.type == Attributes::Value::INT64) {
+      quota.amount = amount_it->second.value.int64_v;
+    }
+    CheckCache(request, use_cache, &quota);
+    result->quotas_.push_back(quota);
   }
-  if (!amount_set) {
-    // If amount is not set, default to 1.
-    request->set_amount(1);
-  }
-  request->set_deduplication_id(std::to_string(deduplication_id_++));
-  request->set_best_effort(best_effort);
-  converter_.Convert(filtered_attributes, request->mutable_attributes());
-  request->set_global_word_count(converter_.global_word_count());
 }
 
 // TODO: hookup with a timer object to call Flush() periodically.
+// Be careful; some transport callback functions may be still using
+// expired items, need to add ref_count into these callback functions.
 Status QuotaCache::Flush() {
   if (cache_) {
     std::lock_guard<std::mutex> lock(cache_mutex_);
@@ -170,8 +221,6 @@ Status QuotaCache::Flush() {
 
   return Status::OK;
 }
-
-void QuotaCache::OnCacheEntryDelete(CacheElem* elem) { delete elem; }
 
 // Flush out aggregated check requests, clear all cache items.
 // Usually called at destructor.

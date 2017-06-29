@@ -27,20 +27,22 @@ namespace mixer_client {
 
 void CheckCache::CacheElem::CacheElem::SetResponse(
     const CheckResponse& response, Tick time_now) {
-  status_ = ConvertRpcStatus(response.status());
-  if (response.has_cachability()) {
-    if (response.cachability().has_duration()) {
+  if (response.has_precondition()) {
+    status_ = ConvertRpcStatus(response.precondition().status());
+
+    if (response.precondition().has_valid_duration()) {
       expire_time_ =
-          time_now + ToMilliseonds(response.cachability().duration());
+          time_now + ToMilliseonds(response.precondition().valid_duration());
     } else {
       // never expired.
       expire_time_ = time_point<system_clock>::max();
     }
-    use_count_ = response.cachability().use_count();
+    use_count_ = response.precondition().valid_use_count();
   } else {
-    // if no cachability specified, use it forever.
-    use_count_ = -1;  // -1 for not checking use_count
-    expire_time_ = time_point<system_clock>::max();
+    status_ = Status(Code::INVALID_ARGUMENT,
+                     "CheckResponse doesn't have PreconditionResult");
+    use_count_ = 0;           // 0 for not used this cache.
+    expire_time_ = time_now;  // expired now.
   }
 }
 
@@ -55,6 +57,12 @@ bool CheckCache::CacheElem::CacheElem::IsExpired(Tick time_now) {
   return false;
 }
 
+CheckCache::CheckResult::CheckResult() : status_(Code::UNAVAILABLE, "") {}
+
+bool CheckCache::CheckResult::IsCacheHit() const {
+  return status_.error_code() != Code::UNAVAILABLE;
+}
+
 CheckCache::CheckCache(const CheckOptions& options) : options_(options) {
   if (options.num_entries > 0 && !options_.cache_keys.empty()) {
     cache_.reset(new CheckLRUCache(options.num_entries));
@@ -65,6 +73,27 @@ CheckCache::CheckCache(const CheckOptions& options) : options_(options) {
 CheckCache::~CheckCache() {
   // FlushAll() will remove all cache items.
   FlushAll();
+}
+
+void CheckCache::Check(const Attributes& attributes, CheckResult* result) {
+  std::string signature;
+  Status status = Check(attributes, system_clock::now(), &signature);
+  if (status.error_code() != Code::NOT_FOUND) {
+    result->status_ = status;
+  }
+
+  result->on_response_ = [this, signature](
+      const Status& status, const CheckResponse& response) -> Status {
+    if (!status.ok()) {
+      if (options_.network_fail_open) {
+        return Status::OK;
+      } else {
+        return status;
+      }
+    } else {
+      return CacheResponse(signature, response, system_clock::now());
+    }
+  };
 }
 
 Status CheckCache::Check(const Attributes& attributes, Tick time_now,
@@ -99,7 +128,12 @@ Status CheckCache::Check(const Attributes& attributes, Tick time_now,
 Status CheckCache::CacheResponse(const std::string& signature,
                                  const CheckResponse& response, Tick time_now) {
   if (!cache_) {
-    return ConvertRpcStatus(response.status());
+    if (response.has_precondition()) {
+      return ConvertRpcStatus(response.precondition().status());
+    } else {
+      return Status(Code::INVALID_ARGUMENT,
+                    "CheckResponse doesn't have PreconditionResult");
+    }
   }
 
   std::lock_guard<std::mutex> lock(cache_mutex_);

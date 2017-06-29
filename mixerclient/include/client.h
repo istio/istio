@@ -40,11 +40,6 @@ using TransportReportFunc = std::function<void(
     const ::istio::mixer::v1::ReportRequest& request,
     ::istio::mixer::v1::ReportResponse* response, DoneFunc on_done)>;
 
-// Defines a function prototype to make an asynchronous Quota call
-using TransportQuotaFunc = std::function<void(
-    const ::istio::mixer::v1::QuotaRequest& request,
-    ::istio::mixer::v1::QuotaResponse* response, DoneFunc on_done)>;
-
 // Defines the options to create an instance of MixerClient interface.
 struct MixerClientOptions {
   // Default constructor with default values.
@@ -68,7 +63,6 @@ struct MixerClientOptions {
   // Transport functions.
   TransportCheckFunc check_transport;
   TransportReportFunc report_transport;
-  TransportQuotaFunc quota_transport;
 
   // Timer create function.
   // Usually there are some restrictions on timer_create_func.
@@ -95,9 +89,6 @@ class MixerClient {
 
   // A report call.
   virtual void Report(const Attributes& attributes) = 0;
-
-  // A quota call.
-  virtual void Quota(const Attributes& attributes, DoneFunc on_done) = 0;
 };
 
 // Creates a MixerClient object.

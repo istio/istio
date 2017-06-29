@@ -38,11 +38,48 @@ namespace mixer_client {
 // This interface is thread safe.
 class CheckCache {
  public:
-  using Tick = std::chrono::time_point<std::chrono::system_clock>;
-
   CheckCache(const CheckOptions& options);
 
   virtual ~CheckCache();
+
+  // A check cache result for a request. Its usage
+  //   cache->Check(attributes, result);
+  //   if (result->IsCacheHit()) return result->Status();
+  // Make remote call and on receiving response.
+  //   result->SetReponse(status, response);
+  //   return result->Status();
+  class CheckResult {
+   public:
+    CheckResult();
+
+    bool IsCacheHit() const;
+
+    ::google::protobuf::util::Status status() const { return status_; }
+
+    void SetResponse(const ::google::protobuf::util::Status& status,
+                     const ::istio::mixer::v1::CheckResponse& response) {
+      if (on_response_) {
+        status_ = on_response_(status, response);
+      }
+    }
+
+   private:
+    friend class CheckCache;
+    // Check status.
+    ::google::protobuf::util::Status status_;
+
+    // The function to set check response.
+    using OnResponseFunc = std::function<::google::protobuf::util::Status(
+        const ::google::protobuf::util::Status&,
+        const ::istio::mixer::v1::CheckResponse&)>;
+    OnResponseFunc on_response_;
+  };
+
+  void Check(const Attributes& attributes, CheckResult* result);
+
+ private:
+  friend class CheckCacheTest;
+  using Tick = std::chrono::time_point<std::chrono::system_clock>;
 
   // If the check could not be handled by the cache, returns NOT_FOUND,
   // caller has to send the request to mixer.
@@ -57,9 +94,8 @@ class CheckCache {
 
   // Flushes out all cached check responses; clears all cache items.
   // Usually called at destructor.
-  virtual ::google::protobuf::util::Status FlushAll();
+  ::google::protobuf::util::Status FlushAll();
 
- private:
   class CacheElem {
    public:
     CacheElem(const ::istio::mixer::v1::CheckResponse& response, Tick time) {

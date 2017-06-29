@@ -19,8 +19,8 @@
 #include "gtest/gtest.h"
 #include "utils/status_test_util.h"
 
-using ::istio::mixer::v1::QuotaRequest;
-using ::istio::mixer::v1::QuotaResponse;
+using ::istio::mixer::v1::CheckRequest;
+using ::istio::mixer::v1::CheckResponse;
 using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;
 using ::testing::Invoke;
@@ -32,25 +32,11 @@ namespace {
 
 const std::string kQuotaName = "RequestCount";
 
-// A mocking class to mock CheckTransport interface.
-class MockQuotaTransport {
- public:
-  MOCK_METHOD3(Quota, void(const QuotaRequest&, QuotaResponse*, DoneFunc));
-  TransportQuotaFunc GetFunc() {
-    return
-        [this](const QuotaRequest& request, QuotaResponse* response,
-               DoneFunc on_done) { this->Quota(request, response, on_done); };
-  }
-};
-
 class QuotaCacheTest : public ::testing::Test {
  public:
-  QuotaCacheTest() : converter_({}) {}
-
   void SetUp() {
     QuotaOptions options;
-    cache_ = std::unique_ptr<QuotaCache>(
-        new QuotaCache(options, mock_transport_.GetFunc(), converter_));
+    cache_ = std::unique_ptr<QuotaCache>(new QuotaCache(options));
     ASSERT_TRUE((bool)(cache_));
 
     request_.attributes[Attributes::kQuotaName] =
@@ -58,110 +44,118 @@ class QuotaCacheTest : public ::testing::Test {
   }
 
   Attributes request_;
-  MockQuotaTransport mock_transport_;
-  AttributeConverter converter_;
   std::unique_ptr<QuotaCache> cache_;
 };
 
 TEST_F(QuotaCacheTest, TestEmptyRequest) {
+  // Quota is not required.
   Attributes empty_request;
-  cache_->Quota(empty_request, [](const Status& status) {
-    EXPECT_ERROR_CODE(Code::INVALID_ARGUMENT, status);
-  });
+  QuotaCache::CheckResult result;
+  cache_->Check(empty_request, true, &result);
+
+  CheckRequest request;
+  EXPECT_FALSE(result.BuildRequest(&request));
+  EXPECT_TRUE(result.IsCacheHit());
+  EXPECT_OK(result.status());
+  EXPECT_EQ(request.quotas().size(), 0);
 }
 
 TEST_F(QuotaCacheTest, TestDisabledCache) {
   // A disabled cache
   QuotaOptions options(0, 1000);
-  cache_ = std::unique_ptr<QuotaCache>(
-      new QuotaCache(options, mock_transport_.GetFunc(), converter_));
+  cache_ = std::unique_ptr<QuotaCache>(new QuotaCache(options));
   ASSERT_TRUE((bool)(cache_));
 
-  // Not use prefetch, calling transport directly.
-  EXPECT_CALL(mock_transport_, Quota(_, _, _))
-      .WillOnce(Invoke([this](const QuotaRequest& request,
-                              QuotaResponse* response, DoneFunc on_done) {
-        EXPECT_EQ(request.quota(), kQuotaName);
-        EXPECT_EQ(request.amount(), 1);
-        on_done(Status(Code::INTERNAL, ""));
-      }));
+  QuotaCache::CheckResult result;
+  cache_->Check(request_, true, &result);
 
-  cache_->Quota(request_, [](const Status& status) {
-    EXPECT_ERROR_CODE(Code::INTERNAL, status);
-  });
+  CheckRequest request;
+  EXPECT_TRUE(result.BuildRequest(&request));
+  EXPECT_FALSE(result.IsCacheHit());
+
+  EXPECT_EQ(request.quotas().size(), 1);
+  EXPECT_EQ(request.quotas().begin()->first, kQuotaName);
+  EXPECT_EQ(request.quotas().begin()->second.amount(), 1);
+  EXPECT_EQ(request.quotas().begin()->second.best_effort(), false);
+
+  CheckResponse response;
+  CheckResponse::QuotaResult quota_result;
+  quota_result.set_granted_amount(1);
+  (*response.mutable_quotas())[kQuotaName] = quota_result;
+  result.SetResponse(Status::OK, response);
+  EXPECT_OK(result.status());
 }
 
-TEST_F(QuotaCacheTest, TestCacheKeyWithDifferentNames) {
-  // Use prefetch.
-  // Expect Send to be called twice, different names should use
-  // different cache items.
-  std::vector<DoneFunc> on_done_vect;
-  EXPECT_CALL(mock_transport_, Quota(_, _, _))
-      .WillOnce(Invoke([&](const QuotaRequest& request, QuotaResponse* response,
-                           DoneFunc on_done) {
-        EXPECT_EQ(request.quota(), "Name1");
-        // prefetch amount should be > 1
-        EXPECT_GT(request.amount(), 1);
-        on_done_vect.push_back(on_done);
-      }))
-      .WillOnce(Invoke([&](const QuotaRequest& request, QuotaResponse* response,
-                           DoneFunc on_done) {
-        EXPECT_EQ(request.quota(), "Name2");
-        // prefetch amount should be > 1
-        EXPECT_GT(request.amount(), 1);
-        on_done_vect.push_back(on_done);
-      }));
+TEST_F(QuotaCacheTest, TestNotUseCache) {
+  QuotaCache::CheckResult result;
+  cache_->Check(request_, false, &result);
 
-  request_.attributes[Attributes::kQuotaName] =
-      Attributes::StringValue("Name1");
-  cache_->Quota(request_, [](const Status& status) {
-    // Prefetch request is sucesss
-    EXPECT_OK(status);
-  });
+  CheckRequest request;
+  EXPECT_TRUE(result.BuildRequest(&request));
+  EXPECT_FALSE(result.IsCacheHit());
 
-  request_.attributes[Attributes::kQuotaName] =
-      Attributes::StringValue("Name2");
-  cache_->Quota(request_, [](const Status& status) {
-    // Prefetch request is sucesss
-    EXPECT_OK(status);
-  });
+  EXPECT_EQ(request.quotas().size(), 1);
+  EXPECT_EQ(request.quotas().begin()->first, kQuotaName);
+  EXPECT_EQ(request.quotas().begin()->second.amount(), 1);
+  EXPECT_EQ(request.quotas().begin()->second.best_effort(), false);
 
-  // Call all on_done to clean up the memory.
-  for (const auto& on_done : on_done_vect) {
-    on_done(Status::OK);
-  }
+  CheckResponse response;
+  CheckResponse::QuotaResult quota_result;
+  // granted_amount = 0
+  quota_result.set_granted_amount(0);
+  (*response.mutable_quotas())[kQuotaName] = quota_result;
+  result.SetResponse(Status::OK, response);
+  EXPECT_ERROR_CODE(Code::RESOURCE_EXHAUSTED, result.status());
 }
 
-TEST_F(QuotaCacheTest, TestCacheKeyWithDifferentAmounts) {
-  // Use prefetch.
-  // Expect Send to be called once, same name different amounts should
-  // share same cache.
-  std::vector<DoneFunc> on_done_vect;
-  EXPECT_CALL(mock_transport_, Quota(_, _, _))
-      .WillOnce(Invoke([&](const QuotaRequest& request, QuotaResponse* response,
-                           DoneFunc on_done) {
-        EXPECT_EQ(request.quota(), kQuotaName);
-        // prefetch amount should be > 1
-        EXPECT_GT(request.amount(), 1);
-        on_done_vect.push_back(on_done);
-      }));
+TEST_F(QuotaCacheTest, TestUseCache) {
+  QuotaCache::CheckResult result;
+  cache_->Check(request_, true, &result);
 
-  request_.attributes[Attributes::kQuotaAmount] = Attributes::Int64Value(1);
-  cache_->Quota(request_, [](const Status& status) {
-    // Prefetch request is sucesss
-    EXPECT_OK(status);
-  });
+  CheckRequest request;
+  EXPECT_TRUE(result.BuildRequest(&request));
 
-  request_.attributes[Attributes::kQuotaAmount] = Attributes::Int64Value(2);
-  cache_->Quota(request_, [](const Status& status) {
-    // Prefetch request is sucesss
-    EXPECT_OK(status);
-  });
+  // Prefetch always allow the first call.
+  EXPECT_TRUE(result.IsCacheHit());
+  EXPECT_OK(result.status());
 
-  // Call all on_done to clean up the memory.
-  for (const auto& on_done : on_done_vect) {
-    on_done(Status::OK);
+  // Then try to prefetch some.
+  EXPECT_EQ(request.quotas().size(), 1);
+  EXPECT_EQ(request.quotas().begin()->first, kQuotaName);
+  // Prefetch amount should be > 1
+  EXPECT_GT(request.quotas().begin()->second.amount(), 1);
+  EXPECT_EQ(request.quotas().begin()->second.best_effort(), true);
+
+  CheckResponse response;
+  result.SetResponse(Status::OK, response);
+  EXPECT_OK(result.status());
+}
+
+TEST_F(QuotaCacheTest, TestUseCacheRejected) {
+  CheckResponse response;
+  CheckResponse::QuotaResult quota_result;
+  // Not more quota.
+  quota_result.set_granted_amount(0);
+  (*response.mutable_quotas())[kQuotaName] = quota_result;
+
+  int rejected = 0;
+  for (int i = 0; i < 10; i++) {
+    QuotaCache::CheckResult result;
+    cache_->Check(request_, true, &result);
+
+    CheckRequest request;
+    result.BuildRequest(&request);
+
+    // Prefetch always allow the first call.
+    EXPECT_TRUE(result.IsCacheHit());
+    if (!result.status().ok()) {
+      ++rejected;
+    }
+
+    result.SetResponse(Status::OK, response);
   }
+  // Only the first one allowed, the rest should be rejected.
+  EXPECT_EQ(rejected, 9);
 }
 
 }  // namespace

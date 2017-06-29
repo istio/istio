@@ -35,13 +35,67 @@ namespace mixer_client {
 // This interface is thread safe.
 class QuotaCache {
  public:
-  QuotaCache(const QuotaOptions& options, TransportQuotaFunc transport,
-             const AttributeConverter& converter);
+  QuotaCache(const QuotaOptions& options);
 
   virtual ~QuotaCache();
 
-  // Make cached Quota call.
-  void Quota(const Attributes& request, DoneFunc on_done);
+  // A class to batch multiple quota requests.
+  // Its usage:
+  //     cache->Quota(attributes, &result);
+  //     send = result->BuildRequest(&request);
+  //     if (cache->IsCacheHit()) return result->Result();
+  // If send is true, make a remote call, on response.
+  //     result->SetResponse(status, response);
+  //     return result->Result();
+  class CheckResult {
+   public:
+    CheckResult();
+
+    // Build CheckRequest::quotas fields, return true if remote quota call
+    // is required.
+    bool BuildRequest(::istio::mixer::v1::CheckRequest* request);
+
+    bool IsCacheHit() const;
+
+    ::google::protobuf::util::Status status() const { return status_; }
+
+    void SetResponse(const ::google::protobuf::util::Status& status,
+                     const ::istio::mixer::v1::CheckResponse& response);
+
+   private:
+    friend class QuotaCache;
+    // Hold pending quota data needed to talk to server.
+    struct Quota {
+      std::string name;
+      uint64_t amount;
+      bool best_effort;
+
+      enum Result {
+        Pending = 0,
+        Passed,
+        Rejected,
+      };
+      Result result;
+
+      // The function to set the quota response from server.
+      using OnResponseFunc = std::function<bool(
+          const ::istio::mixer::v1::CheckResponse::QuotaResult* result)>;
+      OnResponseFunc response_func;
+    };
+
+    ::google::protobuf::util::Status status_;
+
+    // The list of pending quota needed to talk to server.
+    std::vector<Quota> quotas_;
+  };
+
+  // Check quota cache for a request, result will be stored in CacaheResult.
+  void Check(const Attributes& request, bool use_cache, CheckResult* result);
+
+ private:
+  // Check quota cache.
+  void CheckCache(const Attributes& request, bool use_cache,
+                  CheckResult::Quota* quota);
 
   // Invalidates expired check responses.
   // Called at time specified by GetNextFlushInterval().
@@ -51,54 +105,36 @@ class QuotaCache {
   // Usually called at destructor.
   ::google::protobuf::util::Status FlushAll();
 
- private:
   // The cache element for each quota metric.
   class CacheElem {
    public:
-    CacheElem(const ::istio::mixer::v1::QuotaRequest& request,
-              TransportQuotaFunc transport);
+    CacheElem(const std::string& name);
 
     // Use the prefetch object to check the quota.
-    bool Quota(const Attributes& request);
+    bool Quota(int amount, CheckResult::Quota* quota);
 
     // The quota name.
-    const std::string& quota_name() const { return request_.quota(); }
+    const std::string& quota_name() const { return name_; }
 
    private:
     // The quota allocation call.
     void Alloc(int amount, QuotaPrefetch::DoneFunc fn);
 
-    // The original quota request.
-    ::istio::mixer::v1::QuotaRequest request_;
-    // The quota transport.
-    TransportQuotaFunc transport_;
+    std::string name_;
+
+    // A temporary pending quota result.
+    CheckResult::Quota* quota_;
+
     // The prefetch object.
     std::unique_ptr<QuotaPrefetch> prefetch_;
   };
 
-  using CacheDeleter = std::function<void(CacheElem*)>;
   // Key is the signature of the Attributes. Value is the CacheElem.
   // It is a LRU cache with MaxIdelTime as response_expiration_time.
-  using QuotaLRUCache =
-      SimpleLRUCacheWithDeleter<std::string, CacheElem, CacheDeleter>;
-
-  // Convert attributes to protobuf.
-  void Convert(const Attributes& attributes, bool best_effort,
-               ::istio::mixer::v1::QuotaRequest* request);
-
-  // Flushes the internal operation in the elem and delete the elem. The
-  // response from the server is NOT cached.
-  // Takes ownership of the elem.
-  void OnCacheEntryDelete(CacheElem* elem);
+  using QuotaLRUCache = SimpleLRUCache<std::string, CacheElem>;
 
   // The quota options.
   QuotaOptions options_;
-
-  // The quota transport
-  TransportQuotaFunc transport_;
-
-  // Attribute converter.
-  const AttributeConverter& converter_;
 
   // The cache keys.
   std::unique_ptr<CacheKeySet> cache_keys_;
@@ -108,9 +144,6 @@ class QuotaCache {
 
   // The cache that maps from key to prefetch object
   std::unique_ptr<QuotaLRUCache> cache_;
-
-  // For quota deduplication
-  int64_t deduplication_id_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(QuotaCache);
 };

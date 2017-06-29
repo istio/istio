@@ -19,10 +19,6 @@
 
 using ::istio::mixer::v1::CheckRequest;
 using ::istio::mixer::v1::CheckResponse;
-using ::istio::mixer::v1::ReportRequest;
-using ::istio::mixer::v1::ReportResponse;
-using ::istio::mixer::v1::QuotaRequest;
-using ::istio::mixer::v1::QuotaResponse;
 using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;
 using ::testing::Invoke;
@@ -60,7 +56,10 @@ class MixerClientImplTest : public ::testing::Test {
 TEST_F(MixerClientImplTest, TestSuccessCheck) {
   EXPECT_CALL(mock_check_transport_, Check(_, _, _))
       .WillOnce(Invoke([](const CheckRequest& request, CheckResponse* response,
-                          DoneFunc on_done) { on_done(Status::OK); }));
+                          DoneFunc on_done) {
+        response->mutable_precondition()->set_valid_use_count(1000);
+        on_done(Status::OK);
+      }));
 
   Attributes attributes;
   Status done_status = Status::UNKNOWN;

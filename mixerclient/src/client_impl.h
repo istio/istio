@@ -35,7 +35,6 @@ class MixerClientImpl : public MixerClient {
 
   virtual void Check(const Attributes& attributes, DoneFunc on_done);
   virtual void Report(const Attributes& attributes);
-  virtual void Quota(const Attributes& attributes, DoneFunc on_done);
 
  private:
   // Store the options
@@ -50,6 +49,9 @@ class MixerClientImpl : public MixerClient {
   std::unique_ptr<ReportBatch> report_batch_;
   // Cache for Quota call.
   std::unique_ptr<QuotaCache> quota_cache_;
+
+  // For quota deduplication
+  int64_t deduplication_id_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MixerClientImpl);
 };
