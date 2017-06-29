@@ -156,7 +156,7 @@ func generteFDSFileHacky(protoFile string, outputFDSFile string) error {
 	protocCmd := []string{
 		path.Join("mixer/tools/codegen/pkg/modelgen", protoFile),
 		"-o",
-		fmt.Sprintf("%s", path.Join("mixer/tools/codegen/pkg/modelgen", outputFDSFile)),
+		path.Join("mixer/tools/codegen/pkg/modelgen", outputFDSFile),
 		"-I=.",
 		"-I=api",
 		"--include_imports",

@@ -57,5 +57,4 @@ func (d *Dynamic) Merge(static *Static) {
 	for node := range static.Nodes {
 		d.Nodes[node] = struct{}{}
 	}
-	return
 }

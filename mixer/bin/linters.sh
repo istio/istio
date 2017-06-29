@@ -70,16 +70,14 @@ go_metalinter() {
         --enable=goimports\
         --enable=golint --min-confidence=0 --exclude=.pb.go --exclude=pkg/config/proto/combined.go --exclude="should have a package comment"\
         --exclude=".*pkg/config/apiserver_test.go:.* method WriteHeaderAndJson should be WriteHeaderAndJSON"\
-        --enable=gosimple\
         --enable=ineffassign\
         --enable=interfacer\
         --enable=lll --line-length=160\
+        --enable=megacheck\
         --enable=misspell\
-        --enable=staticcheck\
         --enable=structcheck\
         --enable=unconvert\
         --enable=unparam\
-        --enable=unused\
         --enable=varcheck\
         --enable=vet\
         --enable=vetshadow\
