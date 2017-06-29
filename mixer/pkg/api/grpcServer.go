@@ -15,7 +15,6 @@
 package api
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -48,16 +47,6 @@ type (
 		words   []string
 		wordMap map[string]int32
 	}
-
-	// dispatchState holds the information used for dispatch and
-	// request handling.
-	dispatchState struct {
-		inAttrs, outAttrs *mixerpb.Attributes
-		result            *rpc.Status
-		requestBag        *attribute.MutableBag // optional
-	}
-
-	dispatchFn func(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status
 )
 
 // NewGRPCServer creates a gRPC serving stack.
@@ -76,25 +65,125 @@ func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, gp *pool.Go
 	}
 }
 
-// dispatch implements all the nitty-gritty details of handling Mixer's low-level API
-// protocol and dispatching to an appropriate API worker.
-func (s *grpcServer) dispatch(ctx context.Context, dState *dispatchState, worker dispatchFn) error {
-	requestBag := dState.requestBag
-	err := requestBag.UpdateBagFromProto(dState.inAttrs, s.words)
+// Check is the entry point for the external Check method
+func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
+	requestBag := attribute.GetMutableBag(nil)
+
+	// TODO: this code doesn't distinguish between RPC failures when communicating with adapters and
+	//       their backend vs. semantic failures. For example, if the adapterDispatcher.Check
+	//       method returns a bad status, is that because an adapter failed an RPC or because the
+	//       request was denied? This will need to be addressed in the new adapter model. In the meantime,
+	//       RPC failure is treated as a semantic denial.
+
+	err := requestBag.UpdateBagFromProto(&req.Attributes, s.words)
 	if err != nil {
-		msg := "Request could not be processed due to invalid 'attributes'."
+		msg := "Request could not be processed due to invalid attributes."
 		glog.Error(msg, "\n", err)
 		details := status.NewBadRequest("attributes", err)
-		out := status.InvalidWithDetails(msg, details)
-		return makeGRPCError(out)
+		requestBag.Done()
+		return nil, makeGRPCError(status.InvalidWithDetails(msg, details))
 	}
 
-	// the preproc atttributes will be in a child bag
+	glog.Info("Dispatching Preprocess")
+	preprocResponseBag := attribute.GetMutableBag(requestBag)
+	out := s.aspectDispatcher.Preprocess(legacyCtx, requestBag, preprocResponseBag)
+	glog.Info("Preprocess returned with: ", statusString(out))
+
+	if !status.IsOK(out) {
+		requestBag.Done()
+		preprocResponseBag.Done()
+		return nil, makeGRPCError(out)
+	}
+
+	if glog.V(2) {
+		glog.Info("Dispatching to main adapters after running processors")
+		for _, name := range preprocResponseBag.Names() {
+			v, _ := preprocResponseBag.Get(name)
+			glog.Infof("  %s: %v", name, v)
+		}
+	}
+
+	responseBag := attribute.GetMutableBag(nil)
+
+	glog.Info("Dispatching Check")
+	out = s.aspectDispatcher.Check(legacyCtx, preprocResponseBag, responseBag)
+	glog.Info("Check returned with: ", statusString(out))
+
+	resp := &mixerpb.CheckResponse{}
+	// TODO: these values need to initially come from config, and be modulated by the kind of attribute
+	//       that was used in the check and the in-used aspects (for example, maybe an auth check has a
+	//       30s TTL but a whitelist check has got a 120s TTL)
+	resp.Precondition.ValidDuration = 5 * time.Second
+	resp.Precondition.ValidUseCount = 10000
+	resp.Precondition.Status = out
+	responseBag.ToProto(&resp.Precondition.Attributes, s.wordMap)
+	responseBag.Done()
+
+	if len(req.Quotas) > 0 {
+		resp.Quotas = make(map[string]mixerpb.CheckResponse_QuotaResult, len(req.Quotas))
+
+		// TODO: should dispatch this loop in parallel
+		for name, param := range req.Quotas {
+			qma := &aspect.QuotaMethodArgs{
+				Quota:           name,
+				Amount:          param.Amount,
+				DeduplicationID: req.DeduplicationId + name,
+				BestEffort:      param.BestEffort,
+			}
+
+			glog.Info("Dispatching Quota")
+			qmr, out := s.aspectDispatcher.Quota(legacyCtx, preprocResponseBag, qma)
+			glog.Infof("Quota returned with status '%v' and quota response '%v'", statusString(out), qmr)
+
+			if qmr == nil {
+				qmr = &aspect.QuotaMethodResp{}
+			}
+
+			qr := mixerpb.CheckResponse_QuotaResult{
+				GrantedAmount: qmr.Amount,
+				ValidDuration: qmr.Expiration,
+			}
+			resp.Quotas[name] = qr
+		}
+	}
+
+	requestBag.Done()
+	preprocResponseBag.Done()
+
+	return resp, nil
+}
+
+var reportResp = &mixerpb.ReportResponse{}
+
+// Report is the entry point for the external Report method
+func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.ReportRequest) (*mixerpb.ReportResponse, error) {
+	requestBag := attribute.GetMutableBag(nil)
 	preprocResponseBag := attribute.GetMutableBag(requestBag)
 
-	out := s.aspectDispatcher.Preprocess(ctx, requestBag, preprocResponseBag)
-	if status.IsOK(out) {
-		responseBag := attribute.GetMutableBag(nil)
+	var err error
+	for i := 0; i < len(req.Attributes); i++ {
+		if len(req.Attributes[i].Words) == 0 {
+			// if the entry doesn't have any words of its own, use the request's words
+			req.Attributes[i].Words = req.DefaultWords
+		}
+
+		err = requestBag.UpdateBagFromProto(&req.Attributes[i], s.words)
+		if err != nil {
+			msg := "Request could not be processed due to invalid attributes."
+			glog.Error(msg, "\n", err)
+			details := status.NewBadRequest("attributes", err)
+			err = makeGRPCError(status.InvalidWithDetails(msg, details))
+			break
+		}
+
+		glog.Info("Dispatching Preprocess")
+		out := s.aspectDispatcher.Preprocess(legacyCtx, requestBag, preprocResponseBag)
+		glog.Info("Preprocess returned with: ", statusString(out))
+
+		if !status.IsOK(out) {
+			err = makeGRPCError(out)
+			break
+		}
 
 		if glog.V(2) {
 			glog.Info("Dispatching to main adapters after running processors")
@@ -104,124 +193,30 @@ func (s *grpcServer) dispatch(ctx context.Context, dState *dispatchState, worker
 			}
 		}
 
-		// do the actual work for the message
-		out = worker(ctx, preprocResponseBag, responseBag)
+		glog.Info("Dispatching Report")
+		out = s.aspectDispatcher.Report(legacyCtx, preprocResponseBag)
+		glog.Info("Report returned with: ", statusString(out))
 
-		if dState.result != nil {
-			*dState.result = out
-			out = status.OK
+		if !status.IsOK(out) {
+			err = makeGRPCError(out)
+			break
 		}
 
-		if dState.outAttrs != nil {
-			responseBag.ToProto(dState.outAttrs, s.wordMap)
-		}
-		responseBag.Done()
+		preprocResponseBag.Reset()
 	}
 
 	preprocResponseBag.Done()
-	return makeGRPCError(out)
+	requestBag.Done()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return reportResp, nil
 }
 
 func makeGRPCError(status rpc.Status) error {
 	return grpc.Errorf(codes.Code(status.Code), status.Message)
-}
-
-// Check is the entry point for the external Check method
-func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
-	resp := &mixerpb.CheckResponse{}
-
-	dState := dispatchState{
-		inAttrs:    &req.Attributes,
-		outAttrs:   &resp.Attributes,
-		result:     &resp.Status,
-		requestBag: attribute.GetMutableBag(nil),
-	}
-
-	err := s.dispatch(legacyCtx, &dState, func(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
-		glog.Info("Dispatching Check")
-		out := s.aspectDispatcher.Check(ctx, requestBag, responseBag)
-		glog.Info("Check returned with: ", statusString(out))
-
-		// TODO: these values need to initially come from config, and be modulated by the kind of attribute
-		//       that was used in the check and the in-used aspects (for example, maybe an auth check has a
-		//       30s TTL but a whitelist check has got a 120s TTL)
-		resp.Cachability.Duration = 5 * time.Second
-		resp.Cachability.UseCount = 10000
-
-		return out
-	})
-
-	dState.requestBag.Done()
-	return resp, err
-}
-
-// Report is the entry point for the external Report method
-func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.ReportRequest) (*mixerpb.ReportResponse, error) {
-	resp := &mixerpb.ReportResponse{}
-
-	requestBag := attribute.GetMutableBag(nil)
-	for i := 0; i < len(req.Attributes); i++ {
-		if len(req.Attributes[i].Words) == 0 {
-			req.Attributes[i].Words = req.DefaultWords
-		}
-
-		dState := dispatchState{
-			inAttrs:    &req.Attributes[i],
-			outAttrs:   nil,
-			result:     nil,
-			requestBag: requestBag,
-		}
-
-		err := s.dispatch(legacyCtx, &dState, func(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
-			glog.Info("Dispatching Report")
-			out := s.aspectDispatcher.Report(ctx, requestBag, responseBag)
-			glog.Info("Report returned with: ", statusString(out))
-			return out
-		})
-
-		if err != nil {
-			requestBag.Done()
-			return resp, err
-		}
-	}
-
-	requestBag.Done()
-	return resp, nil
-}
-
-// Quota is the entry point for the external Quota method
-func (s *grpcServer) Quota(legacyCtx legacyContext.Context, req *mixerpb.QuotaRequest) (*mixerpb.QuotaResponse, error) {
-	resp := &mixerpb.QuotaResponse{}
-
-	dState := dispatchState{
-		inAttrs:    &req.Attributes,
-		outAttrs:   nil,
-		result:     nil,
-		requestBag: attribute.GetMutableBag(nil),
-	}
-
-	err := s.dispatch(legacyCtx, &dState, func(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
-		qma := &aspect.QuotaMethodArgs{
-			Quota:           req.Quota,
-			Amount:          req.Amount,
-			DeduplicationID: req.DeduplicationId,
-			BestEffort:      req.BestEffort,
-		}
-
-		glog.Info("Dispatching Quota")
-		qmr, out := s.aspectDispatcher.Quota(ctx, requestBag, responseBag, qma)
-		glog.Infof("Quota returned with status '%v' and quota response '%v'", statusString(out), qmr)
-
-		if qmr != nil {
-			resp.Amount = qmr.Amount
-			resp.Expiration = qmr.Expiration
-		}
-
-		return out
-	})
-
-	dState.requestBag.Done()
-	return resp, err
 }
 
 func statusString(status rpc.Status) string {

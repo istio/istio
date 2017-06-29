@@ -29,7 +29,6 @@ gogoslick_proto_library(
     protos = [
         "mixer/v1/attributes.proto",
         "mixer/v1/check.proto",
-        "mixer/v1/quota.proto",
         "mixer/v1/report.proto",
         "mixer/v1/service.proto",
     ],

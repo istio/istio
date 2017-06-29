@@ -138,11 +138,11 @@ func (bs *benchState) Check(ctx context.Context, bag *attribute.MutableBag, outp
 	return status.OK
 }
 
-func (bs *benchState) Report(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag) rpc.Status {
+func (bs *benchState) Report(ctx context.Context, bag *attribute.MutableBag) rpc.Status {
 	return status.WithPermissionDenied("Not Implementd")
 }
 
-func (bs *benchState) Quota(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag,
+func (bs *benchState) Quota(ctx context.Context, requestBag *attribute.MutableBag,
 	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
 
 	qmr := &aspect.QuotaMethodResp{Amount: 42}

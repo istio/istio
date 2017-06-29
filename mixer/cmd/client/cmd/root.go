@@ -118,7 +118,6 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 
 	rootCmd.AddCommand(checkCmd(rootArgs, printf, fatalf))
 	rootCmd.AddCommand(reportCmd(rootArgs, printf, fatalf))
-	rootCmd.AddCommand(quotaCmd(rootArgs, printf, fatalf))
 	rootCmd.AddCommand(shared.VersionCmd(printf))
 
 	return rootCmd
