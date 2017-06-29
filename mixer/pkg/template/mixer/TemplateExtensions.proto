@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package istio.mixer.v1.config.template;
+import "google/protobuf/descriptor.proto";
+
+enum TemplateVariety {
+    TEMPLATE_VARIETY_CHECK = 0;
+    TEMPLATE_VARIETY_REPORT = 1;
+}
+
+extend google.protobuf.FileOptions {
+    TemplateVariety template_variety = 72295727;
+}
+
+
+extend google.protobuf.FileOptions {
+    string template_name = 72295729;
+}
