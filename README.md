@@ -18,7 +18,7 @@ Mesos, etc.
 
 Visit [istio.io](https://istio.io) for in-depth information about using Istio.     
 
-Istio is composed of three main components:
+Istio is composed of these components:
 
 * **Envoy** - Sidecar proxies per microservice to handle ingress/egress traffic
    between services in the cluster and from a service to external

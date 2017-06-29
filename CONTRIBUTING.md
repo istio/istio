@@ -17,7 +17,7 @@ same process and are given the same level of review.
 
 ## Working Groups
 
-The Istio [community](community.md) is organized into a set of [working groups](wgs.md).
+The Istio community is organized into a set of [working groups](wgs.md).
 Any contribution to Istio should be started by first engaging with the appropriate working group.
 
 ## Design Documents
