@@ -17,13 +17,16 @@ package interfacegen
 import (
 	"bytes"
 	"fmt"
+	"go/format"
 	"io/ioutil"
 	"os"
 	"text/template"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+	"golang.org/x/tools/imports"
 
+	"istio.io/mixer/tools/codegen/pkg/interfacegen/template/processor"
 	"istio.io/mixer/tools/codegen/pkg/modelgen"
 )
 
@@ -35,17 +38,10 @@ type Generator struct {
 
 // Generate creates a Go interfaces for adapters to implement for a given Template.
 func (g *Generator) Generate(fdsFile string) error {
-	// This path works for bazel. TODO  Help pls !!
 
-	tmplPath := "template/ProcInterface.tmpl"
-	t, err := ioutil.ReadFile(tmplPath)
+	tmpl, err := template.New("ProcInterface").Parse(processor.InterfaceTemplate)
 	if err != nil {
-		return fmt.Errorf("cannot read template file '%s'. %v", tmplPath, err)
-	}
-
-	tmpl, err := template.New("ProcInterface").Parse(string(t))
-	if err != nil {
-		return fmt.Errorf("cannot load template from path '%s'. %v", tmplPath, err)
+		return fmt.Errorf("cannot load template: %v", err)
 	}
 
 	fds, err := getFileDescSet(fdsFile)
@@ -66,13 +62,25 @@ func (g *Generator) Generate(fdsFile string) error {
 	buf := new(bytes.Buffer)
 	err = tmpl.Execute(buf, model)
 	if err != nil {
-		return fmt.Errorf("cannot execute the template '%s' with the give data. %v", tmplPath, err)
+		return fmt.Errorf("cannot execute the template with the given data: %v", err)
+	}
+
+	fmtd, err := format.Source(buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("could not format generated code: %v", err)
+	}
+
+	imports.LocalPrefix = "istio.io"
+	// OutFilePath provides context for import path. We rely on the supplied bytes for content.
+	imptd, err := imports.Process(g.OutFilePath, fmtd, nil)
+	if err != nil {
+		return fmt.Errorf("could not fix imports for generated code: %v", err)
 	}
 
 	// Now write to the file.
 	if f, err := os.Create(g.OutFilePath); err != nil {
 		return err
-	} else if _, err = f.Write(buf.Bytes()); err != nil {
+	} else if _, err = f.Write(imptd); err != nil {
 		return err
 	} else {
 		// file successfully written, close it.

@@ -17,31 +17,26 @@ package modelgen
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
-	"os/exec"
-	"path"
-	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 )
 
 func TestErrorInTemplate(t *testing.T) {
-
 	tests := []struct {
 		src           string
 		expectedError string
 	}{
-		{"testdata/MissingPackageName.proto", "package name missing"},
-		{"testdata/MissingTemplateNameExt.proto", "Contains only one of the following two options"},
-		{"testdata/MissingTemplateVarietyExt.proto", "Contains only one of the following two options"},
-		{"testdata/MissingBothRequiredExt.proto", "one proto file that has both extensions"},
-		{"testdata/MissingTypeMessage.proto", "message 'Type' not defined"},
-		{"testdata/MissingConstructorMessage.proto", "message 'Constructor' not defined"},
-		{"testdata/ReservedFieldInConstructor.proto", "proto:15: Constructor message must not contain the reserved filed name 'Name'"},
-		{"testdata/Proto2BadSyntax.proto", "Proto2BadSyntax.proto:3: Only proto3 template files are allowed."},
+		{"testdata/missing_package_name.descriptor_set", "package name missing"},
+		{"testdata/missing_template_name.descriptor_set", "Contains only one of the following two options"},
+		{"testdata/missing_template_variety.descriptor_set", "Contains only one of the following two options"},
+		{"testdata/missing_both_required.descriptor_set", "one proto file that has both extensions"},
+		{"testdata/missing_type_message.descriptor_set", "message 'Type' not defined"},
+		{"testdata/missing_constructor_message.descriptor_set", "message 'Constructor' not defined"},
+		{"testdata/reserved_field_in_constructor.descriptor_set", "proto:15: Constructor message must not contain the reserved filed name 'Name'"},
+		{"testdata/proto2_bad_syntax.descriptor_set", "Proto2BadSyntax.proto:3: Only proto3 template files are allowed."},
 	}
 
 	for idx, tt := range tests {
@@ -56,7 +51,7 @@ func TestErrorInTemplate(t *testing.T) {
 }
 
 func TestBasicTopLevelFields(t *testing.T) {
-	testFilename := "testdata/BasicTopLevelFields.proto"
+	testFilename := "testdata/basic_top_level_fields.descriptor_set"
 	model, _ := createTestModel(t,
 		testFilename)
 	if model.PackageName != "foo_bar" {
@@ -71,7 +66,7 @@ func TestBasicTopLevelFields(t *testing.T) {
 }
 
 func TestConstructorDirRefAndImports(t *testing.T) {
-	testFilename := "testdata/ConstructorAndImports.proto"
+	testFilename := "testdata/constructor_and_imports.descriptor_set"
 	model, _ := createTestModel(t,
 		testFilename)
 
@@ -79,7 +74,7 @@ func TestConstructorDirRefAndImports(t *testing.T) {
 	if !contains(model.Imports, expectedTxt) {
 		t.Fatalf("CreateModel(%s).Imports = %v, wanted to contain %s", testFilename, model.Imports, expectedTxt)
 	}
-	expectedTxt = "_ \"mixer/tools/codegen/pkg/template_extension\""
+	expectedTxt = "_ \"tools/codegen/pkg/template_extension\""
 	if !contains(model.Imports, expectedTxt) {
 		t.Fatalf("CreateModel(%s).Imports = %v, wanted to contain %s", testFilename, model.Imports, expectedTxt)
 	}
@@ -109,20 +104,8 @@ func testField(t *testing.T, testFilename string, model *Model, fldName string, 
 	}
 }
 
-func createTestModel(t *testing.T, inputTemplateProto string) (*Model, error) {
-	outDir := path.Join("testdata", getBaseFileNameWithoutExt(t.Name()))
-	_ = os.RemoveAll(outDir)
-	_ = os.MkdirAll(outDir, os.ModePerm)
-	defer removeDir(outDir)
-
-	outFDS := path.Join(outDir, "outFDS.pb")
-	defer removeDir(outFDS)
-	err := generteFDSFileHacky(inputTemplateProto, outFDS)
-	if err != nil {
-		t.Fatalf("Unable to generate file descriptor set %v", err)
-	}
-
-	fds, err := getFileDescSet(outFDS)
+func createTestModel(t *testing.T, inputFDS string) (*Model, error) {
+	fds, err := getFileDescSet(inputFDS)
 	if err != nil {
 		t.Fatalf("Unable to parse file descriptor set file %v", err)
 
@@ -142,35 +125,4 @@ func getFileDescSet(path string) (*descriptor.FileDescriptorSet, error) {
 	err = proto.Unmarshal(byts, fds)
 
 	return fds, err
-}
-
-func removeDir(dir string) {
-	_ = os.RemoveAll(dir)
-}
-
-// TODO: This is blocking the test to be enabled from Bazel.
-func generteFDSFileHacky(protoFile string, outputFDSFile string) error {
-
-	// HACK HACK. Depending on dir structure is super fragile.
-	// Explore how to generate File Descriptor set in a better way.
-	protocCmd := []string{
-		path.Join("mixer/tools/codegen/pkg/modelgen", protoFile),
-		"-o",
-		path.Join("mixer/tools/codegen/pkg/modelgen", outputFDSFile),
-		"-I=.",
-		"-I=api",
-		"--include_imports",
-		"--include_source_info",
-	}
-	cmd := exec.Command("protoc", protocCmd...)
-	dir := path.Join(os.Getenv("GOPATH"), "src/istio.io")
-	cmd.Dir = dir
-	cmd.Stderr = os.Stderr // For debugging
-	err := cmd.Run()
-	return err
-}
-
-func getBaseFileNameWithoutExt(filePath string) string {
-	tmp := filepath.Base(filePath)
-	return tmp[0 : len(tmp)-len(filepath.Ext(tmp))]
 }

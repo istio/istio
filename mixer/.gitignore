@@ -55,3 +55,7 @@ CMakeLists.txt
 
 # key file
 istio-testing.json
+
+# generated proto artifacts
+*.descriptor_set
+*_processor.gen.go

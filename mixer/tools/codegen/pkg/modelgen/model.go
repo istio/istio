@@ -17,11 +17,12 @@ package modelgen
 import (
 	"fmt"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
+	proto "github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
 	tmpl "istio.io/mixer/tools/codegen/pkg/template_extension"
 )
@@ -202,13 +203,16 @@ func (m *Model) addInstanceFieldFromConstructor(parser *FileDescriptorSetParser,
 func (m *Model) addImports(parser *FileDescriptorSetParser, fileDescriptor *FileDescriptor, typDesc *Descriptor) {
 	usedPackages := getReferencedPackagesWithinType(parser, typDesc)
 	m.Imports = make([]string, 0)
+
 	for _, s := range fileDescriptor.Dependency {
 		fd := parser.fileByName(s)
+
 		// Do not import our own package.
 		if fd.packageName() == parser.packageName {
 			continue
 		}
 		filename := fd.goFileName()
+
 		// By default, import path is the dirname of the Go filename.
 		importPath := path.Dir(filename)
 		if substitution, ok := parser.ImportMap[s]; ok {
@@ -221,6 +225,7 @@ func (m *Model) addImports(parser *FileDescriptorSetParser, fileDescriptor *File
 		}
 		m.Imports = append(m.Imports, pname+" "+strconv.Quote(importPath))
 	}
+	sort.Strings(m.Imports)
 }
 
 func getRequiredMsg(fdp *FileDescriptor, msgName string) (*Descriptor, bool) {

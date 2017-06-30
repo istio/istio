@@ -1,4 +1,8 @@
-// Copyright 2017 Istio Authors
+package processor
+
+// InterfaceTemplate defines the template used to generate the adapter
+// interfaces for Mixer for a given aspect.
+var InterfaceTemplate = `// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +21,10 @@
 package {{.PackageName}}
 
 import (
-{{range .Imports}}
-{{.}}
-{{end}}{{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
-"istio.io/mixer/tools/codegen/pkg/adapter"
-{{- end}}
+{{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}"istio.io/mixer/tools/codegen/pkg/adapter"{{- end}}
+{{range .Imports}}{{.}}
+{{end}}
 )
-
 
 type Instance struct {
   Name string
@@ -40,3 +41,4 @@ type {{.Name}}Processor interface {
     Report{{.Name}}(instances []*Instance) error
   {{end}}
 }
+`

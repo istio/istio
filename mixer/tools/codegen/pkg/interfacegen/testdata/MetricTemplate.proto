@@ -3,7 +3,7 @@ syntax = "proto3";
 package istio.mixer.adapter.metric;
 
 import "mixer/v1/config/descriptor/value_type.proto";
-import "mixer/tools/codegen/pkg/template_extension/TemplateExtensions.proto";
+import "tools/codegen/pkg/template_extension/TemplateExtensions.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 option (istio.mixer.v1.config.template.template_name) = "Metric";
@@ -26,21 +26,6 @@ message Constructor {
 
     // message from other file inside a constructor
     istio.mixer.v1.config.descriptor.ValueType vt = 5;
-}
-
-enum ValueType {
-    VALUE_TYPE_UNSPECIFIED = 0;
-    STRING = 1;
-    INT64 = 2;
-    DOUBLE = 3;
-    BOOL = 4;
-    TIMESTAMP = 5;
-    IP_ADDRESS = 6;
-    EMAIL_ADDRESS = 7;
-    URI = 8;
-    DNS_NAME = 9;
-    DURATION = 10;
-    STRING_MAP = 11;
 }
 
 enum Kind {
