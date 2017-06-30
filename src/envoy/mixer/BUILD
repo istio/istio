@@ -52,7 +52,10 @@ cc_library(
 
 cc_binary(
     name = "envoy",
-    linkopts = ["-lrt"],
+    linkopts = [
+        "-lrt",
+        "-luuid",
+    ],
     linkstatic = 1,
     visibility = [":__subpackages__"],
     deps = [

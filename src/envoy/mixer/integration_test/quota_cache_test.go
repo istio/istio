@@ -19,14 +19,6 @@ import (
 	"testing"
 )
 
-const (
-	okRequestNum = 10
-	// Pool may have some prefetched tokens.
-	// In order to see rejected request, reject request num > 20
-	// the minPrefetch * 2.
-	rejectRequestNum = 30
-)
-
 func TestQuotaCache(t *testing.T) {
 	// Only check cache is enabled, quota cache is enabled.
 	s := &TestSetup{
@@ -42,10 +34,22 @@ func TestQuotaCache(t *testing.T) {
 
 	// Issues a GET echo request with 0 size body
 	tag := "OKGet"
-	for i := 0; i < 10; i++ {
-		if _, _, err := HTTPGet(url); err != nil {
+	s.mixer.quota_limit = 10
+	reject := 0
+	ok := 0
+	for i := 0; i < 20; i++ {
+		code, _, err := HTTPGet(url)
+		if err != nil {
 			t.Errorf("Failed in request %s: %v", tag, err)
 		}
+		if code == 200 {
+			ok++
+		} else if code == 429 {
+			reject++
+		}
+	}
+	if ok != 10 || reject != 10 {
+		t.Fatalf("Unexpected quota ok count %v, reject count %v", ok, reject)
 	}
 	// Less than 5 time of Quota is called.
 	if s.mixer.quota.count >= 5 {

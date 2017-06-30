@@ -46,7 +46,7 @@ func newHandler(stress bool) *Handler {
 		r_status: rpc.Status{},
 	}
 	if !stress {
-		h.ch = make(chan *attribute.MutableBag, 10) // Allow maximum 10 requests
+		h.ch = make(chan *attribute.MutableBag, 100) // Allow maximum 100 requests
 	}
 	return h
 }
@@ -70,7 +70,10 @@ type MixerServer struct {
 	check  *Handler
 	report *Handler
 	quota  *Handler
-	qma    *aspect.QuotaMethodArgs
+
+	qma          *aspect.QuotaMethodArgs
+	quota_amount int64
+	quota_limit  int64
 }
 
 func (ts *MixerServer) Preprocess(ctx context.Context, bag, output *attribute.MutableBag) rpc.Status {
@@ -92,7 +95,19 @@ func (ts *MixerServer) Quota(ctx context.Context, bag *attribute.MutableBag,
 	status := ts.quota.run(bag)
 	qmr := &aspect.QuotaMethodResp{}
 	if status.Code == 0 {
-		qmr.Amount = qma.Amount
+		if ts.quota_limit == 0 {
+			qmr.Amount = qma.Amount
+		} else {
+			if ts.quota_amount < ts.quota_limit {
+				delta := ts.quota_limit - ts.quota_amount
+				if delta > qma.Amount {
+					qmr.Amount = qma.Amount
+				} else {
+					qmr.Amount = delta
+				}
+			}
+			ts.quota_amount += qmr.Amount
+		}
 		qmr.Expiration = time.Minute
 	}
 	return qmr, status
