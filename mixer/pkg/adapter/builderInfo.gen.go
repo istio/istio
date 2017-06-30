@@ -15,7 +15,7 @@
 package adapter
 
 import (
-	sample_report "istio.io/mixer/pkg/template/sample/report"
+	sample_report "istio.io/mixer/template/sample/report"
 )
 
 // SupportedTemplates is a string enum that expressess the template that an Adapter is intending to support.
@@ -31,5 +31,5 @@ var AllSupportedTemplates = []SupportedTemplates{
 }
 
 var BuilderNames = map[SupportedTemplates]string{
-	SampleProcessorTemplate: "istio.io/mixer/pkg/template/sample/report.SampleProcessorBuilder",
+	SampleProcessorTemplate: "istio.io/mixer/template/sample/report.SampleProcessorBuilder",
 }
