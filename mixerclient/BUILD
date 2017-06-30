@@ -191,6 +191,7 @@ cc_test(
         "-lm",
         "-lpthread",
         "-lrt",
+        "-luuid",
     ],
     linkstatic = 1,
     deps = [

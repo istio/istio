@@ -22,6 +22,8 @@
 #include "src/quota_cache.h"
 #include "src/report_batch.h"
 
+#include <atomic>
+
 namespace istio {
 namespace mixer_client {
 
@@ -50,8 +52,9 @@ class MixerClientImpl : public MixerClient {
   // Cache for Quota call.
   std::unique_ptr<QuotaCache> quota_cache_;
 
-  // For quota deduplication
-  int64_t deduplication_id_;
+  // for deduplication_id
+  std::string deduplication_id_base_;
+  std::atomic<std::uint64_t> deduplication_id_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MixerClientImpl);
 };

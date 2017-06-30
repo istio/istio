@@ -15,6 +15,8 @@
 #include "src/client_impl.h"
 #include "utils/protobuf.h"
 
+#include <uuid/uuid.h>
+
 using namespace std::chrono;
 using ::istio::mixer::v1::CheckRequest;
 using ::istio::mixer::v1::CheckResponse;
@@ -25,9 +27,24 @@ using ::google::protobuf::util::error::Code;
 
 namespace istio {
 namespace mixer_client {
+namespace {
+
+// Maximum 36 byte string for UUID
+const int kMaxUUIDBufSize = 40;
+
+// Genereates a UUID string
+std::string GenerateUUID() {
+  char uuid_buf[kMaxUUIDBufSize];
+  uuid_t uuid;
+  uuid_generate(uuid);
+  uuid_unparse(uuid, uuid_buf);
+  return uuid_buf;
+}
+
+}  // namespace
 
 MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
-    : options_(options), deduplication_id_(0) {
+    : options_(options) {
   check_cache_ =
       std::unique_ptr<CheckCache>(new CheckCache(options.check_options));
   report_batch_ = std::unique_ptr<ReportBatch>(
@@ -35,6 +52,8 @@ MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
                       options.timer_create_func, converter_));
   quota_cache_ =
       std::unique_ptr<QuotaCache>(new QuotaCache(options.quota_options));
+
+  deduplication_id_base_ = GenerateUUID();
 }
 
 MixerClientImpl::~MixerClientImpl() {}
@@ -68,7 +87,8 @@ void MixerClientImpl::Check(const Attributes &attributes, DoneFunc on_done) {
 
   converter_.Convert(attributes, request.mutable_attributes());
   request.set_global_word_count(converter_.global_word_count());
-  request.set_deduplication_id(std::to_string(deduplication_id_++));
+  request.set_deduplication_id(deduplication_id_base_ +
+                               std::to_string(deduplication_id_.fetch_add(1)));
 
   auto response = new CheckResponse;
   // Lambda capture could not pass unique_ptr, use raw pointer.
