@@ -23,7 +23,7 @@ go_library(
         "//pkg/expr:go_default_library",
         "//pkg/pool:go_default_library",
         "//pkg/status:go_default_library",
-        "//pkg/template/sample/report:go_default_library",
+        "//template/sample/report:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_golang_glog//:go_default_library",
