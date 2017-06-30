@@ -32,7 +32,7 @@ type FormatFn func(format string, args ...interface{})
 // Fatalf is a FormatFn that prints the formatted string to os.Stderr and then
 // calls os.Exit().
 var Fatalf = func(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, format+"\n", args...)
+	_, _ = fmt.Fprintf(os.Stderr, format+"\n", args...) // #nosec
 	os.Exit(-1)
 }
 
