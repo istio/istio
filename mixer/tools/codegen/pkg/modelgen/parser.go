@@ -38,7 +38,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 )
 
 // FileDescriptorSetParser parses the FileDescriptorSetProto and creates an intermediate object that is used to

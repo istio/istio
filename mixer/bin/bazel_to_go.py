@@ -170,6 +170,8 @@ def bazel_to_vendor(WKSPC):
     adapter_protos(WKSPC)
     aspect_protos(WKSPC)
     template_protos(WKSPC)
+    tools_protos(WKSPC)
+    tools_generated_files(WKSPC)
 
 def get_external_links(external):
     return [file for file in os.listdir(external) if os.path.isdir(external+"/"+file)]
@@ -204,6 +206,22 @@ def aspect_protos(WKSPC):
         for file in os.listdir(WKSPC + "/bazel-genfiles/pkg/aspect/config"):
             if file.endswith(".pb.go"):
                 makelink(WKSPC + "/bazel-genfiles/pkg/aspect/config/" + file, WKSPC + "/pkg/aspect/config/" + file)
+
+def tools_protos(WKSPC):
+    if os.path.exists(WKSPC + "/bazel-genfiles/tools/codegen/pkg/template_extension/"):
+        for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/template_extension/"):
+            if file.endswith(".pb.go"):
+                makelink(WKSPC + "/bazel-genfiles/tools/codegen/pkg/template_extension/" + file, WKSPC + "/tools/codegen/pkg/template_extension/" + file)
+
+def tools_generated_files(WKSPC):
+    if os.path.exists(WKSPC + "/bazel-genfiles/tools/codegen/pkg/interfacegen/testdata"):
+        for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/interfacegen/testdata"):
+            if file.endswith(".descriptor_set") or file.endswith(".gen.go"):
+                makelink(WKSPC + "/bazel-genfiles/tools/codegen/pkg/interfacegen/testdata/" + file, WKSPC + "/tools/codegen/pkg/interfacegen/testdata/" + file)
+    if os.path.exists(WKSPC + "/bazel-genfiles/tools/codegen/pkg/modelgen/testdata"):
+            for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/modelgen/testdata"):
+                if file.endswith(".descriptor_set"):
+                    makelink(WKSPC + "/bazel-genfiles/tools/codegen/pkg/modelgen/testdata/" + file, WKSPC + "/tools/codegen/pkg/modelgen/testdata/" + file)
 
 if __name__ == "__main__":
     import sys

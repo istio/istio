@@ -17,21 +17,16 @@
 package istio_mixer_adapter_metric
 
 import (
-
-_ "istio.io/mixer/tools/codegen/pkg/template_extension"
-
+	_ "istio.io/mixer/tools/codegen/pkg/template_extension"
 )
 
-
 type Instance struct {
-  Name string
+	Name string
 
-  Om *Constructor_OtherMessage
-
+	Om *Constructor_OtherMessage
 }
 
 type MetricProcessor interface {
-  ConfigureMetric(types map[string]*Type) error
-  ReportMetric(instances []*Instance) error
-
+	ConfigureMetric(types map[string]*Type) error
+	ReportMetric(instances []*Instance) error
 }

@@ -478,6 +478,12 @@ new_go_repository(
     importpath = "google.golang.org/genproto",
 )
 
+new_go_repository(
+    name = "org_golang_x_tools",
+    commit = "e6cb469339aef5b7be0c89de730d5f3cc8e47e50",  # Jun 23, 2017 (no releases)
+    importpath = "golang.org/x/tools",
+)
+
 ##
 ## Testing
 ##

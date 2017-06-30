@@ -17,23 +17,19 @@
 package foo_bar_mylistchecker
 
 import (
-
-_ "istio.io/mixer/tools/codegen/pkg/template_extension"
-"istio.io/mixer/tools/codegen/pkg/adapter"
+	"istio.io/mixer/tools/codegen/pkg/adapter"
+	_ "istio.io/mixer/tools/codegen/pkg/template_extension"
 )
 
-
 type Instance struct {
-  Name string
+	Name string
 
-  Blacklist bool
+	Blacklist bool
 
-  CheckExpression interface{}
-
+	CheckExpression interface{}
 }
 
 type ListProcessor interface {
-  ConfigureList(types map[string]*Type) error
-  CheckList(instance *Instance) (bool, adapter.CacheabilityInfo, error)
-
+	ConfigureList(types map[string]*Type) error
+	CheckList(instance *Instance) (bool, adapter.CacheabilityInfo, error)
 }

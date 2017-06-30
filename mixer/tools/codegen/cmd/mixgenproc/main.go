@@ -50,7 +50,7 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 			importMapping := make(map[string]string)
 			for _, maps := range mappings {
 				m := strings.Split(maps, ":")
-				importMapping[m[0]] = m[1]
+				importMapping[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
 			}
 			generator := interfacegen.Generator{OutFilePath: outFileFullPath, ImportMapping: importMapping}
 			if err := generator.Generate(args[0]); err != nil {

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package istio.mixer.adapter.metric;
 
-import "mixer/tools/codegen/pkg/template_extension/TemplateExtensions.proto";
+import "tools/codegen/pkg/template_extension/TemplateExtensions.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 option (istio.mixer.v1.config.template.template_name) = "Metric";
