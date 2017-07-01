@@ -38,6 +38,7 @@ import (
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/config"
 	"istio.io/mixer/pkg/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
@@ -127,6 +128,12 @@ type (
 		rule       map[rulesKey]*pb.ServiceConfig
 		shas       map[string][sha1.Size]byte
 		numAspects int
+	}
+
+	// HandlerBuilderInfo stores validated HandlerBuilders.
+	HandlerBuilderInfo struct {
+		handlerBuilder *config.HandlerBuilder
+		isBroken       bool
 	}
 )
 
