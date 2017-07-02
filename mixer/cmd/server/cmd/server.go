@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	_ "net/http/pprof" // For profiling / performance investigations
 	"os"
 	"strings"
 	"time"
