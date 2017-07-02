@@ -280,6 +280,8 @@ You can run all the linters we require on your local repo by going to the top of
 
 ```shell
 make lint
+# To run only on your local changes
+LAST_GOOD_GITSHA=HEAD bin/linters.sh
 ```
 
 ### Race detection tests
