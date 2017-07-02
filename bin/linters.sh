@@ -59,6 +59,7 @@ go_metalinter() {
         echo 'Running linters on all files.'
     fi
 
+    # updated to avoid WARNING: staticcheck, gosimple, and unused are all set, using megacheck instead
     gometalinter\
         --concurrency=4\
         --enable-gc\
@@ -72,15 +73,13 @@ go_metalinter() {
         --enable=gofmt\
         --enable=goimports\
         --enable=golint --min-confidence=0 --exclude=.pb.go --exclude=pkg/config/proto/combined.go --exclude="should have a package comment"\
-        --enable=gosimple\
         --enable=ineffassign\
         --enable=interfacer\
         --enable=lll --line-length=160\
+        --enable=megacheck\
         --enable=misspell\
-        --enable=staticcheck\
         --enable=structcheck\
         --enable=unconvert\
-        --enable=unused\
         --enable=varcheck\
         --enable=vet\
         --enable=vetshadow\
