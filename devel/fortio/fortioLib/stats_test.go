@@ -17,6 +17,7 @@ package fortio
 import (
 	"bufio"
 	"bytes"
+	"log"
 	"testing"
 )
 
@@ -40,7 +41,13 @@ func TestCounter(t *testing.T) {
 	c.Record(-977)
 	c.Printf(w, "test5")
 	// note that stddev of 577.4 below is... whatever the code said
-	expected += "test5 : count 6 avg 23 +/- 577.4 min -977 max 1023 sum 138\n"
+	finalExpected := " : count 6 avg 23 +/- 577.4 min -977 max 1023 sum 138\n"
+	expected += "test5" + finalExpected
+	// Try the Log() function too:
+	log.SetOutput(w)
+	log.SetFlags(0)
+	c.Log("testLog")
+	expected += "testLog" + finalExpected
 	w.Flush() // nolint: errcheck
 	actual := string(b.Bytes())
 	if actual != expected {
