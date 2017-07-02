@@ -17,6 +17,7 @@ package fortio
 import (
 	"fmt"
 	"io"
+	"log"
 	"math"
 )
 
@@ -59,4 +60,9 @@ func (c *Counter) StdDev() float64 {
 // Printf prints stats
 func (c *Counter) Printf(out io.Writer, msg string) {
 	fmt.Fprintf(out, "%s : count %d avg %g +/- %.4g min %g max %g sum %g\n", msg, c.Count, c.Avg(), c.StdDev(), c.Min, c.Max, c.Sum) // nolint(errorcheck)
+}
+
+// Log outputs the stats to the logger
+func (c *Counter) Log(msg string) {
+	log.Printf("%s : count %d avg %g +/- %.4g min %g max %g sum %g", msg, c.Count, c.Avg(), c.StdDev(), c.Min, c.Max, c.Sum) // nolint(errorcheck)
 }

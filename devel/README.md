@@ -4,7 +4,7 @@ This document is intended to be the canonical source of truth for things like
 supported toolchain versions for building Istio components like Mixer
 (which is used throughout this document as an example when referring to a specific
 component repo or directory).
-If you find a requirement that this doc does not capture, or if you find other 
+If you find a requirement that this doc does not capture, or if you find other
 docs with references to requirements that are not simply links to this doc,
 please [submit an issue](https://github.com/istio/istio/issues/new).
 
@@ -84,14 +84,14 @@ for how to do this for your platform.
 
 ### Setting up a personal access token
 
-This is only necessary for core contributors / to push changes to the main repos. 
+This is only necessary for core contributors / to push changes to the main repos.
 You can make pull requests without two-factor authentication
 but the additional security is recommended for everyone.
 
 To be part of the Istio organization, we require two-factor authentication, and
 you must setup a personal access token to enable push via HTTPS. Please follow [these
 instructions](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/)
-for how to create a token. 
+for how to create a token.
 Alternatively you can [add your SSH keys](https://help.github.com/articles/adding-a-new-ssh-key-to-your-github-account/).
 
 ## Git workflow
@@ -165,7 +165,7 @@ git fetch upstream
 git rebase upstream/master
 ```
 
-Note: If you have write access to the main repositories 
+Note: If you have write access to the main repositories
 (eg github.com/istio/mixer), you should modify your git configuration so
 that you can't accidentally push to upstream:
 
@@ -305,8 +305,8 @@ All dependencies:
 - *MUST* be specified in terms of commit SHA (vs release tag).
 - *MUST* be annotated with the commit date and an explanation for the choice of
 commit. Annotations *MUST* follow the `commit` param as a comment field.
-- *SHOULD* be targeted at a commit that corresponds to a stable release of the 
-library. If the library does not provide regular releases, etc., pulling from a 
+- *SHOULD* be targeted at a commit that corresponds to a stable release of the
+library. If the library does not provide regular releases, etc., pulling from a
 known good recent commit is acceptable.
 
 Examples:
@@ -359,10 +359,10 @@ Assuming you did (once):
    # if you want to do load tests:
    git clone https://github.com/wg/wrk.git
    ```
-4. You can then use 
-   - [update_all](update_all) : script to build from source 
+4. You can then use
+   - [update_all](update_all) : script to build from source
    - [setup_run](setup_run) : run locally
-   - [fortio](fortio/) : load testing
+   - [fortio](fortio/) (φορτίο) : load testing
    - Also found in this directory: [rules.yml](rules.yml) : the version of  mixer/testdata/configroot/scopes/global/subjects/global/rules.yml that works locally and [quota.yml](quota.yml) a very simple 1 qps quota example used below.
    - And an unrelated tool to aggregate [GitHub Contributions](githubContrib/) statistics.
 5. And run things like
@@ -375,21 +375,21 @@ Assuming you did (once):
    curl -v  http://localhost:9094/api/v1/scopes/global/subjects/foo.svc.cluster.local/rules --data-binary @quota.yaml -X PUT -H "Content-Type: application/yaml"
    # Test under some load:
    wrk http://localhost:9090/echo
-   
+
    ```
    Note that this is done for you by [setup_run](setup_run) but to use the correct go environment:
    ```bash
    cd mixer/
-   source bin/use_bazel_go.sh 
+   source bin/use_bazel_go.sh
    ```
 
 
 ## MacOs tips
- 
+
 Get GitHub desktop https://desktop.github.com/
- 
+
 If you want to make changes to the [website](https://github.com/istio/istio.github.io), and want to run jekyll locally and natively, without docker):
 
 You will need a newer ruby than the default: get and install rvm https://rvm.io/
- 
+
 Then rvm install ruby-2.1 (or later) rvm use ruby-2.1  then `gem install jekyll bundler` then `bundle install` and then finally you can run successfully `bundle exec jekyll serve` in the directory you cloned the iostio doc repo. To avoid `GitHub Metadata: No GitHub API authentication could be found. Some fields may be missing or have incorrect data.` errors you need to set a public repo access token at https://github.com/settings/tokens and export it in `JEKYLL_GITHUB_TOKEN` env var (in your `.bash_profile`) - then http://127.0.0.1:4000/docs/ will work and auto update when pulling.

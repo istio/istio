@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-func noop() {
+func noop(t int) {
 	time.Sleep(1 * time.Millisecond)
 }
 
@@ -56,7 +56,7 @@ var count int64
 
 var lock sync.Mutex
 
-func sumTest() {
+func sumTest(t int) {
 	lock.Lock()
 	count++
 	lock.Unlock()
@@ -77,6 +77,10 @@ func TestStart(t *testing.T) {
 	r.Run(1 * time.Second)
 	if count != 10 {
 		t.Errorf("MT Test executed unexpected number of times %d instead %d", count, 10)
+	}
+	// note: it's kind of a bug this only works after Run() and not before
+	if r.GetNumThreads() != 5 {
+		t.Errorf("Lowering of thread count broken, got %d instead of 5", r.GetNumThreads())
 	}
 	count = 0
 	r.Run(1 * time.Millisecond)

@@ -17,18 +17,18 @@ package fortio
 import (
 	"fmt"
 	"log"
-	"os"
 	"sync"
 	"time"
 )
 
 // Function to run periodically.
-type Function func()
+type Function func(tid int)
 
 // IPeriodicRunner is the public interface to the periodic runner.
 type IPeriodicRunner interface {
 	Run(duration time.Duration)
 	SetNumThreads(int)
+	GetNumThreads() int
 	SetDebug(debug bool)
 }
 
@@ -83,7 +83,7 @@ func (r *periodicRunner) Run(duration time.Duration) {
 	} else {
 		threadQPS := r.qps / float64(r.numThreads)
 		var wg sync.WaitGroup
-		for t := 1; t <= r.numThreads; t++ {
+		for t := 0; t < r.numThreads; t++ {
 			wg.Add(1)
 			go func(t int) {
 				defer wg.Done()
@@ -102,9 +102,10 @@ func runOne(t int, numCalls int64, f Function, start time.Time, qps float64, deb
 	var cF Counter // stats about function duration
 	var cS Counter // stats about sleep time
 	var elapsed time.Duration
+	tIDStr := fmt.Sprintf("T%03d", t)
 	for i < numCalls {
 		fStart := time.Now()
-		f()
+		f(t)
 		cF.Record(time.Since(fStart).Seconds())
 		elapsed = time.Since(start)
 		// next time
@@ -118,15 +119,15 @@ func runOne(t int, numCalls int64, f Function, start time.Time, qps float64, deb
 		targetElapsedDuration := time.Duration(int64(targetElapsedInSec * 1e9))
 		sleepDuration := targetElapsedDuration - elapsed
 		if debug {
-			log.Printf("T%03d target next dur %v - sleep %v", t, targetElapsedDuration, sleepDuration)
+			log.Printf("%s target next dur %v - sleep %v", tIDStr, targetElapsedDuration, sleepDuration)
 		}
 		cS.Record(sleepDuration.Seconds())
 		time.Sleep(sleepDuration)
 	}
 	actualQPS := float64(numCalls) / elapsed.Seconds()
-	fmt.Printf("T%03d ended after %v : %d calls. qps=%g\n", t, elapsed, numCalls, actualQPS)
-	cF.Printf(os.Stdout, fmt.Sprintf("T%03d %s", t, "Function duration"))
-	cS.Printf(os.Stdout, fmt.Sprintf("T%03d %s", t, "Sleep time"))
+	log.Printf("%s ended after %v : %d calls. qps=%g\n", tIDStr, elapsed, numCalls, actualQPS)
+	cF.Log(tIDStr + " Function duration")
+	cS.Log(tIDStr + " Sleep time")
 }
 
 // SetNumThreads changes the thread count.
@@ -136,6 +137,11 @@ func (r *periodicRunner) SetNumThreads(numThreads int) {
 		numThreads = 1
 	}
 	r.numThreads = numThreads
+}
+
+// GetNumThreads returns the thread count.
+func (r *periodicRunner) GetNumThreads() int {
+	return r.numThreads
 }
 
 // SetDebug turns debuging on/off.
