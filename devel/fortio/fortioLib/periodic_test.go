@@ -15,6 +15,7 @@
 package fortio
 
 import (
+	"sync"
 	"testing"
 	"time"
 )
@@ -51,8 +52,35 @@ func TestNewPeriodicRunner(t *testing.T) {
 	}
 }
 
+var count int64
+
+var lock sync.Mutex
+
+func sumTest() {
+	lock.Lock()
+	count++
+	lock.Unlock()
+
+}
+
 func TestStart(t *testing.T) {
-	r := NewPeriodicRunner(11.4, noop)
+	r := NewPeriodicRunner(11.4, sumTest)
+	r.SetNumThreads(1)
 	r.SetDebug(true)
+	count = 0
 	r.Run(1 * time.Second)
+	if count != 11 {
+		t.Errorf("Test executed unexpected number of times %d instead %d", count, 11)
+	}
+	count = 0
+	r.SetNumThreads(10) // will be lowered to 5 so 10 calls (2 in each thread)
+	r.Run(1 * time.Second)
+	if count != 10 {
+		t.Errorf("MT Test executed unexpected number of times %d instead %d", count, 10)
+	}
+	count = 0
+	r.Run(1 * time.Millisecond)
+	if count != 2 {
+		t.Errorf("Test executed unexpected number of times %d instead minimum 2", count)
+	}
 }

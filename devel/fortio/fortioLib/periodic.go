@@ -18,10 +18,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"time"
 )
 
-// Function to run periodically. returns false to end the run.
+// Function to run periodically.
 type Function func()
 
 // IPeriodicRunner is the public interface to the periodic runner.
@@ -61,15 +62,49 @@ func NewPeriodicRunner(qps float64, function Function) IPeriodicRunner {
 // Start starts the runner.
 func (r *periodicRunner) Run(duration time.Duration) {
 	var numCalls int64 = int64(r.qps * duration.Seconds())
-	fmt.Printf("Started at %g qps with %d threads for %v : %d calls\n", r.qps, r.numThreads, duration, numCalls)
+	if numCalls < 2 {
+		log.Print("Increasing the number of calls to the minimum of 2 with 1 thread. total duration will increase")
+		numCalls = 2
+		r.numThreads = 1
+	}
+	if int64(2*r.numThreads) > numCalls {
+		r.numThreads = int(numCalls / 2)
+		log.Printf("Lowering number of threads - total call %d -> lowering to %d threads", numCalls, r.numThreads)
+	}
+	numCalls /= int64(r.numThreads)
+	totalCalls := numCalls * int64(r.numThreads)
+	fmt.Printf("Starting at %g qps with %d thread(s) for %v : %d calls each (total %d)\n", r.qps, r.numThreads, duration, numCalls, totalCalls)
 	start := time.Now()
+	if r.numThreads <= 1 {
+		if r.debug {
+			log.Printf("Running single threaded")
+		}
+		runOne(0, numCalls, r.function, start, r.qps, r.debug)
+	} else {
+		threadQPS := r.qps / float64(r.numThreads)
+		var wg sync.WaitGroup
+		for t := 1; t <= r.numThreads; t++ {
+			wg.Add(1)
+			go func(t int) {
+				defer wg.Done()
+				runOne(t, numCalls, r.function, start, threadQPS, r.debug)
+			}(t)
+		}
+		wg.Wait()
+	}
+	elapsed := time.Since(start)
+	actualQPS := float64(totalCalls) / elapsed.Seconds()
+	fmt.Printf("Ended after %v : %d calls. qps=%g\n", elapsed, totalCalls, actualQPS)
+}
+
+func runOne(t int, numCalls int64, f Function, start time.Time, qps float64, debug bool) {
 	var i int64
 	var cF Counter // stats about function duration
 	var cS Counter // stats about sleep time
 	var elapsed time.Duration
 	for i < numCalls {
 		fStart := time.Now()
-		r.function()
+		f()
 		cF.Record(time.Since(fStart).Seconds())
 		elapsed = time.Since(start)
 		// next time
@@ -79,19 +114,19 @@ func (r *periodicRunner) Run(duration time.Duration) {
 		}
 		// This next line is tricky - such as for 2s duration and 1qps there is 1
 		// sleep of 2s between the 2 calls and for 3qps in 1sec 2 sleep of 1/2s etc
-		targetElapsedInSec := (float64(i) + float64(i)/float64(numCalls-1)) / r.qps
+		targetElapsedInSec := (float64(i) + float64(i)/float64(numCalls-1)) / qps
 		targetElapsedDuration := time.Duration(int64(targetElapsedInSec * 1e9))
 		sleepDuration := targetElapsedDuration - elapsed
-		if r.debug {
-			log.Printf("target next dur %v - sleep %v", targetElapsedDuration, sleepDuration)
+		if debug {
+			log.Printf("T%03d target next dur %v - sleep %v", t, targetElapsedDuration, sleepDuration)
 		}
 		cS.Record(sleepDuration.Seconds())
 		time.Sleep(sleepDuration)
 	}
 	actualQPS := float64(numCalls) / elapsed.Seconds()
-	fmt.Printf("Ended after %v : %d calls. qps=%g\n", elapsed, numCalls, actualQPS)
-	cF.Printf(os.Stdout, "Function duration")
-	cS.Printf(os.Stdout, "Sleep time")
+	fmt.Printf("T%03d ended after %v : %d calls. qps=%g\n", t, elapsed, numCalls, actualQPS)
+	cF.Printf(os.Stdout, fmt.Sprintf("T%03d %s", t, "Function duration"))
+	cS.Printf(os.Stdout, fmt.Sprintf("T%03d %s", t, "Sleep time"))
 }
 
 // SetNumThreads changes the thread count.
