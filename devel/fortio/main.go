@@ -36,7 +36,7 @@ func main() {
 	var numThreadsFlag = flag.Int("num-threads", 0, "Number of threads (0 doesn't change internal default)")
 	var durationFlag = flag.Duration("t", 10*time.Second, "How long to run the test")
 	flag.Parse()
-	fmt.Printf("Running at %g queries per second\n", *qpsFlag)
+	fmt.Printf("Running at %g queries per second for %v\n", *qpsFlag, *durationFlag)
 	r := fortio.NewPeriodicRunner(*qpsFlag, foo)
 	if *numThreadsFlag != 0 {
 		r.SetNumThreads(*numThreadsFlag)
