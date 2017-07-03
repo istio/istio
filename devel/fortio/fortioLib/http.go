@@ -18,26 +18,47 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/httputil"
 )
 
+// Debug controls verbose/debug output
+var Debug bool
+
 // newHttpRequest makes a new http GET request for url with User-Agent
-func newHttpRequest(url string) *http.Request {
+func newHTTPRequest(url string) *http.Request {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Printf("unable to make request for %s : %v", url, err)
 	}
 	req.Header.Add("User-Agent", "istio/fortio-0.1")
+	if Debug {
+		bytes, err := httputil.DumpRequestOut(req, false)
+		if err != nil {
+			log.Printf("unable to dump request %v", err)
+		} else {
+			log.Printf("For URL %s, sending:\n%s", url, bytes)
+		}
+	}
 	return req
 }
 
 // FetchURL fetches URL contenty and does error handling/logging
 func FetchURL(url string) (int, []byte) {
-	req := newHttpRequest(url)
+	req := newHTTPRequest(url)
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("unable to send request for %s : %v", url, err)
 		return http.StatusBadRequest, []byte(err.Error())
+	}
+	defer resp.Body.Close() //nolint(errcheck)
+	if Debug {
+		bytes, e := httputil.DumpResponse(resp, false)
+		if e != nil {
+			log.Printf("unable to dump response %v", e)
+		} else {
+			log.Printf("For URL %s, received:\n%s", url, bytes)
+		}
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

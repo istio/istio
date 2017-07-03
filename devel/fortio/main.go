@@ -52,8 +52,10 @@ func main() {
 	var numThreadsFlag = flag.Int("num-threads", 0, "Number of threads (0 doesn't change internal default)")
 	var durationFlag = flag.Duration("t", 10*time.Second, "How long to run the test")
 	flag.Parse()
+	debug := *debugFlag
+	fortio.Debug = debug
 	if len(flag.Args()) != 1 {
-		fmt.Fprintf(os.Stderr, "Usage: %s [flags] url\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s [flags] url\n", os.Args[0]) // nolint(gas)
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
@@ -63,6 +65,9 @@ func main() {
 	if code != http.StatusOK {
 		fmt.Printf("Aborting because of error %d for %s\n%s", code, url, string(body))
 		os.Exit(1)
+	}
+	if debug {
+		fmt.Printf("first hit of url %s: status %03d\n%s", url, code, string(body))
 	}
 	fmt.Printf("Running at %g queries per second for %v: %s\n", *qpsFlag, *durationFlag, url)
 	r := fortio.NewPeriodicRunner(*qpsFlag, test)
