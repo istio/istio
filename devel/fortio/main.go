@@ -23,10 +23,10 @@ import (
 	"sort"
 	"time"
 
-	"istio.io/istio/devel/fortio/fortioLib"
+	fortio "istio.io/istio/devel/fortio/fortioLib"
 )
 
-var debugFlag = flag.Bool("debug", false, "Turn verbose debug output")
+var verbosityFlag = flag.Int("v", 0, "Verbosity level (0 is quiet)")
 var url string
 
 type threadStats struct {
@@ -37,45 +37,50 @@ type threadStats struct {
 var stats []threadStats
 
 func test(t int) {
-	if *debugFlag {
+	if *verbosityFlag > 1 {
 		log.Printf("Calling in %d", t)
 	}
 	code, body := fortio.FetchURL(url)
 	size := len(body)
-	log.Printf("Got in %3d sz %d", code, size)
+	if *verbosityFlag > 1 {
+		log.Printf("Got in %3d sz %d", code, size)
+	}
 	stats[t].retCodes[code]++
 	stats[t].sizes.Record(float64(size))
 }
 
 func main() {
 	var qpsFlag = flag.Float64("qps", 100.0, "Queries Per Seconds")
-	var numThreadsFlag = flag.Int("num-threads", 0, "Number of threads (0 doesn't change internal default)")
+	var numThreadsFlag = flag.Int("c", 4, "Number of connections/goroutine/threads (0 doesn't change internal default)")
 	var durationFlag = flag.Duration("t", 10*time.Second, "How long to run the test")
 	flag.Parse()
-	debug := *debugFlag
-	fortio.Debug = debug
+	verbose := *verbosityFlag
+	fortio.Verbose = verbose
 	if len(flag.Args()) != 1 {
 		fmt.Fprintf(os.Stderr, "Usage: %s [flags] url\n", os.Args[0]) // nolint(gas)
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 	url = flag.Arg(0)
-	// 1 Warm up / smoke test:
-	code, body := fortio.FetchURL(url)
-	if code != http.StatusOK {
-		fmt.Printf("Aborting because of error %d for %s\n%s", code, url, string(body))
-		os.Exit(1)
-	}
-	if debug {
-		fmt.Printf("first hit of url %s: status %03d\n%s", url, code, string(body))
-	}
 	fmt.Printf("Running at %g queries per second for %v: %s\n", *qpsFlag, *durationFlag, url)
 	r := fortio.NewPeriodicRunner(*qpsFlag, test)
 	if *numThreadsFlag != 0 {
 		r.SetNumThreads(*numThreadsFlag)
 	}
-	r.SetDebug(*debugFlag)
-	stats = make([]threadStats, r.GetNumThreads())
+	r.SetDebugLevel(verbose)
+	numThreads := r.GetNumThreads()
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = numThreads + 1
+	// 1 Warm up / smoke test:  TODO: warm up all threads/connections
+	code, body := fortio.FetchURL(url)
+	if code != http.StatusOK {
+		fmt.Printf("Aborting because of error %d for %s\n%s", code, url, string(body))
+		os.Exit(1)
+	}
+	if verbose > 0 {
+		fmt.Printf("first hit of url %s: status %03d\n%s", url, code, string(body))
+	}
+
+	stats = make([]threadStats, numThreads)
 	for i := 0; i < r.GetNumThreads(); i++ {
 		stats[i].retCodes = make(map[int]int64)
 	}

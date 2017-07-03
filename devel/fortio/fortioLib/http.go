@@ -21,8 +21,8 @@ import (
 	"net/http/httputil"
 )
 
-// Debug controls verbose/debug output
-var Debug bool
+// Verbose controls verbose/debug output, higher more verbose.
+var Verbose int
 
 // newHttpRequest makes a new http GET request for url with User-Agent
 func newHTTPRequest(url string) *http.Request {
@@ -31,7 +31,7 @@ func newHTTPRequest(url string) *http.Request {
 		log.Printf("unable to make request for %s : %v", url, err)
 	}
 	req.Header.Add("User-Agent", "istio/fortio-0.1")
-	if Debug {
+	if Verbose > 2 {
 		bytes, err := httputil.DumpRequestOut(req, false)
 		if err != nil {
 			log.Printf("unable to dump request %v", err)
@@ -52,7 +52,7 @@ func FetchURL(url string) (int, []byte) {
 		return http.StatusBadRequest, []byte(err.Error())
 	}
 	defer resp.Body.Close() //nolint(errcheck)
-	if Debug {
+	if Verbose > 2 {
 		bytes, e := httputil.DumpResponse(resp, false)
 		if e != nil {
 			log.Printf("unable to dump response %v", e)
@@ -71,6 +71,8 @@ func FetchURL(url string) (int, []byte) {
 		return code, body
 	}
 	code := resp.StatusCode
-	log.Printf("Got %d : %s for %s - response is %d bytes", code, resp.Status, url, len(body))
+	if Verbose > 1 {
+		log.Printf("Got %d : %s for %s - response is %d bytes", code, resp.Status, url, len(body))
+	}
 	return code, body
 }
