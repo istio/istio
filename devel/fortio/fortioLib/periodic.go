@@ -17,6 +17,7 @@ package fortio
 import (
 	"fmt"
 	"log"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -29,7 +30,7 @@ type IPeriodicRunner interface {
 	Run(duration time.Duration)
 	SetNumThreads(int)
 	GetNumThreads() int
-	SetDebug(debug bool)
+	SetDebugLevel(level int)
 }
 
 // PeriodicRunner is a class encapsulating running code.
@@ -37,7 +38,7 @@ type periodicRunner struct {
 	qps        float64
 	numThreads int // not yet used
 	function   Function
-	debug      bool
+	verbose    int
 }
 
 // internal version, returning the concrete class
@@ -50,7 +51,7 @@ func newPeriodicRunner(qps float64, function Function) *periodicRunner {
 	r.qps = qps
 	r.numThreads = 10 // default
 	r.function = function
-	r.debug = false
+	r.verbose = 0
 	return r
 }
 
@@ -73,13 +74,14 @@ func (r *periodicRunner) Run(duration time.Duration) {
 	}
 	numCalls /= int64(r.numThreads)
 	totalCalls := numCalls * int64(r.numThreads)
-	fmt.Printf("Starting at %g qps with %d thread(s) for %v : %d calls each (total %d)\n", r.qps, r.numThreads, duration, numCalls, totalCalls)
+	fmt.Printf("Starting at %g qps with %d thread(s) [gomax %d] for %v : %d calls each (total %d)\n",
+		r.qps, r.numThreads, runtime.GOMAXPROCS(0), duration, numCalls, totalCalls)
 	start := time.Now()
 	if r.numThreads <= 1 {
-		if r.debug {
+		if r.verbose > 0 {
 			log.Printf("Running single threaded")
 		}
-		runOne(0, numCalls, r.function, start, r.qps, r.debug)
+		runOne(0, numCalls, r.function, start, r.qps, r.verbose)
 	} else {
 		threadQPS := r.qps / float64(r.numThreads)
 		var wg sync.WaitGroup
@@ -87,7 +89,7 @@ func (r *periodicRunner) Run(duration time.Duration) {
 			wg.Add(1)
 			go func(t int) {
 				defer wg.Done()
-				runOne(t, numCalls, r.function, start, threadQPS, r.debug)
+				runOne(t, numCalls, r.function, start, threadQPS, r.verbose)
 			}(t)
 		}
 		wg.Wait()
@@ -97,7 +99,7 @@ func (r *periodicRunner) Run(duration time.Duration) {
 	fmt.Printf("Ended after %v : %d calls. qps=%g\n", elapsed, totalCalls, actualQPS)
 }
 
-func runOne(t int, numCalls int64, f Function, start time.Time, qps float64, debug bool) {
+func runOne(t int, numCalls int64, f Function, start time.Time, qps float64, verbose int) {
 	var i int64
 	var cF Counter // stats about function duration
 	var cS Counter // stats about sleep time
@@ -118,7 +120,7 @@ func runOne(t int, numCalls int64, f Function, start time.Time, qps float64, deb
 		targetElapsedInSec := (float64(i) + float64(i)/float64(numCalls-1)) / qps
 		targetElapsedDuration := time.Duration(int64(targetElapsedInSec * 1e9))
 		sleepDuration := targetElapsedDuration - elapsed
-		if debug {
+		if verbose > 3 {
 			log.Printf("%s target next dur %v - sleep %v", tIDStr, targetElapsedDuration, sleepDuration)
 		}
 		cS.Record(sleepDuration.Seconds())
@@ -144,7 +146,7 @@ func (r *periodicRunner) GetNumThreads() int {
 	return r.numThreads
 }
 
-// SetDebug turns debuging on/off.
-func (r *periodicRunner) SetDebug(debug bool) {
-	r.debug = debug
+// SetDebugLevel sets the level of debugging/verbosity.
+func (r *periodicRunner) SetDebugLevel(level int) {
+	r.verbose = level
 }

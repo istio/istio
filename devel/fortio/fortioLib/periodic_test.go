@@ -66,7 +66,7 @@ func sumTest(t int) {
 func TestStart(t *testing.T) {
 	r := NewPeriodicRunner(11.4, sumTest)
 	r.SetNumThreads(1)
-	r.SetDebug(true)
+	r.SetDebugLevel(1)
 	count = 0
 	r.Run(1 * time.Second)
 	if count != 11 {
