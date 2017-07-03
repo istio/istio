@@ -9,11 +9,11 @@ option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPO
 option (istio.mixer.v1.config.template.template_name) = "Sample";
 
 message Type {
-    istio.mixer.v1.config.descriptor.ValueType value = 2;
-    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 3;
+    istio.mixer.v1.config.descriptor.ValueType value = 1;
+    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
 }
 
 message ConstructorParam {
-    string value = 2;
-    map<string, string> dimensions = 3;
+    string value = 1;
+    map<string, string> dimensions = 2;
 }

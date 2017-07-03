@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapter
+package config
 
 import "time"
 
-// TODO: Delete this file and use pkg/adapter/config/CacheabilityInfo
+// TODO revisit the comment on this adapter struct.
 
 // CacheabilityInfo represents information about when to refresh the cache.
 type CacheabilityInfo struct {
+	// ValidDuration represents amount of time for which this result can be considered valid.
 	ValidDuration time.Duration
+	// ValidUseCount represent the number of uses for which this result can be considered valid.
 	ValidUseCount int64
 }
