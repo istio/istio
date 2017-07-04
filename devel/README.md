@@ -75,6 +75,8 @@ export PATH=$PATH:$GOPATH/bin
 Istio components are built using the Bazel build system. See
 [here](https://bazel.build/versions/master/docs/install.html) for the
 installation procedures.
+In addition to Bazel itself, you should install the Bazel buildifier tool from
+[here](https://github.com/bazelbuild/buildtools).
 
 ### Setting up Docker
 
