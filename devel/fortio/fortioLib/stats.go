@@ -124,9 +124,9 @@ func init() {
 		}
 		val2Bucket[i] = idx
 	}
+	// coding bug detection (aka impossible if it works once)
 	if idx != numBuckets-1 {
-		log.Fatalf("Bug in creating histogram buckets idx %d vs numbuckets %d (last val %d)",
-			idx, numBuckets, lastValue)
+		log.Fatalf("Bug in creating histogram buckets idx %d vs numbuckets %d (last val %d)", idx, numBuckets, lastValue)
 	}
 
 }
