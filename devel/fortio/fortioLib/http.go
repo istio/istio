@@ -46,15 +46,17 @@ func newHTTPRequest(url string) *http.Request {
 			continue
 		}
 		if strings.EqualFold(s[0], "host") {
+			host := strings.TrimSpace(s[1]) // go ignore Host starting with space
 			if Verbose > 2 {
-				log.Printf("setting special Host header to %s (was %s)", s[1], req.Host)
+				log.Printf("setting special Host header to %s (was %s)", host, req.Host)
 			}
-			req.Host = s[1]
+			req.Host = host
 		} else {
+			value := strings.TrimLeft(s[1], " ")
 			if Verbose > 2 {
-				log.Printf("setting regular extra header %s: %s", s[0], s[1])
+				log.Printf("setting regular extra header %s: %s", s[0], value)
 			}
-			req.Header.Add(s[0], s[1])
+			req.Header.Add(s[0], value)
 		}
 	}
 	if Verbose > 2 {
