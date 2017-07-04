@@ -19,7 +19,11 @@ import (
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 )
+
+// ExtraHeaders to be added to each request
+var ExtraHeaders []string
 
 // Verbose controls verbose/debug output, higher more verbose.
 var Verbose int
@@ -35,6 +39,14 @@ func newHTTPRequest(url string) *http.Request {
 		log.Printf("unable to make request for %s : %v", url, err)
 	}
 	req.Header.Add("User-Agent", userAgent)
+	for _, h := range ExtraHeaders {
+		s := strings.SplitN(h, ":", 2)
+		if len(s) != 2 {
+			log.Printf("invalid extra header '%s', expecting Key: Value", h)
+			continue
+		}
+		req.Header.Add(s[0], s[1])
+	}
 	if Verbose > 2 {
 		bytes, err := httputil.DumpRequestOut(req, false)
 		if err != nil {
