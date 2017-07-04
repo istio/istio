@@ -19,6 +19,8 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -32,6 +34,8 @@ type IPeriodicRunner interface {
 	SetNumThreads(int)
 	GetNumThreads() int
 	SetDebugLevel(level int)
+	SetPercentiles(pList []float64)
+	SetResolution(r float64)
 }
 
 // PeriodicRunner is a class encapsulating running code.
@@ -40,6 +44,8 @@ type periodicRunner struct {
 	numThreads int // not yet used
 	function   Function
 	verbose    int
+	percList   []float64
+	resolution float64
 }
 
 // internal version, returning the concrete class
@@ -53,6 +59,9 @@ func newPeriodicRunner(qps float64, function Function) *periodicRunner {
 	r.numThreads = 4 // default
 	r.function = function
 	r.verbose = 0
+	r.percList = make([]float64, 1)
+	r.percList[0] = 90.0
+	r.resolution = 0.001 // millisecond default
 	return r
 }
 
@@ -123,7 +132,10 @@ func (r *periodicRunner) Run(duration time.Duration) {
 			sleepTime.Counter.FPrint(os.Stdout, "Sleep times")
 		}
 	}
-	functionDuration.FPrint(os.Stdout, "Aggregated Function Time", 90)
+	functionDuration.FPrint(os.Stdout, "Aggregated Function Time", r.percList[0])
+	for _, p := range r.percList[1:] {
+		fmt.Printf("# target %g%% %.6g\n", p, functionDuration.CalcPercentile(p))
+	}
 }
 
 func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, f Function, start time.Time, qps float64, verbose int) {
@@ -180,4 +192,39 @@ func (r *periodicRunner) GetNumThreads() int {
 // SetDebugLevel sets the level of debugging/verbosity.
 func (r *periodicRunner) SetDebugLevel(level int) {
 	r.verbose = level
+}
+
+// ParsePercentiles extracts the percentiles from string (flag).
+func ParsePercentiles(percentiles string) ([]float64, error) {
+	percs := strings.Split(percentiles, ",") // will make a size 1 array for empty input!
+	res := make([]float64, 0)
+	for _, pStr := range percs {
+		pStr = strings.TrimSpace(pStr)
+		if len(pStr) == 0 {
+			continue
+		}
+		p, err := strconv.ParseFloat(pStr, 64)
+		if err != nil {
+			return res, err
+		}
+		res = append(res, p)
+	}
+	if len(res) == 0 {
+		return res, fmt.Errorf("list can't be empty")
+	}
+	if Verbose > 0 {
+		log.Print("will use ", res, " for percentiles")
+	}
+	return res, nil
+}
+
+// SetPercentiles sets the list of percentiles to calculate for the
+// call durations Histogram.
+func (r *periodicRunner) SetPercentiles(pList []float64) {
+	r.percList = pList
+}
+
+// SetResolution sets the divider for call durations Histogram.
+func (r *periodicRunner) SetResolution(precision float64) {
+	r.resolution = precision
 }

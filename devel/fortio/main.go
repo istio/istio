@@ -63,20 +63,31 @@ func (f *flagList) Set(value string) error {
 
 var headersFlags flagList
 
+func usage() {
+	fmt.Fprintf(os.Stderr, "Φορτίο %s usage:\n\n%s [flags] url\n", fortio.Version, os.Args[0]) // nolint(gas)
+	flag.PrintDefaults()
+	os.Exit(1)
+}
+
 func main() {
 	// Very small default so people just trying with random URLs don't affect the target
 	var qpsFlag = flag.Float64("qps", 8.0, "Queries Per Seconds")
 	var numThreadsFlag = flag.Int("c", 0, "Number of connections/goroutine/threads (0 doesn't change internal default)")
 	var durationFlag = flag.Duration("t", 5*time.Second, "How long to run the test")
+	var percentilesFlag = flag.String("p", "50,75,99,99.9", "List of pXX to calculate")
+	var resolutionFlag = flag.Float64("r", 0.001, "Resolution of the histogram lowest buckets in seconds")
 	flag.Var(&headersFlags, "H", "Additional Header(s)")
 
 	flag.Parse()
 	verbose := *verbosityFlag
 	fortio.Verbose = verbose
+	pList, err := fortio.ParsePercentiles(*percentilesFlag)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to extract percentiles from -p: %v\n", err) // nolint(gas)
+		usage()
+	}
 	if len(flag.Args()) != 1 {
-		fmt.Fprintf(os.Stderr, "Φορτίο %s usage:\n\n%s [flags] url\n", fortio.Version, os.Args[0]) // nolint(gas)
-		flag.PrintDefaults()
-		os.Exit(1)
+		usage()
 	}
 	url = flag.Arg(0)
 	fmt.Printf("Running at %g queries per second for %v: %s\n", *qpsFlag, *durationFlag, url)
@@ -85,6 +96,8 @@ func main() {
 		r.SetNumThreads(*numThreadsFlag)
 	}
 	r.SetDebugLevel(verbose)
+	r.SetPercentiles(pList)
+	r.SetResolution(*resolutionFlag)
 	numThreads := r.GetNumThreads()
 	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = numThreads + 1
 	// 1 Warm up / smoke test:  TODO: warm up all threads/connections
