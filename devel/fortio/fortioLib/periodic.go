@@ -49,7 +49,7 @@ func newPeriodicRunner(qps float64, function Function) *periodicRunner {
 		qps = 1
 	}
 	r.qps = qps
-	r.numThreads = 10 // default
+	r.numThreads = 4 // default
 	r.function = function
 	r.verbose = 0
 	return r

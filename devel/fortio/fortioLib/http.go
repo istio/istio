@@ -24,13 +24,17 @@ import (
 // Verbose controls verbose/debug output, higher more verbose.
 var Verbose int
 
+// Version is the fortio package version (TODO:auto gen/extract).
+var Version = "0.1"
+var userAgent = "istio/fortio-" + Version
+
 // newHttpRequest makes a new http GET request for url with User-Agent
 func newHTTPRequest(url string) *http.Request {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Printf("unable to make request for %s : %v", url, err)
 	}
-	req.Header.Add("User-Agent", "istio/fortio-0.1")
+	req.Header.Add("User-Agent", userAgent)
 	if Verbose > 2 {
 		bytes, err := httputil.DumpRequestOut(req, false)
 		if err != nil {
