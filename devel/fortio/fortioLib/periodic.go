@@ -101,8 +101,10 @@ func (r *periodicRunner) Run(duration time.Duration) {
 
 func runOne(t int, numCalls int64, f Function, start time.Time, qps float64, verbose int) {
 	var i int64
-	var cF Counter // stats about function duration
-	var cS Counter // stats about sleep time
+	// Histogram  and stats for Function duration - millisecond precision
+	cF := NewHistogram(0, 0.001)
+	// Histogram and stats for Sleep time (negative offset to capture <0 sleep in their own bucket):
+	cS := NewHistogram(-0.001, 0.001)
 	var elapsed time.Duration
 	tIDStr := fmt.Sprintf("T%03d", t)
 	for i < numCalls {
@@ -128,8 +130,8 @@ func runOne(t int, numCalls int64, f Function, start time.Time, qps float64, ver
 	}
 	actualQPS := float64(numCalls) / elapsed.Seconds()
 	log.Printf("%s ended after %v : %d calls. qps=%g\n", tIDStr, elapsed, numCalls, actualQPS)
-	cF.Log(tIDStr + " Function duration")
-	cS.Log(tIDStr + " Sleep time")
+	cF.Log(tIDStr+" Function duration", 99)
+	cS.Log(tIDStr+" Sleep time", 50)
 }
 
 // SetNumThreads changes the thread count.
