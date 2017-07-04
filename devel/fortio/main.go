@@ -31,7 +31,7 @@ var url string
 
 type threadStats struct {
 	retCodes map[int]int64
-	sizes    fortio.Counter
+	sizes    *fortio.Histogram
 }
 
 var stats []threadStats
@@ -97,23 +97,35 @@ func main() {
 		fmt.Printf("first hit of url %s: status %03d\n%s\n", url, code, string(body))
 	}
 
+	var total threadStats
+	total.retCodes = make(map[int]int64)
+	total.sizes = fortio.NewHistogram(0, 100)
+
 	stats = make([]threadStats, numThreads)
 	for i := 0; i < r.GetNumThreads(); i++ {
+		stats[i].sizes = total.sizes.Clone()
 		stats[i].retCodes = make(map[int]int64)
 	}
 	r.Run(*durationFlag)
 	// Numthreads may have reduced
+	keys := []int{}
 	for i := 0; i < r.GetNumThreads(); i++ {
-		tid := fmt.Sprintf("T%02d", i)
-		keys := []int{}
 		// Q: is there some copying each time stats[i] is used?
 		for k := range stats[i].retCodes {
-			keys = append(keys, k)
+			if _, exists := total.retCodes[k]; !exists {
+				keys = append(keys, k)
+			}
+			total.retCodes[k] += stats[i].retCodes[k]
 		}
-		sort.Ints(keys)
-		for _, k := range keys {
-			fmt.Printf("%s Code %3d : %d\n", tid, k, stats[i].retCodes[k])
-		}
-		stats[i].sizes.FPrint(os.Stdout, tid+" Sizes")
+		total.sizes.Transfer(stats[i].sizes)
+	}
+	sort.Ints(keys)
+	for _, k := range keys {
+		fmt.Printf("Code %3d : %d\n", k, total.retCodes[k])
+	}
+	if verbose > 0 {
+		total.sizes.FPrint(os.Stdout, "Response Body Sizes Histogram", 50)
+	} else {
+		total.sizes.Counter.FPrint(os.Stdout, "Response Body Sizes")
 	}
 }

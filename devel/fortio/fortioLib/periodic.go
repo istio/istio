@@ -17,6 +17,7 @@ package fortio
 import (
 	"fmt"
 	"log"
+	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -77,34 +78,56 @@ func (r *periodicRunner) Run(duration time.Duration) {
 	fmt.Printf("Starting at %g qps with %d thread(s) [gomax %d] for %v : %d calls each (total %d)\n",
 		r.qps, r.numThreads, runtime.GOMAXPROCS(0), duration, numCalls, totalCalls)
 	start := time.Now()
+	// Histogram  and stats for Function duration - millisecond precision
+	functionDuration := NewHistogram(0, 0.001)
+	// Histogram and stats for Sleep time (negative offset to capture <0 sleep in their own bucket):
+	sleepTime := NewHistogram(-0.001, 0.001)
 	if r.numThreads <= 1 {
 		if r.verbose > 0 {
 			log.Printf("Running single threaded")
 		}
-		runOne(0, numCalls, r.function, start, r.qps, r.verbose)
+		runOne(0, functionDuration, sleepTime, numCalls, r.function, start, r.qps, r.verbose)
 	} else {
 		threadQPS := r.qps / float64(r.numThreads)
 		var wg sync.WaitGroup
+		var fDs []*Histogram
+		var sDs []*Histogram
 		for t := 0; t < r.numThreads; t++ {
+			durP := functionDuration.Clone()
+			sleepP := sleepTime.Clone()
+			fDs = append(fDs, durP)
+			sDs = append(sDs, sleepP)
 			wg.Add(1)
-			go func(t int) {
+			go func(t int, durP *Histogram, sleepP *Histogram) {
 				defer wg.Done()
-				runOne(t, numCalls, r.function, start, threadQPS, r.verbose)
-			}(t)
+				runOne(t, durP, sleepP, numCalls, r.function, start, threadQPS, r.verbose)
+			}(t, durP, sleepP)
 		}
 		wg.Wait()
+		for t := 0; t < r.numThreads; t++ {
+			functionDuration.Transfer(fDs[t])
+			sleepTime.Transfer(sDs[t])
+		}
 	}
 	elapsed := time.Since(start)
 	actualQPS := float64(totalCalls) / elapsed.Seconds()
 	fmt.Printf("Ended after %v : %d calls. qps=%.5g\n", elapsed, totalCalls, actualQPS)
+	percentNegative := 100. * float64(sleepTime.hdata[0]) / float64(sleepTime.Count)
+	if percentNegative > 3 {
+		sleepTime.FPrint(os.Stdout, "Aggregated Sleep Time", 50)
+		fmt.Printf("WARNING %.2f%% of sleep were falling behind\n", percentNegative)
+	} else {
+		if Verbose > 0 {
+			sleepTime.FPrint(os.Stdout, "Aggregated Sleep Time", 50)
+		} else {
+			sleepTime.Counter.FPrint(os.Stdout, "Sleep times")
+		}
+	}
+	functionDuration.FPrint(os.Stdout, "Aggregated Function Time", 90)
 }
 
-func runOne(t int, numCalls int64, f Function, start time.Time, qps float64, verbose int) {
+func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, f Function, start time.Time, qps float64, verbose int) {
 	var i int64
-	// Histogram  and stats for Function duration - millisecond precision
-	cF := NewHistogram(0, 0.001)
-	// Histogram and stats for Sleep time (negative offset to capture <0 sleep in their own bucket):
-	cS := NewHistogram(-0.001, 0.001)
 	var elapsed time.Duration
 	tIDStr := fmt.Sprintf("T%03d", t)
 	for i < numCalls {
@@ -130,15 +153,13 @@ func runOne(t int, numCalls int64, f Function, start time.Time, qps float64, ver
 	}
 	actualQPS := float64(numCalls) / elapsed.Seconds()
 	log.Printf("%s ended after %v : %d calls. qps=%g", tIDStr, elapsed, numCalls, actualQPS)
-	cF.Log(tIDStr+" Function duration", 99)
-	percentNegative := 100. * float64(cS.hdata[0]) / float64(cS.Count)
-	if percentNegative > .5 {
-		log.Printf("%s WARNING %.2f%% of sleep were falling behind ", tIDStr, percentNegative)
-	}
 	if verbose > 0 {
-		cS.Log(tIDStr+" Sleep time", 50)
-	} else {
-		cS.Counter.Log(tIDStr + " Sleep time")
+		cF.Log(tIDStr+" Function duration", 99)
+		if verbose > 2 {
+			cS.Log(tIDStr+" Sleep time", 50)
+		} else {
+			cS.Counter.Log(tIDStr + " Sleep time")
+		}
 	}
 }
 

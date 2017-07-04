@@ -59,6 +59,49 @@ func TestCounter(t *testing.T) {
 	}
 }
 
+func TestTransferCounter(t *testing.T) {
+	var b bytes.Buffer
+	w := bufio.NewWriter(&b)
+	var c1 Counter
+	c1.Record(10)
+	c1.Record(20)
+	var c2 Counter
+	c2.Record(80)
+	c2.Record(90)
+	c1a := c1
+	c2a := c2
+	var c3 Counter
+	c1.FPrint(w, "c1 before merge")
+	c2.FPrint(w, "c2 before merge")
+	c1.Transfer(&c2)
+	c1.FPrint(w, "mergedC1C2")
+	c2.FPrint(w, "c2 after merge")
+	// reverse (exercise min if)
+	c2a.Transfer(&c1a)
+	c2a.FPrint(w, "mergedC2C1")
+	// test transfer into empty - min should be set
+	c3.Transfer(&c1)
+	c1.FPrint(w, "c1 should now be empty")
+	c3.FPrint(w, "c3 after merge - 1")
+	// test empty transfer - shouldn't reset min/no-op
+	c3.Transfer(&c2)
+	c3.FPrint(w, "c3 after merge - 2")
+	w.Flush() // nolint: errcheck
+	actual := string(b.Bytes())
+	expected := `c1 before merge : count 2 avg 15 +/- 5 min 10 max 20 sum 30
+c2 before merge : count 2 avg 85 +/- 5 min 80 max 90 sum 170
+mergedC1C2 : count 4 avg 50 +/- 35.36 min 10 max 90 sum 200
+c2 after merge : count 0 avg NaN +/- NaN min 0 max 0 sum 0
+mergedC2C1 : count 4 avg 50 +/- 35.36 min 10 max 90 sum 200
+c1 should now be empty : count 0 avg NaN +/- NaN min 0 max 0 sum 0
+c3 after merge - 1 : count 4 avg 50 +/- 35.36 min 10 max 90 sum 200
+c3 after merge - 2 : count 4 avg 50 +/- 35.36 min 10 max 90 sum 200
+`
+	if actual != expected {
+		t.Errorf("unexpected:\n%s\tvs:\n%s", actual, expected)
+	}
+}
+
 func TestHistogram(t *testing.T) {
 	h := NewHistogram(0, 10)
 	h.Record(1)
@@ -146,6 +189,84 @@ func TestHistogramNegativeNumbers(t *testing.T) {
 < -9 , -9 , 50.00, 1
 >= 10 < 15 , 12.5 , 100.00, 1
 # target 51% 10
+`
+	if actual != expected {
+		t.Errorf("unexpected:\n%s\tvs:\n%s", actual, expected)
+	}
+}
+
+func TestTransferHistogram(t *testing.T) {
+	tP := 100. // TODO: use 75 and fix bug
+	var b bytes.Buffer
+	w := bufio.NewWriter(&b)
+	h1 := NewHistogram(0, 10)
+	h1.Record(10)
+	h1.Record(20)
+	h2 := NewHistogram(0, 10)
+	h2.Record(80)
+	h2.Record(90)
+	h1a := h1.Clone()
+	h1a.Record(50) // add extra pt to make sure h1a and h1 are distinct
+	h2a := h2.Clone()
+	h3 := NewHistogram(0, 10)
+	h1.FPrint(w, "h1 before merge", tP)
+	h2.FPrint(w, "h2 before merge", tP)
+	h1.Transfer(h2)
+	h1.FPrint(w, "merged h2 -> h1", tP)
+	h2.FPrint(w, "h2 after merge", tP)
+	// reverse (exercise min if)
+	h2a.Transfer(h1a)
+	h2a.FPrint(w, "merged h1a -> h2a", tP)
+	// test transfer into empty - min should be set
+	h3.Transfer(h1)
+	h1.FPrint(w, "h1 should now be empty", tP)
+	h3.FPrint(w, "h3 after merge - 1", tP)
+	// test empty transfer - shouldn't reset min/no-op
+	h3.Transfer(h2)
+	h3.FPrint(w, "h3 after merge - 2", tP)
+	w.Flush() // nolint: errcheck
+	actual := string(b.Bytes())
+	expected := `h1 before merge : count 2 avg 15 +/- 5 min 10 max 20 sum 30
+# range, mid point, percentile, count
+>= 10 < 20 , 15 , 50.00, 1
+>= 20 < 30 , 25 , 100.00, 1
+# target 100% 20
+h2 before merge : count 2 avg 85 +/- 5 min 80 max 90 sum 170
+# range, mid point, percentile, count
+>= 80 < 90 , 85 , 50.00, 1
+>= 90 < 100 , 95 , 100.00, 1
+# target 100% 90
+merged h2 -> h1 : count 4 avg 50 +/- 35.36 min 10 max 90 sum 200
+# range, mid point, percentile, count
+>= 10 < 20 , 15 , 25.00, 1
+>= 20 < 30 , 25 , 50.00, 1
+>= 80 < 90 , 85 , 75.00, 1
+>= 90 < 100 , 95 , 100.00, 1
+# target 100% 90
+h2 after merge : no data
+merged h1a -> h2a : count 5 avg 50 +/- 31.62 min 10 max 90 sum 250
+# range, mid point, percentile, count
+>= 10 < 20 , 15 , 20.00, 1
+>= 20 < 30 , 25 , 40.00, 1
+>= 50 < 60 , 55 , 60.00, 1
+>= 80 < 90 , 85 , 80.00, 1
+>= 90 < 100 , 95 , 100.00, 1
+# target 100% 90
+h1 should now be empty : no data
+h3 after merge - 1 : count 4 avg 50 +/- 35.36 min 10 max 90 sum 200
+# range, mid point, percentile, count
+>= 10 < 20 , 15 , 25.00, 1
+>= 20 < 30 , 25 , 50.00, 1
+>= 80 < 90 , 85 , 75.00, 1
+>= 90 < 100 , 95 , 100.00, 1
+# target 100% 90
+h3 after merge - 2 : count 4 avg 50 +/- 35.36 min 10 max 90 sum 200
+# range, mid point, percentile, count
+>= 10 < 20 , 15 , 25.00, 1
+>= 20 < 30 , 25 , 50.00, 1
+>= 80 < 90 , 85 , 75.00, 1
+>= 90 < 100 , 95 , 100.00, 1
+# target 100% 90
 `
 	if actual != expected {
 		t.Errorf("unexpected:\n%s\tvs:\n%s", actual, expected)
