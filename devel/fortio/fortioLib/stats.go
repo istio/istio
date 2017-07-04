@@ -29,7 +29,7 @@ type Counter struct {
 	Min          float64
 	Max          float64
 	Sum          float64
-	SumOfSquares float64
+	sumOfSquares float64
 }
 
 // Record records a data point
@@ -44,7 +44,7 @@ func (c *Counter) Record(v float64) {
 		c.Max = v
 	}
 	c.Sum += v
-	c.SumOfSquares += (v * v)
+	c.sumOfSquares += (v * v)
 }
 
 // Avg returns the average.
@@ -55,7 +55,7 @@ func (c *Counter) Avg() float64 {
 // StdDev returns the standard deviation.
 func (c *Counter) StdDev() float64 {
 	fC := float64(c.Count)
-	sigma := (c.SumOfSquares - c.Sum*c.Sum/fC) / fC
+	sigma := (c.sumOfSquares - c.Sum*c.Sum/fC) / fC
 	return math.Sqrt(sigma)
 }
 
@@ -69,6 +69,34 @@ func (c *Counter) FPrint(out io.Writer, msg string) {
 func (c *Counter) Log(msg string) {
 	log.Printf("%s : count %d avg %.8g +/- %.4g min %g max %g sum %.9g",
 		msg, c.Count, c.Avg(), c.StdDev(), c.Min, c.Max, c.Sum)
+}
+
+// Reset clears the counter to reset it to original 'no data' state
+func (c *Counter) Reset() {
+	var empty Counter
+	*c = empty
+}
+
+// Transfer merges the data from src into this Counter and clears src.
+func (c *Counter) Transfer(src *Counter) {
+	if src.Count == 0 {
+		return // nothing to do
+	}
+	if c.Count == 0 {
+		*c = *src // copy everything at once
+		src.Reset()
+		return
+	}
+	c.Count += src.Count
+	if src.Min < c.Min {
+		c.Min = src.Min
+	}
+	if src.Max > c.Max {
+		c.Max = src.Max
+	}
+	c.Sum += src.Sum
+	c.sumOfSquares += src.sumOfSquares
+	src.Reset()
 }
 
 // Histogram - written in go with inspiration from https://github.com/facebook/wdt/blob/master/util/Stats.h
@@ -90,12 +118,12 @@ var firstValue = float64(histogramBuckets[0])
 var lastValue = float64(histogramBuckets[numBuckets-1])
 
 // Histogram extends Counter and adds an histogram.
+// Must be created using NewHistogram or anotherHistogram.Clone()
+// and not directly.
 type Histogram struct {
 	Counter
 	Offset  float64 // offset applied to data before fitting into buckets
 	Divider float64 // divider applied to data before fitting into buckets
-
-	Scale float64
 	// Don't access directly (outside of this package):
 	hdata []int32 // n+1 buckets (for last one)
 }
@@ -264,4 +292,53 @@ func (h *Histogram) Log(msg string, percentile float64) {
 	h.FPrint(w, msg, percentile)
 	w.Flush() // nolint: gas,errcheck
 	log.Print(string(b.Bytes()))
+}
+
+// Reset clears the data. Reset it to NewHistogram state.
+func (h *Histogram) Reset() {
+	h.Counter.Reset()
+	// Leave Offset and Divider alone
+	for i := 0; i < len(h.hdata); i++ {
+		h.hdata[i] = 0
+	}
+}
+
+// Clone returns a copy of the histogram
+func (h *Histogram) Clone() *Histogram {
+	copy := NewHistogram(h.Offset, h.Divider)
+	copy.CopyFrom(h)
+	return copy
+}
+
+// CopyFrom sets the content of this object to a copy of the src
+func (h *Histogram) CopyFrom(src *Histogram) {
+	h.Counter = src.Counter
+	// we don't copy offset/divider as this assumes compatible src/dest
+	for i := 0; i < len(h.hdata); i++ {
+		h.hdata[i] += src.hdata[i]
+	}
+}
+
+// Transfer merges the data from src into this Histogram and clears src.
+func (h *Histogram) Transfer(src *Histogram) {
+	// TODO potentially merge despite different offset/scale
+	if src.Offset != h.Offset {
+		log.Fatal("Incompatible offsets in Histogram Transfer", src.Offset, h.Offset)
+	}
+	if src.Divider != h.Divider {
+		log.Fatal("Incompatible scale in Histogram Transfer", src.Divider, h.Divider)
+	}
+	if src.Count == 0 {
+		return
+	}
+	if h.Count == 0 {
+		h.CopyFrom(src)
+		src.Reset()
+		return
+	}
+	h.Counter.Transfer(&src.Counter)
+	for i := 0; i < len(h.hdata); i++ {
+		h.hdata[i] += src.hdata[i]
+	}
+	src.Reset()
 }
