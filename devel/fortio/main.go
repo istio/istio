@@ -50,14 +50,15 @@ func test(t int) {
 }
 
 func main() {
-	var qpsFlag = flag.Float64("qps", 100.0, "Queries Per Seconds")
-	var numThreadsFlag = flag.Int("c", 4, "Number of connections/goroutine/threads (0 doesn't change internal default)")
-	var durationFlag = flag.Duration("t", 10*time.Second, "How long to run the test")
+	// Very small default so people just trying with random URLs don't affect the target
+	var qpsFlag = flag.Float64("qps", 8.0, "Queries Per Seconds")
+	var numThreadsFlag = flag.Int("c", 0, "Number of connections/goroutine/threads (0 doesn't change internal default)")
+	var durationFlag = flag.Duration("t", 5*time.Second, "How long to run the test")
 	flag.Parse()
 	verbose := *verbosityFlag
 	fortio.Verbose = verbose
 	if len(flag.Args()) != 1 {
-		fmt.Fprintf(os.Stderr, "Usage: %s [flags] url\n", os.Args[0]) // nolint(gas)
+		fmt.Fprintf(os.Stderr, "Φορτίο %s usage:\n\n%s [flags] url\n", fortio.Version, os.Args[0]) // nolint(gas)
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
