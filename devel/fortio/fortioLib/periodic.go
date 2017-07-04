@@ -96,7 +96,7 @@ func (r *periodicRunner) Run(duration time.Duration) {
 	}
 	elapsed := time.Since(start)
 	actualQPS := float64(totalCalls) / elapsed.Seconds()
-	fmt.Printf("Ended after %v : %d calls. qps=%g\n", elapsed, totalCalls, actualQPS)
+	fmt.Printf("Ended after %v : %d calls. qps=%.5g\n", elapsed, totalCalls, actualQPS)
 }
 
 func runOne(t int, numCalls int64, f Function, start time.Time, qps float64, verbose int) {
@@ -129,9 +129,17 @@ func runOne(t int, numCalls int64, f Function, start time.Time, qps float64, ver
 		time.Sleep(sleepDuration)
 	}
 	actualQPS := float64(numCalls) / elapsed.Seconds()
-	log.Printf("%s ended after %v : %d calls. qps=%g\n", tIDStr, elapsed, numCalls, actualQPS)
+	log.Printf("%s ended after %v : %d calls. qps=%g", tIDStr, elapsed, numCalls, actualQPS)
 	cF.Log(tIDStr+" Function duration", 99)
-	cS.Log(tIDStr+" Sleep time", 50)
+	percentNegative := 100. * float64(cS.hdata[0]) / float64(cS.Count)
+	if percentNegative > .5 {
+		log.Printf("%s WARNING %.2f%% of sleep were falling behind ", tIDStr, percentNegative)
+	}
+	if verbose > 0 {
+		cS.Log(tIDStr+" Sleep time", 50)
+	} else {
+		cS.Counter.Log(tIDStr + " Sleep time")
+	}
 }
 
 // SetNumThreads changes the thread count.

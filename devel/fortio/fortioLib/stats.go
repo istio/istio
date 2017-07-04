@@ -96,9 +96,8 @@ type Histogram struct {
 	Divider float64 // divider applied to data before fitting into buckets
 
 	Scale float64
+	// Don't access directly (outside of this package):
 	hdata []int32 // n+1 buckets (for last one)
-
-	MoreStuff string
 }
 
 //NewHistogram creates a new histogram (sets up the buckets)
@@ -229,7 +228,7 @@ func (h *Histogram) FPrint(out io.Writer, msg string, percentile float64) {
 	// output the data of each bucket of the histogram
 	for i := 0; i <= lastIdx; i++ {
 		if h.hdata[i] == 0 {
-			// skip the bucket but update prev which is needed for next iter
+			// empty bucket: skip it but update prev which is needed for next iter
 			if i < numBuckets {
 				prev = histogramBuckets[i]
 			}
@@ -264,5 +263,5 @@ func (h *Histogram) Log(msg string, percentile float64) {
 	w := bufio.NewWriter(&b)
 	h.FPrint(w, msg, percentile)
 	w.Flush() // nolint: gas,errcheck
-	log.Println(string(b.Bytes()))
+	log.Print(string(b.Bytes()))
 }
