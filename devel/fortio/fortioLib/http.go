@@ -45,7 +45,17 @@ func newHTTPRequest(url string) *http.Request {
 			log.Printf("invalid extra header '%s', expecting Key: Value", h)
 			continue
 		}
-		req.Header.Add(s[0], s[1])
+		if strings.EqualFold(s[0], "host") {
+			if Verbose > 2 {
+				log.Printf("setting special Host header to %s (was %s)", s[1], req.Host)
+			}
+			req.Host = s[1]
+		} else {
+			if Verbose > 2 {
+				log.Printf("setting regular extra header %s: %s", s[0], s[1])
+			}
+			req.Header.Add(s[0], s[1])
+		}
 	}
 	if Verbose > 2 {
 		bytes, err := httputil.DumpRequestOut(req, false)
