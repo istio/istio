@@ -96,3 +96,58 @@ func TestHistogram(t *testing.T) {
 		}
 	}
 }
+
+func TestHistogramLastBucket(t *testing.T) {
+	// Use -1 offset so first bucket is negative values
+	h := NewHistogram( /* offset */ -1 /*scale */, 1)
+	h.Record(-1)
+	h.Record(0)
+	h.Record(1)
+	h.Record(3)
+	h.Record(10)
+	h.Record(99998)
+	h.Record(99999) // first value of last bucket 100k-offset
+	h.Record(200000)
+	var b bytes.Buffer
+	w := bufio.NewWriter(&b)
+	h.FPrint(w, "testLastBucket", 90)
+	w.Flush() // nolint: errcheck
+	actual := string(b.Bytes())
+	// stdev part is not verified/could be brittle
+	expected := `testLastBucket : count 8 avg 50001.25 +/- 7.071e+04 min -1 max 200000 sum 400010
+# range, mid point, percentile, count
+< 0 , 0 , 12.50, 1
+>= 0 < 1 , 0.5 , 25.00, 1
+>= 1 < 2 , 1.5 , 37.50, 1
+>= 3 < 4 , 3.5 , 50.00, 1
+>= 10 < 11 , 10.5 , 62.50, 1
+>= 74999 < 99999 , 87499 , 75.00, 1
+>= 99999 , 99999 , 100.00, 2
+# target 90% 160000
+`
+	if actual != expected {
+		t.Errorf("unexpected:\n%s\tvs:\n%s", actual, expected)
+	}
+}
+
+func TestHistogramNegativeNumbers(t *testing.T) {
+	h := NewHistogram( /* offset */ -10 /*scale */, 1)
+	h.Record(-10)
+	h.Record(10)
+	var b bytes.Buffer
+	w := bufio.NewWriter(&b)
+	// TODO: fix the p51 (and p1...), should be 0 not 10
+	h.FPrint(w, "testHistogramWithNegativeNumbers", 51)
+	w.Flush() // nolint: errcheck
+	actual := string(b.Bytes())
+	// stdev part is not verified/could be brittle
+	expected := `testHistogramWithNegativeNumbers : count 2 avg 0 +/- 10 min -10 max 10 sum 0
+# range, mid point, percentile, count
+< -9 , -9 , 50.00, 1
+>= 10 < 15 , 12.5 , 100.00, 1
+# target 51% 10
+`
+	if actual != expected {
+		t.Errorf("unexpected:\n%s\tvs:\n%s", actual, expected)
+	}
+}
