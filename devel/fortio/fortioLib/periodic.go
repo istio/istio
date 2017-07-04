@@ -88,7 +88,7 @@ func (r *periodicRunner) Run(duration time.Duration) {
 		r.qps, r.numThreads, runtime.GOMAXPROCS(0), duration, numCalls, totalCalls)
 	start := time.Now()
 	// Histogram  and stats for Function duration - millisecond precision
-	functionDuration := NewHistogram(0, 0.001)
+	functionDuration := NewHistogram(0, r.resolution)
 	// Histogram and stats for Sleep time (negative offset to capture <0 sleep in their own bucket):
 	sleepTime := NewHistogram(-0.001, 0.001)
 	if r.numThreads <= 1 {
