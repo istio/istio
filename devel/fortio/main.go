@@ -73,11 +73,11 @@ func main() {
 	// 1 Warm up / smoke test:  TODO: warm up all threads/connections
 	code, body := fortio.FetchURL(url)
 	if code != http.StatusOK {
-		fmt.Printf("Aborting because of error %d for %s\n%s", code, url, string(body))
+		fmt.Printf("Aborting because of error %d for %s\n%s\n", code, url, string(body))
 		os.Exit(1)
 	}
 	if verbose > 0 {
-		fmt.Printf("first hit of url %s: status %03d\n%s", url, code, string(body))
+		fmt.Printf("first hit of url %s: status %03d\n%s\n", url, code, string(body))
 	}
 
 	stats = make([]threadStats, numThreads)
@@ -97,6 +97,6 @@ func main() {
 		for _, k := range keys {
 			fmt.Printf("%s Code %3d : %d\n", tid, k, stats[i].retCodes[k])
 		}
-		stats[i].sizes.Printf(os.Stdout, tid+" Sizes")
+		stats[i].sizes.FPrint(os.Stdout, tid+" Sizes")
 	}
 }
