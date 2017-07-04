@@ -58,8 +58,7 @@ func (f *flagList) String() string {
 }
 
 func (f *flagList) Set(value string) error {
-	fortio.ExtraHeaders = append(fortio.ExtraHeaders, value)
-	return nil
+	return fortio.AddAndValidateExtraHeader(value)
 }
 
 var headersFlags flagList

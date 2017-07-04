@@ -15,6 +15,7 @@
 package fortio
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -22,8 +23,16 @@ import (
 	"strings"
 )
 
-// ExtraHeaders to be added to each request
-var ExtraHeaders []string
+// ExtraHeaders to be added to each request.
+var extraHeaders http.Header
+
+// Host is treated specially, remember that one separately.
+var hostOverride string
+
+func init() {
+	extraHeaders = make(http.Header)
+	extraHeaders.Add("User-Agent", userAgent)
+}
 
 // Verbose controls verbose/debug output, higher more verbose.
 var Verbose int
@@ -32,32 +41,34 @@ var Verbose int
 var Version = "0.1"
 var userAgent = "istio/fortio-" + Version
 
+// AddAndValidateExtraHeader collects extra headers (see main.go for example).
+func AddAndValidateExtraHeader(h string) error {
+	s := strings.SplitN(h, ":", 2)
+	if len(s) != 2 {
+		return fmt.Errorf("invalid extra header '%s', expecting Key: Value", h)
+	}
+	key := strings.TrimSpace(s[0])
+	value := strings.TrimSpace(s[1])
+	// Not checking Verbose as this is called during flag parsing and Verbose isn't set yet
+	if strings.EqualFold(key, "host") {
+		log.Printf("will be setting special Host header to %s", value)
+		hostOverride = value
+	} else {
+		log.Printf("setting regular extra header %s: %s", key, value)
+		extraHeaders.Add(key, value)
+	}
+	return nil
+}
+
 // newHttpRequest makes a new http GET request for url with User-Agent
 func newHTTPRequest(url string) *http.Request {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Printf("unable to make request for %s : %v", url, err)
 	}
-	req.Header.Add("User-Agent", userAgent)
-	for _, h := range ExtraHeaders {
-		s := strings.SplitN(h, ":", 2)
-		if len(s) != 2 {
-			log.Printf("invalid extra header '%s', expecting Key: Value", h)
-			continue
-		}
-		if strings.EqualFold(s[0], "host") {
-			host := strings.TrimSpace(s[1]) // go ignore Host starting with space
-			if Verbose > 2 {
-				log.Printf("setting special Host header to %s (was %s)", host, req.Host)
-			}
-			req.Host = host
-		} else {
-			value := strings.TrimLeft(s[1], " ")
-			if Verbose > 2 {
-				log.Printf("setting regular extra header %s: %s", s[0], value)
-			}
-			req.Header.Add(s[0], value)
-		}
+	req.Header = extraHeaders
+	if hostOverride != "" {
+		req.Host = hostOverride
 	}
 	if Verbose > 2 {
 		bytes, err := httputil.DumpRequestOut(req, false)
