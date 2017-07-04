@@ -49,11 +49,28 @@ func test(t int) {
 	stats[t].sizes.Record(float64(size))
 }
 
+type flagList struct {
+}
+
+// Unclear when/why this is called and necessary
+func (f *flagList) String() string {
+	return ""
+}
+
+func (f *flagList) Set(value string) error {
+	fortio.ExtraHeaders = append(fortio.ExtraHeaders, value)
+	return nil
+}
+
+var headersFlags flagList
+
 func main() {
 	// Very small default so people just trying with random URLs don't affect the target
 	var qpsFlag = flag.Float64("qps", 8.0, "Queries Per Seconds")
 	var numThreadsFlag = flag.Int("c", 0, "Number of connections/goroutine/threads (0 doesn't change internal default)")
 	var durationFlag = flag.Duration("t", 5*time.Second, "How long to run the test")
+	flag.Var(&headersFlags, "H", "Additional Header(s)")
+
 	flag.Parse()
 	verbose := *verbosityFlag
 	fortio.Verbose = verbose
