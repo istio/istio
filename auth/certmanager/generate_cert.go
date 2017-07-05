@@ -83,10 +83,29 @@ const (
 // See http://www.alvestrand.no/objectid/2.5.29.17.html.
 var oidSubjectAltName = asn1.ObjectIdentifier{2, 5, 29, 17}
 
-// GenCert generates a X.509 certificate with the given options.
+// GenCSR generates a X.509 certificate sign request and private key with the given options.
+func GenCSR(options CertOptions) ([]byte, []byte, error) {
+	// Generates a CSR
+	priv, err := rsa.GenerateKey(rand.Reader, options.RSAKeySize)
+	if err != nil {
+		glog.Errorf("RSA key generation failed with error %s.", err)
+		return nil, nil, err
+	}
+	template := GenCSRTemplate(options)
+	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &template, crypto.PrivateKey(priv))
+	if err != nil {
+		glog.Errorf("Could not create certificate request (err = %s).", err)
+		return nil, nil, err
+	}
+
+	csr, privKey := encodePem(true, csrBytes, priv)
+	return csr, privKey, nil
+}
+
+// GenCert generates a X.509 certificate and a private key with the given options.
 func GenCert(options CertOptions) ([]byte, []byte) {
 	// Generates a RSA private&public key pair.
-	// The public key will be bound to the certficate generated below. The
+	// The public key will be bound to the certificate generated below. The
 	// private key will be used to sign this certificate in the self-signed
 	// case, otherwise the certificate is signed by the signer private key
 	// as specified in the CertOptions.
@@ -104,13 +123,19 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 		glog.Fatalf("Could not create certificate (err = %s).", err)
 	}
 
-	// Returns the certificate that carries the RSA public key as well as
-	// the corresponding private key.
-	certPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certBytes})
+	return encodePem(false, certBytes, priv)
+}
+
+func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey) ([]byte, []byte) {
+	encodeMsg := "CERTIFICATE"
+	if isCSR {
+		encodeMsg = "CERTIFICATE REQUEST"
+	}
+	csrOrCertPem := pem.EncodeToMemory(&pem.Block{Type: encodeMsg, Bytes: csrOrCert})
 
 	privDer := x509.MarshalPKCS1PrivateKey(priv)
 	privPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privDer})
-	return certPem, privPem
+	return csrOrCertPem, privPem
 }
 
 // LoadSignerCredsFromFiles loads the signer cert&key from the given files.
@@ -140,6 +165,22 @@ func genSerialNum() *big.Int {
 		glog.Fatalf("Failed to generate serial number: %s.", err)
 	}
 	return serialNum
+}
+
+// GenCSRTemplate generates a certificateRequest template with the given options.
+func GenCSRTemplate(options CertOptions) x509.CertificateRequest {
+	template := x509.CertificateRequest{
+		Subject: pkix.Name{
+			Organization: []string{options.Org},
+		},
+	}
+
+	if h := options.Host; len(h) > 0 {
+		s := buildSubjectAltNameExtension(h)
+		template.ExtraExtensions = []pkix.Extension{s}
+	}
+
+	return template
 }
 
 // genCertTemplate generates a certificate template with the given options.
