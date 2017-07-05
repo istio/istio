@@ -121,3 +121,7 @@ Aggregated Function Time : count 300000 avg 0.0010281581 +/- 0.0008435 min 0.000
 # target 99.9% 0.0163972
 Code 200 : 300000
 ```
+
+Or graphically:
+
+![Chart](https://user-images.githubusercontent.com/3664595/27844778-3776e1e6-60db-11e7-99fa-8899e21be047.png)
