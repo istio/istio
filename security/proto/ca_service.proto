@@ -1,0 +1,53 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+import "google/rpc/status.proto";
+
+package istio.v1.auth;
+
+// Service definition of IstioCAService that can dynamically verify the CSR for
+// service identities for Istio services running on various platforms and
+// approve or disapprove the request after verifying the Node Agent credentials
+// provided as a part of the Certificte Signing Request.
+service IstioCAService {
+
+  // Request to sign a Certificate Signing Request.
+  //
+  // The CSR is generated on the Node Agent along with the private key. The Node
+  // Agent also needs to provide its credentials so the CA can verify the Node
+  // Agent requesting the credentials.
+  rpc Sign(CertificateSignRequest) returns (CertificateSignResponse);
+}
+
+message CertificateSignRequest {
+  bytes csr = 1;
+  NodeAgentCredentials nodeAgentCredentials = 2;
+}
+
+message NodeAgentCredentials {
+  oneof node_credential {
+    GcpInstanceCredential gcp_instance_credential = 1;
+  }
+}
+
+message GcpInstanceCredential {
+  bytes signed_instance_metadata = 1;
+}
+
+message CertificateSignResponse {
+  bool is_approved = 1;
+  google.rpc.Status status = 2;
+  bytes signed_cert_chain = 3;
+}
