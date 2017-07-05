@@ -75,6 +75,8 @@ export PATH=$PATH:$GOPATH/bin
 Istio components are built using the Bazel build system. See
 [here](https://bazel.build/versions/master/docs/install.html) for the
 installation procedures.
+In addition to Bazel itself, you should install the Bazel buildifier tool from
+[here](https://github.com/bazelbuild/buildtools).
 
 ### Setting up Docker
 
@@ -280,6 +282,8 @@ You can run all the linters we require on your local repo by going to the top of
 
 ```shell
 make lint
+# To run only on your local changes
+LAST_GOOD_GITSHA=HEAD bin/linters.sh
 ```
 
 ### Race detection tests
@@ -359,8 +363,10 @@ Assuming you did (once):
    ```
 4. You can then use 
    - [update_all](update_all) : script to build from source 
-   - [setup_run](setup_run)  : run locally
+   - [setup_run](setup_run) : run locally
+   - [fortio](fortio/) : load testing
    - Also found in this directory: [rules.yml](rules.yml) : the version of  mixer/testdata/configroot/scopes/global/subjects/global/rules.yml that works locally and [quota.yml](quota.yml) a very simple 1 qps quota example used below.
+   - And an unrelated tool to aggregate [GitHub Contributions](githubContrib/) statistics.
 5. And run things like
    ```bash
    # Test the echo server:

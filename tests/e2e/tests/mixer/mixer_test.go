@@ -102,7 +102,7 @@ func (t *testConfig) Setup() error {
 	}
 	t.gateway = "http://" + tc.Kube.Ingress
 	for _, rule := range rules {
-		src := util.GetResourcePath(filepath.Join(rulesDir, fmt.Sprintf("%s", rule)))
+		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
 		dest := filepath.Join(t.rulesDir, rule)
 		srcBytes, err := ioutil.ReadFile(src)
 		if err != nil {

@@ -106,7 +106,7 @@ do
         echo "Success!"
         break
     fi
-    sleep 10
+    sleep 60
 done
 
 # Test version routing

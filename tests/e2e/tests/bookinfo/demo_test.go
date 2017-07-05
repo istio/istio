@@ -83,7 +83,7 @@ func (t *testConfig) Setup() error {
 	t.gateway = "http://" + tc.Kube.Ingress
 	//generate rule yaml files, replace with actual namespace and user
 	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule} {
-		src := util.GetResourcePath(filepath.Join(rulesDir, fmt.Sprintf("%s", rule)))
+		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
 		dest := filepath.Join(t.rulesDir, rule)
 		ori, err := ioutil.ReadFile(src)
 		if err != nil {
