@@ -101,21 +101,24 @@ func (c *Counter) Transfer(src *Counter) {
 
 // Histogram - written in go with inspiration from https://github.com/facebook/wdt/blob/master/util/Stats.h
 
-var histogramBuckets = []int32{
-	1, 2, 3, 4, 5, 6,
-	7, 8, 9, 10, 11, // initially increment buckets by 1, my amp goes to 11 !
-	12, 14, 16, 18, 20, // then by 2
-	25, 30, 35, 40, 45, 50, // then by 5
-	60, 70, 80, 90, 100, // then by 10
-	120, 140, 160, 180, 200, // line3 *10
-	250, 300, 350, 400, 450, 500, // line4 *10
-	600, 700, 800, 900, 1000, // line5 *10
-	2000, 3000, 4000, 5000, 7500, 10000, // another order of magnitude coarsly covered
-	20000, 30000, 40000, 50000, 75000, 100000, // ditto, the end
-}
-var numBuckets = len(histogramBuckets)
-var firstValue = float64(histogramBuckets[0])
-var lastValue = float64(histogramBuckets[numBuckets-1])
+var (
+	histogramBuckets = []int32{
+		1, 2, 3, 4, 5, 6,
+		7, 8, 9, 10, 11, // initially increment buckets by 1, my amp goes to 11 !
+		12, 14, 16, 18, 20, // then by 2
+		25, 30, 35, 40, 45, 50, // then by 5
+		60, 70, 80, 90, 100, // then by 10
+		120, 140, 160, 180, 200, // line3 *10
+		250, 300, 350, 400, 450, 500, // line4 *10
+		600, 700, 800, 900, 1000, // line5 *10
+		2000, 3000, 4000, 5000, 7500, 10000, // another order of magnitude coarsly covered
+		20000, 30000, 40000, 50000, 75000, 100000, // ditto, the end
+	}
+	numBuckets = len(histogramBuckets)
+	firstValue = float64(histogramBuckets[0])
+	lastValue  = float64(histogramBuckets[numBuckets-1])
+	val2Bucket []int
+)
 
 // Histogram extends Counter and adds an histogram.
 // Must be created using NewHistogram or anotherHistogram.Clone()
@@ -136,8 +139,6 @@ func NewHistogram(Offset float64, Divider float64) *Histogram {
 	h.hdata = make([]int32, numBuckets+1)
 	return h
 }
-
-var val2Bucket []int
 
 // Tradeoff memory for speed (though that also kills the cache so...)
 // this creates an array of 100k (max value) entries

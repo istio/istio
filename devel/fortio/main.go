@@ -97,15 +97,18 @@ func main() {
 		usage()
 	}
 	url = flag.Arg(0)
-	fmt.Printf("Running at %g queries per second for %v: %s\n", *qpsFlag, *durationFlag, url)
-	r := fortio.NewPeriodicRunner(*qpsFlag, test)
-	if *numThreadsFlag != 0 {
-		r.SetNumThreads(*numThreadsFlag)
+	fmt.Printf("Fortio running at %g queries per second for %v: %s\n", *qpsFlag, *durationFlag, url)
+	o := fortio.RunnerOptions{
+		QPS:         *qpsFlag,
+		Function:    test,
+		Duration:    *durationFlag,
+		NumThreads:  *numThreadsFlag,
+		Verbose:     verbose,
+		Percentiles: pList,
+		Resolution:  *resolutionFlag,
 	}
-	r.SetDebugLevel(verbose)
-	r.SetPercentiles(pList)
-	r.SetResolution(*resolutionFlag)
-	numThreads := r.GetNumThreads()
+	r := fortio.NewPeriodicRunner(&o)
+	numThreads := r.GetOptions().NumThreads
 	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = numThreads + 1
 	// 1 Warm up / smoke test:  TODO: warm up all threads/connections
 	code, body := fortio.FetchURL(url)
@@ -122,14 +125,15 @@ func main() {
 	total.sizes = fortio.NewHistogram(0, 100)
 
 	stats = make([]threadStats, numThreads)
-	for i := 0; i < r.GetNumThreads(); i++ {
+	for i := 0; i < numThreads; i++ {
 		stats[i].sizes = total.sizes.Clone()
 		stats[i].retCodes = make(map[int]int64)
 	}
-	r.Run(*durationFlag)
+	r.Run()
 	// Numthreads may have reduced
+	numThreads = r.GetOptions().NumThreads
 	keys := []int{}
-	for i := 0; i < r.GetNumThreads(); i++ {
+	for i := 0; i < numThreads; i++ {
 		// Q: is there some copying each time stats[i] is used?
 		for k := range stats[i].retCodes {
 			if _, exists := total.retCodes[k]; !exists {
