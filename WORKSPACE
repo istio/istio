@@ -68,12 +68,14 @@ bind(
 git_repository(
     name = "envoy",
     remote = "https://github.com/lyft/envoy.git",
-    commit = "67e841b27c88c9cc23204902a8241606e23048e5",
+    commit = "2193c9f007e88a2d5eb2656bc8b1357222f6e620",
 )
 
 load("@envoy//bazel:repositories.bzl", "envoy_dependencies")
 
 envoy_dependencies(skip_targets=["googletest", "protobuf", "protoc", "lightstep", "ssl"])
+load("@envoy_api//bazel:repositories.bzl", "api_dependencies")
+api_dependencies()
 
 new_http_archive(
     name = "docker_ubuntu",
