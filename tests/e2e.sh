@@ -41,7 +41,7 @@ for T in ${TESTS_TARGETS[@]}; do
   echo '****************************************************'
   echo "Running ${T}"
   echo '****************************************************'
-  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${@} -project_id ${PROJ_ID}
+  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${@} --project_id ${PROJ_ID}
   RET=${?}
   echo '****************************************************'
   if [[ ${RET} -eq 0 ]]; then
