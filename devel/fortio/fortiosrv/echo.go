@@ -60,7 +60,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusOK)
-	w.Write(body) // nolint: gas,errorcheck
+	w.Write(body) // nolint: gas,errcheck
 	if verbose > 1 {
 		// TODO: this easily lead to contention - use 'thread local'
 		rqNum := atomic.AddInt64(&requests, 1)
