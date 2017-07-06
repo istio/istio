@@ -59,7 +59,7 @@ metadata:
   name: istio-pilot-admin-role-binding
 subjects:
 - kind: ServiceAccount
-  name: istio-manager-service-account
+  name: istio-pilot-service-account
   namespace: default
 roleRef:
   kind: ClusterRole
