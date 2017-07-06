@@ -78,12 +78,12 @@ func generateDot(w io.Writer, g *servicegraph.Dynamic) error {
 	}
 	for _, e := range g.Edges {
 		label := labelStr(e.Labels)
-		if _, err := dotBuffer.WriteString(fmt.Sprintf("%s -> %s [label=\"%s\"];\n", idStr(e.Source), idStr(e.Target), label)); err != nil {
+		if _, err := dotBuffer.WriteString(fmt.Sprintf("%q -> %q [label=%q];\n", idStr(e.Source), idStr(e.Target), label)); err != nil {
 			return err
 		}
 	}
 	for n := range g.Nodes {
-		if _, err := dotBuffer.WriteString(fmt.Sprintf("%s [label=\"%s\"];\n", idStr(n), n)); err != nil {
+		if _, err := dotBuffer.WriteString(fmt.Sprintf("%q [label=%q];\n", idStr(n), n)); err != nil {
 			return err
 		}
 	}
