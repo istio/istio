@@ -28,87 +28,103 @@ import (
 // Function to run periodically.
 type Function func(tid int)
 
-// IPeriodicRunner is the public interface to the periodic runner.
-type IPeriodicRunner interface {
-	Run(duration time.Duration)
-	SetNumThreads(int)
-	GetNumThreads() int
-	SetDebugLevel(level int)
-	SetPercentiles(pList []float64)
-	SetResolution(r float64)
+// RunnerOptions are the parameters to the PeriodicRunner
+type RunnerOptions struct {
+	Function    Function
+	QPS         float64
+	Duration    time.Duration
+	NumThreads  int
+	Percentiles []float64
+	Resolution  float64
+	// Debug/Verbosity level (0 is quietest)
+	Verbose int
+}
+
+// PeriodicRunner is the public interface to the periodic runner.
+type PeriodicRunner interface {
+	// Starts the run
+	Run()
+	// Returns the options normalized by constructor - do not mutate
+	// (where is const when you need it...)
+	GetOptions() *RunnerOptions
 }
 
 // PeriodicRunner is a class encapsulating running code.
 type periodicRunner struct {
-	qps        float64
-	numThreads int // not yet used
-	function   Function
-	verbose    int
-	percList   []float64
-	resolution float64
+	RunnerOptions
 }
 
 // internal version, returning the concrete class
-func newPeriodicRunner(qps float64, function Function) *periodicRunner {
+func newPeriodicRunner(p *RunnerOptions) *periodicRunner {
 	r := new(periodicRunner)
-	if qps < 0 {
-		log.Printf("Negative qps %f means max speed mode/no wait between calls", qps)
-		qps = 0
+	r.RunnerOptions = *p // by default just copy
+	if r.QPS < 0 {
+		log.Printf("Negative qps %f means max speed mode/no wait between calls", r.QPS)
+		r.QPS = 0
 	}
-	r.qps = qps
-	r.numThreads = 4 // default
-	r.function = function
-	r.verbose = 0
-	r.percList = make([]float64, 1)
-	r.percList[0] = 90.0
-	r.resolution = 0.001 // millisecond default
+	if r.NumThreads == 0 {
+		r.NumThreads = 4 // default
+	}
+	if r.NumThreads < 1 {
+		r.NumThreads = 1
+	}
+	if r.Percentiles == nil {
+		r.Percentiles = make([]float64, 1)
+		r.Percentiles[0] = 90.0
+	}
+	if r.Resolution <= 0 {
+		r.Resolution = 0.001 // millisecond default
+	}
 	return r
 }
 
-// NewPeriodicRunner constructs a runner for a given qps.
-func NewPeriodicRunner(qps float64, function Function) IPeriodicRunner {
-	return newPeriodicRunner(qps, function)
+// NewPeriodicRunner constructs a runner from input parameters/options.
+func NewPeriodicRunner(params *RunnerOptions) PeriodicRunner {
+	return newPeriodicRunner(params)
+}
+
+func (r *periodicRunner) GetOptions() *RunnerOptions {
+	return &r.RunnerOptions // sort of returning this here
 }
 
 // Start starts the runner.
-func (r *periodicRunner) Run(duration time.Duration) {
-	useQPS := (r.qps > 0)
+func (r *periodicRunner) Run() {
+	useQPS := (r.QPS > 0)
 	var numCalls int64
 	if useQPS {
-		numCalls = int64(r.qps * duration.Seconds())
+		numCalls = int64(r.QPS * r.Duration.Seconds())
 		if numCalls < 2 {
 			log.Print("Increasing the number of calls to the minimum of 2 with 1 thread. total duration will increase")
 			numCalls = 2
-			r.numThreads = 1
+			r.NumThreads = 1
 		}
-		if int64(2*r.numThreads) > numCalls {
-			r.numThreads = int(numCalls / 2)
-			log.Printf("Lowering number of threads - total call %d -> lowering to %d threads", numCalls, r.numThreads)
+		if int64(2*r.NumThreads) > numCalls {
+			r.NumThreads = int(numCalls / 2)
+			log.Printf("Lowering number of threads - total call %d -> lowering to %d threads", numCalls, r.NumThreads)
 		}
-		numCalls /= int64(r.numThreads)
-		totalCalls := numCalls * int64(r.numThreads)
+		numCalls /= int64(r.NumThreads)
+		totalCalls := numCalls * int64(r.NumThreads)
 		fmt.Printf("Starting at %g qps with %d thread(s) [gomax %d] for %v : %d calls each (total %d)\n",
-			r.qps, r.numThreads, runtime.GOMAXPROCS(0), duration, numCalls, totalCalls)
+			r.QPS, r.NumThreads, runtime.GOMAXPROCS(0), r.Duration, numCalls, totalCalls)
 	} else {
 		fmt.Printf("Starting at max qps with %d thread(s) [gomax %d] for %v\n",
-			r.numThreads, runtime.GOMAXPROCS(0), duration)
+			r.NumThreads, runtime.GOMAXPROCS(0), r.Duration)
 	}
 	start := time.Now()
 	// Histogram  and stats for Function duration - millisecond precision
-	functionDuration := NewHistogram(0, r.resolution)
+	functionDuration := NewHistogram(0, r.Resolution)
 	// Histogram and stats for Sleep time (negative offset to capture <0 sleep in their own bucket):
 	sleepTime := NewHistogram(-0.001, 0.001)
-	if r.numThreads <= 1 {
-		if r.verbose > 0 {
+	if r.NumThreads <= 1 {
+		if r.Verbose > 0 {
 			log.Printf("Running single threaded")
 		}
-		runOne(0, functionDuration, sleepTime, numCalls, r.function, start, duration, r.qps, r.verbose)
+		runOne(0, functionDuration, sleepTime, numCalls, start, r)
 	} else {
-		threadQPS := r.qps / float64(r.numThreads)
 		var wg sync.WaitGroup
 		var fDs []*Histogram
 		var sDs []*Histogram
-		for t := 0; t < r.numThreads; t++ {
+		for t := 0; t < r.NumThreads; t++ {
 			durP := functionDuration.Clone()
 			sleepP := sleepTime.Clone()
 			fDs = append(fDs, durP)
@@ -116,11 +132,11 @@ func (r *periodicRunner) Run(duration time.Duration) {
 			wg.Add(1)
 			go func(t int, durP *Histogram, sleepP *Histogram) {
 				defer wg.Done()
-				runOne(t, durP, sleepP, numCalls, r.function, start, duration, threadQPS, r.verbose)
+				runOne(t, durP, sleepP, numCalls, start, r)
 			}(t, durP, sleepP)
 		}
 		wg.Wait()
-		for t := 0; t < r.numThreads; t++ {
+		for t := 0; t < r.NumThreads; t++ {
 			functionDuration.Transfer(fDs[t])
 			sleepTime.Transfer(sDs[t])
 		}
@@ -141,17 +157,20 @@ func (r *periodicRunner) Run(duration time.Duration) {
 			}
 		}
 	}
-	functionDuration.FPrint(os.Stdout, "Aggregated Function Time", r.percList[0])
-	for _, p := range r.percList[1:] {
+	functionDuration.FPrint(os.Stdout, "Aggregated Function Time", r.Percentiles[0])
+	for _, p := range r.Percentiles[1:] {
 		fmt.Printf("# target %g%% %.6g\n", p, functionDuration.CalcPercentile(p))
 	}
 }
 
-func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, f Function, start time.Time, duration time.Duration, qps float64, verbose int) {
+func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, start time.Time, r *periodicRunner) {
 	var i int64
-	endTime := start.Add(duration)
+	endTime := start.Add(r.Duration)
 	tIDStr := fmt.Sprintf("T%03d", t)
-	useQPS := (qps > 0)
+	perThreadQPS := r.QPS / float64(r.NumThreads)
+	useQPS := (perThreadQPS > 0)
+	verbose := r.Verbose
+	f := r.Function
 	for {
 		fStart := time.Now()
 		if fStart.After(endTime) {
@@ -159,17 +178,17 @@ func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, f Function, sta
 				// max speed test reached end:
 				break
 			}
-			// Qps mode:
+			// QPS mode:
 			// Do least 2 iterations, and the last one before bailing because of time
 			if (i >= 2) && (i != numCalls-1) {
-				log.Printf("%s warning only did %d out of %d calls before reaching %v", tIDStr, i, numCalls, duration)
+				log.Printf("%s warning only did %d out of %d calls before reaching %v", tIDStr, i, numCalls, r.Duration)
 				break
 			}
 		}
 		f(t)
 		cF.Record(time.Since(fStart).Seconds())
 		i++
-		// if using Qps / pre calc expected call # mode:
+		// if using QPS / pre calc expected call # mode:
 		if useQPS {
 			if i >= numCalls {
 				break // expected exit for that mode
@@ -177,7 +196,7 @@ func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, f Function, sta
 			elapsed := time.Since(start)
 			// This next line is tricky - such as for 2s duration and 1qps there is 1
 			// sleep of 2s between the 2 calls and for 3qps in 1sec 2 sleep of 1/2s etc
-			targetElapsedInSec := (float64(i) + float64(i)/float64(numCalls-1)) / qps
+			targetElapsedInSec := (float64(i) + float64(i)/float64(numCalls-1)) / perThreadQPS
 			targetElapsedDuration := time.Duration(int64(targetElapsedInSec * 1e9))
 			sleepDuration := targetElapsedDuration - elapsed
 			if verbose > 3 {
@@ -198,25 +217,6 @@ func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, f Function, sta
 			cS.Counter.Log(tIDStr + " Sleep time")
 		}
 	}
-}
-
-// SetNumThreads changes the thread count.
-func (r *periodicRunner) SetNumThreads(numThreads int) {
-	if numThreads < 1 {
-		log.Printf("Normalizing bad numThreads %d to 1", numThreads)
-		numThreads = 1
-	}
-	r.numThreads = numThreads
-}
-
-// GetNumThreads returns the thread count.
-func (r *periodicRunner) GetNumThreads() int {
-	return r.numThreads
-}
-
-// SetDebugLevel sets the level of debugging/verbosity.
-func (r *periodicRunner) SetDebugLevel(level int) {
-	r.verbose = level
 }
 
 // ParsePercentiles extracts the percentiles from string (flag).
@@ -241,15 +241,4 @@ func ParsePercentiles(percentiles string) ([]float64, error) {
 		log.Print("will use ", res, " for percentiles")
 	}
 	return res, nil
-}
-
-// SetPercentiles sets the list of percentiles to calculate for the
-// call durations Histogram.
-func (r *periodicRunner) SetPercentiles(pList []float64) {
-	r.percList = pList
-}
-
-// SetResolution sets the divider for call durations Histogram.
-func (r *periodicRunner) SetResolution(precision float64) {
-	r.resolution = precision
 }
