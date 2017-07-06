@@ -34,15 +34,35 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/uuid"
 	"google.golang.org/api/iterator"
+
+	"istio.io/istio/tests/e2e/util"
 )
 
 var (
 	logsBucketPath = flag.String("logs_bucket_path", "", "Cloud Storage Bucket path to use to store logs")
+	projectID = flag.String("project_id", "istio-testing", "Project ID")
+	// This list of log identifiers is cherry-picked based on Dev team's interest
+	// To access the comprehensive list, try in your shell
+	// 		$ gcloud beta logging logs list
+	logIDs = []string{
+		"apiserver",
+		"discovery",
+		"istio-ingress",
+		"mixer",
+		"prometheus",
+		"statesd-to-prometheus",
+	}
+	resources = []string{
+		"pod",
+		"service",
+		"ingress",
+	}
 )
 
 const (
 	tmpPrefix   = "istio.e2e."
 	idMaxLength = 36
+	pageSize = 20
 )
 
 // TestInfo gathers Test Information
@@ -117,8 +137,7 @@ func (t testInfo) Update(r int) error {
 func (t testInfo) FetchAndSaveClusterLogs() error {
 	ctx := context.Background()
 	glog.Info("Fetching cluster logs")
-	var PROJECT_ID string = *projectId
-	client, err := logadmin.NewClient(ctx, PROJECT_ID)
+	client, err := logadmin.NewClient(ctx, *projectID)
 	if err != nil {
 	    return err
 	}
@@ -126,19 +145,20 @@ func (t testInfo) FetchAndSaveClusterLogs() error {
 	fetchAndWrite := func(logId string) error {
 		glog.Info(fmt.Sprintf("Fetching logs on %s\n", logId))
 		// fetch logs from pods created for this run only
-		filter := fmt.Sprintf(`logName = "projects/%s/logs/%s" AND resource.labels.namespace_id = "%s"`, PROJECT_ID, logId, *namespace)
+		filter := fmt.Sprintf(
+			`logName = "projects/%s/logs/%s" AND
+			resource.labels.namespace_id = "%s"`,
+			*projectID, logId, *namespace)
 		it := client.Entries(ctx, logadmin.Filter(filter))
 		// create log file in append mode
 		path := filepath.Join(t.LogsPath, fmt.Sprintf("%s.log", logId))
-		f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0755)
+		f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
 		if err != nil {
 			return err
 		}
-		defer f.Close()
 		// fetch log entries with pagination 
 		var entries []*logging.Entry
-		const PAGE_SIZE = 50
-		pager := iterator.NewPager(it, PAGE_SIZE, "")
+		pager := iterator.NewPager(it, pageSize, "")
 		for page := 0; ; page++ {
 			pageToken, err := pager.NextPage(&entries)
 			if err != nil {
@@ -156,24 +176,25 @@ func (t testInfo) FetchAndSaveClusterLogs() error {
 				break
 			}
 		}
-		return nil
+		return f.Close()
 	}
 
-	// This list of log identifiers is cherry-picked based on Dev team's interest
-	// To access the comprehensive list, try in your shell
-	// 		$ gcloud beta logging logs list
-	LOG_IDS := []string{
-		"apiserver",
-		"discovery",
-		"istio-ingress",
-		"mixer",
-		"prometheus",
-		"statesd-to-prometheus",
-	}
-	for _, logId := range LOG_IDS {
-		if err := fetchAndWrite(logId); err != nil {
-			return err
+	errMsg := ""
+	for _, logID := range logIDs {
+		if err := fetchAndWrite(logID); err != nil {
+			errMsg += err.Error() + "\n"
 		}
+	}
+	for _, resrc := range resources {
+		glog.Info(fmt.Sprintf("Fetching deployment info on %s\n", resrc))
+		path := filepath.Join(t.LogsPath, fmt.Sprintf("%s.yaml", resrc))
+		cmd := fmt.Sprintf("kubectl get %s -o yaml >> %s", resrc, path)
+		if _, err := util.Shell(cmd); err != nil {
+			errMsg += err.Error()+ "\n"
+		}
+	}
+	if errMsg != "" {
+		return fmt.Errorf("%s\n", errMsg)
 	}
 	return nil
 }
