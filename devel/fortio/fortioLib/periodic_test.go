@@ -36,9 +36,10 @@ func TestNewPeriodicRunner(t *testing.T) {
 		{qps: 10, numThreads: 10, expectedQPS: 10, expectedNumThreads: 10},
 		{qps: 100000, numThreads: 10, expectedQPS: 100000, expectedNumThreads: 10},
 		{qps: 0.5, numThreads: 1, expectedQPS: 0.5, expectedNumThreads: 1},
-		// Error cases -> 1 qps
-		{qps: -10, numThreads: 0, expectedQPS: 1, expectedNumThreads: 1},
-		{qps: 0, numThreads: -6, expectedQPS: 1, expectedNumThreads: 1},
+		// Error cases negative qps same as 0 qps == max speed
+		{qps: -10, numThreads: 0, expectedQPS: 0, expectedNumThreads: 1},
+		// Need at least 1 thread
+		{qps: 0, numThreads: -6, expectedQPS: 0, expectedNumThreads: 1},
 	}
 	for _, tst := range tests {
 		r := newPeriodicRunner(tst.qps, noop)
@@ -83,7 +84,7 @@ func TestStart(t *testing.T) {
 		t.Errorf("Lowering of thread count broken, got %d instead of 5", r.GetNumThreads())
 	}
 	count = 0
-	r.Run(1 * time.Millisecond)
+	r.Run(1 * time.Nanosecond)
 	if count != 2 {
 		t.Errorf("Test executed unexpected number of times %d instead minimum 2", count)
 	}

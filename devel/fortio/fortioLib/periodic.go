@@ -51,9 +51,9 @@ type periodicRunner struct {
 // internal version, returning the concrete class
 func newPeriodicRunner(qps float64, function Function) *periodicRunner {
 	r := new(periodicRunner)
-	if qps <= 0 {
-		log.Printf("Normalizing bad qps %f to 1", qps)
-		qps = 1
+	if qps < 0 {
+		log.Printf("Negative qps %f means max speed mode/no wait between calls", qps)
+		qps = 0
 	}
 	r.qps = qps
 	r.numThreads = 4 // default
@@ -72,20 +72,27 @@ func NewPeriodicRunner(qps float64, function Function) IPeriodicRunner {
 
 // Start starts the runner.
 func (r *periodicRunner) Run(duration time.Duration) {
-	var numCalls int64 = int64(r.qps * duration.Seconds())
-	if numCalls < 2 {
-		log.Print("Increasing the number of calls to the minimum of 2 with 1 thread. total duration will increase")
-		numCalls = 2
-		r.numThreads = 1
+	useQPS := (r.qps > 0)
+	var numCalls int64
+	if useQPS {
+		numCalls = int64(r.qps * duration.Seconds())
+		if numCalls < 2 {
+			log.Print("Increasing the number of calls to the minimum of 2 with 1 thread. total duration will increase")
+			numCalls = 2
+			r.numThreads = 1
+		}
+		if int64(2*r.numThreads) > numCalls {
+			r.numThreads = int(numCalls / 2)
+			log.Printf("Lowering number of threads - total call %d -> lowering to %d threads", numCalls, r.numThreads)
+		}
+		numCalls /= int64(r.numThreads)
+		totalCalls := numCalls * int64(r.numThreads)
+		fmt.Printf("Starting at %g qps with %d thread(s) [gomax %d] for %v : %d calls each (total %d)\n",
+			r.qps, r.numThreads, runtime.GOMAXPROCS(0), duration, numCalls, totalCalls)
+	} else {
+		fmt.Printf("Starting at max qps with %d thread(s) [gomax %d] for %v\n",
+			r.numThreads, runtime.GOMAXPROCS(0), duration)
 	}
-	if int64(2*r.numThreads) > numCalls {
-		r.numThreads = int(numCalls / 2)
-		log.Printf("Lowering number of threads - total call %d -> lowering to %d threads", numCalls, r.numThreads)
-	}
-	numCalls /= int64(r.numThreads)
-	totalCalls := numCalls * int64(r.numThreads)
-	fmt.Printf("Starting at %g qps with %d thread(s) [gomax %d] for %v : %d calls each (total %d)\n",
-		r.qps, r.numThreads, runtime.GOMAXPROCS(0), duration, numCalls, totalCalls)
 	start := time.Now()
 	// Histogram  and stats for Function duration - millisecond precision
 	functionDuration := NewHistogram(0, r.resolution)
@@ -95,7 +102,7 @@ func (r *periodicRunner) Run(duration time.Duration) {
 		if r.verbose > 0 {
 			log.Printf("Running single threaded")
 		}
-		runOne(0, functionDuration, sleepTime, numCalls, r.function, start, r.qps, r.verbose)
+		runOne(0, functionDuration, sleepTime, numCalls, r.function, start, duration, r.qps, r.verbose)
 	} else {
 		threadQPS := r.qps / float64(r.numThreads)
 		var wg sync.WaitGroup
@@ -109,7 +116,7 @@ func (r *periodicRunner) Run(duration time.Duration) {
 			wg.Add(1)
 			go func(t int, durP *Histogram, sleepP *Histogram) {
 				defer wg.Done()
-				runOne(t, durP, sleepP, numCalls, r.function, start, threadQPS, r.verbose)
+				runOne(t, durP, sleepP, numCalls, r.function, start, duration, threadQPS, r.verbose)
 			}(t, durP, sleepP)
 		}
 		wg.Wait()
@@ -119,17 +126,19 @@ func (r *periodicRunner) Run(duration time.Duration) {
 		}
 	}
 	elapsed := time.Since(start)
-	actualQPS := float64(totalCalls) / elapsed.Seconds()
-	fmt.Printf("Ended after %v : %d calls. qps=%.5g\n", elapsed, totalCalls, actualQPS)
-	percentNegative := 100. * float64(sleepTime.hdata[0]) / float64(sleepTime.Count)
-	if percentNegative > 3 {
-		sleepTime.FPrint(os.Stdout, "Aggregated Sleep Time", 50)
-		fmt.Printf("WARNING %.2f%% of sleep were falling behind\n", percentNegative)
-	} else {
-		if Verbose > 0 {
+	actualQPS := float64(functionDuration.Count) / elapsed.Seconds()
+	fmt.Printf("Ended after %v : %d calls. qps=%.5g\n", elapsed, functionDuration.Count, actualQPS)
+	if useQPS {
+		percentNegative := 100. * float64(sleepTime.hdata[0]) / float64(sleepTime.Count)
+		if percentNegative > 3 {
 			sleepTime.FPrint(os.Stdout, "Aggregated Sleep Time", 50)
+			fmt.Printf("WARNING %.2f%% of sleep were falling behind\n", percentNegative)
 		} else {
-			sleepTime.Counter.FPrint(os.Stdout, "Sleep times")
+			if Verbose > 0 {
+				sleepTime.FPrint(os.Stdout, "Aggregated Sleep Time", 50)
+			} else {
+				sleepTime.Counter.FPrint(os.Stdout, "Sleep times")
+			}
 		}
 	}
 	functionDuration.FPrint(os.Stdout, "Aggregated Function Time", r.percList[0])
@@ -138,34 +147,50 @@ func (r *periodicRunner) Run(duration time.Duration) {
 	}
 }
 
-func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, f Function, start time.Time, qps float64, verbose int) {
+func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, f Function, start time.Time, duration time.Duration, qps float64, verbose int) {
 	var i int64
-	var elapsed time.Duration
+	endTime := start.Add(duration)
 	tIDStr := fmt.Sprintf("T%03d", t)
-	for i < numCalls {
+	useQPS := (qps > 0)
+	for {
 		fStart := time.Now()
+		if fStart.After(endTime) {
+			if !useQPS {
+				// max speed test reached end:
+				break
+			}
+			// Qps mode:
+			// Do least 2 iterations, and the last one before bailing because of time
+			if (i >= 2) && (i != numCalls-1) {
+				log.Printf("%s warning only did %d out of %d calls before reaching %v", tIDStr, i, numCalls, duration)
+				break
+			}
+		}
 		f(t)
 		cF.Record(time.Since(fStart).Seconds())
-		elapsed = time.Since(start)
-		// next time
 		i++
-		if i >= numCalls {
-			break
+		// if using Qps / pre calc expected call # mode:
+		if useQPS {
+			if i >= numCalls {
+				break // expected exit for that mode
+			}
+			elapsed := time.Since(start)
+			// This next line is tricky - such as for 2s duration and 1qps there is 1
+			// sleep of 2s between the 2 calls and for 3qps in 1sec 2 sleep of 1/2s etc
+			targetElapsedInSec := (float64(i) + float64(i)/float64(numCalls-1)) / qps
+			targetElapsedDuration := time.Duration(int64(targetElapsedInSec * 1e9))
+			sleepDuration := targetElapsedDuration - elapsed
+			if verbose > 3 {
+				log.Printf("%s target next dur %v - sleep %v", tIDStr, targetElapsedDuration, sleepDuration)
+			}
+			cS.Record(sleepDuration.Seconds())
+			time.Sleep(sleepDuration)
 		}
-		// This next line is tricky - such as for 2s duration and 1qps there is 1
-		// sleep of 2s between the 2 calls and for 3qps in 1sec 2 sleep of 1/2s etc
-		targetElapsedInSec := (float64(i) + float64(i)/float64(numCalls-1)) / qps
-		targetElapsedDuration := time.Duration(int64(targetElapsedInSec * 1e9))
-		sleepDuration := targetElapsedDuration - elapsed
-		if verbose > 3 {
-			log.Printf("%s target next dur %v - sleep %v", tIDStr, targetElapsedDuration, sleepDuration)
-		}
-		cS.Record(sleepDuration.Seconds())
-		time.Sleep(sleepDuration)
 	}
-	actualQPS := float64(numCalls) / elapsed.Seconds()
-	log.Printf("%s ended after %v : %d calls. qps=%g", tIDStr, elapsed, numCalls, actualQPS)
-	if verbose > 0 {
+	elapsed := time.Since(start)
+	actualQPS := float64(i) / elapsed.Seconds()
+	log.Printf("%s ended after %v : %d calls. qps=%g", tIDStr, elapsed, i, actualQPS)
+	if (numCalls > 0) && (verbose > 0) {
 		cF.Log(tIDStr+" Function duration", 99)
 		if verbose > 2 {
 			cS.Log(tIDStr+" Sleep time", 50)

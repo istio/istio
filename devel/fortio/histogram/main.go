@@ -26,15 +26,15 @@ import (
 	fortio "istio.io/istio/devel/fortio/fortioLib"
 )
 
-var verbosityFlag = flag.Int("v", 0, "Verbosity level (0 is quiet)")
-
 func main() {
-	var offsetFlag = flag.Float64("offset", 0.0, "Offset for the data")
-	var dividerFlag = flag.Float64("divider", 1, "Divider/scaling for the data")
-	var pFlag = flag.Float64("p", 90, "Percentile to calculate")
+	var (
+		verbosityFlag = flag.Int("v", 0, "Verbosity level (0 is quiet)")
+		offsetFlag    = flag.Float64("offset", 0.0, "Offset for the data")
+		dividerFlag   = flag.Float64("divider", 1, "Divider/scaling for the data")
+		pFlag         = flag.Float64("p", 90, "Percentile to calculate")
+	)
 	flag.Parse()
-	verbose := *verbosityFlag
-	fortio.Verbose = verbose
+	fortio.Verbose = *verbosityFlag
 	h := fortio.NewHistogram(*offsetFlag, *dividerFlag)
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -51,6 +51,6 @@ func main() {
 	if err := scanner.Err(); err != nil {
 		log.Fatalln("Err reading standard input", err)
 	}
-
+	// TODO use ParsePercentiles
 	h.FPrint(os.Stdout, "Histogram", *pFlag)
 }

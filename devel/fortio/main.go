@@ -26,16 +26,19 @@ import (
 	fortio "istio.io/istio/devel/fortio/fortioLib"
 )
 
-var verbosityFlag = flag.Int("v", 0, "Verbosity level (0 is quiet)")
-var url string
-
 type threadStats struct {
 	retCodes map[int]int64
 	sizes    *fortio.Histogram
 }
 
-var stats []threadStats
+// Used globally / in test() TODO: change periodic.go to carry caller defined context
+var (
+	url           string
+	stats         []threadStats
+	verbosityFlag = flag.Int("v", 0, "Verbosity level (0 is quiet)")
+)
 
+// Main call being run at the target QPS
 func test(t int) {
 	if *verbosityFlag > 1 {
 		log.Printf("Calling in %d", t)
@@ -49,6 +52,7 @@ func test(t int) {
 	stats[t].sizes.Record(float64(size))
 }
 
+// -- Support for multiple instances of -H flag on cmd line:
 type flagList struct {
 }
 
@@ -56,13 +60,13 @@ type flagList struct {
 func (f *flagList) String() string {
 	return ""
 }
-
 func (f *flagList) Set(value string) error {
 	return fortio.AddAndValidateExtraHeader(value)
 }
 
-var headersFlags flagList
+// -- end of functions for -H support
 
+// Prints usage
 func usage() {
 	fmt.Fprintf(os.Stderr, "Φορτίο %s usage:\n\n%s [flags] url\n", fortio.Version, os.Args[0]) // nolint(gas)
 	flag.PrintDefaults()
@@ -70,15 +74,18 @@ func usage() {
 }
 
 func main() {
-	// Very small default so people just trying with random URLs don't affect the target
-	var qpsFlag = flag.Float64("qps", 8.0, "Queries Per Seconds")
-	var numThreadsFlag = flag.Int("c", 0, "Number of connections/goroutine/threads (0 doesn't change internal default)")
-	var durationFlag = flag.Duration("t", 5*time.Second, "How long to run the test")
-	var percentilesFlag = flag.String("p", "50,75,99,99.9", "List of pXX to calculate")
-	var resolutionFlag = flag.Float64("r", 0.001, "Resolution of the histogram lowest buckets in seconds")
+	var (
+		// Very small default so people just trying with random URLs don't affect the target
+		qpsFlag         = flag.Float64("qps", 8.0, "Queries Per Seconds or 0 for no wait")
+		numThreadsFlag  = flag.Int("c", 0, "Number of connections/goroutine/threads (0 doesn't change internal default)")
+		durationFlag    = flag.Duration("t", 5*time.Second, "How long to run the test")
+		percentilesFlag = flag.String("p", "50,75,99,99.9", "List of pXX to calculate")
+		resolutionFlag  = flag.Float64("r", 0.001, "Resolution of the histogram lowest buckets in seconds")
+		headersFlags    flagList
+	)
 	flag.Var(&headersFlags, "H", "Additional Header(s)")
-
 	flag.Parse()
+
 	verbose := *verbosityFlag
 	fortio.Verbose = verbose
 	pList, err := fortio.ParsePercentiles(*percentilesFlag)
