@@ -21,8 +21,7 @@
 #include "envoy/ssl/connection.h"
 #include "server/config/network/http_connection_manager.h"
 #include "src/envoy/mixer/config.h"
-#include "src/envoy/mixer/grpc_transport.h"
-#include "src/envoy/mixer/http_control.h"
+#include "src/envoy/mixer/mixer_control.h"
 #include "src/envoy/mixer/thread_dispatcher.h"
 #include "src/envoy/mixer/utils.h"
 
@@ -95,12 +94,14 @@ class Config : public Logger::Loggable<Logger::Id::http> {
   Upstream::ClusterManager& cm_;
   std::string forward_attributes_;
   MixerConfig mixer_config_;
-  std::mutex map_mutex_;
-  std::map<std::thread::id, std::shared_ptr<HttpControl>> http_control_map_;
+  MixerControlPerThreadStore mixer_control_store_;
 
  public:
   Config(const Json::Object& config, Server::Instance& server)
-      : cm_(server.clusterManager()) {
+      : cm_(server.clusterManager()),
+        mixer_control_store_([this]() -> std::shared_ptr<MixerControl> {
+          return std::make_shared<MixerControl>(mixer_config_, cm_);
+        }) {
     mixer_config_.Load(config);
     if (!mixer_config_.forward_attributes.empty()) {
       std::string serialized_str =
@@ -111,16 +112,8 @@ class Config : public Logger::Loggable<Logger::Id::http> {
     }
   }
 
-  std::shared_ptr<HttpControl> http_control() {
-    std::thread::id id = std::this_thread::get_id();
-    std::lock_guard<std::mutex> lock(map_mutex_);
-    auto it = http_control_map_.find(id);
-    if (it != http_control_map_.end()) {
-      return it->second;
-    }
-    auto http_control = std::make_shared<HttpControl>(mixer_config_, cm_);
-    http_control_map_[id] = http_control;
-    return http_control;
+  std::shared_ptr<MixerControl> mixer_control() {
+    return mixer_control_store_.Get();
   }
 
   const std::string& forward_attributes() const { return forward_attributes_; }
@@ -132,7 +125,7 @@ class Instance : public Http::StreamDecoderFilter,
                  public Http::AccessLog::Instance,
                  public std::enable_shared_from_this<Instance> {
  private:
-  std::shared_ptr<HttpControl> http_control_;
+  std::shared_ptr<MixerControl> mixer_control_;
   ConfigPtr config_;
   std::shared_ptr<HttpRequestData> request_data_;
 
@@ -178,7 +171,7 @@ class Instance : public Http::StreamDecoderFilter,
 
  public:
   Instance(ConfigPtr config)
-      : http_control_(config->http_control()),
+      : mixer_control_(config->mixer_control()),
         config_(config),
         state_(NotStarted),
         initiating_call_(false),
@@ -215,7 +208,7 @@ class Instance : public Http::StreamDecoderFilter,
     }
 
     auto instance = GetPtr();
-    http_control_->Check(
+    mixer_control_->CheckHttp(
         request_data_, headers, origin_user,
         [instance](const Status& status) { instance->completeCheck(status); });
     initiating_call_ = false;
@@ -291,8 +284,8 @@ class Instance : public Http::StreamDecoderFilter,
     if (!request_data_) return;
     // Make sure not to use any class members at the callback.
     // The class may be gone when it is called.
-    http_control_->Report(request_data_, response_headers, request_info,
-                          check_status_code_);
+    mixer_control_->ReportHttp(request_data_, response_headers, request_info,
+                               check_status_code_);
   }
 
   static spdlog::logger& Log() {

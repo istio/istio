@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/envoy/mixer/http_control.h"
+#include "src/envoy/mixer/mixer_control.h"
 
 #include "common/common/base64.h"
 #include "common/common/utility.h"
@@ -120,8 +120,6 @@ void FillRequestHeaderAttributes(const HeaderMap& header_map,
     SetStringAttribute(kRequestReferer, val, attr);
   }
 
-  attr->attributes[kRequestTime] =
-      Attributes::TimeValue(std::chrono::system_clock::now());
   attr->attributes[kRequestHeaders] =
       Attributes::StringMapValue(ExtractHeaders(header_map));
 }
@@ -132,8 +130,6 @@ void FillResponseHeaderAttributes(const HeaderMap* header_map,
     attr->attributes[kResponseHeaders] =
         Attributes::StringMapValue(ExtractHeaders(*header_map));
   }
-  attr->attributes[kResponseTime] =
-      Attributes::TimeValue(std::chrono::system_clock::now());
 }
 
 void FillRequestInfoAttributes(const AccessLog::RequestInfo& info,
@@ -157,6 +153,22 @@ void FillRequestInfoAttributes(const AccessLog::RequestInfo& info,
   }
 }
 
+void FillCheckAttributes(HeaderMap& header_map, Attributes* attr) {
+  // Extract attributes from x-istio-attributes header
+  const HeaderEntry* entry = header_map.get(Utils::kIstioAttributeHeader);
+  if (entry) {
+    ::istio::proxy::mixer::StringMap pb;
+    std::string str(entry->value().c_str(), entry->value().size());
+    pb.ParseFromString(Base64::decode(str));
+    for (const auto& it : pb.map()) {
+      SetStringAttribute(it.first, it.second, attr);
+    }
+    header_map.remove(Utils::kIstioAttributeHeader);
+  }
+
+  FillRequestHeaderAttributes(header_map, attr);
+}
+
 // A class to wrap envoy timer for mixer client timer.
 class EnvoyTimer : public ::istio::mixer_client::Timer {
  public:
@@ -173,8 +185,8 @@ class EnvoyTimer : public ::istio::mixer_client::Timer {
 
 }  // namespace
 
-HttpControl::HttpControl(const MixerConfig& mixer_config,
-                         Upstream::ClusterManager& cm)
+MixerControl::MixerControl(const MixerConfig& mixer_config,
+                           Upstream::ClusterManager& cm)
     : mixer_config_(mixer_config) {
   if (GrpcTransport::IsMixerServerConfigured(cm)) {
     MixerClientOptions options(GetCheckOptions(mixer_config), ReportOptions(),
@@ -197,28 +209,24 @@ HttpControl::HttpControl(const MixerConfig& mixer_config,
   mixer_config_.ExtractQuotaAttributes(&quota_attributes_);
 }
 
-void HttpControl::FillCheckAttributes(HeaderMap& header_map, Attributes* attr) {
-  // Extract attributes from x-istio-attributes header
-  const HeaderEntry* entry = header_map.get(Utils::kIstioAttributeHeader);
-  if (entry) {
-    ::istio::proxy::mixer::StringMap pb;
-    std::string str(entry->value().c_str(), entry->value().size());
-    pb.ParseFromString(Base64::decode(str));
-    for (const auto& it : pb.map()) {
-      SetStringAttribute(it.first, it.second, attr);
-    }
-    header_map.remove(Utils::kIstioAttributeHeader);
-  }
-
-  FillRequestHeaderAttributes(header_map, attr);
-
-  for (const auto& attribute : mixer_config_.mixer_attributes) {
-    SetStringAttribute(attribute.first, attribute.second, attr);
-  }
+void MixerControl::SendCheck(HttpRequestDataPtr request_data,
+                             DoneFunc on_done) {
+  request_data->attributes.attributes[kRequestTime] =
+      Attributes::TimeValue(std::chrono::system_clock::now());
+  log().debug("Send Check: {}", request_data->attributes.DebugString());
+  mixer_client_->Check(request_data->attributes, on_done);
 }
 
-void HttpControl::Check(HttpRequestDataPtr request_data, HeaderMap& headers,
-                        std::string origin_user, DoneFunc on_done) {
+void MixerControl::SendReport(HttpRequestDataPtr request_data) {
+  request_data->attributes.attributes[kResponseTime] =
+      Attributes::TimeValue(std::chrono::system_clock::now());
+  log().debug("Send Report: {}", request_data->attributes.DebugString());
+  mixer_client_->Report(request_data->attributes);
+}
+
+void MixerControl::CheckHttp(HttpRequestDataPtr request_data,
+                             HeaderMap& headers, std::string origin_user,
+                             DoneFunc on_done) {
   if (!mixer_client_) {
     on_done(
         Status(StatusCode::INVALID_ARGUMENT, "Missing mixer_server cluster"));
@@ -230,15 +238,18 @@ void HttpControl::Check(HttpRequestDataPtr request_data, HeaderMap& headers,
   for (const auto& attribute : quota_attributes_.attributes) {
     request_data->attributes.attributes[attribute.first] = attribute.second;
   }
+  for (const auto& attribute : mixer_config_.mixer_attributes) {
+    SetStringAttribute(attribute.first, attribute.second,
+                       &request_data->attributes);
+  }
 
-  log().debug("Send Check: {}", request_data->attributes.DebugString());
-  mixer_client_->Check(request_data->attributes, on_done);
+  SendCheck(request_data, on_done);
 }
 
-void HttpControl::Report(HttpRequestDataPtr request_data,
-                         const HeaderMap* response_headers,
-                         const AccessLog::RequestInfo& request_info,
-                         int check_status) {
+void MixerControl::ReportHttp(HttpRequestDataPtr request_data,
+                              const HeaderMap* response_headers,
+                              const AccessLog::RequestInfo& request_info,
+                              int check_status) {
   if (!mixer_client_) {
     return;
   }
@@ -249,8 +260,38 @@ void HttpControl::Report(HttpRequestDataPtr request_data,
 
   FillRequestInfoAttributes(request_info, check_status,
                             &request_data->attributes);
-  log().debug("Send Report: {}", request_data->attributes.DebugString());
-  mixer_client_->Report(request_data->attributes);
+
+  SendReport(request_data);
+}
+
+void MixerControl::CheckTcp(HttpRequestDataPtr request_data, DoneFunc on_done) {
+  if (!mixer_client_) {
+    on_done(
+        Status(StatusCode::INVALID_ARGUMENT, "Missing mixer_server cluster"));
+    return;
+  }
+
+  SendCheck(request_data, on_done);
+}
+
+void MixerControl::ReportTcp(HttpRequestDataPtr request_data) {
+  if (!mixer_client_) {
+    return;
+  }
+
+  SendReport(request_data);
+}
+
+std::shared_ptr<MixerControl> MixerControlPerThreadStore::Get() {
+  std::thread::id id = std::this_thread::get_id();
+  std::lock_guard<std::mutex> lock(map_mutex_);
+  auto it = instance_map_.find(id);
+  if (it != instance_map_.end()) {
+    return it->second;
+  }
+  auto mixer_control = create_func_();
+  instance_map_[id] = mixer_control;
+  return mixer_control;
 }
 
 }  // namespace Mixer
