@@ -168,10 +168,10 @@ func (r *periodicRunner) Run() {
 }
 
 // runOne runs in 1 go routine.
-func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, start time.Time, r *periodicRunner) {
+func runOne(id int, funcTimes *Histogram, sleepTimes *Histogram, numCalls int64, start time.Time, r *periodicRunner) {
 	var i int64
 	endTime := start.Add(r.Duration)
-	tIDStr := fmt.Sprintf("T%03d", t)
+	tIDStr := fmt.Sprintf("T%03d", id)
 	perThreadQPS := r.QPS / float64(r.NumThreads)
 	useQPS := (perThreadQPS > 0)
 	verbosity := r.Verbosity
@@ -190,8 +190,8 @@ func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, start time.Time
 				break
 			}
 		}
-		f(t)
-		cF.Record(time.Since(fStart).Seconds())
+		f(id)
+		funcTimes.Record(time.Since(fStart).Seconds())
 		i++
 		// if using QPS / pre calc expected call # mode:
 		if useQPS {
@@ -207,7 +207,7 @@ func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, start time.Time
 			if verbosity > 3 {
 				log.Printf("%s target next dur %v - sleep %v", tIDStr, targetElapsedDuration, sleepDuration)
 			}
-			cS.Record(sleepDuration.Seconds())
+			sleepTimes.Record(sleepDuration.Seconds())
 			time.Sleep(sleepDuration)
 		}
 	}
@@ -215,11 +215,11 @@ func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, start time.Time
 	actualQPS := float64(i) / elapsed.Seconds()
 	log.Printf("%s ended after %v : %d calls. qps=%g", tIDStr, elapsed, i, actualQPS)
 	if (numCalls > 0) && (verbosity > 0) {
-		cF.Log(tIDStr+" Function duration", 99)
+		funcTimes.Log(tIDStr+" Function duration", 99)
 		if verbosity > 2 {
-			cS.Log(tIDStr+" Sleep time", 50)
+			sleepTimes.Log(tIDStr+" Sleep time", 50)
 		} else {
-			cS.Counter.Log(tIDStr + " Sleep time")
+			sleepTimes.Counter.Log(tIDStr + " Sleep time")
 		}
 	}
 }
