@@ -68,8 +68,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	// change the default for glog, use -logtostderr=false if you want seperate files
-	flag.Set("logtostderr", "true")
+	// change the default for glog, use -logtostderr=false if you want separate files
+	flag.Set("logtostderr", "true") // nolint: errcheck,gas
 	flag.Parse()
 
 	fmt.Printf("Fortio echo server listening on port %v\n", *port)
