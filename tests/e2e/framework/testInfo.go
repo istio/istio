@@ -40,7 +40,7 @@ import (
 
 var (
 	logsBucketPath = flag.String("logs_bucket_path", "", "Cloud Storage Bucket path to use to store logs")
-	projectID = flag.String("project_id", "istio-testing", "Project ID")
+	projectID      = flag.String("project_id", "", "Project ID")
 	// This list of log identifiers is cherry-picked based on Dev team's interest
 	// To access the comprehensive list, try in your shell
 	// 		$ gcloud beta logging logs list
@@ -50,7 +50,7 @@ var (
 		"istio-ingress",
 		"mixer",
 		"prometheus",
-		"statesd-to-prometheus",
+		"statsd-to-prometheus",
 	}
 	resources = []string{
 		"pod",
@@ -62,7 +62,7 @@ var (
 const (
 	tmpPrefix   = "istio.e2e."
 	idMaxLength = 36
-	pageSize = 20
+	pageSize    = 50 // number of log entries for each paginated request to fetch logs
 )
 
 // TestInfo gathers Test Information
@@ -135,11 +135,15 @@ func (t testInfo) Update(r int) error {
 }
 
 func (t testInfo) FetchAndSaveClusterLogs() error {
+	if *projectID == "" {
+		return nil
+	}
+	// connect to stackdriver
 	ctx := context.Background()
 	glog.Info("Fetching cluster logs")
 	client, err := logadmin.NewClient(ctx, *projectID)
 	if err != nil {
-	    return err
+		return err
 	}
 
 	fetchAndWrite := func(logId string) error {
@@ -156,7 +160,7 @@ func (t testInfo) FetchAndSaveClusterLogs() error {
 		if err != nil {
 			return err
 		}
-		// fetch log entries with pagination 
+		// fetch log entries with pagination
 		var entries []*logging.Entry
 		pager := iterator.NewPager(it, pageSize, "")
 		for page := 0; ; page++ {
@@ -188,13 +192,20 @@ func (t testInfo) FetchAndSaveClusterLogs() error {
 	for _, resrc := range resources {
 		glog.Info(fmt.Sprintf("Fetching deployment info on %s\n", resrc))
 		path := filepath.Join(t.LogsPath, fmt.Sprintf("%s.yaml", resrc))
-		cmd := fmt.Sprintf("kubectl get %s -o yaml >> %s", resrc, path)
-		if _, err := util.Shell(cmd); err != nil {
-			errMsg += err.Error()+ "\n"
+		if yaml, err0 := util.Shell(fmt.Sprintf("kubectl get %s -o yaml", resrc)); err0 == nil {
+			if f, err1 := os.Create(path); err1 == nil {
+				if _, err2 := f.WriteString(fmt.Sprintf("%s\n", yaml)); err2 != nil {
+					errMsg += err2.Error() + "\n"
+				}
+			} else {
+				errMsg += err1.Error() + "\n"
+			}
+		} else {
+			errMsg += err0.Error() + "\n"
 		}
 	}
 	if errMsg != "" {
-		return fmt.Errorf("%s\n", errMsg)
+		return fmt.Errorf("%s", errMsg)
 	}
 	return nil
 }
