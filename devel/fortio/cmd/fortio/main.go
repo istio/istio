@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"os"
 	"sort"
-	"time"
 
 	"istio.io/istio/devel/fortio"
 )
@@ -75,12 +74,13 @@ func usage() {
 
 func main() {
 	var (
+		defaults = &fortio.DefaultRunnerOptions
 		// Very small default so people just trying with random URLs don't affect the target
 		qpsFlag         = flag.Float64("qps", 8.0, "Queries Per Seconds or 0 for no wait")
-		numThreadsFlag  = flag.Int("c", 0, "Number of connections/goroutine/threads (0 doesn't change internal default)")
-		durationFlag    = flag.Duration("t", 5*time.Second, "How long to run the test")
+		numThreadsFlag  = flag.Int("c", defaults.NumThreads, "Number of connections/goroutine/threads")
+		durationFlag    = flag.Duration("t", defaults.Duration, "How long to run the test")
 		percentilesFlag = flag.String("p", "50,75,99,99.9", "List of pXX to calculate")
-		resolutionFlag  = flag.Float64("r", 0.001, "Resolution of the histogram lowest buckets in seconds")
+		resolutionFlag  = flag.Float64("r", defaults.Resolution, "Resolution of the histogram lowest buckets in seconds")
 		headersFlags    flagList
 	)
 	flag.Var(&headersFlags, "H", "Additional Header(s)")

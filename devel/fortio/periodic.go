@@ -26,6 +26,14 @@ import (
 	"time"
 )
 
+// DefaultRunnerOptions ar the default values for options (do not mutate!).
+var DefaultRunnerOptions = RunnerOptions{
+	Duration:    5 * time.Second,
+	NumThreads:  4,
+	Percentiles: []float64{90.0},
+	Resolution:  0.001, // milliseconds
+}
+
 // Function to run periodically.
 type Function func(tid int)
 
@@ -67,16 +75,20 @@ func newPeriodicRunner(opts *RunnerOptions) *periodicRunner {
 		r.QPS = 0
 	}
 	if r.NumThreads == 0 {
-		r.NumThreads = 4 // default
+		r.NumThreads = DefaultRunnerOptions.NumThreads
 	}
 	if r.NumThreads < 1 {
 		r.NumThreads = 1
 	}
 	if r.Percentiles == nil {
-		r.Percentiles = []float64{90.0}
+		r.Percentiles = make([]float64, len(DefaultRunnerOptions.Percentiles))
+		copy(r.Percentiles, DefaultRunnerOptions.Percentiles)
 	}
 	if r.Resolution <= 0 {
-		r.Resolution = 0.001 // millisecond default
+		r.Resolution = DefaultRunnerOptions.Resolution
+	}
+	if r.Duration <= 0 {
+		r.Duration = DefaultRunnerOptions.Duration
 	}
 	return r
 }
