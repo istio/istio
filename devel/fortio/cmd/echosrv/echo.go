@@ -25,29 +25,26 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strconv"
 	"sync/atomic"
+
+	"github.com/golang/glog"
 )
 
 var (
-	verbosityFlag = flag.Int("v", 0, "Verbosity level (0 is quiet)")
-	port          = flag.Int("port", 8080, "default http port")
-	requests      int64
+	port     = flag.Int("port", 8080, "default http port")
+	requests int64
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	verbosity := *verbosityFlag
-	if verbosity > 0 {
-		fmt.Printf("%v %v %v %v\n", r.Method, r.URL, r.Proto, r.RemoteAddr)
-	}
-	if verbosity > 2 {
+	glog.V(1).Infof("%v %v %v %v", r.Method, r.URL, r.Proto, r.RemoteAddr)
+	if glog.V(2) {
 		for name, headers := range r.Header {
 			for _, h := range headers {
 				fmt.Printf("%v: %v\n", name, h)
 			}
 		}
 	}
-	body, err := ioutil.ReadAll(r.Body)
+	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Print("Error reading ", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -60,23 +57,25 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(body)
-	if err != nil {
+	if _, err = w.Write(data); err != nil {
 		log.Print("Error writing response ", err, " to ", r.RemoteAddr)
 	}
-	if verbosity > 1 {
+	if glog.V(2) {
 		// TODO: this easily lead to contention - use 'thread local'
 		rqNum := atomic.AddInt64(&requests, 1)
-		fmt.Printf("Requests: %v\n", rqNum)
+		glog.V(1).Infof("Requests: %v", rqNum)
 	}
 }
 
 func main() {
+	// change the default for glog, use -logtostderr=false if you want seperate files
+	flag.Set("logtostderr", "true")
 	flag.Parse()
+
 	fmt.Printf("Fortio echo server listening on port %v\n", *port)
 
 	http.HandleFunc("/", handler)
-	if err := http.ListenAndServe(":"+strconv.Itoa(*port), nil); err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", *port), nil); err != nil {
 		fmt.Println("Error starting server", err)
 	}
 }
