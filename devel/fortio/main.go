@@ -86,8 +86,8 @@ func main() {
 	flag.Var(&headersFlags, "H", "Additional Header(s)")
 	flag.Parse()
 
-	verbose := *verbosityFlag
-	fortio.Verbose = verbose
+	verbosity := *verbosityFlag
+	fortio.Verbosity = verbosity
 	pList, err := fortio.ParsePercentiles(*percentilesFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to extract percentiles from -p: %v\n", err) // nolint(gas)
@@ -103,7 +103,7 @@ func main() {
 		Function:    test,
 		Duration:    *durationFlag,
 		NumThreads:  *numThreadsFlag,
-		Verbose:     verbose,
+		Verbosity:   verbosity,
 		Percentiles: pList,
 		Resolution:  *resolutionFlag,
 	}
@@ -116,13 +116,14 @@ func main() {
 		fmt.Printf("Aborting because of error %d for %s\n%s\n", code, url, string(body))
 		os.Exit(1)
 	}
-	if verbose > 0 {
+	if verbosity > 0 {
 		fmt.Printf("first hit of url %s: status %03d\n%s\n", url, code, string(body))
 	}
 
-	var total threadStats
-	total.retCodes = make(map[int]int64)
-	total.sizes = fortio.NewHistogram(0, 100)
+	total := threadStats{
+		retCodes: make(map[int]int64),
+		sizes:    fortio.NewHistogram(0, 100),
+	}
 
 	stats = make([]threadStats, numThreads)
 	for i := 0; i < numThreads; i++ {
@@ -147,9 +148,9 @@ func main() {
 	for _, k := range keys {
 		fmt.Printf("Code %3d : %d\n", k, total.retCodes[k])
 	}
-	if verbose > 0 {
-		total.sizes.FPrint(os.Stdout, "Response Body Sizes Histogram", 50)
+	if verbosity > 0 {
+		total.sizes.Print(os.Stdout, "Response Body Sizes Histogram", 50)
 	} else {
-		total.sizes.Counter.FPrint(os.Stdout, "Response Body Sizes")
+		total.sizes.Counter.Print(os.Stdout, "Response Body Sizes")
 	}
 }

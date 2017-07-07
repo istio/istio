@@ -27,23 +27,23 @@ func TestCounter(t *testing.T) {
 	c := NewHistogram(22, 0.1)
 	var b bytes.Buffer
 	w := bufio.NewWriter(&b)
-	c.Counter.FPrint(w, "test1c")
+	c.Counter.Print(w, "test1c")
 	expected := "test1c : count 0 avg NaN +/- NaN min 0 max 0 sum 0\n"
-	c.FPrint(w, "test1h", 50.0)
+	c.Print(w, "test1h", 50.0)
 	expected += "test1h : no data\n"
 	c.Record(23.1)
-	c.Counter.FPrint(w, "test2")
+	c.Counter.Print(w, "test2")
 	expected += "test2 : count 1 avg 23.1 +/- 0 min 23.1 max 23.1 sum 23.1\n"
 	c.Record(22.9)
-	c.Counter.FPrint(w, "test3")
+	c.Counter.Print(w, "test3")
 	expected += "test3 : count 2 avg 23 +/- 0.1 min 22.9 max 23.1 sum 46\n"
 	c.Record(23.1)
 	c.Record(22.9)
-	c.Counter.FPrint(w, "test4")
+	c.Counter.Print(w, "test4")
 	expected += "test4 : count 4 avg 23 +/- 0.1 min 22.9 max 23.1 sum 92\n"
 	c.Record(1023)
 	c.Record(-977)
-	c.Counter.FPrint(w, "test5")
+	c.Counter.Print(w, "test5")
 	// note that stddev of 577.4 below is... whatever the code said
 	finalExpected := " : count 6 avg 23 +/- 577.4 min -977 max 1023 sum 138\n"
 	expected += "test5" + finalExpected
@@ -71,21 +71,21 @@ func TestTransferCounter(t *testing.T) {
 	c1a := c1
 	c2a := c2
 	var c3 Counter
-	c1.FPrint(w, "c1 before merge")
-	c2.FPrint(w, "c2 before merge")
+	c1.Print(w, "c1 before merge")
+	c2.Print(w, "c2 before merge")
 	c1.Transfer(&c2)
-	c1.FPrint(w, "mergedC1C2")
-	c2.FPrint(w, "c2 after merge")
+	c1.Print(w, "mergedC1C2")
+	c2.Print(w, "c2 after merge")
 	// reverse (exercise min if)
 	c2a.Transfer(&c1a)
-	c2a.FPrint(w, "mergedC2C1")
+	c2a.Print(w, "mergedC2C1")
 	// test transfer into empty - min should be set
 	c3.Transfer(&c1)
-	c1.FPrint(w, "c1 should now be empty")
-	c3.FPrint(w, "c3 after merge - 1")
+	c1.Print(w, "c1 should now be empty")
+	c3.Print(w, "c3 after merge - 1")
 	// test empty transfer - shouldn't reset min/no-op
 	c3.Transfer(&c2)
-	c3.FPrint(w, "c3 after merge - 2")
+	c3.Print(w, "c3 after merge - 2")
 	w.Flush() // nolint: errcheck
 	actual := string(b.Bytes())
 	expected := `c1 before merge : count 2 avg 15 +/- 5 min 10 max 20 sum 30
@@ -109,7 +109,7 @@ func TestHistogram(t *testing.T) {
 	h.Record(501)
 	h.Record(751)
 	h.Record(1001)
-	h.FPrint(os.Stdout, "testHistogram1", 50)
+	h.Print(os.Stdout, "testHistogram1", 50)
 	for i := 25; i <= 100; i += 25 {
 		fmt.Printf("%d%% at %g\n", i, h.CalcPercentile(float64(i)))
 	}
@@ -153,7 +153,7 @@ func TestHistogramLastBucket(t *testing.T) {
 	h.Record(200000)
 	var b bytes.Buffer
 	w := bufio.NewWriter(&b)
-	h.FPrint(w, "testLastBucket", 90)
+	h.Print(w, "testLastBucket", 90)
 	w.Flush() // nolint: errcheck
 	actual := string(b.Bytes())
 	// stdev part is not verified/could be brittle
@@ -180,7 +180,7 @@ func TestHistogramNegativeNumbers(t *testing.T) {
 	var b bytes.Buffer
 	w := bufio.NewWriter(&b)
 	// TODO: fix the p51 (and p1...), should be 0 not 10
-	h.FPrint(w, "testHistogramWithNegativeNumbers", 51)
+	h.Print(w, "testHistogramWithNegativeNumbers", 51)
 	w.Flush() // nolint: errcheck
 	actual := string(b.Bytes())
 	// stdev part is not verified/could be brittle
@@ -209,21 +209,21 @@ func TestTransferHistogram(t *testing.T) {
 	h1a.Record(50) // add extra pt to make sure h1a and h1 are distinct
 	h2a := h2.Clone()
 	h3 := NewHistogram(0, 10)
-	h1.FPrint(w, "h1 before merge", tP)
-	h2.FPrint(w, "h2 before merge", tP)
+	h1.Print(w, "h1 before merge", tP)
+	h2.Print(w, "h2 before merge", tP)
 	h1.Transfer(h2)
-	h1.FPrint(w, "merged h2 -> h1", tP)
-	h2.FPrint(w, "h2 after merge", tP)
+	h1.Print(w, "merged h2 -> h1", tP)
+	h2.Print(w, "h2 after merge", tP)
 	// reverse (exercise min if)
 	h2a.Transfer(h1a)
-	h2a.FPrint(w, "merged h1a -> h2a", tP)
+	h2a.Print(w, "merged h1a -> h2a", tP)
 	// test transfer into empty - min should be set
 	h3.Transfer(h1)
-	h1.FPrint(w, "h1 should now be empty", tP)
-	h3.FPrint(w, "h3 after merge - 1", tP)
+	h1.Print(w, "h1 should now be empty", tP)
+	h3.Print(w, "h3 after merge - 1", tP)
 	// test empty transfer - shouldn't reset min/no-op
 	h3.Transfer(h2)
-	h3.FPrint(w, "h3 after merge - 2", tP)
+	h3.Print(w, "h3 after merge - 2", tP)
 	w.Flush() // nolint: errcheck
 	actual := string(b.Bytes())
 	expected := `h1 before merge : count 2 avg 15 +/- 5 min 10 max 20 sum 30

@@ -23,7 +23,8 @@ import (
 	"math"
 )
 
-// Counter is class to record values and calculate stats (count,average,min,max,stddev)
+// Counter is a type whose instances record values
+// and calculate stats (count,average,min,max,stddev).
 type Counter struct {
 	Count        int64
 	Min          float64
@@ -32,7 +33,7 @@ type Counter struct {
 	sumOfSquares float64
 }
 
-// Record records a data point
+// Record records a data point.
 func (c *Counter) Record(v float64) {
 	c.Count++
 	if c.Count == 1 {
@@ -59,19 +60,19 @@ func (c *Counter) StdDev() float64 {
 	return math.Sqrt(sigma)
 }
 
-// FPrint prints stats
-func (c *Counter) FPrint(out io.Writer, msg string) {
+// Print prints stats.
+func (c *Counter) Print(out io.Writer, msg string) {
 	fmt.Fprintf(out, "%s : count %d avg %.8g +/- %.4g min %g max %g sum %.9g\n", // nolint(errorcheck)
 		msg, c.Count, c.Avg(), c.StdDev(), c.Min, c.Max, c.Sum)
 }
 
-// Log outputs the stats to the logger
+// Log outputs the stats to the logger.
 func (c *Counter) Log(msg string) {
 	log.Printf("%s : count %d avg %.8g +/- %.4g min %g max %g sum %.9g",
 		msg, c.Count, c.Avg(), c.StdDev(), c.Min, c.Max, c.Sum)
 }
 
-// Reset clears the counter to reset it to original 'no data' state
+// Reset clears the counter to reset it to original 'no data' state.
 func (c *Counter) Reset() {
 	var empty Counter
 	*c = empty
@@ -131,7 +132,7 @@ type Histogram struct {
 	hdata []int32 // n+1 buckets (for last one)
 }
 
-//NewHistogram creates a new histogram (sets up the buckets)
+// NewHistogram creates a new histogram (sets up the buckets).
 func NewHistogram(Offset float64, Divider float64) *Histogram {
 	h := new(Histogram)
 	h.Offset = Offset
@@ -144,10 +145,10 @@ func NewHistogram(Offset float64, Divider float64) *Histogram {
 // this creates an array of 100k (max value) entries
 // TODO: consider using an interval search for the last N big buckets
 func init() {
-	lastValue := int32(lastValue)
-	val2Bucket = make([]int, lastValue)
+	lastV := int32(lastValue)
+	val2Bucket = make([]int, lastV)
 	idx := 0
-	for i := int32(0); i < lastValue; i++ {
+	for i := int32(0); i < lastV; i++ {
 		if i >= histogramBuckets[idx] {
 			idx++
 		}
@@ -155,12 +156,12 @@ func init() {
 	}
 	// coding bug detection (aka impossible if it works once)
 	if idx != numBuckets-1 {
-		log.Fatalf("Bug in creating histogram buckets idx %d vs numbuckets %d (last val %d)", idx, numBuckets, lastValue)
+		log.Fatalf("Bug in creating histogram buckets idx %d vs numbuckets %d (last val %d)", idx, numBuckets, lastV)
 	}
 
 }
 
-// Record records a data point
+// Record records a data point.
 func (h *Histogram) Record(v float64) {
 	h.Counter.Record(v)
 	// Scaled value to bucketize:
@@ -176,7 +177,7 @@ func (h *Histogram) Record(v float64) {
 
 // CalcPercentile returns the value for an input percentile
 // e.g. for 90. as input returns an estimate of the original value threshold
-// where 90.0% of the data is below said threshold
+// where 90.0% of the data is below said threshold.
 func (h *Histogram) CalcPercentile(percentile float64) float64 {
 	if percentile >= 100 {
 		return h.Max
@@ -225,9 +226,9 @@ func (h *Histogram) CalcPercentile(percentile float64) float64 {
 	return (prev + (percentile-prevPerc)*(cur-prev)/(perc-prevPerc))
 }
 
-// FPrint dumps the histogram (and counter) to the provided writer.
+// Print dumps the histogram (and counter) to the provided writer.
 // Also calculates the percentile.
-func (h *Histogram) FPrint(out io.Writer, msg string, percentile float64) {
+func (h *Histogram) Print(out io.Writer, msg string, percentile float64) {
 	multiplier := h.Divider
 
 	// calculate the last bucket index
@@ -244,7 +245,7 @@ func (h *Histogram) FPrint(out io.Writer, msg string, percentile float64) {
 	}
 
 	// the base counter part:
-	h.Counter.FPrint(out, msg)
+	h.Counter.Print(out, msg)
 	fmt.Fprintln(out, "# range, mid point, percentile, count") // nolint: gas
 	// previous bucket value:
 	prev := histogramBuckets[0]
@@ -290,7 +291,7 @@ func (h *Histogram) FPrint(out io.Writer, msg string, percentile float64) {
 func (h *Histogram) Log(msg string, percentile float64) {
 	var b bytes.Buffer
 	w := bufio.NewWriter(&b)
-	h.FPrint(w, msg, percentile)
+	h.Print(w, msg, percentile)
 	w.Flush() // nolint: gas,errcheck
 	log.Print(string(b.Bytes()))
 }
@@ -304,14 +305,14 @@ func (h *Histogram) Reset() {
 	}
 }
 
-// Clone returns a copy of the histogram
+// Clone returns a copy of the histogram.
 func (h *Histogram) Clone() *Histogram {
 	copy := NewHistogram(h.Offset, h.Divider)
 	copy.CopyFrom(h)
 	return copy
 }
 
-// CopyFrom sets the content of this object to a copy of the src
+// CopyFrom sets the content of this object to a copy of the src.
 func (h *Histogram) CopyFrom(src *Histogram) {
 	h.Counter = src.Counter
 	// we don't copy offset/divider as this assumes compatible src/dest

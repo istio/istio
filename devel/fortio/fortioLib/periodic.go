@@ -15,6 +15,7 @@
 package fortio
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -28,19 +29,23 @@ import (
 // Function to run periodically.
 type Function func(tid int)
 
-// RunnerOptions are the parameters to the PeriodicRunner
+// RunnerOptions are the parameters to the PeriodicRunner.
 type RunnerOptions struct {
-	Function    Function
-	QPS         float64
-	Duration    time.Duration
+	Function Function
+	QPS      float64
+	Duration time.Duration
+	// Note that this actually maps to gorountines and not actual threads
+	// but threads seems like a more familiar name to use for non go users
+	// and in a benchmarking context
 	NumThreads  int
 	Percentiles []float64
 	Resolution  float64
 	// Debug/Verbosity level (0 is quietest)
-	Verbose int
+	Verbosity int
 }
 
-// PeriodicRunner is the public interface to the periodic runner.
+// PeriodicRunner let's you exercise the Function at the given QPS and collect
+// statistics and histogram about the run.
 type PeriodicRunner interface {
 	// Starts the run
 	Run()
@@ -49,15 +54,14 @@ type PeriodicRunner interface {
 	GetOptions() *RunnerOptions
 }
 
-// PeriodicRunner is a class encapsulating running code.
+// Unexposed implementation details for PeriodicRunner.
 type periodicRunner struct {
 	RunnerOptions
 }
 
-// internal version, returning the concrete class
-func newPeriodicRunner(p *RunnerOptions) *periodicRunner {
-	r := new(periodicRunner)
-	r.RunnerOptions = *p // by default just copy
+// internal version, returning the concrete implementation.
+func newPeriodicRunner(opts *RunnerOptions) *periodicRunner {
+	r := &periodicRunner{*opts} // by default just copy the input params
 	if r.QPS < 0 {
 		log.Printf("Negative qps %f means max speed mode/no wait between calls", r.QPS)
 		r.QPS = 0
@@ -69,8 +73,7 @@ func newPeriodicRunner(p *RunnerOptions) *periodicRunner {
 		r.NumThreads = 1
 	}
 	if r.Percentiles == nil {
-		r.Percentiles = make([]float64, 1)
-		r.Percentiles[0] = 90.0
+		r.Percentiles = []float64{90.0}
 	}
 	if r.Resolution <= 0 {
 		r.Resolution = 0.001 // millisecond default
@@ -83,11 +86,12 @@ func NewPeriodicRunner(params *RunnerOptions) PeriodicRunner {
 	return newPeriodicRunner(params)
 }
 
+// GetOptions returns the options pointer.
 func (r *periodicRunner) GetOptions() *RunnerOptions {
 	return &r.RunnerOptions // sort of returning this here
 }
 
-// Start starts the runner.
+// Run starts the runner.
 func (r *periodicRunner) Run() {
 	useQPS := (r.QPS > 0)
 	var numCalls int64
@@ -116,7 +120,7 @@ func (r *periodicRunner) Run() {
 	// Histogram and stats for Sleep time (negative offset to capture <0 sleep in their own bucket):
 	sleepTime := NewHistogram(-0.001, 0.001)
 	if r.NumThreads <= 1 {
-		if r.Verbose > 0 {
+		if r.Verbosity > 0 {
 			log.Printf("Running single threaded")
 		}
 		runOne(0, functionDuration, sleepTime, numCalls, start, r)
@@ -131,8 +135,8 @@ func (r *periodicRunner) Run() {
 			sDs = append(sDs, sleepP)
 			wg.Add(1)
 			go func(t int, durP *Histogram, sleepP *Histogram) {
-				defer wg.Done()
 				runOne(t, durP, sleepP, numCalls, start, r)
+				wg.Done()
 			}(t, durP, sleepP)
 		}
 		wg.Wait()
@@ -147,29 +151,30 @@ func (r *periodicRunner) Run() {
 	if useQPS {
 		percentNegative := 100. * float64(sleepTime.hdata[0]) / float64(sleepTime.Count)
 		if percentNegative > 3 {
-			sleepTime.FPrint(os.Stdout, "Aggregated Sleep Time", 50)
+			sleepTime.Print(os.Stdout, "Aggregated Sleep Time", 50)
 			fmt.Printf("WARNING %.2f%% of sleep were falling behind\n", percentNegative)
 		} else {
-			if Verbose > 0 {
-				sleepTime.FPrint(os.Stdout, "Aggregated Sleep Time", 50)
+			if Verbosity > 0 {
+				sleepTime.Print(os.Stdout, "Aggregated Sleep Time", 50)
 			} else {
-				sleepTime.Counter.FPrint(os.Stdout, "Sleep times")
+				sleepTime.Counter.Print(os.Stdout, "Sleep times")
 			}
 		}
 	}
-	functionDuration.FPrint(os.Stdout, "Aggregated Function Time", r.Percentiles[0])
+	functionDuration.Print(os.Stdout, "Aggregated Function Time", r.Percentiles[0])
 	for _, p := range r.Percentiles[1:] {
 		fmt.Printf("# target %g%% %.6g\n", p, functionDuration.CalcPercentile(p))
 	}
 }
 
+// runOne runs in 1 go routine.
 func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, start time.Time, r *periodicRunner) {
 	var i int64
 	endTime := start.Add(r.Duration)
 	tIDStr := fmt.Sprintf("T%03d", t)
 	perThreadQPS := r.QPS / float64(r.NumThreads)
 	useQPS := (perThreadQPS > 0)
-	verbose := r.Verbose
+	verbosity := r.Verbosity
 	f := r.Function
 	for {
 		fStart := time.Now()
@@ -199,7 +204,7 @@ func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, start time.Time
 			targetElapsedInSec := (float64(i) + float64(i)/float64(numCalls-1)) / perThreadQPS
 			targetElapsedDuration := time.Duration(int64(targetElapsedInSec * 1e9))
 			sleepDuration := targetElapsedDuration - elapsed
-			if verbose > 3 {
+			if verbosity > 3 {
 				log.Printf("%s target next dur %v - sleep %v", tIDStr, targetElapsedDuration, sleepDuration)
 			}
 			cS.Record(sleepDuration.Seconds())
@@ -209,9 +214,9 @@ func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, start time.Time
 	elapsed := time.Since(start)
 	actualQPS := float64(i) / elapsed.Seconds()
 	log.Printf("%s ended after %v : %d calls. qps=%g", tIDStr, elapsed, i, actualQPS)
-	if (numCalls > 0) && (verbose > 0) {
+	if (numCalls > 0) && (verbosity > 0) {
 		cF.Log(tIDStr+" Function duration", 99)
-		if verbose > 2 {
+		if verbosity > 2 {
 			cS.Log(tIDStr+" Sleep time", 50)
 		} else {
 			cS.Counter.Log(tIDStr + " Sleep time")
@@ -222,7 +227,7 @@ func runOne(t int, cF *Histogram, cS *Histogram, numCalls int64, start time.Time
 // ParsePercentiles extracts the percentiles from string (flag).
 func ParsePercentiles(percentiles string) ([]float64, error) {
 	percs := strings.Split(percentiles, ",") // will make a size 1 array for empty input!
-	res := make([]float64, 0)
+	res := make([]float64, 0, len(percs))
 	for _, pStr := range percs {
 		pStr = strings.TrimSpace(pStr)
 		if len(pStr) == 0 {
@@ -235,10 +240,10 @@ func ParsePercentiles(percentiles string) ([]float64, error) {
 		res = append(res, p)
 	}
 	if len(res) == 0 {
-		return res, fmt.Errorf("list can't be empty")
+		return res, errors.New("list can't be empty")
 	}
-	if Verbose > 0 {
-		log.Print("will use ", res, " for percentiles")
+	if Verbosity > 0 {
+		log.Print("Will use ", res, " for percentiles")
 	}
 	return res, nil
 }

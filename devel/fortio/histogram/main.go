@@ -34,7 +34,7 @@ func main() {
 		pFlag         = flag.Float64("p", 90, "Percentile to calculate")
 	)
 	flag.Parse()
-	fortio.Verbose = *verbosityFlag
+	fortio.Verbosity = *verbosityFlag
 	h := fortio.NewHistogram(*offsetFlag, *dividerFlag)
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -52,5 +52,5 @@ func main() {
 		log.Fatalln("Err reading standard input", err)
 	}
 	// TODO use ParsePercentiles
-	h.FPrint(os.Stdout, "Histogram", *pFlag)
+	h.Print(os.Stdout, "Histogram", *pFlag)
 }
