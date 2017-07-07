@@ -30,6 +30,7 @@ TESTS_TARGETS=($(bazel query 'tests(//tests/e2e/tests/...)'))
 FAILURE_COUNT=0
 SUMMARY='Tests Summary'
 
+
 for T in ${TESTS_TARGETS[@]}; do
   echo '****************************************************'
   echo "Running ${T}"

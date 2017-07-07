@@ -35,7 +35,10 @@ def presubmit(gitUtils, bazel, utils) {
       bazel.test('//...')
     }
     stage('Smoke Test') {
-      sh("tests/e2e.sh --logs_bucket_path ${gitUtils.logsPath()}")
+      def logHost = 'stackdriver'
+      def projID = utils.failIfNullOrEmpty(env.PROJECT)
+      def e2eArgs = "--logs_bucket_path ${gitUtils.logsPath()} --log_provider=${logHost} --project_id=${projID} "
+      sh("tests/e2e.sh ${e2eArgs}")
     }
   }
 }
@@ -44,22 +47,20 @@ def smokeTest(gitUtils, bazel, utils) {
   goBuildNode(gitUtils, 'istio.io/istio') {
     bazel.updateBazelRc()
     utils.initTestingCluster()
-    def e2eArgs = "--logs_bucket_path ${gitUtils.logsPath()} "
+    def logHost = 'stackdriver'
+    def projID = utils.failIfNullOrEmpty(env.PROJECT)
+    def e2eArgs = "--logs_bucket_path ${gitUtils.logsPath()} --log_provider=${logHost} --project_id=${projID} "
     if (utils.getParam('GITHUB_PR_HEAD_SHA') != '') {
       def prSha = utils.failIfNullOrEmpty(env.GITHUB_PR_HEAD_SHA)
       def prUrl = utils.failIfNullOrEmpty(env.GITHUB_PR_URL)
       def repo = prUrl.split('/')[4]
       def hub = 'gcr.io/istio-testing'
-      def logHost = 'stackdriver'
-      def projID =  utils.failIfNullOrEmpty(env.PROJECT)
       switch (repo) {
         case 'pilot':
           def istioctlUrl = "https://storage.googleapis.com/istio-artifacts/${repo}/${prSha}/artifacts/istioctl"
           e2eArgs += "--pilot_hub=${hub}  " +
               "--pilot_tag=${prSha} " +
-              "--istioctl_url=${istioctlUrl} " +
-              "--log_provider=${logHost} " +
-              "--project_id=${projID}"
+              "--istioctl_url=${istioctlUrl}"
           break
         case 'mixer':
           e2eArgs += "--mixer_hub=${hub}  " +
