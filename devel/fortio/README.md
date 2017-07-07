@@ -56,9 +56,9 @@ Response Body Sizes : count 40 avg 11500.55 +/- 443.3 min 11266 max 12770 sum 46
 
 ## Implementation details
 
-Fortio is written in the [Go](https://golang.org) and includes a scalable semi log histogram in [stats.go](fortioLib/stats.go) and a periodic runner engine in [periodic.go](fortioLib/periodic.go).
+Fortio is written in the [Go](https://golang.org) and includes a scalable semi log histogram in [stats.go](stats.go) and a periodic runner engine in [periodic.go](periodic.go).
 
-You can run the histogram code standalone as a command line in [histogram/](histogram/)
+You can run the histogram code standalone as a command line in [cmd/histogram/](cmd/histogram/) and a basic echo http server in [cmd/echosrv/](cmd/echosrv/) and the main [cmd/fortio/](cmd/fortio/) 
 
 ## Another example output
 
