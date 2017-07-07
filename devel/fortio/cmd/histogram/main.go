@@ -23,7 +23,7 @@ import (
 	"os"
 	"strconv"
 
-	fortio "istio.io/istio/devel/fortio/fortioLib"
+	"istio.io/istio/devel/fortio"
 )
 
 func main() {

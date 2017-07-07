@@ -23,7 +23,7 @@ import (
 	"sort"
 	"time"
 
-	fortio "istio.io/istio/devel/fortio/fortioLib"
+	"istio.io/istio/devel/fortio"
 )
 
 type threadStats struct {
