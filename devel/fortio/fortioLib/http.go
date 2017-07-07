@@ -34,12 +34,14 @@ func init() {
 	extraHeaders.Add("User-Agent", userAgent)
 }
 
-// Verbose controls verbose/debug output, higher more verbose.
-var Verbose int
+// Verbosity controls verbose/debug output level, higher more verbose.
+var Verbosity int
 
 // Version is the fortio package version (TODO:auto gen/extract).
-var Version = "0.1"
-var userAgent = "istio/fortio-" + Version
+const (
+	Version   = "0.1"
+	userAgent = "istio/fortio-" + Version
+)
 
 // AddAndValidateExtraHeader collects extra headers (see main.go for example).
 func AddAndValidateExtraHeader(h string) error {
@@ -49,59 +51,64 @@ func AddAndValidateExtraHeader(h string) error {
 	}
 	key := strings.TrimSpace(s[0])
 	value := strings.TrimSpace(s[1])
-	// Not checking Verbose as this is called during flag parsing and Verbose isn't set yet
+	// Not checking Verbosity as this is called during flag parsing and Verbosity isn't set yet
 	if strings.EqualFold(key, "host") {
-		log.Printf("will be setting special Host header to %s", value)
+		log.Printf("Will be setting special Host header to %s", value)
 		hostOverride = value
 	} else {
-		log.Printf("setting regular extra header %s: %s", key, value)
+		log.Printf("Setting regular extra header %s: %s", key, value)
 		extraHeaders.Add(key, value)
 	}
 	return nil
 }
 
-// newHttpRequest makes a new http GET request for url with User-Agent
+// newHttpRequest makes a new http GET request for url with User-Agent.
 func newHTTPRequest(url string) *http.Request {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Printf("unable to make request for %s : %v", url, err)
+		log.Printf("Unable to make request for %s : %v", url, err)
+		return nil
 	}
 	req.Header = extraHeaders
 	if hostOverride != "" {
 		req.Host = hostOverride
 	}
-	if Verbose > 2 {
-		bytes, err := httputil.DumpRequestOut(req, false)
-		if err != nil {
-			log.Printf("unable to dump request %v", err)
-		} else {
-			log.Printf("For URL %s, sending:\n%s", url, bytes)
-		}
+	if Verbosity < 3 {
+		return req
+	}
+	bytes, err := httputil.DumpRequestOut(req, false)
+	if err != nil {
+		log.Printf("Unable to dump request %v", err)
+	} else {
+		log.Printf("For URL %s, sending:\n%s", url, bytes)
 	}
 	return req
 }
 
-// FetchURL fetches URL contenty and does error handling/logging
+// FetchURL fetches URL contenty and does error handling/logging.
 func FetchURL(url string) (int, []byte) {
 	req := newHTTPRequest(url)
+	if req == nil {
+		return http.StatusBadRequest, []byte("bad url")
+	}
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("unable to send request for %s : %v", url, err)
+		log.Printf("Unable to send request for %s : %v", url, err)
 		return http.StatusBadRequest, []byte(err.Error())
 	}
 	defer resp.Body.Close() //nolint(errcheck)
-	if Verbose > 2 {
+	if Verbosity > 2 {
 		bytes, e := httputil.DumpResponse(resp, false)
 		if e != nil {
-			log.Printf("unable to dump response %v", e)
+			log.Printf("Unable to dump response %v", e)
 		} else {
 			log.Printf("For URL %s, received:\n%s", url, bytes)
 		}
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("unable to read response for %s : %v", url, err)
+		log.Printf("Unable to read response for %s : %v", url, err)
 		code := resp.StatusCode
 		if code == http.StatusOK {
 			code = http.StatusNoContent
@@ -110,7 +117,7 @@ func FetchURL(url string) (int, []byte) {
 		return code, body
 	}
 	code := resp.StatusCode
-	if Verbose > 1 {
+	if Verbosity > 1 {
 		log.Printf("Got %d : %s for %s - response is %d bytes", code, resp.Status, url, len(body))
 	}
 	return code, body

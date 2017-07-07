@@ -22,7 +22,6 @@ import (
 )
 
 func noop(t int) {
-	time.Sleep(1 * time.Millisecond)
 }
 
 func TestNewPeriodicRunner(t *testing.T) {
@@ -59,23 +58,25 @@ func TestNewPeriodicRunner(t *testing.T) {
 	}
 }
 
-var count int64
-
 var lock sync.Mutex
 
-func sumTest(t int) {
+func sumTest(count *int64) {
 	lock.Lock()
-	count++
+	(*count)++
 	lock.Unlock()
 	time.Sleep(50 * time.Millisecond)
 }
 
 func TestStart(t *testing.T) {
+	var count int64
+	localF := func(t int) {
+		sumTest(&count)
+	}
 	o := RunnerOptions{
 		QPS:        11.4,
-		Function:   sumTest,
+		Function:   localF,
 		NumThreads: 1,
-		Verbose:    1,
+		Verbosity:  1,
 		Duration:   1 * time.Second,
 	}
 	r := NewPeriodicRunner(&o)
@@ -104,16 +105,20 @@ func TestStart(t *testing.T) {
 }
 
 func TestStartMaxQps(t *testing.T) {
+	var count int64
+	localF := func(t int) {
+		sumTest(&count)
+	}
 	o := RunnerOptions{
-		QPS:        0,       // max speed
-		Function:   sumTest, // 1ms sleep
+		QPS:        0,      // max speed
+		Function:   localF, // 1ms sleep
 		NumThreads: 4,
 		Duration:   140 * time.Millisecond,
 	}
 	r := NewPeriodicRunner(&o)
 	count = 0
 	r.Run()
-	var expected int64 = 3 * 4 // can start 3 50ms in 140ms * 4 threads
+	expected := int64(3 * 4) // can start 3 50ms in 140ms * 4 threads
 	if count != expected {
 		t.Errorf("MaxQpsTest executed unexpected number of times %d instead %d", count, expected)
 	}
@@ -123,28 +128,26 @@ func TestParsePercentiles(t *testing.T) {
 	var tests = []struct {
 		str  string    // input
 		list []float64 // expected
-		err  string
+		err  bool
 	}{
 		// Good cases
 		{str: "99.9", list: []float64{99.9}},
 		{str: "1,2,3", list: []float64{1, 2, 3}},
 		{str: "   17, -5.3,  78  ", list: []float64{17, -5.3, 78}},
 		// Errors
-		{str: "", list: []float64{}, err: "list can't be empty"},
-		{str: "   ", list: []float64{}, err: "list can't be empty"},
-		{str: "23,a,46", list: []float64{23}, err: "strconv.ParseFloat: parsing \"a\": invalid syntax"},
+		{str: "", list: []float64{}, err: true},
+		{str: "   ", list: []float64{}, err: true},
+		{str: "23,a,46", list: []float64{23}, err: true},
 	}
-	Verbose = 1 // for coverage
+	Verbosity = 1 // for coverage
 	for _, tst := range tests {
 		actual, err := ParsePercentiles(tst.str)
 		if !reflect.DeepEqual(actual, tst.list) {
 			t.Errorf("ParsePercentiles got %#v expected %#v", actual, tst.list)
 		}
-		if err == nil && len(tst.err) == 0 {
-			continue // both nil, ok
-		}
-		if err.Error() != tst.err {
-			t.Errorf("ParsePercentiles got error %v expected %s", err, tst.err)
+		if (err != nil) != tst.err {
+			t.Errorf("ParsePercentiles got %v error while expecting err:%v for %s",
+				err, tst.err, tst.str)
 		}
 	}
 }
