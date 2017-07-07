@@ -30,18 +30,11 @@ TESTS_TARGETS=($(bazel query 'tests(//tests/e2e/tests/...)'))
 FAILURE_COUNT=0
 SUMMARY='Tests Summary'
 
-# query project-id and put on environment
-if [ -x "$(command -v gcloud)" ]; then # if gcloud command is installed
-  PROJ_ID=$(gcloud config get-value project)
-else
-  PROJ_ID="istio-testing"
-fi
-
 for T in ${TESTS_TARGETS[@]}; do
   echo '****************************************************'
   echo "Running ${T}"
   echo '****************************************************'
-  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${@} --project_id ${PROJ_ID}
+  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${@}
   RET=${?}
   echo '****************************************************'
   if [[ ${RET} -eq 0 ]]; then
