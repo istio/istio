@@ -28,12 +28,12 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/logging"
-	"cloud.google.com/go/logging/logadmin"
+	"cloud.google.com/go/logging/apiv2"
 	"cloud.google.com/go/storage"
 	"github.com/golang/glog"
 	"github.com/google/uuid"
 	"google.golang.org/api/iterator"
+	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 
 	"istio.io/istio/tests/e2e/util"
 )
@@ -41,18 +41,7 @@ import (
 var (
 	logsBucketPath = flag.String("logs_bucket_path", "", "Cloud Storage Bucket path to use to store logs")
 	projectID      = flag.String("project_id", "", "Project ID")
-	// This list of log identifiers is cherry-picked based on Dev team's interest
-	// To access the comprehensive list, try in your shell
-	// 		$ gcloud beta logging logs list
-	logIDs = []string{
-		"apiserver",
-		"discovery",
-		"istio-ingress",
-		"mixer",
-		"prometheus",
-		"statsd-to-prometheus",
-	}
-	resources = []string{
+	resources      = []string{
 		"pod",
 		"service",
 		"ingress",
@@ -62,7 +51,7 @@ var (
 const (
 	tmpPrefix   = "istio.e2e."
 	idMaxLength = 36
-	pageSize    = 50 // number of log entries for each paginated request to fetch logs
+	pageSize    = 100 // number of log entries for each paginated request to fetch logs
 )
 
 // TestInfo gathers Test Information
@@ -141,27 +130,33 @@ func (t testInfo) FetchAndSaveClusterLogs() error {
 	// connect to stackdriver
 	ctx := context.Background()
 	glog.Info("Fetching cluster logs")
-	client, err := logadmin.NewClient(ctx, *projectID)
+	loggingClient, err := logging.NewClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	fetchAndWrite := func(logId string) error {
-		glog.Info(fmt.Sprintf("Fetching logs on %s\n", logId))
+	fetchAndWrite := func(logName string) error {
+		glog.Info(fmt.Sprintf("Fetching logs on %s\n", logName))
 		// fetch logs from pods created for this run only
 		filter := fmt.Sprintf(
-			`logName = "projects/%s/logs/%s" AND
+			`logName = "%s" AND
 			resource.labels.namespace_id = "%s"`,
-			*projectID, logId, *namespace)
-		it := client.Entries(ctx, logadmin.Filter(filter))
+			logName, *namespace)
+		req := &loggingpb.ListLogEntriesRequest{
+			ResourceNames: []string{"projects/" + *projectID},
+			Filter:        filter,
+		}
+		it := loggingClient.ListLogEntries(ctx, req)
 		// create log file in append mode
-		path := filepath.Join(t.LogsPath, fmt.Sprintf("%s.log", logId))
+		prefix := fmt.Sprintf("projects/%s/logs/", *projectID)
+		logID := logName[len(prefix):]
+		path := filepath.Join(t.LogsPath, fmt.Sprintf("%s.log", logID))
 		f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
 		if err != nil {
 			return err
 		}
 		// fetch log entries with pagination
-		var entries []*logging.Entry
+		var entries []*loggingpb.LogEntry
 		pager := iterator.NewPager(it, pageSize, "")
 		for page := 0; ; page++ {
 			pageToken, err := pager.NextPage(&entries)
@@ -183,12 +178,26 @@ func (t testInfo) FetchAndSaveClusterLogs() error {
 		return f.Close()
 	}
 
+	req := &loggingpb.ListLogsRequest{
+		Parent: "projects/" + *projectID,
+	}
+	it := loggingClient.ListLogs(ctx, req)
 	errMsg := ""
-	for _, logID := range logIDs {
-		if err := fetchAndWrite(logID); err != nil {
-			errMsg += err.Error() + "\n"
+	for {
+		logName, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		if i := strings.Index(logName, "test-infra-presubmit"); i == -1 {
+			if err := fetchAndWrite(logName); err != nil {
+				errMsg += err.Error() + "\n"
+			}
 		}
 	}
+
 	for _, resrc := range resources {
 		glog.Info(fmt.Sprintf("Fetching deployment info on %s\n", resrc))
 		path := filepath.Join(t.LogsPath, fmt.Sprintf("%s.yaml", resrc))
