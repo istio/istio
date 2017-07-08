@@ -27,6 +27,11 @@ for f in $(pwd)/bazel-genfiles/test/grpcecho/*.pb.go; do
   ln -sf $f vendor/istio.io/pilot/test/grpcecho/
 done
 
+mkdir -p vendor/github.com/googleapis/googleapis/google/rpc
+for f in $(pwd)/bazel-genfiles/external/com_github_googleapis_googleapis/google/rpc/*.pb.go; do
+  ln -sf $f vendor/github.com/googleapis/googleapis/google/rpc/
+done
+
 # Link mock gen files
 ln -sf "$(pwd)/bazel-genfiles/model/mock_config_gen_test.go" \
   model/

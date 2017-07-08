@@ -11,5 +11,4 @@ go_test(
     size = "small",
     srcs = ["version_test.go"],
     library = ":go_default_library",
-    deps = [":go_default_library"],
 )
