@@ -12,7 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package fortio
+// Package fortio (from greek for load) is a set of utilities to run a given
+// task at a target rate (qps) and gather statistics - for instance http
+// requests.
+//
+// The main executable using the library is cmd/fortio but there
+// is also cmd/histogram to use the stats from the command line and cmd/echosrv
+// as a very light http server that can be used to test proxies etc like
+// the Istio components.
+package fortio // import "istio.io/istio/devel/fortio"
 
 import (
 	"errors"
@@ -59,7 +67,7 @@ type PeriodicRunner interface {
 	Run()
 	// Returns the options normalized by constructor - do not mutate
 	// (where is const when you need it...)
-	GetOptions() *RunnerOptions
+	Options() *RunnerOptions
 }
 
 // Unexposed implementation details for PeriodicRunner.
@@ -98,8 +106,8 @@ func NewPeriodicRunner(params *RunnerOptions) PeriodicRunner {
 	return newPeriodicRunner(params)
 }
 
-// GetOptions returns the options pointer.
-func (r *periodicRunner) GetOptions() *RunnerOptions {
+// Options returns the options pointer.
+func (r *periodicRunner) Options() *RunnerOptions {
 	return &r.RunnerOptions // sort of returning this here
 }
 
@@ -133,7 +141,7 @@ func (r *periodicRunner) Run() {
 	sleepTime := NewHistogram(-0.001, 0.001)
 	if r.NumThreads <= 1 {
 		if r.Verbosity > 0 {
-			log.Printf("Running single threaded")
+			log.Print("Running single threaded")
 		}
 		runOne(0, functionDuration, sleepTime, numCalls, start, r)
 	} else {

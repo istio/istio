@@ -98,15 +98,15 @@ func FetchURL(url string) (int, []byte) {
 		return http.StatusBadRequest, []byte(err.Error())
 	}
 	defer resp.Body.Close() //nolint(errcheck)
+	var data []byte
 	if Verbosity > 2 {
-		bytes, e := httputil.DumpResponse(resp, false)
-		if e != nil {
-			log.Printf("Unable to dump response %v", e)
+		if data, err = httputil.DumpResponse(resp, false); err != nil {
+			log.Printf("Unable to dump response %v", err)
 		} else {
-			log.Printf("For URL %s, received:\n%s", url, bytes)
+			log.Printf("For URL %s, received:\n%s", url, data)
 		}
 	}
-	body, err := ioutil.ReadAll(resp.Body)
+	data, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("Unable to read response for %s : %v", url, err)
 		code := resp.StatusCode
@@ -114,11 +114,11 @@ func FetchURL(url string) (int, []byte) {
 			code = http.StatusNoContent
 			log.Printf("Ok code despite read error, switching code to %d", code)
 		}
-		return code, body
+		return code, data
 	}
 	code := resp.StatusCode
 	if Verbosity > 1 {
-		log.Printf("Got %d : %s for %s - response is %d bytes", code, resp.Status, url, len(body))
+		log.Printf("Got %d : %s for %s - response is %d bytes", code, resp.Status, url, len(data))
 	}
-	return code, body
+	return code, data
 }

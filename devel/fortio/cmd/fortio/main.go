@@ -108,7 +108,7 @@ func main() {
 		Resolution:  *resolutionFlag,
 	}
 	r := fortio.NewPeriodicRunner(&o)
-	numThreads := r.GetOptions().NumThreads
+	numThreads := r.Options().NumThreads
 	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = numThreads + 1
 	// 1 Warm up / smoke test:  TODO: warm up all threads/connections
 	code, body := fortio.FetchURL(url)
@@ -132,7 +132,7 @@ func main() {
 	}
 	r.Run()
 	// Numthreads may have reduced
-	numThreads = r.GetOptions().NumThreads
+	numThreads = r.Options().NumThreads
 	keys := []int{}
 	for i := 0; i < numThreads; i++ {
 		// Q: is there some copying each time stats[i] is used?
