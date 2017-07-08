@@ -114,12 +114,17 @@ var (
 			}
 
 			serviceController := kube.NewController(client, mesh, flags.controllerOptions)
-			configController, err := aggregate.MakeCache([]model.ConfigStoreCache{
-				tpr.NewController(tprClient, flags.controllerOptions.ResyncPeriod),
-				ingress.NewController(client, mesh, flags.controllerOptions),
-			})
-			if err != nil {
-				return err
+			var configController model.ConfigStoreCache
+			if mesh.IngressControllerMode == proxyconfig.ProxyMeshConfig_OFF {
+				configController = tpr.NewController(tprClient, flags.controllerOptions.ResyncPeriod)
+			} else {
+				configController, err = aggregate.MakeCache([]model.ConfigStoreCache{
+					tpr.NewController(tprClient, flags.controllerOptions.ResyncPeriod),
+					ingress.NewController(client, mesh, flags.controllerOptions),
+				})
+				if err != nil {
+					return err
+				}
 			}
 
 			context := &proxy.Context{
@@ -155,7 +160,6 @@ var (
 		Use:   "sidecar",
 		Short: "Envoy sidecar agent",
 		RunE: func(c *cobra.Command, args []string) (err error) {
-			mesh.IngressControllerMode = proxyconfig.ProxyMeshConfig_OFF
 			serviceController := kube.NewController(client, mesh, flags.controllerOptions)
 			tprClient, err := tpr.NewClient(flags.kubeconfig, model.ConfigDescriptor{
 				model.RouteRuleDescriptor,
