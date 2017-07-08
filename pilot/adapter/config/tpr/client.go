@@ -67,8 +67,8 @@ type Client struct {
 	namespace string
 }
 
-// createRESTConfig for cluster API server, pass empty config file for in-cluster
-func createRESTConfig(kubeconfig string) (config *rest.Config, err error) {
+// CreateRESTConfig for cluster API server, pass empty config file for in-cluster
+func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 	if kubeconfig == "" {
 		config, err = rest.InClusterConfig()
 	} else {
@@ -122,7 +122,7 @@ func NewClient(config string, descriptor model.ConfigDescriptor, namespace strin
 	if err != nil {
 		return nil, err
 	}
-	restconfig, err := createRESTConfig(kubeconfig)
+	restconfig, err := CreateRESTConfig(kubeconfig)
 	if err != nil {
 		return nil, err
 	}

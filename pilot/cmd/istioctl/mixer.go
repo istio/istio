@@ -24,11 +24,12 @@ import (
 	"os"
 
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/ghodss/yaml"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 	"github.com/spf13/cobra"
+
+	"istio.io/pilot/adapter/config/tpr"
 )
 
 // TODO This should come from something like istio.io/api instead of
@@ -88,7 +89,7 @@ for a description of Mixer configuration's scope, subject, and rules.
 `,
 		SilenceUsage: true,
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
-			restconfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+			restconfig, err := tpr.CreateRESTConfig(kubeconfig)
 			if err != nil {
 				return err
 			}

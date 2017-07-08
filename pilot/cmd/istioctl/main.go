@@ -267,6 +267,13 @@ istioctl mixer command documentation.
 			}
 			var errs error
 			for _, config := range varr {
+				// compute key if necessary
+				if config.Key == "" {
+					if spec, specErr := config.ParseSpec(); specErr == nil {
+						schema, _ := configClient.ConfigDescriptor().GetByType(config.Type)
+						config.Key = schema.Key(spec)
+					}
+				}
 				if err = configClient.Delete(config.Type, config.Key); err != nil {
 					errs = multierror.Append(errs, fmt.Errorf("cannot delete %s: %v", config.Key, err))
 				} else {

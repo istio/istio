@@ -65,6 +65,10 @@ def presubmit(gitUtils, bazel, utils) {
       bazel.fetch('-k //...')
       bazel.build('//...')
     }
+    stage('Build istioctl') {
+      def remotePath = gitUtils.artifactsPath('istioctl')
+      sh("bin/upload-istioctl -p ${remotePath}")
+    }
     stage('Go Build') {
       sh('bin/init.sh')
     }
