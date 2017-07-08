@@ -194,7 +194,8 @@ func (infra *infra) teardown() {
 }
 
 func (infra *infra) kubeApply(yaml string) error {
-	return util.RunInput(fmt.Sprintf("kubectl apply -n %s -f -", infra.Namespace), yaml)
+	return util.RunInput(fmt.Sprintf("kubectl apply --kubeconfig %s -n %s -f -",
+		kubeconfig, infra.Namespace), yaml)
 }
 
 type response struct {
@@ -222,8 +223,8 @@ func (infra *infra) clientRequest(app, url string, count int, extra string) resp
 	}
 
 	pod := infra.apps[app][0]
-	request, err := util.Shell(fmt.Sprintf("kubectl exec %s -n %s -c app -- client -url %s -count %d %s",
-		pod, infra.Namespace, url, count, extra))
+	request, err := util.Shell(fmt.Sprintf("kubectl exec %s --kubeconfig %s -n %s -c app -- client -url %s -count %d %s",
+		pod, kubeconfig, infra.Namespace, url, count, extra))
 
 	if err != nil {
 		glog.Errorf("client request error %v for %s in %s", err, url, app)
@@ -287,5 +288,25 @@ func (infra *infra) applyConfig(inFile string, data map[string]string, typ strin
 
 	glog.Info("Sleeping for the config to propagate")
 	time.Sleep(3 * time.Second)
+	return nil
+}
+
+func (infra *infra) deleteAllConfigs() error {
+	istioClient, err := tpr.NewClient(kubeconfig, model.IstioConfigTypes, infra.Namespace)
+	if err != nil {
+		return err
+	}
+	for _, desc := range istioClient.ConfigDescriptor() {
+		configs, err := istioClient.List(desc.Type)
+		if err != nil {
+			return err
+		}
+		for _, config := range configs {
+			glog.Infof("Delete config %s %s", desc.Type, config.Key)
+			if err = istioClient.Delete(desc.Type, config.Key); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }

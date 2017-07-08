@@ -21,8 +21,7 @@ import (
 
 	"github.com/golang/glog"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"istio.io/pilot/test/util"
+	"k8s.io/client-go/pkg/api/v1"
 )
 
 type egress struct {
@@ -37,8 +36,34 @@ func (t *egress) setup() error {
 	if !t.Egress {
 		return nil
 	}
-	if err := util.Run(fmt.Sprintf(
-		"kubectl -n %s apply -f test/integration/testdata/external-service.yaml", t.Namespace)); err != nil {
+	if _, err := client.CoreV1().Services(t.Namespace).Create(&v1.Service{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "httpbin",
+		},
+		Spec: v1.ServiceSpec{
+			Type:         "ExternalName",
+			ExternalName: "httpbin.org",
+			Ports: []v1.ServicePort{{
+				Port: 80,
+				Name: "http", // important to define protocol
+			}},
+		},
+	}); err != nil {
+		return err
+	}
+	if _, err := client.CoreV1().Services(t.Namespace).Create(&v1.Service{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "httpsgoogle",
+		},
+		Spec: v1.ServiceSpec{
+			Type:         "ExternalName",
+			ExternalName: "www.google.com",
+			Ports: []v1.ServicePort{{
+				Port: 443,
+				Name: "https", // important to define protocol
+			}},
+		},
+	}); err != nil {
 		return err
 	}
 	return nil

@@ -16,14 +16,14 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"strings"
 
-	"github.com/golang/glog"
-
 	"istio.io/pilot/model"
-	"istio.io/pilot/test/util"
 
+	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/pkg/api/v1"
 )
 
 type ingress struct {
@@ -45,20 +45,37 @@ func (t *ingress) setup() error {
 	}
 	t.logs = makeAccessLogs()
 
-	// setup ingress resources
-	if err := util.Run(fmt.Sprintf("kubectl -n %s create secret generic ingress "+
-		"--from-file=tls.key=test/integration/testdata/cert.key "+
-		"--from-file=tls.crt=test/integration/testdata/cert.crt",
-		t.Namespace)); err != nil {
+	// send secrets
+	key, err := ioutil.ReadFile("test/integration/testdata/cert.key")
+	if err != nil {
+		return err
+	}
+	crt, err := ioutil.ReadFile("test/integration/testdata/cert.crt")
+	if err != nil {
+		return err
+	}
+	_, err = client.CoreV1().Secrets(t.Namespace).Create(&v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "ingress"},
+		Data: map[string][]byte{
+			"tls.key": key,
+			"tls.crt": crt,
+		},
+	})
+	if err != nil {
 		return err
 	}
 
-	if err := util.Run(fmt.Sprintf(
-		"kubectl -n %s apply -f test/integration/testdata/ingress.yaml", t.Namespace)); err != nil {
+	// parse and send yamls
+	yamlFile, err := ioutil.ReadFile("test/integration/testdata/ingress.yaml")
+	if err != nil {
+		return err
+	}
+	if err = t.kubeApply(string(yamlFile)); err != nil {
 		return err
 	}
 
-	if err := t.applyConfig("rule-default-route.yaml.tmpl", map[string]string{
+	// send route rules
+	if err = t.applyConfig("rule-default-route.yaml.tmpl", map[string]string{
 		"Destination": "c",
 		"Namespace":   t.Namespace,
 	}, model.RouteRule); err != nil {
@@ -178,13 +195,11 @@ func (t *ingress) teardown() {
 	if !t.Ingress {
 		return
 	}
-	if err := util.Run("kubectl delete secret ingress -n " + t.Namespace); err != nil {
+	if err := client.Extensions().Ingresses(t.Namespace).
+		DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{}); err != nil {
 		glog.Warning(err)
 	}
-	if err := util.Run("kubectl delete ingress --all -n " + t.Namespace); err != nil {
-		glog.Warning(err)
-	}
-	if err := util.Run("kubectl delete istioconfigs --all -n " + t.Namespace); err != nil {
+	if err := t.deleteAllConfigs(); err != nil {
 		glog.Warning(err)
 	}
 }

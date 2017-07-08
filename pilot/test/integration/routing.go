@@ -25,7 +25,6 @@ import (
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"istio.io/pilot/model"
-	"istio.io/pilot/test/util"
 )
 
 type routing struct {
@@ -144,7 +143,7 @@ func (t *routing) run() error {
 
 func (t *routing) teardown() {
 	glog.Info("Cleaning up route rules...")
-	if err := util.Run("kubectl delete istioconfigs --all -n " + t.Namespace); err != nil {
+	if err := t.deleteAllConfigs(); err != nil {
 		glog.Warning(err)
 	}
 }
