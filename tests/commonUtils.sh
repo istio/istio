@@ -63,8 +63,7 @@ function kube_inject() {
 		-o ${after} \
 		--hub ${PILOT_HUB} \
 		--tag ${PILOT_TAG} \
-		-n ${NAMESPACE} \
-		--istioNamespace ${NAMESPACE}
+		-n ${NAMESPACE}
 }
 
 function apply_patch_in_dir() {

@@ -34,17 +34,17 @@ const (
 
 var (
 	remotePath = flag.String("istioctl_url", os.Getenv(istioctlURL), "URL to download istioctl")
+	localPath  = flag.String("istioctl", "", "Use local istioctl instead of remote")
 )
 
 // Istioctl gathers istioctl information.
 type Istioctl struct {
-	remotePath     string
-	binaryPath     string
-	namespace      string
-	istioNamespace string
-	proxyHub       string
-	proxyTag       string
-	yamlDir        string
+	remotePath string
+	binaryPath string
+	namespace  string
+	proxyHub   string
+	proxyTag   string
+	yamlDir    string
 }
 
 // NewIstioctl create a new istioctl by given temp dir.
@@ -55,13 +55,12 @@ func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string) 
 	}
 
 	return &Istioctl{
-		remotePath:     *remotePath,
-		binaryPath:     filepath.Join(tmpDir, "istioctl"),
-		namespace:      namespace,
-		istioNamespace: istioNamespace,
-		proxyHub:       proxyHub,
-		proxyTag:       proxyTag,
-		yamlDir:        filepath.Join(yamlDir, "istioctl"),
+		remotePath: *remotePath,
+		binaryPath: filepath.Join(tmpDir, "istioctl"),
+		namespace:  namespace,
+		proxyHub:   proxyHub,
+		proxyTag:   proxyTag,
+		yamlDir:    filepath.Join(yamlDir, "istioctl"),
 	}, nil
 }
 
@@ -83,30 +82,34 @@ func (i *Istioctl) Teardown() error {
 
 // Install downloads Istioctl binary.
 func (i *Istioctl) Install() error {
-	var usr, err = user.Current()
-	if err != nil {
-		return err
-	}
-	homeDir := usr.HomeDir
+	if *localPath == "" {
+		var usr, err = user.Current()
+		if err != nil {
+			return err
+		}
+		homeDir := usr.HomeDir
 
-	var istioctlSuffix string
-	switch runtime.GOOS {
-	case "linux":
-		istioctlSuffix = "linux"
-	case "darwin":
-		istioctlSuffix = "osx"
-	default:
-		return fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
-	}
+		var istioctlSuffix string
+		switch runtime.GOOS {
+		case "linux":
+			istioctlSuffix = "linux"
+		case "darwin":
+			istioctlSuffix = "osx"
+		default:
+			return fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
+		}
 
-	if err = util.HTTPDownload(i.binaryPath, i.remotePath+"/istioctl-"+istioctlSuffix); err != nil {
-		return err
+		if err = util.HTTPDownload(i.binaryPath, i.remotePath+"/istioctl-"+istioctlSuffix); err != nil {
+			return err
+		}
+		err = os.Chmod(i.binaryPath, 0755) // #nosec
+		if err != nil {
+			return err
+		}
+		i.binaryPath = fmt.Sprintf("%s -c %s/.kube/config", i.binaryPath, homeDir)
+	} else {
+		i.binaryPath = *localPath
 	}
-	err = os.Chmod(i.binaryPath, 0755) // #nosec
-	if err != nil {
-		return err
-	}
-	i.binaryPath = fmt.Sprintf("%s -c %s/.kube/config", i.binaryPath, homeDir)
 	return nil
 }
 
@@ -121,27 +124,27 @@ func (i *Istioctl) run(format string, args ...interface{}) error {
 
 // KubeInject use istio kube-inject to create new yaml with a proxy as sidecar.
 func (i *Istioctl) KubeInject(src, dest string) error {
-	return i.run("kube-inject -f %s -o %s --hub %s --tag %s -n %s --istioNamespace %s",
-		src, dest, i.proxyHub, i.proxyTag, i.namespace, i.istioNamespace)
+	return i.run("kube-inject -f %s -o %s --hub %s --tag %s -n %s",
+		src, dest, i.proxyHub, i.proxyTag, i.namespace)
 }
 
 // CreateRule create new rule(s)
 func (i *Istioctl) CreateRule(rule string) error {
-	return i.run("-n %s --istioNamespace %s create -f %s", i.namespace, i.istioNamespace, rule)
+	return i.run("-n %s create -f %s", i.namespace, rule)
 }
 
 // CreateMixerRule create new rule(s)
 func (i *Istioctl) CreateMixerRule(scope, subject, rule string) error {
-	return i.run("-n %s --istioNamespace %s mixer rule create %s %s -f %s",
-		i.namespace, i.istioNamespace, scope, subject, rule)
+	return i.run("-n %s mixer rule create %s %s -f %s",
+		i.namespace, scope, subject, rule)
 }
 
 // ReplaceRule replace rule(s)
 func (i *Istioctl) ReplaceRule(rule string) error {
-	return i.run("-n %s --istioNamespace %s replace -f %s", i.namespace, i.istioNamespace, rule)
+	return i.run("-n %s replace -f %s", i.namespace, rule)
 }
 
 // DeleteRule Delete rule(s)
 func (i *Istioctl) DeleteRule(rule string) error {
-	return i.run("-n %s --istioNamespace %s delete -f %s", i.namespace, i.istioNamespace, rule)
+	return i.run("-n %s delete -f %s", i.namespace, rule)
 }
