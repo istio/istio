@@ -126,23 +126,11 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: gcr.io/istio-testing/pilot:ac94a44769c563970b9938b7110e4e6cbcf9e13d
+        image: gcr.io/istio-testing/pilot:064a2f70086f187fc96004a2420eeadbc7f9d355
         imagePullPolicy: Always
         args: ["discovery", "-v", "2"]
         ports:
         - containerPort: 8080
-        env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-      - name: apiserver
-        image: gcr.io/istio-testing/pilot:ac94a44769c563970b9938b7110e4e6cbcf9e13d
-        imagePullPolicy: Always
-        args: ["apiserver", "-v", "2"]
-        ports:
-        - containerPort: 8081
         env:
         - name: POD_NAMESPACE
           valueFrom:
@@ -191,7 +179,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gcr.io/istio-testing/proxy_debug:ac94a44769c563970b9938b7110e4e6cbcf9e13d
+        image: gcr.io/istio-testing/proxy_debug:064a2f70086f187fc96004a2420eeadbc7f9d355
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: Always
         ports:
@@ -239,7 +227,7 @@ spec:
     spec:
       containers:
       - name: proxy
-        image: gcr.io/istio-testing/proxy_debug:ac94a44769c563970b9938b7110e4e6cbcf9e13d
+        image: gcr.io/istio-testing/proxy_debug:064a2f70086f187fc96004a2420eeadbc7f9d355
         imagePullPolicy: Always
         args: ["proxy", "egress", "-v", "2"]
         env:
