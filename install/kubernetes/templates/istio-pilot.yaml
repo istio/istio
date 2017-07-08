@@ -60,16 +60,4 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-      - name: apiserver
-        image: {PILOT_HUB}/pilot:{PILOT_TAG}
-        imagePullPolicy: Always
-        args: ["apiserver", "-v", "2"]
-        ports:
-        - containerPort: 8081
-        env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
 ---
