@@ -97,7 +97,6 @@ func FetchURL(url string) (int, []byte) {
 		log.Printf("Unable to send request for %s : %v", url, err)
 		return http.StatusBadRequest, []byte(err.Error())
 	}
-	defer resp.Body.Close() //nolint(errcheck)
 	var data []byte
 	if Verbosity > 2 {
 		if data, err = httputil.DumpResponse(resp, false); err != nil {
@@ -107,6 +106,7 @@ func FetchURL(url string) (int, []byte) {
 		}
 	}
 	data, err = ioutil.ReadAll(resp.Body)
+	resp.Body.Close() //nolint(errcheck)
 	if err != nil {
 		log.Printf("Unable to read response for %s : %v", url, err)
 		code := resp.StatusCode
