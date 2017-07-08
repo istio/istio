@@ -14,11 +14,11 @@ fortio [flags] url
   -H value
     	Additional Header(s)
   -c int
-    	Number of connections/goroutine/threads (0 doesn't change internal default)
+    	Number of connections/goroutine/threads (default 4)
   -p string
     	List of pXX to calculate (default "50,75,99,99.9")
   -qps float
-    	Queries Per Seconds (default 8)
+    	Queries Per Seconds or 0 for no wait (default 8)
   -r float
     	Resolution of the histogram lowest buckets in seconds (default 0.001)
   -t duration
@@ -31,32 +31,33 @@ fortio [flags] url
 
 ```
 $ fortio https://www.google.com
-Running at 8 queries per second for 5s: https://www.google.com
-Starting at 8 qps with 4 thread(s) [gomax 8] for 5s : 10 calls each (total 40)
-2017/07/04 15:49:17 T001 ended after 5.076985609s : 10 calls. qps=1.9696727093874258
-2017/07/04 15:49:17 T002 ended after 5.096783364s : 10 calls. qps=1.9620217862569524
-2017/07/04 15:49:17 T003 ended after 5.097467191s : 10 calls. qps=1.9617585803506157
-2017/07/04 15:49:17 T000 ended after 5.098168545s : 10 calls. qps=1.9614887016254972
-Ended after 5.098196115s : 40 calls. qps=7.8459
-Sleep times : count 36 avg 0.46568594 +/- 0.0106 min 0.436353622 max 0.482935658 sum 16.7646938
-Aggregated Function Time : count 40 avg 0.08815966 +/- 0.01111 min 0.071791544 max 0.118569671 sum 3.5263864
+Fortio running at 8 queries per second for 5s: https://www.google.com
+Starting at 8 qps with 4 thread(s) [gomax 16] for 5s : 10 calls each (total 40)
+2017/07/08 01:34:13 T003 ended after 5.026483243s : 10 calls. qps=1.9894625161490864
+2017/07/08 01:34:13 T000 ended after 5.026871707s : 10 calls. qps=1.9893087754904981
+2017/07/08 01:34:13 T001 ended after 5.030332064s : 10 calls. qps=1.9879403333163335
+2017/07/08 01:34:13 T002 ended after 5.034922474s : 10 calls. qps=1.9861279000102434
+Ended after 5.034953445s : 40 calls. qps=7.9445
+Sleep times : count 36 avg 0.51960768 +/- 0.02323 min 0.389847916 max 0.53226582 sum 18.7058763
+Aggregated Function Time : count 40 avg 0.035030849 +/- 0.02214 min 0.022889076 max 0.165394242 sum 1.40123395
 # range, mid point, percentile, count
->= 0.07 < 0.08 , 0.075 , 27.50, 11
->= 0.08 < 0.09 , 0.085 , 60.00, 13
->= 0.09 < 0.1 , 0.095 , 87.50, 11
->= 0.1 < 0.12 , 0.11 , 100.00, 5
-# target 50% 0.0869231
-# target 75% 0.0954545
-# target 99% 0.117084
-# target 99.9% 0.118421
+>= 0.02 < 0.025 , 0.0225 , 5.00, 2
+>= 0.025 < 0.03 , 0.0275 , 35.00, 12
+>= 0.03 < 0.035 , 0.0325 , 87.50, 21
+>= 0.035 < 0.04 , 0.0375 , 95.00, 3
+>= 0.07 < 0.08 , 0.075 , 97.50, 1
+>= 0.16 < 0.18 , 0.17 , 100.00, 1
+# target 50% 0.0314286
+# target 75% 0.0338095
+# target 99% 0.163237
+# target 99.9% 0.165178
 Code 200 : 40
-Response Body Sizes : count 40 avg 11500.55 +/- 443.3 min 11266 max 12770 sum 460022
+Response Body Sizes : count 40 avg 10720.675 +/- 526.9 min 10403 max 11848 sum 428827
 ```
-
 
 ## Implementation details
 
-Fortio is written in the [Go](https://golang.org) and includes a scalable semi log histogram in [stats.go](stats.go) and a periodic runner engine in [periodic.go](periodic.go).
+Fortio is written in the [Go](https://golang.org) language and includes a scalable semi log histogram in [stats.go](stats.go) and a periodic runner engine in [periodic.go](periodic.go).
 
 You can run the histogram code standalone as a command line in [cmd/histogram/](cmd/histogram/) and a basic echo http server in [cmd/echosrv/](cmd/echosrv/) and the main [cmd/fortio/](cmd/fortio/) 
 
