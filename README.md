@@ -36,7 +36,7 @@ Istio is composed of these components:
    tracing and telemetry collection.
 
 * **Pilot** - A component responsible for configuring the
-  Envoy and Mixer at runtime.
+  proxies at runtime.
   
 * **Galley** - A component responsible for storing and distributing Istio configuration state.
 
