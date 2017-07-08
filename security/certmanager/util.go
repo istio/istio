@@ -19,8 +19,33 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 
+	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/glog"
 )
+
+// TokenFetcher defines the interface to fetch token.
+type TokenFetcher interface {
+	FetchToken() (string, error)
+}
+
+// GcpTokenFetcher implements the token fetcher in GCP.
+type GcpTokenFetcher struct {
+	// aud is the unique URI agreed upon by both the instance and the system verifying the instance's identity.
+	// For more info: https://cloud.google.com/compute/docs/instances/verifying-instance-identity
+	aud            string
+	serviceAccount string
+}
+
+func (fetcher *GcpTokenFetcher) getTokenURI() string {
+	// The GCE metadata service URI to get identity token.
+	return "instance/service-accounts/" + fetcher.serviceAccount + "/identity?audience=" + fetcher.aud
+}
+
+// FetchToken fetchs the GCE VM identity jwt token from its metadata server.
+// Note: this function only works in a GCE VM environment.
+func (fetcher *GcpTokenFetcher) FetchToken() (string, error) {
+	return metadata.Get(fetcher.getTokenURI())
+}
 
 // ParsePemEncodedCertificate constructs a `x509.Certificate` object using the
 // given a PEM-encoded certificate,

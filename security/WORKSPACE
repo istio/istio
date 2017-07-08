@@ -23,6 +23,12 @@ load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_repositories")
 gogo_proto_repositories()
 
 new_go_repository(
+    name = "com_google_cloud_go",
+    commit = "2e6a95edb1071d750f6d7db777bf66cd2997af6c",  # Mar 9, 2017 (v0.7.0)
+    importpath = "cloud.google.com/go",
+)
+
+new_go_repository(
     name = "com_github_coreos_go_oidc",
     commit = "f828b1fc9b58b59bd70ace766bfc190216b58b01",
     importpath = "github.com/coreos/go-oidc",
