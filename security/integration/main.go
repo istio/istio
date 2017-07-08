@@ -58,7 +58,7 @@ func init() {
 	flags.StringVar(&opts.containerTag, "tag", "", "Tag for Istio CA image")
 	flags.StringVarP(&opts.kubeconfig, "kube-config", "k", "~/.kube/config", "path to kubeconfig file")
 
-	AddFlags(rootCmd)
+	addFlags(rootCmd)
 }
 
 func main() {
@@ -213,8 +213,8 @@ func waitForSecretExist(secretName string, timeToWait time.Duration) (*v1.Secret
 	}
 }
 
-// AddFlags carries over glog flags with new defaults
-func AddFlags(rootCmd *cobra.Command) {
+// addFlags carries over glog flags with new defaults
+func addFlags(rootCmd *cobra.Command) {
 	flag.CommandLine.VisitAll(func(gf *flag.Flag) {
 		switch gf.Name {
 		case "logtostderr":
