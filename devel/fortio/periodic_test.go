@@ -86,7 +86,7 @@ func TestStart(t *testing.T) {
 		t.Errorf("Test executed unexpected number of times %d instead %d", count, 11)
 	}
 	count = 0
-	oo := r.GetOptions()
+	oo := r.Options()
 	oo.NumThreads = 10 // will be lowered to 5 so 10 calls (2 in each thread)
 	r.Run()
 	if count != 10 {
