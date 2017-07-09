@@ -122,3 +122,11 @@ func FetchURL(url string) (int, []byte) {
 	}
 	return code, data
 }
+
+// TuneHTTPClient tunes the client for a given expected number of connections.
+func TuneHTTPClient(numConnections int, compression bool) {
+	ht := http.DefaultTransport.(*http.Transport)
+	ht.MaxIdleConns = numConnections
+	ht.MaxIdleConnsPerHost = numConnections
+	ht.DisableCompression = !compression
+}

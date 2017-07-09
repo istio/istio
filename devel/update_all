@@ -4,16 +4,12 @@ set -e
 set -x
 cd istio
 git pull
+bazel build -c opt devel/fortio/...
 cd ../mixer
 git pull
-cd ../proxy
-git pull
-cd ../wrk
-git pull
-make
-cd ../proxy
-bazel build -c opt src/envoy/mixer:envoy
-cd ../mixer
 bazel build -c opt cmd/server:mixs
+cd ../proxy
+git pull
+bazel build -c opt src/envoy/mixer:envoy
 set +x
 echo "### All done... source istio/devel/setup_run   now"

@@ -81,6 +81,7 @@ func main() {
 		durationFlag    = flag.Duration("t", defaults.Duration, "How long to run the test")
 		percentilesFlag = flag.String("p", "50,75,99,99.9", "List of pXX to calculate")
 		resolutionFlag  = flag.Float64("r", defaults.Resolution, "Resolution of the histogram lowest buckets in seconds")
+		compressionFlag = flag.Bool("compression", false, "Enable http compression")
 		headersFlags    flagList
 	)
 	flag.Var(&headersFlags, "H", "Additional Header(s)")
@@ -109,7 +110,7 @@ func main() {
 	}
 	r := fortio.NewPeriodicRunner(&o)
 	numThreads := r.Options().NumThreads
-	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = numThreads + 1
+	fortio.TuneHTTPClient(numThreads, *compressionFlag) // set pool size etc
 	// 1 Warm up / smoke test:  TODO: warm up all threads/connections
 	code, body := fortio.FetchURL(url)
 	if code != http.StatusOK {
