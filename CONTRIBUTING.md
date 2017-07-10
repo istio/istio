@@ -33,6 +33,9 @@ All members of the Istio community must abide by the
 [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md).
 Only by respecting each other can we develop a productive, collaborative community.
 
+Please be sure to read and understand our 1 page
+[shared values](VALUES.md) summary.
+
 ## Contributor license agreements
 
 We'd love to accept your patches! But before we can take them, you will have
@@ -96,7 +99,7 @@ be 100% complete - meaning they should include all test cases and documentation
 changes related to the change.
 
 When ready, if you have not already done so, sign a
-[contributor license agreements](#contributor-license-agreements) and submit 
+[contributor license agreements](#contributor-license-agreements) and submit
 the PR.
 
 See [Reviewing and Merging Pull Requests](REVIEWING.md) for the PR review and
