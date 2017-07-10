@@ -1,7 +1,7 @@
-2c2
-< name: reviews-_CHANGEME_
+3c3
+<   name: reviews-_CHANGEME_
 ---
-> name: reviews-default
+>   name: reviews-default
 4c4
 <   destination: reviews._CHANGEME_.svc.cluster.local
 ---
