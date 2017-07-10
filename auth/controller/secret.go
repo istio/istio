@@ -35,15 +35,20 @@ import (
 
 /* #nosec: disable gas linter */
 const (
+	// The Istio secret annotation type
+	IstioSecretType = "istio.io/key-and-cert"
+
+	// The ID/name for the certificate chain file.
+	CertChainID = "cert-chain.pem"
+	// The ID/name for the private key file.
+	PrivateKeyID = "key.pem"
+	// The ID/name for the CA root certificate file.
+	RootCertID = "root-cert.pem"
+
 	secretNamePrefix   = "istio."
-	istioSecretType    = "istio.io/key-and-cert"
 	secretResyncPeriod = time.Minute
 
 	serviceAccountNameAnnotationKey = "istio.io/service-account.name"
-
-	certChainID  = "cert-chain.pem"
-	privateKeyID = "key.pem"
-	rootCertID   = "root-cert.pem"
 )
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
@@ -84,7 +89,7 @@ func NewSecretController(ca certmanager.CertificateAuthority, core corev1.CoreV1
 	}
 	c.saStore, c.saController = cache.NewInformer(saLW, &v1.ServiceAccount{}, time.Minute, rehf)
 
-	istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": istioSecretType}).String()
+	istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IstioSecretType}).String()
 	scrtLW := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.FieldSelector = istioSecretSelector
@@ -154,7 +159,7 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 			Name:        getSecretName(saName),
 			Namespace:   saNamespace,
 		},
-		Type: istioSecretType,
+		Type: IstioSecretType,
 	}
 
 	_, exists, err := sc.scrtStore.Get(secret)
@@ -171,9 +176,9 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	chain, key := sc.ca.Generate(saName, saNamespace)
 	rootCert := sc.ca.GetRootCertificate()
 	secret.Data = map[string][]byte{
-		certChainID:  chain,
-		privateKeyID: key,
-		rootCertID:   rootCert,
+		CertChainID:  chain,
+		PrivateKeyID: key,
+		RootCertID:   rootCert,
 	}
 	_, err = sc.core.Secrets(saNamespace).Create(secret)
 	if err != nil {
@@ -216,7 +221,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 		return
 	}
 
-	certBytes := scrt.Data[certChainID]
+	certBytes := scrt.Data[CertChainID]
 	cert := certmanager.ParsePemEncodedCertificate(certBytes)
 	ttl := time.Until(cert.NotAfter)
 	rootCertificate := sc.ca.GetRootCertificate()
@@ -225,7 +230,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	// to expire, or 2) the root certificate in the secret is different than the
 	// one held by the certmanager (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
-	if ttl.Seconds() < secretResyncPeriod.Seconds() || !bytes.Equal(rootCertificate, scrt.Data[rootCertID]) {
+	if ttl.Seconds() < secretResyncPeriod.Seconds() || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		namespace := scrt.GetNamespace()
 		name := scrt.GetName()
 
@@ -235,9 +240,9 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 		saName := scrt.Annotations[serviceAccountNameAnnotationKey]
 		chain, key := sc.ca.Generate(saName, namespace)
 
-		scrt.Data[certChainID] = chain
-		scrt.Data[privateKeyID] = key
-		scrt.Data[rootCertID] = rootCertificate
+		scrt.Data[CertChainID] = chain
+		scrt.Data[PrivateKeyID] = key
+		scrt.Data[RootCertID] = rootCertificate
 
 		_, err := sc.core.Secrets(namespace).Update(scrt)
 		if err != nil {
