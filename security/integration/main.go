@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/auth/controller"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -82,10 +84,12 @@ func initializeIntegrationTest(cmd *cobra.Command, args []string) {
 
 func runTests(cmd *cobra.Command, args []string) {
 	// Test the existence of istio.default.secret.
-	if _, err := waitForSecretExist("istio.default", 20*time.Second); err != nil {
+	if s, err := waitForSecretExist("istio.default", 20*time.Second); err != nil {
 		glog.Fatal(err)
 	} else {
 		glog.Infof(`Secret "istio.default" is correctly created`)
+
+		examineSecret(s)
 	}
 }
 
@@ -163,6 +167,22 @@ func deployIstioCA(clientset kubernetes.Interface) {
 
 	if err := waitForPodRunning(uuid, 60*time.Second); err != nil {
 		glog.Fatal(err)
+	}
+}
+
+// This method examines the content of an Istio secret to make sure that
+// * Secret type is correctly set;
+// * Key, certificate and CA root are correctly saved in the data section;
+func examineSecret(secret *v1.Secret) {
+	if secret.Type != controller.IstioSecretType {
+		glog.Fatalf(`Unexpected value for the "type" annotation: expecting %v but got %v`,
+			controller.IstioSecretType, secret.Type)
+	}
+
+	for _, key := range []string{controller.CertChainID, controller.RootCertID, controller.PrivateKeyID} {
+		if _, exists := secret.Data[key]; !exists {
+			glog.Fatalf("%v does not exist in the data section", key)
+		}
 	}
 }
 
