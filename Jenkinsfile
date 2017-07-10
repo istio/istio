@@ -50,9 +50,7 @@ def smokeTest(gitUtils, bazel, utils) {
     def kubeTestArgs = ''
     def logHost = 'stackdriver'
     def projID = utils.failIfNullOrEmpty(env.PROJECT)
-    def e2eArgs = "--logs_bucket_path ${gitUtils.logsPath()} " + 
-                  "--log_provider=${logHost} " +
-                  "--project_id=${projID} " 
+    def e2eArgs = "--logs_bucket_path ${gitUtils.logsPath()} --log_provider=${logHost} --project_id=${projID} "
     if (utils.getParam('GITHUB_PR_HEAD_SHA') != '') {
       def prSha = utils.failIfNullOrEmpty(env.GITHUB_PR_HEAD_SHA)
       def prUrl = utils.failIfNullOrEmpty(env.GITHUB_PR_URL)
