@@ -48,6 +48,8 @@ def smokeTest(gitUtils, bazel, utils) {
     bazel.updateBazelRc()
     utils.initTestingCluster()
     def kubeTestArgs = ''
+    def logHost = 'stackdriver'
+    def projID = utils.failIfNullOrEmpty(env.PROJECT)
     def e2eArgs = "--logs_bucket_path ${gitUtils.logsPath()} " + 
                   "--log_provider=${logHost} " +
                   "--project_id=${projID} "
@@ -56,8 +58,6 @@ def smokeTest(gitUtils, bazel, utils) {
       def prUrl = utils.failIfNullOrEmpty(env.GITHUB_PR_URL)
       def repo = prUrl.split('/')[4]
       def hub = 'gcr.io/istio-testing'
-      def logHost = 'stackdriver'
-      def projID = utils.failIfNullOrEmpty(env.PROJECT)
       switch (repo) {
         case 'pilot':
           def istioctlUrl = "https://storage.googleapis.com/istio-artifacts/${repo}/${prSha}/artifacts/istioctl"
