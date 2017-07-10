@@ -55,7 +55,7 @@ def smokeTest(gitUtils, bazel, utils) {
       def repo = prUrl.split('/')[4]
       def hub = 'gcr.io/istio-testing'
       def logHost = 'stackdriver'
-      def projID = 'istio-testing'
+      def projID = utils.failIfNullOrEmpty(env.PROJECT)
       switch (repo) {
         case 'pilot':
           def istioctlUrl = "https://storage.googleapis.com/istio-artifacts/${repo}/${prSha}/artifacts/istioctl"

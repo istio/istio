@@ -182,6 +182,8 @@ func (c *CommonConfig) saveLogs(r int) error {
 		glog.Errorf("Could not create status file. Error %s", err)
 		return err
 	}
+	glog.Info("@@@@@@@@@@@@@@@@@@@@@@@@@@@@ logProvider = " + *logProvider)
+	glog.Info("@@@@@@@@@@@@@@@@@@@@@@@@@@@@ projectID = " + *projectID)
 	if *logProvider == "stackdriver" {
 		if err := c.Info.FetchAndSaveClusterLogs(); err != nil {
 			glog.Errorf("Error during log saving: %s", err)
