@@ -199,205 +199,205 @@ func TestGlobalCheckAndReport(t *testing.T) {
 	}
 }
 
-// func TestNewMetrics(t *testing.T) {
-// 	productpage := fqdn("productpage")
-// 	if err := createMixerRule(global, productpage, newTelemetryRule); err != nil {
-// 		t.Fatalf("could not create required mixer rule: %v", err)
-// 	}
-// 	defer func() {
-// 		if err := createMixerRule(global, productpage, emptyRule); err != nil {
-// 			t.Logf("could not clear rule: %v", err)
-// 		}
-// 	}()
+func TestNewMetrics(t *testing.T) {
+	productpage := fqdn("productpage")
+	if err := createMixerRule(global, productpage, newTelemetryRule); err != nil {
+		t.Fatalf("could not create required mixer rule: %v", err)
+	}
+	defer func() {
+		if err := createMixerRule(global, productpage, emptyRule); err != nil {
+			t.Logf("could not clear rule: %v", err)
+		}
+	}()
 
-// 	// allow time for configuration to go and be active.
-// 	// TODO: figure out a better way to confirm rule active
-// 	time.Sleep(5 * time.Second)
+	// allow time for configuration to go and be active.
+	// TODO: figure out a better way to confirm rule active
+	time.Sleep(5 * time.Second)
 
-// 	if err := visitProductPage(5); err != nil {
-// 		t.Fatalf("Test app setup failure: %v", err)
-// 	}
+	if err := visitProductPage(5); err != nil {
+		t.Fatalf("Test app setup failure: %v", err)
+	}
 
-// 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
-// 	// must sleep to allow for prometheus scraping, etc.
-// 	time.Sleep(15 * time.Second)
+	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
+	// must sleep to allow for prometheus scraping, etc.
+	time.Sleep(15 * time.Second)
 
-// 	promAPI, err := promAPI()
-// 	if err != nil {
-// 		t.Fatalf("Could not build prometheus API client: %v", err)
-// 	}
-// 	query := fmt.Sprintf("response_size_count{%s=\"%s\",%s=\"200\"}", targetLabel, fqdn("productpage"), responseCodeLabel)
-// 	value, err := promAPI.Query(context.Background(), query, time.Now())
-// 	if err != nil {
-// 		t.Fatalf("Could not get metrics from prometheus: %v", err)
-// 	}
-// 	glog.Infof("promvalue := %s", value.String())
+	promAPI, err := promAPI()
+	if err != nil {
+		t.Fatalf("Could not build prometheus API client: %v", err)
+	}
+	query := fmt.Sprintf("response_size_count{%s=\"%s\",%s=\"200\"}", targetLabel, fqdn("productpage"), responseCodeLabel)
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		t.Fatalf("Could not get metrics from prometheus: %v", err)
+	}
+	glog.Infof("promvalue := %s", value.String())
 
-// 	got, err := vectorValue(value, map[string]string{})
-// 	if err != nil {
-// 		t.Errorf("Could not find value: %v", err)
-// 	}
-// 	want := float64(1)
-// 	if got < want {
-// 		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
-// 	}
-// }
+	got, err := vectorValue(value, map[string]string{})
+	if err != nil {
+		t.Errorf("Could not find value: %v", err)
+	}
+	want := float64(1)
+	if got < want {
+		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
+	}
+}
 
-// func TestDenials(t *testing.T) {
-// 	applyReviewsRoutingRules(t)
-// 	defer func() {
-// 		deleteReviewsRoutingRules(t)
-// 	}()
+func TestDenials(t *testing.T) {
+	applyReviewsRoutingRules(t)
+	defer func() {
+		deleteReviewsRoutingRules(t)
+	}()
 
-// 	ratings := fqdn("ratings")
-// 	if err := createMixerRule(global, ratings, denialRule); err != nil {
-// 		t.Fatalf("Could not create required mixer rule: %v", err)
-// 	}
-// 	defer func() {
-// 		if err := createMixerRule(global, ratings, emptyRule); err != nil {
-// 			t.Logf("could not clear rule: %v", err)
-// 		}
-// 	}()
+	ratings := fqdn("ratings")
+	if err := createMixerRule(global, ratings, denialRule); err != nil {
+		t.Fatalf("Could not create required mixer rule: %v", err)
+	}
+	defer func() {
+		if err := createMixerRule(global, ratings, emptyRule); err != nil {
+			t.Logf("could not clear rule: %v", err)
+		}
+	}()
 
-// 	// allow time for configuration to go and be active.
-// 	// TODO: figure out a better way to confirm rule active
-// 	time.Sleep(5 * time.Second)
+	// allow time for configuration to go and be active.
+	// TODO: figure out a better way to confirm rule active
+	time.Sleep(5 * time.Second)
 
-// 	// generate several calls to the product page
-// 	for i := 0; i < 6; i++ {
-// 		if err := visitProductPage(5); err != nil {
-// 			t.Fatalf("Test app setup failure: %v", err)
-// 		}
-// 	}
+	// generate several calls to the product page
+	for i := 0; i < 6; i++ {
+		if err := visitProductPage(5); err != nil {
+			t.Fatalf("Test app setup failure: %v", err)
+		}
+	}
 
-// 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
-// 	// must sleep to allow for prometheus scraping, etc.
-// 	time.Sleep(15 * time.Second)
+	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
+	// must sleep to allow for prometheus scraping, etc.
+	time.Sleep(15 * time.Second)
 
-// 	promAPI, err := promAPI()
-// 	if err != nil {
-// 		t.Fatalf("Could not build prometheus API client: %v", err)
-// 	}
-// 	query := fmt.Sprintf("request_count{%s=\"%s\",%s=\"400\"}", targetLabel, fqdn("ratings"), responseCodeLabel)
-// 	value, err := promAPI.Query(context.Background(), query, time.Now())
-// 	if err != nil {
-// 		t.Fatalf("Could not get metrics from prometheus: %v", err)
-// 	}
-// 	glog.Infof("promvalue := %s", value.String())
+	promAPI, err := promAPI()
+	if err != nil {
+		t.Fatalf("Could not build prometheus API client: %v", err)
+	}
+	query := fmt.Sprintf("request_count{%s=\"%s\",%s=\"400\"}", targetLabel, fqdn("ratings"), responseCodeLabel)
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		t.Fatalf("Could not get metrics from prometheus: %v", err)
+	}
+	glog.Infof("promvalue := %s", value.String())
 
-// 	got, err := vectorValue(value, map[string]string{})
-// 	if err != nil {
-// 		t.Errorf("Could not find value: %v", err)
-// 	}
-// 	want := float64(1)
-// 	if got < want {
-// 		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
-// 	}
-// }
+	got, err := vectorValue(value, map[string]string{})
+	if err != nil {
+		t.Errorf("Could not find value: %v", err)
+	}
+	want := float64(1)
+	if got < want {
+		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
+	}
+}
 
-// func TestRateLimit(t *testing.T) {
-// 	applyReviewsRoutingRules(t)
-// 	defer func() {
-// 		deleteReviewsRoutingRules(t)
-// 	}()
+func TestRateLimit(t *testing.T) {
+	applyReviewsRoutingRules(t)
+	defer func() {
+		deleteReviewsRoutingRules(t)
+	}()
 
-// 	ratings := fqdn("ratings")
-// 	if err := createMixerRule(global, ratings, rateLimitRule); err != nil {
-// 		t.Fatalf("Could not create required mixer rule: %got", err)
-// 	}
-// 	defer func() {
-// 		if err := createMixerRule(global, ratings, emptyRule); err != nil {
-// 			t.Logf("could not clear rule: %got", err)
-// 		}
-// 	}()
+	ratings := fqdn("ratings")
+	if err := createMixerRule(global, ratings, rateLimitRule); err != nil {
+		t.Fatalf("Could not create required mixer rule: %got", err)
+	}
+	defer func() {
+		if err := createMixerRule(global, ratings, emptyRule); err != nil {
+			t.Logf("could not clear rule: %got", err)
+		}
+	}()
 
-// 	// allow time for configuration to go and be active.
-// 	// TODO: figure out a better way to confirm rule active
-// 	time.Sleep(1 * time.Minute)
-// 	threads := 5
-// 	timeout := "10s"
-// 	connections := 15
-// 	duration := "2m"
-// 	errorFile := filepath.Join(tc.Kube.TmpDir, "TestRateLimit.err")
-// 	JSONFile := filepath.Join(tc.Kube.TmpDir, "TestRateLimit.Json")
-// 	url := fmt.Sprintf("%s/productpage", tc.gateway)
+	// allow time for configuration to go and be active.
+	// TODO: figure out a better way to confirm rule active
+	time.Sleep(1 * time.Minute)
+	threads := 5
+	timeout := "10s"
+	connections := 15
+	duration := "2m"
+	errorFile := filepath.Join(tc.Kube.TmpDir, "TestRateLimit.err")
+	JSONFile := filepath.Join(tc.Kube.TmpDir, "TestRateLimit.Json")
+	url := fmt.Sprintf("%s/productpage", tc.gateway)
 
-// 	luaScript := &util.LuaTemplate{
-// 		TemplatePath: util.GetResourcePath(luaTemplate),
-// 		Template: &luaScriptTemplate{
-// 			ErrorFile: errorFile,
-// 			JSONFile:  JSONFile,
-// 		},
-// 	}
-// 	if err := luaScript.Generate(); err != nil {
-// 		t.Errorf("Failed to generate lua script. %v", err)
-// 		return
-// 	}
+	luaScript := &util.LuaTemplate{
+		TemplatePath: util.GetResourcePath(luaTemplate),
+		Template: &luaScriptTemplate{
+			ErrorFile: errorFile,
+			JSONFile:  JSONFile,
+		},
+	}
+	if err := luaScript.Generate(); err != nil {
+		t.Errorf("Failed to generate lua script. %v", err)
+		return
+	}
 
-// 	if err := tc.wrk.Run(
-// 		"-t %d --timeout %s -c %d -d %s -s %s %s",
-// 		threads, timeout, connections, duration, luaScript.Script, url); err != nil {
-// 		t.Errorf("Failed to run wrk %v", err)
-// 		return
-// 	}
+	if err := tc.wrk.Run(
+		"-t %d --timeout %s -c %d -d %s -s %s %s",
+		threads, timeout, connections, duration, luaScript.Script, url); err != nil {
+		t.Errorf("Failed to run wrk %v", err)
+		return
+	}
 
-// 	// TODO: Use the JSON file to do more detailed checking
-// 	r := &luaScriptResponseJSON{}
-// 	if err := util.ReadJSON(JSONFile, r); err != nil {
-// 		t.Errorf("Could not parse json. %v", err)
-// 		return
-// 	}
+	// TODO: Use the JSON file to do more detailed checking
+	r := &luaScriptResponseJSON{}
+	if err := util.ReadJSON(JSONFile, r); err != nil {
+		t.Errorf("Could not parse json. %v", err)
+		return
+	}
 
-// 	glog.Infof("WRK stats: %#v", r)
-// 	// consider only successful full requests
-// 	perSvc := float64(r.CompletedRequests-r.FailedRequests-r.Non2xxResponses) / 3
+	glog.Infof("WRK stats: %#v", r)
+	// consider only successful full requests
+	perSvc := float64(r.CompletedRequests-r.FailedRequests-r.Non2xxResponses) / 3
 
-// 	// Allow full processing of metrics, etc.
-// 	time.Sleep(1 * time.Minute)
+	// Allow full processing of metrics, etc.
+	time.Sleep(1 * time.Minute)
 
-// 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
-// 	// must sleep to allow for prometheus scraping, etc.
-// 	time.Sleep(15 * time.Second)
+	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
+	// must sleep to allow for prometheus scraping, etc.
+	time.Sleep(15 * time.Second)
 
-// 	promAPI, err := promAPI()
-// 	if err != nil {
-// 		t.Fatalf("Could not build prometheus API client: %v", err)
-// 	}
-// 	query := fmt.Sprintf("request_count{%s=\"%s\"}", targetLabel, fqdn("ratings"))
-// 	value, err := promAPI.Query(context.Background(), query, time.Now())
-// 	if err != nil {
-// 		t.Fatalf("Could not get metrics from prometheus: %v", err)
-// 	}
-// 	glog.Infof("promvalue := %s", value.String())
+	promAPI, err := promAPI()
+	if err != nil {
+		t.Fatalf("Could not build prometheus API client: %v", err)
+	}
+	query := fmt.Sprintf("request_count{%s=\"%s\"}", targetLabel, fqdn("ratings"))
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		t.Fatalf("Could not get metrics from prometheus: %v", err)
+	}
+	glog.Infof("promvalue := %s", value.String())
 
-// 	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429"})
-// 	//rateLimited := got
-// 	if err != nil {
-// 		t.Errorf("Could not find rate limit value: %v", err)
-// 	}
+	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429"})
+	//rateLimited := got
+	if err != nil {
+		t.Errorf("Could not find rate limit value: %v", err)
+	}
 
-// 	// establish some baseline for rejections
-// 	want := perSvc / 2
-// 	// allow some leeway for rejections
-// 	if got <= (want * .9) {
-// 		t.Errorf("Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
-// 	}
+	// establish some baseline for rejections
+	want := perSvc / 2
+	// allow some leeway for rejections
+	if got <= (want * .9) {
+		t.Errorf("Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
+	}
 
-// 	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200"})
-// 	if err != nil {
-// 		t.Errorf("Could not find successes value: %v", err)
-// 	}
+	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200"})
+	if err != nil {
+		t.Errorf("Could not find successes value: %v", err)
+	}
 
-// 	// bare minimum of OKs, assuming 5qps for 2m
-// 	want = 600.0
-// 	if perSvc < 600 {
-// 		want = perSvc
-// 	}
-// 	// allow some leeway
-// 	if got < (want * .9) {
-// 		t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
-// 	}
-// }
+	// bare minimum of OKs, assuming 5qps for 2m
+	want = 600.0
+	if perSvc < 600 {
+		want = perSvc
+	}
+	// allow some leeway
+	if got < (want * .9) {
+		t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
+	}
+}
 
 func promAPI() (v1.API, error) {
 	client, err := api.NewClient(api.Config{Address: fmt.Sprintf("http://localhost:%s", prometheusPort)})
