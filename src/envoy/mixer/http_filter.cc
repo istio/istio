@@ -17,7 +17,7 @@
 #include "common/common/logger.h"
 #include "common/http/headers.h"
 #include "common/http/utility.h"
-#include "envoy/server/instance.h"
+#include "envoy/registry/registry.h"
 #include "envoy/ssl/connection.h"
 #include "server/config/network/http_connection_manager.h"
 #include "src/envoy/mixer/config.h"
@@ -97,8 +97,9 @@ class Config : public Logger::Loggable<Logger::Id::http> {
   MixerControlPerThreadStore mixer_control_store_;
 
  public:
-  Config(const Json::Object& config, Server::Instance& server)
-      : cm_(server.clusterManager()),
+  Config(const Json::Object& config,
+         Server::Configuration::FactoryContext& context)
+      : cm_(context.clusterManager()),
         mixer_control_store_([this]() -> std::shared_ptr<MixerControl> {
           return std::make_shared<MixerControl>(mixer_config_, cm_);
         }) {
@@ -301,17 +302,13 @@ class Instance : public Http::StreamDecoderFilter,
 namespace Server {
 namespace Configuration {
 
-class MixerConfig : public HttpFilterConfigFactory {
+class MixerConfigFactory : public NamedHttpFilterConfigFactory {
  public:
-  HttpFilterFactoryCb tryCreateFilterFactory(
-      HttpFilterType type, const std::string& name, const Json::Object& config,
-      const std::string&, Server::Instance& server) override {
-    if (type != HttpFilterType::Decoder || name != "mixer") {
-      return nullptr;
-    }
-
+  HttpFilterFactoryCb createFilterFactory(const Json::Object& config,
+                                          const std::string&,
+                                          FactoryContext& context) override {
     Http::Mixer::ConfigPtr mixer_config(
-        new Http::Mixer::Config(config, server));
+        new Http::Mixer::Config(config, context));
     return
         [mixer_config](Http::FilterChainFactoryCallbacks& callbacks) -> void {
           std::shared_ptr<Http::Mixer::Instance> instance =
@@ -322,9 +319,13 @@ class MixerConfig : public HttpFilterConfigFactory {
               Http::AccessLog::InstanceSharedPtr(instance));
         };
   }
+  std::string name() override { return "mixer"; }
+  HttpFilterType type() override { return HttpFilterType::Decoder; }
 };
 
-static RegisterHttpFilterConfigFactory<MixerConfig> register_;
+static Registry::RegisterFactory<MixerConfigFactory,
+                                 NamedHttpFilterConfigFactory>
+    register_;
 
 }  // namespace Configuration
 }  // namespace Server

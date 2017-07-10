@@ -57,6 +57,18 @@ const std::string kResponseHeaders = "response.headers";
 const std::string kResponseSize = "response.size";
 const std::string kResponseTime = "response.time";
 
+// Downstream tcp connection: source ip/port.
+const std::string kSourceIp = "source.ip";
+const std::string kSourcePort = "source.port";
+// Downstream tcp connection: destionation ip/port.
+const std::string kLocalIp = "local.ip";
+const std::string kLocalPort = "local.port";
+// Upstream tcp connection: destionation ip/port.
+const std::string kTargetIp = "target.ip";
+const std::string kTargetPort = "target.port";
+// Check status code.
+const std::string kCheckStatusCode = "check.status";
+
 // Keys to well-known headers
 const LowerCaseString kRefererHeaderKey("referer");
 
@@ -79,6 +91,11 @@ void SetStringAttribute(const std::string& name, const std::string& value,
   if (!value.empty()) {
     attr->attributes[name] = Attributes::StringValue(value);
   }
+}
+
+void SetInt64Attribute(const std::string& name, uint64_t value,
+                       Attributes* attr) {
+  attr->attributes[name] = Attributes::Int64Value(value);
 }
 
 std::map<std::string, std::string> ExtractHeaders(const HeaderMap& header_map) {
@@ -135,21 +152,19 @@ void FillResponseHeaderAttributes(const HeaderMap* header_map,
 void FillRequestInfoAttributes(const AccessLog::RequestInfo& info,
                                int check_status_code, Attributes* attr) {
   if (info.bytesReceived() >= 0) {
-    attr->attributes[kRequestSize] =
-        Attributes::Int64Value(info.bytesReceived());
+    SetInt64Attribute(kRequestSize, info.bytesReceived(), attr);
   }
   if (info.bytesSent() >= 0) {
-    attr->attributes[kResponseSize] = Attributes::Int64Value(info.bytesSent());
+    SetInt64Attribute(kResponseSize, info.bytesSent(), attr);
   }
 
   attr->attributes[kResponseDuration] = Attributes::DurationValue(
       std::chrono::duration_cast<std::chrono::nanoseconds>(info.duration()));
 
   if (info.responseCode().valid()) {
-    attr->attributes[kResponseCode] =
-        Attributes::Int64Value(info.responseCode().value());
+    SetInt64Attribute(kResponseCode, info.responseCode().value(), attr);
   } else {
-    attr->attributes[kResponseCode] = Attributes::Int64Value(check_status_code);
+    SetInt64Attribute(kResponseCode, check_status_code, attr);
   }
 }
 
@@ -211,8 +226,17 @@ MixerControl::MixerControl(const MixerConfig& mixer_config,
 
 void MixerControl::SendCheck(HttpRequestDataPtr request_data,
                              DoneFunc on_done) {
+  for (const auto& attribute : quota_attributes_.attributes) {
+    request_data->attributes.attributes[attribute.first] = attribute.second;
+  }
+  for (const auto& attribute : mixer_config_.mixer_attributes) {
+    SetStringAttribute(attribute.first, attribute.second,
+                       &request_data->attributes);
+  }
+
   request_data->attributes.attributes[kRequestTime] =
       Attributes::TimeValue(std::chrono::system_clock::now());
+
   log().debug("Send Check: {}", request_data->attributes.DebugString());
   mixer_client_->Check(request_data->attributes, on_done);
 }
@@ -235,14 +259,6 @@ void MixerControl::CheckHttp(HttpRequestDataPtr request_data,
   FillCheckAttributes(headers, &request_data->attributes);
   SetStringAttribute(kOriginUser, origin_user, &request_data->attributes);
 
-  for (const auto& attribute : quota_attributes_.attributes) {
-    request_data->attributes.attributes[attribute.first] = attribute.second;
-  }
-  for (const auto& attribute : mixer_config_.mixer_attributes) {
-    SetStringAttribute(attribute.first, attribute.second,
-                       &request_data->attributes);
-  }
-
   SendCheck(request_data, on_done);
 }
 
@@ -264,19 +280,55 @@ void MixerControl::ReportHttp(HttpRequestDataPtr request_data,
   SendReport(request_data);
 }
 
-void MixerControl::CheckTcp(HttpRequestDataPtr request_data, DoneFunc on_done) {
+void MixerControl::CheckTcp(HttpRequestDataPtr request_data,
+                            Network::Connection& connection,
+                            std::string origin_user, DoneFunc on_done) {
   if (!mixer_client_) {
     on_done(
         Status(StatusCode::INVALID_ARGUMENT, "Missing mixer_server cluster"));
     return;
   }
 
+  SetStringAttribute(kOriginUser, origin_user, &request_data->attributes);
+
+  const Network::Address::Ip* remote_ip = connection.remoteAddress().ip();
+  if (remote_ip) {
+    SetStringAttribute(kSourceIp, remote_ip->addressAsString(),
+                       &request_data->attributes);
+    SetInt64Attribute(kSourcePort, remote_ip->port(),
+                      &request_data->attributes);
+  }
+  const Network::Address::Ip* local_ip = connection.localAddress().ip();
+  if (local_ip) {
+    SetStringAttribute(kLocalIp, local_ip->addressAsString(),
+                       &request_data->attributes);
+    SetInt64Attribute(kLocalPort, local_ip->port(), &request_data->attributes);
+  }
+
   SendCheck(request_data, on_done);
 }
 
-void MixerControl::ReportTcp(HttpRequestDataPtr request_data) {
+void MixerControl::ReportTcp(
+    HttpRequestDataPtr request_data, uint64_t request_bytes,
+    uint64_t response_bytes, int check_status_code,
+    Upstream::HostDescriptionConstSharedPtr upstreamHost) {
   if (!mixer_client_) {
     return;
+  }
+
+  SetInt64Attribute(kRequestSize, request_bytes, &request_data->attributes);
+  SetInt64Attribute(kResponseSize, response_bytes, &request_data->attributes);
+  SetInt64Attribute(kCheckStatusCode, check_status_code,
+                    &request_data->attributes);
+
+  if (upstreamHost && upstreamHost->address()) {
+    const Network::Address::Ip* target_ip = upstreamHost->address()->ip();
+    if (target_ip) {
+      SetStringAttribute(kTargetIp, target_ip->addressAsString(),
+                         &request_data->attributes);
+      SetInt64Attribute(kTargetPort, target_ip->port(),
+                        &request_data->attributes);
+    }
   }
 
   SendReport(request_data);

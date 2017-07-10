@@ -107,6 +107,37 @@
           }
         }
       ]
+    },
+    {
+      "address": "tcp://0.0.0.0:6060",
+      "bind_to_port": true,
+      "filters": [
+        {
+          "type": "both",
+          "name": "mixer",
+          "config": {
+              "mixer_attributes": {
+                  "target.uid": "POD222",
+                  "target.service": "foo.svc.cluster.local"
+               },
+               "quota_name": "RequestCount"
+          }
+        },
+        {
+          "type": "read",
+          "name": "tcp_proxy",
+          "config": {
+            "stat_prefix": "tcp",
+            "route_config": {
+              "routes": [
+                {
+                  "cluster": "service1"
+                }
+              ]
+            }
+          }
+        }
+      ]
     }
   ],
   "admin": {

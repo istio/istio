@@ -58,10 +58,13 @@ class MixerControl final : public Logger::Loggable<Logger::Id::http> {
 
   // Make mixer check call for Tcp requests.
   void CheckTcp(HttpRequestDataPtr request_data,
+                Network::Connection& connection, std::string origin_user,
                 ::istio::mixer_client::DoneFunc on_done);
 
   // Make mixer report call for Tcp requests.
-  void ReportTcp(HttpRequestDataPtr request_data);
+  void ReportTcp(HttpRequestDataPtr request_data, uint64_t request_bytes,
+                 uint64_t response_bytes, int check_status_code,
+                 Upstream::HostDescriptionConstSharedPtr upstreamHost);
 
  private:
   // Make remote check call.

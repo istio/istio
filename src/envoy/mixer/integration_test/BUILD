@@ -73,5 +73,6 @@ go_test_suite(
         "quota_cache_test.go",
         "quota_test.go",
         "stress_test.go",
+        "tcp_filter_test.go",
     ],
 )

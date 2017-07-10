@@ -37,6 +37,7 @@ cc_library(
         "mixer_control.cc",
         "mixer_control.h",
         "http_filter.cc",
+        "tcp_filter.cc",
         "thread_dispatcher.cc",
         "thread_dispatcher.h",
         "utils.cc",

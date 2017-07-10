@@ -186,3 +186,27 @@ When there is any network problems between the proxy and the mixer server, what 
 
 ```
 
+## How to configurate TCP Mixer filters
+
+Here is its sample config:
+
+```
+   "filters": [
+        {
+          "type": "both",
+          "name": "mixer",
+          "config": {
+              "mixer_attributes": {
+                  "target.uid": "POD222",
+                  "target.service": "foo.svc.cluster.local"
+               },
+               "quota_name": "RequestCount"
+          }
+        }
+    ]
+```
+
+This filter will intercept a tcp connection:
+* Call Check at connection creation and call Report at connection close.
+* All mixer settings described above can be used here.
+

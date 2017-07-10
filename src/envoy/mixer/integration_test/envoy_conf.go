@@ -26,6 +26,7 @@ const (
 	// Default is using one in this folder.
 	ServerProxyPort = 29090
 	ClientProxyPort = 27070
+	TcpProxyPort    = 26060
 	MixerPort       = 29091
 	BackendPort     = 28080
 	AdminPort       = 29001
@@ -34,6 +35,7 @@ const (
 type ConfParam struct {
 	ClientPort   int
 	ServerPort   int
+	TcpProxyPort int
 	AdminPort    int
 	MixerServer  string
 	Backend      string
@@ -186,6 +188,33 @@ const envoyConfTempl = `
           }
         }
       ]
+    },
+    {
+      "address": "tcp://0.0.0.0:{{.TcpProxyPort}}",
+      "bind_to_port": true,
+      "filters": [
+        {
+          "type": "both",
+          "name": "mixer",
+          "config": {
+{{.ServerConfig}}
+          }
+        },
+        {
+          "type": "read",
+          "name": "tcp_proxy",
+          "config": {
+            "stat_prefix": "tcp",
+            "route_config": {
+              "routes": [
+                {
+                  "cluster": "service1"
+                }
+              ]
+            }
+          }
+        }
+      ]
     }
   ],
   "admin": {
@@ -257,6 +286,7 @@ func getConf() ConfParam {
 	return ConfParam{
 		ClientPort:   ClientProxyPort,
 		ServerPort:   ServerProxyPort,
+		TcpProxyPort: TcpProxyPort,
 		AdminPort:    AdminPort,
 		MixerServer:  fmt.Sprintf("localhost:%d", MixerPort),
 		Backend:      fmt.Sprintf("localhost:%d", BackendPort),

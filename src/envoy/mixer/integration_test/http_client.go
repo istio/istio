@@ -69,6 +69,25 @@ func HTTPPost(url string, content_type string, req_body string) (code int, resp_
 	return code, resp_body, nil
 }
 
+func ShortLiveHTTPPost(url string, content_type string, req_body string) (code int, resp_body string, err error) {
+	log.Println("Short live HTTP POST", url)
+	tr := &http.Transport{
+		DisableKeepAlives: true,
+	}
+	client := &http.Client{Transport: tr}
+	resp, err := client.Post(url, content_type, strings.NewReader(req_body))
+	if err != nil {
+		log.Println(err)
+		return 0, "", err
+	}
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+	resp_body = string(body)
+	code = resp.StatusCode
+	log.Println(resp_body)
+	return code, resp_body, nil
+}
+
 func HTTPGetWithHeaders(l string, headers map[string]string) (code int, resp_body string, err error) {
 	log.Println("HTTP GET with headers: ", l)
 	client := &http.Client{}
