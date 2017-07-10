@@ -13,9 +13,9 @@ cd ${ROOT}
 
 PARENT_BRANCH=''
 
-while getopts :c: arg; do
+while getopts :s: arg; do
   case ${arg} in
-    c) PARENT_BRANCH="${OPTARG}";;
+    s) LAST_GOOD_GITSHA="${OPTARG}";;
     *) error_exit "Unrecognized argument ${OPTARG}";;
   esac
 done
@@ -26,6 +26,7 @@ prep_linters() {
         go get -u github.com/alecthomas/gometalinter
         go get -u github.com/bazelbuild/buildifier/buildifier
         go get -u github.com/3rf/codecoroner
+        go get -u honnef.co/go/tools/cmd/megacheck
         gometalinter --install --vendored-linters >/dev/null
     fi
     bin/bazel_to_go.py
@@ -49,15 +50,30 @@ go_metalinter() {
     fi
 
     # default: lint everything. This runs on the main build
-    PKGS="./tests/e2e/..."
+    PKGS=('./tests/e2e/...' './devel/githubContrib')
+
+    echo "All known packages are ${PKGS[@]}"
 
     # convert LAST_GOOD_GITSHA to list of packages.
     if [[ ! -z ${LAST_GOOD_GITSHA} ]];then
         echo "Using ${LAST_GOOD_GITSHA} to compare files to."
-        PKGS=$(for fn in $(git diff --name-only ${LAST_GOOD_GITSHA}); do fd="${fn%/*}"; [ -d ${fd} ] && echo $fd; done | sort | uniq)
-    else
-        echo 'Running linters on all files.'
+        CHANGED_DIRS=($(for fn in $(git diff --name-only ${LAST_GOOD_GITSHA}); do fd="./${fn%/*}"; [ -d ${fd} ] && echo $fd; done | sort | uniq))
+        # Using a hash map to prevent duplicates.
+        declare -A NEW_PKGS
+        for d in ${CHANGED_DIRS[@]}; do
+          for p in ${PKGS[@]}; do
+            if [[ ${d} =~ ${p} ]]; then
+              NEW_PKGS[${p}]=
+            fi
+          done
+        done
+        # Getting only keys from hash map.
+        PKGS=(${!NEW_PKGS[@]})
     fi
+
+    echo "Running linters on packages ${PKGS[@]}."
+
+    [[ -z ${PKGS[@]} ]] && return
 
     # updated to avoid WARNING: staticcheck, gosimple, and unused are all set, using megacheck instead
     gometalinter\
@@ -83,7 +99,7 @@ go_metalinter() {
         --enable=varcheck\
         --enable=vet\
         --enable=vetshadow\
-        $PKGS
+        ${PKGS[@]}
 
     # TODO: These generate warnings which we should fix, and then should enable the linters
     # --enable=dupl\
