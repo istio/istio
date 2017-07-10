@@ -2,11 +2,11 @@
 
 set -ex
 
-if [ "$CI" == "bootstrap" ]; then
+if [ "${CI}" == "bootstrap" ]; then
     # ensure correct path
-    mkdir -p $GOPATH/src/istio.io
-    mv $GOPATH/src/github.com/istio/test-infra $GOPATH/src/istio.io
-    cd $GOPATH/src/istio.io/test-infra/
+    mkdir -p ${GOPATH}/src/istio.io
+    mv ${GOPATH}/src/github.com/istio/istio ${GOPATH}/src/istio.io
+    cd ${GOPATH}/src/istio.io/istio/
 fi
 
 echo 'Running Linters'
