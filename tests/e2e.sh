@@ -30,14 +30,11 @@ TESTS_TARGETS=($(bazel query 'tests(//tests/e2e/tests/...)'))
 FAILURE_COUNT=0
 SUMMARY='Tests Summary'
 
-
-
-
-for T in ${TESTS_TARGETS[@]}; do
+# for T in ${TESTS_TARGETS[@]}; do
   echo '****************************************************'
   echo "Running ${T}"
   echo '****************************************************'
-  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${@}
+  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${TESTS_TARGETS[0]} -- ${ARGS[@]} ${@}
   RET=${?}
   echo '****************************************************'
   if [[ ${RET} -eq 0 ]]; then
@@ -46,7 +43,7 @@ for T in ${TESTS_TARGETS[@]}; do
     SUMMARY+="\nFAILED: ${T} "
     ((FAILURE_COUNT++))
   fi
-done
+# done
 echo
 printf "${SUMMARY}\n"
 exit ${FAILURE_COUNT}
