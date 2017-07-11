@@ -31,7 +31,6 @@ go_library(
         "@com_github_grpcecosystem_opentracing//go/otgrpc:go_default_library",
         "@com_github_grpcecosystem_prometheus//:go_default_library",
         "@com_github_istio_api//:mixer/v1",
-        "@com_github_istio_api//:mixer/v1/config",
         "@com_github_opentracing_basictracer//:go_default_library",
         "@com_github_opentracing_opentracing_go//:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",

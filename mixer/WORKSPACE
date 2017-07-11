@@ -496,6 +496,18 @@ new_go_repository(
     importpath = "go.uber.org/atomic",
 )
 
+# bazel rule for fixing up cfg.pb.go relies on running goimports
+# we import it here as a git repository to allow projection of a
+# simple build rule that will build the binary for usage (and avoid
+# the need to project a more complicated BUILD file over the entire
+# tools repo.)
+new_git_repository(
+    name = "org_golang_x_tools_imports",
+    build_file = "BUILD.goimports",
+    commit = "e6cb469339aef5b7be0c89de730d5f3cc8e47e50",  # Jun 23, 2017 (no releases)
+    remote = "https://github.com/golang/tools.git",
+)
+
 ##
 ## Testing
 ##
