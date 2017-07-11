@@ -16,5 +16,5 @@ echo 'Running Unit Tests'
 bazel test //...
 
 echo 'Running Integration Tests'
-./tests/e2e.sh --test_logs_path='_artifacts'
+./tests/e2e.sh --test_log_path=_artifacts
 
