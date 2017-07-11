@@ -27,6 +27,9 @@ values we hold as a team:
     document comments, or meetings are often better and higher bandwidth ways to
     communicate complex and nuanced design issues, as opposed to protracted
     heated live chats.
+  - Be mindful of the terminology you are using, it may not be the same as
+    someone else and cause misunderstanding. To promote clear and precise
+    communication, please define the terms you are using in context.
   - See also the
     [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md)
     which everyone must abide by.
