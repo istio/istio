@@ -8,6 +8,7 @@ adapters:
     impl: stdioLogger
     params:
       logStream: STDERR
+      omitEmptyFields: true
   - name: prometheus
     kind: metrics
     impl: prometheus

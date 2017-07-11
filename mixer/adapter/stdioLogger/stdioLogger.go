@@ -17,11 +17,11 @@
 package stdioLogger
 
 import (
-	"encoding/json"
-	"io"
-	"os"
+	"fmt"
 
-	me "github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"istio.io/mixer/adapter/stdioLogger/config"
 	"istio.io/mixer/pkg/adapter"
@@ -29,7 +29,25 @@ import (
 
 type (
 	builder struct{ adapter.DefaultBuilder }
-	logger  struct{ logStream io.Writer }
+	logger  struct {
+		omitEmpty   bool
+		outputPaths []string
+		impl        *zap.Logger
+	}
+	zapBuilderFn func(outputPaths ...string) (*zap.Logger, error)
+)
+
+const (
+	stdErr = "stderr"
+	stdOut = "stdout"
+)
+
+var (
+	zapConfig = zapcore.EncoderConfig{
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeTime:     zapcore.EpochTimeEncoder,
+		EncodeDuration: zapcore.SecondsDurationEncoder,
+	}
 )
 
 // Register records the builders exposed by this adapter.
@@ -45,22 +63,27 @@ func Register(r adapter.Registrar) {
 }
 
 func (builder) NewApplicationLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.ApplicationLogsAspect, error) {
-	return newLogger(cfg)
+	return newLogger(cfg, newZapLogger)
 }
 
 func (builder) NewAccessLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.AccessLogsAspect, error) {
-	return newLogger(cfg)
+	return newLogger(cfg, newZapLogger)
 }
 
-func newLogger(cfg adapter.Config) (*logger, error) {
+func newLogger(cfg adapter.Config, buildZap zapBuilderFn) (*logger, error) {
 	c := cfg.(*config.Params)
 
-	w := os.Stderr
+	outputPath := stdErr
 	if c.LogStream == config.STDOUT {
-		w = os.Stdout
+		outputPath = stdOut
 	}
 
-	return &logger{w}, nil
+	zapLogger, err := buildZap(outputPath)
+	if err != nil {
+		return nil, fmt.Errorf("could not build logger: %v", err)
+	}
+
+	return &logger{omitEmpty: c.OmitEmptyFields, outputPaths: []string{outputPath}, impl: zapLogger}, nil
 }
 
 func (l *logger) Log(entries []adapter.LogEntry) error {
@@ -72,18 +95,44 @@ func (l *logger) LogAccess(entries []adapter.LogEntry) error {
 }
 
 func (l *logger) log(entries []adapter.LogEntry) error {
-	var errors *me.Error
+	var errors *multierror.Error
+	fields := make([]zapcore.Field, 0, 6)
+	includeEmpty := !l.omitEmpty
 	for _, entry := range entries {
-		if err := writeJSON(l.logStream, entry); err != nil {
-			errors = me.Append(errors, err)
+		if includeEmpty || entry.LogName != "" {
+			fields = append(fields, zap.String("logName", entry.LogName))
 		}
+		if includeEmpty || entry.Timestamp != "" {
+			fields = append(fields, zap.String("timestamp", entry.Timestamp))
+		}
+		if includeEmpty || entry.Severity != adapter.Default {
+			fields = append(fields, zap.String("severity", entry.Severity.String()))
+		}
+		if includeEmpty || len(entry.Labels) > 0 {
+			fields = append(fields, zap.Any("labels", entry.Labels))
+		}
+		if includeEmpty || len(entry.TextPayload) > 0 {
+			fields = append(fields, zap.String("textPayload", entry.TextPayload))
+		}
+		if includeEmpty || len(entry.StructPayload) > 0 {
+			fields = append(fields, zap.Any("structPayload", entry.StructPayload))
+		}
+		if err := l.impl.Core().Write(zapcore.Entry{}, fields); err != nil {
+			errors = multierror.Append(errors, err)
+		}
+		fields = fields[:0]
 	}
-
 	return errors.ErrorOrNil()
 }
 
 func (l *logger) Close() error { return nil }
 
-func writeJSON(w io.Writer, le interface{}) error {
-	return json.NewEncoder(w).Encode(le)
+func newZapLogger(outputPaths ...string) (*zap.Logger, error) {
+	prodConfig := zap.NewProductionConfig()
+	prodConfig.DisableCaller = true
+	prodConfig.DisableStacktrace = true
+	prodConfig.EncoderConfig = zapConfig
+	prodConfig.OutputPaths = outputPaths
+	zapLogger, err := prodConfig.Build()
+	return zapLogger, err
 }
