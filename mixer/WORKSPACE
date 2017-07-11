@@ -484,6 +484,18 @@ new_go_repository(
     importpath = "golang.org/x/tools",
 )
 
+new_go_repository(
+    name = "org_uber_go_zap",
+    commit = "9cabc84638b70e564c3dab2766efcb1ded2aac9f",  # Jun 8, 2017 (v1.4.1)
+    importpath = "go.uber.org/zap",
+)
+
+new_go_repository(
+    name = "org_uber_go_atomic",
+    commit = "4e336646b2ef9fc6e47be8e21594178f98e5ebcf",  # Apr 12, 2017 (v1.2.0)
+    importpath = "go.uber.org/atomic",
+)
+
 ##
 ## Testing
 ##

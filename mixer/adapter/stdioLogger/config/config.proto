@@ -36,4 +36,8 @@ message Params {
     // Selects which standard stream to write to for log entries.
     // STDERR is the default Stream.
     Stream log_stream = 1;
+
+    // If true, empty fields from a log entry will NOT be included
+    // in the generated JSON output.
+    bool omit_empty_fields = 2;
 }

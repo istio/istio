@@ -11,6 +11,8 @@ go_library(
         "//adapter/stdioLogger/config:go_default_library",
         "//pkg/adapter:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
+        "@org_uber_go_zap//:go_default_library",
+        "@org_uber_go_zap//zapcore:go_default_library",
     ],
 )
 

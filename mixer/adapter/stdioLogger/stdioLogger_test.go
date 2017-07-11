@@ -16,11 +16,12 @@ package stdioLogger
 
 import (
 	"errors"
-	"io"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"istio.io/mixer/adapter/stdioLogger/config"
 	"istio.io/mixer/pkg/adapter"
@@ -33,9 +34,9 @@ func TestAdapterInvariants(t *testing.T) {
 
 func TestBuilder_NewLogger(t *testing.T) {
 	tests := []newAspectTests{
-		{&config.Params{}, defaultAspectImpl},
-		{defaultParams, defaultAspectImpl},
-		{overridesParams, overridesAspectImpl},
+		{&config.Params{}, []string{"stderr"}},
+		{defaultParams, []string{"stderr"}},
+		{overridesParams, []string{"stdout"}},
 	}
 
 	e := testEnv{}
@@ -43,20 +44,20 @@ func TestBuilder_NewLogger(t *testing.T) {
 	for _, v := range tests {
 		asp, err := a.NewApplicationLogsAspect(e, v.config)
 		if err != nil {
-			t.Errorf("NewApplicationLogsAspect(env, %s) => unexpected error: %v", v.config, err)
+			t.Errorf("NewAccessLogsAspect(env, %s) => unexpected error: %v", v.config, err)
 		}
 		got := asp.(*logger)
-		if !reflect.DeepEqual(got, v.want) {
-			t.Errorf("NewApplicationLogsAspect(env, %s) => %v, want %v", v.config, got, v.want)
+		if !reflect.DeepEqual(got.outputPaths, v.outputPaths) {
+			t.Errorf("Bad output path configuration: got %v, want %v", got.outputPaths, v.outputPaths)
 		}
 	}
 }
 
 func TestBuilder_NewAccessLogger(t *testing.T) {
 	tests := []newAspectTests{
-		{&config.Params{}, defaultAspectImpl},
-		{defaultParams, defaultAspectImpl},
-		{overridesParams, overridesAspectImpl},
+		{&config.Params{}, []string{"stderr"}},
+		{defaultParams, []string{"stderr"}},
+		{overridesParams, []string{"stdout"}},
 	}
 
 	e := testEnv{}
@@ -67,9 +68,26 @@ func TestBuilder_NewAccessLogger(t *testing.T) {
 			t.Errorf("NewAccessLogsAspect(env, %s) => unexpected error: %v", v.config, err)
 		}
 		got := asp.(*logger)
-		if !reflect.DeepEqual(got, v.want) {
-			t.Errorf("NewAccessLogsAspect(env, %s) => %v, want %v", v.config, got, v.want)
+		if !reflect.DeepEqual(got.outputPaths, v.outputPaths) {
+			t.Errorf("Bad output path configuration: got %v, want %v", got.outputPaths, v.outputPaths)
 		}
+	}
+}
+
+func TestNewLogger_Failures(t *testing.T) {
+	tests := []struct {
+		name       string
+		zapBuilder zapBuilderFn
+	}{
+		{"builder fn failure", func(...string) (*zap.Logger, error) { return nil, errors.New("expected") }},
+	}
+
+	for _, v := range tests {
+		t.Run(v.name, func(t *testing.T) {
+			if _, err := newLogger(defaultParams, v.zapBuilder); err == nil {
+				t.Fatal("newLogger() - Expected error")
+			}
+		})
 	}
 }
 
@@ -81,9 +99,6 @@ func TestLogger_Close(t *testing.T) {
 }
 
 func TestLogger_Log(t *testing.T) {
-
-	tw := &testWriter{lines: make([]string, 0)}
-
 	structPayload := map[string]interface{}{"val": 42, "obj": map[string]interface{}{"val": false}}
 
 	noPayloadEntry := adapter.LogEntry{LogName: "istio_log", Labels: map[string]interface{}{}, Timestamp: "2017-Jan-09", Severity: adapter.Info}
@@ -91,49 +106,62 @@ func TestLogger_Log(t *testing.T) {
 	jsonPayloadEntry := adapter.LogEntry{LogName: "istio_log", StructPayload: structPayload, Timestamp: "2017-Jan-09", Severity: adapter.Info}
 	labelEntry := adapter.LogEntry{LogName: "istio_log", Labels: map[string]interface{}{"label": 42}, Timestamp: "2017-Jan-09", Severity: adapter.Info}
 
+	omitAll := "{}"
+	noOmitAll := `{"logName":"","timestamp":"","severity":"DEFAULT","labels":null,"textPayload":"","structPayload":null}`
 	baseLog := `{"logName":"istio_log","timestamp":"2017-Jan-09","severity":"INFO"}`
 	textPayloadLog := `{"logName":"istio_log","timestamp":"2017-Jan-09","severity":"INFO","textPayload":"text payload"}`
 	jsonPayloadLog := `{"logName":"istio_log","timestamp":"2017-Jan-09","severity":"INFO","structPayload":{"obj":{"val":false},"val":42}}`
-	labelLog := `{"logName":"istio_log","labels":{"label":42},"timestamp":"2017-Jan-09","severity":"INFO"}`
-
-	baseAspectImpl := &logger{tw}
+	labelLog := `{"logName":"istio_log","timestamp":"2017-Jan-09","severity":"INFO","labels":{"label":42}}`
 
 	tests := []struct {
-		asp   *logger
-		input []adapter.LogEntry
-		want  []string
+		name      string
+		input     []adapter.LogEntry
+		omitEmpty bool
+		want      []string
 	}{
-		{baseAspectImpl, []adapter.LogEntry{}, []string{}},
-		{baseAspectImpl, []adapter.LogEntry{noPayloadEntry}, []string{baseLog}},
-		{baseAspectImpl, []adapter.LogEntry{textPayloadEntry}, []string{textPayloadLog}},
-		{baseAspectImpl, []adapter.LogEntry{jsonPayloadEntry}, []string{jsonPayloadLog}},
-		{baseAspectImpl, []adapter.LogEntry{labelEntry}, []string{labelLog}},
+		{"empty_array", []adapter.LogEntry{}, true, nil},
+		{"empty_omit", []adapter.LogEntry{{}}, true, []string{omitAll}},
+		{"empty_include", []adapter.LogEntry{{}}, false, []string{noOmitAll}},
+		{"no_payload", []adapter.LogEntry{noPayloadEntry}, true, []string{baseLog}},
+		{"text_payload", []adapter.LogEntry{textPayloadEntry}, true, []string{textPayloadLog}},
+		{"json_payload", []adapter.LogEntry{jsonPayloadEntry}, true, []string{jsonPayloadLog}},
+		{"labels", []adapter.LogEntry{labelEntry}, true, []string{labelLog}},
 	}
 
 	for _, v := range tests {
-		if err := v.asp.Log(v.input); err != nil {
-			t.Errorf("Log(%v) => unexpected error: %v", v.input, err)
-		}
-		if !reflect.DeepEqual(tw.lines, v.want) {
-			t.Errorf("Log(%v) => %v, want %s", v.input, tw.lines, v.want)
-		}
-		tw.lines = make([]string, 0)
+		t.Run(v.name, func(t *testing.T) {
+			tc := newTestCore(false)
+			l := &logger{omitEmpty: v.omitEmpty, impl: newTestLogger(tc)}
+			if err := l.Log(v.input); err != nil {
+				t.Errorf("Log(%v) => unexpected error: %v", v.input, err)
+			}
+			if !reflect.DeepEqual(tc.(*testCore).lines, v.want) {
+				t.Errorf("Log(%v) => %v, want %s", v.input, tc.(*testCore).lines, v.want)
+			}
+		})
 	}
 }
 
 func TestLogger_LogFailure(t *testing.T) {
-	tw := &testWriter{errorOnWrite: true}
 	textPayloadEntry := adapter.LogEntry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: adapter.Info}
-	baseAspectImpl := &logger{tw}
+	cases := []struct {
+		name string
+		core zapcore.Core
+	}{
+		{"write_error", newTestCore(true)},
+	}
 
-	if err := baseAspectImpl.Log([]adapter.LogEntry{textPayloadEntry}); err == nil {
-		t.Error("Log() should have produced error")
+	for _, v := range cases {
+		t.Run(v.name, func(t *testing.T) {
+			l := &logger{impl: zap.New(v.core)}
+			if err := l.Log([]adapter.LogEntry{textPayloadEntry}); err == nil {
+				t.Fatal("Log() should have produced error")
+			}
+		})
 	}
 }
 
 func TestLogger_LogAccess(t *testing.T) {
-	tw := &testWriter{lines: make([]string, 0)}
-
 	noLabelsEntry := adapter.LogEntry{LogName: "access_log"}
 	labelsEntry := adapter.LogEntry{LogName: "access_log", Labels: map[string]interface{}{"test": false, "val": 42}}
 	labelsWithTextEntry := adapter.LogEntry{
@@ -147,34 +175,68 @@ func TestLogger_LogAccess(t *testing.T) {
 	labelsWithTextLog := `{"logName":"access_log","labels":{"test":false,"val":42},"textPayload":"this is a log line"}`
 
 	tests := []struct {
-		input []adapter.LogEntry
-		want  []string
+		input     []adapter.LogEntry
+		omitEmpty bool
+		want      []string
 	}{
-		{[]adapter.LogEntry{}, []string{}},
-		{[]adapter.LogEntry{noLabelsEntry}, []string{baseLog}},
-		{[]adapter.LogEntry{labelsEntry}, []string{labelsLog}},
-		{[]adapter.LogEntry{labelsWithTextEntry}, []string{labelsWithTextLog}},
+		{[]adapter.LogEntry{}, true, []string(nil)},
+		{[]adapter.LogEntry{noLabelsEntry}, true, []string{baseLog}},
+		{[]adapter.LogEntry{labelsEntry}, true, []string{labelsLog}},
+		{[]adapter.LogEntry{labelsWithTextEntry}, true, []string{labelsWithTextLog}},
 	}
 
 	for _, v := range tests {
-		log := &logger{tw}
+		tc := newTestCore(false)
+		log := &logger{omitEmpty: v.omitEmpty, impl: newTestLogger(tc)}
 		if err := log.LogAccess(v.input); err != nil {
 			t.Errorf("LogAccess(%v) => unexpected error: %v", v.input, err)
 		}
-		if !reflect.DeepEqual(tw.lines, v.want) {
-			t.Errorf("LogAccess(%v) => %v, want %s", v.input, tw.lines, v.want)
+		if !reflect.DeepEqual(tc.(*testCore).lines, v.want) {
+			t.Errorf("LogAccess(%v) => %#v, want %#v", v.input, tc.(*testCore).lines, v.want)
 		}
-		tw.lines = make([]string, 0)
 	}
 }
 
 func TestLogger_LogAccessFailure(t *testing.T) {
-	tw := &testWriter{errorOnWrite: true}
 	entry := adapter.LogEntry{LogName: "access_log"}
-	l := &logger{tw}
 
-	if err := l.LogAccess([]adapter.LogEntry{entry}); err == nil {
-		t.Error("LogAccess() should have produced error")
+	cases := []struct {
+		name string
+		core zapcore.Core
+	}{
+		{"write_error", newTestCore(true)},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(t *testing.T) {
+			l := &logger{impl: zap.New(v.core)}
+			if err := l.LogAccess([]adapter.LogEntry{entry}); err == nil {
+				t.Fatal("LogAccess() should have produced error")
+			}
+		})
+	}
+}
+
+func BenchmarkLogger_Log(b *testing.B) {
+	entry1 := adapter.LogEntry{
+		LogName:       "access_log",
+		Labels:        map[string]interface{}{"test": false, "val": 42},
+		TextPayload:   "this is a log line",
+		StructPayload: map[string]interface{}{"bool": true, "number": 242, "map": map[string]string{"test": "test"}, "array": []string{"t", "v", "x"}},
+	}
+
+	entry2 := adapter.LogEntry{
+		Labels:        map[string]interface{}{"test": true, "val": 55},
+		TextPayload:   "this is a log line",
+		StructPayload: map[string]interface{}{"bool": true, "number": 242, "map": map[string]string{"test": "test"}, "array": []string{"t", "v", "x"}},
+	}
+
+	l := &logger{omitEmpty: true, impl: zap.NewNop()}
+
+	for i := 0; i < b.N; i++ {
+		if err := l.log([]adapter.LogEntry{entry1, entry2}); err != nil {
+			b.Logf("error in log: %v", err)
+		}
 	}
 }
 
@@ -183,12 +245,13 @@ type (
 		adapter.Env
 	}
 	newAspectTests struct {
-		config *config.Params
-		want   *logger
+		config      *config.Params
+		outputPaths []string
 	}
-	testWriter struct {
-		io.Writer
+	testCore struct {
+		zapcore.Core
 
+		enc          zapcore.Encoder
 		count        int
 		lines        []string
 		errorOnWrite bool
@@ -196,18 +259,32 @@ type (
 )
 
 var (
-	defaultParams     = &config.Params{LogStream: config.STDERR}
-	defaultAspectImpl = &logger{os.Stderr}
-
-	overridesParams     = &config.Params{LogStream: config.STDOUT}
-	overridesAspectImpl = &logger{os.Stdout}
+	defaultParams   = &config.Params{LogStream: config.STDERR}
+	overridesParams = &config.Params{LogStream: config.STDOUT}
 )
 
-func (t *testWriter) Write(p []byte) (n int, err error) {
-	if t.errorOnWrite {
-		return 0, errors.New("write error")
+func newTestLogger(t zapcore.Core) *zap.Logger {
+	return zap.New(t)
+}
+
+func newTestCore(errOnWrite bool) zapcore.Core {
+	return &testCore{
+		errorOnWrite: errOnWrite,
+		enc:          zapcore.NewJSONEncoder(zapConfig),
 	}
+}
+
+func (t *testCore) Write(e zapcore.Entry, f []zapcore.Field) error {
+	if t.errorOnWrite {
+		return errors.New("write error")
+	}
+
+	buf, err := t.enc.EncodeEntry(e, f)
+	if err != nil {
+		return err
+	}
+
 	t.count++
-	t.lines = append(t.lines, strings.Trim(string(p), "\n"))
-	return len(p), nil
+	t.lines = append(t.lines, strings.Trim(buf.String(), "\n"))
+	return nil
 }
