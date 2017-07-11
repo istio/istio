@@ -33,8 +33,8 @@ All members of the Istio community must abide by the
 [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md).
 Only by respecting each other can we develop a productive, collaborative community.
 
-Please be sure to read and understand our 1 page
-[shared values](VALUES.md) summary.
+We promote and encourage a set of [shared values](VALUES.md) to improve our
+productivity and inter-personal interactions.
 
 ## Contributor license agreements
 

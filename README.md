@@ -111,7 +111,8 @@ support is disabled for our organization.
 
 ## Contributing to the project
 
-Make sure to read our 1 page [shared values](VALUES.md) summary.
+We promote and encourage a set of [shared values](VALUES.md) to improve our
+productivity and inter-personal interactions.
 
 See the [working groups](GROUPS.md) for a list of working groups to participate in.
 
