@@ -9,11 +9,11 @@ We want to make sure every member has a shared understanding of the goals and va
 - Be **specific**, **respectful** and **courteous**
   - Disagreements are welcome and encouraged, but don't use broad generalizations, exaggerations, or judgement words that can be taken personally. Consider other people’s perspective (including the wide range of applicability of Istio). Empathize with our users. Focus on the specific issue at hand, and remember that we all care about the project, first and foremost.
   - If you feel upset - disengage, then write down what bothers you in an email to yourself - don’t send it to anyone. If you feel the same way the next morning, find a constructive way to address the issue or raise it with a friend or a lead.
-  - Emails to the [mailing lists](CONTRIBUTING.md#contributing-a-feature) or document comments are often better and more productive that chat. A Video Conference meeting is also a good alternative to a heated chat where a lot of nuance can be lost.
+  - Emails to the [mailing lists](CONTRIBUTING.md#contributing-a-feature), document comments, or meetings are often better and higher bandwidth ways to communicate complex and nuanced design issues, as opposed to protracted heated live chats.
   - See also the [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md) which everyone must abide by.
-- Raising issues great, suggesting solutions is even better
+- Raising issues is great, suggesting solutions is even better
   - Think of a proposed alternative and improvement rather than just what you perceive as wrong.
   - If you have no immediate solution even after thinking about it - if something does seem significant, do raise it to someone that may be able to also think of solutions or to the group (don’t stay frustrated! Feel safe in bringing up issues)
-  - Avoid rehashing old issues that have been already resolved/decided (unless you have new insight or information)
+  - Avoid rehashing old issues that have been already resolved/decided (unless you have new insights or information)
 - Be productive and **happy**, and most importantly,
 have _fun_ :-)
