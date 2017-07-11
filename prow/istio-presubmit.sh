@@ -9,6 +9,7 @@ if [ "${CI}" == "bootstrap" ]; then
     cd ${GOPATH}/src/istio.io/istio/
 
     # use volume mount from istio-presubmit job's pod spec
+    mkdir -p ${HOME}/.kube
     ln -s /etc/e2e-testing-kubeconfig/e2e-testing-kubeconfig ${HOME}/.kube/config
 fi
 
