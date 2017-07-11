@@ -7,6 +7,9 @@ if [ "${CI}" == "bootstrap" ]; then
     mkdir -p ${GOPATH}/src/istio.io
     mv ${GOPATH}/src/github.com/istio/istio ${GOPATH}/src/istio.io
     cd ${GOPATH}/src/istio.io/istio/
+
+    # use volume mount from istio-presubmit job's pod spec
+    ln -s /etc/e2e-testing-kubeconfig/e2e-testing-kubeconfig ${HOME}/.kube/config
 fi
 
 echo 'Running Linters'
