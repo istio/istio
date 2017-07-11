@@ -5,7 +5,7 @@ set -ex
 if [ "${CI}" == "bootstrap" ]; then
     # ensure correct path
     mkdir -p ${GOPATH}/src/istio.io
-    mv ${GOPATH}/src/github.com/istio/istio ${GOPATH}/src/istio.io
+    ln -s ${GOPATH}/src/github.com/istio/istio ${GOPATH}/src/istio.io
     cd ${GOPATH}/src/istio.io/istio/
 
     # use volume mount from istio-presubmit job's pod spec
