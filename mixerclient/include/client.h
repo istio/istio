@@ -85,7 +85,8 @@ class MixerClient {
   // The response data from mixer will be consumed by mixer client.
 
   // A check call.
-  virtual void Check(const Attributes& attributes, DoneFunc on_done) = 0;
+  virtual void Check(const Attributes& attributes, TransportCheckFunc transport,
+                     DoneFunc on_done) = 0;
 
   // A report call.
   virtual void Report(const Attributes& attributes) = 0;

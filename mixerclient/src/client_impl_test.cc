@@ -68,6 +68,7 @@ class MixerClientImplTest : public ::testing::Test {
   Attributes request_;
   std::unique_ptr<MixerClient> client_;
   MockCheckTransport mock_check_transport_;
+  TransportCheckFunc empty_transport_;
 };
 
 TEST_F(MixerClientImplTest, TestSuccessCheck) {
@@ -81,14 +82,43 @@ TEST_F(MixerClientImplTest, TestSuccessCheck) {
   // Remove quota, not to test quota
   request_.attributes.erase(Attributes::kQuotaName);
   Status done_status = Status::UNKNOWN;
-  client_->Check(request_,
+  client_->Check(request_, empty_transport_,
                  [&done_status](Status status) { done_status = status; });
   EXPECT_TRUE(done_status.ok());
 
   for (int i = 0; i < 10; i++) {
     // Other calls should ba cached.
     Status done_status1 = Status::UNKNOWN;
-    client_->Check(request_,
+    client_->Check(request_, empty_transport_,
+                   [&done_status1](Status status) { done_status1 = status; });
+    EXPECT_TRUE(done_status1.ok());
+  }
+}
+
+TEST_F(MixerClientImplTest, TestPerRequestTransport) {
+  // Global transport should not be called.
+  EXPECT_CALL(mock_check_transport_, Check(_, _, _)).Times(0);
+
+  // For local pre-request transport.
+  MockCheckTransport local_check_transport;
+  EXPECT_CALL(local_check_transport, Check(_, _, _))
+      .WillOnce(Invoke([](const CheckRequest& request, CheckResponse* response,
+                          DoneFunc on_done) {
+        response->mutable_precondition()->set_valid_use_count(1000);
+        on_done(Status::OK);
+      }));
+
+  // Remove quota, not to test quota
+  request_.attributes.erase(Attributes::kQuotaName);
+  Status done_status = Status::UNKNOWN;
+  client_->Check(request_, local_check_transport.GetFunc(),
+                 [&done_status](Status status) { done_status = status; });
+  EXPECT_TRUE(done_status.ok());
+
+  for (int i = 0; i < 10; i++) {
+    // Other calls should ba cached.
+    Status done_status1 = Status::UNKNOWN;
+    client_->Check(request_, local_check_transport.GetFunc(),
                    [&done_status1](Status status) { done_status1 = status; });
     EXPECT_TRUE(done_status1.ok());
   }
@@ -111,14 +141,14 @@ TEST_F(MixerClientImplTest, TestNoCheckCache) {
       }));
 
   Status done_status = Status::UNKNOWN;
-  client_->Check(request_,
+  client_->Check(request_, empty_transport_,
                  [&done_status](Status status) { done_status = status; });
   EXPECT_TRUE(done_status.ok());
 
   for (int i = 0; i < 10; i++) {
     // Other calls should ba cached.
     Status done_status1 = Status::UNKNOWN;
-    client_->Check(request_,
+    client_->Check(request_, empty_transport_,
                    [&done_status1](Status status) { done_status1 = status; });
     EXPECT_TRUE(done_status1.ok());
   }
@@ -143,14 +173,14 @@ TEST_F(MixerClientImplTest, TestNoQuotaCache) {
       }));
 
   Status done_status = Status::UNKNOWN;
-  client_->Check(request_,
+  client_->Check(request_, empty_transport_,
                  [&done_status](Status status) { done_status = status; });
   EXPECT_TRUE(done_status.ok());
 
   for (int i = 0; i < 10; i++) {
     // Other calls should ba cached.
     Status done_status1 = Status::UNKNOWN;
-    client_->Check(request_,
+    client_->Check(request_, empty_transport_,
                    [&done_status1](Status status) { done_status1 = status; });
     EXPECT_TRUE(done_status1.ok());
   }
@@ -173,14 +203,14 @@ TEST_F(MixerClientImplTest, TestSuccessCheckAndQuota) {
       }));
 
   Status done_status = Status::UNKNOWN;
-  client_->Check(request_,
+  client_->Check(request_, empty_transport_,
                  [&done_status](Status status) { done_status = status; });
   EXPECT_TRUE(done_status.ok());
 
   for (int i = 0; i < 10; i++) {
     // Other calls should ba cached.
     Status done_status1 = Status::UNKNOWN;
-    client_->Check(request_,
+    client_->Check(request_, empty_transport_,
                    [&done_status1](Status status) { done_status1 = status; });
     EXPECT_TRUE(done_status1.ok());
   }
@@ -203,14 +233,14 @@ TEST_F(MixerClientImplTest, TestFailedCheckAndQuota) {
       }));
 
   Status done_status = Status::UNKNOWN;
-  client_->Check(request_,
+  client_->Check(request_, empty_transport_,
                  [&done_status](Status status) { done_status = status; });
   EXPECT_ERROR_CODE(Code::FAILED_PRECONDITION, done_status);
 
   for (int i = 0; i < 10; i++) {
     // Other calls should ba cached.
     Status done_status1 = Status::UNKNOWN;
-    client_->Check(request_,
+    client_->Check(request_, empty_transport_,
                    [&done_status1](Status status) { done_status1 = status; });
     EXPECT_ERROR_CODE(Code::FAILED_PRECONDITION, done_status1);
   }

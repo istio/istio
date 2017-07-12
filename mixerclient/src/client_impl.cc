@@ -58,7 +58,8 @@ MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
 
 MixerClientImpl::~MixerClientImpl() {}
 
-void MixerClientImpl::Check(const Attributes &attributes, DoneFunc on_done) {
+void MixerClientImpl::Check(const Attributes &attributes,
+                            TransportCheckFunc transport, DoneFunc on_done) {
   std::unique_ptr<CheckCache::CheckResult> check_result(
       new CheckCache::CheckResult);
   check_cache_->Check(attributes, check_result.get());
@@ -94,22 +95,24 @@ void MixerClientImpl::Check(const Attributes &attributes, DoneFunc on_done) {
   // Lambda capture could not pass unique_ptr, use raw pointer.
   CheckCache::CheckResult *raw_check_result = check_result.release();
   QuotaCache::CheckResult *raw_quota_result = quota_result.release();
-  options_.check_transport(request, response,
-                           [response, raw_check_result, raw_quota_result,
-                            on_done](const Status &status) {
-                             raw_check_result->SetResponse(status, *response);
-                             raw_quota_result->SetResponse(status, *response);
-                             if (on_done) {
-                               if (!raw_check_result->status().ok()) {
-                                 on_done(raw_check_result->status());
-                               } else {
-                                 on_done(raw_quota_result->status());
-                               }
-                             }
-                             delete raw_check_result;
-                             delete raw_quota_result;
-                             delete response;
-                           });
+  if (!transport) {
+    transport = options_.check_transport;
+  }
+  transport(request, response, [response, raw_check_result, raw_quota_result,
+                                on_done](const Status &status) {
+    raw_check_result->SetResponse(status, *response);
+    raw_quota_result->SetResponse(status, *response);
+    if (on_done) {
+      if (!raw_check_result->status().ok()) {
+        on_done(raw_check_result->status());
+      } else {
+        on_done(raw_quota_result->status());
+      }
+    }
+    delete raw_check_result;
+    delete raw_quota_result;
+    delete response;
+  });
 }
 
 void MixerClientImpl::Report(const Attributes &attributes) {
