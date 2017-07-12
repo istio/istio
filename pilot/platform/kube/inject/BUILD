@@ -12,6 +12,7 @@ go_library(
         "@io_k8s_apimachinery//pkg/util/intstr:go_default_library",
         "@io_k8s_apimachinery//pkg/util/yaml:go_default_library",
         "@io_k8s_client_go//pkg/api/v1:go_default_library",
+        "@io_k8s_client_go//pkg/apis/apps/v1beta1:go_default_library",
         "@io_k8s_client_go//pkg/apis/batch/v1:go_default_library",
         "@io_k8s_client_go//pkg/apis/extensions/v1beta1:go_default_library",
     ],

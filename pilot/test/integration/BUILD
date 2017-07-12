@@ -14,6 +14,7 @@ go_library(
         "tcp.go",
         "zipkin.go",
     ],
+    visibility = ["//visibility:private"],
     deps = [
         "//adapter/config/tpr:go_default_library",
         "//cmd:go_default_library",
@@ -36,4 +37,5 @@ go_binary(
     data = glob(["testdata/*"]) + ["//platform/kube:kubeconfig"],
     library = ":go_default_library",
     tags = ["manual"],
+    visibility = ["//visibility:public"],
 )

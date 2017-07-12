@@ -89,6 +89,10 @@ func TestIntoResourceFile(t *testing.T) {
 			want: "testdata/multi-init.yaml.injected",
 		},
 		{
+			in:   "testdata/statefulset.yaml",
+			want: "testdata/statefulset.yaml.injected",
+		},
+		{
 			in:             "testdata/enable-core-dump.yaml",
 			want:           "testdata/enable-core-dump.yaml.injected",
 			enableCoreDump: true,
