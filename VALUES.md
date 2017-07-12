@@ -19,10 +19,6 @@ values we hold as a team:
     applicability of Istio). Empathize with our users. Focus on the specific
     issue at hand, and remember that we all care about the project, first and
     foremost.
-  - If you feel upset - disengage, then write down what bothers you in an email
-    to yourself - don’t send it to anyone. If you feel the same way the next
-    morning, find a constructive way to address the issue or raise it with a
-    friend or a lead.
   - Emails to the [mailing lists](CONTRIBUTING.md#contributing-a-feature),
     document comments, or meetings are often better and higher bandwidth ways to
     communicate complex and nuanced design issues, as opposed to protracted
