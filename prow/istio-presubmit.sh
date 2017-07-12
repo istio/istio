@@ -10,7 +10,7 @@ if [ "${CI}" == "bootstrap" ]; then
     ln -s ${GOPATH}/src/github.com/istio/istio ${GOPATH}/src/istio.io
     cd ${GOPATH}/src/istio.io/istio/
     ARTIFACTS_DIR="${GOPATH}/src/istio.io/istio/_artifacts"
-    E2E_ARGS+=(--test_log_path="${ARTIFACTS_DIR}")
+    E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}")
 
     # use volume mount from istio-presubmit job's pod spec
     mkdir -p ${HOME}/.kube

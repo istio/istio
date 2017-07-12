@@ -36,7 +36,7 @@ import (
 
 var (
 	logsBucketPath = flag.String("logs_bucket_path", "", "Cloud Storage Bucket path to use to store logs")
-	testLogsPath   = flag.String("test_log_path", "", "Local path to store logs in")
+	testLogsPath   = flag.String("test_logs_path", "", "Local path to store logs in")
 )
 
 const (
