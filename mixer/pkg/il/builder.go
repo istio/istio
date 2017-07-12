@@ -209,15 +209,15 @@ func (f *Builder) ALookup(v string) {
 
 // AllocateLabel allocates a new label value for use within the code.
 func (f *Builder) AllocateLabel() string {
-	l := fmt.Sprintf("L%d", len(f.labels))
-	f.labels[l] = 0
+	l := fmt.Sprintf("L%d", len(f.labels)+len(f.fixups))
+	f.fixups[l] = []uint32{}
 	return l
 }
 
 // SetLabelPos puts the label position at the current bytecode point that builder is pointing at.
 // Panics if the label position was already set.
 func (f *Builder) SetLabelPos(label string) {
-	if f.labels[label] != 0 {
+	if _, exists := f.labels[label]; exists {
 		panic("il.Builder: setting the label position twice.")
 	}
 	adr := uint32(len(f.body))
@@ -226,6 +226,7 @@ func (f *Builder) SetLabelPos(label string) {
 		for _, fixup := range fixups {
 			f.body[fixup] = adr
 		}
+		delete(f.fixups, label)
 	}
 }
 
@@ -247,7 +248,6 @@ func (f *Builder) Jmp(label string) {
 func (f *Builder) jump(op Opcode, label string) {
 	adr, exists := f.labels[label]
 	if !exists {
-		f.labels[label] = 0
 		adr = 0
 	}
 

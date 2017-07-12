@@ -338,6 +338,9 @@ var builderTests = []builderTest{
 			b.Nop()
 			b.Jz(l)
 			b.Nop()
+			b.Jmp("LLL")
+			b.SetLabelPos("LLL")
+			b.Nop()
 		},
 		e: []uint32{
 			uint32(Nop),
@@ -359,6 +362,9 @@ var builderTests = []builderTest{
 			uint32(Nop),
 			uint32(Jz),
 			10, // label address
+			uint32(Nop),
+			uint32(Jmp),
+			22,
 			uint32(Nop),
 		},
 	},
@@ -389,4 +395,17 @@ func Test(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetLabelPosTwicePanics(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+
+	p := NewProgram()
+	b := NewBuilder(p.strings)
+	b.SetLabelPos("l")
+	b.SetLabelPos("l") // Try setting again.
 }
