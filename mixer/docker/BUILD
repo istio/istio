@@ -1,6 +1,6 @@
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-load("@io_bazel_rules_docker//docker:docker.bzl", "docker_build")
 load("//docker:mixer_docker.bzl", "mixer_docker_build")
+load(":cacerts.bzl", "cacerts")
 
 # Use "manual" target tag to skip rules in the wildcard expansion
 
@@ -15,11 +15,24 @@ pkg_tar(
     tags = ["manual"],
 )
 
+sh_binary(
+    name = "extract_certs",
+    srcs = ["extract.sh"],
+)
+
+cacerts(
+    name = "cacerts",
+)
+
 mixer_docker_build(
     cmd = [
         "--configStoreURL=fs:///etc/opt/mixer/configroot",
         "--logtostderr",
         "--v=2",
+    ],
+    debs = [
+        "@openssl//file:pkg.deb",
+        "@libssl1.0.0//file:pkg.deb",
     ],
     entrypoint = [
         "/usr/local/bin/mixs",
@@ -46,5 +59,6 @@ mixer_docker_build(
     tars = [
         ":mixer_tar",
         "//testdata:configs_tar",
+        ":cacerts.tar",
     ],
 )
