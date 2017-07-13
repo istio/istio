@@ -509,6 +509,66 @@ new_git_repository(
 )
 
 ##
+## Docker image build deps
+##
+
+git_repository(
+    name = "distroless",
+    commit = "3af69e6d50747bca265e9699fe7cc0c80f6ed1e3",  # Jun 27, 2017 (no releases)
+    remote = "https://github.com/GoogleCloudPlatform/distroless.git",
+)
+
+git_repository(
+    name = "runtimes_common",
+    commit = "3d73b4fecbd18de77588ab5eef712d50f34f601e",  # Jun 27, 2017 (no releases)
+    remote = "https://github.com/GoogleCloudPlatform/runtimes-common.git",
+)
+
+load(
+    "@distroless//package_manager:package_manager.bzl",
+    "package_manager_repositories",
+    "dpkg_src",
+    "dpkg",
+)
+
+package_manager_repositories()
+
+dpkg_src(
+    name = "debian_jessie",
+    arch = "amd64",
+    distro = "jessie",
+    url = "http://deb.debian.org",
+)
+
+dpkg_src(
+    name = "debian_jessie_backports",
+    arch = "amd64",
+    distro = "jessie-backports",
+    url = "http://deb.debian.org",
+)
+
+# For the glibc base image.
+dpkg(
+    name = "libc6",
+    source = "@debian_jessie//file:Packages.json",
+)
+
+dpkg(
+    name = "ca-certificates",
+    source = "@debian_jessie//file:Packages.json",
+)
+
+dpkg(
+    name = "openssl",
+    source = "@debian_jessie//file:Packages.json",
+)
+
+dpkg(
+    name = "libssl1.0.0",
+    source = "@debian_jessie//file:Packages.json",
+)
+
+##
 ## Testing
 ##
 
