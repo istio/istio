@@ -9,6 +9,7 @@
           "name": "http_connection_manager",
           "config": {
             "codec_type": "auto",
+	    "generate_request_id": true,
             "stat_prefix": "ingress_http",
             "route_config": {
               "virtual_hosts": [
@@ -66,6 +67,7 @@
           "name": "http_connection_manager",
           "config": {
             "codec_type": "auto",
+	    "generate_request_id": true,
             "stat_prefix": "ingress_http",
             "route_config": {
               "virtual_hosts": [

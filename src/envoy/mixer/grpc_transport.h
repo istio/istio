@@ -32,9 +32,9 @@ namespace Mixer {
 class GrpcTransport : public Grpc::RpcChannelCallbacks,
                       public Logger::Loggable<Logger::Id::http> {
  public:
-  GrpcTransport(Upstream::ClusterManager& cm);
+  GrpcTransport(Upstream::ClusterManager& cm, const HeaderMap* headers);
 
-  void onPreRequestCustomizeHeaders(Http::HeaderMap& headers) override {}
+  void onPreRequestCustomizeHeaders(Http::HeaderMap& headers) override;
 
   void onSuccess() override;
 
@@ -54,30 +54,21 @@ class GrpcTransport : public Grpc::RpcChannelCallbacks,
   Grpc::RpcChannelPtr channel_;
   // The generated mixer client stub.
   ::istio::mixer::v1::Mixer::Stub stub_;
-};
-
-// A helper class to pass Upstream::ClusterManager& in the lambda capture
-// If passing Upstream::ClusterManager& directly in the capture, it assumes
-// const Upstream::ClusterManager&.
-class ClusterManagerStore {
- public:
-  ClusterManagerStore(Upstream::ClusterManager& cm) : cm_(cm) {}
-  Upstream::ClusterManager& cm() { return cm_; }
-
- private:
-  Upstream::ClusterManager& cm_;
+  // The header map from the origin client request.
+  const HeaderMap* headers_;
 };
 
 class CheckGrpcTransport : public GrpcTransport {
  public:
-  CheckGrpcTransport(Upstream::ClusterManager& cm) : GrpcTransport(cm) {}
+  CheckGrpcTransport(Upstream::ClusterManager& cm, const HeaderMap* headers)
+      : GrpcTransport(cm, headers) {}
 
   static ::istio::mixer_client::TransportCheckFunc GetFunc(
-      std::shared_ptr<ClusterManagerStore> cms) {
-    return [cms](const ::istio::mixer::v1::CheckRequest& request,
-                 ::istio::mixer::v1::CheckResponse* response,
-                 ::istio::mixer_client::DoneFunc on_done) {
-      CheckGrpcTransport* transport = new CheckGrpcTransport(cms->cm());
+      Upstream::ClusterManager& cm, const HeaderMap* headers) {
+    return [&cm, headers](const ::istio::mixer::v1::CheckRequest& request,
+                          ::istio::mixer::v1::CheckResponse* response,
+                          ::istio::mixer_client::DoneFunc on_done) {
+      CheckGrpcTransport* transport = new CheckGrpcTransport(cm, headers);
       transport->Call(request, response, on_done);
     };
   }
@@ -98,14 +89,15 @@ class CheckGrpcTransport : public GrpcTransport {
 
 class ReportGrpcTransport : public GrpcTransport {
  public:
-  ReportGrpcTransport(Upstream::ClusterManager& cm) : GrpcTransport(cm) {}
+  ReportGrpcTransport(Upstream::ClusterManager& cm)
+      : GrpcTransport(cm, nullptr) {}
 
   static ::istio::mixer_client::TransportReportFunc GetFunc(
-      std::shared_ptr<ClusterManagerStore> cms) {
-    return [cms](const ::istio::mixer::v1::ReportRequest& request,
+      Upstream::ClusterManager& cm) {
+    return [&cm](const ::istio::mixer::v1::ReportRequest& request,
                  ::istio::mixer::v1::ReportResponse* response,
                  ::istio::mixer_client::DoneFunc on_done) {
-      ReportGrpcTransport* transport = new ReportGrpcTransport(cms->cm());
+      ReportGrpcTransport* transport = new ReportGrpcTransport(cm);
       transport->Call(request, response, on_done);
     };
   }

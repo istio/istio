@@ -68,12 +68,14 @@ class MixerControl final : public Logger::Loggable<Logger::Id::http> {
 
  private:
   // Make remote check call.
-  void SendCheck(HttpRequestDataPtr request_data,
+  void SendCheck(HttpRequestDataPtr request_data, const HeaderMap* headers,
                  ::istio::mixer_client::DoneFunc on_done);
 
   // Make remote report call.
   void SendReport(HttpRequestDataPtr request_data);
 
+  // Envoy cluster manager for making gRPC calls.
+  Upstream::ClusterManager& cm_;
   // The mixer client
   std::unique_ptr<::istio::mixer_client::MixerClient> mixer_client_;
   // The mixer config

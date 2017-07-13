@@ -31,10 +31,30 @@ const std::chrono::milliseconds kGrpcRequestTimeoutMs(5000);
 // The name for the mixer server cluster.
 const char* kMixerServerClusterName = "mixer_server";
 
+// HTTP trace headers that should pass to gRPC metadata from origin request.
+// x-request-id is added for easy debugging.
+const LowerCaseString kRequestId("x-request-id");
+const LowerCaseString kB3TraceId("x-b3-traceid");
+const LowerCaseString kB3SpanId("x-b3-spanid");
+const LowerCaseString kB3ParentSpanId("x-b3-parentspanid");
+const LowerCaseString kB3Sampled("x-b3-sampled");
+const LowerCaseString kB3Flags("x-b3-flags");
+const LowerCaseString kOtSpanContext("x-ot-span-context");
+
+inline void CopyHeaderEntry(const HeaderEntry* entry,
+                            const LowerCaseString& key,
+                            Http::HeaderMap& headers) {
+  if (entry) {
+    std::string val(entry->value().c_str(), entry->value().size());
+    headers.addStaticKey(key, val);
+  }
+}
+
 }  // namespace
 
-GrpcTransport::GrpcTransport(Upstream::ClusterManager& cm)
-    : channel_(NewChannel(cm)), stub_(channel_.get()) {}
+GrpcTransport::GrpcTransport(Upstream::ClusterManager& cm,
+                             const HeaderMap* headers)
+    : channel_(NewChannel(cm)), stub_(channel_.get()), headers_(headers) {}
 
 void GrpcTransport::onSuccess() {
   log().debug("grpc: return OK");
@@ -70,6 +90,20 @@ Grpc::RpcChannelPtr GrpcTransport::NewChannel(Upstream::ClusterManager& cm) {
 
 bool GrpcTransport::IsMixerServerConfigured(Upstream::ClusterManager& cm) {
   return cm.get(kMixerServerClusterName) != nullptr;
+}
+
+void GrpcTransport::onPreRequestCustomizeHeaders(Http::HeaderMap& headers) {
+  if (!headers_) return;
+
+  CopyHeaderEntry(headers_->RequestId(), kRequestId, headers);
+  CopyHeaderEntry(headers_->XB3TraceId(), kB3TraceId, headers);
+  CopyHeaderEntry(headers_->XB3SpanId(), kB3SpanId, headers);
+  CopyHeaderEntry(headers_->XB3ParentSpanId(), kB3ParentSpanId, headers);
+  CopyHeaderEntry(headers_->XB3Sampled(), kB3Sampled, headers);
+  CopyHeaderEntry(headers_->XB3Flags(), kB3Flags, headers);
+
+  // This one is NOT inline, need to do linar search.
+  CopyHeaderEntry(headers_->get(kOtSpanContext), kOtSpanContext, headers);
 }
 
 }  // namespace Mixer
