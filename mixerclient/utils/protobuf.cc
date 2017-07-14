@@ -25,6 +25,13 @@ using ::google::protobuf::util::error::Code;
 
 namespace istio {
 namespace mixer_client {
+namespace {
+
+// The error string prefix for Invalid dictionary.
+const char* kInvalidDictionaryErrorPrefix =
+    "Request could not be processed due to invalid";
+
+}  // namespace
 
 // Convert timestamp from time_point to Timestamp
 Timestamp CreateTimestamp(system_clock::time_point tp) {
@@ -50,6 +57,11 @@ milliseconds ToMilliseonds(const Duration& duration) {
 
 Status ConvertRpcStatus(const ::google::rpc::Status& status) {
   return Status(static_cast<Code>(status.code()), status.message());
+}
+
+bool InvalidDictionaryStatus(const Status& status) {
+  return status.error_code() == Code::INVALID_ARGUMENT &&
+         status.error_message().starts_with(kInvalidDictionaryErrorPrefix);
 }
 
 }  // namespace mixer_client

@@ -41,6 +41,8 @@ std::chrono::milliseconds ToMilliseonds(
 ::google::protobuf::util::Status ConvertRpcStatus(
     const ::google::rpc::Status& status);
 
+bool InvalidDictionaryStatus(const ::google::protobuf::util::Status& status);
+
 }  // namespace mixer_client
 }  // namespace istio
 

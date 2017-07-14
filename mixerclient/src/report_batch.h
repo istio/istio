@@ -28,8 +28,7 @@ namespace mixer_client {
 class ReportBatch {
  public:
   ReportBatch(const ReportOptions& options, TransportReportFunc transport,
-              TimerCreateFunc timer_create,
-              const AttributeConverter& converter);
+              TimerCreateFunc timer_create, AttributeConverter& converter);
 
   virtual ~ReportBatch();
 
@@ -52,7 +51,7 @@ class ReportBatch {
   TimerCreateFunc timer_create_;
 
   // Attribute converter.
-  const AttributeConverter& converter_;
+  AttributeConverter& converter_;
 
   // Mutex guarding the access of batch data;
   std::mutex mutex_;

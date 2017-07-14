@@ -98,21 +98,26 @@ void MixerClientImpl::Check(const Attributes &attributes,
   if (!transport) {
     transport = options_.check_transport;
   }
-  transport(request, response, [response, raw_check_result, raw_quota_result,
-                                on_done](const Status &status) {
-    raw_check_result->SetResponse(status, *response);
-    raw_quota_result->SetResponse(status, *response);
-    if (on_done) {
-      if (!raw_check_result->status().ok()) {
-        on_done(raw_check_result->status());
-      } else {
-        on_done(raw_quota_result->status());
-      }
-    }
-    delete raw_check_result;
-    delete raw_quota_result;
-    delete response;
-  });
+  transport(request, response,
+            [this, response, raw_check_result, raw_quota_result,
+             on_done](const Status &status) {
+              raw_check_result->SetResponse(status, *response);
+              raw_quota_result->SetResponse(status, *response);
+              if (on_done) {
+                if (!raw_check_result->status().ok()) {
+                  on_done(raw_check_result->status());
+                } else {
+                  on_done(raw_quota_result->status());
+                }
+              }
+              delete raw_check_result;
+              delete raw_quota_result;
+              delete response;
+
+              if (InvalidDictionaryStatus(status)) {
+                converter_.ShrinkGlobalDictionary();
+              }
+            });
 }
 
 void MixerClientImpl::Report(const Attributes &attributes) {

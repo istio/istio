@@ -22,6 +22,10 @@ namespace istio {
 namespace mixer_client {
 namespace {
 
+// The size of first version of global dictionary.
+// If any dictionary error, global dictionary will fall back to this version.
+const int kGlobalDictionaryBaseSize = 111;
+
 // Return global dictionary index.
 int GlobalDictIndex(int idx) { return idx; }
 
@@ -179,6 +183,25 @@ void AttributeConverter::Convert(const Attributes& attributes,
 std::unique_ptr<BatchConverter> AttributeConverter::CreateBatchConverter()
     const {
   return std::unique_ptr<BatchConverter>(new BatchConverterImpl(global_dict_));
+}
+
+void AttributeConverter::ShrinkGlobalDictionary() {
+  if (global_dict_.size() <= kGlobalDictionaryBaseSize) {
+    return;
+  }
+
+  GOOGLE_LOG(INFO) << "Shrink global dictionary " << global_dict_.size()
+                   << " to base.";
+  std::vector<std::string> words;
+  for (const auto& it : global_dict_) {
+    if (it.second >= kGlobalDictionaryBaseSize) {
+      words.push_back(it.first);
+    }
+  }
+
+  for (const auto& word : words) {
+    global_dict_.erase(word);
+  }
 }
 
 }  // namespace mixer_client

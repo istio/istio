@@ -53,6 +53,9 @@ class AttributeConverter {
 
   int global_word_count() const { return global_dict_.size(); }
 
+  // Shrink global dictionary to the first version.
+  void ShrinkGlobalDictionary();
+
  private:
   std::unordered_map<std::string, int> global_dict_;
 };

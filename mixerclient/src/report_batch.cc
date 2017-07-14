@@ -14,6 +14,7 @@
  */
 
 #include "src/report_batch.h"
+#include "utils/protobuf.h"
 
 using ::istio::mixer::v1::ReportRequest;
 using ::istio::mixer::v1::ReportResponse;
@@ -26,7 +27,7 @@ namespace mixer_client {
 ReportBatch::ReportBatch(const ReportOptions& options,
                          TransportReportFunc transport,
                          TimerCreateFunc timer_create,
-                         const AttributeConverter& converter)
+                         AttributeConverter& converter)
     : options_(options),
       transport_(transport),
       timer_create_(timer_create),
@@ -71,10 +72,13 @@ void ReportBatch::FlushWithLock() {
   }
 
   ReportResponse* response = new ReportResponse;
-  transport_(*request, response, [response](const Status& status) {
+  transport_(*request, response, [this, response](const Status& status) {
     delete response;
     if (!status.ok()) {
       GOOGLE_LOG(ERROR) << "Mixer Report failed with: " << status.ToString();
+      if (InvalidDictionaryStatus(status)) {
+        converter_.ShrinkGlobalDictionary();
+      }
     }
   });
 }
