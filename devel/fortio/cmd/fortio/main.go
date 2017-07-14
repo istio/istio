@@ -20,6 +20,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"sort"
 
 	"istio.io/istio/devel/fortio"
@@ -82,6 +83,7 @@ func main() {
 		percentilesFlag = flag.String("p", "50,75,99,99.9", "List of pXX to calculate")
 		resolutionFlag  = flag.Float64("r", defaults.Resolution, "Resolution of the histogram lowest buckets in seconds")
 		compressionFlag = flag.Bool("compression", false, "Enable http compression")
+		goMaxProcsFlag  = flag.Int("gomaxprocs", 0, "Setting for runtime.GOMAXPROCS, <1 doesn't change the default")
 		headersFlags    flagList
 	)
 	flag.Var(&headersFlags, "H", "Additional Header(s)")
@@ -98,7 +100,9 @@ func main() {
 		usage()
 	}
 	url = flag.Arg(0)
-	fmt.Printf("Fortio running at %g queries per second for %v: %s\n", *qpsFlag, *durationFlag, url)
+	prevGoMaxProcs := runtime.GOMAXPROCS(*goMaxProcsFlag)
+	fmt.Printf("Fortio running at %g queries per second, %d->%d procs, for %v: %s\n",
+		*qpsFlag, prevGoMaxProcs, runtime.GOMAXPROCS(0), *durationFlag, url)
 	o := fortio.RunnerOptions{
 		QPS:         *qpsFlag,
 		Function:    test,
