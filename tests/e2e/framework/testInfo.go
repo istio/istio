@@ -201,7 +201,7 @@ func (t testInfo) FetchAndSaveClusterLogs() error {
 	for _, resrc := range resources {
 		glog.Info(fmt.Sprintf("Fetching deployment info on %s\n", resrc))
 		path := filepath.Join(t.LogsPath, fmt.Sprintf("%s.yaml", resrc))
-		if yaml, err0 := util.Shell(fmt.Sprintf("kubectl get %s -o yaml", resrc)); err0 != nil {
+		if yaml, err0 := util.Shell(fmt.Sprintf("kubectl get %s -n %s -o yaml", resrc, *namespace)); err0 != nil {
 			errMsg += err0.Error() + "\n"
 		} else {
 			if f, err1 := os.Create(path); err1 != nil {
