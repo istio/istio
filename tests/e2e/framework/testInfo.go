@@ -51,7 +51,7 @@ var (
 const (
 	tmpPrefix   = "istio.e2e."
 	idMaxLength = 36
-	pageSize    = 500 // number of log entries for each paginated request to fetch logs
+	pageSize    = 1000 // number of log entries for each paginated request to fetch logs
 )
 
 // TestInfo gathers Test Information
@@ -191,7 +191,7 @@ func (t testInfo) FetchAndSaveClusterLogs() error {
 		if err != nil {
 			return err
 		}
-		if i := strings.Index(logName, "test-infra-presubmit"); i == -1 {
+		if i := strings.Index(logName, "presubmit"); i == -1 {
 			if err := fetchAndWrite(logName); err != nil {
 				errMsg += err.Error() + "\n"
 			}
@@ -201,16 +201,16 @@ func (t testInfo) FetchAndSaveClusterLogs() error {
 	for _, resrc := range resources {
 		glog.Info(fmt.Sprintf("Fetching deployment info on %s\n", resrc))
 		path := filepath.Join(t.LogsPath, fmt.Sprintf("%s.yaml", resrc))
-		if yaml, err0 := util.Shell(fmt.Sprintf("kubectl get %s -o yaml", resrc)); err0 == nil {
-			if f, err1 := os.Create(path); err1 == nil {
+		if yaml, err0 := util.Shell(fmt.Sprintf("kubectl get %s -o yaml", resrc)); err0 != nil {
+			errMsg += err0.Error() + "\n"
+		} else {
+			if f, err1 := os.Create(path); err1 != nil {
+				errMsg += err1.Error() + "\n"
+			} else {
 				if _, err2 := f.WriteString(fmt.Sprintf("%s\n", yaml)); err2 != nil {
 					errMsg += err2.Error() + "\n"
 				}
-			} else {
-				errMsg += err1.Error() + "\n"
 			}
-		} else {
-			errMsg += err0.Error() + "\n"
 		}
 	}
 	if errMsg != "" {
