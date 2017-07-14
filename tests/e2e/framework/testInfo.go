@@ -51,7 +51,7 @@ var (
 const (
 	tmpPrefix   = "istio.e2e."
 	idMaxLength = 36
-	pageSize    = 100 // number of log entries for each paginated request to fetch logs
+	pageSize    = 500 // number of log entries for each paginated request to fetch logs
 )
 
 // TestInfo gathers Test Information
