@@ -68,7 +68,7 @@ In order to contribute a feature to Istio you'll need to go through the followin
 - Once there is general agreement that the feature is useful, create a GitHub issue to track the discussion. The issue should include information about the requirements and use cases that it is trying to address.
 - Include a discussion of the proposed design and technical details of the implementation in the issue.
 - Once there is general agreement on the technical direction, submit a PR.
-- Contribute documentation of the feature to the [istio.io](https://istio.io) repo (https://github.com/istio/istio.github.io).
+- Contribute documentation of the feature to the [istio.io](https://istio.io) [repo](https://github.com/istio/istio.github.io).
 
 If you would like to skip the process of submitting an issue and
 instead would prefer to just submit a pull request with your desired
