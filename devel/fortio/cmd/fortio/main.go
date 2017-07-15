@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"runtime/pprof"
 	"sort"
 
 	"istio.io/istio/devel/fortio"
@@ -85,6 +86,7 @@ func main() {
 		resolutionFlag  = flag.Float64("r", defaults.Resolution, "Resolution of the histogram lowest buckets in seconds")
 		compressionFlag = flag.Bool("compression", false, "Enable http compression")
 		goMaxProcsFlag  = flag.Int("gomaxprocs", 0, "Setting for runtime.GOMAXPROCS, <1 doesn't change the default")
+		profileFlag     = flag.String("profile", "", "write .cpu and .mem profiles to file")
 		headersFlags    flagList
 	)
 	flag.Var(&headersFlags, "H", "Additional Header(s)")
@@ -141,7 +143,25 @@ func main() {
 		state[i].retCodes = make(map[int]int64)
 	}
 
+	if *profileFlag != "" {
+		fc, err := os.Create(*profileFlag + ".cpu")
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(fc) //nolint: gas,errcheck
+	}
 	r.Run()
+	if *profileFlag != "" {
+		pprof.StopCPUProfile()
+		fm, err := os.Create(*profileFlag + ".mem")
+		if err != nil {
+			log.Fatal(err)
+		}
+		runtime.GC()               // get up-to-date statistics
+		pprof.WriteHeapProfile(fm) // nolint:gas,errcheck
+		fm.Close()                 // nolint:gas,errcheck
+		fmt.Printf("Wrote profile data to %s.{cpu|mem}\n", *profileFlag)
+	}
 	// Numthreads may have reduced
 	numThreads = r.Options().NumThreads
 	keys := []int{}
