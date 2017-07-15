@@ -32,6 +32,7 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/golang/glog"
 	"github.com/google/uuid"
+	multierror "github.com/hashicorp/go-multierror"
 	"google.golang.org/api/iterator"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 
@@ -182,7 +183,7 @@ func (t testInfo) FetchAndSaveClusterLogs() error {
 		Parent: "projects/" + *projectID,
 	}
 	it := loggingClient.ListLogs(ctx, req)
-	errMsg := ""
+	multiErr := fmt.Errorf("")
 	for {
 		logName, err := it.Next()
 		if err == iterator.Done {
@@ -193,7 +194,7 @@ func (t testInfo) FetchAndSaveClusterLogs() error {
 		}
 		if i := strings.Index(logName, "presubmit"); i == -1 {
 			if err := fetchAndWrite(logName); err != nil {
-				errMsg += err.Error() + "\n"
+				multiErr = multierror.Append(multiErr, err)
 			}
 		}
 	}
@@ -202,19 +203,19 @@ func (t testInfo) FetchAndSaveClusterLogs() error {
 		glog.Info(fmt.Sprintf("Fetching deployment info on %s\n", resrc))
 		path := filepath.Join(t.LogsPath, fmt.Sprintf("%s.yaml", resrc))
 		if yaml, err0 := util.Shell(fmt.Sprintf("kubectl get %s -n %s -o yaml", resrc, *namespace)); err0 != nil {
-			errMsg += err0.Error() + "\n"
+			multiErr = multierror.Append(multiErr, err0)
 		} else {
 			if f, err1 := os.Create(path); err1 != nil {
-				errMsg += err1.Error() + "\n"
+				multiErr = multierror.Append(multiErr, err1)
 			} else {
 				if _, err2 := f.WriteString(fmt.Sprintf("%s\n", yaml)); err2 != nil {
-					errMsg += err2.Error() + "\n"
+					multiErr = multierror.Append(multiErr, err2)
 				}
 			}
 		}
 	}
-	if errMsg != "" {
-		return fmt.Errorf("%s", errMsg)
+	if multiErr.Error() != "" {
+		return multiErr
 	}
 	return nil
 }
