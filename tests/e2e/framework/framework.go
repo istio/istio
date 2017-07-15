@@ -183,7 +183,7 @@ func (c *CommonConfig) saveLogs(r int) error {
 		return err
 	}
 	if *logProvider == "stackdriver" {
-		if err := c.Info.FetchAndSaveClusterLogs(); err != nil {
+		if err := c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace); err != nil {
 			glog.Errorf("Error during log saving: %s", err)
 			return err
 		}
