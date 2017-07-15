@@ -26,7 +26,8 @@ import (
 	"istio.io/istio/devel/fortio"
 )
 
-type threadStats struct {
+type threadState struct {
+	client   *fortio.Client
 	retCodes map[int]int64
 	sizes    *fortio.Histogram
 }
@@ -34,7 +35,7 @@ type threadStats struct {
 // Used globally / in test() TODO: change periodic.go to carry caller defined context
 var (
 	url           string
-	stats         []threadStats
+	state         []threadState
 	verbosityFlag = flag.Int("v", 0, "Verbosity level (0 is quiet)")
 )
 
@@ -43,13 +44,13 @@ func test(t int) {
 	if *verbosityFlag > 1 {
 		log.Printf("Calling in %d", t)
 	}
-	code, body := fortio.FetchURL(url)
+	code, body := state[t].client.Fetch()
 	size := len(body)
 	if *verbosityFlag > 1 {
 		log.Printf("Got in %3d sz %d", code, size)
 	}
-	stats[t].retCodes[code]++
-	stats[t].sizes.Record(float64(size))
+	state[t].retCodes[code]++
+	state[t].sizes.Record(float64(size))
 }
 
 // -- Support for multiple instances of -H flag on cmd line:
@@ -114,40 +115,45 @@ func main() {
 	}
 	r := fortio.NewPeriodicRunner(&o)
 	numThreads := r.Options().NumThreads
-	fortio.TuneHTTPClient(numThreads, *compressionFlag) // set pool size etc
-	// 1 Warm up / smoke test:  TODO: warm up all threads/connections
-	code, body := fortio.FetchURL(url)
-	if code != http.StatusOK {
-		fmt.Printf("Aborting because of error %d for %s\n%s\n", code, url, string(body))
-		os.Exit(1)
-	}
-	if verbosity > 0 {
-		fmt.Printf("first hit of url %s: status %03d\n%s\n", url, code, string(body))
-	}
-
-	total := threadStats{
+	total := threadState{
 		retCodes: make(map[int]int64),
 		sizes:    fortio.NewHistogram(0, 100),
 	}
 
-	stats = make([]threadStats, numThreads)
+	state = make([]threadState, numThreads)
 	for i := 0; i < numThreads; i++ {
-		stats[i].sizes = total.sizes.Clone()
-		stats[i].retCodes = make(map[int]int64)
+		// Create a client (and transport) and connect once for each 'thread'
+		state[i].client = fortio.NewClient(url, 1, *compressionFlag)
+		if state[i].client == nil {
+			fmt.Printf("Aborting because of being unable to create client %d for %s\n", i, url)
+			os.Exit(1)
+		}
+		code, body := state[i].client.Fetch()
+		if code != http.StatusOK {
+			fmt.Printf("Aborting because of error %d for %s\n%s\n", code, url, string(body))
+			os.Exit(1)
+		}
+		if i == 0 && verbosity > 0 {
+			fmt.Printf("first hit of url %s: status %03d\n%s\n", url, code, string(body))
+		}
+		// Setup the stats for each 'thread'
+		state[i].sizes = total.sizes.Clone()
+		state[i].retCodes = make(map[int]int64)
 	}
+
 	r.Run()
 	// Numthreads may have reduced
 	numThreads = r.Options().NumThreads
 	keys := []int{}
 	for i := 0; i < numThreads; i++ {
 		// Q: is there some copying each time stats[i] is used?
-		for k := range stats[i].retCodes {
+		for k := range state[i].retCodes {
 			if _, exists := total.retCodes[k]; !exists {
 				keys = append(keys, k)
 			}
-			total.retCodes[k] += stats[i].retCodes[k]
+			total.retCodes[k] += state[i].retCodes[k]
 		}
-		total.sizes.Transfer(stats[i].sizes)
+		total.sizes.Transfer(state[i].sizes)
 	}
 	sort.Ints(keys)
 	for _, k := range keys {
