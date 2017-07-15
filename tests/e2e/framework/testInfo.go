@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -47,6 +48,7 @@ var (
 		"service",
 		"ingress",
 	}
+	testLogsPath = flag.String("test_logs_path", "", "Local path to store logs in")
 )
 
 const (
@@ -74,24 +76,32 @@ type testStatus struct {
 
 // NewTestInfo creates a TestInfo given a test id.
 func newTestInfo(testID string) (*testInfo, error) {
-	bucket := ""
-	logsPath := ""
-	f := flag.Lookup("log_dir")
-	tmpDir := f.Value.String()
-	if tmpDir == "" {
-		var err error
-
-		tmpDir, err = ioutil.TempDir(os.TempDir(), tmpPrefix)
-		if err != nil {
-			return nil, err
-		}
-
-	}
-	glog.Infof("Using log dir %s", tmpDir)
 	id, err := generateRunID(testID)
 	if err != nil {
 		return nil, err
 	}
+	bucket := ""
+	logsPath := ""
+	tmpDir := ""
+	// testLogsPath will be used when called by Prow.
+	// Bootstrap already gather stdout and stdin so we don't need to keep the logs from glog.
+	if *testLogsPath != "" {
+		tmpDir = path.Join(*testLogsPath, id)
+		if err = os.MkdirAll(tmpDir, 0777); err != nil {
+			return nil, err
+		}
+	} else {
+		f := flag.Lookup("log_dir")
+		tmpDir = f.Value.String()
+		if tmpDir == "" {
+			tmpDir, err = ioutil.TempDir(os.TempDir(), tmpPrefix)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	glog.Infof("Using log dir %s", tmpDir)
+
 	if *logsBucketPath != "" {
 		r := regexp.MustCompile(`gs://(?P<bucket>[^\/]+)/(?P<path>.+)`)
 		m := r.FindStringSubmatch(*logsBucketPath)
