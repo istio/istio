@@ -75,9 +75,7 @@ review, withdraws their hold, or is overruled by a preponderance of maintainers.
 
 ## Project maintainers
 
-Merging of PRs is done by the project maintainers. The current
-list of maintainers is kept in the [OWNERS](OWNERS) file at the root of
-each repository.
+Merging of PRs is done by the project maintainers.
 
 Like many open source projects, becoming a maintainer is based on contributions
 to the project. Active contributors to the project will eventually get noticed
@@ -95,6 +93,5 @@ PRs may only be merged after the following criteria are met:
 
 1. It has been open for at least 1 business day.
 1. It has no `NO LGTM` comment from a reviewer.
-1. It has been `LGTM`-ed by at least one of the maintainers listed in
-   the OWNERS file for that repository.
+1. It has been `LGTM`-ed by at least one of the maintainers of that repository.
 1. It has all appropriate corresponding documentation and tests.
