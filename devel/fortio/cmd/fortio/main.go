@@ -28,9 +28,10 @@ import (
 )
 
 type threadState struct {
-	client   *fortio.Client
-	retCodes map[int]int64
-	sizes    *fortio.Histogram
+	client      fortio.Fetcher
+	retCodes    map[int]int64
+	sizes       *fortio.Histogram
+	headerSizes *fortio.Histogram
 }
 
 // Used globally / in test() TODO: change periodic.go to carry caller defined context
@@ -45,13 +46,14 @@ func test(t int) {
 	if *verbosityFlag > 1 {
 		log.Printf("Calling in %d", t)
 	}
-	code, body := state[t].client.Fetch()
+	code, body, headerSize := state[t].client.Fetch()
 	size := len(body)
 	if *verbosityFlag > 1 {
-		log.Printf("Got in %3d sz %d", code, size)
+		log.Printf("Got in %3d hsz %d sz %d", code, headerSize, size)
 	}
 	state[t].retCodes[code]++
 	state[t].sizes.Record(float64(size))
+	state[t].headerSizes.Record(float64(headerSize))
 }
 
 // -- Support for multiple instances of -H flag on cmd line:
@@ -87,6 +89,7 @@ func main() {
 		compressionFlag = flag.Bool("compression", false, "Enable http compression")
 		goMaxProcsFlag  = flag.Int("gomaxprocs", 0, "Setting for runtime.GOMAXPROCS, <1 doesn't change the default")
 		profileFlag     = flag.String("profile", "", "write .cpu and .mem profiles to file")
+		httpClient      = flag.Int("http", 1, "-1 standard client, 0 http/1.0 fast client, 1 http/1.1 fast client with keep-alive, 2 http/1.1 without keep-alive")
 		headersFlags    flagList
 	)
 	flag.Var(&headersFlags, "H", "Additional Header(s)")
@@ -94,6 +97,7 @@ func main() {
 
 	verbosity := *verbosityFlag
 	fortio.Verbosity = verbosity
+	log.SetFlags(log.Flags() | log.Lshortfile)
 	pList, err := fortio.ParsePercentiles(*percentilesFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to extract percentiles from -p: %v\n", err) // nolint(gas)
@@ -118,28 +122,39 @@ func main() {
 	r := fortio.NewPeriodicRunner(&o)
 	numThreads := r.Options().NumThreads
 	total := threadState{
-		retCodes: make(map[int]int64),
-		sizes:    fortio.NewHistogram(0, 100),
+		retCodes:    make(map[int]int64),
+		sizes:       fortio.NewHistogram(0, 100),
+		headerSizes: fortio.NewHistogram(0, 5),
 	}
 
 	state = make([]threadState, numThreads)
 	for i := 0; i < numThreads; i++ {
 		// Create a client (and transport) and connect once for each 'thread'
-		state[i].client = fortio.NewClient(url, 1, *compressionFlag)
+		switch *httpClient {
+		case 0:
+			state[i].client = fortio.NewBasicClient(url, "1.0", false)
+		case 1:
+			state[i].client = fortio.NewBasicClient(url, "1.1", true)
+		case 2:
+			state[i].client = fortio.NewBasicClient(url, "1.1", false)
+		default:
+			state[i].client = fortio.NewStdClient(url, 1, *compressionFlag)
+		}
 		if state[i].client == nil {
 			fmt.Printf("Aborting because of being unable to create client %d for %s\n", i, url)
 			os.Exit(1)
 		}
-		code, body := state[i].client.Fetch()
+		code, data, headerSize := state[i].client.Fetch()
 		if code != http.StatusOK {
-			fmt.Printf("Aborting because of error %d for %s\n%s\n", code, url, string(body))
+			fmt.Printf("Aborting because of error %d for %s\n%s\n", code, url, string(data))
 			os.Exit(1)
 		}
 		if i == 0 && verbosity > 0 {
-			fmt.Printf("first hit of url %s: status %03d\n%s\n", url, code, string(body))
+			fmt.Printf("first hit of url %s: status %03d, headers %d, total %d\n%s\n", url, code, headerSize, len(data), string(data))
 		}
 		// Setup the stats for each 'thread'
 		state[i].sizes = total.sizes.Clone()
+		state[i].headerSizes = total.headerSizes.Clone()
 		state[i].retCodes = make(map[int]int64)
 	}
 
@@ -174,14 +189,17 @@ func main() {
 			total.retCodes[k] += state[i].retCodes[k]
 		}
 		total.sizes.Transfer(state[i].sizes)
+		total.headerSizes.Transfer(state[i].headerSizes)
 	}
 	sort.Ints(keys)
 	for _, k := range keys {
 		fmt.Printf("Code %3d : %d\n", k, total.retCodes[k])
 	}
 	if verbosity > 0 {
-		total.sizes.Print(os.Stdout, "Response Body Sizes Histogram", 50)
+		total.headerSizes.Print(os.Stdout, "Response Header Sizes Histogram", 50)
+		total.sizes.Print(os.Stdout, "Response Body/Total Sizes Histogram", 50)
 	} else {
-		total.sizes.Counter.Print(os.Stdout, "Response Body Sizes")
+		total.headerSizes.Counter.Print(os.Stdout, "Response Header Sizes")
+		total.sizes.Counter.Print(os.Stdout, "Response Body/Total Sizes")
 	}
 }
