@@ -193,7 +193,7 @@ type BasicClient struct {
 }
 
 // NewBasicClient makes a basic, efficient http 1.0/1.1 client.
-// This doesn't need to be super efficient as it's created at the begining and
+// This doesn't need to be super efficient as it's created at the beginning and
 // reused many times.
 func NewBasicClient(urlStr string, proto string, keepAlive bool) Fetcher {
 	url, err := url.Parse(urlStr)
@@ -259,29 +259,35 @@ func NewBasicClient(urlStr string, proto string, keepAlive bool) Fetcher {
 	return &bc
 }
 
-const toLowerMask byte = ('a' - 'A')
+const toUpperMask = ^byte('a' - 'A')
 
-// ASCIIFold returns a byte array equal to the input string but in lowercase.
+func toUpper(b byte) byte {
+	if b >= 'a' && b <= 'z' {
+		b -= ('a' - 'A')
+	}
+	return b
+}
+
+// ASCIIToUpper returns a byte array equal to the input string but in lowercase.
 // Only wotks for ASCII, not meant for unicode.
-func ASCIIFold(str string) []byte {
+func ASCIIToUpper(str string) []byte {
 	numChars := utf8.RuneCountInString(str)
-	if numChars != len(str) {
+	if Verbosity > 0 && numChars != len(str) {
 		log.Printf("ASCIIFold(\"%s\") contains %d characters, some non ascii (byte length %d): will mangle", str, numChars, len(str))
 	}
 	res := make([]byte, numChars)
 	// less surprising if we only mangle the extended characters
 	i := 0
 	for _, c := range str { // Attention: _ here != i for unicode characters
-		res[i] = byte(c) | toLowerMask
+		res[i] = toUpper(byte(c))
 		i++
 	}
 	return res
 }
 
-// FoldFind searches the bytes assuming ascii, setting the lowercase bit
-// of the haystack for testing. Call ASCIIFold() on the haystack to fold that
-// one once for all. Not intented to work with unicode, meant for http headers
-// and to be fast.
+// FoldFind searches the bytes assuming ascii, ignoring the lowercase bit
+// for testing. Not intended to work with unicode, meant for http headers
+// and to be fast (see benchmark in test file).
 func FoldFind(haystack []byte, needle []byte) (bool, int) {
 	idx := 0
 	found := false
@@ -295,16 +301,26 @@ func FoldFind(haystack []byte, needle []byte) (bool, int) {
 	}
 	needleOffset := 0
 	for {
-		if (haystack[idx] | toLowerMask) == needle[needleOffset] {
-			if needleOffset == needleLen-1 {
-				found = true
+		h := haystack[idx]
+		n := needle[needleOffset]
+		// This line is quite performance sensitive. calling toUpper() for instance
+		// is a 30% hit, even if called only on the haystack. The XOR lets us be
+		// true for equality and the & with mask also true if the only difference
+		// between the 2 is the case bit.
+		xor := h ^ n // == 0 if strictly equal
+		if (xor&toUpperMask) != 0 || (((h < 32) || (n < 32)) && (xor != 0)) {
+			idx -= (needleOffset - 1) // does ++ most of the time
+			needleOffset = 0
+			if idx >= hackstackLen {
 				break
 			}
-			needleOffset++
-		} else {
-			idx -= needleOffset // will get a ++ below
-			needleOffset = 0
+			continue
 		}
+		if needleOffset == needleLen-1 {
+			found = true
+			break
+		}
+		needleOffset++
 		idx++
 		if idx >= hackstackLen {
 			break
@@ -338,9 +354,9 @@ func ParseDecimal(inp []byte) int {
 	return res
 }
 
-// Must be all lowercase to be found by FoldFind
-var contentLengthHeader = []byte("content-length:")
-var connectionClose = []byte("connection: close")
+// case doesn't matter
+var contentLengthHeader = []byte("\r\ncontent-length:")
+var connectionClose = []byte("\r\nconnection: close")
 
 // Fetch fetches the url content. Returns http code, data, offset of body.
 func (c *BasicClient) Fetch() (int, []byte, int) {
@@ -377,7 +393,7 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 			if Verbosity > 0 {
 				log.Printf("Closing dead socket %v (%v)", *conn, err)
 			}
-			conn.Close()
+			conn.Close() // nolint: errcheck
 			c.errorCount++
 			return c.Fetch()
 		}
@@ -458,6 +474,12 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 							break
 						}
 						contentLength := ParseDecimal(c.buffer[offset+len(contentLengthHeader) : lastCRLF])
+						if contentLength < 0 {
+							log.Printf("Warning: content-length unparsable %s", string(c.buffer[offset+2:offset+len(contentLengthHeader)+4]))
+							keepAlive = false
+							break
+
+						}
 						max = lastCRLF + contentLength
 						if Verbosity > 1 {
 							log.Printf("found content length %d", contentLength)

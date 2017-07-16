@@ -14,7 +14,10 @@
 
 package fortio
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestNewHTTPRequest(t *testing.T) {
 	var tests = []struct {
@@ -32,7 +35,7 @@ func TestNewHTTPRequest(t *testing.T) {
 	}
 }
 
-func TestFoldFind(t *testing.T) {
+func TestFoldFind1(t *testing.T) {
 	var tests = []struct {
 		haystack string // input
 		needle   string // input
@@ -40,21 +43,27 @@ func TestFoldFind(t *testing.T) {
 		offset   int    // where
 	}{
 		{"", "", true, 0},
-		{"", "a", false, -1},
+		{"", "A", false, -1},
 		{"abc", "", true, 0},
-		{"abc", "abcd", false, -1},
-		{"abc", "abc", true, 0},
-		{"aBcd", "abc", true, 0},
-		{"xaBc", "abc", true, 1},
-		{"aBc", "Abc", false, -1}, // only the haystack is folded
-		{"xaBcd", "abc", true, 1},
-		{"xA", "a", true, 1},
-		{"axabaBcd", "abc", true, 4},
-		{"axabxaBcd", "abc", true, 5},
-		{"axabxaBd", "abc", false, -1},
-		{"aaaab", "aaab", true, 1},
-		{"xaaaxaaa", "aaab", false, -1},
-		{"xxxxac", "ab", false, -1},
+		{"abc", "ABCD", false, -1},
+		{"abc", "ABC", true, 0},
+		{"aBcd", "ABC", true, 0},
+		{"xaBc", "ABC", true, 1},
+		{"XYZaBcUVW", "Abc", true, 3},
+		{"xaBcd", "ABC", true, 1},
+		{"Xa", "A", true, 1},
+		{"axabaBcd", "ABC", true, 4},
+		{"axabxaBcd", "ABC", true, 5},
+		{"axabxaBd", "ABC", false, -1},
+		{"AAAAB", "AAAB", true, 1},
+		{"xAAAxAAA", "AAAB", false, -1},
+		{"xxxxAc", "AB", false, -1},
+		{"X-: X", "-: ", true, 1},
+		{"\nX", "*X", false, -1}, // \n shouldn't fold into *
+		{"*X", "\nX", false, -1}, // \n shouldn't fold into *
+		{"\rX", "-X", false, -1}, // \r shouldn't fold into -
+		{"-X", "\rX", false, -1}, // \r shouldn't fold into -
+		{"foo\r\nContent-Length: 34\r\n", "CONTENT-LENGTH:", true, 5},
 	}
 	for _, tst := range tests {
 		f, o := FoldFind([]byte(tst.haystack), []byte(tst.needle))
@@ -67,31 +76,64 @@ func TestFoldFind(t *testing.T) {
 	}
 }
 
-func TestASCIIFold(t *testing.T) {
-	utf8Str := "世界aBc"
+func TestFoldFind2(t *testing.T) {
+	var haystack [1]byte
+	var needle [1]byte
+	// we don't mind for these to map to eachother in exchange for 30% perf gain
+	okExceptions := "@[\\]^_`{|}~"
+	for i := 0; i < 127; i++ { // skipping 127 too, matches _
+		haystack[0] = byte(i)
+		for j := 0; j < 128; j++ {
+			needle[0] = byte(j)
+			sh := string(haystack[:])
+			sn := string(needle[:])
+			f, o := FoldFind(haystack[:], needle[:])
+			shouldFind := strings.EqualFold(sh, sn)
+			if i == j || shouldFind {
+				if !f || o != 0 {
+					t.Errorf("Not found when should: %d 0x%x '%s' matching %d 0x%x '%s'",
+						i, i, sh, j, j, sn)
+				}
+				continue
+			}
+			if f || o != -1 {
+				if strings.Contains(okExceptions, sh) {
+					continue
+				}
+				t.Errorf("Found when shouldn't: %d 0x%x '%s' matching %d 0x%x '%s'",
+					i, i, sh, j, j, sn)
+			}
+		}
+	}
+}
+
+var utf8Str = "世界aBcdefGHiJklmnopqrstuvwxyZ"
+
+func TestASCIIToUpper(t *testing.T) {
+	Verbosity = 1
 	var tests = []struct {
 		input    string // input
 		expected string // input
 	}{
 		{"", ""},
-		{"a", "a"},
-		{"aBC", "abc"},
-		{"AbC", "abc"},
-		{utf8Str, "6labc" /* got mangled but only first 2 */},
+		{"A", "A"},
+		{"aBC", "ABC"},
+		{"AbC", "ABC"},
+		{utf8Str, "\026LABCDEFGHIJKLMNOPQRSTUVWXYZ" /* got mangled but only first 2 */},
 	}
 	for _, tst := range tests {
-		actual := ASCIIFold(tst.input)
+		actual := ASCIIToUpper(tst.input)
 		if tst.expected != string(actual) {
 			t.Errorf("Got '%+v', expecting '%+v' for ASCIIFold('%s')", actual, tst.expected, tst.input)
 		}
 	}
 	utf8bytes := []byte(utf8Str)
-	if len(utf8bytes) != 9 {
-		t.Errorf("Got %d utf8 bytes, expecting 9 for '%s'", len(utf8bytes), utf8Str)
+	if len(utf8bytes) != 26+6 {
+		t.Errorf("Got %d utf8 bytes, expecting 6+26 for '%s'", len(utf8bytes), utf8Str)
 	}
-	folded := ASCIIFold(utf8Str)
-	if len(folded) != 5 {
-		t.Errorf("Got %d folded bytes, expecting 2+3 for '%s'", len(folded), utf8Str)
+	folded := ASCIIToUpper(utf8Str)
+	if len(folded) != 26+2 {
+		t.Errorf("Got %d folded bytes, expecting 2+26 for '%s'", len(folded), utf8Str)
 	}
 }
 
@@ -113,5 +155,79 @@ func TestParseDecimal(t *testing.T) {
 		if tst.expected != actual {
 			t.Errorf("Got %d, expecting %d for ParseDecimal('%s')", actual, tst.expected, tst.input)
 		}
+	}
+}
+
+// --- for bench mark/comparaison
+
+func asciiFold0(str string) []byte {
+	return []byte(strings.ToUpper(str))
+}
+
+var toLowerMaskRune = rune(toUpperMask)
+
+func toLower(r rune) rune {
+	return r & toLowerMaskRune
+}
+
+func asciiFold1(str string) []byte {
+	return []byte(strings.Map(toLower, str))
+}
+
+var lw []byte
+
+func BenchmarkASCIIFoldNormalToLower(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		lw = asciiFold0(utf8Str)
+	}
+}
+func BenchmarkASCIIFoldCustomToLowerMap(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		lw = asciiFold1(utf8Str)
+	}
+}
+
+// Package's version (3x fastest)
+func BenchmarkASCIIToUpper(b *testing.B) {
+	Verbosity = 0
+	for n := 0; n < b.N; n++ {
+		lw = ASCIIToUpper(utf8Str)
+	}
+}
+
+// Note: newline inserted in set-cookie line because of linter (line too long)
+var testHaystack = []byte(`HTTP/1.1 200 OK
+Date: Sun, 16 Jul 2017 21:00:29 GMT
+Expires: -1
+Cache-Control: private, max-age=0
+Content-Type: text/html; charset=ISO-8859-1
+P3P: CP="This is not a P3P policy! See https://www.google.com/support/accounts/answer/151657?hl=en for more info."
+Server: gws
+X-XSS-Protection: 1; mode=block
+X-Frame-Options: SAMEORIGIN
+Set-Cookie: NID=107=sne5itxJgY_4dD951psa7cyP_rQ3ju-J9p0QGmKYl0l0xUVSVmGVeX8smU0VV6FyfQnZ4kkhaZ9ozxLpUWH-77K_0W8aXzE3
+PDQxwAynvJgGGA9rMRB9bperOblUOQ3XilG6B5-8auMREgbc; expires=Mon, 15-Jan-2018 21:00:29 GMT; path=/; domain=.google.com; HttpOnly
+Accept-Ranges: none
+Vary: Accept-Encoding
+Transfer-Encoding: chunked
+`)
+
+func FoldFind0(haystack []byte, needle []byte) (bool, int) {
+	offset := strings.Index(strings.ToUpper(string(haystack)), string(needle))
+	found := (offset >= 0)
+	return found, offset
+}
+
+func BenchmarkFoldFind0(b *testing.B) {
+	needle := []byte("VARY")
+	for n := 0; n < b.N; n++ {
+		FoldFind0(testHaystack, needle)
+	}
+}
+
+func BenchmarkFoldFind(b *testing.B) {
+	needle := []byte("VARY")
+	for n := 0; n < b.N; n++ {
+		FoldFind(testHaystack, needle)
 	}
 }
