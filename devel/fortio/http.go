@@ -290,7 +290,7 @@ func FoldFind(haystack []byte, needle []byte) (bool, int) {
 	if needleLen == 0 {
 		return true, 0
 	}
-	if needleLen > hackstackLen {
+	if needleLen > hackstackLen { // those 2 ifs also handles haystackLen == 0
 		return false, -1
 	}
 	needleOffset := 0
@@ -302,7 +302,7 @@ func FoldFind(haystack []byte, needle []byte) (bool, int) {
 			}
 			needleOffset++
 		} else {
-			idx -= needleOffset
+			idx -= needleOffset // will get a ++ below
 			needleOffset = 0
 		}
 		idx++
