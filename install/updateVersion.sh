@@ -121,6 +121,7 @@ function merge_files() {
   cat $AUTH_SRC/istio-egress-auth.yaml >> $ISTIO_AUTH
   cp $ISTIO_AUTH $ISTIO_AUTH_WITH_CLUSTER_CA
   cat $AUTH_SRC/istio-namespace-ca.yaml >> $ISTIO_AUTH
+  cat $AUTH_SRC/istio-cluster-ca.yaml >> $ISTIO_AUTH_WITH_CLUSTER_CA
 }
 
 function update_version_file() {
