@@ -52,6 +52,9 @@ func TestFoldFind(t *testing.T) {
 		{"axabaBcd", "abc", true, 4},
 		{"axabxaBcd", "abc", true, 5},
 		{"axabxaBd", "abc", false, -1},
+		{"aaaab", "aaab", true, 1},
+		{"xaaaxaaa", "aaab", false, -1},
+		{"xxxxac", "ab", false, -1},
 	}
 	for _, tst := range tests {
 		f, o := FoldFind([]byte(tst.haystack), []byte(tst.needle))
