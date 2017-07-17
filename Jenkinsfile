@@ -34,11 +34,8 @@ def presubmit(gitUtils, bazel, utils) {
     stage('Bazel Test') {
       bazel.test('//...')
     }
-    stage('Demo Test') {
-      sh("tests/kubeTest.sh")
-    }
     stage('Smoke Test') {
-        sh("tests/e2e.sh --logs_bucket_path ${gitUtils.logsPath()}")
+      sh("tests/e2e.sh --logs_bucket_path ${gitUtils.logsPath()}")
     }
   }
 }
@@ -47,7 +44,6 @@ def smokeTest(gitUtils, bazel, utils) {
   goBuildNode(gitUtils, 'istio.io/istio') {
     bazel.updateBazelRc()
     utils.initTestingCluster()
-    def kubeTestArgs = ''
     def e2eArgs = "--logs_bucket_path ${gitUtils.logsPath()} "
     if (utils.getParam('GITHUB_PR_HEAD_SHA') != '') {
       def prSha = utils.failIfNullOrEmpty(env.GITHUB_PR_HEAD_SHA)
@@ -57,14 +53,11 @@ def smokeTest(gitUtils, bazel, utils) {
       switch (repo) {
         case 'pilot':
           def istioctlUrl = "https://storage.googleapis.com/istio-artifacts/${repo}/${prSha}/artifacts/istioctl"
-          kubeTestArgs = "-m ${hub},${prSha} " +
-              "-i ${istioctlUrl}"
           e2eArgs += "--pilot_hub=${hub}  " +
               "--pilot_tag=${prSha} " +
               "--istioctl_url=${istioctlUrl}"
           break
         case 'mixer':
-          kubeTestArgs = "-x ${hub},${prSha}"
           e2eArgs += "--mixer_hub=${hub}  " +
               "--mixer_tag=${prSha}"
           break
@@ -72,10 +65,8 @@ def smokeTest(gitUtils, bazel, utils) {
           break
       }
     }
-    stage('Demo Test') {
-      sh("tests/kubeTest.sh ${kubeTestArgs}")
+    stage('Smoke Test') {
+      sh("tests/e2e.sh ${e2eArgs}")
     }
-    stage('Smoke Test')
-    sh("tests/e2e.sh ${e2eArgs}")
   }
 }

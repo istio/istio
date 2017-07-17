@@ -36,8 +36,8 @@ Istio is composed of these components:
    tracing and telemetry collection.
 
 * **Pilot** - A component responsible for configuring the
-  Envoy and Mixer at runtime.
-  
+  proxies at runtime.
+
 * **Galley** - A component responsible for storing and distributing Istio configuration state.
 
 * **Broker** - A component implementng the open service broker API for Istio-based services.
@@ -48,7 +48,7 @@ Cloud Foundry, and Mesos in the near future.
 
 ## Istio authors
 
-Istio is an open source project with an active development community. The project was started 
+Istio is an open source project with an active development community. The project was started
 by teams from Google and IBM, in partnership with the Envoy team at Lyft.
 
 ## Repositories
@@ -61,7 +61,7 @@ component-level APIs and common configuration formats for the Istio platform.
 
 - [istio/istio](README.md). This is the repo you are
 currently looking at. It hosts the various Istio sample programs
-along with the various documents that govern the Istio open source 
+along with the various documents that govern the Istio open source
 project.
 
 - [istio/pilot](https://github.com/istio/pilot). This repository
@@ -72,7 +72,7 @@ when the application topology changes, as well as translate
 [_istioctl_](https://istio.io/docs/reference/commands/istioctl.html) command line utility is also available in
 this repository.
 
-- [istio/mixer](https://github.com/istio/mixer). This repository 
+- [istio/mixer](https://github.com/istio/mixer). This repository
 contains code to enforce various policies for traffic passing through the
 proxies, and collect telemetry data from proxies and microservices. There
 are plugins for interfacing with various cloud platforms, policy
@@ -81,10 +81,10 @@ management services, and monitoring services.
 - [istio/mixerclient](https://github.com/istio/mixerclient). Client libraries
 for the mixer API.
 
-- [istio/galley](https://github.com/istio/galley). This repository 
+- [istio/galley](https://github.com/istio/galley). This repository
 contains code for Istio configuration management and distribution system.
 
-- [istio/broker](https://github.com/istio/broker). This repository 
+- [istio/broker](https://github.com/istio/broker). This repository
 contains code for Istio's implementation of the Open Service Broker API.
 
 - [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
@@ -99,7 +99,7 @@ We use GitHub combined with ZenHub to track all of our bugs and feature requests
 - **Epic**. An epic represents a feature area for Istio as a whole. Epics are fairly broad in scope and are basically product-level things.
 Each issue is ultimately part of an epic.
 
-- **Milestone**. Each issue is assigned a milestone. This is 0.1, 0.2, 0.3, or 'Nebulous Future'. The milestone indicates when we 
+- **Milestone**. Each issue is assigned a milestone. This is 0.1, 0.2, 0.3, or 'Nebulous Future'. The milestone indicates when we
 think the issue should get addressed.
 
 - **Priority/Pipeline**. Each issue has a priority which is represented by the Pipeline field within GitHub. Priority can be one of
@@ -111,10 +111,13 @@ support is disabled for our organization.
 
 ## Contributing to the project
 
+We promote and encourage a set of [shared values](VALUES.md) to improve our
+productivity and inter-personal interactions.
+
 See the [working groups](GROUPS.md) for a list of working groups to participate in.
 
 See the [contribution guidelines](CONTRIBUTING.md) for information on how to
-participate in the Istio project by submitting pull requests or issues. 
+participate in the Istio project by submitting pull requests or issues.
 
 You can then check out how to [setup for development](devel/README.md).
 
