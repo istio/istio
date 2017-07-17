@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"cloud.google.com/go/logging/apiv2"
@@ -147,7 +148,6 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 	}
 
 	fetchAndWrite := func(logName string) error {
-		glog.Info(fmt.Sprintf("Fetching logs on %s\n", logName))
 		// fetch logs from pods created for this run only
 		filter := fmt.Sprintf(
 			`logName = "%s" AND
@@ -194,6 +194,7 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 	}
 	it := loggingClient.ListLogs(ctx, req)
 	var multiErr error
+	var wg sync.WaitGroup
 	for {
 		logName, err := it.Next()
 		if err == iterator.Done {
@@ -203,11 +204,20 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 			return err
 		}
 		if i := strings.Index(logName, "presubmit"); i == -1 {
-			if err := fetchAndWrite(logName); err != nil {
-				multiErr = multierror.Append(multiErr, err)
-			}
+			wg.Add(1)
+			// fetch logs in another go routine
+			go func() {
+				if err := fetchAndWrite(logName); err != nil {
+					multiErr = multierror.Append(multiErr, err)
+					glog.Info(fmt.Sprintf("Error while fetching logs on %s: %s\n", logName, err))
+				} else {
+					glog.Info(fmt.Sprintf("Fetched logs on %s\n", logName))
+				}
+				wg.Done()
+			}()
 		}
 	}
+	wg.Wait()
 
 	for _, resrc := range resources {
 		glog.Info(fmt.Sprintf("Fetching deployment info on %s\n", resrc))
