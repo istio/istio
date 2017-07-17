@@ -219,7 +219,7 @@ func (m testManager) NewCheckExecutor(cfg *cpb.Combined, adapter adapter.Builder
 	return m.instance, nil
 }
 
-func (m testManager) NewDenyChecker(env adapter.Env, c adapter.Config) (adapter.DenialsAspect, error) {
+func (m testManager) NewDenyChecker(adapter.Env, adapter.Config) (adapter.DenialsAspect, error) {
 	return m.instance, nil
 }
 
@@ -515,24 +515,17 @@ func TestManager_BulkExecute(t *testing.T) {
 }
 
 func TestRecovery_NewAspect(t *testing.T) {
-	testRecovery(t, "NewExecutor Throws", true, false, "NewExecutor")
+	testRecovery(t, "NewExecutor Throws", "NewExecutor")
 }
 
 func TestRecovery_AspectExecute(t *testing.T) {
-	testRecovery(t, "aspect.Execute Throws", true, false, "Execute")
+	testRecovery(t, "aspect.Execute Throws", "Execute")
 }
 
-func testRecovery(t *testing.T, name string, throwOnNewAspect bool, throwOnExecute bool, want string) {
-	var cacheThrow testManager
-	if throwOnExecute {
-		cacheThrow = newTestManager(name, throwOnNewAspect, func() rpc.Status {
-			panic("panic")
-		})
-	} else {
-		cacheThrow = newTestManager(name, throwOnNewAspect, func() rpc.Status {
-			return status.WithError(errors.New("empty"))
-		})
-	}
+func testRecovery(t *testing.T, name string, want string) {
+	cacheThrow := newTestManager(name, true, func() rpc.Status {
+		return status.WithError(errors.New("empty"))
+	})
 	mreg := [config.NumKinds]aspect.Manager{}
 	mreg[config.DenialsKind] = cacheThrow
 	breg := &fakeBuilderReg{

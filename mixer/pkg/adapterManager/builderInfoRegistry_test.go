@@ -49,13 +49,13 @@ func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() adapter.BuilderInfo 
 
 type fakeHandlerBuilder struct{}
 
-func (fakeHandlerBuilder) ConfigureSample(typeParams map[string]*sample_report.Type) error { return nil }
-func (fakeHandlerBuilder) Build(cnfg proto.Message) (config.Handler, error)                { return fakeHandler{}, nil }
+func (fakeHandlerBuilder) ConfigureSample(map[string]*sample_report.Type) error { return nil }
+func (fakeHandlerBuilder) Build(proto.Message) (config.Handler, error)          { return fakeHandler{}, nil }
 
 type fakeHandler struct{}
 
 func (fakeHandler) Close() error { return nil }
-func (fakeHandler) ReportSample(instances []*sample_report.Instance) error {
+func (fakeHandler) ReportSample([]*sample_report.Instance) error {
 	return errors.New("not implemented")
 }
 
@@ -148,14 +148,14 @@ func TestHandlerMap(t *testing.T) {
 
 type badHandlerBuilder struct{}
 
-func (badHandlerBuilder) DefaultConfig() proto.Message         { return nil }
-func (badHandlerBuilder) ValidateConfig(c proto.Message) error { return nil }
+func (badHandlerBuilder) DefaultConfig() proto.Message       { return nil }
+func (badHandlerBuilder) ValidateConfig(proto.Message) error { return nil }
 
 // This misspelled function cause the Builder to not implement SampleProcessorBuilder
-func (fakeHandlerBuilder) MisspelledXXConfigureSample(typeParams map[string]*sample_report.Type) error {
+func (fakeHandlerBuilder) MisspelledXXConfigureSample(map[string]*sample_report.Type) error {
 	return nil
 }
-func (badHandlerBuilder) Build(cnfg proto.Message) (config.Handler, error) { return fakeHandler{}, nil }
+func (badHandlerBuilder) Build(proto.Message) (config.Handler, error) { return fakeHandler{}, nil }
 
 func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 	badHandlerBuilderBuilderInfo1 := func() adapter.BuilderInfo {
