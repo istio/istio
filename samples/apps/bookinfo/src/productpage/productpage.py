@@ -23,6 +23,8 @@ from json2html import *
 import logging
 import requests
 
+import MySQLdb
+
 # These two lines enable debugging at httplib level (requests->urllib3->http.client)
 # You will see the REQUEST, including HEADERS and DATA, and RESPONSE with HEADERS but without DATA.
 # The only thing missing will be the response.body which is not logged.
@@ -43,6 +45,9 @@ app.logger.setLevel(logging.DEBUG)
 
 from flask_bootstrap import Bootstrap
 Bootstrap(app)
+
+# global DB ref
+DB = None
 
 details = {
     "name" : "http://details:9080",
@@ -132,7 +137,11 @@ def front():
     user = request.cookies.get("user", "")
     bookdetails = getDetails(headers)
     bookreviews = getReviews(headers)
-    return render_template('productpage.html', details=bookdetails, reviews=bookreviews, user=user)
+    if DB:
+        price = DB.get_price('comedy')
+    else:
+        price = 0
+    return render_template('productpage.html', details=bookdetails, reviews=bookreviews, user=user, price=price)
 
 def getReviews(headers):
     for i in range(2):
@@ -169,13 +178,41 @@ class Writer(object):
         self.file.flush()
 
 
+class Mydb(object):
+
+    def __init__(self, addr):
+        try:
+            self.cnx = MySQLdb.connect(user='root', passwd='password',
+                                      host=addr, db='test')
+        except:
+            raise
+        self.cursor = self.cnx.cursor()
+
+    def get_price(self, name):
+        querystr = "SELECT name, price FROM price WHERE name = %s"
+        try:
+                self.cursor.execute(querystr, (name,))
+                (name, price) = self.cursor.fetchone()
+                return price
+        except:
+                return 0
+
+    def close(self):
+        self.cursor.close()
+        self.cnx.close()
+
+
 if __name__ == '__main__':
+    use_db = True
     if len(sys.argv) < 2:
-        print "usage: %s port" % (sys.argv[0])
+        print "usage: %s port [dbserver]" % (sys.argv[0])
         sys.exit(-1)
+    if len(sys.argv) < 3:
+        use_db = False
 
     p = int(sys.argv[1])
     sys.stderr = Writer('stderr.log')
     sys.stdout = Writer('stdout.log')
+    if use_db:
+        DB = Mydb(sys.argv[2])
     app.run(host='0.0.0.0', port=p, debug = True, threaded=True)
-
