@@ -134,7 +134,8 @@ def postsubmit(gitUtils, bazel, utils) {
       sh('bin/install-prereqs.sh')
       bazel.test('//...')
       sh('bin/init.sh')
-      sh('bin/codecov.sh')
+      sh('bin/codecov.sh | tee codecov.report')
+      sh('bin/toolbox/presubmit/pkg_coverage.sh')
       utils.publishCodeCoverage('PILOT_CODECOV_TOKEN')
     }
     utils.fastForwardStable('pilot')
