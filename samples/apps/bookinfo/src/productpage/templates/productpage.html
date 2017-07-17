@@ -101,6 +101,10 @@ $('#login-modal').on('shown.bs.modal', function () {
     most farcical comedies, with a major part of the humour coming
     from slapstick and mistaken identity, in addition to puns and word
     play.</p>
+{% if price != 0 %}
+    <p><b>Price:</b> ${{ price }}
+    </p>
+{% endif %}
 </div>
 </div>
 

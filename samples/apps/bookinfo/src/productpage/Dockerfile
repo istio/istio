@@ -12,10 +12,17 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM python:2-onbuild
+# Ref: https://hub.docker.com/_/python/
+
+FROM python:2
+
+RUN apt-get install libmysqlclient-dev
 
 RUN mkdir -p /opt/microservices
-COPY . /opt/microservices/
-EXPOSE 9080
 WORKDIR /opt/microservices
-CMD python productpage.py 9080
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+EXPOSE 9080
+CMD python productpage.py 9080 $MYSQLADDR

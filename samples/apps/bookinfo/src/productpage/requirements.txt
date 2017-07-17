@@ -5,4 +5,4 @@ flask_bootstrap
 json2html
 simplejson
 gevent
-
+mysql
