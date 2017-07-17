@@ -402,7 +402,7 @@ new_go_repository(
 
 new_go_repository(
     name = "com_google_cloud_go",
-    commit = "2e6a95edb1071d750f6d7db777bf66cd2997af6c",  # Mar 9, 2017 (v0.7.0)
+    commit = "a5913b3f7deecba45e98ff33cefbac4fd204ddd7",  # Jun 27, 2017 (v0.10.0)
     importpath = "cloud.google.com/go",
 )
 
@@ -468,7 +468,7 @@ new_go_repository(
 
 new_go_repository(
     name = "org_golang_google_api",
-    commit = "48e49d1645e228d1c50c3d54fb476b2224477303",  # Mar 27, 2017 (no release)
+    commit = "1faa39f42f12a54fa82ca5902a7ab642d5b09ad1",  # Jun 5, 2017 (no releases)
     importpath = "google.golang.org/api",
 )
 

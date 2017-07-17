@@ -97,9 +97,9 @@ dimensions:
 			defer func() {
 				r := recover()
 				if tst.willPanic && r == nil {
-					t.Error(fmt.Sprintf("Expected to recover from panic for %s, but recover was nil.", tst.name))
+					t.Errorf("Expected to recover from panic for %s, but recover was nil.", tst.name)
 				} else if !tst.willPanic && r != nil {
-					t.Error(fmt.Sprintf("got panic %v, expected success.", r))
+					t.Errorf("got panic %v, expected success.", r)
 				}
 			}()
 			cv, cerr := inferTypeForSampleReport(cp.(proto.Message), typeEvalFn)
