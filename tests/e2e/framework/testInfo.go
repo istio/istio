@@ -193,7 +193,7 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 		Parent: "projects/" + *projectID,
 	}
 	it := loggingClient.ListLogs(ctx, req)
-	multiErr := fmt.Errorf("")
+	var multiErr error
 	for {
 		logName, err := it.Next()
 		if err == iterator.Done {
@@ -224,10 +224,7 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 			}
 		}
 	}
-	if multiErr.Error() != "" {
-		return multiErr
-	}
-	return nil
+	return multiErr
 }
 
 func (t testInfo) createStatusFile(r int) error {
