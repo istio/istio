@@ -332,7 +332,7 @@ func FoldFind(haystack []byte, needle []byte) (bool, int) {
 	return true, idx - needleOffset
 }
 
-// ParseDecimal extract the first positive integer number from the input.
+// ParseDecimal extracts the first positive integer number from the input.
 // spaces are ignored.
 // any character that isn't a digit cause the parsing to stop
 func ParseDecimal(inp []byte) int {
@@ -354,11 +354,62 @@ func ParseDecimal(inp []byte) int {
 	return res
 }
 
+// ParseChunkSize extracts the chunk size and consumes the line.
+// Returns the offset of the data and the size of the chunk,
+// 0, -1 when not found.
+func ParseChunkSize(inp []byte) (int, int) {
+	res := -1
+	off := 0
+	end := len(inp)
+	inDigits := true
+	for {
+		if off >= end {
+			return off, -1
+		}
+		if inDigits {
+			b := toUpper(inp[off])
+			var digit int
+			if b >= 'A' && b <= 'F' {
+				digit = 10 + int(b-'A')
+			} else if b >= '0' && b <= '9' {
+				digit = int(b - '0')
+			} else {
+				inDigits = false
+				if res == -1 {
+					log.Printf("Didn't find hex number %v", string(inp))
+					return off, res
+				}
+				continue
+			}
+			if res == -1 {
+				res = digit
+			} else {
+				res = 16*res + digit
+			}
+		} else {
+			// After digits, skipping ahead to find \r\n
+			if inp[off] == '\r' {
+				off++
+				if off >= end {
+					return off, -1
+				}
+				if inp[off] == '\n' {
+					// good case
+					return off + 1, res
+				}
+			}
+		}
+		off++
+	}
+}
+
 // case doesn't matter
 var contentLengthHeader = []byte("\r\ncontent-length:")
-var connectionClose = []byte("\r\nconnection: close")
+var connectionCloseHeader = []byte("\r\nconnection: close")
+var chunkedHeader = []byte("\r\nTransfer-Encoding: chunked")
 
 // Fetch fetches the url content. Returns http code, data, offset of body.
+// TODO: split this function into smaller parts... it's unwidely.
 func (c *BasicClient) Fetch() (int, []byte, int) {
 	var data []byte
 	code := -1
@@ -417,6 +468,7 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 	endofHeadersStart := retcodeOffset + 3
 	lastCRLF := 0
 	keepAlive := c.keepAlive
+	chunkedMode := false
 	for {
 		n, err = conn.Read(c.buffer[size:])
 		if err == io.EOF {
@@ -434,6 +486,7 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 			if size >= retcodeOffset+3 {
 				// even if the bytes are garbage we'll get a non 200 code (bytes are unsigned)
 				code = ParseDecimal(c.buffer[retcodeOffset : retcodeOffset+3])
+				// TODO handle 100 Continue
 				if code != http.StatusOK {
 					log.Printf("Parsed non ok code %d (%v)", code, string(c.buffer[:retcodeOffset+3]))
 					break
@@ -442,6 +495,7 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 					log.Printf("Code %d, looking for end of headers at %d / %d, last CRLF %d",
 						code, endofHeadersStart, size, lastCRLF)
 				}
+				// TODO: keep track of list of newlines to efficiently search headers only there
 				idx := endofHeadersStart
 				for idx < size-1 {
 					if c.buffer[idx] == '\r' && c.buffer[idx+1] == '\n' {
@@ -461,37 +515,47 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 					if Verbosity > 2 {
 						log.Printf("headers are %s", string(c.buffer[:idx]))
 					}
-					// Find the content length
+					// Find the content length or chunked mode
 					if keepAlive {
-						found, offset := FoldFind(c.buffer[:lastCRLF], contentLengthHeader)
-						if !found {
+						var contentLength int
+						if found, _ := FoldFind(c.buffer[:lastCRLF], chunkedHeader); found {
+							chunkedMode = true
+							var dataStart int
+							dataStart, contentLength = ParseChunkSize(c.buffer[lastCRLF:])
 							if Verbosity > 1 {
-								log.Printf("Warning: content-length missing in %s", string(c.buffer[:lastCRLF]))
-							} else {
-								log.Printf("Warning: content-length missing (%d bytes headers)", lastCRLF)
+								log.Printf("chunk-length in %d (%s)", contentLength, c.buffer[lastCRLF:lastCRLF+dataStart-2])
 							}
-							keepAlive = false
-							break
-						}
-						contentLength := ParseDecimal(c.buffer[offset+len(contentLengthHeader) : lastCRLF])
-						if contentLength < 0 {
-							log.Printf("Warning: content-length unparsable %s", string(c.buffer[offset+2:offset+len(contentLengthHeader)+4]))
-							keepAlive = false
-							break
+							max = lastCRLF + dataStart + contentLength
+						} else {
+							found, offset := FoldFind(c.buffer[:lastCRLF], contentLengthHeader)
+							if !found {
+								if Verbosity > 1 {
+									log.Printf("Warning: content-length missing in %s", string(c.buffer[:lastCRLF]))
+								} else {
+									log.Printf("Warning: content-length missing (%d bytes headers)", lastCRLF)
+								}
+								keepAlive = false
+								break
+							}
+							contentLength = ParseDecimal(c.buffer[offset+len(contentLengthHeader) : lastCRLF])
+							if contentLength < 0 {
+								log.Printf("Warning: content-length unparsable %s", string(c.buffer[offset+2:offset+len(contentLengthHeader)+4]))
+								keepAlive = false
+								break
 
-						}
-						max = lastCRLF + contentLength
-						if Verbosity > 1 {
-							log.Printf("found content length %d", contentLength)
-						}
+							}
+							max = lastCRLF + contentLength
+							if Verbosity > 1 {
+								log.Printf("found content length %d", contentLength)
+							}
+						} // end of content-length section
 						if max > len(c.buffer) {
 							log.Printf("Buffer is too small for headers %d + data %d",
 								lastCRLF, contentLength)
 							// TODO: just consume the extra instead
 							max = len(c.buffer)
 						}
-						found, _ = FoldFind(c.buffer[:lastCRLF], connectionClose)
-						if found {
+						if found, _ := FoldFind(c.buffer[:lastCRLF], connectionCloseHeader); found {
 							log.Printf("Server wants to close connection, no keep-alive!")
 							keepAlive = false
 						}
@@ -500,6 +564,9 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 			}
 		}
 		if size == max {
+			if chunkedMode {
+				log.Printf("TODO: read next chunk")
+			}
 			if !keepAlive {
 				log.Printf("More data is available but stopping after %d (for %v %v)", max, conn, c.dest)
 			}

@@ -113,7 +113,7 @@ func TestASCIIToUpper(t *testing.T) {
 	Verbosity = 1
 	var tests = []struct {
 		input    string // input
-		expected string // input
+		expected string // output
 	}{
 		{"", ""},
 		{"A", "A"},
@@ -140,7 +140,7 @@ func TestASCIIToUpper(t *testing.T) {
 func TestParseDecimal(t *testing.T) {
 	var tests = []struct {
 		input    string // input
-		expected int    // input
+		expected int    // output
 	}{
 		{"", -1},
 		{"3", 3},
@@ -154,6 +154,39 @@ func TestParseDecimal(t *testing.T) {
 		actual := ParseDecimal([]byte(tst.input))
 		if tst.expected != actual {
 			t.Errorf("Got %d, expecting %d for ParseDecimal('%s')", actual, tst.expected, tst.input)
+		}
+	}
+}
+
+func TestParseChunkSize(t *testing.T) {
+	var tests = []struct {
+		input     string // input
+		expOffset int    // expected offset
+		expValue  int    // expected value
+	}{
+		// Errors :
+		{"", 0, -1},
+		{"0", 1, -1},
+		{"0\r", 2, -1},
+		{"0\n", 2, -1},
+		{"g\r\n", 0, -1},
+		{"0\r0\n", 4, -1},
+		// Ok: (size of input is the expected offset)
+		{"0\r\n", 3, 0},
+		{"0x\r\n", 4, 0},
+		{"f\r\n", 3, 15},
+		{"10\r\n", 4, 16},
+		{"fF\r\n", 4, 255},
+		{"abcdef\r\n", 8, 0xabcdef},
+		{"100; foo bar\r\nanother line\r\n", 14 /* and not the whole thing */, 256},
+	}
+	for _, tst := range tests {
+		actOffset, actVal := ParseChunkSize([]byte(tst.input))
+		if tst.expValue != actVal {
+			t.Errorf("Got %d, expecting %d for value of ParseChunkSize('%+s')", actVal, tst.expValue, tst.input)
+		}
+		if tst.expOffset != actOffset {
+			t.Errorf("Got %d, expecting %d for offset of ParseChunkSize('%+s')", actOffset, tst.expOffset, tst.input)
 		}
 	}
 }
