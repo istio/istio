@@ -152,7 +152,7 @@ func almostEq(a, b float64, steps int64) bool {
 	// When we interpret a floating point number's bits as an integer, the difference between two floats-as-ints
 	// is one plus the number of representable floating point values between the two. This is called "Units in the
 	// Last Place", or "ULPs".
-	var ulps int64 = int64(math.Float64bits(a)) - int64(math.Float64bits(b))
+	ulps := int64(math.Float64bits(a)) - int64(math.Float64bits(b))
 	// Go's math package only supports abs on float64, we don't want to round-trip through float64 again, so we do it ourselves.
 	if ulps < 0 {
 		ulps = -ulps
