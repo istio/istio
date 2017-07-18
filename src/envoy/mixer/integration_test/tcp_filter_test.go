@@ -26,7 +26,7 @@ const checkAttributesOkPost = `
 {
   "source.ip": "127.0.0.1",
   "source.port": "*",
-  "local.ip": "0.0.0.0",
+  "local.ip": "127.0.0.1",
   "local.port": 26060,
   "request.time": "*",
   "target.uid": "POD222",
@@ -39,7 +39,7 @@ const reportAttributesOkPost = `
 {
   "source.ip": "127.0.0.1",
   "source.port": "*",
-  "local.ip": "0.0.0.0",
+  "local.ip": "127.0.0.1",
   "local.port": 26060,
   "request.time": "*",
   "target.uid": "POD222",
@@ -58,7 +58,7 @@ const reportAttributesFailPost = `
 {
   "source.ip": "127.0.0.1",
   "source.port": "*",
-  "local.ip": "0.0.0.0",
+  "local.ip": "127.0.0.1",
   "local.port": 26060,
   "request.time": "*",
   "target.uid": "POD222",
