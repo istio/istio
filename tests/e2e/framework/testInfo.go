@@ -53,9 +53,10 @@ var (
 )
 
 const (
-	tmpPrefix   = "istio.e2e."
-	idMaxLength = 36
-	pageSize    = 1000 // number of log entries for each paginated request to fetch logs
+	tmpPrefix            = "istio.e2e."
+	idMaxLength          = 36
+	pageSize             = 1000 // number of log entries for each paginated request to fetch logs
+	maxConcurrentWorkers = 3    //avoid overloading stackdriver api
 )
 
 // TestInfo gathers Test Information
@@ -195,6 +196,8 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 	it := loggingClient.ListLogs(ctx, req)
 	var multiErr error
 	var wg sync.WaitGroup
+	// limit number of concurrent jobs to stay in stackdriver api quota
+	jobQue := make(chan string, maxConcurrentWorkers)
 	for {
 		logName, err := it.Next()
 		if err == iterator.Done {
@@ -205,6 +208,7 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 		}
 		if i := strings.Index(logName, "presubmit"); i == -1 {
 			wg.Add(1)
+			jobQue <- logName // blocked if jobQue channel is already filled
 			// fetch logs in another go routine
 			go func() {
 				if err := fetchAndWrite(logName); err != nil {
@@ -213,6 +217,7 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 				} else {
 					glog.Info(fmt.Sprintf("Fetched logs on %s\n", logName))
 				}
+				<-jobQue
 				wg.Done()
 			}()
 		}
