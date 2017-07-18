@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package foo.bar;
 
-import "tools/codegen/pkg/template_extension/TemplateExtensions.proto";
+import "pkg/adapter/template/TemplateExtensions.proto";
 import "mixer/v1/config/descriptor/value_type.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_CHECK;

@@ -18,7 +18,7 @@ package istio_mixer_adapter_metric
 
 import (
 	istio_mixer_v1_config_descriptor "istio.io/api/mixer/v1/config/descriptor"
-	_ "istio.io/mixer/tools/codegen/pkg/template_extension"
+	_ "istio.io/mixer/pkg/adapter/template"
 )
 
 type Instance struct {

@@ -13,7 +13,7 @@ proto_compile(
         "external/com_github_google_protobuf/src",
     ],
     inputs = [
-        "//tools/codegen/pkg/template_extension:proto",
+        "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -34,7 +34,7 @@ proto_compile(
         "external/com_github_istio_api",
     ],
     inputs = [
-        "//tools/codegen/pkg/template_extension:proto",
+        "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
         "@com_github_istio_api//:mixer/v1/config/descriptor_protos",
     ],
@@ -55,7 +55,7 @@ proto_compile(
         "external/com_github_google_protobuf/src",
     ],
     inputs = [
-        "//tools/codegen/pkg/template_extension:proto",
+        "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -75,7 +75,7 @@ proto_compile(
         "external/com_github_google_protobuf/src",
     ],
     inputs = [
-        "//tools/codegen/pkg/template_extension:proto",
+        "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -95,7 +95,7 @@ proto_compile(
         "external/com_github_google_protobuf/src",
     ],
     inputs = [
-        "//tools/codegen/pkg/template_extension:proto",
+        "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -115,7 +115,7 @@ proto_compile(
         "external/com_github_google_protobuf/src",
     ],
     inputs = [
-        "//tools/codegen/pkg/template_extension:proto",
+        "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -135,7 +135,7 @@ proto_compile(
         "external/com_github_google_protobuf/src",
     ],
     inputs = [
-        "//tools/codegen/pkg/template_extension:proto",
+        "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -155,7 +155,7 @@ proto_compile(
         "external/com_github_google_protobuf/src",
     ],
     inputs = [
-        "//tools/codegen/pkg/template_extension:proto",
+        "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -175,7 +175,7 @@ proto_compile(
         "external/com_github_google_protobuf/src",
     ],
     inputs = [
-        "//tools/codegen/pkg/template_extension:proto",
+        "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
@@ -195,7 +195,7 @@ proto_compile(
         "external/com_github_google_protobuf/src",
     ],
     inputs = [
-        "//tools/codegen/pkg/template_extension:proto",
+        "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [

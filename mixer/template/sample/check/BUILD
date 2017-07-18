@@ -11,14 +11,14 @@ go_proto_compile(
         "mixer/v1/config/descriptor/value_type.proto": "istio.io/api/mixer/v1/config/descriptor",
         "google/protobuf/descriptor.proto": "github.com/golang/protobuf/protoc-gen-go/descriptor",
         "google/protobuf/struct.proto": "github.com/golang/protobuf/ptypes/struct",
-        "pkg/template/mixer/TemplateExtensions.proto": "istio.io/mixer/pkg/template/mixer",
+        "pkg/adapter/template/TemplateExtensions.proto": "istio.io/mixer/pkg/adapter/template",
     },
     imports = [
         "external/com_github_google_protobuf/src",
         "external/com_github_istio_api",
     ],
     inputs = [
-        "//pkg/template/mixer:protos",
+        "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
         "@com_github_istio_api//:mixer/v1/config/descriptor_protos",
     ],
@@ -42,7 +42,7 @@ go_library(
     ],
     deps = [
         "//pkg/adapter/config:go_default_library",
-        "//pkg/template/mixer:go_default_library",
+        "//pkg/adapter/template:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
         "@com_github_istio_api//:mixer/v1/config/descriptor",

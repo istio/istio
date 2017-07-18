@@ -21,7 +21,7 @@ var InterfaceTemplate = `// Copyright 2017 Istio Authors
 package {{.PackageName}}
 
 import (
-{{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}"istio.io/mixer/tools/codegen/pkg/adapter"{{- end}}
+{{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}"istio.io/mixer/pkg/adapter/config"{{- end}}
 {{range .Imports}}{{.}}
 {{end}}
 )
@@ -36,7 +36,7 @@ type Instance struct {
 type {{.Name}}Processor interface {
   Configure{{.Name}}(types map[string]*Type) error
   {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
-    Check{{.Name}}(instance *Instance) (bool, adapter.CacheabilityInfo, error)
+    Check{{.Name}}(instance *Instance) (bool, config.CacheabilityInfo, error)
   {{else -}}
     Report{{.Name}}(instances []*Instance) error
   {{end}}

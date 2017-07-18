@@ -17,8 +17,8 @@
 package foo_bar_mylistchecker
 
 import (
-	"istio.io/mixer/tools/codegen/pkg/adapter"
-	_ "istio.io/mixer/tools/codegen/pkg/template_extension"
+	"istio.io/mixer/pkg/adapter/config"
+	_ "istio.io/mixer/pkg/adapter/template"
 )
 
 type Instance struct {
@@ -31,5 +31,5 @@ type Instance struct {
 
 type ListProcessor interface {
 	ConfigureList(types map[string]*Type) error
-	CheckList(instance *Instance) (bool, adapter.CacheabilityInfo, error)
+	CheckList(instance *Instance) (bool, config.CacheabilityInfo, error)
 }

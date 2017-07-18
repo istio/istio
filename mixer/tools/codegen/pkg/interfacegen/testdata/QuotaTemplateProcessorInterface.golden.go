@@ -20,7 +20,7 @@ import (
 	_ "github.com/gogo/protobuf/types"
 
 	_ "istio.io/api/mixer/v1/config/descriptor"
-	_ "istio.io/mixer/tools/codegen/pkg/template_extension"
+	_ "istio.io/mixer/pkg/adapter/template"
 )
 
 type Instance struct {
