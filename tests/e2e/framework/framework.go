@@ -182,9 +182,8 @@ func (c *CommonConfig) saveLogs(r int) error {
 		glog.Errorf("Could not create status file. Error %s", err)
 		return err
 	}
-	if *logProvider == "stackdriver" {
+	if r != 0 && *logProvider == "stackdriver" { // fetch logs only if tests failed
 		if err := c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace); err != nil {
-			glog.Errorf("Error during log saving: %s", err)
 			return err
 		}
 	}
@@ -204,7 +203,7 @@ func (c *CommonConfig) RunTest(m runnable) int {
 		ret = m.Run()
 	}
 	if err := c.saveLogs(ret); err != nil {
-		glog.Warning("Failed to save logs")
+		glog.Warning("Log saving inconplete: %s", err)
 	}
 	c.Cleanup.cleanup()
 	return ret

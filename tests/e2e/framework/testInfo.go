@@ -173,7 +173,7 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 		for page := 0; ; page++ {
 			pageToken, err := pager.NextPage(&entries)
 			if err != nil {
-				glog.Errorf("Iterator paging failed: %v", err)
+				glog.Warning("%s Iterator paging stops: %v", logName, err)
 				return err
 			}
 			// append logs to file
@@ -213,9 +213,8 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 			go func() {
 				if err := fetchAndWrite(logName); err != nil {
 					multiErr = multierror.Append(multiErr, err)
-					glog.Info(fmt.Sprintf("Error while fetching logs on %s: %s\n", logName, err))
 				} else {
-					glog.Info(fmt.Sprintf("Fetched logs on %s\n", logName))
+					glog.Info("Fetched logs on %s\n", logName)
 				}
 				<-jobQue
 				wg.Done()
