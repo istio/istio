@@ -89,8 +89,9 @@ func main() {
 		compressionFlag = flag.Bool("compression", false, "Enable http compression")
 		goMaxProcsFlag  = flag.Int("gomaxprocs", 0, "Setting for runtime.GOMAXPROCS, <1 doesn't change the default")
 		profileFlag     = flag.String("profile", "", "write .cpu and .mem profiles to file")
-		httpClient      = flag.Int("http", 1, "-1 standard client, 0 http/1.0 fast client, 1 http/1.1 fast client with keep-alive, 2 http/1.1 without keep-alive, 3 fasthttp client")
-		headersFlags    flagList
+		httpClient      = flag.Int("http", 1,
+			"-1 standard client, 0 http/1.0 fast client, 1 http/1.1 fast client with keep-alive, 2 http/1.1 without keep-alive, 3 fasthttp client")
+		headersFlags flagList
 	)
 	flag.Var(&headersFlags, "H", "Additional Header(s)")
 	flag.Parse()
