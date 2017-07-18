@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/valyala/fasthttp" // for reference/comparaison
 )
 
 // Fetcher is the Url content fetcher that the different client implements.
@@ -582,4 +584,39 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 		// we cleared c.socket already
 	}
 	return code, c.buffer[:size], lastCRLF
+}
+
+type fastClient struct {
+	client *fasthttp.Client
+	req    *fasthttp.Request
+	res    *fasthttp.Response
+}
+
+// NewFastClient wrapper for the fasthttp library
+func NewFastClient(url string) Fetcher {
+	cli := fastClient{
+		client: &fasthttp.Client{},
+		req:    fasthttp.AcquireRequest(),
+		res:    fasthttp.AcquireResponse(),
+	}
+	cli.client.ReadBufferSize = 16384
+	cli.req.SetRequestURI(url)
+	if hostOverride != "" {
+		// TODO: Not yet working - see https://github.com/valyala/fasthttp/issues/114
+		log.Printf("Setting host to %s", hostOverride)
+		cli.req.SetHost(hostOverride)
+	}
+	for h := range extraHeaders {
+		cli.req.Header.Set(h, extraHeaders.Get(h))
+	}
+	return &cli
+}
+
+func (c *fastClient) Fetch() (int, []byte, int) {
+	if err := c.client.Do(c.req, c.res); err != nil {
+		log.Printf("Fasthttp error %v", err)
+		return 400, nil, 0
+	}
+	// TODO: Header.Len() is number of headers not byte size of headers
+	return c.res.StatusCode(), c.res.Body(), c.res.Header.Len()
 }
