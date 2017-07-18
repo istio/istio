@@ -20,7 +20,6 @@ load(
     "boringssl_repositories",
     "protobuf_repositories",
     "googletest_repositories",
-    "transcoding_repositories",
 )
 
 boringssl_repositories()
@@ -28,18 +27,6 @@ boringssl_repositories()
 protobuf_repositories()
 
 googletest_repositories()
-
-transcoding_repositories()
-
-load(
-    "//contrib/endpoints:repositories.bzl",
-    "grpc_repositories",
-    "servicecontrol_client_repositories",
-)
-
-grpc_repositories()
-
-servicecontrol_client_repositories()
 
 load(
     "//src/envoy/mixer:repositories.bzl",
@@ -50,9 +37,11 @@ mixer_client_repositories()
 
 load(
     "@mixerclient_git//:repositories.bzl",
+    "googleapis_repositories",
     "mixerapi_repositories",
 )
 
+googleapis_repositories()
 mixerapi_repositories()
 
 load("//src/envoy:repositories.bzl", "lightstep_repositories")
