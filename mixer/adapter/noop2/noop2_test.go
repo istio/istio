@@ -18,12 +18,12 @@ import (
 	"testing"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapterManager"
+	"istio.io/mixer/pkg/config"
 )
 
 func TestRegisterationForTemplates(t *testing.T) {
-	handlers := adapterManager.BuilderInfoMap([]adapter.GetBuilderInfoFn{GetBuilderInfo},
-		adapterManager.DoesBuilderSupportsTemplate)
+	handlers := config.BuilderInfoMap([]adapter.GetBuilderInfoFn{GetBuilderInfo},
+		config.DoesBuilderSupportsTemplate)
 	bi := GetBuilderInfo()
 	name := bi.Name
 	resultNoop2BuilderInfo := handlers[name]

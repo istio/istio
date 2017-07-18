@@ -38,6 +38,7 @@ type mtest struct {
 	scContent string
 	sc        string
 	ada       map[string]adapter.ConfigValidator
+	hbi       map[string]*adapter.BuilderInfo
 	asp       map[Kind]AspectValidator
 	errStr    string
 }
@@ -66,14 +67,14 @@ func (f *fakelistener) Called() int {
 func TestConfigManager(t *testing.T) {
 	evaluator := newFakeExpr()
 	mlist := []mtest{
-		{"", "", "", "", nil, nil, ""},
-		{ConstGlobalConfig, "globalconfig", "", "", nil, nil, "failed validation"},
-		{ConstGlobalConfig, "globalconfig", sSvcConfig, "serviceconfig", nil, nil, "failed validation"},
+		{"", "", "", "", nil, nil, nil, ""},
+		{ConstGlobalConfig, "globalconfig", "", "", nil, nil, nil, "failed validation"},
+		{ConstGlobalConfig, "globalconfig", sSvcConfig, "serviceconfig", nil, nil, nil, "failed validation"},
 		{ConstGlobalConfigValid, "globalconfig", sSvcConfig2, "serviceconfig", map[string]adapter.ConfigValidator{
 			"denyChecker": &lc{},
 			"metrics":     &lc{},
 			"listchecker": &lc{},
-		}, map[Kind]AspectValidator{
+		}, nil, map[Kind]AspectValidator{
 			DenialsKind: &ac{},
 			MetricsKind: &ac{},
 			ListsKind:   &ac{},
@@ -82,12 +83,12 @@ func TestConfigManager(t *testing.T) {
 	for idx, mt := range mlist {
 		t.Run(strconv.Itoa(idx), func(t *testing.T) {
 			loopDelay := time.Millisecond * 50
-			vf := newVfinder(mt.ada, mt.asp)
+			vf := newVfinder(mt.ada, mt.asp, mt.hbi)
 			store := newFakeStore(mt.gcContent, mt.scContent)
 			if mt.errStr != "" {
 				store.err = errors.New(mt.errStr)
 			}
-			ma := NewManager(evaluator, vf.FindAspectValidator, vf.FindAdapterValidator, vf.AdapterToAspectMapperFunc,
+			ma := NewManager(evaluator, vf.FindAspectValidator, vf.FindAdapterValidator, nil, vf.AdapterToAspectMapperFunc,
 				store, loopDelay, keyTargetService, keyServiceDomain)
 			testConfigManager(t, ma, mt, loopDelay)
 		})
@@ -98,7 +99,7 @@ func TestManager_FetchError(t *testing.T) {
 	loopDelay := time.Millisecond * 50
 	errStr := "TestManager_FetchError"
 	store := newFakeStore("{}", "{}")
-	mgr := NewManager(nil, nil, nil, nil,
+	mgr := NewManager(nil, nil, nil, nil, nil,
 		store, loopDelay, keyTargetService, keyServiceDomain)
 
 	mgr.validate = func(cfg map[string]string) (rt *Validated, desc descriptor.Finder, ce *adapter.ConfigErrors) {

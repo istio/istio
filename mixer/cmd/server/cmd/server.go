@@ -198,14 +198,14 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	}
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
 	store := configStore(sa.configStoreURL, sa.serviceConfigFile, sa.globalConfigFile, printf, fatalf)
-	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder,
+	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapter.Inventory2(),
 		adapterMgr.SupportedKinds,
 		store, time.Second*time.Duration(sa.configFetchIntervalSec),
 		sa.configIdentityAttribute,
 		sa.configIdentityAttributeDomain)
 
 	configAPIServer := config.NewAPI("v1", sa.configAPIPort, eval,
-		adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder,
+		adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapter.Inventory2(),
 		adapterMgr.SupportedKinds, store)
 
 	var serverCert *tls.Certificate

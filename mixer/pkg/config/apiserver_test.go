@@ -89,7 +89,7 @@ func TestAPI_getRules(t *testing.T) {
 				},
 			}
 			api := NewAPI("v1", 0, nil, nil,
-				nil, nil, store)
+				nil, nil, nil, store)
 
 			sc, body := makeAPIRequest(api.handler, "GET", api.rootPath+ctx.key, []byte{}, t)
 			apiResp := &struct {
@@ -134,7 +134,7 @@ func TestAPI_getScopes(t *testing.T) {
 				},
 			}
 			api := NewAPI("v1", 0, nil, nil,
-				nil, nil, store)
+				nil, nil, nil, store)
 
 			sc, _ := makeAPIRequest(api.handler, "GET", api.rootPath+ctx.key, []byte{}, t)
 			if sc != ctx.status {
@@ -161,7 +161,7 @@ func TestAPI_createPolicy(t *testing.T) {
 				data: map[string]string{},
 			}
 			api := NewAPI("v1", 0, nil, nil,
-				nil, nil, store)
+				nil, nil, nil, store)
 
 			sc, _ := makeAPIRequest(api.handler, "POST", api.rootPath+ctx.key, ctx.body, t)
 			if sc != ctx.status {
@@ -192,7 +192,7 @@ func TestAPI_putAspect(t *testing.T) {
 				data: map[string]string{},
 			}
 			api := NewAPI("v1", 0, nil, nil,
-				nil, nil, store)
+				nil, nil, nil, store)
 
 			sc, _ := makeAPIRequest(api.handler, "PUT", api.rootPath+ctx.key, ctx.body, t)
 			if sc != ctx.status {
@@ -227,7 +227,7 @@ func TestAPI_deleteRules(t *testing.T) {
 				err: ctx.err,
 			}
 			api := NewAPI("v1", 0, nil, nil,
-				nil, nil, store)
+				nil, nil, nil, store)
 
 			sc, _ := makeAPIRequest(api.handler, "DELETE", api.rootPath+ctx.key, []byte{}, t)
 			if sc != ctx.status {
@@ -253,7 +253,7 @@ func TestAPI_deleteRule(t *testing.T) {
 				},
 			}
 			api := NewAPI("v1", 0, nil, nil,
-				nil, nil, store)
+				nil, nil, nil, store)
 
 			sc, _ := makeAPIRequest(api.handler, "DELETE", api.rootPath+ctx.key, []byte{}, t)
 			if sc != ctx.status {
@@ -279,7 +279,7 @@ func TestAPI_putAdapter(t *testing.T) {
 				data: map[string]string{},
 			}
 			api := NewAPI("v1", 0, nil, nil,
-				nil, nil, store)
+				nil, nil, nil, store)
 
 			sc, _ := makeAPIRequest(api.handler, "PUT", api.rootPath+ctx.key, ctx.body, t)
 			if sc != ctx.status {
@@ -310,7 +310,7 @@ func TestAPI_getDescriptor(t *testing.T) {
 				},
 			}
 			api := NewAPI("v1", 0, nil, nil,
-				nil, nil, store)
+				nil, nil, nil, store)
 
 			sc, _ := makeAPIRequest(api.handler, "GET", api.rootPath+ctx.key, []byte{}, t)
 			if sc != ctx.status {
@@ -337,7 +337,7 @@ func TestAPI_putDescriptor(t *testing.T) {
 				data: map[string]string{},
 			}
 			api := NewAPI("v1", 0, nil, nil,
-				nil, nil, store)
+				nil, nil, nil, store)
 
 			sc, _ := makeAPIRequest(api.handler, "PUT", api.rootPath+ctx.key, ctx.body, t)
 			if sc != ctx.status {
@@ -399,7 +399,7 @@ func TestAPI_getAdaptersOrDescriptors(t *testing.T) {
 				},
 			}
 			api := NewAPI("v1", 0, nil, nil,
-				nil, nil, store)
+				nil, nil, nil, store)
 			sc, bbody := makeAPIRequest(api.handler, "GET", "/api/v1"+k, []byte{}, t)
 			if sc != tst.status {
 				t.Fatalf("http status got %d\nwant %d \nmsg: %s", sc, tst.status, string(bbody))
@@ -437,7 +437,7 @@ func TestAPI_putAdaptersOrDescriptors(t *testing.T) {
 				},
 			}
 			api := NewAPI("v1", 0, nil, nil,
-				nil, nil, store)
+				nil, nil, nil, store)
 			sc, bbody := makeAPIRequest(api.handler, "PUT", "/api/v1"+k, []byte{}, t)
 			if sc != tst.status {
 				t.Fatalf("http status got %d\nwant %d", sc, tst.status)
@@ -478,7 +478,7 @@ func TestAPI_putRules(t *testing.T) {
 				},
 			}
 			api := NewAPI("v1", 0, nil, nil,
-				nil, nil, store)
+				nil, nil, nil, store)
 
 			switch tst.phase {
 			case errStoreRead:
@@ -571,7 +571,7 @@ func TestAPI_writeErrorResponse(t *testing.T) {
 }
 
 func TestAPI_Run(t *testing.T) {
-	api := NewAPI("v1", 9094, nil, nil, nil, nil, nil)
+	api := NewAPI("v1", 9094, nil, nil, nil, nil, nil, nil)
 	go api.Run()
 	err := api.server.Close()
 	if err != nil {

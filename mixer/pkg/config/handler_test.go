@@ -32,113 +32,179 @@ import (
 )
 
 type fakeTmplRepo struct {
-	tmptExists      bool
-	inferTypeError  error
-	inferTypeResult proto.Message
+	exists     bool
+	err        error
+	typeResult proto.Message
 }
 
-func newFakeTmplRepo(inferError error, inferResult proto.Message, tmplFound bool) tmpl.Repository {
-	return fakeTmplRepo{inferTypeError: inferError, inferTypeResult: inferResult, tmptExists: tmplFound}
+func newFakeTmplRepo(err error, result proto.Message) tmpl.Repository {
+	return fakeTmplRepo{err: err, typeResult: result, exists: true}
 }
 func (t fakeTmplRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	return tmpl.Info{
 		InferTypeFn: func(proto.Message, tmpl.TypeEvalFn) (proto.Message, error) {
-			return t.inferTypeResult, t.inferTypeError
+			return t.typeResult, t.err
 		},
 		CnstrDefConfig: nil,
-	}, t.tmptExists
+	}, t.exists
 }
 
+type instancesPerCall [][]string
 type fakeTmplRepo2 struct {
-	retErr      error
-	shouldPanic bool
+	err       error
+	panicTmpl string
 	// used to track what is called and later verify in the test.
-	trackCallInfo *[][]string
+	trace *instancesPerCall
 }
 
-func newFakeTmplRepo2(retErr error, shouldPanic bool, trackCallInfo *[][]string) fakeTmplRepo2 {
-	return fakeTmplRepo2{retErr: retErr, shouldPanic: shouldPanic, trackCallInfo: trackCallInfo}
+func newFakeTmplRepo2(retErr error, cnfgTypePanicsForTmpl string, trackInstancesPerCall *instancesPerCall) fakeTmplRepo2 {
+	return fakeTmplRepo2{err: retErr, panicTmpl: cnfgTypePanicsForTmpl, trace: trackInstancesPerCall}
 }
 func (t fakeTmplRepo2) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	return tmpl.Info{
 		ConfigureTypeFn: func(types map[string]proto.Message, builder *config.HandlerBuilder) error {
-			if t.shouldPanic {
+			instances := make([]string, 0)
+			for instance := range types {
+				instances = append(instances, instance)
+			}
+			(*t.trace) = append(*(t.trace), instances)
+			if t.panicTmpl == template {
 				panic("Panic from handler code")
 			}
-			actInstNames := make([]string, 0)
-			for instName := range types {
-				actInstNames = append(actInstNames, instName)
-			}
-			(*t.trackCallInfo) = append(*(t.trackCallInfo), actInstNames)
-			return t.retErr
+			return t.err
 		},
 	}, true
 }
 
-func TestDispatchTypesToHandlers(t *testing.T) {
+func TestDispatchToHandlers(t *testing.T) {
 	tests := []struct {
-		name                    string
-		handlers                map[string]*HandlerBuilderInfo
-		tmplCnfgrMtdErrRet      error
-		tmplCnfgrMtdShouldPanic bool
-		hndlrInstsByTmpls       map[string]instancesByTemplate
-		infrdTyps               map[string]proto.Message
-		wantErr                 string
-		expectCallTrackInfo     [][]string
+		name                string
+		handlers            map[string]*HandlerBuilderInfo
+		instancesByTemplate map[string]instancesByTemplate
+		infrdTyps           map[string]proto.Message
+
+		cnfgTypeErr               error
+		wantErr                   string
+		wantTrackInstancesPerCall [][]string
 	}{
 		{
-			name:                "simple",
-			tmplCnfgrMtdErrRet:  nil,
+			name:                      "simple",
+			handlers:                  map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder: nil}},
+			infrdTyps:                 map[string]proto.Message{"inst1": nil},
+			instancesByTemplate:       map[string]instancesByTemplate{"hndlr": map[string][]string{"any": {"inst1"}}},
+			cnfgTypeErr:               nil,
+			wantTrackInstancesPerCall: [][]string{{"inst1"}},
+		},
+		{
+			name:                      "MultiHandlerAndInsts",
+			handlers:                  map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder: nil}, "hndlr2": {handlerBuilder: nil}},
+			infrdTyps:                 map[string]proto.Message{"inst1": nil, "inst2": nil, "inst3": nil},
+			instancesByTemplate:       map[string]instancesByTemplate{"hndlr": map[string][]string{"any1": {"inst1", "inst2"}, "any2": {"inst3"}}},
+			cnfgTypeErr:               nil,
+			wantTrackInstancesPerCall: [][]string{{"inst1", "inst2"}, {"inst3"}},
+		},
+		{
+			name:                "ErrorFromAdapterCode",
 			handlers:            map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder: nil}},
 			infrdTyps:           map[string]proto.Message{"inst1": nil},
-			hndlrInstsByTmpls:   map[string]instancesByTemplate{"hndlr": map[string][]string{"any": {"inst1"}}},
-			wantErr:             "",
-			expectCallTrackInfo: [][]string{{"inst1"}},
-		},
-		{
-			name:                "MultiHandlerAndInsts",
-			tmplCnfgrMtdErrRet:  nil,
-			handlers:            map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder: nil}, "hndlr2": {handlerBuilder: nil}},
-			infrdTyps:           map[string]proto.Message{"inst1": nil, "inst2": nil, "inst3": nil},
-			hndlrInstsByTmpls:   map[string]instancesByTemplate{"hndlr": map[string][]string{"any1": {"inst1", "inst2"}, "any2": {"inst3"}}},
-			wantErr:             "",
-			expectCallTrackInfo: [][]string{{"inst1", "inst2"}, {"inst3"}},
-		},
-		{
-			name:               "ErrorFromAdapterCode",
-			tmplCnfgrMtdErrRet: fmt.Errorf("error from adapter configure code"),
-			wantErr:            "error from adapter configure code",
-			handlers:           map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder: nil}},
-			infrdTyps:          map[string]proto.Message{"inst1": nil},
-			hndlrInstsByTmpls:  map[string]instancesByTemplate{"hndlr": map[string][]string{"any": {"inst1"}}},
-		},
-		{
-			name:                    "PanicFromAdapterCodeRecovery",
-			tmplCnfgrMtdErrRet:      nil,
-			tmplCnfgrMtdShouldPanic: true,
-			wantErr:                 "",
-			handlers:                map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder: nil}},
-			infrdTyps:               map[string]proto.Message{"inst1": nil},
-			hndlrInstsByTmpls:       map[string]instancesByTemplate{"hndlr": map[string][]string{"any": {"inst1"}}},
+			instancesByTemplate: map[string]instancesByTemplate{"hndlr": map[string][]string{"any": {"inst1"}}},
+			cnfgTypeErr:         fmt.Errorf("error from adapter configure code"),
+			wantErr:             "error from adapter configure code",
 		},
 	}
 
 	ex, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 	for _, tt := range tests {
-		actualCallTrackInfo := make([][]string, 0)
-		tmplRepo := newFakeTmplRepo2(tt.tmplCnfgrMtdErrRet, tt.tmplCnfgrMtdShouldPanic, &actualCallTrackInfo)
+		actualCallTrackInfo := make(instancesPerCall, 0)
+		tmplRepo := newFakeTmplRepo2(tt.cnfgTypeErr, "", &actualCallTrackInfo)
 		hc := handlerFactory{typeChecker: ex, tmplRepo: tmplRepo}
 
-		err := hc.dispatch(tt.infrdTyps, tt.hndlrInstsByTmpls, tt.handlers)
-		if tt.tmplCnfgrMtdShouldPanic && !tt.handlers["hndlr"].isBroken {
-			t.Error("The handler should be marked as broken.")
+		err := hc.dispatch(tt.infrdTyps, tt.instancesByTemplate, tt.handlers)
+
+		if tt.wantErr == "" {
+			if err != nil {
+				t.Errorf("got err %v\nwant <nil>", err)
+			}
+			ensureInterfacesInConfigCallsValid(t, tt.wantTrackInstancesPerCall, actualCallTrackInfo)
+		} else {
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("got error %v\nwant %v", err, tt.wantErr)
+			}
+		}
+	}
+}
+
+func TestDispatchToHandlersPanicRecover(t *testing.T) {
+	type TestData struct {
+		name                string
+		handlers            map[string]*HandlerBuilderInfo
+		instancesByTemplate map[string]instancesByTemplate
+		infrdTyps           map[string]proto.Message
+
+		cnfgTypeErr           error
+		cnfgTypePanicsForTmpl string
+		wantErr               string
+		wantCallTrackInfo     [][]string
+	}
+
+	tmpCausingPanic := "BadTmplCausePanic"
+	badHndlr := "badHndlr"
+	goodHndlr1 := "goodHndlr1"
+	goodHndlr2 := "goodHndlr2"
+
+	handlers := map[string]*HandlerBuilderInfo{
+		badHndlr:   {handlerBuilder: nil},
+		goodHndlr1: {handlerBuilder: nil},
+		goodHndlr2: {handlerBuilder: nil},
+	}
+	infrdTypes := map[string]proto.Message{"inst1": nil, "inst2": nil, "inst3": nil}
+
+	instancesByTemplate := map[string]instancesByTemplate{
+		badHndlr:   map[string][]string{"BadTmplCausePanic": {"inst1"}},
+		goodHndlr1: map[string][]string{"any": {"inst2"}},
+		goodHndlr2: map[string][]string{"any": {"inst3"}},
+	}
+	wantcallTrackInfo := [][]string{{"inst1"}, {"inst2"}, {"inst3"}}
+
+	tests := []TestData{
+		{
+			name:                  "PanicNoError",
+			handlers:              handlers,
+			infrdTyps:             infrdTypes,
+			instancesByTemplate:   instancesByTemplate,
+			cnfgTypePanicsForTmpl: tmpCausingPanic,
+			wantCallTrackInfo:     wantcallTrackInfo,
+			cnfgTypeErr:           nil,
+		},
+		{
+			name:                  "PanicAfterError",
+			handlers:              handlers,
+			infrdTyps:             infrdTypes,
+			instancesByTemplate:   instancesByTemplate,
+			cnfgTypePanicsForTmpl: tmpCausingPanic,
+			wantCallTrackInfo:     wantcallTrackInfo,
+			cnfgTypeErr:           fmt.Errorf("error from configure-type"),
+			wantErr:               "error from configure-type",
+		},
+	}
+
+	for _, tt := range tests {
+		ex, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
+		actualCallTrackInfo := make(instancesPerCall, 0)
+		tmplRepo := newFakeTmplRepo2(tt.cnfgTypeErr, tt.cnfgTypePanicsForTmpl, &actualCallTrackInfo)
+		hc := handlerFactory{typeChecker: ex, tmplRepo: tmplRepo}
+
+		err := hc.dispatch(tt.infrdTyps, tt.instancesByTemplate, tt.handlers)
+
+		if !tt.handlers[badHndlr].isBroken || tt.handlers[goodHndlr1].isBroken || tt.handlers[goodHndlr2].isBroken {
+			t.Errorf("The handler %s should be marked as broken. Handlers %s and %s should not be broken", badHndlr, goodHndlr1, goodHndlr2)
 		}
 
 		if tt.wantErr == "" {
 			if err != nil {
 				t.Errorf("got err %v\nwant <nil>", err)
 			}
-			ensureInterfacesInConfigCallsValid(t, tt.expectCallTrackInfo, actualCallTrackInfo)
+			ensureInterfacesInConfigCallsValid(t, tt.wantCallTrackInfo, actualCallTrackInfo)
 		} else {
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Errorf("got error %v\nwant %v", err, tt.wantErr)
@@ -149,39 +215,38 @@ func TestDispatchTypesToHandlers(t *testing.T) {
 
 func TestInferTypes(t *testing.T) {
 	tests := []struct {
-		name         string
-		constructors map[string]*pb.Constructor
-		tmplRepo     tmpl.Repository
-		want         map[string]proto.Message
-		wantError    string
+		name      string
+		cnstrs    map[string]*pb.Constructor
+		tmplRepo  tmpl.Repository
+		want      map[string]proto.Message
+		wantError string
 	}{
 		{
-			name:         "SingleCnstr",
-			constructors: map[string]*pb.Constructor{"inst1": {"inst1", "tpml1", &empty.Empty{}}},
-			tmplRepo:     newFakeTmplRepo(nil, &wrappers.Int32Value{Value: 1}, true),
-			want:         map[string]proto.Message{"inst1": &wrappers.Int32Value{Value: 1}},
-			wantError:    "",
+			name:     "SingleCnstr",
+			cnstrs:   map[string]*pb.Constructor{"inst1": {"inst1", "tpml1", &empty.Empty{}}},
+			tmplRepo: newFakeTmplRepo(nil, &wrappers.Int32Value{Value: 1}),
+			want:     map[string]proto.Message{"inst1": &wrappers.Int32Value{Value: 1}},
 		},
 		{
 			name: "MultipleCnstr",
-			constructors: map[string]*pb.Constructor{"inst1": {"inst1", "tpml1", &empty.Empty{}},
+			cnstrs: map[string]*pb.Constructor{"inst1": {"inst1", "tpml1", &empty.Empty{}},
 				"inst2": {"inst2", "tpml1", &empty.Empty{}}},
-			tmplRepo: newFakeTmplRepo(nil, &wrappers.Int32Value{Value: 1}, true),
+			tmplRepo: newFakeTmplRepo(nil, &wrappers.Int32Value{Value: 1}),
 			want:     map[string]proto.Message{"inst1": &wrappers.Int32Value{Value: 1}, "inst2": &wrappers.Int32Value{Value: 1}},
 		},
 		{
-			name:         "ErrorDuringTypeInfr",
-			constructors: map[string]*pb.Constructor{"inst1": {"inst1", "tpml1", &empty.Empty{}}},
-			tmplRepo:     newFakeTmplRepo(fmt.Errorf("error during type infer"), nil, true),
-			want:         nil,
-			wantError:    "cannot infer type information",
+			name:      "ErrorDuringTypeInfr",
+			cnstrs:    map[string]*pb.Constructor{"inst1": {"inst1", "tpml1", &empty.Empty{}}},
+			tmplRepo:  newFakeTmplRepo(fmt.Errorf("error during type infer"), nil),
+			want:      nil,
+			wantError: "cannot infer type information",
 		},
 	}
 	ex, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			hc := handlerFactory{typeChecker: ex, tmplRepo: tt.tmplRepo}
-			v, err := hc.inferTypes(tt.constructors)
+			v, err := hc.inferTypes(tt.cnstrs)
 			if tt.wantError == "" {
 				if err != nil {
 					t.Errorf("got err %v\nwant <nil>", err)
@@ -199,7 +264,7 @@ func TestInferTypes(t *testing.T) {
 	}
 }
 
-func TestDedupeAndGroupInstances(t *testing.T) {
+func TestGroupByTmpl(t *testing.T) {
 	tests := []struct {
 		name         string
 		actions      []*pb.Action
