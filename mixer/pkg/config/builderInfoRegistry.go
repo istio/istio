@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapterManager
+package config
 
 import (
 	"fmt"
@@ -31,7 +31,7 @@ type builderInfoRegistry struct {
 type handlerBuilderValidator func(hndlrBuilder config.HandlerBuilder, t adapter.SupportedTemplates,
 	handlerName string) (bool, string)
 
-// newRegistry returns a new BuilderInfo registry.
+// newRegistry2 returns a new BuilderInfo registry.
 func newRegistry2(getBuilderInfos []adapter.GetBuilderInfoFn, hndlrBldrValidator handlerBuilderValidator) *builderInfoRegistry {
 	r := &builderInfoRegistry{make(map[string]*adapter.BuilderInfo)}
 	for idx, getBuilderInfo := range getBuilderInfos {
