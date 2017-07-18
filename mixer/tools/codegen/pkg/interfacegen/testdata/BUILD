@@ -80,7 +80,7 @@ proto_compile(
         "external/com_github_google_protobuf/src",
     ],
     inputs = [
-        "//tools/codegen/pkg/template_extension:proto",
+        "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = ["ErrorTemplate.proto"],

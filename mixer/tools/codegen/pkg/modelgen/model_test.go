@@ -74,7 +74,7 @@ func TestConstructorDirRefAndImports(t *testing.T) {
 	if !contains(model.Imports, expectedTxt) {
 		t.Fatalf("CreateModel(%s).Imports = %v, wanted to contain %s", testFilename, model.Imports, expectedTxt)
 	}
-	expectedTxt = "_ \"tools/codegen/pkg/template_extension\""
+	expectedTxt = "_ \"pkg/adapter/template\""
 	if !contains(model.Imports, expectedTxt) {
 		t.Fatalf("CreateModel(%s).Imports = %v, wanted to contain %s", testFilename, model.Imports, expectedTxt)
 	}

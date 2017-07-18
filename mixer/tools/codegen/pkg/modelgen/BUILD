@@ -10,7 +10,7 @@ go_library(
         "parser.go",
     ],
     deps = [
-        "//tools/codegen/pkg/template_extension:go_default_library",
+        "//pkg/adapter/template:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_gogo_protobuf//protoc-gen-gogo/descriptor:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",

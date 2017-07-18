@@ -32,17 +32,17 @@ mixer_gen = rule(
 )
 
 MIXER_DEPS = [
-    "//tools/codegen/pkg/adapter:go_default_library",
-    "//tools/codegen/pkg/template_extension:go_default_library",
+    "//pkg/adapter/config:go_default_library",
+    "//pkg/adapter/template:go_default_library",
     "@com_github_istio_api//:mixer/v1/config/descriptor",
 ]
 MIXER_INPUTS = [
-    "//tools/codegen/pkg/template_extension:proto",
+    "//pkg/adapter/template:protos",
     "@com_github_istio_api//:mixer/v1/config/descriptor_protos",
 ]
 MIXER_IMPORT_MAP = {
     "mixer/v1/config/descriptor/value_type.proto": "istio.io/api/mixer/v1/config/descriptor",
-    "tools/codegen/pkg/template_extension/TemplateExtensions.proto": "istio.io/mixer/tools/codegen/pkg/template_extension",
+    "pkg/adapter/template/TemplateExtensions.proto": "istio.io/mixer/pkg/adapter/template",
 }
 MIXER_IMPORTS = [ "external/com_github_istio_api" ]
 

@@ -24,6 +24,6 @@ gogoslick_proto_library(
 )
 
 filegroup(
-    name = "proto",
+    name = "protos",
     srcs = ["TemplateExtensions.proto"],
 )

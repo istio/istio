@@ -193,10 +193,9 @@ def adapter_protos(WKSPC):
 
 # link pb.go files 2 levels down the dir
 def template_protos(WKSPC):
-    for template in os.listdir(WKSPC + "/bazel-genfiles/pkg/template"):
-        for file in os.listdir(WKSPC + "/bazel-genfiles/pkg/template/" + template):
-            if file.endswith(".pb.go"):
-                makelink(WKSPC + "/bazel-genfiles/pkg/template/" + template + "/" + file, WKSPC + "/pkg/template/" +template + "/" + file)
+    for file in os.listdir(WKSPC + "/bazel-genfiles/pkg/adapter/template"):
+        if file.endswith(".pb.go"):
+            makelink(WKSPC + "/bazel-genfiles/pkg/adapter/template/" + file, WKSPC + "/pkg/adapter/template/" + file)
     for template in os.listdir(WKSPC + "/bazel-genfiles/template"):
         for file in os.listdir(WKSPC + "/bazel-genfiles/template/" + template):
             if file.endswith(".pb.go"):
@@ -213,10 +212,10 @@ def aspect_protos(WKSPC):
                 makelink(WKSPC + "/bazel-genfiles/pkg/aspect/config/" + file, WKSPC + "/pkg/aspect/config/" + file)
 
 def tools_protos(WKSPC):
-    if os.path.exists(WKSPC + "/bazel-genfiles/tools/codegen/pkg/template_extension/"):
-        for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/template_extension/"):
+    if os.path.exists(WKSPC + "/bazel-genfiles/pkg/adapter/template/"):
+        for file in os.listdir(WKSPC + "/bazel-genfiles/pkg/adapter/template/"):
             if file.endswith(".pb.go"):
-                makelink(WKSPC + "/bazel-genfiles/tools/codegen/pkg/template_extension/" + file, WKSPC + "/tools/codegen/pkg/template_extension/" + file)
+                makelink(WKSPC + "/bazel-genfiles/pkg/adapter/template/" + file, WKSPC + "/pkg/adapter/template/" + file)
 
 def tools_generated_files(WKSPC):
     if os.path.exists(WKSPC + "/bazel-genfiles/tools/codegen/pkg/interfacegen/testdata"):
