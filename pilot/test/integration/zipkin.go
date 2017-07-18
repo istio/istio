@@ -17,10 +17,10 @@ package main
 import (
 	"fmt"
 
+	uuid "github.com/satori/go.uuid"
+
 	"strings"
 	"sync"
-
-	"github.com/satori/go.uuid"
 )
 
 const (
@@ -83,14 +83,19 @@ func (t *zipkin) makeRequests() error {
 // verify that the traces were picked up by Zipkin
 func (t *zipkin) verifyTraces() error {
 	f := func() status {
-		response := t.infra.clientRequest("t", "http://zipkin:9411/api/v1/traces", 1, "")
-		if len(response.code) == 0 || response.code[0] != httpOk {
-			return errAgain
-		}
-
-		// ensure that sent trace IDs are a subset of the trace IDs in Zipkin.
-		// this is inefficient, but the alternatives are ugly regexps or extensive JSON parsing.
 		for _, id := range t.traces {
+			response := t.infra.clientRequest(
+				"t",
+				fmt.Sprintf("http://zipkin:9411/api/v1/traces?annotationQuery=guid:x-request-id=/%s", id),
+				1, "",
+			)
+
+			if len(response.code) == 0 || response.code[0] != httpOk {
+				return errAgain
+			}
+
+			// ensure that sent trace IDs are a subset of the trace IDs in Zipkin.
+			// this is inefficient, but the alternatives are ugly regexps or extensive JSON parsing.
 			if !strings.Contains(response.body, id) {
 				return errAgain
 			}

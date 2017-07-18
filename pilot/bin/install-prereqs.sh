@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -ex
+
 # Install linters
 go get -u github.com/alecthomas/gometalinter
 gometalinter --install --vendored-linters
