@@ -2,54 +2,39 @@
 
 So, you want to hack on Istio? Yay!
 
-The following sections outline the process by which all changes to the Istio
-repositories will go through.  All changes, regardless of whether they are from
-newcomers to the community or from the core team follow the exact
+The following sections outline the process all changes to the Istio
+repositories go through.  All changes, regardless of whether they are from
+newcomers to the community or from the core team follow the
 same process and are given the same level of review.
 
-- [How to engage](#how-to-engage)
+- [Working Groups](#working-groups)
+- [Design Documents](#design-docs)
 - [Code of conduct](#code-of-conduct)
 - [Contributor license agreements](#contributor-license-agreements)
 - [Issues](#issues)
 - [Contributing a feature](#contributing-a-feature)
 - [Pull requests](#pull-requests)
 
-## How to engage
+## Working Groups
 
-The Istio community has a number of different communication channels. It can be hard to figure out
-where's the right place to ask a question or propose a design. It can be complicated on the receiving end too,
-trying to keep track of all the incoming input. So we'd like to encourage the following:
+The Istio community is organized into a set of [working groups](GROUPS.md).
+Any contribution to Istio should be started by first engaging with the appropriate working group.
 
-- Initial design discussions should happen on the [istio-dev](https://groups.google.com/forum/#!forum/istio-dev) mailing list. This is a great
-place to float ideas and get thoughtful feedback. It's archived for everybody to consume into the future.
+## Design Documents
 
-- If a design is substantial enough, it deserves a design document. Design documents are written with Google Docs and
+Any substantial design deserves a design document. Design documents are written with Google Docs and
 should be shared with the community by adding the doc to our [Team Drive](https://drive.google.com/corp/drive/u/0/folders/0AIS5p3eW9BCtUk9PVA)
-and sending a note to istio-dev to let people know the doc is there.
-
-- Slack is great for quick interactions that demand immediate attention. Slack is for Istio developers
-helping other Istio developers on somewhat urgent technical issues. Slack is not really appropriate for
-protracted design discussions which usually benefit from the more deliberate and thoughtful interactions
-possible in email.
-
-Keep in mind that Slack can be highly disruptive to the large number of users monitoring the channels. As such,
-please keep funny threads, jokes, memes, etc, out of the main channels and into the #random channel instead. Try to quickly
-move discussions into private chats when appropriate. And move any real design discussions to the mailing lists,
-to design docs, or to GitHub issues.
-
-The content of our Slack channels is not archived. As such, any design decision made on Slack will
-not be tracked over time and we therefore won't have the history supporting these decisions. The mailing list
-on the other hand remembers it all.
-
-Our [Team Drive](https://drive.google.com/corp/drive/u/0/folders/0AIS5p3eW9BCtUk9PVA) holds a bunch of design
-docs. Just follow the link to easily get read access to the drive. To get write access to the drive, you'll need
-to be an official contributor to the Istio project per GitHub.
+and sending a note to the appropriate working group to let people know the doc is there. To get write access
+to the drive, you'll need to be an official contributor to the Istio project per GitHub.
 
 ## Code of conduct
 
 All members of the Istio community must abide by the
 [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md).
 Only by respecting each other can we develop a productive, collaborative community.
+
+We promote and encourage a set of [shared values](VALUES.md) to improve our
+productivity and inter-personal interactions.
 
 ## Contributor license agreements
 
@@ -78,23 +63,12 @@ feature requests.
 
 ## Contributing a feature
 
-If you would like to propose a new feature for the project then it would be
-best to first discuss your idea with the community to gauge their level of
-interest. You can use any of the communication channels to have this
-discussion, but ideally a new GitHub issue should be opened so that the
-history of the discussions can be saved within the repository itself.
-The issue should include information about the requirements and
-use cases that it is trying to address.
-
-If you would like to also work on the implementation of the feature then
-it should include a discussion of the proposed design and technical details
-of how it will be implemented.
-
-Before checking in a new feature, you are expected to contribute full
-documentation for this feature within the main Istio repo (https://github.com/istio/istio).
-
-Once the idea has be discussed and there is a general agreement on the
-technical direction, a PR can then be submitted.
+In order to contribute a feature to Istio you'll need to go through the following steps:
+- Discuss your idea with the appropriate [working groups](GROUPS.md).
+- Once there is general agreement that the feature is useful, create a GitHub issue to track the discussion. The issue should include information about the requirements and use cases that it is trying to address.
+- Include a discussion of the proposed design and technical details of the implementation in the issue.
+- Once there is general agreement on the technical direction, submit a PR.
+- Contribute documentation of the feature to the [istio.io](https://istio.io) repo (https://github.com/istio/istio.github.io).
 
 If you would like to skip the process of submitting an issue and
 instead would prefer to just submit a pull request with your desired
@@ -125,7 +99,7 @@ be 100% complete - meaning they should include all test cases and documentation
 changes related to the change.
 
 When ready, if you have not already done so, sign a
-[contributor license agreements](#contributor-license-agreements) and submit 
+[contributor license agreements](#contributor-license-agreements) and submit
 the PR.
 
 See [Reviewing and Merging Pull Requests](REVIEWING.md) for the PR review and

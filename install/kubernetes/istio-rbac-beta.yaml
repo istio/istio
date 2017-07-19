@@ -12,14 +12,14 @@ rules:
   resources: ["istioconfigs", "istioconfigs.istio.io"]
   verbs: ["*"]
 - apiGroups: ["extensions"]
-  resources: ["thirdpartyresources", "thirdpartyresources.extensions", "ingresses"]
+  resources: ["thirdpartyresources", "thirdpartyresources.extensions", "ingresses", "ingresses/status"]
   verbs: ["*"]
 - apiGroups: [""]
   resources: ["configmaps", "endpoints", "pods", "services"]
   verbs: ["*"]
 - apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["get"]
+  resources: ["namespaces", "nodes", "secrets"]
+  verbs: ["get", "list", "watch"]
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -31,7 +31,7 @@ rules:
   verbs: ["create", "get", "watch", "list"]
 - apiGroups: [""]
   resources: ["serviceaccounts"]
-  verbs: ["watch", "list"]
+  verbs: ["get", "watch", "list"]
 ---
 # Permissions for the sidecar proxy.
 kind: ClusterRole
@@ -50,39 +50,42 @@ rules:
   verbs: ["get", "watch", "list"]
 ---
 # Grant permissions to the Pilot/discovery.
-kind: RoleBinding
+kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
   name: istio-pilot-admin-role-binding
 subjects:
 - kind: ServiceAccount
   name: istio-pilot-service-account
+  namespace: default
 roleRef:
   kind: ClusterRole
   name: istio-pilot
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Pilot/discovery.
-kind: RoleBinding
+kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
   name: istio-ca-role-binding
 subjects:
 - kind: ServiceAccount
   name: istio-ca-service-account
+  namespace: default
 roleRef:
   kind: ClusterRole
   name: istio-ca
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Ingress controller.
-kind: RoleBinding
+kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
   name: istio-ingress-admin-role-binding
 subjects:
 - kind: ServiceAccount
   name: istio-ingress-service-account
+  namespace: default
 roleRef:
   kind: ClusterRole
   name: istio-pilot
@@ -91,13 +94,14 @@ roleRef:
 # Grant permissions to the sidecar.
 # TEMPORARY: the istioctl should generate a separate service account for the proxy, and permission
 # granted only to that account !
-kind: RoleBinding
+kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
   name: istio-sidecar-role-binding
 subjects:
 - kind: ServiceAccount
   name: default
+  namespace: default
 roleRef:
   kind: ClusterRole
   name: istio-sidecar
