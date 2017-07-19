@@ -186,6 +186,7 @@ func (t *ingress) checkIngressStatus() status {
 			if status.IP == "" && status.Hostname == "" {
 				return errAgain
 			}
+			glog.Infof("Ingress Status IP: %s", status.IP)
 		}
 	}
 	return nil

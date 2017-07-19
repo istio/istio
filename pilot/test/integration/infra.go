@@ -84,7 +84,9 @@ func (infra *infra) setup() error {
 		}
 		return nil
 	}
-
+	if err := deploy("rbac-beta.yaml.tmpl"); err != nil {
+		return err
+	}
 	if err := deploy("config.yaml.tmpl"); err != nil {
 		return err
 	}

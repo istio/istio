@@ -12,6 +12,11 @@ spec:
   selector:
     infra: pilot
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-pilot-service-account
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -23,6 +28,7 @@ spec:
       labels:
         infra: pilot
     spec:
+      serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
         image: {{.Hub}}/pilot:{{.Tag}}
