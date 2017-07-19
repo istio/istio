@@ -27,21 +27,36 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
+	"cloud.google.com/go/logging/apiv2"
 	"cloud.google.com/go/storage"
 	"github.com/golang/glog"
 	"github.com/google/uuid"
+	multierror "github.com/hashicorp/go-multierror"
+	"google.golang.org/api/iterator"
+	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
+
+	"istio.io/istio/tests/e2e/util"
 )
 
 var (
 	logsBucketPath = flag.String("logs_bucket_path", "", "Cloud Storage Bucket path to use to store logs")
-	testLogsPath   = flag.String("test_logs_path", "", "Local path to store logs in")
+	projectID      = flag.String("project_id", "", "Project ID")
+	resources      = []string{
+		"pod",
+		"service",
+		"ingress",
+	}
+	testLogsPath = flag.String("test_logs_path", "", "Local path to store logs in")
 )
 
 const (
-	tmpPrefix   = "istio.e2e."
-	idMaxLength = 36
+	tmpPrefix            = "istio.e2e."
+	idMaxLength          = 36
+	pageSize             = 1000 // number of log entries for each paginated request to fetch logs
+	maxConcurrentWorkers = 3    //avoid overloading stackdriver api
 )
 
 // TestInfo gathers Test Information
@@ -119,6 +134,111 @@ func (t testInfo) Setup() error {
 // Update sets the test status.
 func (t testInfo) Update(r int) error {
 	return t.createStatusFile(r)
+}
+
+func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
+	if *projectID == "" {
+		return nil
+	}
+	// connect to stackdriver
+	ctx := context.Background()
+	glog.Info("Fetching cluster logs")
+	loggingClient, err := logging.NewClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	fetchAndWrite := func(logName string) error {
+		// fetch logs from pods created for this run only
+		filter := fmt.Sprintf(
+			`logName = "%s" AND
+			resource.labels.namespace_id = "%s"`,
+			logName, namespace)
+		req := &loggingpb.ListLogEntriesRequest{
+			ResourceNames: []string{"projects/" + *projectID},
+			Filter:        filter,
+		}
+		it := loggingClient.ListLogEntries(ctx, req)
+		// create log file in append mode
+		prefix := fmt.Sprintf("projects/%s/logs/", *projectID)
+		logID := logName[len(prefix):]
+		path := filepath.Join(t.LogsPath, fmt.Sprintf("%s.log", logID))
+		f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
+		if err != nil {
+			return err
+		}
+		// fetch log entries with pagination
+		var entries []*loggingpb.LogEntry
+		pager := iterator.NewPager(it, pageSize, "")
+		for page := 0; ; page++ {
+			pageToken, err := pager.NextPage(&entries)
+			if err != nil {
+				glog.Warning("%s Iterator paging stops: %v", logName, err)
+				return err
+			}
+			// append logs to file
+			for _, logEntry := range entries {
+				_, err = f.WriteString(fmt.Sprintf("%v\n", logEntry.Payload))
+				if err != nil {
+					return err
+				}
+			}
+			if pageToken == "" {
+				break
+			}
+		}
+		return f.Close()
+	}
+
+	req := &loggingpb.ListLogsRequest{
+		Parent: "projects/" + *projectID,
+	}
+	it := loggingClient.ListLogs(ctx, req)
+	var multiErr error
+	var wg sync.WaitGroup
+	// limit number of concurrent jobs to stay in stackdriver api quota
+	jobQue := make(chan string, maxConcurrentWorkers)
+	for {
+		logName, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		if i := strings.Index(logName, "presubmit"); i == -1 {
+			wg.Add(1)
+			jobQue <- logName // blocked if jobQue channel is already filled
+			// fetch logs in another go routine
+			go func() {
+				if err := fetchAndWrite(logName); err != nil {
+					multiErr = multierror.Append(multiErr, err)
+				} else {
+					glog.Info("Fetched logs on %s\n", logName)
+				}
+				<-jobQue
+				wg.Done()
+			}()
+		}
+	}
+	wg.Wait()
+
+	for _, resrc := range resources {
+		glog.Info(fmt.Sprintf("Fetching deployment info on %s\n", resrc))
+		path := filepath.Join(t.LogsPath, fmt.Sprintf("%s.yaml", resrc))
+		if yaml, err0 := util.Shell(fmt.Sprintf("kubectl get %s -n %s -o yaml", resrc, namespace)); err0 != nil {
+			multiErr = multierror.Append(multiErr, err0)
+		} else {
+			if f, err1 := os.Create(path); err1 != nil {
+				multiErr = multierror.Append(multiErr, err1)
+			} else {
+				if _, err2 := f.WriteString(fmt.Sprintf("%s\n", yaml)); err2 != nil {
+					multiErr = multierror.Append(multiErr, err2)
+				}
+			}
+		}
+	}
+	return multiErr
 }
 
 func (t testInfo) createStatusFile(r int) error {

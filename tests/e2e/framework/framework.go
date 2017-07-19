@@ -26,6 +26,7 @@ import (
 
 var (
 	skipCleanup = flag.Bool("skip_cleanup", false, "Debug, skip clean up")
+	logProvider = flag.String("log_provider", "", "Cluster log storage provider")
 )
 
 type testCleanup struct {
@@ -103,7 +104,7 @@ func (t *testCleanup) RegisterCleanable(c Cleanable) {
 	t.Cleanables = append(t.Cleanables, c)
 }
 
-func (t *testCleanup) getCleanable() Cleanable {
+func (t *testCleanup) popCleanable() Cleanable {
 	t.CleanablesLock.Lock()
 	defer t.CleanablesLock.Unlock()
 	if len(t.Cleanables) == 0 {
@@ -120,7 +121,7 @@ func (t *testCleanup) addCleanupAction(fn func() error) {
 	t.CleanupActions = append(t.CleanupActions, fn)
 }
 
-func (t *testCleanup) getCleanupAction() func() error {
+func (t *testCleanup) popCleanupAction() func() error {
 	t.CleanupActionsLock.Lock()
 	defer t.CleanupActionsLock.Unlock()
 	if len(t.CleanupActions) == 0 {
@@ -134,14 +135,14 @@ func (t *testCleanup) getCleanupAction() func() error {
 func (t *testCleanup) init() error {
 	// Run setup on all cleanable
 	glog.Info("Starting Initialization")
-	c := t.getCleanable()
+	c := t.popCleanable()
 	for c != nil {
 		err := c.Setup()
 		t.addCleanupAction(c.Teardown)
 		if err != nil {
 			return err
 		}
-		c = t.getCleanable()
+		c = t.popCleanable()
 	}
 	glog.Info("Initialization complete")
 	return nil
@@ -155,16 +156,19 @@ func (t *testCleanup) cleanup() {
 	}
 	// Run tear down on all cleanable
 	glog.Info("Starting Cleanup")
-	fn := t.getCleanupAction()
+	fn := t.popCleanupAction()
 	for fn != nil {
 		if err := fn(); err != nil {
 			glog.Errorf("Failed to cleanup. Error %s", err)
 		}
-		fn = t.getCleanupAction()
+		fn = t.popCleanupAction()
 	}
 	glog.Info("Cleanup complete")
 }
 
+// Save test logs to tmp dir
+// Fetch and save cluster tracing logs if logProvider specified
+// Logs are uploaded during test tear down
 func (c *CommonConfig) saveLogs(r int) error {
 	if c.Info == nil {
 		glog.Warning("Skipping log saving as Info is not initialized")
@@ -174,18 +178,21 @@ func (c *CommonConfig) saveLogs(r int) error {
 		return nil
 	}
 	glog.Info("Saving logs")
-	if err := c.Info.Update(r); err == nil {
-
-	} else {
+	if err := c.Info.Update(r); err != nil {
 		glog.Errorf("Could not create status file. Error %s", err)
 		return err
+	}
+	if r != 0 && *logProvider == "stackdriver" { // fetch logs only if tests failed
+		if err := c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 // RunTest sets up all registered cleanables in FIFO order
 // Execute the runnable
-// and call teardown on all the cleanables in LIFO order.
+// Call teardown on all the cleanables in LIFO order.
 func (c *CommonConfig) RunTest(m runnable) int {
 	var ret int
 	if err := c.Cleanup.init(); err != nil {
@@ -195,9 +202,8 @@ func (c *CommonConfig) RunTest(m runnable) int {
 		glog.Info("Running test")
 		ret = m.Run()
 	}
-
 	if err := c.saveLogs(ret); err != nil {
-		glog.Warning("Failed to save logs")
+		glog.Warning("Log saving inconplete: %s", err)
 	}
 	c.Cleanup.cleanup()
 	return ret

@@ -31,8 +31,6 @@ FAILURE_COUNT=0
 SUMMARY='Tests Summary'
 
 
-
-
 for T in ${TESTS_TARGETS[@]}; do
   echo '****************************************************'
   echo "Running ${T}"
