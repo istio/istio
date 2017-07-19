@@ -25,4 +25,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 EXPOSE 9080
+ARG service_version
+ENV SERVICE_VERSION ${service_version:-v1}
 CMD python productpage.py 9080 $MYSQLADDR

@@ -19,6 +19,7 @@ from flask import Flask, request, render_template, redirect, url_for
 import simplejson as json
 import requests
 import sys
+import os
 from json2html import *
 import logging
 import requests
@@ -201,14 +202,19 @@ class Mydb(object):
         self.cursor.close()
         self.cnx.close()
 
+def print_usage():
+    print "usage: %s port [dbserver]" % (sys.argv[0])
+    sys.exit(-1)
 
 if __name__ == '__main__':
-    use_db = True
+    use_db = False
+    if 'SERVICE_VERSION' in os.environ and os.environ['SERVICE_VERSION'] == 'v2':
+        use_db = True
+
     if len(sys.argv) < 2:
-        print "usage: %s port [dbserver]" % (sys.argv[0])
-        sys.exit(-1)
-    if len(sys.argv) < 3:
-        use_db = False
+        print_usage()
+    if use_db and len(sys.argv) < 3:
+        print_usage()
 
     p = int(sys.argv[1])
     sys.stderr = Writer('stderr.log')
