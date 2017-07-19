@@ -8,7 +8,7 @@ rules:
       - descriptor_name: response_size
         value: response.size | 0
         labels:
-          source: source.service | "unknown"
+          source: source.labels["app"] | "unknown"
           target: target.service | "unknown"
           service: target.labels["app"] | "unknown"
           method: request.path | "unknown"
