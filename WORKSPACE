@@ -30,6 +30,18 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_google_go_github",
+    commit = "9be6ce168fa69a3cc2db27a776950a42d18c2ae0",
+    importpath = "github.com/google/go-github",
+)
+
+new_go_repository(
+    name = "com_github_google_go_querystring",
+    commit = "53e6ce116135b80d037921a7fdd5138cf32d7a8a",
+    importpath = "github.com/google/go-querystring",
+)
+
+new_go_repository(
     name = "com_google_cloud_go",
     commit = "57377bad3486b37af17b47230a61603794c798ae",
     importpath = "cloud.google.com/go",
