@@ -374,7 +374,7 @@ Assuming you did (once):
    # Add a rule locally (simply drop the file or exercise the API:)
    curl -v  http://localhost:9094/api/v1/scopes/global/subjects/foo.svc.cluster.local/rules --data-binary @quota.yaml -X PUT -H "Content-Type: application/yaml"
    # Test under some load:
-   wrk http://localhost:9090/echo
+   fortio -qps 2000 http://localhost:9090/echo
 
    ```
    Note that this is done for you by [setup_run](setup_run) but to use the correct go environment:

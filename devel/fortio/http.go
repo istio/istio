@@ -630,3 +630,28 @@ func (c *fastClient) Fetch() (int, []byte, int) {
 	// TODO: Header.Len() is number of headers not byte size of headers
 	return c.res.StatusCode(), c.res.Body(), c.res.Header.Len()
 }
+
+// NewClient creates a client object
+func NewClient(url string, numConnections int, compression bool) *Client {
+	req := newHTTPRequest(url)
+	if req == nil {
+		return nil
+	}
+	client := Client{
+		url,
+		req,
+		&http.Client{
+			Timeout: 3 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        numConnections,
+				MaxIdleConnsPerHost: numConnections,
+				DisableCompression:  !compression,
+				Dial: (&net.Dialer{
+					Timeout: 1 * time.Second,
+				}).Dial,
+				TLSHandshakeTimeout: 1 * time.Second,
+			},
+		},
+	}
+	return &client
+}
