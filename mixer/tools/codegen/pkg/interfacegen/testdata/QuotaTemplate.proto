@@ -2,8 +2,6 @@ syntax = "proto3";
 
 package istio.mixer.adapter.quota;
 
-import "google/protobuf/duration.proto";
-
 import "mixer/v1/config/descriptor/value_type.proto";
 import "pkg/adapter/template/TemplateExtensions.proto";
 
@@ -11,16 +9,12 @@ option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPO
 option (istio.mixer.v1.config.template.template_name) = "Quota";
 
 
-message Type{
-    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
-
-    int64 max_amount = 5;
-    google.protobuf.Duration expiration = 6;
+message Template {
+    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 1;
 }
 
-
-message Constructor{
-    // The set of dimensions that are necessary to describe a specific value cell
-    // for a quota of this type.
-    map<string, istio.mixer.v1.config.template.Expr> dimensions = 2;
+// THIS SHOULD GENERATED AND NOT HAND WRITTEN. NEXT PR.
+// Hand writing for now, to make the build work.
+message Type {
+    // Same fields as Template except primitive types are represented as ValueType.
 }

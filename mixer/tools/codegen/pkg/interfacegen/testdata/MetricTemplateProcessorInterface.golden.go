@@ -17,8 +17,7 @@
 package istio_mixer_adapter_metric
 
 import (
-	istio_mixer_v1_config_descriptor "istio.io/api/mixer/v1/config/descriptor"
-	_ "istio.io/mixer/pkg/adapter/template"
+	"istio.io/mixer/pkg/adapter/config"
 )
 
 type Instance struct {
@@ -27,13 +26,14 @@ type Instance struct {
 	Value interface{}
 
 	Dimensions map[string]interface{}
+}
 
-	Om *OtherMessage
-
-	Vt istio_mixer_v1_config_descriptor.ValueType
+type MetricProcessorBuilder interface {
+	config.HandlerBuilder
+	ConfigureMetric(map[string]*Type) error
 }
 
 type MetricProcessor interface {
-	ConfigureMetric(types map[string]*Type) error
+	config.Handler
 	ReportMetric(instances []*Instance) error
 }

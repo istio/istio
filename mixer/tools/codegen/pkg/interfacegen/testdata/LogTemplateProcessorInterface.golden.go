@@ -17,8 +17,7 @@
 package istio_mixer_adapter_log
 
 import (
-	_ "istio.io/api/mixer/v1/config/descriptor"
-	_ "istio.io/mixer/pkg/adapter/template"
+	"istio.io/mixer/pkg/adapter/config"
 )
 
 type Instance struct {
@@ -27,7 +26,12 @@ type Instance struct {
 	Dimensions map[string]interface{}
 }
 
+type LogProcessorBuilder interface {
+	config.HandlerBuilder
+	ConfigureLog(map[string]*Type) error
+}
+
 type LogProcessor interface {
-	ConfigureLog(types map[string]*Type) error
+	config.Handler
 	ReportLog(instances []*Instance) error
 }

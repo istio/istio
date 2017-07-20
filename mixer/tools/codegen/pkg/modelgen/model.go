@@ -16,19 +16,14 @@ package modelgen
 
 import (
 	"fmt"
-	"path"
-	"sort"
-	"strconv"
 	"strings"
 
 	proto "github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
 	tmpl "istio.io/mixer/pkg/adapter/template"
 )
 
-const fullNameOfExprMessage = "istio_mixer_v1_config_template.Expr"
-const fullNameOfExprMessageWithPtr = "*" + fullNameOfExprMessage
+const fullNameOfValueTypeMessage = "istio_mixer_v1_config_descriptor.ValueType"
 
 type (
 	// Model represents the object used to code generate mixer artifacts.
@@ -38,11 +33,8 @@ type (
 		PackageName string
 		VarietyName string
 
-		// imports
-		Imports []string
-
 		// Constructor fields
-		ConstructorFields []fieldInfo
+		InstanceFields []fieldInfo
 
 		// Warnings/Errors in the Template proto file.
 		diags []diag
@@ -89,17 +81,13 @@ func (m *Model) fillModel(templateProto *FileDescriptor, parser *FileDescriptorS
 
 	m.addTopLevelFields(templateProto)
 
-	// ensure Type is present
-	if _, ok := getRequiredMsg(templateProto, "Type"); !ok {
-		m.addError(templateProto.GetName(), unknownLine, "message 'Type' not defined")
-	}
-
-	// ensure Constructor is present
-	if cnstrDesc, ok := getRequiredMsg(templateProto, "Constructor"); !ok {
-		m.addError(templateProto.GetName(), unknownLine, "message 'Constructor' not defined")
+	// ensure Template is present
+	if tmplDesc, ok := getRequiredMsg(templateProto, "Template"); !ok {
+		m.addError(templateProto.GetName(), unknownLine, "message 'Template' not defined")
 	} else {
-		m.addInstanceFieldFromConstructor(parser, templateProto, cnstrDesc)
-		m.addImports(parser, templateProto, cnstrDesc)
+		// TODO Validate that the type of the fields in the template are primitives that can be represented as ValueType
+		// or is ValueType itself.
+		m.addInstanceFields(parser, templateProto, tmplDesc)
 	}
 }
 
@@ -178,54 +166,25 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 	}
 }
 
-// Build field information about the Constructor message.
-func (m *Model) addInstanceFieldFromConstructor(parser *FileDescriptorSetParser, templateProto *FileDescriptor, cnstrDesc *Descriptor) {
-	m.ConstructorFields = make([]fieldInfo, 0)
-	for i, fieldDesc := range cnstrDesc.Field {
+// Build field information about the Instance struct.
+func (m *Model) addInstanceFields(parser *FileDescriptorSetParser, templateProto *FileDescriptor, tmplDesc *Descriptor) {
+	m.InstanceFields = make([]fieldInfo, 0)
+	for i, fieldDesc := range tmplDesc.Field {
 		fieldName := camelCase(fieldDesc.GetName())
 		// Name field is a reserved field that will be injected in the Instance object. The user defined
-		// Constructor should not have a Name field, else there will be a name clash.
+		// Template should not have a Name field, else there will be a name clash.
 		// 'Name' within the Instance object would represent the name of the Constructor:instance_name
 		// specified in the operator Yaml file.
 		if fieldName == "Name" {
-			m.addError(cnstrDesc.file.GetName(),
-				templateProto.getLineNumber(getPathForField(cnstrDesc, i)),
-				"Constructor message must not contain the reserved filed name '%s'", fieldDesc.GetName())
+			m.addError(tmplDesc.file.GetName(),
+				templateProto.getLineNumber(getPathForField(tmplDesc, i)),
+				"Template message must not contain the reserved filed name '%s'", fieldDesc.GetName())
 			continue
 		}
-		typename := parser.GoType(cnstrDesc.DescriptorProto, fieldDesc)
-		// TODO : Can there be more than one expressions in a type for a field in Constructor ?
-		typename = strings.Replace(typename, fullNameOfExprMessageWithPtr, "interface{}", 1)
-		m.ConstructorFields = append(m.ConstructorFields, fieldInfo{Name: fieldName, Type: typeInfo{Name: typename}})
+		typename := parser.GoType(tmplDesc.DescriptorProto, fieldDesc)
+		typename = strings.Replace(typename, fullNameOfValueTypeMessage, "interface{}", 1)
+		m.InstanceFields = append(m.InstanceFields, fieldInfo{Name: fieldName, Type: typeInfo{Name: typename}})
 	}
-}
-
-func (m *Model) addImports(parser *FileDescriptorSetParser, fileDescriptor *FileDescriptor, typDesc *Descriptor) {
-	usedPackages := getReferencedPackagesWithinType(parser, typDesc)
-	m.Imports = make([]string, 0)
-
-	for _, s := range fileDescriptor.Dependency {
-		fd := parser.fileByName(s)
-
-		// Do not import our own package.
-		if fd.packageName() == parser.packageName {
-			continue
-		}
-		filename := fd.goFileName()
-
-		// By default, import path is the dirname of the Go filename.
-		importPath := path.Dir(filename)
-		if substitution, ok := parser.ImportMap[s]; ok {
-			importPath = substitution
-		}
-
-		pname := goPackageName(fd.GetPackage())
-		if !contains(usedPackages, pname) {
-			pname = "_"
-		}
-		m.Imports = append(m.Imports, pname+" "+strconv.Quote(importPath))
-	}
-	sort.Strings(m.Imports)
 }
 
 func getRequiredMsg(fdp *FileDescriptor, msgName string) (*Descriptor, bool) {
@@ -238,37 +197,4 @@ func getRequiredMsg(fdp *FileDescriptor, msgName string) (*Descriptor, bool) {
 	}
 
 	return cstrDesc, cstrDesc != nil
-}
-
-func getReferencedPackagesWithinType(parser *FileDescriptorSetParser, typDesc *Descriptor) []string {
-	result := make([]string, 0)
-	for _, fieldDesc := range typDesc.GetField() {
-		getReferencedPackagesByField(parser, fieldDesc, typDesc.PackageName(), &result)
-	}
-
-	return result
-}
-
-func getReferencedPackagesByField(parser *FileDescriptorSetParser, fieldDesc *descriptor.FieldDescriptorProto, parentPackage string, referencedPkgs *[]string) {
-	if *fieldDesc.Type != descriptor.FieldDescriptorProto_TYPE_MESSAGE && *fieldDesc.Type != descriptor.FieldDescriptorProto_TYPE_ENUM {
-		return
-	}
-	refDesc := parser.ObjectNamed(fieldDesc.GetTypeName())
-
-	if msgDesc, isMessage := refDesc.(*Descriptor); isMessage {
-		if fmt.Sprintf("%s.%s", msgDesc.PackageName(), msgDesc.GetName()) == fullNameOfExprMessage {
-			return
-		}
-		if msgDesc.GetOptions().GetMapEntry() {
-			keyField, valField := msgDesc.Field[0], msgDesc.Field[1]
-			getReferencedPackagesByField(parser, keyField, parentPackage, referencedPkgs)
-			getReferencedPackagesByField(parser, valField, parentPackage, referencedPkgs)
-			return
-		}
-	}
-
-	pname := goPackageName(parser.fileOf(refDesc.File()).GetPackage())
-	if parentPackage != pname && !contains(*referencedPkgs, pname) {
-		*referencedPkgs = append(*referencedPkgs, pname)
-	}
 }

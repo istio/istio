@@ -23,7 +23,7 @@ proto_compile(
 )
 
 proto_compile(
-    name = "constructor_and_imports",
+    name = "simple_template",
     testonly = True,
     args = [
         "--include_imports",
@@ -39,7 +39,7 @@ proto_compile(
         "@com_github_istio_api//:mixer/v1/config/descriptor_protos",
     ],
     protos = [
-        "ConstructorAndImports.proto",
+        "SimpleTemplate.proto",
     ],
     verbose = 0,
 )
@@ -60,26 +60,6 @@ proto_compile(
     ],
     protos = [
         "MissingBothRequiredExt.proto",
-    ],
-    verbose = 0,
-)
-
-proto_compile(
-    name = "missing_constructor_message",
-    testonly = True,
-    args = [
-        "--include_imports",
-        "--include_source_info",
-    ],
-    imports = [
-        "external/com_github_google_protobuf/src",
-    ],
-    inputs = [
-        "//pkg/adapter/template:protos",
-        "@com_github_google_protobuf//:well_known_protos",
-    ],
-    protos = [
-        "MissingConstructorMessage.proto",
     ],
     verbose = 0,
 )
@@ -145,7 +125,7 @@ proto_compile(
 )
 
 proto_compile(
-    name = "missing_type_message",
+    name = "missing_template_message",
     testonly = True,
     args = [
         "--include_imports",
@@ -159,13 +139,13 @@ proto_compile(
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
-        "MissingTypeMessage.proto",
+        "MissingTemplateMessage.proto",
     ],
     verbose = 0,
 )
 
 proto_compile(
-    name = "reserved_field_in_constructor",
+    name = "reserved_field_in_template",
     testonly = True,
     args = [
         "--include_imports",
@@ -179,7 +159,7 @@ proto_compile(
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = [
-        "ReservedFieldInConstructor.proto",
+        "ReservedFieldInTemplate.proto",
     ],
     verbose = 0,
 )
@@ -209,14 +189,13 @@ filegroup(
     testonly = True,
     srcs = [
         "basic_top_level_fields.descriptor_set",
-        "constructor_and_imports.descriptor_set",
         "missing_both_required.descriptor_set",
-        "missing_constructor_message.descriptor_set",
         "missing_package_name.descriptor_set",
+        "missing_template_message.descriptor_set",
         "missing_template_name.descriptor_set",
         "missing_template_variety.descriptor_set",
-        "missing_type_message.descriptor_set",
         "proto2_bad_syntax.descriptor_set",
-        "reserved_field_in_constructor.descriptor_set",
+        "reserved_field_in_template.descriptor_set",
+        "simple_template.descriptor_set",
     ],
 )

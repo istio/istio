@@ -22,12 +22,6 @@ mixer_proto_library(
 )
 
 mixer_proto_library(
-    name = "nested_message_library",
-    testonly = True,
-    protos = ["NestedMessage.proto"],
-)
-
-mixer_proto_library(
     name = "quota_template_library",
     testonly = True,
     protos = ["QuotaTemplate.proto"],
@@ -40,7 +34,6 @@ filegroup(
         "list_template_library_proto.descriptor_set",
         "log_template_library_proto.descriptor_set",
         "metric_template_library_proto.descriptor_set",
-        "nested_message_library_proto.descriptor_set",
         "quota_template_library_proto.descriptor_set",
     ],
 )
@@ -52,7 +45,6 @@ filegroup(
         "list_template_library_processor.gen.go",
         "log_template_library_processor.gen.go",
         "metric_template_library_processor.gen.go",
-        "nested_message_library_processor.gen.go",
         "quota_template_library_processor.gen.go",
     ],
 )
@@ -64,7 +56,6 @@ filegroup(
         "ListTemplateProcessorInterface.golden.go",
         "LogTemplateProcessorInterface.golden.go",
         "MetricTemplateProcessorInterface.golden.go",
-        "NestedMessageProcessorInterface.golden.go",
         "QuotaTemplateProcessorInterface.golden.go",
     ],
 )

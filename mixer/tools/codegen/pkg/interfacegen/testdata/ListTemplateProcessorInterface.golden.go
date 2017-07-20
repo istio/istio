@@ -18,18 +18,20 @@ package foo_bar_mylistchecker
 
 import (
 	"istio.io/mixer/pkg/adapter/config"
-	_ "istio.io/mixer/pkg/adapter/template"
 )
 
 type Instance struct {
 	Name string
 
-	Blacklist bool
+	CheckExpression string
+}
 
-	CheckExpression interface{}
+type ListProcessorBuilder interface {
+	config.HandlerBuilder
+	ConfigureList(map[string]*Type) error
 }
 
 type ListProcessor interface {
-	ConfigureList(types map[string]*Type) error
+	config.Handler
 	CheckList(instance *Instance) (bool, config.CacheabilityInfo, error)
 }

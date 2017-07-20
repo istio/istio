@@ -4,5 +4,4 @@ package foo.bar;
 
 import "pkg/adapter/template/TemplateExtensions.proto";
 
-message Type {}
-message Constructor {}
+message Template {}

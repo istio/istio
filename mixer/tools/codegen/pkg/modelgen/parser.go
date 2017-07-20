@@ -611,15 +611,6 @@ func camelCase(s string) string {
 	return string(t)
 }
 
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
-
 func camelCaseSlice(elem []string) string { return camelCase(strings.Join(elem, "_")) }
 
 func fileIsProto3(file *descriptor.FileDescriptorProto) bool {
