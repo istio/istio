@@ -18,9 +18,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"strings"
+	"time"
 )
 
 // ExtraHeaders to be added to each request.
@@ -85,16 +87,28 @@ func newHTTPRequest(url string) *http.Request {
 	return req
 }
 
+// Client object for making repeated requests of the same URL using the same
+// http client
+type Client struct {
+	url    string
+	req    *http.Request
+	client *http.Client
+}
+
 // FetchURL fetches URL contenty and does error handling/logging.
 func FetchURL(url string) (int, []byte) {
-	req := newHTTPRequest(url)
-	if req == nil {
+	client := NewClient(url, 1, true)
+	if client == nil {
 		return http.StatusBadRequest, []byte("bad url")
 	}
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	return client.Fetch()
+}
+
+// Fetch fetches the byte and code for pre created client
+func (c *Client) Fetch() (int, []byte) {
+	resp, err := c.client.Do(c.req)
 	if err != nil {
-		log.Printf("Unable to send request for %s : %v", url, err)
+		log.Printf("Unable to send request for %s : %v", c.url, err)
 		return http.StatusBadRequest, []byte(err.Error())
 	}
 	var data []byte
@@ -102,13 +116,13 @@ func FetchURL(url string) (int, []byte) {
 		if data, err = httputil.DumpResponse(resp, false); err != nil {
 			log.Printf("Unable to dump response %v", err)
 		} else {
-			log.Printf("For URL %s, received:\n%s", url, data)
+			log.Printf("For URL %s, received:\n%s", c.url, data)
 		}
 	}
 	data, err = ioutil.ReadAll(resp.Body)
 	resp.Body.Close() //nolint(errcheck)
 	if err != nil {
-		log.Printf("Unable to read response for %s : %v", url, err)
+		log.Printf("Unable to read response for %s : %v", c.url, err)
 		code := resp.StatusCode
 		if code == http.StatusOK {
 			code = http.StatusNoContent
@@ -118,7 +132,32 @@ func FetchURL(url string) (int, []byte) {
 	}
 	code := resp.StatusCode
 	if Verbosity > 1 {
-		log.Printf("Got %d : %s for %s - response is %d bytes", code, resp.Status, url, len(data))
+		log.Printf("Got %d : %s for %s - response is %d bytes", code, resp.Status, c.url, len(data))
 	}
 	return code, data
+}
+
+// NewClient creates a client object
+func NewClient(url string, numConnections int, compression bool) *Client {
+	req := newHTTPRequest(url)
+	if req == nil {
+		return nil
+	}
+	client := Client{
+		url,
+		req,
+		&http.Client{
+			Timeout: 3 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        numConnections,
+				MaxIdleConnsPerHost: numConnections,
+				DisableCompression:  !compression,
+				Dial: (&net.Dialer{
+					Timeout: 1 * time.Second,
+				}).Dial,
+				TLSHandshakeTimeout: 1 * time.Second,
+			},
+		},
+	}
+	return &client
 }

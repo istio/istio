@@ -170,7 +170,7 @@ func (r *periodicRunner) Run() {
 	fmt.Printf("Ended after %v : %d calls. qps=%.5g\n", elapsed, functionDuration.Count, actualQPS)
 	if useQPS {
 		percentNegative := 100. * float64(sleepTime.hdata[0]) / float64(sleepTime.Count)
-		if percentNegative > 3 {
+		if percentNegative > 5 {
 			sleepTime.Print(os.Stdout, "Aggregated Sleep Time", 50)
 			fmt.Printf("WARNING %.2f%% of sleep were falling behind\n", percentNegative)
 		} else {
