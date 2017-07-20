@@ -195,9 +195,10 @@ type BasicClient struct {
 }
 
 // NewBasicClient makes a basic, efficient http 1.0/1.1 client.
-// This doesn't need to be super efficient as it's created at the beginning and
-// reused many times.
+// This function itself doesn't need to be super efficient as it is created at
+// the beginning and then reused many times.
 func NewBasicClient(urlStr string, proto string, keepAlive bool) Fetcher {
+	// Parse the url, extract components.
 	url, err := url.Parse(urlStr)
 	if err != nil {
 		log.Printf("Bad url '%s' : %v", urlStr, err)
@@ -232,7 +233,7 @@ func NewBasicClient(urlStr string, proto string, keepAlive bool) Fetcher {
 		log.Printf("Unable to resolve port '%s' : %v", bc.port, err)
 		return nil
 	}
-	// Bytes:
+	// Create the bytes for the request:
 	host := bc.host
 	if hostOverride != "" {
 		host = hostOverride
@@ -410,28 +411,35 @@ var contentLengthHeader = []byte("\r\ncontent-length:")
 var connectionCloseHeader = []byte("\r\nconnection: close")
 var chunkedHeader = []byte("\r\nTransfer-Encoding: chunked")
 
+// connect to destination
+func (c *BasicClient) connect() *net.TCPConn {
+	socket, err := net.DialTCP("tcp", nil, &c.dest)
+	if err != nil {
+		log.Printf("Unable to connect to %v : %v", c.dest, err)
+		return nil
+	}
+	// For now those errors are not critical/breaking
+	if err = socket.SetNoDelay(true); err != nil {
+		log.Printf("Unable to connect to set tcp no delay %v %v : %v", socket, c.dest, err)
+	}
+	if err = socket.SetWriteBuffer(len(c.req)); err != nil {
+		log.Printf("Unable to connect to set write buffer %d %v %v : %v", len(c.req), socket, c.dest, err)
+	}
+	if err = socket.SetReadBuffer(len(c.buffer)); err != nil {
+		log.Printf("Unable to connect to read buffer %d %v %v : %v", len(c.buffer), socket, c.dest, err)
+	}
+	return socket
+}
+
 // Fetch fetches the url content. Returns http code, data, offset of body.
-// TODO: split this function into smaller parts... it's unwidely.
 func (c *BasicClient) Fetch() (int, []byte, int) {
-	var data []byte
 	code := -1
 	conn := c.socket
 	reuse := (conn != nil)
 	if !reuse {
-		socket, err := net.DialTCP("tcp", nil, &c.dest)
-		conn = socket
-		if err != nil {
-			log.Printf("Unable to connect to %v : %v", c.dest, err)
-			return code, data, 0
-		}
-		if err = conn.SetNoDelay(true); err != nil {
-			log.Printf("Unable to connect to set tcp no delay %v %v : %v", conn, c.dest, err)
-		}
-		if err = conn.SetWriteBuffer(len(c.req)); err != nil {
-			log.Printf("Unable to connect to set write buffer %d %v %v : %v", len(c.req), conn, c.dest, err)
-		}
-		if err = conn.SetReadBuffer(len(c.buffer)); err != nil {
-			log.Printf("Unable to connect to read buffer %d %v %v : %v", len(c.buffer), conn, c.dest, err)
+		conn = c.connect()
+		if conn == nil {
+			return code, nil, 0
 		}
 	} else {
 		if Verbosity > 1 {
@@ -439,6 +447,7 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 		}
 	}
 	c.socket = nil // because of error returns
+	// Send the request:
 	n, err := conn.Write(c.req)
 	if err != nil {
 		if reuse {
@@ -448,21 +457,22 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 			}
 			conn.Close() // nolint: errcheck
 			c.errorCount++
-			return c.Fetch()
+			return c.Fetch() // recurse once
 		}
 		log.Printf("Unable to write to %v %v : %v", conn, c.dest, err)
-		return code, data, 0
+		return code, nil, 0
 	}
 	if n != len(c.req) {
 		log.Printf("Short write to %v %v : %d instead of %d", conn, c.dest, n, len(c.req))
-		return code, data, 0
+		return code, nil, 0
 	}
 	if !c.keepAlive {
 		if err = conn.CloseWrite(); err != nil {
 			log.Printf("Unable to close write to %v %v : %v", conn, c.dest, err)
-			return code, data, 0
+			return code, nil, 0
 		}
 	}
+	// Read the response:
 	size := 0
 	max := len(c.buffer)
 	parsedHeaders := false
