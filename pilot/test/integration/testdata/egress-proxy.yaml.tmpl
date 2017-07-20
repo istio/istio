@@ -10,6 +10,11 @@ spec:
   selector:
     app: istio-egress
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-egress-service-account
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -21,6 +26,7 @@ spec:
       labels:
         app: istio-egress
     spec:
+      serviceAccountName: istio-egress-service-account
       containers:
       - name: proxy
         image: {{.Hub}}/proxy_debug:{{.Tag}}
