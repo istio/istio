@@ -52,6 +52,12 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "org_golang_x_sync",
+    commit = "f52d1811a62927559de87708c8913c1650ce4f26",
+    importpath = "golang.org/x/sync",
+)
+
+new_go_repository(
     name = "org_golang_google_api",
     commit = "48e49d1645e228d1c50c3d54fb476b2224477303",
     importpath = "google.golang.org/api",
