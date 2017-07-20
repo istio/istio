@@ -20,12 +20,15 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
+	"runtime/pprof"
 	"sort"
 
 	"istio.io/istio/devel/fortio"
 )
 
-type threadStats struct {
+type threadState struct {
+	client   *fortio.Client
 	retCodes map[int]int64
 	sizes    *fortio.Histogram
 }
@@ -33,7 +36,7 @@ type threadStats struct {
 // Used globally / in test() TODO: change periodic.go to carry caller defined context
 var (
 	url           string
-	stats         []threadStats
+	state         []threadState
 	verbosityFlag = flag.Int("v", 0, "Verbosity level (0 is quiet)")
 )
 
@@ -42,13 +45,13 @@ func test(t int) {
 	if *verbosityFlag > 1 {
 		log.Printf("Calling in %d", t)
 	}
-	code, body := fortio.FetchURL(url)
+	code, body := state[t].client.Fetch()
 	size := len(body)
 	if *verbosityFlag > 1 {
 		log.Printf("Got in %3d sz %d", code, size)
 	}
-	stats[t].retCodes[code]++
-	stats[t].sizes.Record(float64(size))
+	state[t].retCodes[code]++
+	state[t].sizes.Record(float64(size))
 }
 
 // -- Support for multiple instances of -H flag on cmd line:
@@ -81,6 +84,9 @@ func main() {
 		durationFlag    = flag.Duration("t", defaults.Duration, "How long to run the test")
 		percentilesFlag = flag.String("p", "50,75,99,99.9", "List of pXX to calculate")
 		resolutionFlag  = flag.Float64("r", defaults.Resolution, "Resolution of the histogram lowest buckets in seconds")
+		compressionFlag = flag.Bool("compression", false, "Enable http compression")
+		goMaxProcsFlag  = flag.Int("gomaxprocs", 0, "Setting for runtime.GOMAXPROCS, <1 doesn't change the default")
+		profileFlag     = flag.String("profile", "", "write .cpu and .mem profiles to file")
 		headersFlags    flagList
 	)
 	flag.Var(&headersFlags, "H", "Additional Header(s)")
@@ -97,7 +103,9 @@ func main() {
 		usage()
 	}
 	url = flag.Arg(0)
-	fmt.Printf("Fortio running at %g queries per second for %v: %s\n", *qpsFlag, *durationFlag, url)
+	prevGoMaxProcs := runtime.GOMAXPROCS(*goMaxProcsFlag)
+	fmt.Printf("Fortio running at %g queries per second, %d->%d procs, for %v: %s\n",
+		*qpsFlag, prevGoMaxProcs, runtime.GOMAXPROCS(0), *durationFlag, url)
 	o := fortio.RunnerOptions{
 		QPS:         *qpsFlag,
 		Function:    test,
@@ -109,40 +117,63 @@ func main() {
 	}
 	r := fortio.NewPeriodicRunner(&o)
 	numThreads := r.Options().NumThreads
-	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = numThreads + 1
-	// 1 Warm up / smoke test:  TODO: warm up all threads/connections
-	code, body := fortio.FetchURL(url)
-	if code != http.StatusOK {
-		fmt.Printf("Aborting because of error %d for %s\n%s\n", code, url, string(body))
-		os.Exit(1)
-	}
-	if verbosity > 0 {
-		fmt.Printf("first hit of url %s: status %03d\n%s\n", url, code, string(body))
-	}
-
-	total := threadStats{
+	total := threadState{
 		retCodes: make(map[int]int64),
 		sizes:    fortio.NewHistogram(0, 100),
 	}
 
-	stats = make([]threadStats, numThreads)
+	state = make([]threadState, numThreads)
 	for i := 0; i < numThreads; i++ {
-		stats[i].sizes = total.sizes.Clone()
-		stats[i].retCodes = make(map[int]int64)
+		// Create a client (and transport) and connect once for each 'thread'
+		state[i].client = fortio.NewClient(url, 1, *compressionFlag)
+		if state[i].client == nil {
+			fmt.Printf("Aborting because of being unable to create client %d for %s\n", i, url)
+			os.Exit(1)
+		}
+		code, body := state[i].client.Fetch()
+		if code != http.StatusOK {
+			fmt.Printf("Aborting because of error %d for %s\n%s\n", code, url, string(body))
+			os.Exit(1)
+		}
+		if i == 0 && verbosity > 0 {
+			fmt.Printf("first hit of url %s: status %03d\n%s\n", url, code, string(body))
+		}
+		// Setup the stats for each 'thread'
+		state[i].sizes = total.sizes.Clone()
+		state[i].retCodes = make(map[int]int64)
+	}
+
+	if *profileFlag != "" {
+		fc, err := os.Create(*profileFlag + ".cpu")
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(fc) //nolint: gas,errcheck
 	}
 	r.Run()
+	if *profileFlag != "" {
+		pprof.StopCPUProfile()
+		fm, err := os.Create(*profileFlag + ".mem")
+		if err != nil {
+			log.Fatal(err)
+		}
+		runtime.GC()               // get up-to-date statistics
+		pprof.WriteHeapProfile(fm) // nolint:gas,errcheck
+		fm.Close()                 // nolint:gas,errcheck
+		fmt.Printf("Wrote profile data to %s.{cpu|mem}\n", *profileFlag)
+	}
 	// Numthreads may have reduced
 	numThreads = r.Options().NumThreads
 	keys := []int{}
 	for i := 0; i < numThreads; i++ {
 		// Q: is there some copying each time stats[i] is used?
-		for k := range stats[i].retCodes {
+		for k := range state[i].retCodes {
 			if _, exists := total.retCodes[k]; !exists {
 				keys = append(keys, k)
 			}
-			total.retCodes[k] += stats[i].retCodes[k]
+			total.retCodes[k] += state[i].retCodes[k]
 		}
-		total.sizes.Transfer(stats[i].sizes)
+		total.sizes.Transfer(state[i].sizes)
 	}
 	sort.Ints(keys)
 	for _, k := range keys {
