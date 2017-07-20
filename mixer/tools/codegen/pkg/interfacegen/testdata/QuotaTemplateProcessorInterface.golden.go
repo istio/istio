@@ -17,10 +17,7 @@
 package istio_mixer_adapter_quota
 
 import (
-	_ "github.com/gogo/protobuf/types"
-
-	_ "istio.io/api/mixer/v1/config/descriptor"
-	_ "istio.io/mixer/pkg/adapter/template"
+	"istio.io/mixer/pkg/adapter/config"
 )
 
 type Instance struct {
@@ -29,7 +26,12 @@ type Instance struct {
 	Dimensions map[string]interface{}
 }
 
+type QuotaProcessorBuilder interface {
+	config.HandlerBuilder
+	ConfigureQuota(map[string]*Type) error
+}
+
 type QuotaProcessor interface {
-	ConfigureQuota(types map[string]*Type) error
+	config.Handler
 	ReportQuota(instances []*Instance) error
 }

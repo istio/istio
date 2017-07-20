@@ -42,7 +42,6 @@ func TestGenerator_Generate(t *testing.T) {
 		{"Quota", "testdata/quota_template_library_proto.descriptor_set", "testdata/QuotaTemplateProcessorInterface.golden.go"},
 		{"Logs", "testdata/log_template_library_proto.descriptor_set", "testdata/LogTemplateProcessorInterface.golden.go"},
 		{"Lists", "testdata/list_template_library_proto.descriptor_set", "testdata/ListTemplateProcessorInterface.golden.go"},
-		{"Nested Message", "testdata/nested_message_library_proto.descriptor_set", "testdata/NestedMessageProcessorInterface.golden.go"},
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {

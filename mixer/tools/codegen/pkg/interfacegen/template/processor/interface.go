@@ -21,20 +21,23 @@ var InterfaceTemplate = `// Copyright 2017 Istio Authors
 package {{.PackageName}}
 
 import (
-{{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}"istio.io/mixer/pkg/adapter/config"{{- end}}
-{{range .Imports}}{{.}}
-{{end}}
+"istio.io/mixer/pkg/adapter/config"
 )
 
 type Instance struct {
   Name string
-  {{range .ConstructorFields}}
+  {{range .InstanceFields}}
   {{.Name}} {{.Type.Name}}
   {{end}}
 }
 
+type {{.Name}}ProcessorBuilder interface {
+	config.HandlerBuilder
+	Configure{{.Name}}(map[string]*Type) error
+}
+
 type {{.Name}}Processor interface {
-  Configure{{.Name}}(types map[string]*Type) error
+  config.Handler
   {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
     Check{{.Name}}(instance *Instance) (bool, config.CacheabilityInfo, error)
   {{else -}}

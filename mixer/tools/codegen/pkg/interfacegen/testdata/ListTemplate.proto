@@ -7,12 +7,12 @@ import "pkg/adapter/template/TemplateExtensions.proto";
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 option (istio.mixer.v1.config.template.template_name) = "List";
 
-
-message Type {
-    // EMPTY, since nothing type needs to specify for the
+message Template {
+    string check_expression = 1;
 }
 
-message Constructor {
-    bool blacklist = 1;
-    istio.mixer.v1.config.template.Expr check_expression = 2;
+// THIS SHOULD GENERATED AND NOT HAND WRITTEN. NEXT PR.
+// Hand writing for now, to make the build work.
+message Type {
+    // Same fields as Template except primitive types are represented as ValueType.
 }
