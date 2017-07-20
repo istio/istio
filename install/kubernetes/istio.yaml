@@ -222,8 +222,8 @@ spec:
       labels:
         istio: egress
     spec:
-      containers:
       serviceAccountName: istio-egress-service-account
+      containers:
       - name: proxy
         image: gcr.io/istio-testing/proxy_debug:06ee3635b2f10716abe3d59f625e0000649ccc59
         imagePullPolicy: Always
