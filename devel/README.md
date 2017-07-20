@@ -358,13 +358,11 @@ Assuming you did (once):
    git clone https://github.com/istio/proxy.git
    git clone https://github.com/istio/mixer.git
    git clone https://github.com/istio/istio.git
-   # if you want to do load tests:
-   git clone https://github.com/wg/wrk.git
    ```
 4. You can then use
    - [update_all](update_all) : script to build from source
    - [setup_run](setup_run) : run locally
-   - [fortio](fortio/) (φορτίο) : load testing
+   - [fortio](fortio/) (φορτίο) : load testing and minimal echo server
    - Also found in this directory: [rules.yml](rules.yml) : the version of  mixer/testdata/configroot/scopes/global/subjects/global/rules.yml that works locally and [quota.yml](quota.yml) a very simple 1 qps quota example used below.
    - And an unrelated tool to aggregate [GitHub Contributions](githubContrib/) statistics.
 5. And run things like
