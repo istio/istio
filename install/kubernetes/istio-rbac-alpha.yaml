@@ -21,8 +21,8 @@ rules:
   resources: ["configmaps", "endpoints", "pods", "services"]
   verbs: ["*"]
 - apiGroups: [""]
-  resources: ["namespaces"]
-  verbs: ["get", "list"]
+  resources: ["namespaces", "nodes", "secrets"]
+  verbs: ["get", "list", "watch"]
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1alpha1
@@ -34,7 +34,7 @@ rules:
   verbs: ["create", "get", "watch", "list", "update"]
 - apiGroups: [""]
   resources: ["serviceaccounts"]
-  verbs: ["watch", "list"]
+  verbs: ["get", "watch", "list"]
 ---
 # Permissions for the sidecar proxy.
 kind: ClusterRole
@@ -88,6 +88,20 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: istio-ingress-service-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: istio-pilot
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to the Egress controller.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1alpha1
+metadata:
+  name: istio-egress-admin-role-binding
+subjects:
+- kind: ServiceAccount
+  name: istio-egress-service-account
   namespace: default
 roleRef:
   kind: ClusterRole
