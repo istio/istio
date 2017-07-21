@@ -74,7 +74,7 @@ this repository.
 
 - [istio/mixer](https://github.com/istio/mixer). This repository
 contains code to enforce various policies for traffic passing through the
-proxies, and collect telemetry data from proxies and microservices. There
+proxies, and collect telemetry data from proxies and services. There
 are plugins for interfacing with various cloud platforms, policy
 management services, and monitoring services.
 
