@@ -76,7 +76,8 @@ func (l *LogLevel) Set(str string) error {
 	var lvl LogLevel
 	var ok bool
 	if lvl, ok = levelToStrM[str]; !ok {
-		return fmt.Errorf("Invalid value for loglevel '%s' should be one of %v", str, levelToStrA)
+		// flag processing already logs the value
+		return fmt.Errorf("should be one of %v", levelToStrA)
 	}
 	SetLogLevel(lvl)
 	return nil
