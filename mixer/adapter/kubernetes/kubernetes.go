@@ -268,13 +268,14 @@ func (k *kubegen) Generate(inputs map[string]interface{}) (map[string]interface{
 		}
 	}
 	if targetSvc, found := inputs[k.params.TargetServiceInputName]; found {
-		svc := targetSvc.(string)
-		if len(svc) > 0 {
+		svc, ok := targetSvc.(string)
+		if ok && len(svc) > 0 {
 			n, err := canonicalName(svc, defaultNamespace, k.params.ClusterDomainName)
+			key := valueName(k.params.TargetPrefix, k.params.ServiceValueName)
 			if err != nil {
 				k.log.Warningf("could not canonicalize target service: %v", err)
-			} else {
-				values[valueName(k.params.TargetPrefix, k.params.ServiceValueName)] = n
+			} else if _, ok := values[key]; !ok {
+				values[key] = n
 			}
 		}
 	}
