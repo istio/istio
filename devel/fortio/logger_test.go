@@ -25,6 +25,7 @@ func TestLogger1(t *testing.T) {
 	// Setup
 	var b bytes.Buffer
 	w := bufio.NewWriter(&b)
+	SetLogLevel(I) // reset from other tests
 	log.SetOutput(w)
 	log.SetFlags(0)
 	// Start of the actual test
