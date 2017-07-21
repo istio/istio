@@ -56,7 +56,7 @@ func init() {
 		levelToStrM[strings.ToLower(name)] = LogLevel(l)
 	}
 	flag.Var(&level, "loglevel", fmt.Sprintf("loglevel, one of %v", levelToStrA))
-	log.SetFlags(log.Flags() | log.Lshortfile)
+	log.SetFlags(log.Ltime | log.Lshortfile)
 }
 
 // String returns the string representation of the level.
@@ -90,8 +90,8 @@ func SetLogLevel(lvl LogLevel) LogLevel {
 		log.Printf("SetLogLevel called with level %d lower than Debug!", lvl)
 		return -1
 	}
-	if lvl > F {
-		log.Printf("SetLogLevel called with level %d higher than Fatal!", lvl)
+	if lvl > C {
+		log.Printf("SetLogLevel called with level %d higher than Critical!", lvl)
 		return -1
 	}
 	Log(I, "Log level is now %d %s (was %d %s)\n", lvl, lvl.ToString(), prev, prev.ToString())
@@ -104,8 +104,8 @@ func GetLogLevel() LogLevel {
 	return level
 }
 
-// IsLogging returns true if a given level is currently logged.
-func IsLogging(lvl LogLevel) bool {
+// LogOn returns true if a given level is currently logged.
+func LogOn(lvl LogLevel) bool {
 	return lvl >= level
 }
 
@@ -116,7 +116,7 @@ func LogLevelByName(str string) LogLevel {
 
 // Log at the given level.
 func Log(lvl LogLevel, format string, rest ...interface{}) {
-	if !IsLogging(lvl) {
+	if !LogOn(lvl) {
 		return
 	}
 	log.Print(levelToStrA[lvl][0:1], " ", fmt.Sprintf(format, rest...))
@@ -127,8 +127,8 @@ func Log(lvl LogLevel, format string, rest ...interface{}) {
 
 // -- would be nice to be able to create those in a loop instead of copypasta:
 
-// LogDebug logs if Debug level is on.
-func LogDebug(format string, rest ...interface{}) {
+// Dbg logs if Debug level is on.
+func Dbg(format string, rest ...interface{}) {
 	Log(D, format, rest...)
 }
 
@@ -137,37 +137,37 @@ func LogV(format string, rest ...interface{}) {
 	Log(V, format, rest...)
 }
 
-// LogInfo logs if Info level is on.
-func LogInfo(format string, rest ...interface{}) {
+// Inf logs if Info level is on.
+func Inf(format string, rest ...interface{}) {
 	Log(I, format, rest...)
 }
 
-// LogWarning logs if Warning level is on.
-func LogWarning(format string, rest ...interface{}) {
+// Warn logs if Warning level is on.
+func Warn(format string, rest ...interface{}) {
 	Log(W, format, rest...)
 }
 
-// LogError logs if Warning level is on.
-func LogError(format string, rest ...interface{}) {
+// Err logs if Warning level is on.
+func Err(format string, rest ...interface{}) {
 	Log(E, format, rest...)
 }
 
-// LogCritical logs if Warning level is on.
-func LogCritical(format string, rest ...interface{}) {
+// Crit logs if Warning level is on.
+func Crit(format string, rest ...interface{}) {
 	Log(C, format, rest...)
 }
 
-// LogFatal logs if Warning level is on.
-func LogFatal(format string, rest ...interface{}) {
+// Fatal logs if Warning level is on.
+func Fatal(format string, rest ...interface{}) {
 	Log(F, format, rest...)
 }
 
-// IsLoggingDebug is a shortcut for IsLogging(D).
-func IsLoggingDebug() bool {
-	return IsLogging(D)
+// DbgOn is a shortcut for LogOn(D).
+func DbgOn() bool {
+	return LogOn(D)
 }
 
-// IsLoggingV is a shortcut for IsLogging(V).
-func IsLoggingV() bool {
-	return IsLogging(V)
+// VOn is a shortcut for LogOn(V).
+func VOn() bool {
+	return LogOn(V)
 }

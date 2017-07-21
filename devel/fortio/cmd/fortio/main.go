@@ -17,7 +17,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"runtime"
@@ -36,21 +35,16 @@ type threadState struct {
 
 // Used globally / in test() TODO: change periodic.go to carry caller defined context
 var (
-	url           string
-	state         []threadState
-	verbosityFlag = flag.Int("v", 0, "Verbosity level (0 is quiet)")
+	url   string
+	state []threadState
 )
 
 // Main call being run at the target QPS
 func test(t int) {
-	if *verbosityFlag > 1 {
-		log.Printf("Calling in %d", t)
-	}
+	fortio.Dbg("Calling in %d", t)
 	code, body, headerSize := state[t].client.Fetch()
 	size := len(body)
-	if *verbosityFlag > 1 {
-		log.Printf("Got in %3d hsz %d sz %d", code, headerSize, size)
-	}
+	fortio.Dbg("Got in %3d hsz %d sz %d", code, headerSize, size)
 	state[t].retCodes[code]++
 	state[t].sizes.Record(float64(size))
 	state[t].headerSizes.Record(float64(headerSize))
@@ -147,7 +141,7 @@ func main() {
 			fmt.Printf("Aborting because of error %d for %s\n%s\n", code, url, string(data))
 			os.Exit(1)
 		}
-		if i == 0 && fortio.IsLoggingV() {
+		if i == 0 && fortio.VOn() {
 			fortio.LogV("first hit of url %s: status %03d, headers %d, total %d\n%s\n", url, code, headerSize, len(data), string(data))
 		}
 		// Setup the stats for each 'thread'
@@ -159,7 +153,7 @@ func main() {
 	if *profileFlag != "" {
 		fc, err := os.Create(*profileFlag + ".cpu")
 		if err != nil {
-			fortio.LogFatal("Unable to create .cpu profile: %v", err)
+			fortio.Fatal("Unable to create .cpu profile: %v", err)
 		}
 		pprof.StartCPUProfile(fc) //nolint: gas,errcheck
 	}
@@ -168,7 +162,7 @@ func main() {
 		pprof.StopCPUProfile()
 		fm, err := os.Create(*profileFlag + ".mem")
 		if err != nil {
-			fortio.LogFatal("Unable to create .mem profile: %v", err)
+			fortio.Fatal("Unable to create .mem profile: %v", err)
 		}
 		runtime.GC()               // get up-to-date statistics
 		pprof.WriteHeapProfile(fm) // nolint:gas,errcheck
@@ -193,7 +187,7 @@ func main() {
 	for _, k := range keys {
 		fmt.Printf("Code %3d : %d\n", k, total.retCodes[k])
 	}
-	if fortio.IsLoggingV() {
+	if fortio.VOn() {
 		total.headerSizes.Print(os.Stdout, "Response Header Sizes Histogram", 50)
 		total.sizes.Print(os.Stdout, "Response Body/Total Sizes Histogram", 50)
 	} else {

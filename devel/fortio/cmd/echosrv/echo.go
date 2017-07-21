@@ -26,7 +26,7 @@ import (
 	"net/http"
 	"sync/atomic"
 
-	"istio.io/istio/devel/fortio"
+	log "istio.io/istio/devel/fortio"
 )
 
 var (
@@ -35,8 +35,8 @@ var (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	fortio.LogV("%v %v %v %v", r.Method, r.URL, r.Proto, r.RemoteAddr)
-	if fortio.IsLoggingDebug() {
+	log.LogV("%v %v %v %v", r.Method, r.URL, r.Proto, r.RemoteAddr)
+	if log.DbgOn() {
 		for name, headers := range r.Header {
 			for _, h := range headers {
 				fmt.Printf("%v: %v\n", name, h)
@@ -45,7 +45,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		fortio.LogError("Error reading %v", err)
+		log.Err("Error reading %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -57,12 +57,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	if _, err = w.Write(data); err != nil {
-		fortio.LogError("Error writing response %v to %v", err, r.RemoteAddr)
+		log.Err("Error writing response %v to %v", err, r.RemoteAddr)
 	}
-	if fortio.IsLoggingDebug() {
+	if log.DbgOn() {
 		// TODO: this easily lead to contention - use 'thread local'
 		rqNum := atomic.AddInt64(&requests, 1)
-		fortio.LogDebug("Requests: %v", rqNum)
+		log.Dbg("Requests: %v", rqNum)
 	}
 }
 
