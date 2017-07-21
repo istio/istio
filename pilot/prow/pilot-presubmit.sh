@@ -61,7 +61,7 @@ echo "=== Code Coverage ==="
 if [ "${CI:-}" == "bootstrap" ]; then
     BUILD_ID="PROW-${BUILD_NUMBER}" JOB_NAME="pilot/presubmit" ./bin/toolbox/presubmit/pkg_coverage.sh
 
-    curl -s https://codecov.io/bash | bash /dev/stdin -K -B ${PULL_BASE_REF} -C ${PULL_PULL_SHA} -P ${PULL_NUMBER} -t @/etc/codecov/pilot.token
+    curl -s https://codecov.io/bash | CI_JOB_ID=$JOB_NAME CI_BUILD_ID=$BUILD_NUMBER bash /dev/stdin -K -Z -B ${PULL_BASE_REF} -C ${PULL_PULL_SHA} -P ${PULL_NUMBER} -t @/etc/codecov/pilot.token
 else
     echo "Not in bootstrap environment, skipping code coverage publishing"
 fi
