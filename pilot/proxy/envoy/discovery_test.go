@@ -319,25 +319,11 @@ func TestListenerDiscovery(t *testing.T) {
 		file string
 	}{
 		{name: "none"},
+		/* these configs do not affect listeners
 		{
 			name: "cb",
 			typ:  model.DestinationPolicy,
 			file: cbPolicy,
-		},
-		{
-			name: "timeout",
-			typ:  model.RouteRule,
-			file: timeoutRouteRule,
-		},
-		{
-			name: "weighted",
-			typ:  model.RouteRule,
-			file: weightedRouteRule,
-		},
-		{
-			name: "fault",
-			typ:  model.RouteRule,
-			file: faultRouteRule,
 		},
 		{
 			name: "redirect",
@@ -348,6 +334,22 @@ func TestListenerDiscovery(t *testing.T) {
 			name: "rewrite",
 			typ:  model.RouteRule,
 			file: rewriteRouteRule,
+		},
+		{
+			name: "timeout",
+			typ:  model.RouteRule,
+			file: timeoutRouteRule,
+		},
+		*/
+		{
+			name: "weighted",
+			typ:  model.RouteRule,
+			file: weightedRouteRule,
+		},
+		{
+			name: "fault",
+			typ:  model.RouteRule,
+			file: faultRouteRule,
 		},
 	}
 
@@ -366,28 +368,26 @@ func TestListenerDiscovery(t *testing.T) {
 			}
 
 			// test with no auth
-			/*
-				mesh := makeMeshConfig()
-				ds := makeDiscoveryService(t, registry, &mesh)
-				url := fmt.Sprintf("/v1/listeners/%s/%s", ds.Mesh.IstioServiceCluster, mock.HostInstanceV0)
-				response := makeDiscoveryRequest(ds, "GET", url, t)
-				compareResponse(response, fmt.Sprintf("testdata/lds-v0-%s.json", testCase.name), t)
+			mesh := makeMeshConfig()
+			ds := makeDiscoveryService(t, registry, &mesh)
+			url := fmt.Sprintf("/v1/listeners/%s/%s", ds.Mesh.IstioServiceCluster, mock.HostInstanceV0)
+			response := makeDiscoveryRequest(ds, "GET", url, t)
+			compareResponse(response, fmt.Sprintf("testdata/lds-v0-%s.json", testCase.name), t)
 
-				url = fmt.Sprintf("/v1/listeners/%s/%s", ds.Mesh.IstioServiceCluster, mock.HostInstanceV1)
-				response = makeDiscoveryRequest(ds, "GET", url, t)
-				compareResponse(response, fmt.Sprintf("testdata/lds-v1-%s.json", testCase.name), t)
+			url = fmt.Sprintf("/v1/listeners/%s/%s", ds.Mesh.IstioServiceCluster, mock.HostInstanceV1)
+			response = makeDiscoveryRequest(ds, "GET", url, t)
+			compareResponse(response, fmt.Sprintf("testdata/lds-v1-%s.json", testCase.name), t)
 
-				// test with auth
-				mesh.AuthPolicy = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
-				ds = makeDiscoveryService(t, registry, &mesh)
-				url = fmt.Sprintf("/v1/listeners/%s/%s", ds.Mesh.IstioServiceCluster, mock.HostInstanceV0)
-				response = makeDiscoveryRequest(ds, "GET", url, t)
-				compareResponse(response, fmt.Sprintf("testdata/lds-v0-%s-auth.json", testCase.name), t)
+			// test with auth
+			mesh.AuthPolicy = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
+			ds = makeDiscoveryService(t, registry, &mesh)
+			url = fmt.Sprintf("/v1/listeners/%s/%s", ds.Mesh.IstioServiceCluster, mock.HostInstanceV0)
+			response = makeDiscoveryRequest(ds, "GET", url, t)
+			compareResponse(response, fmt.Sprintf("testdata/lds-v0-%s-auth.json", testCase.name), t)
 
-				url = fmt.Sprintf("/v1/listeners/%s/%s", ds.Mesh.IstioServiceCluster, mock.HostInstanceV1)
-				response = makeDiscoveryRequest(ds, "GET", url, t)
-				compareResponse(response, fmt.Sprintf("testdata/lds-v1-%s-auth.json", testCase.name), t)
-			*/
+			url = fmt.Sprintf("/v1/listeners/%s/%s", ds.Mesh.IstioServiceCluster, mock.HostInstanceV1)
+			response = makeDiscoveryRequest(ds, "GET", url, t)
+			compareResponse(response, fmt.Sprintf("testdata/lds-v1-%s-auth.json", testCase.name), t)
 		})
 	}
 }
