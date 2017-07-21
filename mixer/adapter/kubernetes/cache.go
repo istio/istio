@@ -76,12 +76,14 @@ const debugVerbosityLevel = 4
 // Responsible for setting up the cacheController, based on the supplied client.
 // It configures the index informer to list/watch pods and send update events
 // to a mutations channel for processing (in this case, logging).
-func newCacheController(clientset *kubernetes.Clientset, namespace string, refreshDuration time.Duration, env adapter.Env) cacheController {
+func newCacheController(clientset *kubernetes.Clientset, refreshDuration time.Duration, env adapter.Env) cacheController {
 	c := &controllerImpl{
 		clientset:     clientset,
 		env:           env,
 		mutationsChan: make(chan resourceMutation, mutationBufferSize),
 	}
+
+	namespace := "" // todo: address unparam linter issue
 
 	c.pods = cache.NewSharedIndexInformer(
 		&cache.ListWatch{
