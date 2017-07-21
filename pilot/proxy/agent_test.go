@@ -15,6 +15,7 @@
 package proxy
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -31,7 +32,7 @@ var (
 // TestStartStop tests basic start, cleanup sequence
 func TestStartStop(t *testing.T) {
 	current := -1
-	stop := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
 	desired := "config"
 	start := func(config interface{}, epoch int, _ <-chan error) error {
 		if current != -1 {
@@ -53,36 +54,36 @@ func TestStartStop(t *testing.T) {
 		if epoch != 0 {
 			t.Error("Expected initial epoch in cleanup to be 0")
 		}
-		close(stop)
+		cancel()
 	}
 	a := NewAgent(Proxy{start, cleanup, nil}, testRetry)
-	go a.Run(stop)
+	go a.Run(ctx)
 	a.ScheduleConfigUpdate(desired)
-	<-stop
+	<-ctx.Done()
 }
 
 // TestApplyTwice tests that scheduling the same config does not trigger a restart
 func TestApplyTwice(t *testing.T) {
-	stop := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
 	desired := "config"
 	start := func(config interface{}, epoch int, _ <-chan error) error {
 		if epoch == 1 {
 			t.Error("Should start only once for same config")
 		}
-		<-stop
+		<-ctx.Done()
 		return nil
 	}
 	cleanup := func(epoch int) {}
 	a := NewAgent(Proxy{start, cleanup, nil}, testRetry)
-	go a.Run(stop)
+	go a.Run(ctx)
 	a.ScheduleConfigUpdate(desired)
 	a.ScheduleConfigUpdate(desired)
-	close(stop)
+	cancel()
 }
 
 // TestApplyThrice applies same config twice but with a bad config between them
 func TestApplyThrice(t *testing.T) {
-	stop := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
 	good := "good"
 	bad := "bad"
 	applied := false
@@ -95,7 +96,7 @@ func TestApplyThrice(t *testing.T) {
 			t.Errorf("Config has already been applied")
 		}
 		applied = true
-		<-stop
+		<-ctx.Done()
 		return nil
 	}
 	cleanup := func(epoch int) {
@@ -103,7 +104,7 @@ func TestApplyThrice(t *testing.T) {
 		if epoch == 1 {
 			go func() {
 				a.ScheduleConfigUpdate(good)
-				close(stop)
+				cancel()
 			}()
 		} else if epoch != 0 {
 			t.Errorf("Unexpected epoch %d", epoch)
@@ -112,15 +113,15 @@ func TestApplyThrice(t *testing.T) {
 	retry := testRetry
 	retry.MaxRetries = 0
 	a = NewAgent(Proxy{start, cleanup, nil}, retry)
-	go a.Run(stop)
+	go a.Run(ctx)
 	a.ScheduleConfigUpdate(good)
 	a.ScheduleConfigUpdate(bad)
-	<-stop
+	<-ctx.Done()
 }
 
 // TestAbort checks that successfully started proxies are aborted on error in the child
 func TestAbort(t *testing.T) {
-	stop := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
 	good1 := "good1"
 	aborted1 := false
 	good2 := "good2"
@@ -139,7 +140,7 @@ func TestAbort(t *testing.T) {
 				aborted2 = true
 			}
 			return err
-		case <-stop:
+		case <-ctx.Done():
 		}
 		return nil
 	}
@@ -153,22 +154,22 @@ func TestAbort(t *testing.T) {
 			if !aborted2 {
 				t.Error("Expected second epoch to be aborted")
 			}
-			close(stop)
+			cancel()
 		}
 	}
 	retry := testRetry
 	retry.InitialInterval = 10 * time.Second
 	a := NewAgent(Proxy{start, cleanup, nil}, retry)
-	go a.Run(stop)
+	go a.Run(ctx)
 	a.ScheduleConfigUpdate(good1)
 	a.ScheduleConfigUpdate(good2)
 	a.ScheduleConfigUpdate(bad)
-	<-stop
+	<-ctx.Done()
 }
 
 // TestStartFail injects an error in 2 tries to start the proxy
 func TestStartFail(t *testing.T) {
-	stop := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
 	retry := 0
 	start := func(config interface{}, epoch int, _ <-chan error) error {
 		if epoch == 0 && retry == 0 {
@@ -179,23 +180,23 @@ func TestStartFail(t *testing.T) {
 			return fmt.Errorf("error on try %d", retry)
 		} else if epoch == 0 && retry == 2 {
 			retry++
-			close(stop)
+			cancel()
 		} else {
 			t.Errorf("Unexpected epoch %d and retry %d", epoch, retry)
-			close(stop)
+			cancel()
 		}
 		return nil
 	}
 	cleanup := func(epoch int) {}
 	a := NewAgent(Proxy{start, cleanup, nil}, testRetry)
-	go a.Run(stop)
+	go a.Run(ctx)
 	a.ScheduleConfigUpdate("test")
-	<-stop
+	<-ctx.Done()
 }
 
 // TestExceedBudget drives to permanent failure
 func TestExceedBudget(t *testing.T) {
-	stop := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
 	retry := 0
 	start := func(config interface{}, epoch int, _ <-chan error) error {
 		if epoch == 0 && retry == 0 {
@@ -206,7 +207,7 @@ func TestExceedBudget(t *testing.T) {
 			return fmt.Errorf("error on try %d", retry)
 		} else {
 			t.Errorf("Unexpected epoch %d and retry %d", epoch, retry)
-			close(stop)
+			cancel()
 		}
 		return nil
 	}
@@ -214,20 +215,20 @@ func TestExceedBudget(t *testing.T) {
 		if epoch == 0 && (retry == 0 || retry == 1 || retry == 2) {
 		} else {
 			t.Errorf("Unexpected epoch %d and retry %d", epoch, retry)
-			close(stop)
+			cancel()
 		}
 	}
 	retryDelay := testRetry
 	retryDelay.MaxRetries = 1
-	a := NewAgent(Proxy{start, cleanup, func(_ interface{}) { close(stop) }}, retryDelay)
-	go a.Run(stop)
+	a := NewAgent(Proxy{start, cleanup, func(_ interface{}) { cancel() }}, retryDelay)
+	go a.Run(ctx)
 	a.ScheduleConfigUpdate("test")
-	<-stop
+	<-ctx.Done()
 }
 
 // TestStartTwiceStop applies three configs and validates that cleanups are called in order
 func TestStartTwiceStop(t *testing.T) {
-	stop := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
 	stop0 := make(chan struct{})
 	stop1 := make(chan struct{})
 	desired0 := "config0"
@@ -240,10 +241,10 @@ func TestStartTwiceStop(t *testing.T) {
 			<-stop1
 		} else if config == desired2 && epoch == 2 {
 			close(stop1)
-			<-stop
+			<-ctx.Done()
 		} else {
 			t.Errorf("Unexpected start %v, epoch %d", config, epoch)
-			close(stop)
+			cancel()
 		}
 		return nil
 	}
@@ -261,7 +262,7 @@ func TestStartTwiceStop(t *testing.T) {
 			if !finished1 || finished2 {
 				t.Errorf("Expected epoch 0 to be second to finish")
 			}
-			close(stop)
+			cancel()
 		} else if epoch == 2 {
 			finished2 = true
 			if !finished0 || !finished1 {
@@ -269,20 +270,20 @@ func TestStartTwiceStop(t *testing.T) {
 			}
 		} else {
 			t.Errorf("Unexpected epoch %d in cleanup", epoch)
-			close(stop)
+			cancel()
 		}
 	}
 	a := NewAgent(Proxy{start, cleanup, nil}, testRetry)
-	go a.Run(stop)
+	go a.Run(ctx)
 	a.ScheduleConfigUpdate(desired0)
 	a.ScheduleConfigUpdate(desired1)
 	a.ScheduleConfigUpdate(desired2)
-	<-stop
+	<-ctx.Done()
 }
 
 // TestRecovery tests that recovery is applied once
 func TestRecovery(t *testing.T) {
-	stop := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
 	desired := "config"
 	failed := false
 	start := func(config interface{}, epoch int, _ <-chan error) error {
@@ -293,16 +294,16 @@ func TestRecovery(t *testing.T) {
 		if epoch > 0 {
 			t.Errorf("Should not reconcile after success")
 		}
-		<-stop
+		<-ctx.Done()
 		return nil
 	}
 	a := NewAgent(Proxy{start, func(_ int) {}, nil}, testRetry)
-	go a.Run(stop)
+	go a.Run(ctx)
 	a.ScheduleConfigUpdate(desired)
 
 	// make sure we don't try to reconcile twice
 	<-time.After(100 * time.Millisecond)
-	close(stop)
+	cancel()
 }
 
 // TestCascadingAbort plays a scenario that may trigger self-abort deadlock:
@@ -311,7 +312,7 @@ func TestRecovery(t *testing.T) {
 //  * epoch 1 crashes before receiving abort, triggers abort of 0
 //  * epoch 0 aborts, recovery to config 2 follows
 func TestCascadingAbort(t *testing.T) {
-	stop := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
 	crash1 := make(chan struct{})
 	start := func(config interface{}, epoch int, abort <-chan error) error {
 		if config == 2 {
@@ -326,7 +327,7 @@ func TestCascadingAbort(t *testing.T) {
 			// abort, a bit later
 			<-time.After(300 * time.Millisecond)
 			err := <-abort
-			close(stop)
+			cancel()
 			return err
 		}
 		return nil
@@ -334,9 +335,9 @@ func TestCascadingAbort(t *testing.T) {
 	retry := testRetry
 	retry.InitialInterval = 1 * time.Second
 	a := NewAgent(Proxy{start, func(_ int) {}, nil}, retry)
-	go a.Run(stop)
+	go a.Run(ctx)
 	a.ScheduleConfigUpdate(0)
 	a.ScheduleConfigUpdate(1)
 	a.ScheduleConfigUpdate(2)
-	<-stop
+	<-ctx.Done()
 }

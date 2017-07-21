@@ -29,6 +29,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
+    size = "small",
     srcs = [
         "conversion_test.go",
         "status_test.go",
@@ -47,6 +48,7 @@ go_test(
 
 go_test(
     name = "go_default_xtest",
+    size = "small",
     srcs = ["controller_test.go"],
     data = ["//platform/kube:kubeconfig"],
     deps = [

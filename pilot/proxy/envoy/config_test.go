@@ -26,10 +26,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/adapter/config/memory"
 	"istio.io/pilot/model"
 	"istio.io/pilot/proxy"
-	"istio.io/pilot/test/mock"
 	"istio.io/pilot/test/util"
 )
 
@@ -221,11 +219,8 @@ func TestTCPRouteConfigByRoute(t *testing.T) {
 }
 
 const (
-	envoyV0Config     = "testdata/envoy-v0.json"
-	envoyV0ConfigAuth = "testdata/envoy-v0-auth.json"
-	envoyV1Config     = "testdata/envoy-v1.json"
-	envoyV1ConfigAuth = "testdata/envoy-v1-auth.json"
-	envoyFaultConfig  = "testdata/envoy-fault.json"
+	envoyConfig = "testdata/envoy.json"
+
 	cbPolicy          = "testdata/cb-policy.yaml.golden"
 	timeoutRouteRule  = "testdata/timeout-route-rule.yaml.golden"
 	weightedRouteRule = "testdata/weighted-route.yaml.golden"
@@ -233,30 +228,6 @@ const (
 	redirectRouteRule = "testdata/redirect-route.yaml.golden"
 	rewriteRouteRule  = "testdata/rewrite-route.yaml.golden"
 )
-
-func testConfig(r model.ConfigStore, mesh *proxyconfig.ProxyMeshConfig, instance, envoyConfig string, t *testing.T) {
-	config := Generate(&proxy.Context{
-		Discovery:  mock.Discovery,
-		Accounts:   mock.Discovery,
-		Config:     model.MakeIstioStore(r),
-		MeshConfig: mesh,
-		IPAddress:  instance,
-		UID:        fmt.Sprintf("uid://%s.my-namespace", instance),
-		// 1090 is deliberately already used by the instances, 3333 requires a new listener
-		PassthroughPorts: []int{1090, 3333},
-	})
-
-	if config == nil {
-		t.Fatal("Failed to generate config")
-	}
-
-	err := config.WriteFile(envoyConfig)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	util.CompareYAML(envoyConfig, t)
-}
 
 func configObjectFromYAML(kind, file string) (proto.Message, error) {
 	schema, ok := model.IstioConfigTypes.GetByType(kind)
@@ -337,69 +308,45 @@ func makeMeshConfig() proxyconfig.ProxyMeshConfig {
 	mesh.DiscoveryRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
 	mesh.EgressProxyAddress = "localhost:8888"
 	mesh.StatsdUdpAddress = "10.1.1.10:9125"
+	mesh.ZipkinAddress = "localhost:6000"
 	return mesh
 }
 
-func TestMockConfig(t *testing.T) {
-	r := memory.Make(model.IstioConfigTypes)
+func TestSidecarConfig(t *testing.T) {
 	mesh := makeMeshConfig()
-	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0Config, t)
-	testConfig(r, &mesh, mock.HostInstanceV1, envoyV1Config, t)
+	config := buildConfig(Listeners{}, Clusters{}, true, &mesh)
+	if config == nil {
+		t.Fatal("Failed to generate config")
+	}
+
+	err := config.WriteFile(envoyConfig)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	util.CompareYAML(envoyConfig, t)
 }
 
-func TestMockConfigWithAuth(t *testing.T) {
-	r := memory.Make(model.IstioConfigTypes)
-	mesh := makeMeshConfig()
-	mesh.AuthPolicy = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
-	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0ConfigAuth, t)
-	testConfig(r, &mesh, mock.HostInstanceV1, envoyV1ConfigAuth, t)
-}
+/*
+var (
+	ingressCert      = []byte("abcdefghijklmnop")
+	ingressKey       = []byte("qrstuvwxyz123456")
+	ingressTLSSecret = &model.TLSSecret{Certificate: ingressCert, PrivateKey: ingressKey}
+	ingressCertFile = "testdata/tls.crt"
+	ingressKeyFile  = "testdata/tls.key"
+)
 
-func TestMockConfigTimeout(t *testing.T) {
-	r := memory.Make(model.IstioConfigTypes)
-	mesh := makeMeshConfig()
-	addTimeout(r, t)
-	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0Config, t)
-	testConfig(r, &mesh, mock.HostInstanceV1, envoyV1Config, t)
+func compareFile(filename string, golden []byte, t *testing.T) {
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("Error loading %s: %s", filename, err.Error())
+	}
+	if string(content) != string(golden) {
+		t.Errorf("Failed validating file %s, got %s", filename, string(content))
+	}
+	err = os.Remove(filename)
+	if err != nil {
+		t.Errorf("Failed cleaning up temporary file %s", filename)
+	}
 }
-
-func TestMockConfigCircuitBreaker(t *testing.T) {
-	r := memory.Make(model.IstioConfigTypes)
-	mesh := makeMeshConfig()
-	addCircuitBreaker(r, t)
-	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0Config, t)
-	testConfig(r, &mesh, mock.HostInstanceV1, envoyV1Config, t)
-}
-
-func TestHTTPRedirect(t *testing.T) {
-	r := memory.Make(model.IstioConfigTypes)
-	mesh := makeMeshConfig()
-	addRedirect(r, t)
-	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0Config, t)
-	testConfig(r, &mesh, mock.HostInstanceV1, envoyV1Config, t)
-}
-
-func TestHTTPRewrite(t *testing.T) {
-	r := memory.Make(model.IstioConfigTypes)
-	mesh := makeMeshConfig()
-	addRewrite(r, t)
-	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0Config, t)
-	testConfig(r, &mesh, mock.HostInstanceV1, envoyV1Config, t)
-}
-
-func TestMockConfigWeighted(t *testing.T) {
-	r := memory.Make(model.IstioConfigTypes)
-	mesh := makeMeshConfig()
-	addWeightedRoute(r, t)
-	testConfig(r, &mesh, mock.HostInstanceV0, envoyV0Config, t)
-	testConfig(r, &mesh, mock.HostInstanceV1, envoyV1Config, t)
-}
-
-func TestMockConfigFault(t *testing.T) {
-	r := memory.Make(model.IstioConfigTypes)
-	mesh := makeMeshConfig()
-	addFaultRoute(r, t)
-	// Fault rule uses source condition, hence the different golden artifacts
-	testConfig(r, &mesh, mock.HostInstanceV0, envoyFaultConfig, t)
-	testConfig(r, &mesh, mock.HostInstanceV1, envoyV1Config, t)
-}
+*/

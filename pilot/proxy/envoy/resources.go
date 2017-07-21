@@ -33,6 +33,9 @@ const (
 	// DefaultLbType defines the default load balancer policy
 	DefaultLbType = LbTypeRoundRobin
 
+	// LDSName is the name of LDS cluster
+	LDSName = "lds"
+
 	// RDSName is the name of RDS cluster
 	RDSName = "rds"
 
@@ -41,6 +44,9 @@ const (
 
 	// CDSName is the name of CDS cluster
 	CDSName = "cds"
+
+	// VirtualListenerName is the name for traffic capture listener
+	VirtualListenerName = "virtual"
 
 	// ClusterTypeStrictDNS name for clusters of type 'strict_dns'
 	ClusterTypeStrictDNS = "strict_dns"
@@ -100,10 +106,12 @@ func protoDurationToMS(dur *duration.Duration) int64 {
 type Config struct {
 	RootRuntime        *RootRuntime   `json:"runtime,omitempty"`
 	Listeners          Listeners      `json:"listeners"`
+	LDS                *LDSCluster    `json:"lds,omitempty"`
 	Admin              Admin          `json:"admin"`
 	ClusterManager     ClusterManager `json:"cluster_manager"`
 	StatsdUDPIPAddress string         `json:"statsd_udp_ip_address,omitempty"`
 	Tracing            *Tracing       `json:"tracing,omitempty"`
+
 	// Special value used to hash all referenced values (e.g. TLS secrets)
 	Hash []byte `json:"-"`
 }
@@ -463,6 +471,7 @@ type NetworkFilter struct {
 // Listener definition
 type Listener struct {
 	Address        string           `json:"address"`
+	Name           string           `json:"name,omitempty"`
 	Filters        []*NetworkFilter `json:"filters"`
 	SSLContext     *SSLContext      `json:"ssl_context,omitempty"`
 	BindToPort     bool             `json:"bind_to_port"`
@@ -472,10 +481,16 @@ type Listener struct {
 // Listeners is a collection of listeners
 type Listeners []*Listener
 
-// normalize sorts listeners by address
+// normalize sorts and de-duplicates listeners by address
 func (listeners Listeners) normalize() Listeners {
-	out := make(Listeners, len(listeners))
-	copy(out, listeners)
+	out := make(Listeners, 0, len(listeners))
+	set := make(map[string]bool)
+	for _, listener := range listeners {
+		if !set[listener.Address] {
+			set[listener.Address] = true
+			out = append(out, listener)
+		}
+	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Address < out[j].Address })
 	return out
 }
@@ -569,7 +584,7 @@ type Clusters []*Cluster
 
 // normalize deduplicates and sorts clusters by name
 func (clusters Clusters) normalize() Clusters {
-	out := make(Clusters, 0)
+	out := make(Clusters, 0, len(clusters))
 	set := make(map[string]bool)
 	for _, cluster := range clusters {
 		if !set[cluster.Name] {
@@ -648,6 +663,12 @@ func (s Headers) Less(i, j int) bool {
 type DiscoveryCluster struct {
 	Cluster        *Cluster `json:"cluster"`
 	RefreshDelayMs int64    `json:"refresh_delay_ms"`
+}
+
+// LDSCluster is a reference to LDS cluster by name
+type LDSCluster struct {
+	Cluster        string `json:"cluster"`
+	RefreshDelayMs int64  `json:"refresh_delay_ms"`
 }
 
 // RDS definition

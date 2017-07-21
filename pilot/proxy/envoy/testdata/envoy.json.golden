@@ -1,38 +1,9 @@
 {
-  "listeners": [
-    {
-      "address": "tcp://0.0.0.0:8888",
-      "filters": [
-        {
-          "type": "read",
-          "name": "http_connection_manager",
-          "config": {
-            "codec_type": "auto",
-            "stat_prefix": "http",
-            "generate_request_id": true,
-            "rds": {
-              "cluster": "rds",
-              "route_config_name": "8888",
-              "refresh_delay_ms": 10
-            },
-            "filters": [
-              {
-                "type": "decoder",
-                "name": "router",
-                "config": {}
-              }
-            ],
-            "access_log": [
-              {
-                "path": "/dev/stdout"
-              }
-            ]
-          }
-        }
-      ],
-      "bind_to_port": true
-    }
-  ],
+  "listeners": [],
+  "lds": {
+    "cluster": "lds",
+    "refresh_delay_ms": 10
+  },
   "admin": {
     "access_log_path": "/dev/stdout",
     "address": "tcp://0.0.0.0:15000"
@@ -47,6 +18,28 @@
         "hosts": [
           {
             "url": "tcp://localhost:8080"
+          }
+        ]
+      },
+      {
+        "name": "lds",
+        "connect_timeout_ms": 1000,
+        "type": "strict_dns",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://localhost:8080"
+          }
+        ]
+      },
+      {
+        "name": "zipkin",
+        "connect_timeout_ms": 1000,
+        "type": "strict_dns",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://localhost:6000"
           }
         ]
       }
@@ -80,5 +73,16 @@
       "refresh_delay_ms": 10
     }
   },
-  "statsd_udp_ip_address": "10.1.1.10:9125"
+  "statsd_udp_ip_address": "10.1.1.10:9125",
+  "tracing": {
+    "http": {
+      "driver": {
+        "type": "zipkin",
+        "config": {
+          "collector_cluster": "zipkin",
+          "collector_endpoint": "/api/v1/spans"
+        }
+      }
+    }
+  }
 }

@@ -15,6 +15,7 @@
 package proxy
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"time"
@@ -65,7 +66,7 @@ type Agent interface {
 
 	// Run starts the agent control loop and awaits for a signal on the input
 	// channel to exit the loop.
-	Run(stop <-chan struct{})
+	Run(ctx context.Context)
 }
 
 var (
@@ -160,7 +161,7 @@ func (a *agent) ScheduleConfigUpdate(config interface{}) {
 	a.configCh <- config
 }
 
-func (a *agent) Run(stop <-chan struct{}) {
+func (a *agent) Run(ctx context.Context) {
 	glog.V(2).Info("Starting proxy agent")
 
 	// Throttle processing up to smoothed 1 qps with bursts up to 10 qps.
@@ -230,7 +231,7 @@ func (a *agent) Run(stop <-chan struct{}) {
 		case <-time.After(delay):
 			a.reconcile()
 
-		case _, more := <-stop:
+		case _, more := <-ctx.Done():
 			if !more {
 				glog.V(2).Info("Agent terminating")
 				a.abortAll()

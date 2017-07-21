@@ -66,10 +66,11 @@ spec:
         - containerPort: {{.port2}}
         - containerPort: {{.port3}}
         - containerPort: {{.port4}}
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 3333
-          initialDelaySeconds: 10
-          periodSeconds: 1
+# Liveness probe is disabled until full support is implemented
+#        livenessProbe:
+#          httpGet:
+#            path: /healthz
+#            port: 3333
+#          initialDelaySeconds: 10
+#          periodSeconds: 1
 ---

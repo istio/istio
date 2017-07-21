@@ -15,8 +15,10 @@
 package envoy
 
 import (
-	"crypto/sha256"
+	"context"
+	"hash"
 	"io/ioutil"
+	"os"
 	"path"
 
 	"github.com/golang/glog"
@@ -29,10 +31,14 @@ const (
 	rootCertFilename  = "root-cert.pem"
 )
 
+var (
+	authFiles = []string{certChainFilename, keyFilename, rootCertFilename}
+)
+
 // watchCerts watches a certificate directory and calls the provided
 // `updateFunc` method when changes are detected. This method is blocking
 // so should be run as a goroutine.
-func watchCerts(certsDir string, stop <-chan struct{}, updateFunc func()) {
+func watchCerts(ctx context.Context, certsDir string, updateFunc func()) {
 	fw, err := fsnotify.NewWatcher()
 	if err != nil {
 		glog.Warning("failed to create a watcher for certificate files")
@@ -55,17 +61,19 @@ func watchCerts(certsDir string, stop <-chan struct{}, updateFunc func()) {
 			glog.V(2).Infof("Change to %q is detected, reload the proxy if necessary", certsDir)
 			updateFunc()
 
-		case <-stop:
+		case <-ctx.Done():
 			glog.V(2).Info("Certificate watcher is terminated")
 			return
 		}
 	}
 }
 
-func generateCertHash(certsDir string) []byte {
-	h := sha256.New()
+func generateCertHash(h hash.Hash, certsDir string, files []string) {
+	if _, err := os.Stat(certsDir); os.IsNotExist(err) {
+		return
+	}
 
-	for _, file := range []string{certChainFilename, keyFilename, rootCertFilename} {
+	for _, file := range files {
 		filename := path.Join(certsDir, file)
 		bs, err := ioutil.ReadFile(filename)
 		if err != nil {
@@ -76,6 +84,4 @@ func generateCertHash(certsDir string) []byte {
 			glog.Warning(err)
 		}
 	}
-
-	return h.Sum(nil)
 }

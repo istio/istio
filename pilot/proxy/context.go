@@ -15,48 +15,111 @@
 package proxy
 
 import (
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/model"
 )
 
-// Context defines local proxy context information about the global service mesh
-type Context struct {
+// Environment provides an aggregate environmental API for Pilot
+type Environment struct {
 	// Discovery interface for listing services and instances
-	Discovery model.ServiceDiscovery
+	model.ServiceDiscovery
 
 	// Accounts interface for listing service accounts
-	Accounts model.ServiceAccounts
+	model.ServiceAccounts
 
 	// Config interface for listing routing rules
-	Config model.IstioConfigStore
+	model.IstioConfigStore
 
-	// MeshConfig defines global configuration settings
-	MeshConfig *proxyconfig.ProxyMeshConfig
+	// Mesh is the mesh config (to be merged into the config store)
+	Mesh *proxyconfig.ProxyMeshConfig
+}
 
+// Role declares the proxy node role in the mesh
+type Role interface {
+	// nolint: megacheck
+	isProxyRole()
+
+	// ServiceNode encodes the role information into a string
+	ServiceNode() string
+}
+
+// Sidecar defines the sidecar proxy role
+type Sidecar struct {
 	// IPAddress is the IP address of the proxy used to identify it and its
 	// co-located service instances. Example: "10.60.1.6"
 	IPAddress string
 
-	// UID is the platform specific unique identifier of the proxy.
-	// UID should serve as a key to lookup additional information associated with the
-	// proxy. Example: "kubernetes://my-pod.my-namespace"
-	UID string
+	// InstanceName for the proxy sidecar
+	InstanceName string
 
-	// PassthroughPorts is a list of ports on the proxy IP address that must be
-	// open and allowed through the proxy to the co-located service instances.
-	// These ports are utilized by the underlying cluster platform for health
-	// checking, for example.
-	//
-	// The passthrough ports should be exposed irrespective of the services
-	// model. In case there is an overlap, that is the port is utilized by a
-	// service for a service instance and is also present in this list, the
-	// service model declaration takes precedence. That means any protocol
-	// upgrade (such as utilizng TLS for proxy-to-proxy traffic) will be applied
-	// to the passthrough port.
-	PassthroughPorts []int
+	// InstanceNamespace for the proxy sidecar
+	InstanceNamespace string
+}
+
+func (Sidecar) isProxyRole() {}
+
+// ServiceNode for sidecar
+func (role Sidecar) ServiceNode() string {
+	return fmt.Sprintf("%s.%s.%s", role.IPAddress, role.InstanceName, role.InstanceNamespace)
+}
+
+// InstanceID uniquely identifies a sidecar proxy node
+func (role Sidecar) InstanceID() string {
+	return fmt.Sprintf("kubernetes://%s.%s", role.InstanceName, role.InstanceNamespace)
+}
+
+// DecodeServiceNode is the inverse of sidecar service node
+func DecodeServiceNode(s string) (Sidecar, error) {
+	parts := strings.Split(s, ".")
+	if len(parts) < 4 {
+		return Sidecar{}, errors.New("cannot parse service node")
+	}
+	out := Sidecar{
+		IPAddress: fmt.Sprintf("%s.%s.%s.%s", parts[0], parts[1], parts[2], parts[3]),
+	}
+	if len(parts) > 4 {
+		out.InstanceName = parts[4]
+	}
+	if len(parts) > 5 {
+		out.InstanceNamespace = parts[5]
+	}
+	return out, nil
+}
+
+const (
+	// EgressNode is the service node for egress proxies
+	EgressNode = "egress"
+
+	// IngressNode is the service node for ingress proxies
+	IngressNode = "ingress"
+)
+
+// EgressRole defines the egress proxy role
+type EgressRole struct{}
+
+func (EgressRole) isProxyRole() {}
+
+// ServiceNode for egress
+func (EgressRole) ServiceNode() string {
+	return EgressNode
+}
+
+// IngressRole defines the egress proxy role
+type IngressRole struct{}
+
+func (IngressRole) isProxyRole() {}
+
+// ServiceNode for ingress
+func (IngressRole) ServiceNode() string {
+	return IngressNode
 }
 
 // DefaultMeshConfig configuration
@@ -79,4 +142,14 @@ func DefaultMeshConfig() proxyconfig.ProxyMeshConfig {
 		AuthPolicy:    proxyconfig.ProxyMeshConfig_NONE,
 		AuthCertsPath: "/etc/certs",
 	}
+}
+
+// ParsePort extracts port number from a valid proxy address
+func ParsePort(addr string) int {
+	port, err := strconv.Atoi(addr[strings.Index(addr, ":")+1:])
+	if err != nil {
+		glog.Warning(err)
+	}
+
+	return port
 }

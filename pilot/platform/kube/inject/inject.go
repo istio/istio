@@ -147,10 +147,7 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 	t.Annotations["pod.beta.kubernetes.io/init-containers"] = string(initAnnotationValue)
 
 	// sidecar proxy container
-	args := []string{
-		"proxy",
-		"sidecar",
-	}
+	args := []string{"proxy"}
 
 	if p.Verbosity > 0 {
 		args = append(args, "-v", strconv.Itoa(p.Verbosity))

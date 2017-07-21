@@ -16,6 +16,7 @@ package envoy
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"io/ioutil"
 	"os"
@@ -40,8 +41,7 @@ func TestWatchCerts(t *testing.T) {
 		called <- true
 	}
 
-	stopCh := make(chan struct{})
-	go watchCerts(name, stopCh, callbackFunc)
+	go watchCerts(context.Background(), name, callbackFunc)
 
 	// sleep one second to make sure the watcher is set up before change is made
 	time.Sleep(time.Second)
@@ -71,8 +71,7 @@ func TestGenerateCertHash(t *testing.T) {
 	}()
 
 	h := sha256.New()
-
-	for _, file := range []string{certChainFilename, keyFilename, rootCertFilename} {
+	for _, file := range authFiles {
 		content := []byte(file)
 		if err := ioutil.WriteFile(path.Join(name, file), content, 0644); err != nil {
 			t.Errorf("failed to write file %s (error %v)", file, err)
@@ -82,7 +81,10 @@ func TestGenerateCertHash(t *testing.T) {
 		}
 	}
 	expectedHash := h.Sum(nil)
-	actualHash := generateCertHash(name)
+
+	h2 := sha256.New()
+	generateCertHash(h2, name, authFiles)
+	actualHash := h2.Sum(nil)
 	if !bytes.Equal(actualHash, expectedHash) {
 		t.Errorf("Actual hash value (%v) is different than the expected hash value (%v)", actualHash, expectedHash)
 	}

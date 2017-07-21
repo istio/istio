@@ -37,7 +37,6 @@ go_test(
         "cert_test.go",
         "config_test.go",
         "discovery_test.go",
-        "egress_test.go",
         "header_test.go",
         "ingress_test.go",
         "route_test.go",
@@ -67,87 +66,18 @@ genrule(
 )
 
 sh_test(
-    name = "envoy_config_v0_test",
+    name = "envoy_config_test",
     size = "small",
     srcs = ["config_test.sh"],
     args = [
         "$(location envoy)",
-        "$(location testdata/envoy-v0.json.golden)",
+        "$(location testdata/envoy.json.golden)",
         "0",
     ],
     data = [
         "envoy",
-        "testdata/envoy-v0.json.golden",
+        "testdata/envoy.json.golden",
     ],
     tags = ["exclusive"],
 )
 
-sh_test(
-    name = "envoy_config_ingress_test",
-    size = "small",
-    srcs = ["config_test.sh"],
-    args = [
-        "$(location envoy)",
-        "$(location testdata/envoy-ingress.json.golden)",
-        "1",
-    ],
-    data = [
-        "envoy",
-        "testdata/envoy-ingress.json.golden",
-    ],
-    tags = [
-        "exclusive",
-        "manual",
-    ],
-)
-
-sh_test(
-    name = "envoy_config_egress_test",
-    size = "small",
-    srcs = ["config_test.sh"],
-    args = [
-        "$(location envoy)",
-        "$(location testdata/envoy-egress.json.golden)",
-        "2",
-    ],
-    data = [
-        "envoy",
-        "testdata/envoy-egress.json.golden",
-    ],
-    tags = ["exclusive"],
-)
-
-sh_test(
-    name = "envoy_config_fault_test",
-    size = "small",
-    srcs = ["config_test.sh"],
-    args = [
-        "$(location envoy)",
-        "$(location testdata/envoy-fault.json.golden)",
-        "3",
-    ],
-    data = [
-        "envoy",
-        "testdata/envoy-fault.json.golden",
-    ],
-    tags = ["exclusive"],
-)
-
-sh_test(
-    name = "envoy_config_v0_auth_test",
-    size = "small",
-    srcs = ["config_test.sh"],
-    args = [
-        "$(location envoy)",
-        "$(location testdata/envoy-v0-auth.json.golden)",
-        "4",
-    ],
-    data = [
-        "envoy",
-        "testdata/envoy-v0-auth.json.golden",
-    ],
-    tags = [
-        "exclusive",
-        "manual",
-    ],
-)

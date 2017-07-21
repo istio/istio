@@ -14,7 +14,11 @@
 
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	proxyconfig "istio.io/api/proxy/v1/config"
+)
 
 type tcp struct {
 	*infra
@@ -32,7 +36,11 @@ func (t *tcp) teardown() {
 }
 
 func (t *tcp) run() error {
-	testPods := []string{"a", "b", "t"}
+	testPods := []string{"a", "b"}
+	if t.Auth == proxyconfig.ProxyMeshConfig_NONE {
+		// t is not behind proxy, so it cannot talk in Istio auth.
+		testPods = append(testPods, "t")
+	}
 	funcs := make(map[string]func() status)
 	for _, src := range testPods {
 		for _, dst := range testPods {

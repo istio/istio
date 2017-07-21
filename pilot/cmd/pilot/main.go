@@ -15,6 +15,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -42,9 +44,7 @@ type args struct {
 	kubeconfig string
 	meshConfig string
 
-	ipAddress   string
-	podName     string
-	passthrough []int
+	sidecar proxy.Sidecar
 
 	// ingress sync mode is set to off by default
 	controllerOptions kube.ControllerOptions
@@ -74,12 +74,16 @@ var (
 			}
 
 			// set values from environment variables
-			if flags.ipAddress == "" {
-				flags.ipAddress = os.Getenv("POD_IP")
+			if flags.sidecar.IPAddress == "" {
+				flags.sidecar.IPAddress = os.Getenv("POD_IP")
 			}
-			if flags.podName == "" {
-				flags.podName = os.Getenv("POD_NAME")
+			if flags.sidecar.InstanceName == "" {
+				flags.sidecar.InstanceName = os.Getenv("POD_NAME")
 			}
+			if flags.sidecar.InstanceNamespace == "" {
+				flags.sidecar.InstanceNamespace = os.Getenv("POD_NAMESPACE")
+			}
+
 			if flags.controllerOptions.Namespace == "" {
 				flags.controllerOptions.Namespace = os.Getenv("POD_NAMESPACE")
 			}
@@ -127,13 +131,13 @@ var (
 				}
 			}
 
-			context := &proxy.Context{
-				Discovery:  serviceController,
-				Accounts:   serviceController,
-				Config:     model.MakeIstioStore(configController),
-				MeshConfig: mesh,
+			environment := proxy.Environment{
+				ServiceDiscovery: serviceController,
+				ServiceAccounts:  serviceController,
+				IstioConfigStore: model.MakeIstioStore(configController),
+				Mesh:             mesh,
 			}
-			discovery, err := envoy.NewDiscoveryService(serviceController, configController, context, flags.discoveryOptions)
+			discovery, err := envoy.NewDiscoveryService(serviceController, configController, environment, flags.discoveryOptions)
 			if err != nil {
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}
@@ -153,77 +157,36 @@ var (
 
 	proxyCmd = &cobra.Command{
 		Use:   "proxy",
-		Short: "Envoy agent",
-	}
-
-	sidecarCmd = &cobra.Command{
-		Use:   "sidecar",
-		Short: "Envoy sidecar agent",
-		RunE: func(c *cobra.Command, args []string) (err error) {
-			serviceController := kube.NewController(client, mesh, flags.controllerOptions)
-			tprClient, err := tpr.NewClient(flags.kubeconfig, model.ConfigDescriptor{
-				model.RouteRuleDescriptor,
-				model.DestinationPolicyDescriptor,
-			}, flags.controllerOptions.Namespace)
-			if err != nil {
-				return
-			}
-
-			configController := tpr.NewController(tprClient, flags.controllerOptions.ResyncPeriod)
-			context := &proxy.Context{
-				Discovery:        serviceController,
-				Accounts:         serviceController,
-				Config:           model.MakeIstioStore(configController),
-				MeshConfig:       mesh,
-				IPAddress:        flags.ipAddress,
-				UID:              fmt.Sprintf("kubernetes://%s.%s", flags.podName, flags.controllerOptions.Namespace),
-				PassthroughPorts: flags.passthrough,
-			}
-
-			watcher, err := envoy.NewWatcher(serviceController, configController, context)
-			if err != nil {
-				return
-			}
-
-			// must start watcher after starting dependent controllers
-			stop := make(chan struct{})
-			go serviceController.Run(stop)
-			go configController.Run(stop)
-			go watcher.Run(stop)
-			cmd.WaitSignal(stop)
-
-			return
-		},
-	}
-
-	ingressCmd = &cobra.Command{
-		Use:   "ingress",
-		Short: "Envoy ingress agent",
+		Short: "Envoy proxy agent",
 		RunE: func(c *cobra.Command, args []string) error {
-			watcher, err := envoy.NewIngressWatcher(mesh, kube.MakeSecretRegistry(client))
-			if err != nil {
-				return err
+			var role proxy.Role = flags.sidecar
+			if len(args) > 0 {
+				switch args[0] {
+				case proxy.EgressNode:
+					if mesh.EgressProxyAddress == "" {
+						return errors.New("egress proxy requires address configuration")
+					}
+					role = proxy.EgressRole{}
+
+				case proxy.IngressNode:
+					if mesh.IngressControllerMode == proxyconfig.ProxyMeshConfig_OFF {
+						return errors.New("ingress proxy is disabled")
+					}
+					role = proxy.IngressRole{}
+
+				default:
+					return fmt.Errorf("failed to recognize proxy role %s", args[0])
+				}
 			}
 
-			stop := make(chan struct{})
-			go watcher.Run(stop)
-			cmd.WaitSignal(stop)
+			watcher := envoy.NewWatcher(mesh, role, kube.MakeSecretRegistry(client))
+			ctx, cancel := context.WithCancel(context.Background())
+			go watcher.Run(ctx)
 
-			return nil
-		},
-	}
-
-	egressCmd = &cobra.Command{
-		Use:   "egress",
-		Short: "Envoy external service agent",
-		RunE: func(c *cobra.Command, args []string) error {
-			watcher, err := envoy.NewEgressWatcher(mesh)
-			if err != nil {
-				return err
-			}
 			stop := make(chan struct{})
-			go watcher.Run(stop)
 			cmd.WaitSignal(stop)
+			<-stop
+			cancel()
 			return nil
 		},
 	}
@@ -256,17 +219,15 @@ func init() {
 	discoveryCmd.PersistentFlags().BoolVar(&flags.discoveryOptions.EnableCaching, "discovery_cache", true,
 		"Enable caching discovery service responses")
 
-	proxyCmd.PersistentFlags().StringVar(&flags.ipAddress, "ipAddress", "",
-		"IP address. If not provided uses ${POD_IP} environment variable.")
-	proxyCmd.PersistentFlags().StringVar(&flags.podName, "podName", "",
-		"Pod name. If not provided uses ${POD_NAME} environment variable")
+	proxyCmd.PersistentFlags().StringVar(&flags.sidecar.IPAddress, "ipAddress", "",
+		"Sidecar IP address. If not provided uses ${POD_IP} environment variable.")
+	proxyCmd.PersistentFlags().StringVar(&flags.sidecar.InstanceName, "podName", "",
+		"Sidecar pod name. If not provided uses ${POD_NAME} environment variable")
+	proxyCmd.PersistentFlags().StringVar(&flags.sidecar.InstanceNamespace, "podNamespace", "",
+		"Sidecar pod namespace. If not provided uses ${POD_NAMESPACE} environment variable")
 
-	sidecarCmd.PersistentFlags().IntSliceVar(&flags.passthrough, "passthrough", nil,
-		"Passthrough ports for health checks")
-
-	proxyCmd.AddCommand(sidecarCmd)
-	proxyCmd.AddCommand(ingressCmd)
-	proxyCmd.AddCommand(egressCmd)
+	//sidecarCmd.PersistentFlags().IntSliceVar(&flags.passthrough, "passthrough", nil,
+	//	"Passthrough ports for health checks")
 
 	cmd.AddFlags(rootCmd)
 

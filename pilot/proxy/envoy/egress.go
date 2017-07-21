@@ -15,10 +15,7 @@
 package envoy
 
 import (
-	"errors"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/golang/glog"
 
@@ -27,63 +24,7 @@ import (
 	"istio.io/pilot/proxy"
 )
 
-const (
-	egressNode = "egress"
-)
-
-type egressWatcher struct {
-	agent proxy.Agent
-	mesh  *proxyconfig.ProxyMeshConfig
-}
-
-// NewEgressWatcher creates a new egress watcher instance with an agent
-func NewEgressWatcher(mesh *proxyconfig.ProxyMeshConfig) (Watcher, error) {
-	if mesh.EgressProxyAddress == "" {
-		return nil, errors.New("egress proxy requires address configuration")
-	}
-	if mesh.StatsdUdpAddress != "" {
-		if addr, err := resolveStatsdAddr(mesh.StatsdUdpAddress); err == nil {
-			mesh.StatsdUdpAddress = addr
-		} else {
-			glog.Warningf("Error resolving statsd address; clearing to prevent bad config: %v", err)
-			mesh.StatsdUdpAddress = ""
-		}
-	}
-	agent := proxy.NewAgent(runEnvoy(mesh, egressNode), proxy.DefaultRetry)
-	return &egressWatcher{
-		agent: agent,
-		mesh:  mesh,
-	}, nil
-}
-
-func (w *egressWatcher) Run(stop <-chan struct{}) {
-	go w.agent.Run(stop)
-	w.agent.ScheduleConfigUpdate(generateEgress(w.mesh))
-	if w.mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
-		go watchCerts(w.mesh.AuthCertsPath, stop, func() {
-			w.agent.ScheduleConfigUpdate(generateEgress(w.mesh))
-		})
-	}
-	<-stop
-}
-
-func getEgressProxyPort(mesh *proxyconfig.ProxyMeshConfig) int {
-	addr := mesh.EgressProxyAddress
-	port, _ := strconv.Atoi(addr[strings.Index(addr, ":")+1:])
-	return port
-}
-
-func generateEgress(mesh *proxyconfig.ProxyMeshConfig) *Config {
-	port := getEgressProxyPort(mesh)
-	listener := buildHTTPListener(mesh, nil, WildcardAddress, port, true, false)
-	listener = applyInboundAuth(listener, mesh)
-	config := buildConfig([]*Listener{listener}, nil, mesh)
-	if mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
-		config.Hash = generateCertHash(mesh.AuthCertsPath)
-	}
-	return config
-}
-
+// buildEgressRoutes lists all HTTP route configs on the egress proxy
 func buildEgressRoutes(services model.ServiceDiscovery, mesh *proxyconfig.ProxyMeshConfig) HTTPRouteConfigs {
 	// Create a VirtualHost for each external service
 	vhosts := make([]*VirtualHost, 0)
@@ -94,7 +35,7 @@ func buildEgressRoutes(services model.ServiceDiscovery, mesh *proxyconfig.ProxyM
 			}
 		}
 	}
-	port := getEgressProxyPort(mesh)
+	port := proxy.ParsePort(mesh.EgressProxyAddress)
 	configs := HTTPRouteConfigs{port: &HTTPRouteConfig{VirtualHosts: vhosts}}
 	configs.normalize()
 	return configs

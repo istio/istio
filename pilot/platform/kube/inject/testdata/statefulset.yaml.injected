@@ -30,7 +30,6 @@ spec:
           name: data
       - args:
         - proxy
-        - sidecar
         - -v
         - "2"
         env:
