@@ -27,8 +27,8 @@ spec:
       labels:
         istio: egress
     spec:
-      containers:
       serviceAccountName: istio-egress-service-account
+      containers:
       - name: proxy
         image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
         imagePullPolicy: Always
