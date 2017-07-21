@@ -177,7 +177,10 @@ type BasicClient struct {
 	req          []byte
 	dest         net.TCPAddr
 	socket       *net.TCPConn
+	size         int
+	code         int
 	errorCount   int
+	headerLen    int
 	url          string
 	host         string
 	hostname     string
@@ -418,15 +421,22 @@ func (c *BasicClient) connect() *net.TCPConn {
 	return socket
 }
 
+func (c *BasicClient) returnRes() (int, []byte, int) {
+	return c.code, c.buffer[:c.size], c.headerLen
+}
+
 // Fetch fetches the url content. Returns http code, data, offset of body.
 func (c *BasicClient) Fetch() (int, []byte, int) {
-	code := -1
+	c.code = -1
+	c.size = 0
+	c.headerLen = 0
+	// Connect or reuse existing socket:
 	conn := c.socket
 	reuse := (conn != nil)
 	if !reuse {
 		conn = c.connect()
 		if conn == nil {
-			return code, nil, 0
+			return c.returnRes()
 		}
 	} else {
 		Dbg("Reusing socket %v", *conn)
@@ -443,103 +453,106 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 			return c.Fetch() // recurse once
 		}
 		Err("Unable to write to %v %v : %v", conn, c.dest, err)
-		return code, nil, 0
+		return c.returnRes()
 	}
 	if n != len(c.req) {
 		Err("Short write to %v %v : %d instead of %d", conn, c.dest, n, len(c.req))
-		return code, nil, 0
+		return c.returnRes()
 	}
 	if !c.keepAlive {
 		if err = conn.CloseWrite(); err != nil {
 			Err("Unable to close write to %v %v : %v", conn, c.dest, err)
-			return code, nil, 0
+			return c.returnRes()
 		}
 	}
 	// Read the response:
-	size := 0
+	c.readResponse(conn)
+	return c.returnRes()
+}
+
+func (c *BasicClient) readResponse(conn *net.TCPConn) {
 	max := len(c.buffer)
 	parsedHeaders := false
-	code = http.StatusOK // In http 1.0 mode we don't bother parsing anything
+	c.code = http.StatusOK // In http 1.0 mode we don't bother parsing anything
 	endofHeadersStart := retcodeOffset + 3
-	lastCRLF := 0
 	keepAlive := c.keepAlive
 	chunkedMode := false
 	for {
-		n, err = conn.Read(c.buffer[size:])
+		n, err := conn.Read(c.buffer[c.size:])
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			Err("Read error %v %v %d : %v", conn, c.dest, size, err)
+			Err("Read error %v %v %d : %v", conn, c.dest, c.size, err)
 		}
-		Dbg("Read ok ", n)
-		size += n
+		Dbg("Read ok %d", n)
+		c.size += n
 		if !parsedHeaders && c.parseHeaders {
 			// enough to get the code?
-			if size >= retcodeOffset+3 {
+			if c.size >= retcodeOffset+3 {
 				// even if the bytes are garbage we'll get a non 200 code (bytes are unsigned)
-				code = ParseDecimal(c.buffer[retcodeOffset : retcodeOffset+3])
+				c.code = ParseDecimal(c.buffer[retcodeOffset : retcodeOffset+3])
 				// TODO handle 100 Continue
-				if code != http.StatusOK {
-					Warn("Parsed non ok code %d (%v)", code, string(c.buffer[:retcodeOffset+3]))
+				if c.code != http.StatusOK {
+					Warn("Parsed non ok code %d (%v)", c.code, string(c.buffer[:retcodeOffset+3]))
 					break
 				}
 				Dbg("Code %d, looking for end of headers at %d / %d, last CRLF %d",
-					code, endofHeadersStart, size, lastCRLF)
+					c.code, endofHeadersStart, c.size, c.headerLen)
 				// TODO: keep track of list of newlines to efficiently search headers only there
 				idx := endofHeadersStart
-				for idx < size-1 {
+				for idx < c.size-1 {
 					if c.buffer[idx] == '\r' && c.buffer[idx+1] == '\n' {
-						if lastCRLF == idx-2 { // found end of headers
+						if c.headerLen == idx-2 { // found end of headers
 							parsedHeaders = true
 							break
 						}
-						lastCRLF = idx
+						c.headerLen = idx
 						idx++
 					}
 					idx++
 				}
-				endofHeadersStart = size // start there next read
+				endofHeadersStart = c.size // start there next read
 				if parsedHeaders {
 					// We have headers !
-					lastCRLF += 4 // we use this and not endofHeadersStart so http/1.0 does return 0 and not the optimization for search start
+					c.headerLen += 4 // we use this and not endofHeadersStart so http/1.0 does return 0 and not the optimization for search start
 					Dbg("headers are %s", string(c.buffer[:idx]))
 					// Find the content length or chunked mode
 					if keepAlive {
 						var contentLength int
-						if found, _ := FoldFind(c.buffer[:lastCRLF], chunkedHeader); found {
+						if found, _ := FoldFind(c.buffer[:c.headerLen], chunkedHeader); found {
 							chunkedMode = true
 							var dataStart int
-							dataStart, contentLength = ParseChunkSize(c.buffer[lastCRLF:])
-							LogV("chunk-length in %d (%s)", contentLength, c.buffer[lastCRLF:lastCRLF+dataStart-2])
-							max = lastCRLF + dataStart + contentLength
+							dataStart, contentLength = ParseChunkSize(c.buffer[c.headerLen:])
+							LogV("chunk-length in %d (%s)", contentLength, c.buffer[c.headerLen:c.headerLen+dataStart-2])
+							max = c.headerLen + dataStart + contentLength
 						} else {
-							found, offset := FoldFind(c.buffer[:lastCRLF], contentLengthHeader)
+							found, offset := FoldFind(c.buffer[:c.headerLen], contentLengthHeader)
 							if !found {
 								if VOn() {
-									LogV("Warning: content-length missing in %s", string(c.buffer[:lastCRLF]))
+									LogV("Warning: content-length missing in %s", string(c.buffer[:c.headerLen]))
 								} else {
-									Warn("Warning: content-length missing (%d bytes headers)", lastCRLF)
+									Warn("Warning: content-length missing (%d bytes headers)", c.headerLen)
 								}
-								keepAlive = false
+								keepAlive = false // can't keep keepAlive
 								break
 							}
-							contentLength = ParseDecimal(c.buffer[offset+len(contentLengthHeader) : lastCRLF])
+							contentLength = ParseDecimal(c.buffer[offset+len(contentLengthHeader) : c.headerLen])
 							if contentLength < 0 {
 								Warn("Warning: content-length unparsable %s", string(c.buffer[offset+2:offset+len(contentLengthHeader)+4]))
 								keepAlive = false
 								break
 							}
-							max = lastCRLF + contentLength
+							max = c.headerLen + contentLength
 							LogV("found content length %d", contentLength)
 						} // end of content-length section
 						if max > len(c.buffer) {
 							Warn("Buffer is too small for headers %d + data %d",
-								lastCRLF, contentLength)
+								c.headerLen, contentLength)
 							// TODO: just consume the extra instead
 							max = len(c.buffer)
 						}
-						if found, _ := FoldFind(c.buffer[:lastCRLF], connectionCloseHeader); found {
+						if found, _ := FoldFind(c.buffer[:c.headerLen], connectionCloseHeader); found {
 							Info("Server wants to close connection, no keep-alive!")
 							keepAlive = false
 						}
@@ -547,7 +560,7 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 				}
 			}
 		}
-		if size == max {
+		if c.size == max {
 			if chunkedMode {
 				Err("TODO: read next chunk")
 			}
@@ -557,15 +570,14 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 			break
 		}
 	}
-	if keepAlive && code == http.StatusOK {
-		c.socket = conn
+	if keepAlive && c.code == http.StatusOK {
+		c.socket = conn // keep the open socket
 	} else {
-		if err = conn.Close(); err != nil {
-			Err("Close error %v %v %d : %v", conn, c.dest, size, err)
+		if err := conn.Close(); err != nil {
+			Err("Close error %v %v %d : %v", conn, c.dest, c.size, err)
 		}
 		// we cleared c.socket already
 	}
-	return code, c.buffer[:size], lastCRLF
 }
 
 type fastClient struct {

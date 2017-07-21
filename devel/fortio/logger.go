@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"runtime"
 	"strings"
 )
 
@@ -35,9 +36,13 @@ const (
 	F LogLevel = iota // Fatal
 )
 
-var level = I // default is Info and up
-var levelToStrA []string
-var levelToStrM map[string]LogLevel
+var (
+	level          = I // default is Info and up
+	levelToStrA    []string
+	levelToStrM    map[string]LogLevel
+	logPrefix      = flag.String("logprefix", "> ", "Prefix to log lines before logged messages")
+	logFileAndLine = flag.Bool("logcaller", true, "Logs filename and line number of callers to log")
+)
 
 func init() {
 	levelToStrA = []string{
@@ -56,7 +61,7 @@ func init() {
 		levelToStrM[strings.ToLower(name)] = LogLevel(l)
 	}
 	flag.Var(&level, "loglevel", fmt.Sprintf("loglevel, one of %v", levelToStrA))
-	log.SetFlags(log.Ltime | log.Lshortfile)
+	log.SetFlags(log.Ltime)
 }
 
 // String returns the string representation of the level.
@@ -66,7 +71,7 @@ func (l *LogLevel) String() string {
 }
 
 // ToString returns the string representation of the level.
-// (somehow this can't be the same name as the pointer receiver version)
+// (this can't be the same name as the pointer receiver version)
 func (l LogLevel) ToString() string {
 	return levelToStrA[l]
 }
@@ -94,7 +99,7 @@ func SetLogLevel(lvl LogLevel) LogLevel {
 		log.Printf("SetLogLevel called with level %d higher than Critical!", lvl)
 		return -1
 	}
-	Log(I, "Log level is now %d %s (was %d %s)\n", lvl, lvl.ToString(), prev, prev.ToString())
+	logPrintf(I, "Log level is now %d %s (was %d %s)\n", lvl, lvl.ToString(), prev, prev.ToString())
 	level = lvl
 	return prev
 }
@@ -115,11 +120,22 @@ func LogLevelByName(str string) LogLevel {
 }
 
 // Log at the given level.
+// 2 level of calls so it's always same depth for extracting caller file/line
 func Log(lvl LogLevel, format string, rest ...interface{}) {
+	logPrintf(lvl, format, rest...)
+}
+
+func logPrintf(lvl LogLevel, format string, rest ...interface{}) {
 	if !LogOn(lvl) {
 		return
 	}
-	log.Print(levelToStrA[lvl][0:1], " ", fmt.Sprintf(format, rest...))
+	if *logFileAndLine {
+		_, file, line, _ := runtime.Caller(2)
+		file = file[strings.LastIndex(file, "/")+1:]
+		log.Print(levelToStrA[lvl][0:1], " ", file, ":", line, *logPrefix, fmt.Sprintf(format, rest...))
+	} else {
+		log.Print(levelToStrA[lvl][0:1], " ", *logPrefix, fmt.Sprintf(format, rest...))
+	}
 	if lvl == F {
 		panic("aborting...")
 	}
@@ -129,37 +145,37 @@ func Log(lvl LogLevel, format string, rest ...interface{}) {
 
 // Dbg logs if Debug level is on.
 func Dbg(format string, rest ...interface{}) {
-	Log(D, format, rest...)
+	logPrintf(D, format, rest...)
 }
 
 // LogV logs if Verbose level is on.
 func LogV(format string, rest ...interface{}) {
-	Log(V, format, rest...)
+	logPrintf(V, format, rest...)
 }
 
 // Info logs if Info level is on.
 func Info(format string, rest ...interface{}) {
-	Log(I, format, rest...)
+	logPrintf(I, format, rest...)
 }
 
 // Warn logs if Warning level is on.
 func Warn(format string, rest ...interface{}) {
-	Log(W, format, rest...)
+	logPrintf(W, format, rest...)
 }
 
 // Err logs if Warning level is on.
 func Err(format string, rest ...interface{}) {
-	Log(E, format, rest...)
+	logPrintf(E, format, rest...)
 }
 
 // Crit logs if Warning level is on.
 func Crit(format string, rest ...interface{}) {
-	Log(C, format, rest...)
+	logPrintf(C, format, rest...)
 }
 
 // Fatal logs if Warning level is on.
 func Fatal(format string, rest ...interface{}) {
-	Log(F, format, rest...)
+	logPrintf(F, format, rest...)
 }
 
 // DbgOn is a shortcut for LogOn(D).

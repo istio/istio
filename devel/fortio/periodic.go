@@ -257,6 +257,6 @@ func ParsePercentiles(percentiles string) ([]float64, error) {
 	if len(res) == 0 {
 		return res, errors.New("list can't be empty")
 	}
-	LogV("Will use ", res, " for percentiles")
+	LogV("Will use %v for percentiles", res)
 	return res, nil
 }
