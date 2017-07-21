@@ -137,8 +137,8 @@ func LogV(format string, rest ...interface{}) {
 	Log(V, format, rest...)
 }
 
-// Inf logs if Info level is on.
-func Inf(format string, rest ...interface{}) {
+// Info logs if Info level is on.
+func Info(format string, rest ...interface{}) {
 	Log(I, format, rest...)
 }
 

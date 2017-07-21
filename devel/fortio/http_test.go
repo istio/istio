@@ -110,7 +110,7 @@ func TestFoldFind2(t *testing.T) {
 var utf8Str = "世界aBcdefGHiJklmnopqrstuvwxyZ"
 
 func TestASCIIToUpper(t *testing.T) {
-	Verbosity = 1
+	SetLogLevel(D)
 	var tests = []struct {
 		input    string // input
 		expected string // output
@@ -222,7 +222,7 @@ func BenchmarkASCIIFoldCustomToLowerMap(b *testing.B) {
 
 // Package's version (3x fastest)
 func BenchmarkASCIIToUpper(b *testing.B) {
-	Verbosity = 0
+	SetLogLevel(W)
 	for n := 0; n < b.N; n++ {
 		lw = ASCIIToUpper(utf8Str)
 	}

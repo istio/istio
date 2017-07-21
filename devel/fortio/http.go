@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -48,9 +47,6 @@ func init() {
 	extraHeaders.Add("User-Agent", userAgent)
 }
 
-// Verbosity controls verbose/debug output level, higher more verbose.
-var Verbosity int
-
 // Version is the fortio package version (TODO:auto gen/extract).
 const (
 	Version       = "0.1"
@@ -68,10 +64,10 @@ func AddAndValidateExtraHeader(h string) error {
 	value := strings.TrimSpace(s[1])
 	// Not checking Verbosity as this is called during flag parsing and Verbosity isn't set yet
 	if strings.EqualFold(key, "host") {
-		log.Printf("Will be setting special Host header to %s", value)
+		Info("Will be setting special Host header to %s", value)
 		hostOverride = value
 	} else {
-		log.Printf("Setting regular extra header %s: %s", key, value)
+		Info("Setting regular extra header %s: %s", key, value)
 		extraHeaders.Add(key, value)
 	}
 	return nil
@@ -81,21 +77,21 @@ func AddAndValidateExtraHeader(h string) error {
 func newHTTPRequest(url string) *http.Request {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Printf("Unable to make request for %s : %v", url, err)
+		Err("Unable to make request for %s : %v", url, err)
 		return nil
 	}
 	req.Header = extraHeaders
 	if hostOverride != "" {
 		req.Host = hostOverride
 	}
-	if Verbosity < 3 {
+	if !DbgOn() {
 		return req
 	}
 	bytes, err := httputil.DumpRequestOut(req, false)
 	if err != nil {
-		log.Printf("Unable to dump request %v", err)
+		Err("Unable to dump request %v", err)
 	} else {
-		log.Printf("For URL %s, sending:\n%s", url, bytes)
+		Dbg("For URL %s, sending:\n%s", url, bytes)
 	}
 	return req
 }
@@ -121,32 +117,30 @@ func FetchURL(url string) (int, []byte, int) {
 func (c *Client) Fetch() (int, []byte, int) {
 	resp, err := c.client.Do(c.req)
 	if err != nil {
-		log.Printf("Unable to send request for %s : %v", c.url, err)
+		Err("Unable to send request for %s : %v", c.url, err)
 		return http.StatusBadRequest, []byte(err.Error()), 0
 	}
 	var data []byte
-	if Verbosity > 2 {
+	if DbgOn() {
 		if data, err = httputil.DumpResponse(resp, false); err != nil {
-			log.Printf("Unable to dump response %v", err)
+			Err("Unable to dump response %v", err)
 		} else {
-			log.Printf("For URL %s, received:\n%s", c.url, data)
+			Dbg("For URL %s, received:\n%s", c.url, data)
 		}
 	}
 	data, err = ioutil.ReadAll(resp.Body)
 	resp.Body.Close() //nolint(errcheck)
 	if err != nil {
-		log.Printf("Unable to read response for %s : %v", c.url, err)
+		Err("Unable to read response for %s : %v", c.url, err)
 		code := resp.StatusCode
 		if code == http.StatusOK {
 			code = http.StatusNoContent
-			log.Printf("Ok code despite read error, switching code to %d", code)
+			Warn("Ok code despite read error, switching code to %d", code)
 		}
 		return code, data, 0
 	}
 	code := resp.StatusCode
-	if Verbosity > 1 {
-		log.Printf("Got %d : %s for %s - response is %d bytes", code, resp.Status, c.url, len(data))
-	}
+	Dbg("Got %d : %s for %s - response is %d bytes", code, resp.Status, c.url, len(data))
 	return code, data, 0
 }
 
@@ -201,36 +195,32 @@ func NewBasicClient(urlStr string, proto string, keepAlive bool) Fetcher {
 	// Parse the url, extract components.
 	url, err := url.Parse(urlStr)
 	if err != nil {
-		log.Printf("Bad url '%s' : %v", urlStr, err)
+		Err("Bad url '%s' : %v", urlStr, err)
 		return nil
 	}
 	if url.Scheme != "http" {
-		log.Printf("Only http is supported, can't use url %s", urlStr)
+		Err("Only http is supported, can't use url %s", urlStr)
 		return nil
 	}
 	// note: Host includes the port
 	bc := BasicClient{url: urlStr, host: url.Host, hostname: url.Hostname(), port: url.Port(), http10: (proto == "1.0")}
 	if bc.port == "" {
 		bc.port = url.Scheme // ie http which turns into 80 later
-		if Verbosity > 2 {
-			log.Printf("No port specified, using %s", bc.port)
-		}
+		LogV("No port specified, using %s", bc.port)
 	}
 	addrs, err := net.LookupIP(bc.hostname)
 	if err != nil {
-		log.Printf("Unable to lookup '%s' : %v", bc.host, err)
+		Err("Unable to lookup '%s' : %v", bc.host, err)
 		return nil
 	}
-	if len(addrs) > 1 && Verbosity > 2 {
-		log.Printf("Using only the first of the addresses for %s : %v", bc.host, addrs)
+	if len(addrs) > 1 && DbgOn() {
+		Dbg("Using only the first of the addresses for %s : %v", bc.host, addrs)
 	}
-	if Verbosity > 2 {
-		log.Printf("Will go to %s", addrs[0])
-	}
+	Dbg("Will go to %s", addrs[0])
 	bc.dest.IP = addrs[0]
 	bc.dest.Port, err = net.LookupPort("tcp", bc.port)
 	if err != nil {
-		log.Printf("Unable to resolve port '%s' : %v", bc.port, err)
+		Err("Unable to resolve port '%s' : %v", bc.port, err)
 		return nil
 	}
 	// Create the bytes for the request:
@@ -256,9 +246,7 @@ func NewBasicClient(urlStr string, proto string, keepAlive bool) Fetcher {
 		bc.req = append(bc.req, '\r', '\n')
 	}
 	bc.req = append(bc.req, '\r', '\n')
-	if Verbosity > 2 {
-		log.Printf("Created client:\n%+v\n%s", bc.dest, string(bc.req))
-	}
+	Dbg("Created client:\n%+v\n%s", bc.dest, string(bc.req))
 	return &bc
 }
 
@@ -275,8 +263,8 @@ func toUpper(b byte) byte {
 // Only wotks for ASCII, not meant for unicode.
 func ASCIIToUpper(str string) []byte {
 	numChars := utf8.RuneCountInString(str)
-	if Verbosity > 0 && numChars != len(str) {
-		log.Printf("ASCIIFold(\"%s\") contains %d characters, some non ascii (byte length %d): will mangle", str, numChars, len(str))
+	if numChars != len(str) && VOn() {
+		Err("ASCIIFold(\"%s\") contains %d characters, some non ascii (byte length %d): will mangle", str, numChars, len(str))
 	}
 	res := make([]byte, numChars)
 	// less surprising if we only mangle the extended characters
@@ -379,7 +367,7 @@ func ParseChunkSize(inp []byte) (int, int) {
 			} else {
 				inDigits = false
 				if res == -1 {
-					log.Printf("Didn't find hex number %v", string(inp))
+					Err("Didn't find hex number %v", string(inp))
 					return off, res
 				}
 				continue
@@ -415,18 +403,18 @@ var chunkedHeader = []byte("\r\nTransfer-Encoding: chunked")
 func (c *BasicClient) connect() *net.TCPConn {
 	socket, err := net.DialTCP("tcp", nil, &c.dest)
 	if err != nil {
-		log.Printf("Unable to connect to %v : %v", c.dest, err)
+		Err("Unable to connect to %v : %v", c.dest, err)
 		return nil
 	}
 	// For now those errors are not critical/breaking
 	if err = socket.SetNoDelay(true); err != nil {
-		log.Printf("Unable to connect to set tcp no delay %v %v : %v", socket, c.dest, err)
+		Warn("Unable to connect to set tcp no delay %v %v : %v", socket, c.dest, err)
 	}
 	if err = socket.SetWriteBuffer(len(c.req)); err != nil {
-		log.Printf("Unable to connect to set write buffer %d %v %v : %v", len(c.req), socket, c.dest, err)
+		Warn("Unable to connect to set write buffer %d %v %v : %v", len(c.req), socket, c.dest, err)
 	}
 	if err = socket.SetReadBuffer(len(c.buffer)); err != nil {
-		log.Printf("Unable to connect to read buffer %d %v %v : %v", len(c.buffer), socket, c.dest, err)
+		Warn("Unable to connect to read buffer %d %v %v : %v", len(c.buffer), socket, c.dest, err)
 	}
 	return socket
 }
@@ -442,9 +430,7 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 			return code, nil, 0
 		}
 	} else {
-		if Verbosity > 1 {
-			log.Printf("Reusing socket %v", *conn)
-		}
+		Dbg("Reusing socket %v", *conn)
 	}
 	c.socket = nil // because of error returns
 	// Send the request:
@@ -452,23 +438,21 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 	if err != nil {
 		if reuse {
 			// it's ok it died once
-			if Verbosity > 0 {
-				log.Printf("Closing dead socket %v (%v)", *conn, err)
-			}
+			LogV("Closing dead socket %v (%v)", *conn, err)
 			conn.Close() // nolint: errcheck
 			c.errorCount++
 			return c.Fetch() // recurse once
 		}
-		log.Printf("Unable to write to %v %v : %v", conn, c.dest, err)
+		Err("Unable to write to %v %v : %v", conn, c.dest, err)
 		return code, nil, 0
 	}
 	if n != len(c.req) {
-		log.Printf("Short write to %v %v : %d instead of %d", conn, c.dest, n, len(c.req))
+		Err("Short write to %v %v : %d instead of %d", conn, c.dest, n, len(c.req))
 		return code, nil, 0
 	}
 	if !c.keepAlive {
 		if err = conn.CloseWrite(); err != nil {
-			log.Printf("Unable to close write to %v %v : %v", conn, c.dest, err)
+			Err("Unable to close write to %v %v : %v", conn, c.dest, err)
 			return code, nil, 0
 		}
 	}
@@ -487,11 +471,9 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 			break
 		}
 		if err != nil {
-			log.Printf("Read error %v %v %d : %v", conn, c.dest, size, err)
+			Err("Read error %v %v %d : %v", conn, c.dest, size, err)
 		}
-		if Verbosity > 2 {
-			log.Print("Read ok ", n)
-		}
+		Dbg("Read ok ", n)
 		size += n
 		if !parsedHeaders && c.parseHeaders {
 			// enough to get the code?
@@ -500,13 +482,11 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 				code = ParseDecimal(c.buffer[retcodeOffset : retcodeOffset+3])
 				// TODO handle 100 Continue
 				if code != http.StatusOK {
-					log.Printf("Parsed non ok code %d (%v)", code, string(c.buffer[:retcodeOffset+3]))
+					Warn("Parsed non ok code %d (%v)", code, string(c.buffer[:retcodeOffset+3]))
 					break
 				}
-				if Verbosity > 2 {
-					log.Printf("Code %d, looking for end of headers at %d / %d, last CRLF %d",
-						code, endofHeadersStart, size, lastCRLF)
-				}
+				Dbg("Code %d, looking for end of headers at %d / %d, last CRLF %d",
+					code, endofHeadersStart, size, lastCRLF)
 				// TODO: keep track of list of newlines to efficiently search headers only there
 				idx := endofHeadersStart
 				for idx < size-1 {
@@ -524,9 +504,7 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 				if parsedHeaders {
 					// We have headers !
 					lastCRLF += 4 // we use this and not endofHeadersStart so http/1.0 does return 0 and not the optimization for search start
-					if Verbosity > 2 {
-						log.Printf("headers are %s", string(c.buffer[:idx]))
-					}
+					Dbg("headers are %s", string(c.buffer[:idx]))
 					// Find the content length or chunked mode
 					if keepAlive {
 						var contentLength int
@@ -534,41 +512,36 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 							chunkedMode = true
 							var dataStart int
 							dataStart, contentLength = ParseChunkSize(c.buffer[lastCRLF:])
-							if Verbosity > 1 {
-								log.Printf("chunk-length in %d (%s)", contentLength, c.buffer[lastCRLF:lastCRLF+dataStart-2])
-							}
+							LogV("chunk-length in %d (%s)", contentLength, c.buffer[lastCRLF:lastCRLF+dataStart-2])
 							max = lastCRLF + dataStart + contentLength
 						} else {
 							found, offset := FoldFind(c.buffer[:lastCRLF], contentLengthHeader)
 							if !found {
-								if Verbosity > 1 {
-									log.Printf("Warning: content-length missing in %s", string(c.buffer[:lastCRLF]))
+								if VOn() {
+									LogV("Warning: content-length missing in %s", string(c.buffer[:lastCRLF]))
 								} else {
-									log.Printf("Warning: content-length missing (%d bytes headers)", lastCRLF)
+									Warn("Warning: content-length missing (%d bytes headers)", lastCRLF)
 								}
 								keepAlive = false
 								break
 							}
 							contentLength = ParseDecimal(c.buffer[offset+len(contentLengthHeader) : lastCRLF])
 							if contentLength < 0 {
-								log.Printf("Warning: content-length unparsable %s", string(c.buffer[offset+2:offset+len(contentLengthHeader)+4]))
+								Warn("Warning: content-length unparsable %s", string(c.buffer[offset+2:offset+len(contentLengthHeader)+4]))
 								keepAlive = false
 								break
-
 							}
 							max = lastCRLF + contentLength
-							if Verbosity > 1 {
-								log.Printf("found content length %d", contentLength)
-							}
+							LogV("found content length %d", contentLength)
 						} // end of content-length section
 						if max > len(c.buffer) {
-							log.Printf("Buffer is too small for headers %d + data %d",
+							Warn("Buffer is too small for headers %d + data %d",
 								lastCRLF, contentLength)
 							// TODO: just consume the extra instead
 							max = len(c.buffer)
 						}
 						if found, _ := FoldFind(c.buffer[:lastCRLF], connectionCloseHeader); found {
-							log.Printf("Server wants to close connection, no keep-alive!")
+							Info("Server wants to close connection, no keep-alive!")
 							keepAlive = false
 						}
 					}
@@ -577,10 +550,10 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 		}
 		if size == max {
 			if chunkedMode {
-				log.Printf("TODO: read next chunk")
+				Err("TODO: read next chunk")
 			}
 			if !keepAlive {
-				log.Printf("More data is available but stopping after %d (for %v %v)", max, conn, c.dest)
+				Err("More data is available but stopping after %d (for %v %v)", max, conn, c.dest)
 			}
 			break
 		}
@@ -589,7 +562,7 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 		c.socket = conn
 	} else {
 		if err = conn.Close(); err != nil {
-			log.Printf("Close error %v %v %d : %v", conn, c.dest, size, err)
+			Err("Close error %v %v %d : %v", conn, c.dest, size, err)
 		}
 		// we cleared c.socket already
 	}
@@ -613,7 +586,7 @@ func NewFastClient(url string) Fetcher {
 	cli.req.SetRequestURI(url)
 	if hostOverride != "" {
 		// TODO: Not yet working - see https://github.com/valyala/fasthttp/issues/114
-		log.Printf("Setting host to %s", hostOverride)
+		Info("Setting host to %s", hostOverride)
 		cli.req.SetHost(hostOverride)
 	}
 	for h := range extraHeaders {
@@ -624,7 +597,7 @@ func NewFastClient(url string) Fetcher {
 
 func (c *fastClient) Fetch() (int, []byte, int) {
 	if err := c.client.Do(c.req, c.res); err != nil {
-		log.Printf("Fasthttp error %v", err)
+		Err("Fasthttp error %v", err)
 		return 400, nil, 0
 	}
 	// TODO: Header.Len() is number of headers not byte size of headers
