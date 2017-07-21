@@ -22,6 +22,7 @@ import (
 	"github.com/golang/glog"
 
 	"istio.io/auth/certmanager"
+	"istio.io/auth/pkg/pki"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -222,7 +223,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	}
 
 	certBytes := scrt.Data[CertChainID]
-	cert := certmanager.ParsePemEncodedCertificate(certBytes)
+	cert := pki.ParsePemEncodedCertificate(certBytes)
 	ttl := time.Until(cert.NotAfter)
 	rootCertificate := sc.ca.GetRootCertificate()
 

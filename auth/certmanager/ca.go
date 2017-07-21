@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"istio.io/auth/pkg/pki"
 )
 
 const (
@@ -84,8 +86,8 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	ca.certChainBytes = copyBytes(opts.CertChainBytes)
 	ca.rootCertBytes = copyBytes(opts.RootCertBytes)
 
-	ca.signingCert = ParsePemEncodedCertificate(opts.SigningCertBytes)
-	ca.signingKey = parsePemEncodedKey(ca.signingCert.PublicKeyAlgorithm, opts.SigningKeyBytes)
+	ca.signingCert = pki.ParsePemEncodedCertificate(opts.SigningCertBytes)
+	ca.signingKey = pki.ParsePemEncodedKey(ca.signingCert.PublicKeyAlgorithm, opts.SigningKeyBytes)
 
 	if err := ca.verify(); err != nil {
 		return nil, err

@@ -32,6 +32,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/auth/pkg/pki"
+
 	"github.com/golang/glog"
 )
 
@@ -152,8 +154,8 @@ func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x5
 		glog.Fatalf("Reading private key file failed with error %s.", err)
 	}
 
-	cert := ParsePemEncodedCertificate(signerCertBytes)
-	key := parsePemEncodedKey(cert.PublicKeyAlgorithm, signerPrivBytes)
+	cert := pki.ParsePemEncodedCertificate(signerCertBytes)
+	key := pki.ParsePemEncodedKey(cert.PublicKeyAlgorithm, signerPrivBytes)
 
 	return cert, key
 }
