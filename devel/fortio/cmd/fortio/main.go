@@ -95,10 +95,6 @@ func main() {
 	)
 	flag.Var(&headersFlags, "H", "Additional Header(s)")
 	flag.Parse()
-
-	verbosity := *verbosityFlag
-	fortio.Verbosity = verbosity
-	log.SetFlags(log.Flags() | log.Lshortfile)
 	pList, err := fortio.ParsePercentiles(*percentilesFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to extract percentiles from -p: %v\n", err) // nolint(gas)
@@ -116,7 +112,6 @@ func main() {
 		Function:    test,
 		Duration:    *durationFlag,
 		NumThreads:  *numThreadsFlag,
-		Verbosity:   verbosity,
 		Percentiles: pList,
 		Resolution:  *resolutionFlag,
 	}
@@ -152,8 +147,8 @@ func main() {
 			fmt.Printf("Aborting because of error %d for %s\n%s\n", code, url, string(data))
 			os.Exit(1)
 		}
-		if i == 0 && verbosity > 0 {
-			fmt.Printf("first hit of url %s: status %03d, headers %d, total %d\n%s\n", url, code, headerSize, len(data), string(data))
+		if i == 0 && fortio.IsLoggingV() {
+			fortio.LogV("first hit of url %s: status %03d, headers %d, total %d\n%s\n", url, code, headerSize, len(data), string(data))
 		}
 		// Setup the stats for each 'thread'
 		state[i].sizes = total.sizes.Clone()
@@ -164,7 +159,7 @@ func main() {
 	if *profileFlag != "" {
 		fc, err := os.Create(*profileFlag + ".cpu")
 		if err != nil {
-			log.Fatal(err)
+			fortio.LogFatal("Unable to create .cpu profile: %v", err)
 		}
 		pprof.StartCPUProfile(fc) //nolint: gas,errcheck
 	}
@@ -173,7 +168,7 @@ func main() {
 		pprof.StopCPUProfile()
 		fm, err := os.Create(*profileFlag + ".mem")
 		if err != nil {
-			log.Fatal(err)
+			fortio.LogFatal("Unable to create .mem profile: %v", err)
 		}
 		runtime.GC()               // get up-to-date statistics
 		pprof.WriteHeapProfile(fm) // nolint:gas,errcheck
@@ -198,7 +193,7 @@ func main() {
 	for _, k := range keys {
 		fmt.Printf("Code %3d : %d\n", k, total.retCodes[k])
 	}
-	if verbosity > 0 {
+	if fortio.IsLoggingV() {
 		total.headerSizes.Print(os.Stdout, "Response Header Sizes Histogram", 50)
 		total.sizes.Print(os.Stdout, "Response Body/Total Sizes Histogram", 50)
 	} else {
