@@ -12,23 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package certmanager
+package pki
 
 import (
 	"crypto/ecdsa"
 	"crypto/rsa"
+	"crypto/x509"
 	"reflect"
 	"testing"
 )
 
-func TestParseCertAndKey(t *testing.T) {
+func TestParsePemEncodedCertificate(t *testing.T) {
 	testCases := map[string]struct {
-		cert    string
-		key     string
-		keyType reflect.Type
+		pem           string
+		publicKeyAlgo x509.PublicKeyAlgorithm
 	}{
-		"Parse RSA certificate and key": {
-			cert: `
+		"Parse RSA certificate": {
+			publicKeyAlgo: x509.RSA,
+			pem: `
 -----BEGIN CERTIFICATE-----
 MIIC+zCCAeOgAwIBAgIQQ0vFSayWg4FQBBr1EpI5rzANBgkqhkiG9w0BAQsFADAT
 MREwDwYDVQQKEwhKdWp1IG9yZzAeFw0xNzAzMTEwNjA0MDJaFw0xODAzMTEwNjA0
@@ -48,7 +49,40 @@ g3myAKrkyjewTfFtK5OOOQGzQT6lCEhKdZJusdqfAMl1heFJGnZ6GAi38ftdz2Z8
 hw25X3FJpzRq62JxTx5q6+M2c07g4dkbfMDp/TO7vF4SWruU6JBZj5MVDYn4PEA=
 -----END CERTIFICATE-----
 			`,
-			key: `
+		},
+		"Parse ECDSA cert": {
+			pem: `
+-----BEGIN CERTIFICATE-----
+MIIBSzCB+qADAgECAhAzJszEACNBOHrsfSUJMPsHMAoGCCqGSM49BAMCMAsxCTAH
+BgNVBAoTADAeFw0xNzAzMTMwNTE2NThaFw0xNzAzMTMwNTE2NThaMAsxCTAHBgNV
+BAoTADBOMBAGByqGSM49AgEGBSuBBAAhAzoABMKQDHvCFvaTfFab5SOUVYWJXXWh
+iYh1iBeqIBCSLPt8SrpAWGyOMKLN4bMCWFNOaeBFLG/91K8Yo0swSTAOBgNVHQ8B
+Af8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDAYDVR0TAQH/BAIwADAUBgNV
+HREEDTALgglsb2NhbGhvc3QwCgYIKoZIzj0EAwIDQAAwPQIcY8lgBAAtFWtxmk9k
+BB6nORpwdv4LVt/BFgLwWQIdAKvHn7cxBJ+aAC25rIumRNKDzP7PkV0HDbxtX+M=
+-----END CERTIFICATE-----
+			`,
+			publicKeyAlgo: x509.ECDSA,
+		},
+	}
+
+	for _, c := range testCases {
+		cert := ParsePemEncodedCertificate([]byte(c.pem))
+		if cert.PublicKeyAlgorithm != c.publicKeyAlgo {
+			t.Errorf("Unexpected public key algorithm: want %d but got %d", c.publicKeyAlgo, cert.PublicKeyAlgorithm)
+		}
+	}
+}
+
+func TestParsePemEncodedKey(t *testing.T) {
+	testCases := map[string]struct {
+		algo    x509.PublicKeyAlgorithm
+		pem     string
+		keyType reflect.Type
+	}{
+		"Parse RSA key": {
+			algo: x509.RSA,
+			pem: `
 -----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAw/OBAAhDu58f0HkJlJBtb42Jp9EECC+WYEOVEdM/Y9fqcoSF
 b19NxztVqy0r/aW8pCO3DZ2EYIA3Y9pYasDfhsIl9lhQkvEwk/05iL6oNrZ45Bgs
@@ -79,19 +113,9 @@ xGSDfnFvR13RCqeUdlQofVYpolqrSobOyOVfQv2ksnPPsC87NISM
 			`,
 			keyType: reflect.TypeOf(&rsa.PrivateKey{}),
 		},
-		"Parse ECDSA cert and key": {
-			cert: `
------BEGIN CERTIFICATE-----
-MIIBSzCB+qADAgECAhAzJszEACNBOHrsfSUJMPsHMAoGCCqGSM49BAMCMAsxCTAH
-BgNVBAoTADAeFw0xNzAzMTMwNTE2NThaFw0xNzAzMTMwNTE2NThaMAsxCTAHBgNV
-BAoTADBOMBAGByqGSM49AgEGBSuBBAAhAzoABMKQDHvCFvaTfFab5SOUVYWJXXWh
-iYh1iBeqIBCSLPt8SrpAWGyOMKLN4bMCWFNOaeBFLG/91K8Yo0swSTAOBgNVHQ8B
-Af8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDAYDVR0TAQH/BAIwADAUBgNV
-HREEDTALgglsb2NhbGhvc3QwCgYIKoZIzj0EAwIDQAAwPQIcY8lgBAAtFWtxmk9k
-BB6nORpwdv4LVt/BFgLwWQIdAKvHn7cxBJ+aAC25rIumRNKDzP7PkV0HDbxtX+M=
------END CERTIFICATE-----
-			`,
-			key: `
+		"Parse ECDSA key": {
+			algo: x509.ECDSA,
+			pem: `
 -----BEGIN EC PARAMETERS-----
 MGgCAQEEHBMUyVWFKTW4TwtwCmIAxdpsBFn0MV7tGeSA32CgBwYFK4EEACGhPAM6
 AATCkAx7whb2k3xWm+UjlFWFiV11oYmIdYgXqiAQkiz7fEq6QFhsjjCizeGzAlhT
@@ -103,8 +127,7 @@ TmngRSxv/dSvGA==
 	}
 
 	for _, c := range testCases {
-		cert := ParsePemEncodedCertificate([]byte(c.cert))
-		key := parsePemEncodedKey(cert.PublicKeyAlgorithm, []byte(c.key))
+		key := ParsePemEncodedKey(c.algo, []byte(c.pem))
 		if keyType := reflect.TypeOf(key); keyType != c.keyType {
 			t.Errorf("Unmatched key type: expected %v but got %v", c.keyType, keyType)
 		}

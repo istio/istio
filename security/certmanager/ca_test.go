@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"istio.io/auth/pkg/pki"
 )
 
 func TestSelfSignedIstioCA(t *testing.T) {
@@ -44,12 +46,12 @@ func TestSelfSignedIstioCA(t *testing.T) {
 	rootPool := x509.NewCertPool()
 	rootPool.AppendCertsFromPEM(rcb)
 
-	cert := ParsePemEncodedCertificate(cb)
+	cert := pki.ParsePemEncodedCertificate(cb)
 	if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != certTTL {
 		t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", certTTL, ttl)
 	}
 
-	rootCert := ParsePemEncodedCertificate(rcb)
+	rootCert := pki.ParsePemEncodedCertificate(rcb)
 	if ttl := rootCert.NotAfter.Sub(rootCert.NotBefore); ttl != caCertTTL {
 		t.Errorf("Unexpected CA certificate TTL (expecting %v, actual %v)", caCertTTL, ttl)
 	}

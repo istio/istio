@@ -9,6 +9,7 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/pki:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_google_cloud_go//compute/metadata:go_default_library",
     ],
@@ -19,7 +20,7 @@ go_test(
     srcs = [
         "ca_test.go",
         "generate_cert_test.go",
-        "util_test.go",
     ],
     library = ":go_default_library",
+    deps = ["//pkg/pki:go_default_library"],
 )

@@ -22,6 +22,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"istio.io/auth/pkg/pki"
 )
 
 // VerifyFields contains the certficate fields to verify in the test.
@@ -115,8 +117,8 @@ func TestGenCert(t *testing.T) {
 		org:         "MyOrg",
 	})
 
-	caCert := ParsePemEncodedCertificate(caCertPem)
-	caPriv := parsePemEncodedKey(caCert.PublicKeyAlgorithm, caPrivPem)
+	caCert := pki.ParsePemEncodedCertificate(caCertPem)
+	caPriv := pki.ParsePemEncodedKey(caCert.PublicKeyAlgorithm, caPrivPem)
 	cases := []struct {
 		certOptions  CertOptions
 		verifyFields VerifyFields
