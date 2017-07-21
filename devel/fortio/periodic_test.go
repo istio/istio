@@ -76,7 +76,6 @@ func TestStart(t *testing.T) {
 		QPS:        11.4,
 		Function:   localF,
 		NumThreads: 1,
-		Verbosity:  1,
 		Duration:   1 * time.Second,
 	}
 	r := NewPeriodicRunner(&o)

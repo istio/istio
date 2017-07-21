@@ -21,7 +21,7 @@ import (
 	"strings"
 )
 
-// LogLevel is the level of logging (0 Verbose -> 5 Fatal).
+// LogLevel is the level of logging (0 Debug -> 6 Fatal).
 type LogLevel int
 
 // Log levels

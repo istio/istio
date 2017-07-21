@@ -62,7 +62,6 @@ func AddAndValidateExtraHeader(h string) error {
 	}
 	key := strings.TrimSpace(s[0])
 	value := strings.TrimSpace(s[1])
-	// Not checking Verbosity as this is called during flag parsing and Verbosity isn't set yet
 	if strings.EqualFold(key, "host") {
 		Info("Will be setting special Host header to %s", value)
 		hostOverride = value

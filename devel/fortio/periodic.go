@@ -55,8 +55,6 @@ type RunnerOptions struct {
 	NumThreads  int
 	Percentiles []float64
 	Resolution  float64
-	// Debug/Verbosity level (0 is quietest)
-	Verbosity int
 }
 
 // PeriodicRunner let's you exercise the Function at the given QPS and collect

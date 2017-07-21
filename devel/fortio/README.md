@@ -15,16 +15,24 @@ fortio [flags] url
     	Additional Header(s)
   -c int
     	Number of connections/goroutine/threads (default 4)
+  -compression
+    	Enable http compression
+  -gomaxprocs int
+    	Setting for runtime.GOMAXPROCS, <1 doesn't change the default
+  -http int
+    	-1 standard client, 0 http/1.0 fast client, 1 http/1.1 fast client with keep-alive, 2 http/1.1 without keep-alive, 3 fasthttp client (default 1)
+  -loglevel value
+    	loglevel, one of [Debug Verbose Info Warning Error Critical Fatal] (default Info)
   -p string
     	List of pXX to calculate (default "50,75,99,99.9")
+  -profile string
+    	write .cpu and .mem profiles to file
   -qps float
     	Queries Per Seconds or 0 for no wait (default 8)
   -r float
     	Resolution of the histogram lowest buckets in seconds (default 0.001)
   -t duration
     	How long to run the test (default 5s)
-  -v int
-    	Verbosity level (0 is quiet)
 ```
 
 ## Example output
