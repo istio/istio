@@ -244,6 +244,8 @@ func TestNewMetrics(t *testing.T) {
 }
 
 func TestDenials(t *testing.T) {
+	// TODO: temporarily disabling the test
+	t.Skip()
 	applyReviewsRoutingRules(t)
 	defer func() {
 		deleteReviewsRoutingRules(t)
