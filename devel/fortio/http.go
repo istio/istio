@@ -178,7 +178,7 @@ func NewStdClient(url string, numConnections int, compression bool) Fetcher {
 	return &client
 }
 
-// BasicClient is a fast, lockfree single purpose http 1.0 client.
+// BasicClient is a fast, lockfree single purpose http 1.0/1.1 client.
 type BasicClient struct {
 	buffer       [16384]byte // first for alignment reasons
 	req          []byte
