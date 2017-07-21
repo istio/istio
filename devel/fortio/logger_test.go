@@ -34,16 +34,16 @@ func TestLogger1(t *testing.T) {
 	LogV("test Va %d", i) // Should show
 	i++
 	expected += "V test Va 0\n"
-	LogWarning("test Wa %d", i) // Should show
+	Warn("test Wa %d", i) // Should show
 	i++
 	expected += "W test Wa 1\n"
 	prevLevel := SetLogLevel(LogLevelByName("Error"))
 	expected += "I Log level is now 4 Error (was 1 Verbose)\n"
 	LogV("test Vb %d", i) // Should not show
 	i++
-	LogWarning("test Wb %d", i) // Should not show
+	Warn("test Wb %d", i) // Should not show
 	i++
-	LogError("test E %d", i) // Should show
+	Err("test E %d", i) // Should show
 	i++
 	expected += "E test E 4\n"
 	// test the rest of the api
@@ -53,12 +53,26 @@ func TestLogger1(t *testing.T) {
 	SetLogLevel(D - 1)
 	expected += "SetLogLevel called with level -1 lower than Debug!\n"
 	SetLogLevel(F + 1)
-	expected += "SetLogLevel called with level 7 higher than Fatal!\n"
+	expected += "SetLogLevel called with level 7 higher than Critical!\n"
 	SetLogLevel(C) // should be fine
 	expected += "I Log level is now 5 Critical (was 0 Debug)\n"
 	w.Flush() // nolint: errcheck
 	actual := string(b.Bytes())
 	if actual != expected {
 		t.Errorf("unexpected:\n%s\nvs:\n%s\n", actual, expected)
+	}
+}
+
+func BenchmarkLogDirect1(b *testing.B) {
+	level = E
+	for n := 0; n < b.N; n++ {
+		Dbg("foo bar %d", n)
+	}
+}
+
+func BenchmarkLogDirect2(b *testing.B) {
+	level = E
+	for n := 0; n < b.N; n++ {
+		Log(D, "foo bar %d", n)
 	}
 }
