@@ -26,6 +26,8 @@ func TestLogger1(t *testing.T) {
 	var b bytes.Buffer
 	w := bufio.NewWriter(&b)
 	SetLogLevel(I) // reset from other tests
+	*logFileAndLine = false
+	*logPrefix = ""
 	log.SetOutput(w)
 	log.SetFlags(0)
 	// Start of the actual test
@@ -53,8 +55,8 @@ func TestLogger1(t *testing.T) {
 	SetLogLevel(D) // should be fine and invisible change
 	SetLogLevel(D - 1)
 	expected += "SetLogLevel called with level -1 lower than Debug!\n"
-	SetLogLevel(F + 1)
-	expected += "SetLogLevel called with level 7 higher than Critical!\n"
+	SetLogLevel(F) // Hiding critical level is not allowed
+	expected += "SetLogLevel called with level 6 higher than Critical!\n"
 	SetLogLevel(C) // should be fine
 	expected += "I Log level is now 5 Critical (was 0 Debug)\n"
 	w.Flush() // nolint: errcheck
