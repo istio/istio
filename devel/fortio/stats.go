@@ -292,7 +292,7 @@ func (h *Histogram) Log(msg string, percentile float64) {
 	w := bufio.NewWriter(&b)
 	h.Print(w, msg, percentile)
 	w.Flush() // nolint: gas,errcheck
-	Info(string(b.Bytes()))
+	Info("%s", b.Bytes())
 }
 
 // Reset clears the data. Reset it to NewHistogram state.

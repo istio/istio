@@ -191,6 +191,28 @@ func TestParseChunkSize(t *testing.T) {
 	}
 }
 
+func TestDebugSummary(t *testing.T) {
+	var tests = []struct {
+		input    string
+		expected string
+	}{
+		{"12345678", "12345678"},
+		{"123456789", "123456789"},
+		{"1234567890", "1234567890"},
+		{"12345678901", "12345678901"},
+		{"123456789012", "12: 1234...9012"},
+		{"1234567890123", "13: 1234...0123"},
+		{"12345678901234", "14: 1234...1234"},
+		{"A\r\000\001\x80\nB", `A\r\x00\x01\x80\nB`},                   // escaping
+		{"A\r\000Xyyyyyyyyy\001\x80\nB", `17: A\r\x00X...\x01\x80\nB`}, // escaping
+	}
+	for _, tst := range tests {
+		if actual := DebugSummary([]byte(tst.input), 8); actual != tst.expected {
+			t.Errorf("Got '%s', expected '%s' for DebugSummary(%q)", actual, tst.expected, tst.input)
+		}
+	}
+}
+
 // --- for bench mark/comparaison
 
 func asciiFold0(str string) []byte {
