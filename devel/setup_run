@@ -12,5 +12,5 @@ sleep 3
 curl -v http://localhost:9090/echo
 curl -v http://localhost:42422/metrics
 set +x
-export PATH=$PATH:$(pwd)/wrk
+export PATH=$PATH:$(pwd)/istio/bazel-bin/devel/fortio/cmd/fortio
 echo "you can now run: fortio -qps 0 -c 16 http://localhost:9090/echo"

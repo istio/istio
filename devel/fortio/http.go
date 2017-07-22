@@ -96,14 +96,15 @@ func newHTTPRequest(url string) *http.Request {
 }
 
 // Client object for making repeated requests of the same URL using the same
-// http client
+// http client (net/http)
 type Client struct {
 	url    string
 	req    *http.Request
 	client *http.Client
 }
 
-// FetchURL fetches URL contenty and does error handling/logging.
+// FetchURL fetches URL content and does error handling/logging.
+// Version not reusing the client.
 func FetchURL(url string) (int, []byte, int) {
 	client := NewStdClient(url, 1, true)
 	if client == nil {
@@ -153,16 +154,17 @@ func NewStdClient(url string, numConnections int, compression bool) Fetcher {
 		url,
 		req,
 		&http.Client{
-			Timeout: 3 * time.Second,
+			Timeout: 3 * time.Second, // TODO: make configurable
 			Transport: &http.Transport{
 				MaxIdleConns:        numConnections,
 				MaxIdleConnsPerHost: numConnections,
 				DisableCompression:  !compression,
 				Dial: (&net.Dialer{
-					Timeout: 1 * time.Second,
+					Timeout: 4 * time.Second,
 				}).Dial,
-				TLSHandshakeTimeout: 1 * time.Second,
+				TLSHandshakeTimeout: 4 * time.Second,
 			},
+			// Lets us see the raw response instead of auto following redirects.
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
@@ -252,8 +254,10 @@ func NewBasicClient(urlStr string, proto string, keepAlive bool) Fetcher {
 	return &bc
 }
 
+// Used for the fast case insensitive search
 const toUpperMask = ^byte('a' - 'A')
 
+// Slow but correct version
 func toUpper(b byte) byte {
 	if b >= 'a' && b <= 'z' {
 		b -= ('a' - 'A')
@@ -401,7 +405,12 @@ var contentLengthHeader = []byte("\r\ncontent-length:")
 var connectionCloseHeader = []byte("\r\nconnection: close")
 var chunkedHeader = []byte("\r\nTransfer-Encoding: chunked")
 
-// connect to destination
+// return the result from the state.
+func (c *BasicClient) returnRes() (int, []byte, int) {
+	return c.code, c.buffer[:c.size], c.headerLen
+}
+
+// connect to destination.
 func (c *BasicClient) connect() *net.TCPConn {
 	socket, err := net.DialTCP("tcp", nil, &c.dest)
 	if err != nil {
@@ -419,10 +428,6 @@ func (c *BasicClient) connect() *net.TCPConn {
 		Warn("Unable to connect to read buffer %d %v %v : %v", len(c.buffer), socket, c.dest, err)
 	}
 	return socket
-}
-
-func (c *BasicClient) returnRes() (int, []byte, int) {
-	return c.code, c.buffer[:c.size], c.headerLen
 }
 
 // Fetch fetches the url content. Returns http code, data, offset of body.
@@ -446,8 +451,8 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 	n, err := conn.Write(c.req)
 	if err != nil {
 		if reuse {
-			// it's ok it died once
-			LogV("Closing dead socket %v (%v)", *conn, err)
+			// it's ok for the (idle) socket to die once, auto reconnect:
+			Info("Closing dead socket %v (%v)", *conn, err)
 			conn.Close() // nolint: errcheck
 			c.errorCount++
 			return c.Fetch() // recurse once
@@ -467,9 +472,11 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 	}
 	// Read the response:
 	c.readResponse(conn)
+	// Return the result:
 	return c.returnRes()
 }
 
+// Response reading:
 func (c *BasicClient) readResponse(conn *net.TCPConn) {
 	max := len(c.buffer)
 	parsedHeaders := false
