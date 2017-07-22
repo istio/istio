@@ -1,4 +1,4 @@
-# very basic local run, this is meant to be source'ed
+# very basic local run
 set -x
 ulimit -n 16384
 cp istio/devel/rules.yml  mixer/testdata/configroot/scopes/global/subjects/global/rules.yml
@@ -10,8 +10,7 @@ cd mixer; set +x; source bin/use_bazel_go.sh ; set -x; cd ..
 echo "starting everything..."
 sleep 3
 curl -v http://localhost:9090/echo
-sleep 1
 curl -v http://localhost:42422/metrics
 set +x
-export PATH=$PATH:$(pwd)/istio/bazel-bin/devel/fortio/cmd/fortio
+export PATH=$PATH:$(pwd)/wrk
 echo "you can now run: fortio -qps 0 -c 16 http://localhost:9090/echo"
