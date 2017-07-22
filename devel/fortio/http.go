@@ -566,7 +566,9 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 								break
 							}
 							max = c.headerLen + contentLength
-							LogV("found content length %d", contentLength)
+							if VOn() { // somehow without the if we spend 400ms/10s in LogV (!)
+								LogV("found content length %d", contentLength)
+							}
 						} else {
 							// Chunked mode (or err/missing):
 							if found, _ := FoldFind(c.buffer[:c.headerLen], chunkedHeader); found {
