@@ -529,8 +529,10 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 					Warn("Parsed non ok code %d (%v)", c.code, string(c.buffer[:retcodeOffset+3]))
 					break
 				}
-				Dbg("Code %d, looking for end of headers at %d / %d, last CRLF %d",
-					c.code, endofHeadersStart, c.size, c.headerLen)
+				if DbgOn() {
+					Dbg("Code %d, looking for end of headers at %d / %d, last CRLF %d",
+						c.code, endofHeadersStart, c.size, c.headerLen)
+				}
 				// TODO: keep track of list of newlines to efficiently search headers only there
 				idx := endofHeadersStart
 				for idx < c.size-1 {
@@ -548,29 +550,15 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 				if parsedHeaders {
 					// We have headers !
 					c.headerLen += 4 // we use this and not endofHeadersStart so http/1.0 does return 0 and not the optimization for search start
-					Dbg("headers are %d: %s", c.headerLen, string(c.buffer[:idx]))
+					if DbgOn() {
+						Dbg("headers are %d: %s", c.headerLen, c.buffer[:idx])
+					}
 					// Find the content length or chunked mode
 					if keepAlive {
 						var contentLength int
-						if found, _ := FoldFind(c.buffer[:c.headerLen], chunkedHeader); found {
-							chunkedMode = true
-							var dataStart int
-							dataStart, contentLength = ParseChunkSize(c.buffer[c.headerLen:])
-							max = c.headerLen + dataStart + contentLength + 2 // extra CR LF
-							LogV("chunk-length is %d (%s) setting max to %d",
-								contentLength, c.buffer[c.headerLen:c.headerLen+dataStart-2],
-								max)
-						} else {
-							found, offset := FoldFind(c.buffer[:c.headerLen], contentLengthHeader)
-							if !found {
-								if VOn() {
-									LogV("Warning: content-length missing in %s", string(c.buffer[:c.headerLen]))
-								} else {
-									Warn("Warning: content-length missing (%d bytes headers)", c.headerLen)
-								}
-								keepAlive = false // can't keep keepAlive
-								break
-							}
+						found, offset := FoldFind(c.buffer[:c.headerLen], contentLengthHeader)
+						if found {
+							// Content-Length mode:
 							contentLength = ParseDecimal(c.buffer[offset+len(contentLengthHeader) : c.headerLen])
 							if contentLength < 0 {
 								Warn("Warning: content-length unparsable %s", string(c.buffer[offset+2:offset+len(contentLengthHeader)+4]))
@@ -579,6 +567,25 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 							}
 							max = c.headerLen + contentLength
 							LogV("found content length %d", contentLength)
+						} else {
+							// Chunked mode (or err/missing):
+							if found, _ := FoldFind(c.buffer[:c.headerLen], chunkedHeader); found {
+								chunkedMode = true
+								var dataStart int
+								dataStart, contentLength = ParseChunkSize(c.buffer[c.headerLen:])
+								max = c.headerLen + dataStart + contentLength + 2 // extra CR LF
+								LogV("chunk-length is %d (%s) setting max to %d",
+									contentLength, c.buffer[c.headerLen:c.headerLen+dataStart-2],
+									max)
+							} else {
+								if VOn() {
+									LogV("Warning: content-length missing in %s", string(c.buffer[:c.headerLen]))
+								} else {
+									Warn("Warning: content-length missing (%d bytes headers)", c.headerLen)
+								}
+								keepAlive = false // can't keep keepAlive
+								break
+							}
 						} // end of content-length section
 						if max > len(c.buffer) {
 							Warn("Buffer is too small for headers %d + data %d - change -httpbufferkb flag to at least %d",
@@ -586,10 +593,12 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 							// TODO: just consume the extra instead
 							max = len(c.buffer)
 						}
+						/* Saving a search, we'll find out if the server wants to close, we'll get EOF
 						if found, _ := FoldFind(c.buffer[:c.headerLen], connectionCloseHeader); found {
 							Info("Server wants to close connection, no keep-alive!")
 							keepAlive = false
 						}
+						*/
 					}
 				}
 			}
