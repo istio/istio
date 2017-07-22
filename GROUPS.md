@@ -8,7 +8,7 @@ When the need arises, a new working group can be created, please contact the [is
 
 ## Master Working Group List
 
-| Name | Leads | Contact | Example Topics |
+| Name | Leads | Mailing List | Example Topics |
 |------|-------|---------|----------|
 | Core | Sven Mawson (Google), Louis Ryan (Google), Martin Taillefer (Google), Shriram Rajagopalan (IBM), Dan Berg (IBM) | [istio-core@](https://groups.google.com/forum/#!forum/istio-core) | Configuration, Performance, Stability |
 | Security | Wencheng Lu (Google), Etai Lev-Ran (IBM), Michael Elder (IBM) | [istio-security@](https://groups.google.com/forum/#!forum/istio-security) | Service-to-service Auth, Identity/CA/SecretStore plugins, Identity Federation, End User Auth, Authority Delegation, Auditing  |
