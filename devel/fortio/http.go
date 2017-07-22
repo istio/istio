@@ -15,6 +15,7 @@
 package fortio
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -36,11 +37,18 @@ type Fetcher interface {
 	Fetch() (int, []byte, int)
 }
 
-// ExtraHeaders to be added to each request.
-var extraHeaders http.Header
-
-// Host is treated specially, remember that one separately.
-var hostOverride string
+var (
+	// ExtraHeaders to be added to each request.
+	extraHeaders http.Header
+	// Host is treated specially, remember that one separately.
+	hostOverride string
+	// Buffer size for optimized client
+	bufferSizeKbFlag = flag.Int("httpbufferkb", 32, "Size of the buffer (max data size) for the optimized http client in kbytes")
+	// case doesn't matter for those 3
+	contentLengthHeader   = []byte("\r\ncontent-length:")
+	connectionCloseHeader = []byte("\r\nconnection: close")
+	chunkedHeader         = []byte("\r\nTransfer-Encoding: chunked")
+)
 
 func init() {
 	extraHeaders = make(http.Header)
@@ -175,7 +183,7 @@ func NewStdClient(url string, numConnections int, compression bool) Fetcher {
 
 // BasicClient is a fast, lockfree single purpose http 1.0/1.1 client.
 type BasicClient struct {
-	buffer       [16384]byte // first for alignment reasons
+	buffer       []byte
 	req          []byte
 	dest         net.TCPAddr
 	socket       *net.TCPConn
@@ -208,6 +216,7 @@ func NewBasicClient(urlStr string, proto string, keepAlive bool) Fetcher {
 	}
 	// note: Host includes the port
 	bc := BasicClient{url: urlStr, host: url.Host, hostname: url.Hostname(), port: url.Port(), http10: (proto == "1.0")}
+	bc.buffer = make([]byte, (*bufferSizeKbFlag)*1024)
 	if bc.port == "" {
 		bc.port = url.Scheme // ie http which turns into 80 later
 		LogV("No port specified, using %s", bc.port)
@@ -373,7 +382,7 @@ func ParseChunkSize(inp []byte) (int, int) {
 			} else {
 				inDigits = false
 				if res == -1 {
-					Err("Didn't find hex number %v", string(inp))
+					Err("Didn't find hex number %q", inp)
 					return off, res
 				}
 				continue
@@ -399,11 +408,6 @@ func ParseChunkSize(inp []byte) (int, int) {
 		off++
 	}
 }
-
-// case doesn't matter
-var contentLengthHeader = []byte("\r\ncontent-length:")
-var connectionCloseHeader = []byte("\r\nconnection: close")
-var chunkedHeader = []byte("\r\nTransfer-Encoding: chunked")
 
 // return the result from the state.
 func (c *BasicClient) returnRes() (int, []byte, int) {
@@ -476,7 +480,26 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 	return c.returnRes()
 }
 
+// EscapeBytes returns printable string. Same as %q format without the
+// surrounding/extra "".
+func EscapeBytes(buf []byte) string {
+	e := fmt.Sprintf("%q", buf)
+	return e[1 : len(e)-1]
+}
+
+// DebugSummary returns a string with the size and escaped first max/2 and
+// last max/2 bytes of a buffer (or the whole escaped buffer if small enough).
+func DebugSummary(buf []byte, max int) string {
+	l := len(buf)
+	if l <= max+3 { //no point in shortening to add ... if we could return those 3
+		return EscapeBytes(buf)
+	}
+	max /= 2
+	return fmt.Sprintf("%d: %s...%s", l, EscapeBytes(buf[:max]), EscapeBytes(buf[l-max:]))
+}
+
 // Response reading:
+// TODO: refactor - unwiedly/ugly atm
 func (c *BasicClient) readResponse(conn *net.TCPConn) {
 	max := len(c.buffer)
 	parsedHeaders := false
@@ -492,8 +515,10 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 		if err != nil {
 			Err("Read error %v %v %d : %v", conn, c.dest, c.size, err)
 		}
-		Dbg("Read ok %d", n)
 		c.size += n
+		if DbgOn() {
+			Dbg("Read ok %d total %d so far (-%d headers = %d data) %s", n, c.size, c.headerLen, c.size-c.headerLen, DebugSummary(c.buffer[c.size-n:c.size], 128))
+		}
 		if !parsedHeaders && c.parseHeaders {
 			// enough to get the code?
 			if c.size >= retcodeOffset+3 {
@@ -523,7 +548,7 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 				if parsedHeaders {
 					// We have headers !
 					c.headerLen += 4 // we use this and not endofHeadersStart so http/1.0 does return 0 and not the optimization for search start
-					Dbg("headers are %s", string(c.buffer[:idx]))
+					Dbg("headers are %d: %s", c.headerLen, string(c.buffer[:idx]))
 					// Find the content length or chunked mode
 					if keepAlive {
 						var contentLength int
@@ -531,8 +556,10 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 							chunkedMode = true
 							var dataStart int
 							dataStart, contentLength = ParseChunkSize(c.buffer[c.headerLen:])
-							LogV("chunk-length in %d (%s)", contentLength, c.buffer[c.headerLen:c.headerLen+dataStart-2])
-							max = c.headerLen + dataStart + contentLength
+							max = c.headerLen + dataStart + contentLength + 2 // extra CR LF
+							LogV("chunk-length is %d (%s) setting max to %d",
+								contentLength, c.buffer[c.headerLen:c.headerLen+dataStart-2],
+								max)
 						} else {
 							found, offset := FoldFind(c.buffer[:c.headerLen], contentLengthHeader)
 							if !found {
@@ -554,8 +581,8 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 							LogV("found content length %d", contentLength)
 						} // end of content-length section
 						if max > len(c.buffer) {
-							Warn("Buffer is too small for headers %d + data %d",
-								c.headerLen, contentLength)
+							Warn("Buffer is too small for headers %d + data %d - change -httpbufferkb flag to at least %d",
+								c.headerLen, contentLength, (c.headerLen+contentLength)/1024+1)
 							// TODO: just consume the extra instead
 							max = len(c.buffer)
 						}
@@ -567,16 +594,36 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 				}
 			}
 		}
-		if c.size == max {
-			if chunkedMode {
-				Err("TODO: read next chunk")
-			}
+		if c.size >= max {
 			if !keepAlive {
-				Err("More data is available but stopping after %d (for %v %v)", max, conn, c.dest)
+				Err("More data is available but stopping after %d, increase -httpbufferkb", max)
 			}
-			break
+			if !parsedHeaders && c.parseHeaders {
+				Err("Buffer too small (%d) to even finish reading headers, increase -httpbufferkb to get all the data", max)
+				keepAlive = false
+			}
+			if chunkedMode {
+				// Next chunk:
+				dataStart, nextChunkLen := ParseChunkSize(c.buffer[max:])
+				if nextChunkLen == 0 {
+					Dbg("Found last chunk %d %d", max+dataStart, c.size)
+					if c.size != max+dataStart+2 || string(c.buffer[c.size-2:c.size]) != "\r\n" {
+						Err("Unexpected mismatch at the end sz=%d expected %d; end of buffer %q", c.size, max+dataStart+2, c.buffer[max:c.size])
+					}
+				} else {
+					max += dataStart + nextChunkLen + 2 // extra CR LF
+					Dbg("One more chunk %d -> new max %d", nextChunkLen, max)
+					if max > len(c.buffer) {
+						Err("Buffer too small for %d data", max)
+					} else {
+						continue
+					}
+				}
+			}
+			break // we're done!
 		}
 	}
+	// Figure out whether to keep or close the socket:
 	if keepAlive && c.code == http.StatusOK {
 		c.socket = conn // keep the open socket
 	} else {
