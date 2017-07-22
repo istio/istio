@@ -9,7 +9,6 @@ go_library(
         "stats.go",
     ],
     visibility = ["//visibility:public"],
-    deps = ["@com_github_valyala_fasthttp//:go_default_library"],
 )
 
 go_test(

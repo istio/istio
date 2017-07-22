@@ -84,7 +84,7 @@ func main() {
 		goMaxProcsFlag  = flag.Int("gomaxprocs", 0, "Setting for runtime.GOMAXPROCS, <1 doesn't change the default")
 		profileFlag     = flag.String("profile", "", "write .cpu and .mem profiles to file")
 		httpClient      = flag.Int("http", 1,
-			"-1 standard client, 0 http/1.0 fast client, 1 http/1.1 fast client with keep-alive, 2 http/1.1 without keep-alive, 3 fasthttp client")
+			"-1 standard client, 0 http/1.0 fast client, 1 http/1.1 fast client with keep-alive, 2 http/1.1 without keep-alive")
 		headersFlags flagList
 	)
 	flag.Var(&headersFlags, "H", "Additional Header(s)")
@@ -127,8 +127,6 @@ func main() {
 			state[i].client = fortio.NewBasicClient(url, "1.1", true)
 		case 2:
 			state[i].client = fortio.NewBasicClient(url, "1.1", false)
-		case 3:
-			state[i].client = fortio.NewFastClient(url)
 		default:
 			state[i].client = fortio.NewStdClient(url, 1, *compressionFlag)
 		}

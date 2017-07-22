@@ -26,8 +26,6 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
-
-	"github.com/valyala/fasthttp" // for reference/comparaison
 )
 
 // Fetcher is the Url content fetcher that the different client implements.
@@ -44,7 +42,7 @@ var (
 	hostOverride string
 	// Buffer size for optimized client
 	bufferSizeKbFlag                = flag.Int("httpbufferkb", 32, "Size of the buffer (max data size) for the optimized http client in kbytes")
-	checkConnectionClosedHeaderFlag = flag.Bool("httpccch", false, "Check for Connection: Closed Head")
+	checkConnectionClosedHeaderFlag = flag.Bool("httpccch", false, "Check for Connection: Close Header")
 	// case doesn't matter for those 3
 	contentLengthHeader   = []byte("\r\ncontent-length:")
 	connectionCloseHeader = []byte("\r\nconnection: close")
@@ -58,7 +56,7 @@ func init() {
 
 // Version is the fortio package version (TODO:auto gen/extract).
 const (
-	Version       = "0.1"
+	Version       = "0.2"
 	userAgent     = "istio/fortio-" + Version
 	retcodeOffset = len("HTTP/1.X ")
 )
@@ -645,39 +643,4 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 		}
 		// we cleared c.socket already
 	}
-}
-
-type fastClient struct {
-	client *fasthttp.Client
-	req    *fasthttp.Request
-	res    *fasthttp.Response
-}
-
-// NewFastClient wrapper for the fasthttp library
-func NewFastClient(url string) Fetcher {
-	cli := fastClient{
-		client: &fasthttp.Client{},
-		req:    fasthttp.AcquireRequest(),
-		res:    fasthttp.AcquireResponse(),
-	}
-	cli.client.ReadBufferSize = 16384
-	cli.req.SetRequestURI(url)
-	if hostOverride != "" {
-		// TODO: Not yet working - see https://github.com/valyala/fasthttp/issues/114
-		Info("Setting host to %s", hostOverride)
-		cli.req.SetHost(hostOverride)
-	}
-	for h := range extraHeaders {
-		cli.req.Header.Set(h, extraHeaders.Get(h))
-	}
-	return &cli
-}
-
-func (c *fastClient) Fetch() (int, []byte, int) {
-	if err := c.client.Do(c.req, c.res); err != nil {
-		Err("Fasthttp error %v", err)
-		return 400, nil, 0
-	}
-	// TODO: Header.Len() is number of headers not byte size of headers
-	return c.res.StatusCode(), c.res.Body(), c.res.Header.Len()
 }

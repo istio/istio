@@ -174,27 +174,3 @@ new_go_repository(
     commit = "de4d4ffe63b9eff7f27484fdef6e421597e6abb4",  # June 6, 2017
     importpath = "github.com/prometheus/client_golang",
 )
-
-new_go_repository(
-    name = "com_github_valyala_fasthttp",
-    commit = "52a0993b96f032dea57fa93081d7c0a1aa906430",
-    importpath = "github.com/valyala/fasthttp",
-)
-
-new_go_repository(
-    name = "com_github_valyala_bytebufferpool",
-    commit = "e746df99fe4a3986f4d4f79e13c1e0117ce9c2f7",
-    importpath = "github.com/valyala/bytebufferpool",
-)
-
-new_go_repository(
-    name = "com_github_klauspost_compress",
-    commit = "f3dce52e0576655d55fd69e74b63da96ad1108f3",
-    importpath = "github.com/klauspost/compress",
-)
-
-new_go_repository(
-    name = "com_github_klauspost_cpuid",
-    commit = "09cded8978dc9e80714c4d85b0322337b0a1e5e0",
-    importpath = "github.com/klauspost/cpuid",
-)
