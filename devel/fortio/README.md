@@ -8,7 +8,7 @@ The name fortio comes from greek φορτίο which is load/burden.
 
 ```
 $ fortio
-Φορτίο 0.1 usage:
+Φορτίο 0.2 usage:
 
 fortio [flags] url
   -H value
@@ -20,9 +20,17 @@ fortio [flags] url
   -gomaxprocs int
     	Setting for runtime.GOMAXPROCS, <1 doesn't change the default
   -http int
-    	-1 standard client, 0 http/1.0 fast client, 1 http/1.1 fast client with keep-alive, 2 http/1.1 without keep-alive, 3 fasthttp client (default 1)
+    	-1 standard client, 0 http/1.0 fast client, 1 http/1.1 fast client with keep-alive, 2 http/1.1 without keep-alive (default 1)
+  -httpbufferkb int
+    	Size of the buffer (max data size) for the optimized http client in kbytes (default 32)
+  -httpccch
+    	Check for Connection: Close Header
+  -logcaller
+    	Logs filename and line number of callers to log (default true)
   -loglevel value
     	loglevel, one of [Debug Verbose Info Warning Error Critical Fatal] (default Info)
+  -logprefix string
+    	Prefix to log lines before logged messages (default "> ")
   -p string
     	List of pXX to calculate (default "50,75,99,99.9")
   -profile string
