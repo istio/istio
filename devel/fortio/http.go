@@ -43,7 +43,8 @@ var (
 	// Host is treated specially, remember that one separately.
 	hostOverride string
 	// Buffer size for optimized client
-	bufferSizeKbFlag = flag.Int("httpbufferkb", 32, "Size of the buffer (max data size) for the optimized http client in kbytes")
+	bufferSizeKbFlag                = flag.Int("httpbufferkb", 32, "Size of the buffer (max data size) for the optimized http client in kbytes")
+	checkConnectionClosedHeaderFlag = flag.Bool("httpccch", false, "Check for Connection: Closed Head")
 	// case doesn't matter for those 3
 	contentLengthHeader   = []byte("\r\ncontent-length:")
 	connectionCloseHeader = []byte("\r\nconnection: close")
@@ -507,6 +508,7 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 	endofHeadersStart := retcodeOffset + 3
 	keepAlive := c.keepAlive
 	chunkedMode := false
+	checkConnectionClosedHeader := *checkConnectionClosedHeaderFlag
 	for {
 		n, err := conn.Read(c.buffer[c.size:])
 		if err == io.EOF {
@@ -516,7 +518,7 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 			Err("Read error %v %v %d : %v", conn, c.dest, c.size, err)
 		}
 		c.size += n
-		if DbgOn() {
+		if LogOn(D) {
 			Dbg("Read ok %d total %d so far (-%d headers = %d data) %s", n, c.size, c.headerLen, c.size-c.headerLen, DebugSummary(c.buffer[c.size-n:c.size], 128))
 		}
 		if !parsedHeaders && c.parseHeaders {
@@ -529,7 +531,7 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 					Warn("Parsed non ok code %d (%v)", c.code, string(c.buffer[:retcodeOffset+3]))
 					break
 				}
-				if DbgOn() {
+				if LogOn(D) {
 					Dbg("Code %d, looking for end of headers at %d / %d, last CRLF %d",
 						c.code, endofHeadersStart, c.size, c.headerLen)
 				}
@@ -550,7 +552,7 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 				if parsedHeaders {
 					// We have headers !
 					c.headerLen += 4 // we use this and not endofHeadersStart so http/1.0 does return 0 and not the optimization for search start
-					if DbgOn() {
+					if LogOn(D) {
 						Dbg("headers are %d: %s", c.headerLen, c.buffer[:idx])
 					}
 					// Find the content length or chunked mode
@@ -566,7 +568,7 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 								break
 							}
 							max = c.headerLen + contentLength
-							if VOn() { // somehow without the if we spend 400ms/10s in LogV (!)
+							if LogOn(V) { // somehow without the if we spend 400ms/10s in LogV (!)
 								LogV("found content length %d", contentLength)
 							}
 						} else {
@@ -595,12 +597,12 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 							// TODO: just consume the extra instead
 							max = len(c.buffer)
 						}
-						/* Saving a search, we'll find out if the server wants to close, we'll get EOF
-						if found, _ := FoldFind(c.buffer[:c.headerLen], connectionCloseHeader); found {
-							Info("Server wants to close connection, no keep-alive!")
-							keepAlive = false
+						if checkConnectionClosedHeader {
+							if found, _ := FoldFind(c.buffer[:c.headerLen], connectionCloseHeader); found {
+								Info("Server wants to close connection, no keep-alive!")
+								keepAlive = false
+							}
 						}
-						*/
 					}
 				}
 			}
