@@ -50,7 +50,7 @@ go_metalinter() {
     fi
 
     # default: lint everything. This runs on the main build
-    PKGS=('./tests/e2e/...' './devel/githubContrib')
+    PKGS=('./tests/e2e/...' './devel/...')
 
     echo "All known packages are ${PKGS[@]}"
 
