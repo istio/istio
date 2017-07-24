@@ -1,3 +1,7 @@
+# Use go get github.com/bazelbuild/rules_go/go/tools/wtool
+# then for instance wtool -verbose com_github_golang_glog
+# to add to this file
+
 workspace(name = "com_github_istio_istio")
 
 git_repository(
@@ -144,6 +148,8 @@ http_file(
     sha256 = "9a4140b0b599612af1006efeee1c6b98771b0bc8dcdcd0510218ef69d6652c7f",
     url = "http://mirrors.kernel.org/ubuntu/pool/main/i/iptables/libxtables11_1.6.0-2ubuntu3_amd64.deb",
 )
+
+# More go repositories (wtool adds things at the end)
 
 new_go_repository(
     name = "com_github_prometheus_common",
