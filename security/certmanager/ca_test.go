@@ -46,12 +46,18 @@ func TestSelfSignedIstioCA(t *testing.T) {
 	rootPool := x509.NewCertPool()
 	rootPool.AppendCertsFromPEM(rcb)
 
-	cert := pki.ParsePemEncodedCertificate(cb)
+	cert, err := pki.ParsePemEncodedCertificate(cb)
+	if err != nil {
+		t.Error(err)
+	}
 	if ttl := cert.NotAfter.Sub(cert.NotBefore); ttl != certTTL {
 		t.Errorf("Unexpected certificate TTL (expecting %v, actual %v)", certTTL, ttl)
 	}
 
-	rootCert := pki.ParsePemEncodedCertificate(rcb)
+	rootCert, err := pki.ParsePemEncodedCertificate(rcb)
+	if err != nil {
+		t.Error(err)
+	}
 	if ttl := rootCert.NotAfter.Sub(rootCert.NotBefore); ttl != caCertTTL {
 		t.Errorf("Unexpected CA certificate TTL (expecting %v, actual %v)", caCertTTL, ttl)
 	}

@@ -223,7 +223,14 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	}
 
 	certBytes := scrt.Data[CertChainID]
-	cert := pki.ParsePemEncodedCertificate(certBytes)
+	cert, err := pki.ParsePemEncodedCertificate(certBytes)
+	if err != nil {
+		// TODO: we should refresh secret in this case since the secret contains an
+		// invalid cert.
+		glog.Error(err)
+		return
+	}
+
 	ttl := time.Until(cert.NotAfter)
 	rootCertificate := sc.ca.GetRootCertificate()
 
