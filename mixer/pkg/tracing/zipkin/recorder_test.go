@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2017 Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tracing
+package zipkin
 
 import (
 	"bytes"
@@ -20,18 +20,20 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	bt "github.com/opentracing/basictracer-go"
+	zt "github.com/openzipkin/zipkin-go-opentracing"
+	"github.com/openzipkin/zipkin-go-opentracing/types"
 )
 
-var span = bt.RawSpan{
-	Context: bt.SpanContext{
-		TraceID: 1,
-		SpanID:  2,
-		Sampled: false,
+var parentID = uint64(1)
+var span = zt.RawSpan{
+	Context: zt.SpanContext{
+		TraceID:      types.TraceID{High: 0, Low: 1},
+		SpanID:       2,
+		Sampled:      false,
+		ParentSpanID: &parentID,
 	},
-	ParentSpanID: 1,
-	Operation:    "test span",
-	Start:        time.Now(),
+	Operation: "test span",
+	Start:     time.Now(),
 }
 
 func TestLoggingRecorder(t *testing.T) {

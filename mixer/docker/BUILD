@@ -29,6 +29,7 @@ mixer_docker_build(
         "--configStoreURL=fs:///etc/opt/mixer/configroot",
         "--logtostderr",
         "--v=2",
+        "--traceOutput=zipkin:9411/api/v1/spans",
     ],
     debs = [
         "@openssl//file:pkg.deb",

@@ -20,6 +20,8 @@ import (
 
 	"github.com/golang/glog"
 	rpc "github.com/googleapis/googleapis/google/rpc"
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/log"
 	legacyContext "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -162,6 +164,8 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 
 	var err error
 	for i := 0; i < len(req.Attributes); i++ {
+		span, newctx := opentracing.StartSpanFromContext(legacyCtx, fmt.Sprintf("Attributes %d", i))
+
 		if len(req.Attributes[i].Words) == 0 {
 			// if the entry doesn't have any words of its own, use the request's words
 			req.Attributes[i].Words = req.DefaultWords
@@ -177,11 +181,13 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 		}
 
 		glog.Info("Dispatching Preprocess")
-		out := s.aspectDispatcher.Preprocess(legacyCtx, requestBag, preprocResponseBag)
+		out := s.aspectDispatcher.Preprocess(newctx, requestBag, preprocResponseBag)
 		glog.Info("Preprocess returned with: ", statusString(out))
 
 		if !status.IsOK(out) {
 			err = makeGRPCError(out)
+			span.LogFields(log.String("error", err.Error()))
+			span.Finish()
 			break
 		}
 
@@ -199,9 +205,13 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 
 		if !status.IsOK(out) {
 			err = makeGRPCError(out)
+			span.LogFields(log.String("error", err.Error()))
+			span.Finish()
 			break
 		}
 
+		span.LogFields(log.String("success", fmt.Sprintf("finished Report for attribute bag %d", i)))
+		span.Finish()
 		preprocResponseBag.Reset()
 	}
 

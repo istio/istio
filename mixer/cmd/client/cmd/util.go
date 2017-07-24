@@ -26,14 +26,14 @@ import (
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
 	otgrpc "github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
-	bt "github.com/opentracing/basictracer-go"
 	ot "github.com/opentracing/opentracing-go"
+	zt "github.com/openzipkin/zipkin-go-opentracing"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/cmd/shared"
 	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/tracing"
+	"istio.io/mixer/pkg/tracing/zipkin"
 )
 
 type clientState struct {
@@ -47,7 +47,10 @@ func createAPIClient(port string, enableTracing bool) (*clientState, error) {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
 	if enableTracing {
-		tracer := bt.New(tracing.IORecorder(os.Stdout))
+		tracer, err := zt.NewTracer(zipkin.IORecorder(os.Stdout))
+		if err != nil {
+			return nil, err
+		}
 		ot.InitGlobalTracer(tracer)
 		opts = append(opts, grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(tracer)))
 	}

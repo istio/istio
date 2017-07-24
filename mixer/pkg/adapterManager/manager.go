@@ -278,7 +278,6 @@ func (m *Manager) runAsync(ctx context.Context, requestBag, responseBag *attribu
 		// tracing
 		op := fmt.Sprintf("%s:%s(%s)", cfg.Aspect.Kind, cfg.Aspect.Adapter, cfg.Builder.Impl)
 		span, ctx := opentracing.StartSpanFromContext(ctx, op)
-		defer span.Finish()
 
 		start := time.Now()
 		out := m.execute(ctx, cfg, requestBag, responseBag, df, invokeFunc)
@@ -306,6 +305,7 @@ func (m *Manager) runAsync(ctx context.Context, requestBag, responseBag *attribu
 		dispatchDuration.With(dispatchLbls).Observe(duration.Seconds())
 
 		resultChan <- result{cfg, out, responseBag}
+		span.Finish()
 	})
 }
 

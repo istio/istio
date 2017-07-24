@@ -30,8 +30,8 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
-	bt "github.com/opentracing/basictracer-go"
 	ot "github.com/opentracing/opentracing-go"
+	zt "github.com/openzipkin/zipkin-go-opentracing"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -47,7 +47,7 @@ import (
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
-	"istio.io/mixer/pkg/tracing"
+	"istio.io/mixer/pkg/tracing/zipkin"
 	"istio.io/mixer/pkg/version"
 )
 
@@ -64,9 +64,10 @@ type serverArgs struct {
 	expressionEvalCacheSize       int
 	port                          uint16
 	configAPIPort                 uint16
+	monitoringPort                uint16
 	singleThreaded                bool
 	compressedPayload             bool
-	enableTracing                 bool
+	traceOutput                   string
 	serverCertFile                string
 	serverKeyFile                 string
 	clientCertFiles               string
@@ -74,7 +75,6 @@ type serverArgs struct {
 	configFetchIntervalSec        uint
 	configIdentityAttribute       string
 	configIdentityAttributeDomain string
-	monitoringPort                uint16
 
 	// @deprecated
 	serviceConfigFile string
@@ -127,8 +127,11 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 
 	serverCmd.PersistentFlags().StringVarP(&sa.clientCertFiles, "clientCertFiles", "", "", "A set of comma-separated client X509 cert files")
 
-	// TODO: implement an option to specify how traces are reported (hardcoded to report to stdout right now).
-	serverCmd.PersistentFlags().BoolVarP(&sa.enableTracing, "trace", "", false, "Whether to trace rpc executions")
+	// TODO: implement a better option to specify how traces are reported
+	serverCmd.PersistentFlags().StringVarP(&sa.traceOutput, "traceOutput", "t", "",
+		"If the literal string 'STDOUT' or 'STDERR', traces will be produced and written to stdout or stderr respectively. "+
+			"Otherwise the address is assumed to be a URL and HTTP zipkin traces are sent to that address. "+
+			"Note that when providing a URL it must be the full path to the span collection endpoint, e.g. 'zipkin:9411/api/v1/spans'.")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "",
 		"URL of the config store. May be fs:// for file system, or redis:// for redis url")
@@ -178,6 +181,8 @@ func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf
 }
 
 func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
+	printf("Mixer started with args: %#v", sa)
+
 	var err error
 	apiPoolSize := sa.apiWorkerPoolSize
 	adapterPoolSize := sa.adapterWorkerPoolSize
@@ -263,8 +268,35 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	}
 
 	var interceptors []grpc.UnaryServerInterceptor
-	if sa.enableTracing {
-		tracer := bt.New(tracing.IORecorder(os.Stdout))
+
+	if sa.traceOutput != "" {
+		var recorder zt.SpanRecorder
+		switch strings.ToUpper(sa.traceOutput) {
+		case "STDOUT":
+			recorder = zipkin.IORecorder(os.Stdout)
+			printf("Zipkin traces being dumped to stdout")
+		case "STDERR":
+			recorder = zipkin.IORecorder(os.Stderr)
+			printf("Zipkin traces being dumped to stderr")
+		default:
+			col, err := zt.NewHTTPCollector(sa.traceOutput, zt.HTTPLogger(zt.LoggerFunc(func(vals ...interface{}) error {
+				out := ""
+				for _, val := range vals {
+					out += fmt.Sprintf("%v ", val)
+				}
+				printf("Zipkin: %s\n", out)
+				return nil
+			})))
+			if err != nil {
+				fatalf("Unable to create zipkin http collector with address '%s': %v", sa.traceOutput, err)
+			}
+			recorder = zt.NewRecorder(col, false /* debug */, fmt.Sprintf("0.0.0.0:%d", sa.port), "istio-mixer")
+		}
+		tracer, err := zt.NewTracer(recorder)
+		if err != nil {
+			fatalf("Failed to construct zipkin tracer: %v", err)
+		}
+		printf("Zipkin traces being sent to %s", sa.traceOutput)
 		ot.InitGlobalTracer(tracer)
 		interceptors = append(interceptors, otgrpc.OpenTracingServerInterceptor(tracer))
 	}

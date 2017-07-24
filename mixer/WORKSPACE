@@ -173,7 +173,7 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_opentracing_opentracing_go",
-    commit = "0c3154a3c2ce79d3271985848659870599dfb77c",  # Sep 26, 2016 (v1.0.0)
+    commit = "1949ddbfd147afd4d964a9f00b24eb291e0e7c38",  # May 3, 2017 (v1.0.2)
     importpath = "github.com/opentracing/opentracing-go",
 )
 
@@ -295,12 +295,6 @@ new_go_repository(
     name = "com_github_docker_distribution",
     commit = "a25b9ef0c9fe242ac04bb20d3a028442b7d266b6",  # Apr 5, 2017 (v2.6.1)
     importpath = "github.com/docker/distribution",
-)
-
-new_go_repository(
-    name = "com_github_davecgh_go_spew",
-    commit = "346938d642f2ec3594ed81d874461961cd0faa76",  # Oct 29, 2016 (v1.1.0)
-    importpath = "github.com/davecgh/go-spew",
 )
 
 new_go_repository(
@@ -506,6 +500,96 @@ new_git_repository(
     build_file = "BUILD.goimports",
     commit = "e6cb469339aef5b7be0c89de730d5f3cc8e47e50",  # Jun 23, 2017 (no releases)
     remote = "https://github.com/golang/tools.git",
+)
+
+new_go_repository(
+    name = "com_github_Shopify_sarama",
+    commit = "c01858abb625b73a3af51d0798e4ad42c8147093",  # May 8, 2017 (1.12.0)
+    importpath = "github.com/Shopify/sarama",
+)
+
+new_go_repository(
+    name = "com_github_apache_thrift",
+    commit = "b2a4d4ae21c789b689dd162deb819665567f481c",  # Jan 6, 2017 (0.10.0)
+    importpath = "github.com/apache/thrift",
+)
+
+new_go_repository(
+    name = "com_github_go_logfmt_logfmt",
+    commit = "390ab7935ee28ec6b286364bba9b4dd6410cb3d5",  # Nov 15, 2016 (0.3.0)
+    importpath = "github.com/go-logfmt/logfmt",
+)
+
+new_go_repository(
+    name = "com_github_eapache_queue",
+    commit = "ded5959c0d4e360646dc9e9908cff48666781367",  # June 6, 2017 (1.0.2)
+    importpath = "github.com/eapache/queue",
+)
+
+new_go_repository(
+    name = "com_github_eapache_go_resiliency",
+    commit = "6800482f2c813e689c88b7ed3282262385011890",  # Feb 13, 2015 (1.0.0)
+    importpath = "github.com/eapache/go-resiliency",
+)
+
+new_go_repository(
+    name = "com_github_eapache_go_xerial_snappy",
+    commit = "bb955e01b9346ac19dc29eb16586c90ded99a98c",  # June 9, 2016 (no releases)
+    importpath = "github.com/eapache/go-xerial-snappy",
+)
+
+new_go_repository(
+    name = "com_github_rcrowley_go_metrics",
+    commit = "1f30fe9094a513ce4c700b9a54458bbb0c96996c",  # Nov 28, 2016 (no releases)
+    importpath = "github.com/rcrowley/go-metrics",
+)
+
+new_go_repository(
+    name = "com_github_davecgh_go_spew",
+    commit = "346938d642f2ec3594ed81d874461961cd0faa76",  # Nov 14, 2016 (1.1.0)
+    importpath = "github.com/davecgh/go-spew",
+)
+
+new_go_repository(
+    name = "com_github_pierrec_lz4",
+    commit = "88df27974e3644957507a1ca1866edc8e98d4897",  # May 11, 2017 (no releases)
+    importpath = "github.com/pierrec/lz4",
+)
+
+new_go_repository(
+    name = "com_github_pierrec_xxHash",
+    commit = "f051bb7f1d1aaf1b5a665d74fb6b0217712c69f7",  # March 20, 2016 (0.1.1)
+    importpath = "github.com/pierrec/xxHash",
+)
+
+new_go_repository(
+    name = "com_github_golang_snappy",
+    commit = "553a641470496b2327abcac10b36396bd98e45c9",  # Feb 15, 2017 (no releases)
+    importpath = "github.com/golang/snappy",
+)
+
+new_go_repository(
+    name = "com_github_opentracing_contrib_go_observer",
+    commit = "a52f2342449246d5bcc273e65cbdcfa5f7d6c63c",  # June 20, 2017 (no release)
+    importpath = "github.com/opentracing-contrib/go-observer",
+)
+
+new_go_repository(
+    name = "com_github_pmezard_go_difflib",
+    commit = "792786c7400a136282c1664665ae0a8db921c6c2",  # August 8, 2016 (1.0.0)
+    importpath = "github.com/pmezard/go-difflib",
+)
+
+new_go_repository(
+    name = "com_github_stretchr_testify",
+    commit = "69483b4bd14f5845b5a1e55bca19e954e827f1d0",  # September 24, 2016 (1.1.4)
+    importpath = "github.com/stretchr/testify",
+)
+
+new_go_repository(
+    name = "com_github_openzipkin_zipkin_go_opentracing",
+    commit = "90d57f421daae5e385ce2429580f0d695c41823b",  # Jul 5, 2017 (has releases but we need a newer commit)
+    importpath = "github.com/openzipkin/zipkin-go-opentracing",
 )
 
 ##

@@ -42,7 +42,7 @@
 //
 // TODO: Vet with lawyers what we need to do when we depend on BSD-3 licensed codebases.
 
-package tracing
+package basic
 
 import (
 	"fmt"
