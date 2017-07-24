@@ -22,67 +22,15 @@ import (
 	"testing"
 )
 
-func TestParsePemEncodedCertificate(t *testing.T) {
-	testCases := map[string]struct {
-		pem           string
-		publicKeyAlgo x509.PublicKeyAlgorithm
-	}{
-		"Parse RSA certificate": {
-			publicKeyAlgo: x509.RSA,
-			pem: `
------BEGIN CERTIFICATE-----
-MIIC+zCCAeOgAwIBAgIQQ0vFSayWg4FQBBr1EpI5rzANBgkqhkiG9w0BAQsFADAT
-MREwDwYDVQQKEwhKdWp1IG9yZzAeFw0xNzAzMTEwNjA0MDJaFw0xODAzMTEwNjA0
-MDJaMBMxETAPBgNVBAoTCEp1anUgb3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
-MIIBCgKCAQEAw/OBAAhDu58f0HkJlJBtb42Jp9EECC+WYEOVEdM/Y9fqcoSFb19N
-xztVqy0r/aW8pCO3DZ2EYIA3Y9pYasDfhsIl9lhQkvEwk/05iL6oNrZ45BgsiSK+
-R5OlO9pXtj6HF948qFTDYbYVqki3rAWSSYeGpQ+/s/xcIIIKH5ozKs7DTqR8svQ6
-t7Hxg0vYSUCHfJo25yIvoo8XGZxrFWOZDXfHHC22q8kuuxT82bdQo7KzYhgnuujy
-zIZYqgG9BuUmB6UYdvuDRRDz4HDfERSFFxZbTAaMPNgCRvQnkPS0DJO0XZW2T9m3
-bQvaqTgFI/capuhhgRcP0UrStJKZO7LVHQIDAQABo0swSTAOBgNVHQ8BAf8EBAMC
-BaAwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDAYDVR0TAQH/BAIwADAUBgNVHREEDTAL
-gglsb2NhbGhvc3QwDQYJKoZIhvcNAQELBQADggEBAITDuqOhN1jwiA72qSWzOwuy
-bMHPkUTUw2JfICtPS0AlfNNVJXREUi4KoX81ju126PGQeOTApWvS5Kkd6PbNqVH9
-g3myAKrkyjewTfFtK5OOOQGzQT6lCEhKdZJusdqfAMl1heFJGnZ6GAi38ftdz2Z8
-0LPyyIaVBvexNnTPrqoBqdtWyzjYIdMnsSNWJnldmWjwA76sW+vvlLvTONiT4unM
-8ia4GGIw7GK4E/7qxl27q6pXdZkZgG53XItYiUJGAKeBJ2nQfXq0qSmtpHkF17Cu
-hw25X3FJpzRq62JxTx5q6+M2c07g4dkbfMDp/TO7vF4SWruU6JBZj5MVDYn4PEA=
------END CERTIFICATE-----
-			`,
-		},
-		"Parse ECDSA cert": {
-			pem: `
------BEGIN CERTIFICATE-----
-MIIBSzCB+qADAgECAhAzJszEACNBOHrsfSUJMPsHMAoGCCqGSM49BAMCMAsxCTAH
-BgNVBAoTADAeFw0xNzAzMTMwNTE2NThaFw0xNzAzMTMwNTE2NThaMAsxCTAHBgNV
-BAoTADBOMBAGByqGSM49AgEGBSuBBAAhAzoABMKQDHvCFvaTfFab5SOUVYWJXXWh
-iYh1iBeqIBCSLPt8SrpAWGyOMKLN4bMCWFNOaeBFLG/91K8Yo0swSTAOBgNVHQ8B
-Af8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDAYDVR0TAQH/BAIwADAUBgNV
-HREEDTALgglsb2NhbGhvc3QwCgYIKoZIzj0EAwIDQAAwPQIcY8lgBAAtFWtxmk9k
-BB6nORpwdv4LVt/BFgLwWQIdAKvHn7cxBJ+aAC25rIumRNKDzP7PkV0HDbxtX+M=
------END CERTIFICATE-----
-			`,
-			publicKeyAlgo: x509.ECDSA,
-		},
-	}
+const (
+	keyECDSA = `
+-----BEGIN EC PARAMETERS-----
+MGgCAQEEHBMUyVWFKTW4TwtwCmIAxdpsBFn0MV7tGeSA32CgBwYFK4EEACGhPAM6
+AATCkAx7whb2k3xWm+UjlFWFiV11oYmIdYgXqiAQkiz7fEq6QFhsjjCizeGzAlhT
+TmngRSxv/dSvGA==
+-----END EC PARAMETERS-----`
 
-	for _, c := range testCases {
-		cert := ParsePemEncodedCertificate([]byte(c.pem))
-		if cert.PublicKeyAlgorithm != c.publicKeyAlgo {
-			t.Errorf("Unexpected public key algorithm: want %d but got %d", c.publicKeyAlgo, cert.PublicKeyAlgorithm)
-		}
-	}
-}
-
-func TestParsePemEncodedKey(t *testing.T) {
-	testCases := map[string]struct {
-		algo    x509.PublicKeyAlgorithm
-		pem     string
-		keyType reflect.Type
-	}{
-		"Parse RSA key": {
-			algo: x509.RSA,
-			pem: `
+	keyRSA = `
 -----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAw/OBAAhDu58f0HkJlJBtb42Jp9EECC+WYEOVEdM/Y9fqcoSF
 b19NxztVqy0r/aW8pCO3DZ2EYIA3Y9pYasDfhsIl9lhQkvEwk/05iL6oNrZ45Bgs
@@ -109,27 +57,126 @@ dmbqEH3EFJnbg5AhRBSYTPj9bICcw7AlQksbonHQlzB/ozEij2V8nZbRQ6b5fQuZ
 as/RmwKBgGPB8PHYHyz0km8LxM/GPstcoO4Ls5coS3MX2EBDKGqWOIOtLKz0azc7
 R4beF5BJE6ulhLig4fkOWH4CIvw2Y1/22GJE/fYjUTRMD57ZdYuKqSyMNxwqiolw
 xGSDfnFvR13RCqeUdlQofVYpolqrSobOyOVfQv2ksnPPsC87NISM
------END RSA PRIVATE KEY-----
-			`,
+-----END RSA PRIVATE KEY-----`
+
+	certRSA = `
+-----BEGIN CERTIFICATE-----
+MIIC+zCCAeOgAwIBAgIQQ0vFSayWg4FQBBr1EpI5rzANBgkqhkiG9w0BAQsFADAT
+MREwDwYDVQQKEwhKdWp1IG9yZzAeFw0xNzAzMTEwNjA0MDJaFw0xODAzMTEwNjA0
+MDJaMBMxETAPBgNVBAoTCEp1anUgb3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
+MIIBCgKCAQEAw/OBAAhDu58f0HkJlJBtb42Jp9EECC+WYEOVEdM/Y9fqcoSFb19N
+xztVqy0r/aW8pCO3DZ2EYIA3Y9pYasDfhsIl9lhQkvEwk/05iL6oNrZ45BgsiSK+
+R5OlO9pXtj6HF948qFTDYbYVqki3rAWSSYeGpQ+/s/xcIIIKH5ozKs7DTqR8svQ6
+t7Hxg0vYSUCHfJo25yIvoo8XGZxrFWOZDXfHHC22q8kuuxT82bdQo7KzYhgnuujy
+zIZYqgG9BuUmB6UYdvuDRRDz4HDfERSFFxZbTAaMPNgCRvQnkPS0DJO0XZW2T9m3
+bQvaqTgFI/capuhhgRcP0UrStJKZO7LVHQIDAQABo0swSTAOBgNVHQ8BAf8EBAMC
+BaAwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDAYDVR0TAQH/BAIwADAUBgNVHREEDTAL
+gglsb2NhbGhvc3QwDQYJKoZIhvcNAQELBQADggEBAITDuqOhN1jwiA72qSWzOwuy
+bMHPkUTUw2JfICtPS0AlfNNVJXREUi4KoX81ju126PGQeOTApWvS5Kkd6PbNqVH9
+g3myAKrkyjewTfFtK5OOOQGzQT6lCEhKdZJusdqfAMl1heFJGnZ6GAi38ftdz2Z8
+0LPyyIaVBvexNnTPrqoBqdtWyzjYIdMnsSNWJnldmWjwA76sW+vvlLvTONiT4unM
+8ia4GGIw7GK4E/7qxl27q6pXdZkZgG53XItYiUJGAKeBJ2nQfXq0qSmtpHkF17Cu
+hw25X3FJpzRq62JxTx5q6+M2c07g4dkbfMDp/TO7vF4SWruU6JBZj5MVDYn4PEA=
+-----END CERTIFICATE-----`
+
+	certECDSA = `
+-----BEGIN CERTIFICATE-----
+MIIBSzCB+qADAgECAhAzJszEACNBOHrsfSUJMPsHMAoGCCqGSM49BAMCMAsxCTAH
+BgNVBAoTADAeFw0xNzAzMTMwNTE2NThaFw0xNzAzMTMwNTE2NThaMAsxCTAHBgNV
+BAoTADBOMBAGByqGSM49AgEGBSuBBAAhAzoABMKQDHvCFvaTfFab5SOUVYWJXXWh
+iYh1iBeqIBCSLPt8SrpAWGyOMKLN4bMCWFNOaeBFLG/91K8Yo0swSTAOBgNVHQ8B
+Af8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDAYDVR0TAQH/BAIwADAUBgNV
+HREEDTALgglsb2NhbGhvc3QwCgYIKoZIzj0EAwIDQAAwPQIcY8lgBAAtFWtxmk9k
+BB6nORpwdv4LVt/BFgLwWQIdAKvHn7cxBJ+aAC25rIumRNKDzP7PkV0HDbxtX+M=
+-----END CERTIFICATE-----`
+)
+
+func TestParsePemEncodedCertificate(t *testing.T) {
+	testCases := map[string]struct {
+		errMsg        string
+		pem           string
+		publicKeyAlgo x509.PublicKeyAlgorithm
+	}{
+		"Invalid PEM string": {
+			errMsg: "Invalid PEM encoded certificate",
+			pem:    "invalid pem string",
+		},
+		"Invalid certificate string": {
+			errMsg: "Failed to parse X.509 certificate",
+			pem:    keyECDSA,
+		},
+		"Parse RSA certificate": {
+			publicKeyAlgo: x509.RSA,
+			pem:           certRSA,
+		},
+		"Parse ECDSA cert": {
+			pem:           certECDSA,
+			publicKeyAlgo: x509.ECDSA,
+		},
+	}
+
+	for id, c := range testCases {
+		cert, err := ParsePemEncodedCertificate([]byte(c.pem))
+		if c.errMsg != "" {
+			if err == nil {
+				t.Errorf("%s: no error is returned", id)
+			} else if c.errMsg != err.Error() {
+				t.Errorf("%s: Unexpected error message: want %s but got %s", id, c.errMsg, err.Error())
+			}
+		} else if cert.PublicKeyAlgorithm != c.publicKeyAlgo {
+			t.Errorf("%s: Unexpected public key algorithm: want %d but got %d", id, c.publicKeyAlgo, cert.PublicKeyAlgorithm)
+		}
+	}
+}
+
+func TestParsePemEncodedKey(t *testing.T) {
+	testCases := map[string]struct {
+		algo    x509.PublicKeyAlgorithm
+		errMsg  string
+		pem     string
+		keyType reflect.Type
+	}{
+		"Invalid key type": {
+			algo:   10,
+			errMsg: "Unknown public key algorithm: 10",
+			pem:    keyECDSA,
+		},
+		"Invalid PEM string": {
+			errMsg: "Invalid PEM-encoded key",
+			pem:    "Invalid PEM string",
+		},
+		"Invalid RSA private key": {
+			algo:   x509.RSA,
+			errMsg: "Failed to parse the RSA private key",
+			pem:    keyECDSA,
+		},
+		"Invalid ECDSA private key": {
+			algo:   x509.ECDSA,
+			errMsg: "Failed to parse the ECDSA private key",
+			pem:    keyRSA,
+		},
+		"Parse RSA key": {
+			algo:    x509.RSA,
+			pem:     keyRSA,
 			keyType: reflect.TypeOf(&rsa.PrivateKey{}),
 		},
 		"Parse ECDSA key": {
-			algo: x509.ECDSA,
-			pem: `
------BEGIN EC PARAMETERS-----
-MGgCAQEEHBMUyVWFKTW4TwtwCmIAxdpsBFn0MV7tGeSA32CgBwYFK4EEACGhPAM6
-AATCkAx7whb2k3xWm+UjlFWFiV11oYmIdYgXqiAQkiz7fEq6QFhsjjCizeGzAlhT
-TmngRSxv/dSvGA==
------END EC PARAMETERS-----
-			`,
+			algo:    x509.ECDSA,
+			pem:     keyECDSA,
 			keyType: reflect.TypeOf(&ecdsa.PrivateKey{}),
 		},
 	}
 
-	for _, c := range testCases {
-		key := ParsePemEncodedKey(c.algo, []byte(c.pem))
-		if keyType := reflect.TypeOf(key); keyType != c.keyType {
-			t.Errorf("Unmatched key type: expected %v but got %v", c.keyType, keyType)
+	for id, c := range testCases {
+		key, err := ParsePemEncodedKey(c.algo, []byte(c.pem))
+		if c.errMsg != "" {
+			if err == nil {
+				t.Errorf("%s: no error is returned", id)
+			} else if c.errMsg != err.Error() {
+				t.Errorf(`%s: Unexpected error message: want "%s" but got "%s"`, id, c.errMsg, err.Error())
+			}
+		} else if keyType := reflect.TypeOf(key); keyType != c.keyType {
+			t.Errorf("%s: Unmatched key type: expected %v but got %v", id, c.keyType, keyType)
 		}
 	}
 }

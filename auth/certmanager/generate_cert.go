@@ -154,8 +154,14 @@ func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x5
 		glog.Fatalf("Reading private key file failed with error %s.", err)
 	}
 
-	cert := pki.ParsePemEncodedCertificate(signerCertBytes)
-	key := pki.ParsePemEncodedKey(cert.PublicKeyAlgorithm, signerPrivBytes)
+	cert, err := pki.ParsePemEncodedCertificate(signerCertBytes)
+	if err != nil {
+		glog.Fatal(err)
+	}
+	key, err := pki.ParsePemEncodedKey(cert.PublicKeyAlgorithm, signerPrivBytes)
+	if err != nil {
+		glog.Fatal(err)
+	}
 
 	return cert, key
 }
