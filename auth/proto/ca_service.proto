@@ -17,6 +17,13 @@ import "google/rpc/status.proto";
 
 package istio.v1.auth;
 
+import "gogoproto/gogo.proto";
+
+option go_package="istio_v1_auth";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
 // Service definition of IstioCAService that can dynamically verify the CSR for
 // service identities for Istio services running on various platforms and
 // approve or disapprove the request after verifying the Node Agent credentials
@@ -33,7 +40,7 @@ service IstioCAService {
 
 message CertificateSignRequest {
   bytes csr = 1;
-  NodeAgentCredentials nodeAgentCredentials = 2;
+  NodeAgentCredentials node_agent_credentials = 2;
 }
 
 message NodeAgentCredentials {
