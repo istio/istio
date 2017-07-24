@@ -79,6 +79,22 @@ type (
 		Labels map[string]interface{}
 	}
 
+	// QuotaRequestArgs supplies the arguments for quota operations.
+	QuotaRequestArgs struct {
+		// DeduplicationID is used for deduplicating quota allocation/free calls in the case of
+		// failed RPCs and retries. This should be a UUID per call, where the same
+		// UUID is used for retries of the same quota allocation or release call.
+		DeduplicationID string
+
+		// The amount of quota being allocated or released.
+		QuotaAmount int64
+
+		// If true, allows a response to return less quota than requested. When
+		// false, the exact requested amount is returned or 0 if not enough quota
+		// was available.
+		BestEffort bool
+	}
+
 	// QuotaResult provides return values from quota allocation calls
 	QuotaResult struct {
 		// The amount of time until which the returned quota expires, this is 0 for non-expiring quotas.
