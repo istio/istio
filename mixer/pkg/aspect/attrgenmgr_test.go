@@ -171,7 +171,7 @@ func TestAttributeGeneratorManager_NewPreprocessExecutor(t *testing.T) {
 	}
 }
 
-func (t testAttrGen) Generate(in map[string]interface{}) (map[string]interface{}, error) {
+func (t testAttrGen) Generate(map[string]interface{}) (map[string]interface{}, error) {
 	if t.returnErr {
 		return nil, errors.New("generate error")
 	}

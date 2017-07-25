@@ -118,7 +118,7 @@ func (c *Manager) Register(cc ChangeListener) {
 	c.cl = append(c.cl, cc)
 }
 
-func readdb(store store.KeyValueStore, prefix string) (map[string]string, map[string][sha1.Size]byte, int, error) {
+func readdb(store store.KeyValueStore, prefix string) (map[string]string, map[string][sha1.Size]byte, int, error) { // nolint: unparam
 	keys, index, err := store.List(prefix, true)
 	if err != nil {
 		return nil, nil, index, err

@@ -59,7 +59,7 @@ func (f *fakeVFinder) FindAspectValidator(kind Kind) (AspectValidator, bool) {
 	return v, found
 }
 
-func (f *fakeVFinder) AdapterToAspectMapperFunc(builder string) KindSet {
+func (f *fakeVFinder) AdapterToAspectMapperFunc(string) KindSet {
 	return f.kinds
 }
 
@@ -72,7 +72,7 @@ func (m *lc) DefaultConfig() (c adapter.Config) {
 }
 
 // ValidateConfig determines whether the given configuration meets all correctness requirements.
-func (m *lc) ValidateConfig(c adapter.Config) *adapter.ConfigErrors {
+func (m *lc) ValidateConfig(adapter.Config) *adapter.ConfigErrors {
 	return m.ce
 }
 
@@ -109,8 +109,8 @@ func newVfinder(ada map[string]adapter.ConfigValidator, asp map[Kind]AspectValid
 	return &fakeVFinder{ada: ada, hbi: hbi, asp: asp, kinds: kinds}
 }
 
-func fakeSetupHandler(actions []*pb.Action, constructors map[string]*pb.Constructor,
-	handlers map[string]*HandlerBuilderInfo, tmplRepo tmpl.Repository, expr expr.TypeChecker, df expr.AttributeDescriptorFinder) error {
+func fakeSetupHandler(
+	[]*pb.Action, map[string]*pb.Constructor, map[string]*HandlerBuilderInfo, tmpl.Repository, expr.TypeChecker, expr.AttributeDescriptorFinder) error {
 	return nil
 }
 

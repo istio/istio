@@ -251,7 +251,7 @@ func (a *API) Run() {
 
 // getScopes returns the scopes
 // "/scopes"
-func (a *API) getScopes(req *restful.Request, resp *restful.Response) {
+func (a *API) getScopes(_ *restful.Request, resp *restful.Response) {
 	writeErrorResponse(http.StatusNotImplemented, "Listing scopes not implemented", resp)
 }
 
@@ -369,44 +369,44 @@ func (a *API) getAdaptersOrDescriptors(req *restful.Request, resp *restful.Respo
 // deleteAdaptersOrDescriptors deletes specified configurations.
 // "/scopes/{scope}/adapters"
 // "/scopes/{scope}/descriptors
-func (a *API) deleteAdaptersOrDescriptors(req *restful.Request, resp *restful.Response) {
+func (a *API) deleteAdaptersOrDescriptors(_ *restful.Request, resp *restful.Response) {
 	writeErrorResponse(http.StatusNotImplemented, "delete not implemented", resp) // TODO
 }
 
 // from api spec
 // createPolicy creates a policy
 // "/scopes/{scope}/subjects/{subject}"
-func (a *API) createPolicy(req *restful.Request, resp *restful.Response) {
+func (a *API) createPolicy(_ *restful.Request, resp *restful.Response) {
 	writeErrorResponse(http.StatusNotImplemented, "create policy not implemented", resp) // TODO
 }
 
 // putAspect creates or replaces a rule’s list of aspects.
 // "/scopes/{scope}/subjects/{subject}/rules/{ruleid}/aspects/{aspect}"
-func (a *API) putAspect(req *restful.Request, resp *restful.Response) {
+func (a *API) putAspect(_ *restful.Request, resp *restful.Response) {
 	writeErrorResponse(http.StatusNotImplemented, "put aspect not implemented", resp) // TODO
 }
 
 // deleteRule deletes a rule
 // "/scopes/{scope}/subjects/{subject}/rules/{ruleid}"
-func (a *API) deleteRule(req *restful.Request, resp *restful.Response) {
+func (a *API) deleteRule(_ *restful.Request, resp *restful.Response) {
 	writeErrorResponse(http.StatusNotImplemented, "delete rule not implemented", resp) // TODO
 }
 
 // putAdapter creates or replaces an adapter configuration
 // "/scopes/{scope}/adapters/{adapter_name}/{config_name}"
-func (a *API) putAdapter(req *restful.Request, resp *restful.Response) {
+func (a *API) putAdapter(_ *restful.Request, resp *restful.Response) {
 	writeErrorResponse(http.StatusNotImplemented, "put adapter not implemented", resp) // TODO
 }
 
 // getDescriptor returns a descriptor
 // "/scopes/{scope}/descriptors/{descriptor_type}/{descriptor_name}"
-func (a *API) getDescriptor(req *restful.Request, resp *restful.Response) {
+func (a *API) getDescriptor(_ *restful.Request, resp *restful.Response) {
 	writeErrorResponse(http.StatusNotImplemented, "get descriptor not implemented", resp) // TODO
 }
 
 // putDescriptor creates or replaces a descriptor
 // "/scopes/{scope}/descriptors/{descriptor_type}/{descriptor_name}"
-func (a *API) putDescriptor(req *restful.Request, resp *restful.Response) {
+func (a *API) putDescriptor(_ *restful.Request, resp *restful.Response) {
 	writeErrorResponse(http.StatusNotImplemented, "put descriptor not implemented", resp) // TODO
 }
 
