@@ -29,16 +29,15 @@ import (
 
 var (
 	tokenFile = flag.String("token_file", "", "File containing Auth Token.")
-	// TODO (chx) change the owner back to istio-testing
-	owner = flag.String("owner", "chxchx", "Github Owner or org.")
-	token = ""
+	owner     = flag.String("owner", "istio-testing", "Github Owner or org.")
+	token     = ""
 )
 
 type githubClient struct {
 	client *github.Client
 }
 
-// Get token from tokenFile is set, otherwise is anonymous.
+// Get github api token from tokenFile
 func getToken() (string, error) {
 	if token != "" {
 		return token, nil
@@ -101,4 +100,9 @@ func (g githubClient) getListRepos() ([]string, error) {
 		listRepoNames = append(listRepoNames, *r.Name)
 	}
 	return listRepoNames, nil
+}
+
+func (g githubClient) getHeadCommitSHA(repo, branch string) (string, error) {
+	ref, _, err := g.client.Git.GetRef(context.Background(), *owner, repo, "refs/heads/"+branch)
+	return *ref.Object.SHA, err
 }

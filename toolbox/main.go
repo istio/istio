@@ -21,7 +21,6 @@ import (
 	"log"
 	"os"
 	"strings"
-	"time"
 
 	"istio.io/istio/tests/e2e/util"
 )
@@ -46,25 +45,52 @@ func remote(repo string) (string, error) {
 // to the latest stable version
 // returns the updated line
 func replaceCommit(line string, dep dependency) (string, error) {
-	remoteURL, err := remote(dep.repoName)
+	commitSHA, err := githubClnt.getHeadCommitSHA(dep.repoName, dep.prodBranch)
 	if err != nil {
 		return line, err
 	}
-	latestStableCommit, err := util.Shell(
-		fmt.Sprintf("git ls-remote %s %s", remoteURL, dep.prodBranch))
-	if err != nil {
-		return line, err
-	}
-	commitSHA := latestStableCommit[:strings.Index(latestStableCommit, "\t")]
 	idx := strings.Index(line, "\"")
 	return line[:idx] + "\"" + commitSHA + "\",", nil
 }
 
 // Get the list of dependencies of a repo
 func getDeps(repo string) []dependency {
-	// TODO (chx) read from file in each repo
-	// TODO (chx) comment each function
+	// TODO (chx) implement the dependency hoisting in all repos
+	// TODO (chx) read dependencies from file in each parent repo
+	deps := make(map[string][]dependency)
+	deps["mixerclient"] = []dependency{
+		{"mixerapi_git", "api", "master", "repositories.bzl"},
+	}
+	deps["galley"] = []dependency{
+		{"com_github_istio_api", "api", "master", "WORKSPACE"},
+	}
+
+	deps["mixer"] = []dependency{
+		{"com_github_istio_api", "api", "master", "WORKSPACE"},
+	}
+
+	deps["proxy"] = []dependency{
+		{"mixerclient_git", "mixerclient", "master", "src/envoy/mixer/repositories.bzl"},
+	}
+
+	deps["pilot"] = []dependency{
+		{"PROXY", "proxy", "stable", "WORKSPACE"},
+	}
 	return deps[repo]
+}
+
+// Generates an MD5 digest of the version set of the repo dependencies
+// useful in avoiding making duplicate branches of the same code change
+func fingerPrint(repo string) (string, error) {
+	digest := ""
+	for _, dep := range getDeps(repo) {
+		commitSHA, err := githubClnt.getHeadCommitSHA(dep.repoName, dep.prodBranch)
+		if err != nil {
+			return "", err
+		}
+		digest = digest + commitSHA
+	}
+	return util.GetMD5Hash(digest), nil
 }
 
 // Update the commit SHA reference in the dependency file of dep
@@ -86,6 +112,8 @@ func updateDepFile(dep dependency) error {
 }
 
 // Update the given repository so that it uses the latest dependency references
+// push new branch to remote, create pull request on master,
+// which is auto-merged after presumbit
 func updateDeps(repo string) error {
 	if _, err := util.Shell("rm -rf " + repo); err != nil {
 		return err
@@ -100,7 +128,11 @@ func updateDeps(repo string) error {
 	if err := os.Chdir(repo); err != nil {
 		return err
 	}
-	branch := fmt.Sprintf("autoUpdateDeps%v", time.Now().UnixNano())
+	depVersions, err := fingerPrint(repo)
+	if err != nil {
+		return err
+	}
+	branch := "autoUpdateDeps" + depVersions
 	if _, err := util.Shell("git checkout -b " + branch); err != nil {
 		return err
 	}
@@ -115,7 +147,7 @@ func updateDeps(repo string) error {
 	if _, err := util.Shell("git commit -m Update_Dependencies"); err != nil {
 		return err
 	}
-	if _, err := util.Shell("git push -f --set-upstream origin " + branch); err != nil {
+	if _, err := util.Shell("git push --set-upstream origin " + branch); err != nil {
 		return err
 	}
 	if err := githubClnt.createPullRequest(branch, repo); err != nil {
@@ -132,7 +164,6 @@ func updateDeps(repo string) error {
 
 func main() {
 	flag.Parse()
-	buildDepsGraph()
 	var err error
 	githubClnt, err = newGithubClient()
 	if err != nil {

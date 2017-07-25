@@ -43,26 +43,3 @@ type dependency struct {
 var (
 	deps = make(map[string][]dependency)
 )
-
-// TODO (chx) implement the dependency hoisting in all repos
-// TODO (chx) eventually remove this graph and get deps from istio.deps in each repo respectively
-func buildDepsGraph() {
-	deps["mixerclient"] = []dependency{
-		{"mixerapi_git", "api", "master", "repositories.bzl"},
-	}
-	deps["galley"] = []dependency{
-		{"com_github_istio_api", "api", "master", "WORKSPACE"},
-	}
-
-	deps["mixer"] = []dependency{
-		{"com_github_istio_api", "api", "master", "WORKSPACE"},
-	}
-
-	deps["proxy"] = []dependency{
-		{"mixerclient_git", "mixerclient", "master", "src/envoy/mixer/repositories.bzl"},
-	}
-
-	deps["pilot"] = []dependency{
-		{"PROXY", "proxy", "stable", "WORKSPACE"},
-	}
-}
