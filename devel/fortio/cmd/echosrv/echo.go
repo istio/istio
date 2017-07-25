@@ -69,7 +69,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	flag.Parse()
 
-	fmt.Printf("Fortio echo server listening on port %v\n", *port)
+	fmt.Printf("Fortio %s echo server listening on port %v\n", log.Version, *port)
 
 	http.HandleFunc("/", handler)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", *port), nil); err != nil {
