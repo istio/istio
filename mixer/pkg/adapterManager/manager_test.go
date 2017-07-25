@@ -112,35 +112,35 @@ type (
 	}
 )
 
-func (f *fakeResolver) Resolve(bag attribute.Bag, kindSet config.KindSet, strict bool) ([]*cpb.Combined, error) {
+func (f *fakeResolver) Resolve(attribute.Bag, config.KindSet, bool) ([]*cpb.Combined, error) {
 	return f.ret, f.err
 }
 
-func (f *fakeResolver) ResolveUnconditional(bag attribute.Bag, kindSet config.KindSet, strict bool) ([]*cpb.Combined, error) {
+func (f *fakeResolver) ResolveUnconditional(attribute.Bag, config.KindSet, bool) ([]*cpb.Combined, error) {
 	return f.ret, f.err
 }
 
 func (f *fakeBuilder) Name() string { return f.name }
 
-func (f *fakePreprocessExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*aspect.PreprocessResult, rpc.Status) {
+func (f *fakePreprocessExecutor) Execute(attribute.Bag, expr.Evaluator) (*aspect.PreprocessResult, rpc.Status) {
 	f.called++
 	return &aspect.PreprocessResult{}, status.OK
 }
 func (f *fakePreprocessExecutor) Close() error { return nil }
 
-func (f *fakeCheckExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (output rpc.Status) {
+func (f *fakeCheckExecutor) Execute(attribute.Bag, expr.Evaluator) (output rpc.Status) {
 	f.called++
 	return
 }
 func (f *fakeCheckExecutor) Close() error { return nil }
 
-func (f *fakeReportExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) (output rpc.Status) {
+func (f *fakeReportExecutor) Execute(attribute.Bag, expr.Evaluator) (output rpc.Status) {
 	f.called++
 	return
 }
 func (f *fakeReportExecutor) Close() error { return nil }
 
-func (f *fakeQuotaExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma *aspect.QuotaMethodArgs) (output rpc.Status, qmr *aspect.QuotaMethodResp) {
+func (f *fakeQuotaExecutor) Execute(attribute.Bag, expr.Evaluator, *aspect.QuotaMethodArgs) (output rpc.Status, qmr *aspect.QuotaMethodResp) {
 	f.called++
 	return status.OK, &f.result
 }
@@ -150,7 +150,7 @@ func (m *fakePreprocessMgr) Kind() config.Kind {
 	return m.kind
 }
 
-func (m *fakePreprocessMgr) NewPreprocessExecutor(c *cpb.Combined, b adapter.Builder, e adapter.Env, _ descriptor.Finder) (aspect.PreprocessExecutor, error) {
+func (m *fakePreprocessMgr) NewPreprocessExecutor(*cpb.Combined, adapter.Builder, adapter.Env, descriptor.Finder) (aspect.PreprocessExecutor, error) {
 	m.called++
 	if m.pe == nil {
 		return nil, errors.New("unable to create aspect")
@@ -163,7 +163,7 @@ func (m *fakeCheckAspectMgr) Kind() config.Kind {
 	return m.kind
 }
 
-func (m *fakeCheckAspectMgr) NewCheckExecutor(cfg *cpb.Combined, adp adapter.Builder, env adapter.Env, _ descriptor.Finder) (aspect.CheckExecutor, error) {
+func (m *fakeCheckAspectMgr) NewCheckExecutor(*cpb.Combined, adapter.Builder, adapter.Env, descriptor.Finder) (aspect.CheckExecutor, error) {
 	m.called++
 	if m.ce == nil {
 		return nil, errors.New("unable to create aspect")
@@ -176,9 +176,7 @@ func (m *fakeReportAspectMgr) Kind() config.Kind {
 	return m.kind
 }
 
-func (m *fakeReportAspectMgr) NewReportExecutor(cfg *cpb.Combined, adp adapter.Builder,
-	env adapter.Env, _ descriptor.Finder) (aspect.ReportExecutor, error) {
-
+func (m *fakeReportAspectMgr) NewReportExecutor(*cpb.Combined, adapter.Builder, adapter.Env, descriptor.Finder) (aspect.ReportExecutor, error) {
 	m.called++
 	if m.re == nil {
 		return nil, errors.New("unable to create aspect")
@@ -191,7 +189,7 @@ func (m *fakeQuotaAspectMgr) Kind() config.Kind {
 	return m.kind
 }
 
-func (m *fakeQuotaAspectMgr) NewQuotaExecutor(cfg *cpb.Combined, adp adapter.Builder, env adapter.Env, _ descriptor.Finder) (aspect.QuotaExecutor, error) {
+func (m *fakeQuotaAspectMgr) NewQuotaExecutor(*cpb.Combined, adapter.Builder, adapter.Env, descriptor.Finder) (aspect.QuotaExecutor, error) {
 	m.called++
 	if m.qe == nil {
 		return nil, errors.New("unable to create aspect")
@@ -212,7 +210,7 @@ func (testManager) Kind() config.Kind   { return config.DenialsKind }
 func (m testManager) Name() string      { return m.name }
 func (testManager) Description() string { return "deny checker aspect manager for testing" }
 
-func (m testManager) NewCheckExecutor(cfg *cpb.Combined, adapter adapter.Builder, env adapter.Env, _ descriptor.Finder) (aspect.CheckExecutor, error) {
+func (m testManager) NewCheckExecutor(*cpb.Combined, adapter.Builder, adapter.Env, descriptor.Finder) (aspect.CheckExecutor, error) {
 	if m.throw {
 		panic("NewCheckExecutor panic")
 	}
@@ -224,7 +222,7 @@ func (m testManager) NewDenyChecker(adapter.Env, adapter.Config) (adapter.Denial
 }
 
 func (testAspect) Close() error { return nil }
-func (t testAspect) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
+func (t testAspect) Execute(attribute.Bag, expr.Evaluator) rpc.Status {
 	return t.body()
 }
 func (testAspect) Deny() rpc.Status                                    { return rpc.Status{Code: int32(rpc.INTERNAL)} }
@@ -233,11 +231,11 @@ func (testAspect) ValidateConfig(adapter.Config) *adapter.ConfigErrors { return 
 func (testAspect) Name() string                                        { return "" }
 func (testAspect) Description() string                                 { return "" }
 
-func (m *fakeBuilderReg) FindBuilder(adapterName string) (adapter.Builder, bool) {
+func (m *fakeBuilderReg) FindBuilder(string) (adapter.Builder, bool) {
 	return m.adp, m.found
 }
 
-func (m *fakeBuilderReg) SupportedKinds(builder string) config.KindSet {
+func (m *fakeBuilderReg) SupportedKinds(string) config.KindSet {
 	return m.kinds
 }
 

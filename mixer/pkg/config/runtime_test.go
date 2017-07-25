@@ -104,7 +104,7 @@ type fakeresolver struct {
 	resolveError error
 }
 
-func newFakeResolver(kinds []string, kind KindSet, re error) *fakeresolver {
+func newFakeResolver(kinds []string, kind KindSet, re error) *fakeresolver { // nolint: unparam
 	am := make(map[string]KindSet)
 
 	for _, k := range kinds {
@@ -113,8 +113,7 @@ func newFakeResolver(kinds []string, kind KindSet, re error) *fakeresolver {
 	return &fakeresolver{am: am, resolveError: re}
 }
 
-func (fr *fakeresolver) rrf(bag attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, path string,
-	dlist []*pb.Combined, onlyEmptySelectors bool, strictSelectorEval bool) ([]*pb.Combined, error) {
+func (fr *fakeresolver) rrf(_ attribute.Bag, kindSet KindSet, rules []*pb.AspectRule, _ string, dlist []*pb.Combined, _, _ bool) ([]*pb.Combined, error) {
 	if fr.resolveError != nil {
 		return nil, fr.resolveError
 	}
@@ -144,7 +143,7 @@ type fakeRule struct {
 	kinds   []string
 }
 
-func fP(scope string, subject string, kinds ...string) *fakeRule {
+func fP(scope string, subject string, kinds ...string) *fakeRule { // nolint: unparam
 	return &fakeRule{scope, subject, kinds}
 }
 

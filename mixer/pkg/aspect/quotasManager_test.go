@@ -103,32 +103,27 @@ func TestNewQuotasManager(t *testing.T) {
 	}
 }
 
-func newQuotaConfig(desc string, labels map[string]string) *cfgpb.Combined {
-	return &cfgpb.Combined{
+func TestQuotasManager_NewAspect(t *testing.T) {
+	builder := &fakeQuotaBuilder{name: "test", body: func() (adapter.QuotasAspect, error) {
+		return &fakeQuotaAspect{}, nil
+	}}
+	df := test.NewDescriptorFinder(map[string]interface{}{quotaRequestCount.Name: quotaRequestCount})
+	conf := &cfgpb.Combined{
 		Aspect: &cfgpb.Aspect{
 			Params: &aconfig.QuotasParams{
 				Quotas: []*aconfig.QuotasParams_Quota{
 					{
-						DescriptorName: desc,
-						Labels:         labels,
+						DescriptorName: "RequestCount",
+						Labels:         map[string]string{"source": "", "target": ""},
 						MaxAmount:      5,
 						Expiration:     1 * time.Second,
 					},
 				},
 			},
 		},
-
 		// the params we use here don't matter because we're faking the aspect
 		Builder: &cfgpb.Adapter{Params: &aconfig.QuotasParams{}},
 	}
-}
-
-func TestQuotasManager_NewAspect(t *testing.T) {
-	builder := &fakeQuotaBuilder{name: "test", body: func() (adapter.QuotasAspect, error) {
-		return &fakeQuotaAspect{}, nil
-	}}
-	df := test.NewDescriptorFinder(map[string]interface{}{quotaRequestCount.Name: quotaRequestCount})
-	conf := newQuotaConfig("RequestCount", map[string]string{"source": "", "target": ""})
 
 	if _, err := newQuotasManager().NewQuotaExecutor(conf, builder, atest.NewEnv(t), df); err != nil {
 		t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
