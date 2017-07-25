@@ -510,6 +510,7 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_apache_thrift",
+    build_file_name = "BUILD.bazel",
     commit = "b2a4d4ae21c789b689dd162deb819665567f481c",  # Jan 6, 2017 (0.10.0)
     importpath = "github.com/apache/thrift",
 )
