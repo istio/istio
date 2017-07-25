@@ -1,3 +1,4 @@
 /bazel-*
 .idea/*
+docker/envoy
 *.iml

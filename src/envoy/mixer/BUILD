@@ -16,7 +16,6 @@
 #
 
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-load("//src/envoy/mixer:proxy_docker.bzl", "proxy_docker_build")
 load("@protobuf_git//:protobuf.bzl", "cc_proto_library")
 
 cc_proto_library(
@@ -90,33 +89,3 @@ pkg_tar(
     tags = ["manual"],
 )
 
-proxy_docker_build(
-    entrypoint = [
-        "/usr/local/bin/start_envoy",
-        "-e",
-        "/usr/local/bin/envoy",
-        "-c",
-        "/etc/opt/proxy/envoy.conf",
-        "-t",
-        "/etc/opt/proxy/envoy.conf.template",
-    ],
-    images = [
-        {
-            "name": "envoy_image",
-            "base": "@docker_ubuntu//:xenial",
-        },
-        {
-            "name": "envoy_image_debug",
-            "base": "@ubuntu_xenial_debug//file",
-        },
-    ],
-    ports = ["9090"],
-    repository = "istio",
-    tags = ["manual"],
-    tars = [
-        ":config_tar",
-        ":envoy_tar",
-        ":start_envoy_tar",
-    ],
-    visibility = ["//visibility:public"],
-)

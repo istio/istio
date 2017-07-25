@@ -66,33 +66,6 @@ envoy_dependencies(skip_targets=["googletest", "protobuf", "protoc", "lightstep"
 load("@envoy_api//bazel:repositories.bzl", "api_dependencies")
 api_dependencies()
 
-new_http_archive(
-    name = "docker_ubuntu",
-    build_file_content = """
-load("@bazel_tools//tools/build_defs/docker:docker.bzl", "docker_build")
-docker_build(
-  name = "xenial",
-  tars = ["xenial/ubuntu-xenial-core-cloudimg-amd64-root.tar.gz"],
-  visibility = ["//visibility:public"],
-)
-""",
-    sha256 = "de31e6fcb843068965de5945c11a6f86399be5e4208c7299fb7311634fb41943",
-    strip_prefix = "docker-brew-ubuntu-core-e406914e5f648003dfe8329b512c30c9ad0d2f9c",
-    type = "zip",
-    url = "https://codeload.github.com/tianon/docker-brew-ubuntu-core/zip/e406914e5f648003dfe8329b512c30c9ad0d2f9c",
-)
-
-
-DEBUG_BASE_IMAGE_SHA="3f57ae2aceef79e4000fb07ec850bbf4bce811e6f81dc8cfd970e16cdf33e622"
-
-# See github.com/istio/manager/blob/master/docker/debug/build-and-publish-debug-image.sh
-# for instructions on how to re-build and publish this base image layer.
-http_file(
-    name = "ubuntu_xenial_debug",
-    url = "https://storage.googleapis.com/istio-build/manager/ubuntu_xenial_debug-" + DEBUG_BASE_IMAGE_SHA + ".tar.gz",
-    sha256 = DEBUG_BASE_IMAGE_SHA,
-)
-
 # Following go repositories are for building go integration test for mixer filter.
 git_repository(
     name = "io_bazel_rules_go",

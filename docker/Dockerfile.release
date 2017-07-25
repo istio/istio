@@ -1,0 +1,4 @@
+FROM ubuntu:xenial
+ADD envoy /usr/local/bin/envoy
+ENTRYPOINT /usr/local/bin/envoy
+

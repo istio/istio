@@ -51,13 +51,11 @@ def presubmit(gitUtils, bazel) {
 def postsubmit(gitUtils, bazel, utils) {
   buildNode(gitUtils) {
     bazel.updateBazelRc()
-    stage('Push Binary') {
+    stage('Binary push') {
       sh 'script/release-binary'
     }
     stage('Docker Push') {
-      def images = 'envoy,envoy_debug'
-      def tags = "${gitUtils.GIT_SHORT_SHA},\$(date +%Y-%m-%d-%H.%M.%S),latest"
-      utils.publishDockerImages(images, tags, 'release')
+      sh 'script/release-docker'
     }
   }
 }

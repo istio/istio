@@ -1,0 +1,20 @@
+FROM ubuntu:xenial
+RUN apt-get update && \
+    apt-get install -y \
+    curl \
+    iptables \
+    iproute2 \
+    iputils-ping \
+    dnsutils \
+    netcat \
+    tcpdump \
+    net-tools \
+    libc6-dbg gdb valgrind \
+    vim \
+    nano \
+    emacs \
+    wrk
+ADD proxy-redirection-clear /usr/local/bin/proxy-redirection-clear
+ADD proxy-redirection-restore /usr/local/bin/proxy-redirection-restore
+ADD envoy /usr/local/bin/envoy
+ENTRYPOINT /usr/local/bin/envoy

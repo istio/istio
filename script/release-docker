@@ -17,29 +17,34 @@
 ################################################################################
 #
 set -ex
+set -o errexit
+set -o nounset
+set -o pipefail
 
-# This docker image can be used as:
-#
-# docker run IMAGE -a backend_address -p PORT -m MIXER_SERVER
-#
-
-PROJECT=istio-testing
-IMAGE_PREFIX="gcr.io/${PROJECT}/envoy"
-
+PROJECT="istio-testing"
 DATE_PART=$(date +"%Y%m%d")
 SHA_PART=$(git show -q HEAD --pretty=format:%h)
-DOCKER_TAG="${DATE_PART}${SHA_PART}"
-
-IMAGE_NAME="${IMAGE_PREFIX}:${DOCKER_TAG}"
+DOCKER_TAG="${DATE_PART}-${SHA_PART}"
+BAZEL_TARGET="bazel-bin/src/envoy/mixer/envoy"
+RELEASE_IMAGE_NAME="gcr.io/${PROJECT}/envoy:${DOCKER_TAG}"
+DEBUG_IMAGE_NAME="gcr.io/${PROJECT}/envoy-debug:${DOCKER_TAG}"
 
 gcloud docker --authorize-only
 
-bazel run --config=release //src/envoy/mixer:envoy_image "${IMAGE_NAME}"
+echo Publishing release docker image
+bazel build --config=release //src/envoy/mixer:envoy
+cp "${BAZEL_TARGET}" docker/
+pushd docker
+  docker build -f Dockerfile.release -t "${RELEASE_IMAGE_NAME}" .
+  gcloud docker -- push "${RELEASE_IMAGE_NAME}"
+  rm -f envoy
+popd
 
-gcloud docker -- push "${IMAGE_NAME}"
-
-IMAGE_LATEST="${IMAGE_PREFIX}:latest"
-
-docker tag -f "${IMAGE_NAME}" "${IMAGE_LATEST}"
-
-gcloud docker -- push "${IMAGE_LATEST}"
+echo Publishing debug docker image
+bazel build -c dbg //src/envoy/mixer:envoy
+cp "${BAZEL_TARGET}" docker/
+pushd docker
+  docker build -f Dockerfile.debug -t "${DEBUG_IMAGE_NAME}" .
+  gcloud docker -- push "${DEBUG_IMAGE_NAME}"
+  rm -f envoy
+popd
