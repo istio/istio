@@ -15,7 +15,6 @@
 package proxy
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -38,6 +37,9 @@ type Environment struct {
 	// Config interface for listing routing rules
 	model.IstioConfigStore
 
+	// Access to TLS secrets from ingress proxies
+	model.SecretRegistry
+
 	// Mesh is the mesh config (to be merged into the config store)
 	Mesh *proxyconfig.ProxyMeshConfig
 }
@@ -57,39 +59,34 @@ type Sidecar struct {
 	// co-located service instances. Example: "10.60.1.6"
 	IPAddress string
 
-	// InstanceName for the proxy sidecar
-	InstanceName string
+	// ID is the unique platform-specific sidecar proxy ID
+	ID string
 
-	// InstanceNamespace for the proxy sidecar
-	InstanceNamespace string
+	// Domain defines the DNS domain suffix for short hostnames
+	Domain string
 }
 
 func (Sidecar) isProxyRole() {}
 
 // ServiceNode for sidecar
 func (role Sidecar) ServiceNode() string {
-	return fmt.Sprintf("%s.%s.%s", role.IPAddress, role.InstanceName, role.InstanceNamespace)
-}
-
-// InstanceID uniquely identifies a sidecar proxy node
-func (role Sidecar) InstanceID() string {
-	return fmt.Sprintf("kubernetes://%s.%s", role.InstanceName, role.InstanceNamespace)
+	return fmt.Sprintf("%s|%s|%s", role.IPAddress, role.ID, role.Domain)
 }
 
 // DecodeServiceNode is the inverse of sidecar service node
 func DecodeServiceNode(s string) (Sidecar, error) {
-	parts := strings.Split(s, ".")
-	if len(parts) < 4 {
-		return Sidecar{}, errors.New("cannot parse service node")
+	parts := strings.Split(s, "|")
+	out := Sidecar{}
+
+	if len(parts) > 0 {
+		out.IPAddress = parts[0]
 	}
-	out := Sidecar{
-		IPAddress: fmt.Sprintf("%s.%s.%s.%s", parts[0], parts[1], parts[2], parts[3]),
+	if len(parts) > 1 {
+		out.ID = parts[1]
 	}
-	if len(parts) > 4 {
-		out.InstanceName = parts[4]
-	}
-	if len(parts) > 5 {
-		out.InstanceNamespace = parts[5]
+
+	if len(parts) > 2 {
+		out.Domain = parts[2]
 	}
 	return out, nil
 }

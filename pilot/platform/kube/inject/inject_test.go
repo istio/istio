@@ -125,13 +125,14 @@ func TestIntoResourceFile(t *testing.T) {
 		}
 
 		params := Params{
-			InitImage:       InitImageName(unitTestHub, unitTestTag),
-			ProxyImage:      ProxyImageName(unitTestHub, unitTestTag),
-			Verbosity:       DefaultVerbosity,
-			SidecarProxyUID: DefaultSidecarProxyUID,
-			Version:         "12345678",
-			EnableCoreDump:  c.enableCoreDump,
-			Mesh:            &mesh,
+			InitImage:         InitImageName(unitTestHub, unitTestTag),
+			ProxyImage:        ProxyImageName(unitTestHub, unitTestTag),
+			Verbosity:         DefaultVerbosity,
+			SidecarProxyUID:   DefaultSidecarProxyUID,
+			Version:           "12345678",
+			EnableCoreDump:    c.enableCoreDump,
+			Mesh:              &mesh,
+			MeshConfigMapName: "istio",
 		}
 		if c.configMapName != "" {
 			params.MeshConfigMapName = c.configMapName

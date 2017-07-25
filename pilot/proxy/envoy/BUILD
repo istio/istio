@@ -80,4 +80,3 @@ sh_test(
     ],
     tags = ["exclusive"],
 )
-

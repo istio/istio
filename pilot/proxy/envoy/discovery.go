@@ -551,7 +551,24 @@ func (ds *DiscoveryService) ListSecret(request *restful.Request, response *restf
 	}
 
 	_, secret := buildIngressRoutes(ds.IngressRules(), ds, ds)
-	writeResponse(response, []byte(secret))
+
+	if secret == "" {
+		writeResponse(response, nil)
+		return
+	}
+
+	tls, err := ds.GetTLSSecret(secret)
+	if err != nil {
+		errorResponse(response, http.StatusNotFound,
+			fmt.Sprintf("Failed to read the secret: %s", err))
+		return
+	}
+
+	out, err := json.Marshal(tls)
+	if err != nil {
+		errorResponse(response, http.StatusInternalServerError, err.Error())
+	}
+	writeResponse(response, out)
 }
 
 func errorResponse(r *restful.Response, status int, msg string) {

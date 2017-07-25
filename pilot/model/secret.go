@@ -24,6 +24,6 @@ type SecretRegistry interface {
 
 // TLSSecret defines a TLS configuration.
 type TLSSecret struct {
-	Certificate []byte
-	PrivateKey  []byte
+	Certificate []byte `json:"cert"`
+	PrivateKey  []byte `json:"key"`
 }

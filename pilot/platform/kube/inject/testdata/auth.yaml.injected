@@ -38,7 +38,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: POD_IP
+        - name: INSTANCE_IP
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
@@ -49,10 +49,16 @@ spec:
         securityContext:
           runAsUser: 1337
         volumeMounts:
+        - mountPath: /etc/istio/config
+          name: istio-config
+          readOnly: true
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
       volumes:
+      - configMap:
+          name: istio
+        name: istio-config
       - name: istio-certs
         secret:
           secretName: istio.default

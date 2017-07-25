@@ -329,9 +329,6 @@ func TestSidecarConfig(t *testing.T) {
 
 /*
 var (
-	ingressCert      = []byte("abcdefghijklmnop")
-	ingressKey       = []byte("qrstuvwxyz123456")
-	ingressTLSSecret = &model.TLSSecret{Certificate: ingressCert, PrivateKey: ingressKey}
 	ingressCertFile = "testdata/tls.crt"
 	ingressKeyFile  = "testdata/tls.key"
 )

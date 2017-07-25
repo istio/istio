@@ -12,7 +12,7 @@ go_library(
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
         "@io_istio_api//:go_default_library",
-        "@io_k8s_client_go//util/flowcontrol:go_default_library",
+        "@org_golang_x_time//rate:go_default_library",
     ],
 )
 

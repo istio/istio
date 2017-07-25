@@ -20,7 +20,6 @@ import (
 	"io"
 	"os"
 
-	"istio.io/pilot/cmd"
 	"istio.io/pilot/platform/kube"
 	"istio.io/pilot/platform/kube/inject"
 	"istio.io/pilot/tools/version"
@@ -112,24 +111,22 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				return err
 			}
 
-			mesh, err := cmd.GetMeshConfig(client, istioSystem, meshConfig)
+			mesh, err := inject.GetMeshConfig(client, istioSystem, meshConfig)
 			if err != nil {
 				return fmt.Errorf("Istio configuration not found. Verify istio configmap is "+
 					"installed in namespace %q with `kubectl get -n %s configmap istio`",
 					istioSystem, istioSystem)
 			}
 			params := &inject.Params{
-				InitImage:       inject.InitImageName(hub, tag),
-				ProxyImage:      inject.ProxyImageName(hub, tag),
-				Verbosity:       verbosity,
-				SidecarProxyUID: sidecarProxyUID,
-				Version:         versionStr,
-				EnableCoreDump:  enableCoreDump,
-				Mesh:            mesh,
-				IncludeIPRanges: includeIPRanges,
-			}
-			if meshConfig != cmd.DefaultConfigMapName {
-				params.MeshConfigMapName = meshConfig
+				InitImage:         inject.InitImageName(hub, tag),
+				ProxyImage:        inject.ProxyImageName(hub, tag),
+				Verbosity:         verbosity,
+				SidecarProxyUID:   sidecarProxyUID,
+				Version:           versionStr,
+				EnableCoreDump:    enableCoreDump,
+				Mesh:              mesh,
+				MeshConfigMapName: meshConfig,
+				IncludeIPRanges:   includeIPRanges,
 			}
 			return inject.IntoResourceFile(params, reader, writer)
 		},
@@ -152,8 +149,8 @@ func init() {
 		inject.DefaultSidecarProxyUID, "Envoy sidecar UID")
 	injectCmd.PersistentFlags().StringVar(&versionStr, "setVersionString",
 		"", "Override version info injected into resource")
-	injectCmd.PersistentFlags().StringVar(&meshConfig, "meshConfig", cmd.DefaultConfigMapName,
-		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", cmd.ConfigMapKey))
+	injectCmd.PersistentFlags().StringVar(&meshConfig, "meshConfig", "istio",
+		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", inject.ConfigMapKey))
 
 	// Default --coreDump=true for pre-alpha development. Core dump
 	// settings (i.e. sysctl kernel.*) affect all pods in a node and

@@ -15,6 +15,7 @@
 package envoy
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -29,6 +30,13 @@ import (
 	"istio.io/pilot/proxy"
 	"istio.io/pilot/test/mock"
 	"istio.io/pilot/test/util"
+)
+
+var (
+	ingressSecretURI = "my-secret.default"
+	ingressCert      = []byte("abcdefghijklmnop")
+	ingressKey       = []byte("qrstuvwxyz123456")
+	ingressTLSSecret = &model.TLSSecret{Certificate: ingressCert, PrivateKey: ingressKey}
 )
 
 // Implement minimal methods to satisfy model.Controller interface for
@@ -55,7 +63,10 @@ func makeDiscoveryService(t *testing.T, r model.ConfigStore, mesh *proxyconfig.P
 			ServiceDiscovery: mock.Discovery,
 			ServiceAccounts:  mock.Discovery,
 			IstioConfigStore: model.MakeIstioStore(r),
-			Mesh:             mesh,
+			SecretRegistry: mock.SecretRegistry{
+				ingressSecretURI: ingressTLSSecret,
+			},
+			Mesh: mesh,
 		},
 		DiscoveryServiceOptions{
 			EnableCaching:   true,
@@ -399,8 +410,11 @@ func TestSecretDiscovery(t *testing.T) {
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1alpha/secret/%s/%s", ds.Mesh.IstioServiceCluster, proxy.IngressNode)
 	got := makeDiscoveryRequest(ds, "GET", url, t)
-	want := "my-secret.default"
-	if string(got) != want {
+	want, err := json.Marshal(ingressTLSSecret)
+	if err != nil {
+		t.Error(err)
+	}
+	if string(got) != string(want) {
 		t.Errorf("ListSecret() => Got %q, expected %q", got, want)
 	}
 }

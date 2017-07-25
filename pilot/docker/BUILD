@@ -5,10 +5,21 @@ load("//docker:debug_docker.bzl", "debug_docker_build")
 # Use "manual" target tag to skip rules in the wildcard expansion
 
 pkg_tar(
+    name = "agent_tar",
+    extension = "tar.gz",
+    files = [
+        "//cmd/pilot-agent",
+    ],
+    mode = "0755",
+    package_dir = "/usr/local/bin/",
+    tags = ["manual"],
+)
+
+pkg_tar(
     name = "pilot_tar",
     extension = "tar.gz",
     files = [
-        "//cmd/pilot",
+        "//cmd/pilot-discovery",
     ],
     mode = "0755",
     package_dir = "/usr/local/bin/",
@@ -33,7 +44,7 @@ pkg_tar(
     files = ["envoy"],
     mode = "0666",
     modes = {"envoy": "777"},
-    package_dir = "/etc",
+    package_dir = "/etc/istio",
     tags = ["manual"],
 )
 
@@ -71,7 +82,7 @@ debug_docker_build(
 )
 
 debug_docker_build(
-    entrypoint = ["/usr/local/bin/pilot"],
+    entrypoint = ["/usr/local/bin/pilot-agent"],
     images = [
         {
             "name": "proxy",
@@ -91,7 +102,7 @@ debug_docker_build(
     repository = "istio",
     tags = ["manual"],
     tars = [
-        ":pilot_tar",
+        ":agent_tar",
         ":config_tar",
     ],
 )
@@ -99,7 +110,7 @@ debug_docker_build(
 docker_build(
     name = "pilot",
     base = "@docker_ubuntu//:xenial",
-    entrypoint = ["/usr/local/bin/pilot"],
+    entrypoint = ["/usr/local/bin/pilot-discovery"],
     repository = "istio",
     tags = ["manual"],
     tars = [":pilot_tar"],

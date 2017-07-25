@@ -15,13 +15,9 @@
 package main
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"os"
 	"time"
-
-	"k8s.io/client-go/kubernetes"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
@@ -42,9 +38,7 @@ import (
 
 type args struct {
 	kubeconfig string
-	meshConfig string
-
-	sidecar proxy.Sidecar
+	meshconfig string
 
 	// ingress sync mode is set to off by default
 	controllerOptions kube.ControllerOptions
@@ -52,59 +46,38 @@ type args struct {
 }
 
 var (
-	flags  args
-	client kubernetes.Interface
-	mesh   *proxyconfig.ProxyMeshConfig
+	flags args
 
 	rootCmd = &cobra.Command{
 		Use:   "pilot",
 		Short: "Istio Pilot",
 		Long:  "Istio Pilot provides management plane functionality to the Istio service mesh and Istio Mixer.",
-		PersistentPreRunE: func(*cobra.Command, []string) (err error) {
-			if flags.kubeconfig == "" {
-				if v := os.Getenv("KUBECONFIG"); v != "" {
-					glog.V(2).Infof("Setting configuration from KUBECONFIG environment variable")
-					flags.kubeconfig = v
-				}
-			}
-
-			client, err = kube.CreateInterface(flags.kubeconfig)
-			if err != nil {
-				return multierror.Prefix(err, "failed to connect to Kubernetes API.")
-			}
-
-			// set values from environment variables
-			if flags.sidecar.IPAddress == "" {
-				flags.sidecar.IPAddress = os.Getenv("POD_IP")
-			}
-			if flags.sidecar.InstanceName == "" {
-				flags.sidecar.InstanceName = os.Getenv("POD_NAME")
-			}
-			if flags.sidecar.InstanceNamespace == "" {
-				flags.sidecar.InstanceNamespace = os.Getenv("POD_NAMESPACE")
-			}
-
-			if flags.controllerOptions.Namespace == "" {
-				flags.controllerOptions.Namespace = os.Getenv("POD_NAMESPACE")
-			}
-			glog.V(2).Infof("version %s", version.Line())
-			glog.V(2).Infof("flags %s", spew.Sdump(flags))
-
-			// receive mesh configuration
-			mesh, err = cmd.GetMeshConfig(client, flags.controllerOptions.Namespace, flags.meshConfig)
-			if err != nil {
-				return multierror.Prefix(err, "failed to retrieve mesh configuration.")
-			}
-
-			glog.V(2).Infof("mesh configuration %s", spew.Sdump(mesh))
-			return
-		},
 	}
 
 	discoveryCmd = &cobra.Command{
 		Use:   "discovery",
 		Short: "Start Istio proxy discovery service",
 		RunE: func(c *cobra.Command, args []string) error {
+			client, err := kube.CreateInterface(flags.kubeconfig)
+			if err != nil {
+				return multierror.Prefix(err, "failed to connect to Kubernetes API.")
+			}
+
+			if flags.controllerOptions.Namespace == "" {
+				flags.controllerOptions.Namespace = os.Getenv("POD_NAMESPACE")
+			}
+
+			glog.V(2).Infof("version %s", version.Line())
+			glog.V(2).Infof("flags %s", spew.Sdump(flags))
+
+			// receive mesh configuration
+			mesh, err := cmd.ReadMeshConfig(flags.meshconfig)
+			if err != nil {
+				return multierror.Prefix(err, "failed to read mesh configuration.")
+			}
+
+			glog.V(2).Infof("mesh configuration %s", spew.Sdump(mesh))
+
 			tprClient, err := tpr.NewClient(flags.kubeconfig, model.ConfigDescriptor{
 				model.RouteRuleDescriptor,
 				model.DestinationPolicyDescriptor,
@@ -135,6 +108,7 @@ var (
 				ServiceDiscovery: serviceController,
 				ServiceAccounts:  serviceController,
 				IstioConfigStore: model.MakeIstioStore(configController),
+				SecretRegistry:   kube.MakeSecretRegistry(client),
 				Mesh:             mesh,
 			}
 			discovery, err := envoy.NewDiscoveryService(serviceController, configController, environment, flags.discoveryOptions)
@@ -154,63 +128,19 @@ var (
 			return nil
 		},
 	}
-
-	proxyCmd = &cobra.Command{
-		Use:   "proxy",
-		Short: "Envoy proxy agent",
-		RunE: func(c *cobra.Command, args []string) error {
-			var role proxy.Role = flags.sidecar
-			if len(args) > 0 {
-				switch args[0] {
-				case proxy.EgressNode:
-					if mesh.EgressProxyAddress == "" {
-						return errors.New("egress proxy requires address configuration")
-					}
-					role = proxy.EgressRole{}
-
-				case proxy.IngressNode:
-					if mesh.IngressControllerMode == proxyconfig.ProxyMeshConfig_OFF {
-						return errors.New("ingress proxy is disabled")
-					}
-					role = proxy.IngressRole{}
-
-				default:
-					return fmt.Errorf("failed to recognize proxy role %s", args[0])
-				}
-			}
-
-			watcher := envoy.NewWatcher(mesh, role, kube.MakeSecretRegistry(client))
-			ctx, cancel := context.WithCancel(context.Background())
-			go watcher.Run(ctx)
-
-			stop := make(chan struct{})
-			cmd.WaitSignal(stop)
-			<-stop
-			cancel()
-			return nil
-		},
-	}
-
-	versionCmd = &cobra.Command{
-		Use:   "version",
-		Short: "Display version information and exit",
-		Run: func(*cobra.Command, []string) {
-			fmt.Print(version.Version())
-		},
-	}
 )
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "",
+	discoveryCmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	rootCmd.PersistentFlags().StringVarP(&flags.controllerOptions.Namespace, "namespace", "n", "",
+	discoveryCmd.PersistentFlags().StringVar(&flags.meshconfig, "meshConfig", "/etc/istio/config/mesh",
+		fmt.Sprintf("File name for Istio mesh configuration"))
+	discoveryCmd.PersistentFlags().StringVarP(&flags.controllerOptions.Namespace, "namespace", "n", "",
 		"Select a namespace for the controller loop. If not set, uses ${POD_NAMESPACE} environment variable")
-	rootCmd.PersistentFlags().DurationVar(&flags.controllerOptions.ResyncPeriod, "resync", time.Second,
+	discoveryCmd.PersistentFlags().DurationVar(&flags.controllerOptions.ResyncPeriod, "resync", time.Second,
 		"Controller resync interval")
-	rootCmd.PersistentFlags().StringVar(&flags.controllerOptions.DomainSuffix, "domainSuffix", "cluster.local",
-		"Kubernetes DNS domain suffix")
-	rootCmd.PersistentFlags().StringVar(&flags.meshConfig, "meshConfig", cmd.DefaultConfigMapName,
-		fmt.Sprintf("ConfigMap name for Istio mesh configuration, config key should be %q", cmd.ConfigMapKey))
+	discoveryCmd.PersistentFlags().StringVar(&flags.controllerOptions.DomainSuffix, "domain", "cluster.local",
+		"DNS domain suffix")
 
 	discoveryCmd.PersistentFlags().IntVar(&flags.discoveryOptions.Port, "port", 8080,
 		"Discovery service port")
@@ -219,21 +149,10 @@ func init() {
 	discoveryCmd.PersistentFlags().BoolVar(&flags.discoveryOptions.EnableCaching, "discovery_cache", true,
 		"Enable caching discovery service responses")
 
-	proxyCmd.PersistentFlags().StringVar(&flags.sidecar.IPAddress, "ipAddress", "",
-		"Sidecar IP address. If not provided uses ${POD_IP} environment variable.")
-	proxyCmd.PersistentFlags().StringVar(&flags.sidecar.InstanceName, "podName", "",
-		"Sidecar pod name. If not provided uses ${POD_NAME} environment variable")
-	proxyCmd.PersistentFlags().StringVar(&flags.sidecar.InstanceNamespace, "podNamespace", "",
-		"Sidecar pod namespace. If not provided uses ${POD_NAMESPACE} environment variable")
-
-	//sidecarCmd.PersistentFlags().IntSliceVar(&flags.passthrough, "passthrough", nil,
-	//	"Passthrough ports for health checks")
-
 	cmd.AddFlags(rootCmd)
 
 	rootCmd.AddCommand(discoveryCmd)
-	rootCmd.AddCommand(proxyCmd)
-	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(cmd.VersionCmd)
 }
 
 func main() {

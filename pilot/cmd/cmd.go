@@ -17,6 +17,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"syscall"
@@ -24,38 +25,22 @@ import (
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/model"
 	"istio.io/pilot/proxy"
+	"istio.io/pilot/tools/version"
 )
 
-const (
-	// ConfigMapKey is the key for mesh configuration data in the config map
-	ConfigMapKey = "mesh"
-
-	// DefaultConfigMapName is the default config map name that holds the mesh configuration.
-	DefaultConfigMapName = "istio"
-)
-
-// GetMeshConfig fetches configuration from a config map
-func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*proxyconfig.ProxyMeshConfig, error) {
-	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, v1.GetOptions{})
+// ReadMeshConfig gets mesh configuration from a config file
+func ReadMeshConfig(filename string) (*proxyconfig.ProxyMeshConfig, error) {
+	yaml, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, err
-	}
-
-	// values in the data are strings, while proto might use a different data type.
-	// therefore, we have to get a value by a key
-	yaml, exists := config.Data[ConfigMapKey]
-	if !exists {
-		return nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
+		return nil, multierror.Prefix(err, "cannot read mesh config file")
 	}
 
 	mesh := proxy.DefaultMeshConfig()
-	if err = model.ApplyYAML(yaml, &mesh); err != nil {
+	if err = model.ApplyYAML(string(yaml), &mesh); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
@@ -64,6 +49,15 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*proxycon
 	}
 
 	return &mesh, nil
+}
+
+// VersionCmd is a sub-command to print version information
+var VersionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Display version information and exit",
+	Run: func(*cobra.Command, []string) {
+		fmt.Print(version.Version())
+	},
 }
 
 // AddFlags carries over glog flags with new defaults

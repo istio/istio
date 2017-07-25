@@ -17,6 +17,7 @@ package envoy
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -44,18 +45,17 @@ type Watcher interface {
 
 const (
 	// IngressCertsPath is the path location for ingress certificates
-	IngressCertsPath = "/etc/ingress/"
+	IngressCertsPath = "/etc/istio/ingress-certs/"
 )
 
 type watcher struct {
-	agent   proxy.Agent
-	role    proxy.Role
-	mesh    *proxyconfig.ProxyMeshConfig
-	secrets model.SecretRegistry
+	agent proxy.Agent
+	role  proxy.Role
+	mesh  *proxyconfig.ProxyMeshConfig
 }
 
 // NewWatcher creates a new watcher instance with an agent
-func NewWatcher(mesh *proxyconfig.ProxyMeshConfig, role proxy.Role, secrets model.SecretRegistry) Watcher {
+func NewWatcher(mesh *proxyconfig.ProxyMeshConfig, role proxy.Role) Watcher {
 	glog.V(2).Infof("Proxy role: %#v", role)
 
 	if mesh.StatsdUdpAddress != "" {
@@ -69,10 +69,9 @@ func NewWatcher(mesh *proxyconfig.ProxyMeshConfig, role proxy.Role, secrets mode
 
 	agent := proxy.NewAgent(runEnvoy(mesh, role.ServiceNode()), proxy.DefaultRetry)
 	out := &watcher{
-		agent:   agent,
-		role:    role,
-		mesh:    mesh,
-		secrets: secrets,
+		agent: agent,
+		role:  role,
+		mesh:  mesh,
 	}
 
 	return out
@@ -147,21 +146,18 @@ func (w *watcher) UpdateIngressSecret(ctx context.Context) error {
 		return multierror.Prefix(err, "failed to fetch "+url)
 	}
 
-	uri, err := ioutil.ReadAll(resp.Body)
+	tlsData, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close() // nolint: errcheck
 	if err != nil {
 		return multierror.Prefix(err, "failed to read request body")
 	}
-
-	secret := string(uri)
-	if secret == "" {
-		glog.V(4).Info("no secret needed")
+	if len(tlsData) == 0 {
 		return nil
 	}
 
-	tls, err := w.secrets.GetTLSSecret(secret)
-	if err != nil {
-		return multierror.Prefix(err, "failed to read secret from storage")
+	var tls model.TLSSecret
+	if err = json.Unmarshal(tlsData, &tls); err != nil {
+		return err
 	}
 
 	if _, err := os.Stat(IngressCertsPath); os.IsNotExist(err) {
@@ -189,7 +185,7 @@ const (
 	BinaryPath = "/usr/local/bin/envoy"
 
 	// ConfigPath is the directory to hold enovy epoch configurations
-	ConfigPath = "/etc/envoy"
+	ConfigPath = "/etc/istio/envoy"
 )
 
 func configFile(config string, epoch int) string {

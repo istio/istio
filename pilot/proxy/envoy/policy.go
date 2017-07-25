@@ -49,12 +49,12 @@ func insertMixerFilter(listeners []*Listener, instances []*model.ServiceInstance
 					Config: &FilterMixerConfig{
 						MixerAttributes: map[string]string{
 							"target.ip":      sidecar.IPAddress,
-							"target.uid":     sidecar.InstanceID(),
+							"target.uid":     "kubernetes://" + sidecar.ID,
 							"target.service": service,
 						},
 						ForwardAttributes: map[string]string{
 							"source.ip":  sidecar.IPAddress,
-							"source.uid": sidecar.InstanceID(),
+							"source.uid": "kubernetes://" + sidecar.ID,
 						},
 						QuotaName: "RequestCount",
 					},

@@ -195,6 +195,12 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "org_golang_x_time",
+    commit = "8be79e1e0910c292df4e79c241bb7e8f7e725959",
+    importpath = "golang.org/x/time",
+)
+
+new_go_repository(
     name = "org_golang_x_sys",
     commit = "8f0908ab3b2457e2e15403d3697c9ef5cb4b57a9",
     importpath = "golang.org/x/sys",

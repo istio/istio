@@ -34,11 +34,11 @@
           "mixer_attributes": {
            "target.ip": "10.1.1.1",
            "target.service": "hello.default.svc.cluster.local",
-           "target.uid": "kubernetes://."
+           "target.uid": "kubernetes://"
           },
           "forward_attributes": {
            "source.ip": "10.1.1.1",
-           "source.uid": "kubernetes://."
+           "source.uid": "kubernetes://"
           },
           "quota_name": "RequestCount"
          }
@@ -86,11 +86,11 @@
           "mixer_attributes": {
            "target.ip": "10.1.1.1",
            "target.service": "hello.default.svc.cluster.local",
-           "target.uid": "kubernetes://."
+           "target.uid": "kubernetes://"
           },
           "forward_attributes": {
            "source.ip": "10.1.1.1",
-           "source.uid": "kubernetes://."
+           "source.uid": "kubernetes://"
           },
           "quota_name": "RequestCount"
          }
@@ -138,11 +138,11 @@
           "mixer_attributes": {
            "target.ip": "10.1.1.1",
            "target.service": "hello.default.svc.cluster.local",
-           "target.uid": "kubernetes://."
+           "target.uid": "kubernetes://"
           },
           "forward_attributes": {
            "source.ip": "10.1.1.1",
-           "source.uid": "kubernetes://."
+           "source.uid": "kubernetes://"
           },
           "quota_name": "RequestCount"
          }
@@ -229,11 +229,11 @@
           "mixer_attributes": {
            "target.ip": "10.1.1.1",
            "target.service": "hello.default.svc.cluster.local",
-           "target.uid": "kubernetes://."
+           "target.uid": "kubernetes://"
           },
           "forward_attributes": {
            "source.ip": "10.1.1.1",
-           "source.uid": "kubernetes://."
+           "source.uid": "kubernetes://"
           },
           "quota_name": "RequestCount"
          }
@@ -330,11 +330,11 @@
           "mixer_attributes": {
            "target.ip": "10.1.1.1",
            "target.service": "hello.default.svc.cluster.local",
-           "target.uid": "kubernetes://."
+           "target.uid": "kubernetes://"
           },
           "forward_attributes": {
            "source.ip": "10.1.1.1",
-           "source.uid": "kubernetes://."
+           "source.uid": "kubernetes://"
           },
           "quota_name": "RequestCount"
          }
