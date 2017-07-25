@@ -111,6 +111,24 @@ func updateDepFile(dep dependency) error {
 	return ioutil.WriteFile(dep.file, []byte(output), 0600)
 }
 
+// Assumes at the root of istio directory
+// Runs the updateVersion.sh script
+func updateIstioDeps() error {
+	pilotSHA, err := githubClnt.getHeadCommitSHA("pilot", "stable")
+	if err != nil {
+		return err
+	}
+	mixerSHA, err := githubClnt.getHeadCommitSHA("mixer", "stable")
+	if err != nil {
+		return err
+	}
+	istioctlURL := fmt.Sprintf("https://storage.googleapis.com/istio-artifacts/pilot/%s/artifacts/istioctl", pilotSHA)
+	hub := "gcr.io/istio-testing"
+	cmd := fmt.Sprintf("./install/updateVersion.sh -p %s,%s -x %s,%s -i %s", hub, pilotSHA, hub, mixerSHA, istioctlURL)
+	_, err = util.Shell(cmd)
+	return err
+}
+
 // Update the given repository so that it uses the latest dependency references
 // push new branch to remote, create pull request on master,
 // which is auto-merged after presumbit
@@ -136,9 +154,15 @@ func updateDeps(repo string) error {
 	if _, err := util.Shell("git checkout -b " + branch); err != nil {
 		return err
 	}
-	for _, dep := range getDeps(repo) {
-		if err := updateDepFile(dep); err != nil {
+	if repo == "istio" {
+		if err := updateIstioDeps(); err != nil {
 			return err
+		}
+	} else {
+		for _, dep := range getDeps(repo) {
+			if err := updateDepFile(dep); err != nil {
+				return err
+			}
 		}
 	}
 	if _, err := util.Shell("git add *"); err != nil {

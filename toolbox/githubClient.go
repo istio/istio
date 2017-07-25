@@ -104,5 +104,8 @@ func (g githubClient) getListRepos() ([]string, error) {
 
 func (g githubClient) getHeadCommitSHA(repo, branch string) (string, error) {
 	ref, _, err := g.client.Git.GetRef(context.Background(), *owner, repo, "refs/heads/"+branch)
-	return *ref.Object.SHA, err
+	if err != nil {
+		return "", err
+	}
+	return *ref.Object.SHA, nil
 }
