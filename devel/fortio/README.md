@@ -8,7 +8,7 @@ The name fortio comes from greek φορτίο which is load/burden.
 
 ```
 $ fortio
-Φορτίο 0.2 usage:
+Φορτίο 0.2.0 usage:
 
 fortio [flags] url
   -H value
@@ -19,12 +19,14 @@ fortio [flags] url
     	Enable http compression
   -gomaxprocs int
     	Setting for runtime.GOMAXPROCS, <1 doesn't change the default
-  -http int
-    	-1 standard client, 0 http/1.0 fast client, 1 http/1.1 fast client with keep-alive, 2 http/1.1 without keep-alive (default 1)
+  -http1.0
+    	Use http1.0 (instead of http 1.1)
   -httpbufferkb int
     	Size of the buffer (max data size) for the optimized http client in kbytes (default 32)
   -httpccch
     	Check for Connection: Close Header
+  -keepalive
+    	Keep connection alive (only for fast http 1.1) (default true)
   -logcaller
     	Logs filename and line number of callers to log (default true)
   -loglevel value
@@ -39,6 +41,8 @@ fortio [flags] url
     	Queries Per Seconds or 0 for no wait (default 8)
   -r float
     	Resolution of the histogram lowest buckets in seconds (default 0.001)
+  -stdclient
+    	Use the slower net/http standard client (works for TLS)
   -t duration
     	How long to run the test (default 5s)
 ```

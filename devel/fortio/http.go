@@ -15,6 +15,7 @@
 package fortio
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -240,25 +241,26 @@ func NewBasicClient(urlStr string, proto string, keepAlive bool) Fetcher {
 	if hostOverride != "" {
 		host = hostOverride
 	}
-	bc.req = []byte("GET " + url.RequestURI() + " HTTP/" + proto + "\r\n")
+	var buf bytes.Buffer
+	buf.WriteString("GET " + url.RequestURI() + " HTTP/" + proto + "\r\n")
 	if !bc.http10 {
-		bc.req = append(bc.req, []byte("Host: "+host+"\r\n")...)
+		buf.WriteString("Host: " + host + "\r\n")
 		bc.parseHeaders = true
 		if keepAlive {
 			bc.keepAlive = true
 		} else {
-			bc.req = append(bc.req, []byte("Connection: close\r\n")...)
+			buf.WriteString("Connection: close\r\n")
 		}
 	}
 	for h := range extraHeaders {
-		// TODO: ugly ... what's a good/elegant and efficient way to do this
-		bc.req = append(bc.req, []byte(h)...)
-		bc.req = append(bc.req, ':', ' ')
-		bc.req = append(bc.req, []byte(extraHeaders.Get(h))...)
-		bc.req = append(bc.req, '\r', '\n')
+		buf.WriteString(h)
+		buf.WriteString(": ")
+		buf.WriteString(extraHeaders.Get(h))
+		buf.WriteString("\r\n")
 	}
-	bc.req = append(bc.req, '\r', '\n')
-	Dbg("Created client:\n%+v\n%s", bc.dest, string(bc.req))
+	buf.WriteString("\r\n")
+	bc.req = buf.Bytes()
+	Dbg("Created client:\n%+v\n%s", bc.dest, bc.req)
 	return &bc
 }
 
@@ -615,8 +617,15 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 			}
 			if chunkedMode {
 				// Next chunk:
-				dataStart, nextChunkLen := ParseChunkSize(c.buffer[max:])
-				if nextChunkLen == 0 {
+				dataStart, nextChunkLen := ParseChunkSize(c.buffer[max:c.size])
+				if nextChunkLen == -1 {
+					if c.size == max {
+						Dbg("Couldn't find next chunk size, reading more %d %d", max, c.size)
+					} else {
+						Info("Partial chunk size (%s), reading more %d %d", DebugSummary(c.buffer[max:c.size], 20), max, c.size)
+					}
+					continue
+				} else if nextChunkLen == 0 {
 					Dbg("Found last chunk %d %d", max+dataStart, c.size)
 					if c.size != max+dataStart+2 || string(c.buffer[c.size-2:c.size]) != "\r\n" {
 						Err("Unexpected mismatch at the end sz=%d expected %d; end of buffer %q", c.size, max+dataStart+2, c.buffer[max:c.size])

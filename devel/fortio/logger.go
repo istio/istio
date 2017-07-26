@@ -28,12 +28,12 @@ type LogLevel int
 // Log levels
 const (
 	D LogLevel = iota // Debug
-	V LogLevel = iota // Verbose
-	I LogLevel = iota // Info
-	W LogLevel = iota // Warning
-	E LogLevel = iota // Error
-	C LogLevel = iota // Critical
-	F LogLevel = iota // Fatal
+	V                 // Verbose
+	I                 // Info
+	W                 // Warning
+	E                 // Error
+	C                 // Critical
+	F                 // Fatal
 )
 
 var (
