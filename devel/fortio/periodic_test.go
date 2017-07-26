@@ -138,7 +138,7 @@ func TestParsePercentiles(t *testing.T) {
 		{str: "   ", list: []float64{}, err: true},
 		{str: "23,a,46", list: []float64{23}, err: true},
 	}
-	SetLogLevel(D) // for coverage
+	SetLogLevel(Debug) // for coverage
 	for _, tst := range tests {
 		actual, err := ParsePercentiles(tst.str)
 		if !reflect.DeepEqual(actual, tst.list) {

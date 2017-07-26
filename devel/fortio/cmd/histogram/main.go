@@ -40,13 +40,13 @@ func main() {
 		line := scanner.Text()
 		v, err := strconv.ParseFloat(line, 64)
 		if err != nil {
-			fortio.Fatal("Can't parse line %d: %v", linenum, err)
+			fortio.Fatalf("Can't parse line %d: %v", linenum, err)
 		}
 		h.Record(v)
 		linenum++
 	}
 	if err := scanner.Err(); err != nil {
-		fortio.Fatal("Err reading standard input %v", err)
+		fortio.Fatalf("Err reading standard input %v", err)
 	}
 	// TODO use ParsePercentiles
 	h.Print(os.Stdout, "Histogram", *pFlag)

@@ -25,19 +25,20 @@ import (
 // LogLevel is the level of logging (0 Debug -> 6 Fatal).
 type LogLevel int
 
-// Log levels
+// Log levels. Go can't have variable and function of the same name so we keep
+// medium length (Dbg,Info,Warn,Err,Crit,Fatal) names for the functions.
 const (
-	D LogLevel = iota // Debug
-	V                 // Verbose
-	I                 // Info
-	W                 // Warning
-	E                 // Error
-	C                 // Critical
-	F                 // Fatal
+	Debug LogLevel = iota
+	Verbose
+	Info
+	Warning
+	Error
+	Critical
+	Fatal
 )
 
 var (
-	level          = I // default is Info and up
+	level          = Info // default is Info and up
 	levelToStrA    []string
 	levelToStrM    map[string]LogLevel
 	logPrefix      = flag.String("logprefix", "> ", "Prefix to log lines before logged messages")
@@ -91,15 +92,15 @@ func (l *LogLevel) Set(str string) error {
 // SetLogLevel sets the log level and returns the previous one.
 func SetLogLevel(lvl LogLevel) LogLevel {
 	prev := level
-	if lvl < D {
+	if lvl < Debug {
 		log.Printf("SetLogLevel called with level %d lower than Debug!", lvl)
 		return -1
 	}
-	if lvl > C {
+	if lvl > Critical {
 		log.Printf("SetLogLevel called with level %d higher than Critical!", lvl)
 		return -1
 	}
-	logPrintf(I, "Log level is now %d %s (was %d %s)\n", lvl, lvl.ToString(), prev, prev.ToString())
+	logPrintf(Info, "Log level is now %d %s (was %d %s)\n", lvl, lvl.ToString(), prev, prev.ToString())
 	level = lvl
 	return prev
 }
@@ -109,8 +110,8 @@ func GetLogLevel() LogLevel {
 	return level
 }
 
-// LogOn returns true if a given level is currently logged.
-func LogOn(lvl LogLevel) bool {
+// Log returns true if a given level is currently logged.
+func Log(lvl LogLevel) bool {
 	return lvl >= level
 }
 
@@ -119,14 +120,14 @@ func LogLevelByName(str string) LogLevel {
 	return levelToStrM[str]
 }
 
-// Log at the given level.
+// Logf logs with format at the given level.
 // 2 level of calls so it's always same depth for extracting caller file/line
-func Log(lvl LogLevel, format string, rest ...interface{}) {
+func Logf(lvl LogLevel, format string, rest ...interface{}) {
 	logPrintf(lvl, format, rest...)
 }
 
 func logPrintf(lvl LogLevel, format string, rest ...interface{}) {
-	if !LogOn(lvl) {
+	if !Log(lvl) {
 		return
 	}
 	if *logFileAndLine {
@@ -136,54 +137,54 @@ func logPrintf(lvl LogLevel, format string, rest ...interface{}) {
 	} else {
 		log.Print(levelToStrA[lvl][0:1], " ", *logPrefix, fmt.Sprintf(format, rest...))
 	}
-	if lvl == F {
+	if lvl == Fatal {
 		panic("aborting...")
 	}
 }
 
 // -- would be nice to be able to create those in a loop instead of copypasta:
 
-// Dbg logs if Debug level is on.
-func Dbg(format string, rest ...interface{}) {
-	logPrintf(D, format, rest...)
+// Debugf logs if Debug level is on.
+func Debugf(format string, rest ...interface{}) {
+	logPrintf(Debug, format, rest...)
 }
 
-// LogV logs if Verbose level is on.
-func LogV(format string, rest ...interface{}) {
-	logPrintf(V, format, rest...)
+// LogVf logs if Verbose level is on.
+func LogVf(format string, rest ...interface{}) {
+	logPrintf(Verbose, format, rest...)
 }
 
-// Info logs if Info level is on.
-func Info(format string, rest ...interface{}) {
-	logPrintf(I, format, rest...)
+// Infof logs if Info level is on.
+func Infof(format string, rest ...interface{}) {
+	logPrintf(Info, format, rest...)
 }
 
-// Warn logs if Warning level is on.
-func Warn(format string, rest ...interface{}) {
-	logPrintf(W, format, rest...)
+// Warnf logs if Warning level is on.
+func Warnf(format string, rest ...interface{}) {
+	logPrintf(Warning, format, rest...)
 }
 
-// Err logs if Warning level is on.
-func Err(format string, rest ...interface{}) {
-	logPrintf(E, format, rest...)
+// Errf logs if Warning level is on.
+func Errf(format string, rest ...interface{}) {
+	logPrintf(Error, format, rest...)
 }
 
-// Crit logs if Warning level is on.
-func Crit(format string, rest ...interface{}) {
-	logPrintf(C, format, rest...)
+// Critf logs if Warning level is on.
+func Critf(format string, rest ...interface{}) {
+	logPrintf(Critical, format, rest...)
 }
 
-// Fatal logs if Warning level is on.
-func Fatal(format string, rest ...interface{}) {
-	logPrintf(F, format, rest...)
+// Fatalf logs if Warning level is on.
+func Fatalf(format string, rest ...interface{}) {
+	logPrintf(Fatal, format, rest...)
 }
 
-// DbgOn is a shortcut for LogOn(D).
-func DbgOn() bool {
-	return LogOn(D)
+// LogDebug shortcut for fortio.Log(fortio.Debug)
+func LogDebug() bool {
+	return Log(Debug)
 }
 
-// VOn is a shortcut for LogOn(V).
-func VOn() bool {
-	return LogOn(V)
+// LogVerbose shortcut for fortio.Log(fortio.Verbose)
+func LogVerbose() bool {
+	return Log(Verbose)
 }
