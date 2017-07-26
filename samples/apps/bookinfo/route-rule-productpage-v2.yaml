@@ -1,0 +1,8 @@
+type: route-rule
+spec:
+  name: productpage-test-v2
+  destination: productpage.default.svc.cluster.local
+  precedence: 2
+  route:
+  - tags:
+      version: v2
