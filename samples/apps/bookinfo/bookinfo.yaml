@@ -156,7 +156,43 @@ spec:
         - containerPort: 9080
 ---
 ##################################################################################################
-# Productpage service
+# Mysql db services
+##################################################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysqldb
+  labels:
+    app: mysqldb
+spec:
+  ports:
+  - port: 3306
+    name: mysql
+  selector:
+    app: mysqldb
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: mysqldb-v1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysqldb
+        version: v1
+    spec:
+      containers:
+      - name: mysqldb
+        image: istio/examples-bookinfo-mysqldb-v1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3306
+---
+##################################################################################################
+# Productpage services
+# ver2: uses a mysql db
 ##################################################################################################
 apiVersion: v1
 kind: Service
@@ -186,9 +222,31 @@ spec:
       containers:
       - name: productpage
         image: istio/examples-bookinfo-productpage-v1
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always 
         ports:
         - containerPort: 9080
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: productpage-v2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: productpage
+        version: v2
+    spec:
+      containers:
+      - name: productpage
+        image: istio/examples-bookinfo-productpage-v2
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9080
+        env:
+        - name: MYSQL_DB_HOST
+          value: mysqldb
 ---
 ###########################################################################
 # Ingress resource (gateway)
