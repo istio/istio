@@ -8,7 +8,7 @@ go_library(
         "generator.go",
     ],
     deps = [
-        "//tools/codegen/pkg/interfacegen/template/processor:go_default_library",
+        "//tools/codegen/pkg/interfacegen/template:go_default_library",
         "//tools/codegen/pkg/modelgen:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_gogo_protobuf//protoc-gen-gogo/descriptor:go_default_library",

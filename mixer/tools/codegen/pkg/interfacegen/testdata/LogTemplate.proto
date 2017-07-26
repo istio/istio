@@ -14,9 +14,3 @@ option (istio.mixer.v1.config.template.template_name) = "Log";
 message Template {
     map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 1;
 }
-
-// THIS SHOULD GENERATED AND NOT HAND WRITTEN. NEXT PR.
-// Hand writing for now, to make the build work.
-message Type {
-    // Same fields as Template except primitive types are represented as ValueType.
-}

@@ -6,5 +6,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "interface.go",
+        "templateproto.go",
     ],
 )

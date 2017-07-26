@@ -198,11 +198,13 @@ def template_protos(WKSPC):
             makelink(WKSPC + "/bazel-genfiles/pkg/adapter/template/" + file, WKSPC + "/pkg/adapter/template/" + file)
     for template in os.listdir(WKSPC + "/bazel-genfiles/template"):
         for file in os.listdir(WKSPC + "/bazel-genfiles/template/" + template):
-            if file.endswith(".pb.go"):
+            # check if there are files under /template/<some template dir>
+            if file.endswith("_tmpl.pb.go") or file.endswith("processor.gen.go"):
                 makelink(WKSPC + "/bazel-genfiles/template/" + template + "/" + file, WKSPC + "/template/" +template + "/" + file)
             if os.path.isdir(WKSPC + "/bazel-genfiles/template/" + template + "/" + file):
                 for file2 in os.listdir(WKSPC + "/bazel-genfiles/template/" + template + "/" + file):
-                    if file2.endswith(".gen.altered.pb.go"):
+                    # check if there are files under /template/<some uber dir>/<some template dir>
+                    if file2.endswith("_tmpl.pb.go") or file2.endswith("processor.gen.go"):
                         makelink(WKSPC + "/bazel-genfiles/template/" + template + "/" + file + "/" + file2, WKSPC + "/template/" + template + "/" + file + "/" + file2)
 
 def aspect_protos(WKSPC):
@@ -220,7 +222,7 @@ def tools_protos(WKSPC):
 def tools_generated_files(WKSPC):
     if os.path.exists(WKSPC + "/bazel-genfiles/tools/codegen/pkg/interfacegen/testdata"):
         for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/interfacegen/testdata"):
-            if file.endswith(".descriptor_set") or file.endswith(".gen.go"):
+            if file.endswith("_proto.descriptor_set") or file.endswith("error_template.descriptor_set"):
                 makelink(WKSPC + "/bazel-genfiles/tools/codegen/pkg/interfacegen/testdata/" + file, WKSPC + "/tools/codegen/pkg/interfacegen/testdata/" + file)
     if os.path.exists(WKSPC + "/bazel-genfiles/tools/codegen/pkg/modelgen/testdata"):
             for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/modelgen/testdata"):

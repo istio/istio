@@ -45,6 +45,94 @@ proto_compile(
 )
 
 proto_compile(
+    name = "unsupported_field_type_message",
+    testonly = True,
+    args = [
+        "--include_imports",
+        "--include_source_info",
+    ],
+    imports = [
+        "external/com_github_google_protobuf/src",
+        "external/com_github_istio_api",
+    ],
+    inputs = [
+        "//pkg/adapter/template:protos",
+        "@com_github_google_protobuf//:well_known_protos",
+        "@com_github_istio_api//:mixer/v1/config/descriptor_protos",
+    ],
+    protos = [
+        "UnsupportedFieldTypeMessage.proto",
+    ],
+    verbose = 0,
+)
+
+proto_compile(
+    name = "unsupported_field_type_as_map",
+    testonly = True,
+    args = [
+        "--include_imports",
+        "--include_source_info",
+    ],
+    imports = [
+        "external/com_github_google_protobuf/src",
+        "external/com_github_istio_api",
+    ],
+    inputs = [
+        "//pkg/adapter/template:protos",
+        "@com_github_google_protobuf//:well_known_protos",
+        "@com_github_istio_api//:mixer/v1/config/descriptor_protos",
+    ],
+    protos = [
+        "UnsupportedFieldTypeAsMap.proto",
+    ],
+    verbose = 0,
+)
+
+proto_compile(
+    name = "unsupported_field_type_primitive",
+    testonly = True,
+    args = [
+        "--include_imports",
+        "--include_source_info",
+    ],
+    imports = [
+        "external/com_github_google_protobuf/src",
+        "external/com_github_istio_api",
+    ],
+    inputs = [
+        "//pkg/adapter/template:protos",
+        "@com_github_google_protobuf//:well_known_protos",
+        "@com_github_istio_api//:mixer/v1/config/descriptor_protos",
+    ],
+    protos = [
+        "UnsupportedFieldTypePrimitive.proto",
+    ],
+    verbose = 0,
+)
+
+proto_compile(
+    name = "unsupported_field_type_enum",
+    testonly = True,
+    args = [
+        "--include_imports",
+        "--include_source_info",
+    ],
+    imports = [
+        "external/com_github_google_protobuf/src",
+        "external/com_github_istio_api",
+    ],
+    inputs = [
+        "//pkg/adapter/template:protos",
+        "@com_github_google_protobuf//:well_known_protos",
+        "@com_github_istio_api//:mixer/v1/config/descriptor_protos",
+    ],
+    protos = [
+        "UnsupportedFieldTypeEnum.proto",
+    ],
+    verbose = 0,
+)
+
+proto_compile(
     name = "missing_both_required",
     testonly = True,
     args = [
@@ -197,5 +285,9 @@ filegroup(
         "proto2_bad_syntax.descriptor_set",
         "reserved_field_in_template.descriptor_set",
         "simple_template.descriptor_set",
+        "unsupported_field_type_as_map.descriptor_set",
+        "unsupported_field_type_enum.descriptor_set",
+        "unsupported_field_type_message.descriptor_set",
+        "unsupported_field_type_primitive.descriptor_set",
     ],
 )

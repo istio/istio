@@ -183,7 +183,7 @@ func testParser(mutations map[string]interface{}, wantErr string, t *testing.T) 
 	m := map[string]interface{}{}
 	var ba []byte
 	var err error
-	if err := yaml.Unmarshal([]byte(allGoodConfig), &m); err != nil {
+	if err = yaml.Unmarshal([]byte(allGoodConfig), &m); err != nil {
 		t.Fatalf("unable unmarshal %v with: %v", allGoodConfig, err)
 	}
 

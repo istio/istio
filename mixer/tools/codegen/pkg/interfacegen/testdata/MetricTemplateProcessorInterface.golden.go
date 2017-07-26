@@ -20,6 +20,8 @@ import (
 	"istio.io/mixer/pkg/adapter/config"
 )
 
+const TemplateName = "istio.mixer.adapter.metric.Metric"
+
 type Instance struct {
 	Name string
 

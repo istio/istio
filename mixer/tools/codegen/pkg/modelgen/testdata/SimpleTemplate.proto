@@ -12,4 +12,5 @@ option (istio.mixer.v1.config.template.template_name) = "List";
 message Template {
     bool blacklist = 1;
     istio.mixer.v1.config.descriptor.ValueType val = 2;
+    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 3;
 }

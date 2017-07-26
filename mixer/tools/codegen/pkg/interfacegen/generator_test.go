@@ -36,31 +36,52 @@ func TestGenerator_Generate(t *testing.T) {
 	}
 
 	tests := []struct {
-		name, descriptor, want string
+		name, descriptor, wantIntFace, wantProto string
 	}{
-		{"Metrics", "testdata/metric_template_library_proto.descriptor_set", "testdata/MetricTemplateProcessorInterface.golden.go"},
-		{"Quota", "testdata/quota_template_library_proto.descriptor_set", "testdata/QuotaTemplateProcessorInterface.golden.go"},
-		{"Logs", "testdata/log_template_library_proto.descriptor_set", "testdata/LogTemplateProcessorInterface.golden.go"},
-		{"Lists", "testdata/list_template_library_proto.descriptor_set", "testdata/ListTemplateProcessorInterface.golden.go"},
+		{"Metrics", "testdata/metric_template_library_proto.descriptor_set",
+			"testdata/MetricTemplateProcessorInterface.golden.go",
+			"testdata/MetricTemplateGenerated.golden.proto"},
+		{"Quota", "testdata/quota_template_library_proto.descriptor_set",
+			"testdata/QuotaTemplateProcessorInterface.golden.go",
+			"testdata/QuotaTemplateGenerated.golden.proto"},
+		{"Logs", "testdata/log_template_library_proto.descriptor_set",
+			"testdata/LogTemplateProcessorInterface.golden.go",
+			"testdata/LogTemplateGenerated.golden.proto"},
+		{"Lists", "testdata/list_template_library_proto.descriptor_set",
+			"testdata/ListTemplateProcessorInterface.golden.go",
+			"testdata/ListTemplateGenerated.golden.proto"},
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			file, err := ioutil.TempFile("", v.name)
+			oIntface, err := ioutil.TempFile("", v.name)
 			if err != nil {
 				t.Fatal(err)
 			}
+			oTmpl, err := ioutil.TempFile("", v.name)
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			defer func() {
-				if removeErr := os.Remove(file.Name()); removeErr != nil {
-					t.Logf("Could not remove temporary file %s: %v", file.Name(), removeErr)
+				if removeErr := os.Remove(oIntface.Name()); removeErr != nil {
+					t.Logf("Could not remove temporary file %s: %v", oIntface.Name(), removeErr)
+				}
+				if removeErr := os.Remove(oTmpl.Name()); removeErr != nil {
+					t.Logf("Could not remove temporary file %s: %v", oTmpl.Name(), removeErr)
 				}
 			}()
 
-			g := Generator{OutFilePath: file.Name(), ImportMapping: importmap}
+			g := Generator{OutInterfacePath: oIntface.Name(), OAugmentedTmplPath: oTmpl.Name(), ImptMap: importmap}
+
 			if err := g.Generate(v.descriptor); err != nil {
 				t.Fatalf("Generate(%s) produced an error: %v", v.descriptor, err)
 			}
 
-			if same := fileCompare(file.Name(), v.want, t.Errorf); !same {
+			if same := fileCompare(oIntface.Name(), v.wantIntFace, t.Errorf, false); !same {
+				t.Error("Files were not the same.")
+			}
+
+			if same := fileCompare(oTmpl.Name(), v.wantProto, t.Errorf, true); !same {
 				t.Error("Files were not the same.")
 			}
 		})
@@ -78,7 +99,7 @@ func TestGenerator_GenerateErrors(t *testing.T) {
 		}
 	}()
 
-	g := Generator{OutFilePath: file.Name()}
+	g := Generator{OutInterfacePath: file.Name()}
 	err = g.Generate("testdata/error_template.descriptor_set")
 	if err == nil {
 		t.Fatalf("Generate(%s) should have produced an error", "testdata/error_template.descriptor_set")
@@ -96,14 +117,14 @@ func TestGenerator_GenerateErrors(t *testing.T) {
 
 const chunkSize = 64000
 
-func fileCompare(file1, file2 string, logf logFn) bool {
-	f1, err := os.Open(file1)
+func fileCompare(actual, want string, logf logFn, skipSpaces bool) bool {
+	f1, err := os.Open(actual)
 	if err != nil {
 		logf("could not open file: %v", err)
 		return false
 	}
 
-	f2, err := os.Open(file2)
+	f2, err := os.Open(want)
 	if err != nil {
 		logf("could not open file: %v", err)
 		return false
@@ -111,10 +132,21 @@ func fileCompare(file1, file2 string, logf logFn) bool {
 
 	for {
 		b1 := make([]byte, chunkSize)
-		s1, err1 := f1.Read(b1)
-
+		_, err1 := f1.Read(b1)
+		b1 = bytes.Trim(b1, "\x00")
 		b2 := make([]byte, chunkSize)
-		s2, err2 := f2.Read(b2)
+		_, err2 := f2.Read(b2)
+		b2 = bytes.Trim(b2, "\x00")
+
+		b1ToCmp := b1
+		b2ToCmp := b2
+
+		if skipSpaces {
+			b1ToCmp = bytes.Replace(b1ToCmp, []byte(" "), []byte(""), -1)
+			b1ToCmp = bytes.Replace(b1ToCmp, []byte("\n"), []byte(""), -1)
+			b2ToCmp = bytes.Replace(b2ToCmp, []byte(" "), []byte(""), -1)
+			b2ToCmp = bytes.Replace(b2ToCmp, []byte("\n"), []byte(""), -1)
+		}
 
 		if err1 == io.EOF && err2 == io.EOF {
 			return true
@@ -123,9 +155,10 @@ func fileCompare(file1, file2 string, logf logFn) bool {
 		if err1 != nil || err2 != nil {
 			return false
 		}
-
-		if !bytes.Equal(b1, b2) {
-			logf("bytes don't match (sizes: %d, %d):\n%s\n%s", s1, s2, string(b1), string(b2))
+		if !bytes.Equal(b1ToCmp, b2ToCmp) {
+			logf("bytes don't match (sizes: %d, %d):\n%s\nNOT EQUALS\n%s.\n"+
+				"Got file content:\n%s\nWant file content:\n%s\n",
+				len(b1ToCmp), len(b2ToCmp), string(b1ToCmp), string(b2ToCmp), string(b1), string(b2))
 			return false
 		}
 	}

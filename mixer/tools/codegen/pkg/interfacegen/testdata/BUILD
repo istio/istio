@@ -43,9 +43,13 @@ filegroup(
     testonly = True,
     srcs = [
         "list_template_library_processor.gen.go",
+        "list_template_library_tmpl.proto",
         "log_template_library_processor.gen.go",
+        "log_template_library_tmpl.proto",
         "metric_template_library_processor.gen.go",
+        "metric_template_library_tmpl.proto",
         "quota_template_library_processor.gen.go",
+        "quota_template_library_tmpl.proto",
     ],
 )
 
@@ -53,9 +57,13 @@ filegroup(
     name = "golden_files",
     testonly = True,
     srcs = [
+        "ListTemplateGenerated.golden.proto",
         "ListTemplateProcessorInterface.golden.go",
+        "LogTemplateGenerated.golden.proto",
         "LogTemplateProcessorInterface.golden.go",
+        "MetricTemplateGenerated.golden.proto",
         "MetricTemplateProcessorInterface.golden.go",
+        "QuotaTemplateGenerated.golden.proto",
         "QuotaTemplateProcessorInterface.golden.go",
     ],
 )
