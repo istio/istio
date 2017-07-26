@@ -16,6 +16,8 @@ package util
 
 import (
 	"cmd/pprof/internal/tempfile"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -33,6 +35,12 @@ const (
 	pathPrefix     = "com_github_istio_istio"
 	runfilesSuffix = ".runfiles"
 )
+
+// GetMD5Hash generates an MD5 digest of the given string
+func GetMD5Hash(text string) string {
+	hash := md5.Sum([]byte(text))
+	return hex.EncodeToString(hash[:])
+}
 
 // CreateTempfile creates a tempfile string.
 func CreateTempfile(tmpDir, prefix, suffix string) (string, error) {
