@@ -74,6 +74,9 @@ message CheckResponse {
     // ferry new attributes that Mixer derived based on the input set of
     // attributes and its configuration.
     Attributes attributes = 4 [(gogoproto.nullable) = false];
+
+    // The attributes that were used in producing the result
+    RelevantAttributes relevant_attributes = 5 [(gogoproto.nullable) = false];
   }
 
   message QuotaResult {
@@ -83,6 +86,9 @@ message CheckResponse {
     // The amount of granted quota. When `QuotaParams.best_effort` is true, this will be >= 0.
     // If `QuotaParams.best_effort` is false, this will be either 0 or >= `QuotaParams.amount`.
     int64 granted_amount = 2;
+
+    // The attributes that were used in producing the result
+    RelevantAttributes relevant_attributes = 3 [(gogoproto.nullable) = false];
   }
 
   // The precondition check results.
@@ -90,4 +96,34 @@ message CheckResponse {
 
   // The resulting quota, one entry per requested quota.
   map<string, QuotaResult> quotas = 3 [(gogoproto.nullable) = false];
+}
+
+// Describes the attributes that were used in order to determine the response.
+// This can be used to construct a response cache.
+message RelevantAttributes {
+  // How an attribte's value was matched
+  enum Condition {
+    EXACT = 0;
+    PREFIX = 1;
+    REGEX = 2;
+  }
+
+  message AttributeMatch {
+    // The name of the attribute. This is a dictionary index encoded in a manner identical
+    // to strings in the Attributes message.
+    sint32 name = 1;
+
+    // The kind of match against the attribute value.
+    Condition condition = 2;
+
+    // The matching regex in the case of condition = REGEX
+    string regex = 3;
+  }
+
+  // The message-level dictionary. Refer to the documentation for Attributes.words to
+  // understand how this is used.
+  repeated string words = 1;
+
+  // Describes a set of attributes.
+  repeated AttributeMatch attribute_matches = 2;
 }
