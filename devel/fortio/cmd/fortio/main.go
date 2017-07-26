@@ -83,9 +83,10 @@ func main() {
 		compressionFlag = flag.Bool("compression", false, "Enable http compression")
 		goMaxProcsFlag  = flag.Int("gomaxprocs", 0, "Setting for runtime.GOMAXPROCS, <1 doesn't change the default")
 		profileFlag     = flag.String("profile", "", "write .cpu and .mem profiles to file")
-		httpClient      = flag.Int("http", 1,
-			"-1 standard client, 0 http/1.0 fast client, 1 http/1.1 fast client with keep-alive, 2 http/1.1 without keep-alive")
-		headersFlags flagList
+		keepAliveFlag   = flag.Bool("keepalive", true, "Keep connection alive (only for fast http 1.1)")
+		stdClientFlag   = flag.Bool("stdclient", false, "Use the slower net/http standard client (works for TLS)")
+		http10Flag      = flag.Bool("http1.0", false, "Use http1.0 (instead of http 1.1)")
+		headersFlags    flagList
 	)
 	flag.Var(&headersFlags, "H", "Additional Header(s)")
 	flag.Parse()
@@ -120,15 +121,14 @@ func main() {
 	state = make([]threadState, numThreads)
 	for i := 0; i < numThreads; i++ {
 		// Create a client (and transport) and connect once for each 'thread'
-		switch *httpClient {
-		case 0:
-			state[i].client = fortio.NewBasicClient(url, "1.0", false)
-		case 1:
-			state[i].client = fortio.NewBasicClient(url, "1.1", true)
-		case 2:
-			state[i].client = fortio.NewBasicClient(url, "1.1", false)
-		default:
+		if *stdClientFlag {
 			state[i].client = fortio.NewStdClient(url, 1, *compressionFlag)
+		} else {
+			if *http10Flag {
+				state[i].client = fortio.NewBasicClient(url, "1.0", *keepAliveFlag)
+			} else {
+				state[i].client = fortio.NewBasicClient(url, "1.1", *keepAliveFlag)
+			}
 		}
 		if state[i].client == nil {
 			fmt.Printf("Aborting because of being unable to create client %d for %s\n", i, url)
