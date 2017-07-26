@@ -767,7 +767,7 @@ handlers:
     adapter: fooHandlerAdapter
 `
 
-	const testSupportedTemplate adapter.SupportedTemplates = "testSupportedTemplate"
+	const testSupportedTemplate = "testSupportedTemplate"
 	tests := []*configTable{
 		{
 			hbi: map[string]*adapter.BuilderInfo{
@@ -775,7 +775,7 @@ handlers:
 					DefaultConfig:          &types.Empty{},
 					ValidateConfig:         func(c proto.Message) error { return nil },
 					CreateHandlerBuilderFn: func() config.HandlerBuilder { return nil },
-					SupportedTemplates:     []adapter.SupportedTemplates{testSupportedTemplate},
+					SupportedTemplates:     []string{testSupportedTemplate},
 				},
 			},
 			cfg:     globalConfig,
@@ -800,7 +800,7 @@ handlers:
 				t.Fatalf("got p.handlerBuilderByName[\"fooHandler\"] = %v, want: <nil>", v)
 			}
 			if tt.nerrors == 0 {
-				exptSupportTmpl := []adapter.SupportedTemplates{testSupportedTemplate}
+				exptSupportTmpl := []string{testSupportedTemplate}
 				if !ok {
 					t.Fatal("got p.handlerBuilderByName[\"fooHandler\"] = <nil>, want: NOT <nil>")
 				} else if !reflect.DeepEqual(p.handlers["fooHandler"].supportedTemplates, exptSupportTmpl) {
@@ -978,10 +978,15 @@ func (t fakeTemplateRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	}
 	if v, ok := t.templateConstructorParamMap[template]; ok {
 		return tmpl.Info{
-			CnstrDefConfig: v,
+			CtrCfg: v,
 		}, true
 	}
 	return tmpl.Info{}, false
+}
+
+func (t fakeTemplateRepo) SupportsTemplate(hndlrBuilder config.HandlerBuilder, s string) (bool, string) {
+	// always succeed
+	return true, ""
 }
 
 func TestValidateRulesConfig(t *testing.T) {
@@ -1046,7 +1051,7 @@ action_rules:
     - RequestCountByService
 `
 
-	const tmpl1 adapter.SupportedTemplates = "tmp1"
+	const tmpl1 = "tmp1"
 	evaluator := newFakeExpr()
 	tests := []struct {
 		name       string
@@ -1063,7 +1068,7 @@ action_rules:
 			sSvcConfigValid,
 			0,
 			map[string]*pb.Constructor{"RequestCountByService": {Template: "tmp1"}},
-			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []adapter.SupportedTemplates{tmpl1}}},
+			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
 			nil,
 			1,
 			evaluator,
@@ -1073,7 +1078,7 @@ action_rules:
 			sSvcConfigNestedValid,
 			0,
 			map[string]*pb.Constructor{"RequestCountByService": {Template: "tmp1"}},
-			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []adapter.SupportedTemplates{tmpl1}}},
+			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
 			nil,
 			2,
 			evaluator,
@@ -1103,7 +1108,7 @@ action_rules:
 			sSvcConfigNestedMissingHandler,
 			1,
 			map[string]*pb.Constructor{"RequestCountByService": {Template: "tmp1"}},
-			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []adapter.SupportedTemplates{tmpl1}}},
+			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
 			[]string{"handler not specified or is invalid"},
 			1,
 			evaluator,
@@ -1113,7 +1118,7 @@ action_rules:
 			sSvcConfigInvalidSelector,
 			1,
 			map[string]*pb.Constructor{"RequestCountByService": {Template: "tmp1"}},
-			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []adapter.SupportedTemplates{tmpl1}}},
+			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
 			[]string{"bad expression"},
 			1, /*even if the selector is wrong the action is correct*/
 			&fakeExpr{err: errors.New("bad expression")},
@@ -1123,7 +1128,7 @@ action_rules:
 			sSvcConfigValid,
 			1,
 			map[string]*pb.Constructor{"RequestCountByService": {Template: "TemplateHandlerNotSupport"}},
-			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []adapter.SupportedTemplates{tmpl1}}},
+			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
 			[]string{"handler does not support the template"},
 			0,
 			evaluator,

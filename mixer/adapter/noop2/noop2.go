@@ -58,7 +58,7 @@ func GetBuilderInfo() adapter.BuilderInfo {
 	return adapter.BuilderInfo{
 		Name:                   "noop2",
 		Description:            "An adapter that does nothing, just echos the calls made from mixer",
-		SupportedTemplates:     []adapter.SupportedTemplates{adapter.SampleProcessorTemplate},
+		SupportedTemplates:     []string{sample_report.TemplateName},
 		CreateHandlerBuilderFn: func() adapter_cnfg.HandlerBuilder { return noop2Builder{} },
 		DefaultConfig:          &types.Empty{},
 		ValidateConfig: func(msg proto.Message) error {

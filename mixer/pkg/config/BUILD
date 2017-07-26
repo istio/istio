@@ -6,7 +6,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "apiserver.go",
-        "builderInfoRegistry.gen.go",
         "builderInfoRegistry.go",
         "compatStore.go",
         "handler.go",

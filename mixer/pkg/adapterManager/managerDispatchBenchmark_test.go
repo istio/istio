@@ -31,6 +31,7 @@ import (
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
+	"istio.io/mixer/pkg/template"
 )
 
 /*
@@ -187,7 +188,7 @@ func benchmarkAdapterManagerDispatch(b *testing.B, declarativeSrvcCnfgFilePath s
 	}
 
 	cnfgMgr := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, nil,
-		adapterMgr.SupportedKinds, store,
+		adapterMgr.SupportedKinds, template.NewRepository(nil), store,
 		loopDelay,
 		identityAttribute, identityDomainAttribute)
 	cnfgMgr.Register(adapterMgr)

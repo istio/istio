@@ -30,7 +30,7 @@ type BuilderInfo struct {
 	// with the SupportedTemplates.
 	CreateHandlerBuilderFn CreateHandlerBuilder
 	// SupportedTemplates expressess all the templates the Adapter wants to serve.
-	SupportedTemplates []SupportedTemplates
+	SupportedTemplates []string
 	// DefaultConfig is a default configuration struct for this
 	// adapter. This will be used by the configuration system to establish
 	// the shape of the block of configuration state passed to the HandlerBuilder.Build method.
