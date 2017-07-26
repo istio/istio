@@ -41,10 +41,10 @@ var (
 
 // Main call being run at the target QPS
 func test(t int) {
-	fortio.Dbg("Calling in %d", t)
+	fortio.Debugf("Calling in %d", t)
 	code, body, headerSize := state[t].client.Fetch()
 	size := len(body)
-	fortio.Dbg("Got in %3d hsz %d sz %d", code, headerSize, size)
+	fortio.Debugf("Got in %3d hsz %d sz %d", code, headerSize, size)
 	state[t].retCodes[code]++
 	state[t].sizes.Record(float64(size))
 	state[t].headerSizes.Record(float64(headerSize))
@@ -86,9 +86,12 @@ func main() {
 		keepAliveFlag   = flag.Bool("keepalive", true, "Keep connection alive (only for fast http 1.1)")
 		stdClientFlag   = flag.Bool("stdclient", false, "Use the slower net/http standard client (works for TLS)")
 		http10Flag      = flag.Bool("http1.0", false, "Use http1.0 (instead of http 1.1)")
-		headersFlags    flagList
+
+		headersFlags flagList
 	)
 	flag.Var(&headersFlags, "H", "Additional Header(s)")
+	flag.IntVar(&fortio.BufferSizeKb, "httpbufferkb", fortio.BufferSizeKb, "Size of the buffer (max data size) for the optimized http client in kbytes")
+	flag.BoolVar(&fortio.CheckConnectionClosedHeader, "httpccch", fortio.CheckConnectionClosedHeader, "Check for Connection: Close Header")
 	flag.Parse()
 	pList, err := fortio.ParsePercentiles(*percentilesFlag)
 	if err != nil {
@@ -139,8 +142,8 @@ func main() {
 			fmt.Printf("Aborting because of error %d for %s\n%s\n", code, url, string(data))
 			os.Exit(1)
 		}
-		if i == 0 && fortio.VOn() {
-			fortio.LogV("first hit of url %s: status %03d, headers %d, total %d\n%s\n", url, code, headerSize, len(data), string(data))
+		if i == 0 && fortio.LogVerbose() {
+			fortio.LogVf("first hit of url %s: status %03d, headers %d, total %d\n%s\n", url, code, headerSize, len(data), string(data))
 		}
 		// Setup the stats for each 'thread'
 		state[i].sizes = total.sizes.Clone()
@@ -151,7 +154,7 @@ func main() {
 	if *profileFlag != "" {
 		fc, err := os.Create(*profileFlag + ".cpu")
 		if err != nil {
-			fortio.Fatal("Unable to create .cpu profile: %v", err)
+			fortio.Fatalf("Unable to create .cpu profile: %v", err)
 		}
 		pprof.StartCPUProfile(fc) //nolint: gas,errcheck
 	}
@@ -160,7 +163,7 @@ func main() {
 		pprof.StopCPUProfile()
 		fm, err := os.Create(*profileFlag + ".mem")
 		if err != nil {
-			fortio.Fatal("Unable to create .mem profile: %v", err)
+			fortio.Fatalf("Unable to create .mem profile: %v", err)
 		}
 		runtime.GC()               // get up-to-date statistics
 		pprof.WriteHeapProfile(fm) // nolint:gas,errcheck
@@ -185,7 +188,7 @@ func main() {
 	for _, k := range keys {
 		fmt.Printf("Code %3d : %d\n", k, total.retCodes[k])
 	}
-	if fortio.VOn() {
+	if fortio.LogVerbose() {
 		total.headerSizes.Print(os.Stdout, "Response Header Sizes Histogram", 50)
 		total.sizes.Print(os.Stdout, "Response Body/Total Sizes Histogram", 50)
 	} else {

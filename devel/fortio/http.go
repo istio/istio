@@ -16,7 +16,6 @@ package fortio
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -41,9 +40,10 @@ var (
 	extraHeaders http.Header
 	// Host is treated specially, remember that one separately.
 	hostOverride string
-	// Buffer size for optimized client
-	bufferSizeKbFlag                = flag.Int("httpbufferkb", 32, "Size of the buffer (max data size) for the optimized http client in kbytes")
-	checkConnectionClosedHeaderFlag = flag.Bool("httpccch", false, "Check for Connection: Close Header")
+	// BufferSizeKb size of the buffer (max data) for optimized client in kilobytes defaults to 32k.
+	BufferSizeKb = 32
+	// CheckConnectionClosedHeader indicates whether to check for server side connection closed headers.
+	CheckConnectionClosedHeader = false
 	// case doesn't matter for those 3
 	contentLengthHeader   = []byte("\r\ncontent-length:")
 	connectionCloseHeader = []byte("\r\nconnection: close")
@@ -71,10 +71,10 @@ func AddAndValidateExtraHeader(h string) error {
 	key := strings.TrimSpace(s[0])
 	value := strings.TrimSpace(s[1])
 	if strings.EqualFold(key, "host") {
-		Info("Will be setting special Host header to %s", value)
+		Infof("Will be setting special Host header to %s", value)
 		hostOverride = value
 	} else {
-		Info("Setting regular extra header %s: %s", key, value)
+		Infof("Setting regular extra header %s: %s", key, value)
 		extraHeaders.Add(key, value)
 	}
 	return nil
@@ -84,21 +84,21 @@ func AddAndValidateExtraHeader(h string) error {
 func newHTTPRequest(url string) *http.Request {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		Err("Unable to make request for %s : %v", url, err)
+		Errf("Unable to make request for %s : %v", url, err)
 		return nil
 	}
 	req.Header = extraHeaders
 	if hostOverride != "" {
 		req.Host = hostOverride
 	}
-	if !DbgOn() {
+	if !Log(Debug) {
 		return req
 	}
 	bytes, err := httputil.DumpRequestOut(req, false)
 	if err != nil {
-		Err("Unable to dump request %v", err)
+		Errf("Unable to dump request %v", err)
 	} else {
-		Dbg("For URL %s, sending:\n%s", url, bytes)
+		Debugf("For URL %s, sending:\n%s", url, bytes)
 	}
 	return req
 }
@@ -125,30 +125,30 @@ func FetchURL(url string) (int, []byte, int) {
 func (c *Client) Fetch() (int, []byte, int) {
 	resp, err := c.client.Do(c.req)
 	if err != nil {
-		Err("Unable to send request for %s : %v", c.url, err)
+		Errf("Unable to send request for %s : %v", c.url, err)
 		return http.StatusBadRequest, []byte(err.Error()), 0
 	}
 	var data []byte
-	if DbgOn() {
+	if Log(Debug) {
 		if data, err = httputil.DumpResponse(resp, false); err != nil {
-			Err("Unable to dump response %v", err)
+			Errf("Unable to dump response %v", err)
 		} else {
-			Dbg("For URL %s, received:\n%s", c.url, data)
+			Debugf("For URL %s, received:\n%s", c.url, data)
 		}
 	}
 	data, err = ioutil.ReadAll(resp.Body)
 	resp.Body.Close() //nolint(errcheck)
 	if err != nil {
-		Err("Unable to read response for %s : %v", c.url, err)
+		Errf("Unable to read response for %s : %v", c.url, err)
 		code := resp.StatusCode
 		if code == http.StatusOK {
 			code = http.StatusNoContent
-			Warn("Ok code despite read error, switching code to %d", code)
+			Warnf("Ok code despite read error, switching code to %d", code)
 		}
 		return code, data, 0
 	}
 	code := resp.StatusCode
-	Dbg("Got %d : %s for %s - response is %d bytes", code, resp.Status, c.url, len(data))
+	Debugf("Got %d : %s for %s - response is %d bytes", code, resp.Status, c.url, len(data))
 	return code, data, 0
 }
 
@@ -207,33 +207,33 @@ func NewBasicClient(urlStr string, proto string, keepAlive bool) Fetcher {
 	// Parse the url, extract components.
 	url, err := url.Parse(urlStr)
 	if err != nil {
-		Err("Bad url '%s' : %v", urlStr, err)
+		Errf("Bad url '%s' : %v", urlStr, err)
 		return nil
 	}
 	if url.Scheme != "http" {
-		Err("Only http is supported, can't use url %s", urlStr)
+		Errf("Only http is supported, can't use url %s", urlStr)
 		return nil
 	}
 	// note: Host includes the port
 	bc := BasicClient{url: urlStr, host: url.Host, hostname: url.Hostname(), port: url.Port(), http10: (proto == "1.0")}
-	bc.buffer = make([]byte, (*bufferSizeKbFlag)*1024)
+	bc.buffer = make([]byte, BufferSizeKb*1024)
 	if bc.port == "" {
 		bc.port = url.Scheme // ie http which turns into 80 later
-		LogV("No port specified, using %s", bc.port)
+		LogVf("No port specified, using %s", bc.port)
 	}
 	addrs, err := net.LookupIP(bc.hostname)
 	if err != nil {
-		Err("Unable to lookup '%s' : %v", bc.host, err)
+		Errf("Unable to lookup '%s' : %v", bc.host, err)
 		return nil
 	}
-	if len(addrs) > 1 && DbgOn() {
-		Dbg("Using only the first of the addresses for %s : %v", bc.host, addrs)
+	if len(addrs) > 1 && Log(Debug) {
+		Debugf("Using only the first of the addresses for %s : %v", bc.host, addrs)
 	}
-	Dbg("Will go to %s", addrs[0])
+	Debugf("Will go to %s", addrs[0])
 	bc.dest.IP = addrs[0]
 	bc.dest.Port, err = net.LookupPort("tcp", bc.port)
 	if err != nil {
-		Err("Unable to resolve port '%s' : %v", bc.port, err)
+		Errf("Unable to resolve port '%s' : %v", bc.port, err)
 		return nil
 	}
 	// Create the bytes for the request:
@@ -260,7 +260,7 @@ func NewBasicClient(urlStr string, proto string, keepAlive bool) Fetcher {
 	}
 	buf.WriteString("\r\n")
 	bc.req = buf.Bytes()
-	Dbg("Created client:\n%+v\n%s", bc.dest, bc.req)
+	Debugf("Created client:\n%+v\n%s", bc.dest, bc.req)
 	return &bc
 }
 
@@ -279,8 +279,8 @@ func toUpper(b byte) byte {
 // Only wotks for ASCII, not meant for unicode.
 func ASCIIToUpper(str string) []byte {
 	numChars := utf8.RuneCountInString(str)
-	if numChars != len(str) && VOn() {
-		Err("ASCIIFold(\"%s\") contains %d characters, some non ascii (byte length %d): will mangle", str, numChars, len(str))
+	if numChars != len(str) && Log(Verbose) {
+		Errf("ASCIIFold(\"%s\") contains %d characters, some non ascii (byte length %d): will mangle", str, numChars, len(str))
 	}
 	res := make([]byte, numChars)
 	// less surprising if we only mangle the extended characters
@@ -383,7 +383,7 @@ func ParseChunkSize(inp []byte) (int, int) {
 			} else {
 				inDigits = false
 				if res == -1 {
-					Err("Didn't find hex number %q", inp)
+					Errf("Didn't find hex number %q", inp)
 					return off, res
 				}
 				continue
@@ -419,18 +419,18 @@ func (c *BasicClient) returnRes() (int, []byte, int) {
 func (c *BasicClient) connect() *net.TCPConn {
 	socket, err := net.DialTCP("tcp", nil, &c.dest)
 	if err != nil {
-		Err("Unable to connect to %v : %v", c.dest, err)
+		Errf("Unable to connect to %v : %v", c.dest, err)
 		return nil
 	}
 	// For now those errors are not critical/breaking
 	if err = socket.SetNoDelay(true); err != nil {
-		Warn("Unable to connect to set tcp no delay %v %v : %v", socket, c.dest, err)
+		Warnf("Unable to connect to set tcp no delay %v %v : %v", socket, c.dest, err)
 	}
 	if err = socket.SetWriteBuffer(len(c.req)); err != nil {
-		Warn("Unable to connect to set write buffer %d %v %v : %v", len(c.req), socket, c.dest, err)
+		Warnf("Unable to connect to set write buffer %d %v %v : %v", len(c.req), socket, c.dest, err)
 	}
 	if err = socket.SetReadBuffer(len(c.buffer)); err != nil {
-		Warn("Unable to connect to read buffer %d %v %v : %v", len(c.buffer), socket, c.dest, err)
+		Warnf("Unable to connect to read buffer %d %v %v : %v", len(c.buffer), socket, c.dest, err)
 	}
 	return socket
 }
@@ -449,7 +449,7 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 			return c.returnRes()
 		}
 	} else {
-		Dbg("Reusing socket %v", *conn)
+		Debugf("Reusing socket %v", *conn)
 	}
 	c.socket = nil // because of error returns
 	// Send the request:
@@ -457,21 +457,21 @@ func (c *BasicClient) Fetch() (int, []byte, int) {
 	if err != nil {
 		if reuse {
 			// it's ok for the (idle) socket to die once, auto reconnect:
-			Info("Closing dead socket %v (%v)", *conn, err)
+			Infof("Closing dead socket %v (%v)", *conn, err)
 			conn.Close() // nolint: errcheck
 			c.errorCount++
 			return c.Fetch() // recurse once
 		}
-		Err("Unable to write to %v %v : %v", conn, c.dest, err)
+		Errf("Unable to write to %v %v : %v", conn, c.dest, err)
 		return c.returnRes()
 	}
 	if n != len(c.req) {
-		Err("Short write to %v %v : %d instead of %d", conn, c.dest, n, len(c.req))
+		Errf("Short write to %v %v : %d instead of %d", conn, c.dest, n, len(c.req))
 		return c.returnRes()
 	}
 	if !c.keepAlive {
 		if err = conn.CloseWrite(); err != nil {
-			Err("Unable to close write to %v %v : %v", conn, c.dest, err)
+			Errf("Unable to close write to %v %v : %v", conn, c.dest, err)
 			return c.returnRes()
 		}
 	}
@@ -508,18 +508,18 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 	endofHeadersStart := retcodeOffset + 3
 	keepAlive := c.keepAlive
 	chunkedMode := false
-	checkConnectionClosedHeader := *checkConnectionClosedHeaderFlag
+	checkConnectionClosedHeader := CheckConnectionClosedHeader
 	for {
 		n, err := conn.Read(c.buffer[c.size:])
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			Err("Read error %v %v %d : %v", conn, c.dest, c.size, err)
+			Errf("Read error %v %v %d : %v", conn, c.dest, c.size, err)
 		}
 		c.size += n
-		if LogOn(D) {
-			Dbg("Read ok %d total %d so far (-%d headers = %d data) %s", n, c.size, c.headerLen, c.size-c.headerLen, DebugSummary(c.buffer[c.size-n:c.size], 128))
+		if Log(Debug) {
+			Debugf("Read ok %d total %d so far (-%d headers = %d data) %s", n, c.size, c.headerLen, c.size-c.headerLen, DebugSummary(c.buffer[c.size-n:c.size], 128))
 		}
 		if !parsedHeaders && c.parseHeaders {
 			// enough to get the code?
@@ -528,11 +528,11 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 				c.code = ParseDecimal(c.buffer[retcodeOffset : retcodeOffset+3])
 				// TODO handle 100 Continue
 				if c.code != http.StatusOK {
-					Warn("Parsed non ok code %d (%v)", c.code, string(c.buffer[:retcodeOffset+3]))
+					Warnf("Parsed non ok code %d (%v)", c.code, string(c.buffer[:retcodeOffset+3]))
 					break
 				}
-				if LogOn(D) {
-					Dbg("Code %d, looking for end of headers at %d / %d, last CRLF %d",
+				if Log(Debug) {
+					Debugf("Code %d, looking for end of headers at %d / %d, last CRLF %d",
 						c.code, endofHeadersStart, c.size, c.headerLen)
 				}
 				// TODO: keep track of list of newlines to efficiently search headers only there
@@ -552,8 +552,8 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 				if parsedHeaders {
 					// We have headers !
 					c.headerLen += 4 // we use this and not endofHeadersStart so http/1.0 does return 0 and not the optimization for search start
-					if LogOn(D) {
-						Dbg("headers are %d: %s", c.headerLen, c.buffer[:idx])
+					if Log(Debug) {
+						Debugf("headers are %d: %s", c.headerLen, c.buffer[:idx])
 					}
 					// Find the content length or chunked mode
 					if keepAlive {
@@ -563,13 +563,13 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 							// Content-Length mode:
 							contentLength = ParseDecimal(c.buffer[offset+len(contentLengthHeader) : c.headerLen])
 							if contentLength < 0 {
-								Warn("Warning: content-length unparsable %s", string(c.buffer[offset+2:offset+len(contentLengthHeader)+4]))
+								Warnf("Warning: content-length unparsable %s", string(c.buffer[offset+2:offset+len(contentLengthHeader)+4]))
 								keepAlive = false
 								break
 							}
 							max = c.headerLen + contentLength
-							if LogOn(V) { // somehow without the if we spend 400ms/10s in LogV (!)
-								LogV("found content length %d", contentLength)
+							if Log(Verbose) { // somehow without the if we spend 400ms/10s in LogV (!)
+								LogVf("found content length %d", contentLength)
 							}
 						} else {
 							// Chunked mode (or err/missing):
@@ -578,28 +578,28 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 								var dataStart int
 								dataStart, contentLength = ParseChunkSize(c.buffer[c.headerLen:])
 								max = c.headerLen + dataStart + contentLength + 2 // extra CR LF
-								LogV("chunk-length is %d (%s) setting max to %d",
+								LogVf("chunk-length is %d (%s) setting max to %d",
 									contentLength, c.buffer[c.headerLen:c.headerLen+dataStart-2],
 									max)
 							} else {
-								if VOn() {
-									LogV("Warning: content-length missing in %s", string(c.buffer[:c.headerLen]))
+								if Log(Verbose) {
+									LogVf("Warning: content-length missing in %s", string(c.buffer[:c.headerLen]))
 								} else {
-									Warn("Warning: content-length missing (%d bytes headers)", c.headerLen)
+									Warnf("Warning: content-length missing (%d bytes headers)", c.headerLen)
 								}
 								keepAlive = false // can't keep keepAlive
 								break
 							}
 						} // end of content-length section
 						if max > len(c.buffer) {
-							Warn("Buffer is too small for headers %d + data %d - change -httpbufferkb flag to at least %d",
+							Warnf("Buffer is too small for headers %d + data %d - change -httpbufferkb flag to at least %d",
 								c.headerLen, contentLength, (c.headerLen+contentLength)/1024+1)
 							// TODO: just consume the extra instead
 							max = len(c.buffer)
 						}
 						if checkConnectionClosedHeader {
 							if found, _ := FoldFind(c.buffer[:c.headerLen], connectionCloseHeader); found {
-								Info("Server wants to close connection, no keep-alive!")
+								Infof("Server wants to close connection, no keep-alive!")
 								keepAlive = false
 							}
 						}
@@ -609,10 +609,10 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 		}
 		if c.size >= max {
 			if !keepAlive {
-				Err("More data is available but stopping after %d, increase -httpbufferkb", max)
+				Errf("More data is available but stopping after %d, increase -httpbufferkb", max)
 			}
 			if !parsedHeaders && c.parseHeaders {
-				Err("Buffer too small (%d) to even finish reading headers, increase -httpbufferkb to get all the data", max)
+				Errf("Buffer too small (%d) to even finish reading headers, increase -httpbufferkb to get all the data", max)
 				keepAlive = false
 			}
 			if chunkedMode {
@@ -620,21 +620,21 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 				dataStart, nextChunkLen := ParseChunkSize(c.buffer[max:c.size])
 				if nextChunkLen == -1 {
 					if c.size == max {
-						Dbg("Couldn't find next chunk size, reading more %d %d", max, c.size)
+						Debugf("Couldn't find next chunk size, reading more %d %d", max, c.size)
 					} else {
-						Info("Partial chunk size (%s), reading more %d %d", DebugSummary(c.buffer[max:c.size], 20), max, c.size)
+						Infof("Partial chunk size (%s), reading more %d %d", DebugSummary(c.buffer[max:c.size], 20), max, c.size)
 					}
 					continue
 				} else if nextChunkLen == 0 {
-					Dbg("Found last chunk %d %d", max+dataStart, c.size)
+					Debugf("Found last chunk %d %d", max+dataStart, c.size)
 					if c.size != max+dataStart+2 || string(c.buffer[c.size-2:c.size]) != "\r\n" {
-						Err("Unexpected mismatch at the end sz=%d expected %d; end of buffer %q", c.size, max+dataStart+2, c.buffer[max:c.size])
+						Errf("Unexpected mismatch at the end sz=%d expected %d; end of buffer %q", c.size, max+dataStart+2, c.buffer[max:c.size])
 					}
 				} else {
 					max += dataStart + nextChunkLen + 2 // extra CR LF
-					Dbg("One more chunk %d -> new max %d", nextChunkLen, max)
+					Debugf("One more chunk %d -> new max %d", nextChunkLen, max)
 					if max > len(c.buffer) {
-						Err("Buffer too small for %d data", max)
+						Errf("Buffer too small for %d data", max)
 					} else {
 						continue
 					}
@@ -648,7 +648,7 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 		c.socket = conn // keep the open socket
 	} else {
 		if err := conn.Close(); err != nil {
-			Err("Close error %v %v %d : %v", conn, c.dest, c.size, err)
+			Errf("Close error %v %v %d : %v", conn, c.dest, c.size, err)
 		}
 		// we cleared c.socket already
 	}

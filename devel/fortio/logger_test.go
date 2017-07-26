@@ -25,7 +25,7 @@ func TestLogger1(t *testing.T) {
 	// Setup
 	var b bytes.Buffer
 	w := bufio.NewWriter(&b)
-	SetLogLevel(I) // reset from other tests
+	SetLogLevel(Info) // reset from other tests
 	*logFileAndLine = false
 	*logPrefix = ""
 	log.SetOutput(w)
@@ -34,30 +34,30 @@ func TestLogger1(t *testing.T) {
 	SetLogLevel(LogLevelByName("Verbose"))
 	expected := "I Log level is now 1 Verbose (was 2 Info)\n"
 	i := 0
-	LogV("test Va %d", i) // Should show
+	LogVf("test Va %d", i) // Should show
 	i++
 	expected += "V test Va 0\n"
-	Warn("test Wa %d", i) // Should show
+	Warnf("test Wa %d", i) // Should show
 	i++
 	expected += "W test Wa 1\n"
 	prevLevel := SetLogLevel(LogLevelByName("Error"))
 	expected += "I Log level is now 4 Error (was 1 Verbose)\n"
-	LogV("test Vb %d", i) // Should not show
+	LogVf("test Vb %d", i) // Should not show
 	i++
-	Warn("test Wb %d", i) // Should not show
+	Warnf("test Wb %d", i) // Should not show
 	i++
-	Err("test E %d", i) // Should show
+	Errf("test E %d", i) // Should show
 	i++
 	expected += "E test E 4\n"
 	// test the rest of the api
-	Log(LogLevelByName("Critical"), "test %d level str %s, %+v", i, prevLevel.String(), GetLogLevel().ToString())
+	Logf(LogLevelByName("Critical"), "test %d level str %s, %+v", i, prevLevel.String(), GetLogLevel().ToString())
 	expected += "C test 5 level str Verbose, Error\n"
-	SetLogLevel(D) // should be fine and invisible change
-	SetLogLevel(D - 1)
+	SetLogLevel(Debug) // should be fine and invisible change
+	SetLogLevel(Debug - 1)
 	expected += "SetLogLevel called with level -1 lower than Debug!\n"
-	SetLogLevel(F) // Hiding critical level is not allowed
+	SetLogLevel(Fatal) // Hiding critical level is not allowed
 	expected += "SetLogLevel called with level 6 higher than Critical!\n"
-	SetLogLevel(C) // should be fine
+	SetLogLevel(Critical) // should be fine
 	expected += "I Log level is now 5 Critical (was 0 Debug)\n"
 	w.Flush() // nolint: errcheck
 	actual := string(b.Bytes())
@@ -67,15 +67,15 @@ func TestLogger1(t *testing.T) {
 }
 
 func BenchmarkLogDirect1(b *testing.B) {
-	level = E
+	level = Error
 	for n := 0; n < b.N; n++ {
-		Dbg("foo bar %d", n)
+		Debugf("foo bar %d", n)
 	}
 }
 
 func BenchmarkLogDirect2(b *testing.B) {
-	level = E
+	level = Error
 	for n := 0; n < b.N; n++ {
-		Log(D, "foo bar %d", n)
+		Logf(Debug, "foo bar %d", n)
 	}
 }
