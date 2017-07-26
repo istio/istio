@@ -32,6 +32,7 @@ import (
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
+	"istio.io/mixer/pkg/template"
 	sample_report "istio.io/mixer/template/sample/report"
 )
 
@@ -65,7 +66,7 @@ func GetFakeHndlrBuilderInfo() adapter.BuilderInfo {
 	return adapter.BuilderInfo{
 		Name:                   "fakeHandler",
 		Description:            "",
-		SupportedTemplates:     []adapter.SupportedTemplates{adapter.SampleProcessorTemplate},
+		SupportedTemplates:     []string{sample_report.TemplateName},
 		CreateHandlerBuilderFn: func() config2.HandlerBuilder { return fakeHndlrBldr{} },
 		DefaultConfig:          &types.Empty{},
 		ValidateConfig: func(msg proto.Message) error {
@@ -163,7 +164,7 @@ func testConfigFlow(t *testing.T, declarativeSrvcCnfgFilePath string, declaredGl
 	}
 
 	cnfgMgr := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, []adapter.GetBuilderInfoFn{GetFakeHndlrBuilderInfo},
-		adapterMgr.SupportedKinds, store,
+		adapterMgr.SupportedKinds, template.NewRepository(template.SupportedTmplInfo), store,
 		loopDelay,
 		identityAttribute, identityDomainAttribute)
 	cnfgMgr.Register(adapterMgr)

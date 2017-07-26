@@ -47,6 +47,7 @@ import (
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/pool"
+	"istio.io/mixer/pkg/template"
 	"istio.io/mixer/pkg/tracing/zipkin"
 	"istio.io/mixer/pkg/version"
 )
@@ -82,7 +83,7 @@ type serverArgs struct {
 	globalConfigFile string
 }
 
-func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
+func serverCmd(tmplRepo template.Repository, printf, fatalf shared.FormatFn) *cobra.Command {
 	sa := &serverArgs{}
 	serverCmd := cobra.Command{
 		Use:   "server",
@@ -99,7 +100,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			runServer(sa, printf, fatalf)
+			runServer(sa, tmplRepo, printf, fatalf)
 		},
 	}
 
@@ -180,7 +181,7 @@ func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf
 	return s
 }
 
-func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
+func runServer(sa *serverArgs, tmplRepo template.Repository, printf, fatalf shared.FormatFn) {
 	printf("Mixer started with args: %#v", sa)
 
 	var err error
@@ -205,13 +206,13 @@ func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	store := configStore(sa.configStoreURL, sa.serviceConfigFile, sa.globalConfigFile, printf, fatalf)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapter.Inventory2(),
 		adapterMgr.SupportedKinds,
-		store, time.Second*time.Duration(sa.configFetchIntervalSec),
+		tmplRepo, store, time.Second*time.Duration(sa.configFetchIntervalSec),
 		sa.configIdentityAttribute,
 		sa.configIdentityAttributeDomain)
 
 	configAPIServer := config.NewAPI("v1", sa.configAPIPort, eval,
 		adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapter.Inventory2(),
-		adapterMgr.SupportedKinds, store)
+		adapterMgr.SupportedKinds, store, tmplRepo)
 
 	var serverCert *tls.Certificate
 	var clientCerts *x509.CertPool

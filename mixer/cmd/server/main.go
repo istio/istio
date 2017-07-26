@@ -19,10 +19,15 @@ import (
 
 	"istio.io/mixer/cmd/server/cmd"
 	"istio.io/mixer/cmd/shared"
+	"istio.io/mixer/pkg/template"
 )
 
+func getSupportedTemplateInfos() template.Repository {
+	return template.NewRepository(template.SupportedTmplInfo)
+}
+
 func main() {
-	rootCmd := cmd.GetRootCmd(os.Args[1:], shared.Printf, shared.Fatalf)
+	rootCmd := cmd.GetRootCmd(os.Args[1:], getSupportedTemplateInfos(), shared.Printf, shared.Fatalf)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)

@@ -19,11 +19,12 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/config"
+	"istio.io/mixer/pkg/template"
 )
 
 func TestRegisterationForTemplates(t *testing.T) {
 	handlers := config.BuilderInfoMap([]adapter.GetBuilderInfoFn{GetBuilderInfo},
-		config.DoesBuilderSupportsTemplate)
+		template.NewRepository(template.SupportedTmplInfo).SupportsTemplate)
 	bi := GetBuilderInfo()
 	name := bi.Name
 	resultNoop2BuilderInfo := handlers[name]
@@ -36,7 +37,7 @@ func TestRegisterationForTemplates(t *testing.T) {
 	}
 }
 
-func contains(s []adapter.SupportedTemplates, e adapter.SupportedTemplates) bool {
+func contains(s []string, e string) bool {
 	for _, a := range s {
 		if a == e {
 			return true

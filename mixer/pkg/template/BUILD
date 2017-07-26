@@ -9,6 +9,7 @@ go_library(
         "template.go",
     ],
     deps = [
+        "//pkg/adapter:go_default_library",
         "//pkg/adapter/config:go_default_library",
         "//pkg/expr:go_default_library",
         "//template/sample/report:go_default_library",
@@ -23,6 +24,7 @@ go_test(
     size = "small",
     srcs = [
         "template.gen_test.go",
+        "template_test.go",
     ],
     library = ":go_default_library",
     deps = [

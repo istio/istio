@@ -159,14 +159,14 @@ type (
 		handlerBuilder     *config.HandlerBuilder
 		isBroken           bool
 		handlerCnfg        *pb.Handler
-		supportedTemplates []adapter.SupportedTemplates
+		supportedTemplates []string
 	}
 
 	// HandlerInfo stores validated and configured Handlers.
 	HandlerInfo struct {
 		instance       *config.Handler
 		adapterName    string
-		supportedTmpls []adapter.SupportedTemplates
+		supportedTmpls []string
 	}
 )
 
@@ -460,9 +460,9 @@ func (p *validator) validateRules(rules []*pb.Rule, path string) (ce *adapter.Co
 	return ce
 }
 
-func containsTmpl(s []adapter.SupportedTemplates, e string) bool {
+func containsTmpl(s []string, e string) bool {
 	for _, a := range s {
-		if a == adapter.SupportedTemplates(e) {
+		if a == e {
 			return true
 		}
 	}
@@ -794,7 +794,7 @@ func convertConstructorParam(tf template.Repository, templateName string, params
 	if tmplInfo, found = tf.GetTemplateInfo(templateName); !found {
 		return nil, ce.Appendf("template", "'%s' is not a registered", templateName)
 	}
-	cp = tmplInfo.CnstrDefConfig
+	cp = tmplInfo.CtrCfg
 	if err := decode(params, cp, strict); err != nil {
 		return nil, ce.Appendf(templateName, "failed to decode constructor params: %v", err)
 	}

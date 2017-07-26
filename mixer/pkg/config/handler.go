@@ -101,7 +101,7 @@ func (h *handlerFactory) dispatchToHandler(hb *HandlerBuilderInfo, handler strin
 			typsToCnfgr[inst] = v
 		}
 
-		if err := ti.ConfigureTypeFn(typsToCnfgr, hb.handlerBuilder); err != nil {
+		if err := ti.ConfigureType(typsToCnfgr, hb.handlerBuilder); err != nil {
 			glog.Warningf("Cannot configure handler %s with types %v: %v", handler, typsToCnfgr, err)
 			return err
 		}
@@ -157,7 +157,7 @@ func (h *handlerFactory) inferTypes(constructors map[string]*pb.Constructor) (ma
 		}
 
 		// TODO: The validation on the correctness of the expression is done here. I think it is fine, pls double check.
-		inferredType, err := tmplInfo.InferTypeFn(cnstr.GetParams().(proto.Message), func(expr string) (pbd.ValueType, error) {
+		inferredType, err := tmplInfo.InferType(cnstr.GetParams().(proto.Message), func(expr string) (pbd.ValueType, error) {
 			return h.typeChecker.EvalType(expr, h.attrDescFinder)
 		})
 		if err != nil {

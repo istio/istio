@@ -28,8 +28,7 @@ type builderInfoRegistry struct {
 	builderInfosByName map[string]*adapter.BuilderInfo
 }
 
-type handlerBuilderValidator func(hndlrBuilder config.HandlerBuilder, t adapter.SupportedTemplates,
-	handlerName string) (bool, string)
+type handlerBuilderValidator func(hndlrBuilder config.HandlerBuilder, t string) (bool, string)
 
 // newRegistry2 returns a new BuilderInfo registry.
 func newRegistry2(getBuilderInfos []adapter.GetBuilderInfoFn, hndlrBldrValidator handlerBuilderValidator) *builderInfoRegistry {
@@ -60,8 +59,10 @@ func newRegistry2(getBuilderInfos []adapter.GetBuilderInfoFn, hndlrBldrValidator
 			}
 			if ok, errMsg := doesBuilderSupportsTemplates(bldrInfo, hndlrBldrValidator); !ok {
 				// panic if an Adapter's HandlerBuilder does not implement interfaces that it says it wants to support.
-				glog.Error(errMsg)
-				panic(errMsg)
+				msg := fmt.Errorf("HandlerBuilder from adapter %s does not implement the required interfaces"+
+					" for the templates it supports: %s", bldrInfo.Name, errMsg)
+				glog.Error(msg)
+				panic(msg)
 			}
 
 			r.builderInfosByName[bldrInfo.Name] = &bldrInfo
@@ -89,7 +90,7 @@ func doesBuilderSupportsTemplates(info adapter.BuilderInfo, hndlrBldrValidator h
 	handlerBuilder := info.CreateHandlerBuilderFn()
 	resultMsgs := make([]string, 0)
 	for _, t := range info.SupportedTemplates {
-		if ok, errMsg := hndlrBldrValidator(handlerBuilder, t, info.Name); !ok {
+		if ok, errMsg := hndlrBldrValidator(handlerBuilder, t); !ok {
 			resultMsgs = append(resultMsgs, errMsg)
 		}
 	}

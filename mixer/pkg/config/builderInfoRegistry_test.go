@@ -16,8 +16,6 @@ package config
 
 import (
 	"errors"
-	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
@@ -25,6 +23,7 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/config"
+	"istio.io/mixer/pkg/template"
 	sample_report "istio.io/mixer/template/sample/report"
 )
 
@@ -37,7 +36,7 @@ func createBuilderInfo(name string) adapter.BuilderInfo {
 		Name:                   name,
 		Description:            "mock adapter for testing",
 		CreateHandlerBuilderFn: func() config.HandlerBuilder { return fakeHandlerBuilder{} },
-		SupportedTemplates:     []adapter.SupportedTemplates{adapter.SampleProcessorTemplate},
+		SupportedTemplates:     []string{sample_report.TemplateName},
 		DefaultConfig:          &types.Empty{},
 		ValidateConfig:         func(c proto.Message) error { return nil },
 	}
@@ -59,12 +58,15 @@ func (fakeHandler) ReportSample([]*sample_report.Instance) error {
 	return errors.New("not implemented")
 }
 
-func TestRegisterSampleProcessor(t *testing.T) {
-	var a *sample_report.SampleProcessorBuilder
-	fmt.Println(reflect.TypeOf(a).Elem())
+func fakeValidateSupportedTmpl(hndlrBuilder config.HandlerBuilder, t string) (bool, string) {
+	// always succeed
+	return true, ""
+}
 
+func TestRegisterSampleProcessor(t *testing.T) {
 	testBuilderInfoInventory := TestBuilderInfoInventory{"foo"}
-	reg := newRegistry2([]adapter.GetBuilderInfoFn{testBuilderInfoInventory.getNewGetBuilderInfoFn}, DoesBuilderSupportsTemplate)
+	reg := newRegistry2([]adapter.GetBuilderInfoFn{testBuilderInfoInventory.getNewGetBuilderInfoFn},
+		template.NewRepository(template.SupportedTmplInfo).SupportsTemplate)
 
 	builderInfo, ok := reg.FindBuilderInfo(testBuilderInfoInventory.name)
 	if !ok {
@@ -89,7 +91,7 @@ func TestCollisionSameNameAdapter(t *testing.T) {
 
 	_ = newRegistry2([]adapter.GetBuilderInfoFn{
 		testBuilderInfoInventory.getNewGetBuilderInfoFn,
-		testBuilderInfoInventory2.getNewGetBuilderInfoFn}, DoesBuilderSupportsTemplate,
+		testBuilderInfoInventory2.getNewGetBuilderInfoFn}, fakeValidateSupportedTmpl,
 	)
 
 	t.Error("Should not reach this statement due to panic.")
@@ -107,7 +109,7 @@ func TestMissingDefaultValue(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]adapter.GetBuilderInfoFn{func() adapter.BuilderInfo { return builderInfo }}, DoesBuilderSupportsTemplate)
+	_ = newRegistry2([]adapter.GetBuilderInfoFn{func() adapter.BuilderInfo { return builderInfo }}, fakeValidateSupportedTmpl)
 
 	t.Error("Should not reach this statement due to panic.")
 }
@@ -124,7 +126,7 @@ func TestMissingValidateConfigFn(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]adapter.GetBuilderInfoFn{func() adapter.BuilderInfo { return builderInfo }}, DoesBuilderSupportsTemplate)
+	_ = newRegistry2([]adapter.GetBuilderInfoFn{func() adapter.BuilderInfo { return builderInfo }}, fakeValidateSupportedTmpl)
 
 	t.Error("Should not reach this statement due to panic.")
 }
@@ -136,7 +138,7 @@ func TestHandlerMap(t *testing.T) {
 	mp := BuilderInfoMap([]adapter.GetBuilderInfoFn{
 		testBuilderInfoInventory.getNewGetBuilderInfoFn,
 		testBuilderInfoInventory2.getNewGetBuilderInfoFn,
-	}, DoesBuilderSupportsTemplate)
+	}, fakeValidateSupportedTmpl)
 
 	if _, found := mp["foo"]; !found {
 		t.Error("got nil, want foo")
@@ -162,16 +164,20 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 		return adapter.BuilderInfo{
 			Name:                   "badAdapter1",
 			Description:            "mock adapter for testing",
+			DefaultConfig:          &types.Empty{},
+			ValidateConfig:         func(c proto.Message) error { return nil },
 			CreateHandlerBuilderFn: func() config.HandlerBuilder { return badHandlerBuilder{} },
-			SupportedTemplates:     []adapter.SupportedTemplates{adapter.SampleProcessorTemplate},
+			SupportedTemplates:     []string{sample_report.TemplateName},
 		}
 	}
 	badHandlerBuilderBuilderInfo2 := func() adapter.BuilderInfo {
 		return adapter.BuilderInfo{
 			Name:                   "badAdapter1",
 			Description:            "mock adapter for testing",
+			DefaultConfig:          &types.Empty{},
+			ValidateConfig:         func(c proto.Message) error { return nil },
 			CreateHandlerBuilderFn: func() config.HandlerBuilder { return badHandlerBuilder{} },
-			SupportedTemplates:     []adapter.SupportedTemplates{adapter.SampleProcessorTemplate},
+			SupportedTemplates:     []string{sample_report.TemplateName},
 		}
 	}
 
@@ -183,7 +189,7 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 	}()
 
 	_ = newRegistry2([]adapter.GetBuilderInfoFn{
-		badHandlerBuilderBuilderInfo1, badHandlerBuilderBuilderInfo2}, DoesBuilderSupportsTemplate,
+		badHandlerBuilderBuilderInfo1, badHandlerBuilderBuilderInfo2}, template.NewRepository(template.SupportedTmplInfo).SupportsTemplate,
 	)
 
 	t.Error("Should not reach this statement due to panic.")

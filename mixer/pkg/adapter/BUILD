@@ -10,7 +10,6 @@ go_library(
         "applicationLogs.go",
         "attributes.go",
         "builder.go",
-        "builderInfo.gen.go",
         "builderInfo.go",
         "configError.go",
         "denials.go",
