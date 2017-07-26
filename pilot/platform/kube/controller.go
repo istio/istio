@@ -33,6 +33,13 @@ import (
 	"istio.io/pilot/model"
 )
 
+const (
+	// NodeRegionLabel is the well-known label for kubernetes node region
+	NodeRegionLabel = "failure-domain.beta.kubernetes.io/region"
+	// NodeZoneLabel is the well-known label for kubernetes node zone
+	NodeZoneLabel = "failure-domain.beta.kubernetes.io/zone"
+)
+
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
 	// Namespace to restrict controller to (empty to disable restriction)
@@ -51,6 +58,7 @@ type Controller struct {
 	queue     Queue
 	services  cacheHandler
 	endpoints cacheHandler
+	nodes     cacheHandler
 
 	pods *PodCache
 }
@@ -85,6 +93,14 @@ func NewController(client kubernetes.Interface, mesh *proxyconfig.ProxyMeshConfi
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
 			return client.CoreV1().Endpoints(options.Namespace).Watch(opts)
+		})
+
+	out.nodes = out.createInformer(&v1.Node{}, options.ResyncPeriod,
+		func(opts meta_v1.ListOptions) (runtime.Object, error) {
+			return client.CoreV1().Nodes().List(opts)
+		},
+		func(opts meta_v1.ListOptions) (watch.Interface, error) {
+			return client.CoreV1().Nodes().Watch(opts)
 		})
 
 	out.pods = newPodCache(out.createInformer(&v1.Pod{}, options.ResyncPeriod,
@@ -208,6 +224,30 @@ func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
 	return item.(*v1.Service), true
 }
 
+// getPodAZByIP retrieves the pods AZ using its IP
+func (c *Controller) getPodAZByIP(addr string) (string, bool) {
+	pod, exists := c.pods.getPodByIP(addr)
+	if !exists {
+		return "", false
+	}
+	// NodeName is set by the scheduler after the pod is created
+	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
+	node, exists, err := c.nodes.informer.GetStore().GetByKey(pod.Spec.NodeName)
+	if !exists || err != nil {
+		return "", false
+	}
+	region, exists := node.(*v1.Node).Labels[NodeRegionLabel]
+	if !exists {
+		return "", false
+	}
+	zone, exists := node.(*v1.Node).Labels[NodeZoneLabel]
+	if !exists {
+		return "", false
+	}
+
+	return fmt.Sprintf("%v/%v", region, zone), true
+}
+
 // Instances implements a service catalog operation
 func (c *Controller) Instances(hostname string, ports []string, tagsList model.TagsList) []*model.ServiceInstance {
 	// Get actual service by name
@@ -242,11 +282,11 @@ func (c *Controller) Instances(hostname string, ports []string, tagsList model.T
 			for _, ss := range ep.Subsets {
 				for _, ea := range ss.Addresses {
 					tags, _ := c.pods.tagsByIP(ea.IP)
-
 					// check that one of the input tags is a subset of the tags
 					if !tagsList.HasSubsetOf(tags) {
 						continue
 					}
+					az, _ := c.getPodAZByIP(ea.IP)
 
 					// identify the port by name
 					for _, port := range ss.Ports {
@@ -257,8 +297,9 @@ func (c *Controller) Instances(hostname string, ports []string, tagsList model.T
 									Port:        int(port.Port),
 									ServicePort: svcPort,
 								},
-								Service: svc,
-								Tags:    tags,
+								Service:          svc,
+								Tags:             tags,
+								AvailabilityZone: az,
 							})
 						}
 					}
@@ -292,14 +333,16 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 							continue
 						}
 						tags, _ := c.pods.tagsByIP(ea.IP)
+						az, _ := c.getPodAZByIP(ea.IP)
 						out = append(out, &model.ServiceInstance{
 							Endpoint: model.NetworkEndpoint{
 								Address:     ea.IP,
 								Port:        int(port.Port),
 								ServicePort: svcPort,
 							},
-							Service: svc,
-							Tags:    tags,
+							Service:          svc,
+							Tags:             tags,
+							AvailabilityZone: az,
 						})
 					}
 				}
@@ -376,48 +419,4 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 		return nil
 	})
 	return nil
-}
-
-// PodCache is an eventually consistent pod cache
-type PodCache struct {
-	cacheHandler
-
-	// keys maintains stable pod IP to name key mapping
-	// this allows us to retrieve the latest status by pod IP
-	keys map[string]string
-}
-
-func newPodCache(ch cacheHandler) *PodCache {
-	out := &PodCache{
-		cacheHandler: ch,
-		keys:         make(map[string]string),
-	}
-
-	ch.handler.Append(func(obj interface{}, ev model.Event) error {
-		pod := *obj.(*v1.Pod)
-		ip := pod.Status.PodIP
-		if len(ip) > 0 {
-			switch ev {
-			case model.EventAdd, model.EventUpdate:
-				out.keys[ip] = KeyFunc(pod.Name, pod.Namespace)
-			case model.EventDelete:
-				delete(out.keys, ip)
-			}
-		}
-		return nil
-	})
-	return out
-}
-
-// tagsByIP returns pod tags or nil if pod not found or an error occurred
-func (pc *PodCache) tagsByIP(addr string) (model.Tags, bool) {
-	key, exists := pc.keys[addr]
-	if !exists {
-		return nil, false
-	}
-	item, exists, err := pc.informer.GetStore().GetByKey(key)
-	if !exists || err != nil {
-		return nil, false
-	}
-	return convertTags(item.(*v1.Pod).ObjectMeta), true
 }

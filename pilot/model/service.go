@@ -156,9 +156,10 @@ type TagsList []Tags
 //      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Tag(kitty=cat)
 //      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Tag(kitty=cat)
 type ServiceInstance struct {
-	Endpoint NetworkEndpoint `json:"endpoint,omitempty"`
-	Service  *Service        `json:"service,omitempty"`
-	Tags     Tags            `json:"tags,omitempty"`
+	Endpoint         NetworkEndpoint `json:"endpoint,omitempty"`
+	Service          *Service        `json:"service,omitempty"`
+	Tags             Tags            `json:"tags,omitempty"`
+	AvailabilityZone string          `json:"az,omitempty"`
 }
 
 // ServiceDiscovery enumerates Istio service instances.

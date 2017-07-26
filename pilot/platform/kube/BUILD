@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "cache.go",
         "client.go",
         "controller.go",
         "conversion.go",
@@ -37,6 +38,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
+        "cache_test.go",
         "client_test.go",
         "controller_test.go",
         "conversion_test.go",

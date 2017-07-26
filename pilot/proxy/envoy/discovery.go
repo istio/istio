@@ -366,9 +366,15 @@ func (ds *DiscoveryService) ListAllEndpoints(request *restful.Request, response 
 			for _, port := range service.Ports {
 				hosts := make([]*host, 0)
 				for _, instance := range ds.Instances(service.Hostname, []string{port.Name}, nil) {
+					// Only set tags if theres an AZ to set, ensures nil tags when there isnt
+					var t *tags
+					if instance.AvailabilityZone != "" {
+						t = &tags{AZ: instance.AvailabilityZone}
+					}
 					hosts = append(hosts, &host{
 						Address: instance.Endpoint.Address,
 						Port:    instance.Endpoint.Port,
+						Tags:    t,
 					})
 				}
 				services = append(services, &keyAndService{
