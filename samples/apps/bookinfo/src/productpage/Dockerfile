@@ -20,11 +20,10 @@ RUN apt-get install libmysqlclient-dev
 
 RUN mkdir -p /opt/microservices
 WORKDIR /opt/microservices
-COPY requirements.txt ./
+COPY . .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
 EXPOSE 9080
 ARG service_version
 ENV SERVICE_VERSION ${service_version:-v1}
-CMD python productpage.py 9080 $MYSQLADDR
+CMD python productpage.py 9080

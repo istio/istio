@@ -181,10 +181,26 @@ class Writer(object):
 
 class Mydb(object):
 
-    def __init__(self, addr):
+    def __init__(self):
+        # Defaults in case they are not passed as env vars.
+        creds = { 'user': 'root',
+                  'passwd': 'password',
+                  'db': 'test'
+                }
+        def get_envs(env_input):
+            env_var, x = env_input
+            if env_var in os.environ:
+                creds[x] = os.environ[env_var]
+
+        map(get_envs, [('MYSQL_DB_USER', 'user'), ('MYSQL_DB_PASSWD', 'passwd'),
+            ('MYSQL_DB_DATABASE', 'db'), ('MYSQL_DB_HOST', 'host')])
+
+	if 'host' not in creds:
+		raise ValueError("Must define MYSQL_DB_HOST environment variable")
+
         try:
-            self.cnx = MySQLdb.connect(user='root', passwd='password',
-                                      host=addr, db='test')
+            self.cnx = MySQLdb.connect(user=creds['user'], passwd=creds['passwd'],
+                                      host=creds['host'], db=creds['db'])
         except:
             raise
         self.cursor = self.cnx.cursor()
@@ -213,12 +229,10 @@ if __name__ == '__main__':
 
     if len(sys.argv) < 2:
         print_usage()
-    if use_db and len(sys.argv) < 3:
-        print_usage()
 
     p = int(sys.argv[1])
     sys.stderr = Writer('stderr.log')
     sys.stdout = Writer('stdout.log')
     if use_db:
-        DB = Mydb(sys.argv[2])
+        DB = Mydb()
     app.run(host='0.0.0.0', port=p, debug = True, threaded=True)
