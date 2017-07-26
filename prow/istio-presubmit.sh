@@ -40,11 +40,6 @@ if [ "${CI}" == 'bootstrap' ]; then
   LOG_HOST="stackdriver"
   PROJ_ID="istio-testing"
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}" --log_provider=${LOG_HOST} --project_id=${PROJ_ID})
-
-  # We are running e2e tests in a specific cluster.
-  # Using volume mount from istio-presubmit job's pod spec
-  mkdir -p ${HOME}/.kube
-  ln -s /etc/e2e-testing-kubeconfig/e2e-testing-kubeconfig ${HOME}/.kube/config
 fi
 
 echo 'Running Linters'
