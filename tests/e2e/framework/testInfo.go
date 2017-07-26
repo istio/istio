@@ -214,7 +214,7 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 				if err := fetchAndWrite(logName); err != nil {
 					multiErr = multierror.Append(multiErr, err)
 				} else {
-					glog.Info("Fetched logs on %s\n", logName)
+					glog.Infof("Fetched logs on %s", logName)
 				}
 				<-jobQue
 				wg.Done()
