@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = ["crypto.go"],
     visibility = ["//visibility:public"],
-    deps = ["@com_github_golang_glog//:go_default_library"],
 )
 
 go_test(
