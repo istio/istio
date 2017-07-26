@@ -22,7 +22,6 @@ func TestBazelGeneration(t *testing.T) {
 		{"Quota", "interfacegen/testdata/quota_template_library_processor.gen.go", "interfacegen/testdata/QuotaTemplateProcessorInterface.golden.go"},
 		{"Logs", "interfacegen/testdata/log_template_library_processor.gen.go", "interfacegen/testdata/LogTemplateProcessorInterface.golden.go"},
 		{"Lists", "interfacegen/testdata/list_template_library_processor.gen.go", "interfacegen/testdata/ListTemplateProcessorInterface.golden.go"},
-		{"Nested Message", "interfacegen/testdata/nested_message_library_processor.gen.go", "interfacegen/testdata/NestedMessageProcessorInterface.golden.go"},
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {

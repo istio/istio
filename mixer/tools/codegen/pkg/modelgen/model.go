@@ -16,6 +16,7 @@ package modelgen
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	proto "github.com/gogo/protobuf/proto"
@@ -23,30 +24,40 @@ import (
 	tmpl "istio.io/mixer/pkg/adapter/template"
 )
 
-const fullNameOfValueTypeMessage = "istio_mixer_v1_config_descriptor.ValueType"
+const fullGoNameOfValueTypeMessage = "istio_mixer_v1_config_descriptor.ValueType"
+const fullProtoNameOfValueTypeEnum = "istio.mixer.v1.config.descriptor.ValueType"
 
 type (
 	// Model represents the object used to code generate mixer artifacts.
 	Model struct {
-		// top level fields
 		Name        string
-		PackageName string
 		VarietyName string
 
-		// Constructor fields
-		InstanceFields []fieldInfo
+		// Info for go interfaces
+		GoPackageName  string
+		InstanceStruct messageInfo
+
+		// Info for regenerated template proto
+		PackageName             string
+		TypeMessage             messageInfo
+		ConstructorParamMessage messageInfo
 
 		// Warnings/Errors in the Template proto file.
 		diags []diag
 	}
 
 	fieldInfo struct {
-		Name string
-		Type typeInfo
+		Name   string
+		Type   typeInfo
+		Number string // Only for proto fields
 	}
 
 	typeInfo struct {
 		Name string
+	}
+
+	messageInfo struct {
+		Fields []fieldInfo
 	}
 )
 
@@ -85,9 +96,48 @@ func (m *Model) fillModel(templateProto *FileDescriptor, parser *FileDescriptorS
 	if tmplDesc, ok := getRequiredMsg(templateProto, "Template"); !ok {
 		m.addError(templateProto.GetName(), unknownLine, "message 'Template' not defined")
 	} else {
-		// TODO Validate that the type of the fields in the template are primitives that can be represented as ValueType
-		// or is ValueType itself.
 		m.addInstanceFields(parser, templateProto, tmplDesc)
+		m.addTypeMessage(parser, templateProto, tmplDesc)
+		m.addConstructorMessage(parser, templateProto, tmplDesc)
+	}
+}
+
+func (m *Model) addTypeMessage(parser *FileDescriptorSetParser, templateProto *FileDescriptor, tmplDesc *Descriptor) {
+	m.TypeMessage.Fields = make([]fieldInfo, 0)
+	for i, fieldDesc := range tmplDesc.Field {
+		fieldName := fieldDesc.GetName()
+
+		typename, err := parser.protoType(fieldDesc)
+		if err != nil {
+			m.addError(tmplDesc.file.GetName(),
+				templateProto.getLineNumber(getPathForField(tmplDesc, i)),
+				err.Error())
+		}
+		// transform the primitives into ValueType
+		// We only support primitives that can be represented as ValueTypes, ValueType itself, or map<string, ValueType>.
+		// So, if the fields is not a map, it's type should be converted into ValueType inside the generated Type Message.
+		if !strings.Contains(typename, "map<") {
+			typename = fullProtoNameOfValueTypeEnum
+		}
+		m.TypeMessage.Fields = append(m.TypeMessage.Fields, fieldInfo{Name: fieldName, Type: typeInfo{Name: typename},
+			Number: strconv.FormatInt(int64(fieldDesc.GetNumber()), 10)})
+	}
+}
+
+func (m *Model) addConstructorMessage(parser *FileDescriptorSetParser, templateProto *FileDescriptor, tmplDesc *Descriptor) {
+	m.ConstructorParamMessage.Fields = make([]fieldInfo, 0)
+	for i, fieldDesc := range tmplDesc.Field {
+		fieldName := fieldDesc.GetName()
+
+		typename, err := parser.protoType(fieldDesc)
+		if err != nil {
+			m.addError(tmplDesc.file.GetName(),
+				templateProto.getLineNumber(getPathForField(tmplDesc, i)),
+				err.Error())
+		}
+		typename = strings.Replace(typename, fullProtoNameOfValueTypeEnum, "string", 1)
+		m.ConstructorParamMessage.Fields = append(m.ConstructorParamMessage.Fields, fieldInfo{Name: fieldName,
+			Type: typeInfo{Name: typename}, Number: strconv.FormatInt(int64(fieldDesc.GetNumber()), 10)})
 	}
 }
 
@@ -139,7 +189,8 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 	}
 
 	if fd.Package != nil {
-		m.PackageName = goPackageName(strings.TrimSpace(*fd.Package))
+		m.GoPackageName = goPackageName(strings.TrimSpace(*fd.Package))
+		m.PackageName = strings.TrimSpace(*fd.Package)
 	} else {
 		m.addError(fd.GetName(), unknownLine, "package name missing")
 	}
@@ -168,7 +219,7 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 
 // Build field information about the Instance struct.
 func (m *Model) addInstanceFields(parser *FileDescriptorSetParser, templateProto *FileDescriptor, tmplDesc *Descriptor) {
-	m.InstanceFields = make([]fieldInfo, 0)
+	m.InstanceStruct.Fields = make([]fieldInfo, 0)
 	for i, fieldDesc := range tmplDesc.Field {
 		fieldName := camelCase(fieldDesc.GetName())
 		// Name field is a reserved field that will be injected in the Instance object. The user defined
@@ -181,9 +232,9 @@ func (m *Model) addInstanceFields(parser *FileDescriptorSetParser, templateProto
 				"Template message must not contain the reserved filed name '%s'", fieldDesc.GetName())
 			continue
 		}
-		typename := parser.GoType(tmplDesc.DescriptorProto, fieldDesc)
-		typename = strings.Replace(typename, fullNameOfValueTypeMessage, "interface{}", 1)
-		m.InstanceFields = append(m.InstanceFields, fieldInfo{Name: fieldName, Type: typeInfo{Name: typename}})
+		typename := parser.goType(tmplDesc.DescriptorProto, fieldDesc)
+		typename = strings.Replace(typename, fullGoNameOfValueTypeMessage, "interface{}", 1)
+		m.InstanceStruct.Fields = append(m.InstanceStruct.Fields, fieldInfo{Name: fieldName, Type: typeInfo{Name: typename}})
 	}
 }
 

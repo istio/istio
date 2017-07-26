@@ -378,8 +378,8 @@ const (
 	sBYTEARRAY = "[]byte"
 )
 
-// GoType returns a Go type name for a FieldDescriptorProto.
-func (g *FileDescriptorSetParser) GoType(message *descriptor.DescriptorProto, field *descriptor.FieldDescriptorProto) (typ string) {
+// goType returns a Go type name for a FieldDescriptorProto.
+func (g *FileDescriptorSetParser) goType(message *descriptor.DescriptorProto, field *descriptor.FieldDescriptorProto) (typ string) {
 	switch *field.Type {
 	case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
 		typ = sFLOAT64
@@ -410,8 +410,8 @@ func (g *FileDescriptorSetParser) GoType(message *descriptor.DescriptorProto, fi
 
 		if d, ok := desc.(*Descriptor); ok && d.GetOptions().GetMapEntry() {
 			keyField, valField := d.Field[0], d.Field[1]
-			keyType := g.GoType(d.DescriptorProto, keyField)
-			valType := g.GoType(d.DescriptorProto, valField)
+			keyType := g.goType(d.DescriptorProto, keyField)
+			valType := g.goType(d.DescriptorProto, valField)
 
 			keyType = strings.TrimPrefix(keyType, "*")
 			switch *valField.Type {
@@ -455,6 +455,53 @@ func (g *FileDescriptorSetParser) GoType(message *descriptor.DescriptorProto, fi
 		typ = "*" + typ
 	}
 	return
+}
+
+// protoType returns a Proto type name for a Field's DescriptorProto.
+// We only support primitives that can be represented as ValueTypes,ValueType itself, or map<string, ValueType>.
+var supportedTypes = "string, int64, double, bool, " + fullProtoNameOfValueTypeEnum + ", " + fmt.Sprintf("map<string, %s>", fullProtoNameOfValueTypeEnum)
+
+func (g *FileDescriptorSetParser) protoType(field *descriptor.FieldDescriptorProto) (typ string, err error) {
+	switch *field.Type {
+	case descriptor.FieldDescriptorProto_TYPE_STRING:
+		typ = "string"
+	case descriptor.FieldDescriptorProto_TYPE_INT64:
+		typ = "int64"
+	case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
+		typ = "double"
+	case descriptor.FieldDescriptorProto_TYPE_BOOL:
+		typ = "bool"
+	case descriptor.FieldDescriptorProto_TYPE_ENUM:
+		typ = field.GetTypeName()[1:]
+		if typ != fullProtoNameOfValueTypeEnum {
+			return "", fmt.Errorf("unsupported type for field '%s'. Supported types are '%s'", field.GetName(), supportedTypes)
+		}
+	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
+		desc := g.ObjectNamed(field.GetTypeName())
+		if d, ok := desc.(*Descriptor); ok && d.GetOptions().GetMapEntry() {
+			keyField, valField := d.Field[0], d.Field[1]
+
+			keyType, err := g.protoType(keyField)
+			if err != nil {
+				return "", err
+			}
+			valType, err := g.protoType(valField)
+			if err != nil {
+				return "", err
+			}
+
+			if keyType != "string" || valType != fullProtoNameOfValueTypeEnum {
+				return "", fmt.Errorf("unsupported type for field '%s'. Supported types are '%s'", field.GetName(), supportedTypes)
+			}
+
+			typ = fmt.Sprintf("map<%s, %s>", keyType, valType)
+			return typ, nil
+		}
+		return "", fmt.Errorf("unsupported type for field '%s'. Supported types are '%s'", field.GetName(), supportedTypes)
+	default:
+		return "", fmt.Errorf("unsupported type for field '%s'. Supported types are '%s'", field.GetName(), supportedTypes)
+	}
+	return typ, nil
 }
 
 // TypeName returns a full name for the underlying Object type.

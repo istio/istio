@@ -7,14 +7,14 @@ def _impl(ctx):
   for k, v in ctx.attr.importmap.items():
     m += ["-m %s:%s" % (k, v)]
 
-  args = [ctx.file.src.path, "-o=" + ctx.outputs.out.path] + m
+  args = [ctx.file.src.path, "-o=" + ctx.outputs.out.path, "-t=" + ctx.outputs.out_template.path] + m
   # print(args)
 
   # Action to call the script.
   ctx.action(
       mnemonic="MixerGen",
       inputs=[ctx.file.src],
-      outputs=[ctx.outputs.out],
+      outputs=[ctx.outputs.out_template, ctx.outputs.out],
       arguments=args,
       progress_message="Generating mixer go files in: %s" % ctx.outputs.out.path,
       executable=ctx.executable._gen_tool)
@@ -23,6 +23,7 @@ mixer_gen = rule(
   implementation=_impl,
   attrs={
       "src": attr.label(allow_single_file=True),
+      "out_template": attr.output(mandatory=True),
       "out": attr.output(mandatory=True),
       "importmap": attr.string_dict(),
       "_gen_tool": attr.label(executable=True, cfg="host", allow_files=True,
@@ -89,29 +90,36 @@ def mixer_proto_library(
    # through the gogo_proto_* methods at the moment.
    proto_compile(**proto_compile_args)
 
+   mixer_gen_args += {
+       "name" : name + "_processor",
+       "src": name + "_proto.descriptor_set",
+       "importmap": dict(dict(MIXER_IMPORT_MAP, **GOGO_IMPORT_MAP), **importmap),
+       "out": name + "_processor.gen.go",
+       "out_template": name + "_tmpl.proto",
+   }
+
+   mixer_gen(**mixer_gen_args)
+
    gogoslick_args += {
       "name": name + "_gogo_proto",
-      "protos": protos,
+      "protos": [name + "_tmpl.proto"],
       "deps": MIXER_DEPS + GOGO_DEPS + deps,
       "imports": imports + MIXER_IMPORTS + PROTO_IMPORTS,
       "importmap": dict(dict(MIXER_IMPORT_MAP, **GOGO_IMPORT_MAP), **importmap),
       "inputs": inputs + MIXER_INPUTS + PROTO_INPUTS,
-      # "output_to_workspace": True,
+      # TODO HELP PLS. Need this to make build work. Is this bad ?
+      # Was getting error: output 'template/ .. .. *_tmpl.pb.go' was not created
+      # But setting this to True, gives a scary warning on the commandline
+      # * - Generating files into the workspace...  This is potentially           *
+      # *   dangerous (may overwrite existing files) and violates bazel's         *
+      # *   sandbox policy.                                                       *
+      "output_to_workspace": True,
       "verbose": verbose,
    }
 
    # we run this proto library to get the generated pb.go files to link
    # in with the mixer generated files for a go library
    gogoslick_proto_library(**gogoslick_args)
-
-   mixer_gen_args += {
-       "name" : name + "_processor",
-       "src": name + "_proto.descriptor_set",
-       "importmap": dict(dict(MIXER_IMPORT_MAP, **GOGO_IMPORT_MAP), **importmap),
-       "out": name + "_processor.gen.go",
-   }
-
-   mixer_gen(**mixer_gen_args)
 
    go_library(
       name = name,
