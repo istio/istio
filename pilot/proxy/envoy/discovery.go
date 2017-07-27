@@ -646,8 +646,8 @@ func (ds *DiscoveryService) getListeners(node string) (listeners Listeners, clus
 
 		listener := buildHTTPListener(ds.Mesh, nil, WildcardAddress, 443, true, true)
 		listener.SSLContext = &SSLContext{
-			CertChainFile:  path.Join(IngressCertsPath, "tls.crt"),
-			PrivateKeyFile: path.Join(IngressCertsPath, "tls.key"),
+			CertChainFile:  path.Join(proxy.IngressCertsPath, "tls.crt"),
+			PrivateKeyFile: path.Join(proxy.IngressCertsPath, "tls.key"),
 		}
 
 		listeners = Listeners{

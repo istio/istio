@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-# Building with Bazel
+# Building and testing with Bazel
 bazel build //...
 
 # Clean up vendor dir

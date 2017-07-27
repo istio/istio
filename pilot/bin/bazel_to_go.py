@@ -12,7 +12,7 @@ def process(fl, external, vendor):
 
     for stmt in ast.walk(tree):
         stmttype = type(stmt)
-        if stmttype == ast.Call and stmt.func.id == "new_go_repository":
+        if stmttype == ast.Call and stmt.func.id == "go_repository":
             kw = {k.arg: k.value.s for k in stmt.keywords if k.arg in ["name", "importpath"]}
             source = os.path.join(external, kw["name"])
             u = urlparse(kw["importpath"])

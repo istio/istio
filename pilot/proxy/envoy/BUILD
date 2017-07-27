@@ -60,9 +60,9 @@ go_test(
 
 genrule(
     name = "envoy_bin",
-    srcs = ["@istio_proxy_debug//file"],
+    srcs = ["@envoy_binary//file"],
     outs = ["envoy"],
-    cmd = "tar xzf $(location @istio_proxy_debug//file); mv usr/local/bin/envoy $@",
+    cmd = "tar xzf $(location @envoy_binary//file); mv usr/local/bin/envoy $@",
 )
 
 sh_test(

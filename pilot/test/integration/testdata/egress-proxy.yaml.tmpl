@@ -28,7 +28,7 @@ spec:
     spec:
       serviceAccountName: istio-egress-service-account
       containers:
-      - name: proxy
+      - name: istio-proxy
         image: {{.Hub}}/proxy_debug:{{.Tag}}
         imagePullPolicy: Always
         ports:
@@ -43,6 +43,9 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
+          readOnly: true
+        - mountPath: /etc/istio/proxy/
+          name: istio-envoy
 {{if eq .Auth 1}}
         - mountPath: /etc/certs
           name: istio-certs
@@ -52,6 +55,9 @@ spec:
       - name: config-volume
         configMap:
           name: istio
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
 {{if eq .Auth 1}}
       - name: istio-certs
         secret:

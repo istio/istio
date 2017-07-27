@@ -16,31 +16,25 @@
 #
 ################################################################################
 #
-# Run integration tests
+# This script creates a base image for the init image that includes iptables.
 #
-# It is a simple shim over test/integration/driver.go that accepts the same set of flags.
-# Please add new flags to the Go test driver directly instead of extending this file.
-# The additional steps that the script performs are:
-# - set default docker tag based on a timestamp and user name
-# - build and push docker images, including this repo pieces and proxy.
 
 set -ex
 set -o errexit
 set -o nounset
 set -o pipefail
 
-args=""
-hub="gcr.io/istio-testing"
-tag=$(whoami)_$(date +%y%m%d_%h%m%s)
+PROJECT="istio-testing"
+DATE_PART=$(date +"%Y%m%d")
+SHA_PART=$(git show -q HEAD --pretty=format:%h)
+DOCKER_TAG="${DATE_PART}-${SHA_PART}"
+IMAGE_NAME="gcr.io/${PROJECT}/iptables:${DOCKER_TAG}"
 
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        -tag) tag="$2"; shift ;;
-        -hub) hub="$2"; shift ;;
-        *) args=$args" $1" ;;
-    esac
-    shift
-done
+gcloud docker --authorize-only
+pushd docker
+  docker build -f Dockerfile.iptables -t "${IMAGE_NAME}" .
+  gcloud docker -- push "${IMAGE_NAME}"
+popd
 
-bin/push-docker -hub $hub -tag $tag
-bazel run //test/integration -- --logtostderr $args -hub $hub -tag $tag
+echo Published image ${IMAGE_NAME}
+echo Make sure to update WORKSPACE for the init container base image

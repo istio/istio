@@ -1,0 +1,3 @@
+FROM gcr.io/istio-testing/envoy-debug:20170725-b3d04d6
+ADD pilot-agent /usr/local/bin/pilot-agent
+ENTRYPOINT ["/usr/local/bin/pilot-agent"]

@@ -43,11 +43,6 @@ type Watcher interface {
 	Reload()
 }
 
-const (
-	// IngressCertsPath is the path location for ingress certificates
-	IngressCertsPath = "/etc/istio/ingress-certs/"
-)
-
 type watcher struct {
 	agent proxy.Agent
 	role  proxy.Role
@@ -55,7 +50,7 @@ type watcher struct {
 }
 
 // NewWatcher creates a new watcher instance with an agent
-func NewWatcher(mesh *proxyconfig.ProxyMeshConfig, role proxy.Role) Watcher {
+func NewWatcher(mesh *proxyconfig.ProxyMeshConfig, role proxy.Role, configpath string) Watcher {
 	glog.V(2).Infof("Proxy role: %#v", role)
 
 	if mesh.StatsdUdpAddress != "" {
@@ -67,7 +62,7 @@ func NewWatcher(mesh *proxyconfig.ProxyMeshConfig, role proxy.Role) Watcher {
 		}
 	}
 
-	agent := proxy.NewAgent(runEnvoy(mesh, role.ServiceNode()), proxy.DefaultRetry)
+	agent := proxy.NewAgent(runEnvoy(mesh, role.ServiceNode(), configpath), proxy.DefaultRetry)
 	out := &watcher{
 		agent: agent,
 		role:  role,
@@ -91,7 +86,7 @@ func (w *watcher) Run(ctx context.Context) {
 
 	// monitor ingress certificates
 	if w.role.ServiceNode() == proxy.IngressNode {
-		go watchCerts(ctx, IngressCertsPath, w.Reload)
+		go watchCerts(ctx, proxy.IngressCertsPath, w.Reload)
 
 		// update secrets with polling
 		go func() {
@@ -122,7 +117,7 @@ func (w *watcher) Reload() {
 		generateCertHash(h, w.mesh.AuthCertsPath, authFiles)
 	}
 	if w.role.ServiceNode() == proxy.IngressNode {
-		generateCertHash(h, IngressCertsPath, []string{"tls.crt", "tls.key"})
+		generateCertHash(h, proxy.IngressCertsPath, []string{"tls.crt", "tls.key"})
 	}
 	config.Hash = h.Sum(nil)
 
@@ -160,17 +155,17 @@ func (w *watcher) UpdateIngressSecret(ctx context.Context) error {
 		return err
 	}
 
-	if _, err := os.Stat(IngressCertsPath); os.IsNotExist(err) {
-		err = os.Mkdir(IngressCertsPath, 0755)
+	if _, err := os.Stat(proxy.IngressCertsPath); os.IsNotExist(err) {
+		err = os.Mkdir(proxy.IngressCertsPath, 0755)
 		if err != nil {
 			return multierror.Prefix(err, "cannot create parent directory")
 		}
 	}
 
-	if err := ioutil.WriteFile(path.Join(IngressCertsPath, "tls.crt"), tls.Certificate, 0755); err != nil {
+	if err := ioutil.WriteFile(path.Join(proxy.IngressCertsPath, "tls.crt"), tls.Certificate, 0755); err != nil {
 		return multierror.Prefix(err, "failed to write cert file")
 	}
-	if err := ioutil.WriteFile(path.Join(IngressCertsPath, "tls.key"), tls.PrivateKey, 0755); err != nil {
+	if err := ioutil.WriteFile(path.Join(proxy.IngressCertsPath, "tls.key"), tls.PrivateKey, 0755); err != nil {
 		return multierror.Prefix(err, "failed to write key file")
 	}
 
@@ -179,17 +174,14 @@ func (w *watcher) UpdateIngressSecret(ctx context.Context) error {
 
 const (
 	// EpochFileTemplate is a template for the root config JSON
-	EpochFileTemplate = "%s/envoy-rev%d.json"
+	EpochFileTemplate = "envoy-rev%d.json"
 
 	// BinaryPath is the path to envoy binary
 	BinaryPath = "/usr/local/bin/envoy"
-
-	// ConfigPath is the directory to hold enovy epoch configurations
-	ConfigPath = "/etc/istio/envoy"
 )
 
 func configFile(config string, epoch int) string {
-	return fmt.Sprintf(EpochFileTemplate, config, epoch)
+	return path.Join(config, fmt.Sprintf(EpochFileTemplate, epoch))
 }
 
 func envoyArgs(fname string, epoch int, mesh *proxyconfig.ProxyMeshConfig, node string) []string {
@@ -202,7 +194,7 @@ func envoyArgs(fname string, epoch int, mesh *proxyconfig.ProxyMeshConfig, node 
 	}
 }
 
-func runEnvoy(mesh *proxyconfig.ProxyMeshConfig, node string) proxy.Proxy {
+func runEnvoy(mesh *proxyconfig.ProxyMeshConfig, node, configpath string) proxy.Proxy {
 	return proxy.Proxy{
 		Run: func(config interface{}, epoch int, abort <-chan error) error {
 			envoyConfig, ok := config.(*Config)
@@ -211,7 +203,7 @@ func runEnvoy(mesh *proxyconfig.ProxyMeshConfig, node string) proxy.Proxy {
 			}
 
 			// attempt to write file
-			fname := configFile(ConfigPath, epoch)
+			fname := configFile(configpath, epoch)
 			if err := envoyConfig.WriteFile(fname); err != nil {
 				return err
 			}
@@ -253,7 +245,7 @@ func runEnvoy(mesh *proxyconfig.ProxyMeshConfig, node string) proxy.Proxy {
 			}
 		},
 		Cleanup: func(epoch int) {
-			path := configFile(ConfigPath, epoch)
+			path := configFile(configpath, epoch)
 			if err := os.Remove(path); err != nil {
 				glog.Warningf("Failed to delete config file %s for %d, %v", path, epoch, err)
 			}

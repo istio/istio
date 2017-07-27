@@ -36,6 +36,7 @@ import (
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/adapter/config/tpr"
 	"istio.io/pilot/model"
+	"istio.io/pilot/platform/kube/inject"
 	"istio.io/pilot/test/util"
 )
 
@@ -206,7 +207,7 @@ func runTests(envs ...infra) {
 					glog.Info(util.FetchLogs(client, pod, istio.Namespace, "mixer"))
 				} else {
 					log("Proxy log", pod)
-					glog.Info(util.FetchLogs(client, pod, istio.Namespace, "proxy"))
+					glog.Info(util.FetchLogs(client, pod, istio.Namespace, inject.ProxyContainerName))
 				}
 			}
 		}

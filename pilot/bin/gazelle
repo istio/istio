@@ -1,11 +1,7 @@
 #!/bin/bash
 set -ex
 
-if ! type gazelle > /dev/null; then
-  go get github.com/bazelbuild/rules_go/go/tools/gazelle/gazelle
-fi
-
-gazelle -go_prefix "istio.io/pilot" -mode fix
+bazel run //:gazelle
 
 # rewrite auto-generated protobuf dependencies due to custom BUILD files in WORKSPACE.
 find . -type f -name BUILD -print0 | \

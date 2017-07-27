@@ -4,7 +4,7 @@ See also [Istio Development](https://github.com/istio/istio/blob/master/devel/RE
 
 (For Windows and Mac, we recommend using a Linux virtual machine and/or [Vagrant-specific build instructions](build-vagrant.md) or [minikube build pod](minikube.md); Go code compiles on Mac but docker and proxy tests will fail on Mac)
 
-We are using [Bazel 0.4.5](https://github.com/bazelbuild/bazel/releases) as the main build system in Istio Pilot. The following command builds all targets in Istio Pilot:
+We are using [Bazel 0.5.2](https://github.com/bazelbuild/bazel/releases) as the main build system in Istio Pilot. The following command builds all targets in Istio Pilot:
 
 To avoid a `missing input file '//platform/kube:config'` error you need to `ln -s ~/.kube/config platform/kube/`, see [testing](testing.md) for details/why.
 

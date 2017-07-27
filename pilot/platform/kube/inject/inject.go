@@ -54,15 +54,21 @@ const (
 	istioSidecarAnnotationSidecarKey   = "alpha.istio.io/sidecar"
 	istioSidecarAnnotationSidecarValue = "injected"
 	istioSidecarAnnotationVersionKey   = "alpha.istio.io/version"
-	initContainerName                  = "init"
-	proxyContainerName                 = "proxy"
-	enableCoreDumpContainerName        = "enable-core-dump"
-	enableCoreDumpImage                = "alpine"
 
-	istioCertVolumeName   = "istio-certs"
+	// InitContainerName is the name for init container
+	InitContainerName = "istio-init"
+
+	// ProxyContainerName is the name for sidecar proxy container
+	ProxyContainerName = "istio-proxy"
+
+	enableCoreDumpContainerName = "enable-core-dump"
+	enableCoreDumpImage         = "alpine"
+
 	istioCertSecretPrefix = "istio."
 
-	istioConfigVolumeName = "istio-config"
+	istioCertVolumeName        = "istio-certs"
+	istioConfigVolumeName      = "istio-config"
+	istioEnvoyConfigVolumeName = "istio-envoy"
 
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
@@ -70,7 +76,7 @@ const (
 
 // InitImageName returns the fully qualified image name for the istio
 // init image given a docker hub and tag
-func InitImageName(hub, tag string) string { return hub + "/init:" + tag }
+func InitImageName(hub, tag string) string { return hub + "/proxy_init:" + tag }
 
 // ProxyImageName returns the fully qualified image name for the istio
 // proxy image given a docker hub and tag.
@@ -158,7 +164,7 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 		initArgs = append(initArgs, "-i", p.IncludeIPRanges)
 	}
 	annotations = append(annotations, map[string]interface{}{
-		"name":            initContainerName,
+		"name":            InitContainerName,
 		"image":           p.InitImage,
 		"args":            initArgs,
 		"imagePullPolicy": "Always",
@@ -166,6 +172,7 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 			"capabilities": map[string]interface{}{
 				"add": []string{"NET_ADMIN"},
 			},
+			// TODO: temporary option due to issues with SELinux (NET_ADMIN is insufficient)
 			"privileged": true,
 		},
 	})
@@ -197,22 +204,37 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 		}
 	*/
 
-	volumeMounts := []v1.VolumeMount{{
-		Name:      istioConfigVolumeName,
-		ReadOnly:  true,
-		MountPath: "/etc/istio/config",
-	}}
+	volumeMounts := []v1.VolumeMount{
+		{
+			Name:      istioConfigVolumeName,
+			ReadOnly:  true,
+			MountPath: "/etc/istio/config",
+		},
+		{
+			Name:      istioEnvoyConfigVolumeName,
+			MountPath: "/etc/istio/proxy",
+		},
+	}
 
-	t.Spec.Volumes = append(t.Spec.Volumes, v1.Volume{
-		Name: istioConfigVolumeName,
-		VolumeSource: v1.VolumeSource{
-			ConfigMap: &v1.ConfigMapVolumeSource{
-				LocalObjectReference: v1.LocalObjectReference{
-					Name: p.MeshConfigMapName,
+	t.Spec.Volumes = append(t.Spec.Volumes,
+		v1.Volume{
+			Name: istioConfigVolumeName,
+			VolumeSource: v1.VolumeSource{
+				ConfigMap: &v1.ConfigMapVolumeSource{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: p.MeshConfigMapName,
+					},
 				},
 			},
 		},
-	})
+		v1.Volume{
+			Name: istioEnvoyConfigVolumeName,
+			VolumeSource: v1.VolumeSource{
+				EmptyDir: &v1.EmptyDirVolumeSource{
+					Medium: v1.StorageMediumMemory,
+				},
+			},
+		})
 
 	if p.Mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
 		volumeMounts = append(volumeMounts, v1.VolumeMount{
@@ -235,8 +257,9 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 		})
 	}
 
+	readOnly := true
 	sidecar := v1.Container{
-		Name:  proxyContainerName,
+		Name:  ProxyContainerName,
 		Image: p.ProxyImage,
 		Args:  args,
 		Env: []v1.EnvVar{{
@@ -263,7 +286,8 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 		}},
 		ImagePullPolicy: v1.PullAlways,
 		SecurityContext: &v1.SecurityContext{
-			RunAsUser: &p.SidecarProxyUID,
+			RunAsUser:              &p.SidecarProxyUID,
+			ReadOnlyRootFilesystem: &readOnly,
 		},
 		VolumeMounts: volumeMounts,
 	}

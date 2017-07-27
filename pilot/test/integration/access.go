@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
+	"istio.io/pilot/platform/kube/inject"
 	"istio.io/pilot/test/util"
 )
 
@@ -72,7 +73,7 @@ func (a *accessLogs) check(infra *infra) error {
 				}
 
 				pod := infra.apps[app][0]
-				container := "proxy"
+				container := inject.ProxyContainerName
 				if app == "mixer" {
 					container = "mixer"
 				}

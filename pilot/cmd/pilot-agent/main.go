@@ -32,6 +32,7 @@ import (
 )
 
 var (
+	configpath string
 	meshconfig string
 	sidecar    proxy.Sidecar
 
@@ -62,6 +63,10 @@ var (
 			glog.V(2).Infof("sidecar %#v", sidecar)
 			glog.V(2).Infof("mesh configuration %#v", mesh)
 
+			if err = os.MkdirAll(configpath, 0700); err != nil {
+				return multierror.Prefix(err, "failed to create directory for proxy configuration")
+			}
+
 			var role proxy.Role = sidecar
 			if len(args) > 0 {
 				switch args[0] {
@@ -82,7 +87,7 @@ var (
 				}
 			}
 
-			watcher := envoy.NewWatcher(mesh, role)
+			watcher := envoy.NewWatcher(mesh, role, configpath)
 			ctx, cancel := context.WithCancel(context.Background())
 			go watcher.Run(ctx)
 
@@ -97,7 +102,9 @@ var (
 
 func init() {
 	proxyCmd.PersistentFlags().StringVar(&meshconfig, "meshconfig", "/etc/istio/config/mesh",
-		fmt.Sprintf("File name for Istio mesh configuration"))
+		"File name for Istio mesh configuration")
+	proxyCmd.PersistentFlags().StringVar(&configpath, "configpath", "/etc/istio/proxy",
+		"Path to generated proxy configuration directory")
 	proxyCmd.PersistentFlags().StringVar(&sidecar.IPAddress, "ip", "",
 		"Sidecar proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&sidecar.ID, "id", "",

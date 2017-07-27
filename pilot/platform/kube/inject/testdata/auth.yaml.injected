@@ -11,7 +11,7 @@ spec:
       annotations:
         alpha.istio.io/sidecar: injected
         alpha.istio.io/version: "12345678"
-        pod.beta.kubernetes.io/init-containers: '[{"args":["-p","15001","-u","1337"],"image":"docker.io/istio/init:unittest","imagePullPolicy":"Always","name":"init","securityContext":{"capabilities":{"add":["NET_ADMIN"]},"privileged":true}}]'
+        pod.beta.kubernetes.io/init-containers: '[{"args":["-p","15001","-u","1337"],"image":"docker.io/istio/proxy_init:unittest","imagePullPolicy":"Always","name":"istio-init","securityContext":{"capabilities":{"add":["NET_ADMIN"]},"privileged":true}}]'
       creationTimestamp: null
       labels:
         app: hello
@@ -44,14 +44,17 @@ spec:
               fieldPath: status.podIP
         image: docker.io/istio/proxy_debug:unittest
         imagePullPolicy: Always
-        name: proxy
+        name: istio-proxy
         resources: {}
         securityContext:
+          readOnlyRootFilesystem: true
           runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/config
           name: istio-config
           readOnly: true
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
@@ -59,6 +62,9 @@ spec:
       - configMap:
           name: istio
         name: istio-config
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
       - name: istio-certs
         secret:
           secretName: istio.default

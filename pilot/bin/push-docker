@@ -16,20 +16,14 @@
 #
 ################################################################################
 #
-# Run integration tests
+# This script creates a base image for the init image that includes iptables.
 #
-# It is a simple shim over test/integration/driver.go that accepts the same set of flags.
-# Please add new flags to the Go test driver directly instead of extending this file.
-# The additional steps that the script performs are:
-# - set default docker tag based on a timestamp and user name
-# - build and push docker images, including this repo pieces and proxy.
 
 set -ex
 set -o errexit
 set -o nounset
 set -o pipefail
 
-args=""
 hub="gcr.io/istio-testing"
 tag=$(whoami)_$(date +%y%m%d_%h%m%s)
 
@@ -37,10 +31,29 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -tag) tag="$2"; shift ;;
         -hub) hub="$2"; shift ;;
-        *) args=$args" $1" ;;
+        *) ;;
     esac
     shift
 done
 
-bin/push-docker -hub $hub -tag $tag
-bazel run //test/integration -- --logtostderr $args -hub $hub -tag $tag
+# Collect artifacts for pushing
+bin=$(bazel info bazel-bin)
+bazel build --output_groups=static //cmd/... //test/...
+\cp -f  "${bin}/test/client/client.static" docker/client
+\cp -f  "${bin}/test/server/server.static" docker/server
+\cp -f  "${bin}/cmd/pilot-agent/pilot-agent.static" docker/pilot-agent
+\cp -f  "${bin}/cmd/pilot-discovery/pilot-discovery.static" docker/pilot-discovery
+
+# Build and push images
+if [[ "$hub" =~ ^gcr\.io ]]; then
+  gcloud docker --authorize-only
+fi
+
+pushd docker
+  for image in app proxy proxy_init proxy_debug pilot; do
+    docker build -f "Dockerfile.${image}" -t "$hub/$image:$tag" .
+    docker push "$hub/$image:$tag"
+  done
+popd
+
+echo Pushed images to $hub with tag $tag
