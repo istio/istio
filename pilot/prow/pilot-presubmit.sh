@@ -47,6 +47,9 @@ echo "=== Bazel Build ==="
 ./bin/install-prereqs.sh
 bazel build //...
 
+echo "=== Build istioctl ==="
+./bin/upload-istioctl -p "gs://istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl"
+
 echo "=== Go Build ==="
 ./bin/init.sh
 
