@@ -51,7 +51,7 @@ func TestCounter(t *testing.T) {
 	log.SetOutput(w)
 	log.SetFlags(0)
 	c.Counter.Log("testLog")
-	expected += "testLog" + finalExpected
+	expected += "I testLog" + finalExpected
 	w.Flush() // nolint: errcheck
 	actual := string(b.Bytes())
 	if actual != expected {
