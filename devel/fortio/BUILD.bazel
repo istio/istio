@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "http.go",
+        "logger.go",
         "periodic.go",
         "stats.go",
     ],
@@ -15,6 +16,7 @@ go_test(
     size = "small",
     srcs = [
         "http_test.go",
+        "logger_test.go",
         "periodic_test.go",
         "stats_test.go",
     ],

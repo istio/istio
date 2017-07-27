@@ -155,7 +155,7 @@ func (p *promProxy) Teardown() (err error) {
 	if p.portFwdProcess != nil {
 		err := p.portFwdProcess.Kill()
 		if err != nil {
-			glog.Error("Failed to kill port-forward process, pid: %s", p.portFwdProcess.Pid)
+			glog.Errorf("Failed to kill port-forward process, pid: %d", p.portFwdProcess.Pid)
 		}
 	}
 	return

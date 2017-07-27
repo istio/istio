@@ -19,7 +19,6 @@ package main
 import (
 	"bufio"
 	"flag"
-	"log"
 	"os"
 	"strconv"
 
@@ -28,13 +27,11 @@ import (
 
 func main() {
 	var (
-		verbosityFlag = flag.Int("v", 0, "Verbosity level (0 is quiet)")
-		offsetFlag    = flag.Float64("offset", 0.0, "Offset for the data")
-		dividerFlag   = flag.Float64("divider", 1, "Divider/scaling for the data")
-		pFlag         = flag.Float64("p", 90, "Percentile to calculate")
+		offsetFlag  = flag.Float64("offset", 0.0, "Offset for the data")
+		dividerFlag = flag.Float64("divider", 1, "Divider/scaling for the data")
+		pFlag       = flag.Float64("p", 90, "Percentile to calculate")
 	)
 	flag.Parse()
-	fortio.Verbosity = *verbosityFlag
 	h := fortio.NewHistogram(*offsetFlag, *dividerFlag)
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -43,13 +40,13 @@ func main() {
 		line := scanner.Text()
 		v, err := strconv.ParseFloat(line, 64)
 		if err != nil {
-			log.Fatalln("Can't parse line", linenum, err)
+			fortio.Fatalf("Can't parse line %d: %v", linenum, err)
 		}
 		h.Record(v)
 		linenum++
 	}
 	if err := scanner.Err(); err != nil {
-		log.Fatalln("Err reading standard input", err)
+		fortio.Fatalf("Err reading standard input %v", err)
 	}
 	// TODO use ParsePercentiles
 	h.Print(os.Stdout, "Histogram", *pFlag)

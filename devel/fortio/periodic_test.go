@@ -76,7 +76,6 @@ func TestStart(t *testing.T) {
 		QPS:        11.4,
 		Function:   localF,
 		NumThreads: 1,
-		Verbosity:  1,
 		Duration:   1 * time.Second,
 	}
 	r := NewPeriodicRunner(&o)
@@ -139,7 +138,7 @@ func TestParsePercentiles(t *testing.T) {
 		{str: "   ", list: []float64{}, err: true},
 		{str: "23,a,46", list: []float64{23}, err: true},
 	}
-	Verbosity = 1 // for coverage
+	SetLogLevel(Debug) // for coverage
 	for _, tst := range tests {
 		actual, err := ParsePercentiles(tst.str)
 		if !reflect.DeepEqual(actual, tst.list) {
