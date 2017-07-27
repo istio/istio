@@ -88,8 +88,8 @@ func TestNewBadRequest(t *testing.T) {
 		err   error
 		want  *rpc.BadRequest
 	}{
-		{"simple error", "field", errors.New("error"), newBadReq(newViolation("field", "error"))},
-		{"go-multierror", "field", me, newBadReq(newViolation("field", "error one"), newViolation("field", "error two"))},
+		{"simple error", "field", errors.New("error"), newBadReq(newViolation("error"))},
+		{"go-multierror", "field", me, newBadReq(newViolation("error one"), newViolation("error two"))},
 	}
 	for _, v := range cases {
 		t.Run(v.name, func(t *testing.T) {
@@ -101,8 +101,8 @@ func TestNewBadRequest(t *testing.T) {
 	}
 }
 
-func newViolation(field, desc string) *rpc.BadRequest_FieldViolation {
-	return &rpc.BadRequest_FieldViolation{Field: field, Description: desc}
+func newViolation(desc string) *rpc.BadRequest_FieldViolation {
+	return &rpc.BadRequest_FieldViolation{Field: "field", Description: desc}
 }
 
 func newBadReq(violations ...*rpc.BadRequest_FieldViolation) *rpc.BadRequest {
