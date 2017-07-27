@@ -28,14 +28,14 @@ option (istio.mixer.v1.config.template.template_variety) = {{.VarietyName}};
 option (istio.mixer.v1.config.template.template_name) = "{{.Name}}";
 
 message Type {
-  {{range .TypeMessage.Fields}}
-  {{.Type.Name}} {{.Name}} = {{.Number}};
+  {{range .TemplateMessage.Fields}}
+  {{replacePrimitiveToValueType .Type}} {{.Name}} = {{.Number}};
   {{end}}
 }
 
 message ConstructorParam {
-  {{range .ConstructorParamMessage.Fields}}
-  {{.Type.Name}} {{.Name}} = {{.Number}};
+  {{range .TemplateMessage.Fields}}
+  {{replaceValueTypeToString .Type}} {{.Name}} = {{.Number}};
   {{end}}
 }
 `

@@ -33,7 +33,6 @@ package modelgen
 import (
 	"fmt"
 	"os"
-	"path"
 	"strconv"
 	"strings"
 	"unicode"
@@ -102,8 +101,8 @@ type Object interface {
 }
 
 // CreateFileDescriptorSetParser builds a FileDescriptorSetParser instance.
-func CreateFileDescriptorSetParser(fds *descriptor.FileDescriptorSet, importMap map[string]string) (*FileDescriptorSetParser, error) {
-	parser := &FileDescriptorSetParser{ImportMap: importMap}
+func CreateFileDescriptorSetParser(fds *descriptor.FileDescriptorSet, importMap map[string]string, packageImportPath string) (*FileDescriptorSetParser, error) {
+	parser := &FileDescriptorSetParser{ImportMap: importMap, PackageImportPath: packageImportPath}
 	parser.WrapTypes(fds)
 	parser.BuildTypeNameMap()
 	return parser, nil
@@ -296,74 +295,12 @@ func (e *EnumDescriptor) Path() string {
 	return e.path
 }
 
-// File level methods
-
-func (d *FileDescriptor) goFileName() string {
-	name := *d.Name
-	if ext := path.Ext(name); ext == ".proto" || ext == ".protodevel" {
-		name = name[:len(name)-len(ext)]
-	}
-	name += ".pb.go"
-
-	// Does the file have a "go_package" option?
-	// If it does, it may override the filename.
-	if impPath, _, ok := d.goPackageOption(); ok && impPath != "" {
-		// Replace the existing dirname with the declared import path.
-		_, name = path.Split(name)
-		name = path.Join(impPath, name)
-		return name
-	}
-
-	return name
-}
-
-// goPackageOption interprets the file's go_package option.
-// If there is no go_package, it returns ("", "", false).
-// If there's a simple name, it returns ("", pkg, true).
-// If the option implies an import path, it returns (impPath, pkg, true).
-func (d *FileDescriptor) goPackageOption() (impPath, pkg string, ok bool) {
-	pkg = d.GetOptions().GetGoPackage()
-	if pkg == "" {
-		return
-	}
-	ok = true
-	// The presence of a slash implies there's an import path.
-	slash := strings.LastIndex(pkg, "/")
-	if slash < 0 {
-		return
-	}
-	impPath, pkg = pkg, pkg[slash+1:]
-	// A semicolon-delimited suffix overrides the package name.
-	sc := strings.IndexByte(impPath, ';')
-	if sc < 0 {
-		return
-	}
-	impPath, pkg = impPath[:sc], impPath[sc+1:]
-	return
-}
-
-func (d *FileDescriptor) packageName() string { return goPackageName(*d.FileDescriptorProto.Name) }
-
 // FileDescriptorSetParser methods
 
 func (g *FileDescriptorSetParser) fail(msgs ...string) {
 	s := strings.Join(msgs, " ")
 	fmt.Fprintln(os.Stderr, "model_generator: error:", s)
 	os.Exit(1)
-}
-
-func (g *FileDescriptorSetParser) fileOf(fd *descriptor.FileDescriptorProto) *FileDescriptor {
-	for _, file := range g.allFiles {
-		if file.FileDescriptorProto == fd {
-			return file
-		}
-	}
-	g.fail("could not find file in table:", fd.GetName())
-	return nil
-}
-
-func (g *FileDescriptorSetParser) fileByName(filename string) *FileDescriptor {
-	return g.allFilesByName[filename]
 }
 
 const (

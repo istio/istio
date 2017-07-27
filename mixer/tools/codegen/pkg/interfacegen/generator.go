@@ -20,6 +20,7 @@ import (
 	"go/format"
 	"io/ioutil"
 	"os"
+	"strings"
 	"text/template"
 
 	"github.com/gogo/protobuf/proto"
@@ -37,10 +38,18 @@ type Generator struct {
 	ImptMap            map[string]string
 }
 
+const fullProtoNameOfValueTypeEnum = "istio.mixer.v1.config.descriptor.ValueType"
+const fullGoNameOfValueTypeEnum = "istio_mixer_v1_config_descriptor.ValueType"
+
 // Generate creates a Go interfaces for adapters to implement for a given Template.
 func (g *Generator) Generate(fdsFile string) error {
 
-	intfaceTmpl, err := template.New("ProcInterface").Parse(tmpl.InterfaceTemplate)
+	intfaceTmpl, err := template.New("ProcInterface").Funcs(
+		template.FuncMap{
+			"replaceGoValueTypeToInterface": func(typeName string) string {
+				return strings.Replace(typeName, fullGoNameOfValueTypeEnum, "interface{}", 1)
+			},
+		}).Parse(tmpl.InterfaceTemplate)
 	if err != nil {
 		return fmt.Errorf("cannot load template: %v", err)
 	}
@@ -50,7 +59,7 @@ func (g *Generator) Generate(fdsFile string) error {
 		return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto: %v", fdsFile, err)
 	}
 
-	parser, err := modelgen.CreateFileDescriptorSetParser(fds, g.ImptMap)
+	parser, err := modelgen.CreateFileDescriptorSetParser(fds, g.ImptMap, "")
 	if err != nil {
 		return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto: %v", fdsFile, err)
 	}
@@ -78,7 +87,22 @@ func (g *Generator) Generate(fdsFile string) error {
 		return fmt.Errorf("could not fix imports for generated code: %v", err)
 	}
 
-	revisedTemplateTmpl, err := template.New("RevisedTemplateTmpl").Parse(tmpl.RevisedTemplateTmpl)
+	revisedTemplateTmpl, err := template.New("RevisedTemplateTmpl").Funcs(
+		template.FuncMap{
+			"replacePrimitiveToValueType": func(typeName string) string {
+				// transform the primitives into ValueType
+				// We only support primitives that can be represented as ValueTypes, ValueType itself, or map<string, ValueType>.
+				// So, if the fields is not a map, it's type should be converted into ValueType inside the generated Type Message.
+				if !strings.Contains(typeName, "map<") {
+					typeName = fullProtoNameOfValueTypeEnum
+				}
+				return typeName
+			},
+			"replaceValueTypeToString": func(typeName string) string {
+				return strings.Replace(typeName, fullProtoNameOfValueTypeEnum, "string", 1)
+			},
+			// strings.Replace(typename, fullProtoNameOfValueTypeEnum, "string", 1)
+		}).Parse(tmpl.RevisedTemplateTmpl)
 	if err != nil {
 		return fmt.Errorf("cannot load template: %v", err)
 	}
@@ -94,7 +118,7 @@ func (g *Generator) Generate(fdsFile string) error {
 	if err != nil {
 		return err
 	}
-	defer f1.Close()
+	defer func() { _ = f1.Close() }()
 
 	if _, err = f1.Write(imptd); err != nil {
 		_ = f1.Close()
@@ -106,7 +130,7 @@ func (g *Generator) Generate(fdsFile string) error {
 	if err != nil {
 		return err
 	}
-	defer f2.Close()
+	defer func() { _ = f2.Close() }()
 	if _, err = f2.Write(tmplBuf.Bytes()); err != nil {
 		_ = f2.Close()
 		_ = os.Remove(f2.Name())
