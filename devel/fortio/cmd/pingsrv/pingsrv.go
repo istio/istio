@@ -22,8 +22,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net"
+
+	"istio.io/istio/devel/fortio"
 
 	context "golang.org/x/net/context"
 
@@ -41,7 +42,7 @@ type pingServer struct {
 }
 
 func (s *pingServer) Ping(c context.Context, in *PingMessage) (*PingMessage, error) {
-	log.Printf("Ping called %+v (ctx %+v)", *in, c)
+	fortio.Infof("Ping called %+v (ctx %+v)", *in, c)
 	out := *in
 	out.Ttl++
 	return &out, nil
@@ -50,18 +51,20 @@ func (s *pingServer) Ping(c context.Context, in *PingMessage) (*PingMessage, err
 func startServer(port int) {
 	socket, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		fortio.Fatalf("failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
 	RegisterPingServerServer(grpcServer, &pingServer{})
 	fmt.Printf("Fortio grpc ping server listening on port %v\n", port)
-	grpcServer.Serve(socket)
+	if err := grpcServer.Serve(socket); err != nil {
+		fortio.Fatalf("failed to start grpc server: %v", err)
+	}
 }
 
 func clientCall(serverAddr string, n int, payload string) {
 	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
 	if err != nil {
-		log.Fatalf("failed to conect to %s: %v", serverAddr, err)
+		fortio.Fatalf("failed to conect to %s: %v", serverAddr, err)
 	}
 	msg := &PingMessage{}
 	msg.Payload = payload
@@ -70,16 +73,14 @@ func clientCall(serverAddr string, n int, payload string) {
 		msg.Id = int64(i)
 		res, err := cli.Ping(context.Background(), msg)
 		if err != nil {
-			log.Fatalf("grpc error from Ping %v", err)
+			fortio.Fatalf("grpc error from Ping %v", err)
 		}
-		log.Printf("Ping returned %+v", *res)
+		fortio.Infof("Ping returned %+v", *res)
 		msg = res
 	}
 }
 
 func main() {
-	// change the default for glog, use -logtostderr=false if you want separate files
-	flag.Set("logtostderr", "true") // nolint: errcheck,gas
 	flag.Parse()
 	if *hostFlag != "" {
 		// TODO doesn't work for ipv6 addrs etc
