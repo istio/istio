@@ -202,10 +202,15 @@ spec:
         - mountPath: /etc/certs
           name: istio-certs
           readOnly: true
+        - name: config-volume
+          mountPath: /etc/istio/config
       volumes:
       - name: istio-certs
         secret:
           secretName: istio.default
+      - name: config-volume
+        configMap:
+          name: istio
 ---
 
 ################################
@@ -247,9 +252,14 @@ spec:
         - mountPath: /etc/certs
           name: istio-certs
           readOnly: true
+        - name: config-volume
+          mountPath: /etc/istio/config
       volumes:
       - name: istio-certs
         secret:
           secretName: istio.default
+      - name: config-volume
+        configMap:
+          name: istio
 ---
 
