@@ -56,4 +56,4 @@ docker tag bazel/docker:$DOCKER_IMAGE $HUB/$DOCKER_IMAGE:$TAG
 docker push $HUB/$DOCKER_IMAGE:$TAG
 
 # Run integration tests
-bazel run $BAZEL_ARGS //integration -- $ARGS -k /home/jenkins/.kube/config --alsologtostderr
+bazel run $BAZEL_ARGS //integration -- $ARGS -k $HOME/.kube/config --alsologtostderr
