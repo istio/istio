@@ -1,0 +1,12 @@
+syntax = "proto3";
+package main;
+
+message PingMessage {
+  sint64 id = 1; // delta timestamp
+  sint64 ttl = 2; // delta timestamp
+  string payload = 3; // extra packet data
+}
+
+service PingServer {
+  rpc Ping (PingMessage) returns (PingMessage) {}
+}
