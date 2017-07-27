@@ -8,23 +8,43 @@ The name fortio comes from greek φορτίο which is load/burden.
 
 ```
 $ fortio
-Φορτίο 0.1 usage:
+Φορτίο 0.2.0 usage:
 
 fortio [flags] url
   -H value
     	Additional Header(s)
   -c int
     	Number of connections/goroutine/threads (default 4)
+  -compression
+    	Enable http compression
+  -gomaxprocs int
+    	Setting for runtime.GOMAXPROCS, <1 doesn't change the default
+  -http1.0
+    	Use http1.0 (instead of http 1.1)
+  -httpbufferkb int
+    	Size of the buffer (max data size) for the optimized http client in kbytes (default 32)
+  -httpccch
+    	Check for Connection: Close Header
+  -keepalive
+    	Keep connection alive (only for fast http 1.1) (default true)
+  -logcaller
+    	Logs filename and line number of callers to log (default true)
+  -loglevel value
+    	loglevel, one of [Debug Verbose Info Warning Error Critical Fatal] (default Info)
+  -logprefix string
+    	Prefix to log lines before logged messages (default "> ")
   -p string
     	List of pXX to calculate (default "50,75,99,99.9")
+  -profile string
+    	write .cpu and .mem profiles to file
   -qps float
     	Queries Per Seconds or 0 for no wait (default 8)
   -r float
     	Resolution of the histogram lowest buckets in seconds (default 0.001)
+  -stdclient
+    	Use the slower net/http standard client (works for TLS)
   -t duration
     	How long to run the test (default 5s)
-  -v int
-    	Verbosity level (0 is quiet)
 ```
 
 ## Example output
