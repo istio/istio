@@ -25,7 +25,6 @@ package fortio // import "istio.io/istio/devel/fortio"
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 	"strconv"
@@ -56,8 +55,6 @@ type RunnerOptions struct {
 	NumThreads  int
 	Percentiles []float64
 	Resolution  float64
-	// Debug/Verbosity level (0 is quietest)
-	Verbosity int
 }
 
 // PeriodicRunner let's you exercise the Function at the given QPS and collect
@@ -79,7 +76,7 @@ type periodicRunner struct {
 func newPeriodicRunner(opts *RunnerOptions) *periodicRunner {
 	r := &periodicRunner{*opts} // by default just copy the input params
 	if r.QPS < 0 {
-		log.Printf("Negative qps %f means max speed mode/no wait between calls", r.QPS)
+		Infof("Negative qps %f means max speed mode/no wait between calls", r.QPS)
 		r.QPS = 0
 	}
 	if r.NumThreads == 0 {
@@ -118,13 +115,13 @@ func (r *periodicRunner) Run() {
 	if useQPS {
 		numCalls = int64(r.QPS * r.Duration.Seconds())
 		if numCalls < 2 {
-			log.Print("Increasing the number of calls to the minimum of 2 with 1 thread. total duration will increase")
+			Warnf("Increasing the number of calls to the minimum of 2 with 1 thread. total duration will increase")
 			numCalls = 2
 			r.NumThreads = 1
 		}
 		if int64(2*r.NumThreads) > numCalls {
 			r.NumThreads = int(numCalls / 2)
-			log.Printf("Lowering number of threads - total call %d -> lowering to %d threads", numCalls, r.NumThreads)
+			Warnf("Lowering number of threads - total call %d -> lowering to %d threads", numCalls, r.NumThreads)
 		}
 		numCalls /= int64(r.NumThreads)
 		totalCalls := numCalls * int64(r.NumThreads)
@@ -140,9 +137,7 @@ func (r *periodicRunner) Run() {
 	// Histogram and stats for Sleep time (negative offset to capture <0 sleep in their own bucket):
 	sleepTime := NewHistogram(-0.001, 0.001)
 	if r.NumThreads <= 1 {
-		if r.Verbosity > 0 {
-			log.Print("Running single threaded")
-		}
+		Infof("Running single threaded")
 		runOne(0, functionDuration, sleepTime, numCalls, start, r)
 	} else {
 		var wg sync.WaitGroup
@@ -170,11 +165,14 @@ func (r *periodicRunner) Run() {
 	fmt.Printf("Ended after %v : %d calls. qps=%.5g\n", elapsed, functionDuration.Count, actualQPS)
 	if useQPS {
 		percentNegative := 100. * float64(sleepTime.hdata[0]) / float64(sleepTime.Count)
+		// Somewhat arbitrary percentage of time the sleep was behind so we
+		// may want to know more about the distribution of sleep time and warn the
+		// user.
 		if percentNegative > 5 {
 			sleepTime.Print(os.Stdout, "Aggregated Sleep Time", 50)
 			fmt.Printf("WARNING %.2f%% of sleep were falling behind\n", percentNegative)
 		} else {
-			if Verbosity > 0 {
+			if Log(Verbose) {
 				sleepTime.Print(os.Stdout, "Aggregated Sleep Time", 50)
 			} else {
 				sleepTime.Counter.Print(os.Stdout, "Sleep times")
@@ -194,7 +192,6 @@ func runOne(id int, funcTimes *Histogram, sleepTimes *Histogram, numCalls int64,
 	tIDStr := fmt.Sprintf("T%03d", id)
 	perThreadQPS := r.QPS / float64(r.NumThreads)
 	useQPS := (perThreadQPS > 0)
-	verbosity := r.Verbosity
 	f := r.Function
 	for {
 		fStart := time.Now()
@@ -206,7 +203,7 @@ func runOne(id int, funcTimes *Histogram, sleepTimes *Histogram, numCalls int64,
 			// QPS mode:
 			// Do least 2 iterations, and the last one before bailing because of time
 			if (i >= 2) && (i != numCalls-1) {
-				log.Printf("%s warning only did %d out of %d calls before reaching %v", tIDStr, i, numCalls, r.Duration)
+				Warnf("%s warning only did %d out of %d calls before reaching %v", tIDStr, i, numCalls, r.Duration)
 				break
 			}
 		}
@@ -224,19 +221,17 @@ func runOne(id int, funcTimes *Histogram, sleepTimes *Histogram, numCalls int64,
 			targetElapsedInSec := (float64(i) + float64(i)/float64(numCalls-1)) / perThreadQPS
 			targetElapsedDuration := time.Duration(int64(targetElapsedInSec * 1e9))
 			sleepDuration := targetElapsedDuration - elapsed
-			if verbosity > 3 {
-				log.Printf("%s target next dur %v - sleep %v", tIDStr, targetElapsedDuration, sleepDuration)
-			}
+			Debugf("%s target next dur %v - sleep %v", tIDStr, targetElapsedDuration, sleepDuration)
 			sleepTimes.Record(sleepDuration.Seconds())
 			time.Sleep(sleepDuration)
 		}
 	}
 	elapsed := time.Since(start)
 	actualQPS := float64(i) / elapsed.Seconds()
-	log.Printf("%s ended after %v : %d calls. qps=%g", tIDStr, elapsed, i, actualQPS)
-	if (numCalls > 0) && (verbosity > 0) {
+	Infof("%s ended after %v : %d calls. qps=%g", tIDStr, elapsed, i, actualQPS)
+	if (numCalls > 0) && Log(Verbose) {
 		funcTimes.Log(tIDStr+" Function duration", 99)
-		if verbosity > 2 {
+		if Log(Debug) {
 			sleepTimes.Log(tIDStr+" Sleep time", 50)
 		} else {
 			sleepTimes.Counter.Log(tIDStr + " Sleep time")
@@ -262,8 +257,6 @@ func ParsePercentiles(percentiles string) ([]float64, error) {
 	if len(res) == 0 {
 		return res, errors.New("list can't be empty")
 	}
-	if Verbosity > 0 {
-		log.Print("Will use ", res, " for percentiles")
-	}
+	LogVf("Will use %v for percentiles", res)
 	return res, nil
 }
