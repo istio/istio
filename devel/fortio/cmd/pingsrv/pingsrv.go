@@ -31,9 +31,10 @@ import (
 )
 
 var (
-	countFlag = flag.Int("n", 1, "how many ping the client will send")
-	portFlag  = flag.Int("port", 8079, "default grpc port")
-	hostFlag  = flag.String("host", "", "client mode: server to connect to")
+	countFlag   = flag.Int("n", 1, "how many ping the client will send")
+	portFlag    = flag.Int("port", 8079, "default grpc port")
+	hostFlag    = flag.String("host", "", "client mode: server to connect to")
+	payloadFlag = flag.String("payload", "this is the default payload", "Payload string to send along")
 )
 
 type pingServer struct {
@@ -57,12 +58,13 @@ func startServer(port int) {
 	grpcServer.Serve(socket)
 }
 
-func clientCall(serverAddr string, n int) {
+func clientCall(serverAddr string, n int, payload string) {
 	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("failed to conect to %s: %v", serverAddr, err)
 	}
 	msg := &PingMessage{}
+	msg.Payload = payload
 	cli := NewPingServerClient(conn)
 	for i := 1; i <= n; i++ {
 		msg.Id = int64(i)
@@ -81,7 +83,7 @@ func main() {
 	flag.Parse()
 	if *hostFlag != "" {
 		// TODO doesn't work for ipv6 addrs etc
-		clientCall(fmt.Sprintf("%s:%d", *hostFlag, *portFlag), *countFlag)
+		clientCall(fmt.Sprintf("%s:%d", *hostFlag, *portFlag), *countFlag, *payloadFlag)
 	} else {
 		startServer(*portFlag)
 	}
