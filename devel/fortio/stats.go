@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"math"
 )
 
@@ -68,7 +67,7 @@ func (c *Counter) Print(out io.Writer, msg string) {
 
 // Log outputs the stats to the logger.
 func (c *Counter) Log(msg string) {
-	log.Printf("%s : count %d avg %.8g +/- %.4g min %g max %g sum %.9g",
+	Infof("%s : count %d avg %.8g +/- %.4g min %g max %g sum %.9g",
 		msg, c.Count, c.Avg(), c.StdDev(), c.Min, c.Max, c.Sum)
 }
 
@@ -156,7 +155,7 @@ func init() {
 	}
 	// coding bug detection (aka impossible if it works once)
 	if idx != numBuckets-1 {
-		log.Fatalf("Bug in creating histogram buckets idx %d vs numbuckets %d (last val %d)", idx, numBuckets, lastV)
+		Fatalf("Bug in creating histogram buckets idx %d vs numbuckets %d (last val %d)", idx, numBuckets, lastV)
 	}
 
 }
@@ -293,7 +292,7 @@ func (h *Histogram) Log(msg string, percentile float64) {
 	w := bufio.NewWriter(&b)
 	h.Print(w, msg, percentile)
 	w.Flush() // nolint: gas,errcheck
-	log.Print(string(b.Bytes()))
+	Infof("%s", b.Bytes())
 }
 
 // Reset clears the data. Reset it to NewHistogram state.
@@ -325,10 +324,10 @@ func (h *Histogram) CopyFrom(src *Histogram) {
 func (h *Histogram) Transfer(src *Histogram) {
 	// TODO potentially merge despite different offset/scale
 	if src.Offset != h.Offset {
-		log.Fatal("Incompatible offsets in Histogram Transfer", src.Offset, h.Offset)
+		Fatalf("Incompatible offsets in Histogram Transfer %f %f", src.Offset, h.Offset)
 	}
 	if src.Divider != h.Divider {
-		log.Fatal("Incompatible scale in Histogram Transfer", src.Divider, h.Divider)
+		Fatalf("Incompatible scale in Histogram Transfer %f %f", src.Divider, h.Divider)
 	}
 	if src.Count == 0 {
 		return

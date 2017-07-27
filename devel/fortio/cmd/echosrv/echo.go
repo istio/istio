@@ -23,11 +23,10 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"sync/atomic"
 
-	"github.com/golang/glog"
+	"istio.io/istio/devel/fortio"
 )
 
 var (
@@ -36,8 +35,8 @@ var (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	glog.V(1).Infof("%v %v %v %v", r.Method, r.URL, r.Proto, r.RemoteAddr)
-	if glog.V(2) {
+	fortio.LogVf("%v %v %v %v", r.Method, r.URL, r.Proto, r.RemoteAddr)
+	if fortio.LogDebug() {
 		for name, headers := range r.Header {
 			for _, h := range headers {
 				fmt.Printf("%v: %v\n", name, h)
@@ -46,7 +45,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Print("Error reading ", err)
+		fortio.Errf("Error reading %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -58,21 +57,19 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	if _, err = w.Write(data); err != nil {
-		log.Print("Error writing response ", err, " to ", r.RemoteAddr)
+		fortio.Errf("Error writing response %v to %v", err, r.RemoteAddr)
 	}
-	if glog.V(2) {
+	if fortio.LogDebug() {
 		// TODO: this easily lead to contention - use 'thread local'
 		rqNum := atomic.AddInt64(&requests, 1)
-		glog.V(1).Infof("Requests: %v", rqNum)
+		fortio.Debugf("Requests: %v", rqNum)
 	}
 }
 
 func main() {
-	// change the default for glog, use -logtostderr=false if you want separate files
-	flag.Set("logtostderr", "true") // nolint: errcheck,gas
 	flag.Parse()
 
-	fmt.Printf("Fortio echo server listening on port %v\n", *port)
+	fmt.Printf("Fortio %s echo server listening on port %v\n", fortio.Version, *port)
 
 	http.HandleFunc("/", handler)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", *port), nil); err != nil {
