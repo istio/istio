@@ -106,8 +106,8 @@ func TestBuilder_ValidateConfigErrors(t *testing.T) {
 		conf     *config.Params
 		errCount int
 	}{
-		{"empty config", &config.Params{}, 16},
-		{"bad cluster domain name", &config.Params{ClusterDomainName: "something.silly"}, 16},
+		{"empty config", &config.Params{}, 15},
+		{"bad cluster domain name", &config.Params{ClusterDomainName: "something.silly"}, 15},
 	}
 
 	b := newBuilder(fakePodCache)
@@ -210,12 +210,57 @@ func TestKubegen_Generate(t *testing.T) {
 				ServiceAccountName: "test",
 			},
 		},
-		"testns/badapplabel": {
+		"testns/empty": {
 			ObjectMeta: v1.ObjectMeta{
 				Name:      "test_pod",
 				Namespace: "testns",
 				Labels: map[string]string{
 					"app": "",
+				},
+			},
+		},
+		"testns/badapplabel": {
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "test_pod",
+				Namespace: "testns",
+				Labels: map[string]string{
+					"app": ":",
+				},
+			},
+		},
+		"testns/alt-svc": {
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "alt-svc",
+				Namespace: "testns",
+				Labels: map[string]string{
+					"app": "alt-svc.testns",
+				},
+			},
+		},
+		"testns/alt-svc-with-cluster": {
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "alt-svc-with-cluster",
+				Namespace: "testns",
+				Labels: map[string]string{
+					"app": "alt-svc-with-cluster.testns.svc.cluster:8080",
+				},
+			},
+		},
+		"testns/long-svc": {
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "long-svc",
+				Namespace: "testns",
+				Labels: map[string]string{
+					"app": "long-svc.testns.svc.cluster.local.solar",
+				},
+			},
+		},
+		"testns/ipaddr-svc": {
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "ipaddr-svc",
+				Namespace: "testns",
+				Labels: map[string]string{
+					"app": "192.168.234.3",
 				},
 			},
 		},
@@ -228,10 +273,9 @@ func TestKubegen_Generate(t *testing.T) {
 	}
 
 	sourceUIDIn := map[string]interface{}{
-		"sourceUID":     "kubernetes://testsvc.testns",
-		"targetUID":     "kubernetes://badsvcuid",
-		"originUID":     "kubernetes://badsvcuid",
-		"targetService": "hello:80",
+		"sourceUID": "kubernetes://testsvc.testns",
+		"targetUID": "kubernetes://badsvcuid",
+		"originUID": "kubernetes://badsvcuid",
 	}
 
 	sourceUIDOut := map[string]interface{}{
@@ -245,54 +289,49 @@ func TestKubegen_Generate(t *testing.T) {
 		"sourcePodName":            "test_pod",
 		"sourceService":            "test.testns.svc.cluster.local",
 		"sourceServiceAccountName": "test",
-		"targetService":            "hello.default.svc.cluster.local",
 	}
 
-	namespacedTargetSvcIn := map[string]interface{}{
-		"targetService": "hello.world",
+	nsAppLabelIn := map[string]interface{}{
+		"sourceUID": "kubernetes://alt-svc.testns",
 	}
 
-	namespacedTargetSvcOut := map[string]interface{}{
-		"targetService": "hello.world.svc.cluster.local",
+	nsAppLabelOut := map[string]interface{}{
+		"sourceLabels": map[string]string{
+			"app": "alt-svc.testns",
+		},
+		"sourceService":   "alt-svc.testns.svc.cluster.local",
+		"sourceNamespace": "testns",
+		"sourcePodName":   "alt-svc",
 	}
 
-	partialTargetSvcIn := map[string]interface{}{
-		"targetService": "hello.world.service:80",
+	svcClusterIn := map[string]interface{}{
+		"sourceUID": "kubernetes://alt-svc-with-cluster.testns",
 	}
 
-	partialTargetSvcOut := map[string]interface{}{
-		"targetService": "hello.world.service.cluster.local",
+	svcClusterOut := map[string]interface{}{
+		"sourceLabels": map[string]string{
+			"app": "alt-svc-with-cluster.testns.svc.cluster:8080",
+		},
+		"sourceService":   "alt-svc-with-cluster.testns.svc.cluster.local",
+		"sourceNamespace": "testns",
+		"sourcePodName":   "alt-svc-with-cluster",
 	}
 
-	morePartialTargetSvcIn := map[string]interface{}{
-		"targetService": "hello.world.service.kluster:80",
+	longSvcClusterIn := map[string]interface{}{
+		"sourceUID": "kubernetes://long-svc.testns",
 	}
 
-	morePartialTargetSvcOut := map[string]interface{}{
-		"targetService": "hello.world.service.kluster.local",
-	}
-
-	targetSvcIn := map[string]interface{}{
-		"targetService": "hello.world.service.kluster.remote:80",
-	}
-
-	targetSvcOut := map[string]interface{}{
-		"targetService": "hello.world.service.kluster.remote",
-	}
-
-	ipTargetSvcIn := map[string]interface{}{
-		"targetService": "10.1.100.10:80",
-	}
-
-	badTargetSvcOut := map[string]interface{}{}
-
-	badTargetSvcIn := map[string]interface{}{
-		"targetService": ":broken",
+	longSvcClusterOut := map[string]interface{}{
+		"sourceLabels": map[string]string{
+			"app": "long-svc.testns.svc.cluster.local.solar",
+		},
+		"sourceService":   "long-svc.testns.svc.cluster.local.solar",
+		"sourceNamespace": "testns",
+		"sourcePodName":   "long-svc",
 	}
 
 	emptyTargetSvcIn := map[string]interface{}{
-		"targetUID":     "kubernetes://badapplabel.testns",
-		"targetService": "",
+		"targetUID": "kubernetes://empty.testns",
 	}
 
 	emptyTargetOut := map[string]interface{}{
@@ -303,19 +342,42 @@ func TestKubegen_Generate(t *testing.T) {
 		"targetPodName":   "test_pod",
 	}
 
+	badTargetSvcIn := map[string]interface{}{
+		"targetUID": "kubernetes://badapplabel.testns",
+	}
+
+	badTargetOut := map[string]interface{}{
+		"targetLabels": map[string]string{
+			"app": ":",
+		},
+		"targetNamespace": "testns",
+		"targetPodName":   "test_pod",
+	}
+
+	ipTargetSvcIn := map[string]interface{}{
+		"targetUID": "kubernetes://ipaddr-svc.testns",
+	}
+
+	ipTargetOut := map[string]interface{}{
+		"targetLabels": map[string]string{
+			"app": "192.168.234.3",
+		},
+		"targetNamespace": "testns",
+		"targetPodName":   "ipaddr-svc",
+	}
+
 	tests := []struct {
 		name   string
 		inputs map[string]interface{}
 		want   map[string]interface{}
 	}{
 		{"source pod and target service", sourceUIDIn, sourceUIDOut},
-		{"namespaced target service", namespacedTargetSvcIn, namespacedTargetSvcOut},
-		{"target service with 3 parts", partialTargetSvcIn, partialTargetSvcOut},
-		{"target service with 4 parts", morePartialTargetSvcIn, morePartialTargetSvcOut},
-		{"fq target service", targetSvcIn, targetSvcOut},
-		{"ip addr service", ipTargetSvcIn, badTargetSvcOut},
-		{"bad target service", badTargetSvcIn, badTargetSvcOut},
+		{"alternate service canonicalization (namespace)", nsAppLabelIn, nsAppLabelOut},
+		{"alternate service canonicalization (svc cluster)", svcClusterIn, svcClusterOut},
+		{"alternate service canonicalization (long svc)", longSvcClusterIn, longSvcClusterOut},
 		{"empty target service", emptyTargetSvcIn, emptyTargetOut},
+		{"bad target service label", badTargetSvcIn, badTargetOut},
+		{"ip target service label", ipTargetSvcIn, ipTargetOut},
 	}
 
 	for _, v := range tests {

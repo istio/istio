@@ -64,8 +64,7 @@ const (
 	desc = "Provides platform specific functionality for the kubernetes environment"
 
 	// parsing
-	kubePrefix       = "kubernetes://"
-	defaultNamespace = "default"
+	kubePrefix = "kubernetes://"
 
 	// input/output naming
 	sourceUID         = "sourceUID"
@@ -83,7 +82,6 @@ const (
 	serviceVal        = "Service"
 
 	// value extraction
-	targetService   = "targetService"
 	clusterDomain   = "svc.cluster.local"
 	podServiceLabel = "app"
 
@@ -99,7 +97,6 @@ var (
 		SourceUidInputName:      sourceUID,
 		TargetUidInputName:      targetUID,
 		OriginUidInputName:      originUID,
-		TargetServiceInputName:  targetService,
 		ClusterDomainName:       clusterDomain,
 		PodLabelForService:      podServiceLabel,
 		SourcePrefix:            sourcePrefix,
@@ -180,9 +177,6 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	}
 	if len(params.PodLabelForService) == 0 {
 		ce = ce.Appendf("podLabelName", "field must be populated")
-	}
-	if len(params.TargetServiceInputName) == 0 {
-		ce = ce.Appendf("targetServiceInputName", "field must be populated")
 	}
 	if len(params.ClusterDomainName) == 0 {
 		ce = ce.Appendf("clusterDomainName", "field must be populated")
@@ -265,18 +259,6 @@ func (k *kubegen) Generate(inputs map[string]interface{}) (map[string]interface{
 		uidstr, ok := uid.(string)
 		if ok && len(uidstr) > 0 {
 			k.addValues(values, uidstr, k.params.OriginPrefix)
-		}
-	}
-	if targetSvc, found := inputs[k.params.TargetServiceInputName]; found {
-		svc, ok := targetSvc.(string)
-		if ok && len(svc) > 0 {
-			n, err := canonicalName(svc, defaultNamespace, k.params.ClusterDomainName)
-			key := valueName(k.params.TargetPrefix, k.params.ServiceValueName)
-			if err != nil {
-				k.log.Warningf("could not canonicalize target service: %v", err)
-			} else if _, ok := values[key]; !ok {
-				values[key] = n
-			}
 		}
 	}
 	return values, nil
