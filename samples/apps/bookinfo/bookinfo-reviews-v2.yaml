@@ -12,29 +12,25 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-###########################################################################
-# Ingress resource (gateway)
-##########################################################################
+##################################################################################################
+# Reviews service v2
+##################################################################################################
 apiVersion: extensions/v1beta1
-kind: Ingress
+kind: Deployment
 metadata:
-  name: gateway
-  annotations:
-    kubernetes.io/ingress.class: "istio"
+  name: reviews-v2
 spec:
-  rules:
-  - http:
-      paths:
-      - path: /productpage
-        backend:
-          serviceName: productpage
-          servicePort: 9080
-      - path: /login
-        backend:
-          serviceName: productpage
-          servicePort: 9080
-      - path: /logout
-        backend:
-          serviceName: productpage
-          servicePort: 9080
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: reviews
+        version: v2
+    spec:
+      containers:
+      - name: reviews
+        image: istio/examples-bookinfo-reviews-v2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9080
 ---
