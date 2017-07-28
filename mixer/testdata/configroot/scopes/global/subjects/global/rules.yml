@@ -12,7 +12,6 @@ rules:
         sourceUID: source.uid | ""
         targetUID: target.uid | ""
         originUID: origin.uid | ""
-        targetService: target.service | request.headers["authority"] | request.host | ""
       attribute_bindings:
         source.ip: sourcePodIp
         source.labels: sourceLabels
