@@ -23,12 +23,14 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"os"
 
 	"istio.io/istio/devel/fortio"
 
 	context "golang.org/x/net/context"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 var (
@@ -54,8 +56,9 @@ func startServer(port int) {
 		fortio.Fatalf("failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
+	reflection.Register(grpcServer)
 	RegisterPingServerServer(grpcServer, &pingServer{})
-	fmt.Printf("Fortio grpc ping server listening on port %v\n", port)
+	fmt.Printf("Fortio %s grpc ping server listening on port %v\n", fortio.Version, port)
 	if err := grpcServer.Serve(socket); err != nil {
 		fortio.Fatalf("failed to start grpc server: %v", err)
 	}
@@ -82,6 +85,27 @@ func clientCall(serverAddr string, n int, payload string) {
 
 func main() {
 	flag.Parse()
+	/*
+		switch fortio.GetLogLevel() {
+		case fortio.Debug:
+			os.Setenv("GRPC_GO_LOG_VERBOSITY_LEVEL", "2")
+			os.Setenv("GRPC_GO_LOG_SEVERITY_LEVEL", "INFO")
+		case fortio.Verbose:
+			os.Setenv("GRPC_GO_LOG_VERBOSITY_LEVEL", "1")
+			os.Setenv("GRPC_GO_LOG_SEVERITY_LEVEL", "INFO")
+		case fortio.Info:
+			os.Setenv("GRPC_GO_LOG_SEVERITY_LEVEL", "INFO")
+		case fortio.Warning:
+			os.Setenv("GRPC_GO_LOG_SEVERITY_LEVEL", "WARNING")
+		case fortio.Error:
+			os.Setenv("GRPC_GO_LOG_SEVERITY_LEVEL", "ERROR")
+		case fortio.Critical:
+			os.Setenv("GRPC_GO_LOG_SEVERITY_LEVEL", "nolog")
+			// level can't be fatal, max is critical
+		}*/
+	fortio.Infof("lvl %s : GRPC_GO_LOG_VERBOSITY_LEVEL=%s GRPC_GO_LOG_SEVERITY_LEVEL=%s",
+		fortio.GetLogLevel().ToString(), os.Getenv("GRPC_GO_LOG_VERBOSITY_LEVEL"), os.Getenv("GRPC_GO_LOG_SEVERITY_LEVEL"))
+	//		NewLoggerV2WithVerbosity
 	if *hostFlag != "" {
 		// TODO doesn't work for ipv6 addrs etc
 		clientCall(fmt.Sprintf("%s:%d", *hostFlag, *portFlag), *countFlag, *payloadFlag)
