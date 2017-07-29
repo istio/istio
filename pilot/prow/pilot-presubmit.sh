@@ -26,48 +26,49 @@ set -u
 # Print commands
 set -x
 
-if [ "${CI:-}" == "bootstrap" ]; then
+if [ "${CI:-}" == 'bootstrap' ]; then
     # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
     # but we depend on being at path $GOPATH/src/istio.io/istio for imports.
-    mkdir -p $GOPATH/src/istio.io
-    ln -s $GOPATH/src/github.com/istio/pilot $GOPATH/src/istio.io
-    cd $GOPATH/src/istio.io/pilot/
+    ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+    cd ${GOPATH}/src/istio.io/pilot
 
     # Use the provided pull head sha, from prow.
-    GIT_SHA=$PULL_PULL_SHA
+    GIT_SHA="${PULL_PULL_SHA}"
 
     # Use volume mount from pilot-presubmit job's pod spec.
-    ln -s /etc/e2e-testing-kubeconfig/e2e-testing-kubeconfig platform/kube/config
+    ln -sf /etc/e2e-testing-kubeconfig/e2e-testing-kubeconfig platform/kube/config
 else
     # Use the current commit.
-    GIT_SHA=$(git rev-parse --verify HEAD)
+    GIT_SHA="$(git rev-parse --verify HEAD)"
 fi
 
-echo "=== Bazel Build ==="
+echo '=== Bazel Build ==='
 ./bin/install-prereqs.sh
 bazel build //...
 
-echo "=== Build istioctl ==="
+echo '=== Build istioctl ==='
 ./bin/upload-istioctl -p "gs://istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl"
 
-echo "=== Go Build ==="
+echo '=== Go Build ==='
 ./bin/init.sh
 
-echo "=== Code Check ==="
+echo '=== Code Check ==='
 ./bin/check.sh
 
-echo "=== Bazel Tests ==="
+echo '=== Bazel Tests ==='
 bazel test //...
 
-echo "=== Code Coverage ==="
+echo '=== Code Coverage ==='
 ./bin/codecov.sh | tee codecov.report
-if [ "${CI:-}" == "bootstrap" ]; then
-    BUILD_ID="PROW-${BUILD_NUMBER}" JOB_NAME="pilot/presubmit" ./bin/toolbox/presubmit/pkg_coverage.sh
+if [ "${CI:-}" == 'bootstrap' ]; then
+    BUILD_ID="PROW-${BUILD_NUMBER}" JOB_NAME='pilot/presubmit' bin/toolbox/pkg_coverage.sh
 
-    curl -s https://codecov.io/bash | CI_JOB_ID=$JOB_NAME CI_BUILD_ID=$BUILD_NUMBER bash /dev/stdin -K -Z -B ${PULL_BASE_REF} -C ${PULL_PULL_SHA} -P ${PULL_NUMBER} -t @/etc/codecov/pilot.token
+    curl -s https://codecov.io/bash \
+      | CI_JOB_ID="${JOB_NAME}" CI_BUILD_ID="${BUILD_NUMBER}" bash /dev/stdin \
+        -K -Z -B "${PULL_BASE_REF}" -C "${PULL_PULL_SHA}" -P "${PULL_NUMBER}" -t @/etc/codecov/pilot.token
 else
-    echo "Not in bootstrap environment, skipping code coverage publishing"
+    echo 'Not in bootstrap environment, skipping code coverage publishing'
 fi
 
-echo "=== Running e2e Tests ==="
-./bin/e2e.sh -tag $GIT_SHA -hub "gcr.io/istio-testing"
+echo '=== Running e2e Tests ==='
+./bin/e2e.sh -tag "${GIT_SHA}" -hub 'gcr.io/istio-testing'
