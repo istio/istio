@@ -19,7 +19,7 @@ type Bag interface {
 	// Get returns an attribute value.
 	Get(name string) (value interface{}, found bool)
 
-	// Names return the names of all the attributes known to this bag.
+	// Names returns the names of all the attributes known to this bag.
 	Names() []string
 
 	// Done indicates the bag can be reclaimed.

@@ -36,9 +36,6 @@ import (
 type MutableBag struct {
 	parent Bag
 	values map[string]interface{}
-	// number of children of this bag. It will not be recycled unless children count == 0
-	children int
-	sync.Mutex
 }
 
 var mutableBags = sync.Pool{
@@ -57,14 +54,11 @@ var mutableBags = sync.Pool{
 // When you are done using the mutable bag, call the Done method to recycle it.
 func GetMutableBag(parent Bag) *MutableBag {
 	mb := mutableBags.Get().(*MutableBag)
-	mb.parent = empty
 
-	pp, _ := parent.(*MutableBag)
-	if pp != nil {
-		pp.Lock()
-		pp.children++
-		mb.parent = pp
-		pp.Unlock()
+	if parent == nil {
+		mb.parent = empty
+	} else {
+		mb.parent = parent
 	}
 
 	return mb
@@ -100,44 +94,25 @@ func copyValue(v interface{}) interface{} {
 	return v
 }
 
-// Child allocates a derived mutable bag.
-func (mb *MutableBag) Child() *MutableBag {
-	// if code tries to create a child after Done
-	if mb.parent == nil {
-		panic(fmt.Errorf("bag used after scheduled destruction %#v", mb))
-	}
-	return GetMutableBag(mb)
-}
-
 // Done indicates the bag can be reclaimed.
 func (mb *MutableBag) Done() {
-	mb.Lock()
-	if mb.children == 0 {
-		mb.done()
-	} else {
-		glog.Warningf("attempting to free bag with active children %#v", mb)
+	// prevent use of a bag that's in the pool
+	if mb.parent == nil {
+		panic(fmt.Errorf("attempt to use a bag after its Done method has been called"))
 	}
-	mb.Unlock()
-}
 
-// done reclaims the bag. always called under a lock to the bag
-func (mb *MutableBag) done() {
-	mb.Reset()
-	mbparent, _ := mb.parent.(*MutableBag)
-	if mbparent != nil {
-		mbparent.Lock()
-		mbparent.children--
-		mbparent.Unlock()
-	}
 	mb.parent = nil
-	if glog.V(4) {
-		glog.Infof("freed bag: %#v", mb)
-	}
+	mb.Reset()
 	mutableBags.Put(mb)
 }
 
 // Get returns an attribute value.
 func (mb *MutableBag) Get(name string) (interface{}, bool) {
+	// prevent use of a bag that's in the pool
+	if mb.parent == nil {
+		panic(fmt.Errorf("attempt to use a bag after its Done method has been called"))
+	}
+
 	var r interface{}
 	var b bool
 	if r, b = mb.values[name]; !b {
@@ -146,15 +121,31 @@ func (mb *MutableBag) Get(name string) (interface{}, bool) {
 	return r, b
 }
 
-// Names return the names of all the attributes known to this bag.
+// Names returns the names of all the attributes known to this bag.
 func (mb *MutableBag) Names() []string {
+	if mb.parent == nil {
+		panic(fmt.Errorf("attempt to use a bag after its Done method has been called"))
+	}
+
+	parentNames := mb.parent.Names()
+
+	m := make(map[string]bool, len(parentNames)+len(mb.values))
+	for _, name := range parentNames {
+		m[name] = true
+	}
+
+	for name := range mb.values {
+		m[name] = true
+	}
+
 	i := 0
-	keys := make([]string, len(mb.values))
-	for k := range mb.values {
-		keys[i] = k
+	names := make([]string, len(m))
+	for name := range m {
+		names[i] = name
 		i++
 	}
-	return append(keys, mb.parent.Names()...)
+
+	return names
 }
 
 // Set creates an override for a named attribute.
@@ -406,17 +397,14 @@ func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.Attributes, globalDict [
 	return e
 }
 
-func lookup(index int32, err error, globalDict []string, messageDict []string) (string, error) {
+func lookup(index int32, err error, globalWordList []string, messageWordList []string) (string, error) {
 	if index < 0 {
-		if -index-1 >= int32(len(messageDict)) {
-			return "", me.Append(err, fmt.Errorf("attribute index %d is not defined in the available dictionaries", index))
+		if -index-1 < int32(len(messageWordList)) {
+			return messageWordList[-index-1], err
 		}
-		return messageDict[-index-1], err
+	} else if index < int32(len(globalWordList)) {
+		return globalWordList[index], err
 	}
 
-	if index >= int32(len(globalDict)) {
-		return "", me.Append(err, fmt.Errorf("attribute index %d is not defined in the available dictionaries", index))
-	}
-
-	return globalDict[index], err
+	return "", me.Append(err, fmt.Errorf("attribute index %d is not defined in the available dictionaries", index))
 }

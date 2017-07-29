@@ -46,45 +46,35 @@ type (
 		gp               *pool.GoroutinePool
 
 		// the global dictionary. This will eventually be writable via config
-		words   []string
-		wordMap map[string]int32
+		globalWordList []string
+		globalDict     map[string]int32
 	}
 )
 
 // NewGRPCServer creates a gRPC serving stack.
 func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
-	words := globalWordList
-	wordMap := make(map[string]int32, len(words))
-	for i := 0; i < len(words); i++ {
-		wordMap[words[i]] = int32(i)
+	globalDict := make(map[string]int32, len(globalWordList))
+	for i := 0; i < len(globalWordList); i++ {
+		globalDict[globalWordList[i]] = int32(i)
 	}
 
 	return &grpcServer{
 		aspectDispatcher: aspectDispatcher,
 		gp:               gp,
-		words:            words,
-		wordMap:          wordMap,
+		globalWordList:   globalWordList,
+		globalDict:       globalDict,
 	}
 }
 
 // Check is the entry point for the external Check method
 func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
-	requestBag := attribute.GetMutableBag(nil)
-
 	// TODO: this code doesn't distinguish between RPC failures when communicating with adapters and
 	//       their backend vs. semantic failures. For example, if the adapterDispatcher.Check
 	//       method returns a bad status, is that because an adapter failed an RPC or because the
 	//       request was denied? This will need to be addressed in the new adapter model. In the meantime,
 	//       RPC failure is treated as a semantic denial.
 
-	err := requestBag.UpdateBagFromProto(&req.Attributes, s.words)
-	if err != nil {
-		msg := "Request could not be processed due to invalid attributes."
-		glog.Error(msg, "\n", err)
-		details := status.NewBadRequest("attributes", err)
-		requestBag.Done()
-		return nil, makeGRPCError(status.InvalidWithDetails(msg, details))
-	}
+	requestBag := attribute.NewProtoBag(&req.Attributes, s.globalDict, s.globalWordList)
 
 	glog.Info("Dispatching Preprocess")
 	preprocResponseBag := attribute.GetMutableBag(requestBag)
@@ -118,7 +108,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	resp.Precondition.ValidDuration = 5 * time.Second
 	resp.Precondition.ValidUseCount = 10000
 	resp.Precondition.Status = out
-	responseBag.ToProto(&resp.Precondition.Attributes, s.wordMap)
+	responseBag.ToProto(&resp.Precondition.Attributes, s.globalDict)
 	responseBag.Done()
 
 	if len(req.Quotas) > 0 {
@@ -159,25 +149,37 @@ var reportResp = &mixerpb.ReportResponse{}
 
 // Report is the entry point for the external Report method
 func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.ReportRequest) (*mixerpb.ReportResponse, error) {
-	requestBag := attribute.GetMutableBag(nil)
+	if len(req.Attributes) == 0 {
+		// early out
+		return reportResp, nil
+	}
+
+	// apply the request-level word list to each attribute message if needed
+	for i := 0; i < len(req.Attributes); i++ {
+		if len(req.Attributes[i].Words) == 0 {
+			req.Attributes[i].Words = req.DefaultWords
+		}
+	}
+
+	protoBag := attribute.NewProtoBag(&req.Attributes[0], s.globalDict, s.globalWordList)
+	requestBag := attribute.GetMutableBag(protoBag)
 	preprocResponseBag := attribute.GetMutableBag(requestBag)
 
 	var err error
 	for i := 0; i < len(req.Attributes); i++ {
 		span, newctx := opentracing.StartSpanFromContext(legacyCtx, fmt.Sprintf("Attributes %d", i))
 
-		if len(req.Attributes[i].Words) == 0 {
-			// if the entry doesn't have any words of its own, use the request's words
-			req.Attributes[i].Words = req.DefaultWords
-		}
-
-		err = requestBag.UpdateBagFromProto(&req.Attributes[i], s.words)
-		if err != nil {
-			msg := "Request could not be processed due to invalid attributes."
-			glog.Error(msg, "\n", err)
-			details := status.NewBadRequest("attributes", err)
-			err = makeGRPCError(status.InvalidWithDetails(msg, details))
-			break
+		// the first attribute block is handled by the protoBag as a foundation,
+		// deltas are applied to the child bag (i.e. requestBag)
+		if i > 0 {
+			err = requestBag.UpdateBagFromProto(&req.Attributes[i], s.globalWordList)
+			if err != nil {
+				msg := "Request could not be processed due to invalid attributes."
+				glog.Error(msg, "\n", err)
+				details := status.NewBadRequest("attributes", err)
+				err = makeGRPCError(status.InvalidWithDetails(msg, details))
+				break
+			}
 		}
 
 		glog.Info("Dispatching Preprocess")
@@ -217,6 +219,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 
 	preprocResponseBag.Done()
 	requestBag.Done()
+	protoBag.Done()
 
 	if err != nil {
 		return nil, err

@@ -33,10 +33,10 @@ import (
 	"istio.io/mixer/pkg/status"
 )
 
-type preprocCallback func(requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status
-type checkCallback func(requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status
-type reportCallback func(requestBag *attribute.MutableBag) rpc.Status
-type quotaCallback func(requestBag *attribute.MutableBag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp,
+type preprocCallback func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status
+type checkCallback func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status
+type reportCallback func(requestBag attribute.Bag) rpc.Status
+type quotaCallback func(requestBag attribute.Bag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp,
 	rpc.Status)
 
 type testState struct {
@@ -118,7 +118,7 @@ func prepTestState() (*testState, error) {
 		return nil, err
 	}
 
-	ts.preproc = func(requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
+	ts.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
 		return status.OK
 	}
 
@@ -130,21 +130,21 @@ func (ts *testState) cleanupTestState() {
 	ts.deleteGRPCServer()
 }
 
-func (ts *testState) Check(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag) rpc.Status {
+func (ts *testState) Check(ctx context.Context, bag attribute.Bag, output *attribute.MutableBag) rpc.Status {
 	return ts.check(bag, output)
 }
 
-func (ts *testState) Report(ctx context.Context, bag *attribute.MutableBag) rpc.Status {
+func (ts *testState) Report(ctx context.Context, bag attribute.Bag) rpc.Status {
 	return ts.report(bag)
 }
 
-func (ts *testState) Quota(ctx context.Context, bag *attribute.MutableBag,
+func (ts *testState) Quota(ctx context.Context, bag attribute.Bag,
 	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
 
 	return ts.quota(bag, qma)
 }
 
-func (ts *testState) Preprocess(ctx context.Context, bag, output *attribute.MutableBag) rpc.Status {
+func (ts *testState) Preprocess(ctx context.Context, bag attribute.Bag, output *attribute.MutableBag) rpc.Status {
 	return ts.preproc(bag, output)
 }
 
@@ -155,11 +155,11 @@ func TestCheck(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.check = func(requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
+	ts.check = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
 		return status.WithPermissionDenied("Not Implemented")
 	}
 
-	ts.quota = func(requestBag *attribute.MutableBag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
+	ts.quota = func(requestBag attribute.Bag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
 		qmr := &aspect.QuotaMethodResp{Amount: 42}
 		return qmr, status.OK
 	}
@@ -189,7 +189,7 @@ func TestCheck(t *testing.T) {
 		t.Errorf("Got %v granted amount, expecting 42", response.Quotas["RequestCount"].GrantedAmount)
 	}
 
-	ts.quota = func(requestBag *attribute.MutableBag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
+	ts.quota = func(requestBag attribute.Bag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
 		return nil, status.WithPermissionDenied("Not Implemented")
 	}
 
@@ -207,7 +207,7 @@ func TestReport(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.report = func(requestBag *attribute.MutableBag) rpc.Status {
+	ts.report = func(requestBag attribute.Bag) rpc.Status {
 		return status.OK
 	}
 
@@ -217,7 +217,7 @@ func TestReport(t *testing.T) {
 		t.Errorf("Expected success, got error: %v", err)
 	}
 
-	ts.report = func(requestBag *attribute.MutableBag) rpc.Status {
+	ts.report = func(requestBag attribute.Bag) rpc.Status {
 		return status.WithPermissionDenied("Not Implemented")
 	}
 
@@ -244,7 +244,7 @@ func TestReport(t *testing.T) {
 	}
 
 	callCount := 0
-	ts.report = func(requestBag *attribute.MutableBag) rpc.Status {
+	ts.report = func(requestBag attribute.Bag) rpc.Status {
 		v1, _ := requestBag.Get("A1")
 		v2, _ := requestBag.Get("A2")
 		v3, _ := requestBag.Get("A3")
@@ -277,35 +277,6 @@ func TestReport(t *testing.T) {
 	}
 }
 
-func TestBadAttr(t *testing.T) {
-	attrs := mixerpb.Attributes{
-		Words:   []string{"Hello"},
-		Strings: map[int32]int32{-24: 25},
-	}
-
-	ts, err := prepTestState()
-	if err != nil {
-		t.Fatalf("Unable to prep test state: %v", err)
-	}
-	defer ts.cleanupTestState()
-
-	{
-		request := mixerpb.CheckRequest{Attributes: attrs}
-		_, err = ts.client.Check(context.Background(), &request)
-		if err == nil {
-			t.Error("Got success, expected failure")
-		}
-	}
-
-	{
-		request := mixerpb.ReportRequest{Attributes: []mixerpb.Attributes{attrs}}
-		_, err = ts.client.Report(context.Background(), &request)
-		if err == nil {
-			t.Error("Got success, expected failure")
-		}
-	}
-}
-
 func TestUnknownStatus(t *testing.T) {
 	ts, err := prepTestState()
 	if err != nil {
@@ -313,7 +284,7 @@ func TestUnknownStatus(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.check = func(requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
+	ts.check = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
 		return rpc.Status{
 			Code:    12345678,
 			Message: "DEADBEEF!",
@@ -336,7 +307,7 @@ func TestFailingPreproc(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.preproc = func(requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
+	ts.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
 		return rpc.Status{
 			Code:    12345678,
 			Message: "DEADBEEF!",
