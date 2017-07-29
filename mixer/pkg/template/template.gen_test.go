@@ -102,7 +102,7 @@ dimensions:
 					t.Errorf("got panic %v, expected success.", r)
 				}
 			}()
-			cv, cerr := inferTypeForSampleReport(cp.(proto.Message), typeEvalFn)
+			cv, cerr := SupportedTmplInfo[sample_report.TemplateName].InferType(cp.(proto.Message), typeEvalFn)
 			if tst.willPanic {
 				t.Error("Should not reach this statement due to panic.")
 			}
