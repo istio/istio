@@ -107,7 +107,7 @@ func TestBag(t *testing.T) {
 	}
 
 	// try another level of overrides just to make sure that path is OK
-	child := ab.Child()
+	child := GetMutableBag(ab)
 	child.Set("N2", "31415692")
 	r, found := ab.Get("N2")
 	if !found || r.(string) != "42" {
@@ -118,8 +118,8 @@ func TestBag(t *testing.T) {
 func TestMerge(t *testing.T) {
 	mb := GetMutableBag(empty)
 
-	c1 := mb.Child()
-	c2 := mb.Child()
+	c1 := GetMutableBag(mb)
+	c2 := GetMutableBag(mb)
 
 	c1.Set("STRING1", "A")
 	c2.Set("STRING2", "B")
@@ -140,8 +140,8 @@ func TestMerge(t *testing.T) {
 func TestMergeErrors(t *testing.T) {
 	mb := GetMutableBag(empty)
 
-	c1 := mb.Child()
-	c2 := mb.Child()
+	c1 := GetMutableBag(mb)
+	c2 := GetMutableBag(mb)
 
 	c1.Set("FOO", "X")
 	c2.Set("FOO", "Y")
@@ -179,18 +179,18 @@ func TestEmptyRoundTrip(t *testing.T) {
 }
 
 func TestProtoBag(t *testing.T) {
-	globalDict := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"}
-	messageDict := []string{"M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10"}
+	globalWordList := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"}
+	messageWordList := []string{"M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10"}
 
-	revGlobalDict := make(map[string]int32)
-	for k, v := range globalDict {
-		revGlobalDict[v] = int32(k)
+	globalDict := make(map[string]int32)
+	for k, v := range globalWordList {
+		globalDict[v] = int32(k)
 	}
 
 	sm := mixerpb.StringMap{Entries: map[int32]int32{-6: -7}}
 
 	attrs := mixerpb.Attributes{
-		Words:      messageDict,
+		Words:      messageWordList,
 		Strings:    map[int32]int32{4: 5},
 		Int64S:     map[int32]int64{6: 42},
 		Doubles:    map[int32]float64{7: 42.0},
@@ -215,61 +215,71 @@ func TestProtoBag(t *testing.T) {
 		{"M5", map[string]string{"M6": "M7"}},
 	}
 
-	for i := 0; i < 2; i++ {
-		pb, err := GetBagFromProto(&attrs, globalDict)
-		if err != nil {
-			t.Fatalf("GetBagFromProto failed with %v", err)
-		}
+	for j := 0; j < 2; j++ {
+		for i := 0; i < 2; i++ {
+			var pb *MutableBag
+			var err error
 
-		for _, c := range cases {
-			t.Run(c.name, func(t *testing.T) {
-				v, ok := pb.Get(c.name)
-				if !ok {
-					t.Error("Got false, expected true")
+			if j == 0 {
+				pb, err = GetBagFromProto(&attrs, globalWordList)
+				if err != nil {
+					t.Fatalf("GetBagFromProto failed with %v", err)
+				}
+			} else {
+				b := NewProtoBag(&attrs, globalDict, globalWordList)
+				pb = GetMutableBag(b)
+			}
+
+			for _, c := range cases {
+				t.Run(c.name, func(t *testing.T) {
+					v, ok := pb.Get(c.name)
+					if !ok {
+						t.Error("Got false, expected true")
+					}
+
+					if ok, _ := compareAttributeValues(v, c.value); !ok {
+						t.Errorf("Got %v, expected %v", v, c.value)
+					}
+				})
+			}
+
+			// make sure all the expected names are there
+			names := pb.Names()
+			for _, cs := range cases {
+				found := false
+				for _, n := range names {
+					if cs.name == n {
+						found = true
+						break
+					}
 				}
 
-				if ok, _ := compareAttributeValues(v, c.value); !ok {
-					t.Errorf("Got %v, expected %v", v, c.value)
+				if !found {
+					t.Errorf("Could not find attribute name %s", cs.name)
 				}
-			})
-		}
+			}
 
-		// make sure all the expected names are there
-		names := pb.Names()
-		for _, cs := range cases {
-			found := false
+			// try out round-tripping
+			mb := GetMutableBag(pb)
 			for _, n := range names {
-				if cs.name == n {
-					found = true
-					break
-				}
+				v, _ := pb.Get(n)
+				mb.Set(n, v)
 			}
 
-			if !found {
-				t.Errorf("Could not find attribute name %s", cs.name)
-			}
+			var a2 mixerpb.Attributes
+			mb.ToProto(&a2, globalDict)
+
+			pb.Done()
 		}
-
-		// try out round-tripping
-		mb := GetMutableBag(pb)
-		for _, n := range names {
-			v, _ := pb.Get(n)
-			mb.Set(n, v)
-		}
-
-		var a2 mixerpb.Attributes
-		mb.ToProto(&a2, revGlobalDict)
-
-		pb.Done()
 	}
 }
 
 func TestMessageDict(t *testing.T) {
-	globalDict := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"}
+	globalWordList := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"}
 
-	revGlobalDict := make(map[string]int32)
-	for k, v := range globalDict {
-		revGlobalDict[v] = int32(k)
+	globalDict := make(map[string]int32)
+	for k, v := range globalWordList {
+		globalDict[v] = int32(k)
 	}
 
 	b := GetMutableBag(nil)
@@ -278,8 +288,8 @@ func TestMessageDict(t *testing.T) {
 	b.Set("M3", "M2")
 
 	var attrs mixerpb.Attributes
-	b.ToProto(&attrs, revGlobalDict)
-	b2, _ := GetBagFromProto(&attrs, globalDict)
+	b.ToProto(&attrs, globalDict)
+	b2, _ := GetBagFromProto(&attrs, globalWordList)
 
 	if !compareBags(b, b2) {
 		t.Errorf("Got non-matching bags")
@@ -374,15 +384,15 @@ func TestCopyBag(t *testing.T) {
 }
 
 func TestProtoBag_Errors(t *testing.T) {
-	globalDict := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"}
-	messageDict := []string{"M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9"}
+	globalWordList := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"}
+	messageWordList := []string{"M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9"}
 
 	attrs := mixerpb.Attributes{
-		Words:   messageDict,
+		Words:   messageWordList,
 		Strings: map[int32]int32{-24: 25},
 	}
 
-	pb, err := GetBagFromProto(&attrs, globalDict)
+	pb, err := GetBagFromProto(&attrs, globalWordList)
 	if err == nil {
 		t.Error("GetBagFromProto succeeded, expected failure")
 	}
@@ -392,34 +402,20 @@ func TestProtoBag_Errors(t *testing.T) {
 	}
 }
 
-func TestMutableBag_Child(t *testing.T) {
-	mb := GetMutableBag(nil)
-	c1 := mb.Child()
-	c2 := mb.Child()
-	c3 := mb.Child()
-	c31 := c3.Child()
-	mb.Done()
+func TestUseAfterFree(t *testing.T) {
+	b := GetMutableBag(nil)
+	b.Done()
 
-	if mb.parent == nil {
-		t.Errorf("Unexpectedly freed bag with children %#v", mb)
+	if err := withPanic(func() { _, _ = b.Get("XYZ") }); err == nil {
+		t.Error("Expected panic")
 	}
 
-	if c1.parent != mb {
-		t.Errorf("not the correct parent. got %#v\nwant %#v", c1.parent, mb)
+	if err := withPanic(func() { _ = b.Names() }); err == nil {
+		t.Error("Expected panic")
 	}
-	c1.Done()
-	if c1.parent != nil {
-		t.Errorf("did not free bag c1 %#v", c1)
-	}
-	c2.Done()
-	c3.Done()
-	c31.Done()
 
-	mb.parent = nil
-	err := withPanic(func() { mb.Child() })
-
-	if err == nil {
-		t.Errorf("want panic, got %#v", err)
+	if err := withPanic(func() { b.Done() }); err == nil {
+		t.Error("Expected panic")
 	}
 }
 
@@ -502,6 +498,47 @@ func compareAttributeValues(v1, v2 interface{}) (bool, error) {
 	}
 
 	return result, nil
+}
+
+func TestBogusProto(t *testing.T) {
+	globalWordList := []string{"G0", "G1"}
+	globalDict := map[string]int32{globalWordList[0]: 0, globalWordList[1]: 1}
+	messageWordList := []string{"N1", "N2"}
+
+	sm1 := mixerpb.StringMap{Entries: map[int32]int32{-42: 0}}
+	sm2 := mixerpb.StringMap{Entries: map[int32]int32{0: -42}}
+
+	attrs := mixerpb.Attributes{
+		Words:      messageWordList,
+		Strings:    map[int32]int32{42: 1, 1: 42},
+		StringMaps: map[int32]mixerpb.StringMap{-1: sm1, -2: sm2},
+	}
+
+	b := NewProtoBag(&attrs, globalDict, globalWordList)
+
+	cases := []struct {
+		name string
+	}{
+		{"Foo"},
+		{"G0"},
+		{"G1"},
+		{"N1"},
+		{"N2"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+
+			v, ok := b.Get(c.name)
+			if v != nil {
+				t.Errorf("Expecting nil value, got #%v", v)
+			}
+
+			if ok {
+				t.Error("Expecting false, got true")
+			}
+		})
+	}
 }
 
 func init() {

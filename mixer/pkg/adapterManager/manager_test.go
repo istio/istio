@@ -588,7 +588,7 @@ func TestExecute(t *testing.T) {
 		m.cfg.Store(&fakeResolver{cfg, nil})
 
 		o := m.dispatch(context.Background(), attribute.GetMutableBag(nil), attribute.GetMutableBag(nil), cfg,
-			func(executor aspect.Executor, evaluator expr.Evaluator, _, _ *attribute.MutableBag) rpc.Status {
+			func(executor aspect.Executor, evaluator expr.Evaluator, _ attribute.Bag, _ *attribute.MutableBag) rpc.Status {
 				return status.OK
 			})
 		if c.inErr != nil && status.IsOK(o) {

@@ -130,7 +130,7 @@ func (bs *benchState) cleanupBenchState() {
 	bs.deleteGRPCServer()
 }
 
-func (bs *benchState) Check(ctx context.Context, bag *attribute.MutableBag, output *attribute.MutableBag) rpc.Status {
+func (bs *benchState) Check(ctx context.Context, bag attribute.Bag, output *attribute.MutableBag) rpc.Status {
 	output.Set("kubernetes.pod", "a pod name")
 	output.Set("kubernetes.service", "a service name")
 	output.Set("kubernetes.id", int64(123456))
@@ -138,18 +138,18 @@ func (bs *benchState) Check(ctx context.Context, bag *attribute.MutableBag, outp
 	return status.OK
 }
 
-func (bs *benchState) Report(ctx context.Context, bag *attribute.MutableBag) rpc.Status {
+func (bs *benchState) Report(ctx context.Context, bag attribute.Bag) rpc.Status {
 	return status.WithPermissionDenied("Not Implementd")
 }
 
-func (bs *benchState) Quota(ctx context.Context, requestBag *attribute.MutableBag,
+func (bs *benchState) Quota(ctx context.Context, requestBag attribute.Bag,
 	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
 
 	qmr := &aspect.QuotaMethodResp{Amount: 42}
 	return qmr, status.OK
 }
 
-func (bs *benchState) Preprocess(ctx context.Context, requestBag *attribute.MutableBag, responseBag *attribute.MutableBag) rpc.Status {
+func (bs *benchState) Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
 	return status.OK
 }
 

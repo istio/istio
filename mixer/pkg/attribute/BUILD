@@ -8,6 +8,7 @@ go_library(
         "bag.go",
         "emptyBag.go",
         "mutableBag.go",
+        "protoBag.go",
     ],
     deps = [
         "//pkg/pool:go_default_library",
