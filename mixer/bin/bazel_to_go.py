@@ -224,6 +224,10 @@ def tools_generated_files(WKSPC):
         for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/interfacegen/testdata"):
             if file.endswith("_proto.descriptor_set") or file.endswith("error_template.descriptor_set"):
                 makelink(WKSPC + "/bazel-genfiles/tools/codegen/pkg/interfacegen/testdata/" + file, WKSPC + "/tools/codegen/pkg/interfacegen/testdata/" + file)
+    if os.path.exists(WKSPC + "/bazel-genfiles/tools/codegen/pkg/bootstrapgen/testdata"):
+        for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/bootstrapgen/testdata"):
+            if file.endswith("_proto.descriptor_set"):
+                makelink(WKSPC + "/bazel-genfiles/tools/codegen/pkg/bootstrapgen/testdata/" + file, WKSPC + "/tools/codegen/pkg/bootstrapgen/testdata/" + file)
     if os.path.exists(WKSPC + "/bazel-genfiles/tools/codegen/pkg/modelgen/testdata"):
             for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/modelgen/testdata"):
                 if file.endswith(".descriptor_set"):

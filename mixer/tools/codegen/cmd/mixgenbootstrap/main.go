@@ -34,13 +34,17 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 	// single import mapping which applies to all the passed in templates.
 
 	rootCmd := cobra.Command{
-		Use: "mixgenbootstrap <list of file descriptor set protobufs>",
+		Use: "mixgenbootstrap <colon separated list of file descriptor set protobufs and it's Go import path>",
 		Short: "Parses all the [Templates](http://TODO), defined in each of the input file descriptor set, and generates" +
 			" the required Go file that mixer framework will be compiled with to add support for the pass in templates.",
 		Long: "Each of the input <File descriptor set protobuf> must contain a proto file that defines the template.\n" +
 			"This code generator is meant to be used for creating a new mixer build. The output file suppose to be integrated \n" +
 			"in the mixer's build system.\n" +
-			"Example: mixgenbootstrap metricTemplateFileDescriptorSet.pb quotaTemplateFileDescriptorSet.pb quotaTemplateFileDescriptorSet.pb -o template.gen.go",
+			"Example: " +
+			"mixgenbootstrap metricTemplateFileDescriptorSet.pb:istio.io/mixer/template/metric " +
+			"quotaTemplateFileDescriptorSet.pb:istio.io/mixer/template/quota " +
+			"listTemplateFileDescriptorSet.pb:istio.io/mixer/template/list " +
+			"-o template.gen.go",
 		Run: func(cmd *cobra.Command, args []string) {
 
 			if len(args) <= 0 {
@@ -56,9 +60,20 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 				m := strings.Split(maps, ":")
 				importMapping[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
 			}
+			fdsFiles := make(map[string]string) // FDS and their package import path
+			for _, arg := range args {
+				m := strings.Split(arg, ":")
+				if len(m) != 2 {
+					errorf("Invalid argument '%s'. Argument should contain one colon and be of the form <Path To File DescriptorSet "+
+						"that defines the template>:<Package import path for the template>. "+
+						"Example: mixgenbootstrap metricTemplateFileDescriptorSet.pb:istio.io/mixer/template/metric", arg)
+				}
+				fdsFiles[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
+			}
 
 			generator := bootstrapgen.Generator{OutFilePath: outFileFullPath, ImportMapping: importMapping}
-			if err := generator.Generate(args); err != nil {
+
+			if err := generator.Generate(fdsFiles); err != nil {
 				errorf("%v", err)
 			}
 		},
