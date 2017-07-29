@@ -23,7 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"os"
+	"time"
 
 	"istio.io/istio/devel/fortio"
 
@@ -44,9 +44,9 @@ type pingServer struct {
 }
 
 func (s *pingServer) Ping(c context.Context, in *PingMessage) (*PingMessage, error) {
-	fortio.Infof("Ping called %+v (ctx %+v)", *in, c)
+	fortio.LogVf("Ping called %+v (ctx %+v)", *in, c)
 	out := *in
-	out.Ttl++
+	out.Ts = time.Now().UnixNano()
 	return &out, nil
 }
 
@@ -72,40 +72,41 @@ func clientCall(serverAddr string, n int, payload string) {
 	msg := &PingMessage{}
 	msg.Payload = payload
 	cli := NewPingServerClient(conn)
+	// Warm up:
+	_, err = cli.Ping(context.Background(), msg)
+	if err != nil {
+		fortio.Fatalf("grpc error from Ping0 %v", err)
+	}
 	for i := 1; i <= n; i++ {
-		msg.Id = int64(i)
-		res, err := cli.Ping(context.Background(), msg)
+		msg.Seq = int64(i)
+		t1a := time.Now().UnixNano()
+		msg.Ts = t1a
+		res1, err := cli.Ping(context.Background(), msg)
+		t2a := time.Now().UnixNano()
 		if err != nil {
-			fortio.Fatalf("grpc error from Ping %v", err)
+			fortio.Fatalf("grpc error from Ping1 %v", err)
 		}
-		fortio.Infof("Ping returned %+v", *res)
-		msg = res
+		t1b := res1.Ts
+		res2, err := cli.Ping(context.Background(), msg)
+		t3a := time.Now().UnixNano()
+		t2b := res2.Ts
+		if err != nil {
+			fortio.Fatalf("grpc error from Ping2 %v", err)
+		}
+		rt1 := t2a - t1a
+		rt2 := t3a - t2a
+		rtR := t2b - t1b
+		midR := t1b + (rtR / 2)
+		avgRtt := (rt1 + rt2 + rtR) / 3
+		x := (midR - t2a)
+		fortio.Infof("Ping RTT %d (avg of %d, %d, %d ns) clock skew %d",
+			avgRtt, rt1, rtR, rt2, x)
+		msg = res2
 	}
 }
 
 func main() {
 	flag.Parse()
-	/*
-		switch fortio.GetLogLevel() {
-		case fortio.Debug:
-			os.Setenv("GRPC_GO_LOG_VERBOSITY_LEVEL", "2")
-			os.Setenv("GRPC_GO_LOG_SEVERITY_LEVEL", "INFO")
-		case fortio.Verbose:
-			os.Setenv("GRPC_GO_LOG_VERBOSITY_LEVEL", "1")
-			os.Setenv("GRPC_GO_LOG_SEVERITY_LEVEL", "INFO")
-		case fortio.Info:
-			os.Setenv("GRPC_GO_LOG_SEVERITY_LEVEL", "INFO")
-		case fortio.Warning:
-			os.Setenv("GRPC_GO_LOG_SEVERITY_LEVEL", "WARNING")
-		case fortio.Error:
-			os.Setenv("GRPC_GO_LOG_SEVERITY_LEVEL", "ERROR")
-		case fortio.Critical:
-			os.Setenv("GRPC_GO_LOG_SEVERITY_LEVEL", "nolog")
-			// level can't be fatal, max is critical
-		}*/
-	fortio.Infof("lvl %s : GRPC_GO_LOG_VERBOSITY_LEVEL=%s GRPC_GO_LOG_SEVERITY_LEVEL=%s",
-		fortio.GetLogLevel().ToString(), os.Getenv("GRPC_GO_LOG_VERBOSITY_LEVEL"), os.Getenv("GRPC_GO_LOG_SEVERITY_LEVEL"))
-	//		NewLoggerV2WithVerbosity
 	if *hostFlag != "" {
 		// TODO doesn't work for ipv6 addrs etc
 		clientCall(fmt.Sprintf("%s:%d", *hostFlag, *portFlag), *countFlag, *payloadFlag)

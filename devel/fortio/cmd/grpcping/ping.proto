@@ -2,8 +2,8 @@ syntax = "proto3";
 package main;
 
 message PingMessage {
-  sint64 id = 1; // delta timestamp
-  sint64 ttl = 2; // delta timestamp
+  int64 seq      = 1; // sequence number
+  int64 ts       = 2; // src send ts / dest receive ts
   string payload = 3; // extra packet data
 }
 
