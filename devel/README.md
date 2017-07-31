@@ -232,7 +232,7 @@ cd $(ISTIO)/mixer
 bazel build ...
 ```
 
-This figures out what it needs to do and does not need any input from you.
+If you are using zsh, add double quotes around the 3 dots, e.g.  ```bazel build "..."```. This build command figures out what it needs to do and does not need any input from you.  
 
 ### Setup bazel and go links
 
