@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -34,6 +35,7 @@ import (
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
+	"istio.io/istio/devel/fortio"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/e2e/util"
 )
@@ -47,7 +49,6 @@ const (
 	routeAllRule             = "route-rule-all-v1.yaml"
 	routeReviewsVersionsRule = "route-rule-reviews-v2-v3.yaml"
 	emptyRule                = "mixer-rule-empty-rule.yaml"
-	luaTemplate              = "tests/e2e/tests/testdata/sample.lua.template"
 
 	prometheusPort = "9090"
 
@@ -61,33 +62,6 @@ type testConfig struct {
 	*framework.CommonConfig
 	gateway  string
 	rulesDir string
-	wrk      *util.Wrk
-}
-
-// Template for ../test/testdata/sample.lua.template
-type luaScriptTemplate struct {
-	JSONFile  string
-	ErrorFile string
-}
-
-// SampleResponseJSON for ../test/testdata/sample.lua.template
-type luaScriptResponseJSON struct {
-	CompletedRequests int64   `json:"completedRequests"`
-	FailedRequests    int64   `json:"failedRequests"`
-	TimeoutRequests   int64   `json:"timeoutRequests"`
-	Non2xxResponses   int64   `json:"non2xxResponses"`
-	KiloBytesPerSec   float64 `json:"KiloBytesPerSec"`
-	MaxLatencyMs      float64 `json:"maxLatencyMs"`
-	MeanLatencyMs     float64 `json:"meanLatencyMs"`
-	P50LatencyMs      float64 `json:"p50LatencyMs"`
-	P66LatencyMs      float64 `json:"p66LatencyMs"`
-	P75LatencyMs      float64 `json:"p75LatencyMs"`
-	P80LatencyMs      float64 `json:"p80LatencyMs"`
-	P90LatencyMs      float64 `json:"p90LatencyMs"`
-	P95LatencyMs      float64 `json:"p95LatencyMs"`
-	P98LatencyMs      float64 `json:"p98LatencyMs"`
-	P99LatencyMs      float64 `json:"p99LatencyMs"`
-	RequestsPerSecond float64 `json:"requestsPerSecond"`
 }
 
 var (
@@ -97,10 +71,6 @@ var (
 )
 
 func (t *testConfig) Setup() error {
-	if err := t.wrk.Install(); err != nil {
-		glog.Error("Failed to install wrk")
-		return err
-	}
 	t.gateway = "http://" + tc.Kube.Ingress
 	for _, rule := range rules {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
@@ -323,53 +293,47 @@ func TestRateLimit(t *testing.T) {
 		}
 	}()
 
-	// allow time for configuration to go and be active.
-	// TODO: figure out a better way to confirm rule active
-	time.Sleep(1 * time.Minute)
-	threads := 5
-	timeout := "10s"
-	connections := 15
-	duration := "2m"
-	errorFile := filepath.Join(tc.Kube.TmpDir, "TestRateLimit.err")
-	JSONFile := filepath.Join(tc.Kube.TmpDir, "TestRateLimit.Json")
+	// allow time for rule sync
+	time.Sleep(10 * time.Second)
+
 	url := fmt.Sprintf("%s/productpage", tc.gateway)
-
-	luaScript := &util.LuaTemplate{
-		TemplatePath: util.GetResourcePath(luaTemplate),
-		Template: &luaScriptTemplate{
-			ErrorFile: errorFile,
-			JSONFile:  JSONFile,
-		},
-	}
-	if err := luaScript.Generate(); err != nil {
-		t.Errorf("Failed to generate lua script. %v", err)
-		return
+	opts := fortio.DefaultRunnerOptions
+	opts.Duration = 30 * time.Second
+	opts.QPS = 30
+	clients := make([]*fortio.Client, 0, opts.NumThreads)
+	for i := 0; i < opts.NumThreads; i++ {
+		clients = append(clients, fortio.NewClient(url, 15, true))
 	}
 
-	if err := tc.wrk.Run(
-		"-t %d --timeout %s -c %d -d %s -s %s %s",
-		threads, timeout, connections, duration, luaScript.Script, url); err != nil {
-		t.Errorf("Failed to run wrk %v", err)
-		return
+	var totalReqs, successReqs, errReqs int64
+
+	opts.Function = func(tid int) {
+		code, _ := clients[tid].Fetch()
+		atomic.AddInt64(&totalReqs, 1)
+
+		if code >= http.StatusOK && code < http.StatusMultipleChoices {
+			// [200, 300)
+			atomic.AddInt64(&successReqs, 1)
+			return
+		}
+		if code == http.StatusBadRequest || code < http.StatusInternalServerError {
+			// [400, 500)
+			atomic.AddInt64(&errReqs, 1)
+			return
+		}
 	}
 
-	// TODO: Use the JSON file to do more detailed checking
-	r := &luaScriptResponseJSON{}
-	if err := util.ReadJSON(JSONFile, r); err != nil {
-		t.Errorf("Could not parse json. %v", err)
-		return
-	}
-
-	glog.Infof("WRK stats: %#v", r)
-	// consider only successful full requests
-	perSvc := float64(r.CompletedRequests-r.FailedRequests-r.Non2xxResponses) / 3
-
-	// Allow full processing of metrics, etc.
-	time.Sleep(1 * time.Minute)
+	runner := fortio.NewPeriodicRunner(&opts)
+	runner.Run()
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
+	glog.Infof("Summary: %d reqs (%d 200s, %d 400s)", totalReqs, successReqs, errReqs)
+
+	// consider only successful full requests
+	perSvc := float64(successReqs) / 3
+
 	// must sleep to allow for prometheus scraping, etc.
-	time.Sleep(15 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	promAPI, err := promAPI()
 	if err != nil {
@@ -383,7 +347,6 @@ func TestRateLimit(t *testing.T) {
 	glog.Infof("promvalue := %s", value.String())
 
 	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429"})
-	//rateLimited := got
 	if err != nil {
 		t.Errorf("Could not find rate limit value: %v", err)
 	}
@@ -399,10 +362,9 @@ func TestRateLimit(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not find successes value: %v", err)
 	}
-
-	// bare minimum of OKs, assuming 5qps for 2m
-	want = 600.0
-	if perSvc < 600 {
+	// expected OKs, assuming 30qps for 30s
+	want = 900.0
+	if perSvc < 900 {
 		want = perSvc
 	}
 	// allow some leeway
@@ -512,9 +474,6 @@ func setTestConfig() error {
 		return err
 	}
 	tc.rulesDir = tmpDir
-	tc.wrk = &util.Wrk{
-		TmpDir: tmpDir,
-	}
 	demoApp := &framework.App{
 		AppYaml:    util.GetResourcePath(bookinfoYaml),
 		KubeInject: true,
