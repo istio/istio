@@ -21,6 +21,11 @@ import (
 	"fmt"
 )
 
+const (
+	blockTypeECParameters  = "EC PARAMETERS"
+	blockTypeRSAPrivateKey = "RSA PRIVATE KEY"
+)
+
 // ParsePemEncodedCertificate constructs a `x509.Certificate` object using the
 // given a PEM-encoded certificate,
 func ParsePemEncodedCertificate(certBytes []byte) (*x509.Certificate, error) {
@@ -37,28 +42,27 @@ func ParsePemEncodedCertificate(certBytes []byte) (*x509.Certificate, error) {
 	return cert, nil
 }
 
-// ParsePemEncodedKey takes a PEM-encoded key, and parsed the bytes into a
-// `crypto.PrivateKey`, using the provided `x509.PublicKeyAlgorithm`.
-func ParsePemEncodedKey(algo x509.PublicKeyAlgorithm, keyBytes []byte) (crypto.PrivateKey, error) {
+// ParsePemEncodedKey takes a PEM-encoded key and parsed the bytes into a `crypto.PrivateKey`.
+func ParsePemEncodedKey(keyBytes []byte) (crypto.PrivateKey, error) {
 	kb, _ := pem.Decode(keyBytes)
 	if kb == nil {
 		return nil, fmt.Errorf("Invalid PEM-encoded key")
 	}
 
-	switch algo {
-	case x509.RSA:
-		key, err := x509.ParsePKCS1PrivateKey(kb.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to parse the RSA private key")
-		}
-		return key, nil
-	case x509.ECDSA:
+	switch kb.Type {
+	case blockTypeECParameters:
 		key, err := x509.ParseECPrivateKey(kb.Bytes)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to parse the ECDSA private key")
 		}
 		return key, nil
+	case blockTypeRSAPrivateKey:
+		key, err := x509.ParsePKCS1PrivateKey(kb.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to parse the RSA private key")
+		}
+		return key, nil
 	default:
-		return nil, fmt.Errorf("Unknown public key algorithm: %d", algo)
+		return nil, fmt.Errorf("Unsupported PEM block type for a private key: %s", kb.Type)
 	}
 }

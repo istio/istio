@@ -92,7 +92,7 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		return nil, err
 	}
 
-	ca.signingKey, err = pki.ParsePemEncodedKey(ca.signingCert.PublicKeyAlgorithm, opts.SigningKeyBytes)
+	ca.signingKey, err = pki.ParsePemEncodedKey(opts.SigningKeyBytes)
 	if err != nil {
 		return nil, err
 	}

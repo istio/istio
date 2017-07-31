@@ -158,7 +158,7 @@ func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x5
 	if err != nil {
 		glog.Fatal(err)
 	}
-	key, err := pki.ParsePemEncodedKey(cert.PublicKeyAlgorithm, signerPrivBytes)
+	key, err := pki.ParsePemEncodedKey(signerPrivBytes)
 	if err != nil {
 		glog.Fatal(err)
 	}
