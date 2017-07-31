@@ -18,6 +18,18 @@
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 ARGS=(-alsologtostderr -test.v -v 2)
 
+function print_block() {
+    line=""
+    for i in {1..40}
+    do
+        line+="$1"
+    done
+
+    echo $line
+    echo $2
+    echo $line
+}
+
 function error_exit() {
     # ${BASH_SOURCE[1]} is the file name of the caller.
     echo "${BASH_SOURCE[1]}: line ${BASH_LINENO[0]}: ${1:-Unknown Error.} (exit ${2:-1})" 1>&2
@@ -25,26 +37,32 @@ function error_exit() {
 }
 
 . ${ROOT}/istio.VERSION || error_exit "Could not source versions"
-
 TESTS_TARGETS=($(bazel query 'tests(//tests/e2e/tests/...)'))
-FAILURE_COUNT=0
+TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
+RBAC_FILE='install/kubernetes/istio-rbac-beta.yaml'
 
+function test_group() {
+    print_block '=' "TEST Group -- auth ${1}"
+    FAILURE_COUNT=0
+    AUTH_ARGS=(--auth_enable true)
+    for T in ${TESTS_TARGETS[@]}; do
+      print_block '$' "Running ${T}"
+      bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} -auth_enable=${1} -rbac_path=${RBAC_FILE} ${@}
+      RET=${?}
+      print_block '-'
+      if [[ ${RET} -eq 0 ]]; then
+        SUMMARY+="\nPASSED: ${T} "
+      else
+        SUMMARY+="\nFAILED: ${T} "
+        ((FAILURE_COUNT++))
+      fi
+    done
+    printf "${SUMMARY}\n\n\n"
+    TOTAL_FAILURE+=${FAILURE_COUNT}
+}
 
-for T in ${TESTS_TARGETS[@]}; do
-  echo '****************************************************'
-  echo "Running ${T}"
-  echo '****************************************************'
-  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${@}
-  RET=${?}
-  echo '****************************************************'
-  if [[ ${RET} -eq 0 ]]; then
-    SUMMARY+="\nPASSED: ${T} "
-  else
-    SUMMARY+="\nFAILED: ${T} "
-    ((FAILURE_COUNT++))
-  fi
-done
-echo
-printf "${SUMMARY}\n"
-exit ${FAILURE_COUNT}
+test_group false
+test_group true
+
+exit ${TOTAL_FAILURE}

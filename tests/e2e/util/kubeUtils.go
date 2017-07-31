@@ -67,9 +67,15 @@ func DeleteNamespace(n string) error {
 	return err
 }
 
-// KubeApply kubectl apply
+// KubeApply kubectl apply from file
 func KubeApply(n, yaml string) error {
 	_, err := Shell("kubectl apply -n %s -f %s", n, yaml)
+	return err
+}
+
+// KubeDelete kubectl delete from file
+func KubeDelete(n, yaml string) error {
+	_, err := Shell("kubectl delete -n %s -f %s", n, yaml)
 	return err
 }
 

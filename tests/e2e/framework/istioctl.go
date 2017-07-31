@@ -30,6 +30,9 @@ import (
 
 const (
 	istioctlURL = "ISTIOCTL_URL"
+	// We use proxy always from pilot, at lease for now, so proxy and pilot always share the same hub and tag
+	proxyHubConst = "PILOT_HUB"
+	proxyTagConst = "PILOT_TAG"
 )
 
 var (
@@ -53,6 +56,14 @@ func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string) 
 	if err != nil {
 		return nil, err
 	}
+
+	if proxyHub == "" {
+		proxyHub = os.Getenv(proxyHubConst)
+	}
+	if proxyTag == "" {
+		proxyTag = os.Getenv(proxyTagConst)
+	}
+
 
 	return &Istioctl{
 		remotePath: *remotePath,
