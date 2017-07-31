@@ -300,15 +300,15 @@ func TestRateLimit(t *testing.T) {
 	opts := fortio.DefaultRunnerOptions
 	opts.Duration = 30 * time.Second
 	opts.QPS = 30
-	clients := make([]*fortio.Client, 0, opts.NumThreads)
+	clients := make([]fortio.Fetcher, 0, opts.NumThreads)
 	for i := 0; i < opts.NumThreads; i++ {
-		clients = append(clients, fortio.NewClient(url, 15, true))
+		clients = append(clients, fortio.NewBasicClient(url, "1.1", true))
 	}
 
 	var totalReqs, successReqs, errReqs int64
 
 	opts.Function = func(tid int) {
-		code, _ := clients[tid].Fetch()
+		code, _, _ := clients[tid].Fetch()
 		atomic.AddInt64(&totalReqs, 1)
 
 		if code >= http.StatusOK && code < http.StatusMultipleChoices {
