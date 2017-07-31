@@ -229,10 +229,10 @@ Using Mixer as an example:
 
 ```shell
 cd $(ISTIO)/mixer
-bazel build ...
+bazel build //...
 ```
 
-If you are using zsh, use ```bazel build //...``` or  ```bazel build "..."```. This build command figures out what it needs to do and does not need any input from you.  
+This build command figures out what it needs to do and does not need any input from you.  
 
 ### Setup bazel and go links
 
