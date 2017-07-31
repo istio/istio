@@ -257,7 +257,7 @@ bazel clean
 You can run all the available tests with:
 
 ```shell
-bazel test ...
+bazel test //...
 ```
 ### Getting coverage numbers
 
