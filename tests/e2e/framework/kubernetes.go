@@ -39,8 +39,8 @@ var (
 	namespace = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
 	mixerHub  = flag.String("mixer_hub", "", "Mixer hub, if different from istio.Version")
 	mixerTag  = flag.String("mixer_tag", "", "Mixer tag, if different from istio.Version")
-	pilotHub  = flag.String("pilot_hub", "", "Manager hub, if different from istio.Version")
-	pilotTag  = flag.String("pilot_tag", "", "Manager tag, if different from istio.Version")
+	pilotHub  = flag.String("pilot_hub", "", "pilot hub, if different from istio.Version")
+	pilotTag  = flag.String("pilot_tag", "", "pilot tag, if different from istio.Version")
 	//caHub        = flag.String("ca_hub", "", "Ca hub")
 	//caTag        = flag.String("ca_tag", "", "Ca tag")
 	authEnage    = flag.Bool("auth_enable", false, "Enable auth")
@@ -220,6 +220,7 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 		//Need to be updated when the string "proxy_debug" is changed
 		content = updateIstioYaml("proxy_debug", *pilotHub, *pilotTag, content)
 	}
+
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into generated yaml file %s", dst)

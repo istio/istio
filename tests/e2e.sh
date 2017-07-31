@@ -17,10 +17,11 @@
 # Local vars
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 ARGS=(-alsologtostderr -test.v -v 2)
+TESTARGS=${@}
 
 function print_block() {
     line=""
-    for i in {1..40}
+    for i in {1..50}
     do
         line+="$1"
     done
@@ -47,8 +48,8 @@ function test_group() {
     FAILURE_COUNT=0
     AUTH_ARGS=(--auth_enable true)
     for T in ${TESTS_TARGETS[@]}; do
-      print_block '$' "Running ${T}"
-      bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} -auth_enable=${1} -rbac_path=${RBAC_FILE} ${@}
+      print_block '.' "Running ${T}"
+      bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${TESTARGS[@]} -auth_enable=${1} -rbac_path=${RBAC_FILE}
       RET=${?}
       print_block '-'
       if [[ ${RET} -eq 0 ]]; then
