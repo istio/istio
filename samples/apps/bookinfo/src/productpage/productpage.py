@@ -19,9 +19,12 @@ from flask import Flask, request, render_template, redirect, url_for
 import simplejson as json
 import requests
 import sys
+import os
 from json2html import *
 import logging
 import requests
+
+import MySQLdb
 
 # These two lines enable debugging at httplib level (requests->urllib3->http.client)
 # You will see the REQUEST, including HEADERS and DATA, and RESPONSE with HEADERS but without DATA.
@@ -43,6 +46,9 @@ app.logger.setLevel(logging.DEBUG)
 
 from flask_bootstrap import Bootstrap
 Bootstrap(app)
+
+# global DB ref
+DB = None
 
 details = {
     "name" : "http://details:9080",
@@ -132,7 +138,11 @@ def front():
     user = request.cookies.get("user", "")
     bookdetails = getDetails(headers)
     bookreviews = getReviews(headers)
-    return render_template('productpage.html', details=bookdetails, reviews=bookreviews, user=user)
+    if DB:
+        price = DB.get_price('comedy')
+    else:
+        price = 0
+    return render_template('productpage.html', details=bookdetails, reviews=bookreviews, user=user, price=price)
 
 def getReviews(headers):
     for i in range(2):
@@ -169,13 +179,60 @@ class Writer(object):
         self.file.flush()
 
 
+class Mydb(object):
+
+    def __init__(self):
+        # Defaults in case they are not passed as env vars.
+        creds = { 'user': 'root',
+                  'passwd': 'password',
+                  'db': 'test'
+                }
+        def get_envs(env_input):
+            env_var, x = env_input
+            if env_var in os.environ:
+                creds[x] = os.environ[env_var]
+
+        map(get_envs, [('MYSQL_DB_USER', 'user'), ('MYSQL_DB_PASSWD', 'passwd'),
+            ('MYSQL_DB_DATABASE', 'db'), ('MYSQL_DB_HOST', 'host')])
+
+	if 'host' not in creds:
+		raise ValueError("Must define MYSQL_DB_HOST environment variable")
+
+        try:
+            self.cnx = MySQLdb.connect(user=creds['user'], passwd=creds['passwd'],
+                                      host=creds['host'], db=creds['db'])
+        except:
+            raise
+        self.cursor = self.cnx.cursor()
+
+    def get_price(self, name):
+        querystr = "SELECT name, price FROM price WHERE name = %s"
+        try:
+                self.cursor.execute(querystr, (name,))
+                (name, price) = self.cursor.fetchone()
+                return price
+        except:
+                return 0
+
+    def close(self):
+        self.cursor.close()
+        self.cnx.close()
+
+def print_usage():
+    print "usage: %s port [dbserver]" % (sys.argv[0])
+    sys.exit(-1)
+
 if __name__ == '__main__':
+    use_db = False
+    if 'SERVICE_VERSION' in os.environ and os.environ['SERVICE_VERSION'] == 'v2':
+        use_db = True
+
     if len(sys.argv) < 2:
-        print "usage: %s port" % (sys.argv[0])
-        sys.exit(-1)
+        print_usage()
 
     p = int(sys.argv[1])
     sys.stderr = Writer('stderr.log')
     sys.stdout = Writer('stdout.log')
+    if use_db:
+        DB = Mydb()
     app.run(host='0.0.0.0', port=p, debug = True, threaded=True)
-

@@ -12,18 +12,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-# Ref: https://hub.docker.com/_/python/
+FROM mysql:8
+ENV MYSQL_ROOT_PASSWORD "password"
+ENV MYSQL_DATABASE "test"
 
-FROM python:2
-
-RUN apt-get install libmysqlclient-dev
-
-RUN mkdir -p /opt/microservices
-WORKDIR /opt/microservices
-COPY . .
-RUN pip install --no-cache-dir -r requirements.txt
-
-EXPOSE 9080
-ARG service_version
-ENV SERVICE_VERSION ${service_version:-v1}
-CMD python productpage.py 9080
+COPY ./mysqldb-init.sql /docker-entrypoint-initdb.d/mysqldb-init.sql

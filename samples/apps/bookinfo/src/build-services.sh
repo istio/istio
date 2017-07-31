@@ -19,7 +19,10 @@ set -o errexit
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 pushd $SCRIPTDIR/productpage
-  docker build -t istio/examples-bookinfo-productpage-v1 .
+  # python app without mysql db access.
+  docker build -t istio/examples-bookinfo-productpage-v1 --build-arg service_version=v1 .
+  # app with mysql db access.
+  docker build -t istio/examples-bookinfo-productpage-v2 --build-arg service_version=v2 .
 popd
 
 pushd $SCRIPTDIR/details
@@ -42,3 +45,8 @@ popd
 pushd $SCRIPTDIR/ratings
   docker build -t istio/examples-bookinfo-ratings-v1 .
 popd
+
+pushd $SCRIPTDIR/mysql
+  docker build -t istio/examples-bookinfo-mysqldb-v1 .
+popd
+
