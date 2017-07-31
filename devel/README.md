@@ -232,7 +232,7 @@ cd $(ISTIO)/mixer
 bazel build //...
 ```
 
-This build command figures out what it needs to do and does not need any input from you.  
+This build command figures out what it needs to do and does not need any input from you.
 
 ### Setup bazel and go links
 
