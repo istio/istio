@@ -144,7 +144,8 @@ func TestAttributeGeneratorManager_NewPreprocessExecutor(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			exec, err := m.NewPreprocessExecutor(c, v.builder, test.NewEnv(t), nil)
+			f, _ := FromBuilder(v.builder, config.AttributesKind)
+			exec, err := m.NewPreprocessExecutor(c, f, test.NewEnv(t), nil)
 			if err == nil && v.wantErr {
 				t.Error("Expected to receive error")
 			}

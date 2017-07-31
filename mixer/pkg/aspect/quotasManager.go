@@ -52,7 +52,7 @@ func newQuotasManager() QuotaManager {
 	return &quotasManager{}
 }
 
-func (m *quotasManager) NewQuotaExecutor(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (QuotaExecutor, error) {
+func (m *quotasManager) NewQuotaExecutor(c *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder) (QuotaExecutor, error) {
 	params := c.Aspect.Params.(*aconfig.QuotasParams)
 
 	metadata := make(map[string]*quotaInfo, len(params.Quotas))
@@ -70,17 +70,20 @@ func (m *quotasManager) NewQuotaExecutor(c *cpb.Combined, a adapter.Builder, env
 			labels:     quota.Labels,
 		}
 	}
-
-	asp, err := a.(adapter.QuotasBuilder).NewQuotasAspect(env, c.Builder.Params.(adapter.Config), defs)
+	out, err := createAspect(env, c.Builder.Params.(adapter.Config), defs)
 	if err != nil {
 		return nil, err
+	}
+	asp, ok := out.(adapter.QuotasAspect)
+	if !ok {
+		return nil, fmt.Errorf("wrong aspect type returned after creation; expected QuotasAspect: %#v", out)
 	}
 
 	return &quotasExecutor{
 		manager:  m,
 		metadata: metadata,
 		aspect:   asp,
-		adapter:  a.Name(),
+		adapter:  c.Builder.Name,
 	}, nil
 }
 

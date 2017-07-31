@@ -164,8 +164,8 @@ type (
 
 	// HandlerInfo stores validated and configured Handlers.
 	HandlerInfo struct {
-		instance       *config.Handler
-		adapterName    string
+		Instance       config.Handler
+		Name           string
 		supportedTmpls []string
 	}
 )
@@ -616,7 +616,7 @@ func (p *validator) buildHandlers() (ce *adapter.ConfigErrors) {
 		// error has happened, we need to close the already built handlers since they might have
 		// established connection to back-ends during the build() call.
 		for name, hndlr := range p.validated.handlers {
-			err := (*(hndlr.instance)).Close()
+			err := hndlr.Instance.Close()
 			rce = rce.Appendf("handlerConfig: "+name, "Failed to close the handler: %v", err)
 		}
 		return ce.Appendf("handlerConfig", "failed to build handlers").Extend(rce)
@@ -649,8 +649,8 @@ func (p *validator) buildHandler(builder *HandlerBuilderInfo, handler string) (c
 	}
 
 	p.validated.handlers[handler] = &HandlerInfo{
-		adapterName:    builder.handlerCnfg.GetAdapter(),
-		instance:       &instance,
+		Name:           builder.handlerCnfg.GetAdapter(),
+		Instance:       instance,
 		supportedTmpls: builder.supportedTemplates,
 	}
 

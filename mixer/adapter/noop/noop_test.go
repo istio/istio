@@ -25,14 +25,15 @@ import (
 func TestRegisteredForAllAspects(t *testing.T) {
 	builders := adapterManager.BuilderMap([]adapter.RegisterFn{Register})
 
-	name := builder{}.Name()
-	noop := builders[name]
-
 	var i uint
 	for i = 0; i < uint(config.NumKinds); i++ {
 		k := config.Kind(i)
-		if !noop.Kinds.IsSet(k) {
-			t.Errorf("%s is not registered for kind %s", name, k)
+		found := false
+		for _, noop := range builders {
+			found = found || noop.Kinds.IsSet(k)
+		}
+		if !found {
+			t.Errorf("Noop is not registered for kind %s", k)
 		}
 	}
 }

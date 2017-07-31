@@ -15,6 +15,8 @@
 package aspect
 
 import (
+	"fmt"
+
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
@@ -40,18 +42,16 @@ func newDenialsManager() CheckManager {
 }
 
 // NewCheckExecutor creates a denyChecker aspect.
-func (denialsManager) NewCheckExecutor(cfg *cpb.Combined, ga adapter.Builder, env adapter.Env, df descriptor.Finder) (CheckExecutor, error) {
-	aa := ga.(adapter.DenialsBuilder)
-	var asp adapter.DenialsAspect
-	var err error
-
-	if asp, err = aa.NewDenialsAspect(env, cfg.Builder.Params.(config.AspectParams)); err != nil {
+func (denialsManager) NewCheckExecutor(cfg *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder) (CheckExecutor, error) {
+	out, err := createAspect(env, cfg.Builder.Params.(config.AspectParams))
+	if err != nil {
 		return nil, err
 	}
-
-	return &denialsExecutor{
-		aspect: asp,
-	}, nil
+	asp, ok := out.(adapter.DenialsAspect)
+	if !ok {
+		return nil, fmt.Errorf("wrong aspect type returned after creation; expected DenialsAspect: %#v", out)
+	}
+	return &denialsExecutor{asp}, nil
 }
 
 func (denialsManager) Kind() config.Kind                  { return config.DenialsKind }

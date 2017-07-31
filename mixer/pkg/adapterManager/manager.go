@@ -108,8 +108,9 @@ type Manager struct {
 	adapterGP         *pool.GoroutinePool
 
 	// Configs for the aspects that'll be used to serve each API method.
-	cfg atomic.Value
-	df  atomic.Value
+	resolver atomic.Value // config.Resolver
+	df       atomic.Value // descriptor.Finder
+	handlers atomic.Value // map[string]*HandlerInfo
 
 	// protects cache
 	lock          sync.RWMutex
@@ -225,7 +226,7 @@ func (m *Manager) Quota(ctx context.Context, requestBag attribute.Bag,
 }
 
 func (m *Manager) loadConfigs(attrs attribute.Bag, ks config.KindSet, isPreprocess bool, strict bool) ([]*cpb.Combined, error) {
-	cfg, _ := m.cfg.Load().(config.Resolver)
+	cfg, _ := m.resolver.Load().(config.Resolver)
 	if cfg == nil {
 		return nil, errors.New("configuration is not yet available")
 	}
@@ -413,21 +414,29 @@ func (m *Manager) execute(ctx context.Context, cfg *cpb.Combined, requestBag att
 		return status.WithError(fmt.Errorf("could not find aspect manager %#v", cfg.Aspect.Kind))
 	}
 
-	var builder adapter.Builder
-	if builder, found = m.builders.FindBuilder(cfg.Builder.Impl); !found {
+	var createAspect aspect.CreateAspectFunc
+	if builder, found := m.builders.FindBuilder(cfg.Builder.Impl); found {
+		var err error
+		createAspect, err = aspect.FromBuilder(builder, kind)
+		if err != nil {
+			return status.WithError(err)
+		}
+	} else if handler, found := m.getHandlers()[cfg.Builder.Impl]; found {
+		createAspect = aspect.FromHandler(handler.Instance)
+	} else {
 		return status.WithError(fmt.Errorf("could not find registered adapter %#v", cfg.Builder.Impl))
 	}
 
 	// Both cacheGet and invokeFunc call adapter-supplied code, so we need to guard against both panicking.
 	defer func() {
 		if r := recover(); r != nil {
-			out = status.WithError(fmt.Errorf("adapter '%s' panicked with '%v'", builder.Name(), r))
+			out = status.WithError(fmt.Errorf("adapter '%s' panicked with '%v'", cfg.Builder.Impl, r))
 		}
 	}()
 
-	executor, err := m.cacheGet(cfg, mgr, builder, df)
+	executor, err := m.cacheGet(cfg, mgr, createAspect, df)
 	if err != nil {
-		return status.WithError(err)
+		return status.WithError(fmt.Errorf("failed to construct executor for adapter '%s': %v", cfg.Builder.Impl, err))
 	}
 
 	// TODO: plumb ctx through asp.Execute
@@ -483,7 +492,8 @@ func newCacheKey(kind config.Kind, cfg *cpb.Combined) (*cacheKey, error) {
 }
 
 // cacheGet gets an aspect executor from the cache, use adapter.Manager to construct an object in case of a cache miss
-func (m *Manager) cacheGet(cfg *cpb.Combined, mgr aspect.Manager, builder adapter.Builder, df descriptor.Finder) (executor aspect.Executor, err error) {
+func (m *Manager) cacheGet(
+	cfg *cpb.Combined, mgr aspect.Manager, createAspect aspect.CreateAspectFunc, df descriptor.Finder) (executor aspect.Executor, err error) {
 	var key *cacheKey
 	if key, err = newCacheKey(mgr.Kind(), cfg); err != nil {
 		return nil, err
@@ -499,17 +509,17 @@ func (m *Manager) cacheGet(cfg *cpb.Combined, mgr aspect.Manager, builder adapte
 	}
 
 	// create an aspect
-	env := newEnv(builder.Name(), m.adapterGP)
+	env := newEnv(cfg.Builder.Name, m.adapterGP)
 
 	switch m := mgr.(type) {
 	case aspect.PreprocessManager:
-		executor, err = m.NewPreprocessExecutor(cfg, builder, env, df)
+		executor, err = m.NewPreprocessExecutor(cfg, createAspect, env, df)
 	case aspect.CheckManager:
-		executor, err = m.NewCheckExecutor(cfg, builder, env, df)
+		executor, err = m.NewCheckExecutor(cfg, createAspect, env, df)
 	case aspect.ReportManager:
-		executor, err = m.NewReportExecutor(cfg, builder, env, df)
+		executor, err = m.NewReportExecutor(cfg, createAspect, env, df)
 	case aspect.QuotaManager:
-		executor, err = m.NewQuotaExecutor(cfg, builder, env, df)
+		executor, err = m.NewQuotaExecutor(cfg, createAspect, env, df)
 	}
 
 	if err != nil {
@@ -555,6 +565,10 @@ func (m *Manager) SupportedKinds(builder string) config.KindSet {
 	return m.builders.SupportedKinds(builder)
 }
 
+func (m *Manager) getHandlers() map[string]*config.HandlerInfo {
+	return m.handlers.Load().(map[string]*config.HandlerInfo)
+}
+
 // Aspects returns a fully constructed manager table, indexed by config.Kind.
 func Aspects(inventory aspect.ManagerInventory) [config.NumKinds]aspect.Manager {
 	r := [config.NumKinds]aspect.Manager{}
@@ -579,7 +593,8 @@ func Aspects(inventory aspect.ManagerInventory) [config.NumKinds]aspect.Manager 
 }
 
 // ConfigChange listens for config change notifications.
-func (m *Manager) ConfigChange(cfg config.Resolver, df descriptor.Finder) {
-	m.cfg.Store(cfg)
+func (m *Manager) ConfigChange(cfg config.Resolver, df descriptor.Finder, handlers map[string]*config.HandlerInfo) {
+	m.resolver.Store(cfg)
 	m.df.Store(df)
+	m.handlers.Store(handlers)
 }

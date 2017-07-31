@@ -98,7 +98,8 @@ func TestAccessLoggerManager_NewAspect(t *testing.T) {
 				Builder: &cfgpb.Adapter{Params: &ptypes.Empty{}},
 				Aspect:  &cfgpb.Aspect{Params: v.params},
 			}
-			asp, err := m.NewReportExecutor(c, tl, test.Env{}, accesslogsDF)
+			f, _ := FromBuilder(tl, config.AccessLogsKind)
+			asp, err := m.NewReportExecutor(c, f, test.Env{}, accesslogsDF)
 			if err != nil {
 				t.Fatalf("NewExecutor(): should not have received error for %s (%v)", v.name, err)
 			}
@@ -134,7 +135,8 @@ func TestAccessLoggerManager_NewAspectFailures(t *testing.T) {
 	m := newAccessLogsManager()
 	for idx, v := range failureCases {
 		t.Run(fmt.Sprintf("[%d] %s", idx, v.name), func(t *testing.T) {
-			if _, err := m.NewReportExecutor(v.cfg, v.adptr, test.Env{}, accesslogsDF); err == nil {
+			f, _ := FromBuilder(v.adptr, config.AccessLogsKind)
+			if _, err := m.NewReportExecutor(v.cfg, f, test.Env{}, accesslogsDF); err == nil {
 				t.Fatalf("NewExecutor()[%s]: expected error for bad adapter (%T)", v.name, v.adptr)
 			}
 		})

@@ -53,16 +53,20 @@ func newAccessLogsManager() ReportManager {
 	return accessLogsManager{}
 }
 
-func (m accessLogsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportExecutor, error) {
+func (m accessLogsManager) NewReportExecutor(c *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder) (ReportExecutor, error) {
 	cfg := c.Aspect.Params.(*aconfig.AccessLogsParams)
 
 	// validation ensures both that the descriptor exists and that its template is parsable by the template library.
 	desc := df.GetLog(cfg.Log.DescriptorName)
 	tmpl, _ := template.New("accessLogsTemplate").Parse(desc.LogTemplate)
 
-	asp, err := a.(adapter.AccessLogsBuilder).NewAccessLogsAspect(env, c.Builder.Params.(adapter.Config))
+	out, err := createAspect(env, c.Builder.Params.(adapter.Config))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create aspect for log %s: %v", cfg.LogName, err)
+	}
+	asp, ok := out.(adapter.AccessLogsAspect)
+	if !ok {
+		return nil, fmt.Errorf("wrong aspect type returned after creation; expected AccessLogsAspect: %#v", out)
 	}
 
 	return &accessLogsExecutor{

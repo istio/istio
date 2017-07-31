@@ -71,7 +71,7 @@ func newApplicationLogsManager() ReportManager {
 	return applicationLogsManager{}
 }
 
-func (applicationLogsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportExecutor, error) {
+func (applicationLogsManager) NewReportExecutor(c *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder) (ReportExecutor, error) {
 	// TODO: look up actual descriptors by name and build an array
 	cfg := c.Aspect.Params.(*aconfig.ApplicationLogsParams)
 	metadata := make(map[string]*logInfo)
@@ -90,9 +90,13 @@ func (applicationLogsManager) NewReportExecutor(c *cpb.Combined, a adapter.Build
 		}
 	}
 
-	asp, err := a.(adapter.ApplicationLogsBuilder).NewApplicationLogsAspect(env, c.Builder.Params.(adapter.Config))
+	out, err := createAspect(env, c.Builder.Params.(adapter.Config))
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct application logs aspect: %v", err)
+	}
+	asp, ok := out.(adapter.ApplicationLogsAspect)
+	if !ok {
+		return nil, fmt.Errorf("wrong aspect type returned after creation; expected ApplicationLogsAspect: %#v", out)
 	}
 
 	return &applicationLogsExecutor{

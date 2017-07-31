@@ -131,7 +131,8 @@ func TestLoggerManager_NewLogger(t *testing.T) {
 				Builder: &cfgpb.Adapter{Params: &ptypes.Empty{}},
 				Aspect:  &cfgpb.Aspect{Params: v.params},
 			}
-			asp, err := m.NewReportExecutor(&c, tl, atest.NewEnv(t), applogsDF)
+			f, _ := FromBuilder(tl, config.ApplicationLogsKind)
+			asp, err := m.NewReportExecutor(&c, f, atest.NewEnv(t), applogsDF)
 			if err != nil {
 				t.Fatalf("NewExecutor(): should not have received error for %s (%v)", v.name, err)
 			}
@@ -179,8 +180,8 @@ func TestLoggerManager_NewLoggerFailures(t *testing.T) {
 					Params: v.cfg,
 				},
 			}
-
-			if _, err := m.NewReportExecutor(cfg, v.adptr, atest.NewEnv(t), applogsDF); err == nil {
+			f, _ := FromBuilder(v.adptr, config.ApplicationLogsKind)
+			if _, err := m.NewReportExecutor(cfg, f, atest.NewEnv(t), applogsDF); err == nil {
 				t.Fatalf("NewExecutor(): expected error for bad adapter (%T)", v.adptr)
 			}
 		})
