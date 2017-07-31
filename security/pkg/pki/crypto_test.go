@@ -131,44 +131,42 @@ func TestParsePemEncodedCertificate(t *testing.T) {
 
 func TestParsePemEncodedKey(t *testing.T) {
 	testCases := map[string]struct {
-		algo    x509.PublicKeyAlgorithm
 		errMsg  string
 		pem     string
 		keyType reflect.Type
 	}{
-		"Invalid key type": {
-			algo:   10,
-			errMsg: "Unknown public key algorithm: 10",
-			pem:    keyECDSA,
-		},
 		"Invalid PEM string": {
 			errMsg: "Invalid PEM-encoded key",
 			pem:    "Invalid PEM string",
 		},
-		"Invalid RSA private key": {
-			algo:   x509.RSA,
-			errMsg: "Failed to parse the RSA private key",
-			pem:    keyECDSA,
-		},
-		"Invalid ECDSA private key": {
-			algo:   x509.ECDSA,
-			errMsg: "Failed to parse the ECDSA private key",
-			pem:    keyRSA,
+		"Invalid PEM block type": {
+			errMsg: "Unsupported PEM block type for a private key: CERTIFICATE",
+			pem:    certRSA,
 		},
 		"Parse RSA key": {
-			algo:    x509.RSA,
 			pem:     keyRSA,
 			keyType: reflect.TypeOf(&rsa.PrivateKey{}),
 		},
+		"Parse invalid RSA key": {
+			pem: `
+-----BEGIN RSA PRIVATE KEY-----
+-----END RSA PRIVATE KEY-----`,
+			errMsg: "Failed to parse the RSA private key",
+		},
 		"Parse ECDSA key": {
-			algo:    x509.ECDSA,
 			pem:     keyECDSA,
 			keyType: reflect.TypeOf(&ecdsa.PrivateKey{}),
+		},
+		"Parse invalid ECDSA key": {
+			pem: `
+-----BEGIN EC PARAMETERS-----
+-----END EC PARAMETERS-----`,
+			errMsg: "Failed to parse the ECDSA private key",
 		},
 	}
 
 	for id, c := range testCases {
-		key, err := ParsePemEncodedKey(c.algo, []byte(c.pem))
+		key, err := ParsePemEncodedKey([]byte(c.pem))
 		if c.errMsg != "" {
 			if err == nil {
 				t.Errorf("%s: no error is returned", id)

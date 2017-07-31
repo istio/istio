@@ -122,7 +122,7 @@ func TestGenCert(t *testing.T) {
 		t.Error(err)
 	}
 
-	caPriv, err := pki.ParsePemEncodedKey(caCert.PublicKeyAlgorithm, caPrivPem)
+	caPriv, err := pki.ParsePemEncodedKey(caPrivPem)
 	if err != nil {
 		t.Error(err)
 	}
