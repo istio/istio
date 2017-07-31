@@ -36,7 +36,7 @@ if [ "${CI:-}" == 'bootstrap' ]; then
     GIT_SHA="${PULL_BASE_SHA}"
 
     # Use volume mount from pilot-presubmit job's pod spec.
-    ln -sf /etc/e2e-testing-kubeconfig/e2e-testing-kubeconfig platform/kube/config
+    ln -sf "${HOME}/.kube/config" platform/kube/config
 else
     # Use the current commit.
     GIT_SHA="$(git rev-parse --verify HEAD)"
