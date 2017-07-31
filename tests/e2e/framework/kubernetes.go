@@ -187,7 +187,6 @@ func (k *KubeInfo) deployIstio() error {
 	return nil
 }
 
-
 func (k *KubeInfo) generateRbac(src, dst string) error {
 	content, err := ioutil.ReadFile(src)
 	if err != nil {
@@ -199,11 +198,10 @@ func (k *KubeInfo) generateRbac(src, dst string) error {
 	content = r.ReplaceAllLiteral(content, namespace)
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
-		glog.Errorf("Cannnot write into generate rbac file %s", dst)
+		glog.Errorf("Cannot write into generate rbac file %s", dst)
 	}
 	return err
 }
-
 
 func (k *KubeInfo) generateIstio(src, dst string) error {
 	content, err := ioutil.ReadFile(src)

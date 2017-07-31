@@ -64,7 +64,6 @@ func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string) 
 		proxyTag = os.Getenv(proxyTagConst)
 	}
 
-
 	return &Istioctl{
 		remotePath: *remotePath,
 		binaryPath: filepath.Join(tmpDir, "istioctl"),
