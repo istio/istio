@@ -45,13 +45,14 @@ func newListsManager() CheckManager {
 }
 
 // NewCheckExecutor creates a listChecker aspect.
-func (listsManager) NewCheckExecutor(cfg *cpb.Combined, ga adapter.Builder, env adapter.Env, df descriptor.Finder) (CheckExecutor, error) {
-	aa := ga.(adapter.ListsBuilder)
-	var asp adapter.ListsAspect
-	var err error
-
-	if asp, err = aa.NewListsAspect(env, cfg.Builder.Params.(config.AspectParams)); err != nil {
+func (listsManager) NewCheckExecutor(cfg *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder) (CheckExecutor, error) {
+	out, err := createAspect(env, cfg.Builder.Params.(config.AspectParams))
+	if err != nil {
 		return nil, err
+	}
+	asp, ok := out.(adapter.ListsAspect)
+	if !ok {
+		return nil, fmt.Errorf("wrong aspect type returned after creation; expected ListsAspect: %#v", out)
 	}
 	return &listsExecutor{
 		aspect: asp,

@@ -55,7 +55,7 @@ func newMetricsManager() ReportManager {
 	return &metricsManager{}
 }
 
-func (m *metricsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder, env adapter.Env, df descriptor.Finder) (ReportExecutor, error) {
+func (m *metricsManager) NewReportExecutor(c *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder) (ReportExecutor, error) {
 	params := c.Aspect.Params.(*aconfig.MetricsParams)
 
 	metadata := make(map[string]*metricInfo)
@@ -71,12 +71,15 @@ func (m *metricsManager) NewReportExecutor(c *cpb.Combined, a adapter.Builder, e
 			labels:     metric.Labels,
 		}
 	}
-	b := a.(adapter.MetricsBuilder)
-	asp, err := b.NewMetricsAspect(env, c.Builder.Params.(adapter.Config), defs)
+	out, err := createAspect(env, c.Builder.Params.(adapter.Config), defs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct metrics aspect with config '%v': %v", c, err)
 	}
-	return &metricsExecutor{b.Name(), asp, metadata}, nil
+	asp, ok := out.(adapter.MetricsAspect)
+	if !ok {
+		return nil, fmt.Errorf("wrong aspect type returned after creation; expected MetricsAspect: %#v", out)
+	}
+	return &metricsExecutor{c.Builder.Name, asp, metadata}, nil
 }
 
 func (*metricsManager) Kind() config.Kind                  { return config.MetricsKind }

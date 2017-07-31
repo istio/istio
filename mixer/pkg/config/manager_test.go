@@ -47,16 +47,18 @@ type mtest struct {
 }
 
 type fakelistener struct {
-	called int
-	rt     Resolver
-	df     descriptor.Finder
+	called   int
+	rt       Resolver
+	df       descriptor.Finder
+	handlers map[string]*HandlerInfo
 	sync.Mutex
 }
 
-func (f *fakelistener) ConfigChange(cfg Resolver, df descriptor.Finder) {
+func (f *fakelistener) ConfigChange(cfg Resolver, df descriptor.Finder, handlers map[string]*HandlerInfo) {
 	f.Lock()
 	f.rt = cfg
 	f.df = df
+	f.handlers = handlers
 	f.called++
 	f.Unlock()
 }

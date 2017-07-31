@@ -15,6 +15,8 @@
 package aspect
 
 import (
+	"fmt"
+
 	"github.com/golang/glog"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
@@ -69,18 +71,21 @@ func (attrGenMgr) ValidateConfig(c config.AspectParams, tc expr.TypeChecker, df 
 	return
 }
 
-func (attrGenMgr) NewPreprocessExecutor(cfg *cpb.Combined, b adapter.Builder, env adapter.Env, df descriptor.Finder) (PreprocessExecutor, error) {
-	agb := b.(adapter.AttributesGeneratorBuilder)
-	ag, err := agb.BuildAttributesGenerator(env, cfg.Builder.Params.(config.AspectParams))
+func (attrGenMgr) NewPreprocessExecutor(cfg *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder) (PreprocessExecutor, error) {
+	out, err := createAspect(env, cfg.Builder.Params.(config.AspectParams))
 	if err != nil {
 		return nil, err
+	}
+	asp, ok := out.(adapter.AttributesGenerator)
+	if !ok {
+		return nil, fmt.Errorf("wrong aspect type returned after creation; expected AttributesGenerator: %#v", out)
 	}
 	params := cfg.Aspect.Params.(*apb.AttributesGeneratorParams)
 	bindings := make(map[string]string, len(params.AttributeBindings))
 	for attrName, valName := range params.AttributeBindings {
 		bindings[valName] = attrName
 	}
-	return &attrGenExec{aspect: ag, params: params, bindings: bindings}, nil
+	return &attrGenExec{aspect: asp, params: params, bindings: bindings}, nil
 }
 
 func (e *attrGenExec) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*PreprocessResult, rpc.Status) {

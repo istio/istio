@@ -21,9 +21,97 @@ import (
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/config"
 	"istio.io/mixer/pkg/attribute"
+	cfg "istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 )
+
+// FromHandler creates a CreateAspectFunc from the provided handler instance.
+func FromHandler(handler config.Handler) CreateAspectFunc {
+	return func(adapter.Env, adapter.Config, ...interface{}) (adapter.Aspect, error) {
+		return handler, nil
+	}
+}
+
+// FromBuilder creates a CreateAspectFunc from the provided builder instance, dispatching to New*Aspect methods based
+// on the kind parameter.
+func FromBuilder(builder adapter.Builder, kind cfg.Kind) (CreateAspectFunc, error) {
+	switch kind {
+	case cfg.AccessLogsKind:
+		b, ok := builder.(adapter.AccessLogsBuilder)
+		if !ok {
+			return nil, fmt.Errorf("invalid builder - kind AccessLogsKind expected builder implementing AccessLogsBuilder, got builder: %v", builder)
+		}
+		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
+			return b.NewAccessLogsAspect(env, c)
+		}, nil
+	case cfg.ApplicationLogsKind:
+		b, ok := builder.(adapter.ApplicationLogsBuilder)
+		if !ok {
+			return nil, fmt.Errorf("invalid builder - kind ApplicationLogsKind expected builder implementing ApplicationLogsBuilder, got builder: %v", builder)
+		}
+		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
+			return b.NewApplicationLogsAspect(env, c)
+		}, nil
+	case cfg.AttributesKind:
+		b, ok := builder.(adapter.AttributesGeneratorBuilder)
+		if !ok {
+			return nil, fmt.Errorf("invalid builder - kind AttributesKind expected builder implementing AttributesGeneratorBuilder, got builder: %v", builder)
+		}
+		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
+			return b.BuildAttributesGenerator(env, c)
+		}, nil
+	case cfg.DenialsKind:
+		b, ok := builder.(adapter.DenialsBuilder)
+		if !ok {
+			return nil, fmt.Errorf("invalid builder - kind DenialsKind expected builder implementing DenialsBuilder, got builder: %v", builder)
+		}
+		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
+			return b.NewDenialsAspect(env, c)
+		}, nil
+	case cfg.ListsKind:
+		b, ok := builder.(adapter.ListsBuilder)
+		if !ok {
+			return nil, fmt.Errorf("invalid builder - kind ListsKind expected builder implementing ListsBuilder, got builder: %v", builder)
+		}
+		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
+			return b.NewListsAspect(env, c)
+		}, nil
+	case cfg.MetricsKind:
+		b, ok := builder.(adapter.MetricsBuilder)
+		if !ok {
+			return nil, fmt.Errorf("invalid builder - kind MetricsKind expected builder implementing MetricsBuilder, got builder: %v", builder)
+		}
+		return func(env adapter.Env, c adapter.Config, cfg ...interface{}) (adapter.Aspect, error) {
+			if len(cfg) != 1 {
+				return nil, fmt.Errorf("metric builders must have configuration args")
+			}
+			metrics, ok := cfg[0].(map[string]*adapter.MetricDefinition)
+			if !ok {
+				return nil, fmt.Errorf("arg to metrics builder must be a map[string]*adapter.MetricDefinition, got: %#v", cfg[0])
+			}
+			return b.NewMetricsAspect(env, c, metrics)
+		}, nil
+	case cfg.QuotasKind:
+		b, ok := builder.(adapter.QuotasBuilder)
+		if !ok {
+			return nil, fmt.Errorf("invalid builder - kind QuotasKind expected builder implementing QuotasBuilder, go buildert: %v", builder)
+		}
+		return func(env adapter.Env, c adapter.Config, cfg ...interface{}) (adapter.Aspect, error) {
+			if len(cfg) != 1 {
+				return nil, fmt.Errorf("quota builders must have configuration args")
+			}
+			quotas, ok := cfg[0].(map[string]*adapter.QuotaDefinition)
+			if !ok {
+				return nil, fmt.Errorf("arg to quota builder must be a map[string]*adapter.QuotaDefinition, got: %#v", cfg[0])
+			}
+			return b.NewQuotasAspect(env, c, quotas)
+		}, nil
+	default:
+		return nil, fmt.Errorf("invalid kind %v", kind)
+	}
+}
 
 func evalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evaluator) (map[string]interface{}, error) {
 	result := &multierror.Error{}

@@ -130,7 +130,8 @@ func TestMetricsManager_NewAspect(t *testing.T) {
 	builder := &fakeBuilder{name: "test", body: func() (adapter.MetricsAspect, error) {
 		return &fakeaspect{body: func([]adapter.Value) error { return nil }}, nil
 	}}
-	if _, err := newMetricsManager().NewReportExecutor(conf, builder, atest.NewEnv(t), df); err != nil {
+	f, _ := FromBuilder(builder, config.MetricsKind)
+	if _, err := newMetricsManager().NewReportExecutor(conf, f, atest.NewEnv(t), df); err != nil {
 		t.Errorf("NewExecutor(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 }
@@ -251,7 +252,8 @@ func TestMetricsManager_NewAspect_PropagatesError(t *testing.T) {
 		body: func() (adapter.MetricsAspect, error) {
 			return nil, errors.New(errString)
 		}}
-	_, err := newMetricsManager().NewReportExecutor(conf, builder, atest.NewEnv(t), df)
+	f, _ := FromBuilder(builder, config.MetricsKind)
+	_, err := newMetricsManager().NewReportExecutor(conf, f, atest.NewEnv(t), df)
 	if err == nil {
 		t.Error("newMetricsManager().NewReportExecutor(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
 	}

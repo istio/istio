@@ -43,7 +43,7 @@ type Resolver interface {
 
 // ChangeListener listens for config change notifications.
 type ChangeListener interface {
-	ConfigChange(cfg Resolver, df descriptor.Finder)
+	ConfigChange(cfg Resolver, df descriptor.Finder, handlers map[string]*HandlerInfo)
 }
 
 // Manager represents the config Manager.
@@ -149,19 +149,19 @@ func readdb(store store.KeyValueStore, prefix string) (map[string]string, map[st
 //  /scopes/global/descriptors
 
 // fetch config and return runtime if a new one is available.
-func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
+func (c *Manager) fetch() (*runtime, descriptor.Finder, map[string]*HandlerInfo, error) {
 
 	data, shas, index, err := readdb(c.store, "/")
 	if glog.V(9) {
 		glog.Info(data)
 	}
 	if err != nil {
-		return nil, nil, errors.New("Unable to read database: " + err.Error())
+		return nil, nil, nil, errors.New("Unable to read database: " + err.Error())
 	}
 	// check if sha has changed.
 	if c.lastValidated != nil && reflect.DeepEqual(shas, c.lastValidated.shas) {
 		// nothing actually changed.
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 
 	var vd *Validated
@@ -171,17 +171,17 @@ func (c *Manager) fetch() (*runtime, descriptor.Finder, error) {
 	vd, finder, cerr = c.validate(data)
 	if cerr != nil {
 		glog.Warningf("Validation failed: %v", cerr)
-		return nil, nil, cerr
+		return nil, nil, nil, cerr
 	}
 	c.lastFetchIndex = index
 	vd.shas = shas
 	c.lastValidated = vd
-	return newRuntime(vd, c.eval, c.identityAttribute, c.identityAttributeDomain), finder, nil
+	return newRuntime(vd, c.eval, c.identityAttribute, c.identityAttributeDomain), finder, vd.handlers, nil
 }
 
 // fetchAndNotify fetches a new config and notifies listeners if something has changed
 func (c *Manager) fetchAndNotify() {
-	rt, df, err := c.fetch()
+	rt, df, handlers, err := c.fetch()
 	if err != nil {
 		c.Lock()
 		c.lastError = err
@@ -194,7 +194,7 @@ func (c *Manager) fetchAndNotify() {
 
 	glog.Infof("Loaded new config %s", c.store)
 	for _, cl := range c.cl {
-		cl.ConfigChange(rt, df)
+		cl.ConfigChange(rt, df, handlers)
 	}
 }
 

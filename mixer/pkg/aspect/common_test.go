@@ -21,8 +21,11 @@ import (
 	"testing"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
+	"istio.io/mixer/adapter/noop"
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/config"
 	cfgpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 )
@@ -145,4 +148,120 @@ func TestValidateTemplateExpressions(t *testing.T) {
 			}
 		})
 	}
+}
+
+type testhandler struct{ int }
+
+func (testhandler) Close() error { return nil }
+
+func TestFromHandler(t *testing.T) {
+	f := FromHandler(testhandler{37})
+	asp, err := f(nil, nil)
+	if err != nil {
+		t.Fatalf("FromHandler should never return an error")
+	}
+	if th, ok := asp.(testhandler); !ok {
+		t.Fatalf("FromHandler changed type of Handler instance")
+	} else if th.int != 37 {
+		t.Fatalf("Handler instance was messed with by FromHandler, that should never happen")
+	}
+}
+
+func TestFromBuilder(t *testing.T) {
+	tests := []struct {
+		name         string
+		kind         config.Kind
+		expectedType reflect.Type // we only compare the type of this value against the one returned by the builder
+		err          string
+		args         []interface{}
+	}{
+		{"access logs", config.AccessLogsKind, reflect.TypeOf((*adapter.AccessLogsAspect)(nil)).Elem(), "", []interface{}{}},
+		{"app logs", config.ApplicationLogsKind, reflect.TypeOf((*adapter.ApplicationLogsAspect)(nil)).Elem(), "", []interface{}{}},
+		{"attr gen", config.AttributesKind, reflect.TypeOf((*adapter.AttributesGenerator)(nil)).Elem(), "", []interface{}{}},
+		{"denials", config.DenialsKind, reflect.TypeOf((*adapter.DenialsAspect)(nil)).Elem(), "", []interface{}{}},
+		{"list", config.ListsKind, reflect.TypeOf((*adapter.ListsAspect)(nil)).Elem(), "", []interface{}{}},
+		{"metrics no args", config.MetricsKind, reflect.TypeOf((*adapter.MetricsAspect)(nil)).Elem(),
+			"metric builders must have configuration args",
+			[]interface{}{}},
+		{"metrics wrong args", config.MetricsKind, reflect.TypeOf((*adapter.MetricsAspect)(nil)).Elem(),
+			"arg to metrics builder must be a map[string]*adapter.MetricDefinition",
+			[]interface{}{map[string]*adapter.QuotaDefinition{}}},
+		{"metrics", config.MetricsKind, reflect.TypeOf((*adapter.MetricsAspect)(nil)).Elem(),
+			"",
+			[]interface{}{map[string]*adapter.MetricDefinition{}}},
+		{"quota no args", config.QuotasKind, reflect.TypeOf((*adapter.QuotasAspect)(nil)).Elem(),
+			"quota builders must have configuration args",
+			[]interface{}{}},
+		{"quota wrong args", config.QuotasKind, reflect.TypeOf((*adapter.QuotasAspect)(nil)).Elem(),
+			"arg to quota builder must be a map[string]*adapter.QuotaDefinition",
+			[]interface{}{map[string]*adapter.MetricDefinition{}}},
+		{"quota", config.QuotasKind, reflect.TypeOf((*adapter.QuotasAspect)(nil)).Elem(),
+			"",
+			[]interface{}{map[string]*adapter.QuotaDefinition{}}},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			f, err := FromBuilder(noop.Builder{}, tt.kind)
+			if err != nil {
+				t.Fatalf("failed to construct CreateAspectFunc from builder unexpectedly")
+			}
+			out, err := f(nil, nil, tt.args...)
+			if err != nil || tt.err != "" {
+				if tt.err == "" {
+					t.Fatalf("FromBuilder(noop.Builder{})(nil, nil) = '%s', wanted no err", err.Error())
+				} else if !strings.Contains(err.Error(), tt.err) {
+					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, err.Error())
+				}
+				return // we can't check out when we get an err.
+			}
+			if outType := reflect.TypeOf(out); !outType.Implements(tt.expectedType) {
+				t.Fatalf("TypeOf(%v) = %v; expected something that implements %v", out, outType, tt.expectedType)
+			}
+		})
+	}
+
+}
+
+type fakeDeny struct{ adapter.Builder }
+
+func (fakeDeny) NewDenialsAspect(adapter.Env, adapter.Config) (adapter.DenialsAspect, error) {
+	return nil, nil
+}
+
+type fakeAccess struct{ adapter.Builder }
+
+func (fakeAccess) NewAccessLogsAspect(adapter.Env, adapter.Config) (adapter.AccessLogsAspect, error) {
+	return nil, nil
+}
+
+func TestFromBuilder_Errors(t *testing.T) {
+	tests := []struct {
+		builder adapter.Builder
+		kind    config.Kind
+		err     string
+	}{
+		{&fakeDeny{}, config.AccessLogsKind, "invalid builder"},
+		{&fakeDeny{}, config.ApplicationLogsKind, "invalid builder"},
+		{&fakeDeny{}, config.AttributesKind, "invalid builder"},
+		{&fakeDeny{}, config.ListsKind, "invalid builder"},
+		{&fakeDeny{}, config.MetricsKind, "invalid builder"},
+		{&fakeDeny{}, config.QuotasKind, "invalid builder"},
+		{&fakeAccess{}, config.DenialsKind, "invalid builder"},
+		{&fakeAccess{}, config.NumKinds, "invalid kind"},
+		{&fakeDeny{}, config.DenialsKind, ""},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
+			if _, err := FromBuilder(tt.builder, tt.kind); err != nil || tt.err != "" {
+				if tt.err == "" {
+					t.Fatalf(" = '%s', wanted no err", err.Error())
+				} else if !strings.Contains(err.Error(), tt.err) {
+					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, err.Error())
+				}
+			}
+		})
+	}
+
 }

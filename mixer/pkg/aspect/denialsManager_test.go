@@ -59,7 +59,8 @@ func TestDenialsManager_NewCheckExecutor(t *testing.T) {
 	}
 
 	dm := newDenialsManager()
-	if _, err := dm.NewCheckExecutor(defaultCfg, newBuilder(false), test.Env{}, nil); err != nil {
+	f, _ := FromBuilder(newBuilder(false), config.DenialsKind)
+	if _, err := dm.NewCheckExecutor(defaultCfg, f, test.Env{}, nil); err != nil {
 		t.Errorf("NewCheckExecutor() returned an unexpected error: %v", err)
 	}
 }
@@ -70,7 +71,8 @@ func TestDenialsManager_NewCheckExecutorErrors(t *testing.T) {
 	}
 
 	dm := newDenialsManager()
-	if _, err := dm.NewCheckExecutor(defaultCfg, newBuilder(true), test.Env{}, nil); err == nil {
+	f, _ := FromBuilder(newBuilder(true), config.DenialsKind)
+	if _, err := dm.NewCheckExecutor(defaultCfg, f, test.Env{}, nil); err == nil {
 		t.Error("NewCheckExecutor() should have propogated error.")
 	}
 }
