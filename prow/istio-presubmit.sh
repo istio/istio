@@ -38,7 +38,7 @@ if [ "${CI}" == 'bootstrap' ]; then
   ARTIFACTS_DIR="${GOPATH}/src/istio.io/istio/_artifacts"
   LOG_HOST="stackdriver"
   PROJ_ID="istio-testing"
-  E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}")
+  E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}" --log_provider=${LOG_HOST} --project_id=${PROJ_ID})
 fi
 
 echo 'Running Linters'
