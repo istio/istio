@@ -37,7 +37,7 @@ def presubmit(gitUtils, bazel, utils) {
     stage('Smoke Test') {
       def logHost = 'stackdriver'
       def projID = utils.failIfNullOrEmpty(env.PROJECT)
-      def e2eArgs = "--logs_bucket_path ${gitUtils.logsPath()} --log_provider=${logHost} --project_id=${projID} "
+      def e2eArgs = "--logs_bucket_path ${gitUtils.logsPath()} "
       sh("tests/e2e.sh ${e2eArgs}")
     }
   }
@@ -49,7 +49,7 @@ def smokeTest(gitUtils, bazel, utils) {
     utils.initTestingCluster()
     def logHost = 'stackdriver'
     def projID = utils.failIfNullOrEmpty(env.PROJECT)
-    def e2eArgs = "--logs_bucket_path ${gitUtils.logsPath()} --log_provider=${logHost} --project_id=${projID} "
+    def e2eArgs = "--logs_bucket_path ${gitUtils.logsPath()} "
     if (utils.getParam('GITHUB_PR_HEAD_SHA') != '') {
       def prSha = utils.failIfNullOrEmpty(env.GITHUB_PR_HEAD_SHA)
       def prUrl = utils.failIfNullOrEmpty(env.GITHUB_PR_URL)
