@@ -75,10 +75,9 @@ message CheckResponse {
     // attributes and its configuration.
     Attributes attributes = 4 [(gogoproto.nullable) = false];
 
-    // The subset of attributes that were used in producing the result.
-    // This includes only the attributes that were sent to Mixer and
-    // do not include any derived attributes Mixer generated itself.
-    UsedRequestAttributes used_attributes = 5 [(gogoproto.nullable) = false];
+    // The total set of attributes that were used in producing the result
+    // along with matching conditions.
+    ReferencedAttributes referenced_attributes = 5 [(gogoproto.nullable) = false];
   }
 
   message QuotaResult {
@@ -89,10 +88,9 @@ message CheckResponse {
     // If `QuotaParams.best_effort` is false, this will be either 0 or >= `QuotaParams.amount`.
     int64 granted_amount = 2;
 
-    // The subset of attributes that were used in producing the result.
-    // This includes only the attributes that were sent to Mixer and
-    // do not include any derived attributes Mixer generated itself.
-    UsedRequestAttributes used_attributes = 3 [(gogoproto.nullable) = false];
+    // The total set of attributes that were used in producing the result
+    // along with matching conditions.
+    ReferencedAttributes referenced_attributes = 5 [(gogoproto.nullable) = false];
   }
 
   // The precondition check results.
@@ -102,14 +100,14 @@ message CheckResponse {
   map<string, QuotaResult> quotas = 3 [(gogoproto.nullable) = false];
 }
 
-// Describes the attributes that were used in order to determine the response.
+// Describes the attributes that were used to determine the response.
 // This can be used to construct a response cache.
-message UsedRequestAttributes {
+message ReferencedAttributes {
   // How an attribute's value was matched
   enum Condition {
-    EXACT = 0;
-    PREFIX = 1;
-    REGEX = 2;
+    ABSENCE = 0;    // match when attribute doesn't exist
+    EXACT = 1;      // match when attribute value is an exact byte-for-byte match
+    REGEX = 2;      // match when attribute value matches the included regex
   }
 
   message AttributeMatch {
@@ -129,5 +127,5 @@ message UsedRequestAttributes {
   repeated string words = 1;
 
   // Describes a set of attributes.
-  repeated AttributeMatch attribute_matches = 2;
+  repeated AttributeMatch attribute_matches = 2 [(gogoproto.nullable) = false];
 }
