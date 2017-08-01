@@ -51,9 +51,7 @@ if [[ "$HUB" =~ ^gcr\.io ]]; then
 fi
 
 # Build and push the Istio-CA docker image
-bazel run $BAZEL_ARGS //docker:$DOCKER_IMAGE
-docker tag bazel/docker:$DOCKER_IMAGE $HUB/$DOCKER_IMAGE:$TAG
-docker push $HUB/$DOCKER_IMAGE:$TAG
+bin/push-docker.sh -h $HUB -t $TAG
 
 # Run integration tests
 bazel run $BAZEL_ARGS //integration -- $ARGS -k $HOME/.kube/config --alsologtostderr
