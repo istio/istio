@@ -17,27 +17,39 @@
 // concurrency fixes and making it as low overhead as possible
 // (no std output by default)
 
-package main
+package fortio
 
 import (
-	"flag"
 	"fmt"
 	"net/http"
-
-	"istio.io/istio/devel/fortio"
+	"testing"
 )
 
-var (
-	port = flag.Int("port", 8080, "default http port")
-)
+func TestHTTPRunner(t *testing.T) {
+	SetLogLevel(Info)
+	http.HandleFunc("/foo/", EchoHandler)
+	port := DynamicHTTPServer()
+	baseURL := fmt.Sprintf("http://localhost:%d/", port)
 
-func main() {
-	flag.Parse()
-
-	fmt.Printf("Fortio %s echo server listening on port %v\n", fortio.Version, *port)
-
-	http.HandleFunc("/", fortio.EchoHandler)
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", *port), nil); err != nil {
-		fmt.Println("Error starting server", err)
+	opts := HTTPRunnerOptions{
+		RunnerOptions: RunnerOptions{
+			QPS: 100,
+		},
+		URL: baseURL,
+	}
+	res, err := RunHTTPTest(&opts)
+	if err == nil {
+		t.Error("Expecting an error but didn't get it when not using full url")
+	}
+	opts.URL = baseURL + "foo/bar"
+	res, err = RunHTTPTest(&opts)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	totalReq := res.DurationHistogram.Count
+	httpOk := res.RetCodes[http.StatusOK]
+	if totalReq != httpOk {
+		t.Errorf("Mismatch between requests %d and ok %v", totalReq, res.RetCodes)
 	}
 }
