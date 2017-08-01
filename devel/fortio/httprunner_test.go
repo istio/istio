@@ -26,15 +26,23 @@ import (
 )
 
 func TestHTTPRunner(t *testing.T) {
-	http.HandleFunc("/", EchoHandler)
+	SetLogLevel(Info)
+	http.HandleFunc("/foo/", EchoHandler)
 	port := DynamicHTTPServer()
+	baseURL := fmt.Sprintf("http://localhost:%d/", port)
+
 	opts := HTTPRunnerOptions{
 		RunnerOptions: RunnerOptions{
 			QPS: 100,
 		},
-		URL: fmt.Sprintf("http://localhost:%d/foo/bar", port),
+		URL: baseURL,
 	}
 	res, err := RunHTTPTest(&opts)
+	if err == nil {
+		t.Error("Expecting an error but didn't get it when not using full url")
+	}
+	opts.URL = baseURL + "foo/bar"
+	res, err = RunHTTPTest(&opts)
 	if err != nil {
 		t.Error(err)
 		return
