@@ -24,6 +24,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 )
@@ -652,4 +653,60 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 		}
 		// we cleared c.socket already
 	}
+}
+
+// -- Echo Server --
+
+var (
+	// EchoRequests is the number of request received. Only updated in Debug mode.
+	EchoRequests int64
+)
+
+// EchoHandler is an http server handler echoing back the input.
+func EchoHandler(w http.ResponseWriter, r *http.Request) {
+	LogVf("%v %v %v %v", r.Method, r.URL, r.Proto, r.RemoteAddr)
+	if LogDebug() {
+		for name, headers := range r.Header {
+			for _, h := range headers {
+				fmt.Printf("%v: %v\n", name, h)
+			}
+		}
+	}
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		Errf("Error reading %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// echo back the Content-Type and Content-Length in the response
+	for _, k := range []string{"Content-Type", "Content-Length"} {
+		if v := r.Header.Get(k); v != "" {
+			w.Header().Set(k, v)
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+	if _, err = w.Write(data); err != nil {
+		Errf("Error writing response %v to %v", err, r.RemoteAddr)
+	}
+	if LogDebug() {
+		// TODO: this easily lead to contention - use 'thread local'
+		rqNum := atomic.AddInt64(&EchoRequests, 1)
+		Debugf("Requests: %v", rqNum)
+	}
+}
+
+// DynamicHTTPServer listens on an available port and return it.
+func DynamicHTTPServer() int {
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		Fatalf("Unable to listen to dynamic port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	Infof("Using port: %d", port)
+	go func(port int) {
+		if err := http.Serve(listener, nil); err != nil {
+			Fatalf("Unable to serve on %d: %v", port, err)
+		}
+	}(port)
+	return port
 }
