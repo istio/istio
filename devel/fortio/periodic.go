@@ -33,7 +33,10 @@ import (
 	"time"
 )
 
-// DefaultRunnerOptions ar the default values for options (do not mutate!).
+// DefaultRunnerOptions are the default values for options (do not mutate!).
+// This is only useful for initializing flag default values.
+// You do not need to use this directly, you can pass a newly created
+// RunnerOptions and 0 valued fields will be reset to these defaults.
 var DefaultRunnerOptions = RunnerOptions{
 	Duration:    5 * time.Second,
 	NumThreads:  4,
@@ -60,8 +63,8 @@ type RunnerOptions struct {
 // PeriodicRunner let's you exercise the Function at the given QPS and collect
 // statistics and histogram about the run.
 type PeriodicRunner interface {
-	// Starts the run
-	Run()
+	// Starts the run. Returns actual QPS and Histogram of function durations.
+	Run() (float64, *Histogram)
 	// Returns the options normalized by constructor - do not mutate
 	// (where is const when you need it...)
 	Options() *RunnerOptions
@@ -109,7 +112,7 @@ func (r *periodicRunner) Options() *RunnerOptions {
 }
 
 // Run starts the runner.
-func (r *periodicRunner) Run() {
+func (r *periodicRunner) Run() (float64, *Histogram) {
 	useQPS := (r.QPS > 0)
 	var numCalls int64
 	if useQPS {
@@ -183,6 +186,7 @@ func (r *periodicRunner) Run() {
 	for _, p := range r.Percentiles[1:] {
 		fmt.Printf("# target %g%% %.6g\n", p, functionDuration.CalcPercentile(p))
 	}
+	return actualQPS, functionDuration
 }
 
 // runOne runs in 1 go routine.
