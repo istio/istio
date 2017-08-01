@@ -29,9 +29,11 @@ func TestHTTPRunner(t *testing.T) {
 	http.HandleFunc("/", EchoHandler)
 	port := DynamicHTTPServer()
 	opts := HTTPRunnerOptions{
+		RunnerOptions: RunnerOptions{
+			QPS: 100,
+		},
 		URL: fmt.Sprintf("http://localhost:%d/foo/bar", port),
 	}
-	opts.QPS = 100
 	res, err := RunHTTPTest(&opts)
 	if err != nil {
 		t.Error(err)
