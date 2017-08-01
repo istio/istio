@@ -132,7 +132,7 @@ func serverCmd(tmplRepo template.Repository, printf, fatalf shared.FormatFn) *co
 	serverCmd.PersistentFlags().StringVarP(&sa.traceOutput, "traceOutput", "t", "",
 		"If the literal string 'STDOUT' or 'STDERR', traces will be produced and written to stdout or stderr respectively. "+
 			"Otherwise the address is assumed to be a URL and HTTP zipkin traces are sent to that address. "+
-			"Note that when providing a URL it must be the full path to the span collection endpoint, e.g. 'zipkin:9411/api/v1/spans'.")
+			"Note that when providing a URL it must be the full path to the span collection endpoint, e.g. 'http://zipkin:9411/api/v1/spans'.")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "",
 		"URL of the config store. May be fs:// for file system, or redis:// for redis url")
