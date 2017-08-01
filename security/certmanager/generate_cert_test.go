@@ -15,27 +15,15 @@
 package certmanager
 
 import (
-	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"istio.io/auth/pkg/pki"
+	tu "istio.io/auth/pkg/pki/testutil"
 )
-
-// VerifyFields contains the certficate fields to verify in the test.
-type VerifyFields struct {
-	notBefore   time.Time
-	notAfter    time.Time
-	extKeyUsage []x509.ExtKeyUsage
-	keyUsage    x509.KeyUsage
-	isCA        bool
-	org         string
-}
 
 var now = time.Now().Round(time.Second).UTC()
 
@@ -109,15 +97,15 @@ func TestGenCert(t *testing.T) {
 	}
 
 	caCertPem, caPrivPem := GenCert(caCertOptions)
-	fields := VerifyFields{
-		notBefore:   caCertNotBefore,
-		notAfter:    caCertNotAfter,
-		extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		keyUsage:    x509.KeyUsageCertSign,
-		isCA:        true,
-		org:         "MyOrg",
+	fields := &tu.VerifyFields{
+		NotBefore:   caCertNotBefore,
+		NotAfter:    caCertNotAfter,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		KeyUsage:    x509.KeyUsageCertSign,
+		IsCA:        true,
+		Org:         "MyOrg",
 	}
-	if err := verifyCert(caPrivPem, caCertPem, nil, caCertOptions.Host, fields); err != nil {
+	if err := tu.VerifyCertificate(caPrivPem, caCertPem, nil, caCertOptions.Host, fields); err != nil {
 		t.Error(err)
 	}
 
@@ -133,7 +121,7 @@ func TestGenCert(t *testing.T) {
 
 	cases := []struct {
 		certOptions  CertOptions
-		verifyFields VerifyFields
+		verifyFields *tu.VerifyFields
 	}{
 		// These certs are signed by the CA cert
 		{
@@ -151,13 +139,13 @@ func TestGenCert(t *testing.T) {
 				IsServer:     true,
 				RSAKeySize:   512,
 			},
-			verifyFields: VerifyFields{
-				extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-				isCA:        false,
-				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				notAfter:    now.Add(time.Hour * 24),
-				notBefore:   now,
-				org:         "MyOrg",
+			verifyFields: &tu.VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotAfter:    now.Add(time.Hour * 24),
+				NotBefore:   now,
+				Org:         "MyOrg",
 			},
 		},
 		{
@@ -175,13 +163,13 @@ func TestGenCert(t *testing.T) {
 				IsServer:     true,
 				RSAKeySize:   512,
 			},
-			verifyFields: VerifyFields{
-				extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-				isCA:        false,
-				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				notAfter:    now.Add(time.Hour * 36),
-				notBefore:   now,
-				org:         "MyOrg",
+			verifyFields: &tu.VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotAfter:    now.Add(time.Hour * 36),
+				NotBefore:   now,
+				Org:         "MyOrg",
 			},
 		},
 		{
@@ -199,13 +187,13 @@ func TestGenCert(t *testing.T) {
 				IsServer:     true,
 				RSAKeySize:   512,
 			},
-			verifyFields: VerifyFields{
-				extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-				isCA:        false,
-				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				notAfter:    now.Add(time.Hour * 24),
-				notBefore:   now,
-				org:         "MyOrg",
+			verifyFields: &tu.VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotAfter:    now.Add(time.Hour * 24),
+				NotBefore:   now,
+				Org:         "MyOrg",
 			},
 		},
 		{
@@ -223,13 +211,13 @@ func TestGenCert(t *testing.T) {
 				IsServer:     true,
 				RSAKeySize:   512,
 			},
-			verifyFields: VerifyFields{
-				extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-				isCA:        false,
-				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				notAfter:    now.Add(time.Hour * 100),
-				notBefore:   now,
-				org:         "MyOrg",
+			verifyFields: &tu.VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotAfter:    now.Add(time.Hour * 100),
+				NotBefore:   now,
+				Org:         "MyOrg",
 			},
 		},
 		{
@@ -247,13 +235,13 @@ func TestGenCert(t *testing.T) {
 				IsServer:     true,
 				RSAKeySize:   512,
 			},
-			verifyFields: VerifyFields{
-				extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-				isCA:        false,
-				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				notAfter:    now.Add(time.Hour * 50),
-				notBefore:   now,
-				org:         "MyOrg",
+			verifyFields: &tu.VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotAfter:    now.Add(time.Hour * 50),
+				NotBefore:   now,
+				Org:         "MyOrg",
 			},
 		},
 		{
@@ -271,13 +259,13 @@ func TestGenCert(t *testing.T) {
 				IsServer:     false,
 				RSAKeySize:   512,
 			},
-			verifyFields: VerifyFields{
-				extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-				isCA:        false,
-				keyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-				notAfter:    now.Add(time.Hour * 50),
-				notBefore:   now,
-				org:         "MyOrg",
+			verifyFields: &tu.VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotAfter:    now.Add(time.Hour * 50),
+				NotBefore:   now,
+				Org:         "MyOrg",
 			},
 		},
 	}
@@ -285,83 +273,8 @@ func TestGenCert(t *testing.T) {
 	for _, c := range cases {
 		certOptions := c.certOptions
 		certPem, privPem := GenCert(certOptions)
-		if err := verifyCert(privPem, certPem, caCertPem, certOptions.Host, c.verifyFields); err != nil {
-			t.Error(err)
+		if e := tu.VerifyCertificate(privPem, certPem, caCertPem, certOptions.Host, c.verifyFields); e != nil {
+			t.Error(e)
 		}
 	}
-}
-
-func verifyCert(privPem []byte, certPem []byte, rootCertPem []byte,
-	host string, expectedFields VerifyFields) error {
-
-	roots := x509.NewCertPool()
-	var ok bool
-	if rootCertPem == nil {
-		ok = roots.AppendCertsFromPEM(certPem)
-	} else {
-		ok = roots.AppendCertsFromPEM(rootCertPem)
-	}
-
-	if !ok {
-		return fmt.Errorf("failed to parse root certificate")
-	}
-
-	cert, err := pki.ParsePemEncodedCertificate(certPem)
-	if err != nil {
-		return err
-	}
-
-	san := host
-	// uri scheme is currently not supported in go VerifyOptions. We verify
-	// this uri at the end as a special case.
-	if strings.HasPrefix(host, uriScheme) {
-		san = ""
-	}
-	opts := x509.VerifyOptions{
-		CurrentTime: now.Add(5 * time.Minute),
-		DNSName:     san,
-		Roots:       roots,
-	}
-	opts.KeyUsages = append(opts.KeyUsages, x509.ExtKeyUsageAny)
-
-	if _, err = cert.Verify(opts); err != nil {
-		return fmt.Errorf("failed to verify certificate: " + err.Error())
-	}
-
-	priv, err := pki.ParsePemEncodedKey(privPem)
-	if err != nil {
-		return err
-	}
-
-	if !reflect.DeepEqual(priv.(*rsa.PrivateKey).PublicKey, *cert.PublicKey.(*rsa.PublicKey)) {
-		return fmt.Errorf("the generated private key and cert doesn't match")
-	}
-
-	certFields := VerifyFields{
-		notBefore:   cert.NotBefore,
-		notAfter:    cert.NotAfter,
-		extKeyUsage: cert.ExtKeyUsage,
-		keyUsage:    cert.KeyUsage,
-		isCA:        cert.IsCA,
-		org:         cert.Issuer.Organization[0],
-	}
-	if !reflect.DeepEqual(expectedFields, certFields) {
-		return fmt.Errorf("{notBefore, notAfter, extKeyUsage, isCA, org}:\nexpected: %+v\nactual: %+v",
-			expectedFields, certFields)
-	}
-
-	if strings.HasPrefix(host, uriScheme) {
-		matchHost := false
-		for _, e := range cert.Extensions {
-			if strings.HasSuffix(string(e.Value[:]), host) {
-				matchHost = true
-				break
-			}
-		}
-		if !matchHost {
-			return fmt.Errorf("the certificate doesn't have the expected SAN for: %s", host)
-		}
-	}
-
-	return nil
 }

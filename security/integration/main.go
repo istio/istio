@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"istio.io/auth/controller"
+	"istio.io/auth/pkg/pki/testutil"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -89,7 +90,8 @@ func runTests(cmd *cobra.Command, args []string) {
 	} else {
 		glog.Infof(`Secret "istio.default" is correctly created`)
 
-		examineSecret(s)
+		expectedID := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/default", s.GetNamespace())
+		examineSecret(s, expectedID)
 	}
 }
 
@@ -173,7 +175,7 @@ func deployIstioCA(clientset kubernetes.Interface) {
 // This method examines the content of an Istio secret to make sure that
 // * Secret type is correctly set;
 // * Key, certificate and CA root are correctly saved in the data section;
-func examineSecret(secret *v1.Secret) {
+func examineSecret(secret *v1.Secret, expectedID string) {
 	if secret.Type != controller.IstioSecretType {
 		glog.Fatalf(`Unexpected value for the "type" annotation: expecting %v but got %v`,
 			controller.IstioSecretType, secret.Type)
@@ -183,6 +185,13 @@ func examineSecret(secret *v1.Secret) {
 		if _, exists := secret.Data[key]; !exists {
 			glog.Fatalf("%v does not exist in the data section", key)
 		}
+	}
+
+	key := secret.Data[controller.PrivateKeyID]
+	cert := secret.Data[controller.CertChainID]
+	root := secret.Data[controller.RootCertID]
+	if err := testutil.VerifyCertificate(key, cert, root, expectedID, nil); err != nil {
+		glog.Fatalf("Certificate verification failed: %v", err)
 	}
 }
 

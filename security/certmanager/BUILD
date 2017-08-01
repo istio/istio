@@ -22,5 +22,8 @@ go_test(
         "generate_cert_test.go",
     ],
     library = ":go_default_library",
-    deps = ["//pkg/pki:go_default_library"],
+    deps = [
+        "//pkg/pki:go_default_library",
+        "//pkg/pki/testutil:go_default_library",
+    ],
 )
