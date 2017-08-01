@@ -31,6 +31,7 @@ type HTTPRunnerResults struct {
 	Sizes             *Histogram
 	HeaderSizes       *Histogram
 	DurationHistogram *Histogram
+	ActualQPS         float64
 }
 
 // Used globally / in TestHttp() TODO: change periodic.go to carry caller defined context
@@ -64,6 +65,9 @@ type HTTPRunnerOptions struct {
 
 // HTTPRunner runs an http test and returns the aggregated stats.
 func HTTPRunner(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
+	if o.Function == nil {
+		o.Function = TestHTTP
+	}
 	r := NewPeriodicRunner(&o.RunnerOptions)
 	numThreads := r.Options().NumThreads
 	total := HTTPRunnerResults{
@@ -107,7 +111,7 @@ func HTTPRunner(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
 		}
 		pprof.StartCPUProfile(fc) //nolint: gas,errcheck
 	}
-	total.DurationHistogram = r.Run()
+	total.ActualQPS, total.DurationHistogram = r.Run()
 	if o.Profiler != "" {
 		pprof.StopCPUProfile()
 		fm, err := os.Create(o.Profiler + ".mem")

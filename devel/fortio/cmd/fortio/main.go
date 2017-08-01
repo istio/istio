@@ -87,7 +87,6 @@ func main() {
 		Compression: *compressionFlag,
 	}
 	o.QPS = *qpsFlag
-	o.Function = fortio.TestHTTP
 	o.Duration = *durationFlag
 	o.NumThreads = *numThreadsFlag
 	o.Percentiles = pList
@@ -98,5 +97,9 @@ func main() {
 		fmt.Printf("Aborting because %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("All done %d calls (plus %d warmup)\n", res.DurationHistogram.Count, *numThreadsFlag)
+	fmt.Printf("All done %d calls (plus %d warmup) %.3f ms avg, %.1f qps\n",
+		res.DurationHistogram.Count,
+		*numThreadsFlag,
+		1000.*res.DurationHistogram.Avg(),
+		res.ActualQPS)
 }
