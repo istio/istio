@@ -37,12 +37,12 @@ func TestHTTPRunner(t *testing.T) {
 		},
 		URL: baseURL,
 	}
-	res, err := RunHTTPTest(&opts)
+	_, err := RunHTTPTest(&opts)
 	if err == nil {
 		t.Error("Expecting an error but didn't get it when not using full url")
 	}
 	opts.URL = baseURL + "foo/bar"
-	res, err = RunHTTPTest(&opts)
+	res, err := RunHTTPTest(&opts)
 	if err != nil {
 		t.Error(err)
 		return
