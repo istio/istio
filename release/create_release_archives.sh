@@ -72,18 +72,6 @@ function create_osx_archive() {
   rm -rf "${istioctl_path}"
 }
 
-function create_windows_archive() {
-  local url="${ISTIOCTL_URL}/istioctl-win.exe"
-  local istioctl_path="${COMMON_FILES_DIR}/bin/istioctl.exe"
-
-  wget -O "${istioctl_path}" "${url}" \
-    || error_exit "Could not download ${istioctl_path}"
-
-  zip -r "${ARCHIVES_DIR}/istio_${ISTIO_VERSION}_win.zip" . \
-    || error_exit 'Could not create linux archive'
-  rm -rf "${istioctl_path}"
-}
-
 pushd ${ROOT}
 ${CP} istio.VERSION LICENSE README.md CONTRIBUTING.md "${COMMON_FILES_DIR}"/
 find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "README.md" \) \
@@ -95,7 +83,6 @@ popd
 pushd "${COMMON_FILES_DIR}/.."
 create_linux_archive
 create_osx_archive
-create_windows_archive
 popd
 
 echo "Archives are available in ${ARCHIVES_DIR}"
