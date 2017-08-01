@@ -13,13 +13,13 @@
 ## limitations under the License.
 
 build:
-	@bazel build ...:all
+	@bazel build //...:all
 
 clean:
 	@bazel clean
 
 test:
-	@bazel test ...
+	@bazel test //...
 
 lint: build
 	@bin/linters.sh
@@ -31,4 +31,4 @@ coverage:
 	@bin/codecov.sh
 
 racetest:
-	@bin/racetest.sh
+	@bazel test --features=race //...

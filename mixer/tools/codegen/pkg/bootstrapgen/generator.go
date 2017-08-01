@@ -134,7 +134,6 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 		_ = os.Remove(f.Name())
 		return err
 	}
-
 	return nil
 }
 

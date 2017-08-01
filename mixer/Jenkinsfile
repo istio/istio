@@ -60,7 +60,6 @@ def presubmit(gitUtils, bazel, utils) {
     }
     stage('Code Check') {
       sh('bin/linters.sh')
-      sh('bin/racetest.sh')
     }
     stage('Code Coverage') {
       sh('bin/codecov.sh | tee codecov.report')
