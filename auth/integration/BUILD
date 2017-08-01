@@ -6,6 +6,7 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//controller:go_default_library",
+        "//pkg/pki/testutil:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
