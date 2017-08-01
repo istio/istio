@@ -541,6 +541,32 @@ func TestBogusProto(t *testing.T) {
 	}
 }
 
+func TestMessageDictEdge(t *testing.T) {
+	globalWordList := []string{"G0", "G1"}
+	globalDict := map[string]int32{globalWordList[0]: 0, globalWordList[1]: 1}
+	messageWordList := []string{"N1", "N2"}
+
+	attrs := mixerpb.Attributes{
+		Words:   messageWordList,
+		Strings: map[int32]int32{0: -2},
+	}
+
+	b := NewProtoBag(&attrs, globalDict, globalWordList)
+	v, ok := b.Get("G0")
+	if !ok {
+		t.Error("Expecting true, got false")
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		t.Errorf("Expecting to get a string, got %v", v)
+	}
+
+	if s != "N2" {
+		t.Errorf("Expecting to get N2, got %s", s)
+	}
+}
+
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
 	_ = flag.Lookup("v").Value.Set("99")
