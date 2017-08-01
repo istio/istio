@@ -58,7 +58,7 @@ func (pb *ProtoBag) Get(name string) (interface{}, bool) {
 		// found the attribute, now convert its value from a dictionary index to a string
 		str, err := pb.lookup(strIndex)
 		if err != nil {
-			glog.Errorf("%v", err)
+			glog.Errorf("string attribute %s: %v", name, err)
 			return nil, false
 		}
 
@@ -82,7 +82,7 @@ func (pb *ProtoBag) Get(name string) (interface{}, bool) {
 		// convert from map[int32]int32 to map[string]string
 		m, err := pb.convertStringMap(sm.Entries)
 		if err != nil {
-			glog.Errorf("%v", err)
+			glog.Errorf("string map %s: %v", name, err)
 			return nil, false
 		}
 
@@ -149,14 +149,14 @@ func (pb *ProtoBag) getIndex(str string) (int32, bool) {
 // given a dictionary index, find the corresponding string if it exists
 func (pb *ProtoBag) lookup(index int32) (string, error) {
 	if index < 0 {
-		if -index-1 < int32(len(pb.messageDict)) {
+		if -index-1 < int32(len(pb.proto.Words)) {
 			return pb.proto.Words[-index-1], nil
 		}
 	} else if index < int32(len(pb.globalWordList)) {
 		return pb.globalWordList[index], nil
 	}
 
-	return "", fmt.Errorf("attribute index %d is not defined in the available dictionaries", index)
+	return "", fmt.Errorf("string index %d is not defined in the available dictionaries", index)
 }
 
 // convert a map[int32]int32 into a map[string]string, where the int32 are dictionary indices
