@@ -306,13 +306,9 @@ func verifyCert(privPem []byte, certPem []byte, rootCertPem []byte,
 		return fmt.Errorf("failed to parse root certificate")
 	}
 
-	block, _ := pem.Decode(certPem)
-	if block == nil {
-		return fmt.Errorf("failed to parse certificate PEM")
-	}
-	cert, err := x509.ParseCertificate(block.Bytes)
+	cert, err := pki.ParsePemEncodedCertificate(certPem)
 	if err != nil {
-		return fmt.Errorf("failed to parse certificate: " + err.Error())
+		return err
 	}
 
 	san := host
@@ -332,15 +328,12 @@ func verifyCert(privPem []byte, certPem []byte, rootCertPem []byte,
 		return fmt.Errorf("failed to verify certificate: " + err.Error())
 	}
 
-	block, _ = pem.Decode(privPem)
-	if block == nil || block.Type != "RSA PRIVATE KEY" {
-		return fmt.Errorf("failed to decode PEM block containing private key")
-	}
-	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	priv, err := pki.ParsePemEncodedKey(privPem)
 	if err != nil {
-		return fmt.Errorf("failed to parse private key: " + err.Error())
+		return err
 	}
-	if !reflect.DeepEqual(priv.PublicKey, *cert.PublicKey.(*rsa.PublicKey)) {
+
+	if !reflect.DeepEqual(priv.(*rsa.PrivateKey).PublicKey, *cert.PublicKey.(*rsa.PublicKey)) {
 		return fmt.Errorf("the generated private key and cert doesn't match")
 	}
 
