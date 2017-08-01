@@ -361,12 +361,17 @@ func TestRateLimit(t *testing.T) {
 		t.Errorf("Could not find successes value: %v", err)
 	}
 
+<<<<<<< HEAD
 	succWant := opts.Duration.Seconds() * 4 // really want 5 qps, but settle for 4
 	want = math.Min(want, succWant)         // use the smaller of the two to allow for traffic variations
 
 	// check successes
 	if got < want {
 		t.Log(promDump(promAPI, "request_count"))
+=======
+	// check successes
+	if got < want {
+>>>>>>> simplify test condition
 		t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 }
