@@ -23,6 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"os"
 	"time"
 
 	"istio.io/istio/devel/fortio"
@@ -77,6 +78,8 @@ func clientCall(serverAddr string, n int, payload string) {
 	if err != nil {
 		fortio.Fatalf("grpc error from Ping0 %v", err)
 	}
+	skewHistogram := fortio.NewHistogram(-10, 2)
+	rttHistogram := fortio.NewHistogram(0, 10)
 	for i := 1; i <= n; i++ {
 		msg.Seq = int64(i)
 		t1a := time.Now().UnixNano()
@@ -94,15 +97,21 @@ func clientCall(serverAddr string, n int, payload string) {
 			fortio.Fatalf("grpc error from Ping2 %v", err)
 		}
 		rt1 := t2a - t1a
+		rttHistogram.Record(float64(rt1) / 1000.)
 		rt2 := t3a - t2a
+		rttHistogram.Record(float64(rt2) / 1000.)
 		rtR := t2b - t1b
+		rttHistogram.Record(float64(rtR) / 1000.)
 		midR := t1b + (rtR / 2)
 		avgRtt := (rt1 + rt2 + rtR) / 3
 		x := (midR - t2a)
 		fortio.Infof("Ping RTT %d (avg of %d, %d, %d ns) clock skew %d",
 			avgRtt, rt1, rtR, rt2, x)
+		skewHistogram.Record(float64(x) / 1000.)
 		msg = res2
 	}
+	rttHistogram.Print(os.Stdout, "RTT histogram usec", 50)
+	skewHistogram.Print(os.Stdout, "Clock skew histogram usec", 50)
 }
 
 func main() {
