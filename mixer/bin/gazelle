@@ -1,0 +1,21 @@
+#!/bin/bash
+
+set -ex
+
+if ! type gazelle &> /dev/null ; then
+    go get github.com/bazelbuild/rules_go/go/tools/gazelle/gazelle
+fi
+
+# Force update of gazelle if build_file_name flag is not present.
+if ! gazelle --help 2>&1 | grep build_file_name >/dev/null; then
+    go get -u github.com/bazelbuild/rules_go/go/tools/gazelle/gazelle
+fi
+
+gazelle \
+    -go_prefix istio.io/mixer \
+    -build_file_name BUILD
+
+find . -type f -name BUILD -print0 | \
+    xargs -0 sed -i \
+          -e '/\/\/mixer\/v1.*:go_default_library/d' \
+          -e 's|google/rpc:go_default_library|:google/rpc|g'

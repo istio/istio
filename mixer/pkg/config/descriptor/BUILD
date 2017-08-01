@@ -8,6 +8,7 @@ go_library(
         "descriptor.go",
         "validator.go",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//pkg/adapter:go_default_library",
         "//pkg/config/proto:go_default_library",
@@ -16,12 +17,12 @@ go_library(
         "@com_github_gogo_protobuf//jsonpb:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_golang_glog//:go_default_library",
-        "@com_github_istio_api//:mixer/v1/config/descriptor",
+        "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
     ],
 )
 
 go_test(
-    name = "small_tests",
+    name = "go_default_test",
     size = "small",
     srcs = [
         "descriptor_test.go",
@@ -29,8 +30,10 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
-        "//pkg/aspect/config:go_default_library",
+        "//pkg/config/proto:go_default_library",
+        "@com_github_ghodss_yaml//:go_default_library",
+        "@com_github_gogo_protobuf//jsonpb:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
-        "@com_github_istio_api//:mixer/v1/config/descriptor",
+        "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
     ],
 )

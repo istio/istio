@@ -9,10 +9,11 @@ go_library(
         "goroutine.go",
         "intern.go",
     ],
+    visibility = ["//visibility:public"],
 )
 
 go_test(
-    name = "small_tests",
+    name = "go_default_test",
     size = "small",
     srcs = [
         "buffer_test.go",

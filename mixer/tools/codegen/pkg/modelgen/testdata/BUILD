@@ -36,7 +36,7 @@ proto_compile(
     inputs = [
         "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
-        "@com_github_istio_api//:mixer/v1/config/descriptor_protos",
+        "@com_github_istio_api//:mixer/v1/config/descriptor_protos",  # keep
     ],
     protos = [
         "SimpleTemplate.proto",
@@ -58,7 +58,7 @@ proto_compile(
     inputs = [
         "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
-        "@com_github_istio_api//:mixer/v1/config/descriptor_protos",
+        "@com_github_istio_api//:mixer/v1/config/descriptor_protos",  # keep
     ],
     protos = [
         "UnsupportedFieldTypeMessage.proto",
@@ -80,7 +80,7 @@ proto_compile(
     inputs = [
         "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
-        "@com_github_istio_api//:mixer/v1/config/descriptor_protos",
+        "@com_github_istio_api//:mixer/v1/config/descriptor_protos",  # keep
     ],
     protos = [
         "UnsupportedFieldTypeAsMap.proto",
@@ -102,7 +102,7 @@ proto_compile(
     inputs = [
         "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
-        "@com_github_istio_api//:mixer/v1/config/descriptor_protos",
+        "@com_github_istio_api//:mixer/v1/config/descriptor_protos",  # keep
     ],
     protos = [
         "UnsupportedFieldTypePrimitive.proto",
@@ -124,7 +124,7 @@ proto_compile(
     inputs = [
         "//pkg/adapter/template:protos",
         "@com_github_google_protobuf//:well_known_protos",
-        "@com_github_istio_api//:mixer/v1/config/descriptor_protos",
+        "@com_github_istio_api//:mixer/v1/config/descriptor_protos",  # keep
     ],
     protos = [
         "UnsupportedFieldTypeEnum.proto",

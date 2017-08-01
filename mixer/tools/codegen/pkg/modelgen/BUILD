@@ -9,21 +9,22 @@ go_library(
         "model.go",
         "parser.go",
     ],
+    visibility = ["//tools:__subpackages__"],
     deps = [
         "//pkg/adapter/template:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_gogo_protobuf//protoc-gen-gogo/descriptor:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
-        "@com_github_hashicorp_go_multierror//:go_default_library",
     ],
 )
 
 go_test(
-    name = "small_tests",
+    name = "go_default_test",
     size = "small",
-    srcs = [
-        "model_test.go",
-    ],
+    srcs = ["model_test.go"],
     data = ["//tools/codegen/pkg/modelgen/testdata:test_descriptors"],
     library = ":go_default_library",
+    deps = [
+        "@com_github_gogo_protobuf//proto:go_default_library",
+        "@com_github_gogo_protobuf//protoc-gen-gogo/descriptor:go_default_library",
+    ],
 )

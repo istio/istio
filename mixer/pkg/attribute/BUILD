@@ -10,23 +10,21 @@ go_library(
         "mutableBag.go",
         "protoBag.go",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//pkg/pool:go_default_library",
-        "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
-        "@com_github_istio_api//:mixer/v1",
+        "@com_github_istio_api//:mixer/v1",  # keep
     ],
 )
 
 go_test(
-    name = "small_tests",
+    name = "go_default_test",
     size = "small",
-    srcs = [
-        "bag_test.go",
-    ],
+    srcs = ["bag_test.go"],
     library = ":go_default_library",
     deps = [
-        "@com_github_gogo_protobuf//types:go_default_library",
+        "@com_github_istio_api//:mixer/v1",  # keep
     ],
 )
