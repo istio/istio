@@ -156,7 +156,42 @@ spec:
         - containerPort: 9080
 ---
 ##################################################################################################
-# Productpage service
+# Mysql db services
+##################################################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysqldb
+  labels:
+    app: mysqldb
+spec:
+  ports:
+  - port: 3306
+    name: mysql
+  selector:
+    app: mysqldb
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: mysqldb-v1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysqldb
+        version: v1
+    spec:
+      containers:
+      - name: mysqldb
+        image: istio/examples-bookinfo-mysqldb-v1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3306
+---
+##################################################################################################
+# Productpage services
 ##################################################################################################
 apiVersion: v1
 kind: Service
