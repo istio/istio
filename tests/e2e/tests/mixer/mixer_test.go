@@ -22,6 +22,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -351,10 +352,11 @@ func TestRateLimit(t *testing.T) {
 		t.Errorf("Could not find rate limit value: %v", err)
 	}
 
-	// establish some baseline for rejections
-	want := perSvc / 2
-	// allow some leeway for rejections
-	if got <= (want * .9) {
+	// establish some baseline (40% of expected counts)
+	want := math.Floor(perSvc * .4)
+
+	// check rejections
+	if got < want {
 		t.Errorf("Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
 	}
 
@@ -362,13 +364,9 @@ func TestRateLimit(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not find successes value: %v", err)
 	}
-	// expected OKs, assuming 30qps for 30s
-	want = 900.0
-	if perSvc < 900 {
-		want = perSvc
-	}
-	// allow some leeway
-	if got < (want * .9) {
+
+	// check successes
+	if got < want {
 		t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 }
