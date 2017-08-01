@@ -26,22 +26,54 @@ git_repository(
     remote = "https://github.com/pubref/rules_protobuf",
 )
 
+git_repository(
+    name = "com_github_google_protobuf",
+    commit = "52ab3b07ac9a6889ed0ac9bf21afd8dab8ef0014",  # Oct 4, 2016 (match pubref dep)
+    remote = "https://github.com/google/protobuf.git",
+)
+
 load("@org_pubref_rules_protobuf//protobuf:rules.bzl", "proto_repositories")
 
 proto_repositories()
 
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_repositories")
-load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cpp_proto_repositories")
-
-cpp_proto_repositories()
-
-gogo_proto_repositories()
+new_go_repository(
+    name = "org_golang_x_net",
+    commit = "f5079bd7f6f74e23c4d65efa0f4ce14cbd6a3c0f",  # Jul 26, 2017 (no releases)
+    importpath = "golang.org/x/net",
+)
 
 new_go_repository(
     name = "com_github_golang_glog",
     commit = "23def4e6c14b4da8ac2ed8007337bc5eb5007998",  # Jan 26, 2016 (no releases)
     importpath = "github.com/golang/glog",
 )
+
+new_go_repository(
+    name = "com_github_golang_protobuf",
+    commit = "8ee79997227bf9b34611aee7946ae64735e6fd93",  # Nov 16, 2016 (match pubref dep)
+    importpath = "github.com/golang/protobuf",
+)
+
+new_go_repository(
+    name = "com_github_gogo_protobuf",
+    commit = "100ba4e885062801d56799d78530b73b178a78f3",  # Mar 7, 2017 (match pubref dep)
+    importpath = "github.com/gogo/protobuf",
+)
+
+load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_repositories")
+
+gogo_proto_repositories()
+
+git_repository(
+    name = "com_github_grpc_grpc",
+    commit = "3808b6efe66b87269d43847bc113e94e2d3d28fb",  # Oct 14, 2016 (match pubref dep)
+    init_submodules = True,
+    remote = "https://github.com/grpc/grpc.git",
+)
+
+load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cpp_proto_repositories")
+
+cpp_proto_repositories()
 
 new_go_repository(
     name = "com_github_ghodss_yaml",
@@ -53,12 +85,6 @@ new_go_repository(
     name = "in_gopkg_yaml_v2",
     commit = "14227de293ca979cf205cd88769fe71ed96a97e2",  # Jan 24, 2017 (no releases)
     importpath = "gopkg.in/yaml.v2",
-)
-
-new_go_repository(
-    name = "com_github_golang_protobuf",
-    commit = "8ee79997227bf9b34611aee7946ae64735e6fd93",  # Nov 16, 2016 (no releases)
-    importpath = "github.com/golang/protobuf",
 )
 
 GOOGLEAPIS_BUILD_FILE = """
