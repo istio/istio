@@ -17,6 +17,7 @@ go_test(
     size = "small",
     srcs = [
         "http_test.go",
+        "httprunner_test.go",
         "logger_test.go",
         "periodic_test.go",
         "stats_test.go",

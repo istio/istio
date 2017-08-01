@@ -58,16 +58,18 @@ func TestHTTP(t int) {
 // options.
 type HTTPRunnerOptions struct {
 	RunnerOptions
-	URL         string
-	Compression bool   // defaults to no compression, only used by std client
-	StdClient   bool   // defaults to fast client
-	HTTP10      bool   // defaults to http1.1
-	NoKeepAlive bool   // so default is keep alive
-	Profiler    string // file to save profiles to. defaults to no profiling
+	URL               string
+	Compression       bool   // defaults to no compression, only used by std client
+	DisableFastClient bool   // defaults to fast client
+	HTTP10            bool   // defaults to http1.1
+	DisableKeepAlive  bool   // so default is keep alive
+	Profiler          string // file to save profiles to. defaults to no profiling
 }
 
-// HTTPRunner runs an http test and returns the aggregated stats.
-func HTTPRunner(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
+// RunHTTPTest runs an http test and returns the aggregated stats.
+func RunHTTPTest(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
+	// TODO 1. use std client automatically when https url
+	// TODO 2. lock
 	if o.Function == nil {
 		o.Function = TestHTTP
 	}
@@ -81,13 +83,13 @@ func HTTPRunner(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
 	state = make([]HTTPRunnerResults, numThreads)
 	for i := 0; i < numThreads; i++ {
 		// Create a client (and transport) and connect once for each 'thread'
-		if o.StdClient {
+		if o.DisableFastClient {
 			state[i].client = NewStdClient(o.URL, 1, o.Compression)
 		} else {
 			if o.HTTP10 {
-				state[i].client = NewBasicClient(o.URL, "1.0", !o.NoKeepAlive)
+				state[i].client = NewBasicClient(o.URL, "1.0", !o.DisableKeepAlive)
 			} else {
-				state[i].client = NewBasicClient(o.URL, "1.1", !o.NoKeepAlive)
+				state[i].client = NewBasicClient(o.URL, "1.1", !o.DisableKeepAlive)
 			}
 		}
 		if state[i].client == nil {
