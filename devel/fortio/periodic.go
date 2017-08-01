@@ -61,7 +61,7 @@ type RunnerOptions struct {
 // statistics and histogram about the run.
 type PeriodicRunner interface {
 	// Starts the run
-	Run()
+	Run() *Histogram
 	// Returns the options normalized by constructor - do not mutate
 	// (where is const when you need it...)
 	Options() *RunnerOptions
@@ -109,7 +109,7 @@ func (r *periodicRunner) Options() *RunnerOptions {
 }
 
 // Run starts the runner.
-func (r *periodicRunner) Run() {
+func (r *periodicRunner) Run() *Histogram {
 	useQPS := (r.QPS > 0)
 	var numCalls int64
 	if useQPS {
@@ -183,6 +183,7 @@ func (r *periodicRunner) Run() {
 	for _, p := range r.Percentiles[1:] {
 		fmt.Printf("# target %g%% %.6g\n", p, functionDuration.CalcPercentile(p))
 	}
+	return functionDuration
 }
 
 // runOne runs in 1 go routine.
