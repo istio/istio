@@ -79,20 +79,21 @@ func main() {
 	fmt.Printf("Fortio running at %g queries per second, %d->%d procs, for %v: %s\n",
 		*qpsFlag, prevGoMaxProcs, runtime.GOMAXPROCS(0), *durationFlag, url)
 	o := fortio.HTTPRunnerOptions{
-		URL:         url,
-		HTTP10:      *http10Flag,
-		StdClient:   *stdClientFlag,
-		NoKeepAlive: !*keepAliveFlag,
-		Profiler:    *profileFlag,
-		Compression: *compressionFlag,
+		RunnerOptions: fortio.RunnerOptions{
+			QPS:         *qpsFlag,
+			Duration:    *durationFlag,
+			NumThreads:  *numThreadsFlag,
+			Percentiles: pList,
+			Resolution:  *resolutionFlag,
+		},
+		URL:               url,
+		HTTP10:            *http10Flag,
+		DisableFastClient: *stdClientFlag,
+		DisableKeepAlive:  !*keepAliveFlag,
+		Profiler:          *profileFlag,
+		Compression:       *compressionFlag,
 	}
-	o.QPS = *qpsFlag
-	o.Duration = *durationFlag
-	o.NumThreads = *numThreadsFlag
-	o.Percentiles = pList
-	o.Resolution = *resolutionFlag
-
-	res, err := fortio.HTTPRunner(&o)
+	res, err := fortio.RunHTTPTest(&o)
 	if err != nil {
 		fmt.Printf("Aborting because %v\n", err)
 		os.Exit(1)
