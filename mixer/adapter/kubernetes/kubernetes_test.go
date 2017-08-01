@@ -21,7 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/mixer/adapter/kubernetes/config"
 	"istio.io/mixer/pkg/adapter"
@@ -194,7 +195,7 @@ func TestKubegen_Close(t *testing.T) {
 func TestKubegen_Generate(t *testing.T) {
 	pods := map[string]*v1.Pod{
 		"testns/testsvc": {
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test_pod",
 				Namespace: "testns",
 				Labels: map[string]string{
@@ -211,7 +212,7 @@ func TestKubegen_Generate(t *testing.T) {
 			},
 		},
 		"testns/empty": {
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test_pod",
 				Namespace: "testns",
 				Labels: map[string]string{
@@ -220,7 +221,7 @@ func TestKubegen_Generate(t *testing.T) {
 			},
 		},
 		"testns/badapplabel": {
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test_pod",
 				Namespace: "testns",
 				Labels: map[string]string{
@@ -229,7 +230,7 @@ func TestKubegen_Generate(t *testing.T) {
 			},
 		},
 		"testns/alt-svc": {
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "alt-svc",
 				Namespace: "testns",
 				Labels: map[string]string{
@@ -238,7 +239,7 @@ func TestKubegen_Generate(t *testing.T) {
 			},
 		},
 		"testns/alt-svc-with-cluster": {
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "alt-svc-with-cluster",
 				Namespace: "testns",
 				Labels: map[string]string{
@@ -247,7 +248,7 @@ func TestKubegen_Generate(t *testing.T) {
 			},
 		},
 		"testns/long-svc": {
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "long-svc",
 				Namespace: "testns",
 				Labels: map[string]string{
@@ -256,7 +257,7 @@ func TestKubegen_Generate(t *testing.T) {
 			},
 		},
 		"testns/ipaddr-svc": {
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "ipaddr-svc",
 				Namespace: "testns",
 				Labels: map[string]string{

@@ -20,10 +20,11 @@ import (
 	"reflect"
 	"time"
 
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/mixer/pkg/adapter"
@@ -87,10 +88,10 @@ func newCacheController(clientset *kubernetes.Clientset, refreshDuration time.Du
 
 	c.pods = cache.NewSharedIndexInformer(
 		&cache.ListWatch{
-			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 				return clientset.Pods(namespace).List(opts)
 			},
-			WatchFunc: func(opts v1.ListOptions) (watch.Interface, error) {
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				return clientset.Pods(namespace).Watch(opts)
 			},
 		},
@@ -101,7 +102,7 @@ func newCacheController(clientset *kubernetes.Clientset, refreshDuration time.Du
 
 	// debug logging for pod update events
 	if env.Logger().VerbosityLevel(debugVerbosityLevel) {
-		eventErr := c.pods.AddEventHandler(
+		c.pods.AddEventHandler(
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
 					c.mutationsChan <- resourceMutation{addition, obj}
@@ -116,10 +117,6 @@ func newCacheController(clientset *kubernetes.Clientset, refreshDuration time.Du
 				},
 			},
 		)
-
-		if eventErr != nil {
-			c.env.Logger().Warningf("could not add logging event handlers: %v", eventErr)
-		}
 	}
 
 	return c

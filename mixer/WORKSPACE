@@ -2,7 +2,7 @@ workspace(name = "com_github_istio_mixer")
 
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "4c9a52aba0b59511c5646af88d2f93a9c0193647",  # May 5, 2017 (0.4.4)
+    commit = "de4f17a549ec4b21566877f5a0f3fff0ba40931e",  # July 17 2017 (0.5.2)
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
@@ -300,8 +300,26 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "io_k8s_api",
+    build_file_generation = "on",
+    build_file_name = "BUILD.bazel",
+    commit = "4d5cc6efc5e84aa19fb1bd3f911c16a6723c1bb7",  # Jul 19, 2017 (no releases)
+    importpath = "k8s.io/api",
+)
+
+new_go_repository(
+    name = "io_k8s_apimachinery",
+    build_file_generation = "on",
+    build_file_name = "BUILD.bazel",
+    commit = "6134cb2da6d90597b0434e349f90f94fafc9ae51",  # Jun 19, 2017 (no releases)
+    importpath = "k8s.io/apimachinery",
+)
+
+new_go_repository(
     name = "io_k8s_client_go",
-    commit = "243d8a9cb66a51ad8676157f79e71033b4014a2a",  # Dec 11, 2016 (matches istio manager)
+    build_file_generation = "on",
+    build_file_name = "BUILD.bazel",
+    commit = "7c69e980210777a6292351ac6873de083526f08e",  # Jul 18, 2017 (no releases)
     importpath = "k8s.io/client-go",
 )
 
@@ -336,9 +354,21 @@ new_go_repository(
 )
 
 new_go_repository(
+    name = "com_github_googleapis_gnostic",
+    commit = "0c5108395e2debce0d731cf0287ddf7242066aba",  # Jul 29, 2017 (no releases)
+    importpath = "github.com/googleapis/gnostic",
+)
+
+new_go_repository(
     name = "com_github_emicklei_go_restful",
     commit = "09691a3b6378b740595c1002f40c34dd5f218a22",  # Dec 12, 2016 (k8s deps)
     importpath = "github.com/emicklei/go-restful",
+)
+
+new_go_repository(
+    name = "com_github_emicklei_go_restful_swagger12",
+    commit = "dcef7f55730566d41eae5db10e7d6981829720f6",  # Feb 8, 2017 (no releases)
+    importpath = "github.com/emicklei/go-restful-swagger12",
 )
 
 new_go_repository(
@@ -367,7 +397,7 @@ new_go_repository(
 
 new_go_repository(
     name = "com_github_juju_ratelimit",
-    commit = "acf38b000a03e4ab89e40f20f1e548f4e6ac7f72",  # Mar 13, 2017 (no releases)
+    commit = "5b9ff866471762aa2ab2dced63c9fb6f53921342",  # May 23, 2017 (no releases)
     importpath = "github.com/juju/ratelimit",
 )
 
