@@ -39,12 +39,8 @@ mainFlow(utils) {
     postsubmit(gitUtils, bazel, utils)
   }
   // PR from master to stable branch for qualification
-  if (utils.runStage('STABLE_PRESUBMIT')) {
-    stablePresubmit(gitUtils, bazel, utils)
-  }
-  // Postsubmit form stable branch, post qualification
-  if (utils.runStage('STABLE_POSTSUBMIT')) {
-    stablePostsubmit(gitUtils, bazel, utils)
+  if (utils.runStage('RELEASE')) {
+    release(gitUtils, bazel)
   }
 }
 
@@ -79,7 +75,7 @@ def presubmit(gitUtils, bazel, utils) {
     }
     stage('Integration Test') {
       timeout(15) {
-        sh('bin/e2e.sh')
+        sh("bin/e2e.sh --tag ${env.GIT_SHA} --hub gcr.io/istio-testing")
       }
     }
   }
@@ -88,34 +84,33 @@ def presubmit(gitUtils, bazel, utils) {
 def postsubmit(gitUtils, bazel, utils) {
   goBuildNode(gitUtils, 'istio.io/auth') {
     bazel.updateBazelRc()
-    stage('Code Coverage') {
-      bazel.fetch('-k //...')
+    utils.initTestingCluster()
+    stage('Bazel Build') {
       bazel.build('//...')
-      sh('bin/setup.sh')
+    }
+    stage('Bazel Tests') {
       bazel.test('//...')
+    }
+    stage('Go Build') {
+      sh('bin/setup.sh')
+    }
+    stage('Code Coverage') {
       sh('bin/codecov.sh | tee codecov.report')
       sh('bin/toolbox/presubmit/pkg_coverage.sh')
       utils.publishCodeCoverage('AUTH_CODECOV_TOKEN')
     }
-    utils.fastForwardStable('auth')
-  }
-}
-
-def stablePresubmit(gitUtils, bazel, utils) {
-  goBuildNode(gitUtils, 'istio.io/auth') {
-    stage('Docker Push') {
-      def images = 'istio-ca'
-      def tags = env.GIT_SHA
-      utils.publishDockerImagesToContainerRegistry(images, tags)
+    stage('Integration Test') {
+      timeout(15) {
+        sh("bin/e2e.sh --tag ${env.GIT_SHA} --hub gcr.io/istio-testing")
+      }
     }
   }
 }
 
-def stablePostsubmit(gitUtils, bazel, utils) {
+def release(gitUtils, bazel) {
   goBuildNode(gitUtils, 'istio.io/auth') {
     bazel.updateBazelRc()
     stage('Docker Push') {
-      def images = 'istio-ca'
       def tags = "${env.GIT_SHORT_SHA},${env.ISTIO_VERSION}-${env.GIT_SHORT_SHA}"
       if (env.GIT_TAG != '') {
         if (env.GIT_TAG == env.ISTIO_VERSION) {
@@ -125,8 +120,7 @@ def stablePostsubmit(gitUtils, bazel, utils) {
           tags += ",${env.GIT_TAG}"
         }
       }
-      utils.publishDockerImagesToDockerHub(images, tags)
-      utils.publishDockerImagesToContainerRegistry(images, tags, '', 'gcr.io/istio-io')
+      sh("bin/push-docker.sh -h gcr.io/istio-io -t ${tags}")
     }
   }
 }
