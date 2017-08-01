@@ -157,7 +157,16 @@ spec:
 ---
 ##################################################################################################
 # Mysql db services
+# credentials: root/password
 ##################################################################################################
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-credentials
+type: Opaque
+data:
+  rootpasswd: cGFzc3dvcmQ=
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -189,6 +198,12 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 3306
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mysql-credentials
+                key: rootpasswd
 ---
 ##################################################################################################
 # Productpage services

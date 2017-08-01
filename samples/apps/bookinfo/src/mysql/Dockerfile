@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 FROM mysql:8
-ENV MYSQL_ROOT_PASSWORD "password"
+# MYSQL_ROOT_PASSWORD must be supplied as an env var
 ENV MYSQL_DATABASE "test"
 
 COPY ./mysqldb-init.sql /docker-entrypoint-initdb.d/mysqldb-init.sql
