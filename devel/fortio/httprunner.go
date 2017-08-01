@@ -23,6 +23,9 @@ import (
 	"sort"
 )
 
+// Most of the code in this file is the library-fication of code originally
+// in cmd/fortio/main.go
+
 // HTTPRunnerResults is the aggregated result of an HTTPRunner.
 // Also is the internal type used per thread/goroutine.
 type HTTPRunnerResults struct {
