@@ -8,21 +8,25 @@ go_library(
         "memQuota.go",
         "rollingWindow.go",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//adapter/memQuota/config:go_default_library",
         "//adapter/memQuota/util:go_default_library",
         "//pkg/adapter:go_default_library",
-        "//pkg/pool:go_default_library",
     ],
 )
 
 go_test(
-    name = "small_tests",
+    name = "go_default_test",
     size = "small",
     srcs = [
         "memQuota_test.go",
         "rollingWindow_test.go",
     ],
     library = ":go_default_library",
-    deps = ["//pkg/adapter/test:go_default_library"],
+    deps = [
+        "//adapter/memQuota/config:go_default_library",
+        "//pkg/adapter:go_default_library",
+        "//pkg/adapter/test:go_default_library",
+    ],
 )

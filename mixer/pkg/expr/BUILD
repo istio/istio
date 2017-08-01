@@ -14,13 +14,12 @@ go_library(
         "//pkg/pool:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_hashicorp_golang_lru//:go_default_library",
-        "@com_github_istio_api//:mixer/v1",
-        "@com_github_istio_api//:mixer/v1/config/descriptor",
+        "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
     ],
 )
 
 go_test(
-    name = "small_tests",
+    name = "go_default_test",
     size = "small",
     srcs = [
         "benchmark_test.go",
@@ -30,6 +29,9 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
-        "@com_github_gogo_protobuf//types:go_default_library",
+        "//pkg/attribute:go_default_library",
+        "//pkg/config/proto:go_default_library",
+        "@com_github_hashicorp_golang_lru//:go_default_library",
+        "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
     ],
 )

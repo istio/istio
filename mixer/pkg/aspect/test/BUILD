@@ -12,13 +12,13 @@ go_library(
         "evaluator.go",
         "logger.go",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//pkg/adapter:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/config:go_default_library",
         "//pkg/config/proto:go_default_library",
         "//pkg/expr:go_default_library",
-        "@com_github_golang_protobuf//ptypes/struct:go_default_library",
-        "@com_github_istio_api//:mixer/v1/config/descriptor",
+        "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
     ],
 )

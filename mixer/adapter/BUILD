@@ -8,6 +8,7 @@ go_library(
         "inventory.go",
         "inventory2.gen.go",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//adapter/denyChecker:go_default_library",
         "//adapter/genericListChecker:go_default_library",

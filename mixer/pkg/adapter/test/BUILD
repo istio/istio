@@ -9,7 +9,6 @@ go_library(
         "adapters.go",
         "env.go",
     ],
-    deps = [
-        "//pkg/adapter:go_default_library",
-    ],
+    visibility = ["//visibility:public"],
+    deps = ["//pkg/adapter:go_default_library"],
 )
