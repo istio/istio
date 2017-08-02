@@ -50,7 +50,7 @@ spec:
       containers:
       - name: discovery
         image: {PILOT_HUB}/pilot:{PILOT_TAG}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2"]
         ports:
         - containerPort: 8080
