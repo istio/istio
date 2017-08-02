@@ -153,7 +153,7 @@ func (c *Manager) fetch() (*runtime, descriptor.Finder, map[string]*HandlerInfo,
 
 	data, shas, index, err := readdb(c.store, "/")
 	if glog.V(9) {
-		glog.Info(data)
+		glog.Infof("Fetched config payload:\n%v", data)
 	}
 	if err != nil {
 		return nil, nil, nil, errors.New("Unable to read database: " + err.Error())
@@ -172,6 +172,9 @@ func (c *Manager) fetch() (*runtime, descriptor.Finder, map[string]*HandlerInfo,
 	if cerr != nil {
 		glog.Warningf("Validation failed: %v", cerr)
 		return nil, nil, nil, cerr
+	}
+	if glog.V(4) {
+		glog.Infof("Fetched and validated config payload:\n%v", data)
 	}
 	c.lastFetchIndex = index
 	vd.shas = shas
@@ -192,7 +195,6 @@ func (c *Manager) fetchAndNotify() {
 		return
 	}
 
-	glog.Infof("Loaded new config %s", c.store)
 	for _, cl := range c.cl {
 		cl.ConfigChange(rt, df, handlers)
 	}
