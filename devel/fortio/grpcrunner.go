@@ -77,6 +77,7 @@ func RunGrpcTest(o *GrpcRunnerOptions) (*GrpcRunnerResults, error) {
 	}
 	grpcstate = make([]GrpcRunnerResults, numThreads)
 	for i := 0; i < numThreads; i++ {
+		// TODO: option to use certs
 		conn, err := grpc.Dial(o.Destination, grpc.WithInsecure())
 		if err != nil {
 			Errf("Error in grpc dial for %s %v", o.Destination, err)

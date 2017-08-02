@@ -143,7 +143,7 @@ func healthCheck(serverAddr string, svcname string, n int) {
 		statuses[res1.Status]++
 		rttHistogram.Record(dur.Seconds() * 1000000.)
 	}
-	rttHistogram.Print(os.Stdout, "RTT histogram usec X", 50)
+	rttHistogram.Print(os.Stdout, "RTT histogram usec", 50)
 	fmt.Printf("Statuses %v\n", statuses)
 }
 
