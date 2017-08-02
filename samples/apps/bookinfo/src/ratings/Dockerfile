@@ -14,5 +14,8 @@
 
 FROM node:4-onbuild
 
+ARG service_version
+ENV SERVICE_VERSION ${service_version:-v1}
+
 EXPOSE 9080
 CMD node ratings.js 9080

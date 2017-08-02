@@ -5,4 +5,11 @@
 USE test;
 CREATE TABLE price (name VARCHAR(20), price INT);
 INSERT INTO price VALUES('comedy', 20);
-SELECT * FROM price;
+
+CREATE TABLE `ratings` (
+  `ReviewID` int(20) NOT NULL AUTO_INCREMENT,
+  `Rating` int(20),
+  PRIMARY KEY (`ReviewID`)
+)
+INSERT INTO ratings (ReviewID, Rating) VALUES ('1','3');
+INSERT INTO ratings (ReviewID, Rating) VALUES ('2','5');

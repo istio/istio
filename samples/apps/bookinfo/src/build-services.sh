@@ -40,7 +40,8 @@ pushd $SCRIPTDIR/reviews
 popd
 
 pushd $SCRIPTDIR/ratings
-  docker build -t istio/examples-bookinfo-ratings-v1 .
+  docker build -t istio/examples-bookinfo-ratings-v1 --build-arg service_version=v1 .
+  docker build -t istio/examples-bookinfo-ratings-v2 --build-arg service_version=v2 .
 popd
 
 pushd $SCRIPTDIR/mysql
