@@ -31,14 +31,21 @@ import (
 	context "golang.org/x/net/context"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 )
 
+// To get most debugging/tracing:
+// GODEBUG="http2debug=2" GRPC_GO_LOG_VERBOSITY_LEVEL=99 GRPC_GO_LOG_SEVERITY_LEVEL=info grpcping -loglevel debug
+
 var (
-	countFlag   = flag.Int("n", 1, "how many ping the client will send")
-	portFlag    = flag.Int("port", 8079, "default grpc port")
-	hostFlag    = flag.String("host", "", "client mode: server to connect to")
-	payloadFlag = flag.String("payload", "this is the default payload", "Payload string to send along")
+	countFlag     = flag.Int("n", 1, "how many ping the client will send")
+	portFlag      = flag.Int("port", 8079, "default grpc port")
+	hostFlag      = flag.String("host", "", "client mode: server to connect to")
+	doHealthFlag  = flag.Bool("health", false, "client mode: use health instead of ping")
+	healthSvcFlag = flag.String("healthservice", "", "which service string to pass to health check")
+	payloadFlag   = flag.String("payload", "", "Payload string to send along")
 )
 
 type pingServer struct {
@@ -58,6 +65,9 @@ func startServer(port int) {
 	}
 	grpcServer := grpc.NewServer()
 	reflection.Register(grpcServer)
+	healthServer := health.NewServer()
+	healthServer.SetServingStatus("ping", grpc_health_v1.HealthCheckResponse_SERVING)
+	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
 	RegisterPingServerServer(grpcServer, &pingServer{})
 	fmt.Printf("Fortio %s grpc ping server listening on port %v\n", fortio.Version, port)
 	if err := grpcServer.Serve(socket); err != nil {
@@ -70,8 +80,7 @@ func clientCall(serverAddr string, n int, payload string) {
 	if err != nil {
 		fortio.Fatalf("failed to conect to %s: %v", serverAddr, err)
 	}
-	msg := &PingMessage{}
-	msg.Payload = payload
+	msg := &PingMessage{Payload: payload}
 	cli := NewPingServerClient(conn)
 	// Warm up:
 	_, err = cli.Ping(context.Background(), msg)
@@ -110,15 +119,44 @@ func clientCall(serverAddr string, n int, payload string) {
 		skewHistogram.Record(float64(x) / 1000.)
 		msg = res2
 	}
-	rttHistogram.Print(os.Stdout, "RTT histogram usec", 50)
 	skewHistogram.Print(os.Stdout, "Clock skew histogram usec", 50)
+	rttHistogram.Print(os.Stdout, "RTT histogram usec", 50)
+}
+
+func healthCheck(serverAddr string, svcname string, n int) {
+	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
+	if err != nil {
+		fortio.Fatalf("failed to conect to %s: %v", serverAddr, err)
+	}
+	msg := &grpc_health_v1.HealthCheckRequest{Service: svcname}
+	cli := grpc_health_v1.NewHealthClient(conn)
+	rttHistogram := fortio.NewHistogram(0, 10)
+	statuses := make(map[grpc_health_v1.HealthCheckResponse_ServingStatus]int64)
+
+	for i := 1; i <= n; i++ {
+		start := time.Now()
+		res1, err := cli.Check(context.Background(), msg)
+		dur := time.Since(start)
+		if err != nil {
+			fortio.Fatalf("grpc error from Check %v", err)
+		}
+		statuses[res1.Status]++
+		rttHistogram.Record(dur.Seconds() * 1000000.)
+	}
+	rttHistogram.Print(os.Stdout, "RTT histogram usec X", 50)
+	fmt.Printf("Statuses %v\n", statuses)
 }
 
 func main() {
 	flag.Parse()
 	if *hostFlag != "" {
 		// TODO doesn't work for ipv6 addrs etc
-		clientCall(fmt.Sprintf("%s:%d", *hostFlag, *portFlag), *countFlag, *payloadFlag)
+		dest := fmt.Sprintf("%s:%d", *hostFlag, *portFlag)
+		if *doHealthFlag {
+			healthCheck(dest, *healthSvcFlag, *countFlag)
+		} else {
+			clientCall(dest, *countFlag, *payloadFlag)
+		}
 	} else {
 		startServer(*portFlag)
 	}
