@@ -20,10 +20,10 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/adapter/config/ingress"

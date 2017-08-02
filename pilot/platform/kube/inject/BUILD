@@ -10,14 +10,14 @@ go_library(
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
         "@io_istio_api//:go_default_library",
+        "@io_k8s_api//apps/v1beta1:go_default_library",
+        "@io_k8s_api//batch/v1:go_default_library",
+        "@io_k8s_api//core/v1:go_default_library",
+        "@io_k8s_api//extensions/v1beta1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/util/intstr:go_default_library",
         "@io_k8s_apimachinery//pkg/util/yaml:go_default_library",
         "@io_k8s_client_go//kubernetes:go_default_library",
-        "@io_k8s_client_go//pkg/api/v1:go_default_library",
-        "@io_k8s_client_go//pkg/apis/apps/v1beta1:go_default_library",
-        "@io_k8s_client_go//pkg/apis/batch/v1:go_default_library",
-        "@io_k8s_client_go//pkg/apis/extensions/v1beta1:go_default_library",
     ],
 )
 

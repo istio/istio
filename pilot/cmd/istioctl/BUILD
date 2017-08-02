@@ -23,8 +23,8 @@ go_library(
         "@com_github_hashicorp_go_multierror//:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
         "@com_github_spf13_cobra//doc:go_default_library",
+        "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/util/yaml:go_default_library",
-        "@io_k8s_client_go//pkg/api:go_default_library",
         "@io_k8s_client_go//rest:go_default_library",
     ],
 )

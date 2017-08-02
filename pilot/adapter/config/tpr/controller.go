@@ -27,7 +27,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pilot/model"
@@ -64,7 +64,7 @@ func NewController(client *Client, resyncPeriod time.Duration) model.ConfigStore
 				err = client.dynamic.Get().
 					Namespace(client.namespace).
 					Resource(kind+"s").
-					VersionedParams(&opts, api.ParameterCodec).
+					VersionedParams(&opts, scheme.ParameterCodec).
 					Do().
 					Into(result)
 				return
@@ -74,7 +74,7 @@ func NewController(client *Client, resyncPeriod time.Duration) model.ConfigStore
 					Prefix("watch").
 					Namespace(client.namespace).
 					Resource(kind+"s").
-					VersionedParams(&opts, api.ParameterCodec).
+					VersionedParams(&opts, scheme.ParameterCodec).
 					Watch()
 			})
 	}

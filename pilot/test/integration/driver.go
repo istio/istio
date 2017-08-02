@@ -60,7 +60,7 @@ const (
 	caTag = "689b447"
 
 	// Mixer image tag is the short SHA *update manually*
-	mixerTag = "unary-server"
+	mixerImage = "gcr.io/istio-testing/mixer:652be10fe0a6e001bf19993e4830365cf8018963"
 
 	// retry budget
 	budget = 90
@@ -71,7 +71,7 @@ func init() {
 	flag.StringVar(&params.Tag, "tag", "", "Docker tag")
 	flag.StringVar(&params.CaImage, "ca", "gcr.io/istio-testing/istio-ca:"+caTag,
 		"CA Docker image")
-	flag.StringVar(&params.MixerImage, "mixer", "gcr.io/istio-testing/mixer:"+mixerTag,
+	flag.StringVar(&params.MixerImage, "mixer", mixerImage,
 		"Mixer Docker image")
 	flag.StringVar(&params.Namespace, "n", "",
 		"Namespace to use for testing (empty to create/delete temporary one)")

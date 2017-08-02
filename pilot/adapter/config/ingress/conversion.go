@@ -22,8 +22,8 @@ import (
 
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/model"

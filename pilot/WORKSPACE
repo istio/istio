@@ -2,7 +2,7 @@ workspace(name = "com_github_istio_pilot")
 
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "ec640f0c017a04594695f76bb4531d8769b2c27b",  # Jul 21, 2017
+    commit = "eba68677493422112dd25f6a0b4bbdb02387e5a4",  # Aug 1, 2017
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
@@ -16,8 +16,14 @@ go_repositories()
 
 go_repository(
     name = "com_google_cloud_go",
-    commit = "57377bad3486b37af17b47230a61603794c798ae",
+    commit = "3b1ae45394a234c385be014e9a488f2bb6eef821",
     importpath = "cloud.google.com/go",
+)
+
+go_repository(
+    name = "com_github_Azure_go_autorest",
+    commit = "58f6f26e200fa5dfb40c9cd1c83f3e2c860d779d",
+    importpath = "github.com/Azure/go-autorest",
 )
 
 go_repository(
@@ -34,32 +40,44 @@ go_repository(
 
 go_repository(
     name = "com_github_coreos_go_oidc",
-    commit = "c797a55f1c1001ec3169f1d0fbb4c5523563bec6",
+    commit = "be73733bb8cc830d0205609b95d125215f8e9c70",
     importpath = "github.com/coreos/go-oidc",
 )
 
 go_repository(
     name = "com_github_coreos_pkg",
-    commit = "1c941d73110817a80b9fa6e14d5d2b00d977ce2a",  # darwin build: delete shell file called build
+    commit = "fa29b1d70f0beaddd4c7021607cc3c3be8ce94b8",
     importpath = "github.com/coreos/pkg",
 )
 
 go_repository(
     name = "com_github_davecgh_go_spew",
-    commit = "5215b55f46b2b919f50a1df0eaa5886afe4e3b3d",
+    commit = "782f4967f2dc4564575ca782fe2d04090b5faca8",
     importpath = "github.com/davecgh/go-spew",
 )
 
 go_repository(
-    name = "com_github_docker_distribution",
-    commit = "cd27f179f2c10c5d300e6d09025b538c475b0d51",
-    importpath = "github.com/docker/distribution",
+    name = "com_github_dgrijalva_jwt_go",
+    commit = "01aeca54ebda6e0fbfafd0a524d234159c05ec20",
+    importpath = "github.com/dgrijalva/jwt-go",
+)
+
+go_repository(
+    name = "com_github_docker_spdystream",
+    commit = "449fdfce4d962303d702fec724ef0ad181c92528",
+    importpath = "github.com/docker/spdystream",
 )
 
 go_repository(
     name = "com_github_emicklei_go_restful",
-    commit = "09691a3b6378b740595c1002f40c34dd5f218a22",
+    commit = "ff4f55a206334ef123e4f79bbf348980da81ca46",
     importpath = "github.com/emicklei/go-restful",
+)
+
+go_repository(
+    name = "com_github_emicklei_go_restful_swagger12",
+    commit = "dcef7f55730566d41eae5db10e7d6981829720f6",
+    importpath = "github.com/emicklei/go-restful-swagger12",
 )
 
 go_repository(
@@ -94,7 +112,7 @@ go_repository(
 
 go_repository(
     name = "com_github_gogo_protobuf",
-    commit = "e18d7aa8f8c624c915db340349aad4c49b10d173",
+    commit = "c0656edd0d9eab7c66d1eb0c568f9039345796f7",
     importpath = "github.com/gogo/protobuf",
 )
 
@@ -123,8 +141,20 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_googleapis_gnostic",
+    commit = "68f4ded48ba9414dab2ae69b3f0d69971da73aa5",
+    importpath = "github.com/googleapis/gnostic",
+)
+
+go_repository(
+    name = "com_github_hashicorp_golang_lru",
+    commit = "a0d98a5f288019575c6d1f4bb1573fef2d1fcdc4",
+    importpath = "github.com/hashicorp/golang-lru",
+)
+
+go_repository(
     name = "com_github_howeyc_gopass",
-    commit = "3ca23474a7c7203e0a0a070fd33508f6efdb9b3d",
+    commit = "bf9dde6d0d2c004a008c27aaee91170c786f6db8",
     importpath = "github.com/howeyc/gopass",
 )
 
@@ -142,7 +172,7 @@ go_repository(
 
 go_repository(
     name = "com_github_juju_ratelimit",
-    commit = "77ed1c8a01217656d2080ad51981f6e99adaa177",
+    commit = "5b9ff866471762aa2ab2dced63c9fb6f53921342",
     importpath = "github.com/juju/ratelimit",
 )
 
@@ -166,7 +196,7 @@ go_repository(
 
 go_repository(
     name = "com_github_stretchr_testify",
-    commit = "e3a8ff8ce36581f87a15341206f205b1da467059",
+    commit = "f6abca593680b2315d2075e0f5e2a9751e3f431a",
     importpath = "github.com/stretchr/testify",
 )
 
@@ -184,13 +214,13 @@ go_repository(
 
 go_repository(
     name = "org_golang_x_net",
-    commit = "e90d6d0afc4c315a0d87a568ae68577cc15149a0",
+    commit = "f2499483f923065a842d38eb4c7f1927e6fc6e6d",
     importpath = "golang.org/x/net",
 )
 
 go_repository(
     name = "org_golang_x_oauth2",
-    commit = "3c3a985cb79f52a3190fbc056984415ca6763d01",
+    commit = "a6bd8cefa1811bd24b86f8902872e4e8225f74c4",
     importpath = "golang.org/x/oauth2",
 )
 
@@ -214,12 +244,6 @@ go_repository(
 )
 
 go_repository(
-    name = "org_golang_google_appengine",
-    commit = "4f7eeb5305a4ba1966344836ba4af9996b7b4e05",
-    importpath = "google.golang.org/appengine",
-)
-
-go_repository(
     name = "in_gopkg_inf_v0",
     commit = "3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4",
     importpath = "gopkg.in/inf.v0",
@@ -232,16 +256,39 @@ go_repository(
 )
 
 go_repository(
+    name = "io_k8s_api",
+    build_file_name = "BUILD.bazel",
+    build_file_generation = "on",
+    commit = "4d5cc6efc5e84aa19fb1bd3f911c16a6723c1bb7",
+    importpath = "k8s.io/api",
+)
+
+go_repository(
     name = "io_k8s_apimachinery",
-    commit = "20e10d54608f05c3059443a6c0afb9979641e88d",
+    build_file_name = "BUILD.bazel",
+    build_file_generation = "on",
+    commit = "6134cb2da6d90597b0434e349f90f94fafc9ae51",
     importpath = "k8s.io/apimachinery",
 )
 
 go_repository(
+    name = "io_k8s_apiserver",
+    build_file_name = "BUILD.bazel",
+    build_file_generation = "on",
+    commit = "ab57ed5a72c3b67058f665d660e23bae18339fc2",
+    importpath = "k8s.io/apiserver",
+)
+
+
+go_repository(
     name = "io_k8s_client_go",
-    commit = "4e221f82e2ad6e61bd6190602de9c3400d79f1aa",  # Apr 4, 2017
+    build_file_name = "BUILD.bazel",
+    build_file_generation = "on",
+    commit = "7c69e980210777a6292351ac6873de083526f08e",  # Jul 18, 2017
     importpath = "k8s.io/client-go",
 )
+
+# End of k8s dependencies
 
 go_repository(
     name = "com_github_pkg_errors",
@@ -251,7 +298,7 @@ go_repository(
 
 go_repository(
     name = "io_k8s_ingress",
-    commit = "7f3763590a681011eedc4b14a80a97240dea644c",
+    commit = "3495bfb4aca9d34c97ad0cd3915965a79831fc9c",
     importpath = "k8s.io/ingress",
 )
 

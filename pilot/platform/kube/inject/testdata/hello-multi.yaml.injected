@@ -62,6 +62,7 @@ spec:
         name: istio-config
       - emptyDir:
           medium: Memory
+          sizeLimit: "0"
         name: istio-envoy
 status: {}
 ---
@@ -129,6 +130,7 @@ spec:
         name: istio-config
       - emptyDir:
           medium: Memory
+          sizeLimit: "0"
         name: istio-envoy
 status: {}
 ---

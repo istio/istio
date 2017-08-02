@@ -26,8 +26,8 @@ import (
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	"k8s.io/api/core/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/pkg/api"
 
 	"istio.io/pilot/adapter/config/tpr"
 	"istio.io/pilot/cmd"
@@ -301,7 +301,7 @@ func init() {
 	}
 	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", defaultKubeconfig,
 		"Kubernetes configuration file")
-	rootCmd.PersistentFlags().StringVarP(&istioSystem, "namespace", "n", api.NamespaceDefault,
+	rootCmd.PersistentFlags().StringVarP(&istioSystem, "namespace", "n", v1.NamespaceDefault,
 		"Kubernetes Istio system namespace")
 
 	postCmd.PersistentFlags().StringVarP(&file, "file", "f", "",

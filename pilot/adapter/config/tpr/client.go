@@ -24,14 +24,15 @@ import (
 	"github.com/golang/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 
+	"k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	"k8s.io/client-go/kubernetes/scheme"
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
@@ -87,7 +88,7 @@ func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 	config.GroupVersion = &version
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: api.Codecs}
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
 
 	schemeBuilder := runtime.NewSchemeBuilder(
 		func(scheme *runtime.Scheme) error {
@@ -107,8 +108,8 @@ func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 
 			return nil
 		})
-	meta_v1.AddToGroupVersion(api.Scheme, version)
-	err = schemeBuilder.AddToScheme(api.Scheme)
+	meta_v1.AddToGroupVersion(scheme.Scheme, version)
+	err = schemeBuilder.AddToScheme(scheme.Scheme)
 
 	return
 }
@@ -187,7 +188,7 @@ func (cl *Client) RegisterResources() error {
 		for _, kind := range kinds {
 			list := &ConfigList{}
 			err := cl.dynamic.Get().
-				Namespace(api.NamespaceAll).
+				Namespace(v1.NamespaceAll).
 				Resource(IstioKind + "s").
 				Do().Into(list)
 			if err != nil {

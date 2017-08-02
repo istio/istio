@@ -16,6 +16,7 @@
 package kube
 
 import (
+	"crypto/tls"
 	"fmt"
 	"os"
 	"strings"
@@ -30,8 +31,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
-
-	"crypto/tls"
 
 	"istio.io/pilot/model"
 )

@@ -15,8 +15,9 @@
 package kube
 
 import (
+	"k8s.io/api/core/v1"
+
 	"istio.io/pilot/model"
-	"k8s.io/client-go/pkg/api/v1"
 )
 
 // PodCache is an eventually consistent pod cache
