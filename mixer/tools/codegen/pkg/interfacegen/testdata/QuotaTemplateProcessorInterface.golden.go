@@ -17,6 +17,7 @@
 package istio_mixer_adapter_quota
 
 import (
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/config"
 )
 
@@ -35,5 +36,5 @@ type QuotaProcessorBuilder interface {
 
 type QuotaProcessor interface {
 	config.Handler
-	ReportQuota(instances []*Instance) error
+	AllocQuota(*Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult, config.CacheabilityInfo, error)
 }

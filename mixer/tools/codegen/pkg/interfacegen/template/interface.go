@@ -22,6 +22,9 @@ package {{.GoPackageName}}
 
 import (
 "istio.io/mixer/pkg/adapter/config"
+{{if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
+"istio.io/mixer/pkg/adapter"
+{{end}}
 )
 
 const TemplateName = "{{.PackageName}}.{{.Name}}"
@@ -41,7 +44,9 @@ type {{.Name}}ProcessorBuilder interface {
 type {{.Name}}Processor interface {
   config.Handler
   {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
-    Check{{.Name}}(instance *Instance) (bool, config.CacheabilityInfo, error)
+    Check{{.Name}}(instance []*Instance) (bool, config.CacheabilityInfo, error)
+  {{else if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
+    Alloc{{.Name}}(*Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult, config.CacheabilityInfo, error)
   {{else -}}
     Report{{.Name}}(instances []*Instance) error
   {{end}}
