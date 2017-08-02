@@ -81,7 +81,15 @@ func GetScopes(attr string, domain string, scopes []string) ([]string, error) {
 func (r *runtime) Resolve(bag attribute.Bag, set KindSet, strict bool) (dlist []*pb.Combined, err error) {
 	if glog.V(4) {
 		glog.Infof("resolving for kinds: %s", set)
-		defer func() { glog.Infof("resolved configs (err=%v): %s", err, dlist) }()
+		defer func() {
+			builders := make([]string, len(dlist))
+			for i, o := range dlist {
+				if o.Builder != nil {
+					builders[i] = o.Builder.Impl
+				}
+			}
+			glog.Infof("resolved configs (err=%v): %v", err, builders)
+		}()
 	}
 	return resolve(
 		bag,
@@ -103,7 +111,15 @@ func (r *runtime) Resolve(bag attribute.Bag, set KindSet, strict bool) (dlist []
 func (r *runtime) ResolveUnconditional(bag attribute.Bag, set KindSet, strict bool) (out []*pb.Combined, err error) {
 	if glog.V(2) {
 		glog.Infof("unconditionally resolving for kinds: %s", set)
-		defer func() { glog.Infof("unconditionally resolved configs (err=%v): %s", err, out) }()
+		defer func() {
+			builders := make([]string, len(out))
+			for i, o := range out {
+				if o.Builder != nil {
+					builders[i] = o.Builder.Impl
+				}
+			}
+			glog.Infof("unconditionally resolved configs (err=%v): %v", err, builders)
+		}()
 	}
 	return resolve(
 		bag,
@@ -205,7 +221,7 @@ func (r *runtime) resolveRules(bag attribute.Bag, kindSet KindSet, rules []*pb.A
 		// they're all in a single log line and not interleaved with logs from other requests.
 		logMsg := ""
 		if glog.V(3) {
-			glog.Infof("resolveRules (%v) ==> %v ", rule, path)
+			glog.Infof("resolveRules (%v) ==> %v ", rule.Selector, path)
 		}
 
 		sel := rule.GetSelector()
