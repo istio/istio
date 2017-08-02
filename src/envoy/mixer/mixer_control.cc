@@ -39,7 +39,7 @@ namespace Mixer {
 namespace {
 
 // Define attribute names
-const std::string kOriginUser = "origin.user";
+const std::string kSourceUser = "source.user";
 
 const std::string kRequestHeaders = "request.headers";
 const std::string kRequestHost = "request.host";
@@ -249,7 +249,7 @@ void MixerControl::SendReport(HttpRequestDataPtr request_data) {
 }
 
 void MixerControl::CheckHttp(HttpRequestDataPtr request_data,
-                             HeaderMap& headers, std::string origin_user,
+                             HeaderMap& headers, std::string source_user,
                              DoneFunc on_done) {
   if (!mixer_client_) {
     on_done(
@@ -257,7 +257,7 @@ void MixerControl::CheckHttp(HttpRequestDataPtr request_data,
     return;
   }
   FillCheckAttributes(headers, &request_data->attributes);
-  SetStringAttribute(kOriginUser, origin_user, &request_data->attributes);
+  SetStringAttribute(kSourceUser, source_user, &request_data->attributes);
 
   SendCheck(request_data, &headers, on_done);
 }
@@ -282,14 +282,14 @@ void MixerControl::ReportHttp(HttpRequestDataPtr request_data,
 
 void MixerControl::CheckTcp(HttpRequestDataPtr request_data,
                             Network::Connection& connection,
-                            std::string origin_user, DoneFunc on_done) {
+                            std::string source_user, DoneFunc on_done) {
   if (!mixer_client_) {
     on_done(
         Status(StatusCode::INVALID_ARGUMENT, "Missing mixer_server cluster"));
     return;
   }
 
-  SetStringAttribute(kOriginUser, origin_user, &request_data->attributes);
+  SetStringAttribute(kSourceUser, source_user, &request_data->attributes);
 
   const Network::Address::Ip* remote_ip = connection.remoteAddress().ip();
   if (remote_ip) {
