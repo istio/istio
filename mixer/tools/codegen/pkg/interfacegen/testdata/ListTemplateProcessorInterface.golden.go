@@ -35,5 +35,5 @@ type ListProcessorBuilder interface {
 
 type ListProcessor interface {
 	config.Handler
-	CheckList(instance *Instance) (bool, config.CacheabilityInfo, error)
+	CheckList(instance []*Instance) (bool, config.CacheabilityInfo, error)
 }
