@@ -30,11 +30,10 @@ import (
 // GrpcRunnerResults is the aggregated result of an GrpcRunner.
 // Also is the internal type used per thread/goroutine.
 type GrpcRunnerResults struct {
-	client            grpc_health_v1.HealthClient
-	req               grpc_health_v1.HealthCheckRequest
-	RetCodes          map[grpc_health_v1.HealthCheckResponse_ServingStatus]int64
-	DurationHistogram *Histogram
-	ActualQPS         float64
+	RunnerResults
+	client   grpc_health_v1.HealthClient
+	req      grpc_health_v1.HealthCheckRequest
+	RetCodes map[grpc_health_v1.HealthCheckResponse_ServingStatus]int64
 }
 
 // Used globally / in TestGrpc() TODO: change periodic.go to carry caller defined context
@@ -105,7 +104,7 @@ func RunGrpcTest(o *GrpcRunnerOptions) (*GrpcRunnerResults, error) {
 		}
 		pprof.StartCPUProfile(fc) //nolint: gas,errcheck
 	}
-	total.ActualQPS, total.DurationHistogram = r.Run()
+	total.RunnerResults = r.Run()
 	if o.Profiler != "" {
 		pprof.StopCPUProfile()
 		fm, err := os.Create(o.Profiler + ".mem")

@@ -60,11 +60,29 @@ type RunnerOptions struct {
 	Resolution  float64
 }
 
+// RunnerResults encapsulates the actual QPS observed and duration histogram.
+type RunnerResults struct {
+	DurationHistogram *Histogram
+	ActualQPS         float64
+}
+
+// HasRunnerResult is the interface implictly implemented by HTTPRunnerResults
+// and GrpcRunnerResults so the common results can ge extracted irrespective
+// of the type.
+type HasRunnerResult interface {
+	Result() *RunnerResults
+}
+
+// Result returns the common RunnerResults.
+func (r *RunnerResults) Result() *RunnerResults {
+	return r
+}
+
 // PeriodicRunner let's you exercise the Function at the given QPS and collect
 // statistics and histogram about the run.
 type PeriodicRunner interface {
 	// Starts the run. Returns actual QPS and Histogram of function durations.
-	Run() (float64, *Histogram)
+	Run() RunnerResults
 	// Returns the options normalized by constructor - do not mutate
 	// (where is const when you need it...)
 	Options() *RunnerOptions
@@ -112,7 +130,7 @@ func (r *periodicRunner) Options() *RunnerOptions {
 }
 
 // Run starts the runner.
-func (r *periodicRunner) Run() (float64, *Histogram) {
+func (r *periodicRunner) Run() RunnerResults {
 	useQPS := (r.QPS > 0)
 	var numCalls int64
 	if useQPS {
@@ -186,7 +204,7 @@ func (r *periodicRunner) Run() (float64, *Histogram) {
 	for _, p := range r.Percentiles[1:] {
 		fmt.Printf("# target %g%% %.6g\n", p, functionDuration.CalcPercentile(p))
 	}
-	return actualQPS, functionDuration
+	return RunnerResults{functionDuration, actualQPS}
 }
 
 // runOne runs in 1 go routine.

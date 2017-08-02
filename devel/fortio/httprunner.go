@@ -29,12 +29,11 @@ import (
 // HTTPRunnerResults is the aggregated result of an HTTPRunner.
 // Also is the internal type used per thread/goroutine.
 type HTTPRunnerResults struct {
-	client            Fetcher
-	RetCodes          map[int]int64
-	Sizes             *Histogram
-	HeaderSizes       *Histogram
-	DurationHistogram *Histogram
-	ActualQPS         float64
+	RunnerResults
+	client      Fetcher
+	RetCodes    map[int]int64
+	Sizes       *Histogram
+	HeaderSizes *Histogram
 }
 
 // Used globally / in TestHttp() TODO: change periodic.go to carry caller defined context
@@ -117,7 +116,7 @@ func RunHTTPTest(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
 		}
 		pprof.StartCPUProfile(fc) //nolint: gas,errcheck
 	}
-	total.ActualQPS, total.DurationHistogram = r.Run()
+	total.RunnerResults = r.Run()
 	if o.Profiler != "" {
 		pprof.StopCPUProfile()
 		fm, err := os.Create(o.Profiler + ".mem")
