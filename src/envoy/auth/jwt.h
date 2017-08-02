@@ -13,33 +13,30 @@
  * limitations under the License.
  */
 
-#pragma once
+#ifndef PROXY_JWT_H
+#define PROXY_JWT_H
+
+#include "openssl/evp.h"
+#include "rapidjson/document.h"
 
 #include <string>
-
-#include "server/config/network/http_connection_manager.h"
+#include <utility>
+#include <vector>
 
 namespace Envoy {
 namespace Http {
+namespace Auth {
+namespace Jwt {
 
-class JwtVerificationFilter : public StreamDecoderFilter {
- public:
-  JwtVerificationFilter();
-  ~JwtVerificationFilter();
+// This function verifies JWT signature and returns the decoded payload as a
+// JSON if the signature is valid.
+// If verification failed, it returns nullptr.
+std::unique_ptr<rapidjson::Document> Decode(const std::string& jwt,
+                                            const std::string& pkey_pem);
 
-  // Http::StreamFilterBase
-  void onDestroy() override;
-
-  // Http::StreamDecoderFilter
-  FilterHeadersStatus decodeHeaders(HeaderMap&, bool) override;
-  FilterDataStatus decodeData(Buffer::Instance&, bool) override;
-  FilterTrailersStatus decodeTrailers(HeaderMap&) override;
-  void setDecoderFilterCallbacks(
-      StreamDecoderFilterCallbacks& callbacks) override;
-
- private:
-  StreamDecoderFilterCallbacks* decoder_callbacks_;
-};
-
+}  // Jwt
+}  // Auth
 }  // Http
 }  // Envoy
+
+#endif  // PROXY_JWT_H
