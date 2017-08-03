@@ -203,7 +203,7 @@ func (c *CommonConfig) RunTest(m runnable) int {
 		ret = m.Run()
 	}
 	if err := c.saveLogs(ret); err != nil {
-		glog.Warning("Log saving inconplete: %s", err)
+		glog.Warningf("Log saving incomplete: %v", err)
 	}
 	c.Cleanup.cleanup()
 	return ret
