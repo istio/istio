@@ -20,9 +20,9 @@ import (
 	"os"
 	"time"
 
-	"istio.io/auth/certmanager"
 	"istio.io/auth/cmd/istio_ca/version"
 	"istio.io/auth/controller"
+	"istio.io/auth/pkg/pki/ca"
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
@@ -130,25 +130,25 @@ func createClientset() *kubernetes.Clientset {
 	return cs
 }
 
-func createCA() certmanager.CertificateAuthority {
+func createCA() ca.CertificateAuthority {
 	if opts.selfSignedCA {
 		glog.Info("Use self-signed certificate as the CA certificate")
 
-		ca, err := certmanager.NewSelfSignedIstioCA(opts.caCertTTL, opts.certTTL, opts.selfSignedCAOrg)
+		ca, err := ca.NewSelfSignedIstioCA(opts.caCertTTL, opts.certTTL, opts.selfSignedCAOrg)
 		if err != nil {
 			glog.Fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
 		}
 		return ca
 	}
 
-	caOpts := &certmanager.IstioCAOptions{
+	caOpts := &ca.IstioCAOptions{
 		CertChainBytes:   readFile(opts.certChainFile),
 		CertTTL:          opts.certTTL,
 		SigningCertBytes: readFile(opts.signingCertFile),
 		SigningKeyBytes:  readFile(opts.signingKeyFile),
 		RootCertBytes:    readFile(opts.rootCertFile),
 	}
-	ca, err := certmanager.NewIstioCA(caOpts)
+	ca, err := ca.NewIstioCA(caOpts)
 	if err != nil {
 		glog.Errorf("Failed to create an Istio CA (error %v)", err)
 	}

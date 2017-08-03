@@ -24,9 +24,9 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/golang/glog"
+	"istio.io/auth/pkg/pki/ca"
 
-	"istio.io/auth/certmanager"
+	"github.com/golang/glog"
 )
 
 // Layout for parsing time
@@ -82,11 +82,11 @@ func main() {
 	var signerCert *x509.Certificate
 	var signerPriv crypto.PrivateKey
 	if !*isSelfSigned {
-		signerCert, signerPriv = certmanager.LoadSignerCredsFromFiles(*signerCertFile, *signerPrivFile)
+		signerCert, signerPriv = ca.LoadSignerCredsFromFiles(*signerCertFile, *signerPrivFile)
 	}
 
 	nb := getNotBefore()
-	certPem, privPem := certmanager.GenCert(certmanager.CertOptions{
+	certPem, privPem := ca.GenCert(ca.CertOptions{
 		Host:         *host,
 		NotBefore:    getNotBefore(),
 		NotAfter:     nb.Add(*validFor),

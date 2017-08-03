@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/golang/glog"
+	"istio.io/auth/pkg/pki/ca"
 
-	"istio.io/auth/certmanager"
+	"github.com/golang/glog"
 )
 
 var (
@@ -49,7 +49,7 @@ func saveCreds(csrPem []byte, privPem []byte) {
 func main() {
 	flag.Parse()
 
-	csrPem, privPem, err := certmanager.GenCSR(certmanager.CertOptions{
+	csrPem, privPem, err := ca.GenCSR(ca.CertOptions{
 		Host:       *host,
 		Org:        *org,
 		RSAKeySize: *keySize,

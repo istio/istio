@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/auth/certmanager"
+	"istio.io/auth/pkg/pki/ca"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -201,12 +201,12 @@ func TestUpdateSecret(t *testing.T) {
 			scrt.Data[RootCertID] = rc
 		}
 
-		opts := certmanager.CertOptions{
+		opts := ca.CertOptions{
 			IsSelfSigned: true,
 			NotAfter:     tc.notAfter,
 			RSAKeySize:   512,
 		}
-		bs, _ := certmanager.GenCert(opts)
+		bs, _ := ca.GenCert(opts)
 		scrt.Data[CertChainID] = bs
 
 		controller.scrtUpdated(nil, scrt)

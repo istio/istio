@@ -21,8 +21,8 @@ import (
 
 	"github.com/golang/glog"
 
-	"istio.io/auth/certmanager"
 	"istio.io/auth/pkg/pki"
+	"istio.io/auth/pkg/pki/ca"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +54,7 @@ const (
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
 type SecretController struct {
-	ca   certmanager.CertificateAuthority
+	ca   ca.CertificateAuthority
 	core corev1.CoreV1Interface
 
 	// Controller and store for service account objects.
@@ -67,7 +67,7 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca certmanager.CertificateAuthority, core corev1.CoreV1Interface,
+func NewSecretController(ca ca.CertificateAuthority, core corev1.CoreV1Interface,
 	namespace string) *SecretController {
 
 	c := &SecretController{
@@ -236,7 +236,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificate in the secret is different than the
-	// one held by the certmanager (this may happen when the CA is restarted and
+	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
 	if ttl.Seconds() < secretResyncPeriod.Seconds() || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		namespace := scrt.GetNamespace()
