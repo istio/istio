@@ -41,7 +41,7 @@ spec:
       - name: istio-ingress
         image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
         args: ["proxy", "ingress", "-v", "2"]
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
         - containerPort: 443
