@@ -19,7 +19,7 @@ spec:
       containers:
       - name: istio-ca-container
         image: {{.CaImage}}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         env:
         - name: NAMESPACE
           valueFrom:

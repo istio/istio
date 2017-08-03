@@ -44,7 +44,7 @@ spec:
             fieldRef:
               fieldPath: status.podIP
         image: docker.io/istio/proxy_debug:unittest
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: istio-proxy
         resources: {}
         securityContext:

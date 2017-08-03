@@ -25,7 +25,7 @@ spec:
       containers:
       - name: zipkin
         image: docker.io/openzipkin/zipkin
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9411
         env:

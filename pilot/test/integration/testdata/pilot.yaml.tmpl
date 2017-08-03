@@ -32,7 +32,7 @@ spec:
       containers:
       - name: discovery
         image: {{.Hub}}/pilot:{{.Tag}}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "{{.Verbosity}}"]
         ports:
         - containerPort: 8080

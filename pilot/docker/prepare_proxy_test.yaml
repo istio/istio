@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
       - image: TEMPLATE_HUB/app:TEMPLATE_TAG
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: app
         args: [ "--port", "CLIENT_PORT" ]
         ports:
@@ -64,20 +64,20 @@ spec:
     spec:
       containers:
       - image: TEMPLATE_HUB/init:TEMPLATE_TAG
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: init
         securityContext:
           capabilities:
             add: [ NET_ADMIN ]
         command: [ "sh", "-c", "tail -f /dev/null" ]
       - image: TEMPLATE_HUB/proxy:TEMPLATE_TAG
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: proxy
         command: [ "sh", "-c", "tail -f /dev/null" ]
         securityContext:
           runAsUser: 1337
       - image: TEMPLATE_HUB/app:TEMPLATE_TAG
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: app
         args: [ "--port", "SERVER_PORT" ]
         ports:

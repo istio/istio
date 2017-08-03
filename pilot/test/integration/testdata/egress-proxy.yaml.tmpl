@@ -30,7 +30,7 @@ spec:
       containers:
       - name: istio-proxy
         image: {{.Hub}}/proxy_debug:{{.Tag}}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
         args: ["proxy", "egress", "-v", "{{.Verbosity}}"]

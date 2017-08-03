@@ -4,6 +4,7 @@ platform/kube/config
 vendor
 .idea*
 *.iml
+*.bak
 .vagrant
 
 # Eclipse artifacts

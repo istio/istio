@@ -284,7 +284,7 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 				},
 			},
 		}},
-		ImagePullPolicy: v1.PullAlways,
+		ImagePullPolicy: v1.PullIfNotPresent,
 		SecurityContext: &v1.SecurityContext{
 			RunAsUser:              &p.SidecarProxyUID,
 			ReadOnlyRootFilesystem: &readOnly,

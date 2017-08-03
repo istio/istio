@@ -43,7 +43,7 @@ spec:
       containers:
       - name: app
         image: {{.Hub}}/app:{{.Tag}}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         args:
           - --port
           - "{{.port1}}"
