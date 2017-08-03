@@ -102,7 +102,7 @@ func (t *testConfig) Setup() error {
 		}
 
 	}
-	return nil
+	return setUpDefaultRouting()
 }
 
 func (t *testConfig) Teardown() error {
@@ -124,29 +124,29 @@ func inspect(err error, fMsg, sMsg string, t *testing.T) {
 	}
 }
 
-func TestDefaultRouting(t *testing.T) {
+func setUpDefaultRouting() error {
 	standby := 0
-	for i := 0; i <= 5; i++ {
+	for i := 0; i <= 10; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)
 		resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
 		if err != nil {
-			t.Logf("Error talking to productpage: %s", err)
+			glog.Infof("Error talking to productpage: %s", err)
 		} else {
 			glog.Infof("Get from page: %d", resp.StatusCode)
 			if resp.StatusCode == http.StatusOK {
-				t.Log("Get response from product page!")
+				glog.Info("Get response from product page!")
 				break
 			}
 			closeResponseBody(resp)
 		}
-		if i == 5 {
-			t.Error("Default route Failed")
-			return
+		if i == 10 {
+			return fmt.Errorf("unable to set default route")
 		}
 		standby += 5
 		glog.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
 	}
 	glog.Info("Success! Default route got expected response")
+	return nil
 }
 
 func checkRoutingResponse(user, version, gateway, modelFile string) (int, error) {
