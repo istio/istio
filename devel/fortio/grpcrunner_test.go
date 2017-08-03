@@ -30,7 +30,7 @@ import (
 )
 
 // DynamicGrpcHealthServer starts and returns the port where a Grpc Health
-// server is running. It runs until error or program exit (seperate go routine)
+// server is running. It runs until error or program exit (separate go routine)
 func DynamicGrpcHealthServer() int {
 	socket, err := net.Listen("tcp", ":0")
 	if err != nil {
