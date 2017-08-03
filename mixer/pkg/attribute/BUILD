@@ -6,6 +6,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "bag.go",
+        "dictState.go",
         "emptyBag.go",
         "mutableBag.go",
         "protoBag.go",

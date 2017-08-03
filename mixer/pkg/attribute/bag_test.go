@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -171,10 +172,10 @@ func TestEmptyRoundTrip(t *testing.T) {
 	attrs0 := mixerpb.Attributes{}
 	attrs1 := mixerpb.Attributes{}
 	mb := GetMutableBag(nil)
-	mb.ToProto(&attrs1, nil)
+	mb.ToProto(&attrs1, nil, 0)
 
 	if !reflect.DeepEqual(attrs0, attrs1) {
-		t.Error("Expecting equal attributes, got a delta")
+		t.Errorf("Expecting equal attributes, got a delta: original #%v, new #%v", attrs0, attrs1)
 	}
 }
 
@@ -267,7 +268,7 @@ func TestProtoBag(t *testing.T) {
 			}
 
 			var a2 mixerpb.Attributes
-			mb.ToProto(&a2, globalDict)
+			mb.ToProto(&a2, globalDict, len(globalDict))
 
 			pb.Done()
 		}
@@ -288,7 +289,7 @@ func TestMessageDict(t *testing.T) {
 	b.Set("M3", "M2")
 
 	var attrs mixerpb.Attributes
-	b.ToProto(&attrs, globalDict)
+	b.ToProto(&attrs, globalDict, len(globalDict))
 	b2, _ := GetBagFromProto(&attrs, globalWordList)
 
 	if !compareBags(b, b2) {
@@ -564,6 +565,166 @@ func TestMessageDictEdge(t *testing.T) {
 
 	if s != "N2" {
 		t.Errorf("Expecting to get N2, got %s", s)
+	}
+}
+
+func TestDoubleStrings(t *testing.T) {
+	// ensure that attribute ingestion handles having a word defined
+	// in both the global and per-message word lists, preferring the
+	// one defined in the per-message list.
+
+	globalWordList := []string{"HELLO"}
+	globalDict := map[string]int32{globalWordList[0]: 0}
+	messageWordList := []string{"HELLO", "GOOD", "BAD"}
+
+	attrs := mixerpb.Attributes{
+		Words:   messageWordList,
+		Strings: map[int32]int32{-1: -2},
+	}
+
+	for i := 0; i < 2; i++ {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			var b Bag
+
+			if i == 0 {
+				b = NewProtoBag(&attrs, globalDict, globalWordList)
+			} else {
+				var err error
+				b, err = GetBagFromProto(&attrs, globalWordList)
+				if err != nil {
+					t.Errorf("Got %v, expecting success", err)
+					return
+				}
+			}
+
+			if v, ok := b.Get("HELLO"); !ok {
+				t.Error("Got false, expecting true")
+			} else if s, ok := v.(string); !ok {
+				t.Errorf("Got %v, expecting a string", v)
+			} else if s != "GOOD" {
+				t.Errorf("Got %s, expecting GOOD", s)
+			}
+		})
+	}
+}
+
+func TestReferenceTracking(t *testing.T) {
+	globalWordList := []string{"G0", "G1", "G2"}
+	globalDict := map[string]int32{globalWordList[0]: 0, globalWordList[1]: 1, globalWordList[2]: 2}
+	messageWordList := []string{"N1", "N2", "N3"}
+
+	attrs := mixerpb.Attributes{
+		Words: messageWordList,
+		Strings: map[int32]int32{
+			0:  0, // "G0":"G0"
+			1:  0, // "G1":"G0"
+			-1: 0, // "N1":"G0"
+			-2: 0, // "N2":"G0"
+		},
+	}
+
+	cases := []struct {
+		name string
+		cond mixerpb.ReferencedAttributes_Condition
+	}{
+		{"G0", mixerpb.EXACT},
+		{"N1", mixerpb.EXACT},
+		{"XX", mixerpb.ABSENCE},
+		{"DUD", -1}, // not referenced, so shouldn't be a match
+	}
+
+	b := NewProtoBag(&attrs, globalDict, globalWordList)
+
+	// reference some attributes
+	_, _ = b.Get("G0") // from global word list
+	_, _ = b.Get("N1") // from message word list
+	_, _ = b.Get("XX") // not present
+
+	ra := b.GetReferencedAttributes(globalDict, len(globalDict))
+	if len(ra.AttributeMatches) != 3 {
+		t.Errorf("Got %d matches, expected 3", len(ra.AttributeMatches))
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			found := false
+			for _, am := range ra.AttributeMatches {
+				var name string
+				index := am.Name
+				if index >= 0 {
+					name = globalWordList[index]
+				} else {
+					name = ra.Words[indexToSlot(index)]
+				}
+
+				if name == c.name {
+					if c.cond != am.Condition {
+						t.Errorf("Got condition %d, expected %d", am.Condition, c.cond)
+					}
+					found = true
+					break
+				}
+			}
+
+			if c.cond == -1 {
+				if found {
+					t.Errorf("Found match for %s, expecting not to", c.name)
+				}
+			} else if !found {
+				t.Errorf("Did not find match for %s, expecting to find one", c.name)
+			}
+		})
+	}
+
+	b.ClearReferencedAttributes()
+
+	ra = b.GetReferencedAttributes(globalDict, len(globalDict))
+	if len(ra.AttributeMatches) != 0 {
+		t.Errorf("Expecting no attributes matches, got %d", len(ra.AttributeMatches))
+	}
+}
+
+func TestGlobalWordCount(t *testing.T) {
+	// ensure that a component with a larger global word list can
+	// produce an attribute message with a shorter word list to handle
+	// back compat correctly
+
+	longGlobalWordList := []string{"G0", "G1", "G2"}
+	longGlobalDict := map[string]int32{longGlobalWordList[0]: 0, longGlobalWordList[1]: 1, longGlobalWordList[2]: 2}
+	shortGlobalWordList := []string{"G0", "G1"}
+	shortGlobalDict := map[string]int32{shortGlobalWordList[0]: 0, shortGlobalWordList[1]: 1}
+
+	b := GetMutableBag(nil)
+	for i := 0; i < len(longGlobalWordList); i++ {
+		b.Set(longGlobalWordList[i], int64(i))
+	}
+	var output mixerpb.Attributes
+	b.ToProto(&output, longGlobalDict, len(shortGlobalWordList)) // use the long word list, but short list's count
+
+	for i := 0; i < 2; i++ {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			// try decoding with a short word list
+			var b2 Bag
+			var err error
+
+			if i == 0 {
+				b2 = NewProtoBag(&output, shortGlobalDict, shortGlobalWordList)
+			} else {
+				b2, err = GetBagFromProto(&output, shortGlobalWordList)
+			}
+
+			if err != nil {
+				t.Fatalf("Got '%v', expecting success", err)
+			}
+
+			for i := 0; i < len(longGlobalWordList); i++ {
+				if v, ok := b2.Get(longGlobalWordList[i]); !ok {
+					t.Errorf("Got nothing, expected expected attribute %s", longGlobalWordList[i])
+				} else if int64(i) != v.(int64) {
+					t.Errorf("Got %d, expected %d", v.(int), i)
+				}
+			}
+		})
 	}
 }
 
