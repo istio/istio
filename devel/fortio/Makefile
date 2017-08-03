@@ -6,13 +6,14 @@ TAG:=$(shell date +%y%m%d_%H%M%S)
 
 DOCKER_TAG := $(DOCKER_PREFIX):$(TAG)
 
-
-docker: echosrv
+docker:
 	@echo Tag is $(TAG)
 	docker build -t $(DOCKER_TAG) .
 
-push:
+docker-push: docker
 	docker push $(DOCKER_TAG)
+
+# Not used, build directly from Dockerfile
 
 echosrv:
 	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-s' istio.io/istio/devel/fortio/cmd/$@
