@@ -46,7 +46,7 @@ func NewNodeAgent(env Environment, cfg *Config) NodeAgent {
 
 	switch env {
 	case ONPREM:
-		na.pr = &onPremPlatfromImpl{}
+		na.pr = &onPremPlatformImpl{}
 	default:
 		glog.Fatalf("Invalid env %d specified", env)
 	}

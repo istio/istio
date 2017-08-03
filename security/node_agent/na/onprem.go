@@ -20,15 +20,15 @@ import (
 	"istio.io/auth/utils"
 )
 
-type onPremPlatfromImpl struct {
+type onPremPlatformImpl struct {
 }
 
-func (na *onPremPlatfromImpl) getTransportCredentials(cfg *Config) credentials.TransportCredentials {
+func (na *onPremPlatformImpl) getTransportCredentials(cfg *Config) credentials.TransportCredentials {
 	return utils.GetTLSCredentials(*cfg.NodeIdentityCertFile,
 		*cfg.NodeIdentityPrivateKeyFile,
 		*cfg.RootCACertFile, true /* isClient */)
 }
 
-func (na *onPremPlatfromImpl) getNodeAgentCredentials(cfg *Config) *pb.NodeAgentCredentials {
+func (na *onPremPlatformImpl) getNodeAgentCredentials(cfg *Config) *pb.NodeAgentCredentials {
 	return nil
 }
