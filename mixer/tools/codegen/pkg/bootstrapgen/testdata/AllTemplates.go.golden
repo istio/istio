@@ -17,10 +17,20 @@
 package template
 
 import (
+	"fmt"
+
+	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
+	rpc "github.com/googleapis/googleapis/google/rpc"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/api/mixer/v1/config/descriptor"
+	"istio.io/mixer/pkg/adapter"
 	adptConfig "istio.io/mixer/pkg/adapter/config"
+	adptTmpl "istio.io/mixer/pkg/adapter/template"
+	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/status"
 
 	"istio.io/mixer/template/list"
 
@@ -35,10 +45,16 @@ var (
 	SupportedTmplInfo = map[string]Info{
 
 		istio_mixer_template_list.TemplateName: {
-			CtrCfg:   &istio_mixer_template_list.ConstructorParam{},
-			BldrName: "istio.io/mixer/template/list.ListProcessorBuilder",
+			CtrCfg:    &istio_mixer_template_list.ConstructorParam{},
+			Variety:   adptTmpl.TEMPLATE_VARIETY_CHECK,
+			BldrName:  "istio.io/mixer/template/list.ListProcessorBuilder",
+			HndlrName: "istio.io/mixer/template/list.ListProcessor",
 			SupportsTemplate: func(hndlrBuilder adptConfig.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_template_list.ListProcessorBuilder)
+				return ok
+			},
+			HandlerSupportsTemplate: func(hndlr adptConfig.Handler) bool {
+				_, ok := hndlr.(istio_mixer_template_list.ListProcessor)
 				return ok
 			},
 			InferType: func(cp proto.Message, tEvalFn TypeEvalFn) (proto.Message, error) {
@@ -62,13 +78,58 @@ var (
 				}
 				return castedBuilder.ConfigureList(castedTypes)
 			},
+
+			ProcessCheck: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
+				handler adptConfig.Handler) (rpc.Status, adptConfig.CacheabilityInfo) {
+				var found bool
+				var err error
+
+				var instances []*istio_mixer_template_list.Instance
+				castedCnstrs := make(map[string]*istio_mixer_template_list.ConstructorParam)
+				for k, v := range ctrs {
+					v1 := v.(*istio_mixer_template_list.ConstructorParam)
+					castedCnstrs[k] = v1
+				}
+				for name, md := range castedCnstrs {
+
+					CheckExpression, err := mapper.Eval(md.CheckExpression, attrs)
+
+					if err != nil {
+						return status.WithError(err), adptConfig.CacheabilityInfo{}
+					}
+
+					instances = append(instances, &istio_mixer_template_list.Instance{
+						Name: name,
+
+						CheckExpression: CheckExpression.(string),
+					})
+				}
+				var cacheInfo adptConfig.CacheabilityInfo
+				if found, cacheInfo, err = handler.(istio_mixer_template_list.ListProcessor).CheckList(instances); err != nil {
+					return status.WithError(err), adptConfig.CacheabilityInfo{}
+				}
+
+				if found {
+					return status.OK, cacheInfo
+				}
+
+				return status.WithPermissionDenied(fmt.Sprintf("%s rejected", instances)), adptConfig.CacheabilityInfo{}
+			},
+			ProcessReport: nil,
+			ProcessQuota:  nil,
 		},
 
 		istio_mixer_template_log.TemplateName: {
-			CtrCfg:   &istio_mixer_template_log.ConstructorParam{},
-			BldrName: "istio.io/mixer/template/log.LogProcessorBuilder",
+			CtrCfg:    &istio_mixer_template_log.ConstructorParam{},
+			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
+			BldrName:  "istio.io/mixer/template/log.LogProcessorBuilder",
+			HndlrName: "istio.io/mixer/template/log.LogProcessor",
 			SupportsTemplate: func(hndlrBuilder adptConfig.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_template_log.LogProcessorBuilder)
+				return ok
+			},
+			HandlerSupportsTemplate: func(hndlr adptConfig.Handler) bool {
+				_, ok := hndlr.(istio_mixer_template_log.LogProcessor)
 				return ok
 			},
 			InferType: func(cp proto.Message, tEvalFn TypeEvalFn) (proto.Message, error) {
@@ -97,13 +158,58 @@ var (
 				}
 				return castedBuilder.ConfigureLog(castedTypes)
 			},
+
+			ProcessReport: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+				result := &multierror.Error{}
+				var instances []*istio_mixer_template_log.Instance
+
+				castedCnstrs := make(map[string]*istio_mixer_template_log.ConstructorParam)
+				for k, v := range ctrs {
+					v1 := v.(*istio_mixer_template_log.ConstructorParam)
+					castedCnstrs[k] = v1
+				}
+				for name, md := range castedCnstrs {
+
+					Dimensions, err := evalAll(md.Dimensions, attrs, mapper)
+
+					if err != nil {
+						result = multierror.Append(result, fmt.Errorf("failed to eval Dimensions for constructor '%s': %v", name, err))
+						continue
+					}
+
+					instances = append(instances, &istio_mixer_template_log.Instance{
+						Name: name,
+
+						Dimensions: Dimensions,
+					})
+				}
+
+				if err := handler.(istio_mixer_template_log.LogProcessor).ReportLog(instances); err != nil {
+					result = multierror.Append(result, fmt.Errorf("failed to report all values: %v", err))
+				}
+
+				err := result.ErrorOrNil()
+				if err != nil {
+					return status.WithError(err)
+				}
+
+				return status.OK
+			},
+			ProcessCheck: nil,
+			ProcessQuota: nil,
 		},
 
 		istio_mixer_template_metric.TemplateName: {
-			CtrCfg:   &istio_mixer_template_metric.ConstructorParam{},
-			BldrName: "istio.io/mixer/template/metric.MetricProcessorBuilder",
+			CtrCfg:    &istio_mixer_template_metric.ConstructorParam{},
+			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
+			BldrName:  "istio.io/mixer/template/metric.MetricProcessorBuilder",
+			HndlrName: "istio.io/mixer/template/metric.MetricProcessor",
 			SupportsTemplate: func(hndlrBuilder adptConfig.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_template_metric.MetricProcessorBuilder)
+				return ok
+			},
+			HandlerSupportsTemplate: func(hndlr adptConfig.Handler) bool {
+				_, ok := hndlr.(istio_mixer_template_metric.MetricProcessor)
 				return ok
 			},
 			InferType: func(cp proto.Message, tEvalFn TypeEvalFn) (proto.Message, error) {
@@ -136,13 +242,67 @@ var (
 				}
 				return castedBuilder.ConfigureMetric(castedTypes)
 			},
+
+			ProcessReport: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+				result := &multierror.Error{}
+				var instances []*istio_mixer_template_metric.Instance
+
+				castedCnstrs := make(map[string]*istio_mixer_template_metric.ConstructorParam)
+				for k, v := range ctrs {
+					v1 := v.(*istio_mixer_template_metric.ConstructorParam)
+					castedCnstrs[k] = v1
+				}
+				for name, md := range castedCnstrs {
+
+					Value, err := mapper.Eval(md.Value, attrs)
+
+					if err != nil {
+						result = multierror.Append(result, fmt.Errorf("failed to eval Value for constructor '%s': %v", name, err))
+						continue
+					}
+
+					Dimensions, err := evalAll(md.Dimensions, attrs, mapper)
+
+					if err != nil {
+						result = multierror.Append(result, fmt.Errorf("failed to eval Dimensions for constructor '%s': %v", name, err))
+						continue
+					}
+
+					instances = append(instances, &istio_mixer_template_metric.Instance{
+						Name: name,
+
+						Value: Value,
+
+						Dimensions: Dimensions,
+					})
+				}
+
+				if err := handler.(istio_mixer_template_metric.MetricProcessor).ReportMetric(instances); err != nil {
+					result = multierror.Append(result, fmt.Errorf("failed to report all values: %v", err))
+				}
+
+				err := result.ErrorOrNil()
+				if err != nil {
+					return status.WithError(err)
+				}
+
+				return status.OK
+			},
+			ProcessCheck: nil,
+			ProcessQuota: nil,
 		},
 
 		istio_mixer_template_quota.TemplateName: {
-			CtrCfg:   &istio_mixer_template_quota.ConstructorParam{},
-			BldrName: "istio.io/mixer/template/quota.QuotaProcessorBuilder",
+			CtrCfg:    &istio_mixer_template_quota.ConstructorParam{},
+			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
+			BldrName:  "istio.io/mixer/template/quota.QuotaProcessorBuilder",
+			HndlrName: "istio.io/mixer/template/quota.QuotaProcessor",
 			SupportsTemplate: func(hndlrBuilder adptConfig.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_template_quota.QuotaProcessorBuilder)
+				return ok
+			},
+			HandlerSupportsTemplate: func(hndlr adptConfig.Handler) bool {
+				_, ok := hndlr.(istio_mixer_template_quota.QuotaProcessor)
 				return ok
 			},
 			InferType: func(cp proto.Message, tEvalFn TypeEvalFn) (proto.Message, error) {
@@ -171,6 +331,45 @@ var (
 				}
 				return castedBuilder.ConfigureQuota(castedTypes)
 			},
+
+			ProcessReport: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+				result := &multierror.Error{}
+				var instances []*istio_mixer_template_quota.Instance
+
+				castedCnstrs := make(map[string]*istio_mixer_template_quota.ConstructorParam)
+				for k, v := range ctrs {
+					v1 := v.(*istio_mixer_template_quota.ConstructorParam)
+					castedCnstrs[k] = v1
+				}
+				for name, md := range castedCnstrs {
+
+					Dimensions, err := evalAll(md.Dimensions, attrs, mapper)
+
+					if err != nil {
+						result = multierror.Append(result, fmt.Errorf("failed to eval Dimensions for constructor '%s': %v", name, err))
+						continue
+					}
+
+					instances = append(instances, &istio_mixer_template_quota.Instance{
+						Name: name,
+
+						Dimensions: Dimensions,
+					})
+				}
+
+				if err := handler.(istio_mixer_template_quota.QuotaProcessor).ReportQuota(instances); err != nil {
+					result = multierror.Append(result, fmt.Errorf("failed to report all values: %v", err))
+				}
+
+				err := result.ErrorOrNil()
+				if err != nil {
+					return status.WithError(err)
+				}
+
+				return status.OK
+			},
+			ProcessCheck: nil,
+			ProcessQuota: nil,
 		},
 	}
 )
