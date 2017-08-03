@@ -10,5 +10,5 @@ go_library(
     name = "go_default_library",
     srcs = ["echo.go"],
     visibility = ["//visibility:private"],
-    deps = ["@com_github_golang_glog//:go_default_library"],
+    deps = ["//devel/fortio:go_default_library"],
 )

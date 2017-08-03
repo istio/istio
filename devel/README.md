@@ -229,10 +229,10 @@ Using Mixer as an example:
 
 ```shell
 cd $(ISTIO)/mixer
-bazel build ...
+bazel build //...
 ```
 
-This figures out what it needs to do and does not need any input from you.
+This build command figures out what it needs to do and does not need any input from you.
 
 ### Setup bazel and go links
 
@@ -257,7 +257,7 @@ bazel clean
 You can run all the available tests with:
 
 ```shell
-bazel test ...
+bazel test //...
 ```
 ### Getting coverage numbers
 

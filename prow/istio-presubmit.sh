@@ -31,20 +31,14 @@ E2E_ARGS=()
 if [ "${CI}" == 'bootstrap' ]; then
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-  mkdir -p ${GOPATH}/src/istio.io
-  ln -s ${GOPATH}/src/github.com/istio/istio ${GOPATH}/src/istio.io
-  cd ${GOPATH}/src/istio.io/istio/
+  ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+  cd ${GOPATH}/src/istio.io/istio
 
   # bootsrap upload all artifacts in _artifacts to the log bucket.
   ARTIFACTS_DIR="${GOPATH}/src/istio.io/istio/_artifacts"
   LOG_HOST="stackdriver"
   PROJ_ID="istio-testing"
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}" --log_provider=${LOG_HOST} --project_id=${PROJ_ID})
-
-  # We are running e2e tests in a specific cluster.
-  # Using volume mount from istio-presubmit job's pod spec
-  mkdir -p ${HOME}/.kube
-  ln -s /etc/e2e-testing-kubeconfig/e2e-testing-kubeconfig ${HOME}/.kube/config
 fi
 
 echo 'Running Linters'
