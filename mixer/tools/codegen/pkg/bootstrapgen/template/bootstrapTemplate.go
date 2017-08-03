@@ -35,10 +35,19 @@ var InterfaceTemplate = `// Copyright 2017 Istio Authors
 package template
 
 import (
-    "github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/proto"
+	"fmt"
+	"istio.io/mixer/pkg/attribute"
+	rpc "github.com/googleapis/googleapis/google/rpc"
+	"github.com/hashicorp/go-multierror"
+	"istio.io/mixer/pkg/expr"
+	"github.com/golang/glog"
+	"istio.io/mixer/pkg/status"
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/api/mixer/v1/config/descriptor"
+	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	adptConfig "istio.io/mixer/pkg/adapter/config"
-    {{range .}}
+	{{range .}}
 		"{{.PackageImportPath}}"
 	{{end}}
 )
@@ -47,49 +56,198 @@ var (
 	SupportedTmplInfo = map[string]Info {
 	{{range .}}
 		{{.GoPackageName}}.TemplateName: {
-		    CtrCfg:  &{{.GoPackageName}}.ConstructorParam{},
-		    BldrName:  "{{.PackageImportPath}}.{{.Name}}ProcessorBuilder",
+			CtrCfg:  &{{.GoPackageName}}.ConstructorParam{},
+			Variety:   adptTmpl.{{.VarietyName}},
+			BldrName:  "{{.PackageImportPath}}.{{.Name}}ProcessorBuilder",
+			HndlrName: "{{.PackageImportPath}}.{{.Name}}Processor",
 			SupportsTemplate: func(hndlrBuilder adptConfig.HandlerBuilder) bool {
-	            _, ok := hndlrBuilder.({{.GoPackageName}}.{{.Name}}ProcessorBuilder)
-	            return ok
-            },
-	        InferType: func(cp proto.Message, tEvalFn TypeEvalFn) (proto.Message, error) {
-	            var err error = nil
-	            cpb := cp.(*{{.GoPackageName}}.ConstructorParam)
-			    infrdType := &{{.GoPackageName}}.Type{}
+				_, ok := hndlrBuilder.({{.GoPackageName}}.{{.Name}}ProcessorBuilder)
+				return ok
+			},
+			HandlerSupportsTemplate: func(hndlr adptConfig.Handler) bool {
+				_, ok := hndlr.({{.GoPackageName}}.{{.Name}}Processor)
+				return ok
+			},
+			InferType: func(cp proto.Message, tEvalFn TypeEvalFn) (proto.Message, error) {
+				var err error = nil
+				cpb := cp.(*{{.GoPackageName}}.ConstructorParam)
+				infrdType := &{{.GoPackageName}}.Type{}
 
-                {{range .TemplateMessage.Fields}}
-                    {{if isPrimitiveValueType .GoType}}
-	            	    infrdType.{{.GoName}} = {{primitiveToValueType .GoType}}
-	            	{{end}}
-                    {{if isValueType .GoType}}
-	                    if infrdType.{{.GoName}}, err = tEvalFn(cpb.{{.GoName}}); err != nil {
-	                    	return nil, err
-	                    }
-	            	{{end}}
-                    {{if isStringValueTypeMap .GoType}}
-	                    infrdType.{{.GoName}} = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
-	                    for k, v := range cpb.{{.GoName}} {
-	                    	if infrdType.{{.GoName}}[k], err = tEvalFn(v); err != nil {
-	                    		return nil, err
-	                    	}
-	                    }
-	            	{{end}}
-	            {{end}}
-                _ = cpb
-	            return infrdType, err
-            },
+				{{range .TemplateMessage.Fields}}
+					{{if isPrimitiveValueType .GoType}}
+						infrdType.{{.GoName}} = {{primitiveToValueType .GoType}}
+					{{end}}
+					{{if isValueType .GoType}}
+						if infrdType.{{.GoName}}, err = tEvalFn(cpb.{{.GoName}}); err != nil {
+							return nil, err
+						}
+					{{end}}
+					{{if isStringValueTypeMap .GoType}}
+						infrdType.{{.GoName}} = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
+						for k, v := range cpb.{{.GoName}} {
+							if infrdType.{{.GoName}}[k], err = tEvalFn(v); err != nil {
+								return nil, err
+							}
+						}
+					{{end}}
+				{{end}}
+				_ = cpb
+				return infrdType, err
+			},
 			ConfigureType: func(types map[string]proto.Message, builder *adptConfig.HandlerBuilder) error {
-	            // Mixer framework should have ensured the type safety.
-	            castedBuilder := (*builder).({{.GoPackageName}}.{{.Name}}ProcessorBuilder)
-	            castedTypes := make(map[string]*{{.GoPackageName}}.Type)
-	            for k, v := range types {
-		            // Mixer framework should have ensured the type safety.
-		            v1 := v.(*{{.GoPackageName}}.Type)
-		            castedTypes[k] = v1
-	            }
-	            return castedBuilder.Configure{{.Name}}(castedTypes)
-            },
+				// Mixer framework should have ensured the type safety.
+				castedBuilder := (*builder).({{.GoPackageName}}.{{.Name}}ProcessorBuilder)
+				castedTypes := make(map[string]*{{.GoPackageName}}.Type)
+				for k, v := range types {
+					// Mixer framework should have ensured the type safety.
+					v1 := v.(*{{.GoPackageName}}.Type)
+					castedTypes[k] = v1
+				}
+				return castedBuilder.Configure{{.Name}}(castedTypes)
+			},
+			{{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
+				ProcessReport: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+					result := &multierror.Error{}
+					var instances []*{{.GoPackageName}}.Instance
+
+					castedCnstrs := make(map[string]*{{.GoPackageName}}.ConstructorParam)
+					for k, v := range ctrs {
+						v1 := v.(*{{.GoPackageName}}.ConstructorParam)
+						castedCnstrs[k] = v1
+					}
+					for name, md := range castedCnstrs {
+						{{range .TemplateMessage.Fields}}
+							{{if isStringValueTypeMap .GoType}}
+								{{.GoName}}, err := evalAll(md.{{.GoName}}, attrs, mapper)
+							{{else}}
+								{{.GoName}}, err := mapper.Eval(md.{{.GoName}}, attrs)
+							{{end}}
+								if err != nil {
+									result = multierror.Append(result, fmt.Errorf("failed to eval {{.GoName}} for constructor '%s': %v", name, err))
+									continue
+								}
+						{{end}}
+
+						instances = append(instances, &{{.GoPackageName}}.Instance{
+							Name:       name,
+							{{range .TemplateMessage.Fields}}
+								{{if isPrimitiveValueType .GoType}}
+									{{.GoName}}: {{.GoName}}.({{.GoType}}),
+								{{else}}
+									{{.GoName}}: {{.GoName}},
+								{{end}}
+							{{end}}
+						})
+					}
+
+					if err := handler.({{.GoPackageName}}.{{.Name}}Processor).Report{{.Name}}(instances); err != nil {
+						result = multierror.Append(result, fmt.Errorf("failed to report all values: %v", err))
+					}
+
+					err := result.ErrorOrNil()
+					if err != nil {
+						return status.WithError(err)
+					}
+
+					return status.OK
+				},
+				ProcessCheck: nil,
+				ProcessQuota: nil,
+			{{else if eq .VarietyName "TEMPLATE_VARIETY_CHECK"}}
+				ProcessCheck: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
+				handler adptConfig.Handler) (rpc.Status, adptConfig.CacheabilityInfo) {
+					var found bool
+					var err error
+
+					var instances []*{{.GoPackageName}}.Instance
+					castedCnstrs := make(map[string]*{{.GoPackageName}}.ConstructorParam)
+					for k, v := range ctrs {
+						v1 := v.(*{{.GoPackageName}}.ConstructorParam)
+						castedCnstrs[k] = v1
+					}
+					for name, md := range castedCnstrs {
+						{{range .TemplateMessage.Fields}}
+							{{if isStringValueTypeMap .GoType}}
+								{{.GoName}}, err := evalAll(md.{{.GoName}}, attrs, mapper)
+							{{else}}
+								{{.GoName}}, err := mapper.Eval(md.{{.GoName}}, attrs)
+							{{end}}
+								if err != nil {
+									return status.WithError(err), adptConfig.CacheabilityInfo{}
+								}
+						{{end}}
+
+						instances = append(instances, &{{.GoPackageName}}.Instance{
+							Name:       name,
+							{{range .TemplateMessage.Fields}}
+								{{if isPrimitiveValueType .GoType}}
+									{{.GoName}}: {{.GoName}}.({{.GoType}}),
+								{{else}}
+									{{.GoName}}: {{.GoName}},
+								{{end}}
+							{{end}}
+						})
+					}
+					var cacheInfo adptConfig.CacheabilityInfo
+					if found, cacheInfo, err = handler.({{.GoPackageName}}.{{.Name}}Processor).Check{{.Name}}(instances); err != nil {
+						return status.WithError(err), adptConfig.CacheabilityInfo{}
+					}
+
+					if found {
+						return status.OK, cacheInfo
+					}
+
+					return status.WithPermissionDenied(fmt.Sprintf("%s rejected", instances)), adptConfig.CacheabilityInfo{}
+				},
+				ProcessReport: nil,
+				ProcessQuota: nil,
+			{{else}}
+				ProcessQuota: func(quotaName string, cnstr proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler,
+				qma adapter.QuotaRequestArgs) (rpc.Status, adptConfig.CacheabilityInfo, adapter.QuotaResult) {
+					castedCnstr := cnstr.(*{{.GoPackageName}}.ConstructorParam)
+					{{range .TemplateMessage.Fields}}
+						{{if isStringValueTypeMap .GoType}}
+							{{.GoName}}, err := evalAll(castedCnstr.{{.GoName}}, attrs, mapper)
+						{{else}}
+							{{.GoName}}, err := mapper.Eval(castedCnstr.{{.GoName}}, attrs)
+						{{end}}
+							if err != nil {
+								msg := fmt.Sprintf("failed to eval {{.GoName}} for constructor '%s': %v", quotaName, err)
+								glog.Error(msg)
+								return status.WithInvalidArgument(msg), adptConfig.CacheabilityInfo{}, adapter.QuotaResult{}
+							}
+					{{end}}
+
+					instance := &{{.GoPackageName}}.Instance{
+						Name:       quotaName,
+						{{range .TemplateMessage.Fields}}
+							{{if isPrimitiveValueType .GoType}}
+								{{.GoName}}: {{.GoName}}.({{.GoType}}),
+							{{else}}
+								{{.GoName}}: {{.GoName}},
+							{{end}}
+						{{end}}
+					}
+
+					var qr adapter.QuotaResult
+					var cacheInfo adptConfig.CacheabilityInfo
+					if qr, cacheInfo, err = handler.({{.GoPackageName}}.{{.Name}}Processor).Alloc{{.Name}}(instance, qma); err != nil {
+						glog.Errorf("Quota allocation failed: %v", err)
+						return status.WithError(err), adptConfig.CacheabilityInfo{}, adapter.QuotaResult{}
+					}
+					if qr.Amount == 0 {
+						msg := fmt.Sprintf("Unable to allocate %v units from quota %s", qma.QuotaAmount, quotaName)
+						glog.Warning(msg)
+						return status.WithResourceExhausted(msg), adptConfig.CacheabilityInfo{}, adapter.QuotaResult{}
+					}
+					if glog.V(2) {
+						glog.Infof("Allocated %v units from quota %s", qma.QuotaAmount, quotaName)
+					}
+					return status.OK, cacheInfo, qr
+				},
+				ProcessReport: nil,
+				ProcessCheck: nil,
+			{{end}}
 		},
 	{{end}}
 	}
