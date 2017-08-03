@@ -50,11 +50,16 @@ spec:
       containers:
       - name: discovery
         image: {PILOT_HUB}/pilot:{PILOT_TAG}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2"]
         ports:
         - containerPort: 8080
         env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
