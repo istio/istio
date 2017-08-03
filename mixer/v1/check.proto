@@ -105,9 +105,10 @@ message CheckResponse {
 message ReferencedAttributes {
   // How an attribute's value was matched
   enum Condition {
-    ABSENCE = 0;    // match when attribute doesn't exist
-    EXACT = 1;      // match when attribute value is an exact byte-for-byte match
-    REGEX = 2;      // match when attribute value matches the included regex
+    CONDITION_UNSPECIFIED = 0;    // should not occur
+    ABSENCE = 1;                  // match when attribute doesn't exist
+    EXACT = 2;                    // match when attribute value is an exact byte-for-byte match
+    REGEX = 3;                    // match when attribute value matches the included regex
   }
 
   message AttributeMatch {
