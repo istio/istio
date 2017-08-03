@@ -25,11 +25,11 @@ set -o nounset
 set -o pipefail
 
 hub="gcr.io/istio-testing"
-tag=$(whoami)_$(date +%y%m%d_%h%m%s)
+tags=$(whoami)_$(date +%y%m%d_%h%m%s)
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -tag) tag="$2"; shift ;;
+        -tag) tags="$2"; shift ;;
         -hub) hub="$2"; shift ;;
         *) ;;
     esac
@@ -49,11 +49,18 @@ if [[ "$hub" =~ ^gcr\.io ]]; then
   gcloud docker --authorize-only
 fi
 
+IFS=',' read -ra tags <<< "${tags}"
+
 pushd docker
   for image in app proxy proxy_init proxy_debug pilot; do
-    docker build -f "Dockerfile.${image}" -t "$hub/$image:$tag" .
-    docker push "$hub/$image:$tag"
+    local_image="$hub/$image"
+    docker build -f "Dockerfile.${image}" -t "${local_image}" .
+    for tag in ${tags[@]}; do
+      tagged_image="${local_image}:${tag}"
+      docker tag "${local_image}" "${tagged_image}"
+      docker push "${tagged_image}"
+    done
   done
 popd
 
-echo Pushed images to $hub with tag $tag
+echo "Pushed images to $hub with tags ${tags[@]}"

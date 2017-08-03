@@ -96,6 +96,10 @@ def stablePresubmit(gitUtils, bazel, utils) {
     bazel.updateBazelRc()
     utils.initTestingCluster()
     sh('ln -s ~/.kube/config platform/kube/')
+    stage('Build istioctl') {
+      def remotePath = gitUtils.artifactsPath('istioctl')
+      sh("bin/upload-istioctl -p ${remotePath}")
+    }
     stage('Integration Tests') {
       timeout(60) {
         sh("bin/e2e.sh -count 10 -logs=false -tag ${env.GIT_SHA}")
@@ -108,8 +112,11 @@ def stablePostsubmit(gitUtils, bazel, utils) {
   goBuildNode(gitUtils, 'istio.io/pilot') {
     bazel.updateBazelRc()
     sh('touch platform/kube/config')
+    stage('Build istioctl') {
+      def remotePath = gitUtils.artifactsPath('istioctl')
+      sh("bin/upload-istioctl -p ${remotePath}")
+    }
     stage('Docker Push') {
-      def images = 'init,app,proxy,proxy_debug,pilot'
       def tags = "${env.GIT_SHORT_SHA},${env.ISTIO_VERSION}-${env.GIT_SHORT_SHA}"
       if (env.GIT_TAG != '') {
         if (env.GIT_TAG == env.ISTIO_VERSION) {
@@ -119,8 +126,7 @@ def stablePostsubmit(gitUtils, bazel, utils) {
           tags += ",${env.GIT_TAG}"
         }
       }
-      utils.publishDockerImagesToDockerHub(images, tags)
-      utils.publishDockerImagesToContainerRegistry(images, tags, '', 'gcr.io/istio-io')
+      sh("bin/push-docker -tag ${tags} -hub gcr.io/istio-io")
     }
   }
 }
