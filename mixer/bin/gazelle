@@ -11,6 +11,10 @@ if ! gazelle --help 2>&1 | grep build_file_name >/dev/null; then
     go get -u github.com/bazelbuild/rules_go/go/tools/gazelle/gazelle
 fi
 
+# Remove the symbolic link of generated pb.go files and .gen.go files
+# to prevent gazelle from creating wrong go_proto_library.
+find . -type l \( -name '*.pb.go' -o -name '*.gen.go' \) | xargs rm -f
+
 gazelle \
     -go_prefix istio.io/mixer \
     -build_file_name BUILD
