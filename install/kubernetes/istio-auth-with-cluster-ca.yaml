@@ -60,7 +60,7 @@ spec:
           mountPath: /etc/statsd
       - name: mixer
         image: gcr.io/istio-io/mixer:0.2.0-c570a67
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
         - containerPort: 9094
@@ -127,7 +127,7 @@ spec:
       containers:
       - name: discovery
         image: gcr.io/istio-testing/pilot:5633d45a99138892a0ba0d380dff5c587583edd3
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2"]
         ports:
         - containerPort: 8080
@@ -193,7 +193,7 @@ spec:
       - name: istio-ingress
         image: gcr.io/istio-testing/proxy_debug:5633d45a99138892a0ba0d380dff5c587583edd3
         args: ["proxy", "ingress", "-v", "2"]
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
         - containerPort: 443
@@ -240,7 +240,7 @@ spec:
       containers:
       - name: proxy
         image: gcr.io/istio-testing/proxy_debug:5633d45a99138892a0ba0d380dff5c587583edd3
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         args: ["proxy", "egress", "-v", "2"]
         env:
         - name: POD_NAMESPACE
