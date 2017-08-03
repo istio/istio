@@ -16,7 +16,7 @@
 // options. This implementation is Largely inspired from
 // https://golang.org/src/crypto/tls/generate_cert.go.
 
-package certmanager
+package ca
 
 import (
 	"crypto"

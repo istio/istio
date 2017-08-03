@@ -22,7 +22,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"istio.io/auth/certmanager"
+	"istio.io/auth/pkg/pki/ca"
 	pb "istio.io/auth/proto"
 )
 
@@ -90,7 +90,7 @@ func (na nodeAgentInternal) Start() {
 }
 
 func (na *nodeAgentInternal) getCertificateSignRequest() ([]byte, *pb.CertificateSignRequest) {
-	csr, privKey, err := certmanager.GenCSR(certmanager.CertOptions{
+	csr, privKey, err := ca.GenCSR(ca.CertOptions{
 		Host:       *na.config.ServiceIdentity,
 		Org:        *na.config.ServiceIdentityOrg,
 		RSAKeySize: *na.config.RSAKeySize,

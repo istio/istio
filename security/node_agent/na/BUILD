@@ -9,7 +9,7 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//certmanager:go_default_library",
+        "//pkg/pki/ca:go_default_library",
         "//proto:go_default_library",
         "//utils:go_default_library",
         "@com_github_golang_glog//:go_default_library",

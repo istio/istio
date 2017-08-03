@@ -5,13 +5,11 @@ go_library(
     srcs = [
         "ca.go",
         "generate_cert.go",
-        "util.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/pki:go_default_library",
         "@com_github_golang_glog//:go_default_library",
-        "@com_google_cloud_go//compute/metadata:go_default_library",
     ],
 )
 
