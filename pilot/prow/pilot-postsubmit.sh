@@ -32,7 +32,7 @@ if [ "${CI:-}" == 'bootstrap' ]; then
     ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
     cd ${GOPATH}/src/istio.io/pilot
 
-    t# Use the provided base sha, from prow.
+    # Use the provided base sha, from prow.
     GIT_SHA="${PULL_BASE_SHA}"
 
     # Use volume mount from pilot-presubmit job's pod spec.
