@@ -60,7 +60,7 @@ func TestLogger1(t *testing.T) {
 	SetLogLevel(Critical) // should be fine
 	expected += "I Log level is now 5 Critical (was 0 Debug)\n"
 	w.Flush() // nolint: errcheck
-	actual := string(b.Bytes())
+	actual := b.String()
 	if actual != expected {
 		t.Errorf("unexpected:\n%s\nvs:\n%s\n", actual, expected)
 	}

@@ -70,6 +70,6 @@ func TestCompanyFromUser(t *testing.T) {
 	expectedLog := `ALogin (No Email or Company) <> has 42 contributions but no company nor (useful) email
  () <joe@gmail.com> has 42 contributions but no company nor (useful) email
 `
-	actualLog := string(b.Bytes())
+	actualLog := b.String()
 	checkEqual(t, "companyFromUser() log", actualLog, expectedLog)
 }

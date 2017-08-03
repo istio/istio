@@ -53,7 +53,7 @@ func TestCounter(t *testing.T) {
 	c.Counter.Log("testLog")
 	expected += "I testLog" + finalExpected
 	w.Flush() // nolint: errcheck
-	actual := string(b.Bytes())
+	actual := b.String()
 	if actual != expected {
 		t.Errorf("unexpected:\n%s\nvs:\n%s\n", actual, expected)
 	}
@@ -87,7 +87,7 @@ func TestTransferCounter(t *testing.T) {
 	c3.Transfer(&c2)
 	c3.Print(w, "c3 after merge - 2")
 	w.Flush() // nolint: errcheck
-	actual := string(b.Bytes())
+	actual := b.String()
 	expected := `c1 before merge : count 2 avg 15 +/- 5 min 10 max 20 sum 30
 c2 before merge : count 2 avg 85 +/- 5 min 80 max 90 sum 170
 mergedC1C2 : count 4 avg 50 +/- 35.36 min 10 max 90 sum 200
@@ -155,7 +155,7 @@ func TestHistogramLastBucket(t *testing.T) {
 	w := bufio.NewWriter(&b)
 	h.Print(w, "testLastBucket", 90)
 	w.Flush() // nolint: errcheck
-	actual := string(b.Bytes())
+	actual := b.String()
 	// stdev part is not verified/could be brittle
 	expected := `testLastBucket : count 8 avg 50001.25 +/- 7.071e+04 min -1 max 200000 sum 400010
 # range, mid point, percentile, count
@@ -182,7 +182,7 @@ func TestHistogramNegativeNumbers(t *testing.T) {
 	// TODO: fix the p51 (and p1...), should be 0 not 10
 	h.Print(w, "testHistogramWithNegativeNumbers", 51)
 	w.Flush() // nolint: errcheck
-	actual := string(b.Bytes())
+	actual := b.String()
 	// stdev part is not verified/could be brittle
 	expected := `testHistogramWithNegativeNumbers : count 2 avg 0 +/- 10 min -10 max 10 sum 0
 # range, mid point, percentile, count
@@ -225,7 +225,7 @@ func TestTransferHistogram(t *testing.T) {
 	h3.Transfer(h2)
 	h3.Print(w, "h3 after merge - 2", tP)
 	w.Flush() // nolint: errcheck
-	actual := string(b.Bytes())
+	actual := b.String()
 	expected := `h1 before merge : count 2 avg 15 +/- 5 min 10 max 20 sum 30
 # range, mid point, percentile, count
 >= 10 < 20 , 15 , 50.00, 1
