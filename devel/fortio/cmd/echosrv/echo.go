@@ -40,7 +40,10 @@ func debugHandler(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 	buf.WriteString("Φορτίο version ")
 	buf.WriteString(fortio.Version)
-	buf.WriteString(" echo debug server - request from ")
+	buf.WriteString(" echo debug server on ")
+	hostname, _ := os.Hostname()
+	buf.WriteString(hostname)
+	buf.WriteString(" - request from ")
 	buf.WriteString(r.RemoteAddr)
 	buf.WriteString("\n\n")
 	buf.WriteString(r.Method)
