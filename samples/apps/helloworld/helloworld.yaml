@@ -30,7 +30,7 @@ spec:
         resources:
           requests:
             cpu: "100m"
-        imagePullPolicy: Always #IfNotPresent
+        imagePullPolicy: IfNotPresent #Always
         ports:
         - containerPort: 5000
 ---
@@ -52,7 +52,7 @@ spec:
         resources:
           requests:
             cpu: "100m"
-        imagePullPolicy: Always #IfNotPresent
+        imagePullPolicy: IfNotPresent #Always
         ports:
         - containerPort: 5000
 ---
