@@ -14,7 +14,7 @@
 
 licenses(["notice"])
 
-load("@protobuf_git//:protobuf.bzl", "cc_proto_library")
+load("@protobuf_bzl//:protobuf.bzl", "cc_proto_library")
 
 cc_library(
     name = "mixer_client_lib",
