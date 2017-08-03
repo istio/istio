@@ -59,8 +59,8 @@ spec:
         - name: config-volume
           mountPath: /etc/statsd
       - name: mixer
-        image: gcr.io/istio-testing/mixer:87cdc595-689d-4779-be29-ac845d47492e
-        imagePullPolicy: Always
+        image: gcr.io/istio-io/mixer:0.2.0-c570a67
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
         - containerPort: 9094
@@ -127,11 +127,16 @@ spec:
       containers:
       - name: discovery
         image: gcr.io/istio-testing/pilot:5633d45a99138892a0ba0d380dff5c587583edd3
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2"]
         ports:
         - containerPort: 8080
         env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -188,7 +193,7 @@ spec:
       - name: istio-ingress
         image: gcr.io/istio-testing/proxy_debug:5633d45a99138892a0ba0d380dff5c587583edd3
         args: ["proxy", "ingress", "-v", "2"]
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
         - containerPort: 443
@@ -202,10 +207,15 @@ spec:
         - mountPath: /etc/certs
           name: istio-certs
           readOnly: true
+        - name: config-volume
+          mountPath: /etc/istio/config
       volumes:
       - name: istio-certs
         secret:
           secretName: istio.default
+      - name: config-volume
+        configMap:
+          name: istio
 ---
 
 ################################
@@ -235,7 +245,7 @@ spec:
       containers:
       - name: proxy
         image: gcr.io/istio-testing/proxy_debug:5633d45a99138892a0ba0d380dff5c587583edd3
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         args: ["proxy", "egress", "-v", "2"]
         env:
         - name: POD_NAMESPACE
@@ -247,9 +257,14 @@ spec:
         - mountPath: /etc/certs
           name: istio-certs
           readOnly: true
+        - name: config-volume
+          mountPath: /etc/istio/config
       volumes:
       - name: istio-certs
         secret:
           secretName: istio.default
+      - name: config-volume
+        configMap:
+          name: istio
 ---
 

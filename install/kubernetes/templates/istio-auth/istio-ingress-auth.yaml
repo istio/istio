@@ -41,7 +41,7 @@ spec:
       - name: istio-ingress
         image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
         args: ["proxy", "ingress", "-v", "2"]
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
         - containerPort: 443
@@ -55,9 +55,14 @@ spec:
         - mountPath: /etc/certs
           name: istio-certs
           readOnly: true
+        - name: config-volume
+          mountPath: /etc/istio/config
       volumes:
       - name: istio-certs
         secret:
           secretName: istio.default
+      - name: config-volume
+        configMap:
+          name: istio
 ---
 

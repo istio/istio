@@ -58,7 +58,7 @@ spec:
           mountPath: /etc/statsd
       - name: mixer
         image: {MIXER_HUB}/mixer:{MIXER_TAG}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
         - containerPort: 9094

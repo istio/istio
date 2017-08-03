@@ -50,13 +50,21 @@ var (
 		"ingress",
 	}
 	testLogsPath = flag.String("test_logs_path", "", "Local path to store logs in")
+	logIDs       = []string{
+		"apiserver",
+		"discovery",
+		"istio-ingress",
+		"mixer",
+		"prometheus",
+		"statesd-to-prometheus",
+	}
 )
 
 const (
 	tmpPrefix            = "istio.e2e."
 	idMaxLength          = 36
 	pageSize             = 1000 // number of log entries for each paginated request to fetch logs
-	maxConcurrentWorkers = 3    //avoid overloading stackdriver api
+	maxConcurrentWorkers = 2    //avoid overloading stackdriver api
 )
 
 // TestInfo gathers Test Information
@@ -148,20 +156,18 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 		return err
 	}
 
-	fetchAndWrite := func(logName string) error {
+	fetchAndWrite := func(logID string) error {
 		// fetch logs from pods created for this run only
 		filter := fmt.Sprintf(
-			`logName = "%s" AND
+			`logName = "projects/%s/logs/%s" AND
 			resource.labels.namespace_id = "%s"`,
-			logName, namespace)
+			*projectID, logID, namespace)
 		req := &loggingpb.ListLogEntriesRequest{
 			ResourceNames: []string{"projects/" + *projectID},
 			Filter:        filter,
 		}
 		it := loggingClient.ListLogEntries(ctx, req)
 		// create log file in append mode
-		prefix := fmt.Sprintf("projects/%s/logs/", *projectID)
-		logID := logName[len(prefix):]
 		path := filepath.Join(t.LogsPath, fmt.Sprintf("%s.log", logID))
 		f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
 		if err != nil {
@@ -173,7 +179,7 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 		for page := 0; ; page++ {
 			pageToken, err := pager.NextPage(&entries)
 			if err != nil {
-				glog.Warning("%s Iterator paging stops: %v", logName, err)
+				glog.Warningf("%s Iterator paging stops: %v", logID, err)
 				return err
 			}
 			// append logs to file
@@ -190,36 +196,22 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 		return f.Close()
 	}
 
-	req := &loggingpb.ListLogsRequest{
-		Parent: "projects/" + *projectID,
-	}
-	it := loggingClient.ListLogs(ctx, req)
 	var multiErr error
 	var wg sync.WaitGroup
 	// limit number of concurrent jobs to stay in stackdriver api quota
 	jobQue := make(chan string, maxConcurrentWorkers)
-	for {
-		logName, err := it.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		if i := strings.Index(logName, "presubmit"); i == -1 {
-			wg.Add(1)
-			jobQue <- logName // blocked if jobQue channel is already filled
-			// fetch logs in another go routine
-			go func() {
-				if err := fetchAndWrite(logName); err != nil {
-					multiErr = multierror.Append(multiErr, err)
-				} else {
-					glog.Infof("Fetched logs on %s", logName)
-				}
-				<-jobQue
-				wg.Done()
-			}()
-		}
+	for _, logID := range logIDs {
+		wg.Add(1)
+		jobQue <- logID // blocked if jobQue channel is already filled
+		// fetch logs in another go routine
+		go func(logID string) {
+			glog.Infof("Fetching logs on %s", logID)
+			if err := fetchAndWrite(logID); err != nil {
+				multiErr = multierror.Append(multiErr, err)
+			}
+			<-jobQue
+			wg.Done()
+		}(logID)
 	}
 	wg.Wait()
 
