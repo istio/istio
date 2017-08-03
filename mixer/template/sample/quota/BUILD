@@ -1,4 +1,3 @@
-# gazelle:ignore
 package(default_visibility = ["//visibility:public"])
 
 load("//tools/codegen:generate.bzl", "mixer_proto_library")
