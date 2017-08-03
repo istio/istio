@@ -21,8 +21,8 @@ import (
 	"time"
 
 	"istio.io/auth/cmd/istio_ca/version"
-	"istio.io/auth/controller"
 	"istio.io/auth/pkg/pki/ca"
+	"istio.io/auth/pkg/pki/ca/controller"
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"

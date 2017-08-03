@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/auth/controller"
+	"istio.io/auth/pkg/pki/ca/controller"
 	"istio.io/auth/pkg/pki/testutil"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
