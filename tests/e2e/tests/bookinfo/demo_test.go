@@ -46,7 +46,8 @@ const (
 )
 
 var (
-	tc *testConfig
+	tc             *testConfig
+	testRetryTimes = 10
 )
 
 type testConfig struct {
@@ -246,7 +247,7 @@ func TestFaultDelay(t *testing.T) {
 	standby := 10
 	testModel := util.GetResourcePath(
 		filepath.Join(modelDir, "productpage-test-user-v1-review-timeout.html"))
-	for i := 0; i < 5; i++ {
+	for i := 0; i < testRetryTimes; i++ {
 		duration, err := checkRoutingResponse(
 			u2, "v1-timeout", tc.gateway,
 			testModel)
@@ -292,7 +293,7 @@ func TestVersionMigration(t *testing.T) {
 		},
 	}
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < testRetryTimes; i++ {
 		c1, c3 := 0, 0
 		for c := 0; c < totalShot; c++ {
 			resp, err := getWithCookie(fmt.Sprintf("%s/productpage", tc.gateway), cookies)

@@ -16,7 +16,7 @@
 
 
 #######################################
-# Presubmit script triggered by Prow. #
+# Postsubmit script triggered by Prow. #
 #######################################
 
 # Exit immediately for non zero status
@@ -48,6 +48,6 @@ echo 'Running Unit Tests'
 bazel test //...
 
 echo 'Running e2e no rbac Tests'
-echo 'istio without auth'
-./tests/e2e.sh ${E2E_ARGS[@]}
+echo 'istio with auth'
+./tests/e2e.sh ${E2E_ARGS[@]} --auth_enable
 

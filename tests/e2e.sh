@@ -44,14 +44,12 @@ SUMMARY='Tests Summary'
 RBAC_FILE='install/kubernetes/istio-rbac-beta.yaml'
 
 function test_group() {
-    print_block '=' "TEST Group -- auth ${1}"
+    print_block '=' "TEST Group"
     FAILURE_COUNT=0
-    AUTH_ARGS=(--auth_enable true)
     for T in ${TESTS_TARGETS[@]}; do
       print_block '.' "Running ${T}"
-      bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${TESTARGS[@]} -auth_enable=${1} -rbac_path=${RBAC_FILE}
+      bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${TESTARGS[@]} --rbac_path ${RBAC_FILE}
       RET=${?}
-      print_block '-'
       if [[ ${RET} -eq 0 ]]; then
         SUMMARY+="\nPASSED: ${T} "
       else
@@ -63,7 +61,6 @@ function test_group() {
     TOTAL_FAILURE+=${FAILURE_COUNT}
 }
 
-test_group false
-test_group true
+test_group
 
 exit ${TOTAL_FAILURE}

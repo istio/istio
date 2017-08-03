@@ -15,6 +15,7 @@
 package framework
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -43,7 +44,8 @@ var (
 	pilotTag  = flag.String("pilot_tag", "", "pilot tag, if different from istio.Version")
 	//caHub        = flag.String("ca_hub", "", "Ca hub")
 	//caTag        = flag.String("ca_tag", "", "Ca tag")
-	authEnage    = flag.Bool("auth_enable", false, "Enable auth")
+	authEnable   = flag.Bool("auth_enable", false, "Enable auth")
+	rbacEnable   = flag.Bool("rbac_enable", false, "Enable rbac")
 	rbacfile     = flag.String("rbac_path", "", "Rbac yaml file")
 	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
 
@@ -158,21 +160,25 @@ func (k *KubeInfo) deployAddons() error {
 
 func (k *KubeInfo) deployIstio() error {
 	istioYaml := nonAuthInstallFile
-	if *authEnage {
+	if *authEnable {
 		istioYaml = authInstallFile
 	}
 	baseIstioYaml := util.GetResourcePath(filepath.Join(istioInstallDir, istioYaml))
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
-	baseRbacYaml := util.GetResourcePath(*rbacfile)
-	testRbacYaml := filepath.Join(k.TmpDir, "yaml", filepath.Base(*rbacfile))
 
-	//Deploy rbac separately
-	if err := k.generateRbac(baseRbacYaml, testRbacYaml); err != nil {
-		glog.Errorf("Generating rbac yaml failed")
-	}
-	if err := util.KubeApply(k.Namespace, testRbacYaml); err != nil {
-		glog.Errorf("Rbac deployment failed")
-		return err
+	if *rbacEnable {
+		if *rbacfile == "" {
+			return errors.New("no rbac file is specified")
+		}
+		baseRbacYaml := util.GetResourcePath(*rbacfile)
+		testRbacYaml := filepath.Join(k.TmpDir, "yaml", filepath.Base(*rbacfile))
+		if err := k.generateRbac(baseRbacYaml, testRbacYaml); err != nil {
+			glog.Errorf("Generating rbac yaml failed")
+		}
+		if err := util.KubeApply(k.Namespace, testRbacYaml); err != nil {
+			glog.Errorf("Rbac deployment failed")
+			return err
+		}
 	}
 
 	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
