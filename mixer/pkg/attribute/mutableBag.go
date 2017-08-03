@@ -194,23 +194,19 @@ func (mb *MutableBag) Merge(bags ...*MutableBag) error {
 	return nil
 }
 
-type dictState struct {
-	globalDict  map[string]int32
-	messageDict map[string]int32
-}
-
 // ToProto fills-in an Attributes proto based on the content of the bag.
-func (mb *MutableBag) ToProto(output *mixerpb.Attributes, globalDict map[string]int32) {
-	ds := &dictState{globalDict, nil}
+func (mb *MutableBag) ToProto(output *mixerpb.Attributes, globalDict map[string]int32, globalWordCount int) {
+	ds := newDictState(globalDict, globalWordCount)
+
 	for k, v := range mb.values {
-		index := getIndex(k, ds)
+		index := ds.assignDictIndex(k)
 
 		switch t := v.(type) {
 		case string:
 			if output.Strings == nil {
 				output.Strings = make(map[int32]int32)
 			}
-			output.Strings[index] = getIndex(t, ds)
+			output.Strings[index] = ds.assignDictIndex(t)
 
 		case int64:
 			if output.Int64S == nil {
@@ -251,7 +247,7 @@ func (mb *MutableBag) ToProto(output *mixerpb.Attributes, globalDict map[string]
 		case map[string]string:
 			sm := make(map[int32]int32, len(t))
 			for smk, smv := range t {
-				sm[getIndex(smk, ds)] = getIndex(smv, ds)
+				sm[ds.assignDictIndex(smk)] = ds.assignDictIndex(smv)
 			}
 
 			if output.StringMaps == nil {
@@ -261,34 +257,13 @@ func (mb *MutableBag) ToProto(output *mixerpb.Attributes, globalDict map[string]
 		}
 	}
 
-	if len(ds.messageDict) > 0 {
-		output.Words = make([]string, len(ds.messageDict))
-		for k, v := range ds.messageDict {
-			output.Words[-v-1] = k
-		}
-	}
-}
-
-func getIndex(word string, ds *dictState) int32 {
-	if index, ok := ds.globalDict[word]; ok {
-		return index
-	}
-
-	if ds.messageDict == nil {
-		ds.messageDict = make(map[string]int32)
-	} else if index, ok := ds.messageDict[word]; ok {
-		return index
-	}
-
-	index := -int32(len(ds.messageDict)) - 1
-	ds.messageDict[word] = index
-	return index
+	output.Words = ds.getMessageWordList()
 }
 
 // GetBagFromProto returns an initialized bag from an Attribute proto.
-func GetBagFromProto(attrs *mixerpb.Attributes, globalDict []string) (*MutableBag, error) {
+func GetBagFromProto(attrs *mixerpb.Attributes, globalWordList []string) (*MutableBag, error) {
 	mb := GetMutableBag(nil)
-	err := mb.UpdateBagFromProto(attrs, globalDict)
+	err := mb.UpdateBagFromProto(attrs, globalWordList)
 	if err != nil {
 		mb.Done()
 		return nil, err
@@ -301,8 +276,8 @@ func GetBagFromProto(attrs *mixerpb.Attributes, globalDict []string) (*MutableBa
 //
 // Note that in the case of semantic errors in the supplied proto which leads to
 // an error return, it's likely that the bag will have been partially updated.
-func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.Attributes, globalDict []string) error {
-	messageDict := attrs.Words
+func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.Attributes, globalWordList []string) error {
+	messageWordList := attrs.Words
 	var e error
 	var name string
 	var value string
@@ -324,65 +299,65 @@ func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.Attributes, globalDict [
 
 	log("  setting string attributes:")
 	for k, v := range attrs.Strings {
-		name, e = lookup(k, e, globalDict, messageDict)
-		value, e = lookup(v, e, globalDict, messageDict)
+		name, e = lookup(k, e, globalWordList, messageWordList)
+		value, e = lookup(v, e, globalWordList, messageWordList)
 		log("    %s -> '%s'", name, value)
 		mb.values[name] = value
 	}
 
 	log("  setting int64 attributes:")
 	for k, v := range attrs.Int64S {
-		name, e = lookup(k, e, globalDict, messageDict)
+		name, e = lookup(k, e, globalWordList, messageWordList)
 		log("    %s -> '%d'", name, v)
 		mb.values[name] = v
 	}
 
 	log("  setting double attributes:")
 	for k, v := range attrs.Doubles {
-		name, e = lookup(k, e, globalDict, messageDict)
+		name, e = lookup(k, e, globalWordList, messageWordList)
 		log("    %s -> '%f'", name, v)
 		mb.values[name] = v
 	}
 
 	log("  setting bool attributes:")
 	for k, v := range attrs.Bools {
-		name, e = lookup(k, e, globalDict, messageDict)
+		name, e = lookup(k, e, globalWordList, messageWordList)
 		log("    %s -> '%t'", name, v)
 		mb.values[name] = v
 	}
 
 	log("  setting timestamp attributes:")
 	for k, v := range attrs.Timestamps {
-		name, e = lookup(k, e, globalDict, messageDict)
+		name, e = lookup(k, e, globalWordList, messageWordList)
 		log("    %s -> '%v'", name, v)
 		mb.values[name] = v
 	}
 
 	log("  setting duration attributes:")
 	for k, v := range attrs.Durations {
-		name, e = lookup(k, e, globalDict, messageDict)
+		name, e = lookup(k, e, globalWordList, messageWordList)
 		log("    %s -> '%v'", name, v)
 		mb.values[name] = v
 	}
 
 	log("  setting bytes attributes:")
 	for k, v := range attrs.Bytes {
-		name, e = lookup(k, e, globalDict, messageDict)
+		name, e = lookup(k, e, globalWordList, messageWordList)
 		log("    %s -> '%s'", name, v)
 		mb.values[name] = v
 	}
 
 	log("  setting string map attributes:")
 	for k, v := range attrs.StringMaps {
-		name, e = lookup(k, e, globalDict, messageDict)
+		name, e = lookup(k, e, globalWordList, messageWordList)
 		log("  %s", name)
 
 		sm := make(map[string]string, len(v.Entries))
 		for k2, v2 := range v.Entries {
 			var name2 string
 			var value2 string
-			name2, e = lookup(k2, e, globalDict, messageDict)
-			value2, e = lookup(v2, e, globalDict, messageDict)
+			name2, e = lookup(k2, e, globalWordList, messageWordList)
+			value2, e = lookup(v2, e, globalWordList, messageWordList)
 			log("    %s -> '%v'", name2, value2)
 			sm[name2] = value2
 		}
@@ -399,8 +374,9 @@ func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.Attributes, globalDict [
 
 func lookup(index int32, err error, globalWordList []string, messageWordList []string) (string, error) {
 	if index < 0 {
-		if -index-1 < int32(len(messageWordList)) {
-			return messageWordList[-index-1], err
+		slot := indexToSlot(index)
+		if slot < len(messageWordList) {
+			return messageWordList[slot], err
 		}
 	} else if index < int32(len(globalWordList)) {
 		return globalWordList[index], err

@@ -76,6 +76,8 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 
 	requestBag := attribute.NewProtoBag(&req.Attributes, s.globalDict, s.globalWordList)
 
+	globalWordCount := int(req.GlobalWordCount)
+
 	glog.Info("Dispatching Preprocess")
 	preprocResponseBag := attribute.GetMutableBag(requestBag)
 	out := s.aspectDispatcher.Preprocess(legacyCtx, requestBag, preprocResponseBag)
@@ -108,13 +110,18 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	resp.Precondition.ValidDuration = 5 * time.Second
 	resp.Precondition.ValidUseCount = 10000
 	resp.Precondition.Status = out
-	responseBag.ToProto(&resp.Precondition.Attributes, s.globalDict)
+	responseBag.ToProto(&resp.Precondition.Attributes, s.globalDict, globalWordCount)
 	responseBag.Done()
+	resp.Precondition.ReferencedAttributes = requestBag.GetReferencedAttributes(s.globalDict, globalWordCount)
+	requestBag.ClearReferencedAttributes()
 
 	if len(req.Quotas) > 0 {
 		resp.Quotas = make(map[string]mixerpb.CheckResponse_QuotaResult, len(req.Quotas))
 
 		// TODO: should dispatch this loop in parallel
+		// WARNING: if this is dispatched in parallel, then we need to do
+		//          use a different protoBag for each individual goroutine
+		//          such that we can get valid usage info for individual attributes.
 		for name, param := range req.Quotas {
 			qma := &aspect.QuotaMethodArgs{
 				Quota:           name,
@@ -132,10 +139,12 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 			}
 
 			qr := mixerpb.CheckResponse_QuotaResult{
-				GrantedAmount: qmr.Amount,
-				ValidDuration: qmr.Expiration,
+				GrantedAmount:        qmr.Amount,
+				ValidDuration:        qmr.Expiration,
+				ReferencedAttributes: requestBag.GetReferencedAttributes(s.globalDict, globalWordCount),
 			}
 			resp.Quotas[name] = qr
+			requestBag.ClearReferencedAttributes()
 		}
 	}
 

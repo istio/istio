@@ -214,7 +214,7 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 	}
 
 	var attrs mixerpb.Attributes
-	b.ToProto(&attrs, nil)
+	b.ToProto(&attrs, nil, 0)
 
 	return &attrs, nil
 }

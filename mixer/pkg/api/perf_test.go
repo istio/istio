@@ -197,9 +197,9 @@ func unaryBench(b *testing.B, grpcCompression, useGlobalDict bool) {
 		request := &mixerpb.CheckRequest{}
 
 		if useGlobalDict {
-			bag.ToProto(&request.Attributes, revGlobalDict)
+			bag.ToProto(&request.Attributes, revGlobalDict, len(revGlobalDict))
 		} else {
-			bag.ToProto(&request.Attributes, nil)
+			bag.ToProto(&request.Attributes, nil, 0)
 		}
 
 		wg.Add(1)
