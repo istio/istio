@@ -31,7 +31,7 @@ spec:
       containers:
       - name: proxy
         image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         args: ["proxy", "egress", "-v", "2"]
         env:
         - name: POD_NAMESPACE
