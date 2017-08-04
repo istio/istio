@@ -184,8 +184,12 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 			}
 			// append logs to file
 			for _, logEntry := range entries {
-				timestamp := logEntry.GetTimestamp().String()
-				log := fmt.Sprintf("[%v] %v\n", timestamp, logEntry.GetTextPayload())
+				timestamp := logEntry.GetTimestamp()
+				fmtTime := time.Unix(timestamp.Seconds, 0)
+				log := fmt.Sprintf("[%s] %s", fmtTime, logEntry.GetTextPayload())
+				if log[len(log)-1:] != "\n" {
+					log += "\n"
+				}
 				_, err = f.WriteString(log)
 				if err != nil {
 					return err
