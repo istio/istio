@@ -12,6 +12,7 @@ go_library(
         "//cmd:go_default_library",
         "//model:go_default_library",
         "//platform/kube:go_default_library",
+        "//platform/consul:go_default_library",
         "//proxy:go_default_library",
         "//proxy/envoy:go_default_library",
         "//tools/version:go_default_library",

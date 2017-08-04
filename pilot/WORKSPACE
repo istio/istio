@@ -378,6 +378,30 @@ go_repository(
     importpath = "google.golang.org/genproto",
 )
 
+go_repository(
+    name = "com_github_hashicorp_go_rootcerts",
+    commit = "6bb64b370b90e7ef1fa532be9e591a81c3493e00", # May 3 2016
+    importpath = "github.com/hashicorp/go-rootcerts",
+)
+
+go_repository(
+    name = "com_github_hashicorp_go_cleanhttp",
+    commit = "3573b8b52aa7b37b9358d966a898feb387f62437", # Feb 10 2017
+    importpath = "github.com/hashicorp/go-cleanhttp",
+)
+
+go_repository(
+    name = "com_github_hashicorp_serf",
+    commit = "d6574a5bb1226678d7010325fb6c985db20ee458", # Feb 6 2017 v0.8.1
+    importpath = "github.com/hashicorp/serf",
+)
+
+go_repository(
+    name = "com_github_hashicorp_consul",
+    commit = "f4360770d8e7b852e2d05835b583d20799e58133", # Jun 9 2017 v0.8.4
+    importpath = "github.com/hashicorp/consul",
+)
+
 ##
 ## Proxy image
 ##
