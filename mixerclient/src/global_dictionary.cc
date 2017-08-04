@@ -140,19 +140,6 @@ const std::vector<std::string> kGlobalWords{
     "text/html; charset=utf-8",
     "text/plain",
     "text/plain; charset=utf-8",
-    "0",
-    "1",
-    "True",
-    "False",
-    "gzip, deflate",
-    "max-age=0",
-    "x-envoy-upstream-service-time",
-    "x-envoy-internal",
-    "x-envoy-expected-rq-timeout-ms",
-    "x-ot-span-context",
-    "x-b3-traceid",
-    "x-b3-sampled",
-    "x-b3-spanid",
 };
 
 }  // namespace
