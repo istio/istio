@@ -9,19 +9,22 @@ set -o nounset
 set -o pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DIR_NAME="$(basename ${ROOT})"
 BIN_DIR='.'
 BUCKET_PATH=''
+RELEASE=false
 
 function cleanup {
   rm -rf "${BIN_DIR}"
 }
 
-while getopts :p: arg; do
+while getopts :p:r arg; do
   case ${arg} in
     p)
       BUCKET_PATH="${OPTARG}"
       BIN_DIR="$(mktemp -d /tmp/istioctl.XXXX)"
       ;;
+    r) RELEASE=true;;
     *) error_exit "Unrecognized argument -${OPTARG}";;
   esac
 done
@@ -31,22 +34,25 @@ done
 bin/init.sh
 cp -f "${ROOT}/bazel-bin/cmd/istioctl/istioctl" "${BIN_DIR}/istioctl-linux"
 
-set linker flags for populating version info
-LDFLAGS=""
-while read line; do
-  read SYMBOL VALUE < <(echo $line)
-  LDFLAGS=${LDFLAGS}" -X istio.io/pilot/cmd/version.${SYMBOL}=${VALUE}"
-done < <(./bin/get_workspace_status)
 
-GOOS=darwin GOARCH=amd64 go build -ldflags "${LDFLAGS}" istio.io/pilot/cmd/istioctl
-mv istioctl "${BIN_DIR}/istioctl-osx"
+if [[ ${RELEASE} == true ]]; then
+  export GOROOT="$(find ${ROOT}/bazel-${DIR_NAME}/external -type d -name 'go1_*')"
+  go=${GOROOT}/bin/go
 
-# install missing spf13/cobra dependency (windows only)
-#go get github.com/inconshreveable/mousetrap
-#GOOS=windows GOARCH=amd64 go build -ldflags "${LDFLAGS}" istio.io/pilot/cmd/istioctl
-#mv istioctl.exe "${BIN_DIR}/istioctl-win.exe"
+  # set linker flags for populating version info
+  LDFLAGS=""
+  while read line; do
+    read SYMBOL VALUE < <(echo $line)
+    LDFLAGS=${LDFLAGS}" -X istio.io/pilot/cmd/version.${SYMBOL}=${VALUE}"
+  done < <(./bin/get_workspace_status)
 
+  GOOS=darwin GOARCH=amd64 ${go} build -ldflags "${LDFLAGS}" istio.io/pilot/cmd/istioctl
+  mv istioctl "${BIN_DIR}/istioctl-osx"
+
+  GOOS=windows GOARCH=amd64 ${go} build -ldflags "${LDFLAGS}" istio.io/pilot/cmd/istioctl
+  mv istioctl.exe "${BIN_DIR}/istioctl-win.exe"
+fi
 if [[ -n "${BUCKET_PATH}" ]]; then
-  gsutil -m cp -r "${BIN_DIR}"/istioctl-* "${BUCKET_PATH}" \
+  gsutil -m cp -r "${BIN_DIR}"/istioctl-* "${BUCKET_PATH}/" \
     || { echo "Failed to upload binaries to ${BUCKET_PATH}"; exit 1; }
 fi

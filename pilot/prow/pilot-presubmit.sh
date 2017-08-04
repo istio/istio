@@ -46,8 +46,6 @@ echo '=== Bazel Build ==='
 ./bin/install-prereqs.sh
 bazel build //...
 
-echo '=== Build istioctl ==='
-./bin/upload-istioctl -p "gs://istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl"
 
 echo '=== Go Build ==='
 ./bin/init.sh
@@ -69,6 +67,9 @@ if [ "${CI:-}" == 'bootstrap' ]; then
 else
     echo 'Not in bootstrap environment, skipping code coverage publishing'
 fi
+
+echo '=== Build istioctl ==='
+./bin/upload-istioctl -p "gs://istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl"
 
 echo '=== Running e2e Tests ==='
 ./bin/e2e.sh -tag "${GIT_SHA}" -hub 'gcr.io/istio-testing'
