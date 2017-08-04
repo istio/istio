@@ -21,6 +21,7 @@ import (
 	"runtime"
 
 	"istio.io/istio/devel/fortio"
+	"istio.io/istio/devel/fortio/fortiogrpc"
 )
 
 // -- Support for multiple instances of -H flag on cmd line:
@@ -92,11 +93,11 @@ func main() {
 	}
 	var res fortio.HasRunnerResult
 	if *grpcFlag {
-		o := fortio.GrpcRunnerOptions{
+		o := fortiogrpc.GrpcRunnerOptions{
 			RunnerOptions: ro,
 			Destination:   url,
 		}
-		res, err = fortio.RunGrpcTest(&o)
+		res, err = fortiogrpc.RunGrpcTest(&o)
 	} else {
 		o := fortio.HTTPRunnerOptions{
 			RunnerOptions:     ro,

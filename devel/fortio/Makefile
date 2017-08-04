@@ -1,25 +1,25 @@
-# Experimental Makefile to build fortio's echosrv docker image
+# Experimental Makefile to build fortio's docker images
+
+IMAGES=fortio echosrv grpcping # plus the combo image / Dockerfile without ext.
 
 DOCKER_PREFIX := ldemailly/fortio
 
 TAG:=$(shell date +%y%m%d_%H%M%S)
 
-DOCKER_TAG := $(DOCKER_PREFIX):$(TAG)
+DOCKER_TAG = $(DOCKER_PREFIX)$(IMAGE):$(TAG)
 
-docker:
-	@echo Tag is $(TAG)
-	docker build -t $(DOCKER_TAG) .
+# Pushes the combo image and the 3 smaller images
+all: docker-push-internal
+	@for img in $(IMAGES); do \
+		$(MAKE) docker-push-internal IMAGE=.$$img TAG=$(TAG); \
+	done
 
-docker-push: docker
+docker-internal:
+	@echo "### Now building $(DOCKER_TAG)"
+	docker build -f Dockerfile$(IMAGE) -t $(DOCKER_TAG) .
+
+docker-push-internal: docker-internal
+	@echo "### Now pushing $(DOCKER_TAG)"
 	docker push $(DOCKER_TAG)
 
-# Not used, build directly from Dockerfile
-
-echosrv:
-	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-s' istio.io/istio/devel/fortio/cmd/$@
-
-clean:
-	rm echosrv
-
-.PHONY: clean docker push
-
+.PHONY: all docker-internal docker-push-internal
