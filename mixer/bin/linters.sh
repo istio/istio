@@ -14,14 +14,12 @@ PARENT_BRANCH=''
 while getopts :c: arg; do
   case ${arg} in
     c) PARENT_BRANCH="${OPTARG}";;
-    *) error_exit "Unrecognized argument ${OPTARG}";;
+    *) { echo "Unrecognized argument ${OPTARG}"; exit 1; };;
   esac
 done
 
 prep_linters() {
-    if ! which codecoroner > /dev/null; then
-        bin/install_linters.sh
-    fi
+    bin/install_linters.sh
     bin/bazel_to_go.py
 }
 
@@ -44,23 +42,24 @@ go_metalinter() {
 
     # default: lint everything. This runs on the main build
     if [[ -z ${PKGS} ]];then
-		PKGS="./adapter/... ./cmd/... ./example/... ./pkg/... ./tools/codegen/..."
+        PKGS="./adapter/... ./cmd/... ./example/... ./pkg/... ./tools/codegen/..."
 
-		# convert LAST_GOOD_GITSHA to list of packages.
-		if [[ ! -z ${LAST_GOOD_GITSHA} ]];then
-			echo "Using ${LAST_GOOD_GITSHA} to compare files to."
-			PKGS=$(for fn in $(git diff --name-only ${LAST_GOOD_GITSHA}); do fd="${fn%/*}"; [ -d ${fd} ] && echo $fd; done | sort | uniq)
-		else
-			echo 'Running linters on all files.'
-		fi
+        # convert LAST_GOOD_GITSHA to list of packages.
+        if [[ ! -z ${LAST_GOOD_GITSHA} ]];then
+            echo "Using ${LAST_GOOD_GITSHA} to compare files to."
+            PKGS=$(for fn in $(git diff --name-only ${LAST_GOOD_GITSHA}); do fd="${fn%/*}"; [ -d ${fd} ] && echo $fd; done | sort | uniq)
+        else
+            echo 'Running linters on all files.'
+        fi
     fi
 
     # Note: WriteHeaderAndJson excluded because the interface is defined in a 3rd party library.
-    gometalinter\
+    gometalinter.v1\
         --concurrency=4\
         --enable-gc\
         --vendored-linters\
         --deadline=600s --disable-all\
+        --enable=gosimple\
         --enable=aligncheck\
         --enable=deadcode\
         --enable=errcheck\
@@ -73,11 +72,12 @@ go_metalinter() {
         --enable=ineffassign\
         --enable=interfacer\
         --enable=lll --line-length=160\
-        --enable=megacheck\
         --enable=misspell\
+        --enable=staticcheck\
         --enable=structcheck\
         --enable=unconvert\
         --enable=unparam\
+        --enable=unused\
         --enable=varcheck\
         --enable=vet\
         --enable=vetshadow\

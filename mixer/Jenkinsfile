@@ -39,12 +39,8 @@ mainFlow(utils) {
     postsubmit(gitUtils, bazel, utils)
   }
   // PR from master to stable branch for qualification
-  if (utils.runStage('STABLE_PRESUBMIT')) {
-    stablePresubmit(gitUtils, bazel, utils)
-  }
-  // Postsubmit form stable branch, post qualification
-  if (utils.runStage('STABLE_POSTSUBMIT')) {
-    stablePostsubmit(gitUtils, bazel, utils)
+  if (utils.runStage('RELEASE')) {
+    release(gitUtils, bazel)
   }
 }
 
@@ -89,13 +85,6 @@ def postsubmit(gitUtils, bazel, utils) {
       sh('bin/toolbox/presubmit/pkg_coverage.sh')
       utils.publishCodeCoverage('MIXER_CODECOV_TOKEN')
     }
-    utils.fastForwardStable('mixer')
-  }
-}
-
-def stablePresubmit(gitUtils, bazel, utils) {
-  goBuildNode(gitUtils, 'istio.io/mixer') {
-    bazel.updateBazelRc()
     stage('Docker Push') {
       def images = 'mixer'
       def tags = env.GIT_SHA
@@ -107,11 +96,10 @@ def stablePresubmit(gitUtils, bazel, utils) {
   }
 }
 
-def stablePostsubmit(gitUtils, bazel, utils) {
+def release(gitUtils, bazel) {
   goBuildNode(gitUtils, 'istio.io/mixer') {
     bazel.updateBazelRc()
     stage('Docker Push') {
-      def images = 'mixer,mixer_debug'
       def tags = "${env.GIT_SHORT_SHA},${env.ISTIO_VERSION}-${env.GIT_SHORT_SHA}"
       if (env.GIT_TAG != '') {
         if (env.GIT_TAG == env.ISTIO_VERSION) {
@@ -121,14 +109,8 @@ def stablePostsubmit(gitUtils, bazel, utils) {
             tags += ",${env.GIT_TAG}"
         }
       }
-      // Docker images built with bazel
-      utils.publishDockerImagesToDockerHub(images, tags)
-      utils.publishDockerImagesToContainerRegistry(images, tags, '', 'gcr.io/istio-io')
       // Docker images built with docker
       sh("bin/publish-docker-images.sh -t ${tags} -h gcr.io/istio-io")
-      withDockerRegistry([credentialsId: env.ISTIO_TESTING_DOCKERHUB]) {
-        sh("bin/publish-docker-images.sh -t ${tags} -h docker.io/istio")
-      }
     }
   }
 }

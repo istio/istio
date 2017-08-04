@@ -16,19 +16,18 @@ function usage() {
   exit 1
 }
 
+BAZEL_IMAGES=('mixer' 'mixer_debug')
 IMAGES=()
 TAGS=''
 HUB=''
 
-while getopts :h:t:: arg; do
+while getopts :h:t: arg; do
   case ${arg} in
     h) HUB="${OPTARG}";;
     t) TAGS="${OPTARG}";;
+    *) usage;;
   esac
 done
-
-[[ -z "${HUB}" ]] && usage
-[[ -z "${TAGS}" ]] && usage
 
 IFS=',' read -ra TAGS <<< "${TAGS}"
 
@@ -42,9 +41,20 @@ docker build . -t grafana
 IMAGES+=(grafana)
 popd
 
+# Build Bazel based docker images
+for IMAGE in "${BAZEL_IMAGES[@]}"; do
+  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_ARGS} "//docker:${IMAGE}"
+  docker tag "istio/docker:${IMAGE}" "${IMAGE}"
+  IMAGES+=("${IMAGE}")
+done
+
+# Tag and push
+
 for IMAGE in "${IMAGES[@]}"; do
   for TAG in "${TAGS[@]}"; do
-    docker tag "${IMAGE}" "${HUB}/${IMAGE}:${TAG}"
-    docker push "${HUB}/${IMAGE}:${TAG}"
+    if [[ -n "${HUB}"  ]]; then
+      docker tag "${IMAGE}" "${HUB}/${IMAGE}:${TAG}"
+      docker push "${HUB}/${IMAGE}:${TAG}"
+    fi
   done
 done
