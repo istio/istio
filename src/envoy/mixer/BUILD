@@ -33,9 +33,9 @@ cc_library(
         "config.h",
         "grpc_transport.cc",
         "grpc_transport.h",
+        "http_filter.cc",
         "mixer_control.cc",
         "mixer_control.h",
-        "http_filter.cc",
         "tcp_filter.cc",
         "thread_dispatcher.cc",
         "thread_dispatcher.h",
@@ -57,7 +57,7 @@ cc_binary(
         "-luuid",
     ],
     linkstatic = 1,
-    visibility = [":__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [
         ":filter_lib",
         "@envoy//source/exe:envoy_main_entry_lib",
@@ -88,4 +88,3 @@ pkg_tar(
     package_dir = "/etc/opt/proxy",
     tags = ["manual"],
 )
-
