@@ -21,7 +21,6 @@ package inject
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -125,20 +124,6 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*proxycon
 	return &mesh, nil
 }
 
-var enableCoreDumpContainer = map[string]interface{}{
-	"name":    enableCoreDumpContainerName,
-	"image":   enableCoreDumpImage,
-	"command": []string{"/bin/sh"},
-	"args": []string{
-		"-c",
-		"sysctl -w kernel.core_pattern=/tmp/core.%e.%p.%t && ulimit -c unlimited",
-	},
-	"imagePullPolicy": "Always",
-	"securityContext": map[string]interface{}{
-		"privileged": true,
-	},
-}
-
 func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 	if t.Annotations == nil {
 		t.Annotations = make(map[string]string)
@@ -149,13 +134,7 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 	t.Annotations[istioSidecarAnnotationSidecarKey] = istioSidecarAnnotationSidecarValue
 	t.Annotations[istioSidecarAnnotationVersionKey] = p.Version
 
-	// init-container
-	var annotations []interface{}
-	if initContainer, ok := t.Annotations["pod.beta.kubernetes.io/init-containers"]; ok {
-		if err := json.Unmarshal([]byte(initContainer), &annotations); err != nil {
-			return err
-		}
-	}
+	// proxy initContainer 1.6 spec
 	initArgs := []string{
 		"-p", fmt.Sprintf("%d", p.Mesh.ProxyListenPort),
 		"-u", strconv.FormatInt(p.SidecarProxyUID, 10),
@@ -163,29 +142,43 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 	if p.IncludeIPRanges != "" {
 		initArgs = append(initArgs, "-i", p.IncludeIPRanges)
 	}
-	annotations = append(annotations, map[string]interface{}{
-		"name":            InitContainerName,
-		"image":           p.InitImage,
-		"args":            initArgs,
-		"imagePullPolicy": "Always",
-		"securityContext": map[string]interface{}{
-			"capabilities": map[string]interface{}{
-				"add": []string{"NET_ADMIN"},
+
+	privTrue := true
+
+	initContainer := v1.Container{
+		Name:            InitContainerName,
+		Image:           p.InitImage,
+		Args:            initArgs,
+		ImagePullPolicy: "Always",
+		SecurityContext: &v1.SecurityContext{
+			Capabilities: &v1.Capabilities{
+				Add: []v1.Capability{"CAP_NET_ADMIN"},
 			},
-			// TODO: temporary option due to issues with SELinux (NET_ADMIN is insufficient)
-			"privileged": true,
+			// TODO: Determine SELINUX options needed to remove privileged
+			Privileged: &privTrue,
 		},
-	})
+	}
+
+	enableCoreDumpContainer := v1.Container{
+		Name:    enableCoreDumpContainerName,
+		Image:   enableCoreDumpImage,
+		Command: []string{"/bin/sh"},
+		Args: []string{
+			"-c",
+			"sysctl -w kernel.core_pattern=/tmp/core.%e.%p.%t && ulimit -c unlimited",
+		},
+		ImagePullPolicy: "Always",
+		SecurityContext: &v1.SecurityContext{
+			// TODO: Determine SELINUX options needed to remove privileged
+			Privileged: &privTrue,
+		},
+	}
+
+	t.Spec.InitContainers = append(t.Spec.InitContainers, initContainer)
 
 	if p.EnableCoreDump {
-		annotations = append(annotations, enableCoreDumpContainer)
+		t.Spec.InitContainers = append(t.Spec.InitContainers, enableCoreDumpContainer)
 	}
-
-	initAnnotationValue, err := json.Marshal(&annotations)
-	if err != nil {
-		return err
-	}
-	t.Annotations["pod.beta.kubernetes.io/init-containers"] = string(initAnnotationValue)
 
 	// sidecar proxy container
 	args := []string{"proxy"}
@@ -291,6 +284,7 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 		},
 		VolumeMounts: volumeMounts,
 	}
+
 	t.Spec.Containers = append(t.Spec.Containers, sidecar)
 
 	return nil

@@ -11,7 +11,6 @@ spec:
       annotations:
         alpha.istio.io/sidecar: injected
         alpha.istio.io/version: "12345678"
-        pod.beta.kubernetes.io/init-containers: '[{"args":["-p","15001","-u","1337"],"image":"docker.io/istio/proxy_init:unittest","imagePullPolicy":"Always","name":"istio-init","securityContext":{"capabilities":{"add":["NET_ADMIN"]},"privileged":true}}]'
       creationTimestamp: null
       labels:
         app: hello
@@ -55,6 +54,21 @@ spec:
           readOnly: true
         - mountPath: /etc/istio/proxy
           name: istio-envoy
+      initContainers:
+      - args:
+        - -p
+        - "15001"
+        - -u
+        - "1337"
+        image: docker.io/istio/proxy_init:unittest
+        imagePullPolicy: Always
+        name: istio-init
+        resources: {}
+        securityContext:
+          capabilities:
+            add:
+            - CAP_NET_ADMIN
+          privileged: true
       volumes:
       - configMap:
           name: istio

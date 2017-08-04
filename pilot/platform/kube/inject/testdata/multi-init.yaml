@@ -6,16 +6,6 @@ spec:
   replicas: 7
   template:
     metadata:
-      annotations:
-        pod.beta.kubernetes.io/init-containers: '[{
-            "name": "init-one",
-            "image": "busybox",
-            "command": ["sh", "-c", "true"]
-        },{
-            "name": "init-two",
-            "image": "busybox",
-            "command": ["sh", "-c", "true"]
-        }]'
       labels:
         app: hello
         tier: backend
@@ -27,3 +17,10 @@ spec:
           ports:
             - name: http
               containerPort: 80
+      initContainers:
+        - name: init-one
+          image: "busybox"
+          command: ["sh", "-c", "true"]
+        - name: init-two
+          image: "busybox"
+          command: ["sh", "-c", "true"] 
