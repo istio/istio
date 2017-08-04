@@ -329,7 +329,6 @@ func (m *Manager) dispatch(ctx context.Context, requestBag attribute.Bag, respon
 		m.runAsync(ctx, requestBag, child, cfgs[idx], invokeFunc, resultChan)
 	}
 
-	requestBag = nil
 	// TODO: look into having a pool of these to avoid frequent allocs
 	bags := make([]*attribute.MutableBag, numCfgs)
 
