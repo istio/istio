@@ -31,18 +31,24 @@ type generator struct {
 	err     error
 }
 
+// Result is returned as the result of compilation.
+type Result struct {
+	Program    *il.Program
+	Expression *expr.Expression
+}
+
 // Compile converts the given expression text, into an IL based program.
-func Compile(text string, finder expr.AttributeDescriptorFinder) (*il.Program, error) {
+func Compile(text string, finder expr.AttributeDescriptorFinder) (Result, error) {
 	p := il.NewProgram()
 
 	expression, err := expr.Parse(text)
 	if err != nil {
-		return p, err
+		return Result{}, err
 	}
 
 	exprType, err := expression.EvalType(finder, expr.FuncMap())
 	if err != nil {
-		return p, err
+		return Result{}, err
 	}
 
 	g := generator{
@@ -58,9 +64,13 @@ func Compile(text string, finder expr.AttributeDescriptorFinder) (*il.Program, e
 	body := g.builder.Build()
 	if err = g.program.AddFunction("eval", []il.Type{}, returnType, body); err != nil {
 		g.internalError(err.Error())
+		return Result{}, err
 	}
 
-	return p, g.err
+	return Result{
+		Program:    p,
+		Expression: expression,
+	}, nil
 }
 
 func (g *generator) toIlType(t dpb.ValueType) il.Type {
