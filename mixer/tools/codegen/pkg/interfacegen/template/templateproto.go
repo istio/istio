@@ -1,6 +1,6 @@
 package template
 
-// RevisedTemplateTmpl defines the modified template proto with Type and ConstructorParams
+// RevisedTemplateTmpl defines the modified template proto with Type and InstanceParams
 var RevisedTemplateTmpl = `// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,7 +37,7 @@ message Type {
   {{end}}
 }
 
-message ConstructorParam {
+message InstanceParam {
   {{range .TemplateMessage.Fields}}
   {{replaceValueTypeToString .Type}} {{.Name}} = {{.Number}};
   {{end}}

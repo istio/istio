@@ -43,7 +43,7 @@ var (
 	SupportedTmplInfo = map[string]Info{
 
 		istio_mixer_adapter_sample_check.TemplateName: {
-			CtrCfg:    &istio_mixer_adapter_sample_check.ConstructorParam{},
+			CtrCfg:    &istio_mixer_adapter_sample_check.InstanceParam{},
 			Variety:   adptTmpl.TEMPLATE_VARIETY_CHECK,
 			BldrName:  "istio.io/mixer/template/sample/check.SampleProcessorBuilder",
 			HndlrName: "istio.io/mixer/template/sample/check.SampleProcessor",
@@ -57,7 +57,7 @@ var (
 			},
 			InferType: func(cp proto.Message, tEvalFn TypeEvalFn) (proto.Message, error) {
 				var err error = nil
-				cpb := cp.(*istio_mixer_adapter_sample_check.ConstructorParam)
+				cpb := cp.(*istio_mixer_adapter_sample_check.InstanceParam)
 				infrdType := &istio_mixer_adapter_sample_check.Type{}
 
 				infrdType.CheckExpression = istio_mixer_v1_config_descriptor.STRING
@@ -77,15 +77,15 @@ var (
 				return castedBuilder.ConfigureSample(castedTypes)
 			},
 
-			ProcessCheck: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
+			ProcessCheck: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
 				handler adptConfig.Handler) (rpc.Status, adptConfig.CacheabilityInfo) {
 				var found bool
 				var err error
 
 				var instances []*istio_mixer_adapter_sample_check.Instance
-				castedCnstrs := make(map[string]*istio_mixer_adapter_sample_check.ConstructorParam)
-				for k, v := range ctrs {
-					v1 := v.(*istio_mixer_adapter_sample_check.ConstructorParam)
+				castedCnstrs := make(map[string]*istio_mixer_adapter_sample_check.InstanceParam)
+				for k, v := range insts {
+					v1 := v.(*istio_mixer_adapter_sample_check.InstanceParam)
 					castedCnstrs[k] = v1
 				}
 				for name, md := range castedCnstrs {
@@ -118,7 +118,7 @@ var (
 		},
 
 		istio_mixer_adapter_sample_quota.TemplateName: {
-			CtrCfg:    &istio_mixer_adapter_sample_quota.ConstructorParam{},
+			CtrCfg:    &istio_mixer_adapter_sample_quota.InstanceParam{},
 			Variety:   adptTmpl.TEMPLATE_VARIETY_QUOTA,
 			BldrName:  "istio.io/mixer/template/sample/quota.QuotaProcessorBuilder",
 			HndlrName: "istio.io/mixer/template/sample/quota.QuotaProcessor",
@@ -132,7 +132,7 @@ var (
 			},
 			InferType: func(cp proto.Message, tEvalFn TypeEvalFn) (proto.Message, error) {
 				var err error = nil
-				cpb := cp.(*istio_mixer_adapter_sample_quota.ConstructorParam)
+				cpb := cp.(*istio_mixer_adapter_sample_quota.InstanceParam)
 				infrdType := &istio_mixer_adapter_sample_quota.Type{}
 
 				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
@@ -159,12 +159,12 @@ var (
 
 			ProcessQuota: func(quotaName string, cnstr proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler,
 				qma adapter.QuotaRequestArgs) (rpc.Status, adptConfig.CacheabilityInfo, adapter.QuotaResult) {
-				castedCnstr := cnstr.(*istio_mixer_adapter_sample_quota.ConstructorParam)
+				castedCnstr := cnstr.(*istio_mixer_adapter_sample_quota.InstanceParam)
 
 				Dimensions, err := evalAll(castedCnstr.Dimensions, attrs, mapper)
 
 				if err != nil {
-					msg := fmt.Sprintf("failed to eval Dimensions for constructor '%s': %v", quotaName, err)
+					msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", quotaName, err)
 					glog.Error(msg)
 					return status.WithInvalidArgument(msg), adptConfig.CacheabilityInfo{}, adapter.QuotaResult{}
 				}
@@ -196,7 +196,7 @@ var (
 		},
 
 		istio_mixer_adapter_sample_report.TemplateName: {
-			CtrCfg:    &istio_mixer_adapter_sample_report.ConstructorParam{},
+			CtrCfg:    &istio_mixer_adapter_sample_report.InstanceParam{},
 			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
 			BldrName:  "istio.io/mixer/template/sample/report.SampleProcessorBuilder",
 			HndlrName: "istio.io/mixer/template/sample/report.SampleProcessor",
@@ -210,7 +210,7 @@ var (
 			},
 			InferType: func(cp proto.Message, tEvalFn TypeEvalFn) (proto.Message, error) {
 				var err error = nil
-				cpb := cp.(*istio_mixer_adapter_sample_report.ConstructorParam)
+				cpb := cp.(*istio_mixer_adapter_sample_report.InstanceParam)
 				infrdType := &istio_mixer_adapter_sample_report.Type{}
 
 				if infrdType.Value, err = tEvalFn(cpb.Value); err != nil {
@@ -239,13 +239,13 @@ var (
 				return castedBuilder.ConfigureSample(castedTypes)
 			},
 
-			ProcessReport: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
 				result := &multierror.Error{}
 				var instances []*istio_mixer_adapter_sample_report.Instance
 
-				castedCnstrs := make(map[string]*istio_mixer_adapter_sample_report.ConstructorParam)
-				for k, v := range ctrs {
-					v1 := v.(*istio_mixer_adapter_sample_report.ConstructorParam)
+				castedCnstrs := make(map[string]*istio_mixer_adapter_sample_report.InstanceParam)
+				for k, v := range insts {
+					v1 := v.(*istio_mixer_adapter_sample_report.InstanceParam)
 					castedCnstrs[k] = v1
 				}
 				for name, md := range castedCnstrs {
@@ -253,14 +253,14 @@ var (
 					Value, err := mapper.Eval(md.Value, attrs)
 
 					if err != nil {
-						result = multierror.Append(result, fmt.Errorf("failed to eval Value for constructor '%s': %v", name, err))
+						result = multierror.Append(result, fmt.Errorf("failed to eval Value for instance '%s': %v", name, err))
 						continue
 					}
 
 					Dimensions, err := evalAll(md.Dimensions, attrs, mapper)
 
 					if err != nil {
-						result = multierror.Append(result, fmt.Errorf("failed to eval Dimensions for constructor '%s': %v", name, err))
+						result = multierror.Append(result, fmt.Errorf("failed to eval Dimensions for instance '%s': %v", name, err))
 						continue
 					}
 

@@ -41,7 +41,7 @@ type (
 		tmplName     string
 		procDispatch template.ProcessQuotaFn
 		hndlr        config2.Handler
-		ctrs         map[string]proto.Message // constructor name -> constructor params
+		insts        map[string]proto.Message // instance name -> instance params
 	}
 )
 
@@ -53,11 +53,11 @@ func NewQuotaManager(repo template.Repository) QuotaManager {
 
 func (m *quotaManager) NewQuotaExecutor(c *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env,
 	df descriptor.Finder, tmpl string) (QuotaExecutor, error) {
-	ctrs := make(map[string]proto.Message)
-	for _, cstr := range c.Constructors {
-		ctrs[cstr.InstanceName] = cstr.GetParams().(proto.Message)
+	insts := make(map[string]proto.Message)
+	for _, cstr := range c.Instances {
+		insts[cstr.Name] = cstr.GetParams().(proto.Message)
 		if cstr.Template != tmpl {
-			return nil, fmt.Errorf("constructor's '%v' template is different than expected template name : %s", cstr, tmpl)
+			return nil, fmt.Errorf("instance's '%v' template is different than expected template name : %s", cstr, tmpl)
 		}
 	}
 
@@ -75,7 +75,7 @@ func (m *quotaManager) NewQuotaExecutor(c *cpb.Combined, createAspect CreateAspe
 			"Therefore, it cannot support template %v", ti.HndlrName, tmpl)
 	}
 
-	return &quotaExecutor{tmpl, ti.ProcessQuota, v, ctrs}, nil
+	return &quotaExecutor{tmpl, ti.ProcessQuota, v, insts}, nil
 }
 
 func (*quotaManager) DefaultConfig() config.AspectParams { return nil }
@@ -88,7 +88,7 @@ func (*quotaManager) Kind() config.Kind {
 }
 
 func (w *quotaExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma *QuotaMethodArgs) (rpc.Status, *QuotaMethodResp) {
-	ctr, ok := w.ctrs[qma.Quota]
+	ctr, ok := w.insts[qma.Quota]
 	if !ok {
 		msg := fmt.Sprintf("unknown quota '%s' requested", qma.Quota)
 		glog.Error(msg)

@@ -32,7 +32,7 @@ func NewCompatFSStore(globalConfigFile string, serviceConfigFile string) (store.
 	var err error
 	dm := map[string]string{
 		keyGlobalServiceConfig: serviceConfigFile,
-		keyConstructorsConfig:  serviceConfigFile,
+		keyInstancesConfig:     serviceConfigFile,
 		keyActionsConfig:       serviceConfigFile,
 		keyDescriptors:         globalConfigFile,
 		keyHandlers:            globalConfigFile,

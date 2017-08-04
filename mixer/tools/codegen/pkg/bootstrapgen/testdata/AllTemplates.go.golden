@@ -45,7 +45,7 @@ var (
 	SupportedTmplInfo = map[string]Info{
 
 		istio_mixer_template_list.TemplateName: {
-			CtrCfg:    &istio_mixer_template_list.ConstructorParam{},
+			CtrCfg:    &istio_mixer_template_list.InstanceParam{},
 			Variety:   adptTmpl.TEMPLATE_VARIETY_CHECK,
 			BldrName:  "istio.io/mixer/template/list.ListProcessorBuilder",
 			HndlrName: "istio.io/mixer/template/list.ListProcessor",
@@ -59,7 +59,7 @@ var (
 			},
 			InferType: func(cp proto.Message, tEvalFn TypeEvalFn) (proto.Message, error) {
 				var err error = nil
-				cpb := cp.(*istio_mixer_template_list.ConstructorParam)
+				cpb := cp.(*istio_mixer_template_list.InstanceParam)
 				infrdType := &istio_mixer_template_list.Type{}
 
 				infrdType.CheckExpression = istio_mixer_v1_config_descriptor.STRING
@@ -79,18 +79,18 @@ var (
 				return castedBuilder.ConfigureList(castedTypes)
 			},
 
-			ProcessCheck: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
+			ProcessCheck: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
 				handler adptConfig.Handler) (rpc.Status, adptConfig.CacheabilityInfo) {
 				var found bool
 				var err error
 
 				var instances []*istio_mixer_template_list.Instance
-				castedCnstrs := make(map[string]*istio_mixer_template_list.ConstructorParam)
-				for k, v := range ctrs {
-					v1 := v.(*istio_mixer_template_list.ConstructorParam)
-					castedCnstrs[k] = v1
+				castedInsts := make(map[string]*istio_mixer_template_list.InstanceParam)
+				for k, v := range insts {
+					v1 := v.(*istio_mixer_template_list.InstanceParam)
+					castedInsts[k] = v1
 				}
-				for name, md := range castedCnstrs {
+				for name, md := range castedInsts {
 
 					CheckExpression, err := mapper.Eval(md.CheckExpression, attrs)
 
@@ -120,7 +120,7 @@ var (
 		},
 
 		istio_mixer_template_log.TemplateName: {
-			CtrCfg:    &istio_mixer_template_log.ConstructorParam{},
+			CtrCfg:    &istio_mixer_template_log.InstanceParam{},
 			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
 			BldrName:  "istio.io/mixer/template/log.LogProcessorBuilder",
 			HndlrName: "istio.io/mixer/template/log.LogProcessor",
@@ -134,7 +134,7 @@ var (
 			},
 			InferType: func(cp proto.Message, tEvalFn TypeEvalFn) (proto.Message, error) {
 				var err error = nil
-				cpb := cp.(*istio_mixer_template_log.ConstructorParam)
+				cpb := cp.(*istio_mixer_template_log.InstanceParam)
 				infrdType := &istio_mixer_template_log.Type{}
 
 				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
@@ -159,21 +159,21 @@ var (
 				return castedBuilder.ConfigureLog(castedTypes)
 			},
 
-			ProcessReport: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
 				result := &multierror.Error{}
 				var instances []*istio_mixer_template_log.Instance
 
-				castedCnstrs := make(map[string]*istio_mixer_template_log.ConstructorParam)
-				for k, v := range ctrs {
-					v1 := v.(*istio_mixer_template_log.ConstructorParam)
-					castedCnstrs[k] = v1
+				castedInsts := make(map[string]*istio_mixer_template_log.InstanceParam)
+				for k, v := range insts {
+					v1 := v.(*istio_mixer_template_log.InstanceParam)
+					castedInsts[k] = v1
 				}
-				for name, md := range castedCnstrs {
+				for name, md := range castedInsts {
 
 					Dimensions, err := evalAll(md.Dimensions, attrs, mapper)
 
 					if err != nil {
-						result = multierror.Append(result, fmt.Errorf("failed to eval Dimensions for constructor '%s': %v", name, err))
+						result = multierror.Append(result, fmt.Errorf("failed to eval Dimensions for instance '%s': %v", name, err))
 						continue
 					}
 
@@ -200,7 +200,7 @@ var (
 		},
 
 		istio_mixer_template_metric.TemplateName: {
-			CtrCfg:    &istio_mixer_template_metric.ConstructorParam{},
+			CtrCfg:    &istio_mixer_template_metric.InstanceParam{},
 			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
 			BldrName:  "istio.io/mixer/template/metric.MetricProcessorBuilder",
 			HndlrName: "istio.io/mixer/template/metric.MetricProcessor",
@@ -214,7 +214,7 @@ var (
 			},
 			InferType: func(cp proto.Message, tEvalFn TypeEvalFn) (proto.Message, error) {
 				var err error = nil
-				cpb := cp.(*istio_mixer_template_metric.ConstructorParam)
+				cpb := cp.(*istio_mixer_template_metric.InstanceParam)
 				infrdType := &istio_mixer_template_metric.Type{}
 
 				if infrdType.Value, err = tEvalFn(cpb.Value); err != nil {
@@ -243,28 +243,28 @@ var (
 				return castedBuilder.ConfigureMetric(castedTypes)
 			},
 
-			ProcessReport: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
 				result := &multierror.Error{}
 				var instances []*istio_mixer_template_metric.Instance
 
-				castedCnstrs := make(map[string]*istio_mixer_template_metric.ConstructorParam)
-				for k, v := range ctrs {
-					v1 := v.(*istio_mixer_template_metric.ConstructorParam)
-					castedCnstrs[k] = v1
+				castedInsts := make(map[string]*istio_mixer_template_metric.InstanceParam)
+				for k, v := range insts {
+					v1 := v.(*istio_mixer_template_metric.InstanceParam)
+					castedInsts[k] = v1
 				}
-				for name, md := range castedCnstrs {
+				for name, md := range castedInsts {
 
 					Value, err := mapper.Eval(md.Value, attrs)
 
 					if err != nil {
-						result = multierror.Append(result, fmt.Errorf("failed to eval Value for constructor '%s': %v", name, err))
+						result = multierror.Append(result, fmt.Errorf("failed to eval Value for instance '%s': %v", name, err))
 						continue
 					}
 
 					Dimensions, err := evalAll(md.Dimensions, attrs, mapper)
 
 					if err != nil {
-						result = multierror.Append(result, fmt.Errorf("failed to eval Dimensions for constructor '%s': %v", name, err))
+						result = multierror.Append(result, fmt.Errorf("failed to eval Dimensions for instance '%s': %v", name, err))
 						continue
 					}
 
@@ -293,7 +293,7 @@ var (
 		},
 
 		istio_mixer_template_quota.TemplateName: {
-			CtrCfg:    &istio_mixer_template_quota.ConstructorParam{},
+			CtrCfg:    &istio_mixer_template_quota.InstanceParam{},
 			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
 			BldrName:  "istio.io/mixer/template/quota.QuotaProcessorBuilder",
 			HndlrName: "istio.io/mixer/template/quota.QuotaProcessor",
@@ -307,7 +307,7 @@ var (
 			},
 			InferType: func(cp proto.Message, tEvalFn TypeEvalFn) (proto.Message, error) {
 				var err error = nil
-				cpb := cp.(*istio_mixer_template_quota.ConstructorParam)
+				cpb := cp.(*istio_mixer_template_quota.InstanceParam)
 				infrdType := &istio_mixer_template_quota.Type{}
 
 				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
@@ -332,21 +332,21 @@ var (
 				return castedBuilder.ConfigureQuota(castedTypes)
 			},
 
-			ProcessReport: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
 				result := &multierror.Error{}
 				var instances []*istio_mixer_template_quota.Instance
 
-				castedCnstrs := make(map[string]*istio_mixer_template_quota.ConstructorParam)
-				for k, v := range ctrs {
-					v1 := v.(*istio_mixer_template_quota.ConstructorParam)
-					castedCnstrs[k] = v1
+				castedInsts := make(map[string]*istio_mixer_template_quota.InstanceParam)
+				for k, v := range insts {
+					v1 := v.(*istio_mixer_template_quota.InstanceParam)
+					castedInsts[k] = v1
 				}
-				for name, md := range castedCnstrs {
+				for name, md := range castedInsts {
 
 					Dimensions, err := evalAll(md.Dimensions, attrs, mapper)
 
 					if err != nil {
-						result = multierror.Append(result, fmt.Errorf("failed to eval Dimensions for constructor '%s': %v", name, err))
+						result = multierror.Append(result, fmt.Errorf("failed to eval Dimensions for instance '%s': %v", name, err))
 						continue
 					}
 

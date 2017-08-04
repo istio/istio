@@ -41,7 +41,7 @@ message Type {
 
 }
 
-message ConstructorParam {
+message InstanceParam {
 
   string value = 1;
 

@@ -79,7 +79,7 @@ type (
 
 	// SetupHandlerFn is used to configure handler implementation with Types associated with all the templates that
 	// it supports.
-	SetupHandlerFn func(actions []*pb.Action, constructors map[string]*pb.Constructor,
+	SetupHandlerFn func(actions []*pb.Action, instances map[string]*pb.Instance,
 		handlers map[string]*HandlerBuilderInfo, tmplRepo template.Repository, expr expr.TypeChecker, df expr.AttributeDescriptorFinder) error
 )
 
@@ -94,7 +94,7 @@ func newValidator(managerFinder AspectValidatorFinder, adapterFinder BuilderVali
 		setupHandler:  setupHandlerFn,
 		tmpls:         templateRepo,
 		findAspects:   findAspects,
-		ctors:         make(map[string]*pb.Constructor),
+		ctors:         make(map[string]*pb.Instance),
 		actions:       make([]*pb.Action, 0),
 		strict:        strict,
 		typeChecker:   typeChecker,
@@ -121,7 +121,7 @@ type (
 		findAspects      AdapterToAspectMapper
 		descriptorFinder descriptor.Finder
 		handlers         map[string]*HandlerBuilderInfo
-		ctors            map[string]*pb.Constructor
+		ctors            map[string]*pb.Instance
 		actions          []*pb.Action
 		strict           bool
 		typeChecker      expr.TypeChecker
@@ -212,21 +212,21 @@ func (v *Validated) Clone() *Validated {
 }
 
 const (
-	global       = "global"
-	scopes       = "scopes"
-	subjects     = "subjects"
-	rules        = "rules"
-	constructors = "constructors"
-	actionRules  = "action_rules"
-	adapters     = "adapters"
-	handlers     = "handlers"
-	descriptors  = "descriptors"
+	global      = "global"
+	scopes      = "scopes"
+	subjects    = "subjects"
+	rules       = "rules"
+	instances   = "instances"
+	actionRules = "action_rules"
+	adapters    = "adapters"
+	handlers    = "handlers"
+	descriptors = "descriptors"
 
 	keyAdapters            = "/scopes/global/adapters"
 	keyHandlers            = "/scopes/global/handlers"
 	keyDescriptors         = "/scopes/global/descriptors"
 	keyGlobalServiceConfig = "/scopes/global/subjects/global/rules"
-	keyConstructorsConfig  = "/scopes/global/subjects/global/constructors"
+	keyInstancesConfig     = "/scopes/global/subjects/global/instances"
 	keyActionsConfig       = "/scopes/global/subjects/global/action_rules"
 )
 
@@ -439,7 +439,7 @@ func (p *validator) validateRules(rules []*pb.Rule, path string) (ce *adapter.Co
 				cnstr := p.ctors[instName]
 				if !containsTmpl(h.supportedTemplates, cnstr.GetTemplate()) {
 					hasError = true
-					ce = ce.Appendf(fmt.Sprintf("%s[%d]", path, idx), "constructor '%s' cannot be "+
+					ce = ce.Appendf(fmt.Sprintf("%s[%d]", path, idx), "instance '%s' cannot be "+
 						"associated with handler %s since the handler does not support the template %s.",
 						instName, aa.GetHandler(), cnstr.GetTemplate())
 				}
@@ -469,19 +469,19 @@ func containsTmpl(s []string, e string) bool {
 	return false
 }
 
-// validateConstructors validates the constructors in the service configuration.
-func (p *validator) validateConstructors(constructors []*pb.Constructor) (ce *adapter.ConfigErrors) {
-	for _, cnstr := range constructors {
-		if c, ok := p.ctors[cnstr.GetInstanceName()]; ok {
-			ce = ce.Appendf(fmt.Sprintf("constructor:%s", cnstr.GetInstanceName()), "duplicate constructors with same instanceNames %v and %v", *c, *cnstr)
+// validateInstances validates the instances in the service configuration.
+func (p *validator) validateInstances(instances []*pb.Instance) (ce *adapter.ConfigErrors) {
+	for _, cnstr := range instances {
+		if c, ok := p.ctors[cnstr.GetName()]; ok {
+			ce = ce.Appendf(fmt.Sprintf("instance:%s", cnstr.GetName()), "duplicate instances with same names %v and %v", *c, *cnstr)
 			continue
 		}
-		if ccfg, err := convertConstructorParam(p.tmpls, cnstr.GetTemplate(), cnstr.GetParams(), p.strict); err != nil {
-			ce = ce.Appendf(fmt.Sprintf("constructor:%s", cnstr.GetInstanceName()), "failed to parse params: %v", err)
+		if ccfg, err := convertInstanceParam(p.tmpls, cnstr.GetTemplate(), cnstr.GetParams(), p.strict); err != nil {
+			ce = ce.Appendf(fmt.Sprintf("instance:%s", cnstr.GetName()), "failed to parse params: %v", err)
 			continue
 		} else {
 			cnstr.Params = ccfg
-			p.ctors[cnstr.GetInstanceName()] = cnstr
+			p.ctors[cnstr.GetName()] = cnstr
 		}
 	}
 	return ce
@@ -496,8 +496,8 @@ func classifyKeys(cfg map[string]string) map[string][]string {
 		switch kk[len(kk)-1] {
 		case rules:
 			k = rules
-		case constructors:
-			k = constructors
+		case instances:
+			k = instances
 		case actionRules:
 			k = actionRules
 		case adapters:
@@ -559,12 +559,12 @@ func (p *validator) validate(cfg map[string]string) (rt *Validated, ce *adapter.
 		}
 	}
 
-	for _, kk := range keymap[constructors] {
+	for _, kk := range keymap[instances] {
 		ck := parseRulesKey(kk)
 		if ck == nil {
 			continue
 		}
-		if re := p.validateConstructorConfigs(cfg[kk]); re != nil {
+		if re := p.validateInstanceConfigs(cfg[kk]); re != nil {
 			rce = rce.Extend(re)
 		}
 	}
@@ -691,14 +691,14 @@ func (p *validator) validateRulesConfig(cfg string) (ce *adapter.ConfigErrors) {
 	return nil
 }
 
-func (p *validator) validateConstructorConfigs(cfg string) (ce *adapter.ConfigErrors) {
+func (p *validator) validateInstanceConfigs(cfg string) (ce *adapter.ConfigErrors) {
 	var err error
 	m := &pb.ServiceConfig{}
 	if err = yaml.Unmarshal([]byte(cfg), m); err != nil {
 		return ce.Appendf("serviceConfig", "failed to unmarshal config into proto: %v", err)
 	}
 
-	if ce = p.validateConstructors(m.GetConstructors()); ce != nil {
+	if ce = p.validateInstances(m.GetInstances()); ce != nil {
 		return ce
 	}
 
@@ -785,8 +785,8 @@ func convertAdapterParams(f BuilderValidatorFinder, name string, params interfac
 	return ac, nil
 }
 
-// convertConstructorParam converts and returns a typed proto message based on available templates.
-func convertConstructorParam(tf template.Repository, templateName string, params interface{},
+// convertInstanceParam converts and returns a typed proto message based on available templates.
+func convertInstanceParam(tf template.Repository, templateName string, params interface{},
 	strict bool) (cp proto.Message, ce *adapter.ConfigErrors) {
 
 	var found bool
@@ -796,7 +796,7 @@ func convertConstructorParam(tf template.Repository, templateName string, params
 	}
 	cp = tmplInfo.CtrCfg
 	if err := decode(params, cp, strict); err != nil {
-		return nil, ce.Appendf(templateName, "failed to decode constructor params: %v", err)
+		return nil, ce.Appendf(templateName, "failed to decode instance params: %v", err)
 	}
 	return cp, nil
 }
@@ -833,9 +833,9 @@ func convertAspectParams(f AspectValidatorFinder, name string, params interface{
 // decode interprets src interface{} as the specified proto message.
 // if strict is true returns error on unknown fields.
 // TODO dst at message CnstParam {Value string} fails to decode `value: 1`. Seems weird, investigate
-// The constructorParams are all stringified for all ValueType items, so if a value field is meant to be
+// The instanceParams are all stringified for all ValueType items, so if a value field is meant to be
 // of ValueType, it's expression can be anything and we are suppose to infer type from it. To parse the
-// field we need a proto, which is our synthesized ConstructorParam from each template. Due to the limitation
+// field we need a proto, which is our synthesized InstanceParam from each template. Due to the limitation
 // of non string fields cannot parsed into strings, we might have a problem.. Investigate.
 func decode(src interface{}, dst proto.Message, strict bool) error {
 	ba, err := json.Marshal(src)

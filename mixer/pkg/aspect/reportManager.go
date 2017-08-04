@@ -39,7 +39,7 @@ type (
 		tmplName     string
 		procDispatch template.ProcessReportFn
 		hndlr        config2.Handler
-		ctrs         map[string]proto.Message // constructor name -> constructor params
+		insts        map[string]proto.Message // instance name -> instance params
 	}
 )
 
@@ -51,11 +51,11 @@ func NewReportManager(repo template.Repository) ReportManager {
 
 func (m *reportManager) NewReportExecutor(c *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env,
 	df descriptor.Finder, tmpl string) (ReportExecutor, error) {
-	ctrs := make(map[string]proto.Message)
-	for _, cstr := range c.Constructors {
-		ctrs[cstr.InstanceName] = cstr.Params.(proto.Message)
+	insts := make(map[string]proto.Message)
+	for _, cstr := range c.Instances {
+		insts[cstr.Name] = cstr.Params.(proto.Message)
 		if cstr.Template != tmpl {
-			return nil, fmt.Errorf("resolved constructor's '%v' template is different than expected template name : %s", cstr, tmpl)
+			return nil, fmt.Errorf("resolved instance's '%v' template is different than expected template name : %s", cstr, tmpl)
 		}
 	}
 
@@ -73,7 +73,7 @@ func (m *reportManager) NewReportExecutor(c *cpb.Combined, createAspect CreateAs
 			"Therefore, it cannot support template %v", ti.HndlrName, tmpl)
 	}
 
-	return &reportExecutor{tmpl, ti.ProcessReport, v, ctrs}, nil
+	return &reportExecutor{tmpl, ti.ProcessReport, v, insts}, nil
 }
 
 func (*reportManager) DefaultConfig() config.AspectParams { return nil }
@@ -86,7 +86,7 @@ func (*reportManager) Kind() config.Kind {
 }
 
 func (w *reportExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
-	return w.procDispatch(w.ctrs, attrs, mapper, w.hndlr)
+	return w.procDispatch(w.insts, attrs, mapper, w.hndlr)
 }
 
 func (w *reportExecutor) Close() error {

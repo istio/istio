@@ -39,7 +39,7 @@ type (
 		tmplName     string
 		procDispatch template.ProcessCheckFn
 		hndlr        config2.Handler
-		ctrs         map[string]proto.Message // constructor name -> constructor params
+		insts        map[string]proto.Message // instance name -> instance params
 	}
 )
 
@@ -51,11 +51,11 @@ func NewCheckManager(repo template.Repository) CheckManager {
 
 func (m *checkManager) NewCheckExecutor(c *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env,
 	df descriptor.Finder, tmpl string) (CheckExecutor, error) {
-	ctrs := make(map[string]proto.Message)
-	for _, cstr := range c.Constructors {
-		ctrs[cstr.InstanceName] = cstr.Params.(proto.Message)
+	insts := make(map[string]proto.Message)
+	for _, cstr := range c.Instances {
+		insts[cstr.Name] = cstr.Params.(proto.Message)
 		if cstr.Template != tmpl {
-			return nil, fmt.Errorf("resolved constructor's '%v' template is different than expected template name : %s", cstr, tmpl)
+			return nil, fmt.Errorf("resolved instance's '%v' template is different than expected template name : %s", cstr, tmpl)
 		}
 	}
 
@@ -73,7 +73,7 @@ func (m *checkManager) NewCheckExecutor(c *cpb.Combined, createAspect CreateAspe
 			"Therefore, it cannot support template %v", ti.HndlrName, tmpl)
 	}
 
-	return &checkExecutor{tmpl, ti.ProcessCheck, v, ctrs}, nil
+	return &checkExecutor{tmpl, ti.ProcessCheck, v, insts}, nil
 }
 
 func (*checkManager) DefaultConfig() config.AspectParams { return nil }
@@ -86,7 +86,7 @@ func (*checkManager) Kind() config.Kind {
 }
 
 func (w *checkExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
-	s, _ := w.procDispatch(w.ctrs, attrs, mapper, w.hndlr) // ignore Cacheability info for now.
+	s, _ := w.procDispatch(w.insts, attrs, mapper, w.hndlr) // ignore Cacheability info for now.
 	return s
 }
 

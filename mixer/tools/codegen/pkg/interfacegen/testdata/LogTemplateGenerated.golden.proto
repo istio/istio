@@ -38,7 +38,7 @@ message Type {
 
 }
 
-message ConstructorParam {
+message InstanceParam {
 
     map<string, string> dimensions = 1;
 

@@ -30,7 +30,7 @@ message Type {
 
 }
 
-message ConstructorParam {
+message InstanceParam {
 
     string check_expression = 1;
 

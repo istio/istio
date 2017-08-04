@@ -22,7 +22,7 @@ TODO:
 -  Handle Oneofs. The protoc-gen-go have special logic (removed from this file, but present in the protoc-gen-go).
    Our generated interface code might also need that special logic if the Instance object wants to reference a
    oneof from the generated mytemplate.pb.go
--  Handle Extensions. Should we allow Constructor message to have extension fields. Extensions have are a complete
+-  Handle Extensions. Should we allow Instance message to have extension fields. Extensions have are a complete
    different handling in protoc-gen-go. So far I am what it means for our generated code.
 -  Accept all the other parameters that protoc-gen-go takes in our generator. Our codegen should use those
    parameters for it's codegen and pass to the protoc-gen-go plugin (invoking another protoc process).

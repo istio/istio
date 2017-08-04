@@ -51,11 +51,11 @@ func TestCheckManager_NewCheckExecutor(t *testing.T) {
 	instName := "TestCheckInstanceName"
 
 	conf := &cfgpb.Combined{
-		Constructors: []*cfgpb.Constructor{
+		Instances: []*cfgpb.Instance{
 			{
-				Template:     tmplName,
-				InstanceName: instName,
-				Params:       &types.Empty{},
+				Template: tmplName,
+				Name:     instName,
+				Params:   &types.Empty{},
 			},
 		},
 	}
@@ -75,9 +75,9 @@ func TestCheckManager_NewCheckExecutor(t *testing.T) {
 		if qe.tmplName != tmplName {
 			t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)).tmplName = %v; wanted %v", qe.tmplName, tmplName)
 		}
-		wantCtrs := map[string]proto.Message{instName: conf.Constructors[0].Params.(proto.Message)}
-		if !reflect.DeepEqual(qe.ctrs, wantCtrs) {
-			t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)).ctrs = %v; wanted %v", qe.ctrs, wantCtrs)
+		wantInsts := map[string]proto.Message{instName: conf.Instances[0].Params.(proto.Message)}
+		if !reflect.DeepEqual(qe.insts, wantInsts) {
+			t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)).insts = %v; wanted %v", qe.insts, wantInsts)
 		}
 	}
 }
@@ -87,17 +87,17 @@ func TestCheckManager_NewCheckExecutorErrors(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		ctr           cfgpb.Constructor
+		ctr           cfgpb.Instance
 		hndlrSuppTmpl bool
 		wantErr       string
 	}{
 		{
 			name:    "NotFoundTemplate",
 			wantErr: "template is different",
-			ctr: cfgpb.Constructor{
-				Template:     "NotFoundTemplate",
-				InstanceName: "SomeInstName",
-				Params:       &types.Empty{},
+			ctr: cfgpb.Instance{
+				Template: "NotFoundTemplate",
+				Name:     "SomeInstName",
+				Params:   &types.Empty{},
 			},
 			hndlrSuppTmpl: true,
 		},
@@ -105,10 +105,10 @@ func TestCheckManager_NewCheckExecutorErrors(t *testing.T) {
 			name:          "BadHandlerInterface",
 			wantErr:       "does not implement interface",
 			hndlrSuppTmpl: false,
-			ctr: cfgpb.Constructor{
-				Template:     tmplName,
-				InstanceName: "SomeInstName",
-				Params:       &types.Empty{},
+			ctr: cfgpb.Instance{
+				Template: tmplName,
+				Name:     "SomeInstName",
+				Params:   &types.Empty{},
 			},
 		},
 	}
@@ -117,7 +117,7 @@ func TestCheckManager_NewCheckExecutorErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := &fakeCheckHandler{}
 			conf := &cfgpb.Combined{
-				Constructors: []*cfgpb.Constructor{
+				Instances: []*cfgpb.Instance{
 					&tt.ctr,
 				},
 			}
@@ -134,7 +134,7 @@ func TestCheckManager_NewCheckExecutorErrors(t *testing.T) {
 
 func TestNewCheckExecutor_Execute(t *testing.T) {
 	instName := "TestCheckInstanceName"
-	ctrs := map[string]proto.Message{
+	insts := map[string]proto.Message{
 		instName: &types.Empty{},
 	}
 
@@ -154,11 +154,11 @@ func TestNewCheckExecutor_Execute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cProc := func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
+			cProc := func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
 				handler adptConfig.Handler) (rpc.Status, adptConfig.CacheabilityInfo) {
 				return tt.retStatus, adptConfig.CacheabilityInfo{}
 			}
-			e := &checkExecutor{"TestCheckTemplate", cProc, nil, ctrs}
+			e := &checkExecutor{"TestCheckTemplate", cProc, nil, insts}
 			s := e.Execute(nil, nil)
 
 			if !reflect.DeepEqual(s, tt.retStatus) {
