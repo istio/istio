@@ -10,7 +10,15 @@ option (istio.mixer.v1.config.template.template_name) = "List";
 
 
 message Template {
+    /*
+    multi line comment
+    multi line comment line 2
+    */
     bool blacklist = 1;
+
+    /*single line block comment*/
     istio.mixer.v1.config.descriptor.ValueType val = 2;
+
+    // single line comment
     map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 3;
 }

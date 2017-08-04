@@ -63,11 +63,13 @@ func TestGenerator_Generate(t *testing.T) {
 			}
 
 			defer func() {
-				if removeErr := os.Remove(oIntface.Name()); removeErr != nil {
-					t.Logf("Could not remove temporary file %s: %v", oIntface.Name(), removeErr)
-				}
-				if removeErr := os.Remove(oTmpl.Name()); removeErr != nil {
-					t.Logf("Could not remove temporary file %s: %v", oTmpl.Name(), removeErr)
+				if !t.Failed() {
+					if removeErr := os.Remove(oIntface.Name()); removeErr != nil {
+						t.Logf("Could not remove temporary file %s: %v", oIntface.Name(), removeErr)
+					}
+					if removeErr := os.Remove(oTmpl.Name()); removeErr != nil {
+						t.Logf("Could not remove temporary file %s: %v", oTmpl.Name(), removeErr)
+					}
 				}
 			}()
 

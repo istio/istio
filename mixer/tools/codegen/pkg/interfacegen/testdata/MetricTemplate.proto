@@ -1,5 +1,11 @@
+/*
+Overview of what metric is etc..
+*/
 syntax = "proto3";
 
+/*
+Additional overview of what metric is etc..
+*/
 package istio.mixer.adapter.metric;
 
 import "mixer/v1/config/descriptor/value_type.proto";
@@ -8,7 +14,12 @@ import "pkg/adapter/template/TemplateExtensions.proto";
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 option (istio.mixer.v1.config.template.template_name) = "Metric";
 
+/* metric template is ..
+   aso it is...
+*/
 message Template {
+    // value is ...
     istio.mixer.v1.config.descriptor.ValueType value = 1;
+    // dimensions are ...
     map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
 }

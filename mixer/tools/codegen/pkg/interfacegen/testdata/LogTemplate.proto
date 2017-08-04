@@ -11,6 +11,13 @@ option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPO
 option (istio.mixer.v1.config.template.template_name) = "Log";
 
 // Defines the format of a single log entry.
+// example :
+// ...
+// ...
 message Template {
+    // Defines the format of a single log entry.
+    // example :
+    // ...
+    // ...
     map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 1;
 }

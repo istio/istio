@@ -72,6 +72,13 @@ func TestBasicTopLevelFields(t *testing.T) {
 	if model.VarietyName != "TEMPLATE_VARIETY_CHECK" {
 		t.Fatalf("CreateModel(%s).VarietyName = %v, wanted %s", testFilename, model.VarietyName, "TEMPLATE_VARIETY_CHECK")
 	}
+	if model.TemplateMessage.Comment != "// My Template comment" {
+		t.Fatalf("CreateModel(%s).TemplateMessage.Comment = %s, wanted %s", testFilename, model.TemplateMessage.Comment, "// My Template comment")
+	}
+
+	if model.Comment != "// comment for syntax\n// comment for package" {
+		t.Fatalf("CreateModel(%s).Comment = %s, wanted %s", testFilename, model.Comment, "// comment for syntax\n// comment for package")
+	}
 }
 
 func TestTypeFields(t *testing.T) {
@@ -83,26 +90,26 @@ func TestTypeFields(t *testing.T) {
 		t.Fatalf("len(CreateModel(%s).TypeMessage.Fields) = %v, wanted %d", testFilename, len(model.TemplateMessage.Fields), 3)
 	}
 	testField(t, model.TemplateMessage.Fields,
-		"blacklist", "bool", "Blacklist", "bool")
+		"blacklist", "bool", "Blacklist", "bool", "multi line comment line 2")
 	testField(t, model.TemplateMessage.Fields,
 		"val", "istio.mixer.v1.config.descriptor.ValueType", "Val",
-		"istio_mixer_v1_config_descriptor.ValueType")
+		"istio_mixer_v1_config_descriptor.ValueType", "single line block comment")
 	testField(t, model.TemplateMessage.Fields,
 		"dimensions", "map<string, istio.mixer.v1.config.descriptor.ValueType>",
-		"Dimensions", "map[string]istio_mixer_v1_config_descriptor.ValueType")
+		"Dimensions", "map[string]istio_mixer_v1_config_descriptor.ValueType", "single line comment")
 }
 
 func testField(t *testing.T, fields []fieldInfo, protoFldName string, protoFldType string,
-	goFldName string, goFldType string) {
+	goFldName string, goFldType string, comment string) {
 	testFilename := "testdata/simple_template.descriptor_set"
 	found := false
 	for _, cf := range fields {
 		if cf.Name == protoFldName {
 			found = true
-			if cf.GoName != goFldName || cf.Type != protoFldType || cf.GoType != goFldType {
-				t.Fatalf("Got CreateModel(%s).TemplateMessage.Fields[%s] = GoName:%s, Type:%s, GoType:%s, "+
-					"\nwanted GoName:%s, Type:%s, GoType:%s",
-					testFilename, protoFldName, cf.GoName, cf.Type, cf.GoType, goFldName, protoFldType, goFldType)
+			if cf.GoName != goFldName || cf.Type != protoFldType || cf.GoType != goFldType || !strings.Contains(cf.Comment, comment) {
+				t.Fatalf("Got CreateModel(%s).TemplateMessage.Fields[%s] = GoName:%s, Type:%s, GoType:%s, Comment:%s"+
+					"\nwanted GoName:%s, Type:%s, GoType:%s, comment: %s",
+					testFilename, protoFldName, cf.GoName, cf.Type, cf.GoType, cf.Comment, goFldName, protoFldType, goFldType, comment)
 			}
 		}
 	}

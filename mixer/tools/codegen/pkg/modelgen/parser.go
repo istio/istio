@@ -31,6 +31,7 @@ TODO:
 package modelgen
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strconv"
@@ -67,6 +68,9 @@ type FileDescriptor struct {
 
 	// lineNumbers stored as a map of path (comma-separated integers) to string.
 	lineNumbers map[string]string
+
+	// Comments, stored as a map of path (comma-separated integers) to the comment.
+	comments map[string]*descriptor.SourceCodeInfo_Location
 
 	proto3 bool // whether to generate proto3 code for this file
 }
@@ -131,7 +135,7 @@ func (g *FileDescriptorSetParser) wrapFileDescriptor(f *descriptor.FileDescripto
 			enum:                enums,
 			proto3:              fileIsProto3(f),
 		}
-		extractLineNumbers(fd)
+		extractCommentsAndLineNumbers(fd)
 		g.allFiles = append(g.allFiles, fd)
 		g.allFilesByName[f.GetName()] = fd
 	}
@@ -471,15 +475,31 @@ func (g *FileDescriptorSetParser) ObjectNamed(typeName string) Object {
 	return o
 }
 
-func extractLineNumbers(file *FileDescriptor) {
+func extractCommentsAndLineNumbers(file *FileDescriptor) {
 	file.lineNumbers = make(map[string]string)
+	file.comments = make(map[string]*descriptor.SourceCodeInfo_Location)
 	for _, loc := range file.GetSourceCodeInfo().GetLocation() {
 		var p []string
 		for _, n := range loc.Path {
 			p = append(p, strconv.Itoa(int(n)))
 		}
 		file.lineNumbers[strings.Join(p, ",")] = strconv.Itoa(int(loc.Span[0]) + 1)
+		if loc.LeadingComments != nil {
+			file.comments[strings.Join(p, ",")] = loc
+		}
 	}
+}
+
+func (d *FileDescriptor) getComment(path string) string {
+	if loc, ok := d.comments[path]; ok {
+		text := strings.TrimSuffix(loc.GetLeadingComments(), "\n")
+		var buffer bytes.Buffer
+		for _, line := range strings.Split(text, "\n") {
+			buffer.WriteString("// " + strings.TrimPrefix(line, " ") + "\n")
+		}
+		return strings.TrimSuffix(buffer.String(), "\n")
+	}
+	return ""
 }
 
 func (d *FileDescriptor) getLineNumber(path string) string {
@@ -617,6 +637,7 @@ func goPackageName(pkg string) string {
 
 const (
 	syntaxPath         = "12" // syntax
+	packagePath        = "2"  // syntax
 	messagePath        = "4"  // message_type
 	enumPath           = "5"  // enum_type
 	messageFieldPath   = "2"  // field
