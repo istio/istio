@@ -47,6 +47,8 @@ echo 'Running Linters'
 echo 'Running Unit Tests'
 bazel test //...
 
+echo 'Pushing Images'
+(cd devel/fortio make TAG="${GIT_SHA}")
+
 echo 'Running Integration Tests'
 ./tests/e2e.sh ${E2E_ARGS[@]}
-

@@ -2,9 +2,9 @@
 
 IMAGES=fortio echosrv grpcping # plus the combo image / Dockerfile without ext.
 
-DOCKER_PREFIX := ldemailly/fortio
+DOCKER_PREFIX := gcr.io/istio-testing/fortio
 
-TAG:=$(shell date +%y%m%d_%H%M%S)
+TAG:=$(USER)$(shell date +%y%m%d_%H%M%S)
 
 DOCKER_TAG = $(DOCKER_PREFIX)$(IMAGE):$(TAG)
 
@@ -22,4 +22,7 @@ docker-push-internal: docker-internal
 	@echo "### Now pushing $(DOCKER_TAG)"
 	docker push $(DOCKER_TAG)
 
-.PHONY: all docker-internal docker-push-internal
+authorize:
+	gcloud docker --authorize-only --project istio-testing
+
+.PHONY: all docker-internal docker-push-internal authorize
