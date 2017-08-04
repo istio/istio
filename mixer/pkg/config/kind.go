@@ -35,7 +35,7 @@ const (
 	ListsKind
 	MetricsKind
 	QuotasKind
-
+	Undefined
 	NumKinds
 )
 

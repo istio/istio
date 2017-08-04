@@ -52,7 +52,8 @@ func newQuotasManager() QuotaManager {
 	return &quotasManager{}
 }
 
-func (m *quotasManager) NewQuotaExecutor(c *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder) (QuotaExecutor, error) {
+func (m *quotasManager) NewQuotaExecutor(c *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env,
+	df descriptor.Finder, _ string) (QuotaExecutor, error) {
 	params := c.Aspect.Params.(*aconfig.QuotasParams)
 
 	metadata := make(map[string]*quotaInfo, len(params.Quotas))

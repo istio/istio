@@ -164,6 +164,9 @@ func (c *Manager) fetch() (*runtime, descriptor.Finder, map[string]*HandlerInfo,
 		return nil, nil, nil, nil
 	}
 
+	// TODO Close the handlers that were previously part of old runtime object.
+	// Only close the handlers whose config has changed or their inferred types have changed.
+	// Information about all of that in computed inside config/handler.go
 	var vd *Validated
 	var finder descriptor.Finder
 	var cerr *adapter.ConfigErrors

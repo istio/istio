@@ -71,7 +71,8 @@ func newApplicationLogsManager() ReportManager {
 	return applicationLogsManager{}
 }
 
-func (applicationLogsManager) NewReportExecutor(c *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder) (ReportExecutor, error) {
+func (applicationLogsManager) NewReportExecutor(c *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env,
+	df descriptor.Finder, _ string) (ReportExecutor, error) {
 	// TODO: look up actual descriptors by name and build an array
 	cfg := c.Aspect.Params.(*aconfig.ApplicationLogsParams)
 	metadata := make(map[string]*logInfo)

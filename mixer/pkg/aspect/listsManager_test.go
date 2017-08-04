@@ -104,7 +104,7 @@ func TestListsManager_NewCheckExecutor(t *testing.T) {
 
 	lm := newListsManager()
 	f, _ := FromBuilder(newListsBuilder(false), config.ListsKind)
-	if _, err := lm.NewCheckExecutor(defaultCfg, f, test.Env{}, nil); err != nil {
+	if _, err := lm.NewCheckExecutor(defaultCfg, f, test.Env{}, nil, ""); err != nil {
 		t.Errorf("NewCheckExecutor() returned an unexpected error: %v", err)
 	}
 }
@@ -117,7 +117,7 @@ func TestListsManager_NewCheckExecutorErrors(t *testing.T) {
 
 	lm := newListsManager()
 	f, _ := FromBuilder(newListsBuilder(true), config.ListsKind)
-	if _, err := lm.NewCheckExecutor(defaultCfg, f, test.Env{}, nil); err == nil {
+	if _, err := lm.NewCheckExecutor(defaultCfg, f, test.Env{}, nil, ""); err == nil {
 		t.Error("NewCheckExecutor() should have returned an error")
 	}
 }

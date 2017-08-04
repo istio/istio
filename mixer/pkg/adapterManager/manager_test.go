@@ -177,7 +177,7 @@ func (m *fakeCheckAspectMgr) Kind() config.Kind {
 }
 
 func (m *fakeCheckAspectMgr) NewCheckExecutor(
-	cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder) (aspect.CheckExecutor, error) {
+	cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder, _ string) (aspect.CheckExecutor, error) {
 	m.called++
 	if m.ce == nil {
 		return nil, errors.New("unable to create aspect")
@@ -191,7 +191,7 @@ func (m *fakeReportAspectMgr) Kind() config.Kind {
 }
 
 func (m *fakeReportAspectMgr) NewReportExecutor(
-	cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder) (aspect.ReportExecutor, error) {
+	cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder, _ string) (aspect.ReportExecutor, error) {
 	m.called++
 	if m.re == nil {
 		return nil, errors.New("unable to create aspect")
@@ -205,7 +205,7 @@ func (m *fakeQuotaAspectMgr) Kind() config.Kind {
 }
 
 func (m *fakeQuotaAspectMgr) NewQuotaExecutor(
-	cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder) (aspect.QuotaExecutor, error) {
+	cfg *cpb.Combined, _ aspect.CreateAspectFunc, env adapter.Env, _ descriptor.Finder, _ string) (aspect.QuotaExecutor, error) {
 	m.called++
 	if m.qe == nil {
 		return nil, errors.New("unable to create aspect")
@@ -612,7 +612,7 @@ func TestExecute(t *testing.T) {
 		m := newManager(breg, mreg, nil, aspect.ManagerInventory{}, gp, agp)
 
 		cfg := []*cpb.Combined{
-			{&cpb.Adapter{Name: c.name}, &cpb.Aspect{Kind: c.name}},
+			{&cpb.Adapter{Name: c.name}, &cpb.Aspect{Kind: c.name}, nil},
 		}
 		m.resolver.Store(&fakeResolver{cfg, nil})
 
@@ -644,7 +644,7 @@ func TestExecute_Cancellation(t *testing.T) {
 	m := &Manager{gp: gp, adapterGP: agp}
 
 	cfg := []*cpb.Combined{
-		{&cpb.Adapter{Name: ""}, &cpb.Aspect{Kind: ""}},
+		{&cpb.Adapter{Name: ""}, &cpb.Aspect{Kind: ""}, nil},
 	}
 	m.resolver.Store(&fakeResolver{cfg, nil})
 
@@ -691,6 +691,7 @@ func TestExecute_TimeoutWaitingForResults(t *testing.T) {
 	cfg := []*cpb.Combined{{
 		&cpb.Adapter{Name: name},
 		&cpb.Aspect{Kind: name},
+		nil,
 	}}
 	m.resolver.Store(&fakeResolver{cfg, nil})
 
