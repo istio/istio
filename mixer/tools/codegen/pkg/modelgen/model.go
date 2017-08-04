@@ -126,7 +126,7 @@ func (m *Model) addTemplateMessage(parser *FileDescriptorSetParser, templateProt
 			GoName: camelCase(fieldName),
 			GoType: parser.goType(tmplDesc.DescriptorProto, fieldDesc),
 			Type:   typename,
-			Number: strconv.FormatInt(int64(fieldDesc.GetNumber()), 10),
+			Number: strconv.Itoa(int(fieldDesc.GetNumber())),
 		})
 	}
 }
