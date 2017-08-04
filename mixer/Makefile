@@ -12,6 +12,8 @@
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
 
+SHELL := /bin/bash
+
 build:
 	@bazel build //...:all
 
@@ -32,3 +34,5 @@ coverage:
 
 racetest:
 	@bazel test --features=race //...
+
+.PHONY: build clean test lint fmt coverage racetest
