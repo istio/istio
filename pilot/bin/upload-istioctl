@@ -49,6 +49,8 @@ if [[ ${RELEASE} == true ]]; then
   GOOS=darwin GOARCH=amd64 ${go} build -ldflags "${LDFLAGS}" istio.io/pilot/cmd/istioctl
   mv istioctl "${BIN_DIR}/istioctl-osx"
 
+  # install missing spf13/cobra dependency (windows only)
+  go get github.com/inconshreveable/mousetrap
   GOOS=windows GOARCH=amd64 ${go} build -ldflags "${LDFLAGS}" istio.io/pilot/cmd/istioctl
   mv istioctl.exe "${BIN_DIR}/istioctl-win.exe"
 fi
