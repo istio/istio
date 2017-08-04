@@ -45,7 +45,8 @@ func newListsManager() CheckManager {
 }
 
 // NewCheckExecutor creates a listChecker aspect.
-func (listsManager) NewCheckExecutor(cfg *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder) (CheckExecutor, error) {
+func (listsManager) NewCheckExecutor(cfg *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env,
+	df descriptor.Finder, _ string) (CheckExecutor, error) {
 	out, err := createAspect(env, cfg.Builder.Params.(config.AspectParams))
 	if err != nil {
 		return nil, err

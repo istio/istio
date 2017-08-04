@@ -55,7 +55,8 @@ func newMetricsManager() ReportManager {
 	return &metricsManager{}
 }
 
-func (m *metricsManager) NewReportExecutor(c *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder) (ReportExecutor, error) {
+func (m *metricsManager) NewReportExecutor(c *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env,
+	df descriptor.Finder, _ string) (ReportExecutor, error) {
 	params := c.Aspect.Params.(*aconfig.MetricsParams)
 
 	metadata := make(map[string]*metricInfo)

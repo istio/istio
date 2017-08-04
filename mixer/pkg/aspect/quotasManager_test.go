@@ -107,7 +107,7 @@ func TestQuotasManager_NewAspect(t *testing.T) {
 	builder := &fakeQuotaBuilder{name: "test", body: func() (adapter.QuotasAspect, error) {
 		return &fakeQuotaAspect{}, nil
 	}}
-	df := test.NewDescriptorFinder(map[string]interface{}{quotaRequestCount.Name: quotaRequestCount})
+	ndf := test.NewDescriptorFinder(map[string]interface{}{quotaRequestCount.Name: quotaRequestCount})
 	conf := &cfgpb.Combined{
 		Aspect: &cfgpb.Aspect{
 			Params: &aconfig.QuotasParams{
@@ -126,7 +126,7 @@ func TestQuotasManager_NewAspect(t *testing.T) {
 	}
 
 	f, _ := FromBuilder(builder, config.QuotasKind)
-	if _, err := newQuotasManager().NewQuotaExecutor(conf, f, atest.NewEnv(t), df); err != nil {
+	if _, err := newQuotasManager().NewQuotaExecutor(conf, f, atest.NewEnv(t), ndf, ""); err != nil {
 		t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)) = _, %v; wanted no err", err)
 	}
 }
@@ -143,7 +143,7 @@ func TestQuotasManager_NewAspect_PropagatesError(t *testing.T) {
 			return nil, errors.New(errString)
 		}}
 	f, _ := FromBuilder(builder, config.QuotasKind)
-	_, err := newQuotasManager().NewQuotaExecutor(conf, f, atest.NewEnv(t), nil)
+	_, err := newQuotasManager().NewQuotaExecutor(conf, f, atest.NewEnv(t), nil, "")
 	if err == nil {
 		t.Error("newQuotasManager().NewExecutor(conf, builder, test.NewEnv(t)) = _, nil; wanted err")
 	}
@@ -153,7 +153,7 @@ func TestQuotasManager_NewAspect_PropagatesError(t *testing.T) {
 }
 
 func TestQuotasManager_ValidateConfig(t *testing.T) {
-	df := test.NewDescriptorFinder(map[string]interface{}{
+	ndf := test.NewDescriptorFinder(map[string]interface{}{
 		quotaRequestCount.Name: quotaRequestCount,
 		quotaWithLabels.Name:   quotaWithLabels,
 		"invalid desc": &dpb.QuotaDescriptor{
@@ -225,13 +225,13 @@ func TestQuotasManager_ValidateConfig(t *testing.T) {
 		df   descriptor.Finder
 		err  string
 	}{
-		{"empty config", &aconfig.QuotasParams{}, v, df, ""},
-		{"valid", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&validParam}}, v, df, ""},
-		{"no labels", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&validNoLabels}}, v, df, ""},
-		{"missing descriptor", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&missingDesc}}, v, df, "could not find a descriptor"},
-		{"failed type checking (bad expr)", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&invalidExpr}}, v, df, "failed to parse expression"},
-		{"label eval'd type doesn't match desc", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&wrongLabelType}}, v, df, "expected type STRING"},
-		{"wrong dimensions for metric", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&extraLabel}}, v, df, "wrong dimensions"},
+		{"empty config", &aconfig.QuotasParams{}, v, ndf, ""},
+		{"valid", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&validParam}}, v, ndf, ""},
+		{"no labels", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&validNoLabels}}, v, ndf, ""},
+		{"missing descriptor", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&missingDesc}}, v, ndf, "could not find a descriptor"},
+		{"failed type checking (bad expr)", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&invalidExpr}}, v, ndf, "failed to parse expression"},
+		{"label eval'd type doesn't match desc", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&wrongLabelType}}, v, ndf, "expected type STRING"},
+		{"wrong dimensions for metric", &aconfig.QuotasParams{Quotas: []*aconfig.QuotasParams_Quota{&extraLabel}}, v, ndf, "wrong dimensions"},
 	}
 
 	for idx, tt := range tests {
