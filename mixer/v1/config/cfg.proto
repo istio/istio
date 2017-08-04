@@ -56,8 +56,8 @@ package istio.mixer.v1.config;
 //   adapter: prometheus
 //   params:
 //
-// constructors:
-// - instanceName: RequestCountByService
+// instances:
+// - name: RequestCountByService
 //   template: istio.mixer.adapter.metric.Metric
 //   params:
 //     value: 1
@@ -79,8 +79,8 @@ message ServiceConfig {
   repeated AspectRule rules = 3 [deprecated = true];
 
   // Under development, DO NOT USE
-  // Optional. List of constructors that can be referenced from [actions][istio.mixer.v1.config.Action.instances]
-  repeated Constructor constructors = 4;
+  // Optional. List of instances that can be referenced from [actions][istio.mixer.v1.config.Action.instances]
+  repeated Instance instances = 4;
 
   // Under development, DO NOT USE
   // Optional. List of actions that apply for this service
@@ -301,7 +301,7 @@ message EmailAddress {
 // selector is `true`
 //
 // The following example instructs Mixer to invoke 'prometheus-handler' handler for all services and pass it the
-// instance constructed using the 'RequestCountByService' constructor.
+// instance constructed using the 'RequestCountByService' instance.
 //
 // ```yaml
 // actionRules:
@@ -336,7 +336,7 @@ message Rule {
 // Action describes which [Handler][istio.mixer.v1.config.Handler] to invoke and what data to pass to it for processing.
 //
 // The following example instructs Mixer to invoke 'prometheus-handler' handler and pass it the object
-// constructed using the constructor 'RequestCountByService'
+// constructed using the instance 'RequestCountByService'
 //
 // ```yaml
 // - handler: prometheus-handler
@@ -347,26 +347,26 @@ message Action {
   // Required. The handler to invoke. Must match the `name` of a [Handler][istio.mixer.v1.config.Handler.name] in scope.
   string handler = 2;
 
-  // Required. Each value must match the `instance_name` of the
-  // [Constructor][istio.mixer.v1.config.Constructor.instance_name]s in scope.
-  // Referenced constructors are evaluated by resolving the attributes/literals for all the fields.
+  // Required. Each value must match the `name` of the
+  // [Instance][istio.mixer.v1.config.Instance.name]s in scope.
+  // Referenced instances are evaluated by resolving the attributes/literals for all the fields.
   // The constructed objects are then passed to the `handler` referenced within this action.
   repeated string instances = 3;
 }
 
-// A Constructor tells Mixer how to create instances for particular template.
+// A Instance tells Mixer how to create instances for particular template.
 //
-// Constructor is defined by the operator. Constructor is defined relative to a known
+// Instance is defined by the operator. Instance is defined relative to a known
 // template. Their purpose is to tell Mixer how to use attributes or literals to produce
 // instances of the specified template at runtime.
 //
 // The following example instructs Mixer to construct an instance associated with template
 // 'istio.mixer.adapter.metric.Metric'. It provides a mapping from the template's fields to expressions.
-// Instances produced with this constructor can be referenced by [Actions][istio.mixer.v1.config.Action] using name
+// Instances produced with this instance can be referenced by [Actions][istio.mixer.v1.config.Action] using name
 // 'RequestCountByService'.
 //
 // ```yaml
-// - instanceName: RequestCountByService
+// - name: RequestCountByService
 //   template: istio.mixer.adapter.metric.Metric
 //   params:
 //     value: 1
@@ -374,14 +374,14 @@ message Action {
 //       source: origin.service
 //       target_ip: destination.ip
 // ```
-message Constructor {
-  // Required. The name of this constructor
+message Instance {
+  // Required. The name of this instance
   //
-  // Must be unique amongst other Constructors in scope. Used by [Action][istio.mixer.v1.config.Action] to refer
-  // to an instance produced by this constructor.
-  string instance_name = 1;
+  // Must be unique amongst other Instances in scope. Used by [Action][istio.mixer.v1.config.Action] to refer
+  // to an instance produced by this instance.
+  string name = 1;
 
-  // Required. The name of the template this constructor creates instances for.
+  // Required. The name of the template this instance creates instances for.
   // The value must match the name of the available template in scope.
   string template = 2;
 
@@ -393,8 +393,8 @@ message Constructor {
 // Handler allows the operator to configure a specific adapter implementation.
 // Each adapter implementation defines its own `params` proto.
 //
-// In the following example we define a `metrics` adapter using the Mixer's prepackaged
-// prometheus adapter. This adapter doesn't require any parameters.
+// In the following example we define a `metrics` handler using the Mixer's prepackaged
+// prometheus adapter. This handler doesn't require any parameters.
 //
 // ```yaml
 // name: prometheus-handler
