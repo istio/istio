@@ -105,8 +105,8 @@ action_rules:
     instances:
     - fooInstance
 
-constructors:
-- instance_name: fooInstance
+instances:
+- name: fooInstance
   template: "istio.mixer.adapter.sample.report.Sample"
   params:
     value: "2"

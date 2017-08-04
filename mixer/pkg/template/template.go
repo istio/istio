@@ -38,7 +38,7 @@ type (
 	}
 	// TypeEvalFn evaluates an expression and returns the ValueType for the expression.
 	TypeEvalFn func(string) (pb.ValueType, error)
-	// InferTypeFn does Type inference from the Constructor.params proto message.
+	// InferTypeFn does Type inference from the Instance.params proto message.
 	InferTypeFn func(proto.Message, TypeEvalFn) (proto.Message, error)
 	// ConfigureTypeFn dispatches the inferred types to handlers
 	ConfigureTypeFn func(types map[string]proto.Message, builder *adptConfig.HandlerBuilder) error
@@ -61,7 +61,7 @@ type (
 	HandlerSupportsTemplateFn func(hndlr adptConfig.Handler) bool
 
 	// Info contains all the information related a template like
-	// Default constructor params, type inference method etc.
+	// Default instance params, type inference method etc.
 	Info struct {
 		CtrCfg                  proto.Message
 		InferType               InferTypeFn

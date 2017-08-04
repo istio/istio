@@ -112,7 +112,7 @@ func (m *Model) addTemplateMessage(parser *FileDescriptorSetParser, tmplProto *F
 
 		// Name field is a reserved field that will be injected in the Instance object. The user defined
 		// Template should not have a Name field, else there will be a name clash.
-		// 'Name' within the Instance object would represent the name of the Constructor:instance_name
+		// 'Name' within the Instance object would represent the name of the Instance:name
 		// specified in the operator Yaml file.
 		if strings.ToLower(fieldName) == "name" {
 			m.addError(tmplDesc.file.GetName(),

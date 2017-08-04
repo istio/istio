@@ -56,7 +56,7 @@ var (
 	SupportedTmplInfo = map[string]Info {
 	{{range .}}
 		{{.GoPackageName}}.TemplateName: {
-			CtrCfg:  &{{.GoPackageName}}.ConstructorParam{},
+			CtrCfg:  &{{.GoPackageName}}.InstanceParam{},
 			Variety:   adptTmpl.{{.VarietyName}},
 			BldrName:  "{{.PackageImportPath}}.{{.Name}}ProcessorBuilder",
 			HndlrName: "{{.PackageImportPath}}.{{.Name}}Processor",
@@ -70,7 +70,7 @@ var (
 			},
 			InferType: func(cp proto.Message, tEvalFn TypeEvalFn) (proto.Message, error) {
 				var err error = nil
-				cpb := cp.(*{{.GoPackageName}}.ConstructorParam)
+				cpb := cp.(*{{.GoPackageName}}.InstanceParam)
 				infrdType := &{{.GoPackageName}}.Type{}
 
 				{{range .TemplateMessage.Fields}}
@@ -106,16 +106,16 @@ var (
 				return castedBuilder.Configure{{.Name}}(castedTypes)
 			},
 			{{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
-				ProcessReport: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+				ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
 					result := &multierror.Error{}
 					var instances []*{{.GoPackageName}}.Instance
 
-					castedCnstrs := make(map[string]*{{.GoPackageName}}.ConstructorParam)
-					for k, v := range ctrs {
-						v1 := v.(*{{.GoPackageName}}.ConstructorParam)
-						castedCnstrs[k] = v1
+					castedInsts := make(map[string]*{{.GoPackageName}}.InstanceParam)
+					for k, v := range insts {
+						v1 := v.(*{{.GoPackageName}}.InstanceParam)
+						castedInsts[k] = v1
 					}
-					for name, md := range castedCnstrs {
+					for name, md := range castedInsts {
 						{{range .TemplateMessage.Fields}}
 							{{if isStringValueTypeMap .GoType}}
 								{{.GoName}}, err := evalAll(md.{{.GoName}}, attrs, mapper)
@@ -123,7 +123,7 @@ var (
 								{{.GoName}}, err := mapper.Eval(md.{{.GoName}}, attrs)
 							{{end}}
 								if err != nil {
-									result = multierror.Append(result, fmt.Errorf("failed to eval {{.GoName}} for constructor '%s': %v", name, err))
+									result = multierror.Append(result, fmt.Errorf("failed to eval {{.GoName}} for instance '%s': %v", name, err))
 									continue
 								}
 						{{end}}
@@ -154,18 +154,18 @@ var (
 				ProcessCheck: nil,
 				ProcessQuota: nil,
 			{{else if eq .VarietyName "TEMPLATE_VARIETY_CHECK"}}
-				ProcessCheck: func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
+				ProcessCheck: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
 				handler adptConfig.Handler) (rpc.Status, adptConfig.CacheabilityInfo) {
 					var found bool
 					var err error
 
 					var instances []*{{.GoPackageName}}.Instance
-					castedCnstrs := make(map[string]*{{.GoPackageName}}.ConstructorParam)
-					for k, v := range ctrs {
-						v1 := v.(*{{.GoPackageName}}.ConstructorParam)
-						castedCnstrs[k] = v1
+					castedInsts := make(map[string]*{{.GoPackageName}}.InstanceParam)
+					for k, v := range insts {
+						v1 := v.(*{{.GoPackageName}}.InstanceParam)
+						castedInsts[k] = v1
 					}
-					for name, md := range castedCnstrs {
+					for name, md := range castedInsts {
 						{{range .TemplateMessage.Fields}}
 							{{if isStringValueTypeMap .GoType}}
 								{{.GoName}}, err := evalAll(md.{{.GoName}}, attrs, mapper)
@@ -202,17 +202,17 @@ var (
 				ProcessReport: nil,
 				ProcessQuota: nil,
 			{{else}}
-				ProcessQuota: func(quotaName string, cnstr proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler,
+				ProcessQuota: func(quotaName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler,
 				qma adapter.QuotaRequestArgs) (rpc.Status, adptConfig.CacheabilityInfo, adapter.QuotaResult) {
-					castedCnstr := cnstr.(*{{.GoPackageName}}.ConstructorParam)
+					castedInst := inst.(*{{.GoPackageName}}.InstanceParam)
 					{{range .TemplateMessage.Fields}}
 						{{if isStringValueTypeMap .GoType}}
-							{{.GoName}}, err := evalAll(castedCnstr.{{.GoName}}, attrs, mapper)
+							{{.GoName}}, err := evalAll(castedInst.{{.GoName}}, attrs, mapper)
 						{{else}}
-							{{.GoName}}, err := mapper.Eval(castedCnstr.{{.GoName}}, attrs)
+							{{.GoName}}, err := mapper.Eval(castedInst.{{.GoName}}, attrs)
 						{{end}}
 							if err != nil {
-								msg := fmt.Sprintf("failed to eval {{.GoName}} for constructor '%s': %v", quotaName, err)
+								msg := fmt.Sprintf("failed to eval {{.GoName}} for instance '%s': %v", quotaName, err)
 								glog.Error(msg)
 								return status.WithInvalidArgument(msg), adptConfig.CacheabilityInfo{}, adapter.QuotaResult{}
 							}

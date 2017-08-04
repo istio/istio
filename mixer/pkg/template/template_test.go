@@ -39,7 +39,7 @@ func TestGetTemplateInfo(t *testing.T) {
 			if rpresent != tst.present ||
 				!reflect.DeepEqual(k.CtrCfg, tst.expected.CtrCfg) ||
 				!reflect.DeepEqual(reflect.TypeOf(k.InferType), reflect.TypeOf(tst.expected.InferType)) {
-				t.Errorf("got GetConstructorDefaultConfig(%s) = {%v,%v,%v}, want {%v,%v,%v}", tst.tmplToFind,
+				t.Errorf("got GetInstanceDefaultConfig(%s) = {%v,%v,%v}, want {%v,%v,%v}", tst.tmplToFind,
 					k.CtrCfg, reflect.TypeOf(k.InferType), rpresent,
 					tst.expected.CtrCfg, reflect.TypeOf(tst.expected.InferType), tst.present)
 			}

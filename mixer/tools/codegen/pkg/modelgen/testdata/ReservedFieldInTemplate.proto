@@ -10,7 +10,7 @@ option (istio.mixer.v1.config.template.template_name) = "List";
 message Template {
     // Name field is a reserved field that will be inject in the Instance object. The user defined
     // Template should not have a Name field, else there will be a name clash.
-    // 'Name' within the Instance object would represent the name of the Constructor:instance_name
+    // 'Name' within the Instance object would represent the name of the Instance:name
     // specified in the operator Yaml file.
     string Name = 1;
 }

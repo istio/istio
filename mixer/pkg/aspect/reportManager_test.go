@@ -51,11 +51,11 @@ func TestReportManager_NewReportExecutor(t *testing.T) {
 	instName := "TestReportInstanceName"
 
 	conf := &cfgpb.Combined{
-		Constructors: []*cfgpb.Constructor{
+		Instances: []*cfgpb.Instance{
 			{
-				Template:     tmplName,
-				InstanceName: instName,
-				Params:       &types.Empty{},
+				Template: tmplName,
+				Name:     instName,
+				Params:   &types.Empty{},
 			},
 		},
 	}
@@ -75,9 +75,9 @@ func TestReportManager_NewReportExecutor(t *testing.T) {
 		if qe.tmplName != tmplName {
 			t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)).tmplName = %v; wanted %v", qe.tmplName, tmplName)
 		}
-		wantCtrs := map[string]proto.Message{instName: conf.Constructors[0].Params.(proto.Message)}
-		if !reflect.DeepEqual(qe.ctrs, wantCtrs) {
-			t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)).ctrs = %v; wanted %v", qe.ctrs, wantCtrs)
+		wantInsts := map[string]proto.Message{instName: conf.Instances[0].Params.(proto.Message)}
+		if !reflect.DeepEqual(qe.insts, wantInsts) {
+			t.Fatalf("NewExecutor(conf, builder, test.NewEnv(t)).insts = %v; wanted %v", qe.insts, wantInsts)
 		}
 	}
 }
@@ -87,17 +87,17 @@ func TestReportManager_NewReportExecutorErrors(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		ctr           cfgpb.Constructor
+		ctr           cfgpb.Instance
 		hndlrSuppTmpl bool
 		wantErr       string
 	}{
 		{
 			name:    "NotFoundTemplate",
 			wantErr: "template is different",
-			ctr: cfgpb.Constructor{
-				Template:     "NotFoundTemplate",
-				InstanceName: "SomeInstName",
-				Params:       &types.Empty{},
+			ctr: cfgpb.Instance{
+				Template: "NotFoundTemplate",
+				Name:     "SomeInstName",
+				Params:   &types.Empty{},
 			},
 			hndlrSuppTmpl: true,
 		},
@@ -105,10 +105,10 @@ func TestReportManager_NewReportExecutorErrors(t *testing.T) {
 			name:          "BadHandlerInterface",
 			wantErr:       "does not implement interface",
 			hndlrSuppTmpl: false,
-			ctr: cfgpb.Constructor{
-				Template:     tmplName,
-				InstanceName: "SomeInstName",
-				Params:       &types.Empty{},
+			ctr: cfgpb.Instance{
+				Template: tmplName,
+				Name:     "SomeInstName",
+				Params:   &types.Empty{},
 			},
 		},
 	}
@@ -117,7 +117,7 @@ func TestReportManager_NewReportExecutorErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := &fakeReportHandler{}
 			conf := &cfgpb.Combined{
-				Constructors: []*cfgpb.Constructor{
+				Instances: []*cfgpb.Instance{
 					&tt.ctr,
 				},
 			}
@@ -134,7 +134,7 @@ func TestReportManager_NewReportExecutorErrors(t *testing.T) {
 
 func TestNewReportExecutor_Execute(t *testing.T) {
 	instName := "TestReportInstanceName"
-	ctrs := map[string]proto.Message{
+	insts := map[string]proto.Message{
 		instName: &types.Empty{},
 	}
 
@@ -154,11 +154,11 @@ func TestNewReportExecutor_Execute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rProc := func(ctrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+			rProc := func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
 				return tt.retStatus
 			}
 
-			e := &reportExecutor{"TestReportTemplate", rProc, nil, ctrs}
+			e := &reportExecutor{"TestReportTemplate", rProc, nil, insts}
 			s := e.Execute(nil, nil)
 
 			if !reflect.DeepEqual(s, tt.retStatus) {

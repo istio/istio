@@ -227,27 +227,27 @@ func TestDispatchToHandlersPanicRecover(t *testing.T) {
 func TestInferTypes(t *testing.T) {
 	tests := []struct {
 		name      string
-		cnstrs    map[string]*pb.Constructor
+		cnstrs    map[string]*pb.Instance
 		tmplRepo  tmpl.Repository
 		want      map[string]proto.Message
 		wantError string
 	}{
 		{
 			name:     "SingleCnstr",
-			cnstrs:   map[string]*pb.Constructor{"inst1": {"inst1", "tpml1", &empty.Empty{}}},
+			cnstrs:   map[string]*pb.Instance{"inst1": {"inst1", "tpml1", &empty.Empty{}}},
 			tmplRepo: newFakeTmplRepo(nil, &wrappers.Int32Value{Value: 1}),
 			want:     map[string]proto.Message{"inst1": &wrappers.Int32Value{Value: 1}},
 		},
 		{
 			name: "MultipleCnstr",
-			cnstrs: map[string]*pb.Constructor{"inst1": {"inst1", "tpml1", &empty.Empty{}},
+			cnstrs: map[string]*pb.Instance{"inst1": {"inst1", "tpml1", &empty.Empty{}},
 				"inst2": {"inst2", "tpml1", &empty.Empty{}}},
 			tmplRepo: newFakeTmplRepo(nil, &wrappers.Int32Value{Value: 1}),
 			want:     map[string]proto.Message{"inst1": &wrappers.Int32Value{Value: 1}, "inst2": &wrappers.Int32Value{Value: 1}},
 		},
 		{
 			name:      "ErrorDuringTypeInfr",
-			cnstrs:    map[string]*pb.Constructor{"inst1": {"inst1", "tpml1", &empty.Empty{}}},
+			cnstrs:    map[string]*pb.Instance{"inst1": {"inst1", "tpml1", &empty.Empty{}}},
 			tmplRepo:  newFakeTmplRepo(fmt.Errorf("error during type infer"), nil),
 			want:      nil,
 			wantError: "cannot infer type information",
@@ -277,18 +277,18 @@ func TestInferTypes(t *testing.T) {
 
 func TestGroupByTmpl(t *testing.T) {
 	tests := []struct {
-		name         string
-		actions      []*pb.Action
-		constructors map[string]*pb.Constructor
-		handlers     map[string]*HandlerBuilderInfo
-		want         map[string]instancesByTemplate
-		wantError    string
+		name      string
+		actions   []*pb.Action
+		instances map[string]*pb.Instance
+		handlers  map[string]*HandlerBuilderInfo
+		want      map[string]instancesByTemplate
+		wantError string
 	}{
 		{
-			name:         "SimpleNoDedupeNeeded",
-			handlers:     map[string]*HandlerBuilderInfo{"hndlr1": nil},
-			constructors: map[string]*pb.Constructor{"i1": {"i1", "tpml1", nil}},
-			actions:      []*pb.Action{{"hndlr1", []string{"i1"}}},
+			name:      "SimpleNoDedupeNeeded",
+			handlers:  map[string]*HandlerBuilderInfo{"hndlr1": nil},
+			instances: map[string]*pb.Instance{"i1": {"i1", "tpml1", nil}},
+			actions:   []*pb.Action{{"hndlr1", []string{"i1"}}},
 			want: map[string]instancesByTemplate{
 				"hndlr1": map[string][]string{"tpml1": {"i1"}},
 			},
@@ -296,7 +296,7 @@ func TestGroupByTmpl(t *testing.T) {
 		{
 			name:     "DedupeAcrossActions",
 			handlers: map[string]*HandlerBuilderInfo{"hndlr1": nil},
-			constructors: map[string]*pb.Constructor{
+			instances: map[string]*pb.Instance{
 				"repeatInst": {"repeatInst", "tpml1", nil},
 				"inst2":      {"inst2", "tpml1", nil}},
 			actions: []*pb.Action{
@@ -309,7 +309,7 @@ func TestGroupByTmpl(t *testing.T) {
 		{
 			name:     "DedupeWithinAction",
 			handlers: map[string]*HandlerBuilderInfo{"hndlr1": nil},
-			constructors: map[string]*pb.Constructor{
+			instances: map[string]*pb.Instance{
 				"repeatInst": {"repeatInst", "tpml1", nil},
 				"inst2":      {"inst2", "tpml1", nil}},
 			actions: []*pb.Action{
@@ -322,7 +322,7 @@ func TestGroupByTmpl(t *testing.T) {
 		{
 			name:     "MultipleTemplates",
 			handlers: map[string]*HandlerBuilderInfo{"hndlr1": nil},
-			constructors: map[string]*pb.Constructor{
+			instances: map[string]*pb.Instance{
 				"inst1tmplA": {"inst1tmplA", "tmplA", nil},
 				"inst2tmplA": {"inst2tmplA", "tmplA", nil},
 
@@ -340,7 +340,7 @@ func TestGroupByTmpl(t *testing.T) {
 		{
 			name:     "UnionAcrossActionsWithMultipleTemplates",
 			handlers: map[string]*HandlerBuilderInfo{"hndlr1": nil, "hndlr2": nil},
-			constructors: map[string]*pb.Constructor{
+			instances: map[string]*pb.Instance{
 				"inst1tmplA": {"inst1tmplA", "tmplA", nil},
 				"inst2tmplA": {"inst2tmplA", "tmplA", nil},
 
@@ -364,7 +364,7 @@ func TestGroupByTmpl(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			hc := handlerFactory{typeChecker: ex, tmplRepo: nil}
-			v, err := hc.groupByTmpl(tt.actions, tt.constructors, tt.handlers)
+			v, err := hc.groupByTmpl(tt.actions, tt.instances, tt.handlers)
 			if tt.wantError == "" {
 				if err != nil {
 					t.Errorf("got err %v\nwant <nil>", err)

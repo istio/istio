@@ -38,23 +38,23 @@ type (
 
 // SetupHandlers identifies and invokes all the type configuration (per template) that needs
 // to be done on a handler.
-func SetupHandlers(actions []*pb.Action, constructors map[string]*pb.Constructor,
+func SetupHandlers(actions []*pb.Action, instances map[string]*pb.Instance,
 	handlers map[string]*HandlerBuilderInfo, tmplRepo template.Repository, expr expr.TypeChecker, df expr.AttributeDescriptorFinder) error {
 	// Steps
 	// 1. For each handler, based on the actions it is referenced from, we first group all the
-	// constructors based on template kind. This results into something like
-	// map[handlerName]map[TemplateName][][Constructor.InstanceName].
+	// instances based on template kind. This results into something like
+	// map[handlerName]map[TemplateName][][Instance.InstanceName].
 	// 2. We then infer all the types for all the known
-	// constructors.
+	// instances.
 	// 3. Using data from #1 and #2, for each handler and for each template within it, we call configure*TemplateName*
-	// with all the inferred types for all the instanceNames that belong to handler-template group.
+	// with all the inferred types for all the names that belong to handler-template group.
 	factory := handlerFactory{tmplRepo: tmplRepo, typeChecker: expr, attrDescFinder: df}
 
-	iTypes, err := factory.inferTypes(constructors)
+	iTypes, err := factory.inferTypes(instances)
 	if err != nil {
 		return err
 	}
-	grpHandlers, err := factory.groupByTmpl(actions, constructors, handlers)
+	grpHandlers, err := factory.groupByTmpl(actions, instances, handlers)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (h *handlerFactory) dispatchToHandler(hb *HandlerBuilderInfo, handler strin
 	return nil
 }
 
-func (h *handlerFactory) groupByTmpl(actions []*pb.Action, constructors map[string]*pb.Constructor,
+func (h *handlerFactory) groupByTmpl(actions []*pb.Action, instances map[string]*pb.Instance,
 	handlers map[string]*HandlerBuilderInfo) (map[string]instancesByTemplate, error) {
 	result := make(map[string]instancesByTemplate)
 
@@ -127,9 +127,9 @@ func (h *handlerFactory) groupByTmpl(actions []*pb.Action, constructors map[stri
 		}
 
 		for _, instName := range action.GetInstances() {
-			cnstr, ok := constructors[instName]
+			cnstr, ok := instances[instName]
 			if !ok {
-				panic(fmt.Errorf("unable to find an a constructor with instance name '%s' "+
+				panic(fmt.Errorf("unable to find an a instance with instance name '%s' "+
 					"referenced in action %v. This code should be called after config has been validated",
 					instName, action))
 			}
@@ -147,12 +147,12 @@ func (h *handlerFactory) groupByTmpl(actions []*pb.Action, constructors map[stri
 	return result, nil
 }
 
-func (h *handlerFactory) inferTypes(constructors map[string]*pb.Constructor) (map[string]proto.Message, error) {
+func (h *handlerFactory) inferTypes(instances map[string]*pb.Instance) (map[string]proto.Message, error) {
 	result := make(map[string]proto.Message)
-	for _, cnstr := range constructors {
+	for _, cnstr := range instances {
 		tmplInfo, found := h.tmplRepo.GetTemplateInfo(cnstr.GetTemplate())
 		if !found {
-			panic(fmt.Errorf("template %s in constructor %v is not registered. This code should be called "+
+			panic(fmt.Errorf("template %s in instance %v is not registered. This code should be called "+
 				"after config has been validated", cnstr.GetTemplate(), cnstr))
 		}
 
@@ -161,9 +161,9 @@ func (h *handlerFactory) inferTypes(constructors map[string]*pb.Constructor) (ma
 			return h.typeChecker.EvalType(expr, h.attrDescFinder)
 		})
 		if err != nil {
-			return nil, fmt.Errorf("cannot infer type information from params %v in constructor %v", cnstr.Params, cnstr)
+			return nil, fmt.Errorf("cannot infer type information from params %v in instance %v", cnstr.Params, cnstr)
 		}
-		result[cnstr.GetInstanceName()] = inferredType
+		result[cnstr.GetName()] = inferredType
 	}
 	return result, nil
 }
