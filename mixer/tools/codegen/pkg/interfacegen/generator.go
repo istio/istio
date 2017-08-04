@@ -87,7 +87,7 @@ func (g *Generator) Generate(fdsFile string) error {
 		return fmt.Errorf("could not fix imports for generated code: %v", err)
 	}
 
-	revisedTemplateTmpl, err := template.New("RevisedTemplateTmpl").Funcs(
+	augmentedTemplateTmpl, err := template.New("AugmentedTemplateTmpl").Funcs(
 		template.FuncMap{
 			"replacePrimitiveToValueType": func(typeName string) string {
 				// transform the primitives into ValueType
@@ -108,7 +108,7 @@ func (g *Generator) Generate(fdsFile string) error {
 	}
 
 	tmplBuf := new(bytes.Buffer)
-	err = revisedTemplateTmpl.Execute(tmplBuf, model)
+	err = augmentedTemplateTmpl.Execute(tmplBuf, model)
 	if err != nil {
 		return fmt.Errorf("cannot execute the template with the given data: %v", err)
 	}

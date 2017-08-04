@@ -8,6 +8,8 @@ import "pkg/adapter/template/TemplateExtensions.proto";
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_QUOTA;
 option (istio.mixer.v1.config.template.template_name) = "Quota";
 
+// template ...
 message Template {
+    // dimensions are ...
     map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 1;
 }

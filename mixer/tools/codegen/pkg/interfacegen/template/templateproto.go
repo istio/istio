@@ -27,8 +27,12 @@ import "pkg/adapter/template/TemplateExtensions.proto";
 option (istio.mixer.v1.config.template.template_variety) = {{.VarietyName}};
 option (istio.mixer.v1.config.template.template_name) = "{{.Name}}";
 
+{{.Comment}}
+
+{{.TemplateMessage.Comment}}
 message Type {
   {{range .TemplateMessage.Fields}}
+  {{.Comment}}
   {{replacePrimitiveToValueType .Type}} {{.Name}} = {{.Number}};
   {{end}}
 }
