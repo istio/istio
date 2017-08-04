@@ -832,11 +832,11 @@ func TestCompile(t *testing.T) {
 
 	for i, te := range tests {
 		t.Run(fmt.Sprintf("%d '%s'", i, te.expr), func(tt *testing.T) {
-			p, err := Compile(te.expr, finder)
+			result, err := Compile(te.expr, finder)
 			if err != nil {
 				tt.Fatalf("error received during compile: %v", err)
 			}
-			actual := text.WriteText(p)
+			actual := text.WriteText(result.Program)
 			if len(te.code) > 0 {
 				if strings.TrimSpace(actual) != strings.TrimSpace(te.code) {
 					tt.Log("===== EXPECTED ====\n")
@@ -849,7 +849,7 @@ func TestCompile(t *testing.T) {
 				}
 			}
 			b := bag{attrs: te.input}
-			i := interpreter.New(p, map[string]interpreter.Extern{})
+			i := interpreter.New(result.Program, map[string]interpreter.Extern{})
 			v, err := i.Eval("eval", &b)
 			if err != nil {
 				if len(te.err) != 0 {

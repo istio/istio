@@ -20,6 +20,7 @@ go_library(
         "//pkg/config:go_default_library",
         "//pkg/config/store:go_default_library",
         "//pkg/expr:go_default_library",
+        "//pkg/il/evaluator:go_default_library",
         "//pkg/pool:go_default_library",
         "//pkg/template:go_default_library",
         "//pkg/tracing/zipkin:go_default_library",

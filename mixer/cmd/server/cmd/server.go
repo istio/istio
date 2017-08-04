@@ -46,6 +46,7 @@ import (
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/il/evaluator"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/pkg/template"
 	"istio.io/mixer/pkg/tracing/zipkin"
@@ -76,6 +77,7 @@ type serverArgs struct {
 	configFetchIntervalSec        uint
 	configIdentityAttribute       string
 	configIdentityAttributeDomain string
+	useIL                         bool
 
 	// @deprecated
 	serviceConfigFile string
@@ -151,6 +153,9 @@ func serverCmd(tmplRepo template.Repository, printf, fatalf shared.FormatFn) *co
 		fatalf("unable to hide: %v", err)
 	}
 
+	serverCmd.PersistentFlags().BoolVarP(&sa.useIL, "useIL", "", false,
+		"Use Mixer IL to evaluate configuration against the adapters.")
+
 	// serviceConfig and gobalConfig are for compatibility only
 	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "", "Combined Service Config")
 	serverCmd.PersistentFlags().StringVarP(&sa.globalConfigFile, "globalConfigFile", "", "", "Global Config")
@@ -197,13 +202,23 @@ func runServer(sa *serverArgs, tmplRepo template.Repository, printf, fatalf shar
 	adapterGP.AddWorkers(adapterPoolSize)
 	defer adapterGP.Close()
 
-	// get aspect registry with proper aspect --> api mappings
-	eval, err := expr.NewCEXLEvaluator(expressionEvalCacheSize)
-	if err != nil {
-		fatalf("Failed to create expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
+	var ilEval *evaluator.IL
+	var eval expr.Evaluator
+	if sa.useIL {
+		ilEval, err = evaluator.NewILEvaluator(expressionEvalCacheSize)
+		if err != nil {
+			fatalf("Failed to create IL expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
+		}
+		eval = ilEval
+	} else {
+		// get aspect registry with proper aspect --> api mappings
+		eval, err = expr.NewCEXLEvaluator(expressionEvalCacheSize)
+		if err != nil {
+			fatalf("Failed to create CEXL expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
+		}
 	}
-	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
 	store := configStore(sa.configStoreURL, sa.serviceConfigFile, sa.globalConfigFile, printf, fatalf)
+	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapter.Inventory2(),
 		adapterMgr.SupportedKinds,
 		tmplRepo, store, time.Second*time.Duration(sa.configFetchIntervalSec),
@@ -308,6 +323,9 @@ func runServer(sa *serverArgs, tmplRepo template.Repository, printf, fatalf shar
 	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
 
 	configManager.Register(adapterMgr)
+	if sa.useIL {
+		configManager.Register(ilEval)
+	}
 	configManager.Start()
 
 	printf("Starting Config API server on port %v", sa.configAPIPort)
