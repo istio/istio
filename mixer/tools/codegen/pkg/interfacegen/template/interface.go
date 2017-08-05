@@ -30,39 +30,45 @@ import (
 const TemplateName = "{{.PackageName}}.{{.Name}}"
 
 // Instance is constructed by Mixer for '{{.PackageName}}.{{.Name}}' template.{{if ne .TemplateMessage.Comment ""}}
+//
 {{.TemplateMessage.Comment}}{{end}}
 type Instance struct {
   Name string
   {{range .TemplateMessage.Fields}}
+  {{.Comment}}
   {{.GoName}} {{replaceGoValueTypeToInterface .GoType}}
   {{end}}
 }
 
-// {{.Name}}ProcessorBuilder must be implemented by adapter code if it wants to
-// process data associated with the template. Using this interface, during configuration phase, Mixer
+// {{.Name}}HandlerBuilder must be implemented by adapter code if it wants to
+// process data associated with the template.
+//
+// Using this interface, during configuration phase, Mixer
 // will call into the adapter to configure it with adapter specific configuration
 // as well as all inferred types.
-type {{.Name}}ProcessorBuilder interface {
+type {{.Name}}HandlerBuilder interface {
 	adapter.HandlerBuilder
-	// Configure{{.Name}} is invoked by Mixer to pass all possible Types for this template to the adapter.
+	// Configure{{.Name}}Handler is invoked by Mixer to pass all possible Types for this template to the adapter.
 	// Type hold information about the shape of the Instances that will be dispatched to the
     // adapters at request time. Adapter can expect to receive corresponding Instance objects at request time.
-	Configure{{.Name}}(map[string]*Type /*Instance name -> Type*/) error
+	Configure{{.Name}}Handler(map[string]*Type /*Instance name -> Type*/) error
 }
 
-// {{.Name}}Processor must be implemented by adapter code if it wants to
-// process data associated with the template. Using this interface, during request-time, Mixer
+// {{.Name}}Handler must be implemented by adapter code if it wants to
+// process data associated with the template.
+//
+// Using this interface, during request-time, Mixer
 // Mixer dispatches the created instances (based on request time attribute and operator-supplied configuration to map
 // attributes into template specific instances) to the adapters. Adapters take the incoming instances and do what they
 // need to achieve their primary function.
-type {{.Name}}Processor interface {
+type {{.Name}}Handler interface {
   adapter.Handler
   {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
-    Check{{.Name}}(instance []*Instance) (bool, adapter.CacheabilityInfo, error)
+    Handle{{.Name}}([]*Instance) (bool, adapter.CacheabilityInfo, error)
   {{else if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
-    Alloc{{.Name}}(*Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult, adapter.CacheabilityInfo, error)
+    Handle{{.Name}}(*Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult, adapter.CacheabilityInfo, error)
   {{else -}}
-    Report{{.Name}}(instances []*Instance) error
+    Handle{{.Name}}([]*Instance) error
   {{end}}
 }
 `

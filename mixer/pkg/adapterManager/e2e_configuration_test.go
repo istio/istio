@@ -48,11 +48,11 @@ func (fakeHndlrBldr) Build(cnfg proto.Message, _ adapter.Env) (adapter.Handler, 
 	fakeHndlrObj := fakeHndlr{}
 	return fakeHndlrObj, nil
 }
-func (fakeHndlrBldr) ConfigureSample(typeParams map[string]*sample_report.Type) error {
+func (fakeHndlrBldr) ConfigureSampleHandler(typeParams map[string]*sample_report.Type) error {
 	globalActualHandlerCallInfoToValidate["ConfigureSample"] = typeParams
 	return nil
 }
-func (fakeHndlr) ReportSample(instances []*sample_report.Instance) error {
+func (fakeHndlr) HandleSample(instances []*sample_report.Instance) error {
 	globalActualHandlerCallInfoToValidate["ReportSample"] = instances
 	return nil
 }

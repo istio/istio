@@ -24,6 +24,7 @@ import (
 const TemplateName = "istio.mixer.adapter.log.Log"
 
 // Instance is constructed by Mixer for 'istio.mixer.adapter.log.Log' template.
+//
 // Defines the format of a single log entry.
 // example :
 // ...
@@ -31,27 +32,35 @@ const TemplateName = "istio.mixer.adapter.log.Log"
 type Instance struct {
 	Name string
 
+	// Defines the format of a single log entry.
+	// example :
+	// ...
+	// ...
 	Dimensions map[string]interface{}
 }
 
-// LogProcessorBuilder must be implemented by adapter code if it wants to
-// process data associated with the template. Using this interface, during configuration phase, Mixer
+// LogHandlerBuilder must be implemented by adapter code if it wants to
+// process data associated with the template.
+//
+// Using this interface, during configuration phase, Mixer
 // will call into the adapter to configure it with adapter specific configuration
 // as well as all inferred types.
-type LogProcessorBuilder interface {
+type LogHandlerBuilder interface {
 	adapter.HandlerBuilder
-	// ConfigureLog is invoked by Mixer to pass all possible Types for this template to the adapter.
+	// ConfigureLogHandler is invoked by Mixer to pass all possible Types for this template to the adapter.
 	// Type hold information about the shape of the Instances that will be dispatched to the
 	// adapters at request time. Adapter can expect to receive corresponding Instance objects at request time.
-	ConfigureLog(map[string]*Type /*Instance name -> Type*/) error
+	ConfigureLogHandler(map[string]*Type /*Instance name -> Type*/) error
 }
 
-// LogProcessor must be implemented by adapter code if it wants to
-// process data associated with the template. Using this interface, during request-time, Mixer
+// LogHandler must be implemented by adapter code if it wants to
+// process data associated with the template.
+//
+// Using this interface, during request-time, Mixer
 // Mixer dispatches the created instances (based on request time attribute and operator-supplied configuration to map
 // attributes into template specific instances) to the adapters. Adapters take the incoming instances and do what they
 // need to achieve their primary function.
-type LogProcessor interface {
+type LogHandler interface {
 	adapter.Handler
-	ReportLog(instances []*Instance) error
+	HandleLog([]*Instance) error
 }
