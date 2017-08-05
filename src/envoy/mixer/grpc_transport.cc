@@ -15,6 +15,7 @@
 #include "src/envoy/mixer/grpc_transport.h"
 #include "src/envoy/mixer/thread_dispatcher.h"
 
+#include "common/common/enum_to_int.h"
 #include "common/grpc/rpc_channel_impl.h"
 
 using ::google::protobuf::util::Status;
@@ -46,7 +47,7 @@ inline void CopyHeaderEntry(const HeaderEntry* entry,
                             Http::HeaderMap& headers) {
   if (entry) {
     std::string val(entry->value().c_str(), entry->value().size());
-    headers.addStaticKey(key, val);
+    headers.addReferenceKey(key, val);
   }
 }
 
@@ -74,7 +75,8 @@ void GrpcTransport::onFailure(const Optional<uint64_t>& grpc_status,
   if (!grpc_status.valid() && message == "non-200 response code") {
     code = StatusCode::UNAVAILABLE;
   } else {
-    code = grpc_status.valid() ? grpc_status.value() : StatusCode::UNKNOWN;
+    code = grpc_status.valid() ? grpc_status.value()
+                               : enumToInt(StatusCode::UNKNOWN);
   }
   log().debug("grpc failure: return {}, error {}", code, message);
   on_done_(Status(static_cast<StatusCode>(code),

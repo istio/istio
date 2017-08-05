@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include "common/common/enum_to_int.h"
 #include "common/common/logger.h"
 #include "envoy/network/connection.h"
 #include "envoy/network/filter.h"
@@ -153,16 +154,17 @@ class TcpInstance : public Network::Filter,
   }
 
   // Network::ConnectionCallbacks
-  void onEvent(uint32_t events) override {
+  void onEvent(Network::ConnectionEvent event) override {
     if (filter_callbacks_->upstreamHost()) {
-      log().debug("Called TcpInstance onEvent: {} upstream {}", events,
+      log().debug("Called TcpInstance onEvent: {} upstream {}",
+                  enumToInt(event),
                   filter_callbacks_->upstreamHost()->address()->asString());
     } else {
-      log().debug("Called TcpInstance onEvent: {}", events);
+      log().debug("Called TcpInstance onEvent: {}", enumToInt(event));
     }
 
-    if (events & Network::ConnectionEvent::RemoteClose ||
-        events & Network::ConnectionEvent::LocalClose) {
+    if (event == Network::ConnectionEvent::RemoteClose ||
+        event == Network::ConnectionEvent::LocalClose) {
       if (state_ != State::Closed && request_data_) {
         mixer_control_->ReportTcp(request_data_, request_bytes_,
                                   response_bytes_, check_status_code_,
@@ -171,6 +173,9 @@ class TcpInstance : public Network::Filter,
       state_ = State::Closed;
     }
   }
+
+  void onAboveWriteBufferHighWatermark() override {}
+  void onBelowWriteBufferLowWatermark() override {}
 };
 
 }  // namespace Mixer

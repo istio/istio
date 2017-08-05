@@ -39,9 +39,9 @@ envoy_cc_library(
     hdrs = ["jwt.h"],
     repository = "@envoy",
     deps = [
-        "@envoy//source/exe:envoy_common_lib",
         "//external:rapidjson",
         "//external:ssl",
+        "@envoy//source/exe:envoy_common_lib",
     ],
 )
 
@@ -90,8 +90,7 @@ envoy_cc_test(
     repository = "@envoy",
     deps = [
         ":jwt_lib",
-        "@envoy//test/test_common:utility_lib",
         "@envoy//source/exe:envoy_common_lib",
+        "@envoy//test/test_common:utility_lib",
     ],
 )
-

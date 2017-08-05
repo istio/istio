@@ -16,19 +16,6 @@
 #
 
 load(
-    "//:repositories.bzl",
-    "boringssl_repositories",
-    "protobuf_repositories",
-    "googletest_repositories",
-)
-
-boringssl_repositories()
-
-protobuf_repositories()
-
-googletest_repositories()
-
-load(
     "//src/envoy/mixer:repositories.bzl",
     "mixer_client_repositories",
 )
@@ -44,26 +31,27 @@ load(
 googleapis_repositories()
 mixerapi_repositories()
 
-load("//src/envoy:repositories.bzl", "lightstep_repositories")
-
-lightstep_repositories()
-
-# Bind BoringSSL for Envoy
 bind(
-    name = "ssl",
-    actual = "@boringssl//:ssl",
+    name = "boringssl_crypto",
+    actual = "//external:ssl",
 )
 
 git_repository(
     name = "envoy",
     remote = "https://github.com/lyft/envoy.git",
-    commit = "d56c6d27059da43a3859976eaeba53afff55f425",
+    commit = "a2a47b2e8072126b0f1d4128eca13759d9ae2155",
 )
 
 load("@envoy//bazel:repositories.bzl", "envoy_dependencies")
 
-envoy_dependencies(skip_targets=["googletest", "protobuf", "protoc", "lightstep", "ssl"])
+envoy_dependencies()
+
+load("@envoy//bazel:cc_configure.bzl", "cc_configure")
+
+cc_configure()
+
 load("@envoy_api//bazel:repositories.bzl", "api_dependencies")
+
 api_dependencies()
 
 # Following go repositories are for building go integration test for mixer filter.

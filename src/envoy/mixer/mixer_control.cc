@@ -151,12 +151,8 @@ void FillResponseHeaderAttributes(const HeaderMap* header_map,
 
 void FillRequestInfoAttributes(const AccessLog::RequestInfo& info,
                                int check_status_code, Attributes* attr) {
-  if (info.bytesReceived() >= 0) {
-    SetInt64Attribute(kRequestSize, info.bytesReceived(), attr);
-  }
-  if (info.bytesSent() >= 0) {
-    SetInt64Attribute(kResponseSize, info.bytesSent(), attr);
-  }
+  SetInt64Attribute(kRequestSize, info.bytesReceived(), attr);
+  SetInt64Attribute(kResponseSize, info.bytesSent(), attr);
 
   attr->attributes[kResponseDuration] = Attributes::DurationValue(
       std::chrono::duration_cast<std::chrono::nanoseconds>(info.duration()));

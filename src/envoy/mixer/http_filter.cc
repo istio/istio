@@ -183,13 +183,12 @@ class Instance : public Http::StreamDecoderFilter,
   // Returns a shared pointer of this object.
   std::shared_ptr<Instance> GetPtr() { return shared_from_this(); }
 
-  FilterHeadersStatus decodeHeaders(HeaderMap& headers,
-                                    bool end_stream) override {
+  FilterHeadersStatus decodeHeaders(HeaderMap& headers, bool) override {
     Log().debug("Called Mixer::Instance : {}", __func__);
 
     if (!config_->forward_attributes().empty() && !forward_disabled()) {
-      headers.addStatic(Utils::kIstioAttributeHeader,
-                        config_->forward_attributes());
+      headers.addReference(Utils::kIstioAttributeHeader,
+                           config_->forward_attributes());
     }
 
     mixer_disabled_ = mixer_disabled();
@@ -235,7 +234,7 @@ class Instance : public Http::StreamDecoderFilter,
     return FilterDataStatus::Continue;
   }
 
-  FilterTrailersStatus decodeTrailers(HeaderMap& trailers) override {
+  FilterTrailersStatus decodeTrailers(HeaderMap&) override {
     if (mixer_disabled_) {
       return FilterTrailersStatus::Continue;
     }
@@ -264,8 +263,8 @@ class Instance : public Http::StreamDecoderFilter,
     if (!status.ok() && state_ != Responded) {
       state_ = Responded;
       check_status_code_ = HttpCode(status.error_code());
-      Utility::sendLocalReply(*decoder_callbacks_, Code(check_status_code_),
-                              status.ToString());
+      Utility::sendLocalReply(*decoder_callbacks_, false,
+                              Code(check_status_code_), status.ToString());
       return;
     }
 
@@ -277,8 +276,7 @@ class Instance : public Http::StreamDecoderFilter,
 
   void onDestroy() override { state_ = Responded; }
 
-  virtual void log(const HeaderMap* request_headers,
-                   const HeaderMap* response_headers,
+  virtual void log(const HeaderMap*, const HeaderMap* response_headers,
                    const AccessLog::RequestInfo& request_info) override {
     Log().debug("Called Mixer::Instance : {}", __func__);
     // If decodeHaeders() is not called, not to call Mixer report.
