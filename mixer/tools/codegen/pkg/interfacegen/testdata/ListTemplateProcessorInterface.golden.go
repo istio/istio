@@ -30,24 +30,28 @@ type Instance struct {
 	CheckExpression string
 }
 
-// ListProcessorBuilder must be implemented by adapter code if it wants to
-// process data associated with the template. Using this interface, during configuration phase, Mixer
+// ListHandlerBuilder must be implemented by adapter code if it wants to
+// process data associated with the template.
+//
+// Using this interface, during configuration phase, Mixer
 // will call into the adapter to configure it with adapter specific configuration
 // as well as all inferred types.
-type ListProcessorBuilder interface {
+type ListHandlerBuilder interface {
 	adapter.HandlerBuilder
-	// ConfigureList is invoked by Mixer to pass all possible Types for this template to the adapter.
+	// ConfigureListHandler is invoked by Mixer to pass all possible Types for this template to the adapter.
 	// Type hold information about the shape of the Instances that will be dispatched to the
 	// adapters at request time. Adapter can expect to receive corresponding Instance objects at request time.
-	ConfigureList(map[string]*Type /*Instance name -> Type*/) error
+	ConfigureListHandler(map[string]*Type /*Instance name -> Type*/) error
 }
 
-// ListProcessor must be implemented by adapter code if it wants to
-// process data associated with the template. Using this interface, during request-time, Mixer
+// ListHandler must be implemented by adapter code if it wants to
+// process data associated with the template.
+//
+// Using this interface, during request-time, Mixer
 // Mixer dispatches the created instances (based on request time attribute and operator-supplied configuration to map
 // attributes into template specific instances) to the adapters. Adapters take the incoming instances and do what they
 // need to achieve their primary function.
-type ListProcessor interface {
+type ListHandler interface {
 	adapter.Handler
-	CheckList(instance []*Instance) (bool, adapter.CacheabilityInfo, error)
+	HandleList([]*Instance) (bool, adapter.CacheabilityInfo, error)
 }

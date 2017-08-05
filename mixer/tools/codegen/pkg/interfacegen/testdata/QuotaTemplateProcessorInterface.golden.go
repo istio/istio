@@ -24,31 +24,37 @@ import (
 const TemplateName = "istio.mixer.adapter.quota.Quota"
 
 // Instance is constructed by Mixer for 'istio.mixer.adapter.quota.Quota' template.
+//
 // template ...
 type Instance struct {
 	Name string
 
+	// dimensions are ...
 	Dimensions map[string]interface{}
 }
 
-// QuotaProcessorBuilder must be implemented by adapter code if it wants to
-// process data associated with the template. Using this interface, during configuration phase, Mixer
+// QuotaHandlerBuilder must be implemented by adapter code if it wants to
+// process data associated with the template.
+//
+// Using this interface, during configuration phase, Mixer
 // will call into the adapter to configure it with adapter specific configuration
 // as well as all inferred types.
-type QuotaProcessorBuilder interface {
+type QuotaHandlerBuilder interface {
 	adapter.HandlerBuilder
-	// ConfigureQuota is invoked by Mixer to pass all possible Types for this template to the adapter.
+	// ConfigureQuotaHandler is invoked by Mixer to pass all possible Types for this template to the adapter.
 	// Type hold information about the shape of the Instances that will be dispatched to the
 	// adapters at request time. Adapter can expect to receive corresponding Instance objects at request time.
-	ConfigureQuota(map[string]*Type /*Instance name -> Type*/) error
+	ConfigureQuotaHandler(map[string]*Type /*Instance name -> Type*/) error
 }
 
-// QuotaProcessor must be implemented by adapter code if it wants to
-// process data associated with the template. Using this interface, during request-time, Mixer
+// QuotaHandler must be implemented by adapter code if it wants to
+// process data associated with the template.
+//
+// Using this interface, during request-time, Mixer
 // Mixer dispatches the created instances (based on request time attribute and operator-supplied configuration to map
 // attributes into template specific instances) to the adapters. Adapters take the incoming instances and do what they
 // need to achieve their primary function.
-type QuotaProcessor interface {
+type QuotaHandler interface {
 	adapter.Handler
-	AllocQuota(*Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult, adapter.CacheabilityInfo, error)
+	HandleQuota(*Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult, adapter.CacheabilityInfo, error)
 }

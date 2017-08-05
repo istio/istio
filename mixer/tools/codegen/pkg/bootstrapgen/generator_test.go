@@ -17,8 +17,8 @@ package bootstrapgen
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"os"
+	"path"
 	"testing"
 )
 
@@ -48,13 +48,15 @@ func TestGenerator_Generate(t *testing.T) {
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			outFile, err := ioutil.TempFile("", v.name)
+			outFile, err := os.Create(path.Join(os.TempDir(), path.Base(v.want)))
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer func() {
-				if removeErr := os.Remove(outFile.Name()); removeErr != nil {
-					t.Logf("Could not remove temporary file %s: %v", outFile.Name(), removeErr)
+				if !t.Failed() {
+					if removeErr := os.Remove(outFile.Name()); removeErr != nil {
+						t.Logf("Could not remove temporary file %s: %v", outFile.Name(), removeErr)
+					}
 				}
 			}()
 

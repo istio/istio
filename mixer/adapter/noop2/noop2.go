@@ -25,8 +25,12 @@ import (
 )
 
 type (
-	noop2Handler struct{}
-	noop2Builder struct{}
+	noop2Handler struct {
+		sample_report.SampleHandler
+	}
+	noop2Builder struct {
+		sample_report.SampleHandlerBuilder
+	}
 )
 
 ///////////////// Configuration time Methods ///////////////
@@ -37,14 +41,14 @@ func (noop2Builder) Build(config proto.Message, _ adapter.Env) (adapter.Handler,
 }
 
 // Per template configuration methods
-func (noop2Builder) ConfigureSample(typeParams map[string]*sample_report.Type) error {
+func (noop2Builder) ConfigureSampleHandler(typeParams map[string]*sample_report.Type) error {
 	fmt.Println("ConfigureSample in noop Adapter called with", typeParams)
 	return nil
 }
 
 ////////////////// Runtime Methods //////////////////////////
 
-func (noop2Handler) ReportSample(instances []*sample_report.Instance) error {
+func (noop2Handler) HandleSample(instances []*sample_report.Instance) error {
 	fmt.Println("ReportSample in noop Adapter called with", instances)
 	return nil
 }

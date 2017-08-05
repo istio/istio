@@ -20,6 +20,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"testing"
 )
 
@@ -53,11 +54,11 @@ func TestGenerator_Generate(t *testing.T) {
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			oIntface, err := ioutil.TempFile("", v.name)
+			oIntface, err := os.Create(path.Join(os.TempDir(), path.Base(v.wantIntFace)))
 			if err != nil {
 				t.Fatal(err)
 			}
-			oTmpl, err := ioutil.TempFile("", v.name)
+			oTmpl, err := os.Create(path.Join(os.TempDir(), path.Base(v.wantProto)))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -80,11 +81,11 @@ func TestGenerator_Generate(t *testing.T) {
 			}
 
 			if same := fileCompare(oIntface.Name(), v.wantIntFace, t.Errorf, false); !same {
-				t.Error("Files were not the same.")
+				t.Errorf("File %s does not match baseline %s.", oIntface.Name(), v.wantIntFace)
 			}
 
 			if same := fileCompare(oTmpl.Name(), v.wantProto, t.Errorf, true); !same {
-				t.Error("Files were not the same.")
+				t.Errorf("File %s does not match baseline %s.", oTmpl.Name(), v.wantProto)
 			}
 		})
 	}

@@ -50,14 +50,14 @@ type fakeReportHandler struct {
 }
 
 func (h *fakeReportHandler) Close() error { return nil }
-func (h *fakeReportHandler) ReportSample(instances []*sample_report.Instance) error {
+func (h *fakeReportHandler) HandleSample(instances []*sample_report.Instance) error {
 	h.procCallInput = instances
 	return h.retProcError
 }
 func (h *fakeReportHandler) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
-func (h *fakeReportHandler) ConfigureSample(t map[string]*sample_report.Type) error {
+func (h *fakeReportHandler) ConfigureSampleHandler(t map[string]*sample_report.Type) error {
 	h.cnfgCallInput = t
 	return nil
 }
@@ -72,14 +72,14 @@ type fakeCheckHandler struct {
 }
 
 func (h *fakeCheckHandler) Close() error { return nil }
-func (h *fakeCheckHandler) CheckSample(instance []*sample_check.Instance) (bool, adapter.CacheabilityInfo, error) {
+func (h *fakeCheckHandler) HandleSample(instance []*sample_check.Instance) (bool, adapter.CacheabilityInfo, error) {
 	h.procCallInput = instance
 	return h.ret, h.retCache, h.retProcError
 }
 func (h *fakeCheckHandler) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
-func (h *fakeCheckHandler) ConfigureSample(t map[string]*sample_check.Type) error {
+func (h *fakeCheckHandler) ConfigureSampleHandler(t map[string]*sample_check.Type) error {
 	h.cnfgCallInput = t
 	return nil
 }
@@ -94,14 +94,14 @@ type fakeQuotaHandler struct {
 }
 
 func (h *fakeQuotaHandler) Close() error { return nil }
-func (h *fakeQuotaHandler) AllocQuota(instance *sample_quota.Instance, qra adapter.QuotaRequestArgs) (adapter.QuotaResult, adapter.CacheabilityInfo, error) {
+func (h *fakeQuotaHandler) HandleQuota(instance *sample_quota.Instance, qra adapter.QuotaRequestArgs) (adapter.QuotaResult, adapter.CacheabilityInfo, error) {
 	h.procCallInput = instance
 	return h.retQuotaRes, h.retCache, h.retProcError
 }
 func (h *fakeQuotaHandler) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
-func (h *fakeQuotaHandler) ConfigureQuota(t map[string]*sample_quota.Type) error {
+func (h *fakeQuotaHandler) ConfigureQuotaHandler(t map[string]*sample_quota.Type) error {
 	h.cnfgCallInput = t
 	return nil
 }
@@ -124,22 +124,22 @@ func TestGeneratedFields(t *testing.T) {
 			tmpl:      sample_report.TemplateName,
 			ctrCfg:    &sample_report.InstanceParam{},
 			variety:   adpTmpl.TEMPLATE_VARIETY_REPORT,
-			bldrName:  "istio.io/mixer/template/sample/report.SampleProcessorBuilder",
-			hndlrName: "istio.io/mixer/template/sample/report.SampleProcessor",
+			bldrName:  "istio.io/mixer/template/sample/report.SampleHandlerBuilder",
+			hndlrName: "istio.io/mixer/template/sample/report.SampleHandler",
 		},
 		{
 			tmpl:      sample_check.TemplateName,
 			ctrCfg:    &sample_check.InstanceParam{},
 			variety:   adpTmpl.TEMPLATE_VARIETY_CHECK,
-			bldrName:  "istio.io/mixer/template/sample/check.SampleProcessorBuilder",
-			hndlrName: "istio.io/mixer/template/sample/check.SampleProcessor",
+			bldrName:  "istio.io/mixer/template/sample/check.SampleHandlerBuilder",
+			hndlrName: "istio.io/mixer/template/sample/check.SampleHandler",
 		},
 		{
 			tmpl:      sample_quota.TemplateName,
 			ctrCfg:    &sample_quota.InstanceParam{},
 			variety:   adpTmpl.TEMPLATE_VARIETY_QUOTA,
-			bldrName:  "istio.io/mixer/template/sample/quota.QuotaProcessorBuilder",
-			hndlrName: "istio.io/mixer/template/sample/quota.QuotaProcessor",
+			bldrName:  "istio.io/mixer/template/sample/quota.QuotaHandlerBuilder",
+			hndlrName: "istio.io/mixer/template/sample/quota.QuotaHandler",
 		},
 	} {
 		t.Run(tst.tmpl, func(t *testing.T) {
