@@ -18,7 +18,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/adapter:go_default_library",
-        "//pkg/adapter/config:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/config/descriptor:go_default_library",
         "//pkg/config/proto:go_default_library",
@@ -54,7 +53,6 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//pkg/adapter:go_default_library",
-        "//pkg/adapter/config:go_default_library",
         "//pkg/aspect/config:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/config/descriptor:go_default_library",

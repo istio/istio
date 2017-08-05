@@ -28,7 +28,6 @@ import (
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/config"
 	listcheckerpb "istio.io/mixer/pkg/aspect/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config/descriptor"
@@ -706,7 +705,7 @@ func TestValidateHandlers(t *testing.T) {
 				"fooHandlerAdapter": {
 					DefaultConfig:          &types.Empty{},
 					ValidateConfig:         func(c proto.Message) error { return nil },
-					CreateHandlerBuilderFn: func() config.HandlerBuilder { return nil },
+					CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return nil },
 				},
 			},
 			nil, 0, "service.name == “*”", false, ConstGlobalConfig,
@@ -724,7 +723,7 @@ func TestValidateHandlers(t *testing.T) {
 				"fooHandlerAdapter": {
 					DefaultConfig:          &types.Empty{},
 					ValidateConfig:         func(c proto.Message) error { return nil },
-					CreateHandlerBuilderFn: func() config.HandlerBuilder { return nil },
+					CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return nil },
 				},
 			},
 			nil, 1, "service.name == “*”", false, duplicateCnstrs,
@@ -774,7 +773,7 @@ handlers:
 				"fooHandlerAdapter": {
 					DefaultConfig:          &types.Empty{},
 					ValidateConfig:         func(c proto.Message) error { return nil },
-					CreateHandlerBuilderFn: func() config.HandlerBuilder { return nil },
+					CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return nil },
 					SupportedTemplates:     []string{testSupportedTemplate},
 				},
 			},
@@ -822,19 +821,19 @@ func (f *fakeGoodHndlr) Close() error {
 	return nil
 }
 
-func (f fakeGoodHndlrBldr) Build(cnfg proto.Message) (config.Handler, error) {
+func (f fakeGoodHndlrBldr) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
 	return &fakeGoodHndlr{}, nil
 }
 
 type fakeErrRetrningHndlrBldr struct{}
 
-func (f fakeErrRetrningHndlrBldr) Build(cnfg proto.Message) (config.Handler, error) {
+func (f fakeErrRetrningHndlrBldr) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
 	return nil, errors.New("build failed")
 }
 
 type fakePanicHndlrBldr struct{}
 
-func (f fakePanicHndlrBldr) Build(cnfg proto.Message) (config.Handler, error) {
+func (f fakePanicHndlrBldr) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
 	panic("panic from handler Build method")
 }
 
@@ -846,11 +845,11 @@ func getSetupHandlerFn(err error) SetupHandlerFn {
 }
 
 func TestBuildHandlers(t *testing.T) {
-	var hbgood config.HandlerBuilder = fakeGoodHndlrBldr{}
-	var hbgood2 config.HandlerBuilder = fakeGoodHndlrBldr{}
-	var hbb config.HandlerBuilder = fakeErrRetrningHndlrBldr{}
-	var hbb2 config.HandlerBuilder = fakeErrRetrningHndlrBldr{}
-	var hpb config.HandlerBuilder = fakePanicHndlrBldr{}
+	var hbgood adapter.HandlerBuilder = fakeGoodHndlrBldr{}
+	var hbgood2 adapter.HandlerBuilder = fakeGoodHndlrBldr{}
+	var hbb adapter.HandlerBuilder = fakeErrRetrningHndlrBldr{}
+	var hbb2 adapter.HandlerBuilder = fakeErrRetrningHndlrBldr{}
+	var hpb adapter.HandlerBuilder = fakePanicHndlrBldr{}
 	const handlerName = "foo"
 	const handlerName2 = "bar"
 	tests := []struct {
@@ -984,7 +983,7 @@ func (t fakeTemplateRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	return tmpl.Info{}, false
 }
 
-func (t fakeTemplateRepo) SupportsTemplate(hndlrBuilder config.HandlerBuilder, s string) (bool, string) {
+func (t fakeTemplateRepo) SupportsTemplate(hndlrBuilder adapter.HandlerBuilder, s string) (bool, string) {
 	// always succeed
 	return true, ""
 }

@@ -34,7 +34,6 @@ mixer_gen = rule(
 
 MIXER_DEPS = [
     "//pkg/adapter:go_default_library",
-    "//pkg/adapter/config:go_default_library",
     "//pkg/adapter/template:go_default_library",
     "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
 ]

@@ -21,14 +21,13 @@ import (
 	"github.com/golang/glog"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/config"
 )
 
 type builderInfoRegistry struct {
 	builderInfosByName map[string]*adapter.BuilderInfo
 }
 
-type handlerBuilderValidator func(hndlrBuilder config.HandlerBuilder, t string) (bool, string)
+type handlerBuilderValidator func(hndlrBuilder adapter.HandlerBuilder, t string) (bool, string)
 
 // newRegistry2 returns a new BuilderInfo registry.
 func newRegistry2(getBuilderInfos []adapter.GetBuilderInfoFn, hndlrBldrValidator handlerBuilderValidator) *builderInfoRegistry {

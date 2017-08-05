@@ -24,7 +24,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
-	adptConfig "istio.io/mixer/pkg/adapter/config"
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
 	cfgpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
@@ -62,7 +62,7 @@ func TestReportManager_NewReportExecutor(t *testing.T) {
 
 	f := FromHandler(handler)
 	tmplRepo := template.NewRepository(map[string]template.Info{
-		tmplName: {HandlerSupportsTemplate: func(hndlr adptConfig.Handler) bool { return true }},
+		tmplName: {HandlerSupportsTemplate: func(hndlr adapter.Handler) bool { return true }},
 	})
 
 	if e, err := NewReportManager(tmplRepo).NewReportExecutor(conf, f, nil, df, tmplName); err != nil {
@@ -122,7 +122,7 @@ func TestReportManager_NewReportExecutorErrors(t *testing.T) {
 				},
 			}
 			tmplRepo := template.NewRepository(
-				map[string]template.Info{tmplName: {HandlerSupportsTemplate: func(hndlr adptConfig.Handler) bool { return tt.hndlrSuppTmpl }}},
+				map[string]template.Info{tmplName: {HandlerSupportsTemplate: func(hndlr adapter.Handler) bool { return tt.hndlrSuppTmpl }}},
 			)
 			f := FromHandler(handler)
 			if _, err := NewReportManager(tmplRepo).NewReportExecutor(conf, f, nil, df, tmplName); !strings.Contains(err.Error(), tt.wantErr) {
@@ -154,7 +154,7 @@ func TestNewReportExecutor_Execute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rProc := func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+			rProc := func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) rpc.Status {
 				return tt.retStatus
 			}
 

@@ -16,8 +16,6 @@ package adapter
 
 import (
 	"github.com/golang/protobuf/proto"
-
-	"istio.io/mixer/pkg/adapter/config"
 )
 
 // BuilderInfo describes the Adapter and provides a function to a Handler Builder method.
@@ -41,7 +39,7 @@ type BuilderInfo struct {
 }
 
 // CreateHandlerBuilder is a function that creates a HandlerBuilder.
-type CreateHandlerBuilder func() config.HandlerBuilder
+type CreateHandlerBuilder func() HandlerBuilder
 
 // ValidateConfig is a function that determines whether the given handler configuration meets all
 // correctness requirements.

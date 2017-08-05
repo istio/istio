@@ -11,8 +11,10 @@ go_library(
         "attributes.go",
         "builder.go",
         "builderInfo.go",
+        "cacheability.go",
         "configError.go",
         "denials.go",
+        "handler.go",
         "labels.go",
         "lists.go",
         "metrics.go",
@@ -21,7 +23,6 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/adapter/config:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_hashicorp_go_multierror//:go_default_library",

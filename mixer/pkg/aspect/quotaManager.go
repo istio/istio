@@ -22,7 +22,6 @@ import (
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
-	config2 "istio.io/mixer/pkg/adapter/config"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/descriptor"
@@ -40,7 +39,7 @@ type (
 	quotaExecutor struct {
 		tmplName     string
 		procDispatch template.ProcessQuotaFn
-		hndlr        config2.Handler
+		hndlr        adapter.Handler
 		insts        map[string]proto.Message // instance name -> instance params
 	}
 )
@@ -66,8 +65,8 @@ func (m *quotaManager) NewQuotaExecutor(c *cpb.Combined, createAspect CreateAspe
 		return nil, fmt.Errorf("failed to construct quota aspect with config '%v': %v", c, err)
 	}
 
-	// adapter.Aspect is identical to adapter.config.Handler, this cast has to pass.
-	v, _ := out.(config2.Handler)
+	// adapter.Aspect is identical to adapter.adapter.Handler, this cast has to pass.
+	v, _ := out.(adapter.Handler)
 
 	ti, _ := m.repo.GetTemplateInfo(tmpl)
 	if b := ti.HandlerSupportsTemplate(v); !b {

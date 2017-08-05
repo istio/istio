@@ -23,8 +23,6 @@ import (
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/config"
-	adptConfig "istio.io/mixer/pkg/adapter/config"
 	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
@@ -34,31 +32,31 @@ type (
 	// Repository defines all the helper functions to access the generated template specific types and fields.
 	Repository interface {
 		GetTemplateInfo(template string) (Info, bool)
-		SupportsTemplate(hndlrBuilder adptConfig.HandlerBuilder, tmpl string) (bool, string)
+		SupportsTemplate(hndlrBuilder adapter.HandlerBuilder, tmpl string) (bool, string)
 	}
 	// TypeEvalFn evaluates an expression and returns the ValueType for the expression.
 	TypeEvalFn func(string) (pb.ValueType, error)
 	// InferTypeFn does Type inference from the Instance.params proto message.
 	InferTypeFn func(proto.Message, TypeEvalFn) (proto.Message, error)
 	// ConfigureTypeFn dispatches the inferred types to handlers
-	ConfigureTypeFn func(types map[string]proto.Message, builder *adptConfig.HandlerBuilder) error
+	ConfigureTypeFn func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error
 
 	// ProcessReportFn instantiates the instance object and dispatches them to the handler.
-	ProcessReportFn func(allCnstrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status
+	ProcessReportFn func(allCnstrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) rpc.Status
 
 	// ProcessCheckFn instantiates the instance object and dispatches them to the handler.
 	ProcessCheckFn func(allCnstrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
-		handler adptConfig.Handler) (rpc.Status, config.CacheabilityInfo)
+		handler adapter.Handler) (rpc.Status, adapter.CacheabilityInfo)
 
 	// ProcessQuotaFn instantiates the instance object and dispatches them to the handler.
-	ProcessQuotaFn func(quotaName string, cnstr proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler,
-		args adapter.QuotaRequestArgs) (rpc.Status, config.CacheabilityInfo, adapter.QuotaResult)
+	ProcessQuotaFn func(quotaName string, cnstr proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler,
+		args adapter.QuotaRequestArgs) (rpc.Status, adapter.CacheabilityInfo, adapter.QuotaResult)
 
 	// SupportsTemplateFn check if the handlerBuilder supports template.
-	SupportsTemplateFn func(hndlrBuilder adptConfig.HandlerBuilder) bool
+	SupportsTemplateFn func(hndlrBuilder adapter.HandlerBuilder) bool
 
 	// HandlerSupportsTemplateFn check if the handler supports template.
-	HandlerSupportsTemplateFn func(hndlr adptConfig.Handler) bool
+	HandlerSupportsTemplateFn func(hndlr adapter.Handler) bool
 
 	// Info contains all the information related a template like
 	// Default instance params, type inference method etc.
@@ -111,7 +109,7 @@ func NewRepository(templateInfos map[string]Info) Repository {
 	return repo{info: templateInfos, tmplToBuilderNames: tmplToBuilderNames, allSupportedTmpls: allSupportedTmpls}
 }
 
-func (t repo) SupportsTemplate(hndlrBuilder adptConfig.HandlerBuilder, tmpl string) (bool, string) {
+func (t repo) SupportsTemplate(hndlrBuilder adapter.HandlerBuilder, tmpl string) (bool, string) {
 	i, ok := t.GetTemplateInfo(tmpl)
 	if !ok {
 		return false, fmt.Sprintf("Supported template %v is not one of the allowed supported templates %v", tmpl, t.allSupportedTmpls)

@@ -26,7 +26,6 @@ import (
 
 	"istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
-	adptConfig "istio.io/mixer/pkg/adapter/config"
 	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
@@ -49,11 +48,11 @@ var (
 			Variety:   adptTmpl.TEMPLATE_VARIETY_CHECK,
 			BldrName:  "istio.io/mixer/template/list.ListProcessorBuilder",
 			HndlrName: "istio.io/mixer/template/list.ListProcessor",
-			SupportsTemplate: func(hndlrBuilder adptConfig.HandlerBuilder) bool {
+			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_template_list.ListProcessorBuilder)
 				return ok
 			},
-			HandlerSupportsTemplate: func(hndlr adptConfig.Handler) bool {
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
 				_, ok := hndlr.(istio_mixer_template_list.ListProcessor)
 				return ok
 			},
@@ -67,7 +66,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adptConfig.HandlerBuilder) error {
+			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_template_list.ListProcessorBuilder)
 				castedTypes := make(map[string]*istio_mixer_template_list.Type)
@@ -80,7 +79,7 @@ var (
 			},
 
 			ProcessCheck: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
-				handler adptConfig.Handler) (rpc.Status, adptConfig.CacheabilityInfo) {
+				handler adapter.Handler) (rpc.Status, adapter.CacheabilityInfo) {
 				var found bool
 				var err error
 
@@ -95,7 +94,7 @@ var (
 					CheckExpression, err := mapper.Eval(md.CheckExpression, attrs)
 
 					if err != nil {
-						return status.WithError(err), adptConfig.CacheabilityInfo{}
+						return status.WithError(err), adapter.CacheabilityInfo{}
 					}
 
 					instances = append(instances, &istio_mixer_template_list.Instance{
@@ -104,16 +103,16 @@ var (
 						CheckExpression: CheckExpression.(string),
 					})
 				}
-				var cacheInfo adptConfig.CacheabilityInfo
+				var cacheInfo adapter.CacheabilityInfo
 				if found, cacheInfo, err = handler.(istio_mixer_template_list.ListProcessor).CheckList(instances); err != nil {
-					return status.WithError(err), adptConfig.CacheabilityInfo{}
+					return status.WithError(err), adapter.CacheabilityInfo{}
 				}
 
 				if found {
 					return status.OK, cacheInfo
 				}
 
-				return status.WithPermissionDenied(fmt.Sprintf("%s rejected", instances)), adptConfig.CacheabilityInfo{}
+				return status.WithPermissionDenied(fmt.Sprintf("%s rejected", instances)), adapter.CacheabilityInfo{}
 			},
 			ProcessReport: nil,
 			ProcessQuota:  nil,
@@ -124,11 +123,11 @@ var (
 			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
 			BldrName:  "istio.io/mixer/template/log.LogProcessorBuilder",
 			HndlrName: "istio.io/mixer/template/log.LogProcessor",
-			SupportsTemplate: func(hndlrBuilder adptConfig.HandlerBuilder) bool {
+			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_template_log.LogProcessorBuilder)
 				return ok
 			},
-			HandlerSupportsTemplate: func(hndlr adptConfig.Handler) bool {
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
 				_, ok := hndlr.(istio_mixer_template_log.LogProcessor)
 				return ok
 			},
@@ -147,7 +146,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adptConfig.HandlerBuilder) error {
+			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_template_log.LogProcessorBuilder)
 				castedTypes := make(map[string]*istio_mixer_template_log.Type)
@@ -159,7 +158,7 @@ var (
 				return castedBuilder.ConfigureLog(castedTypes)
 			},
 
-			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) rpc.Status {
 				result := &multierror.Error{}
 				var instances []*istio_mixer_template_log.Instance
 
@@ -204,11 +203,11 @@ var (
 			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
 			BldrName:  "istio.io/mixer/template/metric.MetricProcessorBuilder",
 			HndlrName: "istio.io/mixer/template/metric.MetricProcessor",
-			SupportsTemplate: func(hndlrBuilder adptConfig.HandlerBuilder) bool {
+			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_template_metric.MetricProcessorBuilder)
 				return ok
 			},
-			HandlerSupportsTemplate: func(hndlr adptConfig.Handler) bool {
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
 				_, ok := hndlr.(istio_mixer_template_metric.MetricProcessor)
 				return ok
 			},
@@ -231,7 +230,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adptConfig.HandlerBuilder) error {
+			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_template_metric.MetricProcessorBuilder)
 				castedTypes := make(map[string]*istio_mixer_template_metric.Type)
@@ -243,7 +242,7 @@ var (
 				return castedBuilder.ConfigureMetric(castedTypes)
 			},
 
-			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) rpc.Status {
 				result := &multierror.Error{}
 				var instances []*istio_mixer_template_metric.Instance
 
@@ -297,11 +296,11 @@ var (
 			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
 			BldrName:  "istio.io/mixer/template/quota.QuotaProcessorBuilder",
 			HndlrName: "istio.io/mixer/template/quota.QuotaProcessor",
-			SupportsTemplate: func(hndlrBuilder adptConfig.HandlerBuilder) bool {
+			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_template_quota.QuotaProcessorBuilder)
 				return ok
 			},
-			HandlerSupportsTemplate: func(hndlr adptConfig.Handler) bool {
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
 				_, ok := hndlr.(istio_mixer_template_quota.QuotaProcessor)
 				return ok
 			},
@@ -320,7 +319,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adptConfig.HandlerBuilder) error {
+			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_template_quota.QuotaProcessorBuilder)
 				castedTypes := make(map[string]*istio_mixer_template_quota.Type)
@@ -332,7 +331,7 @@ var (
 				return castedBuilder.ConfigureQuota(castedTypes)
 			},
 
-			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) rpc.Status {
 				result := &multierror.Error{}
 				var instances []*istio_mixer_template_quota.Instance
 

@@ -18,7 +18,6 @@ package istio_mixer_adapter_quota
 
 import (
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/config"
 )
 
 // Fully qualified name of this template
@@ -37,7 +36,7 @@ type Instance struct {
 // will call into the adapter to configure it with adapter specific configuration
 // as well as all inferred types.
 type QuotaProcessorBuilder interface {
-	config.HandlerBuilder
+	adapter.HandlerBuilder
 	// ConfigureQuota is invoked by Mixer to pass all possible Types for this template to the adapter.
 	// Type hold information about the shape of the Instances that will be dispatched to the
 	// adapters at request time. Adapter can expect to receive corresponding Instance objects at request time.
@@ -50,6 +49,6 @@ type QuotaProcessorBuilder interface {
 // attributes into template specific instances) to the adapters. Adapters take the incoming instances and do what they
 // need to achieve their primary function.
 type QuotaProcessor interface {
-	config.Handler
-	AllocQuota(*Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult, config.CacheabilityInfo, error)
+	adapter.Handler
+	AllocQuota(*Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult, adapter.CacheabilityInfo, error)
 }

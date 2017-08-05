@@ -21,14 +21,13 @@ import (
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/config"
 	"istio.io/mixer/pkg/attribute"
 	cfg "istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
 )
 
 // FromHandler creates a CreateAspectFunc from the provided handler instance.
-func FromHandler(handler config.Handler) CreateAspectFunc {
+func FromHandler(handler adapter.Handler) CreateAspectFunc {
 	return func(adapter.Env, adapter.Config, ...interface{}) (adapter.Aspect, error) {
 		return handler, nil
 	}

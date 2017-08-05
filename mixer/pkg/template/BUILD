@@ -11,7 +11,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/adapter:go_default_library",
-        "//pkg/adapter/config:go_default_library",
         "//pkg/adapter/template:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/expr:go_default_library",
@@ -37,7 +36,6 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//pkg/adapter:go_default_library",
-        "//pkg/adapter/config:go_default_library",
         "//pkg/adapter/template:go_default_library",
         "//pkg/expr:go_default_library",
         "//template/sample/check:go_default_library",

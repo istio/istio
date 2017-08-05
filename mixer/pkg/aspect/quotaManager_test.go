@@ -24,7 +24,6 @@ import (
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
-	adptConfig "istio.io/mixer/pkg/adapter/config"
 	"istio.io/mixer/pkg/attribute"
 	cfgpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
@@ -62,7 +61,7 @@ func TestQuotaManager_NewQuotaExecutor(t *testing.T) {
 
 	f := FromHandler(handler)
 	tmplRepo := template.NewRepository(map[string]template.Info{
-		tmplName: {HandlerSupportsTemplate: func(hndlr adptConfig.Handler) bool { return true }},
+		tmplName: {HandlerSupportsTemplate: func(hndlr adapter.Handler) bool { return true }},
 	})
 
 	if e, err := NewQuotaManager(tmplRepo).NewQuotaExecutor(conf, f, nil, df, tmplName); err != nil {
@@ -123,7 +122,7 @@ func TestQuotaManager_NewQuotaExecutorErrors(t *testing.T) {
 				},
 			}
 			tmplRepo := template.NewRepository(
-				map[string]template.Info{tmplName: {HandlerSupportsTemplate: func(hndlr adptConfig.Handler) bool { return tt.hndlrSuppTmpl }}},
+				map[string]template.Info{tmplName: {HandlerSupportsTemplate: func(hndlr adapter.Handler) bool { return tt.hndlrSuppTmpl }}},
 			)
 			f := FromHandler(handler)
 			if _, err := NewQuotaManager(tmplRepo).NewQuotaExecutor(conf, f, nil, df, tmplName); !strings.Contains(err.Error(), tt.wantErr) {
@@ -161,9 +160,9 @@ func TestNewQuotaExecutor_Execute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			qProc := func(quotaName string, cnstr proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler,
-				qma adapter.QuotaRequestArgs) (rpc.Status, adptConfig.CacheabilityInfo, adapter.QuotaResult) {
-				return tt.retStatus, adptConfig.CacheabilityInfo{}, tt.retQR
+			qProc := func(quotaName string, cnstr proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler,
+				qma adapter.QuotaRequestArgs) (rpc.Status, adapter.CacheabilityInfo, adapter.QuotaResult) {
+				return tt.retStatus, adapter.CacheabilityInfo{}, tt.retQR
 			}
 			e := &quotaExecutor{"TestQuotaTemplate", qProc, nil, insts}
 			s, qmr := e.Execute(nil, nil, &QuotaMethodArgs{Quota: tt.quotaName})
