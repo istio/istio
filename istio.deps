@@ -14,7 +14,7 @@
 		"lastStableSHA": "87cdc595-689d-4779-be29-ac845d47492e"
 	},
 	{
-		"name": "PILOT_HUB",
+		"name": "PILOT_TAG",
 		"repoName": "pilot",
 		"prodBranch": "stable",
 		"file": "istio.VERSION",
