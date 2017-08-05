@@ -137,7 +137,7 @@ func init() {
 	rootCmd.AddCommand(injectCmd)
 
 	injectCmd.PersistentFlags().StringVar(&hub, "hub", "docker.io/istio", "Docker hub")
-	injectCmd.PersistentFlags().StringVar(&tag, "tag", "0.1", "Docker tag")
+	injectCmd.PersistentFlags().StringVar(&tag, "tag", version.Info.Version, "Docker tag")
 
 	injectCmd.PersistentFlags().StringVarP(&inFilename, "filename", "f",
 		"", "Input Kubernetes resource filename")
