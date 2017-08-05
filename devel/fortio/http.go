@@ -569,8 +569,8 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 								break
 							}
 							max = c.headerLen + contentLength
-							if Log(Verbose) { // somehow without the if we spend 400ms/10s in LogV (!)
-								LogVf("found content length %d", contentLength)
+							if LogDebug() { // somehow without the if we spend 400ms/10s in LogV (!)
+								Debugf("found content length %d", contentLength)
 							}
 						} else {
 							// Chunked mode (or err/missing):
@@ -579,7 +579,7 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 								var dataStart int
 								dataStart, contentLength = ParseChunkSize(c.buffer[c.headerLen:])
 								max = c.headerLen + dataStart + contentLength + 2 // extra CR LF
-								LogVf("chunk-length is %d (%s) setting max to %d",
+								Debugf("chunk-length is %d (%s) setting max to %d",
 									contentLength, c.buffer[c.headerLen:c.headerLen+dataStart-2],
 									max)
 							} else {
