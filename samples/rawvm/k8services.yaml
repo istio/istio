@@ -1,0 +1,51 @@
+apiVersion: apps/v1beta1
+# 2 pods for service inside the cluster
+kind: Deployment
+metadata:
+  name: raw-svc-deployment
+spec:
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template: # create pods using pod definition in this template
+    metadata:
+      # a unique name is generated from the deployment name
+      labels:
+        app: echosrv
+    spec:
+      containers:
+      - name: echosrv
+        image: gcr.io/istio-testing/fortio.echosrv:0.2.0-pre2
+        ports:
+        - containerPort: 8080
+---
+# Client inside the cluster
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: raw-cli-deployement
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fortio
+    spec:
+      containers:
+      - name: fortio
+        # That image also runs echosrv (so it will run forever) but has the
+        # /usr/local/bin/fortio client
+        image: gcr.io/istio-testing/fortio:0.2.0-pre2
+        imagePullPolicy: IfNotPresent
+---
+# Extra debug / shell
+apiVersion: v1
+kind: Pod
+metadata:
+  name: shell
+spec:
+  containers:
+  - image: busybox
+    command:
+      - sleep
+      - "3600"
+    imagePullPolicy: IfNotPresent
+    name: shell
