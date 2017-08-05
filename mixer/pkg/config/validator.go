@@ -38,7 +38,6 @@ import (
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/config"
 	"istio.io/mixer/pkg/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
@@ -156,7 +155,7 @@ type (
 
 	// HandlerBuilderInfo stores validated HandlerBuilders..
 	HandlerBuilderInfo struct {
-		handlerBuilder     *config.HandlerBuilder
+		handlerBuilder     *adapter.HandlerBuilder
 		isBroken           bool
 		handlerCnfg        *pb.Handler
 		supportedTemplates []string
@@ -164,7 +163,7 @@ type (
 
 	// HandlerInfo stores validated and configured Handlers.
 	HandlerInfo struct {
-		Instance       config.Handler
+		Instance       adapter.Handler
 		Name           string
 		supportedTmpls []string
 	}
@@ -639,7 +638,7 @@ func (p *validator) buildHandler(builder *HandlerBuilderInfo, handler string) (c
 		}
 	}()
 
-	instance, err := (*builder.handlerBuilder).Build(builder.handlerCnfg.Params.(proto.Message))
+	instance, err := (*builder.handlerBuilder).Build(builder.handlerCnfg.Params.(proto.Message), nil)
 	// TODO Add validation to ensure handlerInstance support all the templates it claims to support.
 	if err != nil {
 		return ce.Appendf("handlerConfig: "+handler, "failed to build a handler instance: %v", err)

@@ -26,8 +26,6 @@ import (
 
 	"istio.io/mixer/adapter/noop"
 	"istio.io/mixer/pkg/adapter"
-	pkgAdapter "istio.io/mixer/pkg/adapter"
-	config2 "istio.io/mixer/pkg/adapter/config"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/expr"
@@ -45,7 +43,7 @@ type (
 	fakeHndlrBldr struct{}
 )
 
-func (fakeHndlrBldr) Build(cnfg proto.Message) (config2.Handler, error) {
+func (fakeHndlrBldr) Build(cnfg proto.Message, _ adapter.Env) (adapter.Handler, error) {
 	globalActualHandlerCallInfoToValidate["Build"] = cnfg
 	fakeHndlrObj := fakeHndlr{}
 	return fakeHndlrObj, nil
@@ -67,7 +65,7 @@ func GetFakeHndlrBuilderInfo() adapter.BuilderInfo {
 		Name:                   "fakeHandler",
 		Description:            "",
 		SupportedTemplates:     []string{sample_report.TemplateName},
-		CreateHandlerBuilderFn: func() config2.HandlerBuilder { return fakeHndlrBldr{} },
+		CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return fakeHndlrBldr{} },
 		DefaultConfig:          &types.Empty{},
 		ValidateConfig: func(msg proto.Message) error {
 			return nil
@@ -154,7 +152,7 @@ func testConfigFlow(t *testing.T, declarativeSrvcCnfgFilePath string, declaredGl
 	if err != nil {
 		t.Errorf("Failed to create expression evaluator: %v", err)
 	}
-	adapterMgr := NewManager([]pkgAdapter.RegisterFn{
+	adapterMgr := NewManager([]adapter.RegisterFn{
 		noop.Register,
 	}, aspect.Inventory(), eval, gp, adapterGP)
 	store, err := config.NewCompatFSStore(declaredGlobalCnfgFilePath, declarativeSrvcCnfgFilePath)

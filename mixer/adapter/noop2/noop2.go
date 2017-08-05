@@ -20,8 +20,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 
-	adapter "istio.io/mixer/pkg/adapter"
-	adapter_cnfg "istio.io/mixer/pkg/adapter/config"
+	"istio.io/mixer/pkg/adapter"
 	sample_report "istio.io/mixer/template/sample/report"
 )
 
@@ -32,8 +31,8 @@ type (
 
 ///////////////// Configuration time Methods ///////////////
 
-func (noop2Builder) Build(cnfg proto.Message) (adapter_cnfg.Handler, error) {
-	fmt.Println("Build in noop Adapter called with", cnfg)
+func (noop2Builder) Build(config proto.Message, _ adapter.Env) (adapter.Handler, error) {
+	fmt.Println("Build in noop Adapter called with", config)
 	return noop2Handler{}, nil
 }
 
@@ -59,7 +58,7 @@ func GetBuilderInfo() adapter.BuilderInfo {
 		Name:                   "noop2",
 		Description:            "An adapter that does nothing, just echos the calls made from mixer",
 		SupportedTemplates:     []string{sample_report.TemplateName},
-		CreateHandlerBuilderFn: func() adapter_cnfg.HandlerBuilder { return noop2Builder{} },
+		CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return noop2Builder{} },
 		DefaultConfig:          &types.Empty{},
 		ValidateConfig: func(msg proto.Message) error {
 			fmt.Println("ValidateConfig called with input", msg)

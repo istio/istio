@@ -25,7 +25,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	"istio.io/mixer/pkg/adapter/config"
+	"istio.io/mixer/pkg/adapter"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	tmpl "istio.io/mixer/pkg/template"
@@ -50,7 +50,7 @@ func (t fakeTmplRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	}, t.exists
 }
 
-func (t fakeTmplRepo) SupportsTemplate(hndlrBuilder config.HandlerBuilder, s string) (bool, string) {
+func (t fakeTmplRepo) SupportsTemplate(hndlrBuilder adapter.HandlerBuilder, s string) (bool, string) {
 	// always succeed
 	return true, ""
 }
@@ -68,7 +68,7 @@ func newFakeTmplRepo2(retErr error, cnfgTypePanicsForTmpl string, trackInstances
 }
 func (t fakeTmplRepo2) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	return tmpl.Info{
-		ConfigureType: func(types map[string]proto.Message, builder *config.HandlerBuilder) error {
+		ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 			instances := make([]string, 0)
 			for instance := range types {
 				instances = append(instances, instance)
@@ -82,7 +82,7 @@ func (t fakeTmplRepo2) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	}, true
 }
 
-func (t fakeTmplRepo2) SupportsTemplate(hndlrBuilder config.HandlerBuilder, s string) (bool, string) {
+func (t fakeTmplRepo2) SupportsTemplate(hndlrBuilder adapter.HandlerBuilder, s string) (bool, string) {
 	// always succeed
 	return true, ""
 }

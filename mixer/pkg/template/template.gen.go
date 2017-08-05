@@ -26,7 +26,6 @@ import (
 
 	"istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
-	adptConfig "istio.io/mixer/pkg/adapter/config"
 	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
@@ -47,11 +46,11 @@ var (
 			Variety:   adptTmpl.TEMPLATE_VARIETY_CHECK,
 			BldrName:  "istio.io/mixer/template/sample/check.SampleProcessorBuilder",
 			HndlrName: "istio.io/mixer/template/sample/check.SampleProcessor",
-			SupportsTemplate: func(hndlrBuilder adptConfig.HandlerBuilder) bool {
+			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_adapter_sample_check.SampleProcessorBuilder)
 				return ok
 			},
-			HandlerSupportsTemplate: func(hndlr adptConfig.Handler) bool {
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
 				_, ok := hndlr.(istio_mixer_adapter_sample_check.SampleProcessor)
 				return ok
 			},
@@ -65,7 +64,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adptConfig.HandlerBuilder) error {
+			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_adapter_sample_check.SampleProcessorBuilder)
 				castedTypes := make(map[string]*istio_mixer_adapter_sample_check.Type)
@@ -78,7 +77,7 @@ var (
 			},
 
 			ProcessCheck: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
-				handler adptConfig.Handler) (rpc.Status, adptConfig.CacheabilityInfo) {
+				handler adapter.Handler) (rpc.Status, adapter.CacheabilityInfo) {
 				var found bool
 				var err error
 
@@ -93,7 +92,7 @@ var (
 					CheckExpression, err := mapper.Eval(md.CheckExpression, attrs)
 
 					if err != nil {
-						return status.WithError(err), adptConfig.CacheabilityInfo{}
+						return status.WithError(err), adapter.CacheabilityInfo{}
 					}
 
 					instances = append(instances, &istio_mixer_adapter_sample_check.Instance{
@@ -102,16 +101,16 @@ var (
 						CheckExpression: CheckExpression.(string),
 					})
 				}
-				var cacheInfo adptConfig.CacheabilityInfo
+				var cacheInfo adapter.CacheabilityInfo
 				if found, cacheInfo, err = handler.(istio_mixer_adapter_sample_check.SampleProcessor).CheckSample(instances); err != nil {
-					return status.WithError(err), adptConfig.CacheabilityInfo{}
+					return status.WithError(err), adapter.CacheabilityInfo{}
 				}
 
 				if found {
 					return status.OK, cacheInfo
 				}
 
-				return status.WithPermissionDenied(fmt.Sprintf("%s rejected", instances)), adptConfig.CacheabilityInfo{}
+				return status.WithPermissionDenied(fmt.Sprintf("%s rejected", instances)), adapter.CacheabilityInfo{}
 			},
 			ProcessReport: nil,
 			ProcessQuota:  nil,
@@ -122,11 +121,11 @@ var (
 			Variety:   adptTmpl.TEMPLATE_VARIETY_QUOTA,
 			BldrName:  "istio.io/mixer/template/sample/quota.QuotaProcessorBuilder",
 			HndlrName: "istio.io/mixer/template/sample/quota.QuotaProcessor",
-			SupportsTemplate: func(hndlrBuilder adptConfig.HandlerBuilder) bool {
+			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_adapter_sample_quota.QuotaProcessorBuilder)
 				return ok
 			},
-			HandlerSupportsTemplate: func(hndlr adptConfig.Handler) bool {
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
 				_, ok := hndlr.(istio_mixer_adapter_sample_quota.QuotaProcessor)
 				return ok
 			},
@@ -145,7 +144,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adptConfig.HandlerBuilder) error {
+			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_adapter_sample_quota.QuotaProcessorBuilder)
 				castedTypes := make(map[string]*istio_mixer_adapter_sample_quota.Type)
@@ -157,8 +156,8 @@ var (
 				return castedBuilder.ConfigureQuota(castedTypes)
 			},
 
-			ProcessQuota: func(quotaName string, cnstr proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler,
-				qma adapter.QuotaRequestArgs) (rpc.Status, adptConfig.CacheabilityInfo, adapter.QuotaResult) {
+			ProcessQuota: func(quotaName string, cnstr proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler,
+				qma adapter.QuotaRequestArgs) (rpc.Status, adapter.CacheabilityInfo, adapter.QuotaResult) {
 				castedCnstr := cnstr.(*istio_mixer_adapter_sample_quota.InstanceParam)
 
 				Dimensions, err := evalAll(castedCnstr.Dimensions, attrs, mapper)
@@ -166,7 +165,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", quotaName, err)
 					glog.Error(msg)
-					return status.WithInvalidArgument(msg), adptConfig.CacheabilityInfo{}, adapter.QuotaResult{}
+					return status.WithInvalidArgument(msg), adapter.CacheabilityInfo{}, adapter.QuotaResult{}
 				}
 
 				instance := &istio_mixer_adapter_sample_quota.Instance{
@@ -176,15 +175,15 @@ var (
 				}
 
 				var qr adapter.QuotaResult
-				var cacheInfo adptConfig.CacheabilityInfo
+				var cacheInfo adapter.CacheabilityInfo
 				if qr, cacheInfo, err = handler.(istio_mixer_adapter_sample_quota.QuotaProcessor).AllocQuota(instance, qma); err != nil {
 					glog.Errorf("Quota allocation failed: %v", err)
-					return status.WithError(err), adptConfig.CacheabilityInfo{}, adapter.QuotaResult{}
+					return status.WithError(err), adapter.CacheabilityInfo{}, adapter.QuotaResult{}
 				}
 				if qr.Amount == 0 {
 					msg := fmt.Sprintf("Unable to allocate %v units from quota %s", qma.QuotaAmount, quotaName)
 					glog.Warning(msg)
-					return status.WithResourceExhausted(msg), adptConfig.CacheabilityInfo{}, adapter.QuotaResult{}
+					return status.WithResourceExhausted(msg), adapter.CacheabilityInfo{}, adapter.QuotaResult{}
 				}
 				if glog.V(2) {
 					glog.Infof("Allocated %v units from quota %s", qma.QuotaAmount, quotaName)
@@ -200,11 +199,11 @@ var (
 			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
 			BldrName:  "istio.io/mixer/template/sample/report.SampleProcessorBuilder",
 			HndlrName: "istio.io/mixer/template/sample/report.SampleProcessor",
-			SupportsTemplate: func(hndlrBuilder adptConfig.HandlerBuilder) bool {
+			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_adapter_sample_report.SampleProcessorBuilder)
 				return ok
 			},
-			HandlerSupportsTemplate: func(hndlr adptConfig.Handler) bool {
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
 				_, ok := hndlr.(istio_mixer_adapter_sample_report.SampleProcessor)
 				return ok
 			},
@@ -227,7 +226,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adptConfig.HandlerBuilder) error {
+			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_adapter_sample_report.SampleProcessorBuilder)
 				castedTypes := make(map[string]*istio_mixer_adapter_sample_report.Type)
@@ -239,7 +238,7 @@ var (
 				return castedBuilder.ConfigureSample(castedTypes)
 			},
 
-			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adptConfig.Handler) rpc.Status {
+			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) rpc.Status {
 				result := &multierror.Error{}
 				var instances []*istio_mixer_adapter_sample_report.Instance
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package adapter
 
 import (
 	"io"
@@ -26,21 +26,20 @@ type (
 		io.Closer
 	}
 
-	// HandlerBuilder represents a factory of Handler. Adapters register builders with Mixer
-	// in order to allow Mixer to instantiate Handler on demand.
+	// HandlerBuilder represents a factory of handlers. Adapters register builders with Mixer
+	// in order to allow Mixer to instantiate handlers on demand.
+	//
+	// For a given builder, Mixer calls the various template-specific configuration methods
+	// on the handler, and once done then Mixer calls the Build method, passing a block
+	// of adapter-specific configuration data as argument. The Build method returns a handler,
+	// which Mixer invokes during request processing.
 	HandlerBuilder interface {
-		// Build must return a Handler that must implement all the runtime request serving, template specific,
-		// interfaces{} that the Builder was configured for. Mixer will pass the Handler specific configuration to the
-		// Build method.
-		//
-		// Mixer will call the template specific configure methods on the HandlerBuilder object.
-		// After the configuration is done, Mixer will call the Build method to get an instance of Handler.
-		// On the returned Handler, Mixer must be should be able to call template specific processing methods
-		// example ReportMetric, ReportLog etc.
+		// Build must return a handler that implements all the template-specific runtime request serving
+		// interfaces that the Builder was configured for.
 		// This means the Handler returned by the Build method must implement all the runtime interfaces for all the
 		// template the Adapter was registered for in the adapter.RegisterFn2 method.
 		// If the returned Handler fails to implement the required interface that builder was registered for, mixer will
 		// report an error and stop serving runtime traffic to the particular Handler.
-		Build(cnfg proto.Message) (Handler, error)
+		Build(config proto.Message, env Env) (Handler, error)
 	}
 )

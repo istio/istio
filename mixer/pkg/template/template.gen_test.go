@@ -27,8 +27,6 @@ import (
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/config"
-	adptConfig "istio.io/mixer/pkg/adapter/config"
 	adpTmpl "istio.io/mixer/pkg/adapter/template"
 	"istio.io/mixer/pkg/expr"
 	sample_check "istio.io/mixer/template/sample/check"
@@ -39,11 +37,13 @@ import (
 // Does not implement any template interfaces.
 type fakeBadHandler struct{}
 
-func (h fakeBadHandler) Close() error                                      { return nil }
-func (h fakeBadHandler) Build(_ proto.Message) (adptConfig.Handler, error) { return nil, nil }
+func (h fakeBadHandler) Close() error { return nil }
+func (h fakeBadHandler) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
+	return nil, nil
+}
 
 type fakeReportHandler struct {
-	adptConfig.Handler
+	adapter.Handler
 	retProcError  error
 	cnfgCallInput interface{}
 	procCallInput interface{}
@@ -54,47 +54,53 @@ func (h *fakeReportHandler) ReportSample(instances []*sample_report.Instance) er
 	h.procCallInput = instances
 	return h.retProcError
 }
-func (h *fakeReportHandler) Build(cnfg proto.Message) (adptConfig.Handler, error) { return nil, nil }
+func (h *fakeReportHandler) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
+	return nil, nil
+}
 func (h *fakeReportHandler) ConfigureSample(t map[string]*sample_report.Type) error {
 	h.cnfgCallInput = t
 	return nil
 }
 
 type fakeCheckHandler struct {
-	adptConfig.Handler
+	adapter.Handler
 	retProcError  error
 	cnfgCallInput interface{}
 	procCallInput interface{}
 	ret           bool
-	retCache      adptConfig.CacheabilityInfo
+	retCache      adapter.CacheabilityInfo
 }
 
 func (h *fakeCheckHandler) Close() error { return nil }
-func (h *fakeCheckHandler) CheckSample(instance []*sample_check.Instance) (bool, adptConfig.CacheabilityInfo, error) {
+func (h *fakeCheckHandler) CheckSample(instance []*sample_check.Instance) (bool, adapter.CacheabilityInfo, error) {
 	h.procCallInput = instance
 	return h.ret, h.retCache, h.retProcError
 }
-func (h *fakeCheckHandler) Build(cnfg proto.Message) (adptConfig.Handler, error) { return nil, nil }
+func (h *fakeCheckHandler) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
+	return nil, nil
+}
 func (h *fakeCheckHandler) ConfigureSample(t map[string]*sample_check.Type) error {
 	h.cnfgCallInput = t
 	return nil
 }
 
 type fakeQuotaHandler struct {
-	adptConfig.Handler
+	adapter.Handler
 	retProcError  error
 	cnfgCallInput interface{}
 	procCallInput interface{}
 	retQuotaRes   adapter.QuotaResult
-	retCache      adptConfig.CacheabilityInfo
+	retCache      adapter.CacheabilityInfo
 }
 
 func (h *fakeQuotaHandler) Close() error { return nil }
-func (h *fakeQuotaHandler) AllocQuota(instance *sample_quota.Instance, qra adapter.QuotaRequestArgs) (adapter.QuotaResult, adptConfig.CacheabilityInfo, error) {
+func (h *fakeQuotaHandler) AllocQuota(instance *sample_quota.Instance, qra adapter.QuotaRequestArgs) (adapter.QuotaResult, adapter.CacheabilityInfo, error) {
 	h.procCallInput = instance
 	return h.retQuotaRes, h.retCache, h.retProcError
 }
-func (h *fakeQuotaHandler) Build(cnfg proto.Message) (adptConfig.Handler, error) { return nil, nil }
+func (h *fakeQuotaHandler) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
+	return nil, nil
+}
 func (h *fakeQuotaHandler) ConfigureQuota(t map[string]*sample_quota.Type) error {
 	h.cnfgCallInput = t
 	return nil
@@ -156,7 +162,7 @@ func TestGeneratedFields(t *testing.T) {
 func TestHandlerSupportsTemplate(t *testing.T) {
 	for _, tst := range []struct {
 		tmpl   string
-		hndlr  adptConfig.Handler
+		hndlr  adapter.Handler
 		result bool
 	}{
 		{
@@ -202,7 +208,7 @@ func TestHandlerSupportsTemplate(t *testing.T) {
 func TestBuilderSupportsTemplate(t *testing.T) {
 	for _, tst := range []struct {
 		tmpl      string
-		hndlrBldr adptConfig.HandlerBuilder
+		hndlrBldr adapter.HandlerBuilder
 		result    bool
 	}{
 		{
@@ -464,7 +470,7 @@ type ConfigureTypeTest struct {
 	name     string
 	tmpl     string
 	types    map[string]proto.Message
-	hdlrBldr adptConfig.HandlerBuilder
+	hdlrBldr adapter.HandlerBuilder
 	want     interface{}
 }
 
@@ -514,10 +520,10 @@ func TestConfigureType(t *testing.T) {
 type ProcessTest struct {
 	name          string
 	insts         map[string]proto.Message
-	hdlr          adptConfig.Handler
+	hdlr          adapter.Handler
 	wantInstance  interface{}
-	wantCache     config.CacheabilityInfo // not for report calls
-	wantQuotaResp adapter.QuotaResult     // only for quota calls
+	wantCache     adapter.CacheabilityInfo // not for report calls
+	wantQuotaResp adapter.QuotaResult      // only for quota calls
 	wantError     string
 }
 
@@ -584,12 +590,12 @@ func TestProcessCheck(t *testing.T) {
 				"foo": &sample_check.InstanceParam{CheckExpression: `"abcd asd"`},
 				"bar": &sample_check.InstanceParam{CheckExpression: `"pqrs asd"`},
 			},
-			hdlr: &fakeCheckHandler{ret: true, retCache: adptConfig.CacheabilityInfo{ValidUseCount: 111}},
+			hdlr: &fakeCheckHandler{ret: true, retCache: adapter.CacheabilityInfo{ValidUseCount: 111}},
 			wantInstance: []*sample_check.Instance{
 				{Name: "foo", CheckExpression: "abcd asd"},
 				{Name: "bar", CheckExpression: "pqrs asd"},
 			},
-			wantCache: adptConfig.CacheabilityInfo{ValidUseCount: 111},
+			wantCache: adapter.CacheabilityInfo{ValidUseCount: 111},
 		},
 		{
 			name: "EvalError",
@@ -643,10 +649,10 @@ func TestProcessQuota(t *testing.T) {
 			insts: map[string]proto.Message{
 				"foo": &sample_quota.InstanceParam{Dimensions: map[string]string{"s": "2"}},
 			},
-			hdlr: &fakeQuotaHandler{retQuotaRes: adapter.QuotaResult{Amount: 100}, retCache: adptConfig.CacheabilityInfo{ValidUseCount: 111}},
+			hdlr: &fakeQuotaHandler{retQuotaRes: adapter.QuotaResult{Amount: 100}, retCache: adapter.CacheabilityInfo{ValidUseCount: 111}},
 
 			wantInstance:  &sample_quota.Instance{Name: "foo", Dimensions: map[string]interface{}{"s": int64(2)}},
-			wantCache:     adptConfig.CacheabilityInfo{ValidUseCount: 111},
+			wantCache:     adapter.CacheabilityInfo{ValidUseCount: 111},
 			wantQuotaResp: adapter.QuotaResult{Amount: 100},
 		},
 		{
@@ -670,7 +676,7 @@ func TestProcessQuota(t *testing.T) {
 			insts: map[string]proto.Message{
 				"foo": &sample_quota.InstanceParam{Dimensions: map[string]string{"s": "2"}},
 			},
-			hdlr:      &fakeQuotaHandler{retQuotaRes: adapter.QuotaResult{Amount: 0}, retCache: adptConfig.CacheabilityInfo{ValidUseCount: 111}},
+			hdlr:      &fakeQuotaHandler{retQuotaRes: adapter.QuotaResult{Amount: 0}, retCache: adapter.CacheabilityInfo{ValidUseCount: 111}},
 			wantError: "Unable to allocate",
 		},
 	} {

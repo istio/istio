@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/mixer/pkg/adapter/config"
+	"istio.io/mixer/pkg/adapter"
 )
 
 func TestGetTemplateInfo(t *testing.T) {
@@ -54,10 +54,10 @@ func TestSupportsTemplate(t *testing.T) {
 		expectedErr  string
 	}{
 		{"ValidTmpl", map[string]Info{"ValidTmpl": {BldrName: "ValidTmplBuilder",
-			SupportsTemplate: func(h config.HandlerBuilder) bool { return true }}}, ""},
+			SupportsTemplate: func(h adapter.HandlerBuilder) bool { return true }}}, ""},
 		{"unknown template", nil, "is not one of the allowed supported templates"},
 		{"interface_not_implemented", map[string]Info{"interface_not_implemented": {BldrName: "interface_not_implementedBuilder",
-			SupportsTemplate: func(h config.HandlerBuilder) bool { return false }}},
+			SupportsTemplate: func(h adapter.HandlerBuilder) bool { return false }}},
 			"does not implement interface interface_not_implementedBuilder"},
 	} {
 		t.Run(tst.tmplToCheck, func(t *testing.T) {

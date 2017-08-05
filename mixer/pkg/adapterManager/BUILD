@@ -43,7 +43,7 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//adapter/noop:go_default_library",
-        "//pkg/adapter/config:go_default_library",
+        "//pkg/adapter:go_default_library",
         "//pkg/config/descriptor:go_default_library",
         "//pkg/template:go_default_library",
         "//template/sample/report:go_default_library",
