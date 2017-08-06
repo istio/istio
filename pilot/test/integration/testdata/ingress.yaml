@@ -55,3 +55,9 @@ spec:
         backend:
           serviceName: a
           servicePort: 8080
+  - host: api.company.com
+    http:
+      paths:
+      - backend:
+          serviceName: a
+          servicePort: grpc

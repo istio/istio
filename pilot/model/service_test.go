@@ -154,3 +154,12 @@ func TestTags(t *testing.T) {
 		}
 	}
 }
+
+func TestHTTPProtocol(t *testing.T) {
+	if ProtocolUDP.IsHTTP() {
+		t.Errorf("UDP is not HTTP protocol")
+	}
+	if !ProtocolGRPC.IsHTTP() {
+		t.Errorf("gRPC is HTTP protocol")
+	}
+}

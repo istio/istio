@@ -97,6 +97,16 @@ const (
 	ProtocolUDP Protocol = "UDP"
 )
 
+// IsHTTP is true for protocols that use HTTP as transport protocol
+func (p Protocol) IsHTTP() bool {
+	switch p {
+	case ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC:
+		return true
+	default:
+		return false
+	}
+}
+
 // NetworkEndpoint defines a network address (IP:port) associated with an instance of the
 // service. A service has one or more instances each running in a
 // container/VM/pod. If a service has multiple ports, then the same

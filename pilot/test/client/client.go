@@ -42,11 +42,15 @@ var (
 	headerVal string
 )
 
+const (
+	hostKey = "Host"
+)
+
 func init() {
 	flag.IntVar(&count, "count", 1, "Number of times to make the request")
 	flag.DurationVar(&timeout, "timeout", 15*time.Second, "Request timeout")
 	flag.StringVar(&url, "url", "", "Specify URL")
-	flag.StringVar(&headerKey, "key", "", "Header key")
+	flag.StringVar(&headerKey, "key", "", "Header key (use Host for authority)")
 	flag.StringVar(&headerVal, "val", "", "Header value")
 }
 
@@ -59,7 +63,7 @@ func makeHTTPRequest(client *http.Client) func(int) func() error {
 			}
 
 			log.Printf("[%d] Url=%s\n", i, url)
-			if headerKey == "Host" {
+			if headerKey == hostKey {
 				req.Host = headerVal
 				log.Printf("[%d] Host=%s\n", i, headerVal)
 			} else if headerKey != "" {
@@ -135,10 +139,16 @@ func main() {
 		f = makeHTTPRequest(client)
 	} else if strings.HasPrefix(url, "grpc://") {
 		address := url[len("grpc://"):]
+
+		// grpc-go sets incorrect authority header
+		authority := address
+		if headerKey == hostKey {
+			authority = headerVal
+		}
+
 		conn, err := grpc.Dial(address,
 			grpc.WithInsecure(),
-			// grpc-go sets incorrect authority header
-			grpc.WithAuthority(address),
+			grpc.WithAuthority(authority),
 			grpc.WithBlock(),
 			grpc.WithTimeout(timeout))
 		if err != nil {

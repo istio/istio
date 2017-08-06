@@ -186,7 +186,6 @@ func setResponseFromCodes(request *http.Request, response http.ResponseWriter) e
 
 // codes must be comma-separated HTTP response code, colon, positive integer
 func validateCodes(codestrings string) ([]codeAndSlices, error) {
-
 	if codestrings == "" {
 		// Consider no codes to be "200:1" -- return HTTP 200 100% of the time.
 		codestrings = strconv.Itoa(http.StatusOK) + ":1"
@@ -208,7 +207,6 @@ func validateCodes(codestrings string) ([]codeAndSlices, error) {
 
 // code must be HTTP response code
 func validateCodeAndSlices(codecount string) (codeAndSlices, error) {
-
 	flavor := strings.Split(codecount, ":")
 
 	// Demand code or code:number
