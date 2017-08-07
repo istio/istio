@@ -33,6 +33,7 @@ type ingress struct {
 
 const (
 	ingressServiceName = "istio-ingress"
+	ingressSecretName  = "ingress"
 )
 
 func (t *ingress) String() string {
@@ -55,7 +56,7 @@ func (t *ingress) setup() error {
 		return err
 	}
 	_, err = client.CoreV1().Secrets(t.Namespace).Create(&v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "ingress"},
+		ObjectMeta: metav1.ObjectMeta{Name: ingressSecretName},
 		Data: map[string][]byte{
 			"tls.key": key,
 			"tls.crt": crt,
@@ -193,6 +194,10 @@ func (t *ingress) teardown() {
 	}
 	if err := client.Extensions().Ingresses(t.Namespace).
 		DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{}); err != nil {
+		glog.Warning(err)
+	}
+	if err := client.CoreV1().Secrets(t.Namespace).
+		Delete(ingressSecretName, &metav1.DeleteOptions{}); err != nil {
 		glog.Warning(err)
 	}
 	if err := t.deleteAllConfigs(); err != nil {
