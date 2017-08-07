@@ -61,7 +61,7 @@ func (denialsManager) ValidateConfig(config.AspectParams, expr.TypeChecker, desc
 	return
 }
 
-func (a *denialsExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
+func (a *denialsExecutor) Execute(attribute.Bag, expr.Evaluator) rpc.Status {
 	return a.aspect.Deny()
 }
 

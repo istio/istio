@@ -69,7 +69,7 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func (b *builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config, metrics map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
+func (b *builder) NewMetricsAspect(env adapter.Env, cfg adapter.Config, _ map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
 	return b.newAspect(env, cfg)
 }
 
