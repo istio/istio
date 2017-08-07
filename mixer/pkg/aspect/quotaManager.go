@@ -83,7 +83,7 @@ func (*quotaManager) ValidateConfig(c config.AspectParams, tc expr.TypeChecker, 
 }
 
 func (*quotaManager) Kind() config.Kind {
-	return config.Undefined
+	return config.Unspecified
 }
 
 func (w *quotaExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma *QuotaMethodArgs) (rpc.Status, *QuotaMethodResp) {

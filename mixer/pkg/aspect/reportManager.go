@@ -81,7 +81,7 @@ func (*reportManager) ValidateConfig(c config.AspectParams, tc expr.TypeChecker,
 }
 
 func (*reportManager) Kind() config.Kind {
-	return config.Undefined
+	return config.Unspecified
 }
 
 func (w *reportExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status {
