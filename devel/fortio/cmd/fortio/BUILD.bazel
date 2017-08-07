@@ -10,5 +10,8 @@ go_library(
     name = "go_default_library",
     srcs = ["main.go"],
     visibility = ["//visibility:private"],
-    deps = ["//devel/fortio:go_default_library"],
+    deps = [
+        "//devel/fortio:go_default_library",
+        "//devel/fortio/fortiogrpc:go_default_library",
+    ],
 )
