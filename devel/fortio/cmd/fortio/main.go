@@ -21,6 +21,7 @@ import (
 	"runtime"
 
 	"istio.io/istio/devel/fortio"
+	"istio.io/istio/devel/fortio/fortiogrpc"
 )
 
 // -- Support for multiple instances of -H flag on cmd line:
@@ -39,7 +40,11 @@ func (f *flagList) Set(value string) error {
 
 // Prints usage
 func usage() {
-	fmt.Fprintf(os.Stderr, "Φορτίο %s usage:\n\n%s [flags] url\n", fortio.Version, os.Args[0]) // nolint(gas)
+	fmt.Fprintf(os.Stderr, "Φορτίο %s usage:\n\t%s [flags] target\n%s\n%s\n",
+		fortio.Version,
+		os.Args[0],
+		"where target is a url (http load tests) or host:port (grpc health test)",
+		"and flags are:") // nolint(gas)
 	flag.PrintDefaults()
 	os.Exit(1)
 }
@@ -59,6 +64,7 @@ func main() {
 		keepAliveFlag   = flag.Bool("keepalive", true, "Keep connection alive (only for fast http 1.1)")
 		stdClientFlag   = flag.Bool("stdclient", false, "Use the slower net/http standard client (works for TLS)")
 		http10Flag      = flag.Bool("http1.0", false, "Use http1.0 (instead of http 1.1)")
+		grpcFlag        = flag.Bool("grpc", false, "Use GRPC health check")
 
 		headersFlags flagList
 	)
@@ -78,29 +84,39 @@ func main() {
 	prevGoMaxProcs := runtime.GOMAXPROCS(*goMaxProcsFlag)
 	fmt.Printf("Fortio running at %g queries per second, %d->%d procs, for %v: %s\n",
 		*qpsFlag, prevGoMaxProcs, runtime.GOMAXPROCS(0), *durationFlag, url)
-	o := fortio.HTTPRunnerOptions{
-		RunnerOptions: fortio.RunnerOptions{
-			QPS:         *qpsFlag,
-			Duration:    *durationFlag,
-			NumThreads:  *numThreadsFlag,
-			Percentiles: pList,
-			Resolution:  *resolutionFlag,
-		},
-		URL:               url,
-		HTTP10:            *http10Flag,
-		DisableFastClient: *stdClientFlag,
-		DisableKeepAlive:  !*keepAliveFlag,
-		Profiler:          *profileFlag,
-		Compression:       *compressionFlag,
+	ro := fortio.RunnerOptions{
+		QPS:         *qpsFlag,
+		Duration:    *durationFlag,
+		NumThreads:  *numThreadsFlag,
+		Percentiles: pList,
+		Resolution:  *resolutionFlag,
 	}
-	res, err := fortio.RunHTTPTest(&o)
+	var res fortio.HasRunnerResult
+	if *grpcFlag {
+		o := fortiogrpc.GRPCRunnerOptions{
+			RunnerOptions: ro,
+			Destination:   url,
+		}
+		res, err = fortiogrpc.RunGRPCTest(&o)
+	} else {
+		o := fortio.HTTPRunnerOptions{
+			RunnerOptions:     ro,
+			URL:               url,
+			HTTP10:            *http10Flag,
+			DisableFastClient: *stdClientFlag,
+			DisableKeepAlive:  !*keepAliveFlag,
+			Profiler:          *profileFlag,
+			Compression:       *compressionFlag,
+		}
+		res, err = fortio.RunHTTPTest(&o)
+	}
 	if err != nil {
 		fmt.Printf("Aborting because %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Printf("All done %d calls (plus %d warmup) %.3f ms avg, %.1f qps\n",
-		res.DurationHistogram.Count,
+		res.Result().DurationHistogram.Count,
 		*numThreadsFlag,
-		1000.*res.DurationHistogram.Avg(),
-		res.ActualQPS)
+		1000.*res.Result().DurationHistogram.Avg(),
+		res.Result().ActualQPS)
 }
