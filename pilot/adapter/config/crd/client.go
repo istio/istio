@@ -12,27 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package tpr provides an implementation of the config store and cache
-// using Kubernetes Third-Party Resources and the informer framework from Kubernetes
-package tpr
+// Package crd provides an implementation of the config store and cache
+// using Kubernetes Custom Resources and the informer framework from Kubernetes
+package crd
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 
-	"k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/apimachinery/pkg/util/wait"
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
@@ -45,26 +45,28 @@ import (
 )
 
 const (
-	// IstioAPIGroup defines Kubernetes API group for TPR
-	IstioAPIGroup = "istio.io"
+	// IstioAPIGroup defines Kubernetes API group for CRD
+	IstioAPIGroup = "config.istio.io"
 
 	// IstioResourceVersion defines Kubernetes API group version
 	IstioResourceVersion = "v1alpha1"
 
-	// IstioKind defines the shared TPR kind to avoid boilerplate
+	// IstioKindName defines the shared CRD kind to avoid boilerplate
 	// code for each custom kind
-	IstioKind = "IstioConfig"
+	IstioKindName = "IstioKind"
 )
 
-// Client is a basic REST client for TPRs implementing config store
+// Client is a basic REST client for CRDs implementing config store
 type Client struct {
 	descriptor model.ConfigDescriptor
-	client     kubernetes.Interface
 
-	// dynamic REST client for accessing config TPRs
+	// restconfig for REST type descriptors
+	restconfig *rest.Config
+
+	// dynamic REST client for accessing config CRDs
 	dynamic *rest.RESTClient
 
-	// namespace is the namespace for storing TPRs
+	// namespace is the namespace for storing CRDs
 	namespace string
 }
 
@@ -88,34 +90,24 @@ func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 	config.GroupVersion = &version
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
 
+	types := runtime.NewScheme()
 	schemeBuilder := runtime.NewSchemeBuilder(
 		func(scheme *runtime.Scheme) error {
 			scheme.AddKnownTypes(
-				version,
+				version, &IstioKind{}, &IstioKindList{},
 			)
-			scheme.AddKnownTypeWithName(schema.GroupVersionKind{
-				Group:   IstioAPIGroup,
-				Version: IstioResourceVersion,
-				Kind:    IstioKind,
-			}, &Config{})
-			scheme.AddKnownTypeWithName(schema.GroupVersionKind{
-				Group:   IstioAPIGroup,
-				Version: IstioResourceVersion,
-				Kind:    IstioKind + "List",
-			}, &ConfigList{})
-
+			meta_v1.AddToGroupVersion(scheme, version)
 			return nil
 		})
-	meta_v1.AddToGroupVersion(scheme.Scheme, version)
-	err = schemeBuilder.AddToScheme(scheme.Scheme)
+	err = schemeBuilder.AddToScheme(types)
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: serializer.NewCodecFactory(types)}
 
 	return
 }
 
 // NewClient creates a client to Kubernetes API using a kubeconfig file.
-// namespace argument provides the namespace to store TPRs
+// namespace argument provides the namespace to store CRDs
 // Use an empty value for `kubeconfig` to use the in-cluster config.
 // If the kubeconfig file is empty, defaults to in-cluster config as well.
 func NewClient(config string, descriptor model.ConfigDescriptor, namespace string) (*Client, error) {
@@ -123,11 +115,8 @@ func NewClient(config string, descriptor model.ConfigDescriptor, namespace strin
 	if err != nil {
 		return nil, err
 	}
+
 	restconfig, err := CreateRESTConfig(kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-	client, err := kubernetes.NewForConfig(restconfig)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +128,7 @@ func NewClient(config string, descriptor model.ConfigDescriptor, namespace strin
 
 	out := &Client{
 		descriptor: descriptor,
-		client:     client,
+		restconfig: restconfig,
 		dynamic:    dynamic,
 		namespace:  namespace,
 	}
@@ -147,87 +136,75 @@ func NewClient(config string, descriptor model.ConfigDescriptor, namespace strin
 	return out, nil
 }
 
-// RegisterResources creates third party resources
+// RegisterResources sends a request to create CRDs and waits for them to initialize
 func (cl *Client) RegisterResources() error {
-	var out error
-	kinds := []string{IstioKind}
-	for _, kind := range kinds {
-		apiName := kindToAPIName(kind)
-		res, err := cl.client.
-			Extensions().
-			ThirdPartyResources().
-			Get(apiName, meta_v1.GetOptions{})
-		if err == nil {
-			glog.V(2).Infof("Resource already exists: %q", res.Name)
-		} else if errors.IsNotFound(err) {
-			glog.V(1).Infof("Creating resource: %q", kind)
-			tpr := &v1beta1.ThirdPartyResource{
-				ObjectMeta:  meta_v1.ObjectMeta{Name: apiName},
-				Versions:    []v1beta1.APIVersion{{Name: IstioResourceVersion}},
-				Description: "Istio configuration",
-			}
-			res, err = cl.client.
-				Extensions().
-				ThirdPartyResources().
-				Create(tpr)
-			if err != nil {
-				out = multierror.Append(out, err)
-			} else {
-				glog.V(2).Infof("Created resource: %q", res.Name)
-			}
-		} else {
-			out = multierror.Append(out, err)
-		}
+	clientset, err := apiextensionsclient.NewForConfig(cl.restconfig)
+	if err != nil {
+		return err
 	}
 
-	// validate that the resources exist or fail with an error after 30s
-	ready := true
-	glog.V(2).Infof("Checking for TPR resources")
-	for i := 0; i < 30; i++ {
-		ready = true
-		for _, kind := range kinds {
-			list := &ConfigList{}
-			err := cl.dynamic.Get().
-				Namespace(v1.NamespaceAll).
-				Resource(IstioKind + "s").
-				Do().Into(list)
-			if err != nil {
-				glog.V(2).Infof("TPR %q is not ready (%v). Waiting...", kind, err)
-				ready = false
-				break
+	name := strings.ToLower(IstioKindName) + "s." + IstioAPIGroup
+
+	crd := &apiextensionsv1beta1.CustomResourceDefinition{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: name,
+		},
+		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+			Group:   IstioAPIGroup,
+			Version: IstioResourceVersion,
+			Scope:   apiextensionsv1beta1.NamespaceScoped,
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Plural: strings.ToLower(IstioKindName) + "s",
+				Kind:   IstioKindName,
+			},
+		},
+	}
+	_, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return err
+	}
+
+	// wait for CRD being established
+	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
+		crd, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, meta_v1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		for _, cond := range crd.Status.Conditions {
+			switch cond.Type {
+			case apiextensionsv1beta1.Established:
+				if cond.Status == apiextensionsv1beta1.ConditionTrue {
+					return true, err
+				}
+			case apiextensionsv1beta1.NamesAccepted:
+				if cond.Status == apiextensionsv1beta1.ConditionFalse {
+					glog.Warningf("name conflict: %v", cond.Reason)
+				}
 			}
 		}
-		if ready {
-			break
+		return false, err
+	})
+
+	if err != nil {
+		deleteErr := cl.DeregisterResources()
+		if deleteErr != nil {
+			return multierror.Append(err, deleteErr)
 		}
-		time.Sleep(1 * time.Second)
+		return err
 	}
 
-	if !ready {
-		out = multierror.Append(out, fmt.Errorf("Failed to create all TPRs"))
-	}
-
-	return out
+	return nil
 }
 
 // DeregisterResources removes third party resources
 func (cl *Client) DeregisterResources() error {
-	var out error
-	kinds := []string{IstioKind}
-	for _, kind := range kinds {
-		apiName := kindToAPIName(kind)
-		err := cl.client.Extensions().ThirdPartyResources().
-			Delete(apiName, &meta_v1.DeleteOptions{})
-		if err != nil {
-			out = multierror.Append(out, err)
-		}
+	clientset, err := apiextensionsclient.NewForConfig(cl.restconfig)
+	if err != nil {
+		return err
 	}
-	return out
-}
 
-// GetKubernetesInterface returns a static Kubernetes interface
-func (cl *Client) GetKubernetesInterface() kubernetes.Interface {
-	return cl.client
+	name := strings.ToLower(IstioKindName) + "s." + IstioAPIGroup
+	return clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(name, nil)
 }
 
 // ConfigDescriptor for the store
@@ -242,10 +219,10 @@ func (cl *Client) Get(typ, key string) (proto.Message, bool, string) {
 		return nil, false, ""
 	}
 
-	config := &Config{}
+	config := &IstioKind{}
 	err := cl.dynamic.Get().
 		Namespace(cl.namespace).
-		Resource(IstioKind + "s").
+		Resource(IstioKindName + "s").
 		Name(configKey(typ, key)).
 		Do().Into(config)
 
@@ -256,10 +233,10 @@ func (cl *Client) Get(typ, key string) (proto.Message, bool, string) {
 
 	out, err := schema.FromJSONMap(config.Spec)
 	if err != nil {
-		glog.Warning(err)
+		glog.Warningf("%v for %#v", err, config.Spec)
 		return nil, false, ""
 	}
-	return out, true, config.Metadata.ResourceVersion
+	return out, true, config.ObjectMeta.ResourceVersion
 }
 
 // Post implements store interface
@@ -279,17 +256,17 @@ func (cl *Client) Post(v proto.Message) (string, error) {
 		return "", err
 	}
 
-	config := &Config{}
+	config := &IstioKind{}
 	err = cl.dynamic.Post().
-		Namespace(out.Metadata.Namespace).
-		Resource(IstioKind + "s").
+		Namespace(out.ObjectMeta.Namespace).
+		Resource(IstioKindName + "s").
 		Body(out).
 		Do().Into(config)
 	if err != nil {
 		return "", err
 	}
 
-	return config.Metadata.ResourceVersion, nil
+	return config.ObjectMeta.ResourceVersion, nil
 }
 
 // Put implements store interface
@@ -313,20 +290,20 @@ func (cl *Client) Put(v proto.Message, revision string) (string, error) {
 		return "", err
 	}
 
-	out.Metadata.ResourceVersion = revision
+	out.ObjectMeta.ResourceVersion = revision
 
-	config := &Config{}
+	config := &IstioKind{}
 	err = cl.dynamic.Put().
-		Namespace(out.Metadata.Namespace).
-		Resource(IstioKind + "s").
-		Name(out.Metadata.Name).
+		Namespace(out.ObjectMeta.Namespace).
+		Resource(IstioKindName + "s").
+		Name(out.ObjectMeta.Name).
 		Body(out).
 		Do().Into(config)
 	if err != nil {
 		return "", err
 	}
 
-	return config.Metadata.ResourceVersion, nil
+	return config.ObjectMeta.ResourceVersion, nil
 }
 
 // Delete implements store interface
@@ -338,7 +315,7 @@ func (cl *Client) Delete(typ, key string) error {
 
 	return cl.dynamic.Delete().
 		Namespace(cl.namespace).
-		Resource(IstioKind + "s").
+		Resource(IstioKindName + "s").
 		Name(configKey(typ, key)).
 		Do().Error()
 }
@@ -350,10 +327,10 @@ func (cl *Client) List(typ string) ([]model.Config, error) {
 		return nil, fmt.Errorf("missing type %q", typ)
 	}
 
-	list := &ConfigList{}
+	list := &IstioKindList{}
 	errs := cl.dynamic.Get().
 		Namespace(cl.namespace).
-		Resource(IstioKind + "s").
+		Resource(IstioKindName + "s").
 		Do().Into(list)
 
 	out := make([]model.Config, 0)

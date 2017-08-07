@@ -7,12 +7,11 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//adapter/config/aggregate:go_default_library",
+        "//adapter/config/crd:go_default_library",
         "//adapter/config/ingress:go_default_library",
-        "//adapter/config/tpr:go_default_library",
         "//cmd:go_default_library",
         "//model:go_default_library",
         "//platform/kube:go_default_library",
-        "//platform/consul:go_default_library",
         "//proxy:go_default_library",
         "//proxy/envoy:go_default_library",
         "//tools/version:go_default_library",

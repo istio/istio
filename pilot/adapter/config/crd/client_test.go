@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tpr
+package crd
 
 import (
 	"os"
@@ -54,7 +54,7 @@ func makeClient(namespace string, t *testing.T) *Client {
 		t.Fatal(err)
 	}
 
-	// TODO(kuat) initial watch always fails, takes time to register TPR, keep
+	// TODO(kuat) initial watch always fails, takes time to register, keep
 	// around as a work-around
 	// kr.DeregisterResources()
 

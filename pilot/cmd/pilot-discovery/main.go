@@ -26,8 +26,8 @@ import (
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/adapter/config/aggregate"
+	"istio.io/pilot/adapter/config/crd"
 	"istio.io/pilot/adapter/config/ingress"
-	"istio.io/pilot/adapter/config/tpr"
 	"istio.io/pilot/cmd"
 	"istio.io/pilot/model"
 	"istio.io/pilot/platform/kube"
@@ -78,25 +78,25 @@ var (
 
 			glog.V(2).Infof("mesh configuration %s", spew.Sdump(mesh))
 
-			tprClient, err := tpr.NewClient(flags.kubeconfig, model.ConfigDescriptor{
+			configClient, err := crd.NewClient(flags.kubeconfig, model.ConfigDescriptor{
 				model.RouteRuleDescriptor,
 				model.DestinationPolicyDescriptor,
 			}, flags.controllerOptions.Namespace)
 			if err != nil {
-				return multierror.Prefix(err, "failed to open a TPR client")
+				return multierror.Prefix(err, "failed to open a config client.")
 			}
 
-			if err = tprClient.RegisterResources(); err != nil {
-				return multierror.Prefix(err, "failed to register Third-Party Resources.")
+			if err = configClient.RegisterResources(); err != nil {
+				return multierror.Prefix(err, "failed to register custom resources.")
 			}
 
 			serviceController := kube.NewController(client, mesh, flags.controllerOptions)
 			var configController model.ConfigStoreCache
 			if mesh.IngressControllerMode == proxyconfig.ProxyMeshConfig_OFF {
-				configController = tpr.NewController(tprClient, flags.controllerOptions.ResyncPeriod)
+				configController = crd.NewController(configClient, flags.controllerOptions.ResyncPeriod)
 			} else {
 				configController, err = aggregate.MakeCache([]model.ConfigStoreCache{
-					tpr.NewController(tprClient, flags.controllerOptions.ResyncPeriod),
+					crd.NewController(configClient, flags.controllerOptions.ResyncPeriod),
 					ingress.NewController(client, mesh, flags.controllerOptions),
 				})
 				if err != nil {

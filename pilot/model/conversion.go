@@ -22,6 +22,8 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	multierror "github.com/hashicorp/go-multierror"
+	yaml2 "gopkg.in/yaml.v2"
 )
 
 // Make creates a new instance of the proto message
@@ -112,11 +114,15 @@ func ApplyYAML(yml string, pb proto.Message) error {
 
 // FromJSONMap converts from a generic map to a proto message using canonical JSON encoding
 // JSON encoding is specified here: https://developers.google.com/protocol-buffers/docs/proto3#json
-func (ps *ProtoSchema) FromJSONMap(data map[string]interface{}) (proto.Message, error) {
-	// Marshal to json bytes
-	str, err := json.Marshal(data)
+func (ps *ProtoSchema) FromJSONMap(data interface{}) (proto.Message, error) {
+	// Marshal to YAML bytes
+	str, err := yaml2.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
-	return ps.FromJSON(string(str))
+	out, err := ps.FromYAML(string(str))
+	if err != nil {
+		return nil, multierror.Prefix(err, fmt.Sprintf("YAML: %v", string(str)))
+	}
+	return out, nil
 }

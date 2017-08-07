@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tpr
+package crd
 
 import (
 	"errors"
@@ -27,7 +27,6 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pilot/model"
@@ -47,7 +46,7 @@ type cacheHandler struct {
 	handler  *kube.ChainHandler
 }
 
-// NewController creates a new Kubernetes controller for TPRs
+// NewController creates a new Kubernetes controller for CRDs
 func NewController(client *Client, resyncPeriod time.Duration) model.ConfigStoreCache {
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &controller{
@@ -56,28 +55,26 @@ func NewController(client *Client, resyncPeriod time.Duration) model.ConfigStore
 		kinds:  make(map[string]cacheHandler),
 	}
 
-	// add stores for TPR kinds
-	for _, kind := range []string{IstioKind} {
-		out.kinds[kind] = out.createInformer(&Config{}, resyncPeriod,
-			func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
-				result = &ConfigList{}
-				err = client.dynamic.Get().
-					Namespace(client.namespace).
-					Resource(kind+"s").
-					VersionedParams(&opts, scheme.ParameterCodec).
-					Do().
-					Into(result)
-				return
-			},
-			func(opts meta_v1.ListOptions) (watch.Interface, error) {
-				return client.dynamic.Get().
-					Prefix("watch").
-					Namespace(client.namespace).
-					Resource(kind+"s").
-					VersionedParams(&opts, scheme.ParameterCodec).
-					Watch()
-			})
-	}
+	// add stores for CRD kinds
+	out.kinds[IstioKindName] = out.createInformer(&IstioKind{}, resyncPeriod,
+		func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
+			result = &IstioKindList{}
+			err = client.dynamic.Get().
+				Namespace(client.namespace).
+				Resource(IstioKindName+"s").
+				VersionedParams(&opts, meta_v1.ParameterCodec).
+				Do().
+				Into(result)
+			return
+		},
+		func(opts meta_v1.ListOptions) (watch.Interface, error) {
+			return client.dynamic.Get().
+				Prefix("watch").
+				Namespace(client.namespace).
+				Resource(IstioKindName+"s").
+				VersionedParams(&opts, meta_v1.ParameterCodec).
+				Watch()
+		})
 
 	return out
 }
@@ -130,10 +127,10 @@ func (c *controller) createInformer(
 }
 
 func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
-	c.kinds[IstioKind].handler.Append(func(obj interface{}, ev model.Event) error {
-		tpr, ok := obj.(*Config)
+	c.kinds[IstioKindName].handler.Append(func(obj interface{}, ev model.Event) error {
+		config, ok := obj.(*IstioKind)
 		if ok {
-			config, err := c.client.convertConfig(tpr)
+			config, err := c.client.convertConfig(config)
 			if config.Type == typ {
 				if err == nil {
 					f(config, ev)
@@ -178,7 +175,7 @@ func (c *controller) Get(typ, key string) (proto.Message, bool, string) {
 		return nil, false, ""
 	}
 
-	store := c.kinds[IstioKind].informer.GetStore()
+	store := c.kinds[IstioKindName].informer.GetStore()
 	data, exists, err := store.GetByKey(kube.KeyFunc(configKey(typ, key), c.client.namespace))
 	if !exists {
 		return nil, false, ""
@@ -188,7 +185,7 @@ func (c *controller) Get(typ, key string) (proto.Message, bool, string) {
 		return nil, false, ""
 	}
 
-	config, ok := data.(*Config)
+	config, ok := data.(*IstioKind)
 	if !ok {
 		glog.Warning("Cannot convert to config from store")
 		return nil, false, ""
@@ -199,7 +196,7 @@ func (c *controller) Get(typ, key string) (proto.Message, bool, string) {
 		glog.Warning(err)
 		return nil, false, ""
 	}
-	return out, true, config.Metadata.ResourceVersion
+	return out, true, config.ObjectMeta.ResourceVersion
 }
 
 func (c *controller) Post(val proto.Message) (string, error) {
@@ -221,8 +218,8 @@ func (c *controller) List(typ string) ([]model.Config, error) {
 
 	var errs error
 	out := make([]model.Config, 0)
-	for _, data := range c.kinds[IstioKind].informer.GetStore().List() {
-		item, ok := data.(*Config)
+	for _, data := range c.kinds[IstioKindName].informer.GetStore().List() {
+		item, ok := data.(*IstioKind)
 		if ok {
 			config, err := c.client.convertConfig(item)
 			if config.Type == typ {

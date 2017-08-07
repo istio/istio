@@ -10,7 +10,7 @@ go_library(
     ],
     visibility = ["//visibility:private"],
     deps = [
-        "//adapter/config/tpr:go_default_library",
+        "//adapter/config/crd:go_default_library",
         "//cmd:go_default_library",
         "//model:go_default_library",
         "//platform/kube:go_default_library",

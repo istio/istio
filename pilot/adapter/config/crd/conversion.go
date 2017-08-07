@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tpr
+package crd
 
 import (
 	"bytes"
@@ -25,7 +25,7 @@ import (
 	"istio.io/pilot/model"
 )
 
-// configKey assigns k8s TPR name to Istio config
+// configKey assigns k8s CRD name to Istio config
 func configKey(typ, key string) string {
 	switch typ {
 	case model.RouteRule, model.IngressRule:
@@ -40,16 +40,16 @@ func configKey(typ, key string) string {
 }
 
 // modelToKube translates Istio config to k8s config JSON
-func modelToKube(schema model.ProtoSchema, namespace string, config proto.Message) (*Config, error) {
+func modelToKube(schema model.ProtoSchema, namespace string, config proto.Message) (*IstioKind, error) {
 	spec, err := schema.ToJSONMap(config)
 	if err != nil {
 		return nil, err
 	}
-	out := &Config{
+	out := &IstioKind{
 		TypeMeta: meta_v1.TypeMeta{
-			Kind: IstioKind,
+			Kind: IstioKindName,
 		},
-		Metadata: meta_v1.ObjectMeta{
+		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      configKey(schema.Type, schema.Key(config)),
 			Namespace: namespace,
 		},
@@ -59,10 +59,10 @@ func modelToKube(schema model.ProtoSchema, namespace string, config proto.Messag
 	return out, nil
 }
 
-// convertConfig extracts Istio config data from k8s TPRs
-func (cl *Client) convertConfig(item *Config) (model.Config, error) {
+// convertConfig extracts Istio config data from k8s CRD
+func (cl *Client) convertConfig(item *IstioKind) (model.Config, error) {
 	for _, schema := range cl.ConfigDescriptor() {
-		if strings.HasPrefix(item.Metadata.Name, schema.Type) {
+		if strings.HasPrefix(item.ObjectMeta.Name, schema.Type) {
 			data, err := schema.FromJSONMap(item.Spec)
 			if err != nil {
 				return model.Config{}, err
@@ -70,7 +70,7 @@ func (cl *Client) convertConfig(item *Config) (model.Config, error) {
 			return model.Config{
 				Type:     schema.Type,
 				Key:      schema.Key(data),
-				Revision: item.Metadata.ResourceVersion,
+				Revision: item.ObjectMeta.ResourceVersion,
 				Content:  data,
 			}, nil
 		}
@@ -79,6 +79,7 @@ func (cl *Client) convertConfig(item *Config) (model.Config, error) {
 }
 
 // camelCaseToKabobCase converts "MyName" to "my-name"
+// nolint: deadcode
 func camelCaseToKabobCase(s string) string {
 	var out bytes.Buffer
 	for i := range s {
@@ -92,9 +93,4 @@ func camelCaseToKabobCase(s string) string {
 		}
 	}
 	return out.String()
-}
-
-// kindToAPIName converts Kind name to 3rd party API group
-func kindToAPIName(s string) string {
-	return camelCaseToKabobCase(s) + "." + IstioAPIGroup
 }

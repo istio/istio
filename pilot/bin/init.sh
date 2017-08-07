@@ -11,9 +11,7 @@ rm -rf $(pwd)/vendor
 bin/bazel_to_go.py
 
 # Remove doubly-vendorized k8s dependencies
-rm -rf vendor/k8s.io/client-go/vendor
-rm -rf vendor/k8s.io/apimachinery/vendor
-rm -rf vendor/k8s.io/ingress/vendor
+rm -rf vendor/k8s.io/*/vendor
 
 # Link proto gen files
 mkdir -p vendor/istio.io/api/proxy/v1/config

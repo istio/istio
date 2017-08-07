@@ -12,6 +12,11 @@ spec:
   selector:
     app: mixer
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-mixer-service-account
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -23,6 +28,7 @@ spec:
       labels:
         app: mixer
     spec:
+      serviceAccountName: istio-mixer-service-account
       containers:
       - name: mixer
         image: {{.MixerImage}}

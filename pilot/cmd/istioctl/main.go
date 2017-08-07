@@ -29,7 +29,7 @@ import (
 	"k8s.io/api/core/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	"istio.io/pilot/adapter/config/tpr"
+	"istio.io/pilot/adapter/config/crd"
 	"istio.io/pilot/cmd"
 	"istio.io/pilot/model"
 	"istio.io/pilot/tools/version"
@@ -69,7 +69,7 @@ More information on the mixer API configuration can be found under the
 istioctl mixer command documentation.
 `, model.IstioConfigTypes.Types()),
 		PersistentPreRunE: func(*cobra.Command, []string) (err error) {
-			configClient, err = tpr.NewClient(kubeconfig, model.ConfigDescriptor{
+			configClient, err = crd.NewClient(kubeconfig, model.ConfigDescriptor{
 				model.RouteRuleDescriptor,
 				model.DestinationPolicyDescriptor,
 			}, istioSystem)

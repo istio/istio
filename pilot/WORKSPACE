@@ -291,6 +291,14 @@ go_repository(
 # End of k8s dependencies
 
 go_repository(
+    name = "io_k8s_apiextensions_apiserver",
+    build_file_name = "BUILD.bazel",
+    build_file_generation = "on",
+    commit = "c682349b0d1c12975d8e24a9799b66747255d7a5",
+    importpath = "k8s.io/apiextensions-apiserver",
+)
+
+go_repository(
     name = "com_github_pkg_errors",
     commit = "a22138067af1c4942683050411a841ade67fe1eb",
     importpath = "github.com/pkg/errors",

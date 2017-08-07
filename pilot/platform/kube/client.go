@@ -63,10 +63,12 @@ func CreateInterface(kubeconfig string) (kubernetes.Interface, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	config, err := clientcmd.BuildConfigFromFlags("", kube)
 	if err != nil {
 		return nil, err
 	}
+
 	client, err := kubernetes.NewForConfig(config)
 	return client, err
 }

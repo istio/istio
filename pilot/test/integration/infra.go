@@ -28,7 +28,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/adapter/config/tpr"
+	"istio.io/pilot/adapter/config/crd"
 	"istio.io/pilot/model"
 	"istio.io/pilot/platform/kube/inject"
 	"istio.io/pilot/test/util"
@@ -273,7 +273,7 @@ func (infra *infra) applyConfig(inFile string, data map[string]string, typ strin
 		return err
 	}
 
-	istioClient, err := tpr.NewClient(kubeconfig, model.IstioConfigTypes, infra.Namespace)
+	istioClient, err := crd.NewClient(kubeconfig, model.IstioConfigTypes, infra.Namespace)
 	if err != nil {
 		return err
 	}
@@ -294,7 +294,7 @@ func (infra *infra) applyConfig(inFile string, data map[string]string, typ strin
 }
 
 func (infra *infra) deleteAllConfigs() error {
-	istioClient, err := tpr.NewClient(kubeconfig, model.IstioConfigTypes, infra.Namespace)
+	istioClient, err := crd.NewClient(kubeconfig, model.IstioConfigTypes, infra.Namespace)
 	if err != nil {
 		return err
 	}
