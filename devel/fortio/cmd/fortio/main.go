@@ -93,11 +93,11 @@ func main() {
 	}
 	var res fortio.HasRunnerResult
 	if *grpcFlag {
-		o := fortiogrpc.GrpcRunnerOptions{
+		o := fortiogrpc.GRPCRunnerOptions{
 			RunnerOptions: ro,
 			Destination:   url,
 		}
-		res, err = fortiogrpc.RunGrpcTest(&o)
+		res, err = fortiogrpc.RunGRPCTest(&o)
 	} else {
 		o := fortio.HTTPRunnerOptions{
 			RunnerOptions:     ro,

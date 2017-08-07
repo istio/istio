@@ -26,21 +26,20 @@ import (
 	"os"
 	"time"
 
-	"istio.io/istio/devel/fortio"
-
 	context "golang.org/x/net/context"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
+
+	"istio.io/istio/devel/fortio"
 )
 
 // To get most debugging/tracing:
 // GODEBUG="http2debug=2" GRPC_GO_LOG_VERBOSITY_LEVEL=99 GRPC_GO_LOG_SEVERITY_LEVEL=info grpcping -loglevel debug
 
 var (
-	countFlag     = flag.Int("n", 1, "how many ping the client will send")
+	countFlag     = flag.Int("n", 1, "how many ping(s) the client will send")
 	portFlag      = flag.Int("port", 8079, "default grpc port")
 	hostFlag      = flag.String("host", "", "client mode: server to connect to")
 	doHealthFlag  = flag.Bool("health", false, "client mode: use health instead of ping")
