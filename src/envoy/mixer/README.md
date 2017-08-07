@@ -12,7 +12,7 @@ This Proxy will use Envoy and talk to Mixer server.
   
 ## Build Envoy proxy
 
-* Build target envoy:
+* Follow https://github.com/lyft/envoy/blob/master/bazel/README.md to set up environment, and build target envoy:
 
 ```
   bazel build //src/envoy/mixer:envoy
