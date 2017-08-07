@@ -41,13 +41,6 @@ if [ "${CI}" == 'bootstrap' ]; then
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}" --log_provider=${LOG_HOST} --project_id=${PROJ_ID})
 fi
 
-echo 'Running Linters'
-./bin/linters.sh
-
-echo 'Running Unit Tests'
-bazel test //...
-
-echo 'Running e2e no rbac Tests'
-echo 'istio with auth'
-./tests/e2e.sh ${E2E_ARGS[@]} --auth_enable
+echo 'Running e2e with rbac, with auth Tests'
+./tests/e2e.sh ${E2E_ARGS[@]} --rbac_enable --auth_enable
 

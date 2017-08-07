@@ -16,7 +16,7 @@
 
 
 #######################################
-# Presubmit script triggered by Prow. #
+# Postsubmit script triggered by Prow. #
 #######################################
 
 # Exit immediately for non zero status
@@ -41,8 +41,5 @@ if [ "${CI}" == 'bootstrap' ]; then
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}" --log_provider=${LOG_HOST} --project_id=${PROJ_ID})
 fi
 
-echo 'Running Linters'
-./bin/linters.sh
-
-echo 'Running Unit Tests'
-bazel test //...
+echo 'Running e2e no rbac, no auth Tests'
+./tests/e2e.sh ${E2E_ARGS[@]}
