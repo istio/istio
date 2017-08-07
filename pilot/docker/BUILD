@@ -6,3 +6,12 @@ filegroup(
     ],
     visibility = ["//visibility:public"],
 )
+
+filegroup(
+    name = "certs",
+    srcs = [
+        "certs/cert.crt",
+        "certs/cert.key",
+    ],
+    visibility = ["//visibility:public"],
+)

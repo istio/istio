@@ -35,7 +35,10 @@ go_library(
 
 go_binary(
     name = "integration",
-    data = glob(["testdata/*"]) + ["//platform/kube:kubeconfig"],
+    data = glob(["testdata/*"]) + [
+        "//platform/kube:kubeconfig",
+        "//docker:certs",
+    ],
     library = ":go_default_library",
     tags = ["manual"],
     visibility = ["//visibility:public"],

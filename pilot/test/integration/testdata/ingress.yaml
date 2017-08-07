@@ -10,7 +10,7 @@ spec:
   rules:
   - http:
       paths:
-      - path: /
+      - path: /http
         backend:
           serviceName: a
           servicePort: http
@@ -18,6 +18,10 @@ spec:
         backend:
           serviceName: b
           servicePort: 8080
+      - path: /.*
+        backend:
+          serviceName: a
+          servicePort: grpc
 ---
 apiVersion: extensions/v1beta1
 kind: Ingress

@@ -30,6 +30,7 @@ import (
 
 	"github.com/golang/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	pb "istio.io/pilot/test/grpcecho"
 )
 
@@ -40,6 +41,8 @@ var (
 	url       string
 	headerKey string
 	headerVal string
+
+	caFile string
 )
 
 const (
@@ -52,6 +55,7 @@ func init() {
 	flag.StringVar(&url, "url", "", "Specify URL")
 	flag.StringVar(&headerKey, "key", "", "Header key (use Host for authority)")
 	flag.StringVar(&headerVal, "val", "", "Header value")
+	flag.StringVar(&caFile, "ca", "/cert.crt", "CA root cert file")
 }
 
 func makeHTTPRequest(client *http.Client) func(int) func() error {
@@ -137,8 +141,14 @@ func main() {
 			Timeout: timeout,
 		}
 		f = makeHTTPRequest(client)
-	} else if strings.HasPrefix(url, "grpc://") {
-		address := url[len("grpc://"):]
+	} else if strings.HasPrefix(url, "grpc://") || strings.HasPrefix(url, "grpcs://") {
+		secure := strings.HasPrefix(url, "grpcs://")
+		var address string
+		if secure {
+			address = url[len("grpcs://"):]
+		} else {
+			address = url[len("grpc://"):]
+		}
 
 		// grpc-go sets incorrect authority header
 		authority := address
@@ -146,8 +156,18 @@ func main() {
 			authority = headerVal
 		}
 
+		// transport security
+		security := grpc.WithInsecure()
+		if secure {
+			creds, err := credentials.NewClientTLSFromFile(caFile, authority)
+			if err != nil {
+				log.Fatalf("failed to load client certs %s %v", caFile, err)
+			}
+			security = grpc.WithTransportCredentials(creds)
+		}
+
 		conn, err := grpc.Dial(address,
-			grpc.WithInsecure(),
+			security,
 			grpc.WithAuthority(authority),
 			grpc.WithBlock(),
 			grpc.WithTimeout(timeout))

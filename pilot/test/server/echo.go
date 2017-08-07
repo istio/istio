@@ -40,6 +40,7 @@ import (
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	pb "istio.io/pilot/test/grpcecho"
 )
@@ -48,12 +49,16 @@ var (
 	ports     []int
 	grpcPorts []int
 	version   string
+
+	crt, key string
 )
 
 func init() {
 	flag.IntSliceVar(&ports, "port", []int{8080}, "HTTP/1.1 ports")
 	flag.IntSliceVar(&grpcPorts, "grpc", []int{7070}, "GRPC ports")
 	flag.StringVar(&version, "version", "", "Version string")
+	flag.StringVar(&crt, "crt", "", "gRPC TLS server-side certificate")
+	flag.StringVar(&key, "key", "", "gRPC TLS server-side key")
 }
 
 type handler struct {
@@ -134,7 +139,18 @@ func runGRPC(port int) {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	h := handler{port: port}
-	grpcServer := grpc.NewServer()
+
+	var grpcServer *grpc.Server
+	if crt != "" && key != "" {
+		// Create the TLS credentials
+		creds, errCreds := credentials.NewServerTLSFromFile(crt, key)
+		if errCreds != nil {
+			log.Fatalf("could not load TLS keys: %s", errCreds)
+		}
+		grpcServer = grpc.NewServer(grpc.Creds(creds))
+	} else {
+		grpcServer = grpc.NewServer()
+	}
 	pb.RegisterEchoTestServiceServer(grpcServer, &h)
 	if err = grpcServer.Serve(lis); err != nil {
 		log.Println(err.Error())

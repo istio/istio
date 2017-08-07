@@ -47,11 +47,11 @@ func (t *ingress) setup() error {
 	t.logs = makeAccessLogs()
 
 	// send secrets
-	key, err := ioutil.ReadFile("test/integration/testdata/cert.key")
+	key, err := ioutil.ReadFile("docker/certs/cert.key")
 	if err != nil {
 		return err
 	}
-	crt, err := ioutil.ReadFile("test/integration/testdata/cert.crt")
+	crt, err := ioutil.ReadFile("docker/certs/cert.crt")
 	if err != nil {
 		return err
 	}
@@ -102,14 +102,14 @@ func (t *ingress) run() error {
 		url  string
 		host string
 	}{
-		{"a", fmt.Sprintf("https://%s:443", ingressServiceName), ""},
+		{"a", fmt.Sprintf("https://%s:443/http", ingressServiceName), ""},
 		{"b", fmt.Sprintf("https://%s:443/pasta", ingressServiceName), ""},
 		{"a", fmt.Sprintf("http://%s/lucky", ingressServiceName), ""},
 		{"b", fmt.Sprintf("http://%s/lol", ingressServiceName), ""},
 		{"a", fmt.Sprintf("http://%s/foo", ingressServiceName), "foo.bar.com"},
 		{"a", fmt.Sprintf("http://%s/bar", ingressServiceName), "foo.baz.com"},
 		{"a", fmt.Sprintf("grpc://%s:80", ingressServiceName), "api.company.com"},
-		{"", fmt.Sprintf("https://%s:443/notfound", ingressServiceName), ""},
+		{"a", fmt.Sprintf("grpcs://%s:443", ingressServiceName), "api.company.com"},
 		{"", fmt.Sprintf("http://%s/notfound", ingressServiceName), ""},
 		{"", fmt.Sprintf("http://%s/foo", ingressServiceName), ""},
 	}
