@@ -26,7 +26,7 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/attribute"
-	cfgpb "istio.io/mixer/pkg/config/proto"
+	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/status"
 	"istio.io/mixer/pkg/template"
@@ -50,8 +50,8 @@ func TestReportManager_NewReportExecutor(t *testing.T) {
 	tmplName := "TestReportTemplate"
 	instName := "TestReportInstanceName"
 
-	conf := &cfgpb.Combined{
-		Instances: []*cfgpb.Instance{
+	conf := &cpb.Combined{
+		Instances: []*cpb.Instance{
 			{
 				Template: tmplName,
 				Name:     instName,
@@ -87,14 +87,14 @@ func TestReportManager_NewReportExecutorErrors(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		ctr           cfgpb.Instance
+		ctr           cpb.Instance
 		hndlrSuppTmpl bool
 		wantErr       string
 	}{
 		{
 			name:    "NotFoundTemplate",
 			wantErr: "template is different",
-			ctr: cfgpb.Instance{
+			ctr: cpb.Instance{
 				Template: "NotFoundTemplate",
 				Name:     "SomeInstName",
 				Params:   &types.Empty{},
@@ -105,7 +105,7 @@ func TestReportManager_NewReportExecutorErrors(t *testing.T) {
 			name:          "BadHandlerInterface",
 			wantErr:       "does not implement interface",
 			hndlrSuppTmpl: false,
-			ctr: cfgpb.Instance{
+			ctr: cpb.Instance{
 				Template: tmplName,
 				Name:     "SomeInstName",
 				Params:   &types.Empty{},
@@ -116,8 +116,8 @@ func TestReportManager_NewReportExecutorErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := &fakeReportHandler{}
-			conf := &cfgpb.Combined{
-				Instances: []*cfgpb.Instance{
+			conf := &cpb.Combined{
+				Instances: []*cpb.Instance{
 					&tt.ctr,
 				},
 			}

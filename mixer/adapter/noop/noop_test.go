@@ -27,7 +27,7 @@ func TestRegisteredForAllAspects(t *testing.T) {
 
 	var i uint
 	for i = 0; i < uint(config.NumKinds); i++ {
-		if i == uint(config.Undefined) {
+		if i == uint(config.Unspecified) {
 			continue
 		}
 		k := config.Kind(i)

@@ -28,14 +28,15 @@ type KindSet uint
 
 // Supported kinds of aspects
 const (
-	AccessLogsKind Kind = iota
+	Unspecified Kind = iota
+	AccessLogsKind
 	ApplicationLogsKind
 	AttributesKind
 	DenialsKind
 	ListsKind
 	MetricsKind
 	QuotasKind
-	Undefined
+
 	NumKinds
 )
 
