@@ -18,10 +18,10 @@ func TestBazelGeneration(t *testing.T) {
 	tests := []struct {
 		name, got, want string
 	}{
-		{"Metrics", "interfacegen/testdata/metric_template_library_processor.gen.go", "interfacegen/testdata/MetricTemplateProcessorInterface.golden.go"},
-		{"Quota", "interfacegen/testdata/quota_template_library_processor.gen.go", "interfacegen/testdata/QuotaTemplateProcessorInterface.golden.go"},
-		{"Logs", "interfacegen/testdata/log_template_library_processor.gen.go", "interfacegen/testdata/LogTemplateProcessorInterface.golden.go"},
-		{"Lists", "interfacegen/testdata/list_template_library_processor.gen.go", "interfacegen/testdata/ListTemplateProcessorInterface.golden.go"},
+		{"Metrics", "interfacegen/testdata/metric_template_library_handler.gen.go", "interfacegen/testdata/MetricTemplateHandlerInterface.golden.go"},
+		{"Quota", "interfacegen/testdata/quota_template_library_handler.gen.go", "interfacegen/testdata/QuotaTemplateHandlerInterface.golden.go"},
+		{"Logs", "interfacegen/testdata/log_template_library_handler.gen.go", "interfacegen/testdata/LogTemplateHandlerInterface.golden.go"},
+		{"Lists", "interfacegen/testdata/list_template_library_handler.gen.go", "interfacegen/testdata/ListTemplateHandlerInterface.golden.go"},
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {

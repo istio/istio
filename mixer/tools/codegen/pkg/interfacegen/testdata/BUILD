@@ -42,13 +42,13 @@ filegroup(
     name = "generated_files",
     testonly = True,
     srcs = [
-        "list_template_library_processor.gen.go",
+        "list_template_library_handler.gen.go",
         "list_template_library_tmpl.proto",
-        "log_template_library_processor.gen.go",
+        "log_template_library_handler.gen.go",
         "log_template_library_tmpl.proto",
-        "metric_template_library_processor.gen.go",
+        "metric_template_library_handler.gen.go",
         "metric_template_library_tmpl.proto",
-        "quota_template_library_processor.gen.go",
+        "quota_template_library_handler.gen.go",
         "quota_template_library_tmpl.proto",
     ],
 )
@@ -58,13 +58,13 @@ filegroup(
     testonly = True,
     srcs = [
         "ListTemplateGenerated.golden.proto",
-        "ListTemplateProcessorInterface.golden.go",
+        "ListTemplateHandlerInterface.golden.go",
         "LogTemplateGenerated.golden.proto",
-        "LogTemplateProcessorInterface.golden.go",
+        "LogTemplateHandlerInterface.golden.go",
         "MetricTemplateGenerated.golden.proto",
-        "MetricTemplateProcessorInterface.golden.go",
+        "MetricTemplateHandlerInterface.golden.go",
         "QuotaTemplateGenerated.golden.proto",
-        "QuotaTemplateProcessorInterface.golden.go",
+        "QuotaTemplateHandlerInterface.golden.go",
     ],
 )
 
