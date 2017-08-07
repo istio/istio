@@ -91,10 +91,10 @@ def mixer_proto_library(
    proto_compile(**proto_compile_args)
 
    mixer_gen_args += {
-       "name" : name + "_processor",
+       "name" : name + "_handler",
        "src": name + "_proto.descriptor_set",
        "importmap": dict(dict(MIXER_IMPORT_MAP, **GOGO_IMPORT_MAP), **importmap),
-       "out": name + "_processor.gen.go",
+       "out": name + "_handler.gen.go",
        "out_template": name + "_tmpl.proto",
    }
 
@@ -123,6 +123,6 @@ def mixer_proto_library(
 
    go_library(
       name = name,
-      srcs = [name + "_processor.gen.go"],
+      srcs = [name + "_handler.gen.go"],
       library = ":" + name + "_gogo_proto",
       deps = deps + MIXER_DEPS)

@@ -40,16 +40,16 @@ func TestGenerator_Generate(t *testing.T) {
 		name, descriptor, wantIntFace, wantProto string
 	}{
 		{"Metrics", "testdata/metric_template_library_proto.descriptor_set",
-			"testdata/MetricTemplateProcessorInterface.golden.go",
+			"testdata/MetricTemplateHandlerInterface.golden.go",
 			"testdata/MetricTemplateGenerated.golden.proto"},
 		{"Quota", "testdata/quota_template_library_proto.descriptor_set",
-			"testdata/QuotaTemplateProcessorInterface.golden.go",
+			"testdata/QuotaTemplateHandlerInterface.golden.go",
 			"testdata/QuotaTemplateGenerated.golden.proto"},
 		{"Logs", "testdata/log_template_library_proto.descriptor_set",
-			"testdata/LogTemplateProcessorInterface.golden.go",
+			"testdata/LogTemplateHandlerInterface.golden.go",
 			"testdata/LogTemplateGenerated.golden.proto"},
 		{"Lists", "testdata/list_template_library_proto.descriptor_set",
-			"testdata/ListTemplateProcessorInterface.golden.go",
+			"testdata/ListTemplateHandlerInterface.golden.go",
 			"testdata/ListTemplateGenerated.golden.proto"},
 	}
 	for _, v := range tests {
