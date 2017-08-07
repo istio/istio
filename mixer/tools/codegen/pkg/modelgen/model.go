@@ -16,6 +16,7 @@ package modelgen
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -186,8 +187,8 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 	}
 
 	if fd.Package != nil {
-		m.GoPackageName = goPackageName(strings.TrimSpace(*fd.Package))
 		m.PackageName = strings.TrimSpace(*fd.Package)
+		m.GoPackageName = goPackageName(m.PackageName)
 	} else {
 		m.addError(fd.GetName(), unknownLine, "package name missing")
 	}
@@ -198,6 +199,9 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 			m.addError(fd.GetName(), unknownLine, "%s should be of type string", tmpl.E_TemplateName.Name)
 		} else {
 			m.Name = *tmplName.(*string)
+			if err := validateTmplName(m.Name); err != nil {
+				m.addError(fd.GetName(), unknownLine, err.Error())
+			}
 		}
 	} else {
 		// This func should only get called for FileDescriptor that has this attribute,
@@ -215,6 +219,18 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 
 	// For file level comments, comments from multiple locations are composed.
 	m.Comment = fmt.Sprintf("%s\n%s", fd.getComment(syntaxPath), fd.getComment(packagePath))
+}
+
+// Template name must contain only alphanumerics with underscore. First character must be a capital alphabet.
+const tmplNamePattern = "^[A-Z][a-zA-Z0-9_]+$"
+
+func validateTmplName(name string) error {
+	if b, err := regexp.Match(tmplNamePattern, []byte(name)); err != nil {
+		return fmt.Errorf("template name '%s' cannot be validated: %v", name, err)
+	} else if !b {
+		return fmt.Errorf("template name '%s' does not match the pattern %s", name, tmplNamePattern)
+	}
+	return nil
 }
 
 func getRequiredTmplMsg(fdp *FileDescriptor) (*Descriptor, bool) {

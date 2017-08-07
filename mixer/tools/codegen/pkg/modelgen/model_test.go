@@ -42,6 +42,7 @@ func TestErrorInTemplate(t *testing.T) {
 		{"testdata/unsupported_field_type_primitive.descriptor_set", "unsupported type for field 'o'."},
 		{"testdata/unsupported_field_type_as_map.descriptor_set", "unsupported type for field 'o'."},
 		{"testdata/unsupported_field_type_enum.descriptor_set", "unsupported type for field 'o'."},
+		{"testdata/wrong_case_tmpl_name.descriptor_set", "does not match the pattern"},
 	}
 
 	for idx, tt := range tests {
