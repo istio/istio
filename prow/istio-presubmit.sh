@@ -39,6 +39,11 @@ if [ "${CI}" == 'bootstrap' ]; then
   LOG_HOST="stackdriver"
   PROJ_ID="istio-testing"
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}" --log_provider=${LOG_HOST} --project_id=${PROJ_ID})
+  # Use the provided pull head sha, from prow.
+  GIT_SHA="${PULL_PULL_SHA}"
+else
+  # Use the current commit.
+  GIT_SHA="$(git rev-parse --verify HEAD)"
 fi
 
 echo 'Running Linters'
@@ -47,6 +52,8 @@ echo 'Running Linters'
 echo 'Running Unit Tests'
 bazel test //...
 
+echo 'Pushing Images'
+(cd devel/fortio && make authorize all TAG="${GIT_SHA}")
+
 echo 'Running Integration Tests'
 ./tests/e2e.sh ${E2E_ARGS[@]}
-

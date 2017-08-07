@@ -29,29 +29,28 @@ import (
 // HTTPRunnerResults is the aggregated result of an HTTPRunner.
 // Also is the internal type used per thread/goroutine.
 type HTTPRunnerResults struct {
-	client            Fetcher
-	RetCodes          map[int]int64
-	Sizes             *Histogram
-	HeaderSizes       *Histogram
-	DurationHistogram *Histogram
-	ActualQPS         float64
+	RunnerResults
+	client      Fetcher
+	RetCodes    map[int]int64
+	Sizes       *Histogram
+	HeaderSizes *Histogram
 }
 
 // Used globally / in TestHttp() TODO: change periodic.go to carry caller defined context
 var (
-	state []HTTPRunnerResults
+	httpstate []HTTPRunnerResults
 )
 
 // TestHTTP http request fetching. Main call being run at the target QPS.
 // To be set as the Function in RunnerOptions.
 func TestHTTP(t int) {
 	Debugf("Calling in %d", t)
-	code, body, headerSize := state[t].client.Fetch()
+	code, body, headerSize := httpstate[t].client.Fetch()
 	size := len(body)
 	Debugf("Got in %3d hsz %d sz %d", code, headerSize, size)
-	state[t].RetCodes[code]++
-	state[t].Sizes.Record(float64(size))
-	state[t].HeaderSizes.Record(float64(headerSize))
+	httpstate[t].RetCodes[code]++
+	httpstate[t].Sizes.Record(float64(size))
+	httpstate[t].HeaderSizes.Record(float64(headerSize))
 }
 
 // HTTPRunnerOptions includes the base RunnerOptions plus http specific
@@ -73,6 +72,7 @@ func RunHTTPTest(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
 	if o.Function == nil {
 		o.Function = TestHTTP
 	}
+	Infof("Starting http test for %s with %d threads at %.1f qps", o.URL, o.NumThreads, o.QPS)
 	r := NewPeriodicRunner(&o.RunnerOptions)
 	numThreads := r.Options().NumThreads
 	total := HTTPRunnerResults{
@@ -80,22 +80,22 @@ func RunHTTPTest(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
 		Sizes:       NewHistogram(0, 100),
 		HeaderSizes: NewHistogram(0, 5),
 	}
-	state = make([]HTTPRunnerResults, numThreads)
+	httpstate = make([]HTTPRunnerResults, numThreads)
 	for i := 0; i < numThreads; i++ {
 		// Create a client (and transport) and connect once for each 'thread'
 		if o.DisableFastClient {
-			state[i].client = NewStdClient(o.URL, 1, o.Compression)
+			httpstate[i].client = NewStdClient(o.URL, 1, o.Compression)
 		} else {
 			if o.HTTP10 {
-				state[i].client = NewBasicClient(o.URL, "1.0", !o.DisableKeepAlive)
+				httpstate[i].client = NewBasicClient(o.URL, "1.0", !o.DisableKeepAlive)
 			} else {
-				state[i].client = NewBasicClient(o.URL, "1.1", !o.DisableKeepAlive)
+				httpstate[i].client = NewBasicClient(o.URL, "1.1", !o.DisableKeepAlive)
 			}
 		}
-		if state[i].client == nil {
+		if httpstate[i].client == nil {
 			return nil, fmt.Errorf("unable to create client %d for %s", i, o.URL)
 		}
-		code, data, headerSize := state[i].client.Fetch()
+		code, data, headerSize := httpstate[i].client.Fetch()
 		if code != http.StatusOK {
 			return nil, fmt.Errorf("error %d for %s: %q", code, o.URL, string(data))
 		}
@@ -103,9 +103,9 @@ func RunHTTPTest(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
 			LogVf("first hit of url %s: status %03d, headers %d, total %d\n%s\n", o.URL, code, headerSize, len(data), data)
 		}
 		// Setup the stats for each 'thread'
-		state[i].Sizes = total.Sizes.Clone()
-		state[i].HeaderSizes = total.HeaderSizes.Clone()
-		state[i].RetCodes = make(map[int]int64)
+		httpstate[i].Sizes = total.Sizes.Clone()
+		httpstate[i].HeaderSizes = total.HeaderSizes.Clone()
+		httpstate[i].RetCodes = make(map[int]int64)
 	}
 
 	if o.Profiler != "" {
@@ -116,7 +116,7 @@ func RunHTTPTest(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
 		}
 		pprof.StartCPUProfile(fc) //nolint: gas,errcheck
 	}
-	total.ActualQPS, total.DurationHistogram = r.Run()
+	total.RunnerResults = r.Run()
 	if o.Profiler != "" {
 		pprof.StopCPUProfile()
 		fm, err := os.Create(o.Profiler + ".mem")
@@ -134,14 +134,14 @@ func RunHTTPTest(o *HTTPRunnerOptions) (*HTTPRunnerResults, error) {
 	keys := []int{}
 	for i := 0; i < numThreads; i++ {
 		// Q: is there some copying each time stats[i] is used?
-		for k := range state[i].RetCodes {
+		for k := range httpstate[i].RetCodes {
 			if _, exists := total.RetCodes[k]; !exists {
 				keys = append(keys, k)
 			}
-			total.RetCodes[k] += state[i].RetCodes[k]
+			total.RetCodes[k] += httpstate[i].RetCodes[k]
 		}
-		total.Sizes.Transfer(state[i].Sizes)
-		total.HeaderSizes.Transfer(state[i].HeaderSizes)
+		total.Sizes.Transfer(httpstate[i].Sizes)
+		total.HeaderSizes.Transfer(httpstate[i].HeaderSizes)
 	}
 	sort.Ints(keys)
 	for _, k := range keys {
