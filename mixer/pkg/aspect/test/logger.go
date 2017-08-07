@@ -37,7 +37,7 @@ type Logger struct {
 }
 
 // NewApplicationLogsAspect returns a new instance of the Logger aspect.
-func (t *Logger) NewApplicationLogsAspect(e adapter.Env, m adapter.Config) (adapter.ApplicationLogsAspect, error) {
+func (t *Logger) NewApplicationLogsAspect(adapter.Env, adapter.Config) (adapter.ApplicationLogsAspect, error) {
 	if t.ErrOnNewAspect {
 		return nil, errors.New("new aspect error")
 	}
@@ -45,7 +45,7 @@ func (t *Logger) NewApplicationLogsAspect(e adapter.Env, m adapter.Config) (adap
 }
 
 // NewAccessLogsAspect returns a new instance of the accessLogger aspect.
-func (t *Logger) NewAccessLogsAspect(e adapter.Env, m adapter.Config) (adapter.AccessLogsAspect, error) {
+func (t *Logger) NewAccessLogsAspect(adapter.Env, adapter.Config) (adapter.AccessLogsAspect, error) {
 	if t.ErrOnNewAspect {
 		return nil, errors.New("new aspect error")
 	}

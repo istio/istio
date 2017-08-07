@@ -41,7 +41,7 @@ func newBuilder() builder {
 	return builder{adapter.NewDefaultBuilder(name, desc, conf)}
 }
 
-func (builder) NewDenialsAspect(env adapter.Env, c adapter.Config) (adapter.DenialsAspect, error) {
+func (builder) NewDenialsAspect(_ adapter.Env, c adapter.Config) (adapter.DenialsAspect, error) {
 	return newDenyChecker(c.(*config.Params))
 }
 

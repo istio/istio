@@ -62,11 +62,11 @@ func Register(r adapter.Registrar) {
 	r.RegisterAccessLogsBuilder(b)
 }
 
-func (builder) NewApplicationLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.ApplicationLogsAspect, error) {
+func (builder) NewApplicationLogsAspect(_ adapter.Env, cfg adapter.Config) (adapter.ApplicationLogsAspect, error) {
 	return newLogger(cfg, newZapLogger)
 }
 
-func (builder) NewAccessLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.AccessLogsAspect, error) {
+func (builder) NewAccessLogsAspect(_ adapter.Env, cfg adapter.Config) (adapter.AccessLogsAspect, error) {
 	return newLogger(cfg, newZapLogger)
 }
 
