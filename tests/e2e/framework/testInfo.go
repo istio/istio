@@ -186,7 +186,7 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 			for _, logEntry := range entries {
 				timestamp := logEntry.GetTimestamp()
 				fmtTime := time.Unix(timestamp.Seconds, 0)
-				log := fmt.Sprintf("[%d:%d:%d] %s",
+				log := fmt.Sprintf("[%02d:%02d:%02d] %s",
 					fmtTime.Hour(), fmtTime.Minute(), fmtTime.Second(), logEntry.GetTextPayload())
 				if log[len(log)-1:] != "\n" {
 					log += "\n"
