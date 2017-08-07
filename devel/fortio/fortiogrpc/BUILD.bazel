@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["grpcrunner.go"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//devel/fortio:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//health/grpc_health_v1:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["grpcrunner_test.go"],
+    library = ":go_default_library",
+    deps = [
+        "//devel/fortio:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//health:go_default_library",
+        "@org_golang_google_grpc//health/grpc_health_v1:go_default_library",
+    ],
+)

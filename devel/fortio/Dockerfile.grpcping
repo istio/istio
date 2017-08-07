@@ -1,0 +1,11 @@
+# Build the binaries in larger image
+FROM golang:1.8.3 as build
+WORKDIR /go/src/istio.io/istio/devel
+RUN go get google.golang.org/grpc
+COPY . fortio
+RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-s' istio.io/istio/devel/fortio/cmd/grpcping
+# Minimal image with just the binary
+FROM scratch
+COPY --from=build /go/src/istio.io/istio/devel/grpcping /usr/local/bin/grpcping
+EXPOSE 8079
+ENTRYPOINT ["/usr/local/bin/grpcping"]
