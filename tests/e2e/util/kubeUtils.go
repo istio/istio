@@ -77,8 +77,8 @@ func KubeApply(n, yaml string) error {
 func GetIngress(n string) (string, error) {
 	retry := Retrier{
 		BaseDelay: 5 * time.Second,
-		MaxDelay:  30 * time.Second,
-		Retries:   10,
+		MaxDelay:  20 * time.Second,
+		Retries:   20,
 	}
 	r := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 	var ingress string
@@ -106,8 +106,8 @@ func GetIngress(n string) (string, error) {
 func GetIngressPod(n string) (string, error) {
 	retry := Retrier{
 		BaseDelay: 5 * time.Second,
-		MaxDelay:  30 * time.Minute,
-		Retries:   10,
+		MaxDelay:  20 * time.Minute,
+		Retries:   20,
 	}
 	ipRegex := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 	portRegex := regexp.MustCompile(`^[0-9]+$`)
