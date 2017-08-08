@@ -173,6 +173,7 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 		if err != nil {
 			return err
 		}
+		defer f.Close()
 		// fetch log entries with pagination
 		var entries []*loggingpb.LogEntry
 		pager := iterator.NewPager(it, pageSize, "")
@@ -184,23 +185,27 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 			}
 			// append logs to file
 			for _, logEntry := range entries {
-				timestamp := logEntry.GetTimestamp()
-				fmtTime := time.Unix(timestamp.Seconds, 0)
-				log := fmt.Sprintf("[%02d:%02d:%02d] %s",
-					fmtTime.Hour(), fmtTime.Minute(), fmtTime.Second(), logEntry.GetTextPayload())
-				if log[len(log)-1:] != "\n" {
-					log += "\n"
-				}
-				_, err = f.WriteString(log)
-				if err != nil {
+				fmtTime := time.Unix(logEntry.GetTimestamp().Seconds, 0)
+				timestamp := fmt.Sprintf("[%02d:%02d:%02d] ",
+					fmtTime.Hour(), fmtTime.Minute(), fmtTime.Second())
+				if _, err = f.WriteString(timestamp); err != nil {
 					return err
+				}
+				log := logEntry.GetTextPayload()
+				if _, err = f.WriteString(log); err != nil {
+					return err
+				}
+				if len(log) == 0 || log[len(log)-1] != '\n' {
+					if _, err = f.WriteString("\n"); err != nil {
+						return err
+					}
 				}
 			}
 			if pageToken == "" {
 				break
 			}
 		}
-		return f.Close()
+		return nil
 	}
 
 	var multiErr error
