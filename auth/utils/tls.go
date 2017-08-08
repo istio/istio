@@ -53,7 +53,9 @@ func GetTLSCredentials(certificateFile string, keyFile string,
 	if isClient {
 		config.RootCAs = certPool
 	} else {
-		config.ClientAuth = tls.RequireAndVerifyClientCert
+		// The server does not always require client cert. Client provides cert for on-prem VM and JWT
+		// for GCE VM.
+		config.ClientAuth = tls.VerifyClientCertIfGiven
 		config.ClientCAs = certPool
 	}
 

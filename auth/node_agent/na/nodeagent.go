@@ -21,9 +21,15 @@ import (
 	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"istio.io/auth/pkg/pki/ca"
 	pb "istio.io/auth/proto"
+)
+
+const (
+	// ONPREM Node Agent
+	ONPREM int = iota // 0
+	// GCP Node Agent
+	GCP // 1
 )
 
 // Config is Node agent configuration that is provided from CLI.
@@ -54,12 +60,17 @@ type Config struct {
 
 	// Istio CA grpc server
 	IstioCAAddress *string
+
+	// The environment this node agent is running on
+	Env *int
 }
 
 // This interface is provided for implementing platform specific code.
 type platformSpecificRequest interface {
-	getTransportCredentials(*Config) credentials.TransportCredentials
-	getNodeAgentCredentials(*Config) *pb.NodeAgentCredentials
+	GetDialOptions(*Config) ([]grpc.DialOption, error)
+	// Whether the node agent is running on the right platform, e.g., if gcpPlatformImpl should only
+	// run on GCE.
+	IsProperPlatform() bool
 }
 
 // The real node agent implementation. This implements the "Start" function
@@ -77,14 +88,18 @@ func (na nodeAgentInternal) Start() {
 		glog.Fatalf("Node Agent configuration is nil")
 	}
 
+	if !na.pr.IsProperPlatform() {
+		glog.Fatalf("Node Agent is not running on the right platform")
+	}
+
 	for {
-		ok, privKey, resp := na.invokeGrpc()
-		if ok && resp.IsApproved {
+		privKey, resp, err := na.sendCSR()
+		if err != nil {
+			glog.Errorf("CSR signing failed: %s", err)
+		} else if resp != nil && resp.IsApproved {
 			timer := time.NewTimer(na.getExpTime(resp))
 			na.writeToFile(privKey, resp.SignedCertChain)
 			<-timer.C
-		} else {
-			glog.Errorf("CSR signing failed: %s", resp.Status)
 		}
 	}
 }
@@ -101,16 +116,17 @@ func (na *nodeAgentInternal) getCertificateSignRequest() ([]byte, *pb.Certificat
 	}
 
 	return privKey, &pb.CertificateSignRequest{
-		Csr:                  csr,
-		NodeAgentCredentials: na.pr.getNodeAgentCredentials(na.config),
+		Csr: csr,
 	}
 }
 
-func (na *nodeAgentInternal) invokeGrpc() (bool, []byte, *pb.CertificateSignResponse) {
-
-	transportCreds := na.pr.getTransportCredentials(na.config)
-	dialOption := grpc.WithTransportCredentials(transportCreds)
-	conn, err := grpc.Dial(*na.config.IstioCAAddress, dialOption)
+func (na *nodeAgentInternal) sendCSR() ([]byte, *pb.CertificateSignResponse, error) {
+	dialOptions, err := na.pr.GetDialOptions(na.config)
+	if err != nil {
+		glog.Errorf("Cannot construct the dial options with error %s", err)
+		return nil, nil, err
+	}
+	conn, err := grpc.Dial(*na.config.IstioCAAddress, dialOptions...)
 	if err != nil {
 		glog.Fatalf("Failed ot dial %s: %s", *na.config.IstioCAAddress, err)
 	}
@@ -126,10 +142,10 @@ func (na *nodeAgentInternal) invokeGrpc() (bool, []byte, *pb.CertificateSignResp
 	resp, err := client.Sign(context.Background(), req)
 	if err != nil {
 		glog.Errorf("CSR request failed %s", err)
-		return false, nil, nil
+		return nil, nil, err
 	}
 
-	return true, privKey, resp
+	return privKey, resp, nil
 }
 
 func (na *nodeAgentInternal) writeToFile(privKey []byte, cert []byte) {
