@@ -23,7 +23,6 @@ import (
 
 var (
 	naConfig na.Config
-	env      *string
 )
 
 func init() {
@@ -40,20 +39,12 @@ func init() {
 		"Percentage time to elapse before renewing certificate")
 	naConfig.ServiceIdentityDir = flag.String("cert-dir", "./", "Certificate directory")
 	naConfig.RootCACertFile = flag.String("root-cert", "", "Root Certi file")
-	env = flag.String("env", "onprem", "Node Environment : onprem | gcp")
+	naConfig.Env = flag.Int("env", na.ONPREM, "Node Environment : onprem | gcp")
 }
 
 func main() {
 	flag.Parse()
-	var nodeAgent na.NodeAgent
-	switch *env {
-	case "onprem":
-		nodeAgent = na.NewNodeAgent(na.ONPREM, &naConfig)
-	case "gcp":
-		glog.Fatalf("Not Implemented")
-	default:
-		glog.Fatalf("Unknown Environment %s", *env)
-	}
+	nodeAgent := na.NewNodeAgent(&naConfig)
 	glog.Infof("Starting Node Agent")
 	nodeAgent.Start()
 }

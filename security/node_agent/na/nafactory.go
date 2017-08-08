@@ -16,17 +16,7 @@ package na
 
 import (
 	"github.com/golang/glog"
-)
-
-// Environment Type that is used to describe various environments that are
-// supported by the node agent.
-type Environment int
-
-const (
-	// ONPREM Node Agent
-	ONPREM Environment = iota
-	// GCP Node Agent
-	GCP
+	cred "istio.io/auth/pkg/credential"
 )
 
 // NodeAgent interface that should be implemented by
@@ -36,7 +26,7 @@ type NodeAgent interface {
 }
 
 // NewNodeAgent is constructor for Node agent based on the provided Environment variable.
-func NewNodeAgent(env Environment, cfg *Config) NodeAgent {
+func NewNodeAgent(cfg *Config) NodeAgent {
 	if cfg == nil {
 		glog.Fatalf("Nil configuration passed")
 	}
@@ -44,11 +34,13 @@ func NewNodeAgent(env Environment, cfg *Config) NodeAgent {
 		config: cfg,
 	}
 
-	switch env {
+	switch *cfg.Env {
 	case ONPREM:
 		na.pr = &onPremPlatformImpl{}
+	case GCP:
+		na.pr = &gcpPlatformImpl{&cred.GcpTokenFetcher{}}
 	default:
-		glog.Fatalf("Invalid env %d specified", env)
+		glog.Fatalf("Invalid env %d specified", *cfg.Env)
 	}
 
 	return na

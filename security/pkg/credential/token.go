@@ -27,12 +27,12 @@ type TokenFetcher interface {
 type GcpTokenFetcher struct {
 	// aud is the unique URI agreed upon by both the instance and the system verifying the instance's identity.
 	// For more info: https://cloud.google.com/compute/docs/instances/verifying-instance-identity
-	aud string
+	Aud string
 }
 
 func (fetcher *GcpTokenFetcher) getTokenURI() string {
 	// The GCE metadata service URI to get identity token of current (i.e., default) service account.
-	return "instance/service-accounts/default/identity?audience=" + fetcher.aud
+	return "instance/service-accounts/default/identity?audience=" + fetcher.Aud
 }
 
 // FetchToken fetchs the GCE VM identity jwt token from its metadata server.

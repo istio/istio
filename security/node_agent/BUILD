@@ -11,12 +11,6 @@ go_library(
 )
 
 go_binary(
-    name = "node-agent",
-    library = ":go_default_library",
-    visibility = ["//visibility:public"],
-)
-
-go_binary(
     name = "node_agent",
     library = ":go_default_library",
     visibility = ["//visibility:public"],
