@@ -173,7 +173,11 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil {
+				glog.Warningf("Error during closing file: %v\n", err)
+			}
+		}()
 		// fetch log entries with pagination
 		var entries []*loggingpb.LogEntry
 		pager := iterator.NewPager(it, pageSize, "")
