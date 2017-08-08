@@ -10,7 +10,7 @@ It is generated from these files:
 It has these top-level messages:
 	PingMessage
 */
-package main
+package fortiogrpc
 
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
