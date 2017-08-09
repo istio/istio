@@ -24,14 +24,15 @@ import "pkg/adapter/template/TemplateExtensions.proto";
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 option (istio.mixer.v1.config.template.template_name) = "List";
 
+
+
+
 message Type {
-
-    istio.mixer.v1.config.descriptor.ValueType check_expression = 1;
-
+  
 }
 
 message InstanceParam {
-
-    string check_expression = 1;
-
+  
+  string check_expression = 1;
+  
 }

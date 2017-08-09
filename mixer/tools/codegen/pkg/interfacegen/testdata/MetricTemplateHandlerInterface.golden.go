@@ -40,6 +40,16 @@ type Instance struct {
 
 	// dimensions are ...
 	Dimensions map[string]interface{}
+
+	Int64Primitive int64
+
+	BoolPrimitive bool
+
+	DoublePrimitive float64
+
+	StringPrimitive string
+
+	AnotherValueType interface{}
 }
 
 // MetricHandlerBuilder must be implemented by adapter code if it wants to

@@ -28,18 +28,19 @@ option (istio.mixer.v1.config.template.template_variety) = {{.VarietyName}};
 option (istio.mixer.v1.config.template.template_name) = "{{.Name}}";
 
 {{.Comment}}
-
 {{.TemplateMessage.Comment}}
 message Type {
-  {{range .TemplateMessage.Fields}}
+  {{range .TemplateMessage.Fields -}}
+  {{if hasValueType .Type -}}
   {{.Comment}}
-  {{replacePrimitiveToValueType .Type}} {{.Name}} = {{.Number}};
-  {{end}}
+  {{.Type}} {{.Name}} = {{.Number}};
+  {{- end}}
+  {{- end}}
 }
 
 message InstanceParam {
   {{range .TemplateMessage.Fields}}
-  {{replaceValueTypeToString .Type}} {{.Name}} = {{.Number}};
+  {{stringify .Type}} {{.Name}} = {{.Number}};
   {{end}}
 }
 `

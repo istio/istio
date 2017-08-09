@@ -59,7 +59,16 @@ var (
 				cpb := cp.(*istio_mixer_adapter_sample_check.InstanceParam)
 				infrdType := &istio_mixer_adapter_sample_check.Type{}
 
-				infrdType.CheckExpression = istio_mixer_v1_config_descriptor.STRING
+				if cpb.CheckExpression == "" {
+					return nil, fmt.Errorf("expression for field CheckExpression cannot be empty")
+				}
+
+				if t, e := tEvalFn(cpb.CheckExpression); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field CheckExpression: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field CheckExpression: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
 
 				_ = cpb
 				return infrdType, err
@@ -67,7 +76,7 @@ var (
 			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_adapter_sample_check.SampleHandlerBuilder)
-				castedTypes := make(map[string]*istio_mixer_adapter_sample_check.Type)
+				castedTypes := make(map[string]*istio_mixer_adapter_sample_check.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
 					v1 := v.(*istio_mixer_adapter_sample_check.Type)
@@ -82,7 +91,7 @@ var (
 				var err error
 
 				var instances []*istio_mixer_adapter_sample_check.Instance
-				castedInsts := make(map[string]*istio_mixer_adapter_sample_check.InstanceParam)
+				castedInsts := make(map[string]*istio_mixer_adapter_sample_check.InstanceParam, len(insts))
 				for k, v := range insts {
 					v1 := v.(*istio_mixer_adapter_sample_check.InstanceParam)
 					castedInsts[k] = v1
@@ -100,6 +109,7 @@ var (
 
 						CheckExpression: CheckExpression.(string),
 					})
+					_ = md
 				}
 				var cacheInfo adapter.CacheabilityInfo
 				if found, cacheInfo, err = handler.(istio_mixer_adapter_sample_check.SampleHandler).HandleSample(instances); err != nil {
@@ -134,7 +144,7 @@ var (
 				cpb := cp.(*istio_mixer_adapter_sample_quota.InstanceParam)
 				infrdType := &istio_mixer_adapter_sample_quota.Type{}
 
-				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
+				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.Dimensions))
 				for k, v := range cpb.Dimensions {
 					if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 						return nil, err
@@ -147,7 +157,7 @@ var (
 			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_adapter_sample_quota.QuotaHandlerBuilder)
-				castedTypes := make(map[string]*istio_mixer_adapter_sample_quota.Type)
+				castedTypes := make(map[string]*istio_mixer_adapter_sample_quota.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
 					v1 := v.(*istio_mixer_adapter_sample_quota.Type)
@@ -212,15 +222,63 @@ var (
 				cpb := cp.(*istio_mixer_adapter_sample_report.InstanceParam)
 				infrdType := &istio_mixer_adapter_sample_report.Type{}
 
+				if cpb.Value == "" {
+					return nil, fmt.Errorf("expression for field Value cannot be empty")
+				}
+
 				if infrdType.Value, err = tEvalFn(cpb.Value); err != nil {
 					return nil, err
 				}
 
-				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
+				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.Dimensions))
 				for k, v := range cpb.Dimensions {
 					if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
 						return nil, err
 					}
+				}
+
+				if cpb.Int64Primitive == "" {
+					return nil, fmt.Errorf("expression for field Int64Primitive cannot be empty")
+				}
+
+				if t, e := tEvalFn(cpb.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field Int64Primitive: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field Int64Primitive: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.INT64)
+				}
+
+				if cpb.BoolPrimitive == "" {
+					return nil, fmt.Errorf("expression for field BoolPrimitive cannot be empty")
+				}
+
+				if t, e := tEvalFn(cpb.BoolPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.BOOL {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field BoolPrimitive: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field BoolPrimitive: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.BOOL)
+				}
+
+				if cpb.DoublePrimitive == "" {
+					return nil, fmt.Errorf("expression for field DoublePrimitive cannot be empty")
+				}
+
+				if t, e := tEvalFn(cpb.DoublePrimitive); e != nil || t != istio_mixer_v1_config_descriptor.DOUBLE {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field DoublePrimitive: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field DoublePrimitive: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.DOUBLE)
+				}
+
+				if cpb.StringPrimitive == "" {
+					return nil, fmt.Errorf("expression for field StringPrimitive cannot be empty")
+				}
+
+				if t, e := tEvalFn(cpb.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field StringPrimitive: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field StringPrimitive: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
 				}
 
 				_ = cpb
@@ -229,7 +287,7 @@ var (
 			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_adapter_sample_report.SampleHandlerBuilder)
-				castedTypes := make(map[string]*istio_mixer_adapter_sample_report.Type)
+				castedTypes := make(map[string]*istio_mixer_adapter_sample_report.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
 					v1 := v.(*istio_mixer_adapter_sample_report.Type)
@@ -242,7 +300,7 @@ var (
 				result := &multierror.Error{}
 				var instances []*istio_mixer_adapter_sample_report.Instance
 
-				castedInsts := make(map[string]*istio_mixer_adapter_sample_report.InstanceParam)
+				castedInsts := make(map[string]*istio_mixer_adapter_sample_report.InstanceParam, len(insts))
 				for k, v := range insts {
 					v1 := v.(*istio_mixer_adapter_sample_report.InstanceParam)
 					castedInsts[k] = v1
@@ -263,13 +321,50 @@ var (
 						continue
 					}
 
+					Int64Primitive, err := mapper.Eval(md.Int64Primitive, attrs)
+
+					if err != nil {
+						result = multierror.Append(result, fmt.Errorf("failed to eval Int64Primitive for instance '%s': %v", name, err))
+						continue
+					}
+
+					BoolPrimitive, err := mapper.Eval(md.BoolPrimitive, attrs)
+
+					if err != nil {
+						result = multierror.Append(result, fmt.Errorf("failed to eval BoolPrimitive for instance '%s': %v", name, err))
+						continue
+					}
+
+					DoublePrimitive, err := mapper.Eval(md.DoublePrimitive, attrs)
+
+					if err != nil {
+						result = multierror.Append(result, fmt.Errorf("failed to eval DoublePrimitive for instance '%s': %v", name, err))
+						continue
+					}
+
+					StringPrimitive, err := mapper.Eval(md.StringPrimitive, attrs)
+
+					if err != nil {
+						result = multierror.Append(result, fmt.Errorf("failed to eval StringPrimitive for instance '%s': %v", name, err))
+						continue
+					}
+
 					instances = append(instances, &istio_mixer_adapter_sample_report.Instance{
 						Name: name,
 
 						Value: Value,
 
 						Dimensions: Dimensions,
+
+						Int64Primitive: Int64Primitive.(int64),
+
+						BoolPrimitive: BoolPrimitive.(bool),
+
+						DoublePrimitive: DoublePrimitive.(float64),
+
+						StringPrimitive: StringPrimitive.(string),
 					})
+					_ = md
 				}
 
 				if err := handler.(istio_mixer_adapter_sample_report.SampleHandler).HandleSample(instances); err != nil {
