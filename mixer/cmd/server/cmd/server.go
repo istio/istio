@@ -308,7 +308,7 @@ func runServer(sa *serverArgs, tmplRepo template.Repository, printf, fatalf shar
 			}
 			recorder = zt.NewRecorder(col, false /* debug */, fmt.Sprintf("0.0.0.0:%d", sa.port), "istio-mixer")
 		}
-		tracer, err := zt.NewTracer(recorder)
+		tracer, err := zt.NewTracer(recorder, zt.ClientServerSameSpan(false))
 		if err != nil {
 			fatalf("Failed to construct zipkin tracer: %v", err)
 		}
