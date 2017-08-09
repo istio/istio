@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"istio.io/mixer/pkg/il"
 	"istio.io/mixer/pkg/il/testing"
@@ -83,6 +84,7 @@ func TestInterpreter_Eval_FunctionNotFound(t *testing.T) {
 }
 
 func TestInterpreter_Eval(t *testing.T) {
+	duration20ms, _ := time.ParseDuration("20ms")
 
 	var tests = map[string]test{
 		"halt": {
@@ -853,6 +855,17 @@ func TestInterpreter_Eval(t *testing.T) {
 			},
 			expected: int64(123456),
 		},
+		"resolve_i/duration/success": {
+			code: `
+		fn main () duration
+			resolve_i "a"
+			ret
+		end`,
+			input: map[string]interface{}{
+				"a": duration20ms,
+			},
+			expected: duration20ms,
+		},
 		"resolve_i/not found": {
 			code: `
 		fn main () integer
@@ -870,7 +883,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			input: map[string]interface{}{
 				"a": "B",
 			},
-			err: "error converting value to integer: 'B'",
+			err: "error converting value to integer or duration: 'B'",
 		},
 		"resolve_d/success": {
 			code: `
@@ -1024,6 +1037,18 @@ func TestInterpreter_Eval(t *testing.T) {
 			},
 			expected: int64(123456),
 		},
+		"tresolve_i/duration/success": {
+			code: `
+		fn main () duration
+			tresolve_i "a"
+			errz "not found!"
+			ret
+		end`,
+			input: map[string]interface{}{
+				"a": duration20ms,
+			},
+			expected: duration20ms,
+		},
 		"tresolve_i/not found": {
 			code: `
 		fn main () integer
@@ -1043,7 +1068,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			input: map[string]interface{}{
 				"a": "B",
 			},
-			err: "error converting value to integer: 'B'",
+			err: "error converting value to integer or duration: 'B'",
 		},
 		"tresolve_d/success": {
 			code: `

@@ -18,6 +18,7 @@ package compiler
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -103,6 +104,8 @@ func (g *generator) toIlType(t dpb.ValueType) il.Type {
 		return il.Bool
 	case dpb.INT64:
 		return il.Integer
+	case dpb.DURATION:
+		return il.Duration
 	case dpb.DOUBLE:
 		return il.Double
 	case dpb.STRING_MAP:
@@ -135,7 +138,7 @@ func (g *generator) generateVariable(v *expr.Variable, mode nilMode, valueJmpLab
 	i := g.finder.GetAttribute(v.Name)
 	ilType := g.toIlType(i.ValueType)
 	switch ilType {
-	case il.Integer:
+	case il.Integer, il.Duration:
 		switch mode {
 		case nmNone:
 			g.builder.ResolveInt(v.Name)
@@ -383,6 +386,9 @@ func (g *generator) generateConstant(c *expr.Constant) {
 	case dpb.DOUBLE:
 		d := c.Value.(float64)
 		g.builder.APushDouble(d)
+	case dpb.DURATION:
+		u := c.Value.(time.Duration)
+		g.builder.APushInt(int64(u))
 	default:
 		g.internalError("unhandled constant type: %v", c.Type)
 	}

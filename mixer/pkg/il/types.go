@@ -38,6 +38,9 @@ const (
 
 	// StringMap represents a map[string]string value.
 	StringMap
+
+	// Duration represents a time.Duration value
+	Duration
 )
 
 var typeNames = map[Type]string{
@@ -48,6 +51,7 @@ var typeNames = map[Type]string{
 	Double:    "double",
 	Bool:      "bool",
 	StringMap: "stringmap",
+	Duration:  "duration",
 }
 
 var typesByName = map[string]Type{
@@ -57,6 +61,7 @@ var typesByName = map[string]Type{
 	"double":    Double,
 	"bool":      Bool,
 	"stringmap": StringMap,
+	"duration":  Duration,
 }
 
 func (t Type) String() string {
