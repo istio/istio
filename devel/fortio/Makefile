@@ -1,6 +1,6 @@
 # Experimental Makefile to build fortio's docker images
 
-IMAGES=fortio echosrv grpcping # plus the combo image / Dockerfile without ext.
+IMAGES=echosrv # plus the combo image / Dockerfile without ext.
 
 DOCKER_PREFIX := gcr.io/istio-testing/fortio
 
