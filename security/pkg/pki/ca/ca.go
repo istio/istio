@@ -16,7 +16,9 @@ package ca
 
 import (
 	"crypto"
+	"crypto/rand"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"time"
@@ -34,6 +36,7 @@ const (
 
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
+	Sign(csr *x509.CertificateRequest) ([]byte, error)
 	Generate(name, namespace string) (chain, key []byte)
 	GetRootCertificate() []byte
 }
@@ -132,6 +135,43 @@ func (ca IstioCA) Generate(name, namespace string) (chain, key []byte) {
 // GetRootCertificate returns the PEM-encoded root certificate.
 func (ca IstioCA) GetRootCertificate() []byte {
 	return copyBytes(ca.rootCertBytes)
+}
+
+// Sign signs a CSR
+func (ca IstioCA) Sign(csr *x509.CertificateRequest) ([]byte, error) {
+	tmpl := ca.generateCertificateTemplate(csr)
+
+	bytes, err := x509.CreateCertificate(rand.Reader, tmpl, ca.signingCert, csr.PublicKey, ca.signingKey)
+	if err != nil {
+		return nil, err
+	}
+
+	block := &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: bytes,
+	}
+	return pem.EncodeToMemory(block), nil
+}
+
+func (ca IstioCA) generateCertificateTemplate(request *x509.CertificateRequest) *x509.Certificate {
+	exts := append(request.Extensions, request.ExtraExtensions...)
+	now := time.Now()
+
+	return &x509.Certificate{
+		SerialNumber: genSerialNum(),
+		Subject:      request.Subject,
+		NotAfter:     now.Add(ca.certTTL),
+		NotBefore:    now,
+		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		IsCA:         false,
+		BasicConstraintsValid: true,
+		ExtraExtensions:       exts,
+		DNSNames:              request.DNSNames,
+		EmailAddresses:        request.EmailAddresses,
+		IPAddresses:           request.IPAddresses,
+		SignatureAlgorithm:    request.SignatureAlgorithm,
+	}
 }
 
 // verify that the cert chain, root cert and signing key/cert match.

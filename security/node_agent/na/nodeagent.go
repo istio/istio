@@ -139,7 +139,7 @@ func (na *nodeAgentInternal) sendCSR() ([]byte, *pb.Response, error) {
 
 	client := pb.NewIstioCAServiceClient(conn)
 	privKey, req := na.createRequest()
-	resp, err := client.Sign(context.Background(), req)
+	resp, err := client.HandleCSR(context.Background(), req)
 	if err != nil {
 		glog.Errorf("CSR request failed %s", err)
 		return nil, nil, err

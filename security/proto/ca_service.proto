@@ -34,7 +34,7 @@ service IstioCAService {
   // is generated on the Node Agent. Additionaly credential can be attached
   // within the request object for a server to authenticate the originating
   // node agent.
-  rpc Sign(Request) returns (Response);
+  rpc HandleCSR(Request) returns (Response);
 }
 
 message Request {

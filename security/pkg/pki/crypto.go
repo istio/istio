@@ -42,6 +42,20 @@ func ParsePemEncodedCertificate(certBytes []byte) (*x509.Certificate, error) {
 	return cert, nil
 }
 
+// ParsePemEncodedCSR constructs a `x509.CertificateRequest` object using the
+// given PEM-encoded certificate signing request.
+func ParsePemEncodedCSR(csrBytes []byte) (*x509.CertificateRequest, error) {
+	block, _ := pem.Decode(csrBytes)
+	if block == nil {
+		return nil, fmt.Errorf("Certificate signing request is not properly encoded")
+	}
+	csr, err := x509.ParseCertificateRequest(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to parse X.509 certificate signing request")
+	}
+	return csr, nil
+}
+
 // ParsePemEncodedKey takes a PEM-encoded key and parsed the bytes into a `crypto.PrivateKey`.
 func ParsePemEncodedKey(keyBytes []byte) (crypto.PrivateKey, error) {
 	kb, _ := pem.Decode(keyBytes)
