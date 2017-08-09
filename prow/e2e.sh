@@ -26,27 +26,17 @@ set -u
 # Print commands
 set -x
 
-if [ "${CI}" == 'bootstrap' ]; then
-  # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
-  # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-  ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
-  cd ${GOPATH}/src/istio.io/istio
+# Running out of external ips
+E2E_ARGS=(--use_local_cluster)
 
+if [ "${CI}" == 'bootstrap' ]; then
+  # bootsrap upload all artifacts in _artifacts to the log bucket.
+  ARTIFACTS_DIR="${GOPATH}/src/istio.io/istio/_artifacts"
+  LOG_HOST="stackdriver"
+  PROJ_ID="istio-testing"
+  E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}" --log_provider=${LOG_HOST} --project_id=${PROJ_ID})
   # Use the provided pull head sha, from prow.
-  GIT_SHA="${PULL_PULL_SHA}"
-else
-  # Use the current commit.
-  GIT_SHA="$(git rev-parse --verify HEAD)"
 fi
 
-echo 'Running Linters'
-./bin/linters.sh
-
-echo 'Running Unit Tests'
-bazel test //...
-
-echo 'Pushing Images'
-(cd devel/fortio && make authorize all TAG="${GIT_SHA}")
-
 echo 'Running Integration Tests'
-./prow/e2e.sh
+./tests/e2e.sh ${E2E_ARGS[@]} ${@}

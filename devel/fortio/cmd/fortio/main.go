@@ -39,46 +39,74 @@ func (f *flagList) Set(value string) error {
 // -- end of functions for -H support
 
 // Prints usage
-func usage() {
-	fmt.Fprintf(os.Stderr, "Φορτίο %s usage:\n\t%s [flags] target\n%s\n%s\n",
+func usage(msgs ...interface{}) {
+	fmt.Fprintf(os.Stderr, "Φορτίο %s usage:\n\t%s command [flags] target\n%s\n%s\n%s\n",
 		fortio.Version,
 		os.Args[0],
+		"where command is one of: load (load testing), server (starts grpc ping and http echo servers), grcping (grpc client)",
 		"where target is a url (http load tests) or host:port (grpc health test)",
 		"and flags are:") // nolint(gas)
 	flag.PrintDefaults()
+	fmt.Fprint(os.Stderr, msgs...)
+	os.Stderr.WriteString("\n") // nolint(gas)
 	os.Exit(1)
 }
 
-func main() {
-	var (
-		defaults = &fortio.DefaultRunnerOptions
-		// Very small default so people just trying with random URLs don't affect the target
-		qpsFlag         = flag.Float64("qps", 8.0, "Queries Per Seconds or 0 for no wait")
-		numThreadsFlag  = flag.Int("c", defaults.NumThreads, "Number of connections/goroutine/threads")
-		durationFlag    = flag.Duration("t", defaults.Duration, "How long to run the test")
-		percentilesFlag = flag.String("p", "50,75,99,99.9", "List of pXX to calculate")
-		resolutionFlag  = flag.Float64("r", defaults.Resolution, "Resolution of the histogram lowest buckets in seconds")
-		compressionFlag = flag.Bool("compression", false, "Enable http compression")
-		goMaxProcsFlag  = flag.Int("gomaxprocs", 0, "Setting for runtime.GOMAXPROCS, <1 doesn't change the default")
-		profileFlag     = flag.String("profile", "", "write .cpu and .mem profiles to file")
-		keepAliveFlag   = flag.Bool("keepalive", true, "Keep connection alive (only for fast http 1.1)")
-		stdClientFlag   = flag.Bool("stdclient", false, "Use the slower net/http standard client (works for TLS)")
-		http10Flag      = flag.Bool("http1.0", false, "Use http1.0 (instead of http 1.1)")
-		grpcFlag        = flag.Bool("grpc", false, "Use GRPC health check")
+var (
+	defaults = &fortio.DefaultRunnerOptions
+	// Very small default so people just trying with random URLs don't affect the target
+	qpsFlag         = flag.Float64("qps", 8.0, "Queries Per Seconds or 0 for no wait")
+	numThreadsFlag  = flag.Int("c", defaults.NumThreads, "Number of connections/goroutine/threads")
+	durationFlag    = flag.Duration("t", defaults.Duration, "How long to run the test")
+	percentilesFlag = flag.String("p", "50,75,99,99.9", "List of pXX to calculate")
+	resolutionFlag  = flag.Float64("r", defaults.Resolution, "Resolution of the histogram lowest buckets in seconds")
+	compressionFlag = flag.Bool("compression", false, "Enable http compression")
+	goMaxProcsFlag  = flag.Int("gomaxprocs", 0, "Setting for runtime.GOMAXPROCS, <1 doesn't change the default")
+	profileFlag     = flag.String("profile", "", "write .cpu and .mem profiles to file")
+	keepAliveFlag   = flag.Bool("keepalive", true, "Keep connection alive (only for fast http 1.1)")
+	stdClientFlag   = flag.Bool("stdclient", false, "Use the slower net/http standard client (works for TLS)")
+	http10Flag      = flag.Bool("http1.0", false, "Use http1.0 (instead of http 1.1)")
+	grpcFlag        = flag.Bool("grpc", false, "Use GRPC (health check) for load testing")
+	echoPortFlag    = flag.Int("http-port", 8080, "http echo server port")
+	grpcPortFlag    = flag.Int("grpc-port", 8079, "grpc port")
 
-		headersFlags flagList
-	)
+	headersFlags flagList
+	percList     []float64
+	err          error
+)
+
+func main() {
 	flag.Var(&headersFlags, "H", "Additional Header(s)")
 	flag.IntVar(&fortio.BufferSizeKb, "httpbufferkb", fortio.BufferSizeKb, "Size of the buffer (max data size) for the optimized http client in kbytes")
 	flag.BoolVar(&fortio.CheckConnectionClosedHeader, "httpccch", fortio.CheckConnectionClosedHeader, "Check for Connection: Close Header")
-	flag.Parse()
-	pList, err := fortio.ParsePercentiles(*percentilesFlag)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to extract percentiles from -p: %v\n", err) // nolint(gas)
-		usage()
+	if len(os.Args) < 2 {
+		usage("Error: need at least 1 command parameter")
 	}
+	command := os.Args[1]
+	os.Args = append([]string{os.Args[0]}, os.Args[2:]...)
+	flag.Parse()
+	percList, err = fortio.ParsePercentiles(*percentilesFlag)
+	if err != nil {
+		usage("Unable to extract percentiles from -p: ", err)
+	}
+
+	switch command {
+	case "load":
+		fortioLoad()
+	case "server":
+		go fortio.EchoServer(*echoPortFlag)
+		pingServer(*grpcPortFlag)
+	case "grpcping":
+		grpcClient()
+	default:
+		usage("Error: unknown command ", command)
+	}
+
+}
+
+func fortioLoad() {
 	if len(flag.Args()) != 1 {
-		usage()
+		usage("Error: fortio load needs a url or destination")
 	}
 	url := flag.Arg(0)
 	prevGoMaxProcs := runtime.GOMAXPROCS(*goMaxProcsFlag)
@@ -88,7 +116,7 @@ func main() {
 		QPS:         *qpsFlag,
 		Duration:    *durationFlag,
 		NumThreads:  *numThreadsFlag,
-		Percentiles: pList,
+		Percentiles: percList,
 		Resolution:  *resolutionFlag,
 	}
 	var res fortio.HasRunnerResult
