@@ -1,5 +1,5 @@
 syntax = "proto3";
-package main;
+package fortiogrpc;
 
 message PingMessage {
   int64 seq      = 1; // sequence number
