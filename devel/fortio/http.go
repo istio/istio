@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -58,7 +59,7 @@ func init() {
 
 // Version is the fortio package version (TODO:auto gen/extract).
 const (
-	Version       = "0.2.0"
+	Version       = "0.2.2"
 	userAgent     = "istio/fortio-" + Version
 	retcodeOffset = len("HTTP/1.X ")
 )
@@ -569,8 +570,8 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 								break
 							}
 							max = c.headerLen + contentLength
-							if Log(Verbose) { // somehow without the if we spend 400ms/10s in LogV (!)
-								LogVf("found content length %d", contentLength)
+							if LogDebug() { // somehow without the if we spend 400ms/10s in LogV (!)
+								Debugf("found content length %d", contentLength)
 							}
 						} else {
 							// Chunked mode (or err/missing):
@@ -579,7 +580,7 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 								var dataStart int
 								dataStart, contentLength = ParseChunkSize(c.buffer[c.headerLen:])
 								max = c.headerLen + dataStart + contentLength + 2 // extra CR LF
-								LogVf("chunk-length is %d (%s) setting max to %d",
+								Debugf("chunk-length is %d (%s) setting max to %d",
 									contentLength, c.buffer[c.headerLen:c.headerLen+dataStart-2],
 									max)
 							} else {
@@ -709,4 +710,113 @@ func DynamicHTTPServer() int {
 		}
 	}(port)
 	return port
+}
+
+/*
+// DebugHandlerTemplate returns debug/useful info on the http requet.
+// slower heavier but nicer source code version of DebugHandler
+func DebugHandlerTemplate(w http.ResponseWriter, r *http.Request) {
+	LogVf("%v %v %v %v", r.Method, r.URL, r.Proto, r.RemoteAddr)
+	hostname, _ := os.Hostname()
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		Errf("Error reading %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// Note: this looks nicer but is about 2x slower / less qps / more cpu and 25% bigger executable than doing the writes oneself:
+	const templ = `Φορτίο version {{.Version}} echo debug server on {{.Hostname}} - request from {{.R.RemoteAddr}}
+
+{{.R.Method}} {{.R.URL}} {{.R.Proto}}
+
+headers:
+
+{{ range $name, $vals := .R.Header }}{{range $val := $vals}}{{$name}}: {{ $val }}
+{{end}}{{end}}
+body:
+
+{{.Body}}
+{{if .DumpEnv}}
+environment:
+{{ range $idx, $e := .Env }}
+{{$e}}{{end}}
+{{end}}`
+	t := template.Must(template.New("debugOutput").Parse(templ))
+	err = t.Execute(w, &struct {
+		R        *http.Request
+		Hostname string
+		Version  string
+		Body     string
+		DumpEnv  bool
+		Env      []string
+	}{r, hostname, Version, DebugSummary(data, 512), r.FormValue("env") == "dump", os.Environ()})
+	if err != nil {
+		Critf("Template execution failed: %v", err)
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
+}
+*/
+
+// DebugHandler returns debug/useful info to http client.
+func DebugHandler(w http.ResponseWriter, r *http.Request) {
+	LogVf("%v %v %v %v", r.Method, r.URL, r.Proto, r.RemoteAddr)
+	var buf bytes.Buffer
+	buf.WriteString("Φορτίο version ")
+	buf.WriteString(Version)
+	buf.WriteString(" echo debug server on ")
+	hostname, _ := os.Hostname()
+	buf.WriteString(hostname)
+	buf.WriteString(" - request from ")
+	buf.WriteString(r.RemoteAddr)
+	buf.WriteString("\n\n")
+	buf.WriteString(r.Method)
+	buf.WriteByte(' ')
+	buf.WriteString(r.URL.String())
+	buf.WriteByte(' ')
+	buf.WriteString(r.Proto)
+	buf.WriteString("\n\nheaders:\n\n")
+	for name, headers := range r.Header {
+		buf.WriteString(name)
+		buf.WriteString(": ")
+		first := true
+		for _, h := range headers {
+			if !first {
+				buf.WriteByte(',')
+			}
+			buf.WriteString(h)
+			first = false
+		}
+		buf.WriteByte('\n')
+	}
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		Errf("Error reading %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	buf.WriteString("\nbody:\n\n")
+	buf.WriteString(DebugSummary(data, 512))
+	buf.WriteByte('\n')
+	if r.FormValue("env") == "dump" {
+		buf.WriteString("\nenvironment:\n\n")
+		for _, v := range os.Environ() {
+			buf.WriteString(v)
+			buf.WriteByte('\n')
+		}
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
+	if _, err = w.Write(buf.Bytes()); err != nil {
+		Errf("Error writing response %v to %v", err, r.RemoteAddr)
+	}
+}
+
+// EchoServer starts a debug / echo http server on the given port.
+func EchoServer(port int) {
+	fmt.Printf("Fortio %s echo server listening on port %v\n", Version, port)
+
+	http.HandleFunc("/debug", DebugHandler)
+	http.HandleFunc("/", EchoHandler)
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
+		fmt.Println("Error starting server", err)
+	}
 }

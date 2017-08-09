@@ -1,25 +1,32 @@
-# Experimental Makefile to build fortio's echosrv docker image
+# Experimental Makefile to build fortio's docker images
 
-DOCKER_PREFIX := ldemailly/fortio
+IMAGES=echosrv # plus the combo image / Dockerfile without ext.
 
-TAG:=$(shell date +%y%m%d_%H%M%S)
+DOCKER_PREFIX := gcr.io/istio-testing/fortio
 
-DOCKER_TAG := $(DOCKER_PREFIX):$(TAG)
+TAG:=$(USER)$(shell date +%y%m%d_%H%M%S)
 
-docker:
-	@echo Tag is $(TAG)
-	docker build -t $(DOCKER_TAG) .
+DOCKER_TAG = $(DOCKER_PREFIX)$(IMAGE):$(TAG)
 
-docker-push: docker
+# Pushes the combo image and the 3 smaller images
+all: docker-version docker-push-internal
+	@for img in $(IMAGES); do \
+		$(MAKE) docker-push-internal IMAGE=.$$img TAG=$(TAG); \
+	done
+
+docker-version:
+	@echo "### Docker is `which docker`"
+	@docker version
+
+docker-internal:
+	@echo "### Now building $(DOCKER_TAG)"
+	docker build -f Dockerfile$(IMAGE) -t $(DOCKER_TAG) .
+
+docker-push-internal: docker-internal
+	@echo "### Now pushing $(DOCKER_TAG)"
 	docker push $(DOCKER_TAG)
 
-# Not used, build directly from Dockerfile
+authorize:
+	gcloud docker --authorize-only --project istio-testing
 
-echosrv:
-	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-s' istio.io/istio/devel/fortio/cmd/$@
-
-clean:
-	rm echosrv
-
-.PHONY: clean docker push
-
+.PHONY: all docker-internal docker-push-internal docker-version authorize

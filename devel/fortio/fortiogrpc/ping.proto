@@ -1,0 +1,12 @@
+syntax = "proto3";
+package fortiogrpc;
+
+message PingMessage {
+  int64 seq      = 1; // sequence number
+  int64 ts       = 2; // src send ts / dest receive ts
+  string payload = 3; // extra packet data
+}
+
+service PingServer {
+  rpc Ping (PingMessage) returns (PingMessage) {}
+}
