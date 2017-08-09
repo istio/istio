@@ -7,6 +7,7 @@ go_library(
     deps = [
         "//pkg/expr:go_default_library",
         "//pkg/il:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
         "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
     ],
 )

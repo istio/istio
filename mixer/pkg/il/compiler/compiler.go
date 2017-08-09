@@ -19,6 +19,8 @@ package compiler
 import (
 	"fmt"
 
+	"github.com/golang/glog"
+
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/il"
@@ -30,6 +32,22 @@ type generator struct {
 	finder  expr.AttributeDescriptorFinder
 	err     error
 }
+
+// nilMode is an enum flag for specifying how the emitted code should be handling potential nils.
+type nilMode int
+
+const (
+	// nmNone indicates that the emitted code should assume the expression will not yield any nils.
+	// If a nil is encountered, then it will be treated as an error. The result of the expression
+	// will be on top of the stack.
+	nmNone nilMode = iota
+
+	// nmJmpOnValue indicates that the emitted code should immediately jump to the label (that is
+	// supplied on the side) when it resolves the expression to a non-nil value. If the value is nil,
+	// the emitted code will "fallthrough" and allow the immediately-following piece of code to handle
+	// the nil  case.
+	nmJmpOnValue
+)
 
 // Result is returned as the result of compilation.
 type Result struct {
@@ -58,7 +76,11 @@ func Compile(text string, finder expr.AttributeDescriptorFinder) (Result, error)
 	}
 
 	returnType := g.toIlType(exprType)
-	g.generate(expression, 0, false)
+	g.generate(expression, 0, nmNone, "")
+	if g.err != nil {
+		glog.Warningf("compiler.Compile failed. expr:'%s', err:'%v'", text, g.err)
+		return Result{}, g.err
+	}
 
 	g.builder.Ret()
 	body := g.builder.Build()
@@ -96,60 +118,74 @@ func (g *generator) evalType(e *expr.Expression) il.Type {
 	return g.toIlType(dvt)
 }
 
-func (g *generator) generate(e *expr.Expression, depth int, nullable bool) {
+func (g *generator) generate(e *expr.Expression, depth int, mode nilMode, valueJmpLabel string) {
 	switch {
 	case e.Const != nil:
 		g.generateConstant(e.Const)
 	case e.Var != nil:
-		g.generateVariable(e.Var, nullable)
+		g.generateVariable(e.Var, mode, valueJmpLabel)
 	case e.Fn != nil:
-		g.generateFunction(e.Fn, depth, nullable)
+		g.generateFunction(e.Fn, depth, mode, valueJmpLabel)
 	default:
 		g.internalError("unexpected expression type encountered.")
 	}
 }
 
-func (g *generator) generateVariable(v *expr.Variable, nullable bool) {
+func (g *generator) generateVariable(v *expr.Variable, mode nilMode, valueJmpLabel string) {
 	i := g.finder.GetAttribute(v.Name)
 	ilType := g.toIlType(i.ValueType)
 	switch ilType {
 	case il.Integer:
-		if nullable {
-			g.builder.TResolveInt(v.Name)
-		} else {
+		switch mode {
+		case nmNone:
 			g.builder.ResolveInt(v.Name)
+		case nmJmpOnValue:
+			g.builder.TResolveInt(v.Name)
+			g.builder.Jnz(valueJmpLabel)
 		}
-	case il.String:
-		if nullable {
-			g.builder.TResolveString(v.Name)
-		} else {
-			g.builder.ResolveString(v.Name)
-		}
-	case il.Bool:
-		if nullable {
-			g.builder.TResolveBool(v.Name)
-		} else {
-			g.builder.ResolveBool(v.Name)
-		}
-	case il.Double:
-		if nullable {
-			g.builder.TResolveDouble(v.Name)
 
-		} else {
+	case il.String:
+		switch mode {
+		case nmNone:
+			g.builder.ResolveString(v.Name)
+		case nmJmpOnValue:
+			g.builder.TResolveString(v.Name)
+			g.builder.Jnz(valueJmpLabel)
+		}
+
+	case il.Bool:
+		switch mode {
+		case nmNone:
+			g.builder.ResolveBool(v.Name)
+		case nmJmpOnValue:
+			g.builder.TResolveBool(v.Name)
+			g.builder.Jnz(valueJmpLabel)
+		}
+
+	case il.Double:
+		switch mode {
+		case nmNone:
 			g.builder.ResolveDouble(v.Name)
+		case nmJmpOnValue:
+			g.builder.TResolveDouble(v.Name)
+			g.builder.Jnz(valueJmpLabel)
 		}
+
 	case il.StringMap:
-		if nullable {
-			g.builder.TResolveMap(v.Name)
-		} else {
+		switch mode {
+		case nmNone:
 			g.builder.ResolveMap(v.Name)
+		case nmJmpOnValue:
+			g.builder.TResolveMap(v.Name)
+			g.builder.Jnz(valueJmpLabel)
 		}
+
 	default:
 		g.internalError("unrecognized variable type: '%v'", i.ValueType)
 	}
 }
 
-func (g *generator) generateFunction(f *expr.Function, depth int, nullable bool) {
+func (g *generator) generateFunction(f *expr.Function, depth int, mode nilMode, valueJmpLabel string) {
 
 	switch f.Name {
 	case "EQ":
@@ -161,9 +197,9 @@ func (g *generator) generateFunction(f *expr.Function, depth int, nullable bool)
 	case "LAND":
 		g.generateLand(f, depth)
 	case "INDEX":
-		g.generateIndex(f, depth)
+		g.generateIndex(f, depth, mode, valueJmpLabel)
 	case "OR":
-		g.generateOr(f, depth, nullable)
+		g.generateOr(f, depth, mode, valueJmpLabel)
 	default:
 		g.internalError("function not yet implemented: %s", f.Name)
 	}
@@ -171,13 +207,13 @@ func (g *generator) generateFunction(f *expr.Function, depth int, nullable bool)
 
 func (g *generator) generateEq(f *expr.Function, depth int) {
 	exprType := g.evalType(f.Args[0])
-	g.generate(f.Args[0], depth+1, false)
+	g.generate(f.Args[0], depth+1, nmNone, "")
 
 	var constArg1 interface{}
 	if f.Args[1].Const != nil {
 		constArg1 = f.Args[1].Const.Value
 	} else {
-		g.generate(f.Args[1], depth+1, false)
+		g.generate(f.Args[1], depth+1, nmNone, "")
 	}
 
 	switch exprType {
@@ -220,7 +256,7 @@ func (g *generator) generateNeq(f *expr.Function, depth int) {
 }
 
 func (g *generator) generateLor(f *expr.Function, depth int) {
-	g.generate(f.Args[0], depth+1, false)
+	g.generate(f.Args[0], depth+1, nmNone, "")
 	lr := g.builder.AllocateLabel()
 	le := g.builder.AllocateLabel()
 	g.builder.Jz(lr)
@@ -231,7 +267,7 @@ func (g *generator) generateLor(f *expr.Function, depth int) {
 		g.builder.Jmp(le)
 	}
 	g.builder.SetLabelPos(lr)
-	g.generate(f.Args[1], depth+1, false)
+	g.generate(f.Args[1], depth+1, nmNone, "")
 
 	if depth != 0 {
 		g.builder.SetLabelPos(le)
@@ -240,43 +276,96 @@ func (g *generator) generateLor(f *expr.Function, depth int) {
 
 func (g *generator) generateLand(f *expr.Function, depth int) {
 	for _, a := range f.Args {
-		g.generate(a, depth+1, false)
+		g.generate(a, depth+1, nmNone, "")
 	}
 
 	g.builder.And()
 }
 
-func (g *generator) generateIndex(f *expr.Function, depth int) {
-	g.generate(f.Args[0], depth+1, false)
+func (g *generator) generateIndex(f *expr.Function, depth int, mode nilMode, valueJmpLabel string) {
 
-	if f.Args[1].Const != nil {
-		str := f.Args[1].Const.Value.(string)
-		g.builder.ALookup(str)
+	switch mode {
+	case nmNone:
+		// Assume both the indexing target (arg[0]) and the index variable (arg[1]) are non-nil.
+		g.generate(f.Args[0], depth+1, nmNone, "")
 
-	} else {
-		g.generate(f.Args[1], depth+1, false)
-		g.builder.Lookup()
+		if f.Args[1].Const != nil {
+			str := f.Args[1].Const.Value.(string)
+			g.builder.ALookup(str)
+		} else {
+			g.generate(f.Args[1], depth+1, nmNone, "")
+			g.builder.Lookup()
+		}
 
+	case nmJmpOnValue:
+		// Assume both the indexing target (arg[0]) and the index variable (arg[1]) can be nil.
+		// Stack the operations such that first the target is resolved, if not nil, then the
+		// indexer is resolved, and finally if the indexer is not nil, the value is looked up.
+		//
+		//   As an example, consider the expression (ar["c"] | "foo") and we were supplied "LOuterLabel"
+		//   as valueJmpLabel
+		//   ...
+		//                                     // Begin Args[0] eval (i.e. ar)
+		//   tresolve_m "ar"                   // Try to resolve "ar"
+		//   jnz LTargetResolved               // If resolved, then jump to LTargetResolved.
+		//                                     // End Args[0] eval (i.e. ar)
+		//
+		//   jmp LEnd                          // This means Args[0] evaluated to nil, so jump to end
+		//                                     // and fallthrough.
+		// LTargetResolved:
+		//                                     // Begin Args[1] eval (i.e. "c")
+		//   apush_s "c"                       // Constant is directly evaluated.
+		//                                     // End Args[1] eval (i.e. "c")
+		//
+		//   tlookup                           // With Args[0] and Arg[1] on stack, perform conditional lookup
+		//   jnz LOuterLabel                   // If successful, jump to LOuterLabel
+		// LEnd:                               // Otherwise fall through with value evaluated to nil.
+		//                                     // From here on, evaluate the `... | "foo"` part, as "..." evaluated to nil.
+		//   apush_s "foo"
+		// LOuterLabel:
+		//
+		lEnd := g.builder.AllocateLabel()
+		lTargetResolved := g.builder.AllocateLabel()
+		g.generate(f.Args[0], depth+1, nmJmpOnValue, lTargetResolved)
+		g.builder.Jmp(lEnd)
+		g.builder.SetLabelPos(lTargetResolved)
+
+		if f.Args[1].Const != nil {
+			str := f.Args[1].Const.Value.(string)
+			g.builder.APushStr(str)
+		} else {
+			lArgumentResolved := g.builder.AllocateLabel()
+			g.generate(f.Args[1], depth+1, nmJmpOnValue, lArgumentResolved)
+			g.builder.Jmp(lEnd)
+			g.builder.SetLabelPos(lArgumentResolved)
+		}
+		g.builder.TLookup()
+		g.builder.Jnz(valueJmpLabel)
+		g.builder.SetLabelPos(lEnd)
 	}
 }
 
-func (g *generator) generateOr(f *expr.Function, depth int, nullable bool) {
-	if nullable {
-		l := g.builder.AllocateLabel()
-		le := g.builder.AllocateLabel()
-		g.generate(f.Args[0], depth+1, true)
-		g.builder.Jz(l)
-		g.builder.APushBool(true)
-		g.builder.Jmp(le)
-		g.builder.SetLabelPos(l)
-		g.generate(f.Args[1], depth+1, true)
-		g.builder.SetLabelPos(le)
-	} else {
-		le := g.builder.AllocateLabel()
-		g.generate(f.Args[0], depth+1, true)
-		g.builder.Jnz(le)
-		g.generate(f.Args[1], depth+1, false)
-		g.builder.SetLabelPos(le)
+func (g *generator) generateOr(f *expr.Function, depth int, mode nilMode, valueJmpLabel string) {
+	switch mode {
+	case nmNone:
+		// If the caller expects non-null result, evaluate Args[1] as non-null, and jump to end if
+		// it resolves to a value.
+		lEnd := g.builder.AllocateLabel()
+		g.generate(f.Args[0], depth+1, nmJmpOnValue, lEnd)
+
+		// Continue calculation of the right part of or, assuming left part evaluated to nil.
+		// If this is a chain of "OR"s, we can chain through the ORs (i.e. the inner Or's Arg[0]
+		// is evaluated as nmJmpOnValue, this allows short-circuiting all the way to the end.
+		if f.Args[1].Fn != nil && f.Args[1].Fn.Name == "OR" {
+			g.generate(f.Args[1], depth+1, nmJmpOnValue, lEnd)
+		} else {
+			g.generate(f.Args[1], depth+1, nmNone, "")
+		}
+		g.builder.SetLabelPos(lEnd)
+
+	case nmJmpOnValue:
+		g.generate(f.Args[0], depth+1, nmJmpOnValue, valueJmpLabel)
+		g.generate(f.Args[1], depth+1, nmJmpOnValue, valueJmpLabel)
 	}
 }
 
@@ -300,6 +389,7 @@ func (g *generator) generateConstant(c *expr.Constant) {
 }
 
 func (g *generator) internalError(format string, args ...interface{}) {
+	glog.Warningf("internal compiler error -- "+format, args)
 	if g.err == nil {
 		g.err = fmt.Errorf("internal compiler error -- %s", fmt.Sprintf(format, args...))
 	}

@@ -376,7 +376,6 @@ fn eval() string
 end
 `,
 	},
-
 	{
 		expr: `ai == 20 || ar["b"] == "c"`,
 		input: map[string]interface{}{
@@ -425,15 +424,11 @@ end`,
 		code: `
 fn eval() string
   tresolve_s "as"
-  jz L0
-  apush_b true
-  jmp L1
-L0:
+  jnz L0
   tresolve_s "bs"
-L1:
-  jnz L2
+  jnz L0
   apush_s "user1"
-L2:
+L0:
   ret
 end`,
 	},
@@ -487,17 +482,13 @@ end`,
 		},
 		result: false,
 		code: `
- fn eval() bool
+fn eval() bool
   tresolve_b "ab"
-  jz L0
-  apush_b true
-  jmp L1
-L0:
+  jnz L0
   tresolve_b "bb"
-L1:
-  jnz L2
+  jnz L0
   apush_b true
-L2:
+L0:
   ret
 end`,
 	},
@@ -543,15 +534,11 @@ end`,
 		code: `
 fn eval() integer
   tresolve_i "ai"
-  jz L0
-  apush_b true
-  jmp L1
-L0:
+  jnz L0
   tresolve_i "bi"
-L1:
-  jnz L2
+  jnz L0
   apush_i 42
-L2:
+L0:
   ret
 end`,
 	},
@@ -597,15 +584,11 @@ end`,
 		code: `
 fn eval() double
   tresolve_d "ad"
-  jz L0
-  apush_b true
-  jmp L1
-L0:
+  jnz L0
   tresolve_d "bd"
-L1:
-  jnz L2
+  jnz L0
   apush_d 42.100000
-L2:
+L0:
   ret
 end`,
 	},
@@ -775,6 +758,141 @@ fn eval() string
   lookup
   ret
 end`,
+	},
+	{
+		expr:   `ar["c"] | "foo"`,
+		input:  map[string]interface{}{},
+		result: "foo",
+		code: `
+fn eval() string
+  tresolve_m "ar"
+  jnz L0
+  jmp L1
+L0:
+  apush_s "c"
+  tlookup
+  jnz L2
+L1:
+  apush_s "foo"
+L2:
+  ret
+end`,
+	},
+	{
+		expr: `ar["c"] | "foo"`,
+		input: map[string]interface{}{
+			"ar": map[string]string{"c": "b"},
+		},
+		result: "b",
+	},
+	{
+		expr:   `ar[as] | "foo"`,
+		input:  map[string]interface{}{},
+		result: "foo",
+		code: `
+fn eval() string
+  tresolve_m "ar"
+  jnz L0
+  jmp L1
+L0:
+  tresolve_s "as"
+  jnz L2
+  jmp L1
+L2:
+  tlookup
+  jnz L3
+L1:
+  apush_s "foo"
+L3:
+  ret
+end`,
+	},
+	{
+		expr: `ar[as] | "foo"`,
+		input: map[string]interface{}{
+			"ar": map[string]string{"as": "bar"},
+		},
+		result: "foo",
+	},
+	{
+		expr: `ar[as] | "foo"`,
+		input: map[string]interface{}{
+			"as": "bar",
+		},
+		result: "foo",
+	},
+	{
+		expr: `ar[as] | "foo"`,
+		input: map[string]interface{}{
+			"ar": map[string]string{"as": "bar"},
+			"as": "!!!!",
+		},
+		result: "foo",
+	},
+	{
+		expr: `ar[as] | "foo"`,
+		input: map[string]interface{}{
+			"ar": map[string]string{"asval": "bar"},
+			"as": "asval",
+		},
+		result: "bar",
+	},
+	{
+		expr: `ar["b"] | ar["c"] | "null"`,
+		input: map[string]interface{}{
+			"ar": map[string]string{
+				"b": "c",
+				"c": "b",
+			},
+		},
+		result: "c",
+		code: `
+fn eval() string
+  tresolve_m "ar"
+  jnz L0
+  jmp L1
+L0:
+  apush_s "b"
+  tlookup
+  jnz L2
+L1:
+  tresolve_m "ar"
+  jnz L3
+  jmp L4
+L3:
+  apush_s "c"
+  tlookup
+  jnz L2
+L4:
+  apush_s "null"
+L2:
+  ret
+end`,
+	},
+	{
+		expr: `ar["b"] | ar["c"] | "null"`,
+		input: map[string]interface{}{
+			"ar": map[string]string{},
+		},
+		result: "null",
+	},
+	{
+		expr: `ar["b"] | ar["c"] | "null"`,
+		input: map[string]interface{}{
+			"ar": map[string]string{
+				"b": "c",
+			},
+		},
+		result: "c",
+	},
+	{
+		expr: `ar["b"] | ar["c"] | "null"`,
+		input: map[string]interface{}{
+			"ar": map[string]string{
+				"c": "b",
+			},
+		},
+		result: "b",
 	},
 }
 
