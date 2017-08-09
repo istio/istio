@@ -173,3 +173,16 @@
 - x-b3-traceid
 - x-b3-sampled
 - x-b3-spanid
+- tcp
+
+# connection attributes
+- connection.id
+- connection.received.bytes
+- connection.received.bytes_total
+- connection.sent.bytes
+- connection.sent.bytes_total
+- connection.duration
+
+# context attributes
+- context.protocol
+- context.timestamp
