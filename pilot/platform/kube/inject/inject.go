@@ -92,6 +92,7 @@ type Params struct {
 	EnableCoreDump    bool
 	Mesh              *proxyconfig.ProxyMeshConfig
 	MeshConfigMapName string
+	ImagePullPolicy   string
 	// Comma separated list of IP ranges in CIDR form. If set, only
 	// redirect outbound traffic to Envoy for these IP
 	// ranges. Otherwise all outbound traffic is redirected to Envoy.
@@ -143,13 +144,25 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 		initArgs = append(initArgs, "-i", p.IncludeIPRanges)
 	}
 
+	var pullPolicy v1.PullPolicy
+	switch p.ImagePullPolicy {
+	case "Always":
+		pullPolicy = v1.PullAlways
+	case "IfNotPresent":
+		pullPolicy = v1.PullIfNotPresent
+	case "Never":
+		pullPolicy = v1.PullNever
+	default:
+		pullPolicy = v1.PullIfNotPresent
+	}
+
 	privTrue := true
 
 	initContainer := v1.Container{
 		Name:            InitContainerName,
 		Image:           p.InitImage,
 		Args:            initArgs,
-		ImagePullPolicy: "Always",
+		ImagePullPolicy: pullPolicy,
 		SecurityContext: &v1.SecurityContext{
 			Capabilities: &v1.Capabilities{
 				Add: []v1.Capability{"CAP_NET_ADMIN"},
@@ -167,7 +180,7 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 			"-c",
 			"sysctl -w kernel.core_pattern=/tmp/core.%e.%p.%t && ulimit -c unlimited",
 		},
-		ImagePullPolicy: "Always",
+		ImagePullPolicy: pullPolicy,
 		SecurityContext: &v1.SecurityContext{
 			// TODO: Determine SELINUX options needed to remove privileged
 			Privileged: &privTrue,
@@ -277,7 +290,7 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 				},
 			},
 		}},
-		ImagePullPolicy: v1.PullIfNotPresent,
+		ImagePullPolicy: pullPolicy,
 		SecurityContext: &v1.SecurityContext{
 			RunAsUser:              &p.SidecarProxyUID,
 			ReadOnlyRootFilesystem: &readOnly,

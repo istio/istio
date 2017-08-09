@@ -61,7 +61,7 @@ spec:
         - -u
         - "1337"
         image: docker.io/istio/proxy_init:unittest
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: istio-init
         resources: {}
         securityContext:
@@ -75,7 +75,7 @@ spec:
         command:
         - /bin/sh
         image: alpine
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: enable-core-dump
         resources: {}
         securityContext:

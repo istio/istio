@@ -1,11 +1,11 @@
-apiVersion: apps/v1beta1
-kind: StatefulSet
+apiVersion: extensions/v1beta1
+kind: Deployment
 metadata:
   creationTimestamp: null
   name: hello
 spec:
-  replicas: 3
-  serviceName: hello
+  replicas: 7
+  strategy: {}
   template:
     metadata:
       annotations:
@@ -24,9 +24,6 @@ spec:
         - containerPort: 80
           name: http
         resources: {}
-        volumeMounts:
-        - mountPath: /var/lib/data
-          name: data
       - args:
         - proxy
         - -v
@@ -45,7 +42,7 @@ spec:
             fieldRef:
               fieldPath: status.podIP
         image: docker.io/istio/proxy_debug:unittest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-proxy
         resources: {}
         securityContext:
@@ -64,7 +61,7 @@ spec:
         - -u
         - "1337"
         image: docker.io/istio/proxy_init:unittest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-init
         resources: {}
         securityContext:
@@ -73,9 +70,6 @@ spec:
             - CAP_NET_ADMIN
           privileged: true
       volumes:
-      - hostPath:
-          path: /mnt/disks/ssd0
-        name: data
       - configMap:
           name: istio
         name: istio-config
@@ -83,7 +77,5 @@ spec:
           medium: Memory
           sizeLimit: "0"
         name: istio-envoy
-  updateStrategy: {}
-status:
-  replicas: 0
+status: {}
 ---

@@ -62,7 +62,7 @@ spec:
         - -u
         - "1337"
         image: docker.io/istio/proxy_init:unittest
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: istio-init
         resources: {}
         securityContext:
@@ -144,7 +144,7 @@ spec:
         - -u
         - "1337"
         image: docker.io/istio/proxy_init:unittest
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: istio-init
         resources: {}
         securityContext:

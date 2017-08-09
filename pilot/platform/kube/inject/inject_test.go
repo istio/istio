@@ -44,12 +44,13 @@ const unitTestHub = "docker.io/istio"
 
 func TestIntoResourceFile(t *testing.T) {
 	cases := []struct {
-		authConfigPath string
-		configMapName  string
-		enableAuth     bool
-		in             string
-		want           string
-		enableCoreDump bool
+		authConfigPath  string
+		configMapName   string
+		enableAuth      bool
+		in              string
+		want            string
+		imagePullPolicy string
+		enableCoreDump  bool
 	}{
 		{
 			in:   "testdata/hello.yaml",
@@ -77,8 +78,14 @@ func TestIntoResourceFile(t *testing.T) {
 			want: "testdata/hello-multi.yaml.injected",
 		},
 		{
-			in:   "testdata/hello.yaml.injected",
-			want: "testdata/hello.yaml.injected",
+			imagePullPolicy: "Always",
+			in:              "testdata/hello.yaml",
+			want:            "testdata/hello-always.yaml.injected",
+		},
+		{
+			imagePullPolicy: "Never",
+			in:              "testdata/hello.yaml",
+			want:            "testdata/hello-never.yaml.injected",
 		},
 		{
 			in:   "testdata/hello-ignore.yaml",
@@ -127,6 +134,7 @@ func TestIntoResourceFile(t *testing.T) {
 		params := Params{
 			InitImage:         InitImageName(unitTestHub, unitTestTag),
 			ProxyImage:        ProxyImageName(unitTestHub, unitTestTag),
+			ImagePullPolicy:   "IfNotPresent",
 			Verbosity:         DefaultVerbosity,
 			SidecarProxyUID:   DefaultSidecarProxyUID,
 			Version:           "12345678",
@@ -136,6 +144,10 @@ func TestIntoResourceFile(t *testing.T) {
 		}
 		if c.configMapName != "" {
 			params.MeshConfigMapName = c.configMapName
+		}
+
+		if c.imagePullPolicy != "" {
+			params.ImagePullPolicy = c.imagePullPolicy
 		}
 
 		in, err := os.Open(c.in)

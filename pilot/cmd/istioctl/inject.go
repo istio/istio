@@ -35,6 +35,7 @@ var (
 	versionStr      string // override build version
 	enableCoreDump  bool
 	meshConfig      string
+	imagePullPolicy string
 	includeIPRanges string
 
 	inFilename  string
@@ -126,6 +127,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				EnableCoreDump:    enableCoreDump,
 				Mesh:              mesh,
 				MeshConfigMapName: meshConfig,
+				ImagePullPolicy:   imagePullPolicy,
 				IncludeIPRanges:   includeIPRanges,
 			}
 			return inject.IntoResourceFile(params, reader, writer)
@@ -159,6 +161,9 @@ func init() {
 	injectCmd.PersistentFlags().BoolVar(&enableCoreDump, "coreDump",
 		true, "Enable/Disable core dumps in injected Envoy sidecar (--coreDump=true affects "+
 			"all pods in a node and should only be used the cluster admin)")
+	injectCmd.PersistentFlags().StringVar(&imagePullPolicy, "imagePullPolicy", "IfNotPresent",
+		"Sets the container image pull policy. Valid options are Always,IfNotPresent,Never."+
+			"The default policy is IfNotPresent.")
 	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "includeIPRanges", "",
 		"Comma separated list of IP ranges in CIDR form. If set, only redirect outbound "+
 			"traffic to Envoy for IP ranges. Otherwise all outbound traffic is redirected")
