@@ -6,10 +6,13 @@ The name fortio comes from greek φορτίο which is load/burden.
 
 ## Command line arguments
 
+Fortio can be and http or grpc load generator, gathering statistics using the `load` command, or start simple http and grpc ping servers with the `server` command or issue grpc ping messages using the `grpcping` command.
+
 ```
 $ fortio
-Φορτίο 0.2.0 usage:
-	fortio [flags] target
+Φορτίο 0.2.2 usage:
+	fortio command [flags] target
+where command is one of: load (load testing), server (starts grpc ping and http echo servers), grcping (grpc client)
 where target is a url (http load tests) or host:port (grpc health test)
 and flags are:
   -H value
@@ -21,7 +24,15 @@ and flags are:
   -gomaxprocs int
     	Setting for runtime.GOMAXPROCS, <1 doesn't change the default
   -grpc
-    	Use GRPC health check
+    	Use GRPC (health check) for load testing
+  -grpc-port int
+    	grpc port (default 8079)
+  -health
+    	client mode: use health instead of ping
+  -healthservice string
+    	which service string to pass to health check
+  -http-port int
+    	http echo server port (default 8080)
   -http1.0
     	Use http1.0 (instead of http 1.1)
   -httpbufferkb int
@@ -36,8 +47,12 @@ and flags are:
     	loglevel, one of [Debug Verbose Info Warning Error Critical Fatal] (default Info)
   -logprefix string
     	Prefix to log lines before logged messages (default "> ")
+  -n int
+    	how many ping(s) the client will send (default 1)
   -p string
     	List of pXX to calculate (default "50,75,99,99.9")
+  -payload string
+    	Payload string to send along
   -profile string
     	write .cpu and .mem profiles to file
   -qps float
@@ -50,10 +65,31 @@ and flags are:
     	How long to run the test (default 5s)
 ```
 
-## Example output
+## Example use and output
 
+Start the internal servers:
 ```
-$ fortio http://www.google.com
+$ fortio server &
+Fortio 0.2.2 echo server listening on port 8080
+Fortio 0.2.2 grpc ping server listening on port 8079
+```
+Simple grpc ping:
+```
+$ fortio grpcping localhost
+02:29:27 I pingsrv.go:116> Ping RTT 305334 (avg of 342970, 293515, 279517 ns) clock skew -2137
+Clock skew histogram usec : count 1 avg -2.137 +/- 0 min -2.137 max -2.137 sum -2.137
+# range, mid point, percentile, count
+>= -4 < -2 , -3 , 100.00, 1
+# target 50% -2.137
+RTT histogram usec : count 3 avg 305.334 +/- 27.22 min 279.517 max 342.97 sum 916.002
+# range, mid point, percentile, count
+>= 250 < 300 , 275 , 66.67, 2
+>= 300 < 350 , 325 , 100.00, 1
+# target 50% 294.879
+```
+Load (low default qps/threading) test:
+```
+$ fortio load http://www.google.com
 Fortio running at 8 queries per second, 8->8 procs, for 5s: http://www.google.com
 20:27:53 I httprunner.go:75> Starting http test for http://www.google.com with 4 threads at 8.0 qps
 Starting at 8 qps with 4 thread(s) [gomax 8] for 5s : 10 calls each (total 40)
@@ -89,15 +125,15 @@ All done 40 calls (plus 4 warmup) 102.599 ms avg, 7.8 qps
 
 ## Implementation details
 
-Fortio is written in the [Go](https://golang.org) language and includes a scalable semi log histogram in [stats.go](stats.go) and a periodic runner engine in [periodic.go](periodic.go) with specializations for [http](httprunner.go) and [grpc](grpcrunner.go).
+Fortio is written in the [Go](https://golang.org) language and includes a scalable semi log histogram in [stats.go](stats.go) and a periodic runner engine in [periodic.go](periodic.go) with specializations for [http](httprunner.go) and [grpc](fortiogrpc/grpcrunner.go).
 
-You can run the histogram code standalone as a command line in [cmd/histogram/](cmd/histogram/), a basic echo http server in [cmd/echosrv/](cmd/echosrv/), a basic GRPC ping server in [cmd/grpcping/](cmd/grpcping/) and the main [cmd/fortio/](cmd/fortio/)
+You can run the histogram code standalone as a command line in [cmd/histogram/](cmd/histogram/), a basic echo http server in [cmd/echosrv/](cmd/echosrv/), or both the http echo and GRPC ping server through `fortio server`, the fortio command line interface lives in [cmd/fortio/](cmd/fortio/)
 
 ## Another example output
 
 With 5k qps: (includes envoy and mixer in the calls)
 ```
-$ time fortio -qps 5000 -t 60s -c 8 -r 0.0001 -H "Host: perf-cluster" http://benchmark-2:9090/echo
+$ time fortio load -qps 5000 -t 60s -c 8 -r 0.0001 -H "Host: perf-cluster" http://benchmark-2:9090/echo
 2017/07/09 02:31:05 Will be setting special Host header to perf-cluster
 Fortio running at 5000 queries per second for 1m0s: http://benchmark-2:9090/echo
 Starting at 5000 qps with 8 thread(s) [gomax 4] for 1m0s : 37500 calls each (total 300000)
