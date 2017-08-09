@@ -15,8 +15,7 @@
 SHELL := /bin/bash
 
 .PHONY: setup
-setup:
-	@ln -s ~/.kube/config platform/kube/
+setup: platform/kube/config
 	@bin/init.sh
 
 .PHONY: build
@@ -34,3 +33,7 @@ test: build
 .PHONY: lint
 lint: build
 	@bin/check.sh
+
+platform/kube/config:
+	@ln -s ~/.kube/config platform/kube/
+
