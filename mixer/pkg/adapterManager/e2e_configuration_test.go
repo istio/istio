@@ -91,6 +91,14 @@ manifests:
         value_type: STRING
       response.count:
         value_type: INT64
+      attr.bool:
+        value_type: BOOL
+      attr.string:
+        value_type: STRING
+      attr.double:
+        value_type: DOUBLE
+      attr.int64:
+        value_type: INT64
 `
 	// TODO : If a value is a literal, does it have to be in quotes ?
 	// Seems like if I do not put in quotes, decoding this yaml fails.
@@ -108,6 +116,10 @@ instances:
   template: "istio.mixer.adapter.sample.report.Sample"
   params:
     value: "2"
+    int64Primitive: attr.int64 | 2
+    boolPrimitive: attr.bool | true
+    doublePrimitive: attr.double | 12.4
+    stringPrimitive: "\"\""
     dimensions:
       source: source.name
       target_ip: target.name

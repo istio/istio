@@ -255,7 +255,6 @@ type inferTypeTest struct {
 	name               string
 	ctrCnfg            string
 	cstrParam          interface{}
-	typeEvalRet        pb.ValueType
 	typeEvalError      error
 	wantValueType      pb.ValueType
 	wantDimensionsType map[string]pb.ValueType
@@ -263,22 +262,82 @@ type inferTypeTest struct {
 	willPanic          bool
 }
 
+func getExprEvalFunc(err error) func(string) (pb.ValueType, error) {
+	return func(expr string) (pb.ValueType, error) {
+		retType := pb.VALUE_TYPE_UNSPECIFIED
+		if strings.HasSuffix(expr, "string") {
+			retType = pb.STRING
+		}
+		if strings.HasSuffix(expr, "double") {
+			retType = pb.DOUBLE
+		}
+		if strings.HasSuffix(expr, "bool") {
+			retType = pb.BOOL
+		}
+		if strings.HasSuffix(expr, "int64") {
+			retType = pb.INT64
+		}
+		return retType, err
+	}
+}
+
 func TestInferTypeForSampleReport(t *testing.T) {
 	for _, tst := range []inferTypeTest{
 		{
 			name: "SimpleValid",
 			ctrCnfg: `
-value: response.size
+value: source.int64
+int64Primitive: source.int64
+boolPrimitive: source.bool
+doublePrimitive: source.double
+stringPrimitive: source.string
 dimensions:
-  source: source.ip
-  target: source.ip
+  source: source.string
+  target: source.string
 `,
 			cstrParam:          &sample_report.InstanceParam{},
-			typeEvalRet:        pb.INT64,
 			typeEvalError:      nil,
 			wantValueType:      pb.INT64,
-			wantDimensionsType: map[string]pb.ValueType{"source": pb.INT64, "target": pb.INT64},
+			wantDimensionsType: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
 			wantErr:            "",
+			willPanic:          false,
+		},
+		{
+			name: "MissingAFieldFromInstanceParam",
+			ctrCnfg: `
+value: source.int64
+# int64Primitive: source.int64 # missing int64Primitive
+boolPrimitive: source.bool
+doublePrimitive: source.double
+stringPrimitive: source.string
+dimensions:
+  source: source.string
+  target: source.string
+`,
+			cstrParam:          &sample_report.InstanceParam{},
+			typeEvalError:      nil,
+			wantValueType:      pb.INT64,
+			wantDimensionsType: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
+			wantErr:            "expression for field Int64Primitive cannot be empty",
+			willPanic:          false,
+		},
+		{
+			name: "InferredTypeNotMatchStaticTypeFromTemplate",
+			ctrCnfg: `
+value: source.int64
+int64Primitive: source.int64 # missing int64Primitive
+boolPrimitive: source.bool
+doublePrimitive: source.double
+stringPrimitive: source.double # Double does not match string
+dimensions:
+  source: source.string
+  target: source.string
+`,
+			cstrParam:          &sample_report.InstanceParam{},
+			typeEvalError:      nil,
+			wantValueType:      pb.INT64,
+			wantDimensionsType: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
+			wantErr:            "error type checking for field StringPrimitive: Evaluated expression type DOUBLE want STRING",
 			willPanic:          false,
 		},
 		{
@@ -291,9 +350,9 @@ dimensions:
 		{
 			name: "ErrorFromTypeEvaluator",
 			ctrCnfg: `
-value: response.size
+value: response.int64
 dimensions:
-  source: source.ip
+  source: source.string
 `,
 			cstrParam:     &sample_report.InstanceParam{},
 			typeEvalError: fmt.Errorf("some expression x.y.z is invalid"),
@@ -303,7 +362,7 @@ dimensions:
 		t.Run(tst.name, func(t *testing.T) {
 			cp := tst.cstrParam
 			_ = fillProto(tst.ctrCnfg, cp)
-			typeEvalFn := func(expr string) (pb.ValueType, error) { return tst.typeEvalRet, tst.typeEvalError }
+			typeEvalFn := getExprEvalFunc(tst.typeEvalError)
 			defer func() {
 				r := recover()
 				if tst.willPanic && r == nil {
@@ -345,10 +404,9 @@ func TestInferTypeForSampleCheck(t *testing.T) {
 		{
 			name: "SimpleValid",
 			ctrCnfg: `
-check_expression: response.size
+check_expression: source.string
 `,
 			cstrParam:     &sample_check.InstanceParam{},
-			typeEvalRet:   pb.STRING,
 			typeEvalError: nil,
 			wantValueType: pb.STRING,
 			wantErr:       "",
@@ -364,7 +422,7 @@ check_expression: response.size
 		t.Run(tst.name, func(t *testing.T) {
 			cp := tst.cstrParam
 			_ = fillProto(tst.ctrCnfg, cp)
-			typeEvalFn := func(expr string) (pb.ValueType, error) { return tst.typeEvalRet, tst.typeEvalError }
+			typeEvalFn := getExprEvalFunc(tst.typeEvalError)
 			defer func() {
 				r := recover()
 				if tst.willPanic && r == nil {
@@ -373,16 +431,13 @@ check_expression: response.size
 					t.Errorf("got panic %v, expected success.", r)
 				}
 			}()
-			cv, cerr := SupportedTmplInfo[sample_check.TemplateName].InferType(cp.(proto.Message), typeEvalFn)
+			_, cerr := SupportedTmplInfo[sample_check.TemplateName].InferType(cp.(proto.Message), typeEvalFn)
 			if tst.willPanic {
 				t.Error("Should not reach this statement due to panic.")
 			}
 			if tst.wantErr == "" {
 				if cerr != nil {
 					t.Errorf("got err %v\nwant <nil>", cerr)
-				}
-				if tst.wantValueType != cv.(*sample_check.Type).CheckExpression {
-					t.Errorf("got inferTypeForSampleCheck(\n%s\n).value=%v\nwant %v", tst.ctrCnfg, cv.(*sample_check.Type).CheckExpression, tst.wantValueType)
 				}
 			} else {
 				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
@@ -399,12 +454,11 @@ func TestInferTypeForSampleQuota(t *testing.T) {
 			name: "SimpleValid",
 			ctrCnfg: `
 dimensions:
-  source: source.ip
-  target: source.ip
-  env: target.ip
+  source: source.string
+  target: source.string
+  env: target.string
 `,
 			cstrParam:          &sample_quota.InstanceParam{},
-			typeEvalRet:        pb.STRING,
 			typeEvalError:      nil,
 			wantValueType:      pb.STRING,
 			wantDimensionsType: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING, "env": pb.STRING},
@@ -432,7 +486,7 @@ dimensions:
 		t.Run(tst.name, func(t *testing.T) {
 			cp := tst.cstrParam
 			_ = fillProto(tst.ctrCnfg, cp)
-			typeEvalFn := func(expr string) (pb.ValueType, error) { return tst.typeEvalRet, tst.typeEvalError }
+			typeEvalFn := getExprEvalFunc(tst.typeEvalError)
 			defer func() {
 				r := recover()
 				if tst.willPanic && r == nil {
@@ -532,13 +586,30 @@ func TestProcessReport(t *testing.T) {
 		{
 			name: "Simple",
 			insts: map[string]proto.Message{
-				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "2"}},
-				"bar": &sample_report.InstanceParam{Value: "2", Dimensions: map[string]string{"k": "3"}},
+				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "2"}, BoolPrimitive: "true",
+					DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`},
+				"bar": &sample_report.InstanceParam{Value: "2", Dimensions: map[string]string{"k": "3"}, BoolPrimitive: "true",
+					DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`},
 			},
 			hdlr: &fakeReportHandler{},
 			wantInstance: []*sample_report.Instance{
-				{Name: "foo", Value: int64(1), Dimensions: map[string]interface{}{"s": int64(2)}},
-				{Name: "bar", Value: int64(2), Dimensions: map[string]interface{}{"k": int64(3)}},
+				{
+					Name:       "foo",
+					Value:      int64(1),
+					Dimensions: map[string]interface{}{"s": int64(2)}, BoolPrimitive: true,
+					DoublePrimitive: 1.2,
+					Int64Primitive:  54362,
+					StringPrimitive: "myString",
+				},
+				{
+					Name:            "bar",
+					Value:           int64(2),
+					Dimensions:      map[string]interface{}{"k": int64(3)},
+					BoolPrimitive:   true,
+					DoublePrimitive: 1.2,
+					Int64Primitive:  54362,
+					StringPrimitive: "myString",
+				},
 			},
 		},
 		{

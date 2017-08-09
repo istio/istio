@@ -11,4 +11,12 @@ option (istio.mixer.v1.config.template.template_name) = "Sample";
 message Template {
     istio.mixer.v1.config.descriptor.ValueType value = 1;
     map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
+
+    int64 int64Primitive = 3;
+
+    bool boolPrimitive = 4;
+
+    double doublePrimitive = 5;
+
+    string stringPrimitive = 6;
 }

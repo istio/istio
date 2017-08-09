@@ -161,7 +161,7 @@ func (h *handlerFactory) inferTypes(instances map[string]*pb.Instance) (map[stri
 			return h.typeChecker.EvalType(expr, h.attrDescFinder)
 		})
 		if err != nil {
-			return nil, fmt.Errorf("cannot infer type information from params %v in instance %v", cnstr.Params, cnstr)
+			return nil, fmt.Errorf("cannot infer type information from params in instance %v: %v", cnstr, err)
 		}
 		result[cnstr.GetName()] = inferredType
 	}

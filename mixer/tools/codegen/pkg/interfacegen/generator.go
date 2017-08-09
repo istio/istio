@@ -38,8 +38,17 @@ type Generator struct {
 	ImptMap            map[string]string
 }
 
-const fullProtoNameOfValueTypeEnum = "istio.mixer.v1.config.descriptor.ValueType"
-const fullGoNameOfValueTypeEnum = "istio_mixer_v1_config_descriptor.ValueType"
+const (
+	fullProtoNameOfValueTypeEnum = "istio.mixer.v1.config.descriptor.ValueType"
+	fullGoNameOfValueTypeEnum    = "istio_mixer_v1_config_descriptor.ValueType"
+)
+
+var primitiveProtoTypesHavingValueType = map[string]bool{
+	"string": true,
+	"bool":   true,
+	"int64":  true,
+	"double": true,
+}
 
 // Generate creates a Go interfaces for adapters to implement for a given Template.
 func (g *Generator) Generate(fdsFile string) error {
@@ -89,19 +98,19 @@ func (g *Generator) Generate(fdsFile string) error {
 
 	augmentedTemplateTmpl, err := template.New("AugmentedTemplateTmpl").Funcs(
 		template.FuncMap{
-			"replacePrimitiveToValueType": func(typeName string) string {
-				// transform the primitives into ValueType
-				// We only support primitives that can be represented as ValueTypes, ValueType itself, or map<string, ValueType>.
-				// So, if the fields is not a map, it's type should be converted into ValueType inside the generated Type Message.
-				if !strings.Contains(typeName, "map<") {
-					typeName = fullProtoNameOfValueTypeEnum
+			"hasValueType": func(typeName string) bool {
+				return strings.Contains(typeName, fullProtoNameOfValueTypeEnum)
+			},
+			"stringify": func(protoTypeName string) string {
+				if strings.Contains(protoTypeName, fullProtoNameOfValueTypeEnum) {
+					// replace map<string, ValueType> -> map<string, string>
+					return strings.Replace(protoTypeName, fullProtoNameOfValueTypeEnum, "string", 1)
 				}
-				return typeName
+				if _, ok := primitiveProtoTypesHavingValueType[protoTypeName]; ok {
+					return "string"
+				}
+				return protoTypeName
 			},
-			"replaceValueTypeToString": func(typeName string) string {
-				return strings.Replace(typeName, fullProtoNameOfValueTypeEnum, "string", 1)
-			},
-			// strings.Replace(typename, fullProtoNameOfValueTypeEnum, "string", 1)
 		}).Parse(tmpl.RevisedTemplateTmpl)
 	if err != nil {
 		return fmt.Errorf("cannot load template: %v", err)
