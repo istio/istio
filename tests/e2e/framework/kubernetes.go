@@ -37,13 +37,13 @@ const (
 )
 
 var (
-	namespace = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub  = flag.String("mixer_hub", "", "Mixer hub, if different from istio.Version")
-	mixerTag  = flag.String("mixer_tag", "", "Mixer tag, if different from istio.Version")
-	pilotHub  = flag.String("pilot_hub", "", "pilot hub, if different from istio.Version")
-	pilotTag  = flag.String("pilot_tag", "", "pilot tag, if different from istio.Version")
-	//caHub        = flag.String("ca_hub", "", "Ca hub")
-	//caTag        = flag.String("ca_tag", "", "Ca tag")
+	namespace    = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub     = flag.String("mixer_hub", "", "Mixer hub, if different from istio.Version")
+	mixerTag     = flag.String("mixer_tag", "", "Mixer tag, if different from istio.Version")
+	pilotHub     = flag.String("pilot_hub", "", "pilot hub, if different from istio.Version")
+	pilotTag     = flag.String("pilot_tag", "", "pilot tag, if different from istio.Version")
+	caHub        = flag.String("ca_hub", "", "Ca hub")
+	caTag        = flag.String("ca_tag", "", "Ca tag")
 	authEnable   = flag.Bool("auth_enable", false, "Enable auth")
 	rbacEnable   = flag.Bool("rbac_enable", false, "Enable rbac")
 	rbacfile     = flag.String("rbac_path", "", "Rbac yaml file")
@@ -216,13 +216,17 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 		return err
 	}
 
-	if *mixerHub != "" || *mixerTag != "" {
+	if *mixerHub != "" && *mixerTag != "" {
 		content = updateIstioYaml("mixer", *mixerHub, *mixerTag, content)
 	}
-	if *pilotHub != "" || *pilotTag != "" {
+	if *pilotHub != "" && *pilotTag != "" {
 		content = updateIstioYaml("pilot", *pilotHub, *pilotTag, content)
 		//Need to be updated when the string "proxy_debug" is changed
 		content = updateIstioYaml("proxy_debug", *pilotHub, *pilotTag, content)
+	}
+	if *caHub != "" && *caTag != "" {
+		//Need to be updated when the string "istio-ca" is changed
+		content = updateIstioYaml("istio-ca", *caHub, *caTag, content)
 	}
 
 	err = ioutil.WriteFile(dst, content, 0600)
