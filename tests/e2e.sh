@@ -29,47 +29,84 @@ function error_exit() {
 TESTS_TARGETS=($(bazel query 'tests(//tests/e2e/tests/...)'))
 FAILURE_COUNT=0
 SUMMARY='Tests Summary'
+PARALLEL_MODE=false
 
-cd ${ROOT}
-declare -A pid2testname
-declare -A pid2logfile
-
-for T in ${TESTS_TARGETS[@]}; do
-    # Compile test target
-    bazel build ${T}
-    # Construct path to binary using bazel target name
-    BAZEL_RULE_PREFIX="//"
-    BAZEL_BIN="bazel-bin/"
-    bin_path=${T/$BAZEL_RULE_PREFIX/$BAZEL_BIN}
-    bin_path=${bin_path/://}
-    log_file="${bin_path///_}.log"
-    # Run tests concurrently as subprocesses
-    # Dup stdout and stderr to file
-    "./$bin_path" ${ARGS[@]} ${@} &> ${log_file} &
-    pid=$!
-    pid2testname["$pid"]=$bin_path
-    pid2logfile["$pid"]=$log_file
-done
-
-echo "Running tests in parallel. Logs reported in serial order after all tests finish."
-
-# Barrier until all forked processes finish
-# also collects test results
-for job in `jobs -p`; do
-    wait $job
-    if [ $? -eq 0 ]; then
-        SUMMARY+="\nPASSED: ${pid2testname[$job]}"
+function process_result() {
+    if [[ $1 -eq 0 ]]; then
+        SUMMARY+="\nPASSED: $2 "
     else
-        let "FAILURE_COUNT+=1"
-        SUMMARY+="\nFAILED: ${pid2testname[$job]}"
+        SUMMARY+="\nFAILED: $2 "
+        ((FAILURE_COUNT++))
     fi
-    echo '****************************************************'
-    echo "Log from ${pid2testname[$job]}"
-    echo '****************************************************'
-    cat ${pid2logfile[$job]}
-    echo
-    rm -rf ${pid2logfile[$job]}
+}
+
+function concurrent_exec() {
+    cd ${ROOT}
+    declare -A pid2testname
+    declare -A pid2logfile
+
+    for T in ${TESTS_TARGETS[@]}; do
+        # Compile test target
+        bazel build ${T}
+        # Construct path to binary using bazel target name
+        BAZEL_RULE_PREFIX="//"
+        BAZEL_BIN="bazel-bin/"
+        bin_path=${T/$BAZEL_RULE_PREFIX/$BAZEL_BIN}
+        bin_path=${bin_path/://}
+        log_file="${bin_path///_}.log"
+        # Run tests concurrently as subprocesses
+        # Dup stdout and stderr to file
+        "./$bin_path" ${ARGS[@]} &> ${log_file} &
+        pid=$!
+        pid2testname["$pid"]=$bin_path
+        pid2logfile["$pid"]=$log_file
+    done
+
+    echo "Running tests in parallel. Logs reported in serial order after all tests finish."
+
+    # Barrier until all forked processes finish
+    # also collects test results
+    for job in `jobs -p`; do
+        wait $job
+        process_result $? ${pid2testname[$job]}
+        echo '****************************************************'
+        echo "Log from ${pid2testname[$job]}"
+        echo '****************************************************'
+        cat ${pid2logfile[$job]}
+        echo
+        rm -rf ${pid2logfile[$job]}
+    done
+}
+
+function sequential_exec() {
+    for T in ${TESTS_TARGETS[@]}; do
+        echo '****************************************************'
+        echo "Running ${T}"
+        echo '****************************************************'
+        bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]}
+        process_result $? ${T}
+        echo '****************************************************'
+    done
+}
+
+# getopts only handles single character flags
+for ((i=1; i<=$#; i++)); do
+    case ${!i} in
+        -p|--parallel) PARALLEL_MODE=true
+        continue
+        ;;
+    esac
+    # Filter -p out as it is not defined in the test framework
+    ARGS+=( ${!i} )
 done
+
+if $PARALLEL_MODE ; then
+    echo "Executing tests in parallel"
+    concurrent_exec
+else
+    echo "Executing tests sequentially"
+    sequential_exec
+fi
 
 printf "${SUMMARY}\n"
 exit ${FAILURE_COUNT}
