@@ -712,7 +712,52 @@ func DynamicHTTPServer() int {
 	return port
 }
 
-// DebugHandler returns debug/useful info
+/*
+// DebugHandlerTemplate returns debug/useful info on the http requet.
+// slower heavier but nicer source code version of DebugHandler
+func DebugHandlerTemplate(w http.ResponseWriter, r *http.Request) {
+	LogVf("%v %v %v %v", r.Method, r.URL, r.Proto, r.RemoteAddr)
+	hostname, _ := os.Hostname()
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		Errf("Error reading %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// Note: this looks nicer but is about 2x slower / less qps / more cpu and 25% bigger executable than doing the writes oneself:
+	const templ = `Φορτίο version {{.Version}} echo debug server on {{.Hostname}} - request from {{.R.RemoteAddr}}
+
+{{.R.Method}} {{.R.URL}} {{.R.Proto}}
+
+headers:
+
+{{ range $name, $vals := .R.Header }}{{range $val := $vals}}{{$name}}: {{ $val }}
+{{end}}{{end}}
+body:
+
+{{.Body}}
+{{if .DumpEnv}}
+environment:
+{{ range $idx, $e := .Env }}
+{{$e}}{{end}}
+{{end}}`
+	t := template.Must(template.New("debugOutput").Parse(templ))
+	err = t.Execute(w, &struct {
+		R        *http.Request
+		Hostname string
+		Version  string
+		Body     string
+		DumpEnv  bool
+		Env      []string
+	}{r, hostname, Version, DebugSummary(data, 512), r.FormValue("env") == "dump", os.Environ()})
+	if err != nil {
+		Critf("Template execution failed: %v", err)
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
+}
+*/
+
+// DebugHandler returns debug/useful info to http client.
 func DebugHandler(w http.ResponseWriter, r *http.Request) {
 	LogVf("%v %v %v %v", r.Method, r.URL, r.Proto, r.RemoteAddr)
 	var buf bytes.Buffer
@@ -729,7 +774,6 @@ func DebugHandler(w http.ResponseWriter, r *http.Request) {
 	buf.WriteString(r.URL.String())
 	buf.WriteByte(' ')
 	buf.WriteString(r.Proto)
-	buf.WriteByte(' ')
 	buf.WriteString("\n\nheaders:\n\n")
 	for name, headers := range r.Header {
 		buf.WriteString(name)
@@ -761,7 +805,6 @@ func DebugHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
 	if _, err = w.Write(buf.Bytes()); err != nil {
 		Errf("Error writing response %v to %v", err, r.RemoteAddr)
 	}
