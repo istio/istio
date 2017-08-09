@@ -17,12 +17,12 @@
 
 #include "common/common/base64.h"
 #include "common/common/utility.h"
+#include "openssl/bn.h"
 #include "openssl/evp.h"
 #include "openssl/rsa.h"
 #include "rapidjson/document.h"
 
 #include <algorithm>
-#include <iostream>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -58,7 +58,19 @@ bool IsNotBase64UrlChar(int8_t c) {
 }
 
 std::string Base64UrlDecode(std::string input) {
+  // allow at most 2 padding letters at the end of the input, only if input
+  // length is divisible by 4
+  int len = input.length();
+  if (len % 4 == 0) {
+    if (input[len - 1] == '=') {
+      input.pop_back();
+      if (input[len - 2] == '=') {
+        input.pop_back();
+      }
+    }
+  }
   // if input contains non-base64url character, return empty string
+  // Note: padding letter must not be contained
   if (std::find_if(input.begin(), input.end(), IsNotBase64UrlChar) !=
       input.end()) {
     return "";
@@ -90,17 +102,50 @@ const uint8_t *CastToUChar(const std::string &str) {
   return reinterpret_cast<const uint8_t *>(str.c_str());
 }
 
-bssl::UniquePtr<EVP_PKEY> EvpPkeyFromStr(const std::string &pkey_pem) {
-  std::string pkey_der = Base64::decode(pkey_pem);
-  bssl::UniquePtr<RSA> rsa(
-      RSA_public_key_from_bytes(CastToUChar(pkey_der), pkey_der.length()));
+bssl::UniquePtr<EVP_PKEY> EvpPkeyFromRsa(RSA *rsa) {
   if (!rsa) {
     return nullptr;
   }
   bssl::UniquePtr<EVP_PKEY> key(EVP_PKEY_new());
-  EVP_PKEY_set1_RSA(key.get(), rsa.get());
-
+  EVP_PKEY_set1_RSA(key.get(), rsa);
   return key;
+}
+
+bssl::UniquePtr<EVP_PKEY> EvpPkeyFromStr(const std::string &pkey_pem) {
+  std::string pkey_der = Base64::decode(pkey_pem);
+  return EvpPkeyFromRsa(
+      bssl::UniquePtr<RSA>(
+          RSA_public_key_from_bytes(CastToUChar(pkey_der), pkey_der.length()))
+          .get());
+}
+
+bssl::UniquePtr<BIGNUM> BigNumFromBase64UrlString(const std::string &s) {
+  std::string s_decoded = Base64UrlDecode(s);
+  if (s_decoded == "") {
+    return nullptr;
+  }
+  return bssl::UniquePtr<BIGNUM>(
+      BN_bin2bn(CastToUChar(s_decoded), s_decoded.length(), NULL));
+};
+
+bssl::UniquePtr<RSA> RsaFromJwk(const std::string &n, const std::string &e) {
+  bssl::UniquePtr<RSA> rsa(RSA_new());
+  if (!rsa) {
+    // Couldn't create RSA key.
+    return nullptr;
+  }
+  rsa->n = BigNumFromBase64UrlString(n).release();
+  rsa->e = BigNumFromBase64UrlString(e).release();
+  if (!rsa->n || !rsa->e) {
+    // RSA public key field is missing.
+    return nullptr;
+  }
+  return rsa;
+}
+
+bssl::UniquePtr<EVP_PKEY> EvpPkeyFromJwk(const std::string &n,
+                                         const std::string &e) {
+  return EvpPkeyFromRsa(RsaFromJwk(n, e).get());
 }
 
 const EVP_MD *EvpMdFromAlg(const std::string &alg) {
@@ -114,7 +159,7 @@ const EVP_MD *EvpMdFromAlg(const std::string &alg) {
   }
 }
 
-bool VerifySignature(bssl::UniquePtr<EVP_PKEY> key, const std::string &alg,
+bool VerifySignature(EVP_PKEY *key, const std::string &alg,
                      const uint8_t *signature, size_t signature_len,
                      const uint8_t *signed_data, size_t signed_data_len) {
   bssl::UniquePtr<EVP_MD_CTX> md_ctx(EVP_MD_CTX_create());
@@ -126,8 +171,7 @@ bool VerifySignature(bssl::UniquePtr<EVP_PKEY> key, const std::string &alg,
   if (!md_ctx) {
     return false;
   }
-  if (EVP_DigestVerifyInit(md_ctx.get(), nullptr, md, nullptr, key.get()) !=
-      1) {
+  if (EVP_DigestVerifyInit(md_ctx.get(), nullptr, md, nullptr, key) != 1) {
     return false;
   }
   if (EVP_DigestVerifyUpdate(md_ctx.get(), signed_data, signed_data_len) != 1) {
@@ -139,17 +183,90 @@ bool VerifySignature(bssl::UniquePtr<EVP_PKEY> key, const std::string &alg,
   return true;
 }
 
-bool VerifySignature(const std::string &pkey_pem, const std::string &alg,
+bool VerifySignature(EVP_PKEY *key, const std::string &alg,
                      const std::string &signature,
                      const std::string &signed_data) {
-  return VerifySignature(EvpPkeyFromStr(pkey_pem), alg, CastToUChar(signature),
-                         signature.length(), CastToUChar(signed_data),
-                         signed_data.length());
+  return VerifySignature(key, alg, CastToUChar(signature), signature.length(),
+                         CastToUChar(signed_data), signed_data.length());
 }
 
 }  // namespace
 
 namespace Jwt {
+namespace {
+
+// Class to decode and verify JWT. Setup() must be called before
+// VerifySignature() and Payload(). If you do not need the signature
+// verification, VerifySignature() can be skipped.
+// Usage example:
+//   Verifier v;
+//   if(!v.Setup(jwt)) return nullptr;
+//   if(!v.VerifySignature(publickey)) return nullptr;
+//   return v.Payload();
+class Verifier {
+ public:
+  rapidjson::Document header;
+  std::string alg;
+
+  // Parses header JSON. This function must be called before accessing header or
+  // alg.
+  // It returns false if parse fails.
+  bool Setup(const std::string &jwt) {
+    // jwt must have exactly 2 dots
+    if (std::count(jwt.begin(), jwt.end(), '.') != 2) {
+      return false;
+    }
+    jwt_split = StringUtil::split(jwt, '.');
+    if (jwt_split.size() != 3) {
+      return false;
+    }
+
+    // parse header json
+    if (header.Parse(Base64UrlDecode(jwt_split[0]).c_str()).HasParseError()) {
+      return false;
+    }
+
+    if (!header.HasMember("alg")) {
+      return false;
+    }
+    rapidjson::Value &alg_v = header["alg"];
+    if (!alg_v.IsString()) {
+      return false;
+    }
+    alg = alg_v.GetString();
+
+    return true;
+  }
+
+  // Setup() must be called before VerifySignature().
+  bool VerifySignature(EVP_PKEY *key) {
+    std::string signature = Base64UrlDecode(jwt_split[2]);
+    if (signature == "") {
+      // invalid signature
+      return false;
+    }
+    std::string signed_data = jwt_split[0] + '.' + jwt_split[1];
+    return Auth::VerifySignature(key, alg, signature, signed_data);
+  }
+
+  // Returns payload JSON.
+  // VerifySignature() must be called before Payload().
+  std::unique_ptr<rapidjson::Document> Payload() {
+    // decode payload
+    std::unique_ptr<rapidjson::Document> payload_json(
+        new rapidjson::Document());
+    if (payload_json->Parse(Base64UrlDecode(jwt_split[1]).c_str())
+            .HasParseError()) {
+      return nullptr;
+    }
+    return payload_json;
+  }
+
+ private:
+  std::vector<std::string> jwt_split;
+};
+
+}  // namespace
 
 std::unique_ptr<rapidjson::Document> Decode(const std::string &jwt,
                                             const std::string &pkey_pem) {
@@ -157,57 +274,74 @@ std::unique_ptr<rapidjson::Document> Decode(const std::string &jwt,
    * TODO: return failure reason (something like
    * https://github.com/grpc/grpc/blob/master/src/core/lib/security/credentials/jwt/jwt_verifier.h#L38)
    */
+  Verifier v;
+  return v.Setup(jwt) && v.VerifySignature(EvpPkeyFromStr(pkey_pem).get())
+             ? v.Payload()
+             : nullptr;
+}
 
-  /*
-   * TODO: support jwk
-   */
-
-  // jwt must have exactly 2 dots
-  if (std::count(jwt.begin(), jwt.end(), '.') != 2) {
+std::unique_ptr<rapidjson::Document> DecodeWithJwk(const std::string &jwt,
+                                                   const std::string &jwks) {
+  Verifier verifier;
+  if (!verifier.Setup(jwt)) {
     return nullptr;
   }
-  std::vector<std::string> jwt_split = StringUtil::split(jwt, '.');
-  if (jwt_split.size() != 3) {
-    return nullptr;
-  }
-  const std::string &header_base64url_encoded = jwt_split[0];
-  const std::string &payload_base64url_encoded = jwt_split[1];
-  const std::string &signature_base64url_encoded = jwt_split[2];
-  std::string signed_data = jwt_split[0] + '.' + jwt_split[1];
-
-  // verification
-  rapidjson::Document header_json;
-  if (header_json.Parse(Base64UrlDecode(header_base64url_encoded).c_str())
-          .HasParseError()) {
-    return nullptr;
+  std::string kid_jwt = "";
+  if (verifier.header.HasMember("kid")) {
+    if (verifier.header["kid"].IsString()) {
+      kid_jwt = verifier.header["kid"].GetString();
+    } else {
+      // if header has invalid format (non-string) "kid", verification is
+      // considered to be failed
+      return nullptr;
+    }
   }
 
-  if (!header_json.HasMember("alg")) {
+  // parse JWKs
+  rapidjson::Document jwks_json;
+  if (jwks_json.Parse(jwks.c_str()).HasParseError()) {
     return nullptr;
   }
-  rapidjson::Value &alg_v = header_json["alg"];
-  if (!alg_v.IsString()) {
+  auto keys = jwks_json.FindMember("keys");
+  if (keys == jwks_json.MemberEnd()) {
+    // jwks doesn't have "keys"
     return nullptr;
   }
-  std::string alg = alg_v.GetString();
-
-  std::string signature = Base64UrlDecode(signature_base64url_encoded);
-  bool valid = VerifySignature(pkey_pem, alg, signature, signed_data);
-
-  // if signature is invalid, it will not decode the payload
-  if (!valid) {
+  if (!keys->value.IsArray()) {
     return nullptr;
   }
 
-  // decode payload
-  std::unique_ptr<rapidjson::Document> payload_json(new rapidjson::Document());
-  if (payload_json->Parse(Base64UrlDecode(payload_base64url_encoded).c_str())
-          .HasParseError()) {
-    return nullptr;
-  }
+  for (auto &jwk : keys->value.GetArray()) {
+    // If kid is specified in JWT, JWK with the same kid is used for
+    // verification.
+    // If kid is not specified in JWT, try all JWK.
+    if (kid_jwt != "") {
+      if (!jwk.HasMember("kid") || !jwk["kid"].IsString() ||
+          jwk["kid"].GetString() != kid_jwt) {
+        continue;
+      }
+    }
 
-  return payload_json;
-};
+    // the same alg must be used.
+    if (!jwk.HasMember("alg") || !jwk["alg"].IsString() ||
+        jwk["alg"].GetString() != verifier.alg) {
+      continue;
+    }
+
+    // verification
+    if (!jwk.HasMember("n") || !jwk["n"].IsString()) {
+      continue;
+    }
+    if (!jwk.HasMember("e") || !jwk["e"].IsString()) {
+      continue;
+    }
+    if (verifier.VerifySignature(
+            EvpPkeyFromJwk(jwk["n"].GetString(), jwk["e"].GetString()).get())) {
+      return verifier.Payload();
+    }
+  }
+  return nullptr;
+}
 
 }  // Jwt
 }  // Auth
