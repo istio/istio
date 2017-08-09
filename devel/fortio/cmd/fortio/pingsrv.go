@@ -33,6 +33,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"istio.io/istio/devel/fortio"
+	"istio.io/istio/devel/fortio/fortiogrpc"
 )
 
 // To get most debugging/tracing:
@@ -40,24 +41,22 @@ import (
 
 var (
 	countFlag     = flag.Int("n", 1, "how many ping(s) the client will send")
-	portFlag      = flag.Int("port", 8079, "default grpc port")
-	hostFlag      = flag.String("host", "", "client mode: server to connect to")
 	doHealthFlag  = flag.Bool("health", false, "client mode: use health instead of ping")
 	healthSvcFlag = flag.String("healthservice", "", "which service string to pass to health check")
 	payloadFlag   = flag.String("payload", "", "Payload string to send along")
 )
 
-type pingServer struct {
+type pingSrv struct {
 }
 
-func (s *pingServer) Ping(c context.Context, in *PingMessage) (*PingMessage, error) {
+func (s *pingSrv) Ping(c context.Context, in *fortiogrpc.PingMessage) (*fortiogrpc.PingMessage, error) {
 	fortio.LogVf("Ping called %+v (ctx %+v)", *in, c)
 	out := *in
 	out.Ts = time.Now().UnixNano()
 	return &out, nil
 }
 
-func startServer(port int) {
+func pingServer(port int) {
 	socket, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		fortio.Fatalf("failed to listen: %v", err)
@@ -67,20 +66,20 @@ func startServer(port int) {
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("ping", grpc_health_v1.HealthCheckResponse_SERVING)
 	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
-	RegisterPingServerServer(grpcServer, &pingServer{})
+	fortiogrpc.RegisterPingServerServer(grpcServer, &pingSrv{})
 	fmt.Printf("Fortio %s grpc ping server listening on port %v\n", fortio.Version, port)
 	if err := grpcServer.Serve(socket); err != nil {
 		fortio.Fatalf("failed to start grpc server: %v", err)
 	}
 }
 
-func clientCall(serverAddr string, n int, payload string) {
+func pingClientCall(serverAddr string, n int, payload string) {
 	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
 	if err != nil {
 		fortio.Fatalf("failed to conect to %s: %v", serverAddr, err)
 	}
-	msg := &PingMessage{Payload: payload}
-	cli := NewPingServerClient(conn)
+	msg := &fortiogrpc.PingMessage{Payload: payload}
+	cli := fortiogrpc.NewPingServerClient(conn)
 	// Warm up:
 	_, err = cli.Ping(context.Background(), msg)
 	if err != nil {
@@ -122,7 +121,7 @@ func clientCall(serverAddr string, n int, payload string) {
 	rttHistogram.Print(os.Stdout, "RTT histogram usec", 50)
 }
 
-func healthCheck(serverAddr string, svcname string, n int) {
+func grpcHealthCheck(serverAddr string, svcname string, n int) {
 	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
 	if err != nil {
 		fortio.Fatalf("failed to conect to %s: %v", serverAddr, err)
@@ -146,17 +145,16 @@ func healthCheck(serverAddr string, svcname string, n int) {
 	fmt.Printf("Statuses %v\n", statuses)
 }
 
-func main() {
-	flag.Parse()
-	if *hostFlag != "" {
-		// TODO doesn't work for ipv6 addrs etc
-		dest := fmt.Sprintf("%s:%d", *hostFlag, *portFlag)
-		if *doHealthFlag {
-			healthCheck(dest, *healthSvcFlag, *countFlag)
-		} else {
-			clientCall(dest, *countFlag, *payloadFlag)
-		}
+func grpcClient() {
+	if len(flag.Args()) != 1 {
+		usage("Error: fortio grpcping needs host argument")
+	}
+	host := flag.Arg(0)
+	// TODO doesn't work for ipv6 addrs etc
+	dest := fmt.Sprintf("%s:%d", host, *grpcPortFlag)
+	if *doHealthFlag {
+		grpcHealthCheck(dest, *healthSvcFlag, *countFlag)
 	} else {
-		startServer(*portFlag)
+		pingClientCall(dest, *countFlag, *payloadFlag)
 	}
 }
