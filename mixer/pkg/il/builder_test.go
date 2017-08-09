@@ -320,6 +320,15 @@ var builderTests = []builderTest{
 		},
 	},
 	{
+		n: "tlookup",
+		i: func(b *Builder) {
+			b.TLookup()
+		},
+		e: []uint32{
+			uint32(TLookup),
+		},
+	},
+	{
 		n: "labels",
 		i: func(b *Builder) {
 			l := b.AllocateLabel()
@@ -400,7 +409,7 @@ func Test(t *testing.T) {
 func TestSetLabelPosTwicePanics(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
-			t.Errorf("The code did not panic")
+			t.Error("The code did not panic")
 		}
 	}()
 

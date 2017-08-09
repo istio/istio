@@ -202,6 +202,11 @@ func (f *Builder) Lookup() {
 	f.op0(Lookup)
 }
 
+// TLookup appends the "tlookup" instruction to the byte code.
+func (f *Builder) TLookup() {
+	f.op0(TLookup)
+}
+
 // ALookup appends the "alookup" instruction to the byte code.
 func (f *Builder) ALookup(v string) {
 	f.op1(ALookup, f.id(v))
