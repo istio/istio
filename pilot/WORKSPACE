@@ -183,6 +183,12 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_mitchellh_go_homedir",
+    commit = "b8bc1bf767474819792c23f32d8286a45736f1c6",
+    importpath = "github.com/mitchellh/go-homedir",
+)
+
+go_repository(
     name = "com_github_pmezard_go_difflib",
     commit = "d8ed2627bdf02c080bf22230dbb337003b7aba2d",
     importpath = "github.com/pmezard/go-difflib",
