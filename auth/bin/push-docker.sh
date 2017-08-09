@@ -16,34 +16,44 @@ function usage() {
   exit 1
 }
 
+function docker_push() {
+  local im="${1}"
+  if [[ "${im}" =~ ^gcr\.io ]]; then
+    gcloud docker -- push "${im}"
+  else
+    docker push "${im}"
+  fi
+}
+
 IMAGES='istio-ca'
+HUBS=''
 
 while getopts :c:h:i:t:: arg; do
   case ${arg} in
     c) BAZEL_ARGS="--config=${OPTARG}";;
-    h) HUB="${OPTARG}";;
+    h) HUBS="${OPTARG}";;
     i) IMAGES="${OPTARG}";;
     t) TAGS="${OPTARG}";;
   esac
 done
 
-[[ -z "${HUB}" ]] && usage
+[[ -z "${HUBS}" ]] && usage
 [[ -z "${TAGS}" ]] && usage
 [[ -z "${IMAGES}" ]] && usage
 
 IFS=',' read -ra TAGS <<< "${TAGS}"
 IFS=',' read -ra IMAGES <<< "${IMAGES}"
+IFS=',' read -ra HUBS <<< "${HUBS}"
 
-if [[ "${HUB}" =~ ^gcr\.io ]]; then
-  gcloud docker --authorize-only
-fi
 
 set -ex
 
 for IMAGE in "${IMAGES[@]}"; do
   bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_ARGS} "//docker:${IMAGE}"
   for TAG in "${TAGS[@]}"; do
-    docker tag bazel/docker:"${IMAGE}" "${HUB}/${IMAGE}:${TAG}"
-    docker push "${HUB}/${IMAGE}:${TAG}"
+    for HUB in "${HUBS[@]}"; do
+      docker tag bazel/docker:"${IMAGE}" "${HUB}/${IMAGE}:${TAG}"
+      docker_push "${HUB}/${IMAGE}:${TAG}"
+    done
   done
 done
