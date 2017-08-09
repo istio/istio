@@ -17,8 +17,10 @@ package ca
 import (
 	"bytes"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/asn1"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -187,4 +189,52 @@ RRoQIlr5T8PG4vXwsn2/hohILCJJyHAee/4gIq42jLu6hQsQxcoy
 	if err.Error() != errMsg {
 		t.Errorf("Unexpected error message: expecting '%s' but the actual is '%s'", errMsg, err.Error())
 	}
+}
+
+func TestSignCSR(t *testing.T) {
+	host := "spiffe://example.com/ns/foo/sa/bar"
+	opts := CertOptions{
+		Host:       host,
+		Org:        "istio.io",
+		RSAKeySize: 512,
+	}
+	csrPEM, _, err := GenCSR(opts)
+	if err != nil {
+		t.Error(err)
+	}
+	csr, err := pki.ParsePemEncodedCSR(csrPEM)
+	if err != nil {
+		t.Error(err)
+	}
+
+	ca, err := NewSelfSignedIstioCA(24*time.Hour, time.Hour, "istio.io")
+	if err != nil {
+		t.Error(err)
+	}
+
+	certPEM, err := ca.Sign(csr)
+	if err != nil {
+		t.Error(err)
+	}
+
+	cert, err := pki.ParsePemEncodedCertificate(certPEM)
+	if err != nil {
+		t.Error(err)
+	}
+
+	expected := []pkix.Extension{buildSubjectAltNameExtension(host)}
+	actual := extractSANExtensions(cert.Extensions)
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("Unexpected extensions: wanted %v but got %v", expected, actual)
+	}
+}
+
+func extractSANExtensions(exts []pkix.Extension) []pkix.Extension {
+	sans := []pkix.Extension{}
+	for _, ext := range exts {
+		if ext.Id.Equal(oidSubjectAltName) {
+			sans = append(sans, ext)
+		}
+	}
+	return sans
 }

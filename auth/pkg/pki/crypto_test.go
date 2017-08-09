@@ -23,6 +23,18 @@ import (
 )
 
 const (
+	csr = `
+-----BEGIN CERTIFICATE REQUEST-----
+MIIBoTCCAQoCAQAwEzERMA8GA1UEChMISnVqdSBvcmcwgZ8wDQYJKoZIhvcNAQEB
+BQADgY0AMIGJAoGBANFf06eqiDx0+qD/xBAR5aMwwgaBOn6TPfSy96vOxLTsfkTg
+ir/vb8UG+F5hO6yxF+z2BgzD8LwcbKnxahoPq/aWGLw3Umcqm4wxgWKHxvtYSQDG
+w4zpmKOqgkagxbx32JXDlMpi6adUVHNvB838CiUys6IkVB0obGHnre8zmCLdAgMB
+AAGgTjBMBgkqhkiG9w0BCQ4xPzA9MDsGA1UdEQQ0MDKGMHNwaWZmZTovL3Rlc3Qu
+Y29tL25hbWVzcGFjZS9ucy9zZXJ2aWNlYWNjb3VudC9zYTANBgkqhkiG9w0BAQsF
+AAOBgQCw9dL6xRQSjdYKt7exqlTJliuNEhw/xDVGlNUbDZnT0uL3zXI//Z8tsejn
+8IFzrDtm0Z2j4BmBzNMvYBKL/4JPZ8DFywOyQqTYnGtHIkt41CNjGfqJRk8pIqVC
+hKldzzeCKNgztEvsUKVqltFZ3ZYnkj/8/Cg8zUtTkOhHOjvuig==
+-----END CERTIFICATE REQUEST-----`
 	keyECDSA = `
 -----BEGIN EC PARAMETERS-----
 MGgCAQEEHBMUyVWFKTW4TwtwCmIAxdpsBFn0MV7tGeSA32CgBwYFK4EEACGhPAM6
@@ -125,6 +137,38 @@ func TestParsePemEncodedCertificate(t *testing.T) {
 			}
 		} else if cert.PublicKeyAlgorithm != c.publicKeyAlgo {
 			t.Errorf("%s: Unexpected public key algorithm: want %d but got %d", id, c.publicKeyAlgo, cert.PublicKeyAlgorithm)
+		}
+	}
+}
+
+func TestParsePemEncodedCSR(t *testing.T) {
+	testCases := map[string]struct {
+		algo   x509.PublicKeyAlgorithm
+		errMsg string
+		pem    string
+	}{
+		"Invalid PEM string": {
+			errMsg: "Certificate signing request is not properly encoded",
+			pem:    "bad pem string",
+		},
+		"Invalid CSR string": {
+			errMsg: "Failed to parse X.509 certificate signing request",
+			pem:    certECDSA,
+		},
+		"Parse CSR": {
+			algo: x509.RSA,
+			pem:  csr,
+		},
+	}
+
+	for id, c := range testCases {
+		_, err := ParsePemEncodedCSR([]byte(c.pem))
+		if c.errMsg != "" {
+			if err == nil {
+				t.Errorf("%s: no error is returned", id)
+			} else if c.errMsg != err.Error() {
+				t.Errorf("%s: Unexpected error message: want %s but got %s", id, c.errMsg, err.Error())
+			}
 		}
 	}
 }

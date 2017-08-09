@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"crypto/x509"
 	"reflect"
 	"testing"
 	"time"
@@ -29,6 +30,10 @@ import (
 )
 
 type fakeCa struct{}
+
+func (ca fakeCa) Sign(*x509.CertificateRequest) ([]byte, error) {
+	return nil, nil
+}
 
 func (ca fakeCa) Generate(name, namespace string) (chain, key []byte) {
 	chain = []byte("fake cert chain")
