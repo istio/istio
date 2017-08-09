@@ -27,19 +27,19 @@ option (gogoproto.gostring_all) = false;
 // Service definition of IstioCAService that can dynamically verify the CSR for
 // service identities for Istio services running on various platforms and
 // approve or disapprove the request after verifying the Node Agent credentials
-// provided as a part of the Certificte Signing Request.
+// provided as a part of the Request.
 service IstioCAService {
 
-  // Request to sign a Certificate Signing Request.
-  //
-  // The CSR is generated on the Node Agent along with the private key. The Node
-  // Agent also needs to provide its credentials so the CA can verify the Node
-  // Agent requesting the credentials.
-  rpc Sign(CertificateSignRequest) returns (CertificateSignResponse);
+  // A request object includes a PEM-encoded certificate signing request that
+  // is generated on the Node Agent. Additionaly credential can be attached
+  // within the request object for a server to authenticate the originating
+  // node agent.
+  rpc Sign(Request) returns (Response);
 }
 
-message CertificateSignRequest {
-  bytes csr = 1;
+message Request {
+  // PEM-encoded certificate signing request
+  bytes csr_pem = 1;
   NodeAgentCredentials node_agent_credentials = 2;
 }
 
@@ -53,7 +53,7 @@ message GcpInstanceCredential {
   bytes signed_instance_metadata = 1;
 }
 
-message CertificateSignResponse {
+message Response {
   bool is_approved = 1;
   google.rpc.Status status = 2;
   bytes signed_cert_chain = 3;

@@ -104,7 +104,7 @@ func (na nodeAgentInternal) Start() {
 	}
 }
 
-func (na *nodeAgentInternal) getCertificateSignRequest() ([]byte, *pb.CertificateSignRequest) {
+func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request) {
 	csr, privKey, err := ca.GenCSR(ca.CertOptions{
 		Host:       *na.config.ServiceIdentity,
 		Org:        *na.config.ServiceIdentityOrg,
@@ -115,12 +115,12 @@ func (na *nodeAgentInternal) getCertificateSignRequest() ([]byte, *pb.Certificat
 		glog.Fatalf("Failed to generate CSR: %s", err)
 	}
 
-	return privKey, &pb.CertificateSignRequest{
-		Csr: csr,
+	return privKey, &pb.Request{
+		CsrPem: csr,
 	}
 }
 
-func (na *nodeAgentInternal) sendCSR() ([]byte, *pb.CertificateSignResponse, error) {
+func (na *nodeAgentInternal) sendCSR() ([]byte, *pb.Response, error) {
 	dialOptions, err := na.pr.GetDialOptions(na.config)
 	if err != nil {
 		glog.Errorf("Cannot construct the dial options with error %s", err)
@@ -138,7 +138,7 @@ func (na *nodeAgentInternal) sendCSR() ([]byte, *pb.CertificateSignResponse, err
 	}()
 
 	client := pb.NewIstioCAServiceClient(conn)
-	privKey, req := na.getCertificateSignRequest()
+	privKey, req := na.createRequest()
 	resp, err := client.Sign(context.Background(), req)
 	if err != nil {
 		glog.Errorf("CSR request failed %s", err)
@@ -157,6 +157,7 @@ func (na *nodeAgentInternal) writeToFile(privKey []byte, cert []byte) {
 	}
 }
 
-func (na *nodeAgentInternal) getExpTime(resp *pb.CertificateSignResponse) time.Duration {
+func (na *nodeAgentInternal) getExpTime(resp *pb.Response) time.Duration {
+	// TODO: extract expiration time from certificate contained in the response object.
 	return 0
 }
