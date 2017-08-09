@@ -26,7 +26,8 @@ set -u
 # Print commands
 set -x
 
-E2E_ARGS=()
+# Running out of external ips
+E2E_ARGS=(--use_local_cluster)
 
 if [ "${CI}" == 'bootstrap' ]; then
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
