@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"time"
 
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/il"
@@ -39,6 +40,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 	var tf64 float64
 	var tVal interface{}
 	var tStr string
+	var tDur time.Duration
 	var tBool bool
 	var tFound bool
 	var tErr error
@@ -438,8 +440,12 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			ti64, tFound = tVal.(int64)
 			if !tFound {
-				tErr = fmt.Errorf("error converting value to integer: '%v'", tVal)
-				goto RETURN_ERR
+				tDur, tFound = tVal.(time.Duration)
+				if !tFound {
+					tErr = fmt.Errorf("error converting value to integer or duration: '%v'", tVal)
+					goto RETURN_ERR
+				}
+				ti64 = int64(tDur)
 			}
 			opstack[sp] = uint32(ti64 >> 32)
 			opstack[sp+1] = uint32(ti64 & 0xFFFFFFFF)
@@ -559,8 +565,12 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			} else {
 				ti64, tFound = tVal.(int64)
 				if !tFound {
-					tErr = fmt.Errorf("error converting value to integer: '%v'", tVal)
-					goto RETURN_ERR
+					tDur, tFound = tVal.(time.Duration)
+					if !tFound {
+						tErr = fmt.Errorf("error converting value to integer or duration: '%v'", tVal)
+						goto RETURN_ERR
+					}
+					ti64 = int64(tDur)
 				}
 				opstack[sp] = uint32(ti64 >> 32)
 				opstack[sp+1] = uint32(ti64 & 0xFFFFFFFF)

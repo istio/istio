@@ -100,6 +100,7 @@ var allocSizes = []uint32{
 	il.Bool:      1,
 	il.StringMap: 1,
 	il.Integer:   2,
+	il.Duration:  2,
 	il.Double:    2,
 }
 

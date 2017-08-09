@@ -17,6 +17,7 @@ package interpreter
 import (
 	"fmt"
 	"math"
+	"time"
 
 	"istio.io/mixer/pkg/il"
 )
@@ -78,6 +79,16 @@ func (r Result) Double() float64 {
 	return math.Float64frombits(t)
 }
 
+// Duration returns the value contained in the result as time.Duration. If the underlying result is
+// not a duration, it panics.
+func (r Result) Duration() time.Duration {
+	if r.t != il.Duration {
+		panic("interpreter.Result: result is not Duration")
+	}
+
+	return time.Duration(int64(r.v1) + int64(r.v2)<<32)
+}
+
 // Interface returns the value contained in the result as an interface{}.
 func (r Result) Interface() interface{} {
 	switch r.t {
@@ -89,6 +100,8 @@ func (r Result) Interface() interface{} {
 		return r.Integer()
 	case il.Double:
 		return r.Double()
+	case il.Duration:
+		return r.Duration()
 	case il.Void:
 		return nil
 	default:

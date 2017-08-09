@@ -62,6 +62,20 @@ func Test_DoublePanics(t *testing.T) {
 	_ = r.Double()
 }
 
+func Test_DurationPanics(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("The code did not panic")
+		}
+	}()
+
+	r := Result{
+		t: il.String,
+	}
+
+	_ = r.Duration()
+}
+
 func Test_InterfacePanics(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {

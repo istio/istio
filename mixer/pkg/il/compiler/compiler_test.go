@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	pbv "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/config/descriptor"
@@ -33,6 +34,9 @@ type testInfo struct {
 	result interface{}
 	err    string
 }
+
+var duration19MS, _ = time.ParseDuration("19ms")
+var duration20MS, _ = time.ParseDuration("20ms")
 
 var tests = []testInfo{
 	{
@@ -894,6 +898,38 @@ end`,
 		},
 		result: "b",
 	},
+	{
+		expr: `adur`,
+		input: map[string]interface{}{
+			"adur": duration20MS,
+		},
+		result: duration20MS,
+		code: `
+fn eval() duration
+  resolve_i "adur"
+  ret
+end`,
+	},
+	{
+		expr:   `adur | "19ms"`,
+		input:  map[string]interface{}{},
+		result: duration19MS,
+		code: `
+fn eval() duration
+  tresolve_i "adur"
+  jnz L0
+  apush_i 19000000
+L0:
+  ret
+end`,
+	},
+	{
+		expr: `adur | "19ms"`,
+		input: map[string]interface{}{
+			"adur": duration20MS,
+		},
+		result: duration20MS,
+	},
 }
 
 var globalConfig = pb.GlobalConfig{
@@ -915,6 +951,9 @@ var globalConfig = pb.GlobalConfig{
 				"ar": {
 					ValueType: pbv.STRING_MAP,
 				},
+				"adur": {
+					ValueType: pbv.DURATION,
+				},
 				"bi": {
 					ValueType: pbv.INT64,
 				},
@@ -929,6 +968,9 @@ var globalConfig = pb.GlobalConfig{
 				},
 				"br": {
 					ValueType: pbv.STRING_MAP,
+				},
+				"bdur": {
+					ValueType: pbv.DURATION,
 				},
 				"b1": {
 					ValueType: pbv.BOOL,
