@@ -59,9 +59,9 @@ Istio Pilot runs end-to-end tests as part of the presubmit check. The test drive
 
 ## Docker images
 
-The following Bazel command generates Docker images for the proxy agent and proxy container:
+The following Bazel command generates Docker images for the proxy agent and proxy container, then pushes them to a repository:
 
-    bazel run //docker:runtime
+    ./bin/push-docker --hub=your-testing-hub/repo
 
 Istio Pilot also produces debug images in addition to the default bare images. These images have suffix `_debug` and include additional tools such as `curl` in the base image as well as debug-enabled Envoy builds. You might need to grant security privileges to the container spec for root access:
 
