@@ -40,9 +40,10 @@ const (
 // buildListenerSSLContext returns an SSLContext struct.
 func buildListenerSSLContext(certsDir string) *SSLContext {
 	return &SSLContext{
-		CertChainFile:  certsDir + "/" + certChainFilename,
-		PrivateKeyFile: certsDir + "/" + keyFilename,
-		CaCertFile:     certsDir + "/" + rootCertFilename,
+		CertChainFile:            certsDir + "/" + certChainFilename,
+		PrivateKeyFile:           certsDir + "/" + keyFilename,
+		CaCertFile:               certsDir + "/" + rootCertFilename,
+		RequireClientCertificate: true,
 	}
 }
 
