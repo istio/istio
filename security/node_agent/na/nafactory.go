@@ -30,7 +30,7 @@ func NewNodeAgent(cfg *Config) NodeAgent {
 	if cfg == nil {
 		glog.Fatalf("Nil configuration passed")
 	}
-	na := nodeAgentInternal{
+	na := &nodeAgentInternal{
 		config: cfg,
 	}
 

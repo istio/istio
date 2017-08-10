@@ -31,17 +31,17 @@ import (
 
 type fakeCa struct{}
 
-func (ca fakeCa) Sign(*x509.CertificateRequest) ([]byte, error) {
+func (ca *fakeCa) Sign(*x509.CertificateRequest) ([]byte, error) {
 	return nil, nil
 }
 
-func (ca fakeCa) Generate(name, namespace string) (chain, key []byte) {
+func (ca *fakeCa) Generate(name, namespace string) (chain, key []byte) {
 	chain = []byte("fake cert chain")
 	key = []byte("fake key")
 	return
 }
 
-func (ca fakeCa) GetRootCertificate() []byte {
+func (ca *fakeCa) GetRootCertificate() []byte {
 	return []byte("fake root cert")
 }
 
@@ -125,7 +125,7 @@ func TestSecretController(t *testing.T) {
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		controller := NewSecretController(fakeCa{}, client.CoreV1(), metav1.NamespaceAll)
+		controller := NewSecretController(&fakeCa{}, client.CoreV1(), metav1.NamespaceAll)
 
 		if tc.existingSecret != nil {
 			err := controller.scrtStore.Add(tc.existingSecret)
@@ -153,7 +153,7 @@ func TestSecretController(t *testing.T) {
 
 func TestRecoverFromDeletedIstioSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	controller := NewSecretController(fakeCa{}, client.CoreV1(), metav1.NamespaceAll)
+	controller := NewSecretController(&fakeCa{}, client.CoreV1(), metav1.NamespaceAll)
 	scrt := createSecret("test", "istio.test", "test-ns")
 	controller.scrtDeleted(scrt)
 
@@ -199,7 +199,7 @@ func TestUpdateSecret(t *testing.T) {
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		controller := NewSecretController(fakeCa{}, client.CoreV1(), metav1.NamespaceAll)
+		controller := NewSecretController(&fakeCa{}, client.CoreV1(), metav1.NamespaceAll)
 
 		scrt := createSecret("test", "istio.test", "test-ns")
 		if rc := tc.rootCert; rc != nil {

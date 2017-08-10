@@ -43,7 +43,7 @@ func TestGetDialOptions(t *testing.T) {
 		t.Errorf("Wrong dial options size")
 	}
 
-	expectedOption := grpc.WithPerRPCCredentials(jwtAccess{token})
+	expectedOption := grpc.WithPerRPCCredentials(&jwtAccess{token})
 	if reflect.ValueOf(options[0]).Pointer() != reflect.ValueOf(expectedOption).Pointer() {
 		t.Errorf("Wrong option found")
 	}
