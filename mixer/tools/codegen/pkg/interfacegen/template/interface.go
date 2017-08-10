@@ -29,10 +29,11 @@ import (
 // Fully qualified name of this template
 const TemplateName = "{{.PackageName}}.{{.Name}}"
 
-// Instance is constructed by Mixer for '{{.PackageName}}.{{.Name}}' template.{{if ne .TemplateMessage.Comment ""}}
+// Instance is constructed by Mixer for the '{{.PackageName}}.{{.Name}}' template.{{if ne .TemplateMessage.Comment ""}}
 //
 {{.TemplateMessage.Comment}}{{end}}
 type Instance struct {
+  // Name of the instance as specified in configuration.
   Name string
   {{range .TemplateMessage.Fields}}
   {{.Comment}}
@@ -40,29 +41,34 @@ type Instance struct {
   {{end}}
 }
 
-// {{.Name}}HandlerBuilder must be implemented by adapter code if it wants to
-// process data associated with the template.
+// {{.Name}}HandlerBuilder must be implemented by adapters if they want to
+// process data associated with the {{.Name}} template.
 //
-// Using this interface, during configuration phase, Mixer
-// will call into the adapter to configure it with adapter specific configuration
-// as well as all inferred types.
+// Mixer uses this interface to call into the adapter at configuration time to configure
+// it with adapter-specific configuration as well as all inferred types the adapter is expected
+// to handle.
 type {{.Name}}HandlerBuilder interface {
 	adapter.HandlerBuilder
-	// Configure{{.Name}}Handler is invoked by Mixer to pass all possible Types for this template to the adapter.
-	// Type hold information about the shape of the Instances that will be dispatched to the
-    // adapters at request time. Adapter can expect to receive corresponding Instance objects at request time.
+
+	// Configure{{.Name}}Handler is invoked by Mixer to pass all possible Types for instances that an adapter
+	// may receive at runtime. Each type holds information about the shape of the instances.
 	Configure{{.Name}}Handler(map[string]*Type /*Instance name -> Type*/) error
 }
 
 // {{.Name}}Handler must be implemented by adapter code if it wants to
-// process data associated with the template.
+// process data associated with the {{.Name}} template.
 //
-// Using this interface, during request-time, Mixer
-// Mixer dispatches the created instances (based on request time attribute and operator-supplied configuration to map
-// attributes into template specific instances) to the adapters. Adapters take the incoming instances and do what they
+// Mixer uses this interface to call into the adapter at request time in order to dispatch
+// created instances to the adapter. Adapters take the incoming instances and do what they
 // need to achieve their primary function.
+//
+// The name of each instance can be used as a key into the Type map supplied to the adapter
+// at configuration time. These types provide descriptions of each specific instances.
 type {{.Name}}Handler interface {
   adapter.Handler
+
+  // Handle{{.Name}} is called by Mixer at request time to deliver instances to
+  // to an adapter.
   {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
     Handle{{.Name}}([]*Instance) (bool, adapter.CacheabilityInfo, error)
   {{else if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
