@@ -16,24 +16,30 @@ function usage() {
   exit 1
 }
 
+function docker_push() {
+  local im="${1}"
+  if [[ "${im}" =~ ^gcr\.io ]]; then
+    gcloud docker -- push ${im}
+  else
+    docker push ${im}
+  fi
+}
+
 BAZEL_IMAGES=('mixer' 'mixer_debug')
 IMAGES=()
 TAGS=''
-HUB=''
+HUBS=''
 
 while getopts :h:t: arg; do
   case ${arg} in
-    h) HUB="${OPTARG}";;
+    h) HUBS="${OPTARG}";;
     t) TAGS="${OPTARG}";;
     *) usage;;
   esac
 done
 
 IFS=',' read -ra TAGS <<< "${TAGS}"
-
-if [[ "${HUB}" =~ ^gcr\.io ]]; then
-  gcloud docker --authorize-only
-fi
+IFS=',' read -ra HUBS <<< "${HUBS}"
 
 # Building grafana image
 pushd "${ROOT}/deploy/kube/conf"
@@ -50,11 +56,11 @@ done
 
 # Tag and push
 
-for IMAGE in "${IMAGES[@]}"; do
-  for TAG in "${TAGS[@]}"; do
-    if [[ -n "${HUB}"  ]]; then
+for IMAGE in ${IMAGES[@]}; do
+  for TAG in ${TAGS[@]}; do
+    for HUB in ${HUBS[@]}; do
       docker tag "${IMAGE}" "${HUB}/${IMAGE}:${TAG}"
-      docker push "${HUB}/${IMAGE}:${TAG}"
-    fi
+      docker_push "${HUB}/${IMAGE}:${TAG}"
+    done
   done
 done
