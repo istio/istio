@@ -23,6 +23,7 @@ import (
 	"istio.io/auth/cmd/istio_ca/version"
 	"istio.io/auth/pkg/pki/ca"
 	"istio.io/auth/pkg/pki/ca/controller"
+	"istio.io/auth/pkg/server/grpc"
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
@@ -53,6 +54,8 @@ type cliOptions struct {
 
 	caCertTTL time.Duration
 	certTTL   time.Duration
+
+	grpcPort int
 }
 
 var (
@@ -90,6 +93,9 @@ func init() {
 		"The TTL of self-signed CA root certificate (default to 10 days)")
 	flags.DurationVar(&opts.certTTL, "cert-ttl", time.Hour, "The TTL of issued certificates (default to 1 hour)")
 
+	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "Specifies the port number for GRPC server. "+
+		"If unspecified, Istio CA will not server GRPC request.")
+
 	rootCmd.AddCommand(version.Command)
 }
 
@@ -116,6 +122,15 @@ func runCA() {
 
 	stopCh := make(chan struct{})
 	sc.Run(stopCh)
+
+	if opts.grpcPort > 0 {
+		grpcServer := grpc.New(ca, opts.grpcPort)
+		if err := grpcServer.Run(); err != nil {
+			glog.Warningf("Failed to start GRPC server with error: %v", err)
+		}
+	}
+
+	glog.Info("Istio CA has started")
 
 	<-stopCh
 	glog.Warning("Istio CA has stopped")
