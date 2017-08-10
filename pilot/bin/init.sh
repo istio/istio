@@ -1,6 +1,13 @@
 #!/bin/bash
 set -ex
 
+# Ensure expected GOPATH setup
+PDIR=`pwd`
+if [ $PDIR != "$GOPATH/src/istio.io/pilot" ]; then
+       echo "Pilot not found in GOPATH/src/istio.io/"
+       exit 1
+fi
+
 # Building and testing with Bazel
 bazel build //...
 
