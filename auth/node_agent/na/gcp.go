@@ -26,13 +26,13 @@ type jwtAccess struct {
 	token string
 }
 
-func (j jwtAccess) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+func (j *jwtAccess) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
 	return map[string]string{
 		"authorization": j.token,
 	}, nil
 }
 
-func (j jwtAccess) RequireTransportSecurity() bool {
+func (j *jwtAccess) RequireTransportSecurity() bool {
 	return true
 }
 
@@ -50,6 +50,6 @@ func (na *gcpPlatformImpl) GetDialOptions(cfg *Config) ([]grpc.DialOption, error
 		glog.Errorf("Failed to get instance from GCE metadata %s, please make sure this binary is running on a GCE VM", err)
 		return nil, err
 	}
-	options := []grpc.DialOption{grpc.WithPerRPCCredentials(jwtAccess{jwtKey})}
+	options := []grpc.DialOption{grpc.WithPerRPCCredentials(&jwtAccess{jwtKey})}
 	return options, nil
 }

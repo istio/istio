@@ -109,7 +109,7 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 
 // Generate returns a certificate chain and a key for the Istio identity defined by
 // the name and the namespace.
-func (ca IstioCA) Generate(name, namespace string) (chain, key []byte) {
+func (ca *IstioCA) Generate(name, namespace string) (chain, key []byte) {
 	// Currently the domain is always set to "cluster.local" since we only
 	// support in-cluster identities.
 	id := fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", uriScheme, namespace, name)
@@ -133,12 +133,12 @@ func (ca IstioCA) Generate(name, namespace string) (chain, key []byte) {
 }
 
 // GetRootCertificate returns the PEM-encoded root certificate.
-func (ca IstioCA) GetRootCertificate() []byte {
+func (ca *IstioCA) GetRootCertificate() []byte {
 	return copyBytes(ca.rootCertBytes)
 }
 
 // Sign signs a CSR
-func (ca IstioCA) Sign(csr *x509.CertificateRequest) ([]byte, error) {
+func (ca *IstioCA) Sign(csr *x509.CertificateRequest) ([]byte, error) {
 	tmpl := ca.generateCertificateTemplate(csr)
 
 	bytes, err := x509.CreateCertificate(rand.Reader, tmpl, ca.signingCert, csr.PublicKey, ca.signingKey)
@@ -153,7 +153,7 @@ func (ca IstioCA) Sign(csr *x509.CertificateRequest) ([]byte, error) {
 	return pem.EncodeToMemory(block), nil
 }
 
-func (ca IstioCA) generateCertificateTemplate(request *x509.CertificateRequest) *x509.Certificate {
+func (ca *IstioCA) generateCertificateTemplate(request *x509.CertificateRequest) *x509.Certificate {
 	exts := append(request.Extensions, request.ExtraExtensions...)
 	now := time.Now()
 
@@ -175,7 +175,7 @@ func (ca IstioCA) generateCertificateTemplate(request *x509.CertificateRequest) 
 }
 
 // verify that the cert chain, root cert and signing key/cert match.
-func (ca IstioCA) verify() error {
+func (ca *IstioCA) verify() error {
 	// Create another CertPool to hold the root.
 	rcp := x509.NewCertPool()
 	rcp.AppendCertsFromPEM(ca.rootCertBytes)

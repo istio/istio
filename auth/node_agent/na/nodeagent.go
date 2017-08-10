@@ -82,7 +82,7 @@ type nodeAgentInternal struct {
 }
 
 // Start the node Agent.
-func (na nodeAgentInternal) Start() {
+func (na *nodeAgentInternal) Start() {
 
 	if na.config == nil {
 		glog.Fatalf("Node Agent configuration is nil")
