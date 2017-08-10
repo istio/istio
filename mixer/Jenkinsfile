@@ -101,6 +101,7 @@ def release(gitUtils, bazel) {
     bazel.updateBazelRc()
     stage('Docker Push') {
       def tags = "${env.GIT_SHORT_SHA},${env.ISTIO_VERSION}-${env.GIT_SHORT_SHA}"
+      def hubs = 'gcr.io/istio-io,docker.io/istio'
       if (env.GIT_TAG != '') {
         if (env.GIT_TAG == env.ISTIO_VERSION) {
           // Retagging
@@ -110,7 +111,7 @@ def release(gitUtils, bazel) {
         }
       }
       // Docker images built with docker
-      sh("bin/publish-docker-images.sh -t ${tags} -h gcr.io/istio-io")
+      sh("bin/publish-docker-images.sh -t ${tags} -h ${hubs}")
     }
   }
 }
