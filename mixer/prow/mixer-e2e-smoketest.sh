@@ -53,11 +53,8 @@ echo "=== Smoke Test ==="
 #
 # In the future, this should be parameterized similarly to the integration tests, with the kubeconfig
 # location specified explicitly.
-./tests/e2e.sh \
+./prow/e2e.sh \
     --mixer_hub="${HUB}" \
-    --mixer_tag="${GIT_SHA}" \
-    --test_logs_path="${ARTIFACTS_DIR}" \
-    --log_provider='stackdriver' \
-    --project_id='istio-testing'
+    --mixer_tag="${GIT_SHA}"
 
 rm -rf "${ISTIO_TMP_DIR}"
