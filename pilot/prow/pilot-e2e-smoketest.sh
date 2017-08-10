@@ -29,15 +29,18 @@ set -x
 if [ "${CI:-}" == "bootstrap" ]; then
     # Use the provided pull head sha, from prow.
     GIT_SHA="${PULL_PULL_SHA}"
+    # Using fixed directory for bazel cache
+    ISTIO_TMP_DIR="${GOPATH}/src/istio.io/istio"
+    mkdir -p "${ISTIO_TMP_DIR}"
 else
     # Use the current commit.
     GIT_SHA="$(git rev-parse --verify HEAD)"
+    ISTIO_TMP_DIR="$(mktemp -d istio-XXXXX)"
 fi
 
 echo "=== Clone istio/istio ==="
-ISTIO_TMP_DIR="$(mktemp -d istio-XXXXX)"
-git clone --depth 1 https://github.com/istio/istio "./${ISTIO_TMP_DIR}"
-cd "./${ISTIO_TMP_DIR}"
+git clone --depth 1 https://github.com/istio/istio "${ISTIO_TMP_DIR}"
+cd "${ISTIO_TMP_DIR}"
 
 HUB="gcr.io/istio-testing"
 BUCKET="istio-artifacts"
@@ -51,13 +54,9 @@ echo "=== Smoke Test ==="
 #
 # In the future, this should be parameterized similarly to the integration tests, with the kubeconfig
 # location specified explicitly.
-./tests/e2e.sh \
+./prow/e2e.sh \
     --pilot_hub="${HUB}" \
     --pilot_tag="${GIT_SHA}" \
-    --istioctl_url="${ISTIOCTL_URL}" \
-    --test_logs_path="${ARTIFACTS_DIR}" \
-    --log_provider='stackdriver' \
-    --project_id='istio-testing'
+    --istioctl_url="${ISTIOCTL_URL}"
 
-cd -
-rm -rf "./${ISTIO_TMP_DIR}"
+rm -rf "${ISTIO_TMP_DIR}"
