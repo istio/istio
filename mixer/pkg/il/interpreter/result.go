@@ -24,7 +24,8 @@ import (
 
 // Result contains the result of an evaluation performed by the interpreter.
 type Result struct {
-	s  *il.StringTable
+	vs string
+	vi interface{}
 	t  il.Type
 	v1 uint32
 	v2 uint32
@@ -54,7 +55,7 @@ func (r Result) String() string {
 		return fmt.Sprintf("%v", r.Interface())
 	}
 
-	return r.s.GetString(r.v1)
+	return r.vs
 }
 
 // Integer returns the value contained in the result as an integer. If the underlying result is not
@@ -95,7 +96,12 @@ func (r Result) Interface() interface{} {
 	case il.Bool:
 		return r.Bool()
 	case il.String:
-		return r.String()
+		s := r.String()
+		// Align with the mechanics of the old expr evaluator.
+		if s == "" {
+			return nil
+		}
+		return s
 	case il.Integer:
 		return r.Integer()
 	case il.Double:
@@ -104,6 +110,8 @@ func (r Result) Interface() interface{} {
 		return r.Duration()
 	case il.Void:
 		return nil
+	case il.Interface:
+		return r.vi
 	default:
 		panic("interpreter.Interface: unrecognized type encountered.")
 	}

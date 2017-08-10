@@ -239,22 +239,22 @@ var builderTests = []builderTest{
 		},
 	},
 	{
-		n: "resolvemap",
+		n: "resolveinterface",
 		i: func(b *Builder) {
-			b.ResolveMap("foo")
+			b.ResolveInterface("foo")
 		},
 		e: []uint32{
-			uint32(ResolveM),
+			uint32(ResolveF),
 			1, //str index
 		},
 	},
 	{
-		n: "tresolvemap",
+		n: "tresolveinterface",
 		i: func(b *Builder) {
-			b.TResolveMap("foo")
+			b.TResolveInterface("foo")
 		},
 		e: []uint32{
-			uint32(TResolveM),
+			uint32(TResolveF),
 			1, //str index
 		},
 	},

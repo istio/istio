@@ -37,6 +37,8 @@ type testInfo struct {
 
 var duration19MS, _ = time.ParseDuration("19ms")
 var duration20MS, _ = time.ParseDuration("20ms")
+var time1999 = time.Date(1999, time.December, 31, 23, 59, 0, 0, time.UTC)
+var time1977 = time.Date(1977, time.February, 4, 12, 00, 0, 0, time.UTC)
 
 var tests = []testInfo{
 	{
@@ -374,7 +376,7 @@ end`,
 		result: "c",
 		code: `
 fn eval() string
-  resolve_m "ar"
+  resolve_f "ar"
   alookup "b"
   ret
 end
@@ -397,7 +399,7 @@ fn eval() bool
   apush_b true
   ret
 L0:
-  resolve_m "ar"
+  resolve_f "ar"
   alookup "b"
   aeq_s "c"
   ret
@@ -622,9 +624,9 @@ end`,
 		result: "bar",
 		code: `
 fn eval() string
-  tresolve_m "ar"
+  tresolve_f "ar"
   jnz L0
-  resolve_m "br"
+  resolve_f "br"
 L0:
   alookup "foo"
   ret
@@ -743,7 +745,7 @@ end`,
 		result: "bar",
 		code: `
 fn eval() string
-  resolve_m "sm"
+  resolve_f "sm"
   alookup "foo"
   ret
 end`,
@@ -757,7 +759,7 @@ end`,
 		result: "bar",
 		code: `
 fn eval() string
-  resolve_m "sm"
+  resolve_f "sm"
   resolve_s "as"
   lookup
   ret
@@ -769,7 +771,7 @@ end`,
 		result: "foo",
 		code: `
 fn eval() string
-  tresolve_m "ar"
+  tresolve_f "ar"
   jnz L0
   jmp L1
 L0:
@@ -795,7 +797,7 @@ end`,
 		result: "foo",
 		code: `
 fn eval() string
-  tresolve_m "ar"
+  tresolve_f "ar"
   jnz L0
   jmp L1
 L0:
@@ -852,7 +854,7 @@ end`,
 		result: "c",
 		code: `
 fn eval() string
-  tresolve_m "ar"
+  tresolve_f "ar"
   jnz L0
   jmp L1
 L0:
@@ -860,7 +862,7 @@ L0:
   tlookup
   jnz L2
 L1:
-  tresolve_m "ar"
+  tresolve_f "ar"
   jnz L3
   jmp L4
 L3:
@@ -930,6 +932,50 @@ end`,
 		},
 		result: duration20MS,
 	},
+	{
+		expr: `at`,
+		input: map[string]interface{}{
+			"at": time1977,
+		},
+		result: time1977,
+	},
+	{
+		expr: `at | bt`,
+		input: map[string]interface{}{
+			"at": time1999,
+			"bt": time1977,
+		},
+		result: time1999,
+	},
+	{
+		expr: `at | bt`,
+		input: map[string]interface{}{
+			"bt": time1977,
+		},
+		result: time1977,
+	},
+	{
+		expr: `aip`,
+		input: map[string]interface{}{
+			"aip": []byte{0x1, 0x2, 0x3, 0x4},
+		},
+		result: []byte{0x1, 0x2, 0x3, 0x4},
+	},
+	{
+		expr: `aip | bip`,
+		input: map[string]interface{}{
+			"bip": []byte{0x4, 0x5, 0x6, 0x7},
+		},
+		result: []byte{0x4, 0x5, 0x6, 0x7},
+	},
+	{
+		expr: `aip | bip`,
+		input: map[string]interface{}{
+			"aip": []byte{0x1, 0x2, 0x3, 0x4},
+			"bip": []byte{0x4, 0x5, 0x6, 0x7},
+		},
+		result: []byte{0x1, 0x2, 0x3, 0x4},
+	},
 }
 
 var globalConfig = pb.GlobalConfig{
@@ -954,6 +1000,12 @@ var globalConfig = pb.GlobalConfig{
 				"adur": {
 					ValueType: pbv.DURATION,
 				},
+				"at": {
+					ValueType: pbv.TIMESTAMP,
+				},
+				"aip": {
+					ValueType: pbv.IP_ADDRESS,
+				},
 				"bi": {
 					ValueType: pbv.INT64,
 				},
@@ -971,6 +1023,12 @@ var globalConfig = pb.GlobalConfig{
 				},
 				"bdur": {
 					ValueType: pbv.DURATION,
+				},
+				"bt": {
+					ValueType: pbv.TIMESTAMP,
+				},
+				"bip": {
+					ValueType: pbv.IP_ADDRESS,
 				},
 				"b1": {
 					ValueType: pbv.BOOL,
@@ -1025,11 +1083,32 @@ func TestCompile(t *testing.T) {
 			if len(te.err) != 0 {
 				tt.Fatalf("expected error not received: '%v'", te.err)
 			}
-			if v.Interface() != te.result {
+
+			// Byte arrays are not comparable natively
+			bExp, found := te.result.([]byte)
+			if found {
+				bAct, found := v.Interface().([]byte)
+				if !found || !bytesEqual(bExp, bAct) {
+					tt.Fatalf("Result match failed: %+v == %+v", v.Interface(), te.result)
+				}
+			} else if v.Interface() != te.result {
 				tt.Fatalf("Result match failed: %+v == %+v", v.Interface(), te.result)
 			}
 		})
 	}
+}
+
+func bytesEqual(b1 []byte, b2 []byte) bool {
+	if len(b1) != len(b2) {
+		return false
+	}
+	for i := 0; i < len(b1); i++ {
+		if b1[i] != b2[i] {
+			return false
+		}
+	}
+
+	return true
 }
 
 func TestCompile_ParseError(t *testing.T) {
