@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: gcr.io/istio-testing/fortio.echosrv:0.2.0-pre2
+        image: FORTIO_IMAGE
         ports:
         - containerPort: 8080
 ---
@@ -31,9 +31,9 @@ spec:
     spec:
       containers:
       - name: fortio
-        # That image also runs echosrv (so it will run forever) but has the
+        # That image runs the servers (so it will run forever) but has the
         # /usr/local/bin/fortio client
-        image: gcr.io/istio-testing/fortio:0.2.0-pre2
+        image: FORTIO_IMAGE
         imagePullPolicy: IfNotPresent
 ---
 # Extra debug / shell
