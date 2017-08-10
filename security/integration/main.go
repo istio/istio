@@ -15,6 +15,7 @@
 package main
 
 import (
+	"crypto/x509"
 	"flag"
 	"fmt"
 	"time"
@@ -190,7 +191,12 @@ func examineSecret(secret *v1.Secret, expectedID string) {
 	key := secret.Data[controller.PrivateKeyID]
 	cert := secret.Data[controller.CertChainID]
 	root := secret.Data[controller.RootCertID]
-	if err := testutil.VerifyCertificate(key, cert, root, expectedID, nil); err != nil {
+	verifyFields := &testutil.VerifyFields{
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		IsCA:        false,
+	}
+	if err := testutil.VerifyCertificate(key, cert, root, expectedID, verifyFields); err != nil {
 		glog.Fatalf("Certificate verification failed: %v", err)
 	}
 }

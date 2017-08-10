@@ -84,21 +84,6 @@ func VerifyCertificate(privPem []byte, certPem []byte, rootCertPem []byte,
 		return fmt.Errorf("the generated private key and cert doesn't match")
 	}
 
-	if expectedFields != nil {
-		certFields := &VerifyFields{
-			NotBefore:   cert.NotBefore,
-			NotAfter:    cert.NotAfter,
-			ExtKeyUsage: cert.ExtKeyUsage,
-			KeyUsage:    cert.KeyUsage,
-			IsCA:        cert.IsCA,
-			Org:         cert.Issuer.Organization[0],
-		}
-		if !reflect.DeepEqual(expectedFields, certFields) {
-			return fmt.Errorf("{notBefore, notAfter, extKeyUsage, isCA, org}:\nexpected: %+v\nactual: %+v",
-				expectedFields, certFields)
-		}
-	}
-
 	if strings.HasPrefix(host, "spiffe") {
 		matchHost := false
 		for _, e := range cert.Extensions {
@@ -110,6 +95,31 @@ func VerifyCertificate(privPem []byte, certPem []byte, rootCertPem []byte,
 		if !matchHost {
 			return fmt.Errorf("the certificate doesn't have the expected SAN for: %s", host)
 		}
+	}
+
+	if na := expectedFields.NotAfter; !na.IsZero() && !na.Equal(cert.NotAfter) {
+		return fmt.Errorf("Unexpected value for 'NotAfter' field: want %v but got %v", na, cert.NotAfter)
+	}
+
+	if nb := expectedFields.NotBefore; !nb.IsZero() && !nb.Equal(cert.NotBefore) {
+		return fmt.Errorf("Unexpected value for 'NotBefore' field: want %v but got %v", nb, cert.NotBefore)
+	}
+
+	if eku := expectedFields.ExtKeyUsage; !reflect.DeepEqual(eku, cert.ExtKeyUsage) {
+		return fmt.Errorf("Unexpected value for 'ExtKeyUsage' field: want %v but got %v", eku, cert.ExtKeyUsage)
+	}
+
+	if ku := expectedFields.KeyUsage; ku != cert.KeyUsage {
+		return fmt.Errorf("Unexpected value for 'KeyUsage' field: want %v but got %v", ku, cert.KeyUsage)
+	}
+
+	if isCA := expectedFields.IsCA; isCA != cert.IsCA {
+		return fmt.Errorf("Unexpected value for 'IsCA' field: want %t but got %t", isCA, cert.IsCA)
+	}
+
+	if org := expectedFields.Org; org != "" && !reflect.DeepEqual([]string{org}, cert.Issuer.Organization) {
+		return fmt.Errorf("Unexpected value for 'Organization' field: want %v but got %v",
+			[]string{org}, cert.Issuer.Organization)
 	}
 
 	return nil
