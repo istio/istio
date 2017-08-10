@@ -54,13 +54,13 @@ end
 
 func TestWriteEmptyFunctionWithParameters(t *testing.T) {
 	p := il.NewProgram()
-	err := p.AddFunction("main", []il.Type{il.StringMap}, il.Bool, []uint32{})
+	err := p.AddFunction("main", []il.Type{il.Interface}, il.Bool, []uint32{})
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	checkWrites(t, p, `
-fn main(stringmap) bool
+fn main(interface) bool
 end
 	`)
 }

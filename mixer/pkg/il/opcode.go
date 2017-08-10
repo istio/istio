@@ -198,16 +198,16 @@ const (
 	// If successful, pushes the resolved double into stack, otherwise raises error.
 	ResolveD Opcode = 93
 
-	// ResolveM lookups up a stringmap attribute value in the bag, with the given name.
-	// If successful, pushes the resolved stringmap into stack, otherwise raises error.
-	ResolveM Opcode = 94
+	// ResolveF lookups up a interface{} attribute value in the bag, with the given name.
+	// If successful, pushes the resolved interface{} into stack, otherwise raises error.
+	ResolveF Opcode = 94
 
 	// TResolveS lookups up a string attribute value in the bag, with the given name.
 	// If successful, pushes the resolved string value, then 1 into the stack,
 	// otherwise pushes 0.
 	TResolveS Opcode = 100
 
-	// TResolveB lookups up a  ool attribute value in the bag, with the given name.
+	// TResolveB lookups up a  bool attribute value in the bag, with the given name.
 	// If successful, pushes the resolved bool value, then 1 into the stack,
 	// otherwise pushes 0.
 	TResolveB Opcode = 101
@@ -222,10 +222,10 @@ const (
 	// otherwise pushes 0.
 	TResolveD Opcode = 103
 
-	// TResolveM lookups up a stringmap attribute value in the bag, with the given name.
-	// If successful, pushes the resolved stringmap value, then 1 into the stack,
+	// TResolveF lookups up a interface{} attribute value in the bag, with the given name.
+	// If successful, pushes the resolved interface{} value, then 1 into the stack,
 	// otherwise pushes 0.
-	TResolveM Opcode = 104
+	TResolveF Opcode = 104
 
 	// AddI pops two integer values from the stack, adds their value and pushes the result
 	// back into stack. The operation follows Go's integer addition semantics.
@@ -596,9 +596,9 @@ var opCodeInfos = map[Opcode]opcodeInfo{
 		OpcodeArgString,
 	}},
 
-	// ResolveM lookups up a stringmap attribute value in the bag, with the given name.
-	// If successful, pushes the resolved stringmap into stack, otherwise raises error.
-	ResolveM: {name: "ResolveM", keyword: "resolve_m", args: []OpcodeArg{
+	// ResolveF lookups up an interface attribute value in the bag, with the given name.
+	// If successful, pushes the resolved interface{} into stack, otherwise raises error.
+	ResolveF: {name: "ResolveF", keyword: "resolve_f", args: []OpcodeArg{
 		// The name of the attribute.
 		OpcodeArgString,
 	}},
@@ -635,10 +635,10 @@ var opCodeInfos = map[Opcode]opcodeInfo{
 		OpcodeArgString,
 	}},
 
-	// TResolveM lookups up a stringmap attribute value in the bag, with the given name.
-	// If successful, pushes the resolved stringmap value, then 1 into the stack,
+	// TResolveF lookups up a interface{} attribute value in the bag, with the given name.
+	// If successful, pushes the resolved interface{] value, then 1 into the stack,
 	// otherwise pushes 0.
-	TResolveM: {name: "TResolveM", keyword: "tresolve_m", args: []OpcodeArg{
+	TResolveF: {name: "TResolveF", keyword: "tresolve_f", args: []OpcodeArg{
 		// The name of the attribute.
 		OpcodeArgString,
 	}},

@@ -15,7 +15,6 @@
 package interpreter
 
 import (
-	"reflect"
 	"testing"
 
 	"istio.io/mixer/pkg/il"
@@ -85,24 +84,6 @@ func TestExternFromFn_UnrecognizedParamTypeDuringInvoke(t *testing.T) {
 	heap := make([]interface{}, heapSize)
 	stack := make([]uint32, opStackSize)
 	sp := uint32(2)
-	hp := uint32(0)
-	_, _, _ = e.invoke(p.Strings(), heap, &hp, stack, sp)
-}
-
-func TestExternFromFn_UnrecognizedHeapTypeDuringInvoke(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("The code did not panic")
-		}
-	}()
-
-	e := ExternFromFn("foo", func() map[string]string { return nil })
-	e.v = reflect.ValueOf(func() interface{} { return 23 })
-
-	p := il.NewProgram()
-	heap := make([]interface{}, heapSize)
-	stack := make([]uint32, opStackSize)
-	sp := uint32(0)
 	hp := uint32(0)
 	_, _, _ = e.invoke(p.Strings(), heap, &hp, stack, sp)
 }

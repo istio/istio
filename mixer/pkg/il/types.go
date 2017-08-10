@@ -36,11 +36,11 @@ const (
 	// Bool represents a boolean value.
 	Bool
 
-	// StringMap represents a map[string]string value.
-	StringMap
-
 	// Duration represents a time.Duration value
 	Duration
+
+	// Interface represents a generic interface{} value
+	Interface
 )
 
 var typeNames = map[Type]string{
@@ -50,8 +50,8 @@ var typeNames = map[Type]string{
 	Integer:   "integer",
 	Double:    "double",
 	Bool:      "bool",
-	StringMap: "stringmap",
 	Duration:  "duration",
+	Interface: "interface",
 }
 
 var typesByName = map[string]Type{
@@ -60,8 +60,8 @@ var typesByName = map[string]Type{
 	"integer":   Integer,
 	"double":    Double,
 	"bool":      Bool,
-	"stringmap": StringMap,
 	"duration":  Duration,
+	"interface": Interface,
 }
 
 func (t Type) String() string {

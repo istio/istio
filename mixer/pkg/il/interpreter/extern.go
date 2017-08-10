@@ -106,7 +106,7 @@ func ilType(t reflect.Type) il.Type {
 		return il.Double
 	case reflect.Map:
 		if t.Key().Kind() == reflect.String || t.Elem().Kind() == reflect.String {
-			return il.StringMap
+			return il.Interface
 		}
 	}
 
@@ -147,7 +147,7 @@ func (e Extern) invoke(s *il.StringTable, heap []interface{}, hp *uint32, stack 
 			d := il.ByteCodeToDouble(stack[ap+1], stack[ap])
 			ins[i] = reflect.ValueOf(d)
 
-		case il.StringMap:
+		case il.Interface:
 			r := heap[stack[ap]]
 			ins[i] = reflect.ValueOf(r)
 
@@ -206,12 +206,9 @@ func (e Extern) invoke(s *il.StringTable, heap []interface{}, hp *uint32, stack 
 		o1, o2 := il.DoubleToByteCode(d)
 		return o2, o1, nil
 
-	case il.StringMap:
-		// TODO(ozben): We should single-instance the records, as they are prone to mutation.
-		r, done := rv.Interface().(map[string]string)
-		if !done {
-			panic("interpreter.Extern.invoke: unable to convert return value to string map")
-		}
+	case il.Interface:
+		// TODO(ozben): We should single-instance the values, as they are prone to mutation.
+		r := rv.Interface()
 		heap[*hp] = r
 		*hp++
 		return *hp - 1, 0, nil

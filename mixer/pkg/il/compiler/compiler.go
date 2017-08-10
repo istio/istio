@@ -109,7 +109,11 @@ func (g *generator) toIlType(t dpb.ValueType) il.Type {
 	case dpb.DOUBLE:
 		return il.Double
 	case dpb.STRING_MAP:
-		return il.StringMap
+		return il.Interface
+	case dpb.IP_ADDRESS:
+		return il.Interface
+	case dpb.TIMESTAMP:
+		return il.Interface
 	default:
 		g.internalError("unhandled expression type: '%v'", t)
 		return il.Unknown
@@ -174,15 +178,14 @@ func (g *generator) generateVariable(v *expr.Variable, mode nilMode, valueJmpLab
 			g.builder.Jnz(valueJmpLabel)
 		}
 
-	case il.StringMap:
+	case il.Interface:
 		switch mode {
 		case nmNone:
-			g.builder.ResolveMap(v.Name)
+			g.builder.ResolveInterface(v.Name)
 		case nmJmpOnValue:
-			g.builder.TResolveMap(v.Name)
+			g.builder.TResolveInterface(v.Name)
 			g.builder.Jnz(valueJmpLabel)
 		}
-
 	default:
 		g.internalError("unrecognized variable type: '%v'", i.ValueType)
 	}

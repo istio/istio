@@ -48,12 +48,12 @@ end`,
 	},
 	{
 		i: `
-fn main(stringmap integer) string
+fn main(interface integer) string
 end`,
 	},
 	{
 		i: `
-fn foo() stringmap
+fn foo() interface
   ret
 end
 
@@ -66,7 +66,7 @@ fn bar() bool
   ret
 end
 
-fn foo() stringmap
+fn foo() interface
   ret
 end
 `,

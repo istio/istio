@@ -414,17 +414,13 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			tu64 = math.Float64bits(tf64)
 			STACK_PUSH2(uint32(tu64>>32), uint32(tu64&0xFFFFFFFF))
 
-		case il.ResolveM:
+		case il.ResolveF:
 			STACK_OVERFLOW_GUARD(2)
 			LOAD_OP_CODE(t1)
 			tStr = strings.GetString(t1)
 			tVal, tFound = bag.Get(tStr)
 			if !tFound {
 				ERRF("lookup failed: '%v'", tStr)
-			}
-			_, tBool = tVal.(map[string]string)
-			if !tBool {
-				ERRF("error converting value to record: '%v'", tVal)
 			}
 			NEW_HEAP_VALUE(tVal, t2)
 			STACK_PUSH(t2)
@@ -503,7 +499,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				STACK_PUSH(1)
 			}
 
-		case il.TResolveM:
+		case il.TResolveF:
 			STACK_OVERFLOW_GUARD(2)
 			LOAD_OP_CODE(t1)
 			tStr = strings.GetString(t1)
@@ -511,10 +507,6 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			if !tFound {
 				STACK_PUSH(0)
 			} else {
-				_, tBool = tVal.(map[string]string)
-				if !tBool {
-					ERRF("error converting value to record: '%v'", tVal)
-				}
 				NEW_HEAP_VALUE(tVal, t2)
 				STACK_PUSH(t2)
 				STACK_PUSH(1)
@@ -646,21 +638,37 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				// End of the evaluation call. Return from run.
 				r := Result{
 					t: fn.ReturnType,
-					s: strings,
 				}
-				switch typeStackAllocSize(fn.ReturnType) {
-				case 0:
+				switch fn.ReturnType {
+				case il.Void, il.Integer, il.Double, il.Bool, il.Duration:
+					// Just copy the values of scalar types.
+					switch typeStackAllocSize(fn.ReturnType) {
+					case 0:
 
-				case 1:
+					case 1:
+						STACK_UNDERFLOW_GUARD(1)
+						STACK_PEEK(r.v1)
+
+					case 2:
+						STACK_UNDERFLOW_GUARD(2)
+						STACK_PEEK2(r.v1, r.v2)
+
+					default:
+						panic("interpreter.run: unhandled parameter size")
+					}
+
+				case il.String:
 					STACK_UNDERFLOW_GUARD(1)
 					STACK_PEEK(r.v1)
+					r.vs = strings.GetString(r.v1)
 
-				case 2:
-					STACK_UNDERFLOW_GUARD(2)
-					STACK_PEEK2(r.v1, r.v2)
+				case il.Interface:
+					STACK_UNDERFLOW_GUARD(1)
+					STACK_PEEK(r.v1)
+					r.vi = heap[r.v1]
 
 				default:
-					panic("interpreter.run: unhandled parameter size")
+					panic("interpreter.run: unhandled return type")
 				}
 
 				if step {

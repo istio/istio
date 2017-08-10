@@ -98,7 +98,7 @@ var allocSizes = []uint32{
 	il.Void:      0,
 	il.String:    1,
 	il.Bool:      1,
-	il.StringMap: 1,
+	il.Interface: 1,
 	il.Integer:   2,
 	il.Duration:  2,
 	il.Double:    2,

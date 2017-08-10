@@ -103,14 +103,14 @@ func (f *Builder) TResolveDouble(n string) {
 	f.op1(TResolveD, f.id(n))
 }
 
-// ResolveMap appends the "resolve_m" instruction to the byte code.
-func (f *Builder) ResolveMap(n string) {
-	f.op1(ResolveM, f.id(n))
+// ResolveInterface appends the "resolve_f" instruction to the byte code.
+func (f *Builder) ResolveInterface(n string) {
+	f.op1(ResolveF, f.id(n))
 }
 
-// TResolveMap appends the "tresolve_m" instruction to the byte code.
-func (f *Builder) TResolveMap(n string) {
-	f.op1(TResolveM, f.id(n))
+// TResolveInterface appends the "tresolve_f" instruction to the byte code.
+func (f *Builder) TResolveInterface(n string) {
+	f.op1(TResolveF, f.id(n))
 }
 
 // APushBool appends the "apush_b" instruction to the byte code.

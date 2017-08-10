@@ -915,10 +915,10 @@ func TestInterpreter_Eval(t *testing.T) {
 			},
 			err: "error converting value to double: 'true'",
 		},
-		"resolve_m/success": {
+		"resolve_f/success": {
 			code: `
 		fn main () string
-			resolve_m "a"
+			resolve_f "a"
 			alookup "b"
 			ret
 		end`,
@@ -927,26 +927,14 @@ func TestInterpreter_Eval(t *testing.T) {
 			},
 			expected: "c",
 		},
-		"resolve_m/not found": {
+		"resolve_f/not found": {
 			code: `
 		fn main () string
-			resolve_m "q"
+			resolve_f "q"
 			ret
 		end`,
 			err: "lookup failed: 'q'",
 		},
-		"resolve_m/type mismatch": {
-			code: `
-		fn main () string
-			resolve_m "a"
-			ret
-		end`,
-			input: map[string]interface{}{
-				"a": true,
-			},
-			err: "error converting value to record: 'true'",
-		},
-
 		"tresolve_s/success": {
 			code: `
 		fn main () string
@@ -1103,10 +1091,10 @@ func TestInterpreter_Eval(t *testing.T) {
 			},
 			err: "error converting value to double: 'B'",
 		},
-		"tresolve_m/success": {
+		"tresolve_f/success": {
 			code: `
 		fn main () string
-			tresolve_m "a"
+			tresolve_f "a"
 			errz "not found!"
 			alookup "b"
 			ret
@@ -1118,30 +1106,18 @@ func TestInterpreter_Eval(t *testing.T) {
 			},
 			expected: "c",
 		},
-		"tresolve_m/not found": {
+		"tresolve_f/not found": {
 			code: `
 		fn main () bool
-			tresolve_m "q"
+			tresolve_f "q"
 			errz "not found!"
 		end`,
 			err: "not found!",
 		},
-		"tresolve_m/type mismatch": {
-			code: `
-		fn main () bool
-			tresolve_m "a"
-			ret
-		end`,
-			input: map[string]interface{}{
-				"a": "B",
-			},
-			err: "error converting value to record: 'B'",
-		},
-
 		"lookup/success": {
 			code: `
 		fn main () string
-			resolve_m "a"
+			resolve_f "a"
 			apush_s "b"
 			lookup
 			ret
@@ -1154,7 +1130,7 @@ func TestInterpreter_Eval(t *testing.T) {
 		"lookup/failure": {
 			code: `
 		fn main () string
-			resolve_m "a"
+			resolve_f "a"
 			apush_s "q"
 			lookup
 			ret
@@ -1167,7 +1143,7 @@ func TestInterpreter_Eval(t *testing.T) {
 		"alookup/success": {
 			code: `
 		fn main () string
-			resolve_m "a"
+			resolve_f "a"
 			alookup "b"
 			ret
 		end`,
@@ -1179,7 +1155,7 @@ func TestInterpreter_Eval(t *testing.T) {
 		"alookup/failure": {
 			code: `
 		fn main () string
-			resolve_m "a"
+			resolve_f "a"
 			alookup "q"
 			ret
 		end`,
@@ -1191,7 +1167,7 @@ func TestInterpreter_Eval(t *testing.T) {
 		"tlookup/success": {
 			code: `
 		fn main () string
-			resolve_m "a"
+			resolve_f "a"
 			apush_s "b"
 			tlookup
 			errz "not found!"
@@ -1205,7 +1181,7 @@ func TestInterpreter_Eval(t *testing.T) {
 		"tlookup/failure": {
 			code: `
 		fn main () string
-			resolve_m "a"
+			resolve_f "a"
 			apush_s "q"
 			tlookup
 			errz "not found!"
@@ -1615,7 +1591,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			},
 		},
 
-		"extern/ret/record": {
+		"extern/ret/string/instringmap": {
 			code: `
 		fn main() string
 			call ext
@@ -1721,10 +1697,10 @@ func TestInterpreter_Eval(t *testing.T) {
 				}),
 			},
 		},
-		"extern/par/record": {
+		"extern/par/stringmap": {
 			code: `
 		fn main() string
-			resolve_m "a"
+			resolve_f "a"
 			call ext
 			ret
 		end
@@ -1802,7 +1778,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			apush_b true
 			ret
 		LeftFalse:
-			resolve_m "request.header"
+			resolve_f "request.header"
 			alookup "host"
 			aeq_s "abc"
 			ret
@@ -1858,6 +1834,33 @@ L0:
    ret
 end`,
 			expected: nil,
+		},
+
+		"tlookup/invalid heap access": {
+			code: `
+fn main () void
+	apush_b true // Prime the operand stack with "1"
+	apush_s "foo"
+	tlookup
+end`,
+			err: "invalid heap access",
+		},
+		"lookup/invalid heap access": {
+			code: `
+fn main () void
+	apush_b true // Prime the operand stack with "1"
+	apush_s "foo"
+	lookup
+end`,
+			err: "invalid heap access",
+		},
+		"alookup/invalid heap access": {
+			code: `
+fn main () void
+	apush_b true // Prime the operand stack with "1"
+	alookup "foo"
+end`,
+			err: "invalid heap access",
 		},
 	}
 
@@ -2044,6 +2047,26 @@ end
 	}
 }
 
+func TestInterpreter_Eval_StackUnderflow_Ret(t *testing.T) {
+	var types = []string{
+		"double",
+		"string",
+		"interface",
+	}
+
+	for _, ty := range types {
+		var tst = test{
+			err: "stack underflow",
+			code: fmt.Sprintf(`
+fn main() %s
+	ret
+end`, ty),
+		}
+
+		t.Run("StackUnderflow_Ret_"+ty, func(tt *testing.T) { runTestCode(tt, tst) })
+	}
+}
+
 func TestInterpreter_Eval_StackOverflow(t *testing.T) {
 	var tests = map[string]test{
 		"rpush_s": {
@@ -2094,8 +2117,8 @@ func TestInterpreter_Eval_StackOverflow(t *testing.T) {
 		"resolve_d": {
 			code: `resolve_d "a"`,
 		},
-		"resolve_m": {
-			code: `resolve_m "a"`,
+		"resolve_f": {
+			code: `resolve_f "a"`,
 		},
 		"tresolve_s": {
 			code: `tresolve_s "a"`,
@@ -2109,8 +2132,8 @@ func TestInterpreter_Eval_StackOverflow(t *testing.T) {
 		"tresolve_d": {
 			code: `tresolve_d "a"`,
 		},
-		"tresolve_m": {
-			code: `tresolve_m "a"`,
+		"tresolve_f": {
+			code: `tresolve_f "a"`,
 		},
 	}
 
@@ -2141,11 +2164,11 @@ end
 
 func TestInterpreter_Eval_HeapOverflow(t *testing.T) {
 	var tests = map[string]test{
-		"resolve_m": {
-			code: `resolve_m "a"`,
+		"resolve_f": {
+			code: `resolve_f "a"`,
 		},
-		"tresolve_m": {
-			code: `tresolve_m "a"`,
+		"tresolve_f": {
+			code: `tresolve_f "a"`,
 		},
 	}
 
@@ -2153,7 +2176,7 @@ func TestInterpreter_Eval_HeapOverflow(t *testing.T) {
 fn main() void
    apush_i 0
 L0:
-	 resolve_m "a"
+	 resolve_f "a"
 	 pop_b
    aadd_i 1
    dup_i
