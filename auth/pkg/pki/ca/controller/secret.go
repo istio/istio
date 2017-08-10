@@ -114,7 +114,6 @@ func NewSecretController(ca ca.CertificateAuthority, core corev1.CoreV1Interface
 func (sc *SecretController) Run(stopCh chan struct{}) {
 	go sc.scrtController.Run(stopCh)
 	go sc.saController.Run(stopCh)
-	<-stopCh
 }
 
 // Handles the event where a service account is added.

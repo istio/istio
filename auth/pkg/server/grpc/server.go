@@ -15,6 +15,11 @@
 package grpc
 
 import (
+	"fmt"
+	"net"
+
+	"google.golang.org/grpc"
+
 	"github.com/golang/glog"
 
 	"golang.org/x/net/context"
@@ -24,11 +29,18 @@ import (
 	pb "istio.io/auth/proto"
 )
 
-type server struct {
-	ca ca.CertificateAuthority
+// Server implements pb.IstioCAService and provides the service on the
+// specified port.
+type Server struct {
+	ca   ca.CertificateAuthority
+	port int
 }
 
-func (s *server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Response, error) {
+// HandleCSR handles an incoming certificate signing request (CSR). It does
+// proper validation (e.g. authentication) and upon validated, signs the CSR
+// and returns the resulting certificate. If not approved, reason for refusal
+// to sign is returned as part of the response object.
+func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Response, error) {
 	// TODO: handle authentication here
 
 	csr, err := pki.ParsePemEncodedCSR(request.CsrPem)
@@ -53,7 +65,29 @@ func (s *server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Respon
 	return response, nil
 }
 
+// Run starts a GRPC server on the specified port.
+func (s *Server) Run() error {
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
+	if err != nil {
+		return fmt.Errorf("cannot listen on port %d (error: %v)", s.port, err)
+	}
+	grpcServer := grpc.NewServer()
+	pb.RegisterIstioCAServiceServer(grpcServer, s)
+
+	// grpcServer.Serve() is a blocking call, so run it in a goroutine.
+	go func() {
+		glog.Infof("Starting GRPC server on port %d", s.port)
+
+		err := grpcServer.Serve(listener)
+
+		// grpcServer.Serve() always returns a non-nil error.
+		glog.Warningf("GRPC server returns an error: %v", err)
+	}()
+
+	return nil
+}
+
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca ca.CertificateAuthority) pb.IstioCAServiceServer {
-	return &server{ca}
+func New(ca ca.CertificateAuthority, port int) *Server {
+	return &Server{ca, port}
 }

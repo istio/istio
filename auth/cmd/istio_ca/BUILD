@@ -8,6 +8,7 @@ go_library(
         "//cmd/istio_ca/version:go_default_library",
         "//pkg/pki/ca:go_default_library",
         "//pkg/pki/ca/controller:go_default_library",
+        "//pkg/server/grpc:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
         "@io_k8s_client_go//kubernetes:go_default_library",

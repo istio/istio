@@ -81,7 +81,7 @@ func TestSign(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		server := New(c.ca)
+		server := New(c.ca, 8080)
 		request := &pb.Request{CsrPem: []byte(c.csr)}
 
 		response, err := server.HandleCSR(nil, request)
