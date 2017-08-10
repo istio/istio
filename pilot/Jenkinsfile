@@ -122,6 +122,7 @@ def release(gitUtils, bazel) {
     }
     stage('Docker Push') {
       def tags = "${env.GIT_SHORT_SHA},${env.ISTIO_VERSION}-${env.GIT_SHORT_SHA}"
+      def hubs = 'gcr.io/istio-io,docker.io/istio'
       if (env.GIT_TAG != '') {
         if (env.GIT_TAG == env.ISTIO_VERSION) {
           // Retagging
@@ -130,7 +131,7 @@ def release(gitUtils, bazel) {
           tags += ",${env.GIT_TAG}"
         }
       }
-      sh("bin/push-docker -tag ${tags} -hub gcr.io/istio-io")
+      sh("bin/push-docker -tag ${tags} -hub ${hubs}")
     }
   }
 }

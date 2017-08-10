@@ -24,13 +24,24 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-hub="gcr.io/istio-testing"
-tags=$(whoami)_$(date +%y%m%d_%h%m%s)
+
+function docker_push() {
+  im="${1}"
+  if [[ "${im}" =~ 'gcr.io' ]]; then
+    gcloud docker -- push "${im}"
+  else
+    docker push ${im}
+  fi
+}
+
+hubs="gcr.io/istio-testing"
+local_tag=$(whoami)_$(date +%y%m%d_%h%m%s)
+tags="${local_tag}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -tag) tags="$2"; shift ;;
-        -hub) hub="$2"; shift ;;
+        -hub) hubs="$2"; shift ;;
         *) ;;
     esac
     shift
@@ -45,20 +56,20 @@ bazel build --output_groups=static //cmd/... //test/...
 \cp -f  "${bin}/cmd/pilot-discovery/pilot-discovery.static" docker/pilot-discovery
 
 # Build and push images
-if [[ "$hub" =~ ^gcr\.io ]]; then
-  gcloud docker --authorize-only
-fi
 
 IFS=',' read -ra tags <<< "${tags}"
+IFS=',' read -ra hubs <<< "${hubs}"
 
 pushd docker
   for image in app proxy proxy_init proxy_debug pilot; do
-    local_image="$hub/$image"
+    local_image="${image}:${local_tag}"
     docker build -f "Dockerfile.${image}" -t "${local_image}" .
     for tag in ${tags[@]}; do
-      tagged_image="${local_image}:${tag}"
-      docker tag "${local_image}" "${tagged_image}"
-      docker push "${tagged_image}"
+      for hub in ${hubs[@]}; do
+        tagged_image="${hub}/${image}:${tag}"
+        docker tag "${local_image}" "${tagged_image}"
+        docker_push "${tagged_image}"
+      done
     done
   done
 popd
