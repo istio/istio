@@ -738,7 +738,7 @@ func (p *validator) validateHandlers(cfg string) (ce *adapter.ConfigErrors) {
 		}
 
 		hh.Params = hcfg
-		hb := bi.CreateHandlerBuilderFn()
+		hb := bi.CreateHandlerBuilder()
 		p.handlers[hh.GetName()] = &HandlerBuilderInfo{handlerCnfg: hh, handlerBuilder: &hb, supportedTemplates: bi.SupportedTemplates}
 	}
 	return

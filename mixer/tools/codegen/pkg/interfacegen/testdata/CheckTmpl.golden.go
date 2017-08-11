@@ -21,7 +21,7 @@ import (
 )
 
 // Fully qualified name of this template
-const TemplateName = "foo.bar.mylistchecker.List"
+const TemplateName = "foo.bar.mylistchecker"
 
 // Instance is constructed by Mixer for the 'foo.bar.mylistchecker.List' template.
 type Instance struct {
@@ -45,13 +45,13 @@ type Instance struct {
 	DimensionsFixedInt64ValueDType map[string]int64
 }
 
-// ListHandlerBuilder must be implemented by adapters if they want to
+// HandlerBuilder must be implemented by adapters if they want to
 // process data associated with the List template.
 //
 // Mixer uses this interface to call into the adapter at configuration time to configure
 // it with adapter-specific configuration as well as all inferred types the adapter is expected
 // to handle.
-type ListHandlerBuilder interface {
+type HandlerBuilder interface {
 	adapter.HandlerBuilder
 
 	// ConfigureListHandler is invoked by Mixer to pass all possible Types for instances that an adapter
@@ -59,7 +59,7 @@ type ListHandlerBuilder interface {
 	ConfigureListHandler(map[string]*Type /*Instance name -> Type*/) error
 }
 
-// ListHandler must be implemented by adapter code if it wants to
+// Handler must be implemented by adapter code if it wants to
 // process data associated with the List template.
 //
 // Mixer uses this interface to call into the adapter at request time in order to dispatch
@@ -68,7 +68,7 @@ type ListHandlerBuilder interface {
 //
 // The name of each instance can be used as a key into the Type map supplied to the adapter
 // at configuration time. These types provide descriptions of each specific instances.
-type ListHandler interface {
+type Handler interface {
 	adapter.Handler
 
 	// HandleList is called by Mixer at request time to deliver instances to

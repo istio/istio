@@ -43,16 +43,16 @@ var (
 	SupportedTmplInfo = map[string]template.Info{
 
 		istio_mixer_adapter_sample_check.TemplateName: {
-			CtrCfg:    &istio_mixer_adapter_sample_check.InstanceParam{},
-			Variety:   adptTmpl.TEMPLATE_VARIETY_CHECK,
-			BldrName:  "istio.io/mixer/template/sample/check.SampleHandlerBuilder",
-			HndlrName: "istio.io/mixer/template/sample/check.SampleHandler",
+			CtrCfg:             &istio_mixer_adapter_sample_check.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
+			BldrInterfaceName:  "istio.io/mixer/template/sample/check.HandlerBuilder",
+			HndlrInterfaceName: "istio.io/mixer/template/sample/check.Handler",
 			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
-				_, ok := hndlrBuilder.(istio_mixer_adapter_sample_check.SampleHandlerBuilder)
+				_, ok := hndlrBuilder.(istio_mixer_adapter_sample_check.HandlerBuilder)
 				return ok
 			},
 			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
-				_, ok := hndlr.(istio_mixer_adapter_sample_check.SampleHandler)
+				_, ok := hndlr.(istio_mixer_adapter_sample_check.Handler)
 				return ok
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
@@ -84,7 +84,7 @@ var (
 			},
 			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
-				castedBuilder := (*builder).(istio_mixer_adapter_sample_check.SampleHandlerBuilder)
+				castedBuilder := (*builder).(istio_mixer_adapter_sample_check.HandlerBuilder)
 				castedTypes := make(map[string]*istio_mixer_adapter_sample_check.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
@@ -130,7 +130,7 @@ var (
 				_ = castedInst
 
 				var cacheInfo adapter.CacheabilityInfo
-				if found, cacheInfo, err = handler.(istio_mixer_adapter_sample_check.SampleHandler).HandleSample(instance); err != nil {
+				if found, cacheInfo, err = handler.(istio_mixer_adapter_sample_check.Handler).HandleSample(instance); err != nil {
 					return status.WithError(err), adapter.CacheabilityInfo{}
 				}
 
@@ -145,16 +145,16 @@ var (
 		},
 
 		istio_mixer_adapter_sample_quota.TemplateName: {
-			CtrCfg:    &istio_mixer_adapter_sample_quota.InstanceParam{},
-			Variety:   adptTmpl.TEMPLATE_VARIETY_QUOTA,
-			BldrName:  "istio.io/mixer/template/sample/quota.QuotaHandlerBuilder",
-			HndlrName: "istio.io/mixer/template/sample/quota.QuotaHandler",
+			CtrCfg:             &istio_mixer_adapter_sample_quota.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_QUOTA,
+			BldrInterfaceName:  "istio.io/mixer/template/sample/quota.HandlerBuilder",
+			HndlrInterfaceName: "istio.io/mixer/template/sample/quota.Handler",
 			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
-				_, ok := hndlrBuilder.(istio_mixer_adapter_sample_quota.QuotaHandlerBuilder)
+				_, ok := hndlrBuilder.(istio_mixer_adapter_sample_quota.HandlerBuilder)
 				return ok
 			},
 			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
-				_, ok := hndlr.(istio_mixer_adapter_sample_quota.QuotaHandler)
+				_, ok := hndlr.(istio_mixer_adapter_sample_quota.Handler)
 				return ok
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
@@ -183,7 +183,7 @@ var (
 			},
 			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
-				castedBuilder := (*builder).(istio_mixer_adapter_sample_quota.QuotaHandlerBuilder)
+				castedBuilder := (*builder).(istio_mixer_adapter_sample_quota.HandlerBuilder)
 				castedTypes := make(map[string]*istio_mixer_adapter_sample_quota.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
@@ -229,7 +229,7 @@ var (
 
 				var qr adapter.QuotaResult
 				var cacheInfo adapter.CacheabilityInfo
-				if qr, cacheInfo, err = handler.(istio_mixer_adapter_sample_quota.QuotaHandler).HandleQuota(instance, qma); err != nil {
+				if qr, cacheInfo, err = handler.(istio_mixer_adapter_sample_quota.Handler).HandleQuota(instance, qma); err != nil {
 					glog.Errorf("Quota allocation failed: %v", err)
 					return status.WithError(err), adapter.CacheabilityInfo{}, adapter.QuotaResult{}
 				}
@@ -248,16 +248,16 @@ var (
 		},
 
 		istio_mixer_adapter_sample_report.TemplateName: {
-			CtrCfg:    &istio_mixer_adapter_sample_report.InstanceParam{},
-			Variety:   adptTmpl.TEMPLATE_VARIETY_REPORT,
-			BldrName:  "istio.io/mixer/template/sample/report.SampleHandlerBuilder",
-			HndlrName: "istio.io/mixer/template/sample/report.SampleHandler",
+			CtrCfg:             &istio_mixer_adapter_sample_report.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
+			BldrInterfaceName:  "istio.io/mixer/template/sample/report.HandlerBuilder",
+			HndlrInterfaceName: "istio.io/mixer/template/sample/report.Handler",
 			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
-				_, ok := hndlrBuilder.(istio_mixer_adapter_sample_report.SampleHandlerBuilder)
+				_, ok := hndlrBuilder.(istio_mixer_adapter_sample_report.HandlerBuilder)
 				return ok
 			},
 			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
-				_, ok := hndlr.(istio_mixer_adapter_sample_report.SampleHandler)
+				_, ok := hndlr.(istio_mixer_adapter_sample_report.Handler)
 				return ok
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
@@ -333,7 +333,7 @@ var (
 			},
 			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
-				castedBuilder := (*builder).(istio_mixer_adapter_sample_report.SampleHandlerBuilder)
+				castedBuilder := (*builder).(istio_mixer_adapter_sample_report.HandlerBuilder)
 				castedTypes := make(map[string]*istio_mixer_adapter_sample_report.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
@@ -429,7 +429,7 @@ var (
 					_ = md
 				}
 
-				if err := handler.(istio_mixer_adapter_sample_report.SampleHandler).HandleSample(instances); err != nil {
+				if err := handler.(istio_mixer_adapter_sample_report.Handler).HandleSample(instances); err != nil {
 					result = multierror.Append(result, fmt.Errorf("failed to report all values: %v", err))
 				}
 

@@ -58,14 +58,14 @@ var (
 		{{.GoPackageName}}.TemplateName: {
 			CtrCfg:  &{{.GoPackageName}}.InstanceParam{},
 			Variety:   adptTmpl.{{.VarietyName}},
-			BldrName:  "{{.PackageImportPath}}.{{.Name}}HandlerBuilder",
-			HndlrName: "{{.PackageImportPath}}.{{.Name}}Handler",
+			BldrInterfaceName:  "{{.PackageImportPath}}.HandlerBuilder",
+			HndlrInterfaceName: "{{.PackageImportPath}}.Handler",
 			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
-				_, ok := hndlrBuilder.({{.GoPackageName}}.{{.Name}}HandlerBuilder)
+				_, ok := hndlrBuilder.({{.GoPackageName}}.HandlerBuilder)
 				return ok
 			},
 			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
-				_, ok := hndlr.({{.GoPackageName}}.{{.Name}}Handler)
+				_, ok := hndlr.({{.GoPackageName}}.Handler)
 				return ok
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
@@ -118,7 +118,7 @@ var (
 			},
 			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
-				castedBuilder := (*builder).({{.GoPackageName}}.{{.Name}}HandlerBuilder)
+				castedBuilder := (*builder).({{.GoPackageName}}.HandlerBuilder)
 				castedTypes := make(map[string]*{{.GoPackageName}}.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
@@ -173,7 +173,7 @@ var (
 						_ = md
 					}
 
-					if err := handler.({{.GoPackageName}}.{{.Name}}Handler).Handle{{.Name}}(instances); err != nil {
+					if err := handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(instances); err != nil {
 						result = multierror.Append(result, fmt.Errorf("failed to report all values: %v", err))
 					}
 
@@ -228,7 +228,7 @@ var (
 					_ = castedInst
 
 					var cacheInfo adapter.CacheabilityInfo
-					if found, cacheInfo, err = handler.({{.GoPackageName}}.{{.Name}}Handler).Handle{{.Name}}(instance); err != nil {
+					if found, cacheInfo, err = handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(instance); err != nil {
 						return status.WithError(err), adapter.CacheabilityInfo{}
 					}
 
@@ -280,7 +280,7 @@ var (
 
 					var qr adapter.QuotaResult
 					var cacheInfo adapter.CacheabilityInfo
-					if qr, cacheInfo, err = handler.({{.GoPackageName}}.{{.Name}}Handler).Handle{{.Name}}(instance, qma); err != nil {
+					if qr, cacheInfo, err = handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(instance, qma); err != nil {
 						glog.Errorf("Quota allocation failed: %v", err)
 						return status.WithError(err), adapter.CacheabilityInfo{}, adapter.QuotaResult{}
 					}

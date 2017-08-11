@@ -69,7 +69,7 @@ func (m *reportManager) NewReportExecutor(c *cpb.Combined, createAspect CreateAs
 	ti, _ := m.repo.GetTemplateInfo(tmpl)
 	if b := ti.HandlerSupportsTemplate(v); !b {
 		return nil, fmt.Errorf("Handler does not implement interface %s. "+
-			"Therefore, it cannot support template %v", ti.HndlrName, tmpl)
+			"Therefore, it cannot support template %v", ti.HndlrInterfaceName, tmpl)
 	}
 
 	return &reportExecutor{tmpl, ti.ProcessReport, v, insts}, nil

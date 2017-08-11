@@ -37,18 +37,18 @@ type (
 	builder struct{}
 )
 
-var _ checknothing.CheckNothingHandlerBuilder = builder{}
-var _ checknothing.CheckNothingHandler = handler{}
-var _ reportnothing.ReportNothingHandlerBuilder = builder{}
-var _ reportnothing.ReportNothingHandler = handler{}
-var _ listentry.ListEntryHandlerBuilder = builder{}
-var _ listentry.ListEntryHandler = handler{}
-var _ logentry.LogEntryHandlerBuilder = builder{}
-var _ logentry.LogEntryHandler = handler{}
-var _ metric.MetricHandlerBuilder = builder{}
-var _ metric.MetricHandler = handler{}
-var _ quota.QuotaHandlerBuilder = builder{}
-var _ quota.QuotaHandler = handler{}
+var _ checknothing.HandlerBuilder = builder{}
+var _ checknothing.Handler = handler{}
+var _ reportnothing.HandlerBuilder = builder{}
+var _ reportnothing.Handler = handler{}
+var _ listentry.HandlerBuilder = builder{}
+var _ listentry.Handler = handler{}
+var _ logentry.HandlerBuilder = builder{}
+var _ logentry.Handler = handler{}
+var _ metric.HandlerBuilder = builder{}
+var _ metric.Handler = handler{}
+var _ quota.HandlerBuilder = builder{}
+var _ quota.Handler = handler{}
 
 ///////////////// Configuration Methods ///////////////
 
@@ -133,8 +133,8 @@ func GetBuilderInfo() adapter.BuilderInfo {
 			metric.TemplateName,
 			quota.TemplateName,
 		},
-		CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return builder{} },
-		DefaultConfig:          &types.Empty{},
-		ValidateConfig:         func(msg proto.Message) error { return nil },
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return builder{} },
+		DefaultConfig:        &types.Empty{},
+		ValidateConfig:       func(msg proto.Message) error { return nil },
 	}
 }

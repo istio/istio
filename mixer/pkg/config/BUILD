@@ -5,8 +5,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "adapterInfoRegistry.go",
         "apiserver.go",
-        "builderInfoRegistry.go",
         "compatStore.go",
         "handler.go",
         "inventory.go",
@@ -42,8 +42,8 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
+        "adapterInfoRegistry_test.go",
         "apiserver_test.go",
-        "builderInfoRegistry_test.go",
         "handler_test.go",
         "kind_test.go",
         "manager_test.go",

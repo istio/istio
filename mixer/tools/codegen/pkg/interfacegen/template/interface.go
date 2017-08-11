@@ -27,7 +27,7 @@ import (
 {{.Comment}}
 
 // Fully qualified name of this template
-const TemplateName = "{{.PackageName}}.{{.Name}}"
+const TemplateName = "{{.PackageName}}"
 
 // Instance is constructed by Mixer for the '{{.PackageName}}.{{.Name}}' template.{{if ne .TemplateMessage.Comment ""}}
 //
@@ -41,13 +41,13 @@ type Instance struct {
   {{end}}
 }
 
-// {{.Name}}HandlerBuilder must be implemented by adapters if they want to
+// HandlerBuilder must be implemented by adapters if they want to
 // process data associated with the {{.Name}} template.
 //
 // Mixer uses this interface to call into the adapter at configuration time to configure
 // it with adapter-specific configuration as well as all inferred types the adapter is expected
 // to handle.
-type {{.Name}}HandlerBuilder interface {
+type HandlerBuilder interface {
 	adapter.HandlerBuilder
 
 	// Configure{{.Name}}Handler is invoked by Mixer to pass all possible Types for instances that an adapter
@@ -55,7 +55,7 @@ type {{.Name}}HandlerBuilder interface {
 	Configure{{.Name}}Handler(map[string]*Type /*Instance name -> Type*/) error
 }
 
-// {{.Name}}Handler must be implemented by adapter code if it wants to
+// Handler must be implemented by adapter code if it wants to
 // process data associated with the {{.Name}} template.
 //
 // Mixer uses this interface to call into the adapter at request time in order to dispatch
@@ -64,7 +64,7 @@ type {{.Name}}HandlerBuilder interface {
 //
 // The name of each instance can be used as a key into the Type map supplied to the adapter
 // at configuration time. These types provide descriptions of each specific instances.
-type {{.Name}}Handler interface {
+type Handler interface {
   adapter.Handler
 
   // Handle{{.Name}} is called by Mixer at request time to deliver instances to
