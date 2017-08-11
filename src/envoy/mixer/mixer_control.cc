@@ -22,7 +22,6 @@
 #include "src/envoy/mixer/grpc_transport.h"
 #include "src/envoy/mixer/string_map.pb.h"
 #include "src/envoy/mixer/thread_dispatcher.h"
-#include "src/envoy/mixer/utils.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
@@ -248,8 +247,22 @@ void MixerControl::SendReport(HttpRequestDataPtr request_data) {
   mixer_client_->Report(request_data->attributes);
 }
 
+void MixerControl::ForwardAttributes(HeaderMap& headers,
+                                     const Utils::StringMap& route_attributes) {
+  if (mixer_config_.forward_attributes.empty() && route_attributes.empty()) {
+    return;
+  }
+  std::string serialized_str = Utils::SerializeTwoStringMaps(
+      mixer_config_.forward_attributes, route_attributes);
+  std::string base64 =
+      Base64::encode(serialized_str.c_str(), serialized_str.size());
+  log().debug("Mixer forward attributes set: {}", base64);
+  headers.addReferenceKey(Utils::kIstioAttributeHeader, base64);
+}
+
 void MixerControl::CheckHttp(HttpRequestDataPtr request_data,
                              HeaderMap& headers, std::string source_user,
+                             const Utils::StringMap& route_attributes,
                              DoneFunc on_done) {
   if (!mixer_client_) {
     on_done(
@@ -257,6 +270,11 @@ void MixerControl::CheckHttp(HttpRequestDataPtr request_data,
     return;
   }
   FillCheckAttributes(headers, &request_data->attributes);
+  for (const auto& attribute : route_attributes) {
+    SetStringAttribute(attribute.first, attribute.second,
+                       &request_data->attributes);
+  }
+
   SetStringAttribute(kSourceUser, source_user, &request_data->attributes);
 
   request_data->attributes.attributes[kRequestTime] =

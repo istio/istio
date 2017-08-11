@@ -111,7 +111,9 @@ const envoyConfTempl = `
                       "cluster": "service1",
                       "opaque_config": {
                         "mixer_control": "on",
-                        "mixer_forward": "off"
+                        "mixer_forward": "off",
+                        "mixer_attributes.target.user": "target-user",
+                        "mixer_attributes.target.name": "target-name"
                       }
                     }
                   ]
@@ -160,7 +162,11 @@ const envoyConfTempl = `
                     {
                       "timeout_ms": 0,
                       "prefix": "/",
-                      "cluster": "service2"
+                      "cluster": "service2",
+                      "opaque_config": {
+                        "mixer_forward_attributes.source.user": "source-user",
+                        "mixer_forward_attributes.source.name": "source-name"
+                      }
                     }
                   ]
                 }

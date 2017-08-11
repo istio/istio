@@ -31,8 +31,9 @@ extern const LowerCaseString kIstioAttributeHeader;
 // The string map.
 typedef std::map<std::string, std::string> StringMap;
 
-// Serialize a string map to string.
-std::string SerializeStringMap(const StringMap& map);
+// Serialize two string maps to string.
+std::string SerializeTwoStringMaps(const StringMap& map1,
+                                   const StringMap& map2);
 
 }  // namespace Utils
 }  // namespace Http

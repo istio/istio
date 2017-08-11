@@ -22,10 +22,14 @@ namespace Utils {
 
 const LowerCaseString kIstioAttributeHeader("x-istio-attributes");
 
-std::string SerializeStringMap(const StringMap& string_map) {
+std::string SerializeTwoStringMaps(const StringMap& map1,
+                                   const StringMap& map2) {
   ::istio::proxy::mixer::StringMap pb;
   ::google::protobuf::Map<std::string, std::string>* map_pb = pb.mutable_map();
-  for (const auto& it : string_map) {
+  for (const auto& it : map1) {
+    (*map_pb)[it.first] = it.second;
+  }
+  for (const auto& it : map2) {
     (*map_pb)[it.first] = it.second;
   }
   std::string str;

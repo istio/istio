@@ -26,6 +26,7 @@
 #include "envoy/upstream/cluster_manager.h"
 #include "include/client.h"
 #include "src/envoy/mixer/config.h"
+#include "src/envoy/mixer/utils.h"
 
 namespace Envoy {
 namespace Http {
@@ -45,9 +46,14 @@ class MixerControl final : public Logger::Loggable<Logger::Id::http> {
   // The constructor.
   MixerControl(const MixerConfig& mixer_config, Upstream::ClusterManager& cm);
 
+  // Add a special header to forward mixer attribues to upstream proxy.
+  void ForwardAttributes(HeaderMap& headers,
+                         const Utils::StringMap& route_attributes);
+
   // Make mixer check call for HTTP requests.
   void CheckHttp(HttpRequestDataPtr request_data, HeaderMap& headers,
                  std::string origin_user,
+                 const Utils::StringMap& route_attributes,
                  ::istio::mixer_client::DoneFunc on_done);
 
   // Make mixer report call for HTTP requests.

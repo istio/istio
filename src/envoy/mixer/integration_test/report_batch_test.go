@@ -31,6 +31,10 @@ const reportAttributesOkGet = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+  "source.name": "source-name",
+  "source.user": "source-user",
+  "target.name": "target-name",
+  "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "request.headers": {
@@ -68,6 +72,10 @@ const reportAttributesOkPost1 = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+  "source.name": "source-name",
+  "source.user": "source-user",
+  "target.name": "target-name",
+  "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "request.headers": {
@@ -105,6 +113,10 @@ const reportAttributesOkPost2 = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+  "source.name": "source-name",
+  "source.user": "source-user",
+  "target.name": "target-name",
+  "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "request.headers": {

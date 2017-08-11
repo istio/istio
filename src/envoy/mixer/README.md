@@ -131,7 +131,23 @@ By default, the mixer filter only forwards attributes and does not call mixer se
    }
 ```
 
-This route opaque config reverts the behavior by sending requests to mixer server but not forwarding any attributes.
+Above route opaque config reverts the behavior by sending requests to mixer server but not forwarding any attributes.
+
+Mixer attributes and forward attributes can be set per-route in the route opaque config.
+
+```
+ "routes": [
+   {
+     "timeout_ms": 0,
+     "prefix": "/",
+     "cluster": "service1",
+     "opaque_config": {
+      "mixer_attributes.key1": "value1",
+      "mixer_forward_attributes.key2": "value2"
+     }
+   }
+```
+Attribute key1 = value1 will be sent to the mixer if mixer is on. Attribute key1 = value2 will be forwarded to next proxy if mixer_forward is on.
 
 
 ## How to enable quota (rate limiting)
@@ -185,6 +201,7 @@ When there is any network problems between the proxy and the mixer server, what 
          "network_fail_policy": "close",
 
 ```
+The default value is "open".
 
 ## How to configurate TCP Mixer filters
 

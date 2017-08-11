@@ -43,6 +43,14 @@ const std::string kJsonNameForwardSwitch("mixer_forward");
 // Switch to turn off mixer check/report/quota
 const std::string kJsonNameMixerSwitch("mixer_control");
 
+// The prefix in route opaque data to define
+// a sub string map of mixer attributes passed to mixer for the route.
+const std::string kPrefixMixerAttributes("mixer_attributes.");
+
+// The prefix in route opaque data to define
+// a sub string map of mixer attributes forwarded to upstream proxy.
+const std::string kPrefixForwardAttributes("mixer_forward_attributes.");
+
 // Convert Status::code to HTTP code
 int HttpCode(int code) {
   // Map Canonical codes to HTTP status codes. This is based on the mapping
@@ -92,7 +100,6 @@ int HttpCode(int code) {
 class Config : public Logger::Loggable<Logger::Id::http> {
  private:
   Upstream::ClusterManager& cm_;
-  std::string forward_attributes_;
   MixerConfig mixer_config_;
   MixerControlPerThreadStore mixer_control_store_;
 
@@ -104,20 +111,11 @@ class Config : public Logger::Loggable<Logger::Id::http> {
           return std::make_shared<MixerControl>(mixer_config_, cm_);
         }) {
     mixer_config_.Load(config);
-    if (!mixer_config_.forward_attributes.empty()) {
-      std::string serialized_str =
-          Utils::SerializeStringMap(mixer_config_.forward_attributes);
-      forward_attributes_ =
-          Base64::encode(serialized_str.c_str(), serialized_str.size());
-      log().debug("Mixer forward attributes set: ", serialized_str);
-    }
   }
 
   std::shared_ptr<MixerControl> mixer_control() {
     return mixer_control_store_.Get();
   }
-
-  const std::string& forward_attributes() const { return forward_attributes_; }
 };
 
 typedef std::shared_ptr<Config> ConfigPtr;
@@ -170,6 +168,27 @@ class Instance : public Http::StreamDecoderFilter,
     return false;
   }
 
+  // Extract a prefixed string map from route opaque config.
+  // Route opaque config only supports flat name value pair, have to use
+  // prefix to create a sub string map. such as:
+  //    prefix.key1 = value1
+  Utils::StringMap GetRouteStringMap(const std::string& prefix) {
+    Utils::StringMap attrs;
+    auto route = decoder_callbacks_->route();
+    if (route != nullptr) {
+      auto entry = route->routeEntry();
+      if (entry != nullptr) {
+        for (const auto& it : entry->opaqueConfig()) {
+          if (it.first.substr(0, prefix.size()) == prefix) {
+            attrs[it.first.substr(prefix.size(), std::string::npos)] =
+                it.second;
+          }
+        }
+      }
+    }
+    return attrs;
+  }
+
  public:
   Instance(ConfigPtr config)
       : mixer_control_(config->mixer_control()),
@@ -186,9 +205,9 @@ class Instance : public Http::StreamDecoderFilter,
   FilterHeadersStatus decodeHeaders(HeaderMap& headers, bool) override {
     Log().debug("Called Mixer::Instance : {}", __func__);
 
-    if (!config_->forward_attributes().empty() && !forward_disabled()) {
-      headers.addReference(Utils::kIstioAttributeHeader,
-                           config_->forward_attributes());
+    if (!forward_disabled()) {
+      mixer_control_->ForwardAttributes(
+          headers, GetRouteStringMap(kPrefixForwardAttributes));
     }
 
     mixer_disabled_ = mixer_disabled();
@@ -210,6 +229,7 @@ class Instance : public Http::StreamDecoderFilter,
     auto instance = GetPtr();
     mixer_control_->CheckHttp(
         request_data_, headers, origin_user,
+        GetRouteStringMap(kPrefixMixerAttributes),
         [instance](const Status& status) { instance->completeCheck(status); });
     initiating_call_ = false;
 
