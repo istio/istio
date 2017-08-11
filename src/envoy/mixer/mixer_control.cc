@@ -57,15 +57,24 @@ const std::string kResponseHeaders = "response.headers";
 const std::string kResponseSize = "response.size";
 const std::string kResponseTime = "response.time";
 
+// TCP attributes
 // Downstream tcp connection: source ip/port.
 const std::string kSourceIp = "source.ip";
 const std::string kSourcePort = "source.port";
-// Downstream tcp connection: destionation ip/port.
-const std::string kLocalIp = "local.ip";
-const std::string kLocalPort = "local.port";
 // Upstream tcp connection: destionation ip/port.
 const std::string kTargetIp = "target.ip";
 const std::string kTargetPort = "target.port";
+const std::string kConnectionReceviedBytes = "connection.received.bytes";
+const std::string kConnectionReceviedTotalBytes =
+    "connection.received.bytes_total";
+const std::string kConnectionSendBytes = "connection.sent.bytes";
+const std::string kConnectionSendTotalBytes = "connection.sent.bytes_total";
+const std::string kConnectionDuration = "connection.duration";
+
+// Context attributes
+const std::string kContextProtocol = "context.protocol";
+const std::string kContextTime = "context.time";
+
 // Check status code.
 const std::string kCheckStatusCode = "check.status";
 
@@ -229,17 +238,12 @@ void MixerControl::SendCheck(HttpRequestDataPtr request_data,
                        &request_data->attributes);
   }
 
-  request_data->attributes.attributes[kRequestTime] =
-      Attributes::TimeValue(std::chrono::system_clock::now());
-
   log().debug("Send Check: {}", request_data->attributes.DebugString());
   mixer_client_->Check(request_data->attributes,
                        CheckGrpcTransport::GetFunc(cm_, headers), on_done);
 }
 
 void MixerControl::SendReport(HttpRequestDataPtr request_data) {
-  request_data->attributes.attributes[kResponseTime] =
-      Attributes::TimeValue(std::chrono::system_clock::now());
   log().debug("Send Report: {}", request_data->attributes.DebugString());
   mixer_client_->Report(request_data->attributes);
 }
@@ -254,6 +258,10 @@ void MixerControl::CheckHttp(HttpRequestDataPtr request_data,
   }
   FillCheckAttributes(headers, &request_data->attributes);
   SetStringAttribute(kSourceUser, source_user, &request_data->attributes);
+
+  request_data->attributes.attributes[kRequestTime] =
+      Attributes::TimeValue(std::chrono::system_clock::now());
+  SetStringAttribute(kContextProtocol, "http", &request_data->attributes);
 
   SendCheck(request_data, &headers, on_done);
 }
@@ -273,6 +281,8 @@ void MixerControl::ReportHttp(HttpRequestDataPtr request_data,
   FillRequestInfoAttributes(request_info, check_status,
                             &request_data->attributes);
 
+  request_data->attributes.attributes[kResponseTime] =
+      Attributes::TimeValue(std::chrono::system_clock::now());
   SendReport(request_data);
 }
 
@@ -294,26 +304,33 @@ void MixerControl::CheckTcp(HttpRequestDataPtr request_data,
     SetInt64Attribute(kSourcePort, remote_ip->port(),
                       &request_data->attributes);
   }
-  const Network::Address::Ip* local_ip = connection.localAddress().ip();
-  if (local_ip) {
-    SetStringAttribute(kLocalIp, local_ip->addressAsString(),
-                       &request_data->attributes);
-    SetInt64Attribute(kLocalPort, local_ip->port(), &request_data->attributes);
-  }
 
+  request_data->attributes.attributes[kContextTime] =
+      Attributes::TimeValue(std::chrono::system_clock::now());
+  SetStringAttribute(kContextProtocol, "tcp", &request_data->attributes);
   SendCheck(request_data, nullptr, on_done);
 }
 
 void MixerControl::ReportTcp(
-    HttpRequestDataPtr request_data, uint64_t request_bytes,
-    uint64_t response_bytes, int check_status_code,
+    HttpRequestDataPtr request_data, uint64_t received_bytes,
+    uint64_t send_bytes, int check_status_code,
+    std::chrono::nanoseconds duration,
     Upstream::HostDescriptionConstSharedPtr upstreamHost) {
   if (!mixer_client_) {
     return;
   }
 
-  SetInt64Attribute(kRequestSize, request_bytes, &request_data->attributes);
-  SetInt64Attribute(kResponseSize, response_bytes, &request_data->attributes);
+  SetInt64Attribute(kConnectionReceviedBytes, received_bytes,
+                    &request_data->attributes);
+  SetInt64Attribute(kConnectionReceviedTotalBytes, received_bytes,
+                    &request_data->attributes);
+  SetInt64Attribute(kConnectionSendBytes, send_bytes,
+                    &request_data->attributes);
+  SetInt64Attribute(kConnectionSendTotalBytes, send_bytes,
+                    &request_data->attributes);
+  request_data->attributes.attributes[kConnectionDuration] =
+      Attributes::DurationValue(duration);
+
   SetInt64Attribute(kCheckStatusCode, check_status_code,
                     &request_data->attributes);
 
@@ -327,6 +344,8 @@ void MixerControl::ReportTcp(
     }
   }
 
+  request_data->attributes.attributes[kContextTime] =
+      Attributes::TimeValue(std::chrono::system_clock::now());
   SendReport(request_data);
 }
 

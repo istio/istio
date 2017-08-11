@@ -62,8 +62,9 @@ class MixerControl final : public Logger::Loggable<Logger::Id::http> {
                 ::istio::mixer_client::DoneFunc on_done);
 
   // Make mixer report call for Tcp requests.
-  void ReportTcp(HttpRequestDataPtr request_data, uint64_t request_bytes,
-                 uint64_t response_bytes, int check_status_code,
+  void ReportTcp(HttpRequestDataPtr request_data, uint64_t received_bytes,
+                 uint64_t send_bytes, int check_status_code,
+                 std::chrono::nanoseconds duration,
                  Upstream::HostDescriptionConstSharedPtr upstreamHost);
 
  private:

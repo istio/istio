@@ -24,11 +24,10 @@ import (
 // Check attributes from a good POST request
 const checkAttributesOkPost = `
 {
+  "context.protocol": "tcp",
+  "context.time": "*",
   "source.ip": "127.0.0.1",
   "source.port": "*",
-  "local.ip": "127.0.0.1",
-  "local.port": 26060,
-  "request.time": "*",
   "target.uid": "POD222",
   "target.namespace": "XYZ222"
 }
@@ -37,36 +36,38 @@ const checkAttributesOkPost = `
 // Report attributes from a good POST request
 const reportAttributesOkPost = `
 {
+  "context.protocol": "tcp",
+  "context.time": "*",
   "source.ip": "127.0.0.1",
   "source.port": "*",
-  "local.ip": "127.0.0.1",
-  "local.port": 26060,
-  "request.time": "*",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "target.ip": "127.0.0.1",
   "target.port": 28080,
-  "request.size": 178,
-  "response.size": 133,
-  "check.status": 0,
-  "response.time": "*"
+  "connection.received.bytes": 178,
+  "connection.received.bytes_total": 178,
+  "connection.sent.bytes": 133,
+  "connection.sent.bytes_total": 133,
+  "connection.duration": "*",
+  "check.status": 0
 }
 `
 
 // Report attributes from a failed POST request
 const reportAttributesFailPost = `
 {
+  "context.protocol": "tcp",
+  "context.time": "*",
   "source.ip": "127.0.0.1",
   "source.port": "*",
-  "local.ip": "127.0.0.1",
-  "local.port": 26060,
-  "request.time": "*",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
-  "request.size": 0,
-  "response.size": 0,
-  "check.status": 16,
-  "response.time": "*"
+  "connection.received.bytes": 0,
+  "connection.received.bytes_total": 0,
+  "connection.sent.bytes": 0,
+  "connection.sent.bytes_total": 0,
+  "connection.duration": "*",
+  "check.status": 16
 }
 `
 

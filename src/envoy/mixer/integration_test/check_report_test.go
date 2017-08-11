@@ -22,6 +22,7 @@ import (
 // Check attributes from a good GET request
 const checkAttributesOkGet = `
 {
+  "context.protocol": "http",
   "request.host": "localhost:27070",
   "request.path": "/echo",
   "request.time": "*",
@@ -46,6 +47,7 @@ const checkAttributesOkGet = `
 // Report attributes from a good GET request
 const reportAttributesOkGet = `
 {
+  "context.protocol": "http",
   "request.host": "localhost:27070",
   "request.path": "/echo",
   "request.time": "*",
@@ -82,6 +84,7 @@ const reportAttributesOkGet = `
 // Check attributes from a good POST request
 const checkAttributesOkPost = `
 {
+  "context.protocol": "http",
   "request.host": "localhost:27070",
   "request.path": "/echo",
   "request.time": "*",
@@ -106,6 +109,7 @@ const checkAttributesOkPost = `
 // Report attributes from a good POST request
 const reportAttributesOkPost = `
 {
+  "context.protocol": "http",
   "request.host": "localhost:27070",
   "request.path": "/echo",
   "request.time": "*",
