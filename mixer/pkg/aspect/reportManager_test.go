@@ -37,7 +37,7 @@ type fakeReportHandler struct{}
 func (h *fakeReportHandler) Close() error { return nil }
 
 func TestNewReportManager(t *testing.T) {
-	r := template.NewRepository(map[string]template.Info{"foo": {BldrName: "fooProcBuilder"}})
+	r := template.NewRepository(map[string]template.Info{"foo": {BldrInterfaceName: "fooProcBuilder"}})
 	m := NewReportManager(r)
 	if !reflect.DeepEqual(m.(*reportManager).repo, r) {
 		t.Errorf("m.repo = %v wanted %v", m.(*reportManager).repo, r)

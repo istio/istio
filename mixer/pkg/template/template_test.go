@@ -29,8 +29,8 @@ func TestGetTemplateInfo(t *testing.T) {
 		expected     Info
 		present      bool
 	}{
-		{"ValidTmpl", map[string]Info{"ValidTmpl": {BldrName: "FooTmplBuilder"}},
-			Info{BldrName: "FooTmplBuilder"}, true},
+		{"ValidTmpl", map[string]Info{"ValidTmpl": {BldrInterfaceName: "FooTmplBuilder"}},
+			Info{BldrInterfaceName: "FooTmplBuilder"}, true},
 		{"unknown template", nil, Info{}, false},
 	} {
 		t.Run(tst.tmplToFind, func(t *testing.T) {
@@ -53,10 +53,10 @@ func TestSupportsTemplate(t *testing.T) {
 		allTmplInfos map[string]Info
 		expectedErr  string
 	}{
-		{"ValidTmpl", map[string]Info{"ValidTmpl": {BldrName: "ValidTmplBuilder",
+		{"ValidTmpl", map[string]Info{"ValidTmpl": {BldrInterfaceName: "ValidTmplBuilder",
 			SupportsTemplate: func(h adapter.HandlerBuilder) bool { return true }}}, ""},
 		{"unknown template", nil, "is not one of the allowed supported templates"},
-		{"interface_not_implemented", map[string]Info{"interface_not_implemented": {BldrName: "interface_not_implementedBuilder",
+		{"interface_not_implemented", map[string]Info{"interface_not_implemented": {BldrInterfaceName: "interface_not_implementedBuilder",
 			SupportsTemplate: func(h adapter.HandlerBuilder) bool { return false }}},
 			"does not implement interface interface_not_implementedBuilder"},
 	} {

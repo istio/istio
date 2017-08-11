@@ -126,22 +126,22 @@ func TestGeneratedFields(t *testing.T) {
 			tmpl:      sample_report.TemplateName,
 			ctrCfg:    &sample_report.InstanceParam{},
 			variety:   adpTmpl.TEMPLATE_VARIETY_REPORT,
-			bldrName:  "istio.io/mixer/template/sample/report.SampleHandlerBuilder",
-			hndlrName: "istio.io/mixer/template/sample/report.SampleHandler",
+			bldrName:  "istio.io/mixer/template/sample/report.HandlerBuilder",
+			hndlrName: "istio.io/mixer/template/sample/report.Handler",
 		},
 		{
 			tmpl:      sample_check.TemplateName,
 			ctrCfg:    &sample_check.InstanceParam{},
 			variety:   adpTmpl.TEMPLATE_VARIETY_CHECK,
-			bldrName:  "istio.io/mixer/template/sample/check.SampleHandlerBuilder",
-			hndlrName: "istio.io/mixer/template/sample/check.SampleHandler",
+			bldrName:  "istio.io/mixer/template/sample/check.HandlerBuilder",
+			hndlrName: "istio.io/mixer/template/sample/check.Handler",
 		},
 		{
 			tmpl:      sample_quota.TemplateName,
 			ctrCfg:    &sample_quota.InstanceParam{},
 			variety:   adpTmpl.TEMPLATE_VARIETY_QUOTA,
-			bldrName:  "istio.io/mixer/template/sample/quota.QuotaHandlerBuilder",
-			hndlrName: "istio.io/mixer/template/sample/quota.QuotaHandler",
+			bldrName:  "istio.io/mixer/template/sample/quota.HandlerBuilder",
+			hndlrName: "istio.io/mixer/template/sample/quota.Handler",
 		},
 	} {
 		t.Run(tst.tmpl, func(t *testing.T) {
@@ -151,11 +151,11 @@ func TestGeneratedFields(t *testing.T) {
 			if SupportedTmplInfo[tst.tmpl].Variety != tst.variety {
 				t.Errorf("SupportedTmplInfo[%s].Variety = %v, want %v", tst.tmpl, SupportedTmplInfo[tst.tmpl].Variety, tst.variety)
 			}
-			if SupportedTmplInfo[tst.tmpl].BldrName != tst.bldrName {
-				t.Errorf("SupportedTmplInfo[%s].BldrName = %v, want %v", tst.tmpl, SupportedTmplInfo[tst.tmpl].BldrName, tst.bldrName)
+			if SupportedTmplInfo[tst.tmpl].BldrInterfaceName != tst.bldrName {
+				t.Errorf("SupportedTmplInfo[%s].BldrName = %v, want %v", tst.tmpl, SupportedTmplInfo[tst.tmpl].BldrInterfaceName, tst.bldrName)
 			}
-			if SupportedTmplInfo[tst.tmpl].HndlrName != tst.hndlrName {
-				t.Errorf("SupportedTmplInfo[%s].HndlrName = %v, want %v", tst.tmpl, SupportedTmplInfo[tst.tmpl].HndlrName, tst.hndlrName)
+			if SupportedTmplInfo[tst.tmpl].HndlrInterfaceName != tst.hndlrName {
+				t.Errorf("SupportedTmplInfo[%s].HndlrName = %v, want %v", tst.tmpl, SupportedTmplInfo[tst.tmpl].HndlrInterfaceName, tst.hndlrName)
 			}
 		})
 	}

@@ -42,39 +42,39 @@ func TestBasic(t *testing.T) {
 		t.Error("Didn't find all expected supported templates")
 	}
 
-	builder := info.CreateHandlerBuilderFn()
+	builder := info.CreateHandlerBuilder()
 	cfg := info.DefaultConfig
 
 	if err := info.ValidateConfig(cfg); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	checkNothingBuilder := builder.(checknothing.CheckNothingHandlerBuilder)
+	checkNothingBuilder := builder.(checknothing.HandlerBuilder)
 	if err := checkNothingBuilder.ConfigureCheckNothingHandler(nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	reportNothingBuilder := builder.(reportnothing.ReportNothingHandlerBuilder)
+	reportNothingBuilder := builder.(reportnothing.HandlerBuilder)
 	if err := reportNothingBuilder.ConfigureReportNothingHandler(nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	listEntryBuilder := builder.(listentry.ListEntryHandlerBuilder)
+	listEntryBuilder := builder.(listentry.HandlerBuilder)
 	if err := listEntryBuilder.ConfigureListEntryHandler(nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	logEntryBuilder := builder.(logentry.LogEntryHandlerBuilder)
+	logEntryBuilder := builder.(logentry.HandlerBuilder)
 	if err := logEntryBuilder.ConfigureLogEntryHandler(nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	metricBuilder := builder.(metric.MetricHandlerBuilder)
+	metricBuilder := builder.(metric.HandlerBuilder)
 	if err := metricBuilder.ConfigureMetricHandler(nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	quotaBuilder := builder.(quota.QuotaHandlerBuilder)
+	quotaBuilder := builder.(quota.HandlerBuilder)
 	if err := quotaBuilder.ConfigureQuotaHandler(nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
@@ -84,7 +84,7 @@ func TestBasic(t *testing.T) {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	checkNothingHandler := handler.(checknothing.CheckNothingHandler)
+	checkNothingHandler := handler.(checknothing.Handler)
 	result, caching, err := checkNothingHandler.HandleCheckNothing(nil)
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
@@ -102,12 +102,12 @@ func TestBasic(t *testing.T) {
 		t.Errorf("Got duration of %v, expecting at least 1000 seconds", caching.ValidDuration)
 	}
 
-	reportNothingHandler := handler.(reportnothing.ReportNothingHandler)
+	reportNothingHandler := handler.(reportnothing.Handler)
 	if err = reportNothingHandler.HandleReportNothing(nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	listEntryHandler := handler.(listentry.ListEntryHandler)
+	listEntryHandler := handler.(listentry.Handler)
 	result, caching, err = listEntryHandler.HandleListEntry(nil)
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
@@ -125,12 +125,12 @@ func TestBasic(t *testing.T) {
 		t.Errorf("Got duration of %v, expecting at least 1000 seconds", caching.ValidDuration)
 	}
 
-	logEntryHandler := handler.(logentry.LogEntryHandler)
+	logEntryHandler := handler.(logentry.Handler)
 	if err = logEntryHandler.HandleLogEntry(nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	metricHandler := handler.(metric.MetricHandler)
+	metricHandler := handler.(metric.Handler)
 	if err = metricHandler.HandleMetric(nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
@@ -139,7 +139,7 @@ func TestBasic(t *testing.T) {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	quotaHandler := handler.(quota.QuotaHandler)
+	quotaHandler := handler.(quota.Handler)
 	qr, caching, err := quotaHandler.HandleQuota(nil, adapter.QuotaRequestArgs{QuotaAmount: 100})
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)

@@ -71,7 +71,7 @@ func (m *quotaManager) NewQuotaExecutor(c *cpb.Combined, createAspect CreateAspe
 	ti, _ := m.repo.GetTemplateInfo(tmpl)
 	if b := ti.HandlerSupportsTemplate(v); !b {
 		return nil, fmt.Errorf("candler does not implement interface %s. "+
-			"Therefore, it cannot support template %v", ti.HndlrName, tmpl)
+			"Therefore, it cannot support template %v", ti.HndlrInterfaceName, tmpl)
 	}
 
 	return &quotaExecutor{tmpl, ti.ProcessQuota, v, insts}, nil

@@ -646,7 +646,7 @@ func TestConvertHandlerParamsErrors(t *testing.T) {
 	tTable := []struct {
 		params            interface{}
 		defaultCnfg       proto.Message
-		hndlrValidateCnfg adapter.ValidateConfig
+		hndlrValidateCnfg adapter.ValidateConfigFn
 		errorStr          string
 	}{
 		{
@@ -703,9 +703,9 @@ func TestValidateHandlers(t *testing.T) {
 			nil,
 			map[string]*adapter.BuilderInfo{
 				"fooHandlerAdapter": {
-					DefaultConfig:          &types.Empty{},
-					ValidateConfig:         func(c proto.Message) error { return nil },
-					CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return nil },
+					DefaultConfig:        &types.Empty{},
+					ValidateConfig:       func(c proto.Message) error { return nil },
+					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
 				},
 			},
 			nil, 0, "service.name == “*”", false, ConstGlobalConfig,
@@ -721,9 +721,9 @@ func TestValidateHandlers(t *testing.T) {
 			nil,
 			map[string]*adapter.BuilderInfo{
 				"fooHandlerAdapter": {
-					DefaultConfig:          &types.Empty{},
-					ValidateConfig:         func(c proto.Message) error { return nil },
-					CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return nil },
+					DefaultConfig:        &types.Empty{},
+					ValidateConfig:       func(c proto.Message) error { return nil },
+					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
 				},
 			},
 			nil, 1, "service.name == “*”", false, duplicateCnstrs,
@@ -771,10 +771,10 @@ handlers:
 		{
 			hbi: map[string]*adapter.BuilderInfo{
 				"fooHandlerAdapter": {
-					DefaultConfig:          &types.Empty{},
-					ValidateConfig:         func(c proto.Message) error { return nil },
-					CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return nil },
-					SupportedTemplates:     []string{testSupportedTemplate},
+					DefaultConfig:        &types.Empty{},
+					ValidateConfig:       func(c proto.Message) error { return nil },
+					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
+					SupportedTemplates:   []string{testSupportedTemplate},
 				},
 			},
 			cfg:     globalConfig,

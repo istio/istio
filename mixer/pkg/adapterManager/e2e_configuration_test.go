@@ -63,11 +63,11 @@ func (fakeHndlr) Close() error {
 }
 func GetFakeHndlrBuilderInfo() adapter.BuilderInfo {
 	return adapter.BuilderInfo{
-		Name:                   "fakeHandler",
-		Description:            "",
-		SupportedTemplates:     []string{sample_report.TemplateName},
-		CreateHandlerBuilderFn: func() adapter.HandlerBuilder { return fakeHndlrBldr{} },
-		DefaultConfig:          &types.Empty{},
+		Name:                 "fakeHandler",
+		Description:          "",
+		SupportedTemplates:   []string{sample_report.TemplateName},
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return fakeHndlrBldr{} },
+		DefaultConfig:        &types.Empty{},
 		ValidateConfig: func(msg proto.Message) error {
 			return nil
 		},
@@ -114,7 +114,7 @@ action_rules:
 
 instances:
 - name: fooInstance
-  template: "istio.mixer.adapter.sample.report.Sample"
+  template: "istio.mixer.adapter.sample.report"
   params:
     value: "2"
     int64Primitive: attr.int64 | 2
@@ -174,7 +174,7 @@ func testConfigFlow(t *testing.T, declarativeSrvcCnfgFilePath string, declaredGl
 		return
 	}
 
-	cnfgMgr := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, []adapter.GetBuilderInfoFn{GetFakeHndlrBuilderInfo},
+	cnfgMgr := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, []adapter.InfoFn{GetFakeHndlrBuilderInfo},
 		adapterMgr.SupportedKinds, template.NewRepository(sample.SupportedTmplInfo), store,
 		loopDelay,
 		identityAttribute, identityDomainAttribute)

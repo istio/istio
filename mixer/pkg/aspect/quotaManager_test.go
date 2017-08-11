@@ -36,7 +36,7 @@ type fakeQuotaHandler struct{}
 func (h *fakeQuotaHandler) Close() error { return nil }
 
 func TestNewQuotaManager(t *testing.T) {
-	r := template.NewRepository(map[string]template.Info{"foo": {BldrName: "fooProcBuilder"}})
+	r := template.NewRepository(map[string]template.Info{"foo": {BldrInterfaceName: "fooProcBuilder"}})
 	m := NewQuotaManager(r)
 	if !reflect.DeepEqual(m.(*quotaManager).repo, r) {
 		t.Errorf("m.repo = %v wanted %v", m.(*quotaManager).repo, r)
