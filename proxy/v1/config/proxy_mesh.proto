@@ -32,7 +32,7 @@ message ProxyMeshConfig {
 
   // Address of the Zipkin service (e.g. _zipkin:9411_).
   string zipkin_address = 4;
-  
+
   // IP Address and Port of a statsd UDP listener (e.g. _10.75.241.127:9125_).
   string statsd_udp_address = 12;
 
@@ -79,6 +79,12 @@ message ProxyMeshConfig {
   // left unspecified, in which case all Kubernetes namespaces are
   // observed.
   string application_namespace = 13;
+
+  // File address for the proxy access log (e.g. /dev/stdout)
+  string access_log_file = 14;
+
+  // File address for the proxy error and debug log (e.g. /dev/stderr)
+  string error_log_file = 15;
 
   // Class of ingress resources to be processed by Istio ingress
   // controller.  This corresponds to the value of
