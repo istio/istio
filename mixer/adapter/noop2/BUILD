@@ -23,5 +23,6 @@ go_test(
         "//pkg/adapter:go_default_library",
         "//pkg/config:go_default_library",
         "//pkg/template:go_default_library",
+        "//template/sample:go_default_library",
     ],
 )

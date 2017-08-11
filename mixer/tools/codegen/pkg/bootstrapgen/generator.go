@@ -20,6 +20,7 @@ import (
 	"go/format"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"text/template"
@@ -51,6 +52,11 @@ var primitiveToValueType = map[string]string{
 	"bool":    fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.BOOL.String(),
 	"int64":   fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.INT64.String(),
 	"float64": fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DOUBLE.String(),
+}
+
+type bootstrapModel struct {
+	PkgName        string
+	TemplateModels []*modelgen.Model
 }
 
 // Generate creates a Go file that will be build inside mixer framework. The generated file contains all the
@@ -108,8 +114,10 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 		models = append(models, model)
 	}
 
+	pkgName := getParentDirName(g.OutFilePath)
+
 	buf := new(bytes.Buffer)
-	err = tmpl.Execute(buf, models)
+	err = tmpl.Execute(buf, bootstrapModel{pkgName, models})
 	if err != nil {
 		return fmt.Errorf("cannot execute the template with the given data: %v", err)
 	}
@@ -136,6 +144,10 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 		return err
 	}
 	return nil
+}
+
+func getParentDirName(filePath string) string {
+	return filepath.Base(filepath.Dir(filePath))
 }
 
 func getFileDescSet(path string) (*descriptor.FileDescriptorSet, error) {

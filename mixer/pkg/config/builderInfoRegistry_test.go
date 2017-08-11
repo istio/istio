@@ -23,6 +23,7 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/template"
+	"istio.io/mixer/template/sample"
 	sample_report "istio.io/mixer/template/sample/report"
 )
 
@@ -67,7 +68,7 @@ func fakeValidateSupportedTmpl(hndlrBuilder adapter.HandlerBuilder, t string) (b
 func TestRegisterSampleProcessor(t *testing.T) {
 	testBuilderInfoInventory := TestBuilderInfoInventory{"foo"}
 	reg := newRegistry2([]adapter.GetBuilderInfoFn{testBuilderInfoInventory.getNewGetBuilderInfoFn},
-		template.NewRepository(template.SupportedTmplInfo).SupportsTemplate)
+		template.NewRepository(sample.SupportedTmplInfo).SupportsTemplate)
 
 	builderInfo, ok := reg.FindBuilderInfo(testBuilderInfoInventory.name)
 	if !ok {
@@ -192,7 +193,7 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 	}()
 
 	_ = newRegistry2([]adapter.GetBuilderInfoFn{
-		badHandlerBuilderBuilderInfo1, badHandlerBuilderBuilderInfo2}, template.NewRepository(template.SupportedTmplInfo).SupportsTemplate,
+		badHandlerBuilderBuilderInfo1, badHandlerBuilderBuilderInfo2}, template.NewRepository(sample.SupportedTmplInfo).SupportsTemplate,
 	)
 
 	t.Error("Should not reach this statement due to panic.")
