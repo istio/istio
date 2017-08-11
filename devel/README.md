@@ -350,7 +350,7 @@ For local development (building from source and running the major components) on
 
 Assuming you did (once):
 1. [Install bazel](https://bazel.build/versions/master/docs/install-ubuntu.html), note that as of this writing Bazel needs the `openjdk-8-jdk` VM (you might need to uninstall or get out of the way the `ibm-java80-jdk` that comes by default with GCE for instance)
-2. Install required packages: `sudo apt-get install make openjdk-8-jdk libtool m4 autoconf uuid-dev`
+2. Install required packages: `sudo apt-get install make openjdk-8-jdk libtool m4 autoconf uuid-dev cmake`
 3. Get the source trees
    ```bash
    mkdir github
