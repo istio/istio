@@ -21,11 +21,17 @@ import (
 	"strings"
 
 	proto "github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
 	tmpl "istio.io/mixer/pkg/adapter/template"
 )
 
 const fullProtoNameOfValueTypeEnum = "istio.mixer.v1.config.descriptor.ValueType"
+
+//var SupportedCustomMessageTypes = map[string]string{
+//	"google.protobuf.Timestamp": "",
+//	"google.protobuf.Duration":  "",
+//}
 
 type (
 	// Model represents the object used to code generate mixer artifacts.
@@ -42,26 +48,37 @@ type (
 
 		// Info for regenerated template proto
 		PackageName     string
-		TemplateMessage messageInfo
+		TemplateMessage MessageInfo
 
 		// Warnings/Errors in the Template proto file.
 		diags []diag
 	}
 
-	fieldInfo struct {
-		Name   string
-		Type   string
-		Number string // Only for proto fields
+	// FieldInfo contains the data about the field
+	FieldInfo struct {
+		ProtoName string
+		GoName    string
+		Number    string // Only for proto fields
+		Comment   string
 
-		GoName string
-		GoType string
-
-		Comment string
+		ProtoType TypeInfo
+		GoType    TypeInfo
 	}
 
-	messageInfo struct {
+	// TypeInfo contains the data about the field
+	TypeInfo struct {
+		Name        string
+		IsRepeated  bool
+		IsMap       bool
+		IsValueType bool
+		MapKey      *TypeInfo
+		MapValue    *TypeInfo
+	}
+
+	// MessageInfo contains the data about the type/message
+	MessageInfo struct {
 		Comment string
-		Fields  []fieldInfo
+		Fields  []FieldInfo
 	}
 )
 
@@ -107,7 +124,7 @@ func (m *Model) fillModel(templateProto *FileDescriptor, parser *FileDescriptorS
 
 func (m *Model) addTemplateMessage(parser *FileDescriptorSetParser, tmplProto *FileDescriptor, tmplDesc *Descriptor) {
 	m.TemplateMessage.Comment = tmplProto.getComment(tmplDesc.path)
-	m.TemplateMessage.Fields = make([]fieldInfo, 0)
+	m.TemplateMessage.Fields = make([]FieldInfo, 0)
 	for i, fieldDesc := range tmplDesc.Field {
 		fieldName := fieldDesc.GetName()
 
@@ -122,19 +139,19 @@ func (m *Model) addTemplateMessage(parser *FileDescriptorSetParser, tmplProto *F
 			continue
 		}
 
-		typename, err := parser.protoType(fieldDesc)
+		protoTypeInfo, goTypeInfo, err := getTypeName(parser, fieldDesc)
 		if err != nil {
 			m.addError(tmplDesc.file.GetName(),
 				tmplProto.getLineNumber(getPathForField(tmplDesc, i)),
 				err.Error())
 		}
-		m.TemplateMessage.Fields = append(m.TemplateMessage.Fields, fieldInfo{
-			Name:    fieldName,
-			GoName:  camelCase(fieldName),
-			GoType:  parser.goType(tmplDesc.DescriptorProto, fieldDesc),
-			Type:    typename,
-			Number:  strconv.Itoa(int(fieldDesc.GetNumber())),
-			Comment: tmplProto.getComment(getPathForField(tmplDesc, i)),
+		m.TemplateMessage.Fields = append(m.TemplateMessage.Fields, FieldInfo{
+			ProtoName: fieldName,
+			GoName:    camelCase(fieldName),
+			GoType:    goTypeInfo,
+			ProtoType: protoTypeInfo,
+			Number:    strconv.Itoa(int(fieldDesc.GetNumber())),
+			Comment:   tmplProto.getComment(getPathForField(tmplDesc, i)),
 		})
 	}
 }
@@ -243,4 +260,63 @@ func getRequiredTmplMsg(fdp *FileDescriptor) (*Descriptor, bool) {
 	}
 
 	return cstrDesc, cstrDesc != nil
+}
+
+func createInvalidTypeError(field string, err error) error {
+	errStr := fmt.Sprintf("unsupported type for field '%s'. Supported types are '%s'", field, supportedTypes)
+	if err == nil {
+		return fmt.Errorf(errStr)
+	}
+	return fmt.Errorf(errStr+": %v", err)
+
+}
+func getTypeName(g *FileDescriptorSetParser, field *descriptor.FieldDescriptorProto) (protoType TypeInfo, goType TypeInfo, err error) {
+	switch *field.Type {
+	case descriptor.FieldDescriptorProto_TYPE_STRING:
+		return TypeInfo{Name: "string"}, TypeInfo{Name: sSTRING}, nil
+	case descriptor.FieldDescriptorProto_TYPE_INT64:
+		return TypeInfo{Name: "int64"}, TypeInfo{Name: sINT64}, nil
+	case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
+		return TypeInfo{Name: "double"}, TypeInfo{Name: sFLOAT64}, nil
+	case descriptor.FieldDescriptorProto_TYPE_BOOL:
+		return TypeInfo{Name: "bool"}, TypeInfo{Name: sBOOL}, nil
+	case descriptor.FieldDescriptorProto_TYPE_ENUM:
+		if field.GetTypeName()[1:] == fullProtoNameOfValueTypeEnum {
+			desc := g.ObjectNamed(field.GetTypeName())
+			return TypeInfo{Name: field.GetTypeName()[1:], IsValueType: true}, TypeInfo{Name: g.TypeName(desc), IsValueType: true}, nil
+		}
+	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
+		desc := g.ObjectNamed(field.GetTypeName())
+		if d, ok := desc.(*Descriptor); ok && d.GetOptions().GetMapEntry() {
+			keyField, valField := d.Field[0], d.Field[1]
+
+			protoKeyType, goKeyType, err := getTypeName(g, keyField)
+			if err != nil {
+				return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), err)
+			}
+			protoValType, goValType, err := getTypeName(g, valField)
+			if err != nil {
+				return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), err)
+			}
+
+			if protoKeyType.Name == "string" {
+				return TypeInfo{
+						Name:     fmt.Sprintf("map<%s, %s>", protoKeyType.Name, protoValType.Name),
+						IsMap:    true,
+						MapKey:   &protoKeyType,
+						MapValue: &protoValType,
+					},
+					TypeInfo{
+						Name:     fmt.Sprintf("map[%s]%s", goKeyType.Name, goValType.Name),
+						IsMap:    true,
+						MapKey:   &goKeyType,
+						MapValue: &goValType,
+					},
+					nil
+			}
+		}
+	default:
+		return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), nil)
+	}
+	return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), nil)
 }

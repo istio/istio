@@ -15,10 +15,18 @@ message Template {
     multi line comment line 2
     */
     bool blacklist = 1;
+    int64 fieldInt64 = 2;
+    string fieldString = 3;
+    double fieldDouble = 4;
 
     /*single line block comment*/
-    istio.mixer.v1.config.descriptor.ValueType val = 2;
+    istio.mixer.v1.config.descriptor.ValueType val = 5;
 
     // single line comment
-    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 3;
+    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 6;
+
+    map<string, int64> dimensionsConstInt64Val = 7;
+    map<string, string> dimensionsConstStringVal = 8;
+    map<string, bool> dimensionsConstBoolVal = 9;
+    map<string, double> dimensionsConstDoubleVal = 10;
 }

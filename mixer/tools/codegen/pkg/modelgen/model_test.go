@@ -17,6 +17,7 @@ package modelgen
 import (
 	"fmt"
 	"io/ioutil"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -37,8 +38,8 @@ func TestErrorInTemplate(t *testing.T) {
 		{"testdata/reserved_field_in_template.descriptor_set", "proto:15: Template message must not contain the reserved filed name 'Name'"},
 		{"testdata/proto2_bad_syntax.descriptor_set", "Proto2BadSyntax.proto:3: Only proto3 template files are allowed."},
 		{"testdata/unsupported_field_type_message.descriptor_set", "UnsupportedFieldTypeMessage.proto:13: " +
-			"unsupported type for field 'o'. Supported types are 'string, int64, double, bool, " +
-			"istio.mixer.v1.config.descriptor.ValueType, map<string, istio.mixer.v1.config.descriptor.ValueType>'"},
+			"unsupported type for field 'o'. Supported types are 'string, int64, double, bool, istio.mixer.v1.config.descriptor.ValueType, map<string, " +
+			"istio.mixer.v1.config.descriptor.ValueType | string | int64 | double | bool>'"},
 		{"testdata/unsupported_field_type_primitive.descriptor_set", "unsupported type for field 'o'."},
 		{"testdata/unsupported_field_type_as_map.descriptor_set", "unsupported type for field 'o'."},
 		{"testdata/unsupported_field_type_enum.descriptor_set", "unsupported type for field 'o'."},
@@ -87,30 +88,119 @@ func TestTypeFields(t *testing.T) {
 	model, _ := createTestModel(t,
 		testFilename)
 
-	if len(model.TemplateMessage.Fields) != 3 {
-		t.Fatalf("len(CreateModel(%s).TypeMessage.Fields) = %v, wanted %d", testFilename, len(model.TemplateMessage.Fields), 3)
+	if len(model.TemplateMessage.Fields) != 10 {
+		t.Fatalf("len(CreateModel(%s).TypeMessage.Fields) = %v, wanted %d", testFilename, len(model.TemplateMessage.Fields), 10)
 	}
 	testField(t, model.TemplateMessage.Fields,
-		"blacklist", "bool", "Blacklist", "bool", "multi line comment line 2")
+		"blacklist", TypeInfo{Name: "bool"}, "Blacklist", TypeInfo{Name: "bool"}, "multi line comment line 2")
+
 	testField(t, model.TemplateMessage.Fields,
-		"val", "istio.mixer.v1.config.descriptor.ValueType", "Val",
-		"istio_mixer_v1_config_descriptor.ValueType", "single line block comment")
+		"fieldInt64", TypeInfo{Name: "int64"},
+		"FieldInt64", TypeInfo{Name: "int64"}, "")
+
 	testField(t, model.TemplateMessage.Fields,
-		"dimensions", "map<string, istio.mixer.v1.config.descriptor.ValueType>",
-		"Dimensions", "map[string]istio_mixer_v1_config_descriptor.ValueType", "single line comment")
+		"fieldString", TypeInfo{Name: "string"},
+		"FieldString", TypeInfo{Name: "string"}, "")
+
+	testField(t, model.TemplateMessage.Fields,
+		"fieldDouble", TypeInfo{Name: "double"},
+		"FieldDouble", TypeInfo{Name: "float64"}, "")
+
+	testField(t, model.TemplateMessage.Fields,
+		"val",
+		TypeInfo{Name: "istio.mixer.v1.config.descriptor.ValueType", IsValueType: true}, "Val",
+		TypeInfo{Name: "istio_mixer_v1_config_descriptor.ValueType", IsValueType: true}, "single line block comment")
+
+	testField(t, model.TemplateMessage.Fields,
+		"dimensions",
+		TypeInfo{Name: "map<string, istio.mixer.v1.config.descriptor.ValueType>",
+			IsMap:    true,
+			MapKey:   &TypeInfo{Name: "string"},
+			MapValue: &TypeInfo{Name: "istio.mixer.v1.config.descriptor.ValueType", IsValueType: true},
+		},
+		"Dimensions",
+		TypeInfo{
+			Name:     "map[string]istio_mixer_v1_config_descriptor.ValueType",
+			IsMap:    true,
+			MapKey:   &TypeInfo{Name: "string"},
+			MapValue: &TypeInfo{Name: "istio_mixer_v1_config_descriptor.ValueType", IsValueType: true},
+		}, "single line comment")
+
+	testField(t, model.TemplateMessage.Fields,
+		"dimensionsConstInt64Val",
+		TypeInfo{Name: "map<string, int64>",
+			IsMap:    true,
+			MapKey:   &TypeInfo{Name: "string"},
+			MapValue: &TypeInfo{Name: "int64"},
+		},
+		"DimensionsConstInt64Val",
+		TypeInfo{
+			Name:     "map[string]int64",
+			IsMap:    true,
+			MapKey:   &TypeInfo{Name: "string"},
+			MapValue: &TypeInfo{Name: "int64"},
+		}, "")
+
+	testField(t, model.TemplateMessage.Fields,
+		"dimensionsConstStringVal",
+		TypeInfo{Name: "map<string, string>",
+			IsMap:    true,
+			MapKey:   &TypeInfo{Name: "string"},
+			MapValue: &TypeInfo{Name: "string"},
+		},
+		"DimensionsConstStringVal",
+		TypeInfo{
+			Name:     "map[string]string",
+			IsMap:    true,
+			MapKey:   &TypeInfo{Name: "string"},
+			MapValue: &TypeInfo{Name: "string"},
+		}, "")
+
+	testField(t, model.TemplateMessage.Fields,
+		"dimensionsConstBoolVal",
+		TypeInfo{Name: "map<string, bool>",
+			IsMap:    true,
+			MapKey:   &TypeInfo{Name: "string"},
+			MapValue: &TypeInfo{Name: "bool"},
+		},
+		"DimensionsConstBoolVal",
+		TypeInfo{
+			Name:     "map[string]bool",
+			IsMap:    true,
+			MapKey:   &TypeInfo{Name: "string"},
+			MapValue: &TypeInfo{Name: "bool"},
+		}, "")
+
+	testField(t, model.TemplateMessage.Fields,
+		"dimensionsConstDoubleVal",
+		TypeInfo{Name: "map<string, double>",
+			IsMap:    true,
+			MapKey:   &TypeInfo{Name: "string"},
+			MapValue: &TypeInfo{Name: "double"},
+		},
+		"DimensionsConstDoubleVal",
+		TypeInfo{
+			Name:     "map[string]float64",
+			IsMap:    true,
+			MapKey:   &TypeInfo{Name: "string"},
+			MapValue: &TypeInfo{Name: "float64"},
+		}, "")
 }
 
-func testField(t *testing.T, fields []fieldInfo, protoFldName string, protoFldType string,
-	goFldName string, goFldType string, comment string) {
+func testField(t *testing.T, fields []FieldInfo, protoFldName string, protoFldType TypeInfo,
+	goFldName string, goFldType TypeInfo, comment string) {
 	testFilename := "testdata/simple_template.descriptor_set"
 	found := false
 	for _, cf := range fields {
-		if cf.Name == protoFldName {
+		if cf.ProtoName == protoFldName {
 			found = true
-			if cf.GoName != goFldName || cf.Type != protoFldType || cf.GoType != goFldType || !strings.Contains(cf.Comment, comment) {
-				t.Fatalf("Got CreateModel(%s).TemplateMessage.Fields[%s] = GoName:%s, Type:%s, GoType:%s, Comment:%s"+
-					"\nwanted GoName:%s, Type:%s, GoType:%s, comment: %s",
-					testFilename, protoFldName, cf.GoName, cf.Type, cf.GoType, cf.Comment, goFldName, protoFldType, goFldType, comment)
+			if cf.GoName != goFldName ||
+				!reflect.DeepEqual(cf.ProtoType, protoFldType) ||
+				!reflect.DeepEqual(cf.GoType, goFldType) ||
+				!strings.Contains(cf.Comment, comment) {
+				t.Fatalf("Got CreateModel(%s).TemplateMessage.Fields[%s] = GoName:%s, ProtoType:%v, GoType:%v, Comment:%s"+
+					"\nwanted GoName:%s, ProtoType:%v, GoType:%v, comment: %s",
+					testFilename, protoFldName, cf.GoName, cf.ProtoType, cf.GoType, cf.Comment, goFldName, protoFldType, goFldType, comment)
 			}
 		}
 	}

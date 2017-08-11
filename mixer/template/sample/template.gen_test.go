@@ -21,9 +21,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
@@ -587,19 +589,21 @@ func TestProcessReport(t *testing.T) {
 			name: "Simple",
 			insts: map[string]proto.Message{
 				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "2"}, BoolPrimitive: "true",
-					DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`},
+					DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`, Int64Map: map[string]string{"a": "1"}},
 				"bar": &sample_report.InstanceParam{Value: "2", Dimensions: map[string]string{"k": "3"}, BoolPrimitive: "true",
-					DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`},
+					DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`, Int64Map: map[string]string{"b": "1"}},
 			},
 			hdlr: &fakeReportHandler{},
 			wantInstance: []*sample_report.Instance{
 				{
-					Name:       "foo",
-					Value:      int64(1),
-					Dimensions: map[string]interface{}{"s": int64(2)}, BoolPrimitive: true,
+					Name:            "foo",
+					Value:           int64(1),
+					Dimensions:      map[string]interface{}{"s": int64(2)},
+					BoolPrimitive:   true,
 					DoublePrimitive: 1.2,
 					Int64Primitive:  54362,
 					StringPrimitive: "myString",
+					Int64Map:        map[string]int64{"a": int64(1)},
 				},
 				{
 					Name:            "bar",
@@ -609,6 +613,7 @@ func TestProcessReport(t *testing.T) {
 					DoublePrimitive: 1.2,
 					Int64Primitive:  54362,
 					StringPrimitive: "myString",
+					Int64Map:        map[string]int64{"b": int64(1)},
 				},
 			},
 		},
@@ -641,13 +646,19 @@ func TestProcessReport(t *testing.T) {
 			h := &tst.hdlr
 			ev, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 			s := SupportedTmplInfo[sample_report.TemplateName].ProcessReport(tst.insts, fakeBag{}, ev, *h)
-			v := (*h).(*fakeReportHandler).procCallInput.([]*sample_report.Instance)
+
 			if tst.wantError != "" {
 				if !strings.Contains(s.Message, tst.wantError) {
-					t.Errorf("SupportedTmplInfo[sample_report.TemplateName].ProcessReport(%v) got error = %s, want %s", tst.insts, s.Message, tst.wantError)
+					t.Errorf("ProcessReport got error = %s, want %s", s.Message, tst.wantError)
 				}
-			} else if !cmp(v, tst.wantInstance) {
-				t.Errorf("SupportedTmplInfo[sample_report.TemplateName].ProcessReport(%v) handler invoked value = %v, want %v", tst.insts, v, tst.wantInstance)
+			} else {
+				if s.Code != int32(rpc.OK) {
+					t.Errorf("ProcessReport got error status %v , want success", s)
+				}
+				v := (*h).(*fakeReportHandler).procCallInput.([]*sample_report.Instance)
+				if !cmp(v, tst.wantInstance) {
+					t.Errorf("ProcessReport handler invoked value = %v, want %v", spew.Sdump(v), spew.Sdump(tst.wantInstance))
+				}
 			}
 		})
 	}
@@ -658,13 +669,13 @@ func TestProcessCheck(t *testing.T) {
 		{
 			name: "Simple",
 			insts: map[string]proto.Message{
-				"foo": &sample_check.InstanceParam{CheckExpression: `"abcd asd"`},
-				"bar": &sample_check.InstanceParam{CheckExpression: `"pqrs asd"`},
+				"foo": &sample_check.InstanceParam{CheckExpression: `"abcd asd"`, StringMap: map[string]string{"a": `"aaa"`}},
+				"bar": &sample_check.InstanceParam{CheckExpression: `"pqrs asd"`, StringMap: map[string]string{"b": `"bbb"`}},
 			},
 			hdlr: &fakeCheckHandler{ret: true, retCache: adapter.CacheabilityInfo{ValidUseCount: 111}},
 			wantInstance: []*sample_check.Instance{
-				{Name: "foo", CheckExpression: "abcd asd"},
-				{Name: "bar", CheckExpression: "pqrs asd"},
+				{Name: "foo", CheckExpression: "abcd asd", StringMap: map[string]string{"a": "aaa"}},
+				{Name: "bar", CheckExpression: "pqrs asd", StringMap: map[string]string{"b": "bbb"}},
 			},
 			wantCache: adapter.CacheabilityInfo{ValidUseCount: 111},
 		},
@@ -703,10 +714,13 @@ func TestProcessCheck(t *testing.T) {
 					t.Errorf("SupportedTmplInfo[sample_check.TemplateName].CheckSample(%v) got error = %s, want %s", tst.insts, s.Message, tst.wantError)
 				}
 			} else {
+				if s.Code != int32(rpc.OK) {
+					t.Errorf("CheckSample got error status %v , want success", s)
+				}
 				v := (*h).(*fakeCheckHandler).procCallInput
 				if !cmp(v, tst.wantInstance) || !reflect.DeepEqual(tst.wantCache, cInfo) {
-					t.Errorf("SupportedTmplInfo[sample_check.TemplateName].CheckSample(%v) handler "+
-						"invoked value = %v,%v want %v,%v", tst.insts, v, cInfo, tst.wantInstance, tst.wantCache)
+					t.Errorf("CheckSample handler "+
+						"invoked value = %v,%v want %v,%v", spew.Sdump(v), cInfo, spew.Sdump(tst.wantInstance), tst.wantCache)
 				}
 			}
 		})
@@ -718,11 +732,11 @@ func TestProcessQuota(t *testing.T) {
 		{
 			name: "Simple",
 			insts: map[string]proto.Message{
-				"foo": &sample_quota.InstanceParam{Dimensions: map[string]string{"s": "2"}},
+				"foo": &sample_quota.InstanceParam{Dimensions: map[string]string{"s": "2"}, BoolMap: map[string]string{"a": "true"}},
 			},
 			hdlr: &fakeQuotaHandler{retQuotaRes: adapter.QuotaResult{Amount: 100}, retCache: adapter.CacheabilityInfo{ValidUseCount: 111}},
 
-			wantInstance:  &sample_quota.Instance{Name: "foo", Dimensions: map[string]interface{}{"s": int64(2)}},
+			wantInstance:  &sample_quota.Instance{Name: "foo", Dimensions: map[string]interface{}{"s": int64(2)}, BoolMap: map[string]bool{"a": true}},
 			wantCache:     adapter.CacheabilityInfo{ValidUseCount: 111},
 			wantQuotaResp: adapter.QuotaResult{Amount: 100},
 		},
@@ -761,10 +775,12 @@ func TestProcessQuota(t *testing.T) {
 					t.Errorf("SupportedTmplInfo[sample_quota.TemplateName].AllocQuota(%v) got error = %s, want %s", tst.insts, s.Message, tst.wantError)
 				}
 			} else {
+				if s.Code != int32(rpc.OK) {
+					t.Errorf("CheckSample got error status %v , want success", s)
+				}
 				v := (*h).(*fakeQuotaHandler).procCallInput
 				if !reflect.DeepEqual(v, tst.wantInstance) || !reflect.DeepEqual(tst.wantCache, cInfo) || !reflect.DeepEqual(tst.wantQuotaResp, qr) {
-					t.Errorf("SupportedTmplInfo[sample_quota.TemplateName].AllocQuota(%v) "+
-						"handler invoked value = %v,%v,%v  want %v,%v,%v", tst.insts, v, cInfo, qr, tst.wantInstance, tst.wantCache, tst.wantQuotaResp)
+					t.Errorf("ProcessQuota handler invoked value = %v,%v,%v  want %v,%v,%v", spew.Sdump(v), cInfo, qr, spew.Sdump(tst.wantInstance), tst.wantCache, tst.wantQuotaResp)
 				}
 			}
 		})

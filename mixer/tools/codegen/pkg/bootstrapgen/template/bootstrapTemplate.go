@@ -74,32 +74,44 @@ var (
 				infrdType := &{{.GoPackageName}}.Type{}
 
 				{{range .TemplateMessage.Fields}}
-					{{if isStringValueTypeMap .GoType}}
-						infrdType.{{.GoName}} = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.{{.GoName}}))
-						for k, v := range cpb.{{.GoName}} {
-							if infrdType.{{.GoName}}[k], err = tEvalFn(v); err != nil {
-								return nil, err
-							}
-						}
-					{{else}}
-						if cpb.{{.GoName}} == "" {
-							return nil, fmt.Errorf("expression for field {{.GoName}} cannot be empty")
-						}
-						{{if isPrimitiveValueType .GoType}}
-							if t, e := tEvalFn(cpb.{{.GoName}}); e != nil || t != {{primitiveToValueType .GoType}} {
-								if e != nil {
-								    return nil, fmt.Errorf("failed to evaluate expression for field {{.GoName}}: %v", e)
+					{{if containsValueType .GoType}}
+						{{if .GoType.IsMap}}
+							infrdType.{{.GoName}} = make(map[{{.GoType.MapKey.Name}}]istio_mixer_v1_config_descriptor.ValueType, len(cpb.{{.GoName}}))
+							for k, v := range cpb.{{.GoName}} {
+								if infrdType.{{.GoName}}[k], err = tEvalFn(v); err != nil {
+									return nil, err
 								}
-								return nil, fmt.Errorf("error type checking for field {{.GoName}}: Evaluated expression type %v want %v", t, {{primitiveToValueType .GoType}})
 							}
-						{{end}}
-						{{if isValueType .GoType}}
+						{{else}}
+							if cpb.{{.GoName}} == "" {
+								return nil, fmt.Errorf("expression for field {{.GoName}} cannot be empty")
+							}
 							if infrdType.{{.GoName}}, err = tEvalFn(cpb.{{.GoName}}); err != nil {
 								return nil, err
 							}
 						{{end}}
+					{{else}}
+						{{if .GoType.IsMap}}
+							for _, v := range cpb.{{.GoName}} {
+								if t, e := tEvalFn(v); e != nil || t != {{getValueType .GoType.MapValue}} {
+									if e != nil {
+										return nil, fmt.Errorf("failed to evaluate expression for field {{.GoName}}: %v", e)
+									}
+									return nil, fmt.Errorf("error type checking for field {{.GoName}}: Evaluated expression type %v want %v", t, {{getValueType .GoType.MapValue}})
+								}
+							}
+						{{else}}
+							if cpb.{{.GoName}} == "" {
+								return nil, fmt.Errorf("expression for field {{.GoName}} cannot be empty")
+							}
+							if t, e := tEvalFn(cpb.{{.GoName}}); e != nil || t != {{getValueType .GoType}} {
+								if e != nil {
+									return nil, fmt.Errorf("failed to evaluate expression for field {{.GoName}}: %v", e)
+								}
+								return nil, fmt.Errorf("error type checking for field {{.GoName}}: Evaluated expression type %v want %v", t, {{getValueType .GoType}})
+							}
+						{{end}}
 					{{end}}
-
 				{{end}}
 				_ = cpb
 				return infrdType, err
@@ -127,7 +139,7 @@ var (
 					}
 					for name, md := range castedInsts {
 						{{range .TemplateMessage.Fields}}
-							{{if isStringValueTypeMap .GoType}}
+							{{if .GoType.IsMap}}
 								{{.GoName}}, err := template.EvalAll(md.{{.GoName}}, attrs, mapper)
 							{{else}}
 								{{.GoName}}, err := mapper.Eval(md.{{.GoName}}, attrs)
@@ -141,10 +153,20 @@ var (
 						instances = append(instances, &{{.GoPackageName}}.Instance{
 							Name:       name,
 							{{range .TemplateMessage.Fields}}
-								{{if isPrimitiveValueType .GoType}}
-									{{.GoName}}: {{.GoName}}.({{.GoType}}),
-								{{else}}
+								{{if containsValueType .GoType}}
 									{{.GoName}}: {{.GoName}},
+								{{else}}
+									{{if .GoType.IsMap}}
+										{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
+											res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
+											for k, v := range m {
+												res[k] = v.({{.GoType.MapValue.Name}})
+											}
+											return res
+										}({{.GoName}}),
+									{{else}}
+										{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),
+									{{end}}
 								{{end}}
 							{{end}}
 						})
@@ -178,7 +200,7 @@ var (
 					}
 					for name, md := range castedInsts {
 						{{range .TemplateMessage.Fields}}
-							{{if isStringValueTypeMap .GoType}}
+							{{if .GoType.IsMap}}
 								{{.GoName}}, err := template.EvalAll(md.{{.GoName}}, attrs, mapper)
 							{{else}}
 								{{.GoName}}, err := mapper.Eval(md.{{.GoName}}, attrs)
@@ -187,14 +209,23 @@ var (
 									return status.WithError(err), adapter.CacheabilityInfo{}
 								}
 						{{end}}
-
 						instances = append(instances, &{{.GoPackageName}}.Instance{
 							Name:       name,
 							{{range .TemplateMessage.Fields}}
-								{{if isPrimitiveValueType .GoType}}
-									{{.GoName}}: {{.GoName}}.({{.GoType}}),
-								{{else}}
+								{{if containsValueType .GoType}}
 									{{.GoName}}: {{.GoName}},
+								{{else}}
+									{{if .GoType.IsMap}}
+										{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
+											res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
+											for k, v := range m {
+												res[k] = v.({{.GoType.MapValue.Name}})
+											}
+											return res
+										}({{.GoName}}),
+									{{else}}
+										{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),
+									{{end}}
 								{{end}}
 							{{end}}
 						})
@@ -218,7 +249,7 @@ var (
 				qma adapter.QuotaRequestArgs) (rpc.Status, adapter.CacheabilityInfo, adapter.QuotaResult) {
 					castedInst := inst.(*{{.GoPackageName}}.InstanceParam)
 					{{range .TemplateMessage.Fields}}
-						{{if isStringValueTypeMap .GoType}}
+						{{if .GoType.IsMap}}
 							{{.GoName}}, err := template.EvalAll(castedInst.{{.GoName}}, attrs, mapper)
 						{{else}}
 							{{.GoName}}, err := mapper.Eval(castedInst.{{.GoName}}, attrs)
@@ -233,10 +264,20 @@ var (
 					instance := &{{.GoPackageName}}.Instance{
 						Name:       quotaName,
 						{{range .TemplateMessage.Fields}}
-							{{if isPrimitiveValueType .GoType}}
-								{{.GoName}}: {{.GoName}}.({{.GoType}}),
-							{{else}}
+							{{if containsValueType .GoType}}
 								{{.GoName}}: {{.GoName}},
+							{{else}}
+								{{if .GoType.IsMap}}
+									{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
+										res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
+										for k, v := range m {
+											res[k] = v.({{.GoType.MapValue.Name}})
+										}
+										return res
+									}({{.GoName}}),
+								{{else}}
+									{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),
+								{{end}}
 							{{end}}
 						{{end}}
 					}

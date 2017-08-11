@@ -135,7 +135,6 @@ var (
 				if cpb.Value == "" {
 					return nil, fmt.Errorf("expression for field Value cannot be empty")
 				}
-
 				if t, e := tEvalFn(cpb.Value); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
 					if e != nil {
 						return nil, fmt.Errorf("failed to evaluate expression for field Value: %v", e)
@@ -227,7 +226,6 @@ var (
 				if cpb.Severity == "" {
 					return nil, fmt.Errorf("expression for field Severity cannot be empty")
 				}
-
 				if t, e := tEvalFn(cpb.Severity); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
 					if e != nil {
 						return nil, fmt.Errorf("failed to evaluate expression for field Severity: %v", e)
@@ -321,7 +319,6 @@ var (
 				if cpb.Value == "" {
 					return nil, fmt.Errorf("expression for field Value cannot be empty")
 				}
-
 				if infrdType.Value, err = tEvalFn(cpb.Value); err != nil {
 					return nil, err
 				}

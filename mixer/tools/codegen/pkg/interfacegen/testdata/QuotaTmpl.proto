@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package istio.mixer.adapter.sample.quota;
+package istio.mixer.adapter.quota;
 
 import "mixer/v1/config/descriptor/value_type.proto";
 import "pkg/adapter/template/TemplateExtensions.proto";
@@ -8,7 +8,20 @@ import "pkg/adapter/template/TemplateExtensions.proto";
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_QUOTA;
 option (istio.mixer.v1.config.template.template_name) = "Quota";
 
+// template ...
 message Template {
+    // dimensions are ...
     map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 1;
-    map<string, bool> boolMap = 2;
+
+    int64 int64Primitive = 3;
+
+    bool boolPrimitive = 4;
+
+    double doublePrimitive = 5;
+
+    string stringPrimitive = 6;
+
+    istio.mixer.v1.config.descriptor.ValueType anotherValueType = 7;
+
+    map<string, int64> dimensionsFixedInt64ValueDType = 8;
 }

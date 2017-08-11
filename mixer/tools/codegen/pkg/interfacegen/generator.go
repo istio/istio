@@ -39,24 +39,30 @@ type Generator struct {
 }
 
 const (
-	fullProtoNameOfValueTypeEnum = "istio.mixer.v1.config.descriptor.ValueType"
-	fullGoNameOfValueTypeEnum    = "istio_mixer_v1_config_descriptor.ValueType"
+	fullGoNameOfValueTypeEnum = "istio_mixer_v1_config_descriptor.ValueType"
 )
 
-var primitiveProtoTypesHavingValueType = map[string]bool{
-	"string": true,
-	"bool":   true,
-	"int64":  true,
-	"double": true,
+func toProtoMap(k string, v string) string {
+	return fmt.Sprintf("map<%s, %s>", k, v)
+}
+
+func stringify(protoType modelgen.TypeInfo) string {
+	if protoType.IsMap {
+		return toProtoMap(stringify(*protoType.MapKey), stringify(*protoType.MapValue))
+	}
+	return "string"
+}
+
+func containsValueType(ti modelgen.TypeInfo) bool {
+	return ti.IsValueType || ti.IsMap && ti.MapValue.IsValueType
 }
 
 // Generate creates a Go interfaces for adapters to implement for a given Template.
 func (g *Generator) Generate(fdsFile string) error {
-
 	intfaceTmpl, err := template.New("ProcInterface").Funcs(
 		template.FuncMap{
-			"replaceGoValueTypeToInterface": func(typeName string) string {
-				return strings.Replace(typeName, fullGoNameOfValueTypeEnum, "interface{}", 1)
+			"replaceGoValueTypeToInterface": func(typeInfo modelgen.TypeInfo) string {
+				return strings.Replace(typeInfo.Name, fullGoNameOfValueTypeEnum, "interface{}", 1)
 			},
 		}).Parse(tmpl.InterfaceTemplate)
 	if err != nil {
@@ -86,7 +92,7 @@ func (g *Generator) Generate(fdsFile string) error {
 
 	fmtd, err := format.Source(intfaceBuf.Bytes())
 	if err != nil {
-		return fmt.Errorf("could not format generated code: %v", err)
+		return fmt.Errorf("could not format generated code: %v : %s", err, string(intfaceBuf.Bytes()))
 	}
 
 	imports.LocalPrefix = "istio.io"
@@ -98,19 +104,8 @@ func (g *Generator) Generate(fdsFile string) error {
 
 	augmentedTemplateTmpl, err := template.New("AugmentedTemplateTmpl").Funcs(
 		template.FuncMap{
-			"hasValueType": func(typeName string) bool {
-				return strings.Contains(typeName, fullProtoNameOfValueTypeEnum)
-			},
-			"stringify": func(protoTypeName string) string {
-				if strings.Contains(protoTypeName, fullProtoNameOfValueTypeEnum) {
-					// replace map<string, ValueType> -> map<string, string>
-					return strings.Replace(protoTypeName, fullProtoNameOfValueTypeEnum, "string", 1)
-				}
-				if _, ok := primitiveProtoTypesHavingValueType[protoTypeName]; ok {
-					return "string"
-				}
-				return protoTypeName
-			},
+			"containsValueType": containsValueType,
+			"stringify":         stringify,
 		}).Parse(tmpl.RevisedTemplateTmpl)
 	if err != nil {
 		return fmt.Errorf("cannot load template: %v", err)
