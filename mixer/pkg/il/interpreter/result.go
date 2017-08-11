@@ -19,6 +19,8 @@ import (
 	"math"
 	"time"
 
+	"github.com/golang/glog"
+
 	"istio.io/mixer/pkg/il"
 )
 
@@ -36,9 +38,9 @@ func (r Result) Type() il.Type {
 	return r.t
 }
 
-// Bool returns the value contained in the result as a bool. If the underlying result is not bool,
+// AsBool returns the value contained in the result as a bool. If the underlying result is not bool,
 // it panics.
-func (r Result) Bool() bool {
+func (r Result) AsBool() bool {
 	if r.t != il.Bool {
 		panic("interpreter.Result: result is not bool")
 	}
@@ -48,19 +50,20 @@ func (r Result) Bool() bool {
 	return true
 }
 
-// String returns the value contained in the result as a string. Unlike other methods, it does not
+// AsString returns the value contained in the result as a string. Unlike other methods, it does not
 // panic if the underlying value is not string and returns the string version of the data.
-func (r Result) String() string {
+func (r Result) AsString() string {
 	if r.t != il.String {
-		return fmt.Sprintf("%v", r.Interface())
+		glog.Infof("result.AsString converting to string from type: '%v'", r.t)
+		return fmt.Sprintf("%v", r.AsInterface())
 	}
 
 	return r.vs
 }
 
-// Integer returns the value contained in the result as an integer. If the underlying result is not
+// AsInteger returns the value contained in the result as an integer. If the underlying result is not
 // integer, it panics.
-func (r Result) Integer() int64 {
+func (r Result) AsInteger() int64 {
 	if r.t != il.Integer {
 		panic("interpreter.Result: result is not integer")
 	}
@@ -68,9 +71,9 @@ func (r Result) Integer() int64 {
 	return int64(r.v1) + int64(r.v2)<<32
 }
 
-// Double returns the value contained in the result as a double. If the underlying result is not
+// AsDouble returns the value contained in the result as a double. If the underlying result is not
 // double, it panics.
-func (r Result) Double() float64 {
+func (r Result) AsDouble() float64 {
 	if r.t != il.Double {
 		panic("interpreter.Result: result is not double")
 	}
@@ -80,9 +83,9 @@ func (r Result) Double() float64 {
 	return math.Float64frombits(t)
 }
 
-// Duration returns the value contained in the result as time.Duration. If the underlying result is
+// AsDuration returns the value contained in the result as time.Duration. If the underlying result is
 // not a duration, it panics.
-func (r Result) Duration() time.Duration {
+func (r Result) AsDuration() time.Duration {
 	if r.t != il.Duration {
 		panic("interpreter.Result: result is not Duration")
 	}
@@ -90,29 +93,30 @@ func (r Result) Duration() time.Duration {
 	return time.Duration(int64(r.v1) + int64(r.v2)<<32)
 }
 
-// Interface returns the value contained in the result as an interface{}.
-func (r Result) Interface() interface{} {
+// AsInterface returns the value contained in the result as an interface{}.
+func (r Result) AsInterface() interface{} {
 	switch r.t {
 	case il.Bool:
-		return r.Bool()
+		return r.AsBool()
 	case il.String:
-		s := r.String()
+		s := r.AsString()
 		// Align with the mechanics of the old expr evaluator.
 		if s == "" {
 			return nil
 		}
 		return s
 	case il.Integer:
-		return r.Integer()
+		return r.AsInteger()
 	case il.Double:
-		return r.Double()
+		return r.AsDouble()
 	case il.Duration:
-		return r.Duration()
+		return r.AsDuration()
 	case il.Void:
 		return nil
 	case il.Interface:
 		return r.vi
 	default:
-		panic("interpreter.Interface: unrecognized type encountered.")
+		glog.Warningf("interpreter.Result: Unknown type encountered. Returning nil. type: '%v'", r.t)
+		return nil
 	}
 }

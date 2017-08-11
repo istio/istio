@@ -50,9 +50,10 @@ func (e *IL) Eval(expr string, attrs attribute.Bag) (interface{}, error) {
 	var result interpreter.Result
 	var err error
 	if result, err = e.evalResult(expr, attrs); err != nil {
+		glog.Infof("evaluator.Eval failed expr:'%s', err: %v", expr, err)
 		return nil, err
 	}
-	return result.Interface(), nil
+	return result.AsInterface(), nil
 }
 
 // EvalString evaluates expr using the attr attribute bag and returns the result as string.
@@ -60,9 +61,10 @@ func (e *IL) EvalString(expr string, attrs attribute.Bag) (string, error) {
 	var result interpreter.Result
 	var err error
 	if result, err = e.evalResult(expr, attrs); err != nil {
+		glog.Infof("evaluator.EvalString failed expr:'%s', err: %v", expr, err)
 		return "", err
 	}
-	return result.String(), nil
+	return result.AsString(), nil
 }
 
 // EvalPredicate evaluates expr using the attr attribute bag and returns the result as bool.
@@ -70,9 +72,10 @@ func (e *IL) EvalPredicate(expr string, attrs attribute.Bag) (bool, error) {
 	var result interpreter.Result
 	var err error
 	if result, err = e.evalResult(expr, attrs); err != nil {
+		glog.Infof("evaluator.EvalPredicate failed expr:'%s', err: %v", expr, err)
 		return false, err
 	}
-	return result.Bool(), nil
+	return result.AsBool(), nil
 }
 
 // EvalType evaluates expr using the attr attribute bag and returns the type of the result.
@@ -80,6 +83,7 @@ func (e *IL) EvalType(expr string, finder expr.AttributeDescriptorFinder) (pb.Va
 	var entry cacheEntry
 	var err error
 	if entry, err = e.getOrCreateCacheEntry(expr); err != nil {
+		glog.Infof("evaluator.EvalType failed expr:'%s', err: %v", expr, err)
 		return pb.VALUE_TYPE_UNSPECIFIED, err
 	}
 
@@ -107,6 +111,7 @@ func (e *IL) evalResult(expr string, attrs attribute.Bag) (interpreter.Result, e
 	var entry cacheEntry
 	var err error
 	if entry, err = e.getOrCreateCacheEntry(expr); err != nil {
+		glog.Infof("evaluator.evalResult failed expr:'%s', err: %v", expr, err)
 		return interpreter.Result{}, err
 	}
 
@@ -127,6 +132,7 @@ func (e *IL) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 	var err error
 	var result compiler.Result
 	if result, err = compiler.Compile(expr, e.finder); err != nil {
+		glog.Infof("evaluator.getOrCreateCacheEntry failed expr:'%s', err: %v", expr, err)
 		return cacheEntry{}, err
 	}
 

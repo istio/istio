@@ -77,7 +77,7 @@ type serverArgs struct {
 	configFetchIntervalSec        uint
 	configIdentityAttribute       string
 	configIdentityAttributeDomain string
-	useIL                         bool
+	useAst                        bool
 
 	// @deprecated
 	serviceConfigFile string
@@ -153,8 +153,8 @@ func serverCmd(tmplRepo template.Repository, printf, fatalf shared.FormatFn) *co
 		fatalf("unable to hide: %v", err)
 	}
 
-	serverCmd.PersistentFlags().BoolVarP(&sa.useIL, "useIL", "", false,
-		"Use Mixer IL to evaluate configuration against the adapters.")
+	serverCmd.PersistentFlags().BoolVarP(&sa.useAst, "useAst", "", false,
+		"Use AST instead of Mixer IL to evaluate configuration against the adapters.")
 
 	// serviceConfig and gobalConfig are for compatibility only
 	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "", "Combined Service Config")
@@ -204,18 +204,18 @@ func runServer(sa *serverArgs, tmplRepo template.Repository, printf, fatalf shar
 
 	var ilEval *evaluator.IL
 	var eval expr.Evaluator
-	if sa.useIL {
-		ilEval, err = evaluator.NewILEvaluator(expressionEvalCacheSize)
-		if err != nil {
-			fatalf("Failed to create IL expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
-		}
-		eval = ilEval
-	} else {
+	if sa.useAst {
 		// get aspect registry with proper aspect --> api mappings
 		eval, err = expr.NewCEXLEvaluator(expressionEvalCacheSize)
 		if err != nil {
 			fatalf("Failed to create CEXL expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
 		}
+	} else {
+		ilEval, err = evaluator.NewILEvaluator(expressionEvalCacheSize)
+		if err != nil {
+			fatalf("Failed to create IL expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
+		}
+		eval = ilEval
 	}
 	store := configStore(sa.configStoreURL, sa.serviceConfigFile, sa.globalConfigFile, printf, fatalf)
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
@@ -323,7 +323,7 @@ func runServer(sa *serverArgs, tmplRepo template.Repository, printf, fatalf shar
 	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
 
 	configManager.Register(adapterMgr)
-	if sa.useIL {
+	if !sa.useAst {
 		configManager.Register(ilEval)
 	}
 	configManager.Start()

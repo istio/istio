@@ -59,8 +59,8 @@ func TestInterpreter_EvalFnID(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if r.Interface() != false {
-		t.Fatalf("unexpected output from program: '%v'", r.Interface())
+	if r.AsInterface() != false {
+		t.Fatalf("unexpected output from program: '%v'", r.AsInterface())
 	}
 }
 
@@ -2233,7 +2233,7 @@ func runTestProgram(t *testing.T, p *il.Program, test test) {
 		}
 
 		r := s.Result()
-		actual := r.Interface()
+		actual := r.AsInterface()
 		if actual != test.expected {
 			t.Fatalf("(stepper) result is not as expected: A:'%+v' != E:'%+v'", actual, test.expected)
 		}
@@ -2255,7 +2255,7 @@ func runTestProgram(t *testing.T, p *il.Program, test test) {
 			t.Fatalf("expected error not found: '%+v'", test.err)
 		}
 
-		actual := r.Interface()
+		actual := r.AsInterface()
 		if actual != test.expected {
 			t.Fatalf("(stepper) result is not as expected: A:'%+v' != E:'%+v'", actual, test.expected)
 		}
