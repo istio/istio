@@ -1,6 +1,6 @@
 # Istio Authentication
 
-[![Build Status](https://testing.istio.io/buildStatus/icon?job=auth/postsubmit)](https://testing.istio.io/job/auth/)
+[![Go Report Card](https://goreportcard.com/badge/github.com/istio/auth)](https://goreportcard.com/report/github.com/istio/auth)
 [![codecov](https://codecov.io/gh/istio/auth/branch/master/graph/badge.svg)](https://codecov.io/gh/istio/auth)
 
 ## Overview
