@@ -308,142 +308,17 @@ func (g *FileDescriptorSetParser) fail(msgs ...string) {
 }
 
 const (
-	sINT64     = "int64"
-	sFLOAT64   = "float64"
-	sINT32     = "int32"
-	sFLOAT32   = "float32"
-	sBOOL      = "bool"
-	sSTRING    = "string"
-	sUINT64    = "uint64"
-	sUINT32    = "uint32"
-	sBYTEARRAY = "[]byte"
+	sINT64   = "int64"
+	sFLOAT64 = "float64"
+	sBOOL    = "bool"
+	sSTRING  = "string"
 )
-
-// goType returns a Go type name for a FieldDescriptorProto.
-func (g *FileDescriptorSetParser) goType(message *descriptor.DescriptorProto, field *descriptor.FieldDescriptorProto) (typ string) {
-	switch *field.Type {
-	case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
-		typ = sFLOAT64
-	case descriptor.FieldDescriptorProto_TYPE_FLOAT:
-		typ = sFLOAT32
-	case descriptor.FieldDescriptorProto_TYPE_INT64:
-		typ = sINT64
-	case descriptor.FieldDescriptorProto_TYPE_UINT64:
-		typ = sUINT64
-	case descriptor.FieldDescriptorProto_TYPE_INT32:
-		typ = sINT32
-	case descriptor.FieldDescriptorProto_TYPE_UINT32:
-		typ = sUINT32
-	case descriptor.FieldDescriptorProto_TYPE_FIXED64:
-		typ = sUINT64
-	case descriptor.FieldDescriptorProto_TYPE_FIXED32:
-		typ = sUINT32
-	case descriptor.FieldDescriptorProto_TYPE_BOOL:
-		typ = sBOOL
-	case descriptor.FieldDescriptorProto_TYPE_STRING:
-		typ = sSTRING
-	case descriptor.FieldDescriptorProto_TYPE_GROUP:
-		// TODO : What needs to be done in this case?
-		g.fail(fmt.Sprintf("unsupported field type %s for field %s", descriptor.FieldDescriptorProto_TYPE_GROUP.String(), field.GetName()))
-	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-		desc := g.ObjectNamed(field.GetTypeName())
-		typ = "*" + g.TypeName(desc)
-
-		if d, ok := desc.(*Descriptor); ok && d.GetOptions().GetMapEntry() {
-			keyField, valField := d.Field[0], d.Field[1]
-			keyType := g.goType(d.DescriptorProto, keyField)
-			valType := g.goType(d.DescriptorProto, valField)
-
-			keyType = strings.TrimPrefix(keyType, "*")
-			switch *valField.Type {
-			case descriptor.FieldDescriptorProto_TYPE_ENUM:
-				valType = strings.TrimPrefix(valType, "*")
-
-			case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-
-			default:
-				valType = strings.TrimPrefix(valType, "*")
-			}
-
-			typ = fmt.Sprintf("map[%s]%s", keyType, valType)
-			return
-		}
-	case descriptor.FieldDescriptorProto_TYPE_BYTES:
-		typ = sBYTEARRAY
-	case descriptor.FieldDescriptorProto_TYPE_ENUM:
-		desc := g.ObjectNamed(field.GetTypeName())
-		typ = g.TypeName(desc)
-	case descriptor.FieldDescriptorProto_TYPE_SFIXED32:
-		typ = sINT32
-	case descriptor.FieldDescriptorProto_TYPE_SFIXED64:
-		typ = sINT64
-	case descriptor.FieldDescriptorProto_TYPE_SINT32:
-		typ = sINT32
-	case descriptor.FieldDescriptorProto_TYPE_SINT64:
-		typ = sINT64
-	default:
-		g.fail("unknown type for", field.GetName())
-
-	}
-	if isRepeated(field) {
-		typ = "[]" + typ
-	} else if message != nil {
-		return
-	} else if field.OneofIndex != nil && message != nil {
-		g.fail("oneof not supported ", field.GetName())
-		return
-	} else if needsStar(*field.Type) {
-		typ = "*" + typ
-	}
-	return
-}
 
 // protoType returns a Proto type name for a Field's DescriptorProto.
 // We only support primitives that can be represented as ValueTypes,ValueType itself, or map<string, ValueType>.
-var supportedTypes = "string, int64, double, bool, " + fullProtoNameOfValueTypeEnum + ", " + fmt.Sprintf("map<string, %s>", fullProtoNameOfValueTypeEnum)
-
-func (g *FileDescriptorSetParser) protoType(field *descriptor.FieldDescriptorProto) (typ string, err error) {
-	switch *field.Type {
-	case descriptor.FieldDescriptorProto_TYPE_STRING:
-		typ = "string"
-	case descriptor.FieldDescriptorProto_TYPE_INT64:
-		typ = "int64"
-	case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
-		typ = "double"
-	case descriptor.FieldDescriptorProto_TYPE_BOOL:
-		typ = "bool"
-	case descriptor.FieldDescriptorProto_TYPE_ENUM:
-		typ = field.GetTypeName()[1:]
-		if typ != fullProtoNameOfValueTypeEnum {
-			return "", fmt.Errorf("unsupported type for field '%s'. Supported types are '%s'", field.GetName(), supportedTypes)
-		}
-	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-		desc := g.ObjectNamed(field.GetTypeName())
-		if d, ok := desc.(*Descriptor); ok && d.GetOptions().GetMapEntry() {
-			keyField, valField := d.Field[0], d.Field[1]
-
-			keyType, err := g.protoType(keyField)
-			if err != nil {
-				return "", err
-			}
-			valType, err := g.protoType(valField)
-			if err != nil {
-				return "", err
-			}
-
-			if keyType != "string" || valType != fullProtoNameOfValueTypeEnum {
-				return "", fmt.Errorf("unsupported type for field '%s'. Supported types are '%s'", field.GetName(), supportedTypes)
-			}
-
-			typ = fmt.Sprintf("map<%s, %s>", keyType, valType)
-			return typ, nil
-		}
-		return "", fmt.Errorf("unsupported type for field '%s'. Supported types are '%s'", field.GetName(), supportedTypes)
-	default:
-		return "", fmt.Errorf("unsupported type for field '%s'. Supported types are '%s'", field.GetName(), supportedTypes)
-	}
-	return typ, nil
-}
+var supportedPrimitives = []string{"string", "int64", "double", "bool"}
+var supportedTypes = strings.Join(supportedPrimitives, ", ") + ", " + fullProtoNameOfValueTypeEnum + ", " +
+	fmt.Sprintf("map<string, %s | %s>", fullProtoNameOfValueTypeEnum, strings.Join(supportedPrimitives, " | "))
 
 // TypeName returns a full name for the underlying Object type.
 func (g *FileDescriptorSetParser) TypeName(obj Object) string {
@@ -549,22 +424,6 @@ func (c *common) File() *descriptor.FileDescriptorProto { return c.file }
 // helper methods
 
 func dottedSlice(elem []string) string { return strings.Join(elem, ".") }
-
-func isRepeated(field *descriptor.FieldDescriptorProto) bool {
-	return field.Label != nil && *field.Label == descriptor.FieldDescriptorProto_LABEL_REPEATED
-}
-
-func needsStar(typ descriptor.FieldDescriptorProto_Type) bool {
-	switch typ {
-	case descriptor.FieldDescriptorProto_TYPE_GROUP:
-		return false
-	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-		return false
-	case descriptor.FieldDescriptorProto_TYPE_BYTES:
-		return false
-	}
-	return true
-}
 
 // Is c an ASCII lower-case letter?
 func isASCIILower(c byte) bool {

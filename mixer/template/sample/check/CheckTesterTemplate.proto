@@ -10,4 +10,5 @@ option (istio.mixer.v1.config.template.template_name) = "Sample";
 
 message Template {
     string check_expression = 1;
+    map<string, string> stringMap = 2;
 }

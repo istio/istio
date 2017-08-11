@@ -39,18 +39,15 @@ func TestGenerator_Generate(t *testing.T) {
 	tests := []struct {
 		name, descriptor, wantIntFace, wantProto string
 	}{
-		{"Metrics", "testdata/metric_template_library_proto.descriptor_set",
-			"testdata/MetricTemplateHandlerInterface.golden.go",
-			"testdata/MetricTemplateGenerated.golden.proto"},
-		{"Quota", "testdata/quota_template_library_proto.descriptor_set",
-			"testdata/QuotaTemplateHandlerInterface.golden.go",
-			"testdata/QuotaTemplateGenerated.golden.proto"},
-		{"Logs", "testdata/log_template_library_proto.descriptor_set",
-			"testdata/LogTemplateHandlerInterface.golden.go",
-			"testdata/LogTemplateGenerated.golden.proto"},
-		{"Lists", "testdata/list_template_library_proto.descriptor_set",
-			"testdata/ListTemplateHandlerInterface.golden.go",
-			"testdata/ListTemplateGenerated.golden.proto"},
+		{"Report", "testdata/report_proto.descriptor_set",
+			"testdata/ReportTmpl.golden.go",
+			"testdata/ReportTmpl.golden.proto"},
+		{"Quota", "testdata/quota_proto.descriptor_set",
+			"testdata/QuotaTmpl.golden.go",
+			"testdata/QuotaTmpl.golden.proto"},
+		{"Check", "testdata/check_proto.descriptor_set",
+			"testdata/CheckTmpl.golden.go",
+			"testdata/CheckTmpl.golden.proto"},
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {

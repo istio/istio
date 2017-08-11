@@ -4,37 +4,37 @@ load("@org_pubref_rules_protobuf//protobuf:rules.bzl", "proto_compile")
 load("//tools/codegen:generate.bzl", "mixer_proto_library")
 
 mixer_proto_library(
-    name = "list_template_library",
+    name = "check",
     testonly = True,
-    protos = ["ListTemplate.proto"],
+    protos = ["CheckTmpl.proto"],
 )
 
 mixer_proto_library(
-    name = "log_template_library",
+    name = "report2",
     testonly = True,
-    protos = ["LogTemplate.proto"],
+    protos = ["Report2Tmpl.proto"],
 )
 
 mixer_proto_library(
-    name = "metric_template_library",
+    name = "report1",
     testonly = True,
-    protos = ["MetricTemplate.proto"],
+    protos = ["Report1Tmpl.proto"],
 )
 
 mixer_proto_library(
-    name = "quota_template_library",
+    name = "quota",
     testonly = True,
-    protos = ["QuotaTemplate.proto"],
+    protos = ["QuotaTmpl.proto"],
 )
 
 filegroup(
     name = "descriptors",
     testonly = True,
     srcs = [
-        "list_template_library_proto.descriptor_set",
-        "log_template_library_proto.descriptor_set",
-        "metric_template_library_proto.descriptor_set",
-        "quota_template_library_proto.descriptor_set",
+        "check_proto.descriptor_set",
+        "quota_proto.descriptor_set",
+        "report1_proto.descriptor_set",
+        "report2_proto.descriptor_set",
     ],
 )
 

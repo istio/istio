@@ -1,15 +1,20 @@
+// COPY OF https://github.com/istio/api/blob/master/mixer/v1/config/descriptor/log_entry_descriptor.proto
+
 syntax = "proto3";
 
-package istio.mixer.adapter.sample.report;
+package istio.mixer.template.log;
 
 import "mixer/v1/config/descriptor/value_type.proto";
 import "pkg/adapter/template/TemplateExtensions.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
-option (istio.mixer.v1.config.template.template_name) = "Sample";
+option (istio.mixer.v1.config.template.template_name) = "Log";
 
+// Defines the format of a single log entry.
 message Template {
+    // value is ...
     istio.mixer.v1.config.descriptor.ValueType value = 1;
+    // dimensions are ...
     map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
 
     int64 int64Primitive = 3;
@@ -20,5 +25,7 @@ message Template {
 
     string stringPrimitive = 6;
 
-    map<string, int64> int64Map = 7;
+    istio.mixer.v1.config.descriptor.ValueType anotherValueType = 7;
+
+    map<string, int64> dimensionsFixedInt64ValueDType = 8;
 }

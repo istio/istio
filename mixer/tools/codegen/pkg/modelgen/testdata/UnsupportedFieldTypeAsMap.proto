@@ -10,5 +10,5 @@ option (istio.mixer.v1.config.template.template_name) = "List";
 
 // NOT SUPPORTED field type for 'o'
 message Template {
-    map<string, string> o = 1;
+    map<string, int32> o = 1;
 }

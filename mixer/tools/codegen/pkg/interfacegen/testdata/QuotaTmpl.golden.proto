@@ -1,7 +1,4 @@
-package template
-
-// RevisedTemplateTmpl defines the modified template proto with Type and InstanceParams
-var RevisedTemplateTmpl = `// Copyright 2017 Istio Authors
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,28 +16,37 @@ var RevisedTemplateTmpl = `// Copyright 2017 Istio Authors
 
 syntax = "proto3";
 
-package {{.PackageName}};
+package istio.mixer.adapter.quota;
 
 import "mixer/v1/config/descriptor/value_type.proto";
 import "pkg/adapter/template/TemplateExtensions.proto";
 
-option (istio.mixer.v1.config.template.template_variety) = {{.VarietyName}};
-option (istio.mixer.v1.config.template.template_name) = "{{.Name}}";
+option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_QUOTA;
+option (istio.mixer.v1.config.template.template_name) = "Quota";
 
-{{.Comment}}
-{{.TemplateMessage.Comment}}
+
+
+// template ...
 message Type {
-  {{range .TemplateMessage.Fields -}}
-  {{if containsValueType .ProtoType -}}
-  {{.Comment}}
-  {{.ProtoType.Name}} {{.ProtoName}} = {{.Number}};
-  {{- end}}
-  {{- end}}
+  // dimensions are ...
+  map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 1;
+  istio.mixer.v1.config.descriptor.ValueType anotherValueType = 7;
 }
 
 message InstanceParam {
-  {{range .TemplateMessage.Fields}}
-  {{stringify .ProtoType}} {{.ProtoName}} = {{.Number}};
-  {{end}}
+  
+  map<string, string> dimensions = 1;
+  
+  string int64Primitive = 3;
+  
+  string boolPrimitive = 4;
+  
+  string doublePrimitive = 5;
+  
+  string stringPrimitive = 6;
+  
+  string anotherValueType = 7;
+  
+  map<string, string> dimensionsFixedInt64ValueDType = 8;
+  
 }
-`
