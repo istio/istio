@@ -187,52 +187,48 @@ var (
 				ProcessCheck: nil,
 				ProcessQuota: nil,
 			{{else if eq .VarietyName "TEMPLATE_VARIETY_CHECK"}}
-				ProcessCheck: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
+				ProcessCheck: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
 				handler adapter.Handler) (rpc.Status, adapter.CacheabilityInfo) {
 					var found bool
 					var err error
 
+					castedInst := inst.(*{{.GoPackageName}}.InstanceParam)
 					var instances []*{{.GoPackageName}}.Instance
-					castedInsts := make(map[string]*{{.GoPackageName}}.InstanceParam, len(insts))
-					for k, v := range insts {
-						v1 := v.(*{{.GoPackageName}}.InstanceParam)
-						castedInsts[k] = v1
-					}
-					for name, md := range castedInsts {
-						{{range .TemplateMessage.Fields}}
-							{{if .GoType.IsMap}}
-								{{.GoName}}, err := template.EvalAll(md.{{.GoName}}, attrs, mapper)
-							{{else}}
-								{{.GoName}}, err := mapper.Eval(md.{{.GoName}}, attrs)
-							{{end}}
-								if err != nil {
-									return status.WithError(err), adapter.CacheabilityInfo{}
-								}
+					{{range .TemplateMessage.Fields}}
+						{{if .GoType.IsMap}}
+							{{.GoName}}, err := template.EvalAll(castedInst.{{.GoName}}, attrs, mapper)
+						{{else}}
+							{{.GoName}}, err := mapper.Eval(castedInst.{{.GoName}}, attrs)
 						{{end}}
-						instances = append(instances, &{{.GoPackageName}}.Instance{
-							Name:       name,
-							{{range .TemplateMessage.Fields}}
-								{{if containsValueType .GoType}}
-									{{.GoName}}: {{.GoName}},
+							if err != nil {
+								return status.WithError(err), adapter.CacheabilityInfo{}
+							}
+					{{end}}
+
+					instance := &{{.GoPackageName}}.Instance{
+						Name:	instName,
+						{{range .TemplateMessage.Fields}}
+							{{if containsValueType .GoType}}
+								{{.GoName}}: {{.GoName}},
+							{{else}}
+								{{if .GoType.IsMap}}
+									{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
+										res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
+										for k, v := range m {
+											res[k] = v.({{.GoType.MapValue.Name}})
+										}
+										return res
+									}({{.GoName}}),
 								{{else}}
-									{{if .GoType.IsMap}}
-										{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
-											res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
-											for k, v := range m {
-												res[k] = v.({{.GoType.MapValue.Name}})
-											}
-											return res
-										}({{.GoName}}),
-									{{else}}
-										{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),
-									{{end}}
+									{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),
 								{{end}}
 							{{end}}
-						})
-						_ = md
+						{{end}}
 					}
+					_ = castedInst
+
 					var cacheInfo adapter.CacheabilityInfo
-					if found, cacheInfo, err = handler.({{.GoPackageName}}.{{.Name}}Handler).Handle{{.Name}}(instances); err != nil {
+					if found, cacheInfo, err = handler.({{.GoPackageName}}.{{.Name}}Handler).Handle{{.Name}}(instance); err != nil {
 						return status.WithError(err), adapter.CacheabilityInfo{}
 					}
 

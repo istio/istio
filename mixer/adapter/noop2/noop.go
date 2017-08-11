@@ -87,7 +87,7 @@ var cacheInfo = adapter.CacheabilityInfo{
 	ValidUseCount: 1000000000,
 }
 
-func (handler) HandleCheckNothing([]*checknothing.Instance) (bool, adapter.CacheabilityInfo, error) {
+func (handler) HandleCheckNothing(*checknothing.Instance) (bool, adapter.CacheabilityInfo, error) {
 	return true, cacheInfo, nil
 }
 
@@ -95,7 +95,7 @@ func (handler) HandleReportNothing([]*reportnothing.Instance) error {
 	return nil
 }
 
-func (handler) HandleListEntry([]*listentry.Instance) (bool, adapter.CacheabilityInfo, error) {
+func (handler) HandleListEntry(*listentry.Instance) (bool, adapter.CacheabilityInfo, error) {
 	return true, cacheInfo, nil
 }
 

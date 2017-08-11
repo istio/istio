@@ -74,7 +74,7 @@ type fakeCheckHandler struct {
 }
 
 func (h *fakeCheckHandler) Close() error { return nil }
-func (h *fakeCheckHandler) HandleSample(instance []*sample_check.Instance) (bool, adapter.CacheabilityInfo, error) {
+func (h *fakeCheckHandler) HandleSample(instance *sample_check.Instance) (bool, adapter.CacheabilityInfo, error) {
 	h.procCallInput = instance
 	return h.ret, h.retCache, h.retProcError
 }
@@ -665,24 +665,21 @@ func TestProcessReport(t *testing.T) {
 }
 
 func TestProcessCheck(t *testing.T) {
+	instName := "foo"
 	for _, tst := range []ProcessTest{
 		{
 			name: "Simple",
 			insts: map[string]proto.Message{
-				"foo": &sample_check.InstanceParam{CheckExpression: `"abcd asd"`, StringMap: map[string]string{"a": `"aaa"`}},
-				"bar": &sample_check.InstanceParam{CheckExpression: `"pqrs asd"`, StringMap: map[string]string{"b": `"bbb"`}},
+				instName: &sample_check.InstanceParam{CheckExpression: `"abcd asd"`, StringMap: map[string]string{"a": `"aaa"`}},
 			},
 			hdlr: &fakeCheckHandler{ret: true, retCache: adapter.CacheabilityInfo{ValidUseCount: 111}},
-			wantInstance: []*sample_check.Instance{
-				{Name: "foo", CheckExpression: "abcd asd", StringMap: map[string]string{"a": "aaa"}},
-				{Name: "bar", CheckExpression: "pqrs asd", StringMap: map[string]string{"b": "bbb"}},
-			},
+			wantInstance: &sample_check.Instance{Name: instName, CheckExpression: "abcd asd", StringMap: map[string]string{"a": "aaa"}},
 			wantCache: adapter.CacheabilityInfo{ValidUseCount: 111},
 		},
 		{
 			name: "EvalError",
 			insts: map[string]proto.Message{
-				"foo": &sample_check.InstanceParam{CheckExpression: `bad.attributeName`},
+				instName: &sample_check.InstanceParam{CheckExpression: `bad.attributeName`},
 			},
 			hdlr:      &fakeCheckHandler{ret: true},
 			wantError: "unresolved attribute bad.attributeName",
@@ -690,7 +687,7 @@ func TestProcessCheck(t *testing.T) {
 		{
 			name: "ProcessError",
 			insts: map[string]proto.Message{
-				"foo": &sample_check.InstanceParam{CheckExpression: `"abcd asd"`},
+				instName: &sample_check.InstanceParam{CheckExpression: `"abcd asd"`},
 			},
 			hdlr:      &fakeCheckHandler{retProcError: fmt.Errorf("error from process method")},
 			wantError: "error from process method",
@@ -698,7 +695,7 @@ func TestProcessCheck(t *testing.T) {
 		{
 			name: "ProcRetFalse",
 			insts: map[string]proto.Message{
-				"foo": &sample_check.InstanceParam{CheckExpression: `"abcd asd"`},
+				instName: &sample_check.InstanceParam{CheckExpression: `"abcd asd"`},
 			},
 			hdlr:      &fakeCheckHandler{ret: false},
 			wantError: " rejected",
@@ -707,7 +704,7 @@ func TestProcessCheck(t *testing.T) {
 		t.Run(tst.name, func(t *testing.T) {
 			h := &tst.hdlr
 			ev, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
-			s, cInfo := SupportedTmplInfo[sample_check.TemplateName].ProcessCheck(tst.insts, fakeBag{}, ev, *h)
+			s, cInfo := SupportedTmplInfo[sample_check.TemplateName].ProcessCheck(instName, tst.insts[instName], fakeBag{}, ev, *h)
 
 			if tst.wantError != "" {
 				if !strings.Contains(s.Message, tst.wantError) {
@@ -718,7 +715,7 @@ func TestProcessCheck(t *testing.T) {
 					t.Errorf("CheckSample got error status %v , want success", s)
 				}
 				v := (*h).(*fakeCheckHandler).procCallInput
-				if !cmp(v, tst.wantInstance) || !reflect.DeepEqual(tst.wantCache, cInfo) {
+				if !reflect.DeepEqual(v, tst.wantInstance) || !reflect.DeepEqual(tst.wantCache, cInfo) {
 					t.Errorf("CheckSample handler "+
 						"invoked value = %v,%v want %v,%v", spew.Sdump(v), cInfo, spew.Sdump(tst.wantInstance), tst.wantCache)
 				}
