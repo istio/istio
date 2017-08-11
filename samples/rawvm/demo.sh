@@ -16,8 +16,9 @@ singlecall="/usr/local/bin/fortio -- load -loglevel verbose -c 1 -qps 0 -t 1ns"
 kubectl exec $cli $singlecall "$url1"
 kubectl exec $cli $singlecall "$url2"
 grpcping="/usr/local/bin/fortio -- grpcping -loglevel warning -n 100"
-kubectl exec $cli $grpcping $cliIp
+kubectl exec $cli $grpcping $cliIp # localhost call
 kubectl exec $cli $grpcping $srv1
 kubectl exec $cli $grpcping $srv2
 
 # svc access:
+kubectl exec $cli $singlecall "http://echosrv$debugurlsuffix"
