@@ -123,7 +123,8 @@ func (t repo) SupportsTemplate(hndlrBuilder adapter.HandlerBuilder, tmpl string)
 	return true, ""
 }
 
-func evalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evaluator) (map[string]interface{}, error) {
+// EvalAll evaluates the value of the expression map using the passed in attributes.
+func EvalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evaluator) (map[string]interface{}, error) {
 	result := &multierror.Error{}
 	labels := make(map[string]interface{}, len(expressions))
 	for label, texpr := range expressions {

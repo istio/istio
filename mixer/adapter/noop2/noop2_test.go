@@ -20,11 +20,12 @@ import (
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/template"
+	"istio.io/mixer/template/sample"
 )
 
 func TestRegisterationForTemplates(t *testing.T) {
 	handlers := config.BuilderInfoMap([]adapter.GetBuilderInfoFn{GetBuilderInfo},
-		template.NewRepository(template.SupportedTmplInfo).SupportsTemplate)
+		template.NewRepository(sample.SupportedTmplInfo).SupportsTemplate)
 	bi := GetBuilderInfo()
 	name := bi.Name
 	resultNoop2BuilderInfo := handlers[name]

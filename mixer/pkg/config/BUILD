@@ -60,6 +60,7 @@ go_test(
         "//pkg/config/store:go_default_library",
         "//pkg/expr:go_default_library",
         "//pkg/template:go_default_library",
+        "//template/sample:go_default_library",
         "//template/sample/report:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",

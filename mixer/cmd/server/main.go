@@ -20,10 +20,11 @@ import (
 	"istio.io/mixer/cmd/server/cmd"
 	"istio.io/mixer/cmd/shared"
 	"istio.io/mixer/pkg/template"
+	generatedTmplRepo "istio.io/mixer/template"
 )
 
 func getSupportedTemplateInfos() template.Repository {
-	return template.NewRepository(template.SupportedTmplInfo)
+	return template.NewRepository(generatedTmplRepo.SupportedTmplInfo)
 }
 
 func main() {
