@@ -81,26 +81,21 @@ var (
 				return castedBuilder.ConfigureCheckNothingHandler(castedTypes)
 			},
 
-			ProcessCheck: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
+			ProcessCheck: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
 				handler adapter.Handler) (rpc.Status, adapter.CacheabilityInfo) {
 				var found bool
 				var err error
 
+				castedInst := inst.(*checknothing.InstanceParam)
 				var instances []*checknothing.Instance
-				castedInsts := make(map[string]*checknothing.InstanceParam, len(insts))
-				for k, v := range insts {
-					v1 := v.(*checknothing.InstanceParam)
-					castedInsts[k] = v1
-				}
-				for name, md := range castedInsts {
 
-					instances = append(instances, &checknothing.Instance{
-						Name: name,
-					})
-					_ = md
+				instance := &checknothing.Instance{
+					Name: instName,
 				}
+				_ = castedInst
+
 				var cacheInfo adapter.CacheabilityInfo
-				if found, cacheInfo, err = handler.(checknothing.CheckNothingHandler).HandleCheckNothing(instances); err != nil {
+				if found, cacheInfo, err = handler.(checknothing.CheckNothingHandler).HandleCheckNothing(instance); err != nil {
 					return status.WithError(err), adapter.CacheabilityInfo{}
 				}
 
@@ -157,34 +152,29 @@ var (
 				return castedBuilder.ConfigureListEntryHandler(castedTypes)
 			},
 
-			ProcessCheck: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
+			ProcessCheck: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
 				handler adapter.Handler) (rpc.Status, adapter.CacheabilityInfo) {
 				var found bool
 				var err error
 
+				castedInst := inst.(*listentry.InstanceParam)
 				var instances []*listentry.Instance
-				castedInsts := make(map[string]*listentry.InstanceParam, len(insts))
-				for k, v := range insts {
-					v1 := v.(*listentry.InstanceParam)
-					castedInsts[k] = v1
+
+				Value, err := mapper.Eval(castedInst.Value, attrs)
+
+				if err != nil {
+					return status.WithError(err), adapter.CacheabilityInfo{}
 				}
-				for name, md := range castedInsts {
 
-					Value, err := mapper.Eval(md.Value, attrs)
+				instance := &listentry.Instance{
+					Name: instName,
 
-					if err != nil {
-						return status.WithError(err), adapter.CacheabilityInfo{}
-					}
-
-					instances = append(instances, &listentry.Instance{
-						Name: name,
-
-						Value: Value.(string),
-					})
-					_ = md
+					Value: Value.(string),
 				}
+				_ = castedInst
+
 				var cacheInfo adapter.CacheabilityInfo
-				if found, cacheInfo, err = handler.(listentry.ListEntryHandler).HandleListEntry(instances); err != nil {
+				if found, cacheInfo, err = handler.(listentry.ListEntryHandler).HandleListEntry(instance); err != nil {
 					return status.WithError(err), adapter.CacheabilityInfo{}
 				}
 

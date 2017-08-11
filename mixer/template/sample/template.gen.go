@@ -94,48 +94,43 @@ var (
 				return castedBuilder.ConfigureSampleHandler(castedTypes)
 			},
 
-			ProcessCheck: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
+			ProcessCheck: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
 				handler adapter.Handler) (rpc.Status, adapter.CacheabilityInfo) {
 				var found bool
 				var err error
 
+				castedInst := inst.(*istio_mixer_adapter_sample_check.InstanceParam)
 				var instances []*istio_mixer_adapter_sample_check.Instance
-				castedInsts := make(map[string]*istio_mixer_adapter_sample_check.InstanceParam, len(insts))
-				for k, v := range insts {
-					v1 := v.(*istio_mixer_adapter_sample_check.InstanceParam)
-					castedInsts[k] = v1
+
+				CheckExpression, err := mapper.Eval(castedInst.CheckExpression, attrs)
+
+				if err != nil {
+					return status.WithError(err), adapter.CacheabilityInfo{}
 				}
-				for name, md := range castedInsts {
 
-					CheckExpression, err := mapper.Eval(md.CheckExpression, attrs)
+				StringMap, err := template.EvalAll(castedInst.StringMap, attrs, mapper)
 
-					if err != nil {
-						return status.WithError(err), adapter.CacheabilityInfo{}
-					}
-
-					StringMap, err := template.EvalAll(md.StringMap, attrs, mapper)
-
-					if err != nil {
-						return status.WithError(err), adapter.CacheabilityInfo{}
-					}
-
-					instances = append(instances, &istio_mixer_adapter_sample_check.Instance{
-						Name: name,
-
-						CheckExpression: CheckExpression.(string),
-
-						StringMap: func(m map[string]interface{}) map[string]string {
-							res := make(map[string]string, len(m))
-							for k, v := range m {
-								res[k] = v.(string)
-							}
-							return res
-						}(StringMap),
-					})
-					_ = md
+				if err != nil {
+					return status.WithError(err), adapter.CacheabilityInfo{}
 				}
+
+				instance := &istio_mixer_adapter_sample_check.Instance{
+					Name: instName,
+
+					CheckExpression: CheckExpression.(string),
+
+					StringMap: func(m map[string]interface{}) map[string]string {
+						res := make(map[string]string, len(m))
+						for k, v := range m {
+							res[k] = v.(string)
+						}
+						return res
+					}(StringMap),
+				}
+				_ = castedInst
+
 				var cacheInfo adapter.CacheabilityInfo
-				if found, cacheInfo, err = handler.(istio_mixer_adapter_sample_check.SampleHandler).HandleSample(instances); err != nil {
+				if found, cacheInfo, err = handler.(istio_mixer_adapter_sample_check.SampleHandler).HandleSample(instance); err != nil {
 					return status.WithError(err), adapter.CacheabilityInfo{}
 				}
 

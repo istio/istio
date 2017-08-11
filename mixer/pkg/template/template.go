@@ -45,7 +45,7 @@ type (
 	ProcessReportFn func(allCnstrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) rpc.Status
 
 	// ProcessCheckFn instantiates the instance object and dispatches them to the handler.
-	ProcessCheckFn func(allCnstrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
+	ProcessCheckFn func(instName string, cnstr proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
 		handler adapter.Handler) (rpc.Status, adapter.CacheabilityInfo)
 
 	// ProcessQuotaFn instantiates the instance object and dispatches them to the handler.

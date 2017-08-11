@@ -73,5 +73,5 @@ type ListHandler interface {
 
 	// HandleList is called by Mixer at request time to deliver instances to
 	// to an adapter.
-	HandleList([]*Instance) (bool, adapter.CacheabilityInfo, error)
+	HandleList(*Instance) (bool, adapter.CacheabilityInfo, error)
 }
