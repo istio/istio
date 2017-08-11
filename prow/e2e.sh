@@ -31,7 +31,7 @@ E2E_ARGS=(--use_local_cluster)
 
 if [ "${CI:-}" == 'bootstrap' ]; then
   # bootsrap upload all artifacts in _artifacts to the log bucket.
-  ARTIFACTS_DIR=${ARTIFACTS_DIR:"${GOPATH}/src/istio.io/istio/_artifacts"}
+  ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
   LOG_HOST="stackdriver"
   PROJ_ID="istio-testing"
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}" --log_provider=${LOG_HOST} --project_id=${PROJ_ID})
