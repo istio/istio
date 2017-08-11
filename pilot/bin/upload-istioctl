@@ -43,7 +43,7 @@ if [[ ${RELEASE} == true ]]; then
   LDFLAGS=""
   while read line; do
     read SYMBOL VALUE < <(echo $line)
-    LDFLAGS=${LDFLAGS}" -X istio.io/pilot/cmd/version.${SYMBOL}=${VALUE}"
+    LDFLAGS=${LDFLAGS}" -X istio.io/pilot/tools/version.${SYMBOL}=${VALUE}"
   done < <(./bin/get_workspace_status)
 
   GOOS=darwin GOARCH=amd64 ${go} build -ldflags "${LDFLAGS}" istio.io/pilot/cmd/istioctl
