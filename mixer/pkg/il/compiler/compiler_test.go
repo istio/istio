@@ -35,8 +35,8 @@ type testInfo struct {
 	err    string
 }
 
-var duration19MS, _ = time.ParseDuration("19ms")
-var duration20MS, _ = time.ParseDuration("20ms")
+var duration19, _ = time.ParseDuration("19ms")
+var duration20, _ = time.ParseDuration("20ms")
 var time1999 = time.Date(1999, time.December, 31, 23, 59, 0, 0, time.UTC)
 var time1977 = time.Date(1977, time.February, 4, 12, 00, 0, 0, time.UTC)
 
@@ -903,9 +903,9 @@ end`,
 	{
 		expr: `adur`,
 		input: map[string]interface{}{
-			"adur": duration20MS,
+			"adur": duration20,
 		},
-		result: duration20MS,
+		result: duration20,
 		code: `
 fn eval() duration
   resolve_i "adur"
@@ -915,7 +915,7 @@ end`,
 	{
 		expr:   `adur | "19ms"`,
 		input:  map[string]interface{}{},
-		result: duration19MS,
+		result: duration19,
 		code: `
 fn eval() duration
   tresolve_i "adur"
@@ -928,9 +928,9 @@ end`,
 	{
 		expr: `adur | "19ms"`,
 		input: map[string]interface{}{
-			"adur": duration20MS,
+			"adur": duration20,
 		},
-		result: duration20MS,
+		result: duration20,
 	},
 	{
 		expr: `at`,
@@ -1087,12 +1087,12 @@ func TestCompile(t *testing.T) {
 			// Byte arrays are not comparable natively
 			bExp, found := te.result.([]byte)
 			if found {
-				bAct, found := v.Interface().([]byte)
+				bAct, found := v.AsInterface().([]byte)
 				if !found || !bytesEqual(bExp, bAct) {
-					tt.Fatalf("Result match failed: %+v == %+v", v.Interface(), te.result)
+					tt.Fatalf("Result match failed: %+v == %+v", v.AsInterface(), te.result)
 				}
-			} else if v.Interface() != te.result {
-				tt.Fatalf("Result match failed: %+v == %+v", v.Interface(), te.result)
+			} else if v.AsInterface() != te.result {
+				tt.Fatalf("Result match failed: %+v == %+v", v.AsInterface(), te.result)
 			}
 		})
 	}

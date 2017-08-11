@@ -133,7 +133,7 @@ func BenchmarkIL(b *testing.B) {
 		if e != nil {
 			b.Fatalf("evaluation failed: '%v'", e)
 		}
-		if r.Interface() != bt.result {
+		if r.AsInterface() != bt.result {
 			b.Fatalf("expected result not found: E:'%v' != A:'%v'", bt.result, r)
 		}
 
