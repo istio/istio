@@ -13,8 +13,12 @@ RUN apt-get update && \
     vim \
     nano \
     emacs \
-    wrk
+    wrk \
+    lsof \
+    sudo
 ADD proxy-redirection-clear /usr/local/bin/proxy-redirection-clear
 ADD proxy-redirection-restore /usr/local/bin/proxy-redirection-restore
 ADD envoy /usr/local/bin/envoy
+RUN useradd -m --uid 1337 istio-proxy
+RUN echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers
 ENTRYPOINT /usr/local/bin/envoy
