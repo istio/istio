@@ -1,0 +1,94 @@
+
+# Gopkg.toml example
+#
+# Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
+# for detailed Gopkg.toml documentation.
+#
+# required = ["github.com/user/thing/cmd/thing"]
+# ignored = ["github.com/user/project/pkgX", "bitbucket.org/user/project/pkgA/pkgY"]
+#
+# [[constraint]]
+#   name = "github.com/user/project"
+#   version = "1.0.0"
+#
+# [[constraint]]
+#   name = "github.com/user/project2"
+#   branch = "dev"
+#   source = "github.com/myfork/project2"
+#
+# [[override]]
+#  name = "github.com/x/y"
+#  version = "2.4.0"
+
+
+[[constraint]]
+  name = "github.com/davecgh/go-spew"
+
+[[constraint]]
+  name = "github.com/emicklei/go-restful"
+
+[[constraint]]
+  name = "github.com/ghodss/yaml"
+
+[[constraint]]
+  name = "github.com/gogo/protobuf"
+
+[[constraint]]
+  name = "github.com/golang/glog"
+
+[[constraint]]
+  name = "github.com/golang/mock"
+
+[[constraint]]
+  name = "github.com/golang/protobuf"
+
+[[constraint]]
+  name = "github.com/golang/sync"
+
+[[constraint]]
+  name = "github.com/googleapis/googleapis"
+  source = "https://github.com/costinm/googleapis.git"
+
+[[constraint]]
+  name = "github.com/hashicorp/go-multierror"
+
+[[constraint]]
+  name = "github.com/howeyc/fsnotify"
+
+[[constraint]]
+  name = "github.com/pmezard/go-difflib"
+
+[[constraint]]
+  name = "github.com/satori/go.uuid"
+
+[[constraint]]
+  name = "github.com/spf13/cobra"
+
+[[constraint]]
+  name = "github.com/spf13/pflag"
+
+[[constraint]]
+  name = "golang.org/x/net"
+
+[[constraint]]
+  name = "golang.org/x/time"
+
+[[constraint]]
+  name = "google.golang.org/grpc"
+  version = "1.5.1"
+
+[[constraint]]
+  name = "istio.io/api"
+
+[[constraint]]
+  name = "k8s.io/api"
+
+[[constraint]]
+  name = "k8s.io/apimachinery"
+
+[[constraint]]
+  name = "k8s.io/client-go"
+  revision = "7c69e980210777a6292351ac6873de083526f08e"
+
+[[constraint]]
+  name = "k8s.io/ingress"

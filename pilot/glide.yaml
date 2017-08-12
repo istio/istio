@@ -1,0 +1,81 @@
+package: istio.io/pilot
+import:
+- package: github.com/davecgh/go-spew
+  subpackages:
+  - spew
+- package: github.com/emicklei/go-restful
+- package: github.com/ghodss/yaml
+- package: github.com/gogo/protobuf
+  subpackages:
+  - proto
+- package: github.com/golang/glog
+- package: github.com/golang/protobuf
+  subpackages:
+  - jsonpb
+  - proto
+  - ptypes
+  - ptypes/duration
+- package: github.com/golang/sync
+  subpackages:
+  - errgroup
+- package: github.com/googleapis/googleapis
+  subpackages:
+  - google/rpc
+  repo: git@github.com:costinm/googleapis.git
+- package: github.com/hashicorp/go-multierror
+- package: github.com/howeyc/fsnotify
+- package: github.com/pmezard/go-difflib
+  subpackages:
+  - difflib
+- package: github.com/satori/go.uuid
+- package: github.com/spf13/cobra
+  subpackages:
+  - doc
+- package: github.com/spf13/pflag
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: golang.org/x/time
+  subpackages:
+  - rate
+- package: google.golang.org/grpc
+  version: ^1.5.1
+  subpackages:
+  - metadata
+- package: istio.io/api
+  subpackages:
+  - proxy/v1/config
+- package: k8s.io/api
+  subpackages:
+  - apps/v1beta1
+  - batch/v1
+  - core/v1
+  - extensions/v1beta1
+- package: k8s.io/apimachinery
+  subpackages:
+  - pkg/api/errors
+  - pkg/apis/meta/v1
+  - pkg/runtime
+  - pkg/runtime/schema
+  - pkg/runtime/serializer
+  - pkg/util/intstr
+  - pkg/util/yaml
+  - pkg/watch
+- package: k8s.io/client-go
+  subpackages:
+  - kubernetes
+  - kubernetes/scheme
+  - plugin/pkg/client/auth/gcp
+  - plugin/pkg/client/auth/oidc
+  - rest
+  - tools/cache
+  - tools/clientcmd
+  - util/flowcontrol
+- package: k8s.io/ingress
+  subpackages:
+  - core/pkg/ingress/status
+  - core/pkg/ingress/store
+testImport:
+- package: github.com/golang/mock
+  subpackages:
+  - gomock
