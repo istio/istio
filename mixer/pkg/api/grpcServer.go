@@ -53,15 +53,16 @@ type (
 
 // NewGRPCServer creates a gRPC serving stack.
 func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
-	globalDict := make(map[string]int32, len(globalWordList))
-	for i := 0; i < len(globalWordList); i++ {
-		globalDict[globalWordList[i]] = int32(i)
+	list := attribute.GlobalList()
+	globalDict := make(map[string]int32, len(list))
+	for i := 0; i < len(list); i++ {
+		globalDict[list[i]] = int32(i)
 	}
 
 	return &grpcServer{
 		aspectDispatcher: aspectDispatcher,
 		gp:               gp,
-		globalWordList:   globalWordList,
+		globalWordList:   list,
 		globalDict:       globalDict,
 	}
 }
