@@ -2,7 +2,7 @@
 
 package(default_visibility = ["//visibility:public"])
 
-load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
+load("@io_bazel_rules_go//go:def.bzl", "go_prefix", "go_library")
 
 go_prefix("istio.io/api")
 
@@ -117,4 +117,10 @@ genrule(
           "$(location :mixer/v1/config_gen) | $(location @org_golang_x_tools_imports//:goimports) > $@",
     message = "Applying overrides to cfg proto",
     tools = ["@org_golang_x_tools_imports//:goimports"],
+)
+
+filegroup(
+    name = "mixer/v1/attributes_file",
+    srcs = ["mixer/v1/global_dictionary.yaml"],
+    visibility = ["//visibility:public"],
 )
