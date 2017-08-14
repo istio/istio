@@ -38,7 +38,7 @@ func createBuilderInfo(name string) adapter.BuilderInfo {
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return fakeHandlerBuilder{} },
 		SupportedTemplates:   []string{sample_report.TemplateName},
 		DefaultConfig:        &types.Empty{},
-		ValidateConfig:       func(c proto.Message) error { return nil },
+		ValidateConfig:       func(c proto.Message) *adapter.ConfigErrors { return nil },
 	}
 }
 
@@ -152,8 +152,8 @@ func TestHandlerMap(t *testing.T) {
 
 type badHandlerBuilder struct{}
 
-func (badHandlerBuilder) DefaultConfig() proto.Message       { return nil }
-func (badHandlerBuilder) ValidateConfig(proto.Message) error { return nil }
+func (badHandlerBuilder) DefaultConfig() proto.Message                       { return nil }
+func (badHandlerBuilder) ValidateConfig(proto.Message) *adapter.ConfigErrors { return nil }
 
 // This misspelled function cause the Builder to not implement SampleProcessorBuilder
 func (fakeHandlerBuilder) MisspelledXXConfigureSample(map[string]*sample_report.Type) error {
@@ -169,7 +169,7 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 			Name:                 "badAdapter1",
 			Description:          "mock adapter for testing",
 			DefaultConfig:        &types.Empty{},
-			ValidateConfig:       func(c proto.Message) error { return nil },
+			ValidateConfig:       func(c proto.Message) *adapter.ConfigErrors { return nil },
 			CreateHandlerBuilder: func() adapter.HandlerBuilder { return badHandlerBuilder{} },
 			SupportedTemplates:   []string{sample_report.TemplateName},
 		}
@@ -179,7 +179,7 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 			Name:                 "badAdapter1",
 			Description:          "mock adapter for testing",
 			DefaultConfig:        &types.Empty{},
-			ValidateConfig:       func(c proto.Message) error { return nil },
+			ValidateConfig:       func(c proto.Message) *adapter.ConfigErrors { return nil },
 			CreateHandlerBuilder: func() adapter.HandlerBuilder { return badHandlerBuilder{} },
 			SupportedTemplates:   []string{sample_report.TemplateName},
 		}

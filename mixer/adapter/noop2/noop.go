@@ -135,6 +135,6 @@ func GetBuilderInfo() adapter.BuilderInfo {
 		},
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return builder{} },
 		DefaultConfig:        &types.Empty{},
-		ValidateConfig:       func(msg proto.Message) error { return nil },
+		ValidateConfig:       func(msg proto.Message) *adapter.ConfigErrors { return nil },
 	}
 }

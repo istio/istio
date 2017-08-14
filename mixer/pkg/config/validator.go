@@ -749,8 +749,8 @@ func convertHandlerParams(bi *adapter.BuilderInfo, name string, params interface
 	if err := decode(params, hc, strict); err != nil {
 		return nil, ce.Appendf(name, "failed to decode handler params: %v", err)
 	}
-	if err := bi.ValidateConfig(hc); err != nil {
-		return nil, ce.Appendf(name, "handler validation failed: %v", err)
+	if ce := bi.ValidateConfig(hc); ce != nil {
+		return nil, ce.Extend(ce)
 	}
 	return hc, nil
 }

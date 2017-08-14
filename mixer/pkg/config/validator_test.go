@@ -655,7 +655,7 @@ func TestConvertHandlerParamsErrors(t *testing.T) {
 				"blacklist":        "true (this should be bool)",
 			},
 			defaultCnfg:       &listcheckerpb.ListsParams{},
-			hndlrValidateCnfg: func(c proto.Message) error { return nil },
+			hndlrValidateCnfg: func(c proto.Message) *adapter.ConfigErrors { return nil },
 			errorStr:          "failed to decode",
 		},
 		{
@@ -665,7 +665,7 @@ func TestConvertHandlerParamsErrors(t *testing.T) {
 				"wrongextrafield":  true,
 			},
 			defaultCnfg:       &listcheckerpb.ListsParams{},
-			hndlrValidateCnfg: func(c proto.Message) error { return nil },
+			hndlrValidateCnfg: func(c proto.Message) *adapter.ConfigErrors { return nil },
 			errorStr:          "failed to unmarshal",
 		},
 		{
@@ -673,9 +673,11 @@ func TestConvertHandlerParamsErrors(t *testing.T) {
 				"check_expression": "src.ip",
 				"blacklist":        true,
 			},
-			defaultCnfg:       &listcheckerpb.ListsParams{},
-			hndlrValidateCnfg: func(c proto.Message) error { return errors.New("handler config validation failed") },
-			errorStr:          "handler config validation failed",
+			defaultCnfg: &listcheckerpb.ListsParams{},
+			hndlrValidateCnfg: func(c proto.Message) (ce *adapter.ConfigErrors) {
+				return ce.Appendf("foo", "handler config validation failed")
+			},
+			errorStr: "handler config validation failed",
 		},
 	}
 
@@ -704,7 +706,7 @@ func TestValidateHandlers(t *testing.T) {
 			map[string]*adapter.BuilderInfo{
 				"fooHandlerAdapter": {
 					DefaultConfig:        &types.Empty{},
-					ValidateConfig:       func(c proto.Message) error { return nil },
+					ValidateConfig:       func(c proto.Message) *adapter.ConfigErrors { return nil },
 					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
 				},
 			},
@@ -722,7 +724,7 @@ func TestValidateHandlers(t *testing.T) {
 			map[string]*adapter.BuilderInfo{
 				"fooHandlerAdapter": {
 					DefaultConfig:        &types.Empty{},
-					ValidateConfig:       func(c proto.Message) error { return nil },
+					ValidateConfig:       func(c proto.Message) *adapter.ConfigErrors { return nil },
 					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
 				},
 			},
@@ -772,7 +774,7 @@ handlers:
 			hbi: map[string]*adapter.BuilderInfo{
 				"fooHandlerAdapter": {
 					DefaultConfig:        &types.Empty{},
-					ValidateConfig:       func(c proto.Message) error { return nil },
+					ValidateConfig:       func(c proto.Message) *adapter.ConfigErrors { return nil },
 					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
 					SupportedTemplates:   []string{testSupportedTemplate},
 				},
