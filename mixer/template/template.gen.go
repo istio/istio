@@ -17,19 +17,17 @@
 package template
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
-	rpc "github.com/googleapis/googleapis/google/rpc"
-	"github.com/hashicorp/go-multierror"
 
 	"istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/status"
 	"istio.io/mixer/pkg/template"
 
 	"istio.io/mixer/template/checknothing"
@@ -49,11 +47,12 @@ var (
 	SupportedTmplInfo = map[string]template.Info{
 
 		checknothing.TemplateName: {
+			Name:               "checknothing",
 			CtrCfg:             &checknothing.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
 			BldrInterfaceName:  "istio.io/mixer/template/checknothing.HandlerBuilder",
 			HndlrInterfaceName: "istio.io/mixer/template/checknothing.Handler",
-			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(checknothing.HandlerBuilder)
 				return ok
 			},
@@ -81,40 +80,26 @@ var (
 				return castedBuilder.ConfigureCheckNothingHandler(castedTypes)
 			},
 
-			ProcessCheck: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
-				handler adapter.Handler) (rpc.Status, adapter.CacheabilityInfo) {
-				var found bool
-				var err error
-
+			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
 				castedInst := inst.(*checknothing.InstanceParam)
-				var instances []*checknothing.Instance
+
+				_ = castedInst
 
 				instance := &checknothing.Instance{
 					Name: instName,
 				}
-				_ = castedInst
-
-				var cacheInfo adapter.CacheabilityInfo
-				if found, cacheInfo, err = handler.(checknothing.Handler).HandleCheckNothing(instance); err != nil {
-					return status.WithError(err), adapter.CacheabilityInfo{}
-				}
-
-				if found {
-					return status.OK, cacheInfo
-				}
-
-				return status.WithPermissionDenied(fmt.Sprintf("%s rejected", instances)), adapter.CacheabilityInfo{}
+				return handler.(checknothing.Handler).HandleCheckNothing(ctx, instance)
 			},
-			ProcessReport: nil,
-			ProcessQuota:  nil,
 		},
 
 		listentry.TemplateName: {
+			Name:               "listentry",
 			CtrCfg:             &listentry.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
 			BldrInterfaceName:  "istio.io/mixer/template/listentry.HandlerBuilder",
 			HndlrInterfaceName: "istio.io/mixer/template/listentry.Handler",
-			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(listentry.HandlerBuilder)
 				return ok
 			},
@@ -152,48 +137,36 @@ var (
 				return castedBuilder.ConfigureListEntryHandler(castedTypes)
 			},
 
-			ProcessCheck: func(instName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
-				handler adapter.Handler) (rpc.Status, adapter.CacheabilityInfo) {
-				var found bool
-				var err error
-
+			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
 				castedInst := inst.(*listentry.InstanceParam)
-				var instances []*listentry.Instance
 
 				Value, err := mapper.Eval(castedInst.Value, attrs)
 
 				if err != nil {
-					return status.WithError(err), adapter.CacheabilityInfo{}
+					msg := fmt.Sprintf("failed to eval Value for instance '%s': %v", instName, err)
+					glog.Error(msg)
+					return adapter.CheckResult{}, fmt.Errorf(msg)
 				}
+
+				_ = castedInst
 
 				instance := &listentry.Instance{
 					Name: instName,
 
 					Value: Value.(string),
 				}
-				_ = castedInst
-
-				var cacheInfo adapter.CacheabilityInfo
-				if found, cacheInfo, err = handler.(listentry.Handler).HandleListEntry(instance); err != nil {
-					return status.WithError(err), adapter.CacheabilityInfo{}
-				}
-
-				if found {
-					return status.OK, cacheInfo
-				}
-
-				return status.WithPermissionDenied(fmt.Sprintf("%s rejected", instances)), adapter.CacheabilityInfo{}
+				return handler.(listentry.Handler).HandleListEntry(ctx, instance)
 			},
-			ProcessReport: nil,
-			ProcessQuota:  nil,
 		},
 
 		logentry.TemplateName: {
+			Name:               "logentry",
 			CtrCfg:             &logentry.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
 			BldrInterfaceName:  "istio.io/mixer/template/logentry.HandlerBuilder",
 			HndlrInterfaceName: "istio.io/mixer/template/logentry.Handler",
-			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(logentry.HandlerBuilder)
 				return ok
 			},
@@ -238,29 +211,25 @@ var (
 				return castedBuilder.ConfigureLogEntryHandler(castedTypes)
 			},
 
-			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) rpc.Status {
-				result := &multierror.Error{}
+			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 				var instances []*logentry.Instance
-
-				castedInsts := make(map[string]*logentry.InstanceParam, len(insts))
-				for k, v := range insts {
-					v1 := v.(*logentry.InstanceParam)
-					castedInsts[k] = v1
-				}
-				for name, md := range castedInsts {
+				for name, inst := range insts {
+					md := inst.(*logentry.InstanceParam)
 
 					Labels, err := template.EvalAll(md.Labels, attrs, mapper)
 
 					if err != nil {
-						result = multierror.Append(result, fmt.Errorf("failed to eval Labels for instance '%s': %v", name, err))
-						continue
+						msg := fmt.Sprintf("failed to eval Labels for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return fmt.Errorf(msg)
 					}
 
 					Severity, err := mapper.Eval(md.Severity, attrs)
 
 					if err != nil {
-						result = multierror.Append(result, fmt.Errorf("failed to eval Severity for instance '%s': %v", name, err))
-						continue
+						msg := fmt.Sprintf("failed to eval Severity for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return fmt.Errorf(msg)
 					}
 
 					instances = append(instances, &logentry.Instance{
@@ -273,27 +242,20 @@ var (
 					_ = md
 				}
 
-				if err := handler.(logentry.Handler).HandleLogEntry(instances); err != nil {
-					result = multierror.Append(result, fmt.Errorf("failed to report all values: %v", err))
+				if err := handler.(logentry.Handler).HandleLogEntry(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
 				}
-
-				err := result.ErrorOrNil()
-				if err != nil {
-					return status.WithError(err)
-				}
-
-				return status.OK
+				return nil
 			},
-			ProcessCheck: nil,
-			ProcessQuota: nil,
 		},
 
 		metric.TemplateName: {
+			Name:               "metric",
 			CtrCfg:             &metric.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
 			BldrInterfaceName:  "istio.io/mixer/template/metric.HandlerBuilder",
 			HndlrInterfaceName: "istio.io/mixer/template/metric.Handler",
-			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(metric.HandlerBuilder)
 				return ok
 			},
@@ -335,29 +297,25 @@ var (
 				return castedBuilder.ConfigureMetricHandler(castedTypes)
 			},
 
-			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) rpc.Status {
-				result := &multierror.Error{}
+			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 				var instances []*metric.Instance
-
-				castedInsts := make(map[string]*metric.InstanceParam, len(insts))
-				for k, v := range insts {
-					v1 := v.(*metric.InstanceParam)
-					castedInsts[k] = v1
-				}
-				for name, md := range castedInsts {
+				for name, inst := range insts {
+					md := inst.(*metric.InstanceParam)
 
 					Value, err := mapper.Eval(md.Value, attrs)
 
 					if err != nil {
-						result = multierror.Append(result, fmt.Errorf("failed to eval Value for instance '%s': %v", name, err))
-						continue
+						msg := fmt.Sprintf("failed to eval Value for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return fmt.Errorf(msg)
 					}
 
 					Dimensions, err := template.EvalAll(md.Dimensions, attrs, mapper)
 
 					if err != nil {
-						result = multierror.Append(result, fmt.Errorf("failed to eval Dimensions for instance '%s': %v", name, err))
-						continue
+						msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return fmt.Errorf(msg)
 					}
 
 					instances = append(instances, &metric.Instance{
@@ -370,27 +328,20 @@ var (
 					_ = md
 				}
 
-				if err := handler.(metric.Handler).HandleMetric(instances); err != nil {
-					result = multierror.Append(result, fmt.Errorf("failed to report all values: %v", err))
+				if err := handler.(metric.Handler).HandleMetric(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
 				}
-
-				err := result.ErrorOrNil()
-				if err != nil {
-					return status.WithError(err)
-				}
-
-				return status.OK
+				return nil
 			},
-			ProcessCheck: nil,
-			ProcessQuota: nil,
 		},
 
 		quota.TemplateName: {
+			Name:               "quota",
 			CtrCfg:             &quota.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_QUOTA,
 			BldrInterfaceName:  "istio.io/mixer/template/quota.HandlerBuilder",
 			HndlrInterfaceName: "istio.io/mixer/template/quota.Handler",
-			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(quota.HandlerBuilder)
 				return ok
 			},
@@ -425,8 +376,8 @@ var (
 				return castedBuilder.ConfigureQuotaHandler(castedTypes)
 			},
 
-			ProcessQuota: func(quotaName string, inst proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler,
-				qma adapter.QuotaRequestArgs) (rpc.Status, adapter.CacheabilityInfo, adapter.QuotaResult) {
+			ProcessQuota: func(ctx context.Context, quotaName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
 				castedInst := inst.(*quota.InstanceParam)
 
 				Dimensions, err := template.EvalAll(castedInst.Dimensions, attrs, mapper)
@@ -434,7 +385,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", quotaName, err)
 					glog.Error(msg)
-					return status.WithInvalidArgument(msg), adapter.CacheabilityInfo{}, adapter.QuotaResult{}
+					return adapter.QuotaResult2{}, fmt.Errorf(msg)
 				}
 
 				instance := &quota.Instance{
@@ -443,32 +394,17 @@ var (
 					Dimensions: Dimensions,
 				}
 
-				var qr adapter.QuotaResult
-				var cacheInfo adapter.CacheabilityInfo
-				if qr, cacheInfo, err = handler.(quota.Handler).HandleQuota(instance, qma); err != nil {
-					glog.Errorf("Quota allocation failed: %v", err)
-					return status.WithError(err), adapter.CacheabilityInfo{}, adapter.QuotaResult{}
-				}
-				if qr.Amount == 0 {
-					msg := fmt.Sprintf("Unable to allocate %v units from quota %s", qma.QuotaAmount, quotaName)
-					glog.Warning(msg)
-					return status.WithResourceExhausted(msg), adapter.CacheabilityInfo{}, adapter.QuotaResult{}
-				}
-				if glog.V(2) {
-					glog.Infof("Allocated %v units from quota %s", qma.QuotaAmount, quotaName)
-				}
-				return status.OK, cacheInfo, qr
+				return handler.(quota.Handler).HandleQuota(ctx, instance, args)
 			},
-			ProcessReport: nil,
-			ProcessCheck:  nil,
 		},
 
 		reportnothing.TemplateName: {
+			Name:               "reportnothing",
 			CtrCfg:             &reportnothing.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
 			BldrInterfaceName:  "istio.io/mixer/template/reportnothing.HandlerBuilder",
 			HndlrInterfaceName: "istio.io/mixer/template/reportnothing.Handler",
-			SupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(reportnothing.HandlerBuilder)
 				return ok
 			},
@@ -496,16 +432,10 @@ var (
 				return castedBuilder.ConfigureReportNothingHandler(castedTypes)
 			},
 
-			ProcessReport: func(insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) rpc.Status {
-				result := &multierror.Error{}
+			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 				var instances []*reportnothing.Instance
-
-				castedInsts := make(map[string]*reportnothing.InstanceParam, len(insts))
-				for k, v := range insts {
-					v1 := v.(*reportnothing.InstanceParam)
-					castedInsts[k] = v1
-				}
-				for name, md := range castedInsts {
+				for name, inst := range insts {
+					md := inst.(*reportnothing.InstanceParam)
 
 					instances = append(instances, &reportnothing.Instance{
 						Name: name,
@@ -513,19 +443,11 @@ var (
 					_ = md
 				}
 
-				if err := handler.(reportnothing.Handler).HandleReportNothing(instances); err != nil {
-					result = multierror.Append(result, fmt.Errorf("failed to report all values: %v", err))
+				if err := handler.(reportnothing.Handler).HandleReportNothing(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
 				}
-
-				err := result.ErrorOrNil()
-				if err != nil {
-					return status.WithError(err)
-				}
-
-				return status.OK
+				return nil
 			},
-			ProcessCheck: nil,
-			ProcessQuota: nil,
 		},
 	}
 )

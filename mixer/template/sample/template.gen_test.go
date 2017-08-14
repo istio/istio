@@ -20,20 +20,23 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
+	rpc "github.com/googleapis/googleapis/google/rpc"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
-	rpc "github.com/googleapis/googleapis/google/rpc"
+	//rpc "github.com/googleapis/googleapis/google/rpc"
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	adpTmpl "istio.io/mixer/pkg/adapter/template"
-	"istio.io/mixer/pkg/expr"
+	//"istio.io/mixer/pkg/expr"
 	sample_check "istio.io/mixer/template/sample/check"
 	sample_quota "istio.io/mixer/template/sample/quota"
 	sample_report "istio.io/mixer/template/sample/report"
+	"context"
+	//"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/expr"
 )
 
 // Does not implement any template interfaces.
@@ -46,15 +49,15 @@ func (h fakeBadHandler) Build(proto.Message, adapter.Env) (adapter.Handler, erro
 
 type fakeReportHandler struct {
 	adapter.Handler
-	retProcError  error
+	retError      error
 	cnfgCallInput interface{}
 	procCallInput interface{}
 }
 
 func (h *fakeReportHandler) Close() error { return nil }
-func (h *fakeReportHandler) HandleSample(instances []*sample_report.Instance) error {
+func (h *fakeReportHandler) HandleSample(ctx context.Context, instances []*sample_report.Instance) error {
 	h.procCallInput = instances
-	return h.retProcError
+	return h.retError
 }
 func (h *fakeReportHandler) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
@@ -66,17 +69,16 @@ func (h *fakeReportHandler) ConfigureSampleHandler(t map[string]*sample_report.T
 
 type fakeCheckHandler struct {
 	adapter.Handler
-	retProcError  error
+	retError      error
 	cnfgCallInput interface{}
 	procCallInput interface{}
-	ret           bool
-	retCache      adapter.CacheabilityInfo
+	retResult     adapter.CheckResult
 }
 
 func (h *fakeCheckHandler) Close() error { return nil }
-func (h *fakeCheckHandler) HandleSample(instance *sample_check.Instance) (bool, adapter.CacheabilityInfo, error) {
+func (h *fakeCheckHandler) HandleSample(ctx context.Context, instance *sample_check.Instance) (adapter.CheckResult, error) {
 	h.procCallInput = instance
-	return h.ret, h.retCache, h.retProcError
+	return h.retResult, h.retError
 }
 func (h *fakeCheckHandler) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
@@ -88,17 +90,16 @@ func (h *fakeCheckHandler) ConfigureSampleHandler(t map[string]*sample_check.Typ
 
 type fakeQuotaHandler struct {
 	adapter.Handler
-	retProcError  error
+	retError      error
+	retResult     adapter.QuotaResult2
 	cnfgCallInput interface{}
 	procCallInput interface{}
-	retQuotaRes   adapter.QuotaResult
-	retCache      adapter.CacheabilityInfo
 }
 
 func (h *fakeQuotaHandler) Close() error { return nil }
-func (h *fakeQuotaHandler) HandleQuota(instance *sample_quota.Instance, qra adapter.QuotaRequestArgs) (adapter.QuotaResult, adapter.CacheabilityInfo, error) {
+func (h *fakeQuotaHandler) HandleQuota(ctx context.Context, instance *sample_quota.Instance, qra adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
 	h.procCallInput = instance
-	return h.retQuotaRes, h.retCache, h.retProcError
+	return h.retResult, h.retError
 }
 func (h *fakeQuotaHandler) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
@@ -119,6 +120,7 @@ func TestGeneratedFields(t *testing.T) {
 		tmpl      string
 		ctrCfg    proto.Message
 		variety   adpTmpl.TemplateVariety
+		name  string
 		bldrName  string
 		hndlrName string
 	}{
@@ -128,6 +130,7 @@ func TestGeneratedFields(t *testing.T) {
 			variety:   adpTmpl.TEMPLATE_VARIETY_REPORT,
 			bldrName:  "istio.io/mixer/template/sample/report.HandlerBuilder",
 			hndlrName: "istio.io/mixer/template/sample/report.Handler",
+			name:sample_report.TemplateName,
 		},
 		{
 			tmpl:      sample_check.TemplateName,
@@ -135,6 +138,7 @@ func TestGeneratedFields(t *testing.T) {
 			variety:   adpTmpl.TEMPLATE_VARIETY_CHECK,
 			bldrName:  "istio.io/mixer/template/sample/check.HandlerBuilder",
 			hndlrName: "istio.io/mixer/template/sample/check.Handler",
+			name:sample_check.TemplateName,
 		},
 		{
 			tmpl:      sample_quota.TemplateName,
@@ -142,6 +146,7 @@ func TestGeneratedFields(t *testing.T) {
 			variety:   adpTmpl.TEMPLATE_VARIETY_QUOTA,
 			bldrName:  "istio.io/mixer/template/sample/quota.HandlerBuilder",
 			hndlrName: "istio.io/mixer/template/sample/quota.Handler",
+			name:sample_quota.TemplateName,
 		},
 	} {
 		t.Run(tst.tmpl, func(t *testing.T) {
@@ -156,6 +161,9 @@ func TestGeneratedFields(t *testing.T) {
 			}
 			if SupportedTmplInfo[tst.tmpl].HndlrInterfaceName != tst.hndlrName {
 				t.Errorf("SupportedTmplInfo[%s].HndlrName = %v, want %v", tst.tmpl, SupportedTmplInfo[tst.tmpl].HndlrInterfaceName, tst.hndlrName)
+			}
+			if SupportedTmplInfo[tst.tmpl].Name != tst.name {
+				t.Errorf("SupportedTmplInfo[%s].Name = %s, want %s", tst.tmpl, SupportedTmplInfo[tst.tmpl].Name, tst.name)
 			}
 		})
 	}
@@ -245,7 +253,7 @@ func TestBuilderSupportsTemplate(t *testing.T) {
 		},
 	} {
 		t.Run(tst.tmpl, func(t *testing.T) {
-			c := SupportedTmplInfo[tst.tmpl].SupportsTemplate(tst.hndlrBldr)
+			c := SupportedTmplInfo[tst.tmpl].BuilderSupportsTemplate(tst.hndlrBldr)
 			if c != tst.result {
 				t.Errorf("SupportedTmplInfo[%s].SupportsTemplate(%T) = %t, want %t", tst.tmpl, tst.hndlrBldr, c, tst.result)
 			}
@@ -573,18 +581,14 @@ func TestConfigureType(t *testing.T) {
 	}
 }
 
-type ProcessTest struct {
-	name          string
-	insts         map[string]proto.Message
-	hdlr          adapter.Handler
-	wantInstance  interface{}
-	wantCache     adapter.CacheabilityInfo // not for report calls
-	wantQuotaResp adapter.QuotaResult      // only for quota calls
-	wantError     string
-}
-
 func TestProcessReport(t *testing.T) {
-	for _, tst := range []ProcessTest{
+	for _, tst := range [] struct {
+		name          string
+		insts         map[string]proto.Message
+		hdlr          adapter.Handler
+		wantInstance  interface{}
+		wantError     string
+	} {
 		{
 			name: "Simple",
 			insts: map[string]proto.Message{
@@ -620,40 +624,43 @@ func TestProcessReport(t *testing.T) {
 		{
 			name: "EvalAllError",
 			insts: map[string]proto.Message{
-				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "bad.attributeName"}},
+				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "bad.attribute"}, BoolPrimitive: "true",
+					DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`, Int64Map: map[string]string{"a": "1"}},
 			},
 			hdlr:      &fakeReportHandler{},
-			wantError: "unresolved attribute bad.attributeName",
+			wantError: "unresolved attribute bad.attribute",
 		},
 		{
 			name: "EvalError",
 			insts: map[string]proto.Message{
-				"foo": &sample_report.InstanceParam{Value: "bad.attributeName", Dimensions: map[string]string{"s": "2"}},
+				"foo": &sample_report.InstanceParam{Value: "bad.attribute", Dimensions: map[string]string{"s": "2"}, BoolPrimitive: "true",
+					DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`, Int64Map: map[string]string{"a": "1"}},
 			},
 			hdlr:      &fakeReportHandler{},
-			wantError: "unresolved attribute bad.attributeName",
+			wantError: "unresolved attribute bad.attribute",
 		},
 		{
 			name: "ProcessError",
 			insts: map[string]proto.Message{
-				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "2"}},
+				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "2"}, BoolPrimitive: "true",
+					DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`, Int64Map: map[string]string{"a": "1"}},
 			},
-			hdlr:      &fakeReportHandler{retProcError: fmt.Errorf("error from process method")},
+			hdlr:      &fakeReportHandler{retError: fmt.Errorf("error from process method")},
 			wantError: "error from process method",
 		},
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			h := &tst.hdlr
 			ev, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
-			s := SupportedTmplInfo[sample_report.TemplateName].ProcessReport(tst.insts, fakeBag{}, ev, *h)
+			err := SupportedTmplInfo[sample_report.TemplateName].ProcessReport(context.TODO(), tst.insts, fakeBag{}, ev, *h)
 
 			if tst.wantError != "" {
-				if !strings.Contains(s.Message, tst.wantError) {
-					t.Errorf("ProcessReport got error = %s, want %s", s.Message, tst.wantError)
+				if !strings.Contains(err.Error(), tst.wantError) {
+					t.Errorf("ProcessReport got error = %s, want %s", err.Error(), tst.wantError)
 				}
 			} else {
-				if s.Code != int32(rpc.OK) {
-					t.Errorf("ProcessReport got error status %v , want success", s)
+				if err != nil {
+					t.Errorf("ProcessReport got error %v , want success", err)
 				}
 				v := (*h).(*fakeReportHandler).procCallInput.([]*sample_report.Instance)
 				if !cmp(v, tst.wantInstance) {
@@ -665,119 +672,136 @@ func TestProcessReport(t *testing.T) {
 }
 
 func TestProcessCheck(t *testing.T) {
-	instName := "foo"
-	for _, tst := range []ProcessTest{
+	for _, tst := range [] struct {
+		name          string
+		instName      string
+		inst         proto.Message
+		hdlr          adapter.Handler
+		wantInstance  interface{}
+		wantCheckResult adapter.CheckResult
+		wantError     string
+	} {
 		{
 			name: "Simple",
-			insts: map[string]proto.Message{
-				instName: &sample_check.InstanceParam{CheckExpression: `"abcd asd"`, StringMap: map[string]string{"a": `"aaa"`}},
+			instName: "foo",
+			inst: &sample_check.InstanceParam{
+					CheckExpression: `"abcd asd"`,
+					StringMap: map[string]string{"a": `"aaa"`},
+				},
+			hdlr: &fakeCheckHandler{
+				retResult: adapter.CheckResult{Status: rpc.Status{Message: "msg"}},
 			},
-			hdlr: &fakeCheckHandler{ret: true, retCache: adapter.CacheabilityInfo{ValidUseCount: 111}},
-			wantInstance: &sample_check.Instance{Name: instName, CheckExpression: "abcd asd", StringMap: map[string]string{"a": "aaa"}},
-			wantCache: adapter.CacheabilityInfo{ValidUseCount: 111},
+			wantInstance: &sample_check.Instance{Name: "foo", CheckExpression: "abcd asd", StringMap: map[string]string{"a": "aaa"}},
+			wantCheckResult: adapter.CheckResult{Status: rpc.Status{Message: "msg"}},
 		},
 		{
 			name: "EvalError",
-			insts: map[string]proto.Message{
-				instName: &sample_check.InstanceParam{CheckExpression: `bad.attributeName`},
+			instName: "foo",
+			inst: &sample_check.InstanceParam{
+				CheckExpression: `"abcd asd"`,
+				StringMap: map[string]string{"a": "bad.attribute"},
 			},
-			hdlr:      &fakeCheckHandler{ret: true},
-			wantError: "unresolved attribute bad.attributeName",
+			wantError: "unresolved attribute bad.attribute",
 		},
 		{
 			name: "ProcessError",
-			insts: map[string]proto.Message{
-				instName: &sample_check.InstanceParam{CheckExpression: `"abcd asd"`},
+			instName: "foo",
+			inst: &sample_check.InstanceParam{
+				CheckExpression: `"abcd asd"`,
+				StringMap: map[string]string{"a": `"aaa"`},
 			},
-			hdlr:      &fakeCheckHandler{retProcError: fmt.Errorf("error from process method")},
-			wantError: "error from process method",
-		},
-		{
-			name: "ProcRetFalse",
-			insts: map[string]proto.Message{
-				instName: &sample_check.InstanceParam{CheckExpression: `"abcd asd"`},
+			hdlr: &fakeCheckHandler{
+				retError: fmt.Errorf("some error"),
 			},
-			hdlr:      &fakeCheckHandler{ret: false},
-			wantError: " rejected",
+			wantError: "some error",
 		},
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			h := &tst.hdlr
 			ev, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
-			s, cInfo := SupportedTmplInfo[sample_check.TemplateName].ProcessCheck(instName, tst.insts[instName], fakeBag{}, ev, *h)
+			res, err := SupportedTmplInfo[sample_check.TemplateName].ProcessCheck(context.TODO(), tst.instName, tst.inst, fakeBag{}, ev, *h)
 
 			if tst.wantError != "" {
-				if !strings.Contains(s.Message, tst.wantError) {
-					t.Errorf("SupportedTmplInfo[sample_check.TemplateName].CheckSample(%v) got error = %s, want %s", tst.insts, s.Message, tst.wantError)
+				if !strings.Contains(err.Error(), tst.wantError) {
+					t.Errorf("ProcessCheckSample got error = %s, want %s", err.Error(), tst.wantError)
 				}
 			} else {
-				if s.Code != int32(rpc.OK) {
-					t.Errorf("CheckSample got error status %v , want success", s)
-				}
 				v := (*h).(*fakeCheckHandler).procCallInput
-				if !reflect.DeepEqual(v, tst.wantInstance) || !reflect.DeepEqual(tst.wantCache, cInfo) {
+				if !reflect.DeepEqual(v, tst.wantInstance) {
 					t.Errorf("CheckSample handler "+
-						"invoked value = %v,%v want %v,%v", spew.Sdump(v), cInfo, spew.Sdump(tst.wantInstance), tst.wantCache)
+						"invoked value = %v want %v", spew.Sdump(v), spew.Sdump(tst.wantInstance))
+				}
+				if !reflect.DeepEqual(tst.wantCheckResult, res) {
+					t.Errorf("CheckSample result = %v want %v", res, spew.Sdump(tst.wantCheckResult))
 				}
 			}
 		})
 	}
 }
 
+
 func TestProcessQuota(t *testing.T) {
-	for _, tst := range []ProcessTest{
+	for _, tst := range [] struct {
+		name          string
+		instName      string
+		inst         proto.Message
+		hdlr          adapter.Handler
+		wantInstance  interface{}
+		wantQuotaResult adapter.QuotaResult2
+		wantError     string
+	} {
 		{
 			name: "Simple",
-			insts: map[string]proto.Message{
-				"foo": &sample_quota.InstanceParam{Dimensions: map[string]string{"s": "2"}, BoolMap: map[string]string{"a": "true"}},
+			instName: "foo",
+			inst: &sample_quota.InstanceParam {
+				Dimensions: map[string]string{"a": `"str"`},
+				BoolMap: map[string]string{"a": "true"},
 			},
-			hdlr: &fakeQuotaHandler{retQuotaRes: adapter.QuotaResult{Amount: 100}, retCache: adapter.CacheabilityInfo{ValidUseCount: 111}},
-
-			wantInstance:  &sample_quota.Instance{Name: "foo", Dimensions: map[string]interface{}{"s": int64(2)}, BoolMap: map[string]bool{"a": true}},
-			wantCache:     adapter.CacheabilityInfo{ValidUseCount: 111},
-			wantQuotaResp: adapter.QuotaResult{Amount: 100},
+			hdlr: &fakeQuotaHandler{
+				retResult: adapter.QuotaResult2 {Amount: 1},
+			},
+			wantInstance: &sample_quota.Instance{Name: "foo", Dimensions: map[string]interface{}{"a": "str"}, BoolMap: map[string]bool{"a": true}},
+			wantQuotaResult: adapter.QuotaResult2{Amount: 1},
 		},
 		{
 			name: "EvalError",
-			insts: map[string]proto.Message{
-				"foo": &sample_quota.InstanceParam{Dimensions: map[string]string{"s": "bad.attributeName"}},
+			instName: "foo",
+			inst: &sample_quota.InstanceParam{
+				Dimensions: map[string]string{"a": "bad.attribute"},
+				BoolMap: map[string]string{"a": "true"},
 			},
-			hdlr:      &fakeQuotaHandler{},
-			wantError: "unresolved attribute bad.attributeName",
+			wantError: "unresolved attribute bad.attribute",
 		},
 		{
 			name: "ProcessError",
-			insts: map[string]proto.Message{
-				"foo": &sample_quota.InstanceParam{Dimensions: map[string]string{"s": "2"}},
+			instName: "foo",
+			inst: &sample_quota.InstanceParam{
+				Dimensions: map[string]string{"a": `"str"`},
+				BoolMap: map[string]string{"a": "true"},
 			},
-			hdlr:      &fakeQuotaHandler{retProcError: fmt.Errorf("error from process method")},
-			wantError: "error from process method",
-		},
-		{
-			name: "AmtZero",
-			insts: map[string]proto.Message{
-				"foo": &sample_quota.InstanceParam{Dimensions: map[string]string{"s": "2"}},
+			hdlr: &fakeQuotaHandler{
+				retError: fmt.Errorf("some error"),
 			},
-			hdlr:      &fakeQuotaHandler{retQuotaRes: adapter.QuotaResult{Amount: 0}, retCache: adapter.CacheabilityInfo{ValidUseCount: 111}},
-			wantError: "Unable to allocate",
+			wantError: "some error",
 		},
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			h := &tst.hdlr
 			ev, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
-			s, cInfo, qr := SupportedTmplInfo[sample_quota.TemplateName].ProcessQuota("foo", tst.insts["foo"], fakeBag{}, ev, *h, adapter.QuotaRequestArgs{})
+			res, err := SupportedTmplInfo[sample_quota.TemplateName].ProcessQuota(context.TODO(), tst.instName, tst.inst, fakeBag{}, ev, *h, adapter.QuotaRequestArgs{})
 
 			if tst.wantError != "" {
-				if !strings.Contains(s.Message, tst.wantError) {
-					t.Errorf("SupportedTmplInfo[sample_quota.TemplateName].AllocQuota(%v) got error = %s, want %s", tst.insts, s.Message, tst.wantError)
+				if !strings.Contains(err.Error(), tst.wantError) {
+					t.Errorf("ProcessQuotaSample got error = %s, want %s", err.Error(), tst.wantError)
 				}
 			} else {
-				if s.Code != int32(rpc.OK) {
-					t.Errorf("CheckSample got error status %v , want success", s)
-				}
 				v := (*h).(*fakeQuotaHandler).procCallInput
-				if !reflect.DeepEqual(v, tst.wantInstance) || !reflect.DeepEqual(tst.wantCache, cInfo) || !reflect.DeepEqual(tst.wantQuotaResp, qr) {
-					t.Errorf("ProcessQuota handler invoked value = %v,%v,%v  want %v,%v,%v", spew.Sdump(v), cInfo, qr, spew.Sdump(tst.wantInstance), tst.wantCache, tst.wantQuotaResp)
+				if !reflect.DeepEqual(v, tst.wantInstance) {
+					t.Errorf("ProcessQuotaSample handler "+
+						"invoked value = %v want %v", spew.Sdump(v), spew.Sdump(tst.wantInstance))
+				}
+				if !reflect.DeepEqual(tst.wantQuotaResult, res) {
+					t.Errorf("ProcessQuotaSample result = %v want %v", res, spew.Sdump(tst.wantQuotaResult))
 				}
 			}
 		})

@@ -17,6 +17,8 @@
 package istio_mixer_adapter_quota
 
 import (
+	"context"
+
 	"istio.io/mixer/pkg/adapter"
 )
 
@@ -74,5 +76,5 @@ type Handler interface {
 
 	// HandleQuota is called by Mixer at request time to deliver instances to
 	// to an adapter.
-	HandleQuota(*Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult, adapter.CacheabilityInfo, error)
+	HandleQuota(context.Context, *Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult2, error)
 }

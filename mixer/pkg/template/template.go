@@ -15,10 +15,10 @@
 package template
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	multierror "github.com/hashicorp/go-multierror"
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
@@ -41,19 +41,20 @@ type (
 	// ConfigureTypeFn dispatches the inferred types to handlers
 	ConfigureTypeFn func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error
 
-	// ProcessReportFn instantiates the instance object and dispatches them to the handler.
-	ProcessReportFn func(allCnstrs map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) rpc.Status
-
 	// ProcessCheckFn instantiates the instance object and dispatches them to the handler.
-	ProcessCheckFn func(instName string, cnstr proto.Message, attrs attribute.Bag, mapper expr.Evaluator,
-		handler adapter.Handler) (rpc.Status, adapter.CacheabilityInfo)
+	ProcessCheckFn func(ctx context.Context, instName string, instCfg proto.Message, attrs attribute.Bag,
+		mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error)
 
 	// ProcessQuotaFn instantiates the instance object and dispatches them to the handler.
-	ProcessQuotaFn func(quotaName string, cnstr proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler,
-		args adapter.QuotaRequestArgs) (rpc.Status, adapter.CacheabilityInfo, adapter.QuotaResult)
+	ProcessQuotaFn func(ctx context.Context, quotaName string, quotaCfg proto.Message, attrs attribute.Bag,
+		mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error)
 
-	// SupportsTemplateFn check if the handlerBuilder supports template.
-	SupportsTemplateFn func(hndlrBuilder adapter.HandlerBuilder) bool
+	// ProcessReportFn instantiates the instance object and dispatches them to the handler.
+	ProcessReportFn func(ctx context.Context, instCfg map[string]proto.Message, attrs attribute.Bag,
+		mapper expr.Evaluator, handler adapter.Handler) error
+
+	// BuilderSupportsTemplateFn check if the handlerBuilder supports template.
+	BuilderSupportsTemplateFn func(hndlrBuilder adapter.HandlerBuilder) bool
 
 	// HandlerSupportsTemplateFn check if the handler supports template.
 	HandlerSupportsTemplateFn func(hndlr adapter.Handler) bool
@@ -61,18 +62,20 @@ type (
 	// Info contains all the information related a template like
 	// Default instance params, type inference method etc.
 	Info struct {
+		Name                    string
+		Variety                 adptTmpl.TemplateVariety
+		BldrInterfaceName       string
+		HndlrInterfaceName      string
 		CtrCfg                  proto.Message
 		InferType               InferTypeFn
 		ConfigureType           ConfigureTypeFn
-		SupportsTemplate        SupportsTemplateFn
+		BuilderSupportsTemplate BuilderSupportsTemplateFn
 		HandlerSupportsTemplate HandlerSupportsTemplateFn
-		BldrInterfaceName       string
-		HndlrInterfaceName      string
-		Variety                 adptTmpl.TemplateVariety
 		ProcessReport           ProcessReportFn
 		ProcessCheck            ProcessCheckFn
 		ProcessQuota            ProcessQuotaFn
 	}
+
 	// templateRepo implements Repository
 	repo struct {
 		info map[string]Info
@@ -115,7 +118,7 @@ func (t repo) SupportsTemplate(hndlrBuilder adapter.HandlerBuilder, tmpl string)
 		return false, fmt.Sprintf("Supported template %v is not one of the allowed supported templates %v", tmpl, t.allSupportedTmpls)
 	}
 
-	if b := i.SupportsTemplate(hndlrBuilder); !b {
+	if b := i.BuilderSupportsTemplate(hndlrBuilder); !b {
 		return false, fmt.Sprintf("HandlerBuilder does not implement interface %s. "+
 			"Therefore, it cannot support template %v", t.tmplToBuilderNames[tmpl], tmpl)
 	}

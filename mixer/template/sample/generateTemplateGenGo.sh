@@ -10,4 +10,3 @@ bazel-genfiles/template/sample/check/go_default_library_proto.descriptor_set:ist
 bazel-genfiles/template/sample/quota/go_default_library_proto.descriptor_set:istio.io/mixer/template/sample/quota \
 -o $MIXERPATH/template/sample/template.gen.go
 
-bazel build ...
