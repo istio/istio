@@ -68,7 +68,7 @@ func GetFakeHndlrBuilderInfo() adapter.BuilderInfo {
 		SupportedTemplates:   []string{sample_report.TemplateName},
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return fakeHndlrBldr{} },
 		DefaultConfig:        &types.Empty{},
-		ValidateConfig: func(msg proto.Message) error {
+		ValidateConfig: func(msg proto.Message) *adapter.ConfigErrors {
 			return nil
 		},
 	}
