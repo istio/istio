@@ -44,6 +44,7 @@ go_test(
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes/empty:go_default_library",
+        "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
     ],
 )

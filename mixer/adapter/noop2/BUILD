@@ -26,8 +26,6 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//pkg/adapter:go_default_library",
-        "//pkg/config:go_default_library",
-        "//pkg/template:go_default_library",
         "//template/checknothing:go_default_library",
         "//template/listentry:go_default_library",
         "//template/logentry:go_default_library",
