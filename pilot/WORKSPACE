@@ -420,7 +420,8 @@ go_repository(
 ## Proxy image
 ##
 
-ISTIO_PROXY_BUCKET = "9a1bae7a5d947bb81a4898fbd171d129aeb04c52"
+# Change this and the docker/Dockerfile.proxy* files together
+ISTIO_PROXY_BUCKET = "2a8426631283669ef1a433c5d1bb84642f042e81"
 
 http_file(
     name = "envoy_binary",
