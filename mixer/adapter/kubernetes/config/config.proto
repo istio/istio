@@ -41,7 +41,7 @@ option (gogoproto.gostring_all) = false;
 // that includes a key of "sourcePodIP" (assuming parameter defaults).
 message Params {
     reserved 17;
-    // next field id: 19
+    // next field id: 20
 
     // File path to discover kubeconfig. For in-cluster configuration,
     // this should be left unset. For local configuration, this should
@@ -91,6 +91,14 @@ message Params {
     //
     // Default: app
     string pod_label_for_service = 6;
+
+    // In order to extract the service associated with a source, target, or
+    // origin, this adapter relies on pod labels. In particular, it looks for
+    // the value of a specific label for istio services, as specified by this
+    // parameter.
+    //
+    // Default: istio
+    string pod_label_for_istio_service = 19;
 
     // The prefix used for source pod output value names.
     //
