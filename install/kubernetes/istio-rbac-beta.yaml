@@ -8,6 +8,12 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
   name: istio-pilot
 rules:
+- apiGroups: ["config.istio.io"]
+  resources: ["istiokinds"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["*"]
 - apiGroups: ["istio.io"]
   resources: ["istioconfigs", "istioconfigs.istio.io"]
   verbs: ["*"]
@@ -63,7 +69,7 @@ roleRef:
   name: istio-pilot
   apiGroup: rbac.authorization.k8s.io
 ---
-# Grant permissions to the Pilot/discovery.
+# Grant permissions to the CA.
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
@@ -75,6 +81,20 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: istio-ca
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to mixer.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-mixer-role-binding
+subjects:
+- kind: ServiceAccount
+  name: istio-mixer-service-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: istio-pilot
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Ingress controller.
