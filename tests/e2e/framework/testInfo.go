@@ -173,6 +173,11 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 		if err != nil {
 			return err
 		}
+		defer func() {
+			if err := f.Close(); err != nil {
+				glog.Warningf("Error during closing file: %v\n", err)
+			}
+		}()
 		// fetch log entries with pagination
 		var entries []*loggingpb.LogEntry
 		pager := iterator.NewPager(it, pageSize, "")
@@ -184,16 +189,27 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 			}
 			// append logs to file
 			for _, logEntry := range entries {
-				_, err = f.WriteString(fmt.Sprintf("%v\n", logEntry.Payload))
-				if err != nil {
+				fmtTime := time.Unix(logEntry.GetTimestamp().Seconds, 0)
+				timestamp := fmt.Sprintf("[%02d:%02d:%02d] ",
+					fmtTime.Hour(), fmtTime.Minute(), fmtTime.Second())
+				if _, err = f.WriteString(timestamp); err != nil {
 					return err
+				}
+				log := logEntry.GetTextPayload()
+				if _, err = f.WriteString(log); err != nil {
+					return err
+				}
+				if len(log) == 0 || log[len(log)-1] != '\n' {
+					if _, err = f.WriteString("\n"); err != nil {
+						return err
+					}
 				}
 			}
 			if pageToken == "" {
 				break
 			}
 		}
-		return f.Close()
+		return nil
 	}
 
 	var multiErr error
