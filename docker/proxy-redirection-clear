@@ -1,9 +1,7 @@
 #!/bin/sh
 
 set -e
-iptables-save > /tmp/saved-iptable-rules
+fname=/tmp/saved-iptable-rules
+iptables-save > $fname
 iptables -F -t nat
-echo "Run proxy-redirection-restore to restore iptable rules"
-
-
-
+echo "Run proxy-redirection-restore to restore iptable rules (from rules saved to $fname)"

@@ -2,11 +2,8 @@
 
 set -e
 
-if [ -x /tmp/saved-iptable-rules ]; then
-  cat /tmp/saved-iptable-rules | iptables-restore
-  echo "iptable rules restored"
+fname=/tmp/saved-iptable-rules
+if [ -r $fname ]; then
+  iptables-restore < $fname
+  echo "iptable rules restored from $fname"
 fi
-
-
-
-
