@@ -82,8 +82,9 @@ const (
 	serviceVal        = "Service"
 
 	// value extraction
-	clusterDomain   = "svc.cluster.local"
-	podServiceLabel = "app"
+	clusterDomain        = "svc.cluster.local"
+	podServiceLabel      = "app"
+	istioPodServiceLabel = "istio"
 
 	// cache invaliation
 	// TODO: determine a reasonable default
@@ -99,6 +100,7 @@ var (
 		OriginUidInputName:      originUID,
 		ClusterDomainName:       clusterDomain,
 		PodLabelForService:      podServiceLabel,
+		PodLabelForIstioService: istioPodServiceLabel,
 		SourcePrefix:            sourcePrefix,
 		TargetPrefix:            targetPrefix,
 		OriginPrefix:            originPrefix,
@@ -176,7 +178,10 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 		ce = ce.Appendf("serviceValueName", "field must be populated")
 	}
 	if len(params.PodLabelForService) == 0 {
-		ce = ce.Appendf("podLabelName", "field must be populated")
+		ce = ce.Appendf("podLabelForService", "field must be populated")
+	}
+	if len(params.PodLabelForIstioService) == 0 {
+		ce = ce.Appendf("podLabelForIstioService", "field must be populated")
 	}
 	if len(params.ClusterDomainName) == 0 {
 		ce = ce.Appendf("clusterDomainName", "field must be populated")
@@ -307,6 +312,11 @@ func addPodValues(m map[string]interface{}, prefix string, params config.Params,
 		m[valueName(prefix, params.HostIpValueName)] = p.Status.HostIP
 	}
 	if app, found := p.Labels[params.PodLabelForService]; found {
+		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
+		if err == nil {
+			m[valueName(prefix, params.ServiceValueName)] = n
+		}
+	} else if app, found := p.Labels[params.PodLabelForIstioService]; found {
 		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
 		if err == nil {
 			m[valueName(prefix, params.ServiceValueName)] = n

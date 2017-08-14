@@ -107,8 +107,8 @@ func TestBuilder_ValidateConfigErrors(t *testing.T) {
 		conf     *config.Params
 		errCount int
 	}{
-		{"empty config", &config.Params{}, 15},
-		{"bad cluster domain name", &config.Params{ClusterDomainName: "something.silly"}, 15},
+		{"empty config", &config.Params{}, 16},
+		{"bad cluster domain name", &config.Params{ClusterDomainName: "something.silly"}, 16},
 	}
 
 	b := newBuilder(fakePodCache)
@@ -265,6 +265,15 @@ func TestKubegen_Generate(t *testing.T) {
 				},
 			},
 		},
+		"testns/istio-ingress": {
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "istio-ingress",
+				Namespace: "testns",
+				Labels: map[string]string{
+					"istio": "ingress",
+				},
+			},
+		},
 	}
 
 	kg := &kubegen{
@@ -367,6 +376,19 @@ func TestKubegen_Generate(t *testing.T) {
 		"targetPodName":   "ipaddr-svc",
 	}
 
+	istioTargetSvcIn := map[string]interface{}{
+		"targetUID": "kubernetes://istio-ingress.testns",
+	}
+
+	istioTargetOut := map[string]interface{}{
+		"targetLabels": map[string]string{
+			"istio": "ingress",
+		},
+		"targetNamespace": "testns",
+		"targetPodName":   "istio-ingress",
+		"targetService":   "ingress.testns.svc.cluster.local",
+	}
+
 	tests := []struct {
 		name   string
 		inputs map[string]interface{}
@@ -379,6 +401,7 @@ func TestKubegen_Generate(t *testing.T) {
 		{"empty target service", emptyTargetSvcIn, emptyTargetOut},
 		{"bad target service label", badTargetSvcIn, badTargetOut},
 		{"ip target service label", ipTargetSvcIn, ipTargetOut},
+		{"istio service", istioTargetSvcIn, istioTargetOut},
 	}
 
 	for _, v := range tests {
