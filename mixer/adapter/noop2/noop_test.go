@@ -18,8 +18,12 @@ package noop2
 //       known to Mixer. For now, it's manually curated.
 
 import (
+	"context"
+	"reflect"
 	"testing"
 	"time"
+
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/template/checknothing"
@@ -79,82 +83,72 @@ func TestBasic(t *testing.T) {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	handler, err := builder.Build(nil, nil)
-	if err != nil {
+	var handler adapter.Handler
+	if h, err := builder.Build(nil, nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
+	} else {
+		handler = h
 	}
 
 	checkNothingHandler := handler.(checknothing.Handler)
-	result, caching, err := checkNothingHandler.HandleCheckNothing(nil)
-	if err != nil {
+	if result, err := checkNothingHandler.HandleCheckNothing(context.TODO(), nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
-	}
-
-	if !result {
-		t.Errorf("Got false, expecting true result")
-	}
-
-	if caching.ValidUseCount < 1000 {
-		t.Errorf("Got use count of %d, expecting at least 1000", caching.ValidUseCount)
-	}
-
-	if caching.ValidDuration < 1000*time.Second {
-		t.Errorf("Got duration of %v, expecting at least 1000 seconds", caching.ValidDuration)
+	} else {
+		if !reflect.DeepEqual(result.Status, rpc.Status{Code: int32(rpc.OK)}) {
+			t.Errorf("Got status %v, expecting %v", result.Status, rpc.Status{Code: int32(rpc.OK)})
+		}
+		if result.ValidDuration < 1000*time.Second {
+			t.Errorf("Got duration of %v, expecting at least 1000 seconds", result.ValidDuration)
+		}
+		if result.ValidUseCount < 1000 {
+			t.Errorf("Got use count of %d, expecting at least 1000", result.ValidUseCount)
+		}
 	}
 
 	reportNothingHandler := handler.(reportnothing.Handler)
-	if err = reportNothingHandler.HandleReportNothing(nil); err != nil {
+	if err := reportNothingHandler.HandleReportNothing(context.TODO(), nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
 	listEntryHandler := handler.(listentry.Handler)
-	result, caching, err = listEntryHandler.HandleListEntry(nil)
-	if err != nil {
+	if result, err := listEntryHandler.HandleListEntry(context.TODO(), nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
-	}
-
-	if !result {
-		t.Errorf("Got false, expecting true result")
-	}
-
-	if caching.ValidUseCount < 1000 {
-		t.Errorf("Got use count of %d, expecting at least 1000", caching.ValidUseCount)
-	}
-
-	if caching.ValidDuration < 1000*time.Second {
-		t.Errorf("Got duration of %v, expecting at least 1000 seconds", caching.ValidDuration)
+	} else {
+		if !reflect.DeepEqual(result.Status, rpc.Status{Code: int32(rpc.OK)}) {
+			t.Errorf("Got status %v, expecting %v", result.Status, rpc.Status{Code: int32(rpc.OK)})
+		}
+		if result.ValidDuration < 1000*time.Second {
+			t.Errorf("Got duration of %v, expecting at least 1000 seconds", result.ValidDuration)
+		}
+		if result.ValidUseCount < 1000 {
+			t.Errorf("Got use count of %d, expecting at least 1000", result.ValidUseCount)
+		}
 	}
 
 	logEntryHandler := handler.(logentry.Handler)
-	if err = logEntryHandler.HandleLogEntry(nil); err != nil {
+	if err := logEntryHandler.HandleLogEntry(context.TODO(), nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
 	metricHandler := handler.(metric.Handler)
-	if err = metricHandler.HandleMetric(nil); err != nil {
+	if err := metricHandler.HandleMetric(context.TODO(), nil); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	if err = handler.Close(); err != nil {
+	if err := handler.Close(); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
 	quotaHandler := handler.(quota.Handler)
-	qr, caching, err := quotaHandler.HandleQuota(nil, adapter.QuotaRequestArgs{QuotaAmount: 100})
-	if err != nil {
+	if result, err := quotaHandler.HandleQuota(context.TODO(), nil, adapter.QuotaRequestArgs{QuotaAmount: 100}); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
-	}
-
-	if qr.Amount != 100 {
-		t.Errorf("Got %d quota, expecting 100", qr.Amount)
-	}
-
-	if caching.ValidUseCount < 1000 {
-		t.Errorf("Got use count of %d, expecting at least 1000", caching.ValidUseCount)
-	}
-
-	if caching.ValidDuration < 1000*time.Second {
-		t.Errorf("Got duration of %v, expecting at least 1000 seconds", caching.ValidDuration)
+	} else {
+		if result.ValidDuration < 1000*time.Second {
+			t.Errorf("Got duration of %v, expecting at least 1000 seconds", result.ValidDuration)
+		}
+		if result.Amount != 100 {
+			t.Errorf("Got %d quota, expecting 100", result.Amount)
+		}
 	}
 }
 

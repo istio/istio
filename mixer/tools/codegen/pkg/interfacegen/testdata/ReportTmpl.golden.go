@@ -17,6 +17,8 @@
 package istio_mixer_adapter_metric
 
 import (
+	"context"
+
 	"istio.io/mixer/pkg/adapter"
 )
 
@@ -83,5 +85,5 @@ type Handler interface {
 
 	// HandleMetric is called by Mixer at request time to deliver instances to
 	// to an adapter.
-	HandleMetric([]*Instance) error
+	HandleMetric(context.Context, []*Instance) error
 }

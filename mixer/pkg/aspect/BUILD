@@ -15,9 +15,7 @@ go_library(
         "listsManager.go",
         "manager.go",
         "metricsManager.go",
-        "quotaManager.go",
         "quotasManager.go",
-        "reportManager.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -53,9 +51,7 @@ go_test(
         "inventory_test.go",
         "listsManager_test.go",
         "metricsManager_test.go",
-        "quotaManager_test.go",
         "quotasManager_test.go",
-        "reportManager_test.go",
     ],
     library = ":go_default_library",
     deps = [
