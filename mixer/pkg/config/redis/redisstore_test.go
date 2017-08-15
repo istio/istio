@@ -271,7 +271,7 @@ func TestNotifications(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read changes: %v", err)
 	}
-	if !reflect.DeepEqual(c, []store.Change{{"foo", store.Delete, 3}}) {
+	if !reflect.DeepEqual(c, []store.Change{{Key: "foo", Type: store.Delete, Index: 3}}) {
 		t.Fatalf("unexpected changes: %v", c)
 	}
 

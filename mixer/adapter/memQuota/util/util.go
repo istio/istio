@@ -142,26 +142,26 @@ func MakeKey(name string, labels map[string]interface{}) string {
 	}
 	sort.Strings(keys)
 
-	buf.WriteString(name)
+	buf.WriteString(name) // nolint: gas
 	for _, k := range keys {
-		buf.WriteString(";")
-		buf.WriteString(k)
-		buf.WriteString("=")
+		buf.WriteString(";") // nolint: gas
+		buf.WriteString(k)   // nolint: gas
+		buf.WriteString("=") // nolint: gas
 
 		switch v := labels[k].(type) {
 		case string:
-			buf.WriteString(v)
+			buf.WriteString(v) // nolint: gas
 		case int64:
 			var bytes [32]byte
-			buf.Write(strconv.AppendInt(bytes[:], v, 16))
+			buf.Write(strconv.AppendInt(bytes[:], v, 16)) // nolint: gas
 		case float64:
 			var bytes [32]byte
-			buf.Write(strconv.AppendFloat(bytes[:], v, 'b', -1, 64))
+			buf.Write(strconv.AppendFloat(bytes[:], v, 'b', -1, 64)) // nolint: gas
 		case bool:
 			var bytes [32]byte
-			buf.Write(strconv.AppendBool(bytes[:], v))
+			buf.Write(strconv.AppendBool(bytes[:], v)) // nolint: gas
 		case []byte:
-			buf.Write(v)
+			buf.Write(v) // nolint: gas
 		case map[string]string:
 			ws := keyWorkspacePool.Get().(*keyWorkspace)
 			mk := ws.keys
@@ -173,14 +173,14 @@ func MakeKey(name string, labels map[string]interface{}) string {
 			sort.Strings(mk)
 
 			for _, k2 := range mk {
-				buf.WriteString(k2)
-				buf.WriteString(v[k2])
+				buf.WriteString(k2)    // nolint: gas
+				buf.WriteString(v[k2]) // nolint: gas
 			}
 
 			ws.keys = keys[:0]
 			keyWorkspacePool.Put(ws)
 		default:
-			buf.WriteString(v.(fmt.Stringer).String())
+			buf.WriteString(v.(fmt.Stringer).String()) // nolint: gas
 		}
 	}
 

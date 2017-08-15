@@ -39,7 +39,7 @@ func (e env) ScheduleWork(fn adapter.WorkFunc) {
 	e.gp.ScheduleWork(func() {
 		defer func() {
 			if r := recover(); r != nil {
-				_ = e.Logger().Errorf("Adapter worker failed: %v", r)
+				_ = e.Logger().Errorf("Adapter worker failed: %v", r) // nolint: gas
 
 				// TODO: Beyond logging, we want to do something proactive here.
 				//       For example, we want to probably terminate the originating
@@ -56,7 +56,7 @@ func (e env) ScheduleDaemon(fn adapter.DaemonFunc) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				_ = e.Logger().Errorf("Adapter daemon failed: %v", r)
+				_ = e.Logger().Errorf("Adapter daemon failed: %v", r) // nolint: gas
 
 				// TODO: Beyond logging, we want to do something proactive here.
 				//       For example, we want to probably terminate the originating
