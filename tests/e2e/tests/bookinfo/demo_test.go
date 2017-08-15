@@ -49,7 +49,7 @@ const (
 var (
 	tc             *testConfig
 	testRetryTimes = 10
-	defaultRules = []string{allRule}
+	defaultRules   = []string{allRule}
 )
 
 type testConfig struct {
