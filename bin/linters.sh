@@ -27,7 +27,7 @@ prep_linters() {
         go get -u github.com/bazelbuild/buildifier/buildifier
         go get -u github.com/3rf/codecoroner
         go get -u honnef.co/go/tools/cmd/megacheck
-        gometalinter --install --vendored-linters >/dev/null
+        gometalinter --install --update --vendored-linters >/dev/null
     fi
     bin/bazel_to_go.py
 }
