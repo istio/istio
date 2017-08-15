@@ -263,6 +263,7 @@ void MixerControl::ForwardAttributes(HeaderMap& headers,
 void MixerControl::CheckHttp(HttpRequestDataPtr request_data,
                              HeaderMap& headers, std::string source_user,
                              const Utils::StringMap& route_attributes,
+                             const Network::Connection* connection,
                              DoneFunc on_done) {
   if (!mixer_client_) {
     on_done(
@@ -273,6 +274,16 @@ void MixerControl::CheckHttp(HttpRequestDataPtr request_data,
   for (const auto& attribute : route_attributes) {
     SetStringAttribute(attribute.first, attribute.second,
                        &request_data->attributes);
+  }
+
+  if (connection) {
+    const Network::Address::Ip* remote_ip = connection->remoteAddress().ip();
+    if (remote_ip) {
+      SetStringAttribute(kSourceIp, remote_ip->addressAsString(),
+                         &request_data->attributes);
+      SetInt64Attribute(kSourcePort, remote_ip->port(),
+                        &request_data->attributes);
+    }
   }
 
   SetStringAttribute(kSourceUser, source_user, &request_data->attributes);

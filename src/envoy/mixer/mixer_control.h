@@ -54,6 +54,7 @@ class MixerControl final : public Logger::Loggable<Logger::Id::http> {
   void CheckHttp(HttpRequestDataPtr request_data, HeaderMap& headers,
                  std::string origin_user,
                  const Utils::StringMap& route_attributes,
+                 const Network::Connection* connection,
                  ::istio::mixer_client::DoneFunc on_done);
 
   // Make mixer report call for HTTP requests.

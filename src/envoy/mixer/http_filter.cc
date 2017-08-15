@@ -230,6 +230,7 @@ class Instance : public Http::StreamDecoderFilter,
     mixer_control_->CheckHttp(
         request_data_, headers, origin_user,
         GetRouteStringMap(kPrefixMixerAttributes),
+        decoder_callbacks_->connection(),
         [instance](const Status& status) { instance->completeCheck(status); });
     initiating_call_ = false;
 
