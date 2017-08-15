@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2016 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,20 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapter
+syntax = "proto3";
 
-import (
-	"istio.io/mixer/adapter/denier"
-	"istio.io/mixer/adapter/list"
-	"istio.io/mixer/adapter/noop2"
-	"istio.io/mixer/pkg/adapter"
-)
+package adapter.denier.config;
 
-// Inventory2 returns the inventory of all available adapters.
-func Inventory2() []adapter.InfoFn {
-	return []adapter.InfoFn{
-		noop2.GetBuilderInfo,
-		denier.GetBuilderInfo,
-		list.GetBuilderInfo,
-	}
+import "gogoproto/gogo.proto";
+import "google/rpc/status.proto";
+
+option go_package="config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
+message Params {
+	// The error to return when denying a request.
+	google.rpc.Status status = 1 [(gogoproto.nullable) = false];
 }

@@ -26,6 +26,7 @@ import (
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/adapter/test"
 	"istio.io/mixer/template/checknothing"
 	"istio.io/mixer/template/listentry"
 	"istio.io/mixer/template/logentry"
@@ -83,11 +84,9 @@ func TestBasic(t *testing.T) {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	var handler adapter.Handler
-	if h, err := builder.Build(nil, nil); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	} else {
-		handler = h
+	handler, buildErr := builder.Build(cfg, test.NewEnv(t))
+	if buildErr != nil {
+		t.Errorf("Got error %v, expecting success", buildErr)
 	}
 
 	checkNothingHandler := handler.(checknothing.Handler)
@@ -135,10 +134,6 @@ func TestBasic(t *testing.T) {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	if err := handler.Close(); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
-
 	quotaHandler := handler.(quota.Handler)
 	if result, err := quotaHandler.HandleQuota(context.TODO(), nil, adapter.QuotaRequestArgs{QuotaAmount: 100}); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
@@ -149,6 +144,10 @@ func TestBasic(t *testing.T) {
 		if result.Amount != 100 {
 			t.Errorf("Got %d quota, expecting 100", result.Amount)
 		}
+	}
+
+	if err := handler.Close(); err != nil {
+		t.Errorf("Got error %v, expecting success", err)
 	}
 }
 
