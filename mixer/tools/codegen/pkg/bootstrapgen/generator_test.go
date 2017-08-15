@@ -48,14 +48,16 @@ func TestGenerator_Generate(t *testing.T) {
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			outFile, err := os.Create(path.Join(os.TempDir(), path.Base(v.want)))
+			testTmpDir := path.Join(os.TempDir(), "bootstrapTemplateTest")
+			_ = os.MkdirAll(testTmpDir, os.ModeDir|os.ModePerm)
+			outFile, err := os.Create(path.Join(testTmpDir, path.Base(v.want)))
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer func() {
 				if !t.Failed() {
-					if removeErr := os.Remove(outFile.Name()); removeErr != nil {
-						t.Logf("Could not remove temporary file %s: %v", outFile.Name(), removeErr)
+					if removeErr := os.RemoveAll(testTmpDir); removeErr != nil {
+						t.Logf("Could not remove temporary folder %s: %v", testTmpDir, removeErr)
 					}
 				}
 			}()
