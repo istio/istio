@@ -1,0 +1,71 @@
+// Copyright 2017 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
+syntax = "proto3";
+
+package istio.proxy.v1.config;
+
+// Egress rules specify which domains outside of the mesh are allowed to be accessed by
+// the microservices of the mesh. Currently, only two protocols are supported:
+// HTTP and HTTPS. For HTTPS, the applications in the mesh will send HTTP requests to the
+// appropriate port, e.g. GET http:/gmail.com:443. The Egress or the sidecar proxy will 
+// perform TLS origination.
+//
+// An example rule - allow traffic to *cnn.com and *cnn.it domains that are not part of the mesh.
+//
+// type: egress-rule
+// spec:
+//   name: cnn
+//   domains:
+//     - "*cnn.com"
+//     - "*cnn.it"
+//   ports:
+//     - port: 80
+//       protocol: http
+//     - port: 443
+//       protocol: https
+//   use_egress_proxy: true
+//
+message EgressRule {
+  // This message defines a port on which the external services are available.
+  // It is comprised of a port number and a protocol to communicate with the
+  // external services through that port number.
+  message Port {
+        // The number of the port on which the external services are available.
+	int32 port = 1;
+	// The protocol to communicate with the external services.
+	// Currently supported HTTP and HTTPS
+	string protocol = 2;
+  }
+
+  // REQUIRED: Egress rules have unique names, e.g. "my-egress-rule".
+  string name = 1;
+
+  // REQUIRED: list of domains to redirect outside of the mesh.
+  // The domains are according to the definion of Envoy's domain of virtual hosts:
+  // Wildcard hosts are supported in the form of “*.foo.com” or “*-bar.foo.com”.
+  // Note that the wildcard will not match the empty string. e.g. “*-bar.foo.com” will match “baz-bar.foo.com” 
+  // but not “-bar.foo.com”.  Additionally, a special entry “*” is allowed which will match any host/authority header.
+  repeated string domains = 2;
+
+  // REQUIRED: list of ports on which the external services are available.
+  repeated Port ports = 3;
+
+  // Forward all the external traffic through a dedicated egress proxy. It is used in some scenarios
+  // where there is a requirement that all the external traffic goes through special dedicated nodes/pods.
+  // These dedicated egress nodes could then be more closely monitored for security vulnerabilities.
+  //
+  // The default is false, i.e. the sidecar forwards external traffic directly to the external service.
+  bool use_egress_proxy = 4;
+}
