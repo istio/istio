@@ -15,6 +15,7 @@
 package e2e
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -46,7 +47,8 @@ const (
 )
 
 var (
-	tc *testConfig
+	tc           *testConfig
+	defaultRules = []string{allRule}
 )
 
 type testConfig struct {
@@ -104,6 +106,13 @@ func (t *testConfig) Setup() error {
 }
 
 func (t *testConfig) Teardown() error {
+	if err := deleteRules(defaultRules); err != nil {
+		// don't report errors if the rule being deleted doesn't exist
+		if notFound := strings.Contains(err.Error(), "not found"); notFound {
+			return nil
+		}
+		return err
+	}
 	return nil
 }
 
@@ -123,6 +132,9 @@ func inspect(err error, fMsg, sMsg string, t *testing.T) {
 }
 
 func setUpDefaultRouting() error {
+	if err := applyRules(defaultRules, create); err != nil {
+		return fmt.Errorf("could not apply rule '%s': %v", allRule, err)
+	}
 	standby := 0
 	for i := 0; i <= 10; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)
@@ -138,7 +150,7 @@ func setUpDefaultRouting() error {
 			closeResponseBody(resp)
 		}
 		if i == 10 {
-			return fmt.Errorf("unable to set default route")
+			return errors.New("unable to set default route")
 		}
 		standby += 5
 		glog.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
@@ -185,7 +197,7 @@ func deleteRules(ruleKeys []string) error {
 	for _, ruleKey := range ruleKeys {
 		rule := filepath.Join(tc.rulesDir, ruleKey)
 		if e := tc.Kube.Istioctl.DeleteRule(rule); e != nil {
-			err = multierror.Append(err, err)
+			err = multierror.Append(err, e)
 		}
 	}
 	glog.Info("Waiting for rule to be cleaned up...")
@@ -216,7 +228,7 @@ func applyRules(ruleKeys []string, operation string) error {
 
 func TestVersionRouting(t *testing.T) {
 	var err error
-	var rules = []string{allRule, testRule}
+	var rules = []string{testRule}
 	inspect(applyRules(rules, create), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(rules), "failed to delete rules", "", t)
@@ -236,7 +248,7 @@ func TestVersionRouting(t *testing.T) {
 }
 
 func TestFaultDelay(t *testing.T) {
-	var rules = []string{allRule, testRule, delayRule}
+	var rules = []string{testRule, delayRule}
 	inspect(applyRules(rules, create), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(rules), "failed to delete rules", "", t)
@@ -269,7 +281,7 @@ func TestFaultDelay(t *testing.T) {
 
 func TestVersionMigration(t *testing.T) {
 	var rules = []string{fiftyRule}
-	inspect(applyRules(rules, create), "failed to apply rules", "", t)
+	inspect(applyRules(rules, "replace"), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(rules), fmt.Sprintf("failed to delete rules"), "", t)
 	}()
