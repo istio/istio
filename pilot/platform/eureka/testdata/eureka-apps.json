@@ -1,0 +1,114 @@
+{
+   "applications": {
+      "versions__delta": "1",
+      "apps__hashcode": "UP_34_",
+      "application": [
+         {
+            "name": "FOO_BAR_LOCAL",
+            "instance": [
+               {
+                  "instanceId": "foo.bar.local-10.0.0.1-5000",
+                  "hostName": "foo.bar.local",
+                  "app": "FOO_BAR_LOCAL",
+                  "ipAddr": "10.0.0.1",
+                  "status": "UP",
+                  "overriddenstatus": "UNKNOWN",
+                  "port": {
+                     "$": 5000,
+                     "@enabled": "true"
+                  },
+                  "securePort": {
+                     "$": 5443,
+                     "@enabled": "true"
+                  },
+                  "countryId": 1,
+                  "leaseInfo": {
+                     "renewalIntervalInSecs": 30,
+                     "durationInSecs": 90,
+                     "registrationTimestamp": 1502120007390,
+                     "lastRenewalTimestamp": 1502120127413,
+                     "evictionTimestamp": 0,
+                     "serviceUpTimestamp": 1502120006871
+                  },
+                  "metadata": {
+                     "istio.protocol": "HTTP"
+                  },
+                  "isCoordinatingDiscoveryServer": "false",
+                  "lastUpdatedTimestamp": "1502120007390",
+                  "lastDirtyTimestamp": "1502120006858",
+                  "actionType": "ADDED"
+               },
+               {
+                  "instanceId": "foo.bar.local-10.0.0.2-6000",
+                  "hostName": "foo.bar.local",
+                  "app": "FOO_BAR_LOCAL",
+                  "ipAddr": "10.0.0.2",
+                  "status": "UP",
+                  "overriddenstatus": "UNKNOWN",
+                  "port": {
+                     "$": 6000,
+                     "@enabled": "true"
+                  },
+                  "securePort": {
+                     "$": 7002,
+                     "@enabled": "false"
+                  },
+                  "countryId": 1,
+                  "leaseInfo": {
+                     "renewalIntervalInSecs": 30,
+                     "durationInSecs": 90,
+                     "registrationTimestamp": 1502120007391,
+                     "lastRenewalTimestamp": 1502120127413,
+                     "evictionTimestamp": 0,
+                     "serviceUpTimestamp": 1502120006893
+                  },
+                  "metadata": {
+                     "istio.protocol": "HTTP"
+                  },
+                  "isCoordinatingDiscoveryServer": "false",
+                  "lastUpdatedTimestamp": "1502120007391",
+                  "lastDirtyTimestamp": "1502120006893",
+                  "actionType": "ADDED"
+               }
+            ]
+         },
+         {
+            "name": "FOO_BIZ_LOCAL",
+            "instance": [
+               {
+                  "instanceId": "foo.biz.local-10.0.0.3-8080",
+                  "hostName": "foo.biz.local",
+                  "app": "FOO_BIZ_LOCAL",
+                  "ipAddr": "10.0.0.3",
+                  "status": "UP",
+                  "overriddenstatus": "UNKNOWN",
+                  "port": {
+                     "$": 8080,
+                     "@enabled": "true"
+                  },
+                  "securePort": {
+                     "$": 7002,
+                     "@enabled": "false"
+                  },
+                  "countryId": 1,
+                  "leaseInfo": {
+                     "renewalIntervalInSecs": 30,
+                     "durationInSecs": 90,
+                     "registrationTimestamp": 1502120009977,
+                     "lastRenewalTimestamp": 1502120128482,
+                     "evictionTimestamp": 0,
+                     "serviceUpTimestamp": 1502120008045
+                  },
+                  "metadata": {
+                     "istio.protocol": "HTTP2"
+                  },
+                  "isCoordinatingDiscoveryServer": "false",
+                  "lastUpdatedTimestamp": "1502120009977",
+                  "lastDirtyTimestamp": "1502120008044",
+                  "actionType": "ADDED"
+               }
+            ]
+         }
+      ]
+   }
+}

@@ -191,7 +191,7 @@ func TestConvertService(t *testing.T) {
 	}
 
 	if len(out.Ports) != 1 {
-		t.Errorf("covnertService() incorrect # of ports => %v, want %v",
+		t.Errorf("convertService() incorrect # of ports => %v, want %v",
 			len(out.Ports), 1)
 	}
 }
