@@ -15,6 +15,8 @@
 package kube
 
 import (
+	"reflect"
+	"sort"
 	"testing"
 
 	"istio.io/pilot/model"
@@ -56,12 +58,22 @@ func TestConvertProtocol(t *testing.T) {
 func TestServiceConversion(t *testing.T) {
 	serviceName := "service1"
 	namespace := "default"
+	saA := "serviceaccountA"
+	saB := "serviceaccountB"
+	saC := "serviceaccountC@cloudservices.gserviceaccount.com"
+	saD := "serviceaccountD@developer.gserviceaccount.com"
+
 	ip := "10.0.0.1"
 
 	localSvc := v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: namespace,
+			Annotations: map[string]string{
+				KubeServiceAccountsOnVMAnnotation:      saA + "," + saB,
+				CanonicalServiceAccountsOnVMAnnotation: saC + "," + saD,
+				"other/annotation":                     "test",
+			},
 		},
 		Spec: v1.ServiceSpec{
 			ClusterIP: ip,
@@ -101,6 +113,21 @@ func TestServiceConversion(t *testing.T) {
 
 	if service.Address != ip {
 		t.Errorf("service IP incorrect => %q, want %q", service.Address, ip)
+	}
+
+	sa := service.ServiceAccounts
+	if sa == nil || len(sa) != 4 {
+		t.Errorf("number of service accounts is incorrect")
+	}
+	sort.Sort(sort.StringSlice(sa))
+	expected := []string{
+		"spiffe://company.com/ns/default/sa/" + saA,
+		"spiffe://company.com/ns/default/sa/" + saB,
+		"spiffe://" + saC,
+		"spiffe://" + saD,
+	}
+	if !reflect.DeepEqual(sa, expected) {
+		t.Errorf("Unexpected service accounts %v (expecting %v)", sa, expected)
 	}
 }
 

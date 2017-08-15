@@ -141,75 +141,65 @@ func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
 	glog.Infof("Created service %s", n)
 }
 
-func TestController_getPodAZByIP(t *testing.T) {
+func TestController_getPodAZ(t *testing.T) {
 
+	pod1 := generatePod("pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"})
+	pod2 := generatePod("pod2", "nsB", "", "node2", map[string]string{"app": "prod-app"})
 	testCases := []struct {
 		name   string
 		pods   []*v1.Pod
 		nodes  []*v1.Node
-		wantAZ map[string]string
+		wantAZ map[*v1.Pod]string
 	}{
 		{
 			name: "should return correct az for given address",
-			pods: []*v1.Pod{
-				generatePod("pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}),
-				generatePod("pod2", "nsB", "", "node2", map[string]string{"app": "prod-app"}),
-			},
+			pods: []*v1.Pod{pod1, pod2},
 			nodes: []*v1.Node{
 				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1"}),
 				generateNode("node2", map[string]string{NodeZoneLabel: "zone2", NodeRegionLabel: "region2"}),
 			},
-			wantAZ: map[string]string{
-				"128.0.0.1": "region1/zone1",
-				"128.0.0.2": "region2/zone2",
+			wantAZ: map[*v1.Pod]string{
+				pod1: "region1/zone1",
+				pod2: "region2/zone2",
 			},
 		},
 		{
 			name: "should return false if pod isnt in the cache",
-			wantAZ: map[string]string{
-				"128.0.0.1": "",
-				"128.0.0.2": "",
+			wantAZ: map[*v1.Pod]string{
+				pod1: "",
+				pod2: "",
 			},
 		},
 		{
 			name: "should return false if node isnt in the cache",
-			pods: []*v1.Pod{
-				generatePod("pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}),
-				generatePod("pod2", "nsB", "", "node2", map[string]string{"app": "prod-app"}),
-			},
-			wantAZ: map[string]string{
-				"128.0.0.1": "",
-				"128.0.0.2": "",
+			pods: []*v1.Pod{pod1, pod2},
+			wantAZ: map[*v1.Pod]string{
+				pod1: "",
+				pod2: "",
 			},
 		},
 		{
 			name: "should return false and empty string if node doesnt have zone label",
-			pods: []*v1.Pod{
-				generatePod("pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}),
-				generatePod("pod2", "nsB", "", "node2", map[string]string{"app": "prod-app"}),
-			},
+			pods: []*v1.Pod{pod1, pod2},
 			nodes: []*v1.Node{
 				generateNode("node1", map[string]string{NodeRegionLabel: "region1"}),
 				generateNode("node2", map[string]string{NodeRegionLabel: "region2"}),
 			},
-			wantAZ: map[string]string{
-				"128.0.0.1": "",
-				"128.0.0.2": "",
+			wantAZ: map[*v1.Pod]string{
+				pod1: "",
+				pod2: "",
 			},
 		},
 		{
 			name: "should return false and empty string if node doesnt have region label",
-			pods: []*v1.Pod{
-				generatePod("pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}),
-				generatePod("pod2", "nsB", "", "node2", map[string]string{"app": "prod-app"}),
-			},
+			pods: []*v1.Pod{pod1, pod2},
 			nodes: []*v1.Node{
 				generateNode("node1", map[string]string{NodeZoneLabel: "zone1"}),
 				generateNode("node2", map[string]string{NodeZoneLabel: "zone2"}),
 			},
-			wantAZ: map[string]string{
-				"128.0.0.1": "",
-				"128.0.0.2": "",
+			wantAZ: map[*v1.Pod]string{
+				pod1: "",
+				pod2: "",
 			},
 		},
 	}
@@ -228,15 +218,15 @@ func TestController_getPodAZByIP(t *testing.T) {
 			addNodes(t, controller, c.nodes...)
 
 			// Verify expected existing pod AZs
-			for ip, wantAZ := range c.wantAZ {
-				az, found := controller.getPodAZByIP(ip)
+			for pod, wantAZ := range c.wantAZ {
+				az, found := controller.GetPodAZ(pod)
 				if wantAZ != "" {
 					if !reflect.DeepEqual(az, wantAZ) {
 						t.Errorf("Wanted az: %s, got: %s", wantAZ, az)
 					}
 				} else {
 					if found {
-						t.Errorf("Unexpectedly found az: %s for pod address: %s", az, ip)
+						t.Errorf("Unexpectedly found az: %s for pod: %s", az, pod.ObjectMeta.Name)
 					}
 				}
 			}
@@ -249,12 +239,16 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 
 	controller := makeFakeKubeAPIController()
 
+	sa1 := "acct1"
+	sa2 := "acct2"
+	sa3 := "acct3"
+	k8sSaOnVM := "acct4"
+	canonicalSaOnVM := "acctvm@gserviceaccount.com"
+
 	pods := []*v1.Pod{
-		generatePod("pod1", "nsA", "acct1", "node1", map[string]string{"app": "test-app"}),
-		generatePod("pod2", "nsA", "acct2", "node2", map[string]string{"app": "prod-app"}),
-		generatePod("pod3", "nsA", "acct3", "node1", map[string]string{"app": "prod-app"}),
-		generatePod("pod4", "nsA", "acct3", "node2", map[string]string{"app": "prod-app"}),
-		generatePod("pod5", "nsB", "acct4", "node1", map[string]string{"app": "prod-app"}),
+		generatePod("pod1", "nsA", sa1, "node1", map[string]string{"app": "test-app"}),
+		generatePod("pod2", "nsA", sa2, "node2", map[string]string{"app": "prod-app"}),
+		generatePod("pod3", "nsB", sa3, "node1", map[string]string{"app": "prod-app"}),
 	}
 	addPods(t, controller, pods...)
 
@@ -267,23 +261,30 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	// Populate pod cache.
 	controller.pods.keys["128.0.0.1"] = "nsA/pod1"
 	controller.pods.keys["128.0.0.2"] = "nsA/pod2"
-	controller.pods.keys["128.0.0.3"] = "nsA/pod3"
-	controller.pods.keys["128.0.0.4"] = "nsA/pod4"
-	controller.pods.keys["128.0.0.5"] = "nsB/pod5"
+	controller.pods.keys["128.0.0.3"] = "nsB/pod3"
 
-	createService(controller, "svc1", "nsA", []int32{8080}, map[string]string{"app": "prod-app"}, t)
-	createService(controller, "svc2", "nsA", []int32{8081}, map[string]string{"app": "staging-app"}, t)
+	createService(controller, "svc1", "nsA",
+		map[string]string{
+			KubeServiceAccountsOnVMAnnotation:      k8sSaOnVM,
+			CanonicalServiceAccountsOnVMAnnotation: canonicalSaOnVM},
+		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+	createService(controller, "svc2", "nsA", nil, []int32{8081}, map[string]string{"app": "staging-app"}, t)
 
-	svc1Ips := []string{"128.0.0.1", "128.0.0.2"}
+	// Endpoints are generated by Kubernetes from pod labels and service selectors.
+	// Here we manually create them for mocking purpose.
+	svc1Ips := []string{"128.0.0.2"}
+	svc2Ips := []string{}
 	portNames := []string{"test-port"}
 	createEndpoints(controller, "svc1", "nsA", portNames, svc1Ips, t)
+	createEndpoints(controller, "svc2", "nsA", portNames, svc2Ips, t)
 
 	hostname := serviceHostname("svc1", "nsA", domainSuffix)
 	sa := controller.GetIstioServiceAccounts(hostname, []string{"test-port"})
 	sort.Sort(sort.StringSlice(sa))
 	expected := []string{
-		"spiffe://company.com/ns/nsA/sa/acct1",
-		"spiffe://company.com/ns/nsA/sa/acct2",
+		"spiffe://" + canonicalSaOnVM,
+		"spiffe://company.com/ns/nsA/sa/" + sa2,
+		"spiffe://company.com/ns/nsA/sa/" + k8sSaOnVM,
 	}
 	if !reflect.DeepEqual(sa, expected) {
 		t.Errorf("Unexpected service accounts %v (expecting %v)", sa, expected)
@@ -332,8 +333,8 @@ func createEndpoints(controller *Controller, name, namespace string, portNames, 
 	}
 }
 
-func createService(controller *Controller, name, namespace string, ports []int32, selector map[string]string,
-	t *testing.T) {
+func createService(controller *Controller, name, namespace string, annotations map[string]string,
+	ports []int32, selector map[string]string, t *testing.T) {
 
 	svcPorts := []v1.ServicePort{}
 	for _, p := range ports {
@@ -344,7 +345,11 @@ func createService(controller *Controller, name, namespace string, ports []int32
 		})
 	}
 	service := &v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{Name: name, Namespace: namespace},
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name:        name,
+			Namespace:   namespace,
+			Annotations: annotations,
+		},
 		Spec: v1.ServiceSpec{
 			ClusterIP: "10.0.0.1", // FIXME: generate?
 			Ports:     svcPorts,
@@ -365,7 +370,7 @@ func addPods(t *testing.T, controller *Controller, pods ...*v1.Pod) {
 	}
 }
 
-func generatePod(name, namespace, serviceAccountName, node string, labels map[string]string) *v1.Pod {
+func generatePod(name, namespace, saName, node string, labels map[string]string) *v1.Pod {
 	return &v1.Pod{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      name,
@@ -373,7 +378,7 @@ func generatePod(name, namespace, serviceAccountName, node string, labels map[st
 			Namespace: namespace,
 		},
 		Spec: v1.PodSpec{
-			ServiceAccountName: serviceAccountName,
+			ServiceAccountName: saName,
 			NodeName:           node,
 		},
 	}

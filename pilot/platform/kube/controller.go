@@ -224,12 +224,8 @@ func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
 	return item.(*v1.Service), true
 }
 
-// getPodAZByIP retrieves the pods AZ using its IP
-func (c *Controller) getPodAZByIP(addr string) (string, bool) {
-	pod, exists := c.pods.getPodByIP(addr)
-	if !exists {
-		return "", false
-	}
+// GetPodAZ retrieves the AZ for a pod.
+func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
 	node, exists, err := c.nodes.informer.GetStore().GetByKey(pod.Spec.NodeName)
@@ -286,7 +282,13 @@ func (c *Controller) Instances(hostname string, ports []string, tagsList model.T
 					if !tagsList.HasSubsetOf(tags) {
 						continue
 					}
-					az, _ := c.getPodAZByIP(ea.IP)
+
+					pod, exists := c.pods.getPodByIP(ea.IP)
+					az, sa := "", ""
+					if exists {
+						az, _ = c.GetPodAZ(pod)
+						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+					}
 
 					// identify the port by name
 					for _, port := range ss.Ports {
@@ -300,6 +302,7 @@ func (c *Controller) Instances(hostname string, ports []string, tagsList model.T
 								Service:          svc,
 								Tags:             tags,
 								AvailabilityZone: az,
+								ServiceAccount:   sa,
 							})
 						}
 					}
@@ -333,7 +336,12 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 							continue
 						}
 						tags, _ := c.pods.tagsByIP(ea.IP)
-						az, _ := c.getPodAZByIP(ea.IP)
+						pod, exists := c.pods.getPodByIP(ea.IP)
+						az, sa := "", ""
+						if exists {
+							az, _ = c.GetPodAZ(pod)
+							sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+						}
 						out = append(out, &model.ServiceInstance{
 							Endpoint: model.NetworkEndpoint{
 								Address:     ea.IP,
@@ -343,6 +351,7 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 							Service:          svc,
 							Tags:             tags,
 							AvailabilityZone: az,
+							ServiceAccount:   sa,
 						})
 					}
 				}
@@ -352,33 +361,30 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 	return out
 }
 
-const (
-	// the URI scheme used to encode a Kubernetes service account
-	uriScheme = "spiffe"
-)
-
 // GetIstioServiceAccounts returns the Istio service accounts running a serivce
 // hostname. Each service account is encoded according to the SPIFFE VSID spec.
 // For example, a service account named "bar" in namespace "foo" is encoded as
 // "spiffe://cluster.local/ns/foo/sa/bar".
 func (c *Controller) GetIstioServiceAccounts(hostname string, ports []string) []string {
 	saSet := make(map[string]bool)
-	for _, si := range c.Instances(hostname, ports, model.TagsList{}) {
-		key, exists := c.pods.keys[si.Endpoint.Address]
-		if !exists {
-			continue
-		}
-		item, exists, err := c.pods.informer.GetStore().GetByKey(key)
-		if !exists {
-			continue
-		}
-		if err != nil {
-			glog.V(2).Infof("Error retrieving pod by key: %v", err)
-			continue
-		}
 
-		pod, _ := item.(*v1.Pod)
-		sa := generateServiceAccountID(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
+	// the service is deployed on, and the service accounts of the pods.
+	for _, si := range c.Instances(hostname, ports, model.TagsList{}) {
+		if si.ServiceAccount != "" {
+			saSet[si.ServiceAccount] = true
+		}
+	}
+
+	// Get the service accounts running the service, if it is deployed on VMs. This is retrieved
+	// from the service annotation explicitly set by the operators.
+	svc, exists := c.GetService(hostname)
+	if !exists {
+		glog.V(2).Infof("GetService(%s) error: service does not exist", hostname)
+		return nil
+	}
+	for _, serviceAccount := range svc.ServiceAccounts {
+		sa := serviceAccount
 		saSet[sa] = true
 	}
 
@@ -388,10 +394,6 @@ func (c *Controller) GetIstioServiceAccounts(hostname string, ports []string) []
 	}
 
 	return saArray
-}
-
-func generateServiceAccountID(sa string, ns string, domain string) string {
-	return fmt.Sprintf("%v://%v/ns/%v/sa/%v", uriScheme, domain, ns, sa)
 }
 
 // AppendServiceHandler implements a service catalog operation

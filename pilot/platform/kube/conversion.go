@@ -28,6 +28,17 @@ const (
 	// IngressClassAnnotation is the annotation on ingress resources for the class of controllers
 	// responsible for it
 	IngressClassAnnotation = "kubernetes.io/ingress.class"
+
+	// KubeServiceAccountsOnVMAnnotation is to specify the K8s service accounts that are allowed to run
+	// this service on the VMs
+	KubeServiceAccountsOnVMAnnotation = "alpha.istio.io/serviceaccounts/kubernetes"
+
+	// CanonicalServiceAccountsOnVMAnnotation is to specify the non-Kubernetes service accounts that
+	// are allowed to run this service on the VMs
+	CanonicalServiceAccountsOnVMAnnotation = "alpha.istio.io/serviceaccounts/canonical"
+
+	// IstioURIPrefix is the URI prefix in the Istio service account scheme
+	IstioURIPrefix = "spiffe"
 )
 
 func convertTags(obj meta_v1.ObjectMeta) model.Tags {
@@ -66,17 +77,38 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		ports = append(ports, convertPort(port))
 	}
 
+	serviceaccounts := make([]string, 0)
+	if svc.Annotations != nil {
+		for _, csa := range strings.Split(svc.Annotations[CanonicalServiceAccountsOnVMAnnotation], ",") {
+			serviceaccounts = append(serviceaccounts, canonicalToIstioServiceAccount(csa))
+		}
+		for _, ksa := range strings.Split(svc.Annotations[KubeServiceAccountsOnVMAnnotation], ",") {
+			serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace, domainSuffix))
+		}
+	}
+
 	return &model.Service{
-		Hostname:     serviceHostname(svc.Name, svc.Namespace, domainSuffix),
-		Ports:        ports,
-		Address:      addr,
-		ExternalName: external,
+		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),
+		Ports:           ports,
+		Address:         addr,
+		ExternalName:    external,
+		ServiceAccounts: serviceaccounts,
 	}
 }
 
 // serviceHostname produces FQDN for a k8s service
 func serviceHostname(name, namespace, domainSuffix string) string {
 	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix)
+}
+
+// canonicalToIstioServiceAccount converts a Canonical service account to an Istio service account
+func canonicalToIstioServiceAccount(saname string) string {
+	return fmt.Sprintf("%v://%v", IstioURIPrefix, saname)
+}
+
+// kubeToIstioServiceAccount converts a K8s service account to an Istio service account
+func kubeToIstioServiceAccount(saname string, ns string, domain string) string {
+	return fmt.Sprintf("%v://%v/ns/%v/sa/%v", IstioURIPrefix, domain, ns, saname)
 }
 
 // KeyFunc is the internal API key function that returns "namespace"/"name" or

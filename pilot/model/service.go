@@ -54,6 +54,9 @@ type Service struct {
 	// service DNS name.  External services are name-based solution to represent
 	// external service instances as a service inside the cluster.
 	ExternalName string `json:"external"`
+
+	// ServiceAccounts specifies the service accounts that run the service.
+	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
 }
 
 // Port represents a network port where a service is listening for
@@ -170,6 +173,7 @@ type ServiceInstance struct {
 	Service          *Service        `json:"service,omitempty"`
 	Tags             Tags            `json:"tags,omitempty"`
 	AvailabilityZone string          `json:"az,omitempty"`
+	ServiceAccount   string          `json:"serviceaccount,omitempty"`
 }
 
 // ServiceDiscovery enumerates Istio service instances.
