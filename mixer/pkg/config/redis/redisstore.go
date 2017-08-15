@@ -106,14 +106,14 @@ func setupConnection(host, password string, dbNum uint64, timeout time.Duration)
 	if len(password) > 0 {
 		resp := client.Cmd("AUTH", password)
 		if resp.Err != nil {
-			_ = client.Close()
+			_ = client.Close() // nolint: gas
 			return nil, fmt.Errorf("failed to authenticate with password %s: %v", password, resp.Err)
 		}
 	}
 
 	// Invoke PING to make sure the client can emit commands properly.
 	if resp := client.Cmd("PING"); resp.Err != nil {
-		_ = client.Close()
+		_ = client.Close() // nolint: gas
 		return nil, resp.Err
 	}
 
@@ -326,7 +326,7 @@ func (sub *subscriber) listen(dbNum uint64) error {
 			}
 		}
 		sub.client.PUnsubscribe(pattern)
-		_ = sub.client.Client.Close()
+		_ = sub.client.Client.Close() // nolint: gas
 		sub.client = nil
 	}()
 	return nil

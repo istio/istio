@@ -61,7 +61,7 @@ func (s *serverInst) Start(env adapter.Env, metricsHandler http.Handler) error {
 	env.ScheduleDaemon(func() {
 		env.Logger().Infof("serving prometheus metrics on %s", s.addr)
 		if err := s.srv.Serve(listener.(*net.TCPListener)); err != nil {
-			_ = env.Logger().Errorf("prometheus HTTP server error: %v", err)
+			_ = env.Logger().Errorf("prometheus HTTP server error: %v", err) // nolint: gas
 		}
 	})
 

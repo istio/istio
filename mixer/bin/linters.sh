@@ -58,7 +58,7 @@ go_metalinter() {
         --concurrency=4\
         --enable-gc\
         --vendored-linters\
-        --deadline=600s --disable-all\
+        --deadline=1200s --disable-all\
         --enable=gosimple\
         --enable=aligncheck\
         --enable=deadcode\
@@ -82,6 +82,7 @@ go_metalinter() {
         --enable=vet\
         --enable=vetshadow\
         --skip=testdata\
+        --vendor\
         $PKGS
 }
 

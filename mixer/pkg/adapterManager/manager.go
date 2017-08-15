@@ -439,7 +439,7 @@ func (m *Manager) execute(ctx context.Context, cfg *cpb.Combined, requestBag att
 	}
 
 	// TODO: plumb ctx through asp.Execute
-	_ = ctx.Err()
+	_ = ctx.Err() // nolint: gas
 
 	return invokeFunc(executor, m.mapper, requestBag, responseBag)
 }
