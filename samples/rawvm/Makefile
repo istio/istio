@@ -2,7 +2,7 @@
 FORTIO_IMAGE:='gcr.io/istio-testing/fortio:0.2.1-pre1'
 HUB:=gcr.io/istio-testing
 TAG:=ldemailly7
-VERBOSITY:=3
+VERBOSITY:=2
 NAMESPACE:=default
 
 YAMLS:=k8services-istio.yaml k8services.yaml k8cli.yaml
