@@ -40,7 +40,7 @@ Istio is composed of these components:
 
 * **Galley** - A component responsible for storing and distributing Istio configuration state.
 
-* **Broker** - A component implementng the open service broker API for Istio-based services.
+* **Broker** - A component implementing the open service broker API for Istio-based services.
 
 Istio currently only supports the Kubernetes
 platform, although we plan support for additional platforms such as
