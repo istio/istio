@@ -213,6 +213,19 @@ func (sd *ServiceDiscovery) HostInstances(addrs map[string]bool) []*model.Servic
 	return out
 }
 
+// ManagementPorts implements discovery interface
+func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
+	return model.PortList{{
+		Name:     "http",
+		Port:     3333,
+		Protocol: model.ProtocolHTTP,
+	}, {
+		Name:     "custom",
+		Port:     9999,
+		Protocol: model.ProtocolTCP,
+	}}
+}
+
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
 func (sd *ServiceDiscovery) GetIstioServiceAccounts(hostname string, ports []string) []string {
 	if hostname == "world.default.svc.cluster.local" {

@@ -349,6 +349,30 @@
     "bind_to_port": false
    },
    {
+    "address": "tcp://10.1.1.0:3333",
+    "name": "tcp_10.1.1.0_3333",
+    "filters": [
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "in.3333",
+          "destination_ip_list": [
+           "10.1.1.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
     "address": "tcp://10.1.1.0:80",
     "name": "http_10.1.1.0_80",
     "filters": [
@@ -409,6 +433,30 @@
          "path": "/dev/stdout"
         }
        ]
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.1.0:9999",
+    "name": "tcp_10.1.1.0_9999",
+    "filters": [
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "in.9999",
+          "destination_ip_list": [
+           "10.1.1.0/32"
+          ]
+         }
+        ]
+       }
       }
      }
     ],

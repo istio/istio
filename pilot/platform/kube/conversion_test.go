@@ -21,6 +21,7 @@ import (
 	"istio.io/pilot/model"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
@@ -224,5 +225,92 @@ func TestInvalidExternalServiceConversion(t *testing.T) {
 
 	if svc := convertService(extSvc, domainSuffix); svc != nil {
 		t.Errorf("converted a service without an external name")
+	}
+}
+
+func TestProbesToPortsConversion(t *testing.T) {
+
+	expected := model.PortList{
+		{
+			Name:     "mgmt-3306",
+			Port:     3306,
+			Protocol: model.ProtocolTCP,
+		},
+		{
+			Name:     "mgmt-9080",
+			Port:     9080,
+			Protocol: model.ProtocolHTTP,
+		},
+	}
+
+	handlers := []v1.Handler{
+		{
+			TCPSocket: &v1.TCPSocketAction{
+				Port: intstr.IntOrString{StrVal: "mysql", Type: intstr.String},
+			},
+		},
+		{
+			TCPSocket: &v1.TCPSocketAction{
+				Port: intstr.IntOrString{IntVal: 3306, Type: intstr.Int},
+			},
+		},
+		{
+			HTTPGet: &v1.HTTPGetAction{
+				Path: "/foo",
+				Port: intstr.IntOrString{StrVal: "http-two", Type: intstr.String},
+			},
+		},
+		{
+			HTTPGet: &v1.HTTPGetAction{
+				Path: "/foo",
+				Port: intstr.IntOrString{IntVal: 9080, Type: intstr.Int},
+			},
+		},
+	}
+
+	podSpec := &v1.PodSpec{
+		Containers: []v1.Container{
+			{
+				Name: "scooby",
+				Ports: []v1.ContainerPort{
+					{
+						Name:          "mysql",
+						ContainerPort: 3306,
+					},
+					{
+						Name:          "http-two",
+						ContainerPort: 9080,
+					},
+					{
+						Name:          "http",
+						ContainerPort: 80,
+					},
+				},
+				LivenessProbe:  &v1.Probe{},
+				ReadinessProbe: &v1.Probe{},
+			},
+		},
+	}
+
+	for _, handler1 := range handlers {
+		for _, handler2 := range handlers {
+			if (handler1.TCPSocket != nil && handler2.TCPSocket != nil) ||
+				(handler1.HTTPGet != nil && handler2.HTTPGet != nil) {
+				continue
+			}
+
+			podSpec.Containers[0].LivenessProbe.Handler = handler1
+			podSpec.Containers[0].ReadinessProbe.Handler = handler2
+
+			mgmtPorts, err := convertProbesToPorts(podSpec)
+			if err != nil {
+				t.Errorf("Failed to convert Probes to Ports: %v", err)
+			}
+
+			if !reflect.DeepEqual(mgmtPorts, expected) {
+				t.Errorf("incorrect number of management ports => %v, want %v",
+					len(mgmtPorts), len(expected))
+			}
+		}
 	}
 }

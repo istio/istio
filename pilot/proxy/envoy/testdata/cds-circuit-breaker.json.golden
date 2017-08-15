@@ -23,6 +23,17 @@
     ]
    },
    {
+    "name": "in.3333",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:3333"
+     }
+    ]
+   },
+   {
     "name": "in.80",
     "connect_timeout_ms": 1000,
     "type": "static",
@@ -30,6 +41,17 @@
     "hosts": [
      {
       "url": "tcp://127.0.0.1:80"
+     }
+    ]
+   },
+   {
+    "name": "in.9999",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:9999"
      }
     ]
    },

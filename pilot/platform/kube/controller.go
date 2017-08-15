@@ -244,6 +244,24 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 	return fmt.Sprintf("%v/%v", region, zone), true
 }
 
+// ManagementPorts implements a service catalog operation
+func (c *Controller) ManagementPorts(addr string) model.PortList {
+	pod, exists := c.pods.getPodByIP(addr)
+	if !exists {
+		return nil
+	}
+
+	managementPorts, err := convertProbesToPorts(&pod.Spec)
+
+	if err != nil {
+		glog.V(2).Infof("Error while parsing liveliness and readiness probe ports for %s => %v", addr, err)
+	}
+
+	// We continue despite the error because healthCheckPorts could return a partial
+	// list of management ports
+	return managementPorts
+}
+
 // Instances implements a service catalog operation
 func (c *Controller) Instances(hostname string, ports []string, tagsList model.TagsList) []*model.ServiceInstance {
 	// Get actual service by name
