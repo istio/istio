@@ -1,5 +1,9 @@
 
 FORTIO_IMAGE:='gcr.io/istio-testing/fortio:0.2.1-pre1'
+HUB:=gcr.io/istio-testing
+TAG:=ldemailly7
+VERBOSITY:=3
+NAMESPACE:=default
 
 YAMLS:=k8services-istio.yaml k8services.yaml k8cli.yaml
 # Was needed when images were missing (#553)
@@ -14,7 +18,7 @@ k8services-istio: k8services-istio.yaml
 	kubectl apply -f $<
 
 k8services-istio.yaml: k8services.yaml
-	istioctl kube-inject -f $< $(PATCH_HUB) > $@
+	istioctl kube-inject -n $(NAMESPACE) --hub $(HUB) --tag $(TAG) --verbosity $(VERBOSITY) -f $< $(PATCH_HUB) > $@
 
 k8services: k8services.yaml
 	kubectl apply -f $<
