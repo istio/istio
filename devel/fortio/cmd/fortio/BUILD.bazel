@@ -8,10 +8,18 @@ go_binary(
 
 go_library(
     name = "go_default_library",
-    srcs = ["main.go"],
+    srcs = [
+        "main.go",
+        "pingsrv.go",
+    ],
     visibility = ["//visibility:private"],
     deps = [
         "//devel/fortio:go_default_library",
         "//devel/fortio/fortiogrpc:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//health:go_default_library",
+        "@org_golang_google_grpc//health/grpc_health_v1:go_default_library",
+        "@org_golang_google_grpc//reflection:go_default_library",
+        "@org_golang_x_net//context:go_default_library",
     ],
 )
