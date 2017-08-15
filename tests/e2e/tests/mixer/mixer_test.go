@@ -115,9 +115,27 @@ func (t *testConfig) Setup() error {
 			return err
 		}
 	}
+	return createDefaultRoutingRules()
+}
+
+func createDefaultRoutingRules() error {
+	if err := createRouteRule(routeAllRule); err != nil {
+		return fmt.Errorf("could not create base routing rules: %v", err)
+	}
+	time.Sleep(30 * time.Second)
 	return nil
 }
-func (t *testConfig) Teardown() error { return nil }
+
+func (t *testConfig) Teardown() error {
+	return deleteDefaultRoutingRules()
+}
+
+func deleteDefaultRoutingRules() error {
+	if err := deleteRouteRule(routeAllRule); err != nil {
+		return fmt.Errorf("could not delete default routing rule: %v", err)
+	}
+	return nil
+}
 
 type promProxy struct {
 	namespace      string
@@ -160,7 +178,6 @@ func (p *promProxy) Teardown() (err error) {
 	}
 	return
 }
-
 func TestMain(m *testing.M) {
 	flag.Parse()
 	check(framework.InitGlog(), "cannot setup glog")
@@ -245,9 +262,6 @@ func TestNewMetrics(t *testing.T) {
 
 func TestDenials(t *testing.T) {
 	applyReviewsRoutingRules(t)
-	defer func() {
-		deleteReviewsRoutingRules(t)
-	}()
 
 	ratings := fqdn("ratings")
 	if err := createMixerRule(global, ratings, denialRule); err != nil {
@@ -297,9 +311,6 @@ func TestDenials(t *testing.T) {
 
 func TestRateLimit(t *testing.T) {
 	applyReviewsRoutingRules(t)
-	defer func() {
-		deleteReviewsRoutingRules(t)
-	}()
 
 	ratings := fqdn("ratings")
 	if err := createMixerRule(global, ratings, rateLimitRule); err != nil {
@@ -429,21 +440,8 @@ func vectorValue(val model.Value, labels map[string]string) (float64, error) {
 }
 
 func applyReviewsRoutingRules(t *testing.T) {
-	if err := createRouteRule(routeAllRule); err != nil {
-		t.Fatalf("Could not create initial route-all rule: %v", err)
-	}
-	// hope for stability
-	time.Sleep(30 * time.Second)
 	if err := replaceRouteRule(routeReviewsVersionsRule); err != nil {
 		t.Fatalf("Could not create replace reviews routing rule: %v", err)
-	}
-	// hope for stability
-	time.Sleep(30 * time.Second)
-}
-
-func deleteReviewsRoutingRules(t *testing.T) {
-	if err := deleteRouteRule(routeAllRule); err != nil {
-		t.Fatalf("Could not delete initial route-all rule: %v", err)
 	}
 	// hope for stability
 	time.Sleep(30 * time.Second)
