@@ -117,7 +117,7 @@ func buildListeners(env proxy.Environment, role proxy.Node) Listeners {
 		listeners, _ := buildSidecar(env, role)
 		return listeners
 	case proxy.Ingress:
-		return buildIngressListeners(env.Mesh, role)
+		return buildIngressListeners(env.Mesh, env.ServiceDiscovery, env.IstioConfigStore, role)
 	case proxy.Egress:
 		return buildEgressListeners(env.Mesh, role)
 	}
