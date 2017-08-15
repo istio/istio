@@ -91,6 +91,7 @@ const (
 	auto    = "auto"
 	decoder = "decoder"
 	read    = "read"
+	both    = "both"
 )
 
 // convertDuration converts to golang duration and logs errors

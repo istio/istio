@@ -48,10 +48,6 @@ const (
 
 	// MixerForward switches attribute forwarding on and off
 	MixerForward = "mixer_forward"
-
-	on = "on"
-
-	off = "off"
 )
 
 // FilterMixerConfig definition
@@ -69,6 +65,8 @@ type FilterMixerConfig struct {
 	QuotaName string `json:"quota_name,omitempty"`
 }
 
+func (*FilterMixerConfig) isNetworkFilterConfig() {}
+
 func buildMixerCluster(mesh *proxyconfig.ProxyMeshConfig) *Cluster {
 	mixerCluster := buildCluster(mesh.MixerAddress, MixerCluster, mesh.ConnectTimeout)
 	mixerCluster.CircuitBreaker = &CircuitBreaker{
@@ -81,10 +79,11 @@ func buildMixerCluster(mesh *proxyconfig.ProxyMeshConfig) *Cluster {
 	return mixerCluster
 }
 
-func buildMixerInboundOpaqueConfig() map[string]string {
+func buildMixerOpaqueConfig(check, forward bool) map[string]string {
+	keys := map[bool]string{true: "on", false: "off"}
 	return map[string]string{
-		MixerControl: on,
-		MixerForward: off,
+		MixerControl: keys[check],
+		MixerForward: keys[forward],
 	}
 }
 
@@ -101,5 +100,15 @@ func mixerHTTPRouteConfig(role proxy.Node) *FilterMixerConfig {
 			AttrSourceUID: "kubernetes://" + role.ID,
 		},
 		QuotaName: MixerRequestCount,
+	}
+}
+
+// Mixer TCP filter config for inbound requests
+func mixerTCPConfig(role proxy.Node) *FilterMixerConfig {
+	return &FilterMixerConfig{
+		MixerAttributes: map[string]string{
+			AttrTargetIP:  role.IPAddress,
+			AttrTargetUID: "kubernetes://" + role.ID,
+		},
 	}
 }

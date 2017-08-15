@@ -501,9 +501,9 @@ func buildInboundListeners(mesh *proxyconfig.ProxyMeshConfig, sidecar proxy.Node
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
 			route := buildDefaultRoute(cluster)
 
-			// set server-side mixer filter config for inbound routes
+			// set server-side mixer filter config for inbound HTTP routes
 			if mesh.MixerAddress != "" {
-				route.OpaqueConfig = buildMixerInboundOpaqueConfig()
+				route.OpaqueConfig = buildMixerOpaqueConfig(true, false)
 			}
 
 			host := &VirtualHost{
@@ -517,9 +517,21 @@ func buildInboundListeners(mesh *proxyconfig.ProxyMeshConfig, sidecar proxy.Node
 				buildHTTPListener(mesh, sidecar, config, endpoint.Address, endpoint.Port, false, false))
 
 		case model.ProtocolTCP, model.ProtocolHTTPS:
-			listeners = append(listeners, buildTCPListener(&TCPRouteConfig{
+			listener := buildTCPListener(&TCPRouteConfig{
 				Routes: []*TCPRoute{buildTCPRoute(cluster, []string{endpoint.Address})},
-			}, endpoint.Address, endpoint.Port))
+			}, endpoint.Address, endpoint.Port)
+
+			// set server-side mixer filter config
+			if mesh.MixerAddress != "" {
+				filter := &NetworkFilter{
+					Type:   both,
+					Name:   MixerFilter,
+					Config: mixerTCPConfig(sidecar),
+				}
+				listener.Filters = append([]*NetworkFilter{filter}, listener.Filters...)
+			}
+
+			listeners = append(listeners, listener)
 
 		default:
 			glog.Warningf("Unsupported inbound protocol %v for port %#v", protocol, servicePort)

@@ -325,6 +325,16 @@
     "name": "tcp_10.1.1.0_1090",
     "filters": [
      {
+      "type": "both",
+      "name": "mixer",
+      "config": {
+       "mixer_attributes": {
+        "target.ip": "10.1.1.0",
+        "target.uid": "kubernetes://v0.default"
+       }
+      }
+     },
+     {
       "type": "read",
       "name": "tcp_proxy",
       "config": {

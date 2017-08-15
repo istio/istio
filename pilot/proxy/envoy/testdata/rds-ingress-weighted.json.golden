@@ -22,7 +22,7 @@
       },
       "opaque_config": {
        "mixer_control": "on",
-       "mixer_forward": "off"
+       "mixer_forward": "on"
       }
      }
     ]

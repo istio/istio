@@ -147,7 +147,7 @@ func buildIngressRoute(mesh *proxyconfig.ProxyMeshConfig, ingress *proxyconfig.I
 	for _, route := range routes {
 		// enable mixer check on the route
 		if mesh.MixerAddress != "" {
-			route.OpaqueConfig = buildMixerInboundOpaqueConfig()
+			route.OpaqueConfig = buildMixerOpaqueConfig(true, true)
 		}
 
 		if applied := route.CombinePathPrefix(ingressRoute.Path, ingressRoute.Prefix); applied != nil {
