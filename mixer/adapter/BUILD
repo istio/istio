@@ -10,10 +10,12 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//adapter/denier:go_default_library",
         "//adapter/denyChecker:go_default_library",
         "//adapter/genericListChecker:go_default_library",
         "//adapter/ipListChecker:go_default_library",
         "//adapter/kubernetes:go_default_library",
+        "//adapter/list:go_default_library",
         "//adapter/memQuota:go_default_library",
         "//adapter/noop:go_default_library",
         "//adapter/noop2:go_default_library",

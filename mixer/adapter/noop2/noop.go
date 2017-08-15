@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package noop2
+package noop2 // import "istio.io/mixer/adapter/noop2"
 
 // NOTE: This adapter will eventually be auto-generated so that it automatically supports all templates
 //       known to Mixer. For now, it's manually curated.
@@ -35,10 +35,11 @@ import (
 )
 
 type (
-	handler struct{}
 	builder struct{}
+	handler struct{}
 )
 
+// ensure our types implement the requisite interfaces
 var _ checknothing.HandlerBuilder = builder{}
 var _ checknothing.Handler = handler{}
 var _ reportnothing.HandlerBuilder = builder{}
@@ -125,8 +126,8 @@ func (handler) Close() error { return nil }
 // GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
 func GetBuilderInfo() adapter.BuilderInfo {
 	return adapter.BuilderInfo{
-		Name:        "istio.io/mixer/adapters/noop",
-		Description: "An adapter that does nothing",
+		Name:        "istio.io/mixer/adapter/noop",
+		Description: "Does nothing (useful for testing)",
 		SupportedTemplates: []string{
 			checknothing.TemplateName,
 			reportnothing.TemplateName,
