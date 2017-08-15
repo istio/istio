@@ -1,0 +1,113 @@
+{
+  "listeners": [
+   {
+    "address": "tcp://0.0.0.0:80",
+    "name": "http_0.0.0.0_80",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "use_remote_address": true,
+       "tracing": {
+        "operation_name": "ingress"
+       },
+       "rds": {
+        "cluster": "rds",
+        "route_config_name": "80",
+        "refresh_delay_ms": 10
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "mixer",
+         "config": {
+          "mixer_attributes": {
+           "target.ip": "10.3.3.3",
+           "target.uid": "kubernetes://ingress.default"
+          },
+          "forward_attributes": {
+           "source.ip": "10.3.3.3",
+           "source.uid": "kubernetes://ingress.default"
+          },
+          "quota_name": "RequestCount"
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "bind_to_port": true
+   },
+   {
+    "address": "tcp://0.0.0.0:443",
+    "name": "http_0.0.0.0_443",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "use_remote_address": true,
+       "tracing": {
+        "operation_name": "ingress"
+       },
+       "rds": {
+        "cluster": "rds",
+        "route_config_name": "443",
+        "refresh_delay_ms": 10
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "mixer",
+         "config": {
+          "mixer_attributes": {
+           "target.ip": "10.3.3.3",
+           "target.uid": "kubernetes://ingress.default"
+          },
+          "forward_attributes": {
+           "source.ip": "10.3.3.3",
+           "source.uid": "kubernetes://ingress.default"
+          },
+          "quota_name": "RequestCount"
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "ssl_context": {
+     "cert_chain_file": "/etc/istio/ingress-certs/tls.crt",
+     "private_key_file": "/etc/istio/ingress-certs/tls.key",
+     "require_client_certificate": false
+    },
+    "bind_to_port": true
+   }
+  ]
+ }

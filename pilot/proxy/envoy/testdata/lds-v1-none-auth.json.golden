@@ -33,12 +33,11 @@
          "config": {
           "mixer_attributes": {
            "target.ip": "10.1.1.1",
-           "target.service": "hello.default.svc.cluster.local",
-           "target.uid": "kubernetes://"
+           "target.uid": "kubernetes://v1.default"
           },
           "forward_attributes": {
            "source.ip": "10.1.1.1",
-           "source.uid": "kubernetes://"
+           "source.uid": "kubernetes://v1.default"
           },
           "quota_name": "RequestCount"
          }
@@ -85,12 +84,11 @@
          "config": {
           "mixer_attributes": {
            "target.ip": "10.1.1.1",
-           "target.service": "hello.default.svc.cluster.local",
-           "target.uid": "kubernetes://"
+           "target.uid": "kubernetes://v1.default"
           },
           "forward_attributes": {
            "source.ip": "10.1.1.1",
-           "source.uid": "kubernetes://"
+           "source.uid": "kubernetes://v1.default"
           },
           "quota_name": "RequestCount"
          }
@@ -137,12 +135,11 @@
          "config": {
           "mixer_attributes": {
            "target.ip": "10.1.1.1",
-           "target.service": "hello.default.svc.cluster.local",
-           "target.uid": "kubernetes://"
+           "target.uid": "kubernetes://v1.default"
           },
           "forward_attributes": {
            "source.ip": "10.1.1.1",
-           "source.uid": "kubernetes://"
+           "source.uid": "kubernetes://v1.default"
           },
           "quota_name": "RequestCount"
          }
@@ -228,12 +225,11 @@
          "config": {
           "mixer_attributes": {
            "target.ip": "10.1.1.1",
-           "target.service": "hello.default.svc.cluster.local",
-           "target.uid": "kubernetes://"
+           "target.uid": "kubernetes://v1.default"
           },
           "forward_attributes": {
            "source.ip": "10.1.1.1",
-           "source.uid": "kubernetes://"
+           "source.uid": "kubernetes://v1.default"
           },
           "quota_name": "RequestCount"
          }
@@ -331,12 +327,11 @@
          "config": {
           "mixer_attributes": {
            "target.ip": "10.1.1.1",
-           "target.service": "hello.default.svc.cluster.local",
-           "target.uid": "kubernetes://"
+           "target.uid": "kubernetes://v1.default"
           },
           "forward_attributes": {
            "source.ip": "10.1.1.1",
-           "source.uid": "kubernetes://"
+           "source.uid": "kubernetes://v1.default"
           },
           "quota_name": "RequestCount"
          }

@@ -8,7 +8,11 @@
     "routes": [
      {
       "prefix": "/bar",
-      "cluster": "out.81c187d71467b1608736c57bb0734f9ef9b68f7d"
+      "cluster": "out.81c187d71467b1608736c57bb0734f9ef9b68f7d",
+      "opaque_config": {
+       "mixer_control": "on",
+       "mixer_forward": "off"
+      }
      }
     ]
    }

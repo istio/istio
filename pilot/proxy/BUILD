@@ -22,3 +22,13 @@ go_test(
     srcs = ["agent_test.go"],
     library = ":go_default_library",
 )
+
+go_test(
+    name = "go_default_xtest",
+    srcs = ["context_test.go"],
+    deps = [
+        ":go_default_library",
+        "//model:go_default_library",
+        "//test/mock:go_default_library",
+    ],
+)

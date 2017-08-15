@@ -15,7 +15,7 @@
 package proxy
 
 import (
-	"fmt"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -44,83 +44,67 @@ type Environment struct {
 	Mesh *proxyconfig.ProxyMeshConfig
 }
 
-// Role declares the proxy node role in the mesh
-type Role interface {
-	// nolint: megacheck
-	isProxyRole()
+// Node defines the proxy attributes used by xDS identification
+type Node struct {
+	// Type specifies the node type
+	Type NodeType
 
-	// ServiceNode encodes the role information into a string
-	ServiceNode() string
-}
-
-// Sidecar defines the sidecar proxy role
-type Sidecar struct {
-	// IPAddress is the IP address of the proxy used to identify it and its
-	// co-located service instances. Example: "10.60.1.6"
+	// IPAddress is the IP address of the proxy used to identify its co-located
+	// service instances. Example: "10.60.1.6"
 	IPAddress string
 
 	// ID is the unique platform-specific sidecar proxy ID
 	ID string
 
-	// Domain defines the DNS domain suffix for short hostnames
+	// Domain defines the DNS domain suffix for short hostnames (e.g.
+	// "default.svc.cluster.local")
 	Domain string
 }
 
-func (Sidecar) isProxyRole() {}
+// NodeType decides the responsibility of the proxy serves in the mesh
+type NodeType string
 
-// ServiceNode for sidecar
-func (role Sidecar) ServiceNode() string {
-	return fmt.Sprintf("%s|%s|%s", role.IPAddress, role.ID, role.Domain)
+const (
+	// Sidecar type is used for sidecar proxies in the application containers
+	Sidecar NodeType = "sidecar"
+
+	// Ingress type is used for cluster ingress proxies
+	Ingress NodeType = "ingress"
+
+	// Egress type is used for cluster egress proxies
+	Egress NodeType = "egress"
+)
+
+// ServiceNode encodes the proxy node attributes into a URI-acceptable string
+func (node Node) ServiceNode() string {
+	return strings.Join([]string{
+		string(node.Type), node.IPAddress, node.ID, node.Domain,
+	}, serviceNodeSeparator)
+
 }
 
-// DecodeServiceNode is the inverse of sidecar service node
-func DecodeServiceNode(s string) (Sidecar, error) {
-	parts := strings.Split(s, "|")
-	out := Sidecar{}
+// ParseServiceNode is the inverse of service node function
+func ParseServiceNode(s string) (Node, error) {
+	parts := strings.Split(s, serviceNodeSeparator)
+	out := Node{}
 
-	if len(parts) > 0 {
-		out.IPAddress = parts[0]
-	}
-	if len(parts) > 1 {
-		out.ID = parts[1]
+	if len(parts) != 4 {
+		return out, errors.New("missing parts in the service node")
 	}
 
-	if len(parts) > 2 {
-		out.Domain = parts[2]
-	}
+	out.Type = NodeType(parts[0])
+	out.IPAddress = parts[1]
+	out.ID = parts[2]
+	out.Domain = parts[3]
 	return out, nil
 }
 
 const (
-	// EgressNode is the service node for egress proxies
-	EgressNode = "egress"
-
-	// IngressNode is the service node for ingress proxies
-	IngressNode = "ingress"
+	serviceNodeSeparator = "~"
 
 	// IngressCertsPath is the path location for ingress certificates
 	IngressCertsPath = "/etc/istio/ingress-certs/"
 )
-
-// EgressRole defines the egress proxy role
-type EgressRole struct{}
-
-func (EgressRole) isProxyRole() {}
-
-// ServiceNode for egress
-func (EgressRole) ServiceNode() string {
-	return EgressNode
-}
-
-// IngressRole defines the egress proxy role
-type IngressRole struct{}
-
-func (IngressRole) isProxyRole() {}
-
-// ServiceNode for ingress
-func (IngressRole) ServiceNode() string {
-	return IngressNode
-}
 
 // DefaultMeshConfig configuration
 func DefaultMeshConfig() proxyconfig.ProxyMeshConfig {

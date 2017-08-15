@@ -13,6 +13,24 @@
     "connect_timeout_ms": 1000,
     "type": "sds",
     "lb_type": "round_robin"
+   },
+   {
+    "name": "mixer_server",
+    "connect_timeout_ms": 1000,
+    "type": "strict_dns",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://localhost:9091"
+     }
+    ],
+    "features": "http2",
+    "circuit_breakers": {
+     "default": {
+      "max_pending_requests": 10000,
+      "max_requests": 10000
+     }
+    }
    }
   ]
  }

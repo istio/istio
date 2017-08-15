@@ -15,6 +15,7 @@
 package envoy
 
 import (
+	"crypto/sha1"
 	"fmt"
 
 	"github.com/golang/glog"
@@ -24,13 +25,20 @@ import (
 	"istio.io/pilot/proxy"
 )
 
+func buildEgressListeners(mesh *proxyconfig.ProxyMeshConfig, egress proxy.Node) Listeners {
+	port := proxy.ParsePort(mesh.EgressProxyAddress)
+	listener := buildHTTPListener(mesh, egress, nil, WildcardAddress, port, true, false)
+	applyInboundAuth(listener, mesh)
+	return Listeners{listener}
+}
+
 // buildEgressRoutes lists all HTTP route configs on the egress proxy
-func buildEgressRoutes(services model.ServiceDiscovery, mesh *proxyconfig.ProxyMeshConfig) HTTPRouteConfigs {
+func buildEgressRoutes(mesh *proxyconfig.ProxyMeshConfig, services model.ServiceDiscovery) HTTPRouteConfigs {
 	// Create a VirtualHost for each external service
 	vhosts := make([]*VirtualHost, 0)
 	for _, service := range services.Services() {
 		if service.External() {
-			if host := buildEgressHTTPRoute(service); host != nil {
+			if host := buildEgressHTTPRoute(mesh, service); host != nil {
 				vhosts = append(vhosts, host)
 			}
 		}
@@ -42,20 +50,26 @@ func buildEgressRoutes(services model.ServiceDiscovery, mesh *proxyconfig.ProxyM
 }
 
 // buildEgressRoute translates an egress rule to an Envoy route
-func buildEgressHTTPRoute(svc *model.Service) *VirtualHost {
+func buildEgressHTTPRoute(mesh *proxyconfig.ProxyMeshConfig, svc *model.Service) *VirtualHost {
 	var host *VirtualHost
 
 	for _, servicePort := range svc.Ports {
 		protocol := servicePort.Protocol
 		switch protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolHTTPS:
-			cluster := buildOutboundCluster(svc.Hostname, servicePort, nil)
+			key := svc.Key(servicePort, nil)
+			cluster := &Cluster{
+				Name:   fmt.Sprintf("%x", sha1.Sum([]byte(key))),
+				Type:   ClusterTypeStrictDNS,
+				LbType: DefaultLbType,
+				Hosts: []Host{{
+					URL: fmt.Sprintf("tcp://%s:%d", svc.ExternalName, servicePort.Port),
+				}},
+			}
 
-			// overwrite cluster hosts and types
-			cluster.Type = ClusterTypeStrictDNS
-			cluster.Hosts = []Host{{
-				URL: fmt.Sprintf("tcp://%s:%d", svc.ExternalName, servicePort.Port),
-			}}
+			if servicePort.Protocol == model.ProtocolGRPC || servicePort.Protocol == model.ProtocolHTTP2 {
+				cluster.Features = ClusterFeatureHTTP2
+			}
 
 			if protocol == model.ProtocolHTTPS {
 				// TODO add root CA for public TLS
@@ -67,6 +81,11 @@ func buildEgressHTTPRoute(svc *model.Service) *VirtualHost {
 				Cluster:         cluster.Name,
 				AutoHostRewrite: true,
 				clusters:        []*Cluster{cluster},
+			}
+
+			// enable mixer check on the route
+			if mesh.MixerAddress != "" {
+				route.OpaqueConfig = buildMixerInboundOpaqueConfig()
 			}
 
 			host = &VirtualHost{

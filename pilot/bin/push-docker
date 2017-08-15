@@ -63,7 +63,7 @@ IFS=',' read -ra hubs <<< "${hubs}"
 pushd docker
   for image in app proxy proxy_init proxy_debug pilot; do
     local_image="${image}:${local_tag}"
-    docker build -f "Dockerfile.${image}" -t "${local_image}" .
+    docker build -q -f "Dockerfile.${image}" -t "${local_image}" .
     for tag in ${tags[@]}; do
       for hub in ${hubs[@]}; do
         tagged_image="${hub}/${image}:${tag}"

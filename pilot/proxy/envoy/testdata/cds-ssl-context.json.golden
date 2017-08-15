@@ -34,24 +34,6 @@
     ]
    },
    {
-    "name": "mixer_server",
-    "connect_timeout_ms": 1000,
-    "type": "strict_dns",
-    "lb_type": "round_robin",
-    "hosts": [
-     {
-      "url": "tcp://localhost:9091"
-     }
-    ],
-    "features": "http2",
-    "circuit_breakers": {
-     "default": {
-      "max_pending_requests": 10000,
-      "max_requests": 10000
-     }
-    }
-   },
-   {
     "name": "out.242bc3028e0f3fe0682e6d972e167ab415b2321d",
     "connect_timeout_ms": 1000,
     "type": "strict_dns",
@@ -170,6 +152,24 @@
      "private_key_file": "/etc/certs/key.pem",
      "ca_cert_file": "/etc/certs/root-cert.pem",
      "verify_subject_alt_name": []
+    }
+   },
+   {
+    "name": "mixer_server",
+    "connect_timeout_ms": 1000,
+    "type": "strict_dns",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://localhost:9091"
+     }
+    ],
+    "features": "http2",
+    "circuit_breakers": {
+     "default": {
+      "max_pending_requests": 10000,
+      "max_requests": 10000
+     }
     }
    }
   ]

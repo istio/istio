@@ -8,7 +8,11 @@
     "routes": [
      {
       "path": "/hello",
-      "cluster": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74"
+      "cluster": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74",
+      "opaque_config": {
+       "mixer_control": "on",
+       "mixer_forward": "off"
+      }
      }
     ]
    }

@@ -1,0 +1,61 @@
+{
+  "listeners": [
+   {
+    "address": "tcp://0.0.0.0:8888",
+    "name": "http_0.0.0.0_8888",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "tracing": {
+        "operation_name": "ingress"
+       },
+       "rds": {
+        "cluster": "rds",
+        "route_config_name": "8888",
+        "refresh_delay_ms": 10
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "mixer",
+         "config": {
+          "mixer_attributes": {
+           "target.ip": "10.3.3.4",
+           "target.uid": "kubernetes://egress.default"
+          },
+          "forward_attributes": {
+           "source.ip": "10.3.3.4",
+           "source.uid": "kubernetes://egress.default"
+          },
+          "quota_name": "RequestCount"
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "ssl_context": {
+     "cert_chain_file": "/etc/certs/cert-chain.pem",
+     "private_key_file": "/etc/certs/key.pem",
+     "ca_cert_file": "/etc/certs/root-cert.pem",
+     "require_client_certificate": true
+    },
+    "bind_to_port": true
+   }
+  ]
+ }

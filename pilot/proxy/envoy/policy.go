@@ -18,54 +18,33 @@
 package envoy
 
 import (
-	"sort"
-	"strings"
-
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/model"
-	"istio.io/pilot/proxy"
 )
 
-func insertMixerFilter(listeners []*Listener, instances []*model.ServiceInstance, sidecar proxy.Sidecar) {
-	// join service names with a comma
-	serviceSet := make(map[string]bool, len(instances))
-	for _, instance := range instances {
-		serviceSet[instance.Service.Hostname] = true
-	}
-	services := make([]string, 0, len(serviceSet))
-	for service := range serviceSet {
-		services = append(services, service)
-	}
-	sort.Strings(services)
-	service := strings.Join(services, ",")
+// applyClusterPolicy assumes an outbound cluster and inserts custom configuration for the cluster
+func applyClusterPolicy(cluster *Cluster, config model.IstioConfigStore,
+	mesh *proxyconfig.ProxyMeshConfig, accounts model.ServiceAccounts) {
+	duration := protoDurationToMS(mesh.ConnectTimeout)
+	cluster.ConnectTimeoutMs = duration
 
-	for _, l := range listeners {
-		for _, f := range l.Filters {
-			if f.Name == HTTPConnectionManager {
-				http := (f.Config).(*HTTPFilterConfig)
-				http.Filters = append([]HTTPFilter{{
-					Type: decoder,
-					Name: "mixer",
-					Config: &FilterMixerConfig{
-						MixerAttributes: map[string]string{
-							"target.ip":      sidecar.IPAddress,
-							"target.uid":     "kubernetes://" + sidecar.ID,
-							"target.service": service,
-						},
-						ForwardAttributes: map[string]string{
-							"source.ip":  sidecar.IPAddress,
-							"source.uid": "kubernetes://" + sidecar.ID,
-						},
-						QuotaName: "RequestCount",
-					},
-				}}, http.Filters...)
-			}
-		}
+	// skip remaining policies for non mesh-local outbound clusters
+	if !cluster.outbound {
+		return
 	}
-}
 
-// insertDestinationPolicy assumes an outbound cluster and inserts custom configuration for the cluster
-func insertDestinationPolicy(config model.IstioConfigStore, cluster *Cluster) {
+	// apply auth policies
+	switch mesh.AuthPolicy {
+	case proxyconfig.ProxyMeshConfig_NONE:
+		// do nothing
+	case proxyconfig.ProxyMeshConfig_MUTUAL_TLS:
+		// apply SSL context to enable mutual TLS between Envoy proxies for outbound clusters
+		ports := model.PortList{cluster.port}.GetNames()
+		serviceAccounts := accounts.GetIstioServiceAccounts(cluster.hostname, ports)
+		cluster.SSLContext = buildClusterSSLContext(mesh.AuthCertsPath, serviceAccounts)
+	}
+
+	// apply destination policies
 	policy := config.DestinationPolicy(cluster.hostname, cluster.tags)
 
 	if policy == nil {
@@ -77,9 +56,9 @@ func insertDestinationPolicy(config model.IstioConfigStore, cluster *Cluster) {
 		case proxyconfig.LoadBalancing_ROUND_ROBIN:
 			cluster.LbType = LbTypeRoundRobin
 		case proxyconfig.LoadBalancing_LEAST_CONN:
-			cluster.LbType = "least_request"
+			cluster.LbType = LbTypeLeastRequest
 		case proxyconfig.LoadBalancing_RANDOM:
-			cluster.LbType = "random"
+			cluster.LbType = LbTypeRandom
 		}
 	}
 

@@ -57,6 +57,12 @@ const (
 	// LbTypeRoundRobin is the name for roundrobin LB
 	LbTypeRoundRobin = "round_robin"
 
+	// LbTypeLeastRequest is the name for least request LB
+	LbTypeLeastRequest = "least_request"
+
+	// LbTypeRandom is the name for random LB
+	LbTypeRandom = "random"
+
 	// ClusterFeatureHTTP2 is the feature to use HTTP/2 for a cluster
 	ClusterFeatureHTTP2 = "http2"
 
@@ -81,12 +87,10 @@ const (
 	// ZipkinCollectorEndpoint denotes the REST endpoint where Envoy posts Zipkin spans
 	ZipkinCollectorEndpoint = "/api/v1/spans"
 
-	// MixerCluster is the name of the mixer cluster
-	MixerCluster = "mixer_server"
-
 	router  = "router"
 	auto    = "auto"
 	decoder = "decoder"
+	read    = "read"
 )
 
 // convertDuration converts to golang duration and logs errors
@@ -164,21 +168,6 @@ type Header struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
 	Regex bool   `json:"regex,omitempty"`
-}
-
-// FilterMixerConfig definition
-type FilterMixerConfig struct {
-	// MixerAttributes specifies the static list of attributes that are sent with
-	// each request to Mixer.
-	MixerAttributes map[string]string `json:"mixer_attributes,omitempty"`
-
-	// ForwardAttributes specifies the list of attribute keys and values that
-	// are forwarded as an HTTP header to the server side proxy
-	ForwardAttributes map[string]string `json:"forward_attributes,omitempty"`
-
-	// QuotaName specifies the name of the quota bucket to withdraw tokens from;
-	// an empty name means no quota will be charged.
-	QuotaName string `json:"quota_name,omitempty"`
 }
 
 // FilterFaultConfig definition
@@ -388,6 +377,8 @@ type HTTPFilterConfig struct {
 	AccessLog         []AccessLog            `json:"access_log"`
 }
 
+func (*HTTPFilterConfig) isNetworkFilterConfig() {}
+
 // HTTPFilterTraceConfig definition
 type HTTPFilterTraceConfig struct {
 	OperationName string `json:"operation_name"`
@@ -456,6 +447,8 @@ type TCPProxyFilterConfig struct {
 	RouteConfig *TCPRouteConfig `json:"route_config"`
 }
 
+func (*TCPProxyFilterConfig) isNetworkFilterConfig() {}
+
 // TCPRouteConfig (or generalize as RouteConfig or L4RouteConfig for TCP/UDP?)
 type TCPRouteConfig struct {
 	Routes []*TCPRoute `json:"routes"`
@@ -463,9 +456,14 @@ type TCPRouteConfig struct {
 
 // NetworkFilter definition
 type NetworkFilter struct {
-	Type   string      `json:"type"`
-	Name   string      `json:"name"`
-	Config interface{} `json:"config"`
+	Type   string              `json:"type"`
+	Name   string              `json:"name"`
+	Config NetworkFilterConfig `json:"config"`
+}
+
+// NetworkFilterConfig is a marker interface
+type NetworkFilterConfig interface {
+	isNetworkFilterConfig()
 }
 
 // Listener definition
@@ -551,7 +549,8 @@ type Cluster struct {
 	CircuitBreaker           *CircuitBreaker   `json:"circuit_breakers,omitempty"`
 	OutlierDetection         *OutlierDetection `json:"outlier_detection,omitempty"`
 
-	// special values used by the post-processing passes for outbound clusters
+	// special values used by the post-processing passes for outbound mesh-local clusters
+	outbound bool
 	hostname string
 	port     *model.Port
 	tags     model.Tags
@@ -595,13 +594,6 @@ func (clusters Clusters) normalize() Clusters {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
-}
-
-func (clusters Clusters) setTimeout(timeout *duration.Duration) {
-	duration := protoDurationToMS(timeout)
-	for _, cluster := range clusters {
-		cluster.ConnectTimeoutMs = duration
-	}
 }
 
 // RoutesByPath sorts routes by their path and/or prefix, such that:

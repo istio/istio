@@ -10,6 +10,7 @@ go_library(
         "fault.go",
         "header.go",
         "ingress.go",
+        "mixer.go",
         "policy.go",
         "resolve.go",
         "resources.go",

@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -45,21 +46,32 @@ type Watcher interface {
 
 type watcher struct {
 	agent proxy.Agent
-	role  proxy.Role
+	role  proxy.Node
 	mesh  *proxyconfig.ProxyMeshConfig
 }
 
 // NewWatcher creates a new watcher instance with an agent
-func NewWatcher(mesh *proxyconfig.ProxyMeshConfig, role proxy.Role, configpath string) Watcher {
+func NewWatcher(mesh *proxyconfig.ProxyMeshConfig, role proxy.Node, configpath string) (Watcher, error) {
 	glog.V(2).Infof("Proxy role: %#v", role)
 
 	if mesh.StatsdUdpAddress != "" {
 		if addr, err := resolveStatsdAddr(mesh.StatsdUdpAddress); err == nil {
 			mesh.StatsdUdpAddress = addr
 		} else {
-			glog.Warningf("Error resolving statsd address; clearing to prevent bad config: %v", err)
-			mesh.StatsdUdpAddress = ""
+			return nil, err
 		}
+	}
+
+	if err := os.MkdirAll(configpath, 0700); err != nil {
+		return nil, multierror.Prefix(err, "failed to create directory for proxy configuration")
+	}
+
+	if role.Type == proxy.Egress && mesh.EgressProxyAddress == "" {
+		return nil, errors.New("egress proxy requires address configuration")
+	}
+
+	if role.Type == proxy.Ingress && mesh.IngressControllerMode == proxyconfig.ProxyMeshConfig_OFF {
+		return nil, errors.New("ingress proxy is disabled")
 	}
 
 	agent := proxy.NewAgent(runEnvoy(mesh, role.ServiceNode(), configpath), proxy.DefaultRetry)
@@ -69,7 +81,7 @@ func NewWatcher(mesh *proxyconfig.ProxyMeshConfig, role proxy.Role, configpath s
 		mesh:  mesh,
 	}
 
-	return out
+	return out, nil
 }
 
 func (w *watcher) Run(ctx context.Context) {
@@ -85,7 +97,7 @@ func (w *watcher) Run(ctx context.Context) {
 	}
 
 	// monitor ingress certificates
-	if w.role.ServiceNode() == proxy.IngressNode {
+	if w.role.Type == proxy.Ingress {
 		go watchCerts(ctx, proxy.IngressCertsPath, w.Reload)
 
 		// update secrets with polling
@@ -116,7 +128,7 @@ func (w *watcher) Reload() {
 	if w.mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
 		generateCertHash(h, w.mesh.AuthCertsPath, authFiles)
 	}
-	if w.role.ServiceNode() == proxy.IngressNode {
+	if w.role.Type == proxy.Ingress {
 		generateCertHash(h, proxy.IngressCertsPath, []string{"tls.crt", "tls.key"})
 	}
 	config.Hash = h.Sum(nil)
