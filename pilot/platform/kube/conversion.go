@@ -16,6 +16,7 @@ package kube
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"k8s.io/api/core/v1"
@@ -86,6 +87,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 			serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace, domainSuffix))
 		}
 	}
+	sort.Sort(sort.StringSlice(serviceaccounts))
 
 	return &model.Service{
 		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),

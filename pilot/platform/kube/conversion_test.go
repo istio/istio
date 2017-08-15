@@ -16,7 +16,6 @@ package kube
 
 import (
 	"reflect"
-	"sort"
 	"testing"
 
 	"istio.io/pilot/model"
@@ -119,7 +118,6 @@ func TestServiceConversion(t *testing.T) {
 	if sa == nil || len(sa) != 4 {
 		t.Errorf("number of service accounts is incorrect")
 	}
-	sort.Sort(sort.StringSlice(sa))
 	expected := []string{
 		"spiffe://company.com/ns/default/sa/" + saA,
 		"spiffe://company.com/ns/default/sa/" + saB,
