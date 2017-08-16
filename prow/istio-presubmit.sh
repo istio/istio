@@ -49,5 +49,5 @@ echo 'Pushing Images'
 (cd devel/fortio && make authorize all TAG="${GIT_SHA}")
 
 echo 'Running Integration Tests'
-./prow/e2e-suite.sh
+./prow/e2e.sh
 

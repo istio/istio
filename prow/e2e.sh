@@ -14,6 +14,11 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+
+#######################################
+# Presubmit script triggered by Prow. #
+#######################################
+
 # Exit immediately for non zero status
 set -e
 # Check unset variables
@@ -32,4 +37,6 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}" --log_provider=${LOG_HOST} --project_id=${PROJ_ID})
   # Use the provided pull head sha, from prow.
 fi
+
+echo 'Running Integration Tests'
 ./tests/e2e.sh ${E2E_ARGS[@]:-} ${@}
