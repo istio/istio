@@ -129,10 +129,10 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = f.Close() }()
+	defer func() { _ = f.Close() }() // nolint: gas
 	if _, err = f.Write(imptd); err != nil {
-		_ = f.Close()
-		_ = os.Remove(f.Name())
+		_ = f.Close()           // nolint: gas
+		_ = os.Remove(f.Name()) // nolint: gas
 		return err
 	}
 	return nil
