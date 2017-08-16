@@ -55,7 +55,8 @@ type cliOptions struct {
 	caCertTTL time.Duration
 	certTTL   time.Duration
 
-	grpcPort int
+	grpcHostname string
+	grpcPort     int
 }
 
 var (
@@ -93,6 +94,7 @@ func init() {
 		"The TTL of self-signed CA root certificate (default to 10 days)")
 	flags.DurationVar(&opts.certTTL, "cert-ttl", time.Hour, "The TTL of issued certificates (default to 1 hour)")
 
+	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "localhost", "Specifies the hostname for GRPC server.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "Specifies the port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
 
@@ -124,7 +126,7 @@ func runCA() {
 	sc.Run(stopCh)
 
 	if opts.grpcPort > 0 {
-		grpcServer := grpc.New(ca, opts.grpcPort)
+		grpcServer := grpc.New(ca, opts.grpcHostname, opts.grpcPort)
 		if err := grpcServer.Run(); err != nil {
 			glog.Warningf("Failed to start GRPC server with error: %v", err)
 		}

@@ -36,7 +36,7 @@ const (
 
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
-	Sign(csr *x509.CertificateRequest) ([]byte, error)
+	Sign(csrPEM []byte) ([]byte, error)
 	Generate(name, namespace string) (chain, key []byte)
 	GetRootCertificate() []byte
 }
@@ -137,8 +137,14 @@ func (ca *IstioCA) GetRootCertificate() []byte {
 	return copyBytes(ca.rootCertBytes)
 }
 
-// Sign signs a CSR
-func (ca *IstioCA) Sign(csr *x509.CertificateRequest) ([]byte, error) {
+// Sign takes a PEM-encoded certificate signing request and returns a signed
+// certificate.
+func (ca *IstioCA) Sign(csrPEM []byte) ([]byte, error) {
+	csr, err := pki.ParsePemEncodedCSR(csrPEM)
+	if err != nil {
+		return nil, err
+	}
+
 	tmpl := ca.generateCertificateTemplate(csr)
 
 	bytes, err := x509.CreateCertificate(rand.Reader, tmpl, ca.signingCert, csr.PublicKey, ca.signingKey)

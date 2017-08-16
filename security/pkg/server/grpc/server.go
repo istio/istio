@@ -15,25 +15,31 @@
 package grpc
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"github.com/golang/glog"
 
 	"golang.org/x/net/context"
 
-	"istio.io/auth/pkg/pki"
 	"istio.io/auth/pkg/pki/ca"
 	pb "istio.io/auth/proto"
 )
 
+const certExpirationBuffer = time.Minute
+
 // Server implements pb.IstioCAService and provides the service on the
 // specified port.
 type Server struct {
-	ca   ca.CertificateAuthority
-	port int
+	ca          ca.CertificateAuthority
+	certificate *tls.Certificate
+	hostname    string
+	port        int
 }
 
 // HandleCSR handles an incoming certificate signing request (CSR). It does
@@ -43,14 +49,7 @@ type Server struct {
 func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Response, error) {
 	// TODO: handle authentication here
 
-	csr, err := pki.ParsePemEncodedCSR(request.CsrPem)
-	if err != nil {
-		glog.Error(err)
-		// TODO: possibly wrap err in GRPC error
-		return nil, err
-	}
-
-	cert, err := s.ca.Sign(csr)
+	cert, err := s.ca.Sign(request.CsrPem)
 	if err != nil {
 		glog.Error(err)
 		// TODO: possibly wrap err in GRPC error
@@ -71,7 +70,10 @@ func (s *Server) Run() error {
 	if err != nil {
 		return fmt.Errorf("cannot listen on port %d (error: %v)", s.port, err)
 	}
-	grpcServer := grpc.NewServer()
+
+	serverOption := s.createTLSServerOption()
+
+	grpcServer := grpc.NewServer(serverOption)
 	pb.RegisterIstioCAServiceServer(grpcServer, s)
 
 	// grpcServer.Serve() is a blocking call, so run it in a goroutine.
@@ -88,6 +90,62 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca ca.CertificateAuthority, port int) *Server {
-	return &Server{ca, port}
+func New(ca ca.CertificateAuthority, hostname string, port int) *Server {
+	return &Server{
+		ca:       ca,
+		hostname: hostname,
+		port:     port,
+	}
+}
+
+func (s *Server) createTLSServerOption() grpc.ServerOption {
+	config := &tls.Config{
+		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+			if s.certificate == nil || shouldRefresh(s.certificate) {
+				// Apply new certificate if there isn't one yet, or the one has become invalid.
+				newCert, err := s.applyServerCertificate()
+				if err != nil {
+					return nil, err
+				}
+				s.certificate = newCert
+			}
+			return s.certificate, nil
+		},
+	}
+	return grpc.Creds(credentials.NewTLS(config))
+}
+
+func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
+	opts := ca.CertOptions{
+		Host:       s.hostname,
+		RSAKeySize: 2048,
+	}
+
+	csrPEM, privPEM, err := ca.GenCSR(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	certPEM, err := s.ca.Sign(csrPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	cert, err := tls.X509KeyPair(certPEM, privPEM)
+	if err != nil {
+		return nil, err
+	}
+	return &cert, nil
+}
+
+// shouldRefresh indicates whether the given certificate should be refreshed.
+func shouldRefresh(cert *tls.Certificate) bool {
+	// Check whether there is a valid leaf certificate.
+	leaf := cert.Leaf
+	if leaf == nil {
+		return true
+	}
+
+	// Check whether the leaf certificate is about to expire.
+	return leaf.NotAfter.Add(-certExpirationBuffer).Before(time.Now())
 }
