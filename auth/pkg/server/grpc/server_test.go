@@ -16,9 +16,11 @@ package grpc
 
 import (
 	"bytes"
+	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"testing"
+	"time"
 
 	"istio.io/auth/pkg/pki/ca"
 	pb "istio.io/auth/proto"
@@ -42,7 +44,7 @@ type mockCA struct {
 	errMsg string
 }
 
-func (ca *mockCA) Sign(csr *x509.CertificateRequest) ([]byte, error) {
+func (ca *mockCA) Sign(csrPEM []byte) ([]byte, error) {
 	if ca.errMsg != "" {
 		return nil, fmt.Errorf(ca.errMsg)
 	}
@@ -64,10 +66,6 @@ func TestSign(t *testing.T) {
 		cert   string
 		errMsg string
 	}{
-		"Bad CSR string": {
-			csr:    "bad CSR string",
-			errMsg: "Certificate signing request is not properly encoded",
-		},
 		"Failed to sign": {
 			ca:     &mockCA{errMsg: "cannot sign"},
 			csr:    csr,
@@ -81,7 +79,7 @@ func TestSign(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		server := New(c.ca, 8080)
+		server := New(c.ca, "hostname", 8080)
 		request := &pb.Request{CsrPem: []byte(c.csr)}
 
 		response, err := server.HandleCSR(nil, request)
@@ -89,6 +87,44 @@ func TestSign(t *testing.T) {
 			t.Errorf("Case %s: expecting error message (%s) but got (%s)", id, c.errMsg, err.Error())
 		} else if c.errMsg == "" && !bytes.Equal(response.SignedCertChain, []byte(c.cert)) {
 			t.Errorf("Case %s: expecting cert to be (%s) but got (%s)", id, c.cert, response.SignedCertChain)
+		}
+	}
+}
+
+func TestShouldRefresh(t *testing.T) {
+	now := time.Now()
+	testCases := map[string]struct {
+		cert          *tls.Certificate
+		shouldRefresh bool
+	}{
+		"No leaf cert": {
+			cert:          &tls.Certificate{},
+			shouldRefresh: true,
+		},
+		"Cert is expired": {
+			cert: &tls.Certificate{
+				Leaf: &x509.Certificate{NotAfter: now},
+			},
+			shouldRefresh: true,
+		},
+		"Cert is about to expire": {
+			cert: &tls.Certificate{
+				Leaf: &x509.Certificate{NotAfter: now.Add(5 * time.Second)},
+			},
+			shouldRefresh: true,
+		},
+		"Cert is valid": {
+			cert: &tls.Certificate{
+				Leaf: &x509.Certificate{NotAfter: now.Add(5 * time.Minute)},
+			},
+			shouldRefresh: false,
+		},
+	}
+
+	for id, tc := range testCases {
+		result := shouldRefresh(tc.cert)
+		if tc.shouldRefresh != result {
+			t.Errorf("%s: expected result is %t but got %t", id, tc.shouldRefresh, result)
 		}
 	}
 }

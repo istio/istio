@@ -202,17 +202,13 @@ func TestSignCSR(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	csr, err := pki.ParsePemEncodedCSR(csrPEM)
-	if err != nil {
-		t.Error(err)
-	}
 
 	ca, err := NewSelfSignedIstioCA(24*time.Hour, time.Hour, "istio.io")
 	if err != nil {
 		t.Error(err)
 	}
 
-	certPEM, err := ca.Sign(csr)
+	certPEM, err := ca.Sign(csrPEM)
 	if err != nil {
 		t.Error(err)
 	}

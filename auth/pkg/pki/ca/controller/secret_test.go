@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"crypto/x509"
 	"reflect"
 	"testing"
 	"time"
@@ -31,7 +30,7 @@ import (
 
 type fakeCa struct{}
 
-func (ca *fakeCa) Sign(*x509.CertificateRequest) ([]byte, error) {
+func (ca *fakeCa) Sign([]byte) ([]byte, error) {
 	return nil, nil
 }
 
