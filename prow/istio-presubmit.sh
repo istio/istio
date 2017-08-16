@@ -50,3 +50,4 @@ echo 'Pushing Images'
 
 echo 'Running Integration Tests'
 ./prow/e2e.sh
+
