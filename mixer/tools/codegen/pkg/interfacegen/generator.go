@@ -122,11 +122,11 @@ func (g *Generator) Generate(fdsFile string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = f1.Close() }()
+	defer func() { _ = f1.Close() }() // nolint: gas
 
-	if _, err = f1.Write(imptd); err != nil {
-		_ = f1.Close()
-		_ = os.Remove(f1.Name())
+	if _, err = f1.Write(imptd); err != nil { // nolint: gas
+		_ = f1.Close()           // nolint: gas
+		_ = os.Remove(f1.Name()) // nolint: gas
 		return err
 	}
 
@@ -134,10 +134,10 @@ func (g *Generator) Generate(fdsFile string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = f2.Close() }()
+	defer func() { _ = f2.Close() }() // nolint: gas
 	if _, err = f2.Write(tmplBuf.Bytes()); err != nil {
-		_ = f2.Close()
-		_ = os.Remove(f2.Name())
+		_ = f2.Close()           // nolint: gas
+		_ = os.Remove(f2.Name()) // nolint: gas
 		return err
 	}
 
