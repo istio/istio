@@ -67,7 +67,7 @@ go_metalinter() {
         --enable=goconst\
         --enable=gofmt\
         --enable=goimports\
-        --enable=golint --min-confidence=0 --exclude=.pb.go --exclude=pkg/config/proto/combined.go --exclude=.*.gen.go --exclude="should have a package comment"\
+        --enable=golint --min-confidence=0 --exclude=vendor --exclude=.pb.go --exclude=pkg/config/proto/combined.go --exclude=.*.gen.go --exclude="should have a package comment"\
         --exclude=".*pkg/config/apiserver_test.go:.* method WriteHeaderAndJson should be WriteHeaderAndJSON"\
         --enable=ineffassign\
         --enable=interfacer\
@@ -82,6 +82,7 @@ go_metalinter() {
         --enable=vet\
         --enable=vetshadow\
         --skip=testdata\
+        --skip=vendor\
         --vendor\
         $PKGS
 }

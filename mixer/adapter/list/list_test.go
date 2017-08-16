@@ -37,7 +37,7 @@ import (
 func TestBasic(t *testing.T) {
 	info := GetBuilderInfo()
 
-	if !contains(info.SupportedTemplates, listentry.TemplateName) {
+	if !containsListEntryTemplate(info.SupportedTemplates) {
 		t.Error("Didn't find all expected supported templates")
 	}
 
@@ -63,9 +63,9 @@ func TestBasic(t *testing.T) {
 	}
 }
 
-func contains(s []string, e string) bool {
+func containsListEntryTemplate(s []string) bool {
 	for _, a := range s {
-		if a == e {
+		if a == listentry.TemplateName {
 			return true
 		}
 	}
