@@ -775,7 +775,11 @@ func DebugHandler(w http.ResponseWriter, r *http.Request) {
 	buf.WriteByte(' ')
 	buf.WriteString(r.Proto)
 	buf.WriteString("\n\nheaders:\n\n")
+	// Host is removed from headers map and put here (!)
+	buf.WriteString("Host: ")
+	buf.WriteString(r.Host)
 	for name, headers := range r.Header {
+		buf.WriteByte('\n')
 		buf.WriteString(name)
 		buf.WriteString(": ")
 		first := true
@@ -786,7 +790,6 @@ func DebugHandler(w http.ResponseWriter, r *http.Request) {
 			buf.WriteString(h)
 			first = false
 		}
-		buf.WriteByte('\n')
 	}
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -794,7 +797,7 @@ func DebugHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	buf.WriteString("\nbody:\n\n")
+	buf.WriteString("\n\nbody:\n\n")
 	buf.WriteString(DebugSummary(data, 512))
 	buf.WriteByte('\n')
 	if r.FormValue("env") == "dump" {
