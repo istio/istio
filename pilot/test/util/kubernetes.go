@@ -88,6 +88,17 @@ func GetAppPods(cl kubernetes.Interface, ns string) (map[string][]string, error)
 				glog.Infof("Pod %s has status %s", pod.Name, pod.Status.Phase)
 				ready = false
 				break
+			} else {
+				for _, container := range pod.Status.ContainerStatuses {
+					if !container.Ready {
+						glog.Infof("Container %s in Pod %s is not ready", container.Name, pod.Name)
+						ready = false
+						break
+					}
+				}
+				if !ready {
+					break
+				}
 			}
 		}
 

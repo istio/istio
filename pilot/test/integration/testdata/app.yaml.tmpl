@@ -73,10 +73,12 @@ spec:
             path: /healthz
             port: 3333
           initialDelaySeconds: 10
-          periodSeconds: 1
+          periodSeconds: 10
+          failureThreshold: 10
         readinessProbe:
           tcpSocket:
             port: tcp-health-port
           initialDelaySeconds: 10
-          periodSeconds: 1
+          periodSeconds: 10
+          failureThreshold: 10
 ---

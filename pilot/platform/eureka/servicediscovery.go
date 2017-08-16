@@ -106,3 +106,10 @@ func (sd *serviceDiscovery) HostInstances(addrs map[string]bool) []*model.Servic
 	}
 	return out
 }
+
+// ManagementPorts retries set of health check ports by instance IP.
+// This does not apply to Eureka service registry, as Eureka does not
+// manage the service instances.
+func (sd *serviceDiscovery) ManagementPorts(addr string) model.PortList {
+	return nil
+}
