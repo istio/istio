@@ -20,51 +20,9 @@ load("@io_bazel_rules_docker//docker:docker.bzl", "docker_repositories")
 
 docker_repositories()
 
-git_repository(
-    name = "org_pubref_rules_protobuf",
-    commit = "9ede1dbc38f0b89ae6cd8e206a22dd93cc1d5637",  # Mar 31, 2017 (gogo* support)
-    remote = "https://github.com/pubref/rules_protobuf",
-)
+load(":adapter_author_deps.bzl", "mixer_adapter_repositories")
 
-git_repository(
-    name = "com_github_google_protobuf",
-    commit = "52ab3b07ac9a6889ed0ac9bf21afd8dab8ef0014",  # Oct 4, 2016 (match pubref dep)
-    remote = "https://github.com/google/protobuf.git",
-)
-
-load("@org_pubref_rules_protobuf//protobuf:rules.bzl", "proto_repositories")
-
-proto_repositories()
-
-go_repository(
-    name = "org_golang_x_net",
-    commit = "f5079bd7f6f74e23c4d65efa0f4ce14cbd6a3c0f",  # Jul 26, 2017 (no releases)
-    importpath = "golang.org/x/net",
-)
-
-go_repository(
-    name = "com_github_golang_glog",
-    commit = "23def4e6c14b4da8ac2ed8007337bc5eb5007998",  # Jan 26, 2016 (no releases)
-    importpath = "github.com/golang/glog",
-)
-
-go_repository(
-    name = "com_github_golang_protobuf",
-    commit = "8ee79997227bf9b34611aee7946ae64735e6fd93",  # Nov 16, 2016 (match pubref dep)
-    importpath = "github.com/golang/protobuf",
-)
-
-go_repository(
-    name = "com_github_gogo_protobuf",
-    commit = "100ba4e885062801d56799d78530b73b178a78f3",  # Mar 7, 2017 (match pubref dep)
-    importpath = "github.com/gogo/protobuf",
-)
-
-go_repository(
-    name = "org_golang_google_grpc",
-    commit = "8050b9cbc271307e5a716a9d782803d09b0d6f2d",  # Apr 7, 2017 (v1.2.1)
-    importpath = "google.golang.org/grpc",
-)
+mixer_adapter_repositories()
 
 git_repository(
     name = "com_github_grpc_grpc",
@@ -425,13 +383,6 @@ go_repository(
     name = "com_github_PuerkitoBio_purell",
     commit = "0bcb03f4b4d0a9428594752bd2a3b9aa0a9d4bd4",  # Nov 14, 2016 (v1.1.0)
     importpath = "github.com/PuerkitoBio/purell",
-)
-
-go_repository(
-    name = "org_golang_x_text",
-    build_file_name = "BUILD.bazel",
-    commit = "f4b4367115ec2de254587813edaa901bc1c723a8",  # Mar 31, 2017 (no releases)
-    importpath = "golang.org/x/text",
 )
 
 go_repository(
