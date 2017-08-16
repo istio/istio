@@ -19,8 +19,8 @@ import "testing"
 var (
 	camelKabobs = []struct{ in, out string }{
 		{"ExampleNameX", "example-name-x"},
-		{"example1", "example1"},
-		{"exampleXY", "example-x-y"},
+		{"Example1", "example1"},
+		{"ExampleXY", "example-x-y"},
 	}
 )
 
@@ -29,6 +29,10 @@ func TestCamelKabob(t *testing.T) {
 		s := camelCaseToKabobCase(tt.in)
 		if s != tt.out {
 			t.Errorf("camelCaseToKabobCase(%q) => %q, want %q", tt.in, s, tt.out)
+		}
+		u := kabobCaseToCamelCase(tt.out)
+		if u != tt.in {
+			t.Errorf("kabobToCamel(%q) => %q, want %q", tt.out, u, tt.in)
 		}
 	}
 }

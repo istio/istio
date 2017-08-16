@@ -46,7 +46,7 @@ func convertIngress(ingress v1beta1.Ingress, domainSuffix string) map[string]*pr
 	if ingress.Spec.Backend != nil {
 		key := encodeIngressRuleName(ingress.Name, ingress.Namespace, 0, 0)
 		ingressRule := createIngressRule(key, "", "", ingress.Namespace, domainSuffix, *ingress.Spec.Backend, tls)
-		out[model.IngressRuleDescriptor.Key(ingressRule)] = ingressRule
+		out[model.IngressRule.Key(ingressRule)] = ingressRule
 	}
 
 	for i, rule := range ingress.Spec.Rules {
@@ -54,7 +54,7 @@ func convertIngress(ingress v1beta1.Ingress, domainSuffix string) map[string]*pr
 			key := encodeIngressRuleName(ingress.Name, ingress.Namespace, i+1, j+1)
 			ingressRule := createIngressRule(key, rule.Host, path.Path, ingress.Namespace,
 				domainSuffix, path.Backend, tls)
-			out[model.IngressRuleDescriptor.Key(ingressRule)] = ingressRule
+			out[model.IngressRule.Key(ingressRule)] = ingressRule
 		}
 	}
 

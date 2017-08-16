@@ -7,6 +7,7 @@ go_library(
         "config.go",
         "controller.go",
         "conversion.go",
+        "types.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -30,6 +31,14 @@ go_library(
         "@io_k8s_client_go//tools/cache:go_default_library",
         "@io_k8s_client_go//tools/clientcmd:go_default_library",
     ],
+)
+
+genrule(
+    name = "crd",
+    srcs = ["config.go"],
+    outs = ["types.go"],
+    cmd = "adapter/config/crd/generate.sh > $@",
+    tools = ["generate.sh"],
 )
 
 go_test(

@@ -16,11 +16,11 @@ package crd
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/golang/protobuf/proto"
 
 	"istio.io/pilot/model"
 )
@@ -28,54 +28,43 @@ import (
 // configKey assigns k8s CRD name to Istio config
 func configKey(typ, key string) string {
 	switch typ {
-	case model.RouteRule, model.IngressRule:
-		return typ + "-" + key
-	case model.DestinationPolicy:
+	case model.RouteRule.Type, model.IngressRule.Type:
+		return key
+	case model.DestinationPolicy.Type:
 		// TODO: special key encoding for long hostnames-based keys
 		parts := strings.Split(key, ".")
-		return typ + "-" + strings.Replace(parts[0], "-", "--", -1) +
+		return strings.Replace(parts[0], "-", "--", -1) +
 			"-" + strings.Replace(parts[1], "-", "--", -1)
 	}
 	return key
 }
 
 // modelToKube translates Istio config to k8s config JSON
-func modelToKube(schema model.ProtoSchema, namespace string, config proto.Message) (*IstioKind, error) {
+func modelToKube(schema model.ProtoSchema, namespace string, config proto.Message,
+	revision string) (IstioObject, error) {
 	spec, err := schema.ToJSONMap(config)
 	if err != nil {
 		return nil, err
 	}
-	out := &IstioKind{
-		TypeMeta: meta_v1.TypeMeta{
-			Kind: IstioKindName,
-		},
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      configKey(schema.Type, schema.Key(config)),
-			Namespace: namespace,
-		},
-		Spec: spec,
-	}
+	out := knownTypes[schema.Type].object.DeepCopyObject().(IstioObject)
+	out.SetObjectMeta(meta_v1.ObjectMeta{
+		Name:            configKey(schema.Type, schema.Key(config)),
+		Namespace:       namespace,
+		ResourceVersion: revision,
+	})
+	out.SetSpec(spec)
 
 	return out, nil
 }
 
-// convertConfig extracts Istio config data from k8s CRD
-func (cl *Client) convertConfig(item *IstioKind) (model.Config, error) {
-	for _, schema := range cl.ConfigDescriptor() {
-		if strings.HasPrefix(item.ObjectMeta.Name, schema.Type) {
-			data, err := schema.FromJSONMap(item.Spec)
-			if err != nil {
-				return model.Config{}, err
-			}
-			return model.Config{
-				Type:     schema.Type,
-				Key:      schema.Key(data),
-				Revision: item.ObjectMeta.ResourceVersion,
-				Content:  data,
-			}, nil
-		}
+// camelCaseToKabobCase converts "my-name" to "MyName"
+func kabobCaseToCamelCase(s string) string {
+	words := strings.Split(s, "-")
+	out := ""
+	for _, word := range words {
+		out = out + strings.Title(word)
 	}
-	return model.Config{}, fmt.Errorf("missing schema")
+	return out
 }
 
 // camelCaseToKabobCase converts "MyName" to "my-name"

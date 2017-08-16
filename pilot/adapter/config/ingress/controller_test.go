@@ -94,13 +94,13 @@ func TestIngressController(t *testing.T) {
 		t.Errorf("Put should not be allowed")
 	}
 
-	if err := ctl.Delete(model.IngressRule, "test"); err == nil {
+	if err := ctl.Delete(model.IngressRule.Type, "test"); err == nil {
 		t.Errorf("Delete should not be allowed")
 	}
 
 	// Append an ingress notification handler that just counts number of notifications
 	notificationCount := 0
-	ctl.RegisterEventHandler(model.IngressRule, func(model.Config, model.Event) {
+	ctl.RegisterEventHandler(model.IngressRule.Type, func(model.Config, model.Event) {
 		notificationCount++
 	})
 
@@ -199,10 +199,10 @@ func TestIngressController(t *testing.T) {
 	}
 
 	util.Eventually(func() bool {
-		rules, _ := ctl.List(model.IngressRule)
+		rules, _ := ctl.List(model.IngressRule.Type)
 		return len(rules) == expectedRuleCount
 	}, t)
-	rules, err := ctl.List(model.IngressRule)
+	rules, err := ctl.List(model.IngressRule.Type)
 	if err != nil {
 		t.Errorf("ctl.List(model.IngressRule, %s) => error: %v", ns, err)
 	}
@@ -211,7 +211,7 @@ func TestIngressController(t *testing.T) {
 	}
 
 	for _, listMsg := range rules {
-		getMsg, exists, _ := ctl.Get(model.IngressRule, listMsg.Key)
+		getMsg, exists, _ := ctl.Get(model.IngressRule.Type, listMsg.Key)
 		if !exists {
 			t.Errorf("expected IngressRule with key %v to exist", listMsg.Key)
 

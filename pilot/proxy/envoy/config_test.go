@@ -242,7 +242,7 @@ func configObjectFromYAML(kind, file string) (proto.Message, error) {
 }
 
 func addCircuitBreaker(r model.ConfigStore, t *testing.T) {
-	msg, err := configObjectFromYAML(model.DestinationPolicy, cbPolicy)
+	msg, err := configObjectFromYAML(model.DestinationPolicy.Type, cbPolicy)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +252,7 @@ func addCircuitBreaker(r model.ConfigStore, t *testing.T) {
 }
 
 func addRewrite(r model.ConfigStore, t *testing.T) {
-	msg, err := configObjectFromYAML(model.RouteRule, rewriteRouteRule)
+	msg, err := configObjectFromYAML(model.RouteRule.Type, rewriteRouteRule)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -262,7 +262,7 @@ func addRewrite(r model.ConfigStore, t *testing.T) {
 }
 
 func addRedirect(r model.ConfigStore, t *testing.T) {
-	msg, err := configObjectFromYAML(model.RouteRule, redirectRouteRule)
+	msg, err := configObjectFromYAML(model.RouteRule.Type, redirectRouteRule)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,7 +272,7 @@ func addRedirect(r model.ConfigStore, t *testing.T) {
 }
 
 func addTimeout(r model.ConfigStore, t *testing.T) {
-	msg, err := configObjectFromYAML(model.RouteRule, timeoutRouteRule)
+	msg, err := configObjectFromYAML(model.RouteRule.Type, timeoutRouteRule)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,7 +282,7 @@ func addTimeout(r model.ConfigStore, t *testing.T) {
 }
 
 func addWeightedRoute(r model.ConfigStore, t *testing.T) {
-	msg, err := configObjectFromYAML(model.RouteRule, weightedRouteRule)
+	msg, err := configObjectFromYAML(model.RouteRule.Type, weightedRouteRule)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +292,7 @@ func addWeightedRoute(r model.ConfigStore, t *testing.T) {
 }
 
 func addFaultRoute(r model.ConfigStore, t *testing.T) {
-	msg, err := configObjectFromYAML(model.RouteRule, faultRouteRule)
+	msg, err := configObjectFromYAML(model.RouteRule.Type, faultRouteRule)
 	if err != nil {
 		t.Fatal(err)
 	}

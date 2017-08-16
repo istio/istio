@@ -222,9 +222,9 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 
 	if configCache != nil {
 		configHandler := func(model.Config, model.Event) { out.clearCache() }
-		configCache.RegisterEventHandler(model.RouteRule, configHandler)
-		configCache.RegisterEventHandler(model.IngressRule, configHandler)
-		configCache.RegisterEventHandler(model.DestinationPolicy, configHandler)
+		configCache.RegisterEventHandler(model.RouteRule.Type, configHandler)
+		configCache.RegisterEventHandler(model.IngressRule.Type, configHandler)
+		configCache.RegisterEventHandler(model.DestinationPolicy.Type, configHandler)
 	}
 
 	return out, nil

@@ -17,7 +17,7 @@ syntax = "proto3";
 // Basic config resource consisting
 // of a set of key-value pairs
 
-package mock;
+package test;
 
 message MockConfig {
   string key = 1;

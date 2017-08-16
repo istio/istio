@@ -15,7 +15,6 @@
 package mock
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -23,36 +22,16 @@ import (
 	"testing"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/model"
+	"istio.io/pilot/model/test"
 	"istio.io/pilot/test/util"
 )
 
-const (
-	// Type is the mock config type
-	Type = "mock-config"
-)
-
 var (
-	// Descriptor for the mock config
-	Descriptor = model.ProtoSchema{
-		Type:        Type,
-		MessageName: "mock.MockConfig",
-		Validate: func(config proto.Message) error {
-			if config.(*MockConfig).Key == "" {
-				return errors.New("empty key")
-			}
-			return nil
-		},
-		Key: func(config proto.Message) string {
-			return config.(*MockConfig).Key
-		},
-	}
-
 	// Types defines the mock config descriptor
-	Types = model.ConfigDescriptor{Descriptor}
+	Types = model.ConfigDescriptor{model.MockConfig}
 
 	// ExampleRouteRule is an example route rule
 	ExampleRouteRule = &proxyconfig.RouteRule{
@@ -84,10 +63,10 @@ var (
 )
 
 // Make creates a mock config indexed by a number
-func Make(i int) *MockConfig {
-	return &MockConfig{
+func Make(i int) *test.MockConfig {
+	return &test.MockConfig{
 		Key: fmt.Sprintf("%s%d", "mock-config", i),
-		Pairs: []*ConfigPair{
+		Pairs: []*test.ConfigPair{
 			{Key: "key", Value: strconv.Itoa(i)},
 		},
 	}
@@ -96,13 +75,13 @@ func Make(i int) *MockConfig {
 // CheckMapInvariant validates operational invariants of an empty config registry
 func CheckMapInvariant(r model.ConfigStore, t *testing.T, n int) {
 	// check that the config descriptor is the mock config descriptor
-	_, contains := r.ConfigDescriptor().GetByType(Type)
+	_, contains := r.ConfigDescriptor().GetByType(model.MockConfig.Type)
 	if !contains {
 		t.Error("expected config mock types")
 	}
 
 	// create configuration objects
-	elts := make(map[int]*MockConfig)
+	elts := make(map[int]*test.MockConfig)
 	for i := 0; i < n; i++ {
 		elts[i] = Make(i)
 	}
@@ -118,7 +97,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, n int) {
 
 	// check that elements are stored
 	for i, elt := range elts {
-		if v1, ok, rev := r.Get(Type, elts[i].Key); !ok || !reflect.DeepEqual(v1, elt) {
+		if v1, ok, rev := r.Get(model.MockConfig.Type, elts[i].Key); !ok || !reflect.DeepEqual(v1, elt) {
 			t.Errorf("wanted %v, got %v", elt, v1)
 		} else {
 			revs[i] = rev
@@ -133,7 +112,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, n int) {
 		t.Error("expected error posting invalid object")
 	}
 
-	if _, err := r.Post(&MockConfig{}); err == nil {
+	if _, err := r.Post(&test.MockConfig{}); err == nil {
 		t.Error("expected error posting invalid object")
 	}
 
@@ -141,11 +120,11 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, n int) {
 		t.Error("expected error putting invalid object")
 	}
 
-	if _, err := r.Put(&MockConfig{}, revs[0]); err == nil {
+	if _, err := r.Put(&test.MockConfig{}, revs[0]); err == nil {
 		t.Error("expected error putting invalid object")
 	}
 
-	if _, err := r.Put(&MockConfig{Key: "missing"}, revs[0]); err == nil {
+	if _, err := r.Put(&test.MockConfig{Key: "missing"}, revs[0]); err == nil {
 		t.Error("expected error putting missing object with a missing key")
 	}
 
@@ -163,7 +142,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, n int) {
 	}
 
 	// check for missing element
-	if _, ok, _ := r.Get(Type, "missing"); ok {
+	if _, ok, _ := r.Get(model.MockConfig.Type, "missing"); ok {
 		t.Error("unexpected configuration object found")
 	}
 
@@ -178,12 +157,12 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, n int) {
 	}
 
 	// delete missing elements
-	if err := r.Delete(Type, "missing"); err == nil {
+	if err := r.Delete(model.MockConfig.Type, "missing"); err == nil {
 		t.Error("expected error on deletion of missing element")
 	}
 
 	// list elements
-	l, err := r.List(Type)
+	l, err := r.List(model.MockConfig.Type)
 	if err != nil {
 		t.Errorf("List error %#v, %v", l, err)
 	}
@@ -202,19 +181,19 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, n int) {
 
 	// check that elements are stored
 	for i, elt := range elts {
-		if v1, ok, _ := r.Get(Type, elts[i].Key); !ok || !reflect.DeepEqual(v1, elt) {
+		if v1, ok, _ := r.Get(model.MockConfig.Type, elts[i].Key); !ok || !reflect.DeepEqual(v1, elt) {
 			t.Errorf("wanted %v, got %v", elt, v1)
 		}
 	}
 
 	// delete all elements
 	for i := range elts {
-		if err = r.Delete(Type, elts[i].Key); err != nil {
+		if err = r.Delete(model.MockConfig.Type, elts[i].Key); err != nil {
 			t.Error(err)
 		}
 	}
 
-	l, err = r.List(Type)
+	l, err = r.List(model.MockConfig.Type)
 	if err != nil {
 		t.Error(err)
 	}
@@ -248,7 +227,7 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, n i
 	defer close(stop)
 
 	added, deleted := 0, 0
-	cache.RegisterEventHandler(Type, func(c model.Config, ev model.Event) {
+	cache.RegisterEventHandler(model.MockConfig.Type, func(c model.Config, ev model.Event) {
 		switch ev {
 		case model.EventAdd:
 			if deleted != 0 {
@@ -279,15 +258,15 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, t *testing.T) {
 	done := false
 
 	// validate cache consistency
-	cache.RegisterEventHandler(Type, func(config model.Config, ev model.Event) {
-		elts, _ := cache.List(Type)
+	cache.RegisterEventHandler(model.MockConfig.Type, func(config model.Config, ev model.Event) {
+		elts, _ := cache.List(model.MockConfig.Type)
 		switch ev {
 		case model.EventAdd:
 			if len(elts) != 1 {
 				t.Errorf("Got %#v, expected %d element(s) on ADD event", elts, 1)
 			}
 			glog.Infof("Calling Delete(%#v)", config.Key)
-			if err := cache.Delete(Type, config.Key); err != nil {
+			if err := cache.Delete(model.MockConfig.Type, config.Key); err != nil {
 				t.Error(err)
 			}
 		case model.EventDelete:
@@ -320,7 +299,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, t *testing.T) {
 
 // CheckCacheSync validates operational invariants of a cache
 func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, n int, t *testing.T) {
-	keys := make(map[int]*MockConfig)
+	keys := make(map[int]*test.MockConfig)
 	// add elements directly through client
 	for i := 0; i < n; i++ {
 		keys[i] = Make(i)
@@ -334,21 +313,21 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, n int
 	defer close(stop)
 	go cache.Run(stop)
 	util.Eventually(func() bool { return cache.HasSynced() }, t)
-	os, _ := cache.List(Type)
+	os, _ := cache.List(model.MockConfig.Type)
 	if len(os) != n {
 		t.Errorf("cache.List => Got %d, expected %d", len(os), n)
 	}
 
 	// remove elements directly through client
 	for i := 0; i < n; i++ {
-		if err := store.Delete(Type, keys[i].Key); err != nil {
+		if err := store.Delete(model.MockConfig.Type, keys[i].Key); err != nil {
 			t.Error(err)
 		}
 	}
 
 	// check again in the controller cache
 	util.Eventually(func() bool {
-		os, _ = cache.List(Type)
+		os, _ = cache.List(model.MockConfig.Type)
 		glog.Infof("cache.List => Got %d, expected %d", len(os), 0)
 		return len(os) == 0
 	}, t)
@@ -362,8 +341,8 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, n int
 
 	// check directly through the client
 	util.Eventually(func() bool {
-		cs, _ := cache.List(Type)
-		os, _ := store.List(Type)
+		cs, _ := cache.List(model.MockConfig.Type)
+		os, _ := store.List(model.MockConfig.Type)
 		glog.Infof("cache.List => Got %d, expected %d", len(cs), n)
 		glog.Infof("store.List => Got %d, expected %d", len(os), n)
 		return len(os) == n && len(cs) == n
@@ -371,7 +350,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, n int
 
 	// remove elements directly through the client
 	for i := 0; i < n; i++ {
-		if err := store.Delete(Type, keys[i].Key); err != nil {
+		if err := store.Delete(model.MockConfig.Type, keys[i].Key); err != nil {
 			t.Error(err)
 		}
 	}

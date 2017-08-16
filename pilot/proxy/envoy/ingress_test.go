@@ -16,7 +16,7 @@ const (
 
 func addIngressRoutes(r model.ConfigStore, t *testing.T) {
 	for _, file := range []string{ingressRouteRule1, ingressRouteRule2} {
-		msg, err := configObjectFromYAML(model.IngressRule, file)
+		msg, err := configObjectFromYAML(model.IngressRule.Type, file)
 		if err != nil {
 			t.Fatal(err)
 		}

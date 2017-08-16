@@ -120,7 +120,7 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 		rules := convertIngress(*ingress, c.domainSuffix)
 		for key, rule := range rules {
 			config := model.Config{
-				Type:    model.IngressRule,
+				Type:    model.IngressRule.Type,
 				Key:     key,
 				Content: rule,
 			}
@@ -142,11 +142,11 @@ func (c *controller) Run(stop <-chan struct{}) {
 }
 
 func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
-	return model.ConfigDescriptor{model.IngressRuleDescriptor}
+	return model.ConfigDescriptor{model.IngressRule}
 }
 
 func (c *controller) Get(typ, key string) (proto.Message, bool, string) {
-	if typ != model.IngressRule {
+	if typ != model.IngressRule.Type {
 		return nil, false, ""
 	}
 
@@ -177,7 +177,7 @@ func (c *controller) Get(typ, key string) (proto.Message, bool, string) {
 }
 
 func (c *controller) List(typ string) ([]model.Config, error) {
-	if typ != model.IngressRule {
+	if typ != model.IngressRule.Type {
 		return nil, errUnsupportedOp
 	}
 
@@ -188,7 +188,7 @@ func (c *controller) List(typ string) ([]model.Config, error) {
 			ingressRules := convertIngress(*ingress, c.domainSuffix)
 			for key, rule := range ingressRules {
 				out = append(out, model.Config{
-					Type:     model.IngressRule,
+					Type:     model.IngressRule.Type,
 					Key:      key,
 					Revision: ingress.GetResourceVersion(),
 					Content:  rule,

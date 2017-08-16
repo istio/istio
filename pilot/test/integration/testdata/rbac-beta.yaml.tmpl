@@ -9,7 +9,7 @@ metadata:
   name: istio-pilot
 rules:
 - apiGroups: ["config.istio.io"]
-  resources: ["istiokinds"]
+  resources: ["*"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]

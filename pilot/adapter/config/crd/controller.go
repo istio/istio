@@ -56,27 +56,33 @@ func NewController(client *Client, resyncPeriod time.Duration) model.ConfigStore
 	}
 
 	// add stores for CRD kinds
-	out.kinds[IstioKindName] = out.createInformer(&IstioKind{}, resyncPeriod,
+	for _, schema := range client.ConfigDescriptor() {
+		out.addInformer(schema, resyncPeriod)
+	}
+
+	return out
+}
+
+func (c *controller) addInformer(schema model.ProtoSchema, resyncPeriod time.Duration) {
+	c.kinds[schema.Type] = c.createInformer(knownTypes[schema.Type].object.DeepCopyObject(), resyncPeriod,
 		func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
-			result = &IstioKindList{}
-			err = client.dynamic.Get().
-				Namespace(client.namespace).
-				Resource(IstioKindName+"s").
+			result = knownTypes[schema.Type].collection.DeepCopyObject()
+			err = c.client.dynamic.Get().
+				Namespace(c.client.namespace).
+				Resource(schema.Plural).
 				VersionedParams(&opts, meta_v1.ParameterCodec).
 				Do().
 				Into(result)
 			return
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
-			return client.dynamic.Get().
+			return c.client.dynamic.Get().
 				Prefix("watch").
-				Namespace(client.namespace).
-				Resource(IstioKindName+"s").
+				Namespace(c.client.namespace).
+				Resource(schema.Plural).
 				VersionedParams(&opts, meta_v1.ParameterCodec).
 				Watch()
 		})
-
-	return out
 }
 
 // notify is the first handler in the handler chain.
@@ -127,17 +133,23 @@ func (c *controller) createInformer(
 }
 
 func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
-	c.kinds[IstioKindName].handler.Append(func(obj interface{}, ev model.Event) error {
-		config, ok := obj.(*IstioKind)
+	schema, exists := c.ConfigDescriptor().GetByType(typ)
+	if !exists {
+		return
+	}
+	c.kinds[typ].handler.Append(func(object interface{}, ev model.Event) error {
+		item, ok := object.(IstioObject)
 		if ok {
-			config, err := c.client.convertConfig(config)
-			if config.Type == typ {
-				if err == nil {
-					f(config, ev)
-				} else {
-					// Do not trigger re-application of handlers
-					glog.Warningf("cannot convert kind %s to a config object", typ)
-				}
+			data, err := schema.FromJSONMap(item.GetSpec())
+			if err != nil {
+				glog.Warningf("error translating object %#v", object)
+			} else {
+				f(model.Config{
+					Type:     schema.Type,
+					Key:      schema.Key(data),
+					Revision: item.GetObjectMeta().ResourceVersion,
+					Content:  data,
+				}, ev)
 			}
 		}
 		return nil
@@ -175,7 +187,7 @@ func (c *controller) Get(typ, key string) (proto.Message, bool, string) {
 		return nil, false, ""
 	}
 
-	store := c.kinds[IstioKindName].informer.GetStore()
+	store := c.kinds[typ].informer.GetStore()
 	data, exists, err := store.GetByKey(kube.KeyFunc(configKey(typ, key), c.client.namespace))
 	if !exists {
 		return nil, false, ""
@@ -185,18 +197,18 @@ func (c *controller) Get(typ, key string) (proto.Message, bool, string) {
 		return nil, false, ""
 	}
 
-	config, ok := data.(*IstioKind)
+	config, ok := data.(IstioObject)
 	if !ok {
 		glog.Warning("Cannot convert to config from store")
 		return nil, false, ""
 	}
 
-	out, err := schema.FromJSONMap(config.Spec)
+	out, err := schema.FromJSONMap(config.GetSpec())
 	if err != nil {
 		glog.Warning(err)
 		return nil, false, ""
 	}
-	return out, true, config.ObjectMeta.ResourceVersion
+	return out, true, config.GetObjectMeta().ResourceVersion
 }
 
 func (c *controller) Post(val proto.Message) (string, error) {
@@ -212,22 +224,26 @@ func (c *controller) Delete(typ, key string) error {
 }
 
 func (c *controller) List(typ string) ([]model.Config, error) {
-	if _, ok := c.client.ConfigDescriptor().GetByType(typ); !ok {
+	schema, ok := c.client.ConfigDescriptor().GetByType(typ)
+	if !ok {
 		return nil, fmt.Errorf("missing type %q", typ)
 	}
 
 	var errs error
 	out := make([]model.Config, 0)
-	for _, data := range c.kinds[IstioKindName].informer.GetStore().List() {
-		item, ok := data.(*IstioKind)
+	for _, data := range c.kinds[typ].informer.GetStore().List() {
+		item, ok := data.(IstioObject)
 		if ok {
-			config, err := c.client.convertConfig(item)
-			if config.Type == typ {
-				if err != nil {
-					errs = multierror.Append(errs, err)
-				} else {
-					out = append(out, config)
-				}
+			data, err := schema.FromJSONMap(item.GetSpec())
+			if err != nil {
+				errs = multierror.Append(errs, err)
+			} else {
+				out = append(out, model.Config{
+					Type:     schema.Type,
+					Key:      schema.Key(data),
+					Revision: item.GetObjectMeta().ResourceVersion,
+					Content:  data,
+				})
 			}
 		}
 	}

@@ -354,12 +354,12 @@ func TestSidecarListenerDiscovery(t *testing.T) {
 		*/
 		{
 			name: "weighted",
-			typ:  model.RouteRule,
+			typ:  model.RouteRule.Type,
 			file: weightedRouteRule,
 		},
 		{
 			name: "fault",
-			typ:  model.RouteRule,
+			typ:  model.RouteRule.Type,
 			file: faultRouteRule,
 		},
 	}

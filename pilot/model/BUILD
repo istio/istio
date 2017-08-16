@@ -13,6 +13,7 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//model/test:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//jsonpb:go_default_library",

@@ -70,8 +70,8 @@ istioctl mixer command documentation.
 `, model.IstioConfigTypes.Types()),
 		PersistentPreRunE: func(*cobra.Command, []string) (err error) {
 			configClient, err = crd.NewClient(kubeconfig, model.ConfigDescriptor{
-				model.RouteRuleDescriptor,
-				model.DestinationPolicyDescriptor,
+				model.RouteRule,
+				model.DestinationPolicy,
 			}, istioSystem)
 
 			return

@@ -79,8 +79,8 @@ var (
 			glog.V(2).Infof("mesh configuration %s", spew.Sdump(mesh))
 
 			configClient, err := crd.NewClient(flags.kubeconfig, model.ConfigDescriptor{
-				model.RouteRuleDescriptor,
-				model.DestinationPolicyDescriptor,
+				model.RouteRule,
+				model.DestinationPolicy,
 			}, flags.controllerOptions.Namespace)
 			if err != nil {
 				return multierror.Prefix(err, "failed to open a config client.")

@@ -82,6 +82,9 @@ func (descriptor ConfigDescriptor) Validate() error {
 		if !IsDNS1123Label(v.Type) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid type: %q", v.Type))
 		}
+		if !IsDNS1123Label(v.Plural) {
+			errs = multierror.Append(errs, fmt.Errorf("invalid plural: %q", v.Type))
+		}
 		if proto.MessageType(v.MessageName) == nil {
 			errs = multierror.Append(errs, fmt.Errorf("cannot discover proto message type: %q", v.MessageName))
 		}
