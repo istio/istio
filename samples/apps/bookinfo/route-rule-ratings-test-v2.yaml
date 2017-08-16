@@ -1,0 +1,17 @@
+type: route-rule
+spec:
+  name: ratings-test-v2
+  destination: ratings.default.svc.cluster.local
+  precedence: 2
+  route:
+  - tags:
+      version: v2
+---
+type: route-rule
+spec:
+  name: reviews-test-v2
+  destination: reviews.default.svc.cluster.local
+  precedence: 2
+  route:
+  - tags:
+      version: v2

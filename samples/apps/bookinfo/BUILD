@@ -11,6 +11,7 @@ filegroup(
         "route-rule-reviews-50-v3.yaml",
         "route-rule-reviews-test-v2.yaml",
         "route-rule-reviews-v2-v3.yaml",
+	"route-rule-ratings-test-v2.yaml"
     ],
     visibility = ["//visibility:public"],
 )
