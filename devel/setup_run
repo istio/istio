@@ -9,7 +9,7 @@ cd mixer; set +x; source bin/use_bazel_go.sh ; set -x; cd ..
 ./mixer/bazel-bin/cmd/server/mixs server --configStoreURL=fs://$(pwd)/mixer/testdata/configroot --logtostderr 2> /tmp/mixs.2.log &
 echo "starting everything..."
 sleep 3
-curl -v http://localhost:9090/echo
+curl -v http://localhost:9090/debug
 sleep 1
 curl -v http://localhost:42422/metrics
 set +x
