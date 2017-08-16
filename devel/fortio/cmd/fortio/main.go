@@ -43,7 +43,7 @@ func usage(msgs ...interface{}) {
 	fmt.Fprintf(os.Stderr, "Φορτίο %s usage:\n\t%s command [flags] target\n%s\n%s\n%s\n",
 		fortio.Version,
 		os.Args[0],
-		"where command is one of: load (load testing), server (starts grpc ping and http echo servers), grcping (grpc client)",
+		"where command is one of: load (load testing), server (starts grpc ping and http echo servers), grpcping (grpc client)",
 		"where target is a url (http load tests) or host:port (grpc health test)",
 		"and flags are:") // nolint(gas)
 	flag.PrintDefaults()
