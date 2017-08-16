@@ -123,6 +123,13 @@ message RouteRule {
 
   //(-- L4 fault injection policy applies to Tcp/Udp (not HTTP) traffic --)
   L4FaultInjection l4_fault = 10;
+
+  // Indicates that a HTTP/1.1 client connection to this particular route
+  // should be allowed (and expected) to upgrade to a WebSocket connection.
+  // The default is false. Envoy expects the first request to this route
+  // to contain the WebSocket upgrade headers. Otherwise, the request
+  // will be rejected.
+  bool websocket_upgrade = 11;
 }
 
 // Match condition specifies a set of criterion to be met in order for the
