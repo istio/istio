@@ -186,3 +186,4 @@
 # context attributes
 - context.protocol
 - context.timestamp
+- context.time
