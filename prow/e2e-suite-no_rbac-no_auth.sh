@@ -16,7 +16,9 @@
 
 
 #######################################
-# Presubmit script triggered by Prow. #
+#                                     #
+#             e2e-suite               #
+#                                     #
 #######################################
 
 # Exit immediately for non zero status
@@ -26,17 +28,5 @@ set -u
 # Print commands
 set -x
 
-# Running out of external ips
-E2E_ARGS=(--use_local_cluster)
-
-if [ "${CI:-}" == 'bootstrap' ]; then
-  # bootsrap upload all artifacts in _artifacts to the log bucket.
-  ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
-  LOG_HOST="stackdriver"
-  PROJ_ID="istio-testing"
-  E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}" --log_provider=${LOG_HOST} --project_id=${PROJ_ID})
-  # Use the provided pull head sha, from prow.
-fi
-
-echo 'Running Integration Tests'
-./tests/e2e.sh ${E2E_ARGS[@]:-} ${@}
+echo 'Running e2e no rbac, no auth Tests'
+./prow/e2e.sh
