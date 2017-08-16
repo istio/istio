@@ -7,10 +7,14 @@ go_library(
     srcs = [
         "fsstore.go",
         "store.go",
+        "store2.go",
         "testutil.go",
     ],
     visibility = ["//visibility:public"],
-    deps = ["@com_github_golang_glog//:go_default_library"],
+    deps = [
+        "@com_github_gogo_protobuf//proto:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
+    ],
 )
 
 go_test(
