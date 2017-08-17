@@ -1,3 +1,24 @@
+# Copyright 2017 Istio Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+################################################################################
+#
+
+ISTIO_API_SHA = "a0ba5903ae2771eac13f80c3a936ed70fd3494d5"   # Aug 16, 2017 (no release)
+
+def go_istio_api_repositories(use_local=False):
+    ISTIO_API_BUILD_FILE = """
 # build protos from istio.io/api repo
 
 package(default_visibility = ["//visibility:public"])
@@ -124,3 +145,17 @@ filegroup(
     srcs = ["mixer/v1/global_dictionary.yaml"],
     visibility = ["//visibility:public"],
 )
+"""
+    if use_local:
+        native.new_local_repository(
+            name = "com_github_istio_api",
+            build_file_content = ISTIO_API_BUILD_FILE,
+            path = "../api",
+        )
+    else:
+      native.new_git_repository(
+          name = "com_github_istio_api",
+          build_file_content = ISTIO_API_BUILD_FILE,
+          commit = ISTIO_API_SHA,
+          remote = "https://github.com/istio/api.git",
+      )
