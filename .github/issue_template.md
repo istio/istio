@@ -1,6 +1,4 @@
-<!-- This form is for bug reports and feature requests ONLY! 
-
-If you're looking for help check [Stack Overflow](https://stackoverflow.com/questions/tagged/istio) or Slack.
+<!-- This form is for bug reports and feature requests ONLY! If you're looking for help check [Stack Overflow](https://stackoverflow.com/questions/tagged/istio) or Slack.
 -->
 
 **Is this a BUG or FEATURE REQUEST?:**
@@ -13,6 +11,7 @@ If you're looking for help check [Stack Overflow](https://stackoverflow.com/ques
 **What you expected to happen:**
 
 **How to reproduce it:**
+
 
 **Feature Request:**
 **Describe the feature:**
