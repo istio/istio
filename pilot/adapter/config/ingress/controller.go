@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 
 	"k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -114,17 +113,11 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 			return nil
 		}
 
-		// Convert the ingress into a map[Key]rule, and invoke handler for each
-		// TODO: This works well for Add and Delete events, but no so for Update:
-		// A updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
+		// TODO: This works well for Add and Delete events, but not so for Update:
+		// An updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
 		rules := convertIngress(*ingress, c.domainSuffix)
-		for key, rule := range rules {
-			config := model.Config{
-				Type:    model.IngressRule.Type,
-				Key:     key,
-				Content: rule,
-			}
-			f(config, event)
+		for _, rule := range rules {
+			f(rule, event)
 		}
 
 		return nil
@@ -145,38 +138,44 @@ func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
 	return model.ConfigDescriptor{model.IngressRule}
 }
 
-func (c *controller) Get(typ, key string) (proto.Message, bool, string) {
+func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 	if typ != model.IngressRule.Type {
-		return nil, false, ""
+		return nil, false
 	}
 
-	ingressName, ingressNamespace, _, _, err := decodeIngressRuleName(key)
+	ingressName, _, _, err := decodeIngressRuleName(name)
 	if err != nil {
-		glog.V(2).Infof("getIngress(%s) => error %v", key, err)
-		return nil, false, ""
+		glog.V(2).Infof("decodeIngressRuleName(%s) => error %v", name, err)
+		return nil, false
 	}
-	storeKey := kube.KeyFunc(ingressName, ingressNamespace)
+
+	storeKey := kube.KeyFunc(ingressName, namespace)
 
 	obj, exists, err := c.informer.GetStore().GetByKey(storeKey)
 	if err != nil {
-		glog.V(2).Infof("getIngress(%s) => error %v", key, err)
-		return nil, false, ""
+		glog.V(2).Infof("GetByKey(%s) => error %v", storeKey, err)
+		return nil, false
 	}
+
 	if !exists {
-		return nil, false, ""
+		return nil, false
 	}
 
 	ingress := obj.(*v1beta1.Ingress)
 	if !shouldProcessIngress(c.mesh, ingress) {
-		return nil, false, ""
+		return nil, false
 	}
 
 	rules := convertIngress(*ingress, c.domainSuffix)
-	rule, exists := rules[key]
-	return rule, exists, ingress.GetResourceVersion()
+	for _, rule := range rules {
+		if rule.Name == name {
+			return &rule, true
+		}
+	}
+	return nil, false
 }
 
-func (c *controller) List(typ string) ([]model.Config, error) {
+func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 	if typ != model.IngressRule.Type {
 		return nil, errUnsupportedOp
 	}
@@ -184,30 +183,29 @@ func (c *controller) List(typ string) ([]model.Config, error) {
 	out := make([]model.Config, 0)
 	for _, obj := range c.informer.GetStore().List() {
 		ingress := obj.(*v1beta1.Ingress)
-		if shouldProcessIngress(c.mesh, ingress) {
-			ingressRules := convertIngress(*ingress, c.domainSuffix)
-			for key, rule := range ingressRules {
-				out = append(out, model.Config{
-					Type:     model.IngressRule.Type,
-					Key:      key,
-					Revision: ingress.GetResourceVersion(),
-					Content:  rule,
-				})
-			}
+		if namespace != "" && namespace != ingress.Namespace {
+			continue
 		}
+
+		if !shouldProcessIngress(c.mesh, ingress) {
+			continue
+		}
+
+		rules := convertIngress(*ingress, c.domainSuffix)
+		out = append(out, rules...)
 	}
 
 	return out, nil
 }
 
-func (c *controller) Post(_ proto.Message) (string, error) {
+func (c *controller) Create(_ model.Config) (string, error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) Put(_ proto.Message, _ string) (string, error) {
+func (c *controller) Update(_ model.Config) (string, error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) Delete(_, _ string) error {
+func (c *controller) Delete(_, _, _ string) error {
 	return errUnsupportedOp
 }

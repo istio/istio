@@ -44,7 +44,6 @@ func TestConfigDescriptorValidate(t *testing.T) {
 		descriptor: ConfigDescriptor{ProtoSchema{
 			Type:        badLabel,
 			MessageName: RouteRule.MessageName,
-			Key:         func(config proto.Message) string { return "key" },
 		}},
 		wantErr: true,
 	}, {
@@ -52,7 +51,6 @@ func TestConfigDescriptorValidate(t *testing.T) {
 		descriptor: ConfigDescriptor{ProtoSchema{
 			Type:        goodLabel,
 			MessageName: "nonexistent",
-			Key:         func(config proto.Message) string { return "key" },
 		}},
 		wantErr: true,
 	}, {

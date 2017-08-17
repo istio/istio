@@ -112,11 +112,11 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				return err
 			}
 
-			mesh, err := inject.GetMeshConfig(client, istioSystem, meshConfig)
+			mesh, err := inject.GetMeshConfig(client, namespace, meshConfig)
 			if err != nil {
 				return fmt.Errorf("Istio configuration not found. Verify istio configmap is "+
 					"installed in namespace %q with `kubectl get -n %s configmap istio`",
-					istioSystem, istioSystem)
+					namespace, namespace)
 			}
 			params := &inject.Params{
 				InitImage:         inject.InitImageName(hub, tag),

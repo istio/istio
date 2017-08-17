@@ -19,8 +19,6 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"istio.io/pilot/model"
-
 	"github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,7 +77,7 @@ func (t *ingress) setup() error {
 	if err = t.applyConfig("rule-default-route.yaml.tmpl", map[string]string{
 		"Destination": "c",
 		"Namespace":   t.Namespace,
-	}, model.RouteRule.Type); err != nil {
+	}); err != nil {
 		return err
 	}
 

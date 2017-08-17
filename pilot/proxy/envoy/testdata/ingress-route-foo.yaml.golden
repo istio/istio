@@ -1,8 +1,11 @@
-destination: hello.default.svc.cluster.local
-destinationPort: 81
+type: ingress-rule
 name: foo
-tlsSecret: my-secret.default
-match:
-  http_headers:
-    uri:
-      prefix: "/bar"
+spec:
+  destination: hello.default.svc.cluster.local
+  destinationPort: 81
+  name: foo
+  tlsSecret: my-secret.default
+  match:
+    http_headers:
+      uri:
+        prefix: "/bar"

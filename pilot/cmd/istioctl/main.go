@@ -15,14 +15,12 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
@@ -36,8 +34,8 @@ import (
 )
 
 var (
-	kubeconfig  string
-	istioSystem string
+	kubeconfig string
+	namespace  string
 
 	configClient model.ConfigStore
 
@@ -72,7 +70,7 @@ istioctl mixer command documentation.
 			configClient, err = crd.NewClient(kubeconfig, model.ConfigDescriptor{
 				model.RouteRule,
 				model.DestinationPolicy,
-			}, istioSystem)
+			})
 
 			return
 		},
@@ -82,8 +80,8 @@ istioctl mixer command documentation.
 		Use:   "create",
 		Short: "Create policies and rules",
 		Example: `
-		istioctl create -f example-routing.yaml
-		`,
+			istioctl create -f example-routing.yaml
+			`,
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				c.Println(c.UsageString())
@@ -97,16 +95,14 @@ istioctl mixer command documentation.
 				return errors.New("nothing to create")
 			}
 			for _, config := range varr {
-				spec, err := config.ParseSpec()
+				if config.Namespace == "" {
+					config.Namespace = namespace
+				}
+				rev, err := configClient.Create(config)
 				if err != nil {
 					return err
 				}
-				schema, _ := configClient.ConfigDescriptor().GetByType(config.Type)
-				rev, err := configClient.Post(spec)
-				if err != nil {
-					return err
-				}
-				fmt.Printf("Created config %v %v at revision %v\n", config.Type, schema.Key(spec), rev)
+				fmt.Printf("Created config %v at revision %v\n", config.Key(), rev)
 			}
 
 			return nil
@@ -117,8 +113,8 @@ istioctl mixer command documentation.
 		Use:   "replace",
 		Short: "Replace existing policies and rules",
 		Example: `
-		istioctl replace -f example-routing.yaml
-		`,
+			istioctl replace -f example-routing.yaml
+			`,
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				c.Println(c.UsageString())
@@ -132,23 +128,23 @@ istioctl mixer command documentation.
 				return errors.New("nothing to replace")
 			}
 			for _, config := range varr {
-				spec, err := config.ParseSpec()
-				if err != nil {
-					return err
+				if config.Namespace == "" {
+					config.Namespace = namespace
 				}
-				schema, _ := configClient.ConfigDescriptor().GetByType(config.Type)
 				// fill up revision
-				if config.Revision == "" {
-					_, _, rev := configClient.Get(config.Type, schema.Key(spec))
-					config.Revision = rev
+				if config.ResourceVersion == "" {
+					current, exists := configClient.Get(config.Type, config.Name, config.Namespace)
+					if exists {
+						config.ResourceVersion = current.ResourceVersion
+					}
 				}
 
-				newRev, err := configClient.Put(spec, config.Revision)
+				newRev, err := configClient.Update(config)
 				if err != nil {
 					return err
 				}
 
-				fmt.Printf("Updated config %v %v to revision %v\n", config.Type, schema.Key(spec), newRev)
+				fmt.Printf("Updated config %v to revision %v\n", config.Key(), newRev)
 			}
 
 			return nil
@@ -183,17 +179,12 @@ istioctl mixer command documentation.
 
 			var configs []model.Config
 			if len(args) > 1 {
-				config, exists, rev := configClient.Get(typ.Type, args[1])
+				config, exists := configClient.Get(typ.Type, args[1], namespace)
 				if exists {
-					configs = append(configs, model.Config{
-						Type:     typ.Type,
-						Key:      typ.Key(config),
-						Revision: rev,
-						Content:  config,
-					})
+					configs = append(configs, *config)
 				}
 			} else {
-				configs, err = configClient.List(typ.Type)
+				configs, err = configClient.List(typ.Type, namespace)
 				if err != nil {
 					return err
 				}
@@ -242,8 +233,7 @@ istioctl mixer command documentation.
 					return err
 				}
 				for i := 1; i < len(args); i++ {
-					key := args[i]
-					if err := configClient.Delete(typ.Type, key); err != nil {
+					if err := configClient.Delete(typ.Type, args[i], namespace); err != nil {
 						errs = multierror.Append(errs,
 							fmt.Errorf("cannot delete %s: %v", args[i], err))
 					} else {
@@ -267,17 +257,14 @@ istioctl mixer command documentation.
 			}
 			var errs error
 			for _, config := range varr {
-				// compute key if necessary
-				if config.Key == "" {
-					if spec, specErr := config.ParseSpec(); specErr == nil {
-						schema, _ := configClient.ConfigDescriptor().GetByType(config.Type)
-						config.Key = schema.Key(spec)
-					}
+				if config.Namespace == "" {
+					config.Namespace = namespace
 				}
-				if err = configClient.Delete(config.Type, config.Key); err != nil {
-					errs = multierror.Append(errs, fmt.Errorf("cannot delete %s: %v", config.Key, err))
+				// compute key if necessary
+				if err = configClient.Delete(config.Type, config.Name, config.Namespace); err != nil {
+					errs = multierror.Append(errs, fmt.Errorf("cannot delete %s: %v", config.Key(), err))
 				} else {
-					fmt.Printf("Deleted config: %v %v\n", config.Type, config.Key)
+					fmt.Printf("Deleted config: %v\n", config.Key())
 				}
 			}
 			return errs
@@ -301,8 +288,8 @@ func init() {
 	}
 	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", defaultKubeconfig,
 		"Kubernetes configuration file")
-	rootCmd.PersistentFlags().StringVarP(&istioSystem, "namespace", "n", v1.NamespaceDefault,
-		"Kubernetes Istio system namespace")
+	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", v1.NamespaceDefault,
+		"Config namespace")
 
 	postCmd.PersistentFlags().StringVarP(&file, "file", "f", "",
 		"Input file with the content of the configuration objects (if not set, command reads from the standard input)")
@@ -329,58 +316,17 @@ func main() {
 
 // The schema is based on the kind (for example "route-rule" or "destination-policy")
 func schema(typ string) (model.ProtoSchema, error) {
-	var singularForm = map[string]string{
-		"route-rules":          "route-rule",
-		"destination-policies": "destination-policy",
+	for _, desc := range configClient.ConfigDescriptor() {
+		if desc.Type == typ || desc.Plural == typ {
+			return desc, nil
+		}
 	}
-	if singular, ok := singularForm[typ]; ok {
-		typ = singular
-	}
-
-	out, ok := configClient.ConfigDescriptor().GetByType(typ)
-	if !ok {
-		return model.ProtoSchema{}, fmt.Errorf("Istio doesn't have configuration type %s, the types are %v",
-			typ, strings.Join(configClient.ConfigDescriptor().Types(), ", "))
-	}
-
-	return out, nil
-}
-
-// Config is the complete configuration including a parsed spec
-type Config struct {
-	// Type SHOULD be one of the kinds in model.IstioConfig; a route-rule, ingress-rule, or destination-policy
-	Type string `json:"type,omitempty"`
-	// Key is the unique key per type
-	Key string `json:"key,omitempty"`
-	// Revision is optional for updating configs
-	Revision string `json:"revision,omitempty"`
-	// Spec is the content of the config
-	Spec interface{} `json:"spec,omitempty"`
-}
-
-// ParseSpec takes the field in the config object and parses into a protobuf message
-// Then assigns it to the ParseSpec field
-func (c *Config) ParseSpec() (proto.Message, error) {
-	byteSpec, err := json.Marshal(c.Spec)
-	if err != nil {
-		return nil, fmt.Errorf("could not encode Spec: %v", err)
-	}
-	schema, ok := model.IstioConfigTypes.GetByType(c.Type)
-	if !ok {
-		return nil, fmt.Errorf("unknown spec type %s", c.Type)
-	}
-	message, err := schema.FromJSON(string(byteSpec))
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse proto message: %v", err)
-	}
-	if err = schema.Validate(message); err != nil {
-		return nil, err
-	}
-	return message, nil
+	return model.ProtoSchema{}, fmt.Errorf("Istio doesn't have configuration type %s, the types are %v",
+		typ, strings.Join(configClient.ConfigDescriptor().Types(), ", "))
 }
 
 // readInputs reads multiple documents from the input and checks with the schema
-func readInputs() ([]Config, error) {
+func readInputs() ([]model.Config, error) {
 	var reader io.Reader
 	var err error
 
@@ -393,12 +339,12 @@ func readInputs() ([]Config, error) {
 		}
 	}
 
-	var varr []Config
+	var varr []model.Config
 
 	// We store route-rules as a YaML stream; there may be more than one decoder.
 	yamlDecoder := kubeyaml.NewYAMLOrJSONDecoder(reader, 512*1024)
 	for {
-		v := Config{}
+		v := model.JSONConfig{}
 		err = yamlDecoder.Decode(&v)
 
 		if err == io.EOF {
@@ -408,7 +354,12 @@ func readInputs() ([]Config, error) {
 			return nil, fmt.Errorf("cannot parse proto message: %v", err)
 		}
 
-		varr = append(varr, v)
+		config, err := model.IstioConfigTypes.FromJSON(v)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse proto message: %v", err)
+		}
+
+		varr = append(varr, *config)
 	}
 	glog.V(2).Infof("parsed %d inputs", len(varr))
 
@@ -418,28 +369,15 @@ func readInputs() ([]Config, error) {
 // Print a simple list of names
 func printShortOutput(configList []model.Config) {
 	for _, c := range configList {
-		fmt.Printf("%v\n", c.Key)
+		fmt.Printf("%v\n", c.Key())
 	}
 }
 
 // Print as YAML
 func printYamlOutput(configList []model.Config) {
 	for _, c := range configList {
-		schema, _ := configClient.ConfigDescriptor().GetByType(c.Type)
-		out, err := schema.ToYAML(c.Content)
-		if err != nil {
-			glog.Warning(err)
-		}
-		fmt.Printf("type: %s\n", c.Type)
-		fmt.Printf("key: %s\n", c.Key)
-		fmt.Printf("revision: %s\n", c.Revision)
-		fmt.Println("spec:")
-		lines := strings.Split(out, "\n")
-		for _, line := range lines {
-			if line != "" {
-				fmt.Printf("  %s\n", line)
-			}
-		}
+		yaml, _ := configClient.ConfigDescriptor().ToYAML(c)
+		fmt.Print(yaml)
 		fmt.Println("---")
 	}
 }

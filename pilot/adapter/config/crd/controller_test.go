@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/pilot/platform/kube"
 	"istio.io/pilot/test/mock"
 )
 
@@ -26,22 +27,22 @@ const (
 )
 
 func TestControllerEvents(t *testing.T) {
-	cl, cleanup := makeTempClient(t)
+	cl, ns, cleanup := makeTempClient(t)
 	defer cleanup()
-	ctl := NewController(cl, resync)
-	mock.CheckCacheEvents(cl, ctl, 5, t)
+	ctl := NewController(cl, kube.ControllerOptions{Namespace: ns, ResyncPeriod: resync})
+	mock.CheckCacheEvents(cl, ctl, ns, 5, t)
 }
 
 func TestControllerCacheFreshness(t *testing.T) {
-	cl, cleanup := makeTempClient(t)
+	cl, ns, cleanup := makeTempClient(t)
 	defer cleanup()
-	ctl := NewController(cl, resync)
-	mock.CheckCacheFreshness(ctl, t)
+	ctl := NewController(cl, kube.ControllerOptions{Namespace: ns, ResyncPeriod: resync})
+	mock.CheckCacheFreshness(ctl, ns, t)
 }
 
 func TestControllerClientSync(t *testing.T) {
-	cl, cleanup := makeTempClient(t)
+	cl, ns, cleanup := makeTempClient(t)
 	defer cleanup()
-	ctl := NewController(cl, resync)
-	mock.CheckCacheSync(cl, ctl, 5, t)
+	ctl := NewController(cl, kube.ControllerOptions{Namespace: ns, ResyncPeriod: resync})
+	mock.CheckCacheSync(cl, ctl, ns, 5, t)
 }

@@ -30,7 +30,7 @@ func TestStoreInvariant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error %v", err)
 	}
-	mock.CheckMapInvariant(store, t, 10)
+	mock.CheckMapInvariant(store, t, "", 10)
 }
 
 func TestStoreValidation(t *testing.T) {

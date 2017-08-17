@@ -17,6 +17,7 @@ package ingress_test
 import (
 	"os"
 	"os/user"
+	"reflect"
 	"testing"
 	"time"
 
@@ -85,16 +86,25 @@ func TestIngressController(t *testing.T) {
 		t.Errorf("must support ingress type")
 	}
 
+	rule := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.IngressRule.Type,
+			Name:      "test",
+			Namespace: ns,
+		},
+		Spec: mock.ExampleIngressRule,
+	}
+
 	// make sure all operations error out
-	if _, err := ctl.Post(mock.ExampleIngressRule); err == nil {
+	if _, err := ctl.Create(rule); err == nil {
 		t.Errorf("Post should not be allowed")
 	}
 
-	if _, err := ctl.Put(mock.ExampleIngressRule, ""); err == nil {
+	if _, err := ctl.Update(rule); err == nil {
 		t.Errorf("Put should not be allowed")
 	}
 
-	if err := ctl.Delete(model.IngressRule.Type, "test"); err == nil {
+	if err := ctl.Delete(model.IngressRule.Type, "test", ns); err == nil {
 		t.Errorf("Delete should not be allowed")
 	}
 
@@ -199,10 +209,10 @@ func TestIngressController(t *testing.T) {
 	}
 
 	util.Eventually(func() bool {
-		rules, _ := ctl.List(model.IngressRule.Type)
+		rules, _ := ctl.List(model.IngressRule.Type, ns)
 		return len(rules) == expectedRuleCount
 	}, t)
-	rules, err := ctl.List(model.IngressRule.Type)
+	rules, err := ctl.List(model.IngressRule.Type, ns)
 	if err != nil {
 		t.Errorf("ctl.List(model.IngressRule, %s) => error: %v", ns, err)
 	}
@@ -211,26 +221,22 @@ func TestIngressController(t *testing.T) {
 	}
 
 	for _, listMsg := range rules {
-		getMsg, exists, _ := ctl.Get(model.IngressRule.Type, listMsg.Key)
+		getMsg, exists := ctl.Get(model.IngressRule.Type, listMsg.Name, listMsg.Namespace)
 		if !exists {
-			t.Errorf("expected IngressRule with key %v to exist", listMsg.Key)
-
-			listRule, ok := listMsg.Content.(*proxyconfig.IngressRule)
+			t.Errorf("expected IngressRule with key %v to exist", listMsg.Key())
+		} else {
+			listRule, ok := listMsg.Spec.(*proxyconfig.IngressRule)
 			if !ok {
-				t.Errorf("expected IngressRule but got %v", listMsg.Content)
+				t.Errorf("expected IngressRule but got %v", listMsg.Spec)
 			}
 
-			getRule, ok := getMsg.(*proxyconfig.IngressRule)
+			getRule, ok := getMsg.Spec.(*proxyconfig.IngressRule)
 			if !ok {
 				t.Errorf("expected IngressRule but got %v", getMsg)
 			}
 
-			// TODO:  Compare listRule and getRule objects
-			if listRule == nil {
-				t.Errorf("expected listRule to be of type *proxyconfig.RouteRule")
-			}
-			if getRule == nil {
-				t.Errorf("expected getRule to be of type *proxyconfig.RouteRule")
+			if !reflect.DeepEqual(listRule, getRule) {
+				t.Errorf("expected Get (%v) and List (%v) to return same rule", getMsg, listMsg)
 			}
 		}
 	}

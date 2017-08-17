@@ -24,7 +24,6 @@ import (
 
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
-	"istio.io/pilot/model"
 )
 
 type routing struct {
@@ -46,7 +45,7 @@ func (t *routing) run() error {
 	if err := t.applyConfig("rule-default-route.yaml.tmpl", map[string]string{
 		"Destination": "c",
 		"Namespace":   t.Namespace,
-	}, model.RouteRule.Type); err != nil {
+	}); err != nil {
 		return err
 	}
 	if err := t.verifyRouting("a", "c", "", "",
@@ -62,7 +61,7 @@ func (t *routing) run() error {
 	if err := t.applyConfig("rule-weighted-route.yaml.tmpl", map[string]string{
 		"Destination": "c",
 		"Namespace":   t.Namespace,
-	}, model.RouteRule.Type); err != nil {
+	}); err != nil {
 		return err
 	}
 	if err := t.verifyRouting("a", "c", "", "",
@@ -79,7 +78,7 @@ func (t *routing) run() error {
 		"Source":      "a",
 		"Destination": "c",
 		"Namespace":   t.Namespace,
-	}, model.RouteRule.Type); err != nil {
+	}); err != nil {
 		return err
 	}
 	if err := t.verifyRouting("a", "c", "version", "v2",
@@ -96,7 +95,7 @@ func (t *routing) run() error {
 		"Source":      "a",
 		"Destination": "c",
 		"Namespace":   t.Namespace,
-	}, model.RouteRule.Type); err != nil {
+	}); err != nil {
 		return err
 	}
 	if err := t.verifyRouting("a", "c", "foo", "bar",
@@ -113,7 +112,7 @@ func (t *routing) run() error {
 		"Source":      "a",
 		"Destination": "c",
 		"Namespace":   t.Namespace,
-	}, model.RouteRule.Type); err != nil {
+	}); err != nil {
 		return err
 	}
 	if err := t.verifyFaultInjection("a", "c", "version", "v2", time.Second*5, 503); err != nil {
@@ -130,7 +129,7 @@ func (t *routing) run() error {
 		"HostRedirect": redirectHost,
 		"Path":         redirectPath,
 		"Namespace":    t.Namespace,
-	}, model.RouteRule.Type); err != nil {
+	}); err != nil {
 		return err
 	}
 	if err := t.verifyRedirect("a", "c", redirectHost, redirectPath, "testredirect", "enabled", 200); err != nil {

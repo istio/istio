@@ -16,7 +16,9 @@ package model
 
 import (
 	"errors"
+	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
@@ -25,19 +27,32 @@ import (
 	"istio.io/pilot/model/test"
 )
 
-// Config is a configuration unit consisting of the type of configuration, the
-// key identifier that is unique per type, and the content represented as a
-// protobuf message.  The revision is optional, and if provided, identifies the
+// ConfigMeta is metadata attached to each configuration unit.
+// The revision is optional, and if provided, identifies the
 // last update operation on the object.
-type Config struct {
+type ConfigMeta struct {
 	// Type is a short configuration name that matches the content message type
-	Type string
+	// (e.g. "route-rule")
+	Type string `json:"type,omitempty"`
 
-	// Key is the type-dependent unique identifier for this config object, derived
-	// from its content
-	Key string
+	// Name is a unique immutable identifier in a namespace
+	Name string `json:"name,omitempty"`
 
-	// Revision is an opaque identifier for tracking updates to the config registry.
+	// Namespace defines the space for names (optional for some types),
+	// applications may choose to use namespaces for a variety of purposes
+	// (security domains, fault domains, organizational domains)
+	Namespace string `json:"namespace,omitempty"`
+
+	// Map of string keys and values that can be used to organize and categorize
+	// (scope and select) objects.
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Annotations is an unstructured key value map stored with a resource that may be
+	// set by external tools to store and retrieve arbitrary metadata. They are not
+	// queryable and should be preserved when modifying objects.
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// ResourceVersion is an opaque identifier for tracking updates to the config registry.
 	// The implementation may use a change index or a commit log for the revision.
 	// The config client should not make any assumptions about revisions and rely only on
 	// exact equality to implement optimistic concurrency of read-write operations.
@@ -47,39 +62,43 @@ type Config struct {
 	//
 	// An empty revision carries a special meaning that the associated object has
 	// not been stored and assigned a revision.
-	Revision string
+	ResourceVersion string `json:"resourceVersion,omitempty"`
+}
 
-	// Content holds the configuration object as a protobuf message
-	Content proto.Message
+// Config is a configuration unit consisting of the type of configuration, the
+// key identifier that is unique per type, and the content represented as a
+// protobuf message.
+type Config struct {
+	ConfigMeta
+
+	// Spec holds the configuration object as a protobuf message
+	Spec proto.Message
 }
 
 // ConfigStore describes a set of platform agnostic APIs that must be supported
 // by the underlying platform to store and retrieve Istio configuration.
 //
+// Configuration key is defined to be a combination of the type, name, and
+// namespace of the configuration object. The configuration key is guaranteed
+// to be unique in the store.
+//
 // The storage interface presented here assumes that the underlying storage
-// layer supports _GET_ (list), _PUT_ (update), _POST_ (create) and _DELETE_
-// semantics but does not guarantee any transactional semantics.
+// layer supports _Get_ (list), _Update_ (update), _Create_ (create) and
+// _Delete_ semantics but does not guarantee any transactional semantics.
 //
-// Configuration objects possess a type property and a key property. The
-// configuration key is derived from the content of the config object and
-// uniquely identifies objects for a particular type. For example, if the
-// object schema contains metadata fields _name_ and _namespace_, the
-// configuration key may be defined as _namespace/name_.  Key definition is
-// provided as part of the config type definition.
-//
-// _PUT_, _POST_, and _DELETE_ are mutator operations. These operations are
-// asynchronous, and you might not see the effect immediately (e.g. _GET_ might
-// not return the object by key immediately after you mutate the store.)
+// _Update_, _Create_, and _Delete_ are mutator operations. These operations
+// are asynchronous, and you might not see the effect immediately (e.g. _Get_
+// might not return the object by key immediately after you mutate the store.)
 // Intermittent errors might occur even though the operation succeeds, so you
 // should always check if the object store has been modified even if the
-// mutating operation returns an error.  Objects should be created with _POST_
-// operation and updated with _PUT_ operation.
+// mutating operation returns an error.  Objects should be created with
+// _Create_ operation and updated with _Update_ operation.
 //
-// Revisions record the last mutation operation on each object. If a mutation
-// is applied to a different revision of an object than what the underlying
-// storage expects as defined by pure equality, the operation is blocked.  The
-// client of this interface should not make assumptions about the structure or
-// ordering of the revision identifier.
+// Resource versions record the last mutation operation on each object. If a
+// mutation is applied to a different revision of an object than what the
+// underlying storage expects as defined by pure equality, the operation is
+// blocked.  The client of this interface should not make assumptions about the
+// structure or ordering of the revision identifier.
 //
 // Object references supplied and returned from this interface should be
 // treated as read-only. Modifying them violates thread-safety.
@@ -90,23 +109,36 @@ type ConfigStore interface {
 	ConfigDescriptor() ConfigDescriptor
 
 	// Get retrieves a configuration element by a type and a key
-	Get(typ, key string) (config proto.Message, exists bool, revision string)
+	Get(typ, name, namespace string) (config *Config, exists bool)
 
-	// List returns objects by type
-	List(typ string) ([]Config, error)
+	// List returns objects by type and namespace.
+	// Use "" for the namespace to list across namespaces.
+	List(typ, namespace string) ([]Config, error)
 
-	// Post creates a configuration object. If an object with the same key for
-	// the type already exists, the operation fails with no side effects.
-	Post(config proto.Message) (revision string, err error)
+	// Create adds a new configuration object to the store. If an object with the
+	// same name and namespace for the type already exists, the operation fails
+	// with no side effects.
+	Create(config Config) (revision string, err error)
 
-	// Put updates a configuration object in the store.  Put requires that the
-	// object has been created.  Revision prevents overriding a value that has
-	// been changed between prior _Get_ and _Put_ operation to achieve optimistic
-	// concurrency. This method returns a new revision if the operation succeeds.
-	Put(config proto.Message, oldRevision string) (newRevision string, err error)
+	// Update modifies an existing configuration object in the store.  Update
+	// requires that the object has been created.  Resource version prevents
+	// overriding a value that has been changed between prior _Get_ and _Put_
+	// operation to achieve optimistic concurrency. This method returns a new
+	// revision if the operation succeeds.
+	Update(config Config) (newRevision string, err error)
 
 	// Delete removes an object from the store by key
-	Delete(typ, key string) error
+	Delete(typ, name, namespace string) error
+}
+
+// Key function for the configuration objects
+func Key(typ, name, namespace string) string {
+	return fmt.Sprintf("%s/%s/%s", typ, namespace, name)
+}
+
+// Key is the unique identifier for a configuration object
+func (config *Config) Key() string {
+	return Key(config.Type, config.Name, config.Namespace)
 }
 
 // ConfigStoreCache is a local fully-replicated cache of the config store.  The
@@ -154,13 +186,6 @@ type ProtoSchema struct {
 	// Validate configuration as a protobuf message assuming the object is an
 	// instance of the expected message type
 	Validate func(config proto.Message) error
-
-	// Key function derives the unique key from the configuration object metadata
-	// properties. The object is not required to be complete or even valid to
-	// derive its key, but must be an instance of the expected message type. For
-	// example, if _name_ field is designated as the key, then the proto message
-	// must only possess _name_ property.
-	Key func(config proto.Message) string
 }
 
 // Types lists all known types in the config schema
@@ -240,9 +265,6 @@ var (
 			}
 			return nil
 		},
-		Key: func(config proto.Message) string {
-			return config.(*test.MockConfig).Key
-		},
 	}
 
 	// RouteRule describes route rules
@@ -251,10 +273,6 @@ var (
 		Plural:      "route-rules",
 		MessageName: "istio.proxy.v1.config.RouteRule",
 		Validate:    ValidateRouteRule,
-		Key: func(config proto.Message) string {
-			rule := config.(*proxyconfig.RouteRule)
-			return rule.Name
-		},
 	}
 
 	// IngressRule describes ingress rules
@@ -263,10 +281,6 @@ var (
 		Plural:      "ingress-rules",
 		MessageName: "istio.proxy.v1.config.IngressRule",
 		Validate:    ValidateIngressRule,
-		Key: func(config proto.Message) string {
-			rule := config.(*proxyconfig.IngressRule)
-			return rule.Name
-		},
 	}
 
 	// DestinationPolicy describes destination rules
@@ -275,9 +289,6 @@ var (
 		Plural:      "destination-policies",
 		MessageName: "istio.proxy.v1.config.DestinationPolicy",
 		Validate:    ValidateDestinationPolicy,
-		Key: func(config proto.Message) string {
-			return config.(*proxyconfig.DestinationPolicy).Destination
-		},
 	}
 
 	// IstioConfigTypes lists all Istio config types with schemas and validation
@@ -301,20 +312,24 @@ func MakeIstioStore(store ConfigStore) IstioConfigStore {
 
 func (i istioConfigStore) RouteRules() map[string]*proxyconfig.RouteRule {
 	out := make(map[string]*proxyconfig.RouteRule)
-	rs, err := i.List(RouteRule.Type)
+	rs, err := i.List(RouteRule.Type, "")
 	if err != nil {
 		glog.V(2).Infof("RouteRules => %v", err)
 	}
 	for _, r := range rs {
-		if rule, ok := r.Content.(*proxyconfig.RouteRule); ok {
-			out[r.Key] = rule
+		if rule, ok := r.Spec.(*proxyconfig.RouteRule); ok {
+			out[r.Key()] = rule
 		}
 	}
 	return out
 }
 
 func (i *istioConfigStore) RouteRulesBySource(instances []*ServiceInstance) []*proxyconfig.RouteRule {
-	rules := make([]Config, 0)
+	type config struct {
+		Key  string
+		Spec *proxyconfig.RouteRule
+	}
+	rules := make([]config, 0)
 	for key, rule := range i.RouteRules() {
 		// validate that rule match predicate applies to source service instances
 		if rule.Match != nil && rule.Match.Source != "" {
@@ -335,32 +350,32 @@ func (i *istioConfigStore) RouteRulesBySource(instances []*ServiceInstance) []*p
 				continue
 			}
 		}
-		rules = append(rules, Config{Key: key, Content: rule})
+		rules = append(rules, config{Key: key, Spec: rule})
 	}
 	// sort by high precedence first, key string second (keys are unique)
 	sort.Slice(rules, func(i, j int) bool {
-		return rules[i].Content.(*proxyconfig.RouteRule).Precedence > rules[j].Content.(*proxyconfig.RouteRule).Precedence ||
-			(rules[i].Content.(*proxyconfig.RouteRule).Precedence == rules[j].Content.(*proxyconfig.RouteRule).Precedence &&
+		return rules[i].Spec.Precedence > rules[j].Spec.Precedence ||
+			(rules[i].Spec.Precedence == rules[j].Spec.Precedence &&
 				rules[i].Key < rules[j].Key)
 	})
 
 	// project to rules
 	out := make([]*proxyconfig.RouteRule, len(rules))
 	for i, rule := range rules {
-		out[i] = rule.Content.(*proxyconfig.RouteRule)
+		out[i] = rule.Spec
 	}
 	return out
 }
 
 func (i *istioConfigStore) IngressRules() map[string]*proxyconfig.IngressRule {
 	out := make(map[string]*proxyconfig.IngressRule)
-	rs, err := i.List(IngressRule.Type)
+	rs, err := i.List(IngressRule.Type, "")
 	if err != nil {
 		glog.V(2).Infof("IngressRules => %v", err)
 	}
 	for _, r := range rs {
-		if rule, ok := r.Content.(*proxyconfig.IngressRule); ok {
-			out[r.Key] = rule
+		if rule, ok := r.Spec.(*proxyconfig.IngressRule); ok {
+			out[r.Key()] = rule
 		}
 	}
 	return out
@@ -368,12 +383,12 @@ func (i *istioConfigStore) IngressRules() map[string]*proxyconfig.IngressRule {
 
 func (i *istioConfigStore) DestinationPolicies() []*proxyconfig.DestinationPolicy {
 	out := make([]*proxyconfig.DestinationPolicy, 0)
-	rs, err := i.List(DestinationPolicy.Type)
+	rs, err := i.List(DestinationPolicy.Type, "")
 	if err != nil {
 		glog.V(2).Infof("DestinationPolicies => %v", err)
 	}
 	for _, r := range rs {
-		if rule, ok := r.Content.(*proxyconfig.DestinationPolicy); ok {
+		if rule, ok := r.Spec.(*proxyconfig.DestinationPolicy); ok {
 			out = append(out, rule)
 		}
 	}
@@ -381,9 +396,18 @@ func (i *istioConfigStore) DestinationPolicies() []*proxyconfig.DestinationPolic
 }
 
 func (i *istioConfigStore) DestinationPolicy(destination string, tags Tags) *proxyconfig.DestinationVersionPolicy {
-	value, exists, _ := i.Get(DestinationPolicy.Type, destination)
+	names := strings.Split(destination, ".")
+	name, namespace := "", ""
+	if len(names) > 0 {
+		name = names[0]
+	}
+	if len(names) > 1 {
+		namespace = names[1]
+	}
+
+	config, exists := i.Get(DestinationPolicy.Type, name, namespace)
 	if exists {
-		for _, policy := range value.(*proxyconfig.DestinationPolicy).Policy {
+		for _, policy := range config.Spec.(*proxyconfig.DestinationPolicy).Policy {
 			if tags.Equals(policy.Tags) {
 				return policy
 			}

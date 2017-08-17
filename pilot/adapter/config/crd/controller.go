@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,7 +46,8 @@ type cacheHandler struct {
 }
 
 // NewController creates a new Kubernetes controller for CRDs
-func NewController(client *Client, resyncPeriod time.Duration) model.ConfigStoreCache {
+// Use "" for namespace to listen for all namespace changes
+func NewController(client *Client, options kube.ControllerOptions) model.ConfigStoreCache {
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &controller{
 		client: client,
@@ -57,18 +57,18 @@ func NewController(client *Client, resyncPeriod time.Duration) model.ConfigStore
 
 	// add stores for CRD kinds
 	for _, schema := range client.ConfigDescriptor() {
-		out.addInformer(schema, resyncPeriod)
+		out.addInformer(schema, options.Namespace, options.ResyncPeriod)
 	}
 
 	return out
 }
 
-func (c *controller) addInformer(schema model.ProtoSchema, resyncPeriod time.Duration) {
+func (c *controller) addInformer(schema model.ProtoSchema, namespace string, resyncPeriod time.Duration) {
 	c.kinds[schema.Type] = c.createInformer(knownTypes[schema.Type].object.DeepCopyObject(), resyncPeriod,
 		func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
 			result = knownTypes[schema.Type].collection.DeepCopyObject()
 			err = c.client.dynamic.Get().
-				Namespace(c.client.namespace).
+				Namespace(namespace).
 				Resource(schema.Plural).
 				VersionedParams(&opts, meta_v1.ParameterCodec).
 				Do().
@@ -78,7 +78,7 @@ func (c *controller) addInformer(schema model.ProtoSchema, resyncPeriod time.Dur
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
 			return c.client.dynamic.Get().
 				Prefix("watch").
-				Namespace(c.client.namespace).
+				Namespace(namespace).
 				Resource(schema.Plural).
 				VersionedParams(&opts, meta_v1.ParameterCodec).
 				Watch()
@@ -140,16 +140,11 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 	c.kinds[typ].handler.Append(func(object interface{}, ev model.Event) error {
 		item, ok := object.(IstioObject)
 		if ok {
-			data, err := schema.FromJSONMap(item.GetSpec())
+			config, err := convertObject(schema, item)
 			if err != nil {
 				glog.Warningf("error translating object %#v", object)
 			} else {
-				f(model.Config{
-					Type:     schema.Type,
-					Key:      schema.Key(data),
-					Revision: item.GetObjectMeta().ResourceVersion,
-					Content:  data,
-				}, ev)
+				f(*config, ev)
 			}
 		}
 		return nil
@@ -181,49 +176,49 @@ func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
 	return c.client.ConfigDescriptor()
 }
 
-func (c *controller) Get(typ, key string) (proto.Message, bool, string) {
+func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 	schema, exists := c.client.ConfigDescriptor().GetByType(typ)
 	if !exists {
-		return nil, false, ""
+		return nil, false
 	}
 
 	store := c.kinds[typ].informer.GetStore()
-	data, exists, err := store.GetByKey(kube.KeyFunc(configKey(typ, key), c.client.namespace))
+	data, exists, err := store.GetByKey(kube.KeyFunc(name, namespace))
 	if !exists {
-		return nil, false, ""
+		return nil, false
 	}
 	if err != nil {
 		glog.Warning(err)
-		return nil, false, ""
+		return nil, false
 	}
 
-	config, ok := data.(IstioObject)
+	obj, ok := data.(IstioObject)
 	if !ok {
 		glog.Warning("Cannot convert to config from store")
-		return nil, false, ""
+		return nil, false
 	}
 
-	out, err := schema.FromJSONMap(config.GetSpec())
+	config, err := convertObject(schema, obj)
 	if err != nil {
-		glog.Warning(err)
-		return nil, false, ""
+		return nil, false
 	}
-	return out, true, config.GetObjectMeta().ResourceVersion
+
+	return config, true
 }
 
-func (c *controller) Post(val proto.Message) (string, error) {
-	return c.client.Post(val)
+func (c *controller) Create(config model.Config) (string, error) {
+	return c.client.Create(config)
 }
 
-func (c *controller) Put(val proto.Message, revision string) (string, error) {
-	return c.client.Put(val, revision)
+func (c *controller) Update(config model.Config) (string, error) {
+	return c.client.Update(config)
 }
 
-func (c *controller) Delete(typ, key string) error {
-	return c.client.Delete(typ, key)
+func (c *controller) Delete(typ, name, namespace string) error {
+	return c.client.Delete(typ, name, namespace)
 }
 
-func (c *controller) List(typ string) ([]model.Config, error) {
+func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 	schema, ok := c.client.ConfigDescriptor().GetByType(typ)
 	if !ok {
 		return nil, fmt.Errorf("missing type %q", typ)
@@ -233,18 +228,19 @@ func (c *controller) List(typ string) ([]model.Config, error) {
 	out := make([]model.Config, 0)
 	for _, data := range c.kinds[typ].informer.GetStore().List() {
 		item, ok := data.(IstioObject)
-		if ok {
-			data, err := schema.FromJSONMap(item.GetSpec())
-			if err != nil {
-				errs = multierror.Append(errs, err)
-			} else {
-				out = append(out, model.Config{
-					Type:     schema.Type,
-					Key:      schema.Key(data),
-					Revision: item.GetObjectMeta().ResourceVersion,
-					Content:  data,
-				})
-			}
+		if !ok {
+			continue
+		}
+
+		if namespace != "" && namespace != item.GetObjectMeta().Namespace {
+			continue
+		}
+
+		config, err := convertObject(schema, item)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		} else {
+			out = append(out, *config)
 		}
 	}
 	return out, errs

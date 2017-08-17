@@ -30,8 +30,8 @@ import (
 	"istio.io/pilot/platform/kube"
 )
 
-func convertIngress(ingress v1beta1.Ingress, domainSuffix string) map[string]*proxyconfig.IngressRule {
-	out := make(map[string]*proxyconfig.IngressRule)
+func convertIngress(ingress v1beta1.Ingress, domainSuffix string) []model.Config {
+	out := make([]model.Config, 0)
 	tls := ""
 
 	if len(ingress.Spec.TLS) > 0 {
@@ -44,28 +44,28 @@ func convertIngress(ingress v1beta1.Ingress, domainSuffix string) map[string]*pr
 	}
 
 	if ingress.Spec.Backend != nil {
-		key := encodeIngressRuleName(ingress.Name, ingress.Namespace, 0, 0)
-		ingressRule := createIngressRule(key, "", "", ingress.Namespace, domainSuffix, *ingress.Spec.Backend, tls)
-		out[model.IngressRule.Key(ingressRule)] = ingressRule
+		name := encodeIngressRuleName(ingress.Name, 0, 0)
+		ingressRule := createIngressRule(name, "", "", domainSuffix, ingress, *ingress.Spec.Backend, tls)
+		out = append(out, ingressRule)
 	}
 
 	for i, rule := range ingress.Spec.Rules {
 		for j, path := range rule.HTTP.Paths {
-			key := encodeIngressRuleName(ingress.Name, ingress.Namespace, i+1, j+1)
-			ingressRule := createIngressRule(key, rule.Host, path.Path, ingress.Namespace,
-				domainSuffix, path.Backend, tls)
-			out[model.IngressRule.Key(ingressRule)] = ingressRule
+			name := encodeIngressRuleName(ingress.Name, i+1, j+1)
+			ingressRule := createIngressRule(name, rule.Host, path.Path,
+				domainSuffix, ingress, path.Backend, tls)
+			out = append(out, ingressRule)
 		}
 	}
 
 	return out
 }
 
-func createIngressRule(name, host, path, namespace, domainSuffix string,
-	backend v1beta1.IngressBackend, tlsSecret string) *proxyconfig.IngressRule {
+func createIngressRule(name, host, path, domainSuffix string,
+	ingress v1beta1.Ingress, backend v1beta1.IngressBackend, tlsSecret string) model.Config {
 	rule := &proxyconfig.IngressRule{
 		Name:        name,
-		Destination: serviceHostname(backend.ServiceName, namespace, domainSuffix),
+		Destination: serviceHostname(backend.ServiceName, ingress.Namespace, domainSuffix),
 		TlsSecret:   tlsSecret,
 		Match: &proxyconfig.MatchCondition{
 			HttpHeaders: make(map[string]*proxyconfig.StringMatch, 2),
@@ -106,28 +106,37 @@ func createIngressRule(name, host, path, namespace, domainSuffix string,
 		}
 	}
 
-	return rule
+	return model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:            model.IngressRule.Type,
+			Name:            name,
+			Namespace:       ingress.Namespace,
+			Labels:          ingress.Labels,
+			Annotations:     ingress.Annotations,
+			ResourceVersion: ingress.ResourceVersion,
+		},
+		Spec: rule,
+	}
 }
 
 // encodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
 // as well as the position of the rule and path specified within it, counting from 1.
 // ruleNum == pathNum == 0 indicates the default backend specified for an ingress.
-func encodeIngressRuleName(ingressName, ingressNamespace string, ruleNum, pathNum int) string {
-	return fmt.Sprintf("%s.%s.%d.%d", ingressNamespace, ingressName, ruleNum, pathNum)
+func encodeIngressRuleName(ingressName string, ruleNum, pathNum int) string {
+	return fmt.Sprintf("%s-%d-%d", ingressName, ruleNum, pathNum)
 }
 
 // decodeIngressRuleName decodes an ingress rule name previously encoded with encodeIngressRuleName.
-func decodeIngressRuleName(name string) (ingressName, ingressNamespace string, ruleNum, pathNum int, err error) {
-	parts := strings.Split(name, ".")
-	if len(parts) != 4 {
+func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum int, err error) {
+	parts := strings.Split(name, "-")
+	if len(parts) < 3 {
 		err = fmt.Errorf("could not decode string into ingress rule name: %s", name)
 		return
 	}
 
-	ingressNamespace = parts[0]
-	ingressName = parts[1]
-	ruleNum, ruleErr := strconv.Atoi(parts[2])
-	pathNum, pathErr := strconv.Atoi(parts[3])
+	ingressName = strings.Join(parts[0:len(parts)-2], "-")
+	ruleNum, ruleErr := strconv.Atoi(parts[len(parts)-2])
+	pathNum, pathErr := strconv.Atoi(parts[len(parts)-1])
 
 	if pathErr != nil || ruleErr != nil {
 		err = multierror.Append(

@@ -100,7 +100,7 @@ for a description of Mixer configuration's scope, subject, and rules.
 
 			mixerRESTRequester = &k8sRESTRequester{
 				client:    client,
-				namespace: istioSystem,
+				namespace: namespace,
 				service:   istioMixerAPIService,
 			}
 

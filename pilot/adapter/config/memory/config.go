@@ -19,8 +19,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-
 	"istio.io/pilot/model"
 )
 
@@ -28,105 +26,132 @@ import (
 func Make(descriptor model.ConfigDescriptor) model.ConfigStore {
 	out := store{
 		descriptor: descriptor,
-		data:       make(map[string]map[string]proto.Message),
-		revs:       make(map[string]map[string]string),
+		data:       make(map[string]map[string]map[string]model.Config),
 	}
 	for _, typ := range descriptor.Types() {
-		out.data[typ] = make(map[string]proto.Message)
-		out.revs[typ] = make(map[string]string)
+		out.data[typ] = make(map[string]map[string]model.Config)
 	}
 	return &out
 }
 
 type store struct {
 	descriptor model.ConfigDescriptor
-	data       map[string]map[string]proto.Message
-	revs       map[string]map[string]string
+	data       map[string]map[string]map[string]model.Config
 }
 
 func (cr *store) ConfigDescriptor() model.ConfigDescriptor {
 	return cr.descriptor
 }
 
-func (cr *store) Get(typ, key string) (proto.Message, bool, string) {
+func (cr *store) Get(typ, name, namespace string) (*model.Config, bool) {
 	_, ok := cr.data[typ]
 	if !ok {
-		return nil, false, ""
+		return nil, false
 	}
-	val, exists := cr.data[typ][key]
-	return val, exists, cr.revs[typ][key]
+
+	ns, exists := cr.data[typ][namespace]
+	if !exists {
+		return nil, false
+	}
+
+	out, exists := ns[name]
+	if !exists {
+		return nil, false
+	}
+
+	return &out, true
 }
 
-func (cr *store) List(typ string) ([]model.Config, error) {
-	_, ok := cr.data[typ]
-	if !ok {
+func (cr *store) List(typ, namespace string) ([]model.Config, error) {
+	data, exists := cr.data[typ]
+	if !exists {
 		return nil, nil
 	}
 	out := make([]model.Config, 0, len(cr.data[typ]))
-	for key, elt := range cr.data[typ] {
-		out = append(out, model.Config{
-			Type:     typ,
-			Key:      key,
-			Revision: cr.revs[typ][key],
-			Content:  elt,
-		})
+	if namespace == "" {
+		for _, ns := range data {
+			for _, elt := range ns {
+				out = append(out, elt)
+			}
+		}
+	} else {
+		for _, elt := range data[namespace] {
+			out = append(out, elt)
+		}
 	}
 	return out, nil
 }
 
-func (cr *store) Delete(typ, key string) error {
-	_, ok := cr.data[typ]
+func (cr *store) Delete(typ, name, namespace string) error {
+	data, ok := cr.data[typ]
 	if !ok {
 		return errors.New("unknown type")
 	}
-	if _, exists := cr.data[typ][key]; exists {
-		delete(cr.data[typ], key)
-		delete(cr.revs[typ], key)
-		return nil
+	ns, exists := data[namespace]
+	if !exists {
+		return &model.ItemNotFoundError{Key: namespace}
 	}
-	return &model.ItemNotFoundError{Key: key}
+
+	_, exists = ns[name]
+	if !exists {
+		return &model.ItemNotFoundError{Key: name}
+	}
+
+	delete(ns, name)
+	return nil
 }
 
-func (cr *store) Post(config proto.Message) (string, error) {
-	schema, ok := cr.descriptor.GetByMessageName(proto.MessageName(config))
+func (cr *store) Create(config model.Config) (string, error) {
+	typ := config.Type
+	schema, ok := cr.descriptor.GetByType(typ)
 	if !ok {
 		return "", errors.New("unknown type")
 	}
-	if err := schema.Validate(config); err != nil {
+	if err := schema.Validate(config.Spec); err != nil {
 		return "", err
 	}
-	typ := schema.Type
-	key := schema.Key(config)
-	_, exists := cr.data[typ][key]
+	ns, exists := cr.data[typ][config.Namespace]
 	if !exists {
-		rev := time.Now().String()
-		cr.revs[typ][key] = rev
-		cr.data[typ][key] = config
-		return rev, nil
+		ns = make(map[string]model.Config)
+		cr.data[typ][config.Namespace] = ns
 	}
-	return "", &model.ItemAlreadyExistsError{Key: key}
+
+	_, exists = ns[config.Name]
+
+	if !exists {
+		config.ResourceVersion = time.Now().String()
+		ns[config.Name] = config
+		return config.ResourceVersion, nil
+	}
+	return "", &model.ItemAlreadyExistsError{Key: config.Name}
 }
 
-func (cr *store) Put(config proto.Message, oldRevision string) (string, error) {
-	schema, ok := cr.descriptor.GetByMessageName(proto.MessageName(config))
+func (cr *store) Update(config model.Config) (string, error) {
+	typ := config.Type
+	schema, ok := cr.descriptor.GetByType(typ)
 	if !ok {
 		return "", errors.New("unknown type")
 	}
-	if err := schema.Validate(config); err != nil {
+	if err := schema.Validate(config.Spec); err != nil {
 		return "", err
 	}
-	typ := schema.Type
-	key := schema.Key(config)
-	_, exists := cr.data[typ][key]
+
+	ns, exists := cr.data[typ][config.Namespace]
 	if !exists {
-		return "", &model.ItemNotFoundError{Key: key}
+		return "", &model.ItemNotFoundError{Key: config.Namespace}
 	}
-	if oldRevision != cr.revs[typ][key] {
+
+	oldConfig, exists := ns[config.Name]
+	if !exists {
+		return "", &model.ItemNotFoundError{Key: config.Name}
+	}
+
+	if config.ResourceVersion != oldConfig.ResourceVersion {
 		return "", errors.New("old revision")
 	}
 
 	rev := time.Now().String()
-	cr.revs[typ][key] = rev
-	cr.data[typ][key] = config
+	config.ResourceVersion = rev
+	ns[config.Name] = config
 	return rev, nil
 }

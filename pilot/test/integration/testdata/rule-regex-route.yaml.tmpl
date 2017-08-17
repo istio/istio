@@ -1,13 +1,17 @@
-destination: {{.Destination}}.{{.Namespace}}.svc.cluster.local
+type: route-rule
 name: content-route
-precedence: 4
-match:
-  source: {{.Source}}.{{.Namespace}}.svc.cluster.local
-  sourceTags:
-    version: v1
-  httpHeaders:
-    foo:
-      regex: "b.*"
-route:
-  - tags:
-       version: v2
+namespace: {{.Namespace}}
+spec:
+  destination: {{.Destination}}.{{.Namespace}}.svc.cluster.local
+  name: content-route
+  precedence: 4
+  match:
+    source: {{.Source}}.{{.Namespace}}.svc.cluster.local
+    sourceTags:
+      version: v1
+    httpHeaders:
+      foo:
+        regex: "b.*"
+  route:
+    - tags:
+         version: v2

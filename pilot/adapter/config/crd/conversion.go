@@ -20,37 +20,41 @@ import (
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/golang/protobuf/proto"
-
 	"istio.io/pilot/model"
 )
 
-// configKey assigns k8s CRD name to Istio config
-func configKey(typ, key string) string {
-	switch typ {
-	case model.RouteRule.Type, model.IngressRule.Type:
-		return key
-	case model.DestinationPolicy.Type:
-		// TODO: special key encoding for long hostnames-based keys
-		parts := strings.Split(key, ".")
-		return strings.Replace(parts[0], "-", "--", -1) +
-			"-" + strings.Replace(parts[1], "-", "--", -1)
+func convertObject(schema model.ProtoSchema, object IstioObject) (*model.Config, error) {
+	data, err := schema.FromJSONMap(object.GetSpec())
+	if err != nil {
+		return nil, err
 	}
-	return key
+	meta := object.GetObjectMeta()
+	return &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:            schema.Type,
+			Name:            meta.Name,
+			Namespace:       meta.Namespace,
+			Labels:          meta.Labels,
+			Annotations:     meta.Annotations,
+			ResourceVersion: meta.ResourceVersion,
+		},
+		Spec: data,
+	}, nil
 }
 
-// modelToKube translates Istio config to k8s config JSON
-func modelToKube(schema model.ProtoSchema, namespace string, config proto.Message,
-	revision string) (IstioObject, error) {
-	spec, err := schema.ToJSONMap(config)
+// convertConfig translates Istio config to k8s config JSON
+func convertConfig(schema model.ProtoSchema, config model.Config) (IstioObject, error) {
+	spec, err := schema.ToJSONMap(config.Spec)
 	if err != nil {
 		return nil, err
 	}
 	out := knownTypes[schema.Type].object.DeepCopyObject().(IstioObject)
 	out.SetObjectMeta(meta_v1.ObjectMeta{
-		Name:            configKey(schema.Type, schema.Key(config)),
-		Namespace:       namespace,
-		ResourceVersion: revision,
+		Name:            config.Name,
+		Namespace:       config.Namespace,
+		ResourceVersion: config.ResourceVersion,
+		Labels:          config.Labels,
+		Annotations:     config.Annotations,
 	})
 	out.SetSpec(spec)
 

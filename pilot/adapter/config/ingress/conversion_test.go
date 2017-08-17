@@ -27,46 +27,44 @@ import (
 
 func TestDecodeIngressRuleName(t *testing.T) {
 	cases := []struct {
-		ingressName      string
-		ingressNamespace string
-		ruleNum          int
-		pathNum          int
+		ingressName string
+		ruleNum     int
+		pathNum     int
 	}{
-		{"myingress", "test", 0, 0},
-		{"myingress", "default", 1, 2},
-		{"my-ingress", "test-namespace", 1, 2},
-		{"my-cool-ingress", "new-space", 1, 2},
+		{"myingress", 0, 0},
+		{"myingress", 1, 2},
+		{"my-ingress", 1, 2},
+		{"my-cool-ingress", 1, 2},
 	}
 
 	for _, c := range cases {
-		encoded := encodeIngressRuleName(c.ingressName, c.ingressNamespace, c.ruleNum, c.pathNum)
-		ingressName, ingressNamespace, ruleNum, pathNum, err := decodeIngressRuleName(encoded)
+		encoded := encodeIngressRuleName(c.ingressName, c.ruleNum, c.pathNum)
+		ingressName, ruleNum, pathNum, err := decodeIngressRuleName(encoded)
 		if err != nil {
 			t.Errorf("decodeIngressRuleName(%q) => error %v", encoded, err)
 		}
-		if ingressName != c.ingressName || ingressNamespace != c.ingressNamespace ||
-			ruleNum != c.ruleNum || pathNum != c.pathNum {
-			t.Errorf("decodeIngressRuleName(%q) => (%q, %q, %d, %d), want (%q, %q, %d, %d)",
+		if ingressName != c.ingressName || ruleNum != c.ruleNum || pathNum != c.pathNum {
+			t.Errorf("decodeIngressRuleName(%q) => (%q, %d, %d), want (%q, %d, %d)",
 				encoded,
-				ingressName, ingressNamespace, ruleNum, pathNum,
-				c.ingressName, c.ingressNamespace, c.ruleNum, c.pathNum,
+				ingressName, ruleNum, pathNum,
+				c.ingressName, c.ruleNum, c.pathNum,
 			)
 		}
 	}
 }
 
 func TestEncoding(t *testing.T) {
-	if got := encodeIngressRuleName("name", "namespace", 3, 5); got != "namespace.name.3.5" {
+	if got := encodeIngressRuleName("name", 3, 5); got != "name-3-5" {
 		t.Errorf("unexpected ingress encoding %q", got)
 	}
 
 	cases := []string{
-		"namespace.name",
-		"namespace.name.path.5",
-		"namespace.name.3.path",
+		"name",
+		"name-path-5",
+		"name-3-path",
 	}
 	for _, code := range cases {
-		if _, _, _, _, err := decodeIngressRuleName(code); err == nil {
+		if _, _, _, err := decodeIngressRuleName(code); err == nil {
 			t.Errorf("expected error on decoding %q", code)
 		}
 	}

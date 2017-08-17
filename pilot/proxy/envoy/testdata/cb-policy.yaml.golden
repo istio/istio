@@ -1,12 +1,16 @@
-destination: world.default.svc.cluster.local
-policy:
-- circuit_breaker:
-    simple_cb:
-      max_connections: 100
-      sleep_window: 15.5s
-      http_max_requests: 100
-      http_max_requests_per_connection: 100
-      http_max_pending_requests: 100
-      http_consecutive_errors: 10
-      http_detection_interval: 30s
-      http_max_ejection_percent: 100
+type: destination-policy
+name: world
+namespace: default
+spec:
+  destination: world.default.svc.cluster.local
+  policy:
+  - circuit_breaker:
+      simple_cb:
+        max_connections: 100
+        sleep_window: 15.5s
+        http_max_requests: 100
+        http_max_requests_per_connection: 100
+        http_max_pending_requests: 100
+        http_consecutive_errors: 10
+        http_detection_interval: 30s
+        http_max_ejection_percent: 100

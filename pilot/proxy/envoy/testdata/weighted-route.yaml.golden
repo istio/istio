@@ -1,9 +1,11 @@
-destination: world.default.svc.cluster.local
+type: route-rule
 name: weighted-route
-route:
-  - tags:
-       version: v0
-    weight: 75
-  - tags:
-       version: v1
-    weight: 25
+spec:
+  destination: world.default.svc.cluster.local
+  route:
+    - tags:
+         version: v0
+      weight: 75
+    - tags:
+         version: v1
+      weight: 25

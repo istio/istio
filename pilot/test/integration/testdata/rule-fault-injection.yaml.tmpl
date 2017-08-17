@@ -1,20 +1,23 @@
-destination: {{.Destination}}.{{.Namespace}}.svc.cluster.local
+type: route-rule
 name: fault-route
-precedence: 3
-match:
-  source: {{.Source}}.{{.Namespace}}.svc.cluster.local
-  sourceTags:
-    version: v1
-  httpHeaders:
-    version:
-      exact: v2
-route:
-  - tags:
-       version: v2
-httpFault:
-  delay:
-    percent: 100
-    fixedDelay: 5s
-  abort:
-    percent: 100
-    httpStatus: 503
+namespace: {{.Namespace}}
+spec:
+  destination: {{.Destination}}.{{.Namespace}}.svc.cluster.local
+  precedence: 3
+  match:
+    source: {{.Source}}.{{.Namespace}}.svc.cluster.local
+    sourceTags:
+      version: v1
+    httpHeaders:
+      version:
+        exact: v2
+  route:
+    - tags:
+         version: v2
+  httpFault:
+    delay:
+      percent: 100
+      fixedDelay: 5s
+    abort:
+      percent: 100
+      httpStatus: 503

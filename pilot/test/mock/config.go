@@ -63,17 +63,38 @@ var (
 )
 
 // Make creates a mock config indexed by a number
-func Make(i int) *test.MockConfig {
-	return &test.MockConfig{
-		Key: fmt.Sprintf("%s%d", "mock-config", i),
-		Pairs: []*test.ConfigPair{
-			{Key: "key", Value: strconv.Itoa(i)},
+func Make(namespace string, i int) model.Config {
+	name := fmt.Sprintf("%s%d", "mock-config", i)
+	return model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.MockConfig.Type,
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{
+				"key": name,
+			},
+			Annotations: map[string]string{
+				"annotationkey": name,
+			},
+		},
+		Spec: &test.MockConfig{
+			Key: name,
+			Pairs: []*test.ConfigPair{
+				{Key: "key", Value: strconv.Itoa(i)},
+			},
 		},
 	}
 }
 
+// Compare checks two configs ignoring revisions
+func Compare(a, b model.Config) bool {
+	a.ResourceVersion = ""
+	b.ResourceVersion = ""
+	return reflect.DeepEqual(a, b)
+}
+
 // CheckMapInvariant validates operational invariants of an empty config registry
-func CheckMapInvariant(r model.ConfigStore, t *testing.T, n int) {
+func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n int) {
 	// check that the config descriptor is the mock config descriptor
 	_, contains := r.ConfigDescriptor().GetByType(model.MockConfig.Type)
 	if !contains {
@@ -81,14 +102,14 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, n int) {
 	}
 
 	// create configuration objects
-	elts := make(map[int]*test.MockConfig)
+	elts := make(map[int]model.Config)
 	for i := 0; i < n; i++ {
-		elts[i] = Make(i)
+		elts[i] = Make(namespace, i)
 	}
 
 	// post all elements
 	for _, elt := range elts {
-		if _, err := r.Post(elt); err != nil {
+		if _, err := r.Create(elt); err != nil {
 			t.Error(err)
 		}
 	}
@@ -97,72 +118,86 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, n int) {
 
 	// check that elements are stored
 	for i, elt := range elts {
-		if v1, ok, rev := r.Get(model.MockConfig.Type, elts[i].Key); !ok || !reflect.DeepEqual(v1, elt) {
+		v1, ok := r.Get(model.MockConfig.Type, elt.Name, elt.Namespace)
+		if !ok || !Compare(elt, *v1) {
 			t.Errorf("wanted %v, got %v", elt, v1)
 		} else {
-			revs[i] = rev
+			revs[i] = v1.ResourceVersion
 		}
 	}
 
-	if _, err := r.Post(elts[0]); err == nil {
+	if _, err := r.Create(elts[0]); err == nil {
 		t.Error("expected error posting twice")
 	}
 
-	if _, err := r.Post(nil); err == nil {
+	invalid := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:            model.MockConfig.Type,
+			Name:            "invalid",
+			ResourceVersion: revs[0],
+		},
+		Spec: &test.MockConfig{},
+	}
+
+	missing := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:            model.MockConfig.Type,
+			Name:            "missing",
+			ResourceVersion: revs[0],
+		},
+		Spec: &test.MockConfig{Key: "missing"},
+	}
+
+	if _, err := r.Create(invalid); err == nil {
 		t.Error("expected error posting invalid object")
 	}
 
-	if _, err := r.Post(&test.MockConfig{}); err == nil {
-		t.Error("expected error posting invalid object")
-	}
-
-	if _, err := r.Put(nil, revs[0]); err == nil {
+	if _, err := r.Update(invalid); err == nil {
 		t.Error("expected error putting invalid object")
 	}
 
-	if _, err := r.Put(&test.MockConfig{}, revs[0]); err == nil {
-		t.Error("expected error putting invalid object")
-	}
-
-	if _, err := r.Put(&test.MockConfig{Key: "missing"}, revs[0]); err == nil {
+	if _, err := r.Update(missing); err == nil {
 		t.Error("expected error putting missing object with a missing key")
 	}
 
-	if _, err := r.Put(elts[0], ""); err == nil {
+	if _, err := r.Update(elts[0]); err == nil {
 		t.Error("expected error putting object without revision")
 	}
 
-	if _, err := r.Put(elts[0], "missing"); err == nil {
+	badrevision := elts[0]
+	badrevision.ResourceVersion = "bad"
+
+	if _, err := r.Update(badrevision); err == nil {
 		t.Error("expected error putting object with a bad revision")
 	}
 
 	// check for missing type
-	if l, _ := r.List("missing"); len(l) > 0 {
+	if l, _ := r.List("missing", namespace); len(l) > 0 {
 		t.Errorf("unexpected objects for missing type")
 	}
 
 	// check for missing element
-	if _, ok, _ := r.Get(model.MockConfig.Type, "missing"); ok {
+	if _, ok := r.Get(model.MockConfig.Type, "missing", ""); ok {
 		t.Error("unexpected configuration object found")
 	}
 
 	// check for missing element
-	if _, ok, _ := r.Get("missing", "missing"); ok {
+	if _, ok := r.Get("missing", "missing", ""); ok {
 		t.Error("unexpected configuration object found")
 	}
 
 	// delete missing elements
-	if err := r.Delete("missing", "missing"); err == nil {
+	if err := r.Delete("missing", "missing", ""); err == nil {
 		t.Error("expected error on deletion of missing type")
 	}
 
 	// delete missing elements
-	if err := r.Delete(model.MockConfig.Type, "missing"); err == nil {
+	if err := r.Delete(model.MockConfig.Type, "missing", ""); err == nil {
 		t.Error("expected error on deletion of missing element")
 	}
 
 	// list elements
-	l, err := r.List(model.MockConfig.Type)
+	l, err := r.List(model.MockConfig.Type, namespace)
 	if err != nil {
 		t.Errorf("List error %#v, %v", l, err)
 	}
@@ -172,28 +207,31 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, n int) {
 
 	// update all elements
 	for i := 0; i < n; i++ {
-		elts[i] = Make(i)
-		elts[i].Pairs[0].Value += "(updated)"
-		if _, err = r.Put(elts[i], revs[i]); err != nil {
+		elt := Make(namespace, i)
+		elt.Spec.(*test.MockConfig).Pairs[0].Value += "(updated)"
+		elt.ResourceVersion = revs[i]
+		elts[i] = elt
+		if _, err = r.Update(elt); err != nil {
 			t.Error(err)
 		}
 	}
 
 	// check that elements are stored
 	for i, elt := range elts {
-		if v1, ok, _ := r.Get(model.MockConfig.Type, elts[i].Key); !ok || !reflect.DeepEqual(v1, elt) {
+		v1, ok := r.Get(model.MockConfig.Type, elts[i].Name, elts[i].Namespace)
+		if !ok || !Compare(elt, *v1) {
 			t.Errorf("wanted %v, got %v", elt, v1)
 		}
 	}
 
 	// delete all elements
 	for i := range elts {
-		if err = r.Delete(model.MockConfig.Type, elts[i].Key); err != nil {
+		if err = r.Delete(model.MockConfig.Type, elts[i].Name, elts[i].Namespace); err != nil {
 			t.Error(err)
 		}
 	}
 
-	l, err = r.List(model.MockConfig.Type)
+	l, err = r.List(model.MockConfig.Type, namespace)
 	if err != nil {
 		t.Error(err)
 	}
@@ -203,26 +241,42 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, n int) {
 }
 
 // CheckIstioConfigTypes validates that an empty store can ingest Istio config objects
-func CheckIstioConfigTypes(store model.ConfigStore, t *testing.T) {
-	if _, err := store.Post(ExampleRouteRule); err != nil {
+func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing.T) {
+	name := "example"
+	if _, err := store.Create(model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.RouteRule.Type,
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: ExampleRouteRule,
+	}); err != nil {
 		t.Errorf("Post(RouteRule) => got %v", err)
 	}
-	if _, err := store.Post(ExampleIngressRule); err != nil {
+	if _, err := store.Create(model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.IngressRule.Type,
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: ExampleIngressRule,
+	}); err != nil {
 		t.Errorf("Post(IngressRule) => got %v", err)
 	}
-	if _, err := store.Post(ExampleDestinationPolicy); err != nil {
+	if _, err := store.Create(model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.DestinationPolicy.Type,
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: ExampleDestinationPolicy,
+	}); err != nil {
 		t.Errorf("Post(DestinationPolicy) => got %v", err)
-	}
-
-	registry := model.MakeIstioStore(store)
-	rules := registry.RouteRules()
-	if len(rules) != 1 || !reflect.DeepEqual(rules[ExampleRouteRule.Name], ExampleRouteRule) {
-		t.Errorf("RouteRules() => %v, want %v", rules, ExampleRouteRule)
 	}
 }
 
 // CheckCacheEvents validates operational invariants of a cache
-func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, n int, t *testing.T) {
+func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, namespace string, n int, t *testing.T) {
 	stop := make(chan struct{})
 	defer close(stop)
 
@@ -245,28 +299,28 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, n i
 	go cache.Run(stop)
 
 	// run map invariant sequence
-	CheckMapInvariant(store, t, n)
+	CheckMapInvariant(store, t, namespace, n)
 
 	glog.Infof("Waiting till all events are received")
 	util.Eventually(func() bool { return added == n && deleted == n }, t)
 }
 
 // CheckCacheFreshness validates operational invariants of a cache
-func CheckCacheFreshness(cache model.ConfigStoreCache, t *testing.T) {
+func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *testing.T) {
 	stop := make(chan struct{})
 	var doneMu sync.Mutex
 	done := false
 
 	// validate cache consistency
 	cache.RegisterEventHandler(model.MockConfig.Type, func(config model.Config, ev model.Event) {
-		elts, _ := cache.List(model.MockConfig.Type)
+		elts, _ := cache.List(model.MockConfig.Type, namespace)
 		switch ev {
 		case model.EventAdd:
 			if len(elts) != 1 {
 				t.Errorf("Got %#v, expected %d element(s) on ADD event", elts, 1)
 			}
 			glog.Infof("Calling Delete(%#v)", config.Key)
-			if err := cache.Delete(model.MockConfig.Type, config.Key); err != nil {
+			if err := cache.Delete(model.MockConfig.Type, config.Name, config.Namespace); err != nil {
 				t.Error(err)
 			}
 		case model.EventDelete:
@@ -282,11 +336,11 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, t *testing.T) {
 	})
 
 	go cache.Run(stop)
-	o := Make(0)
+	o := Make(namespace, 0)
 
 	// add and remove
 	glog.Infof("Calling Post(%#v)", o)
-	if _, err := cache.Post(o); err != nil {
+	if _, err := cache.Create(o); err != nil {
 		t.Error(err)
 	}
 
@@ -298,12 +352,12 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, t *testing.T) {
 }
 
 // CheckCacheSync validates operational invariants of a cache
-func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, n int, t *testing.T) {
-	keys := make(map[int]*test.MockConfig)
+func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, namespace string, n int, t *testing.T) {
+	keys := make(map[int]model.Config)
 	// add elements directly through client
 	for i := 0; i < n; i++ {
-		keys[i] = Make(i)
-		if _, err := store.Post(keys[i]); err != nil {
+		keys[i] = Make(namespace, i)
+		if _, err := store.Create(keys[i]); err != nil {
 			t.Error(err)
 		}
 	}
@@ -313,36 +367,36 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, n int
 	defer close(stop)
 	go cache.Run(stop)
 	util.Eventually(func() bool { return cache.HasSynced() }, t)
-	os, _ := cache.List(model.MockConfig.Type)
+	os, _ := cache.List(model.MockConfig.Type, namespace)
 	if len(os) != n {
 		t.Errorf("cache.List => Got %d, expected %d", len(os), n)
 	}
 
 	// remove elements directly through client
 	for i := 0; i < n; i++ {
-		if err := store.Delete(model.MockConfig.Type, keys[i].Key); err != nil {
+		if err := store.Delete(model.MockConfig.Type, keys[i].Name, keys[i].Namespace); err != nil {
 			t.Error(err)
 		}
 	}
 
 	// check again in the controller cache
 	util.Eventually(func() bool {
-		os, _ = cache.List(model.MockConfig.Type)
+		os, _ = cache.List(model.MockConfig.Type, namespace)
 		glog.Infof("cache.List => Got %d, expected %d", len(os), 0)
 		return len(os) == 0
 	}, t)
 
 	// now add through the controller
 	for i := 0; i < n; i++ {
-		if _, err := cache.Post(Make(i)); err != nil {
+		if _, err := cache.Create(Make(namespace, i)); err != nil {
 			t.Error(err)
 		}
 	}
 
 	// check directly through the client
 	util.Eventually(func() bool {
-		cs, _ := cache.List(model.MockConfig.Type)
-		os, _ := store.List(model.MockConfig.Type)
+		cs, _ := cache.List(model.MockConfig.Type, namespace)
+		os, _ := store.List(model.MockConfig.Type, namespace)
 		glog.Infof("cache.List => Got %d, expected %d", len(cs), n)
 		glog.Infof("store.List => Got %d, expected %d", len(os), n)
 		return len(os) == n && len(cs) == n
@@ -350,7 +404,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, n int
 
 	// remove elements directly through the client
 	for i := 0; i < n; i++ {
-		if err := store.Delete(model.MockConfig.Type, keys[i].Key); err != nil {
+		if err := store.Delete(model.MockConfig.Type, keys[i].Name, keys[i].Namespace); err != nil {
 			t.Error(err)
 		}
 	}

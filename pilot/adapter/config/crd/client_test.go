@@ -42,9 +42,9 @@ func kubeconfig(t *testing.T) string {
 	return kubeconfig
 }
 
-func makeClient(namespace string, t *testing.T) *Client {
+func makeClient(t *testing.T) *Client {
 	desc := append(model.IstioConfigTypes, mock.Types...)
-	cl, err := NewClient(kubeconfig(t), desc, namespace)
+	cl, err := NewClient(kubeconfig(t), desc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func makeClient(namespace string, t *testing.T) *Client {
 }
 
 // makeTempClient allocates a namespace and cleans it up on test completion
-func makeTempClient(t *testing.T) (*Client, func()) {
+func makeTempClient(t *testing.T) (*Client, string, func()) {
 	client, err := kube.CreateInterface(kubeconfig(t))
 	if err != nil {
 		t.Fatal(err)
@@ -71,21 +71,21 @@ func makeTempClient(t *testing.T) (*Client, func()) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	cl := makeClient(ns, t)
+	cl := makeClient(t)
 
 	// the rest of the test can run in parallel
 	t.Parallel()
-	return cl, func() { util.DeleteNamespace(client, ns) }
+	return cl, ns, func() { util.DeleteNamespace(client, ns) }
 }
 
 func TestStoreInvariant(t *testing.T) {
-	client, cleanup := makeTempClient(t)
+	client, ns, cleanup := makeTempClient(t)
 	defer cleanup()
-	mock.CheckMapInvariant(client, t, 5)
+	mock.CheckMapInvariant(client, t, ns, 5)
 }
 
 func TestIstioConfig(t *testing.T) {
-	client, cleanup := makeTempClient(t)
+	client, ns, cleanup := makeTempClient(t)
 	defer cleanup()
-	mock.CheckIstioConfigTypes(client, t)
+	mock.CheckIstioConfigTypes(client, ns, t)
 }

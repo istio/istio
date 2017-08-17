@@ -4,10 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = ["config.go"],
     visibility = ["//visibility:public"],
-    deps = [
-        "//model:go_default_library",
-        "@com_github_golang_protobuf//proto:go_default_library",
-    ],
+    deps = ["//model:go_default_library"],
 )
 
 go_test(

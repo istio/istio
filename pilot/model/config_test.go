@@ -164,10 +164,10 @@ var (
 		Policy:      []*proxyconfig.DestinationVersionPolicy{{Tags: dstTags0}},
 	}
 	dstPolicy2 = &proxyconfig.DestinationPolicy{
-		Destination: "foo",
+		Destination: "bar",
 	}
 	dstPolicy3 = &proxyconfig.DestinationPolicy{
-		Destination: "bar",
+		Destination: "baz",
 		Policy:      []*proxyconfig.DestinationVersionPolicy{{Tags: dstTags1}},
 	}
 )
@@ -175,10 +175,6 @@ var (
 func TestIstioRegistryRouteRules(t *testing.T) {
 	r := initTestRegistry(t)
 	defer r.shutdown()
-
-	if RouteRule.Key(routeRule1MatchNil) != routeRule1MatchNil.Name {
-		t.Errorf("unexpected route rule key not equal to name")
-	}
 
 	cases := []struct {
 		name      string
@@ -195,19 +191,19 @@ func TestIstioRegistryRouteRules(t *testing.T) {
 		{
 			name: "Slice of unsorted RouteRules",
 			mockObjs: []Config{
-				{Key: "foo", Content: routeRule1MatchNil},
-				{Key: "bar", Content: routeRule3SourceMismatch},
-				{Key: "baz", Content: routeRule2SourceEmpty},
+				{ConfigMeta: ConfigMeta{Name: "foo"}, Spec: routeRule1MatchNil},
+				{ConfigMeta: ConfigMeta{Name: "bar"}, Spec: routeRule3SourceMismatch},
+				{ConfigMeta: ConfigMeta{Name: "baz"}, Spec: routeRule2SourceEmpty},
 			},
 			want: map[string]*proxyconfig.RouteRule{
-				"foo": routeRule1MatchNil,
-				"bar": routeRule3SourceMismatch,
-				"baz": routeRule2SourceEmpty,
+				"//foo": routeRule1MatchNil,
+				"//bar": routeRule3SourceMismatch,
+				"//baz": routeRule2SourceEmpty,
 			},
 		},
 	}
 	for _, c := range cases {
-		r.mock.EXPECT().List(RouteRule.Type).Return(c.mockObjs, c.mockError)
+		r.mock.EXPECT().List(RouteRule.Type, "").Return(c.mockObjs, c.mockError)
 		if got := r.registry.RouteRules(); !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%v with RouteRule failed: \ngot %+vwant %+v", c.name, spew.Sdump(got), spew.Sdump(c.want))
 		}
@@ -223,22 +219,20 @@ func TestIstioRegistryIngressRules(t *testing.T) {
 		Destination: "a.svc",
 	}
 
-	if IngressRule.Key(rule) != rule.Name {
-		t.Errorf("unexpected ingress rule key not equal to name")
-	}
-
-	r.mock.EXPECT().List(IngressRule.Type).Return([]Config{{
-		Key:     rule.Name,
-		Content: rule,
+	r.mock.EXPECT().List(IngressRule.Type, "").Return([]Config{{
+		ConfigMeta: ConfigMeta{
+			Name: rule.Name,
+		},
+		Spec: rule,
 	}}, nil)
 
 	if got := r.registry.IngressRules(); !reflect.DeepEqual(got, map[string]*proxyconfig.IngressRule{
-		rule.Name: rule,
+		"//" + rule.Name: rule,
 	}) {
 		t.Errorf("IngressRules failed: \ngot %+vwant %+v", spew.Sdump(got), spew.Sdump(rule))
 	}
 
-	r.mock.EXPECT().List(IngressRule.Type).Return(nil, errors.New("cannot list"))
+	r.mock.EXPECT().List(IngressRule.Type, "").Return(nil, errors.New("cannot list"))
 	if got := r.registry.IngressRules(); len(got) > 0 {
 		t.Errorf("IngressRules failed: \ngot %+vwant empty", spew.Sdump(got))
 	}
@@ -252,12 +246,12 @@ func TestIstioRegistryRouteRulesBySource(t *testing.T) {
 	instances := []*ServiceInstance{serviceInstance1, serviceInstance2}
 
 	mockObjs := []Config{
-		{Key: "match-nil", Content: routeRule1MatchNil},
-		{Key: "source-empty", Content: routeRule2SourceEmpty},
-		{Key: "source-mismatch", Content: routeRule3SourceMismatch},
-		{Key: "source-match", Content: routeRule4SourceMatch},
-		{Key: "tag-subset-of-mismatch", Content: routeRule5TagSubsetOfMismatch},
-		{Key: "tag-subset-of-match", Content: routeRule6TagSubsetOfMatch},
+		{ConfigMeta: ConfigMeta{Name: "match-nil"}, Spec: routeRule1MatchNil},
+		{ConfigMeta: ConfigMeta{Name: "source-empty"}, Spec: routeRule2SourceEmpty},
+		{ConfigMeta: ConfigMeta{Name: "source-mismatch"}, Spec: routeRule3SourceMismatch},
+		{ConfigMeta: ConfigMeta{Name: "source-match"}, Spec: routeRule4SourceMatch},
+		{ConfigMeta: ConfigMeta{Name: "tag-subset-of-mismatch"}, Spec: routeRule5TagSubsetOfMismatch},
+		{ConfigMeta: ConfigMeta{Name: "tag-subset-of-match"}, Spec: routeRule6TagSubsetOfMatch},
 	}
 	want := []*proxyconfig.RouteRule{
 		routeRule6TagSubsetOfMatch,
@@ -266,7 +260,7 @@ func TestIstioRegistryRouteRulesBySource(t *testing.T) {
 		routeRule2SourceEmpty,
 	}
 
-	r.mock.EXPECT().List(RouteRule.Type).Return(mockObjs, nil)
+	r.mock.EXPECT().List(RouteRule.Type, "").Return(mockObjs, nil)
 	got := r.registry.RouteRulesBySource(instances)
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Failed \ngot %+vwant %+v", spew.Sdump(got), spew.Sdump(want))
@@ -292,9 +286,9 @@ func TestIstioRegistryPolicies(t *testing.T) {
 		{
 			name: "Slice of unsorted DestinationPolicy",
 			mockObjs: []Config{
-				{Key: "foo", Content: dstPolicy1},
-				{Key: "bar", Content: dstPolicy2},
-				{Key: "baz", Content: dstPolicy3},
+				{ConfigMeta: ConfigMeta{Name: "foo"}, Spec: dstPolicy1},
+				{ConfigMeta: ConfigMeta{Name: "bar"}, Spec: dstPolicy2},
+				{ConfigMeta: ConfigMeta{Name: "baz"}, Spec: dstPolicy3},
 			},
 			want: []*proxyconfig.DestinationPolicy{
 				dstPolicy1, dstPolicy2, dstPolicy3,
@@ -310,7 +304,7 @@ func TestIstioRegistryPolicies(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		r.mock.EXPECT().List(DestinationPolicy.Type).Return(c.mockObjs, c.mockError)
+		r.mock.EXPECT().List(DestinationPolicy.Type, "").Return(c.mockObjs, c.mockError)
 		if got := r.registry.DestinationPolicies(); !reflect.DeepEqual(makeSet(got), makeSet(c.want)) {
 			t.Errorf("%v failed: \ngot %+vwant %+v", c.name, spew.Sdump(got), spew.Sdump(c.want))
 		}
@@ -321,17 +315,15 @@ func TestIstioRegistryDestinationPolicies(t *testing.T) {
 	r := initTestRegistry(t)
 	defer r.shutdown()
 
-	if DestinationPolicy.Key(dstPolicy1) != dstPolicy1.Destination {
-		t.Error("expect destination policy key to be hostname")
-	}
-
-	r.mock.EXPECT().Get(DestinationPolicy.Type, dstPolicy1.Destination).Return(dstPolicy1, true, "rev")
+	r.mock.EXPECT().Get(DestinationPolicy.Type, dstPolicy1.Destination, "").Return(&Config{
+		Spec: dstPolicy1,
+	}, true)
 	want := dstPolicy1.Policy[0]
 	if got := r.registry.DestinationPolicy(dstPolicy1.Destination, want.Tags); !reflect.DeepEqual(got, want) {
 		t.Errorf("Failed: \ngot %+vwant %+v", spew.Sdump(got), spew.Sdump(want))
 	}
 
-	r.mock.EXPECT().Get(DestinationPolicy.Type, dstPolicy3.Destination).Return(nil, false, "")
+	r.mock.EXPECT().Get(DestinationPolicy.Type, dstPolicy3.Destination, "").Return(nil, false)
 	if got := r.registry.DestinationPolicy(dstPolicy3.Destination, nil); got != nil {
 		t.Errorf("Failed: \ngot %+vwant nil", spew.Sdump(got))
 	}

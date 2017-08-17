@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -67,9 +66,6 @@ type Client struct {
 
 	// dynamic REST client for accessing config CRDs
 	dynamic *rest.RESTClient
-
-	// namespace is the namespace for storing CRDs
-	namespace string
 }
 
 // CreateRESTConfig for cluster API server, pass empty config file for in-cluster
@@ -109,10 +105,9 @@ func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 }
 
 // NewClient creates a client to Kubernetes API using a kubeconfig file.
-// namespace argument provides the namespace to store CRDs
 // Use an empty value for `kubeconfig` to use the in-cluster config.
 // If the kubeconfig file is empty, defaults to in-cluster config as well.
-func NewClient(config string, descriptor model.ConfigDescriptor, namespace string) (*Client, error) {
+func NewClient(config string, descriptor model.ConfigDescriptor) (*Client, error) {
 	for _, typ := range descriptor {
 		if _, exists := knownTypes[typ.Type]; !exists {
 			return nil, fmt.Errorf("missing known type for %q", typ.Type)
@@ -138,7 +133,6 @@ func NewClient(config string, descriptor model.ConfigDescriptor, namespace strin
 		descriptor: descriptor,
 		restconfig: restconfig,
 		dynamic:    dynamic,
-		namespace:  namespace,
 	}
 
 	return out, nil
@@ -235,113 +229,111 @@ func (cl *Client) ConfigDescriptor() model.ConfigDescriptor {
 }
 
 // Get implements store interface
-func (cl *Client) Get(typ, key string) (proto.Message, bool, string) {
+func (cl *Client) Get(typ, name, namespace string) (*model.Config, bool) {
 	schema, exists := cl.descriptor.GetByType(typ)
 	if !exists {
-		return nil, false, ""
+		return nil, false
 	}
 
 	config := knownTypes[typ].object.DeepCopyObject().(IstioObject)
 	err := cl.dynamic.Get().
-		Namespace(cl.namespace).
+		Namespace(namespace).
 		Resource(schema.Plural).
-		Name(configKey(typ, key)).
+		Name(name).
 		Do().Into(config)
 
 	if err != nil {
 		glog.Warning(err)
-		return nil, false, ""
+		return nil, false
 	}
 
-	out, err := schema.FromJSONMap(config.GetSpec())
+	out, err := convertObject(schema, config)
 	if err != nil {
-		glog.Warningf("%v for %#v", err, config.GetObjectMeta())
-		return nil, false, ""
+		glog.Warning(err)
+		return nil, false
 	}
-	return out, true, config.GetObjectMeta().ResourceVersion
+	return out, true
 }
 
-// Post implements store interface
-func (cl *Client) Post(v proto.Message) (string, error) {
-	messageName := proto.MessageName(v)
-	schema, exists := cl.descriptor.GetByMessageName(messageName)
+// Create implements store interface
+func (cl *Client) Create(config model.Config) (string, error) {
+	schema, exists := cl.descriptor.GetByType(config.Type)
 	if !exists {
-		return "", fmt.Errorf("unrecognized message name %q", messageName)
+		return "", fmt.Errorf("unrecognized type %q", config.Type)
 	}
 
-	if err := schema.Validate(v); err != nil {
+	if err := schema.Validate(config.Spec); err != nil {
 		return "", multierror.Prefix(err, "validation error:")
 	}
 
-	out, err := modelToKube(schema, cl.namespace, v, "")
+	out, err := convertConfig(schema, config)
 	if err != nil {
 		return "", err
 	}
 
-	config := knownTypes[schema.Type].object.DeepCopyObject().(IstioObject)
+	obj := knownTypes[schema.Type].object.DeepCopyObject().(IstioObject)
 	err = cl.dynamic.Post().
 		Namespace(out.GetObjectMeta().Namespace).
 		Resource(schema.Plural).
 		Body(out).
-		Do().Into(config)
+		Do().Into(obj)
 	if err != nil {
 		return "", err
 	}
 
-	return config.GetObjectMeta().ResourceVersion, nil
+	return obj.GetObjectMeta().ResourceVersion, nil
 }
 
-// Put implements store interface
-func (cl *Client) Put(v proto.Message, revision string) (string, error) {
-	messageName := proto.MessageName(v)
-	schema, exists := cl.descriptor.GetByMessageName(messageName)
+// Update implements store interface
+func (cl *Client) Update(config model.Config) (string, error) {
+	schema, exists := cl.descriptor.GetByType(config.Type)
 	if !exists {
-		return "", fmt.Errorf("unrecognized message name %q", messageName)
+		return "", fmt.Errorf("unrecognized type %q", config.Type)
 	}
 
-	if err := schema.Validate(v); err != nil {
+	if err := schema.Validate(config.Spec); err != nil {
 		return "", multierror.Prefix(err, "validation error:")
 	}
 
-	if revision == "" {
+	if config.ResourceVersion == "" {
 		return "", fmt.Errorf("revision is required")
 	}
 
-	out, err := modelToKube(schema, cl.namespace, v, revision)
+	out, err := convertConfig(schema, config)
 	if err != nil {
 		return "", err
 	}
 
-	config := knownTypes[schema.Type].object.DeepCopyObject().(IstioObject)
+	obj := knownTypes[schema.Type].object.DeepCopyObject().(IstioObject)
 	err = cl.dynamic.Put().
 		Namespace(out.GetObjectMeta().Namespace).
 		Resource(schema.Plural).
 		Name(out.GetObjectMeta().Name).
 		Body(out).
-		Do().Into(config)
+		Do().Into(obj)
 	if err != nil {
 		return "", err
 	}
 
-	return config.GetObjectMeta().ResourceVersion, nil
+	return obj.GetObjectMeta().ResourceVersion, nil
 }
 
 // Delete implements store interface
-func (cl *Client) Delete(typ, key string) error {
+func (cl *Client) Delete(typ, name, namespace string) error {
 	schema, exists := cl.descriptor.GetByType(typ)
 	if !exists {
 		return fmt.Errorf("missing type %q", typ)
 	}
 
 	return cl.dynamic.Delete().
-		Namespace(cl.namespace).
+		Namespace(namespace).
 		Resource(schema.Plural).
-		Name(configKey(typ, key)).
+		Name(name).
 		Do().Error()
 }
 
 // List implements store interface
-func (cl *Client) List(typ string) ([]model.Config, error) {
+func (cl *Client) List(typ, namespace string) ([]model.Config, error) {
 	schema, exists := cl.descriptor.GetByType(typ)
 	if !exists {
 		return nil, fmt.Errorf("missing type %q", typ)
@@ -349,22 +341,17 @@ func (cl *Client) List(typ string) ([]model.Config, error) {
 
 	list := knownTypes[schema.Type].collection.DeepCopyObject().(IstioObjectList)
 	errs := cl.dynamic.Get().
-		Namespace(cl.namespace).
+		Namespace(namespace).
 		Resource(schema.Plural).
 		Do().Into(list)
 
 	out := make([]model.Config, 0)
 	for _, item := range list.GetItems() {
-		data, err := schema.FromJSONMap(item.GetSpec())
+		obj, err := convertObject(schema, item)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		} else {
-			out = append(out, model.Config{
-				Type:     schema.Type,
-				Key:      schema.Key(data),
-				Revision: item.GetObjectMeta().ResourceVersion,
-				Content:  data,
-			})
+			out = append(out, *obj)
 		}
 	}
 	return out, errs

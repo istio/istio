@@ -14,7 +14,6 @@ go_library(
         "//model:go_default_library",
         "//platform/kube:go_default_library",
         "@com_github_golang_glog//:go_default_library",
-        "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/apis/apiextensions/v1beta1:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/client/clientset/clientset:go_default_library",

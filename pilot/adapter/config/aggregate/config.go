@@ -23,8 +23,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
-
 	"istio.io/pilot/model"
 )
 
@@ -77,46 +75,44 @@ func (cr *store) ConfigDescriptor() model.ConfigDescriptor {
 	return cr.descriptor
 }
 
-func (cr *store) Get(typ, key string) (proto.Message, bool, string) {
+func (cr *store) Get(typ, name, namespace string) (*model.Config, bool) {
 	store, exists := cr.stores[typ]
 	if !exists {
-		return nil, false, ""
+		return nil, false
 	}
-	return store.Get(typ, key)
+	return store.Get(typ, name, namespace)
 }
 
-func (cr *store) List(typ string) ([]model.Config, error) {
+func (cr *store) List(typ, namespace string) ([]model.Config, error) {
 	store, exists := cr.stores[typ]
 	if !exists {
 		return nil, nil
 	}
-	return store.List(typ)
+	return store.List(typ, namespace)
 }
 
-func (cr *store) Delete(typ, key string) error {
+func (cr *store) Delete(typ, name, namespace string) error {
 	store, exists := cr.stores[typ]
 	if !exists {
 		return fmt.Errorf("missing type %q", typ)
 	}
-	return store.Delete(typ, key)
+	return store.Delete(typ, name, namespace)
 }
 
-func (cr *store) Post(config proto.Message) (string, error) {
-	schema, exists := cr.descriptor.GetByMessageName(proto.MessageName(config))
+func (cr *store) Create(config model.Config) (string, error) {
+	store, exists := cr.stores[config.Type]
 	if !exists {
 		return "", errors.New("missing type")
 	}
-	store := cr.stores[schema.Type]
-	return store.Post(config)
+	return store.Create(config)
 }
 
-func (cr *store) Put(config proto.Message, oldRevision string) (string, error) {
-	schema, exists := cr.descriptor.GetByMessageName(proto.MessageName(config))
+func (cr *store) Update(config model.Config) (string, error) {
+	store, exists := cr.stores[config.Type]
 	if !exists {
 		return "", errors.New("missing type")
 	}
-	store := cr.stores[schema.Type]
-	return store.Put(config, oldRevision)
+	return store.Update(config)
 }
 
 type storeCache struct {
@@ -128,24 +124,24 @@ func (cr *storeCache) ConfigDescriptor() model.ConfigDescriptor {
 	return cr.store.ConfigDescriptor()
 }
 
-func (cr *storeCache) Get(typ, key string) (config proto.Message, exists bool, revision string) {
-	return cr.store.Get(typ, key)
+func (cr *storeCache) Get(typ, name, namespace string) (config *model.Config, exists bool) {
+	return cr.store.Get(typ, name, namespace)
 }
 
-func (cr *storeCache) List(typ string) ([]model.Config, error) {
-	return cr.store.List(typ)
+func (cr *storeCache) List(typ, namespace string) ([]model.Config, error) {
+	return cr.store.List(typ, namespace)
 }
 
-func (cr *storeCache) Post(val proto.Message) (string, error) {
-	return cr.store.Post(val)
+func (cr *storeCache) Create(config model.Config) (string, error) {
+	return cr.store.Create(config)
 }
 
-func (cr *storeCache) Put(val proto.Message, revision string) (string, error) {
-	return cr.store.Put(val, revision)
+func (cr *storeCache) Update(config model.Config) (string, error) {
+	return cr.store.Update(config)
 }
 
-func (cr *storeCache) Delete(typ, key string) error {
-	return cr.store.Delete(typ, key)
+func (cr *storeCache) Delete(typ, name, namespace string) error {
+	return cr.store.Delete(typ, name, namespace)
 }
 
 func (cr *storeCache) HasSynced() bool {

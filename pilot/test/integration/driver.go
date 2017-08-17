@@ -301,7 +301,7 @@ func parallel(fs map[string]func() status) error {
 
 // connect to K8S cluster and register TPRs
 func setupClient() error {
-	istioClient, err := crd.NewClient(kubeconfig, model.IstioConfigTypes, "dummy")
+	istioClient, err := crd.NewClient(kubeconfig, model.IstioConfigTypes)
 	if err != nil {
 		return err
 	}

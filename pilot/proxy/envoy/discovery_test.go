@@ -158,7 +158,7 @@ func TestClusterDiscovery(t *testing.T) {
 func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
-	addCircuitBreaker(registry, t)
+	addConfig(registry, cbPolicy, t)
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/clusters/%s/%s", ds.Mesh.IstioServiceCluster, mock.ProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -230,7 +230,7 @@ func TestRouteDiscoveryV1(t *testing.T) {
 func TestRouteDiscoveryTimeout(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
-	addTimeout(registry, t)
+	addConfig(registry, timeoutRouteRule, t)
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", ds.Mesh.IstioServiceCluster, mock.ProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -240,7 +240,7 @@ func TestRouteDiscoveryTimeout(t *testing.T) {
 func TestRouteDiscoveryWeighted(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
-	addWeightedRoute(registry, t)
+	addConfig(registry, weightedRouteRule, t)
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", ds.Mesh.IstioServiceCluster, mock.ProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -250,7 +250,7 @@ func TestRouteDiscoveryWeighted(t *testing.T) {
 func TestRouteDiscoveryFault(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
-	addFaultRoute(registry, t)
+	addConfig(registry, faultRouteRule, t)
 	ds := makeDiscoveryService(t, registry, &mesh)
 
 	// fault rule is source based: we check that the rule only affect v0 and not v1
@@ -266,7 +266,7 @@ func TestRouteDiscoveryFault(t *testing.T) {
 func TestRouteDiscoveryRedirect(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
-	addRedirect(registry, t)
+	addConfig(registry, redirectRouteRule, t)
 	ds := makeDiscoveryService(t, registry, &mesh)
 
 	// fault rule is source based: we check that the rule only affect v0 and not v1
@@ -278,7 +278,7 @@ func TestRouteDiscoveryRedirect(t *testing.T) {
 func TestRouteDiscoveryRewrite(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
-	addRewrite(registry, t)
+	addConfig(registry, rewriteRouteRule, t)
 	ds := makeDiscoveryService(t, registry, &mesh)
 
 	// fault rule is source based: we check that the rule only affect v0 and not v1
@@ -306,7 +306,7 @@ func TestRouteDiscoveryIngressWeighted(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
 	addIngressRoutes(registry, t)
-	addWeightedRoute(registry, t)
+	addConfig(registry, weightedRouteRule, t)
 	ds := makeDiscoveryService(t, registry, &mesh)
 
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", ds.Mesh.IstioServiceCluster, mock.Ingress.ServiceNode())
@@ -326,40 +326,33 @@ func TestRouteDiscoveryEgress(t *testing.T) {
 func TestSidecarListenerDiscovery(t *testing.T) {
 	testCases := []struct {
 		name string
-		typ  string
 		file string
 	}{
 		{name: "none"},
 		/* these configs do not affect listeners
 		{
 			name: "cb",
-			typ:  model.DestinationPolicy,
 			file: cbPolicy,
 		},
 		{
 			name: "redirect",
-			typ:  model.RouteRule,
 			file: redirectRouteRule,
 		},
 		{
 			name: "rewrite",
-			typ:  model.RouteRule,
 			file: rewriteRouteRule,
 		},
 		{
 			name: "timeout",
-			typ:  model.RouteRule,
 			file: timeoutRouteRule,
 		},
 		*/
 		{
 			name: "weighted",
-			typ:  model.RouteRule.Type,
 			file: weightedRouteRule,
 		},
 		{
 			name: "fault",
-			typ:  model.RouteRule.Type,
 			file: faultRouteRule,
 		},
 	}
@@ -368,14 +361,8 @@ func TestSidecarListenerDiscovery(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			registry := memory.Make(model.IstioConfigTypes)
 
-			if testCase.typ != "" {
-				msg, err := configObjectFromYAML(testCase.typ, testCase.file)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if _, err = registry.Post(msg); err != nil {
-					t.Fatal(err)
-				}
+			if testCase.file != "" {
+				addConfig(registry, testCase.file, t)
 			}
 
 			// test with no auth

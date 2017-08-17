@@ -258,31 +258,28 @@ func (infra *infra) clientRequest(app, url string, count int, extra string) resp
 	return out
 }
 
-func (infra *infra) applyConfig(inFile string, data map[string]string, typ string) error {
+func (infra *infra) applyConfig(inFile string, data map[string]string) error {
 	config, err := fill(inFile, data)
 	if err != nil {
 		return err
 	}
 
-	schema, ok := model.IstioConfigTypes.GetByType(typ)
-	if !ok {
-		return fmt.Errorf("Invalid type %s", typ)
-	}
-	v, err := schema.FromYAML(config)
+	v, err := model.IstioConfigTypes.FromYAML([]byte(config))
 	if err != nil {
 		return err
 	}
 
-	istioClient, err := crd.NewClient(kubeconfig, model.IstioConfigTypes, infra.Namespace)
+	istioClient, err := crd.NewClient(kubeconfig, model.IstioConfigTypes)
 	if err != nil {
 		return err
 	}
 
-	_, exists, rev := istioClient.Get(typ, schema.Key(v))
+	old, exists := istioClient.Get(v.Type, v.Name, v.Namespace)
 	if exists {
-		_, err = istioClient.Put(v, rev)
+		v.ResourceVersion = old.ResourceVersion
+		_, err = istioClient.Update(*v)
 	} else {
-		_, err = istioClient.Post(v)
+		_, err = istioClient.Create(*v)
 	}
 	if err != nil {
 		return err
@@ -294,18 +291,18 @@ func (infra *infra) applyConfig(inFile string, data map[string]string, typ strin
 }
 
 func (infra *infra) deleteAllConfigs() error {
-	istioClient, err := crd.NewClient(kubeconfig, model.IstioConfigTypes, infra.Namespace)
+	istioClient, err := crd.NewClient(kubeconfig, model.IstioConfigTypes)
 	if err != nil {
 		return err
 	}
 	for _, desc := range istioClient.ConfigDescriptor() {
-		configs, err := istioClient.List(desc.Type)
+		configs, err := istioClient.List(desc.Type, infra.Namespace)
 		if err != nil {
 			return err
 		}
 		for _, config := range configs {
-			glog.Infof("Delete config %s %s", desc.Type, config.Key)
-			if err = istioClient.Delete(desc.Type, config.Key); err != nil {
+			glog.Infof("Delete config %s", config.Key())
+			if err = istioClient.Delete(desc.Type, config.Name, config.Namespace); err != nil {
 				return err
 			}
 		}

@@ -1,10 +1,14 @@
-destination: {{.Destination}}.{{.Namespace}}.svc.cluster.local
+type: route-rule
 name: redirect-route
-precedence: 5
-match:
-  httpHeaders:
-    testredirect:
-      exact: enabled
-redirect:
-  uri: {{.Path}}
-  authority: {{.HostRedirect}}
+namespace: {{.Namespace}}
+spec:
+  destination: {{.Destination}}.{{.Namespace}}.svc.cluster.local
+  name: redirect-route
+  precedence: 5
+  match:
+    httpHeaders:
+      testredirect:
+        exact: enabled
+  redirect:
+    uri: {{.Path}}
+    authority: {{.HostRedirect}}

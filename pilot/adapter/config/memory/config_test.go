@@ -24,10 +24,10 @@ import (
 
 func TestStoreInvariant(t *testing.T) {
 	store := memory.Make(mock.Types)
-	mock.CheckMapInvariant(store, t, 10)
+	mock.CheckMapInvariant(store, t, "", 10)
 }
 
 func TestIstioConfig(t *testing.T) {
 	store := memory.Make(model.IstioConfigTypes)
-	mock.CheckIstioConfigTypes(store, t)
+	mock.CheckIstioConfigTypes(store, "", t)
 }
