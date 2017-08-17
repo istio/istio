@@ -1,6 +1,6 @@
 type: route-rule
+name: productpage-default
 spec:
-  name: productpage-default
   destination: productpage.default.svc.cluster.local
   precedence: 1
   route:
@@ -8,8 +8,8 @@ spec:
       version: v1
 ---
 type: route-rule
+name: reviews-default
 spec:
-  name: reviews-default
   destination: reviews.default.svc.cluster.local
   precedence: 1
   route:
@@ -17,8 +17,8 @@ spec:
       version: v1
 ---
 type: route-rule
+name: ratings-default
 spec:
-  name: ratings-default
   destination: ratings.default.svc.cluster.local
   precedence: 1
   route:
@@ -26,8 +26,8 @@ spec:
       version: v1
 ---
 type: route-rule
+name: details-default
 spec:
-  name: details-default
   destination: details.default.svc.cluster.local
   precedence: 1
   route:
