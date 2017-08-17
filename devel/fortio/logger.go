@@ -105,7 +105,7 @@ func SetLogLevel(lvl LogLevel) LogLevel {
 	return prev
 }
 
-// GetLogLevel returns the current level
+// GetLogLevel returns the currently configured LogLevel.
 func GetLogLevel() LogLevel {
 	return level
 }

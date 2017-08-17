@@ -16,7 +16,9 @@
 
 
 #######################################
-# Presubmit script triggered by Prow. #
+#                                     #
+#             e2e-suite               #
+#                                     #
 #######################################
 
 # Exit immediately for non zero status
@@ -26,28 +28,5 @@ set -u
 # Print commands
 set -x
 
-if [ "${CI}" == 'bootstrap' ]; then
-  # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
-  # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-  ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
-  cd ${GOPATH}/src/istio.io/istio
-
-  # Use the provided pull head sha, from prow.
-  GIT_SHA="${PULL_PULL_SHA}"
-else
-  # Use the current commit.
-  GIT_SHA="$(git rev-parse --verify HEAD)"
-fi
-
-echo 'Running Linters'
-./bin/linters.sh
-
-echo 'Running Unit Tests'
-bazel test //...
-
-echo 'Pushing Images'
-(cd devel/fortio && make authorize all TAG="${GIT_SHA}")
-
-echo 'Running Integration Tests'
-./prow/e2e.sh
-
+echo 'Running e2e with rbac, with auth Tests'
+./prow/e2e.sh --rbac_enable --auth_enable

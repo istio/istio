@@ -40,7 +40,7 @@ func TestLogger1(t *testing.T) {
 	Warnf("test Wa %d", i) // Should show
 	i++
 	expected += "W test Wa 1\n"
-	prevLevel := SetLogLevel(LogLevelByName("Error"))
+	prevLevel := SetLogLevel(LogLevelByName("error")) // works with lowercase too
 	expected += "I Log level is now 4 Error (was 1 Verbose)\n"
 	LogVf("test Vb %d", i) // Should not show
 	i++
@@ -50,8 +50,8 @@ func TestLogger1(t *testing.T) {
 	i++
 	expected += "E test E 4\n"
 	// test the rest of the api
-	Logf(LogLevelByName("Critical"), "test %d level str %s, %+v", i, prevLevel.String(), GetLogLevel().ToString())
-	expected += "C test 5 level str Verbose, Error\n"
+	Logf(LogLevelByName("Critical"), "test %d level str %s, cur %s", i, prevLevel.String(), GetLogLevel().ToString())
+	expected += "C test 5 level str Verbose, cur Error\n"
 	SetLogLevel(Debug) // should be fine and invisible change
 	SetLogLevel(Debug - 1)
 	expected += "SetLogLevel called with level -1 lower than Debug!\n"
@@ -60,7 +60,7 @@ func TestLogger1(t *testing.T) {
 	SetLogLevel(Critical) // should be fine
 	expected += "I Log level is now 5 Critical (was 0 Debug)\n"
 	w.Flush() // nolint: errcheck
-	actual := string(b.Bytes())
+	actual := b.String()
 	if actual != expected {
 		t.Errorf("unexpected:\n%s\nvs:\n%s\n", actual, expected)
 	}

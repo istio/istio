@@ -19,6 +19,10 @@ Tests could be built and drove manually as a single test or automatically detect
 * `--verbose` debug level noise from proxies
 * `--istioctl_url` the location of an `istioctl` binary
 * `--skip_cleanup` if skip cleanup steps
+* `--log_provider` where cluster logs are hosted, only support `stackdriver` for now
+* `--project_id` project id used to filter logs from provider
+* `--use_local_cluster` whether the cluster is local or not
+* `--parallel` run tests in parallel (sequentially if without flag)
 
 Default values for the `mixer_hub/tag`, `pilot_hub/tag`, and `istioctl_url` are as specified in
 [istio.VERSION](../../istio.VERSION), which are latest tested stable version pairs.
@@ -27,6 +31,8 @@ istio.VERSION can be updated by [updateVersion.sh](../../updateVersion.sh).
 Look at [Integration Test](https://github.com/istio/istio/tree/master/tests#updateversionsh) for more information.
 
 If not specify `namespace`, a randomly namespace would be generated for each test.
+
+`log_provider` and `project_id` must both be specified if one wishes to collect cluster logs.
 
 ### Example
 From the repo checkout root directory

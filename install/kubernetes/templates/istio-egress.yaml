@@ -31,9 +31,14 @@ spec:
       containers:
       - name: proxy
         image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         args: ["proxy", "egress", "-v", "2"]
         env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
