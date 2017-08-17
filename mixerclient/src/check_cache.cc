@@ -28,7 +28,7 @@ namespace mixer_client {
 void CheckCache::CacheElem::CacheElem::SetResponse(
     const CheckResponse& response, Tick time_now) {
   if (response.has_precondition()) {
-    status_ = ConvertRpcStatus(response.precondition().status());
+    status_ = parent_.ConvertRpcStatus(response.precondition().status());
 
     if (response.precondition().has_valid_duration()) {
       expire_time_ =
@@ -144,7 +144,7 @@ Status CheckCache::CacheResponse(const std::string& signature,
     return lookup.value()->status();
   }
 
-  CacheElem* cache_elem = new CacheElem(response, time_now);
+  CacheElem* cache_elem = new CacheElem(*this, response, time_now);
   cache_->Insert(signature, cache_elem, 1);
   return cache_elem->status();
 }
@@ -158,6 +158,15 @@ Status CheckCache::FlushAll() {
   }
 
   return Status::OK;
+}
+
+Status CheckCache::ConvertRpcStatus(const ::google::rpc::Status& status) const {
+  // If server status code is INTERNAL, check network_fail_open flag.
+  if (status.code() == Code::INTERNAL && options_.network_fail_open) {
+    return Status::OK;
+  } else {
+    return Status(static_cast<Code>(status.code()), status.message());
+  }
 }
 
 }  // namespace mixer_client

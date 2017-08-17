@@ -37,10 +37,6 @@ namespace mixer_client {
 std::chrono::milliseconds ToMilliseonds(
     const ::google::protobuf::Duration& duration);
 
-// Convert from grpc status to protobuf status.
-::google::protobuf::util::Status ConvertRpcStatus(
-    const ::google::rpc::Status& status);
-
 bool InvalidDictionaryStatus(const ::google::protobuf::util::Status& status);
 
 }  // namespace mixer_client

@@ -96,9 +96,15 @@ class CheckCache {
   // Usually called at destructor.
   ::google::protobuf::util::Status FlushAll();
 
+  // Convert from grpc status to protobuf status.
+  ::google::protobuf::util::Status ConvertRpcStatus(
+      const ::google::rpc::Status& status) const;
+
   class CacheElem {
    public:
-    CacheElem(const ::istio::mixer::v1::CheckResponse& response, Tick time) {
+    CacheElem(const CheckCache& parent,
+              const ::istio::mixer::v1::CheckResponse& response, Tick time)
+        : parent_(parent) {
       SetResponse(response, time);
     }
 
@@ -113,6 +119,8 @@ class CheckCache {
     ::google::protobuf::util::Status status() const { return status_; }
 
    private:
+    // To the parent cache object.
+    const CheckCache& parent_;
     // The check status for the last check request.
     ::google::protobuf::util::Status status_;
     // Cache item should not be used after it is expired.
