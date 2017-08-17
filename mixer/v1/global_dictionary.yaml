@@ -187,3 +187,21 @@
 - context.protocol
 - context.timestamp
 - context.time
+
+# common integer strings
+- 0
+- 1
+- 200
+- 302
+- 400
+- 401
+- 403
+- 404
+- 409
+- 429
+- 499
+- 500
+- 501
+- 502
+- 503
+- 504
