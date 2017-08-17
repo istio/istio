@@ -205,12 +205,13 @@ class Instance : public Http::StreamDecoderFilter,
   FilterHeadersStatus decodeHeaders(HeaderMap& headers, bool) override {
     Log().debug("Called Mixer::Instance : {}", __func__);
 
+    if (!forward_disabled()) {
+      mixer_control_->ForwardAttributes(
+          headers, GetRouteStringMap(kPrefixForwardAttributes));
+    }
+
     mixer_disabled_ = mixer_disabled();
     if (mixer_disabled_) {
-      if (!forward_disabled()) {
-        mixer_control_->ForwardAttributes(
-            headers, GetRouteStringMap(kPrefixForwardAttributes));
-      }
       return FilterHeadersStatus::Continue;
     }
 
@@ -225,28 +226,11 @@ class Instance : public Http::StreamDecoderFilter,
       origin_user = ssl->uriSanPeerCertificate();
     }
 
-    // Extract attributes from x-istio-attributes header
-    ::istio::proxy::mixer::StringMap forwarded_attributes;
-    const HeaderEntry* entry = headers.get(Utils::kIstioAttributeHeader);
-    if (entry) {
-      std::string str(entry->value().c_str(), entry->value().size());
-      forwarded_attributes.ParseFromString(Base64::decode(str));
-      headers.remove(Utils::kIstioAttributeHeader);
-    }
-
-    mixer_control_->BuildHttpCheck(request_data_, headers, forwarded_attributes,
-                                   origin_user,
-                                   GetRouteStringMap(kPrefixMixerAttributes),
-                                   decoder_callbacks_->connection());
-
-    if (!forward_disabled()) {
-      mixer_control_->ForwardAttributes(
-          headers, GetRouteStringMap(kPrefixForwardAttributes));
-    }
-
     auto instance = GetPtr();
-    mixer_control_->SendCheck(
-        request_data_, &headers,
+    mixer_control_->CheckHttp(
+        request_data_, headers, origin_user,
+        GetRouteStringMap(kPrefixMixerAttributes),
+        decoder_callbacks_->connection(),
         [instance](const Status& status) { instance->completeCheck(status); });
     initiating_call_ = false;
 
@@ -318,9 +302,10 @@ class Instance : public Http::StreamDecoderFilter,
     Log().debug("Called Mixer::Instance : {}", __func__);
     // If decodeHaeders() is not called, not to call Mixer report.
     if (!request_data_) return;
-    mixer_control_->BuildHttpReport(request_data_, response_headers,
-                                    request_info, check_status_code_);
-    mixer_control_->SendReport(request_data_);
+    // Make sure not to use any class members at the callback.
+    // The class may be gone when it is called.
+    mixer_control_->ReportHttp(request_data_, response_headers, request_info,
+                               check_status_code_);
   }
 
   static spdlog::logger& Log() {
