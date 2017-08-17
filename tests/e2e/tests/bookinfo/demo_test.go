@@ -45,7 +45,7 @@ const (
 	delayRule    = "route-rule-delay.yaml"
 	fiftyRule    = "route-rule-reviews-50-v3.yaml"
 	testRule     = "route-rule-reviews-test-v2.yaml"
-        testDbRule   = "route-rule-ratings-test-v2.yaml"
+        testDbRule   = "route-rule-ratings-mysql.yaml"
 )
 
 var (
