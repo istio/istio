@@ -54,6 +54,9 @@ const (
 	// ClusterTypeStatic name for clusters of type 'static'
 	ClusterTypeStatic = "static"
 
+	// ClusterTypeOriginalDST name for clusters of type 'original_dst'
+	ClusterTypeOriginalDST = "original_dst"
+
 	// LbTypeRoundRobin is the name for roundrobin LB
 	LbTypeRoundRobin = "round_robin"
 
@@ -62,6 +65,9 @@ const (
 
 	// LbTypeRandom is the name for random LB
 	LbTypeRandom = "random"
+
+	// LbTypeOriginalDST is the name for LB of original_dst
+	LbTypeOriginalDST = "original_dst_lb"
 
 	// ClusterFeatureHTTP2 is the feature to use HTTP/2 for a cluster
 	ClusterFeatureHTTP2 = "http2"
