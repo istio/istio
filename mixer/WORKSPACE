@@ -47,68 +47,6 @@ go_repository(
     importpath = "gopkg.in/yaml.v2",
 )
 
-GOOGLEAPIS_BUILD_FILE = """
-package(default_visibility = ["//visibility:public"])
-
-load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
-go_prefix("github.com/googleapis/googleapis")
-
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
-
-gogoslick_proto_library(
-    name = "google/rpc",
-    protos = [
-        "google/rpc/code.proto",
-        "google/rpc/error_details.proto",
-        "google/rpc/status.proto",
-    ],
-    importmap = {
-        "google/protobuf/any.proto": "github.com/gogo/protobuf/types",
-        "google/protobuf/duration.proto": "github.com/gogo/protobuf/types",
-    },
-    imports = [
-        "../../external/com_github_google_protobuf/src",
-    ],
-    inputs = [
-        "@com_github_google_protobuf//:well_known_protos",
-    ],
-    deps = [
-        "@com_github_gogo_protobuf//types:go_default_library",
-    ],
-    verbose = 0,
-)
-
-load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cc_proto_library")
-
-cc_proto_library(
-    name = "cc_status_proto",
-    protos = [
-        "google/rpc/status.proto",
-    ],
-    imports = [
-        "../../external/com_github_google_protobuf/src",
-    ],
-    verbose = 0,
-)
-
-filegroup(
-    name = "status_proto",
-    srcs = [ "google/rpc/status.proto" ],
-)
-
-filegroup(
-    name = "code_proto",
-    srcs = [ "google/rpc/code.proto" ],
-)
-"""
-
-new_git_repository(
-    name = "com_github_googleapis_googleapis",
-    build_file_content = GOOGLEAPIS_BUILD_FILE,
-    commit = "13ac2436c5e3d568bd0e938f6ed58b77a48aba15",  # Oct 21, 2016 (only release pre-dates sha)
-    remote = "https://github.com/googleapis/googleapis.git",
-)
-
 go_repository(
     name = "com_github_spf13_cobra",
     commit = "35136c09d8da66b901337c6e86fd8e88a1a255bd",  # Jan 30, 2017 (no releases)
@@ -163,17 +101,12 @@ go_repository(
     importpath = "github.com/opentracing/basictracer-go",
 )
 
-load("//:repositories.bzl", "new_git_or_local_repository")
-
-new_git_or_local_repository(
-    name = "com_github_istio_api",
-    build_file = "BUILD.api",
-    commit = "a0ba5903ae2771eac13f80c3a936ed70fd3494d5",  # August 16, 2017 (no releases)
-    path = "../api",
-    remote = "https://github.com/istio/api.git",
-    # Change this to True to use ../api directory
-    use_local = False,
-)
+load("//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
+load("//:googleapis.bzl", "go_googleapis_repositories")
+load("//:istio_api.bzl", "go_istio_api_repositories")
+go_x_tools_imports_repositories()
+go_googleapis_repositories()
+go_istio_api_repositories(False)
 
 new_http_archive(
     name = "docker_ubuntu",
@@ -491,18 +424,6 @@ go_repository(
     name = "org_uber_go_atomic",
     commit = "4e336646b2ef9fc6e47be8e21594178f98e5ebcf",  # Apr 12, 2017 (v1.2.0)
     importpath = "go.uber.org/atomic",
-)
-
-# bazel rule for fixing up cfg.pb.go relies on running goimports
-# we import it here as a git repository to allow projection of a
-# simple build rule that will build the binary for usage (and avoid
-# the need to project a more complicated BUILD file over the entire
-# tools repo.)
-new_git_repository(
-    name = "org_golang_x_tools_imports",
-    build_file = "BUILD.goimports",
-    commit = "e6cb469339aef5b7be0c89de730d5f3cc8e47e50",  # Jun 23, 2017 (no releases)
-    remote = "https://github.com/golang/tools.git",
 )
 
 go_repository(
