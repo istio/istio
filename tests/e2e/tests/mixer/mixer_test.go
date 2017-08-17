@@ -91,9 +91,9 @@ type luaScriptResponseJSON struct {
 }
 
 var (
-	tc    *testConfig
+	tc             *testConfig
 	testRetryTimes = 5
-	rules = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule, routeReviewsVersionsRule, emptyRule}
+	rules          = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule, routeReviewsVersionsRule, emptyRule}
 )
 
 func (t *testConfig) Setup() error {
