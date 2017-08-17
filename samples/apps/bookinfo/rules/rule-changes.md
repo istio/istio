@@ -3,6 +3,9 @@
 The following rule resource changes are needed to migrate
 from Istio 0.1 (alpha) to Istio 0.2 config format.
 
+All of the 0.2 Pilot config property names are now aligned with the attibute vocabulary
+used for Mixer config. The unified config model design can be found [here](https://docs.google.com/document/d/1fGZpgFWJZhNRlQoBlCW815aOFR-ewfxKhla0CcPRsBM/edit#).
+
 ### Create Route Rule
 
 0.1.x:
@@ -53,8 +56,8 @@ spec:
 metadata:
   namespace: bar # optional (alternatively could use kubectl -n bar ...)
 spec:
-  target:
-    service: foo
+  destination:
+    name: foo
     namespace: bar # optional
 ```
 
@@ -83,7 +86,7 @@ spec:
 spec:
   match:
     source:
-      service: foo
+      name: foo
       namespace: bar (optional - default is rule namespace)
 ```
 
@@ -141,7 +144,53 @@ spec:
   /abc/
 ```
 
-### Example
+### Create Destination Policy
+
+0.1.x:
+```
+istioctl create destination-policy -f mypolicy.yaml
+```
+0.2.x:
+```
+kubectl apply -f mypolicy.yaml
+```
+
+### Destination Policy YAML
+
+0.1.x:
+```
+```
+0.2.x:
+```
+apiVersion: config.istio.io/v1alpha2
+```
+
+0.1.x:
+```
+spec:
+  destination: foo.bar.svc.cluster.local
+```
+0.2.x:
+```
+metadata:
+  name: foo
+  namespace: bar # optional (alternatively could use kubectl -n bar ...)
+```
+
+0.1.x:
+```
+spec:
+  policy:
+  - tags:
+```
+0.2.x:
+```
+spec:
+  policy:
+  - labels:
+```
+
+### Examples
 
 0.1.x
 ```
@@ -170,8 +219,8 @@ kind: RouteRule
 metadata:
   name: ratings-test-delay
 spec:
-  target:
-    service: ratings
+  destination:
+    name: ratings
   precedence: 2
   match:
     request:
@@ -186,14 +235,30 @@ spec:
       fixedDelay: 7s
 ```
 
-### Open Issues
-
-All of the changed names are aligned with the current attibute names
-in Mixer, however there are 2 possible changes that need to be decided
-and then changed in both places:
-
-1. Should we rename "target" to "destination"
-   (e.g. target.labels -> destination.labels)?
-2. Need to add "source.service" attribute to Mixer attributes.
-   (Alternative is to remove "target.service and use "name" to refer to
-    the service on both ends (i.e., "source.name" and "target.name")
+0.1.x:
+```
+type: destination-policy
+name: reviews-cb
+spec:
+  destination: reviews.default.svc.cluster.local
+  policy:
+  - tags:
+      version: v1
+    circuitBreaker:
+      simpleCb:
+        maxConnections: 100
+```
+0.2.x:
+```
+apiVersion: config.istio.io/v1alpha2
+kind: DestinationPolicy
+metadata:
+  name: reviews
+spec:
+  policy:
+  - labels:
+      version: v1
+    circuitBreaker:
+      simpleCb:
+        maxConnections: 100
+```
