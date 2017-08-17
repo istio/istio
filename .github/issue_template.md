@@ -12,7 +12,7 @@ If you're looking for help check [Stack Overflow](https://stackoverflow.com/ques
 
 **What you expected to happen:**
 
-**How to reproduce it (as minimally and precisely as possible):**
+**How to reproduce it:**
 
 **Feature Request:**
 **Describe the feature:**
