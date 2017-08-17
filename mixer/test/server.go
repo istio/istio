@@ -37,11 +37,11 @@ var DefaultAmount = int64(1)
 
 // DefaultValidUseCount is the default number of valid uses to return for
 // quota allocs for testing (1).
-var DefaultValidUseCount = int32(1)
+var DefaultValidUseCount = int32(10000)
 
 // DefaultValidDuration is the default duration to return for
 // quota allocs in testing (1s).
-var DefaultValidDuration = 1 * time.Second
+var DefaultValidDuration = 5 * time.Second
 
 // AttributesServer implements the Mixer API to send mutable attributes bags to
 // a channel upon API requests. This can be used for tests that want to exercise
@@ -90,12 +90,13 @@ func (a *AttributesServer) Check(ctx context.Context, req *mixerpb.CheckRequest)
 	defer requestBag.Done()
 
 	responseBag := attribute.GetMutableBag(requestBag)
-	out := a.Handler.Check(requestBag, responseBag)
+	result, out := a.Handler.Check(requestBag, responseBag)
 
 	resp := &mixerpb.CheckResponse{
 		Precondition: mixerpb.CheckResponse_PreconditionResult{
 			Status:               out,
-			ValidUseCount:        DefaultValidUseCount,
+			ValidUseCount:        result.ValidUseCount,
+			ValidDuration:        result.ValidDuration,
 			ReferencedAttributes: requestBag.GetReferencedAttributes(a.GlobalDict, int(req.GlobalWordCount)),
 		},
 	}

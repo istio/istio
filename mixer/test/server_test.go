@@ -308,6 +308,7 @@ func precondition(status rpc.Status, attrs mixerpb.Attributes, refAttrs mixerpb.
 	return mixerpb.CheckResponse_PreconditionResult{
 		Status:               status,
 		ValidUseCount:        DefaultValidUseCount,
+		ValidDuration:        DefaultValidDuration,
 		Attributes:           attrs,
 		ReferencedAttributes: refAttrs,
 	}
