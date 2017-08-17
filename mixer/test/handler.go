@@ -27,7 +27,7 @@ import (
 // to testing code for validation of proper transport using the Mixer API.
 type AttributesHandler interface {
 	// Check will be called once per Mixer API Check() request.
-	Check(attribute.Bag, *attribute.MutableBag) rpc.Status
+	Check(attribute.Bag, *attribute.MutableBag) (CheckResponse, rpc.Status)
 
 	// Quota will be called once per quota (with params) received in a Check()
 	// request.
@@ -79,14 +79,18 @@ func NewChannelsHandler() *ChannelsHandler {
 	}
 }
 
-func (c *ChannelsHandler) Check(req attribute.Bag, resp *attribute.MutableBag) rpc.Status {
+func (c *ChannelsHandler) Check(req attribute.Bag, resp *attribute.MutableBag) (CheckResponse, rpc.Status) {
 	// avoid blocked go-routines in testing
+	result := CheckResponse{
+		ValidDuration: DefaultValidDuration,
+		ValidUseCount: DefaultValidUseCount,
+	}
 	select {
 	case c.CheckAttributes <- attribute.CopyBag(req):
 		resp = c.CheckResponseBag
-		return c.ReturnStatus
+		return result, c.ReturnStatus
 	case <-time.After(1 * time.Second):
-		return status.WithDeadlineExceeded("timeout sending to Check channel")
+		return result, status.WithDeadlineExceeded("timeout sending to Check channel")
 	}
 }
 
@@ -145,4 +149,14 @@ type QuotaResponse struct {
 
 	// The total amount of quota returned, may be less than requested.
 	Amount int64
+}
+
+// CheckResponse provides information on the result of a Check operation. It allows testing
+// to target precise check responses.
+type CheckResponse struct {
+	// The amount of time for which this result can be considered valid.
+	ValidDuration time.Duration
+
+	// // The number of uses for which this result can be considered valid.
+	ValidUseCount int32
 }
