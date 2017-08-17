@@ -158,13 +158,18 @@ func createCA() ca.CertificateAuthority {
 		return ca
 	}
 
+	var certChainBytes []byte
+	if opts.certChainFile != "" {
+	        certChainBytes = readFile(opts.certChainFile)
+	}
 	caOpts := &ca.IstioCAOptions{
-		CertChainBytes:   readFile(opts.certChainFile),
+		CertChainBytes:   certChainBytes,
 		CertTTL:          opts.certTTL,
 		SigningCertBytes: readFile(opts.signingCertFile),
 		SigningKeyBytes:  readFile(opts.signingKeyFile),
 		RootCertBytes:    readFile(opts.rootCertFile),
 	}
+
 	ca, err := ca.NewIstioCA(caOpts)
 	if err != nil {
 		glog.Errorf("Failed to create an Istio CA (error %v)", err)
@@ -200,12 +205,6 @@ func readFile(filename string) []byte {
 func verifyCommandLineOptions() {
 	if opts.selfSignedCA {
 		return
-	}
-
-	if opts.certChainFile == "" {
-		glog.Fatalf(
-			"No certificate chain has been specified. Either specify a cert chain file via '-cert-chain' option " +
-				"or use '-self-signed-ca'")
 	}
 
 	if opts.signingCertFile == "" {
