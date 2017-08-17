@@ -191,7 +191,7 @@ namespace Configuration {
 class TcpMixerFilterFactory : public NamedNetworkFilterConfigFactory {
  public:
   NetworkFilterFactoryCb createFilterFactory(const Json::Object& config,
-                                             FactoryContext& context) {
+                                             FactoryContext& context) override {
     Http::Mixer::TcpConfigPtr tcp_config(
         new Http::Mixer::TcpConfig(config, context));
     return [tcp_config](Network::FilterManager& filter_manager) -> void {
