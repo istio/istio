@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import sys
-import yaml
 
 TOP = r"""/* Copyright 2017 Istio Authors. All Rights Reserved.
  *
@@ -60,8 +59,10 @@ const std::vector<std::string>& GetGlobalWords() { return kGlobalWords; }
 }  // namespace istio"""
 
 all_words = ''
-for word in yaml.load(open(sys.argv[1])):
-    all_words += "    \"%s\",\n" % word
+with open(sys.argv[1]) as src_file:
+    for line in src_file:
+        if line.startswith("-"):
+            all_words += "    \"" + line[1:].strip() + "\",\n"
 
 print TOP + all_words + BOTTOM
 

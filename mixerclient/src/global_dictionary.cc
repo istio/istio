@@ -123,7 +123,7 @@ const std::vector<std::string> kGlobalWords{
     "POST",
     "http",
     "envoy",
-    "200",
+    "'200'",
     "Keep-Alive",
     "chunked",
     "x-envoy-service-time",
