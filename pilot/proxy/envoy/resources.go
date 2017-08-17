@@ -33,16 +33,16 @@ const (
 	// DefaultLbType defines the default load balancer policy
 	DefaultLbType = LbTypeRoundRobin
 
-	// LDSName is the name of LDS cluster
+	// LDSName is the name of listener-discovery-service (LDS) cluster
 	LDSName = "lds"
 
-	// RDSName is the name of RDS cluster
+	// RDSName is the name of route-discovery-service (RDS) cluster
 	RDSName = "rds"
 
-	// SDSName is the name of SDS cluster
+	// SDSName is the name of service-discovery-service (SDS) cluster
 	SDSName = "sds"
 
-	// CDSName is the name of CDS cluster
+	// CDSName is the name of cluster-discovery-service (CDS) cluster
 	CDSName = "cds"
 
 	// VirtualListenerName is the name for traffic capture listener
