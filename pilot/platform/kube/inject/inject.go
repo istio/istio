@@ -69,6 +69,9 @@ const (
 
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
+
+	// EnvoyConfigPath is the temporary directory for storing configuration
+	EnvoyConfigPath = "/etc/istio/proxy"
 )
 
 // InitImageName returns the fully qualified image name for the istio
@@ -176,7 +179,7 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 		Command: []string{"/bin/sh"},
 		Args: []string{
 			"-c",
-			"sysctl -w kernel.core_pattern=/tmp/core.%e.%p.%t && ulimit -c unlimited",
+			fmt.Sprintf("sysctl -w kernel.core_pattern=%s/core.%%e.%%p.%%t && ulimit -c unlimited", EnvoyConfigPath),
 		},
 		ImagePullPolicy: pullPolicy,
 		SecurityContext: &v1.SecurityContext{
@@ -206,7 +209,7 @@ func injectIntoPodTemplateSpec(p *Params, t *v1.PodTemplateSpec) error {
 		},
 		{
 			Name:      istioEnvoyConfigVolumeName,
-			MountPath: "/etc/istio/proxy",
+			MountPath: EnvoyConfigPath,
 		},
 	}
 
