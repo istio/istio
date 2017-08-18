@@ -45,7 +45,7 @@ cd "${ISTIO_TMP_DIR}"
 HUB="gcr.io/istio-testing"
 BUCKET="istio-artifacts"
 ISTIOCTL_URL="https://storage.googleapis.com/${BUCKET}/pilot/${GIT_SHA}/artifacts/istioctl"
-ARTIFACTS_DIR="${GOPATH}/src/github.com/istio/pilot/_artifacts"
+export ARTIFACTS_DIR="${GOPATH}/src/github.com/istio/pilot/_artifacts"
 
 echo "=== Smoke Test ==="
 # Note: These tests use the default ~/.kube/config file. The prow container mounts the test cluster
