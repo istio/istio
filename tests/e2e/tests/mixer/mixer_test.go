@@ -91,8 +91,9 @@ type luaScriptResponseJSON struct {
 }
 
 var (
-	tc    *testConfig
-	rules = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule, routeReviewsVersionsRule, emptyRule}
+	tc             *testConfig
+	testRetryTimes = 5
+	rules          = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule, routeReviewsVersionsRule, emptyRule}
 )
 
 func (t *testConfig) Setup() error {
@@ -187,7 +188,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestGlobalCheckAndReport(t *testing.T) {
-	if err := visitProductPage(10); err != nil {
+	if err := visitProductPage(testRetryTimes); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
 	}
 
@@ -231,7 +232,7 @@ func TestNewMetrics(t *testing.T) {
 	// TODO: figure out a better way to confirm rule active
 	time.Sleep(5 * time.Second)
 
-	if err := visitProductPage(10); err != nil {
+	if err := visitProductPage(testRetryTimes); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
 	}
 
@@ -279,7 +280,7 @@ func TestDenials(t *testing.T) {
 
 	// generate several calls to the product page
 	for i := 0; i < 10; i++ {
-		if err := visitProductPage(10); err != nil {
+		if err := visitProductPage(testRetryTimes); err != nil {
 			t.Fatalf("Test app setup failure: %v", err)
 		}
 	}
