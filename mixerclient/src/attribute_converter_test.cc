@@ -200,7 +200,7 @@ default_words: "time-key"
 default_words: "int-key2"
 default_words: "key"
 default_words: "value"
-global_word_count: 111
+global_word_count: 150
 )";
 
 class AttributeConverterTest : public ::testing::Test {
