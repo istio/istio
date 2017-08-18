@@ -26,7 +26,13 @@ set -u
 # Print commands
 set -x
 
-# Running out of external ips
+#It's a workaround for prow failing to create _bazel_bootstrap dir (Permisstion denied)
+if [ ! -d '/home/bootstrap/.cache/bazel/_bazel_bootstrap' ]; then
+  echo "/home/bootstrap/.cache/bazel/_bazel_bootstrap doesn't exist. Please try this test again"
+  exit 1
+fi
+
+# Avoid wasting time on getting external IP
 E2E_ARGS=(--use_local_cluster)
 
 if [ "${CI:-}" == 'bootstrap' ]; then
