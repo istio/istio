@@ -75,61 +75,61 @@ package istio.proxy.v1.config;
 message RouteRule {
   // REQUIRED: Route rules have unique names to allow multiple rules
   // for the same destination, e.g. "my-rule".
-  string name = 11;
+  string name = 1;
 
   // REQUIRED: Destination uniquely identifies the destination associated
   // with this routing rule.  This field is applicable for hostname-based
   // resolution for HTTP traffic as well as IP-based resolution for
   // TCP/UDP traffic. The value MUST BE a fully-qualified domain name,
   // e.g. "my-service.default.svc.cluster.local".
-  string destination = 1;
+  string destination = 2;
 
   // RECOMMENDED. Precedence is used to disambiguate the order of
   // application of rules for the same destination service. A higher number
   // takes priority. If not specified, the value is assumed to be 0.  The
   // order of application for rules with the same precedence is
   // unspecified.
-  int32 precedence = 2;
+  int32 precedence = 3;
 
   // Match condtions to be satisfied for the route rule to be
   // activated. If match is omitted, the route rule applies only to HTTP
   // traffic.
-  MatchCondition match = 3;
+  MatchCondition match = 4;
 
   // REQUIRED (route|redirect). A routing rule can either redirect traffic or
   // forward traffic. The forwarding target can be one of several versions
   // of a service (see glossary in beginning of document). Weights
   // associated with the service version determine the proportion of
   // traffic it receives.
-  repeated DestinationWeight route = 4;
+  repeated DestinationWeight route = 5;
 
   // REQUIRED (route|redirect). A routing rule can either redirect traffic or
   // forward traffic. The redirect primitive can be used to send a HTTP 302
   // redirect to a different URI or Authority.
-  HTTPRedirect redirect = 5;
+  HTTPRedirect redirect = 6;
 
   // Rewrite HTTP URIs and Authority headers. Rewrite cannot be used with
   // Redirect primitive. Rewrite will be performed before forwarding.
-  HTTPRewrite rewrite = 6;
-
-  // Timeout policy for HTTP requests.
-  HTTPTimeout http_req_timeout = 7;
-
-  // Retry policy for HTTP requests.
-  HTTPRetry http_req_retries = 8;
-
-  //Fault injection policy to apply on HTTP traffic
-  HTTPFaultInjection http_fault = 9;
-
-  //(-- L4 fault injection policy applies to Tcp/Udp (not HTTP) traffic --)
-  L4FaultInjection l4_fault = 10;
+  HTTPRewrite rewrite = 7;
 
   // Indicates that a HTTP/1.1 client connection to this particular route
   // should be allowed (and expected) to upgrade to a WebSocket connection.
   // The default is false. Envoy expects the first request to this route
   // to contain the WebSocket upgrade headers. Otherwise, the request
   // will be rejected.
-  bool websocket_upgrade = 11;
+  bool websocket_upgrade = 8;
+
+  // Timeout policy for HTTP requests.
+  HTTPTimeout http_req_timeout = 9;
+
+  // Retry policy for HTTP requests.
+  HTTPRetry http_req_retries = 10;
+
+  //Fault injection policy to apply on HTTP traffic
+  HTTPFaultInjection http_fault = 11;
+
+  //(-- L4 fault injection policy applies to Tcp/Udp (not HTTP) traffic --)
+  L4FaultInjection l4_fault = 12;
 }
 
 // Match condition specifies a set of criterion to be met in order for the
