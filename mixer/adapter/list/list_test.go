@@ -387,7 +387,7 @@ func TestBadUrl(t *testing.T) {
 	info := GetBuilderInfo()
 	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
-		ProviderUrl:     "http://abadurl.com",
+		ProviderUrl:     "https://localhost:80",
 		RefreshInterval: 1 * time.Second,
 		Ttl:             2 * time.Second,
 	}
