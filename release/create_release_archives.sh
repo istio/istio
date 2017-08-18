@@ -29,13 +29,15 @@ ISTIO_VERSION="$(cat ${ROOT}/istio.RELEASE)"
 [[ -z "${ISTIO_VERSION}" ]] && error_exit 'ISTIO_VERSION is not set'
 [[ -z "${ISTIOCTL_URL}" ]] && error_exit 'ISTIOCTL_URL is not set'
 
-BASE_DIR="$(mktemp -d /tmp/istio.version.XXXX)"
-
+# Set output directory from flag if user specifies
 while getopts :d: arg; do
   case ${arg} in
     d) BASE_DIR="${OPTARG}";;
   esac
 done
+
+# Use temp directory as default if user has no preference
+[[ -z ${BASE_DIR} ]] && BASE_DIR="$(mktemp -d /tmp/istio.version.XXXX)"
 
 COMMON_FILES_DIR="${BASE_DIR}/istio/istio-${ISTIO_VERSION}"
 ARCHIVES_DIR="${BASE_DIR}/archives"
