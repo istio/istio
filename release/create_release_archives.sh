@@ -29,9 +29,16 @@ ISTIO_VERSION="$(cat ${ROOT}/istio.RELEASE)"
 [[ -z "${ISTIO_VERSION}" ]] && error_exit 'ISTIO_VERSION is not set'
 [[ -z "${ISTIOCTL_URL}" ]] && error_exit 'ISTIOCTL_URL is not set'
 
-TMP_DIR="$(mktemp -d /tmp/istio.version.XXXX)"
-COMMON_FILES_DIR="${TMP_DIR}/istio/istio-${ISTIO_VERSION}"
-ARCHIVES_DIR="${TMP_DIR}/archives"
+BASE_DIR="$(mktemp -d /tmp/istio.version.XXXX)"
+
+while getopts :d: arg; do
+  case ${arg} in
+    d) BASE_DIR="${OPTARG}";;
+  esac
+done
+
+COMMON_FILES_DIR="${BASE_DIR}/istio/istio-${ISTIO_VERSION}"
+ARCHIVES_DIR="${BASE_DIR}/archives"
 mkdir -p "${COMMON_FILES_DIR}/bin" "${ARCHIVES_DIR}"
 
 # On mac, brew install gnu-tar gnu-cp
