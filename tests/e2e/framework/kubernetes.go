@@ -144,17 +144,21 @@ func (k *KubeInfo) Teardown() error {
 		}
 
 		// confirm the namespace is deleted as it will cause future creation to fail
-		maxAttempts := 5
+		maxAttempts := 10
 		var bool namespaceDeleted
 		for attempts := 1; attempts <= maxAttempts; attempts++ {
-			namespaceDeleted = util.IsNamespaceDeleted(k.Namespace)
+			namespaceDeleted, err = util.IsNamespaceDeleted(k.Namespace)
 			if namespaceDeleted == true {
 				break
 			}
 			time.Sleep(1 * time.Second)
 		}
 
-		k.namespaceCreated = !namespaceDeleted
+		if !namespaceDeleted {
+			glog.Error("Failed to delete namespace %s after %s seconds", k.Namespace, maxAttempts)
+			return err
+		}
+		k.namespaceCreated = false
 		glog.Infof("Namespace %s deletion status: %s", k.Namespace, namespaceDeleted)
 	}
 	return err
