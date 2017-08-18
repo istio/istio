@@ -3,7 +3,7 @@
 
 **Is this a BUG or FEATURE REQUEST?:**
 
-**Did you review existing epics or issues to identify if this already being worked on** (please try to add the correct tags and epics)?:
+**Did you review existing epics or issues to identify if this already being worked on?** (please try to add the correct tags and epics):
 
 **Bug:**
 **What happened**:
