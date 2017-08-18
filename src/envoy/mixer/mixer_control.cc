@@ -188,6 +188,19 @@ void FillCheckAttributes(HeaderMap& header_map, Attributes* attr) {
   FillRequestHeaderAttributes(header_map, attr);
 }
 
+void SetIPAttribute(const std::string& name, const Network::Address::Ip& ip,
+                    Attributes* attr) {
+  if (ip.ipv4()) {
+    uint32_t ipv4 = ip.ipv4()->address();
+    attr->attributes[name] = Attributes::BytesValue(
+        std::string(reinterpret_cast<const char*>(&ipv4), sizeof(ipv4)));
+  } else if (ip.ipv6()) {
+    std::array<uint8_t, 16> ipv6 = ip.ipv6()->address();
+    attr->attributes[name] = Attributes::BytesValue(
+        std::string(reinterpret_cast<const char*>(ipv6.data()), 16));
+  }
+}
+
 // A class to wrap envoy timer for mixer client timer.
 class EnvoyTimer : public ::istio::mixer_client::Timer {
  public:
@@ -279,8 +292,7 @@ void MixerControl::CheckHttp(HttpRequestDataPtr request_data,
   if (connection) {
     const Network::Address::Ip* remote_ip = connection->remoteAddress().ip();
     if (remote_ip) {
-      SetStringAttribute(kSourceIp, remote_ip->addressAsString(),
-                         &request_data->attributes);
+      SetIPAttribute(kSourceIp, *remote_ip, &request_data->attributes);
       SetInt64Attribute(kSourcePort, remote_ip->port(),
                         &request_data->attributes);
     }
@@ -328,8 +340,7 @@ void MixerControl::CheckTcp(HttpRequestDataPtr request_data,
 
   const Network::Address::Ip* remote_ip = connection.remoteAddress().ip();
   if (remote_ip) {
-    SetStringAttribute(kSourceIp, remote_ip->addressAsString(),
-                       &request_data->attributes);
+    SetIPAttribute(kSourceIp, *remote_ip, &request_data->attributes);
     SetInt64Attribute(kSourcePort, remote_ip->port(),
                       &request_data->attributes);
   }
@@ -366,8 +377,7 @@ void MixerControl::ReportTcp(
   if (upstreamHost && upstreamHost->address()) {
     const Network::Address::Ip* target_ip = upstreamHost->address()->ip();
     if (target_ip) {
-      SetStringAttribute(kTargetIp, target_ip->addressAsString(),
-                         &request_data->attributes);
+      SetIPAttribute(kTargetIp, *target_ip, &request_data->attributes);
       SetInt64Attribute(kTargetPort, target_ip->port(),
                         &request_data->attributes);
     }

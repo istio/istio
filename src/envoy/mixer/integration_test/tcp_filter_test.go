@@ -26,7 +26,7 @@ const checkAttributesOkPost = `
 {
   "context.protocol": "tcp",
   "context.time": "*",
-  "source.ip": "127.0.0.1",
+  "source.ip": "*",
   "source.port": "*",
   "target.uid": "POD222",
   "target.namespace": "XYZ222"
@@ -38,11 +38,11 @@ const reportAttributesOkPost = `
 {
   "context.protocol": "tcp",
   "context.time": "*",
-  "source.ip": "127.0.0.1",
+  "source.ip": "*",
   "source.port": "*",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
-  "target.ip": "127.0.0.1",
+  "target.ip": "*",
   "target.port": 28080,
   "connection.received.bytes": 178,
   "connection.received.bytes_total": 178,
@@ -58,7 +58,7 @@ const reportAttributesFailPost = `
 {
   "context.protocol": "tcp",
   "context.time": "*",
-  "source.ip": "127.0.0.1",
+  "source.ip": "*",
   "source.port": "*",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
