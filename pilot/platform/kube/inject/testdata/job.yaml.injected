@@ -1,49 +1,28 @@
-kind: Service
-apiVersion: v1
-metadata:
-  name: frontend
-spec:
-  selector:
-    app: hello
-    tier: frontend
-  ports:
-    - protocol: "TCP"
-      port: 80
-      targetPort: 80
-  type: LoadBalancer
----
-apiVersion: extensions/v1beta1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
   annotations:
     alpha.istio.io/sidecar: injected(deprecated)
     status.sidecar.istio.io: injected-version-12345678
   creationTimestamp: null
-  name: frontend
+  name: pi
 spec:
-  replicas: 1
-  strategy: {}
   template:
     metadata:
       annotations:
         alpha.istio.io/sidecar: injected(deprecated)
         status.sidecar.istio.io: injected-version-12345678
       creationTimestamp: null
-      labels:
-        app: hello
-        tier: frontend
-        track: stable
+      name: pi
     spec:
       containers:
-      - image: fake.docker.io/google-samples/hello-frontend:1.0
-        lifecycle:
-          preStop:
-            exec:
-              command:
-              - /usr/sbin/nginx
-              - -s
-              - quit
-        name: nginx
+      - command:
+        - perl
+        - -Mbignum=bpi
+        - -wle
+        - print bpi(2000)
+        image: perl
+        name: pi
         resources: {}
       - args:
         - proxy
@@ -90,6 +69,7 @@ spec:
             add:
             - CAP_NET_ADMIN
           privileged: true
+      restartPolicy: Never
       volumes:
       - configMap:
           name: istio

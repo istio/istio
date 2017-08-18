@@ -31,6 +31,10 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
+{{if eq .injectProxy "false"}}
+  annotations:
+    policy.sidecar.istio.io: "policy.sidecar.istio.io/force-off"
+{{end}}
   name: {{.deployment}}
 spec:
   replicas: 1

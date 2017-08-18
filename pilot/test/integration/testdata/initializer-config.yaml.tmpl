@@ -1,0 +1,16 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: InitializerConfiguration
+metadata:
+  name: istio-sidecar
+initializers:
+  - name: sidecar.initializer.istio.io
+    rules:
+      - apiGroups:
+          - "*"
+        apiVersions:
+          - "*"
+        resources:
+          - deployments
+          - statefulsets
+          - jobs
+          - daemonsets

@@ -39,6 +39,15 @@ rules:
   resources: ["serviceaccounts"]
   verbs: ["get", "watch", "list"]
 ---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-sidecar-initializer
+rules:
+- apiGroups: ["*"]
+  resources: ["deployments", "statefulsets", "jobs", "daemonsets", "replicasets", "replicationcontrollers", "pods"]
+  verbs: ["initialize", "patch", "watch", "list"]
+---
 # Grant permissions to the Pilot/discovery.
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -107,5 +116,19 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: istio-pilot
+  apiGroup: rbac.authorization.k8s.io
+---
+# Gran permissions to the Sidecar initializer
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-sidecar-initializer-admin-role-binding
+subjects:
+- kind: ServiceAccount
+  name: istio-sidecar-initializer-service-account
+  namespace: {{.Namespace}}
+roleRef:
+  kind: ClusterRole
+  name: istio-sidecar-initializer
   apiGroup: rbac.authorization.k8s.io
 ---

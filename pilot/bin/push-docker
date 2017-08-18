@@ -54,6 +54,7 @@ bazel build --output_groups=static //cmd/... //test/...
 \cp -f  "${bin}/test/server/server.static" docker/server
 \cp -f  "${bin}/cmd/pilot-agent/pilot-agent.static" docker/pilot-agent
 \cp -f  "${bin}/cmd/pilot-discovery/pilot-discovery.static" docker/pilot-discovery
+\cp -f  "${bin}/cmd/sidecar-initializer/sidecar-initializer.static" docker/sidecar-initializer
 
 # Build and push images
 
@@ -61,7 +62,7 @@ IFS=',' read -ra tags <<< "${tags}"
 IFS=',' read -ra hubs <<< "${hubs}"
 
 pushd docker
-  for image in app proxy proxy_init proxy_debug pilot; do
+  for image in app proxy proxy_init proxy_debug pilot sidecar_initializer; do
     local_image="${image}:${local_tag}"
     docker build -q -f "Dockerfile.${image}" -t "${local_image}" .
     for tag in ${tags[@]}; do

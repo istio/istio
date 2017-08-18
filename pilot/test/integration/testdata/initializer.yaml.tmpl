@@ -1,0 +1,44 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-sidecar-initializer-service-account
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: istio-sidecar-initializer
+  annotations:
+    policy.sidecar.istio.io: "policy.sidecar.istio.io/force-off"
+  initializers:
+    pending: []
+  labels:
+    istio: istio-sidecar-initializer
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: istio-sidecar-initializer
+      labels:
+        istio: sidecar-initializer
+      annotations:
+        policy.sidecar.istio.io: "policy.sidecar.istio.io/force-off"
+    spec:
+      serviceAccountName: istio-sidecar-initializer-service-account
+      containers:
+        - name: sidecar-initializer
+          image: {{.Hub}}/sidecar_initializer:{{.Tag}}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --hub={{.Hub}}
+            - --tag={{.Tag}}
+            - --namespace={{.Namespace}}
+            - --policy={{.InjectionPolicy}}
+            - -v=2
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio

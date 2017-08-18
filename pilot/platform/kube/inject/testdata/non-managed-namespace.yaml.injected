@@ -1,9 +1,10 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  annotations:
-    policy.sidecar.istio.io: policy.sidecar.istio.io/force-off
   creationTimestamp: null
+  initializers:
+    pending:
+    - name: sidecar.initializer.istio.io
   name: hello
 spec:
   replicas: 7
@@ -11,10 +12,6 @@ spec:
   template:
     metadata:
       creationTimestamp: null
-      labels:
-        app: hello
-        tier: backend
-        track: stable
     spec:
       containers:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
@@ -24,4 +21,3 @@ spec:
           name: http
         resources: {}
 status: {}
----

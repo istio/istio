@@ -1,28 +1,12 @@
-kind: Service
-apiVersion: v1
-metadata:
-  name: frontend
-spec:
-  selector:
-    app: hello
-    tier: frontend
-  ports:
-    - protocol: "TCP"
-      port: 80
-      targetPort: 80
-  type: LoadBalancer
----
 apiVersion: extensions/v1beta1
-kind: Deployment
+kind: DaemonSet
 metadata:
   annotations:
     alpha.istio.io/sidecar: injected(deprecated)
     status.sidecar.istio.io: injected-version-12345678
   creationTimestamp: null
-  name: frontend
+  name: hello
 spec:
-  replicas: 1
-  strategy: {}
   template:
     metadata:
       annotations:
@@ -31,19 +15,15 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
-        tier: frontend
+        tier: backend
         track: stable
     spec:
       containers:
-      - image: fake.docker.io/google-samples/hello-frontend:1.0
-        lifecycle:
-          preStop:
-            exec:
-              command:
-              - /usr/sbin/nginx
-              - -s
-              - quit
-        name: nginx
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        name: hello
+        ports:
+        - containerPort: 80
+          name: http
         resources: {}
       - args:
         - proxy
@@ -98,5 +78,10 @@ spec:
           medium: Memory
           sizeLimit: "0"
         name: istio-envoy
-status: {}
+  updateStrategy: {}
+status:
+  currentNumberScheduled: 0
+  desiredNumberScheduled: 0
+  numberMisscheduled: 0
+  numberReady: 0
 ---

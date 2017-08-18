@@ -1,6 +1,9 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
+  annotations:
+    alpha.istio.io/sidecar: injected(deprecated)
+    status.sidecar.istio.io: injected-version-12345678
   creationTimestamp: null
   name: hello
 spec:
@@ -9,8 +12,8 @@ spec:
   template:
     metadata:
       annotations:
-        alpha.istio.io/sidecar: injected
-        alpha.istio.io/version: "12345678"
+        alpha.istio.io/sidecar: injected(deprecated)
+        status.sidecar.istio.io: injected-version-12345678
       creationTimestamp: null
       labels:
         app: hello

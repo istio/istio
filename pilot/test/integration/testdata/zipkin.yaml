@@ -14,6 +14,8 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
+  annotations:
+    policy.sidecar.istio.io: "policy.sidecar.istio.io/force-off"
   name: zipkin
 spec:
   replicas: 1
