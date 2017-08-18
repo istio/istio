@@ -28,7 +28,7 @@ manifests in inability to pull images.
 
 2. Start the build pod:
 
-       kubectl apply -f _bazel.yaml_
+       kubectl apply -f doc/bazel.yaml
 
 3. Run bazel build and test
 
@@ -36,7 +36,8 @@ manifests in inability to pull images.
        cd /pilot
 
        # make sure platform/kube/config exists; touch an empty file to use the minikube cluster for testing
-       # sudo touch platform/kube/config
+       # Symlinks to ${HOME}/.kube/config will not work.
+       sudo touch platform/kube/config
 
        sudo -E bazel test //... --symlink_prefix=/ --test_env KUBERNETES_SERVICE_PORT --test_env KUBERNETES_SERVICE_HOST
 
