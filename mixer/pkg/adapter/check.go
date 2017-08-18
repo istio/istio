@@ -31,3 +31,25 @@ type CheckResult struct {
 	// ValidUseCount represents the number of uses for which this result can be considered valid.
 	ValidUseCount int64
 }
+
+// GetStatus gets status embedded in the result.
+func (r *CheckResult) GetStatus() rpc.Status { return r.Status }
+
+// SetStatus embeds status in result.
+func (r *CheckResult) SetStatus(s rpc.Status) { r.Status = s }
+
+// Combine combines other result with self. It does not handle
+// Status.
+func (r *CheckResult) Combine(otherPtr interface{}) interface{} {
+	if otherPtr == nil {
+		return r
+	}
+	other := otherPtr.(*CheckResult)
+	if r.ValidDuration > other.ValidDuration {
+		r.ValidDuration = other.ValidDuration
+	}
+	if r.ValidUseCount > other.ValidUseCount {
+		r.ValidUseCount = other.ValidUseCount
+	}
+	return r
+}

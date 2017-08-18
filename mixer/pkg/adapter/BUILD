@@ -20,6 +20,7 @@ go_library(
         "metrics.go",
         "quotas.go",
         "registrar.go",
+        "result.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -37,6 +38,7 @@ go_test(
         "builder_test.go",
         "configError_test.go",
         "metrics_test.go",
+        "result_test.go",
     ],
     library = ":go_default_library",
     deps = ["@com_github_googleapis_googleapis//:google/rpc"],
