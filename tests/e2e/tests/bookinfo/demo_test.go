@@ -404,7 +404,7 @@ func setTestConfig() error {
 
 func TestDbRouting(t *testing.T) {
 	var err error
-	var rules = []string{allRule, testDbRule}
+	var rules = []string{testDbRule}
 	inspect(applyRules(rules, create), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(rules), "failed to delete rules", "", t)
