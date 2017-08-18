@@ -1,0 +1,18 @@
+apiVersion: config.istio.io/v1beta1
+kind: RouteRule
+metadata:
+  name: ratings-test-delay
+spec:
+  destination: ratings
+  precedence: 2
+  match:
+    request:
+      headers:
+        cookie: /^(.*?;)?(user=jason)(;.*)?$/
+  route:
+  - labels:
+      version: v1
+  httpFault:
+    delay:
+      percent: 100
+      fixedDelay: 7s

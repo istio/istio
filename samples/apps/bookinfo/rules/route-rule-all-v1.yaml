@@ -1,0 +1,43 @@
+apiVersion: config.istio.io/v1beta1
+kind: RouteRule
+metadata:
+  name: productpage-default
+spec:
+  destination: productpage
+  precedence: 1
+  route:
+  - labels:
+      version: v1
+---
+apiVersion: config.istio.io/v1beta1
+kind: RouteRule
+metadata:
+  name: reviews-default
+spec:
+  destination: reviews
+  precedence: 1
+  route:
+  - labels:
+      version: v1
+---
+apiVersion: config.istio.io/v1beta1
+kind: RouteRule
+metadata:
+  name: ratings-default
+spec:
+  destination: ratings
+  precedence: 1
+  route:
+  - labels:
+      version: v1
+---
+apiVersion: config.istio.io/v1beta1
+kind: RouteRule
+metadata:
+  name: details-default
+spec:
+  destination: details
+  precedence: 1
+  route:
+  - labels:
+      version: v1
