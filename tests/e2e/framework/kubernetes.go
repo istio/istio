@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -138,11 +139,23 @@ func (k *KubeInfo) Teardown() error {
 	var err error
 	if k.namespaceCreated {
 		if err = util.DeleteNamespace(k.Namespace); err != nil {
-			glog.Error("Failed to delete namespace")
+			glog.Error("Failed to delete namespace %s", k.Namespace)
 			return err
 		}
-		k.namespaceCreated = false
-		glog.Infof("Namespace %s deleted", k.Namespace)
+
+		// confirm the namespace is deleted as it will cause future creation to fail
+		maxAttempts := 5
+		var bool namespaceDeleted
+		for attempts := 1; attempts <= maxAttempts; attempts++ {
+			namespaceDeleted = util.IsNamespaceDeleted(k.Namespace)
+			if namespaceDeleted == true {
+				break
+			}
+			time.Sleep(1 * time.Second)
+		}
+
+		k.namespaceCreated = !namespaceDeleted
+		glog.Infof("Namespace %s deletion status: %s", k.Namespace, namespaceDeleted)
 	}
 	return err
 }
