@@ -58,7 +58,6 @@ istio-testing.json
 
 # generated proto artifacts
 *.descriptor_set
-*_processor.gen.go
 
-# generate list file
-list.gen.go
+# generated files
+*.gen.go
