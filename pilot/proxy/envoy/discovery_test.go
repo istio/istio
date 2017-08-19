@@ -211,6 +211,15 @@ func TestRouteDiscoveryV0(t *testing.T) {
 	compareResponse(response, "testdata/rds-v0.json", t)
 }
 
+func TestRouteDiscoveryV0Mixerless(t *testing.T) {
+	mesh := makeMeshConfig()
+	mesh.MixerAddress = ""
+	ds := makeDiscoveryService(t, memory.Make(model.IstioConfigTypes), &mesh)
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", ds.Mesh.IstioServiceCluster, mock.ProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-v0-nomixer.json", t)
+}
+
 func TestRouteDiscoveryV0Status(t *testing.T) {
 	mesh := makeMeshConfig()
 	ds := makeDiscoveryService(t, memory.Make(model.IstioConfigTypes), &mesh)
@@ -376,7 +385,20 @@ func TestSidecarListenerDiscovery(t *testing.T) {
 			response = makeDiscoveryRequest(ds, "GET", url, t)
 			compareResponse(response, fmt.Sprintf("testdata/lds-v1-%s.json", testCase.name), t)
 
+			// test with no mixer
+			mesh = makeMeshConfig()
+			mesh.MixerAddress = ""
+			ds = makeDiscoveryService(t, registry, &mesh)
+			url = fmt.Sprintf("/v1/listeners/%s/%s", ds.Mesh.IstioServiceCluster, mock.ProxyV0.ServiceNode())
+			response = makeDiscoveryRequest(ds, "GET", url, t)
+			compareResponse(response, fmt.Sprintf("testdata/lds-v0-%s-nomixer.json", testCase.name), t)
+
+			url = fmt.Sprintf("/v1/listeners/%s/%s", ds.Mesh.IstioServiceCluster, mock.ProxyV1.ServiceNode())
+			response = makeDiscoveryRequest(ds, "GET", url, t)
+			compareResponse(response, fmt.Sprintf("testdata/lds-v1-%s-nomixer.json", testCase.name), t)
+
 			// test with auth
+			mesh = makeMeshConfig()
 			mesh.AuthPolicy = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
 			ds = makeDiscoveryService(t, registry, &mesh)
 			url = fmt.Sprintf("/v1/listeners/%s/%s", ds.Mesh.IstioServiceCluster, mock.ProxyV0.ServiceNode())

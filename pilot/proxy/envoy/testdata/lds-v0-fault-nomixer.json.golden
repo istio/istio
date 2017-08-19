@@ -1,0 +1,397 @@
+{
+  "listeners": [
+   {
+    "address": "tcp://0.0.0.0:15001",
+    "name": "virtual",
+    "filters": [],
+    "bind_to_port": true,
+    "use_original_dst": true
+   },
+   {
+    "address": "tcp://0.0.0.0:443",
+    "name": "http_0.0.0.0_443",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "tracing": {
+        "operation_name": "ingress"
+       },
+       "rds": {
+        "cluster": "rds",
+        "route_config_name": "443",
+        "refresh_delay_ms": 10
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://0.0.0.0:80",
+    "name": "http_0.0.0.0_80",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "tracing": {
+        "operation_name": "ingress"
+       },
+       "rds": {
+        "cluster": "rds",
+        "route_config_name": "80",
+        "refresh_delay_ms": 10
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "fault",
+         "config": {
+          "abort": {
+           "abort_percent": 100,
+           "http_status": 503
+          },
+          "delay": {
+           "type": "fixed",
+           "fixed_delay_percent": 100,
+           "fixed_duration_ms": 5000
+          },
+          "headers": [
+           {
+            "name": "animal",
+            "value": "^dog\\.cat.*",
+            "regex": true
+           },
+           {
+            "name": "name",
+            "value": "sco+do+",
+            "regex": true
+           },
+           {
+            "name": "scooby",
+            "value": "doo"
+           }
+          ],
+          "upstream_cluster": "out.66fcc955b8875b19844f9eaf6cfda47c778c609e"
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://0.0.0.0:81",
+    "name": "http_0.0.0.0_81",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "tracing": {
+        "operation_name": "ingress"
+       },
+       "rds": {
+        "cluster": "rds",
+        "route_config_name": "81",
+        "refresh_delay_ms": 10
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "fault",
+         "config": {
+          "abort": {
+           "abort_percent": 100,
+           "http_status": 503
+          },
+          "delay": {
+           "type": "fixed",
+           "fixed_delay_percent": 100,
+           "fixed_duration_ms": 5000
+          },
+          "headers": [
+           {
+            "name": "animal",
+            "value": "^dog\\.cat.*",
+            "regex": true
+           },
+           {
+            "name": "name",
+            "value": "sco+do+",
+            "regex": true
+           },
+           {
+            "name": "scooby",
+            "value": "doo"
+           }
+          ],
+          "upstream_cluster": "out.b9de37be5d0723747a2d3b5cc02f264049e666d6"
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.0.0:90",
+    "name": "tcp_10.1.0.0_90",
+    "filters": [
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "out.de6d66d4dd5f542e5f61882eb466189eb68ebe88",
+          "destination_ip_list": [
+           "10.1.0.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.1.0:1081",
+    "name": "http_10.1.1.0_1081",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "tracing": {
+        "operation_name": "ingress"
+       },
+       "route_config": {
+        "virtual_hosts": [
+         {
+          "name": "inbound|1081",
+          "domains": [
+           "*"
+          ],
+          "routes": [
+           {
+            "prefix": "/",
+            "cluster": "in.1081"
+           }
+          ]
+         }
+        ]
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.1.0:1090",
+    "name": "tcp_10.1.1.0_1090",
+    "filters": [
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "in.1090",
+          "destination_ip_list": [
+           "10.1.1.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.1.0:3333",
+    "name": "tcp_10.1.1.0_3333",
+    "filters": [
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "in.3333",
+          "destination_ip_list": [
+           "10.1.1.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.1.0:80",
+    "name": "http_10.1.1.0_80",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "tracing": {
+        "operation_name": "ingress"
+       },
+       "route_config": {
+        "virtual_hosts": [
+         {
+          "name": "inbound|80",
+          "domains": [
+           "*"
+          ],
+          "routes": [
+           {
+            "prefix": "/",
+            "cluster": "in.80"
+           }
+          ]
+         }
+        ]
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.1.0:9999",
+    "name": "tcp_10.1.1.0_9999",
+    "filters": [
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "in.9999",
+          "destination_ip_list": [
+           "10.1.1.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.2.0.0:90",
+    "name": "tcp_10.2.0.0_90",
+    "filters": [
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "out.5898aa4379cc19c8f1bb3b7915ee8e0e32ddc6a6",
+          "destination_ip_list": [
+           "10.2.0.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   }
+  ]
+ }
