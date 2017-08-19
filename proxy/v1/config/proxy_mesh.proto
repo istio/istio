@@ -43,6 +43,9 @@ message ProxyMeshConfig {
   // Port on which Envoy should listen for administrative commands.
   int32 proxy_admin_port = 6;
 
+  // Port on which Envoy should listen for HTTP PROXY requests if set.
+  int32 proxy_http_port = 16;
+
   // The time in seconds that Envoy will drain connections during a hot
   // restart. MUST be >=1s (e.g., _1s/1m/1h_)
   google.protobuf.Duration drain_duration = 7;
