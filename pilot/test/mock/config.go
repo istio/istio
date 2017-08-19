@@ -351,7 +351,8 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	}, t)
 }
 
-// CheckCacheSync validates operational invariants of a cache
+// CheckCacheSync validates operational invariants of a cache against the
+// non-cached client.
 func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, namespace string, n int, t *testing.T) {
 	keys := make(map[int]model.Config)
 	// add elements directly through client

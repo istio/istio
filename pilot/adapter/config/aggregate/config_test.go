@@ -23,13 +23,13 @@ import (
 	"istio.io/pilot/test/mock"
 )
 
+const (
+	// TestNamespace for testing
+	TestNamespace = "test"
+)
+
 func TestStoreInvariant(t *testing.T) {
-	mockStore := memory.Make(mock.Types)
-	istioStore := memory.Make(model.IstioConfigTypes)
-	store, err := aggregate.Make([]model.ConfigStore{mockStore, istioStore})
-	if err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
+	store, _ := makeCache(t)
 	mock.CheckMapInvariant(store, t, "", 10)
 }
 
@@ -38,4 +38,36 @@ func TestStoreValidation(t *testing.T) {
 	if _, err := aggregate.Make([]model.ConfigStore{mockStore, mockStore}); err == nil {
 		t.Error("expected error in duplicate types in the config store")
 	}
+}
+
+func makeCache(t *testing.T) (model.ConfigStore, model.ConfigStoreCache) {
+	mockStore := memory.Make(mock.Types)
+	mockStoreCache := memory.NewController(mockStore)
+	istioStore := memory.Make(model.IstioConfigTypes)
+	istioStoreCache := memory.NewController(istioStore)
+
+	store, err := aggregate.Make([]model.ConfigStore{mockStore, istioStore})
+	if err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+	ctl, err := aggregate.MakeCache([]model.ConfigStoreCache{mockStoreCache, istioStoreCache})
+	if err != nil {
+		t.Fatal("unexpected error %v", err)
+	}
+	return store, ctl
+}
+
+func TestControllerEvents(t *testing.T) {
+	_, ctl := makeCache(t)
+	mock.CheckCacheEvents(ctl, ctl, TestNamespace, 5, t)
+}
+
+func TestControllerCacheFreshness(t *testing.T) {
+	_, ctl := makeCache(t)
+	mock.CheckCacheFreshness(ctl, TestNamespace, t)
+}
+
+func TestControllerClientSync(t *testing.T) {
+	store, ctl := makeCache(t)
+	mock.CheckCacheSync(store, ctl, TestNamespace, 5, t)
 }

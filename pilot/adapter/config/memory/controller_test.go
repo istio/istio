@@ -29,6 +29,7 @@ const (
 func TestControllerEvents(t *testing.T) {
 	store := memory.Make(mock.Types)
 	ctl := memory.NewController(store)
+	// Note that the operations must go through the controller since the store does not trigger back events
 	mock.CheckCacheEvents(ctl, ctl, TestNamespace, 5, t)
 }
 
