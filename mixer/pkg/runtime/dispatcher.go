@@ -25,8 +25,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	rpc "github.com/googleapis/googleapis/google/rpc"
-	"github.com/hashicorp/go-multierror"
-	"github.com/opentracing/opentracing-go"
+	multierror "github.com/hashicorp/go-multierror"
+	opentracing "github.com/opentracing/opentracing-go"
 	tracelog "github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus"
 

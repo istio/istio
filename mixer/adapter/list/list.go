@@ -27,7 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/adapter/list/config"
@@ -66,7 +65,7 @@ type (
 var _ listentry.HandlerBuilder = builder{}
 var _ listentry.Handler = &handler{}
 
-func (builder) Build(cfg proto.Message, env adapter.Env) (adapter.Handler, error) {
+func (builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
 	c := cfg.(*config.Params)
 
 	h := &handler{
@@ -265,7 +264,7 @@ func (h *handler) purgeList() {
 	h.lock.Unlock()
 }
 
-func validateConfig(cfg proto.Message) (ce *adapter.ConfigErrors) {
+func validateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 	c := cfg.(*config.Params)
 
 	if c.ProviderUrl != "" {

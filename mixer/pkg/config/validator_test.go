@@ -655,7 +655,7 @@ func TestConvertHandlerParamsErrors(t *testing.T) {
 				"blacklist":        "true (this should be bool)",
 			},
 			defaultCnfg:       &listcheckerpb.ListsParams{},
-			hndlrValidateCnfg: func(c proto.Message) *adapter.ConfigErrors { return nil },
+			hndlrValidateCnfg: func(c adapter.Config) *adapter.ConfigErrors { return nil },
 			errorStr:          "failed to decode",
 		},
 		{
@@ -665,7 +665,7 @@ func TestConvertHandlerParamsErrors(t *testing.T) {
 				"wrongextrafield":  true,
 			},
 			defaultCnfg:       &listcheckerpb.ListsParams{},
-			hndlrValidateCnfg: func(c proto.Message) *adapter.ConfigErrors { return nil },
+			hndlrValidateCnfg: func(c adapter.Config) *adapter.ConfigErrors { return nil },
 			errorStr:          "failed to unmarshal",
 		},
 		{
@@ -674,7 +674,7 @@ func TestConvertHandlerParamsErrors(t *testing.T) {
 				"blacklist":        true,
 			},
 			defaultCnfg: &listcheckerpb.ListsParams{},
-			hndlrValidateCnfg: func(c proto.Message) (ce *adapter.ConfigErrors) {
+			hndlrValidateCnfg: func(c adapter.Config) (ce *adapter.ConfigErrors) {
 				return ce.Appendf("foo", "handler config validation failed")
 			},
 			errorStr: "handler config validation failed",
@@ -706,7 +706,7 @@ func TestValidateHandlers(t *testing.T) {
 			map[string]*adapter.BuilderInfo{
 				"fooHandlerAdapter": {
 					DefaultConfig:        &types.Empty{},
-					ValidateConfig:       func(c proto.Message) *adapter.ConfigErrors { return nil },
+					ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
 					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
 				},
 			},
@@ -724,7 +724,7 @@ func TestValidateHandlers(t *testing.T) {
 			map[string]*adapter.BuilderInfo{
 				"fooHandlerAdapter": {
 					DefaultConfig:        &types.Empty{},
-					ValidateConfig:       func(c proto.Message) *adapter.ConfigErrors { return nil },
+					ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
 					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
 				},
 			},
@@ -774,7 +774,7 @@ handlers:
 			hbi: map[string]*adapter.BuilderInfo{
 				"fooHandlerAdapter": {
 					DefaultConfig:        &types.Empty{},
-					ValidateConfig:       func(c proto.Message) *adapter.ConfigErrors { return nil },
+					ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
 					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
 					SupportedTemplates:   []string{testSupportedTemplate},
 				},
@@ -823,19 +823,19 @@ func (f *fakeGoodHndlr) Close() error {
 	return nil
 }
 
-func (f fakeGoodHndlrBldr) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
+func (f fakeGoodHndlrBldr) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
 	return &fakeGoodHndlr{}, nil
 }
 
 type fakeErrRetrningHndlrBldr struct{}
 
-func (f fakeErrRetrningHndlrBldr) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
+func (f fakeErrRetrningHndlrBldr) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
 	return nil, errors.New("build failed")
 }
 
 type fakePanicHndlrBldr struct{}
 
-func (f fakePanicHndlrBldr) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
+func (f fakePanicHndlrBldr) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
 	panic("panic from handler Build method")
 }
 

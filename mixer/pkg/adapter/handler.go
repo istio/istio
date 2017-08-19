@@ -16,8 +16,6 @@ package adapter
 
 import (
 	"io"
-
-	"github.com/golang/protobuf/proto"
 )
 
 type (
@@ -40,6 +38,6 @@ type (
 		// template the Adapter was registered for in the adapter.RegisterFn2 method.
 		// If the returned Handler fails to implement the required interface that builder was registered for, mixer will
 		// report an error and stop serving runtime traffic to the particular Handler.
-		Build(config proto.Message, env Env) (Handler, error)
+		Build(config Config, env Env) (Handler, error)
 	}
 )

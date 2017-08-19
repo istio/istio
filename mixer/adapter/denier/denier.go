@@ -21,7 +21,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/adapter/denier/config"
@@ -49,7 +48,7 @@ var _ quota.Handler = handler{}
 
 ///////////////// Configuration Methods ///////////////
 
-func (builder) Build(cfg proto.Message, env adapter.Env) (adapter.Handler, error) {
+func (builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
 	return handler{status: cfg.(*config.Params).Status}, nil
 }
 
@@ -105,6 +104,6 @@ func GetBuilderInfo() adapter.BuilderInfo {
 		DefaultConfig: &config.Params{
 			Status: rpc.Status{Code: int32(rpc.FAILED_PRECONDITION)},
 		},
-		ValidateConfig: func(msg proto.Message) *adapter.ConfigErrors { return nil },
+		ValidateConfig: func(msg adapter.Config) *adapter.ConfigErrors { return nil },
 	}
 }
