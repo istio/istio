@@ -43,7 +43,7 @@ import (
 type fakeBadHandler struct{}
 
 func (h fakeBadHandler) Close() error { return nil }
-func (h fakeBadHandler) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
+func (h fakeBadHandler) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
 
@@ -59,7 +59,7 @@ func (h *fakeReportHandler) HandleSample(ctx context.Context, instances []*sampl
 	h.procCallInput = instances
 	return h.retError
 }
-func (h *fakeReportHandler) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
+func (h *fakeReportHandler) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
 func (h *fakeReportHandler) ConfigureSampleHandler(t map[string]*sample_report.Type) error {
@@ -80,7 +80,7 @@ func (h *fakeCheckHandler) HandleSample(ctx context.Context, instance *sample_ch
 	h.procCallInput = instance
 	return h.retResult, h.retError
 }
-func (h *fakeCheckHandler) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
+func (h *fakeCheckHandler) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
 func (h *fakeCheckHandler) ConfigureSampleHandler(t map[string]*sample_check.Type) error {
@@ -101,7 +101,7 @@ func (h *fakeQuotaHandler) HandleQuota(ctx context.Context, instance *sample_quo
 	h.procCallInput = instance
 	return h.retResult, h.retError
 }
-func (h *fakeQuotaHandler) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
+func (h *fakeQuotaHandler) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
 func (h *fakeQuotaHandler) ConfigureQuotaHandler(t map[string]*sample_quota.Type) error {

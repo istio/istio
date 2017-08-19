@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
@@ -55,7 +54,7 @@ var _ quota.Handler = handler{}
 
 ///////////////// Configuration Methods ///////////////
 
-func (builder) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
+func (builder) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
 	return handler{}, nil
 }
 
@@ -138,6 +137,6 @@ func GetBuilderInfo() adapter.BuilderInfo {
 		},
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return builder{} },
 		DefaultConfig:        &types.Empty{},
-		ValidateConfig:       func(msg proto.Message) *adapter.ConfigErrors { return nil },
+		ValidateConfig:       func(msg adapter.Config) *adapter.ConfigErrors { return nil },
 	}
 }

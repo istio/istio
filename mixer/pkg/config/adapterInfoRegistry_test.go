@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/template"
@@ -38,7 +37,7 @@ func createBuilderInfo(name string) adapter.BuilderInfo {
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return fakeHandlerBuilder{} },
 		SupportedTemplates:   []string{sample_report.TemplateName},
 		DefaultConfig:        &types.Empty{},
-		ValidateConfig:       func(c proto.Message) *adapter.ConfigErrors { return nil },
+		ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
 	}
 }
 
@@ -49,7 +48,7 @@ func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() adapter.BuilderInfo 
 type fakeHandlerBuilder struct{}
 
 func (fakeHandlerBuilder) ConfigureSampleHandler(map[string]*sample_report.Type) error { return nil }
-func (fakeHandlerBuilder) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
+func (fakeHandlerBuilder) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
 	return fakeHandler{}, nil
 }
 
@@ -152,14 +151,14 @@ func TestHandlerMap(t *testing.T) {
 
 type badHandlerBuilder struct{}
 
-func (badHandlerBuilder) DefaultConfig() proto.Message                       { return nil }
-func (badHandlerBuilder) ValidateConfig(proto.Message) *adapter.ConfigErrors { return nil }
+func (badHandlerBuilder) DefaultConfig() adapter.Config                       { return nil }
+func (badHandlerBuilder) ValidateConfig(adapter.Config) *adapter.ConfigErrors { return nil }
 
 // This misspelled function cause the Builder to not implement SampleProcessorBuilder
 func (fakeHandlerBuilder) MisspelledXXConfigureSample(map[string]*sample_report.Type) error {
 	return nil
 }
-func (badHandlerBuilder) Build(proto.Message, adapter.Env) (adapter.Handler, error) {
+func (badHandlerBuilder) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
 	return fakeHandler{}, nil
 }
 
@@ -169,7 +168,7 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 			Name:                 "badAdapter1",
 			Description:          "mock adapter for testing",
 			DefaultConfig:        &types.Empty{},
-			ValidateConfig:       func(c proto.Message) *adapter.ConfigErrors { return nil },
+			ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
 			CreateHandlerBuilder: func() adapter.HandlerBuilder { return badHandlerBuilder{} },
 			SupportedTemplates:   []string{sample_report.TemplateName},
 		}
@@ -179,7 +178,7 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 			Name:                 "badAdapter1",
 			Description:          "mock adapter for testing",
 			DefaultConfig:        &types.Empty{},
-			ValidateConfig:       func(c proto.Message) *adapter.ConfigErrors { return nil },
+			ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
 			CreateHandlerBuilder: func() adapter.HandlerBuilder { return badHandlerBuilder{} },
 			SupportedTemplates:   []string{sample_report.TemplateName},
 		}

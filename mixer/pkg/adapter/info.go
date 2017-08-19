@@ -44,7 +44,7 @@ type CreateHandlerBuilderFn func() HandlerBuilder
 
 // ValidateConfigFn is a function that determines whether the given handler configuration meets all
 // correctness requirements.
-type ValidateConfigFn func(proto.Message) *ConfigErrors
+type ValidateConfigFn func(Config) *ConfigErrors
 
 // InfoFn returns an AdapterInfo object that Mixer will use to create HandlerBuilder
 type InfoFn func() BuilderInfo

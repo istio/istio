@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
 
 	"istio.io/mixer/adapter/noop"
 	"istio.io/mixer/pkg/adapter"
@@ -44,7 +43,7 @@ type (
 	fakeHndlrBldr struct{}
 )
 
-func (fakeHndlrBldr) Build(cnfg proto.Message, _ adapter.Env) (adapter.Handler, error) {
+func (fakeHndlrBldr) Build(cnfg adapter.Config, _ adapter.Env) (adapter.Handler, error) {
 	globalActualHandlerCallInfoToValidate["Build"] = cnfg
 	fakeHndlrObj := fakeHndlr{}
 	return fakeHndlrObj, nil
@@ -68,7 +67,7 @@ func GetFakeHndlrBuilderInfo() adapter.BuilderInfo {
 		SupportedTemplates:   []string{sample_report.TemplateName},
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return fakeHndlrBldr{} },
 		DefaultConfig:        &types.Empty{},
-		ValidateConfig: func(msg proto.Message) *adapter.ConfigErrors {
+		ValidateConfig: func(msg adapter.Config) *adapter.ConfigErrors {
 			return nil
 		},
 	}
