@@ -15,9 +15,9 @@
 #   limitations under the License.
 
 
-#####################################################################
-# e2e-smoke script triggered after pilot/mixer presubmit succeeded. #
-#####################################################################
+#######################################################
+# e2e-suite triggered after istio/presubmit succeeded #
+#######################################################
 
 # Exit immediately for non zero status
 set -e
@@ -26,16 +26,20 @@ set -u
 # Print commands
 set -x
 
-# Running out of external ips
+# Avoid wasting time on getting external IP
 E2E_ARGS=(--use_local_cluster)
 
 if [ "${CI:-}" == 'bootstrap' ]; then
+  # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
+  # but we depend on being at path $GOPATH/src/istio.io/istio for imports
+  ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+  cd ${GOPATH}/src/istio.io/istio
+
   # bootsrap upload all artifacts in _artifacts to the log bucket.
   ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
   LOG_HOST="stackdriver"
   PROJ_ID="istio-testing"
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}" --log_provider=${LOG_HOST} --project_id=${PROJ_ID})
-  # Use the provided pull head sha, from prow.
 fi
 
 echo 'Running Integration Tests'
