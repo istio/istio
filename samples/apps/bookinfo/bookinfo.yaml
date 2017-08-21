@@ -82,34 +82,6 @@ spec:
         ports:
         - containerPort: 9080
 ---
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: ratings-v2
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: ratings
-        version: v2
-    spec:
-      containers:
-      - name: ratings
-        image: istio/examples-bookinfo-ratings-v2
-        imagePullPolicy: IfNotPresent
-        env:
-          - name: MYSQL_DB_HOST
-            value: mysqldb
-          - name: MYSQL_DB_PORT
-            value: "3306"
-          - name: MYSQL_DB_USER
-            value: root
-          - name: MYSQL_DB_PASSWORD
-            value: password
-        ports:
-        - containerPort: 9080
----
 ##################################################################################################
 # Reviews service
 ##################################################################################################
@@ -182,56 +154,6 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
----
-##################################################################################################
-# Mysql db services
-# credentials: root/password
-##################################################################################################
-apiVersion: v1
-kind: Secret
-metadata:
-  name: mysql-credentials
-type: Opaque
-data:
-  rootpasswd: cGFzc3dvcmQ=
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: mysqldb
-  labels:
-    app: mysqldb
-spec:
-  ports:
-  - port: 3306
-    name: mysql
-  selector:
-    app: mysqldb
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: mysqldb-v1
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: mysqldb
-        version: v1
-    spec:
-      containers:
-      - name: mysqldb
-        image: istio/examples-bookinfo-mysqldb-v1
-        imagePullPolicy: IfNotPresent 
-        ports:
-        - containerPort: 3306
-        env:
-          - name: MYSQL_ROOT_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: mysql-credentials
-                key: rootpasswd
 ---
 ##################################################################################################
 # Productpage services
