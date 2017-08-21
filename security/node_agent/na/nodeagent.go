@@ -92,12 +92,14 @@ func (na *nodeAgentInternal) Start() {
 		glog.Fatalf("Node Agent is not running on the right platform")
 	}
 
+	glog.Info("Node Agent starts successfully.")
 	for {
 		privKey, resp, err := na.sendCSR()
 		if err != nil {
 			glog.Errorf("CSR signing failed: %s", err)
 		} else if resp != nil && resp.IsApproved {
 			timer := time.NewTimer(na.getExpTime(resp))
+			glog.Info("CSR is approved successfully.")
 			na.writeToFile(privKey, resp.SignedCertChain)
 			<-timer.C
 		}
@@ -121,6 +123,7 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request) {
 }
 
 func (na *nodeAgentInternal) sendCSR() ([]byte, *pb.Response, error) {
+	glog.Info("Sending out CSR to CA...")
 	dialOptions, err := na.pr.GetDialOptions(na.config)
 	if err != nil {
 		glog.Errorf("Cannot construct the dial options with error %s", err)
@@ -149,6 +152,7 @@ func (na *nodeAgentInternal) sendCSR() ([]byte, *pb.Response, error) {
 }
 
 func (na *nodeAgentInternal) writeToFile(privKey []byte, cert []byte) {
+	glog.Info("Write key and cert to local file.")
 	if err := ioutil.WriteFile("serviceIdentityKey.pem", privKey, 0600); err != nil {
 		glog.Fatalf("Cannot write service identity private key file")
 	}
