@@ -31,6 +31,10 @@ clean:
 test: build
 	@bazel test //...
 
+.PHONY: coverage
+coverage:
+	@bin/codecov.sh
+
 .PHONY: lint
 lint: build
 	@bin/check.sh
