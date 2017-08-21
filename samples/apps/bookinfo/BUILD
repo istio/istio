@@ -2,6 +2,8 @@ filegroup(
     name = "bookinfo",
     srcs = [
         "bookinfo.yaml",
+	"bookinfo-ratings-v2.yaml",
+	"bookinfo-mysql.yaml",
         "mixer-rule-additional-telemetry.yaml",
         "mixer-rule-empty-rule.yaml",
         "mixer-rule-ratings-denial.yaml",
