@@ -21,6 +21,7 @@ import (
 	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"istio.io/auth/pkg/pki"
 	"istio.io/auth/pkg/pki/ca"
 	pb "istio.io/auth/proto"
 )
@@ -30,6 +31,13 @@ const (
 	ONPREM int = iota // 0
 	// GCP Node Agent
 	GCP // 1
+	// certRequestRetrialInterval is the retrial interval for certificate requests.
+	certRequestRetrialInterval = time.Second
+	// certRequestMaxRetries is the number of retries for certificate requests.
+	certRequestMaxRetries = 5
+	// certRenewalGracePeriodPercentage indicates the length of the grace period in the
+	// percentage of the entire certificate TTL.
+	certRenewalGracePeriodPercentage = 50
 )
 
 // Config is Node agent configuration that is provided from CLI.
@@ -54,9 +62,6 @@ type Config struct {
 	ServiceIdentityDir *string
 
 	RSAKeySize *int
-
-	// cert renewal cutoff
-	PercentageExpirationTime *int
 
 	// Istio CA grpc server
 	IstioCAAddress *string
@@ -92,15 +97,52 @@ func (na *nodeAgentInternal) Start() {
 		glog.Fatalf("Node Agent is not running on the right platform")
 	}
 
-	glog.Info("Node Agent starts successfully.")
+	glog.Infof("Node Agent starts successfully.")
+	retries := 0
+	retrialInterval := certRequestRetrialInterval
+	success := false
 	for {
+		glog.Infof("Sending CSR (retrial #%d) ...", retries)
 		privKey, resp, err := na.sendCSR()
-		if err != nil {
-			glog.Errorf("CSR signing failed: %s", err)
-		} else if resp != nil && resp.IsApproved {
-			timer := time.NewTimer(na.getExpTime(resp))
-			glog.Info("CSR is approved successfully.")
-			na.writeToFile(privKey, resp.SignedCertChain)
+		if err == nil && resp != nil && resp.IsApproved {
+			cert, certErr := pki.ParsePemEncodedCertificate(resp.SignedCertChain)
+			if certErr != nil {
+				glog.Errorf("Error getting TTL from approved cert: %v", certErr)
+				success = false
+			} else {
+				certTTL := cert.NotAfter.Sub(cert.NotBefore)
+				// Wait until the grace period starts.
+				waitTime := certTTL - time.Duration(certRenewalGracePeriodPercentage/100)*certTTL
+				timer := time.NewTimer(waitTime)
+				na.writeToFile(privKey, resp.SignedCertChain)
+				glog.Infof("CSR is approved successfully. Will renew cert in %s", waitTime.String())
+				retries = 0
+				retrialInterval = certRequestRetrialInterval
+				<-timer.C
+				success = true
+			}
+		} else {
+			success = false
+		}
+
+		if !success {
+			if retries >= certRequestMaxRetries {
+				glog.Fatalf("Node agent can't get the CSR approved from Istio CA after max number of retrials"+
+					"(%d), please fix the error and retry later.", certRequestMaxRetries)
+			}
+			if err != nil {
+				glog.Errorf("CSR signing failed: %v. Will retry in %s", err, retrialInterval.String())
+			} else if resp == nil {
+				glog.Errorf("CSR signing failed: response empty. Will retry in %s", retrialInterval.String())
+			} else if !resp.IsApproved {
+				glog.Errorf("CSR signing failed: request not approved. Will retry in %s", retrialInterval.String())
+			} else {
+				glog.Errorf("Certificate parsing error. Will retry in %s", retrialInterval.String())
+			}
+			timer := time.NewTimer(retrialInterval)
+			retries++
+			// Exponentially increase the backoff time.
+			retrialInterval = retrialInterval * 2
 			<-timer.C
 		}
 	}
@@ -114,7 +156,7 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request) {
 	})
 
 	if err != nil {
-		glog.Fatalf("Failed to generate CSR: %s", err)
+		glog.Fatalf("Failed to generate CSR: %v", err)
 	}
 
 	return privKey, &pb.Request{
@@ -123,15 +165,15 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request) {
 }
 
 func (na *nodeAgentInternal) sendCSR() ([]byte, *pb.Response, error) {
-	glog.Info("Sending out CSR to CA...")
+	glog.Infof("Sending out CSR to CA...")
 	dialOptions, err := na.pr.GetDialOptions(na.config)
 	if err != nil {
-		glog.Errorf("Cannot construct the dial options with error %s", err)
+		glog.Errorf("Cannot construct the dial options with error %v", err)
 		return nil, nil, err
 	}
 	conn, err := grpc.Dial(*na.config.IstioCAAddress, dialOptions...)
 	if err != nil {
-		glog.Fatalf("Failed ot dial %s: %s", *na.config.IstioCAAddress, err)
+		glog.Fatalf("Failed ot dial %s: %v", *na.config.IstioCAAddress, err)
 	}
 
 	defer func() {
@@ -144,7 +186,7 @@ func (na *nodeAgentInternal) sendCSR() ([]byte, *pb.Response, error) {
 	privKey, req := na.createRequest()
 	resp, err := client.HandleCSR(context.Background(), req)
 	if err != nil {
-		glog.Errorf("CSR request failed %s", err)
+		glog.Errorf("CSR request failed %v", err)
 		return nil, nil, err
 	}
 
@@ -152,16 +194,11 @@ func (na *nodeAgentInternal) sendCSR() ([]byte, *pb.Response, error) {
 }
 
 func (na *nodeAgentInternal) writeToFile(privKey []byte, cert []byte) {
-	glog.Info("Write key and cert to local file.")
+	glog.Infof("Write key and cert to local file.")
 	if err := ioutil.WriteFile("serviceIdentityKey.pem", privKey, 0600); err != nil {
 		glog.Fatalf("Cannot write service identity private key file")
 	}
 	if err := ioutil.WriteFile("serviceIdentityCert.pem", cert, 0644); err != nil {
 		glog.Fatalf("Cannot write service identity certificate file")
 	}
-}
-
-func (na *nodeAgentInternal) getExpTime(resp *pb.Response) time.Duration {
-	// TODO: extract expiration time from certificate contained in the response object.
-	return 0
 }

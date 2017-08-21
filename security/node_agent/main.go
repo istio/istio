@@ -35,8 +35,6 @@ func init() {
 		"Node identity private key file")
 	naConfig.IstioCAAddress = flag.String("ca-address", "127.0.0.1",
 		"Istio CA address")
-	naConfig.PercentageExpirationTime = flag.Int("renew-wait-time", 60,
-		"Percentage time to elapse before renewing certificate")
 	naConfig.ServiceIdentityDir = flag.String("cert-dir", "./", "Certificate directory")
 	naConfig.RootCACertFile = flag.String("root-cert", "", "Root Certi file")
 	naConfig.Env = flag.Int("env", na.ONPREM, "Node Environment : onprem | gcp")
