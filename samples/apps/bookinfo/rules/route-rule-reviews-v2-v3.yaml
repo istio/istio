@@ -3,7 +3,8 @@ kind: RouteRule
 metadata:
   name: reviews-default
 spec:
-  destination: reviews
+  destination:
+    name: reviews
   precedence: 1
   route:
   - labels:

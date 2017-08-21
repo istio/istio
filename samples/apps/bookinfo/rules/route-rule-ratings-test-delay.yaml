@@ -3,12 +3,14 @@ kind: RouteRule
 metadata:
   name: ratings-test-delay
 spec:
-  destination: ratings
+  destination:
+    name: ratings
   precedence: 2
   match:
     request:
       headers:
-        cookie: /^(.*?;)?(user=jason)(;.*)?$/
+        cookie:
+          regex: ^(.*?;)?(user=jason)(;.*)?$
   route:
   - labels:
       version: v1

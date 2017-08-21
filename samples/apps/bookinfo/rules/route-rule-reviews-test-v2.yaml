@@ -3,12 +3,14 @@ kind: RouteRule
 metadata:
   name: reviews-test-v2
 spec:
-  destination: reviews
+  destination:
+    name: reviews
   precedence: 2
   match:
     request:
       headers:
-        cookie: /^(.*?;)?(user=jason)(;.*)?$/
+        cookie:
+          regex: ^(.*?;)?(user=jason)(;.*)?$
   route:
   - labels:
       version: v2

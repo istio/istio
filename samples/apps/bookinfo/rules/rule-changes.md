@@ -123,25 +123,7 @@ spec:
 ```
 0.2.x:
 ```
-   abc
-```
-
-0.1.x:
-```
-  prefix: abc
-```
-0.2.x:
-```
-  ^abc
-```
-
-0.1.x:
-```
-  regex: abc
-```
-0.2.x:
-```
-  /abc/
+  abc
 ```
 
 ### Create Destination Policy
@@ -225,7 +207,8 @@ spec:
   match:
     request:
       headers:
-        cookie: /^(.*?;)?(user=jason)(;.*)?$/
+        cookie:
+          regex: ^(.*?;)?(user=jason)(;.*)?$
   route:
   - labels:
       version: v1

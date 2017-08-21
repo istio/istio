@@ -3,7 +3,8 @@ kind: RouteRule
 metadata:
   name: productpage-default
 spec:
-  destination: productpage
+  destination:
+    name: productpage
   precedence: 1
   route:
   - labels:
@@ -14,7 +15,8 @@ kind: RouteRule
 metadata:
   name: reviews-default
 spec:
-  destination: reviews
+  destination:
+    name: reviews
   precedence: 1
   route:
   - labels:
@@ -25,7 +27,8 @@ kind: RouteRule
 metadata:
   name: ratings-default
 spec:
-  destination: ratings
+  destination:
+    name: ratings
   precedence: 1
   route:
   - labels:
@@ -36,7 +39,8 @@ kind: RouteRule
 metadata:
   name: details-default
 spec:
-  destination: details
+  destination:
+    name: details
   precedence: 1
   route:
   - labels:
