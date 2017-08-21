@@ -8,7 +8,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 DIR_NAME="$(basename ${ROOT})"
 BIN_DIR='.'
 BUCKET_PATH=''
