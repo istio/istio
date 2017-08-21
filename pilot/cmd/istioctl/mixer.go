@@ -23,13 +23,12 @@ import (
 	"net/url"
 	"os"
 
-	"istio.io/pilot/adapter/config/crd"
-
-	"k8s.io/client-go/rest"
-
 	"github.com/ghodss/yaml"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/rest"
+
+	"istio.io/pilot/adapter/config/crd"
 )
 
 // TODO This should come from something like istio.io/api instead of

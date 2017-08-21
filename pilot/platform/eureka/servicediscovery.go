@@ -16,6 +16,7 @@ package eureka
 
 import (
 	"github.com/golang/glog"
+
 	"istio.io/pilot/model"
 )
 

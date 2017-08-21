@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	proxyconfig "istio.io/api/proxy/v1/config"

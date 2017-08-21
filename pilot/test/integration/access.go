@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
+
 	"istio.io/pilot/platform/kube/inject"
 	"istio.io/pilot/test/util"
 )

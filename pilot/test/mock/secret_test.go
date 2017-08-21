@@ -1,9 +1,8 @@
 package mock
 
 import (
-	"testing"
-
 	"fmt"
+	"testing"
 
 	"istio.io/pilot/model"
 )

@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"

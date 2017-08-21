@@ -19,6 +19,7 @@ package envoy
 
 import (
 	"github.com/golang/protobuf/ptypes"
+
 	proxyconfig "istio.io/api/proxy/v1/config"
 )
 

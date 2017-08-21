@@ -19,17 +19,16 @@ import (
 	"os"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+	"github.com/golang/glog"
+	multierror "github.com/hashicorp/go-multierror"
+	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
 
 	"istio.io/pilot/cmd"
 	"istio.io/pilot/platform/kube"
 	"istio.io/pilot/platform/kube/inject"
 	"istio.io/pilot/tools/version"
-
-	"github.com/davecgh/go-spew/spew"
-	"github.com/golang/glog"
-	multierror "github.com/hashicorp/go-multierror"
-	"github.com/spf13/cobra"
 )
 
 func getRootCmd() *cobra.Command {

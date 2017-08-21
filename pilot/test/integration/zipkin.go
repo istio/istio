@@ -16,11 +16,10 @@ package main
 
 import (
 	"fmt"
-
-	uuid "github.com/satori/go.uuid"
-
 	"strings"
 	"sync"
+
+	uuid "github.com/satori/go.uuid"
 )
 
 const (

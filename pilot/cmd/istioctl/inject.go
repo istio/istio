@@ -20,11 +20,11 @@ import (
 	"io"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"istio.io/pilot/platform/kube"
 	"istio.io/pilot/platform/kube/inject"
 	"istio.io/pilot/tools/version"
-
-	"github.com/spf13/cobra"
 )
 
 var (

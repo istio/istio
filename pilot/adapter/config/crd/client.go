@@ -22,7 +22,6 @@ import (
 
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
-
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

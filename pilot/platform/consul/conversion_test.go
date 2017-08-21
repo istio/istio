@@ -15,11 +15,11 @@
 package consul
 
 import (
+	"fmt"
 	"testing"
 
-	"fmt"
-
 	"github.com/hashicorp/consul/api"
+
 	"istio.io/pilot/model"
 )
 

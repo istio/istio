@@ -31,6 +31,7 @@ import (
 	"github.com/golang/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
 	pb "istio.io/pilot/test/grpcecho"
 )
 

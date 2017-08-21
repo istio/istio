@@ -22,6 +22,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
+
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/model"
 )
