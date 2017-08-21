@@ -104,8 +104,11 @@ go_repository(
 load("//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
 load("//:googleapis.bzl", "go_googleapis_repositories")
 load("//:istio_api.bzl", "go_istio_api_repositories")
+
 go_x_tools_imports_repositories()
+
 go_googleapis_repositories()
+
 go_istio_api_repositories(False)
 
 new_http_archive(

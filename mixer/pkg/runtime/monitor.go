@@ -24,12 +24,13 @@ const (
 	adapterName  = "adapter"
 	responseCode = "response_code"
 	responseMsg  = "response_message"
-	adapterError = "adapter_error"
+	errorStr     = "error"
+	targetStr    = "target"
 )
 
 var (
-	promLabelNames  = []string{meshFunction, handlerName, adapterName, responseCode, adapterError}
-	dispatchBuckets = []float64{.0001, .00025, .0005, .001, .0025, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
+	promLabelNames  = []string{meshFunction, handlerName, adapterName, responseCode, errorStr}
+	buckets         = []float64{.0001, .00025, .0005, .001, .0025, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
 	dispatchCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "mixer",
@@ -44,6 +45,53 @@ var (
 			Subsystem: "adapter",
 			Name:      "dispatch_duration",
 			Help:      "Histogram of times for adapter dispatches handled by Mixer.",
-			Buckets:   dispatchBuckets,
+			Buckets:   buckets,
 		}, promLabelNames)
+
+	resolveLabelNames = []string{targetStr, errorStr}
+	resolveCounter    = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "mixer",
+			Subsystem: "config",
+			Name:      "resolve_count",
+			Help:      "Total number of config resolves handled by Mixer.",
+		}, resolveLabelNames)
+
+	resolveDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "mixer",
+			Subsystem: "config",
+			Name:      "resolve_duration",
+			Help:      "Histogram of times for config resolves handled by Mixer.",
+			Buckets:   buckets,
+		}, resolveLabelNames)
+
+	countBuckets = []float64{0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 15, 20}
+	resolveRules = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "mixer",
+			Subsystem: "config",
+			Name:      "resolve_rules",
+			Help:      "Histogram of rules resolved by Mixer.",
+			Buckets:   countBuckets,
+		}, resolveLabelNames)
+
+	resolveActions = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "mixer",
+			Subsystem: "config",
+			Name:      "resolve_actions",
+			Help:      "Histogram of actions resolved by Mixer.",
+			Buckets:   countBuckets,
+		}, resolveLabelNames)
 )
+
+func init() {
+	prometheus.MustRegister(dispatchCounter)
+	prometheus.MustRegister(dispatchDuration)
+
+	prometheus.MustRegister(resolveCounter)
+	prometheus.MustRegister(resolveDuration)
+	prometheus.MustRegister(resolveRules)
+	prometheus.MustRegister(resolveActions)
+}

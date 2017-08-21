@@ -24,6 +24,6 @@ done
 gofmt -s -w ${GO_FILES}
 goimports -w -local istio.io ${GO_FILES}
 buildifier -mode=fix $(find . -name BUILD -type f)
-buildifier -mode=fix ./BUILD.api
+buildifier -mode=fix ./*.bzl
 buildifier -mode=fix ./BUILD.ubuntu
 buildifier -mode=fix ./WORKSPACE

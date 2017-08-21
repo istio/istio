@@ -47,7 +47,7 @@ func TestReport(t *testing.T) {
 		callErr    error
 		resolveErr bool
 		ncalled    int
-	}{{tn: tname, ncalled: 2},
+	}{{tn: tname, ncalled: 3},
 		{tn: tname, callErr: err1},
 		{tn: tname, callErr: err1, resolveErr: true},
 	} {
@@ -86,9 +86,9 @@ func TestCheck(t *testing.T) {
 		resolveErr bool
 		ncalled    int
 		cr         adapter.CheckResult
-	}{{tn: tname, ncalled: 4},
-		{tn: tname, ncalled: 4, cr: adapter.CheckResult{ValidUseCount: 200}},
-		{tn: tname, ncalled: 4, cr: adapter.CheckResult{ValidUseCount: 200, Status: status.WithPermissionDenied("bad user")}},
+	}{{tn: tname, ncalled: 6},
+		{tn: tname, ncalled: 6, cr: adapter.CheckResult{ValidUseCount: 200}},
+		{tn: tname, ncalled: 6, cr: adapter.CheckResult{ValidUseCount: 200, Status: status.WithPermissionDenied("bad user")}},
 		{tn: tname, callErr: err1},
 		{tn: tname, callErr: err1, resolveErr: true},
 	} {
@@ -219,26 +219,21 @@ func checkError(t *testing.T, want error, err error) {
 }
 
 // Resolve resolves configuration to a list of actions.
-func (f *fakeResolver) Resolve(bag attribute.Bag, variety adptTmpl.TemplateVariety, filterFunc filterFunc) ([]*Action, error) {
-	if filterFunc == nil {
-		return f.ra, f.err
-	}
-
-	a := make([]*Action, 0, len(f.ra))
-
-	for _, aa := range f.ra {
-		ics := make([]*cpb.Instance, 0, len(aa.instanceConfig))
-		for _, ic := range aa.instanceConfig {
-			if filterFunc(ic) {
-				ics = append(ics, ic)
-			}
-		}
-		np := *aa
-		np.instanceConfig = ics
-		a = append(a, &np)
-	}
-	return a, f.err
+func (f *fakeResolver) Resolve(bag attribute.Bag, variety adptTmpl.TemplateVariety) (Actions, error) {
+	return newFa(f.ra), f.err
 }
+
+func newFa(a []*Action) Actions {
+	return &fakeActions{a: a}
+}
+
+type fakeActions struct {
+	a    []*Action
+	done bool
+}
+
+func (a *fakeActions) Get() []*Action { return a.a }
+func (a *fakeActions) Done()          { a.done = true }
 
 var _ Resolver = &fakeResolver{}
 
@@ -251,12 +246,12 @@ func newResolver(hndlr string, instanceName string, tname string, resolveErr err
 				adapterName: hndlr + "Impl",
 				instanceConfig: []*cpb.Instance{
 					{
-						instanceName,
+						instanceName + "B",
 						tname,
 						&google_rpc.Status{},
 					},
 					{
-						instanceName + "B",
+						instanceName,
 						tname,
 						&google_rpc.Status{},
 					},
@@ -274,6 +269,23 @@ func newResolver(hndlr string, instanceName string, tname string, resolveErr err
 					},
 					{
 						instanceName + "B",
+						tname,
+						&google_rpc.Status{},
+					},
+				},
+			},
+			{
+				processor:   newTemplate(tname, fproc),
+				handlerName: hndlr + "_B",
+				adapterName: hndlr + "_BImpl",
+				instanceConfig: []*cpb.Instance{
+					{
+						instanceName + "X",
+						tname,
+						&google_rpc.Status{},
+					},
+					{
+						instanceName + "Y",
 						tname,
 						&google_rpc.Status{},
 					},

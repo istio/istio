@@ -64,6 +64,14 @@ func GetMutableBag(parent Bag) *MutableBag {
 	return mb
 }
 
+// GetFakeMutableBagForTesting returns a Mutable bag based on the specified map
+// Use this function only for testing purposes.
+func GetFakeMutableBagForTesting(v map[string]interface{}) *MutableBag {
+	m := GetMutableBag(nil)
+	m.values = v
+	return m
+}
+
 // CopyBag makes a deep copy of a bag.
 func CopyBag(b Bag) *MutableBag {
 	mb := GetMutableBag(nil)
