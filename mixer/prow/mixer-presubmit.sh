@@ -34,6 +34,7 @@ if [ "${CI:-}" == 'bootstrap' ]; then
 
     # Use the provided pull head sha, from prow.
     GIT_SHA="${PULL_PULL_SHA}"
+    ln -sf "${HOME}/.kube/config" testdata/kubernetes/config
 else
     # Use the current commit.
     GIT_SHA="$(git rev-parse --verify HEAD)"
