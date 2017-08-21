@@ -17,7 +17,6 @@ package ca
 import (
 	"bytes"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/asn1"
 	"fmt"
 	"reflect"
@@ -75,24 +74,20 @@ func TestSelfSignedIstioCA(t *testing.T) {
 		t.Error("Failed to verify generated cert")
 	}
 
-	foundSAN := false
-	for _, ee := range cert.Extensions {
-		if ee.Id.Equal(oidSubjectAltName) {
-			foundSAN = true
-			id := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", namespace, name)
-			rv := asn1.RawValue{Tag: tagURI, Class: asn1.ClassContextSpecific, Bytes: []byte(id)}
-			bs, err := asn1.Marshal([]asn1.RawValue{rv})
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if !bytes.Equal(bs, ee.Value) {
-				t.Errorf("SAN field does not match: %s is expected but actual is %s", bs, ee.Value)
-			}
-		}
-	}
-	if !foundSAN {
+	san := pki.ExtractSANExtension(cert)
+	if san == nil {
 		t.Errorf("Generated certificate does not contain a SAN field")
+	}
+
+	id := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", namespace, name)
+	rv := asn1.RawValue{Tag: 6, Class: asn1.ClassContextSpecific, Bytes: []byte(id)}
+	bs, err := asn1.Marshal([]asn1.RawValue{rv})
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !bytes.Equal(bs, san.Value) {
+		t.Errorf("SAN field does not match: %s is expected but actual is %s", bs, san.Value)
 	}
 }
 
@@ -218,19 +213,12 @@ func TestSignCSR(t *testing.T) {
 		t.Error(err)
 	}
 
-	expected := []pkix.Extension{buildSubjectAltNameExtension(host)}
-	actual := extractSANExtensions(cert.Extensions)
-	if !reflect.DeepEqual(expected, actual) {
-		t.Errorf("Unexpected extensions: wanted %v but got %v", expected, actual)
+	san := pki.ExtractSANExtension(cert)
+	if san == nil {
+		t.Errorf("No SAN extension is found in the certificate")
 	}
-}
-
-func extractSANExtensions(exts []pkix.Extension) []pkix.Extension {
-	sans := []pkix.Extension{}
-	for _, ext := range exts {
-		if ext.Id.Equal(oidSubjectAltName) {
-			sans = append(sans, ext)
-		}
+	expected := buildSubjectAltNameExtension(host)
+	if !reflect.DeepEqual(expected, san) {
+		t.Errorf("Unexpected extensions: wanted %v but got %v", expected, san)
 	}
-	return sans
 }

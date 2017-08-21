@@ -24,7 +24,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/asn1"
 	"encoding/pem"
 	"io/ioutil"
 	"math/big"
@@ -72,18 +71,8 @@ type CertOptions struct {
 	RSAKeySize int
 }
 
-const (
-	// OID tag values for X.509 SAN field (see https://tools.ietf.org/html/rfc5280#appendix-A.2)
-	tagDNSName = 2
-	tagURI     = 6
-	tarIP      = 7
-
-	// The URI scheme for Istio identities.
-	uriScheme = "spiffe"
-)
-
-// See http://www.alvestrand.no/objectid/2.5.29.17.html.
-var oidSubjectAltName = asn1.ObjectIdentifier{2, 5, 29, 17}
+// The URI scheme for Istio identities.
+const uriScheme = "spiffe"
 
 // GenCSR generates a X.509 certificate sign request and private key with the given options.
 func GenCSR(options CertOptions) ([]byte, []byte, error) {
@@ -185,7 +174,7 @@ func GenCSRTemplate(options CertOptions) x509.CertificateRequest {
 
 	if h := options.Host; len(h) > 0 {
 		s := buildSubjectAltNameExtension(h)
-		template.ExtraExtensions = []pkix.Extension{s}
+		template.ExtraExtensions = []pkix.Extension{*s}
 	}
 
 	return template
@@ -224,7 +213,7 @@ func genCertTemplate(options CertOptions) x509.Certificate {
 
 	if h := options.Host; len(h) > 0 {
 		s := buildSubjectAltNameExtension(h)
-		template.ExtraExtensions = []pkix.Extension{s}
+		template.ExtraExtensions = []pkix.Extension{*s}
 	}
 
 	if options.IsCA {
@@ -234,31 +223,26 @@ func genCertTemplate(options CertOptions) x509.Certificate {
 	return template
 }
 
-func buildSubjectAltNameExtension(host string) pkix.Extension {
-	rawValues := []asn1.RawValue{}
-	for _, h := range strings.Split(host, ",") {
-		var rv *asn1.RawValue
-		if ip := net.ParseIP(h); ip != nil {
+func buildSubjectAltNameExtension(hosts string) *pkix.Extension {
+	ids := []pki.Identity{}
+	for _, host := range strings.Split(hosts, ",") {
+		if ip := net.ParseIP(host); ip != nil {
 			// Use the 4-byte representation of the IP address when possible.
 			if eip := ip.To4(); eip != nil {
 				ip = eip
 			}
-			rv = &asn1.RawValue{Tag: tarIP, Class: asn1.ClassContextSpecific, Bytes: ip}
+			ids = append(ids, pki.Identity{Type: pki.TypeIP, Value: ip})
+		} else if strings.HasPrefix(host, uriScheme+":") {
+			ids = append(ids, pki.Identity{Type: pki.TypeURI, Value: []byte(host)})
 		} else {
-			tag := tagDNSName
-			if strings.HasPrefix(h, uriScheme+":") {
-				// Use URI for Istio identities
-				tag = tagURI
-			}
-			rv = &asn1.RawValue{Tag: tag, Class: asn1.ClassContextSpecific, Bytes: []byte(h)}
+			ids = append(ids, pki.Identity{Type: pki.TypeDNS, Value: []byte(host)})
 		}
-		rawValues = append(rawValues, *rv)
 	}
 
-	bs, err := asn1.Marshal(rawValues)
+	san, err := pki.BuildSANExtension(ids)
 	if err != nil {
-		glog.Fatalf("Failed to marshal the raw values for SAN field (err: %s)", err)
+		glog.Fatalf("Failed to build SAN extension (error: %v)", err)
 	}
 
-	return pkix.Extension{Id: oidSubjectAltName, Value: bs}
+	return san
 }
