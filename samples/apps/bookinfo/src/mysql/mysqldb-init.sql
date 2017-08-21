@@ -12,4 +12,4 @@ CREATE TABLE `ratings` (
   PRIMARY KEY (`ReviewID`)
 );
 INSERT INTO ratings (ReviewID, Rating) VALUES (1, 5);
-INSERT INTO ratings (ReviewID, Rating) VALUES (2, 5);
+INSERT INTO ratings (ReviewID, Rating) VALUES (2, 6);

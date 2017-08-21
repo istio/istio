@@ -39,6 +39,8 @@ const (
 	u2           = "test-user"
 	create       = "create"
 	bookinfoYaml = "samples/apps/bookinfo/bookinfo.yaml"
+	bookinfoRatingsv2Yaml = "samples/apps/bookinfo/bookinfo-ratings-v2.yaml"
+	bookinfoMysqlYaml = "samples/apps/bookinfo/bookinfo-mysql.yaml"
 	modelDir     = "tests/apps/bookinfo/output"
 	rulesDir     = "samples/apps/bookinfo"
 	allRule      = "route-rule-all-v1.yaml"
@@ -394,11 +396,19 @@ func setTestConfig() error {
 	if err != nil {
 		return err
 	}
-	demoApp := &framework.App{
-		AppYaml:    util.GetResourcePath(bookinfoYaml),
+	demoApps := []framework.App{{AppYaml: util.GetResourcePath(bookinfoYaml),
 		KubeInject: true,
+	},
+		{AppYaml: util.GetResourcePath(bookinfoRatingsv2Yaml),
+			KubeInject: true,
+		},
+		{AppYaml: util.GetResourcePath(bookinfoMysqlYaml),
+			KubeInject: false,
+		},
 	}
-	tc.Kube.AppManager.AddApp(demoApp)
+	for i, _ := range demoApps {
+		tc.Kube.AppManager.AddApp(&demoApps[i])
+	}
 	return nil
 }
 
@@ -412,7 +422,7 @@ func TestDbRouting(t *testing.T) {
 
 	var respExpr string = "glyphicon-star"
 
-	_, err = checkHttpResponse(u1, tc.gateway, respExpr, 10)
+	_, err = checkHttpResponse(u1, tc.gateway, respExpr, 11)
 	inspect(
 		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
