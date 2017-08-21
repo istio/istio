@@ -56,7 +56,7 @@ var (
 	dispatchCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "mixer",
-			Subsystem: "adapter",
+			Subsystem: "adapter_old",
 			Name:      "dispatch_count",
 			Help:      "Total number of adapter dispatches handled by Mixer.",
 		}, promLabelNames)
@@ -64,7 +64,7 @@ var (
 	dispatchDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "mixer",
-			Subsystem: "adapter",
+			Subsystem: "adapter_old",
 			Name:      "dispatch_duration",
 			Help:      "Histogram of times for adapter dispatches handled by Mixer.",
 			Buckets:   dispatchBuckets,
