@@ -16,6 +16,7 @@ SHELL := /bin/bash
 
 .PHONY: setup
 setup: platform/kube/config
+	@bin/install-prereqs.sh
 	@bin/init.sh
 
 .PHONY: build
