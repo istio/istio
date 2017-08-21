@@ -28,3 +28,24 @@ You can also run a simple client to interact with the server:
   --string_attributes source.uid=kubernetes://xyz.default
 Check RPC returned OK
 ```
+
+## Testing
+
+Similar to Pilot, some tests for Mixer requires access to Kubernetes cluster
+(version 1.7.0 or higher). Please configure your `kubectl` to point to a development
+cluster (e.g. minikube) before building or invoking the tests and add a symbolic link
+to your repository pointing to Kubernetes cluster credentials:
+
+    ln -s ~/.kube/config testdata/kubernetes/
+
+_Note1_: If you are running Bazel in a VM (e.g. in Vagrant environment), copy
+the kube config file on the host to testdata/kubernetes instead of symlinking it,
+and change the paths to minikube certs.
+
+    cp ~/.kube/config testdata/kubernetes/
+    sed -i 's!/Users/<username>!/home/ubuntu!' testdata/kubernetes/config
+
+Also, copy the same file to `/home/ubuntu/.kube/config` in the VM, and make
+sure that the file is readable to user `ubuntu`.
+
+See also [Pilot's guide of setting up test environment](https://github.com/istio/pilot/blob/master/doc/testing.md).
