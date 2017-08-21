@@ -197,17 +197,17 @@ func checkRoutingResponse(user, version, gateway, modelFile string) (int, error)
 	return duration, err
 }
 
-func checkHttpResponse(user, gateway, expr string, count int) (int, error) {
+func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
 	resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
 	if err != nil {
 		return -1, err
-	} else {
-		defer closeResponseBody(resp)
-		glog.Infof("Get from page: %d", resp.StatusCode)
-		if resp.StatusCode != http.StatusOK {
-			glog.Errorf("Get response from product page failed!")
-			return -1, fmt.Errorf("status code is %d", resp.StatusCode)
-		}
+	}
+
+	defer closeResponseBody(resp)
+	glog.Infof("Get from page: %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		glog.Errorf("Get response from product page failed!")
+		return -1, fmt.Errorf("status code is %d", resp.StatusCode)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
@@ -227,11 +227,11 @@ func checkHttpResponse(user, gateway, expr string, count int) (int, error) {
 	ref := re.FindAll(body, -1)
 	if ref == nil {
 		glog.Infof("%v", string(body))
-		return -1, fmt.Errorf("Could not find %v in response", expr)
+		return -1, fmt.Errorf("could not find %v in response", expr)
 	}
 	if count > 0 && len(ref) < count {
 		glog.Infof("%v", string(body))
-		return -1, fmt.Errorf("Could not find %v # of %v in response. found %v", count, expr, len(ref))
+		return -1, fmt.Errorf("could not find %v # of %v in response. found %v", count, expr, len(ref))
 	}
 	return 1, nil
 }
@@ -406,7 +406,7 @@ func setTestConfig() error {
 			KubeInject: false,
 		},
 	}
-	for i, _ := range demoApps {
+	for i := range demoApps {
 		tc.Kube.AppManager.AddApp(&demoApps[i])
 	}
 	return nil
@@ -420,9 +420,9 @@ func TestDbRouting(t *testing.T) {
 		inspect(deleteRules(rules), "failed to delete rules", "", t)
 	}()
 
-	var respExpr string = "glyphicon-star"
+	respExpr := "glyphicon-star"
 
-	_, err = checkHttpResponse(u1, tc.gateway, respExpr, 11)
+	_, err = checkHTTPResponse(u1, tc.gateway, respExpr, 11)
 	inspect(
 		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
