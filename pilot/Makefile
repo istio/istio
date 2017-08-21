@@ -39,6 +39,10 @@ lint: build
 gazelle:
 	@bin/gazelle
 
+.PHONY: racetest
+racetest:
+	@bazel test --features=race //...
+
 platform/kube/config:
 	@ln -s ~/.kube/config platform/kube/
 
