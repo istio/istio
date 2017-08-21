@@ -46,7 +46,6 @@ go_test(
         "//proxy:go_default_library",
         "//test/util:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
-        "@com_github_gogo_protobuf//proto:go_default_library",
         "@io_istio_api//:go_default_library",
         "@io_k8s_api//apps/v1beta1:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
