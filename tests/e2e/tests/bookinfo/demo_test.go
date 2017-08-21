@@ -35,19 +35,19 @@ import (
 )
 
 const (
-	u1           = "normal-user"
-	u2           = "test-user"
-	create       = "create"
-	bookinfoYaml = "samples/apps/bookinfo/bookinfo.yaml"
+	u1                    = "normal-user"
+	u2                    = "test-user"
+	create                = "create"
+	bookinfoYaml          = "samples/apps/bookinfo/bookinfo.yaml"
 	bookinfoRatingsv2Yaml = "samples/apps/bookinfo/bookinfo-ratings-v2.yaml"
-	bookinfoMysqlYaml = "samples/apps/bookinfo/bookinfo-mysql.yaml"
-	modelDir     = "tests/apps/bookinfo/output"
-	rulesDir     = "samples/apps/bookinfo"
-	allRule      = "route-rule-all-v1.yaml"
-	delayRule    = "route-rule-delay.yaml"
-	fiftyRule    = "route-rule-reviews-50-v3.yaml"
-	testRule     = "route-rule-reviews-test-v2.yaml"
-        testDbRule   = "route-rule-ratings-mysql.yaml"
+	bookinfoMysqlYaml     = "samples/apps/bookinfo/bookinfo-mysql.yaml"
+	modelDir              = "tests/apps/bookinfo/output"
+	rulesDir              = "samples/apps/bookinfo"
+	allRule               = "route-rule-all-v1.yaml"
+	delayRule             = "route-rule-delay.yaml"
+	fiftyRule             = "route-rule-reviews-50-v3.yaml"
+	testRule              = "route-rule-reviews-test-v2.yaml"
+	testDbRule            = "route-rule-ratings-mysql.yaml"
 )
 
 var (
