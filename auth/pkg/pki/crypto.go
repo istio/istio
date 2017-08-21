@@ -27,7 +27,7 @@ const (
 )
 
 // ParsePemEncodedCertificate constructs a `x509.Certificate` object using the
-// given a PEM-encoded certificate,
+// given a PEM-encoded certificate.
 func ParsePemEncodedCertificate(certBytes []byte) (*x509.Certificate, error) {
 	cb, _ := pem.Decode(certBytes)
 	if cb == nil {

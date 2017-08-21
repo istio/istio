@@ -11,6 +11,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/credential:go_default_library",
+        "//pkg/pki:go_default_library",
         "//pkg/pki/ca:go_default_library",
         "//proto:go_default_library",
         "//utils:go_default_library",
