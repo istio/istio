@@ -19,6 +19,10 @@ setup: platform/kube/config
 	@bin/install-prereqs.sh
 	@bin/init.sh
 
+.PHONY: fmt
+fmt:
+	@bin/fmt.sh
+
 .PHONY: build
 build:	
 	@bazel build //...
