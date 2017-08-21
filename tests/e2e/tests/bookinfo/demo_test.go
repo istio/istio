@@ -52,7 +52,7 @@ const (
 
 var (
 	tc             *testConfig
-	testRetryTimes = 10
+	testRetryTimes = 5
 	defaultRules   = []string{allRule}
 )
 
