@@ -34,6 +34,10 @@ test: build
 lint: build
 	@bin/check.sh
 
+.PHONY: gazelle
+gazelle:
+	@bin/gazelle
+
 platform/kube/config:
 	@ln -s ~/.kube/config platform/kube/
 
