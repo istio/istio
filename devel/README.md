@@ -286,6 +286,14 @@ make lint
 bin/linters.sh -s HEAD^
 ```
 
+### Source file dependencies
+
+You can keep track of dependencies between sources using:
+
+```shell
+make gazelle
+```
+
 ### Race detection tests
 
 You can run the test suite using the Go race detection tools using:
