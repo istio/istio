@@ -57,7 +57,10 @@ func Shell(format string, args ...interface{}) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("command failed: %q %v", string(bytes), err)
 	}
-	return string(bytes), nil
+
+	glog.V(3).Infof("return %s", string(bytes))
+	glog.V(3).Infof("return 2 %s", string(bytes[:]))
+	return string(bytes[:]), nil
 }
 
 // RunBackground starts a background process and return the Process if succeed
