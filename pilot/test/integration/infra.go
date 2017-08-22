@@ -240,13 +240,11 @@ func (infra *infra) teardown() {
 }
 
 func (infra *infra) kubeApply(yaml string) error {
-	fmt.Println(yaml)
 	return util.RunInput(fmt.Sprintf("kubectl apply --kubeconfig %s -n %s -f -",
 		kubeconfig, infra.Namespace), yaml)
 }
 
 func (infra *infra) kubeDelete(yaml string) error {
-	fmt.Println(yaml)
 	return util.RunInput(fmt.Sprintf("kubectl delete --kubeconfig %s -n %s -f -",
 		kubeconfig, infra.Namespace), yaml)
 }

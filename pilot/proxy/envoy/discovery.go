@@ -473,22 +473,8 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 			return
 		}
 
-		// route-config-name holds the listener port
 		routeConfigName := request.PathParameter(RouteConfigName)
-		port, err := strconv.Atoi(routeConfigName)
-		if err != nil {
-			errorResponse(response, http.StatusNotFound,
-				fmt.Sprintf("Unexpected %s %q", RouteConfigName, routeConfigName))
-			return
-		}
-
-		httpRouteConfigs := buildRDSRoutes(ds.Mesh, role, ds, ds)
-		routeConfig, ok := httpRouteConfigs[port]
-		if !ok {
-			errorResponse(response, http.StatusNotFound,
-				fmt.Sprintf("Missing route config for port %d", port))
-			return
-		}
+		routeConfig := buildRDSRoute(ds.Mesh, role, routeConfigName, ds.ServiceDiscovery, ds.IstioConfigStore)
 		if out, err = json.MarshalIndent(routeConfig, " ", " "); err != nil {
 			errorResponse(response, http.StatusInternalServerError, err.Error())
 			return

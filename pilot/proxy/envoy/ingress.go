@@ -32,14 +32,14 @@ func buildIngressListeners(mesh *proxyconfig.ProxyMeshConfig,
 	config model.IstioConfigStore,
 	ingress proxy.Node) Listeners {
 	listeners := Listeners{
-		buildHTTPListener(mesh, ingress, nil, WildcardAddress, 80, true, true),
+		buildHTTPListener(mesh, ingress, nil, WildcardAddress, 80, "80", true),
 	}
 
 	// lack of SNI in Envoy implies that TLS secrets are attached to listeners
 	// therefore, we should first check that TLS endpoint is needed before shipping TLS listener
 	_, secret := buildIngressRoutes(mesh, discovery, config)
 	if secret != "" {
-		listener := buildHTTPListener(mesh, ingress, nil, WildcardAddress, 443, true, true)
+		listener := buildHTTPListener(mesh, ingress, nil, WildcardAddress, 443, "443", true)
 		listener.SSLContext = &SSLContext{
 			CertChainFile:  path.Join(proxy.IngressCertsPath, "tls.crt"),
 			PrivateKeyFile: path.Join(proxy.IngressCertsPath, "tls.key"),
@@ -119,8 +119,7 @@ func buildIngressRoutes(mesh *proxyconfig.ProxyMeshConfig,
 	}
 
 	configs := HTTPRouteConfigs{80: rc, 443: rcTLS}
-	configs.normalize()
-	return configs, tlsAll
+	return configs.normalize(), tlsAll
 }
 
 // buildIngressRoute translates an ingress rule to an Envoy route

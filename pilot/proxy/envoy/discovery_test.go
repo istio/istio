@@ -427,6 +427,20 @@ func TestListenerDiscoveryIngress(t *testing.T) {
 	compareResponse(response, "testdata/lds-ingress.json", t)
 }
 
+func TestListenerDiscoveryHttpProxy(t *testing.T) {
+	mesh := makeMeshConfig()
+	mesh.ProxyListenPort = 0
+	mesh.ProxyHttpPort = 15002
+	registry := memory.Make(model.IstioConfigTypes)
+	ds := makeDiscoveryService(t, registry, &mesh)
+	url := fmt.Sprintf("/v1/listeners/%s/%s", ds.Mesh.IstioServiceCluster, mock.ProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/lds-httpproxy.json", t)
+	url = fmt.Sprintf("/v1/routes/%s/%s/%s", RDSAll, ds.Mesh.IstioServiceCluster, mock.ProxyV0.ServiceNode())
+	response = makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-httpproxy.json", t)
+}
+
 func TestListenerDiscoveryEgress(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)

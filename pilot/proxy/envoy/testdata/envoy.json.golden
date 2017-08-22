@@ -6,7 +6,7 @@
   },
   "admin": {
     "access_log_path": "/dev/stdout",
-    "address": "tcp://0.0.0.0:15000"
+    "address": "tcp://127.0.0.1:15000"
   },
   "cluster_manager": {
     "clusters": [
