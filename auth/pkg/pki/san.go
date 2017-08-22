@@ -15,7 +15,6 @@
 package pki
 
 import (
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"fmt"
@@ -131,9 +130,9 @@ func ExtractIDsFromSAN(sanExt *pkix.Extension) ([]Identity, error) {
 }
 
 // ExtractSANExtension extracts the "Subject Alternative Name" externsion from
-// the given X.509 cerificate.
-func ExtractSANExtension(cert *x509.Certificate) *pkix.Extension {
-	for _, ext := range cert.Extensions {
+// the given PKIX extension set.
+func ExtractSANExtension(exts []pkix.Extension) *pkix.Extension {
+	for _, ext := range exts {
 		if ext.Id.Equal(oidSubjectAlternativeName) {
 			// We don't need to examine other extensions anymore since a certificate
 			// must not include more than one instance of a particular extension. See

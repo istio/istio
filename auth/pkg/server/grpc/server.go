@@ -16,6 +16,7 @@ package grpc
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"time"
@@ -27,6 +28,7 @@ import (
 
 	"golang.org/x/net/context"
 
+	"istio.io/auth/pkg/pki"
 	"istio.io/auth/pkg/pki/ca"
 	pb "istio.io/auth/proto"
 )
@@ -36,10 +38,12 @@ const certExpirationBuffer = time.Minute
 // Server implements pb.IstioCAService and provides the service on the
 // specified port.
 type Server struct {
-	ca          ca.CertificateAuthority
-	certificate *tls.Certificate
-	hostname    string
-	port        int
+	authenticator authenticator
+	authorizer    authorizer
+	ca            ca.CertificateAuthority
+	certificate   *tls.Certificate
+	hostname      string
+	port          int
 }
 
 // HandleCSR handles an incoming certificate signing request (CSR). It does
@@ -48,6 +52,27 @@ type Server struct {
 // to sign is returned as part of the response object.
 func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Response, error) {
 	// TODO: handle authentication here
+
+	user := s.authenticator.authenticate(ctx)
+	if user == nil {
+		glog.Warning("failed to authenticate request")
+
+		return nil, fmt.Errorf("failed to authenticate request")
+	}
+
+	csr, err := pki.ParsePemEncodedCSR(request.CsrPem)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse the CSR (error %v)", err)
+	}
+
+	requestedIDs := extractIDs(csr.Extensions)
+	if len(requestedIDs) == 0 {
+		return nil, fmt.Errorf("failed to extract identities from the CSR")
+	}
+
+	if !s.authorizer.authorize(user, requestedIDs) {
+		return nil, fmt.Errorf("certificate signing request is not authorized")
+	}
 
 	cert, err := s.ca.Sign(request.CsrPem)
 	if err != nil {
@@ -92,14 +117,21 @@ func (s *Server) Run() error {
 // New creates a new instance of `IstioCAServiceServer`.
 func New(ca ca.CertificateAuthority, hostname string, port int) *Server {
 	return &Server{
-		ca:       ca,
-		hostname: hostname,
-		port:     port,
+		authenticator: &clientCertAuthenticator{},
+		authorizer:    &simpleAuthorizer{},
+		ca:            ca,
+		hostname:      hostname,
+		port:          port,
 	}
 }
 
 func (s *Server) createTLSServerOption() grpc.ServerOption {
+	cp := x509.NewCertPool()
+	cp.AppendCertsFromPEM(s.ca.GetRootCertificate())
+
 	config := &tls.Config{
+		ClientCAs:  cp,
+		ClientAuth: tls.VerifyClientCertIfGiven,
 		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 			if s.certificate == nil || shouldRefresh(s.certificate) {
 				// Apply new certificate if there isn't one yet, or the one has become invalid.
