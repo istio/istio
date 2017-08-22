@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
       - name: ratings
-        image: istio/examples-bookinfo-ratings-v2
+        image: quay.io/saurabh/examples-bookinfo-ratings-v2:v1
         imagePullPolicy: IfNotPresent
         env:
           - name: MYSQL_DB_HOST
