@@ -151,7 +151,7 @@ func (k *KubeInfo) Teardown() error {
 			if namespaceDeleted == true {
 				break
 			}
-			time.Sleep(attempts * time.Second)
+			time.Sleep(time.Duration(attempts) * time.Second)
 		}
 
 		if !namespaceDeleted {
