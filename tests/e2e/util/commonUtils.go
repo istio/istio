@@ -53,7 +53,7 @@ func Shell(format string, args ...interface{}) (string, error) {
 	glog.V(2).Infof("Running command %s", command)
 	c := exec.Command(parts[0], parts[1:]...) // #nosec
 	bytes, err := c.CombinedOutput()
-	glog.V(3).Infof("Command output: \n%s", string(bytes[:]))
+	glog.V(3).Infof("Command output: \n %s, err: %v", string(bytes[:]), err)
 	if err != nil {
 		return "", fmt.Errorf("command failed: %q %v", string(bytes), err)
 	}

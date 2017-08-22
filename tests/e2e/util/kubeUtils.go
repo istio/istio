@@ -70,7 +70,7 @@ func DeleteNamespace(n string) error {
 // IsNamespaceDeleted check if a kubernete namespace is deleted
 func IsNamespaceDeleted(n string) (bool, error) {
 	output, err := Shell("kubectl get namespace %s", n)
-	if err != nil && strings.Contains(output, "NotFound") {
+	if strings.Contains(output, "NotFound") {
 		return true, nil
 	}
 	return false, err
