@@ -71,10 +71,10 @@ func DeleteNamespace(n string) error {
 func IsNamespaceDeleted(n string) (bool, error) {
 	output, err := Shell("kubectl get namespace %s", n)
 	if strings.Contains(output, "NotFound") {
-		glog.Infof("namespace %s deleted\n", n)
+		glog.V(2).Infof("namespace %s deleted\n", n)
 		return true, nil
 	}
-	glog.Infof("namespace %s not deleted yet\n", n)
+	glog.V(2).Infof("namespace %s not deleted yet\n", n)
 	return false, err
 }
 
