@@ -6,15 +6,15 @@ See also [Istio Development](https://github.com/istio/istio/blob/master/devel/RE
 
 We are using [Bazel 0.5.2](https://github.com/bazelbuild/bazel/releases) as the main build system in Istio Pilot. The following command builds all targets in Istio Pilot:
 
-To avoid a `missing input file '//platform/kube:config'` error you need to `ln -s ~/.kube/config platform/kube/`, see [testing](testing.md) for details/why.
+To avoid a `missing input file '//platform/kube:config'` error you need to `ln -s ~/.kube/config platform/kube/` or `make kubeconfig`, see [testing](testing.md) for details/why.
 
-    bazel build //...
+    make build
 
 Bazel uses `BUILD` files to keep track of dependencies between sources.  If you
 add a new source file or change the imports  please run the following command
 in the repository root to update all `BUILD` files:
 
-    bin/gazelle
+    make gazelle
 
 Data dependencies such as the ones used by tests require manual declaration in
 the `BUILD` files.
@@ -23,13 +23,13 @@ the `BUILD` files.
 
 Istio Pilot requires Go1.8+ toolchain.
 
-Bazel build environment is compatible with the standard Golang tooling, except you need to vendorize all dependencies in Istio Pilot. If you have successfully built with Bazel, run the following script to put dependencies fetched by Bazel into `vendor` directory:
+Bazel build environment is compatible with the standard Golang tooling, except you need to vendorize all dependencies in Istio Pilot. If you have successfully built with Bazel, run the following script to put dependencies fetched by Bazel into `vendor` directory and install the Go1.8+ toolchain:
 
-    bin/init.sh
+    make setup
 
 After running this command, you should be able to use all standard go tools:
 
-    go build istio.io/pilot/...
-    go test -v istio.io/pilot/...
+    make build
+    make test
 
 _Note_: these commands assume you have placed the repository clone into `$GOPATH`.
