@@ -33,6 +33,8 @@ import (
 )
 
 const (
+	defaultCACertTTL = 365 * 24 * time.Hour
+
 	// The default issuer organization for self-signed CA certificate.
 	selfSignedCAOrgDefault = "k8s.cluster.local"
 
@@ -90,9 +92,9 @@ func init() {
 		fmt.Sprintf("The issuer organization used in self-signed CA certificate (default to %s)",
 			selfSignedCAOrgDefault))
 
-	flags.DurationVar(&opts.caCertTTL, "ca-cert-ttl", 240*time.Hour,
-		"The TTL of self-signed CA root certificate (default to 10 days)")
-	flags.DurationVar(&opts.certTTL, "cert-ttl", time.Hour, "The TTL of issued certificates (default to 1 hour)")
+	flags.DurationVar(&opts.caCertTTL, "ca-cert-ttl", defaultCACertTTL,
+		"The TTL of self-signed CA root certificate")
+	flags.DurationVar(&opts.certTTL, "cert-ttl", time.Hour, "The TTL of issued certificates")
 
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "localhost", "Specifies the hostname for GRPC server.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "Specifies the port number for GRPC server. "+
