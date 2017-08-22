@@ -15,7 +15,6 @@
 package pki
 
 import (
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"reflect"
@@ -111,8 +110,7 @@ func TestExtractSANExtension(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		cert := &x509.Certificate{Extensions: tc.exts}
-		found := ExtractSANExtension(cert) != nil
+		found := ExtractSANExtension(tc.exts) != nil
 		if found != tc.found {
 			t.Errorf("Case %q: expect `found` to be %t but got %t", id, tc.found, found)
 		}

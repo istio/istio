@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/net/context"
+
 	"istio.io/auth/pkg/pki/ca"
 	pb "istio.io/auth/proto"
 )
@@ -59,27 +61,68 @@ func (ca *mockCA) GetRootCertificate() []byte {
 	return nil
 }
 
+type mockAuthenticator struct {
+	authenticated bool
+}
+
+func (authn *mockAuthenticator) authenticate(ctx context.Context) *user {
+	if !authn.authenticated {
+		return nil
+	}
+	return &user{}
+}
+
+type mockAuthorizer struct {
+	authorized bool
+}
+
+func (authz *mockAuthorizer) authorize(*user, []string) bool {
+	return authz.authorized
+}
+
 func TestSign(t *testing.T) {
 	testCases := map[string]struct {
-		ca     ca.CertificateAuthority
-		csr    string
-		cert   string
-		errMsg string
+		authenticated bool
+		authorized    bool
+		ca            ca.CertificateAuthority
+		csr           string
+		cert          string
+		errMsg        string
 	}{
+		"Unauthenticated request": {
+			authenticated: false,
+			errMsg:        "failed to authenticate request",
+		},
+		"Unauthorized request": {
+			authenticated: true,
+			authorized:    false,
+			csr:           csr,
+			errMsg:        "certificate signing request is not authorized",
+		},
 		"Failed to sign": {
-			ca:     &mockCA{errMsg: "cannot sign"},
-			csr:    csr,
-			errMsg: "cannot sign",
+			authenticated: true,
+			authorized:    true,
+			ca:            &mockCA{errMsg: "cannot sign"},
+			csr:           csr,
+			errMsg:        "cannot sign",
 		},
 		"Successful signing": {
-			ca:   &mockCA{cert: "generated cert"},
-			csr:  csr,
-			cert: "generated cert",
+			authenticated: true,
+			authorized:    true,
+			ca:            &mockCA{cert: "generated cert"},
+			csr:           csr,
+			cert:          "generated cert",
 		},
 	}
 
 	for id, c := range testCases {
-		server := New(c.ca, "hostname", 8080)
+		server := &Server{
+			authenticator: &mockAuthenticator{c.authenticated},
+			authorizer:    &mockAuthorizer{c.authorized},
+			ca:            c.ca,
+			hostname:      "hostname",
+			port:          8080,
+		}
 		request := &pb.Request{CsrPem: []byte(c.csr)}
 
 		response, err := server.HandleCSR(nil, request)
