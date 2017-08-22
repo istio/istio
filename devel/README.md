@@ -228,7 +228,7 @@ reviews much easier.
 Using Mixer as an example:
 
 ```shell
-cd $(ISTIO)/mixer
+cd $ISTIO/mixer
 bazel build //...
 ```
 
