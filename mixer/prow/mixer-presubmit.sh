@@ -46,6 +46,7 @@ echo "=== Bazel Tests ==="
 bazel test --features=race //...
 
 echo "=== Code Check ==="
+export LAST_GOOD_GITSHA="${PULL_BASE_SHA}"
 ./bin/linters.sh
 
 echo "=== Code Coverage ==="
