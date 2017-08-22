@@ -55,12 +55,10 @@ func Shell(format string, args ...interface{}) (string, error) {
 	bytes, err := c.CombinedOutput()
 	glog.V(3).Infof("Command output: \n %s, err: %v", string(bytes[:]), err)
 	if err != nil {
-		return "", fmt.Errorf("command failed: %q %v", string(bytes), err)
+		return string(bytes), fmt.Errorf("command failed: %q %v", string(bytes), err)
 	}
 
-	glog.V(3).Infof("return %s", string(bytes))
-	glog.V(3).Infof("return 2 %s", string(bytes[:]))
-	return string(bytes[:]), nil
+	return string(bytes), nil
 }
 
 // RunBackground starts a background process and return the Process if succeed
