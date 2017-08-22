@@ -144,7 +144,7 @@ func (k *KubeInfo) Teardown() error {
 		}
 
 		// confirm the namespace is deleted as it will cause future creation to fail
-		maxAttempts := 30
+		maxAttempts := 15
 		namespaceDeleted := false
 		for attempts := 1; attempts <= maxAttempts; attempts++ {
 			namespaceDeleted, err = util.IsNamespaceDeleted(k.Namespace)
