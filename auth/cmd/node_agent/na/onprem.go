@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils
+package na
 
 import (
 	"crypto/tls"
@@ -20,12 +20,28 @@ import (
 	"io/ioutil"
 
 	"github.com/golang/glog"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
-// GetTLSCredentials creates transport credentials that are common to
+type onPremPlatformImpl struct{}
+
+func (na *onPremPlatformImpl) GetDialOptions(cfg *Config) ([]grpc.DialOption, error) {
+	transportCreds := getTLSCredentials(*cfg.NodeIdentityCertFile,
+		*cfg.NodeIdentityPrivateKeyFile,
+		*cfg.RootCACertFile, true /* isClient */)
+	var options []grpc.DialOption
+	options = append(options, grpc.WithTransportCredentials(transportCreds))
+	return options, nil
+}
+
+func (na *onPremPlatformImpl) IsProperPlatform() bool {
+	return true
+}
+
+// getTLSCredentials creates transport credentials that are common to
 // node agent and CA.
-func GetTLSCredentials(certificateFile string, keyFile string,
+func getTLSCredentials(certificateFile string, keyFile string,
 	caCertFile string, isClient bool) credentials.TransportCredentials {
 
 	// Load the certificate from disk

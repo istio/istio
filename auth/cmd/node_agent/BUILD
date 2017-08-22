@@ -5,7 +5,7 @@ go_library(
     srcs = ["main.go"],
     visibility = ["//visibility:public"],
     deps = [
-        "//node_agent/na:go_default_library",
+        "//cmd/node_agent/na:go_default_library",
         "@com_github_golang_glog//:go_default_library",
     ],
 )
