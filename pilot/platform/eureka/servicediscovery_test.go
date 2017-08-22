@@ -17,6 +17,9 @@ package eureka
 import (
 	"testing"
 
+	"fmt"
+	"sort"
+
 	"istio.io/pilot/model"
 )
 
@@ -39,12 +42,14 @@ func TestServiceDiscoveryServices(t *testing.T) {
 		},
 	}
 	sd := NewServiceDiscovery(cl)
-	services := []*model.Service{
-		makeService("a.default.svc.local", []int{9090, 8080}, nil),
+	expectedServices := []*model.Service{
+		makeService("a.default.svc.local", []int{8080, 9090}, nil),
 		makeService("b.default.svc.local", []int{7070}, nil),
 	}
 
-	if err := compare(t, sd.Services(), services); err != nil {
+	services := sd.Services()
+	sortServices(services)
+	if err := compare(t, services, expectedServices); err != nil {
 		t.Error(err)
 	}
 }
@@ -111,7 +116,9 @@ func TestServiceDiscoveryHostInstances(t *testing.T) {
 	}
 
 	for _, tt := range instanceTests {
-		if err := compare(t, sd.HostInstances(tt.addrs), tt.instances); err != nil {
+		instances := sd.HostInstances(tt.addrs)
+		sortServiceInstances(instances)
+		if err := compare(t, instances, tt.instances); err != nil {
 			t.Error(err)
 		}
 	}
@@ -144,8 +151,8 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 			// filter by hostname
 			hostname: "a.default.svc.local",
 			instances: []*model.ServiceInstance{
-				makeServiceInstance(serviceA, "10.0.0.1", 9090, spamCoolaidTags),
 				makeServiceInstance(serviceA, "10.0.0.2", 8080, kitKatTags),
+				makeServiceInstance(serviceA, "10.0.0.1", 9090, spamCoolaidTags),
 			},
 		},
 		{
@@ -168,8 +175,61 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 
 	for _, c := range serviceInstanceTests {
 		instances := sd.Instances(c.hostname, c.ports, c.tags)
+		sortServiceInstances(instances)
 		if err := compare(t, instances, c.instances); err != nil {
 			t.Error(err)
 		}
 	}
+}
+
+func sortServices(services []*model.Service) {
+	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
+	for _, service := range services {
+		sortPorts(service.Ports)
+	}
+}
+
+func sortServiceInstances(instances []*model.ServiceInstance) {
+	tagsToSlice := func(tags model.Tags) []string {
+		out := make([]string, 0, len(tags))
+		for k, v := range tags {
+			out = append(out, fmt.Sprintf("%s=%s", k, v))
+		}
+		sort.Strings(out)
+		return out
+	}
+
+	sort.Slice(instances, func(i, j int) bool {
+		if instances[i].Service.Hostname == instances[j].Service.Hostname {
+			if instances[i].Endpoint.Port == instances[j].Endpoint.Port {
+				if instances[i].Endpoint.Address == instances[j].Endpoint.Address {
+					if len(instances[i].Tags) == len(instances[j].Tags) {
+						iTags := tagsToSlice(instances[i].Tags)
+						jTags := tagsToSlice(instances[j].Tags)
+						for k := range iTags {
+							if iTags[k] < jTags[k] {
+								return true
+							}
+						}
+					}
+					return len(instances[i].Tags) < len(instances[j].Tags)
+				}
+				return instances[i].Endpoint.Address < instances[j].Endpoint.Address
+			}
+			return instances[i].Endpoint.Port < instances[j].Endpoint.Port
+		}
+		return instances[i].Service.Hostname < instances[j].Service.Hostname
+	})
+}
+
+func sortPorts(ports []*model.Port) {
+	sort.Slice(ports, func(i, j int) bool {
+		if ports[i].Port == ports[j].Port {
+			if ports[i].Name == ports[j].Name {
+				return ports[i].Protocol < ports[j].Protocol
+			}
+			return ports[i].Name < ports[j].Name
+		}
+		return ports[i].Port < ports[j].Port
+	})
 }
