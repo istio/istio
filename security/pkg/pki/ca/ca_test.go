@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"istio.io/auth/pkg/pki"
+	"istio.io/auth/pkg/pki/testutil"
 )
 
 func TestSelfSignedIstioCA(t *testing.T) {
@@ -193,18 +194,26 @@ func TestSignCSR(t *testing.T) {
 		Org:        "istio.io",
 		RSAKeySize: 512,
 	}
-	csrPEM, _, err := GenCSR(opts)
+	csrPEM, keyPEM, err := GenCSR(opts)
 	if err != nil {
 		t.Error(err)
 	}
 
-	ca, err := NewSelfSignedIstioCA(24*time.Hour, time.Hour, "istio.io")
+	ca, err := createCA()
 	if err != nil {
 		t.Error(err)
 	}
 
 	certPEM, err := ca.Sign(csrPEM)
 	if err != nil {
+		t.Error(err)
+	}
+
+	fields := &testutil.VerifyFields{
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+	}
+	if err = testutil.VerifyCertificate(keyPEM, certPEM, ca.GetRootCertificate(), host, fields); err != nil {
 		t.Error(err)
 	}
 
@@ -221,4 +230,52 @@ func TestSignCSR(t *testing.T) {
 	if !reflect.DeepEqual(expected, san) {
 		t.Errorf("Unexpected extensions: wanted %v but got %v", expected, san)
 	}
+}
+
+func createCA() (CertificateAuthority, error) {
+	start := time.Now().Add(-5 * time.Minute)
+	end := start.Add(24 * time.Hour)
+
+	// Generate root CA key and cert.
+	rootCAOpts := CertOptions{
+		IsCA:         true,
+		IsSelfSigned: true,
+		NotAfter:     end,
+		NotBefore:    start,
+		Org:          "Root CA",
+		RSAKeySize:   1024,
+	}
+	rootCertBytes, rootKeyBytes := GenCert(rootCAOpts)
+
+	rootCert, err := pki.ParsePemEncodedCertificate(rootCertBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	rootKey, err := pki.ParsePemEncodedKey(rootKeyBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	intermediateCAOpts := CertOptions{
+		IsCA:         true,
+		IsSelfSigned: false,
+		NotAfter:     end,
+		NotBefore:    start,
+		Org:          "Intermediate CA",
+		RSAKeySize:   1024,
+		SignerCert:   rootCert,
+		SignerPriv:   rootKey,
+	}
+	intermediateCert, intermediateKey := GenCert(intermediateCAOpts)
+
+	caOpts := &IstioCAOptions{
+		CertChainBytes:   intermediateCert,
+		CertTTL:          time.Hour,
+		SigningCertBytes: intermediateCert,
+		SigningKeyBytes:  intermediateKey,
+		RootCertBytes:    rootCertBytes,
+	}
+
+	return NewIstioCA(caOpts)
 }

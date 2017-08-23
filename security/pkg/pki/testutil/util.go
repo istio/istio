@@ -38,22 +38,22 @@ type VerifyFields struct {
 // VerifyCertificate verifies a given PEM encoded certificate by
 // - building one or more chains from the certificate to a root certificate;
 // - checking fields are set as expected.
-func VerifyCertificate(privPem []byte, certPem []byte, rootCertPem []byte,
+func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte,
 	host string, expectedFields *VerifyFields) error {
 
 	roots := x509.NewCertPool()
-	var ok bool
-	if rootCertPem == nil {
-		ok = roots.AppendCertsFromPEM(certPem)
-	} else {
-		ok = roots.AppendCertsFromPEM(rootCertPem)
+	if rootCertPem != nil {
+		if ok := roots.AppendCertsFromPEM(rootCertPem); !ok {
+			return fmt.Errorf("failed to parse root certificate")
+		}
 	}
 
-	if !ok {
-		return fmt.Errorf("failed to parse root certificate")
+	intermediates := x509.NewCertPool()
+	if ok := intermediates.AppendCertsFromPEM(certChainPem); !ok {
+		return fmt.Errorf("failed to parse certificate chain")
 	}
 
-	cert, err := pki.ParsePemEncodedCertificate(certPem)
+	cert, err := pki.ParsePemEncodedCertificate(certChainPem)
 	if err != nil {
 		return err
 	}
@@ -65,9 +65,9 @@ func VerifyCertificate(privPem []byte, certPem []byte, rootCertPem []byte,
 		san = ""
 	}
 	opts := x509.VerifyOptions{
-		//		CurrentTime: 0,
-		DNSName: san,
-		Roots:   roots,
+		DNSName:       san,
+		Intermediates: intermediates,
+		Roots:         roots,
 	}
 	opts.KeyUsages = append(opts.KeyUsages, x509.ExtKeyUsageAny)
 
