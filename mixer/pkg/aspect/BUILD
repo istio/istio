@@ -28,9 +28,7 @@ go_library(
         "//pkg/expr:go_default_library",
         "//pkg/pool:go_default_library",
         "//pkg/status:go_default_library",
-        "//pkg/template:go_default_library",
         "@com_github_golang_glog//:go_default_library",
-        "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_hashicorp_go_multierror//:go_default_library",
         "@com_github_istio_api//:mixer/v1",  # keep
@@ -66,7 +64,6 @@ go_test(
         "//pkg/config/proto:go_default_library",
         "//pkg/expr:go_default_library",
         "//pkg/status:go_default_library",
-        "//pkg/template:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",

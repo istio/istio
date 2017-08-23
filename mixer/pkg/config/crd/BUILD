@@ -45,6 +45,7 @@ go_test(
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
+        "@io_k8s_client_go//dynamic:go_default_library",
         "@io_k8s_client_go//kubernetes:go_default_library",
         "@io_k8s_client_go//plugin/pkg/client/auth/gcp:go_default_library",
         "@io_k8s_client_go//plugin/pkg/client/auth/oidc:go_default_library",

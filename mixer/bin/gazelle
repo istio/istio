@@ -16,10 +16,9 @@ fi
 find . -type l \( -name '*.pb.go' -o -name '*.gen.go' \) | xargs rm -f
 
 gazelle \
-    -go_prefix istio.io/mixer \
-    -build_file_name BUILD
+    -go_prefix istio.io/mixer
 
-find . -type f -name BUILD -print0 | \
+find . -type f \( -name BUILD -o -name BUILD.bazel \) -print0 | \
     xargs -0 sed -i \
           -e '/\/\/mixer\/v1.*:go_default_library/d' \
           -e 's|google/rpc:go_default_library|:google/rpc|g'

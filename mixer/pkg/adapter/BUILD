@@ -10,6 +10,7 @@ go_library(
         "applicationLogs.go",
         "attributes.go",
         "builder.go",
+        "cacheability.go",
         "check.go",
         "configError.go",
         "denials.go",
