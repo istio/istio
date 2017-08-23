@@ -22,6 +22,9 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+
 	"golang.org/x/net/context"
 
 	"istio.io/auth/pkg/pki/ca"
@@ -87,24 +90,24 @@ func TestSign(t *testing.T) {
 		ca            ca.CertificateAuthority
 		csr           string
 		cert          string
-		errMsg        string
+		code          codes.Code
 	}{
 		"Unauthenticated request": {
 			authenticated: false,
-			errMsg:        "failed to authenticate request",
+			code:          codes.Unauthenticated,
 		},
 		"Unauthorized request": {
 			authenticated: true,
 			authorized:    false,
 			csr:           csr,
-			errMsg:        "certificate signing request is not authorized",
+			code:          codes.PermissionDenied,
 		},
 		"Failed to sign": {
 			authenticated: true,
 			authorized:    true,
 			ca:            &mockCA{errMsg: "cannot sign"},
 			csr:           csr,
-			errMsg:        "cannot sign",
+			code:          codes.Internal,
 		},
 		"Successful signing": {
 			authenticated: true,
@@ -112,6 +115,7 @@ func TestSign(t *testing.T) {
 			ca:            &mockCA{cert: "generated cert"},
 			csr:           csr,
 			cert:          "generated cert",
+			code:          codes.OK,
 		},
 	}
 
@@ -126,9 +130,9 @@ func TestSign(t *testing.T) {
 		request := &pb.Request{CsrPem: []byte(c.csr)}
 
 		response, err := server.HandleCSR(nil, request)
-		if c.errMsg != "" && c.errMsg != err.Error() {
-			t.Errorf("Case %s: expecting error message (%s) but got (%s)", id, c.errMsg, err.Error())
-		} else if c.errMsg == "" && !bytes.Equal(response.SignedCertChain, []byte(c.cert)) {
+		if c.code != grpc.Code(err) {
+			t.Errorf("Case %s: expecting code to be (%d) but got (%d)", id, c.code, grpc.Code(err))
+		} else if c.code == codes.OK && !bytes.Equal(response.SignedCertChain, []byte(c.cert)) {
 			t.Errorf("Case %s: expecting cert to be (%s) but got (%s)", id, c.cert, response.SignedCertChain)
 		}
 	}
