@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 
 	"github.com/golang/glog"
@@ -57,28 +58,28 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Respon
 	if user == nil {
 		glog.Warning("failed to authenticate request")
 
-		return nil, fmt.Errorf("failed to authenticate request")
+		return nil, grpc.Errorf(codes.Unauthenticated, "failed to authenticate request")
 	}
 
 	csr, err := pki.ParsePemEncodedCSR(request.CsrPem)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse the CSR (error %v)", err)
+		return nil, grpc.Errorf(codes.InvalidArgument, "failed to parse the CSR (error %v)", err)
 	}
 
 	requestedIDs := extractIDs(csr.Extensions)
 	if len(requestedIDs) == 0 {
-		return nil, fmt.Errorf("failed to extract identities from the CSR")
+		return nil, grpc.Errorf(codes.InvalidArgument, "failed to extract identities from the CSR")
 	}
 
 	if !s.authorizer.authorize(user, requestedIDs) {
-		return nil, fmt.Errorf("certificate signing request is not authorized")
+		return nil, grpc.Errorf(codes.PermissionDenied, "certificate signing request is not authorized")
 	}
 
 	cert, err := s.ca.Sign(request.CsrPem)
 	if err != nil {
 		glog.Error(err)
-		// TODO: possibly wrap err in GRPC error
-		return nil, err
+
+		return nil, grpc.Errorf(codes.Internal, "failed to sign the CSR (error %v)", err)
 	}
 
 	response := &pb.Response{
