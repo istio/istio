@@ -195,12 +195,6 @@ go_repository(
 )
 
 go_repository(
-    name = "com_github_spf13_pflag",
-    commit = "9ff6c6923cfffbcd502984b8e0c80539a94968b7",
-    importpath = "github.com/spf13/pflag",
-)
-
-go_repository(
     name = "com_github_stretchr_testify",
     commit = "f6abca593680b2315d2075e0f5e2a9751e3f431a",
     importpath = "github.com/stretchr/testify",
@@ -337,9 +331,17 @@ go_repository(
     importpath = "github.com/hashicorp/go-multierror",
 )
 
+# likely you need to update those next 2 at the same time:
+
+go_repository(
+    name = "com_github_spf13_pflag",
+    commit = "e57e3eeb33f795204c1ca35f56c44f83227c6e66",
+    importpath = "github.com/spf13/pflag",
+)
+
 go_repository(
     name = "com_github_spf13_cobra",
-    commit = "9c28e4bbd74e5c3ed7aacbc552b2cab7cfdfe744",
+    commit = "2df9a531813370438a4d79bfc33e21f58063ed87",
     importpath = "github.com/spf13/cobra",
 )
 

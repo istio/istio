@@ -15,10 +15,9 @@
 package eureka
 
 import (
-	"testing"
-
 	"fmt"
 	"sort"
+	"testing"
 
 	"istio.io/pilot/model"
 )
