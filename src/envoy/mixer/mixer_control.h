@@ -22,10 +22,12 @@
 
 #include "common/common/logger.h"
 #include "common/http/headers.h"
+#include "envoy/grpc/async_client.h"
 #include "envoy/http/access_log.h"
 #include "envoy/upstream/cluster_manager.h"
 #include "include/client.h"
 #include "src/envoy/mixer/config.h"
+#include "src/envoy/mixer/grpc_transport.h"
 #include "src/envoy/mixer/utils.h"
 
 namespace Envoy {
@@ -90,6 +92,9 @@ class MixerControl final : public Logger::Loggable<Logger::Id::http> {
   const MixerConfig& mixer_config_;
   // Quota attributes; extracted from envoy filter config.
   ::istio::mixer_client::Attributes quota_attributes_;
+
+  CheckTransport::AsyncClientPtr check_client_;
+  ReportTransport::AsyncClientPtr report_client_;
 };
 
 // A class to create and store per thread mixer control instance.

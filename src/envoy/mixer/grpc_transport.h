@@ -15,10 +15,12 @@
 
 #pragma once
 
+#include <common/grpc/async_client_impl.h>
 #include <memory>
 
 #include "common/common/logger.h"
 #include "envoy/event/dispatcher.h"
+#include "envoy/grpc/async_client.h"
 #include "envoy/grpc/rpc_channel.h"
 
 #include "envoy/upstream/cluster_manager.h"
@@ -28,87 +30,55 @@ namespace Envoy {
 namespace Http {
 namespace Mixer {
 
-// An object to use Envoy async_client to make grpc call.
-class GrpcTransport : public Grpc::RpcChannelCallbacks,
+// An object to use Envoy::Grpc::AsyncClient to make grpc call.
+template <class RequestType, class ResponseType>
+class GrpcTransport : public Grpc::AsyncRequestCallbacks<ResponseType>,
                       public Logger::Loggable<Logger::Id::http> {
  public:
-  GrpcTransport(Upstream::ClusterManager& cm, const HeaderMap* headers);
+  using Func =
+      std::function<void(const RequestType& request, ResponseType* response,
+                         istio::mixer_client::DoneFunc on_done)>;
 
-  void onPreRequestCustomizeHeaders(Http::HeaderMap& headers) override;
+  using AsyncClient = Grpc::AsyncClient<RequestType, ResponseType>;
 
-  void onSuccess() override;
+  typedef std::unique_ptr<AsyncClient> AsyncClientPtr;
 
-  void onFailure(const Optional<uint64_t>& grpc_status,
-                 const std::string& message) override;
+  static Func GetFunc(AsyncClient& async_client,
+                      const HeaderMap* headers = nullptr);
 
-  // Check if mixer server cluster configured in cluster_manager.
-  static bool IsMixerServerConfigured(Upstream::ClusterManager& cm);
+  GrpcTransport(const google::protobuf::MethodDescriptor& descriptor,
+                const HeaderMap* headers, ResponseType* response,
+                istio::mixer_client::DoneFunc on_done)
+      : descriptor_(descriptor),
+        headers_(headers),
+        response_(response),
+        on_done_(on_done) {}
 
- protected:
-  // Create a new grpc channel.
-  Grpc::RpcChannelPtr NewChannel(Upstream::ClusterManager& cm);
+  void Call(AsyncClient& async_client, const RequestType& request);
 
-  // The on_done callback function.
-  ::istio::mixer_client::DoneFunc on_done_;
-  // the grpc channel.
-  Grpc::RpcChannelPtr channel_;
-  // The generated mixer client stub.
-  ::istio::mixer::v1::Mixer::Stub stub_;
-  // The header map from the origin client request.
+  // Grpc::AsyncRequestCallbacks<ResponseType>
+  void onCreateInitialMetadata(Http::HeaderMap& metadata) override;
+
+  void onSuccess(std::unique_ptr<ResponseType>&& response) override;
+
+  // TODO(lizan): Make this handle grpc-message too
+  void onFailure(Grpc::Status::GrpcStatus status) override;
+
+ private:
+  const google::protobuf::MethodDescriptor& descriptor_;
   const HeaderMap* headers_;
+  ResponseType* response_;
+  ::istio::mixer_client::DoneFunc on_done_;
+  Grpc::AsyncRequest* request_{};
 };
 
-class CheckGrpcTransport : public GrpcTransport {
- public:
-  CheckGrpcTransport(Upstream::ClusterManager& cm, const HeaderMap* headers)
-      : GrpcTransport(cm, headers) {}
+typedef GrpcTransport<istio::mixer::v1::CheckRequest,
+                      istio::mixer::v1::CheckResponse>
+    CheckTransport;
 
-  static ::istio::mixer_client::TransportCheckFunc GetFunc(
-      Upstream::ClusterManager& cm, const HeaderMap* headers) {
-    return [&cm, headers](const ::istio::mixer::v1::CheckRequest& request,
-                          ::istio::mixer::v1::CheckResponse* response,
-                          ::istio::mixer_client::DoneFunc on_done) {
-      CheckGrpcTransport* transport = new CheckGrpcTransport(cm, headers);
-      transport->Call(request, response, on_done);
-    };
-  }
-  void Call(const ::istio::mixer::v1::CheckRequest& request,
-            ::istio::mixer::v1::CheckResponse* response,
-            ::istio::mixer_client::DoneFunc on_done) {
-    on_done_ = [this, response,
-                on_done](const ::google::protobuf::util::Status& status) {
-      if (status.ok()) {
-        log().debug("Check response: {}", response->DebugString());
-      }
-      on_done(status);
-    };
-    log().debug("Call grpc check: {}", request.DebugString());
-    stub_.Check(nullptr, &request, response, nullptr);
-  }
-};
-
-class ReportGrpcTransport : public GrpcTransport {
- public:
-  ReportGrpcTransport(Upstream::ClusterManager& cm)
-      : GrpcTransport(cm, nullptr) {}
-
-  static ::istio::mixer_client::TransportReportFunc GetFunc(
-      Upstream::ClusterManager& cm) {
-    return [&cm](const ::istio::mixer::v1::ReportRequest& request,
-                 ::istio::mixer::v1::ReportResponse* response,
-                 ::istio::mixer_client::DoneFunc on_done) {
-      ReportGrpcTransport* transport = new ReportGrpcTransport(cm);
-      transport->Call(request, response, on_done);
-    };
-  }
-  void Call(const ::istio::mixer::v1::ReportRequest& request,
-            ::istio::mixer::v1::ReportResponse* response,
-            ::istio::mixer_client::DoneFunc on_done) {
-    on_done_ = on_done;
-    log().debug("Call grpc report: {}", request.DebugString());
-    stub_.Report(nullptr, &request, response, nullptr);
-  }
-};
+typedef GrpcTransport<istio::mixer::v1::ReportRequest,
+                      istio::mixer::v1::ReportResponse>
+    ReportTransport;
 
 }  // namespace Mixer
 }  // namespace Http

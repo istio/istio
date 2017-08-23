@@ -15,9 +15,6 @@
 #include "src/envoy/mixer/grpc_transport.h"
 #include "src/envoy/mixer/thread_dispatcher.h"
 
-#include "common/common/enum_to_int.h"
-#include "common/grpc/rpc_channel_impl.h"
-
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
 
@@ -28,9 +25,6 @@ namespace {
 
 // gRPC request timeout
 const std::chrono::milliseconds kGrpcRequestTimeoutMs(5000);
-
-// The name for the mixer server cluster.
-const char* kMixerServerClusterName = "mixer_server";
 
 // HTTP trace headers that should pass to gRPC metadata from origin request.
 // x-request-id is added for easy debugging.
@@ -53,59 +47,79 @@ inline void CopyHeaderEntry(const HeaderEntry* entry,
 
 }  // namespace
 
-GrpcTransport::GrpcTransport(Upstream::ClusterManager& cm,
-                             const HeaderMap* headers)
-    : channel_(NewChannel(cm)), stub_(channel_.get()), headers_(headers) {}
-
-void GrpcTransport::onSuccess() {
-  log().debug("grpc: return OK");
-  on_done_(Status::OK);
-  // RpcChannelImpl object expects its OnComplete() is called before
-  // deleted.  OnCompleted() is called after onSuccess()
-  // Use the dispatch post to delay the deletion.
-  GetThreadDispatcher().post([this]() { delete this; });
+template <class RequestType, class ResponseType>
+void GrpcTransport<RequestType, ResponseType>::Call(
+    AsyncClient& async_client, const RequestType& request) {
+  ENVOY_LOG(debug, "Call {}: {}", descriptor_.name(), request.DebugString());
+  request_ = async_client.send(
+      descriptor_, request, *this,
+      Optional<std::chrono::milliseconds>(kGrpcRequestTimeoutMs));
 }
 
-void GrpcTransport::onFailure(const Optional<uint64_t>& grpc_status,
-                              const std::string& message) {
-  // Envoy source/common/grpc/common.cc line 92
-  // return invalid grpc_status and "non-200 response code" message
-  // when failed to connect to grpc server.
-  int code;
-  if (!grpc_status.valid() && message == "non-200 response code") {
-    code = StatusCode::UNAVAILABLE;
-  } else {
-    code = grpc_status.valid() ? grpc_status.value()
-                               : enumToInt(StatusCode::UNKNOWN);
-  }
-  log().debug("grpc failure: return {}, error {}", code, message);
-  on_done_(Status(static_cast<StatusCode>(code),
-                  ::google::protobuf::StringPiece(message)));
-  GetThreadDispatcher().post([this]() { delete this; });
-}
-
-Grpc::RpcChannelPtr GrpcTransport::NewChannel(Upstream::ClusterManager& cm) {
-  return Grpc::RpcChannelPtr(new Grpc::RpcChannelImpl(
-      cm, kMixerServerClusterName, *this,
-      Optional<std::chrono::milliseconds>(kGrpcRequestTimeoutMs)));
-}
-
-bool GrpcTransport::IsMixerServerConfigured(Upstream::ClusterManager& cm) {
-  return cm.get(kMixerServerClusterName) != nullptr;
-}
-
-void GrpcTransport::onPreRequestCustomizeHeaders(Http::HeaderMap& headers) {
+template <class RequestType, class ResponseType>
+void GrpcTransport<RequestType, ResponseType>::onCreateInitialMetadata(
+    Http::HeaderMap& metadata) {
   if (!headers_) return;
 
-  CopyHeaderEntry(headers_->RequestId(), kRequestId, headers);
-  CopyHeaderEntry(headers_->XB3TraceId(), kB3TraceId, headers);
-  CopyHeaderEntry(headers_->XB3SpanId(), kB3SpanId, headers);
-  CopyHeaderEntry(headers_->XB3ParentSpanId(), kB3ParentSpanId, headers);
-  CopyHeaderEntry(headers_->XB3Sampled(), kB3Sampled, headers);
-  CopyHeaderEntry(headers_->XB3Flags(), kB3Flags, headers);
+  CopyHeaderEntry(headers_->RequestId(), kRequestId, metadata);
+  CopyHeaderEntry(headers_->XB3TraceId(), kB3TraceId, metadata);
+  CopyHeaderEntry(headers_->XB3SpanId(), kB3SpanId, metadata);
+  CopyHeaderEntry(headers_->XB3ParentSpanId(), kB3ParentSpanId, metadata);
+  CopyHeaderEntry(headers_->XB3Sampled(), kB3Sampled, metadata);
+  CopyHeaderEntry(headers_->XB3Flags(), kB3Flags, metadata);
 
   // This one is NOT inline, need to do linar search.
-  CopyHeaderEntry(headers_->get(kOtSpanContext), kOtSpanContext, headers);
+  CopyHeaderEntry(headers_->get(kOtSpanContext), kOtSpanContext, metadata);
+}
+
+template <class RequestType, class ResponseType>
+void GrpcTransport<RequestType, ResponseType>::onSuccess(
+    std::unique_ptr<ResponseType>&& response) {
+  ENVOY_LOG(debug, "{} response: {}", descriptor_.name(),
+            response->DebugString());
+  response->Swap(response_);
+  on_done_(Status::OK);
+  delete this;
+}
+
+template <class RequestType, class ResponseType>
+void GrpcTransport<RequestType, ResponseType>::onFailure(
+    Grpc::Status::GrpcStatus status) {
+  ENVOY_LOG(debug, "{} failed with code: {}", descriptor_.name(), status);
+  on_done_(Status(static_cast<StatusCode>(status), ""));
+  delete this;
+}
+
+template <>
+CheckTransport::Func CheckTransport::GetFunc(AsyncClient& async_client,
+                                             const HeaderMap* headers) {
+  static const google::protobuf::MethodDescriptor* check_descriptor =
+      istio::mixer::v1::Mixer::descriptor()->FindMethodByName("Check");
+  ASSERT(check_descriptor);
+
+  return [&async_client, headers](const istio::mixer::v1::CheckRequest& request,
+                                  istio::mixer::v1::CheckResponse* response,
+                                  istio::mixer_client::DoneFunc on_done) {
+    auto transport =
+        new CheckTransport(*check_descriptor, headers, response, on_done);
+    transport->Call(async_client, request);
+  };
+}
+
+template <>
+ReportTransport::Func ReportTransport::GetFunc(AsyncClient& async_client,
+                                               const HeaderMap*) {
+  static const google::protobuf::MethodDescriptor* report_descriptor =
+      istio::mixer::v1::Mixer::descriptor()->FindMethodByName("Report");
+  ASSERT(report_descriptor);
+
+  return [&async_client](const istio::mixer::v1::ReportRequest& request,
+                         istio::mixer::v1::ReportResponse* response,
+                         istio::mixer_client::DoneFunc on_done) {
+    auto transport =
+        new ReportTransport(*report_descriptor, nullptr, response, on_done);
+    transport->Call(async_client, request);
+  };
 }
 
 }  // namespace Mixer
