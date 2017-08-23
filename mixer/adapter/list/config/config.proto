@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package adapter.ipListChecker.config;
+package adapter.list.config;
 
 import "google/protobuf/duration.proto";
 import "gogoproto/gogo.proto";

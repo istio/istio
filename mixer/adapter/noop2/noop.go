@@ -39,46 +39,46 @@ type (
 )
 
 // ensure our types implement the requisite interfaces
-var _ checknothing.HandlerBuilder = builder{}
+var _ checknothing.HandlerBuilder = &builder{}
 var _ checknothing.Handler = handler{}
-var _ reportnothing.HandlerBuilder = builder{}
+var _ reportnothing.HandlerBuilder = &builder{}
 var _ reportnothing.Handler = handler{}
-var _ listentry.HandlerBuilder = builder{}
+var _ listentry.HandlerBuilder = &builder{}
 var _ listentry.Handler = handler{}
-var _ logentry.HandlerBuilder = builder{}
+var _ logentry.HandlerBuilder = &builder{}
 var _ logentry.Handler = handler{}
-var _ metric.HandlerBuilder = builder{}
+var _ metric.HandlerBuilder = &builder{}
 var _ metric.Handler = handler{}
-var _ quota.HandlerBuilder = builder{}
+var _ quota.HandlerBuilder = &builder{}
 var _ quota.Handler = handler{}
 
 ///////////////// Configuration Methods ///////////////
 
-func (builder) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
+func (*builder) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
 	return handler{}, nil
 }
 
-func (builder) ConfigureCheckNothingHandler(map[string]*checknothing.Type) error {
+func (*builder) ConfigureCheckNothingHandler(map[string]*checknothing.Type) error {
 	return nil
 }
 
-func (builder) ConfigureReportNothingHandler(map[string]*reportnothing.Type) error {
+func (*builder) ConfigureReportNothingHandler(map[string]*reportnothing.Type) error {
 	return nil
 }
 
-func (builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
+func (*builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
 	return nil
 }
 
-func (builder) ConfigureLogEntryHandler(map[string]*logentry.Type) error {
+func (*builder) ConfigureLogEntryHandler(map[string]*logentry.Type) error {
 	return nil
 }
 
-func (builder) ConfigureMetricHandler(map[string]*metric.Type) error {
+func (*builder) ConfigureMetricHandler(map[string]*metric.Type) error {
 	return nil
 }
 
-func (builder) ConfigureQuotaHandler(map[string]*quota.Type) error {
+func (*builder) ConfigureQuotaHandler(map[string]*quota.Type) error {
 	return nil
 }
 
@@ -135,8 +135,8 @@ func GetBuilderInfo() adapter.BuilderInfo {
 			metric.TemplateName,
 			quota.TemplateName,
 		},
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return builder{} },
 		DefaultConfig:        &types.Empty{},
-		ValidateConfig:       func(msg adapter.Config) *adapter.ConfigErrors { return nil },
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
+		ValidateConfig:       func(adapter.Config) *adapter.ConfigErrors { return nil },
 	}
 }

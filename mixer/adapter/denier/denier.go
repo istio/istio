@@ -39,28 +39,28 @@ type (
 )
 
 // ensure our types implement the requisite interfaces
-var _ checknothing.HandlerBuilder = builder{}
+var _ checknothing.HandlerBuilder = &builder{}
 var _ checknothing.Handler = handler{}
-var _ listentry.HandlerBuilder = builder{}
+var _ listentry.HandlerBuilder = &builder{}
 var _ listentry.Handler = handler{}
-var _ quota.HandlerBuilder = builder{}
+var _ quota.HandlerBuilder = &builder{}
 var _ quota.Handler = handler{}
 
 ///////////////// Configuration Methods ///////////////
 
-func (builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
+func (*builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
 	return handler{status: cfg.(*config.Params).Status}, nil
 }
 
-func (builder) ConfigureCheckNothingHandler(map[string]*checknothing.Type) error {
+func (*builder) ConfigureCheckNothingHandler(map[string]*checknothing.Type) error {
 	return nil
 }
 
-func (builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
+func (*builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
 	return nil
 }
 
-func (builder) ConfigureQuotaHandler(map[string]*quota.Type) error {
+func (*builder) ConfigureQuotaHandler(map[string]*quota.Type) error {
 	return nil
 }
 
@@ -94,16 +94,16 @@ func (handler) Close() error { return nil }
 func GetBuilderInfo() adapter.BuilderInfo {
 	return adapter.BuilderInfo{
 		Name:        "istio.io/mixer/adapter/denier",
-		Description: "Rejects any check and quota request with a configurable error.",
+		Description: "Rejects any check and quota request with a configurable error",
 		SupportedTemplates: []string{
 			checknothing.TemplateName,
 			listentry.TemplateName,
 			quota.TemplateName,
 		},
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return builder{} },
 		DefaultConfig: &config.Params{
 			Status: rpc.Status{Code: int32(rpc.FAILED_PRECONDITION)},
 		},
-		ValidateConfig: func(msg adapter.Config) *adapter.ConfigErrors { return nil },
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
+		ValidateConfig:       func(adapter.Config) *adapter.ConfigErrors { return nil },
 	}
 }

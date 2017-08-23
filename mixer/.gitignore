@@ -1,14 +1,19 @@
-mixer.bin
-client.bin
 coverage.txt
+coverage.out
+
 *.swp
+
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
 *.a
 *.so
+
+# Generated files
 *.pb.go
 *.pb.cc
 *.pb.h
+*.gen.go
+*.descriptor_set
 
 # Folders
 _obj
@@ -35,7 +40,6 @@ _steps
 .DS_Store
 _builds/
 _projects/
-coverage.out
 .project
 .settings/*
 .externalToolBuilders/*
@@ -55,9 +59,3 @@ CMakeLists.txt
 
 # key file
 istio-testing.json
-
-# generated proto artifacts
-*.descriptor_set
-
-# generated files
-*.gen.go

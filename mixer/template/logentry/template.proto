@@ -27,12 +27,12 @@ option (istio.mixer.v1.config.template.template_name) = "LogEntry";
 
 // LogEntry represents an individual entry within a log.
 message Template {
-    // Labels contain the payload for the log entry
-    map<string, istio.mixer.v1.config.descriptor.ValueType> labels = 1;
+    // Variables that are delivered for each log entry.
+    map<string, istio.mixer.v1.config.descriptor.ValueType> variables = 1;
 
     // Timestamp is the time value for the log entry
 //    google.protobuf.Timestamp timestamp = 2;
 
-    // Severity indicates the log level for the log entry.
+    // Severity indicates the importance of the log entry.
     string severity = 3;
 }
