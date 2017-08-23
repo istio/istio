@@ -59,7 +59,7 @@ func TestReport(t *testing.T) {
 			if s.resolveErr {
 				resolveErr = s.callErr
 			}
-			rt := newResolver("myhandler", "i1", s.tn, resolveErr, false, fp)
+			rt := newResolver(s.tn, resolveErr, false, fp)
 			m := NewDispatcher(nil, rt, gp)
 
 			err := m.Report(context.Background(), nil)
@@ -101,7 +101,7 @@ func TestCheck(t *testing.T) {
 			if s.resolveErr {
 				resolveErr = s.callErr
 			}
-			rt := newResolver("myhandler", "i1", s.tn, resolveErr, false, fp)
+			rt := newResolver(s.tn, resolveErr, false, fp)
 			m := NewDispatcher(nil, rt, gp)
 
 			cr, err := m.Check(context.Background(), nil)
@@ -156,7 +156,7 @@ func TestQuota(t *testing.T) {
 			if s.resolveErr {
 				resolveErr = s.callErr
 			}
-			rt := newResolver("myhandler", "i1", s.tn, resolveErr, s.emptyResult, fp)
+			rt := newResolver(s.tn, resolveErr, s.emptyResult, fp)
 			m := NewDispatcher(nil, rt, gp)
 
 			cr, err := m.Quota(context.Background(), nil,
@@ -237,7 +237,10 @@ func (a *fakeActions) Done()          { a.done = true }
 
 var _ Resolver = &fakeResolver{}
 
-func newResolver(hndlr string, instanceName string, tname string, resolveErr error, emptyResult bool, fproc *fakeProc) *fakeResolver {
+func newResolver(tname string, resolveErr error, emptyResult bool, fproc *fakeProc) *fakeResolver {
+	hndlr := "myhandler"
+	instanceName := "i1"
+
 	rt := &fakeResolver{
 		ra: []*Action{
 			{
@@ -318,19 +321,19 @@ type fakeProc struct {
 	quotaResult adapter.QuotaResult2
 }
 
-func (f *fakeProc) ProcessReport(ctx context.Context, instCfg map[string]proto.Message,
-	attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
+func (f *fakeProc) ProcessReport(_ context.Context, _ map[string]proto.Message,
+	_ attribute.Bag, _ expr.Evaluator, _ adapter.Handler) error {
 	f.called++
 	return f.err
 }
-func (f *fakeProc) ProcessCheck(ctx context.Context, instName string, instCfg proto.Message, attrs attribute.Bag,
-	mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
+func (f *fakeProc) ProcessCheck(_ context.Context, _ string, _ proto.Message, _ attribute.Bag,
+	_ expr.Evaluator, _ adapter.Handler) (adapter.CheckResult, error) {
 	f.called++
 	return f.checkResult, f.err
 }
 
-func (f *fakeProc) ProcessQuota(ctx context.Context, quotaName string, quotaCfg proto.Message, attrs attribute.Bag,
-	mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+func (f *fakeProc) ProcessQuota(_ context.Context, _ string, _ proto.Message, _ attribute.Bag,
+	_ expr.Evaluator, _ adapter.Handler, _ adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
 	f.called++
 	return f.quotaResult, f.err
 }
