@@ -26,22 +26,19 @@ namespace {
 // If any dictionary error, global dictionary will fall back to this version.
 const int kGlobalDictionaryBaseSize = 111;
 
-// Return global dictionary index.
-int GlobalDictIndex(int idx) { return idx; }
-
 // Return per message dictionary index.
 int MessageDictIndex(int idx) { return -(idx + 1); }
 
 // Per message dictionary.
 class MessageDictionary {
  public:
-  MessageDictionary(const std::unordered_map<std::string, int>& global_dict)
+  MessageDictionary(const GlobalDictionary& global_dict)
       : global_dict_(global_dict) {}
 
   int GetIndex(const std::string& name) {
-    const auto& global_it = global_dict_.find(name);
-    if (global_it != global_dict_.end()) {
-      return GlobalDictIndex(global_it->second);
+    int index;
+    if (global_dict_.GetIndex(name, &index)) {
+      return index;
     }
 
     const auto& message_it = message_dict_.find(name);
@@ -49,7 +46,7 @@ class MessageDictionary {
       return MessageDictIndex(message_it->second);
     }
 
-    int index = message_words_.size();
+    index = message_words_.size();
     message_words_.push_back(name);
     message_dict_[name] = index;
     return MessageDictIndex(index);
@@ -58,7 +55,7 @@ class MessageDictionary {
   const std::vector<std::string>& GetWords() const { return message_words_; }
 
  private:
-  const std::unordered_map<std::string, int>& global_dict_;
+  const GlobalDictionary& global_dict_;
 
   // Per message dictionary
   std::vector<std::string> message_words_;
@@ -128,7 +125,7 @@ bool ConvertToPb(const Attributes& attributes, MessageDictionary& dict,
 
 class BatchConverterImpl : public BatchConverter {
  public:
-  BatchConverterImpl(const std::unordered_map<std::string, int>& global_dict)
+  BatchConverterImpl(const GlobalDictionary& global_dict)
       : dict_(global_dict),
         delta_update_(DeltaUpdate::Create()),
         report_(new ::istio::mixer::v1::ReportRequest) {
@@ -161,10 +158,30 @@ class BatchConverterImpl : public BatchConverter {
 
 }  // namespace
 
-AttributeConverter::AttributeConverter() {
+GlobalDictionary::GlobalDictionary() {
   const std::vector<std::string>& global_words = GetGlobalWords();
   for (unsigned int i = 0; i < global_words.size(); i++) {
     global_dict_[global_words[i]] = i;
+  }
+  top_index_ = global_words.size();
+}
+
+// Lookup the index, return true if found.
+bool GlobalDictionary::GetIndex(const std::string name, int* index) const {
+  const auto& it = global_dict_.find(name);
+  if (it != global_dict_.end() && it->second < top_index_) {
+    // Return global dictionary index.
+    *index = it->second;
+    return true;
+  }
+  return false;
+}
+
+void GlobalDictionary::ShrinkToBase() {
+  if (top_index_ > kGlobalDictionaryBaseSize) {
+    top_index_ = kGlobalDictionaryBaseSize;
+    GOOGLE_LOG(INFO) << "Shrink global dictionary " << top_index_
+                     << " to base.";
   }
 }
 
@@ -183,25 +200,6 @@ void AttributeConverter::Convert(const Attributes& attributes,
 std::unique_ptr<BatchConverter> AttributeConverter::CreateBatchConverter()
     const {
   return std::unique_ptr<BatchConverter>(new BatchConverterImpl(global_dict_));
-}
-
-void AttributeConverter::ShrinkGlobalDictionary() {
-  if (global_dict_.size() <= kGlobalDictionaryBaseSize) {
-    return;
-  }
-
-  GOOGLE_LOG(INFO) << "Shrink global dictionary " << global_dict_.size()
-                   << " to base.";
-  std::vector<std::string> words;
-  for (const auto& it : global_dict_) {
-    if (it.second >= kGlobalDictionaryBaseSize) {
-      words.push_back(it.first);
-    }
-  }
-
-  for (const auto& word : words) {
-    global_dict_.erase(word);
-  }
 }
 
 }  // namespace mixer_client

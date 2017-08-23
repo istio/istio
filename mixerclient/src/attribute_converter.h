@@ -24,6 +24,26 @@
 namespace istio {
 namespace mixer_client {
 
+// A class to store global dictionary
+class GlobalDictionary {
+ public:
+  GlobalDictionary();
+
+  // Lookup the index, return true if found.
+  bool GetIndex(const std::string word, int* index) const;
+
+  // Shrink the global dictioanry
+  void ShrinkToBase();
+
+  int size() const { return top_index_; }
+
+ private:
+  std::unordered_map<std::string, int> global_dict_;
+  // the last index of the global dictionary.
+  // If mis-matched with server, it will set to base
+  int top_index_;
+};
+
 // A attribute batch converter for report.
 class BatchConverter {
  public:
@@ -43,8 +63,6 @@ class BatchConverter {
 // Convert attributes from struct to protobuf
 class AttributeConverter {
  public:
-  AttributeConverter();
-
   void Convert(const Attributes& attributes,
                ::istio::mixer::v1::Attributes* attributes_pb) const;
 
@@ -54,10 +72,10 @@ class AttributeConverter {
   int global_word_count() const { return global_dict_.size(); }
 
   // Shrink global dictionary to the first version.
-  void ShrinkGlobalDictionary();
+  void ShrinkGlobalDictionary() { global_dict_.ShrinkToBase(); }
 
  private:
-  std::unordered_map<std::string, int> global_dict_;
+  GlobalDictionary global_dict_;
 };
 
 }  // namespace mixer_client
