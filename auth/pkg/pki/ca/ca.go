@@ -156,7 +156,12 @@ func (ca *IstioCA) Sign(csrPEM []byte) ([]byte, error) {
 		Type:  "CERTIFICATE",
 		Bytes: bytes,
 	}
-	return pem.EncodeToMemory(block), nil
+	cert := pem.EncodeToMemory(block)
+
+	// Also append intermediate certs into the chain.
+	chain := append(cert, ca.certChainBytes...)
+
+	return chain, nil
 }
 
 func (ca *IstioCA) generateCertificateTemplate(request *x509.CertificateRequest) *x509.Certificate {

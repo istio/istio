@@ -105,7 +105,7 @@ func TestGenCert(t *testing.T) {
 		IsCA:        true,
 		Org:         "MyOrg",
 	}
-	if err := tu.VerifyCertificate(caPrivPem, caCertPem, nil, caCertOptions.Host, fields); err != nil {
+	if err := tu.VerifyCertificate(caPrivPem, caCertPem, caCertPem, caCertOptions.Host, fields); err != nil {
 		t.Error(err)
 	}
 
