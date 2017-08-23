@@ -8,18 +8,15 @@ go_library(
     srcs = [
         "inventory.go",
     ],
-    library = ":inventory_lib",
+    library = ":inventory_lib",  # keep
     visibility = ["//visibility:public"],
     deps = [
-        "//adapter/denier:go_default_library",
         "//adapter/denyChecker:go_default_library",
         "//adapter/genericListChecker:go_default_library",
         "//adapter/ipListChecker:go_default_library",
         "//adapter/kubernetes:go_default_library",
-        "//adapter/list:go_default_library",
         "//adapter/memQuota:go_default_library",
         "//adapter/noop:go_default_library",
-        "//adapter/noop2:go_default_library",
         "//adapter/prometheus:go_default_library",
         "//adapter/redisquota:go_default_library",
         "//adapter/serviceControl:go_default_library",

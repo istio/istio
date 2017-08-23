@@ -20,21 +20,23 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	rpc "github.com/googleapis/googleapis/google/rpc"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 	//rpc "github.com/googleapis/googleapis/google/rpc"
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
 	adpTmpl "istio.io/mixer/pkg/adapter/template"
 	//"istio.io/mixer/pkg/expr"
+	"context"
+
 	sample_check "istio.io/mixer/template/sample/check"
 	sample_quota "istio.io/mixer/template/sample/quota"
 	sample_report "istio.io/mixer/template/sample/report"
-	"context"
 	//"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/expr"
 )
@@ -120,7 +122,7 @@ func TestGeneratedFields(t *testing.T) {
 		tmpl      string
 		ctrCfg    proto.Message
 		variety   adpTmpl.TemplateVariety
-		name  string
+		name      string
 		bldrName  string
 		hndlrName string
 	}{
@@ -130,7 +132,7 @@ func TestGeneratedFields(t *testing.T) {
 			variety:   adpTmpl.TEMPLATE_VARIETY_REPORT,
 			bldrName:  "istio.io/mixer/template/sample/report.HandlerBuilder",
 			hndlrName: "istio.io/mixer/template/sample/report.Handler",
-			name:sample_report.TemplateName,
+			name:      sample_report.TemplateName,
 		},
 		{
 			tmpl:      sample_check.TemplateName,
@@ -138,7 +140,7 @@ func TestGeneratedFields(t *testing.T) {
 			variety:   adpTmpl.TEMPLATE_VARIETY_CHECK,
 			bldrName:  "istio.io/mixer/template/sample/check.HandlerBuilder",
 			hndlrName: "istio.io/mixer/template/sample/check.Handler",
-			name:sample_check.TemplateName,
+			name:      sample_check.TemplateName,
 		},
 		{
 			tmpl:      sample_quota.TemplateName,
@@ -146,7 +148,7 @@ func TestGeneratedFields(t *testing.T) {
 			variety:   adpTmpl.TEMPLATE_VARIETY_QUOTA,
 			bldrName:  "istio.io/mixer/template/sample/quota.HandlerBuilder",
 			hndlrName: "istio.io/mixer/template/sample/quota.Handler",
-			name:sample_quota.TemplateName,
+			name:      sample_quota.TemplateName,
 		},
 	} {
 		t.Run(tst.tmpl, func(t *testing.T) {
@@ -582,13 +584,13 @@ func TestConfigureType(t *testing.T) {
 }
 
 func TestProcessReport(t *testing.T) {
-	for _, tst := range [] struct {
-		name          string
-		insts         map[string]proto.Message
-		hdlr          adapter.Handler
-		wantInstance  interface{}
-		wantError     string
-	} {
+	for _, tst := range []struct {
+		name         string
+		insts        map[string]proto.Message
+		hdlr         adapter.Handler
+		wantInstance interface{}
+		wantError    string
+	}{
 		{
 			name: "Simple",
 			insts: map[string]proto.Message{
@@ -672,43 +674,43 @@ func TestProcessReport(t *testing.T) {
 }
 
 func TestProcessCheck(t *testing.T) {
-	for _, tst := range [] struct {
-		name          string
-		instName      string
-		inst         proto.Message
-		hdlr          adapter.Handler
-		wantInstance  interface{}
+	for _, tst := range []struct {
+		name            string
+		instName        string
+		inst            proto.Message
+		hdlr            adapter.Handler
+		wantInstance    interface{}
 		wantCheckResult adapter.CheckResult
-		wantError     string
-	} {
+		wantError       string
+	}{
 		{
-			name: "Simple",
-			instName: "foo",
-			inst: &sample_check.InstanceParam{
-					CheckExpression: `"abcd asd"`,
-					StringMap: map[string]string{"a": `"aaa"`},
-				},
-			hdlr: &fakeCheckHandler{
-				retResult: adapter.CheckResult{Status: rpc.Status{Message: "msg"}},
-			},
-			wantInstance: &sample_check.Instance{Name: "foo", CheckExpression: "abcd asd", StringMap: map[string]string{"a": "aaa"}},
-			wantCheckResult: adapter.CheckResult{Status: rpc.Status{Message: "msg"}},
-		},
-		{
-			name: "EvalError",
+			name:     "Simple",
 			instName: "foo",
 			inst: &sample_check.InstanceParam{
 				CheckExpression: `"abcd asd"`,
-				StringMap: map[string]string{"a": "bad.attribute"},
+				StringMap:       map[string]string{"a": `"aaa"`},
+			},
+			hdlr: &fakeCheckHandler{
+				retResult: adapter.CheckResult{Status: rpc.Status{Message: "msg"}},
+			},
+			wantInstance:    &sample_check.Instance{Name: "foo", CheckExpression: "abcd asd", StringMap: map[string]string{"a": "aaa"}},
+			wantCheckResult: adapter.CheckResult{Status: rpc.Status{Message: "msg"}},
+		},
+		{
+			name:     "EvalError",
+			instName: "foo",
+			inst: &sample_check.InstanceParam{
+				CheckExpression: `"abcd asd"`,
+				StringMap:       map[string]string{"a": "bad.attribute"},
 			},
 			wantError: "unresolved attribute bad.attribute",
 		},
 		{
-			name: "ProcessError",
+			name:     "ProcessError",
 			instName: "foo",
 			inst: &sample_check.InstanceParam{
 				CheckExpression: `"abcd asd"`,
-				StringMap: map[string]string{"a": `"aaa"`},
+				StringMap:       map[string]string{"a": `"aaa"`},
 			},
 			hdlr: &fakeCheckHandler{
 				retError: fmt.Errorf("some error"),
@@ -739,45 +741,44 @@ func TestProcessCheck(t *testing.T) {
 	}
 }
 
-
 func TestProcessQuota(t *testing.T) {
-	for _, tst := range [] struct {
-		name          string
-		instName      string
-		inst         proto.Message
-		hdlr          adapter.Handler
-		wantInstance  interface{}
+	for _, tst := range []struct {
+		name            string
+		instName        string
+		inst            proto.Message
+		hdlr            adapter.Handler
+		wantInstance    interface{}
 		wantQuotaResult adapter.QuotaResult2
-		wantError     string
-	} {
+		wantError       string
+	}{
 		{
-			name: "Simple",
+			name:     "Simple",
 			instName: "foo",
-			inst: &sample_quota.InstanceParam {
+			inst: &sample_quota.InstanceParam{
 				Dimensions: map[string]string{"a": `"str"`},
-				BoolMap: map[string]string{"a": "true"},
+				BoolMap:    map[string]string{"a": "true"},
 			},
 			hdlr: &fakeQuotaHandler{
-				retResult: adapter.QuotaResult2 {Amount: 1},
+				retResult: adapter.QuotaResult2{Amount: 1},
 			},
-			wantInstance: &sample_quota.Instance{Name: "foo", Dimensions: map[string]interface{}{"a": "str"}, BoolMap: map[string]bool{"a": true}},
+			wantInstance:    &sample_quota.Instance{Name: "foo", Dimensions: map[string]interface{}{"a": "str"}, BoolMap: map[string]bool{"a": true}},
 			wantQuotaResult: adapter.QuotaResult2{Amount: 1},
 		},
 		{
-			name: "EvalError",
+			name:     "EvalError",
 			instName: "foo",
 			inst: &sample_quota.InstanceParam{
 				Dimensions: map[string]string{"a": "bad.attribute"},
-				BoolMap: map[string]string{"a": "true"},
+				BoolMap:    map[string]string{"a": "true"},
 			},
 			wantError: "unresolved attribute bad.attribute",
 		},
 		{
-			name: "ProcessError",
+			name:     "ProcessError",
 			instName: "foo",
 			inst: &sample_quota.InstanceParam{
 				Dimensions: map[string]string{"a": `"str"`},
-				BoolMap: map[string]string{"a": "true"},
+				BoolMap:    map[string]string{"a": "true"},
 			},
 			hdlr: &fakeQuotaHandler{
 				retError: fmt.Errorf("some error"),

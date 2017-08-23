@@ -12,7 +12,6 @@ go_library(
         "//template/checknothing:go_default_library",
         "//template/listentry:go_default_library",
         "//template/quota:go_default_library",
-        "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
     ],
 )
@@ -25,10 +24,9 @@ go_test(
     deps = [
         "//pkg/adapter:go_default_library",
         "//pkg/adapter/test:go_default_library",
-        "//pkg/config:go_default_library",
-        "//pkg/template:go_default_library",
         "//template/checknothing:go_default_library",
         "//template/listentry:go_default_library",
         "//template/quota:go_default_library",
+        "@com_github_googleapis_googleapis//:google/rpc",
     ],
 )

@@ -79,6 +79,7 @@ func NewChannelsHandler() *ChannelsHandler {
 	}
 }
 
+// Check implements AttributesHandler interface.
 func (c *ChannelsHandler) Check(req attribute.Bag, resp *attribute.MutableBag) (CheckResponse, rpc.Status) {
 	// avoid blocked go-routines in testing
 	result := CheckResponse{
@@ -87,13 +88,13 @@ func (c *ChannelsHandler) Check(req attribute.Bag, resp *attribute.MutableBag) (
 	}
 	select {
 	case c.CheckAttributes <- attribute.CopyBag(req):
-		resp = c.CheckResponseBag
 		return result, c.ReturnStatus
 	case <-time.After(1 * time.Second):
 		return result, status.WithDeadlineExceeded("timeout sending to Check channel")
 	}
 }
 
+// Quota implements AttributesHandler interface.
 func (c *ChannelsHandler) Quota(req attribute.Bag, qma QuotaArgs) (QuotaResponse, rpc.Status) {
 	// avoid blocked go-routines in testing
 	select {
@@ -104,6 +105,7 @@ func (c *ChannelsHandler) Quota(req attribute.Bag, qma QuotaArgs) (QuotaResponse
 	}
 }
 
+// Report implements AttributesHandler interface.
 func (c *ChannelsHandler) Report(req attribute.Bag) rpc.Status {
 	// avoid blocked go-routines in testing
 	select {
