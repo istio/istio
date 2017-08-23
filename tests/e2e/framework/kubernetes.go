@@ -148,7 +148,7 @@ func (k *KubeInfo) Teardown() error {
 		namespaceDeleted := false
 		for attempts := 1; attempts <= maxAttempts; attempts++ {
 			namespaceDeleted, err = util.NamespaceDeleted(k.Namespace)
-			if namespaceDeleted == true {
+			if namespaceDeleted {
 				break
 			}
 			time.Sleep(time.Duration(attempts) * time.Second)
