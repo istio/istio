@@ -228,7 +228,7 @@ reviews much easier.
 Using Mixer as an example:
 
 ```shell
-cd $(ISTIO)/mixer
+cd $ISTIO/mixer
 bazel build //...
 ```
 
@@ -284,6 +284,14 @@ You can run all the linters we require on your local repo by going to the top of
 make lint
 # To run only on your local changes
 bin/linters.sh -s HEAD^
+```
+
+### Source file dependencies
+
+You can keep track of dependencies between sources using:
+
+```shell
+make gazelle
 ```
 
 ### Race detection tests
