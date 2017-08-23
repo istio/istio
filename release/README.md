@@ -12,11 +12,36 @@ Istio release is currently composed of artifacts for the following repos:
 
 The release consists in retagging the artifacts and creating new annotated tags.
 
-Note that only Contributors can create a release (tags).
+Only organization members part of the [Release Engineers](https://github.com/orgs/istio/teams/release-engineers/members) team may create a release.
 
 If you are making a release from a branch, use the branch name, e.g. `BRANCH=release-0.1` for 0.1 or `master` for master.
 
-## Creating tags
+## Semi-automated Release Since 0.2
+
+Release from 0.2 onward is semi automated. It is still driven from a release engineer desktop but all actions are automated using [githubctl](https://github.com/istio/test-infra/blob/master/toolbox/githubctl/main.go), a tool of our own that acts as a github client making REST calls through the github API. The release process goes like the following:
+
+```
+# Tag the release
+$ githubctl --token_file=<github token file> \
+    --op=tagIstioDepsForRelease \
+    --base_branch=<release branch or master>
+
+# The previous command triggers rebuild and retagging on pilot, mixer and auth.
+# Wait for them to finish, then create an update PR in istio/istio
+$ githubctl --token_file=<github token file> \
+    --op=updateIstioVersion --base_branch=<release branch or master> 
+
+# Wait for the PR to merged.
+# Then create the release in github, upload the artifacts,
+# advance next release tag, update download script with latest release:
+$ githubctl --token_file=<github token file> \
+    --op=uploadArtifacts --base_branch=<release branch or master> \     
+    --next_release=0.2.2
+```
+
+## Manual Release Process
+
+### Creating tags
 
 From [istio/istio](https://github.com/istio/istio), the ```istio.VERSION``` file should look like this
 
@@ -59,7 +84,7 @@ Fortunately each tag above contains the short SHA at which it was built.
         $ git tag -a ${RELEASE_TAG} -m "Istio Release ${RELEASE_TAG}" ${AUTH_SHA}
         $ git push --tags origin
 
-## Rebuild Artifacts to include the tags
+### Rebuild Artifacts to include the tags
 
 Go to Mixer [stable artifacts](https://testing.istio.io/view/All%20Jobs/job/mixer/job/stable-artifacts/)
 job and click on ```Build with Parameters```.
@@ -73,7 +98,7 @@ Go to Auth [stable artifacts](https://testing.istio.io/view/All%20Jobs/job/auth/
 job and click on ```Build with Parameters```.
 Replace ```BRANCH_SPEC``` with the value of ```${RELEASE_TAG}```
 
-## Updating ```istio.VERSION```
+### Updating ```istio.VERSION```
 
 Now we need update the tags ```istio.VERSION``` to point to the release tag.
 
@@ -89,7 +114,7 @@ Once tests are completed, merge the PR, and create an annotated tags
         $ git tag -a ${RELEASE_TAG} -m "Istio Release ${RELEASE_TAG}" HEAD # assuming nothing else was committed
         $ git push --tags origin
 
-## Creating Archives
+### Creating Archives
 
 Sync your workspace at ${RELEASE_TAG}:
 
@@ -109,7 +134,7 @@ Open the [GitHub Release page](https://github.com/istio/istio/releases),
 and edit the release that points to ```${RELEASE_TAG}```. Uploads the artifacts created by the previous script.
 
 
-## Finalizing the release
+### Finalizing the release
 
 Create a PR, where you increment ```istio.RELEASE``` for the next
 release and you update ```istio/downloadIstio.sh``` to point to ```${RELEASE_TAG}```
