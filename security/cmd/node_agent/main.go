@@ -15,33 +15,45 @@
 package main
 
 import (
-	"flag"
+	"os"
 
 	"github.com/golang/glog"
+	"github.com/spf13/cobra"
 	"istio.io/auth/cmd/node_agent/na"
 )
 
 var (
 	naConfig na.Config
+
+	rootCmd = &cobra.Command{
+		Run: func(cmd *cobra.Command, args []string) {
+			runNodeAgent()
+		},
+	}
 )
 
 func init() {
-	naConfig.ServiceIdentity = flag.String("service-identity", "",
-		"Service Identity the node agent is managing")
-	naConfig.ServiceIdentityOrg = flag.String("org", "Juju org", "organization for the cert")
-	naConfig.RSAKeySize = flag.Int("key-size", 1024, "Size of generated private key")
-	naConfig.NodeIdentityCertFile = flag.String("na-cert", "", "Node Agent identity cert file")
-	naConfig.NodeIdentityPrivateKeyFile = flag.String("na-key", "",
-		"Node identity private key file")
-	naConfig.IstioCAAddress = flag.String("ca-address", "127.0.0.1",
-		"Istio CA address")
-	naConfig.ServiceIdentityDir = flag.String("cert-dir", "./", "Certificate directory")
-	naConfig.RootCACertFile = flag.String("root-cert", "", "Root Certi file")
-	naConfig.Env = flag.Int("env", na.ONPREM, "Node Environment : onprem | gcp")
+	flags := rootCmd.Flags()
+
+	flags.StringVar(&naConfig.ServiceIdentity, "service-identity", "", "Service Identity the node agent is managing")
+	flags.StringVar(&naConfig.ServiceIdentityOrg, "org", "Juju org", "Organization for the cert")
+	flags.IntVar(&naConfig.RSAKeySize, "key-size", 1024, "Size of generated private key")
+	flags.StringVar(&naConfig.NodeIdentityCertFile, "na-cert", "", "Node Agent identity cert file")
+	flags.StringVar(&naConfig.NodeIdentityPrivateKeyFile, "na-key", "", "Node identity private key file")
+	flags.StringVar(&naConfig.IstioCAAddress, "ca-address", "127.0.0.1", "Istio CA address")
+	flags.StringVar(&naConfig.ServiceIdentityDir, "cert-dir", "./", "Certificate directory")
+	flags.StringVar(&naConfig.RootCACertFile, "root-cert", "", "Root Certificate file")
+	flags.IntVar(&naConfig.Env, "env", na.ONPREM, "Node Environment : onprem | gcp")
 }
 
 func main() {
-	flag.Parse()
+	if err := rootCmd.Execute(); err != nil {
+		glog.Error(err)
+		os.Exit(-1)
+	}
+}
+
+func runNodeAgent() {
 	nodeAgent := na.NewNodeAgent(&naConfig)
 	glog.Infof("Starting Node Agent")
 	nodeAgent.Start()
