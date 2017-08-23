@@ -29,6 +29,7 @@ spec:
         resources: {}
       - args:
         - proxy
+        - sidecar
         - -v
         - "2"
         env:

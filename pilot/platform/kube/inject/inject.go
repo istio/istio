@@ -289,7 +289,7 @@ func injectIntoSpec(p *Params, spec *v1.PodSpec) {
 	}
 
 	// sidecar proxy container
-	args := []string{"proxy"}
+	args := []string{"proxy", "sidecar"}
 
 	if p.Verbosity > 0 {
 		args = append(args, "-v", strconv.Itoa(p.Verbosity))
