@@ -67,8 +67,8 @@ func DeleteNamespace(n string) error {
 	return err
 }
 
-// IsNamespaceDeleted check if a kubernete namespace is deleted
-func IsNamespaceDeleted(n string) (bool, error) {
+// NamespaceDeleted check if a kubernete namespace is deleted
+func NamespaceDeleted(n string) (bool, error) {
 	output, err := Shell("kubectl get namespace %s", n)
 	if strings.Contains(output, "NotFound") {
 		glog.V(2).Infof("namespace %s deleted\n", n)
