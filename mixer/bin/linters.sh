@@ -90,6 +90,7 @@ go_metalinter() {
 run_linters() {
     echo Running linters
     buildifier -showlog -mode=check $(find . -name BUILD -type f)
+    buildifier -showlog -mode=check $(find . -name BUILD.bazel -type f)
     buildifier -showlog -mode=check ./BUILD.ubuntu
     buildifier -showlog -mode=check ./WORKSPACE
     go_metalinter

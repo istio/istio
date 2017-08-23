@@ -62,10 +62,10 @@ type (
 )
 
 // ensure our types implement the requisite interfaces
-var _ listentry.HandlerBuilder = builder{}
+var _ listentry.HandlerBuilder = &builder{}
 var _ listentry.Handler = &handler{}
 
-func (builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
+func (*builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
 	c := cfg.(*config.Params)
 
 	h := &handler{
@@ -91,9 +91,11 @@ func (builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, erro
 	return h, nil
 }
 
-func (builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
+func (*builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
 	return nil
 }
+
+///////////////// Runtime Methods ///////////////
 
 func (h *handler) HandleListEntry(_ context.Context, entry *listentry.Instance) (adapter.CheckResult, error) {
 	h.lock.Lock()
@@ -141,7 +143,7 @@ func (h *handler) Close() error {
 	return nil
 }
 
-// Updates the list by polling from the provider on a fixed interval
+// listRefresher updates the list by polling from the provider on a fixed interval
 func (h *handler) listRefresher() {
 	for {
 		select {
@@ -264,6 +266,28 @@ func (h *handler) purgeList() {
 	h.lock.Unlock()
 }
 
+///////////////// Bootstrap ///////////////
+
+// GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
+func GetBuilderInfo() adapter.BuilderInfo {
+	return adapter.BuilderInfo{
+		Name:               "istio.io/mixer/adapter/list",
+		Description:        "Checks whether an entry is present in a list",
+		SupportedTemplates: []string{listentry.TemplateName},
+		DefaultConfig: &config.Params{
+			ProviderUrl:     "http://localhost",
+			RefreshInterval: 60 * time.Second,
+			Ttl:             300 * time.Second,
+			CachingInterval: 300 * time.Second,
+			CachingUseCount: 10000,
+			EntryType:       config.STRINGS,
+			Blacklist:       false,
+		},
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
+		ValidateConfig:       validateConfig,
+	}
+}
+
 func validateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 	c := cfg.(*config.Params)
 
@@ -307,24 +331,4 @@ func validateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 	}
 
 	return
-}
-
-// GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
-func GetBuilderInfo() adapter.BuilderInfo {
-	return adapter.BuilderInfo{
-		Name:                 "istio.io/mixer/adapter/list",
-		Description:          "Checks whether an entry is present in a list",
-		SupportedTemplates:   []string{listentry.TemplateName},
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return builder{} },
-		DefaultConfig: &config.Params{
-			ProviderUrl:     "http://localhost",
-			RefreshInterval: 60 * time.Second,
-			Ttl:             300 * time.Second,
-			CachingInterval: 300 * time.Second,
-			CachingUseCount: 10000,
-			EntryType:       config.STRINGS,
-			Blacklist:       false,
-		},
-		ValidateConfig: validateConfig,
-	}
 }

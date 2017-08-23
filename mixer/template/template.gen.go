@@ -179,9 +179,9 @@ var (
 				cpb := cp.(*logentry.InstanceParam)
 				infrdType := &logentry.Type{}
 
-				infrdType.Labels = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.Labels))
-				for k, v := range cpb.Labels {
-					if infrdType.Labels[k], err = tEvalFn(v); err != nil {
+				infrdType.Variables = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.Variables))
+				for k, v := range cpb.Variables {
+					if infrdType.Variables[k], err = tEvalFn(v); err != nil {
 						return nil, err
 					}
 				}
@@ -216,10 +216,10 @@ var (
 				for name, inst := range insts {
 					md := inst.(*logentry.InstanceParam)
 
-					Labels, err := template.EvalAll(md.Labels, attrs, mapper)
+					Variables, err := template.EvalAll(md.Variables, attrs, mapper)
 
 					if err != nil {
-						msg := fmt.Sprintf("failed to eval Labels for instance '%s': %v", name, err)
+						msg := fmt.Sprintf("failed to eval Variables for instance '%s': %v", name, err)
 						glog.Error(msg)
 						return fmt.Errorf(msg)
 					}
@@ -235,7 +235,7 @@ var (
 					instances = append(instances, &logentry.Instance{
 						Name: name,
 
-						Labels: Labels,
+						Variables: Variables,
 
 						Severity: Severity.(string),
 					})
