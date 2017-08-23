@@ -137,7 +137,7 @@ func setUpDefaultRouting() error {
 		return fmt.Errorf("could not apply rule '%s': %v", allRule, err)
 	}
 	standby := 0
-	for i := 0; i <= 10; i++ {
+	for i := 0; i <= testRetryTimes; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)
 		resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
 		if err != nil {
@@ -150,7 +150,7 @@ func setUpDefaultRouting() error {
 			}
 			closeResponseBody(resp)
 		}
-		if i == 10 {
+		if i == testRetryTimes {
 			return errors.New("unable to set default route")
 		}
 		standby += 5
