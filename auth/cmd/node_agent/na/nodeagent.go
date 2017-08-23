@@ -43,31 +43,31 @@ const (
 // Config is Node agent configuration that is provided from CLI.
 type Config struct {
 	// Root CA cert file
-	RootCACertFile *string
+	RootCACertFile string
 
 	// Node Identity key file
-	NodeIdentityPrivateKeyFile *string
+	NodeIdentityPrivateKeyFile string
 
 	// Node Identity certificate file
-	NodeIdentityCertFile *string
+	NodeIdentityCertFile string
 
 	// Service Identity
-	ServiceIdentity *string
+	ServiceIdentity string
 
-	// Service Identity
-	ServiceIdentityOrg *string
+	// Organization for service Identity
+	ServiceIdentityOrg string
 
 	// Directory where service identity private key and certificate
 	// are written.
-	ServiceIdentityDir *string
+	ServiceIdentityDir string
 
-	RSAKeySize *int
+	RSAKeySize int
 
 	// Istio CA grpc server
-	IstioCAAddress *string
+	IstioCAAddress string
 
 	// The environment this node agent is running on
-	Env *int
+	Env int
 }
 
 // This interface is provided for implementing platform specific code.
@@ -150,9 +150,9 @@ func (na *nodeAgentInternal) Start() {
 
 func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request) {
 	csr, privKey, err := ca.GenCSR(ca.CertOptions{
-		Host:       *na.config.ServiceIdentity,
-		Org:        *na.config.ServiceIdentityOrg,
-		RSAKeySize: *na.config.RSAKeySize,
+		Host:       na.config.ServiceIdentity,
+		Org:        na.config.ServiceIdentityOrg,
+		RSAKeySize: na.config.RSAKeySize,
 	})
 
 	if err != nil {
@@ -171,14 +171,14 @@ func (na *nodeAgentInternal) sendCSR() ([]byte, *pb.Response, error) {
 		glog.Errorf("Cannot construct the dial options with error %v", err)
 		return nil, nil, err
 	}
-	conn, err := grpc.Dial(*na.config.IstioCAAddress, dialOptions...)
+	conn, err := grpc.Dial(na.config.IstioCAAddress, dialOptions...)
 	if err != nil {
-		glog.Fatalf("Failed ot dial %s: %v", *na.config.IstioCAAddress, err)
+		glog.Fatalf("Failed to dial %s: %v", na.config.IstioCAAddress, err)
 	}
 
 	defer func() {
 		if closeErr := conn.Close(); closeErr != nil {
-			glog.Fatalf("Failed ot close connection")
+			glog.Fatalf("Failed to close connection")
 		}
 	}()
 

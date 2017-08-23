@@ -27,9 +27,9 @@ import (
 type onPremPlatformImpl struct{}
 
 func (na *onPremPlatformImpl) GetDialOptions(cfg *Config) ([]grpc.DialOption, error) {
-	transportCreds := getTLSCredentials(*cfg.NodeIdentityCertFile,
-		*cfg.NodeIdentityPrivateKeyFile,
-		*cfg.RootCACertFile, true /* isClient */)
+	transportCreds := getTLSCredentials(cfg.NodeIdentityCertFile,
+		cfg.NodeIdentityPrivateKeyFile,
+		cfg.RootCACertFile, true /* isClient */)
 	var options []grpc.DialOption
 	options = append(options, grpc.WithTransportCredentials(transportCreds))
 	return options, nil
