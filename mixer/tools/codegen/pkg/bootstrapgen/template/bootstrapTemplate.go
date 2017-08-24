@@ -35,7 +35,7 @@ var InterfaceTemplate = `// Copyright 2017 Istio Authors
 package {{.PkgName}}
 
 import (
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"fmt"
 	"context"
 	"istio.io/mixer/pkg/attribute"

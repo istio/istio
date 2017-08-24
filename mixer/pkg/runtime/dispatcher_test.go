@@ -23,8 +23,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/googleapis/googleapis/google/rpc"
+	"github.com/gogo/protobuf/proto"
+	google_rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
 	adptTmpl "istio.io/mixer/pkg/adapter/template"
