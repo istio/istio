@@ -38,7 +38,7 @@ function error_exit() {
 }
 
 . ${ROOT}/istio.VERSION || error_exit "Could not source versions"
-TESTS_TARGETS=($(bazel query 'tests(//tests/e2e/tests/...)'))
+TESTS_TARGETS=($(bazel query 'tests(//tests/e2e/tests/...)'))|| error_exit 'Could not find tests targets'
 TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
 RBAC_FILE='install/kubernetes/istio-rbac-beta.yaml'
