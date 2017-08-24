@@ -18,7 +18,20 @@ If you are making a release from a branch, use the branch name, e.g. `BRANCH=rel
 
 ## Semi-automated Release Since 0.2
 
-Release from 0.2 onward is semi automated. It is still driven from a release engineer desktop but all actions are automated using [githubctl](https://github.com/istio/test-infra/blob/master/toolbox/githubctl/main.go), a tool of our own that acts as a github client making REST calls through the github API. The release process goes like the following:
+Release from 0.2 onward is semi-automated. It is still driven from a release engineer desktop but all actions are automated using [githubctl](https://github.com/istio/test-infra/blob/master/toolbox/githubctl/main.go), a tool of our own that acts as a github client making REST calls through the github API. One may get githubctl from the istio/test-infra repository  
+```
+$ git clone https://github.com/istio/test-infra.git
+```
+and build it using 
+```
+$ bazel build //toolbox/githubctl
+```
+The binary output is located in
+```
+$ bazel-bin/toolbox/githubctl/githubctl
+```
+
+The release process goes like the following:
 
 ```
 # Tag the release
