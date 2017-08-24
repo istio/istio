@@ -251,7 +251,7 @@ message MatchRequest {
 message DestinationWeight {
   // Optional destination uniquely identifies the destination service. If not
   // specified, the value is inherited from the parent route rule.
-  Destination destination = 1;
+  string destination = 1;
 
   // Service version identifier for the destination service.
   // (-- N.B. The map is used instead of pstruct due to lack of serialization support
