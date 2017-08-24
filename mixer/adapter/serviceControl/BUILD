@@ -30,7 +30,7 @@ go_test(
         "//pkg/adapter:go_default_library",
         "//pkg/adapter/test:go_default_library",
         "@com_github_davecgh_go_spew//spew:go_default_library",
-        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_gogo_protobuf//proto:go_default_library",
         "@org_golang_google_api//servicecontrol/v1:go_default_library",
     ],
 )

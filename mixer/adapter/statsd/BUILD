@@ -26,6 +26,6 @@ go_test(
         "//pkg/adapter/test:go_default_library",
         "@com_github_cactus_go_statsd_client//statsd:go_default_library",
         "@com_github_cactus_go_statsd_client//statsd/statsdtest:go_default_library",
-        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_gogo_protobuf//proto:go_default_library",
     ],
 )

@@ -21,7 +21,7 @@ import (
 
 	"github.com/cactus/go-statsd-client/statsd"
 	"github.com/cactus/go-statsd-client/statsd/statsdtest"
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 
 	"istio.io/mixer/adapter/statsd/config"
 	"istio.io/mixer/pkg/adapter"
