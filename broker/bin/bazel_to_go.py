@@ -66,7 +66,7 @@ class WORKSPACE(object):
     # All functions should return a tuple
     # link target, source
     # target should exist
-    def new_go_repository(self, name, path):
+    def go_repository(self, name, path):
         return ((self.external + "/" + name, self.vendor + "/" + path))
 
     def new_git_repository(self, name, path):

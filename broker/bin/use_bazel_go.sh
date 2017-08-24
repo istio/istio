@@ -11,11 +11,11 @@ fi
 
 BDIR=$(dirname $(dirname $(readlink $TARGETBIN)))
 
-export GOROOT=$(ls -1d $BDIR/external/golang_*)
+export GOROOT="$(find ${BDIR}/external -type d -name 'go1_*')"
 export PATH=$GOROOT/bin:$PATH
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   echo "*** Calling ${BASH_SOURCE[0]} directly has no effect. It should be sourced."
-  echo "Using GOROOT: $GOROOT" 
+  echo "Using GOROOT: $GOROOT"
   go version
 fi

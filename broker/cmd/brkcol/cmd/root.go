@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	brks "istio.io/broker/cmd/server/cmd"
+	brks "istio.io/broker/cmd/brks/cmd"
 	"istio.io/broker/cmd/shared"
 )
 

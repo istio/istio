@@ -27,18 +27,18 @@ import (
 
 // Server data
 type Server struct {
-	controller *controller.Controller
+	ctr *controller.Controller
 }
 
 // CreateServer creates a broker server.
 func CreateServer() (*Server, error) {
-	controller, err := controller.CreateController()
+	c, err := controller.CreateController()
 	if err != nil {
 		return nil, err
 	}
 
 	return &Server{
-		controller: controller,
+		c,
 	}, nil
 }
 
@@ -46,7 +46,7 @@ func CreateServer() (*Server, error) {
 func (s *Server) Start(port uint16) {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/v2/catalog", s.controller.Catalog).Methods("GET")
+	router.HandleFunc("/v2/catalog", s.ctr.Catalog).Methods("GET")
 
 	http.Handle("/", router)
 

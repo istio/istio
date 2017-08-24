@@ -1,4 +1,3 @@
-
 # use_local flag is used to control
 def new_git_or_local_repository(
     name,

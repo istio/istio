@@ -11,23 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-// This is a simple command that is used to output the auto-generated collateral
-// files for the various mixer CLI commands. More specifically, this outputs
-// markdown files and man pages that describe the CLI commands, along with
-// bash completion files.
-
 package main
 
 import (
 	"os"
 
-	"istio.io/broker/cmd/collateral/cmd"
-	"istio.io/broker/cmd/shared"
+	"istio.io/broker/cmd/brks/cmd"
 )
 
 func main() {
-	rootCmd := cmd.GetRootCmd(os.Args[1:], shared.Printf, shared.Fatalf)
+	rootCmd := cmd.GetRootCmd(os.Args[1:])
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)

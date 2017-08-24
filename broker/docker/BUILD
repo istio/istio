@@ -7,7 +7,7 @@ pkg_tar(
     name = "broker_tar",
     extension = "tar.gz",
     files = [
-        "//cmd/server:brks",
+        "//cmd/brks",
     ],
     mode = "0755",
     package_dir = "/usr/local/bin/",
