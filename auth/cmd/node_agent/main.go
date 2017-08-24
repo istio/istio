@@ -17,9 +17,11 @@ package main
 import (
 	"os"
 
+	"istio.io/auth/cmd/node_agent/na"
+	"istio.io/auth/pkg/cmd"
+
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
-	"istio.io/auth/cmd/node_agent/na"
 )
 
 var (
@@ -44,6 +46,8 @@ func init() {
 	flags.StringVar(&naConfig.ServiceIdentityDir, "cert-dir", "./", "Certificate directory")
 	flags.StringVar(&naConfig.RootCACertFile, "root-cert", "", "Root Certificate file")
 	flags.IntVar(&naConfig.Env, "env", na.ONPREM, "Node Environment : onprem | gcp")
+
+	cmd.InitializeFlags(rootCmd)
 }
 
 func main() {
