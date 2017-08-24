@@ -69,6 +69,21 @@ filegroup(
     name = "code_proto",
     srcs = [ "google/rpc/code.proto" ],
 )
+
+filegroup(
+    name = "label_proto",
+    srcs = [
+        "google/api/label.proto",
+    ],
+)
+
+filegroup(
+    name = "metric_proto",
+    srcs = [
+        "google/api/metric.proto",
+    ],
+)
+
 """
     native.new_git_repository(
         name = "com_github_googleapis_googleapis",

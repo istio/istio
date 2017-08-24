@@ -240,7 +240,7 @@ func (m *Manager) loadConfigs(attrs attribute.Bag, ks config.KindSet, isPreproce
 		return nil, fmt.Errorf("unable to resolve config: %v", err)
 	}
 	if glog.V(2) {
-		glog.Infof("Resolved %d configs", len(configs))
+		glog.Infof("Resolved %d configs: %v ", len(configs), configs)
 	}
 	return configs, nil
 }

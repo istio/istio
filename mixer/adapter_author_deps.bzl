@@ -44,7 +44,7 @@ def mixer_adapter_repositories():
 
     go_repository(
         name = "org_golang_google_grpc",
-        commit = "8050b9cbc271307e5a716a9d782803d09b0d6f2d",  # Apr 7, 2017 (v1.2.1)
+        commit = "d2e1b51f33ff8c5e4a15560ff049d200e83726c5",  # April 28, 2017 (v1.3.0)
         importpath = "google.golang.org/grpc",
     )
 
