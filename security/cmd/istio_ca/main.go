@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"istio.io/auth/cmd/istio_ca/version"
+	"istio.io/auth/pkg/cmd"
 	"istio.io/auth/pkg/pki/ca"
 	"istio.io/auth/pkg/pki/ca/controller"
 	"istio.io/auth/pkg/server/grpc"
@@ -101,6 +102,8 @@ func init() {
 		"If unspecified, Istio CA will not server GRPC request.")
 
 	rootCmd.AddCommand(version.Command)
+
+	cmd.InitializeFlags(rootCmd)
 }
 
 func main() {

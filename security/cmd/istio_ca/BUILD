@@ -6,6 +6,7 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//cmd/istio_ca/version:go_default_library",
+        "//pkg/cmd:go_default_library",
         "//pkg/pki/ca:go_default_library",
         "//pkg/pki/ca/controller:go_default_library",
         "//pkg/server/grpc:go_default_library",
