@@ -15,11 +15,6 @@
 package crd
 
 import (
-	"bytes"
-	"encoding/json"
-
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -63,14 +58,15 @@ func deepCopySpec(s1 map[string]interface{}, s2 map[string]interface{}) {
 func (r *resource) GetObjectKind() schema.ObjectKind {
 	return &metav1.TypeMeta{
 		Kind:       r.Kind,
-		APIVersion: apiVersion,
+		APIVersion: apiGroupVersion,
 	}
 }
 
 // DeepCopyObject implements runtime.Object interface.
 func (r *resource) DeepCopyObject() runtime.Object {
-	r2 := &resource{Kind: r.Kind}
+	r2 := &resource{Kind: r.Kind, APIVersion: r.APIVersion}
 	r.ObjectMeta.DeepCopyInto(&r2.ObjectMeta)
+	r2.Spec = map[string]interface{}{}
 	deepCopySpec(r.Spec, r2.Spec)
 	return r2
 }
@@ -86,13 +82,14 @@ type resourceList struct {
 func (r *resourceList) GetObjectKind() schema.ObjectKind {
 	return &metav1.TypeMeta{
 		Kind:       r.Kind,
-		APIVersion: apiVersion,
+		APIVersion: apiGroupVersion,
 	}
 }
 
 // GetObjectKind implements runtime.Object interface.
 func (r *resourceList) DeepCopyObject() runtime.Object {
 	r2 := &resourceList{
+		Kind:     r.Kind,
 		ListMeta: *r.ListMeta.DeepCopy(),
 		Items:    make([]*resource, len(r.Items)),
 	}
@@ -100,25 +97,4 @@ func (r *resourceList) DeepCopyObject() runtime.Object {
 		r2.Items[i] = item.DeepCopyObject().(*resource)
 	}
 	return r2
-}
-
-func convert(spec map[string]interface{}, pbSpec proto.Message) error {
-	// This is inefficient; convert to a protobuf message through JSON.
-	// TODO: use reflect.
-	jsonData, err := json.Marshal(spec)
-	if err != nil {
-		return err
-	}
-	return jsonpb.Unmarshal(bytes.NewReader(jsonData), pbSpec)
-}
-
-func convertBack(pbSpec proto.Message, spec *map[string]interface{}) error {
-	buf := bytes.NewBuffer(nil)
-	if err := (&jsonpb.Marshaler{}).Marshal(buf, pbSpec); err != nil {
-		return err
-	}
-	if err := json.Unmarshal(buf.Bytes(), spec); err != nil {
-		return err
-	}
-	return nil
 }

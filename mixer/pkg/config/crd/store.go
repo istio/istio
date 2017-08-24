@@ -22,21 +22,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
-	// import GKE cluster authentication plugin
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	// import OIDC cluster authentication plugin, e.g. for Tectonic
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 
 	"istio.io/mixer/pkg/config/store"
 )
@@ -60,155 +53,123 @@ const (
 	initializationPeriod = time.Second * 2
 )
 
-// Store offers store.Store2 interface through kubernetes custom resource definitions.
+type listerWatcherBuilderInterface interface {
+	build(res metav1.APIResource) cache.ListerWatcher
+}
+
+type contextCh struct {
+	ctx context.Context
+	ch  chan store.BackendEvent
+}
+
+// Store offers store.Store2Backend interface through kubernetes custom resource definitions.
 type Store struct {
-	conf      *rest.Config
-	ns        map[string]bool
-	caches    map[string]cache.Store
-	scheme    *runtime.Scheme
-	kinds     map[string]proto.Message
-	resources map[string]metav1.APIResource
-	client    *rest.RESTClient
+	conf   *rest.Config
+	ns     map[string]bool
+	caches map[string]cache.Store
 
 	mu  sync.Mutex
-	eqs map[string][]*eventQueue
+	chs []*contextCh
+
+	// They are used to inject testing interfaces.
+	discoveryBuilder     func(conf *rest.Config) (discovery.DiscoveryInterface, error)
+	listerWatcherBuilder func(conf *rest.Config) (listerWatcherBuilderInterface, error)
 }
 
-var _ store.Store2 = &Store{}
+var _ store.Store2Backend = &Store{}
 
-// SetValidator implements store.Store2 interface.
-func (s *Store) SetValidator(store.Validator) {
-	glog.Errorf("Validator is not implemented yet")
-}
-
-// RegisterKind implements store.Store2 interface.
-func (s *Store) RegisterKind(kind string, spec proto.Message) {
-	s.scheme.AddKnownTypeWithName(
-		schema.GroupVersionKind{Group: apiGroup, Version: apiVersion, Kind: kind},
-		&resource{},
-	)
-	s.scheme.AddKnownTypeWithName(
-		schema.GroupVersionKind{Group: apiGroup, Version: apiVersion, Kind: kind + "List"},
-		&resourceList{},
-	)
-	s.kinds[kind] = spec
-}
-
-// Init implements store.Store2 interface.
-func (s *Store) Init(ctx context.Context) error {
-	var err error
-	s.conf.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: serializer.NewCodecFactory(s.scheme)}
-	s.client, err = rest.RESTClientFor(s.conf)
+// Init implements store.Store2Backend interface.
+func (s *Store) Init(ctx context.Context, kinds []string) error {
+	scheme := runtime.NewScheme()
+	kindsSet := map[string]bool{}
+	for _, kind := range kinds {
+		scheme.AddKnownTypeWithName(
+			schema.GroupVersionKind{Group: apiGroup, Version: apiVersion, Kind: kind},
+			&resource{},
+		)
+		scheme.AddKnownTypeWithName(
+			schema.GroupVersionKind{Group: apiGroup, Version: apiVersion, Kind: kind + "List"},
+			&resourceList{},
+		)
+		kindsSet[kind] = true
+	}
+	s.conf.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: serializer.NewCodecFactory(scheme)}
+	d, err := s.discoveryBuilder(s.conf)
 	if err != nil {
 		return err
 	}
-	d := discovery.NewDiscoveryClientForConfigOrDie(s.conf)
 	resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
 	if err != nil {
 		return err
 	}
-	dyn, err := dynamic.NewClient(s.conf)
+	lwBuilder, err := s.listerWatcherBuilder(s.conf)
 	if err != nil {
 		return err
 	}
-	s.caches = make(map[string]cache.Store, len(s.kinds))
-	for i, res := range resources.APIResources {
-		if _, ok := s.kinds[res.Kind]; ok {
-			// Not using the pointer of "res"; the for-loop may reuse the same address
-			// for the "res" variable.
-			cl := dyn.Resource(&resources.APIResources[i], "")
+	s.caches = make(map[string]cache.Store, len(kinds))
+	for _, res := range resources.APIResources {
+		if _, ok := kindsSet[res.Kind]; ok {
+			cl := lwBuilder.build(res)
 			informer := cache.NewSharedInformer(cl, nil, defaultResyncPeriod)
 			s.caches[res.Kind] = informer.GetStore()
-			s.resources[res.Kind] = res
 			informer.AddEventHandler(s)
 			go informer.Run(ctx.Done())
 		}
 	}
-	go s.closeAllWatches(ctx)
 	time.Sleep(initializationPeriod) // TODO
 	return nil
 }
 
-func (s *Store) closeAllWatches(ctx context.Context) {
+func (s *Store) closeWatch(ctx context.Context, ch chan store.BackendEvent) {
 	<-ctx.Done()
 	s.mu.Lock()
-	visited := map[*eventQueue]bool{}
-	for _, eqs := range s.eqs {
-		for _, eq := range eqs {
-			if !visited[eq] {
-				eq.cancel()
-				visited[eq] = true
-			}
-		}
-	}
-	s.eqs = map[string][]*eventQueue{}
-	s.mu.Unlock()
-}
-
-func (s *Store) closeWatch(ctx context.Context, kinds []string, q *eventQueue) {
-	<-ctx.Done()
-	s.mu.Lock()
-	for _, k := range kinds {
-		eqs := s.eqs[k]
-		for i, eq := range eqs {
-			if eq == q {
-				s.eqs[k] = append(eqs[:i], eqs[i+1:]...)
-				break
-			}
+	for i, c := range s.chs {
+		if ch == c.ch {
+			s.chs = append(s.chs[:i], s.chs[i+1:]...)
 		}
 	}
 	s.mu.Unlock()
 }
 
-// Watch implements store.Store2 interface.
-func (s *Store) Watch(ctx context.Context, kinds []string) (<-chan store.Event, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	q := newQueue(ctx, cancel)
+// Watch implements store.Store2Backend interface.
+func (s *Store) Watch(ctx context.Context) (<-chan store.BackendEvent, error) {
+	ch := make(chan store.BackendEvent)
 	s.mu.Lock()
-	for _, k := range kinds {
-		s.eqs[k] = append(s.eqs[k], q)
-	}
+	s.chs = append(s.chs, &contextCh{ctx, ch})
 	s.mu.Unlock()
-	go s.closeWatch(ctx, kinds, q)
-	return q.chout, nil
+	go s.closeWatch(ctx, ch)
+	return ch, nil
 }
 
-// Get implements store.Store2 interface.
-func (s *Store) Get(key store.Key, spec proto.Message) error {
+// Get implements store.Store2Backend interface.
+func (s *Store) Get(key store.Key) (map[string]interface{}, error) {
 	c, ok := s.caches[key.Kind]
 	if !ok {
-		return store.ErrNotFound
+		return nil, store.ErrNotFound
 	}
 	obj, exists, err := c.Get(&resource{ObjectMeta: metav1.ObjectMeta{Namespace: key.Namespace, Name: key.Name}})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !exists {
-		return store.ErrNotFound
+		return nil, store.ErrNotFound
 	}
-	// maybe check the obj's type and spec's type?
-	return convert(obj.(*resource).Spec, spec)
+	r, ok := obj.(*resource)
+	if !ok {
+		return nil, fmt.Errorf("unrecognized response")
+	}
+	return r.Spec, nil
 }
 
-// List implements store.Store2 interface.
-func (s *Store) List() map[store.Key]proto.Message {
-	result := map[store.Key]proto.Message{}
+// List implements store.Store2Backend interface.
+func (s *Store) List() map[store.Key]map[string]interface{} {
+	result := map[store.Key]map[string]interface{}{}
 	for kind, c := range s.caches {
-		tmpl, ok := s.kinds[kind]
-		if !ok {
-			glog.Warningf("Kind %s is not registered", kind)
-			continue
-		}
 		for _, obj := range c.List() {
 			if res, ok := obj.(*resource); ok {
-				if s.ns[res.Namespace] {
+				if s.ns == nil || s.ns[res.Namespace] {
 					key := store.Key{Kind: kind, Name: res.Name, Namespace: res.Namespace}
-					value := proto.Clone(tmpl)
-					if err := convert(res.Spec, value); err != nil {
-						glog.Errorf("Failed to convert: %v", err)
-						continue
-					}
-					result[key] = value
+					result[key] = res.Spec
 				}
 			} else {
 				glog.Errorf("Unrecognized object %+v", obj)
@@ -218,101 +179,35 @@ func (s *Store) List() map[store.Key]proto.Message {
 	return result
 }
 
-// ListKeys implements store.Store2 interface.
-func (s *Store) ListKeys() []store.Key {
-	result := []store.Key{}
-	for kind, c := range s.caches {
-		for _, key := range c.ListKeys() {
-			ns, name, err := cache.SplitMetaNamespaceKey(key)
-			if err != nil {
-				glog.Errorf("Unrecognized key %s", key)
-				continue
-			}
-			if !s.ns[ns] {
-				continue
-			}
-			result = append(result, store.Key{Kind: kind, Name: name, Namespace: ns})
-		}
-	}
-	return result
-}
-
-func (s *Store) getThroughClient(key store.Key, res metav1.APIResource) bool {
-	err := s.client.Get().
-		Namespace(key.Namespace).
-		Resource(res.Name).
-		Name(key.Name).
-		Do().
-		Error()
-	return err == nil
-}
-
-// Put implements store.Store2 interface.
-func (s *Store) Put(key store.Key, spec proto.Message) error {
-	var req *rest.Request
-	res, ok := s.resources[key.Kind]
-	if !ok {
-		return fmt.Errorf("kind %s is not known", key.Kind)
-	}
-	if s.getThroughClient(key, res) {
-		req = s.client.Put().
-			Namespace(key.Namespace).
-			Resource(res.Name).
-			Name(key.Name)
-	} else {
-		req = s.client.Post().
-			Namespace(key.Namespace).
-			Resource(res.Name)
-	}
-	r := &resource{
-		Kind:       key.Kind,
-		APIVersion: apiGroupVersion,
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      key.Name,
-			Namespace: key.Namespace,
-		},
-	}
-	if err := convertBack(spec, &r.Spec); err != nil {
-		return err
-	}
-	return req.Body(r).Do().Error()
-}
-
-// Delete implements store.Store2 interface.
-func (s *Store) Delete(key store.Key) error {
-	res, ok := s.resources[key.Kind]
-	if !ok {
-		return fmt.Errorf("kind %s is not known", key.Kind)
-	}
-	return s.client.Delete().
-		Namespace(key.Namespace).
-		Resource(res.Name).
-		Name(key.Name).
-		Do().
-		Error()
-}
-
-func toKey(obj interface{}) (store.Key, error) {
+func toEvent(t store.ChangeType, obj interface{}) (store.BackendEvent, error) {
 	r, ok := obj.(*resource)
 	if !ok {
-		return store.Key{}, fmt.Errorf("unrecognized data %+v", obj)
+		return store.BackendEvent{}, fmt.Errorf("unrecognized data %+v", obj)
 	}
-	return store.Key{Kind: r.Kind, Namespace: r.Namespace, Name: r.Name}, nil
+	return store.BackendEvent{
+		Type:  t,
+		Key:   store.Key{Kind: r.Kind, Namespace: r.Namespace, Name: r.Name},
+		Value: r.Spec,
+	}, nil
+}
+
+func (s *Store) dispatch(ev store.BackendEvent) {
+	for _, ch := range s.chs {
+		select {
+		case <-ch.ctx.Done():
+		case ch.ch <- ev:
+		}
+	}
 }
 
 // OnAdd implements cache.ResourceEventHandler interface.
 func (s *Store) OnAdd(obj interface{}) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if len(s.eqs) == 0 {
-		return
-	}
-	if key, err := toKey(obj); err != nil {
+	if ev, err := toEvent(store.Update, obj); err != nil {
 		glog.Errorf("Failed to process event: %v", err)
 	} else {
-		for _, eq := range s.eqs[key.Kind] {
-			eq.Send(store.Update, key)
-		}
+		s.dispatch(ev)
 	}
 }
 
@@ -320,15 +215,10 @@ func (s *Store) OnAdd(obj interface{}) {
 func (s *Store) OnUpdate(oldObj, newObj interface{}) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if len(s.eqs) == 0 {
-		return
-	}
-	if key, err := toKey(newObj); err != nil {
+	if ev, err := toEvent(store.Update, newObj); err != nil {
 		glog.Errorf("Failed to process event: %v", err)
 	} else {
-		for _, eq := range s.eqs[key.Kind] {
-			eq.Send(store.Update, key)
-		}
+		s.dispatch(ev)
 	}
 }
 
@@ -336,36 +226,10 @@ func (s *Store) OnUpdate(oldObj, newObj interface{}) {
 func (s *Store) OnDelete(obj interface{}) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if len(s.eqs) == 0 {
-		return
-	}
-	if key, err := toKey(obj); err != nil {
+	if ev, err := toEvent(store.Delete, obj); err != nil {
 		glog.Errorf("Failed to process event: %v", err)
 	} else {
-		for _, eq := range s.eqs[key.Kind] {
-			eq.Send(store.Delete, key)
-		}
+		ev.Value = nil
+		s.dispatch(ev)
 	}
-}
-
-// NewStore creates a new Store instance.
-func NewStore(kubeconfig string, namespaces []string) (*Store, error) {
-	conf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-	conf.APIPath = "/apis"
-	conf.GroupVersion = &schema.GroupVersion{Group: apiGroup, Version: apiVersion}
-	ns := map[string]bool{}
-	for _, n := range namespaces {
-		ns[n] = true
-	}
-	return &Store{
-		conf:      conf,
-		ns:        ns,
-		scheme:    runtime.NewScheme(),
-		kinds:     map[string]proto.Message{},
-		resources: map[string]metav1.APIResource{},
-		eqs:       map[string][]*eventQueue{},
-	}, nil
 }
