@@ -218,7 +218,8 @@ class EnvoyTimer : public ::istio::mixer_client::Timer {
 
 MixerControl::MixerControl(const MixerConfig& mixer_config,
                            Upstream::ClusterManager& cm,
-                           Event::Dispatcher& dispatcher)
+                           Event::Dispatcher& dispatcher,
+                           Runtime::RandomGenerator& random)
     : cm_(cm), mixer_config_(mixer_config) {
   MixerClientOptions options(GetCheckOptions(mixer_config), ReportOptions(),
                              QuotaOptions());
@@ -231,6 +232,10 @@ MixerControl::MixerControl(const MixerConfig& mixer_config,
         return std::unique_ptr<::istio::mixer_client::Timer>(
             new EnvoyTimer(dispatcher.createTimer(timer_cb)));
       };
+
+  options.uuid_generate_func = [&random]() -> std::string {
+    return random.uuid();
+  };
 
   mixer_client_ = ::istio::mixer_client::CreateMixerClient(options);
   mixer_config_.ExtractQuotaAttributes(&quota_attributes_);

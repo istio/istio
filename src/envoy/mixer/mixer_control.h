@@ -49,7 +49,7 @@ class MixerControl final : public ThreadLocal::ThreadLocalObject,
  public:
   // The constructor.
   MixerControl(const MixerConfig& mixer_config, Upstream::ClusterManager& cm,
-               Event::Dispatcher& dispatcher);
+               Event::Dispatcher& dispatcher, Runtime::RandomGenerator& random);
 
   // Add a special header to forward mixer attribues to upstream proxy.
   void ForwardAttributes(HeaderMap& headers,

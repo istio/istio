@@ -18,6 +18,7 @@
 #include "common/http/headers.h"
 #include "common/http/utility.h"
 #include "envoy/registry/registry.h"
+#include "envoy/server/instance.h"
 #include "envoy/ssl/connection.h"
 #include "envoy/thread_local/thread_local.h"
 #include "server/config/network/http_connection_manager.h"
@@ -109,11 +110,13 @@ class Config : public Logger::Loggable<Logger::Id::http> {
       : cm_(context.clusterManager()),
         tls_(context.threadLocal().allocateSlot()) {
     mixer_config_.Load(config);
-    tls_->set([this](Event::Dispatcher& dispatcher)
-                  -> ThreadLocal::ThreadLocalObjectSharedPtr {
-                    return ThreadLocal::ThreadLocalObjectSharedPtr(
-                        new MixerControl(mixer_config_, cm_, dispatcher));
-                  });
+    Runtime::RandomGenerator& random = context.server().random();
+    tls_->set(
+        [this, &random](Event::Dispatcher& dispatcher)
+            -> ThreadLocal::ThreadLocalObjectSharedPtr {
+              return ThreadLocal::ThreadLocalObjectSharedPtr(
+                  new MixerControl(mixer_config_, cm_, dispatcher, random));
+            });
   }
 
   MixerControl& mixer_control() { return tls_->getTyped<MixerControl>(); }

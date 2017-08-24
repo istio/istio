@@ -34,13 +34,6 @@ cc_proto_library(
     visibility = ["//visibility:public"],
 )
 
-# This is a dummy cc_library to provide linkopts to envoy_cc_library
-cc_library(
-    name = "uuid",
-    linkopts = ["-luuid"],
-    linkstatic = 1,
-)
-
 envoy_cc_library(
     name = "filter_lib",
     srcs = [
@@ -58,7 +51,6 @@ envoy_cc_library(
     repository = "@envoy",
     deps = [
         ":string_map_proto",
-        ":uuid",
         "//external:mixer_client_lib",
         "@envoy//source/common/grpc:rpc_channel_lib",
         "@envoy//source/exe:envoy_common_lib",
