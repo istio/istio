@@ -60,9 +60,10 @@ GrpcTransport<RequestType, ResponseType>::GrpcTransport(
       on_done_(on_done),
       request_(async_client_->send(
           descriptor(), request, *this,
-          Optional<std::chrono::milliseconds>(kGrpcRequestTimeoutMs))){
-
-      };
+          Optional<std::chrono::milliseconds>(kGrpcRequestTimeoutMs))) {
+  ENVOY_LOG(debug, "Sending {} request: {}", descriptor().name(),
+            request.DebugString());
+}
 
 template <class RequestType, class ResponseType>
 void GrpcTransport<RequestType, ResponseType>::onCreateInitialMetadata(
@@ -92,9 +93,10 @@ void GrpcTransport<RequestType, ResponseType>::onSuccess(
 
 template <class RequestType, class ResponseType>
 void GrpcTransport<RequestType, ResponseType>::onFailure(
-    Grpc::Status::GrpcStatus status) {
-  ENVOY_LOG(debug, "{} failed with code: {}", descriptor().name(), status);
-  on_done_(Status(static_cast<StatusCode>(status), ""));
+    Grpc::Status::GrpcStatus status, const std::string& message) {
+  ENVOY_LOG(debug, "{} failed with code: {}, {}", descriptor().name(), status,
+            message);
+  on_done_(Status(static_cast<StatusCode>(status), message));
   delete this;
 }
 

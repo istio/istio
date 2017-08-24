@@ -55,8 +55,8 @@ class GrpcTransport : public Grpc::AsyncRequestCallbacks<ResponseType>,
 
   void onSuccess(std::unique_ptr<ResponseType>&& response) override;
 
-  // TODO(lizan): Make this handle grpc-message too
-  void onFailure(Grpc::Status::GrpcStatus status) override;
+  void onFailure(Grpc::Status::GrpcStatus status,
+                 const std::string& message) override;
 
  private:
   static const google::protobuf::MethodDescriptor& descriptor();
