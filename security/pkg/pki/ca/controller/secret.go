@@ -16,6 +16,7 @@ package controller
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 	"time"
 
@@ -50,6 +51,9 @@ const (
 	secretResyncPeriod = time.Minute
 
 	serviceAccountNameAnnotationKey = "istio.io/service-account.name"
+
+	// The size of a private key for a leaf certificate.
+	keySize = 1024
 )
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
@@ -173,7 +177,13 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	}
 
 	// Now we know the secret does not exist yet. So we create a new one.
-	chain, key := sc.ca.Generate(saName, saNamespace)
+	chain, key, err := sc.generateKeyAndCert(saName, saNamespace)
+	if err != nil {
+		glog.Errorf("Failed to generate key and certificate for service account %q in namespace %q (error %v)",
+			saName, saNamespace, err)
+
+		return
+	}
 	rootCert := sc.ca.GetRootCertificate()
 	secret.Data = map[string][]byte{
 		CertChainID:  chain,
@@ -214,6 +224,26 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 	sc.upsertSecret(saName, scrt.GetNamespace())
 }
 
+func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string) ([]byte, []byte, error) {
+	id := fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", ca.URIScheme, saNamespace, saName)
+	options := ca.CertOptions{
+		Host:       id,
+		RSAKeySize: keySize,
+	}
+
+	csrPEM, keyPEM, err := ca.GenCSR(options)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	certPEM, err := sc.ca.Sign(csrPEM)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return certPEM, keyPEM, nil
+}
+
 func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	scrt, ok := newObj.(*v1.Secret)
 	if !ok {
@@ -245,14 +275,20 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 			"or the root certificate is outdated", namespace, name)
 
 		saName := scrt.Annotations[serviceAccountNameAnnotationKey]
-		chain, key := sc.ca.Generate(saName, namespace)
+
+		chain, key, err := sc.generateKeyAndCert(saName, namespace)
+		if err != nil {
+			glog.Errorf("Failed to generate key and certificate for service account %q in namespace %q (error %v)",
+				saName, namespace, err)
+
+			return
+		}
 
 		scrt.Data[CertChainID] = chain
 		scrt.Data[PrivateKeyID] = key
 		scrt.Data[RootCertID] = rootCertificate
 
-		_, err := sc.core.Secrets(namespace).Update(scrt)
-		if err != nil {
+		if _, err = sc.core.Secrets(namespace).Update(scrt); err != nil {
 			glog.Errorf("Failed to update secret %s/%s (error: %s)", namespace, name, err)
 		}
 	}
