@@ -29,6 +29,7 @@
 #include "include/client.h"
 #include "src/envoy/mixer/config.h"
 #include "src/envoy/mixer/grpc_transport.h"
+#include "src/envoy/mixer/string_map.pb.h"
 #include "src/envoy/mixer/utils.h"
 
 namespace Envoy {
@@ -53,33 +54,33 @@ class MixerControl final : public ThreadLocal::ThreadLocalObject,
 
   // Add a special header to forward mixer attribues to upstream proxy.
   void ForwardAttributes(HeaderMap& headers,
-                         const Utils::StringMap& route_attributes);
+                         const Utils::StringMap& route_attributes) const;
 
-  // Make mixer check call for HTTP requests.
-  void CheckHttp(HttpRequestDataPtr request_data, HeaderMap& headers,
-                 std::string origin_user,
-                 const Utils::StringMap& route_attributes,
-                 const Network::Connection* connection,
-                 ::istio::mixer_client::DoneFunc on_done);
+  // Build check request attributes for HTTP.
+  void BuildHttpCheck(HttpRequestDataPtr request_data, HeaderMap& headers,
+                      const ::istio::proxy::mixer::StringMap& map_pb,
+                      const std::string& source_user,
+                      const Utils::StringMap& route_attributes,
+                      const Network::Connection* connection) const;
 
-  // Make mixer report call for HTTP requests.
-  void ReportHttp(HttpRequestDataPtr request_data,
-                  const HeaderMap* response_headers,
-                  const AccessLog::RequestInfo& request_info,
-                  int check_status_code);
+  // Build report request attributs for HTTP.
+  void BuildHttpReport(HttpRequestDataPtr request_data,
+                       const HeaderMap* response_headers,
+                       const AccessLog::RequestInfo& request_info,
+                       int check_status_code) const;
 
-  // Make mixer check call for Tcp requests.
-  void CheckTcp(HttpRequestDataPtr request_data,
-                Network::Connection& connection, std::string origin_user,
-                ::istio::mixer_client::DoneFunc on_done);
+  // Build check request attributes for Tcp.
+  void BuildTcpCheck(HttpRequestDataPtr request_data,
+                     Network::Connection& connection,
+                     const std::string& source_user) const;
 
-  // Make mixer report call for Tcp requests.
-  void ReportTcp(HttpRequestDataPtr request_data, uint64_t received_bytes,
-                 uint64_t send_bytes, int check_status_code,
-                 std::chrono::nanoseconds duration,
-                 Upstream::HostDescriptionConstSharedPtr upstreamHost);
+  // Build report request attributs for Tcp.
+  void BuildTcpReport(
+      HttpRequestDataPtr request_data, uint64_t received_bytes,
+      uint64_t send_bytes, int check_status_code,
+      std::chrono::nanoseconds duration,
+      Upstream::HostDescriptionConstSharedPtr upstreamHost) const;
 
- private:
   // Make remote check call.
   void SendCheck(HttpRequestDataPtr request_data, const HeaderMap* headers,
                  ::istio::mixer_client::DoneFunc on_done);
@@ -87,6 +88,7 @@ class MixerControl final : public ThreadLocal::ThreadLocalObject,
   // Make remote report call.
   void SendReport(HttpRequestDataPtr request_data);
 
+ private:
   // Envoy cluster manager for making gRPC calls.
   Upstream::ClusterManager& cm_;
   // The mixer client

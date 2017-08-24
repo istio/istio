@@ -127,10 +127,12 @@ class TcpInstance : public Network::Filter,
       filter_callbacks_->connection().readDisable(true);
       auto instance = GetPtr();
       calling_check_ = true;
-      mixer_control_.CheckTcp(request_data_, filter_callbacks_->connection(),
-                              origin_user, [instance](const Status& status) {
-                                instance->completeCheck(status);
-                              });
+      mixer_control_.BuildTcpCheck(
+          request_data_, filter_callbacks_->connection(), origin_user);
+      mixer_control_.SendCheck(request_data_, nullptr,
+                               [instance](const Status& status) {
+                                 instance->completeCheck(status);
+                               });
       calling_check_ = false;
     }
     return state_ == State::Calling ? Network::FilterStatus::StopIteration
@@ -169,11 +171,12 @@ class TcpInstance : public Network::Filter,
     if (event == Network::ConnectionEvent::RemoteClose ||
         event == Network::ConnectionEvent::LocalClose) {
       if (state_ != State::Closed && request_data_) {
-        mixer_control_.ReportTcp(
+        mixer_control_.BuildTcpReport(
             request_data_, received_bytes_, send_bytes_, check_status_code_,
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                 std::chrono::system_clock::now() - start_time_),
             filter_callbacks_->upstreamHost());
+        mixer_control_.SendReport(request_data_);
       }
       state_ = State::Closed;
     }
