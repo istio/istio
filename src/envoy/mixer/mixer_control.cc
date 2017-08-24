@@ -21,7 +21,6 @@
 #include "common/http/utility.h"
 
 #include "src/envoy/mixer/string_map.pb.h"
-#include "src/envoy/mixer/thread_dispatcher.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
@@ -225,7 +224,8 @@ class EnvoyTimer : public ::istio::mixer_client::Timer {
 }  // namespace
 
 MixerControl::MixerControl(const MixerConfig& mixer_config,
-                           Upstream::ClusterManager& cm)
+                           Upstream::ClusterManager& cm,
+                           Event::Dispatcher& dispatcher)
     : cm_(cm), mixer_config_(mixer_config) {
   if (IsMixerServerConfigured(cm)) {
     MixerClientOptions options(GetCheckOptions(mixer_config), ReportOptions(),
@@ -243,10 +243,10 @@ MixerControl::MixerControl(const MixerConfig& mixer_config,
     options.check_transport = CheckTransport::GetFunc(*check_client_, nullptr);
     options.report_transport = ReportTransport::GetFunc(*report_client_);
 
-    options.timer_create_func = [](std::function<void()> timer_cb)
+    options.timer_create_func = [&dispatcher](std::function<void()> timer_cb)
         -> std::unique_ptr<::istio::mixer_client::Timer> {
           return std::unique_ptr<::istio::mixer_client::Timer>(
-              new EnvoyTimer(GetThreadDispatcher().createTimer(timer_cb)));
+              new EnvoyTimer(dispatcher.createTimer(timer_cb)));
         };
 
     mixer_client_ = ::istio::mixer_client::CreateMixerClient(options);
@@ -404,18 +404,6 @@ void MixerControl::ReportTcp(
   request_data->attributes.attributes[kContextTime] =
       Attributes::TimeValue(std::chrono::system_clock::now());
   SendReport(request_data);
-}
-
-std::shared_ptr<MixerControl> MixerControlPerThreadStore::Get() {
-  std::thread::id id = std::this_thread::get_id();
-  std::lock_guard<std::mutex> lock(map_mutex_);
-  auto it = instance_map_.find(id);
-  if (it != instance_map_.end()) {
-    return it->second;
-  }
-  auto mixer_control = create_func_();
-  instance_map_[id] = mixer_control;
-  return mixer_control;
 }
 
 }  // namespace Mixer

@@ -19,10 +19,10 @@
 #include "common/http/utility.h"
 #include "envoy/registry/registry.h"
 #include "envoy/ssl/connection.h"
+#include "envoy/thread_local/thread_local.h"
 #include "server/config/network/http_connection_manager.h"
 #include "src/envoy/mixer/config.h"
 #include "src/envoy/mixer/mixer_control.h"
-#include "src/envoy/mixer/thread_dispatcher.h"
 #include "src/envoy/mixer/utils.h"
 
 #include <map>
@@ -101,21 +101,22 @@ class Config : public Logger::Loggable<Logger::Id::http> {
  private:
   Upstream::ClusterManager& cm_;
   MixerConfig mixer_config_;
-  MixerControlPerThreadStore mixer_control_store_;
+  ThreadLocal::SlotPtr tls_;
 
  public:
   Config(const Json::Object& config,
          Server::Configuration::FactoryContext& context)
       : cm_(context.clusterManager()),
-        mixer_control_store_([this]() -> std::shared_ptr<MixerControl> {
-          return std::make_shared<MixerControl>(mixer_config_, cm_);
-        }) {
+        tls_(context.threadLocal().allocateSlot()) {
     mixer_config_.Load(config);
+    tls_->set([this](Event::Dispatcher& dispatcher)
+                  -> ThreadLocal::ThreadLocalObjectSharedPtr {
+                    return ThreadLocal::ThreadLocalObjectSharedPtr(
+                        new MixerControl(mixer_config_, cm_, dispatcher));
+                  });
   }
 
-  std::shared_ptr<MixerControl> mixer_control() {
-    return mixer_control_store_.Get();
-  }
+  MixerControl& mixer_control() { return tls_->getTyped<MixerControl>(); }
 };
 
 typedef std::shared_ptr<Config> ConfigPtr;
@@ -124,7 +125,7 @@ class Instance : public Http::StreamDecoderFilter,
                  public Http::AccessLog::Instance,
                  public std::enable_shared_from_this<Instance> {
  private:
-  std::shared_ptr<MixerControl> mixer_control_;
+  MixerControl& mixer_control_;
   ConfigPtr config_;
   std::shared_ptr<HttpRequestData> request_data_;
 
@@ -206,7 +207,7 @@ class Instance : public Http::StreamDecoderFilter,
     Log().debug("Called Mixer::Instance : {}", __func__);
 
     if (!forward_disabled()) {
-      mixer_control_->ForwardAttributes(
+      mixer_control_.ForwardAttributes(
           headers, GetRouteStringMap(kPrefixForwardAttributes));
     }
 
@@ -227,7 +228,7 @@ class Instance : public Http::StreamDecoderFilter,
     }
 
     auto instance = GetPtr();
-    mixer_control_->CheckHttp(
+    mixer_control_.CheckHttp(
         request_data_, headers, origin_user,
         GetRouteStringMap(kPrefixMixerAttributes),
         decoder_callbacks_->connection(),
@@ -271,7 +272,6 @@ class Instance : public Http::StreamDecoderFilter,
       StreamDecoderFilterCallbacks& callbacks) override {
     Log().debug("Called Mixer::Instance : {}", __func__);
     decoder_callbacks_ = &callbacks;
-    SetThreadDispatcher(decoder_callbacks_->dispatcher());
   }
 
   void completeCheck(const Status& status) {
@@ -304,8 +304,8 @@ class Instance : public Http::StreamDecoderFilter,
     if (!request_data_) return;
     // Make sure not to use any class members at the callback.
     // The class may be gone when it is called.
-    mixer_control_->ReportHttp(request_data_, response_headers, request_info,
-                               check_status_code_);
+    mixer_control_.ReportHttp(request_data_, response_headers, request_info,
+                              check_status_code_);
   }
 
   static spdlog::logger& Log() {

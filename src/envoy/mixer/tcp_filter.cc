@@ -21,7 +21,6 @@
 #include "server/config/network/http_connection_manager.h"
 #include "src/envoy/mixer/config.h"
 #include "src/envoy/mixer/mixer_control.h"
-#include "src/envoy/mixer/thread_dispatcher.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
@@ -34,22 +33,22 @@ class TcpConfig : public Logger::Loggable<Logger::Id::filter> {
  private:
   Upstream::ClusterManager& cm_;
   MixerConfig mixer_config_;
-  MixerControlPerThreadStore mixer_control_store_;
+  ThreadLocal::SlotPtr tls_;
 
  public:
   TcpConfig(const Json::Object& config,
             Server::Configuration::FactoryContext& context)
       : cm_(context.clusterManager()),
-        mixer_control_store_([this]() -> std::shared_ptr<MixerControl> {
-          return std::make_shared<MixerControl>(mixer_config_, cm_);
-        }) {
+        tls_(context.threadLocal().allocateSlot()) {
     mixer_config_.Load(config);
-    log().debug("Mixer Tcp Filter Config loaded.");
+    tls_->set([this](Event::Dispatcher& dispatcher)
+                  -> ThreadLocal::ThreadLocalObjectSharedPtr {
+                    return ThreadLocal::ThreadLocalObjectSharedPtr(
+                        new MixerControl(mixer_config_, cm_, dispatcher));
+                  });
   }
 
-  std::shared_ptr<MixerControl> mixer_control() {
-    return mixer_control_store_.Get();
-  }
+  MixerControl& mixer_control() { return tls_->getTyped<MixerControl>(); }
 };
 
 typedef std::shared_ptr<TcpConfig> TcpConfigPtr;
@@ -62,7 +61,7 @@ class TcpInstance : public Network::Filter,
   enum class State { NotStarted, Calling, Completed, Closed };
 
   TcpConfigPtr config_;
-  std::shared_ptr<MixerControl> mixer_control_;
+  MixerControl& mixer_control_;
   std::shared_ptr<HttpRequestData> request_data_;
   Network::ReadFilterCallbacks* filter_callbacks_{};
   State state_{State::NotStarted};
@@ -87,7 +86,6 @@ class TcpInstance : public Network::Filter,
     log().debug("Called TcpInstance: {}", __func__);
     filter_callbacks_ = &callbacks;
     filter_callbacks_->connection().addConnectionCallbacks(*this);
-    SetThreadDispatcher(filter_callbacks_->connection().dispatcher());
     start_time_ = std::chrono::system_clock::now();
   }
 
@@ -126,10 +124,10 @@ class TcpInstance : public Network::Filter,
       filter_callbacks_->connection().readDisable(true);
       auto instance = GetPtr();
       calling_check_ = true;
-      mixer_control_->CheckTcp(request_data_, filter_callbacks_->connection(),
-                               origin_user, [instance](const Status& status) {
-                                 instance->completeCheck(status);
-                               });
+      mixer_control_.CheckTcp(request_data_, filter_callbacks_->connection(),
+                              origin_user, [instance](const Status& status) {
+                                instance->completeCheck(status);
+                              });
       calling_check_ = false;
     }
     return state_ == State::Calling ? Network::FilterStatus::StopIteration
@@ -168,7 +166,7 @@ class TcpInstance : public Network::Filter,
     if (event == Network::ConnectionEvent::RemoteClose ||
         event == Network::ConnectionEvent::LocalClose) {
       if (state_ != State::Closed && request_data_) {
-        mixer_control_->ReportTcp(
+        mixer_control_.ReportTcp(
             request_data_, received_bytes_, send_bytes_, check_status_code_,
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                 std::chrono::system_clock::now() - start_time_),

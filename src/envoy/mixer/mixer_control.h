@@ -24,6 +24,7 @@
 #include "common/http/headers.h"
 #include "envoy/grpc/async_client.h"
 #include "envoy/http/access_log.h"
+#include "envoy/thread_local/thread_local.h"
 #include "envoy/upstream/cluster_manager.h"
 #include "include/client.h"
 #include "src/envoy/mixer/config.h"
@@ -43,10 +44,12 @@ typedef std::shared_ptr<HttpRequestData> HttpRequestDataPtr;
 // The mixer client class to control HTTP requests.
 // It has Check() to validate if a request can be processed.
 // At the end of request, call Report().
-class MixerControl final : public Logger::Loggable<Logger::Id::http> {
+class MixerControl final : public ThreadLocal::ThreadLocalObject,
+                           public Logger::Loggable<Logger::Id::http> {
  public:
   // The constructor.
-  MixerControl(const MixerConfig& mixer_config, Upstream::ClusterManager& cm);
+  MixerControl(const MixerConfig& mixer_config, Upstream::ClusterManager& cm,
+               Event::Dispatcher& dispatcher);
 
   // Add a special header to forward mixer attribues to upstream proxy.
   void ForwardAttributes(HeaderMap& headers,
@@ -95,23 +98,6 @@ class MixerControl final : public Logger::Loggable<Logger::Id::http> {
 
   CheckTransport::AsyncClientPtr check_client_;
   ReportTransport::AsyncClientPtr report_client_;
-};
-
-// A class to create and store per thread mixer control instance.
-class MixerControlPerThreadStore {
- public:
-  using CreateFunc = std::function<std::shared_ptr<MixerControl>()>;
-  MixerControlPerThreadStore(CreateFunc create_func)
-      : create_func_(create_func) {}
-
-  // Get an per thread MixerControl instance.
-  std::shared_ptr<MixerControl> Get();
-
- private:
-  CreateFunc create_func_;
-  std::mutex map_mutex_;
-  std::unordered_map<std::thread::id, std::shared_ptr<MixerControl>>
-      instance_map_;
 };
 
 }  // namespace Mixer

@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 #include "src/envoy/mixer/grpc_transport.h"
-#include "src/envoy/mixer/thread_dispatcher.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;

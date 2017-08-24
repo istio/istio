@@ -52,8 +52,6 @@ envoy_cc_library(
         "mixer_control.cc",
         "mixer_control.h",
         "tcp_filter.cc",
-        "thread_dispatcher.cc",
-        "thread_dispatcher.h",
         "utils.cc",
         "utils.h",
     ],
