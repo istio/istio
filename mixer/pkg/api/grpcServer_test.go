@@ -71,7 +71,7 @@ func (ts *testState) createGRPCServer() (string, error) {
 	ts.gp = pool.NewGoroutinePool(128, false)
 	ts.gp.AddWorkers(32)
 
-	ms := NewGRPCServer(ts, ts.gp)
+	ms := NewGRPCServer(ts, nil, ts.gp)
 	ts.s = ms.(*grpcServer)
 	mixerpb.RegisterMixerServer(ts.gs, ts.s)
 

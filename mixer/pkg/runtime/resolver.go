@@ -59,25 +59,23 @@ type resolver struct {
 	// rules in the configuration database keyed by $namespace.
 	rules map[string][]*Rule
 
-	// Opaque ruleState used in this configuration
-	// After the resolver has no references, this state can be
-	// cleaned up correctly by the caller.
-	ruleState interface{}
-
 	// refCount tracks the number requests currently using this
 	// configuration. resolver state can be cleaned up when this count is 0.
 	refCount int32
+
+	// id of the resolver for debugging.
+	id int
 }
 
-// NewResolver returns a Resolver.
-func NewResolver(evaluator expr.PredicateEvaluator, identityAttribute string, defaultConfigNamespace string,
-	rules map[string][]*Rule, ruleState interface{}) Resolver {
+// newResolver returns a Resolver.
+func newResolver(evaluator expr.PredicateEvaluator, identityAttribute string, defaultConfigNamespace string,
+	rules map[string][]*Rule, id int) *resolver {
 	return &resolver{
 		evaluator:              evaluator,
 		identityAttribute:      identityAttribute,
 		defaultConfigNamespace: defaultConfigNamespace,
-		rules:     rules,
-		ruleState: ruleState,
+		rules: rules,
+		id:    id,
 	}
 }
 
@@ -156,6 +154,8 @@ func (r *resolver) Resolve(attrs attribute.Bag, variety adptTmpl.TemplateVariety
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO add dedupe + group actions by handler/template
 
 	ra = &actions{a: res, done: r.decRefCount}
 	return ra, nil

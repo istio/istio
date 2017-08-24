@@ -97,13 +97,13 @@ type Action struct {
 // genDispatchFn creates dispatchFn closures based on the given action.
 type genDispatchFn func(call *Action) []dispatchFn
 
-// NewDispatcher creates a new dispatcher.
-func NewDispatcher(mapper expr.Evaluator, rt Resolver, gp *pool.GoroutinePool) Dispatcher {
+// newDispatcher creates a new dispatcher.
+func newDispatcher(mapper expr.Evaluator, rt Resolver, gp *pool.GoroutinePool) *dispatcher {
 	m := &dispatcher{
 		mapper: mapper,
 		gp:     gp,
 	}
-	m.SetResolver(rt)
+	m.ChangeResolver(rt)
 	return m
 }
 
@@ -121,15 +121,13 @@ type dispatcher struct {
 	resolver     Resolver
 }
 
-// SetResolver installs a new resolver.
+// ChangeResolver installs a new resolver.
 // This function is called when configuration is updated by the user.
 // oldResolver is returned so that it can be reclaimed.
-func (m *dispatcher) SetResolver(rt Resolver) Resolver {
+func (m *dispatcher) ChangeResolver(rt Resolver) {
 	m.resolverLock.Lock()
-	oldResolver := m.resolver
 	m.resolver = rt
 	m.resolverLock.Unlock()
-	return oldResolver
 }
 
 // Resolve resolves configuration to a list of actions.

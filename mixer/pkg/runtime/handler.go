@@ -32,13 +32,17 @@ type (
 	// BuilderInfoFinder is used to find specific handlers BuilderInfo for configuration.
 	BuilderInfoFinder func(name string) (*adapter.BuilderInfo, bool)
 
+	// TemplateFinder finds a template by name.
+	TemplateFinder interface {
+		GetTemplateInfo(template string) (template.Info, bool)
+	}
 	// HandlerFactory builds adapter.Handler object from adapter and instances configuration.
 	HandlerFactory interface {
 		Build(*pb.Handler, []*pb.Instance, adapter.Env) (adapter.Handler, error)
 	}
 
 	handlerFactory struct {
-		tmplRepo          template.Repository
+		tmplRepo          TemplateFinder
 		typeChecker       expr.TypeChecker
 		attrDescFinder    expr.AttributeDescriptorFinder
 		builderInfoFinder BuilderInfoFinder
@@ -50,11 +54,30 @@ type (
 
 	// Map of instance name to inferred type (proto.Message)
 	typeMap map[string]proto.Message
+
+	templateFinder struct {
+		templateInfo map[string]template.Info
+	}
 )
+
+func (t *templateFinder) GetTemplateInfo(template string) (template.Info, bool) {
+	i, found := t.templateInfo[template]
+	return i, found
+}
+
+func newHandlerFactory(templateInfo map[string]template.Info, expr expr.TypeChecker,
+	df expr.AttributeDescriptorFinder, builderInfo map[string]*adapter.BuilderInfo) HandlerFactory {
+	return NewHandlerFactory(&templateFinder{
+		templateInfo: templateInfo,
+	}, expr, df, func(name string) (*adapter.BuilderInfo, bool) {
+		i, found := builderInfo[name]
+		return i, found
+	})
+}
 
 // NewHandlerFactory instantiates a HandlerFactory, the state of the HandlerFactory is only valid for a snapshot of a configuration.
 // Therefore, a new HandlerFactory should be created upon every configuration change.
-func NewHandlerFactory(tmplRepo template.Repository, expr expr.TypeChecker, df expr.AttributeDescriptorFinder,
+func NewHandlerFactory(tmplRepo TemplateFinder, expr expr.TypeChecker, df expr.AttributeDescriptorFinder,
 	builderInfoFinder BuilderInfoFinder) HandlerFactory {
 	return &handlerFactory{
 		tmplRepo:          tmplRepo,

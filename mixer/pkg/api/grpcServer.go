@@ -31,6 +31,7 @@ import (
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/pool"
+	"istio.io/mixer/pkg/runtime"
 	"istio.io/mixer/pkg/status"
 )
 
@@ -42,6 +43,7 @@ import (
 type (
 	// grpcServer holds the dispatchState for the gRPC API server.
 	grpcServer struct {
+		dispatcher       runtime.Dispatcher
 		aspectDispatcher adapterManager.AspectDispatcher
 		gp               *pool.GoroutinePool
 
@@ -52,7 +54,7 @@ type (
 )
 
 // NewGRPCServer creates a gRPC serving stack.
-func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
+func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, dispatcher runtime.Dispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
 	list := attribute.GlobalList()
 	globalDict := make(map[string]int32, len(list))
 	for i := 0; i < len(list); i++ {
@@ -60,6 +62,7 @@ func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, gp *pool.Go
 	}
 
 	return &grpcServer{
+		dispatcher:       dispatcher,
 		aspectDispatcher: aspectDispatcher,
 		gp:               gp,
 		globalWordList:   list,
@@ -99,7 +102,28 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 		}
 	}
 
+	resp := &mixerpb.CheckResponse{}
+	// TODO: these values need to initially come from config, and be modulated by the kind of attribute
+	//       that was used in the check and the in-used aspects (for example, maybe an auth check has a
+	//       30s TTL but a whitelist check has got a 120s TTL)
+	resp.Precondition.ValidDuration = 5 * time.Second
+	resp.Precondition.ValidUseCount = 10000
+
 	responseBag := attribute.GetMutableBag(nil)
+	out2 := status.OK
+
+	if s.dispatcher != nil {
+		// dispatch check2 and set success messages.
+		glog.V(1).Info("Dispatching Check2")
+		cr, err := s.dispatcher.Check(legacyCtx, requestBag)
+		if err != nil {
+			out2 = status.WithError(err)
+		} else {
+			resp.Precondition.ValidDuration = cr.ValidDuration
+			// FIXME cr.ValidUseCount should be int32
+			resp.Precondition.ValidUseCount = int32(cr.ValidUseCount)
+		}
+	}
 
 	glog.V(1).Info("Dispatching Check")
 	out = s.aspectDispatcher.Check(legacyCtx, preprocResponseBag, responseBag)
@@ -109,12 +133,12 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 		glog.Error("Check returned with error : ", statusString(out))
 	}
 
-	resp := &mixerpb.CheckResponse{}
-	// TODO: these values need to initially come from config, and be modulated by the kind of attribute
-	//       that was used in the check and the in-used aspects (for example, maybe an auth check has a
-	//       30s TTL but a whitelist check has got a 120s TTL)
-	resp.Precondition.ValidDuration = 5 * time.Second
-	resp.Precondition.ValidUseCount = 10000
+	// if out2 fails, we want to see that error
+	// otherwise use out.
+	if !status.IsOK(out2) {
+		out = out2
+	}
+
 	resp.Precondition.Status = out
 	responseBag.ToProto(&resp.Precondition.Attributes, s.globalDict, globalWordCount)
 	responseBag.Done()
@@ -218,9 +242,25 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 				glog.Infof("  %s: %v", name, v)
 			}
 		}
+		out2 := status.OK
+
+		if s.dispatcher != nil {
+			// dispatch check2 and set success messages.
+			glog.V(1).Info("Dispatching Report2")
+			err := s.dispatcher.Report(legacyCtx, preprocResponseBag)
+			if err != nil {
+				out2 = status.WithError(err)
+			}
+		}
 
 		glog.V(1).Info("Dispatching Report %d out of %d", i, len(req.Attributes))
 		out = s.aspectDispatcher.Report(legacyCtx, preprocResponseBag)
+
+		// if out2 fails, we want to see that error
+		// otherwise use out.
+		if !status.IsOK(out2) {
+			out = out2
+		}
 
 		if !status.IsOK(out) {
 			glog.Errorf("Report %d returned with: %s", i, statusString(out))

@@ -59,8 +59,8 @@ func TestReport(t *testing.T) {
 			if s.resolveErr {
 				resolveErr = s.callErr
 			}
-			rt := newResolver(s.tn, resolveErr, false, fp)
-			m := NewDispatcher(nil, rt, gp)
+			rt := newFakeResolver(s.tn, resolveErr, false, fp)
+			m := newDispatcher(nil, rt, gp)
 
 			err := m.Report(context.Background(), nil)
 			checkError(t, s.callErr, err)
@@ -101,8 +101,8 @@ func TestCheck(t *testing.T) {
 			if s.resolveErr {
 				resolveErr = s.callErr
 			}
-			rt := newResolver(s.tn, resolveErr, false, fp)
-			m := NewDispatcher(nil, rt, gp)
+			rt := newFakeResolver(s.tn, resolveErr, false, fp)
+			m := newDispatcher(nil, rt, gp)
 
 			cr, err := m.Check(context.Background(), nil)
 
@@ -156,8 +156,8 @@ func TestQuota(t *testing.T) {
 			if s.resolveErr {
 				resolveErr = s.callErr
 			}
-			rt := newResolver(s.tn, resolveErr, s.emptyResult, fp)
-			m := NewDispatcher(nil, rt, gp)
+			rt := newFakeResolver(s.tn, resolveErr, s.emptyResult, fp)
+			m := newDispatcher(nil, rt, gp)
 
 			cr, err := m.Quota(context.Background(), nil,
 				&aspect.QuotaMethodArgs{
@@ -237,7 +237,7 @@ func (a *fakeActions) Done()          { a.done = true }
 
 var _ Resolver = &fakeResolver{}
 
-func newResolver(tname string, resolveErr error, emptyResult bool, fproc *fakeProc) *fakeResolver {
+func newFakeResolver(tname string, resolveErr error, emptyResult bool, fproc *fakeProc) *fakeResolver {
 	hndlr := "myhandler"
 	instanceName := "i1"
 

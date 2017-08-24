@@ -9,10 +9,12 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/adapter:go_default_library",
         "//pkg/adapterManager:go_default_library",
         "//pkg/aspect:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/pool:go_default_library",
+        "//pkg/runtime:go_default_library",
         "//pkg/status:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
