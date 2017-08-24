@@ -40,6 +40,9 @@ using TransportReportFunc = std::function<void(
     const ::istio::mixer::v1::ReportRequest& request,
     ::istio::mixer::v1::ReportResponse* response, DoneFunc on_done)>;
 
+// Defines a function prototype to generate an UUID
+using UUIDGenerateFunc = std::function<std::string()>;
+
 // Defines the options to create an instance of MixerClient interface.
 struct MixerClientOptions {
   // Default constructor with default values.
@@ -69,6 +72,9 @@ struct MixerClientOptions {
   // Don't call it at program start, or init time, it is not ready.
   // It is safe to call during Check() or Report() calls.
   TimerCreateFunc timer_create_func;
+
+  // UUID generating function
+  UUIDGenerateFunc uuid_generate_func;
 };
 
 class MixerClient {

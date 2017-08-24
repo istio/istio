@@ -15,9 +15,6 @@
 #include "src/client_impl.h"
 #include "utils/protobuf.h"
 
-#include <uuid/uuid.h>
-
-using namespace std::chrono;
 using ::istio::mixer::v1::CheckRequest;
 using ::istio::mixer::v1::CheckResponse;
 using ::istio::mixer::v1::ReportRequest;
@@ -27,21 +24,6 @@ using ::google::protobuf::util::error::Code;
 
 namespace istio {
 namespace mixer_client {
-namespace {
-
-// Maximum 36 byte string for UUID
-const int kMaxUUIDBufSize = 40;
-
-// Genereates a UUID string
-std::string GenerateUUID() {
-  char uuid_buf[kMaxUUIDBufSize];
-  uuid_t uuid;
-  uuid_generate(uuid);
-  uuid_unparse(uuid, uuid_buf);
-  return uuid_buf;
-}
-
-}  // namespace
 
 MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
     : options_(options) {
@@ -53,7 +35,9 @@ MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
   quota_cache_ =
       std::unique_ptr<QuotaCache>(new QuotaCache(options.quota_options));
 
-  deduplication_id_base_ = GenerateUUID();
+  if (options_.uuid_generate_func) {
+    deduplication_id_base_ = options_.uuid_generate_func();
+  }
 }
 
 MixerClientImpl::~MixerClientImpl() {}
