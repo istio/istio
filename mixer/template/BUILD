@@ -20,8 +20,8 @@ go_library(
         "//template/metric:go_default_library",
         "//template/quota:go_default_library",
         "//template/reportnothing:go_default_library",
+        "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_golang_glog//:go_default_library",
-        "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
     ],
 )

@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 
 	pb "istio.io/api/mixer/v1/config/descriptor"

@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 
 	pbd "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
