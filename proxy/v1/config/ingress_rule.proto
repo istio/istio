@@ -31,39 +31,33 @@ package istio.proxy.v1.config;
 //
 // WARNING: This API is experimental and under active development
 message IngressRule {
-  // REQUIRED: Ingress rules have unique names to allow multiple rules, e.g.
-  // "my-rule".
-  string name = 1;
-
   // REQUIRED: Port on which the ingress proxy listens and applies the rule.
-  int32 port = 2;
+  int32 port = 1;
 
   // Optional TLS secret path to apply server-side TLS context on the port.
   // It is up to the underlying secret store to interpret the path to the secret.
-  string tls_secret = 3;
+  string tls_secret = 2;
 
   // RECOMMENDED. Precedence is used to disambiguate the order of application
   // of rules. A higher number takes priority. If not specified, the value is
   // assumed to be 0.  The order of application for rules with the same
   // precedence is unspecified.
-  int32 precedence = 4;
+  int32 precedence = 3;
 
   // Match conditions to be satisfied for the ingress rule to be
   // activated.
-  MatchCondition match = 5;
+  MatchCondition match = 4;
 
-  // REQUIRED: Destination uniquely identifies the destination service. Value
-  // must be in fully qualified domain name format (e.g.,
-  // "my-service.default.svc.cluster.local").
-  string destination = 6;
+  // REQUIRED: Destination uniquely identifies the destination service.
+  Destination destination = 5;
 
   // REQUIRED: Destination port identifies a port on the destination service for routing.
   oneof destination_service_port {
     // Identifies the destination service port by value
-    int32 destination_port = 7;
+    int32 destination_port = 6;
 
     // Identifies the destination service port by name
-    string destination_port_name = 8;
+    string destination_port_name = 7;
   }
 }
 

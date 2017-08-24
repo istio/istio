@@ -24,18 +24,19 @@ package istio.proxy.v1.config;
 //
 // An example rule - allow traffic to *cnn.com and *cnn.it domains that are not part of the mesh.
 //
-// type: egress-rule
-// spec:
-//   name: cnn
-//   domains:
-//     - "*cnn.com"
-//     - "*cnn.it"
-//   ports:
-//     - port: 80
-//       protocol: http
-//     - port: 443
-//       protocol: https
-//   use_egress_proxy: true
+//     kind: EgressRule
+//     metadata:
+//       name: cnn-egress-rule
+//     spec:
+//       domains:
+//         - "*cnn.com"
+//         - "*cnn.it"
+//       ports:
+//         - port: 80
+//           protocol: http
+//         - port: 443
+//           protocol: https
+//       use_egress_proxy: true
 //
 message EgressRule {
   // This message defines a port on which the external services are available.
@@ -48,9 +49,6 @@ message EgressRule {
 	// Currently supported HTTP and HTTPS
 	string protocol = 2;
   }
-
-  // REQUIRED: Egress rules have unique names, e.g. "my-egress-rule".
-  string name = 1;
 
   // REQUIRED: list of domains to redirect outside of the mesh.
   // The domains are according to the definion of Envoy's domain of virtual hosts:

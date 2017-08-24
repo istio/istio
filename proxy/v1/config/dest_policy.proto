@@ -20,55 +20,81 @@ package istio.proxy.v1.config;
 
 // DestinationPolicy defines client/caller-side policies that determine how
 // to handle traffic bound to a particular destination service. The policy
-// specifies configuration for load balancing and circuit breakers.  For
+// specifies configuration for load balancing and circuit breakers. For
 // example, a simple load balancing policy for the reviews service would
 // look as follows:
 //
-//     destination: reviews.default.svc.cluster.local
-//     policy:
-//     - loadBalancing: 
-//         name: RANDOM
+//     metadata:
+//       name: reviews-lb-policy
+//       namespace: default # optional (default is "default")
+//     spec:
+//       destination:
+//         name: reviews
+//       policy:
+//       - loadBalancing:
+//           name: RANDOM
 //
-// Policies are applicable per individual service versions. ONLY
-// ONE policy can be defined per service version. Policy CANNOT be empty.
+// The FQDN of the destination service is composed from the destination name and meta namespace fields, along with
+// a platform-specific domain suffix
+// (e.g. on Kubernetes, "reviews" + "default" + "svc.cluster.local" -> "reviews.default.svc.cluster.local").
+//
+// A single DestinationPolicy resource includes configuration for all service versions. Only
+// one policy can be defined per service version. Policy CANNOT be empty.
 message DestinationPolicy {
-  // REQUIRED. Service name for which the service version is defined. The
-  // value MUST BE a fully-qualified domain name,
-  // e.g. _my-service.default.svc.cluster.local_.
-  string destination = 1;
+  // Optional: Destination uniquely identifies the destination service associated
+  // with this policy.
+  IstioService destination = 1;
 
-  // REQUIRED. List of policies, one per service version.
-  repeated DestinationVersionPolicy policy = 2;
+  // Optional: Source uniquely identifies the source service associated
+  // with this policy.
+  IstioService source = 2;
+
+  // Load balancing policy.
+  LoadBalancing load_balancing = 3;
+
+  // Circuit breaker policy.
+  CircuitBreaker circuit_breaker = 4;
+
+  // REQUIRED. List of policies, one per service version. # DEPRECATED: will be removed soon
+  repeated DestinationVersionPolicy policy = 5;
+
+  //(-- Other custom policy implementations --)
+  google.protobuf.Any custom = 100 ;
 }
 
 // A destination policy can be restricted to a particular version of a
-// service or applied to all versions. The tags field in the
+// service or applied to all versions. The labels field in the
 // DestinationVersionPolicy allow restricting the scope of a
 // DestinationPolicy. For example, the following load balancing policy
 // applies to version v1 of the reviews service running in the prod
 // environment:
 //
-//     destination: reviews.default.svc.cluster.local
-//     policy:
-//     - tags:
-//         env: prod
-//         version: v1
-//       loadBalancing: 
-//         name: RANDOM
+//     metadata:
+//       name: reviews-lb-policy
+//       namespace: default
+//     spec:
+//       destination:
+//         name: reviews
+//       policy:
+//       - labels:
+//           env: prod
+//           version: v1
+//         loadBalancing:
+//           name: RANDOM
 //
-// If tags are omitted, the policy applies for all versions of the
-// service. Policy CANNOT BE empty.
+// If labels are omitted, the policy applies for all versions of the
+// service. Policy CANNOT be empty.
 // *Note:* Destination policies will be applied only if the corresponding
 // tagged instances are explicity routed to. In other words, for every
-// destination policy defined, atleast one route rule must refer to the
+// destination policy defined, at least one route rule must refer to the
 // service version indicated in the destination policy.
 message DestinationVersionPolicy {
-  // Optional set of tags that identify a particular version of the
+  // Optional set of labels that identify a particular version of the
   // destination service. If omitted, the policy will apply to all versions
   // of the service. (-- N.B. The map is used instead of
   // pstruct due to lack of serialization support in golang protobuf
   // library (see https://github.com/golang/protobuf/pull/208) --)
-  map<string, string> tags = 1;
+  map<string, string> labels = 1;
 
   // Load balancing policy.
   LoadBalancing load_balancing = 2;
@@ -85,10 +111,15 @@ message DestinationVersionPolicy {
 // types](https://lyft.github.io/envoy/docs/intro/arch_overview/load_balancing.html)
 // supported by Envoy. Example,
 //
-//     destination: reviews.default.svc.cluster.local
-//     policy:
-//     - loadBalancing: 
-//         name: RANDOM
+//     metadata:
+//       name: reviews-lb-policy
+//       namespace: default
+//     spec:
+//       destination:
+//         name: reviews
+//       policy:
+//       - loadBalancing:
+//           name: RANDOM
 //
 message LoadBalancing {
   // Load balancing algorithms supported by Envoy proxy.
@@ -130,13 +161,18 @@ message CircuitBreaker {
   // policy sets a limit of 100 connections to "reviews" service version
   // "v1" backends. 
   //
-  //     destination: reviews.default.svc.cluster.local
-  //     policy:
-  //     - tags:
-  //         version: v1
-  //       circuitBreaker:
-  //         simpleCb:
-  //           maxConnections: 100
+  //     metadata:
+  //       name: reviews-cb-policy
+  //       namespace: default
+  //     spec:
+  //       destination:
+  //         name: reviews
+  //       policy:
+  //       - labels:
+  //           version: v1
+  //         circuitBreaker:
+  //           simpleCb:
+  //             maxConnections: 100
   //
   // The following destination policy sets a limit of 100 connections and
   // 1000 concurrent requests, with no more than 10 req/connection to
@@ -144,18 +180,23 @@ message CircuitBreaker {
   // hosts to be scanned every 5 mins, such that any host that fails 7
   // consecutive times with 5XX error code will be ejected for 15 minutes.
   //
-  //     destination: reviews.default.svc.cluster.local
-  //     policy:
-  //     - tags:
-  //         version: v1
-  //       circuitBreaker:
-  //         simpleCb:
-  //           maxConnections: 100
-  //           httpMaxRequests: 1000
-  //           httpMaxRequestsPerConnection: 10
-  //           httpConsecutiveErrors: 7
-  //           sleepWindow: 15m
-  //           httpDetectionInterval: 5m
+  //     metadata:
+  //       name: reviews-cb-policy
+  //       namespace: default
+  //     spec:
+  //       destination:
+  //         name: reviews
+  //       policy:
+  //       - labels:
+  //           version: v1
+  //         circuitBreaker:
+  //           simpleCb:
+  //             maxConnections: 100
+  //             httpMaxRequests: 1000
+  //             httpMaxRequestsPerConnection: 10
+  //             httpConsecutiveErrors: 7
+  //             sleepWindow: 15m
+  //             httpDetectionInterval: 5m
   //           
   message SimpleCircuitBreakerPolicy {
     // Maximum number of connections to a backend.

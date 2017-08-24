@@ -34,7 +34,7 @@ package istio.mixer.v1.config;
 // subject: "namespace:ns1"
 // revision: "1011"
 // rules:
-// - selector: target.service == "*"
+// - selector: destination.service == "*"
 //   aspects:
 //   - kind: metrics
 //     params:
@@ -45,7 +45,7 @@ package istio.mixer.v1.config;
 //           statusCode: response.code
 //
 // actionRules:
-// - selector: target.service == "*"
+// - selector: destination.service == "*"
 //   actions:
 //   - handler: prometheus-handler
 //     instances:
@@ -62,8 +62,8 @@ package istio.mixer.v1.config;
 //   params:
 //     value: 1
 //     dimensions:
-//       source: origin.service
-//       target_ip: destination.ip
+//       source: source.service
+//       destination_ip: destination.ip
 // ```
 //
 // (== deprecation_description ServiceConfig is deprecated, see the Config API's
@@ -100,7 +100,7 @@ message AspectRule {
   //
   // * an empty selector evaluates to `true`
   // * `true`, a boolean literal; a rule with this selector will always be executed
-  // * `target.service == ratings*` selects any request targeting a service whose
+  // * `destination.service == ratings*` selects any request targeting a service whose
   // name starts with "ratings"
   // * `attr1 == "20" && attr2 == "30"` logical AND, OR, and NOT are also available
   string selector = 1;
@@ -117,8 +117,8 @@ message AspectRule {
 // aspect: each kind of aspect defines its own `params` proto.
 //
 // The following example instructs Mixer to populate a metric named "response_time"
-// that was declared to have three labels: src_consumer_id, target_response_status_code,
-// and target_service_name. For each label and the metric's `value` we provide
+// that was declared to have three labels: src_consumer_id, dst_response_status_code,
+// and dst_service_name. For each label and the metric's `value` we provide
 // an expression over Istio's attributes. Mixer evaluates these expressions for
 // each request.
 //
@@ -130,8 +130,8 @@ message AspectRule {
 //     value: response.time  # from the set of canonical attributes
 //     labels:
 //       src_consumer_id: source.user | source.uid
-//       target_response_status_code: response.code
-//       target_service_name: target.service
+//       dst_response_status_code: response.code
+//       dst_service_name: destination.service
 // ```
 message Aspect {
   // Required. The kind of aspect this intent is targeting.
@@ -305,7 +305,7 @@ message EmailAddress {
 //
 // ```yaml
 // actionRules:
-// - selector: target.service == "*"
+// - selector: destination.service == "*"
 //   actions:
 //   - handler: prometheus-handler
 //     instances:
@@ -320,7 +320,7 @@ message Rule {
   //
   // * an empty selector evaluates to `true`
   // * `true`, a boolean literal; a rule with this selector will always be executed
-  // * `target.service == ratings*` selects any request targeting a service whose
+  // * `destination.service == ratings*` selects any request targeting a service whose
   // name starts with "ratings"
   // * `attr1 == "20" && attr2 == "30"` logical AND, OR, and NOT are also available
   string selector = 1;
@@ -371,8 +371,8 @@ message Action {
 //   params:
 //     value: 1
 //     dimensions:
-//       source: origin.service
-//       target_ip: destination.ip
+//       source: source.service
+//       destination_ip: destination.ip
 // ```
 message Instance {
   // Required. The name of this instance

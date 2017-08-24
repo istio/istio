@@ -42,14 +42,18 @@ message HTTPFaultInjection {
   // in 10% of the requests to the "v1" version of the "reviews"
   // service.
   //
-  //     destination: reviews.default.svc.cluster.local
-  //     route:
-  //     - tags:
-  //         version: v1
-  //     httpFault:
-  //       delay:
-  //         percent: 10
-  //         fixedDelay: 5s
+  //     metadata:
+  //       name: my-rule
+  //     spec:
+  //       destination:
+  //         name: reviews
+  //       route:
+  //       - labels:
+  //           version: v1
+  //       httpFault:
+  //         delay:
+  //           percent: 10
+  //           fixedDelay: 5s
   //
   // The _fixedDelay_ field is used to indicate the amount of delay in
   // seconds. An optional _percent_ field, a value between 0 and 100, can
@@ -75,14 +79,18 @@ message HTTPFaultInjection {
   // pre-specified error code. The following example will return an HTTP
   // 400 error code for 10% of the requests to the "ratings" service "v1".
   //
-  //     destination: ratings.default.svc.cluster.local
-  //     route:
-  //     - tags:
-  //         version: v1
-  //     httpFault:
-  //       abort:
-  //         percent: 10
-  //         httpStatus: 400
+  //     metadata:
+  //       name: my-rule
+  //     spec:
+  //       destination:
+  //         name: reviews
+  //       route:
+  //       - labels:
+  //           version: v1
+  //       httpFault:
+  //         abort:
+  //           percent: 10
+  //           httpStatus: 400
   //
   // The _httpStatus_ field is used to indicate the HTTP status code to
   // return to the caller. The optional _percent_ field, a value between 0
