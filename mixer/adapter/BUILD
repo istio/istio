@@ -20,6 +20,7 @@ go_library(
         "//adapter/prometheus:go_default_library",
         "//adapter/redisquota:go_default_library",
         "//adapter/serviceControl:go_default_library",
+        "//adapter/stackdriver:go_default_library",
         "//adapter/statsd:go_default_library",
         "//adapter/stdio:go_default_library",
         "//adapter/stdioLogger:go_default_library",

@@ -407,7 +407,7 @@ go_repository(
 
 go_repository(
     name = "org_golang_google_genproto",
-    commit = "411e09b969b1170a9f0c467558eb4c4c110d9c77",  # Apr 4, 2017 (no release)
+    commit = "aa2eb687b4d3e17154372564ad8d6bf11c3cf21f",  # June 1, 2017 (no releases)
     importpath = "google.golang.org/genproto",
 )
 

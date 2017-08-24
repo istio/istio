@@ -12,7 +12,38 @@ adapters:
   - name: prometheus
     kind: metrics
     impl: prometheus
+  - name: stackdriver
+    kind: metrics
+    impl: stackdriver
     params:
+      # We'll use the default value from the adapter, once per minute, so we don't need to supply a value.
+      # pushInterval:
+      # Must be supplied for the stackdriver adapter to work
+      projectId:
+      # One of the following must be set; the preferred method is
+      # `appCredentials`, which corresponds to Google Application Default
+      # Credentials. See: https://developers.google.com/identity/protocols/application-default-credentials
+      appCredentials:
+      # apiKey:
+      # serviceAccountPath:
+
+      # Describes how to map Istio metrics into stackdriver.
+      # Note that custom metrics cannot be DELTAs
+      metricInfo:
+        request_count:
+          # Due to a bug in gogoproto deserialization, Enums in maps must be
+          # specified by their integer value, not variant name. See
+          # https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto
+          # MetricKind and ValueType for the values to provide.
+          kind: 2 # DELTA
+          value: 2 # INT64
+        request_duration:
+          kind: 2 # DELTA
+          # TODO: determine how we want to represent time: stackdriver does
+          # not have a time primitive, but does support a notion of units
+          # attached to int64, double, and distribution values. But those are
+          # only provided at metric creation time.
+          value: 2 # INT64
   - name: default
     impl: denyChecker
   - name: default

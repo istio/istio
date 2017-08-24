@@ -1,0 +1,68 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package adapter.stackdriver.config;
+
+import "gogoproto/gogo.proto";
+import "google/api/metric.proto";
+import "google/protobuf/duration.proto";
+
+option go_package = "config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
+message Params {
+    // Endpoint URL to send stackdriver data - leave empty to use the
+    // StackDriver SDK's default value (monitoring.googleapis.com).
+    string endpoint = 1;
+
+    // GCP Project to attach metrics to.
+    string project_id = 2;
+
+    // This adapter batches the data it sends to Stackdriver; we will push to stackdriver every push_interval.
+    // If no value is provided we default to once per minute.
+    google.protobuf.Duration push_interval = 3 [(gogoproto.nullable)=false, (gogoproto.stdduration) = true];
+
+    // Credentials must be attached to every call made to StackDriver. This
+    // can be an API key, a service account secret key, or Oauth2 tokens.
+    //
+    // TODO: do we want to support oauth?
+    oneof creds {
+        // Use Google's Application Default Credentials to authorize calls made
+        // by the StackDriver SDK.
+        //
+        // [See Google's documentation](https://developers.google.com/identity/protocols/application-default-credentials).
+        bool app_credentials = 4;
+
+        // The API Key to be used for auth.
+        string api_key = 5;
+
+        // The path to a Google service account credential file, relative to
+        // the Mixer. E.g. `/etc/opt/mixer/gcp-serviceaccount-creds.json`
+        // or `./testdata/my-test-account-creds.json`.
+        string service_account_path = 6;
+    }
+
+    // Information about how to represent an Istio metric in Stackdriver.
+    // See https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto
+    message MetricInfo {
+        google.api.MetricDescriptor.MetricKind kind = 1;
+        google.api.MetricDescriptor.ValueType value = 2;
+    }
+    // A map of Istio metric name to Stackdriver metric info.
+    map<string, MetricInfo> metric_info = 8;
+}
