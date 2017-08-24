@@ -125,7 +125,7 @@ func TestResolver_Resolve(t *testing.T) {
 			rules := newRules(tc.variety, tc.rules)
 			bag := attribute.GetFakeMutableBagForTesting(tc.bag)
 			eval := fakePred(tc.selectReject, tc.selectError)
-			rv := NewResolver(eval, ia, ns, rules, nil)
+			var rv Resolver = newResolver(eval, ia, ns, rules, 1)
 
 			act, err := rv.Resolve(bag, tc.callVariety)
 

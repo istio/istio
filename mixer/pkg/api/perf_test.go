@@ -62,7 +62,7 @@ func (bs *benchState) createGRPCServer(grpcCompression bool) (string, error) {
 	bs.gp = pool.NewGoroutinePool(32, false)
 	bs.gp.AddWorkers(32)
 
-	ms := NewGRPCServer(bs, bs.gp)
+	ms := NewGRPCServer(bs, nil, bs.gp)
 	bs.s = ms.(*grpcServer)
 	mixerpb.RegisterMixerServer(bs.gs, bs.s)
 
