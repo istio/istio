@@ -19,7 +19,7 @@ package adapter
 import (
 	"io"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 )
 
 type (

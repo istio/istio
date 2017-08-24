@@ -15,7 +15,7 @@
 package adapter
 
 import (
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 )
 
 // BuilderInfo describes the Adapter and provides a function to a Handler Builder method.

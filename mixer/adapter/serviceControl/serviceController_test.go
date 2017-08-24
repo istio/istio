@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	sc "google.golang.org/api/servicecontrol/v1"
 
 	"istio.io/mixer/adapter/serviceControl/config"
