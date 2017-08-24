@@ -17,8 +17,11 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/url"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/glog"
 )
 
 // ErrNotFound is the error to be returned when the given key does not exist in the storage.
@@ -31,10 +34,20 @@ type Key struct {
 	Name      string
 }
 
+// BackendEvent is an event used between Store2Backend and Store2.
+type BackendEvent struct {
+	Key
+	Type  ChangeType
+	Value map[string]interface{}
+}
+
 // Event represents an event. Used by Store2.Watch.
 type Event struct {
 	Key
 	Type ChangeType
+
+	// Value refers the new value in the updated event. nil if the event type is delete.
+	Value proto.Message
 }
 
 // Validator defines the interface to validate a new change.
@@ -42,36 +55,132 @@ type Validator interface {
 	Validate(t ChangeType, key Key, spec proto.Message) bool
 }
 
+// Store2Backend defines the typeless storage backend for mixer.
+// TODO: rename to StoreBackend.
+type Store2Backend interface {
+	Init(ctx context.Context, kinds []string) error
+
+	// Watch creates a channel to receive the events.
+	Watch(ctx context.Context) (<-chan BackendEvent, error)
+
+	// Get returns a resource's spec to the key.
+	Get(key Key) (map[string]interface{}, error)
+
+	// List returns the whole mapping from key to resource specs in the store.
+	List() map[Key]map[string]interface{}
+}
+
 // Store2 defines the access to the storage for mixer.
 // TODO: rename to Store.
 type Store2 interface {
-	// SetValidator sets the validator for the store.
-	SetValidator(v Validator)
+	Init(ctx context.Context, kinds map[string]proto.Message) error
 
-	// RegisterKind registers a kind to be structured as the given proto.Message.
-	// This will be used for structural validations.
-	RegisterKind(kind string, spec proto.Message)
-
-	// Init initializes the connection with the storage backend. Any further registrations
-	// of kind through RegisterKind() will be ignored after Init(). The connection will
-	// be closed after ctx is done.
-	Init(ctx context.Context) error
-
-	// Watch creates a channel to receive the events on the given kinds.
-	Watch(ctx context.Context, kinds []string) (<-chan Event, error)
+	// Watch creates a channel to receive the events.
+	Watch(ctx context.Context) (<-chan Event, error)
 
 	// Get returns a resource's spec to the key.
 	Get(key Key, spec proto.Message) error
 
 	// List returns the whole mapping from key to resource specs in the store.
 	List() map[Key]proto.Message
+}
 
-	// ListKeys returns the list of all keys in the store.
-	ListKeys() []Key
+// store2 is the implementation of Store2 interface.
+type store2 struct {
+	kinds   map[string]proto.Message
+	backend Store2Backend
+}
 
-	// Put creates or updates the spec for the certain key.
-	Put(key Key, spec proto.Message) error
+// Init initializes the connection with the storage backend. This uses "kinds"
+// for the mapping from the kind's name and its structure in protobuf.
+// The connection will be closed after ctx is done.
+func (s *store2) Init(ctx context.Context, kinds map[string]proto.Message) error {
+	kindNames := make([]string, 0, len(kinds))
+	for k := range kinds {
+		kindNames = append(kindNames, k)
+	}
+	if err := s.backend.Init(ctx, kindNames); err != nil {
+		return err
+	}
+	s.kinds = kinds
+	return nil
+}
 
-	// Delete delets the resource for the key.
-	Delete(key Key) error
+// Watch creates a channel to receive the events.
+func (s *store2) Watch(ctx context.Context) (<-chan Event, error) {
+	ch, err := s.backend.Watch(ctx)
+	if err != nil {
+		return nil, err
+	}
+	q := newQueue(ctx, ch, s.kinds)
+	return q.chout, nil
+}
+
+// Get returns a resource's spec to the key.
+func (s *store2) Get(key Key, spec proto.Message) error {
+	obj, err := s.backend.Get(key)
+	if err != nil {
+		return err
+	}
+
+	return convert(obj, spec)
+}
+
+// List returns the whole mapping from key to resource specs in the store.
+func (s *store2) List() map[Key]proto.Message {
+	data := s.backend.List()
+	result := make(map[Key]proto.Message, len(data))
+	for k, spec := range data {
+		pbSpec, err := cloneMessage(k.Kind, s.kinds)
+		if err != nil {
+			glog.Errorf("Failed to convert spec: %v", err)
+			continue
+		}
+		if err = convert(spec, pbSpec); err != nil {
+			glog.Errorf("Failed to convert spec: %v", err)
+			continue
+		}
+		result[k] = pbSpec
+	}
+	return result
+}
+
+// Store2Builder is the type of function to build a Store2Backend.
+type Store2Builder func(u *url.URL) (Store2Backend, error)
+
+// RegisterFunc2 is the type to register a builder for URL scheme.
+type RegisterFunc2 func(map[string]Store2Builder)
+
+// Registry2 keeps the relationship between the URL scheme and
+// the Store2Backend implementation.
+type Registry2 struct {
+	builders map[string]Store2Builder
+}
+
+// NewRegistry2 creates a new Registry instance for the inventory.
+func NewRegistry2(inventory ...RegisterFunc2) *Registry2 {
+	b := map[string]Store2Builder{}
+	for _, rf := range inventory {
+		rf(b)
+	}
+	return &Registry2{builders: b}
+}
+
+// NewStore2 creates a new Store2 instance with the specified backend.
+func (r *Registry2) NewStore2(configURL string) (Store2, error) {
+	u, err := url.Parse(configURL)
+
+	if err != nil {
+		return nil, fmt.Errorf("invalid config URL %s %v", configURL, err)
+	}
+
+	s2 := &store2{}
+	if builder, ok := r.builders[u.Scheme]; ok {
+		s2.backend, err = builder(u)
+		if err == nil {
+			return s2, nil
+		}
+	}
+
+	return nil, fmt.Errorf("unknown config URL %s %v", configURL, u)
 }
