@@ -49,7 +49,11 @@ message IngressRule {
   MatchCondition match = 4;
 
   // REQUIRED: Destination uniquely identifies the destination service.
-  Destination destination = 5;
+  //
+  // *Note:* The ingress rule destination specification represents all version
+  // of the service and therefore the IstioService's labels field MUST be empty.
+  //
+  IstioService destination = 5;
 
   // REQUIRED: Destination port identifies a port on the destination service for routing.
   oneof destination_service_port {
