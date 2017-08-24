@@ -56,10 +56,6 @@ func (ca *mockCA) Sign(csrPEM []byte) ([]byte, error) {
 	return []byte(ca.cert), nil
 }
 
-func (ca *mockCA) Generate(name, ns string) (chain, key []byte) {
-	return nil, nil
-}
-
 func (ca *mockCA) GetRootCertificate() []byte {
 	return nil
 }

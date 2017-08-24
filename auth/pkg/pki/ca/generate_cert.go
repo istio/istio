@@ -71,8 +71,8 @@ type CertOptions struct {
 	RSAKeySize int
 }
 
-// The URI scheme for Istio identities.
-const uriScheme = "spiffe"
+// URIScheme is the URI scheme for Istio identities.
+const URIScheme = "spiffe"
 
 // GenCSR generates a X.509 certificate sign request and private key with the given options.
 func GenCSR(options CertOptions) ([]byte, []byte, error) {
@@ -232,7 +232,7 @@ func buildSubjectAltNameExtension(hosts string) *pkix.Extension {
 				ip = eip
 			}
 			ids = append(ids, pki.Identity{Type: pki.TypeIP, Value: ip})
-		} else if strings.HasPrefix(host, uriScheme+":") {
+		} else if strings.HasPrefix(host, URIScheme+":") {
 			ids = append(ids, pki.Identity{Type: pki.TypeURI, Value: []byte(host)})
 		} else {
 			ids = append(ids, pki.Identity{Type: pki.TypeDNS, Value: []byte(host)})

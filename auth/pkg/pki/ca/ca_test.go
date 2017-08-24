@@ -38,8 +38,20 @@ func TestSelfSignedIstioCA(t *testing.T) {
 
 	name := "foo"
 	namespace := "bar"
+	id := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", namespace, name)
+	options := CertOptions{
+		Host:       id,
+		RSAKeySize: 1024,
+	}
+	csr, _, err := GenCSR(options)
+	if err != nil {
+		t.Error(err)
+	}
+	cb, err := ca.Sign(csr)
+	if err != nil {
+		t.Error(err)
+	}
 
-	cb, _ := ca.Generate(name, namespace)
 	rcb := ca.GetRootCertificate()
 
 	certPool := x509.NewCertPool()
@@ -80,7 +92,6 @@ func TestSelfSignedIstioCA(t *testing.T) {
 		t.Errorf("Generated certificate does not contain a SAN field")
 	}
 
-	id := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", namespace, name)
 	rv := asn1.RawValue{Tag: 6, Class: asn1.ClassContextSpecific, Bytes: []byte(id)}
 	bs, err := asn1.Marshal([]asn1.RawValue{rv})
 	if err != nil {

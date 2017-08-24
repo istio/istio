@@ -20,16 +20,12 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"time"
 
 	"istio.io/auth/pkg/pki"
 )
 
 const (
-	// The size of a private key for a leaf certificate.
-	keySize = 1024
-
 	// The size of a private key for a self-signed Istio CA.
 	caKeySize = 2048
 )
@@ -37,7 +33,6 @@ const (
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
 	Sign(csrPEM []byte) ([]byte, error)
-	Generate(name, namespace string) (chain, key []byte)
 	GetRootCertificate() []byte
 }
 
@@ -105,31 +100,6 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	}
 
 	return ca, nil
-}
-
-// Generate returns a certificate chain and a key for the Istio identity defined by
-// the name and the namespace.
-func (ca *IstioCA) Generate(name, namespace string) (chain, key []byte) {
-	// Currently the domain is always set to "cluster.local" since we only
-	// support in-cluster identities.
-	id := fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", uriScheme, namespace, name)
-	now := time.Now()
-	options := CertOptions{
-		Host:         id,
-		NotBefore:    now,
-		NotAfter:     now.Add(ca.certTTL),
-		SignerCert:   ca.signingCert,
-		SignerPriv:   ca.signingKey,
-		IsCA:         false,
-		IsClient:     true,
-		IsSelfSigned: false,
-		IsServer:     true,
-		RSAKeySize:   keySize,
-	}
-	cert, key := GenCert(options)
-	chain = append(cert, ca.certChainBytes...)
-
-	return
 }
 
 // GetRootCertificate returns the PEM-encoded root certificate.

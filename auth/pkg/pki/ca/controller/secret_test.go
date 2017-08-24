@@ -15,7 +15,7 @@
 package controller
 
 import (
-	"reflect"
+	"fmt"
 	"testing"
 	"time"
 
@@ -31,13 +31,7 @@ import (
 type fakeCa struct{}
 
 func (ca *fakeCa) Sign([]byte) ([]byte, error) {
-	return nil, nil
-}
-
-func (ca *fakeCa) Generate(name, namespace string) (chain, key []byte) {
-	chain = []byte("fake cert chain")
-	key = []byte("fake key")
-	return
+	return []byte("fake cert chain"), nil
 }
 
 func (ca *fakeCa) GetRootCertificate() []byte {
@@ -143,9 +137,8 @@ func TestSecretController(t *testing.T) {
 			controller.saUpdated(tc.sasToUpdate.oldSa, tc.sasToUpdate.curSa)
 		}
 
-		actions := client.Actions()
-		if !reflect.DeepEqual(actions, tc.expectedActions) {
-			t.Errorf("%s: expect actions to be \n\t%v\n but actual actions are \n\t%v", k, tc.expectedActions, actions)
+		if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
+			t.Errorf("Case %q: %s", k, err.Error())
 		}
 	}
 }
@@ -161,9 +154,8 @@ func TestRecoverFromDeletedIstioSecret(t *testing.T) {
 		Version:  "v1",
 	}
 	expectedActions := []ktesting.Action{ktesting.NewCreateAction(gvr, "test-ns", scrt)}
-	actions := client.Actions()
-	if !reflect.DeepEqual(actions, expectedActions) {
-		t.Errorf("expect actions to be \n\t%v\n but actual actions are \n\t%v", expectedActions, actions)
+	if err := checkActions(client.Actions(), expectedActions); err != nil {
+		t.Error(err)
 	}
 }
 
@@ -215,9 +207,25 @@ func TestUpdateSecret(t *testing.T) {
 
 		controller.scrtUpdated(nil, scrt)
 
-		actions := client.Actions()
-		if !reflect.DeepEqual(actions, tc.expectedActions) {
-			t.Errorf("%s: expect actions to be \n\t%v\n but actual actions are \n\t%v", k, tc.expectedActions, actions)
+		if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
+			t.Errorf("Case %q: %s", k, err.Error())
 		}
 	}
+}
+
+func checkActions(actual, expected []ktesting.Action) error {
+	if len(actual) != len(expected) {
+		return fmt.Errorf("unexpected number of actions, want %d but got %d", len(expected), len(actual))
+	}
+
+	for i, action := range actual {
+		expectedAction := expected[i]
+		verb := expectedAction.GetVerb()
+		resource := expectedAction.GetResource().Resource
+		if !action.Matches(verb, resource) {
+			return fmt.Errorf("unexpected %dth action, want %q but got %q", i, expectedAction, action)
+		}
+	}
+
+	return nil
 }
