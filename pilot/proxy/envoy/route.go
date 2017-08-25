@@ -66,6 +66,21 @@ func buildDefaultRoute(cluster *Cluster) *HTTPRoute {
 	}
 }
 
+func buildInboundWebsocketRoute(rule *proxyconfig.RouteRule, cluster *Cluster) *HTTPRoute {
+	route := buildHTTPRouteMatch(rule.Match)
+	route.Cluster = cluster.Name
+	route.clusters = []*Cluster{cluster}
+	route.WebsocketUpgrade = true
+	if rule.Rewrite != nil && rule.Rewrite.GetUri() != "" {
+		// overwrite the computed prefix with the rewritten prefix,
+		// for this is what we expect from remote envoys
+		route.Prefix = rule.Rewrite.GetUri()
+		route.Path = ""
+	}
+
+	return route
+}
+
 func buildInboundCluster(port int, protocol model.Protocol, timeout *duration.Duration) *Cluster {
 	cluster := &Cluster{
 		Name:             fmt.Sprintf("%s%d", InboundClusterPrefix, port),
@@ -179,6 +194,10 @@ func buildHTTPRoute(rule *proxyconfig.RouteRule, port *model.Port) *HTTPRoute {
 				route.faults = append(route.faults, fault)
 			}
 		}
+	}
+
+	if rule.WebsocketUpgrade {
+		route.WebsocketUpgrade = true
 	}
 
 	return route

@@ -680,6 +680,10 @@ func ValidateRouteRule(msg proto.Message) error {
 		if value.Redirect.GetAuthority() == "" && value.Redirect.GetUri() == "" {
 			errs = multierror.Append(errs, errors.New("redirect must specify path, host, or both"))
 		}
+
+		if value.WebsocketUpgrade {
+			errs = multierror.Append(errs, errors.New("WebSocket upgrade is not allowed on redirect rules"))
+		}
 	}
 
 	if value.Redirect != nil && value.Rewrite != nil {

@@ -235,6 +235,10 @@ type IstioConfigStore interface {
 	// The rules are sorted by precedence (high first) in a stable manner.
 	RouteRulesBySource(instances []*ServiceInstance) []*proxyconfig.RouteRule
 
+	// RouteRulesByDestination selects routing rules associated with destination service instances.
+	// The rules are sorted by precedence (high first) in a stable manner.
+	RouteRulesByDestination(instances []*ServiceInstance) []*proxyconfig.RouteRule
+
 	// DestinationPolicy returns a policy for a service version.
 	DestinationPolicy(destination string, tags Tags) *proxyconfig.DestinationVersionPolicy
 }
@@ -352,6 +356,37 @@ func (i *istioConfigStore) RouteRulesBySource(instances []*ServiceInstance) []*p
 		}
 		rules = append(rules, config{Key: key, Spec: rule})
 	}
+	// sort by high precedence first, key string second (keys are unique)
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].Spec.Precedence > rules[j].Spec.Precedence ||
+			(rules[i].Spec.Precedence == rules[j].Spec.Precedence &&
+				rules[i].Key < rules[j].Key)
+	})
+
+	// project to rules
+	out := make([]*proxyconfig.RouteRule, len(rules))
+	for i, rule := range rules {
+		out[i] = rule.Spec
+	}
+	return out
+}
+
+func (i *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance) []*proxyconfig.RouteRule {
+	type config struct {
+		Key  string
+		Spec *proxyconfig.RouteRule
+	}
+	rules := make([]config, 0)
+
+	for key, rule := range i.RouteRules() {
+		for _, instance := range instances {
+			if rule.Destination == instance.Service.Hostname {
+				rules = append(rules, config{Key: key, Spec: rule})
+				break
+			}
+		}
+	}
+
 	// sort by high precedence first, key string second (keys are unique)
 	sort.Slice(rules, func(i, j int) bool {
 		return rules[i].Spec.Precedence > rules[j].Spec.Precedence ||

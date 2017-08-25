@@ -219,12 +219,13 @@ func TestTCPRouteConfigByRoute(t *testing.T) {
 const (
 	envoyConfig = "testdata/envoy.json"
 
-	cbPolicy          = "testdata/cb-policy.yaml.golden"
-	timeoutRouteRule  = "testdata/timeout-route-rule.yaml.golden"
-	weightedRouteRule = "testdata/weighted-route.yaml.golden"
-	faultRouteRule    = "testdata/fault-route.yaml.golden"
-	redirectRouteRule = "testdata/redirect-route.yaml.golden"
-	rewriteRouteRule  = "testdata/rewrite-route.yaml.golden"
+	cbPolicy           = "testdata/cb-policy.yaml.golden"
+	timeoutRouteRule   = "testdata/timeout-route-rule.yaml.golden"
+	weightedRouteRule  = "testdata/weighted-route.yaml.golden"
+	faultRouteRule     = "testdata/fault-route.yaml.golden"
+	redirectRouteRule  = "testdata/redirect-route.yaml.golden"
+	rewriteRouteRule   = "testdata/rewrite-route.yaml.golden"
+	websocketRouteRule = "testdata/websocket-route.yaml.golden"
 )
 
 func addConfig(r model.ConfigStore, file string, t *testing.T) {

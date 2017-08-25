@@ -559,6 +559,18 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			},
 		},
 			valid: false},
+		{name: "websocket upgrade invalid redirect", in: &proxyconfig.RouteRule{
+			Destination: "host.default.svc.cluster.local",
+			Name:        "test",
+			Redirect: &proxyconfig.HTTPRedirect{
+				Uri: "/new/path",
+			},
+			Route: []*proxyconfig.DestinationWeight{
+				{Destination: "host.default.svc.cluster.local", Weight: 100},
+			},
+			WebsocketUpgrade: true,
+		},
+			valid: false},
 		{name: "route rule match invalid rewrite", in: &proxyconfig.RouteRule{
 			Destination: "host.default.svc.cluster.local",
 			Name:        "test",

@@ -16,14 +16,14 @@ syntax = "proto3";
 
 package grpecho;
 
-service EchoTestService {
-  rpc Echo(EchoRequest) returns (EchoResponse);
+service GrpcEchoTestService {
+  rpc GrpcEcho(GrpcEchoRequest) returns (GrpcEchoResponse);
 }
 
-message EchoRequest {
+message GrpcEchoRequest {
   string message = 1;
 }
 
-message EchoResponse {
+message GrpcEchoResponse {
   string message = 1;
 }

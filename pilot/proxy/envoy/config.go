@@ -158,12 +158,11 @@ func buildSidecar(env proxy.Environment, sidecar proxy.Node) (Listeners, Cluster
 	instances := env.HostInstances(map[string]bool{sidecar.IPAddress: true})
 	services := env.Services()
 	managementPorts := env.ManagementPorts(sidecar.IPAddress)
-
 	listeners := make(Listeners, 0)
 	clusters := make(Clusters, 0)
 
 	if env.Mesh.ProxyListenPort > 0 {
-		inbound, inClusters := buildInboundListeners(env.Mesh, sidecar, instances)
+		inbound, inClusters := buildInboundListeners(env.Mesh, sidecar, instances, env.IstioConfigStore)
 		outbound, outClusters := buildOutboundListeners(env.Mesh, sidecar, instances, services, env.IstioConfigStore)
 		mgmtListeners, mgmtClusters := buildMgmtPortListeners(env.Mesh, managementPorts, sidecar.IPAddress)
 
@@ -211,6 +210,7 @@ func buildSidecar(env proxy.Environment, sidecar proxy.Node) (Listeners, Cluster
 			httpOutbound.clusters()...)
 		listeners = append(listeners,
 			buildHTTPListener(env.Mesh, sidecar, nil, LocalhostAddress, int(env.Mesh.ProxyHttpPort), RDSAll, false))
+		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
 
 	return listeners.normalize(), clusters.normalize()
@@ -494,7 +494,7 @@ func buildOutboundTCPListeners(mesh *proxyconfig.ProxyMeshConfig, services []*mo
 // all inbound clusters since they are statically declared in the proxy
 // configuration and do not utilize CDS.
 func buildInboundListeners(mesh *proxyconfig.ProxyMeshConfig, sidecar proxy.Node,
-	instances []*model.ServiceInstance) (Listeners, Clusters) {
+	instances []*model.ServiceInstance, config model.IstioConfigStore) (Listeners, Clusters) {
 	listeners := make(Listeners, 0, len(instances))
 	clusters := make(Clusters, 0, len(instances))
 
@@ -518,19 +518,41 @@ func buildInboundListeners(mesh *proxyconfig.ProxyMeshConfig, sidecar proxy.Node
 		// services' kubeproxy to our specific endpoint IP.
 		switch protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
-			route := buildDefaultRoute(cluster)
+			defaultRoute := buildDefaultRoute(cluster)
 
 			// set server-side mixer filter config for inbound HTTP routes
 			if mesh.MixerAddress != "" {
-				route.OpaqueConfig = buildMixerOpaqueConfig(true, false)
+				defaultRoute.OpaqueConfig = buildMixerOpaqueConfig(true, false)
 			}
 
 			host := &VirtualHost{
 				Name:    fmt.Sprintf("inbound|%d", endpoint.Port),
 				Domains: []string{"*"},
-				Routes:  []*HTTPRoute{route},
+				Routes:  []*HTTPRoute{},
 			}
 
+			// Websocket enabled routes need to have an explicit use_websocket : true
+			// This setting needs to be enabled on Envoys at both sender and receiver end
+			if protocol == model.ProtocolHTTP {
+				// get all the route rules applicable to the instances
+				rules := config.RouteRulesByDestination(instances)
+				for _, rule := range rules {
+					if rule.WebsocketUpgrade {
+						websocketRoute := buildInboundWebsocketRoute(rule, cluster)
+
+						// set server-side mixer filter config for inbound HTTP routes
+						// Note: websocket routes do not call the filter chain. Will be
+						// resolved in future.
+						if mesh.MixerAddress != "" {
+							websocketRoute.OpaqueConfig = buildMixerOpaqueConfig(true, false)
+						}
+
+						host.Routes = append(host.Routes, websocketRoute)
+					}
+				}
+			}
+
+			host.Routes = append(host.Routes, defaultRoute)
 			config := &HTTPRouteConfig{VirtualHosts: []*VirtualHost{host}}
 			listeners = append(listeners,
 				buildHTTPListener(mesh, sidecar, config, endpoint.Address, endpoint.Port, "", false))

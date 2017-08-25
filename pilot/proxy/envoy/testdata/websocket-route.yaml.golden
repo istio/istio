@@ -1,0 +1,11 @@
+type: route-rule
+name: websocket-route
+spec:
+  destination: world.default.svc.cluster.local
+  match:
+    httpHeaders:
+      uri:
+        prefix: /websocket
+  route:
+    - weight: 100
+  websocket_upgrade: True

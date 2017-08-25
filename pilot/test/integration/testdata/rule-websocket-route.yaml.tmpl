@@ -1,0 +1,14 @@
+type: route-rule
+name: websocket-route
+namespace: {{.Namespace}}
+spec:
+  destination: {{.Destination}}.{{.Namespace}}.svc.cluster.local
+  precedence: 6
+  match:
+    httpHeaders:
+      testwebsocket:
+        exact: enabled
+  route:
+    - tags:
+         version: v1
+  websocket_upgrade: true

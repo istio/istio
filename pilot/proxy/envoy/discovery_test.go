@@ -296,6 +296,18 @@ func TestRouteDiscoveryRewrite(t *testing.T) {
 	compareResponse(response, "testdata/rds-rewrite.json", t)
 }
 
+func TestRouteDiscoveryWebsocket(t *testing.T) {
+	mesh := makeMeshConfig()
+	registry := memory.Make(model.IstioConfigTypes)
+	addConfig(registry, websocketRouteRule, t)
+	ds := makeDiscoveryService(t, registry, &mesh)
+
+	// fault rule is source based: we check that the rule only affect v0 and not v1
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", ds.Mesh.IstioServiceCluster, mock.ProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-websocket.json", t)
+}
+
 func TestRouteDiscoveryIngress(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
@@ -350,6 +362,10 @@ func TestSidecarListenerDiscovery(t *testing.T) {
 		{
 			name: "rewrite",
 			file: rewriteRouteRule,
+		},
+		{
+			name: "websocket",
+			file: websocketRouteRule,
 		},
 		{
 			name: "timeout",

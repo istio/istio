@@ -155,6 +155,11 @@ var (
 			SourceTags: map[string]string{"a": "b"},
 		},
 	}
+	routeRule7DestinationMatch = &proxyconfig.RouteRule{
+		Destination: "two.service.com",
+		Precedence:  1,
+		Match:       &proxyconfig.MatchCondition{},
+	}
 
 	dstTags0 = map[string]string{"a": "b"}
 	dstTags1 = map[string]string{"c": "d"}
@@ -262,6 +267,27 @@ func TestIstioRegistryRouteRulesBySource(t *testing.T) {
 
 	r.mock.EXPECT().List(RouteRule.Type, "").Return(mockObjs, nil)
 	got := r.registry.RouteRulesBySource(instances)
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Failed \ngot %+vwant %+v", spew.Sdump(got), spew.Sdump(want))
+	}
+}
+
+func TestIstioRegistryRouteRulesByDestination(t *testing.T) {
+	r := initTestRegistry(t)
+	defer r.shutdown()
+
+	instances := []*ServiceInstance{serviceInstance2}
+
+	mockObjs := []Config{
+		{ConfigMeta: ConfigMeta{Name: "dest-foo"}, Spec: routeRule2SourceEmpty},
+		{ConfigMeta: ConfigMeta{Name: "dest-two"}, Spec: routeRule7DestinationMatch},
+	}
+	want := []*proxyconfig.RouteRule{
+		routeRule7DestinationMatch,
+	}
+
+	r.mock.EXPECT().List(RouteRule.Type, "").Return(mockObjs, nil)
+	got := r.registry.RouteRulesByDestination(instances)
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Failed \ngot %+vwant %+v", spew.Sdump(got), spew.Sdump(want))
 	}
