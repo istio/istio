@@ -21,8 +21,16 @@ import (
 // BuilderInfo describes the Adapter and provides a function to a Handler Builder method.
 // TODO change this to Info when we delete the ApplicationLog.Info enum.
 type BuilderInfo struct {
-	// Name returns the official name of the adapter.
+	// Name returns the official name of the adapter, it must be RFC 1035 compatible DNS label.
+	// Regex: "^[a-z]([-a-z0-9]*[a-z0-9])?$"
+	// Name is used in Istio configuration, therefore it should be descriptive but short.
+	// example: denier
+	// Vendor adapters should use a vendor prefix.
+	// example: mycompany-denier
 	Name string
+	// Impl is the package implementing the adapter.
+	// example: "istio.io/mixer/adapter/denier"
+	Impl string
 	// Description returns a user-friendly description of the adapter.
 	Description string
 	// CreateHandlerBuilder is a function that creates a HandlerBuilder which implements Builders associated

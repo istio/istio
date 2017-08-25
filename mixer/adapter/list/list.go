@@ -271,7 +271,8 @@ func (h *handler) purgeList() {
 // GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
 func GetBuilderInfo() adapter.BuilderInfo {
 	return adapter.BuilderInfo{
-		Name:               "istio.io/mixer/adapter/list",
+		Name:               "list-checker",
+		Impl:               "istio.io/mixer/adapter/list",
 		Description:        "Checks whether an entry is present in a list",
 		SupportedTemplates: []string{listentry.TemplateName},
 		DefaultConfig: &config.Params{
