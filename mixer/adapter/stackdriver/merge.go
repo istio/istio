@@ -23,7 +23,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
-	"google.golang.org/genproto/googleapis/monitoring/v3"
+	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 
 	"istio.io/mixer/pkg/adapter"
 )
