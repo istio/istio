@@ -33,11 +33,15 @@ import (
 	"istio.io/pilot/tools/version"
 )
 
+const (
+	kubePlatform = "kube"
+)
+
 var (
+	platform string
+
 	kubeconfig string
 	namespace  string
-
-	configClient model.ConfigStore
 
 	// input file name
 	file string
@@ -66,14 +70,6 @@ and destination policies.
 More information on the mixer API configuration can be found under the
 istioctl mixer command documentation.
 `, model.IstioConfigTypes.Types()),
-		PersistentPreRunE: func(*cobra.Command, []string) (err error) {
-			configClient, err = crd.NewClient(kubeconfig, model.ConfigDescriptor{
-				model.RouteRule,
-				model.DestinationPolicy,
-			})
-
-			return
-		},
 	}
 
 	postCmd = &cobra.Command{
@@ -97,6 +93,10 @@ istioctl mixer command documentation.
 			for _, config := range varr {
 				if config.Namespace == "" {
 					config.Namespace = namespace
+				}
+				configClient, err := newClient()
+				if err != nil {
+					return err
 				}
 				rev, err := configClient.Create(config)
 				if err != nil {
@@ -130,6 +130,10 @@ istioctl mixer command documentation.
 			for _, config := range varr {
 				if config.Namespace == "" {
 					config.Namespace = namespace
+				}
+				configClient, err := newClient()
+				if err != nil {
+					return err
 				}
 				// fill up revision
 				if config.ResourceVersion == "" {
@@ -165,13 +169,17 @@ istioctl mixer command documentation.
 		istioctl get route-rule productpage-default
 		`,
 		RunE: func(c *cobra.Command, args []string) error {
+			configClient, err := newClient()
+			if err != nil {
+				return err
+			}
 			if len(args) < 1 {
 				c.Println(c.UsageString())
 				return fmt.Errorf("specify the type of resource to get. Types are %v",
 					strings.Join(configClient.ConfigDescriptor().Types(), ", "))
 			}
 
-			typ, err := schema(args[0])
+			typ, err := schema(configClient, args[0])
 			if err != nil {
 				c.Println(c.UsageString())
 				return err
@@ -195,13 +203,13 @@ istioctl mixer command documentation.
 				return nil
 			}
 
-			var outputters = map[string](func([]model.Config)){
+			var outputters = map[string](func(*crd.Client, []model.Config)){
 				"yaml":  printYamlOutput,
 				"short": printShortOutput,
 			}
 
 			if outputFunc, ok := outputters[outputFormat]; ok {
-				outputFunc(configs)
+				outputFunc(configClient, configs)
 			} else {
 				return fmt.Errorf("unknown output format %v. Types are yaml|short", outputFormat)
 			}
@@ -221,14 +229,17 @@ istioctl mixer command documentation.
 		istioctl delete route-rule productpage-default
 		`,
 		RunE: func(c *cobra.Command, args []string) error {
+			configClient, errs := newClient()
+			if errs != nil {
+				return errs
+			}
 			// If we did not receive a file option, get names of resources to delete from command line
 			if file == "" {
 				if len(args) < 2 {
 					c.Println(c.UsageString())
 					return fmt.Errorf("provide configuration type and name or -f option")
 				}
-				var errs error
-				typ, err := schema(args[0])
+				typ, err := schema(configClient, args[0])
 				if err != nil {
 					return err
 				}
@@ -255,7 +266,6 @@ istioctl mixer command documentation.
 			if len(varr) == 0 {
 				return errors.New("nothing to delete")
 			}
-			var errs error
 			for _, config := range varr {
 				if config.Namespace == "" {
 					config.Namespace = namespace
@@ -282,6 +292,8 @@ istioctl mixer command documentation.
 )
 
 func init() {
+	rootCmd.PersistentFlags().StringVarP(&platform, "platform", "p", kubePlatform,
+		"Istio host platform")
 	defaultKubeconfig := os.Getenv("HOME") + "/.kube/config"
 	if v := os.Getenv("KUBECONFIG"); v != "" {
 		defaultKubeconfig = v
@@ -309,13 +321,17 @@ func init() {
 }
 
 func main() {
+	if platform != kubePlatform {
+		glog.Warningf("Platform '%s' not supported.", platform)
+	}
+
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)
 	}
 }
 
 // The schema is based on the kind (for example "route-rule" or "destination-policy")
-func schema(typ string) (model.ProtoSchema, error) {
+func schema(configClient *crd.Client, typ string) (model.ProtoSchema, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
 		if desc.Type == typ || desc.Plural == typ {
 			return desc, nil
@@ -367,17 +383,24 @@ func readInputs() ([]model.Config, error) {
 }
 
 // Print a simple list of names
-func printShortOutput(configList []model.Config) {
+func printShortOutput(_ *crd.Client, configList []model.Config) {
 	for _, c := range configList {
 		fmt.Printf("%v\n", c.Key())
 	}
 }
 
 // Print as YAML
-func printYamlOutput(configList []model.Config) {
+func printYamlOutput(configClient *crd.Client, configList []model.Config) {
 	for _, c := range configList {
 		yaml, _ := configClient.ConfigDescriptor().ToYAML(c)
 		fmt.Print(yaml)
 		fmt.Println("---")
 	}
+}
+
+func newClient() (*crd.Client, error) {
+	return crd.NewClient(kubeconfig, model.ConfigDescriptor{
+		model.RouteRule,
+		model.DestinationPolicy,
+	})
 }
