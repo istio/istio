@@ -61,7 +61,7 @@ const (
 	caTag = "689b447"
 
 	// Mixer image tag is the short SHA *update manually*
-	mixerImage = "gcr.io/istio-testing/mixer:652be10fe0a6e001bf19993e4830365cf8018963"
+	mixerImage = "gcr.io/istio-testing/mixer:49e721e15d481cd5d92d9a2b30b5e8fcdcafdb63"
 
 	// retry budget
 	budget = 90
