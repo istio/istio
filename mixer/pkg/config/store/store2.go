@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sync"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
@@ -26,6 +27,9 @@ import (
 
 // ErrNotFound is the error to be returned when the given key does not exist in the storage.
 var ErrNotFound = errors.New("not found")
+
+// ErrWatchAlreadyExists is the error to report that the watching channel already exists.
+var ErrWatchAlreadyExists = errors.New("watch already exists")
 
 // Key represents the key to identify a resource in the store.
 type Key struct {
@@ -83,7 +87,8 @@ type Store2Backend interface {
 type Store2 interface {
 	Init(ctx context.Context, kinds map[string]proto.Message) error
 
-	// Watch creates a channel to receive the events.
+	// Watch creates a channel to receive the events. A store can conduct a single
+	// watch channel at the same time. Multiple calls lead to an error.
 	Watch(ctx context.Context) (<-chan Event, error)
 
 	// Get returns a resource's spec to the key.
@@ -97,6 +102,9 @@ type Store2 interface {
 type store2 struct {
 	kinds   map[string]proto.Message
 	backend Store2Backend
+
+	mu    sync.Mutex
+	queue *eventQueue
 }
 
 // Init initializes the connection with the storage backend. This uses "kinds"
@@ -116,11 +124,23 @@ func (s *store2) Init(ctx context.Context, kinds map[string]proto.Message) error
 
 // Watch creates a channel to receive the events.
 func (s *store2) Watch(ctx context.Context) (<-chan Event, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.queue != nil {
+		return nil, ErrWatchAlreadyExists
+	}
 	ch, err := s.backend.Watch(ctx)
 	if err != nil {
 		return nil, err
 	}
 	q := newQueue(ctx, ch, s.kinds)
+	s.queue = q
+	go func() {
+		<-ctx.Done()
+		s.mu.Lock()
+		s.queue = nil
+		s.mu.Unlock()
+	}()
 	return q.chout, nil
 }
 
@@ -183,6 +203,10 @@ func (r *Registry2) NewStore2(configURL string) (Store2, error) {
 	}
 
 	s2 := &store2{}
+	if u.Scheme == FSUrl {
+		s2.backend = NewFsStore2(u.Path)
+		return s2, nil
+	}
 	if builder, ok := r.builders[u.Scheme]; ok {
 		s2.backend, err = builder(u)
 		if err == nil {

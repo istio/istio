@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 
@@ -109,6 +110,31 @@ func TestStore2(t *testing.T) {
 	}
 }
 
+func TestStore2WatchMultiple(t *testing.T) {
+	r := NewRegistry2(registerMemstore)
+	s, err := r.NewStore2("memstore://")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.Init(context.Background(), map[string]proto.Message{"Handler": &cfg.Handler{}}); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	if _, err := s.Watch(ctx); err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
+	if _, err := s.Watch(context.Background()); err != ErrWatchAlreadyExists {
+		t.Errorf("Got %v, Want %v", err, ErrWatchAlreadyExists)
+	}
+	cancel()
+	// short sleep to make sure the goroutine for canceling watch status in store.
+	time.Sleep(time.Millisecond * 5)
+	if _, err := s.Watch(context.Background()); err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
+}
+
 func TestStore2Fail(t *testing.T) {
 	r := NewRegistry2(registerMemstore)
 	s, err := r.NewStore2("memstore://")
@@ -150,6 +176,7 @@ func TestRegistry2(t *testing.T) {
 	}{
 		{"memstore://", true},
 		{"mem://", false},
+		{"fs:///", true},
 		{"://", false},
 	} {
 		_, err := r.NewStore2(c.u)
