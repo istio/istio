@@ -93,7 +93,8 @@ func (handler) Close() error { return nil }
 // GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
 func GetBuilderInfo() adapter.BuilderInfo {
 	return adapter.BuilderInfo{
-		Name:        "istio.io/mixer/adapter/denier",
+		Name:        "denier",
+		Impl:        "istio.io/mixer/adapter/denier",
 		Description: "Rejects any check and quota request with a configurable error",
 		SupportedTemplates: []string{
 			checknothing.TemplateName,
