@@ -19,7 +19,6 @@ package crd
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -57,19 +56,13 @@ type listerWatcherBuilderInterface interface {
 	build(res metav1.APIResource) cache.ListerWatcher
 }
 
-type contextCh struct {
-	ctx context.Context
-	ch  chan store.BackendEvent
-}
-
 // Store offers store.Store2Backend interface through kubernetes custom resource definitions.
 type Store struct {
-	conf   *rest.Config
-	ns     map[string]bool
-	caches map[string]cache.Store
-
-	mu  sync.Mutex
-	chs []*contextCh
+	conf     *rest.Config
+	ns       map[string]bool
+	caches   map[string]cache.Store
+	watchCtx context.Context
+	watchCh  chan store.BackendEvent
 
 	// They are used to inject testing interfaces.
 	discoveryBuilder     func(conf *rest.Config) (discovery.DiscoveryInterface, error)
@@ -120,25 +113,11 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 	return nil
 }
 
-func (s *Store) closeWatch(ctx context.Context, ch chan store.BackendEvent) {
-	<-ctx.Done()
-	s.mu.Lock()
-	for i, c := range s.chs {
-		if ch == c.ch {
-			s.chs = append(s.chs[:i], s.chs[i+1:]...)
-		}
-	}
-	s.mu.Unlock()
-}
-
 // Watch implements store.Store2Backend interface.
 func (s *Store) Watch(ctx context.Context) (<-chan store.BackendEvent, error) {
-	ch := make(chan store.BackendEvent)
-	s.mu.Lock()
-	s.chs = append(s.chs, &contextCh{ctx, ch})
-	s.mu.Unlock()
-	go s.closeWatch(ctx, ch)
-	return ch, nil
+	s.watchCtx = ctx
+	s.watchCh = make(chan store.BackendEvent)
+	return s.watchCh, nil
 }
 
 // Get implements store.Store2Backend interface.
@@ -192,18 +171,17 @@ func toEvent(t store.ChangeType, obj interface{}) (store.BackendEvent, error) {
 }
 
 func (s *Store) dispatch(ev store.BackendEvent) {
-	for _, ch := range s.chs {
-		select {
-		case <-ch.ctx.Done():
-		case ch.ch <- ev:
-		}
+	if s.watchCtx == nil {
+		return
+	}
+	select {
+	case <-s.watchCtx.Done():
+	case s.watchCh <- ev:
 	}
 }
 
 // OnAdd implements cache.ResourceEventHandler interface.
 func (s *Store) OnAdd(obj interface{}) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if ev, err := toEvent(store.Update, obj); err != nil {
 		glog.Errorf("Failed to process event: %v", err)
 	} else {
@@ -213,8 +191,6 @@ func (s *Store) OnAdd(obj interface{}) {
 
 // OnUpdate implements cache.ResourceEventHandler interface.
 func (s *Store) OnUpdate(oldObj, newObj interface{}) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if ev, err := toEvent(store.Update, newObj); err != nil {
 		glog.Errorf("Failed to process event: %v", err)
 	} else {
@@ -224,8 +200,6 @@ func (s *Store) OnUpdate(oldObj, newObj interface{}) {
 
 // OnDelete implements cache.ResourceEventHandler interface.
 func (s *Store) OnDelete(obj interface{}) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if ev, err := toEvent(store.Delete, obj); err != nil {
 		glog.Errorf("Failed to process event: %v", err)
 	} else {
