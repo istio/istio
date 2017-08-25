@@ -32,9 +32,11 @@ class MockReportTransport {
  public:
   MOCK_METHOD3(Report, void(const ReportRequest&, ReportResponse*, DoneFunc));
   TransportReportFunc GetFunc() {
-    return
-        [this](const ReportRequest& request, ReportResponse* response,
-               DoneFunc on_done) { this->Report(request, response, on_done); };
+    return [this](const ReportRequest& request, ReportResponse* response,
+                  DoneFunc on_done) -> CancelFunc {
+      Report(request, response, on_done);
+      return nullptr;
+    };
   }
 };
 

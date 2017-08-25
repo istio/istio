@@ -35,8 +35,8 @@ class MixerClientImpl : public MixerClient {
   // Destructor
   virtual ~MixerClientImpl();
 
-  virtual void Check(const Attributes& attributes, TransportCheckFunc transport,
-                     DoneFunc on_done);
+  virtual CancelFunc Check(const Attributes& attributes,
+                           TransportCheckFunc transport, DoneFunc on_done);
   virtual void Report(const Attributes& attributes);
 
  private:

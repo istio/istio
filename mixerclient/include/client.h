@@ -30,13 +30,16 @@ namespace mixer_client {
 // Uses UNAVAILABLE status code to indicate network failure.
 using DoneFunc = std::function<void(const ::google::protobuf::util::Status&)>;
 
+// Defines a function prototype used to cancel an asynchronous transport call.
+using CancelFunc = std::function<void()>;
+
 // Defines a function prototype to make an asynchronous Check call
-using TransportCheckFunc = std::function<void(
+using TransportCheckFunc = std::function<CancelFunc(
     const ::istio::mixer::v1::CheckRequest& request,
     ::istio::mixer::v1::CheckResponse* response, DoneFunc on_done)>;
 
 // Defines a function prototype to make an asynchronous Report call
-using TransportReportFunc = std::function<void(
+using TransportReportFunc = std::function<CancelFunc(
     const ::istio::mixer::v1::ReportRequest& request,
     ::istio::mixer::v1::ReportResponse* response, DoneFunc on_done)>;
 
@@ -91,8 +94,8 @@ class MixerClient {
   // The response data from mixer will be consumed by mixer client.
 
   // A check call.
-  virtual void Check(const Attributes& attributes, TransportCheckFunc transport,
-                     DoneFunc on_done) = 0;
+  virtual CancelFunc Check(const Attributes& attributes,
+                           TransportCheckFunc transport, DoneFunc on_done) = 0;
 
   // A report call.
   virtual void Report(const Attributes& attributes) = 0;

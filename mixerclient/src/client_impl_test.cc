@@ -36,9 +36,11 @@ class MockCheckTransport {
  public:
   MOCK_METHOD3(Check, void(const CheckRequest&, CheckResponse*, DoneFunc));
   TransportCheckFunc GetFunc() {
-    return
-        [this](const CheckRequest& request, CheckResponse* response,
-               DoneFunc on_done) { this->Check(request, response, on_done); };
+    return [this](const CheckRequest& request, CheckResponse* response,
+                  DoneFunc on_done) -> CancelFunc {
+      Check(request, response, on_done);
+      return nullptr;
+    };
   }
 };
 
