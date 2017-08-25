@@ -35,6 +35,8 @@ var (
 )
 
 func init() {
+	na.InitializeConfig(&naConfig)
+
 	flags := rootCmd.Flags()
 
 	flags.StringVar(&naConfig.ServiceIdentity, "service-identity", "", "Service Identity the node agent is managing")
@@ -60,5 +62,7 @@ func main() {
 func runNodeAgent() {
 	nodeAgent := na.NewNodeAgent(&naConfig)
 	glog.Infof("Starting Node Agent")
-	nodeAgent.Start()
+	if err := nodeAgent.Start(); err != nil {
+		glog.Errorf("Node agent terminated with error: %v.", err)
+	}
 }

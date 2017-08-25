@@ -22,7 +22,7 @@ import (
 // NodeAgent interface that should be implemented by
 // various platform specific node agents.
 type NodeAgent interface {
-	Start()
+	Start() error
 }
 
 // NewNodeAgent is constructor for Node agent based on the provided Environment variable.
@@ -42,6 +42,12 @@ func NewNodeAgent(cfg *Config) NodeAgent {
 	default:
 		glog.Fatalf("Invalid env %d specified", cfg.Env)
 	}
+
+	client, err := NewCAGrpcClient(cfg, na.pr)
+	if err != nil {
+		glog.Fatalf("CA GRPC client creation failure: %v", err)
+	}
+	na.cAClient = client
 
 	return na
 }
